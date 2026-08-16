@@ -2,7 +2,7 @@
 name: implementer
 description: Implementer — делает по написанному плану
 tools: [read, edit, write, bash, grep, glob, lsp, todo]
-model: ["@default"]
+model: ["@task"]
 ---
 
 <!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/implementer.md. Правки будут затёрты. -->
