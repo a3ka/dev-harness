@@ -22,6 +22,37 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
+# ── окружение и учёт: ОДНА реализация на оба входа ───────────────────────────
+# Две копии этой логики разошлись бы молча. Проверено на себе: проверка прокси стояла
+# только в ветке проекта, и вход в сам инструмент после перевода живой сессии на провайдера
+# с ключом переставал работать — вызовы падали бы на первом обращении.
+
+# Уже заданное НЕ затирается. У фабрики измерен ровно этот дефект: обёртки грузили `.env`
+# через `set -a`, поэтому `ПЕРЕМЕННАЯ=значение npm run ...` молча не действовала для всего,
+# что объявлено в `.env`, и поведение объясняли чем угодно, кроме настоящей причины.
+load_env() {
+  [ -f "$1/.env" ] || return 0
+  while IFS='=' read -r k v; do
+    case "$k" in ''|'#'*) continue ;; esac
+    k="${k%% *}"
+    [ -n "${!k:-}" ] || export "$k=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')"
+  done < "$1/.env"
+}
+
+# Живая сессия работает на роли `default`. Стоит она на провайдере с ключом — вызовы идут
+# через прокси учёта, и без адреса сессия не заработает вовсе. Отказ при запуске дешевле
+# отказа на середине работы: там уже потрачено время, а причина выглядит как ошибка модели.
+require_metering() {
+  local cfg="${MODELS:-$HERE/.omp/config.yml}" live
+  live="$(grep -oE '^\s+default:\s*"[^"]+"' "$cfg" 2>/dev/null | sed 's/.*"\(.*\)"/\1/' || true)"
+  [ -n "$live" ] || live="$(grep -oE '^\s+default:\s*"[^"]+"' "$HERE/.omp/config.yml" | sed 's/.*"\(.*\)"/\1/')"
+  case "$live" in
+    minimax/*)
+      [ -n "${METERING_PROXY_URL:-}" ] || die "живая сессия на $live идёт через прокси учёта, а METERING_PROXY_URL не задана. Прокси поднимает проект: подними его и объяви адрес в $1/.env, либо возьми оверлей на другое семейство (--models config/models-claude.yml)" ;;
+  esac
+  LIVE_MODEL="$live"
+}
+
 # ── разбор аргументов ────────────────────────────────────────────────────────
 PROJECT=""; MODE="talk"; PLAN=""; MODELS=""
 while [ $# -gt 0 ]; do
@@ -67,8 +98,11 @@ WORK_TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,inspect_image,task,tod
 # ── работа НАД инструментом: свой дом, полный инвентарь ──────────────────────
 if [ -z "$PROJECT" ]; then
   [ "$MODE" = "talk" ] || die "над инструментом работают в его собственном каталоге; режим здесь не выбирают"
+  load_env "$HERE"
+  require_metering "$HERE"
   export HOME="$HERE/.zones/self"; mkdir -p "$HOME"
   printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа над инструментом\n' >&2
+  printf '  сессия       %s\n' "$LIVE_MODEL" >&2
   printf '  каталог      %s\n' "$HERE" >&2
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
   printf '  проект       нет: правки кода проектов отсюда не делают\n\n' >&2
@@ -93,13 +127,7 @@ git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1 \
 # грузили `.env` через `set -a`, поэтому `ПЕРЕМЕННАЯ=значение npm run ...` молча не
 # действовала для всего, что объявлено в `.env`, и поведение объясняли чем угодно, кроме
 # настоящей причины.
-if [ -f "$PROJECT/.env" ]; then
-  while IFS='=' read -r k v; do
-    case "$k" in ''|'#'*) continue ;; esac
-    k="${k%% *}"
-    [ -n "${!k:-}" ] || export "$k=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')"
-  done < "$PROJECT/.env"
-fi
+load_env "$PROJECT"
 
 PIN="$PROJECT/config/harness_pin.json"
 [ -f "$PIN" ] || skip "у проекта нет пина версии харнеса ($PIN) — сверять не с чем"
@@ -113,14 +141,7 @@ got_ver="$(omp --version 2>/dev/null | sed 's|^omp/||')"
 # Живая сессия работает на роли `default`. Если она стоит на провайдере с ключом, её вызовы
 # идут через прокси учёта, и без адреса прокси сессия не заработает вовсе. Отказ здесь дешевле
 # отказа на середине работы: там уже потрачено время, а причина выглядит как ошибка модели.
-CFG="${MODELS:-$HERE/.omp/config.yml}"
-live="$(grep -oE '^\s+default:\s*"[^"]+"' "$CFG" 2>/dev/null | sed 's/.*"\(.*\)"/\1/' || true)"
-[ -n "$live" ] || live="$(grep -oE '^\s+default:\s*"[^"]+"' "$HERE/.omp/config.yml" | sed 's/.*"\(.*\)"/\1/')"
-case "$live" in
-  minimax/*)
-    [ -n "${METERING_PROXY_URL:-}" ] \
-      || die "живая сессия на $live идёт через прокси учёта, а METERING_PROXY_URL не задана. Прокси поднимает проект: подними его либо возьми оверлей на другое семейство (--models config/models-claude.yml)" ;;
-esac
+require_metering "$PROJECT"
 
 export HOME="$HERE/.zones/$(basename "$PROJECT")-$MODE"; mkdir -p "$HOME"
 
@@ -146,6 +167,7 @@ fi
 printf '\n  СИСТЕМА-РАЗРАБОТЧИК — %s\n' "$([ "$MODE" = work ] && echo 'РАБОТА над проектом' || echo 'РАЗГОВОР о проекте')" >&2
 printf '  проект       %s\n' "$PROJECT" >&2
 printf '  харнес       omp/%s (пин проекта совпал)\n' "$got_ver" >&2
+printf '  сессия       %s\n' "$LIVE_MODEL" >&2
 printf '  роли         %s\n' "$(ls -1 "$HERE/roles" | sed 's/\.md$//' | tr '\n' ' ')" >&2
 printf '  модели       %s\n' "$([ -n "$MODELS" ] && basename "$MODELS" || echo '.omp/config.yml (без оверлея)')" >&2
 if [ "$MODE" = "work" ]; then
