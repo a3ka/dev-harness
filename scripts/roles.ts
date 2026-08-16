@@ -22,12 +22,17 @@ export interface Role {
   readonly verdict: string | null
   readonly body: string
 }
-
-/** Роль → роль модели omp. Основание каждой строки — в `AGENTS.md`. */
+/** Роль → роль модели omp. Основание каждой строки — в `AGENTS.md`.
+ *
+ *  `adversary` и `reviewer` делят `advisor` намеренно: это «модель судьи», и оба судят
+ *  работу автора, значит оба обязаны быть вне его семейства. Вопросы у них разные, а
+ *  требование к семейству одно, и конкретная модель остаётся в одном месте. */
 const MODEL_ROLE: Record<string, string> = {
-  architect: 'slow',    // автор конструкции
-  adversary: 'advisor', // судья, ДРУГОЕ семейство, чем у автора
-  arbiter: 'plan',      // разрешает тупик; 1M контекста под предмет и все вердикты
+  architect: 'slow',      // автор конструкции
+  implementer: 'default', // делает по написанному; массовая работа, дешевле автора
+  adversary: 'advisor',   // ломает проверку исполнением; ДРУГОЕ семейство
+  reviewer: 'advisor',    // гейт перед слиянием; тоже вне семейства автора
+  arbiter: 'plan',        // разрешает тупик; 1M контекста под предмет и все вердикты
 }
 
 export class RoleParseError extends Error {}

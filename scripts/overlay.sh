@@ -89,11 +89,19 @@ else
 fi
 
 [ -f "$HERE/.omp/config.yml" ] || die "нет .omp/config.yml — роли моделей не объявлены"
+
+# Перечень ролей моделей ВЫВОДИТСЯ из порождённых агентов, а не задан списком. Прежняя
+# редакция проверяла три захардкоженных имени, и появление пятой роли привело четвёртое имя
+# (`default`), которого проверка не видела вовсе. Область проверки важнее её порога: список,
+# набранный руками, отстаёт от предмета молча.
+needed="$(grep -hoE '^model: \["@[a-z]+"\]' "$HERE"/.omp/agents/*.md | sed 's/.*@//;s/"\]//' | sort -u)"
+[ -n "$needed" ] || die "ни один агент не объявил роль модели — порождение сломано"
 missing=0
-for role in slow advisor plan; do
-  grep -qE "^\s+${role}:" "$HERE/.omp/config.yml" || { printf '  FAIL роль модели не объявлена: %s\n' "$role" >&2; missing=1; }
+for role in $needed; do
+  grep -qE "^\s+${role}:" "$HERE/.omp/config.yml" \
+    || { printf '  FAIL роль модели не объявлена в .omp/config.yml: %s\n' "$role" >&2; missing=1; }
 done
 [ "$missing" -eq 0 ] || die "слой неполон: роль без модели означает работу на умолчании харнеса"
-ok "роли моделей объявлены: slow, advisor, plan"
+ok "роли моделей объявлены: $(printf '%s' "$needed" | tr '\n' ' ')"
 
 printf '\nслой наложен поверх omp/%s\n' "$got_ver" >&2
