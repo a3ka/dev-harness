@@ -5,7 +5,7 @@ tools: [read, grep, glob, bash, write]
 model: ["@plan"]
 ---
 
-<!-- СГЕНЕРИРОВАНО scripts/gen-harness.ts из roles/arbiter.md. Правки будут затёрты. -->
+<!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/arbiter.md. Правки будут затёрты. -->
 
 # Arbiter — разрешает тупик, а не останавливает работу
 

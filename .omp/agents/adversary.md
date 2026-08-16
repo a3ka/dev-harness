@@ -5,7 +5,7 @@ tools: [read, grep, glob, bash, write]
 model: ["@advisor"]
 ---
 
-<!-- СГЕНЕРИРОВАНО scripts/gen-harness.ts из roles/adversary.md. Правки будут затёрты. -->
+<!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/adversary.md. Правки будут затёрты. -->
 
 # Adversary — ломает проверку, а не читает её
 

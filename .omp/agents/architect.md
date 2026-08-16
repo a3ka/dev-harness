@@ -5,7 +5,7 @@ tools: [read, edit, write, bash, grep, glob, lsp, task, todo]
 model: ["@slow"]
 ---
 
-<!-- СГЕНЕРИРОВАНО scripts/gen-harness.ts из roles/architect.md. Правки будут затёрты. -->
+<!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/architect.md. Правки будут затёрты. -->
 
 # Architect — автор конструкции
 

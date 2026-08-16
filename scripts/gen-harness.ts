@@ -5,15 +5,21 @@
  * `--check` требует пустого расхождения: дрейф становится НЕВОЗМОЖНЫМ, а не наказуемым.
  * Правка сгенерированного файла безвредна — она затирается, а оригинал в git.
  *
- * `--into <путь>` кладёт те же роли в ДРУГОЙ проект. Так работа над проектом получает
- * роли разработчика, не заводя их копию: источник здесь, цель производная, `--check`
- * ловит расхождение. Копия правил в проекте стала бы вторым источником истины.
+ * `--into <каталог>` кладёт те же роли в ТОЧНО указанный каталог. Спрошено у самого omp
+ * (`omp agents unpack --help`): агентов он читает из двух мест — `~/.omp/agent/agents`
+ * (пользовательский) и `./.omp/agents` (проектный). Лаунчер передаёт сюда ПЕРВЫЙ путь
+ * внутри изолированного HOME сессии, поэтому дерево проекта не трогается вовсе. Прежняя
+ * редакция кладла роли в проект и добавляла ему файлы, которых он не объявлял.
+ *
+ * Баннер называет РЕПОЗИТОРИЙ-источник намеренно. Прежний текст совпадал дословно с
+ * баннером генератора фабрики, и проверка приняла её десять агентов за свои осиротевшие —
+ * поймано фикстурой, а не чтением.
  *
  * Использование:
- *   node scripts/gen-harness.ts                    — записать .omp/agents/
- *   node scripts/gen-harness.ts --check            — сравнить, упасть при расхождении
- *   node scripts/gen-harness.ts --into <путь>      — положить роли в проект
- *   node scripts/gen-harness.ts --into <путь> --check
+ *   node scripts/gen-harness.ts                     — записать .omp/agents/
+ *   node scripts/gen-harness.ts --check             — сравнить, упасть при расхождении
+ *   node scripts/gen-harness.ts --into <каталог>    — положить роли в указанный каталог
+ *   node scripts/gen-harness.ts --into <каталог> --check
  *
  * Коды возврата: 0 — совпало либо записано, 1 — расхождение, 2 — нечем проверить.
  */
@@ -23,14 +29,15 @@ import { loadRoles, RoleParseError, type Role } from './roles.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const ROLES_DIR = join(ROOT, 'roles')
+const MARK = 'СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts'
 
 const args = process.argv.slice(2)
 const CHECK = args.includes('--check')
 const intoAt = args.indexOf('--into')
 const INTO = intoAt >= 0 ? args[intoAt + 1] : undefined
 
-if (intoAt >= 0 && !INTO) {
-  console.error('нужен путь: --into <каталог-проекта>')
+if (intoAt >= 0 && (!INTO || INTO.startsWith('--'))) {
+  console.error('нужен путь: --into <каталог>')
   process.exit(2)
 }
 if (!existsSync(ROLES_DIR)) {
@@ -39,7 +46,7 @@ if (!existsSync(ROLES_DIR)) {
 }
 
 const banner = (slug: string): string =>
-  `<!-- СГЕНЕРИРОВАНО scripts/gen-harness.ts из roles/${slug}.md. Правки будут затёрты. -->`
+  `<!-- ${MARK} из roles/${slug}.md. Правки будут затёрты. -->`
 
 /** Формат субагента omp. Модель — ССЫЛКОЙ на роль модели, а не идентификатором:
  *  конкретная модель остаётся в одном месте, `.omp/config.yml`, и меняется там же. */
@@ -74,7 +81,7 @@ try {
 }
 if (roles.length === 0) { console.error('NOT_IMPLEMENTED: ролей нет'); process.exit(2) }
 
-const target = join(INTO ?? ROOT, '.omp', 'agents')
+const target = INTO ?? join(ROOT, '.omp', 'agents')
 const drift: string[] = []
 let written = 0
 
@@ -94,13 +101,14 @@ for (const r of roles) {
   }
 }
 
-// Лишний наш агент в цели — тоже дрейф: роль удалили из `roles/`, а агент остался и
-// продолжает вызываться. Чужие агенты (без нашего баннера) не наши и не трогаются.
+// Лишний НАШ агент в цели — тоже дрейф: роль удалили из `roles/`, а агент остался и
+// продолжает вызываться. Чужие агенты — в том числе сгенерированные ДРУГИМ проектом —
+// не наши и не трогаются: различие держится на имени репозитория в баннере.
 if (existsSync(target)) {
   const ours = new Set(roles.map((r) => `${r.slug}.md`))
   for (const f of readdirSync(target).filter((f) => f.endsWith('.md'))) {
     if (ours.has(f)) continue
-    if (readFileSync(join(target, f), 'utf8').includes('СГЕНЕРИРОВАНО scripts/gen-harness.ts')) {
+    if (readFileSync(join(target, f), 'utf8').includes(MARK)) {
       drift.push(`сгенерирован нами, но роли уже нет: ${f}`)
     }
   }
