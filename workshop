@@ -23,17 +23,30 @@ die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
 # ── разбор аргументов ────────────────────────────────────────────────────────
-PROJECT=""; MODE="talk"; PLAN=""
+PROJECT=""; MODE="talk"; PLAN=""; MODELS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --work) MODE="work" ;;
     --talk) MODE="talk" ;;
-    --plan) shift; PLAN="${1:-}" ;;
+    # Значение берётся проверкой, а не `shift` вслепую: `shift` при пустом списке возвращает
+    # не ноль и под `set -e` убивал бы скрипт молча.
+    --plan)   PLAN="${2:-}";   [ $# -ge 2 ] && shift ;;
+    --models) MODELS="${2:-}"; [ $# -ge 2 ] && shift ;;
     -*)     break ;;
     *)      [ -z "$PROJECT" ] && PROJECT="$1" || break ;;
   esac
   shift
 done
+
+# ── оверлей моделей ──────────────────────────────────────────────────────────
+# Смена модели живой сессии — не правка конфига, а ЯВНЫЙ флаг запуска. Так видно в баннере,
+# на чём идёт сессия, и так же выясняется, чем она отличалась, когда результат разошёлся.
+OVERLAY=()
+if [ -n "$MODELS" ]; then
+  [ -f "$MODELS" ] || [ -f "$HERE/$MODELS" ] || die "оверлея моделей нет: $MODELS"
+  [ -f "$MODELS" ] && MODELS="$(cd "$(dirname "$MODELS")" && pwd)/$(basename "$MODELS")" || MODELS="$HERE/$MODELS"
+  OVERLAY=(--config "$MODELS")
+fi
 
 # ── инвентарь по режиму ──────────────────────────────────────────────────────
 # `talk` держится ОТСУТСТВИЕМ инструментов, а не просьбой не пользоваться.
@@ -60,7 +73,7 @@ if [ -z "$PROJECT" ]; then
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
   printf '  проект       нет: правки кода проектов отсюда не делают\n\n' >&2
   cd "$HERE"
-  exec omp --profile dev-self --tools "$WORK_TOOLS" "$@"
+  exec omp --profile dev-self "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
@@ -105,15 +118,16 @@ printf '\n  СИСТЕМА-РАЗРАБОТЧИК — %s\n' "$([ "$MODE" = work 
 printf '  проект       %s\n' "$PROJECT" >&2
 printf '  харнес       omp/%s (пин проекта совпал)\n' "$got_ver" >&2
 printf '  роли         %s\n' "$(ls -1 "$HERE/roles" | sed 's/\.md$//' | tr '\n' ' ')" >&2
+printf '  модели       %s\n' "$([ -n "$MODELS" ] && basename "$MODELS" || echo '.omp/config.yml (без оверлея)')" >&2
 if [ "$MODE" = "work" ]; then
   printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
   printf '  инвентарь    полный\n\n' >&2
   cd "$PROJECT"
-  exec omp --profile "dev-work" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "dev-work" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
 fi
 printf '  читать       можно: read (файл, диапазон, каталог), grep, glob\n' >&2
 printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
 printf '  выполнять    нельзя: значит нельзя ПОСЧИТАТЬ прогоном — замер часть работы\n' >&2
 printf '  дальше       план файлом, затем ./workshop %s --work --plan <файл>\n\n' "$PROJECT" >&2
 cd "$PROJECT"
-exec omp --profile "dev-talk" --tools "$TALK_TOOLS" "$@"
+exec omp --profile "dev-talk" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
