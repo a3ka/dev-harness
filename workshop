@@ -118,19 +118,35 @@ fi
 TALK_TOOLS="read,grep,glob,web_search,inspect_image,todo"
 WORK_TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,inspect_image,task,todo"
 
-# ── работа НАД инструментом: свой дом, полный инвентарь ──────────────────────
+# ── работа НАД инструментом ──────────────────────────────────────────────────
+# Правило режимов ОДНО на оба входа. Прежняя редакция делала этот вход сразу рабочим — моя
+# непоследовательность: владелец просил «talk всегда, work только по согласию», а исключение
+# для инструмента ничем не оправдано. Здесь тоже можно просто спросить, и работа тоже требует
+# написанного плана.
 if [ -z "$PROJECT" ]; then
-  [ "$MODE" = "talk" ] || die "над инструментом работают в его собственном каталоге; режим здесь не выбирают"
+  if [ "$MODE" = "work" ]; then
+    [ -n "$PLAN" ] || die "режим работы требует плана: --plan <файл>. План в переписке не переживает сессию"
+    [ -f "$PLAN" ] || die "файла плана нет: $PLAN"
+    [ -s "$PLAN" ] || die "файл плана пуст: $PLAN. Пустой план — согласие ни на что"
+    PLAN="$(cd "$(dirname "$PLAN")" && pwd)/$(basename "$PLAN")"
+  fi
   load_env "$HERE"
   require_metering "$HERE"
   export HOME="$ZONE"; mkdir -p "$HOME"
-  printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа над инструментом\n' >&2
+  printf '\n  СИСТЕМА-РАЗРАБОТЧИК — %s\n' "$([ "$MODE" = work ] && echo 'РАБОТА над инструментом' || echo 'РАЗГОВОР об инструменте')" >&2
   printf '  сессия       %s\n' "$LIVE_MODEL" >&2
   printf '  каталог      %s\n' "$HERE" >&2
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
-  printf '  проект       нет: правки кода проектов отсюда не делают\n\n' >&2
   cd "$HERE"
-  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  if [ "$MODE" = "work" ]; then
+    printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
+    printf '  инвентарь    полный\n\n' >&2
+    exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  fi
+  printf '  читать       можно: read, grep, glob\n' >&2
+  printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
+  printf '  дальше       план файлом, затем ./workshop --work --plan <файл>\n\n' >&2
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
