@@ -19,6 +19,19 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# ── один дом и один профиль на ВСЕ входы ─────────────────────────────────────
+# Прежняя редакция заводила дом на каждую пару (проект, режим) и профиль на каждый режим.
+# Учётные данные omp лежат В ПРОФИЛЕ, поэтому владельцу пришлось бы входить заново в каждой
+# зоне — четыре входа вместо одного. Найдено на нём: первый запуск дал «No model selected»,
+# потому что зона была пуста.
+#
+# Изоляция от ДОМАШНЕГО каталога машины остаётся: ею держится обещание режима разговора —
+# `--tools` не закрывает MCP из глобального конфига, измерено 54 чужих инструмента вопреки
+# allowlist. А изоляция входов ДРУГ ОТ ДРУГА не покупает ничего: разработчик один, ключи те
+# же, а режим держится инвентарём, а не домом.
+ZONE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.zones/dev"
+PROFILE="dev"
+
 die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
@@ -100,14 +113,14 @@ if [ -z "$PROJECT" ]; then
   [ "$MODE" = "talk" ] || die "над инструментом работают в его собственном каталоге; режим здесь не выбирают"
   load_env "$HERE"
   require_metering "$HERE"
-  export HOME="$HERE/.zones/self"; mkdir -p "$HOME"
+  export HOME="$ZONE"; mkdir -p "$HOME"
   printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа над инструментом\n' >&2
   printf '  сессия       %s\n' "$LIVE_MODEL" >&2
   printf '  каталог      %s\n' "$HERE" >&2
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
   printf '  проект       нет: правки кода проектов отсюда не делают\n\n' >&2
   cd "$HERE"
-  exec omp --profile dev-self "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
@@ -143,7 +156,7 @@ got_ver="$(omp --version 2>/dev/null | sed 's|^omp/||')"
 # отказа на середине работы: там уже потрачено время, а причина выглядит как ошибка модели.
 require_metering "$PROJECT"
 
-export HOME="$HERE/.zones/$(basename "$PROJECT")-$MODE"; mkdir -p "$HOME"
+export HOME="$ZONE"; mkdir -p "$HOME"
 
 # Роли разработчика кладутся в ПОЛЬЗОВАТЕЛЬСКИЙ каталог агентов внутри изолированного
 # HOME сессии, а не в дерево проекта. Путь спрошен у самого omp
@@ -174,11 +187,11 @@ if [ "$MODE" = "work" ]; then
   printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
   printf '  инвентарь    полный\n\n' >&2
   cd "$PROJECT"
-  exec omp --profile "dev-work" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
 fi
 printf '  читать       можно: read (файл, диапазон, каталог), grep, glob\n' >&2
 printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
 printf '  выполнять    нельзя: значит нельзя ПОСЧИТАТЬ прогоном — замер часть работы\n' >&2
 printf '  дальше       план файлом, затем ./workshop %s --work --plan <файл>\n\n' "$PROJECT" >&2
 cd "$PROJECT"
-exec omp --profile "dev-talk" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
+exec omp --profile "$PROFILE" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
