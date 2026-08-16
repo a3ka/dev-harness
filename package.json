@@ -1,0 +1,14 @@
+{
+  "name": "dev-harness",
+  "private": true,
+  "version": "0.0.0",
+  "_comment": "Система, которая строит другие системы. Зависимостей нет намеренно: инструмент, переносимый между проектами, не должен тянуть за собой дерево пакетов. TypeScript исполняется node напрямую.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "gen:harness": "node scripts/gen-harness.ts",
+    "check:gen": "node scripts/gen-harness.ts --check"
+  }
+}
