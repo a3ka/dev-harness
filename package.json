@@ -9,6 +9,8 @@
   },
   "scripts": {
     "gen:harness": "node scripts/gen-harness.ts",
-    "check:gen": "node scripts/gen-harness.ts --check"
+    "check:gen": "node scripts/gen-harness.ts --check",
+    "overlay": "bash scripts/overlay.sh",
+    "check:overlay": "bash scripts/overlay.sh --check"
   }
 }
