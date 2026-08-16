@@ -66,6 +66,12 @@ require_metering() {
   LIVE_MODEL="$live"
 }
 
+# Модель передаётся ЯВНЫМ флагом, а не оставляется на роли `default`. Измерено на владельце:
+# интерактивная сессия поднялась на Opus 4.8, которого в наших ролях моделей нет вовсе —
+# TUI восстановил ранее выбранную модель поверх конфига, а `modelRoleStorage` у omp `global`,
+# то есть выбор живёт в доме, а не в проекте. Непрогонные запуски при этом слушались конфига,
+# поэтому расхождение было невидимым: заявленное принималось за фактическое.
+
 # ── разбор аргументов ────────────────────────────────────────────────────────
 PROJECT=""; MODE="talk"; PLAN=""; MODELS=""
 while [ $# -gt 0 ]; do
@@ -120,7 +126,7 @@ if [ -z "$PROJECT" ]; then
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
   printf '  проект       нет: правки кода проектов отсюда не делают\n\n' >&2
   cd "$HERE"
-  exec omp --profile "$PROFILE" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
@@ -187,11 +193,11 @@ if [ "$MODE" = "work" ]; then
   printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
   printf '  инвентарь    полный\n\n' >&2
   cd "$PROJECT"
-  exec omp --profile "$PROFILE" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
 fi
 printf '  читать       можно: read (файл, диапазон, каталог), grep, glob\n' >&2
 printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
 printf '  выполнять    нельзя: значит нельзя ПОСЧИТАТЬ прогоном — замер часть работы\n' >&2
 printf '  дальше       план файлом, затем ./workshop %s --work --plan <файл>\n\n' "$PROJECT" >&2
 cd "$PROJECT"
-exec omp --profile "$PROFILE" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
+exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
