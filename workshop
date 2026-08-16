@@ -55,19 +55,35 @@ load_env() {
 # Живая сессия работает на роли `default`. Стоит она на провайдере с ключом — вызовы идут
 # через прокси учёта, и без адреса сессия не заработает вовсе. Отказ при запуске дешевле
 # отказа на середине работы: там уже потрачено время, а причина выглядит как ошибка модели.
+# Сессия ВЕДЁТСЯ РОЛЬЮ `architect`, а не безымянным участником. Решение владельца 2026-08-16:
+# у живой сессии не было файла роли — единственный участник без объявленного инвентаря и без
+# записанных обязанностей. Так же устроен внешний проект: роль и есть сессия.
+SESSION_ROLE="architect"
+
+# Модель сессии — модель ЭТОЙ роли, а не `default`. Читается из порождённого агента и конфига,
+# то есть из тех же артефактов, что и у остальных: второго источника нет.
+session_model() {
+  local mr
+  mr="$(grep -oE '^model: \["@[a-z]+"\]' "$HERE/.omp/agents/$SESSION_ROLE.md" 2>/dev/null | sed 's/.*@//;s/"\]//')"
+  [ -n "$mr" ] || die "у роли $SESSION_ROLE не объявлена роль модели — порождение сломано"
+  local cfg="${MODELS:-$HERE/.omp/config.yml}" m
+  m="$(grep -oE "^\\s+${mr}:\\s*\"[^\"]+\"" "$cfg" 2>/dev/null | sed 's/.*"\(.*\)"/\1/' || true)"
+  [ -n "$m" ] || m="$(grep -oE "^\\s+${mr}:\\s*\"[^\"]+\"" "$HERE/.omp/config.yml" | sed 's/.*"\(.*\)"/\1/')"
+  [ -n "$m" ] || die "роль модели @$mr не объявлена ни в оверлее, ни в .omp/config.yml"
+  LIVE_MODEL="$m"
+}
+
+# Учёт требуется, если провайдер с ключом назначен ЛЮБОЙ роли, а не только сессии. Прежняя
+# редакция смотрела на сессию: с переводом сессии на Anthropic проверка перестала бы срабатывать,
+# хотя implementer остался на MiniMax и его расход по-прежнему обязан считаться.
 require_metering() {
-  local cfg="${MODELS:-$HERE/.omp/config.yml}" live
-  live="$(grep -oE '^\s+default:\s*"[^"]+"' "$cfg" 2>/dev/null | sed 's/.*"\(.*\)"/\1/' || true)"
-  [ -n "$live" ] || live="$(grep -oE '^\s+default:\s*"[^"]+"' "$HERE/.omp/config.yml" | sed 's/.*"\(.*\)"/\1/')"
-  case "$live" in
-    minimax/*)
-      [ -n "${METERING_PROXY_URL:-}" ] || die "живая сессия на $live идёт через прокси учёта, а METERING_PROXY_URL не задана. Прокси поднимает проект: подними его и объяви адрес в $1/.env, либо возьми оверлей на другое семейство (--models config/models-claude.yml)"
-      # Пустой токен — не «почти заданный». Прокси не открытый ретранслятор, и без токена
-      # сессия падает на ПЕРВОМ вызове с «No API key found», то есть на середине работы и с
-      # причиной, которая выглядит как отсутствие подписки. Измерено на владельце.
-      [ -n "${METERING_PROXY_TOKEN:-}" ] || die "METERING_PROXY_TOKEN пуст: прокси учёта отвергнет вызов. Значение то же, что у проекта, поднимающего прокси — перенеси его в $1/.env" ;;
-  esac
-  LIVE_MODEL="$live"
+  session_model
+  local keyed
+  keyed="$(grep -ohE '"minimax/[^"]+"' "$HERE/.omp/config.yml" "${MODELS:-/dev/null}" 2>/dev/null | head -1 || true)"
+  [ -n "$keyed" ] || return 0
+  [ -n "${METERING_PROXY_URL:-}" ] || die "провайдер с ключом назначен ($keyed), а METERING_PROXY_URL не задана. Прокси поднимает проект: подними его и объяви адрес в $1/.env"
+  [ -n "${METERING_PROXY_TOKEN:-}" ] || die "METERING_PROXY_TOKEN пуст: прокси учёта отвергнет вызов. Значение то же, что у проекта, поднимающего прокси — перенеси его в $1/.env"
+  [ -n "${MINIMAX_API_KEY:-}" ] || die "MINIMAX_API_KEY пуст: omp не работает с провайдером без его ключа, и поля apiKey в models.yml для этого недостаточно — измерено. Перенеси ключ в $1/.env"
 }
 
 # Модель передаётся ЯВНЫМ флагом, а не оставляется на роли `default`. Измерено на владельце:
@@ -133,20 +149,23 @@ if [ -z "$PROJECT" ]; then
   load_env "$HERE"
   require_metering "$HERE"
   export HOME="$ZONE"; mkdir -p "$HOME"
+  PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
+  node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
+    || die "не удалось получить промпт роли $SESSION_ROLE"
   printf '\n  СИСТЕМА-РАЗРАБОТЧИК — %s\n' "$([ "$MODE" = work ] && echo 'РАБОТА над инструментом' || echo 'РАЗГОВОР об инструменте')" >&2
-  printf '  сессия       %s\n' "$LIVE_MODEL" >&2
+  printf '  роль сессии  %s на %s\n' "$SESSION_ROLE" "$LIVE_MODEL" >&2
   printf '  каталог      %s\n' "$HERE" >&2
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
   cd "$HERE"
   if [ "$MODE" = "work" ]; then
     printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
     printf '  инвентарь    полный\n\n' >&2
-    exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+    exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$WORK_TOOLS" "$@"
   fi
   printf '  читать       можно: read, grep, glob\n' >&2
   printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
   printf '  дальше       план файлом, затем ./workshop --work --plan <файл>\n\n' >&2
-  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TALK_TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
@@ -183,6 +202,9 @@ got_ver="$(omp --version 2>/dev/null | sed 's|^omp/||')"
 require_metering "$PROJECT"
 
 export HOME="$ZONE"; mkdir -p "$HOME"
+PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
+node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
+  || die "не удалось получить промпт роли $SESSION_ROLE"
 
 # Роли разработчика кладутся в ПОЛЬЗОВАТЕЛЬСКИЙ каталог агентов внутри изолированного
 # HOME сессии, а не в дерево проекта. Путь спрошен у самого omp
@@ -206,18 +228,18 @@ fi
 printf '\n  СИСТЕМА-РАЗРАБОТЧИК — %s\n' "$([ "$MODE" = work ] && echo 'РАБОТА над проектом' || echo 'РАЗГОВОР о проекте')" >&2
 printf '  проект       %s\n' "$PROJECT" >&2
 printf '  харнес       omp/%s (пин проекта совпал)\n' "$got_ver" >&2
-printf '  сессия       %s\n' "$LIVE_MODEL" >&2
+printf '  роль сессии  %s на %s\n' "$SESSION_ROLE" "$LIVE_MODEL" >&2
 printf '  роли         %s\n' "$(ls -1 "$HERE/roles" | sed 's/\.md$//' | tr '\n' ' ')" >&2
 printf '  модели       %s\n' "$([ -n "$MODELS" ] && basename "$MODELS" || echo '.omp/config.yml (без оверлея)')" >&2
 if [ "$MODE" = "work" ]; then
   printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
   printf '  инвентарь    полный\n\n' >&2
   cd "$PROJECT"
-  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$WORK_TOOLS" "$@"
 fi
 printf '  читать       можно: read (файл, диапазон, каталог), grep, glob\n' >&2
 printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
 printf '  выполнять    нельзя: значит нельзя ПОСЧИТАТЬ прогоном — замер часть работы\n' >&2
 printf '  дальше       план файлом, затем ./workshop %s --work --plan <файл>\n\n' "$PROJECT" >&2
 cd "$PROJECT"
-exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --tools "$TALK_TOOLS" "$@"
+exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TALK_TOOLS" "$@"

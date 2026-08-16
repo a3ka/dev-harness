@@ -81,6 +81,19 @@ try {
 }
 if (roles.length === 0) { console.error('NOT_IMPLEMENTED: ролей нет'); process.exit(2) }
 
+// `--prompt <роль>` печатает ТЕЛО роли для системного промпта сессии верхнего уровня.
+// Здесь же, а не отдельным скриптом: разбор роли один, второй разошёлся бы молча — это уже
+// дважды случалось на соседнем проекте.
+const promptAt = args.indexOf('--prompt')
+if (promptAt >= 0) {
+  const slug = args[promptAt + 1]
+  if (!slug || slug.startsWith('--')) { console.error('нужно имя роли: --prompt <роль>'); process.exit(2) }
+  const r = roles.find((x) => x.slug === slug)
+  if (!r) { console.error(`FAIL роли нет: ${slug}. Есть: ${roles.map((x) => x.slug).join(', ')}`); process.exit(1) }
+  process.stdout.write(`${r.body}\n`)
+  process.exit(0)
+}
+
 const target = INTO ?? join(ROOT, '.omp', 'agents')
 const drift: string[] = []
 let written = 0
