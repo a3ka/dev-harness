@@ -251,7 +251,12 @@ set -uo pipefail
 resp="$AP_RESP/r.$$.$RANDOM"
 mkfifo "$resp"
 enc=""
-for a in "$@"; do enc="$enc$(printf '%s' "$a" | base64 -w0) "; done
+# Каждый аргумент кодируется с ВЕДУЩИМ маркером `x`. Без него ПУСТОЙ аргумент исчезал: его base64
+# — пустая строка, а разбор `for a in $enc` пустые слова не выдаёт. Барьер получал аргументы
+# сдвинутыми и краснел не по той причине, которую вносила фикстура. Найдено фикстурой
+# `freeze_contract/case_prichina_pustaja` (заморозка с пустой причиной — ровно тот случай, где
+# пустая строка и есть предмет проверки). Маркер снимается при декодировании ровно один раз.
+for a in "$@"; do enc="$enc x$(printf '%s' "$a" | base64 -w0)"; done
 # Разделитель полей — U+001F, а НЕ табуляция. Табуляция входит в IFS-пробелы, и пустое поле
 # (фикстура без BARRIER_ROOT) схлопывалось: все поля съезжали на одно, барьер получал в
 # качестве корня чужой путь и честно краснел. Дефект замера, найденный своим же журналом.
@@ -274,7 +279,8 @@ WRAP
     serve() {
       local resp root cwd enc a argv=() out rc
       IFS=$'\x1f' read -r -t 0.2 resp root cwd enc <&"$reqfd" || return 1
-      for a in $enc; do argv+=("$(printf '%s' "$a" | base64 -d)"); done
+      # `${a#x}` снимает маркер, которым клиент канала защищает ПУСТОЙ аргумент от схлопывания.
+      for a in $enc; do argv+=("$(printf '%s' "${a#x}" | base64 -d)"); done
       set +e
       out="$( cd "$cwd" 2>/dev/null && ap_run "$b" "$root" "$d/env" "${argv[@]}" 2>&1 )"
       rc=$?
@@ -331,7 +337,7 @@ WRAP
     else
       # Красное засчитывает ПОВТОРНЫЙ прогон проверяющего: он повторяет ровно те условия,
       # которые сам же и запомнил, — argv, каталог, подставной корень, объявленное окружение.
-      rargv=(); for a in ${inv_argv[$cand]}; do rargv+=("$(printf '%s' "$a" | base64 -d)"); done
+      rargv=(); for a in ${inv_argv[$cand]}; do rargv+=("$(printf '%s' "${a#x}" | base64 -d)"); done
       set +e
       rout="$( cd "${inv_cwd[$cand]}" 2>/dev/null && ap_run "$b" "${inv_root[$cand]}" "$d/env" "${rargv[@]}" 2>&1 )"
       rrc=$?
