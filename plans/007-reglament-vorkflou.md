@@ -592,11 +592,12 @@ rm -rf tmp/probe
    считает код 2 провалом фикстуры, и «нечем проверить» красным не предъявляется по построению.
 
 ```
-rm -rf tmp/antiplacebo && mkdir -p tmp/antiplacebo
-# Журнал пишется В tmp/antiplacebo — единственный подкаталог, исключённый из слепка дерева.
-# Наблюдение tmp/ заведено находкой критика (фикстура писала туда и оставалась незамеченной), и
-# перенаправление вывода в НАБЛЮДАЕМЫЙ файл делало бы прогон ложно-красным на самом себе.
-bash scripts/verify_antiplacebo.sh > tmp/antiplacebo/ap.out 2>&1
+rm -rf tmp/antiplacebo
+# Вывод захватывается В ПАМЯТЬ оператора, а не в файл дерева. Предписание арбитража
+# `verdicts/arbitration/oblast-slepka.md`, вопрос 1, пункт 2: журнал на диске делал прогон
+# ложно-красным на самом себе (наблюдаемый файл менялся во время прогона) И давал место, где
+# строку «ok» можно подделать. Истина живёт в памяти проверяющего и оператора — правило 8 нормы.
+out="$(bash scripts/verify_antiplacebo.sh 2>&1)"
 rc=$?
 for n in \
   freeze_contract/case_reestr_nedostupen \
@@ -627,7 +628,7 @@ for n in \
   drill_contract_change/case_procedura_ne_prinjata \
   check_ids/case_kontrakt_dubl \
 ; do
-  grep -q "ok   $n" tmp/antiplacebo/ap.out || { echo "не предъявлена красной: $n"; rc=1; }
+  printf '%s\n' "$out" | grep -q "ok   $n" || { echo "не предъявлена красной: $n"; rc=1; }
 done
 exit "$rc"
 ```
