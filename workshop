@@ -93,7 +93,7 @@ require_metering() {
 # поэтому расхождение было невидимым: заявленное принималось за фактическое.
 
 # ── разбор аргументов ────────────────────────────────────────────────────────
-PROJECT=""; MODE="talk"; PLAN=""; MODELS=""
+PROJECT=""; MODE="talk"; PLAN=""; MODELS=""; RESUME=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --work) MODE="work" ;;
@@ -102,11 +102,27 @@ while [ $# -gt 0 ]; do
     # не ноль и под `set -e` убивал бы скрипт молча.
     --plan)   PLAN="${2:-}";   [ $# -ge 2 ] && shift ;;
     --models) MODELS="${2:-}"; [ $# -ge 2 ] && shift ;;
+    # ПРОДОЛЖЕНИЕ СЕССИИ. Стенограмма живёт на диске в профиле, и `omp --resume <префикс>` её
+    # поднимает. Разбирается ЗДЕСЬ, а не прокидывается в хвосте, по двум причинам.
+    #
+    # Первая: продолжение — это РАБОТА, а не разговор. Согласие на работу было дано при старте
+    # той сессии, и требовать план второй раз означало бы требовать согласие на то, что уже
+    # согласовано: ритуал вместо механизма. Поэтому `-r` сам включает режим работы и снимает
+    # требование `--plan` — но только для продолжения, и это записано здесь, а не выведено.
+    #
+    # Вторая: инвентарь режима обязан быть тем же. Продолженная сессия с урезанными
+    # инструментами не смогла бы дописать начатое, а с расширенными — обошла бы режим разговора.
+    -r|--resume) RESUME="${2:-}"; [ $# -ge 2 ] && shift; MODE="work" ;;
     -*)     break ;;
     *)      [ -z "$PROJECT" ] && PROJECT="$1" || break ;;
   esac
   shift
 done
+
+RESUME_ARGS=()
+if [ -n "$RESUME" ]; then
+  RESUME_ARGS=(--resume "$RESUME")
+fi
 
 # ── оверлей моделей ──────────────────────────────────────────────────────────
 # Смена модели живой сессии — не правка конфига, а ЯВНЫЙ флаг запуска. Так видно в баннере,
@@ -140,7 +156,7 @@ WORK_TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,inspect_image,task,tod
 # для инструмента ничем не оправдано. Здесь тоже можно просто спросить, и работа тоже требует
 # написанного плана.
 if [ -z "$PROJECT" ]; then
-  if [ "$MODE" = "work" ]; then
+  if [ "$MODE" = "work" ] && [ -z "$RESUME" ]; then
     [ -n "$PLAN" ] || die "режим работы требует плана: --plan <файл>. План в переписке не переживает сессию"
     [ -f "$PLAN" ] || die "файла плана нет: $PLAN"
     [ -s "$PLAN" ] || die "файл плана пуст: $PLAN. Пустой план — согласие ни на что"
@@ -158,14 +174,18 @@ if [ -z "$PROJECT" ]; then
   printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
   cd "$HERE"
   if [ "$MODE" = "work" ]; then
-    printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
+    if [ -n "$RESUME" ]; then
+      printf '  продолжение  сессия %s (план был предъявлен при её старте)\n' "$RESUME" >&2
+    else
+      printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
+    fi
     printf '  инвентарь    полный\n\n' >&2
-    exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$WORK_TOOLS" "$@"
+    exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$WORK_TOOLS" "$@"
   fi
   printf '  читать       можно: read, grep, glob\n' >&2
   printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
   printf '  дальше       план файлом, затем ./workshop --work --plan <файл>\n\n' >&2
-  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TALK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TALK_TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
@@ -218,7 +238,7 @@ node "$HERE/scripts/gen-harness.ts" --into "$AGENTS" --check >/dev/null \
   || die "роли разошлись с источником сразу после генерации"
 
 # ── согласие на работу ───────────────────────────────────────────────────────
-if [ "$MODE" = "work" ]; then
+if [ "$MODE" = "work" ] && [ -z "$RESUME" ]; then
   [ -n "$PLAN" ] || die "режим работы требует плана: --plan <файл>. План в переписке не переживает сессию"
   [ -f "$PLAN" ] || die "файла плана нет: $PLAN"
   [ -s "$PLAN" ] || die "файл плана пуст: $PLAN. Пустой план — согласие ни на что"
@@ -232,14 +252,18 @@ printf '  роль сессии  %s на %s\n' "$SESSION_ROLE" "$LIVE_MODEL" >&2
 printf '  роли         %s\n' "$(ls -1 "$HERE/roles" | sed 's/\.md$//' | tr '\n' ' ')" >&2
 printf '  модели       %s\n' "$([ -n "$MODELS" ] && basename "$MODELS" || echo '.omp/config.yml (без оверлея)')" >&2
 if [ "$MODE" = "work" ]; then
-  printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
+  if [ -n "$RESUME" ]; then
+    printf '  продолжение  сессия %s (план был предъявлен при её старте)\n' "$RESUME" >&2
+  else
+    printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
+  fi
   printf '  инвентарь    полный\n\n' >&2
   cd "$PROJECT"
-  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$WORK_TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$WORK_TOOLS" "$@"
 fi
 printf '  читать       можно: read (файл, диапазон, каталог), grep, glob\n' >&2
 printf '  править      нельзя ФИЗИЧЕСКИ: нет edit, write, bash, lsp, task\n' >&2
 printf '  выполнять    нельзя: значит нельзя ПОСЧИТАТЬ прогоном — замер часть работы\n' >&2
 printf '  дальше       план файлом, затем ./workshop %s --work --plan <файл>\n\n' "$PROJECT" >&2
 cd "$PROJECT"
-exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TALK_TOOLS" "$@"
+exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TALK_TOOLS" "$@"

@@ -10,6 +10,7 @@
   "scripts": {
     "gen:harness": "node scripts/gen-harness.ts",
     "check:gen": "node scripts/gen-harness.ts --check",
+    "workshop": "bash workshop",
     "overlay": "bash scripts/overlay.sh",
     "check:overlay": "bash scripts/overlay.sh --check",
     "models:actual": "bash scripts/models_actual.sh",
