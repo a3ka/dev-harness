@@ -209,10 +209,18 @@ snapshot_of() (
   #
   # ОСТАТОЧНЫЙ РИСК, названный прямо: фикстура, пишущая в `.git` или `.zones`, останется
   # незамеченной. Оба не содержимое репозитория — правка там не меняет предмета ни одного барьера.
+  # СИМВОЛЬНЫЕ ССЫЛКИ — ЧАСТЬ ДЕРЕВА, и слепок обязан их видеть. Адверсарий предъявил четвёртую
+  # форму записи вне `$WORK` (после `contracts/`, `tmp/` и `tmp/antiplacebo/`): фикстура создала
+  # `ln -s` в корне подставного дерева, `find -type f` ссылку не перечислил, прогон вернул 0.
+  # Теперь две меры: имена и содержимое обычных файлов; имена и ЦЕЛИ ссылок. Цель берётся
+  # `readlink`'ом — он работает и на битой ссылке, а `sha256sum` по ссылке следовал бы за ней и
+  # молча хешировал чужой файл.
   {
     find . \( -path ./.git -o -path ./.zones -o -path "./tmp/antiplacebo/run-$$" \) -prune \
-           -o -type f -print0
-  } | sort -z | xargs -0 sha256sum
+           -o -type f -print0 | sort -z | xargs -0 -r sha256sum
+    find . \( -path ./.git -o -path ./.zones -o -path "./tmp/antiplacebo/run-$$" \) -prune \
+           -o -type l -print0 | sort -z | xargs -0 -r readlink | sha256sum
+  }
 )
 before="$(snapshot_of)"
 
