@@ -1,0 +1,225 @@
+#!/usr/bin/env bash
+# Исполнитель коммитит только в свою зону. Зона объявляется в ЗАМОРОЖЕННОМ контракте, а не в
+# задании и не в переписке.
+#
+# Зачем вообще: `implementer` существует для параллелизма и границ, а не для ловли дефектов
+# (измерено: на барьере в 200 строк разделение «спека отдельно, реализация отдельно» дефектов не
+# ловит). Границу без механизма исполнитель расширяет молча — «попутно поправил, что попалось», — и
+# остаётся дифф, который нечем ревьюить.
+#
+# ГРАММАТИКА, литерал, первая колонка строки в контракте:
+#
+#   ЗОНА <имя-автора>: <путь> [<путь>…]
+#   РАБОТА НЕ РАЗДАЁТСЯ: <непустая причина>
+#
+# `<имя-автора>` — git `user.name` агента: агенты коммитят под своими именами (измерено в истории:
+# `parity-fixes2`, `IdsFixes2`, `critic`). `<путь>` — каталог с завершающим `/` либо точный файл;
+# относительный, без `* ? [`, без `..`, без ведущего `/`. Проверка пути — ЕДИНСТВЕННОЙ реализацией
+# `path_prefix_valid` в `lib_roles.sh`, той же, что проверяет `verdict:` у ролей.
+#
+# ОДНО ИЗ ДВУХ ОБЪЯВЛЕНИЙ ОБЯЗАТЕЛЬНО, И МОЛЧАНИЕ НЕ ГОДИТСЯ. Контракт, который раздаётся, несёт
+# `ЗОНА`-строки; контракт, который кодифицирует уже действующее соглашение, несёт
+# `РАБОТА НЕ РАЗДАЁТСЯ:` с причиной. Отсутствие обеих — отказ: иначе «зон нет» и «зоны забыли»
+# выглядят одинаково, а это разные предметы (правило 7 нормы). Так требование, которое у критика
+# было когнитивным, стало механическим.
+#
+# ЗОНЫ ЧИТАЮТСЯ ИЗ БЛОБА ВЫСШЕЙ ЗАМОРОЗКИ, а не из рабочего дерева: иначе правка файла расширяла бы
+# зону без заморозки, то есть исполнитель выдавал бы себе права сам. Черновик зон не даёт.
+#
+# ДИАПАЗОН — от ПЕРВОЙ заморозки контракта (`frozen/contracts/<NNN>/1..HEAD`), не от высшей: правка
+# контракта версией v2 иначе стирала бы зону задним числом вместе с уже проверенными коммитами.
+# Зона автора — ОБЪЕДИНЕНИЕ путей, объявленных этому имени во ВСЕХ замороженных контрактах:
+# пересечение было бы бессмыслицей, два контракта дают человеку две работы, а не одну общую.
+#
+# НЕОБЪЯВЛЕННЫЕ АВТОРЫ НЕ ПРОВЕРЯЮТСЯ — владелец и прошлые сессии. Это цена того, чтобы гейт не
+# краснел на истории, которую уже нельзя исправить.
+#
+# ОСТАТОЧНЫЙ РИСК, помечен `cognitive-only`: `user.name` — не удостоверение. Объявленный исполнитель
+# может выйти из зоны, назвавшись новым именем, и барьер этого не увидит по построению. Держится
+# тремя вещами: имя в `ЗОНА`-строке пишет АРХИТЕКТОР в контракте, а не исполнитель себе; смена имени
+# видна в `git log --format='%an %s'` и входит в область ревьюера; исполнитель коммитит в основной
+# репозиторий, то есть его коммиты пересматриваются на приёмке пачки. Ужесточение — подписанные
+# коммиты со сверкой ключа и имени — включается словом владельца.
+#
+# Merge-коммиты пропускаются; их содержимое — предмет ревью.
+#
+#   bash scripts/check_zones.sh            проверить это дерево
+#   bash scripts/check_zones.sh <корень>   проверить другое (так предъявляется красным)
+#
+# Коды возврата: 0 — выходов за зону нет либо зон не объявлено, 1 — выход за зону или объявление
+# вне грамматики, 2 — нечем проверить.
+set -euo pipefail
+
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$SELF_DIR/next_id.sh"
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_roles.sh"
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_registry.sh"
+
+ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
+
+fails=0
+ok()   { printf '  ok   %s\n' "$*" >&2; }
+bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
+skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+
+command -v git >/dev/null 2>&1 || skip "нет git — историю коммитов прочитать нечем"
+git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репозиторий git"
+git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
+
+g() { git -C "$ROOT" "$@"; }
+
+state="$(registry_state "$ROOT" 'frozen/')"
+case "$state" in
+  full|unknown-remote) ;;
+  *)
+    printf 'ОТКАЗ: реестр заморозок (refs/tags/frozen/*) недоступен: %s\n' "$state" >&2
+    printf 'Лечится: %s\n' "$(registry_cure "$state")" >&2
+    printf 'Без реестра зоны не читаются, и барьер стал бы пусто-зелёным.\n' >&2
+    exit 1
+    ;;
+esac
+
+mkdir -p "$ROOT/tmp"
+TMP="$(mktemp -d "$ROOT/tmp/zones.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+
+# ── замороженные контракты и их зоны ──────────────────────────────────────────
+g for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null | sort > "$TMP/tags" || true
+
+: > "$TMP/zones"    # автор<TAB>путь
+: > "$TMP/ranges"   # контракт<TAB>первая заморозка
+contracts=0
+while IFS= read -r nnn; do
+  [ -n "$nnn" ] || continue
+  contracts=$((contracts + 1))
+  vmax=0
+  while IFS= read -r t; do
+    if [[ "$t" =~ ^refs/tags/frozen/contracts/${nnn}/([0-9]+)$ ]]; then
+      k=$((10#${BASH_REMATCH[1]}))
+      [ "$k" -gt "$vmax" ] && vmax="$k"
+    fi
+  done < "$TMP/tags"
+  [ "$vmax" -gt 0 ] || continue
+
+  # Файл контракта берётся ИЗ КОММИТА ЗАМОРОЗКИ: на HEAD он мог быть переименован или удалён, а
+  # предмет проверки — то состояние, которое утверждали.
+  file="$(g ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
+          | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+  if [ -z "$file" ]; then
+    bad "заморозка frozen/contracts/$nnn/$vmax есть, а файла contracts/$nnn-*.md в её коммите нет — тег поставлен не на то состояние"
+    continue
+  fi
+  body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file" 2>/dev/null || true)"
+
+  declared=0
+  contract_fails_before="$fails"
+  zones_before="$(wc -l < "$TMP/zones" | tr -d ' ')"
+  # `ЗОНА ` с ПЕРВОЙ КОЛОНКИ: цитата с отступом внутри контракта настоящим объявлением не является.
+  while IFS= read -r line; do
+    declared=1
+    rest="${line#ЗОНА }"
+    author="${rest%%:*}"
+    paths="${rest#*:}"
+    if [ "$author" = "$rest" ] || [ -z "${author//[[:space:]]/}" ]; then
+      bad "строка ЗОНА вне объявленной грамматики в $file: «$line» — нужно «ЗОНА <имя-автора>: <путь> [<путь>…]»"
+      continue
+    fi
+    if [ -z "${paths//[[:space:]]/}" ]; then
+      bad "строка ЗОНА вне объявленной грамматики в $file: «$line» — у автора «$author» не назван ни один путь"
+      continue
+    fi
+    # РАСЩЕПЛЕНИЕ БЕЗ ПОДСТАНОВКИ ИМЁН ФАЙЛОВ. `for p in $paths` выполняет ещё и globbing, и путь
+    # `scripts/*` раскрывался в реальные файлы каталога: `path_prefix_valid` звёздочки уже не
+    # видел, каждый кусок проходил, и зона МОЛЧА становилась тотальной. Барьер, который ровно от
+    # этого и защищает, был пробит тем же приёмом.
+    #
+    # Найдено анти-плацебо, а не пробой: проба бежала из пустого каталога, где `scripts/*` не
+    # совпадал ни с чем и оставался литералом. Мера, у которой окружение отличается от настоящего
+    # прогона, врёт о предмете — записано в NABLIUDENIA.md (Н-16).
+    set -f
+    # shellcheck disable=SC2086
+    for p in $paths; do
+      if ! path_prefix_valid "$p"; then
+        bad "строка ЗОНА вне объявленной грамматики в $file: путь «$p» у автора «$author» — путь обязан быть относительным, без шаблонов, .. и пробелов; каталог завершается /"
+        continue
+      fi
+      printf '%s\t%s\n' "$author" "$p" >> "$TMP/zones"
+    done
+    set +f
+  done < <(printf '%s\n' "$body" | grep '^ЗОНА ' || true)
+
+  while IFS= read -r line; do
+    declared=1
+    reason="${line#РАБОТА НЕ РАЗДАЁТСЯ:}"
+    if [ -z "${reason//[[:space:]]/}" ]; then
+      bad "строка РАБОТА НЕ РАЗДАЁТСЯ вне объявленной грамматики в $file: причина пуста — объявление без причины неотличимо от опечатки"
+    else
+      ok "$file — работа не раздаётся:${reason}"
+    fi
+  done < <(printf '%s\n' "$body" | grep '^РАБОТА НЕ РАЗДАЁТСЯ:' || true)
+
+  if [ "$declared" -eq 0 ]; then
+    bad "$file: контракт не объявил ни зон, ни отказа от раздачи — нужна строка «ЗОНА <автор>: <путь>» либо «РАБОТА НЕ РАЗДАЁТСЯ: <причина>». Молчание не годится: «зон нет» и «зоны забыли» выглядят одинаково"
+  fi
+  # Зелёное НАЗЫВАЕТСЯ: барьер, молча разобравший контракт, не даёт доказательств, ЧТО он прочитал.
+  # Это уже третий барьер этой пачки, где молчаливое зелёное пришлось закрывать отдельно (записано
+  # в NABLIUDENIA.md как рецидив), — значит правило общее: разобранное объявление печатается.
+  #
+  # Печатаются зоны ИМЕННО ЭТОГО контракта, а не весь накопленный список: первая редакция брала
+  # `sort -u` по всему файлу, и второй контракт присваивал себе зоны первого — отчёт врал о том,
+  # где что объявлено.
+  if [ "$fails" -eq "$contract_fails_before" ] && [ "$declared" -eq 1 ]; then
+    tail -n +"$((zones_before + 1))" "$TMP/zones" 2>/dev/null | sort -u \
+    | while IFS=$'\t' read -r a p; do
+        printf '  ok   %s — зона: %s → %s\n' "$file" "$a" "$p" >&2
+      done
+  fi
+
+  printf '%s\tfrozen/contracts/%s/1\n' "$nnn" "$nnn" >> "$TMP/ranges"
+done < <(awk -F/ '/^refs\/tags\/frozen\/contracts\// { print $5 }' "$TMP/tags" | sort -u)
+
+if [ ! -s "$TMP/zones" ]; then
+  printf '\nзамороженных контрактов: %d · зон не объявлено — проверять нечего\n' "$contracts" >&2
+  [ "$fails" -eq 0 ] || exit 1
+  exit 0
+fi
+
+# ── обход коммитов в диапазонах ───────────────────────────────────────────────
+cut -f1 "$TMP/zones" | sort -u > "$TMP/authors"
+commits=0; checked=0
+while IFS=$'\t' read -r nnn since; do
+  [ -n "$nnn" ] || continue
+  g rev-list --no-merges "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    commits=$((commits + 1))
+    an="$(g log -1 --format='%an' "$c")"
+    grep -qxF -- "$an" "$TMP/authors" || continue
+    checked=$((checked + 1))
+    awk -F'\t' -v a="$an" '$1 == a { print $2 }' "$TMP/zones" | sort -u > "$TMP/mine"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      inside=1
+      while IFS= read -r p; do
+        case "$p" in
+          */) case "$f" in "$p"*) inside=0; break ;; esac ;;
+          *)  [ "$f" = "$p" ] && { inside=0; break; } ;;
+        esac
+      done < "$TMP/mine"
+      [ "$inside" -eq 0 ] || bad "коммит вне зоны: $an ${c:0:8} $f — объявленная зона: $(tr '\n' ' ' < "$TMP/mine")"
+    done < <(g diff-tree -r --no-commit-id --name-only --no-renames "$c")
+  done < "$TMP/commits"
+done < "$TMP/ranges"
+
+printf '\nзамороженных контрактов: %d · объявленных авторов: %d · коммитов в диапазонах: %d · проверено по зонам: %d\n' \
+  "$contracts" "$(wc -l < "$TMP/authors" | tr -d ' ')" "$commits" "$checked" >&2
+
+[ "$fails" -eq 0 ] || exit 1
