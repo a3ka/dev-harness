@@ -13,6 +13,10 @@
     "overlay": "bash scripts/overlay.sh",
     "check:overlay": "bash scripts/overlay.sh --check",
     "check:antiplacebo": "bash scripts/verify_antiplacebo.sh",
-    "check:ci-parity": "bash scripts/verify_ci_parity.sh"
+    "check:ci-parity": "bash scripts/verify_ci_parity.sh",
+    "check:protected": "bash scripts/check_protected.sh",
+    "drill:protected-exception": "bash scripts/drill_protected_exception.sh",
+    "check:ids": "bash scripts/check_ids.sh",
+    "next:id": "bash scripts/next_id.sh"
   }
 }
