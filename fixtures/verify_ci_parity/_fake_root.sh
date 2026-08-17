@@ -27,13 +27,16 @@ jobs:
         run: npm run check:existing
 YAML
 
-  # Минимальная приёмка: один скрипт, на который ссылается CI.
+  # Минимальная приёмка: один скрипт, на который ссылается CI, и один объявленный
+  # исключением. Имя «check:unused» совпадает с записью исключения ниже, иначе
+  # паритет на минимальной основе станет красным из-за мёртвой записи.
   cat > "$r/package.json" <<'JSON'
 {
   "name": "fixture",
   "private": true,
   "scripts": {
-    "check:existing": "echo ok"
+    "check:existing": "echo ok",
+    "check:unused": "echo unused"
   }
 }
 JSON
