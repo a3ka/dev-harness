@@ -163,6 +163,12 @@ git -C "$HERE" rev-parse --git-dir >/dev/null 2>&1 \
 # аргументом, и подключение оттуда означало бы, что код барьера приходит из предмета проверки.
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SELF_DIR/lib_roles.sh"
+# Полнота реестра выдачи — ЕДИНСТВЕННОЙ реализацией (`lib_registry.sh`). Своя копия жила здесь
+# функцией `is_registry_complete()` и сравнивала КОЛИЧЕСТВА тегов; критик предъявил контрпример:
+# `origin = {1,2}`, локально `{1,3,4}` — удалённого тега `2` нет, но количество больше, и реестр
+# объявлялся полным. Мера считала объём, а предмет — включение. У реестра пять потребителей, и
+# второй разбор одного предмета расходится молча.
+. "$SELF_DIR/lib_registry.sh"
 
 # Отказ выносится ЗДЕСЬ, в родительской оболочке, а не внутри `class_locs`: та зовётся через
 # `< <(...)`, то есть в под-шелле, и `bad` там увеличил бы счётчик в чужой памяти — строка FAIL
@@ -184,6 +190,9 @@ class_locs() {
       role_declarations "$HERE" | awk -F'\t' '$1 == "ok" { print $3 }'
       ;;
     ADR)     printf 'decisions/\n' ;;
+    # Контракт майлстоуна — предмет, критерий готовности и зоны исполнителей. Каталога может не
+    # быть: тогда максимум считается по тегам `id/CONTRACT/*`, как у любой пустой локации.
+    CONTRACT) printf 'contracts/\n' ;;
     *)       return 1 ;;
   esac
 }
@@ -225,33 +234,23 @@ class_tag_numbers() {
   done < <(git -C "$HERE" for-each-ref --format='%(refname:short)' "refs/tags/id/$class/" 2>/dev/null || true)
 }
 
-# ── определение полноты реестра (ветка (б) — неполный/недоступный регистр) ────
-# Возвращает 0, если реестр полон (ветка (а) — нормальная сверка), и 1 — если он
-# неполон либо недоступен (ветка (б) — отказ с названной причиной и лечением).
-# Печатает причину одной строкой в stderr.
+# ── определение полноты реестра ────────────────────────────────────────────────
+# Своей реализации здесь больше нет: она в `lib_registry.sh`. Барьер только ТОЛКУЕТ слово.
+#
+# Он ЧИТАТЕЛЬ, и потому `unknown-remote` (origin объявлен, но недоступен) для него годен как
+# `full`: его предмет — уникальность номеров в дереве, и от доступности сети она не зависит.
+# Барьер, краснеющий от обрыва связи, выключают. Писателю (`freeze_contract.sh`) то же слово
+# означает отказ, и разница обоснована там: выдача идентификатора необратима.
 is_registry_complete() {
-  # 1) shallow-клон: `--is-shallow-repository` возвращает true, и история обрезана.
-  local is_shallow
-  is_shallow="$(git -C "$HERE" rev-parse --is-shallow-repository 2>/dev/null || echo false)"
-  if [ "$is_shallow" = "true" ]; then
-    printf 'shallow-клон без полной истории — реестр выдачи (refs/tags/id/*) недоступен; выполни fetch --tags --unshallow либо задай fetch-depth: 0 в checkout\n' >&2
-    return 1
-  fi
-
-  # 2) клон без тегов: remote имеет `refs/tags/id/*`, локально — нет. Аннотированные
-  # теги приходят двумя строками (`refs/tags/id/...` и `refs/tags/id/...^{}` для
-  # peeled); `sed` снимает суффикс `^{}`, и `sort -u` даёт число уникальных имён.
-  local remote_count local_count
-  remote_count="$(git -C "$HERE" ls-remote --tags origin "refs/tags/id/*" 2>/dev/null \
-                  | awk '{print $2}' | sed 's/\^{}$//' | sort -u | wc -l | tr -d ' ')"
-  local_count="$(git -C "$HERE" for-each-ref --format='%(refname:short)' "refs/tags/id/" 2>/dev/null \
-                 | wc -l | tr -d ' ')"
-  if [ "${remote_count:-0}" -gt "${local_count:-0}" ]; then
-    printf 'теги реестра выдачи (refs/tags/id/*) не выбраны локально — clone был без --tags; выполни fetch --tags\n' >&2
-    return 1
-  fi
-
-  return 0
+  local state
+  state="$(registry_state "$HERE" 'id/')"
+  case "$state" in
+    full|unknown-remote) return 0 ;;
+    *)
+      printf '%s — реестр выдачи (refs/tags/id/*) неполон: %s\n' "$state" "$(registry_cure "$state")" >&2
+      return 1
+      ;;
+  esac
 }
 
 # ── обход классов ──────────────────────────────────────────────────────────────
@@ -265,7 +264,7 @@ if ! is_registry_complete; then
   exit 1
 fi
 
-for class in PLAN VERDICT ADR; do
+for class in PLAN VERDICT ADR CONTRACT; do
   # Множество выданных номеров — для проверки «номер назначен рукой».
   declare -A has_tag=()
   n=""
