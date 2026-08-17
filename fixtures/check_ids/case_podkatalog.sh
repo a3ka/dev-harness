@@ -13,6 +13,11 @@
 set -euo pipefail
 
 cd "$WORK"
+# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
+# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
+# только сам вызванный барьер.
+mkdir -p "$WORK/scripts"
+cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
 git init -q .
 git config user.email "fixture@test"
 git config user.name "fixture"
