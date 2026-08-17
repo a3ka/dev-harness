@@ -20,6 +20,14 @@
 # Коды возврата: 0 — разрешение принято, 1 — не принято, 2 — нечем проверить.
 set -euo pipefail
 
+# Унаследованные git-переменные меняют построение подставной истории ДО запуска проверяемого
+# барьера: адверсарий предъявил `GIT_DIR`, `GIT_INDEX_FILE` и `GIT_WORK_TREE`, каждая выводила
+# дрилл в код 2. Заявленный положительный контроль, который выключается окружением, контролем
+# не является — поэтому переменные снимаются, а не обходятся.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 BARRIER="$HERE/check_protected.sh"

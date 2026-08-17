@@ -60,6 +60,23 @@ set_toy() {
         printf 'if [ -e "$here/.slomano" ]; then printf "NOT_IMPLEMENTED: игрушке нечем проверять\\n" >&2; exit 2; fi\n'
         printf 'printf "  ok   игрушка цела\\n" >&2\n'
         ;;
+      zhivoi)
+        # Красен, пока ЖИВ процесс, чей pid лежит рядом. Нужен фикстуре, которая добивается
+        # красного оставленным фоновым потомком: после добития группы процессов повтор
+        # проверяющего обязан увидеть зелёное.
+        printf 'if [ -f "$here/.pid" ] && kill -0 "$(cat "$here/.pid")" 2>/dev/null; then\n'
+        printf '  printf "ОТКАЗ: игрушка сломана\\n" >&2; exit 1\n'
+        printf 'fi\n'
+        printf 'printf "  ok   игрушка цела\\n" >&2\n'
+        ;;
+      naruzhnaja)
+        # Красен, только если на PATH нашёлся посторонний инструмент. Нужен фикстуре, которая
+        # добивается красного НЕОБЪЯВЛЕННОЙ добавкой к окружению.
+        printf 'if command -v postoronnij-instrument >/dev/null 2>&1; then\n'
+        printf '  printf "ОТКАЗ: игрушка сломана\\n" >&2; exit 1\n'
+        printf 'fi\n'
+        printf 'printf "  ok   игрушка цела\\n" >&2\n'
+        ;;
       *) printf 'printf "неизвестный вариант игрушки\\n" >&2; exit 2\n' ;;
     esac
   } > "$r/scripts/verify_toy.sh"
