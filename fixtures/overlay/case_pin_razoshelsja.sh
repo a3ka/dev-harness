@@ -26,6 +26,7 @@ cp -r "$REPO/.omp/agents" "$WORK/.omp/"
 cp "$REPO/.omp/config.yml" "$REPO/.omp/models.yml" "$WORK/.omp/"
 cp "$REPO"/roles/*.md "$WORK/roles/"
 cp "$REPO/scripts/gen-harness.ts" "$REPO/scripts/roles.ts" "$WORK/scripts/"
+cp "$REPO/config/metering_exceptions.txt" "$WORK/config/"
 
 # Подставной omp: версия берётся из пина репозитория, список моделей — из подставного
 # конфига, все с картинками, чтобы соответствие модели задаче было зелёным.
