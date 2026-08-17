@@ -94,7 +94,7 @@ trap 'rm -rf "$TMP"' EXIT
 # ── замороженные контракты и их зоны ──────────────────────────────────────────
 g for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null | sort > "$TMP/tags" || true
 
-: > "$TMP/zones"    # автор<TAB>путь
+: > "$TMP/zones_scoped"    # автор<TAB>путь<TAB>контракт
 : > "$TMP/ranges"   # контракт<TAB>первая заморозка
 contracts=0
 while IFS= read -r nnn; do
@@ -121,7 +121,7 @@ while IFS= read -r nnn; do
 
   declared=0
   contract_fails_before="$fails"
-  zones_before="$(wc -l < "$TMP/zones" | tr -d ' ')"
+  zones_before="$(wc -l < "$TMP/zones_scoped" | tr -d ' ')"
   # `ЗОНА ` с ПЕРВОЙ КОЛОНКИ: цитата с отступом внутри контракта настоящим объявлением не является.
   while IFS= read -r line; do
     declared=1
@@ -170,7 +170,7 @@ while IFS= read -r nnn; do
         bad "строка ЗОНА вне объявленной грамматики в $file: путь «$p» у автора «$author» — путь обязан быть относительным, без шаблонов, .. и пробелов; каталог завершается /"
         continue
       fi
-      printf '%s\t%s\n' "$author" "$p" >> "$TMP/zones"
+      printf '%s\t%s\t%s\n' "$author" "$p" "$nnn" >> "$TMP/zones_scoped"
     done
     set +f
   done < <(printf '%s\n' "$body" | grep '^ЗОНА ' || true)
@@ -196,7 +196,7 @@ while IFS= read -r nnn; do
   # `sort -u` по всему файлу, и второй контракт присваивал себе зоны первого — отчёт врал о том,
   # где что объявлено.
   if [ "$fails" -eq "$contract_fails_before" ] && [ "$declared" -eq 1 ]; then
-    tail -n +"$((zones_before + 1))" "$TMP/zones" 2>/dev/null | sort -u \
+    tail -n +"$((zones_before + 1))" "$TMP/zones_scoped" 2>/dev/null | sort -u \
     | while IFS=$'\t' read -r a p; do
         printf '  ok   %s — зона: %s → %s\n' "$file" "$a" "$p" >&2
       done
@@ -205,17 +205,23 @@ while IFS= read -r nnn; do
   printf '%s\tfrozen/contracts/%s/1\n' "$nnn" "$nnn" >> "$TMP/ranges"
 done < <(awk -F/ '/^refs\/tags\/frozen\/contracts\// { print $5 }' "$TMP/tags" | sort -u)
 
-if [ ! -s "$TMP/zones" ]; then
+if [ ! -s "$TMP/zones_scoped" ]; then
   printf '\nзамороженных контрактов: %d · зон не объявлено — проверять нечего\n' "$contracts" >&2
   [ "$fails" -eq 0 ] || exit 1
   exit 0
 fi
 
 # ── обход коммитов в диапазонах ───────────────────────────────────────────────
-cut -f1 "$TMP/zones" | sort -u > "$TMP/authors"
+# ЗОНЫ ДЕЙСТВУЮТ ПОДРАЗДЕЛЬНО ПО КОНТРАКТАМ, и это закрытие находки критика по контракту 002:
+# прежняя редакция собирала авторов и зоны по ВСЕМ контрактам в один список, и контракт,
+# объявивший автора, задним числом растягивал его зоны на диапазоны ДРУГИХ контрактов — вплоть
+# до красного на истории, написанной до объявления. Зона — обещание КОНКРЕТНОГО контракта, и
+# судит она только свой диапазон. Контракт без зон (РАБОТА НЕ РАЗДАЁТСЯ) никого не судит вовсе.
 commits=0; checked=0
 while IFS=$'\t' read -r nnn since; do
   [ -n "$nnn" ] || continue
+  awk -F'\t' -v n="$nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/authors"
+  [ -s "$TMP/authors" ] || continue
   g rev-list --no-merges "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
   while IFS= read -r c; do
     [ -n "$c" ] || continue
@@ -223,7 +229,7 @@ while IFS=$'\t' read -r nnn since; do
     an="$(g log -1 --format='%an' "$c")"
     grep -qxF -- "$an" "$TMP/authors" || continue
     checked=$((checked + 1))
-    awk -F'\t' -v a="$an" '$1 == a { print $2 }' "$TMP/zones" | sort -u > "$TMP/mine"
+    awk -F'\t' -v a="$an" -v n="$nnn" '$1 == a && $3 == n { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       inside=1
@@ -233,7 +239,7 @@ while IFS=$'\t' read -r nnn since; do
           *)  [ "$f" = "$p" ] && { inside=0; break; } ;;
         esac
       done < "$TMP/mine"
-      [ "$inside" -eq 0 ] || bad "коммит вне зоны: $an ${c:0:8} $f — объявленная зона: $(tr '\n' ' ' < "$TMP/mine")"
+      [ "$inside" -eq 0 ] || bad "коммит вне зоны: $an ${c:0:8} $f — зона контракта $nnn: $(tr '\n' ' ' < "$TMP/mine")"
     done < <(g diff-tree -r --no-commit-id --name-only --no-renames "$c")
   done < "$TMP/commits"
 done < "$TMP/ranges"
