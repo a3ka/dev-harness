@@ -17,7 +17,9 @@
 set -euo pipefail
 
 mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Рядом обязана лежать и библиотека грамматики роли: `next_id.sh` подключает её от
+# своего каталога, а каталог здесь подставной.
+cp "$REPO/scripts/next_id.sh" "$REPO/scripts/lib_roles.sh" "$WORK/scripts/"
 
 # Положительный контроль: настоящий `next_id.sh` даёт max+1 и max+2 — зелёный.
 BARRIER_ROOT="$WORK" "$BARRIER"

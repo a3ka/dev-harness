@@ -236,13 +236,22 @@ case "$class" in
     locations=("plans/")
     ;;
   VERDICT)
+    # Локации выводятся из объявлений ролей ЕДИНСТВЕННОЙ реализацией грамматики
+    # (`scripts/lib_roles.sh`). Прежняя редакция выхватывала значение однострочным `grep` по
+    # `roles/*.md`: фронтматтер не читался, значение не валидировалось, подкаталоги не
+    # обходились — и роль с `verdict: verdicts/*/` МОЛЧА выпадала из области. Найдено
+    # ревьюером (`verdicts/review/shag-5.md`, находка 3); неразобранное объявление — отказ.
+    # От САМОГО скрипта, а не от проверяемого дерева: `$HERE` — корень, названный аргументом,
+    # и подключение оттуда означало бы, что код барьера приходит из предмета проверки.
+    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_roles.sh"
     [ -d "$HERE/roles" ] || skip "нет каталога roles/ — для VERDICT локации выводятся из verdict: ролей"
-    while IFS= read -r p; do
-      [ -n "$p" ] || continue
-      locations+=("$p")
-    done < <(grep -hoE '^verdict: [^[:space:]]+' "$HERE"/roles/*.md \
-              | grep -v 'null' \
-              | sed 's/^verdict: //')
+    while IFS=$'\t' read -r status path value; do
+      case "$status" in
+        ok)      locations+=("$value") ;;
+        null)    ;;
+        invalid) die "роль вне объявленной грамматики: $path значение «$value» — префикс обязан завершаться /, быть относительным, без шаблонов и ..; выход: привести к грамматике" ;;
+      esac
+    done < <(role_declarations "$HERE")
     [ "${#locations[@]}" -gt 0 ] \
       || skip "ни одна роль не объявила verdict: кроме null — VERDICT выдавать некуда"
     ;;

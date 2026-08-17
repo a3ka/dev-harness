@@ -20,7 +20,7 @@ mkdir -p plans
 git commit --allow-empty -q -m "основание"
 
 # Положительный контроль: валидный класс — барьер печатает номер, код 0.
-BARRIER_ROOT="$WORK" "$BARRIER" PLAN
+"$BARRIER" "$WORK" PLAN
 
 # Вносим обман: несуществующий класс.
-BARRIER_ROOT="$WORK" "$BARRIER" FOO
+"$BARRIER" "$WORK" FOO

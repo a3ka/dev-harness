@@ -13,11 +13,9 @@
 set -euo pipefail
 
 cd "$WORK"
-# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
-# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
-# только сам вызванный барьер.
-mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Корень передаётся АРГУМЕНТОМ: барьер бежит из своего каталога и находит рядом свою
+# библиотеку. Прежняя редакция подменяла каталог барьера и копировала соседей руками —
+# копия отставала от предмета при каждом новом соседе.
 git init -q .
 git config user.email "fixture@test"
 git config user.name "fixture"
@@ -37,11 +35,11 @@ git tag id/VERDICT/001 -m "выдача механизмом"
 git tag id/VERDICT/002 -m "выдача механизмом"
 
 # Положительный контроль: 001 на прямой глубине + 002 в подкаталоге, оба с тегами.
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"
 
 # Вносим обман: второй файл с тем же номером 002 в том же подкаталоге — дубль.
 printf '# дубль в подкаталоге\n' > verdicts/newrole/2026/002-b.md
 git add -A
 git commit -q -m "ручной дубль в подкаталоге"
 
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"

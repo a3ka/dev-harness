@@ -12,11 +12,9 @@
 set -euo pipefail
 
 cd "$WORK"
-# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
-# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
-# только сам вызванный барьер.
-mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Корень передаётся АРГУМЕНТОМ: барьер бежит из своего каталога и находит рядом свою
+# библиотеку. Прежняя редакция подменяла каталог барьера и копировала соседей руками —
+# копия отставала от предмета при каждом новом соседе.
 git init -q .
 git config user.email "fixture@test"
 git config user.name "fixture"
@@ -30,7 +28,7 @@ git commit -q -m "first plan"
 git tag id/PLAN/001 -m "выдача механизмом"
 
 # Положительный контроль: один план, тег есть, номер согласован с регистром.
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"
 
 # Вносим обман: план 999 закоммичен, но `id/PLAN/999` НЕТ — номер назначен рукой, а не
 # механизмом. Прежняя редакция не ловила этот случай, потому что коммит файла добавлял
@@ -40,4 +38,4 @@ printf '# ручной номер\n' > plans/999-manual.md
 git add plans/
 git commit -q -m "ручной номер 999 без тега выдачи"
 
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"

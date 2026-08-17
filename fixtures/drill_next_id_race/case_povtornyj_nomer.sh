@@ -16,7 +16,9 @@
 # «дрилл красен потому, что выдача сломана».
 set -euo pipefail
 mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Рядом обязана лежать и библиотека грамматики роли: `next_id.sh` подключает её от
+# своего каталога, а каталог здесь подставной.
+cp "$REPO/scripts/next_id.sh" "$REPO/scripts/lib_roles.sh" "$WORK/scripts/"
 BARRIER_ROOT="$WORK" "$BARRIER"
 
 # Подставной барьер: всегда выдаёт «001», оба вызова совпадают — дрилл обязан отказать.

@@ -10,12 +10,9 @@
 set -euo pipefail
 
 cd "$WORK"
-# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
-# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
-# только сам вызванный барьер, и без этой копии `parse_artifact_basename: command not found`,
-# барьер выходит зелёным молча. Дрилл-фикстуры делают то же (см. `case_povtornyj_nomer.sh`).
-mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Корень передаётся АРГУМЕНТОМ: барьер бежит из своего каталога и находит рядом свою
+# библиотеку. Прежняя редакция подменяла каталог барьера и копировала соседей руками —
+# копия отставала от предмета при каждом новом соседе.
 git init -q .
 git config user.email "fixture@test"
 git config user.name "fixture"
@@ -29,7 +26,7 @@ git commit -q -m "first plan"
 git tag id/PLAN/001 -m "выдача механизмом"
 
 # Положительный контроль: один план, тег есть, дубликатов нет.
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"
 
 # Вносим обман: второй план под тем же номером 001, закоммичен рукой — без тега.
 # Это и есть та гонка, которую теперь ловит реестр выдачи: номер занят тегом, новый файл
@@ -38,4 +35,4 @@ printf '# второй план\n' > plans/001-bar.md
 git add plans/
 git commit -q -m "second plan with duplicate number, no tag"
 
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"

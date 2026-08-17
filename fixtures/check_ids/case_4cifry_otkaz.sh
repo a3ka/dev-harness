@@ -15,11 +15,9 @@
 set -euo pipefail
 
 cd "$WORK"
-# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
-# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
-# только сам вызванный барьер.
-mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Корень передаётся АРГУМЕНТОМ: барьер бежит из своего каталога и находит рядом свою
+# библиотеку. Прежняя редакция подменяла каталог барьера и копировала соседей руками —
+# копия отставала от предмета при каждом новом соседе.
 git init -q .
 git config user.email "fixture@test"
 git config user.name "fixture"
@@ -32,7 +30,7 @@ git commit -q -m "first plan with valid 007"
 git tag id/PLAN/007 -m "выдача механизмом"
 
 # Положительный контроль: один план, тег есть, формат правильный.
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"
 
 # Вносим обман: тот же номер 7 в записи с четырьмя цифрами — `plans/0007-x.md`.
 # Это и есть тот же идентификатор в другой записи: 0007 = 007 как число. Прежняя
@@ -41,4 +39,4 @@ printf '# план с четырьмя цифрами\n' > plans/0007-x.md
 git add plans/
 git commit -q -m "ручной 0007-x.md без тега выдачи"
 
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"

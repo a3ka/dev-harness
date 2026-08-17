@@ -15,11 +15,9 @@
 set -euo pipefail
 
 cd "$WORK"
-# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
-# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
-# только сам вызванный барьер.
-mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Корень передаётся АРГУМЕНТОМ: барьер бежит из своего каталога и находит рядом свою
+# библиотеку. Прежняя редакция подменяла каталог барьера и копировала соседей руками —
+# копия отставала от предмета при каждом новом соседе.
 
 git init -q -b main
 git config user.email "fixture@test"
@@ -35,7 +33,7 @@ git add plans/
 git commit -q -m "branch a issued 001"
 git tag id/PLAN/001 -m "выдача механизмом"
 
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"
 
 # Обман: вторая ветка со своим `007-a.md` и тегом `id/PLAN/007`. Первая ветка
 # (`branch-a`) уже есть на main с 001; создаём `branch-b` от корня со своим 007.
@@ -65,4 +63,4 @@ ls plans/ >&2
 echo "---tags:" >&2
 git for-each-ref --format='%(refname:short)' 'refs/tags/' >&2
 
-BARRIER_ROOT="$WORK" "$BARRIER"
+"$BARRIER" "$WORK"

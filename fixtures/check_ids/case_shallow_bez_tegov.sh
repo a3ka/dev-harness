@@ -21,11 +21,9 @@
 set -euo pipefail
 
 cd "$WORK"
-# `check_ids.sh` импортирует разбор имени из `next_id.sh` через `NEXT_ID_LIB=1 source`.
-# Копируем `next_id.sh` рядом: обёртка `verify_antiplacebo` копирует в `$WORK/scripts/`
-# только сам вызванный барьер.
-mkdir -p "$WORK/scripts"
-cp "$REPO/scripts/next_id.sh" "$WORK/scripts/"
+# Корень передаётся АРГУМЕНТОМ: барьер бежит из своего каталога и находит рядом свою
+# библиотеку. Прежняя редакция подменяла каталог барьера и копировала соседей руками —
+# копия отставала от предмета при каждом новом соседе.
 
 # Создаём исходный репозиторий: артефакты с тегами реестра. Это «честное» дерево.
 rm -rf "$WORK/source" "$WORK/shallow-clone"
@@ -44,7 +42,7 @@ git tag id/PLAN/005 -m "выдача механизмом"
 
 # Положительный контроль: на исходном репозитории барьер зелёный (ветка (а),
 # полный реестр).
-BARRIER_ROOT="$WORK/source" "$BARRIER"
+"$BARRIER" "$WORK/source"
 
 # Теперь shallow-клон. `--depth 1` обрезает историю, и теги реестра (как и все
 # остальные refs/tags, не в HEAD) НЕ подтягиваются (`git clone --depth 1` подтягивает
@@ -63,4 +61,4 @@ echo "shallow=$(git rev-parse --is-shallow-repository)" >&2
 echo "tags=$(git tag -l 'id/*' | tr '\n' ' ')" >&2
 echo "files=$(ls plans/)" >&2
 
-BARRIER_ROOT="$WORK/shallow-clone" "$BARRIER"
+"$BARRIER" "$WORK/shallow-clone"
