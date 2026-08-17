@@ -59,7 +59,7 @@
 Работа ДЕЛИТСЯ — впервые под новым регламентом, и зоны объявлены построчно:
 
 ЗОНА implementer: .omp/config.yml workshop scripts/check_decisions.sh fixtures/check_decisions/ decisions/ roles/steward.md .omp/agents/ package.json config/ .github/workflows/ci.yml
-ЗОНА architect: AGENTS.md roles/arbiter.md scripts/roles.ts plans/006-approval-mode-and-steward.md contracts/002-approval-mode-steward.md NABLIUDENIA.md
+ЗОНА architect: AGENTS.md roles/arbiter.md scripts/roles.ts plans/006-approval-mode-and-steward.md contracts/002-approval-mode-steward.md NABLIUDENIA.md .omp/agents/
 Разделение по предмету, не по удобству: исполнитель строит МЕХАНИЗМ — политику входа, реестр,
 барьер, роль steward и ПРОВОДКУ новых команд в приёмку и CI (правило 6: барьер вне CI не
 барьер); архитектор несёт НОРМУ — `AGENTS.md` и `roles/arbiter.md` уставные, правки требуют
@@ -75,6 +75,12 @@
 оба были вне зоны, и заморозка v2 краснела на собственных коммитах архитектора. Урок Н-22
 подтверждён дважды за один майлстоун: зона обязана покрывать ВСЁ, что её автор правит
 в диапазоне, включая процедурные правки самого контракта.
+
+Правка v3: `.omp/agents/` — в зону architect. СГЕНЕРИРОВАННЫЙ артефакт принадлежит зоне
+ГЕНЕРАТОРА: агенты порождаются из roles/ + scripts/roles.ts одной командой, и правка роли
+неминуемо меняет их. Зона v2 снова разрезала связку — барьер поймал на коммите архитектора.
+Реестр decisions/ получил номера тегами id/ADR/* механизмом (--backfill): пространство
+номеров ADR и есть пространство решений, ручные номера без тега — «назначен рукой».
 
 
 ### Перечень семи решений — именной, источник каждого назван коммитом
