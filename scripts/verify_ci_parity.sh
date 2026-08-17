@@ -88,7 +88,44 @@
 # `config/ci_parity_exceptions.txt`. `check:overlay` отдельно: его предмет — местное
 # основание контура (omp 185 МБ), в CI он бы и был, и возвращал бы NOT_IMPLEMENTED. Это
 # тоже объявленное исключение: исключение, которое в CI ничего не проверяет, ничем не
-# отличается от необъявленной дыры, и записать причину обязательно.
+#
+# ПОДСТАНОВКА КОМАНД И ВЛОЖЕННЫЕ ЗАПУСКИ. `echo "$(npm run x)"`, `eval 'npm run x'`,
+# `sh -c 'npm run x'`, `` `npm run x` `` запускают `npm run x` через синтаксис, и
+# барьер не имеет права видеть только внешнюю команду — иначе её разрешение
+# (исключением или приёмкой) маскирует вложенный запуск непокрытого пункта. Здесь
+# барьер РАЗБИРАЕТ вложенные запуски: из `$(...)`, обратных кавычек, `eval`/`exec`,
+# `bash -c`/`sh -c` извлекается внутренний скрипт и проверяется теми же правилами,
+# что и видимая команда. `xargs <что-то>` РАЗОБРАТЬ нельзя — то, что `xargs` исполнит,
+# зависит от stdin, и не увидеть его в принципе; такие команды отказываются с
+# названной причиной, потому что молчаливый пропуск здесь был бы ровно тем гейтом,
+# что зеленее CI, против которого барьер и заведён.
+#
+# ОБЛАСТЬ ОБХОДА ПОПОЛНЯЕТСЯ ЧЕРЕЗ `uses: <ОТН.ПУТЬ>`. Прежняя редакция жёстко
+# обходила `.github/**`, и `uses: ../../tools/act` оставался за бортом — Actions по
+# указанному относительному пути исполняет локальный composite action, где бы он
+# ни лежал. Здесь к обходу добавляется каждый `uses:` с путём, начинающимся на `.`
+# (`./X`, `../X`), разрешённый ОТНОСИТЕЛЬНО КАТАЛОГА ФАЙЛА WORKFLOW (так работает
+# сам `uses:`); неразрешимый путь даёт отказ с названной причиной, а не молчаливый
+# пропуск — ровно по той же логике, что и `xargs` выше.
+#
+# HEREDOC — ДАННЫЕ, А НЕ КОМАНДЫ. Строки внутри `<<EOF ... EOF` оболочка НЕ
+# исполняет, и разборщик не должен считать их командами: тело heredoc («это просто
+# текст, не запускай меня») проходит как пункт приёмки и зеленеет, а тело heredoc
+# как команда даёт ЛОЖНОЕ КРАСНОЕ. Ложное красное здесь опаснее скучного: ему
+# перестают верить, и следующий отказ читают как шум. Здесь `<<MARKER` (с
+# необязательными `-`, `'`, `"`) переводит разбор в режим «до маркера на отдельной
+# строке», и тело вместе с маркером не разбивается на команды.
+#
+# УСЛОВИЕ ШАГА `if:` — НЕ КОМАНДА, А ШЛЮЗ. Шаг с `if: false` Actions НИКОГДА не
+# исполняет, и его `run:` не считается покрытием приёмки: пункт приёмки, покрытый
+# неисполняемым шагом, выглядит покрытым — CI КАЖЕТСЯ богаче, чем есть. Здесь
+# `if: <константа-ложь>` (`false`, `'false'`, `"false"`, `0`, `'0'`, `"0"`,
+# `null`, `~`, `no`, `off`) означает «шаг пропущен», и его `run:` НЕ извлекается.
+# Выражения `${{ ... }}` и условия по событию (`github.event_name == 'push'`,
+# `failure()`, `always()`) здесь НЕ считаются константно-ложными — Actions их
+# вычисляет на прогоне, и в проводке есть законный `if: github.event_name == 'push'`
+# у `check:no-rewrite`, который здесь ломать нельзя. Признак распознавания —
+# литерал БЕЗ открывающей `${{` в начале.
 #
 # ОТСУТСТВИЕ ИНСТРУМЕНТА НАЗЫВАЕТСЯ ВСЛУХ. Без `python3` разбирать нечем, и барьер выходит
 # кодом «нечем проверить» с названной причиной, а не падает необъявленным кодом от
@@ -376,13 +413,45 @@ def parse_yaml(path):
     return doc
 
 
+# ── условие шага ───────────────────────────────────────────────────────────────
+# `if: <константа-ложь>` (`false`, `'false'`, `"false"`, `0`, `'0'`, `"0"`, `null`,
+# `~`, `no`, `off`) означает «шаг пропущен». Выражения `${{ ... }}` и условия по
+# событию (`github.event_name == 'push'`, `failure()`, `always()`) — НЕ константно-
+# ложные, Actions их вычисляет. Признак распознавания — литерал БЕЗ открывающей
+# `${{` в начале; пробелов по краям быть не должно.
+FALSE_LITERALS = frozenset(('false', '0', 'null', '~', 'no', 'off'))
+
+
+def is_constant_false_if(value):
+    if not isinstance(value, str):
+        return False
+    stripped = value.strip()
+    if not stripped:
+        return False
+    # Выражения `${{ ... }}` не считаются константой: Actions вычисляет их на прогоне.
+    if stripped.startswith('${{') and stripped.endswith('}}'):
+        return False
+    return stripped in FALSE_LITERALS
+
+
 def collect_runs(node, out):
-    """`run:` ЭЛЕМЕНТА `steps` — и только он: значение `env.run` запуском не является."""
+    """`run:` ЭЛЕМЕНТА `steps` — и только он: значение `env.run` запуском не является.
+
+    Шаг с константно-ложным `if:` Actions НИКОГДА не исполняет, и его `run:` здесь
+    НЕ извлекается — иначе пункт приёмки, покрытый неисполняемым шагом, выглядел бы
+    покрытым, а CI его не запускает (CI КАЖЕТСЯ богаче, чем есть). Выражения и
+    условия по событию пропускаются фильтром и идут обычным путём.
+    """
     if isinstance(node, dict):
         for key, (val, _lineno) in node.items():
             if key == 'steps' and isinstance(val, list):
                 for item in val:
                     if isinstance(item, dict) and 'run' in item:
+                        if 'if' in item:
+                            if_tuple = item['if']
+                            if isinstance(if_tuple, tuple) and \
+                                    is_constant_false_if(if_tuple[0]):
+                                continue
                         rv, rl = item['run']
                         if isinstance(rv, str) and rv.strip():
                             out.append((rl, rv))
@@ -392,6 +461,20 @@ def collect_runs(node, out):
             collect_runs(item, out)
 
 
+def collect_uses_refs(node, out):
+    """Собирает `uses: <путь>` ссылки на локальные composite actions. Локальные пути
+    начинаются с `.` (`./X` или `../X`); внешние (`owner/repo@ref`) и `docker://…`
+    пропускаются — их исходный код не принадлежит этому дереву, и сверять его с
+    `package.json` было бы ложной мерой."""
+    if isinstance(node, dict):
+        for key, (val, _lineno) in node.items():
+            if key == 'uses' and isinstance(val, str) and val.startswith('.'):
+                out.append(val)
+            collect_uses_refs(val, out)
+    elif isinstance(node, list):
+        for item in node:
+            collect_uses_refs(item, out)
+
 # ── shell-сценарий → команды ───────────────────────────────────────────────────
 # Служебные слова снимаются с начала команды: `then npm run x` — запуск `npm run x`.
 KEYWORDS = {'if', 'then', 'else', 'elif', 'fi', 'while', 'until', 'do', 'done', 'case',
@@ -399,7 +482,15 @@ KEYWORDS = {'if', 'then', 'else', 'elif', 'fi', 'while', 'until', 'do', 'done', 
 
 
 def split_commands(script):
-    cmds, cur, quote, i, n = [], [], None, 0, len(script)
+    """Разбивает shell-сценарий на отдельные команды.
+
+    Тело heredoc (`<<MARKER ... MARKER`) — данные, а не команды: оболочка его НЕ
+    исполняет, и разборщик не должен считать строки тела командами. Признак
+    входа в режим heredoc — `<<MARKER` (с необязательными `-`, `'`, `"`) на границе
+    слова. Выход — строка, в которой после зачистки пробелов/табов стоит ровно
+    маркер. Тело и маркер пропускаются, не разбиваясь на команды.
+    """
+    cmds, cur, quote, heredoc, i, n = [], [], None, None, 0, len(script)
 
     def flush():
         text = ''.join(cur).strip()
@@ -408,6 +499,16 @@ def split_commands(script):
             cmds.append(text)
 
     while i < n:
+        # Режим heredoc: ищем маркер на отдельной строке, тело пропускаем.
+        if heredoc is not None:
+            nl = script.find('\n', i)
+            if nl == -1:
+                nl = n
+            if script[i:nl].strip() == heredoc:
+                heredoc = None
+            i = nl + 1 if nl < n else n
+            continue
+
         c = script[i]
         if quote:
             cur.append(c)
@@ -430,7 +531,7 @@ def split_commands(script):
             if i + 1 < n:
                 cur.append(script[i + 1])
                 i += 2
-                continue
+            continue
             i += 1
             continue
         if c in '"\'':
@@ -450,6 +551,31 @@ def split_commands(script):
             cur.append(c)  # `2>&1` — тоже перенаправление
             i += 1
             continue
+
+        # Heredoc: `<<MARKER`, `<<-MARKER`, `<<'MARKER'`, `<<"MARKER">>`.
+        # Только на границе слова — иначе `a<<EOF` это не оператор перенаправления.
+        if c == '<' and i + 1 < n and script[i + 1] == '<' and (not cur or cur[-1].isspace()):
+            j = i + 2
+            if j < n and script[j] == '-':
+                j += 1
+            qc = None
+            if j < n and script[j] in '"\'':
+                qc = script[j]
+                j += 1
+            m_start = j
+            while j < n and (script[j].isalnum() or script[j] in '_-'):
+                j += 1
+            if j > m_start:
+                marker = script[m_start:j]
+                if qc and j < n and script[j] == qc:
+                    j += 1
+                # Маркер — часть команды: `cat <<EOF`, `tee <<-'EOF'`. Тело и финальный
+                # маркер НЕ добавляются в cur — они не команды.
+                cur.append(script[i:j])
+                i = j
+                heredoc = marker
+                continue
+
         if c in '\n;&|':
             flush()
             if c in '&|;' and i + 1 < n and script[i + 1] == c:
@@ -466,11 +592,96 @@ def split_commands(script):
         while words and words[0] in KEYWORDS:
             words.pop(0)
         if words:
-            out.append(' '.join(words) if False else cmd[cmd.index(words[0]):].strip())
+            out.append(cmd[cmd.index(words[0]):].strip())
     return out
 
 
-all_cmds = []
+# ── извлечение вложенных скриптов из непрозрачных обёрток ───────────────────────
+# `echo "$(npm run x)"`, `eval 'npm run x'`, `sh -c 'npm run x'`, `` `npm run x` ``
+# скрывают запуск скрипта за синтаксисом оболочки. Барьер не имеет права видеть
+# только внешнюю команду — её разрешение маскировало бы вложенный запуск. Здесь
+# внутренний скрипт извлекается и проверяется теми же правилами, что и видимая
+# команда; `xargs` отказывается (его аргументы приходят из stdin и невидимы).
+XARGS_RE = re.compile(r'(?:^|\s)xargs(?:\s|$)')
+
+
+def is_xargs_opaque(cmd):
+    return bool(XARGS_RE.search(cmd))
+
+
+def extract_inner_scripts(cmd):
+    """Возвращает список строк-скриптов, скрытых внутри `$(...)`, обратных кавычек,
+    `eval <arg>`, `exec <arg>`, `bash -c <arg>`, `sh -c <arg>`. Кавычки вокруг
+    единственного аргумента снимаются; вложенные скрипты разбираются тем же
+    `split_commands` снаружи."""
+    inners = []
+
+    # $(...) command substitution
+    i = 0
+    while i < len(cmd):
+        if cmd[i] == '$' and i + 1 < len(cmd) and cmd[i + 1] == '(':
+            depth = 1
+            j = i + 2
+            while j < len(cmd) and depth > 0:
+                if cmd[j] == '(':
+                    depth += 1
+                elif cmd[j] == ')':
+                    depth -= 1
+                j += 1
+            if depth == 0:
+                inners.append(cmd[i + 2:j - 1])
+            i = j
+        else:
+            i += 1
+
+    # Backticks `...` — то же, что $(), но старый синтаксис; экранирование `\``
+    # внутри строки здесь игнорируется — на практике в CI такие скрипты не пишут.
+    i = 0
+    while i < len(cmd):
+        if cmd[i] == '`':
+            j = i + 1
+            while j < len(cmd) and cmd[j] != '`':
+                if cmd[j] == '\\' and j + 1 < len(cmd):
+                    j += 2
+                    continue
+                j += 1
+            if j < len(cmd):
+                inners.append(cmd[i + 1:j])
+            i = j + 1
+        else:
+            i += 1
+
+    # eval / exec / bash -c / sh -c — внешняя команда с ОДНИМ строковым аргументом-
+    # скриптом. Берётся первый аргумент, без опций (`-c` для bash/sh, `-l` и пр.).
+    stripped = cmd.lstrip()
+    words = stripped.split(None, 1)
+    if len(words) >= 2:
+        head, rest = words[0], words[1]
+        if head in ('eval', 'exec'):
+            arg = rest.strip()
+            if len(arg) >= 2 and arg[0] in '"\'' and arg[-1] == arg[0]:
+                arg = arg[1:-1]
+            inners.append(arg)
+        elif head in ('bash', 'sh', 'dash', 'ksh', 'zsh'):
+            rwords = rest.split(None, 1)
+            if len(rwords) >= 2 and rwords[0] == '-c':
+                arg = rwords[1].strip()
+                if len(arg) >= 2 and arg[0] in '"\'' and arg[-1] == arg[0]:
+                    arg = arg[1:-1]
+                inners.append(arg)
+
+    return inners
+
+# ── обход дерева и сбор команд ──────────────────────────────────────────────────
+# Шаг 1: пройти `.github/**` и собрать все workflow-файлы (YAML).
+# Шаг 2: для каждого workflow собрать `uses: ./<путь>` и разрешить их ОТНОСИТЕЛЬНО
+#   каталога workflow (так работает сам `uses:`). Полученные локальные composite
+#   actions добавляются в обход. Неразрешимый путь — отказ с названной причиной.
+# Шаг 3: для каждого файла (workflow + локальные actions) разобрать YAML, собрать
+#   `run:` шагов (с фильтром константно-ложного `if:`), разбить на команды
+#   (с обработкой heredoc), развернуть непрозрачные обёртки (`$(...)`, обратные
+#   кавычки, `eval`/`exec`, `bash -c`/`sh -c`), отказать на `xargs`.
+all_files = []
 for dirpath, _dirnames, filenames in os.walk(gh_dir):
     for name in sorted(filenames):
         if not (name.endswith('.yml') or name.endswith('.yaml')):
@@ -478,16 +689,63 @@ for dirpath, _dirnames, filenames in os.walk(gh_dir):
         path = os.path.join(dirpath, name)
         if not os.path.isfile(path):
             continue
-        try:
-            doc = parse_yaml(path)
-        except Exception as e:                                    # noqa: BLE001
-            fails.append(f'{path} не разобран как YAML ({e}) — паритет по нему не сверить')
-            continue
-        runs = []
-        collect_runs(doc, runs)
-        for lineno, script in runs:
-            for cmd in split_commands(script):
-                all_cmds.append((path, lineno, cmd))
+        all_files.append(os.path.abspath(path))
+
+local_action_files = set()
+for wf_path in all_files:
+    try:
+        wf_doc = parse_yaml(wf_path)
+    except Exception:
+        continue
+    uses_refs = []
+    collect_uses_refs(wf_doc, uses_refs)
+    wf_dir = os.path.dirname(wf_path)
+    for uses_ref in uses_refs:
+        candidate = os.path.normpath(os.path.join(wf_dir, uses_ref))
+        action_file = None
+        for aname in ('action.yml', 'action.yaml'):
+            apath = os.path.join(candidate, aname)
+            if os.path.isfile(apath):
+                action_file = os.path.abspath(apath)
+                break
+        if action_file:
+            local_action_files.add(action_file)
+        else:
+            fails.append(
+                f'{wf_path}: uses {uses_ref} → {candidate} не содержит '
+                f'action.yml/action.yaml — локальный composite action не обходится'
+            )
+
+for apath in sorted(local_action_files):
+    if apath not in all_files:
+        all_files.append(apath)
+
+all_cmds = []
+for path in all_files:
+    try:
+        doc = parse_yaml(path)
+    except Exception as e:                                    # noqa: BLE001
+        fails.append(f'{path} не разобран как YAML ({e}) — паритет по нему не сверить')
+        continue
+    runs = []
+    collect_runs(doc, runs)
+    for lineno, script in runs:
+        cmds = split_commands(script)
+        # Непрозрачные команды: внутренний скрипт проверяется отдельной командой
+        # наряду с внешней; `xargs` отказывается с названной причиной.
+        expanded = []
+        for cmd in cmds:
+            expanded.append(cmd)
+            if is_xargs_opaque(cmd):
+                fails.append(
+                    f'{path}:{lineno}: команда «{cmd}» использует xargs — '
+                    f'барьер не видит, что именно исполняется через stdin; '
+                    f'перепишите без xargs'
+                )
+            for inner in extract_inner_scripts(cmd):
+                expanded.extend(split_commands(inner))
+        for cmd in expanded:
+            all_cmds.append((path, lineno, cmd))
 
 with open(out_path, 'w', encoding='utf-8') as f:
     for path, lineno, cmd in all_cmds:

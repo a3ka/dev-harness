@@ -1,11 +1,14 @@
 # ПРИЧИНА: команда «npm run check:missing» есть в CI, но нет пункта в приёмке
 #
-# Находка 2б: прежняя область обхода НЕ ЗАХОДИЛА в `.github/actions/**` вовсе, а
-# локальные composite actions (`uses: ./.github/actions/<name>`) GitHub Actions
-# исполняет. `action.yml` такого composite содержит `runs.steps: … run: <команда>`,
-# и эта команда должна быть в приёмке. Прежняя редакция прошла бы зелёной, потому
-# что обход не доходил до файла. Здесь workflow вызывает composite, а composite
+# Находка 2а: прежняя область обхода НЕ ЗАХОДИЛА в `.github/actions/**` вовсе, а
+# локальные composite actions (`uses: ../actions/<name>`) GitHub Actions исполняет.
+# `action.yml` такого composite содержит `runs.steps: … run: <команда>`, и эта
+# команда должна быть в приёмке. Прежняя редакция прошла бы зелёной, потому что
+# обход не доходил до файла. Здесь workflow вызывает composite, а composite
 # вызывает отсутствующий пункт — барьер обязан назвать команду и встать в 1.
+# Путь `../actions/hidden` указывает ОТНОСИТЕЛЬНО КАТАЛОГА ФАЙЛА WORKFLOW
+# (`.github/workflows/`) и корректно разрешается в `.github/actions/hidden` —
+# именно так `uses:` работает в самом Actions.
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
@@ -32,6 +35,6 @@ jobs:
       - name: Existing check
         run: npm run check:existing
       - name: Composite call
-        uses: ./.github/actions/hidden
+        uses: ../actions/hidden
 YAML
 "$BARRIER" "$WORK"
