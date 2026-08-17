@@ -6,6 +6,7 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 printf '\n      - name: Дополнительная проверка\n        run: npm run check:foo\n' \
   >> "$WORK/.github/workflows/ci.yml"
 "$BARRIER" "$WORK"

@@ -8,6 +8,7 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 # Перезаписать workflow многострочным блоком, в котором лишняя команда спрятана второй
 # строкой. Первая строка легитимна (`npm run check:existing` есть в scripts), вторая —
 # лишняя.

@@ -5,6 +5,7 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 mkdir -p "$WORK/fixtures/verify_ghost"
 printf '# ПРИЧИНА: неважно\ntrue\n' > "$WORK/fixtures/verify_ghost/case_a.sh"
 "$BARRIER" "$WORK"

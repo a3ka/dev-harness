@@ -6,5 +6,6 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 : > "$WORK/scripts/verify_probe.sh"
 "$BARRIER" "$WORK"

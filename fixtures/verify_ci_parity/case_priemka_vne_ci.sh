@@ -7,6 +7,7 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 # Заменить приёмку на вариант с лишним скриптом.
 python3 -c '
 import json, sys

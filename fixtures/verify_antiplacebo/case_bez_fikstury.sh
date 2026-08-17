@@ -5,5 +5,6 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 rm -rf "$WORK/fixtures/verify_toy"
 "$BARRIER" "$WORK"

@@ -5,5 +5,6 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 printf '# ПРИЧИНА: игрушка сломана\ntrue\n' > "$WORK/fixtures/verify_toy/case_slomano.sh"
 "$BARRIER" "$WORK"

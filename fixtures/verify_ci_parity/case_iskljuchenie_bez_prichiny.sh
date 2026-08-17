@@ -8,8 +8,9 @@
 set -euo pipefail
 . "$(dirname "$0")/_fake_root.sh"
 fake_root "$WORK"
+"$BARRIER" "$WORK"
 # Перезаписать исключения: одна валидная запись + одна без причины.
-cat > "$WORK/fixtures/verify_ci_parity/exceptions.txt" <<'TXT'
+cat > "$WORK/config/ci_parity_exceptions.txt" <<'TXT'
 # Подставные исключения для фикстуры: одна запись с причиной, одна — без.
 check:unused = подставное дерево: скрипт не в CI и не используется в подставном workflow; объявлен исключением, чтобы барьер был зелёным на минимальной основе
 check:overlay
