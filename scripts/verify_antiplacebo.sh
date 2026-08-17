@@ -156,17 +156,28 @@ mkdir -p "$RUN"
 # быть той же мерой.
 INVOKE="$RUN/invoke.sh"
 cat > "$INVOKE" <<'INV'
-ap_invoke() {  # <барьер> <подставной корень или пусто> <argv...>
-  local real="$1" root="$2"; shift 2
+ap_invoke() {  # <барьер> <подставной корень или пусто> <файл окружения или пусто> <argv...>
+  local real="$1" root="$2" envfile="$3"; shift 3
   if [ -n "$root" ]; then
     mkdir -p "$root/scripts"
     cp "$real" "$root/scripts/$(basename "$real")"
     real="$root/scripts/$(basename "$real")"
   fi
+  local cmd=()
   case "$real" in
-    *.ts) node "$real" "$@" ;;
-    *)    if [ -x "$real" ]; then "$real" "$@"; else bash "$real" "$@"; fi ;;
+    *.ts) cmd=(node "$real") ;;
+    *)    if [ -x "$real" ]; then cmd=("$real"); else cmd=(bash "$real"); fi ;;
   esac
+  # ОКРУЖЕНИЕ — часть условий, в которых барьер краснел. Адверсарий предъявил это на
+  # механизме 3: фикстура `overlay` кладёт подставной `omp` в свой PATH, повторный прогон
+  # проверяющего запускался БЕЗ него и получал код 2 вместо красного. Повтор, не
+  # воспроизводящий условий, повтором не является.
+  if [ -n "$envfile" ] && [ -s "$envfile" ]; then
+    local pairs=(); mapfile -d '' -t pairs < "$envfile"
+    env -i "${pairs[@]}" "${cmd[@]}" "$@"
+  else
+    "${cmd[@]}" "$@"
+  fi
 }
 INV
 . "$INVOKE"
@@ -188,7 +199,8 @@ printf '%s' "${BARRIER_ROOT:-}" > "$inv/root"
 printf '%s' "$PWD"              > "$inv/cwd"
 : > "$inv/argv"
 for a in "$@"; do printf '%s\0' "$a" >> "$inv/argv"; done
-ap_invoke "$AP_REAL" "${BARRIER_ROOT:-}" "$@" > "$inv/out" 2>&1
+env -0 > "$inv/env"
+ap_invoke "$AP_REAL" "${BARRIER_ROOT:-}" '' "$@" > "$inv/out" 2>&1
 rc=$?
 printf '%s' "$rc" > "$inv/rc"
 cat "$inv/out"
@@ -299,7 +311,7 @@ for b in "${barriers[@]}"; do
       rroot="$(cat "$candidate/root")"; rcwd="$(cat "$candidate/cwd")"
       rargv=(); mapfile -d '' -t rargv < "$candidate/argv" 2>/dev/null || true
       set +e
-      ( cd "$rcwd" && ap_invoke "$b" "$rroot" "${rargv[@]}" ) > "$candidate/rerun.out" 2>&1
+      ( cd "$rcwd" && ap_invoke "$b" "$rroot" "$candidate/env" "${rargv[@]}" ) > "$candidate/rerun.out" 2>&1
       rrc=$?
       set -e
       if [ "$rrc" = "0" ] || [ "$rrc" = "2" ] || ! in_list "$rrc" "$declared"; then

@@ -31,15 +31,34 @@ mkdir -p "$ROOT/tmp"
 W="$(mktemp -d "$ROOT/tmp/drill-allow.XXXXXX")"
 trap 'rm -rf "$W"' EXIT
 
-g() { git -C "$W" -c user.name=Дрилл -c user.email=drill@local "$@"; }
+# ГЕРМЕТИЧНОСТЬ, а не аккуратность. Адверсарий предъявил измерением: с глобальной
+# `commit.gpgsign` без ключа основание не создаётся и дрилл аварийно выходит 128, а с
+# `core.hooksPath`, отвергающим коммит, — 1 без собственного текста. Контракт объявляет 0/1/2,
+# и внешний конфиг менял исход ДО запуска проверяемого барьера: дрилл был бы ложно-красным на
+# другой машине и не доказывал бы заявленную зелёную ветвь.
+g() {
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git -C "$W" \
+      -c user.name=Дрилл -c user.email=drill@local \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null \
+      -c init.defaultBranch=main "$@"
+}
 
 mkdir -p "$W/roles" "$W/verdicts/adversary" "$W/plans"
 printf -- '---\nname: adversary\nverdict: verdicts/adversary/\n---\n' > "$W/roles/adversary.md"
 printf 'вердикт\n' > "$W/verdicts/adversary/v-1.md"
 printf 'план\n'    > "$W/plans/001-p.md"
-git init -q -b main "$W"
-g add -A
-g commit -q -m 'основание'
+
+# Провал ПОСТРОЕНИЯ основания — это «нечем проверить», а не «исключение не работает». Иначе
+# дефект окружения читался бы как дефект предмета, а ложная мера дороже отсутствующей.
+base_or_skip() {
+  "$@" && return 0
+  printf 'NOT_IMPLEMENTED: не удалось построить подставную историю (%s) — окружение git мешает\n' "$1" >&2
+  exit 2
+}
+base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$W"
+base_or_skip g add -A
+base_or_skip g commit -q -m 'основание'
 
 g rm -q verdicts/adversary/v-1.md
 g commit -q -F - <<'MSG'
