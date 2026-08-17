@@ -1,0 +1,42 @@
+# ПРИЧИНА: одинаковый номер
+#
+# Дефект «подкаталог роли полностью выпадал»: прежняя `check_ids.sh` обходила локации
+# только на глубине 1, и `verdicts/newrole/2026/002-x.md` не видела, как и
+# `next_id.sh`, которая не учитывала такие файлы при подсчёте максимума. Два файла с
+# одним номером 002 в подкаталоге проходили обе проверки — инвариант нарушался молча.
+#
+# Фикстура строит дерево с новой ролью `newrole`, у которой в каталоге
+# `verdicts/newrole/2026/` лежат ДВА файла с номером 002 (выданы механизмом — оба с
+# тегами), а в корне каталога — файл 001. Положительный контроль: один файл 002 в
+# подкаталоге — зелёный. Красное: добавлен второй 002 — барьер называет ОБА пути,
+# подкаталог не скрывает дубликат.
+set -euo pipefail
+
+cd "$WORK"
+git init -q .
+git config user.email "fixture@test"
+git config user.name "fixture"
+git config commit.gpgsign false
+git config core.hooksPath /dev/null
+mkdir -p roles verdicts/newrole/2026
+# Объявляем новую роль с verdict-локацией. Реестр выдачи по `verdict:` — это и есть тот
+# механизм, что не даёт «хардкоженному списку» отстать от предмета.
+printf -- '---\nrole: newrole\nverdict: verdicts/newrole/\n---\n' > roles/newrole.md
+printf '# первый\n' > verdicts/newrole/001-a.md
+mkdir -p verdicts/newrole/2026
+printf '# в подкаталоге\n' > verdicts/newrole/2026/002-a.md
+git add -A
+git commit -q -m "один файл в подкаталоге"
+# 001 — на прямой глубине, 002 — в подкаталоге; оба с тегами, дубля пока нет.
+git tag id/VERDICT/001 -m "выдача механизмом"
+git tag id/VERDICT/002 -m "выдача механизмом"
+
+# Положительный контроль: 001 на прямой глубине + 002 в подкаталоге, оба с тегами.
+BARRIER_ROOT="$WORK" "$BARRIER"
+
+# Вносим обман: второй файл с тем же номером 002 в том же подкаталоге — дубль.
+printf '# дубль в подкаталоге\n' > verdicts/newrole/2026/002-b.md
+git add -A
+git commit -q -m "ручной дубль в подкаталоге"
+
+BARRIER_ROOT="$WORK" "$BARRIER"
