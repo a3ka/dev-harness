@@ -21,6 +21,11 @@
     "drill:next-id-race": "bash scripts/drill_next_id_race.sh",
     "check:ids": "bash scripts/check_ids.sh",
     "next:id": "bash scripts/next_id.sh",
-    "check:no-rewrite": "bash scripts/check_no_rewrite.sh"
+    "check:no-rewrite": "bash scripts/check_no_rewrite.sh",
+    "check:contract-frozen": "bash scripts/check_contract_frozen.sh",
+    "check:zones": "bash scripts/check_zones.sh",
+    "check:charter": "bash scripts/check_charter.sh",
+    "drill:contract-change": "bash scripts/drill_contract_change.sh",
+    "freeze:contract": "bash scripts/freeze_contract.sh"
   }
 }
