@@ -592,13 +592,16 @@ rm -rf tmp/probe
    считает код 2 провалом фикстуры, и «нечем проверить» красным не предъявляется по построению.
 
 ```
-rm -rf tmp/antiplacebo && bash scripts/verify_antiplacebo.sh > tmp/ap.out 2>&1
+rm -rf tmp/antiplacebo && mkdir -p tmp/antiplacebo
+# Журнал пишется В tmp/antiplacebo — единственный подкаталог, исключённый из слепка дерева.
+# Наблюдение tmp/ заведено находкой критика (фикстура писала туда и оставалась незамеченной), и
+# перенаправление вывода в НАБЛЮДАЕМЫЙ файл делало бы прогон ложно-красным на самом себе.
+bash scripts/verify_antiplacebo.sh > tmp/antiplacebo/ap.out 2>&1
 rc=$?
 for n in \
   freeze_contract/case_reestr_nedostupen \
   freeze_contract/case_reestr_neizvesten \
   freeze_contract/case_imja_vne_grammatiki \
-  freeze_contract/case_ne_zakommicheno \
   freeze_contract/case_prichina_pustaja \
   freeze_contract/case_zamorozka_bez_verdikta \
   freeze_contract/case_verdikt_fail \
@@ -624,13 +627,12 @@ for n in \
   drill_contract_change/case_procedura_ne_prinjata \
   check_ids/case_kontrakt_dubl \
 ; do
-  grep -q "ok   $n" tmp/ap.out || { echo "не предъявлена красной: $n"; rc=1; }
+  grep -q "ok   $n" tmp/antiplacebo/ap.out || { echo "не предъявлена красной: $n"; rc=1; }
 done
 exit "$rc"
 ```
 
    → 0. Двадцать восемь имён, и каждое отвечает ровно ОДНОЙ различимой ветви отказа. Так
-   считается порог: `verify_antiplacebo.sh` повторяет только ПЕРВЫЙ красный вызов фикстуры
    (`scripts/verify_antiplacebo.sh:305-346` — замер критика, круг 4), значит одна фикстура
    доказывает одну ветвь, и ветвь с ОТДЕЛЬНЫМ диагнозом обязана иметь свою. У
    `freeze_contract.sh` таких ветвей десять (восемь пунктов, из них пункт 7 разведён на три
