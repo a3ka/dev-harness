@@ -25,6 +25,7 @@
     "check:contract-frozen": "bash scripts/check_contract_frozen.sh",
     "check:zones": "bash scripts/check_zones.sh",
     "check:charter": "bash scripts/check_charter.sh",
+    "check:decisions": "bash scripts/check_decisions.sh",
     "drill:contract-change": "bash scripts/drill_contract_change.sh",
     "freeze:contract": "bash scripts/freeze_contract.sh"
   }
