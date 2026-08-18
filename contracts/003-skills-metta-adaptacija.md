@@ -77,7 +77,8 @@
 
 ## Исполнители и зоны
 
-ЗОНА implementer: skills/ scripts/check_skills.sh package.json .github/workflows/ci.yml scripts/overlay.sh
+ЗОНА implementer: skills/ package.json .github/workflows/ci.yml scripts/overlay.sh
+ЗОНА architect: contracts/003-skills-metta-adaptacija.md plans/008-skills-metta-adaptacija.md NABLIUDENIA.md HANDOFF.md fixtures/check_skills/ decisions/ roles/architect.md roles/implementer.md scripts/check_skills.sh
 ЗОНА architect: roles/architect.md roles/implementer.md contracts/003-skills-metta-adaptacija.md plans/008-skills-metta-adaptacija.md NABLIUDENIA.md HANDOFF.md fixtures/check_skills/ decisions/
 
 Связность правок (шесть прецедентов Н-22 учтены): каталог скилов, барьер, проводка и overlay —
