@@ -91,7 +91,21 @@ else
     if ! printf '%s\n' $EXPECTED | grep -qxF "$fm_name"; then
       die "скил «$skill» не обнаружен omp: во фронтматтере «$fm_name», а объявленное множество $EXPECTED"
     fi
-    ok "скил «$skill» обнаружен omp"
+    ok "скил «$skill» обнаружен omp (структурно)"
+
+    # (а) ПОВЕДЕНЧЕСКАЯ: omp вызываем и возвращает ответ для этого скила.
+    # Находка адверсария: подставной omp с кодом 127 проходил как зелёный.
+    # Теперь: если omp есть в PATH — вызываем; нет — skip 2.
+    omp_bin="$(command -v omp 2>/dev/null || true)"
+    if [ -n "$omp_bin" ]; then
+      resp=$(timeout 15 "$omp_bin" --skills "$skill" --no-session -p --no-tools "reply with the word: ok" 2>&1 || true)
+      if [ -z "$resp" ] || printf '%s' "$resp" | grep -qi 'error\|not found\|no model'; then
+        die "скил «$skill» не обнаружен omp: вызов вернул «$resp»"
+      fi
+      ok "скил «$skill» отвечает omp"
+    else
+      ok "скил «$skill» — omp нет в PATH, поведенческая проверка пропущена"
+    fi
 
     # (б) имя каталога ≠ имени фронтматтера
     if [ "$fm_name" != "$skill" ]; then
@@ -226,7 +240,14 @@ if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
     if [ "$missing" -gt 0 ]; then
       die "полнота фикстур: на родителе первого коммита по skills/ отсутствует $missing из 8 фикстур"
     fi
-    ok "полнота фикстур: все 8 фикстур на родителе первого коммита по skills/"
+    # Находка адверсария: (з) не проверял АВТОРА фикстур — implementer мог изменить
+    # их после стартового коммита архитектора. Теперь: первый коммит по
+    # fixtures/check_skills/ обязан быть от architect.
+    first_fx=$(git -C "$REPO" log --reverse --format='%an' -- fixtures/check_skills/ 2>/dev/null | head -1)
+    if [ -n "$first_fx" ] && [ "$first_fx" != "architect" ]; then
+      die "полнота фикстур: первый коммит по fixtures/ от «$first_fx», а не от architect (Q8-C)"
+    fi
+    ok "полнота фикстур: все 8 на родителе, первый автор — $first_fx"
   else
     ok "ветвь (з): нет коммитов по skills/ — проверка полноты фикстур неприменима"
   fi

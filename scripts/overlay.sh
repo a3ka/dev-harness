@@ -199,7 +199,10 @@ if [ -d "$HERE/skills" ]; then
   for d in "$HERE"/skills/*/; do
     name="$(basename "$d")"
     mkdir -p "$SKILL_TARGET/$name"
-    cp "$d/SKILL.md" "$SKILL_TARGET/$name/SKILL.md"
+    # КОПИРУЕМ ВСЁ СОДЕРЖИМОЕ каталога, не только SKILL.md: у Мэтта tdd имеет
+    # tests.md и mocking.md, grill-with-docs — доп.файлы. Находка адверсария:
+    # барьер зелёный, а доп.файлы не доехали. Скилы — каталог, не файл.
+    cp -r "$d." "$SKILL_TARGET/$name/"
   done
   ok "скилы разложены в профиль: $(ls -1 "$HERE/skills" | tr '\n' ' ')"
 else
