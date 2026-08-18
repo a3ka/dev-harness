@@ -27,7 +27,7 @@
 1. **Состав и подлинность.** `skills/` содержит РОВНО каталоги `grilling`,
    `writing-for-agents`, `tdd`, `diagnosing-bugs` — множество проверяется барьером дословно.
    Тела — английские оригиналы снимка `9c9f36c`; шапка-адаптация на русском несет ИМЕННО этот
-   hash. `bash scripts/check_skills.sh` → 0 — НОВЫЙ барьер, СЕМЬ ветвей отказа:
+   hash. `bash scripts/check_skills.sh` → 0 — НОВЫЙ барьер, ВОСЕМЬ ветвей отказа:
    (а) скил не обнаружен omp — захват запуска с подставным omp, ответ называет слово из тела;
    (б) имя каталога ≠ имени фронтматтера;
    (в) hash шапки ≠ значению из блоба высшей заморозки ЭТОГО контракта (не зашит в барьер);
@@ -62,8 +62,8 @@
    | implementer | tdd (red → green), diagnosing-bugs (tight loop) |
 
    Качество русских условий — `cognitive-only`, ловец ревьюер.
-3. **Красные фикстуры объявленных ветвей — архитектор ДО раздачи, порядком коммитов.**
-   Фикстуры пяти ветвей лежат в коммитах архитектора, и ПЕРВЫЙ коммит по
+3. **Красные фикстуры ВСЕХ ВОСЬМИ ветвей (а)-(з) — архитектор ДО раздачи, порядком коммитов.**
+   Фикстуры ВСЕХ восьми ветвей (а)-(з) лежат в коммитах архитектора, и ПЕРВЫЙ коммит по
    `fixtures/check_skills/` старше ПЕРВОГО коммита по `scripts/check_skills.sh` и `skills/`.
    Мера: `git log --reverse --format=%an -- fixtures/check_skills/ | sed -n 1p` → `architect`
    и `git log --reverse --format=%h -- fixtures/check_skills/ skills/ scripts/check_skills.sh |
@@ -100,9 +100,11 @@
 2. Таблица указателей: поимённые `grep -c` → 1 для каждой пары; посторонних `skills/`-строк
    в `roles/` нет (`grep -rn 'skills/' roles/ | wc -l` → ровно 6).
 3. Порядок Q8-C: две команды из критерия 3 → `architect` и фикстурный хеш.
-4. `npm run overlay` → ok-строка + ветвь (д) барьера (барьер сам запускает overlay в пустом
-   HOME и сверяет постусловие — ok-строка без файлов не проходит); `npm run check:antiplacebo`
-   → 0; `check:ci-parity`, `check:gen`, `check:zones`, `check:charter`, `check:contract-frozen`
+4. `npm run overlay` → ok-строка, ЗАТЕМ сверка реального профиля: каждый из четырёх
+   `skills/<имя>/SKILL.md` в профиле запуска (`$HOME/.omp/agent/skills/<имя>/SKILL.md`, где
+   HOME — профиль лаунчера) `cmp` байт-в-байт с репозиторным → иначе код 1. Ветвь (д) барьера
+   дополняет, не заменяет: она ловит no-op в чистых условиях, приёмка ловит его в РЕАЛЬНОМ
+   профиле. `npm run check:antiplacebo` → 0; `check:ci-parity`, `check:gen`, `check:zones`, `check:charter`, `check:contract-frozen`
    → 0; `check:skills` в CI.
 
 ## Статус
