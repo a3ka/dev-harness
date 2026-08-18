@@ -65,7 +65,7 @@
 Работа ДЕЛИТСЯ — впервые под новым регламентом, и зоны объявлены построчно:
 
 ЗОНА implementer: .omp/config.yml workshop scripts/check_decisions.sh fixtures/check_decisions/ decisions/ roles/steward.md .omp/agents/ package.json config/ .github/workflows/ci.yml scripts/check_approval.sh fixtures/check_approval/ scripts/overlay.sh
-ЗОНА architect: AGENTS.md roles/arbiter.md scripts/roles.ts plans/006-approval-mode-and-steward.md contracts/002-approval-mode-steward.md NABLIUDENIA.md .omp/agents/ HANDOFF.md scripts/check_zones.sh roles/architect.md roles/implementer.md plans/008-skills-metta-adaptacija.md
+ЗОНА architect: AGENTS.md roles/arbiter.md scripts/roles.ts plans/006-approval-mode-and-steward.md contracts/002-approval-mode-steward.md NABLIUDENIA.md .omp/agents/ HANDOFF.md scripts/check_zones.sh fixtures/check_zones/ roles/architect.md roles/implementer.md plans/008-skills-metta-adaptacija.md
 Разделение по предмету, не по удобству: исполнитель строит МЕХАНИЗМ — политику входа, реестр,
 барьер, роль steward и ПРОВОДКУ новых команд в приёмку и CI (правило 6: барьер вне CI не
 барьер); архитектор несёт НОРМУ — `AGENTS.md` и `roles/arbiter.md` уставные, правки требуют
