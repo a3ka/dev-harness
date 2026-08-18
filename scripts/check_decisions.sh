@@ -46,6 +46,13 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+# Локаль ставится герметично. Парсер полей записи использует awk с диапазоном
+# `а-яА-ЯёЁ`, и под C-локали (`env -i` без `LC_ALL`) кириллица не матчится —
+# барьер выдаёт 42 ложных «нет поля» на семи записях, потому что имена полей
+# «дата», «вопрос», «решение» сами написаны кириллицей. Найдено ревьюером
+# (блок 4) под `env -i`: полагаться на локаль вызывающего — дефект переносимости.
+export LC_ALL=C.UTF-8
+
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEXT_ID_LIB=1
 # shellcheck disable=SC1091
