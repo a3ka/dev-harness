@@ -64,8 +64,8 @@
 
 Работа ДЕЛИТСЯ — впервые под новым регламентом, и зоны объявлены построчно:
 
-ЗОНА implementer: .omp/config.yml workshop scripts/check_decisions.sh fixtures/check_decisions/ decisions/ roles/steward.md .omp/agents/ package.json config/ .github/workflows/ci.yml scripts/check_approval.sh fixtures/check_approval/
-ЗОНА architect: AGENTS.md roles/arbiter.md scripts/roles.ts plans/006-approval-mode-and-steward.md contracts/002-approval-mode-steward.md NABLIUDENIA.md .omp/agents/ HANDOFF.md
+ЗОНА implementer: .omp/config.yml workshop scripts/check_decisions.sh fixtures/check_decisions/ decisions/ roles/steward.md .omp/agents/ package.json config/ .github/workflows/ci.yml scripts/check_approval.sh fixtures/check_approval/ scripts/overlay.sh
+ЗОНА architect: AGENTS.md roles/arbiter.md scripts/roles.ts plans/006-approval-mode-and-steward.md contracts/002-approval-mode-steward.md NABLIUDENIA.md .omp/agents/ HANDOFF.md scripts/check_zones.sh roles/architect.md roles/implementer.md
 Разделение по предмету, не по удобству: исполнитель строит МЕХАНИЗМ — политику входа, реестр,
 барьер, роль steward и ПРОВОДКУ новых команд в приёмку и CI (правило 6: барьер вне CI не
 барьер); архитектор несёт НОРМУ — `AGENTS.md` и `roles/arbiter.md` уставные, правки требуют
@@ -88,6 +88,12 @@
 Реестр decisions/ получил номера тегами id/ADR/* механизмом (--backfill): пространство
 номеров ADR и есть пространство решений, ручные номера без тега — «назначен рукой».
 
+
+Правка v6: `scripts/overlay.sh` → зона implementer; `scripts/check_zones.sh`, `roles/architect.md`,
+`roles/implementer.md` → зона architect. Причина: майлстоин 002 закрыт вердиктом ревьюера, а
+его зоны судят диапазон без конца (Н-14) — файлы, необходимые следующему майлстоину, заперты.
+v6 открывает ровно то, что нужно для фикс-механизма done-тегов и указателей скилов; сам фикс
+закроет класс: зоны будут заканчиваться тегом `done/contracts/<NNN>/<v>`.
 
 ### Перечень семи решений — именной, источник каждого назван коммитом
 
