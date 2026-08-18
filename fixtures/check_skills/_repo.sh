@@ -7,16 +7,30 @@
 #
 # Имя НЕ case_*.sh: сам он фикстурой не считается и в прогон не попадает.
 #
+# stub_omp <каталог> — подставной omp для ЗЕЛЁНОЙ основы поведенческой ветви (а).
+# Отвечает на промпт словом из «…» ЗАГЛАВНЫМИ: рабочий omp с загруженным скилом
+# возвращает слово из тела скила, и барьер требует именно его. Фикстура обязана
+# объявить его в PATH строкой «# ОКРУЖЕНИЕ: PATH=<каталог>:$PATH».
+stub_omp() {
+  mkdir -p "$1"
+  cat > "$1/omp" <<'OMP'
+#!/usr/bin/env bash
+if [ "${1:-}" = "--version" ]; then printf 'omp/17.2.10\n'; exit 0; fi
+for a in "$@"; do
+  case "$a" in
+    *«*»*) a="${a#*«}"; printf '%s\n' "${a%%»*}" | tr '[:lower:]' '[:upper:]'; exit 0 ;;
+  esac
+done
+printf 'stub omp: в промпте нет слова\n' >&2
+exit 1
+OMP
+  chmod +x "$1/omp"
+}
+
 # make_tree <каталог> — подставное дерево с ЧЕТЫРЬМЯ скилами и подставным omp.
 # Зелёная основа обязательна для положительного контроля каждой фикстуры.
-g() {
-  local _repo="$1"; shift
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-  git -C "$_repo" -c user.name=Фикстура -c user.email=fixture@local "$@"
-}
-commit_all() { g "$1" add -A; g "$1" commit -q -m "$2"; }
 make_tree() {
-  local r="$1"
+  local r="$1" s
   mkdir -p "$r/skills/grilling" "$r/skills/writing-for-agents" "$r/skills/tdd" \
            "$r/skills/diagnosing-bugs" "$r/scripts" "$r/contracts" "$r/verdicts/critic" \
            "$r/fixtures/check_skills" "$r/tmp"
@@ -24,18 +38,15 @@ make_tree() {
     {
       printf '# Источник: 9c9f36ccd3995266cd675468af71639c8dde1ec5\n'
       [ "$s" = grilling ] && printf '# Псевдоним: grill-me\n'
-      printf -- '---\nname: %s\ndescription: test\n---\ntest body for %s\n' "$s" "$s"
+      printf -- '---\nname: %s\ndescription: test\n---\ntest body sentinel for %s\n' "$s" "$s"
     } > "$r/skills/$s/SKILL.md"
+    # Лишние файлы деревьев — предмет ветви (д): профиль обязан совпадать ПОЛНЫМ
+    # деревом, а не одним SKILL.md. Состав зеркалит настоящий skills/.
+    mkdir -p "$r/skills/$s/agents"
+    printf 'agents-profile: stub for %s\n' "$s" > "$r/skills/$s/agents/openai.yaml"
   done
-  # Подставной omp: --version для пина, skill-вызов отвечает словом из тела
-  mkdir -p "$r/bin"
-  cat > "$r/bin/omp" <<'OMP'
-#!/usr/bin/env bash
-if [ "${1:-}" = "--version" ]; then printf 'omp/17.2.10\n'; exit 0; fi
-# Ответ подставного omp — слово из тела того скила, чьё имя передали: тело каждого
-# скила в этом каркасе начинается с «test body for <name>», и ответ должен называть
-# именно его, чтобы ветвь (а) имела зелёную основу.
-printf 'test\n'
-OMP
-  chmod +x "$r/bin/omp"
+  printf 'mocking stub\n'      > "$r/skills/tdd/mocking.md"
+  printf 'tests stub\n'        > "$r/skills/tdd/tests.md"
+  printf 'mechanics stub\n'    > "$r/skills/writing-for-agents/SKILL-MECHANICS.md"
+  stub_omp "$r/bin"
 }

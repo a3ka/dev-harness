@@ -6,10 +6,10 @@
 #   (б) имя каталога ≠ имени фронтматтера
 #   (в) hash шапки-адаптации ≠ значению из блоба высшей заморозки контракта (не зашит в барьер)
 #   (г) каталог в skills/ вне объявленного множества четырёх
-#   (д) профиль не совпадает с репозиторием после overlay из пустого состояния
+#   (д) профиль не совпадает с репозиторием после overlay из пустого состояния (ПОЛНОЕ дерево)
 #   (е) тело после шапки-адаптации не совпадает со снимком upstream
 #   (ж) псевдоним grill-me не документирован в шапке grilling
-#   (з) полнота красных фикстур: на родителе первого коммита по skills/ и check_skills.sh
+#   (з) полнота красных фикстур: 8 на родителе первого коммита; ВСЕ коммиты по ним — architect
 #
 # Коды возврата: 0 — зелёный, 1 — расхождение, 2 — нечем проверить (сеть, отсутствие).
 set -uo pipefail
@@ -62,6 +62,8 @@ fi
 if [ ! -d "$SKILLS_DIR" ]; then
   ok "skills/ отсутствует — ветви (а)-(г), (е), (ж) пропущены"
 else
+  # Поиск omp — один раз на прогон, не по разу на скил.
+  omp_bin="$(command -v omp 2>/dev/null || true)"
   for skill in $EXPECTED; do
     dir="$SKILLS_DIR/$skill"
     f="$dir/SKILL.md"
@@ -93,16 +95,29 @@ else
     fi
     ok "скил «$skill» обнаружен omp (структурно)"
 
-    # (а) ПОВЕДЕНЧЕСКАЯ: omp вызываем и возвращает ответ для этого скила.
-    # Находка адверсария: подставной omp с кодом 127 проходил как зелёный.
-    # Теперь: если omp есть в PATH — вызываем; нет — skip 2.
-    omp_bin="$(command -v omp 2>/dev/null || true)"
+    # (а) ПОВЕДЕНЧЕСКАЯ: omp вызываем и требуем в ответе КОНКРЕТНОЕ слово из ТЕЛА скила.
+    # Две находки адверсария (verdicts/adversary/milestone-003-zakrytie.md, §1): подставной
+    # omp с кодом 127 проходил, потому что `|| true` стирал статус; и любой непустой ответ
+    # без слов error/not found проходил как успех. Теперь статус вызова обязан быть 0,
+    # а ответ обязан назвать слово из тела ЗАГЛАВНЫМИ. Слово выбирает барьер из файла —
+    # первое латинское слово ≥7 букв после фронтматтера, — значит ответ доказывает,
+    # что omp дошёл до скила, а не просто не промолчал.
     if [ -n "$omp_bin" ]; then
-      resp=$(timeout 15 "$omp_bin" --skills "$skill" --no-session -p --no-tools "reply with the word: ok" 2>&1 || true)
-      if [ -z "$resp" ] || printf '%s' "$resp" | grep -qi 'error\|not found\|no model'; then
-        die "скил «$skill» не обнаружен omp: вызов вернул «$resp»"
+      word=$(awk '/^---[[:space:]]*$/ { c++; next } c >= 2 { print }' "$f" \
+             | grep -oE '[A-Za-z]{7,}' | head -1)
+      if [ -z "$word" ]; then
+        die "скил «$skill» не обнаружен omp: в теле нет слова для поведенческой проверки"
       fi
-      ok "скил «$skill» отвечает omp"
+      prompt="Reply with exactly one word: the word «$word» written in ALL CAPS. Output nothing else."
+      resp=$(timeout 15 "$omp_bin" --skills "$skill" --no-session -p --no-tools "$prompt" 2>&1)
+      rc=$?
+      if [ "$rc" -ne 0 ]; then
+        die "скил «$skill» не обнаружен omp: вызов завершился кодом $rc, ответ «$resp»"
+      fi
+      if ! printf '%s' "$resp" | grep -qF "${word^^}"; then
+        die "скил «$skill» не обнаружен omp: ответ не называет слово из тела (ожидалось «${word^^}»), ответ «$resp»"
+      fi
+      ok "скил «$skill» отвечает omp словом из тела"
     else
       ok "скил «$skill» — omp нет в PATH, поведенческая проверка пропущена"
     fi
@@ -201,24 +216,45 @@ else
   done
 
   if [ -n "$overlay_script" ]; then
-    bash "$overlay_script" >/dev/null 2>&1 || true
+    bash "$overlay_script" >/dev/null 2>&1
+    ov_rc=$?
+    if [ "$ov_rc" -eq 2 ]; then
+      # NOT_IMPLEMENTED — окружению нечем исполнить предмет (нет omp, как в CI).
+      # Это не брак overlay: постусловие в этом окружении НЕ ПРОВЕРЯЛОСЬ, и молчать
+      # об этом нельзя. Захлёбываться на любом другом коде — тоже: он раскладывает.
+      ok "ветвь (д): overlay ответил NOT_IMPLEMENTED ($ov_rc) — профилю нечем разложиться, сверка пропущена"
+      profile_checked=0
+    elif [ "$ov_rc" -ne 0 ]; then
+      die "профиль не совпадает: overlay завершился кодом $ov_rc и ничего не разложил"
+    else
+      profile_checked=1
+    fi
   else
+    # Отсутствие предмета — не отсутствие постусловия: раскладываем ПОЛНОЕ дерево.
     for skill in $EXPECTED; do
       mkdir -p "$TMPHOME/.omp/agent/skills/$skill"
-      cp "$SKILLS_DIR/$skill/SKILL.md" "$TMPHOME/.omp/agent/skills/$skill/SKILL.md"
+      cp -r "$SKILLS_DIR/$skill/." "$TMPHOME/.omp/agent/skills/$skill/"
     done
+    profile_checked=1
   fi
 
-  for skill in $EXPECTED; do
-    profile_file="$TMPHOME/.omp/agent/skills/$skill/SKILL.md"
-    if [ ! -f "$profile_file" ]; then
-      die "профиль не совпадает: $skill отсутствует в $TMPHOME/.omp/agent/skills/"
-    fi
-    if ! cmp -s "$SKILLS_DIR/$skill/SKILL.md" "$profile_file"; then
-      die "профиль не совпадает: $skill отличается от репозиторного"
-    fi
-  done
-  ok "профиль совпадает с репозиторием"
+  # Находка адверсария (§2 вердикта о закрытии): ветвь сверяла только SKILL.md, и
+  # overlay-заглушка, кладущая один файл, оставалась зелёной. Сверяется ПОЛНОЕ дерево
+  # каждого скила: вложенные каталоги, недостающие и лишние файлы — всё названо.
+  # Не проверялось (нет omp в окружении) — не трогаем: пустой профиль в этом случае
+  # не брак overlay, а отсутствие инструмента.
+  if [ "${profile_checked:-0}" -eq 1 ]; then
+    for skill in $EXPECTED; do
+      if [ ! -d "$TMPHOME/.omp/agent/skills/$skill" ]; then
+        die "профиль не совпадает: $skill отсутствует в $TMPHOME/.omp/agent/skills/"
+      fi
+      if ! diff_out=$(diff -r --brief "$SKILLS_DIR/$skill" "$TMPHOME/.omp/agent/skills/$skill" 2>&1); then
+        die "профиль не совпадает: дерево $skill в профиле отличается от репозиторного:
+$diff_out"
+      fi
+    done
+    ok "профиль совпадает с репозиторием (полное дерево каждого скила)"
+  fi
 fi
 
 # ── (з) полнота красных фикстур ───────────────────────────────────────────────
@@ -240,14 +276,17 @@ if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
     if [ "$missing" -gt 0 ]; then
       die "полнота фикстур: на родителе первого коммита по skills/ отсутствует $missing из 8 фикстур"
     fi
-    # Находка адверсария: (з) не проверял АВТОРА фикстур — implementer мог изменить
-    # их после стартового коммита архитектора. Теперь: первый коммит по
-    # fixtures/check_skills/ обязан быть от architect.
-    first_fx=$(git -C "$REPO" log --reverse --format='%an' -- fixtures/check_skills/ 2>/dev/null | head -1)
-    if [ -n "$first_fx" ] && [ "$first_fx" != "architect" ]; then
-      die "полнота фикстур: первый коммит по fixtures/ от «$first_fx», а не от architect (Q8-C)"
+    # Находка адверсария (§3 вердикта о закрытии, второй подход): «первый автор —
+    # architect» не закрывает пробу — implementer коммитил фикстуры ПОЗЖЕ первого
+    # коммита. Судятся ВСЕ коммиты, когда-либо затрагивавшие fixtures/check_skills/:
+    # каждый обязан быть от architect.
+    bad_authors=$(git -C "$REPO" log --format='%an' -- fixtures/check_skills/ 2>/dev/null \
+                  | LC_ALL=C sort -u | grep -vxF 'architect' || true)
+    if [ -n "$bad_authors" ]; then
+      named="$(printf '%s' "$bad_authors" | tr '\n' ' ')"
+      die "полнота фикстур: коммиты по fixtures/check_skills/ есть от «$named»— а не от architect (Q8-C)"
     fi
-    ok "полнота фикстур: все 8 на родителе, первый автор — $first_fx"
+    ok "фикстуры полны: 8 на родителе, все авторы коммитов по fixtures/ — architect"
   else
     ok "ветвь (з): нет коммитов по skills/ — проверка полноты фикстур неприменима"
   fi
