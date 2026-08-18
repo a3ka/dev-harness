@@ -202,6 +202,22 @@ while IFS= read -r nnn; do
       done
   fi
 
+  # КОНЕЦ ДИАПАЗОНА — тег done/contracts/<NNN>/<v>, если он есть (Н-14). Зоны закрытого
+  # майлстоина судят диапазон без конца, и за два дня это укусило четырежды — последний раз
+  # структурно: файлы, необходимые следующему майлстоину, оказались заперты. done-тег ставится
+  # ПОСЛЕ закрытия майлстоина вердиктом ревьюера: диапазон сужается до <первая>..<done>, и
+  # будущее снова принадлежит новым контрактам. Ветка этого тега обязана быть ДОСТИЖИМОЙ от
+  # HEAD — тег из будущего молча расширил бы диапазон; недостижимый done — отказ.
+  done="done/contracts/$nnn/1"
+  if g rev-parse --verify --quiet "refs/tags/$done" >/dev/null; then
+    if g merge-base --is-ancestor "refs/tags/$done" HEAD; then
+      printf '%s\tfrozen/contracts/%s/1..%s\n' "$nnn" "$nnn" "$done" >> "$TMP/ranges"
+      ok "контракт $nnn закрыт ($done): зоны действуют до него"
+      continue
+    else
+      bad "тег $done недостижим от HEAD — конец диапазона не может лежать в будущем; проверь, куда поставлен тег"
+    fi
+  fi
   printf '%s\tfrozen/contracts/%s/1\n' "$nnn" "$nnn" >> "$TMP/ranges"
 done < <(awk -F/ '/^refs\/tags\/frozen\/contracts\// { print $5 }' "$TMP/tags" | sort -u)
 
@@ -220,9 +236,14 @@ fi
 commits=0; checked=0
 while IFS=$'\t' read -r nnn since; do
   [ -n "$nnn" ] || continue
+  until="${since#*..}"
+  [ "$until" = "$since" ] && until=""
+  since="${since%%..*}"
   awk -F'\t' -v n="$nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/authors"
   [ -s "$TMP/authors" ] || continue
-  g rev-list --no-merges "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  range="$since..HEAD"
+  [ -n "$until" ] && range="$since..$until"
+  g rev-list --no-merges "$range" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     commits=$((commits + 1))
