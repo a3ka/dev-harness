@@ -122,7 +122,13 @@ while [ $# -gt 0 ]; do
     # весь замок, который прежде держался инвентарём. Поэтому такие флаги не прокидываются
     # в omp хвостом `"$@"`, а ОТКАЗЫВАЮТСЯ здесь, с названным именем флага. Держит
     # `scripts/check_approval.sh`.
-    --approval-mode*|--approvals*|--yolo*|--dangerously-skip-permissions*) die "флаг $1 затирает политику подтверждений. Режим входа — always-ask из .omp/config.yml (контракт 002, критерий 1), и командная строка его не отменяет" ;;
+    # КЛАПАН ВЛАДЕЛЬЦА. Один вход снимает always-ask: явный `--yolo` передаёт omp
+    # `--approval-mode yolo` и печатает в баннере «слово владельца». Конфиг не правится
+    # — политика по умолчанию остаётся always-ask для всех, кто не сказал слово
+    # (контракт 002 v5, критерий 1). Расширение `*` в glob ниже НЕ ловит ровно `--yolo`:
+    # `case` берёт первое совпадение, и точная ветка стоит раньше glob.
+    --yolo) YOLO=1 ;;
+    --approval-mode*|--approvals*|--yolo*|--dangerously-skip-permissions*) die "флаг $1 затирает политику подтверждений. Режим входа — always-ask из .omp/config.yml (контракт 002, критерий 1), и командная строка его не отменяет — клапан владельца называется ровно «--yolo»" ;;
     -*)     break ;;
     *)      [ -z "$PROJECT" ] && PROJECT="$1" || break ;;
   esac
@@ -132,6 +138,15 @@ done
 RESUME_ARGS=()
 if [ -n "$RESUME" ]; then
   RESUME_ARGS=(--resume "$RESUME")
+fi
+
+# Клапан владельца `--yolo` поднимает YOLO=1 при разборе argv, и здесь эти
+# `--approval-mode yolo` собираются в массив, который позже впрыскивается в
+# команду запуска omp. Конфиг при этом не правится — политика по умолчанию
+# остаётся always-ask (контракт 002 v5, критерий 1).
+YOLO_ARGS=()
+if [ "${YOLO:-0}" = "1" ]; then
+  YOLO_ARGS=(--approval-mode yolo)
 fi
 
 # ── оверлей моделей ──────────────────────────────────────────────────────────
@@ -172,10 +187,11 @@ if [ -z "$PROJECT" ]; then
   node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
     || die "не удалось получить промпт роли $SESSION_ROLE"
   printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа над инструментом\n' >&2
-  printf '  роль сессии  %s на %s\n' "$SESSION_ROLE" "$LIVE_MODEL" >&2
-  printf '  каталог      %s\n' "$HERE" >&2
-  printf '  роли         %s\n' "$(ls -1 "$HERE/roles" 2>/dev/null | sed 's/\.md$//' | tr '\n' ' ')" >&2
-  printf '  политика     always-ask (инструменты спрашивают)\n\n' >&2
+  printf '  политика     always-ask (инструменты спрашивают)\n' >&2
+  if [ "${YOLO:-0}" = "1" ]; then
+    printf '  РЕЖИМ: подтверждения СНЯТЫ, слово владельца\n' >&2
+  fi
+  printf '\n' >&2
   cd "$HERE"
   if [ -n "$PLAN" ]; then
     printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
@@ -185,7 +201,7 @@ if [ -z "$PROJECT" ]; then
   if [ -n "$RESUME" ]; then
     printf '  продолжение  сессия %s (план был предъявлен при её старте)\n' "$RESUME" >&2
   fi
-  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
+  exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
 fi
 
 # ── работа с проектом ────────────────────────────────────────────────────────
@@ -251,6 +267,9 @@ printf '  харнес       omp/%s (пин проекта совпал)\n' "$go
 printf '  роль сессии  %s на %s\n' "$SESSION_ROLE" "$LIVE_MODEL" >&2
 printf '  роли         %s\n' "$(ls -1 "$HERE/roles" | sed 's/\.md$//' | tr '\n' ' ')" >&2
 printf '  политика     always-ask (инструменты спрашивают)\n' >&2
+if [ "${YOLO:-0}" = "1" ]; then
+  printf '  РЕЖИМ: подтверждения СНЯТЫ, слово владельца\n' >&2
+fi
 printf '  модели       %s\n' "$([ -n "$MODELS" ] && basename "$MODELS" || echo '.omp/config.yml (без оверлея)')" >&2
 if [ -n "$PLAN" ]; then
   printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
@@ -262,4 +281,4 @@ if [ -n "$RESUME" ]; then
 fi
 printf '  инвентарь    полный, всегда-ask\n\n' >&2
 cd "$PROJECT"
-exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
+exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
