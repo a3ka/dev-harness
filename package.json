@@ -26,6 +26,7 @@
     "check:zones": "bash scripts/check_zones.sh",
     "check:charter": "bash scripts/check_charter.sh",
     "check:decisions": "bash scripts/check_decisions.sh",
+    "check:approval": "bash scripts/check_approval.sh",
     "drill:contract-change": "bash scripts/drill_contract_change.sh",
     "freeze:contract": "bash scripts/freeze_contract.sh"
   }
