@@ -1,14 +1,16 @@
-# ПРИЧИНА: псевдоним grill-me
+# ПРИЧИНА: не документирован в шапке grilling
 #
-# Ветвь (ж): псевдоним grill-me обязан быть документирован в шапке grilling.
+# Ветвь (ж): псевдоним grill-me обязан быть документирован в шапке grilling. Настоящие
+# тела — чтобы (е) не маскировала.
 set -euo pipefail
-. "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
-make_tree "$R"
-# Добавим шапку-адаптацию с псевдонимом
-sed -i '1i # Адаптация: вызывай как grill-me\n# источник: 9c9f36ccd399' "$R/skills/grilling/SKILL.md"
+mkdir -p "$R/skills" "$R/scripts" "$R/tmp"
+for s in grilling writing-for-agents tdd diagnosing-bugs; do
+  mkdir -p "$R/skills/$s"
+  cp "$REPO/skills/$s/SKILL.md" "$R/skills/$s/"
+done
 "$BARRIER" "$R"
 
-# Порча: псевдоним исчез
-sed -i '1,2d' "$R/skills/grilling/SKILL.md"
+# Порча: убираем псевдоним из шапки
+sed -i '/grill-me/d' "$R/skills/grilling/SKILL.md"
 "$BARRIER" "$R"

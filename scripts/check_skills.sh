@@ -218,7 +218,7 @@ if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
     for f in case_a_ne_obnaruzhen.sh case_b_imja_kataloga.sh case_v_hash_ne_sovpadaet.sh \
              case_g_katalog_vne_mnozhestva.sh case_d_profil_iz_pustogo.sh case_e_telo_ne_sovpadaet.sh \
              case_z_polnota_fikstur.sh case_zh_psevdonim_grill_me.sh; do
-      if ! printf '%s\n' "$fixtures_at_parent" | grep -qxF "$f"; then
+      if ! printf '%s\n' "$fixtures_at_parent" | grep -q "$f"; then
         missing=$((missing + 1))
       fi
     done
