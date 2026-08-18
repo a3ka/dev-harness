@@ -93,9 +93,11 @@ exit 0
 STUB
 chmod +x "$WORKDIR/bin/omp"
 
-# Флаги, снимающие политику. Список объявлен ЗДЕСЬ и не читается из лаунчера:
-# проверка, берущая ожидание из проверяемого, есть отчёт о проверяемом.
-POLICY_FLAGS=(--approval-mode --approvals --yolo --dangerously-skip-permissions)
+# Флаги, снимающие политику. Список разделён на два: REJECTED всегда отвергаются
+# лаунчером, YOLO — единственное имя клапана владельца, и его ветка проверяется
+# отдельно в разделе 4. Списки объявлены ЗДЕСЬ и не читаются из лаунчера: проверка,
+# берущая ожидание из проверяемого, есть отчёт о проверяемом.
+REJECTED_FLAGS=(--approval-mode --approvals --dangerously-skip-permissions)
 
 run_launcher() {  # <файл захвата> <аргументы лаунчера...>
   local cap="$1"; shift
@@ -131,16 +133,28 @@ else
   elif [ "$(policy_of "$launch_cfg")" != "always-ask" ]; then
     bad "omp поднят из «$launch_pwd», и конфиг этого каталога не несёт tools.approvalMode: always-ask — запуск наследует ДРУГУЮ политику"
   fi
-  for flag in "${POLICY_FLAGS[@]}"; do
+  for flag in "${REJECTED_FLAGS[@]}"; do
     if awk -F'\t' -v f="$flag" '$1 == "ARG" && ($2 == f || index($2, f "=") == 1) { found = 1 }
                                 END { exit(found ? 0 : 1) }' "$CAPTURE"; then
       bad "лаунчер сам передал omp «$flag» — политика подтверждений снята запуском, а не конфигом"
     fi
   done
+  # Клапан владельца `--yolo` на штатном запуске не задействован, и его argv НЕ ДОЛЖЕН
+  # дойти до omp в исходной форме: лаунчер обязан ТРАНСЛИРОВАТЬ его в
+  # `--approval-mode yolo` либо НЕ ПРИНИМАТЬ. Здесь `--yolo` при штатном запуске
+  # вообще не появляется, и проверка служит зеркалом раздела 4: лаунчер не пропускает
+  # `--yolo` мимо своего перехватчика.
+  if awk -F'\t' -v f="--yolo" '$1 == "ARG" && ($2 == f || index($2, f "=") == 1) { found = 1 }
+                              END { exit(found ? 0 : 1) }' "$CAPTURE"; then
+    bad "лаунчер передал omp «--yolo» в исходной форме — клапан обязан быть трансляцией в --approval-mode yolo, а не пробросом"
+  fi
 fi
 
 # ── 3. Флаг политики от вызывающего обязан быть ОТВЕРГНУТ ────────────────────
-for flag in "${POLICY_FLAGS[@]}"; do
+# Перебираются РОВНО REJECTED_FLAGS: `--yolo` — клапан владельца, его ветка
+# проверяется отдельно в разделе 4, и его присутствие здесь сломало бы
+# проверку (раздел 4 ожидает rc=0 и проброс, раздел 3 — rc=1 и отказ).
+for flag in "${REJECTED_FLAGS[@]}"; do
   cap="$WORKDIR/capture-${flag#--}"
   frc=0
   run_launcher "$cap" "$flag" never || frc=$?
@@ -152,6 +166,33 @@ for flag in "${POLICY_FLAGS[@]}"; do
     bad "лаунчер передал «$flag» в omp — режим снимается одним словом командной строки"
   fi
 done
+
+# ── 4. Клапан владельца: --yolo форвардит --approval-mode yolo и баннер говорит ─
+# Контракт 002 v5, критерий 1: единственный сниматель always-ask, и барьер обязан
+# предъявить, что это работает. Три проверки, и провал любой — отказ:
+#   - лаунчер НЕ отвергает `--yolo` (rc=0);
+#   - omp получил `--approval-mode` и следующим аргументом `yolo` (трансляция,
+#     не проброс);
+#   - баннер несёт дословно «слово владельца» — без этого зелёная ветвь была бы
+#     заявлена, а не предъявлена (правило 3).
+yolo_cap="$WORKDIR/capture-yolo-valve"
+yolo_err="$yolo_cap.err"
+yrc=0
+run_launcher "$yolo_cap" --yolo || yrc=$?
+if [ "$yrc" -ne 0 ]; then
+  bad "лаунчер отверг «--yolo» (код $yrc) — клапан владельца обязан быть принят (контракт 002 v5, критерий 1)"
+else
+  if ! awk -F'\t' 'BEGIN{ f = 1 }
+      $1 == "ARG" && $2 == "--approval-mode" { saw_flag = NR; next }
+      saw_flag && $1 == "ARG" && NR == saw_flag + 1 && $2 == "yolo" { f = 0; exit }
+      END { exit f }
+    ' "$yolo_cap"; then
+    bad "лаунчер принял --yolo, но НЕ передал omp «--approval-mode yolo» — клапан не транслирует флаг"
+  fi
+  if [ ! -s "$yolo_err" ] || ! grep -q 'слово владельца' "$yolo_err"; then
+    bad "лаунчер принял --yolo, но баннер не сказал «слово владельца» — клапан сработал без объявления (контракт 002 v5, критерий 1)"
+  fi
+fi
 
 printf '\nполитика: %s · нарушений: %d\n' "${POLICY:-не объявлено}" "$violations" >&2
 [ "$violations" -eq 0 ] || exit 1
