@@ -165,10 +165,14 @@ fi
 # `bash` нужен и в разговоре (замеры — часть работы), а `lsp` и `task` обходили бы режим через
 # субагента. Теперь режим держит политика `always-ask` в `.omp/config.yml`, и инвентарь один.
 #
-# `read, grep, glob, inspect_image, web_search, todo` — без них разговор вслепую, замеры нечем
+# `read, grep, glob, web_search, todo` — без них разговор вслепую, замеры нечем
 # считать. `edit, write, bash, lsp, task` — для работы. Каждый инструмент в `always-ask`
 # СПРАШИВАЕТ разрешения перед вызовом, и решение принимается живой сессией.
-TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,inspect_image,task,todo"
+#
+# `inspect_image` убран из инвентаря по решению владельца (Н-20): модель сессии
+# текстовая (glm-5.2), инструмент без глаз — тихий брак. Вернуть при появлении
+# vision-модели на роли сессии.
+TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,task,todo"
 
 # ── работа НАД инструментом ──────────────────────────────────────────────────
 if [ -z "$PROJECT" ]; then
