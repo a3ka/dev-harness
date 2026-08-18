@@ -49,6 +49,11 @@ jobs:
         # Скрипт `scripts/check_ids.sh` написан по плану 005 §2.
         run: npm run check:ids
 
+      - name: Скилы подлинны и комплектны
+        # Барьер check_skills.sh: восемь ветвей — от обнаружения omp до сверки тел
+        # с raw.githubusercontent по hash из замороженного контракта. Сеть в CI есть.
+        run: npm run check:skills
+
       - name: "Реестр решений: состав и грамматика"
         # Скрипт `scripts/check_decisions.sh` написан по контракту 002 (критерий 2).
         # Семь записей 001-007 из `decisions/`, основания разрешимы и для 005-007
