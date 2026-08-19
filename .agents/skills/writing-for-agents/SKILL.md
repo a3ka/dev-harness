@@ -1,6 +1,7 @@
 # Адаптация: грамматика документов для агентов.
 # Когда открывать: пишется или правится скилл, AGENTS.md/CLAUDE.md, или документ, до которого агент дотягивается указателем.
 # Источник: 9c9f36ccd3995266cd675468af71639c8dde1ec5
+# Потолки: персона ≤ 51200 байт, файл-правило ≤ 30720 байт (байты, не символы — wc -c); держит scripts/check_ceilings.sh.
 ---
 name: writing-for-agents
 description: Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.
