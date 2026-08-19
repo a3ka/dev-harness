@@ -100,7 +100,7 @@
 ## Исполнители и зоны
 
 ЗОНА implementer: skills/ .agents/skills/ package.json .github/workflows/ci.yml scripts/overlay.sh config/ .omp/agents/
-ЗОНА architect: contracts/003-skills-metta-adaptacija.md plans/008-skills-metta-adaptacija.md NABLIUDENIA.md HANDOFF.md fixtures/check_skills/ fixtures/check_zones/ decisions/ roles/architect.md roles/implementer.md scripts/check_skills.sh scripts/check_zones.sh .omp/agents/
+ЗОНА architect: contracts/003-skills-metta-adaptacija.md plans/008-skills-metta-adaptacija.md NABLIUDENIA.md HANDOFF.md fixtures/check_skills/ fixtures/check_zones/ fixtures/gen-harness/ decisions/ roles/architect.md roles/implementer.md scripts/check_skills.sh scripts/check_zones.sh scripts/gen-harness.ts .omp/agents/
 СПАСЕНО architect: b5b9ebccd77103c674dfbe87bff2792883ed5507 a5e0e221794b73093995c7642ca18e1cef4dc837 09b2e6afcbae7401ebfb437357c3fa845a0f1e34 — b5b9ebc/a5e0e22: спасение работы исполнителя из таймаута (Н-29), слово владельца 2026-08-18; 09b2e6a: гонка общего индекса при переиздании вердиктов, переименования судейских файлов ушли под именем архитектора, содержимое неизменно (Н-33), решение делегировано владельцем архитектору 2026-08-19
 
 Связность правок (шесть прецедентов Н-22 учтены): каталог скилов, зеркало, проводка и
@@ -119,10 +119,25 @@ overlay — исполнителю (один механизм доставки �
 в ней хеш принят, барьер 0; красное — СЛЕДУЮЩИЙ коммит того же автора вне зоны, хеш в СПАСЕНО
 не назван → код 1 с причиной. Дополнительные кейсы (невалидный синтаксис, чужой автор) —
 на усмотрение архитектора. `.omp/agents/` — в зонах обеих ролей (v6): перегенерация
-агентов — механическое следствие правки ролей, соответствие держит `check:gen`
-(прецедент контракта 002).
+агентов — механическое следствие правки ролей; полноту состава ПРОЕКТНОГО каталога держит
+`check:gen` (v7): состав `.omp/agents/` — ТОЧНО порождённое множество из `roles/` в обе
+стороны, включая скрытые имена и НЕЗАВИСИМО от маркера генератора (посторонний файл без
+маркера — красное; отсутствующий/разошедшийся порождённый — красное); `--into` в чужие
+каталоги сохраняет терпимость к чужим агентам (решение арбитража `zona-agentov`).
 
 ## История правок
+
+## Правка реестровой v7 (2026-08-19)
+
+Исполнение решения арбитража `verdicts/arbitration/zona-agentov.md` (существо — критику,
+форма — каталожная зона плюс держатель полноты): каталожные зоны `.omp/agents/` остаются,
+но причина в ЗОНА-тексте называет истинный держатель — `check:gen`, красный при ЛЮБОМ
+расхождении состава проектного каталога с точным порождённым множеством `roles/`
+(в обе стороны, скрытые имена, независимо от маркера). Обход критика (rogue-агент без
+маркера) — обязательная красная фикстура `fixtures/gen-harness/case_rogue_bez_markera.sh`
+(Q8-C, анти-плацебо); `scripts/gen-harness.ts` и `fixtures/gen-harness/` входят в зону
+architect (Н-22: правимые пути покрыты). Поимённые файлы отклонены арбитражем: чинят
+симптом, оставляя заявление о держателе ложным.
 
 ## Правка реестровой v6 (2026-08-19)
 
@@ -198,6 +213,9 @@ overlay — исполнителю (один механизм доставки �
    (спасённый хеш принят → 0), красное (следующий неназванный хеш того же автора вне
    зоны → 1); решение арбитража `spaseno-konechnost`.
 
+6. Полнота состава агентов: `npm run check:gen` → 0; красное предъявлено фикстурой
+   `fixtures/gen-harness/case_rogue_bez_markera.sh` (посторонний `.omp/agents/*.md` без
+   маркера → код 1; решение арбитража `zona-agentov`).
 ## Статус
 
 Статуса задач нет: контракт заморожен побайтово, ход работ — в `HANDOFF.md`.
