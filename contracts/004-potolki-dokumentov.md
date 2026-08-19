@@ -19,28 +19,41 @@
    зелёное до правки (барьер создаётся КРАСНЫМ против раздутого файла).
 2. **Гриль перед спекой — процедурно.** `grill-me` не пускает к спеке, пока
    незаполненное требование не названо. Семантика «незаполненности» механизмом не
-   измеряется — гейт формальный: контракт ОБЯЗАН нести раздел «Незаполненные
-   требования:» со списком или словом «нет»; пустого раздела не бывает. Держится
-   барьером `check_ceilings.sh` (проверка раздела у контрактов, идущих к заморозке) —
-   честность содержания списка — `cognitive-only`, ловец критик.
+   измеряется — гейт формальный: ОБЛАСТЬ механическая — каждый НЕЗАМОРОЖЕННЫЙ черновик
+   `contracts/NNN-*.md` (нет тега `frozen/contracts/<NNN>/*`) обязан нести раздел
+   «Незаполненные требования:», после двоеточия — непустой список ИЛИ ровно слово «нет»;
+   раздел отсутствует ИЛИ пуст (лишь заголовок) → код 1 с именем файла. Замороженные
+   контракты вне суда: их текст неизменен побайтово. Честность содержания списка —
+   `cognitive-only`, ловец критик.
 
 ## Критерий готовности
 
-1. `bash scripts/check_ceilings.sh` → 0; красное предъявлено фикстурами:
-   персона >50КБ → 1; правило >30КБ → 1; контракт без раздела «Незаполненные
-   требования:» → 1.
-2. Шапка `skills/writing-for-agents` несёт строку потолков (grep).
+1. `bash scripts/check_ceilings.sh` → 0; красное предъявлено ИМЕНОВАННЫМИ фикстурами,
+   по каждой ветви и ГРАНИЦЕ (порог `≤`, а не `<` — реализация с `≥` обязана краснеть):
+   - `case_persona_sverh_potolka.sh`: персона >50КБ → 1;
+   - `case_persona_na_granice.sh`: персона РОВНО 50КБ → 0 (зелёный контроль границы);
+   - `case_pravilo_agents_sverh.sh`: `AGENTS.md` >30КБ → 1;
+   - `case_pravilo_omp_rules_sverh.sh`: `.omp/rules/x.md` >30КБ → 1;
+   - `case_pravilo_na_granice.sh`: правило РОВНО 30КБ → 0;
+   - `case_kontrakt_bez_razdela.sh`: черновик без раздела → 1;
+   - `case_kontrakt_pustoj_razdel.sh`: раздел без списка и без слова «нет» → 1.
+2. Шапка `skills/writing-for-agents` несёт строку потолков (grep); ЗЕРКАЛО
+   `.agents/skills/writing-for-agents/` синхронно (вечной обязанностью держит ветвь (д)
+   контракта 003 — правка скила без зеркала красит `check:skills`).
 3. `npm run check:antiplacebo` → 0; `check:ci-parity` с новым `check:ceilings` в CI;
    `check:gen`, `check:zones`, `check:contract-frozen` → 0.
 
+
 ## Исполнители и зоны
 
-ЗОНА architect: contracts/004-potolki-dokumentov.md scripts/check_ceilings.sh fixtures/check_ceilings/ skills/writing-for-agents/SKILL.md NABLIUDENIA.md HANDOFF.md
+ЗОНА architect: contracts/004-potolki-dokumentov.md scripts/check_ceilings.sh fixtures/check_ceilings/ skills/writing-for-agents/ .agents/skills/writing-for-agents/ NABLIUDENIA.md HANDOFF.md
 ЗОНА implementer: package.json .github/workflows/ci.yml
 
-Связность: барьер, фикстуры, скил и контракт — архитектору (красные ДО раздачи);
-проводка — исполнителю. `skills/writing-for-agents/SKILL.md` меняется только шапкой
-(тело охраняет ветвь (е) контракта 003 — hash шапки не трогаем, тело не трогаем).
+Связность: барьер, фикстуры, скил, его зеркало и контракт — архитектору (красные ДО
+раздачи; синхронизация зеркала — механическое следствие правки скила, потолок
+соответствия держит ветвь (д) контракта 003); проводка — исполнителю.
+`skills/writing-for-agents/SKILL.md` меняется только шапкой (тело и hash охраняет
+ветвь (е) контракта 003).
 
 ## Приёмка
 1. `bash scripts/check_ceilings.sh` → 0.
