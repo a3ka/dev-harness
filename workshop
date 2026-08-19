@@ -58,6 +58,26 @@ load_env() {
   done < "$1/.env"
 }
 
+# ВТОРОЙ ДОМ СЕКРЕТОВ — фабричный .env. Механика измерена 2026-08-19: minimax-ключ
+# переживает хард-ресеты потому, что живёт ещё и в /home/aka/Documents/content-factory/.env;
+# ZAI жил только здесь и умирал вместе с .gitignore-файлом при каждом откате. Теперь
+# недостающие переменные ПОДТЯГИВАЮТСЯ из фабрики (разрешённый список — только наши четыре)
+# и ДОПИСЫВАЮТСЯ в наш .env: реставрация после ресета — просто запуск воркшопа, без
+# ручного переноса. Значения не печатаются; чужие переменные фабрики не читаем.
+FACTORY_ENV="/home/aka/Documents/content-factory/.env"
+bootstrap_env() {
+  [ -f "$FACTORY_ENV" ] || return 0
+  local k v wrote=0
+  while IFS='=' read -r k v; do
+    case "$k" in ZAI_API_KEY|MINIMAX_API_KEY|METERING_PROXY_URL|METERING_PROXY_TOKEN) ;; *) continue ;; esac
+    [ -n "${!k:-}" ] && continue
+    [ -n "$v" ] || continue
+    export "$k=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')"
+    grep -q "^$k=" "$HERE/.env" 2>/dev/null || { printf '%s=%s\n' "$k" "$v" >> "$HERE/.env"; wrote=1; }
+  done < "$FACTORY_ENV"
+  [ "$wrote" -eq 0 ] || printf '  ok   .env дописан из фабрики (пережившей ресет второго дома секретов)\n' >&2
+}
+
 # Живая сессия работает на роли `default`. Стоит она на провайдере с ключом — вызовы идут
 # через прокси учёта, и без адреса сессия не заработает вовсе. Отказ при запуске дешевле
 # отказа на середине работы: там уже потрачено время, а причина выглядит как ошибка модели.
@@ -92,7 +112,7 @@ require_metering() {
   # После хард-ресета машины ключ из .env пропадает (файл в .gitignore, не переживает откат
   # ФС при потере питания), и без этого гейта сессия молча стартовала бы в никуда.
   case "$LIVE_MODEL" in
-    zai/*) [ -n "${ZAI_API_KEY:-}" ] || die "модель сессии $LIVE_MODEL, а ZAI_API_KEY пуст: omp ответит «No API key found for zai». Ключ живёт в $1/.env (файл в .gitignore) — перенеси его из личного хранилища или войди через /login" ;;
+    zai/*) [ -n "${ZAI_API_KEY:-}" ] || die "модель сессии $LIVE_MODEL, а ZAI_API_KEY пуст даже после автосборки: проверь строку ZAI_API_KEY в $FACTORY_ENV (второй дом, переживает ресеты) и в $1/.env" ;;
   esac
   local keyed
   keyed="$(grep -ohE '"minimax/[^"]+"' "$HERE/.omp/config.yml" "${MODELS:-/dev/null}" 2>/dev/null | head -1 || true)"
@@ -195,6 +215,7 @@ if [ -z "$PROJECT" ]; then
     PLAN="$(cd "$(dirname "$PLAN")" && pwd)/$(basename "$PLAN")"
   fi
   load_env "$HERE"
+  bootstrap_env
   require_metering "$HERE"
   export HOME="$ZONE"; mkdir -p "$HOME"
   PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
@@ -236,6 +257,7 @@ git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1 \
 # действовала для всего, что объявлено в `.env`, и поведение объясняли чем угодно, кроме
 # настоящей причины.
 load_env "$PROJECT"
+bootstrap_env
 
 PIN="$PROJECT/config/harness_pin.json"
 [ -f "$PIN" ] || skip "у проекта нет пина версии харнеса ($PIN) — сверять не с чем"
