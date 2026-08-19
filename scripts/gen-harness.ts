@@ -117,12 +117,26 @@ for (const r of roles) {
 // Лишний НАШ агент в цели — тоже дрейф: роль удалили из `roles/`, а агент остался и
 // продолжает вызываться. Чужие агенты — в том числе сгенерированные ДРУГИМ проектом —
 // не наши и не трогаются: различие держится на имени репозитория в баннере.
+//
+// НО ДЛЯ ПРОЕКТНОГО каталога (контракт 003 v6, арбитраж zona-agentov) этого мало:
+// посторонний файл БЕЗ маркера ускользал от обоих условий — а каталожные зоны `.omp/agents/`
+// разрешали его. Потому для проектной цели судится ТОЧНОЕ МНОЖЕСТВО в обе стороны:
+// каждый элемент каталога обязан быть порождением существующей роли; скрытые имена
+// входят (readdirSync их возвращает); `--into` сохраняет терпимость к чужим агентам.
+const PROJECT_TARGET = join(ROOT, '.omp', 'agents')
 if (existsSync(target)) {
   const ours = new Set(roles.map((r) => `${r.slug}.md`))
-  for (const f of readdirSync(target).filter((f) => f.endsWith('.md'))) {
-    if (ours.has(f)) continue
-    if (readFileSync(join(target, f), 'utf8').includes(MARK)) {
-      drift.push(`сгенерирован нами, но роли уже нет: ${f}`)
+  if (target === PROJECT_TARGET) {
+    for (const ent of readdirSync(target, { withFileTypes: true })) {
+      if (ours.has(ent.name)) continue
+      drift.push(`посторонний элемент каталога (не порождён из roles/): ${ent.name}${ent.isDirectory() ? '/' : ''}`)
+    }
+  } else {
+    for (const f of readdirSync(target).filter((f) => f.endsWith('.md'))) {
+      if (ours.has(f)) continue
+      if (readFileSync(join(target, f), 'utf8').includes(MARK)) {
+        drift.push(`сгенерирован нами, но роли уже нет: ${f}`)
+      }
     }
   }
 }
