@@ -95,7 +95,8 @@ trap 'rm -rf "$TMP"' EXIT
 g for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null | sort > "$TMP/tags" || true
 
 : > "$TMP/zones_scoped"    # автор<TAB>путь<TAB>контракт
-: > "$TMP/ranges"   # контракт<TAB>первая заморозка
+: > "$TMP/saved"           # автор<TAB>хеш<TAB>контракт — поимённые СПАСЕНО-исключения
+ : > "$TMP/ranges"   # контракт<TAB>первая заморозка
 contracts=0
 while IFS= read -r nnn; do
   [ -n "$nnn" ] || continue
@@ -185,9 +186,67 @@ while IFS= read -r nnn; do
     fi
   done < <(printf '%s\n' "$body" | grep '^РАБОТА НЕ РАЗДАЁТСЯ:' || true)
 
+  # ── СПАСЕНО: поимённые коммиты вне суда зон ──────────────────────────────────
+  # Грамматика контракта 003 v3 (решение арбитража verdicts/arbitration/spaseno-konechnost.md):
+  # «СПАСЕНО <автор>: <полные 40-символьные хеши через пробел> — <непустая причина>».
+  # Конечность исключения держится ОБЯЗАТЕЛЬНОЙ отрицательной фикстурой
+  # fixtures/check_zones/case_spaseno_ne_nazvannyj_hash.sh: спасённый хеш принят, следующий
+  # неназванный хеш того же автора — снова красный. Автор обязан быть объявлен ЗОНА-строкой
+  # ЭТОГО контракта; хеши обязаны существовать и лежать в диапазоне контракта — иначе
+  # объявление вне грамматики, код 1. Диапазон здесь тот же, что у зон: от первой заморозки
+  # до done-тега, если он есть, иначе до HEAD.
+  s_until="HEAD"
+  if g rev-parse --verify --quiet "refs/tags/done/contracts/$nnn/1" >/dev/null 2>&1; then
+    s_until="refs/tags/done/contracts/$nnn/1"
+  fi
+  while IFS= read -r line; do
+    rest="${line#СПАСЕНО }"
+    s_author="${rest%%:*}"
+    s_tail="${rest#*:}"
+    if [ "$s_author" = "$rest" ] || [ -z "${s_author//[[:space:]]/}" ] || [[ "$s_author" == *$'\t'* ]]; then
+      bad "строка СПАСЕНО вне объявленной грамматики в $file: «$line» — нужно «СПАСЕНО <автор>: <полные хеши> — <причина>»"
+      continue
+    fi
+    if ! awk -F'\t' -v a="$s_author" -v n="$nnn" '$1 == a && $3 == n { f=1 } END { exit(f ? 0 : 1) }' "$TMP/zones_scoped"; then
+      bad "строка СПАСЕНО вне объявленной грамматики в $file: автор «$s_author» не объявлен ЗОНА-строкой этого контракта"
+      continue
+    fi
+    case "$s_tail" in
+      *—*) s_hashes="${s_tail%%—*}"; s_reason="${s_tail#*—}" ;;
+      *)   bad "строка СПАСЕНО вне объявленной грамматики в $file: «$line» — нет «— <причина>»"; continue ;;
+    esac
+    if [ -z "${s_reason//[[:space:]]/}" ]; then
+      bad "строка СПАСЕНО вне объявленной грамматики в $file: причина пуста — объявление без причины неотличимо от опечатки"
+      continue
+    fi
+    # Расщепление БЕЗ подстановки имён (тот же приём, что у ЗОНА-строк) и с запретом кавычек.
+    set -f
+    for h in $s_hashes; do
+      case "$h" in
+        *'"'*) bad "строка СПАСЕНО вне объявленной грамматики в $file: хеш «$h» содержит кавычку" ;;
+      esac
+      if ! [[ "$h" =~ ^[0-9a-f]{40}$ ]]; then
+        bad "строка СПАСЕНО вне объявленной грамматики в $file: «$h» — не полный 40-символьный hex"
+        continue
+      fi
+      if ! g cat-file -e "$h^{commit}" 2>/dev/null; then
+        bad "строка СПАСЕНО в $file называет несуществующий коммит «$h»"
+        continue
+      fi
+      g merge-base --is-ancestor "refs/tags/frozen/contracts/$nnn/1" "$h" 2>/dev/null \
+        && g merge-base --is-ancestor "$h" "$s_until" 2>/dev/null || {
+          bad "строка СПАСЕНО в $file называет коммит «$h» вне диапазона контракта (frozen/contracts/$nnn/1..$s_until)"
+          continue
+        }
+      printf '%s\t%s\t%s\n' "$s_author" "$h" "$nnn" >> "$TMP/saved"
+    done
+    set +f
+  done < <(printf '%s\n' "$body" | grep '^СПАСЕНО ' || true)
   if [ "$declared" -eq 0 ]; then
     bad "$file: контракт не объявил ни зон, ни отказа от раздачи — нужна строка «ЗОНА <автор>: <путь>» либо «РАБОТА НЕ РАЗДАЁТСЯ: <причина>». Молчание не годится: «зон нет» и «зоны забыли» выглядят одинаково"
   fi
+
+
   # Зелёное НАЗЫВАЕТСЯ: барьер, молча разобравший контракт, не даёт доказательств, ЧТО он прочитал.
   # Это уже третий барьер этой пачки, где молчаливое зелёное пришлось закрывать отдельно (записано
   # в NABLIUDENIA.md как рецидив), — значит правило общее: разобранное объявление печатается.
@@ -249,6 +308,10 @@ while IFS=$'\t' read -r nnn since; do
     commits=$((commits + 1))
     an="$(g log -1 --format='%an' "$c")"
     grep -qxF -- "$an" "$TMP/authors" || continue
+    if grep -qxF "$(printf '%s\t%s\t%s' "$an" "$c" "$nnn")" "$TMP/saved"; then
+      printf '  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\n' "$nnn" "${c:0:8}" "$an" >&2
+      continue
+    fi
     checked=$((checked + 1))
     awk -F'\t' -v a="$an" -v n="$nnn" '$1 == a && $3 == n { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
     while IFS= read -r f; do
