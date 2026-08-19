@@ -99,8 +99,8 @@
 
 ## Исполнители и зоны
 
-ЗОНА implementer: skills/ .agents/skills/ package.json .github/workflows/ci.yml scripts/overlay.sh config/
-ЗОНА architect: contracts/003-skills-metta-adaptacija.md plans/008-skills-metta-adaptacija.md NABLIUDENIA.md HANDOFF.md fixtures/check_skills/ fixtures/check_zones/ decisions/ roles/architect.md roles/implementer.md scripts/check_skills.sh scripts/check_zones.sh
+ЗОНА implementer: skills/ .agents/skills/ package.json .github/workflows/ci.yml scripts/overlay.sh config/ .omp/agents/
+ЗОНА architect: contracts/003-skills-metta-adaptacija.md plans/008-skills-metta-adaptacija.md NABLIUDENIA.md HANDOFF.md fixtures/check_skills/ fixtures/check_zones/ decisions/ roles/architect.md roles/implementer.md scripts/check_skills.sh scripts/check_zones.sh .omp/agents/
 СПАСЕНО architect: b5b9ebccd77103c674dfbe87bff2792883ed5507 a5e0e221794b73093995c7642ca18e1cef4dc837 09b2e6afcbae7401ebfb437357c3fa845a0f1e34 — b5b9ebc/a5e0e22: спасение работы исполнителя из таймаута (Н-29), слово владельца 2026-08-18; 09b2e6a: гонка общего индекса при переиздании вердиктов, переименования судейских файлов ушли под именем архитектора, содержимое неизменно (Н-33), решение делегировано владельцем архитектору 2026-08-19
 
 Связность правок (шесть прецедентов Н-22 учтены): каталог скилов, зеркало, проводка и
@@ -118,9 +118,21 @@ overlay — исполнителю (один механизм доставки �
 (архитектор, до реализации, по Q8-C): зелёный контроль — валидная строка СПАСЕНО и названный
 в ней хеш принят, барьер 0; красное — СЛЕДУЮЩИЙ коммит того же автора вне зоны, хеш в СПАСЕНО
 не назван → код 1 с причиной. Дополнительные кейсы (невалидный синтаксис, чужой автор) —
-на усмотрение архитектора. `.omp/agents/` не задействован.
+на усмотрение архитектора. `.omp/agents/` — в зонах обеих ролей (v6): перегенерация
+агентов — механическое следствие правки ролей, соответствие держит `check:gen`
+(прецедент контракта 002).
 
 ## История правок
+
+## Правка реестровой v6 (2026-08-19)
+
+`.omp/agents/` возвращён в зоны обеих ролей по прецеденту контракта 002: правка ролей
+(таблица указателей, приёмка 2) механически требует перегенерации агентов — соответствие
+держит `check:gen`. Утверждение итераций до этой «.omp/agents/ не задействован» было
+ошибкой прогноза: критерий указателей без него неисполним. Находка ревьюера d022609
+(89063a1 вне зоны), слово владельца «продолжай» 2026-08-19.
+
+## Правка реестровой v5 (2026-08-19)
 
 
 Строка СПАСЕНО дополнена хешем 09b2e6af (гонка общего индекса при переиздании вердиктов:
