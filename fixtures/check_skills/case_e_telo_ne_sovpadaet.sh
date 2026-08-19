@@ -11,8 +11,8 @@ make_tree "$R"
 # Папка снимка для теста
 mkdir -p "$R/tmp/snapshot/skills/grilling"
 cp "$R/skills/grilling/SKILL.md" "$R/tmp/snapshot/skills/grilling/SKILL.md"
-"$BARRIER" "$R"
+"$BARRIER" --live "$R"
 
 # Порча: тело отличается
 printf 'tampered\n' >> "$R/skills/grilling/SKILL.md"
-"$BARRIER" "$R"
+"$BARRIER" --live "$R"

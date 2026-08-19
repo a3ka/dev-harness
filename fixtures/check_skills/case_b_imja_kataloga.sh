@@ -6,7 +6,7 @@ set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_tree "$R"
-"$BARRIER" "$R"
+"$BARRIER" --live "$R"
 
 mv "$R/skills/tdd" "$R/skills/tdd-renamed"
-"$BARRIER" "$R"
+"$BARRIER" --live "$R"

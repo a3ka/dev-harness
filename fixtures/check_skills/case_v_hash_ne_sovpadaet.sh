@@ -11,6 +11,9 @@ for s in grilling writing-for-agents tdd diagnosing-bugs; do
   mkdir -p "$R/skills/$s"
   cp "$REPO/skills/$s/SKILL.md" "$R/skills/$s/"
 done
-"$BARRIER" "$R"
+mkdir -p "$R/.agents/skills"
+cp -r "$R/skills/." "$R/.agents/skills/"
+stub_pin "$R"
+"$BARRIER" --live "$R"
 rm -rf "$R/skills/writing-for-agents"
-"$BARRIER" "$R"
+"$BARRIER" --live "$R"

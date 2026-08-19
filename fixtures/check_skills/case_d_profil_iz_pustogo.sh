@@ -1,28 +1,21 @@
-# ПРИЧИНА: профиль не совпадает
+# ПРИЧИНА: зеркало не совпадает
 # ОКРУЖЕНИЕ: PATH=$WORK/repo/bin:$PATH
 #
-# Ветвь (д): барьер создаёт ПУСТОЙ временный HOME, запускает overlay-скрипт и сверяет
-# ПОЛНОЕ дерево каждого скила с репозиторным — не один SKILL.md. Зелёный контроль:
-# overlay-скрипта НЕТ — барьер раскладывает сам, деревья совпадают. Красное — из
-# вердикта адверсария milestone-003-zakrytie §2: заглушка кладёт ТОЛЬКО SKILL.md,
-# вложенные файлы (tdd/mocking.md, agents/openai.yaml, …) пропадают — и это отказ.
+# Ветвь (д), реестровая v4: зеркало .agents/skills — полное дерево skills/, diff -r
+# в обе стороны, состав точен. Зелёный контроль: зеркало разложено → 0.
+# Красное 1: из зеркала пропал вложенный файл (tdd/mocking.md).
+# Красное 2: файл зеркала искажён дописанной строкой.
 set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$WORK/repo"
 make_tree "$R"
-"$BARRIER" "$R"
+"$BARRIER" --live "$R" || true
 
-# Порча: overlay-заглушка раскладывает по одному SKILL.md на скил — дерево неполно
-mkdir -p "$R/scripts"
-cat > "$R/scripts/overlay_stub.sh" <<'OV'
-#!/usr/bin/env bash
-home="${HOME:?}"
-skills="$(cd "$(dirname "$0")/.." && pwd)/skills"
-for d in "$skills"/*/; do
-  s="$(basename "$d")"
-  mkdir -p "$home/.omp/agent/skills/$s"
-  cp "$d/SKILL.md" "$home/.omp/agent/skills/$s/SKILL.md"
-done
-OV
-chmod +x "$R/scripts/overlay_stub.sh"
-"$BARRIER" "$R"
+# Порча 1: неполное дерево — вложенный файл не скопирован
+rm "$R/.agents/skills/tdd/mocking.md"
+"$BARRIER" --live "$R" || true
+
+# Порча 2: искажённый файл зеркала
+cp "$R/skills/tdd/mocking.md" "$R/.agents/skills/tdd/mocking.md"
+printf 'лишняя строка\n' >> "$R/.agents/skills/tdd/tests.md"
+"$BARRIER" --live "$R" || true

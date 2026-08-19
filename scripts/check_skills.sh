@@ -2,19 +2,34 @@
 # scripts/check_skills.sh — барьер на подлинность и комплектность скилов по контракту 003.
 #
 # Восемь ветвей:
-#   (а) скил не обнаружен omp — захват запуска с подставным omp, ответ называет слово из тела
+#   (а) скил не обнаружен omp — ЖИВАЯ проба, только с --live: omp читает skill://<имя>
+#       инструментом read и цитирует дословно строку шапки «# Адаптация: …», которой в
+#       запросе нет; бинарь обязан совпадать с пином config/harness_pin.json (sha256).
+#       Базовый прогон ветвь (а) НЕ заявляет — зелёного пропуска без omp нет.
 #   (б) имя каталога ≠ имени фронтматтера
 #   (в) hash шапки-адаптации ≠ значению из блоба высшей заморозки контракта (не зашит в барьер)
 #   (г) каталог в skills/ вне объявленного множества четырёх
-#   (д) профиль не совпадает с репозиторием после overlay из пустого состояния (ПОЛНОЕ дерево)
+#   (д) зеркало .omp/skills ≠ skills/ — полное дерево каждого скила: omp 17.2.10 читает
+#       ПРОЕКТНОЕ .omp/skills, прежняя цель $HOME/.omp/agent/skills бинарем не читается (Н-31)
 #   (е) тело после шапки-адаптации не совпадает со снимком upstream
 #   (ж) псевдоним grill-me не документирован в шапке grilling
 #   (з) полнота красных фикстур: 8 на родителе первого коммита; ВСЕ коммиты по ним — architect
 #
-# Коды возврата: 0 — зелёный, 1 — расхождение, 2 — нечем проверить (сеть, отсутствие).
+#   bash scripts/check_skills.sh [--live] [корень]   — live добавляет живую пробу (а)
+#
+# Коды возврата: 0 — зелёный, 1 — расхождение, 2 — нечем проверить (сеть, отсутствие omp в live).
 set -uo pipefail
 
-REPO="${1:-$(pwd)}"
+LIVE=0
+REPO=""
+for arg in "$@"; do
+  case "$arg" in
+    --live) LIVE=1 ;;
+    *)      REPO="$arg" ;;
+  esac
+done
+REPO="${REPO:-$(pwd)}"
+REPO_ABS="$(cd "$REPO" 2>/dev/null && pwd)" || { printf 'ОТКАЗ: корень %s недоступен\n' "$REPO" >&2; exit 1; }
 SKILLS_DIR="$REPO/skills"
 EXPECTED="grilling writing-for-agents tdd diagnosing-bugs"
 EMPTY_TREE="4b825dc642cb6eb9a060e54bf8d69288fbee4904"
@@ -64,6 +79,28 @@ if [ ! -d "$SKILLS_DIR" ]; then
 else
   # Поиск omp — один раз на прогон, не по разу на скил.
   omp_bin="$(command -v omp 2>/dev/null || true)"
+
+  # ── (а) ЖИВАЯ ПРОБА: ворота — только --live, пин обязателен ──────────────────
+  # Базовый прогон ветвь (а) не заявляет вовсе: без omp зелёного пропуска нет (контракт
+  # 003 v3, закрытие обхода «CI без omp молчит зелёным»). В live: omp обязан быть, и его
+  # бинарь обязан совпадать с пином репозитория — ответу подменного бинаря верить нельзя;
+  # совместная подмена бинаря и пина в клоне — объявленный остаточный риск (cognitive-only),
+  # ловцы: анти-плацебо читает объявленное окружение фикстур, подлинность в честном
+  # прогоне держит check:overlay.
+  live_ok=0
+  if [ "$LIVE" -eq 1 ]; then
+    [ -n "$omp_bin" ] || skip "нет omp в PATH — живую пробу нечем провести (в CI — объявленное исключение паритета)"
+    pin="$REPO/config/harness_pin.json"
+    [ -f "$pin" ] || skip "нет пина $pin — sha бинаря не с чем сверить"
+    want_sha="$(grep -oP '(?<="sha256": ")[0-9a-f]{64}' "$pin" | head -1)"
+    [ -n "$want_sha" ] || die "пин $pin не назвал sha256 — живой пробе нечего сверять"
+    got_sha="$(sha256sum "$(readlink -f "$omp_bin")" | cut -d' ' -f1)"
+    [ "$got_sha" = "$want_sha" ] \
+      || die "omp не совпадает с пином: $got_sha против $want_sha — ответу живой пробы нельзя верить (подлинность бинаря держит check:overlay)"
+    live_ok=1
+  else
+    ok "ветвь (а): живая проба не заявлена базовым прогоном — она в check:skills-live"
+  fi
   for skill in $EXPECTED; do
     dir="$SKILLS_DIR/$skill"
     f="$dir/SKILL.md"
@@ -95,31 +132,46 @@ else
     fi
     ok "скил «$skill» обнаружен omp (структурно)"
 
-    # (а) ПОВЕДЕНЧЕСКАЯ: omp вызываем и требуем в ответе КОНКРЕТНОЕ слово из ТЕЛА скила.
-    # Две находки адверсария (verdicts/adversary/milestone-003-zakrytie.md, §1): подставной
-    # omp с кодом 127 проходил, потому что `|| true` стирал статус; и любой непустой ответ
-    # без слов error/not found проходил как успех. Теперь статус вызова обязан быть 0,
-    # а ответ обязан назвать слово из тела ЗАГЛАВНЫМИ. Слово выбирает барьер из файла —
-    # первое латинское слово ≥7 букв после фронтматтера, — значит ответ доказывает,
-    # что omp дошёл до скила, а не просто не промолчал.
-    if [ -n "$omp_bin" ]; then
-      word=$(awk '/^---[[:space:]]*$/ { c++; next } c >= 2 { print }' "$f" \
-             | grep -oE '[A-Za-z]{7,}' | head -1)
-      if [ -z "$word" ]; then
-        die "скил «$skill» не обнаружен omp: в теле нет слова для поведенческой проверки"
-      fi
-      prompt="Reply with exactly one word: the word «$word» written in ALL CAPS. Output nothing else."
-      resp=$(timeout 15 "$omp_bin" --skills "$skill" --no-session -p --no-tools "$prompt" 2>&1)
+    # (а) ЖИВАЯ ПРОБА (только --live), контракт 003 реестровая v4 итерация 2: доказательство —
+    # КОРРЕЛИРОВАННАЯ пара событий в json-потоке по одному toolCallId (арбитраж
+    # orakul-korreljacija): у tool_execution_start args.path РАВЕН skill://<имя>; в
+    # tool_execution_end того же вызова — дословная строка шапки (уникальна, на русском, в
+    # запросе отсутствует) и resolvedPath после нормализации — проектный
+    # .agents/skills/<имя>/SKILL.md. Отсутствие любого поля — отказ: у запиненного бинаря
+    # resolvedPath при skill://-резолве есть всегда. Эхо argv, константы, чтение обычного
+    # файла и одноимённый HOME-скил не проходят по построению. Пин проверен выше, один раз.
+    if [ "$live_ok" -eq 1 ]; then
+      want_line="$(grep -m1 '^# Адаптация: ' "$f")"
+      [ -n "$want_line" ] || die "скил «$skill» не обнаружен omp: в шапке нет строки «# Адаптация:» для живой пробы"
+      want_path="$REPO_ABS/.agents/skills/$skill/SKILL.md"
+      prompt="Use the read tool on the URI skill://$skill, find the line that starts with '# Адаптация:' and output that line verbatim, character for character. Nothing else."
+      stream=$(timeout 180 "$omp_bin" --no-session --mode json -p "$prompt" 2>&1)
       rc=$?
       if [ "$rc" -ne 0 ]; then
-        die "скил «$skill» не обнаружен omp: вызов завершился кодом $rc, ответ «$resp»"
+        die "скил «$skill» не обнаружен omp: вызов завершился кодом $rc, поток «$(printf '%s' "$stream" | tail -c 300)»"
       fi
-      if ! printf '%s' "$resp" | grep -qF "${word^^}"; then
-        die "скил «$skill» не обнаружен omp: ответ не называет слово из тела (ожидалось «${word^^}»), ответ «$resp»"
+      # Старт события с точным равенством args.path (границы — кавычки JSON).
+      call_id="$(printf '%s\n' "$stream" | grep '"type":"tool_execution_start"' \
+                 | grep '"toolName":"read"' | grep -F "\"path\":\"skill://$skill\"" \
+                 | sed -n 's/.*"toolCallId":"\([^"]*\)".*/\1/p' | head -1)"
+      if [ -z "$call_id" ]; then
+        die "скил «$skill» не обнаружен omp: в потоке нет вызова read с args.path = skill://$skill — резолв не предъявлен"
       fi
-      ok "скил «$skill» отвечает omp словом из тела"
-    else
-      ok "скил «$skill» — omp нет в PATH, поведенческая проверка пропущена"
+      end_line="$(printf '%s\n' "$stream" | grep '"type":"tool_execution_end"' | grep -F "\"toolCallId\":\"$call_id\"" | head -1)"
+      if [ -z "$end_line" ]; then
+        die "скил «$skill» не обнаружен omp: нет tool_execution_end вызова $call_id — пара не коррелирована"
+      fi
+      if ! printf '%s' "$end_line" | grep -qF -- "$want_line"; then
+        die "скил «$skill» не обнаружен omp: результат вызова не содержит дословно строку шапки «$want_line»"
+      fi
+      got_path="$(printf '%s' "$end_line" | sed -n 's/.*"resolvedPath":"\([^"]*\)".*/\1/p' | head -1)"
+      if [ -z "$got_path" ]; then
+        die "скил «$skill» не обнаружен omp: у результата нет resolvedPath — у запиненного бинаря поле есть всегда; смена схемы событий — правка контракта через upgrade_policy пина"
+      fi
+      if [ "$(readlink -f "$got_path")" != "$want_path" ]; then
+        die "скил «$skill» не обнаружен omp: resolvedPath «$got_path» — не проектный $want_path (одноимённый скил из HOME или чтение обычного файла)"
+      fi
+      ok "скил «$skill» — коррелированная пара событий: skill://$skill резолвится в проектное зеркало"
     fi
 
     # (б) имя каталога ≠ имени фронтматтера
@@ -201,60 +253,27 @@ else
       ok "ветвь (е): для $skill нет ни снимка, ни контракта — сверка пропущена"
     fi
   done
-  # ── (д) профиль после overlay из пустого состояния ────────────────────────────
-  TMPHOME=$(mktemp -d)
-  cleanup() { rm -rf "$TMPHOME" 2>/dev/null || true; }
-  trap cleanup EXIT
-  export HOME="$TMPHOME"
-
-  # Барьер запускает НАСТОЯЩИЙ overlay (не его эхо): что бы ни лежало в $REPO/scripts/overlay*.sh —
-  # это и есть предмет проверки. Если overlay не выложен (фикстуры, где предмет не д), барьер
-  # раскладывает скилы сам — это не подмена постусловия, а его выполнение в отсутствие предмета.
-  overlay_script=""
-  for f in "$REPO/scripts/overlay.sh" "$REPO/scripts/overlay"*.sh; do
-    [ -f "$f" ] && overlay_script="$f" && break
-  done
-
-  if [ -n "$overlay_script" ]; then
-    bash "$overlay_script" >/dev/null 2>&1
-    ov_rc=$?
-    if [ "$ov_rc" -eq 2 ]; then
-      # NOT_IMPLEMENTED — окружению нечем исполнить предмет (нет omp, как в CI).
-      # Это не брак overlay: постусловие в этом окружении НЕ ПРОВЕРЯЛОСЬ, и молчать
-      # об этом нельзя. Захлёбываться на любом другом коде — тоже: он раскладывает.
-      ok "ветвь (д): overlay ответил NOT_IMPLEMENTED ($ov_rc) — профилю нечем разложиться, сверка пропущена"
-      profile_checked=0
-    elif [ "$ov_rc" -ne 0 ]; then
-      die "профиль не совпадает: overlay завершился кодом $ov_rc и ничего не разложил"
-    else
-      profile_checked=1
-    fi
-  else
-    # Отсутствие предмета — не отсутствие постусловия: раскладываем ПОЛНОЕ дерево.
-    for skill in $EXPECTED; do
-      mkdir -p "$TMPHOME/.omp/agent/skills/$skill"
-      cp -r "$SKILLS_DIR/$skill/." "$TMPHOME/.omp/agent/skills/$skill/"
-    done
-    profile_checked=1
+  # ── (д) зеркало разложения: .agents/skills == skills/, ПОЛНОЕ дерево ─────────
+  # Контракт 003 реестровая v4: канонические корни omp — ~/.agents/skills и ПРОЕКТНЫЙ
+  # .agents/skills (изолированные замеры 2026-08-19, Н-34); .omp/skills и
+  # $HOME/.omp/agent/skills корнями не являются. Зеркало коммитится рядом с skills/
+  # по прецеденту .omp/agents из roles/: чистый чекаут получает скилы без прогонов —
+  # и omp обнаруживает их прямо из проекта; дрейф ловит эта ветвь.
+  MIRROR="$REPO/.agents/skills"
+  if [ ! -d "$MIRROR" ]; then
+    die "разложение отсутствует: нет $MIRROR — omp читает проектный корень .agents/skills, зеркало не разложено"
   fi
-
-  # Находка адверсария (§2 вердикта о закрытии): ветвь сверяла только SKILL.md, и
-  # overlay-заглушка, кладущая один файл, оставалась зелёной. Сверяется ПОЛНОЕ дерево
-  # каждого скила: вложенные каталоги, недостающие и лишние файлы — всё названо.
-  # Не проверялось (нет omp в окружении) — не трогаем: пустой профиль в этом случае
-  # не брак overlay, а отсутствие инструмента.
-  if [ "${profile_checked:-0}" -eq 1 ]; then
-    for skill in $EXPECTED; do
-      if [ ! -d "$TMPHOME/.omp/agent/skills/$skill" ]; then
-        die "профиль не совпадает: $skill отсутствует в $TMPHOME/.omp/agent/skills/"
-      fi
-      if ! diff_out=$(diff -r --brief "$SKILLS_DIR/$skill" "$TMPHOME/.omp/agent/skills/$skill" 2>&1); then
-        die "профиль не совпадает: дерево $skill в профиле отличается от репозиторного:
+  mirror_found="$(ls "$MIRROR" 2>/dev/null | sort | tr '\n' ' ' | sed 's/ *$//')"
+  if [ "$mirror_found" != "$expected" ]; then
+    die "состав зеркала .agents/skills неточен: найдено «$mirror_found», ожидается «$expected»"
+  fi
+  for skill in $EXPECTED; do
+    if ! diff_out=$(diff -r --brief "$SKILLS_DIR/$skill" "$MIRROR/$skill" 2>&1); then
+      die "зеркало не совпадает: дерево $skill в .agents/skills отличается от skills/:
 $diff_out"
-      fi
-    done
-    ok "профиль совпадает с репозиторием (полное дерево каждого скила)"
-  fi
+    fi
+  done
+  ok "зеркало .agents/skills совпадает с skills/ (полное дерево каждого скила)"
 fi
 
 # ── (з) полнота красных фикстур ───────────────────────────────────────────────
