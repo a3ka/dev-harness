@@ -58,15 +58,15 @@ load_env() {
   done < "$1/.env"
 }
 
-# ВТОРОЙ ДОМ СЕКРЕТОВ — фабричный .env. Механика измерена 2026-08-19: minimax-ключ
-# переживает хард-ресеты потому, что живёт ещё и в /home/aka/Documents/content-factory/.env;
-# ZAI жил только здесь и умирал вместе с .gitignore-файлом при каждом откате. Теперь
-# недостающие переменные ПОДТЯГИВАЮТСЯ из фабрики (разрешённый список — только наши четыре)
-# и ДОПИСЫВАЮТСЯ в наш .env: реставрация после ресета — просто запуск воркшопа, без
-# ручного переноса. Значения не печатаются; чужие переменные фабрики не читаем.
-FACTORY_ENV="/home/aka/Documents/content-factory/.env"
+# ВТОРОЙ ДОМ СЕКРЕТОВ — ~/.config/dev-harness/secrets.env, ВНЕ репозитория. Механика
+# измерена 2026-08-19: харнесовский .env (в .gitignore) умирает при ресетах/переклонах;
+# дом секретов вне дерева переживает оба. Решение владельца 2026-08-19: харнес НЕ зависит
+# от фабрики контента — фабрика лишь будущий проект; раньше вторым домом служил её .env,
+# зависимость развязана. Недостающие из разрешённого списка подтягиваются и дописываются
+# в наш .env: реставрация после ресета — просто запуск воркшопа. Значения не печатаются.
+SECRETS_HOME="${HOME}/.config/dev-harness/secrets.env"
 bootstrap_env() {
-  [ -f "$FACTORY_ENV" ] || return 0
+  [ -f "$SECRETS_HOME" ] || return 0
   local k v wrote=0
   while IFS='=' read -r k v; do
     case "$k" in ZAI_API_KEY|MINIMAX_API_KEY|METERING_PROXY_URL|METERING_PROXY_TOKEN) ;; *) continue ;; esac
@@ -74,9 +74,10 @@ bootstrap_env() {
     [ -n "$v" ] || continue
     export "$k=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')"
     grep -q "^$k=" "$HERE/.env" 2>/dev/null || { printf '%s=%s\n' "$k" "$v" >> "$HERE/.env"; wrote=1; }
-  done < "$FACTORY_ENV"
-  [ "$wrote" -eq 0 ] || printf '  ok   .env дописан из фабрики (пережившей ресет второго дома секретов)\n' >&2
+  done < "$SECRETS_HOME"
+  [ "$wrote" -eq 0 ] || printf '  ok   .env дописан из дома секретов (~/.config/dev-harness)\n' >&2
 }
+
 
 # Живая сессия работает на роли `default`. Стоит она на провайдере с ключом — вызовы идут
 # через прокси учёта, и без адреса сессия не заработает вовсе. Отказ при запуске дешевле
@@ -112,7 +113,7 @@ require_metering() {
   # После хард-ресета машины ключ из .env пропадает (файл в .gitignore, не переживает откат
   # ФС при потере питания), и без этого гейта сессия молча стартовала бы в никуда.
   case "$LIVE_MODEL" in
-    zai/*) [ -n "${ZAI_API_KEY:-}" ] || die "модель сессии $LIVE_MODEL, а ZAI_API_KEY пуст даже после автосборки: проверь строку ZAI_API_KEY в $FACTORY_ENV (второй дом, переживает ресеты) и в $1/.env" ;;
+    zai/*) [ -n "${ZAI_API_KEY:-}" ] || die "модель сессии $LIVE_MODEL, а ZAI_API_KEY пуст даже после автосборки: проверь строку в ~/.config/dev-harness/secrets.env (дом секретов, вне репозитория)" ;;
   esac
   local keyed
   keyed="$(grep -ohE '"minimax/[^"]+"' "$HERE/.omp/config.yml" "${MODELS:-/dev/null}" 2>/dev/null | head -1 || true)"
