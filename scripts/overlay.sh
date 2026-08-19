@@ -187,26 +187,4 @@ for prov in $assigned_providers; do
 done
 ok "роли моделей объявлены: $(printf '%s' "$needed" | tr '\n' ' ')"
 
-# ── скилы: репозиторий → профиль omp ─────────────────────────────────────────
-# Контракт 003, критерий 4: overlay КЛАДЁТ, барьер ПРОВЕРЯЕТ. Каталог skills/
-# копируется в профиль, чтобы omp обнаруживал скилы при запуске; подлинность
-# держит scripts/check_skills.sh (восемь ветвей), overlay отвечает только за
-# доставку. Постусловие — cmp байт-в-байт — проверяется барьером, не здесь:
-# одна обязанность на один механизм.
-if [ -d "$HERE/skills" ]; then
-  SKILL_TARGET="$HOME/.omp/agent/skills"
-  mkdir -p "$SKILL_TARGET"
-  for d in "$HERE"/skills/*/; do
-    name="$(basename "$d")"
-    mkdir -p "$SKILL_TARGET/$name"
-    # КОПИРУЕМ ВСЁ СОДЕРЖИМОЕ каталога, не только SKILL.md: у Мэтта tdd имеет
-    # tests.md и mocking.md, grill-with-docs — доп.файлы. Находка адверсария:
-    # барьер зелёный, а доп.файлы не доехали. Скилы — каталог, не файл.
-    cp -r "$d." "$SKILL_TARGET/$name/"
-  done
-  ok "скилы разложены в профиль: $(ls -1 "$HERE/skills" | tr '\n' ' ')"
-else
-  printf '  ВНИМАНИЕ: каталог skills/ отсутствует — скилы не разложены\n' >&2
-fi
-
 printf '\nслой наложен поверх omp/%s\n' "$got_ver" >&2
