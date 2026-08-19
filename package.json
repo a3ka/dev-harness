@@ -15,6 +15,7 @@
     "check:overlay": "bash scripts/overlay.sh --check",
     "models:actual": "bash scripts/models_actual.sh",
     "check:antiplacebo": "bash scripts/verify_antiplacebo.sh",
+    "check:ceilings": "bash scripts/check_ceilings.sh",
     "check:ci-parity": "bash scripts/verify_ci_parity.sh",
     "check:protected": "bash scripts/check_protected.sh",
     "drill:protected-exception": "bash scripts/drill_protected_exception.sh",
