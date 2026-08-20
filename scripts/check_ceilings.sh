@@ -47,8 +47,10 @@ fi
 
 # ── файлы-правила: AGENTS.md и каждый файл .omp/rules/ ────────────────────────
 rules=()
-[ -f "$REPO/AGENTS.md" ] && rules+=( "$REPO/AGENTS.md" )
-for f in "$REPO"/.omp/rules/*.md; do [ -f "$f" ] && rules+=( "$f" ); done
+# [ -f ] следует по ссылке и ВЫБРАСЫВАЕТ битую до wc (находка ревьюера f86fa0c):
+# правило существует, если оно файл ИЛИ ссылка — битая попадает в wc и даёт отказ.
+if [ -f "$REPO/AGENTS.md" ] || [ -L "$REPO/AGENTS.md" ]; then rules+=( "$REPO/AGENTS.md" ); fi
+for f in "$REPO"/.omp/rules/*.md; do [ -f "$f" ] || [ -L "$f" ] || continue; rules+=( "$f" ); done
 if [ "${#rules[@]}" -eq 0 ]; then
   ok "файлы-правила отсутствуют — потолок правил неприменим"
 else
