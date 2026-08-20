@@ -74,13 +74,21 @@ import * as crypto from 'node:crypto'
 // ════════════════════════════════════════════════════════════════════════════
 
 interface PriceRow {
-  /** per_m_tokens.in/out — ЦЕЛЫЕ микро-USD за 1M токенов. */
-  per_m_tokens: { in: number; out: number }
+  /**
+   * per_m_tokens.in/out — ЦЕЛЫЕ микро-USD за 1M токенов. BigInt ВНУТРИ;
+   * в JSON-конфиге поле принимает `number | string`, но number > 2^53 — отказ
+   * (IEEE-754 потеряет единицы до арифметики). Молчаливое округление — тот
+   * же класс, что молчаливое зелёное.
+   */
+  per_m_tokens: { in: bigint; out: bigint }
 }
 
 interface Ceiling {
-  /** Потолок в ЦЕЛЫХ микро-USD за UTC-месяц. */
-  usd_per_month: number | string
+  /**
+   * Потолок в ЦЕЛЫХ микро-USD за UTC-месяц. В JSON-конфиге поле принимает
+   * `number | string`, но number > 2^53 — отказ по той же причине.
+   */
+  usd_per_month: bigint
 }
 
 interface Config {
@@ -93,6 +101,85 @@ interface Config {
   ceilings: Record<string, Ceiling>
   /** ИНЪЕКЦИЯ ВРЕМЕНИ: если путь задан, на КАЖДОМ запросе читается epoch-ms из файла. */
   now_file: string | null
+}
+
+/** 2^53 — порог точного целого в IEEE-754 number. */
+const MAX_SAFE_BIG = 9007199254740992n
+
+/**
+ * Строго-десятичный парс строки в BigInt. Без знака, без точки, без e.
+ * `parseInt("1e9", 10)` даёт 1 (молчаливая потеря), `BigInt("1e9")` бросает —
+ * но обе формы бесполезны: для int64 нужна ТОЧНАЯ десятичная запись.
+ */
+function parseDecimalBig(text: string, fieldName: string): bigint {
+  if (!/^[0-9]+$/.test(text)) {
+    throw new Error(
+      `${fieldName}: строка должна быть десятичным целым без знака и экспоненты; фактически: ${JSON.stringify(text)}`,
+    )
+  }
+  try {
+    return BigInt(text)
+  } catch (e) {
+    throw new Error(
+      `${fieldName}: не парсится в BigInt (${(e as Error).message}); фактически: ${JSON.stringify(text)}`,
+    )
+  }
+}
+
+/**
+ * Тариф/потолок: голое JSON-число > 2^53 — ОТКАЗ (не молчаливый ноль,
+ * не молчаливое округление — IEEE-754 потерял единицы ещё ДО BigInt).
+ * Строка — точное `BigInt(-value)` без прохода через `Number`.
+ * `null`/прочее — отказ с названной причиной.
+ */
+function parseMicroBig(value: unknown, fieldName: string): bigint {
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value)) {
+      throw new Error(
+        `${fieldName}: голое JSON-число выше безопасного целого (>2^53); передавайте СТРОКОЙ. Фактически: ${value}`,
+      )
+    }
+    return BigInt(value)
+  }
+  if (typeof value === 'string') {
+    return parseDecimalBig(value, fieldName)
+  }
+  throw new Error(
+    `${fieldName}: ожидалось число или строка; фактически: ${typeof value} (${JSON.stringify(value)})`,
+  )
+}
+
+/**
+ * Токен usage: то же, что `parseMicroBig`, но потолок по num ≤ 2^53-1, потому
+ * что `tokens_in`/`tokens_out` в журнале пишутся JSON-ЧИСЛАМИ (требование
+ * параллельных ветвей барьера: они сверяют как number, а не string).
+ * > 2^53 — отказ с названной причиной, а не молчаливое усечение.
+ */
+function parseTokensInt(value: unknown, fieldName: string): number {
+  let big: bigint
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${fieldName}: не-конечное число; фактически: ${value}`)
+    }
+    if (!Number.isSafeInteger(value)) {
+      throw new Error(
+        `${fieldName}: голое JSON-число выше безопасного целого (>2^53); передавайте СТРОКОЙ. Фактически: ${value}`,
+      )
+    }
+    big = BigInt(value)
+  } else if (typeof value === 'string') {
+    big = parseDecimalBig(value, fieldName)
+  } else {
+    throw new Error(
+      `${fieldName}: ожидалось число или строка; фактически: ${typeof value} (${JSON.stringify(value)})`,
+    )
+  }
+  if (big > MAX_SAFE_BIG) {
+    throw new Error(
+      `${fieldName}: превышает Number.MAX_SAFE_INTEGER (2^53); требуется JSON-число в журнале. Фактически: ${big.toString()}`,
+    )
+  }
+  return Number(big)
 }
 
 /** Запись журнала. 11 полей. usd — СТРОКА десятичного целого микро-USD. */
@@ -144,18 +231,19 @@ function ceilDivBigInt(n: bigint, d: bigint): bigint {
   return n / d
 }
 
-/** Стоимость вызова в микро-USD (BigInt), округление ВВЕРХ. */
+/** Стоимость вызова в микро-USD (BigInt), округление ВВЕРХ.
+ *  Тариф — `BigInt` уже после `loadConfig` (см. `parseMicroBig`), tokens —
+ *  `number` ≤ 2^53 (см. `parseTokensInt`); переход в BigInt здесь — математика,
+ *  не валидация. */
 export function computeUsd(
   tokensIn: number,
   tokensOut: number,
-  inRateMicro: number,
-  outRateMicro: number,
+  inRateMicro: bigint,
+  outRateMicro: bigint,
 ): bigint {
   const ti = BigInt(tokensIn)
   const to = BigInt(tokensOut)
-  const ir = BigInt(inRateMicro)
-  const or = BigInt(outRateMicro)
-  return ceilDivBigInt(ti * ir + to * or, 1_000_000n)
+  return ceilDivBigInt(ti * inRateMicro + to * outRateMicro, 1_000_000n)
 }
 
 /**
@@ -175,35 +263,88 @@ function jsonStringify(obj: unknown): string {
 const MARKER_FILE = '.appendonly.json'
 const BUDGET_FILE = 'budget.json'
 const CALLS_FILE = 'calls.jsonl'
-
 function loadConfig(configPath: string): Config {
   const text = fs.readFileSync(configPath, 'utf8')
-  let raw: unknown
+  let raw: Record<string, unknown>
   try {
-    raw = JSON.parse(text)
+    raw = JSON.parse(text) as Record<string, unknown>
   } catch (e) {
     throw new Error('config: невалидный JSON — ' + (e as Error).message)
   }
-  const cfg = raw as Partial<Config>
-  if (typeof cfg.port !== 'number' || !Number.isFinite(cfg.port)) {
+  if (typeof raw.port !== 'number' || !Number.isFinite(raw.port)) {
     throw new Error('config: port должен быть числом')
   }
-  if (typeof cfg.secrets_env !== 'string' || !cfg.secrets_env) {
+  if (typeof raw.secrets_env !== 'string' || !raw.secrets_env) {
     throw new Error('config: secrets_env должен быть непустой строкой')
   }
-  if (typeof cfg.data_dir !== 'string' || !cfg.data_dir) {
+  if (typeof raw.data_dir !== 'string' || !raw.data_dir) {
     throw new Error('config: data_dir должен быть непустой строкой')
   }
-  if (!cfg.upstream || typeof cfg.upstream !== 'object') {
+  if (!raw.upstream || typeof raw.upstream !== 'object') {
     throw new Error('config: upstream должен быть объектом')
   }
-  if (!cfg.prices || typeof cfg.prices !== 'object') {
+  if (!raw.prices || typeof raw.prices !== 'object') {
     throw new Error('config: prices должен быть объектом')
   }
-  if (!cfg.ceilings || typeof cfg.ceilings !== 'object') {
+  if (!raw.ceilings || typeof raw.ceilings !== 'object') {
     throw new Error('config: ceilings должен быть объектом')
   }
-  return cfg as Config
+  // Тарифы: парсим каждое поле per_m_tokens.in/out через parseMicroBig.
+  // Любое число > 2^53 — отказ (не молчаливый ноль) на старте.
+  const pricesOut: Record<string, Record<string, PriceRow>> = {}
+  const rawPrices = raw.prices as Record<string, unknown>
+  for (const provider of Object.keys(rawPrices)) {
+    const provMap = rawPrices[provider]
+    if (!provMap || typeof provMap !== 'object') {
+      throw new Error(`config: prices.${provider} должен быть объектом`)
+    }
+    pricesOut[provider] = {}
+    const modelMap = provMap as Record<string, unknown>
+    for (const model of Object.keys(modelMap)) {
+      const rawRow = modelMap[model]
+      if (!rawRow || typeof rawRow !== 'object') {
+        throw new Error(`config: prices.${provider}.${model} должен быть объектом`)
+      }
+      const pmt = (rawRow as Record<string, unknown>).per_m_tokens
+      if (!pmt || typeof pmt !== 'object') {
+        throw new Error(`config: prices.${provider}.${model}.per_m_tokens должен быть объектом`)
+      }
+      const pmtObj = pmt as Record<string, unknown>
+      const inRate = parseMicroBig(
+        pmtObj.in,
+        `тариф ${provider}/${model}.per_m_tokens.in`,
+      )
+      const outRate = parseMicroBig(
+        pmtObj.out,
+        `тариф ${provider}/${model}.per_m_tokens.out`,
+      )
+      pricesOut[provider][model] = { per_m_tokens: { in: inRate, out: outRate } }
+    }
+  }
+  // Потолки: то же правило, тот же парсер.
+  const ceilingsOut: Record<string, Ceiling> = {}
+  const rawCeilings = raw.ceilings as Record<string, unknown>
+  for (const provider of Object.keys(rawCeilings)) {
+    const rawCeil = rawCeilings[provider]
+    if (!rawCeil || typeof rawCeil !== 'object') {
+      throw new Error(`config: ceilings.${provider} должен быть объектом`)
+    }
+    const usd = parseMicroBig(
+      (rawCeil as Record<string, unknown>).usd_per_month,
+      `потолок ${provider}.usd_per_month`,
+    )
+    ceilingsOut[provider] = { usd_per_month: usd }
+  }
+  return {
+    port: raw.port as number,
+    healthz_window_sec: (raw.healthz_window_sec as number) ?? 5,
+    secrets_env: raw.secrets_env as string,
+    data_dir: raw.data_dir as string,
+    upstream: raw.upstream as Record<string, string>,
+    prices: pricesOut,
+    ceilings: ceilingsOut,
+    now_file: (raw.now_file as string | null) ?? null,
+  }
 }
 
 /**
@@ -551,14 +692,15 @@ async function handleRequest(
     res.end(JSON.stringify({ error: 'model_unpriced' }))
     return
   }
-  const inRate = Number(price.per_m_tokens.in ?? 0)
-  const outRate = Number(price.per_m_tokens.out ?? 0)
+  // rate — BigInt уже (см. parseMicroBig в loadConfig). Никакого Number().
+  const inRate = price.per_m_tokens.in
+  const outRate = price.per_m_tokens.out
 
   // 6. Период и потолок. БЕЗ КЭША: период — на каждом запросе.
   const nowMs = readNowMs(cfg)
   const period = periodAt(nowMs)
   const ceilingCfg = cfg.ceilings[provider]
-  const limitBig: bigint = ceilingCfg ? BigInt(ceilingCfg.usd_per_month) : 0n
+  const limitBig: bigint = ceilingCfg ? ceilingCfg.usd_per_month : 0n
 
   // request_id — из заголовка x-request-id (коррелятор). Пустая строка, если нет.
   const ridHeader = req.headers['x-request-id']
@@ -648,35 +790,76 @@ async function handleRequest(
 
   // 12. Извлечение usage. Приоритет: (1) тело-JSON, (2) заголовки ответа.
   //     Ветвь (в) даёт тело-не-JSON и требует ненулевой usd — потому источник (2) обязателен.
+  //     Чтение — через parseTokensInt (BigInt из десятичного текста), без parseInt.
+  //     > 2^53 — отказ с названной причиной (не молчаливое усечение).
+  //     Поле есть и его значение null — трактуем как «нет значения от тела»,
+  //     чтобы сохранить прежнюю логику «fall back to headers»; иначе всё, что
+  //     не число/строка, проходит через parseTokensInt.
   let tokensIn = 0
   let tokensOut = 0
+  let usageError: Error | null = null
   try {
     const parsed = JSON.parse(resBody.toString('utf8'))
     if (parsed && typeof parsed === 'object' && parsed.usage && typeof parsed.usage === 'object') {
       const u = parsed.usage as Record<string, unknown>
-      if (typeof u.prompt_tokens === 'number' && Number.isFinite(u.prompt_tokens)) {
-        tokensIn = u.prompt_tokens
+      if ('prompt_tokens' in u && u.prompt_tokens !== null) {
+        try {
+          tokensIn = parseTokensInt(u.prompt_tokens, 'usage.prompt_tokens')
+        } catch (e) {
+          usageError = e as Error
+        }
       }
-      if (typeof u.completion_tokens === 'number' && Number.isFinite(u.completion_tokens)) {
-        tokensOut = u.completion_tokens
+      if ('completion_tokens' in u && u.completion_tokens !== null) {
+        try {
+          tokensOut = parseTokensInt(u.completion_tokens, 'usage.completion_tokens')
+        } catch (e) {
+          usageError = e as Error
+        }
       }
     }
   } catch {
     /* не JSON — пойдём к источнику (2) */
   }
-  if (tokensIn === 0) {
+  if (tokensIn === 0 && usageError === null) {
     const h = upstreamRes.headers['x-usage-tokens-in']
     if (typeof h === 'string') {
-      const n = parseInt(h, 10)
-      if (Number.isFinite(n)) tokensIn = n
+      try {
+        tokensIn = parseTokensInt(h, 'x-usage-tokens-in')
+      } catch (e) {
+        usageError = e as Error
+      }
     }
   }
-  if (tokensOut === 0) {
+  if (tokensOut === 0 && usageError === null) {
     const h = upstreamRes.headers['x-usage-tokens-out']
     if (typeof h === 'string') {
-      const n = parseInt(h, 10)
-      if (Number.isFinite(n)) tokensOut = n
+      try {
+        tokensOut = parseTokensInt(h, 'x-usage-tokens-out')
+      } catch (e) {
+        usageError = e as Error
+      }
     }
+  }
+  if (usageError) {
+    // Upstream вернул непригодное usage. 502 + полная строка, tokens/usd=0,
+    // и названная причина в теле (а не молчаливое округление).
+    const nowMs2 = readNowMs(cfg)
+    appendLog(cfg.data_dir, {
+      ts: nowMs2,
+      role,
+      provider,
+      model,
+      path: rawUrl,
+      tokens_in: 0,
+      tokens_out: 0,
+      usd: '0',
+      latency_ms: Date.now() - start,
+      status: 502,
+      request_id: requestId,
+    })
+    res.writeHead(502, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ error: 'bad_usage', reason: usageError.message }))
+    return
   }
 
   // 13. Стоимость (BigInt, округление вверх).
@@ -843,7 +1026,7 @@ export function selftest(): number {
       [1000, 0, 5_000_000, 0, 5_000n], // 1000 * 5M / 1M = 5000
     ]
     for (const [ti, to, ir, or, expected] of cases) {
-      const got = computeUsd(ti, to, ir, or)
+      const got = computeUsd(ti, to, BigInt(ir), BigInt(or))
       if (got !== expected) {
         fails.push(`computeUsd(${ti},${to},${ir},${or}) = ${got}, ожидалось ${expected}`)
       }
@@ -852,6 +1035,114 @@ export function selftest(): number {
     const sumBig = 9007199254740993n + 9007199254740993n
     if (sumBig !== 18014398509481986n) {
       fails.push('int64: сумма двух значений >2^53 должна быть точной — потеря')
+    }
+    // ── ветвь точности: тариф СТРОКОЙ → usd РОВНО 9007199254740993000 ─────
+    // 1e9 * 9007199254740993 / 1e6 = 9.007199254740993e15. Округление вверх
+    // не меняет (делимое делится ровно). IEEE-754-стаб с Number() даёт
+    // 9007199254740992 (потеря 1 на входе), потом 9007199254740992 * 1e9
+    // = 9.007199254740992e24, делённое на 1e6 = 9007199254740992000
+    // (потеря ещё 1000). Эталон: 9007199254740993000.
+    const exactUsd = computeUsd(1_000_000_000, 0, 9007199254740993n, 0n)
+    if (exactUsd !== 9007199254740993000n) {
+      fails.push(`int64: 1e9 * 9007199254740993 / 1e6 = ${exactUsd.toString()}, ожидалось 9007199254740993000`)
+    }
+    // Та же точность — через loadConfig со строкой. Это путь, по которому
+    // пойдёт живая конфигурация: число → parseMicroBig → BigInt.
+    const goodCfgPath = path.join(tmp, 'good-cfg.json')
+    fs.writeFileSync(goodCfgPath, JSON.stringify({
+      port: 0,
+      healthz_window_sec: 5,
+      secrets_env: sec,
+      data_dir: dataDir,
+      upstream: {},
+      prices: { p: { m: { per_m_tokens: { in: '9007199254740993', out: '1' } } } },
+      ceilings: { p: { usd_per_month: '10000000000000000' } },
+      now_file: null,
+    }))
+    const goodCfg = loadConfig(goodCfgPath)
+    if (goodCfg.prices.p.m.per_m_tokens.in !== 9007199254740993n) {
+      fails.push(`int64: rate из строки должен быть 9007199254740993n, фактически ${goodCfg.prices.p.m.per_m_tokens.in.toString()}`)
+    }
+    // Тот же тариф голым числом — loadConfig ОБЯЗАН отказать на старте.
+    const badCfgPath = path.join(tmp, 'bad-cfg.json')
+    fs.writeFileSync(badCfgPath, JSON.stringify({
+      port: 0,
+      healthz_window_sec: 5,
+      secrets_env: sec,
+      data_dir: dataDir,
+      upstream: {},
+      prices: { p: { m: { per_m_tokens: { in: 9007199254740993, out: 1 } } } },
+      ceilings: {},
+      now_file: null,
+    }))
+    let badCaught = false
+    let badMsg = ''
+    try {
+      loadConfig(badCfgPath)
+    } catch (e) {
+      badCaught = true
+      badMsg = (e as Error).message
+    }
+    if (!badCaught) {
+      fails.push('int64: loadConfig должен отказать на rate > 2^53 как число, но принял')
+    } else if (!badMsg.includes('голое JSON-число выше безопасного целого')) {
+      fails.push(`int64: отказ должен называть причину, фактически: ${badMsg}`)
+    }
+    // Потолок голым числом > 2^53 — отказ.
+    const badCeilPath = path.join(tmp, 'bad-ceil.json')
+    fs.writeFileSync(badCeilPath, JSON.stringify({
+      port: 0,
+      healthz_window_sec: 5,
+      secrets_env: sec,
+      data_dir: dataDir,
+      upstream: {},
+      prices: {},
+      ceilings: { p: { usd_per_month: 99007199254740993000 } },
+      now_file: null,
+    }))
+    let ceilCaught = false
+    let ceilMsg = ''
+    try {
+      loadConfig(badCeilPath)
+    } catch (e) {
+      ceilCaught = true
+      ceilMsg = (e as Error).message
+    }
+    if (!ceilCaught) {
+      fails.push('int64: loadConfig должен отказать на потолке > 2^53 как число, но принял')
+    } else if (!ceilMsg.includes('голое JSON-число выше безопасного целого')) {
+      fails.push(`int64: отказ потолка должен называть причину, фактически: ${ceilMsg}`)
+    }
+    // Usage > 2^53 — parseTokensInt должен отказать (а не молча усечь).
+    // Голое число > 2^53 — parseTokensInt отказывает на Number.isSafeInteger (Number() округлил).
+    // (literal 9007199254740993 округляется JS до 9007199254740992 == 2^53, и та — НЕ safe.)
+    let tokCaught = false
+    let tokMsg = ''
+    try {
+      parseTokensInt(9007199254740993, 'usage.prompt_tokens')
+    } catch (e) {
+      tokCaught = true
+      tokMsg = (e as Error).message
+    }
+    if (!tokCaught) {
+      fails.push('int64: parseTokensInt должен отказать на tokens > 2^53 числом, но принял')
+    } else if (!tokMsg.includes('безопасного целого')) {
+      fails.push(`int64: parseTokensInt должен назвать «безопасного целого», фактически: ${tokMsg}`)
+    }
+    // Строка с токенами в пределах 2^53 — точное число. И наоборот: "1e9" — отказ.
+    if (parseTokensInt('1000000000', 'usage.prompt_tokens') !== 1000000000) {
+      fails.push('int64: parseTokensInt("1000000000") должен быть 1000000000')
+    }
+    let expCaught = false
+    try { parseTokensInt('1e9', 'usage.prompt_tokens') } catch { expCaught = true }
+    if (!expCaught) {
+      fails.push('int64: parseTokensInt("1e9") — отказ (экспонента не десятичное)')
+    }
+    // Строка с токенами > 2^53 — отказ (даже валидная запись).
+    let bigTokCaught = false
+    try { parseTokensInt('9007199254740993', 'usage.prompt_tokens') } catch { bigTokCaught = true }
+    if (!bigTokCaught) {
+      fails.push('int64: parseTokensInt("9007199254740993") — отказ (выше 2^53)')
     }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
