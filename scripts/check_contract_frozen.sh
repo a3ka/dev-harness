@@ -83,6 +83,19 @@ g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' 2>/de
 # одного, и вердикт зависел бы от того, сколько файлов в дереве.
 g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null | sort > "$TMP/tags" || true
 
+# ТЕГ РЕЕСТРА — АННОТИРОВАННЫЙ (Н-35: судья поставил лёгкий тег руками мимо писателя).
+# freeze_contract.sh — единственный писатель — создаёт тег всегда с причиной в сообщении:
+# `git tag -a`. Лёгкий тег сообщения не имеет и механизмом заморозки не создаётся;
+# его появление в реестре — след мимо процедуры. Различие механическое: тип объекта
+# по ссылке — `tag` для аннотированного, `commit` для лёгкого.
+while IFS= read -r t; do
+  [ -n "$t" ] || continue
+  objtype="$(g cat-file -t "$t" 2>/dev/null || true)"
+  if [ -n "$objtype" ] && [ "$objtype" != tag ]; then
+    bad "тег $t — лёгкий (объект $objtype, без сообщения-причины): реестр заморозок пишет только freeze_contract.sh (Н-35)"
+  fi
+done < "$TMP/tags"
+
 checked=0; drafts=0; frozen=0
 while IFS= read -r f; do
   [ -n "$f" ] || continue
