@@ -658,8 +658,19 @@ branch_е() {
   # содержимым calls.jsonl на момент проверки.
   local cfg="$BARRIER_CFG" data="$BARRIER_DATA"
   local rc
-  node "$PROXY" --config "$cfg" --verify-appendonly >/dev/null 2>&1
+  # ГРАНИЦА ВРЕМЕНИ ОБЯЗАТЕЛЬНА. Обманная заглушка прокси флагов не знает и на
+  # `--verify-appendonly` поднимает СЕРВЕР — вызов не возвращается никогда. Барьер,
+  # висящий на заглушке, хуже красного: он не даёт вердикта вовсе, а результат есть
+  # код возврата. Измерено 2026-08-20: анти-плацебо встало на
+  # `case_a_proxy_up_healthz`, в процессах — `metering_proxy.ts --verify-appendonly`.
+  # Истечение границы — ОТКАЗ с названной причиной, а не пропуск.
+  local CLI_MAX=20
+  timeout "$CLI_MAX" node "$PROXY" --config "$cfg" --verify-appendonly >/dev/null 2>&1
   rc=$?
+  if [ "$rc" = "124" ]; then
+    bad "е: --verify-appendonly не вернулся за ${CLI_MAX}с — режим не одноразовый (заглушка поднимает сервер)"
+    return 1
+  fi
   if [ "$rc" != "0" ]; then
     bad "е: --verify-appendonly вернул $rc — маркер мёртв (appendLog не аппендит)"
     return 1
@@ -668,7 +679,12 @@ branch_е() {
   # РАВЕН свёртке журнала (сверка СОДЕРЖИМОГО). Здесь ловится второй дефект
   # контракта: --rebuild-budget пишет НЕ из журнала (константой).
   rm -f "$data/budget.json"
-  node "$PROXY" --config "$cfg" --rebuild-budget >/dev/null 2>&1 || true
+  timeout "$CLI_MAX" node "$PROXY" --config "$cfg" --rebuild-budget >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" = "124" ]; then
+    bad "е: --rebuild-budget не вернулся за ${CLI_MAX}с — режим не одноразовый (заглушка поднимает сервер)"
+    return 1
+  fi
   if [ ! -s "$data/budget.json" ]; then
     bad "е: --rebuild-budget не записал budget.json"; return 1
   fi
@@ -1198,7 +1214,33 @@ main() {
 
   local proxy_pid
   proxy_pid="$(proxy_up "$cfg" "$work/data/proxy.pid")"
-  trap "proxy_down $proxy_pid; rm -rf '$work'" EXIT
+  # ВЫХОД ГАСИТ ВСЁ, ЧТО ПОДНЯЛ. Ветви (и) и (л) поднимают СВОИ прокси со своими
+  # pid-файлами, и прежняя ловушка их не знала: после прогонов в системе оставалось
+  # 21 осиротевший процесс с конфигами в /tmp (замер 2026-08-20). Гасим по ВСЕМ
+  # pid-файлам под $work, а не только по тому, что помнит main.
+  kill_all_proxies() {
+    local root="${1:-}" f p
+    [ -n "$root" ] || return 0
+    # Проход по pid-файлам — только если каталог ещё существует.
+    if [ -d "$root" ]; then
+      while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        p="$(cat "$f" 2>/dev/null)"
+        [ -n "$p" ] || continue
+        kill -- "-$p" 2>/dev/null || kill "$p" 2>/dev/null || true
+      done < <(find "$root" -type f -name '*.pid' 2>/dev/null)
+    fi
+    # Второй проход идёт ВСЕГДА, даже когда каталога уже нет: на зелёном пути main
+    # удаляет $work ДО выхода, и прежний охранник `[ -d "$root" ] || return 0` выходил
+    # досрочно — процесс перезапущенного прокси оставался жив, а его pid-файл исчезал
+    # вместе с каталогом (замер 2026-08-20: один живой прокси после зелёного прогона).
+    # Шаблон СТРОГО с путём своего каталога: чужие прогоны и клоны не трогаются.
+    pkill -f "metering_proxy.ts --config $root" 2>/dev/null || true
+  }
+  # Каталог подставляется В МОМЕНТ ОБЪЯВЛЕНИЯ ловушки: $work — локальная переменная
+  # main, и к моменту EXIT её уже нет. Прежняя редакция читала её внутри функции и
+  # падала с «work: unbound variable», а гашение не доходило до конца (замер 2026-08-20).
+  trap "kill_all_proxies '$work'; proxy_down $proxy_pid; rm -rf '$work'" EXIT
 
   # СПИСОК ВЕТВЕЙ ОБЪЯВЛЕН ОДНИМ МЕСТОМ и сверяется по числу: контракт обещает 15.
   # Расхождение счёта — отказ, а не молчаливый прогон подмножества (самопроверка счёта).
