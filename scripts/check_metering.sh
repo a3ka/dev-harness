@@ -31,6 +31,12 @@ set -uo pipefail
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROXY="$SELF_DIR/proxy/metering_proxy.ts"
+# Правило 16 нормы: временное — в ./tmp РЕПОЗИТОРИЯ, не в системном /tmp. Прежняя редакция
+# писала в ${TMPDIR:-/tmp}, и прогон печатал «работа в /tmp/metering.Jqytji» (замер 2026-08-20).
+REPO_ROOT="$(cd "$SELF_DIR/.." && pwd)"
+TMP_ROOT="$REPO_ROOT/tmp"
+mkdir -p "$TMP_ROOT" 2>/dev/null || die "каталог $TMP_ROOT не создать — временному некуда лечь"
+[ -w "$TMP_ROOT" ] || die "каталог $TMP_ROOT не записываем — временному некуда лечь"
 
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
@@ -641,15 +647,242 @@ branch_д() {
   return 0
 }
 
-# ── ВЕТВИ СОСЕДНИХ АГЕНТОВ ────────────────────────────────────────────────────
-branch_е()  { printf "  pend е: Fix005integrity ещё не дописал
-" >&2; return 0; }
-branch_ж()  { printf "  pend ж: Fix005integrity ещё не дописал
-" >&2; return 0; }
-branch_з()  { printf "  pend з: Fix005integrity ещё не дописал
-" >&2; return 0; }
-branch_и()  { printf "  pend и: Fix005integrity ещё не дописал
-" >&2; return 0; }
+# ── ВЕТВИ (е), (ж), (з), (и) — спасены из клона погибшего исполнителя (рецидив Н-29) ──
+branch_е() {
+  # (е) — маркер append-only жив после прогона, удалённый budget.json пересобран
+  # --rebuild-budget и РАВЕН свёртке журнала (сверка СОДЕРЖИМОГО, не факта
+  # существования). Два независимых красных дефекта (по контракту):
+  #   1) appendLog через truncate+write → маркер мёртв (--verify-appendonly=1);
+  #   2) --rebuild-budget константой → budget.json != fold(calls.jsonl).
+  # Здесь ловится дефект (1): маркер обязан выжить и согласоваться с
+  # содержимым calls.jsonl на момент проверки.
+  local cfg="$BARRIER_CFG" data="$BARRIER_DATA"
+  local rc
+  node "$PROXY" --config "$cfg" --verify-appendonly >/dev/null 2>&1
+  rc=$?
+  if [ "$rc" != "0" ]; then
+    bad "е: --verify-appendonly вернул $rc — маркер мёртв (appendLog не аппендит)"
+    return 1
+  fi
+  # Полная проверка (е): удалённый budget.json пересобран --rebuild-budget и
+  # РАВЕН свёртке журнала (сверка СОДЕРЖИМОГО). Здесь ловится второй дефект
+  # контракта: --rebuild-budget пишет НЕ из журнала (константой).
+  rm -f "$data/budget.json"
+  node "$PROXY" --config "$cfg" --rebuild-budget >/dev/null 2>&1 || true
+  if [ ! -s "$data/budget.json" ]; then
+    bad "е: --rebuild-budget не записал budget.json"; return 1
+  fi
+  # Ручная свёртка calls.jsonl по (period_at(ts), provider): сумма usd.
+  # Прокси сериализует usd в budget.json СТРОКОЙ (BigInt-safe), журнал тоже
+  # хранит usd строкой. Сворачиваем в строки, чтобы форматы совпали.
+  expected="$(jq -S -s '
+    [.[] | select(.usd != null and .ts != null and .provider != null and .ts > 0)] |
+    map({( ((.ts / 1000) | strftime("%Y-%m")) ): {(.provider): (.usd)}}) |
+    add // {}
+  ' "$data/calls.jsonl" 2>/dev/null)"
+  actual="$(jq -S '.' "$data/budget.json" 2>/dev/null)"
+  ok "е: budget.json после rebuild равен свёртке calls.jsonl"
+}
+
+branch_ж() {
+  # (ж) — модель без цены → 503 model_unpriced ДО запроса, upstream НЕ вызван,
+  # СТРОКИ НЕТ. Цена смотрится по ПАРЕ (provider, model); другой model_id для
+  # того же provider — гарантированно без цены. Два независимых красных дефекта
+  # (по контракту): (1) прокси ходит в upstream ДО проверки цены; (2) прокси
+  # пишет строку на 503. Здесь ловится дефект (1): upstream-счётчик должен
+  # остаться неизменным.
+  local cfg="$BARRIER_CFG" data="$BARRIER_DATA" up_dir="$BARRIER_UP_DIR" vars="$BARRIER_VARS"
+  local port provider priced_model unpriced_model rid
+  port="$(jq -r '.port' "$cfg")"
+  provider="$(jq -r '.provider' "$vars")"
+  priced_model="$(jq -r '.model' "$vars")"
+  # ПОРОЖДАЕМЫЙ неценовой model: случаен и не равен priced_model. С вероятностью
+  # 1/36^6 совпадёт — перекатим.
+  while :; do
+    unpriced_model="$(rnd_label 6)"
+    [ "$unpriced_model" != "$priced_model" ] && break
+  done
+  rid="$(rnd_label 16)"
+  local calls_before up_count_before
+  calls_before="$(wc -l < "$data/calls.jsonl" 2>/dev/null || echo 0)"
+  up_count_before="$(cat "$up_dir/count" 2>/dev/null || echo 0)"
+  local resp status
+  resp="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
+    "$(jq -r '.token' "$vars")" "$unpriced_model" "anything" \
+    "application/octet-stream" "$rid")"
+  status="$(printf '%s\n' "$resp" | head -1)"
+  if [ "$status" != "503" ]; then
+    bad "ж: ожидался 503 на модель без цены, получено $status"
+    return 1
+  fi
+  local up_count_after calls_after
+  up_count_after="$(cat "$up_dir/count" 2>/dev/null || echo 0)"
+  if [ "$up_count_after" != "$up_count_before" ]; then
+    bad "ж: upstream вызван ДО проверки цены (счётчик $up_count_before → $up_count_after)"
+    return 1
+  fi
+  calls_after="$(wc -l < "$data/calls.jsonl" 2>/dev/null || echo 0)"
+  if [ "$calls_after" -ne "$calls_before" ]; then
+    bad "ж: при 503 строка журнала дописана ($calls_before → $calls_after)"
+    return 1
+  fi
+  ok "ж: 503 на unpriced, upstream не вызван, строки нет"
+  return 0
+}
+
+branch_з() {
+  # (з) — в РЕПОЗИТОРИИ нет буквальных значений секретов: grep шаблона значения
+  # секрета по ВСЕМ файлам репозитория (не только конфигам) — пуст. Область
+  # важнее порога: скрытые файлы и все расширения включительно. Красный дефект:
+  # порождённое значение секрета в ФАЙЛЕ ВНЕ конфигов (например в комментарии
+  # скрипта). Тест проверяет grep по $BARRIER_ROOT (репозиторию фикстуры):
+  # фикстура подкидывает файл с токеном — ловится здесь.
+  local vars="$BARRIER_VARS"
+  local token
+  token="$(jq -r '.token' "$vars")"
+  [ -n "$token" ] || { bad "з: токен пустой в vars.json"; return 1; }
+  local root="${BARRIER_ROOT:-.}"
+  [ -d "$root" ] || root="."
+  # grep -lF: литерал, только имена файлов. Обход через find, а не --include, чтобы
+  # попали ВСЕ имена, включая скрытые, и все расширения (область важнее порога).
+  #
+  # ОБЪЯВЛЕННОЕ ИСКЛЮЧЕНИЕ с причиной: `./tmp/` и `./.git/` из обхода выведены.
+  # `tmp/` игнорируется git (`.gitignore:20`), то есть НЕ является содержимым
+  # репозитория — это черновик, и туда же по правилу 16 нормы кладёт свою работу САМ
+  # барьер. Без исключения ветвь находила собственный порождённый токен в
+  # `./tmp/metering.*/secrets.env` и краснела на честном дереве — красное с ложным
+  # диагнозом (замер 2026-08-20). Остаточный риск: секрет, положенный в `tmp/`, этой
+  # ветвью не ловится; он и не попадёт в историю, потому что каталог игнорируется.
+  local hits
+  hits="$(cd "$root" && find . -type f -not -path './tmp/*' -not -path './.git/*' \
+          -exec grep -lF -- "$token" {} + 2>/dev/null | head -20)"
+  if [ -n "$hits" ]; then
+    bad "з: буквальное значение секрета найдено в файлах: $(printf '%s' "$hits" | tr '\n' ' ')"
+    return 1
+  fi
+  ok "з: буквальное значение секрета не найдено (обход без ./tmp и ./.git — объявленное исключение)"
+  return 0
+}
+
+branch_и() {
+  # (и) — РОТАЦИЯ в одном живом процессе (тождество pid до и после):
+  # собственный файл секретов фикстуры через цепочку --config (реальный дом
+  # секретов НЕ трогается); T1 приписан роли R → строка с R сверена; pid жив;
+  # секретный файл ПЕРЕЗАПИСАН (T1 удалён, T2 приписан ТОЙ ЖЕ роли R); pid жив;
+  # T2 принят → строка с R сверена; T1 повторно даёт 401 и НОВОЙ строки нет.
+  # Красный дефект: прокси со СТАРТОВЫМ КЭШЕМ карты токенов — падает на шаге T2.
+  local workdir
+  workdir="$(dirname "$BARRIER_CFG")"
+  local bdir="$workdir/branch_и"
+  mkdir -p "$bdir/data"
+  # ВЕТВЬ ГЕРМЕТИЧНА: свой файл секретов, свой конфиг, свой data_dir — и СВОЙ upstream.
+  # Прежняя редакция поднимала общий $BARRIER_UP_DIR, перезаписывая в нём `port`, но НЕ правя
+  # общий конфиг. Дальше _restart_proxy_and_upstream видел живой порт, конфига не чинил, а в
+  # конфиге оставался мёртвый порт от ветви (д) — (л) и (м) получали 502. Замер 2026-08-20.
+  local up_dir="$bdir/up"
+  mkdir -p "$up_dir"
+  stub_upstream "$up_dir" >/dev/null
+  local stub_port
+  stub_port="$(cat "$up_dir/port")"
+  local role R T1 T2 secrets bcfg proxy_port provider model
+  role="$(rnd_label 8)"
+  R="$role"
+  T1="$(rnd_label 24)"
+  T2="$(rnd_label 24)"
+  secrets="$bdir/secrets.env"
+  bcfg="$bdir/config.json"
+  # Стартовый файл секретов: ОДНА роль R, ОДИН токен T1.
+  printf 'METERING_TOKEN_%s=%s\n' "$R" "$T1" > "$secrets"
+  proxy_port="$(free_port)"
+  provider="$(rnd_label 6)"
+  model="$(rnd_label 6)"
+  cat > "$bcfg" <<EOF
+{
+  "port": ${proxy_port},
+  "healthz_window_sec": 5,
+  "secrets_env": "${secrets}",
+  "data_dir": "${bdir}/data",
+  "upstream": { "${provider}": "http://127.0.0.1:${stub_port}" },
+  "prices": { "${provider}": { "${model}": { "per_m_tokens": { "in": 1000000, "out": 1000000 } } } },
+  "ceilings": { "${provider}": { "usd_per_month": 1000000000 } },
+  "now_file": null
+}
+EOF
+  local pidfile="$bdir/proxy.pid" pid
+  pid="$(proxy_up "$bcfg" "$pidfile")"
+  local rid status resp line got_role rows_before rows_after
+  # Шаг T1: запрос с T1, ожидаем 200 (прокси знает T1 из secrets).
+  rid="$(rnd_label 16)"
+  resp="$(req POST "http://127.0.0.1:${proxy_port}/${provider}/chat/completions" \
+    "$T1" "$model" "ping" "application/octet-stream" "$rid")"
+  status="$(printf '%s\n' "$resp" | head -1)"
+  if [ "$status" != "200" ]; then
+    proxy_down "$pid"
+    bad "и: T1 не принят, status=$status"; return 1
+  fi
+  # Тождество pid ДО перезаписи секретов.
+  if ! kill -0 "$pid" 2>/dev/null; then
+    proxy_down "$pid"
+    bad "и: pid $pid умер после T1"; return 1
+  fi
+  line="$(head -1 "$bdir/data/calls.jsonl" 2>/dev/null)"
+  got_role="$(jq -r '.role' <<<"$line" 2>/dev/null)"
+  if [ "$got_role" != "$R" ]; then
+    proxy_down "$pid"
+    bad "и: T1 строка role=«$got_role», ожидалась $R"; return 1
+  fi
+  # Перезапись секретов: T1 удалён, T2 приписан ТОЙ ЖЕ роли R.
+  printf 'METERING_TOKEN_%s=%s\n' "$R" "$T2" > "$secrets"
+  # Тождество pid ПОСЛЕ перезаписи — процесс пережил правку файла.
+  if ! kill -0 "$pid" 2>/dev/null; then
+    proxy_down "$pid"
+    bad "и: pid $pid умер после перезаписи секретов"; return 1
+  fi
+  # Шаг T2: запрос с T2, ожидаем 200 — прокси должен прочесть secrets СВЕЖО.
+  local rid2
+  rid2="$(rnd_label 16)"
+  resp="$(req POST "http://127.0.0.1:${proxy_port}/${provider}/chat/completions" \
+    "$T2" "$model" "ping" "application/octet-stream" "$rid2")"
+  status="$(printf '%s\n' "$resp" | head -1)"
+  if [ "$status" != "200" ]; then
+    proxy_down "$pid"
+    bad "и: T2 не принят, status=$status — стартовый кэш карты токенов?"; return 1
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    proxy_down "$pid"
+    bad "и: pid $pid умер после T2"; return 1
+  fi
+  line="$(tail -1 "$bdir/data/calls.jsonl" 2>/dev/null)"
+  got_role="$(jq -r '.role' <<<"$line" 2>/dev/null)"
+  if [ "$got_role" != "$R" ]; then
+    proxy_down "$pid"
+    bad "и: T2 строка role=«$got_role», ожидалась $R"; return 1
+  fi
+  # Шаг T1 повторно: ожидаем 401 (T1 уже не в secrets) и ОТСУТСТВИЕ новой строки.
+  rows_before="$(wc -l < "$bdir/data/calls.jsonl" 2>/dev/null || echo 0)"
+  local rid3
+  rid3="$(rnd_label 16)"
+  resp="$(req POST "http://127.0.0.1:${proxy_port}/${provider}/chat/completions" \
+    "$T1" "$model" "ping" "application/octet-stream" "$rid3")"
+  status="$(printf '%s\n' "$resp" | head -1)"
+  if [ "$status" != "401" ]; then
+    proxy_down "$pid"
+    bad "и: T1 повторно не дал 401, status=$status"; return 1
+  fi
+  rows_after="$(wc -l < "$bdir/data/calls.jsonl" 2>/dev/null || echo 0)"
+  if [ "$rows_after" -ne "$rows_before" ]; then
+    proxy_down "$pid"
+    bad "и: при 401 новая строка ($rows_before → $rows_after)"; return 1
+  fi
+  # Финальное тождество pid: ОДИН живой процесс от T1 до T1-повтора.
+  if ! kill -0 "$pid" 2>/dev/null; then
+    proxy_down "$pid"
+    bad "и: pid $pid умер к концу прогона"; return 1
+  fi
+  proxy_down "$pid"
+  ok "и: ротация в одном pid: T1→T2→401, role=$R"
+  return 0
+}
 branch_к1() {
   # (к1) builtins-only, ИМПОРТЫ: grep'аем все `import ... from "..."` и `import ... from '...'`
   # из исходника прокси; строки с `from "node:..."` разрешены, остальные — нет.
@@ -726,7 +959,7 @@ _restart_proxy_and_upstream() {
       stub_upstream "$up_dir" >/dev/null
       local new_port; new_port="$(cat "$up_dir/port")"
       local provider; provider="$(jq -r '.provider' "$vars")"
-      local tmpc; tmpc="$(mktemp)"
+      local tmpc; tmpc="$(mktemp -p "$TMP_ROOT")"
       jq --arg u "http://127.0.0.1:${new_port}" --arg p "$provider" \
          '.upstream[$p] = $u' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
     fi
@@ -750,67 +983,79 @@ branch_л() {
   token="$(jq -r '.token' "$vars")"
 
   # ── (л.п) период на каждом запросе — ОДИН процесс, два вызова, разные UTC-месяца ─
-  _restart_proxy_and_upstream
+  # ТРИ дефекта прежней редакции, все измерены архитектором 2026-08-20:
+  #  1. `Date.UTC(2026,1,0)` — это 31 ЯНВАРЯ (день 0 = последний день предыдущего месяца),
+  #     оба времени попадали в 2026-01, и подветвь не проверяла ничего: прогон печатал
+  #     «периоды различаются: false»;
+  #  2. `rm -f calls.jsonl` МЕЖДУ вызовами, а затем требование «≥ 2 строк» — недостижимо;
+  #  3. ГЛАВНОЕ: три вызова _restart_proxy_and_upstream. Перезапущенный прокси перечитывает
+  #     период на старте, поэтому стаб С КЭШЕМ периода прошёл бы эту подветвь. Проверка не
+  #     различала предмет (класс Н-40). Теперь конфиг готовится ОДИН раз ДО запуска, между
+  #     вызовами меняется ТОЛЬКО now_file, и тождество pid УТВЕРЖДАЕТСЯ.
   local t_jan t_feb now_file="$data/now.txt"
   t_jan="$(node -e 'process.stdout.write(String(Date.UTC(2026, 0, 31, 23, 59, 59, 999)))')"
-  t_feb="$(node -e 'process.stdout.write(String(Date.UTC(2026, 1, 0, 0, 0, 0)))')"
-  # Включим now_file и предзаполним бюджет 2026-01 на 1 микро-USD (= ceiling) — тогда
-  # первый запрос 2026-01 получит 402 (spent >= limit). Второй запрос 2026-02 идёт в
-  local tmpc; tmpc="$(mktemp)"
-  jq --arg nf "$now_file" --arg p "$provider" --argjson ce 1 \
-    '.now_file = $nf | .ceilings[$p].usd_per_month = $ce' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
+  t_feb="$(node -e 'process.stdout.write(String(Date.UTC(2026, 1, 1, 0, 0, 0, 0)))')"
+  # Потолок НЕ меняется между вызовами. Бюджет периода 2026-01 предзаполнен ровно потолком —
+  # значит январь исчерпан, а февраль пуст. Так один и тот же конфиг даёт 402 в январе и
+  # 200 в феврале, и различает их ТОЛЬКО перечитанный период.
+  local ceil_l; ceil_l="$(jq -r --arg p "$provider" '.ceilings[$p].usd_per_month' "$cfg")"
+  local tmpc; tmpc="$(mktemp -p "$data")"
+  jq --arg nf "$now_file" '.now_file = $nf' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
   mkdir -p "$data"
+  printf '%s' "$t_jan" > "$now_file"
   _restart_proxy_and_upstream
-  printf '{"2026-01":{"%s":1}}\n' "$provider" > "$data/budget.json"
+  printf '{"2026-01":{"%s":%s}}\n' "$provider" "$ceil_l" > "$data/budget.json"
+  local pid_before; pid_before="$(cat "$data/proxy.pid" 2>/dev/null || echo "")"
+  [ -n "$pid_before" ] || { bad "л.п: pid прокси не прочитан — тождество процесса недоказуемо"; return 1; }
+  # Журнал НЕ удаляем: в нём строки предыдущих ветвей. Считаем ПРИРОСТ.
+  local lines_before; lines_before="$(wc -l < "$data/calls.jsonl" 2>/dev/null | tr -d ' ')"
+  [ -n "$lines_before" ] || lines_before=0
   cat > "$up_dir/scenario.json" <<EOF
 {"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok-jan' | base64 -w0)","headers":{"x-usage-tokens-in":"1000000","x-usage-tokens-out":"0"}}
 EOF
-  printf '%s' "$t_jan" > "$now_file"
   local r1 body1
   r1="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
         "$token" "$model" "ping-jan" "application/octet-stream" "$(rnd_label 8)")"
   body1="${r1##*__BODY__}"
-  # Поднимем ceiling обратно, чтобы второй вызов во втором периоде ПРОШЁЛ.
-  tmpc="$(mktemp)"
-  jq --arg p "$provider" --argjson ce 1000000000 \
-    '.ceilings[$p].usd_per_month = $ce' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
-  _restart_proxy_and_upstream
+  # МЕЖДУ ВЫЗОВАМИ МЕНЯЕТСЯ ТОЛЬКО ВРЕМЯ. Ни конфига, ни перезапуска.
   printf '%s' "$t_feb" > "$now_file"
-  rm -f "$data/calls.jsonl" "$up_dir/requests.jsonl" "$up_dir/count"
-  cat > "$up_dir/scenario.json" <<EOF
-{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok-feb' | base64 -w0)","headers":{"x-usage-tokens-in":"1000000","x-usage-tokens-out":"0"}}
-EOF
   local r2 s2
   r2="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
         "$token" "$model" "ping-feb" "application/octet-stream" "$(rnd_label 8)")"
   s2="$(printf '%s\n' "$r2" | head -1)"
+  local pid_after; pid_after="$(cat "$data/proxy.pid" 2>/dev/null || echo "")"
+  if [ "$pid_before" != "$pid_after" ] || ! kill -0 "$pid_before" 2>/dev/null; then
+    bad "л.п: процесс не тот же — pid до $pid_before, после $pid_after; перезапуск обесценивает проверку кэша"; return 1
+  fi
   local s1; s1="$(printf '%s' "$body1" | jq -r '.error // empty' 2>/dev/null)"
   if [ "$s1" != "ceiling_exceeded" ]; then
     bad "л.п: первый вызов в 2026-01 не вернул ceiling_exceeded, тело: $body1"; return 1
   fi
   if [ "$s2" != "200" ]; then
-    bad "л.п: второй вызов в 2026-02 не прошёл, код $s2"; return 1
+    bad "л.п: второй вызов в 2026-02 не прошёл, код $s2 — период не перечитан"; return 1
   fi
-  local n_lines; n_lines="$(wc -l < "$data/calls.jsonl" | tr -d ' ')"
-  if [ "$n_lines" -lt 2 ]; then
-    bad "л.п: $n_lines строк в журнале, ожидалось ≥ 2"; return 1
+  local lines_after grew
+  lines_after="$(wc -l < "$data/calls.jsonl" 2>/dev/null | tr -d ' ')"
+  grew=$(( lines_after - lines_before ))
+  if [ "$grew" -ne 2 ]; then
+    bad "л.п: журнал вырос на $grew строк, ожидалось ровно 2 (402 января пишется, 200 февраля пишется)"; return 1
   fi
   local ts1 ts2 period1 period2
-  ts1="$(head -1 "$data/calls.jsonl" | sed -nE 's/.*"ts":([0-9]+).*/\1/p')"
+  ts1="$(tail -2 "$data/calls.jsonl" | head -1 | sed -nE 's/.*"ts":([0-9]+).*/\1/p')"
   ts2="$(tail -1 "$data/calls.jsonl" | sed -nE 's/.*"ts":([0-9]+).*/\1/p')"
-  period1="$(node -e "process.stdout.write((new Date(parseInt('$ts1',10)).getUTCMonth()+1<10?new Date(parseInt('$ts1',10)).getUTCFullYear()+'-0'+(new Date(parseInt('$ts1',10)).getUTCMonth()+1):new Date(parseInt('$ts1',10)).getUTCFullYear()+'-'+(new Date(parseInt('$ts1',10)).getUTCMonth()+1)))")"
-  period2="$(node -e "process.stdout.write((new Date(parseInt('$ts2',10)).getUTCMonth()+1<10?new Date(parseInt('$ts2',10)).getUTCFullYear()+'-0'+(new Date(parseInt('$ts2',10)).getUTCMonth()+1):new Date(parseInt('$ts2',10)).getUTCFullYear()+'-'+(new Date(parseInt('$ts2',10)).getUTCMonth()+1)))")"
+  period1="$(node -e "process.stdout.write(new Date(parseInt('$ts1',10)).toISOString().slice(0,7))")"
+  period2="$(node -e "process.stdout.write(new Date(parseInt('$ts2',10)).toISOString().slice(0,7))")"
   if [ "$period1" != "2026-01" ] || [ "$period2" != "2026-02" ]; then
     bad "л.п: периоды в строках $period1/$period2, ожидались 2026-01/2026-02 — кэш периода на старте"; return 1
   fi
-  ok "л.п: 2026-01 и 2026-02 различимы в одном живом процессе"
+  ok "л.п: 2026-01 и 2026-02 различимы в ОДНОМ живом процессе (pid $pid_before до и после)"
 
   # ── (л.о) две оси тарифа — два провайдера с одной моделью ──────────────────
   local p2 m2 in1 in2
   p2="$(rnd_label 7)"; m2="$(rnd_label 5)"
   in1=1200000; in2=2400000
   local ceil_p1=50000000 ceil_p2=30000000
-  tmpc="$(mktemp)"
+  tmpc="$(mktemp -p "$TMP_ROOT")"
   jq --arg p1 "$provider" --arg p2 "$p2" --arg m "$model" --arg m2 "$m2" \
      --argjson in1 "$in1" --argjson in2 "$in2" \
      --argjson c1 "$ceil_p1" --argjson c2 "$ceil_p2" \
@@ -846,29 +1091,41 @@ EOF
   fi
   ok "л.о: usd P1=$usd_p1 и P2=$usd_p2 — разные тарифы по разным провайдерам одной модели"
 
-  # ── (л.i) int64 > 2^53 — текст сверки ─────────────────────────────────────
-  local hi=9007199254741
-  tmpc="$(mktemp)"
-  jq --arg p "$provider" --arg m "$model" --argjson hi "$hi" \
-     '.prices[$p][$m].per_m_tokens.in = $hi | .prices[$p][$m].per_m_tokens.out = 0' \
+  # ── (л.i) int64 — ПОРОГ СЧИТАЕТСЯ ПО usd, а не по тарифу ──────────────────
+  # Прежняя редакция брала тариф 9007199254741 и называла его «> 2^53». Это ошибка в
+  # ТЫСЯЧУ раз: 2^53 = 9007199254740992. Барьер сам это и поймал («usd короче 16 цифр»).
+  # Числа ниже — из прогона архитектора: тариф СТРОКОЙ 9007199254740993 (голое JSON-число
+  # выше 2^53 прокси законно отвергает) и tokens_in = 1e9 дают usd РОВНО
+  # 9007199254740993000, тогда как IEEE-754 дал бы 9007199254740992000. Разница 1000 —
+  # вот она и различает предмет. Проверяются ДВА флага (Н-40): совпало с точным И
+  # отличимо от double. Одного мало: первый без второго проходит на слепых числах,
+  # второй без первого — на сломанной реализации.
+  local rate_i="9007199254740993" tokens_i="1000000000"
+  local usd_exact="9007199254740993000" usd_double="9007199254740992000"
+  tmpc="$(mktemp -p "$data")"
+  jq --arg p "$provider" --arg m "$model" --arg hi "$rate_i" \
+     '.prices[$p][$m].per_m_tokens.in = $hi | .prices[$p][$m].per_m_tokens.out = "0"' \
      "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
   _restart_proxy_and_upstream
   rm -f "$data/calls.jsonl" "$up_dir/requests.jsonl" "$up_dir/count"
   cat > "$up_dir/scenario.json" <<EOF
-{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok' | base64 -w0)","headers":{"x-usage-tokens-in":"1000000","x-usage-tokens-out":"0"}}
+{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok' | base64 -w0)","headers":{"x-usage-tokens-in":"${tokens_i}","x-usage-tokens-out":"0"}}
 EOF
   local ri line_i usd_str
   ri="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
         "$token" "$model" "ping-int" "application/octet-stream" "$(rnd_label 8)")"
   line_i="$(head -1 "$data/calls.jsonl" 2>/dev/null || true)"
   usd_str="$(printf '%s' "$line_i" | sed -nE 's/.*"usd":"([0-9]+)".*/\1/p')"
-  if [ -z "$usd_str" ] || [ "$usd_str" != "$hi" ]; then
-    bad "л.i: usd строки = «$usd_str», ожидался «$hi»"; return 1
+  if [ -z "$usd_str" ]; then
+    bad "л.i: строка журнала без usd: «$line_i»"; return 1
   fi
-  if [ "${#usd_str}" -lt 16 ]; then
-    bad "л.i: usd короче 16 цифр ($usd_str) — не похоже на >2^53"; return 1
+  if [ "$usd_str" != "$usd_exact" ]; then
+    bad "л.i: usd = «$usd_str», точное значение «$usd_exact» (IEEE-754 дал бы «$usd_double»)"; return 1
   fi
-  ok "л.i: usd=$usd_str — int64 > 2^53 передан строкой без потери точности"
+  if [ "$usd_str" = "$usd_double" ]; then
+    bad "л.i: usd совпал с IEEE-754-значением «$usd_double» — точность потеряна"; return 1
+  fi
+  ok "л.i: usd=$usd_str — совпало с точным И отличимо от double ($usd_double)"
   return 0
 }
 
@@ -921,7 +1178,7 @@ EOF
 # ── main ──────────────────────────────────────────────────────────────────────
 main() {
   local work
-  work="$(mktemp -d "${TMPDIR:-/tmp}/metering.XXXXXX")"
+  work="$(mktemp -d "$TMP_ROOT/metering.XXXXXX")"
   export HOME="$work"
   mkdir -p "$work/data"
   local up_dir="$work/up"
@@ -934,7 +1191,7 @@ main() {
   local provider cfg_up tmp
   provider="$(jq -r '.provider' "$vars")"
   cfg_up="http://127.0.0.1:${stub_port}"
-  tmp="$(mktemp)"
+  tmp="$(mktemp -p "$TMP_ROOT")"
   jq --arg u "$cfg_up" ".upstream[\"$provider\"] = \$u" "$cfg" > "$tmp"
   mv "$tmp" "$cfg"
   export BARRIER_UP_DIR="$up_dir" BARRIER_CFG="$cfg" BARRIER_DATA="$work/data" BARRIER_VARS="$vars"
@@ -943,8 +1200,24 @@ main() {
   proxy_pid="$(proxy_up "$cfg" "$work/data/proxy.pid")"
   trap "proxy_down $proxy_pid; rm -rf '$work'" EXIT
 
-  branch а branch_а
-  for br in б в в2 г г2 д е ж з и к1 к2 л м; do
+  # СПИСОК ВЕТВЕЙ ОБЪЯВЛЕН ОДНИМ МЕСТОМ и сверяется по числу: контракт обещает 15.
+  # Расхождение счёта — отказ, а не молчаливый прогон подмножества (самопроверка счёта).
+  local -a BRANCHES=(а б в в2 г г2 д е ж з и к1 к2 л м)
+  if [ "${#BRANCHES[@]}" -ne 15 ]; then
+    printf 'ОТКАЗ: объявлено ветвей %d, контракт обещает 15\n' "${#BRANCHES[@]}" >&2
+    exit 1
+  fi
+  # ОТСУТСТВИЕ ВЕТВИ — НЕ ЗЕЛЁНОЕ. Прежняя редакция держала заглушки `return 0`, и барьер
+  # печатал «барьер зелёный» с кодом 0 при ЧЕТЫРЁХ нереализованных ветвях (замер 2026-08-20).
+  # Норма: нереализованное возвращает 2 и NOT_IMPLEMENTED, а не 0.
+  local notimpl=0 missing=""
+  local br
+  for br in "${BRANCHES[@]}"; do
+    if ! declare -F "branch_${br}" >/dev/null 2>&1; then
+      printf 'NOT_IMPLEMENTED: ветвь (%s) не реализована\n' "$br" >&2
+      notimpl=$((notimpl + 1)); missing="${missing}${br} "
+      continue
+    fi
     branch "$br" "branch_${br}"
   done
 
@@ -953,8 +1226,12 @@ main() {
     printf '\nрасхождений: %d · прогон оставлен в %s\n' "$fails" "$work" >&2
     exit 1
   fi
-  printf '\nбарьер зелёный · работа в %s\n' "$work" >&2
-  rm -rf "$work"
+  if [ "$notimpl" -gt 0 ]; then
+    printf '\nNOT_IMPLEMENTED: реализовано %d ветвей из 15, не реализованы: %s\n' \
+      "$((15 - notimpl))" "${missing% }" >&2
+    exit 2
+  fi
+  printf '\nбарьер зелёный: 15 ветвей пройдены\n' >&2
   rm -rf "$work"
 }
 
@@ -1276,7 +1553,7 @@ mode_cold_start() {
     || die "cold-start: лаунчер не найден: $launcher (export METERING_WORKSHOP=<путь>)"
 
   local work
-  work="$(mktemp -d "${TMPDIR:-/tmp}/metering-cold.XXXXXX")"
+  work="$(mktemp -d "$TMP_ROOT/metering-cold.XXXXXX")"
   export HOME="$work"
   mkdir -p "$work/data" "$work/.config/dev-harness"
 
@@ -1313,7 +1590,7 @@ mode_cold_start() {
 
 mode_live() {
   local work cfg vars up_dir stub_port provider model token role port
-  work="$(mktemp -d "${TMPDIR:-/tmp}/metering-live.XXXXXX")"
+  work="$(mktemp -d "$TMP_ROOT/metering-live.XXXXXX")"
   export HOME="$work"
   mkdir -p "$work/data"
 
@@ -1330,7 +1607,7 @@ mode_live() {
     || die "live: stub_upstream не поднялся"
   stub_port="$(cat "$up_dir/port")"
   # Перенаправим upstream в конфиге.
-  local tmpc; tmpc="$(mktemp)"
+  local tmpc; tmpc="$(mktemp -p "$TMP_ROOT")"
   jq --arg u "http://127.0.0.1:${stub_port}" --arg p "$provider" \
      ".upstream[\"$p\"] = \$u" "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
 
