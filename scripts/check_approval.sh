@@ -115,6 +115,7 @@ run_launcher() {  # <файл захвата> <аргументы лаунчер
       METERING_PROXY_URL="http://check-approval.invalid" \
       METERING_PROXY_TOKEN="проверка" \
       MINIMAX_API_KEY="проверка" \
+      ZAI_API_KEY="${ZAI_API_KEY:-проверка}" \
       bash "$LAUNCHER" "$@" >"$cap.out" 2>"$cap.err" )
 }
 
