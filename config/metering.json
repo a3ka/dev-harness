@@ -1,0 +1,21 @@
+{
+  "_comment": "Конфиг прокси учёта для харнеса. Токены НЕ лежат в файле: secrets_env указывает на дом секретов (~/.config/dev-harness/secrets.env), прокси читает строки METERING_TOKEN_<ROLE>=… НА КАЖДЫЙ запрос. Порт 8765 — умолчание, лаунчер читает из файла; лаунчер workshop --check-metering ждёт healthz окно healthz_window_sec.",
+  "port": 8765,
+  "healthz_window_sec": 5,
+  "secrets_env": "${HOME}/.config/dev-harness/secrets.env",
+  "data_dir": "${HOME}/.local/share/dev-harness/metering",
+  "upstream": {
+    "minimax": "http://127.0.0.1:9999/v1"
+  },
+  "prices": {
+    "minimax": {
+      "MiniMax-M3": {
+        "per_m_tokens": { "in": 1200000, "out": 3400000 }
+      }
+    }
+  },
+  "ceilings": {
+    "minimax": { "usd_per_month": 1000000000 }
+  },
+  "now_file": null
+}
