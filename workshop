@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Вход в систему-разработчика.
 #
-#   ./workshop                  работа НАД инструментом
-#   ./workshop <проект>          работа с проектом (или разговор — режим держит политика подтверждений)
-#   ./workshop --plan <файл>     указание предмета работы (опционально, НЕ ключ замка)
-#   ./workshop -r/--resume <id>  продолжение сохранённой сессии (по прямому слову владельца, 30acda0)
+#   ./workshop                      работа НАД инструментом
+#   ./workshop <проект>              работа с проектом (или разговор — режим держит политика подтверждений)
+#   ./workshop --plan <файл>         указание предмета работы (опционально, НЕ ключ замка)
+#   ./workshop -r/--resume <id>      продолжение сохранённой сессии (по прямому слову владельца, 30acda0)
+#   ./workshop --check-metering      проверка прокси учёта: healthz, при необходимости — подъём
+#                                    [--config <файл>] (умолчание config/metering.json)
 #
 # Режим входа — политика подтверждений, а не инвентарь (контракт 002, критерий 1).
 # Прежняя конструкция делила входы на `--talk` (чтение) и `--work` (полный
@@ -22,6 +24,11 @@
 #
 # `-r/--resume` СОХРАНЯЕТСЯ: продолжение сессии. Разрешение владельца записано в
 # истории (коммит 30acda0: «добавить флаг -r/--resume по прямому слову владельца»).
+#
+# `--check-metering` — отдельный режим, не вход в сессию. Запускается ПЕРЕД
+# сессией: проверяет, жив ли прокси учёта; мёртв — поднимает ФОНОМ и ждёт
+# healthz; ребёнок умер / молчит за окно / порт занят чужим — отказ с НАЗВАННОЙ
+# причиной. Контракт 005 §6, критерий 4. Проверяется `check_metering.sh --cold-start`.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -123,6 +130,188 @@ require_metering() {
   [ -n "${MINIMAX_API_KEY:-}" ] || die "MINIMAX_API_KEY пуст: omp не работает с провайдером без его ключа, и поля apiKey в models.yml для этого недостаточно — измерено. Перенеси ключ в $1/.env"
 }
 
+# ── режим --check-metering: проверка/подъём прокси учёта (контракт 005 §6) ─────
+# Прежняя проверка стояла на адресе из `METERING_PROXY_URL` — адрес есть, ответа нет, и
+# сессия поднималась в никуда. Теперь лаунчер проверяет сам ПРОКСИ по конфигу:
+#   1) читает port и healthz_window_sec из конфига (НЕ зашитые 8765/5 — барьер ветви (4)
+#      красит зашитые как дефект);
+#   2) пробует GET /healthz на этом порту; ответил 200 — выход 0;
+#   3) не ответил — поднимает ребёнка `node scripts/proxy/metering_proxy.ts --config <ф>`,
+#      pid в `~/.config/dev-harness/proxy.pid`, ждёт healthz_window_sec секунд;
+#   4) ребёнок умер в окне — отказ НЕМЕДЛЕННО с названным кодом выхода;
+#   5) окно истекло, ребёнок жив, healthz молчит — отказ по окну;
+#   6) на порту чужой слушатель (ответил НЕ 200) — отказ, ребёнка не поднимаем.
+#
+# Недоступный upstream НЕ повод гибнуть: прокси с мёртвым upstream поднимается и здоров,
+# отказ upstream — пер-запросный (502 со строкой журнала, ветвь (д)).
+#
+# ПРИЧИНЫ ОТКАЗА — фиксированные строки, чтобы фикстуры `check_metering.sh --cold-start`
+# грепали стабильно. Печатаются ОДНОЙ последней строкой stderr вида `reason=<имя>`, плюс
+# человекочитаемое описание строкой выше.
+#
+#   reason=конфиг_не_читается   — файла нет или JSON не парсится
+#   reason=конфиг_битый         — JSON есть, но нет port / healthz_window_sec, или не целое
+#   reason=чужой_слушатель       — порт занят не нашим прокси (healthz не 200)
+#   reason=ребёнок_погиб         — прокси умер на старте (kill -0 отрицателен)
+#   reason=healthz_молчит        — живой ребёнок не ответил 200 за healthz_window_sec
+kill_child() {  # <pid>  — SIGTERM, через 0.3с SIGKILL
+  local pid="${1:-}"
+  [ -n "$pid" ] || return 0
+  kill -0 "$pid" 2>/dev/null || return 0
+  kill -TERM "$pid" 2>/dev/null || true
+  sleep 0.3
+  kill -0 "$pid" 2>/dev/null || return 0
+  kill -KILL "$pid" 2>/dev/null || true
+}
+
+# Healthz-проба. Возвращает:
+#   0 — 200 OK (это наш прокси)
+#   1 — connection refused или сеть недоступна (порт свободен)
+#   2 — ответ пришёл, но не 200 (чужой слушатель)
+#   2 — таймаут 1с без ответа (чужой слушатель, не отвечающий)
+# 127 — node не найден
+probe_healthz() {
+  local p="${1:-}"
+  node -e "
+    const http = require('http');
+    const req = http.get({
+      hostname: '127.0.0.1',
+      port: ${p},
+      path: '/healthz',
+      timeout: 1000
+    }, res => {
+      process.exit(res.statusCode === 200 ? 0 : 2);
+    });
+    req.on('error', () => process.exit(1));
+    req.on('timeout', () => { req.destroy(); process.exit(2); });
+  " 2>/dev/null
+  local rc=$?
+  [ "$rc" -le 2 ] || return 127
+  return "$rc"
+}
+
+# Разрешение конфига: абсолютный — как есть, относительный — от $HERE, пусто — умолчание.
+resolve_config() {
+  local arg="${1:-}"
+  if [ -z "$arg" ]; then
+    printf '%s\n' "$HERE/config/metering.json"
+  elif [[ "$arg" = /* ]]; then
+    printf '%s\n' "$arg"
+  else
+    printf '%s\n' "$HERE/$arg"
+  fi
+}
+
+# Главный обработчик --check-metering. Никогда не возвращает 0 при ошибке — отказ
+# ВСЕГДА идёт с названной причиной. Молчаливое 1 — дефект, который барьер красит.
+run_check_metering() {
+  local cfg hw port proxy_dir pid_file child_pid_rc proxy_script log_file
+  cfg="$(resolve_config "${CONFIG_ARG:-}")"
+
+  # 1. Конфиг читается. reason=конфиг_не_читается / причина_в_jq
+  if [ ! -f "$cfg" ]; then
+    printf 'ОТКАЗ: конфиг не найден: %s\n' "$cfg" >&2
+    printf 'reason=конфиг_не_читается\n' >&2
+    exit 1
+  fi
+  # JSON парсится через node: зависимостей на jq в package.json нет, и тащить
+  # сюда тот же подстановщик, что в самом прокси, неправильно.
+  local parsed
+  parsed="$(node -e "
+    const fs = require('fs');
+    try {
+      const c = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+      if (typeof c.port !== 'number' || !Number.isInteger(c.port) || c.port <= 0 || c.port > 65535) {
+        process.stderr.write('port отсутствует, не целое или вне 1..65535'); process.exit(2);
+      }
+      if (typeof c.healthz_window_sec !== 'number' || !Number.isInteger(c.healthz_window_sec) || c.healthz_window_sec <= 0) {
+        process.stderr.write('healthz_window_sec отсутствует, не целое или не положительное'); process.exit(2);
+      }
+      process.stdout.write(c.port + ' ' + c.healthz_window_sec);
+    } catch (e) {
+      process.stderr.write(e.message); process.exit(1);
+    }
+  " "$cfg" 2>&1)" || {
+    local rc=$?
+    if [ "$rc" = "2" ]; then
+      printf 'ОТКАЗ: конфиг %s битый: %s\n' "$cfg" "$parsed" >&2
+      printf 'reason=конфиг_битый\n' >&2
+    else
+      printf 'ОТКАЗ: конфиг %s не читается: %s\n' "$cfg" "$parsed" >&2
+      printf 'reason=конфиг_не_читается\n' >&2
+    fi
+    exit 1
+  }
+  port="${parsed% *}"
+  hw="${parsed#* }"
+
+  # 2. Пробуем healthz. 0 — наш жив; 2 — чужой слушатель; 1 — порт свободен. Контекст
+  # `if`/`elif`/`else` отключает `set -e` внутри функции: иначе возврат 2 убил бы
+  # процесс до проверки `prc`, и причина осталась бы не названной.
+  local prc=0
+  if probe_healthz "$port"; then
+    return 0
+  else
+    prc=$?
+  fi
+  case "$prc" in
+    2) printf 'ОТКАЗ: на порту %s чужой слушатель (healthz не отвечает как прокси)\n' "$port" >&2
+       printf 'reason=чужой_слушатель\n' >&2
+       exit 1 ;;
+    127) printf 'ОТКАЗ: node не найден — healthz нечем опросить\n' >&2
+           printf 'reason=healthz_молчит\n' >&2
+           exit 1 ;;
+  esac
+
+  # 3. Поднимаем ребёнка. pid-файл — от пользовательского HOME (или XDG_CONFIG_HOME),
+  # а не от ZONE, которую ниже переопределяет вход в сессию.
+  proxy_script="$HERE/scripts/proxy/metering_proxy.ts"
+  if [ ! -f "$proxy_script" ]; then
+    printf 'ОТКАЗ: скрипт прокси не найден: %s\n' "$proxy_script" >&2
+    printf 'reason=ребёнок_погиб\n' >&2
+    exit 1
+  fi
+  proxy_dir="${XDG_CONFIG_HOME:-$HOME}/.config/dev-harness"
+  mkdir -p "$proxy_dir"
+  pid_file="$proxy_dir/proxy.pid"
+  log_file="$proxy_dir/proxy.log"
+  rm -f "$pid_file"
+
+  # nohup + & — ребёнок переживает завершение лаунчера. ВЫВОД уходит в файл, чтобы
+  # любой шум прокси не подмешался в stderr лаунчера, иначе грeп причины фонил.
+  nohup node "$proxy_script" --config "$cfg" >"$log_file" 2>&1 &
+  local child_pid=$!
+  echo "$child_pid" >"$pid_file"
+
+  # 4. Ждём ответа healthz в окне hw секунд. ПОРЯДОК проверок важен: ребёнок умер —
+  # выходим сразу, не дожидаясь окна (исход 3а). Живой молчащий — выходим по окну (3б).
+  local deadline=$(( $(date +%s) + hw ))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    if ! kill -0 "$child_pid" 2>/dev/null; then
+      printf 'ОТКАЗ: ребёнок погиб на старте (pid %s)\n' "$child_pid" >&2
+      printf 'reason=ребёнок_погиб\n' >&2
+      exit 1
+    fi
+    if probe_healthz "$port"; then
+      return 0
+    fi
+    sleep 0.1
+  done
+
+  # 5. Окно истекло. Перед выходом — прибрать ребёнка, если он ещё жив: иначе
+  # он будет висеть как зомби под pid-файлом, и следующий запуск решит, что прокси
+  # уже поднят, а это будет враньё.
+  if ! kill -0 "$child_pid" 2>/dev/null; then
+    printf 'ОТКАЗ: ребёнок погиб на старте (pid %s)\n' "$child_pid" >&2
+    printf 'reason=ребёнок_погиб\n' >&2
+    exit 1
+  fi
+  kill_child "$child_pid"
+  printf 'ОТКАЗ: healthz не ответил за %s с (pid %s жив)\n' "$hw" "$child_pid" >&2
+  printf 'reason=healthz_молчит\n' >&2
+  exit 1
+}
+
 # Модель передаётся ЯВНЫМ флагом, а не оставляется на роли `default`. Измерено на владельце:
 # интерактивная сессия поднялась на Opus 4.8, которого в наших ролях моделей нет вовсе —
 # TUI восстановил ранее выбранную модель поверх конфига, а `modelRoleStorage` у omp `global`,
@@ -130,7 +319,8 @@ require_metering() {
 # поэтому расхождение было невидимым: заявленное принималось за фактическое.
 
 # ── разбор аргументов ────────────────────────────────────────────────────────
-PROJECT=""; PLAN=""; MODELS=""; RESUME=""
+PROJECT=""; PLAN=""; MODELS=""; RESUME=""; CONFIG_ARG=""
+CHECK_METERING=0
 while [ $# -gt 0 ]; do
   case "$1" in
     # Значение берётся проверкой, а не `shift` вслепую: `shift` при пустом списке возвращает
@@ -148,6 +338,12 @@ while [ $# -gt 0 ]; do
     # инструментами не смогла бы дописать начатое, а с расширенными — обошла бы политику
     # подтверждений.
     -r|--resume) RESUME="${2:-}"; [ $# -ge 2 ] && shift ;;
+    # РЕЖИМ ПРОВЕРКИ ПРОКСИ. Отдельный флаг, не вход в сессию: аргументы после него
+    # НЕ интерпретируются как проект или `--plan`. Всё, что ниже — для talk/work.
+    --check-metering) CHECK_METERING=1 ;;
+    # Путь к конфигу прокси. Имеет смысл ТОЛЬКО под --check-metering; вне его режим
+    # отвергает значение как нераспознанное, чтобы не плодить скрытых путей.
+    --config) CONFIG_ARG="${2:-}"; [ $# -ge 2 ] && shift ;;
     # ЗАПРЕТ-ПОЛИТИКИ. Режим входа — политика подтверждений (контракт 002, критерий 1), и
     # снять её одним словом командной строки нельзя: флаг, затирающий always-ask, обходит
     # весь замок, который прежде держался инвентарём. Поэтому такие флаги не прокидываются
@@ -165,6 +361,15 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+# ── отдельный вход: --check-metering ─────────────────────────────────────────
+# Стоит первым, до прогрузки `.env`, сессионных ролей и HOME. Режиму нужен ТОЛЬКО
+# конфиг и порт, и никакая сессионная инициализация не должна между ними стоять:
+# иначе сбой в одном месте прятал бы причину другого.
+if [ "$CHECK_METERING" = "1" ]; then
+  run_check_metering
+  exit $?
+fi
 
 RESUME_ARGS=()
 if [ -n "$RESUME" ]; then
