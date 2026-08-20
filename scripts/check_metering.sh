@@ -93,80 +93,117 @@ stub_upstream() {
   printf '0\n' > "$dir/count"
   printf '{"status":200,"content_type":"application/octet-stream","body_b64":"","headers":{}}\n' \
     > "$dir/scenario.json"
-  local port
-  port="$(free_port)"
-  printf '%s' "$port" > "$dir/port"
-  PORT="$port" DIR="$dir" \
-  setsid node -e '
-    const fs = require("node:fs");
-    const http = require("node:http");
-    const port = parseInt(process.env.PORT, 10);
-    const dir = process.env.DIR;
-    const reqlog = dir + "/requests.jsonl";
-    const countf = dir + "/count";
-    const scen = dir + "/scenario.json";
-    const server = http.createServer((req, res) => {
-      const chunks = [];
-      req.on("data", c => chunks.push(c));
-      req.on("end", () => {
-        const body = Buffer.concat(chunks);
-        fs.appendFileSync(reqlog, JSON.stringify({
-          method: req.method, path: req.url,
-          body_b64: body.toString("base64"),
-          content_type: req.headers["content-type"] || "",
-          request_id: req.headers["x-request-id"] || ""
-        }) + "\n");
-        let cnt = 0;
-        try { cnt = parseInt(fs.readFileSync(countf, "utf8"), 10) || 0; } catch (_) { cnt = 0; }
-        fs.writeFileSync(countf, String(cnt + 1));
-        let sc = { status: 200, content_type: "application/octet-stream", body_b64: "", headers: {} };
-        try { sc = JSON.parse(fs.readFileSync(scen, "utf8")); } catch (_) {}
-        const bodyResp = Buffer.from(sc.body_b64 || "", "base64");
-        if (sc.headers) for (const [k, v] of Object.entries(sc.headers)) res.setHeader(k, v);
-        res.statusCode = sc.status || 200;
-        res.setHeader("content-type", sc.content_type || "application/octet-stream");
-        res.end(bodyResp);
+  local port pid i attempt=0 race
+  # ГОНКА ПОРТА (TOCTOU): между free_port и listen порт занять может соседняя
+  # фикстура (анти-плацебо крутит их параллельно десятки). Гибель слушателя с
+  # EADDRINUSE — не отказ, а сигнал взять НОВЫЙ порт и повторить; повтор ограничен,
+  # исчерпание — отказ с причиной и числом попыток. Прочая гибель — отказ сразу.
+  while [ "$attempt" -lt 5 ]; do
+    attempt=$((attempt + 1))
+    port="$(free_port)"
+    printf '%s' "$port" > "$dir/port"
+    PORT="$port" DIR="$dir" \
+    setsid node -e '
+      const fs = require("node:fs");
+      const http = require("node:http");
+      const port = parseInt(process.env.PORT, 10);
+      const dir = process.env.DIR;
+      const reqlog = dir + "/requests.jsonl";
+      const countf = dir + "/count";
+      const scen = dir + "/scenario.json";
+      const server = http.createServer((req, res) => {
+        const chunks = [];
+        req.on("data", c => chunks.push(c));
+        req.on("end", () => {
+          const body = Buffer.concat(chunks);
+          fs.appendFileSync(reqlog, JSON.stringify({
+            method: req.method, path: req.url,
+            body_b64: body.toString("base64"),
+            content_type: req.headers["content-type"] || "",
+            request_id: req.headers["x-request-id"] || ""
+          }) + "\n");
+          let cnt = 0;
+          try { cnt = parseInt(fs.readFileSync(countf, "utf8"), 10) || 0; } catch (_) { cnt = 0; }
+          fs.writeFileSync(countf, String(cnt + 1));
+          let sc = { status: 200, content_type: "application/octet-stream", body_b64: "", headers: {} };
+          try { sc = JSON.parse(fs.readFileSync(scen, "utf8")); } catch (_) {}
+          const bodyResp = Buffer.from(sc.body_b64 || "", "base64");
+          if (sc.headers) for (const [k, v] of Object.entries(sc.headers)) res.setHeader(k, v);
+          res.statusCode = sc.status || 200;
+          res.setHeader("content-type", sc.content_type || "application/octet-stream");
+          res.end(bodyResp);
+        });
       });
-    });
-    server.listen(port, "127.0.0.1", () => {
-      process.stderr.write("stub upstream listening on " + port + "\n");
-    });
-  ' > "$dir/stub.log" 2> "$dir/stub.err" &
-  echo "$!" > "$dir/pid"
-  local i
-  for i in $(seq 1 60); do
-    if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":${port}\$"; then
-      printf '%s\n' "$port"; return 0
-    fi
-    sleep 0.05
+      server.listen(port, "127.0.0.1", () => {
+        process.stderr.write("stub upstream listening on " + port + "\n");
+      });
+    ' > "$dir/stub.log" 2> "$dir/stub.err" &
+    pid="$!"
+    echo "$pid" > "$dir/pid"
+    race=0
+    for i in $(seq 1 60); do
+      if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":${port}\$"; then
+        printf '%s\n' "$port"; return 0
+      fi
+      if ! kill -0 "$pid" 2>/dev/null; then
+        if grep -q "EADDRINUSE" "$dir/stub.err" 2>/dev/null; then
+          race=1
+          break
+        fi
+        die "stub_upstream погиб на старте (pid=$pid, порт $port) — лог: $dir/stub.err"
+      fi
+      sleep 0.05
+    done
+    [ "$race" -eq 1 ] || die "stub_upstream не поднялся на порту $port за 3 с — лог: $dir/stub.err"
   done
-  die "stub_upstream не поднялся на порту $port за 3 с — лог: $dir/stub.err"
+  die "порт stub_upstream занят гонкой EADDRINUSE во всех $attempt попытках — последнее: $dir/stub.err"
 }
 
 proxy_up() {
   local cfg="$1" pidfile="$2"
   [ -f "$PROXY" ] || die "прокси не найден рядом с барьером: $PROXY"
-  (
-    cd "$(dirname "$cfg")"
-    exec node "$PROXY" --config "$cfg"
-  ) > "$pidfile.log" 2> "$pidfile.err" &
-  local pid="$!"
-  echo "$pid" > "$pidfile"
-  local port win
-  port="$(jq -r '.port' "$cfg")"
-  win="$(jq -r '.healthz_window_sec' "$cfg")"
-  local max=$(( win * 20 )) i
-  for i in $(seq 1 "$max"); do
-    if curl -fsS -o /dev/null -m 0.5 "http://127.0.0.1:${port}/healthz" 2>/dev/null; then
-      printf '%s' "$pid"; return 0
-    fi
-    if ! kill -0 "$pid" 2>/dev/null; then
-      die "прокси погиб на старте (pid=$pid), лог: $pidfile.err"
-    fi
-    sleep 0.05
+  local attempt=0
+  # ГОНКА ПОРТА (TOCTOU): порт из конфига мог занять соседняя фикстура между
+  # free_port (в gen_config) и listen. Гибель ребёнка с EADDRINUSE — взять НОВЫЙ
+  # свободный порт, переписать его в конфиг и повторить, ограниченно; прочая
+  # гибель и молчащий healthz — отказ с причиной. Ветви читают порт из $cfg
+  # ПОСЛЕ proxy_up, смена порта им прозрачна; pid-файл всегда несёт живого.
+  while [ "$attempt" -lt 5 ]; do
+    attempt=$((attempt + 1))
+    (
+      cd "$(dirname "$cfg")"
+      exec node "$PROXY" --config "$cfg"
+    ) > "$pidfile.log" 2> "$pidfile.err" &
+    local pid="$!"
+    echo "$pid" > "$pidfile"
+    local port win
+    port="$(jq -r '.port' "$cfg")"
+    win="$(jq -r '.healthz_window_sec' "$cfg")"
+    local max=$(( win * 20 )) i race=0
+    for i in $(seq 1 "$max"); do
+      if curl -fsS -o /dev/null -m 0.5 "http://127.0.0.1:${port}/healthz" 2>/dev/null; then
+        printf '%s' "$pid"; return 0
+      fi
+      if ! kill -0 "$pid" 2>/dev/null; then
+        if grep -q "EADDRINUSE" "$pidfile.err" 2>/dev/null; then
+          race=1
+          break
+        fi
+        die "прокси погиб на старте (pid=$pid), лог: $pidfile.err"
+      fi
+      sleep 0.05
+    done
+    [ "$race" -eq 1 ] || {
+      kill "$pid" 2>/dev/null || true
+      die "healthz не ответил за ${win} с на порту $port — лог: $pidfile.err"
+    }
+    local newport
+    newport="$(free_port)"
+    jq --argjson p "$newport" '.port = $p' "$cfg" > "${cfg}.new" \
+      || die "не переписать порт в $cfg после гонки EADDRINUSE"
+    mv "${cfg}.new" "$cfg"
   done
-  kill "$pid" 2>/dev/null || true
-  die "healthz не ответил за ${win} с на порту $port — лог: $pidfile.err"
+  die "порт прокси занят гонкой EADDRINUSE во всех $attempt попытках — лог: $pidfile.err"
 }
 
 proxy_down() {
