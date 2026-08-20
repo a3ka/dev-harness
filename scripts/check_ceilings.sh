@@ -4,7 +4,7 @@
 # Персона (каждый файл roles/) ≤ 51200 байт; файл-правило (AGENTS.md и каждый файл
 # .omp/rules/) ≤ 30720 байт. Счётчик — wc -c: кириллица занимает вдвое больше байт,
 # чем символов (замер арбитража potolki-granica-pokrytie: 16919 байт против 9864
-# символов на одном файле).
+# символов на одном файле). Нечитаемый размер (битая ссылка, права) — отказ, не пропуск.
 #
 # Каждый НЕЗАМОРОЖЕННЫЙ черновик contracts/NNN-*.md (нет тега frozen/contracts/<NNN>/*)
 # обязан нести раздел «Незаполненные требования:» с телом: ровно слово «нет» ЛИБО
@@ -22,25 +22,25 @@ REPO="${1:-$(pwd)}"
 die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 ok()   { printf '  ok   %s\n' "$*" >&2; }
+bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
+fails=0
 
 command -v wc >/dev/null 2>&1 || skip "нет wc — размеры нечем считать"
 
 PERSONA_LIMIT=51200
 RULE_LIMIT=30720
-fails=0
-bad() { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
+
+shopt -s dotglob nullglob
 
 # ── персоны: каждый файл roles/, включая скрытые имена ────────────────────────
-shopt -s dotglob nullglob
 personas=( "$REPO"/roles/*.md )
 if [ "${#personas[@]}" -eq 0 ]; then
   ok "roles/ пуст или отсутствует — потолок персон неприменим"
 else
   for f in "${personas[@]}"; do
-    size=$(wc -c < "$f")
-    if [ "$size" -gt "$PERSONA_LIMIT" ]; then
-      bad "персона $f: $size байт > потолка $PERSONA_LIMIT"
-    fi
+    size=$(wc -c < "$f" 2>/dev/null) || { bad "персона $f: размер нечитаем — битая ссылка или права"; continue; }
+    case "$size" in ''|*[!0-9]*) bad "персона $f: размер нечитаем ($size)"; continue ;; esac
+    [ "$size" -gt "$PERSONA_LIMIT" ] && bad "персона $f: $size байт > потолка $PERSONA_LIMIT"
   done
   ok "персоны: ${#personas[@]} файл(ов), потолок $PERSONA_LIMIT байт"
 fi
@@ -53,10 +53,9 @@ if [ "${#rules[@]}" -eq 0 ]; then
   ok "файлы-правила отсутствуют — потолок правил неприменим"
 else
   for f in "${rules[@]}"; do
-    size=$(wc -c < "$f")
-    if [ "$size" -gt "$RULE_LIMIT" ]; then
-      bad "файл-правило $f: $size байт > потолка $RULE_LIMIT"
-    fi
+    size=$(wc -c < "$f" 2>/dev/null) || { bad "файл-правило $f: размер нечитаем — битая ссылка или права"; continue; }
+    case "$size" in ''|*[!0-9]*) bad "файл-правило $f: размер нечитаем ($size)"; continue ;; esac
+    [ "$size" -gt "$RULE_LIMIT" ] && bad "файл-правило $f: $size байт > потолка $RULE_LIMIT"
   done
   ok "правила: ${#rules[@]} файл(ов), потолок $RULE_LIMIT байт"
 fi
@@ -75,8 +74,8 @@ else
        || git -C "$REPO" for-each-ref "refs/tags/frozen/contracts/$nnn/" 2>/dev/null | grep -q .; then
       continue  # заморожено — текст неизменен, вне суда
     fi
-    size=$(wc -c < "$f")
-    # Тело раздела: строки после заголовка до следующего ^## или конца файла.
+    size=$(wc -c < "$f" 2>/dev/null) || size=0
+    case "$size" in ''|*[!0-9]*) size=0 ;; esac
     body="$(awk '/^## Незаполненные требования:/ { flag=1; next } flag && /^## / { exit } flag { print }' "$f")"
     if ! grep -q '^## Незаполненные требования:' "$f"; then
       bad "контракт $f ($size байт): нет раздела «Незаполненные требования:»"
@@ -89,17 +88,13 @@ else
     if [ "$body" = "нет" ]; then
       continue
     fi
-    # список: каждая строка начинается с «- », пустых строк нет
     if printf '%s\n' "$body" | grep -qv '^- '; then
-      bad "контракт $f ($size байт): тело раздела вне грамматики — раздел «Незаполненные требования:» — нужно ровно «нет» либо список «- …»"
+      bad "контракт $f ($size байт): тело раздела «Незаполненные требования:» вне грамматики — нужно ровно «нет» либо список «- …»"
     fi
   done
   ok "раздел требований: ${#contracts[@]} черновик(ов) судится, замороженные — по тегам"
 fi
 shopt -u dotglob nullglob
 
-if [ "$fails" -gt 0 ]; then
-  printf 'превышений/нарушений: %d\n' "$fails" >&2
-  exit 1
-fi
+[ "$fails" -gt 0 ] && { printf 'превышений/нарушений: %d\n' "$fails" >&2; exit 1; }
 printf 'потолки в порядке\n' >&2
