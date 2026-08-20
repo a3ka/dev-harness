@@ -263,15 +263,20 @@ run_check_metering() {
            exit 1 ;;
   esac
 
-  # 3. Поднимаем ребёнка. pid-файл — от пользовательского HOME (или XDG_CONFIG_HOME),
-  # а не от ZONE, которую ниже переопределяет вход в сессию.
+  # 3. Поднимаем ребёнка. pid-файл — от пользовательского HOME, не от ZONE,
+  # которую ниже переопределяет вход в сессию. XDG_CONFIG_HOME НЕ учитывается:
+  # в фикстурах cold-start ставят `export HOME=$work` для герметичности, и
+  # если XDG_CONFIG_HOME остался родительский (~/.config), pid-файл уедет
+  # мимо work, и фикстура не найдёт ребёнка. HOME — единственная база:
+  # `~/.config/dev-harness/proxy.pid` по контракту 005 §6 — это `~/.config/dev-harness`,
+  # где `~` раскрывается в $HOME, а не в $XDG_CONFIG_HOME.
   proxy_script="$HERE/scripts/proxy/metering_proxy.ts"
   if [ ! -f "$proxy_script" ]; then
     printf 'ОТКАЗ: скрипт прокси не найден: %s\n' "$proxy_script" >&2
     printf 'reason=ребёнок_погиб\n' >&2
     exit 1
   fi
-  proxy_dir="${XDG_CONFIG_HOME:-$HOME}/.config/dev-harness"
+  proxy_dir="$HOME/.config/dev-harness"
   mkdir -p "$proxy_dir"
   pid_file="$proxy_dir/proxy.pid"
   log_file="$proxy_dir/proxy.log"
