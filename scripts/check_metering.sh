@@ -139,9 +139,12 @@ stub_upstream() {
       });
     ' > "$dir/stub.log" 2> "$dir/stub.err" &
     pid="$!"
-    echo "$pid" > "$dir/pid"
+    echo "$pid" > "$dir/stub.pid"
     race=0
-    for i in $(seq 1 60); do
+    # Терпение 15 с (не 3): под внешней нагрузкой (qemu-VM, браузер) холодный старт
+    # Node до listen порой > 3 с — стаб ЖИВ, но не успел. Ранний выход по готовности
+    # сохранён, happy-path не медленнее; смерть процесса ловится тут же (не ждём зря).
+    for i in $(seq 1 300); do
       if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":${port}\$"; then
         printf '%s\n' "$port"; return 0
       fi
@@ -154,7 +157,7 @@ stub_upstream() {
       fi
       sleep 0.05
     done
-    [ "$race" -eq 1 ] || die "stub_upstream не поднялся на порту $port за 3 с — лог: $dir/stub.err"
+    [ "$race" -eq 1 ] || die "stub_upstream не поднялся на порту $port за 15 с — лог: $dir/stub.err"
   done
   die "порт stub_upstream занят гонкой EADDRINUSE во всех $attempt попытках — последнее: $dir/stub.err"
 }
@@ -179,7 +182,10 @@ proxy_up() {
     local port win
     port="$(jq -r '.port' "$cfg")"
     win="$(jq -r '.healthz_window_sec' "$cfg")"
-    local max=$(( win * 20 )) i race=0
+    # Пол терпения 15 с под нагрузкой (см. stub_upstream): win*20 при win=5 = 5 с
+    # мало, когда Node стартует медленно; смерть процесса ловится в цикле раньше.
+    local max=$(( win * 20 )); [ "$max" -lt 300 ] && max=300
+    local i race=0
     for i in $(seq 1 "$max"); do
       if curl -fsS -o /dev/null -m 0.5 "http://127.0.0.1:${port}/healthz" 2>/dev/null; then
         printf '%s' "$pid"; return 0
@@ -646,8 +652,7 @@ branch_д() {
   rid="$(rnd_label 16)"
   rm -f "$data/calls.jsonl"
   local up_pid
-  local up_pid
-  up_pid="$(cat "$up_dir/pid")"
+  up_pid="$(cat "$up_dir/stub.pid")"
   kill -- "-$up_pid" 2>/dev/null || kill "$up_pid" 2>/dev/null || true
   local i
   for i in $(seq 1 20); do
@@ -794,8 +799,15 @@ branch_з() {
   local token
   token="$(jq -r '.token' "$vars")"
   [ -n "$token" ] || { bad "з: токен пустой в vars.json"; return 1; }
-  local root="${BARRIER_ROOT:-.}"
-  [ -d "$root" ] || root="."
+  # Дефолт корня — РЕПОЗИТОРИЙ САМОГО БАРЬЕРА ($SELF_DIR/..), а не cwd (`.`):
+  # анти-плацебо копирует барьер в BARRIER_ROOT/scripts/, но НЕ экспортирует
+  # BARRIER_ROOT в окружение (ap_run кладёт по нему копию и только). При `:-.`
+  # ветвь грепала cwd проверяющего (реальный репозиторий), а не песочницу —
+  # красное предъявление становилось невозможным (замер 2026-08-21). Предмет
+  # ветви — «в ЭТОМ репозитории нет секретов», и он есть $SELF_DIR/..; явный
+  # BARRIER_ROOT (standalone-прогон) по-прежнему главнее.
+  local root="${BARRIER_ROOT:-$SELF_DIR/..}"
+  root="$(cd "$root" 2>/dev/null && pwd || echo .)"
   # grep -lF: литерал, только имена файлов. Обход через find, а не --include, чтобы
   # попали ВСЕ имена, включая скрытые, и все расширения (область важнее порога).
   #
@@ -1004,17 +1016,21 @@ _restart_proxy_and_upstream() {
   if [ -d "$up_dir" ] && [ -f "$up_dir/port" ]; then
     local oldport; oldport="$(cat "$up_dir/port" 2>/dev/null || echo "")"
     if [ -n "$oldport" ] && ! ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":${oldport}\$"; then
-      local old_pid_file="$up_dir/pid"
+      local old_pid_file="$up_dir/stub.pid"
       if [ -f "$old_pid_file" ]; then
         local op; op="$(cat "$old_pid_file")"
         [ -n "$op" ] && kill -- "-$op" 2>/dev/null || kill "$op" 2>/dev/null || true
       fi
       stub_upstream "$up_dir" >/dev/null
       local new_port; new_port="$(cat "$up_dir/port")"
-      local provider; provider="$(jq -r '.provider' "$vars")"
+      # МИГАНИЕ (л.о), замер 2026-08-20: прежняя правка обновляла upstream-URL только
+      # у ПЕРВОГО провайдера, а (л.о) копирует URL второму ДО перезапуска — стаб умирал,
+      # перезапуск поднимал его на новом порту, p1 переезжал, p2 оставался на мёртвом:
+      # 502 → usd P2=0 в ~8 прогонах из 10. Переезжают ВСЕ провайдеры со старым URL.
       local tmpc; tmpc="$(mktemp -p "$TMP_ROOT")"
-      jq --arg u "http://127.0.0.1:${new_port}" --arg p "$provider" \
-         '.upstream[$p] = $u' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
+      jq --arg old "http://127.0.0.1:${oldport}" --arg new "http://127.0.0.1:${new_port}" \
+         '.upstream |= with_entries(.value = (if .value == $old then $new else .value end))' \
+         "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
     fi
   fi
   # 3. Сбросим budget.json — он мог накопиться из предыдущих ветвей.
@@ -1104,16 +1120,19 @@ EOF
   ok "л.п: 2026-01 и 2026-02 различимы в ОДНОМ живом процессе (pid $pid_before до и после)"
 
   # ── (л.о) две оси тарифа — два провайдера с одной моделью ──────────────────
-  local p2 m2 in1 in2
-  p2="$(rnd_label 7)"; m2="$(rnd_label 5)"
+  local p2 in1 in2
+  p2="$(rnd_label 7)"
+  # КОНТРАКТ (л.о): ДВА provider с ОДНОЙ model — при разных моделях стаб «цена
+  # только по model» неотличим от честного на этом входе (класс Н-39). Прежняя
+  # редакция брала порождённую m2 — дефект реализации, зелёный прогон не ловил.
   in1=1200000; in2=2400000
   local ceil_p1=50000000 ceil_p2=30000000
   tmpc="$(mktemp -p "$TMP_ROOT")"
-  jq --arg p1 "$provider" --arg p2 "$p2" --arg m "$model" --arg m2 "$m2" \
+  jq --arg p1 "$provider" --arg p2 "$p2" --arg m "$model" \
      --argjson in1 "$in1" --argjson in2 "$in2" \
      --argjson c1 "$ceil_p1" --argjson c2 "$ceil_p2" \
      '.upstream[$p2] = .upstream[$p1]
-      | .prices[$p2] = { ($m2): { per_m_tokens: { in: $in2, out: 6800000 } } }
+      | .prices[$p2] = { ($m): { per_m_tokens: { in: $in2, out: 6800000 } } }
       | .prices[$p1][$m].per_m_tokens.in = $in1
       | .prices[$p1][$m].per_m_tokens.out = 3400000
       | .ceilings[$p1].usd_per_month = $c1
@@ -1127,7 +1146,7 @@ EOF
   rp1="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
          "$token" "$model" "ping-p1" "application/octet-stream" "$(rnd_label 8)")"
   rp2="$(req POST "http://127.0.0.1:${port}/${p2}/chat/completions" \
-         "$token" "$m2" "ping-p2" "application/octet-stream" "$(rnd_label 8)")"
+         "$token" "$model" "ping-p2" "application/octet-stream" "$(rnd_label 8)")"
   line_p1="$(head -1 "$data/calls.jsonl" 2>/dev/null || true)"
   line_p2="$(tail -1 "$data/calls.jsonl" 2>/dev/null || true)"
   usd_p1="$(printf '%s' "$line_p1" | sed -nE 's/.*"usd":"([0-9]+)".*/\1/p')"
