@@ -39,6 +39,8 @@ command -v git >/dev/null 2>&1 || skip "нет git — игрушечные де
 
 TMP_ROOT="$SELF_DIR/../tmp"; mkdir -p "$TMP_ROOT" 2>/dev/null || skip "каталог tmp не создать"
 WORK="$(mktemp -d "$TMP_ROOT/check_scope_select.XXXXXX")" || skip "mktemp не смог"
+WORK="$(cd "$WORK" && pwd -P)"
+export GIT_CEILING_DIRECTORIES="$WORK"
 trap 'rm -rf "$WORK"' EXIT
 
 gg() {  # git в подставном дереве, герметично
@@ -112,7 +114,10 @@ if want д; then
   R="$WORK/д"; build_repo "$R"
   run_sel "$R" --changed 0000000000000000000000000000000000000000
   [ "$RC" = 2 ] || die д "нерезолвимая база дала код $RC, ожидался 2 (fail-closed), НЕ 0-успех"
-  printf '  ok   (д) нерезолвимая база → код 2\n' >&2
+  NG="$WORK/д_notgit"; mkdir -p "$NG/scripts"
+  run_sel "$NG" --changed HEAD
+  [ "$RC" = 2 ] || die д "не-git дерево дало код $RC, ожидался 2 (fail-closed)"
+  printf '  ok   (д) нерезолвимая база и не-git дерево → 2\n' >&2
 fi
 
 if want е; then
@@ -136,13 +141,20 @@ if want ж; then
 fi
 
 if want з; then
-  R="$WORK/з"; build_repo "$R"
-  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\nexit 0\n' > "$R/scripts/c.sh"
-  gg "$R" add -A; gg "$R" commit -q -m 'новый барьер c'
-  run_sel "$R" --changed "$BASE"
-  { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || [ "$RC" = 2 ] \
-    || die з "добавление файла (A) дало код $RC / режим не full — add обязан вести к полной выборке"
-  printf '  ok   (з) добавление файла → full/needs-full\n' >&2
+  for kind in add delete rename role; do
+    R="$WORK/з_$kind"; build_repo "$R"
+    case "$kind" in
+      add)    printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\nexit 0\n' > "$R/scripts/c.sh" ;;
+      delete) rm "$R/scripts/a.sh" ;;
+      rename) mv "$R/scripts/a.sh" "$R/scripts/aa.sh" ;;
+      role)   printf '#!/usr/bin/env bash\n# НЕ БАРЬЕР: был барьером\nexit 0\n' > "$R/scripts/a.sh" ;;
+    esac
+    gg "$R" add -A; gg "$R" commit -q -m "$kind"
+    run_sel "$R" --changed "$BASE"
+    { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || [ "$RC" = 2 ] \
+      || die з "$kind дал код $RC / режим не full — A/D/R/смена-роли обязаны вести к полной выборке"
+  done
+  printf '  ok   (з) add/delete/rename/смена-роли → full\n' >&2
 fi
 
 if want и; then
@@ -158,9 +170,8 @@ if want к; then
   printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
   run_sel "$R" --changed "$BASE"
   has "SCOPED:" "$ERR$OUT" || die к "scoped-режим не напечатал маркер «SCOPED:» — неотличим от полного"
-  grep -qE 'gh |curl |api\.github|check-runs|POST' "$SEL" \
-    && die к "scope_select содержит путь публикации CI-статуса — scoped обязан быть неавторитетным"
-  printf '  ok   (к) scoped маркирован, пути публикации CI нет\n' >&2
+  has "MODE: scoped" "$OUT" || die к "нет машинного маркера «MODE: scoped» на stdout"
+  printf '  ok   (к) scoped помечен машинно-отличимым маркером (неавторитетность — у потребителя)\n' >&2
 fi
 
 printf 'check_scope_select: ветви «%s» зелены\n' "$WANT" >&2
