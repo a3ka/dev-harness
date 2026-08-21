@@ -166,6 +166,16 @@ stub_upstream() {
   die "порт stub_upstream занят гонкой EADDRINUSE во всех $attempt попытках — последнее: $dir/stub.err"
 }
 
+# РАНТАЙМ-ЭНФОРСМЕНТ builtins-only (арбитраж verdicts/arbitration/grep-vs-runtime-builtins.md,
+# f175567): статический греп ветвей (к1)/(к2) — регресс-гард, ПРИЁМОЧНУЮ силу даёт запуск
+# прокси под флагами node. --disallow-code-generation-from-strings закрывает code-gen канал
+# (Function/eval → любой динамический import, как ни склеивай строку — EvalError на исполнении);
+# --permission без --allow-child-process запрещает порождение процессов пер-процессно (никакая
+# JS-рефлексия не обходит). fs открыт широко (/): выигрыш замеров арбитра от fs-области не зависит.
+# Остаток (cognitive-only, правило 8): node:vm под codegen-флагом и рефлексивный createRequire —
+# сужены грепом литералов в (к1). Все ТРИ точки запуска прокси в барьере несут эти флаги.
+readonly PROXY_NODE_FLAGS="--disallow-code-generation-from-strings --permission --allow-fs-read=/ --allow-fs-write=/ --allow-net"
+
 proxy_up() {
   local cfg="$1" pidfile="$2"
   [ -f "$PROXY" ] || die "прокси не найден рядом с барьером: $PROXY"
@@ -179,7 +189,7 @@ proxy_up() {
     attempt=$((attempt + 1))
     (
       cd "$(dirname "$cfg")"
-      exec node "$PROXY" --config "$cfg"
+      exec node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg"
     ) > "$pidfile.log" 2> "$pidfile.err" &
     local pid="$!"
     echo "$pid" > "$pidfile"
@@ -217,7 +227,7 @@ proxy_up() {
 }
 
 proxy_down() {
-  local pid="$1"
+  local pid="${1:-}"
   [ -n "$pid" ] || return 0
   kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
   local i
@@ -711,7 +721,7 @@ branch_е() {
   # `case_a_proxy_up_healthz`, в процессах — `metering_proxy.ts --verify-appendonly`.
   # Истечение границы — ОТКАЗ с названной причиной, а не пропуск.
   local CLI_MAX=20
-  timeout "$CLI_MAX" node "$PROXY" --config "$cfg" --verify-appendonly >/dev/null 2>&1
+  timeout "$CLI_MAX" node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg" --verify-appendonly >/dev/null 2>&1
   rc=$?
   if [ "$rc" = "124" ]; then
     bad "е: --verify-appendonly не вернулся за ${CLI_MAX}с — режим не одноразовый (заглушка поднимает сервер)"
@@ -725,7 +735,7 @@ branch_е() {
   # РАВЕН свёртке журнала (сверка СОДЕРЖИМОГО). Здесь ловится второй дефект
   # контракта: --rebuild-budget пишет НЕ из журнала (константой).
   rm -f "$data/budget.json"
-  timeout "$CLI_MAX" node "$PROXY" --config "$cfg" --rebuild-budget >/dev/null 2>&1
+  timeout "$CLI_MAX" node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg" --rebuild-budget >/dev/null 2>&1
   rc=$?
   if [ "$rc" = "124" ]; then
     bad "е: --rebuild-budget не вернулся за ${CLI_MAX}с — режим не одноразовый (заглушка поднимает сервер)"
@@ -976,6 +986,29 @@ EOF
   ok "и: ротация в одном pid: T1→T2→401, role=$R"
   return 0
 }
+_assert_enforcement() {
+  # Рантайм-энфорсмент ЖИВ у судимого прокси? (арбитраж f175567). Молчаливое выпадение
+  # флагов из proxy_up вернёт дыру k1/k2 незаметно — сверяем /proc/<pid>/cmdline реально
+  # запущенного прокси на оба флага. Проба самодостаточна (свой cfg/порт); temp под $work,
+  # чтобы kill_all_proxies поймал её при обрыве.
+  local who="$1" base w cfg pid cmdline
+  base="${BARRIER_DATA%/data}"; [ -d "$base" ] || base="$TMP_ROOT"
+  w="$(mktemp -d -p "$base" enfXXXXXX)"
+  cfg="$(gen_config "$w")"
+  pid="$(proxy_up "$cfg" "$w/proxy.pid")" || { rm -rf "$w"; bad "$who: прокси не встал для сверки энфорсмента"; return 1; }
+  cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)"
+  proxy_down "$pid"; rm -rf "$w"
+  case "$cmdline" in
+    *--disallow-code-generation-from-strings*) ;;
+    *) bad "$who: судимый прокси БЕЗ --disallow-code-generation-from-strings — энфорсмент выпал: $cmdline"; return 1 ;;
+  esac
+  case "$cmdline" in
+    *--permission*) ;;
+    *) bad "$who: судимый прокси БЕЗ --permission — энфорсмент выпал: $cmdline"; return 1 ;;
+  esac
+  return 0
+}
+
 branch_к1() {
   # (к1) builtins-only, ЗАГРУЗКА МОДУЛЕЙ. Честный прокси грузит ТОЛЬКО статическим
   # `import ... from 'node:...'`. Любая иная форма — красное, включая динамические
@@ -992,10 +1025,12 @@ branch_к1() {
   grep -qE "import[[:space:]]*\(" "$src" && bad_forms="${bad_forms}динамический-import(); "
   grep -qE "(^|[^.[:alnum:]])require[[:space:]]*\(|createRequire" "$src" && bad_forms="${bad_forms}require; "
   grep -qE "getBuiltinModule" "$src" && bad_forms="${bad_forms}getBuiltinModule; "
+  grep -qE "node:vm|runInThisContext" "$src" && bad_forms="${bad_forms}node:vm; "
   if [ -n "$bad_forms" ]; then
     bad "к1: загрузка модулей вне статического node:-import в $src → ${bad_forms%; }"
     return 1
   fi
+  _assert_enforcement к1 || return 1
   ok "к1: только статические node:-импорты в $src"
   return 0
 }
@@ -1027,6 +1062,7 @@ branch_к2() {
     bad "к2: child_process / внешние процессы в $src → ${bad_forms%; }"
     return 1
   fi
+  _assert_enforcement к2 || return 1
   ok "к2: child_process и внешних процессов в $src нет"
   return 0
 }
@@ -1202,19 +1238,18 @@ EOF
   fi
   ok "л.о: usd P1=$usd_p1 и P2=$usd_p2 — разные тарифы по разным провайдерам одной модели"
 
-  # ── (л.i) int64 — ДВА независимо ПОРОЖДЁННЫХ вектора > 2^53 ────────────────
-  # Один фиксированный вектор допускал зашитую под него константу + Number на
-  # остальных входах (находка адверсария 2026-08-21). Порождаем ДВА РАЗНЫХ тарифа
-  # так, что usd в микро-USD > 2^53; ожидаемое — НЕЗАВИСИМЫЙ целочисленный оракул
-  # (BigInt), различимость от double — второй флаг (Н-40). Number теряет младшие
-  # биты на обоих; константа под первый вектор не совпадёт со вторым (он случаен).
-  local ti_i=1000000000
-  _li_check_vector() {  # <номер> <тариф-строка>
-    local n="$1" rate="$2" exp dbl usd_str line_i ri tmpv
-    exp="$(node -e 'process.stdout.write(((BigInt(process.argv[1])*BigInt(process.argv[2])+999999n)/1000000n).toString())' "$ti_i" "$rate")"
-    dbl="$(node -e 'process.stdout.write(String(Math.ceil(Number(process.argv[1])*Number(process.argv[2])/1e6)))' "$ti_i" "$rate")"
+  # ── (л.i) int64 — ДВА вектора > 2^53 с РАЗНЫМ порождённым tokensIn ────────────
+  # Фиксированный ti=1e9 позволял стабу зашить развилку РОВНО на вход теста и быть
+  # честным на нём (адверсарий 2026-08-21, вердикт 4a45e61, класс Н-39/40). Теперь и
+  # tokensIn, и тариф случайны: спец-кейс под пару (ti, тариф) невозможен. Каждая пара
+  # порождается петлёй до точного условия различимости exp(BigInt) ≠ dbl(double) —
+  # ожидаемое даёт независимый целочисленный оракул, различимость от double — второй флаг (Н-40).
+  _li_check_vector() {  # <номер> <tokensIn> <тариф-строка>
+    local n="$1" ti="$2" rate="$3" exp dbl usd_str line_i ri tmpv
+    exp="$(node -e 'process.stdout.write(((BigInt(process.argv[1])*BigInt(process.argv[2])+999999n)/1000000n).toString())' "$ti" "$rate")"
+    dbl="$(node -e 'process.stdout.write(String(Math.ceil(Number(process.argv[1])*Number(process.argv[2])/1e6)))' "$ti" "$rate")"
     if [ "$exp" = "$dbl" ]; then
-      bad "л.i: вектор $n тариф $rate не различает предмет — точное совпало с double ($exp)"; return 1
+      bad "л.i: вектор $n (ti=$ti тариф=$rate) не различает предмет — точное совпало с double ($exp)"; return 1
     fi
     tmpv="$(mktemp -p "$data")"
     jq --arg p "$provider" --arg m "$model" --arg hi "$rate" \
@@ -1223,7 +1258,7 @@ EOF
     _restart_proxy_and_upstream
     rm -f "$data/calls.jsonl" "$up_dir/requests.jsonl" "$up_dir/count"
     cat > "$up_dir/scenario.json" <<EOF
-{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok' | base64 -w0)","headers":{"x-usage-tokens-in":"${ti_i}","x-usage-tokens-out":"0"}}
+{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok' | base64 -w0)","headers":{"x-usage-tokens-in":"${ti}","x-usage-tokens-out":"0"}}
 EOF
     ri="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
           "$token" "$model" "ping-int$n" "application/octet-stream" "$(rnd_label 8)")"
@@ -1238,17 +1273,14 @@ EOF
     fi
     return 0
   }
-  # Два тарифа >2^53, каждый ПОРОЖДАЕТСЯ петлёй до точного условия различимости:
-  # exp (BigInt rate*1000) ≠ dbl (Math.ceil(Number(rate)*1000)). Прежняя теория
-  # «нечётный тариф гарантирует расхождение» неверна — округление Number*1000 и
-  # Number(rate*1000) расходятся, и на части входов dbl совпадал с exp (флак л.i
-  # 4/10, замер 2026-08-21). Петля сторожит РОВНО ту величину, что барьер сверяет.
-  local rate1 rate2
-  rate1="$(node -e 'const ti=1000000000n;const E=r=>((ti*r+999999n)/1000000n).toString();const D=r=>String(Math.ceil(1e9*Number(r)/1e6));let r;do{r=9007199254740993n+BigInt(Math.floor(Math.random()*100000)*2)}while(E(r)===D(r));process.stdout.write(r.toString())')"
-  rate2="$(node -e 'const ti=1000000000n;const E=r=>((ti*r+999999n)/1000000n).toString();const D=r=>String(Math.ceil(1e9*Number(r)/1e6));let r;do{r=9500000000000001n+BigInt(Math.floor(Math.random()*100000)*2)}while(E(r)===D(r));process.stdout.write(r.toString())')"
-  _li_check_vector 1 "$rate1" || return 1
-  _li_check_vector 2 "$rate2" || return 1
-  ok "л.i: два порождённых вектора >2^53 ($rate1, $rate2) точны и отличимы от double"
+  local ti1 rate1 ti2 rate2 pair1 pair2
+  pair1="$(node -e 'const B=BigInt(process.argv[1]);const E=(t,r)=>((t*r+999999n)/1000000n).toString();const D=(t,r)=>String(Math.ceil(Number(t)*Number(r)/1e6));let t,r;do{t=BigInt(100000000+Math.floor(Math.random()*1900000000));r=B+BigInt(Math.floor(Math.random()*100000)*2)}while(E(t,r)===D(t,r));process.stdout.write(t.toString()+" "+r.toString())' 9007199254740993)"
+  pair2="$(node -e 'const B=BigInt(process.argv[1]);const E=(t,r)=>((t*r+999999n)/1000000n).toString();const D=(t,r)=>String(Math.ceil(Number(t)*Number(r)/1e6));let t,r;do{t=BigInt(100000000+Math.floor(Math.random()*1900000000));r=B+BigInt(Math.floor(Math.random()*100000)*2)}while(E(t,r)===D(t,r));process.stdout.write(t.toString()+" "+r.toString())' 9500000000000001)"
+  read -r ti1 rate1 <<< "$pair1"
+  read -r ti2 rate2 <<< "$pair2"
+  _li_check_vector 1 "$ti1" "$rate1" || return 1
+  _li_check_vector 2 "$ti2" "$rate2" || return 1
+  ok "л.i: два вектора >2^53 (ti=$ti1/$rate1, ti=$ti2/$rate2) точны и отличимы от double"
   return 0
 }
 
