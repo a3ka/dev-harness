@@ -35,6 +35,7 @@
     "drill:contract-change": "bash scripts/drill_contract_change.sh",
     "freeze:contract": "bash scripts/freeze_contract.sh",
     "check:skills": "bash scripts/check_skills.sh",
-    "check:skills-live": "bash scripts/check_skills.sh --live"
+    "check:skills-live": "bash scripts/check_skills.sh --live",
+    "check:ci-gate": "bash scripts/check_ci_gate.sh"
   }
 }
