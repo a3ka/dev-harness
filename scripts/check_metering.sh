@@ -102,8 +102,12 @@ stub_upstream() {
     attempt=$((attempt + 1))
     port="$(free_port)"
     printf '%s' "$port" > "$dir/port"
+    # БЕЗ setsid: setsid форкается, и $! — pid РОДИТЕЛЯ-setsid (сразу выходит), а
+    # node получает другой pid → в stub.pid попадал мёртвый pid, kill_all_proxies
+    # бил пустую группу, стаб-node выживал (утечка ~2/прогон, замер 2026-08-21;
+    # «убийца стаба л.о»). Без setsid $! = pid node, pid-файловый проход его глушит.
     PORT="$port" DIR="$dir" \
-    setsid node -e '
+    node -e '
       const fs = require("node:fs");
       const http = require("node:http");
       const port = parseInt(process.env.PORT, 10);
@@ -137,7 +141,7 @@ stub_upstream() {
       server.listen(port, "127.0.0.1", () => {
         process.stderr.write("stub upstream listening on " + port + "\n");
       });
-    ' > "$dir/stub.log" 2> "$dir/stub.err" &
+    ' metering-stub-upstream "$dir" > "$dir/stub.log" 2> "$dir/stub.err" &
     pid="$!"
     echo "$pid" > "$dir/stub.pid"
     race=0
@@ -733,13 +737,37 @@ branch_е() {
   # Ручная свёртка calls.jsonl по (period_at(ts), provider): сумма usd.
   # Прокси сериализует usd в budget.json СТРОКОЙ (BigInt-safe), журнал тоже
   # хранит usd строкой. Сворачиваем в строки, чтобы форматы совпали.
-  expected="$(jq -S -s '
-    [.[] | select(.usd != null and .ts != null and .provider != null and .ts > 0)] |
-    map({( ((.ts / 1000) | strftime("%Y-%m")) ): {(.provider): (.usd)}}) |
-    add // {}
+  # НЕЗАВИСИМАЯ свёртка журнала целочисленным оракулом (BigInt): группировка по
+  # (periodAt(ts), provider), сумма usd; прокси хранит usd строкой (int64-safe),
+  # сворачиваем так же и сверяем ПОБАЙТОВО с budget.json. Пустая свёртка —
+  # красное: константный --rebuild-budget пишет {} и «сходится» с пустым
+  # ожидаемым (находка адверсария 2026-08-21: сравнения не было вовсе).
+  expected="$(node -e '
+    const fs=require("node:fs");
+    let lines=[];try{lines=fs.readFileSync(process.argv[1],"utf8").split("\n").filter(Boolean)}catch{}
+    const b={};
+    for(const ln of lines){let r;try{r=JSON.parse(ln)}catch{continue}
+      if(r.usd==null||r.ts==null||r.provider==null||!(Number(r.ts)>0))continue;
+      const d=new Date(Number(r.ts));
+      const per=d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");
+      (b[per]??={})[r.provider]=((b[per][r.provider]?BigInt(b[per][r.provider]):0n)+BigInt(r.usd)).toString();
+    }
+    const s={};for(const per of Object.keys(b).sort()){s[per]={};for(const pr of Object.keys(b[per]).sort())s[per][pr]=b[per][pr];}
+    process.stdout.write(JSON.stringify(s));
   ' "$data/calls.jsonl" 2>/dev/null)"
-  actual="$(jq -S '.' "$data/budget.json" 2>/dev/null)"
-  ok "е: budget.json после rebuild равен свёртке calls.jsonl"
+  actual="$(node -e '
+    const fs=require("node:fs");
+    let b={};try{b=JSON.parse(fs.readFileSync(process.argv[1],"utf8"))}catch{}
+    const s={};for(const per of Object.keys(b).sort()){s[per]={};for(const pr of Object.keys(b[per]).sort())s[per][pr]=String(b[per][pr]);}
+    process.stdout.write(JSON.stringify(s));
+  ' "$data/budget.json" 2>/dev/null)"
+  if [ -z "$expected" ] || [ "$expected" = "{}" ]; then
+    bad "е: свёртка calls.jsonl пуста — нечем доказать производность (журнал без usd-строк на момент (е))"; return 1
+  fi
+  if [ "$expected" != "$actual" ]; then
+    bad "е: budget.json после rebuild ≠ свёртке журнала: свёртка=$expected budget=$actual"; return 1
+  fi
+  ok "е: budget.json после rebuild равен свёртке calls.jsonl (непустой, побайтово)"
 }
 
 branch_ж() {
@@ -949,47 +977,58 @@ EOF
   return 0
 }
 branch_к1() {
-  # (к1) builtins-only, ИМПОРТЫ: grep'аем все `import ... from "..."` и `import ... from '...'`
-  # из исходника прокси; строки с `from "node:..."` разрешены, остальные — нет.
+  # (к1) builtins-only, ЗАГРУЗКА МОДУЛЕЙ. Честный прокси грузит ТОЛЬКО статическим
+  # `import ... from 'node:...'`. Любая иная форма — красное, включая динамические
+  # и рефлексивные: адверсарий обошёл literal-grep через `import('file://'+x)` и
+  # `process.getBuiltinModule` (замер 2026-08-21). Запрещены: статический import из
+  # не-node:, динамический `import(`, `require`/`createRequire`, `getBuiltinModule`.
   local src="${1:-$PROXY}"
   [ -f "$src" ] || { bad "к1: исходник прокси не найден: $src"; return 1; }
-  local bad_imports
-  bad_imports="$(grep -nE "(^|[[:space:]])import[[:space:]]+.+from[[:space:]]+['\"][^'\"]+['\"]" "$src" \
-                 | grep -vE "from[[:space:]]+['\"]node:" || true)"
-  if [ -n "$bad_imports" ]; then
-    bad "к1: импорты вне node: в $src → $(printf '%s' "$bad_imports" | head -3 | tr '\n' ';')"
+  local bad_forms=""
+  local stat
+  stat="$(grep -nE "(^|[[:space:]])import[[:space:]]+.+from[[:space:]]+['\"][^'\"]+['\"]" "$src" \
+          | grep -vE "from[[:space:]]+['\"]node:" || true)"
+  [ -n "$stat" ] && bad_forms="${bad_forms}статический-import-вне-node ($(printf '%s' "$stat" | head -1)); "
+  grep -qE "import[[:space:]]*\(" "$src" && bad_forms="${bad_forms}динамический-import(); "
+  grep -qE "(^|[^.[:alnum:]])require[[:space:]]*\(|createRequire" "$src" && bad_forms="${bad_forms}require; "
+  grep -qE "getBuiltinModule" "$src" && bad_forms="${bad_forms}getBuiltinModule; "
+  if [ -n "$bad_forms" ]; then
+    bad "к1: загрузка модулей вне статического node:-import в $src → ${bad_forms%; }"
     return 1
   fi
-  ok "к1: импортов вне node: в $src нет"
+  ok "к1: только статические node:-импорты в $src"
   return 0
 }
 
 branch_к2() {
-  # (к2) builtins-only, ПРОЦЕССЫ: ищем вызовы exec*/spawn* и смотрим первый строковый
-  # аргумент. Разрешён только "node" (или пустая строка — мы не нашли аргумента).
-  # Любое другое имя ("curl", "wget", "/usr/bin/...", "sh", "bash") — внешний процесс.
+  # (к2) builtins-only, ПРОЦЕССЫ. Честный прокси НЕ порождает внешних процессов и
+  # не трогает child_process. Любой канал к порождению — красное, включая
+  # вычисляемые формы: адверсарий обошёл literal-grep через
+  # runner['exec'+'FileSync'] и getBuiltinModule('node:'+'child_process') (замер
+  # 2026-08-21) — но строка «child_process» в исходнике при этом ОБЯЗАНА быть.
+  # Запрещены: модуль child_process (в любой форме), process.binding, вызовы
+  # exec*/spawn*/fork( с первым СТРОКОВЫМ аргументом не «node».
   local src="${1:-$PROXY}"
   [ -f "$src" ] || { bad "к2: исходник прокси не найден: $src"; return 1; }
-  local hits
-  hits="$(grep -nE "(execFile|exec|spawn)(Sync)?[[:space:]]*\(" "$src" || true)"
-  [ -z "$hits" ] && { ok "к2: exec/spawn вызовов в $src нет"; return 0; }
-  local bad_args=""
-  local line first_arg
+  local bad_forms=""
+  grep -qE "child_process" "$src" && bad_forms="${bad_forms}child_process; "
+  grep -qE "process\.binding" "$src" && bad_forms="${bad_forms}process.binding; "
+  local hits line first_arg
+  hits="$(grep -nE "(execFile|exec|spawnSync|spawn|fork)[[:space:]]*\(" "$src" || true)"
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
     first_arg="$(printf '%s' "$line" | sed -nE "s/.*\([[:space:]]*['\"]([^'\"]+)['\"].*/\1/p" | head -1)"
     [ -z "$first_arg" ] && continue
-    case "$first_arg" in
-      node) ;;  # разрешено — сам node
-      *)    bad_args="${bad_args}${first_arg}|";;
-    esac
+    [ "$first_arg" = "node" ] && continue
+    bad_forms="${bad_forms}процесс:${first_arg}; "
   done <<< "$hits"
-  if [ -n "$bad_args" ]; then
-    bad "к2: внешние процессы в $src → ${bad_args%|}"
+  if [ -n "$bad_forms" ]; then
+    bad "к2: child_process / внешние процессы в $src → ${bad_forms%; }"
     return 1
   fi
-  ok "к2: exec/spawn вызовов вне node в $src нет"
+  ok "к2: child_process и внешних процессов в $src нет"
+  return 0
 }
 
 # _restart_proxy_and_upstream — перезапустить ПРОКСИ с обновлённым cfg и ПОДНЯТЬ upstream,
@@ -1163,41 +1202,53 @@ EOF
   fi
   ok "л.о: usd P1=$usd_p1 и P2=$usd_p2 — разные тарифы по разным провайдерам одной модели"
 
-  # ── (л.i) int64 — ПОРОГ СЧИТАЕТСЯ ПО usd, а не по тарифу ──────────────────
-  # Прежняя редакция брала тариф 9007199254741 и называла его «> 2^53». Это ошибка в
-  # ТЫСЯЧУ раз: 2^53 = 9007199254740992. Барьер сам это и поймал («usd короче 16 цифр»).
-  # Числа ниже — из прогона архитектора: тариф СТРОКОЙ 9007199254740993 (голое JSON-число
-  # выше 2^53 прокси законно отвергает) и tokens_in = 1e9 дают usd РОВНО
-  # 9007199254740993000, тогда как IEEE-754 дал бы 9007199254740992000. Разница 1000 —
-  # вот она и различает предмет. Проверяются ДВА флага (Н-40): совпало с точным И
-  # отличимо от double. Одного мало: первый без второго проходит на слепых числах,
-  # второй без первого — на сломанной реализации.
-  local rate_i="9007199254740993" tokens_i="1000000000"
-  local usd_exact="9007199254740993000" usd_double="9007199254740992000"
-  tmpc="$(mktemp -p "$data")"
-  jq --arg p "$provider" --arg m "$model" --arg hi "$rate_i" \
-     '.prices[$p][$m].per_m_tokens.in = $hi | .prices[$p][$m].per_m_tokens.out = "0"' \
-     "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
-  _restart_proxy_and_upstream
-  rm -f "$data/calls.jsonl" "$up_dir/requests.jsonl" "$up_dir/count"
-  cat > "$up_dir/scenario.json" <<EOF
-{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok' | base64 -w0)","headers":{"x-usage-tokens-in":"${tokens_i}","x-usage-tokens-out":"0"}}
+  # ── (л.i) int64 — ДВА независимо ПОРОЖДЁННЫХ вектора > 2^53 ────────────────
+  # Один фиксированный вектор допускал зашитую под него константу + Number на
+  # остальных входах (находка адверсария 2026-08-21). Порождаем ДВА РАЗНЫХ тарифа
+  # так, что usd в микро-USD > 2^53; ожидаемое — НЕЗАВИСИМЫЙ целочисленный оракул
+  # (BigInt), различимость от double — второй флаг (Н-40). Number теряет младшие
+  # биты на обоих; константа под первый вектор не совпадёт со вторым (он случаен).
+  local ti_i=1000000000
+  _li_check_vector() {  # <номер> <тариф-строка>
+    local n="$1" rate="$2" exp dbl usd_str line_i ri tmpv
+    exp="$(node -e 'process.stdout.write(((BigInt(process.argv[1])*BigInt(process.argv[2])+999999n)/1000000n).toString())' "$ti_i" "$rate")"
+    dbl="$(node -e 'process.stdout.write(String(Math.ceil(Number(process.argv[1])*Number(process.argv[2])/1e6)))' "$ti_i" "$rate")"
+    if [ "$exp" = "$dbl" ]; then
+      bad "л.i: вектор $n тариф $rate не различает предмет — точное совпало с double ($exp)"; return 1
+    fi
+    tmpv="$(mktemp -p "$data")"
+    jq --arg p "$provider" --arg m "$model" --arg hi "$rate" \
+       '.prices[$p][$m].per_m_tokens.in = $hi | .prices[$p][$m].per_m_tokens.out = "0"' \
+       "$cfg" > "$tmpv" && mv "$tmpv" "$cfg"
+    _restart_proxy_and_upstream
+    rm -f "$data/calls.jsonl" "$up_dir/requests.jsonl" "$up_dir/count"
+    cat > "$up_dir/scenario.json" <<EOF
+{"status":200,"content_type":"application/octet-stream","body_b64":"$(printf 'ok' | base64 -w0)","headers":{"x-usage-tokens-in":"${ti_i}","x-usage-tokens-out":"0"}}
 EOF
-  local ri line_i usd_str
-  ri="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
-        "$token" "$model" "ping-int" "application/octet-stream" "$(rnd_label 8)")"
-  line_i="$(head -1 "$data/calls.jsonl" 2>/dev/null || true)"
-  usd_str="$(printf '%s' "$line_i" | sed -nE 's/.*"usd":"([0-9]+)".*/\1/p')"
-  if [ -z "$usd_str" ]; then
-    bad "л.i: строка журнала без usd: «$line_i»"; return 1
-  fi
-  if [ "$usd_str" != "$usd_exact" ]; then
-    bad "л.i: usd = «$usd_str», точное значение «$usd_exact» (IEEE-754 дал бы «$usd_double»)"; return 1
-  fi
-  if [ "$usd_str" = "$usd_double" ]; then
-    bad "л.i: usd совпал с IEEE-754-значением «$usd_double» — точность потеряна"; return 1
-  fi
-  ok "л.i: usd=$usd_str — совпало с точным И отличимо от double ($usd_double)"
+    ri="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
+          "$token" "$model" "ping-int$n" "application/octet-stream" "$(rnd_label 8)")"
+    line_i="$(head -1 "$data/calls.jsonl" 2>/dev/null || true)"
+    usd_str="$(printf '%s' "$line_i" | sed -nE 's/.*"usd":"([0-9]+)".*/\1/p')"
+    if [ -z "$usd_str" ]; then bad "л.i: вектор $n — строка журнала без usd: «$line_i»"; return 1; fi
+    if [ "$usd_str" != "$exp" ]; then
+      bad "л.i: вектор $n usd=«$usd_str», точное «$exp» (double дал бы «$dbl») — int64 не сохранён"; return 1
+    fi
+    if [ "$usd_str" = "$dbl" ]; then
+      bad "л.i: вектор $n usd совпал с double «$dbl» — точность потеряна"; return 1
+    fi
+    return 0
+  }
+  # Два тарифа >2^53, каждый ПОРОЖДАЕТСЯ петлёй до точного условия различимости:
+  # exp (BigInt rate*1000) ≠ dbl (Math.ceil(Number(rate)*1000)). Прежняя теория
+  # «нечётный тариф гарантирует расхождение» неверна — округление Number*1000 и
+  # Number(rate*1000) расходятся, и на части входов dbl совпадал с exp (флак л.i
+  # 4/10, замер 2026-08-21). Петля сторожит РОВНО ту величину, что барьер сверяет.
+  local rate1 rate2
+  rate1="$(node -e 'const ti=1000000000n;const E=r=>((ti*r+999999n)/1000000n).toString();const D=r=>String(Math.ceil(1e9*Number(r)/1e6));let r;do{r=9007199254740993n+BigInt(Math.floor(Math.random()*100000)*2)}while(E(r)===D(r));process.stdout.write(r.toString())')"
+  rate2="$(node -e 'const ti=1000000000n;const E=r=>((ti*r+999999n)/1000000n).toString();const D=r=>String(Math.ceil(1e9*Number(r)/1e6));let r;do{r=9500000000000001n+BigInt(Math.floor(Math.random()*100000)*2)}while(E(r)===D(r));process.stdout.write(r.toString())')"
+  _li_check_vector 1 "$rate1" || return 1
+  _li_check_vector 2 "$rate2" || return 1
+  ok "л.i: два порождённых вектора >2^53 ($rate1, $rate2) точны и отличимы от double"
   return 0
 }
 
@@ -1290,8 +1341,12 @@ main() {
     # удаляет $work ДО выхода, и прежний охранник `[ -d "$root" ] || return 0` выходил
     # досрочно — процесс перезапущенного прокси оставался жив, а его pid-файл исчезал
     # вместе с каталогом (замер 2026-08-20: один живой прокси после зелёного прогона).
-    # Шаблон СТРОГО с путём своего каталога: чужие прогоны и клоны не трогаются.
+    # Шаблоны СТРОГО с путём своего каталога: чужие прогоны и клоны не трогаются.
+    # Прокси — по `--config $root`; стаб — по argv-маркеру `metering-stub-upstream`
+    # с $dir под $root (env DIR в argv pkill не виден, оттого стаб тёк — замер
+    # 2026-08-21: $work удалён ДО trap, первый проход по pid-файлам находил пусто).
     pkill -f "metering_proxy.ts --config $root" 2>/dev/null || true
+    pkill -f "metering-stub-upstream $root" 2>/dev/null || true
   }
   # Каталог подставляется В МОМЕНТ ОБЪЯВЛЕНИЯ ловушки: $work — локальная переменная
   # main, и к моменту EXIT её уже нет. Прежняя редакция читала её внутри функции и

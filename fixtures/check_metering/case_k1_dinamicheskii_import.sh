@@ -1,9 +1,9 @@
 # ПРИЧИНА: к1: загрузка модулей вне статического node:-import
 #
-# Ветвь (к1): builtins-only по ИМПОРТАМ — grep импортов исходника прокси вне
-# `node:`. Красный — копия реального прокси ТОЛЬКО с vendor-импортом (без
-# внешних процессов, к2 остаётся зелёной). Импорт type-only: стирается при
-# исполнении, поведение не меняется — дефект наблюдаем ровно на входе (к1).
+# Ветвь (к1): builtins-only по ЗАГРУЗКЕ модулей. Честный прокси грузит только
+# статическим `import ... from 'node:...'`. Красный — копия прокси с мёртвой
+# функцией, содержащей ДИНАМИЧЕСКИЙ `import(...)`: литерал-grep старого барьера
+# его не видел (находка адверсария 2026-08-21), новый ловит форму `import(`.
 set -euo pipefail
 . "$(dirname "$0")/_repo.sh"
 R="$(make_repo)"
@@ -16,9 +16,9 @@ python3 - "$R/scripts/proxy/metering_proxy.ts" <<'PY'
 import sys
 p = sys.argv[1]
 s = open(p, encoding='utf-8').read()
-marker = 'import type __vendorProbe from "lodash";'
-assert marker not in s, "маркер уже есть"
-open(p, 'w', encoding='utf-8').write(s + "\n" + marker + "\n")
+probe = '\nasync function __neverK1(): Promise<unknown> {\n  return import("node:" + "os")\n}\n'
+assert '__neverK1' not in s, "маркер уже есть"
+open(p, 'w', encoding='utf-8').write(s + probe)
 PY
 
 set +e
