@@ -53,9 +53,12 @@
    требует `--allow-net`, а `ci.yml` пинил node 22 (флага нет) → все 22 фикстуры `check_metering/*`
    валили `check:antiplacebo` на раннере (локально node 26 маскировал; лог джоба 97044050302).
    ФИКС: `ci.yml` node 22→26 + `engines: >=26` (коммит implementer). НЕ 006 — пред-существующий долг.
-1. push → GitHub Actions на node 26 → гейт 4б `bash scripts/check_ci_gate.sh` → 0 (ЖДУ прогон).
-2. адверсарий (1 круг на пачку) → 3. ревьюер (1 круг) → 4. `done/contracts/006/1` + приземление
-   (тогда же push тегов frozen/id/done 006 — реестр заморозок на origin).
+1. **CI на node 26: `check:antiplacebo` ЗЕЛЁНЫЙ (190/190), шаги 5–9 прошли.** Шаг 10 `check:ids`
+   валился: `id/CONTRACT/006` не на origin (пушил только main, не теги) → номер «рукой». ФИКС:
+   `git push --tags` (id/CONTRACT/006, frozen/006, done/005 — реестр на origin). Все 12 остальных
+   CI-шагов зелёные ЛОКАЛЬНО (ids/skills/ceilings/decisions/approval/contract-frozen/zones/charter/
+   3 дрилла/protected). Жду подтверждающий полный CI → гейт 4б `check_ci_gate` → 0.
+2. адверсарий (1 круг на пачку) → 3. ревьюер (1 круг) → 4. `done/contracts/006/1` + приземление.
 
 **ПРОЦЕССНЫЙ УРОК (дополнение Н-42):** критик ОБЯЗАН перезаписывать ОДИН файл вердикта версии
 `contracts-<NNN>-v<версия-заморозки>.md` (freeze_contract читает именно `-v1.md` для v1, строка 119),
