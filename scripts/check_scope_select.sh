@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Барьер приёмки scoped-селектора (контракт 006). Гоняет `<корень>/scripts/scope_select.sh` по
-# ветвям а–к на ПОРОЖДЁННЫХ игрушечных git-деревьях и УТВЕРЖДАЕТ выбор/режим/код/причину.
+# ветвям а–л на ПОРОЖДЁННЫХ игрушечных git-деревьях и УТВЕРЖДАЕТ выбор/режим/код/причину.
 # Образец — `check_metering.sh`: предмет (`scope_select.sh`) объявляет `НЕ БАРЬЕР:`, барьер —
 # этот файл; фикстуры `fixtures/check_scope_select/` предъявляют ЕГО красным, подавая сломанный
 # scope_select в подставном дереве.
 #
 # КОНТРАКТ ВЫВОДА scope_select (закреплён здесь, реализация конформна):
 #   stdout: `MODE: full|scoped|needs-full`, затем строки `KEY: <ключ>` (для scoped, 0+);
-#   stderr: для scoped/needs-full — строка `SCOPED: … — не для приёмки`; диагностика/причина;
+#   stderr: ДЛЯ SCOPED И NEEDS-FULL — строка `SCOPED: … — не для приёмки`; диагностика/причина;
 #   код: 0 — выборка готова (full|scoped), 1 — ошибка использования (неизвестный ключ/case,
 #        пустой --scope), 2 — нечем проверить / нужен полный (needs-full: 0 задетых, нет git).
 #
@@ -16,7 +16,7 @@
 #
 #   bash scripts/check_scope_select.sh [<корень>] [<ветвь>]
 #     <корень> — где лежит scripts/scope_select.sh (умолчание — корень репозитория);
-#     <ветвь>  — одна из а б в г д е ж з и к (умолчание — все).
+#     <ветвь>  — одна из а б в г д е ж з и к л (умолчание — все).
 #
 # Коды возврата: 0 — все запрошенные ветви зелены, 1 — ветвь провалена, 2 — нечем проверить.
 set -uo pipefail
@@ -76,6 +76,15 @@ has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 
 want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 
+# Известные ветви (диспетчер fail-closed — неизвестное имя НЕ зеленеет молча).
+KNOWN_BRANCHES="а б в г д е ж з и к л"
+if [ "$WANT" != all ]; then
+  found=0
+  for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
+  [ "$found" -eq 1 ] || { printf 'ОТКАЗ диспетчер: неизвестная ветвь «%s» (допустимы: %s)\n' \
+                                   "$WANT" "$KNOWN_BRANCHES" >&2; exit 1; }
+fi
+
 # ── ветви ──────────────────────────────────────────────────────────────────────
 if want а; then
   R="$WORK/а"; build_repo "$R"
@@ -107,7 +116,8 @@ if want г; then
   [ "$RC" = 2 ] || die г "дифф только по докам дал код $RC, ожидался 2 (needs-full: нечем проверить)"
   has needs-full "$OUT" || die г "режим не needs-full при пустой выборке"
   has "0 задет" "$ERR$OUT" || die г "не названо «0 задетых» при пустой выборке"
-  printf '  ok   (г) доки-only → needs-full код 2\n' >&2
+  has SCOPED: "$ERR" || die г "needs-full не напечатал машинный маркер «SCOPED:» на stderr — отличим только от scoped по MODE"
+  printf '  ok   (г) доки-only → needs-full код 2, маркер SCOPED:\n' >&2
 fi
 
 if want д; then
@@ -171,7 +181,32 @@ if want к; then
   run_sel "$R" --changed "$BASE"
   has "SCOPED:" "$ERR$OUT" || die к "scoped-режим не напечатал маркер «SCOPED:» — неотличим от полного"
   has "MODE: scoped" "$OUT" || die к "нет машинного маркера «MODE: scoped» на stdout"
-  printf '  ok   (к) scoped помечен машинно-отличимым маркером (неавторитетность — у потребителя)\n' >&2
+  # Та же проверка на needs-full: маркер ОБЯЗАН быть и там (контракт §Предмет, шапка барьера).
+  # Используем ОТДЕЛЬНЫЙ свежий репо, чтобы HEAD имел только docs-изменения над BASE.
+  R2="$WORK/к_nf"; build_repo "$R2"
+  printf '# ещё документации\n' >> "$R2/README.md"; gg "$R2" add -A; gg "$R2" commit -q -m docs
+  run_sel "$R2" --changed "$BASE"
+  [ "$RC" = 2 ] || die к "docs-only не дал needs-full код 2 — теряется сценарий (г)"
+  has needs-full "$OUT" || die к "режим не needs-full на docs-only"
+  has SCOPED: "$ERR" || die к "needs-full не напечатал машинный маркер «SCOPED:» — отличим от полного НЕ по маркеру"
+  printf '  ok   (к) scoped и needs-full помечены SCOPED: (неавторитетность — у потребителя)\n' >&2
+# (л) — git-отсутствие: игрушку строим при доступном git (для setup), а ВЫЗОВ селектора делаем
+# с PATH, где `git` НЕ виден → код 2 (fail-closed). Сузить claim «нет git → 2» (было спрятано за
+# `command -v git || skip`) было бы сменой предмета контракта — на это имеет право только
+# владелец; исполняемый тест против подмены PATH дешевле.
+fi
+
+if want л; then
+  R="$WORK/л"; build_repo "$R"
+  NOGIT="$WORK/nogit"; mkdir -p "$NOGIT"
+  for b in /usr/bin/*; do case "$(basename "$b")" in git) ;; *) ln -s "$b" "$NOGIT/$(basename "$b")" 2>/dev/null || true ;; esac; done
+  [ ! -e "$NOGIT/git" ] || die л "симлинк git не удалён из PATH-каталога — fail-closed не проверен"
+  ORIG_PATH="$PATH"
+  PATH="$NOGIT" run_sel "$R" --changed "$BASE"
+  PATH="$ORIG_PATH"
+  [ "$RC" = 2 ] || die л "PATH без git дал код $RC, ожидался 2 (fail-closed) — предмет контракта §3 подменой PATH не доказан"
+  has SCOPED: "$ERR" || die л "needs-full при отсутствии git не напечатал SCOPED: (как и в ветви (г))"
+  printf '  ok   (л) git-отсутствие (PATH без git) → код 2 + SCOPED:\n' >&2
 fi
 
 printf 'check_scope_select: ветви «%s» зелены\n' "$WANT" >&2
