@@ -42,6 +42,14 @@ jobs:
       - name: Анти-плацебо
         run: npm run check:antiplacebo
 
+      - name: Барьер scoped-селектора (контракт 006)
+        # Самодостаточен: строит игрушечные git-деревья в tmp/, git в CI есть.
+        run: npm run check:scope-select
+
+      - name: Барьер интеграции scoped в раннер (контракт 006)
+        # Самодостаточен: встроенный scope_select из фикстуры, прогон через изолированный tmp.
+        run: npm run check:scoped-run
+
       - name: Генератор ролей под чек
         run: npm run check:gen
 

@@ -19,6 +19,8 @@
     "check:overlay": "bash scripts/overlay.sh --check",
     "models:actual": "bash scripts/models_actual.sh",
     "check:antiplacebo": "bash scripts/verify_antiplacebo.sh",
+    "check:scope-select": "bash scripts/check_scope_select.sh",
+    "check:scoped-run": "bash scripts/check_scoped_run.sh",
     "check:ceilings": "bash scripts/check_ceilings.sh",
     "check:ci-parity": "bash scripts/verify_ci_parity.sh",
     "check:protected": "bash scripts/check_protected.sh",
