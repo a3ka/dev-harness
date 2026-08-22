@@ -57,6 +57,53 @@ is_library() { case "$(header_role "$root/scripts/$1.sh")" in *p*) true ;; *) fa
 
 emit_marker() { printf 'SCOPED: %s\n' "$*" >&2; }
 
+# `source_args <файл>` — печатает АРГУМЕНТ каждой `source`/`.` инструкции в файле (по одной
+# строке). Используется находками 1 и 2 для статического разбора графа source (§2 «нет
+# динамического source»/«не сорсит другой eligible-барьер»). Многострочные продолжения
+# НЕ поддержаны: тестовые источники — однострочные `source PATH`/`. PATH`.
+source_args() {
+  awk '
+    /^[[:space:]]*(source|\.)[[:space:]]+[^#]/ {
+      arg = $0
+      sub(/^[[:space:]]*/, "", arg)
+      sub(/^(source|\.)[[:space:]]+/, "", arg)
+      sub(/[[:space:]]*#.*$/, "", arg)
+      print arg
+    }
+  ' "${1--}"
+}
+
+# `has_dynamic_source <файл>` — 0 если хоть одна source/`.` инструкция имеет аргумент, который
+# после стриппинга кавычек НЕ оканчивается на `.sh` (резолвится в неизвестный файл — тот же
+# контракт §2 «нет динамического source»). Файл без source/`.` — НЕ dynamic.
+has_dynamic_source() {
+  local arg base
+  while IFS= read -r arg; do
+    [ -z "$arg" ] && continue
+    arg="${arg%\"}"; arg="${arg#\"}"
+    arg="${arg%\'}"; arg="${arg#\'}"
+    base="${arg##*/}"
+    # Пустой basename или basename без суффикса .sh — динамический source.
+    [ -n "$base" ] && [ "${base%.sh}" != "$base" ] || return 0
+  done < <(source_args "$1")
+  return 1
+}
+
+# `has_static_source_to <target.sh> <файл>` — 0 если хоть одна source/`.` инструкция имеет
+# аргумент, basename которого ровно `<target.sh>` (после стриппинга кавычек). Используется
+# находкой 1: «другой eligible-барьер сорсит scripts/X.sh».
+has_static_source_to() {
+  local target="$1" file="$2" arg base
+  while IFS= read -r arg; do
+    [ -z "$arg" ] && continue
+    arg="${arg%\"}"; arg="${arg#\"}"
+    arg="${arg%\'}"; arg="${arg#\'}"
+    base="${arg##*/}"
+    [ "$base" = "$target" ] && return 0
+  done < <(source_args "$file")
+  return 1
+}
+
 # ── Режимы ───────────────────────────────────────────────────────────────────
 case "$flag" in
   --scope)
@@ -65,9 +112,11 @@ case "$flag" in
     for k in "$@"; do
       case "$k" in
         */*) bar="${k%%/*}"; cas="${k#*/}"
-             [ -f "$root/scripts/$bar.sh" ] || { echo "неизвестный ключ $bar" >&2; exit 1; }
+             # Существование файла НЕ достаточно: ключом --scope может быть ТОЛЬКО барьер
+             # (находка 3: «НЕ БАРЬЕР»/support/неклассифицированный принимался как ключ).
+             is_barrier "$bar" || { echo "неизвестный ключ $bar" >&2; exit 1; }
              [ -f "$root/fixtures/$bar/$cas.sh" ] || { echo "неизвестный case $k" >&2; exit 1; } ;;
-        *)   [ -f "$root/scripts/$k.sh" ] || { echo "неизвестный ключ $k" >&2; exit 1; } ;;
+        *)   is_barrier "$k" || { echo "неизвестный ключ $k" >&2; exit 1; } ;;
       esac
     done
     emit_marker "не для приёмки"
@@ -130,6 +179,37 @@ case "$flag" in
                              # игнорируется: всё равно full.
       esac
     done < <(git -C "$root" diff --name-status -z "$base" HEAD | tr '\0' '\n')
+    # Находки 1 и 2 (адверсарий): граф source между барьерами и динамический source.
+    # Контракт §2 разрешает сужение до ключа ТОЛЬКО при выполнении ОБОИХ условий:
+    #   (1) ИЗМЕНЁННЫЙ барьер (любой конец диффа) не имеет динамического source — иначе
+    #       цель резолвится в рантайме и поведение чужих барьеров меняется непредсказуемо;
+    #   (2) ни один ДРУГОЙ eligible-барьер статически не сорсит изменённый — иначе правка X
+    #       меняет поведение других и выборка обязана быть полной.
+    if [ "$full" = 0 ] && [ -n "$keys" ]; then
+      # Находка 2: изменённый барьер с динамическим source — любой из концов диффа.
+      for k in $keys; do
+        if has_dynamic_source "$root/scripts/$k.sh"; then full=1; break; fi
+        if git -C "$root" cat-file -e "${base}:scripts/${k}.sh" 2>/dev/null; then
+          if git -C "$root" show "${base}:scripts/${k}.sh" 2>/dev/null | has_dynamic_source -; then
+            full=1; break
+          fi
+        fi
+      done
+      # Находка 1: полнодеревный скан eligible-барьеров в HEAD на статический source <key>.sh
+      # (роль фильтруется по header_role — библиотеки/support не считаются «другими барьерами»).
+      if [ "$full" = 0 ]; then
+        for k in $keys; do
+          target="${k}.sh"
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            rel="${f#"$root/scripts/"}"
+            [ "$rel" = "$target" ] && continue
+            [ "$(header_role "$f")" = b ] || continue
+            if has_static_source_to "$target" "$f"; then full=1; break 2; fi
+          done < <(find "$root/scripts" -type f -name '*.sh' 2>/dev/null | sort)
+        done
+      fi
+    fi
 
     if [ "$full" = 1 ]; then
       emit_marker "не для приёмки"
