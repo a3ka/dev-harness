@@ -77,7 +77,7 @@ has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 
 # Известные ветви (диспетчер fail-closed — неизвестное имя НЕ зеленеет молча).
-KNOWN_BRANCHES="а б в г д е ж з и к л м н о"
+KNOWN_BRANCHES="а б в г д е ж з и к л м н о п р т"
 if [ "$WANT" != all ]; then
   found=0
   for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
@@ -242,6 +242,36 @@ if want о; then
   [ "$RC" = 1 ] || die о "не-барьер lib_x принят как --scope ключ кодом $RC — ключ обязан быть барьером (§3), иначе код 1"
   has lib_x "$ERR$OUT" || die о "отказ по не-барьерному ключу не назвал ключ lib_x"
   printf '  ok   (о) не-барьер как --scope ключ → код 1\n' >&2
+fi
+
+if want п; then
+  R="$WORK/п"; build_repo "$R"
+  # §2 «коды/шапка не менялись»: смена ОБЪЯВЛЕННОГО кода в шапке b → full (не scoped).
+  sed -i 's/1 — отказ/2 — иной контракт/' "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'смена кода в шапке b'
+  run_sel "$R" --changed "$BASE"
+  [ "$RC" = 0 ] || die п "смена кода в шапке дала код $RC, ожидался 0 (full)"
+  has "MODE: full" "$OUT" || die п "смена объявленного кода в шапке барьера обязана дать full, а не сужение"
+  printf '  ok   (п) смена шапки/кода барьера → full\n' >&2
+fi
+
+if want р; then
+  R="$WORK/р"; build_repo "$R"
+  # a сорсит b через ПЕРЕМЕННУЮ (имя файла не литерал) → граф неизвестен → full.
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок, 1 — отказ\ntgt="$(dirname "$0")/b.sh"\n. "$tgt"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a сорсит b через переменную'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка b\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  [ "$RC" = 0 ] || die р "правка b при source через переменную дала код $RC, ожидался 0 (full)"
+  has "MODE: full" "$OUT" || die р "source с не-литеральным именем файла обязан дать full"
+  printf '  ok   (р) source через переменную → full\n' >&2
+fi
+
+if want т; then
+  R="$WORK/т"; build_repo "$R"
+  run_sel "$R" --scope b/../../scripts/a
+  [ "$RC" = 1 ] || die т "case-traversal b/../../scripts/a принят кодом $RC — case обязан быть case_* immediate (§3), иначе 1"
+  printf '  ok   (т) traversal в case → код 1\n' >&2
 fi
 
 printf 'check_scope_select: ветви «%s» зелены\n' "$WANT" >&2
