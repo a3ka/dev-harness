@@ -133,10 +133,10 @@ while IFS= read -r line; do
   blob="${line%%$'\t'*}"; path="${line#*$'\t'}"
   body="$(git cat-file blob "$blob" 2>/dev/null || true)"
   # Фронтматтер: первый блок между `---`, целиком.
-  fm="$(printf '%s\n' "$body" | awk 'NR==1 && $0 == "---" { inside = 1; next }
-                                     inside && $0 == "---" { exit }
-                                     inside { print }')"
-  v="$(printf '%s\n' "$fm" | awk 'sub(/^verdict:[[:space:]]*/, "") { sub(/[[:space:]]+$/, ""); print; exit }')"
+  fm="$(awk 'NR==1 && $0 == "---" { inside = 1; next }
+             inside && $0 == "---" { exit }
+             inside { print }' <<<"$body")"
+  v="$(awk 'sub(/^verdict:[[:space:]]*/, "") { sub(/[[:space:]]+$/, ""); print; exit }' <<<"$fm")"
   ok=0
   if [ "$v" = "null" ]; then
     ok=1
