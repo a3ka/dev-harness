@@ -82,7 +82,15 @@
 # Коды возврата: 0 — у каждого барьера красное предъявлено, 1 — нет, 2 — нечем проверить.
 set -euo pipefail
 
-ROOT="$(cd "${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}" && pwd)"
+ROOT_ARG=""; SCOPE_MODE=""; SCOPE_BASE=""; SCOPE_KEYS=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --changed) SCOPE_MODE=changed; SCOPE_BASE="${2:-}"; shift 2 || shift ;;
+    --scope)   SCOPE_MODE=scope; shift; while [ "$#" -gt 0 ] && [ "${1#--}" = "$1" ]; do SCOPE_KEYS+=("$1"); shift; done ;;
+    *)         ROOT_ARG="$1"; shift ;;
+  esac
+done
+ROOT="$(cd "${ROOT_ARG:-"$(dirname "${BASH_SOURCE[0]}")/.."}" && pwd)"
 SCRIPTS="$ROOT/scripts"
 FIXTURES="$ROOT/fixtures"
 
@@ -155,6 +163,68 @@ if [ -d "$FIXTURES" ]; then
     done
     [ "$found" -eq 1 ] || bad "fixtures/$k: фикстура без барьера — она ничего не держит"
   done
+fi
+
+# ── scoped-ФИЛЬТР над СУЩЕСТВУЮЩИМ циклом (контракт 006 §Предмет) ───────────────
+# Логика ВЫБОРА — в scope_select (tier-1 красная). Здесь ТОЛЬКО применение: сузить массивы
+# barriers/keys/codes до задетых. Цикл, учёт и слепок НЕ меняются → все ветви отказа сохранены.
+# CASE-фильтр: при --scope <key>/<case> внутри барьерного цикла прогоняются только указанные
+# case; <key> без /case — все case барьера; несуществующий case — пустой список → fail-closed.
+is_barrier_selected() {
+  local k="$1" w
+  for w in "${SCOPE_KEYS[@]:-}"; do
+    case "$w" in "$k"|"$k"/*) return 0 ;; esac
+  done
+  return 1
+}
+# case_short_name: имя case БЕЗ расширения, С префиксом "case_" — scope_select в KEY: пишет
+# именно «key/case_name», где case_name — «case_xxx», не «xxx». Снимать префикс здесь — значит
+# рассинхронизировать ключ фильтра с тем, что вернул scope_select.
+case_short_name() {  # <путь-к-case.sh>
+  printf '%s' "$(basename "$1" .sh)"
+}
+is_case_selected() {  # <key> <case_short_name>
+  local k="$1" cs="$2" w
+  for w in "${SCOPE_KEYS[@]:-}"; do
+    case "$w" in
+      "$k") return 0 ;;            # весь барьер
+      "$k/$cs") return 0 ;;        # конкретный case
+    esac
+  done
+  return 1
+}
+if [ -n "$SCOPE_MODE" ]; then
+  if [ "$SCOPE_MODE" = changed ]; then
+    sel_out="$("$SCRIPTS/scope_select.sh" "$ROOT" --changed "$SCOPE_BASE" 2>/dev/null)"; sel_rc=$?
+  else
+    sel_out="$("$SCRIPTS/scope_select.sh" "$ROOT" --scope "${SCOPE_KEYS[@]}" 2>/dev/null)"; sel_rc=$?
+  fi
+  mode="$(printf '%s\n' "$sel_out" | sed -n 's/^MODE: //p' | head -1)"
+  if [ "$sel_rc" = 2 ] || [ "$mode" = needs-full ]; then
+    printf 'SCOPED: 0 задетых — scoped ничего не доказал, полный гейт в CI\n' >&2
+    printf 'MODE: needs-full\n'; exit 2
+  fi
+  [ "$sel_rc" = 0 ] || { bad "scope_select отказал (код $sel_rc): $sel_out"; exit 1; }
+  if [ "$mode" = scoped ]; then
+    mapfile -t want < <(printf '%s\n' "$sel_out" | sed -n 's/^KEY: //p')
+    fb=(); fk=(); fc=(); i=-1
+    for b in "${barriers[@]}"; do
+      i=$((i + 1)); k="${keys[$i]}"
+      # Матч barrier key против want[] — может быть «key» (из --changed/--scope key)
+      # или «key/case» (только из --scope key/case). На барьерном уровне берём key-часть.
+      match=0
+      for w in "${want[@]}"; do
+        if [ "$k" = "${w%%/*}" ]; then match=1; break; fi
+      done
+      [ "$match" -eq 1 ] && { fb+=("$b"); fk+=("$k"); fc+=("${codes[$i]}"); }
+    done
+    barriers=("${fb[@]}"); keys=("${fk[@]}"); codes=("${fc[@]}")
+    if [ "${#barriers[@]}" -eq 0 ]; then
+      bad "scope_select вернул scoped, но ни один барьер не попал в выборку (want=${want[*]})"
+      exit 1
+    fi
+    printf 'SCOPED: барьеров %d из выборки — не для приёмки\n' "${#barriers[@]}" >&2
+fi
 fi
 
 # ── 3. Прогон фикстур ─────────────────────────────────────────────────────────
@@ -242,6 +312,17 @@ for b in "${barriers[@]}"; do
   if [ "${#cases[@]}" -eq 0 ]; then
     bad "$(basename "$b"): нет фикстур — ожидается fixtures/$key/case_*.sh"
     continue
+  fi
+  # CASE-фильтр (контракт 006 §Предмет, тир 2 case-уровень): при --scope key/case прогоняем
+  # только этот case; key без /case — все case. Несуществующий case даёт пустой список — это
+  # fail-closed (scope_select уже отверг кодом 1; здесь дополнительная защита, если кто-то
+  # минует scope_select).
+  if [ "$SCOPE_MODE" = scope ]; then
+    filtered=()
+    for c in "${cases[@]}"; do
+      is_case_selected "$key" "$(case_short_name "$c")" && filtered+=("$c")
+    done
+    cases=("${filtered[@]}")
   fi
   for c in "${cases[@]}"; do
     cases_total=$((cases_total + 1))
