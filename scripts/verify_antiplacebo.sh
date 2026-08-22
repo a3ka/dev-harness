@@ -323,6 +323,13 @@ for b in "${barriers[@]}"; do
       is_case_selected "$key" "$(case_short_name "$c")" && filtered+=("$c")
     done
     cases=("${filtered[@]}")
+    # 0 case после фильтра (несуществующий/traversal case) → fail-closed, НЕ «фикстур: 0» успех
+    # (находка круга 2 адверсария: `--scope b/../../scripts/b`). scope_select уже отвергает такой
+    # case кодом 1; это дополнительная защита при прямом вызове verify_antiplacebo.
+    if [ "${#cases[@]}" -eq 0 ]; then
+      bad "$(basename "$b"): --scope $key/<case> не выбрал ни одного case (несуществующий/traversal) — fail-closed"
+      continue
+    fi
   fi
   for c in "${cases[@]}"; do
     cases_total=$((cases_total + 1))
