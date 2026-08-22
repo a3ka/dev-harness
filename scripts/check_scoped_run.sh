@@ -283,12 +283,50 @@ EOF
   BASE="$(gg "$r" rev-parse HEAD)"
 }
 
+# (изол): a оставляет HOME-маркер на зелёном прогоне; b краснеет ТОЛЬКО если маркер протёк из
+# HOME фикстуры a. При корректной per-fixture изоляции HOME (§4) b НЕ видит маркер и не краснеет
+# → «красное не предъявлено» → раннер обязан отвергнуть игрушку. Общий HOME (обманка) → b краснеет.
+build_toy_homeleak() {  # <каталог>
+  local r="$1" x
+  mkdir -p "$r/scripts" "$r/fixtures/a" "$r/fixtures/b"
+  cat > "$r/scripts/a.sh" <<'EOF'
+#!/usr/bin/env bash
+# Коды возврата: 0 — маркер есть, 1 — нет
+d="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$d/mark" ]; then touch "$HOME/seed-from-a"; exit 0; fi
+echo "нет mark (a)" >&2; exit 1
+EOF
+  cat > "$r/scripts/b.sh" <<'EOF'
+#!/usr/bin/env bash
+# Коды возврата: 0 — ок, 1 — HOME протёк
+d="$(cd "$(dirname "$0")/.." && pwd)"
+[ -f "$d/mark" ] && exit 0
+[ -f "$HOME/seed-from-a" ] && { echo "home протёк между фикстурами" >&2; exit 1; }
+exit 0
+EOF
+  chmod +x "$r/scripts/a.sh" "$r/scripts/b.sh"
+  for x in a b; do
+    cat > "$r/fixtures/$x/case_$x.sh" <<EOF
+# ПРИЧИНА: нет mark ($x)
+set -euo pipefail
+mkdir -p "\$WORK/w"; touch "\$WORK/w/mark"
+BARRIER_ROOT="\$WORK/w" "\$BARRIER"
+rm -f "\$WORK/w/mark"
+BARRIER_ROOT="\$WORK/w" "\$BARRIER"
+EOF
+  done
+  write_inline_scope_select "$r"
+  gg "$r" init -q -b main .
+  gg "$r" add -A; gg "$r" commit -q -m base
+  BASE="$(gg "$r" rev-parse HEAD)"
+}
+
 run_va() { OUT="$( "$VA" "$@" 2>&1 )"; RC=$?; }
 want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 
 # Диспетчер ветвей fail-closed: неизвестное имя → не-ноль с названным WANT.
-KNOWN_BRANCHES="л м м1 м2 м3 н case"
+KNOWN_BRANCHES="л м м1 м2 м3 н case изол"
 if [ "$WANT" != all ]; then
   found=0
   for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
@@ -375,6 +413,14 @@ if want case; then
   [ "$rc_unk" != 0 ] \
     || die case "--scope b/case_unknown вернул RC=0 — несуществующий case не отвергнут, фильтр молча даёт 0 фикстур. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   printf '  ok   (case) --scope key/case прогоняет ровно 1 case, несуществующий case → fail-closed\n' >&2
+fi
+
+if want изол; then
+  T="$WORK/изол"; build_toy_homeleak "$T"
+  run_va "$T"
+  [ "$RC" != 0 ] || die изол "раннер объявил home-leak-игрушку зелёной (RC=0) — HOME течёт между фикстурами; при per-fixture изоляции (§4) b не краснеет → «красное не предъявлено»"
+  has "красное не предъявлено" "$OUT" || die изол "раннер не назвал «красное не предъявлено» на b — per-fixture изоляция HOME не доказана. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  printf '  ok   (изол) HOME изолирован per-fixture: leak-игрушка отвергнута («красное не предъявлено»)\n' >&2
 fi
 
 printf 'check_scoped_run: ветви «%s» зелены\n' "$WANT" >&2

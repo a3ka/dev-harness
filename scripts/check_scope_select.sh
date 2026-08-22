@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Барьер приёмки scoped-селектора (контракт 006). Гоняет `<корень>/scripts/scope_select.sh` по
 # ветвям а–л на ПОРОЖДЁННЫХ игрушечных git-деревьях и УТВЕРЖДАЕТ выбор/режим/код/причину.
-# Образец — `check_metering.sh`: предмет (`scope_select.sh`) объявляет `НЕ БАРЬЕР:`, барьер —
+# Образец — `check_metering.sh`: предмет (`scope_select.sh`) объявляет себя не-барьером, барьер —
 # этот файл; фикстуры `fixtures/check_scope_select/` предъявляют ЕГО красным, подавая сломанный
 # scope_select в подставном дереве.
 #
@@ -77,7 +77,7 @@ has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 
 # Известные ветви (диспетчер fail-closed — неизвестное имя НЕ зеленеет молча).
-KNOWN_BRANCHES="а б в г д е ж з и к л"
+KNOWN_BRANCHES="а б в г д е ж з и к л м н о"
 if [ "$WANT" != all ]; then
   found=0
   for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
@@ -207,6 +207,41 @@ if want л; then
   [ "$RC" = 2 ] || die л "PATH без git дал код $RC, ожидался 2 (fail-closed) — предмет контракта §3 подменой PATH не доказан"
   has SCOPED: "$ERR" || die л "needs-full при отсутствии git не напечатал SCOPED: (как и в ветви (г))"
   printf '  ok   (л) git-отсутствие (PATH без git) → код 2 + SCOPED:\n' >&2
+fi
+
+if want м; then
+  R="$WORK/м"; build_repo "$R"
+  # a — барьер, СОРСИТ барьер b (не библиотеку). Правка b задевает и a → full
+  # (§2: «сужение только если его не сорсит другой eligible-барьер»).
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок, 1 — отказ\n. "$(dirname "$0")/b.sh"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a сорсит барьер b'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка b\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  [ "$RC" = 0 ] || die м "правка барьера b, сорсимого барьером a, дала код $RC, ожидался 0 (full)"
+  has "MODE: full" "$OUT" || die м "барьер b сорсится барьером a — правка b обязана дать full, а не сужение (недобор a)"
+  printf '  ok   (м) правка барьера, сорсимого другим барьером → full\n' >&2
+fi
+
+if want н; then
+  R="$WORK/н"; build_repo "$R"
+  # b — барьер с ДИНАМИЧЕСКИМ source (цель в переменной, известна лишь в рантайме) → любая правка b → full.
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок, 1 — отказ\nplugin="${PLUGIN:-/dev/null}"\n. "$plugin"\nexit 0\n' > "$R/scripts/b.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'b с динамическим source'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# косметическая правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  [ "$RC" = 0 ] || die н "правка барьера с динамическим source дала код $RC, ожидался 0 (full)"
+  has "MODE: full" "$OUT" || die н "динамический source в барьере — правка обязана дать full, а не сужение"
+  printf '  ok   (н) динамический source → full\n' >&2
+fi
+
+if want о; then
+  R="$WORK/о"; build_repo "$R"
+  run_sel "$R" --scope lib_x
+  [ "$RC" = 1 ] || die о "не-барьер lib_x принят как --scope ключ кодом $RC — ключ обязан быть барьером (§3), иначе код 1"
+  has lib_x "$ERR$OUT" || die о "отказ по не-барьерному ключу не назвал ключ lib_x"
+  printf '  ok   (о) не-барьер как --scope ключ → код 1\n' >&2
 fi
 
 printf 'check_scope_select: ветви «%s» зелены\n' "$WANT" >&2

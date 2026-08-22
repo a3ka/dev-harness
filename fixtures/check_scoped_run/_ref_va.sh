@@ -342,7 +342,9 @@ for b in "${barriers[@]}"; do
     fi
 
     d="$RUN/$key.$(basename "$c" .sh)"
-    mkdir -p "$d/work" "$d/resp"
+    # Находка 4 (адверсарий): per-fixture HOME — иначе артефакт зелёного контроля фикстуры a
+    # (напр. seed-from-a) протекает в HOME фикстуры b, и b краснеет НА УТЕЧКЕ, а не на предмете.
+    mkdir -p "$d/work/home" "$d/resp"
 
     # Объявленное окружение — из ИСХОДНИКА фикстуры. Подстановка только $WORK/$REPO/$PATH:
     # значение, которое фикстура могла бы вычислить в рантайме, снова стало бы её территорией.
@@ -353,7 +355,7 @@ for b in "${barriers[@]}"; do
       pair="${pair//\$PATH/$PATH}"
       printf '%s\0' "$pair" >> "$d/env"
     done < <(awk 'sub(/^# ОКРУЖЕНИЕ:[[:space:]]*/, "") { print }' "$c")
-    for base in "PATH=$PATH" "HOME=${HOME:-/tmp}" "LC_ALL=${LC_ALL:-C.UTF-8}" "TMPDIR=$d/work"; do
+    for base in "PATH=$PATH" "HOME=$d/work/home" "LC_ALL=${LC_ALL:-C.UTF-8}" "TMPDIR=$d/work"; do
       name="${base%%=*}"
       grep -qzF -e "$name=" "$d/env" 2>/dev/null || printf '%s\0' "$base" >> "$d/env"
     done
