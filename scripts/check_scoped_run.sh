@@ -316,13 +316,15 @@ fi
 # $BASE, установленные построителем игрушки.
 assert_eq_full_scoped() {  # <ветвь> <ожидаемая подстрока>
   local br="$1" reason="$2"
-  run_va "$T";       full_rc="$RC"
+  run_va "$T";       full_rc="$RC"; full_out="$OUT"
   run_va "$T" --changed "$BASE"; scoped_rc="$RC"; scoped_out="$OUT"
   [ "$full_rc" != 0 ]    || die "$br" "полный прогон дал 0 — тест не про предмет (ожидался не-ноль на $reason)"
+  has "$reason" "$full_out" \
+    || die "$br" "полный прогон не назвал «$reason» — тест не про предмет (посторонний отказ, а не заявленный класс). Вывод: $(printf '%s' "$full_out" | tr '\n' ' ' | tail -c 240)"
   [ "$scoped_rc" = "$full_rc" ] \
     || die "$br" "scoped_rc ($scoped_rc) != full_rc ($full_rc) — отказ НЕ сохранён в scoped. Вывод: $(printf '%s' "$scoped_out" | tr '\n' ' ' | tail -c 240)"
   has "$reason" "$scoped_out" \
-    || die "$br" "scoped-вывод не содержит подстроку диагноза «$reason». Вывод: $(printf '%s' "$scoped_out" | tr '\n' ' ' | tail -c 240)"
+    || die "$br" "scoped-вывод не содержит «$reason» — класс отказа изменён/проглочен в scoped (full назвал его, scoped — нет). Вывод: $(printf '%s' "$scoped_out" | tr '\n' ' ' | tail -c 240)"
 }
 
 # (м1) — и алиас (м): сломанная фикстура b.
