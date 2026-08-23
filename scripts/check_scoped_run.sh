@@ -481,15 +481,21 @@ if want ч2; then
 fi
 
 # ── (ci) ПРОВОДКА: ci.yml гонит анти-плацебо scoped через --changed github.event.before ──
-# Читает РЕАЛЬНЫЙ ci.yml (предмет implementer), проверка — architect. Матч ТОЛЬКО на
-# ИСПОЛНЯЕМОЙ строке `run:` (не YAML/shell-комментарий — арбитраж krasnye-proby-granica-primera
-# п.1); строка `github.event.before` у check:no-rewrite не подходит — нужен antiplacebo+--changed.
+# Читает РЕАЛЬНЫЙ ci.yml (предмет implementer), проверка — architect. Засчитывается ТОЛЬКО
+# ИСПОЛНЯЕМАЯ часть run:-строки — YAML- И shell-комментарий (всё от первого '#') отсечены
+# (арбитраж krasnye-proby-granica-primera п.1). github.event.before у check:no-rewrite не подходит.
 if want ci; then
   CI="$ROOT/.github/workflows/ci.yml"
   [ -f "$CI" ] || die ci "нет $CI — проводку scoped CI негде проверить"
-  grep -E '^[[:space:]]*run:.*antiplacebo.*--changed.*github\.event\.before' "$CI" >/dev/null 2>&1 \
-    || die ci "ci.yml: НЕТ исполняемой строки run: с анти-плацебо scoped (--changed \${{ github.event.before }}). Комментарий с тем же текстом НЕ засчитывается — регэксп якорён на 'run:'."
-  printf '  ok   (ci) ci.yml: исполняемый шаг анти-плацебо scoped (--changed github.event.before)\n' >&2
+  # Строка run: с анти-плацебо ДО shell-комментария ([^#]* останавливается на '#'); режем комментарий.
+  ci_line="$(grep -E '^[[:space:]]*run:[^#]*antiplacebo' "$CI" | head -1)"
+  ci_exec="${ci_line%%#*}"
+  case "$ci_exec" in
+    *antiplacebo*--changed*github.event.before*)
+      printf '  ok   (ci) ci.yml: ИСПОЛНЯЕМАЯ run-строка гонит анти-плацебо scoped (--changed github.event.before)\n' >&2 ;;
+    *)
+      die ci "ci.yml: --changed \${{ github.event.before }} НЕ в ИСПОЛНЯЕМОЙ части run:-строки анти-плацебо (после '#' = shell-комментарий, не считается)." ;;
+  esac
 fi
 
 printf 'check_scoped_run: ветви «%s» зелены\n' "$WANT" >&2
