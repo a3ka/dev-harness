@@ -195,14 +195,24 @@ is_case_selected() {  # <key> <case_short_name>
 }
 if [ -n "$SCOPE_MODE" ]; then
   if [ "$SCOPE_MODE" = changed ]; then
-    sel_out="$("$SCRIPTS/scope_select.sh" "$ROOT" --changed "$SCOPE_BASE" 2>/dev/null)"; sel_rc=$?
+    if sel_out="$("$SCRIPTS/scope_select.sh" "$ROOT" --changed "$SCOPE_BASE" 2>/dev/null)"; then sel_rc=0; else sel_rc=$?; fi
   else
-    sel_out="$("$SCRIPTS/scope_select.sh" "$ROOT" --scope "${SCOPE_KEYS[@]}" 2>/dev/null)"; sel_rc=$?
+    if sel_out="$("$SCRIPTS/scope_select.sh" "$ROOT" --scope "${SCOPE_KEYS[@]}" 2>/dev/null)"; then sel_rc=0; else sel_rc=$?; fi
   fi
   mode="$(printf '%s\n' "$sel_out" | sed -n 's/^MODE: //p' | head -1)"
   if [ "$sel_rc" = 2 ] || [ "$mode" = needs-full ]; then
-    printf 'SCOPED: 0 задетых — scoped ничего не доказал, полный гейт в CI\n' >&2
-    printf 'MODE: needs-full\n'; exit 2
+    if [ "$SCOPE_MODE" = changed ]; then
+      if [ -z "$SCOPE_BASE" ] || ! git -C "$ROOT" rev-parse --verify --quiet "${SCOPE_BASE}^{commit}" >/dev/null 2>&1; then
+        printf 'SCOPED: нерезолвимый base — fail-safe полный прогон\n' >&2
+        printf 'MODE: full\n'; sel_rc=0; mode=full
+      else
+        printf 'SCOPED: 0 задетых при резолвимом base — нечего гонять, зелёно\n' >&2
+        printf 'MODE: none\n'; exit 0
+      fi
+    else
+      printf 'SCOPED: 0 задетых — scoped ничего не доказал, полный гейт в CI\n' >&2
+        printf 'MODE: needs-full\n'; exit 2
+    fi
   fi
   [ "$sel_rc" = 0 ] || { bad "scope_select отказал (код $sel_rc): $sel_out"; exit 1; }
   if [ "$mode" = scoped ]; then

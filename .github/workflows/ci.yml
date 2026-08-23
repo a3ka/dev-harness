@@ -43,7 +43,7 @@ jobs:
         run: npm run check:ci-parity
 
       - name: Анти-плацебо
-        run: npm run check:antiplacebo
+        run: npm run check:antiplacebo -- --changed ${{ github.event.before }}
 
       - name: Барьер scoped-селектора (контракт 006)
         # Самодостаточен: строит игрушечные git-деревья в tmp/, git в CI есть.
