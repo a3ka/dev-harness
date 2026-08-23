@@ -1036,7 +1036,7 @@ branch_к1() {
   stat="$(grep -nE "(^|[[:space:]])import[[:space:]]+.+from[[:space:]]+['\"][^'\"]+['\"]" "$src" \
           | grep -vE "from[[:space:]]+['\"]node:" || true)"
   [ -n "$stat" ] && bad_forms="${bad_forms}статический-import-вне-node ($(printf '%s' "$stat" | head -1)); "
-  grep -qE "import[[:space:]]*\(" "$src" && bad_forms="${bad_forms}динамический-import(); "
+  grep -qE "import[[:space:]]*(/\*[^*]*\*/[[:space:]]*)*\(" "$src" && bad_forms="${bad_forms}динамический-import(); "
   grep -qE "(^|[^.[:alnum:]])require[[:space:]]*\(|createRequire" "$src" && bad_forms="${bad_forms}require; "
   grep -qE "getBuiltinModule" "$src" && bad_forms="${bad_forms}getBuiltinModule; "
   grep -qE "node:vm|runInThisContext" "$src" && bad_forms="${bad_forms}node:vm; "
@@ -1955,14 +1955,18 @@ mode_port0() {
   [ -n "${pids[0]:-}" ] && proxy_down "${pids[0]}"
   [ -n "${pids[1]:-}" ] && proxy_down "${pids[1]}"
 
-  # ── p0.src: БЕЛОЩИКОВО — прокси репортит фактический порт от server.address(), не самовыбор ──
-  # Чёрный ящик не отличает listen(0) от самовыбора двух свободных портов (арбитраж
-  # krasnye-proby-granica-primera п.3); белощиковый греп исходника — конвенция к1/к2. Обфускация
-  # мимо грепа — адверсарию (шаг 5). Красное: текущий прокси печатает cfg.port, .actual_port не пишет.
-  if grep -Eq 'server\.address\(\)' "$PROXY" && grep -Eq '\.actual_port' "$PROXY"; then
-    ok "port0.src: metering_proxy.ts репортит фактический порт от server.address() в .actual_port (OS bind:0, не самовыбор)"
+  # ── p0.src: БЕЛОЩИКОВО — прокси репортит фактический порт РЕАЛЬНЫМ writeFileSync(.actual_port) ──
+  # Чёрный ящик не отличает listen(0) от самовыбора (арбитраж krasnye-proby-granica-primera п.3);
+  # греп исходника — конвенция к1/к2. Требуем РЕАЛЬНЫЙ вызов writeFileSync(…actual_port) И
+  # server.address() В САМОМ $PROXY: адверсарий (verdicts/adversary/contracts-007) прошёл голый греп
+  # литералов декой-строкой `void 'server.address() .actual_port'` + выносом отчёта в импортируемый
+  # модуль. Голый литерал больше не засчитывается. ОСТАТОК (cognitive-only, standard A, Н-46):
+  # встроенный listen-monkeypatch с probe-close-rebind греп не ловит — это адверсарию, не приёмке.
+  if grep -Eq 'server\.address\(\)' "$PROXY" \
+     && grep -Eq 'writeFileSync\([^;]*\.actual_port' "$PROXY"; then
+    ok "port0.src: metering_proxy.ts репортит фактический порт от server.address() реальным writeFileSync(.actual_port)"
   else
-    bad "port0.src: metering_proxy.ts не выводит .actual_port из server.address() — репортный порт мог быть самовыбранным (free_port scan+TOCTOU Н-45 сохранён), не OS bind:0"
+    bad "port0.src: нет РЕАЛЬНОГО writeFileSync(…\.actual_port) от server.address() в $PROXY — репорт вынесен/декой, не атомарный bind:0 (free_port scan+TOCTOU Н-45)"
   fi
 
   [ "$fails" -eq 0 ]
