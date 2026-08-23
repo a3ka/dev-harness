@@ -1,0 +1,20 @@
+# Оверлей: живая сессия на MiniMax (дешёвый+считаемый ход).
+#
+#   ./workshop --models config/models-minimax.yml            (работа НАД инструментом)
+#   ./workshop <проект> --models config/models-minimax.yml   (работа с проектом)
+#
+# ЗАЧЕМ. Экономия: Opus/GLM на роли `slow` дороги (Opus не считается нигде; GLM тоже мимо прокси,
+# .omp/config.yml:71-73). MiniMax-M3 — дёшев И ВИДИМ: его расход идёт через прокси учёта в
+# гроссбух (.omp/config.yml:23-25). Решение владельца 2026-08-23 после дорогой Opus-сессии.
+#
+# ПОЧЕМУ ИМЕННО `slow`, а не `default`. Живую сессию ведёт роль `architect`, её модель — `@slow`
+# (.omp/agents/architect.md). Лаунчер считает модель сессии из `@slow` и передаёт её явным
+# `--model` (workshop:450,:531). Переопределение `default`/`vision` сессию НЕ переключает — она
+# осталась бы на базовом `slow: zai/glm-5.2`. Поэтому переопределяем именно `slow`.
+#
+# МОДЕЛЬ. `minimax/MiniMax-M3` — 1M контекста (длинная стенограмма без сжатия истории) и vision,
+# та же модель, что базовые роли `default`/`task`. Расход считается прокси (require_metering всё
+# равно требует METERING_PROXY_URL/TOKEN — они уже нужны базовым ролям).
+
+modelRoles:
+  slow: "minimax/MiniMax-M3"
