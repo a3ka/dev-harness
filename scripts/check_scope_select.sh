@@ -77,7 +77,7 @@ has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 
 # Известные ветви (диспетчер fail-closed — неизвестное имя НЕ зеленеет молча).
-KNOWN_BRANCHES="а б в г д е ж з и к л м н о п р т"
+KNOWN_BRANCHES="а б в г д е ж з и к л м н о п р т у ф х ц ч ш щ"
 if [ "$WANT" != all ]; then
   found=0
   for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
@@ -272,6 +272,86 @@ if want т; then
   run_sel "$R" --scope b/../../scripts/a
   [ "$RC" = 1 ] || die т "case-traversal b/../../scripts/a принят кодом $RC — case обязан быть case_* immediate (§3), иначе 1"
   printf '  ok   (т) traversal в case → код 1\n' >&2
+fi
+
+if want у; then
+  R="$WORK/у"; build_repo "$R"
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\n:; . "$(dirname "$0")/b.sh"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a: mid-line source b'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || die у "mid-line source после «;» не дал full (RC=$RC): a исполняет b, выборка обязана быть полной"
+  printf '  ok   (у) mid-line source (после ;) → full\n' >&2
+fi
+
+if want ф; then
+  R="$WORK/ф"; build_repo "$R"
+  ln -s b.sh "$R/scripts/link.sh"
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\n. "$(dirname "$0")/link.sh"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a сорсит link.sh symlink b.sh'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || die ф "source через симлинк link.sh на b.sh не дал full (RC=$RC): зависимость a на b через ссылку, выборка полная"
+  printf '  ok   (ф) source через симлинк → full\n' >&2
+fi
+
+if want х; then
+  R="$WORK/х"; build_repo "$R"
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\nbash "$(dirname "$0")/b.sh"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a исполняет b'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || die х "exec-ребро (bash b.sh) не дало full (RC=$RC): a исполняет b, выборка полная"
+  printf '  ok   (х) exec-ребро (bash b.sh) → full\n' >&2
+fi
+
+if want ц; then
+  R="$WORK/ц"; build_repo "$R"
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\ncfg="$1"\n[ -f "$cfg" ] && . "$cfg"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a: видимый динамический source'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || die ц "видимая динамика source в неизменённом барьере не дала full (RC=$RC): невычислимая цель source обязана дать full (N2)"
+  printf '  ok   (ц) видимый динамический source → full\n' >&2
+fi
+
+if want ч; then
+  R="$WORK/ч"; build_repo "$R"
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\necho "см. b.sh за деталями"\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a: имя b.sh в строке-литерале'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  { [ "$RC" = 0 ] && has "MODE: full" "$OUT"; } || die ч "имя b.sh в строке-литерале не дало full (RC=$RC): fail-closed по имени, не по смыслу (N1)"
+  printf '  ok   (ч) имя цели в строке-литерале → full\n' >&2
+fi
+
+if want ш; then
+  R="$WORK/ш"; build_repo "$R"
+  printf '#!/usr/bin/env bash\n# Коды возврата: 0 — ок\n# сосед b.sh только упомянут, не сорсится\nexit 0\n' > "$R/scripts/a.sh"
+  gg "$R" add -A; gg "$R" commit -q -m 'a: b.sh только в комментарии'
+  B2="$(gg "$R" rev-parse HEAD)"
+  printf '# правка\n' >> "$R/scripts/b.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка b'
+  run_sel "$R" --changed "$B2"
+  [ "$RC" = 0 ] || die ш "правка b дала код $RC, ожидался 0 (scoped)"
+  has "MODE: scoped" "$OUT" || die ш "имя b.sh ТОЛЬКО в полнострочном комментарии обязано игнорироваться (вычет комментариев) → scoped"
+  has "KEY: b" "$OUT" || die ш "scoped не выбрал b"
+  printf '  ok   (ш) имя цели только в полном комментарии → scoped\n' >&2
+fi
+
+if want щ; then
+  R="$WORK/щ"; build_repo "$R"
+  printf '# правка\n' >> "$R/scripts/a.sh"; gg "$R" add -A; gg "$R" commit -q -m 'правка независимого a'
+  run_sel "$R" --changed "$BASE"
+  [ "$RC" = 0 ] || die щ "правка a дала код $RC, ожидался 0 (scoped)"
+  has "MODE: scoped" "$OUT" || die щ "правка независимого барьера a обязана дать scoped (позитив жив, не вечно-full)"
+  has "KEY: a" "$OUT" || die щ "scoped не выбрал a"
+  has "KEY: b" "$OUT" && die щ "выбран b, хотя не задет"
+  printf '  ok   (щ) правка независимого барьера → scoped ровно он\n' >&2
 fi
 
 printf 'check_scope_select: ветви «%s» зелены\n' "$WANT" >&2
