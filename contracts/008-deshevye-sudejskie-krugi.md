@@ -44,8 +44,10 @@ RC: 0 — готов к судье; иначе non-zero + НАЗВАННЫЕ п�
 
 ## Зоны
 
-ЗОНА implementer: scripts/check_contract_ready.sh scripts/judge_gate.sh
-ЗОНА architect: fixtures/check_contract_ready/ scripts/check_check_contract_ready.sh fixtures/judge_gate/ scripts/check_judge_gate.sh roles/ NABLIUDENIA.md HANDOFF.md contracts/008-deshevye-sudejskie-krugi.md
+ЗОНА implementer: scripts/check_contract_ready.sh scripts/judge_gate.sh package.json .github/workflows/ci.yml
+ЗОНА architect: fixtures/check_check_contract_ready/ scripts/check_check_contract_ready.sh fixtures/check_judge_gate/ scripts/check_judge_gate.sh roles/ NABLIUDENIA.md HANDOFF.md contracts/008-deshevye-sudejskie-krugi.md
+
+СПАСЕНО implementer: c1f86e62d30b5a0d754508457957ab54fa379935 — коммит нёс легитимный предмет+проводку и ошибочную правку мета-барьеров architect (bp-баг), перезабранную architect в 67dd3a7; выведен из суда зон целиком
 
 Связность «предмет ↔ проверка»: implementer владеет ПРЕДМЕТОМ (оба скрипта); architect владеет
 ПРОВЕРКАМИ (барьеры + фикстуры, красные ДО круга критика) и роль-текстами (конвенция созыва
