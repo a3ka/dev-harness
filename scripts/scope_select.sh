@@ -67,22 +67,23 @@ header_lines() {
   ' "${1--}"
 }
 
-# `source_arg_lines <файл|->` — печатает АРГУМЕНТ каждой `source`/`.` инструкции, по строке.
-# Склеивает `\`-переносы (находка круга 2). Ищет source/`.` в НАЧАЛЕ логической строки: реальные
-# барьеры и тестовые формы сорсят с начала. `;`/`&&`-разбор НЕ делаем — иначе `&&` ВНУТРИ
-# `$(cd … && pwd)` (идиома реального next_id.sh) рвал бы аргумент.
+# `source_arg_lines <файл|->` — печатает АРГУМЕНТ каждой видимой `source`/`.` инструкции, по строке.
+# Склеивает `\`-переносы. Токен source/`.` распознаётся в НАЧАЛЕ логической строки И ПОСЛЕ
+# разделителей команд (`;`/`&&`/`||`/`|`/`&`/`(`/`{`/`` ` ``) — арбитраж source-porog-scoped.md (N2),
+# закрывает `[ -f "$cfg" ] && . "$cfg"`. Аргумент — остаток строки после токена (внутренние `&&` в
+# `$(cd … && pwd)` НЕ рвут его: за ними не идёт токен source). Пере-обнаружение → full (безопасно).
 source_arg_lines() {
   awk '
     { cur = cur $0 }
     /\\[[:space:]]*$/ { sub(/\\[[:space:]]*$/, " ", cur); next }
     {
       s = cur; cur = ""
-      sub(/^[[:space:]]+/, "", s)
-      if (s ~ /^(source|\.)[[:space:]]+[^[:space:]#]/) {
-        sub(/^(source|\.)[[:space:]]+/, "", s)
-        sub(/[[:space:]]*#.*$/, "", s)
-        sub(/[[:space:]]+$/, "", s)
-        if (length(s)) print s
+      while (match(s, /(^|[;&|(){`][[:space:]]*)(source|\.)[[:space:]]+[^[:space:]]/)) {
+        arg = substr(s, RSTART + RLENGTH - 1)
+        s = substr(s, RSTART + RLENGTH)
+        sub(/[[:space:]]*#.*$/, "", arg)
+        sub(/[[:space:]]+$/, "", arg)
+        if (length(arg)) print arg
       }
     }
   ' "${1--}"
@@ -186,38 +187,34 @@ case "$flag" in
                              # игнорируется: всё равно full.
       esac
     done < <(git -C "$root" diff --name-status -z "$base" HEAD | tr '\0' '\n')
-    # ── §2: сужение ТОЛЬКО при неизменной шапке И доказуемо-статичном графе source ──
-    # Находки адверсария кругов 1–2. Консервативно: любое непроверяемое → full. Порог идиом
-    # source — в is_static_source (source в bash статически неразрешим — решение архитектора).
+    # ── §2 (арбитраж verdicts/arbitration/source-porog-scoped.md): инвариант N ─────
+    # Сужение допустимо только если шапка изменённого барьера не менялась (1) И держатся:
+    #   N1 — ни один ДРУГОЙ файл не НАЗЫВАЕТ цель (basename + симлинк-алиасы) в не-комментарных
+    #        строках (байт-скан — ловит mid-line/симлинк/переменную/exec одним механизмом);
+    #   N2 — ни один eligible-барьер не содержит source/`.` (любая позиция) с нелитеральным basename.
+    # Порог: вычисленные имена без плейнтекст-байтов — вне селектора (§3, судья — полный гейт).
     if [ "$full" = 0 ] && [ -n "$keys" ]; then
-      # (1) §2 «роль/коды/шапка не менялись»: сверяем ПОЛНУЮ шапку BASE↔HEAD изменённого барьера.
+      # (1) §2 «шапка/коды не менялись».
       for k in $keys; do
         if git -C "$root" cat-file -e "${base}:scripts/${k}.sh" 2>/dev/null; then
-          if [ "$(git -C "$root" show "${base}:scripts/${k}.sh" 2>/dev/null | header_lines -)" \
-             != "$(header_lines "$root/scripts/${k}.sh")" ]; then full=1; break; fi
+          [ "$(git -C "$root" show "${base}:scripts/${k}.sh" 2>/dev/null | header_lines -)" \
+            = "$(header_lines "$root/scripts/${k}.sh")" ] || { full=1; break; }
         fi
       done
     fi
     if [ "$full" = 0 ] && [ -n "$keys" ]; then
-      # (2) граф source: скан ВСЕХ eligible-барьеров HEAD. Не-статичный source где угодно → full
-      #     (граф неизвестен); статичный source на ИЗМЕНЁННЫЙ барьер → тоже full.
+      # (N2) видимая динамика: source/`.` с нелитеральным basename в ЛЮБОМ eligible-барьере → full.
       while IFS= read -r f; do
         [ -z "$f" ] && continue
         [ "$(header_role "$f")" = b ] || continue
-        selfk="${f##*/}"; selfk="${selfk%.sh}"
         while IFS= read -r a; do
           [ -z "$a" ] && continue
           is_static_source "$a" || { full=1; break 2; }
-          bn="${a%\"}"; bn="${bn#\"}"; bn="${bn%\'}"; bn="${bn#\'}"; bn="${bn##*/}"; bn="${bn%.sh}"
-          for k in $keys; do
-            [ "$bn" = "$k" ] && [ "$selfk" != "$k" ] && { full=1; break 3; }
-          done
         done < <(source_arg_lines "$f")
-      done < <(find "$root/scripts" -type f -name '*.sh' 2>/dev/null | sort)
+      done < <(find "$root/scripts" -maxdepth 1 -type f -name '*.sh' 2>/dev/null | sort)
     fi
     if [ "$full" = 0 ] && [ -n "$keys" ]; then
-      # (3) BASE-версия изменённого барьера с не-статичным source — тоже full (прошлый конец диффа).
-      for k in $keys; do
+      for k in $keys; do   # (N2-base) прошлый конец диффа
         if git -C "$root" cat-file -e "${base}:scripts/${k}.sh" 2>/dev/null; then
           while IFS= read -r a; do
             [ -z "$a" ] && continue
@@ -225,6 +222,29 @@ case "$flag" in
           done < <(git -C "$root" show "${base}:scripts/${k}.sh" 2>/dev/null | source_arg_lines -)
         fi
         [ "$full" = 1 ] && break
+      done
+    fi
+    if [ "$full" = 0 ] && [ -n "$keys" ]; then
+      # (N1-guard) непрозрачный симлинк в scripts/ (не канонизируется / вне дерева) → full.
+      while IFS= read -r s; do
+        [ -z "$s" ] && continue
+        case "$(readlink -f "$s" 2>/dev/null || true)" in "$root/scripts/"*) ;; *) full=1; break ;; esac
+      done < <(find "$root/scripts" -maxdepth 1 -type l 2>/dev/null)
+    fi
+    if [ "$full" = 0 ] && [ -n "$keys" ]; then
+      # (N1) достижимость по ИМЕНИ: цель названа в не-комментарной строке другого файла → full.
+      for k in $keys; do
+        gargs=(-e "$k.sh")
+        while IFS= read -r s; do
+          [ -z "$s" ] && continue
+          [ "$(readlink -f "$s" 2>/dev/null || true)" = "$root/scripts/$k.sh" ] && gargs+=(-e "${s##*/}")
+        done < <(find "$root/scripts" -maxdepth 1 -type l 2>/dev/null)
+        while IFS= read -r f; do
+          [ -z "$f" ] && continue
+          [ "$f" = "$root/scripts/$k.sh" ] && continue
+          case "$f" in "$root/fixtures/$k/"*) continue ;; esac
+          if grep -qF "${gargs[@]}" < <(awk '!/^[[:space:]]*#/' "$f" 2>/dev/null); then full=1; break 2; fi
+        done < <( { find "$root/scripts" -maxdepth 1 -type f -name '*.sh'; find "$root/fixtures" -type f -name '*.sh'; } 2>/dev/null | sort )
       done
     fi
 
