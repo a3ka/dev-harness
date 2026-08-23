@@ -1862,49 +1862,86 @@ EOF
 }
 
 # ── режим --port0 (красный тест среза-2, контракт 007) ────────────────────────
-# Предмет: metering_proxy при "port": 0 обязан привязаться к OS-назначенному
-# ЭФЕМЕРНОМУ порту И СООБЩИТЬ фактический порт (файл <data_dir>/.actual_port),
-# чтобы check_metering читал его, а не угадывал глобальным free_port-сканом
-# (корень флейка Н-45: 60 портов/прогон + TOCTOU). Переиспользует gen_config,
-# proxy_down, PROXY, PROXY_NODE_FLAGS — конфиг и запуск прокси не дублируются.
-# КРАСНОЕ против текущего прокси: main() печатает "listening on ${cfg.port}"=0
-# и .actual_port НЕ пишет → фактический порт неизвестен, healthz недостижим.
+# Предмет среза-2: НОРМАЛЬНЫЙ путь check_metering перестаёт угадывать порт прокси
+# глобальным free_port-сканом (корень флейка Н-45: ~60 портов/прогон + TOCTOU) и
+# переходит на OS-назначаемый эфемерный порт (bind :0); прокси РЕПОРТИТ фактический
+# порт в <data_dir>/.actual_port. Три под-пробы закрывают обходы круга 1 критика:
+#   p0.gen  — gen_config эмитит "port":0 (а не скан), иначе нормальный путь не мигрирован (F4);
+#   p0.up   — ШТАТНЫЙ proxy_up на port:0 поднимает прокси, читает репортный порт, переписывает
+#             cfg.port на фактический, healthz на нём 200 — миграция самого раннера (F4);
+#   p0.conc — ДВА конкурентных port:0 прокси получают РАЗНЫЕ эфемерные порты (фикс-константа
+#             дала бы коллизию/один порт) — доказывает OS-назначение, а не самовыбор (F5).
+# КРАСНОЕ против текущего дерева: gen_config free_port-сканит (p0.gen), proxy_up healthz-поллит
+# cfg.port=0 и die (p0.up), прокси не пишет .actual_port (p0.conc). Переиспользует gen_config,
+# proxy_up, proxy_down, PROXY, PROXY_NODE_FLAGS.
 mode_port0() {
-  local work cfg data pidfile pid reported status i tmpc
+  local work t
   work="$(mktemp -d "$TMP_ROOT/metering-port0.XXXXXX")"
   export HOME="$work"
-  cfg="$(gen_config "$work")"
-  data="$(jq -r '.data_dir' "$cfg")"
-  tmpc="$(mktemp -p "$TMP_ROOT")"
-  jq '.port = 0' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
-  pidfile="$data/proxy.pid"
-  # Запуск НАПРЯМУЮ: proxy_up healthz-поллит cfg.port (=0) и для :0 непригоден.
-  # Трёхстрочный спавн повторён намеренно, а не рефактором замороженного proxy_up.
-  ( cd "$(dirname "$cfg")"; exec node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg" ) \
-      > "$pidfile.log" 2> "$pidfile.err" &
-  pid="$!"; echo "$pid" > "$pidfile"
-  trap "kill -- -$pid 2>/dev/null || kill $pid 2>/dev/null || true; rm -rf '$work'" EXIT
-  reported=""
+  trap "pkill -f 'metering_proxy.ts --config $work' 2>/dev/null || true; rm -rf '$work'" EXIT
+
+  # ── p0.gen: gen_config эмитит port:0 (OS-эфемерный), не free_port-скан ──
+  local gcfg gport
+  gcfg="$(gen_config "$work/gen")"
+  gport="$(jq -r '.port' "$gcfg")"
+  if [ "$gport" = 0 ]; then
+    ok "port0.gen: gen_config эмитит port:0 (bind :0, без free_port-скана)"
+  else
+    bad "port0.gen: gen_config эмитит \"port\":$gport (free_port-скан) — нормальный путь check_metering не мигрирован на bind:0; корень Н-45 остаётся"
+  fi
+
+  # ── p0.up: ШТАТНЫЙ proxy_up на port:0 → эфемерный порт, cfg.port переписан, healthz 200 ──
+  local ucfg updir upid up_rc uport
+  ucfg="$(gen_config "$work/up")"
+  updir="$(jq -r '.data_dir' "$ucfg")"
+  t="$(mktemp -p "$TMP_ROOT")"; jq '.port = 0' "$ucfg" > "$t" && mv "$t" "$ucfg"
+  upid="$( proxy_up "$ucfg" "$updir/proxy.pid" 2>"$work/up.err" )"; up_rc=$?
+  if [ "$up_rc" != 0 ] || [ -z "$upid" ]; then
+    bad "port0.up: штатный proxy_up не поднял прокси при port:0 (rc=$up_rc) — читает cfg.port=0 вместо репортного. err: $(tr '\n' ' ' < "$work/up.err" 2>/dev/null | tail -c 200)"
+  else
+    uport="$(jq -r '.port' "$ucfg")"
+    if [ -z "$uport" ] || [ "$uport" = 0 ]; then
+      bad "port0.up: proxy_up не переписал cfg.port на фактический эфемерный (осталось '$uport') — ветви check_metering читали бы порт 0"
+    elif [ "$(curl -s -o /dev/null -w '%{http_code}' -m 5 "http://127.0.0.1:${uport}/healthz" 2>/dev/null)" = 200 ]; then
+      ok "port0.up: штатный proxy_up на port:0 → эфемерный $uport, cfg.port переписан, healthz 200"
+    else
+      bad "port0.up: healthz на переписанном порту $uport не 200"
+    fi
+    proxy_down "$upid"
+  fi
+
+  # ── p0.conc: два конкурентных port:0 прокси → РАЗНЫЕ эфемерные порты (не фикс-константа) ──
+  local c1 c2 d1 d2 idx i r1 r2
+  local -a cfgs dirs pids
+  c1="$(gen_config "$work/c1")"; d1="$(jq -r '.data_dir' "$c1")"
+  t="$(mktemp -p "$TMP_ROOT")"; jq '.port = 0' "$c1" > "$t" && mv "$t" "$c1"
+  c2="$(gen_config "$work/c2")"; d2="$(jq -r '.data_dir' "$c2")"
+  t="$(mktemp -p "$TMP_ROOT")"; jq '.port = 0' "$c2" > "$t" && mv "$t" "$c2"
+  cfgs=("$c1" "$c2"); dirs=("$d1" "$d2")
+  for idx in 0 1; do
+    ( cd "$(dirname "${cfgs[$idx]}")"; exec node $PROXY_NODE_FLAGS "$PROXY" --config "${cfgs[$idx]}" ) \
+        > "${dirs[$idx]}/proxy.pid.log" 2> "${dirs[$idx]}/proxy.pid.err" &
+    pids[$idx]=$!
+    echo "${pids[$idx]}" > "${dirs[$idx]}/proxy.pid"
+  done
+  r1=""; r2=""
   for i in $(seq 1 100); do
-    if [ -s "$data/.actual_port" ]; then reported="$(cat "$data/.actual_port")"; break; fi
-    kill -0 "$pid" 2>/dev/null || break
+    [ -z "$r1" ] && [ -s "$d1/.actual_port" ] && r1="$(cat "$d1/.actual_port")"
+    [ -z "$r2" ] && [ -s "$d2/.actual_port" ] && r2="$(cat "$d2/.actual_port")"
+    [ -n "$r1" ] && [ -n "$r2" ] && break
     sleep 0.05
   done
-  case "$reported" in
-    ''|0)
-      bad "порт-0: прокси не сообщил фактический эфемерный порт при \"port\":0 (файл $data/.actual_port пуст или 0) — репорт порта не реализован"
-      return 1 ;;
-    *[!0-9]*)
-      bad "порт-0: репортный порт «$reported» не число"
-      return 1 ;;
-  esac
-  status="$(curl -s -o /dev/null -w '%{http_code}' -m 5 "http://127.0.0.1:${reported}/healthz" 2>/dev/null)"
-  if [ "$status" != 200 ]; then
-    bad "порт-0: healthz на РЕПОРТНОМ порту $reported вернул «$status», ожидался 200"
-    return 1
+  if [ -n "$r1" ] && [ -n "$r2" ] && [ "$r1" != 0 ] && [ "$r2" != 0 ] && [ "$r1" != "$r2" ] \
+     && [ "$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://127.0.0.1:${r1}/healthz" 2>/dev/null)" = 200 ] \
+     && [ "$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://127.0.0.1:${r2}/healthz" 2>/dev/null)" = 200 ]; then
+    ok "port0.conc: два конкурентных port:0 → РАЗНЫЕ OS-эфемерные порты ($r1 ≠ $r2), оба healthz 200"
+  else
+    bad "port0.conc: конкурентные port:0 не дали два РАЗНЫХ эфемерных порта с healthz (r1='$r1' r2='$r2') — фикс-константа/скан вместо bind:0, TOCTOU Н-45 не устранён"
   fi
-  ok "порт-0: \"port\":0 → прокси на OS-эфемерном $reported, healthz 200, фактический порт в .actual_port"
-  return 0
+  [ -n "${pids[0]:-}" ] && proxy_down "${pids[0]}"
+  [ -n "${pids[1]:-}" ] && proxy_down "${pids[1]}"
+
+  [ "$fails" -eq 0 ]
 }
 
 case "$MODE" in

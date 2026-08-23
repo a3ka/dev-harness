@@ -130,6 +130,7 @@ EOF
   done
   write_inline_scope_select "$r"
   printf 'документация\n' > "$r/README.md"   # не-барьерный док: для ветви (ч) doc-only
+  printf 'заметки\n' > "$r/notes.txt"        # ещё не-барьерный путь (не README): для ветви (ч2)
   gg "$r" init -q -b main .
   gg "$r" add -A; gg "$r" commit -q -m base
   BASE="$(gg "$r" rev-parse HEAD)"
@@ -327,7 +328,7 @@ want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 
 # Диспетчер ветвей fail-closed: неизвестное имя → не-ноль с названным WANT.
-KNOWN_BRANCHES="л м м1 м2 м3 н case изол ц ч"
+KNOWN_BRANCHES="л м м1 м2 м3 н case изол ц ц2 ц3 ч ч2 ci"
 if [ "$WANT" != all ]; then
   found=0
   for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
@@ -442,6 +443,48 @@ if want ч; then
   [ "$RC" = 0 ] || die ч "doc-only дифф дал RC=$RC — doc-коммит обязан зелёный, не краснить CI. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'case_' "$OUT" && die ч "doc-only прогнал барьеры — 0 задетых обязано быть 0 прогонов. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   printf '  ok   (ч) doc-only → RC=0, 0 барьеров\n' >&2
+fi
+
+# ── (ц2) FAIL-SAFE: ПУСТОЙ base → ПОЛНЫЙ прогон, RC==0 (обобщение ц, не спецкейс нулей) ─
+if want ц2; then
+  T="$WORK/ц2"; build_toy "$T"
+  run_va "$T" --changed ""
+  [ "$RC" = 0 ] || die ц2 "пустой base дал RC=$RC — fail-safe обязан ПОЛНЫЙ прогон зелёным. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'a/case_a.sh' "$OUT" || die ц2 "пустой base не валидировал a — не полный набор"
+  has 'b/case_b.sh' "$OUT" || die ц2 "пустой base не валидировал b — не полный набор"
+  printf '  ok   (ц2) пустой base → полный прогон, RC=0\n' >&2
+fi
+
+# ── (ц3) FAIL-SAFE: нерезолвимый НЕНУЛЕВОЙ SHA → ПОЛНЫЙ прогон (закрывает обход «спецкейс нулей») ─
+if want ц3; then
+  T="$WORK/ц3"; build_toy "$T"
+  run_va "$T" --changed 1111111111111111111111111111111111111111
+  [ "$RC" = 0 ] || die ц3 "нерезолвимый ненулевой SHA дал RC=$RC — fail-safe обязан ПОЛНЫЙ прогон зелёным, не только на сорока нулях. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'a/case_a.sh' "$OUT" || die ц3 "нерезолвимый ненулевой SHA не валидировал a — не полный набор"
+  has 'b/case_b.sh' "$OUT" || die ц3 "нерезолвимый ненулевой SHA не валидировал b — не полный набор"
+  printf '  ok   (ц3) нерезолвимый ненулевой SHA → полный прогон, RC=0\n' >&2
+fi
+
+# ── (ч2) DOC-ONLY по НЕ-README пути → RC==0, 0 барьеров (закрывает обход «спецкейс README») ─
+if want ч2; then
+  T="$WORK/ч2"; build_toy "$T"
+  printf 'ещё заметки\n' >> "$T/notes.txt"; gg "$T" commit -q -am 'правка заметок'
+  run_va "$T" --changed "$BASE"
+  [ "$RC" = 0 ] || die ч2 "резолвимый base, нулевая выборка по не-README пути (notes.txt) дал RC=$RC — 0 задетых обязано exit 0, не спецкейс README. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'case_' "$OUT" && die ч2 "нулевая выборка прогнала барьеры — 0 задетых обязано быть 0 прогонов. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  printf '  ok   (ч2) не-README нулевая выборка → RC=0, 0 барьеров\n' >&2
+fi
+
+# ── (ci) ПРОВОДКА: ci.yml гонит анти-плацебо scoped через --changed github.event.before ──
+# Читает РЕАЛЬНЫЙ ci.yml (предмет implementer), проверка — architect. Красное: шаг
+# `npm run check:antiplacebo` без --changed. github.event.before у check:no-rewrite НЕ
+# считается — регэксп привязан к строке с `antiplacebo`.
+if want ci; then
+  CI="$ROOT/.github/workflows/ci.yml"
+  [ -f "$CI" ] || die ci "нет $CI — проводку scoped CI негде проверить"
+  grep -E 'antiplacebo.*--changed.*github\.event\.before' "$CI" >/dev/null 2>&1 \
+    || die ci "ci.yml: шаг анти-плацебо не проводит scoped (--changed \${{ github.event.before }} на строке шага). github.event.before у check:no-rewrite НЕ считается — нужен именно анти-плацебо-шаг."
+  printf '  ok   (ci) ci.yml гонит анти-плацебо scoped: --changed github.event.before\n' >&2
 fi
 
 printf 'check_scoped_run: ветви «%s» зелены\n' "$WANT" >&2

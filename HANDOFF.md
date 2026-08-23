@@ -40,24 +40,23 @@ CI зелёный. Локально несёт коммит HANDOFF (не зап
   существующей `check_scoped_run` ветви (л) → убрана; «щ» (ярус A) = уже отдельные шаги `ci.yml`
   (`check:ids`/`ceilings`/…), сужается лишь шаг 5 `check:antiplacebo`, сохранность держит
   `check:ci-parity` → не новый тест. Контракт финализирован без дублей (все док-гейты=0).
-- **Срез 1 красные тесты — СДЕЛАНЫ, красны, закоммичены** (`c414ef2`; ранний `600a2c8` —
-  осиротевший до-rebase SHA, не предок main): ветви `check_scoped_run` ц (нерезолвим base→full+RC0)
-  и ч (doc-only→RC0+0 барьеров), переиспользуют `build_toy`/`run_va`/`has` (+README в build_toy).
-  Против текущего `verify_antiplacebo.sh:203-206` дают RC=1 «RC=2 — fail-safe/doc обязан зелёный» (красное).
-- **Срез 2 красный тест (порт-0) — СДЕЛАН, красен** (не закоммичен на момент записи): новый РЕЖИМ
-  `--port0` в `check_metering.sh` (`mode_port0`, дисп. 55-59 + низ 1907-1914). НЕ трогает замороженный
-  15-ветвевой default (самопроверка счёта `-ne 15` на 1390) — отдельный режим как `--live`/`--cold-start`.
-  Переиспользует `gen_config`/`proxy_down`/`PROXY`/`PROXY_NODE_FLAGS`; `jq '.port=0'` поверх gen_config,
-  запуск прокси напрямую (proxy_up healthz-поллит cfg.port=0 → непригоден), ждёт репорт в
-  `<data_dir>/.actual_port`, healthz на РЕПОРТНОМ порту. КРАСНОЕ (RC=1) против текущего прокси:
-  `main()` metering_proxy.ts:1251-1254 биндит `listen(0)` но печатает `listening on ${cfg.port}`=0 и
-  `.actual_port` НЕ пишет. ЗЕЛЁНЫЙ КОНТРОЛЬ доказан: временный патч (`server.address().port` →
-  `.actual_port`) → RC=0, прокси на эфемерном 33979, healthz 200 → патч ОТКАЧЕН (импл = срез-2, шаг 5).
-  Регресс: default 15 ветвей=0, `--live`/`--cold-start`=2 (skip), bogus=1 (die). Тест НЕ тавтологичен.
-- **СЛЕДУЮЩИЙ ШАГ — закоммитить порт-0 (зона architect) → 2. критик (1 круг) → 3. заморозка → 4. раздать
-  предмет** (implementer срез 1: `verify_antiplacebo` 203-206 + `scope_select` различение
-  0-задетых/нерезолвим; architect срез 2: `check_metering`+`metering_proxy.ts` bind:0 + репорт `.actual_port`)
-  → CI 4б → адверсарий → ревьюер → done/007.
+- **Круг 1 критика — FAIL** (`40c800f`, `verdicts/critic/contracts-007-v1.md`): 5 валидных ОБХОДов
+  (все приняты автором, спора нет → арбитр не нужен): F1 ci.yml без `--changed`; F2 спецкейс сорока
+  нулей; F3 спецкейс README; F4 `--port0` не мигрирует НОРМАЛЬНЫЙ путь; F5 фикс-константа vs bind:0.
+- **Пробы УСИЛЕНЫ, красны, green-controlled (закоммичены этим шагом):**
+  - Срез-1 `check_scoped_run.sh`: +ц2 (пустой base), +ц3 (нерезолвимый НЕНУЛЕВОЙ SHA) → full+RC0;
+    +ч2 (не-README путь `notes.txt`) → RC0/0 барьеров; +ci (ci.yml несёт `--changed github.event.before`,
+    регэксп привязан к `antiplacebo`-строке, НЕ к line-135 `check:no-rewrite`). Все RC=1 против текущего.
+  - Срез-2 `check_metering.sh --port0` РЕСТРУКТУРИРОВАН в 3 под-пробы: p0.gen (`gen_config`→`port:0`),
+    p0.up (ШТАТНЫЙ `proxy_up` на `port:0` читает `.actual_port`, переписывает `cfg.port`, healthz),
+    p0.conc (2 конкурентных → РАЗНЫЕ эфемерные порты). RC=1 против текущего.
+  - ЗЕЛЁНЫЙ КОНТРОЛЬ обоих: временные патчи (toy `scope_select` MODE:full/none + `va` MODE:none→exit0;
+    `gen_config` proxy_port=0 + прокси пишет `.actual_port` + `proxy_up` переписывает cfg.port; `ci.yml`
+    `--changed`) → все ветви зелёные, default 15 НЕ сломан → ОТКАЧЕНЫ. Пины протокола (MODE:full/none,
+    `.actual_port`, состав яруса B) занесены в контракт (§Пины протокола).
+- **СЛЕДУЮЩИЙ ШАГ — критик КРУГ 2** (re-run на усиленный контракт+пробы) → при accept заморозка →
+  раздача (implementer срез-1 `verify_antiplacebo`/`scope_select` MODE:full/none + ci.yml; architect
+  срез-2 `metering_proxy` bind:0/.actual_port + `gen_config`/`proxy_up`) → CI 4б → адверсарий → ревьюер → done/007.
 **УРОК (Н-41/Н-42):** verify_antiplacebo НЕ на `$PWD`; `pkill -9 -f 'verify_antiplacebo|check_metering|metering_proxy'` до/после; `ci_diag.sh <sha>` читает CI; НЕ пушить доки отдельным полным CI (после 007 CI сам сузится).
 
 **Решения дизайна D1/D2 — вызов АРХИТЕКТОРА, не владельца:** worktree-на-прогон ОТЛОЖЕН
