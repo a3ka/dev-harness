@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# НЕ БАРЬЕР: мета-барьер приёмки check_contract_ready (контракт 008, срез-1).
-# Гоняет ПРЕДМЕТ `scripts/check_contract_ready.sh <root>` на ИНЛАЙН-фикстурах (mk_ready,
-# mk_nozones, mk_greentest, mk_wrongcount, mk_arb_bad) и УТВЕРЖДАЕТ код возврата + наличие
-# именованной причины. Не принимает внешних фикстур — структура ветвей ИНЛАЙН обеспечивает
-# анти-плацебо: каждая ветвь ловит КОНКРЕТНЫЙ дефект и требует именованный термин; (готов)
-# дополнительно требует маркер «OK» в выводе предмета, чтобы стаб-vsegda-0 не прошёл как зелёный.
-# verify_antiplacebo не покрывает (НЕ БАРЬЕР по конструкции).
+# Барьер приёмки check_contract_ready (контракт 008, срез-1, тир-1).
+# Гоняет ПРЕДМЕТ `<корень>/scripts/check_contract_ready.sh <contract-root>` на ИНЛАЙН-игрушечных
+# контрактах (mk_ready/mk_nozones/mk_greentest/mk_wrongcount/mk_arb_bad) и УТВЕРЖДАЕТ код возврата
+# + именованную причину. Образец — check_scope_select/check_scoped_run: предмет объявляет себя
+# «НЕ БАРЬЕР», барьер — ЭТОТ файл; фикстуры `fixtures/check_check_contract_ready/case_*.sh`
+# предъявляют его КРАСНЫМ, подавая СЛОМАННЫЙ предмет в подставной корень (green-root → red-root).
 #
 # ПИНИТ ЯДРО срез-1 (Н-38, урок 007/005: круги 1-3 у судьи вместо автора):
 #   (зоны)     контракт объявляет ЗОНА / РАБОТА НЕ РАЗДАЁТСЯ — иначе раздача неясна;
@@ -24,8 +23,9 @@
 # КРАСНОЕ ПРОТИВ ТЕКУЩЕГО ДЕРЕВА: предмета ещё нет → run_subject → RC=2 маркер, все 5 ветвей краснеют.
 # Зелёными станут при верной реализации предмета.
 #
-#   bash scripts/check_check_contract_ready.sh [<ветвь>]
-#     <ветвь> — одна из: зоны проба счёт арбитраж готов (умолч. all)
+#   bash scripts/check_check_contract_ready.sh [<корень>] [<ветвь>]
+#     <корень> — где лежит scripts/check_contract_ready.sh (умолч. корень репозитория);
+#     <ветвь>  — одна из: зоны проба счёт арбитраж готов (умолч. all)
 #
 # Коды возврата: 0 — запрошенные ветви зелёные, 1 — ветвь провалена, 2 — нечем проверить.
 set -uo pipefail
@@ -33,8 +33,10 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null LC_ALL="${LC_ALL:
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SELF_DIR/.." && pwd)"
-SUBJECT="$REPO/scripts/check_contract_ready.sh"
-WANT="${1:-all}"
+ROOT="${1:-$REPO}"
+ROOT="$(cd "$ROOT" 2>/dev/null && pwd || echo "$ROOT")"
+SUBJECT="$ROOT/scripts/check_contract_ready.sh"
+WANT="${2:-all}"
 
 die()  { printf 'ОТКАЗ ветвь (%s): %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }

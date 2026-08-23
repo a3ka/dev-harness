@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# НЕ БАРЬЕР: мета-барьер приёмки judge_gate (контракт 008, срез-2, тир-1).
-# Гоняет ПРЕДМЕТ `scripts/judge_gate.sh <sha>` на ИНЛАЙН-фикстурах (fake check_ci_gate
-# реагирует на exact-matching SHA PASS_THIS_SHA_GREEN). Не принимает внешних фикстур —
-# структура ветвей ИНЛАЙН обеспечивает анти-плацебо. (зелёный) дополнительно требует
-# маркер «OK» в выводе, чтобы стаб-всегда-0 не прошёл как зелёный.
-# verify_antiplacebo не покрывает (НЕ БАРЬЕР по конструкции).
+# Барьер приёмки judge_gate (контракт 008, срез-2, тир-1).
+# Гоняет ПРЕДМЕТ `<корень>/scripts/judge_gate.sh <sha>` с fake `check_ci_gate` (rc=0 ТОЛЬКО при
+# exact-matching SHA PASS_THIS_SHA_GREEN). Образец — check_scope_select/check_scoped_run: предмет
+# объявляет себя «НЕ БАРЬЕР», барьер — ЭТОТ файл; фикстуры `fixtures/check_judge_gate/case_*.sh`
+# предъявляют его КРАСНЫМ, подавая СЛОМАННЫЙ предмет в подставной корень (green-root → red-root).
+# (зелёный) дополнительно требует маркер «OK» в выводе, чтобы стаб-всегда-0 не прошёл.
 #
 # ПИНИТ: judge_gate ОБЯЗАН
 #   (а) найти и звать `check_ci_gate` (доказательство — маркер FAKE в выводе);
@@ -23,8 +23,9 @@
 #
 # КРАСНОЕ ПРОТИВ ТЕКУЩЕГО ДЕРЕВА: judge_gate.sh ещё нет → RC=2 маркер, обе ветви краснеют.
 #
-#   bash scripts/check_judge_gate.sh [<ветвь>]
-#     <ветвь> — одна из: красный зелёный (умолч. all)
+#   bash scripts/check_judge_gate.sh [<корень>] [<ветвь>]
+#     <корень> — где лежит scripts/judge_gate.sh (умолч. корень репозитория);
+#     <ветвь>  — одна из: красный зелёный (умолч. all)
 #
 # Коды возврата: 0 — зелены, 1 — ветвь провалена, 2 — нечем проверить.
 set -uo pipefail
@@ -32,8 +33,10 @@ export LC_ALL="${LC_ALL:-C.UTF-8}"
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SELF_DIR/.." && pwd)"
-SUBJECT="$REPO/scripts/judge_gate.sh"
-WANT="${1:-all}"
+ROOT="${1:-$REPO}"
+ROOT="$(cd "$ROOT" 2>/dev/null && pwd || echo "$ROOT")"
+SUBJECT="$ROOT/scripts/judge_gate.sh"
+WANT="${2:-all}"
 
 die()  { printf 'ОТКАЗ ветвь (%s): %s\n' "$1" "$2" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
