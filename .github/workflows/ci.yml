@@ -53,6 +53,16 @@ jobs:
         # Самодостаточен: встроенный scope_select из фикстуры, прогон через изолированный tmp.
         run: npm run check:scoped-run
 
+      - name: Предполётный гейт автора (контракт 008)
+        # Самодостаточен: на игрушечных деревьях гоняет scripts/check_contract_ready.sh
+        # и УТВЕРЖДАЕТ код+причину; ветви зоны/проба/счёт/арбитраж/готов.
+        run: npm run check:contract-ready
+
+      - name: Судья через CI-сигнал (контракт 008)
+        # Самодостаточен: подставляет ФЕЙКОВЫЙ check_ci_gate.sh рядом с предметом
+        # judge_gate.sh, реагирующий на exact-matching SHA PASS_THIS_SHA_GREEN.
+        run: npm run check:judge-gate
+
       - name: Генератор ролей под чек
         run: npm run check:gen
 
