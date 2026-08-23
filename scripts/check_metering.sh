@@ -53,9 +53,9 @@ command -v curl      >/dev/null 2>&1 || skip "нет curl — healthz не дё�
 
 MODE="default"
 case "${1:-}" in
-  --live|--cold-start) MODE="${1#--}" ;;
+  --live|--cold-start|--port0) MODE="${1#--}" ;;
   ""|--default)        MODE="default" ;;
-  *) die "неизвестный режим: $1 (ожидался --live, --cold-start или пусто)" ;;
+  *) die "неизвестный режим: $1 (ожидался --live, --cold-start, --port0 или пусто)" ;;
 esac
 case "$MODE" in
   default) ;;
@@ -1861,4 +1861,54 @@ EOF
   return 0
 }
 
-main "$@"
+# ── режим --port0 (красный тест среза-2, контракт 007) ────────────────────────
+# Предмет: metering_proxy при "port": 0 обязан привязаться к OS-назначенному
+# ЭФЕМЕРНОМУ порту И СООБЩИТЬ фактический порт (файл <data_dir>/.actual_port),
+# чтобы check_metering читал его, а не угадывал глобальным free_port-сканом
+# (корень флейка Н-45: 60 портов/прогон + TOCTOU). Переиспользует gen_config,
+# proxy_down, PROXY, PROXY_NODE_FLAGS — конфиг и запуск прокси не дублируются.
+# КРАСНОЕ против текущего прокси: main() печатает "listening on ${cfg.port}"=0
+# и .actual_port НЕ пишет → фактический порт неизвестен, healthz недостижим.
+mode_port0() {
+  local work cfg data pidfile pid reported status i tmpc
+  work="$(mktemp -d "$TMP_ROOT/metering-port0.XXXXXX")"
+  export HOME="$work"
+  cfg="$(gen_config "$work")"
+  data="$(jq -r '.data_dir' "$cfg")"
+  tmpc="$(mktemp -p "$TMP_ROOT")"
+  jq '.port = 0' "$cfg" > "$tmpc" && mv "$tmpc" "$cfg"
+  pidfile="$data/proxy.pid"
+  # Запуск НАПРЯМУЮ: proxy_up healthz-поллит cfg.port (=0) и для :0 непригоден.
+  # Трёхстрочный спавн повторён намеренно, а не рефактором замороженного proxy_up.
+  ( cd "$(dirname "$cfg")"; exec node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg" ) \
+      > "$pidfile.log" 2> "$pidfile.err" &
+  pid="$!"; echo "$pid" > "$pidfile"
+  trap "kill -- -$pid 2>/dev/null || kill $pid 2>/dev/null || true; rm -rf '$work'" EXIT
+  reported=""
+  for i in $(seq 1 100); do
+    if [ -s "$data/.actual_port" ]; then reported="$(cat "$data/.actual_port")"; break; fi
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.05
+  done
+  case "$reported" in
+    ''|0)
+      bad "порт-0: прокси не сообщил фактический эфемерный порт при \"port\":0 (файл $data/.actual_port пуст или 0) — репорт порта не реализован"
+      return 1 ;;
+    *[!0-9]*)
+      bad "порт-0: репортный порт «$reported» не число"
+      return 1 ;;
+  esac
+  status="$(curl -s -o /dev/null -w '%{http_code}' -m 5 "http://127.0.0.1:${reported}/healthz" 2>/dev/null)"
+  if [ "$status" != 200 ]; then
+    bad "порт-0: healthz на РЕПОРТНОМ порту $reported вернул «$status», ожидался 200"
+    return 1
+  fi
+  ok "порт-0: \"port\":0 → прокси на OS-эфемерном $reported, healthz 200, фактический порт в .actual_port"
+  return 0
+}
+
+case "$MODE" in
+  default) main "$@" ;;
+  port0)
+    if mode_port0; then exit 0; else exit 1; fi ;;
+esac

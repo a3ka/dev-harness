@@ -40,17 +40,24 @@ CI зелёный. Локально несёт коммит HANDOFF (не зап
   существующей `check_scoped_run` ветви (л) → убрана; «щ» (ярус A) = уже отдельные шаги `ci.yml`
   (`check:ids`/`ceilings`/…), сужается лишь шаг 5 `check:antiplacebo`, сохранность держит
   `check:ci-parity` → не новый тест. Контракт финализирован без дублей (все док-гейты=0).
-- **Срез 1 красные тесты — СДЕЛАНЫ, красны, закоммичены** (`600a2c8`): ветви `check_scoped_run`
-  ц (нерезолвим base→full+RC0) и ч (doc-only→RC0+0 барьеров), переиспользуют `build_toy`/`run_va`/
-  `has` (+README в build_toy). Против текущего `verify_antiplacebo.sh:203-206` дают RC=2 (красное).
-- **СЛЕДУЮЩИЙ ШАГ — срез 2 красный тест (порт-0):** новая ветвь в `check_metering.sh` (1865 строк,
-  ветви идут ПОСЛЕДОВАТЕЛЬНО — нужен селектор либо аккуратная вставка): `gen_config` с `port:0` →
-  прокси биндит OS-эфемерный, РЕПОРТИТ фактический порт (stdout/файл), healthz на нём зелёный.
-  Красное против текущего (`gen_config:278-294` пишет `port`; `proxy_up:196-218` читает `.port`,
-  healthz на `0` → die). Правит СУЩЕСТВУЮЩИЕ `free_port`(67-79)/`gen_config`/`proxy_up`, НЕ дублирует.
-  Затем: 2. критик (1 круг) → 3. заморозка → 4. раздать предмет (implementer срез 1: правка
-  `verify_antiplacebo` 203-206 + `scope_select` различение 0-задетых/нерезолвим; архитектор срез 2:
-  `check_metering`+`metering_proxy.ts` bind:0) → CI 4б → адверсарий → ревьюер → done/007.
+- **Срез 1 красные тесты — СДЕЛАНЫ, красны, закоммичены** (`c414ef2`; ранний `600a2c8` —
+  осиротевший до-rebase SHA, не предок main): ветви `check_scoped_run` ц (нерезолвим base→full+RC0)
+  и ч (doc-only→RC0+0 барьеров), переиспользуют `build_toy`/`run_va`/`has` (+README в build_toy).
+  Против текущего `verify_antiplacebo.sh:203-206` дают RC=1 «RC=2 — fail-safe/doc обязан зелёный» (красное).
+- **Срез 2 красный тест (порт-0) — СДЕЛАН, красен** (не закоммичен на момент записи): новый РЕЖИМ
+  `--port0` в `check_metering.sh` (`mode_port0`, дисп. 55-59 + низ 1907-1914). НЕ трогает замороженный
+  15-ветвевой default (самопроверка счёта `-ne 15` на 1390) — отдельный режим как `--live`/`--cold-start`.
+  Переиспользует `gen_config`/`proxy_down`/`PROXY`/`PROXY_NODE_FLAGS`; `jq '.port=0'` поверх gen_config,
+  запуск прокси напрямую (proxy_up healthz-поллит cfg.port=0 → непригоден), ждёт репорт в
+  `<data_dir>/.actual_port`, healthz на РЕПОРТНОМ порту. КРАСНОЕ (RC=1) против текущего прокси:
+  `main()` metering_proxy.ts:1251-1254 биндит `listen(0)` но печатает `listening on ${cfg.port}`=0 и
+  `.actual_port` НЕ пишет. ЗЕЛЁНЫЙ КОНТРОЛЬ доказан: временный патч (`server.address().port` →
+  `.actual_port`) → RC=0, прокси на эфемерном 33979, healthz 200 → патч ОТКАЧЕН (импл = срез-2, шаг 5).
+  Регресс: default 15 ветвей=0, `--live`/`--cold-start`=2 (skip), bogus=1 (die). Тест НЕ тавтологичен.
+- **СЛЕДУЮЩИЙ ШАГ — закоммитить порт-0 (зона architect) → 2. критик (1 круг) → 3. заморозка → 4. раздать
+  предмет** (implementer срез 1: `verify_antiplacebo` 203-206 + `scope_select` различение
+  0-задетых/нерезолвим; architect срез 2: `check_metering`+`metering_proxy.ts` bind:0 + репорт `.actual_port`)
+  → CI 4б → адверсарий → ревьюер → done/007.
 **УРОК (Н-41/Н-42):** verify_antiplacebo НЕ на `$PWD`; `pkill -9 -f 'verify_antiplacebo|check_metering|metering_proxy'` до/после; `ci_diag.sh <sha>` читает CI; НЕ пушить доки отдельным полным CI (после 007 CI сам сузится).
 
 **Решения дизайна D1/D2 — вызов АРХИТЕКТОРА, не владельца:** worktree-на-прогон ОТЛОЖЕН
