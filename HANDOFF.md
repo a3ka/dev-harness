@@ -40,23 +40,24 @@ CI зелёный. Локально несёт коммит HANDOFF (не зап
   существующей `check_scoped_run` ветви (л) → убрана; «щ» (ярус A) = уже отдельные шаги `ci.yml`
   (`check:ids`/`ceilings`/…), сужается лишь шаг 5 `check:antiplacebo`, сохранность держит
   `check:ci-parity` → не новый тест. Контракт финализирован без дублей (все док-гейты=0).
-- **Круг 1 критика — FAIL** (`40c800f`, `verdicts/critic/contracts-007-v1.md`): 5 валидных ОБХОДов
-  (все приняты автором, спора нет → арбитр не нужен): F1 ci.yml без `--changed`; F2 спецкейс сорока
-  нулей; F3 спецкейс README; F4 `--port0` не мигрирует НОРМАЛЬНЫЙ путь; F5 фикс-константа vs bind:0.
-- **Пробы УСИЛЕНЫ, красны, green-controlled (закоммичены этим шагом):**
-  - Срез-1 `check_scoped_run.sh`: +ц2 (пустой base), +ц3 (нерезолвимый НЕНУЛЕВОЙ SHA) → full+RC0;
-    +ч2 (не-README путь `notes.txt`) → RC0/0 барьеров; +ci (ci.yml несёт `--changed github.event.before`,
-    регэксп привязан к `antiplacebo`-строке, НЕ к line-135 `check:no-rewrite`). Все RC=1 против текущего.
-  - Срез-2 `check_metering.sh --port0` РЕСТРУКТУРИРОВАН в 3 под-пробы: p0.gen (`gen_config`→`port:0`),
-    p0.up (ШТАТНЫЙ `proxy_up` на `port:0` читает `.actual_port`, переписывает `cfg.port`, healthz),
-    p0.conc (2 конкурентных → РАЗНЫЕ эфемерные порты). RC=1 против текущего.
-  - ЗЕЛЁНЫЙ КОНТРОЛЬ обоих: временные патчи (toy `scope_select` MODE:full/none + `va` MODE:none→exit0;
-    `gen_config` proxy_port=0 + прокси пишет `.actual_port` + `proxy_up` переписывает cfg.port; `ci.yml`
-    `--changed`) → все ветви зелёные, default 15 НЕ сломан → ОТКАЧЕНЫ. Пины протокола (MODE:full/none,
-    `.actual_port`, состав яруса B) занесены в контракт (§Пины протокола).
-- **СЛЕДУЮЩИЙ ШАГ — критик КРУГ 2** (re-run на усиленный контракт+пробы) → при accept заморозка →
-  раздача (implementer срез-1 `verify_antiplacebo`/`scope_select` MODE:full/none + ci.yml; architect
-  срез-2 `metering_proxy` bind:0/.actual_port + `gen_config`/`proxy_up`) → CI 4б → адверсарий → ревьюер → done/007.
+- **Круги критика 1-2 — FAIL, затем АРБИТР.** Круг 1 (`40c800f`): 5 ОБХОДов (приняты, усилены).
+  Круг 2 (`68259bd`): 5 стабов закрыты, но повторный КЛАСС (конечные литералы vs универсал; строка vs
+  исполняемая проводка; разные порты vs bind:0) + пины дали новую поверхность (Н-1) → критик назвал арбитра.
+- **АРБИТР РЕШЕНИЕ** (`e604d65`, `verdicts/arbitration/krasnye-proby-granica-primera.md`): стандарт (B) —
+  красно-против-текущего + зелёный контроль + репрезентативные ФОРМЫ; произвольные стабы → адверсарию
+  (шаг 5). Стандарт (A) недостижим (Н-1). РОВНО 4 правки автору: п.1 ci (принят), п.3 p0.src (белощик),
+  п.4 пин MODE переформулировать + маркер-ассерты; пп.2 (литералы) и 5 (ярус B) ОТКЛОНЕНЫ.
+- **4 правки СДЕЛАНЫ, красны, green-controlled** (этот коммит): ci якорен на исполняемую `run:`
+  (комментарий не в счёт); +p0.src (греп `metering_proxy.ts` на `server.address()`+`.actual_port`);
+  маркер-ассерты ц/ц2/ц3→`MODE: full`, ч/ч2→`MODE: none`; §Пины: различение в ПОТРЕБИТЕЛЕ
+  `verify_antiplacebo`, scope_select остаётся `needs-full` (ФРОЗЕННЫЙ `check_scope_select` 006 зелён —
+  доказано). Зелёный контроль (va robust sel_rc + distinction; proxy .actual_port; gen_config/proxy_up
+  bind:0; ci --changed) → всё зелёное, default 15 + check_scope_select не сломаны → ОТКАЧЕН.
+  ОТКРЫТИЕ: `set -e` в va убивал на `sel_out=$(scope_select exit2)` ДО хендлера → импл среза-1 обязан
+  робастно ловить sel_rc (`if sel_out=…; then sel_rc=0; else sel_rc=$?`).
+- **СЛЕДУЮЩИЙ ШАГ — критик КРУГ 3** (регламент арбитра: ТОЛЬКО 4 закрытия + красность/регресс; новые
+  находки лишь по критерию (i)-(iii); повтор отклонённых классов = арбитраж) → accept → заморозка →
+  раздача → CI 4б → адверсарий → ревьюер → done/007.
 **УРОК (Н-41/Н-42):** verify_antiplacebo НЕ на `$PWD`; `pkill -9 -f 'verify_antiplacebo|check_metering|metering_proxy'` до/после; `ci_diag.sh <sha>` читает CI; НЕ пушить доки отдельным полным CI (после 007 CI сам сузится).
 
 **Решения дизайна D1/D2 — вызов АРХИТЕКТОРА, не владельца:** worktree-на-прогон ОТЛОЖЕН

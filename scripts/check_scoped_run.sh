@@ -432,6 +432,7 @@ if want ц; then
   [ "$RC" = 0 ] || die ц "нерезолвимый base дал RC=$RC — fail-safe обязан ПОЛНЫЙ прогон зелёным, не отказ. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'a/case_a.sh' "$OUT" || die ц "нерезолвимый base не валидировал a — не полный набор (fail-safe должен гонять всё). Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'b/case_b.sh' "$OUT" || die ц "нерезолвимый base не валидировал b — не полный набор"
+  has 'MODE: full' "$OUT" || die ц "MODE: full не напечатан — потребитель verify_antiplacebo не различает fail-safe от needs-full (пин протокола)"
   printf '  ok   (ц) нерезолвимый base → полный прогон, RC=0\n' >&2
 fi
 
@@ -442,6 +443,7 @@ if want ч; then
   run_va "$T" --changed "$BASE"
   [ "$RC" = 0 ] || die ч "doc-only дифф дал RC=$RC — doc-коммит обязан зелёный, не краснить CI. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'case_' "$OUT" && die ч "doc-only прогнал барьеры — 0 задетых обязано быть 0 прогонов. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'MODE: none' "$OUT" || die ч "MODE: none не напечатан — потребитель не различает нулевую выборку от needs-full (пин протокола)"
   printf '  ok   (ч) doc-only → RC=0, 0 барьеров\n' >&2
 fi
 
@@ -452,6 +454,7 @@ if want ц2; then
   [ "$RC" = 0 ] || die ц2 "пустой base дал RC=$RC — fail-safe обязан ПОЛНЫЙ прогон зелёным. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'a/case_a.sh' "$OUT" || die ц2 "пустой base не валидировал a — не полный набор"
   has 'b/case_b.sh' "$OUT" || die ц2 "пустой base не валидировал b — не полный набор"
+  has 'MODE: full' "$OUT" || die ц2 "MODE: full не напечатан — пин протокола (fail-safe ≠ needs-full)"
   printf '  ok   (ц2) пустой base → полный прогон, RC=0\n' >&2
 fi
 
@@ -462,6 +465,7 @@ if want ц3; then
   [ "$RC" = 0 ] || die ц3 "нерезолвимый ненулевой SHA дал RC=$RC — fail-safe обязан ПОЛНЫЙ прогон зелёным, не только на сорока нулях. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'a/case_a.sh' "$OUT" || die ц3 "нерезолвимый ненулевой SHA не валидировал a — не полный набор"
   has 'b/case_b.sh' "$OUT" || die ц3 "нерезолвимый ненулевой SHA не валидировал b — не полный набор"
+  has 'MODE: full' "$OUT" || die ц3 "MODE: full не напечатан — пин протокола (fail-safe ≠ needs-full)"
   printf '  ok   (ц3) нерезолвимый ненулевой SHA → полный прогон, RC=0\n' >&2
 fi
 
@@ -472,19 +476,20 @@ if want ч2; then
   run_va "$T" --changed "$BASE"
   [ "$RC" = 0 ] || die ч2 "резолвимый base, нулевая выборка по не-README пути (notes.txt) дал RC=$RC — 0 задетых обязано exit 0, не спецкейс README. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has 'case_' "$OUT" && die ч2 "нулевая выборка прогнала барьеры — 0 задетых обязано быть 0 прогонов. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'MODE: none' "$OUT" || die ч2 "MODE: none не напечатан — пин протокола (нулевая выборка ≠ needs-full)"
   printf '  ok   (ч2) не-README нулевая выборка → RC=0, 0 барьеров\n' >&2
 fi
 
 # ── (ci) ПРОВОДКА: ci.yml гонит анти-плацебо scoped через --changed github.event.before ──
-# Читает РЕАЛЬНЫЙ ci.yml (предмет implementer), проверка — architect. Красное: шаг
-# `npm run check:antiplacebo` без --changed. github.event.before у check:no-rewrite НЕ
-# считается — регэксп привязан к строке с `antiplacebo`.
+# Читает РЕАЛЬНЫЙ ci.yml (предмет implementer), проверка — architect. Матч ТОЛЬКО на
+# ИСПОЛНЯЕМОЙ строке `run:` (не YAML/shell-комментарий — арбитраж krasnye-proby-granica-primera
+# п.1); строка `github.event.before` у check:no-rewrite не подходит — нужен antiplacebo+--changed.
 if want ci; then
   CI="$ROOT/.github/workflows/ci.yml"
   [ -f "$CI" ] || die ci "нет $CI — проводку scoped CI негде проверить"
-  grep -E 'antiplacebo.*--changed.*github\.event\.before' "$CI" >/dev/null 2>&1 \
-    || die ci "ci.yml: шаг анти-плацебо не проводит scoped (--changed \${{ github.event.before }} на строке шага). github.event.before у check:no-rewrite НЕ считается — нужен именно анти-плацебо-шаг."
-  printf '  ok   (ci) ci.yml гонит анти-плацебо scoped: --changed github.event.before\n' >&2
+  grep -E '^[[:space:]]*run:.*antiplacebo.*--changed.*github\.event\.before' "$CI" >/dev/null 2>&1 \
+    || die ci "ci.yml: НЕТ исполняемой строки run: с анти-плацебо scoped (--changed \${{ github.event.before }}). Комментарий с тем же текстом НЕ засчитывается — регэксп якорён на 'run:'."
+  printf '  ok   (ci) ci.yml: исполняемый шаг анти-плацебо scoped (--changed github.event.before)\n' >&2
 fi
 
 printf 'check_scoped_run: ветви «%s» зелены\n' "$WANT" >&2

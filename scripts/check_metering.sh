@@ -1941,6 +1941,16 @@ mode_port0() {
   [ -n "${pids[0]:-}" ] && proxy_down "${pids[0]}"
   [ -n "${pids[1]:-}" ] && proxy_down "${pids[1]}"
 
+  # ── p0.src: БЕЛОЩИКОВО — прокси репортит фактический порт от server.address(), не самовыбор ──
+  # Чёрный ящик не отличает listen(0) от самовыбора двух свободных портов (арбитраж
+  # krasnye-proby-granica-primera п.3); белощиковый греп исходника — конвенция к1/к2. Обфускация
+  # мимо грепа — адверсарию (шаг 5). Красное: текущий прокси печатает cfg.port, .actual_port не пишет.
+  if grep -Eq 'server\.address\(\)' "$PROXY" && grep -Eq '\.actual_port' "$PROXY"; then
+    ok "port0.src: metering_proxy.ts репортит фактический порт от server.address() в .actual_port (OS bind:0, не самовыбор)"
+  else
+    bad "port0.src: metering_proxy.ts не выводит .actual_port из server.address() — репортный порт мог быть самовыбранным (free_port scan+TOCTOU Н-45 сохранён), не OS bind:0"
+  fi
+
   [ "$fails" -eq 0 ]
 }
 

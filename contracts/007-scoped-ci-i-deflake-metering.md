@@ -52,6 +52,8 @@
   `--changed ${{ github.event.before }}`. Красное против текущего `npm run check:antiplacebo`
   без `--changed`. Строка `github.event.before` у `check:no-rewrite` НЕ считается — регэксп
   привязан к строке с `antiplacebo`.
+- (маркер) ц/ц2/ц3 ждут `MODE: full` в выводе, ч/ч2 — `MODE: none`: потребитель обязан ПЕЧАТАТЬ
+  различение (пин ниже), не только вернуть верный код.
 
 НЕ дублируем: barrier-код → выбран ровно он — держит существующая ветвь (л). Ярус A
 (барьеры-данных всегда) — ОТДЕЛЬНЫЕ шаги `ci.yml`; сужается только шаг 5 `check:antiplacebo`,
@@ -63,8 +65,11 @@
   `<data_dir>/.actual_port`, переписывает `cfg.port` на фактический, healthz на нём 200.
 - (p0.conc) ДВА конкурентных `port:0` прокси → РАЗНЫЕ OS-эфемерные порты, оба healthz (фикс-
   константа дала бы коллизию — доказывает OS-назначение, не самовыбор).
-  Все три красны против текущего (gen_config сканит; proxy_up healthz-поллит порт 0 → die;
-  прокси не пишет `.actual_port`). Миграция НЕ ломает default 15 ветвей.
+- (p0.src) БЕЛОЩИКОВО: `metering_proxy.ts` выводит `.actual_port` из `server.address()` (OS-порт),
+  без собственного порто-скана. Чёрный ящик не отличает `listen(0)` от самовыбора (арбитраж
+  krasnye-proby-granica-primera п.3) — греп исходника, конвенция к1/к2. Обфускация → адверсарию.
+  Все четыре красны против текущего (gen_config сканит; proxy_up healthz-поллит порт 0 → die;
+  прокси не пишет `.actual_port` и не зовёт `server.address()`). Миграция НЕ ломает default 15 ветвей.
 
 **Регресс (существующее, зелёным):** `check_metering` а-я=0; `check_scope_select` а-щ=0;
 `verify_antiplacebo` full=0; `check:ci-parity`=0; полный CI на чистом ubuntu зелёный.
@@ -79,9 +84,11 @@
 Статуса задач нет: контракт замораживается побайтово, ход работ — в `HANDOFF.md`.
 
 ## Пины протокола (закрывают незаполненные требования круга 1 критика):
-- Различение в `scope_select`/`verify_antiplacebo`: нерезолвимый/пустой base → `MODE: full`
-  (полный прогон, exit 0); резолвимый base с 0 задетых → `MODE: none` (exit 0, 0 прогонов).
-  Разные сигналы, не общий `needs-full`. Предмет среза 1 (implementer).
+- Различение живёт в ПОТРЕБИТЕЛЕ `verify_antiplacebo`, НЕ в `scope_select`: последний остаётся с
+  `MODE: needs-full` (ФРОЗЕННЫЙ `check_scope_select` 006 не трогаем). Получив needs-full,
+  `verify_antiplacebo` САМ проверяет резолвимость base: нерезолвимый/пустой → печатает `MODE: full`,
+  полный прогон, exit 0; резолвимый с 0 задетых → печатает `MODE: none`, exit 0, 0 прогонов.
+  Маркер наблюдаем (ц/ц2/ц3 ждут `MODE: full`, ч/ч2 — `MODE: none`). Предмет среза 1 (implementer).
 - Репорт порта прокси при bind `:0`: файл `<data_dir>/.actual_port` (десятичный порт);
   `proxy_up` ждёт его и переписывает `cfg.port`. Предмет среза 2 (architect).
 - Ярус B (сужаемые код-барьеры) = `check_metering`, `check_scope_select`, `check_scoped_run`
