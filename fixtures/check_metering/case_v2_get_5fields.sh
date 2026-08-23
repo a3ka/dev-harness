@@ -59,7 +59,7 @@ const srv = http.createServer((req, res) => {
     upReq.end();
   });
 });
-srv.listen(port, "127.0.0.1", () => process.stderr.write("stub_v2 on " + port + "\n"));
+srv.listen(port, "127.0.0.1", () => { const _a = srv.address(); const _p = typeof _a === "object" && _a ? _a.port : port; fs.writeFileSync(cfg.data_dir + "/.actual_port", String(_p)); process.stderr.write("stub_v2 on " + _p + "\n"); });
 STUB
 stub_proxy "$STUB_DIR/metering_proxy.ts"
 

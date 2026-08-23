@@ -28,7 +28,7 @@ const srv = http.createServer((req, res) => {
   if (req.url === "/healthz") { res.statusCode = 500; res.end("nope"); return; }
   res.statusCode = 404; res.end();
 });
-srv.listen(port, "127.0.0.1", () => process.stderr.write("stub_a on " + port + "\n"));
+srv.listen(port, "127.0.0.1", () => { const _a = srv.address(); const _p = typeof _a === "object" && _a ? _a.port : port; fs.writeFileSync(cfg.data_dir + "/.actual_port", String(_p)); process.stderr.write("stub_a on " + _p + "\n"); });
 STUB
 stub_proxy "$STUB_DIR/metering_proxy.ts"
 

@@ -67,7 +67,7 @@ const srv = http.createServer((req, res) => {
   // Токен НЕ валидируем — стаб для красного прогона.
   void proxyUpstream(req, res);
 });
-srv.listen(port, "127.0.0.1", () => process.stderr.write("stub_v on " + port + "\n"));
+srv.listen(port, "127.0.0.1", () => { const _a = srv.address(); const _p = typeof _a === "object" && _a ? _a.port : port; fs.writeFileSync(cfg.data_dir + "/.actual_port", String(_p)); process.stderr.write("stub_v on " + _p + "\n"); });
 STUB
 stub_proxy "$STUB_DIR/metering_proxy.ts"
 
