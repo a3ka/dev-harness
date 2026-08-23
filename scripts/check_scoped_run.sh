@@ -129,6 +129,7 @@ BARRIER_ROOT="\$WORK/w" "\$BARRIER"
 EOF
   done
   write_inline_scope_select "$r"
+  printf 'документация\n' > "$r/README.md"   # не-барьерный док: для ветви (ч) doc-only
   gg "$r" init -q -b main .
   gg "$r" add -A; gg "$r" commit -q -m base
   BASE="$(gg "$r" rev-parse HEAD)"
@@ -326,7 +327,7 @@ want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 has() { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 
 # Диспетчер ветвей fail-closed: неизвестное имя → не-ноль с названным WANT.
-KNOWN_BRANCHES="л м м1 м2 м3 н case изол"
+KNOWN_BRANCHES="л м м1 м2 м3 н case изол ц ч"
 if [ "$WANT" != all ]; then
   found=0
   for k in $KNOWN_BRANCHES; do [ "$WANT" = "$k" ] && found=1; done
@@ -421,6 +422,26 @@ if want изол; then
   [ "$RC" != 0 ] || die изол "раннер объявил home-leak-игрушку зелёной (RC=0) — HOME течёт между фикстурами; при per-fixture изоляции (§4) b не краснеет → «красное не предъявлено»"
   has "красное не предъявлено" "$OUT" || die изол "раннер не назвал «красное не предъявлено» на b — per-fixture изоляция HOME не доказана. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   printf '  ok   (изол) HOME изолирован per-fixture: leak-игрушка отвергнута («красное не предъявлено»)\n' >&2
+fi
+
+# ── (ц) FAIL-SAFE: нерезолвимый base → ПОЛНЫЙ прогон, RC==0 (не exit 2) ────────
+if want ц; then
+  T="$WORK/ц"; build_toy "$T"
+  run_va "$T" --changed 0000000000000000000000000000000000000000
+  [ "$RC" = 0 ] || die ц "нерезолвимый base дал RC=$RC — fail-safe обязан ПОЛНЫЙ прогон зелёным, не отказ. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'a/case_a.sh' "$OUT" || die ц "нерезолвимый base не валидировал a — не полный набор (fail-safe должен гонять всё). Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'b/case_b.sh' "$OUT" || die ц "нерезолвимый base не валидировал b — не полный набор"
+  printf '  ok   (ц) нерезолвимый base → полный прогон, RC=0\n' >&2
+fi
+
+# ── (ч) DOC-ONLY: резолвимый base, дифф только по докам → RC==0, 0 барьеров ────
+if want ч; then
+  T="$WORK/ч"; build_toy "$T"
+  printf 'ещё документация\n' >> "$T/README.md"; gg "$T" commit -q -am 'правка доки'
+  run_va "$T" --changed "$BASE"
+  [ "$RC" = 0 ] || die ч "doc-only дифф дал RC=$RC — doc-коммит обязан зелёный, не краснить CI. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has 'case_' "$OUT" && die ч "doc-only прогнал барьеры — 0 задетых обязано быть 0 прогонов. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  printf '  ok   (ч) doc-only → RC=0, 0 барьеров\n' >&2
 fi
 
 printf 'check_scoped_run: ветви «%s» зелены\n' "$WANT" >&2
