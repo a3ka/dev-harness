@@ -5,6 +5,30 @@
 
 ---
 
+## ГДЕ МЫ (2026-08-23) — 008 красные тесты приведены к конвенции verify_antiplacebo, ГОТОВО к гейтам
+
+**СТАТУС:** контракт 008 (дешёвые судейские круги: `check_contract_ready` + `judge_gate`) ЗАМОРОЖЕН
+(`frozen/contracts/008/1`, `8648f49`). Предмет+проводка легли (`c1f86e6`, зона implementer). Красные
+тесты (мета-барьеры) БЫЛИ сломаны: `check_check_contract_ready.sh`/`check_judge_gate.sh` объявлены
+и барьером («Коды возврата»), и «НЕ БАРЬЕР» → bp-конфликт на полном `verify_antiplacebo`. Промах
+дизайна архитектора: написал их самодостаточными (инлайн), не учтя, что verify_antiplacebo сканирует
+ВЕСЬ `scripts/` и требует `fixtures/<ключ>/case_*.sh` (как 006-братья `check_scope_select`/`check_scoped_run`).
+MiniMax нащупал дыру и застрял, меча́сь барьер↔не-барьер. Владелец остановил MiniMax, архитектор забрал фикс.
+
+**ЧИНИЛ (`67dd3a7`, зона architect):** оба мета-барьера → root-параметризованный БАРЬЕР
+(`[<корень>] [<ветвь>]`, `SUBJECT=<корень>/scripts/...`); заведены `fixtures/check_check_contract_ready/`
+(case_zony_lax, case_gotov_strict) и `fixtures/check_judge_gate/` (case_krasnyj_lax, case_zelenyj_bypass_sha)
+— антиплацебо: зелёный-контроль (реальный предмет) → красный (сломанный стаб) с die-уникальной причиной.
+
+**ЗЕЛЁНОЕ (сборка):** `verify_antiplacebo --scope check_check_contract_ready` / `--scope check_judge_gate`
+→ RC=0, 4 фикстуры красным rerun. Предмет через барьеры (default root) → RC=0 обе. `check:ci-parity` → 0.
+
+**СЛЕДУЮЩИЙ ШАГ:** сборка на «уровне готово». Дальше по регламенту 008: CI 4б (push → scoped-гейт) →
+адверсарий 1 круг → ревьюер 1 круг → `done/contracts/008/1` + приземление. Локально ничего не запускать
+до слова владельца; НЕ пушить без него.
+
+---
+
 ## ГДЕ МЫ (2026-08-23) — 007 ЗАКРЫТ (`done/contracts/007/1` на `24700b8`), CI зелёный
 
 **СТАТУС:** контракт 007 (scoped CI-гейт + де-флейк metering bind:0) ПРОЙДЁН ВЕСЬ РЕГЛАМЕНТ и закрыт.
