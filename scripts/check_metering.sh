@@ -195,6 +195,20 @@ proxy_up() {
     echo "$pid" > "$pidfile"
     local port win
     port="$(jq -r '.port' "$cfg")"
+    if [ "$port" = 0 ]; then
+      # port:0 → прокси биндит OS-эфемерный и репортит фактический в <data_dir>/.actual_port
+      # (срез-2 контракта 007). Читаем его и переписываем cfg.port — ветви читают порт как обычно.
+      local _ap _dd _pi
+      _dd="$(jq -r '.data_dir' "$cfg")"; _ap="$_dd/.actual_port"
+      for _pi in $(seq 1 100); do
+        [ -s "$_ap" ] && { port="$(cat "$_ap")"; break; }
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.05
+      done
+      if [ -n "$port" ] && [ "$port" != 0 ]; then
+        jq --argjson p "$port" '.port = $p' "$cfg" > "${cfg}.p0" && mv "${cfg}.p0" "$cfg"
+      fi
+    fi
     win="$(jq -r '.healthz_window_sec' "$cfg")"
     # Пол терпения 15 с под нагрузкой (см. stub_upstream): win*20 при win=5 = 5 с
     # мало, когда Node стартует медленно; смерть процесса ловится в цикле раньше.
@@ -279,7 +293,7 @@ gen_config() {
   local dir="$1"
   local portup role provider model token proxy_port
   portup="$(free_port)"
-  proxy_port="$(free_port)"
+  proxy_port=0
   role="$(rnd_label 8)"
   provider="$(rnd_label 6)"
   model="$(rnd_label 6)"

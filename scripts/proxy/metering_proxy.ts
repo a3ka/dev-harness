@@ -1251,7 +1251,13 @@ async function main(): Promise<number> {
     server.listen(cfg.port, () => resolve())
     await promise
   }
-  console.error(`metering_proxy listening on ${cfg.port}, data_dir=${cfg.data_dir}`)
+  // При "port": 0 ОС назначает эфемерный порт (bind :0). Репортим ФАКТИЧЕСКИЙ порт в
+  // <data_dir>/.actual_port — check_metering читает его вместо глобального free_port-скана
+  // (срез-2 контракта 007, корень флейка Н-45: скан 60 портов/прогон + TOCTOU).
+  const addr = server.address()
+  const actualPort = typeof addr === 'object' && addr ? addr.port : cfg.port
+  fs.writeFileSync(path.join(cfg.data_dir, '.actual_port'), String(actualPort))
+  console.error(`metering_proxy listening on ${actualPort}, data_dir=${cfg.data_dir}`)
 
   // Корректное завершение — закрыть сервер, выйти по сигналу.
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {
