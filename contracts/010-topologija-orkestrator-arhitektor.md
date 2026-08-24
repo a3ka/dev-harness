@@ -86,10 +86,12 @@ frontier-выбор и ред-тесты — на сильной модели (O
 
 ## §Приёмка (исполняемая — ФОРМА; семантику несёт ревьюер)
 
-1. `roles/orchestrator.md`: есть фронтматтер (`role: orchestrator`, непустой `tools`), И тело
+1. `roles/orchestrator.md`: фронтматтер `role: orchestrator` И точный инвентарь
+   `grep -Fqx 'tools: [read, grep, glob, bash, edit, task, todo]' roles/orchestrator.md`; тело
    несёт обязательные разделы — `grep -q 'СТАРТАП' roles/orchestrator.md` И
-   `grep -q 'НЕ делает' roles/orchestrator.md` И `grep -qE 'ЗАКРЫВАЕТ|frontier|архитектор'`
-   (маркер вызова архитектора). Пустое тело эти grep НЕ проходит.
+   `grep -q 'НЕ делает' roles/orchestrator.md` И
+   `grep -qE 'ЗАКРЫВАЕТ|frontier|архитектор' roles/orchestrator.md` (маркер вызова архитектора).
+   Пустое тело либо неполный инвентарь эти команды НЕ проходят.
 2. `scripts/roles.ts` несёт `orchestrator:` в `MODEL_ROLE`: `grep -q "orchestrator: 'default'" scripts/roles.ts`.
 3. `npm run check:gen` → 0 — `.omp/agents/orchestrator.md` порождён без расхождения.
 4. `roles/architect.md` ИЗМЕНЁН этим майлстоуном: `! git diff --quiet 1c023f0 HEAD -- roles/architect.md`
@@ -99,8 +101,9 @@ frontier-выбор и ред-тесты — на сильной модели (O
 6. `AGENTS.md` ИЗМЕНЁН и несёт топологию: `! git diff --quiet 1c023f0 HEAD -- AGENTS.md`
    И `grep -q 'orchestrator' AGENTS.md`; `npm run check:charter` → 0 (строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:`
    в изменяющем коммите).
-7. `.omp/config.yml`: роль модели оркестратора указывает `minimax/MiniMax-M3`; architect —
-   `zai/glm-5.2`.
+7. `.omp/config.yml` маршрутизирует модели: `grep -q 'default: "minimax/MiniMax-M3"' .omp/config.yml`
+   И `grep -q 'slow: "zai/glm-5.2"' .omp/config.yml` (orchestrator→`default`→MiniMax через MODEL_ROLE
+   п.2; architect→`slow`→glm — команда с кодом возврата, не проза).
 8. Регресс: `npm run check:ci-parity` → 0; `bash scripts/verify_antiplacebo.sh` → 0 (фрозенные
    барьеры 006/007/008 целы).
 
