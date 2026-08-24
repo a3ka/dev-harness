@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # ПРИЧИНА: bare флаг не принят
-# Ветвь (фailfast-дефолт): барьер ловит judge_gate, который разбирает ТОЛЬКО --fail-fast=N
-# (не bare --fail-fast). На bare --fail-fast $PASS_SHA он упадёт в usage error (RC=1) — НЕ
-# rc=0 + OK → ветвь красная.
-# Зелёный контроль — heredoc эталона (принимает bare И =N).
+# Ветвь (фailfast-дефолт): стаб разбирает ТОЛЬКО --fail-fast=N (не bare). На входе bare
+# `--fail-fast <PASS_SHA>` он не отбрасывает флаг, передаёт `--fail-fast` в check_ci_gate как
+# `$1` (а не `$PASS_SHA`) → fake даёт rc=1 + «CI не зелёный» — НЕ rc=0 + OK → ветвь красная.
+# (Описание фактического пути отказа, по совету критика: стаб НЕ уходит в usage error —
+# он пробрасывает `--fail-fast` как sha, и красный диагноз «CI не зелёный» — следствие этого,
+# а не явный отказ синтаксиса. Барьер различает «нет rc=0» от «есть rc=0 + OK», что и есть
+# доказательство непонимания bare-флага.)
 set -euo pipefail
 G="$WORK/green"; mkdir -p "$G/scripts"
 cat > "$G/scripts/judge_gate.sh" <<'EOF'

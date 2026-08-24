@@ -25,53 +25,66 @@ timeout (rc=124) `judge_gate.sh` печатает в stderr дословно
 маркер `OK` на rc=0 — как раньше.
 
 Защиты (отказ с названной причиной, RC=1):
-- `command -v timeout` пусто → `FAIL-FAST: timeout не найден` (даже если --fail-fast запрошен);
-- `--fail-fast=N` с N≤0 ИЛИ N не целое → `FAIL-FAST: тайм-бокс должен быть > 0 (дано: <N>)`.
+- `command -v timeout` пусто → дословно `FAIL-FAST: timeout не найден` (даже если --fail-fast запрошен);
+- `--fail-fast=N` с N≤0 ИЛИ N не целое → дословно
+  `FAIL-FAST: тайм-бокс должен быть > 0 (дано: <N>)`.
 
 ## §Что значит готово — критерий (красные предъявлены ДО круга критика)
 
-Барьер `scripts/check_judge_gate.sh` расширен ТРЕМЯ новыми ветвями (итого ПЯТЬ: красный, зелёный,
-фailfast-медленный, фailfast-быстрый-ok, фailfast-дефолт). Фикстуры в
-`fixtures/check_judge_gate/case_failfast_*.sh` (ТРИ новых, итого ШЕСТЬ в каталоге) предъявляют
-барьер КРАСНЫМ против текущего предмета (008, без fail-fast) и ЗЕЛЁНЫМ против heredoc-эталона
-с правильной реализацией `--fail-fast`.
+Барьер `scripts/check_judge_gate.sh` имеет ВОСЕМЬ ветвей (2 унаследованных от 008 + 6 новых).
+Фикстуры в `fixtures/check_judge_gate/case_*.sh` — ДЕВЯТЬ (3 унаследованных от 008 + 6 новых).
+Каждая фикстура предъявляет барьер КРАСНЫМ против сломанного предмета и ЗЕЛЁНЫМ против
+heredoc-эталона с правильной реализацией `--fail-fast`.
 
-`run_gate` барьера расширен: fake `check_ci_gate.sh` теперь реагирует на `$SLOW_SHA` (sleep 3с,
-rc=1); `$PASS_SHA` остаётся без задержки → rc=0; всё прочее → rc=1. Маркер `FAKE-check_ci_gate`
-сохраняется.
+`run_gate` барьера расширен: fake `check_ci_gate.sh` реагирует на `$SLOW_SHA` (sleep `SLEEP_FOR`
+секунд, rc=1); `$PASS_SHA` остаётся без задержки → rc=0; всё прочее → rc=1. Маркер
+`FAKE-check_ci_gate` сохраняется. `run_gate` замеряет `ELAPSED_MS` (время выполнения предмета
+в миллисекундах) — нужно для отличения «fail-fast сработал» от «имитации без timeout».
 
-**Все три новые ветви требуют маркер `FAKE-check_ci_gate` в выводе** (предмет звал check_ci_gate,
-а не замкнул стабом).
+### Восемь ветвей барьера
 
-**(фailfast-медленный)** — fake спит 3с; вызов `judge_gate.sh --fail-fast=2 <SLOW_SHA>` обязан:
-- RC≠0 (НЕ 0);
-- в выводе содержится дословно `FAIL-FAST: превышен тайм-бокс 2 с` (НЕ «CI не зелёный» — это
-  другой класс отказа, проверяется отдельным сообщением).
+**(красный)** (008) — fake не реагирует на sha; `judge_gate.sh <deadbeef>` обязан RC≠0 + маркер
+`FAKE-check_ci_gate`. Ловит стаб-всегда-RC0.
 
-Красное против 008: реальный `judge_gate.sh --fail-fast=2 <SLOW_SHA>` пробрасывает `--fail-fast=2`
-как `$1` в check_ci_gate → fake на `$1=--fail-fast=2` вернёт rc=1 + «CI не зелёный» —
-НЕ «FAIL-FAST: превышен» → die. Красное предъявлено.
+**(зелёный)** (008) — fake реагирует на `$PASS_SHA`; `judge_gate.sh <PASS_SHA>` обязан RC=0 +
+маркер «OK» + fake видит `sha=$PASS_SHA`. Ловит стаб, не передающий свой `$1`.
 
-**(фailfast-быстрый-ok)** — fake отвечает мгновенно rc=0 на `$PASS_SHA`; вызов
-`judge_gate.sh --fail-fast=2 <PASS_SHA>` обязан:
-- RC=0;
-- в выводе есть `OK` (зелёный контроль);
-- в выводе fake видит `sha=${PASS_SHA}` (предмет передал свой `$1`, не хардкодил).
+**(фailfast-медленный)** (009) — fake спит `$SLEEP_FOR=3с` на `$SLOW_SHA`;
+`judge_gate.sh --fail-fast=2 <SLOW_SHA>` обязан: RC≠0 + дословно «FAIL-FAST: превышен тайм-бокс
+2 с» + **`ELAPSED_MS < 2800`**. Замер elapsed отличает имитацию (стаб ждёт fake 3с без timeout,
+печатая «FAIL-FAST» уже после) — она даст RC≠0 + правильную подстроку, но elapsed ≥ 3000мс.
+timeout срабатывает на ~2.0с + overhead; запас 2800мс отделяет.
 
-Красное против 008: реальный `judge_gate.sh --fail-fast=2 <PASS_SHA>` пробрасывает
-`--fail-fast=2` как `$1` → fake вернёт rc=1 + «CI не зелёный» — НЕ RC=0 → die. Красное предъявлено.
+**(фailfast-быстрый-ok)** (009) — fake отвечает мгновенно rc=0 на `$PASS_SHA`;
+`judge_gate.sh --fail-fast=2 <PASS_SHA>` обязан: RC=0 + «OK» + fake видит `sha=$PASS_SHA`. Ловит
+стаб, не реализующий timeout и пробрасывающий `--fail-fast=2` как sha в check_ci_gate.
 
-**(фailfast-дефолт)** — fake отвечает мгновенно rc=0 на `$PASS_SHA`; вызов
-`judge_gate.sh --fail-fast <PASS_SHA>` (без `=<N>`, дефолт 540с) обязан:
-- RC=0;
-- в выводе есть `OK`;
-- в выводе есть `FAKE-check_ci_gate`.
+**(фailfast-дефолт)** (009) — fake отвечает мгновенно rc=0 на `$PASS_SHA`;
+**(фailfast-медленный)** (009) — fake спит `$SLEEP_FOR=3с` на `$SLOW_SHA`;
+`judge_gate.sh --fail-fast=2 <SLOW_SHA>` обязан: RC≠0 + дословно «FAIL-FAST: превышен тайм-бокс
+2 с» + **в выводе НЕТ «rc=1»**. Анти-плацебо: bash в script-режиме не пробрасывает SIGTERM
+в дочерний sleep, и без sleep-перед-реакцией fake стал бы orphan, а проверка elapsed —
+ненадёжной (~1с overhead от setsid+env-i). С sleep-перед-реакцией fake становится
+«спящим», timeout SIGTERM его будит с обрывом маркера «rc=» (без «rc=0»/«rc=slow»/«rc=1»).
+Стаб-имитатор (без timeout, синхронно ждёт fake 3с, потом печатает «FAIL-FAST») — fake
+проживает все 3с и печатает «rc=1» → подстрока есть → ветвь красная. Это и есть ОБХОД
+круга 1: имитация fail-fast без timeout ловится не замером времени, а детерминированной
+подстрокой маркера fake.
 
-Красное против 008: аналогично `(фailfast-быстрый-ok)` — реальный `judge_gate.sh` не разбирает
-`--fail-fast` без значения, пробрасывает как `$1` → rc=1 → die. Красное предъявлено.
+**(фailfast-защита-N-невалидный)** (009) — fake отвечает мгновенно rc=0; `judge_gate.sh
+--fail-fast=0 <PASS_SHA>` обязан: RC≠0 + дословно «тайм-бокс должен быть > 0». Маркер FAKE
+НЕ обязателен (предмет может отвергать ДО вызова check_ci_gate). Ловит стаб (008), который
+пробрасывает `--fail-fast=0` как `$1` в check_ci_gate → rc=1 + «CI не зелёный», НЕ «тайм-бокс
+должен быть > 0» → die.
+
+**(фailfast-защита-timeout-отсутствует)** (009) — `PATH` подменён через `$WORK/nopath/`,
+содержащий симлинки на `bash`/`sh`/`cat`/`date`/`echo`/`printf`/`sleep`, но НЕ на `timeout`;
+передаётся через `EXTRA_ENV="PATH=…"` в run_gate. `judge_gate.sh --fail-fast=2 <PASS_SHA>`
+обязан: RC≠0 + дословно «timeout не найден». Маркер FAKE НЕ обязателен. Ловит стаб (008), который
+не проверяет наличие timeout — пробрасывает в check_ci_gate → rc=1 + «CI не зелёный», НЕ
+«timeout не найден» → die.
 
 Старые ветви `(красный)` и `(зелёный)` (008) НЕ ТРОГАЕМ — обратная совместимость.
-`run_gate` (сигнатура расширена) теперь принимает все аргументы `judge_gate.sh`, не только `<sha>`.
 
 ## §Зоны
 
@@ -79,19 +92,22 @@ rc=1); `$PASS_SHA` остаётся без задержки → rc=0; всё п�
 ЗОНА architect: scripts/check_judge_gate.sh fixtures/check_judge_gate/ NABLIUDENIA.md HANDOFF.md
 contracts/009-sudja-fail-fast.md
 
-Связность: implementer расширяет ПРЕДМЕТ режимом --fail-fast (правка ~15 строк поверх 008).
-Architect расширяет БАРЬЕР (3 ветви + реакция fake на $SLOW_SHA) и пишет 3 фикстуры (heredoc
-эталона с правильной реализацией + красный стаб). 008-закреплённое API сохраняется 1:1 — это
-инвариант, проверяется регресс-фикстурами 008.
-
+Связность: implementer расширяет ПРЕДМЕТ режимом --fail-fast (правка ~25 строк поверх 008:
+разбор флага + валидация N + проверка timeout + timeout-обёртка + два сообщения об ошибке).
+Architect расширяет БАРЬЕР (6 новых ветвей + замер elapsed + SLEEP_FOR + EXTRA_ENV + fake с
+`$SLOW_SHA`) и пишет 6 фикстур (heredoc эталона с правильной реализацией + красный стаб).
+008-закреплённое API сохраняется 1:1 — это инвариант, проверяется регресс-фикстурами 008.
+`run_gate` барьера использует fake `check_ci_gate.sh` со sleep ПЕРЕД реакцией (см. комментарий
+в `scripts/check_judge_gate.sh` про bash+SIGTERM). Маркер `FAKE-check_ci_gate` сохраняется.
 ## §Приёмка (исполняемая)
 
-1. `bash scripts/check_judge_gate.sh` → 0. Все ПЯТЬ ветвей зелены.
+1. `bash scripts/check_judge_gate.sh` → 0. Все ВОСЕМЬ ветвей зелены.
 2. `npm run check:judge-gate` → 0 (паритет с 008).
 3. `npm run check:ci-parity` → 0 (нет новых команд в проводке — расширение того же барьера).
-4. Регресс 008: фикстуры `case_dispatcher_sha` / `case_krasnyj_lax` / `case_zelenyj_bypass_sha`
-   зелёные на реальном judge_gate.sh без флага.
-5. Полный CI на чистом чекауте зелёный (CI 4б).
+4. Регресс 008: `bash scripts/check_judge_gate.sh . зелёный && bash scripts/check_judge_gate.sh . красный`
+   → 0 на 0. Фикстуры `case_dispatcher_sha` / `case_krasnyj_lax` / `case_zelenyj_bypass_sha` зелёные
+   на реальном judge_gate.sh без флага (008 API сохраняется 1:1).
+5. Полный CI на чистом чекауте: `bash scripts/check_ci_gate.sh` (запушенный HEAD) → 0.
 
 ## §Незаполненные требования
 
