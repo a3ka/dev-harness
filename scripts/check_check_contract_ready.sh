@@ -48,7 +48,7 @@ trap 'rm -rf "$WORK"' EXIT
 want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 has()  { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 
-KNOWN="зоны проба счёт арбитраж готов"
+KNOWN="зоны проба пробаф счёт арбитраж готов"
 if [ "$WANT" != all ]; then
   f=0; for k in $KNOWN; do [ "$WANT" = "$k" ] && f=1; done
   [ "$f" = 1 ] || { printf 'ОТКАЗ диспетчер: неизвестная ветвь «%s» (из: %s)\n' "$WANT" "$KNOWN" >&2; exit 1; }
@@ -77,7 +77,14 @@ run_subject() {  # <root>
 # Каждая объявленная проба — реальный ИСПОЛНЯЕМЫЙ файл (НЕ bash-127 от несуществующего пути).
 # Точные строки — КОНТРАКТ между мета-барьером и предметом; менять = менять замороженный шаг 3.
 
-# Готовый: все 4 проверки проходят.
+# Случайный per-run токен: заголовки toy-контрактов ОДИНАКОВЫ и генеричны (`# Тестовый контракт
+# $TOK`), без описательных суффиксов, а различающие ЗНАЧЕНИЯ (счёт, имя арбитража) рандомизированы.
+# Так предмет нельзя пройти ДИСПЕТЧЕРОМ по постоянным строкам/суффиксам фикстур (адверсарий 008
+# круг 1: стаб, узнававший 5 заголовков, проходил все ветви). Честный предмет парсит СОДЕРЖИМОЕ
+# (ЗОНА/проба/счёт/арбитраж), поэтому рандомизация его не ломает; диспетчер по константам — ломает.
+TOK="$$-${RANDOM}${RANDOM}"
+
+# Готовый: все проверки проходят.
 mk_ready() {
   local r="$1"
   mkdir -p "$r/scripts" "$r/fixtures/toy"
@@ -88,7 +95,7 @@ exit 1
 EOF
   chmod +x "$r/scripts/toy_barrier.sh"
   cat > "$r/contract.md" <<EOF
-# Тестовый контракт (готовый)
+# Тестовый контракт $TOK
 ## Зоны
 ЗОНА architect: scripts/
 
@@ -105,14 +112,14 @@ EOF
 EOF
 }
 
-# Без зон: раздача неясна.
+# Без зон: раздача неясна (нет строки ЗОНА/РАБОТА-НЕ-РАЗДАЁТСЯ — различитель СОДЕРЖИМОЕ, не титул).
 mk_nozones() {
   local r="$1"
   mkdir -p "$r/scripts"
-  cat > "$r/contract.md" <<'EOF'
-# Тестовый контракт (без зон)
+  cat > "$r/contract.md" <<EOF
+# Тестовый контракт $TOK
 ## Приёмочный критерий
-- `bash scripts/none.sh` → 0
+- \`bash scripts/none.sh\` → 0
 EOF
 }
 
@@ -122,49 +129,69 @@ mk_greentest() {
   mkdir -p "$r/scripts"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/true.sh"
   chmod +x "$r/scripts/true.sh"
-  cat > "$r/contract.md" <<'EOF'
-# Тестовый контракт (зелёная проба)
+  cat > "$r/contract.md" <<EOF
+# Тестовый контракт $TOK
 ## Зоны
 ЗОНА architect: scripts/
 
 ## Приёмочный критерий
-- `bash scripts/true.sh` → 0 (ожидаем красный: 1)
+- \`bash scripts/true.sh\` → 0 (ожидаем красный: 1)
 EOF
 }
 
-# Рассогласованный счёт: объявлено N, фактически другое.
-mk_wrongcount() {
+# Проба-файл отсутствует: объявлена проба на НЕсуществующий исполняемый. Предмет ОБЯЗАН проверить
+# СУЩЕСТВОВАНИЕ файла, а не принять bash-127 за валидную красную пробу (адверсарий 008 круг 1).
+mk_proba_missing() {
   local r="$1"
+  mkdir -p "$r/scripts"
+  cat > "$r/contract.md" <<EOF
+# Тестовый контракт $TOK
+## Зоны
+ЗОНА architect: scripts/
+
+## Приёмочный критерий
+- \`bash scripts/missing-$TOK.sh\` → 0
+EOF
+}
+
+# Рассогласованный счёт: объявлено decl (5..9), фактически act (0..3) — оба случайны, decl≠act,
+# чтобы диспетчер не мог зашить пару чисел; предмет ОБЯЗАН посчитать реальные case_*.sh.
+mk_wrongcount() {
+  local r="$1" decl act i
+  decl=$(( (RANDOM % 5) + 5 ))
+  act=$(( RANDOM % 4 ))
   mkdir -p "$r/scripts" "$r/fixtures/cnt"
   printf '#!/usr/bin/env bash\nexit 1\n' > "$r/scripts/cnt_barrier.sh"
   chmod +x "$r/scripts/cnt_barrier.sh"
-  # 2 реальных фикстуры, объявлено 5
-  printf '#!/usr/bin/env bash\nexit 1\n' > "$r/fixtures/cnt/case_a.sh"
-  printf '#!/usr/bin/env bash\nexit 1\n' > "$r/fixtures/cnt/case_b.sh"
-  chmod +x "$r/fixtures/cnt/"*.sh
-  cat > "$r/contract.md" <<'EOF'
-# Тестовый контракт (рассогласованный счёт)
+  i=0
+  while [ "$i" -lt "$act" ]; do
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$r/fixtures/cnt/case_$i.sh"
+    chmod +x "$r/fixtures/cnt/case_$i.sh"
+    i=$((i + 1))
+  done
+  cat > "$r/contract.md" <<EOF
+# Тестовый контракт $TOK
 ## Зоны
 ЗОНА architect: scripts/
 
 ## Приёмочный критерий
-- `bash scripts/cnt_barrier.sh` → 0 (ожидаем красный: 1)
-счёт: 5 фикстур в fixtures/cnt/
+- \`bash scripts/cnt_barrier.sh\` → 0 (ожидаем красный: 1)
+счёт: $decl фикстур в fixtures/cnt/
 EOF
 }
 
-# Непройденный арбитраж: объявлен файл, которого нет, либо первая строка ≠ «РЕШЕНИЕ».
+# Непройденный арбитраж: объявлен файл (случайное имя), которого нет.
 mk_arb_bad() {
   local r="$1"
   mkdir -p "$r/scripts"
   printf '#!/usr/bin/env bash\nexit 1\n' > "$r/scripts/arb_barrier.sh"
   chmod +x "$r/scripts/arb_barrier.sh"
-  cat > "$r/contract.md" <<'EOF'
-# Тестовый контракт (непройденный арбитраж)
+  cat > "$r/contract.md" <<EOF
+# Тестовый контракт $TOK
 ## Зоны
 ЗОНА architect: scripts/
-- `bash scripts/arb_barrier.sh` → 0 (ожидаем красный: 1)
-арбитраж: verdicts/arbitration/_DOES_NOT_EXIST.md
+- \`bash scripts/arb_barrier.sh\` → 0 (ожидаем красный: 1)
+арбитраж: verdicts/arbitration/_NET-$TOK.md
 EOF
 }
 
@@ -188,14 +215,25 @@ if want проба; then
   printf '  ok   (проба) зелёная проба → RC≠0, названо «проб»\n' >&2
 fi
 
+# ── (пробаф) объявленная проба на НЕсуществующий файл → RC≠0 + названо «проб» ─────
+# Предмет ОБЯЗАН проверить СУЩЕСТВОВАНИЕ файла пробы, а не принять bash-127 от отсутствующего
+# пути за валидную красную пробу (адверсарий 008 круг 1).
+if want пробаф; then
+  R="$WORK/пробаф"; mk_proba_missing "$R"
+  run_subject "$R"
+  [ "$RC" != 0 ] || die пробаф "проба на несуществующий файл принята RC=0 — предмет не проверил существование (bash-127 ≠ валидная красная проба). Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  has "проб" "$OUT" || die пробаф "несуществующая проба не названа «проб» — термин не закреплён. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  printf '  ok   (пробаф) проба на несуществующий файл → RC≠0, названо «проб»\n' >&2
+fi
+
 # ── (счёт) объявленное «N фикстур» ≠ факт → RC≠0 + названо «счёт» ──────────────
 # Грамматика: «счёт: N фикстур в <каталог>/» — предмет ОБЯЗАН посчитать case_*.sh в <каталог>/.
 if want счёт; then
   R="$WORK/счёт"; mk_wrongcount "$R"
   run_subject "$R"
-  [ "$RC" != 0 ] || die счёт "рассогласованный счёт (2≠5) принят RC=0 — предмет не ловит Н-38 п.1. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
+  [ "$RC" != 0 ] || die счёт "рассогласованный счёт принят RC=0 — предмет не ловит Н-38 п.1. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
   has "счёт" "$OUT" || die счёт "рассогласованный счёт не назван «счёт» — термин не закреплён. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 240)"
-  printf '  ok   (счёт) рассогласованный счёт (2≠5) → RC≠0, названо «счёт»\n' >&2
+  printf '  ok   (счёт) рассогласованный счёт → RC≠0, названо «счёт»\n' >&2
 fi
 
 # ── (арбитраж) объявленный арбитражный файл НЕ существует → RC≠0 + названо «арбитраж» ─

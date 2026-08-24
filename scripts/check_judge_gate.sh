@@ -54,11 +54,12 @@ if [ "$WANT" != all ]; then
   [ "$f" = 1 ] || { printf 'ОТКАЗ диспетчер: неизвестная ветвь «%s» (из: %s)\n' "$WANT" "$KNOWN" >&2; exit 1; }
 fi
 
-# Fake `check_ci_gate.sh`: rc=0 ТОЛЬКО при $1 = PASS_THIS_SHA_GREEN, иначе rc=1.
+# Fake `check_ci_gate.sh`: rc=0 ТОЛЬКО при $1 = $PASS_SHA (СЛУЧАЙНЫЙ per-run), иначе rc=1.
 # Это пинит, что judge_gate ОБЯЗАН передать свой $1 в check_ci_gate (а не вызвать без
-# аргумента или с чужим SHA). Маркер FAKE печатается в stderr — для доказательства вызова.
+# аргумента, с чужим SHA или ЗАШИТЬ зелёный на известную КОНСТАНТУ — адверсарий 008 круг 1:
+# стаб, хардкодивший старую константу sha, проходил ветвь). Маркер FAKE — в stderr, для вызова.
 FAKE_MARK="FAKE-check_ci_gate"
-PASS_SHA="PASS_THIS_SHA_GREEN"
+PASS_SHA="GOOD-SHA-$$-${RANDOM}${RANDOM}${RANDOM}"
 run_gate() {  # <sha>
   if [ ! -f "$SUBJECT" ]; then OUT="ПРЕДМЕТ-ОТСУТСТВУЕТ"; RC=2; return 0; fi
   local t="$WORK/g"; mkdir -p "$t/scripts"
