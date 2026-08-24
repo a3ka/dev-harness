@@ -1,33 +1,50 @@
 #!/usr/bin/env bash
 # ПРИЧИНА: rc=1
 # Ветвь (фailfast-защита-timeout-отсутствует): барьер подменяет PATH так, что `command -v
-# timeout` пусто. Стаб, который НЕ проверяет наличие timeout перед запуском, либо
-# пробрасывает в check_ci_gate (rc=1 + «CI не зелёный», нет «timeout не найден»), либо
-# зависает синхронно. Эталон проверяет `command -v timeout` и отвечает дословно
-# «FAIL-FAST: timeout не найден» + RC=1.
+# timeout` пусто (через ИЗОЛИРОВАННЫЙ nopath_abs). Стаб, который НЕ проверяет наличие
+# timeout перед запуском, пробрасывает в check_ci_gate (rc=1 + «CI не зелёный», нет
+# «timeout не найден») → die. Эталон проверяет `command -v timeout` и отвечает
+# дословно «FAIL-FAST: timeout не найден» + RC=1.
 set -euo pipefail
 G="$WORK/green"; mkdir -p "$G/scripts"
 cat > "$G/scripts/judge_gate.sh" <<'EOF'
 #!/usr/bin/env bash
 # ЭТАЛОН: правильная реализация --fail-fast (проверяет наличие timeout).
+# ВАЖНО: timeout вызывается ТОЛЬКО если --fail-fast задан.
 set -uo pipefail
 TBOX=""
 case "${1:-}" in
   --fail-fast) TBOX=540; shift ;;
-  --fail-fast=*) TBOX="${1#--fail-fast=}"; shift ;;
+  --fail-fast=*)
+    TBOX="${1#--fail-fast=}"
+    shift
+    case "$TBOX" in
+      ''|*[!0-9]*) printf 'FAIL-FAST: тайм-бокс должен быть > 0 (дано: %s)\n' "$TBOX" >&2; exit 1 ;;
+    esac
+    [ "$TBOX" -gt 0 ] || { printf 'FAIL-FAST: тайм-бокс должен быть > 0 (дано: %s)\n' "$TBOX" >&2; exit 1; }
+    ;;
 esac
 sha="${1:?usage: $0 [--fail-fast[=<N>]] <sha>}"
-# Защита: timeout должен быть в PATH.
-command -v timeout >/dev/null 2>&1 || { printf 'FAIL-FAST: timeout не найден\n' >&2; exit 1; }
+# Защита: timeout должен быть в PATH (только если --fail-fast задан).
+if [ -n "$TBOX" ]; then
+  command -v timeout >/dev/null 2>&1 || { printf 'FAIL-FAST: timeout не найден\n' >&2; exit 1; }
+fi
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-timeout --foreground "$TBOX" "$SELF/check_ci_gate.sh" "$sha"
-rc=$?
-[ "$rc" = 124 ] && { printf 'FAIL-FAST: превышен тайм-бокс %s с\n' "$TBOX" >&2; exit 1; }
+if [ -n "$TBOX" ]; then
+  timeout --foreground "$TBOX" "$SELF/check_ci_gate.sh" "$sha"
+  rc=$?
+  [ "$rc" = 124 ] && { printf 'FAIL-FAST: превышен тайм-бокс %s с\n' "$TBOX" >&2; exit 1; }
+else
+  "$SELF/check_ci_gate.sh" "$sha"
+  rc=$?
+fi
 [ "$rc" = 0 ] && printf 'OK\n'
 exit "$rc"
 EOF
 chmod +x "$G/scripts/judge_gate.sh"
 "$BARRIER" "$G" фailfast-защита-timeout-отсутствует
+# Обязательный положительный контроль all (решение арбитра 2026-08-24).
+"$BARRIER" "$G" all
 
 # Красное: реальный judge_gate.sh (008, без fail-fast) — пробрасывает всё в check_ci_gate,
 # на PATH без timeout не зовёт timeout, не отвечает «timeout не найден».

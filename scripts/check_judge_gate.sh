@@ -26,9 +26,8 @@
 # bash в script-режиме НЕ пробрасывает SIGTERM в дочерний sleep → fake делает sleep
 # ПЕРЕД реакцией: timeout SIGTERM убивает fake с обрывом маркера «rc=» (без «0»/«1»).
 #
-# Дефером для ветки `(фailfast-дефолт-540)`: fake-timeout через PATH-minimal —
-# `/path/to/timeout` это скрипт, который пишет $@ в args.log, потом exec настоящего timeout.
-# Это позволяет проверить, что default TBOX == 540 (а не 0/1/3/любое другое).
+# Изолированные PATH-каталоги по решению арбитра (b2d336d): каждая ветвь с
+# PATH-манипуляцией использует СВОЙ nopath-каталог — нет пересечения между ветвями.
 #
 # 10 ветвей: красный, зелёный, фailfast-медленный, фailfast-быстрый-ok,
 # фailfast-дефолт, фailfast-дефолт-540, фailfast-произвольный-N,
@@ -85,6 +84,17 @@ EOF
   fi
 }
 
+# Создать изолированный nopath-каталог с симлинками (используется фикстурой и сам).
+# Ветвь `(фailfast-дефолт-540)` потом добавит timeout через свой `cat`.
+make_nopath() {  # <каталог>
+  local d="$1"
+  mkdir -p "$d"
+  for cmd in bash sh cat date echo printf sleep dirname pwd; do
+    src="$(command -v "$cmd" 2>/dev/null || true)"
+    [ -n "$src" ] && ln -sf "$src" "$d/$cmd"
+  done
+}
+
 # ── (красный) CI не зелёный → RC≠0 ──────────────────────────────────────────
 if want красный; then
   run_gate "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
@@ -93,7 +103,7 @@ if want красный; then
   printf '  ok   (красный) не-зелёный CI → judge_gate RC≠0, звал check_ci_gate\n' >&2
 fi
 
-# ── (зелёный) CI зелёный → RC=0 + OK + sha=$PASS_SHA ────────────────────────────
+# ── (зелёный) CI зелёный → RC=0 + OK + sha=$PASS_SHA ───────────────────────────
 if want зелёный; then
   run_gate "$PASS_SHA"
   has "$FAKE_MARK" "$OUT" || die зелёный "judge_gate не позвал check_ci_gate (нет маркера). Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
@@ -134,27 +144,19 @@ if want фailfast-дефолт; then
   printf '  ok   (фailfast-дефолт) bare --fail-fast → дефолт 540с, rc=0 + «OK»\n' >&2
 fi
 
-# ── (фailfast-дефолт-540) fake-timeout через PATH; проверка TBOX == 540 ────────────
-# Подменяем PATH на nopath с симлинками + fake-timeout (пишет $@ в args.log, exec /usr/bin/timeout).
-# Это РАСХОД на ветку, но доказывает, что default = 540 (а не 0/1/3/любое другое).
-# Без fake-timeout стаб с TBOX=3 проходит как зелёный (fake спит 2с, успевает за 3с) — ОБХОД.
+# ── (фailfast-дефолт-540) fake-timeout через ИЗОЛИРОВАННЫЙ nopath_540; проверка TBOX==540 ──
+# Изолированный PATH ($WORK/nopath_540) — НЕ пересекается с nopath_abs (timeout-отсутствует).
+# fake-timeout пишет $@ в args.log, затем exec настоящего /usr/bin/timeout.
+# heredoc БЕЗ кавычек → интерполяция ${WORK}; $@ и \$ — литералы.
 if want фailfast-дефолт-540; then
-  mkdir -p "$WORK/nopath"
-  for cmd in bash sh cat date echo printf sleep dirname pwd; do
-    src="$(command -v "$cmd" 2>/dev/null || true)"
-    [ -n "$src" ] && ln -sf "$src" "$WORK/nopath/$cmd"
-  done
-  # fake-timeout: пишет $@ в args.log, потом exec настоящего timeout (через /usr/bin/timeout).
-  # heredoc БЕЗ кавычек → интерполяция ${WORK}; $@ и \$ — литералы.
-  cat > "$WORK/nopath/timeout" <<EOF
+  make_nopath "$WORK/nopath_540"
+  cat > "$WORK/nopath_540/timeout" <<EOF
 #!/usr/bin/env bash
 echo "\$@" > "${WORK}/timeout_args.log"
 exec /usr/bin/timeout "\$@"
 EOF
-  chmod +x "$WORK/nopath/timeout"
-  rm -f "$WORK/timeout_args.log"
-  SLEEP_FOR=2 EXTRA_ENV="PATH=$WORK/nopath" run_gate --fail-fast "$PASS_SHA"
-  # Проверка TBOX == 540 (контракт пинит).
+  chmod +x "$WORK/nopath_540/timeout"
+  SLEEP_FOR=2 EXTRA_ENV="PATH=$WORK/nopath_540" run_gate --fail-fast "$PASS_SHA"
   [ -f "$WORK/timeout_args.log" ] || die фailfast-дефолт-540 "timeout не был вызван (args.log нет) — fake-timeout не перехватил вызов, предмет НЕ использовал timeout"
   if ! grep -q -- '--foreground 540' "$WORK/timeout_args.log"; then
     die фailfast-дефолт-540 "default НЕ 540: timeout_args.log = $(cat $WORK/timeout_args.log) — предмет передал TBOX≠540 на bare --fail-fast. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
@@ -166,15 +168,20 @@ EOF
   printf '  ok   (фailfast-дефолт-540) bare --fail-fast → default 540 (timeout_args.log проверен), fake sleep 2с → rc=0 + «OK»\n' >&2
 fi
 
-# ── (фailfast-произвольный-N) --fail-fast=7 → rc=0 + OK (предмет принимает любой N) ──
+# ── (фailfast-произвольный-N) RANDOM_N∈[3..500] на прогон; стаб-whitelist провалится ──
+# Конструкция (решение арбитра b2d336d, домен N бесконечен — конечная проверка):
+# на каждом прогоне N случайный из [3..500]; стаб с whitelist {2,7} при N=3,4,... провалится.
+# Стаб, принимающий ВСЕ натуральные N>0 без whitelist, пройдёт (cognitive-only).
 if want фailfast-произвольный-N; then
-  SLEEP_FOR=0 run_gate --fail-fast=7 "$PASS_SHA"
+  RANDOM_N=$((RANDOM % 498 + 3))
+  printf 'RANDOM_N=%s\n' "$RANDOM_N" >&2  # для верификации: значение N в этом прогоне
+  SLEEP_FOR=0 run_gate --fail-fast="$RANDOM_N" "$PASS_SHA"
   has "$FAKE_MARK" "$OUT" || die фailfast-произвольный-N "judge_gate не позвал check_ci_gate (нет маркера). Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
   has "sha=${PASS_SHA}" "$OUT" || die фailfast-произвольный-N "fake не получил sha=${PASS_SHA}. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
-  [ "$RC" = 0 ] || die фailfast-произвольный-N "--fail-fast=7 (произвольное N, не 2) на быстром fake дал RC=$RC — предмет принимает не все натуральные N. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
+  [ "$RC" = 0 ] || die фailfast-произвольный-N "--fail-fast=$RANDOM_N (случайный N∈[3..500]) на быстром fake дал RC=$RC — предмет не принимает произвольные натуральные N. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
   has "OK" "$OUT" || die фailfast-произвольный-N "RC=0, но нет маркера «OK». Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
-  has "rc=1" "$OUT" && die фailfast-произвольный-N "стаб пробрасывает --fail-fast=7 как $1 → rc=1. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
-  printf '  ok   (фailfast-произвольный-N) --fail-fast=7 → rc=0 + «OK» (предмет принимает произвольный натуральный N)\n' >&2
+  has "rc=1" "$OUT" && die фailfast-произвольный-N "стаб пробрасывает --fail-fast=$RANDOM_N как $1 → rc=1. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
+  printf '  ok   (фailfast-произвольный-N) --fail-fast=%s (RANDOM_N∈[3..500]) → rc=0 + «OK»\n' "$RANDOM_N" >&2
 fi
 
 # ── (фailfast-защита-N-невалидный) --fail-fast=0 → RC≠0 + «тайм-бокс должен быть > 0» ──
@@ -195,15 +202,11 @@ if want фailfast-защита-N-нецелый; then
   printf '  ok   (фailfast-защита-N-нецелый) --fail-fast=abc → RC≠0 + «тайм-бокс должен быть > 0»\n' >&2
 fi
 
-# ── (фailfast-защита-timeout-отсутствует) PATH без timeout → RC≠0 + «timeout не найден» ──
+# ── (фailfast-защита-timeout-отсутствует) ИЗОЛИРОВАННЫЙ nopath_abs без timeout ──
 if want фailfast-защита-timeout-отсутствует; then
-  mkdir -p "$WORK/nopath"
-  for cmd in bash sh cat date echo printf sleep dirname pwd; do
-    src="$(command -v "$cmd" 2>/dev/null || true)"
-    [ -n "$src" ] && ln -sf "$src" "$WORK/nopath/$cmd"
-  done
-  # timeout НЕ кладём.
-  EXTRA_ENV="PATH=$WORK/nopath" SLEEP_FOR=0 run_gate --fail-fast=2 "$PASS_SHA"
+  make_nopath "$WORK/nopath_abs"
+  # timeout НЕ кладём — это и есть условие ветки.
+  EXTRA_ENV="PATH=$WORK/nopath_abs" SLEEP_FOR=0 run_gate --fail-fast=2 "$PASS_SHA"
   [ "$RC" != 0 ] || die фailfast-защита-timeout-отсутствует "--fail-fast=2 на PATH без timeout дал RC=0 — предмет НЕ проверил наличие timeout. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
   has "timeout не найден" "$OUT" || die фailfast-защита-timeout-отсутствует "RC≠0 есть, но без дослов «timeout не найден». Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
   has "rc=1" "$OUT" && die фailfast-защита-timeout-отсутствует "стаб (008, пробрасывает в fake) выдаёт rc=1. Вывод: $(printf '%s' "$OUT" | tr '\n' ' ' | tail -c 200)"
