@@ -63,6 +63,12 @@ jobs:
         # judge_gate.sh, реагирующий на exact-matching SHA PASS_THIS_SHA_GREEN.
         run: npm run check:judge-gate
 
+      - name: Гигиена раннера + форма нормы приёмки (контракт 011)
+        # Красный тест: шаг красен, пока предмет 011 не реализован (lock/scratch/чистка
+        # раннера + маркер ПРИЁМКА-СУДЬИ v2 + аннотация у 010 §Приёмка п.8). Зелёным
+        # становится вместе с предметом; пуш пачки без предмета CI не проходит по умыслу.
+        run: npm run check:runner-hygiene
+
       - name: Генератор ролей под чек
         run: npm run check:gen
 

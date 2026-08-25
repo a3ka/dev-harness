@@ -40,6 +40,7 @@
     "freeze:contract": "bash scripts/freeze_contract.sh",
     "check:skills": "bash scripts/check_skills.sh",
     "check:skills-live": "bash scripts/check_skills.sh --live",
+    "check:runner-hygiene": "bash scripts/check_runner_hygiene.sh",
     "check:ci-gate": "bash scripts/check_ci_gate.sh"
   }
 }
