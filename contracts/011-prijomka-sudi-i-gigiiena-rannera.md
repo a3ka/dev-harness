@@ -145,7 +145,7 @@
 ЗОНА implementer: scripts/verify_antiplacebo.sh AGENTS.md contracts/010-topologija-orkestrator-arhitektor.md
 
 ЗОНА critic: verdicts/critic/contracts-010-v2.md
-СПАСЕНО architect: 4a73d71d2657cc9be1ef14d79635fccf1d930e49 a2aaf5ee2963a5c434bb4894449bbbac6e4ee37d 320d67f52a4a12add583f6fb76d02267d494ae70 — три операционных коммита оркестратора (правки NABLIUDENIA.md, roles/orchestrator.md, .omp/agents/orchestrator.md, HANDOFF.md — Н-51/Н-52, тайм-бокс делегирования и правило «сырое наверх») ошибочно атрибутированы автору architect из-за некорректного git user.name сессии (исправлено на orchestrator); содержимое НЕ относится к конструкции 011, решение о способе закрытия — владелец, 2026-08-25 (вариант А).
+СПАСЕНО architect: 4a73d71d2657cc9be1ef14d79635fccf1d930e49 a2aaf5ee2963a5c434bb4894449bbbac6e4ee37d 320d67f52a4a12add583f6fb76d02267d494ae70 a534e4b6bd45fed582ca042de091d20c09ae1481 — четыре операционных коммита оркестратора (правки NABLIUDENIA.md, roles/orchestrator.md, .omp/agents/orchestrator.md, HANDOFF.md — Н-51/Н-52, тайм-бокс делегирования, правило «сырое наверх», оверлей-лог) ошибочно атрибутированы автору architect из-за некорректного git user.name сессии (исправлено на orchestrator); содержимое НЕ относится к конструкции 011, решение о способе закрытия — владелец, 2026-08-25 (вариант А, дополнено 4-м хешем словом владельца 2026-08-25).
 
 Последовательность исполнителей (замок на время исполнения; совет круга 1 — «кто и
 после какого закоммиченного блоба»):
