@@ -73,6 +73,10 @@ verdict: null
   `git rev-list --left-right --count origin/main...main`.
 - Перед разделом «ГДЕ МЫ» прогони и цитируй дословно:
   `git rev-parse --short HEAD`, `git rev-list -n1 done/contracts/<N>/1`,
+- **Свой коммит — явным `-c`:** `git -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local
+  commit`. Локальный override `user.name` в репозитории СНЯТ (Н-56) — без явного `-c` любой
+  коммит (твой или субагента) провалится `fatal: empty ident name`, а не молча уйдёт под чужим
+  именем. Не полагайся на унаследованный git config процесса.
 
 ## Fallback @slow — ручная процедура (Н-50, до механизма в 012)
 
