@@ -79,7 +79,8 @@
 #   bash scripts/verify_antiplacebo.sh <корень>   проверить подставное дерево (так этот барьер
 #                                                 предъявляется красным сам)
 #
-# Коды возврата: 0 — у каждого барьера красное предъявлено, 1 — нет, 2 — нечем проверить.
+# Коды возврата: 0 — у каждого барьера красное предъявлено, 1 — нет, 2 — нечем проверить,
+#                  3 — занят другим прогоном (живой lock на этот корень).
 set -euo pipefail
 
 ROOT_ARG=""; SCOPE_MODE=""; SCOPE_BASE=""; SCOPE_KEYS=()
@@ -237,9 +238,86 @@ if [ -n "$SCOPE_MODE" ]; then
 fi
 fi
 
-# ── 3. Прогон фикстур ─────────────────────────────────────────────────────────
-RUN="$ROOT/tmp/antiplacebo/run-$$"
+# ── §Предмет Б (контракт 011): scratch ВНЕ стерегомого дерева + lock + чистка ─
+# Все run-каталоги, логи и артефакты — под $VERIFY_ANTIPLACEBO_SCRATCH; при пустой
+# переменной — mktemp -d под ${TMPDIR:-/tmp} (carve-out правила 16 устава).
+# Lock атомарен через `ln` заполненного темпа (create-с-содержимым: пустого окна
+# «создан — заполняется» не бывает, обход круга 2 критика). Убийство — НЕ pkill
+# по имени, а только собственные потомки по pgid (уже было).
+
+# Шапка «Коды возврата:» дополняется: 3 — занят другим прогоном. Это ниже в
+# `skip/3` исходе; прогон, не прошедший сквозь фикстуры, не сможет её прочесть.
+# Захват lock идёт ПОСЛЕ scope-select: при выходе MODE=none/needs-full ничего не
+# пишем, и lock не нужен (раньше бы всё равно не было).
+SCRATCH="${VERIFY_ANTIPLACEBO_SCRATCH:-}"
+if [ -z "$SCRATCH" ]; then
+  SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/verify_antiplacebo.XXXXXX")" || {
+    printf 'NOT_IMPLEMENTED: scratch не создать — VERIFY_ANTIPLACEBO_SCRATCH пуста и mktemp отказал\n' >&2
+    exit 2; }
+fi
+mkdir -p "$SCRATCH" 2>/dev/null || {
+  printf 'NOT_IMPLEMENTED: scratch не создать: %s\n' "$SCRATCH" >&2; exit 2; }
+
+HASH8="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
+LOCK="$SCRATCH/verify_antiplacebo-$HASH8.lock"
+
+# Стартовая чистка: артефакты МЁРТВЫХ владельцев (Н-48-5). Чужой live lock другого
+# дерева (другой HASH8) и run-каталоги живых pid — неприкосновенны.
+for l in "$SCRATCH"/verify_antiplacebo-*.lock; do
+  [ -f "$l" ] || continue
+  pid=""; read -r pid _ < "$l" || true
+  if [ -n "${pid:-}" ] && ! kill -0 "$pid" 2>/dev/null; then
+    rm -f "$l"
+    rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
+  fi
+done
+for f in "$SCRATCH"/*; do
+  [ -e "$f" ] || continue
+  bn="${f##*/}"
+  case "$bn" in
+    verify_antiplacebo-*.lock) ;;             # lock (в т.ч. чужой live) — не трогаем
+    run-*) pid="${bn#run-}"
+           kill -0 "$pid" 2>/dev/null || rm -rf "$f" ;;
+    *) rm -rf "$f" ;;                          # base64-обрывки и мусор убитых прогонов
+  esac
+done
+
+# Захват lock: create-с-содержимым (ln заполненного темпа). Темп — БЕЗ ведущей
+# точки: стартовая чистка убирает его как мусор, если владелец убит посреди.
+LOCKTMP="$SCRATCH/locknew-$$"
+grabbed=0; try=0
+while [ "$try" -lt 40 ]; do
+  try=$((try + 1))
+  printf '%s %s %s\n' "$$" "$(ps -o pgid= -p "$$" | tr -d ' ')" "$(date +%s)" > "$LOCKTMP"
+  if ln "$LOCKTMP" "$LOCK" 2>/dev/null; then
+    grabbed=1; break
+  fi
+  # lock существует: живой владелец → именованный отказ, существующий не трогаем.
+  pid=""; read -r pid _ < "$LOCK" 2>/dev/null || true
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    printf 'занят: verify_antiplacebo уже идёт над этим деревом (pid %s, корень %s) — второй прогон не запускается\n' \
+      "$pid" "$ROOT" >&2
+    rm -f "$LOCKTMP"; exit 3
+  fi
+  if [ -z "$pid" ]; then
+    # пустой lock собственным захватом не создаётся (ln бесшовен) — это чужой
+    # обрывок; короткое ожидание и повтор закрывают гонку с медленным писателем.
+    sleep 0.1; continue
+  fi
+  rm -f "$LOCK"                  # владелец мёртв — добираем чистку здесь
+  rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
+done
+rm -f "$LOCKTMP"
+if [ "$grabbed" != 1 ]; then
+  printf 'занят: lock %s не удалось захватить — параллельный прогон или нечитаемый lock\n' "$LOCK" >&2
+  exit 3
+fi
+
+# Run-каталог — под SCRATCH. Освобождение — на EXIT (lock тоже там).
+RUN="$SCRATCH/run-$$"
 mkdir -p "$RUN"
+release() { rm -rf "$RUN" 2>/dev/null || true; rm -f "$LOCK" 2>/dev/null || true; }
+trap release EXIT
 
 # Запуск барьера — ЕДИНСТВЕННОЙ реализацией: её зовёт и обслуживание заявок, и повторный
 # прогон. Две копии одного запуска разошлись бы молча, и повтор перестал бы быть той же мерой.

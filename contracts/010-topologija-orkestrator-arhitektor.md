@@ -105,8 +105,7 @@ frontier-выбор и ред-тесты — на сильной модели (O
 7. `.omp/config.yml` маршрутизирует модели: `grep -q 'default: "minimax/MiniMax-M3"' .omp/config.yml`
    И `grep -q 'slow: "zai/glm-5.2"' .omp/config.yml` (orchestrator→`default`→MiniMax через MODEL_ROLE
    п.2; architect→`slow`→glm — команда с кодом возврата, не проза).
-8. Регресс: `npm run check:ci-parity` → 0; `bash scripts/verify_antiplacebo.sh` → 0 (фрозенные
-   барьеры 006/007/008 целы).
+8. Регресс: `npm run check:ci-parity` → 0; `bash scripts/verify_antiplacebo.sh` → 0 (отменено грилингом 2026-08-24, см. contracts/011: судье — scoped-регресс, полный прогон — CI, Н-48) — (фрозенные барьеры 006/007/008 целы).
 
 ## §Незаполненные требования (разбираются на круге критика)
 
