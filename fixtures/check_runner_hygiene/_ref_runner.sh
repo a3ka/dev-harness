@@ -34,6 +34,24 @@ if [ -z "$SCRATCH" ]; then
   SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/verify_antiplacebo.XXXXXX")" || {
     echo 'ОТКАЗ: scratch не создать' >&2; exit 2; }
 fi
+
+# Явный scratch обязан разрешаться ВНЕ стерегомого дерева — «в любом режиме»
+# (§Предмет Б.1 контракта 011; находка 1 адверсария, круг 1). Канонизация БЕЗ создания:
+# спуск до существующего предка + pwd -P — сам mkdir до проверки уже загрязнил бы
+# дерево. Внутри корня — именованный отказ (код 2); вынос скратча наружу — равным
+# образом честное лекарство, барьерная ветвь scratchexpl пинует только чистоту дерева.
+case "$SCRATCH" in /*) ;; *) SCRATCH="$PWD/$SCRATCH" ;; esac
+_p="$SCRATCH"; _tail=""
+while [ ! -d "$_p" ] && [ -n "$_p" ]; do _tail="/${_p##*/}${_tail}"; _p="${_p%/*}"; done
+if [ -n "$_p" ]; then
+  _canon="$(cd "$_p" && pwd -P)$_tail"
+  _rootp="$(cd "$ROOT" 2>/dev/null && pwd -P)"
+  case "$_canon" in
+    "$_rootp"|"$_rootp"/*)
+      printf 'ОТКАЗ: явный scratch внутри стерегомого дерева: %s (корень %s) — scratch обязан жить вне дерева в любом режиме\n' "$_canon" "$ROOT" >&2
+      exit 2 ;;
+  esac
+fi
 mkdir -p "$SCRATCH" 2>/dev/null || { echo "ОТКАЗ: scratch не создать: $SCRATCH" >&2; exit 2; }
 
 hash8="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
