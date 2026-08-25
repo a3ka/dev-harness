@@ -255,6 +255,24 @@ if [ -z "$SCRATCH" ]; then
     printf 'NOT_IMPLEMENTED: scratch не создать — VERIFY_ANTIPLACEBO_SCRATCH пуста и mktemp отказал\n' >&2
     exit 2; }
 fi
+# Явный scratch обязан разрешаться ВНЕ стерегомого дерева — «в любом режиме»
+# (§Предмет Б.1 контракта 011; находка 1 адверсария, круг 1). Канонизация БЕЗ создания:
+# спуск до существующего предка + pwd -P — сам mkdir до проверки уже загрязнил бы
+# дерево. Внутри корня — именованный отказ (код 2); вынос скратча наружу — равным
+# образом честное лекарство, барьерная ветвь scratchexpl пинует только чистоту дерева.
+case "$SCRATCH" in /*) ;; *) SCRATCH="$PWD/$SCRATCH" ;; esac
+_p="$SCRATCH"; _tail=""
+while [ ! -d "$_p" ] && [ -n "$_p" ]; do _tail="/${_p##*/}${_tail}"; _p="${_p%/*}"; done
+if [ -n "$_p" ] && _canon_p="$(cd "$_p" 2>/dev/null && pwd -P 2>/dev/null)"; then
+  _canon="$_canon_p$_tail"
+  _rootp="$(cd "$ROOT" 2>/dev/null && pwd -P 2>/dev/null || printf '%s' "$ROOT")"
+  case "$_canon" in
+    "$_rootp"|"$_rootp"/*)
+      printf 'ОТКАЗ: явный scratch внутри стерегомого дерева: %s (корень %s) — scratch обязан жить вне дерева в любом режиме\n' "$_canon" "$ROOT" >&2
+      exit 2 ;;
+  esac
+fi
+
 mkdir -p "$SCRATCH" 2>/dev/null || {
   printf 'NOT_IMPLEMENTED: scratch не создать: %s\n' "$SCRATCH" >&2; exit 2; }
 
