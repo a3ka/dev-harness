@@ -37,12 +37,41 @@ mk_010_annotated() {  # <корень> — contracts/010 с пометкой v+1
 EOF
 }
 
-mk_green_root() {  # <каталог> — эталонный раннер + полная норма
+mk_norm_isol() {  # <корень> — нормы изоляции шага А/В контракта 012 (игрушечные)
+  mkdir -p "$1/.omp" "$1/roles"
+  cat > "$1/.omp/config.yml" <<'EOF'
+# Конфигурация (игрушечная — материал фикстур check_runner_hygiene, контракт 012)
+tools:
+  approvalMode: always-ask
+
+# Изоляция спавна субагентов (решение владельца 2026-08-26, шаг А): параллельные
+# пачки не контендятся за живое дерево — каждое дерево процесса в своём сабволюме.
+task:
+  isolation:
+    mode: btrfs
+EOF
+  cat > "$1/roles/architect.md" <<'EOF'
+# Роль architect (игрушечная — материал фикстур, контракт 012)
+
+Клон роли живёт вне стерегомого дерева: `${TMPDIR}/dev-harness-architect/repo`,
+НЕ `./tmp/<имя>/repo` — клон внутри дерева сам является мутацией стерегомого.
+EOF
+  cat > "$1/roles/orchestrator.md" <<'EOF'
+# Роль orchestrator (игрушечная — материал фикстур, контракт 012)
+
+Параллельные пачки architect/implementer спавнятся с `isolated: true`.
+Длинные прогоны verify_antiplacebo — только в disposable-клоне:
+`git clone <дерево> ${TMPDIR}/dev-harness-verify/repo` и раннер по копии.
+EOF
+}
+
+mk_green_root() {  # <каталог> — эталонный раннер + полная норма (011 + 012)
   mkdir -p "$1/scripts"
   cp "$HYG/_ref_runner.sh" "$1/scripts/verify_antiplacebo.sh"
   chmod +x "$1/scripts/verify_antiplacebo.sh"
   mk_norm_agents "$1"
   mk_010_annotated "$1"
+  mk_norm_isol "$1"
 }
 
 # ── подставные git-репозитории для ветви porjadok (прецедент — _repo.sh у check_zones) ──

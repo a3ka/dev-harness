@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# НЕ БАРЬЕР: эталон ГИГИЕНЫ раннера (контракт 011, тест-актив для check_runner_hygiene).
+# НЕ БАРЬЕР: эталон ГИГИЕНЫ раннера (контракты 011+012, тест-актив для check_runner_hygiene).
 #
 # Реализует ПИННОВАННЫЙ контрактом 011 API гигиены `scripts/verify_antiplacebo.sh` вокруг
 # МИНИМАЛЬНОГО наблюдаемого контракта работы (находка 2 адверсария, круг 2): эталон
@@ -12,16 +12,24 @@
 # держит «работу» на месте, где у настоящего раннера гоняются фикстуры: барьеру нужно
 # окно, в котором lock жив.
 #
-# API дословно из контракта 011 §Предмет:
-#   VERIFY_ANTIPLACEBO_SCRATCH — корень scratch; умолчание — mktemp под ${TMPDIR:-/tmp}
-#         (carve-out правила 16, РАЗРЕШИЛ-ВЛАДЕЛЕЦ 2026-08-24);
+# API дословно из контракта 011 §Предмет + райдеры (i)/(ii)/(iii) контракта 012:
+#   VERIFY_ANTIPLACEBO_SCRATCH — корень scratch; умолчание (райдер (i) контракта 012) —
+#         ДЕТЕРМИНИРОВАННЫЙ ОБЩИЙ путь ${TMPDIR:-/tmp}/verify_antiplacebo-<hash8 корня>:
+#         уникальный mktemp делал lock мёртвым по построению (замер шага 1 контракта 012:
+#         два параллельных прогона одного дерева — оба RC=1 «дерево изменилось», 279с/29с,
+#         воспроизведено дважды). Прогон, СОЗДАВШИЙ default-скратч, убирает его на выходе
+#         (райдер (ii): течь 47→49 каталогов за два прогона измерена владельцем); явный
+#         скратч — собственность вызывающего, не убирается (carve-out правила 16,
+#         РАЗРЕШИЛ-ВЛАДЕЛЕЦ 2026-08-24);
 #   lock — $SCRATCH/verify_antiplacebo-<hash8>.lock, где hash8 — первые 8 hex sha256
 #         КАНОНИЧЕСКОГО пути корня проверяемого дерева (разные деревья не блокируют друг
 #         друга: взаимная порча снапшотов измерена только для одного дерева, Н-48-3);
 #   содержимое lock — «<pid> <pgid> <epoch>»; захват атомарен и БЕСШОВЕН —
 #         create-с-содержимым: `ln` заполненного темпа (пустого lock не бывает;
 #         окно «создан пустой — заполняется» — обход круга 2 критика);
-#   живой владелец → rc 3 и stderr «занят: …»; существующий прогон НЕ трогается;
+#   живость владельца (райдер (iii) контракта 012) — pid И pgid: kill -0 <pid> без
+#         сверки pgid принимает посторонний процесс с перерождённым pid за владельца;
+#         живой владелец → rc 3 и stderr «занят: …»; существующий прогон НЕ трогается;
 #   стартовая чистка — lock-файлы и run-<pid> каталоги МЁРТВЫХ владельцев плюс файлы,
 #         не являющиеся ни lock, ни run-каталогом живого pid (base64-обрывки путей);
 #         чужой live lock другого дерева неприкосновенен;
@@ -34,9 +42,10 @@ ROOT_ARG="${1:-}"
 ROOT="$(cd "$ROOT_ARG" 2>/dev/null && pwd)" || { echo "ОТКАЗ: корня нет: $ROOT_ARG" >&2; exit 1; }
 
 SCRATCH="${VERIFY_ANTIPLACEBO_SCRATCH:-}"
+OWN_SCRATCH=0
 if [ -z "$SCRATCH" ]; then
-  SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/verify_antiplacebo.XXXXXX")" || {
-    echo 'ОТКАЗ: scratch не создать' >&2; exit 2; }
+  SCRATCH="${TMPDIR:-/tmp}/verify_antiplacebo-$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
+  OWN_SCRATCH=1
 fi
 
 # Явный scratch обязан разрешаться ВНЕ стерегомого дерева — «в любом режиме»
@@ -57,7 +66,7 @@ if [ -n "$_p" ]; then
   esac
   # ЛЕКАРСТВО от symlink-подмены МЕЖДУ канонизацией и созданием (находка 1 адверсария,
   # круг 2): дальше скратч живёт по КАНОНИЧЕСКОМУ физическому пути — создание и все
-  # артефакты (lock, run-) идут от уже разрешённого предка и НЕ повторяют обход
+  # артефакты (lock, run-) идут от уже разрешённого предка и НЕ повторяют обхода
   # атакуемого имени. Отдельный `mkdir -p "$SCRATCH"` по исходной строке разрешал бы
   # symlink заново — ветвь tocou предъявляет это красным.
   SCRATCH="$_canon"
@@ -67,11 +76,23 @@ mkdir -p "$SCRATCH" 2>/dev/null || { echo "ОТКАЗ: scratch не создат
 hash8="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
 LOCK="$SCRATCH/verify_antiplacebo-$hash8.lock"
 
+# Живость владельца lock — pid И pgid (райдер (iii) контракта 012): kill -0 <pid>
+# без сверки pgid принимает ПОСТОРОННИЙ процесс, которому достался перерождённый
+# pid, за живого владельца — stale lock тогда не убирается никогда. Поля lock
+# «<pid> <pgid> <epoch>» уже несут pgid: живой владелец — pid жив И фактический
+# pgid совпадает с записанным.
+owner_alive() {  # <pid> <pgid-из-lock>
+  case "${1:-}" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null || return 1
+  case "${2:-}" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$(ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ')" = "$2" ]
+}
+
 # ── стартовая чистка: только артефакты МЁРТВЫХ владельцев ──────────────────────
 for l in "$SCRATCH"/verify_antiplacebo-*.lock; do
   [ -f "$l" ] || continue
-  read -r pid _ < "$l" || true
-  if [ -n "${pid:-}" ] && ! kill -0 "$pid" 2>/dev/null; then
+  read -r pid pgid _ < "$l" 2>/dev/null || true
+  if [ -n "${pid:-}" ] && ! owner_alive "$pid" "${pgid:-}"; then
     rm -f "$l"
     rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
   fi
@@ -83,7 +104,7 @@ for f in "$SCRATCH"/*; do
     verify_antiplacebo-*.lock) ;;          # lock (в т.ч. чужой live) — не трогаем
     run-*) pid="${b#run-}"
            kill -0 "$pid" 2>/dev/null || rm -rf "$f" ;;
-    *) rm -rf "$f" ;;                       # base64-обрывки и прочий мусор убитых прогонов
+    *) rm -rf "$f" ;;                      # base64-обрывки и прочий мусор убитых прогонов
   esac
 done
 
@@ -103,10 +124,10 @@ while [ "$try" -lt 40 ]; do
     grabbed=1
     break
   fi
-  # lock существует: живой владелец → именованный отказ, существующий не трогаем
-  pid=""
-  read -r pid _ < "$LOCK" 2>/dev/null || true
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+  # lock существует: живой владелец (pid И pgid) → именованный отказ, существующий не трогаем
+  pid=""; pgid=""
+  read -r pid pgid _ < "$LOCK" 2>/dev/null || true
+  if [ -n "$pid" ] && owner_alive "$pid" "${pgid:-}"; then
     printf 'занят: verify_antiplacebo уже идёт над этим деревом (pid %s, корень %s) — второй прогон не запускается\n' \
       "$pid" "$ROOT" >&2
     exit 3
@@ -117,7 +138,7 @@ while [ "$try" -lt 40 ]; do
     sleep 0.1
     continue
   fi
-  rm -f "$LOCK"    # владелец мёртв — чистка выше не знала формата, добираем здесь
+  rm -f "$LOCK"    # владелец мёртв (по pid или по pgid) — чистка выше не знала, добираем здесь
   rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
 done
 rm -f "$LOCKTMP"
@@ -128,7 +149,14 @@ fi
 
 RUN="$SCRATCH/run-$$"
 mkdir -p "$RUN"
-release() { rm -rf "$RUN"; rm -f "$LOCK"; }
+release() {
+  rm -rf "$RUN" 2>/dev/null || true
+  rm -f "$LOCK" 2>/dev/null || true
+  # Сам создал — сам убрал (райдер (ii) контракта 012): ловушка ставится только
+  # УДЕРЖИВАЯ lock, поэтому удаление скратча не задевает чужой прогон; отказ rc=3
+  # ловушки не ставит и ЧУЖОЙ default-скратч не трогает.
+  if [ "$OWN_SCRATCH" = 1 ]; then rm -rf "$SCRATCH" 2>/dev/null || true; fi
+}
 trap release EXIT
 printf 'run %s: работа раннера\n' "$RUN" > "$RUN/log"
 

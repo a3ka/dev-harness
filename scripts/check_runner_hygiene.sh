@@ -75,6 +75,31 @@
 #             «ПРИЁМКА-СУДЬИ (v2» («всё одним коммитом», «вердикт раньше аннотации» —
 #             обходы круга 2; «пачка доехала после вердикта» — обход круга 3, РЕШЕНИЕ
 #             арбитра по контракту 011).
+#   ── Контракт 012 (изоляция прогонов), ветви райдеров и норм шага А/В ──
+#   (lockdef) default-скратч (ПУСТАЯ VERIFY_ANTIPLACEBO_SCRATCH) обязан быть ОБЩИМ
+#             для прогонов одного дерева: детерминированный путь под
+#             ${TMPDIR:-/tmp}, несущий lock этого дерева. Уникальный mktemp делал
+#             rc=3 «занят» недостижимым в default-режиме — два прогона одного
+#             дерева не видели lock друг друга (замер шага 1 контракта 012: два
+#             параллельных verify над живым деревом — оба RC=1 «FAIL дерево
+#             изменилось», 279с/29с, воспроизведено дважды) — райдер (i);
+#   (techka)  ЗАВЕРШИВШИЙСЯ прогон (rc=0) не оставляет под $TMPDIR НОВЫХ путей:
+#             прогон, создавший default-скратч, убирает его за собой на выходе;
+#             существовавшее до прогона неприкосновенно. Замер владельца: 47→49
+#             скратч-каталогов за два прогона — райдер (ii);
+#   (pidrec)  живость владельца lock — pid И pgid: lock, чей pid жив (kill -0
+#             проходит), но pgid ЧУЖОЙ, — владелец МЁРТВ (pid перерождён): lock
+#             убирается, прогон идёт rc=0, живой посторонний процесс цел —
+#             райдер (iii);
+#   (izolcfg) .omp/config.yml несёт вложенный ключ task.isolation.mode: btrfs —
+#             изоляция спавна субагентов (решение владельца 2026-08-26, шаг А:
+#             НЕ кодом — встроенной harness-фичей);
+#   (klon)    roles/architect.md несёт правило клона роли: ${TMPDIR}/dev-harness-
+#             <роль>/repo, вне стерегомого дерева (клон внутри ./tmp сам мутация);
+#   (izolnorm) roles/orchestrator.md несёт «isolated: true» на спавн параллельных
+#             пачек architect/implementer и норму disposable-клона для длинных
+#             прогонов verify_antiplacebo (шаги А/В).
+#
 #
 # Образец — check_scoped_run/check_judge_gate: предмет пишет ИСПОЛНИТЕЛЬ по зоне; этот
 # барьер, `fixtures/check_runner_hygiene/` (case_*.sh + эталон `_ref_runner.sh`) — АРХИТЕКТОРА.
@@ -88,7 +113,8 @@
 #                (умолчание — корень репозитория); ветвь porjadok дополнительно требует,
 #                чтобы корень был git-репозиторием (порядок коммитов читается из истории);
 #     <ветвь>  — одна из: lock race scratch scratchdef scratchexpl tocou sostav
-#                chistka pgid norma carveout a010 porjadok (умолчание — все).
+#                chistka pgid norma carveout a010 porjadok
+#                lockdef techka pidrec izolcfg klon izolnorm (умолчание — все).
 #
 # Коды возврата: 0 — запрошенные ветви зелены, 1 — ветвь провалена, 2 — нечем проверить.
 set -uo pipefail
@@ -112,7 +138,7 @@ want() { [ "$WANT" = all ] || [ "$WANT" = "$1" ]; }
 has()  { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 tail200() { tr '\n' ' ' < "$1" | tail -c 200; }
 
-KNOWN="lock race scratch scratchdef scratchexpl tocou sostav chistka pgid norma carveout a010 porjadok"
+KNOWN="lock race scratch scratchdef scratchexpl tocou sostav chistka pgid norma carveout a010 porjadok lockdef techka pidrec izolcfg klon izolnorm"
 if [ "$WANT" != all ]; then
   f=0; for k in $KNOWN; do [ "$WANT" = "$k" ] && f=1; done
   [ "$f" = 1 ] || { printf 'ОТКАЗ диспетчер: неизвестная ветвь «%s» (из: %s)\n' "$WANT" "$KNOWN" >&2; exit 1; }
@@ -686,6 +712,122 @@ if want porjadok; then
   has 'ПРИЁМКА-СУДЬИ (v2' "$agents_A" \
     || die porjadok "AGENTS.md в коммите A (${A:0:8}) не несёт маркер «ПРИЁМКА-СУДЬИ (v2» — пачка обязана везти НОРМУ, а не касание файла: норма, доехавшая после вердикта критика, судимой не была (РЕШЕНИЕ арбитра по контракту 011)"
   ok '(porjadok) аннотация 010 и вердикт 010-v2 — разные коммиты в верном порядке; состав пачки A полон, маркер в A:AGENTS.md есть; вердикт accept'
+fi
+
+# ── (lockdef) default-скратч ОБЩИЙ: прогоны одного дерева разведены ────────────
+# Райдер (i) контракта 012: при ПУСТОЙ VERIFY_ANTIPLACEBO_SCRATCH раннер создаёт
+# УНИКАЛЬНЫЙ mktemp-скратч — lock живёт в каталоге, который никто больше не видит,
+# и отказ rc=3 «занят» недостижим в default-режиме по построению. Замер шага 1
+# (владелец, дважды): два параллельных verify над живым деревом — оба RC=1
+# «FAIL дерево изменилось», 279с/29с. Честное лекарство — детерминированный
+# ОБЩИЙ путь ${TMPDIR:-/tmp}/verify_antiplacebo-<hash8 корня>.
+if want lockdef; then
+  T="$WORK/toy-lockdef"; SD="$WORK/tmpdir-lockdef"
+  build_toy "$T" 2; T="$(cd "$T" && pwd)"; mkdir -p "$SD"
+  LH="$(hash8_of "$T")"
+  TMPDIR="$SD" VERIFY_ANTIPLACEBO_SCRATCH="" bash "$VA" "$T" >"$WORK/ldef-r1.out" 2>&1 &
+  RUN1_PID=$!
+  got=0; i=0
+  while kill -0 "$RUN1_PID" 2>/dev/null && [ "$i" -lt 160 ]; do
+    if [ -n "$(find "$SD" -mindepth 2 -maxdepth 2 -name "verify_antiplacebo-$LH.lock" -print -quit 2>/dev/null)" ]; then got=1; break; fi
+    sleep 0.05; i=$((i + 1))
+  done
+  if [ "$got" != 1 ]; then
+    wait "$RUN1_PID" 2>/dev/null; RUN1_PID=""
+    die lockdef "за 8с живого прогона под \$TMPDIR не появился lock этого дерева — default-скратч обязан лежать по ОБЩЕМУ детерминированному пути (райдер (i) контракта 012). Хвост первого: $(tail200 "$WORK/ldef-r1.out")"
+  fi
+  TMPDIR="$SD" VERIFY_ANTIPLACEBO_SCRATCH="" bash "$VA" "$T" >"$WORK/ldef-r2.out" 2>&1
+  R2=$?
+  [ "$R2" = 3 ] || die lockdef "второй default-прогон при живом владельце вышел кодом $R2, а не 3 — default-скратч обязан быть ОБЩИМ для прогонов одного дерева: уникальный mktemp делает lock мёртвым по построению (райдер (i) контракта 012, замер шага 1: два параллельных прогона — оба RC=1 «дерево изменилось»). Хвост второго: $(tail200 "$WORK/ldef-r2.out")"
+  wait "$RUN1_PID"; R1=$?; RUN1_PID=""
+  [ "$R1" = 0 ] || die lockdef "первый прогон убит или испорчен (rc=$R1) — ветвь про разводку default-прогонов, не про порчу предмета. Хвост: $(tail200 "$WORK/ldef-r1.out")"
+  has 'занят' "$(cat "$WORK/ldef-r2.out")" || die lockdef "отказ второго default-прогона не назван словом «занят» — причина обязана называть предмет (правило 7). Хвост: $(tail200 "$WORK/ldef-r2.out")"
+  ok '(lockdef) пустая переменная → общий default-скратч: второй прогон живого владельца отказал rc=3 «занят»'
+fi
+
+# ── (techka) завершившийся прогон убирает созданный им default-скратч ──────────
+# Райдер (ii) контракта 012: замер владельца — 47→49 скратч-каталогов за два
+# прогона; rc=0-прогон, создавший скратч, обязан убрать его на выходе (ловушка
+# EXIT уже держит lock — удаление не задевает чужой прогон; отказ rc=3 ловушки
+# не ставит и чужой скратч не трогает). Убитые (SIGKILL) прогоны — предмет
+# стартовой чистки следующего прогона (ветвь chistka), здесь не при чём.
+if want techka; then
+  T="$WORK/toy-techka"; SD="$WORK/tmpdir-techka"
+  build_toy "$T" 0.4; T="$(cd "$T" && pwd)"; mkdir -p "$SD"
+  printf 'probe-pre\n' > "$SD/pre-marker"   # существовавшее до прогона — неприкосновенно
+  before="$(cd "$SD" && find . -mindepth 1 | sort)"
+  TMPDIR="$SD" VERIFY_ANTIPLACEBO_SCRATCH="" bash "$VA" "$T" >"$WORK/tech-r1.out" 2>&1
+  RC=$?
+  [ "$RC" = 0 ] || die techka "прогон упал (rc=$RC) — ветвь про самозачистку скратча, а не про отказ предмета. Хвост: $(tail200 "$WORK/tech-r1.out")"
+  after="$(cd "$SD" && find . -mindepth 1 | sort)"
+  new="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | tr '\n' ' ')"
+  [ -z "${new// /}" ] || die techka "после завершившегося прогона под \$TMPDIR остался новый путь ($new) — прогон, создавший default-скратч, обязан убирать его за собой на выходе (райдер (ii) контракта 012, замер владельца: 47→49 каталогов за два прогона). Хвост: $(tail200 "$WORK/tech-r1.out")"
+  [ -e "$SD/pre-marker" ] || die techka "зачистка тронула ЧУЖОЙ путь, существовавший до прогона ($SD/pre-marker) — убирать обязана только собственные пути"
+  ok '(techka) завершившийся прогон не оставил под $TMPDIR новых путей; чужое не тронуто'
+fi
+
+# ── (pidrec) живость владельца lock — pid И pgid: перерождённый pid ≠ владелец ──
+# Райдер (iii) контракта 012: kill -0 <pid> без сверки pgid принимает ПОСТОРОННИЙ
+# процесс, которому достался перерождённый pid, за живого владельца — stale lock
+# тогда не убирается никогда. Поля lock «<pid> <pgid> <epoch>» уже несут pgid.
+if want pidrec; then
+  S="$WORK/s-pidrec"; T="$WORK/toy-pidrec"
+  mkdir -p "$S"; build_toy "$T" 0.4; T="$(cd "$T" && pwd)"
+  setsid sleep 30 >/dev/null 2>&1 & DECOY_PID=$!
+  wait_alive "$DECOY_PID" 3 || die pidrec "decoy-процесс не поднялся — тест недостоверен"
+  L="$(lock_path "$S" "$T")"
+  printf '%s %s %s\n' "$DECOY_PID" 999999 0 > "$L"   # pid ЖИВ, pgid в lock — ЧУЖОЙ
+  VERIFY_ANTIPLACEBO_SCRATCH="$S" bash "$VA" "$T" >"$WORK/pr-r1.out" 2>&1
+  RC=$?
+  [ "$RC" = 0 ] || die pidrec "lock живого-по-pid, но ЧУЖОГО-по-pgid владельца заблокировал прогон (rc=$RC) — pid перерождён, владелец мёртв: kill -0 без сверки pgid принимает посторонний процесс за владельца (райдер (iii) контракта 012). Хвост: $(tail200 "$WORK/pr-r1.out")"
+  [ ! -e "$L" ] || die pidrec "lock перерождённого pid не убран — прогон обязан добрать чистку мёртвого владельца"
+  kill -0 "$DECOY_PID" 2>/dev/null || die pidrec "decoy-процесс убит — он не владелец и неприкосновенен (Н-48-4)"
+  ok '(pidrec) живой pid с чужим pgid опознан мёртвым владельцем: lock убран, прогон прошёл rc=0, decoy цел'
+fi
+
+# ── (izolcfg) .omp/config.yml включает task.isolation.mode: btrfs ──────────────
+# Шаг А решения владельца 2026-08-26: изоляция спавна субагентов включается
+# ВСТРОЕННОЙ harness-фичей (task.isolation.mode), НЕ кодом раннера. Сейчас ключа
+# нет → режим none: параллельные пачки работают над живым деревом (замер шага 1).
+if want izolcfg; then
+  C="$ROOT/.omp/config.yml"
+  [ -f "$C" ] || die izolcfg "нет $C — ключ изоляции спавна объявить негде (решение владельца 2026-08-26, шаг А)"
+  awk '/^task:[[:space:]]*$/             { t = 1; next }
+       t && /^[^#[:space:]][^:]*:/       { exit }
+       t && /^[[:space:]]*isolation:[[:space:]]*$/ { i = 1; next }
+       i && /^[[:space:]]*mode:[[:space:]]*btrfs[[:space:]]*$/ { found = 1; exit }
+       END { exit !found }' "$C" \
+    || die izolcfg ".omp/config.yml не несёт вложенный ключ task.isolation.mode: btrfs — нет изоляции спавна: параллельные пачки контендятся за живое дерево (решение владельца 2026-08-26, шаг А; замер шага 1: два параллельных verify — оба RC=1, 279с/29с, воспроизведено дважды)"
+  ok '(izolcfg) .omp/config.yml несёт task.isolation.mode: btrfs'
+fi
+
+# ── (klon) правило клона роли в roles/architect.md — вне стерегомого дерева ────
+# Шаг А: у остальных ролей правило клона уже есть (implementer.md, critic.md,
+# adversary.md, reviewer.md); architect был единственным без него. Клон ВНУТРИ
+# дерева (./tmp/<имя>/repo) сам является мутацией стерегомого дерева.
+if want klon; then
+  R="$ROOT/roles/architect.md"
+  [ -f "$R" ] || die klon "нет $R — правило клона роли объявить негде (решение владельца 2026-08-26, шаг А)"
+  grep -F '${TMPDIR}/dev-harness-' "$R" >/dev/null \
+    || die klon "roles/architect.md не несёт пути \${TMPDIR}/dev-harness-<роль>/repo — клон роли обязан жить вне стерегомого дерева: ./tmp/<имя>/repo внутри дерева сам является мутацией стерегомого (решение владельца 2026-08-26, шаг А)"
+  grep -F 'вне стерегомого дерева' "$R" >/dev/null \
+    || die klon "roles/architect.md называет путь клона, но не норму «вне стерегомого дерева» — путь без нормы не удержит следующую пачку от клона в дерево"
+  ok '(klon) roles/architect.md: клон роли по ${TMPDIR}/dev-harness-<роль>/repo, норма названа'
+fi
+
+# ── (izolnorm) orchestrator: isolated: true на параллельные пачки + disposable ──
+# Шаги А/В: спавн параллельных пачек architect/implementer — с isolated: true
+# (правило вызова, не код); длинные прогоны verify_antiplacebo — только в
+# disposable-клоне (git clone <дерево> ${TMPDIR}/... && verify_antiplacebo.sh
+# <копия>; API корня-аргумента у раннера есть, строки :78-80 его шапки).
+if want izolnorm; then
+  R="$ROOT/roles/orchestrator.md"
+  [ -f "$R" ] || die izolnorm "нет $R — нормы изоляции спавна объявить негде (решение владельца 2026-08-26, шаги А/В)"
+  grep -F 'isolated: true' "$R" >/dev/null \
+    || die izolnorm "roles/orchestrator.md не несёт правила «isolated: true» на спавн параллельных пачек architect/implementer — без него пачки работают над живым деревом и контендятся (решение владельца 2026-08-26, шаг А)"
+  grep -F 'disposable-клон' "$R" >/dev/null \
+    || die izolnorm "roles/orchestrator.md не несёт нормы disposable-клона для длинных прогонов verify_antiplacebo — длинный прогон обязан идти в одноразовом клоне (git clone <дерево> \${TMPDIR}/... && verify_antiplacebo.sh <копия>), API корня-аргумента у раннера есть (решение владельца 2026-08-26, шаг В)"
+  ok '(izolnorm) orchestrator: isolated: true на параллельные пачки; длинные прогоны — в disposable-клоне'
 fi
 
 kill -9 -- "-$DECOY_PID" 2>/dev/null; DECOY_PID=""
