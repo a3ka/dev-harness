@@ -11,7 +11,7 @@ mk_norm_agents() {  # <корень> — AGENTS.md с полной зелёно�
   cat > "$1/AGENTS.md" <<'EOF'
 # Устав (игрушечный — материал фикстур check_runner_hygiene, контракт 011)
 
-## Воркфлоу
+## Воркфлоу майлстоуна
 
 ПРИЁМКА-СУДЬИ (v2, Н-48): судья (критик/адверсарий/ревьюер) гоняет ТОЛЬКО scoped-регресс
 затронутых барьеров (`verify_antiplacebo --scope <ключ>`) и git-diff неизменности
@@ -43,4 +43,38 @@ mk_green_root() {  # <каталог> — эталонный раннер + по
   chmod +x "$1/scripts/verify_antiplacebo.sh"
   mk_norm_agents "$1"
   mk_010_annotated "$1"
+}
+
+# ── подставные git-репозитории для ветви porjadok (прецедент — _repo.sh у check_zones) ──
+# ГЕРМЕТИЧНОСТЬ обязательна: глобальная commit.gpgsign без ключа роняет построение
+# истории, а core.hooksPath — кодом 1 без текста.
+pgit() {  # <корень> <аргументы git>
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git -C "$1" -c user.name=Фикстура -c user.email=fixture@local \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null "${@:2}"
+}
+
+pgit_commit_as() {  # <корень> <автор> <сообщение>
+  local r="$1" who="$2" msg="$3"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git -C "$r" -c user.name="$who" -c user.email="$who@local" \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null add -A
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git -C "$r" -c user.name="$who" -c user.email="$who@local" \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m "$msg"
+}
+
+mk_porjadok_green() {  # <каталог> — зелёный порядок актов 010-v2:
+  # (i) implementer коммитит раннер+норму+аннотацию, (ii) critic ОТДЕЛЬНЫМ коммитом —
+  # вердикт accept. Перезаморозка (iii) — тег, истории коммитов не касается.
+  mk_green_root "$1"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    git init -q -b main "$1"
+  pgit_commit_as "$1" implementer 'раннер + маркер AGENTS.md + аннотация 010 (акт i)
+
+РАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md норма приёмки судьи v2 (слово владельца на грилинге 2026-08-24)'
+  mkdir -p "$1/verdicts/critic"
+  printf 'accept\nотдельный круг критика по закоммиченному блобу 010 (акт ii)\n' \
+    > "$1/verdicts/critic/contracts-010-v2.md"
+  pgit_commit_as "$1" critic 'вердикт 010-v2: accept (акт ii)'
 }
