@@ -1,140 +1,135 @@
-FAIL
+accept
 
-# Ревьюер — контракт 012, полный финальный гейт, HEAD `e9ed95b3555cae21372a9d443dc58dac170988b0`
+# Ревьюер — контракт 012, третий полный финальный гейт, HEAD `eb520eb2a5e8f08c132dd84dd7c9ea20c324f413`
 
-## Блокирующая находка 1 — предмет не реализован
+## Вердикт
 
-**Класс: заявленное не равно сделанному / ложное разделение проверки барьера и приёмки предмета.**
+**accept.** Новых блокирующих находок нет. Оба прежних FAIL прочитаны целиком:
+`7fc8d1d:verdicts/review/contracts-012.md` (внезонные дозаморозочные записи
+architect) и `3a613ec:verdicts/review/contracts-012.md` (не реализован предмет
+А+Б и три внезонных orchestrator-коммита). Первый класс закрыт объявлением
+`NABLIUDENIA_ARCHITECT.md` в ЗОНЕ architect; второй — предметным коммитом
+implementer `f71b2e8` и v+2 контракта `a1d5976`, добавившей конечное
+`СПАСЕНО e62bc2f` и ЗОНУ orchestrator. Текущий frozen `012/3` побайтово
+совпадает с контрактом v3.
 
-Контракт требует, чтобы на дереве *после предмета* стали зелёными шесть ветвей
-`lockdef techka pidrec izolcfg klon izolnorm`. На HEAD все шесть исполняемых
-приёмок предмета красные. Это не дефект фикстур: `verify_antiplacebo` проверяет
-40 фикстур `check_runner_hygiene` на эталонном `_ref_runner.sh` и обманках, а
-не живой `scripts/verify_antiplacebo.sh`. Поэтому его 40/40 не доказывает
-реализацию райдеров и норм в текущем дереве.
+## Полная история диапазона и область правки
 
-Сырой вывод исполнения живого предмета:
+Проверен полный `git log --format='%H\t%an\t%ae\t%s' --name-status
+frozen/contracts/012/1..HEAD`, а не только `check_zones.sh`. Результат: все
+14 коммитов в диапазоне укладываются в объявленные ЗОНЫ либо в поимённое
+СПАСЕНО:
 
-```text
-$ bash scripts/check_runner_hygiene.sh . lockdef
-ОТКАЗ ветвь (lockdef): второй default-прогон при живом владельце вышел кодом 0, а не 3 — default-скратч обязан быть ОБЩИМ для прогонов одного дерева: уникальный mktemp делает lock мёртвым по построению (райдер (i) контракта 012, замер шага 1: два параллельных прогона — оба RC=1 «дерево изменилось»). Хвост второго: ный прогон красный кодом 1 — «нет mark (check_a)»  барьеров: 1 · фикстур: 1 · предъявлено красным повторным прогоном: 1
-COMMAND_EXIT_RC=1
+- `10cc9b0`, `e9ed95b`, `8cdeaf9` — orchestrator / `NABLIUDENIA.md`, ЗОНА
+  orchestrator;
+- `e62bc2f` — orchestrator / `.omp/agents/architect.md`, `NABLIUDENIA.md`,
+  `roles/architect.md`, единственное конечное **СПАСЕНО** контракта 012;
+- `7fc8d1d`, `3a613ec` — reviewer / `verdicts/review/`, ЗОНА reviewer;
+- `913b6b4`, `a1d5976` — architect / контракт, ЗОНА architect;
+- `87ca3ed`, `422ad8c` — architect / `NABLIUDENIA_ARCHITECT.md`, ЗОНА architect;
+- `f71b2e8` — implementer / `.omp/config.yml`, `roles/architect.md`,
+  `roles/orchestrator.md`, `scripts/verify_antiplacebo.sh`, ЗОНА implementer;
+- `f3c933f`, `a588a8e`, `eb520eb` — critic / `verdicts/critic/`, ЗОНА critic.
 
-$ bash scripts/check_runner_hygiene.sh . techka
-ОТКАЗ ветвь (techka): после завершившегося прогона под $TMPDIR остался новый путь (./verify_antiplacebo.mfP2zV ) — прогон, создавший default-скратч, обязан убирать его за собой на выходе (райдер (ii) контракта 012, замер владельца: 47→49 каталогов за два прогона). Хвост: ный прогон красный кодом 1 — «нет mark (check_a)»  барьеров: 1 · фикстур: 1 · предъявлено красным повторным прогоном: 1
-COMMAND_EXIT_RC=1
+`f71b2e8` — один предметный коммит: он реализует ровно А+Б контракта,
+затрагивает только четыре пути implementer и не меняет барьер либо фикстуры.
+Следовательно, проверка не подогнана исполнителем: 40 красных предъявлений
+остаются architect-артефактами. Нормативный контракт менялся только
+архитектором в двух явно разрешённых v+1/v+2 поправках по предыдущим FAIL;
+`npm run check:charter` подтвердил разрешённость обеих правок. Никаких
+посторонних либо неатомарных новых предметных коммитов в диапазоне нет.
 
-$ bash scripts/check_runner_hygiene.sh . pidrec
-ОТКАЗ ветвь (pidrec): lock живого-по-pid, но ЧУЖОГО-по-pgid владельца заблокировал прогон (rc=3) — pid перерождён, владелец мёртв: kill -0 без сверки pgid принимает посторонний процесс за владельца (райдер (iii) контракта 012). Хвост: �дёт над этим деревом (pid 1248424, корень /home/aka/Documents/dev-harness/tmp/check_runner_hygiene.EeGdIG/toy-pidrec) — второй прогон не запускается
-COMMAND_EXIT_RC=1
-
-$ bash scripts/check_runner_hygiene.sh . izolcfg
-ОТКАЗ ветвь (izolcfg): .omp/config.yml не несёт вложенный ключ task.isolation.mode: btrfs — нет изоляции спавна: параллельные пачки контендятся за живое дерево (решение владельца 2026-08-26, шаг А; замер шага 1: два параллельных verify — оба RC=1, 279с/29с, воспроизведено дважды)
-COMMAND_EXIT_RC=1
-
-$ bash scripts/check_runner_hygiene.sh . klon
-ОТКАЗ ветвь (klon): roles/architect.md не несёт пути ${TMPDIR}/dev-harness-<роль>/repo — клон роли обязан жить вне стерегомого дерева: ./tmp/<имя>/repo внутри дерева сам является мутацией стерегомого (решение владельца 2026-08-26, шаг А)
-COMMAND_EXIT_RC=1
-
-$ bash scripts/check_runner_hygiene.sh . izolnorm
-ОТКАЗ ветвь (izolnorm): roles/orchestrator.md не несёт правила «isolated: true» на спавн параллельных пачек architect/implementer — без него пачки работают над живым деревом и контендятся (решение владельца 2026-08-26, шаг А)
-COMMAND_EXIT_RC=1
-```
-
-Причина подтверждена независимым чтением живого раннера: его строки 252–256
-по-прежнему создают пустой default через
-`mktemp -d "${TMPDIR:-/tmp}/verify_antiplacebo.XXXXXX"`; строки 350–353
-судят владельца только по pid; строки 371–373 не удаляют созданный default-
-каталог. Исторический журнал `20fd5ad..HEAD` содержит **ноль** коммитов
-implementer по `scripts/verify_antiplacebo.sh`, `.omp/config.yml`,
-`roles/orchestrator.md` или предметной части `roles/architect.md`.
-
-## Блокирующая находка 2 — область правки
-
-**Класс: превышение объявленной ЗОНЫ / посторонние коммиты в предметном диапазоне.**
-
-Проверен весь диапазон `frozen/contracts/012/1..HEAD`, а не только логика
-`check_zones.sh`. Зоны 012 объявляют author identities architect, implementer,
-critic, adversary и reviewer; зоны для `orchestrator` нет. Тем не менее в
-диапазоне лежат три коммита `%an=orchestrator`, затрагивающие не объявленные
-для 012 пути: `10cc9b0` (`NABLIUDENIA.md`), `e62bc2f`
-(`.omp/agents/architect.md`, `NABLIUDENIA.md`, `roles/architect.md`) и `e9ed95b`
-(`NABLIUDENIA.md`). В особенности `e62bc2f` меняет глобальную роль architect
-по инциденту Н-59, а не А/В/райдеры контракта 012. Это самостоятельная работа,
-которую текущий контракт не раздавал и которую нельзя молча положить в его
-ревьюируемый диапазон. `check_zones.sh` этого не опровергает: его шапка прямо
-исключает необъявленных авторов из суда.
-
-Сырой исторический вывод:
+Сырой вывод истории:
 
 ```text
 $ git log --format='%H\t%an\t%ae\t%s' --name-status frozen/contracts/012/1..HEAD
- e9ed95b3555cae21372a9d443dc58dac170988b0	orchestrator	orchestrator@dev-harness.local	NABLIUDENIA: Н-57 третий рецидив на frozen/contracts/012/2 - обход словом исчерпан, приоритет починки первым
-
-M	NABLIUDENIA.md
-a588a8e52567c13e3347bd15c3263e04b3751418	critic	critic@dev-harness.local	critic: восстановить contracts-012-v1.md (accept круга 2, уничтожен ошибочной перезаписью) + создать v2.md (узкий accept под верным именем) - исправление ошибки оркестратора в номере версии
-
-M	verdicts/critic/contracts-012-v1.md
-A	verdicts/critic/contracts-012-v2.md
-f3c933f0e4aa7c792e474a97fc4f85ce7be229d5	critic	critic@dev-harness.local	critic: accept zone amendment for contract 012
-
-M	verdicts/critic/contracts-012-v1.md
-e62bc2fe4dbe0a425f4dbdfadccf44c793f259eb	orchestrator	orchestrator@dev-harness.local	NABLIUDENIA: Н-58/Н-59 - check_charter грамматика + architect самовольная строка; roles/architect.md усилена
-
-M	.omp/agents/architect.md
-M	NABLIUDENIA.md
-M	roles/architect.md
-913b6b4f820cebf402692c91c352b4091cdccb6b	architect	architect@dev-harness.local	012 v+1: ЗОНА architect += NABLIUDENIA_ARCHITECT.md; декларация четырёх дозаморозочных коммитов наблюдений (ревью-FAIL 1); §История правок
-
-M	contracts/012-izoljacija-progonov.md
-7fc8d1dfd15b4d8fcfe36ad6eb902656a2ba9e03	reviewer	reviewer@dev-harness.local	review: FAIL contract 012 final gate
-
-A	verdicts/review/contracts-012.md
-10cc9b0daf7985395c3fac16a2602ec0a3b988e4	orchestrator	orchestrator@dev-harness.local	NABLIUDENIA: Н-57 - рецидив на контракте 012, ложный кап кругов (circles считает переименования)
-
-M	NABLIUDENIA.md
-HISTORICAL_LOG_EXIT_RC=0
+... 14 перечисленных выше коммитов, каждый с одним из указанных путей
+COMMAND_EXIT_RC=0
 ```
 
-Исторический журнал до первой заморозки (`20fd5ad..frozen/contracts/012/1`)
-также проверен. Четыре architect-коммита в `NABLIUDENIA_ARCHITECT.md`, бывшие
-причиной предыдущего FAIL (`7e8852b`, `f685378`, `998459c`, `8119cac`), теперь
-принадлежат явно расширенной ЗОНЕ architect замороженной v2. Это закрывает
-именно прежнюю находку о них; новой причиной этого FAIL они не являются.
+## Живая приёмка предмета
 
-## Сырой вывод обязательных механических гейтов
+Это не подмена `verify_antiplacebo` эталоном: все шесть предметных ветвей
+запущены непосредственно на живом `scripts/verify_antiplacebo.sh` текущего
+дерева. Сырой вывод:
+
+```text
+$ bash scripts/check_runner_hygiene.sh . lockdef
+  ok   (lockdef) пустая переменная → общий default-скратч: второй прогон живого владельца отказал rc=3 «занят»
+check_runner_hygiene: ветви «lockdef» зелены
+COMMAND_EXIT_RC=0
+
+$ bash scripts/check_runner_hygiene.sh . techka
+  ok   (techka) завершившийся прогон не оставил под $TMPDIR новых путей; существовавший default-скратч и чужие пути неприкосновенны
+check_runner_hygiene: ветви «techka» зелены
+COMMAND_EXIT_RC=0
+
+$ bash scripts/check_runner_hygiene.sh . pidrec
+  ok   (pidrec) живой pid с чужим pgid опознан мёртвым владельцем: lock убран, прогон прошёл rc=0, decoy цел
+check_runner_hygiene: ветви «pidrec» зелены
+COMMAND_EXIT_RC=0
+
+$ bash scripts/check_runner_hygiene.sh . izolcfg
+  ok   (izolcfg) .omp/config.yml несёт task.isolation.mode: btrfs
+check_runner_hygiene: ветви «izolcfg» зелены
+COMMAND_EXIT_RC=0
+
+$ bash scripts/check_runner_hygiene.sh . klon
+  ok   (klon) roles/architect.md: клон роли по ${TMPDIR}/dev-harness-<роль>/repo, норма названа
+check_runner_hygiene: ветви «klon» зелены
+COMMAND_EXIT_RC=0
+
+$ bash scripts/check_runner_hygiene.sh . izolnorm
+  ok   (izolnorm) orchestrator: isolated: true на параллельные пачки; длинные прогоны — в disposable-клоне
+check_runner_hygiene: ветви «izolnorm» зелены
+COMMAND_EXIT_RC=0
+```
+
+## Красное предъявлено и обязательные гейты
+
+Новые барьеры не являются зелёной самопроверкой: независимый от реализации
+`_ref_runner.sh` дал зелёный контроль, а каждая из 40 именованных изменённых
+фикстур была повторно красной. В том числе новые 012:
+`case_lockdef_unikalnyj_mktemp.sh`, `case_techka_skretch_ostalsa.sh`,
+`case_pidrec_bez_pgid_svorki.sh`, `case_izolcfg_bez_kljucha.sh`,
+`case_klon_v_dereve.sh`, `case_izolnorm_bez_isolated.sh`.
+
+Сырой вывод обязательных команд:
 
 ```text
 $ bash scripts/verify_antiplacebo.sh --scope check_runner_hygiene
 SCOPED: барьеров 1 из выборки — не для приёмки
+... 40 строк «зелёный контроль есть, повторный прогон красный кодом 1»
 барьеров: 1 · фикстур: 40 · предъявлено красным повторным прогоном: 40
-COMMAND_EXIT_RC=0
+VERIFY_ANTIPLACEBO_RC=0
 
 $ bash scripts/check_zones.sh
-замороженных контрактов: 11 · объявленных авторов: 5 · коммитов в диапазонах: 245 · проверено по зонам: 165
-COMMAND_EXIT_RC=0
+... контракт 012: коммит e62bc2fe (orchestrator) — СПАСЕНО, из суда зон выведен
+замороженных контрактов: 11 · объявленных авторов: 6 · коммитов в диапазонах: 252 · проверено по зонам: 174
+CHECK_ZONES_RC=0
 
 $ bash scripts/check_contract_frozen.sh
-  ok   contracts/012-izoljacija-progonov.md — заморожен v2, блоб совпадает побайтово, вердикты v1..v2 разрешают
+  ok   contracts/012-izoljacija-progonov.md — заморожен v3, блоб совпадает побайтово, вердикты v1..v3 разрешают
 планов и контрактов на HEAD: 15 · черновиков: 3 · заморожено: 12 · реестр: full
-COMMAND_EXIT_RC=0
+CHECK_CONTRACT_FROZEN_RC=0
 
 $ npm run check:charter
+  ok   уставной документ изменён с разрешения владельца: contracts/012-izoljacija-progonov.md в a1d5976e
   ok   уставной документ изменён с разрешения владельца: contracts/012-izoljacija-progonov.md в 913b6b4f
-  ok   contracts/012-izoljacija-progonov.md — уставной с frozen/contracts/012/1, коммитов в диапазоне 7, изменений без разрешения нет
-уставных документов: 14 · изменений в них: 38 · с разрешения: 38
-COMMAND_EXIT_RC=0
+  ok   contracts/012-izoljacija-progonov.md — уставной с frozen/contracts/012/1, коммитов в диапазоне 14, изменений без разрешения нет
+уставных документов: 14 · изменений в них: 39 · с разрешения: 39
+CHECK_CHARTER_RC=0
 
 $ npm run check:ceilings
   ok   персоны: 8 файл(ов), потолок 51200 байт
   ok   правила: 1 файл(ов), потолок 30720 байт
   ok   раздел требований: 11 черновик(ов) судится, замороженные — по тегам
 потолки в порядке
-COMMAND_EXIT_RC=0
+CHECK_CEILINGS_RC=0
 
 $ npm run check:ci-parity
 workflow-команд: 22 · скриптов в приёмке: 34 · объявленных исключений: 12 · расхождений: 0
-COMMAND_EXIT_RC=0
+CHECK_CI_PARITY_RC=0
 
 $ bash scripts/check_scoped_run.sh
   ok   (л) фильтр: прогнан ровно выбранный b, RC=0
@@ -151,12 +146,9 @@ $ bash scripts/check_scoped_run.sh
   ok   (ч2) не-README нулевая выборка → RC=0, 0 барьеров
   ok   (ci) ci.yml: ИСПОЛНЯЕМАЯ run-строка гонит анти-плацебо scoped (--changed github.event.before)
 check_scoped_run: ветви «all» зелены
-COMMAND_EXIT_RC=0
+CHECK_SCOPED_RUN_RC=0
 ```
 
-## Итог
-
-**FAIL.** Два независимых блокирующих класса: предмет А+В+трёх райдеров не
-реализован на HEAD (все шесть его живых приёмок красные), а в диапазон 012
-попали три незонных orchestrator-коммита. Механические гейты из задания зелёные,
-но не отменяют ни отсутствия реализации, ни превышения области.
+Cognitive-only ограничения названы самим контрактом: `izolcfg`, `klon` и
+`izolnorm` судят наличие, но не placement/единственность, а `techka` не судит
+SIGKILL. Это не скрытая недопоставка и не новая находка.
