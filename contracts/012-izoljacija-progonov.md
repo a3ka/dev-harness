@@ -35,8 +35,13 @@ Contention Класс-1 воспроизведён на дереве 2026-08-26 
   ЧИНИТЬ: это же закрывает наблюдённую гонку двух прогонов одного дерева.
 - **(ii) течь скратчей**: завершившийся прогон (rc=0) убирает созданный им
   default-скратч на выходе (замер владельца: 47→49 каталогов за два прогона);
-  существовавшее до прогона неприкосновенно; явный скратч — собственность
-  вызывающего, не убирается; отказ rc=3 чужой скратч не трогает.
+  существовавшее до прогона неприкосновенно — и сам детерминированный каталог,
+  и его содержимое: признак владения и удаление — только у СОЗДАВШЕГО (круг 1
+  критика: rm -rf по факту пустой переменной удалял чужой preexisting-файл при
+  rc=0; безымянную чистку чужого скратча раннер не ведёт — опознаваемо чужое
+  там только lock/run-<pid>, их чистка опознаёт мёртвого владельца и безусловна);
+  явный скратч — собственность вызывающего, не убирается; отказ rc=3 чужой
+  скратч не трогает.
 - **(iii) pid-recycling**: живость владельца lock — pid И pgid (поля lock
   «<pid> <pgid> <epoch>» pgid уже несут); `kill -0 <pid>` без сверки принимает
   посторонний процесс с перерождённым pid за владельца — stale lock не убирается
@@ -45,7 +50,7 @@ Contention Класс-1 воспроизведён на дереве 2026-08-26 
 ## Зоны
 
 ЗОНА architect: contracts/012-izoljacija-progonov.md scripts/check_runner_hygiene.sh fixtures/check_runner_hygiene/
-ЗОНА implementer: scripts/verify_antiplacebo.sh roles/ .omp/
+ЗОНА implementer: scripts/verify_antiplacebo.sh roles/orchestrator.md roles/architect.md .omp/config.yml
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
@@ -67,9 +72,9 @@ Contention Класс-1 воспроизведён на дереве 2026-08-26 
 - `bash scripts/check_runner_hygiene.sh . klon`
 - `bash scripts/check_runner_hygiene.sh . izolnorm`
 
-счёт: 39 фикстур в fixtures/check_runner_hygiene/
+счёт: 40 фикстур в fixtures/check_runner_hygiene/
 
-Гейт БАРЬЕРА сдан архитектором ДО круга критика (rc=0, 39/39 красных
+Гейт БАРЬЕРА сдан архитектором ДО круга критика (rc=0, 40/40 красных
 предъявлений, зелёный контроль в каждой):
 `bash scripts/verify_antiplacebo.sh --scope check_runner_hygiene` — зелёный уже
 на дереве до предмета, это проверка фикстур, а не предмета. Пробы выше — гейт
