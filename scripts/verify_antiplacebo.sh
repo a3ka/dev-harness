@@ -249,11 +249,23 @@ fi
 # `skip/3` исходе; прогон, не прошедший сквозь фикстуры, не сможет её прочесть.
 # Захват lock идёт ПОСЛЕ scope-select: при выходе MODE=none/needs-full ничего не
 # пишем, и lock не нужен (раньше бы всё равно не было).
+# РАЙДЕР (i) КОНТРАКТА 012: при ПУСТОЙ VERIFY_ANTIPLACEBO_SCRATCH скратч обязан быть
+# ОБЩИМ и ДЕТЕРМИНИРОВАННЫМ — ${TMPDIR:-/tmp}/verify_antiplacebo-<hash8 корня>.
+# Уникальный mktemp делал rc=3 «занят» недостижимым в default-режиме по построению
+# (замер владельца 2026-08-26: два параллельных verify над живым деревом — оба
+# RC=1 «FAIL дерево изменилось», 279с/29с, воспроизведено дважды).
+# OWN_SCRATCH/SWEEP_JUNK — признаки владения (райдер (ii)): детерминированный
+# путь может существовать до прогона (идентичное дерево контейдирует за тот же
+# путь); СОЗДАВШИЙ ставит OWN_SCRATCH=1 (тогда уберёт свой каталог на EXIT и
+# подметает безымянный мусор), иначе SWEEP_JUNK=0 — в чужом каталоге раннер
+# подметает ТОЛЬКО опознаваемое (lock/run-<pid>, их чистка безусловна).
 SCRATCH="${VERIFY_ANTIPLACEBO_SCRATCH:-}"
+OWN_SCRATCH=0
+SWEEP_JUNK=1
 if [ -z "$SCRATCH" ]; then
-  SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/verify_antiplacebo.XXXXXX")" || {
-    printf 'NOT_IMPLEMENTED: scratch не создать — VERIFY_ANTIPLACEBO_SCRATCH пуста и mktemp отказал\n' >&2
-    exit 2; }
+  HASH8_DEF="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
+  SCRATCH="${TMPDIR:-/tmp}/verify_antiplacebo-$HASH8_DEF"
+  if [ ! -e "$SCRATCH" ]; then OWN_SCRATCH=1; else SWEEP_JUNK=0; fi
 fi
 # Явный scratch обязан разрешаться ВНЕ стерегомого дерева — «в любом режиме»
 # (§Предмет Б.1 контракта 011; находка 1 адверсария, круг 1). Канонизация БЕЗ создания:
@@ -313,17 +325,25 @@ case "$_real_scratch" in
 esac
 HASH8="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
 LOCK="$SCRATCH/verify_antiplacebo-$HASH8.lock"
-
-# Стартовая чистка: артефакты МЁРТВЫХ владельцев (Н-48-5). Чужой live lock другого
-# дерева (другой HASH8) и run-каталоги живых pid — неприкосновенны.
-for l in "$SCRATCH"/verify_antiplacebo-*.lock; do
-  [ -f "$l" ] || continue
-  pid=""; read -r pid _ < "$l" || true
-  if [ -n "${pid:-}" ] && ! kill -0 "$pid" 2>/dev/null; then
-    rm -f "$l"
-    rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
-  fi
-done
+# Живость владельца lock — pid И pgid (райдер (iii) контракта 012): kill -0 <pid>
+# без сверки pgid принимает посторонний процесс с перерождённым pid за
+# владельца — stale lock тогда не убирается никогда. lock несёт три поля
+# «<pid> <pgid> <epoch>»; живой — pid жив И фактический pgid совпадает.
+owner_alive() {  # <pid> <pgid-из-lock>
+  case "${1:-}" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null || return 1
+  case "${2:-}" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$(ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ')" = "$2" ]
+}
+ for l in "$SCRATCH"/verify_antiplacebo-*.lock; do
+   [ -f "$l" ] || continue
+  pid=""; pgid=""
+  read -r pid pgid _ < "$l" 2>/dev/null || true
+  if [ -n "${pid:-}" ] && ! owner_alive "$pid" "${pgid:-}"; then
+     rm -f "$l"
+     rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
+   fi
+ done
 for f in "$SCRATCH"/*; do
   [ -e "$f" ] || continue
   bn="${f##*/}"
@@ -331,7 +351,7 @@ for f in "$SCRATCH"/*; do
     verify_antiplacebo-*.lock) ;;             # lock (в т.ч. чужой live) — не трогаем
     run-*) pid="${bn#run-}"
            kill -0 "$pid" 2>/dev/null || rm -rf "$f" ;;
-    *) rm -rf "$f" ;;                          # base64-обрывки и мусор убитых прогонов
+    *) if [ "$SWEEP_JUNK" = 1 ]; then rm -rf "$f"; fi ;;  # base64-обрывки — только в СВОЁМ/явном скратче
   esac
 done
 
@@ -345,31 +365,43 @@ while [ "$try" -lt 40 ]; do
   if ln "$LOCKTMP" "$LOCK" 2>/dev/null; then
     grabbed=1; break
   fi
-  # lock существует: живой владелец → именованный отказ, существующий не трогаем.
-  pid=""; read -r pid _ < "$LOCK" 2>/dev/null || true
-  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-    printf 'занят: verify_antiplacebo уже идёт над этим деревом (pid %s, корень %s) — второй прогон не запускается\n' \
-      "$pid" "$ROOT" >&2
-    rm -f "$LOCKTMP"; exit 3
-  fi
-  if [ -z "$pid" ]; then
-    # пустой lock собственным захватом не создаётся (ln бесшовен) — это чужой
-    # обрывок; короткое ожидание и повтор закрывают гонку с медленным писателем.
-    sleep 0.1; continue
-  fi
-  rm -f "$LOCK"                  # владелец мёртв — добираем чистку здесь
-  rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
+ # lock существует: живой владелец (pid И pgid) → именованный отказ, существующий не трогаем.
+ pid=""; pgid=""
+ read -r pid pgid _ < "$LOCK" 2>/dev/null || true
+ if [ -n "$pid" ] && owner_alive "$pid" "${pgid:-}"; then
+   printf 'занят: verify_antiplacebo уже идёт над этим деревом (pid %s, корень %s) — второй прогон не запускается\n' \
+     "$pid" "$ROOT" >&2
+   rm -f "$LOCKTMP"; exit 3
+ fi
+ if [ -z "$pid" ]; then
+   # пустой lock собственным захватом не создаётся (ln бесшовен) — это чужой
+   # обрывок; короткое ожидание и повтор закрывают гонку с медленным писателем.
+   sleep 0.1; continue
+ fi
+ rm -f "$LOCK"                  # владелец мёртв (по pid или по pgid) — добираем чистку здесь
+ rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
 done
 rm -f "$LOCKTMP"
 if [ "$grabbed" != 1 ]; then
-  printf 'занят: lock %s не удалось захватить — параллельный прогон или нечитаемый lock\n' "$LOCK" >&2
-  exit 3
+ printf 'занят: lock %s не удалось захватить — параллельный прогон или нечитаемый lock\n' "$LOCK" >&2
+ exit 3
 fi
 
 # Run-каталог — под SCRATCH. Освобождение — на EXIT (lock тоже там).
 RUN="$SCRATCH/run-$$"
 mkdir -p "$RUN"
-release() { rm -rf "$RUN" 2>/dev/null || true; rm -f "$LOCK" 2>/dev/null || true; }
+release() {
+  rm -rf "$RUN" 2>/dev/null || true
+  rm -f "$LOCK" 2>/dev/null || true
+  # РАЙДЕР (ii) КОНТРАКТА 012: завершившийся (rc=0) прогон, СОЗДАВШИЙ default-скратч,
+  # убирает его на выходе (замер владельца: 47→49 скратч-каталогов за два прогона).
+  # Ловушка EXIT уже держит lock — удаление скратча не задевает чужой прогон. Отказ
+  # rc=3 ловушку не ставит и чужой скратч не трогает. OWN_SCRATCH=1 — только у
+  # СОЗДАВШЕГО каталог (круг 1 критика 012: безусловный признак владения по
+  # факту пустой переменной rm -rf'ал чужой существовавший каталог при rc=0);
+  # детерминированный default-скратч мог существовать до прогона, и тогда чужой.
+  if [ "$OWN_SCRATCH" = 1 ]; then rm -rf "$SCRATCH" 2>/dev/null || true; fi
+}
 trap release EXIT
 
 # Запуск барьера — ЕДИНСТВЕННОЙ реализацией: её зовёт и обслуживание заявок, и повторный
