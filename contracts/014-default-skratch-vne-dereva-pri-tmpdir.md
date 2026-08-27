@@ -63,7 +63,8 @@ CI заблокировал гейт 4б контракта 013; 22 мета-ф�
 
 ## Зоны
 
-ЗОНА architect: contracts/014-default-skratch-vne-dereva-pri-tmpdir.md fixtures/verify_antiplacebo/ NABLIUDENIA_ARCHITECT.md
+ЗОНА architect: contracts/014-default-skratch-vne-dereva-pri-tmpdir.md contracts/013-processnye-artefakty-i-schet-krugov.md fixtures/verify_antiplacebo/ NABLIUDENIA_ARCHITECT.md
+v2 (2026-08-26): ЗОНА architect расширена contracts/013-processnye-artefakty-i-schet-krugov.md (точное имя — грамматика path_prefix_valid запрещает глоб; РЕШЕНИЕ арбитража 240e8a3) — разрыв взаимной хеш-рекурсии параллельных открытых окон 013↔014. Предмет, критерий и остальные зоны неизменны.
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
