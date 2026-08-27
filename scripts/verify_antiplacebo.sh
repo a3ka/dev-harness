@@ -95,6 +95,37 @@ ROOT="$(cd "${ROOT_ARG:-"$(dirname "${BASH_SOURCE[0]}")/.."}" && pwd)"
 SCRIPTS="$ROOT/scripts"
 FIXTURES="$ROOT/fixtures"
 
+# canonicalize_path <лекс. путь> — канонический путь БЕЗ mkdir (мера каноникализации
+# едина: спуск до существующего предка + pwd -P, как у действующего стража
+# in-tree-scratch 011). Возвращает канонический путь в stdout и 0; пустая строка
+# и rc=1, если резолвить нечего. Применяется к базе default-скратча, запасной
+# базе и явному scratch — иначе lexical- и canonical-реализации расходятся на
+# симлинке (контракт 014 §Предмет, инв. 1: «мера каноникализации везде одна»).
+canonicalize_path() {
+  local p="$1" tail="" cur _c
+  [ -n "$p" ] || return 1
+  case "$p" in /*) ;; *) p="$PWD/$p" ;; esac
+  cur="$p"
+  while [ ! -d "$cur" ] && [ -n "$cur" ]; do
+    tail="/${cur##*/}${tail}"
+    cur="${cur%/*}"
+  done
+  [ -n "$cur" ] || return 1
+  _c="$(cd "$cur" 2>/dev/null && pwd -P 2>/dev/null)" || return 1
+  printf '%s%s' "$_c" "$tail"
+}
+# is_inside_canon <канонический путь> <канонический корень> — 0, если путь равен
+# корню или лежит внутри (префикс-внутри). Граница — та же, что у существующего
+# стража in-tree-scratch (строки ниже).
+is_inside_canon() {
+  case "$1" in "$2"|"$2"/*) return 0 ;; *) return 1 ;; esac
+}
+# Канонический корень и hash8 (инв. 3): лексические алиасы одного канонического
+# корня дают ОДИН путь скратча и ОДИН lock. Текущий код считал hash от
+# лексического $ROOT — алиасы расходились; А-43 зафиксировало, но до предмета
+# default-скратч не создавался, и расхождение было невидимо.
+ROOT_CANON="$(canonicalize_path "$ROOT" 2>/dev/null)" || ROOT_CANON="$ROOT"
+HASH8="$(printf '%s' "$ROOT_CANON" | sha256sum | cut -c1-8)"
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
 bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
@@ -250,10 +281,17 @@ fi
 # Захват lock идёт ПОСЛЕ scope-select: при выходе MODE=none/needs-full ничего не
 # пишем, и lock не нужен (раньше бы всё равно не было).
 # РАЙДЕР (i) КОНТРАКТА 012: при ПУСТОЙ VERIFY_ANTIPLACEBO_SCRATCH скратч обязан быть
-# ОБЩИМ и ДЕТЕРМИНИРОВАННЫМ — ${TMPDIR:-/tmp}/verify_antiplacebo-<hash8 корня>.
+# ОБЩИМ и ДЕТЕРМИНИРОВАННЫМ — <база>/verify_antiplacebo-<hash8 КАНОНИЧЕСКОГО корня>.
 # Уникальный mktemp делал rc=3 «занят» недостижимым в default-режиме по построению
 # (замер владельца 2026-08-26: два параллельных verify над живым деревом — оба
 # RC=1 «FAIL дерево изменилось», 279с/29с, воспроизведено дважды).
+# КОНТРАКТ 014 §Предмет (Н-63, боль 1): база-кандидат = канонический ${TMPDIR:-/tmp};
+# равный корню или лежащий внутри (любой лексический вид: вложенный, симлинк,
+# несуществующий хвост) — ОТБРАСЫВАЕТСЯ; запасная база = канонический /tmp той же
+# мерой; если и она внутри — именованный отказ код 2 ДО создания чего-либо
+# (инв. 2: «ДО создания — наблюдаемое событие во времени»). Имя скратча и хеш
+# побайтово сохранены (инв. 3): verify_antiplacebo-<hash8 канон. корня>; на
+# TMPDIR, разрешающийся ВНЕ корня, ухода нет — замороженное 012 не трогаем (инв. 4).
 # OWN_SCRATCH/SWEEP_JUNK — признаки владения (райдер (ii)): детерминированный
 # путь может существовать до прогона (идентичное дерево контейдирует за тот же
 # путь); СОЗДАВШИЙ ставит OWN_SCRATCH=1 (тогда уберёт свой каталог на EXIT и
@@ -263,8 +301,19 @@ SCRATCH="${VERIFY_ANTIPLACEBO_SCRATCH:-}"
 OWN_SCRATCH=0
 SWEEP_JUNK=1
 if [ -z "$SCRATCH" ]; then
-  HASH8_DEF="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
-  SCRATCH="${TMPDIR:-/tmp}/verify_antiplacebo-$HASH8_DEF"
+  _base="$(canonicalize_path "${TMPDIR:-/tmp}")" || _base=""
+  if [ -n "$_base" ] && ! is_inside_canon "$_base" "$ROOT_CANON"; then
+    : # TMPDIR канонически ВНЕ корня — замороженное поведение 012, база остаётся
+  else
+    _fallback="$(canonicalize_path "/tmp")" || _fallback=""
+    if [ -z "$_fallback" ] || is_inside_canon "$_fallback" "$ROOT_CANON"; then
+      printf 'ОТКАЗ: default scratch без запасной базы вне стерегомого дерева (корень %s, TMPDIR=%s)\n' \
+        "$ROOT_CANON" "${TMPDIR:-/tmp}" >&2
+      exit 2
+    fi
+    _base="$_fallback"
+  fi
+  SCRATCH="$_base/verify_antiplacebo-$HASH8"
   if [ ! -e "$SCRATCH" ]; then OWN_SCRATCH=1; else SWEEP_JUNK=0; fi
 fi
 # Явный scratch обязан разрешаться ВНЕ стерегомого дерева — «в любом режиме»
@@ -323,7 +372,6 @@ case "$_real_scratch" in
     printf 'ОТКАЗ: TOCTOU race — scratch %s после mkdir разрешился в %s (внутри стерегомого дерева %s); симлинк-компонент пути был подменён. rm -rf выполнен.\n' "$SCRATCH" "$_real_scratch" "$_real_root" >&2
     exit 2 ;;
 esac
-HASH8="$(printf '%s' "$ROOT" | sha256sum | cut -c1-8)"
 LOCK="$SCRATCH/verify_antiplacebo-$HASH8.lock"
 # Живость владельца lock — pid И pgid (райдер (iii) контракта 012): kill -0 <pid>
 # без сверки pgid принимает посторонний процесс с перерождённым pid за
