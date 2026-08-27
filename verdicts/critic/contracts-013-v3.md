@@ -1,29 +1,26 @@
-FAIL
+accept
 
-АРБИТР: `arbiter`, созван через `Main` по второму `FAIL` одной причины. Предмет спора: достаточно ли локально корректных строк `СПАСЕНО` контракта 013, когда обратное покрытие коммитов 013 зоной замораживаемого 014-v2 по-прежнему не принято тем же `check_zones`, либо обязательна зелёная взаимная проба двух тегов. Первый `FAIL` указал отсутствие покрытия `a84a93c7` зоной 014; новая редакция 014 пытается закрыть ту же причину, но объявляет запрещённый шаблон.
+РЕШЕНИЕ арбитража `verdicts/arbitration/kontrakt-013-razryv-vzaimnyh-okon.md` исполнено на закоммиченном `HEAD = cf0039695582833a86018b33a411e4435bec4421`: H1 = `a5d39f65c860784dfd1bc3c593702ec1bd78e069`, Y1 = `f88fb5f4b3b06b088a2e86eaf31afcffe36bc0ac`. Блокирующих находок нет.
 
-БЛОКИРУЕТ contracts/013-processnye-artefakty-i-schet-krugov.md:111-113 — локальная грамматика v3 теперь корректна и все семь коммитов серии 014 выводятся из суда диапазона 013, но обязательная взаимная проба с 014-v2 остаётся красной: `contracts/014-default-skratch-vne-dereva-pri-tmpdir.md:66` объявляет `contracts/013-*.md`, а парсер запрещает шаблоны. Поэтому строка зоны 014 отвергнута, а `a84a93c7` и `bae6698b` остаются вне зоны 014; `bash scripts/check_zones.sh .` возвращает 1 вместо требуемого 0.
-ОБХОД: принять 013-v3 только по локальной форме двух строк `СПАСЕНО`: фактическое дерево уже даёт все 7 строк `контракт 013 … СПАСЕНО`, то есть carve-out серии 014 выглядит завершённым, однако тот же прогон отвергает обратную границу и оставляет два коммита 013 нарушениями зоны 014. Текст 013 удовлетворяет локальной части критерия, а заявленное взаимное покрытие двух открытых окон не сделано.
+## Единственность изменения против блоба v2
 
-## Единственность изменения
-
-В чистом клоне на `HEAD = bae6698bcb53d921a805a6bed59723be9b812650` команда
+Команда
 
 ```text
-git diff --no-ext-diff --unified=80 frozen/contracts/013/2 -- contracts/013-processnye-artefakty-i-schet-krugov.md
+git diff --no-ext-diff --unified=5 frozen/contracts/013/2 HEAD -- contracts/013-processnye-artefakty-i-schet-krugov.md
 ```
 
-дала `1 file changed, 3 insertions(+), 4 deletions(-)`. Полный diff меняет только прежнюю одну строку `СПАСЕНО architect` на две строки по авторам и заменяет двухстрочное примечание v2 однострочным примечанием v3. Иных изменений предмета, критерия или зон против блоба v2 нет.
+завершилась с **rc=0** и дала ровно `1 file changed, 3 insertions(+), 4 deletions(-)`. В единственном hunk прежняя одна строка `СПАСЕНО architect` заменена двумя строками `СПАСЕНО` по авторам, а двухстрочное примечание v2 заменено однострочным примечанием v3. Иных изменений предмета, критерия или зон нет.
 
 ## Грамматика двух строк
 
-`contracts/013-processnye-artefakty-i-schet-krugov.md:105` объявляет `ЗОНА architect`, строка 110 — `ЗОНА implementer`. Строка 111 содержит 6 полных lowercase-хешей автора `architect`, строка 112 — 1 полный lowercase-хеш автора `implementer`; в обеих есть `—` и непустая причина. Команда
+В `contracts/013-processnye-artefakty-i-schet-krugov.md:104-112` авторы `architect` и `implementer` объявлены собственными `ЗОНА`-строками. Строка `СПАСЕНО architect` содержит 6 полных lowercase 40-символьных хешей, строка `СПАСЕНО implementer` — 1; после `—` у обеих непустая причина. Команда
 
 ```text
-git rev-parse bc12da4 0f19263 c081809 376025f 743d35b 8f7080b c91a6c8
+git rev-parse bc12da4 0f19263 c081809 376025f 743d35b f88fb5f c91a6c8
 ```
 
-вернула ровно записанные 7 хешей:
+завершилась с **rc=0** и вернула, в том же порядке:
 
 ```text
 bc12da471b5180bc2d8de299720ef38b2fa305fb
@@ -31,23 +28,23 @@ bc12da471b5180bc2d8de299720ef38b2fa305fb
 c0818095ef62b582bd8301b5c1b12fbfca3260ed
 376025fcbd5ced9b697d57a7ee4a6d94c6431e12
 743d35b24762939530979188415e3af15e9c0e28
-8f7080b4ac96f18d7d9c56fed8ddf3490cd07bce
+f88fb5f4b3b06b088a2e86eaf31afcffe36bc0ac
 c91a6c843b959aef70c6c82363a7de098c7a365c
 ```
 
-`git show -s --format='%H %an'` подтвердил распределение: первые 6 — `architect`, последний — `implementer`.
+`git show -s --format='%H %an'` завершилась с **rc=0**: первые 6 коммитов принадлежат `architect`, последний — `implementer`. Это соответствует грамматике парсера `scripts/check_zones.sh:190-250` и объявленным авторам контракта 013.
 
-## Взаимная проба тегов
+## Парная проба заморозок
 
-В чистом клоне `/tmp/critic013v3b-repo` поставлены:
+В собственном чистом клоне `/tmp/critic013v3fix-cf00396-20260827` выполнено:
 
 ```text
-git tag frozen/contracts/013/3 bae6698
-git tag frozen/contracts/014/2 8f7080b
+git tag -f frozen/contracts/013/3 a5d39f6
+git tag -f frozen/contracts/014/2 f88fb5f
 bash scripts/check_zones.sh .
 ```
 
-Итог — **rc=1**, не требуемый rc=0. Семь объявленных хешей 013 были прочитаны и спасены:
+Итог парного прогона — **rc=0**. Все семь исключений контракта 013 прочитаны и применены:
 
 ```text
 ok   контракт 013: коммит bc12da47 (architect) — СПАСЕНО, из суда зон выведен
@@ -56,19 +53,45 @@ ok   контракт 013: коммит c0818095 (architect) — СПАСЕНО,
 ok   контракт 013: коммит 376025fc (architect) — СПАСЕНО, из суда зон выведен
 ok   контракт 013: коммит 743d35b2 (architect) — СПАСЕНО, из суда зон выведен
 ok   контракт 013: коммит c91a6c84 (implementer) — СПАСЕНО, из суда зон выведен
-ok   контракт 013: коммит 8f7080b4 (architect) — СПАСЕНО, из суда зон выведен
+ok   контракт 013: коммит f88fb5f4 (architect) — СПАСЕНО, из суда зон выведен
 ```
 
-Но обратное покрытие не состоялось; диагностика:
+Обратное покрытие двух правок 013 принято именно точным именем зоны 014-v2. Прогон напечатал:
 
 ```text
-FAIL строка ЗОНА вне объявленной грамматики в contracts/014-default-skratch-vne-dereva-pri-tmpdir.md: путь «contracts/013-*.md» у автора «architect» — путь обязан быть относительным, без шаблонов, .. и пробелов; каталог завершается /
-FAIL коммит вне зоны: architect a84a93c7 contracts/013-processnye-artefakty-i-schet-krugov.md — зона контракта 014: contracts/014-default-skratch-vne-dereva-pri-tmpdir.md fixtures/verify_antiplacebo/ NABLIUDENIA_ARCHITECT.md
-FAIL коммит вне зоны: architect bae6698b contracts/013-processnye-artefakty-i-schet-krugov.md — зона контракта 014: contracts/014-default-skratch-vne-dereva-pri-tmpdir.md fixtures/verify_antiplacebo/ NABLIUDENIA_ARCHITECT.md
+ok   contracts/014-default-skratch-vne-dereva-pri-tmpdir.md — зона: architect → contracts/013-processnye-artefakty-i-schet-krugov.md  014
 ```
 
-Сводка прогона: `замороженных контрактов: 13 · объявленных авторов: 6 · коммитов в диапазонах: 288 · проверено по зонам: 201`.
+Проверка изменённых путей дала:
+
+```text
+a84a93c7cdb873ea08dc6e33923c2ddaaf88c1c5 architect
+contracts/013-processnye-artefakty-i-schet-krugov.md
+a5d39f65c860784dfd1bc3c593702ec1bd78e069 architect
+contracts/013-processnye-artefakty-i-schet-krugov.md
+```
+
+Следовательно, оба коммита `a84a93c7` и `a5d39f65` покрыты точным путём зоны `architect` замороженного 014-v2; диагностик `FAIL` нет. Сводка парного прогона:
+
+```text
+замороженных контрактов: 13 · объявленных авторов: 6 · коммитов в диапазонах: 292 · проверено по зонам: 203
+```
+
+После пробы собственный клон удалён.
 
 ## Charter
 
-`bash scripts/check_charter.sh .` → **rc=0**: `уставных документов: 16 · изменений в них: 43 · с разрешения: 43`. Для предмета напечатано разрешённое изменение `contracts/013-processnye-artefakty-i-schet-krugov.md` в `bae6698b`; для взаимного блоба — разрешённое изменение контракта 014 в `8f7080b4`.
+В том же чистом клоне команда
+
+```text
+bash scripts/check_charter.sh .
+```
+
+завершилась с **rc=0**. Для H1 и Y1 напечатано:
+
+```text
+ok   уставной документ изменён с разрешения владельца: contracts/013-processnye-artefakty-i-schet-krugov.md в a5d39f65
+ok   уставной документ изменён с разрешения владельца: contracts/014-default-skratch-vne-dereva-pri-tmpdir.md в f88fb5f4
+```
+
+Сводка: `уставных документов: 16 · изменений в них: 43 · с разрешения: 43`.
