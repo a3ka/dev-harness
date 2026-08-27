@@ -2,18 +2,35 @@
 # НЕ ФИКСТУРА (нет case_-префикса, раннером не гоняется): проба контракта 014 —
 # Н-63, боль 1 (конъюнкция: 011-страж in-tree scratch × 012-детерминированный
 # default-scratch × TMPDIR-пара проверяющего, 0c23061). Красна СЕЙЧАС (rc=1,
-# несовпавшие ветви напечатаны поимённо), зелёна после предмета. Ветви привязаны
-# к входам раннера по коду (Н-39), не к прозе контракта:
-#   н63-зелёный   раннер на ЧЕСТНОМ подставном корне W при env TMPDIR=W обязан
-#                 доработать до rc=0 — сейчас отказ код 2 «внутри стерегомого
-#                 дерева» на каждом запуске (22 мета-фикстуры красны тем же);
-#   охрана-011    ЯВНЫЙ VERIFY_ANTIPLACEBO_SCRATCH=$W/ja-vnutri (в дереве) обязан
-#                 остаться отказом код 2 «внутри стерегомого дерева» — замороженное
-#                 поведение 011 (ветвь scratchexpl); зелёна и до, и после предмета;
-#   детерминизм   два прогона при TMPDIR=W: скратч наблюдается ЖИВЫМ (lock на месте)
-#                 по предсказанному пути /tmp/verify-antiplacebo-<hash8(W)> в ОБОИХ
-#                 прогонах (одинаковый корень → одинаковый путь, райдер 012), под W
-#                 путей verify-antiplacebo-* не появляется (default ушёл из дерева).
+# несовпавшие ветви напечатаны поимённо), зелена после предмета. Ветви привязаны
+# к входам раннера по коду (Н-39), не к прозе контракта — по одной на каждый
+# способ обмануть выбор базы:
+#   н63-зелёный       TMPDIR=корню (честный fake_root, лексическое равенство):
+#                     раннер обязан доработать rc=0 — сейчас отказ код 2;
+#   охрана-011        ЯВНЫЙ VERIFY_ANTIPLACEBO_SCRATCH=$W/ja-vnutri обязан
+#                     остаться отказом код 2 «внутри стерегомого дерева» —
+#                     замороженное поведение 011 (ветвь scratchexpl); зелена
+#                     и до, и после предмета;
+#   детерминизм       два прогона при TMPDIR=корне: скратч жив по предсказанному
+#                     /tmp/verify_antiplacebo-<hash8> в ОБОИХ прогонах, под
+#                     корнем путей скратча нет;
+#   вложенный-tmpdir  TMPDIR=$W/podkatalog (существует, канонически внутри):
+#                     запасная база, не лексическое сравнение строк —
+#                     лексическая реализация сохраняет отказ код 2;
+#   симлинк-внутрь    TMPDIR=$P/alias→$W (лексически ВНЕ корня, канонически
+#                     сам корень): обязан отбрасываться к запасной базе;
+#   внешний-tmpdir    TMPDIR=$P/vnesh (канонически вне корня): ОСТАЁТСЯ базой
+#                     (замороженное 012) — безусловно-/tmp-реализация не
+#                     наблюдаема живой по предсказанному пути; зелена и сейчас;
+#   алиасы-хеша       корень по прямому имени и по симлинку: ОДИН путь скратча
+#                     — hash8 КАНОНИЧЕСКОГО корня; лексический hash даёт два
+#                     разных пути на втором прогоне;
+#   без-mkdir         TMPDIR=$W/novyj (несуществующий): rc=0 и novyj НЕ
+#                     материализован — канонизация без mkdir, «сначала создать,
+#                     потом выбрать» ловится отсутствием каталога после прогона.
+# Непостроимый вход (в тексте контракта, не здесь): корень=/tmp или предок /tmp —
+# требует /tmp/scripts с барьером, то есть мутацию общего системного /tmp; держит
+# именованный отказ инварианта + замороженный страж 011 (ветвь охрана-011 живая).
 # НЕ БАРЬЕР: проба приёмки контракта (как probe_* контракта 013), а не барьер
 # с красными предъявлениями; запускается напрямую из приёмочного критерия.
 # Коды возврата: 0 — предмет есть, 1 — нет.
@@ -24,49 +41,19 @@ RUNNER="$REPO/scripts/verify_antiplacebo.sh"
 . "$HERE/_fake_root.sh"
 
 P="$(mktemp -d /tmp/probe014.XXXXXX)" || { printf 'probe014: /tmp недоступен\n' >&2; exit 1; }
-cleanup() { rm -rf "$P"; }
+cleanup() { [ -n "${PROBE014_KEEP:-}" ] || rm -rf "$P"; }
 trap cleanup EXIT
 
 fails=0
 okb()   { printf '  ok   (%s) %s\n' "$1" "$2" >&2; }
 failb() { printf '  FAIL (%s) %s\n' "$1" "$2" >&2; fails=$((fails + 1)); }
 
-run_runner() {  # <корень> <лог> [явный-scratch] — env пары проверяющего, TMPDIR=корень
-  local root="$1" log="$2" expl="${3:-}"
-  if [ -n "$expl" ]; then
-    env -i PATH="$PATH" HOME="$root/home" LC_ALL=C.UTF-8 TMPDIR="$root" \
-      VERIFY_ANTIPLACEBO_SCRATCH="$expl" bash "$RUNNER" "$root" > "$log" 2>&1
-  else
-    env -i PATH="$PATH" HOME="$root/home" LC_ALL=C.UTF-8 TMPDIR="$root" \
-      bash "$RUNNER" "$root" > "$log" 2>&1
-  fi
+h8() {  # <путь> — hash8 канонического пути (та же мера, что у раннера: cd + pwd -P)
+  printf '%s' "$(cd "$1" && pwd -P)" | sha256sum | cut -c1-8
 }
 
-# ── ветвь 1: зелёный контроль сценария Н-63 ────────────────────────────────────
-W1="$P/root1"; mkdir -p "$W1/home"
-fake_root "$W1"
-run_runner "$W1" "$P/l1.out"; rc1=$?
-if [ "$rc1" = 0 ] && ! grep -q 'ОТКАЗ' "$P/l1.out"; then
-  okb н63-зелёный 'раннер доработал до rc=0 при TMPDIR, равном корню'
-else
-  failb н63-зелёный "ожидались rc=0 без отказов, получено rc=$rc1: $(head -1 "$P/l1.out")"
-fi
-
-# ── ветвь 2: охрана замороженного поведения 011 (явный in-tree scratch) ────────
-W2="$P/root2"; mkdir -p "$W2/home"
-fake_root "$W2"
-run_runner "$W2" "$P/l2.out" "$W2/ja-vnutri"; rc2=$?
-if [ "$rc2" = 2 ] && grep -q 'внутри стерегомого дерева' "$P/l2.out"; then
-  okb охрана-011 'явный in-tree scratch остался отказом код 2 «внутри стерегомого дерева»'
-else
-  failb охрана-011 "ожидались rc=2 и «внутри стерегомого дерева», получено rc=$rc2: $(head -1 "$P/l2.out")"
-fi
-
-# ── ветвь 3: детерминизм default-скратча и уход из дерева при TMPDIR=корне ─────
-W3="$P/root3"; mkdir -p "$W3/home"
-fake_root "$W3"
-# Честная медленная фикстура-игрушка: пока она спит, скратч раннера жив — наблюдаем.
-cat > "$W3/fixtures/verify_toy/case_dolgoj.sh" <<'CASE'
+slow_case() {  # <корень> — медленная честная игрушка: пока спит, скратч раннера жив
+  cat > "$1/fixtures/verify_toy/case_dolgoj.sh" <<'CASE'
 # ПРИЧИНА: игрушка сломана
 set -euo pipefail
 sleep 2
@@ -75,36 +62,112 @@ BARRIER_ROOT="$WORK" "$BARRIER"
 touch "$WORK/.slomano"
 BARRIER_ROOT="$WORK" "$BARRIER"
 CASE
-# Предсказание — та же формула, что в раннере: hash8 канонического корня (cd+pwd),
-# запасная база /tmp (инвариант 1 контракта 014), имя райдера 012 не менялось.
-H="$(printf '%s' "$(cd "$W3" && pwd)" | sha256sum | cut -c1-8)"
-PRED="/tmp/verify-antiplacebo-$H"
-rm -rf "$PRED"  # хеш уникален этому запуску (корень — свежий mktemp): мусор убитого
-                # прогона не должен изображать наблюдение
+}
 
-obs_run() {  # <n> — прогон №n с наблюдением; печатает "<rc> <seen> <нарушения>"
-  local n="$1"
-  local log="$P/l3-$n.out"
-  local seen=0 viol='' pid rc e
-  run_runner "$W3" "$log" & pid=$!
+run_env() {  # <корень> <лог> <tmpdir> [явный-scratch] — env пары проверяющего
+  local root="$1" log="$2" td="$3" expl="${4:-}"
+  if [ -n "$expl" ]; then
+    env -i PATH="$PATH" HOME="$root/home" LC_ALL=C.UTF-8 TMPDIR="$td" \
+      VERIFY_ANTIPLACEBO_SCRATCH="$expl" bash "$RUNNER" "$root" > "$log" 2>&1
+  else
+    env -i PATH="$PATH" HOME="$root/home" LC_ALL=C.UTF-8 TMPDIR="$td" \
+      bash "$RUNNER" "$root" > "$log" 2>&1
+  fi
+}
+
+obs_env() {  # <метка> <корень> <tmpdir> <предсказанный-скратч> — «<rc> <seen> <нарушения>»
+  local tag="$1" root="$2" td="$3" pred="$4"
+  local log="$P/$tag.out" seen=0 viol='' pid rc e
+  run_env "$root" "$log" "$td" & pid=$!
   while kill -0 "$pid" 2>/dev/null; do
-    for e in "$W3"/verify-antiplacebo-*; do [ -e "$e" ] && viol="$viol ${e##*/}"; done
-    [ -e "$PRED/verify_antiplacebo-$H.lock" ] && seen=1
+    for e in "$root"/verify_antiplacebo-* "$root"/*/verify_antiplacebo-*; do
+      [ -e "$e" ] && viol="$viol ${e##*/}"
+    done
+    [ -e "$pred/verify_antiplacebo-${pred##*-}.lock" ] && seen=1
     sleep 0.05
   done
   wait "$pid"; rc=$?
   printf '%s %s %s\n' "$rc" "$seen" "${viol:-none}"
 }
 
-o1="$(obs_run 1)"; o2="$(obs_run 2)"
-f1_a=${o1%% *}; r=${o1#* }; s1=${r%% *}; v1=${r#* }
-f1_b=${o2%% *}; r=${o2#* }; s2=${r%% *}; v2=${r#* }
-d3=0
-[ "$f1_a" = 0 ] && [ "$f1_b" = 0 ] \
-  || { failb детерминизм "прогоны при TMPDIR=корне упали (rc=$f1_a/$f1_b): $(head -1 "$P/l3-1.out")"; d3=1; }
-[ "$s1" = 1 ] && [ "$s2" = 1 ] \
-  || { failb детерминизм "скратч не наблюдается живым по предсказанному пути $PRED (seen=$s1/$s2) — default обязан уходить на /tmp/verify-antiplacebo-<hash8> тем же именем"; d3=1; }
-[ "$v1" = none ] && [ "$v2" = none ] \
-  || { failb детерминизм "под стерегомым корнем появились пути скратча:$v1$v2"; d3=1; }
+obs_check() {  # <ветвь> <метка> <вывод-obs_env> <предсказанный-путь> — сверка тройки
+  local br="$1" tag="$2" out="$3" pred="$4"
+  local rc r s v
+  rc="${out%% *}"; r="${out#* }"; s="${r%% *}"; v="${r#* }"
+  [ "$rc" = 0 ] || { failb "$br" "ожидался rc=0, получено rc=$rc: $(head -1 "$P/$tag.out" 2>/dev/null)"; return 1; }
+  [ "$s" = 1 ] || { failb "$br" "скратч не наблюдается живым по предсказанному пути $pred (seen=$s)"; return 1; }
+  [ "$v" = none ] || { failb "$br" "под стерегомым корнем появились пути скратча:$v"; return 1; }
+  okb "$br" "rc=0, скратч жив по предсказанному пути $pred, дерево чисто"
+}
+
+# ── ветвь 1: зелёный контроль сценария Н-63 (лексическое равенство) ───────────
+W1="$P/root1"; mkdir -p "$W1/home"
+fake_root "$W1"
+run_env "$W1" "$P/l1.out" "$W1"; rc1=$?
+if [ "$rc1" = 0 ] && ! grep -q 'ОТКАЗ' "$P/l1.out"; then
+  okb н63-зелёный 'раннер доработал до rc=0 при TMPDIR, равном корню'
+else
+  failb н63-зелёный "ожидались rc=0 без отказов, получено rc=$rc1: $(head -1 "$P/l1.out")"
+fi
+
+# ── ветвь 2: охрана замороженного поведения 011 (явный in-tree scratch) ───────
+W2="$P/root2"; mkdir -p "$W2/home"
+fake_root "$W2"
+run_env "$W2" "$P/l2.out" "$W2" "$W2/ja-vnutri"; rc2=$?
+if [ "$rc2" = 2 ] && grep -q 'внутри стерегомого дерева' "$P/l2.out"; then
+  okb охрана-011 'явный in-tree scratch остался отказом код 2 «внутри стерегомого дерева»'
+else
+  failb охрана-011 "ожидались rc=2 и «внутри стерегомого дерева», получено rc=$rc2: $(head -1 "$P/l2.out")"
+fi
+
+# ── ветвь 3: детерминизм default-скратча при TMPDIR=корне ─────────────────────
+W3="$P/root3"; mkdir -p "$W3/home"
+fake_root "$W3"; slow_case "$W3"
+PRED3="/tmp/verify_antiplacebo-$(h8 "$W3")"
+rm -rf "$PRED3"  # хеш уникален этому запуску (корень — свежий mktemp): мусор убитого
+                 # прогона не должен изображать наблюдение
+obs_check детерминизм l3a "$(obs_env l3a "$W3" "$W3" "$PRED3")" "$PRED3" || :
+obs_check детерминизм l3b "$(obs_env l3b "$W3" "$W3" "$PRED3")" "$PRED3" || :
+
+# ── ветвь 4: вложенный TMPDIR (существует, канонически внутри корня) ──────────
+W4="$P/root4"; mkdir -p "$W4/home"
+fake_root "$W4"; slow_case "$W4"; mkdir -p "$W4/podkatalog"
+PRED4="/tmp/verify_antiplacebo-$(h8 "$W4")"
+rm -rf "$PRED4"
+obs_check вложенный-tmpdir l4 "$(obs_env l4 "$W4" "$W4/podkatalog" "$PRED4")" "$PRED4" || :
+[ -e "$W4/podkatalog/verify_antiplacebo-$(h8 "$W4")" ] \
+  && failb вложенный-tmpdir 'скратч возник внутри корня под TMPDIR-базой (podkatalog)'
+
+# ── ветвь 5: симлинк-внутрь (лексически вне корня, канонически — корень) ──────
+W5="$P/root5"; mkdir -p "$W5/home"
+fake_root "$W5"; slow_case "$W5"; ln -s "$W5" "$P/alias5"
+PRED5="/tmp/verify_antiplacebo-$(h8 "$W5")"
+rm -rf "$PRED5"
+obs_check симлинк-внутрь l5 "$(obs_env l5 "$W5" "$P/alias5" "$PRED5")" "$PRED5" || :
+
+# ── ветвь 6: внешний TMPDIR остаётся базой (охрана замороженного 012) ─────────
+W6="$P/root6"; mkdir -p "$W6/home"
+fake_root "$W6"; slow_case "$W6"; T6="$P/vnesh6"; mkdir -p "$T6"
+PRED6="$T6/verify_antiplacebo-$(h8 "$W6")"
+rm -rf "$PRED6"
+obs_check внешний-tmpdir l6 "$(obs_env l6 "$W6" "$T6" "$PRED6")" "$PRED6" || :
+
+# ── ветвь 7: алиасы одного корня дают ОДИН путь (hash8 канонического) ─────────
+W7="$P/root7"; mkdir -p "$W7/home"
+fake_root "$W7"; slow_case "$W7"; ln -s "$W7" "$P/al7"
+PRED7="/tmp/verify_antiplacebo-$(h8 "$W7")"
+rm -rf "$PRED7"
+obs_check алиасы-хеша l7a "$(obs_env l7a "$W7" "$W7" "$PRED7")" "$PRED7" || :
+obs_check алиасы-хеша l7b "$(obs_env l7b "$P/al7" "$P/al7" "$PRED7")" "$PRED7" || :
+
+# ── ветвь 8: несуществующая база не материализуется (канонизация без mkdir) ───
+W8="$P/root8"; mkdir -p "$W8/home"
+fake_root "$W8"; slow_case "$W8"
+PRED8="/tmp/verify_antiplacebo-$(h8 "$W8")"
+rm -rf "$PRED8"
+obs_check без-mkdir l8 "$(obs_env l8 "$W8" "$W8/novyj" "$PRED8")" "$PRED8" || :
+[ -e "$W8/novyj" ] \
+  && failb без-mkdir 'несуществующий TMPDIR материализовался в стерегомом дереве (mkdir до выбора)'
+
 [ "$fails" = 0 ] || { printf 'probe_tmpdir_raven_koren: расхождений: %d\n' "$fails" >&2; exit 1; }
 exit 0
