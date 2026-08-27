@@ -37,10 +37,20 @@
 #   внутрь-корня      (замер 3 арбитража): тот же именованный отказ — запасная
 #                     база каноникализирована ТОЙ ЖЕ мерой; литеральный /tmp
 #                     просачивается в общий страж с чужим текстом; внутри корня
-#                     ничего не создаётся.
+#                     ничего не создаётся;
+#   корень-tmp-транс  ТРАНС-наблюдение ветви 9 (круг 3 критика): итоговый ls
+#                     слеп к пути, созданному и удалённому ДО именованного
+#                     отказа — стаб transient-create прошёл все прежние
+#                     проверки. Монитор создания (mon_start/mon_check) стоит
+#                     на стерегомом корне ДО запуска раннера: ни одного
+#                     события создания/переноса за весь вызов; созданный
+#                     и удалённый путь — то же нарушение инварианта 2;
+#   tmp-симлинк-транс то же наблюдение на корне chroot-ветви 10.
 # Недоступность userns на машине прогона — КРАСНОЕ ветвей 9–10 с именованной
 # причиной «userns недоступен» (fail-closed, решение арбитража 014), не skip:
-# зелёный, не видевший этих ветвей, — недоказуемое готово.
+# зелёный, не видевший этих ветвей, — недоказуемое готово. Недоступность
+# монитора создания (нет python3, watch не встал) — равным образом КРАСНОЕ
+# транс-наблюдений с именованной причиной (fail-closed, не skip).
 # НЕ БАРЬЕР: проба приёмки контракта (как probe_* контракта 013), а не барьер
 # с красными предъявлениями; запускается напрямую из приёмочного критерия.
 # Коды возврата: 0 — предмет есть, 1 — нет.
@@ -60,6 +70,92 @@ failb() { printf '  FAIL (%s) %s\n' "$1" "$2" >&2; fails=$((fails + 1)); }
 
 h8() {  # <путь> — hash8 канонического пути (та же мера, что у раннера: cd + pwd -P)
   printf '%s' "$(cd "$1" && pwd -P)" | sha256sum | cut -c1-8
+}
+
+# ── монитор создания ВО ВРЕМЯ прогона (транс-наблюдение, круг 3 критика) ──────
+# Наблюдатель — ядро inotify из python3-ctypes: событие создания ставится
+# в очередь ядра В МОМЕНТ создания, create+rm между опросами не теряется
+# (итоговый ls слеп к такому пути; стаб transient-create прошёл 10/10).
+# Монитор ходит по каталогам стерегомого корня рекурсивно и обязан встать
+# ДО запуска раннера (готовность MON-READY); все его потоки — в $P, не в корне.
+PY3="$(command -v python3 || :)"
+cat > "$P/mon014.py" <<'PYMON'
+import ctypes, os, struct, sys
+IN_CREATE, IN_MOVED_TO, IN_ISDIR, IN_Q_OVERFLOW = 0x100, 0x80, 0x40000000, 0x4000
+MASK = IN_CREATE | IN_MOVED_TO
+root = os.path.realpath(sys.argv[1])
+libc = ctypes.CDLL(None, use_errno=True)
+fd = libc.inotify_init()
+if fd < 0:
+    print("MON-ERR init", os.strerror(ctypes.get_errno()), flush=True); sys.exit(2)
+watched = {}
+def add(path):
+    wd = libc.inotify_add_watch(fd, os.fsencode(path), MASK)
+    if wd < 0:
+        print("MON-ERR add", path, os.strerror(ctypes.get_errno()), flush=True); sys.exit(2)
+    watched[wd] = os.path.realpath(path)
+for d, dn, fn in os.walk(root):
+    add(d)
+print("MON-READY", flush=True)
+while True:
+    data = os.read(fd, 65536)
+    i = 0
+    while i < len(data):
+        wd, mask, cookie, ln = struct.unpack_from("iIII", data, i)
+        raw = data[i + 16:i + 16 + ln].split(b"\0")[0]
+        i += 16 + ln
+        if mask & IN_Q_OVERFLOW:
+            print("MON-ERR очередь inotify переполнена — события потеряны", flush=True); sys.exit(2)
+        if not mask & MASK:
+            continue  # IN_IGNORED и прочие артефакты смерти watch — не создание
+        path = os.path.join(watched.get(wd, "?"), os.fsdecode(raw))
+        how = "перенос" if mask & IN_MOVED_TO else "создание"
+        kind = "каталог" if mask & IN_ISDIR else "путь"
+        print("MON-EVENT %s %s %s" % (how, kind, os.path.relpath(path, root)), flush=True)
+        if mask & IN_ISDIR:
+            add(path)
+PYMON
+
+mon_start() {  # <каталог> <метка> — монитор на всё дерево каталога; rc 0 = стоит и готов
+  MON_PID=''; MON_EV="$P/$2.events"
+  : > "$MON_EV"; : > "$P/$2.err"
+  [ -n "$PY3" ] || return 1
+  "$PY3" "$P/mon014.py" "$1" > "$MON_EV" 2> "$P/$2.err" < /dev/null & MON_PID=$!
+  local i
+  for i in $(seq 1 50); do
+    grep -q '^MON-READY' "$MON_EV" 2>/dev/null && return 0
+    kill -0 "$MON_PID" 2>/dev/null || return 1
+    sleep 0.05
+  done
+  return 1
+}
+
+mon_stop() {
+  [ -n "${MON_PID:-}" ] || return 0
+  kill "$MON_PID" 2>/dev/null
+  wait "$MON_PID" 2>/dev/null
+  MON_PID=''
+}
+
+mon_why() {  # <метка> — причина нестарта монитора одной строкой
+  if [ -z "$PY3" ]; then printf 'python3 недоступен'
+  elif [ -s "$P/$1.err" ]; then head -1 "$P/$1.err"
+  else printf 'таймаут готовности монитора (2.5с)'; fi
+}
+
+mon_check() {  # <ветвь> <метка> <rc-старта> — «создания внутри корня за прогон нет»
+  local br="$1" tag="$2" started="$3" ev
+  if [ "$started" != 0 ]; then
+    failb "$br" "монитор создания не встал — наблюдение во времени непрогоняемо: $(mon_why "$tag") (fail-closed, не skip)"
+    return 1
+  fi
+  ev="$(grep '^MON-EVENT' "$MON_EV" | tr '\n' ';')"
+  if [ -n "$ev" ]; then
+    failb "$br" "создание внутри стерегомого корня ВО ВРЕМЯ прогона (до/вместо отказа):$ev"
+    return 1
+  fi
+  okb "$br" 'за время прогона ядро не доставило ни одного события создания/переноса'
+  return 0
 }
 
 slow_case() {  # <корень> — медленная честная игрушка: пока спит, скратч раннера жив
@@ -188,29 +284,32 @@ if unshare --map-root-user --mount true 2>/dev/null; then
   B9="$(mktemp -d /dev/shm/probe014-v9.XXXXXX)" || B9=''
   if [ -n "$B9" ]; then
     mkdir -p "$B9/scripts"; cp "$RUNNER" "$B9/scripts/verify_antiplacebo.sh"
+    mon_start "$B9" m9; mon9=$?
     unshare --map-root-user --mount bash -c '
       mount --bind "$0" /tmp || exit 9
       env -i PATH=/usr/bin:/bin HOME=/root TMPDIR=/tmp bash /tmp/scripts/verify_antiplacebo.sh /tmp
     ' "$B9" > "$P/l9.out" 2>&1; rc9=$?
+    mon_stop
     d9=''
     [ "$rc9" = 2 ] || d9="ожидался rc=2, получено rc=$rc9"
     grep -q 'default scratch без запасной базы вне стерегомого дерева' "$P/l9.out" \
       || d9="${d9:+$d9; }нет именованного текста инварианта 2"
     grep -q 'явный scratch внутри стерегомого дерева' "$P/l9.out" \
       && d9="${d9:+$d9; }общий страж вместо именованного отказа"
-    [ "$(ls -A "$B9")" = scripts ] \
-      || d9="${d9:+$d9; }подставной /tmp мутирован: $(ls -A "$B9" | tr '\n' ' ')"
     if [ -n "$d9" ]; then
       failb корень-tmp "$d9 — $(head -1 "$P/l9.out" 2>/dev/null)"
     else
       okb корень-tmp 'rc=2, именованный отказ инварианта 2, подставной /tmp чист'
     fi
+    mon_check корень-tmp-транс m9 $mon9 || :
     rm -rf "$B9"
   else
     failb корень-tmp '/dev/shm недоступен — нет носителя для подставного /tmp (fail-closed)'
+    failb корень-tmp-транс '/dev/shm недоступен — прогон не состоялся (fail-closed)'
   fi
 else
   failb корень-tmp 'userns недоступен — живой вход корень=/tmp непрогоняем (fail-closed, не skip)'
+  failb корень-tmp-транс 'userns недоступен — транс-наблюдение непрогоняемо (fail-closed, не skip)'
 fi
 
 # ── ветвь 10: tmp-симлинк-внутрь-корня — запасная база каноникализирована ────
@@ -226,11 +325,13 @@ if unshare --map-root-user --mount true 2>/dev/null; then
   ln -s /proc/self/fd "$N10/dev/fd"; touch "$N10/dev/null"
   ln -s usr/lib64 "$N10/lib64"; ln -s usr/lib "$N10/lib"
   ln -s usr/bin "$N10/bin"; ln -s usr/sbin "$N10/sbin"
+  mon_start "$N10/work/root" m10; mon10=$?
   unshare --map-root-user --mount bash -c '
     mount --rbind /usr "$0/usr" && mount --rbind /proc "$0/proc" &&
     mount --bind /dev/null "$0/dev/null" &&
     chroot "$0" /usr/bin/env -i PATH=/usr/bin:/bin HOME=/ bash /work/root/scripts/verify_antiplacebo.sh /work/root
   ' "$N10" > "$P/l10.out" 2>&1; rc10=$?
+  mon_stop
   d10=''
   [ "$rc10" = 2 ] || d10="ожидался rc=2, получено rc=$rc10"
   grep -q 'default scratch без запасной базы вне стерегомого дерева' "$P/l10.out" \
@@ -244,8 +345,10 @@ if unshare --map-root-user --mount true 2>/dev/null; then
   else
     okb tmp-симлинк-внутрь-корня 'rc=2, именованный отказ, запасная база канонична'
   fi
+  mon_check tmp-симлинк-транс m10 $mon10 || :
 else
   failb tmp-симлинк-внутрь-корня 'userns недоступен — живой вход /tmp-симлинк непрогоняем (fail-closed, не skip)'
+  failb tmp-симлинк-транс 'userns недоступен — транс-наблюдение непрогоняемо (fail-closed, не skip)'
 fi
 
 [ "$fails" = 0 ] || { printf 'probe_tmpdir_raven_koren: расхождений: %d\n' "$fails" >&2; exit 1; }
