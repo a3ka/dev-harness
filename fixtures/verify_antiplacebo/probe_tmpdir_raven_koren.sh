@@ -27,10 +27,20 @@
 #                     разных пути на втором прогоне;
 #   без-mkdir         TMPDIR=$W/novyj (несуществующий): rc=0 и novyj НЕ
 #                     материализован — канонизация без mkdir, «сначала создать,
-#                     потом выбрать» ловится отсутствием каталога после прогона.
-# Непостроимый вход (в тексте контракта, не здесь): корень=/tmp или предок /tmp —
-# требует /tmp/scripts с барьером, то есть мутацию общего системного /tmp; держит
-# именованный отказ инварианта + замороженный страж 011 (ветвь охрана-011 живая).
+#                     потом выбрать» ловится отсутствием каталога после прогона;
+#   корень-tmp        ROOT=/tmp живым входом (userns + приватный bind подставного
+#                     каталога на /tmp; рецепт — замер 2 арбитража 014): rc=2,
+#                     ИМЕНОВАННЫЙ отказ «default scratch без запасной базы вне
+#                     стерегомого дерева», БЕЗ текста общего стража, подставной
+#                     /tmp после прогона не мутирован;
+#   tmp-симлинк-      chroot в userns, /tmp — симлинк внутрь стерегомого корня
+#   внутрь-корня      (замер 3 арбитража): тот же именованный отказ — запасная
+#                     база каноникализирована ТОЙ ЖЕ мерой; литеральный /tmp
+#                     просачивается в общий страж с чужим текстом; внутри корня
+#                     ничего не создаётся.
+# Недоступность userns на машине прогона — КРАСНОЕ ветвей 9–10 с именованной
+# причиной «userns недоступен» (fail-closed, решение арбитража 014), не skip:
+# зелёный, не видевший этих ветвей, — недоказуемое готово.
 # НЕ БАРЬЕР: проба приёмки контракта (как probe_* контракта 013), а не барьер
 # с красными предъявлениями; запускается напрямую из приёмочного критерия.
 # Коды возврата: 0 — предмет есть, 1 — нет.
@@ -168,6 +178,75 @@ rm -rf "$PRED8"
 obs_check без-mkdir l8 "$(obs_env l8 "$W8" "$W8/novyj" "$PRED8")" "$PRED8" || :
 [ -e "$W8/novyj" ] \
   && failb без-mkdir 'несуществующий TMPDIR материализовался в стерегомом дереве (mkdir до выбора)'
+
+
+# ── ветвь 9: корень-tmp — именованный отказ инварианта 2 живым входом ────────
+# Рецепт — замер 2 арбитража 014 (verdicts/arbitration/kontrakt-014-koren-tmp.md):
+# userns + приватный bind подставного каталога на /tmp; общий /tmp не мутируется
+# по построению (ns схлопывается вместе с монтированием), сверка изнутри достаточна.
+if unshare --map-root-user --mount true 2>/dev/null; then
+  B9="$(mktemp -d /dev/shm/probe014-v9.XXXXXX)" || B9=''
+  if [ -n "$B9" ]; then
+    mkdir -p "$B9/scripts"; cp "$RUNNER" "$B9/scripts/verify_antiplacebo.sh"
+    unshare --map-root-user --mount bash -c '
+      mount --bind "$0" /tmp || exit 9
+      env -i PATH=/usr/bin:/bin HOME=/root TMPDIR=/tmp bash /tmp/scripts/verify_antiplacebo.sh /tmp
+    ' "$B9" > "$P/l9.out" 2>&1; rc9=$?
+    d9=''
+    [ "$rc9" = 2 ] || d9="ожидался rc=2, получено rc=$rc9"
+    grep -q 'default scratch без запасной базы вне стерегомого дерева' "$P/l9.out" \
+      || d9="${d9:+$d9; }нет именованного текста инварианта 2"
+    grep -q 'явный scratch внутри стерегомого дерева' "$P/l9.out" \
+      && d9="${d9:+$d9; }общий страж вместо именованного отказа"
+    [ "$(ls -A "$B9")" = scripts ] \
+      || d9="${d9:+$d9; }подставной /tmp мутирован: $(ls -A "$B9" | tr '\n' ' ')"
+    if [ -n "$d9" ]; then
+      failb корень-tmp "$d9 — $(head -1 "$P/l9.out" 2>/dev/null)"
+    else
+      okb корень-tmp 'rc=2, именованный отказ инварианта 2, подставной /tmp чист'
+    fi
+    rm -rf "$B9"
+  else
+    failb корень-tmp '/dev/shm недоступен — нет носителя для подставного /tmp (fail-closed)'
+  fi
+else
+  failb корень-tmp 'userns недоступен — живой вход корень=/tmp непрогоняем (fail-closed, не skip)'
+fi
+
+# ── ветвь 10: tmp-симлинк-внутрь-корня — запасная база каноникализирована ────
+# Рецепт — замер 3 арбитража 014: chroot в том же userns, /tmp — симлинк внутрь
+# стерегомого корня; /usr+/proc rbind, /dev/null и /dev/fd — вход в живую систему,
+# lib64/lib/bin/sbin — ELF-загрузчик. Наблюдение: тот же именованный отказ
+# инварианта 2; литеральный /tmp уходит в общий страж с чужим текстом.
+if unshare --map-root-user --mount true 2>/dev/null; then
+  N10="$P/chroot10"
+  mkdir -p "$N10/work/root/scripts" "$N10/usr" "$N10/proc" "$N10/dev"
+  cp "$RUNNER" "$N10/work/root/scripts/verify_antiplacebo.sh"
+  ln -s work/root "$N10/tmp"
+  ln -s /proc/self/fd "$N10/dev/fd"; touch "$N10/dev/null"
+  ln -s usr/lib64 "$N10/lib64"; ln -s usr/lib "$N10/lib"
+  ln -s usr/bin "$N10/bin"; ln -s usr/sbin "$N10/sbin"
+  unshare --map-root-user --mount bash -c '
+    mount --rbind /usr "$0/usr" && mount --rbind /proc "$0/proc" &&
+    mount --bind /dev/null "$0/dev/null" &&
+    chroot "$0" /usr/bin/env -i PATH=/usr/bin:/bin HOME=/ bash /work/root/scripts/verify_antiplacebo.sh /work/root
+  ' "$N10" > "$P/l10.out" 2>&1; rc10=$?
+  d10=''
+  [ "$rc10" = 2 ] || d10="ожидался rc=2, получено rc=$rc10"
+  grep -q 'default scratch без запасной базы вне стерегомого дерева' "$P/l10.out" \
+    || d10="${d10:+$d10; }нет именованного текста инварианта 2"
+  grep -q 'явный scratch внутри стерегомого дерева' "$P/l10.out" \
+    && d10="${d10:+$d10; }общий страж вместо именованного отказа (литеральный /tmp?)"
+  [ "$(ls -A "$N10/work/root")" = scripts ] \
+    || d10="${d10:+$d10; }внутри стерегомого корня создано: $(ls -A "$N10/work/root" | tr '\n' ' ')"
+  if [ -n "$d10" ]; then
+    failb tmp-симлинк-внутрь-корня "$d10 — $(head -1 "$P/l10.out" 2>/dev/null)"
+  else
+    okb tmp-симлинк-внутрь-корня 'rc=2, именованный отказ, запасная база канонична'
+  fi
+else
+  failb tmp-симлинк-внутрь-корня 'userns недоступен — живой вход /tmp-симлинк непрогоняем (fail-closed, не skip)'
+fi
 
 [ "$fails" = 0 ] || { printf 'probe_tmpdir_raven_koren: расхождений: %d\n' "$fails" >&2; exit 1; }
 exit 0
