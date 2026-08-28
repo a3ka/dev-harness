@@ -44,6 +44,7 @@
     "check:nabludenia": "bash scripts/check_nabludenia.sh",
     "drill:gate-draft": "bash scripts/drill_gate_draft.sh",
     "drill:startup-digest": "bash scripts/drill_startup_digest.sh",
+    "drill:nabludenia-nechitaemo": "bash scripts/drill_nabludenia_nechitaemo.sh",
     "check:ci-gate": "bash scripts/check_ci_gate.sh"
   }
 }
