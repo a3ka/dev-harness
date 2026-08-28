@@ -87,6 +87,7 @@ fails=0
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
 
+
 # Распарсить §Материал контракта (если есть). Возвращает dict id → список ключей (set).
 # Читается ОДИН раз — после коммита введения таблица мертва (закрытая форма, п.2), но
 # закоммиченный текст остаётся в contracts/015-*.md как часть истории.
@@ -140,7 +141,12 @@ except OSError as e:
 print(json.dumps(table, ensure_ascii=False))
 PY
 }
-
+# Таблица §Материал контракта — dict id → sorted list keys. Один раз.
+# Назначение: класс (f) закрытой формы грамматики (лишнее/чужое/недостающее
+# значение) предъявляется через барьер (case_lishnee_naznachenie требует
+# «назначение изменено» в выводе). Сверка наборов стемами — побайтово
+# синхронно с миграционной пробой (load_migration тот же STEMS, что и она).
+TABLE_JSON="$(load_migration)"
 check_one() {  # <путь>
   local f="$1" name
   name="$(basename "$f")"
@@ -153,9 +159,40 @@ check_one() {  # <путь>
     printf 'нечем проверить: %s\n' "$name" >&2
     exit 2
   fi
-  python3 - "$f" "$GRAMMAR_RE" "$SEP_CLASS" <<'PY' || exit 1
-import re, sys
-path, grammar_re_s, sep_s = sys.argv[1], sys.argv[2], sys.argv[3]
+  TABLE="$TABLE_JSON"
+  python3 - "$f" "$GRAMMAR_RE" "$SEP_CLASS" "$TABLE" <<'PY' || exit 1
+import re, sys, json
+path, grammar_re_s, sep_s, table_json = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    TABLE = json.loads(table_json)
+except (ValueError):
+    TABLE = {}
+SEP = r'[] ,.;:!?()«»„“”‘’"\'…—–/*+&%#@~=<>^$|{}]'
+STEMS = [
+    ('K',    r'контракт[а-яё]* 0[0-9][0-9]',   r'0[0-9][0-9]'),
+    ('PATH', r'contracts/[^` ]+',              r'contracts/\S+'),
+    ('Q',    r'очеред[а-яё]* автономности',    None),
+    ('P',    r'пачк[а-яё]* (Н|А)-[0-9]+',      r'(Н|А)-[0-9]+'),
+    ('R',    r'ROADMAP[- ]*шаг[а-яё]* [0-9]+', r'[0-9]+'),
+    ('RR',   r'правил[а-яё]* роли [A-Za-z]+',  r'роли ([A-Za-z]+)'),
+    ('H',    r'историческое, не чинить: ..*',  None),
+    ('C',    r'cognitive-only.*риск',          None),
+    ('Z',    r'закрыто [0-9][0-9][0-9]',       r'[0-9]{3}'),
+]
+def tail_keys(t):
+    out = set()
+    for name, stem, idrx in STEMS:
+        if name in ('PATH', 'H', 'C'):
+            pat = '(?:^|(?<=' + SEP + '))' + stem
+        else:
+            pat = '(?:^|(?<=' + SEP + '))' + stem + '(?=$|' + SEP + ')'
+        for m in re.finditer(pat, t):
+            if idrx is None:
+                out.add(name)
+            else:
+                idm = re.search(idrx, m.group(0))
+                out.add('%s:%s' % (name, idm.group(1) if idm.lastindex else idm.group(0)) if idm else name)
+    return out
 ENTRY = re.compile(r'^### ([НА])-([0-9]+)\.')
 GRAMMAR = re.compile(grammar_re_s)
 BT = re.compile(r'`([^`]*)`')
@@ -186,8 +223,20 @@ with open(path, encoding='utf-8') as fh:
             bad('%s: адрес пуст' % rid)
             continue
         if not GRAMMAR.fullmatch(tail):
-            bad('%s: адрес не называет цель' % rid)
+            bad('%s: адрес не называет цель (Н-39-рецидив: unicode-склейка к якорю — круг 4 критик, круг 5 блокер 1)' % rid)
             continue
+        # Назначение (класс (f)): набор ключей значения РАВЕН набору строки §Материал.
+        # Сверяем только когда запись есть в таблице — после миграции новые записи
+        # строки не имеют и сравнивать нечего. Тест: case_lishnee_naznachenie требует
+        # «назначение изменено» как подстроку вывода.
+        have = tail_keys(tail)
+        want_list = TABLE.get(rid)
+        if want_list is not None:
+            want = set(want_list)
+            if have != want:
+                bad('%s: назначение изменено — таблица ждёт %s, значение несёт %s'
+                     % (rid, ' '.join(sorted(want)) or '∅',
+                        ' '.join(sorted(have)) or '∅'))
 sys.exit(1 if fails else 0)
 PY
   local rc=$?

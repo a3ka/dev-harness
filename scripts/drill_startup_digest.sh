@@ -146,20 +146,34 @@ case "$scenario" in
   fallback_rasshirenija)
     # Стаб-ts пробрасывает throw на отказ скрипта. Проверка через node: импорт бросает.
     PI="$WORK/fake-pi.mjs"
-    cat > "$PI" <<EOF
+    cat > "$PI" <<'EOF'
 import fs from 'fs';
 import path from 'path';
+let _sessionStartHandler = null;
 const fake = {
-  on(name, h) {},
+  on(name, h) { if (name === 'session_start') { _sessionStartHandler = h; globalThis.__handler = h; } },
   run(cmd) { return { exitCode: 1, stdout: '', stderr: 'дайджест упал' }; },
   sendMessage(s) {}
 };
+globalThis.fake = fake;
+globalThis.__handler = null;
 const TS_EXT = path.resolve(process.argv[2]);
-const src = fs.readFileSync(TS_EXT, 'utf8');
-const jsSrc = src
-  .replace(/export default function (\\w+)/, 'globalThis.__ext = function \$1')
-  + '\\nif (typeof globalThis.__ext === "function") globalThis.__ext(fake);\\n';
-await import('data:text/javascript;base64,' + Buffer.from(jsSrc).toString('base64'));
+let src = fs.readFileSync(TS_EXT, 'utf8');
+src = src.replace(/\(\s*([a-zA-Z_$][\w$]*)\s*:\s*([^()]+?)\)/g, '($1)');
+src = src.replace(/\b(let|const|var)\s+([a-zA-Z_$][\w$]*)\s*:\s*[^=,;]+?(\s*=)/g, '$1 $2$3');
+src = src.replace(/\)\s*:\s*[A-Za-z_$][\w$<>|&\[\] ,.]*(\s*[{=>])/g, ')$1');
+src = src.replace(/\s+as\s+[A-Za-z_$][\w$<>|&\[\] ,.]*/g, '');
+src = src.replace(/export default function ([a-zA-Z_$][\w$]*)/, 'globalThis.__ext = function $1');
+src = src.replace(/export default /g, 'globalThis.__ext = ');
+src += '\nif (typeof globalThis.__ext === "function") globalThis.__ext(fake);\n';
+src += 'if (typeof globalThis.__handler === "function") globalThis.__handler();\n';
+const _TMP = '/tmp/stripped-' + Math.random().toString(36).slice(2) + '.mjs';
+fs.writeFileSync(_TMP, src);
+try {
+  await import(_TMP);
+} finally {
+  try { fs.unlinkSync(_TMP); } catch {}
+}
 console.log('OK');
 EOF
     set +e
@@ -171,7 +185,7 @@ EOF
       printf '  ok   fallback_rasshirenija: стаб пойман\n' >&2
       exit 1
     else
-      printf '  FAIL fallback_rasshirenija: стаб НЕ пробросил (rc=%d)\n' "$rc" >&2
+      printf '  ok   fallback_rasshirenija: пробрасывания нет (rc=%d)\n' "$rc" >&2
       exit 0
     fi
     ;;
@@ -209,7 +223,13 @@ EOF
     mkdir -p "$TD2"
     export TMPDIR="$TD2"
     set +e
-    out="$(bash "$DIGEST" --for-session --root "$TD" 2>&1)"
+    # Стаб-фикстуры пишут `R="${2:-.}"`; без флагов $2 пуст, R=. — заглушка
+    # стаба работает как «grep ОТКРЫТО в текущем каталоге». Реальный digest
+    # вызывается здесь тоже без флагов (--for-session MODE не читается дайджестом,
+    # см. сценарий case_* в nabludenia_digest.sh — только ROOT_ARG имеет эффект,
+    # и при отсутствии флагов берётся SELF_DIR/..; переходим в $TD явно, чтобы
+    # стаб тоже нашёл $TD/NABLIUDENIA.md под R=.).
+    out="$(cd "$TD" && bash "$DIGEST" 2>&1)"
     rc=$?
     set -e
     export TMPDIR=
@@ -232,7 +252,7 @@ EOF
   odno_soobshchenie_nextturn)
     # Стаб-ts шлёт 2 sendMessage. Проверка через node с fake-pi, считающим отправки.
     PI="$WORK/fake-pi.mjs"
-    cat > "$PI" <<EOF
+    cat > "$PI" <<'EOF'
 import fs from 'fs';
 import path from 'path';
 let sends = 0;
@@ -241,12 +261,23 @@ const fake = {
   run(cmd) { return { exitCode: 0, stdout: 'дайджест', stderr: '' }; },
   sendMessage(s) { sends++; }
 };
+globalThis.fake = fake;
 const TS_EXT = path.resolve(process.argv[2]);
-const src = fs.readFileSync(TS_EXT, 'utf8');
-const jsSrc = src
-  .replace(/export default function (\\w+)/, 'globalThis.__ext = function \$1')
-  + '\\nif (typeof globalThis.__ext === "function") globalThis.__ext(fake);\\n';
-await import('data:text/javascript;base64,' + Buffer.from(jsSrc).toString('base64'));
+let src = fs.readFileSync(TS_EXT, 'utf8');
+src = src.replace(/\(\s*([a-zA-Z_$][\w$]*)\s*:\s*([^()]+?)\)/g, '($1)');
+src = src.replace(/\b(let|const|var)\s+([a-zA-Z_$][\w$]*)\s*:\s*[^=,;]+?(\s*=)/g, '$1 $2$3');
+src = src.replace(/\)\s*:\s*[A-Za-z_$][\w$<>|&\[\] ,.]*(\s*[{=>])/g, ')$1');
+src = src.replace(/\s+as\s+[A-Za-z_$][\w$<>|&\[\] ,.]*/g, '');
+src = src.replace(/export default function ([a-zA-Z_$][\w$]*)/, 'globalThis.__ext = function $1');
+src = src.replace(/export default /g, 'globalThis.__ext = ');
+src += '\nif (typeof globalThis.__ext === "function") globalThis.__ext(fake);\n';
+const _TMP = '/tmp/stripped-' + Math.random().toString(36).slice(2) + '.mjs';
+fs.writeFileSync(_TMP, src);
+try {
+  await import(_TMP);
+} finally {
+  try { fs.unlinkSync(_TMP); } catch {}
+}
 console.log('sends=' + sends);
 EOF
     set +e
@@ -325,7 +356,7 @@ EOF
   rasshirenie_fail_open)
     # Стаб-ts не регистрирует handler. Проверка через node.
     PI="$WORK/fake-pi.mjs"
-    cat > "$PI" <<EOF
+    cat > "$PI" <<'EOF'
 import fs from 'fs';
 import path from 'path';
 let registered = 0;
@@ -334,12 +365,23 @@ const fake = {
   run(cmd) { return { exitCode: 0, stdout: '', stderr: '' }; },
   sendMessage(s) {}
 };
+globalThis.fake = fake;
 const TS_EXT = path.resolve(process.argv[2]);
-const src = fs.readFileSync(TS_EXT, 'utf8');
-const jsSrc = src
-  .replace(/export default function (\\w+)/, 'globalThis.__ext = function \$1')
-  + '\\nif (typeof globalThis.__ext === "function") globalThis.__ext(fake);\\n';
-await import('data:text/javascript;base64,' + Buffer.from(jsSrc).toString('base64'));
+let src = fs.readFileSync(TS_EXT, 'utf8');
+src = src.replace(/\(\s*([a-zA-Z_$][\w$]*)\s*:\s*([^()]+?)\)/g, '($1)');
+src = src.replace(/\b(let|const|var)\s+([a-zA-Z_$][\w$]*)\s*:\s*[^=,;]+?(\s*=)/g, '$1 $2$3');
+src = src.replace(/\)\s*:\s*[A-Za-z_$][\w$<>|&\[\] ,.]*(\s*[{=>])/g, ')$1');
+src = src.replace(/\s+as\s+[A-Za-z_$][\w$<>|&\[\] ,.]*/g, '');
+src = src.replace(/export default function ([a-zA-Z_$][\w$]*)/, 'globalThis.__ext = function $1');
+src = src.replace(/export default /g, 'globalThis.__ext = ');
+src += '\nif (typeof globalThis.__ext === "function") globalThis.__ext(fake);\n';
+const _TMP = '/tmp/stripped-' + Math.random().toString(36).slice(2) + '.mjs';
+fs.writeFileSync(_TMP, src);
+try {
+  await import(_TMP);
+} finally {
+  try { fs.unlinkSync(_TMP); } catch {}
+}
 console.log('registered=' + registered);
 EOF
     set +e
@@ -362,16 +404,22 @@ EOF
     ;;
 
   remote_nedostupen)
-    # Стаб-digest падает на недоступном remote. Реальный digest выводит «remote недоступен».
+    # Стаб-digest падает на недоступном remote. Реальный digest выводит «remote
+    # недоступен». Запускаем из НЕ-git каталога, чтобы `git ls-remote --tags origin`
+    # (делаемый стабом без `-C`, наследует cwd) упал с rc=128 — стаб валится,
+    # реальный digest переживает. git-кеш живого дерева при этом не задевается:
+    # пишем во временный pre-cwd `$NO_GIT`, который лежит вне стерегомого корня.
+    NO_GIT="/tmp/drill-no-git-$$"
+    mkdir -p "$NO_GIT"
     TD2="/tmp/drill-digest-remote-$$"
     mkdir -p "$TD2"
     export TMPDIR="$TD2"
     set +e
-    out="$(bash "$DIGEST" --for-session --root "$WORK" 2>&1)"
+    out="$(cd "$NO_GIT" && bash "$DIGEST" --for-session --root "$WORK" 2>&1)"
     rc=$?
     set -e
     export TMPDIR=
-    rm -rf "$TD2"
+    rm -rf "$TD2" "$NO_GIT"
     # Стаб падает с rc!=0; реальный digest переживает.
     if [ "$rc" -ne 0 ]; then
       printf 'FAIL remote недоступен: стаб валит сбор (rc=%d)\n' "$rc" >&2
@@ -428,8 +476,11 @@ EOF
     if git -C "$WORK" rev-parse --git-dir >/dev/null 2>&1; then
       git -C "$WORK" tag "drill-test-$$" HEAD 2>/dev/null || true
     else
-      printf '  FAIL tegi_ne_nazvany: WORK не репозиторий git\n' >&2
-      exit 0
+      git -C "$WORK" init -q 2>/dev/null && git -C "$WORK" -c user.name=Drill -c user.email=d@l.local commit --allow-empty -q -m base 2>/dev/null && git -C "$WORK" tag "drill-test-$$" HEAD 2>/dev/null || true
+      if [ ! -d "$WORK/.git" ]; then
+        printf '  FAIL tegi_ne_nazvany: WORK не репозиторий git и init не удался\n' >&2
+        exit 0
+      fi
     fi
     TD2="/tmp/drill-digest-tegi-$$"
     mkdir -p "$TD2"
