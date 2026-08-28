@@ -31,6 +31,22 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Самоизоляция при прямом запуске из репо. Дрилл вычисляет WORK по СВОЕМУ пути
+# (dirname(dirname(реального пути))) — BARRIER_ROOT дриллу не подскажешь, он читает
+# себя. Прямой прогон: WORK = корень репо, и зелёная ветвь
+#   cat > "$WORK/NABLIUDENIA.md"
+# ПЕРЕЗАПИСЫВАЕТ живой файл (измерено: md5 5495b49f… → 677352a7…, 1664 строк → 1;
+# CI «дерево изменилось: ./NABLIUDENIA.md»). Раннер/фикстура копируют дрилл в
+# <корень>/scripts/, и WORK дрилла оказывается внутри игрушки — .git там нет.
+# Детект репо: $WORK/.git существует. Поведение фикстуры НЕ задевается (там .git
+# в WORK по построению нет — игрушка в /tmp).
+if [ -n "${DRILL_NECHITAEMO_SBX:-}" ] && [ -d "${DRILL_NECHITAEMO_SBX}" ]; then
+  # Перезапуск из родительской песочницы: родитель поставил env-маркер и exec'нул
+  # нас. exec не наследует trap родителя, потому ставим свой: очистить песочницу.
+  # shellcheck disable=SC2064
+  trap 'rm -rf "$DRILL_NECHITAEMO_SBX"' EXIT
+fi
+
 command -v bash >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет bash\n' >&2; exit 2; }
 command -v chmod >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет chmod\n' >&2; exit 2; }
 command -v id >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет id\n' >&2; exit 2; }
@@ -49,7 +65,28 @@ bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
 # Прямой прогон: $WORK = $REPO.
 REAL="$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || printf '%s' "$0")"
 WORK="$(dirname "$(dirname "$REAL")")"
-mkdir -p "$WORK/scripts"
+
+# Прямой прогон из репо: $WORK содержит .git → зелёная ветвь перезапишет
+# $WORK/NABLIUDENIA.md. Строим собственную песочницу ВНЕ стерегомого дерева
+# (контракт 015:151), копируем себя и настоящего check_nabludenia.sh, exec'уем
+# перезапуск оттуда. Env-маркер DRILL_NECHITAEMO_SBX говорит перезапущенному
+# процессу поставить trap на очистку (exec trap родителя не наследует).
+if [ -d "$WORK/.git" ]; then
+  SBX="$(mktemp -d "${TMPDIR:-/tmp}/drill-nabludenia-nechitaemo.XXXXXX")" \
+    || { printf 'NOT_IMPLEMENTED: mktemp не смог — песочницу не построить\n' >&2; exit 2; }
+  # Страховка на случай, если cp/exec упадут до того, как ребёнок поставит свой trap:
+  # exec не наследует trap родителя, но если сам exec вернёт ошибку, родитель
+  # продолжает жить — и тогда отработает этот trap.
+  # shellcheck disable=SC2064
+  trap 'rm -rf "$SBX"' EXIT
+  mkdir -p "$SBX/scripts"
+  cp "$REAL"  "$SBX/scripts/drill_nabludenia_nechitaemo.sh"
+  cp "$HERE/check_nabludenia.sh" "$SBX/scripts/check_nabludenia.sh"
+  export DRILL_NECHITAEMO_SBX="$SBX"
+  exec bash "$SBX/scripts/drill_nabludenia_nechitaemo.sh"
+fi
+
+ mkdir -p "$WORK/scripts"
 
 # Настоящий барьер — рядом с дриллом (в $HERE/scripts/).
 BARRIER="$HERE/check_nabludenia.sh"
