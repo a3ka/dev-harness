@@ -7,18 +7,31 @@
 # Стаб наблюдаем ТОЛЬКО на входе с существующим нечитаемым файлом: на читаемом корне
 # и на отсутствующем файле он честен (зелёный контроль ниже; ветвь «неприменимо»
 # инварианта 1 — case_net_fajlov).
+#
+# ИЗОЛЯЦИЯ (измерено: живой NABLIUDENIA.md перезаписывался однострочным контролем,
+# CI «дерево изменилось: ./NABLIUDENIA.md»): дрилл вычисляет WORK по СВОЕМУ пути
+# (dirname(dirname(реального пути))) — BARRIER_ROOT дриллу не подскажешь, он читает
+# себя. Вызов "$BARRIER" БЕЗ корня запускает реальный дрилл по реальному пути →
+# WORK=корень репо → мутация живого дерева. ОБА вызова идут через игрушечный корень:
+# раннер кладёт побайтовую копию дрилла в <корень>/scripts/, и WORK-вычисление дрилла
+# оказывается внутри игрушки. Настоящего барьера туда фикстура кладёт сама ($REPO —
+# корень, откуда можно копировать): без него дрилл ответит rc=2 «рядом нет
+# check_nabludenia.sh», а rc=2 раннер трактует как NOT_IMPLEMENTED.
 set -euo pipefail
-mkdir -p "$WORK/scripts"
 
-# Зелёный контроль: настоящий дрилл с настоящим барьером рядом с собой
-"$BARRIER"
+# Зелёный контроль: настоящий дрилл с настоящим барьером — оба в игрушечном корне
+mkdir -p "$WORK/green/scripts"
+cp "$REPO/scripts/check_nabludenia.sh" "$WORK/green/scripts/check_nabludenia.sh"
+BARRIER_ROOT="$WORK/green" "$BARRIER"
 
-# Красное: стаб — нечитаемое молча считается отсутствующим
-cat > "$WORK/scripts/check_nabludenia.sh" <<'STUB'
+# Красное: стаб — нечитаемое молча считается отсутствующим. Сво́й игрушечный корень
+# со стабом В НЁМ: дрилл-копия возьмёт субъекта из своего игрушечного scripts/.
+mkdir -p "$WORK/red/scripts"
+cat > "$WORK/red/scripts/check_nabludenia.sh" <<'STUB'
 #!/usr/bin/env bash
 # Подставной субъект: «успешно» не замечает нечитаемость.
 printf 'неприменимо: NABLIUDENIA.md\n'
 exit 0
 STUB
-chmod +x "$WORK/scripts/check_nabludenia.sh"
-BARRIER_ROOT="$WORK" "$BARRIER" || true
+chmod +x "$WORK/red/scripts/check_nabludenia.sh"
+BARRIER_ROOT="$WORK/red" "$BARRIER" || true
