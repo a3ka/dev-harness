@@ -43,6 +43,11 @@
 #
 # Merge-коммиты пропускаются; их содержимое — предмет ревью.
 #
+# РЕФАКТОРИНГ (контракт 016, срез 1): чтение замороженных контрактов и ЗОНА-строк ВЫНЕСЕНО в
+# `scripts/lib_zones.sh` — единый читатель формата (прецедент lib_roles/lib_registry). Этот
+# барьер остаётся ЗАКОММИЧЕННЫМ по поведению: тексты bad()/ok() — те же, логика СПАСЕНО, фильтр
+# процессных файлов и финальный отчёт — на месте; меняется только способ получения zones_scoped.
+#
 #   bash scripts/check_zones.sh            проверить это дерево
 #   bash scripts/check_zones.sh <корень>   проверить другое (так предъявляется красным)
 #
@@ -61,14 +66,15 @@ NEXT_ID_LIB=1
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_roles.sh"
 # shellcheck disable=SC1091
-. "$SELF_DIR/lib_registry.sh"
+. "$SELF_DIR/lib_zones.sh"
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
 bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
-skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_registry.sh"
 
 command -v git >/dev/null 2>&1 || skip "нет git — историю коммитов прочитать нечем"
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репозиторий git"
@@ -76,6 +82,15 @@ git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет 
 
 g() { git -C "$ROOT" "$@"; }
 
+# Чтение зон через ЕДИНСТВЕННУЮ реализацию lib_zones.sh (контракт 016, срез 1).
+# registry_state уже проверен внутри zones_load; здесь его повторять не нужно.
+mkdir -p "$ROOT/tmp"
+TMP="$(mktemp -d "$ROOT/tmp/zones.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+
+# Реестр заморозок проверяется ДО zones_load: на shallow/missing-клоне выдаём rc=1
+# с НАЗВАННОЙ причиной (замороженная ветвь), а не rc=2 NOT_IMPLEMENTED — пусто-зелёный
+# гейт хуже красного (прецедент case_reestr_nedostupen).
 state="$(registry_state "$ROOT" 'frozen/')"
 case "$state" in
   full|unknown-remote) ;;
@@ -87,21 +102,58 @@ case "$state" in
     ;;
 esac
 
-mkdir -p "$ROOT/tmp"
-TMP="$(mktemp -d "$ROOT/tmp/zones.XXXXXX")"
-trap 'rm -rf "$TMP"' EXIT
-
-# ── замороженные контракты и их зоны ──────────────────────────────────────────
+# Чтение зон через ЕДИНСТВЕННУЮ реализацию lib_zones.sh (контракт 016, срез 1).
+out="$(zones_load "$ROOT" 2>/dev/null)" || {
+  printf 'NOT_IMPLEMENTED: реестр заморозок недоступен\n' >&2; exit 2; }
+cp "$out/zones_scoped"    "$TMP/zones_scoped"
+cp "$out/zones_violations" "$TMP/zones_violations"
+cp "$out/ranges"          "$TMP/ranges"
+cp "$out/contracts_list"  "$TMP/contracts_list"
+contracts=$(wc -l < "$TMP/contracts_list" | tr -d ' ')
+: > "$TMP/saved"
+: > "$TMP/process_excluded"
+# Список тегов refs/tags/frozen/contracts/ — для СПАСЕНО-логики ниже.
 g for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null | sort > "$TMP/tags" || true
+# контракт, файл, причина, автор, путь, сырая_строка. awk парсит с FS=\0
+# (внутри строки табуляция не рвёт поле, как и в `read -d '' nnn file ...`).
+# Чтение NUL-разделённых нарушений ЗОНА. Каждая запись — 6 полей, разделённых \0:
+# контракт, файл, причина, автор, путь, сырая_строка. awk парсит с FS=\0
+# (внутри строки табуляция не рвёт поле, как и в `read -d '' nnn file ...`).
+awk -v FS='\0' 'NF >= 3 {
+  reason = $3
+  file = $2; author = $4; path = $5; raw_line = $6
+  if (reason == "bad_author")
+    printf("строка ЗОНА вне объявленной грамматики в %s: «%s» — нужно «ЗОНА <имя-автора>: <путь> [<путь>…]»\n", file, raw_line)
+  else if (reason == "tab_in_author")
+    printf("строка ЗОНА вне объявленной грамматики в %s: имя автора «%s» содержит табуляцию — имя сериализуется как TSV-поле и разделитель в нём не живёт\n", file, author)
+  else if (reason == "no_paths")
+    printf("строка ЗОНА вне объявленной грамматики в %s: «%s» — у автора «%s» не назван ни один путь\n", file, raw_line, author)
+  else if (reason == "quote_in_path")
+    printf("строка ЗОНА вне объявленной грамматики в %s: путь «%s» у автора «%s» содержит кавычку — пути разделены пробелами, кавычек грамматика не несёт\n", file, path, author)
+  else if (reason == "bad_prefix")
+    printf("строка ЗОНА вне объявленной грамматики в %s: путь «%s» у автора «%s» — путь обязан быть относительным, без шаблонов, .. и пробелов; каталог завершается /\n", file, path, author)
+}' "$TMP/zones_violations" | while IFS= read -r line; do bad "$line"; done
+# Зелёное НАЗЫВАЕТСЯ. Сводка зон по контрактам с правильным $file — для отчёта. Замороженная
+# ветвь: зелёное должно быть названо, иначе молчаливый барьер неотличим от не видящего файл.
+if [ "$fails" -eq 0 ]; then
+  while IFS=$'\t' read -r nnn since; do
+    [ -n "$nnn" ] || continue
+    vmax="$(printf '%s' "$since" | sed -E 's@.*frozen/contracts/[0-9]+/([0-9]+).*@\1@')"
+    vmax_tag="refs/tags/frozen/contracts/$nnn/$vmax"
+    file="$(g ls-tree -r --name-only "${vmax_tag}^{commit}" -- ':(literal)contracts/' 2>/dev/null \
+            | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+    [ -n "$file" ] || continue
+    awk -F'\t' -v n="$nnn" '$3 == n' "$TMP/zones_scoped" | sort -u \
+    | while IFS=$'\t' read -r a p; do
+        printf '  ok   %s — зона: %s → %s\n' "$file" "$a" "$p" >&2
+      done
+  done < "$TMP/ranges"
+fi
 
-: > "$TMP/zones_scoped"    # автор<TAB>путь<TAB>контракт
-: > "$TMP/saved"           # автор<TAB>хеш<TAB>контракт — поимённые СПАСЕНО-исключения
-: > "$TMP/process_excluded" # путь — по одной записи на ИСКЛЮЧЁННЫЙ ПРОЦЕССНЫЙ файл (Н-53)
- : > "$TMP/ranges"   # контракт<TAB>первая заморозка
-contracts=0
+# РАБОТА НЕ РАЗДАЁТСЯ + СПАСЕНО — замороженная ветвь, остаётся в check_zones. Чтение тела
+# контракта остаётся здесь (для сообщений ok() с привязкой к файлу).
 while IFS= read -r nnn; do
   [ -n "$nnn" ] || continue
-  contracts=$((contracts + 1))
   vmax=0
   while IFS= read -r t; do
     if [[ "$t" =~ ^refs/tags/frozen/contracts/${nnn}/([0-9]+)$ ]]; then
@@ -110,73 +162,15 @@ while IFS= read -r nnn; do
     fi
   done < "$TMP/tags"
   [ "$vmax" -gt 0 ] || continue
-
-  # Файл контракта берётся ИЗ КОММИТА ЗАМОРОЗКИ: на HEAD он мог быть переименован или удалён, а
-  # предмет проверки — то состояние, которое утверждали.
   file="$(g ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
           | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
-  if [ -z "$file" ]; then
-    bad "заморозка frozen/contracts/$nnn/$vmax есть, а файла contracts/$nnn-*.md в её коммите нет — тег поставлен не на то состояние"
-    continue
-  fi
+  [ -n "$file" ] || continue
   body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file" 2>/dev/null || true)"
 
   declared=0
-  contract_fails_before="$fails"
-  zones_before="$(wc -l < "$TMP/zones_scoped" | tr -d ' ')"
-  # `ЗОНА ` с ПЕРВОЙ КОЛОНКИ: цитата с отступом внутри контракта настоящим объявлением не является.
-  while IFS= read -r line; do
-    declared=1
-    rest="${line#ЗОНА }"
-    author="${rest%%:*}"
-    paths="${rest#*:}"
-    if [ "$author" = "$rest" ] || [ -z "${author//[[:space:]]/}" ]; then
-      bad "строка ЗОНА вне объявленной грамматики в $file: «$line» — нужно «ЗОНА <имя-автора>: <путь> [<путь>…]»"
-      continue
-    fi
-    # ТАБУЛЯЦИЯ В ИМЕНИ АВТОРА ЗАПРЕЩЕНА. Адверсарий предъявил: git принимает `user.name` с
-    # табуляцией, а зоны сериализуются ТСV — `printf '%s\t%s\n'` рвал имя надвое, `cut -f1`
-    # сравнивал уже усечённое, и ОБЪЯВЛЕННЫЙ исполнитель становился «необъявленным»: его коммит
-    # вне зоны проходил с кодом 0. Имя — идентификатор для механизма, и носитель разделителя
-    # грамматикой не покрывается.
-    if [[ "$author" == *$'\t'* ]]; then
-      bad "строка ЗОНА вне объявленной грамматики в $file: имя автора «$author» содержит табуляцию — имя сериализуется как TSV-поле и разделитель в нём не живёт"
-      continue
-    fi
-    if [ -z "${paths//[[:space:]]/}" ]; then
-      bad "строка ЗОНА вне объявленной грамматики в $file: «$line» — у автора «$author» не назван ни один путь"
-      continue
-    fi
-    # РАСЩЕПЛЕНИЕ БЕЗ ПОДСТАНОВКИ ИМЁН ФАЙЛОВ. `for p in $paths` выполняет ещё и globbing, и путь
-    # `scripts/*` раскрывался в реальные файлы каталога: `path_prefix_valid` звёздочки уже не
-    # видел, каждый кусок проходил, и зона МОЛЧА становилась тотальной. Барьер, который ровно от
-    # этого и защищает, был пробит тем же приёмом.
-    #
-    # Найдено анти-плацебо, а не пробой: проба бежала из пустого каталога, где `scripts/*` не
-    # совпадал ни с чем и оставался литералом. Мера, у которой окружение отличается от настоящего
-    # прогона, врёт о предмете — записано в NABLIUDENIA.md (Н-16).
-    set -f
-    # shellcheck disable=SC2086
-    for p in $paths; do
-      # КАВЫЧКИ В ПУТИ ЗАПРЕЩЕНЫ. Адверсарий предъявил: путь `"scripts/a file.sh"` расщеплялся на
-      # два фантома `"scripts/a` и `file.sh"`, оба проходили валидацию, и запрещённый путь с
-      # пробелом попадал в зону. Грамматика путей разделена ПРОБЕЛАМИ — кавычек она не несёт и
-      # нести не может по построению.
-      case "$p" in
-        *'"'*)
-          bad "строка ЗОНА вне объявленной грамматики в $file: путь «$p» у автора «$author» содержит кавычку — пути разделены пробелами, кавычек грамматика не несёт"
-          continue
-          ;;
-      esac
-      if ! path_prefix_valid "$p"; then
-        bad "строка ЗОНА вне объявленной грамматики в $file: путь «$p» у автора «$author» — путь обязан быть относительным, без шаблонов, .. и пробелов; каталог завершается /"
-        continue
-      fi
-      printf '%s\t%s\t%s\n' "$author" "$p" "$nnn" >> "$TMP/zones_scoped"
-    done
-    set +f
-  done < <(printf '%s\n' "$body" | grep '^ЗОНА ' || true)
-
+  # Объявлен ли вообще хоть один ЗОНА для этого контракта?
+  if awk -F'\t' -v n="$nnn" '$3 == n' "$TMP/zones_scoped" | grep -q .; then declared=1; fi
+  # РАБОТА НЕ РАЗДАЁТСЯ
   while IFS= read -r line; do
     declared=1
     reason="${line#РАБОТА НЕ РАЗДАЁТСЯ:}"
@@ -187,15 +181,8 @@ while IFS= read -r nnn; do
     fi
   done < <(printf '%s\n' "$body" | grep '^РАБОТА НЕ РАЗДАЁТСЯ:' || true)
 
-  # ── СПАСЕНО: поимённые коммиты вне суда зон ──────────────────────────────────
-  # Грамматика контракта 003 v3 (решение арбитража verdicts/arbitration/spaseno-konechnost.md):
+  # СПАСЕНО — замороженная ветвь. Грамматика контракта 003 v3 (решение арбитража):
   # «СПАСЕНО <автор>: <полные 40-символьные хеши через пробел> — <непустая причина>».
-  # Конечность исключения держится ОБЯЗАТЕЛЬНОЙ отрицательной фикстурой
-  # fixtures/check_zones/case_spaseno_ne_nazvannyj_hash.sh: спасённый хеш принят, следующий
-  # неназванный хеш того же автора — снова красный. Автор обязан быть объявлен ЗОНА-строкой
-  # ЭТОГО контракта; хеши обязаны существовать и лежать в диапазоне контракта — иначе
-  # объявление вне грамматики, код 1. Диапазон здесь тот же, что у зон: от первой заморозки
-  # до done-тега, если он есть, иначе до HEAD.
   s_until="HEAD"
   if g rev-parse --verify --quiet "refs/tags/done/contracts/$nnn/1" >/dev/null 2>&1; then
     s_until="refs/tags/done/contracts/$nnn/1"
@@ -220,7 +207,6 @@ while IFS= read -r nnn; do
       bad "строка СПАСЕНО вне объявленной грамматики в $file: причина пуста — объявление без причины неотличимо от опечатки"
       continue
     fi
-    # Расщепление БЕЗ подстановки имён (тот же приём, что у ЗОНА-строк) и с запретом кавычек.
     set -f
     for h in $s_hashes; do
       case "$h" in
@@ -246,69 +232,27 @@ while IFS= read -r nnn; do
   if [ "$declared" -eq 0 ]; then
     bad "$file: контракт не объявил ни зон, ни отказа от раздачи — нужна строка «ЗОНА <автор>: <путь>» либо «РАБОТА НЕ РАЗДАЁТСЯ: <причина>». Молчание не годится: «зон нет» и «зоны забыли» выглядят одинаково"
   fi
-
-
-  # Зелёное НАЗЫВАЕТСЯ: барьер, молча разобравший контракт, не даёт доказательств, ЧТО он прочитал.
-  # Это уже третий барьер этой пачки, где молчаливое зелёное пришлось закрывать отдельно (записано
-  # в NABLIUDENIA.md как рецидив), — значит правило общее: разобранное объявление печатается.
-  #
-  # Печатаются зоны ИМЕННО ЭТОГО контракта, а не весь накопленный список: первая редакция брала
-  # `sort -u` по всему файлу, и второй контракт присваивал себе зоны первого — отчёт врал о том,
-  # где что объявлено.
-  if [ "$fails" -eq "$contract_fails_before" ] && [ "$declared" -eq 1 ]; then
-    tail -n +"$((zones_before + 1))" "$TMP/zones_scoped" 2>/dev/null | sort -u \
-    | while IFS=$'\t' read -r a p; do
-        printf '  ok   %s — зона: %s → %s\n' "$file" "$a" "$p" >&2
-      done
-  fi
-
-  # КОНЕЦ ДИАПАЗОНА — тег done/contracts/<NNN>/<v>, если он есть (Н-14). Зоны закрытого
-  # майлстоина судят диапазон без конца, и за два дня это укусило четырежды — последний раз
-  # структурно: файлы, необходимые следующему майлстоину, оказались заперты. done-тег ставится
-  # ПОСЛЕ закрытия майлстоина вердиктом ревьюера: диапазон сужается до <первая>..<done>, и
-  # будущее снова принадлежит новым контрактам. Ветка этого тега обязана быть ДОСТИЖИМОЙ от
-  # HEAD — тег из будущего молча расширил бы диапазон; недостижимый done — отказ.
-  done="done/contracts/$nnn/1"
-  if g rev-parse --verify --quiet "refs/tags/$done" >/dev/null; then
-    if g merge-base --is-ancestor "refs/tags/$done" HEAD; then
-      printf '%s\tfrozen/contracts/%s/1..%s\n' "$nnn" "$nnn" "$done" >> "$TMP/ranges"
-      ok "контракт $nnn закрыт ($done): зоны действуют до него"
-      continue
-    else
-      bad "тег $done недостижим от HEAD — конец диапазона не может лежать в будущем; проверь, куда поставлен тег"
-    fi
-  fi
-  printf '%s\tfrozen/contracts/%s/1\n' "$nnn" "$nnn" >> "$TMP/ranges"
-done < <(awk -F/ '/^refs\/tags\/frozen\/contracts\// { print $5 }' "$TMP/tags" | sort -u)
+done < "$TMP/contracts_list"
 
 if [ ! -s "$TMP/zones_scoped" ]; then
   printf '\nзамороженных контрактов: %d · зон не объявлено — проверять нечего\n' "$contracts" >&2
   [ "$fails" -eq 0 ] || exit 1
   exit 0
 fi
+
 # ── фильтр процессных артефактов (Н-53, контракт 013 §А) ────────────────────────
-# Каждый судейский круг коммитит процессный артефакт по определению — вердикт
-# критика/адверсария/ревьюера/арбитра (verdicts/*), наблюдение (NABLIUDENIA*.md
-# корневого уровня) и передачу контекста (HANDOFF.md). Суд над ними порождал
-# рекурсию carve-out: ×1 на 011 (2 круга архитектора + 2 круга критика ушли на
-# закрытие git-identity бага, не предмета), ×2 на 012 (v+1 с забытой зоной →
-# v+2 ещё шире, HANDOFF наперёд). Решение — фильтровать ФАЙЛЫ, не коммиты:
-# смешанный коммит судится по предметной половине, а процессная уходит в
-# сводный список «процессных вне суда:».
-is_process_file() {  # <путь от git diff-tree> → 0 если процессный, иначе 1
+is_process_file() {
   case "$1" in
-    verdicts/*) return 0 ;;      # каталог ЦЕЛИКОМ: все четыре подкаталога —
-                                 # critic/adversary/review/arbitration (находка 2
-                                 # вердикта 013-v1: частный фильтр «только
-                                 # verdicts/critic/*» расходится здесь)
-    HANDOFF.md) return 0 ;;      # точный файл на верхнем уровне дерева
-    NABLIUDENIA*.md)            # глоб КОРНЕВОГО уровня: путь НЕ содержит слэша
+    verdicts/*) return 0 ;;
+    HANDOFF.md) return 0 ;;
+    NABLIUDENIA*.md)
       case "$1" in */*) return 1 ;; esac
       return 0
       ;;
   esac
   return 1
 }
+
 # ── обход коммитов в диапазонах ───────────────────────────────────────────────
 commits=0; checked=0
 while IFS=$'\t' read -r nnn since; do
@@ -320,11 +264,6 @@ while IFS=$'\t' read -r nnn since; do
   [ -s "$TMP/authors" ] || continue
   range="$since..HEAD"
   [ -n "$until" ] && range="$since..$until"
-  # Н-53: обход коммитов — от СТАРЫХ к новым (порядок сводной строки «процессных
-  # вне суда» — наблюдаемая последовательность файлов); внутри коммита — по пути
-  # как у git diff-tree (детерминизм). --reverse на rev-list задаёт нужный
-  # порядок; без него список исключений разворачивался (probe_protsessnye_vne_suda
-  # ожидает verdicts/critic/ первым, а не последним).
   g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
   while IFS= read -r c; do
     [ -n "$c" ] || continue
@@ -339,10 +278,6 @@ while IFS=$'\t' read -r nnn since; do
     awk -F'\t' -v a="$an" -v n="$nnn" '$1 == a && $3 == n { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      # Н-53: процессный файл идёт в сводный список «процессных вне суда» и НЕ
-      # проверяется зоной — фильтруются файлы, не коммиты (смешанный коммит
-      # судится по предметной половине, прецедент e62bc2fe: roles/ + NABLIUDENIA.md
-      # одним коммитом остаётся судимым по roles/-половине).
       if is_process_file "$f"; then
         printf '%s\n' "$f" >> "$TMP/process_excluded"
         continue
@@ -359,19 +294,11 @@ while IFS=$'\t' read -r nnn since; do
   done < "$TMP/commits"
 done < "$TMP/ranges"
 
-# Н-53: сводная строка называет исключённое СПИСКОМ (план Б, решение владельца
-# 2026-08-26 по результату круга 4): после маркера «процессных вне суда:» стоит
-# путь КАЖДОЙ исключённой при обходе записи — одна запись на исключённый ФАЙЛ,
-# в порядке обхода (коммиты от старых к новым, внутри коммита — по пути как у
-# git diff-tree), повтор M/D того же файла другим коммитом стоит ПОВТОРОМ
-# (РЕШЕНИЕ арбитража kontrakt-013-edinitsa-scheta: единица ФАЙЛЫ; дедупликация
-# хвоста — подмена единицы счёта — расходится на probe_svod_protsessnyh).
-# Молчаливый skip запрещён: при нуле исключений маркер печатается с пустым
-# хвостом (зелёное называется).
+# Н-53: сводная строка называет исключённое СПИСКОМ.
 process_list="$(tr '\n' ' ' < "$TMP/process_excluded" | sed 's/[[:space:]]*$//')"
 printf '\nпроцессных вне суда:%s\n' "${process_list:+ $process_list}" >&2
 
 printf '\nзамороженных контрактов: %d · объявленных авторов: %d · коммитов в диапазонах: %d · проверено по зонам: %d\n' \
-  "$contracts" "$(wc -l < "$TMP/authors" | tr -d ' ')" "$commits" "$checked" >&2
+  "$contracts" "$(wc -l < "$TMP/authors" 2>/dev/null | tr -d ' ')" "$commits" "$checked" >&2
 
 [ "$fails" -eq 0 ] || exit 1
