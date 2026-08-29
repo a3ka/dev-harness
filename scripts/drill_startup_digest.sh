@@ -93,26 +93,61 @@ detect_stub() {
 }
 
 scenario="$(detect_stub)"
-
 case "$scenario" in
   real)
-    # Зелёная ветвь: реальные субъекты должны работать.
+    # ПОВЕДЕНЧЕСКАЯ проверка реальных субъектов (адверсарий 015, находка 2):
+    # реальный дайджест показывает содержимое секций, а не rc=0.
+    # 1. Секция «открытые с адресами» — если в NABLIUDENIA*.md есть открытые
+    #    записи, вывод должен называть хотя бы одну (стаб-нули печатает
+    #    «ОТКРЫТЫЕ: 0» и не называет записей; дайджест кэпирует секцию на 30
+    #    с «…и ещё N», поэтому сверяем на «≥ 1 при ненулевом факте»).
+    # 2. Секция «дерево» — формат тегов: реальный пишет «непушенных тегов: N»,
+    #    стаб — литерал «теги: 0»; литерал в выводе без «непушенных тегов:»
+    #    ловится как красное.
     TD="/tmp/drill-digest-real-$$"
     mkdir -p "$TD"
     export TMPDIR="$TD"
     set +e
-    bash "$DIGEST" --for-session --root "$WORK" >/dev/null 2>&1
+    out="$(bash "$DIGEST" --for-session --root "$WORK" 2>&1)"
     rc=$?
     set -e
     export TMPDIR=
     rm -rf "$TD"
-    if [ "$rc" -eq 0 ]; then
-      printf '  ok   real: реальные субъекты работают\n' >&2
-      exit 0
-    else
-      printf '  FAIL real: реальные субъекты не работают (rc=%d)\n' "$rc" >&2
+    if [ "$rc" -ne 0 ]; then
+      printf '  FAIL real: дайджест упал (rc=%d)\n' "$rc" >&2
       exit 1
     fi
+    # Секция «открытые с адресами»: если факт ненулевой — вывод должен называть.
+    expected_open="$(grep -hE '^### [НА]-[0-9]+\.' "$WORK"/NABLIUDENIA*.md 2>/dev/null | grep -cE 'ОТКРЫТО' || true)"
+    shown_open="$(printf '%s\n' "$out" | grep -cE '^[НА]-[0-9]+ ' || true)"
+    if [ "${expected_open:-0}" -gt 0 ] && [ "${shown_open:-0}" -eq 0 ]; then
+      printf '  FAIL real: открытые — NABLIUDENIA* показывает %d, вывод не называет ни одной\n' "${expected_open}" >&2
+      exit 1
+    fi
+    if [ "${expected_open:-0}" -eq 0 ] && [[ "$out" != *"открытых: 0"* ]]; then
+      printf '  FAIL real: открытые — пусто, но вывод не назвал «открытых: 0»\n' >&2
+      exit 1
+    fi
+    # Секция «дерево»: стаб печатает литерал «теги: 0» вместо формата
+    # «непушенных тегов: N» — это и есть ключевая ложь нулями. Реальный дайджест
+    # такой литерал не печатает; при наличии unpushed тегов ещё требует не ноль.
+    if [[ "$out" == *"теги: 0"* ]] && [[ "$out" != *"непушенных тегов: 0"* ]]; then
+      printf '  FAIL real: дерево — стаб печатает литерал «теги: 0»\n' >&2
+      exit 1
+    fi
+    if git -C "$WORK" rev-parse --git-dir >/dev/null 2>&1; then
+      local_tags="$(git -C "$WORK" tag -l 2>/dev/null | sort -u || true)"
+      remote_tags="$(git -C "$WORK" ls-remote --tags origin 2>/dev/null | awk '{print $2}' | sed 's|^refs/tags/||' | sort -u || true)"
+      unpushed_n="$(comm -23 <(printf '%s\n' "$local_tags") <(printf '%s\n' "$remote_tags") 2>/dev/null | grep -c . || true)"
+      shown_tags="$(printf '%s\n' "$out" | grep -oE 'непушенных тегов: [0-9]+' | grep -oE '[0-9]+' | head -1)"
+      shown_tags="${shown_tags:-0}"
+      if [ "${unpushed_n:-0}" -gt 0 ] && [ "${shown_tags:-0}" -lt 1 ]; then
+        printf '  FAIL real: теги — вывод показывает %s, фактически unpushed ≥1\n' "${shown_tags}" >&2
+        exit 1
+      fi
+    fi
+    printf '  ok   real: реальный дайджест показывает содержимое секций\n' >&2
+    exit 0
     ;;
 
   ahead_behind_vrut)

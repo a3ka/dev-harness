@@ -101,28 +101,41 @@ real_branch() {
 }
 
 scenario="$(detect_stub)"
-
 case "$scenario" in
+
   real)
-    # Прямой прогон реальных субъектов: вызываем drafter с гейт-FAIL.
+    # ПОВЕДЕНЧЕСКАЯ проверка реальных субъектов (адверсарий 015, находка 1):
+    # 1. Двойной вызов drafter с идентичным входом → ровно ОДИН черновик
+    #    (дедуп по ключу команда+FAIL — инвариант 4, без него стаб-dedup_spamit
+    #    без маркера проходит как «real»);
+    # 2. TMPDIR внутри стерегомого дерева → именованный отказ rc=1 с «FAIL дерево»
+    #    (инвариант 2; стаб, не знающий про стерегомое дерево, этого не делает).
     TD="/tmp/drill-drafts-real-$$"
     mkdir -p "$TD"
     export TMPDIR="$TD"
     set +e
     bash "$DRAFTER" "scripts/check_charter.sh" "FAIL charter: устав менялся без разрешения" >/dev/null 2>&1
-    rc=$?
+    bash "$DRAFTER" "scripts/check_charter.sh" "FAIL charter: устав менялся без разрешения" >/dev/null 2>&1
     set -e
     dd="$TD/dev-harness-nabludenia/drafts"
     n=$(count_drafts "$dd")
     export TMPDIR=
     rm -rf "$TD"
-    if [ "$rc" -eq 0 ] && [ "$n" -ge 1 ]; then
-      printf '  ok   real: реальные субъекты пишут черновик\n' >&2
-      exit 0
-    else
-      printf '  FAIL real: реальные субъекты не работают (rc=%d n=%d)\n' "$rc" "$n" >&2
+    if [ "$n" -ne 1 ]; then
+      printf '  FAIL real: дедуп поведенчески нарушен — %d черновиков на 2 одинаковых вызова\n' "$n" >&2
       exit 1
     fi
+    # In-tree TMPDIR: реальный drafter обязан отказать rc=1 с «FAIL дерево» ДО записи.
+    set +e
+    out_in_tree="$(TMPDIR="$ROOT" bash "$DRAFTER" "scripts/check_charter.sh" "FAIL charter: in-tree" 2>&1)"
+    rc_in_tree=$?
+    set -e
+    if [ "$rc_in_tree" -ne 1 ] || [[ "$out_in_tree" != *"FAIL дерево"* ]]; then
+      printf '  FAIL real: TMPDIR внутри дерева не отвергнут (rc=%d)\n' "$rc_in_tree" >&2
+      exit 1
+    fi
+    printf '  ok   real: дедуп поведенчески + in-tree TMPDIR отвергнут\n' >&2
+    exit 0
     ;;
 
   draft_ne_pishetsya)
