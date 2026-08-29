@@ -95,58 +95,94 @@ detect_stub() {
 scenario="$(detect_stub)"
 case "$scenario" in
   real)
-    # ПОВЕДЕНЧЕСКАЯ проверка реальных субъектов (адверсарий 015, находка 2):
-    # реальный дайджест показывает содержимое секций, а не rc=0.
-    # 1. Секция «открытые с адресами» — если в NABLIUDENIA*.md есть открытые
-    #    записи, вывод должен называть хотя бы одну (стаб-нули печатает
-    #    «ОТКРЫТЫЕ: 0» и не называет записей; дайджест кэпирует секцию на 30
-    #    с «…и ещё N», поэтому сверяем на «≥ 1 при ненулевом факте»).
-    # 2. Секция «дерево» — формат тегов: реальный пишет «непушенных тегов: N»,
-    #    стаб — литерал «теги: 0»; литерал в выводе без «непушенных тегов:»
-    #    ловится как красное.
+    # ПОВЕДЕНЧЕСКАЯ сверка (адверсарий 015, находка 2.2). Бесмаркерный стаб-digest
+    # мог честно назвать открытые, но лгать «непушенных тегов: 0» и «статус: чисто»
+    # при грязном/tagged дереве — стаб-нули проходили, потому что проверка unpushed
+    # срабатывала только при «$WORK уже репозиторий git», а фикстуры $WORK под
+    # репозиторий не поднимают. Здесь строится управляемый git-root в $WORK/real-ctrl-$$/
+    # с обоими условиями сразу: локальный непusher-тег (bare origin без тегов),
+    # неотслеживаемый файл (git status --porcelain непуст), пустые NABLIUDENIA*.md.
+    # Реальный дайджест обязан: (а) назвать «открытых: 0»; (б) при unpushed≥1 назвать
+    # «непушенных тегов: ≥1» и имя тега; (в) при грязном дереве назвать «статус:
+    # аномалии» и имя записи статуса, а литерал «статус: чисто» — не называть.
+    # Сверка поведенческая, не маркерная: detect_stub не видит стаб без маркеров,
+    # а предмет дрилла обязан.
+    CTRLR="$WORK/real-ctrl-$$"
+    BARE="$WORK/real-bare-$$"
+    TAG_NAME="drill-real-$$"
+    DIRTY="drill-untracked-$$.txt"
+    mkdir -p "$CTRLR" "$BARE" 2>/dev/null || {
+      printf '  FAIL real: не удалось создать управляемый корень\n' >&2
+      exit 1; }
+    git init -q --bare "$BARE" 2>/dev/null || true
+    git init -q "$CTRLR" 2>/dev/null || {
+      printf '  FAIL real: git init управляемого корня отказал\n' >&2
+      rm -rf "$CTRLR" "$BARE"; exit 1; }
+    git -C "$CTRLR" remote add origin "$BARE" 2>/dev/null || true
+    git -C "$CTRLR" -c user.name=Drill -c user.email=d@l.local commit --allow-empty -q -m base 2>/dev/null || true
+    git -C "$CTRLR" tag "$TAG_NAME" HEAD 2>/dev/null || {
+      printf '  FAIL real: tag %s не создан\n' "$TAG_NAME" >&2
+      rm -rf "$CTRLR" "$BARE"; exit 1; }
+    : > "$CTRLR/NABLIUDENIA.md"
+    : > "$CTRLR/NABLIUDENIA_ARCHITECT.md"
+    printf 'dirty\n' > "$CTRLR/$DIRTY"
+
     TD="/tmp/drill-digest-real-$$"
     mkdir -p "$TD"
     export TMPDIR="$TD"
     set +e
-    out="$(bash "$DIGEST" --for-session --root "$WORK" 2>&1)"
+    out="$(bash "$DIGEST" --for-session --root "$CTRLR" 2>&1)"
     rc=$?
     set -e
     export TMPDIR=
     rm -rf "$TD"
+
+    # Сверка состояния управляемого корня ДО его удаления.
+    remote_tags="$(git -C "$BARE" for-each-ref refs/tags --format='%(refname:short)' 2>/dev/null | sort -u || true)"
+    unpushed_n="$(comm -23 <(git -C "$CTRLR" tag -l 2>/dev/null | sort -u) <(printf '%s\n' "$remote_tags") 2>/dev/null | grep -c . || true)"
+    status_short="$(git -C "$CTRLR" status --porcelain 2>/dev/null || true)"
+    rm -rf "$CTRLR" "$BARE"
+
     if [ "$rc" -ne 0 ]; then
       printf '  FAIL real: дайджест упал (rc=%d)\n' "$rc" >&2
       exit 1
     fi
-    # Секция «открытые с адресами»: если факт ненулевой — вывод должен называть.
-    expected_open="$(grep -hE '^### [НА]-[0-9]+\.' "$WORK"/NABLIUDENIA*.md 2>/dev/null | grep -cE 'ОТКРЫТО' || true)"
-    shown_open="$(printf '%s\n' "$out" | grep -cE '^[НА]-[0-9]+ ' || true)"
-    if [ "${expected_open:-0}" -gt 0 ] && [ "${shown_open:-0}" -eq 0 ]; then
-      printf '  FAIL real: открытые — NABLIUDENIA* показывает %d, вывод не называет ни одной\n' "${expected_open}" >&2
+    # Секция «открытые»: $CTRLR/NABLIUDENIA* пусты → вывод обязан назвать «открытых: 0».
+    if [[ "$out" != *"открытых: 0"* ]]; then
+      printf '  FAIL real: открытые — управляемый корень пуст, но вывод не назвал «открытых: 0»\n' >&2
       exit 1
     fi
-    if [ "${expected_open:-0}" -eq 0 ] && [[ "$out" != *"открытых: 0"* ]]; then
-      printf '  FAIL real: открытые — пусто, но вывод не назвал «открытых: 0»\n' >&2
-      exit 1
-    fi
-    # Секция «дерево»: стаб печатает литерал «теги: 0» вместо формата
-    # «непушенных тегов: N» — это и есть ключевая ложь нулями. Реальный дайджест
-    # такой литерал не печатает; при наличии unpushed тегов ещё требует не ноль.
-    if [[ "$out" == *"теги: 0"* ]] && [[ "$out" != *"непушенных тегов: 0"* ]]; then
-      printf '  FAIL real: дерево — стаб печатает литерал «теги: 0»\n' >&2
-      exit 1
-    fi
-    if git -C "$WORK" rev-parse --git-dir >/dev/null 2>&1; then
-      local_tags="$(git -C "$WORK" tag -l 2>/dev/null | sort -u || true)"
-      remote_tags="$(git -C "$WORK" ls-remote --tags origin 2>/dev/null | awk '{print $2}' | sed 's|^refs/tags/||' | sort -u || true)"
-      unpushed_n="$(comm -23 <(printf '%s\n' "$local_tags") <(printf '%s\n' "$remote_tags") 2>/dev/null | grep -c . || true)"
-      shown_tags="$(printf '%s\n' "$out" | grep -oE 'непушенных тегов: [0-9]+' | grep -oE '[0-9]+' | head -1)"
-      shown_tags="${shown_tags:-0}"
-      if [ "${unpushed_n:-0}" -gt 0 ] && [ "${shown_tags:-0}" -lt 1 ]; then
-        printf '  FAIL real: теги — вывод показывает %s, фактически unpushed ≥1\n' "${shown_tags}" >&2
+    # Секция «теги» (поведенческая): управляемо unpushed≥1 (локальный $TAG_NAME, remote без тегов).
+    # Реальный дайджест называет «непушенных тегов: ≥1» и имя $TAG_NAME; стаб-нуль — красное.
+    if [ "${unpushed_n:-0}" -gt 0 ]; then
+      shown_unpushed="$(printf '%s\n' "$out" | grep -oE 'непушенных тегов: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
+      shown_unpushed="${shown_unpushed:-0}"
+      if [ "${shown_unpushed:-0}" -lt 1 ]; then
+        printf '  FAIL real: теги — управляемо unpushed=%d, вывод показывает «непушенных тегов: %s»\n' "${unpushed_n:-0}" "${shown_unpushed:-0}" >&2
+        exit 1
+      fi
+      if [[ "$out" != *"$TAG_NAME"* ]]; then
+        printf '  FAIL real: теги — фактически непusher %s, имя тега в выводе отсутствует\n' "$TAG_NAME" >&2
         exit 1
       fi
     fi
-    printf '  ok   real: реальный дайджест показывает содержимое секций\n' >&2
+    # Секция «статус» (поведенческая): управляемо git status --porcelain непуст ($DIRTY неотслеживаемый).
+    # Реальный дайджест называет «статус: аномалии» и строку с $DIRTY; литерал «статус: чисто» — красное.
+    if [ -n "$status_short" ]; then
+      if [[ "$out" == *'статус: чисто'* ]]; then
+        printf '  FAIL real: статус — git status непуст, но вывод печатает «статус: чисто»\n' >&2
+        exit 1
+      fi
+      if [[ "$out" != *'статус: аномалии'* ]]; then
+        printf '  FAIL real: статус — git status непуст, вывод не называет «статус: аномалии»\n' >&2
+        exit 1
+      fi
+      if [[ "$out" != *"$DIRTY"* ]]; then
+        printf '  FAIL real: статус — git status непуст, имя %s в выводе отсутствует\n' "$DIRTY" >&2
+        exit 1
+      fi
+    fi
+    printf '  ok   real: реальный дайджест называет unpushed-теги и аномалии статуса\n' >&2
     exit 0
     ;;
 
