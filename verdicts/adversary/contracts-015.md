@@ -1,98 +1,113 @@
 FAIL
 
-# Исполнительный круг adversary 015 — HEAD 4a330e4
+# Adversary 015 — секцион-якорный оракул, HEAD 2a4db74
 
-Судился только `scripts/drill_startup_digest.sh`, перенос пп. 1–5 решения
-`verdicts/arbitration/contracts-015-orakul-drilla-v-pamjati.md`. До и после **каждого**
-прогона ниже MD5-сторож живого `NABLIUDENIA.md` был одинаковым:
+**СТОП: к арбитру/владельцу.** Найден отдельный in-bounds дефект
+равномерности: проверка (f) привязана к секции, но проверяет имя dirty-файла
+слабее остальных токенов — подстрокой, а не самостоятельной строкой аномалии.
+Это не блокер круга 6 по правилу 12; решение о редизайне оракула либо остатке
+cognitive-only — за арбитром/владельцем.
+
+На каждом нижеуказанном запуске md5-сторож живого
+`NABLIUDENIA.md` был до/после одинаковым:
 `35ccdd6086b421be5d2a1350e322d608`.
 
-## Воспроизведённые три приёмки арбитра (/tmp)
+## Равномерность a–f
 
-В `/tmp/adv015exec-selector` — копия предмета; менялся только
-`/tmp/adv015exec-selector/scripts/nabludenia_digest.sh`.
+Разобран `scripts/drill_startup_digest.sh` в real-ветви.
 
-1. Реконструированный селектор: честен лишь при старом предсказуемом basename
-   `real-ctrl-*`, иначе печатает `непушенных тегов: 0` и `статус: чисто`.
+* **(a)** `OPEN_SEC` получен только между точными заголовками
+  `открытые с адресами:`/`дерево:`; `открытых: 0` требуется через `grep -Fxq`.
+* **(b)** `TREE_SEC` ограничен заголовками `дерево:`/`черновики:`; счётчик
+  требует самостоятельную строку `^непушенных тегов: [0-9]+$`, затем
+  сверяется с запомненным `1`.
+* **(c)** имя случайного тега ищется только в `TREE_SEC` как самостоятельная
+  строка (допускаются лишь контрактные ведущие/хвостовые пробелы).
+* **(d)** `статус: чисто` запрещён в `TREE_SEC` именно как самостоятельная
+  строка. Это соответствует отрицательному контракту «НЕ-строкой», поэтому
+  не является более слабой подстрочной проверкой.
+* **(e)** `статус: аномалии` обязателен в `TREE_SEC` через `grep -Fxq`.
+* **(f) FAIL.** `dirty_lines` берётся из `TREE_SEC`, однако `grep -F --
+  "$DIRTY"` принимает любое вхождение. Затем отвергаются только строки,
+  начинающиеся `^статус:` либо `^непушенных тегов:`. Нет ни требования
+  самостоятельной строки, ни формата записи `git status --short`.
 
-   ```sh
-   cd /tmp/adv015exec-selector
-   bash scripts/verify_antiplacebo.sh --scope drill_startup_digest
-   ```
+### Исполняемая одноточечная вариация (f)
 
-   rc=**1**, 0/12 положительных контролей: именованно
-   `нет положительного контроля`. Это ожидаемое красное: новый `c.XXXXXXXXXX`
-   не удовлетворяет селектору.
-
-2. Уничтожитель после разбора `--root` выполняет `rm -rf -- "$root"` и печатает
-   нули. Та же scoped-команда дала rc=**1**, 0/12 положительных контролей.
-   Прямой прогон показал именованную причину: rc=**1**,
-   `FAIL real: управляемый корень исчез после вызова субъекта`.
-
-3. Честный `scripts/nabludenia_digest.sh` в этой же копии:
-
-   ```sh
-   cd /tmp/adv015exec-selector
-   bash scripts/verify_antiplacebo.sh --scope drill_startup_digest
-   ```
-
-   rc=**0**, **12/12**; каждый fixture имел зелёный контроль и красный повтор.
-
-Нейтрализация HEAD также поймана: стаб делает пустой commit в переданном `--root`.
-Прямой прогон дал rc=**1** с `FAIL real: HEAD управляемого корня изменился`.
-Отсутствующий инструмент (`nonexistent_digest_tool`, rc=127) также пойман прямым
-прогоном: rc=**1**, `FAIL real: дайджест упал (rc=127)`.
-
-## Блокер: правильные токены не в тех полях проходят
-
-Построен бесмаркерный стаб, который для **любого** переданного git-root читает его
-один локальный tag и untracked `duntracked-*` (это обычные входы дайджеста), но
-выдаёт ложный отчёт `состояние дерева: чисто`. Требуемые токены он помещает только
-в не-семантические строки:
-
-```text
-диагностика: непушенных тегов: 1; <tag>
-архив ошибки: статус: аномалии; <dirty-file>
-```
-
-То есть стаб не печатает секцию дерева в контрактной форме и утверждает чистое
-дерево; подстроки лишь процитированы как диагностика. Это не правило-8: ожидания
-проверяющего не читаются с диска после вызова. Это не fingerprint: стаб не
-различает и не принимает честно только специальную форму песочницы — его ложная
-раскладка одинакова для каждого допустимого `--root`; tag/file он читает ровно как
-предметный дайджест обязан читать свои входные данные.
+В `/tmp/adv015-final/f-glued` взят честный дайджест. Единственная изменённая
+операция печати одной строки статуса:
 
 ```sh
-cd /tmp/adv015exec-selector
-bash scripts/drill_startup_digest.sh
-bash scripts/verify_antiplacebo.sh --scope drill_startup_digest
+# было
+printf '  %s\n' "$l" >> "$SECT_TREE"
+# стало
+printf '  диагностика-прежней-ошибки:%s:конец\n' "$l" >> "$SECT_TREE"
 ```
 
-Обе команды **прошли**: прямая rc=**0** (`ok real`), scoped rc=**0**, **12/12**.
-Причина по коду: real-ветвь сверяет независимые подстроки `$out` (строки 182–205),
-а не поля/секции вывода. В частности, count ищется первым regex-совпадением, а tag,
-статус и файл — просто где угодно в `$out`. Поэтому мера принимает ответ на другой
-вопрос. Это вход внутри заданных границ и проходящий при неверном поведении —
-**блокер**.
+Так требуемое имя `duntracked-*` находится внутри строки диагностики секции
+`дерево:`, а не на строке аномалии `git status --short`. Все прочие расчёты и
+секции сохранены честными. Это именно один токен, приклеенный к иной строке;
+не fingerprint и не вариация входного класса.
+
+```text
+bash /tmp/adv015-final/f-glued/scripts/drill_startup_digest.sh
+rc=0: ok real
+
+bash /tmp/adv015-final/f-glued/scripts/verify_antiplacebo.sh --scope drill_startup_digest
+rc=0: 12/12 зелёных контролей и 12 красных повторов
+```
+
+Следовательно, неверный дайджест проходит и сам оракул, и scoped-проводку.
+Минимальная причина: (f) должна требовать распознаваемую самостоятельную
+строку аномалии, а не любое вхождение basename в `TREE_SEC`.
+
+## Закрытый стаб круга 4
+
+В `/tmp/adv015-final/round4-diagnostic` построен прежний стаб: он помещает
+`непушенных тегов: 1`, имя тега, `статус: аномалии` и dirty-имя только в
+диагностические строки, вне требуемых полей. Он отвергнут:
+
+```text
+bash .../round4-diagnostic/scripts/drill_startup_digest.sh  -> rc=1
+FAIL real: теги — токен «непушенных тегов: N» вне своей секции
+
+bash .../round4-diagnostic/scripts/verify_antiplacebo.sh --scope drill_startup_digest
+-> rc=1
+```
+
+То есть прежняя ошибка «подстрока где угодно во всём выводе» действительно
+закрыта; находка выше — оставшаяся одноточечная неравномерность (f).
+
+## Предыдущие ловушки живы (/tmp)
+
+Все пять выполнены на отдельных копиях; каждая дала `rc=1` при чистом md5:
+
+| стаб | именованный результат |
+|---|---|
+| селектор, честный лишь для старого basename | счётчик тегов показывает 0 вместо 1 |
+| уничтожитель `$root` | `управляемый корень исчез после вызова субъекта` |
+| мутация HEAD пустым commit | `HEAD управляемого корня изменился` |
+| `exec nonexistent_digest_tool` | `дайджест упал (rc=127)` |
+| гибрид: теги в строке `статус: ...` | `непушенных тегов: N` не самостоятельная строка `дерево:` |
 
 ## Живое дерево
 
-Все команды дали rc=**0**, а MD5-сторож до/после каждой — указанный выше digest:
+Все команды завершились `rc=0`, с указанным md5 до/после **каждой**:
 
-```sh
-bash scripts/verify_antiplacebo.sh --scope check_nabludenia             # 12/12
-bash scripts/verify_antiplacebo.sh --scope drill_gate_draft             # 7/7
-bash scripts/verify_antiplacebo.sh --scope drill_startup_digest         # 12/12
-bash scripts/verify_antiplacebo.sh --scope drill_nabludenia_nechitaemo  # 1/1
+```text
+verify_antiplacebo --scope check_nabludenia              12/12
+verify_antiplacebo --scope drill_gate_draft               7/7
+verify_antiplacebo --scope drill_startup_digest          12/12
+verify_antiplacebo --scope drill_nabludenia_nechitaemo    1/1
 
-bash fixtures/check_nabludenia/probe_nabludenia_krasnoe.sh
-bash fixtures/drill_gate_draft/probe_gate_draft_krasnyj.sh
-bash fixtures/drill_startup_digest/probe_digest_krasnyj.sh
-bash scripts/drill_nabludenia_nechitaemo.sh
-bash fixtures/check_nabludenia/probe_migracija_adresov.sh
+fixtures/check_nabludenia/probe_nabludenia_krasnoe.sh
+fixtures/drill_gate_draft/probe_gate_draft_krasnyj.sh
+fixtures/drill_startup_digest/probe_digest_krasnyj.sh
+scripts/drill_nabludenia_nechitaemo.sh
+fixtures/check_nabludenia/probe_migracija_adresov.sh
 
-bash scripts/check_contract_frozen.sh  # 15 заморожено, 3 черновика
+scripts/check_contract_frozen.sh  # 15 заморожено, 3 черновика
 ```
 
-Зелёные живые проверки не снимают блокер: обманный вывод выше проходит и прямую
-проверку, и полный scoped-набор 12/12.
+Положительный контроль реален (живой `drill_startup_digest` и его scoped
+12/12 зелёны), но он не устраняет предъявленный ложнозелёный стаб (f).
