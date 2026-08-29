@@ -102,13 +102,7 @@ if [ ! -s "$SECT_OPEN" ]; then
   printf 'открытых: 0\n' > "$SECT_OPEN"
 fi
 
-total_open=$(wc -l < "$SECT_OPEN" | tr -d ' ')
-if [ "$total_open" -gt "$SECT_OPEN_MAX" ]; then
-  head -n "$SECT_OPEN_MAX" "$SECT_OPEN" > "$SECT_OPEN.tmp"
-  rest_n=$((total_open - SECT_OPEN_MAX))
-  printf '…и ещё %s\n' "$rest_n" >> "$SECT_OPEN.tmp"
-  mv "$SECT_OPEN.tmp" "$SECT_OPEN"
-fi
+
 
 # ── секция 2: дерево ────────────────────────────────────────────────────────────
 if ! git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
@@ -212,26 +206,49 @@ fi
 # ── сборка ─────────────────────────────────────────────────────────────────────
 mkdir -p "$ROOT/tmp" 2>/dev/null || true
 OUT="$ROOT/tmp/nabludenia-digest-output-$$"
-{
-  printf 'открытые с адресами:\n'
-  cat "$SECT_OPEN"
-  printf '\nдерево:\n'
-  cat "$SECT_TREE"
-  printf '\nчерновики:\n'
-  cat "$SECT_DRAFT"
-  printf '\nHANDOFF:\n'
-  cat "$SECT_HAND"
-} > "$OUT" 2>/dev/null || {
+assemble() {
+  {
+    printf 'открытые с адресами:\n'
+    cat "$SECT_OPEN"
+    printf '\nдерево:\n'
+    cat "$SECT_TREE"
+    printf '\nчерновики:\n'
+    cat "$SECT_DRAFT"
+    printf '\nHANDOFF:\n'
+    cat "$SECT_HAND"
+  }
+}
+if ! assemble > "$OUT" 2>/dev/null; then
   printf 'дайджест не собран: ошибка сборки\n'
   exit 0
-}
+fi
 
+# Потолок ≤40 — усечение ВНУТРИ секции открытых записей: «…и ещё N» заменяет
+# отрезанные строки. Секции дерево/черновики/HANDOFF печатаются всегда
+# (требование «нормальный вход — прежнее поведение» в зоне ≤open_budget,
+# переполненный — секции целыком).
 out_total=$(wc -l < "$OUT" | tr -d ' ')
 if [ "$out_total" -gt "$CEILING" ]; then
-  head -n "$CEILING" "$OUT" > "$OUT.tmp"
-  rest_n=$((out_total - CEILING))
-  printf '…и ещё %d\n' "$rest_n" >> "$OUT.tmp"
-  mv "$OUT.tmp" "$OUT"
+  # Overhead = 3 blank lines + 4 section headers = 7
+  tree_lines=$(wc -l < "$SECT_TREE" | tr -d ' ')
+  draft_lines=$(wc -l < "$SECT_DRAFT" | tr -d ' ')
+  hand_lines=$(wc -l < "$SECT_HAND" | tr -d ' ')
+  overhead=$(( tree_lines + draft_lines + hand_lines + 7 ))
+  open_budget=$(( CEILING - overhead ))
+  [ "$open_budget" -ge 1 ] || open_budget=1
+
+  open_total=$(wc -l < "$SECT_OPEN" | tr -d ' ')
+  if [ "$open_total" -gt "$open_budget" ]; then
+    # Хвост списка заменяется одной строкой «…и ещё N»
+    if [ "$open_budget" -eq 1 ]; then
+      printf '…и ещё %d\n' "$((open_total - 1))" > "$SECT_OPEN.tmp"
+    else
+      head -n "$((open_budget - 1))" "$SECT_OPEN" > "$SECT_OPEN.tmp"
+      printf '…и ещё %d\n' "$((open_total - (open_budget - 1)))" >> "$SECT_OPEN.tmp"
+    fi
+    mv "$SECT_OPEN.tmp" "$SECT_OPEN"
+    assemble > "$OUT"
+  fi
 fi
 
 cat "$OUT"
