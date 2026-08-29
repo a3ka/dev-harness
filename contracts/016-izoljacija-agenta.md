@@ -1,14 +1,16 @@
 # Контракт 016 — изоляция агента: ветка+worktree на спавна, приземление merge --no-ff, GC веток; барьер add-A
 
 Вариант Б frontier (круг 1) + решения владельца Q1–Q8 (грилинг 2026-08-29) + интеграция
-§6 (круг 2). Единственный источник решений — `tmp/frontier-068.md`; расхождений с деревом
-нет. **ЗАКРЫВАЕТ Н-68-КОРЕНЬ** (механизм изоляции агента; СИМПТОМ 0171f1b был закрыт
+§6 (круг 2). Источник решений — НАСТОЯЩИЙ КОНТРАКТ: каждое из решений Q1–Q8 несёт текст
+ниже с тегом (Q1)…(Q8). Рабочие материалы разведки лежат в `tmp/` — каталог вне git
+(игнорируется, в коммит предмета не входит) и источником решений не объявляется.
+**ЗАКРЫВАЕТ Н-68-КОРЕНЬ** (механизм изоляции агента; СИМПТОМ 0171f1b был закрыт
 rebase-drop'ом `0e0c329` по слову владельца — класс остался). Цена из записи: 2 красных
 CI-цикла + 1 force-push + 3 ложных диагноза (2×«wreck от агента», 1×«флейк») + фикс-агент
 с собственным ложным rc (А-54, третий случай) + бюджет-смерть 305-го запроса. Красное
-сегодня воспроизведено прогоном (детерминированно): обе пробы rc=1 «ОТКАЗ: барьера нет»;
-scoped-прогон раннера красен поимёнными «фикстура без барьера» (§2 сверки идёт ДО
-scoped-фильтра, прецедент 015).
+сегодня воспроизведено прогоном (детерминированно): пробы барьеров дают rc=1 «ОТКАЗ:
+барьера нет»; scoped-прогон раннера красен поимёнными «фикстура без барьера» (§2 сверки
+идёт ДО scoped-фильтра, прецедент 015).
 
 ## Предмет
 
@@ -18,7 +20,7 @@ scoped-фильтра, прецедент 015).
 `scripts/check_staged.sh <корень>`: судит STAGED-множество ДО коммита. Автор —
 локальный `user.name` коммитящего; зоны — объединение ЗОНА-строк автора из замороженных
 контрактов, ЕДИНОЙ реализацией с `check_zones.sh` (чтение зон выносится в
-`scripts/lib_zones.sh`; оба потребителя импортируют ОДНУ функцию — второй список путей
+`scripts/lib_zones.sh`; потребители импортируют ОДНУ функцию — второй список путей
 запрещён; правка `check_zones.sh` — только эквивалентный рефакторинг, замороженные ветви
 не меняются). Ветви:
 
@@ -48,29 +50,36 @@ scoped-фильтра, прецедент 015).
 спавна, §6.2а); ветка+worktree ОДНОЙ транзакцией с откатом на отказе середины; все
 внутренние git-вызовы с явной identity (Н-61/А-25). Отказы rc 1 поимённые: повторный
 спавн при живой ветке того же имени; путь worktree внутри стерегомого дерева; вызов вне
-корня репо / HEAD не main. Стаб «тихий спавн» (rc 0 без WORKTREE=/BRANCH=) — красный.
+корня репо / HEAD не main.
 Cognitive-only, названо прямо: попадание агента в worktree — инструкция в задании,
 omp-принуждения нет (ловцы — срез 3 и §6.5).
 
 **Срез 3 — приземление: `scripts/land_agent.sh`.** Приёмка исполняется В worktree;
-предмет обязан быть в HEAD worktree — иначе отказ (стаб «приёмка-OK-без-ветки» красный).
-Грязный главный чекаут на приземлении → rc 1 «главное дерево загрязнено мимо worktree».
-Далее: merge --no-ff оркестратором с явной identity (агент НЕ пушит: общий .git — ref
-ветки виден без push, §6.3-6; авторство и SHA сохранены — судья зон работает БЕЗ правок,
+предмет обязан быть в HEAD worktree — иначе отказ (наблюдаемое отношение HEAD к базе
+ветки, И-8). Грязный главный чекаут на приземлении → rc 1 «главное дерево загрязнено
+мимо worktree». Далее: merge --no-ff identity ОРКЕСТРАТОРА — merge исполняет сам скрипт,
+identity зашита в нём, не параметр и не наследование окружения вызывающего (агент НЕ
+пушит: общий .git — ref ветки виден без push (Q2), §6.3-6; авторство и SHA сохранены —
+судья зон работает БЕЗ правок,
 Q3), push (ff), удаление ветки и worktree СРАЗУ. После КАЖДОГО приземления все `frozen/*`
 достижимы из HEAD и побайтово равны блобам (расширение существующего check:contract-frozen,
 НЕ второй судья); no-rewrite main соблюдён.
 
 **Срез 4 — GC: `scripts/gc_agent_branches.sh`.** Слитые `wip/*` — авто-снос; зависшие —
-СПИСОК владельцу, молча не трогать (симметрия Н-59: молчание ≠ разрешение), без таймера
+СОХРАННЫ: после прогона GC каждая несбитая ветка наблюдается в `git for-each-ref` и
+поимённо в СПИСКЕ владельцу (симметрия Н-59: молчание ≠ разрешение); удаление зависшей —
+только слово владельца, вход с флагом силы в GC отсутствует по построению; без таймера
 (Q4); sweep остатков — python3-lstat (Н-60: GNU `find -type p` слеп систематически);
 пустая выборка на заявленное наличие — красное, не зелёное.
 
 ### Инварианты (каждый с rc-командой)
 
-- **И-1** агентский коммит не достижим из main минуя merge-коммит оркестратора
-  (first-parent история main — журнал приземлений). rc: `bash scripts/verify_antiplacebo.sh
-  . --scope land_agent` (фикстура case_kommit_mimo_merge: агентский коммит прямо на main).
+- **И-1** агентский коммит не достижим из main минуя merge-коммит, и merge-коммит
+  приземления создан identity ОРКЕСТРАТОРА (committer merge-коммита по first-parent
+  истории main; first-parent история main — журнал приземлений). rc: `bash
+  scripts/verify_antiplacebo.sh . --scope land_agent` (case_kommit_mimo_merge:
+  агентский коммит прямо на main; case_merzh_ne_orkestrator: committer merge-коммита
+  приземления — не orchestrator).
 - **И-2** staged-множество вне зон / с control-символом в имени отвергается ДО коммита.
   rc: `bash fixtures/check_staged/probe_check_staged_krasnyj.sh` (сейчас rc=1) и scoped
   `--scope check_staged` (после реализации rc=0).
@@ -82,13 +91,21 @@ Q3), push (ff), удаление ветки и worktree СРАЗУ. После �
   одного вызова `git … commit` / `git … merge …` в `scripts/` без `-c user.*=`/GIT_* в
   той же строке (merge-base — чтение, не судится; аннотированные теги next_id несут
   env-зависимость по контракту Н-61 — выдача зовётся с env-identity, канарейкой не
-  судятся). Мера ПУСТА сейчас (замер пачки: 3 строки drill_startup_digest, все с
-  `-c user.name=`) и обязана остаться пустой после реализации:
+  судятся). Пустота меры доказывается КОДОМ ВОЗВРАТА: rc=0 когда пусто, rc≠0 когда
+  найдено (нарушение печатается дословно):
   ```
-  grep -rnE '\bgit\b[^|<>]*[[:space:]](commit|merge)[[:space:]]' scripts/ | grep -vE ':[0-9]+:[[:space:]]*#' | grep -v merge-base | grep -vE 'user\.(name|email)=|GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL)' || true
+  ! grep -rnE '\bgit\b[^|<>]*[[:space:]](commit|merge)[[:space:]]' scripts/ | grep -vE ':[0-9]+:[[:space:]]*#' | grep -v merge-base | grep -vE 'user\.(name|email)=|GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL)' | grep .
   ```
-- **И-6** GC удаляет слитые, несбитые не трогает молча; sweep видит fifo (python-lstat).
-  rc: scoped `--scope gc_agent_branches`.
+  Замер этой пачки: живое дерево → rc=0 (мера пуста; найденные первой строкой
+  вхождения несут явную identity и отфильтрованы). Красный вход меры — toy-дерево с
+  `scripts/bypass.sh`, где есть буквальный вызов `git commit` без identity: команда
+  обязана напечатать эту строку и вернуть rc≠0 (прогоны этой пачки — дословно в отчёте).
+- **И-6** GC удаляет слитые; несбитые СОХРАННЫ наблюдаемо: после прогона GC при
+  наличии зависших веток каждая остаётся в `git for-each-ref` и поимённо названа в
+  СПИСКЕ владельцу; удаление зависшей — только слово владельца (вход с флагом силы в
+  GC отсутствует по построению); sweep видит fifo (python-lstat). rc: scoped
+  `--scope gc_agent_branches` (case_zavisshaja_snesena: несбитая ветка пропала из
+  for-each-ref после прогона GC).
 - **И-7** грязный main на приземлении → rc 1 (§6.5-2). rc: scoped `--scope land_agent`
   (case_gryaznyj_main).
 - **И-8** приёмка-OK-без-ветки красная: приземление отказывает, если приёмка зелёная, а
@@ -96,27 +113,30 @@ Q3), push (ff), удаление ветки и worktree СРАЗУ. После �
   (case_priyomka_bez_vetki).
 - **И-9** identity (Q3): каждый агент коммитит `-c user.name=<роль>`; общий `.git/config`
   НЕ несёт дефолтного user.name (при пачке: пусто); worktree ШАРИТ общий конфиг — коммит
-  без явной identity падает «empty ident» (§6.3-5, Н-56/Н-61-класс). Риск назван:
-  дефолт, однажды внесённый в общий конфиг, подписывает ВСЕ worktree одним именем
-  (hft-провал «14 worktree все подписаны reviewer»). rc: `git config --local user.name`
-  → пусто; стаб spawn с внутренним git-вызовом без identity → отказ (scoped
-  `--scope spawn_agent`, case_bez_identichnosti).
+  без явной identity падает «empty ident» (§6.3-5, Н-56/Н-61-класс). Соответствие имени
+  роли наблюдаемо: приземление отказывает rc 1 «имя вне реестра ролей: <имя>», если
+  committer какого-либо коммита приземляемого диапазона не входит в реестр авторов
+  замороженных контрактов — тот же список, что собирает check_zones (единая реализация
+  lib, второй реестр запрещён). Риск назван: дефолт, однажды внесённый в общий конфиг,
+  подписывает ВСЕ worktree одним именем (hft-провал «14 worktree все подписаны reviewer»).
+  rc: `git config --local user.name` → пусто; scoped `--scope spawn_agent`
+  (case_bez_identichnosti) и `--scope land_agent` (case_imja_vne_reestra).
 
 ## Зоны
 
 ЗОНА architect: contracts/016-izoljacija-agenta.md fixtures/check_staged/ fixtures/check_hooks/ NABLIUDENIA_ARCHITECT.md
-ЗОНА implementer: scripts/spawn_agent.sh scripts/land_agent.sh scripts/gc_agent_branches.sh scripts/check_staged.sh scripts/check_hooks.sh scripts/lib_zones.sh scripts/check_zones.sh .githooks/ .gitignore package.json .github/workflows/ci.yml fixtures/spawn_agent/ fixtures/land_agent/ fixtures/gc_agent_branches/
+ЗОНА implementer: scripts/spawn_agent.sh scripts/land_agent.sh scripts/gc_agent_branches.sh scripts/check_staged.sh scripts/check_hooks.sh scripts/lib_zones.sh scripts/check_zones.sh scripts/check_contract_frozen.sh .githooks/ .gitignore package.json .github/workflows/ci.yml fixtures/spawn_agent/ fixtures/land_agent/ fixtures/gc_agent_branches/ fixtures/check_contract_frozen/
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
-ЗОНА orchestrator: NABLIUDENIA.md HANDOFF.md roles/
+ЗОНА orchestrator: NABLIUDENIA.md HANDOFF.md
 
 Зона implementer вступает в силу ПОСЛЕ заморозки; до заморозки scripts/ не правит никто
 (прецедент 013/014). Каталоги фикстур срезов 2–4 — ПО КЛЮЧАМ барьеров раннера
 (spawn_agent / land_agent / gc_agent_branches): сверка §2 раннера красит любой каталог
 fixtures/* без одноимённого барьера («фикстура без барьера — она ничего не держит»), общее
 гнездо `fixtures/agent_isolation/` из frontier-эскиза механикой раннера не поддерживается;
-обшие каркасы — по прецеденту трёх существующих `_repo.sh` в каталоге каждого барьера.
+общие каркасы — по прецеденту существующих `_repo.sh` в каталоге каждого барьера.
 
 Решения по пограничным путям (правило 7 — молчание не годится):
 
@@ -125,10 +145,11 @@ fixtures/* без одноимённого барьера («фикстура б
   корневого скратча по факту 0171f1b (`/out*.txt` у корня); расширение списка — эволюция
   механизма, не frozen-текст.
 - **Роли — РАБОТА НЕ РАЗДАЁТСЯ: уставный класс** (правка roles/implementer.md текстом
-  «работаешь в выданном worktree» — отдельное слово владельца; зоны orchestrator его в 016
-  не дают никому). Механизм 016 от текста роли НЕ зависит: ловцы §6.5 механические,
-  WORKTREE-строка ездит в задании оркестратора (§6.2а), канарейка И-5 сторожит identity
-  в скриптах, а не в советах ролей.
+  «работаешь в выданном worktree» — отдельное слово владельца; путей roles/ нет ни в
+  одной ЗОНА-строке 016, зона orchestrator здесь — NABLIUDENIA.md и HANDOFF.md).
+  Механизм 016 от текста роли НЕ зависит: ловцы §6.5 механические, WORKTREE-строка
+  ездит в задании оркестратора (§6.2а), канарейка И-5 сторожит identity в скриптах,
+  а не в советах ролей.
 
 ## Приёмочный критерий
 
@@ -144,28 +165,26 @@ find fixtures/check_staged fixtures/check_hooks fixtures/spawn_agent fixtures/la
 
 ### Красное сейчас (прогоны этой пачки; барьеров ещё нет)
 
-- `bash fixtures/check_staged/probe_check_staged_krasnyj.sh` → rc=1: три фазы пробой
-  зелёные (стаб честной формы: оба case предъявляют зелёный контроль + красное повтором;
-  стабы зоны-слеп/грамматика-слеп/всё-красно пойманы поимённо), финал — «ОТКАЗ: барьера
-  нет — scripts/check_staged.sh (реализация за implementer после заморозки)»;
-- `bash fixtures/check_hooks/probe_check_hooks_krasnyj.sh` → rc=1: аналогично (стаб
-  хук-декой пойман на входе case_huk_ne_vedet_k_sude; установщик-декой — на входе
-  case_bez_ustanovshhika), финал — «ОТКАЗ: барьера нет — scripts/check_hooks.sh»;
+- `bash fixtures/check_staged/probe_check_staged_krasnyj.sh` → rc=1, финал — «ОТКАЗ:
+  барьера нет — scripts/check_staged.sh (реализация за implementer после заморозки)»;
+  состав стабов пробы и привязка к входам — шапка probe-файла по коду (Н-39);
+- `bash fixtures/check_hooks/probe_check_hooks_krasnyj.sh` → rc=1, финал — «ОТКАЗ:
+  барьера нет — scripts/check_hooks.sh» (привязка стабов — шапка probe-файла, Н-39);
 - scoped раннера на живом дереве: `bash scripts/verify_antiplacebo.sh . --scope
-  check_charter` → rc=1 ровно с ДВУМЯ именованными «фикстура без барьера»:
-  fixtures/check_staged, fixtures/check_hooks (§2 сверки ДО scoped-фильтра — красное
-  ПО УМЫСЛУ: это и есть красные тесты нереализованных барьеров, прецедент 015);
-  собственные предъявления scoped-барьеров не ломаются.
+  check_charter` → rc=1 с именованными отказами «фикстура без барьера — она ничего
+  не держит» для каждого каталога фикстур без одноимённого барьера (§2 сверки идёт
+  ДО scoped-фильтра — красное ПО УМЫСЛУ: это и есть красные тесты нереализованных
+  барьеров, прецедент 015); собственные предъявления scoped-барьеров не ломаются.
 
 ### После реализации (приёмка implementer; rc-переход красное→зелёное)
 
-- обе пробы выше → rc=0 каждая;
+- пробы выше → rc=0 каждая;
 - scoped новых ключей: `bash scripts/verify_antiplacebo.sh . --scope check_staged`
   (и check_hooks, spawn_agent, land_agent, gc_agent_branches) → rc=0 — по-стабно,
   раннерные инварианты в каждом case (≥1 зелёный, ≥1 красный с повтором причины);
 - охрана замороженного: `--scope check_zones` → rc=0 (рефакторинг lib_zones
   эквивалентен), `--scope check_contract_frozen` → rc=0;
-- канарейка И-5 — ПУСТО (команда в инварианте);
+- канарейка И-5 → rc=0 — пустота меры кодом возврата (команда в инварианте);
 - И-9: `git config --local user.name` → пусто;
 - проводка: `npm run check:hooks` → rc=0; каждая команда из `run:` ci.yml — пунктом
   приёмки (паритет verify_ci_parity);
