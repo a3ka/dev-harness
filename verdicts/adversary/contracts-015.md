@@ -1,66 +1,95 @@
 FAIL
 
-Судился контракт 015 v1 и реализация живого дерева; стаб-копия: `/tmp/adv015.mTJpUP/repo`. Предмет и проверка не менялись. Найдены два проходящих обманных субъекта: при их фактически неверном поведении scoped-приёмка остаётся зелёной. Причина общая: `drill_gate_draft.sh` и `drill_startup_digest.sh` выбирают проверяемый сценарий по известным строковым маркерам в исходнике. Нестандартный стаб без такого маркера объявляется `real`; его «зелёная» ветвь проверяет лишь один успешный вызов (drafter) либо только `rc=0` (digest), затем case подменяют субъект известными стабами и успешно проверяют уже их.
+Судился живой HEAD `eac98d0` и фикс `3f47d44..eac98d0`. Предмет и проверки не менялись; все подмены жили только в `/tmp`. MD5-сторож `NABLIUDENIA.md` до и после **каждого** ниже названного прогона совпал: `35ccdd6086b421be5d2a1350e322d608`.
 
-## Находки, воспроизведённые в /tmp
+## 1. Прежние находки пойманы
 
-1. **FAIL — черновик без дедупа проходит scoped-приёмку.** Заменён `scripts/draft_nabludenia.sh` стабом без маркера сценария: каждый вызов создаёт `draft-$RANDOM-$$.md`, всегда с `повторов: 1`.
+### 1.1 Черновик без дедупа
 
-   ```sh
-   cd /tmp/adv015.mTJpUP/repo
-   d=$(mktemp -d /tmp/adv015-dedup.XXXXXX)
-   TMPDIR="$d" bash scripts/draft_nabludenia.sh scripts/check_charter.sh 'FAIL charter: adversary'
-   TMPDIR="$d" bash scripts/draft_nabludenia.sh scripts/check_charter.sh 'FAIL charter: adversary'
-   bash scripts/verify_antiplacebo.sh --scope drill_gate_draft
-   ```
+В `/tmp/adv015b-draft` был подложен бесмаркерный `scripts/draft_nabludenia.sh`, который на каждом вызове создаёт новый файл с `повторов: 1`. Два одинаковых вызова:
 
-   Два файла наблюдались (`draft-3949-284239.md`, `draft-28541-284236.md`), то есть контрактный дедуп нарушен. Несмотря на это scoped дал `rc=0`, `7/7` case зелёные. Реальная ветвь дрилла вызывает drafter один раз и требует только `n >= 1`; без известного маркера сценария ветвь дедупа не исполняется.
+```sh
+TMPDIR=/tmp/adv015b-draft-tmp bash /tmp/adv015b-draft/scripts/draft_nabludenia.sh scripts/check_charter.sh 'FAIL charter: adversary'
+TMPDIR=/tmp/adv015b-draft-tmp bash /tmp/adv015b-draft/scripts/draft_nabludenia.sh scripts/check_charter.sh 'FAIL charter: adversary'
+```
 
-2. **FAIL — дайджест, лгущий нулями, проходит scoped-приёмку.** Заменён `scripts/nabludenia_digest.sh` стабом без маркера сценария, печатающим константы `ОТКРЫТЫЕ: 0`, `ahead 0, behind 0`, `теги: 0`, `черновиков: 0`, `чисто`; сохранена ненулевая строка `# ГРАММАТИКА:` только чтобы предъявление рассинхронизации могло выполниться.
+создали два разных `.md`. Затем:
 
-   ```sh
-   cd /tmp/adv015.mTJpUP/repo
-   bash scripts/nabludenia_digest.sh --for-session --root .
-   bash scripts/verify_antiplacebo.sh --scope drill_startup_digest
-   ```
+```sh
+cd /tmp/adv015b-draft
+bash scripts/verify_antiplacebo.sh --scope drill_gate_draft
+```
 
-   Неверный вывод предъявлен непосредственно; затем scoped дал `rc=0`, `12/12` case зелёные. Ветка `real` `drill_startup_digest.sh` требует лишь `rc=0` и вообще не судит секции; case снова тестируют только свои узнаваемые стабы.
+дал `rc=1`: все семь case остановлены отсутствующим положительным контролем. Его причина — новая real-ветвь дрилла вызвала субъект дважды, увидела не `ровно 1` файл и не признала подмену зелёной. Старый обход больше не проходит.
 
-## Пойманные собственные стабы и контроли
+### 1.2 Дайджест с константами-нулями
 
-3. **Барьер, пропускающий новый класс адреса:** обёртка пропускала `адрес: контракт 01p` (латинский суффикс вместо требуемого номера). Прямой вызов на `/tmp/adv015.mTJpUP/address-root` дал ошибочный `rc=0`; `bash scripts/verify_antiplacebo.sh --scope check_nabludenia` дал `rc=1`: `case_unicode_sklejka.sh` не предъявил красное. Пойман.
+В `/tmp/adv015b-digest` был подложен бесмаркерный `scripts/nabludenia_digest.sh`, печатающий, в частности, `открытых: 0`, `ahead 0, behind 0`, `теги: 0`, `статус: чисто`, `черновиков: 0`. Его прямой вывод был ложным. Затем:
 
-4. **Барьер с мерой want−have вместо равенства:** обёртка пропускала `Н-36` с `адрес: контракт 015 контракт 016`. Команда
+```sh
+cd /tmp/adv015b-digest
+bash scripts/verify_antiplacebo.sh --scope drill_startup_digest
+```
 
-   ```sh
-   bash scripts/verify_antiplacebo.sh --scope check_nabludenia/case_lishnee_naznachenie
-   ```
+дал `rc=1`: все 12 case остановлены отсутствующим положительным контролем. Новая real-ветвь требует назвать открытые записи и отвергает литерал `теги: 0`; прежний обход нулями пойман.
 
-   дала `rc=1`: «барьер остался зелёным на обманном дереве». Пойман именно постоянным case лишнего назначения.
+## 2. Новые бесмаркерные кандидаты
 
-5. **Черновик, пишущий в дерево:** стаб писал в `$PWD/dev-harness-nabludenia/drafts/`. Его прямой вызов создал файл внутри временного дерева; затем `bash scripts/verify_antiplacebo.sh --scope drill_gate_draft` дал `rc=1`, включая `FAIL дерево изменилось вне $WORK`. Пойман.
+### 2.1 Разные ключи дедупа — это не дыра
 
-6. **Инструмент мимо PATH:**
+Кандидат в `/tmp/adv015b-draft` дедуплицирует точный ключ `(команда + первая FAIL-строка)`, но создаёт по одному файлу для разных ключей. Пара:
 
-   ```sh
-   PATH=/nonexistent /bin/bash scripts/check_nabludenia.sh "$(mktemp -d /tmp/adv015-empty.XXXXXX)"
-   ```
+```sh
+TMPDIR=/tmp/adv015b-draft-distinct bash /tmp/adv015b-draft/scripts/draft_nabludenia.sh scripts/check_charter.sh 'FAIL charter: first'
+TMPDIR=/tmp/adv015b-draft-distinct bash /tmp/adv015b-draft/scripts/draft_nabludenia.sh scripts/check_contract_frozen.sh 'FAIL frozen: second'
+```
 
-   дал корректный `rc=2`, `NOT_IMPLEMENTED: нет python3`, а не ложный успех. Пойманный отказ.
+дала два файла (`66afde688057b92d.md`, `e40670a17b758dc7.md`). Это **легально**: инвариант 4 прямо требует «другой отказ — другой файл». Тот же кандидат прошёл:
 
-7. **Пустой вход:** настоящий барьер на пустом временном корне дал предусмотренный `rc=0` с именованным `неприменимо: NABLIUDENIA.md и NABLIUDENIA_ARCHITECT.md отсутствуют …`; это не объявлено «нарушений не найдено» молча.
+```sh
+cd /tmp/adv015b-draft
+bash scripts/verify_antiplacebo.sh --scope drill_gate_draft
+```
 
-## Живая приёмка и сторож
+`rc=0`, 7/7. Это положительный контроль поведенческого предъявления: одинаковый вход дедуплицируется, in-tree `TMPDIR` отвергается; требовать один черновик от разных входов изменило бы контракт.
 
-Все ниже перечисленные **принятые** живые прогоны обрамлены `md5sum NABLIUDENIA.md`; до/после совпали `35ccdd6086b421be5d2a1350e322d608`:
+### 2.2 FAIL — дайджест лжёт о дереве и проходит scoped
 
-- `bash scripts/verify_antiplacebo.sh --scope check_nabludenia` → `rc=0`, 12/12.
-- `bash scripts/verify_antiplacebo.sh --scope drill_gate_draft` → `rc=0`, 7/7.
-- `bash scripts/verify_antiplacebo.sh --scope drill_startup_digest` → `rc=0`, 12/12.
-- `bash scripts/verify_antiplacebo.sh --scope drill_nabludenia_nechitaemo` → `rc=0`, 1/1.
-- Пять проб: `probe_nabludenia_krasnoe.sh`, `probe_gate_draft_krasnyj.sh`, `probe_digest_krasnyj.sh`, прямой `scripts/drill_nabludenia_nechitaemo.sh`, `probe_migracija_adresov.sh` — каждая `rc=0`; прямой дрилл подтвердил `rc=2`-ветвь в собственной песочнице, живой `NABLIUDENIA.md` не изменён.
-- `bash scripts/check_contract_frozen.sh` → `rc=0`; тот же md5-сторож чист.
+Построен **новый бесмаркерный** `scripts/nabludenia_digest.sh` в `/tmp/adv015b-digest`. Он честно называет первую открытую запись из `NABLIUDENIA*`, но безусловно печатает:
 
-Один первый scoped-прогон digest был отброшен как недостоверный: между его md5 (`3a6f4255…`) и окончанием файла изменился на `35ccdd60…`, и раннер назвал внешнее изменение `./NABLIUDENIA.md`. Файл не откатывался и не редактировался мной; повтор после стабилизации приведён выше и чист. Поэтому md5-сторож для всех засчитанных результатов чист.
+```text
+непушенных тегов: 0
+статус: чисто
+```
 
-Требуемая правка за автором: дриллы не должны классифицировать правильность субъекта по добровольным строковым маркерам. Каждая контрактная инварианта должна предъявляться поведенчески и для любого содержимого субъекта; зелёный контроль drafter обязан включать повтор и in-tree TMPDIR, а зелёный контроль digest — содержимое непустых секций/тегов, не только возврат `0`.
+Контролируемый git-корень `/tmp/adv015b-digest-controlled` содержал открытую `Н-777`, локальный тег `local-only`, bare `origin` без тегов (`git -C /tmp/adv015b-digest-controlled ls-remote --tags origin | wc -l` → `0`) и неотслеживаемый `untracked.txt` (`git status --short` → `?? untracked.txt`). Прямой запуск:
+
+```sh
+bash /tmp/adv015b-digest/scripts/nabludenia_digest.sh --for-session --root /tmp/adv015b-digest-controlled
+```
+
+вывел `Н-777 → контракт 015`, но одновременно ложные `непушенных тегов: 0` и `статус: чисто` при одном непушенном теге и грязном дереве.
+
+Несмотря на эту ложь, проверка прошла зелёной:
+
+```sh
+cd /tmp/adv015b-digest
+bash scripts/verify_antiplacebo.sh --scope drill_startup_digest
+```
+
+**`rc=0`, 12/12.** Это дефект проверки. Real-ветвь проверяет наличие хотя бы одного имени открытой записи; тег сверяет лишь когда фактический счётчик больше нуля в пустом `$WORK`, а `git status` в real-ветви вообще не предъявляется. После зелёного контроля fixtures подменяют субъект только своими маркерными стабами, поэтому бесмаркерная ложь о тегах и статусе не исполняется против грязного/tagged входа.
+
+Требуемая правка за автором: real-предъявление должно создавать управляемый git-root с непушенным тегом и аномалией статуса и требовать точное число тегов/их имя и строку `статус: аномалии` с записью статуса. Проверка не должна зависеть от строк-маркеров фикстур для этих инвариантов.
+
+## 3. Живое дерево
+
+Каждый запуск ниже дал `rc=0` и был обрамлён неизменным MD5-сторожем:
+
+- `bash scripts/verify_antiplacebo.sh --scope check_nabludenia` — 12/12;
+- `bash scripts/verify_antiplacebo.sh --scope drill_gate_draft` — 7/7;
+- `bash scripts/verify_antiplacebo.sh --scope drill_startup_digest` — 12/12;
+- `bash scripts/verify_antiplacebo.sh --scope drill_nabludenia_nechitaemo` — 1/1;
+- пять проб: `fixtures/check_nabludenia/probe_nabludenia_krasnoe.sh`, `fixtures/drill_gate_draft/probe_gate_draft_krasnyj.sh`, `fixtures/drill_startup_digest/probe_digest_krasnyj.sh`, прямой `scripts/drill_nabludenia_nechitaemo.sh`, `fixtures/check_nabludenia/probe_migracija_adresov.sh`;
+- `bash scripts/check_contract_frozen.sh` — `rc=0` (15 замороженных, 3 черновика).
+
+Живая зелень не отменяет находку 2.2: она доказывает работоспособность текущего предмета, но не то, что scoped-предъявление ловит бесмаркерную ложь о состоянии дерева.
