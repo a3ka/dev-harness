@@ -95,39 +95,50 @@ detect_stub() {
 scenario="$(detect_stub)"
 case "$scenario" in
   real)
-    # ПОВЕДЕНЧЕСКАЯ сверка (адверсарий 015, находка 2.2). Бесмаркерный стаб-digest
-    # мог честно назвать открытые, но лгать «непушенных тегов: 0» и «статус: чисто»
-    # при грязном/tagged дереве — стаб-нули проходили, потому что проверка unpushed
-    # срабатывала только при «$WORK уже репозиторий git», а фикстуры $WORK под
-    # репозиторий не поднимают. Здесь строится управляемый git-root в $WORK/real-ctrl-$$/
-    # с обоими условиями сразу: локальный непusher-тег (bare origin без тегов),
-    # неотслеживаемый файл (git status --porcelain непуст), пустые NABLIUDENIA*.md.
-    # Реальный дайджест обязан: (а) назвать «открытых: 0»; (б) при unpushed≥1 назвать
-    # «непушенных тегов: ≥1» и имя тега; (в) при грязном дереве назвать «статус:
-    # аномалии» и имя записи статуса, а литерал «статус: чисто» — не называть.
-    # Сверка поведенческая, не маркерная: detect_stub не видит стаб без маркеров,
-    # а предмет дрилла обязан.
-    CTRLR="$WORK/real-ctrl-$$"
-    BARE="$WORK/real-bare-$$"
-    TAG_NAME="drill-real-$$"
-    DIRTY="drill-untracked-$$.txt"
-    mkdir -p "$CTRLR" "$BARE" 2>/dev/null || {
+    # Память-оракул (контракт 015, арбитраж contracts-015-orakul-drilla-v-pamjati.md,
+    # прототип пп. 1–5): песочница строится проверяющим (mktemp + случайные имена),
+    # ожидания снимаются в переменные ДО вызова субъекта, вывод захватывается в память,
+    # сверка с ожиданиями безусловная, диск после вызова читается только как fail-closed
+    # улика целостности управляемого корня. Память при этом не обновляется.
+
+    # 1. Песочница и bare-origin: непредсказуемые mktemp-пути под $WORK; имена тега
+    # и грязного файла — случайные (не выводятся из pid и из исходника дрилла).
+    CTRLR="$(mktemp -d "$WORK/c.XXXXXXXXXX")" || {
       printf '  FAIL real: не удалось создать управляемый корень\n' >&2
       exit 1; }
-    git init -q --bare "$BARE" 2>/dev/null || true
+    BARE="$(mktemp -d "$WORK/b.XXXXXXXXXX")" || {
+      printf '  FAIL real: не удалось создать bare-origin\n' >&2
+      rm -rf "$CTRLR" 2>/dev/null; exit 1; }
+    TAG_NAME="dreal-$$-$RANDOM$RANDOM$RANDOM"
+    DIRTY="duntracked-$$-$RANDOM$RANDOM$RANDOM.txt"
+    trap 'rm -rf "$CTRLR" "$BARE" 2>/dev/null || true' EXIT
+    git init -q --bare "$BARE" 2>/dev/null || {
+      printf '  FAIL real: bare-origin init отказал\n' >&2
+      exit 1; }
     git init -q "$CTRLR" 2>/dev/null || {
       printf '  FAIL real: git init управляемого корня отказал\n' >&2
-      rm -rf "$CTRLR" "$BARE"; exit 1; }
+      exit 1; }
     git -C "$CTRLR" remote add origin "$BARE" 2>/dev/null || true
     git -C "$CTRLR" -c user.name=Drill -c user.email=d@l.local commit --allow-empty -q -m base 2>/dev/null || true
     git -C "$CTRLR" tag "$TAG_NAME" HEAD 2>/dev/null || {
       printf '  FAIL real: tag %s не создан\n' "$TAG_NAME" >&2
-      rm -rf "$CTRLR" "$BARE"; exit 1; }
+      exit 1; }
     : > "$CTRLR/NABLIUDENIA.md"
     : > "$CTRLR/NABLIUDENIA_ARCHITECT.md"
     printf 'dirty\n' > "$CTRLR/$DIRTY"
 
-    TD="/tmp/drill-digest-real-$$"
+    # 2. ОЖИДАНИЯ В ПАМЯТЬ ДО вызова субъекта. Эти переменные — единственная истина;
+    # любое последующее чтение диска лишь сверяется с ними и НЕ обновляет их.
+    PRE_HEAD="$(git -C "$CTRLR" rev-parse HEAD 2>/dev/null || true)"
+    EXPECT_OPEN_LIT="открытых: 0"
+    EXPECT_TAG_LINE="непушенных тегов: 1"
+    EXPECT_TAG_NAME="$TAG_NAME"
+    EXPECT_STATUS_BAD="статус: чисто"
+    EXPECT_STATUS_GOOD="статус: аномалии"
+    EXPECT_DIRTY_NAME="$DIRTY"
+
+    # 3. Захват вывода субъекта в память (set +e — дайджест не должен валить процесс).
+    TD="/tmp/drill-digest-real-$$-$RANDOM"
     mkdir -p "$TD"
     export TMPDIR="$TD"
     set +e
@@ -137,52 +148,65 @@ case "$scenario" in
     export TMPDIR=
     rm -rf "$TD"
 
-    # Сверка состояния управляемого корня ДО его удаления.
-    remote_tags="$(git -C "$BARE" for-each-ref refs/tags --format='%(refname:short)' 2>/dev/null | sort -u || true)"
-    unpushed_n="$(comm -23 <(git -C "$CTRLR" tag -l 2>/dev/null | sort -u) <(printf '%s\n' "$remote_tags") 2>/dev/null | grep -c . || true)"
-    status_short="$(git -C "$CTRLR" status --porcelain 2>/dev/null || true)"
-    rm -rf "$CTRLR" "$BARE"
+    # 4. Fail-closed УЛИКА целостности против памяти: корень существует, остался
+    # git-репозиторием, HEAD не сменился, ожидаемый тег на месте, ожидаемый грязный
+    # файл на месте. Расхождение — красное; память при этом не корректируется.
+    if [ ! -d "$CTRLR" ]; then
+      printf '  FAIL real: управляемый корень исчез после вызова субъекта\n' >&2
+      exit 1
+    fi
+    if ! git -C "$CTRLR" rev-parse --git-dir >/dev/null 2>&1; then
+      printf '  FAIL real: управляемый корень перестал быть git-репозиторием\n' >&2
+      exit 1
+    fi
+    POST_HEAD="$(git -C "$CTRLR" rev-parse HEAD 2>/dev/null || true)"
+    if [ -n "$PRE_HEAD" ] && [ "$PRE_HEAD" != "$POST_HEAD" ]; then
+      printf '  FAIL real: HEAD управляемого корня изменился (было %s, стало %s)\n' "$PRE_HEAD" "$POST_HEAD" >&2
+      exit 1
+    fi
+    if ! git -C "$CTRLR" cat-file -t "$TAG_NAME" >/dev/null 2>&1; then
+      printf '  FAIL real: ожидаемый тег %s пропал из управляемого корня\n' "$TAG_NAME" >&2
+      exit 1
+    fi
+    if [ ! -f "$CTRLR/$DIRTY" ]; then
+      printf '  FAIL real: ожидаемый грязный файл %s пропал из управляемого корня\n' "$DIRTY" >&2
+      exit 1
+    fi
 
+    # 5. БЕЗУСЛОВНАЯ сверка вывода с ожиданиями из памяти. Никаких ворот, отключающих
+    # проверку при ошибке чтения диска — это был канал находки (б) круга 3.
     if [ "$rc" -ne 0 ]; then
       printf '  FAIL real: дайджест упал (rc=%d)\n' "$rc" >&2
       exit 1
     fi
-    # Секция «открытые»: $CTRLR/NABLIUDENIA* пусты → вывод обязан назвать «открытых: 0».
-    if [[ "$out" != *"открытых: 0"* ]]; then
-      printf '  FAIL real: открытые — управляемый корень пуст, но вывод не назвал «открытых: 0»\n' >&2
+    if [[ "$out" != *"$EXPECT_OPEN_LIT"* ]]; then
+      printf '  FAIL real: открытые — в памяти ожидался «%s», в выводе нет\n' "$EXPECT_OPEN_LIT" >&2
       exit 1
     fi
-    # Секция «теги» (поведенческая): управляемо unpushed≥1 (локальный $TAG_NAME, remote без тегов).
-    # Реальный дайджест называет «непушенных тегов: ≥1» и имя $TAG_NAME; стаб-нуль — красное.
-    if [ "${unpushed_n:-0}" -gt 0 ]; then
-      shown_unpushed="$(printf '%s\n' "$out" | grep -oE 'непушенных тегов: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
-      shown_unpushed="${shown_unpushed:-0}"
-      if [ "${shown_unpushed:-0}" -lt 1 ]; then
-        printf '  FAIL real: теги — управляемо unpushed=%d, вывод показывает «непушенных тегов: %s»\n' "${unpushed_n:-0}" "${shown_unpushed:-0}" >&2
-        exit 1
-      fi
-      if [[ "$out" != *"$TAG_NAME"* ]]; then
-        printf '  FAIL real: теги — фактически непusher %s, имя тега в выводе отсутствует\n' "$TAG_NAME" >&2
-        exit 1
-      fi
+    shown_unpushed="$(printf '%s\n' "$out" | grep -oE 'непушенных тегов: [0-9]+' | grep -oE '[0-9]+' | head -1 || true)"
+    shown_unpushed="${shown_unpushed:-0}"
+    if [ "$shown_unpushed" -ne 1 ]; then
+      printf '  FAIL real: теги — в памяти ожидался unpushed=1, вывод показывает «непушенных тегов: %s»\n' "$shown_unpushed" >&2
+      exit 1
     fi
-    # Секция «статус» (поведенческая): управляемо git status --porcelain непуст ($DIRTY неотслеживаемый).
-    # Реальный дайджест называет «статус: аномалии» и строку с $DIRTY; литерал «статус: чисто» — красное.
-    if [ -n "$status_short" ]; then
-      if [[ "$out" == *'статус: чисто'* ]]; then
-        printf '  FAIL real: статус — git status непуст, но вывод печатает «статус: чисто»\n' >&2
-        exit 1
-      fi
-      if [[ "$out" != *'статус: аномалии'* ]]; then
-        printf '  FAIL real: статус — git status непуст, вывод не называет «статус: аномалии»\n' >&2
-        exit 1
-      fi
-      if [[ "$out" != *"$DIRTY"* ]]; then
-        printf '  FAIL real: статус — git status непуст, имя %s в выводе отсутствует\n' "$DIRTY" >&2
-        exit 1
-      fi
+    if [[ "$out" != *"$EXPECT_TAG_NAME"* ]]; then
+      printf '  FAIL real: теги — в памяти ожидался тег «%s», имя в выводе отсутствует\n' "$EXPECT_TAG_NAME" >&2
+      exit 1
     fi
-    printf '  ok   real: реальный дайджест называет unpushed-теги и аномалии статуса\n' >&2
+    if [[ "$out" == *"$EXPECT_STATUS_BAD"* ]]; then
+      printf '  FAIL real: статус — в памяти ожидался «%s», вывод печатает «%s»\n' "$EXPECT_STATUS_GOOD" "$EXPECT_STATUS_BAD" >&2
+      exit 1
+    fi
+    if [[ "$out" != *"$EXPECT_STATUS_GOOD"* ]]; then
+      printf '  FAIL real: статус — в памяти ожидался «%s», в выводе нет\n' "$EXPECT_STATUS_GOOD" >&2
+      exit 1
+    fi
+    if [[ "$out" != *"$EXPECT_DIRTY_NAME"* ]]; then
+      printf '  FAIL real: статус — в памяти ожидался файл «%s», имя в выводе отсутствует\n' "$EXPECT_DIRTY_NAME" >&2
+      exit 1
+    fi
+
+    printf '  ok   real: реальный дайджест называет ожидаемые из памяти теги и аномалии статуса\n' >&2
     exit 0
     ;;
 
