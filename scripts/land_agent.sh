@@ -158,8 +158,10 @@ MERGE_ARGS=(
 # MERGE --no-ff на main. Слияние выполняет САМ СКРИПТ (И-1: наблюдается переход, не состояние).
 # Делается из главного дерева, поскольку это merge main-ветки.
 # ВАЖНО: не делаем `cd` в worktree — main приземляется из основного checkout, и `git merge`
-# без cd в worktree достаточно, если передаём путь/имя ветки.
-if ! git -C "$ROOT" "${MERGE_ARGS[@]}" merge --no-ff -m "land: $branch_arg" "$branch_arg" >/dev/null 2>&1; then
+# И-5: grep-канарейка требует, чтобы В ОДНОЙ СТРОКЕ с `git merge` стояла явная identity.
+# Подстановка через переменную канарейку обходит — grep ищет буквально `user.(name|email)=`
+# в той же строке, что и `merge`. Потому пишем identity литералом.
+if ! git -C "$ROOT" -c user.name="$orchestrator" -c user.email="${orchestrator}@dev-harness.local" -c commit.gpgsign=false merge --no-ff -m "land: $branch_arg" "$branch_arg" >/dev/null 2>&1; then
   printf 'ОТКАЗ: merge --no-ff %s отказал — конфликт или иная ошибка git\n' "$branch_arg" >&2
   exit 1
 fi
