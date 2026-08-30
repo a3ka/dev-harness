@@ -42,8 +42,11 @@ if [ ! -x "$R/.githooks/pre-commit" ]; then
   printf 'ОТКАЗ: механизм установки без хука — .githooks/pre-commit отсутствует либо не исполняем\n' >&2
   exit 1
 fi
-if ! grep -q 'scripts/check_staged.sh' "$R/.githooks/pre-commit" || [ ! -f "$R/scripts/check_staged.sh" ]; then
-  printf 'ОТКАЗ: хук не ведёт к судье — pre-commit не ссылается на scripts/check_staged.sh либо судьи нет\n' >&2
+# Находка 3 адверсария: ссылка должна быть на НЕ-КОММЕНТАРНОЙ строке (исполняемая связь),
+# иначе хук с `# scripts/check_staged.sh` + `exit 0` проходит как валидный.
+if ! awk '/^[[:space:]]*#/ { next }; /scripts[/[:space:]]?check_staged\.sh/ { f=1 }; END { exit(f?0:1) }' \
+     "$R/.githooks/pre-commit" || [ ! -f "$R/scripts/check_staged.sh" ]; then
+  printf 'ОТКАЗ: хук не ведёт к судье — pre-commit не запускает scripts/check_staged.sh (комментарий не считается связью) либо судьи нет\n' >&2
   rc=1
 fi
 if ! grep -q 'core\.hooksPath' "$R/package.json" 2>/dev/null || ! grep -q '\.githooks' "$R/package.json" 2>/dev/null; then

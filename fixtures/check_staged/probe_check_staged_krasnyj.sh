@@ -75,8 +75,12 @@ for nnn in "${!vmax[@]}"; do
   done < <(GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" cat-file -p \
            "refs/tags/frozen/contracts/$nnn/$v^{commit}:$f" 2>/dev/null | grep '^ЗОНА ' || true)
 done
-rc=0
-for f in "${staged[@]}"; do
+if ! command -v python3 >/dev/null 2>&1; then
+  printf 'ОТКАЗ: невозможно проверить control-символ в имени — python3 отсутствует в PATH (судья не может исполнить проверку control-символов, fail-closed)\n' >&2
+  exit 1
+fi
+ rc=0
+ for f in "${staged[@]}"; do
   case "$f" in
     *$'\n'*|*$'\r'*|*$'\t'*)
       printf 'ОТКАЗ: имя с control-символом: %q\n' "$f" >&2; rc=1; continue ;;
@@ -200,7 +204,7 @@ if [ "$rc" -ne 0 ]; then
   printf 'стаб честной формы: раннер дал rc=%d:\n%s\n' "$rc" "$out" >&2
   fail "фикстуры check_staged не проходят против честной формы — красное пачки недостоверно"
 fi
-for c in case_vne_zon.sh case_imja_control_simvol.sh; do
+for c in case_vne_zon.sh case_imja_control_simvol.sh case_imja_control_simvol_bez_python3.sh; do
   printf '%s\n' "$out" | grep -q "$c: зелёный контроль есть" \
     || fail "стаб честной формы: $c не предъявил зелёный контроль с красным повтором"
 done
