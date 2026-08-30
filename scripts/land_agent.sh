@@ -227,10 +227,17 @@ if g remote get-url origin >/dev/null 2>&1; then
   git -C "$ROOT" "${MERGE_ARGS[@]}" push origin main 2>/dev/null || true
 fi
 
-# Удаление ветки wip/<NNN>/<автор> и worktree (И-4: после приземления веток wip/<NNN>/<автор>
-# нет в for-each-ref). Делается СРАЗУ после merge, до завершения скрипта.
-g branch -D "$branch_arg" 2>/dev/null || true
+# Снос worktree и ветки wip/<NNN>/<автор> (И-4: после приземления веток wip/<NNN>/<автор>
+# нет в for-each-ref). ПОРЯДОК НЕСУЩИЙ: пока worktree жив, ветка в нём вычекана, и
+# `git branch -D` отказывает «used by worktree» — ветка переживала приземление, а И-4
+# молча не держался (замер: for-each-ref после rc=0 печатал refs/heads/wip/001/implementer).
+# Поэтому сначала снимается worktree, потом удаляется ветка, и результат НАБЛЮДАЕТСЯ.
 g worktree remove --force "$WT" 2>/dev/null || true
+g branch -D "$branch_arg" 2>/dev/null || true
+if g show-ref --verify --quiet "refs/heads/$branch_arg"; then
+  printf 'ОТКАЗ: ветка %s пережила приземление — И-4 не держится\n' "$branch_arg" >&2
+  exit 1
+fi
 
 # Финал — на stdout имя нового HEAD main и имя ветки.
 printf 'LANDED main=%s branch=%s\n' "$new_main" "$branch_arg"
