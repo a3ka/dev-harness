@@ -154,8 +154,9 @@ Q3), push (ff), удаление ветки и worktree СРАЗУ. После �
 
 ## Зоны
 
-ЗОНА architect: contracts/016-izoljacija-agenta.md fixtures/check_staged/ fixtures/check_hooks/ NABLIUDENIA_ARCHITECT.md
-ЗОНА implementer: scripts/spawn_agent.sh scripts/land_agent.sh scripts/gc_agent_branches.sh scripts/check_staged.sh scripts/check_hooks.sh scripts/lib_zones.sh scripts/check_zones.sh scripts/check_contract_frozen.sh .githooks/ .gitignore package.json .github/workflows/ci.yml config/ci_parity_exceptions.txt fixtures/spawn_agent/ fixtures/land_agent/ fixtures/gc_agent_branches/ fixtures/check_contract_frozen/
+ЗОНА architect: contracts/016-izoljacija-agenta.md fixtures/check_staged/ fixtures/check_hooks/ fixtures/spawn_agent/ fixtures/land_agent/ fixtures/gc_agent_branches/ NABLIUDENIA_ARCHITECT.md
+ЗОНА implementer: scripts/spawn_agent.sh scripts/land_agent.sh scripts/gc_agent_branches.sh scripts/check_staged.sh scripts/check_hooks.sh scripts/lib_zones.sh scripts/check_zones.sh scripts/check_contract_frozen.sh .githooks/ .gitignore package.json .github/workflows/ci.yml config/ci_parity_exceptions.txt fixtures/check_contract_frozen/
+СПАСЕНО implementer: cf2d3ebabb7b981f9d54f58622d1d6b143cbda1f 2681d066830bcf78f89109badefb3383857305eb e6ad94512f1ea4a765989511f84f3161dc34a12a 136f1a5ea3eae35354d5861dc6bad7f983aa46da — фикстуры срезов 2-4 созданы в зоне implementer при v1-v3 (легитимны на момент коммитов); перенос каталогов в зону architect — v4, независимость автора проверок (зеркалит check_*)
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
