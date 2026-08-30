@@ -1,27 +1,30 @@
 # ПРИЧИНА: предмет не в worktree
 #
-# Срез 3 контракта 016, И-8 (b), R016-1: HEAD переданного worktree обязан совпадать с
-# tip_sha ветки из --branch. Несовпадение → именованный отказ ДО merge, main не
-# мутируется, обе ветки переживают вызов.
+# Срез 3 контракта 016, И-8 (b), предмет R016-2 (ре-ревью 7e5ed45): постоянная проверка
+# чужого worktree, написанная architect'ом — автор проверки НЕ автор механизма; этот
+# коммит scripts/land_agent.sh не трогает.
 #
-# Различимость входа (Н-39): две разные wip-ветки, каждая со своим worktree и коммитом;
-# на вход подаётся --branch wip/001/implementer с ЧУЖИМ --worktree wt-002 (HEAD wt-002
-# = tip wip/002 ≠ tip wip/001). Судья, читающий только «WT_HEAD != main», зелен:
-# wt-002 живёт на собственном коммите. Красит ровно сверка wt_head с tip_sha.
+# Предмет: tip заявленной ветки и HEAD переданного worktree — РАЗНЫЕ коммиты, значит в
+# worktree лежит ЧУЖОЙ предмет, и merge перенёс бы на main именно его. Отказ обязан
+# случиться ДО merge: rc 1 «предмет не в worktree», и мутации нет — main стоит, обе
+# ветки и оба worktree переживают вызов (снос без приземления не бывает, И-4).
 #
-# До фикса R016-1: merge исполнялся, main мутировался, и лишь И-4 постфактум краснел
-# (ветка wip/001 не сносилась — её собственный worktree wt-001 не был передан). После
-# фикса: refuse до merge с текстом «HEAD worktree <sha> не совпадает с tip ветки <sha> —
-# предмет не в worktree (И-8)», main стоит.
+# Различимость входа (Н-39): две ветки, каждая со СВОИМ коммитом и worktree; на вход
+# подаётся --branch wip/030/implementer с worktree ЧУЖОЙ ветки (wt-020). Судья, читающий
+# только «HEAD worktree != main» (И-8 (a)), зелен: wt-020 стоит на собственном коммите.
+# Судья, читающий только «ветка жива / worktree жив / реестр / сцепка identity», тоже
+# зелен. Красит ровно сверка HEAD worktree == tip_sha ЗАЯВЛЕННОЙ ветки.
 #
-# Зелёный контроль: та же ветка wip/001/implementer со СВОИМ worktree wt-001 →
-# приземление rc 0, четыре сверки И-1 (main сдвинут, родители корректны, committer
-# orchestrator, ветки wip/001 в for-each-ref нет).
-# Красное: --branch wip/001/implementer с --worktree wt-002 → rc 1 «предмет не в
-# worktree», main не сдвинут, обе ветки живы.
+# Зелёный контроль: своя пара wip/010/implementer + wt-010 → приземление rc 0 наблюдается
+# ПЕРЕХОДОМ (assert_landed: main сдвинут вызовом, main^1 == main_before, main^2 == tip,
+# committer orchestrator, ветка снесена), и worktree снят тем же вызовом — «удаление
+# ветки и worktree СРАЗУ».
 #
-# Каждый вход предъявляется СВОИМ (Н-39): зелёный контроль — собственный worktree,
-# красное — чужой. Серийные вызовы — `|| true` (А-32).
+# Красное (повтор проверяющим жив: состояние не откатывается): --branch wip/030
+# --worktree wt-020 → rc 1 «предмет не в worktree»; сохранность — поимённо: main стоит,
+# обе ветки живы, оба worktree живы.
+#
+# Серийные вызовы — `|| true` (А-32).
 set -uo pipefail
 R="$WORK/repo"
 # shellcheck disable=SC1091
@@ -29,50 +32,59 @@ R="$WORK/repo"
 make_repo "$R"
 cd "$R"
 
-# ── Две разные wip-ветки, каждая со своим worktree и пустым коммитом ────────
-# Оба коммитера — implementer (в реестре ЗОНА-строки contracts/900-fake.md);
-# различие только в tip_sha.
-mk_wip "$R" wip/001/implementer "$WORK/wt-001"
-commit_in "$WORK/wt-001" implementer implementer@dev-harness.local 'предмет первой ветки'
-mk_wip "$R" wip/002/implementer "$WORK/wt-002"
-commit_in "$WORK/wt-002" implementer implementer@dev-harness.local 'предмет второй ветки'
-
-# ── Зелёный контроль: приземление наблюдается ПЕРЕХОДОМ (И-1) ─────────────────
-# Свой worktree wt-001 для ветки wip/001/implementer — РОВНО то отношение
-# «HEAD worktree == tip_sha», которое И-8 (b) требует.
+# ── Зелёный контроль: своя пара, приземление переходом + снос сразу ───────────
+mk_wip "$R" wip/010/implementer "$WORK/wt-010"
+commit_in "$WORK/wt-010" implementer implementer@dev-harness.local 'предмет зелёной ветки'
 mb="$(git -C "$R" rev-parse main)"
-tip="$(git -C "$R" rev-parse refs/heads/wip/001/implementer)"
-"$BARRIER" --branch wip/001/implementer --worktree "$WORK/wt-001" --root "$R" || true
-assert_landed "$R" "$mb" "$tip" wip/001/implementer
+tip="$(git -C "$R" rev-parse refs/heads/wip/010/implementer)"
+"$BARRIER" --branch wip/010/implementer --worktree "$WORK/wt-010" --root "$R" || true
+assert_landed "$R" "$mb" "$tip" wip/010/implementer
+if git -C "$R" worktree list --porcelain | grep -q "^worktree ${WORK}/wt-010$"; then
+  printf 'ОТКАЗ: worktree wt-010 пережил успешное приземление — снос не «сразу»\n' >&2
+  exit 1
+fi
 
-# ── Красное: чужой worktree (wt-002) передан для ветки wip/003/implementer ─────
-# Здесь ровно тот вход, что был в репро ревьюера: HEAD worktree указывает на tip
-# ДРУГОЙ ветки, не на tip заявленной. До фикса merge успевал исполниться, main
-# мутировался, И-4 краснел постфактум; сейчас — refuse до merge, main стоит.
-mk_wip "$R" wip/003/implementer "$WORK/wt-003"
-commit_in "$WORK/wt-003" implementer implementer@dev-harness.local 'предмет третьей ветки'
-mb="$(git -C "$R" rev-parse main)"
-out_land="$("$BARRIER" --branch wip/003/implementer --worktree "$WORK/wt-002" --root "$R" || true)"
+# ── Построение красного входа: две ветки, каждая со своим предметом ───────────
+mk_wip "$R" wip/020/implementer "$WORK/wt-020"
+commit_in "$WORK/wt-020" implementer implementer@dev-harness.local 'предмет второй ветки'
+mk_wip "$R" wip/030/implementer "$WORK/wt-030"
+commit_in "$WORK/wt-030" implementer implementer@dev-harness.local 'предмет третьей ветки'
+tip20="$(git -C "$R" rev-parse refs/heads/wip/020/implementer)"
+tip30="$(git -C "$R" rev-parse refs/heads/wip/030/implementer)"
+wt20_head="$(git -C "$WORK/wt-020" rev-parse HEAD)"
+# Охранные сверки построения: вход — именно ЧУЖОЙ worktree (не пустая и не своя ветка).
+if [ "$tip20" = "$tip30" ]; then
+  printf 'ОТКАЗ: tip-ы веток совпали — вход «чужой предмет» не построен\n' >&2
+  exit 1
+fi
+if [ "$wt20_head" != "$tip20" ]; then
+  printf 'ОТКАЗ: wt-020 стоит не на своём tip — вход построен неверно\n' >&2
+  exit 1
+fi
+
+# ── Красное: заявлена wip/030, передан worktree ЧУЖОЙ ветки wt-020 ────────────
+mb_red="$(git -C "$R" rev-parse main)"
+out_land="$("$BARRIER" --branch wip/030/implementer --worktree "$WORK/wt-020" --root "$R" || true)"
 if ! printf '%s\n' "$out_land" | grep -q 'предмет не в worktree'; then
   printf 'ОТКАЗ: land на чужом worktree не назвал И-8 «предмет не в worktree»: %s\n' "$out_land" >&2
   exit 1
 fi
-# main не сдвинут (R016-1 — фикс держит мутацию И-8 на ДО-merge).
-if [ "$(git -C "$R" rev-parse main)" != "$mb" ]; then
-  printf 'ОТКАЗ: main мутирован на отказе И-8 — фикс R016-1 не держится\n' >&2
+# Сохранность main: отказ ДО merge — main не сдвинут (фикс R016-1 держится).
+if [ "$(git -C "$R" rev-parse main)" != "$mb_red" ]; then
+  printf 'ОТКАЗ: main мутирован на отказе И-8 — merge успел исполниться до отказа\n' >&2
   exit 1
 fi
-# Все три ветки живы: отказ до merge, ни merge-коммита, ни сноса.
-for br in wip/002/implementer wip/003/implementer; do
+# Сохранность веток: обе живы — сноса без приземления не бывает.
+for br in wip/020/implementer wip/030/implementer; do
   if ! git -C "$R" for-each-ref --format='%(refname)' 'refs/heads/wip/' | grep -q "^refs/heads/${br}\$"; then
-    printf 'ОТКАЗ: ветка %s снесена до merge — отказ не был ДО merge\n' "$br" >&2
+    printf 'ОТКАЗ: ветка %s снесена на отказе — отказ не был ДО merge\n' "$br" >&2
     exit 1
   fi
 done
-# И wt-002, и wt-003 тоже живы (worktree remove на отказе не вызывался).
-for wt in wt-002 wt-003; do
+# Сохранность worktree: оба живы — чистка только при приземлении.
+for wt in wt-020 wt-030; do
   if ! git -C "$R" worktree list --porcelain | grep -q "^worktree ${WORK}/${wt}\$"; then
-    printf 'ОТКАЗ: worktree %s снесён на отказе И-8 — чистка должна быть только при приземлении\n' "$wt" >&2
+    printf 'ОТКАЗ: worktree %s снесён на отказе — чистка должна быть только при приземлении\n' "$wt" >&2
     exit 1
   fi
 done
