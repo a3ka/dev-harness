@@ -155,7 +155,7 @@ Q3), push (ff), удаление ветки и worktree СРАЗУ. После �
 ## Зоны
 
 ЗОНА architect: contracts/016-izoljacija-agenta.md fixtures/check_staged/ fixtures/check_hooks/ NABLIUDENIA_ARCHITECT.md
-ЗОНА implementer: scripts/spawn_agent.sh scripts/land_agent.sh scripts/gc_agent_branches.sh scripts/check_staged.sh scripts/check_hooks.sh scripts/lib_zones.sh scripts/check_zones.sh scripts/check_contract_frozen.sh .githooks/ .gitignore package.json .github/workflows/ci.yml fixtures/spawn_agent/ fixtures/land_agent/ fixtures/gc_agent_branches/ fixtures/check_contract_frozen/
+ЗОНА implementer: scripts/spawn_agent.sh scripts/land_agent.sh scripts/gc_agent_branches.sh scripts/check_staged.sh scripts/check_hooks.sh scripts/lib_zones.sh scripts/check_zones.sh scripts/check_contract_frozen.sh .githooks/ .gitignore package.json .github/workflows/ci.yml config/ci_parity_exceptions.txt fixtures/spawn_agent/ fixtures/land_agent/ fixtures/gc_agent_branches/ fixtures/check_contract_frozen/
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
