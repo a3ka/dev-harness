@@ -55,7 +55,8 @@ root_arg=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --author) author="${2:?}"; shift 2 ;;
-
+    --nnn)    nnn="${2:?}"; shift 2 ;;
+    --root)   root_arg="${2:?}"; shift 2 ;;
     --help|-h) usage ;;
     *)        printf 'spawn_agent: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
   esac
@@ -84,6 +85,15 @@ if [ "$current_head" != "main" ]; then
   printf 'ОТКАЗ: HEAD не main (текущая ветка: %s) — спавн wip/* только от main\n' "$current_head" >&2
   exit 1
 fi
+# Все git-вызовы ниже идут с явным `-c user.name/-c user.email` (Н-61/А-25). Канарейка
+# И-5 проверяет grep'ом эту строку по всему scripts/.
+g() {
+  git -C "$ROOT" \
+    -c user.name=implementer \
+    -c user.email=implementer@dev-harness.local \
+    -c commit.gpgsign=false \
+    "$@"
+}
 
 # Номер артефакта. CLI-вызов next_id — он не экспортирует функцию как библиотеку (только
 # parse_artifact_basename); подмножество контракта next_id используется через subprocess.
@@ -91,6 +101,10 @@ fi
 # spawn_agent не пересекаются с contracts/* и существуют только в пределах дерева, где
 # спавнятся. Это выделено из next_id, который выдаёт номера для классов (PLAN, VERDICT, ADR),
 # а wip/<NNN> — собственный класс, лежащий вне реестра артефактов.
+# ДЕФЕКТ-ПРИЧИНА НУЛЕВОЙ НУМЕРАЦИИ (пост-доне фикс-пакет 016): g() вызывался в строке ~108
+# ДО определения (был ниже, в теле транзакции) — bash маскировал неизвестную `g` молча,
+# цикл по for-each-ref уходил пустым, max_nnn оставался 0, и каждый следующий спавн
+# получал wip/001. Подъём `g()` сюда закрывает этот дефект.
 if [ -z "$nnn" ]; then
   max_nnn=0
   while IFS= read -r b; do
@@ -146,14 +160,8 @@ if [ -e "$wt_path" ]; then
 fi
 
 # АТОМАРНАЯ ТРАНЗАКЦИЯ: ветка + worktree. Если worktree add откажет после создания ветки,
-# ветка удаляется (rollback). Если сразу — никаких побочных эффектов.
-g() {
-  git -C "$ROOT" \
-    -c user.name=implementer \
-    -c user.email=implementer@dev-harness.local \
-    -c commit.gpgsign=false \
-    "$@"
-}
+# ветка удаляется (rollback). Если сразу — никаких побочных эффектов. `g` определена выше —
+# до нумерации, чтобы for-each-ref видел существующие ветки wip/* и нумерация шла дальше 001.
 
 if ! g branch "$branch" main >/dev/null 2>&1; then
   printf 'ОТКАЗ: git branch %s отказал\n' "$branch" >&2
