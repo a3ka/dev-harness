@@ -159,7 +159,7 @@ Q3), push (ff), удаление ветки и worktree СРАЗУ. После �
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
-ЗОНА orchestrator: NABLIUDENIA.md HANDOFF.md
+ЗОНА orchestrator: NABLIUDENIA.md HANDOFF.md roles/architect.md .omp/agents/architect.md
 
 Зона implementer вступает в силу ПОСЛЕ заморозки; до заморозки scripts/ не правит никто
 (прецедент 013/014). Каталоги фикстур срезов 2–4 — ПО КЛЮЧАМ барьеров раннера
