@@ -45,10 +45,24 @@ elif [ ! -x "$ROOT/.githooks/pre-commit" ]; then
   rc=1
 fi
 
-# 2. pre-commit ссылается на судью.
+# 2. pre-commit ВЕДЁТ К СУДЬЕ ИСПОЛНЯЕМОЙ СТРОКОЙ (находка 3 адверсария):
+# grep по всему файлу ранее ловил литерал в комментарии (`# scripts/check_staged.sh`),
+# и no-op-хук с комментарием-литералом проходил зелёным без реальной связи.
+# Теперь ищем упоминание `scripts/check_staged.sh` ТОЛЬКО на НЕ-КОММЕНТАРНЫХ строках —
+# комментарий не считается механизмом. Это антиплацебо-мера: связь должна быть
+# исполняемой (например `exec … check_staged.sh` или `bash … check_staged.sh`),
+# а не задокументированным намерением.
+hook_ref_judge() {
+  local hook="$1"
+  awk '
+    /^[[:space:]]*#/ { next }
+    /scripts[/[:space:]]?check_staged\.sh/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' "$hook"
+}
 if [ -x "$ROOT/.githooks/pre-commit" ]; then
-  if ! grep -qE 'scripts[/ ]?check_staged\.sh' "$ROOT/.githooks/pre-commit"; then
-    printf 'ОТКАЗ: хук не ведёт к судье — .githooks/pre-commit не ссылается на scripts/check_staged.sh\n' >&2
+  if ! hook_ref_judge "$ROOT/.githooks/pre-commit"; then
+    printf 'ОТКАЗ: хук не ведёт к судье — .githooks/pre-commit не запускает scripts/check_staged.sh (комментарий не считается связью)\n' >&2
     rc=1
   fi
 fi
