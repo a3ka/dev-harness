@@ -1,29 +1,38 @@
-# ПРИЧИНА: committer merge-коммита — не orchestrator (по сути имя вне реестра)
+# ПРИЧИНА: имя вне реестра ролей
 #
-# Срез 3 контракта 016, И-9: committer каждого коммита диапазона wip/* обязан быть в реестре
-# ролей замороженных контрактов. Если ни одна ЗОНА-строка не объявляет этого committer — отказ.
+# Срез 3 контракта 016, И-9 (2): committer коммита диапазона обязан входить в реестр
+# авторов ЗОНА-строк замороженных контрактов — ТОТ ЖЕ список, что собирает check_zones
+# (единая реализация lib_zones; второй реестр запрещён).
 #
-# Эта фикстура проверяет ровно ИМЯ committer'а диапазона: фикстура создаёт wip/* ветку, где
-# коммит подписан РАНЕЕ НЕ ОБЪЯВЛЕННЫМ именем, и ожидает, что land_agent откажет.
+# Различимость входа (Н-39): коммит СЦЕПЛЕН (committer==author==stranger) — ветвь
+# расщепления на нём молчит; красит только реестр, где make_repo объявил одного
+# implementer'а.
 #
-# В toy-репо нет замороженных контрактов → zones_load выдаёт пустой zones_scoped. Тогда
-# РЕЕСТР ПУСТ, и ЛЮБОЕ committer-имя считается вне реестра → отказ. Это И-9 на toy-репо.
+# Зелёный контроль: коммит от implementer (в реестре) → rc 0 и сверки И-1.
+# Красное: коммит от stranger → rc 1 «имя вне реестра ролей: <sha> — committer stranger…».
+# Воспроизводимо: stranger не становится implementer'ом.
+#
+# Серийные вызовы — `|| true` (А-32).
 set -uo pipefail
 R="$WORK/repo"
 # shellcheck disable=SC1091
 . "$(dirname "$0")/_repo.sh"
 make_repo "$R"
+cd "$R"
 
-# wip/* ветка с коммитом от имени unknown_user (не зарегистрирован).
-WT_DIR="$(mktemp -d /tmp/land-agent-noauthor.XXXXXX)"
-git -C "$R" -c user.name=unknown_user -c user.email=u@l commit --allow-empty -q -m 'основание wip'
-git -C "$R" branch wip/004/unknown_user main
-git -C "$R" worktree add -q "$WT_DIR" wip/004/unknown_user
-git -C "$WT_DIR" -c user.name=unknown_user -c user.email=u@l commit --allow-empty -q -m 'второй коммит wip'
+# ── Зелёный контроль: приземление наблюдается ПЕРЕХОДОМ (И-1) ─────────────────
+mk_wip "$R" wip/001/implementer "$WORK/wt-green"
+commit_in "$WORK/wt-green" implementer implementer@dev-harness.local 'предмет в зоне'
+mb="$(git -C "$R" rev-parse main)"
+tip="$(git -C "$R" rev-parse refs/heads/wip/001/implementer)"
+"$BARRIER" --branch wip/001/implementer --worktree "$WORK/wt-green" --root "$R" || true
+assert_landed "$R" "$mb" "$tip" wip/001/implementer
 
-# Зелёный контроль: барьер отказывает, поскольку ни одной ЗОНА-строки нет → реестр пуст →
-# имя вне реестра. Ждём rc≠0.
-if "$BARRIER" "$R" wip/004/unknown_user "$WT_DIR" >/dev/null 2>&1; then
-  printf 'ОТКАЗ: land_agent не отказал при committer вне реестра (И-9)\n' >&2
+# ── Красное: сцепленный коммит от имени, которого нет ни в одной ЗОНА-строке ──
+mk_wip "$R" wip/002/stranger "$WORK/wt-stranger"
+commit_in "$WORK/wt-stranger" stranger stranger@local 'предмет от имени вне реестра'
+out_land="$("$BARRIER" --branch wip/002/stranger --worktree "$WORK/wt-stranger" --root "$R" || true)"
+if ! printf '%s\n' "$out_land" | grep -q 'имя вне реестра ролей'; then
+  printf 'ОТКАЗ: land на committer вне реестра не назвал реестр: %s\n' "$out_land" >&2
   exit 1
 fi

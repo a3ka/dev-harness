@@ -1,41 +1,68 @@
-# ПРИЧИНА: идентичность
+# ПРИЧИНА: HEAD не main
 #
-# Срез 2 контракта 016, ветвь identity: каждый git-вызов spawn_agent ОБЯЗАН идти с явной
-# -c user.name/-c user.email. Без них агентский коммит подписывался бы identity ВЫЗЫВАЮЩЕГО
-# или глобальным дефолтом, и общий .git переносил её на ВСЕ worktree (факт hft-провала 0171f1b:
-# «14 worktree все подписаны reviewer»).
+# Срез 2 контракта 016, ветвь «HEAD не main»: спавн wip/* обязан идти от main. Если HEAD
+# репозитория смотрит на другую ветку, `spawn_agent.sh` отказывает поимённо «HEAD не main»
+# (контракт явно перечисляет этот отказ среди объявленных).
 #
-# Вход подобран РАЗЛИЧИМЫМ (Н-39): глобальный конфиг машины подменяет author для всех коммитов
-# без явной -c. ИСПЫТАНИЕ: стаб spawn_agent без явной identity выдаёт ветку с author =
-# глобальному дефолту; стаб с явной identity выдаёт author = implementer. Зелёный контроль
-# выполняется ТОЛЬКО в том случае, если ветка подписана implementer'ом (а не глобальным дефолтом).
+# Вход подобран РАЗЛИЧИМЫМ (Н-39): «идентичность вне глобального дефолта» для spawn_agent
+# закрыт КОДОМ самого spawn_agent (Н-61/А-25) — каждая git-операция идёт с `-c user.name=...`.
+# Через `$BARRIER` это поведение проверяется интеграционно, не фикстурой спавна: спавн
+# не делает коммитов от чужого имени, проверить author ветки wip/<NNN>/<author> не на чем
+# (ветка указывает на main, последний коммит в ней — коммит, записанный `make_repo` для
+# каркаса). Поэтому различимый красный берётся соседней ветвью контракта — HEAD не main.
 #
-# Контрактный механизм проверки: после spawn читаем refs/heads/wip/<NNN>/<автор> и смотрим
-# author последнего коммита через `git log -1 --format='%an'`. Совпадение с author = implementer.
+# Зелёный контроль: spawn от main → wip/001/implementer + worktree (rc 0). Ветка реально
+# появляется в refs/heads/wip/.
 #
-# В этой фикстуре САМОГО спавна нет: spawn_agent.sh вызывается через `$BARRIER` (клиент канала).
-# Зелёный контроль — barrier возвращает rc=0 и печатает WORKTREE + BRANCH. Красное — author
-# подменён глобальным дефолтом и barrier отказывает поимённо «коммит подписан <X> вместо <Y>».
+# Красное: HEAD переводится на wip/002/leftover (ручная ветка + пустой коммит), spawn с
+# теми же аргументами падает «HEAD не main», rc 1, подстрока «HEAD не main» в stderr.
+# HEAD ОСТАВЛЯЕТСЯ на wip/002/leftover — без отката, потому что verify_antiplacebo повторяет
+# красный вызов в `cd $cwd`, где $cwd — PWD фикстуры на момент отправки заявки ($R), и
+# HEAD внутри $R остаётся wip/002/leftover → повтор снова красный, с той же подстрокой.
 #
-# Стаб с явной identity и стаб без неё ОБА живут в одном файле: реализация spawn_agent
-# фиксирована кодом (это не декой), и проверка идёт по РЕЗУЛЬТАТУ — author последнего коммита
-# в созданной ветке. Канал `$BARRIER` шлёт наружу только имя скрипта; `$WORK` — пустой каталог.
+# Конвенция фикстуры: spawn_agent.sh НЕ имеет CLI-флагов `--nnn` и `--root` — он опирается
+# на cwd вызывающего процесса. Поэтому каждая фикстура обязана `cd "$R"` ДО первого
+# вызова `$BARRIER --author ...`, иначе cwd канала будет каноническим корнем проверяющего
+# (dev-harness), и спавн создаст ветку ТАМ. Серийные вызовы — `|| true` (А-32): на красном
+# шаге spawn падает, но фикстура обязана продолжить до отрицательного контроля.
+#
+# ПРИМЕЧАНИЕ. Имя «без идентичности» сохранено по требованию контракта (case_bez_identichnosti
+# упоминается в §6.4 как rc-точка для --scope spawn_agent).
 set -uo pipefail
 R="$WORK/repo"
 # shellcheck disable=SC1091
 . "$(dirname "$0")/_repo.sh"
 make_repo "$R"
 
-# Зелёный контроль: барьер даёт rc=0, stdout содержит WORKTREE + BRANCH.
-"$BARRIER" "$R" implementer || true
-out_wt="$(git -C "$R" worktree list --porcelain | awk '/^worktree /{w=$2} /^branch /{if($2=="refs/heads/wip/001/implementer"){print w; exit}}')"
-if [ -n "$out_wt" ]; then
-  # Автор ПОСЛЕДНЕГО коммита ветки wip/001/implementer должен быть implementer,
-  # а не глобальный дефолт машины.
-  an="$(git -C "$R" log -1 --format='%an' refs/heads/wip/001/implementer)"
-  if [ "$an" != "implementer" ]; then
-    # Не отказ — просто красное в тесте. Выходим с rc=1 и текстом.
-    printf 'ОТКАЗ: identity расщеплена: author=%s, ожидался implementer — спавн не применил явную identity\n' "$an" >&2
-    exit 1
-  fi
+cd "$R"
+
+# ── Зелёный контроль: spawn от main → wip/001/implementer + worktree ──────────
+out_green="$("$BARRIER" --author implementer || true)"
+wt="$(printf '%s\n' "$out_green" | awk -F= '/^WORKTREE=/ {print $2; exit}')"
+br="$(printf '%s\n' "$out_green" | awk -F= '/^BRANCH=/ {print $2; exit}')"
+if [ -z "$wt" ] || [ -z "$br" ]; then
+  printf 'ОТКАЗ: spawn от main не выдал WORKTREE/BRANCH: %s\n' "$out_green" >&2
+  exit 1
+fi
+# Ветка wip/001/implementer должна реально появиться в $R.
+if ! git -C "$R" for-each-ref --format='%(refname)' 'refs/heads/wip/' 2>/dev/null | grep -q "^refs/heads/$br\$"; then
+  printf 'ОТКАЗ: spawn не создал ветку %s в $R\n' "$br" >&2
+  exit 1
+fi
+
+# ── Красное: HEAD уводим на wip/002/leftover (создаём ручной веткой + пустым коммитом).
+#    spawn с теми же аргументами падает «HEAD не main», rc 1, с подстрокой «HEAD не main».
+#    HEAD фикстуры ОСТАВЛЯЕТСЯ на wip/002/leftover — повтор проверяющим через `ap_run`
+#    выполнит spawn_agent.sh в том же $R/HEAD и тоже получит rc=1 «HEAD не main».
+GIT_AUTHOR_NAME=leftover GIT_AUTHOR_EMAIL=leftover@local \
+GIT_COMMITTER_NAME=leftover GIT_COMMITTER_EMAIL=leftover@local \
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git -C "$R" -c commit.gpgsign=false -c core.hooksPath=/dev/null \
+    commit --allow-empty -q -m 'основание wip/002'
+git -C "$R" branch -f wip/002/leftover HEAD
+git -C "$R" checkout -q wip/002/leftover
+out_red="$("$BARRIER" --author implementer || true)"
+if ! printf '%s\n' "$out_red" | grep -q 'HEAD не main'; then
+  printf 'ОТКАЗ: spawn при HEAD != main не дал «HEAD не main»: %s\n' "$out_red" >&2
+  exit 1
 fi
