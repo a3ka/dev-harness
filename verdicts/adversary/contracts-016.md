@@ -1,153 +1,113 @@
 FAIL
 
-# Адверсарий 016 — суд исправлений
+# Адверсарий 016 — второй перегон суда исправлений раунда 2
 
-Проверен HEAD `b7ee5c5` в `/home/aka/Documents/dev-harness`. Три исходные
-находки закрыты: каждый прежний вход теперь получает `rc=1` с именованной
-причиной. Однако две новые проходящие неверные реализации остаются: судья
-staged-путей доверяет подменённому `python3`, а судья хука считает текст в
-heredoc исполняемой связью. Поэтому приёмка не закрыта.
+Проверен HEAD `f655245` в `/home/aka/Documents/dev-harness`. Прежний `FAIL`
+`e344421` сохранён в истории; этот файл — новый самостоятельный прогон после
+`926e5fd` (scripts) и `07e0bd9` (кейсы/пробы/стабы).
 
-## Исходная находка 1 — `registry-substring`: закрыта
+## Таймлайн и исходные находки раунда 2
 
-Свой заново собранный вход из первого круга: в реестре замороженного
-контракта только `implementer`, а единственный коммит диапазона имеет
-`author == committer == imple`. Выполнено:
+1. **`fake-python3-exit-1`: закрыта на своём исходном входе.** В новом
+   `/tmp/adversary016_round2_replay.sh` собран замороженный toy-репозиторий с
+   control-символом в staged-пути внутри зоны и `PATH`, в котором `python3`
+   является `exit 1` стабом. `scripts/check_staged.sh` вернул `rc=1` с
+   именованной причиной `канарейка не подтверждена`.
+2. **`inert-heredoc-hook`: закрыта на своём исходном входе.** В новом toy
+   механизме `pre-commit` содержит только heredoc с
+   `scripts/check_staged.sh` и `exit 0`. `scripts/check_hooks.sh` вернул
+   `rc=1` с именованной причиной `поведенческая проба связи`.
+3. Положительные контроли не вечно-красные: перед новой python-атакой честный
+   системный `python3` вернул `rc=1` с `имя с control-символом` на том же
+   staged-пути; честный минимальный hook-механизм вернул `rc=0` от
+   `scripts/check_hooks.sh`.
 
-```text
-$ bash /tmp/adversary016_original_repros.sh
-ok registry-substring rc=1
-```
+Следовательно, две **конкретные** находки раунда 2 закрыты, но исправления
+по-прежнему обходятся новыми неверными реализациями ниже.
 
-`land_agent.sh` отказал именно с `имя вне реестра ролей`. Это проверяет
-прежнюю уязвимую пару `imple` / `implementer`; приземления и удаления ветки
-не произошло.
+## Новые проходящие неверные реализации
 
-Дополнительные попытки обойти `grep -qxF` также закрыты: коммиттер без
-ведущего пробела против реестра ` implementer`, без хвостового пробела против
-`implementer ` и decomposed `e\u0301` против composed `é` получили `rc=1`
-с той же именованной причиной. Пустое имя не дошло до барьера: Git отверг
-создание коммита с `rc=128` (`empty ident`).
+### `python3-canary-input-split` — обход само-канарейки
 
-```text
-$ bash /tmp/adversary016_registry_edges.sh
-ok leading-space rc=1
-ok trailing-space rc=1
-ok unicode-normalization rc=1
-$ bash /tmp/adversary016_empty_name.sh
-ok empty-name rejected by git rc=128
-```
+**Прогон:** `bash /tmp/adversary016_round2_replay.sh`
 
-Новая фикстура также предъявляет положительный контроль до порчи и красный
-повтором: `land_agent/case_imja_podstroka_reestra.sh` зелёная в scoped
-прогоне ниже.
+Подменённый исполняемый `python3` читает stdin и воспроизводит ровно оба
+открытых в коде канарейочных ответа: для `a\nb` печатает `1` и выходит `0`,
+для `clean` печатает `0` и выходит `1`. Для любого иного ввода он лжёт
+`0`/`1`, то есть объявляет чистым реальный staged-путь с переносом строки.
+Аргумент `-c` у канарейки и главного цикла одинаков; разделителем служит
+публичный фиксированный payload самой канарейки.
 
-## Исходная находка 2 — `missing-python-control-name`: закрыта, но есть новая обходная ветвь
-
-Свой прежний вход — staged имя `scripts/valid\ncontrol` внутри зоны при PATH
-без `python3` — теперь получает `rc=1` и `python3 отсутствует`:
+Результат прогона:
 
 ```text
-$ bash /tmp/adversary016_original_repros.sh
-ok missing-python-control-name rc=1
+BYPASS python3-canary-input-split checker_rc=0 (staged control name accepted)
 ```
 
-Новая фикстура `case_imja_control_simvol_bez_python3.sh` в scoped прогоне
-также предъявляет зелёный пустой staged до порчи и красный повтором.
+Это неправильная реализация: имя с control-символом внутри `scripts/`
+принято зелёным, хотя честный положительный контроль на идентичном входе
+красный. Само-канарейка проверяет два известных примера, но не удостоверяет
+исполнительный инструмент на проверяемом payload.
 
-### Новая находка — `fake-python3-exit-1`
+### `hook-toy-environment-sniffer` — ложная связь, честная только в toy пробы
 
-**Проходящий стаб.** В toy-репозитории сначала честный системный `python3`
-ловит тот же staged-путь с control-символом (`rc=1`, `имя с
-control-символом`). Затем в изолированном PATH вместо Python поставлен
-исполняемый кодовый стаб:
+**Прогон:** `bash /tmp/adversary016_round2_replay.sh`
 
-```sh
-#!/bin/sh
-exit 1
-```
-
-`command -v python3` проходит. Вызов `printf '%s' "$f" | python3 -c ...`
-возвращает 1; текущий `if` трактует это как «control-символа нет», хотя код
-проверки не исполнялся. Путь находится в зоне, и барьер неверно зелёный:
+Подменённый `pre-commit` ищет предсказуемый рабочий каталог
+`/tmp/check-hooks-toy.*`. Только там он печатает поддельную именованную
+причину `имя с control-символом` и выходит `1`; в любом обычном каталоге он
+не запускает судью и выходит `0`. Неисполняемая строка после `exit 0`
+содержит `scripts/check_staged.sh` лишь для текстовой ветви.
 
 ```text
-$ bash /tmp/adversary016_fixed_bypasses.sh
-ok fake-python3-zero rc=1
-BYPASS fake-python3-exit-1 checker_rc=0
+BYPASS hook-toy-environment-sniffer checker_rc=0 real-staged-hook_rc=0
 ```
 
-Для требуемой попытки с 0-rc стабом тот же прогон корректно красный
-(`ok fake-python3-zero rc=1`): он ложно сигнализирует найденный control-символ,
-но не открывает проход. Обход открывает именно отказ инструмента с `rc=1`,
-который неотличим от предусмотренного текущей программой ответа «чистое имя».
-Это снова нарушает И-2: судья объявляет «нарушений нет», не выполнив
-грамматическую проверку.
+`check_hooks.sh` принял механизм (`rc=0`), хотя тот же хук в toy-репозитории
+с реально staged control-именем вернул `rc=0`. Поведенческая проба доверяет
+предсказуемой среде и не доказывает связь за её пределами.
 
-## Исходная находка 3 — `inert-comment-hook`: закрыта, но есть новая обходная ветвь
+### `hook-forged-judge-output` — именованный rc≠0 без вызова судьи
 
-Свой прежний no-op hook с единственным литералом в строке комментария теперь
-получает `rc=1` и `комментарий не считается связью`:
+**Прогон:** `bash /tmp/adversary016_round2_replay.sh`
+
+Другой `pre-commit` всегда печатает `ОТКАЗ: имя с control-символом: forged
+constant response` и выходит `1`; до неисполняемой строки с
+`scripts/check_staged.sh` он не доходит. Проверка приняла его:
 
 ```text
-$ bash /tmp/adversary016_original_repros.sh
-ok inert-comment-hook rc=1
+BYPASS hook-forged-judge-output checker_rc=0 no-judge-invocation
 ```
 
-Новая `case_huk_kommentarij_vmesto_zapuska.sh` предъявляет этот же красный
-повтор после положительного контроля в scoped прогоне.
-
-### Новая находка — `inert-heredoc-hook`
-
-**Положительный контроль и проходящий стаб.** Сначала полный честный механизм
-из `fixtures/check_hooks/_mehanizm.sh` успешно прошёл `check_hooks.sh`. Затем
-`.githooks/pre-commit` заменён исполняемым кодовым стабом:
-
-```bash
-#!/usr/bin/env bash
-: <<'JUDGE_TEXT'
-scripts/check_staged.sh
-JUDGE_TEXT
-exit 0
-```
-
-Сам `scripts/check_staged.sh` одновременно заменён исполняемым `exit 97`.
-Запуск этого pre-commit вернул `rc=0`, то есть судья реально не запускается.
-Но `awk` увидел литерал в не-комментарной строке тела heredoc и
-`check_hooks.sh` тоже вернул `rc=0`:
-
-```text
-$ bash /tmp/adversary016_fixed_bypasses.sh
-BYPASS inert-heredoc-hook checker_rc=0 hook_rc=0
-```
-
-Следовательно, условие «не комментарий» не доказывает исполняемую связь:
-та же ложная связь может быть строковой переменной, аргументом no-op или
-данными heredoc. Это прямой обход Q6: no-op pre-commit принимается как
-механизм, хотя staged-судья не запускается.
+Это не судья и не рабочая связь: хук гарантированно блокирует также чистые
+коммиты, а требуемая строка вывода может быть сконструирована обёрткой.
+Текущая проба проверяет лишь `rc≠0` и совпадение с открытым шаблоном текста,
+не происхождение отказа от скопированного судьи.
 
 ## Что прогнано на живом дереве
 
-Все команды ниже завершились `rc=0` на HEAD `b7ee5c5`:
+Все команды ниже завершились `rc=0` на `f655245`:
 
 ```text
-bash scripts/verify_antiplacebo.sh . --scope check_staged             # 3/3
-bash scripts/verify_antiplacebo.sh . --scope check_hooks              # 4/4
+bash scripts/verify_antiplacebo.sh . --scope check_staged             # 5/5
+bash scripts/verify_antiplacebo.sh . --scope check_hooks              # 5/5
 bash scripts/verify_antiplacebo.sh . --scope spawn_agent              # 1/1
 bash scripts/verify_antiplacebo.sh . --scope land_agent               # 8/8
 bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches        # 2/2
 bash scripts/verify_antiplacebo.sh . --scope check_zones              # 13/13
 bash scripts/verify_antiplacebo.sh . --scope check_contract_frozen    # 6/6
-
 bash fixtures/check_staged/probe_check_staged_krasnyj.sh
 bash fixtures/check_hooks/probe_check_hooks_krasnyj.sh
 ```
 
-Обе пробы подтвердили честные стабы, поимённо поймали свои декои и затем
-прошли на живом дереве. Их зелёный результат не ловит две новые формы,
-описанные выше.
+Scoped `check_staged` подтвердил также старые входы PATH без `python3`,
+control-имя и обе формы `fake_python3_exit_{0,1}`; scoped `check_hooks`
+подтвердил комментарий-хук и `inert_heredoc_hook`. Пробы подтвердили честные
+стабы и поимённо поймали `канарейка-слеп` и `проба-слеп`.
 
-Вердикт: **FAIL**. Для закрытия нужны fail-closed протокол результата
-проверки control-символов (отдельный успешный код для «чисто», все сбои
-инструмента — отказ) и проверка реального исполняемого вызова staged-судьи,
-а не поиск литерала на не-комментарной строке.
+## Вердикт
+
+**FAIL.** Первичные две находки закрыты только против их известных форм.
+Новые запуски предъявляют три неверные реализации, которые проходят текущую
+проверку: `python3-canary-input-split`, `hook-toy-environment-sniffer` и
+`hook-forged-judge-output`.
