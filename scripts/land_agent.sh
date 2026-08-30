@@ -88,19 +88,28 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   exit 1
 fi
 
-# И-8: предмет ОБЯЗАН быть в HEAD worktree. HEAD worktree должен указывать на коммит, который
-# НЕ main (иначе ветка пустая; приёмка-OK-без-ветки — отказ). Если HEAD == main — отказ.
+# И-8: предмет ОБЯЗАН быть в HEAD worktree. Две независимые проверки:
+#   (a) wt_head != main_head — иначе ветка пуста (частный случай приёмки-OK-без-ветки);
+#   (b) wt_head == tip_sha  — иначе в worktree лежит ЧУЖОЙ предмет и merge перенесёт его
+#       на main. R016-1: до фикса проверка (b) отсутствовала, merge исполнялся, и лишь
+#       постфактум И-4 краснел из-за не-снесённого чужого worktree; main был мутирован.
+# tip_sha поднимается выше, чтобы (b) не зависел от порядка с И-9 ниже.
 wt_head="$(gw rev-parse HEAD)"
 main_head="$(g rev-parse main)"
+tip_sha="$(g rev-parse "refs/heads/$branch_arg")"
 if [ "$wt_head" = "$main_head" ]; then
   printf 'ОТКАЗ: HEAD worktree не отличается от main — предмета в ветке нет (И-8)\n' >&2
+  exit 1
+fi
+if [ "$wt_head" != "$tip_sha" ]; then
+  printf 'ОТКАЗ: HEAD worktree %s не совпадает с tip ветки %s — предмет не в worktree (И-8)\n' \
+    "${wt_head:0:8}" "${tip_sha:0:8}" >&2
   exit 1
 fi
 
 # И-9: committer == author в диапазоне main..HEAD. Здесь идёт СЦЕПКА ПАРЫ ПОЛЕЙ —
 # committer==author. Расцепка (committer != author) → rc 1 поимённо.
-# Диапазон: main..<tip ветки>, где tip = refs/heads/<branch_arg>.
-tip_sha="$(g rev-parse "refs/heads/$branch_arg")"
+# Диапазон: main..<tip ветки>, где tip = refs/heads/<branch_arg> (см. И-8 выше).
 range="main..$tip_sha"
 if [ -z "$(g rev-list "$range" 2>/dev/null)" ]; then
   # Пустой диапазон (fast-forward до main) — уже поймали И-8.
