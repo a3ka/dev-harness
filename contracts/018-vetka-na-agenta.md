@@ -88,15 +88,33 @@ fail-open). Наблюдаемый вход стража — Р2b: единст�
 ### Инварианты (каждый с rc-командой)
 
 - **И-1** зонированный автор с живой своей `wip/<NNN>/<автор>`, коммитящий ВНЕ СВОЕЙ ветки —
-  на не-wip чекауте (main/иной branch/detached) ЛИБО на ЧУЖОЙ `wip/<*>/<другой>` — отвергается
-  ДО коммита именованной причиной `вне своей ветки wip/`. rc (по-стабно): `bash
-  scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_rabochij_na_main` (вход main)
-  И `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_chuzhaja_wip` (вход
-  ЧУЖАЯ wip, БЛОКЕР critic v1) (до предмета — красное: барьер «любой wip/* vs не-wip» зелен на
-  чужой wip, см. §Красное сейчас; после — rc 0).
-- **И-2** на СВОЕЙ `wip/<*>/<автор>`-чекауте (автор-компонент имени ветки == committer) тот же
-  автор проходит (коммит в свой worktree — норма): зелёный контроль обоих case (автор на своей
-  wip → rc 0). rc: те же команды И-1.
+  отвергается ДО коммита именованной причиной `вне своей ветки wip/`. КЛАСС предиката (единый,
+  решение по коду :40-45): «своя» ⟺ ветка чекаута матчит `wip/*/<автор>`, т.е. префикс `wip/`
+  И **последний компонент имени ветки (после последнего `/`) == committer**; всё иное — не-своя.
+  Красный контур несёт по свидетелю на каждую ВЕТВЬ РЕШЕНИЯ предиката и на каждый измеренный
+  класс срезания сравнения (арбитраж `verdicts/arbitration/contracts-018-krasnyj-kontur-vetki.md`),
+  каждый — ЕДИНСТВЕННЫЙ красный СВОЕГО case (замер 3 арбитра: дописанный в чужой case красный
+  молча уходит в зелёные контроли, `verify_antiplacebo.sh:661-703`). rc (по-стабно):
+  - `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_rabochij_na_main` — вход
+    `main` (именованная не-wip ветка);
+  - `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_chuzhaja_wip` — вход
+    точная чужая `wip/018/architect` (wip-ветка, последний компонент != committer; БЛОКЕР critic v1);
+  - `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_detached` — вход detached
+    HEAD (ветки нет вовсе, `symbolic-ref` отказывает — отдельный путь кода, Р3);
+  - `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_pohozhaja_wip` — вход
+    чужая `wip/018/implementerXyz` (committer — СОБСТВЕННАЯ подстрока последнего компонента, но !=
+    ему; срезание равенства компонента до подстроки/глоба, Р4).
+  Р3 и Р4 взаимно НЕ заменимы: плацебо-подстрока переживает detached и гибнет только на Р4
+  (замер 4). До предмета все четыре — красное (барьер ветки зелен на этих входах, см. §Красное
+  сейчас); после — rc 0.
+- **И-2** зелёные контроли предиката. На СВОЕЙ `wip/<*>/<автор>`-чекауте (последний компонент
+  имени ветки == committer) тот же автор проходит (коммит в свой worktree — норма): зелёный
+  контроль case `case_vetka_rabochij_na_main`, `case_vetka_chuzhaja_wip`, `case_vetka_pohozhaja_wip`
+  (автор на своей `wip/018/implementer` → rc 0). ЗЕЛЁНАЯ ГРАНИЦА ПРЕДИКАТА **ЗЗ**: «своя» при
+  ЛЮБОМ NNN — `wip/019/implementer` при авторе implementer → rc 0 — ЕДИНСТВЕННЫЙ зелёный контроль
+  case `case_vetka_detached` (замер 5 арбитра: литерал-NNN плацебо, пинующее «свою» как
+  `wip/018/<committer>`, на ЗЗ ложно краснеет и валит этот case «нет положительного контроля»,
+  потому ЗЗ один). rc: те же по-стабные команды И-1.
 - **И-3** судья (ЗОНИРОВАН `verdicts/*`, но без своей `wip/*`-ветки) и владелец (не
   зонирован) на main ПРОХОДЯТ — легальные main-коммиты вердиктов/устава не блокируются
   (защита коллизии Q4). rc: `bash scripts/verify_antiplacebo.sh . --scope
@@ -139,11 +157,21 @@ architect, барьер `scripts/check_staged.sh` — implementer); новые `
 - `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_sudja_i_vladelec` → rc 1:
   красный вход (рабочий на main) на текущем барьере зелён; зелёные контроли (судья на main,
   владелец на main) уже rc 0 — проба, что предмет НЕ переусердствует на них.
+- `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_detached` → rc 1 (Р3
+  арбитража): красный вход (автор со своей живой `wip/018/implementer`, чекаут detached — ветки
+  нет вовсе) на текущем барьере ЗЕЛЁН — «красное не предъявлено»; ЕДИНСТВЕННЫЙ зелёный контроль
+  ЗЗ (своя `wip/019/implementer` — другой NNN) уже rc 0.
+- `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_vetka_pohozhaja_wip` → rc 1 (Р4
+  арбитража): красный вход (автор со своей живой `wip/018/implementer`, чекаут на ЧУЖОЙ
+  `wip/018/implementerXyz` — committer подстрока последнего компонента, но != ему) на текущем
+  барьере ЗЕЛЁН — «красное не предъявлено»; зелёный контроль (тот же на СВОЕЙ wip) уже rc 0.
 
 ### После реализации (приёмка implementer; rc-переход красное→зелёное)
 
-- все три scoped-команды красного раздела → rc 0 каждая (по-стабно, раннерные инварианты в
-  каждом case: ≥1 зелёный контроль, ≥1 красный с повтором причины `вне своей ветки wip/`);
+- все пять scoped-команд красного раздела (`case_vetka_rabochij_na_main`, `case_vetka_chuzhaja_wip`,
+  `case_vetka_sudja_i_vladelec`, `case_vetka_detached`, `case_vetka_pohozhaja_wip`) → rc 0 каждая
+  (по-стабно, раннерные инварианты в каждом case: ≥1 зелёный контроль, ≥1 красный с повтором
+  причины `вне своей ветки wip/`);
 - охрана существующего: `bash scripts/check_staged.sh .` на живом дереве → rc 0 (не сломан);
   прочие case `check_staged` (016) → зелёные; `--scope check_zones` → rc 0 (рефакторинг
   чтения зон эквивалентен, если lib_zones тронут); канарейка И-5 016 → rc 0;
