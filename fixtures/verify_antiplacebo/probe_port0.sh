@@ -24,6 +24,12 @@
 # «не репортит»). Привязка проб ко входам — по коду НИЖЕ (Н-39), не по прозе
 # контракта.
 #
+# ГРАНИЦА (standard A — арбитраж 017 §Границы 1, a9e14eb, дословно решения):
+# перезапись единственного port:0-конфига в окно между exec и чтением его
+# прокси — детерминированного ассерта внутри пробы нет без правки прокси
+# (не раздаётся); реализация строго сложнее честной и недетерминирована.
+# Остаточный cognitive-only риск; ловец здесь не заводится.
+#
 #   bash fixtures/verify_antiplacebo/probe_port0.sh     приёмка 017 (И-1/И-2)
 # Коды возврата: 0 — все пробы зелёные, 1 — расхождение, 2 — нечем проверить.
 set -uo pipefail
@@ -195,35 +201,48 @@ mode_port0() {
   #       (Замер пачки: под set -o pipefail совпадение grep -q на большом
   #       выводе рвёт пайплайн сигпайпом — семантика ss-проверок инвертируется;
   #       ловец опирается на исход ветви, не на текст её отказа.)
-  #   (2) node-ТРАССИР снимает конфиг ветви в момент спавна прокси — вход
-  #       «порт выбран до слушателя» (скан без ss, фиксированная константа):
-  #       при bind :0 снимок несёт "port": 0, заранее выбранный порт — число.
-  # Сверка факта после прогона: событие <data_dir>/.actual_port от слушателя
-  # существует; конфиг ветви переписан на фактический порт (proxy_up уже умеет).
-  local W_i snapcfg REAL_NODE p0i_rc p0i_port p0i_actual p0i_cfg_port p0i_stubpid
+  #   (2) node-ТРАССИР снимает ВСЕ значения --config из argv спавна прокси —
+  #       вход «порт выбран до слушателя» (скан без ss, фиксированная константа)
+  #       и вход «двойной --config» (снимок-обёртка читает первый, парсер
+  #       прокси — последний): при честном bind :0 единственный снимок несёт
+  #       "port": 0. Наблюдение идёт ОТ ARGV — тем же каналом, каким вход
+  #       получает parseArgs прокси (арбитраж 017 a9e14eb: снимок файла по
+  #       пути-конвенции дефектен — расхождение каналов и есть дыра).
+  # Сверка факта после прогона: событие .actual_port от слушателя существует;
+  # конфиг, взятый на спавн, переписан на фактический порт (proxy_up умеет).
+  local W_i REAL_NODE p0i_rc p0i_cnt p0i_cfg p0i_snap p0i_port p0i_dd p0i_actual p0i_cfg_port p0i_stubpid
   W_i="$(mktemp -d "$work/p0i.XXXXXX")"
-  snapcfg="$W_i/config.spawn.json"
   REAL_NODE="$(command -v node)"
-  mkdir -p "$W_i/bin"
+  mkdir -p "$W_i/bin" "$W_i/snaps"
   # Лгун ss: четвёртое поле «адрес:порт», как настоящий ss -ltn; вывод закеширован
   # в файл — 200 попыток free_port не гоняют генерацию заново.
   seq 1 65535 | sed 's|^|LISTEN 0 0 127.0.0.1:|' > "$W_i/ss.out"
   printf '#!/usr/bin/env bash\ncat "%s/ss.out"\n' "$W_i" > "$W_i/bin/ss"
-  # Трассир node: снимок конфига ветви (и) на спавне, затем честный exec.
+  # Трассир node: манифест «путь→снимок» для КАЖДОГО вхождения --config в argv
+  # (форма ровно одна — отдельный токен, как в parseArgs: metering_proxy.ts:1175),
+  # снимок — побайтовая копия содержимого на момент спавна; затем честный exec.
+  # Манифест дописывается атомарной строкой: конкурентные спавны не рвут записи.
   cat > "$W_i/bin/node" <<'NODE_TRACE'
 #!/usr/bin/env bash
+prev=""; n=0
 for a in "$@"; do
-  if [ "$a" = "$P0I_CFG_PATH" ]; then cp "$a" "$P0I_SNAP" 2>/dev/null || :; fi
+  if [ "$prev" = "--config" ]; then
+    n=$((n + 1))
+    snap="$P0I_SNAP_DIR/$$.$n.json"
+    cp -- "$a" "$snap" 2>/dev/null || :
+    printf '%s\t%s\n' "$a" "$snap" >> "$P0I_ARGV"
+  fi
+  prev="$a"
 done
 exec "$P0I_REAL_NODE" "$@"
 NODE_TRACE
   chmod +x "$W_i/bin/ss" "$W_i/bin/node"
   # Ветвь целиком, в подоболочке: её bad/ok и die остаются в логе, приговор
-  # выносит проба по факту. BARRIER_CFG задаёт корень ветви: конфиг ветви (и)
-  # обязан оказаться в $W_i/branch_и/config.json (branch_и строит путь сама).
+  # выносит проба по факту. BARRIER_CFG задаёт корень ветви (branch_и строит
+  # пути сама); трассир манифестирует КАЖДЫЙ --config спавнов ветви.
   (
     export PATH="$W_i/bin:$PATH"
-    export P0I_CFG_PATH="$W_i/branch_и/config.json" P0I_SNAP="$snapcfg" P0I_REAL_NODE="$REAL_NODE"
+    export P0I_ARGV="$W_i/argv.tsv" P0I_SNAP_DIR="$W_i/snaps" P0I_REAL_NODE="$REAL_NODE"
     export BARRIER_CFG="$W_i/cfg.json"
     hash -r   # хэш родителя переживает смену PATH: без сброса лгун/трассир не включаются
     branch_и
@@ -238,22 +257,33 @@ NODE_TRACE
     p0i_stubpid="$(cat "$W_i/branch_и/up/stub.pid")"
     kill "$p0i_stubpid" 2>/dev/null || true
   fi
+  p0i_cnt=0
+  [ -s "$W_i/argv.tsv" ] && p0i_cnt="$(wc -l < "$W_i/argv.tsv")"
   if [ "$p0i_rc" != 0 ]; then
     bad "port0.i: ветвь (и) не прошла в контролируемом окружении с ss-лгуном (rc=$p0i_rc) — в пути ветви жива ss-зависимость (скан-выбор порта или скан-подтверждение готовности); лог: $(tr '\n' ' ' < "$W_i/branch.log" 2>/dev/null | tail -c 200)"
-  elif [ ! -s "$snapcfg" ]; then
-    bad "port0.i: спавн прокси ветви не наблюдён трассиром (снимок конфига пуст) — ветвь поднимает прокси мимо --config"
+  elif [ "$p0i_cnt" -eq 0 ]; then
+    bad "port0.i: спавн прокси ветви не наблюдён трассиром (манифест --config пуст) — ветвь поднимает прокси мимо --config или мимо node из PATH"
+  elif [ "$p0i_cnt" -ne 1 ]; then
+    bad "port0.i: спавн с неоднозначным конфигом — значений --config в argv: $p0i_cnt ($(cut -f1 "$W_i/argv.tsv" | tr '\n' ' ')) — парсер прокси берёт последний, снимок не обязан совпадать с управляющим; единственность закрывает дублирование КАК КЛАСС (арбитраж 017)"
   else
-    p0i_port="$(jq -r '.port' "$snapcfg" 2>/dev/null)"
-    p0i_actual="$(cat "$W_i/branch_и/data/.actual_port" 2>/dev/null)"
-    p0i_cfg_port="$(jq -r '.port' "$W_i/branch_и/config.json" 2>/dev/null)"
-    if [ "$p0i_port" != "0" ]; then
-      bad "port0.i: прокси ветви (и) взят на спавн с заранее выбранным портом \"$p0i_port\" (не bind :0) — порт выбран до слушателя, скан/фикс жив (снимок: $snapcfg)"
-    elif [ -z "$p0i_actual" ]; then
-      bad "port0.i: событие .actual_port от слушателя отсутствует — фактический порт ветви берётся не из события"
-    elif [ "$p0i_cfg_port" != "$p0i_actual" ]; then
-      bad "port0.i: конфиг ветви не переписан на фактический порт (cfg='$p0i_cfg_port', событие='$p0i_actual') — срез 2 не завершён"
+    p0i_cfg="$(cut -f1 "$W_i/argv.tsv")"
+    p0i_snap="$(cut -f2 "$W_i/argv.tsv")"
+    if [ ! -s "$p0i_snap" ]; then
+      bad "port0.i: снимок единственного конфига спавна не снялся (пуст по argv-пути \"$p0i_cfg\") — мера не состоялась"
     else
-      ok "port0.i: ветвь (и) прошла под ss-лгуном; спавн с \"port\": 0, фактический $p0i_actual из события .actual_port — прокси ветви на OS-эфемерном, выбор порта до слушателя мёртв"
+      p0i_port="$(jq -r '.port' "$p0i_snap" 2>/dev/null)"
+      p0i_dd="$(jq -r '.data_dir' "$p0i_snap" 2>/dev/null)"
+      p0i_actual="$(cat "$p0i_dd/.actual_port" 2>/dev/null)"
+      p0i_cfg_port="$(jq -r '.port' "$p0i_cfg" 2>/dev/null)"
+      if [ "$p0i_port" != "0" ]; then
+        bad "port0.i: единственный конфиг спавна несёт заранее выбранный порт \"$p0i_port\" (не bind :0) — порт выбран до слушателя, скан/фикс жив (снимок: $p0i_snap)"
+      elif [ -z "$p0i_actual" ]; then
+        bad "port0.i: событие .actual_port от слушателя отсутствует (data_dir \"$p0i_dd\") — фактический порт ветви берётся не из события"
+      elif [ "$p0i_cfg_port" != "$p0i_actual" ]; then
+        bad "port0.i: конфиг спавна не переписан на фактический порт (cfg='$p0i_cfg_port', событие='$p0i_actual') — срез 2 не завершён"
+      else
+        ok "port0.i: ветвь (и) прошла под ss-лгуном; на спавне ЕДИНСТВЕННЫЙ --config с \"port\": 0, фактический $p0i_actual из события .actual_port — прокси ветви на OS-эфемерном, выбор порта до слушателя и дублирование конфига мертвы"
+      fi
     fi
   fi
 
