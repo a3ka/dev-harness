@@ -50,3 +50,52 @@ stage() {  # <корень> <отн-путь> <содержимое>
   printf '%s\n' "$3" > "$r/$p"
   g "$r" add -- "$p"
 }
+
+# ── помощники среза 1 контракта 018 (страж «ветка, не main») ────────────────────
+#
+# make_repo_multizone: как make_repo, но замороженный контракт несёт НЕСКОЛЬКО зон —
+# implementer (scripts/) И critic (verdicts/). Нужен, чтобы предъявить СУДЬЮ автором С
+# зонами (critic зонирован verdicts/*), который на main всё равно ОБЯЗАН пройти: премиса
+# (Q4) «судья — автор без зон» ложна по коду, исключение судьи — спавн-состоянием (нет
+# своей wip/*-ветки), а не отсутствием зон.
+make_repo_multizone() {  # <корень>
+  local r="$1"
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА critic: verdicts/\n'
+  } > "$r/contracts/001-x.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  printf 'основание вердиктов\n' > "$r/verdicts/critic/.keep"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m 'основание: контракт и зоны implementer+critic'
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+}
+
+# set_author <корень> <имя> — сменить коммитящего автора репо (локальный конфиг). Судья
+# среза 1 различает авторов по effective identity (git var GIT_AUTHOR_IDENT), а она читает
+# локальный user.name/user.email.
+set_author() {  # <корень> <имя>
+  local r="$1" name="$2"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name "$name"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email "$name@local"
+}
+
+# mk_wip <корень> <ветка> — создать wip-ветку ОТ main, НЕ переключаясь (репо остаётся на
+# main). Моделирует «агента спавнили в worktree (ветка жива), а коммитит он в основной
+# чекаут» — ровно cwd-промах, наблюдаемый стражем среза 1.
+mk_wip() {  # <корень> <ветка>
+  g "$1" branch "$2" main
+}
+
+# co_wip <корень> <ветка> — создать wip-ветку ОТ main И переключиться на неё. Моделирует
+# «агент в своём worktree на своей ветке» — страж молчит, коммит легитимен.
+co_wip() {  # <корень> <ветка>
+  g "$1" checkout -q -b "$2" main
+}
