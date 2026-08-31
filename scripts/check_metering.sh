@@ -93,77 +93,70 @@ stub_upstream() {
   printf '0\n' > "$dir/count"
   printf '{"status":200,"content_type":"application/octet-stream","body_b64":"","headers":{}}\n' \
     > "$dir/scenario.json"
-  local port pid i attempt=0 race
-  # ГОНКА ПОРТА (TOCTOU): между free_port и listen порт занять может соседняя
-  # фикстура (анти-плацебо крутит их параллельно десятки). Гибель слушателя с
-  # EADDRINUSE — не отказ, а сигнал взять НОВЫЙ порт и повторить; повтор ограничен,
-  # исчерпание — отказ с причиной и числом попыток. Прочая гибель — отказ сразу.
-  while [ "$attempt" -lt 5 ]; do
-    attempt=$((attempt + 1))
-    port="$(free_port)"
-    printf '%s' "$port" > "$dir/port"
-    # БЕЗ setsid: setsid форкается, и $! — pid РОДИТЕЛЯ-setsid (сразу выходит), а
-    # node получает другой pid → в stub.pid попадал мёртвый pid, kill_all_proxies
-    # бил пустую группу, стаб-node выживал (утечка ~2/прогон, замер 2026-08-21;
-    # «убийца стаба л.о»). Без setsid $! = pid node, pid-файловый проход его глушит.
-    PORT="$port" DIR="$dir" \
-    node -e '
-      const fs = require("node:fs");
-      const http = require("node:http");
-      const port = parseInt(process.env.PORT, 10);
-      const dir = process.env.DIR;
-      const reqlog = dir + "/requests.jsonl";
-      const countf = dir + "/count";
-      const scen = dir + "/scenario.json";
-      const server = http.createServer((req, res) => {
-        const chunks = [];
-        req.on("data", c => chunks.push(c));
-        req.on("end", () => {
-          const body = Buffer.concat(chunks);
-          fs.appendFileSync(reqlog, JSON.stringify({
-            method: req.method, path: req.url,
-            body_b64: body.toString("base64"),
-            content_type: req.headers["content-type"] || "",
-            request_id: req.headers["x-request-id"] || ""
-          }) + "\n");
-          let cnt = 0;
-          try { cnt = parseInt(fs.readFileSync(countf, "utf8"), 10) || 0; } catch (_) { cnt = 0; }
-          fs.writeFileSync(countf, String(cnt + 1));
-          let sc = { status: 200, content_type: "application/octet-stream", body_b64: "", headers: {} };
-          try { sc = JSON.parse(fs.readFileSync(scen, "utf8")); } catch (_) {}
-          const bodyResp = Buffer.from(sc.body_b64 || "", "base64");
-          if (sc.headers) for (const [k, v] of Object.entries(sc.headers)) res.setHeader(k, v);
-          res.statusCode = sc.status || 200;
-          res.setHeader("content-type", sc.content_type || "application/octet-stream");
-          res.end(bodyResp);
-        });
+  : > "$dir/port"
+  local pid i port
+  # СРЕЗ 1 КОНТРАКТА 017: listen(0) + запись фактического порта в $dir/port В listen-callback
+  # (событие). Ожидание — kill -0 + $dir/port (готовность по живости процесса): раннер
+  # последовательный, фикстуры не выбирают порт и не делят его между собой, на bind :0 гонки
+  # нет по построению, поэтому retry-ветка на занятом порту убрана (класс мёртв).
+  PORT="0" DIR="$dir" \
+  node -e '
+    const fs = require("node:fs");
+    const http = require("node:http");
+    const dir = process.env.DIR;
+    const reqlog = dir + "/requests.jsonl";
+    const countf = dir + "/count";
+    const scen = dir + "/scenario.json";
+    const server = http.createServer((req, res) => {
+      const chunks = [];
+      req.on("data", c => chunks.push(c));
+      req.on("end", () => {
+        const body = Buffer.concat(chunks);
+        fs.appendFileSync(reqlog, JSON.stringify({
+          method: req.method, path: req.url,
+          body_b64: body.toString("base64"),
+          content_type: req.headers["content-type"] || "",
+          request_id: req.headers["x-request-id"] || ""
+        }) + "\n");
+        let cnt = 0;
+        try { cnt = parseInt(fs.readFileSync(countf, "utf8"), 10) || 0; } catch (_) { cnt = 0; }
+        fs.writeFileSync(countf, String(cnt + 1));
+        let sc = { status: 200, content_type: "application/octet-stream", body_b64: "", headers: {} };
+        try { sc = JSON.parse(fs.readFileSync(scen, "utf8")); } catch (_) {}
+        const bodyResp = Buffer.from(sc.body_b64 || "", "base64");
+        if (sc.headers) for (const [k, v] of Object.entries(sc.headers)) res.setHeader(k, v);
+        res.statusCode = sc.status || 200;
+        res.setHeader("content-type", sc.content_type || "application/octet-stream");
+        res.end(bodyResp);
       });
-      server.listen(port, "127.0.0.1", () => {
-        process.stderr.write("stub upstream listening on " + port + "\n");
-      });
-    ' metering-stub-upstream "$dir" > "$dir/stub.log" 2> "$dir/stub.err" &
-    pid="$!"
-    echo "$pid" > "$dir/stub.pid"
-    race=0
-    # Терпение 15 с (не 3): под внешней нагрузкой (qemu-VM, браузер) холодный старт
-    # Node до listen порой > 3 с — стаб ЖИВ, но не успел. Ранний выход по готовности
-    # сохранён, happy-path не медленнее; смерть процесса ловится тут же (не ждём зря).
-    for i in $(seq 1 300); do
-      if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":${port}\$"; then
+    });
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address();
+      const actualPort = (typeof addr === "object" && addr) ? addr.port : 0;
+      fs.writeFileSync(dir + "/port", String(actualPort));
+      process.stderr.write("stub upstream listening on " + actualPort + "\n");
+    });
+  ' metering-stub-upstream "$dir" > "$dir/stub.log" 2> "$dir/stub.err" &
+  pid="$!"
+  echo "$pid" > "$dir/stub.pid"
+  # СОБЫТИЕ: $dir/port от живой ноды. Потолок — живость процесса (А-18: тикать до смерти/бюджета,
+  # не ранний break). Бюджет — только страховка от зависания; нода погибла → отказ сразу (без окна).
+  # Живой процесс без записи порта по бюджету → именованный отказ «не репортит порт» —
+  # различим с «мёртв» (гибель раньше) и с «медленный старт» (А-18, контракт 017 срез 1).
+  for i in $(seq 1 1200); do
+    if [ -s "$dir/port" ]; then
+      port="$(cat "$dir/port" 2>/dev/null)"
+      if [ -n "$port" ] && [ "$port" != "0" ]; then
         printf '%s\n' "$port"; return 0
       fi
-      if ! kill -0 "$pid" 2>/dev/null; then
-        if grep -q "EADDRINUSE" "$dir/stub.err" 2>/dev/null; then
-          race=1
-          break
-        fi
-        die "stub_upstream погиб на старте (pid=$pid, порт $port) — лог: $dir/stub.err"
-      fi
-      sleep 0.05
-    done
-    [ "$race" -eq 1 ] || die "stub_upstream не поднялся на порту $port за 15 с — лог: $dir/stub.err"
+    fi
+    if ! kill -0 "$pid" 2>/dev/null; then
+      die "stub_upstream погиб до репорта порта (pid=$pid), лог: $dir/stub.err"
+    fi
+    sleep 0.05
   done
-  die "порт stub_upstream занят гонкой EADDRINUSE во всех $attempt попытках — последнее: $dir/stub.err"
+  kill "$pid" 2>/dev/null || true
+  die "stub_upstream не репортит порт — живой процесс не записал $dir/port за 60 с, лог: $dir/stub.err"
 }
 
 # РАНТАЙМ-ЭНФОРСМЕНТ builtins-only (арбитраж verdicts/arbitration/grep-vs-runtime-builtins.md,
@@ -179,65 +172,54 @@ readonly PROXY_NODE_FLAGS="--disallow-code-generation-from-strings --permission 
 proxy_up() {
   local cfg="$1" pidfile="$2"
   [ -f "$PROXY" ] || die "прокси не найден рядом с барьером: $PROXY"
-  local attempt=0
-  # ГОНКА ПОРТА (TOCTOU): порт из конфига мог занять соседняя фикстура между
-  # free_port (в gen_config) и listen. Гибель ребёнка с EADDRINUSE — взять НОВЫЙ
-  # свободный порт, переписать его в конфиг и повторить, ограниченно; прочая
-  # гибель и молчащий healthz — отказ с причиной. Ветви читают порт из $cfg
-  # ПОСЛЕ proxy_up, смена порта им прозрачна; pid-файл всегда несёт живого.
-  while [ "$attempt" -lt 5 ]; do
-    attempt=$((attempt + 1))
-    (
-      cd "$(dirname "$cfg")"
-      exec node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg"
-    ) > "$pidfile.log" 2> "$pidfile.err" &
-    local pid="$!"
-    echo "$pid" > "$pidfile"
-    local port win
-    port="$(jq -r '.port' "$cfg")"
-    if [ "$port" = 0 ]; then
-      # port:0 → прокси биндит OS-эфемерный и репортит фактический в <data_dir>/.actual_port
-      # (срез-2 контракта 007). Читаем его и переписываем cfg.port — ветви читают порт как обычно.
-      local _ap _dd _pi
-      _dd="$(jq -r '.data_dir' "$cfg")"; _ap="$_dd/.actual_port"
-      for _pi in $(seq 1 100); do
-        [ -s "$_ap" ] && { port="$(cat "$_ap")"; break; }
-        kill -0 "$pid" 2>/dev/null || break
-        sleep 0.05
-      done
-      if [ -n "$port" ] && [ "$port" != 0 ]; then
-        jq --argjson p "$port" '.port = $p' "$cfg" > "${cfg}.p0" && mv "${cfg}.p0" "$cfg"
+  # СРЕЗ 3 КОНТРАКТА 017: событие → healthz. Прокси ВСЕГДА пишет <data_dir>/.actual_port
+  # в listen-callback (scripts/proxy/metering_proxy.ts:1259): ждём файл + kill -0,
+  # потом healthz. Медленный старт node перестаёт выглядеть отказом — окно времени
+  # умирает как класс, потолок — живость процесса (А-18: тикать до смерти/бюджета).
+  # Retry-EADDRINUSE с free_port убран: на bind :0 гонки нет по построению (порт уже
+  # назначен ОС и сохранён в файле события); cold-start вне фикстурного пути использует
+  # прямой node-спавн и workshop, сюда не заходит.
+  (
+    cd "$(dirname "$cfg")"
+    exec node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg"
+  ) > "$pidfile.log" 2> "$pidfile.err" &
+  local pid="$!"
+  echo "$pid" > "$pidfile"
+  local port _dd _ap i
+  _dd="$(jq -r '.data_dir' "$cfg")"
+  _ap="$_dd/.actual_port"
+  # ФАЗА 1: событие — файл-порта от живого слушателя. Бюджет — только страховка от зависания.
+  for i in $(seq 1 1200); do
+    if [ -s "$_ap" ]; then
+      port="$(cat "$_ap" 2>/dev/null)"
+      if [ -n "$port" ] && [ "$port" != "0" ]; then
+        if [ "$port" != "$(jq -r '.port' "$cfg")" ]; then
+          jq --argjson p "$port" '.port = $p' "$cfg" > "${cfg}.p0" && mv "${cfg}.p0" "$cfg"
+        fi
+        break
       fi
     fi
-    win="$(jq -r '.healthz_window_sec' "$cfg")"
-    # Пол терпения 15 с под нагрузкой (см. stub_upstream): win*20 при win=5 = 5 с
-    # мало, когда Node стартует медленно; смерть процесса ловится в цикле раньше.
-    local max=$(( win * 20 )); [ "$max" -lt 300 ] && max=300
-    local i race=0
-    for i in $(seq 1 "$max"); do
-      if curl -fsS -o /dev/null -m 0.5 "http://127.0.0.1:${port}/healthz" 2>/dev/null; then
-        printf '%s' "$pid"; return 0
-      fi
-      if ! kill -0 "$pid" 2>/dev/null; then
-        if grep -q "EADDRINUSE" "$pidfile.err" 2>/dev/null; then
-          race=1
-          break
-        fi
-        die "прокси погиб на старте (pid=$pid), лог: $pidfile.err"
-      fi
-      sleep 0.05
-    done
-    [ "$race" -eq 1 ] || {
-      kill "$pid" 2>/dev/null || true
-      die "healthz не ответил за ${win} с на порту $port — лог: $pidfile.err"
-    }
-    local newport
-    newport="$(free_port)"
-    jq --argjson p "$newport" '.port = $p' "$cfg" > "${cfg}.new" \
-      || die "не переписать порт в $cfg после гонки EADDRINUSE"
-    mv "${cfg}.new" "$cfg"
+    if ! kill -0 "$pid" 2>/dev/null; then
+      die "proxy_up: прокси погиб до репорта порта (pid=$pid), лог: $pidfile.err"
+    fi
+    sleep 0.05
   done
-  die "порт прокси занят гонкой EADDRINUSE во всех $attempt попытках — лог: $pidfile.err"
+  if [ -z "${port:-}" ] || [ "$port" = "0" ]; then
+    kill "$pid" 2>/dev/null || true
+    die "proxy_up: живой процесс не зарепортил $port фактический порт за 60 с, лог: $pidfile.err"
+  fi
+  # ФАЗА 2: healthz. Та же семантика — тикать до смерти/бюджета (А-18).
+  for i in $(seq 1 1200); do
+    if curl -fsS -o /dev/null -m 0.5 "http://127.0.0.1:${port}/healthz" 2>/dev/null; then
+      printf '%s' "$pid"; return 0
+    fi
+    if ! kill -0 "$pid" 2>/dev/null; then
+      die "proxy_up: прокси погиб на healthz-фазе (pid=$pid, порт $port), лог: $pidfile.err"
+    fi
+    sleep 0.05
+  done
+  kill "$pid" 2>/dev/null || true
+  die "proxy_up: healthz не ответил на порту $port за 60 с, лог: $pidfile.err"
 }
 
 proxy_down() {
@@ -291,8 +273,7 @@ req() {
 
 gen_config() {
   local dir="$1"
-  local portup role provider model token proxy_port
-  portup="$(free_port)"
+  local role provider model token proxy_port
   proxy_port=0
   role="$(rnd_label 8)"
   provider="$(rnd_label 6)"
@@ -302,13 +283,17 @@ gen_config() {
   cat > "$dir/secrets.env" <<EOF
 METERING_TOKEN_${role}=${token}
 EOF
+  # upstream-URL в конфиге — ФИКТИВНЫЙ (заглушка). main() сразу переписывает его на фактический
+  # порт стаба после stub_upstream: scan-выбор порта до слушателя мёртв (срез 3 контракта 017,
+  # free_port/ss убраны из фикстурного пути). Тащить portup через gen_config — мёртвый код:
+  # его тут же затирает main через `jq '.upstream[provider] = $cfg_up'`.
   cat > "$dir/config.json" <<EOF
 {
   "port": ${proxy_port},
   "healthz_window_sec": 5,
   "secrets_env": "${dir}/secrets.env",
   "data_dir": "${dir}/data",
-  "upstream": { "${provider}": "http://127.0.0.1:${portup}" },
+  "upstream": { "${provider}": "http://127.0.0.1:1" },
   "prices": {
     "${provider}": { "${model}": { "per_m_tokens": { "in": 1200000, "out": 3400000 } } }
   },
@@ -318,8 +303,7 @@ EOF
 EOF
   cat > "$dir/vars.json" <<EOF
 { "role": "${role}", "provider": "${provider}", "model": "${model}",
-  "token": "${token}", "upstream_port": ${portup},
-  "proxy_port": ${proxy_port} }
+  "token": "${token}", "proxy_port": ${proxy_port} }
 EOF
   printf '%s\n' "$dir/config.json"
 }
@@ -910,7 +894,7 @@ branch_и() {
   bcfg="$bdir/config.json"
   # Стартовый файл секретов: ОДНА роль R, ОДИН токен T1.
   printf 'METERING_TOKEN_%s=%s\n' "$R" "$T1" > "$secrets"
-  proxy_port="$(free_port)"
+  proxy_port=0
   provider="$(rnd_label 6)"
   model="$(rnd_label 6)"
   cat > "$bcfg" <<EOF
@@ -925,8 +909,12 @@ branch_и() {
   "now_file": null
 }
 EOF
+  # СРЕЗ 2 КОНТРАКТА 017: proxy_port=0 — прокси биндит OS-эфемерный, фактический порт
+  # перечитывается из bcfg ПОСЛЕ proxy_up (уже переписывает на актуальный).
+  # Свой прокси ветви (и) — bind :0, free_port ушёл из фикстурного пути.
   local pidfile="$bdir/proxy.pid" pid
   pid="$(proxy_up "$bcfg" "$pidfile")"
+  proxy_port="$(jq -r '.port' "$bcfg")"
   local rid status resp line got_role rows_before rows_after
   # Шаг T1: запрос с T1, ожидаем 200 (прокси знает T1 из secrets).
   rid="$(rnd_label 16)"
