@@ -1876,18 +1876,23 @@ EOF
 }
 
 # ── режим --port0 (красный тест среза-2, контракт 007) ────────────────────────
-# Предмет среза-2: НОРМАЛЬНЫЙ путь check_metering перестаёт угадывать порт прокси
-# глобальным free_port-сканом (корень флейка Н-45: ~60 портов/прогон + TOCTOU) и
-# переходит на OS-назначаемый эфемерный порт (bind :0); прокси РЕПОРТИТ фактический
-# порт в <data_dir>/.actual_port. Три под-пробы закрывают обходы круга 1 критика:
-#   p0.gen  — gen_config эмитит "port":0 (а не скан), иначе нормальный путь не мигрирован (F4);
-#   p0.up   — ШТАТНЫЙ proxy_up на port:0 поднимает прокси, читает репортный порт, переписывает
-#             cfg.port на фактический, healthz на нём 200 — миграция самого раннера (F4);
-#   p0.conc — ДВА конкурентных port:0 прокси получают РАЗНЫЕ эфемерные порты (фикс-константа
-#             дала бы коллизию/один порт) — доказывает OS-назначение, а не самовыбор (F5).
-# КРАСНОЕ против текущего дерева: gen_config free_port-сканит (p0.gen), proxy_up healthz-поллит
-# cfg.port=0 и die (p0.up), прокси не пишет .actual_port (p0.conc). Переиспользует gen_config,
-# proxy_up, proxy_down, PROXY, PROXY_NODE_FLAGS.
+# Предмет контракта 017 (де-флейк Н-45): докончить port:0 до конца — upstream-стаб
+# и ветвь (и) уходят со скан-портов (free_port + ss-поллинг, TOCTOU Н-41-класса) на
+# OS-назначаемый listen(0) + файл-событие от listen-callback; окна готовности
+# умирают как класс (готовность = событие + живость процесса), отказ становится
+# различим («медленный» ≠ «мёртвый»/«не репортит»). Под-пробы среза-2 контракта 007
+# (p0.gen/p0.up/p0.conc/p0.src) зелёные с той поры и остаются ЗЕЛЁНЫМ контролем;
+# новые пробы контракта 017 КРАСНЫЕ против сканирующей редакции:
+#   p0.stub      — upstream-стаб репортит порт файлом-событием, не сканит:
+#                  исходник (тело stub_upstream без free_port/ss), запись порта
+#                  ТОЛЬКО слушателем (погибший до listen node не оставляет порта),
+#                  готовность без рабочего ss (тень ss: exit 1);
+#   p0.i         — ветвь (и) поднимает свой прокси на bind :0 (тело branch_и без
+#                  free_port, без фиксированного порта в конфиге ветви);
+#   p0.noreport  — живой слушатель без порт-файла: именованный отказ «не репортит
+#                  порт», а не молчаливый таймаут окна.
+# Привязка проб к входам — по коду НИЖЕ (Н-39), не по прозе контракта.
+# Переиспользует gen_config, proxy_up, proxy_down, stub_upstream, PROXY, PROXY_NODE_FLAGS.
 mode_port0() {
   local work t
   work="$(mktemp -d "$TMP_ROOT/metering-port0.XXXXXX")"
@@ -1967,6 +1972,93 @@ mode_port0() {
     ok "port0.src: metering_proxy.ts репортит фактический порт от server.address() реальным writeFileSync(.actual_port)"
   else
     bad "port0.src: нет РЕАЛЬНОГО writeFileSync(…\.actual_port) от server.address() в $PROXY — репорт вынесен/декой, не атомарный bind:0 (free_port scan+TOCTOU Н-45)"
+  fi
+
+  # ── p0.stub: upstream-стаб репортит порт файлом-событием, не сканит (контракт 017, срез 1) ──
+  # Три независимых предъявления, каждое красное против сканирующей редакции:
+  local stub_src stubdie stubdie_rc fakenode stubnoss stubnoss_rc stubnoss_port stubnoss_pid
+  stub_src="$(awk '/^stub_upstream\(\) \{/,/^\}/' "$SELF_DIR/check_metering.sh")"
+  if printf '%s\n' "$stub_src" | grep -qE '\bfree_port\b|ss -ltn'; then
+    bad "port0.stub: тело stub_upstream ещё сканит (free_port и/или ss-поллинг готовности) — TOCTOU Н-45 жив в фикстурном пути upstream"
+  else
+    ok "port0.stub: тело stub_upstream без free_port и ss-скана — порт upstream назначает ОС, готовность событием"
+  fi
+
+  # Порт-файл пишет ТОЛЬКО слушатель: подменяем node на немедленно гибнущий стаб —
+  # событийная редакция файла порта не оставляет (запись живёт в listen-callback),
+  # сканирующая пишет порт ДО spawn и оставляет порт, которого никто не слушал.
+  fakenode="$(mktemp -d "$work/fakenode.XXXXXX")"
+  printf '#!/bin/sh\nexit 3\n' > "$fakenode/node"
+  chmod +x "$fakenode/node"
+  stubdie="$(mktemp -d "$work/stubdie.XXXXXX")"
+  ( PATH="$fakenode:$PATH" stub_upstream "$stubdie" ) >/dev/null 2>"$work/stubdie.err"
+  stubdie_rc=$?
+  if [ -s "$stubdie/port" ]; then
+    bad "port0.stub: порт-файл upstream записан ДО слушателя (пережил немедленно погибший node, rc=$stubdie_rc, порт '$(cat "$stubdie/port")') — запись не от listen-callback"
+  else
+    ok "port0.stub: порт-файл upstream пишет сам слушатель — погибший до listen node не оставляет порта"
+  fi
+
+  # Готовность НЕ зависит от ss-скана: тень ss (exit 1) в PATH — событийная редакция
+  # поднимается и отвечает, сканирующая 15 с ждёт подтверждения сканом и умирает.
+  stubnoss="$(mktemp -d "$work/stubnoss.XXXXXX")"
+  mkdir -p "$work/nossss"
+  printf '#!/bin/sh\nexit 1\n' > "$work/nossss/ss"
+  chmod +x "$work/nossss/ss"
+  stubnoss_port="$( PATH="$work/nossss:$PATH" stub_upstream "$stubnoss" 2>"$work/stubnoss.err" )"
+  stubnoss_rc=$?
+  if [ -s "$stubnoss/stub.pid" ]; then
+    stubnoss_pid="$(cat "$stubnoss/stub.pid")"
+  else
+    stubnoss_pid=""
+  fi
+  if [ "$stubnoss_rc" != 0 ] || [ -z "$stubnoss_port" ]; then
+    bad "port0.stub: готовность upstream зависит от ss-скана (тень ss: exit 1 → rc=$stubnoss_rc: $(tr '\n' ' ' < "$work/stubnoss.err" 2>/dev/null | tail -c 160)) — событийная готовность не мигрирована"
+  elif kill -0 "$stubnoss_pid" 2>/dev/null \
+       && [ "$(curl -s -o /dev/null -w '%{http_code}' -m 3 "http://127.0.0.1:${stubnoss_port}/" 2>/dev/null)" = 200 ]; then
+    ok "port0.stub: upstream поднимается и отвечает при нерабочем ss — порт $stubnoss_port репортирован слушателем, не найден сканом"
+  else
+    bad "port0.stub: под ss-тенью стаб отчитался портом, но не отвечает/не жив — предъявление недобросовестно"
+  fi
+  # чистка обеих ветвей: живой стаб-node не должен переживать пробу (Н-46: утёкшие
+  # стабы контеншили порты и изображали регрессию)
+  [ -n "$stubnoss_pid" ] && kill "$stubnoss_pid" 2>/dev/null || true
+
+  # ── p0.i: ветвь (и) — свой прокси на OS-эфемерном (bind :0), не free_port-скан ──
+  local vetka_i_src
+  vetka_i_src="$(awk '/^branch_и\(\) \{/,/^\}/' "$SELF_DIR/check_metering.sh")"
+  if [ -z "$vetka_i_src" ]; then
+    bad "port0.i: тело branch_и не найдено в $SELF_DIR/check_metering.sh — проба не может судить ветвь (и)"
+  elif printf '%s\n' "$vetka_i_src" | grep -qE '\bfree_port\b'; then
+    bad "port0.i: ветвь (и) поднимает свой прокси free_port-сканом — TOCTOU Н-45 жив; должен быть bind :0 с репортом, как основной путь"
+  elif printf '%s\n' "$vetka_i_src" | grep -qE '"port": [1-9][0-9]*'; then
+    bad "port0.i: ветвь (и) пишет в конфиг фиксированный порт — не OS-эфемерный bind :0"
+  else
+    ok "port0.i: ветвь (и) без free_port и без фиксированного порта — свой прокси ветви на OS-эфемерном"
+  fi
+
+  # ── p0.noreport: отказ «не репортит порт» ИМЕНОВАН, не молчаливым таймаутом окна ──
+  # Живой стаб-node без слушателя и без записи порта: потолок ожидания — бюджет
+  # тиков до смерти/бюджета (А-18), исход — именованный отказ «не репортит порт».
+  # Скандирующая редакция молчит 15 с и умирает «не поднялся за 15 с» — без имени.
+  local noreport_dir noreport_rc
+  noreport_dir="$(mktemp -d "$work/noreport.XXXXXX")"
+  mkdir -p "$noreport_dir/bin"
+  cat > "$noreport_dir/bin/node" <<'FAKENODE'
+#!/bin/sh
+printf '%s\n' $$ > "$FAKENODE_PID"
+exec sleep 120
+FAKENODE
+  chmod +x "$noreport_dir/bin/node"
+  ( PATH="$noreport_dir/bin:$PATH" FAKENODE_PID="$work/noreport.fakepid" stub_upstream "$noreport_dir" ) >/dev/null 2>"$work/noreport.err"
+  noreport_rc=$?
+  if grep -q 'не репортит порт' "$work/noreport.err"; then
+    ok "port0.noreport: живой стаб без порт-файла — именованный отказ «не репортит порт» (различим с мёртвым и с медленным)"
+  else
+    bad "port0.noreport: живой стаб без порт-файла умер без имени причины (rc=$noreport_rc: $(tr '\n' ' ' < "$work/noreport.err" 2>/dev/null | tail -c 160)) — «не репортит порт» не различим с «медленный старт»"
+  fi
+  if [ -s "$work/noreport.fakepid" ]; then
+    kill "$(cat "$work/noreport.fakepid")" 2>/dev/null || true
   fi
 
   [ "$fails" -eq 0 ]
