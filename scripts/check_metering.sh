@@ -200,7 +200,9 @@ proxy_up() {
       fi
     fi
     if ! kill -0 "$pid" 2>/dev/null; then
-      die "proxy_up: прокси погиб до репорта порта (pid=$pid), лог: $pidfile.err"
+      local _tail
+      _tail="$(tail -n 5 "$pidfile.err" 2>/dev/null | tr '\n' ' ' | tr -s ' ')"
+      die "proxy_up: прокси погиб на старте до репорта порта (pid=$pid), хвост err: ${_tail:-<пусто>}"
     fi
     sleep 0.05
   done
