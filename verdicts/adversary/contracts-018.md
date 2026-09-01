@@ -90,3 +90,87 @@ barrier_rc=0
 
 Требуемая правка — fail-closed различать успешный пустой `git diff` и ошибку его
 выполнения до ветви `staged пуст`; эту правку выполняет автор предмета.
+
+
+## Круг 2
+
+**Итог: FAIL.** Правка F-1 закрыта: PATH-первый `git`-двойник, который
+делегирует всё кроме `git -C <красный-репозиторий> diff --cached --name-only
+-z`, при rc 127 и при rc 1 теперь даёт обязательный отказ до ветви пустого
+staged. При успешном пустом staged через тот же PATH-двойник сохранён rc 0.
+
+### Контроль F-1 на `84fae04`
+
+Команда `bash /tmp/adv018k2-f1.sh` в одноразовом клоне
+`/tmp/adv018k2-84fae04` построила профиль И-1: author `implementer`, жива
+`wip/018/implementer`, HEAD `main`, в индексе `scripts/b.sh`. Дословный
+результат:
+
+```text
+F-1 fake-git-diff rc=127: barrier_rc=1
+ОТКАЗ: staged не прочитан (git diff --cached --name-only -z завершился кодом 127)
+F-1 fake-git-diff rc=1: barrier_rc=1
+ОТКАЗ: staged не прочитан (git diff --cached --name-only -z завершился кодом 1)
+empty staged through same PATH-first fake git: barrier_rc=0
+нечего судить: staged пуст
+```
+
+Это положительный контроль: сам PATH-двойник не объявляется нарушением, а
+отказ чтения staged не маскируется успешным пустым входом.
+
+### Находка F-2 — staged-удаление вне зоны не предъявлено красным
+
+В одноразовом клоне `/tmp/adv018k2-delete-filter` построена слабая реализация:
+единственная семантическая подмена чтения staged — к реальной команде добавлен
+`--diff-filter=AM`:
+
+```bash
+git -C "$ROOT" diff --cached --name-only -z --diff-filter=AM \
+  2>/dev/null > "$staged_tmp"
+```
+
+Она намеренно не читает D-записи, хотя предмет судит staged-пути без
+исключения типа изменения. Полный прогон
+`bash scripts/verify_antiplacebo.sh . --scope check_staged` на этой слабой
+реализации завершился rc 0: 11/11 fixture предъявлены красным повторным
+прогоном, включая `case_staged_ne_prochitan`.
+
+Контрпример воспроизведён командой `bash /tmp/adv018k2-deletion.sh`. В
+подставном репозитории author `implementer` не имеет живой wip-ветки; файл
+`offzone.txt` вне зоны сначала закоммичен, затем удалён и удаление добавлено в
+индекс. Честный барьер и слабая реализация на одном и том же входе дали:
+
+```text
+honest checker: barrier_rc=1
+ОТКАЗ: вне зоны: offzone.txt
+weak --diff-filter=AM checker: barrier_rc=0
+нечего судить: staged пуст
+```
+
+Следовательно, усиленная пачка допускает реализацию, которая отвечает только
+за добавления и модификации, но не делает предмет для staged-удалений. Это
+новый класс относительно F-1 и Р1–Р4/ЗЗ/python3: здесь `git diff` успешно
+прочитан, но из его ответа исключён судимый тип изменения. Нужна отдельная
+красная фикстура с положительным контролем и staged D-путём вне зоны; после
+неё `--diff-filter=AM` обязан перестать проходить 11/11.
+
+### Испробованные формы, не ставшие дополнительной находкой
+
+| Форма | Слабая подмена / вход | Результат пачки |
+|---|---|---|
+| Отказ, выглядящий пустым; инструмент в PATH | PATH-первый `git`, `diff --cached --name-only -z` возвращает 127 и отдельно 1 | F-1 закрыта: оба rc 1 с `staged не прочитан`; успешный пустой вход rc 0 |
+| Пустой вход | Тот же PATH-двойник делегирует чтение легального репозитория с пустым индексом | rc 0 `нечего судить: staged пуст`, положительный контроль |
+| Счёт только первого staged-пути | После `mapfile` оставлен только `staged[0]` при непустом массиве | rc 1 у пачки: `case_imja_control_simvol` ловит второй staged-путь; 10/11 |
+| Зашитый NNN | Своя ветка признана только как `wip/018/*/<author>` | rc 1 у пачки: ЗЗ в `case_vetka_detached` теряет положительный контроль; 10/11 |
+| Нейтрализация стража ветки | Перед проверкой принудительно `has_own_wip=0` | rc 1 у пачки: ровно пять `case_vetka_*` красных не предъявлены, шесть остальных проходят; 6/11 |
+
+### Scoped-прогоны честного `84fae04`
+
+| Команда | rc | Наблюдение |
+|---|---:|---|
+| `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_staged_ne_prochitan` | 0 | 1/1, причина `staged не прочитан` |
+| `bash scripts/verify_antiplacebo.sh . --scope check_staged` | 0 | 11/11 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope check_zones` | 0 | 13/13 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope land_agent` | 0 | 9/9 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches` | 0 | 2/2 fixture |
+| `git diff --exit-code frozen/contracts/018/1..84fae04 -- contracts/` | 0 | вывода нет |
