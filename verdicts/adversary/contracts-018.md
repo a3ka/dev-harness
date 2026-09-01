@@ -1,4 +1,4 @@
-FAIL
+accept
 
 # Контрольный эксперимент — контракт 018, срез 1
 
@@ -324,3 +324,48 @@ rc weak=0 honest=1
 | `bash scripts/verify_antiplacebo.sh . --scope land_agent` | 0 | 9/9 fixture |
 | `bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches` | 0 | 2/2 fixture |
 | `git diff --exit-code frozen/contracts/018/1..6203cd4 -- contracts/` | 0 | вывода нет |
+
+
+## Круг 5 (класс-замыкающий)
+
+**Итог: accept.** На `29c0ee3` четыре прежних костюма больше не проходят scoped-пачку: F-1 закрыт fail-closed чтением staged, фильтры типов предъявлены сентинелями и тождеством в совокупности, K-подобные сужения — тождеством `judged == staged`. Внутригранных нет.
+
+Все мутации сделаны только в одноразовых клонах `/tmp/adv018k5-*`; изменялся только их `scripts/check_staged.sh`. Фикстуры и контракт не менялись. Позитивный контроль честного `29c0ee3`: `--scope check_staged` завершился rc 0, 18/18.
+
+### Повтор костюмов
+
+| Костюм слабой копии | rc scoped | Поймавшие фикстуры | Распределение |
+|---|---:|---|---|
+| F-1: чтение staged через process substitution без наблюдения rc; PATH-первый `git diff` | 1 | `case_staged_ne_prochitan` | Scoped-фикстура с rc 127 дала `красное не предъявлено`. Отдельный тот же профиль с двойником rc 127 и rc 1: честный `29c0ee3` дал barrier rc 1 в обоих случаях, слабая копия — rc 0 в обоих. |
+| F-2: `--diff-filter=AM` | 1 | `case_staged_sentr_D`, `case_staged_sentr_R`, `case_staged_tipy_vne_zony`, `case_staged_tozhdestvo_judged` | D/R/T-сентинели; identity-фикстура обнаружила недобор D. |
+| F-3: `--diff-filter=AMDR` | 1 | `case_staged_tipy_vne_zony` | T-сентинель. |
+| F-3: `--diff-filter=AMT` | 1 | `case_staged_sentr_D`, `case_staged_sentr_R`, `case_staged_tozhdestvo_judged` | D/R-сентинели; identity-фикстура обнаружила недобор D. |
+| F-4: судить только первый staged-путь (печать остаётся со-локализованной с судом) | 1 | `case_staged_tozhdestvo_judged`, `case_staged_vtoroj_vne_zony` (также `case_imja_control_simvol`) | K=1 ловится тождеством и вторым вне-зонным путём. |
+
+Тем самым у фильтров есть сентинельное покрытие всех типов A/D/M/R/T и identity-покрытие тех фильтров, которые отбрасывают D; для AMDR единственный отброшенный T представлен T-сентинелем, поскольку identity-вход состоит из A/D/M. K-подобное сужение ловится тождеством.
+
+### Граница standard-A и внутригранные попытки
+
+Расцеплённый свидетель (печатать всё staged, но судить подмножество) не предъявлялся как внутригранный: по standard-A `67fb3b1` он вне границы.
+
+Проверены внутригранные формы, в каждой печать `judged:` остаётся ровно у фактически судимых путей:
+
+| Форма | Результат scoped `check_staged` | Наблюдение |
+|---|---:|---|
+| K=1: остановка judging-loop после первого пути | 1 | `case_staged_tozhdestvo_judged` и `case_staged_vtoroj_vne_zony` красные. |
+| K=2: остановка judging-loop после двух путей | 1 | `case_staged_tozhdestvo_judged` красная: нет положительного контроля после нетождества. |
+| Типовое подмножество `AMDR` | 1 | T-сентинель красный. |
+| Типовое подмножество `AMT` | 1 | D/R-сентинели и тождество красные. |
+
+Ни одна из внутригранных форм не прошла 18/18; внутригранных нет.
+
+### Scoped-прогоны честного `29c0ee3`
+
+| Команда | rc | Наблюдение |
+|---|---:|---|
+| `bash scripts/verify_antiplacebo.sh . --scope check_staged` | 0 | 18/18 |
+| `bash scripts/verify_antiplacebo.sh . --scope check_zones` | 0 | 13/13 |
+| `bash scripts/verify_antiplacebo.sh . --scope check_scope_select` | 0 | 24/24 |
+| `bash scripts/verify_antiplacebo.sh . --scope land_agent` | 0 | 9/9 |
+| `bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches` | 0 | 2/2 |
+| `git diff --exit-code frozen/contracts/018/1..29c0ee3 -- contracts/` | 0 | вывода нет |
