@@ -276,3 +276,51 @@ $ bash scripts/verify_antiplacebo.sh . --scope check_staged
 Для закрытия F-3 нужна отдельная fixture с положительным контролем и
 staged `T`-путём вне зоны; после неё фильтр `--diff-filter=AMDR` обязан давать
 rc 1 «красное не предъявлено».
+
+
+## Круг 4
+
+**Итог: FAIL.** Серия F-2/F-3 закрыта: слабые чтения staged с `--diff-filter=AM`, `--diff-filter=AMDR` и `--diff-filter=AMT` все дают scoped rc 1 на `6203cd4`. Однако финальная пачка из 16 fixture допускает новую слабую реализацию вне форм `--diff-filter`: она проверяет зону только у первого пути staged-множества (грамматику имени проверяет у всех). Полный `--scope check_staged` у этой реализации зелёный 16/16, но вход «первый путь в зоне, второй вне зоны» получает rc 0.
+
+### Три меры закрытия F-2/F-3
+
+Каждая подмена сделана единственной заменой чтения staged в отдельном одноразовом клоне точного `6203cd4`; запускалась команда `bash scripts/verify_antiplacebo.sh . --scope check_staged`.
+
+| Слабое чтение | rc | Дословные строки отказа |
+|---|---:|---|
+| `--diff-filter=AM` | 1 | `FAIL check_staged/case_staged_sentr_D.sh: барьер остался зелёным на обманном дереве — красное не предъявлено`; `FAIL check_staged/case_staged_sentr_R.sh: барьер остался зелёным на обманном дереве — красное не предъявлено`; `FAIL check_staged/case_staged_tipy_vne_zony.sh: повторный прогон покраснел, но не назвал причину «вне зоны: offzone_T.link»` |
+| `--diff-filter=AMDR` | 1 | `FAIL check_staged/case_staged_tipy_vne_zony.sh: повторный прогон покраснел, но не назвал причину «вне зоны: offzone_T.link»` |
+| `--diff-filter=AMT` | 1 | `FAIL check_staged/case_staged_sentr_D.sh: барьер остался зелёным на обманном дереве — красное не предъявлено`; `FAIL check_staged/case_staged_sentr_R.sh: барьер остался зелёным на обманном дереве — красное не предъявлено` |
+
+Следовательно, все три меры дали обязательный scoped rc 1: `AM` предъявил 13/16 красных, `AMDR` — 15/16, `AMT` — 14/16.
+
+### Новая находка — зона судится только у первого staged-пути
+
+**Слабая реализация.** В отдельной копии `scripts/check_staged.sh` после успешных проверки identity, чтения полного staged-множества, проверки стража ветки и канарейки `python3` сохранён исходный цикл грамматики всех путей. Семантическая порча в нём одна: после проверки имени второго и следующих путей выполняется `continue` до `zones_match_path`; зонная проверка работает только на первом пути списка. Это не форма `--diff-filter` и не повтор F-1/F-2/F-3: `git diff` читает полный успешный вывод без фильтра, но слабая реализация применяет зонный вопрос к одному элементу вместо всего staged-множества.
+
+**Полный scoped-прогон.** На этой копии команда `bash scripts/verify_antiplacebo.sh . --scope check_staged` завершилась rc 0: `барьеров: 1 · фикстур: 16 · предъявлено красным повторным прогоном: 16`. Позитивные контроли также прошли; в частности, грамматика control-символа всё ещё применяется ко всем путям, поэтому двухпутевой `case_imja_control_simvol` остаётся красным на втором пути.
+
+**Наблюдающий вход.** Через `fixtures/check_staged/_repo.sh` создан репозиторий с замороженной зоной `implementer: scripts/`. В индекс добавлены два пути: `scripts/a_safe.sh` (первый в выводе `git diff --cached --name-only -z`, в зоне) и `zz_offzone.txt` (второй, вне зоны). На одном и том же входе дословный результат:
+
+```text
+WEAK:
+scripts/
+ok: staged в зоне автора implementer (2 путь/путей)
+HONEST:
+scripts/
+ОТКАЗ: вне зоны: zz_offzone.txt
+rc weak=0 honest=1
+```
+
+Тем самым слабая копия проходит все 16 существующих fixture, но не соблюдает инвариант «staged-множество целиком». Нужна fixture с положительным контролем и минимум двумя staged-путями, где лексически первый принадлежит зоне, а следующий находится вне зоны; она должна требовать `вне зоны:` второго пути.
+
+### Scoped-прогоны честного `6203cd4`
+
+| Команда | rc | Наблюдение |
+|---|---:|---|
+| `bash scripts/verify_antiplacebo.sh . --scope check_staged` | 0 | 16/16 fixture, красное предъявлено повторным прогоном |
+| `bash scripts/verify_antiplacebo.sh . --scope check_zones` | 0 | 13/13 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope check_scope_select` | 0 | 24/24 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope land_agent` | 0 | 9/9 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches` | 0 | 2/2 fixture |
+| `git diff --exit-code frozen/contracts/018/1..6203cd4 -- contracts/` | 0 | вывода нет |
