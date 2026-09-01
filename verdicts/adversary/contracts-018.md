@@ -174,3 +174,105 @@ weak --diff-filter=AM checker: barrier_rc=0
 | `bash scripts/verify_antiplacebo.sh . --scope land_agent` | 0 | 9/9 fixture |
 | `bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches` | 0 | 2/2 fixture |
 | `git diff --exit-code frozen/contracts/018/1..84fae04 -- contracts/` | 0 | вывода нет |
+
+## Круг 3
+
+**Итог: FAIL.** Мера F-2 на `29116ba` работает: слабое чтение только
+`A`/`M` больше не проходит целевой case. Однако пачка из 12 fixture всё ещё
+допускает иной фильтр типов изменения: он читает добавления, модификации,
+удаления и rename, но исключает staged type-change (`T`). Тем самым
+`check_staged` отвечает не на staged-множество целиком, хотя предмет требует
+судить staged-пути без исключения типа изменения.
+
+### Подтверждение закрытия F-2
+
+В одноразовом клоне `/tmp/adv018k3-29116ba` на точном `29116ba` единственной
+семантической подменой `scripts/check_staged.sh` было:
+
+```bash
+git -C "$ROOT" diff --cached --name-only -z --diff-filter=AM \
+  2>/dev/null > "$staged_tmp"
+```
+
+Команда и дословный результат:
+
+```text
+$ bash scripts/verify_antiplacebo.sh . --scope check_staged/case_staged_udalenie_vne_zony
+SCOPED: барьеров 1 из выборки — не для приёмки
+  FAIL check_staged/case_staged_udalenie_vne_zony.sh: барьер остался зелёным на обманном дереве — красное не предъявлено
+
+барьеров: 1 · фикстур: 1 · предъявлено красным повторным прогоном: 0
+```
+
+Команда завершилась rc 1. Это требуемое закрытие: `D offzone.txt` не может
+быть выдан за разрешённый пустой staged-ввод.
+
+### Новая находка F-3 — type-change вне зоны исключён из staged-чтения
+
+**Слабая реализация.** В той же одноразовой копии чтение staged заменено на:
+
+```bash
+git -C "$ROOT" diff --cached --name-only -z --diff-filter=AMDR \
+  2>/dev/null > "$staged_tmp"
+```
+
+Она не повторяет F-2: `D` уже включён. Она исключает класс `T`, который
+`git diff --cached --name-status` выдаёт при замене обычного файла символьной
+ссылкой. Фильтрация успешна (не F-1), но ответ относится лишь к части
+staged-множества.
+
+**Наблюдаемый вход и позитивный контроль.** Подставной репозиторий из
+`fixtures/check_staged/_repo.sh`: `implementer` зонирован только на `scripts/`;
+`offzone.txt` сначала добавлен и закоммичен, затем заменён символьной ссылкой и
+стаджирован. Фактический staged status и результаты честного барьера с
+`29116ba` и слабой копии:
+
+```text
+$ bash tmp/type_change_repro.sh
+cached status: T	offzone.txt
+honest checker: barrier_rc=1
+ОТКАЗ: вне зоны: offzone.txt
+weak --diff-filter=AMDR checker: barrier_rc=0
+нечего судить: staged пуст
+```
+
+Скрипт воспроизведения завершился rc 0, так как различие `1` у честного и `0`
+у слабого барьера является его ожидаемым результатом. Честная минимальная
+реализация тем самым является положительным контролем; слабая реализация не
+делает предмет на том же осмысленном входе.
+
+Полный scoped-прогон этой слабой реализации:
+
+```text
+$ bash scripts/verify_antiplacebo.sh . --scope check_staged
+барьеров: 1 · фикстур: 12 · предъявлено красным повторным прогоном: 12
+```
+
+Команда завершилась rc 0. Все двенадцать перечисленных runner-ом fixture
+получили `ok`, включая F-1, F-2 и пять веточных case. Следовательно, это новый
+контрпример, проходящий всю текущую пачку.
+
+### Испробованные формы
+
+| Форма | Реализация / вход | Результат |
+|---|---|---|
+| Исключение D из staged | `--diff-filter=AM`; staged-удаление `offzone.txt` вне зоны | F-2 закрыта: целевой scoped rc 1, «красное не предъявлено» |
+| Правильный ответ на неполное множество | `--diff-filter=AMDR`; staged `T offzone.txt` вне зоны | F-3: полный scoped `check_staged` rc 0 (12/12), честный барьер rc 1, слабый rc 0 |
+| Нейтрализация стража ветки | В отдельной копии `if [ "$has_own_wip" -eq 1 ]` заменён на `if false` | `case_vetka_rabochij_na_main` rc 1: «барьер остался зелёным … красное не предъявлено» |
+| Отказ `git diff`, инструмент мимо PATH | Замороженный F-1 case в штатном scoped-прогоне | Закрытый, не новый класс: `case_staged_ne_prochitan` предъявлен красным причиной `staged не прочитан` |
+| Пустой staged и подмена/отсутствие `python3` | Зелёные и красные контроли штатной пачки | Закрытые, не новые классы: все соответствующие fixture `ok` |
+
+### Приёмка-судьи v2 на исходном `29116ba`
+
+| Команда | rc | Наблюдение |
+|---|---:|---|
+| `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_staged_udalenie_vne_zony` | 0 | 1/1, красное предъявлено `вне зоны: offzone.txt` |
+| `bash scripts/verify_antiplacebo.sh . --scope check_staged` | 0 | 12/12 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope check_zones` | 0 | 13/13 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope land_agent` | 0 | 9/9 fixture |
+| `bash scripts/verify_antiplacebo.sh . --scope gc_agent_branches` | 0 | 2/2 fixture |
+| `git diff --exit-code frozen/contracts/018/1..29116ba -- contracts/` | 0 | вывода нет |
+
+Для закрытия F-3 нужна отдельная fixture с положительным контролем и
+staged `T`-путём вне зоны; после неё фильтр `--diff-filter=AMDR` обязан давать
+rc 1 «красное не предъявлено».
