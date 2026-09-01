@@ -43,9 +43,18 @@
 # чтением истории ревьюером и адверсарием. Ужесточение — подписанные GPG-теги `ustav-ok/<коммит>`
 # — включается словом владельца, в план 007 не входит.
 #
-# ВТОРОЙ ОСТАТОЧНЫЙ РИСК: merge-коммиты пропускаются. Их содержимое — предмет ревью, а исчезновение
-# файлов держит `check_protected.sh`. Обходить это здесь нельзя дешевле, чем разбирать оба родителя,
-# и такой разбор дал бы ложные отказы на честных слияниях.
+# MERGE-КОММИТЫ (контракт 019, И-7). Прежде check_charter читал историю `rev-list --no-merges`
+# и merge-коммит, вносивший уставную дельту ТОЛЬКО в результат слияния (родители файл не трогали),
+# оставался невидим судье — обход CI check:charter и делегирования check_staged. После 019
+# судимое множество = не-merge (как прежде) + merge-коммиты, судимые по дельте к ПЕРВОМУ
+# родителю. Грамматика razreshil() и вердикты НЕ меняются: разрешённый merge несёт строку
+# РАЗРЕШИЛ в теле merge-коммита, evil merge без строки — «изменён без разрешения владельца».
+#
+# is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
+# уставного класса — AGENTS.md/ROADMAP.md при живом теге ustav/1; plans/NNN-*.md/contracts/NNN-*.md
+# при живом теге frozen/<dir>/<NNN>/1. Предикат экспортируется библиотекой и импортируется
+# check_staged через `CHARTER_LIB=1 source check_charter.sh` — вторая реализация кольца
+# запрещена (прецедент lib_zones/lib_registry).
 #
 #   bash scripts/check_charter.sh            проверить это дерево
 #   bash scripts/check_charter.sh <корень>   проверить другое (так предъявляется красным)
@@ -64,6 +73,62 @@ NEXT_ID_LIB=1
 . "$SELF_DIR/next_id.sh"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_registry.sh"
+
+# ── БИБЛИОТЕЧНЫЕ ФУНКЦИИ (контракт 019, ветвь 1, И-7) ─────────────────────────
+#
+# is_charter_path <ПУТЬ> <КОРЕНЬ> — предикат уставного класса (rc 0/1/2).
+#   AGENTS.md/ROADMAP.md при живом теге ustav/1;
+#   plans/NNN-*.md/contracts/NNN-*.md при живом теге frozen/<dir>/<NNN>/1
+#   (NNN — parse_artifact_basename rc 0, ровно три цифры).
+#   Реализация — та же логика, что в построении $TMP/pairs ниже, вынесена чтобы
+#   check_staged мог делегировать устав без своей копии кольца.
+is_charter_path() {
+  local path="$1" root="$2"
+  local dir base nnn ARTIFACT_NUMBER_LOC
+  case "$path" in
+    AGENTS.md|ROADMAP.md)
+      git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 2
+      git -C "$root" rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null
+      ;;
+    plans/*|contracts/*)
+      git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 2
+      dir="${path%%/*}"; base="${path##*/}"
+      [ "$dir/$base" = "$path" ] || return 1
+      ARTIFACT_NUMBER_LOC=""
+      parse_artifact_basename "$base" 2>/dev/null || return 1
+      [ -n "$ARTIFACT_NUMBER_LOC" ] || return 1
+      nnn="$(printf '%03d' "$ARTIFACT_NUMBER_LOC")"
+      git -C "$root" rev-parse --verify --quiet "refs/tags/frozen/$dir/$nnn/1" >/dev/null
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# charter_diff_paths <КОММИТ> <КОРЕНЬ> — пути, изменённые/удалённые в коммите
+# относительно ПЕРВОГО родителя (для merge) или единственного родителя (для
+# не-merge). `git diff-tree <merge>` без явного родителя возвращает пусто (git
+# optimization), и явный `^1 <merge>` нужен только для merge. Корневой коммит —
+# без ^1, diff-tree против пустого дерева.
+charter_diff_paths() {
+  local c="$1" root="$2"
+  if git -C "$root" rev-parse --verify --quiet "${c}^1" >/dev/null 2>&1; then
+    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "${c}^1" "$c" 2>/dev/null
+  else
+    git -C "$root" diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" 2>/dev/null
+  fi
+}
+
+# ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
+# Когда скрипт импортируется (`CHARTER_LIB=1 source check_charter.sh`),
+# определяются функции `is_charter_path`, `charter_diff_paths`, `razreshil`
+# и работа завершается. Иначе — основной код. `set -e` основного скрипта НЕ
+# снимается: check_staged не должен падать на rc=1 от `razreshil` (это «нет
+# разрешения», а не сбой).
+if [ "${CHARTER_LIB:-}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 
@@ -111,7 +176,7 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       # Разделитель после закрывающей кавычки ОБЯЗАТЕЛЕН. Адверсарий предъявил: строка
       # `"ROADMAP.md"причина` без пробела принималась — грамматика объявлена как
       # `<путь> <непустая причина>`, и форма без разделителя ею не покрыта. Принять её значило
-      # расширить язык разрешения молча (правило 7 нормы).
+      # бы расширить язык разрешения молча (правило 7 нормы).
       if [ -n "$reason" ] && ! [[ "$reason" == [[:space:]]* ]]; then
         bad "строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в ${c:0:8} вне грамматики: после закрывающей кавычки пути обязан стоять пробел-разделитель — «$line»"
         continue
@@ -165,14 +230,16 @@ while IFS=$'\t' read -r f since; do
   [ -n "$f" ] || continue
   docs=$((docs + 1))
   doc_fails_before="$fails"
-  # Merge пропускается: `--no-merges`. Риск записан в шапке.
-  g rev-list --no-merges "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
+  # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
+  # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
+  # `diff-tree <c>`).
+  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
     # есть мера меняла бы результат от настроек читателя.
-    g diff-tree -r --no-commit-id --name-only --no-renames --diff-filter=MD "$c" \
-      | grep -qxF -- "$f" || continue
+    charter_diff_paths "$c" "$ROOT" | grep -qxF -- "$f" || continue
     changes=$((changes + 1))
     if razreshil "$c" "$f"; then
       excused=$((excused + 1))
