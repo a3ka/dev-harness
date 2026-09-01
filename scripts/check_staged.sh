@@ -7,10 +7,18 @@
 # (файл с именем-обрывком «открытые с адресами:\n» ушёл в коммит, чистка стоила force-push'а
 # и 2 красных CI-циклов).
 #
-# ЧТО СУДИТСЯ. Два входа (документация Q1):
+# ЧТО СУДИТСЯ. Три входа (документация Q1 + контракт 019):
 #   * staged-путь вне зон КОММЯЩЕГО АВТОРА → «вне зоны: <путь>»;
 #   * control-символ (U+0000–U+001F, U+007F) в ИМЕНИ staged-пути → «имя с control-символом» —
 #     ВКЛЮЧАЯ случай внутри зоны: префикс-матч зон пропускает обрывок, грамматика имени ловит.
+#   * контракт 019 (Н-72): staged-путь УСТАВНОГО класса у зонированного автора —
+#     ДЕЛЕГИРОВАНИЕ check_charter: rc и текст вердикта наследуются (грамматика razreshil —
+#     единый источник). Предикат — `is_charter_path` из check_charter.sh (CHARTER_LIB=1);
+#     вторая реализация кольца запрещена.
+#   * контракт 019 (Н-72, расширение): staged `contracts/<NNN>-*.md` под автором `architect`,
+#     где NNN — СЛЕДУЮЩИЙ свободный номер класса CONTRACT по `next_id_peek` (peek без
+#     резервации тега — мера не меняет предмет) — пропускается без суда зон: зоны нового
+#     контракта живут в его собственном файле и неактивны до заморозки.
 #
 # ЧТО НЕ СУДИТСЯ (документация Q1, явно). staged пуст → «нечего судить». Автор не объявлен ни
 # в одной заморозке → «не судится» (та же семантика, что у check_zones: владелец и прошлые
@@ -58,6 +66,17 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_zones.sh"
+# Контракт 019, ветвь 2: next_id_peek — для draft-пуска architect под contracts/<next>-*.md.
+# peek НЕ создаёт тегов `id/CONTRACT/*` (peek без резерва — мера не меняет предмет).
+NEXT_ID_LIB=1
+CHARTER_LIB=1
+# shellcheck disable=SC1091
+. "$SELF_DIR/next_id.sh"
+# shellcheck disable=SC1091
+. "$SELF_DIR/check_charter.sh"
+# Снимаем `set -e`, который попал из check_charter.sh через `set -euo pipefail` ПЕРЕД
+# import-gate. Без `set -e` последующие ветвления и `|| true` работают как прежде.
+set +e
 
 ROOT="${1:-$SELF_DIR/..}"
 case "$ROOT" in
@@ -220,6 +239,16 @@ if [ "$cc_rc" -ne 0 ] || [ "$cc_out" != "1" ] || [ "$cl_rc" -ne 1 ] || [ "$cl_ou
   exit 1
 fi
 rc=0
+# Контракт 019 (ветвь 2): next_id_peek для класса CONTRACT — ОДИН РАЗ за прогон, не на
+# каждый staged-путь. peek без резервации (мера не меняет предмет): иначе архитекторский
+# прогон check_staged создавал бы тег id/CONTRACT/<NNN>, и выданный тег уезжал бы в реестр
+# и появлялся в check_ids как «номер назначен механизмом». Иммутабельность числа для всей
+# пачки staged — желаемая (peek возвращает одно число для всей пачки).
+draft_next=""
+if [ "$author" = "architect" ]; then
+  draft_next="$(next_id_peek "$ROOT" CONTRACT 2>/dev/null || true)"
+fi
+
 for f in "${staged[@]}"; do
   m="$(printf '%s' "$f" | _py_check)"
   if [ "$m" = "1" ]; then
@@ -227,6 +256,45 @@ for f in "${staged[@]}"; do
     rc=1
     continue
   fi
+
+  # ── Контракт 019, ветвь 1: уставной класс → делегирование check_charter ─────
+  # Предикат is_charter_path (CHARTER_LIB=1) проверяет живой тег ustav/1 или
+  # frozen/<dir>/<NNN>/1. Делегирование: запускаем check_charter.sh на корне, наследуем
+  # rc и ВЫВОД — именованные причины «изменён без разрешения владельца», «не назвала путь»,
+  # «без причины» (грамматика razreshil — единый источник в check_charter.sh, фикстура
+  # грамматику не переизобретает). rc 0 → путь пропущен; ненулевой → отказ с наследованным
+  # текстом. ok-строка check_charter с числом просмотренных коммитов проходит наверх.
+  charter_rc=0
+  if is_charter_path "$f" "$ROOT"; then
+    printf 'judged: %s (делегировано check_charter)\n' "$f"
+    charter_out="$(bash "$SELF_DIR/check_charter.sh" "$ROOT" 2>&1)" || charter_rc=$?
+    printf '%s' "$charter_out"
+    if [ "$charter_rc" -ne 0 ]; then
+      rc=1
+    fi
+    continue
+  fi
+
+  # ── Контракт 019, ветвь 2: draft next-id под architect ─────────────────────
+  # contracts/<NNN>-*.md (NNN — три цифры из parse_artifact_basename) и NNN == peek →
+  # путь пропущен (не судится зонами: зоны нового контракта живут в его собственном
+  # файле и неактивны до заморозки). Чужой автор / не-следующий номер — прежний зонный
+  # суд (отказ «вне зоны» ДО и ПОСЛЕ фикса). Peek при нечисловом пути, при пустой
+  # выдаче (NOT_IMPLEMENTED), при ошибке — НЕ пускает: draft-ветка открыта ТОЛЬКО когда
+  # peek реально назвал следующий номер.
+  if [ -n "$draft_next" ] && [ "$author" = "architect" ]; then
+    case "$f" in
+      contracts/[0-9][0-9][0-9]-*)
+        dir="${f%%/*}"; base="${f##*/}"
+        path_nnn="${base%%-*}"
+        if [ "$path_nnn" = "$draft_next" ]; then
+          printf 'judged: %s (draft next-id пропущен под architect)\n' "$f"
+          continue
+        fi
+        ;;
+    esac
+  fi
+
   # Зона автора. Каталог-префикс совпадает матчем префикса; точный файл — равенством.
   # Со-локализованная печать «напечатано ⟺ судимо» (контракт 018, класс-замыкающее усиление
   # F-4): строка `judged: <путь>` идёт НЕПОСРЕДСТВЕННО ПЕРЕД zones_match_path, в той же итерации;

@@ -264,18 +264,21 @@ next_id_max_for_class() {
     fi
   done < <(git -C "$root" for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null || true)
 
-  # Источник 3: файлы на HEAD (рекурсивно)
-  local d f base
+  # Источник 3: файлы на HEAD (рекурсивно через `git ls-tree`, НЕ через `find`).
+  # Контракт 019: peek судит по тегам/веткам/HEAD/истории, НЕ по индексу: staged draft —
+  # сам себе следующий номер. `find` ходил бы по РАБОЧЕМУ дереву и съел бы staged-файл
+  # задним числом (002-draft.md виден find'у, и peek возвращал 003 — не совпадал со
+  # staged 002). `git ls-tree -r HEAD` читает дерево коммита, без staged.
+  local f base path_in_tree
   for loc in "${locations[@]}"; do
-    d="$root/$loc"
-    [ -d "$d" ] || continue
-    while IFS= read -r f; do
-      [ -n "$f" ] || continue
+    while IFS= read -r path_in_tree; do
+      [ -n "$path_in_tree" ] || continue
+      f="$path_in_tree"
       base="${f##*/}"
       parse_artifact_basename "$base" || true
       [ -n "${ARTIFACT_NUMBER:-}" ] || continue
       [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
-    done < <(find "$d" -type f 2>/dev/null)
+    done < <(git -C "$root" ls-tree -r --name-only "HEAD" -- "$loc" 2>/dev/null              | awk -v loc="$loc" '"'"'$0 ~ "^" loc { print }'"'"')
   done
 
   # Источник 4: пути в достижимой истории (рекурсивно по локациям)

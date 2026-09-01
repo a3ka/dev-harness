@@ -84,7 +84,7 @@ NEXT_ID_LIB=1
 #   check_staged мог делегировать устав без своей копии кольца.
 is_charter_path() {
   local path="$1" root="$2"
-  local dir base nnn ARTIFACT_NUMBER_LOC
+  local dir base nnn ARTIFACT_NUMBER_SAVED
   case "$path" in
     AGENTS.md|ROADMAP.md)
       git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 2
@@ -94,10 +94,19 @@ is_charter_path() {
       git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 2
       dir="${path%%/*}"; base="${path##*/}"
       [ "$dir/$base" = "$path" ] || return 1
-      ARTIFACT_NUMBER_LOC=""
-      parse_artifact_basename "$base" 2>/dev/null || return 1
-      [ -n "$ARTIFACT_NUMBER_LOC" ] || return 1
-      nnn="$(printf '%03d' "$ARTIFACT_NUMBER_LOC")"
+      # parse_artifact_basename пишет в глобальный ARTIFACT_NUMBER (его контракт); сохраняем
+      # и восстанавливаем, чтобы не вытекать в caller.
+      ARTIFACT_NUMBER_SAVED="${ARTIFACT_NUMBER:-}"
+      if ! parse_artifact_basename "$base" 2>/dev/null; then
+        ARTIFACT_NUMBER="$ARTIFACT_NUMBER_SAVED"
+        return 1
+      fi
+      if [ -z "${ARTIFACT_NUMBER:-}" ]; then
+        ARTIFACT_NUMBER="$ARTIFACT_NUMBER_SAVED"
+        return 1
+      fi
+      nnn="$(printf '%03d' "$ARTIFACT_NUMBER")"
+      ARTIFACT_NUMBER="$ARTIFACT_NUMBER_SAVED"
       git -C "$root" rev-parse --verify --quiet "refs/tags/frozen/$dir/$nnn/1" >/dev/null
       ;;
     *)
