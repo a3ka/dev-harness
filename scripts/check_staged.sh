@@ -108,8 +108,20 @@ if [ -z "$author" ]; then
 fi
 
 # staged-пути читаются NULL-разделённым списком из git diff --cached. Пустая выборка — законное
-# «нечего судить».
-mapfile -d '' staged < <(git -C "$ROOT" diff --cached --name-only -z 2>/dev/null)
+# «нечего судить». Отказ git diff (rc≠0) маскировался пустым stdout в подстановке (находка F-1
+# адверсария, verdicts/adversary/contracts-018.md): пустой массив mapfile неотличим от успешного
+# пустого входа, и зонированный автор с чужой wip-веткой получал rc 0 на непрочитанном staged.
+# Теперь rc процесса фиксируется ДО ветви «staged пуст» — fail-closed с литералом «staged не
+# прочитан» (Н-39, единый источник — шапка fixtures/check_staged/case_staged_ne_prochitan.sh).
+# stderr git приглушён: rc обязан быть наблюдён, а текст диагностики свой.
+staged_tmp="$(mktemp)" || { printf 'NOT_IMPLEMENTED: mktemp не сработал\n' >&2; exit 2; }
+trap 'rm -f "$staged_tmp"' EXIT
+git -C "$ROOT" diff --cached --name-only -z 2>/dev/null > "$staged_tmp"; diff_rc=$?
+if [ "$diff_rc" -ne 0 ]; then
+  printf 'ОТКАЗ: staged не прочитан (git diff --cached --name-only -z завершился кодом %d)\n' "$diff_rc" >&2
+  exit 1
+fi
+mapfile -d '' staged < "$staged_tmp"
 if [ "${#staged[@]}" -eq 0 ]; then
   printf 'нечего судить: staged пуст\n'
   exit 0
