@@ -106,3 +106,71 @@ co_wip() {  # <корень> <ветка>
 detach_head() {  # <корень>
   g "$1" checkout -q --detach main
 }
+
+# ── помощники контракта 019 (Н-72: делегирование устава → check_charter) ────────
+#
+# make_repo_ustav: как make_repo, но устав ВВЕДЁН — тег ustav/1 стоит на коммите,
+# который вносит AGENTS.md/ROADMAP.md. С этого тега живёт область check_charter:
+# правки уставных файлов позже тега судятся строкой РАЗРЕШИЛ-ВЛАДЕЛЕЦ, а не зонами.
+make_repo_ustav() {  # <корень>
+  local r="$1"
+  make_repo "$r"
+  printf '# норма системы\n' > "$r/AGENTS.md"
+  printf '# роадмап\n' > "$r/ROADMAP.md"
+  g "$r" add -- AGENTS.md ROADMAP.md
+  g "$r" commit -q -m 'введение уставных документов'
+  g "$r" tag -a ustav/1 -m 'устав введён'
+}
+
+# ustav_change <корень> <файл> <сообщение>: закоммитить правку уставного файла ПОСЛЕ
+# тега ustav/1 (хуки репо выключены — историю строит фикстура, судит её $BARRIER).
+# Сообщение передаётся ДОСЛОВНО: со строкой РАЗРЕШИЛ-ВЛАДЕЛЕЦ в грамматике
+# check_charter правка разрешена, без неё — нарушение; грамматика строки — единый
+# источник check_charter, фикстура её не переизобретает.
+ustav_change() {  # <корень> <файл> <сообщение>
+  local r="$1" f="$2"
+  printf 'строка правки устава\n' >> "$r/$f"
+  g "$r" add -- "$f"
+  g "$r" commit -q -m "$3"
+}
+
+# make_repo_archzone: как make_repo, но замороженный контракт несёт и зону architect
+# (plans/) — автор architect в этом репо ЗОНДИРОВАН, суд путей доходит до ветки
+# draft-пуска контракта 019. Без зоны автор прошёл бы «не судится» ДО суда путей, и
+# зелёный контроль не упражнял бы предмет (плацебо-зелёное, урок ЗЗ контракта 018).
+make_repo_archzone() {  # <корень>
+  local r="$1"
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m 'основание: контракт и зоны исполнителя с архитектором'
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+}
+
+# make_repo_koltso: make_repo_ustav + замороженный план plans/001-p.md (тег первой
+# заморозки frozen/plans/001/1). Кольцо уставного класса (019 v2, блокер 2 критика
+# :123) требует входов на ОБЕИХ классах артефактов: contracts/001-x.md уже заморожен
+# в make_repo (тег frozen/contracts/001/1), plans/ замораживается здесь — правка
+# замороженного плана после тега есть уставной класс, путь БЕЗ тега — черновик под
+# прежним зонным судом. Коммит плана идёт ПОСЛЕ ustav/1: добавление (A) свободно,
+# точка уставности — только тег.
+make_repo_koltso() {  # <корень>
+  local r="$1"
+  make_repo_ustav "$r"
+  mkdir -p "$r/plans"
+  printf 'предмет плана, критерий готовности\n' > "$r/plans/001-p.md"
+  g "$r" add -- plans/001-p.md
+  g "$r" commit -q -m 'план 001 написан и утверждён'
+  g "$r" tag -a frozen/plans/001/1 -m 'план утверждён'
+}

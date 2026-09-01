@@ -11,17 +11,20 @@
 # механизмом».
 #
 # Класс → куда он кладётся:
-#   PLAN    → plans/                       — планы в корне репозитория;
-#   VERDICT → verdicts/<роль>/             — пути ЧИТАЮТСЯ из roles/*.md (поле `verdict:`),
-#                                             а не задаются вторым списком: правило «область
-#                                             проверки важнее её порога» из плана 005 §1
-#                                             здесь стоит прямо — список, набранный руками,
-#                                             отстаёт от предмета молча;
-#   ADR     → decisions/                   — каталога ещё нет, но в plan 006 будущая роль
-#                                             `steward` ведёт записи решений там же. Решено
-#                                             здесь, потому что место должно быть одно на
-#                                             все классы: разные пути создали бы ещё один
-#                                             список руками.
+#   PLAN     → plans/                       — планы в корне репозитория;
+#   VERDICT  → verdicts/<роль>/             — пути ЧИТАЮТСЯ из roles/*.md (поле `verdict:`),
+#                                              а не задаются вторым списком: правило «область
+#                                              проверки важнее её порога» из плана 005 §1
+#                                              здесь стоит прямо — список, набранный руками,
+#                                              отстаёт от предмета молча;
+#   ADR      → decisions/                   — каталога ещё нет, но в plan 006 будущая роль
+#                                              `steward` ведёт записи решений там же. Решено
+#                                              здесь, потому что место должно быть одно на
+#                                              все классы: разные пути создали бы ещё один
+#                                              список руками;
+#   CONTRACT → contracts/                   — контракт майлстоуна: предмет, критерий готовности,
+#                                              зоны исполнителей. Отсутствующий каталог ЗАКОНЕН —
+#                                              первый контракт заводится этой же выдачей.
 #
 # Номер — максимум плюс один по ОБЪЕДИНЕНИЮ источников:
 #   1. теги `refs/tags/id/<КЛАСС>/*` — РЕГИСТР ВЫДАЧИ, и разрывы не занимаются: номер, чей
@@ -88,6 +91,14 @@
 #   общая атомарность достигается не выдачей, а сверкой: локальная резервация даёт
 #   уникальность внутри клона, а сверка ловит дубль при слиянии.
 # ────────────────────────────────────────────────────────────────────────────
+#
+# next_id_peek <КОРЕНЬ> <КЛАСС> (контракт 019, ветвь 2, Н-72): то же вычисление max+1,
+# что и режим issue, но БЕЗ резервации тега `id/<КЛАСС>/<NNN>`. Резервация — побочный
+# эффект ВЫДАЧИ, и судья check_staged, делегирующий draft-пуск архитектора, не должен
+# занимать номера на каждом прогоне (мера изменила бы предмет: выданный тег уехал бы в
+# реестр и появился в `check_ids`). Peek читает те же четыре источника max+1, что и
+# выдача, через ЕДИНСТВЕННУЮ реализацию `next_id_max_for_class` — расхождение двух
+# разборов одного формата здесь так же невозможно, как и в выдаче.
 #
 # ГЕРМЕТИЧНОСТЬ ОТ ВНЕШНЕГО РЕПОЗИТОРИЯ. Скрипт снимает `GIT_DIR`, `GIT_WORK_TREE`,
 # `GIT_INDEX_FILE`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`,
@@ -160,11 +171,173 @@ parse_artifact_basename() {
   return 1
 }
 
+# ── РАЗДЕЛЯЕМЫЕ ПОМОЩНИКИ (контракт 019, ветвь 2) ─────────────────────────────
+#
+# next_id_locations_for_class <КЛАСС> <КОРЕНЬ>
+#   Печатает локации класса, РАЗДЕЛЁННЫЕ NUL, в stdout. Один источник истины и для
+#   выдачи, и для peek — раньше локации жил в case-блоке основного кода, и перенос
+#   в peek породил бы дрейф (находка 5 по `parse_artifact_basename`, тот же класс).
+#   VERDICT читается из roles/*.md через lib_roles.sh; без `roles/` peek выдаёт
+#   rc 2 — NOT_IMPLEMENTED, как и выдача. Логика — дословно та же, что была в
+#   основном коде. Rc: 0 — ок; 2 — нет roles/ для VERDICT; 3 — неверная грамматика;
+#   4 — неизвестный класс.
+next_id_locations_for_class() {
+  local cls="$1" root="$2"
+  case "$cls" in
+    PLAN)
+      printf 'plans/\0'
+      ;;
+    VERDICT)
+      local libdir selfdir
+      selfdir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      libdir="$selfdir/lib_roles.sh"
+      # shellcheck disable=SC1091
+      . "$libdir" || return 1
+      if [ ! -d "$root/roles" ]; then return 2; fi
+      local status path value
+      while IFS=$'\t' read -r status path value; do
+        case "$status" in
+          ok)   printf '%s\0' "$value" ;;
+          null) ;;
+          invalid) return 3 ;;
+        esac
+      done < <(role_declarations "$root")
+      ;;
+    ADR)
+      printf 'decisions/\0'
+      ;;
+    CONTRACT)
+      printf 'contracts/\0'
+      ;;
+    *)
+      return 4
+      ;;
+  esac
+}
+
+# next_id_max_for_class <КОРЕНЬ> <КЛАСС>
+#   Печатает максимальный занятый номер класса в stdout; rc 0. Те же четыре источника,
+#   что и выдача (теги выдачи, имена ссылок, файлы на HEAD, файлы в истории) — единый
+#   источник max+1. Без резервации: peek обязан не создавать тегов (мера не меняет
+#   предмет). Без `git` — rc 1, NOT_IMPLEMENTED. Без roles/ для VERDICT — rc 2.
+#
+#   Распаковка локаций идёт через `$()` + `<<<`, а не `< <(...)`: процесс-подстановка
+#   возвращает rc `read`, а не функции, и peek не различил бы «нет roles/» (rc 2) и
+#   «неизвестный класс» (rc 4) — обе локации пустые, и оба пути читались бы как
+#   «локаций нет, return 2».
+next_id_max_for_class() {
+  local root="$1" cls="$2"
+  command -v git >/dev/null 2>&1 || return 1
+  git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 1
+
+  local -a locations=()
+  local loc fn_rc=0
+  # Сохраняем вывод во временный файл: $() съедает NUL, а локации — NUL-разделённые.
+  # `|| fn_rc=$?` снимает «set -e» на случай ненулевого rc функции.
+  local loc_tmp
+  loc_tmp="$(mktemp 2>/dev/null || echo /dev/null)"
+  next_id_locations_for_class "$cls" "$root" 2>/dev/null > "$loc_tmp" || fn_rc=$?
+  if [ "$fn_rc" -ne 0 ]; then rm -f "$loc_tmp"; return "$fn_rc"; fi
+  while IFS= read -r -d '' loc; do
+    [ -n "$loc" ] && locations+=("$loc")
+  done < "$loc_tmp"
+  rm -f "$loc_tmp"
+  [ "${#locations[@]}" -gt 0 ] || return 2
+
+  local max=0
+
+  # Источник 1: теги выдачи
+  while IFS= read -r tag; do
+    [ -n "$tag" ] || continue
+    if [[ "$tag" =~ id/[^/]+/([0-9]+)$ ]]; then
+      local n=$((10#${BASH_REMATCH[1]}))
+      [ "$n" -gt "$max" ] && max="$n"
+    fi
+  done < <(git -C "$root" for-each-ref --format='%(refname:short)' "refs/tags/id/$cls/" 2>/dev/null || true)
+
+  # Источник 2: имена ссылок
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    if [[ "$ref" =~ ([0-9]+) ]]; then
+      local n=$((10#${BASH_REMATCH[1]}))
+      [ "$n" -gt "$max" ] && max="$n"
+    fi
+  done < <(git -C "$root" for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null || true)
+
+  # Источник 3: файлы на HEAD (рекурсивно через `git ls-tree`, НЕ через `find`).
+  # Контракт 019: peek судит по тегам/веткам/HEAD/истории, НЕ по индексу: staged draft —
+  # сам себе следующий номер. `find` ходил бы по РАБОЧЕМУ дереву и съел бы staged-файл
+  # задним числом (002-draft.md виден find'у, и peek возвращал 003 — не совпадал со
+  # staged 002). `git ls-tree -r HEAD` читает дерево коммита, без staged.
+  local f base path_in_tree
+  for loc in "${locations[@]}"; do
+    while IFS= read -r path_in_tree; do
+      [ -n "$path_in_tree" ] || continue
+      f="$path_in_tree"
+      base="${f##*/}"
+      parse_artifact_basename "$base" || true
+      [ -n "${ARTIFACT_NUMBER:-}" ] || continue
+      [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
+    done < <(git -C "$root" ls-tree -r --name-only "HEAD" -- "$loc" 2>/dev/null              | awk -v loc="$loc" '"'"'$0 ~ "^" loc { print }'"'"')
+  done
+
+  # Источник 4: пути в достижимой истории (рекурсивно по локациям)
+  local joined="${locations[*]}"
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    base="${path##*/}"
+    parse_artifact_basename "$base" || true
+    [ -n "${ARTIFACT_NUMBER:-}" ] || continue
+    [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
+  done < <(git -C "$root" log --all --diff-filter=A --name-only --format= 2>/dev/null \
+           | awk -v locs="$joined" '
+               BEGIN { for (i=1; i<=split(locs, arr, " "); i++) { locs_arr[i]=arr[i] } }
+               {
+                 for (i=1; i<=length(locs_arr); i++) {
+                   l = locs_arr[i]
+                   if (length($0) > length(l) && substr($0, 1, length(l)) == l) {
+                     print
+                     break
+                   }
+                 }
+               }' || true)
+
+  printf '%d\n' "$max"
+}
+
+# next_id_peek <КОРЕНЬ> <КЛАСС>
+#   Печатает СЛЕДУЮЩИЙ свободный номер класса ТОЛЬКО если max в источниках < 999.
+#   Без резервации тега — peek не занимает номер. Используется check_staged для
+#   draft-пуска архитектора (ветвь 2, Н-72): контракт следующего номера под
+#   architect пропускается, чужой автор — прежний зонный суд. План 005 §1
+#   («область важнее порога») здесь не действует: peek ОБЯЗАН знать все
+#   источники max+1, иначе два peek'а одного NNN не поймает `check_ids` (ловца
+#   downstream — пункт §После реализации контракта 019).
+#
+#   Коды возврата:
+#     0 — номер напечатан в stdout (3 цифры, формат %03d);
+#     2 — NOT_IMPLEMENTED (нет git / нет roles/ для VERDICT / класс неизвестен);
+#     1 — следующий номер превысил бы 999 (формат не расширяется).
+next_id_peek() {
+  local root="$1" cls="$2" rc
+  local max
+  max="$(next_id_max_for_class "$root" "$cls")" || rc=$?
+  # Единый NOT_IMPLEMENTED (rc 2): max возвращает 2 для no-roles/ и 4 для неизвестного класса,
+  # обе ситуации для судьи check_staged — «нечем судить» (peek не при чём).
+  if [ -n "${rc:-}" ]; then return 2; fi
+  local next=$((max + 1))
+  if [ "$next" -gt 999 ]; then
+    return 1
+  fi
+  printf '%03d\n' "$next"
+}
+
 # ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
-# Когда скрипт импортируется (`NEXT_ID_LIB=1 source next_id.sh`), определяется функция
-# `parse_artifact_basename` и работа завершается. Иначе — основной код. Так одна
-# реализация разбора имени живёт ровно в одном месте, и расхождение двух разборов
-# одного формата невозможно по построению.
+# Когда скрипт импортируется (`NEXT_ID_LIB=1 source next_id.sh`), определяются функции
+# `parse_artifact_basename`, `next_id_locations_for_class`, `next_id_max_for_class` и
+# `next_id_peek` и работа завершается. Иначе — основной код. Так одна реализация
+# разбора имени и одна реализация max+1 живут ровно в одном месте, и расхождение
+# двух разборов одного формата невозможно по построению.
 #
 # Возврат стоит ДО `set -euo pipefail`: если бы `set -e` стоял выше, любая функция
 # библиотеки, вернувшая код 1 (например, `parse_artifact_basename` для безномерного
@@ -192,7 +365,7 @@ mode="issue"
 root_given=0
 case "${1:-}" in
   "")
-    die "требуется аргумент — класс (PLAN, VERDICT, ADR); получено: 0"
+    die "требуется аргумент — класс (PLAN, VERDICT, ADR, CONTRACT); получено: 0"
     ;;
   --backfill)
     mode="backfill"
@@ -220,53 +393,32 @@ case "${1:-}" in
     esac
     ;;
   *)
-    [ "$#" -eq 1 ] || die "требуется один аргумент — класс (PLAN, VERDICT, ADR); получено: $#"
+    [ "$#" -eq 1 ] || die "требуется один аргумент — класс (PLAN, VERDICT, ADR, CONTRACT); получено: $#"
     class="$1"
     ;;
 esac
 unset root_given
 
-# ── локации класса ─────────────────────────────────────────────────────────────
+# ── локации класса (через общий помощник next_id_locations_for_class) ──────────
 # VERDICT: пути читаются из ролей. Захардкоженный список отстал бы от новой роли молча —
 # это правило уже выстрелило (там три имени заданы списком и четвёртое пропущено), и здесь
 # будет то же. Если `roles/` нет — отказ с названной причиной.
 locations=()
-case "$class" in
-  PLAN)
-    locations=("plans/")
-    ;;
-  VERDICT)
-    # Локации выводятся из объявлений ролей ЕДИНСТВЕННОЙ реализацией грамматики
-    # (`scripts/lib_roles.sh`). Прежняя редакция выхватывала значение однострочным `grep` по
-    # `roles/*.md`: фронтматтер не читался, значение не валидировалось, подкаталоги не
-    # обходились — и роль с `verdict: verdicts/*/` МОЛЧА выпадала из области. Найдено
-    # ревьюером (`verdicts/review/shag-5.md`, находка 3); неразобранное объявление — отказ.
-    # От САМОГО скрипта, а не от проверяемого дерева: `$HERE` — корень, названный аргументом,
-    # и подключение оттуда означало бы, что код барьера приходит из предмета проверки.
-    . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_roles.sh"
-    [ -d "$HERE/roles" ] || skip "нет каталога roles/ — для VERDICT локации выводятся из verdict: ролей"
-    while IFS=$'\t' read -r status path value; do
-      case "$status" in
-        ok)      locations+=("$value") ;;
-        null)    ;;
-        invalid) die "роль вне объявленной грамматики: $path значение «$value» — префикс обязан завершаться /, быть относительным, без шаблонов и ..; выход: привести к грамматике" ;;
-      esac
-    done < <(role_declarations "$HERE")
-    [ "${#locations[@]}" -gt 0 ] \
-      || skip "ни одна роль не объявила verdict: кроме null — VERDICT выдавать некуда"
-    ;;
-  ADR)
-    locations=("decisions/")
-    ;;
-  # Контракт майлстоуна: предмет, критерий готовности, зоны исполнителей. Отсутствующий каталог
-  # ЗАКОНЕН — первый контракт заводится этой же выдачей, и максимум тогда берётся по тегам
-  # `id/CONTRACT/*`, как у любой пустой локации.
-  CONTRACT)
-    locations=("contracts/")
-    ;;
-  *)
-    die "неизвестный класс: '$class' (допустимо: PLAN, VERDICT, ADR, CONTRACT)"
-    ;;
+loc_rc=0
+# Сохраняем вывод во временный файл: $() съедает NUL, а локации — NUL-разделённые.
+# `|| loc_rc=$?` снимает «set -e» на случай ненулевого rc функции: иначе скрипт
+# упал бы ДО case-блока и rc был бы неотличим от внешней ошибки.
+loc_tmp="$(mktemp 2>/dev/null || echo /dev/null)"
+next_id_locations_for_class "$class" "$HERE" 2>/dev/null > "$loc_tmp" || loc_rc=$?
+while IFS= read -r -d '' loc; do
+  [ -n "$loc" ] && locations+=("$loc")
+done < "$loc_tmp"
+rm -f "$loc_tmp"
+case "$loc_rc" in
+  0) ;;
+  2) skip "нет каталога roles/ — для VERDICT локации выводятся из verdict: ролей" ;;
+  3) die "роль вне объявленной грамматики — префикс обязан завершаться /, быть относительным, без шаблонов и ..; выход: привести к грамматике" ;;
+  *) die "неизвестный класс: '$class' (допустимо: PLAN, VERDICT, ADR, CONTRACT)" ;;
 esac
 
 # ── текущий репозиторий и HEAD ────────────────────────────────────────────────
@@ -306,70 +458,9 @@ if [ "$mode" = "backfill" ]; then
   exit 0
 fi
 
-# ── вычисление максимума по объединению источников ────────────────────────────
-# Все источники дают ЧИСЛО, ведущие нули снимаются через `10#`. Цикл по тегам читает
-# `refs/tags/id/<КЛАСС>/*`; цикл по веткам берёт ЛЮБОЕ первое число из имени (на случай
-# `42-foo`); цикл по HEAD и по истории — рекурсивный, по тому же правилу (через
-# `parse_artifact_basename`). `7-x.md` и `0007-x.md` — оба число 7, и оба идут в max;
-# безномерные (`mech-1-...md`, `2026-08-17-x.md`) идут мимо.
-max=0
-
-# Источник 1: теги выдачи. Это РЕГИСТР, и именно он обеспечивает атомарность и
-# неповторяемость: при гонке проигравший пересчитывает max и видит тег победителя.
-while IFS= read -r tag; do
-  [ -n "$tag" ] || continue
-  if [[ "$tag" =~ id/[^/]+/([0-9]+)$ ]]; then
-    n=$((10#${BASH_REMATCH[1]}))
-    [ "$n" -gt "$max" ] && max="$n"
-  fi
-done < <(git -C "$HERE" for-each-ref --format='%(refname:short)' "refs/tags/id/$class/" 2>/dev/null || true)
-
-# Источник 2: имена ссылок. Число — первая группа цифр в имени. Сейчас все ветки — `main`,
-# и этот источник не даёт чисел; он держит место на случай именованной ветки.
-while IFS= read -r ref; do
-  [ -n "$ref" ] || continue
-  if [[ "$ref" =~ ([0-9]+) ]]; then
-    n=$((10#${BASH_REMATCH[1]}))
-    [ "$n" -gt "$max" ] && max="$n"
-  fi
-done < <(git -C "$HERE" for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null || true)
-
-# Источник 3: файлы на HEAD (рекурсивно). Через `parse_artifact_basename` — тот же
-# разбор, что в `check_ids.sh` и `drill_next_id_race.sh`. Возвраты 0 и 2 идут в max.
-for loc in "${locations[@]}"; do
-  d="$HERE/$loc"
-  [ -d "$d" ] || continue
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    name="$(basename "$f")"
-    parse_artifact_basename "$name" || true
-    [ -n "$ARTIFACT_NUMBER" ] || continue
-    [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
-  done < <(find "$d" -type f 2>/dev/null)
-done
-
-# Источник 4: пути в достижимой истории. `git log --all --diff-filter=A --name-only` даёт
-# файлы, добавленные когда-либо в любой достижимый коммит; их basename проверяется тем же
-# правилом. Без рекурсии в `grep` `verdicts/adversary/2026/002-x.md` бы не попал
-# (находка 3 — старая редакция ограничивалась одним уровнем).
-while IFS= read -r path; do
-  [ -n "$path" ] || continue
-  base="${path##*/}"
-  parse_artifact_basename "$base" || true
-  [ -n "$ARTIFACT_NUMBER" ] || continue
-  [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
-done < <(git -C "$HERE" log --all --diff-filter=A --name-only --format= 2>/dev/null \
-         | awk -v locs="${locations[*]}" '
-             BEGIN { for (i=1; i<=length(locs); i++) {} }
-             {
-               for (i=1; i<=split(locs, arr, " "); i++) {
-                 l = arr[i]
-                 if (length($0) > length(l) && substr($0, 1, length(l)) == l) {
-                   print
-                   break
-                 }
-               }
-             }' || true)
+# ── вычисление максимума по объединению источников (через общий помощник) ─────
+# Те же четыре источника, что и `next_id_max_for_class` — единый источник max+1.
+max="$(next_id_max_for_class "$HERE" "$class")"
 
 # ── выдача с атомарной резервацией ────────────────────────────────────────────
 # Создаём тег ДО печати. Если тег уже существует (гонка или backfill) — пересчитываем max

@@ -119,7 +119,7 @@ if [ -z "$nnn" ]; then
   done < <(g for-each-ref --format='%(refname)' 'refs/heads/wip/' 2>/dev/null)
   nnn=$((max_nnn + 1))
 fi
-nnn_padded="$(printf '%03d' "$nnn")"
+nnn_padded="$(printf '%03d' "$((10#$nnn))")"
 branch="wip/${nnn_padded}/${author}"
 # Отказ: живая ветка того же имени. wip/<NNN>/<автор> — УНИКАЛЬНЫЙ ключ спавна, повтор
 # запрещён (контракт Q2: «общий .git — ref ветки виден без push»).
