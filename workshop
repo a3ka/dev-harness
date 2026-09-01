@@ -326,7 +326,7 @@ run_check_metering() {
 # поэтому расхождение было невидимым: заявленное принималось за фактическое.
 
 # ── разбор аргументов ────────────────────────────────────────────────────────
-PROJECT=""; PLAN=""; MODELS=""; RESUME=""; CONFIG_ARG=""
+PROJECT=""; PLAN=""; MODELS=""; RESUME=""; CONFIG_ARG=""; FABLE=0
 CHECK_METERING=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -362,6 +362,9 @@ while [ $# -gt 0 ]; do
     # (контракт 002 v5, критерий 1). Расширение `*` в glob ниже НЕ ловит ровно `--yolo`:
     # `case` берёт первое совпадение, и точная ветка стоит раньше glob.
     --yolo) YOLO=1 ;;
+    # КОНСУЛЬТАНТ. Параллельная совещательная сессия на claude-fable-5, read-only
+    # (без edit/write/lsp) — дерево не трогает, с рабочим оркестратором не сталкивается.
+    --fable) FABLE=1 ;;
     --approval-mode*|--approvals*|--yolo*|--dangerously-skip-permissions*) die "флаг $1 затирает политику подтверждений. Режим входа — always-ask из .omp/config.yml (контракт 002, критерий 1), и командная строка его не отменяет — клапан владельца называется ровно «--yolo»" ;;
     -*)     break ;;
     *)      [ -z "$PROJECT" ] && PROJECT="$1" || break ;;
@@ -434,6 +437,15 @@ if [ -z "$PROJECT" ]; then
   PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
   node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
     || die "не удалось получить промпт роли $SESSION_ROLE"
+  if [ "$FABLE" = "1" ]; then
+    LIVE_MODEL="anthropic/claude-fable-5"
+    TOOLS="read,grep,glob,bash,web_search,task,todo"
+    FABLE_PROMPT="$HOME/session-prompt-fable.md"
+    cp "$PROMPT_FILE" "$FABLE_PROMPT"
+    printf '\n\n# РЕЖИМ КОНСУЛЬТАНТА (--fable)\nТы на claude-fable-5 ПАРАЛЛЕЛЬНО рабочей сессии-оркестратору (она ведёт живое дерево main). Роль СОВЕЩАТЕЛЬНАЯ: обсуждаешь архитектуру будущих майлстоунов и читаешь код, дерево НЕ трогаешь (инвентарь без edit/write/lsp). Любую правку/коммит делает рабочая сессия по слову владельца — ты только советуешь и разведываешь. НЕ коммить, НЕ пушь, НЕ спавни пишущих субагентов.\n' >> "$FABLE_PROMPT"
+    PROMPT_FILE="$FABLE_PROMPT"
+    printf '  РЕЖИМ FABLE  консультант read-only на %s — параллельно оркестратору\n' "$LIVE_MODEL" >&2
+  fi
   printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа над инструментом\n' >&2
   printf '  политика     always-ask (инструменты спрашивают)\n' >&2
   if [ "${YOLO:-0}" = "1" ]; then
