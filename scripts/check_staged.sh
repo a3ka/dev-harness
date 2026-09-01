@@ -131,6 +131,38 @@ if [ "$my_count" -eq 0 ]; then
   exit 0
 fi
 
+# Страж «ветка, не main» (срез 1 контракта 018). ПОСЛЕ «не судится» и ДО суда путей.
+# Если автора спавнили в worktree (жива wip/<NNN>/<author>) И текущий чекаут — НЕ его
+# СОБСТВЕННАЯ wip/<*>/<author> (main, чужая wip, detached), именованный отказ rc 1.
+# «Своя» ⟺ префикс wip/ И последний компонент (после последнего /) == author (замер 4
+# арбитража contracts-018-krasnyj-kontur-vetki.md: подстрочное/глоб-срезание ловит Р4).
+# Судья (нет своей wip-ветки) и владелец (не зонирован, fail-open выше) — main-direct
+# легитимен; защита коллизии (Q4) премисы. Канарейка И-5 016 не судит (чтение, не commit/merge).
+has_own_wip=0
+while IFS= read -r ref; do
+  bname="${ref#refs/heads/}"
+  last="${bname##*/}"
+  if [ "$last" = "$author" ]; then
+    has_own_wip=1
+    break
+  fi
+done < <(git -C "$ROOT" for-each-ref --format='%(refname)' refs/heads/wip/ 2>/dev/null)
+if [ "$has_own_wip" -eq 1 ]; then
+  cur_branch="$(git -C "$ROOT" symbolic-ref --short HEAD 2>/dev/null || true)"
+  is_own_wip=0
+  if [ -n "$cur_branch" ]; then
+    case "$cur_branch" in
+      wip/*) [ "${cur_branch##*/}" = "$author" ] && is_own_wip=1 ;;
+    esac
+  fi
+  if [ "$is_own_wip" -ne 1 ]; then
+    cur_descr="${cur_branch:-detached HEAD}"
+    printf 'ОТКАЗ: вне своей ветки wip/ — автор «%s» спавнен в worktree (жива wip/<NNN>/%s), но коммитит в «%s» (коммит-в-main / чужой worktree / detached) — это и есть «коммит мимо своего worktree»\n' \
+      "$author" "$author" "$cur_descr" >&2
+    exit 1
+  fi
+fi
+
 # Главный цикл. Каждый staged-путь судится ДВУМЯ входами: грамматика имени И зона автора.
 # Порядок — грамматика ВПЕРЕДИ: control-символ ловится и ВНУТРИ зоны (Н-39: ветвь зон не
 # покрывает вход обрывка имени, грамматика покрывает).
