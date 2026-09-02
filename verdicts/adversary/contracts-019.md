@@ -126,3 +126,47 @@ next_id_peek() {
 На честной реализации `--scope check_staged` завершился rc 0 (23/23), `--scope next_id` — rc 0 (1/1), `--scope check_nabludenia` — rc 0 (11/11). `git diff 09ad72b..8b9b4d9 --stat -- contracts/ plans/` не вывел строк.
 
 Обязательные прежние стабы были пойманы именованно: head-only, константа `002` и off-by-one `021` дали rc 1 с `барьер остался зелёным на обманном дереве — красное не предъявлено`. Две новые вариации по источникам кода — peek только по `refs/tags/id/CONTRACT/*` и только по `refs/heads`/`refs/remotes` — также дали rc 1 с той же причиной. После восстановления честной реализации адресный scoped-case завершился rc 0; на прямом входе `contracts/018-base.md` честный peek напечатал `019`.
+
+## Круг 4
+FAIL
+
+### Контрпример: источник 2 без `refs/remotes`
+
+Слабая реализация не читает удалённые ссылки в источнике 2: в единственной строке перечисления `next_id_max_for_class` аргументы `refs/heads refs/remotes` заменены на `refs/heads`. Это не зависит от литералов фикстуры: в подстановках `137` и `482` стаб прошёл адресный scoped-case с rc 0. Следовательно, он константно-инвариантен по критерию арбитража.
+
+При этом в отдельном репозитории единственной занятой записью была `refs/remotes/origin/wip/137/only-remote`. Честный `next_id_peek <repo> CONTRACT` напечатал `138`; стаб напечатал `001` с rc 0. Удалённая ссылка не участвует в вычислении максимума, хотя входит в источник 2 контракта.
+
+Воспроизведение в одноразовом клоне редакции `1cc6b27`:
+
+```bash
+cp scripts/next_id.sh /tmp/adv019k4-next_id.sh
+sed -i 's/refs\/heads refs\/remotes 2>\/dev\/null || true/refs\/heads 2>\/dev\/null || true/' scripts/next_id.sh
+for n in 137 482; do
+  CHECK_STAGED_ZANJATYJ_NOMER="$n" \
+    bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id
+  printf 'NO_REMOTES_%s_RC=%d\n' "$n" "$?"
+done
+repo=/tmp/adv019k4-remote-ref
+rm -rf "$repo"
+git init -q -b main "$repo"
+git -C "$repo" -c user.name=fixture -c user.email=fixture@example.invalid commit --allow-empty -qm init
+git -C "$repo" update-ref refs/remotes/origin/wip/137/only-remote HEAD
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$repo"
+printf 'NO_REMOTES_REMOTE_ONLY_RC=%d\n' "$?"
+cp /tmp/adv019k4-next_id.sh scripts/next_id.sh
+rm -rf "$repo"
+```
+
+Наблюдение: `NO_REMOTES_137_RC=0`, `NO_REMOTES_482_RC=0`, затем `001` и `NO_REMOTES_REMOTE_ONLY_RC=0`. Контроль без подмены на том же удалённом ref напечатал `138`.
+
+### Обязательные контроли
+
+* Честная реализация: адресный scoped-case завершился rc 0 без параметра (`019`) и с `CHECK_STAGED_ZANJATYJ_NOMER=137` и `=482`.
+* Константа `002`, head-only и off-by-one (`max+2`) дали rc 1 с именованным результатом раннера `барьер остался зелёным на обманном дереве — красное не предъявлено`.
+* Табличный стаб круга 3 на литерале `019` сохранил rc 0 при дефолте и дал тот же именованный rc 1 при `CHECK_STAGED_ZANJATYJ_NOMER=137`. Это зависимый от константы стаб; в FAIL не включён.
+* Некорректные значения параметра дали именованный отказ фикстуры до вызова `$BARRIER`: `999` — `занятый номер 999 вне диапазона 002…998`, `1` и `abc` — `занятый номер «…» — не три цифры`. Scoped-раннер соответственно вернул rc 1 как «не вызвала барьер».
+* Охраны `--scope check_staged`, `--scope next_id`, `--scope check_nabludenia` завершились rc 0; `git diff 09ad72b..1cc6b27 --stat -- contracts/ plans/` не вывел строк.
+
+### Дополнительные отрицательные пробы
+
+Отказ `next_id_peek` с rc 127, константа `001` для пустого результата и подмена `git`, возвращающая 127 на перечислении ссылок, дали адресному scoped-case rc 1 с тем же именованным результатом. Нейтрализация `refs/heads` при сохранении только `refs/remotes` также дала rc 1. Эти пробы не являются контрпримером.
