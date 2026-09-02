@@ -27,13 +27,32 @@
 #   * ПИН-ДОПОЛНЕНИЕ: в том же репо staged contracts/002-draft.md — номер
 #     свободен, но НЕ следующий (следующий 020) → rc 0 БЕЗ строки draft-пропуска:
 #     peek обязан вернуть max+1, а не «любой свободный».
+#   * серийные входы «по одному источнику» (правка 2 по FAIL круга 2: head-only
+#     стаб peek проходил scoped-case — максимум читался только из CONTRACT-файлов
+#     на HEAD): занятый 019 живёт РОВНО В ОДНОМ из четырёх источников
+#     next_id_max_for_class (Н-39 — границы по коду, не по этой прозе):
+#       1. тег выдачи refs/tags/id/CONTRACT/019 (источник 1: for-each-ref
+#          refs/tags/id/<КЛАСС>/);
+#       2. имя ссылки refs/heads/wip/019/istochnik (источник 2: for-each-ref
+#          refs/heads refs/remotes, первая цепочка цифр имени; хвост НЕ architect
+#          — иначе страж 018 «ветка, не main» откажет раньше draft-ветви);
+#       4. достижимая история: contracts/019-udaljon.md закоммичен и удалён
+#          (источник 4: git log --all --diff-filter=A).
+#     Источник 3 (файлы на HEAD) — вход BUSY выше. В каждом входе остальные
+#     источники чисты; staged 020-draft под architect с доп-зоной contracts/ →
+#     rc 0 СО строкой draft-пропуска. Head-only стаб на таких репо даёт rc 0
+#     БЕЗ строки — ассерт валит фикстуру ДО красного кандидата (А-73), scoped-прогон
+#     краснеет «барьер остался зелёным на обманном дереве».
 #   * зелёный контроль (существующий вход 019): virgin-репо (занят только 001),
 #     architect (зонирован в plans/) стадит contracts/002-draft.md → rc 0.
 #     Стоит ПОСЛЕ пинов: в до-019-коде этот вход красен и не имеет права стать
 #     красным кандидатом раньше пина.
 #   * охрана «судья не создаёт тег id/*» (мера не меняет предмет) — по всем
 #     репо, где под architect УЖЕ прогнан судья: стаб-/reserve-тег занял бы номер
-#     и изменил предмет, который проверяется.
+#     и изменил предмет, который проверяется. Судит ОТСУТСТВИЕ НОВЫХ тегов id/
+#     после прогона (снимок ДО вызова против снимка ПОСЛЕ — правило 8: ожидание
+#     в памяти проверяющего), а НЕ отсутствие вообще: вход «источник-тег» сам
+#     несёт id/CONTRACT/019 по построению (правка 2).
 #   * красное-серийное: занят 019, staged contracts/021-draft.md (соседний
 #     НЕ-следующий) под architect → «вне зоны» ДО и ПОСЛЕ 019 (охрана от
 #     переусердия draft-ветви: соседний номер зонным судом не отвернётся сам).
@@ -43,16 +62,35 @@ set -uo pipefail
 # shellcheck disable=SC1091
 . "$(dirname "$0")/_repo.sh"
 
-# ── пин ЗНАЧЕНИЕМ: занят 019 → следующий 020, пропуск по draft-ветви ───────────
+# Локальные ассерты (снимок id-тегов — в ПАМЯТИ проверяющего, ДО вызова субъекта;
+# правило 8). Ассерты стоят ДО первого ожидаемо-красного вызова $BARRIER — после
+# него раннер rc фикстуры не судит (А-73).
+id_tags_of() {  # <корень> — снимок id-тегов выдачи репо
+  git -C "$1" for-each-ref --format='%(refname)' 'refs/tags/id/'
+}
+assert_no_new_id_tags() {  # <корень> <снимок-до> — новых id-тегов быть не должно
+  local novye
+  novye="$(comm -13 <(printf '%s\n' "$2" | sort) <(printf '%s\n' "$(id_tags_of "$1")" | sort))"
+  if [ -n "${novye//$'\n'/}" ]; then
+    printf 'ОТКАЗ: судья создал тег выдачи id/* — мера изменила предмет (%s): %s\n' "$1" "$novye" >&2
+    exit 1
+  fi
+}
+assert_draft_propushhen() {  # <чем занят 019> <вывод барьера> — строка draft-ветви обязательна
+  if ! printf '%s\n' "$2" | grep -Fq '(draft next-id пропущен под architect)'; then
+    printf 'ОТКАЗ: draft 020 при занятом 019 (%s) пропущен НЕ по draft-ветви — peek не назвал следующий номер из этого источника (стаб?): %s\n' "$1" "$2" >&2
+    exit 1
+  fi
+}
+
+# ── пин ЗНАЧЕНИЕМ (источник 3: файл на HEAD): занят 019 → следующий 020 ───────
 BUSY="$WORK/repo_draft_zanjat019"
 make_repo_busy019 "$BUSY" contracts/
 set_author "$BUSY" architect
+busy_id0="$(id_tags_of "$BUSY")"
 stage "$BUSY" contracts/020-draft.md 'черновик контракта 020 — занят 019, следующий 020'
 out="$("$BARRIER" "$BUSY" || true)"
-if ! printf '%s\n' "$out" | grep -Fq '(draft next-id пропущен под architect)'; then
-  printf 'ОТКАЗ: draft 020 при занятом 019 пропущен НЕ по draft-ветви — peek не назвал следующий номер (стаб-константа?): %s\n' "$out" >&2
-  exit 1
-fi
+assert_draft_propushhen 'файл contracts/019-base.md на HEAD' "$out"
 
 # ── пин-дополнение: свободный, но НЕ следующий (002 при занятом 019) ───────────
 g "$BUSY" reset -q   # снять 020 из индекса: судится только 002
@@ -62,24 +100,46 @@ if printf '%s\n' "$out" | grep -Fq '(draft next-id пропущен под archi
   printf 'ОТКАЗ: draft-ветвь пустила 002 при занятом 019 — peek вернул не max+1: %s\n' "$out" >&2
   exit 1
 fi
+assert_no_new_id_tags "$BUSY" "$busy_id0"
+
+# ── пин источник 1 (теги выдачи): 019 занят ТОЛЬКО тегом id/CONTRACT/019 ──────
+TEGSRC="$WORK/repo_draft_istochnik_teg"
+make_repo_busy019_teg "$TEGSRC" contracts/
+set_author "$TEGSRC" architect
+teg_id0="$(id_tags_of "$TEGSRC")"
+stage "$TEGSRC" contracts/020-draft.md 'черновик 020 — номер занят тегом выдачи, не файлом'
+out="$("$BARRIER" "$TEGSRC" || true)"
+assert_draft_propushhen 'тег id/CONTRACT/019' "$out"
+assert_no_new_id_tags "$TEGSRC" "$teg_id0"
+
+# ── пин источник 2 (имена ссылок): 019 занят ТОЛЬКО веткой wip/019/istochnik ──
+VETSRC="$WORK/repo_draft_istochnik_vetka"
+make_repo_busy019_vetka "$VETSRC" contracts/
+set_author "$VETSRC" architect
+vetka_id0="$(id_tags_of "$VETSRC")"
+stage "$VETSRC" contracts/020-draft.md 'черновик 020 — номер занят именем ссылки, не файлом'
+out="$("$BARRIER" "$VETSRC" || true)"
+assert_draft_propushhen 'ветка wip/019/istochnik' "$out"
+assert_no_new_id_tags "$VETSRC" "$vetka_id0"
+
+# ── пин источник 4 (история): 019 закоммичен и удалён, HEAD чист ───────────────
+ISTSRC="$WORK/repo_draft_istochnik_istorija"
+make_repo_busy019_istorija "$ISTSRC" contracts/
+set_author "$ISTSRC" architect
+istorija_id0="$(id_tags_of "$ISTSRC")"
+stage "$ISTSRC" contracts/020-draft.md 'черновик 020 — номер занят историей, не HEAD'
+out="$("$BARRIER" "$ISTSRC" || true)"
+assert_draft_propushhen 'contracts/019-udaljon.md в достижимой истории' "$out"
+assert_no_new_id_tags "$ISTSRC" "$istorija_id0"
 
 # ── зелёный контроль: virgin-репо, следующий свободный — 002 ───────────────────
 GREEN="$WORK/repo_draft_architekt"
 make_repo_archzone "$GREEN"
 set_author "$GREEN" architect
+green_id0="$(id_tags_of "$GREEN")"
 stage "$GREEN" contracts/002-draft.md 'черновик контракта 002 — авторство пачки architect'
 "$BARRIER" "$GREEN" || true                  # ожидание: rc 0 (draft next-id пущен под architect)
-
-# ── охрана: судья не резервирует номер тегом выдачи (мера не меняет предмет) ────
-# Peek без резерва: судья, создающий тег id/CONTRACT/* на каждом прогоне, занимал
-# бы номера и менял предмет, который проверяет. Судится ПОСЛЕ зелёных вызовов и
-# ДО красного кандидата (А-73).
-for repo in "$BUSY" "$GREEN"; do
-  if git -C "$repo" for-each-ref --format='%(refname)' 'refs/tags/id/' | grep -q .; then
-    printf 'ОТКАЗ: судья зарезервировал номер тегом id/* — мера изменила предмет (%s)\n' "$repo" >&2
-    exit 1
-  fi
-done
+assert_no_new_id_tags "$GREEN" "$green_id0"
 
 # ── красное-серийное: соседний НЕ-следующий (021 при занятом 019) ───────────────
 ADJ="$WORK/repo_draft_sosednij"
