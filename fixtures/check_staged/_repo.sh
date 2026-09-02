@@ -320,3 +320,76 @@ make_repo_busy019_istorija() {  # <корень> [доп-зона architect]...
   g "$r" rm -q "contracts/$nom-udaljon.md"
   g "$r" commit -q -m "контракт $nom удалён с HEAD — номер занят историей"
 }
+
+# make_repo_busy019_remote <корень> [доп-зона architect]...: занятость — УДАЛЁННАЯ
+# ссылка refs/remotes/origin/wip/<занятый>/only-remote (источник 2, ВТОРАЯ половина
+# перечисления refs/heads refs/remotes; правка 3 по FAIL круга 4: стаб, выкинувший
+# refs/remotes из перечисления, проходил вход «ветка» константно-инвариантно —
+# удалённые ссылки фикстурой предъявлены не были). Зеркалит контроль судьи круга 4:
+# единственная запись с занятым номером — удалённая. Локальных веток кроме main нет:
+# страж «ветка, не main» читает только refs/heads/wip/, удалённая ссылка его не будит.
+# Файла с занятым номером нигде нет, тегов id/* нет.
+make_repo_busy019_remote() {  # <корень> [доп-зона architect]...
+  local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m 'основание: контракт и зоны — номер занят удалённой ссылкой'
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+  g "$r" update-ref "refs/remotes/origin/wip/$nom/only-remote" HEAD
+}
+
+# make_repo_busy019_chuzhklass <корень> [доп-зона architect]...: занятый номер живёт
+# ТОЛЬКО в артефактах ЧУЖОГО класса (PLAN) — по одному жильцу на каждый ФИЛЬТР КЛАССОВ
+# кода next_id_max_for_class (Н-39 — по коду, не по прозе): тег id/PLAN/<занятый>
+# (фильтр источника 1 — паттерн refs/tags/id/<КЛАСС>/), plans/<занятый>-x.md на HEAD
+# (фильтр источника 3 — pathspec/префикс локаций) и plans/<занятый>-udaljon.md в
+# достижимой истории (фильтр источника 4 — awk-префикс локаций). Серийные входы выше
+# изолируют ПОЛОВИНЫ перечислений (номер виден честному peek); этот построитель —
+# зеркальная сторона: номер виден ТОЛЬКО стабу, расширившему перечисление за пределы
+# класса CONTRACT. Честный peek для CONTRACT здесь видит максимум 001 (только
+# contracts/001-x.md). Тегов id/CONTRACT/* нет; охрана «нет НОВЫХ id-тегов» видит
+# id/PLAN/* в снимке ДО прогона и потому зелёная на честной реализации.
+make_repo_busy019_chuzhklass() {  # <корень> [доп-зона architect]...
+  local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  printf '# план %s (чужой класс: номер НЕ виден классу CONTRACT)\n' "$nom" > "$r/plans/$nom-x.md"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m 'основание: контракт и зоны — занятый номер в чужом классе'
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+  g "$r" tag -a "id/PLAN/$nom" -m 'выдача чужого класса (фикстура: фильтр классов источника 1)'
+  printf '# план %s (удалён с HEAD — чужой класс в истории)\n' "$nom" > "$r/plans/$nom-udaljon.md"
+  g "$r" add "plans/$nom-udaljon.md"
+  g "$r" commit -q -m "план $nom написан"
+  g "$r" rm -q "plans/$nom-udaljon.md"
+  g "$r" commit -q -m "план $nom удалён — чужой класс в истории держит номер"
+}

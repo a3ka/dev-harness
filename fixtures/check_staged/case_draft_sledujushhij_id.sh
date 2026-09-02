@@ -33,9 +33,13 @@
 #     next_id_max_for_class (Н-39 — границы по коду, не по этой прозе):
 #       1. тег выдачи refs/tags/id/CONTRACT/019 (источник 1: for-each-ref
 #          refs/tags/id/<КЛАСС>/);
-#       2. имя ссылки refs/heads/wip/019/istochnik (источник 2: for-each-ref
-#          refs/heads refs/remotes, первая цепочка цифр имени; хвост НЕ architect
-#          — иначе страж 018 «ветка, не main» откажет раньше draft-ветви);
+#       2. имена ссылок — ОБЕ половины перечисления источника 2 (for-each-ref
+#          refs/heads refs/remotes, первая цепочка цифр имени; правка 3 по FAIL
+#          круга 4: стаб без refs/remotes проходил вход «ветка»
+#          константно-инвариантно): refs/heads/wip/<занятый>/istochnik И
+#          refs/remotes/origin/wip/<занятый>/only-remote — ОТДЕЛЬНЫМИ входами
+#          (половины изолированы; хвосты НЕ architect — иначе страж 018
+#          «ветка, не main» откажет раньше draft-ветви);
 #       4. достижимая история: contracts/019-udaljon.md закоммичен и удалён
 #          (источник 4: git log --all --diff-filter=A).
 #     Источник 3 (файлы на HEAD) — вход BUSY выше. В каждом входе остальные
@@ -43,6 +47,14 @@
 #     rc 0 СО строкой draft-пропуска. Head-only стаб на таких репо даёт rc 0
 #     БЕЗ строки — ассерт валит фикстуру ДО красного кандидата (А-73), scoped-прогон
 #     краснеет «барьер остался зелёным на обманном дереве».
+#   * фильтры классов (порог круга 5: половины перечислений — целиком, один
+#     проход): вход «чужой класс» — занятый номер живёт только в артефактах
+#     класса PLAN (тег id/PLAN/<занятый> — фильтр источника 1;
+#     plans/<занятый>-x.md на HEAD — фильтр источника 3; plans/<занятый>-udaljon.md
+#     в истории — фильтр источника 4). Честный peek для CONTRACT видит максимум 001
+#     → staged 002-draft пропущен ПО draft-ветви (строка есть); стаб, расширивший
+#     перечисление за пределы класса, называет max+1 → строки нет → ассерт валит
+#     фикстуру ДО красного кандидата (тот же А-73-контур, зеркально серийным входам).
 #   * зелёный контроль (существующий вход 019): virgin-репо (занят только 001),
 #     architect (зонирован в plans/) стадит contracts/002-draft.md → rc 0.
 #     Стоит ПОСЛЕ пинов: в до-019-коде этот вход красен и не имеет права стать
@@ -155,6 +167,20 @@ out="$("$BARRIER" "$VETSRC" || true)"
 assert_draft_propushhen "ветка wip/$ZANJATYJ_NOMER/istochnik" "$out"
 assert_no_new_id_tags "$VETSRC" "$vetka_id0"
 
+# ── пин источник 2, половина refs/remotes (правка 3 по FAIL круга 4): номер ──
+# занят ТОЛЬКО удалённой ссылкой refs/remotes/origin/wip/<занятый>/only-remote.
+# Стаб круга 4 (источник 2 без refs/remotes) читает только локальные ветки →
+# следующий «002» → draft-ветвь молчит → доп-зона пускает БЕЗ строки → ассерт
+# валит фикстуру ДО красного кандидата (А-73), как и head-only стаб выше.
+REMSRC="$WORK/repo_draft_istochnik_remote"
+make_repo_busy019_remote "$REMSRC" contracts/
+set_author "$REMSRC" architect
+remote_id0="$(id_tags_of "$REMSRC")"
+stage "$REMSRC" "contracts/$SLEDUJUSHHIJ_NOMER-draft.md" "черновик $SLEDUJUSHHIJ_NOMER — номер занят удалённой ссылкой, не локальной веткой"
+out="$("$BARRIER" "$REMSRC" || true)"
+assert_draft_propushhen "refs/remotes/origin/wip/$ZANJATYJ_NOMER/only-remote" "$out"
+assert_no_new_id_tags "$REMSRC" "$remote_id0"
+
 # ── пин источник 4 (история): 019 закоммичен и удалён, HEAD чист ───────────────
 ISTSRC="$WORK/repo_draft_istochnik_istorija"
 make_repo_busy019_istorija "$ISTSRC" contracts/
@@ -164,6 +190,21 @@ stage "$ISTSRC" "contracts/$SLEDUJUSHHIJ_NOMER-draft.md" "черновик $SLED
 out="$("$BARRIER" "$ISTSRC" || true)"
 assert_draft_propushhen "contracts/$ZANJATYJ_NOMER-udaljon.md в достижимой истории" "$out"
 assert_no_new_id_tags "$ISTSRC" "$istorija_id0"
+
+# ── пин фильтров классов: занятый номер — только в ЧУЖОМ классе (PLAN) ─────────
+# (тег id/PLAN/<занятый>, plans/<занятый>-x.md на HEAD, plans/<занятый>-udaljon.md
+# в истории). Честный peek для CONTRACT называет 002 → staged 002-draft пропущен
+# ПО draft-ветви. Стаб, расширивший перечисление за пределы класса CONTRACT,
+# называет max+1 → строки нет → доп-зона пускает без строки → ассерт валит
+# фикстуру ДО красного кандидата (А-73).
+CHUZHSRC="$WORK/repo_draft_istochnik_chuzhklass"
+make_repo_busy019_chuzhklass "$CHUZHSRC" contracts/
+set_author "$CHUZHSRC" architect
+chuzh_id0="$(id_tags_of "$CHUZHSRC")"
+stage "$CHUZHSRC" contracts/002-draft.md "002 — следующий для CONTRACT, когда $ZANJATYJ_NOMER занят чужим классом (PLAN)"
+out="$("$BARRIER" "$CHUZHSRC" || true)"
+assert_draft_propushhen "чужой класс PLAN: id/PLAN/$ZANJATYJ_NOMER + plans/$ZANJATYJ_NOMER-*.md" "$out"
+assert_no_new_id_tags "$CHUZHSRC" "$chuzh_id0"
 
 # ── зелёный контроль: virgin-репо, следующий свободный — 002 ───────────────────
 GREEN="$WORK/repo_draft_architekt"
