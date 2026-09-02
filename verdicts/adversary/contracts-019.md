@@ -85,3 +85,44 @@ rm -rf "${repo%/repo}"
 ### Охраны
 
 На честной реализации выполнены: `--scope check_staged` — rc 0 (23/23), `--scope next_id` — rc 0 (1/1), `--scope check_nabludenia` — rc 0 (11/11). `git diff 09ad72b..17bf21d --stat -- contracts/ plans/` не вывел строк.
+
+## Круг 3
+FAIL
+
+### Обход: жёсткий порог `019` вместо вычисления максимума
+
+Проверка правки 2 строит четыре серийных источника, но во всех занятый номер одинаков: `019`. Слабый `next_id_peek` распознаёт присутствие только `019` в тегах, именах ссылок, HEAD или достижимой истории и печатает `020`; если `019` отсутствует, он печатает `002`. Он не вычисляет максимум и не обрабатывает иной занятый номер.
+
+После замены только `next_id_peek` на такую реализацию scoped-проверка прошла: `bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id` завершилась rc 0. При прямом входе с `contracts/018-base.md` на HEAD этот же слабый peek напечатал `002`; честная реализация на том же входе напечатала `019`.
+
+Команда воспроизведения в одноразовом клоне `8b9b4d9` после установки описанного стаба:
+
+```bash
+cd /tmp/dev-harness-adv019k3
+bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id
+printf 'RC_SCOPE=%d\n' "$?"                 # RC_SCOPE=0
+bash repro-hardcoded-019.sh                    # PEEK_FOR_HEAD_018=002
+```
+
+Стаб, установленный перед этим прогоном:
+
+```bash
+next_id_peek() {
+  local root="$1"
+  if git -C "$root" for-each-ref --format='%(refname:short)' refs/tags refs/heads refs/remotes | grep -q '019' \
+     || git -C "$root" ls-tree -r --name-only HEAD -- contracts/ | grep -q '^contracts/019-' \
+     || git -C "$root" log --all --diff-filter=A --name-only --format= | grep -q '^contracts/019-'; then
+    printf '020\n'
+  else
+    printf '002\n'
+  fi
+}
+```
+
+Это повтор причины, предмет на арбитра.
+
+### Контроли и охраны
+
+На честной реализации `--scope check_staged` завершился rc 0 (23/23), `--scope next_id` — rc 0 (1/1), `--scope check_nabludenia` — rc 0 (11/11). `git diff 09ad72b..8b9b4d9 --stat -- contracts/ plans/` не вывел строк.
+
+Обязательные прежние стабы были пойманы именованно: head-only, константа `002` и off-by-one `021` дали rc 1 с `барьер остался зелёным на обманном дереве — красное не предъявлено`. Две новые вариации по источникам кода — peek только по `refs/tags/id/CONTRACT/*` и только по `refs/heads`/`refs/remotes` — также дали rc 1 с той же причиной. После восстановления честной реализации адресный scoped-case завершился rc 0; на прямом входе `contracts/018-base.md` честный peek напечатал `019`.
