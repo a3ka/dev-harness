@@ -177,9 +177,11 @@ make_repo_koltso() {  # <корень>
 
 # make_repo_busy019 <корень> [доп-зона architect]...: как make_repo_archzone
 # (зоны implementer: scripts/ и architect: plans/), но в HEAD закоммичен
-# contracts/019-base.md — номер 019 ЗАНЯТ по источнику 3 кода next_id_peek
+# contracts/<занятый>-base.md — номер ЗАНЯТ по источнику 3 кода next_id_peek
 # (файлы артефактов на HEAD, git ls-tree -r HEAD; Н-39 — занятость по коду peek,
-# не по прозе контракта). Следующий свободный номер CONTRACT — 020. Тег выдачи
+# не по прозе контракта). Занятый номер — параметр ZANJATYJ_NOMER фикстуры
+# (М-1 арбитража ebc57db; дефолт 019, допустимые 002…998), следующий свободный —
+# max+1 от него. Тег выдачи
 # id/CONTRACT/* НЕ ставится: занятость файлом достаточна, а живой id/*-тег
 # конфликтовал бы с охраной «судья не создаёт тег id/*» фикстур draft-пуска.
 # Доп-зоны architect передаются аргументами: пину значения нужна зона, ПОКРЫВАЮЩАЯ
@@ -189,6 +191,7 @@ make_repo_koltso() {  # <корень>
 # входу доп-зона НЕ даётся — соседний номер обязан краснеть «вне зоны».
 make_repo_busy019() {  # <корень> [доп-зона architect]...
   local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
   mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
   {
     printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
@@ -199,21 +202,22 @@ make_repo_busy019() {  # <корень> [доп-зона architect]...
   } > "$r/contracts/001-x.md"
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
-  printf '# контракт 019 (занятость номера — файл на HEAD)\n' > "$r/contracts/019-base.md"
+  printf '# контракт %s (занятость номера — файл на HEAD)\n' "$nom" > "$r/contracts/$nom-base.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
-  g "$r" commit -q -m 'основание: контракт, зоны и занятый номер 019'
+  g "$r" commit -q -m "основание: контракт, зоны и занятый номер $nom"
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
 }
 
 # ── помощники правки 2 по FAIL адверсария 019 круг 2: серийные входы «один
 # источник max+1» (А-32 — серийные входы одного case) ──────────────────────────
 #
-# Три построителя ниже заселяют номер 019 РОВНО В ОДИН источник кода
+# Три построителя ниже заселяют занятый номер (ZANJATYJ_NOMER, дефолт 019 — М-1
+# арбитража ebc57db) РОВНО В ОДИН источник кода
 # next_id_max_for_class (Н-39 — по коду, не по прозе): источник 1 —
 # for-each-ref refs/tags/id/<КЛАСС>/; источник 2 — for-each-ref refs/heads
 # refs/remotes (первая цепочка цифр короткого имени); источник 4 —
@@ -225,13 +229,14 @@ make_repo_busy019() {  # <корень> [доп-зона architect]...
 # СТРОКОЙ draft-пропуска (ассертом фикстуры), а не кодом возврата — красный от
 # стаба не становится законным красным кандидатом раннера (А-73).
 
-# make_repo_busy019_teg <корень> [доп-зона architect]...: занятость 019 — тег
-# выдачи id/CONTRACT/019 (источник 1), аннотированный, как ставит выдача
+# make_repo_busy019_teg <корень> [доп-зона architect]...: занятость — тег
+# выдачи id/CONTRACT/<занятый> (источник 1), аннотированный, как ставит выдача
 # next_id.sh (git tag -m). Единственный построитель, где id-тег существует
 # С САМОГО НАЧАЛА: охрана фикстур draft-пуска судит такие репо отсутствием
 # НОВЫХ тегов после прогона, а не отсутствием вообще.
 make_repo_busy019_teg() {  # <корень> [доп-зона architect]...
   local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
   mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
   {
     printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
@@ -250,17 +255,18 @@ make_repo_busy019_teg() {  # <корень> [доп-зона architect]...
   g "$r" add -A
   g "$r" commit -q -m 'основание: контракт и зоны — номер занят тегом, не файлом'
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
-  g "$r" tag -a id/CONTRACT/019 -m 'выдача механизмом (фикстура: занятость источником-тегом)'
+  g "$r" tag -a "id/CONTRACT/$nom" -m 'выдача механизмом (фикстура: занятость источником-тегом)'
 }
 
-# make_repo_busy019_vetka <корень> [доп-зона architect]...: занятость 019 — имя
-# ссылки refs/heads/wip/019/istochnik (источник 2: первая цепочка цифр короткого
-# имени даёт 19). Хвост ветки — НЕ architect: страж «ветка, не main» (018)
-# включается только на живой wip/<*>/<author>, и wip/019/architect затемнил бы
-# предмет отказом «вне своей ветки» ДО draft-ветви. Файла 019 нигде нет,
-# тегов id/* нет.
+# make_repo_busy019_vetka <корень> [доп-зона architect]...: занятость — имя
+# ссылки refs/heads/wip/<занятый>/istochnik (источник 2: первая цепочка цифр
+# короткого имени даёт занятый номер). Хвост ветки — НЕ architect: страж
+# «ветка, не main» (018) включается только на живой wip/<*>/<author>, и
+# wip/<занятый>/architect затемнил бы предмет отказом «вне своей ветки» ДО
+# draft-ветви. Файла с занятым номером нигде нет, тегов id/* нет.
 make_repo_busy019_vetka() {  # <корень> [доп-зона architect]...
   local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
   mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
   {
     printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
@@ -279,16 +285,17 @@ make_repo_busy019_vetka() {  # <корень> [доп-зона architect]...
   g "$r" add -A
   g "$r" commit -q -m 'основание: контракт и зоны — номер занят именем ссылки'
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
-  g "$r" branch wip/019/istochnik main
+  g "$r" branch "wip/$nom/istochnik" main
 }
 
-# make_repo_busy019_istorija <корень> [доп-зона architect]...: занятость 019 —
-# достижимая история (источник 4): contracts/019-udaljon.md закоммичен ПОСЛЕ
+# make_repo_busy019_istorija <корень> [доп-зона architect]...: занятость —
+# достижимая история (источник 4): contracts/<занятый>-udaljon.md закоммичен ПОСЛЕ
 # заморозки и затем удалён, HEAD чист, добавление видит git log --all
 # --diff-filter=A. Моделирует границу из шапки next_id.sh: удалённый с HEAD файл
 # не освобождает номер. Тегов id/* нет, веток с цифрами нет.
 make_repo_busy019_istorija() {  # <корень> [доп-зона architect]...
   local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
   mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
   {
     printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
@@ -307,9 +314,9 @@ make_repo_busy019_istorija() {  # <корень> [доп-зона architect]...
   g "$r" add -A
   g "$r" commit -q -m 'основание: контракт и зоны'
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
-  printf '# контракт 019 (удалён с HEAD — номер держит история)\n' > "$r/contracts/019-udaljon.md"
-  g "$r" add contracts/019-udaljon.md
-  g "$r" commit -q -m 'контракт 019 написан'
-  g "$r" rm -q contracts/019-udaljon.md
-  g "$r" commit -q -m 'контракт 019 удалён с HEAD — номер занят историей'
+  printf '# контракт %s (удалён с HEAD — номер держит история)\n' "$nom" > "$r/contracts/$nom-udaljon.md"
+  g "$r" add "contracts/$nom-udaljon.md"
+  g "$r" commit -q -m "контракт $nom написан"
+  g "$r" rm -q "contracts/$nom-udaljon.md"
+  g "$r" commit -q -m "контракт $nom удалён с HEAD — номер занят историей"
 }

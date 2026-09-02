@@ -58,9 +58,42 @@
 #     переусердия draft-ветви: соседний номер зонным судом не отвернётся сам).
 #   * красное-охрана (существующий вход): тот же класс пути у ЧУЖОГО автора
 #     (implementer) → «вне зоны» ДО и ПОСЛЕ 019.
+#
+# ГРАНИЦА КЛАССА И ОСТАТОЧНЫЙ РИСК (М-2 арбитража contracts-019-pinovanie-peek,
+# ebc57db): класс реализаций, ключующихся на литералы фикстуры, конечной
+# детерминированной фикстурой не ловится по построению; демаркация — критерий
+# константной инвариантности, вердикт
+# verdicts/arbitration/contracts-019-pinovanie-peek.md
+#
+# М-1 того же арбитража: занятый номер — ПАРАМЕТР. Единственная точка подстановки —
+# строка чтения CHECK_STAGED_ZANJATYJ_NOMER ниже; дефолт 019 СОХРАНЁН (октальная
+# канарейка, замер 3 арбитража: наивный разбор $((019+1)) умирает на дефолте).
+# Подстановка — окружением команды прогона, файлы не правятся:
+#   CHECK_STAGED_ZANJATYJ_NOMER=137 bash scripts/verify_antiplacebo.sh . \
+#     --scope check_staged/case_draft_sledujushhij_id
+# Допустимые значения: три цифры, 002…998 (999 запрещён: max+1 вышел бы за формат
+# трёх цифр). Производные max+1/max+2 вычисляются 10#-арифметикой от параметра,
+# литералы производных запрещены. Без подстановки прогон дословно прежний.
 set -uo pipefail
 # shellcheck disable=SC1091
 . "$(dirname "$0")/_repo.sh"
+
+# ── М-1: занятый номер — параметр (ЕДИНСТВЕННАЯ точка подстановки) ────────────
+# Производные — только 10#-арифметикой от ZANJATYJ_NOMER: литерал производной
+# дал бы стабу вторую точку ключования, и параметр перестал бы быть единым.
+ZANJATYJ_NOMER="${CHECK_STAGED_ZANJATYJ_NOMER:-019}"
+case "$ZANJATYJ_NOMER" in
+  [0-9][0-9][0-9]) ;;
+  *) printf 'ОТКАЗ: занятый номер «%s» — не три цифры (М-1: 002…998)\n' "$ZANJATYJ_NOMER" >&2
+     exit 1 ;;
+esac
+case "$((10#$ZANJATYJ_NOMER))" in
+  [2-9]|[1-9][0-9]|[1-9][0-9][0-8]) ;;
+  *) printf 'ОТКАЗ: занятый номер %s вне диапазона 002…998 (М-1)\n' "$ZANJATYJ_NOMER" >&2
+     exit 1 ;;
+esac
+SLEDUJUSHHIJ_NOMER="$(printf '%03d' "$((10#$ZANJATYJ_NOMER + 1))")"  # max+1
+SOSSEDNIJ_NOMER="$(printf '%03d' "$((10#$ZANJATYJ_NOMER + 2))")"    # max+2
 
 # Локальные ассерты (снимок id-тегов — в ПАМЯТИ проверяющего, ДО вызова субъекта;
 # правило 8). Ассерты стоят ДО первого ожидаемо-красного вызова $BARRIER — после
@@ -76,28 +109,28 @@ assert_no_new_id_tags() {  # <корень> <снимок-до> — новых i
     exit 1
   fi
 }
-assert_draft_propushhen() {  # <чем занят 019> <вывод барьера> — строка draft-ветви обязательна
+assert_draft_propushhen() {  # <чем занят номер> <вывод барьера> — строка draft-ветви обязательна
   if ! printf '%s\n' "$2" | grep -Fq '(draft next-id пропущен под architect)'; then
-    printf 'ОТКАЗ: draft 020 при занятом 019 (%s) пропущен НЕ по draft-ветви — peek не назвал следующий номер из этого источника (стаб?): %s\n' "$1" "$2" >&2
+    printf 'ОТКАЗ: draft %s при занятом %s (%s) пропущен НЕ по draft-ветви — peek не назвал следующий номер из этого источника (стаб?): %s\n' "$SLEDUJUSHHIJ_NOMER" "$ZANJATYJ_NOMER" "$1" "$2" >&2
     exit 1
   fi
 }
 
 # ── пин ЗНАЧЕНИЕМ (источник 3: файл на HEAD): занят 019 → следующий 020 ───────
-BUSY="$WORK/repo_draft_zanjat019"
+BUSY="$WORK/repo_draft_zanjat$ZANJATYJ_NOMER"
 make_repo_busy019 "$BUSY" contracts/
 set_author "$BUSY" architect
 busy_id0="$(id_tags_of "$BUSY")"
-stage "$BUSY" contracts/020-draft.md 'черновик контракта 020 — занят 019, следующий 020'
+stage "$BUSY" "contracts/$SLEDUJUSHHIJ_NOMER-draft.md" "черновик контракта $SLEDUJUSHHIJ_NOMER — занят $ZANJATYJ_NOMER, следующий $SLEDUJUSHHIJ_NOMER"
 out="$("$BARRIER" "$BUSY" || true)"
-assert_draft_propushhen 'файл contracts/019-base.md на HEAD' "$out"
+assert_draft_propushhen "файл contracts/$ZANJATYJ_NOMER-base.md на HEAD" "$out"
 
 # ── пин-дополнение: свободный, но НЕ следующий (002 при занятом 019) ───────────
 g "$BUSY" reset -q   # снять 020 из индекса: судится только 002
-stage "$BUSY" contracts/002-draft.md '002 свободен, но следующий — 020'
+stage "$BUSY" contracts/002-draft.md "002 свободен, но следующий — $SLEDUJUSHHIJ_NOMER"
 out="$("$BARRIER" "$BUSY" || true)"
 if printf '%s\n' "$out" | grep -Fq '(draft next-id пропущен под architect)'; then
-  printf 'ОТКАЗ: draft-ветвь пустила 002 при занятом 019 — peek вернул не max+1: %s\n' "$out" >&2
+  printf 'ОТКАЗ: draft-ветвь пустила 002 при занятом %s — peek вернул не max+1: %s\n' "$ZANJATYJ_NOMER" "$out" >&2
   exit 1
 fi
 assert_no_new_id_tags "$BUSY" "$busy_id0"
@@ -107,9 +140,9 @@ TEGSRC="$WORK/repo_draft_istochnik_teg"
 make_repo_busy019_teg "$TEGSRC" contracts/
 set_author "$TEGSRC" architect
 teg_id0="$(id_tags_of "$TEGSRC")"
-stage "$TEGSRC" contracts/020-draft.md 'черновик 020 — номер занят тегом выдачи, не файлом'
+stage "$TEGSRC" "contracts/$SLEDUJUSHHIJ_NOMER-draft.md" "черновик $SLEDUJUSHHIJ_NOMER — номер занят тегом выдачи, не файлом"
 out="$("$BARRIER" "$TEGSRC" || true)"
-assert_draft_propushhen 'тег id/CONTRACT/019' "$out"
+assert_draft_propushhen "тег id/CONTRACT/$ZANJATYJ_NOMER" "$out"
 assert_no_new_id_tags "$TEGSRC" "$teg_id0"
 
 # ── пин источник 2 (имена ссылок): 019 занят ТОЛЬКО веткой wip/019/istochnik ──
@@ -117,9 +150,9 @@ VETSRC="$WORK/repo_draft_istochnik_vetka"
 make_repo_busy019_vetka "$VETSRC" contracts/
 set_author "$VETSRC" architect
 vetka_id0="$(id_tags_of "$VETSRC")"
-stage "$VETSRC" contracts/020-draft.md 'черновик 020 — номер занят именем ссылки, не файлом'
+stage "$VETSRC" "contracts/$SLEDUJUSHHIJ_NOMER-draft.md" "черновик $SLEDUJUSHHIJ_NOMER — номер занят именем ссылки, не файлом"
 out="$("$BARRIER" "$VETSRC" || true)"
-assert_draft_propushhen 'ветка wip/019/istochnik' "$out"
+assert_draft_propushhen "ветка wip/$ZANJATYJ_NOMER/istochnik" "$out"
 assert_no_new_id_tags "$VETSRC" "$vetka_id0"
 
 # ── пин источник 4 (история): 019 закоммичен и удалён, HEAD чист ───────────────
@@ -127,9 +160,9 @@ ISTSRC="$WORK/repo_draft_istochnik_istorija"
 make_repo_busy019_istorija "$ISTSRC" contracts/
 set_author "$ISTSRC" architect
 istorija_id0="$(id_tags_of "$ISTSRC")"
-stage "$ISTSRC" contracts/020-draft.md 'черновик 020 — номер занят историей, не HEAD'
+stage "$ISTSRC" "contracts/$SLEDUJUSHHIJ_NOMER-draft.md" "черновик $SLEDUJUSHHIJ_NOMER — номер занят историей, не HEAD"
 out="$("$BARRIER" "$ISTSRC" || true)"
-assert_draft_propushhen 'contracts/019-udaljon.md в достижимой истории' "$out"
+assert_draft_propushhen "contracts/$ZANJATYJ_NOMER-udaljon.md в достижимой истории" "$out"
 assert_no_new_id_tags "$ISTSRC" "$istorija_id0"
 
 # ── зелёный контроль: virgin-репо, следующий свободный — 002 ───────────────────
@@ -145,7 +178,7 @@ assert_no_new_id_tags "$GREEN" "$green_id0"
 ADJ="$WORK/repo_draft_sosednij"
 make_repo_busy019 "$ADJ"
 set_author "$ADJ" architect
-stage "$ADJ" contracts/021-draft.md '021 — не следующий (следующий 020): судится зонами'
+stage "$ADJ" "contracts/$SOSSEDNIJ_NOMER-draft.md" "$SOSSEDNIJ_NOMER — не следующий (следующий $SLEDUJUSHHIJ_NOMER): судится зонами"
 "$BARRIER" "$ADJ" || true                    # ожидание: rc 1 «вне зоны» (до и после 019)
 
 # Охрана id/* для этого репо — живой прогон (после красного кандидата механикой
