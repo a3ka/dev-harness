@@ -540,3 +540,38 @@ make_repo_busy019_ne_tri_cifry() {  # <корень> [доп-зона architect]
   g "$r" commit -q -m "основание: контракт и зоны — четыре цифры дают rc 2, номер считается"
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
 }
+
+# make_repo_busy019_komponenta <корень> <ном remote> <ном wip> [доп-зона architect]...:
+# единственная запись с числом — УДАЛЁННАЯ ссылка
+# refs/remotes/<ном remote>/wip/<ном wip>/only, короткое имя несёт ДВЕ числовые
+# компоненты «<ном remote>/wip/<ном wip>/only» (правка 5 по FAIL круга 7: стаб круга 7
+# «компонента после wip/» проходил прежние входы и расходился с честной ПЕРВОЙ
+# компонентой на конформном зеркале с числовым именем remote). Обе компоненты —
+# АРГУМЕНТЫ, не производные: выведение живёт в М-1-зоне фикстуры, точка выведения
+# ОДНА (та же дисциплина, что у dve_cepochki с VTORAJA_NOMER). Форма конформна
+# fa0d354 п. 3: wip/<NNN>/<роль> с %03d и нечисловой ролью (only) + refs/remotes-
+# зеркало; числовое имя remote — документированное пространство refs/remotes/*
+# (вердикт круга 7). Файла с номером нигде нет, тегов id/* нет; страж «ветка, не
+# main» (018) читает только refs/heads/wip/ — удалённая ссылка его не будит.
+make_repo_busy019_komponenta() {  # <корень> <ном remote> <ном wip> [доп-зона architect]...
+  local r="$1" nom_remote="$2" nom_wip="$3"; shift 3
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m 'основание: контракт и зоны — номер занят компонентой ссылки'
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+  g "$r" update-ref "refs/remotes/$nom_remote/wip/$nom_wip/only" HEAD
+}
