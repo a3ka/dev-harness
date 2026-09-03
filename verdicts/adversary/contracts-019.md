@@ -240,3 +240,43 @@ NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ 
 * Стабы `next_id_peek` с rc 127, пустым успешным выводом и отсутствующим `git` в PATH дали именованный rc 1. Они не являются контрпримерами.
 * `git diff 09ad72b..a24ef96 --stat -- contracts/ plans/` не вывел строк. Диапазон `f6c90c4..a24ef96` затрагивает только две фикстуры: `+117/-3` строк.
 
+
+## Круг 6
+FAIL
+
+### Контрпример: цифры внутри компонента имени ссылки
+
+Слабая реализация источника 2 учитывает числовую цепочку только как самостоятельный компонент пути ссылки: `(^|/)([0-9]+)(/|$)` с `BASH_REMATCH[2]` вместо честного `([0-9]+)` с `BASH_REMATCH[1]`. Литералов фикстуры в стабе нет. Все входы решётки для ссылок содержат занятую цепочку отдельным компонентом (`wip/<номер>/...`), поэтому адресный scoped-case остаётся зелёным: rc 0 при дефолте 019, а также при подстановках 137 и 482. Стаб константно-инвариантен.
+
+На свежем WORK с единственным числом в `refs/remotes/origin/wip/x137x/only` честный `next_id_peek` печатает `138` (rc 0), поскольку кодовая грамматика `([0-9]+)` находит 137 внутри компонента. Стаб печатает `002` (rc 0): он не учитывает тот же занятый номер. Значит, ось грамматики источника 2 «граница числовой цепочки внутри компонента» не закреплена; заявление о полном закрытии решётки не подтверждено.
+
+Воспроизведение в одноразовом клоне `6b789b8`:
+
+```bash
+cp scripts/next_id.sh /tmp/adv019k6-next_id.sh
+sed -i '261c\    if [[ "$ref" =~ (^|/)([0-9]+)(/|$) ]]; then' scripts/next_id.sh
+sed -i '262c\      local n=$((10#${BASH_REMATCH[2]}))' scripts/next_id.sh
+for n in 019 137 482; do
+  CHECK_STAGED_ZANJATYJ_NOMER="$n" bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id
+  printf "REF_COMPONENT_STUB_%s_RC=%d\n" "$n" "$?"
+done
+# Наблюдение: все три scoped-прогона дают rc 0.
+work=/tmp/dev-harness-adv019k6/stub-embedded-ref
+rm -rf "$work"
+git init -q -b main "$work"
+mkdir -p "$work/contracts" && touch "$work/contracts/001-x.md"
+git -C "$work" -c user.name=fixture -c user.email=fixture@example.invalid add contracts/001-x.md
+git -C "$work" -c user.name=fixture -c user.email=fixture@example.invalid -c commit.gpgsign=false commit -qm init
+git -C "$work" update-ref refs/remotes/origin/wip/x137x/only HEAD
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+# Стаб: 002, rc 0. После cp /tmp/adv019k6-next_id.sh scripts/next_id.sh честная реализация: 138, rc 0.
+```
+
+Это повтор причины, предмет на арбитра.
+
+### Обязательные контроли
+
+* Честная реализация `6b789b8`: адресный scoped-case дал rc 0 при дефолте, 137 и 482. Охраны `--scope check_staged`, `--scope next_id` и `--scope check_nabludenia` дали rc 0 (соответственно 23/23, 1/1 и 11/11).
+* Стабы круга 5 пойманы именованно на всех трёх значениях: TEGSUFF и PERVAJA дали rc 1 с `барьер остался зелёным на обманном дереве — красное не предъявлено`.
+* Именованно красные (rc 1) прежние: константа 002, head-only, off-by-one, отсутствие `refs/remotes`, K1 (теги без фильтра класса), K3 (HEAD без фильтра класса), K4 (история без фильтра класса), а также rc 127 и пустой успешный вывод peek. Табличный стаб на 019 дал rc 1 и при подстановке 137; он константно-зависим и новый FAIL не образует.
+* `git diff 09ad72b..6b789b8 --stat -- contracts/ plans/` вывел пустой результат (rc 0).
