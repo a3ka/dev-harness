@@ -280,3 +280,66 @@ NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ 
 * Стабы круга 5 пойманы именованно на всех трёх значениях: TEGSUFF и PERVAJA дали rc 1 с `барьер остался зелёным на обманном дереве — красное не предъявлено`.
 * Именованно красные (rc 1) прежние: константа 002, head-only, off-by-one, отсутствие `refs/remotes`, K1 (теги без фильтра класса), K3 (HEAD без фильтра класса), K4 (история без фильтра класса), а также rc 127 и пустой успешный вывод peek. Табличный стаб на 019 дал rc 1 и при подстановке 137; он константно-зависим и новый FAIL не образует.
 * `git diff 09ad72b..6b789b8 --stat -- contracts/ plans/` вывел пустой результат (rc 0).
+
+
+## Круг 7
+FAIL
+
+### Двухусловный контрпример: числовое имя remote перед `wip/<NNN>/<роль>`
+
+Стаб источника 2 извлекает номер только из компонента после `wip/`:
+`(^|/)wip/([0-9]+)(/|$)` с `BASH_REMATCH[2]`. Литералов значений
+фикстуры в нём нет. Адресный scoped-case на этой реализации завершился rc 0
+при `CHECK_STAGED_ZANJATYJ_NOMER=019`, `137` и `482`; константная
+инвариантность выполнена.
+
+Свежий WORK содержит единственную ссылку
+`refs/remotes/007/wip/137/only`. Это зеркало ссылки
+`wip/137/only`: номер имеет формат `%03d`, роль `only` нечисловая, а
+`007` находится в документированном пространстве remote `refs/remotes/*`.
+Следовательно, вход конформен правилу fa0d354. На нём стаб печатает `138`
+(rc 0), извлекая номер ветки `137`. Редакция M-1 с компонентной грамматикой
+`(^|/)([0-9]+)(/|$)` печатает `008` (rc 0), потому что первым числовым
+компонентом короткого имени `007/wip/137/only` становится имя remote.
+Расхождение наблюдается на конформном входе.
+
+Воспроизведение в одноразовом клоне `b2c0343`:
+
+```bash
+cp scripts/next_id.sh /tmp/dev-harness-adv019k7/next_id.honest
+sed -i '269c\    if [[ "$ref" =~ (^|/)wip/([0-9]+)(/|$) ]]; then' scripts/next_id.sh
+for n in 019 137 482; do
+  CHECK_STAGED_ZANJATYJ_NOMER="$n" \
+    bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id
+done
+work=/tmp/dev-harness-adv019k7/remote-numeric
+rm -rf "$work" && mkdir "$work"
+git -C "$work" init -q -b main
+git -C "$work" -c user.name=fixture -c user.email=fixture@local commit --allow-empty -qm base
+git -C "$work" update-ref refs/remotes/007/wip/137/only HEAD
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+cp /tmp/dev-harness-adv019k7/next_id.honest scripts/next_id.sh
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+```
+
+Наблюдение: три scoped-прогона стаба дали rc 0; затем стаб напечатал `138`,
+а редакция M-1 — `008`.
+
+### Обязательные контроли
+
+* Честная редакция `b2c0343`: адресный scoped-case завершился rc 0 при
+  дефолте, `137` и `482`.
+* Латентный дефект M-1 устранён: на свежем WORK с
+  `refs/heads/exp/backup-2026` и `contracts/001-base.md` на HEAD
+  `next_id_peek` напечатал `002`, rc 0.
+* Конформные контроли источника 2: единственная
+  `refs/remotes/origin/wip/137/only` дала `138`, а единственная
+  `refs/heads/wip/042/implementer` — `043`; оба вызова rc 0.
+* Прежние стабы завершились rc 1 с именованным результатом раннера:
+  константа, head-only, off-by-one, отсутствие `refs/remotes`, K1, K3, K4,
+  TEGSUFF и PERVAJA. Отказ peek rc 127, пустой успешный вывод и git первым
+  в PATH с rc 127 также завершились rc 1.
+* Охраны завершились rc 0: `check_staged` 23/23, `next_id` 1/1,
+  `check_nabludenia` 11/11, `check_charter` 8/8, `spawn_agent` 2/2,
+  `check_hooks` 7/7.
+* `git diff 09ad72b..b2c0343 --stat -- contracts/ plans/` не вывел строк.
