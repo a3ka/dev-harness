@@ -170,3 +170,73 @@ rm -rf "$repo"
 ### Дополнительные отрицательные пробы
 
 Отказ `next_id_peek` с rc 127, константа `001` для пустого результата и подмена `git`, возвращающая 127 на перечислении ссылок, дали адресному scoped-case rc 1 с тем же именованным результатом. Нейтрализация `refs/heads` при сохранении только `refs/remotes` также дала rc 1. Эти пробы не являются контрпримером.
+
+## Круг 5
+FAIL
+
+### Контрпример 1: разбор суффикса тега расширен за грамматику
+
+Слабая реализация `next_id_max_for_class` снимает конечный якорь в разборе тега: вместо `id/[^/]+/([0-9]+)$` использует `id/[^/]+/([0-9]+)`. Она считает `id/CONTRACT/137a` занятым номером 137, хотя честная реализация по коду `scripts/next_id.sh` этот тег не матчится и не учитывает.
+
+Стаб константно-инвариантен: адресный scoped-case остался зелёным с rc 0 при `CHECK_STAGED_ZANJATYJ_NOMER=019`, `137` и `482`. Следовательно, это не литеральный стаб, исключённый критерием ebc57db. В свежем рабочем репозитории с единственным тегом `id/CONTRACT/137a` стаб напечатал `138` (rc 0); честная реализация на том же репозитории напечатала `001` (rc 0).
+
+Воспроизведение в одноразовом клоне `a24ef96`:
+
+```bash
+cp scripts/next_id.sh /tmp/adv019k5-next_id.sh
+sed -i '252c\    if [[ "$tag" =~ id/[^/]+/([0-9]+) ]]; then' scripts/next_id.sh
+for n in 019 137 482; do
+  CHECK_STAGED_ZANJATYJ_NOMER="$n" bash scripts/verify_antiplacebo.sh . \
+    --scope check_staged/case_draft_sledujushhij_id
+  printf 'TAG_SUFFIX_%s_RC=%d\n' "$n" "$?"
+done
+work=/tmp/dev-harness-adv019k5/tag-suffix
+rm -rf "$work"
+git init -q -b main "$work"
+git -C "$work" -c user.name=fixture -c user.email=fixture@example.invalid commit --allow-empty -qm init
+git -C "$work" tag id/CONTRACT/137a
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+cp /tmp/adv019k5-next_id.sh scripts/next_id.sh
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+```
+
+Наблюдение: `TAG_SUFFIX_019_RC=0`, `TAG_SUFFIX_137_RC=0`, `TAG_SUFFIX_482_RC=0`; затем `138` у стаба и `001` у честной реализации.
+
+### Контрпример 2: последняя цепочка цифр ссылки вместо первой
+
+Слабая реализация источника 2 выбирает последнюю, а не первую цепочку цифр имени ссылки: условие заменено на `(^|[^0-9])([0-9]+)[^0-9]*$`, а число берётся из `BASH_REMATCH[2]`. Обычные входы фикстуры содержат одну цепочку цифр, поэтому стаб зелёный с rc 0 при `019`, `137` и `482` и константно-инвариантен.
+
+В свежем рабочем репозитории единственная числовая ссылка — `refs/remotes/origin/wip/137/x/042`. Честная реализация обязана взять первую цепочку `137` и напечатать `138`; стаб взял `042` и напечатал `043`, оба вызова с rc 0. Удалённая ссылка читается стабом, поэтому это не повтор причины круга 4 (`refs/remotes` не пропущен), а отдельная ось грамматики разбора.
+
+Воспроизведение в одноразовом клоне `a24ef96`:
+
+```bash
+cp scripts/next_id.sh /tmp/adv019k5-next_id.sh
+sed -i '261c\    if [[ "$ref" =~ (^|[^0-9])([0-9]+)[^0-9]*$ ]]; then' scripts/next_id.sh
+sed -i '262c\      local n=$((10#${BASH_REMATCH[2]}))' scripts/next_id.sh
+for n in 019 137 482; do
+  CHECK_STAGED_ZANJATYJ_NOMER="$n" bash scripts/verify_antiplacebo.sh . \
+    --scope check_staged/case_draft_sledujushhij_id
+  printf 'LAST_CHAIN_%s_RC=%d\n' "$n" "$?"
+done
+work=/tmp/dev-harness-adv019k5/last-chain
+rm -rf "$work"
+git init -q -b main "$work"
+git -C "$work" -c user.name=fixture -c user.email=fixture@example.invalid commit --allow-empty -qm init
+git -C "$work" update-ref refs/remotes/origin/wip/137/x/042 HEAD
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+cp /tmp/adv019k5-next_id.sh scripts/next_id.sh
+NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ "$work"
+```
+
+Наблюдение: `LAST_CHAIN_019_RC=0`, `LAST_CHAIN_137_RC=0`, `LAST_CHAIN_482_RC=0`; затем `043` у стаба и `138` у честной реализации.
+
+### Обязательные контроли
+
+* Честная реализация `a24ef96` дала rc 0 адресному scoped-case при дефолте, `137` и `482`; также `--scope check_staged`, `--scope next_id` и `--scope check_nabludenia` дали rc 0.
+* Стаб круга 4 без `refs/remotes` дал rc 1 с именованной причиной `барьер остался зелёным на обманном дереве — красное не предъявлено` при дефолте и `137`.
+* Константа `002`, head-only и off-by-one (`max+2`) дали тот же именованный rc 1. Класс-осведомлённый табличный стаб на `019` дал rc 0 на дефолте и именованный rc 1 на `137`; по ebc57db он константно-зависим и FAIL не образует.
+* Стабы фильтров классов дали именованный rc 1 каждый: K1 — теги без класса, K3 — `ls-tree` без pathspec, K4 — история всех путей. Нейтрализация каждого затронула соответствующий вход CHUZHSRC.
+* Стабы `next_id_peek` с rc 127, пустым успешным выводом и отсутствующим `git` в PATH дали именованный rc 1. Они не являются контрпримерами.
+* `git diff 09ad72b..a24ef96 --stat -- contracts/ plans/` не вывел строк. Диапазон `f6c90c4..a24ef96` затрагивает только две фикстуры: `+117/-3` строк.
+
