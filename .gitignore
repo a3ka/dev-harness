@@ -72,3 +72,4 @@ Thumbs.db
 # версионированию — это факт работы конкретной машины, а не норма.
 data/metering/
 content-factory/
+config/models-*-session.yml
