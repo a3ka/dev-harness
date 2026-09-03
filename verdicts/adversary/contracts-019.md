@@ -343,3 +343,124 @@ NEXT_ID_LIB=1 bash -c 'source scripts/next_id.sh; next_id_peek "$1" CONTRACT' _ 
   `check_nabludenia` 11/11, `check_charter` 8/8, `spawn_agent` 2/2,
   `check_hooks` 7/7.
 * `git diff 09ad72b..b2c0343 --stat -- contracts/ plans/` не вывел строк.
+
+## Круг 8
+accept
+
+Судимый диапазон: `b2c0343..71bda60`; воспроизведение выполнено только в одноразовом клоне `/tmp/dev-harness-adv019k8/repo` на `71bda60`. Ручные пробы выполнялись отдельными вызовами `verify_antiplacebo` с отдельным `VERIFY_ANTIPLACEBO_SCRATCH`, следовательно у каждой был свежий `WORK`.
+
+### Двухусловная граница и правка 5
+
+Новой оси нет. Критерий `fa0d354` применён совместно: проверялись только константно-инвариантные подстановки и расхождения на конформных зеркалах `refs/remotes/<NNN>/wip/<NNN>/<нечисловая-роль>`. Для пространства максимум с двумя числовыми компонентами KOMP1/KOMP2 различают first от last, max, min, after-wip и N=2. Для N>=3 конформного входа нет, поэтому контрпример по нему не образуется.
+
+Честная реализация, адресный scoped-case:
+
+```text
+$ for n in 019 137 482; do CHECK_STAGED_ZANJATYJ_NOMER=$n bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id; printf "HONEST_%s_RC=%d\n" "$n" "$?"; done
+HONEST_019_RC=0
+HONEST_137_RC=0
+HONEST_482_RC=0
+```
+
+Для каждого стаба выполнялась отдельная подстановка в `scripts/next_id.sh`, затем та же команда на свежем `WORK`; сырой итог раннера для каждого был `FAIL ... барьер остался зелёным на обманном дереве — красное не предъявлено` и rc 1. Команды воспроизведения — адресный scoped-case выше с соответствующей заменой выбора компоненты в цикле источника 2:
+
+```text
+$ after-wip:  (^|/)wip/([0-9]+)(/|$), BASH_REMATCH[2]
+AFTER_WIP_019_RC=1  AFTER_WIP_137_RC=1  AFTER_WIP_482_RC=1
+$ last: ([0-9]+)(/[^0-9/]+)?$, BASH_REMATCH[1]
+LAST_019_RC=1       LAST_137_RC=1       LAST_482_RC=1
+$ N=2: ^([0-9]+)/wip/([0-9]+)/, BASH_REMATCH[2]; иначе first
+NTH2_019_RC=1       NTH2_137_RC=1       NTH2_482_RC=1
+$ max(first, after-wip); иначе first
+MAX_019_RC=1        MAX_137_RC=1        MAX_482_RC=1
+$ min(first, after-wip); иначе first
+MIN_019_RC=1        MIN_137_RC=1        MIN_482_RC=1
+```
+
+Во всех пяти строках ненулевой rc относится к стабу, а не к отсутствующему инструменту: раннер назвал именно отсутствие предъявленного красного, а не `NOT_IMPLEMENTED`. Тем самым KOMP1/KOMP2 нейтрализуют ровно проверяемый выбор компоненты; это не новый контрпример.
+
+### Прежние обманные реализации
+
+Каждая проба — отдельная подстановка и свежий `WORK`; команды воспроизведения: `CHECK_STAGED_ZANJATYJ_NOMER=019 bash scripts/verify_antiplacebo.sh . --scope check_staged/case_draft_sledujushhij_id` после указанной замены. Сырой результат всех ниже — rc 1; кроме отмеченного rc127-канала раннер сообщил `барьер остался зелёным на обманном дереве — красное не предъявлено`.
+
+```text
+CONSTANT_RC=1              # next_id_peek печатает 002
+HEAD_ONLY_RC=1             # peek читает только contracts/ на HEAD
+OFF_BY_ONE_RC=1            # next=max+2
+K4_NO_REMOTES_RC=1         # источник 2: только refs/heads
+K1_TAG_CLASS_RC=1          # теги без фильтра класса
+K3_HEAD_CLASS_RC=1         # HEAD читает contracts и plans
+K4_HISTORY_CLASS_RC=1      # история читает contracts и plans
+TEGSUFF_019_RC=1  TEGSUFF_137_RC=1  TEGSUFF_482_RC=1
+LAST_019_RC=1     LAST_137_RC=1     LAST_482_RC=1   # PERVAJA / к5
+K7_AFTER_WIP_RC=1
+PEEK_RC127_RC=1            # раннер назвал отсутствие предъявленного красного
+PEEK_EMPTY_RC=1            # успешный пустой stdout
+```
+
+Проверен также отказный канал: `next_id_peek() { return 127; }` дал `PEEK_RC127_RC=1`, а не зелёное. Пустой успешный ответ также не засчитан. Нейтрализации источника 2 (`refs/remotes`), фильтров K1/K3/K4 и выбора после `wip/` дали именно соответствующий адресный красный сценарий, а не общий положительный контроль.
+
+### Лечение рассогласований Н-77
+
+Сырые итоги команд на честной судимой вершине:
+
+```text
+$ bash scripts/check_zones.sh
+  ok   контракт 019: коммит 8998cd41 (architect) — СПАСЕНО, из суда зон выведен
+CHECK_ZONES_SAVED_RC=0
+
+$ bash scripts/check_ids.sh
+  ok   номера уникальны и согласованы с регистром выдачи
+CHECK_IDS_TAG_RC=0
+
+$ bash scripts/check_ceilings.sh
+  ok   раздел требований: 19 черновик(ов) судится, замороженные — по тегам
+потолки в порядке
+CHECK_CEILINGS_DRAFT_RC=0
+```
+
+Для отрицательного контроля строка `СПАСЕНО architect: 8998cd41bfd9622d7634c02e5bd119567b4e17d8 ...` была удалена в клоне, изменение было закоммичено только в нём и tag `frozen/contracts/019/2` был направлен на эту пробную вершину, чтобы `check_zones` читал изменённый frozen blob, а не рабочее дерево. Ровно одна резервация потеряна:
+
+```text
+$ bash scripts/check_zones.sh
+  FAIL коммит вне зоны: architect 8998cd41 contracts/020-shardirovanie-ci-antiplatsebo.md — зона контракта 019: contracts/019-ustav-draft-klyuchi.md fixtures/check_charter/ fixtures/check_staged/ fixtures/spawn_agent/ NABLIUDENIA_ARCHITECT.md
+CHECK_ZONES_FROZEN_WITHOUT_SAVED_RC=1
+```
+
+Неизменность заморозки и единственная v1→v2 дельта:
+
+```text
+$ git diff frozen/contracts/019/2..HEAD --stat -- contracts/ plans/
+FROZEN_V2_HEAD_DIFF_RC=0
+
+$ git diff frozen/contracts/019/1 frozen/contracts/019/2 -- contracts/019-ustav-draft-klyuchi.md
+ contracts/019-ustav-draft-klyuchi.md | 1 +
+ 1 file changed, 1 insertions(+), 0 deletions(-)
++СПАСЕНО architect: 8998cd41bfd9622d7634c02e5bd119567b4e17d8 — draft-пуск ветви 2 контракта 019 ...
+FROZEN_V1_TO_V2_DIFF_RC=0
+```
+
+### Охраны
+
+```text
+$ bash scripts/verify_antiplacebo.sh . --scope check_staged
+барьеров: 1 · фикстур: 23 · предъявлено красным повторным прогоном: 23
+GUARD_check_staged_RC=0
+$ bash scripts/verify_antiplacebo.sh . --scope next_id
+барьеров: 1 · фикстур: 1 · предъявлено красным повторным прогоном: 1
+GUARD_next_id_RC=0
+$ bash scripts/verify_antiplacebo.sh . --scope check_nabludenia
+барьеров: 1 · фикстур: 11 · предъявлено красным повторным прогоном: 11
+GUARD_check_nabludenia_RC=0
+$ bash scripts/verify_antiplacebo.sh . --scope check_charter
+барьеров: 1 · фикстур: 8 · предъявлено красным повторным прогоном: 8
+GUARD_check_charter_RC=0
+$ bash scripts/verify_antiplacebo.sh . --scope spawn_agent
+барьеров: 1 · фикстур: 2 · предъявлено красным повторным прогоном: 2
+GUARD_spawn_agent_RC=0
+$ bash scripts/verify_antiplacebo.sh . --scope check_hooks
+барьеров: 1 · фикстур: 7 · предъявлено красным повторным прогоном: 7
+GUARD_check_hooks_RC=0
+```
+
+Итог: обязательные положительные контроли зелёные; прежние и новые обманные реализации адресно красные; лечение Н-77 и неизменность v2 подтверждены. На конформных входах новой двухусловной оси не обнаружено.
