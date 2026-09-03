@@ -393,3 +393,150 @@ make_repo_busy019_chuzhklass() {  # <корень> [доп-зона architect]..
   g "$r" rm -q "plans/$nom-udaljon.md"
   g "$r" commit -q -m "план $nom удалён — чужой класс в истории держит номер"
 }
+
+# ── помощники правки 4 по FAIL адверсария 019 круг 5: ГРАММАТИКА РАЗБОРА ───────
+# Четыре построителя пинуют грамматические решения next_id_max_for_class
+# (Н-39 — по коду, не по прозе): конечный якорь тега (id/[^/]+/([0-9]+)$ —
+# суффикс после цифр номером НЕ считается), ПЕРВАЯ цепочка цифр имени ссылки
+# (([0-9]) без привязки — левое совпадение) и базовое имя через
+# parse_artifact_basename (цифра за дефисом — rc 1, безномерное; НЕ три цифры —
+# rc 2, но ARTIFACT_NUMBER ставится и номер СЧИТАЕТСЯ). Рекурсия ls-tree
+# источника 3 оси не образует: всякий файл HEAD попадал в достижимую историю
+# добавлением, источник 4 (git log --name-only, полные пути) видит его и без
+# рекурсии — слабость неотличима от честного поведения. Доп-зоны architect —
+# как у make_repo_busy019: пину нужна зона, покрывающая draft-путь, чтобы
+# стаб падал СТРОКОЙ draft-пропуска (ассертом фикстуры), а не кодом возврата
+# (А-73 — красный от стаба не становится законным красным кандидатом раннера).
+
+# make_repo_busy019_tegsuffiks <корень> [доп-зона architect]...: единственная
+# запись с числом — тег id/CONTRACT/<занятый>a (мусорный суффикс после цифр).
+# Честный якорь id/[^/]+/([0-9]+)$ этот тег НЕ матчит → максимум остаётся 001
+# (contracts/001-x.md на HEAD). Стаб круга 5 без якоря считает <занятый>
+# занятым → max+1 → расхождение наблюдается ИМЕННО здесь (Н-39). Тег живёт
+# под refs/tags/id/CONTRACT/ с самого начала — охрана «нет НОВЫХ id-тегов»
+# видит его в снимке ДО прогона и зелёная на честной реализации.
+make_repo_busy019_tegsuffiks() {  # <корень> [доп-зона architect]...
+  local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m "основание: контракт и зоны — номер с суффиксом тег НЕ занимает"
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+  g "$r" tag -a "id/CONTRACT/${nom}a" -m 'тег с мусорным суффиксом (фикстура: якорь грамматики источника 1)'
+}
+
+# make_repo_busy019_dve_cepochki <корень> [доп-зона architect]...: единственная
+# запись с числом — удалённая ссылка refs/remotes/origin/wip/<занятый>/x/<вторая>
+# с ДВУМЯ цепочками цифр. Честный разбор берёт ПЕРВУЮ (<занятый>); стаб круга 5
+# (последняя цепочка, REMATCH[2]) — вторую. Вторая цепочка — VTORAJA_NOMER из
+# М-1-зоны фикстуры (10#-арифметика от параметра, литерал производной запрещён):
+# выведена в фикстуре, а не здесь, чтобы derivation был ОДИН (единый источник).
+# Обе ориентации проверены по коду: следующее честного = <занятый>+1, стаба =
+# max(<вторая>, 001)+1 — сходятся ТОЛЬКО при равенстве цепочек, поэтому вторая
+# обязана быть меньше занятого (ассерт М-1-зоны); «больше базы» при неравенстве
+# цепочек несущественно: даже <вторая>=001 даёт стабу 002 ≠ <занятый>+1.
+# Страж «ветка, не main» (018) читает только refs/heads/wip/ — удалённая ссылка
+# его не будит (как у make_repo_busy019_remote). Тегов id/* нет.
+make_repo_busy019_dve_cepochki() {  # <корень> [доп-зона architect]...
+  local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
+  local vtor="${VTORAJA_NOMER:?ОТКАЗ: вторая цепочка не выведена (М-1-зона фикстуры)}"
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m "основание: контракт и зоны — номер занят первой цепочкой ссылки"
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+  g "$r" update-ref "refs/remotes/origin/wip/$nom/x/$vtor" HEAD
+}
+
+# make_repo_busy019_data_posle_defisa <корень> [доп-зона architect]...: на HEAD
+# лежит contracts/<занятый>-2026-x.md — цифра сразу за дефисом, parse_artifact_basename
+# возвращает rc 1 (безномерное), источник 3 НЕ считает. Честный максимум 001 →
+# следующий 002. Стаб, принимающий дату за номер (ослабленный разбор базового
+# имени), считает <занятый> → max+1 → расхождение наблюдается здесь (Н-39).
+# Файл вносят в основание-коммит: на HEAD и в истории он ведёт себя одинаково
+# (обе половины грамматики базового имени пинуются парой построителей ниже/выше).
+make_repo_busy019_data_posle_defisa() {  # <корень> [доп-зона architect]...
+  local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  printf '# контракт %s (цифра за дефисом — безномерное имя, номер НЕ занимает)\n' "$nom" > "$r/contracts/$nom-2026-x.md"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m "основание: контракт и зоны — дата за дефисом номер НЕ занимает"
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+}
+
+# make_repo_busy019_ne_tri_cifry <корень> [доп-зона architect]...: на HEAD лежит
+# contracts/<занятый в ЧЕТЫРЕ цифры>-x.md — parse_artifact_basename возвращает
+# rc 2 (неправильный формат), но ARTIFACT_NUMBER ставится и источник 3 номер
+# СЧИТАЕТ (код: [ -n "$ARTIFACT_NUMBER" ] без различения rc 0/rc 2). Честный
+# максимум = <занятый> → следующий max+1. Стаб «ровно три цифры» (жёстче
+# честного) отбрасывает файл → 002 → расхождение наблюдается здесь (Н-39).
+# %04d от параметра: при любом допустимом N (002…998) цепочка — ровно четыре
+# цифры, ось жива при каждой подстановке.
+make_repo_busy019_ne_tri_cifry() {  # <корень> [доп-зона architect]...
+  local r="$1"; shift
+  local nom="${ZANJATYJ_NOMER:-019}"  # М-1: занятый номер — параметр (точка подстановки построителя)
+  local chetyre
+  chetyre="$(printf '%04d' "$((10#$nom))")"
+  mkdir -p "$r/contracts" "$r/verdicts/critic" "$r/scripts" "$r/plans"
+  {
+    printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
+    printf 'ЗОНА implementer: scripts/\n'
+    printf 'ЗОНА architect: plans/\n'
+    local z
+    for z in "$@"; do printf 'ЗОНА architect: %s\n' "$z"; done
+  } > "$r/contracts/001-x.md"
+  printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
+  printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
+  printf '# контракт %s в записи из четырёх цифр (rc 2 — номер всё равно считается)\n' "$chetyre" > "$r/contracts/$chetyre-x.md"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
+  g "$r" add -A
+  g "$r" commit -q -m "основание: контракт и зоны — четыре цифры дают rc 2, номер считается"
+  g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
+}
