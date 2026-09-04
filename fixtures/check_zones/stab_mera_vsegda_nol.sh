@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # НЕ БАРЬЕР: слабая реализация меры — «всегда 0». На входе «перекрывшаяся пара»
 # неотличима от честной формы (обе дают rc 0); дефект наблюдаем на входе
-# «последовательная пара» (ворота toys_posledovatelnoe case_mera_parallelnosti_okon):
+# «последовательная пара» (ворота toys_posledovatelnoe red_mera_parallelnosti_okon):
 # честная мера обязана ответить rc 1 «не параллельно», эта отвечает rc 0.
 # Привязка — кодом этой шапки и кодом probe_slabye_realizacii.sh (Н-39).
 set -uo pipefail
