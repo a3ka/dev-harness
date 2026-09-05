@@ -16,19 +16,22 @@
 red_mera/red_regress/probe (5 фаз); red-формы ВНЕ case-глоба раннера (А-82: раннер
 судит стандарт-А и краснит CI на каждом пуше — вынос единственно совместим).
 
-**В ПОЛЁТЕ:** implementer `Impl021` — worktree
-`/tmp/dev-harness-worktrees/775e24e1/wip-021-implementer`, ветка
-`wip/021/implementer`, ПУШ ЗАПРЕЩЁН. Задание tmp/impl021-task.md (зоны:
-scripts/check_zones.sh scripts/lib_zones.sh scripts/measure_parallel_windows.sh).
-**ПЕРВЫЙ ШАГ новой сессии:** `git log --oneline wip/021/implementer -5` — что успел
-коммитить до обрыва; если ветка пуста/неполна — переспавн с того же задания;
-если полна — сверка 4а (red_mera rc 0, red_regress rc 0, probe rc 0 пять фаз,
-check_zones живое rc 0 базлайн 18·5·456·337, семья rc 0) → land → CI → адверсарий
-→ ревьюер → done/021. Затем ПАРА 022∥023 (022 = класс-фикс Н-78; 023 = Н-77(а)
-резервация при draft; приёмка §10: два РАЗДЕЛЬНЫХ freeze-акта + мера rc 0 +
-check_zones rc 0 при двух открытых окнах). Прочие worktree: wip-020-architect
-(отработан), wip-021-architect (слит до правки 4).
-
+**Worktree'ы:** wip-021-implementer (работа завершена, ветка на origin),
+wip-020-architect (отработан), wip-021-architect (слит до правки 4).
+**В ПОЛЁТЕ → ЗАВЕРШЕНО ДО СТОПА:** implementer `Impl021` сдал ДО отключения:
+`2e7f7ec` (measure_parallel_windows.sh новый +76; check_zones +49: линейный
+rev-list МИНУС коммиты чужих wip-merge'ей по маркеру «land: wip/<OTHER>/…»;
+draft-признание по тегу id/CONTRACT/<NNN>), ветка запушена в origin для
+страховки. 4а ИМ ПРОГНАНА ЗЕЛЁНОЙ ПОЛНОСТЬЮ (red_mera/red_regress/probe rc 0
+пять фаз, check_zones живое rc 0 — коммиты/проверено 456/337 РОВНО базлайн,
+семья 13/13, охраны charter/staged/hooks, ids/ceilings/frozen/charter/
+nabludenia/ci-parity все rc 0). Примечание: сводка «19·2·456·337» вместо
+«18·5·…» — pre-existing отображение (число ЗОНА-строк последнего контракта),
+вне зоны implementer, починка — кандидат в мелочи. **ПЕРВЫЙ ШАГ новой сессии
+(упрощён):** land ветки wip/021/implementer (merge --no-ff вручную, атомарно) →
+push → CI (4б) → адверсарий 021 → ревьюер → done/021 → ПАРА 022∥023 (022 =
+класс-фикс Н-78; 023 = Н-77(а); приёмка §10: два РАЗДЕЛЬНЫХ freeze-акта +
+мера rc 0 + check_zones rc 0 при двух открытых окнах).
 **ОЧЕРЕДЬ (после done/021):** пара 022∥023 → Н-77(г) дверь по тегу id/CONTRACT
 (когезивно с 023) → 020 грилинг Р1-Р4 → Н-77(а/в) → §10 остаток, Н-49/Н-50, Н-75.
 
