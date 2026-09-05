@@ -17,7 +17,9 @@ red_mera/red_regress/probe (5 фаз); red-формы ВНЕ case-глоба р�
 судит стандарт-А и краснит CI на каждом пуше — вынос единственно совместим).
 
 **Worktree'ы:** wip-021-implementer (работа завершена, ветка на origin),
-wip-020-architect (отработан), wip-021-architect (слит до правки 4).
+wip-020-architect (отработан), wip-021-architect (слит до правки 4). ПОСЛЕ
+ПЕРЕЗАГРУЗКИ: каталоги /tmp/dev-harness-worktrees/* СТЁРНУТСЯ — это норма, ветки
+в .git и на origin; worktree пересоздаются spawn_agent'ом, старые не искать.
 **В ПОЛЁТЕ → ЗАВЕРШЕНО ДО СТОПА:** implementer `Impl021` сдал ДО отключения:
 `2e7f7ec` (measure_parallel_windows.sh новый +76; check_zones +49: линейный
 rev-list МИНУС коммиты чужих wip-merge'ей по маркеру «land: wip/<OTHER>/…»;
