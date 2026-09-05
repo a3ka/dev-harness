@@ -254,6 +254,19 @@ is_process_file() {
 }
 
 # ── обход коммитов в диапазонах ───────────────────────────────────────────────
+# Семантика ОТКРЫТОГО окна контракта (контракт 021, ветвь А):
+#   судимое множество = прямые не-merge первого-родителя в диапазоне
+#   ∪ коммиты, принесённые merge'ями с маркером `land: wip/<NNN>/<author>`
+#     в первой строке (%s) — `rev-list <merge>^1..<merge> --no-merges`
+#     (тот же родительский примитив, что charter И-7).
+#   merge'и с чужим маркером (`wip/<OTHER>/…`) НЕ приносят коммиты в
+#   окно N — линейный rev-list --no-merges --reverse уходит (захватывал
+#   чужие merge-принесённые, измеренная боль Н-66).
+#   Прочие правки логики суда (авторы → зоны → дельта путей) — НЕ здесь.
+# draft-признание (контракт 021, ветвь Б / Н-77(б)): коммит с дельтой
+#   contracts/<NNN>-<slug>.md и тегом id/CONTRACT/<NNN> на САМОМ коммите —
+#   этот путь из суда выводится. Прочие пути того же коммита судятся
+#   обычным порядком (тег — не индульгенция на весь коммит).
 commits=0; checked=0
 while IFS=$'\t' read -r nnn since; do
   [ -n "$nnn" ] || continue
@@ -264,7 +277,29 @@ while IFS=$'\t' read -r nnn since; do
   [ -s "$TMP/authors" ] || continue
   range="$since..HEAD"
   [ -n "$until" ] && range="$since..$until"
+  # Линейный rev-list (как раньше) — для контрактов с ЗАКРЫТЫМИ окнами и
+  # без чужих wip/<OTHER>/… merge'ей даёт ту же сводку (регресс-инвариант
+  # ветви Г; для 017/019 merge'и без `land:` маркера тоже остаются).
   g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  # Исключаем коммиты, принесённые ЧУЖИМИ wip-merge'ями (`land: wip/<OTHER>/…`):
+  # в последовательной истории таких нет, регресс закрытых контрактов
+  # держится; в открытом окне с cross-track касанием они уходят. Merge'и
+  # БЕЗ `land:` маркера (admin merge, intra-wip сведение) трактуются как
+  # внутренние — НЕ исключаются (та же семантика, что в линейной модели).
+  : > "$TMP/exclude"
+  g rev-list --merges "$range" 2>/dev/null | while IFS= read -r mc; do
+    [ -n "$mc" ] || continue
+    msg="$(g log -1 --format=%s "$mc" 2>/dev/null)"
+    case "$msg" in
+      "land: wip/${nnn}/"*) ;;  # свой merge — НЕ исключаем
+      "land: wip/"*) g rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null >> "$TMP/exclude" ;;
+    esac
+  done
+  sort -u "$TMP/exclude" -o "$TMP/exclude"
+  if [ -s "$TMP/exclude" ]; then
+    comm -23 "$TMP/commits" "$TMP/exclude" > "$TMP/judged"
+    mv "$TMP/judged" "$TMP/commits"
+  fi
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     commits=$((commits + 1))
@@ -275,9 +310,24 @@ while IFS=$'\t' read -r nnn since; do
       continue
     fi
     checked=$((checked + 1))
+    # draft-признание (Н-77(б)): коммит с дельтой contracts/<NNN>-<slug>.md
+    # и тегом id/CONTRACT/<NNN> на САМОМ коммите — этот путь из суда
+    # выводится. Прочие пути того же коммита судятся обычным порядком.
+    has_draft_tag=0
+    if g tag --points-at "$c" "id/CONTRACT/$nnn" 2>/dev/null \
+         | grep -qxF -- "id/CONTRACT/$nnn"; then
+      has_draft_tag=1
+    fi
     awk -F'\t' -v a="$an" -v n="$nnn" '$1 == a && $3 == n { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
+      # draft-признание (Н-77(б)): исключаем contracts/<NNN>-<slug>.md
+      # если на коммите стоит тег id/CONTRACT/<NNN>. Прочие пути того же
+      # коммита идут обычным порядком — тег не индульгенция на весь коммит.
+      if [ "$has_draft_tag" -eq 1 ] && [ "${f%%/*}" = "contracts" ] \
+         && [ "${f#contracts/$nnn-}" != "$f" ]; then
+        continue
+      fi
       if is_process_file "$f"; then
         printf '%s\n' "$f" >> "$TMP/process_excluded"
         continue
