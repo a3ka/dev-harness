@@ -297,7 +297,11 @@ while IFS=$'\t' read -r nnn since; do
   done
   sort -u "$TMP/exclude" -o "$TMP/exclude"
   if [ -s "$TMP/exclude" ]; then
-    comm -23 "$TMP/commits" "$TMP/exclude" > "$TMP/judged"
+    # comm требует лекс-сортировки обоих входов; $TMP/commits хранит хронологию (--reverse),
+    # поэтому фильтруем через лекс-сортированную копию — множество судимых коммитов неизменно,
+    # хронологический обход цикла суда сохранён.
+    sort -u "$TMP/commits" -o "$TMP/commits_sorted"
+    comm -23 "$TMP/commits_sorted" "$TMP/exclude" > "$TMP/judged"
     mv "$TMP/judged" "$TMP/commits"
   fi
   while IFS= read -r c; do
