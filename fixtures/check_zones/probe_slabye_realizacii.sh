@@ -23,6 +23,10 @@
 #             применение проверяется grep'ом — молчаливая потеря текста
 #             исключена) → red_regress rc 1: toy с единственным
 #             merge-принесённым нарушением остаётся зелёным.
+#   фаза 5 — слабая «лексикографическая» (правка 3 по арбитражу fda7bbe:
+#             сравнение %ci-строк) → red_mera rc 1: умирает на воротах
+#             «последовательная пара со смешанными offset» (дефект наблюдаем
+#             там, Н-39).
 # Слабая «хвост до HEAD» отдельной фазы не имеет: это СЕГОДНЯШНЕЕ поведение
 # честного дерева, её ловит вход «чужой land-merge» red_regress (прямой прогон
 # на живом дереве красен до реализации 021).
@@ -65,14 +69,11 @@ out="$(run_red "$T/r3" red_mera_parallelnosti_okon.sh)" && rc=0 || rc=$?
 [ "$rc" -ne 0 ] || fail "слабая «пусто-зелёная» не поймана: red_mera rc=0
 $out"
 
-# ── фаза 4: слабая «теряет merge-принесённые» (однострочный sed, А-79) ───────
-mk_toy "$T/r4" "$HERE/stab_mera_chestnyj.sh"
-sed -i 's/--no-merges --reverse/--no-merges --reverse --first-parent/' "$T/r4/scripts/check_zones.sh"
-grep -q -- '--no-merges --reverse --first-parent' "$T/r4/scripts/check_zones.sh" \
-  || fail 'sed-мутация --first-parent не применилась к копии check_zones (А-79: молчаливая потеря текста)'
-out="$(run_red "$T/r4" red_regress_posledovatel_naja_istorija.sh)" && rc=0 || rc=$?
-[ "$rc" -ne 0 ] || fail "слабая «теряет merge-принесённые» не поймана: red_regress rc=0
+# ── фаза 5: слабая «лексикографическая» (правка 3, арбитраж fda7bbe) ─────────
+mk_toy "$T/r5" "$HERE/stab_mera_leksikograficheskij.sh"
+out="$(run_red "$T/r5" red_mera_parallelnosti_okon.sh)" && rc=0 || rc=$?
+[ "$rc" -ne 0 ] || fail "слабая «лексикографическая» не поймана: red_mera rc=0
 $out"
 
-printf 'пойманы: всегда-0, пусто-зелёная, теряет-merge-принесённые; честная форма меры проходит\n' >&2
+printf 'пойманы: всегда-0, пусто-зелёная, теряет-merge-принесённые, лексикографическая; честная форма меры (моменты, %%ct) проходит\n' >&2
 exit 0
