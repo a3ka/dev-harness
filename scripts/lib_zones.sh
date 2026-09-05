@@ -54,6 +54,30 @@ lib_zones_canon() {
   printf '%s%s' "$_c" "$tail"
 }
 
+# Уборка скратча zones_load: гарантированная на любом пути выхода скрипта, который
+# нас подключил. Подробно: zones_load пишет маркер `$LIB_ZONES_ROOT/tmp/.lib_zones_active`
+# сразу после mktemp; этот маркер переживает границу `$(zones_load ...)` (подshell
+# выхода НЕ запускает EXIT-ловушку — проверено эмпирически, $BASHPID родителя и
+# подshell'а различаются), и родительская ловушка читает маркер, удаляя каталог
+# скратча уже после того, как потребитель прочитал файлы из него.
+#
+# Потребитель ОБЯЗАН задать `LIB_ZONES_ROOT=$root` (канонический) ДО первого вызова
+# zones_load — иначе очистка no-op, и ответственность за скратч ложится на
+# потребителя. check_zones.sh выставляет LIB_ZONES_ROOT сразу после вычисления ROOT
+# и зовёт __lib_zones_cleanup из своего EXIT-ловушки совместно с `rm -rf "$TMP"` —
+# так снимаются ОБА скратча скрипта (свой + lib_zones), без шанса на подмену
+# `trap ... EXIT` в обход.
+__lib_zones_cleanup() {
+  if [ -n "${LIB_ZONES_ROOT:-}" ]; then
+    local marker="$LIB_ZONES_ROOT/tmp/.lib_zones_active"
+    [ -f "$marker" ] || return 0
+    local p
+    p="$(cat "$marker" 2>/dev/null || true)"
+    [ -n "$p" ] && [ "$p" != "$marker" ] && rm -rf -- "$p"
+    rm -f -- "$marker"
+  fi
+ }
+
 # zones_load <корень-репо>
 # stdout: каталог с файлами zones_scoped, zones_violations, ranges, contracts_list.
 # rc 0 при успехе (включая «нет контрактов»); 1 при отказе реестра; 2 при NOT_IMPLEMENTED.
@@ -84,6 +108,10 @@ zones_load() {
 
   mkdir -p "$root/tmp"
   out="$(mktemp -d "$root/tmp/lib_zones.XXXXXX")"
+  # Регистрация скратча для очистки на EXIT родительской оболочки: маркер на диске
+  # переживает `$(zones_load ...)` и читается __lib_zones_cleanup из ловушки
+  # потребителя (см. описание функции выше).
+  printf '%s\n' "$out" > "$root/tmp/.lib_zones_active"
   : > "$out/zones_scoped"
   : > "$out/zones_violations"
   : > "$out/ranges"
