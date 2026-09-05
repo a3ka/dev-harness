@@ -69,6 +69,15 @@ out="$(run_red "$T/r3" red_mera_parallelnosti_okon.sh)" && rc=0 || rc=$?
 [ "$rc" -ne 0 ] || fail "слабая «пусто-зелёная» не поймана: red_mera rc=0
 $out"
 
+# ── фаза 4: слабая «теряет merge-принесённые» (однострочный sed, А-79) ───────
+mk_toy "$T/r4" "$HERE/stab_mera_chestnyj.sh"
+sed -i 's/--no-merges --reverse/--no-merges --reverse --first-parent/' "$T/r4/scripts/check_zones.sh"
+grep -q -- '--no-merges --reverse --first-parent' "$T/r4/scripts/check_zones.sh" \
+  || fail 'sed-мутация --first-parent не применилась к копии check_zones (А-79: молчаливая потеря текста)'
+out="$(run_red "$T/r4" red_regress_posledovatel_naja_istorija.sh)" && rc=0 || rc=$?
+[ "$rc" -ne 0 ] || fail "слабая «теряет merge-принесённые» не поймана: red_regress rc=0
+$out"
+
 # ── фаза 5: слабая «лексикографическая» (правка 3, арбитраж fda7bbe) ─────────
 mk_toy "$T/r5" "$HERE/stab_mera_leksikograficheskij.sh"
 out="$(run_red "$T/r5" red_mera_parallelnosti_okon.sh)" && rc=0 || rc=$?
