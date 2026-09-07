@@ -54,29 +54,74 @@ lib_zones_canon() {
   printf '%s%s' "$_c" "$tail"
 }
 
-# Уборка скратча zones_load: гарантированная на любом пути выхода скрипта, который
-# нас подключил. Подробно: zones_load пишет маркер `$LIB_ZONES_ROOT/tmp/.lib_zones_active`
-# сразу после mktemp; этот маркер переживает границу `$(zones_load ...)` (подshell
-# выхода НЕ запускает EXIT-ловушку — проверено эмпирически, $BASHPID родителя и
-# подshell'а различаются), и родительская ловушка читает маркер, удаляя каталог
-# скратча уже после того, как потребитель прочитал файлы из него.
+# Вынесение скратча НАРУЖУ корня (канон 014: scratch живёт вне стерегомого
+# дерева в любом режиме — иначе чужой корень без .gitignore загрязняется
+# при первом же zones_load, и пре-условие «главное дерево чисто» режет раньше
+# ожидаемого отказа). Каталог скратча и маркер-файл лежат рядом под
+# ${TMPDIR:-/tmp}/lib_zones.<hash8 корня>.XXXXXX (скратч) и тот же префикс
+# + .active (маркер); LIB_ZONES_BASE позволяет потребителю указать иную базу.
 #
-# Потребитель ОБЯЗАН задать `LIB_ZONES_ROOT=$root` (канонический) ДО первого вызова
-# zones_load — иначе очистка no-op, и ответственность за скратч ложится на
-# потребителя. check_zones.sh выставляет LIB_ZONES_ROOT сразу после вычисления ROOT
-# и зовёт __lib_zones_cleanup из своего EXIT-ловушки совместно с `rm -rf "$TMP"` —
-# так снимаются ОБА скратча скрипта (свой + lib_zones), без шанса на подмену
-# `trap ... EXIT` в обход.
+# hash8 от КАНОНИЧЕСКОГО корня — лексические алиасы одного пути дают один
+# и тот же каталог скратча (прецедент verify_antiplacebo HASH8).
+__lib_zones_paths() {  # <корень>  →  stdout: canon\ntemplate\nmarker
+  local canon h base
+  canon="$(lib_zones_canon "$1")" || return 1
+  h="$(printf '%s' "$canon" | sha256sum | cut -c1-8)"
+  base="${LIB_ZONES_BASE:-${TMPDIR:-/tmp}}"
+  printf '%s\n%s/lib_zones.%s.XXXXXX\n%s/lib_zones.%s.active\n' \
+    "$canon" "$base" "$h" "$base" "$h"
+}
+
+# Уборка устаревших маркера и оболочек (от прошлых прогонов и крашей) при
+# каждом zones_load — чтобы /tmp не копил мусор. Принимает три пути одной
+# строкой: канон., шаблон mktemp, маркер.
+__lib_zones_self_gc() {
+  local marker="$1" scratch_tmpl="$2" base p d bn
+  # 1) Маркер: подчистить указанный им скратч и сам файл.
+  if [ -f "$marker" ]; then
+    p="$(cat "$marker" 2>/dev/null || true)"
+    [ -n "$p" ] && [ "$p" != "$marker" ] && [ -d "$p" ] && rm -rf -- "$p"
+    rm -f -- "$marker"
+  fi
+  # 2) Сироты: каталоги с тем же префиксом (без финального .XXXXXX).
+  base="${scratch_tmpl%.XXXXXX}"
+  for d in "$base".*; do
+    [ -e "$d" ] || continue
+    bn="${d##*/}"
+    case "$bn" in
+      *.active) continue ;;   # marker — снят шагом 1
+    esac
+    [ -d "$d" ] && rm -rf -- "$d"
+  done
+}
+
+# Уборка скратча zones_load из EXIT-ловушки потребителя: читает маркер по
+# НОВОМУ пути (вне корня) и снимает скратч. Подробно: zones_load пишет маркер
+# сразу после mktemp; маркер на диске переживает границу `$(zones_load ...)`
+# (подshell выхода НЕ запускает EXIT-ловушку — проверено эмпирически, $BASHPID
+# родителя и подshell'а различаются), и родительская ловушка читает маркер,
+# удаляя каталог скратча уже после того, как потребитель прочитал файлы из него.
+#
+# Потребитель ОБЯЗАН задать `LIB_ZONES_ROOT=$root` (канонический) ДО первого
+# вызова zones_load — иначе очистка no-op, и ответственность за скратч ложится
+# на потребителя. check_zones.sh выставляет LIB_ZONES_ROOT сразу после
+# вычисления ROOT и зовёт __lib_zones_cleanup из своего EXIT-ловушки совместно
+# с `rm -rf "$TMP"` — так снимаются ОБА скратча скрипта (свой + lib_zones),
+# без шанса на подмену `trap ... EXIT` в обход.
 __lib_zones_cleanup() {
   if [ -n "${LIB_ZONES_ROOT:-}" ]; then
-    local marker="$LIB_ZONES_ROOT/tmp/.lib_zones_active"
+    local marker
+    if ! marker="$(__lib_zones_paths "$LIB_ZONES_ROOT" 2>/dev/null | sed -n '3p')"; then
+      return 0
+    fi
+    [ -n "$marker" ] || return 0
     [ -f "$marker" ] || return 0
     local p
     p="$(cat "$marker" 2>/dev/null || true)"
     [ -n "$p" ] && [ "$p" != "$marker" ] && rm -rf -- "$p"
     rm -f -- "$marker"
   fi
- }
+}
 
 # zones_load <корень-репо>
 # stdout: каталог с файлами zones_scoped, zones_violations, ranges, contracts_list.
@@ -86,7 +131,7 @@ __lib_zones_cleanup() {
 # зону без заморозки). Диапазон применения — от ПЕРВОЙ заморозки контракта до done-тега, если
 # он есть, иначе до HEAD (Н-14).
 zones_load() {
-  local root="$1" self_dir out contracts nnn vmax vmax_tag body file
+  local root="$1" self_dir out paths canon scratch_tmpl marker contracts nnn vmax vmax_tag body file
   self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   # shellcheck disable=SC1091
   . "$self_dir/lib_registry.sh"
@@ -106,12 +151,23 @@ zones_load() {
       return 2 ;;
   esac
 
-  mkdir -p "$root/tmp"
-  out="$(mktemp -d "$root/tmp/lib_zones.XXXXXX")"
+  # Скратч и маркер живут ВНЕ корня (канон 014, см. __lib_zones_paths).
+  # hash8 от канонического корня → лексические алиасы делят один скратч.
+  paths="$(__lib_zones_paths "$root")" || {
+    printf 'NOT_IMPLEMENTED: пути скратча не вычислить\n' >&2; return 2; }
+  canon="$(printf '%s\n' "$paths" | sed -n '1p')"
+  scratch_tmpl="$(printf '%s\n' "$paths" | sed -n '2p')"
+  marker="$(printf '%s\n' "$paths" | sed -n '3p')"
+  # Self-GC: подчищаем устаревшие маркер/оболочки от прошлых прогонов и крашей —
+  # иначе /tmp копит мусор от однократного краша до перезагрузки.
+  __lib_zones_self_gc "$marker" "$scratch_tmpl"
+  out="$(mktemp -d "$scratch_tmpl")" || {
+    printf 'NOT_IMPLEMENTED: mktemp не создал скратч по %s\n' "$scratch_tmpl" >&2; return 2; }
   # Регистрация скратча для очистки на EXIT родительской оболочки: маркер на диске
-  # переживает `$(zones_load ...)` и читается __lib_zones_cleanup из ловушки
-  # потребителя (см. описание функции выше).
-  printf '%s\n' "$out" > "$root/tmp/.lib_zones_active"
+  # переживает `$(zones_load ...)` (подshell выхода НЕ запускает EXIT-ловушку —
+  # проверено эмпирически, $BASHPID родителя и подshell'а различаются) и читается
+  # __lib_zones_cleanup из ловушки потребителя (см. описание функции выше).
+  printf '%s\n' "$out" > "$marker"
   : > "$out/zones_scoped"
   : > "$out/zones_violations"
   : > "$out/ranges"
