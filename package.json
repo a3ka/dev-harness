@@ -19,6 +19,7 @@
     "check:overlay": "bash scripts/overlay.sh --check",
     "models:actual": "bash scripts/models_actual.sh",
     "check:antiplacebo": "bash scripts/verify_antiplacebo.sh",
+    "check:measure-probe": "bash fixtures/check_zones/probe_slabye_realizacii.sh",
     "check:scope-select": "bash scripts/check_scope_select.sh",
     "check:scoped-run": "bash scripts/check_scoped_run.sh",
     "check:ceilings": "bash scripts/check_ceilings.sh",

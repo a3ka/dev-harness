@@ -69,8 +69,9 @@ NEXT_ID_LIB=1
 . "$SELF_DIR/lib_zones.sh"
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
-# LIB_ZONES_ROOT — корень для маркера скратча lib_zones (см. __lib_zones_cleanup
-# в lib_zones.sh). Задаётся сразу после вычисления ROOT — до первого вызова zones_load.
+# LIB_ZONES_ROOT — канонический корень, от которого __lib_zones_cleanup вычисляет
+# путь маркера (см. __lib_zones_paths в lib_zones.sh; скратч и маркер лежат ВНЕ корня
+# — канон 014). Задаётся сразу после вычисления ROOT — до первого вызова zones_load.
 LIB_ZONES_ROOT="$ROOT"
 
 fails=0
@@ -89,10 +90,10 @@ g() { git -C "$ROOT" "$@"; }
 # registry_state уже проверен внутри zones_load; здесь его повторять не нужно.
 mkdir -p "$ROOT/tmp"
 TMP="$(mktemp -d "$ROOT/tmp/zones.XXXXXX")"
-# Цепочка: __lib_zones_cleanup снимает скратч lib_zones (через
-# $ROOT/tmp/.lib_zones_active, см. lib_zones.sh), затем `rm -rf "$TMP"` —
-# снимает СВОЙ скратч. Без цепочки установленный ниже `trap '...' EXIT`
-# затирал бы уборку lib_zones.
+# Цепочка: __lib_zones_cleanup снимает скратч lib_zones (через маркер ВНЕ корня —
+# ${LIB_ZONES_BASE:-/tmp}/lib_zones.<hash8>.active, см. lib_zones.sh), затем
+# `rm -rf "$TMP"` — снимает СВОЙ скратч. Без цепочки установленный ниже
+# `trap '...' EXIT` затирал бы уборку lib_zones.
 trap '__lib_zones_cleanup; rm -rf "$TMP"' EXIT
 
 # Реестр заморозок проверяется ДО zones_load: на shallow/missing-клоне выдаём rc=1
