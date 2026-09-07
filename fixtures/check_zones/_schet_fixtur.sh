@@ -9,7 +9,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 rc=0
-for para in 'check_zones 13' 'freeze_contract 14'; do
+for para in 'check_zones 19' 'freeze_contract 14'; do
   d="${para% *}"; want="${para#* }"
   got="$(find "$ROOT/fixtures/$d" -maxdepth 1 -type f -name 'case_*.sh' | wc -l | tr -d ' ')"
   [ "$got" -eq "$want" ] || {
