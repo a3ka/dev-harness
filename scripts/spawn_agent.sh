@@ -13,6 +13,12 @@
 # другого выхода скрипт не печатает.
 #
 # ОТКАЗЫ rc 1 (поимённо, документированы в контракте):
+#   * контракт 023 (ii): `--nnn N` без живого refs/tags/id/CONTRACT/N →
+#     «номер N не выдан — спавн мимо реестра»;
+#   * контракт 023 (ii): DUAL-CONTROL провален (нет тега на origin / нет строки
+#     манифеста / sha разошёлся) → «тег N не выдан авторитетом»;
+#   * контракт 023 (ii): origin недоступен → «авторитет недоступен» (fail-closed,
+#     сетевой сбой не есть санкция; имя ОТДЕЛЬНОЕ от «не выдан авторитетом»);
 #   * живая ветка wip/<NNN>/<автор> уже есть в refs/heads/;
 #   * путь worktree оказался ВНУТРИ стерегомого дерева (корень репо);
 #   * вызов вне корня репозитория git;
@@ -101,10 +107,107 @@ g() {
 # spawn_agent не пересекаются с contracts/* и существуют только в пределах дерева, где
 # спавнятся. Это выделено из next_id, который выдаёт номера для классов (PLAN, VERDICT, ADR),
 # а wip/<NNN> — собственный класс, лежащий вне реестра артефактов.
+# ── КОНТРАКТ 023, ВЕТВЬ (ii): ГЕЙТ ЯВНОГО НОМЕРА ─────────────────────────────
+# `--nnn N` требует живого refs/tags/id/CONTRACT/N (show-ref --verify) И ПРОВЕНАНС =
+# DUAL-CONTROL — та же верификация, что условие 3 двери (iii): три якоря ВМЕСТЕ:
+#   (а) тот же тег достижим на origin (ls-remote точного имени) непуст, даёт <sha-origin>;
+#   (б) манифест registry/contracts.tsv по ЖИВОЙ шапке refs/heads/main НА origin несёт
+#       строку «N → <tag-object-sha>»;
+#   (в) sha-origin == sha-манифеста.
+# Self-mint и агентский origin-push без манифеста открывают спавну любую дверь не хуже,
+# чем draft-пуску (Б6). Отказы rc 1 именованные:
+#   * «номер N не выдан — спавн мимо реестра» — тега нет вовсе;
+#   * «тег N не выдан авторитетом» — тег не на origin ИЛИ строки манифеста нет
+#     ИЛИ sha разошёлся;
+#   * «авторитет недоступен» — origin не отвечает/не настроен (fail-closed,
+#     обрыв сети НЕ открывает дверь; имя отдельное от «не выдан авторитетом»).
+# Место: ПОСЛЕ разбора аргументов и HEAD-main, ДО локальной нумерации wip/*.
+# Спавн БЕЗ `--nnn` не меняется: локальная нумерация wip/* живёт (пробные
+# и служебные спавны легитимны).
 # ДЕФЕКТ-ПРИЧИНА НУЛЕВОЙ НУМЕРАЦИИ (пост-доне фикс-пакет 016): g() вызывался в строке ~108
 # ДО определения (был ниже, в теле транзакции) — bash маскировал неизвестную `g` молча,
 # цикл по for-each-ref уходил пустым, max_nnn оставался 0, и каждый следующий спавн
 # получал wip/001. Подъём `g()` сюда закрывает этот дефект.
+if [ -n "$nnn" ]; then
+  nnn_padded_gate="$(printf '%03d' "$((10#$nnn))")"
+  # 1. тег жив локально
+  if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn_padded_gate"; then
+    printf 'ОТКАЗ: номер %s не выдан — спавн мимо реестра (тег id/CONTRACT/%s отсутствует)\n' "$nnn_padded_gate" "$nnn_padded_gate" >&2
+    exit 1
+  fi
+  # 2. dual-control. ls-remote/cat-file могут отказать (сеть/объект); весь блок — в subshell
+  # с set +e (set -e внешнего скрипта не должен убивать прогон при сетевом сбое — контракт 023
+  # именует это fail-closed «авторитет недоступен»).
+  dual_result="$(
+    set +e
+    ROOT="$ROOT" nnn_padded_gate="$nnn_padded_gate" bash -c '
+      ROOT="$1"; nnn_padded_gate="$2"
+      export ROOT nnn_padded_gate
+      # 2а. ls-remote origin tag — вывод на stdout, stderr в /dev/null. Если ls-remote
+      # провалился (rc≠0), stdout пуст; проверяем rc явно.
+      tag_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn_padded_gate" 2>/dev/null)"
+      tag_rc=$?
+      if [ "$tag_rc" -ne 0 ]; then printf "NETERR|tag\n"; exit 0; fi
+      sha_origin="$(printf "%s\n" "$tag_out" | head -1 | awk "{print \$1}")"
+      if [ -z "$sha_origin" ]; then printf "MISSING|tag\n"; exit 0; fi
+      # 2б. живая шапка origin/main
+      main_out="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>/dev/null)"
+      main_rc=$?
+      if [ "$main_rc" -ne 0 ]; then printf "NETERR|main\n"; exit 0; fi
+      origin_main_sha="$(printf "%s\n" "$main_out" | head -1 | awk "{print \$1}")"
+      if [ -z "$origin_main_sha" ]; then printf "EMPTY|main\n"; exit 0; fi
+      # 2в: registry/contracts.tsv по ЖИВОЙ шапке origin/main. Объект читается прямо из
+      # .git/objects — origin в toy bare рядом, fetch не нужен.
+      manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null)"
+      manifest_rc=$?
+      if [ "$manifest_rc" -ne 0 ] || [ -z "$manifest_text" ]; then printf "MISSING|manifest\n"; exit 0; fi
+      # Грамматика строки (единый источник — контракт 023): «<NNN> → <40-hex>» — NNN
+      # ровно %03d, разделитель U+2192, 40-hex ША ОБЪЕКТА аннотированного тега
+      # (НЕ peeled-коммит: tagger/время/сообщение входят в объект).
+      # grep фильтрует строку «NNN → » (фикс-разделитель U+2192 в heredoc — через переменную,
+      # чтобы awk внутри не интерпретировал UTF-8), awk печатает третье поле (40-hex sha).
+      manifest_sha="$(printf "%s\n" "$manifest_text" | grep -F "${nnn_padded_gate} → " | head -1 | awk "{print \$3}")"
+      if [ -z "$manifest_sha" ]; then printf "MISSING|line\n"; exit 0; fi
+      if [ "$manifest_sha" != "$sha_origin" ]; then
+        printf "MISMATCH|%s|%s\n" "$manifest_sha" "$sha_origin"
+        exit 0
+      fi
+      printf "OK|%s\n" "$sha_origin"
+    ' _ "$ROOT" "$nnn_padded_gate"
+  )"
+  case "$dual_result" in
+    NETERR\|tag|NETERR\|main|EMPTY\|main)
+      printf 'ОТКАЗ: авторитет недоступен (ls-remote origin не ответил: %s) — fail-closed, обрыв сети НЕ открывает дверь\n' "${dual_result#NETERR|}" >&2
+      exit 1
+      ;;
+    MISSING\|tag)
+      printf 'ОТКАЗ: тег %s не выдан авторитетом: тег не достижим на origin (3а — достижимости мало, авторитет санкционирует СТРОКОЙ манифеста)\n' "$nnn_padded_gate" >&2
+      exit 1
+      ;;
+    MISSING\|manifest)
+      printf 'ОТКАЗ: тег %s не выдан авторитетом: манифест registry/contracts.tsv отсутствует на origin/main (3б)\n' "$nnn_padded_gate" >&2
+      exit 1
+      ;;
+    MISSING\|line)
+      printf 'ОТКАЗ: тег %s не выдан авторитетом: строка «%s → <sha>» отсутствует в манифесте origin/main (3б)\n' "$nnn_padded_gate" "$nnn_padded_gate" >&2
+      exit 1
+      ;;
+    MISMATCH\|*)
+      mfsha="${dual_result#MISMATCH|}"; mfsha="${mfsha%%|*}"
+      ofsha="${dual_result##*|}"
+      printf 'ОТКАЗ: тег %s не выдан авторитетом: sha манифеста (%s) ≠ sha тега на origin (%s) (3в)\n' "$nnn_padded_gate" "$mfsha" "$ofsha" >&2
+      exit 1
+      ;;
+    OK\|*)
+      # anchors met — proceed
+      ;;
+    *)
+      printf 'ОТКАЗ: гейт не смог проверить провенанс (неожиданный ответ проверки): %s\n' "$dual_result" >&2
+      exit 1
+      ;;
+  esac
+  unset dual_result
+fi
 if [ -z "$nnn" ]; then
   max_nnn=0
   while IFS= read -r b; do
