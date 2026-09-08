@@ -17,7 +17,9 @@
 #
 # ДОГОВОР (контракт 022, ветвь A): честный .githooks/pre-push на каждую строку stdin
 # судит диапазон $remote_sha..$local_sha кольцом check_charter (импорт CHARTER_LIB,
-# merge — по дельте к ^1); красный → пуш умер целиком, rc≠0, причина называет путь.
+# merge — по дельте к ^1); красный → пуш умер целиком, rc≠0, ПОЛНЫЙ диагноз в причине:
+# ref (полный, refs/heads/main), полный sha коммита и путь уставного файла — фаза 2
+# требует все три (критик 2f11b53, блокер 4: «только путь» неотличим от слабой формы).
 #
 # СЕГОДНЯ (хука в дереве нет) файл красен именованным отсутствием механизма — это и
 # есть предъявляемое красное: та же дельта сегодня ловится только POST-push CI
@@ -127,6 +129,7 @@ oturn "$BASE"
 eg -C "$T" reset -q --hard "$BASE"
 install_hook_from "$HOOK_SRC"
 build_evil
+MERGE="$(eg -C "$T" rev-parse main)"
 set +e
 p2="$(jg -C "$T" push origin main 2>&1)"; p2_rc=$?
 set -e
@@ -140,6 +143,14 @@ if [ "$(oref)" != "$BASE" ]; then
 fi
 if ! printf '%s\n' "$p2" | grep -qF 'contracts/001-x.md'; then
   printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p2" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p2" | grep -qF "$MERGE"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон: %s\n' "$MERGE" "$p2" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p2" | grep -qF 'refs/heads/main'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/main отсутствует) — диагноз неполон: %s\n' "$p2" >&2
   exit 1
 fi
 

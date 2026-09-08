@@ -6,16 +6,21 @@
 # (б) публичной стороны нет — origin/main НЕ двинулся (снято ДО вызова, в памяти
 # проверяющего — правило 8).
 #
-# ВХОД: честный land ветки wip/001/implementer в toy-репо с bare-origin; вызов
+# ВХОД: честный land ветки wip/001/implementer в toy-репо с bare-origin, на котором
+# main УЖЕ НЕ ПУСТ (посажен основанием до вызова — обычное производственное
+# состояние; критик 2f11b53, блокер 8: пустой origin не отличал полный демонтаж
+# автопуша от «пуша под условием существования refs/heads/main»); вызов
 # БЕЗ флагов (контракт 022: опциональных флагов --push/--no-push НЕ заводить —
 # чистый cutover по слову владельца).
 #
 # СТАБ-ВХОДЫ (Н-39 — привязка кодом фикстуры; «стаб» здесь — сам текущий код,
 # боль живая, не подставная): «всё ещё пушит» (старый блок land_agent.sh:236-239
-# жив) и «флаг наоборот» (--no-push как opt-out, пуш по умолчанию) наблюдаемы
-# ИМЕННО на этом входе — оба дают origin/main двинувшимся при вызове без флагов.
-# На входе «land с --no-push» стаб «флаг наоборот» ведёт себя честно — его краснота
-# там не наблюдаема и не требуется.
+# жив), «пуш под условием существования» (`git push origin main 2>/dev/null || true`
+# остаётся, но только при живом refs/heads/main на remote — на НЕпустом origin
+# наблюдаем ровно так же, как безусловный) и «флаг наоборот» (--no-push как
+# opt-out, пуш по умолчанию) — все три дают origin/main двинувшимся при вызове
+# без флагов. На входе «land с --no-push» стаб «флаг наоборот» ведёт себя честно —
+# его краснота там не наблюдаема и не требуется.
 #
 # СЕГОДНЯ (авто-пуш жив, land_agent.sh:236-239 + || true) файл красен именованным
 # движением origin/main — это и есть предъявление боли Н-78: побочный эффект (пуш)
@@ -41,6 +46,11 @@ make_repo "$R"
 git init -q --bare "$ORIG"
 git -C "$ORIG" symbolic-ref HEAD refs/heads/main
 git -C "$R" remote add origin "$ORIG"
+# НЕпустой origin/main — основание уже публично (блокер 8: условный автопуш наблюдаем)
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  git -C "$R" -c core.hooksPath=/dev/null push -q origin main
+seeded="$(git -C "$ORIG" rev-parse --verify -q refs/heads/main || echo ПУСТО)"
+[ "$seeded" != "ПУСТО" ] || { printf 'ОТКАЗ: подготовка toy сломана — основание не на origin\n' >&2; exit 1; }
 
 # Сторона (б) oracle: снято ДО вызова субъекта.
 origin_before="$(git -C "$ORIG" rev-parse --verify -q refs/heads/main || echo ПУСТО)"
@@ -70,7 +80,7 @@ assert_landed "$R" "$mb" "$tip" wip/001/implementer
 origin_after="$(git -C "$ORIG" rev-parse --verify -q refs/heads/main || echo ПУСТО)"
 if [ "$origin_after" != "$origin_before" ]; then
   now="$(git -C "$R" rev-parse main)"
-  printf 'ОТКАЗ: авто-пуш жив — origin/main двинулся (%s → %s, посажен %s) при rc 0 и LANDED (боль Н-78: пуш-побочный-эффект вне нормы роли; rc 0 обязан означать «локально», пуш — шаг оркестратора)\n' "$origin_before" "$origin_after" "$now" >&2
+  printf 'ОТКАЗ: авто-пуш жив — origin/main двинулся (%s → %s, посажен %s) при rc 0 и LANDED на НЕпустом origin — безусловный и «под условием существования» автопуш неотличимы здесь (боль Н-78: пуш-побочный-эффект вне нормы роли; rc 0 обязан означать «локально», пуш — шаг оркестратора)\n' "$origin_before" "$origin_after" "$now" >&2
   exit 1
 fi
 
