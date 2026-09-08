@@ -575,3 +575,27 @@ make_repo_busy019_komponenta() {  # <корень> <ном remote> <ном wip> 
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
   g "$r" update-ref "refs/remotes/$nom_remote/wip/$nom_wip/only" HEAD
 }
+
+
+# ── помощники контракта 023 (провенанс тега: toy-origin, прецедент 022 red_push_*) ─
+#
+# Авторитет выдачи — origin (слово владельца 2026-09-08): на origin теги оказываются
+# только пушем оркестратора/владельца, локальный self-mint туда не попадает. Ворота
+# провенанса строят toy с НАСТОЯЩИМ remote: bare-репозиторий рядом с toy, main
+# запушен; ls-remote по file-пути идёт без сети — проба детерминирована (сон
+# машины/DNS toy не касается).
+toy_origin() {  # <корень> → путь bare на stdout
+  local r="$1" orig="${1%/}-origin.git"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "$orig"
+  git -C "$orig" symbolic-ref HEAD refs/heads/main
+  g "$r" remote add origin "$orig"
+  g "$r" push -q origin main
+  printf '%s\n' "$orig"
+}
+
+# push_id_tag <корень> <NNN>: пуш тега выдачи на origin — авторитетная половина
+# церемонии (i) (минт оркестратором из основного дерева + пуш ДО спавна); ровно то,
+# чего коммиттящий агент не контролирует (локальный тег — пушится парой, не агентом).
+push_id_tag() {  # <корень> <NNN>
+  g "$1" push -q origin "refs/tags/id/CONTRACT/$2"
+}
