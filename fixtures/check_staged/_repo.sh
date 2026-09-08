@@ -575,3 +575,48 @@ make_repo_busy019_komponenta() {  # <корень> <ном remote> <ном wip> 
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
   g "$r" update-ref "refs/remotes/$nom_remote/wip/$nom_wip/only" HEAD
 }
+
+
+# ── помощники контракта 023 (провенанс тега: toy-origin, прецедент 022 red_push_*) ─
+#
+# Авторитет выдачи — origin (слово владельца 2026-09-08): на origin теги оказываются
+# только пушем оркестратора/владельца, локальный self-mint туда не попадает. Ворота
+# провенанса строят toy с НАСТОЯЩИМ remote: bare-репозиторий рядом с toy, main
+# запушен; ls-remote по file-пути идёт без сети — проба детерминирована (сон
+# машины/DNS toy не касается).
+toy_origin() {  # <корень> → путь bare на stdout
+  local r="$1" orig="${1%/}-origin.git"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "$orig"
+  git -C "$orig" symbolic-ref HEAD refs/heads/main
+  g "$r" remote add origin "$orig"
+  g "$r" push -q origin main
+  printf '%s\n' "$orig"
+}
+
+# push_id_tag <корень> <NNN>: пуш тега выдачи на origin — авторитетная половина
+# церемонии (i) (минт оркестратором из основного дерева + пуш ДО спавна); ровно то,
+# чего коммиттящий агент не контролирует (локальный тег — пушится парой, не агентом).
+push_id_tag() {  # <корень> <NNN>
+  g "$1" push -q origin "refs/tags/id/CONTRACT/$2"
+}
+
+# mint_rezerv <корень> <NNN>: церемония ветви (i) в toy — авторитетная половина
+# dual-control (слово владельца 2026-09-08, вердикт 57c8141 блокер 1): аннотированный
+# тег id/CONTRACT/<NNN> + строка манифеста «<NNN> → <tag-object-sha>» в
+# registry/contracts.tsv НА main + пуш main И тега на origin. Ровно то, чего
+# коммиттящий агент НЕ контролирует: тег на origin и строку манифеста на origin/main
+# пишет авторитет (оркестратор/владелец), не агент. Грамматика строки — ДОСЛОВНО из
+# контракта 023 (единый источник): NNN ровно %03d, « → », 40-hex ША ОБЪЕКТА
+# аннотированного тега (rev-parse refs/tags/…; НЕ peeled-коммит: tagger/время/
+# сообщение входят в объект — новый минт = новый sha).
+mint_rezerv() {  # <корень> <NNN>
+  local r="$1" n="$2" sha
+  g "$r" tag -a "id/CONTRACT/$n" -m 'выдача механизмом (фикстура: резерв до спавна)'
+  sha="$(git -C "$r" rev-parse "refs/tags/id/CONTRACT/$n")"
+  mkdir -p "$r/registry"
+  printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
+  g "$r" add -A
+  g "$r" commit -q -m "реестр: резерв $n (строка манифеста)"
+  g "$r" push -q origin main
+  g "$r" push -q origin "refs/tags/id/CONTRACT/$n"
+}
