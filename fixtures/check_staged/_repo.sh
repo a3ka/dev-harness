@@ -599,3 +599,24 @@ toy_origin() {  # <корень> → путь bare на stdout
 push_id_tag() {  # <корень> <NNN>
   g "$1" push -q origin "refs/tags/id/CONTRACT/$2"
 }
+
+# mint_rezerv <корень> <NNN>: церемония ветви (i) в toy — авторитетная половина
+# dual-control (слово владельца 2026-09-08, вердикт 57c8141 блокер 1): аннотированный
+# тег id/CONTRACT/<NNN> + строка манифеста «<NNN> → <tag-object-sha>» в
+# registry/contracts.tsv НА main + пуш main И тега на origin. Ровно то, чего
+# коммиттящий агент НЕ контролирует: тег на origin и строку манифеста на origin/main
+# пишет авторитет (оркестратор/владелец), не агент. Грамматика строки — ДОСЛОВНО из
+# контракта 023 (единый источник): NNN ровно %03d, « → », 40-hex ША ОБЪЕКТА
+# аннотированного тега (rev-parse refs/tags/…; НЕ peeled-коммит: tagger/время/
+# сообщение входят в объект — новый минт = новый sha).
+mint_rezerv() {  # <корень> <NNN>
+  local r="$1" n="$2" sha
+  g "$r" tag -a "id/CONTRACT/$n" -m 'выдача механизмом (фикстура: резерв до спавна)'
+  sha="$(git -C "$r" rev-parse "refs/tags/id/CONTRACT/$n")"
+  mkdir -p "$r/registry"
+  printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
+  g "$r" add -A
+  g "$r" commit -q -m "реестр: резерв $n (строка манифеста)"
+  g "$r" push -q origin main
+  g "$r" push -q origin "refs/tags/id/CONTRACT/$n"
+}
