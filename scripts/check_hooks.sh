@@ -3,7 +3,8 @@
 #
 # Зачем: «хук подключён» до этого был утверждением сессии, а не репозитория. Без коммиченного
 # `core.hooksPath`-установщика хук тихо отсутствовал на свежем клоне — нечего было защищать.
-# Здесь проверяется МЕХАНИЗМ (три коммиченных части), а не работа хука в момент коммита:
+# Здесь проверяется МЕХАНИЗМ коммиченных частей, а не работа хука в момент коммита/пуша:
+#   PRE-COMMIT (фазы 1–5):
 #   1) .githooks/pre-commit — коммичен И исполняем (иначе `git` его просто не запустит);
 #   2) .githooks/pre-commit РЕАЛЬНО вызывает scripts/check_staged.sh — текстовая проверка
 #      awk (не-комментарная строка со ссылкой) И двухфазная поведенческая проба связи
@@ -11,6 +12,15 @@
 #      с именованной причиной судьи и токеном в выводе; см. §5 ниже);
 #   3) scripts/check_staged.sh существует (предмет проверки самого хука);
 #   4) package.json несёт npm-скрипт, выставляющий core.hooksPath на .githooks (установщик).
+#   PRE-PUSH (фазы 6–8, контракт 022, ветвь Проба, И-4 и И-10):
+#   6) .githooks/pre-push — коммичен И исполняем;
+#   7) .githooks/pre-push РЕАЛЬНО импортирует scripts/check_charter.sh (CHARTER_LIB=1),
+#      не-комментарная exec-связь с кольцом (прецедент lib_zones/lib_registry);
+#   8) ДВУХФАЗНАЯ ПОВЕДЕНЧЕСКАЯ PUSH-ПРОБА в toy bare-origin (скратч без фиксированного
+#      префикса, прецедент 67fb3b1): фаза 1 — чистый диапазон → пуш зелёный; фаза 2 —
+#      красный диапазон (устав-дельта M; sha красного коммита — СЛУЧАЙНЫЙ токен) → пуш
+#      отвергнут ∧ именованная причина с ПОЛНЫМ ref, полным sha красного коммита и путём
+#      уставного файла — тройка равномерно (арбитраж b43d7a0) ∧ origin-ref не двинулся.
 #
 # Когнитивный остаток явно НЕ входит в барьер (документация Q1 дословно): --no-verify обходит,
 # коммит до появления .githooks проходит тихо, рантайм-наличие проверяет только `git`, не этот
@@ -221,6 +231,176 @@ if [ "$rc" -eq 0 ]; then
       fi
       trap - EXIT
       rm -rf "$toy_scratch"
+    fi
+  fi
+fi
+
+# 6. .githooks/pre-push коммичен И исполняем (контракт 022, ветвь Проба, И-4).
+if [ ! -e "$ROOT/.githooks/pre-push" ]; then
+  printf 'ОТКАЗ: механизм установки без хука — .githooks/pre-push отсутствует\n' >&2
+  rc=1
+elif [ ! -f "$ROOT/.githooks/pre-push" ]; then
+  printf 'ОТКАЗ: .githooks/pre-push — не обычный файл\n' >&2
+  rc=1
+elif [ ! -x "$ROOT/.githooks/pre-push" ]; then
+  printf 'ОТКАЗ: .githooks/pre-push существует, но не исполняем (chmod +x)\n' >&2
+  rc=1
+fi
+
+# 7. pre-push ВЕДЁТ К КОЛЬЦУ НЕ-КОММЕНТАРНОЙ EXEC-СВЯЗЬЮ (контракт 022, И-4). Прецедент
+# pre-commit / sniffer: комментарий со ссылкой не считается механизмом. Тут искомая
+# ссылка — на scripts/check_charter.sh, кольцо-источник CHARTER_LIB=1 (прецедент
+# lib_zones/lib_registry). Антиплацебо-мера: связь должна быть исполняемой
+# (например `. "$ROOT/scripts/check_charter.sh"` или `bash … check_charter.sh`),
+# а не задокументированным намерением.
+push_ref_judge() {
+  local hook="$1"
+  awk '
+    /^[[:space:]]*#/ { next }
+    /scripts[/[:space:]]?check_charter\.sh/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' "$hook"
+}
+if [ -x "$ROOT/.githooks/pre-push" ]; then
+  if ! push_ref_judge "$ROOT/.githooks/pre-push"; then
+    printf 'ОТКАЗ: хук не ведёт к кольцу — .githooks/pre-push не импортирует scripts/check_charter.sh (комментарий не считается связью)\n' >&2
+    rc=1
+  fi
+fi
+
+# 8. ПОВЕДЕНЧЕСКАЯ ДВУХФАЗНАЯ PUSH-ПРОБА (контракт 022, И-10, прецедент 67fb3b1). Текстовая
+# проверка awk (не-комментарная строка со ссылкой) НЕ доказывает, что pre-push РЕАЛЬНО
+# импортирует кольцо check_charter и судит диапазон пуша: находка-прецедент
+# `inert-heredoc-hook` (контракт 016) — ссылка только в heredoc проходит awk, и
+# проверка принимает пустышку за рабочий механизм. Проба одной фазы оставляла
+# продемонстрированные формы адверсария зелёными (текст-фаза жива, поведения нет).
+# ДВЕ фазы:
+#   фаза 1 (чистая): новый коммит с НЕЙТРАЛЬНЫМ путём (вне устава) → пуш зелёный
+#           (rc=0); no-op / sniffer / всегда-красный / «не судящий диапазон»
+#           подделки краснеют на чистом → «чистый пуш отклонён»;
+#   фаза 2 (красная): новый коммит с уставной дельтой M (без строки РАЗРЕШИЛ) →
+#           пуш отвергнут ∧ именованная причина с ПОЛНЫМ ref (refs/heads/main),
+#           полным sha красного коммита И путём уставного файла — тройка
+#           равномерно (арбитраж b43d7a0) ∧ origin-ref не двинулся. Только
+#           проба, ассертящая в фазе 2 все три поля, способна пережить все
+#           четыре входа фикстуры red_check_hooks_bez_push_faz.sh (арбитраж
+#           f712e6e, пер-полевая форма различения).
+# Скратч — ВНЕ фиксированного префикса (раньше `/tmp/check-hooks-toy.*` был
+# ключом sniffer-а; прецедент 67fb3b1 §(в)). Кольцо check_charter + next_id +
+# lib_registry в скратче — из SELF_DIR (живая реализация); сам хук и
+# потенциальные вспомогательные скрипты — ИЗ ПРОВЕРЯЕМОГО КОРНЯ.
+if [ "$rc" -eq 0 ]; then
+  push_scratch="$(mktemp -d)" || {
+    rc=1; printf 'NOT_IMPLEMENTED: не удалось создать скратч для push-пробы\n' >&2; }
+  if [ "$rc" -eq 0 ]; then
+    push_trap='rm -rf "$push_scratch"'
+    trap "$push_trap" EXIT
+    mkdir -p "$push_scratch/scripts" "$push_scratch/contracts" \
+             "$push_scratch/.githooks" "$push_scratch/hooks" \
+             "$push_scratch/toy/contracts" "$push_scratch/toy/scripts"
+    if ! cp "$ROOT/.githooks/pre-push" "$push_scratch/.githooks/pre-push" \
+       || ! cp "$ROOT/.githooks/pre-push" "$push_scratch/hooks/pre-push" \
+       || ! cp "$SELF_DIR/check_charter.sh" "$push_scratch/scripts/check_charter.sh" \
+       || ! cp "$SELF_DIR/next_id.sh" "$push_scratch/scripts/next_id.sh" \
+       || ! cp "$SELF_DIR/lib_registry.sh" "$push_scratch/scripts/lib_registry.sh" \
+       || ! cp "$SELF_DIR/check_charter.sh" "$push_scratch/toy/scripts/check_charter.sh" \
+       || ! cp "$SELF_DIR/next_id.sh" "$push_scratch/toy/scripts/next_id.sh" \
+       || ! cp "$SELF_DIR/lib_registry.sh" "$push_scratch/toy/scripts/lib_registry.sh"; then
+      printf 'NOT_IMPLEMENTED: не удалось скопировать хук или кольцо в скратч push-пробы\n' >&2
+      rc=1
+    fi
+    if [ "$rc" -eq 0 ]; then
+      chmod +x "$push_scratch/.githooks/pre-push" "$push_scratch/hooks/pre-push"
+      ORIG_DIR="$push_scratch/origin.git"
+      T_DIR="$push_scratch/toy"
+      (
+        unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+              GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+        export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+        git init -q --bare "$ORIG_DIR"
+        git -C "$ORIG_DIR" symbolic-ref HEAD refs/heads/main
+        git -c init.defaultBranch=main init -q "$T_DIR"
+        git -C "$T_DIR" config user.name Фикстура
+        git -C "$T_DIR" config user.email fixture@local
+        git -C "$T_DIR" config commit.gpgsign false
+        git -C "$T_DIR" config core.hooksPath "$push_scratch/hooks"
+        printf '# подставной контракт 001 (уставной с заморозки)\n' > "$T_DIR/contracts/001-x.md"
+        git -C "$T_DIR" add -A
+        git -C "$T_DIR" commit -q -m 'основание: подставной замороженный контракт'
+        git -C "$T_DIR" tag -a frozen/contracts/001/1 -m 'заморозка'
+        git -C "$T_DIR" remote add origin "$ORIG_DIR"
+        git -C "$T_DIR" push -q origin main
+      )
+
+      # Фаза 1 (чистая): коммит с нейтральным (вне устава) путём → пуш зелёный.
+      (
+        unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+              GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+        export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+        printf 'нейтральный предмет поведенческой push-пробы\n' > "$T_DIR/scripts/clean_${RANDOM}.txt"
+        git -C "$T_DIR" add -A
+        git -C "$T_DIR" commit -q -m 'нейтральный коммит для push-пробы'
+      )
+      set +e
+      out_p1="$(cd "$T_DIR" && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+        git -c commit.gpgsign=false push origin main 2>&1)"
+      rc_p1=$?
+      set -e
+      if [ "$rc_p1" -ne 0 ]; then
+        printf 'ОТКАЗ: поведенческая push-проба — чистый пуш отклонён (pre-push вернул rc=%s на нейтральном коммите; sniffer/no-op подделка pre-push): %s\n' \
+          "$rc_p1" "$out_p1" >&2
+        rc=1
+      fi
+
+      # Фаза 2 (красная): новый коммит с уставной дельтой M без строки РАЗРЕШИЛ →
+      # пуш отвергнут ∧ именованная причина с ПОЛНЫМ ref, полным sha красного
+      # коммита и путём уставного файла. Sha красного коммита СЛУЧАЙНО
+      # (генерация $RANDOM на каждый вызов) — forger не знает токена заранее.
+      if [ "$rc" -eq 0 ]; then
+        red_token="$(printf '%016x' "$((RANDOM*RANDOM&0xFFFFFFFFFFFFFFFF))")"
+        (
+          unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+                GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+          export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+          printf '\nуставная дельта без строки (токен %s)\n' "$red_token" \
+            >> "$T_DIR/contracts/001-x.md"
+          git -C "$T_DIR" add -A
+          git -C "$T_DIR" commit -q -m "красный коммит: устав-дельта M без РАЗРЕШИЛ (push-проба)"
+        )
+        RED_SHA="$(git -C "$T_DIR" rev-parse main)"
+        GREEN_SHA="$(git -C "$ORIG_DIR" rev-parse --verify refs/heads/main)"
+        set +e
+        out_p2="$(cd "$T_DIR" && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+          git -c commit.gpgsign=false push origin main 2>&1)"
+        rc_p2=$?
+        set -e
+        if [ "$rc_p2" -eq 0 ]; then
+          printf 'ОТКАЗ: поведенческая push-проба — красный диапазон прошёл (rc=0); pre-push не судит или fail-open: %s\n' \
+            "$out_p2" >&2
+          rc=1
+        elif ! printf '%s\n' "$out_p2" | grep -qF 'contracts/001-x.md'; then
+          printf 'ОТКАЗ: поведенческая push-проба — pre-push отверг без именованной причины (путь уставного файла не назван): %s\n' \
+            "$out_p2" >&2
+          rc=1
+        elif ! printf '%s\n' "$out_p2" | grep -qF "$RED_SHA"; then
+          printf 'ОТКАЗ: поведенческая push-проба — pre-push назвал причину без полного sha красного коммита %s (тройка равномерно, арбитраж b43d7a0): %s\n' \
+            "$RED_SHA" "$out_p2" >&2
+          rc=1
+        elif ! printf '%s\n' "$out_p2" | grep -qF 'refs/heads/main'; then
+          printf 'ОТКАЗ: поведенческая push-проба — pre-push назвал причину без полного refs/heads/main (тройка равномерно, арбитраж b43d7a0): %s\n' \
+            "$out_p2" >&2
+          rc=1
+        fi
+        # origin-ref не должен двинуться.
+        AFTER_SHA="$(git -C "$ORIG_DIR" rev-parse --verify refs/heads/main)"
+        if [ "$AFTER_SHA" != "$GREEN_SHA" ]; then
+          printf 'ОТКАЗ: поведенческая push-проба — origin-ref двинулся (%s → %s) при отвергнутом pre-push красном пуше\n' \
+            "$GREEN_SHA" "$AFTER_SHA" >&2
+          rc=1
+        fi
+      fi
+      trap - EXIT
+      rm -rf "$push_scratch"
     fi
   fi
 fi

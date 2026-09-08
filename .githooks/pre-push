@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# Барьер пуша (контракт 022, ветвь A): scoped чартер-суд диапазона пуша.
+#
+# Зачем: между рабочим деревом и origin не было механического судьи устава —
+# pre-commit судит staged, CI судит origin ПОСЛЕ пуша (необратимо); remote-side
+# pre-receive на plain GitHub недоступен. Этот хук судит КАЖДЫЙ пушимый ref на
+# ВХОДЕ, до необратимого шага. Обходы (`--no-verify`, fresh clone без хука) —
+# когнитивный остаток, названный прямо в контракте; ловец — CI check:charter.
+#
+# КОМАНДА GIT. Git подаёт хуку на stdin строки (по одной на пушимый ref):
+#   <local_ref> SP <local_sha> SP <remote_ref> SP <remote_sha> LF
+# local_sha для ветки = коммит, для АННОТИРОВАННОГО тега = tag-object. remote_sha
+# нулевой (40 нулей) для нового ref. Отказ хука (rc≠0) валит ВЕСЬ пуш.
+#
+# СУД. Договор — три пункта:
+#  1. **Все remote**, не только origin: каждая строка stdin судится независимо от
+#     имени remote. Сегодня remote один, но семантика «все» дешевле специального
+#     случая.
+#  2. **Аннотированные теги разыменовываются ^{commit} ДО суда**: иначе пуш тега
+#     раньше его линии даёт непустой судимый диапазон — origin стал бы «тегом без
+#     своей линии» (Н-78(3)).
+#  3. **Диапазон**: нулевой remote_sha (новый ref) → `$local_sha --not --remotes`
+#     (первая экспозиция линии; уже публичное на любом remote повторно не
+#     судится); ненулевой → `$remote_sha..$local_sha`.
+#
+# КОЛЬЦО ОДНО. Судимое множество и вердикт наследуют scoped-семантику check_charter:
+# импорт `CHARTER_LIB=1` из scripts/check_charter.sh даёт is_charter_path,
+# charter_diff_paths, razreshil. Вторая реализация кольца запрещена (прецедент
+# lib_zones/lib_registry). razreshil перемещён выше точки возврата CHARTER_LIB в
+# scripts/check_charter.sh (контракт 022, И-2 круга 1).
+#
+# ПОИСК КОЛЬЦА. `$ROOT/scripts/check_charter.sh` — основной путь (рядом с хуком в
+# продакшене, копируется в $T/scripts/ фикстурами). Защита от toy-дефекта «add -A
+# втянул scripts/ в историю toy, последующий reset --hard BASE снёс каталог»
+# (прецедент И-3 круга 2 фикстуры red_push_lechenie): если основного пути нет,
+# хук поднимает check_charter.sh из любого коммита, когда-либо содержавшего
+# scripts/check_charter.sh — откат на источник в обход удалённого рабочего
+# дерева. В продакшене ветка такого пути не достигает.
+#
+# КРАСНЫЙ ВЕРДИКТ — ПОЛНЫЙ ДИАГНОЗ: ref (полный, refs/heads/… либо refs/tags/…),
+# коммит (полный sha; для тега — разыменованного), путь уставного файла. Тройка
+# равномерна в КАЖДОЙ честной красной фазе фикстур (арбитраж b43d7a0).
+set -uo pipefail
+
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
+  printf 'pre-push: не удалось определить корень репозитория\n' >&2
+  exit 1
+fi
+
+# ИМПОРТ КОЛЬЦА — единственная реализация (CHARTER_LIB=1 возвращает после
+# определения трёх функций). check_charter устанавливает set -e/pipefail —
+# это нужно кольцу (команды с rc≠0 терпят крах с понятной ошибкой), но
+# хуку set -e не нужен: отказ суда выражен ИМЕНОВАННОЙ причиной и rc≠0 явно
+# в конце, без -e кратчайшая запись.
+CHARTER_LIB=1
+CHARTER_LOADED=0
+if [ -f "$ROOT/scripts/check_charter.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/scripts/check_charter.sh" && CHARTER_LOADED=1
+elif cc_in_history="$(git -C "$ROOT" rev-list --all --reflog -- scripts/check_charter.sh 2>/dev/null | head -n 1)" \
+     && [ -n "$cc_in_history" ]; then
+  # Поднимаем scripts/check_charter.sh из любого коммита, где он жил. Сценарий
+  # фикстуры: cp + add -A + commit подняли скрипт в историю; reset --hard к
+  # ранней заморозке снёс его из рабочего дерева; коммит с восстановлением не
+  # случился (фаза 4 lechenie). Кольцо импортируется из истории — это тот же
+  # скрипт, та же грамматика razreshil, тот же набор предикатов. check_charter
+  # при импорте подтягивает next_id.sh и lib_registry.sh относительно $SELF_DIR,
+  # потому поднимаем весь scripts/, а не один check_charter.sh.
+  TMP_CC_DIR="$(mktemp -d -t pre-push-cc.XXXXXX)" || {
+    printf 'pre-push: не удалось создать временный каталог для кольца\n' >&2
+    exit 1
+  }
+  if git -C "$ROOT" archive "${cc_in_history}" scripts/ 2>/dev/null \
+     | tar -x -C "$TMP_CC_DIR" 2>/dev/null \
+     && [ -f "$TMP_CC_DIR/scripts/check_charter.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$TMP_CC_DIR/scripts/check_charter.sh" && CHARTER_LOADED=1
+  fi
+  rm -rf "$TMP_CC_DIR"
+fi
+if [ "$CHARTER_LOADED" -ne 1 ]; then
+  printf 'pre-push: scripts/check_charter.sh недоступен ни в рабочем дереве, ни в истории — суд диапазона пропущен (CI check:charter ловит на main)\n' >&2
+  exit 0
+fi
+set +e
+
+# razreshil() вызывает `g` (git -C $ROOT) и `bad` (печать имени причины).
+# Эти имена живут ТОЛЬКО в основном теле check_charter.sh ниже точки возврата;
+# вызвать razreshil из хука можно, лишь определив их в среде вызова. `bad` —
+# печать в stderr без счётчика; `g` — обёртка git -C.
+g() { git -C "$ROOT" "$@"; }
+bad() { printf '%s\n' "$*" >&2; }
+
+ZERO=0000000000000000000000000000000000000000
+rc=0
+
+# Устав не введён — у хука нечего судить; пропускаем (аналог «нет правил —
+# нет нарушения»; CI check:charter ловит на main). Без этой проверки
+# is_charter_path вернул бы rc 2 на каждом пути, размывая полезный сигнал.
+if ! git -C "$ROOT" rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null 2>&1; then
+  if ! git -C "$ROOT" for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null \
+     | grep -q '^refs/tags/frozen/.*/[0-9]\+/1$'; then
+    exit 0
+  fi
+fi
+
+while IFS=' ' read -r lref lsha rref rsha; do
+  [ -n "$lref" ] || continue
+  # local_sha аннотированного тега — объект тега; разыменовываем до коммита.
+  # Если lsha не разыменовывается (lightweight tag, ветка), используем как есть.
+  case "$lref" in
+    refs/tags/*)
+      deref="$(git -C "$ROOT" rev-parse --verify --quiet "$lsha^{commit}" 2>/dev/null || printf '%s' "$lsha")"
+      ;;
+    *)
+      deref="$lsha"
+      ;;
+  esac
+
+  # Диапазон суда:
+  #   нулевой remote_sha → --not --remotes (новая ветка/тег, ещё нигде не публично);
+  #   ненулевой         → $remote_sha..$local_sha (обновление существующего ref;
+  #                     включает force-push и лечение force-push'ом).
+  if [ "$rsha" = "$ZERO" ] || [ -z "$rsha" ]; then
+    range_args=( "$deref" --not --remotes )
+  else
+    range_args=( "$rsha..$deref" )
+  fi
+
+  # Судим КАЖДЫЙ коммит диапазона. charter_diff_paths сам различает merge (по ^1)
+  # и не-merge (по ^) — грамматика единая.
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      # is_charter_path: AGENTS.md/ROADMAP.md при живом ustav/1; plans|contracts/NNN-*
+      # при живом frozen/<dir>/<NNN>/1. rc 0/1 — да/нет; rc 2 — нечем проверить
+      # (тогда считаем «не уставной», судим только проверяемое).
+      is_charter_path "$f" "$ROOT" || continue
+      # Разрешение лежит В ТОМ ЖЕ коммите (Н-78, иначе индульгенция — см. шапку
+      # check_charter). razreshil возвращает 0, если строка валидна и зовёт
+      # раз; rc 1 — нет разрешения / строка вне грамматики.
+      if ! razreshil "$c" "$f"; then
+        printf 'ОТКАЗ: pre-push: устав-дельта M/D без РАЗРЕШИЛ-ВЛАДЕЛЕЦ: ref=%s коммит=%s путь=%s\n' \
+          "$lref" "$c" "$f" >&2
+        rc=1
+      fi
+    done < <(charter_diff_paths "$c" "$ROOT")
+  done < <(git -C "$ROOT" rev-list "${range_args[@]}" 2>/dev/null)
+done
+
+exit "$rc"
