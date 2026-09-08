@@ -271,10 +271,20 @@ is_process_file() {
 #   окно N — линейный rev-list --no-merges --reverse уходит (захватывал
 #   чужие merge-принесённые, измеренная боль Н-66).
 #   Прочие правки логики суда (авторы → зоны → дельта путей) — НЕ здесь.
-# draft-признание (контракт 021, ветвь Б / Н-77(б)): коммит с дельтой
-#   contracts/<NNN>-<slug>.md и тегом id/CONTRACT/<NNN> на САМОМ коммите —
-#   этот путь из суда выводится. Прочие пути того же коммита судятся
-#   обычным порядком (тег — не индульгенция на весь коммит).
+# draft-признание (контракт 023, ветвь iv, обобщение 021 / чинит А-89): суд путей
+#   дельты идёт ПО НОМЕРУ ПУТИ M (не номеру ОКОНА nnn): каждая рука читает свой M.
+#   рука А — тег id/CONTRACT/<M> указывает НА САМОМ судимом коммите C (обобщение
+#     ручной 021 с «номера окна» на «номер пути»: покрывает А-89 «draft в чужом
+#     открытом окне» и исторические теги-на-коммите 020/021);
+#   рука Б — тег id/CONTRACT/<M> жив ∧ его коммит is-ancestor C ∧ НЕТ
+#     frozen/contracts/<M>/* в предках C (новая форма: итерации резерва до
+#     заморозки M; после заморозки M итерации НЕ признаются — путь судится зонами);
+#   исключается ТОЛЬКО путь contracts/<M>-*; прочие пути того же коммита судятся
+#     обычным порядком — тег не индульгенция на весь коммит (инвариант 021 :337-339
+#     сохранён дословно). Ретро-СТАБИЛЬНО: предикат зависит только от предков
+#     судимого коммита, не от текущего HEAD. Признание (iv) читает ЛОКАЛЬНЫЙ реестр
+#     (существование тега) — провенанс не проверяет: аудит истории судит уже
+#     закоммиченное, дверь (iii) уже решила вопрос провенанса на входе.
 commits=0; checked=0
 while IFS=$'\t' read -r nnn since; do
   [ -n "$nnn" ] || continue
@@ -322,22 +332,53 @@ while IFS=$'\t' read -r nnn since; do
       continue
     fi
     checked=$((checked + 1))
-    # draft-признание (Н-77(б)): коммит с дельтой contracts/<NNN>-<slug>.md
-    # и тегом id/CONTRACT/<NNN> на САМОМ коммите — этот путь из суда
-    # выводится. Прочие пути того же коммита судятся обычным порядком.
-    has_draft_tag=0
-    if g tag --points-at "$c" "id/CONTRACT/$nnn" 2>/dev/null \
-         | grep -qxF -- "id/CONTRACT/$nnn"; then
-      has_draft_tag=1
-    fi
     awk -F'\t' -v a="$an" -v n="$nnn" '$1 == a && $3 == n { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      # draft-признание (Н-77(б)): исключаем contracts/<NNN>-<slug>.md
-      # если на коммите стоит тег id/CONTRACT/<NNN>. Прочие пути того же
-      # коммита идут обычным порядком — тег не индульгенция на весь коммит.
-      if [ "$has_draft_tag" -eq 1 ] && [ "${f%%/*}" = "contracts" ] \
-         && [ "${f#contracts/$nnn-}" != "$f" ]; then
+      # draft-признание (контракт 023, ветвь iv): ПО НОМЕРУ ПУТИ M (не номеру ОКОНА nnn).
+      # Парсим M из basename f (три цифры, дефис, не-цифра). Две руки:
+      #   рука А — тег id/CONTRACT/<M> указывает НА САМОМ судимом коммите C
+      #     (обобщение ручной 021 с «номера окна» на «номер пути»: покрывает
+      #     А-89 «draft в чужом открытом окне» и исторические теги-на-коммите);
+      #   рука Б — тег id/CONTRACT/<M> жив ∧ его коммит is-ancestor C ∧
+      #     НЕТ frozen/contracts/<M>/* в предках C (новая форма: итерации
+      #     резерва до заморозки M; после заморозки M итерации НЕ признаются
+      #     — путь судится зонами);
+      # исключается ТОЛЬКО путь contracts/<M>-*; прочие пути того же коммита
+      # идут обычным порядком (тег не индульгенция на весь коммит).
+      skip_path=
+      if [ "${f%%/*}" = "contracts" ]; then
+        base="${f##*/}"            # e.g. M-slug.md
+        head3="${base:0:3}"        # первые три символа basename
+        case "$head3" in
+          [0-9][0-9][0-9])
+            path_m="$head3"
+            # рука А: тег id/CONTRACT/<M> на самом коммите C
+            if g tag --points-at "$c" "id/CONTRACT/$path_m" 2>/dev/null \
+                 | grep -qxF -- "id/CONTRACT/$path_m"; then
+              skip_path=1
+            else
+              # рука Б: тег жив ∧ его коммит is-ancestor C ∧ НЕТ frozen/contracts/<M>/* в предках C
+              tag_commit="$(g rev-parse --verify --quiet "refs/tags/id/CONTRACT/$path_m^{commit}" 2>/dev/null || true)"
+              if [ -n "$tag_commit" ] && g merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null; then
+                freeze_in_ancestors=0
+                while IFS= read -r ft; do
+                  [ -z "$ft" ] && continue
+                  ft_commit="$(g rev-parse --verify --quiet "${ft}^{commit}" 2>/dev/null || true)"
+                  if [ -n "$ft_commit" ] && g merge-base --is-ancestor "$ft_commit" "$c" 2>/dev/null; then
+                    freeze_in_ancestors=1
+                    break
+                  fi
+                done < <(g for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$path_m/" 2>/dev/null)
+                if [ "$freeze_in_ancestors" -eq 0 ]; then
+                  skip_path=1
+                fi
+              fi
+            fi
+            ;;
+        esac
+      fi
+      if [ -n "$skip_path" ]; then
         continue
       fi
       if is_process_file "$f"; then

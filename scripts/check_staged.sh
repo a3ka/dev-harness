@@ -15,10 +15,12 @@
 #     ДЕЛЕГИРОВАНИЕ check_charter: rc и текст вердикта наследуются (грамматика razreshil —
 #     единый источник). Предикат — `is_charter_path` из check_charter.sh (CHARTER_LIB=1);
 #     вторая реализация кольца запрещена.
-#   * контракт 019 (Н-72, расширение): staged `contracts/<NNN>-*.md` под автором `architect`,
-#     где NNN — СЛЕДУЮЩИЙ свободный номер класса CONTRACT по `next_id_peek` (peek без
-#     резервации тега — мера не меняет предмет) — пропускается без суда зон: зоны нового
-#     контракта живут в его собственном файле и неактивны до заморозки.
+#   * контракт 023 (ветвь iii, дверь стража): staged `contracts/<NNN>-*.md` под автором
+#     `architect`, где NNN — номер из basename (три цифры из parse_artifact_basename) —
+#     пропускается без суда зон, ЕСЛИ выполнены ПЯТЬ условий ВМЕСТЕ (грамматика + реестр
+#     + dual-control на origin + ветка wip/<NNN>/<author> + файл не в main). См. реализацию
+#     двери ниже в главном цикле. Зоны нового контракта живут в его собственном файле и
+#     неактивны до заморозки.
 #
 # ЧТО НЕ СУДИТСЯ (документация Q1, явно). staged пуст → «нечего судить». Автор не объявлен ни
 # в одной заморозке → «не судится» (та же семантика, что у check_zones: владелец и прошлые
@@ -66,8 +68,10 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_zones.sh"
-# Контракт 019, ветвь 2: next_id_peek — для draft-пуска architect под contracts/<next>-*.md.
-# peek НЕ создаёт тегов `id/CONTRACT/*` (peek без резерва — мера не меняет предмет).
+# Контракт 023, ветвь iii: дверь draft-пуска ПО ТЕГУ ВЫДАЧИ. Дверь читает тег
+# `id/CONTRACT/<NNN>` локально (show-ref --verify) и провенанс на origin (dual-control —
+# ls-remote + cat-file манифеста registry/contracts.tsv с ЖИВОЙ шапки refs/heads/main НА
+# origin). peek удалён — резервация тега теперь явная (next_id issue + строка манифеста).
 NEXT_ID_LIB=1
 CHARTER_LIB=1
 # shellcheck disable=SC1091
@@ -239,15 +243,7 @@ if [ "$cc_rc" -ne 0 ] || [ "$cc_out" != "1" ] || [ "$cl_rc" -ne 1 ] || [ "$cl_ou
   exit 1
 fi
 rc=0
-# Контракт 019 (ветвь 2): next_id_peek для класса CONTRACT — ОДИН РАЗ за прогон, не на
-# каждый staged-путь. peek без резервации (мера не меняет предмет): иначе архитекторский
-# прогон check_staged создавал бы тег id/CONTRACT/<NNN>, и выданный тег уезжал бы в реестр
-# и появлялся в check_ids как «номер назначен механизмом». Иммутабельность числа для всей
-# пачки staged — желаемая (peek возвращает одно число для всей пачки).
-draft_next=""
-if [ "$author" = "architect" ]; then
-  draft_next="$(next_id_peek "$ROOT" CONTRACT 2>/dev/null || true)"
-fi
+
 
 for f in "${staged[@]}"; do
   m="$(printf '%s' "$f" | _py_check)"
@@ -275,22 +271,103 @@ for f in "${staged[@]}"; do
     continue
   fi
 
-  # ── Контракт 019, ветвь 2: draft next-id под architect ─────────────────────
-  # contracts/<NNN>-*.md (NNN — три цифры из parse_artifact_basename) и NNN == peek →
-  # путь пропущен (не судится зонами: зоны нового контракта живут в его собственном
-  # файле и неактивны до заморозки). Чужой автор / не-следующий номер — прежний зонный
-  # суд (отказ «вне зоны» ДО и ПОСЛЕ фикса). Peek при нечисловом пути, при пустой
-  # выдаче (NOT_IMPLEMENTED), при ошибке — НЕ пускает: draft-ветка открыта ТОЛЬКО когда
-  # peek реально назвал следующий номер.
-  if [ -n "$draft_next" ] && [ "$author" = "architect" ]; then
+  # ── Контракт 023, ветвь iii: дверь draft-пуска по тегу выдачи (Н-77(г)) ──────
+  # ПЯТЬ условий ВМЕСТЕ для пропуска staged-пути contracts/<NNN>-<slug>.md под architect:
+  #   1. грамматика пути contracts/[0-9][0-9][0-9]-* (case выше уже отфильтровал);
+  #   2. тег id/CONTRACT/<NNN> жив локально (show-ref --verify);
+  #   3. ПРОВЕНАНС = DUAL-CONTROL (вердикт 57c8141 блокер 1): три якоря ВМЕСТЕ —
+  #      (3а) тег достижим на origin (ls-remote точного имени);
+  #      (3б) манифест registry/contracts.tsv по ЖИВОЙ шапке refs/heads/main НА origin
+  #           несёт строку «<NNN> → <tag-object-sha>»;
+  #      (3в) sha-origin == sha-манифеста;
+  #   4. текущая ветка wip/<NNN>/<автор>;
+  #   5. contracts/<NNN>-* отсутствует в refs/heads/main.
+  # Порядок проверки (контракт 023): грамматика → реестр (2) → провенанс (3) → ветка (4) →
+  # приземление (5). Мёртвый тег отвергает ДО разбора ветки (реестр первичен, отказ «номер
+  # <NNN> не выдан» не маскируется отказом по ветке). Self-mint и агентский origin-push
+  # без манифеста → «не выдан авторитетом» прежде ветки (гейминг реестра глубже дисциплины
+  # ветки). Недоступный origin → «авторитет недоступен» (fail-closed, сетевой сбой не
+  # открывает дверь; имя ОТДЕЛЬНОЕ от «не выдан авторитетом»).
+  if [ "$author" = "architect" ]; then
     case "$f" in
       contracts/[0-9][0-9][0-9]-*)
-        dir="${f%%/*}"; base="${f##*/}"
+        base="${f##*/}"
         path_nnn="${base%%-*}"
-        if [ "$path_nnn" = "$draft_next" ]; then
-          printf 'judged: %s (draft next-id пропущен под architect)\n' "$f"
+        # 2. тег жив локально
+        if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$path_nnn"; then
+          printf 'ОТКАЗ: номер %s не выдан — спавн мимо реестра (тег id/CONTRACT/%s отсутствует)\n' "$path_nnn" "$path_nnn" >&2
+          rc=1
           continue
         fi
+        # 3. dual-control
+        dual_rc=0
+        dual_msg=""
+        # 3а. ls-remote origin tag
+        sha_origin=""
+        ls_tag_err="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$path_nnn" 2>&1 >"$ROOT/.staged_ls_tag.$$")"
+        ls_tag_rc=$?
+        if [ "$ls_tag_rc" -ne 0 ]; then
+          dual_rc=1; dual_msg="авторитет недоступен: ls-remote origin refs/tags/id/CONTRACT/$path_nnn завершился кодом $ls_tag_rc"
+        else
+          sha_origin="$(awk '{print $1}' "$ROOT/.staged_ls_tag.$$" 2>/dev/null | head -1)"
+          rm -f "$ROOT/.staged_ls_tag.$$"
+          if [ -z "$sha_origin" ]; then
+            dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: тег не достижим на origin (достижимости мало — авторитет санкционирует СТРОКОЙ манифеста)"
+          else
+            # 3б. живая шапка origin/main + манифест
+            origin_main_sha=""
+            ls_main_err="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>&1 >"$ROOT/.staged_ls_main.$$")"
+            ls_main_rc=$?
+            if [ "$ls_main_rc" -ne 0 ]; then
+              dual_rc=1; dual_msg="авторитет недоступен: ls-remote origin refs/heads/main завершился кодом $ls_main_rc"
+            else
+              origin_main_sha="$(awk '{print $1}' "$ROOT/.staged_ls_main.$$" 2>/dev/null | head -1)"
+              rm -f "$ROOT/.staged_ls_main.$$"
+              if [ -z "$origin_main_sha" ]; then
+                dual_rc=1; dual_msg="авторитет недоступен: пустая шапка origin/main"
+              else
+                # git cat-file -p <sha>:registry/contracts.tsv — читает объект прямо из локального
+                # .git/objects (если origin — bare рядом, объекты уже там; для URL — придётся
+                # fetch'нуть). Чтобы не делать fetch здесь, полагаемся на то, что origin в toy —
+                # bare рядом (BARRIER_ROOT-паттерн), и объекты доступны.
+                manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null || true)"
+                if [ -z "$manifest_text" ]; then
+                  dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: манифест registry/contracts.tsv отсутствует на origin/main (3б)"
+                else
+                  # Грамматика строки: «<NNN> → <40-hex>» — NNN ровно %03d, разделитель
+                  # U+2192, 40-hex ША ОБЪЕКТА аннотированного тега.
+                  manifest_sha="$(printf '%s\n' "$manifest_text" | grep -F "${path_nnn} → " | head -1 | awk '{print $3}')"
+                  if [ -z "$manifest_sha" ]; then
+                    dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: строка «$path_nnn → <sha>» отсутствует в манифесте origin/main (3б)"
+                  elif [ "$manifest_sha" != "$sha_origin" ]; then
+                    dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: sha манифеста ($manifest_sha) ≠ sha тега на origin ($sha_origin) (3в)"
+                  fi
+                fi
+              fi
+            fi
+          fi
+        fi
+        if [ "$dual_rc" -ne 0 ]; then
+          printf 'ОТКАЗ: %s\n' "$dual_msg" >&2
+          rc=1
+          continue
+        fi
+        # 4. текущая ветка wip/<NNN>/<автор>
+        current_branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+        expected_branch="wip/$path_nnn/architect"
+        if [ "$current_branch" != "$expected_branch" ]; then
+          printf 'ОТКАЗ: дверь не на своей ветке: путь %s требует ветку %s, текущая %s\n' "$f" "$expected_branch" "$current_branch" >&2
+          rc=1
+          continue
+        fi
+        # 5. contracts/<NNN>-* отсутствует в refs/heads/main
+        if git -C "$ROOT" ls-tree -r --name-only refs/heads/main 2>/dev/null | grep -qE "^contracts/${path_nnn}-"; then
+          printf 'ОТКАЗ: контракт %s уже приземлён в main (путь contracts/%s-* есть в refs/heads/main)\n' "$path_nnn" "$path_nnn" >&2
+          rc=1
+          continue
+        fi
+        printf 'judged: %s (дверь по тегу id/CONTRACT/%s пропущена под architect)\n' "$f" "$path_nnn"
+        continue
         ;;
     esac
   fi
