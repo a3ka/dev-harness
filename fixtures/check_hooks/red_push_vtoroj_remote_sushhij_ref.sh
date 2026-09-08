@@ -155,5 +155,13 @@ if ! printf '%s\n' "$p2" | grep -qF 'contracts/001-x.md'; then
   printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p2" >&2
   exit 1
 fi
+if ! printf '%s\n' "$p2" | grep -qF "$RED7"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$RED7" "$p2" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p2" | grep -qF 'refs/heads/feat7'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/feat7 отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$p2" >&2
+  exit 1
+fi
 
 exit 0

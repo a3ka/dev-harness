@@ -90,11 +90,13 @@ build_evil() {  # без аргументов; использует фиксир
   eg -C "$T" branch -D feat-x >/dev/null 2>&1
 }
 
-mkdir -p "$T/.githooks"
-install_hook_from() {  # <файл-источник>
-  cp "$1" "$T/.githooks/pre-push"
-  chmod +x "$T/.githooks/pre-push"
-  eg -C "$T" config core.hooksPath "$T/.githooks"
+install_hook_from() {  # <файл-источник> — ВНЕ рабочего дерева toy (арбитраж
+  # b43d7a0, побочный toy-дефект): add -A не затягивает хук в историю toy,
+  # reset --hard его не сносит — red→green переход достижим при честном хуке.
+  mkdir -p "$WORK/hooks"
+  cp "$1" "$WORK/hooks/pre-push"
+  chmod +x "$WORK/hooks/pre-push"
+  eg -C "$T" config core.hooksPath "$WORK/hooks"
 }
 
 # ── фаза 1 (стаб-подстановка «no-op хук»): вход обязан стаб ловить ────────────

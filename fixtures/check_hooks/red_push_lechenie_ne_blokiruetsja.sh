@@ -79,11 +79,13 @@ build_lechenie() {
     -m 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/001-x.md лечение красного на origin (проба дискриминатора 022)'
 }
 
-install_hook_from() {  # <файл-источник>
-  mkdir -p "$T/.githooks"
-  cp "$1" "$T/.githooks/pre-push"
-  chmod +x "$T/.githooks/pre-push"
-  eg -C "$T" config core.hooksPath "$T/.githooks"
+install_hook_from() {  # <файл-источник> — ВНЕ рабочего дерева toy (арбитраж
+  # b43d7a0, побочный toy-дефект): add -A не затягивает хук в историю toy,
+  # reset --hard его не сносит — red→green переход достижим при честном хуке.
+  mkdir -p "$WORK/hooks"
+  cp "$1" "$WORK/hooks/pre-push"
+  chmod +x "$WORK/hooks/pre-push"
+  eg -C "$T" config core.hooksPath "$WORK/hooks"
 }
 
 # ── фаза 1 (стаб-подстановка «полная история»): вход обязан стаб ловить ───────
@@ -223,6 +225,14 @@ if ! printf '%s\n' "$p3" | grep -qF 'contracts/001-x.md'; then
   printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p3" >&2
   exit 1
 fi
+if ! printf '%s\n' "$p3" | grep -qF "$RED2"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$RED2" "$p3" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p3" | grep -qF 'refs/heads/main'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/main отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$p3" >&2
+  exit 1
+fi
 
 # ── фаза 4 (честный механизм): красный force-push ПОСЛЕ лечения отвергнут ──────
 # Критик 2f11b53, блокер 6: fail-open допустим ТОЛЬКО диапазону лечения (зелёный
@@ -246,6 +256,14 @@ if [ "$(oref)" != "$LECH" ]; then
 fi
 if ! printf '%s\n' "$p4" | grep -qF 'contracts/001-x.md'; then
   printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p4" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p4" | grep -qF "$RED3"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$RED3" "$p4" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p4" | grep -qF 'refs/heads/main'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/main отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$p4" >&2
   exit 1
 fi
 

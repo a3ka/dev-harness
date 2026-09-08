@@ -150,6 +150,14 @@ if ! printf '%s\n' "$p2" | grep -qF 'contracts/001-x.md'; then
   printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p2" >&2
   exit 1
 fi
+if ! printf '%s\n' "$p2" | grep -qF "$RED2"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$RED2" "$p2" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p2" | grep -qF 'refs/heads/feat2'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/feat2 отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$p2" >&2
+  exit 1
+fi
 
 # ── фаза 3 (новый ref): первый пуш линии в пустой remote тоже судится ─────────
 ORIG2="$WORK/origin2.git"
@@ -167,5 +175,17 @@ if [ "$p3_rc" -eq 0 ]; then
   exit 1
 fi
 [ "$(o2ref)" = "ПУСТО" ] || { printf 'ОТКАЗ: origin2/main не пуст после отвергнутого первого пуша\n' >&2; exit 1; }
+if ! printf '%s\n' "$p3" | grep -qF 'contracts/001-x.md'; then
+  printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p3" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p3" | grep -qF "$RED2"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$RED2" "$p3" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p3" | grep -qF 'refs/heads/main'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/main отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$p3" >&2
+  exit 1
+fi
 
 exit 0

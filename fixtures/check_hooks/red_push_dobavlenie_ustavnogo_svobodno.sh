@@ -140,6 +140,7 @@ fi
 printf '\nправка добавленного без строки\n' >> "$T/contracts/001-vtoroj.md"
 eg -C "$T" add -A
 eg -C "$T" commit -q -m 'красный: M добавленного уставного без РАЗРЕШИЛ'
+REDD="$(eg -C "$T" rev-parse main)"
 set +e
 p3="$(jg -C "$T" push origin main 2>&1)"; p3_rc=$?
 set -e
@@ -153,6 +154,14 @@ if [ "$(oref)" != "$ADD" ]; then
 fi
 if ! printf '%s\n' "$p3" | grep -qF 'contracts/001-vtoroj.md'; then
   printf 'ОТКАЗ: отказ без именованной причины (путь уставного файла не назван): %s\n' "$p3" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p3" | grep -qF "$REDD"; then
+  printf 'ОТКАЗ: причина не называет КОММИТ (полный sha %s отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$REDD" "$p3" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$p3" | grep -qF 'refs/heads/main'; then
+  printf 'ОТКАЗ: причина не называет REF (полный refs/heads/main отсутствует) — диагноз неполон (тройка равномерно, арбитраж b43d7a0): %s\n' "$p3" >&2
   exit 1
 fi
 
