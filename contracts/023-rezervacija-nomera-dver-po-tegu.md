@@ -240,8 +240,12 @@ implementer, заявлено здесь; её предмет — поведен
   scripts/verify_antiplacebo.sh . --scope check_staged` → 0; `--scope check_zones`
   → 0; `--scope spawn_agent` → 0; `bash fixtures/check_zones/_schet_fixtur.sh` →
   rc 0 (19);
-- живой базлайн: `bash scripts/check_zones.sh .` → rc 0 (сводка фиксируется отчётом
-  пачки); `bash scripts/check_ids.sh .` → rc 0.
+- живой базлайн и боль Б1 живьём: `bash scripts/check_zones.sh .` → rc 0 (сводка
+  «19 · 2 · 483 · 349» — отчётом пачки); `bash scripts/check_ids.sh .` → rc 1
+  РОВНО ОДИН FAIL «номер 23 назначен рукой: contracts/023-…» — тег id/CONTRACT/023
+  парой ещё не зарезервирован (спавн шёл по старой церемонии); канарейка
+  001..021 зелёная (FAIL один), зелёным check_ids становится с резервом — ветвь
+  (i) церемонии, закрывает именно эту боль.
 
 ### После реализации (красное→зелёное)
 
