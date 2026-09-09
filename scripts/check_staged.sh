@@ -123,22 +123,22 @@ if [ -z "$author" ] && [ -n "${GIT_AUTHOR_NAME:-}" ]; then
 fi
 # Fail-closed: оба канала пусты — коммит попал бы «empty ident» дальше по конвейеру
 # (правило Н-56), а здесь судья ОБЯЗАН зафиксировать факт пустой identity именованной
-# причиной. Ветка «не судится» ниже срабатывает ТОЛЬКО когда автор ВИДЕН и не объявлен
+# причиной. Ветва «не судится» ниже срабатывает ТОЛЬКО когда автор ВИДЕН и не объявлен
 # ни в одной заморозке (владелец, прошлые сессии); пустая identity — другое, не маскируем.
 if [ -z "$author" ]; then
   printf 'ОТКАЗ: identity автора пуста (GIT_AUTHOR_IDENT и GIT_AUTHOR_NAME оба пусты) — судья не может определить автора, fail-closed\n' >&2
   exit 1
 fi
 
-# staged-пути читаются NULL-разделённым списком из git diff --cached. Пустая выборка — законное
-# «нечего судить». Отказ git diff (rc≠0) маскировался пустым stdout в подстановке (находка F-1
-# адверсария, verdicts/adversary/contracts-018.md): пустой массив mapfile неотличим от успешного
-# пустого входа, и зонированный автор с чужой wip-веткой получал rc 0 на непрочитанном staged.
-# Теперь rc процесса фиксируется ДО ветви «staged пуст» — fail-closed с литералом «staged не
-# прочитан» (Н-39, единый источник — шапка fixtures/check_staged/case_staged_ne_prochitan.sh).
-# stderr git приглушён: rc обязан быть наблюдён, а текст диагностики свой.
-staged_tmp="$(mktemp)" || { printf 'NOT_IMPLEMENTED: mktemp не сработал\n' >&2; exit 2; }
-trap 'rm -f "$staged_tmp"' EXIT
+# Временный каталог ВНЕ стерегомого дерева — сюда идёт ВЕСЬ скратч (staged-выборка,
+# ls-remote для dual-control). trap на EXIT срабатывает на КАЖДОМ пути выхода (нормальный
+# rc, именованный rc 1, NOT_IMPLEMENTED, signal) — закрывает блокер 31e1686 «скратч
+# остаётся в корне $ROOT при error-ветви ls-remote»: ранее `.staged_ls_{tag,main}.$$`
+# удалялись только в ветви успеха, а при отказе сети или недостижимости origin оставались
+# ВНУТРИ проверяемого дерева.
+scratch_dir="$(mktemp -d)" || { printf 'NOT_IMPLEMENTED: mktemp -d не сработал\n' >&2; exit 2; }
+staged_tmp="$scratch_dir/staged"
+trap 'rm -rf "$scratch_dir"' EXIT
 git -C "$ROOT" diff --cached --name-only -z 2>/dev/null > "$staged_tmp"; diff_rc=$?
 if [ "$diff_rc" -ne 0 ]; then
   printf 'ОТКАЗ: staged не прочитан (git diff --cached --name-only -z завершился кодом %d)\n' "$diff_rc" >&2
@@ -288,6 +288,13 @@ for f in "${staged[@]}"; do
   # без манифеста → «не выдан авторитетом» прежде ветки (гейминг реестра глубже дисциплины
   # ветки). Недоступный origin → «авторитет недоступен» (fail-closed, сетевой сбой не
   # открывает дверь; имя ОТДЕЛЬНОЕ от «не выдан авторитетом»).
+  #
+  # FETCH МАНИФЕСТА ПО ЖИВОЙ ШАПКЕ (предмет B вердикта 31e1686): контракт требует
+  # «ls-remote шапки → fetch объекта → show». Предыдущая реализация делала только локальный
+  # `git cat-file -p` и ложно отказывала честному полному резерву при нереплицированном
+  # объекте (URL-origin, file-path bare без alternates). Здесь `git fetch origin refs/heads/main`
+  # приносит коммит + tree + blob registry/contracts.tsv; затем cat-file работает. fetch
+  # сам трактуется как сетевой сбой — fail-closed «авторитет недоступен».
   if [ "$author" = "architect" ]; then
     case "$f" in
       contracts/[0-9][0-9][0-9]-*)
@@ -299,48 +306,54 @@ for f in "${staged[@]}"; do
           rc=1
           continue
         fi
-        # 3. dual-control
+        # 3. dual-control. Скратч — во временном каталоге $scratch_dir, НЕ в $ROOT
+        # (Н-39 — скратч вне стерегомого дерева; trap на EXIT чистит на КАЖДОМ результате,
+        # блокер 31e1686).
         dual_rc=0
         dual_msg=""
         # 3а. ls-remote origin tag
         sha_origin=""
-        ls_tag_err="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$path_nnn" 2>&1 >"$ROOT/.staged_ls_tag.$$")"
+        ls_tag_err="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$path_nnn" 2>&1 >"$scratch_dir/ls_tag")"
         ls_tag_rc=$?
         if [ "$ls_tag_rc" -ne 0 ]; then
           dual_rc=1; dual_msg="авторитет недоступен: ls-remote origin refs/tags/id/CONTRACT/$path_nnn завершился кодом $ls_tag_rc"
         else
-          sha_origin="$(awk '{print $1}' "$ROOT/.staged_ls_tag.$$" 2>/dev/null | head -1)"
-          rm -f "$ROOT/.staged_ls_tag.$$"
+          sha_origin="$(awk '{print $1}' "$scratch_dir/ls_tag" 2>/dev/null | head -1)"
           if [ -z "$sha_origin" ]; then
             dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: тег не достижим на origin (достижимости мало — авторитет санкционирует СТРОКОЙ манифеста)"
           else
             # 3б. живая шапка origin/main + манифест
             origin_main_sha=""
-            ls_main_err="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>&1 >"$ROOT/.staged_ls_main.$$")"
+            ls_main_err="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>&1 >"$scratch_dir/ls_main")"
             ls_main_rc=$?
             if [ "$ls_main_rc" -ne 0 ]; then
               dual_rc=1; dual_msg="авторитет недоступен: ls-remote origin refs/heads/main завершился кодом $ls_main_rc"
             else
-              origin_main_sha="$(awk '{print $1}' "$ROOT/.staged_ls_main.$$" 2>/dev/null | head -1)"
-              rm -f "$ROOT/.staged_ls_main.$$"
+              origin_main_sha="$(awk '{print $1}' "$scratch_dir/ls_main" 2>/dev/null | head -1)"
               if [ -z "$origin_main_sha" ]; then
                 dual_rc=1; dual_msg="авторитет недоступен: пустая шапка origin/main"
               else
-                # git cat-file -p <sha>:registry/contracts.tsv — читает объект прямо из локального
-                # .git/objects (если origin — bare рядом, объекты уже там; для URL — придётся
-                # fetch'нуть). Чтобы не делать fetch здесь, полагаемся на то, что origin в toy —
-                # bare рядом (BARRIER_ROOT-паттерн), и объекты доступны.
-                manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null || true)"
-                if [ -z "$manifest_text" ]; then
-                  dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: манифест registry/contracts.tsv отсутствует на origin/main (3б)"
+                # FETCH объекта с origin (контракт 023: ls-remote шапки → fetch объекта → show).
+                # Без fetch cat-file -p на ${origin_main_sha}:registry/contracts.tsv провалится
+                # для URL-origin (объект не реплицирован) и даст ложный отказ честному полному
+                # резерву. fetch приносит коммит + tree + blob registry/contracts.tsv; затем
+                # cat-file работает. Отказ fetch трактуется как «авторитет недоступен» — тот же
+                # класс, что отказ ls-remote (сетевой сбой, имя НЕ путать с «не выдан авторитетом»).
+                if ! git -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
+                  dual_rc=1; dual_msg="авторитет недоступен: fetch origin refs/heads/main отказал"
                 else
-                  # Грамматика строки: «<NNN> → <40-hex>» — NNN ровно %03d, разделитель
-                  # U+2192, 40-hex ША ОБЪЕКТА аннотированного тега.
-                  manifest_sha="$(printf '%s\n' "$manifest_text" | grep -F "${path_nnn} → " | head -1 | awk '{print $3}')"
-                  if [ -z "$manifest_sha" ]; then
-                    dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: строка «$path_nnn → <sha>» отсутствует в манифесте origin/main (3б)"
-                  elif [ "$manifest_sha" != "$sha_origin" ]; then
-                    dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: sha манифеста ($manifest_sha) ≠ sha тега на origin ($sha_origin) (3в)"
+                  manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null || true)"
+                  if [ -z "$manifest_text" ]; then
+                    dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: манифест registry/contracts.tsv отсутствует на origin/main (3б)"
+                  else
+                    # Грамматика строки: «<NNN> → <40-hex>» — NNN ровно %03d, разделитель
+                    # U+2192, 40-hex ША ОБЪЕКТА аннотированного тега.
+                    manifest_sha="$(printf '%s\n' "$manifest_text" | grep -F "${path_nnn} → " | head -1 | awk '{print $3}')"
+                    if [ -z "$manifest_sha" ]; then
+                      dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: строка «$path_nnn → <sha>» отсутствует в манифесте origin/main (3б)"
+                    elif [ "$manifest_sha" != "$sha_origin" ]; then
+                      dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: sha манифеста ($manifest_sha) ≠ sha тега на origin ($sha_origin) (3в)"
+                    fi
                   fi
                 fi
               fi
