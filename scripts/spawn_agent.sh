@@ -135,7 +135,7 @@ if [ -n "$nnn" ]; then
     printf 'ОТКАЗ: номер %s не выдан — спавн мимо реестра (тег id/CONTRACT/%s отсутствует)\n' "$nnn_padded_gate" "$nnn_padded_gate" >&2
     exit 1
   fi
-  # 2. dual-control. ls-remote/cat-file могут отказать (сеть/объект); весь блок — в subshell
+  # 2. dual-control. ls-remote/fetch/cat-file могут отказать (сеть/объект); весь блок — в subshell
   # с set +e (set -e внешнего скрипта не должен убивать прогон при сетевом сбое — контракт 023
   # именует это fail-closed «авторитет недоступен»).
   dual_result="$(
@@ -156,8 +156,15 @@ if [ -n "$nnn" ]; then
       if [ "$main_rc" -ne 0 ]; then printf "NETERR|main\n"; exit 0; fi
       origin_main_sha="$(printf "%s\n" "$main_out" | head -1 | awk "{print \$1}")"
       if [ -z "$origin_main_sha" ]; then printf "EMPTY|main\n"; exit 0; fi
-      # 2в: registry/contracts.tsv по ЖИВОЙ шапке origin/main. Объект читается прямо из
-      # .git/objects — origin в toy bare рядом, fetch не нужен.
+      # 2в. fetch объекта с origin (контракт 023: ls-remote шапки → fetch объекта → show).
+      # Без fetch cat-file -p на ${origin_main_sha}:registry/contracts.tsv провалится для
+      # URL-origin (объект не реплицирован) и даст ложный отказ честному полному резерву.
+      # fetch приносит коммит + tree + blob registry/contracts.tsv; затем cat-file работает.
+      # Отказ fetch трактуется как «авторитет недоступен» — сетевой сбой, имя НЕ путать
+      # с «не выдан авторитетом». (Эталон семантики — check_staged.sh:336-343.)
+      if ! git -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
+        printf "NETERR|fetch\n"; exit 0
+      fi
       manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null)"
       manifest_rc=$?
       if [ "$manifest_rc" -ne 0 ] || [ -z "$manifest_text" ]; then printf "MISSING|manifest\n"; exit 0; fi
@@ -178,6 +185,10 @@ if [ -n "$nnn" ]; then
   case "$dual_result" in
     NETERR\|tag|NETERR\|main|EMPTY\|main)
       printf 'ОТКАЗ: авторитет недоступен (ls-remote origin не ответил: %s) — fail-closed, обрыв сети НЕ открывает дверь\n' "${dual_result#NETERR|}" >&2
+      exit 1
+      ;;
+    NETERR\|fetch)
+      printf 'ОТКАЗ: авторитет недоступен: fetch origin refs/heads/main отказал — fail-closed, обрыв сети НЕ открывает дверь\n' >&2
       exit 1
       ;;
     MISSING\|tag)
