@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# НЕ БАРЬЕР: слабая форма детектора контракта 024 — «снимок-в-дереве».
-# Отличается от честной формы (stab_detektor_chestnyj.sh, правка-круг 2)
-# ровно одной ветвью: файл-снимок пишется ВНУТРИ стерегомого чекаута
-# ($CANON/.leak-snimok) вместо ВНЕ. Манифест считается в ПАМЯТИ до записи —
-# база собственного файла НЕ содержит, первая же сверка объявляет собственный
-# снимок утечкой. Дефект наблюдаем на воротах 2 red_detektor_utechek.sh —
-# «чисто → rc 0 + маркер»: чистое дерево краснеет rc 1 «основной чекаут
-# загрязнён: .leak-snimok» (ожидался 0). Байтовое сравнение porcelain ворот 14
-# ловило бы тот же класс (v1 умирала там) — здесь смерть наступает раньше и
-# детерминированно. Привязка — кодом этой шапки и кодом пробы (Н-39).
+# НЕ БАРЬЕР: слабая форма детектора контракта 024 — «обеих-cwd» (обход
+# блокера 2 вердикта 4d1d265). Отличается от честной формы
+# (stab_detektor_chestnyj.sh, правка-круг 2) ровно одной ветвью: жертва
+# проверяется честно, но ДОПОЛНИТЕЛЬНО проверяется свой cwd — краснение по
+# ОБЪЕДИНЕНИЮ двух состояний, имена мусора обоих репозиторий печатаются.
+# На воротах 1–6 red_detektor_utechek.sh cwd совпадает с жертвой — форма
+# неотличима от честной; дефект наблюдаем на воротах 7 «cwd-независимость»:
+# в выводе ПРИСУТСТВУЕТ имя приманки — детектор краснеет по объединению
+# статусов, а не по жертве. (На воротах 8 форма краснела бы на чистой жертве
+# при грязной приманке — смерть наступает раньше, на 7.) Привязка — кодом
+# этой шапки и кодом пробы (Н-39).
 set -uo pipefail
 export LC_ALL=C
 P_ZAGR='основной чекаут загрязнён'
@@ -29,9 +30,8 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: %s не каталог\n' "$ROOT_ARG" >&2; exit 2; }
 git -C "$CANON" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$CANON" >&2; exit 2; }
-
-# ДЕФЕКТ: снимок ВНУТРИ стерегомого дерева.
-SNAP="$CANON/.leak-snimok"
+SNAP_DIR="${TMPDIR:-/tmp}/dev-harness-leak/$(printf '%s' "$CANON" | sha256sum | cut -c1-8)"
+SNAP="$SNAP_DIR/porcelain"
 
 emit_manifest() {  # <канон-корень> <префикс-путей>
   local root="$1" prefix="$2" entry xy path full fp head
@@ -57,11 +57,12 @@ do_snapshot() {
   local m
   m="$(manifest "$CANON" '')" \
     || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
+  mkdir -p "$SNAP_DIR" || { printf 'NOT_IMPLEMENTED: %s не создать\n' "$SNAP_DIR" >&2; exit 2; }
   { printf 'root %s\n' "$CANON"; printf '%s\n' "$m"; } > "$SNAP"
 }
 
 do_check() {
-  local first base cur delta names l p
+  local first base cur delta names l p cwd cwd_por extra
   if [ ! -f "$SNAP" ]; then
     printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' "$P_NET_SNIMKA" "$SNAP" >&2
     exit 1
@@ -74,13 +75,24 @@ do_check() {
   cur="$(manifest "$CANON" '')" \
     || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
   delta="$(printf '%s\n' "$cur" | comm -23 - <(printf '%s\n' "$base" | sort))"
-  if [ -n "$delta" ]; then
+  # ДЕФЕКТ: дополнительно судим свой cwd — краснение по объединению.
+  cwd="$(pwd -P)"
+  cwd_por=""
+  if [ "$cwd" != "$CANON" ] && git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
+    cwd_por="$(git -C "$cwd" status --porcelain)"
+  fi
+  if [ -n "$delta" ] || [ -n "$cwd_por" ]; then
     names=""
     while IFS= read -r l; do
       [ -n "$l" ] || continue
       p="${l#*$'\t'}"
       if [ -z "$names" ]; then names="$p"; else names="$names, $p"; fi
     done <<< "$delta"
+    while IFS= read -r extra; do
+      [ -n "$extra" ] || continue
+      p="${extra:3}"
+      if [ -z "$names" ]; then names="$p"; else names="$names, $p"; fi
+    done <<< "$cwd_por"
     printf 'ОТКАЗ: %s: %s\n' "$P_ZAGR" "$names" >&2
     exit 1
   fi

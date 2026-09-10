@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# НЕ БАРЬЕР: слабая форма детектора контракта 024 — «снимок-в-дереве».
+# НЕ БАРЬЕР: слабая форма детектора контракта 024 — «без-gitlinkов»
+# (полу-модернизация: -uall и пофайловые sha есть, рекурсии в submodule нет).
 # Отличается от честной формы (stab_detektor_chestnyj.sh, правка-круг 2)
-# ровно одной ветвью: файл-снимок пишется ВНУТРИ стерегомого чекаута
-# ($CANON/.leak-snimok) вместо ВНЕ. Манифест считается в ПАМЯТИ до записи —
-# база собственного файла НЕ содержит, первая же сверка объявляет собственный
-# снимок утечкой. Дефект наблюдаем на воротах 2 red_detektor_utechek.sh —
-# «чисто → rc 0 + маркер»: чистое дерево краснеет rc 1 «основной чекаут
-# загрязнён: .leak-snimok» (ожидался 0). Байтовое сравнение porcelain ворот 14
-# ловило бы тот же класс (v1 умирала там) — здесь смерть наступает раньше и
-# детерминированно. Привязка — кодом этой шапки и кодом пробы (Н-39).
+# ровно одной ветвью: записи-подмодули (gitlink/каталог с .git) получают
+# статичный маркер-отпечаток «-gitlink-» БЕЗ @head и БЕЗ рекурсивного
+# манифеста вложенного репозитория. Дефект наблюдаем на воротах 11
+# red_detektor_utechek.sh — «правка внутри уже-грязного submodule»: строка
+# superproject остаётся « M submod», маркер не меняется при дописи внутрь,
+# rc 0 вместо rc 1 (эксперимент 3 вердикта 4d1d265; класс «submodule
+# маскирует вложенную правку за прежним „ M sub"»). Привязка — кодом этой
+# шапки и кодом пробы (Н-39).
 set -uo pipefail
 export LC_ALL=C
 P_ZAGR='основной чекаут загрязнён'
@@ -29,20 +30,18 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: %s не каталог\n' "$ROOT_ARG" >&2; exit 2; }
 git -C "$CANON" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$CANON" >&2; exit 2; }
-
-# ДЕФЕКТ: снимок ВНУТРИ стерегомого дерева.
-SNAP="$CANON/.leak-snimok"
+SNAP_DIR="${TMPDIR:-/tmp}/dev-harness-leak/$(printf '%s' "$CANON" | sha256sum | cut -c1-8)"
+SNAP="$SNAP_DIR/porcelain"
 
 emit_manifest() {  # <канон-корень> <префикс-путей>
-  local root="$1" prefix="$2" entry xy path full fp head
+  local root="$1" prefix="$2" entry xy path full fp
   while IFS= read -r -d '' entry; do
     xy="${entry:0:2}"
     path="${entry:3}"; path="${path%/}"
     full="$root/$path"
     if [ -d "$full" ] && [ -e "$full/.git" ]; then
-      head="$(git -C "$full" rev-parse HEAD 2>/dev/null || printf -- '-')"
-      printf '%s:@head:%s\t%s%s\n' "$xy" "$head" "$prefix" "$path"
-      emit_manifest "$full" "$prefix$path/"
+      # ДЕФЕКТ: статичный маркер вместо @head + рекурсивного манифеста.
+      printf '%s:-gitlink-\t%s%s\n' "$xy" "$prefix" "$path"
     elif [ -e "$full" ]; then
       fp="$(sha256sum -- "$full" 2>/dev/null)" && fp="${fp%% *}" || fp='ERR'
       printf '%s:%s\t%s%s\n' "$xy" "$fp" "$prefix" "$path"
@@ -57,6 +56,7 @@ do_snapshot() {
   local m
   m="$(manifest "$CANON" '')" \
     || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
+  mkdir -p "$SNAP_DIR" || { printf 'NOT_IMPLEMENTED: %s не создать\n' "$SNAP_DIR" >&2; exit 2; }
   { printf 'root %s\n' "$CANON"; printf '%s\n' "$m"; } > "$SNAP"
 }
 

@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# НЕ БАРЬЕР: слабая форма детектора контракта 024 — «снимок-в-дереве».
+# НЕ БАРЬЕР: слабая форма детектора контракта 024 — «без-root-строки».
 # Отличается от честной формы (stab_detektor_chestnyj.sh, правка-круг 2)
-# ровно одной ветвью: файл-снимок пишется ВНУТРИ стерегомого чекаута
-# ($CANON/.leak-snimok) вместо ВНЕ. Манифест считается в ПАМЯТИ до записи —
-# база собственного файла НЕ содержит, первая же сверка объявляет собственный
-# снимок утечкой. Дефект наблюдаем на воротах 2 red_detektor_utechek.sh —
-# «чисто → rc 0 + маркер»: чистое дерево краснеет rc 1 «основной чекаут
-# загрязнён: .leak-snimok» (ожидался 0). Байтовое сравнение porcelain ворот 14
-# ловило бы тот же класс (v1 умирала там) — здесь смерть наступает раньше и
-# детерминированно. Привязка — кодом этой шапки и кодом пробы (Н-39).
+# ровно одной ветвью: файл-снимок не несёт первой строки «root <канон>» (и
+# сверка её не проверяет) — манифест без идентичности корня. Дефект
+# наблюдаем на воротах 13 red_detektor_utechek.sh — «чужая root-строка
+# снимка»: подложенный снимок (hash8-коллизия либо чужой файл) сверки не
+# отвергается именованным «снимок чужого корня», а молча судится по чужому
+# содержимому (совет 1 вердикта 4d1d265: 32-битная неоднозначность hash8).
+# Привязка — кодом этой шапки и кодом пробы (Н-39).
 set -uo pipefail
 export LC_ALL=C
 P_ZAGR='основной чекаут загрязнён'
 P_CHISTO='основной чекаут чист'
 P_NET_SNIMKA='снимок отсутствует'
 P_ABS='корень обязан быть абсолютным'
-P_CHUZH='снимок чужого корня'
 
 usage() { printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check <абс-корень>\n' >&2; exit 1; }
 [ "$#" -eq 2 ] || usage
@@ -29,9 +27,8 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: %s не каталог\n' "$ROOT_ARG" >&2; exit 2; }
 git -C "$CANON" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$CANON" >&2; exit 2; }
-
-# ДЕФЕКТ: снимок ВНУТРИ стерегомого дерева.
-SNAP="$CANON/.leak-snimok"
+SNAP_DIR="${TMPDIR:-/tmp}/dev-harness-leak/$(printf '%s' "$CANON" | sha256sum | cut -c1-8)"
+SNAP="$SNAP_DIR/porcelain"
 
 emit_manifest() {  # <канон-корень> <префикс-путей>
   local root="$1" prefix="$2" entry xy path full fp head
@@ -57,20 +54,19 @@ do_snapshot() {
   local m
   m="$(manifest "$CANON" '')" \
     || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
-  { printf 'root %s\n' "$CANON"; printf '%s\n' "$m"; } > "$SNAP"
+  mkdir -p "$SNAP_DIR" || { printf 'NOT_IMPLEMENTED: %s не создать\n' "$SNAP_DIR" >&2; exit 2; }
+  # ДЕФЕКТ: root-строки нет — снимок без идентичности корня.
+  printf '%s\n' "$m" > "$SNAP"
 }
 
 do_check() {
-  local first base cur delta names l p
+  local base cur delta names l p
   if [ ! -f "$SNAP" ]; then
     printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' "$P_NET_SNIMKA" "$SNAP" >&2
     exit 1
   fi
-  { IFS= read -r first; base="$(cat)"; } < "$SNAP" || true
-  if [ "$first" != "root $CANON" ]; then
-    printf 'ОТКАЗ: %s: снимок = [%s], сверяется [%s]\n' "$P_CHUZH" "$first" "$CANON" >&2
-    exit 1
-  fi
+  # ДЕФЕКТ: сверка не сверяет root-строку — весь файл считается манифестом.
+  base="$(cat "$SNAP")"
   cur="$(manifest "$CANON" '')" \
     || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
   delta="$(printf '%s\n' "$cur" | comm -23 - <(printf '%s\n' "$base" | sort))"
