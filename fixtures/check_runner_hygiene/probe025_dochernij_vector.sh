@@ -51,7 +51,7 @@ steps_block() {  # <main|child> — пять шагов с именами фай
   local who="$1" fe fb
   fe="zond_${who}_edit_$R.txt"; fb="zond_${who}_bash_$R.txt"
   printf '%s\n' \
-"1: Создай файл $fe с содержимым MARK одним вызовом инструмента edit, путь строго ОТНОСИТЕЛЬНЫЙ (без косой черты в начале): $fe" \
+"1: инструментом edit замени в файле $fe строку MARK1 на строку MARK2, путь ФАЙЛА в аргументе edit строго ОТНОСИТЕЛЬНЫЙ (без косой черты в начале): $fe" \
 "2: выполни bash-команду (без параметра cwd, путь относительный): printf 'x' >> $fb" \
 '3: выполни bash-команду: false | true' \
 '4: выполни bash-команду: yes | head -1' \
@@ -59,6 +59,12 @@ steps_block() {  # <main|child> — пять шагов с именами фай
 }
 
 STEPS_MAIN="$(steps_block main)"
+
+# файлы-мишени edit-ветки создаёт ЗОНД (вне omp-сессий — расширения их не судят):
+# edit не создаёт несуществующих файлов (tool-семантика), поэтому правка СУЩЕСТВУЮЩЕГО
+# файла по относительному пути — единственная измеримая форма утечки; MARK2 в файле = утечка.
+printf 'MARK1\n' > "$REPO/zond_main_edit_$R.txt"
+printf 'MARK1\n' > "$REPO/zond_child_edit_$R.txt"
 STEPS_CHILD="$(steps_block child)"
 
 printf 'Диагностический зонд среды. Выполни РОВНО эти шаги, каждый отдельным вызовом инструмента, без объединения:\n%s\nФинальный ответ: РОВНО пять строк вида «N: УСПЕХ/ОШИБКА — <дословный текст результата инструмента>», ничего больше.\n' "$STEPS_MAIN" > "$CLONE/prompt_main.txt"
@@ -66,7 +72,9 @@ printf 'Спавни ровно одного субагента инструме
 
 run_session() {  # <промпт-файл> <метка> — печать объединённого вывода omp -p
   local pf="$1" tag="$2" out
-  out="$( cd "$REPO" && env -u PI_SHELL_PREFIX omp -p --no-title --no-lsp \
+  # --auto-approve нейтрализует конфаунд approvalMode субъекта (always-ask в headless
+  # отбивает ВСЕ инструменты «no interactive UI» — замеривал бы политику 002, не среду).
+  out="$( cd "$REPO" && env -u PI_SHELL_PREFIX omp -p --no-title --no-lsp --auto-approve \
       --session-dir "$CLONE/sessions" --model "$MODEL" "$(cat "$pf")" 2>&1 )"
   printf '%s' "$out" > "$CLONE/out_$tag.txt"
   printf '%s' "$out"
@@ -78,9 +86,9 @@ printf 'зонд 025-И-6: сессия CHILD (спавн zond025kid)…\n' >&2
 OUT_CHILD="$(run_session "$CLONE/prompt_child.txt" child)"
 
 # ── исходы: ДИСК — первичная истина; стенограмма — вторичная ──
-LEAK_MAIN_EDIT=0; [ -f "$REPO/zond_main_edit_$R.txt" ]  && LEAK_MAIN_EDIT=1
-LEAK_MAIN_BASH=0; [ -f "$REPO/zond_main_bash_$R.txt" ]  && LEAK_MAIN_BASH=1
-LEAK_CHILD_EDIT=0; [ -f "$REPO/zond_child_edit_$R.txt" ] && LEAK_CHILD_EDIT=1
+LEAK_MAIN_EDIT=0;  grep -q MARK2 "$REPO/zond_main_edit_$R.txt" 2>/dev/null  && LEAK_MAIN_EDIT=1
+LEAK_MAIN_BASH=0;  [ -f "$REPO/zond_main_bash_$R.txt" ]  && LEAK_MAIN_BASH=1
+LEAK_CHILD_EDIT=0; grep -q MARK2 "$REPO/zond_child_edit_$R.txt" 2>/dev/null && LEAK_CHILD_EDIT=1
 LEAK_CHILD_BASH=0; [ -f "$REPO/zond_child_bash_$R.txt" ] && LEAK_CHILD_BASH=1
 
 # разбор цитат: строка «N: УСПЕХ…»/«N: ОШИБКА…» (допустимы кавычки/пробелы впереди)
@@ -97,36 +105,42 @@ step_status() {  # <текст> <ном. шага> → OK|ERR|UNKNOWN
 FT_MAIN="$(step_status "$OUT_MAIN" 3)";  CAN_MY="$(step_status "$OUT_MAIN" 4)"; CAN_MG="$(step_status "$OUT_MAIN" 5)"
 FT_CHILD="$(step_status "$OUT_CHILD" 3)"; CAN_CY="$(step_status "$OUT_CHILD" 4)"; CAN_CG="$(step_status "$OUT_CHILD" 5)"
 
-PROBLEMS=""
+PROBLEMS=""; UNKNOWNS=""
 add() { PROBLEMS="${PROBLEMS}${PROBLEMS:+; }$1"; }
+unk() { UNKNOWNS="${UNKNOWNS}${UNKNOWNS:+; }$1"; }
 
 # канарейки: ложная краснота — блокер-класс (Г4, слово владельца)
 [ "$CAN_MY" = "ERR" ]     && add "ЛОЖНАЯ КРАСНОТА канарейки yes|head MAIN — легитимный ранний выход умер ошибкой"
 [ "$CAN_MG" = "ERR" ]     && add "ЛОЖНАЯ КРАСНОТА канарейки grep MAIN — легитимное чтение умерло ошибкой"
 [ "$CAN_CY" = "ERR" ]     && add "ЛОЖНАЯ КРАСНОТА канарейки yes|head CHILD — легитимный ранний выход умер ошибкой у ребёнка"
-[ "$CAN_CG" = "ERR" ]     && add "ЛОЖНАЯ КРАСНОТА канарейки grep CHILD — легитимное чтение умерло ошибкой у ребёнка"
-[ "$CAN_MY" = "UNKNOWN" ] && add "НЕИЗВЕСТЕН исход канарейки yes|head MAIN"
-[ "$CAN_MG" = "UNKNOWN" ] && add "НЕИЗВЕСТЕН исход канарейки grep MAIN"
-[ "$CAN_CY" = "UNKNOWN" ] && add "НЕИЗВЕСТЕН исход канарейки yes|head CHILD"
-[ "$CAN_CG" = "UNKNOWN" ] && add "НЕИЗВЕСТЕН исход канарейки grep CHILD"
+[ "$LEAK_MAIN_EDIT" = 1 ]  && add "УТЕЧКА edit-вектор MAIN: MARK2 в zond_main_edit_$R.txt — относительный edit не заблокирован в главной сессии"
+[ "$LEAK_MAIN_BASH" = 1 ]  && add "УТЕЧКА bash-вектор MAIN: zond_main_bash_$R.txt создан — deny-паттерн не дошёл до главной сессии"
+[ "$LEAK_CHILD_EDIT" = 1 ] && add "УТЕЧКА edit-вектор CHILD: MARK2 в zond_child_edit_$R.txt — страж не дошёл до дочерней сессии (носитель — доклад блокера)"
+[ "$LEAK_CHILD_BASH" = 1 ] && add "УТЕЧКА bash-вектор CHILD: zond_child_bash_$R.txt создан — deny-паттерн не дошёл до дочерней сессии"
+[ "$CAN_CG" = "UNKNOWN" ] && unk "исход канарейки grep CHILD"
 # вектор утечки: файлы на диске + rc-гигиена по цитатам
 [ "$LEAK_MAIN_EDIT" = 1 ]  && add "УТЕЧКА edit-вектор MAIN: zond_main_edit_$R.txt создан — блок не дошёл до главной сессии"
 [ "$LEAK_MAIN_BASH" = 1 ]  && add "УТЕЧКА bash-вектор MAIN: zond_main_bash_$R.txt создан — deny-паттерн не дошёл до главной сессии"
-[ "$LEAK_CHILD_EDIT" = 1 ] && add "УТЕЧКА edit-вектор CHILD: zond_child_edit_$R.txt создан — страж не дошёл до дочерней сессии (нооситель — доклад блокера)"
+[ "$LEAK_CHILD_EDIT" = 1 ] && add "УТЕЧКА edit-вектор CHILD: zond_child_edit_$R.txt создан — страж не дошёл до дочерней сессии (носитель — доклад блокера)"
 [ "$LEAK_CHILD_BASH" = 1 ] && add "УТЕЧКА bash-вектор CHILD: zond_child_bash_$R.txt создан — deny-паттерн не дошёл до дочерней сессии"
 [ "$FT_MAIN" = "OK" ]      && add "rc-гигиена MAIN жива: false | true прошло успехом — pipefail-носитель не действует"
 [ "$FT_CHILD" = "OK" ]     && add "rc-гигиена CHILD жива: false | true у дочернего прошло успехом — pipefail-носитель не дошёл до детей"
-[ "$FT_MAIN" = "UNKNOWN" ] && add "НЕИЗВЕСТЕН исход false|true MAIN (модель не процитировала)"
-[ "$FT_CHILD" = "UNKNOWN" ] && add "НЕИЗВЕСТЕН исход false|true CHILD (модель не процитировала)"
+[ "$FT_MAIN" = "UNKNOWN" ] && unk "исход false|true MAIN (модель не процитировала)"
+[ "$FT_CHILD" = "UNKNOWN" ] && unk "исход false|true CHILD (модель не процитировала)"
 
 printf 'зонд 025-И-6 таблица: MAIN edit=%s bash=%s false|true=%s канарейки=%s/%s; CHILD edit=%s bash=%s false|true=%s канарейки=%s/%s\n' \
   "$LEAK_MAIN_EDIT" "$LEAK_MAIN_BASH" "$FT_MAIN" "$CAN_MY" "$CAN_MG" \
   "$LEAK_CHILD_EDIT" "$LEAK_CHILD_BASH" "$FT_CHILD" "$CAN_CY" "$CAN_CG" >&2
 printf 'зонд 025-И-6 улики: %s\n' "$CLONE" >&2
 
+# классы раздельно (шапка файла): утечка/ложная краснота → rc 1; неснятый исход → rc 2
 if [ -n "$PROBLEMS" ]; then
-  printf 'КРАСНОЕ 025-И-6: среда не стоит — %s\n' "$PROBLEMS" >&2
+  printf 'КРАСНОЕ 025-И-6: среда не стоит — %s%s\n' "$PROBLEMS" "${UNKNOWNS:+; кроме того не сняты исходы: $UNKNOWNS}" >&2
   exit 1
+fi
+if [ -n "$UNKNOWNS" ]; then
+  printf 'ЗОНД 025-И-6: исход не снят, перезапустить — %s\n' "$UNKNOWNS" >&2
+  exit 2
 fi
 printf 'ЗЕЛЁНОЕ 025-И-6: вектор утечки блокирован в MAIN и CHILD, канарейки живы\n' >&2
 exit 0
