@@ -3,7 +3,7 @@
 //
 // tool_result-патчер: в КАЖДЫЙ bash tool_result дописывает строку `[exit=N]` из
 // details харнеса (details.exitCode — независимая от эха агента мера;
-// bash-tool-runtime.md). rc=0 с лживым `echo rc=1`/`echo rc=0` в выводе
+// bash-tool-runtime.md). rc=0 с лживым echo rc=1/echo rc=0 в выводе
 // расходится с маркером — видимо судье по стенограмме.
 //
 // Два режима:
@@ -67,15 +67,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // ── Фабрика расширения omp ────────────────────────────────────────────────────
 // omp зовёт default-export на старте сессии. Регистрируем tool_result handler,
 // который добавляет строку `[exit=N]` в каждый bash-результат. Источник N —
-// поле result.exitCode из details харнеса, не разбор output.
-
+// поле exitCode из details харнеса, не разбор output.
+//
 // Структура omp-события tool_result (замерено живым probe025, формат ИЗ ЭТОГО ПРОГОНА):
 //   { role:'toolResult', toolName:'edit'|'bash'|..., toolCallId, content:[{text}],
 //     details:{exitCode, timeoutSeconds, wallTimeMs, ...}, isError, timestamp }
 // Раньше код читал e.tool/e.result.exitCode — оба undefined в новой форме, handler
-// тихо возвращал undefined (нет append) и [exit=N] в tool_result не появлялся.
+// тихо возвращал undefined (нет content-блока) и [exit=N] в tool_result не появлялся.
 // Регрессия поймана живым probe025: bash false|true → exit 1, агент видел текст
 // "(no output) ... Command exited with code 1", без маркера [exit=1].
+
+type PiLike = {
+  on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
+};
 
 function readToolAndExit(event: unknown): { tool: string; exitCode: unknown } {
   if (event === null || typeof event !== 'object') return { tool: '', exitCode: undefined };
@@ -100,10 +104,16 @@ export default function register(pi: unknown): void {
     });
     if (out.append === null) return undefined;
     // omp API (shared-events.ts ToolResultEventResult) принимает content/details/
-    // isError; поле append НЕ ВХОДИТ в схему и тихо игнорируется харнесом.
-    // Дописываем маркер В ПОСЛЕДНИЙ текстовый блок content (или добавляем
+    // isError. Дописываем маркер В ПОСЛЕДНИЙ текстовый блок content (или добавляем
     // новый блок, если текстовых нет). Так судья видит [exit=N] и в стенограмме,
     // и при ручном чтении.
+    //
+    // isError: omp wrapper (extensions/wrapper.ts:384) вычисляет effectiveError
+    // = resultResult.isError ?? !!executionError — то есть если handler не
+    // вернул isError явно, omp подменяет результат успешной bash с ненулевым
+    // кодом на isError=false (executionError undefined для bash без throw).
+    // Проброс isError=true для ненулевого кода — модель видит ошибку по
+    // штатному полю isError и верно интерпретирует pipefail-смерть.
     const ev = event as Record<string, unknown>;
     const content = Array.isArray(ev.content) ? (ev.content as Array<Record<string, unknown>>) : [];
     const newContent = content.map((c) => ({ ...c }));
@@ -111,12 +121,13 @@ export default function register(pi: unknown): void {
     for (let i = newContent.length - 1; i >= 0; i--) {
       if (newContent[i] && newContent[i].type === 'text') { lastTextIdx = i; break; }
     }
+    const failedExit = typeof exitCode === 'number' && Number.isFinite(exitCode) && exitCode !== 0;
     if (lastTextIdx >= 0) {
       const t = newContent[lastTextIdx];
       newContent[lastTextIdx] = { ...t, text: `${String(t.text ?? '')}\n${out.append}` };
     } else {
       newContent.push({ type: 'text', text: out.append });
     }
-    return { content: newContent };
+    return failedExit ? { content: newContent, isError: true } : { content: newContent };
   });
 }
