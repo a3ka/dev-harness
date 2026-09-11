@@ -317,32 +317,33 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 // ── Фабрика расширения omp ────────────────────────────────────────────────────
 //
-// omp вызывает default-export на старте сессии. Регистрируем pre-exec хук на
-// tool_call: решение передаётся обратно через {block, reason}. Если хук не
-// зарегистрирован или pi не имеет on() — тихо уходим (fail-open на уровне
-// регистрации; сам omp fail-closed по контракту: ошибка handler'а блокирует
-// вызов — это уже вне нашего кода).
+// Структура omp-события tool_call (замерено живым probe025, формат ИЗ ЭТОГО ПРОГОНА):
+//   { type:'tool_call', toolName:'edit'|'write'|..., toolCallId, input:<args> }
+//   input — это объект arguments модели. Для edit: {i, input:'[path#tag]\nPUT …'},
+//   для write: {i, path, content}, для bash: {i, command, cwd?},
+//   для read/grep/glob: {i, path}. Предыдущий код читал call.name/call.args — этих полей
+//   в новом omp-событии НЕТ, handler молча пропускал любой ввод (регрессия, поймана
+//   живым probe025: edit с относительным путём прошёл УСПЕХ без блока).
 //
-// Пин/actual берём из (по убыванию приоритета):
-//   1. event.worktree / event.actual (если omp их передаёт)
-//   2. process.env.WORKTREE / process.env.PI_ACTUAL
-//   3. процесс.cwd() для actual
-// Без строки WORKTREE сессия считается главной — пина нет, относительная
-// запись всё равно блокируется ветвью A-1.
-
+// Пин/actual берётся из event.worktree/event.actual (если omp их передаёт) иначе
+// process.env.WORKTREE/process.env.PI_ACTUAL/process.cwd(). Сессия без WORKTREE —
+// главная: allowlist не сужается, но относительная запись всё равно блокируется
+// ветвью A-1 (контракт Г1: «страж целит вектор»).
 type PiLike = {
   on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
 };
 
-function readPin(): { worktree: string | null; actual: string } {
-  return {
-    worktree: process.env.WORKTREE ?? null,
-    actual: process.env.PI_ACTUAL ?? process.cwd(),
-  };
-}
-
 function isToolCallEvent(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object';
+}
+
+// Для edit path лежит в args.input строкой `[path#tag]\n…` — формат формата guide omp.
+// tag опционален (после #). Нормализуем: кладём extracted path в args.path для judgeEditWrite.
+function extractEditPath(args: Record<string, unknown>): void {
+  if (args.path) return;
+  const raw = typeof args.input === 'string' ? args.input : '';
+  const m = raw.match(/^\[([^\]#]+)(?:#[^\]]+)?\]/);
+  if (m && m[1]) args.path = m[1];
 }
 
 export default function register(pi: unknown): void {
@@ -352,25 +353,22 @@ export default function register(pi: unknown): void {
 
   p.on('tool_call', (call: unknown) => {
     if (!isToolCallEvent(call)) return undefined;
-    const name = typeof call.name === 'string'
-      ? call.name
-      : typeof call.tool === 'string'
-        ? call.tool
-        : '';
-    const args = call.args !== undefined && call.args !== null && typeof call.args === 'object'
-      ? (call.args as Record<string, unknown>)
-      : (call as Record<string, unknown>);
-    // omp может передавать worktree/actual прямо в событии — в таком случае
-    // они приоритетнее env (которое задаёт orchestrator на спавн).
-    const envPin = readPin();
-    const worktree = typeof call.worktree === 'string' ? call.worktree : envPin.worktree;
-    const actual = typeof call.actual === 'string' ? call.actual : envPin.actual;
+    const name = typeof call.toolName === 'string' ? call.toolName : '';
+    const raw = call.input;
+    const args: Record<string, unknown> = raw !== undefined && raw !== null && typeof raw === 'object'
+      ? (raw as Record<string, unknown>)
+      : {};
+    if (name === 'edit') extractEditPath(args);
+
+    const envWorktree = process.env.WORKTREE ?? null;
+    const envActual = process.env.PI_ACTUAL ?? process.cwd();
+    const worktree = typeof call.worktree === 'string' ? call.worktree : envWorktree;
+    const actual = typeof call.actual === 'string' ? call.actual : envActual;
 
     let result: Decision;
     try {
       result = judge({ tool: name, args, worktree, actual });
     } catch {
-      // fail-closed: ошибка в страже блокирует вызов
       return { block: true, reason: 'Н-85: внутренняя ошибка стража пути' };
     }
     if (result.decision === 'pass') return undefined;
