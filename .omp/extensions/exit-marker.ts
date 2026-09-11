@@ -65,20 +65,22 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // который добавляет строку `[exit=N]` в каждый bash-результат. Источник N —
 // поле result.exitCode из details харнеса, не разбор output.
 
-type PiLike = {
-  on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
-};
+// Структура omp-события tool_result (замерено живым probe025, формат ИЗ ЭТОГО ПРОГОНА):
+//   { role:'toolResult', toolName:'edit'|'bash'|..., toolCallId, content:[{text}],
+//     details:{exitCode, timeoutSeconds, wallTimeMs, ...}, isError, timestamp }
+// Раньше код читал e.tool/e.result.exitCode — оба undefined в новой форме, handler
+// тихо возвращал undefined (нет append) и [exit=N] в tool_result не появлялся.
+// Регрессия поймана живым probe025: bash false|true → exit 1, агент видел текст
+// "(no output) ... Command exited with code 1", без маркера [exit=1].
 
-// Структура tool_result-события omp проверяется инлайн (см. §Правила контракта
-// 011: на границе с внешним поставщиком — проверка полей, не слепой каст).
-function readExitCode(event: unknown): { tool: string; exitCode: unknown } {
+function readToolAndExit(event: unknown): { tool: string; exitCode: unknown } {
   if (event === null || typeof event !== 'object') return { tool: '', exitCode: undefined };
   const e = event as Record<string, unknown>;
-  const tool = typeof e.tool === 'string' ? e.tool : '';
-  const result = e.result;
-  if (result === null || typeof result !== 'object') return { tool, exitCode: undefined };
-  const r = result as Record<string, unknown>;
-  return { tool, exitCode: r.exitCode };
+  const tool = typeof e.toolName === 'string' ? e.toolName : '';
+  const details = e.details;
+  if (details === null || typeof details !== 'object') return { tool, exitCode: undefined };
+  const d = details as Record<string, unknown>;
+  return { tool, exitCode: d.exitCode };
 }
 
 export default function register(pi: unknown): void {
@@ -87,7 +89,7 @@ export default function register(pi: unknown): void {
   if (typeof p.on !== 'function') return;
 
   p.on('tool_result', (event: unknown) => {
-    const { tool, exitCode } = readExitCode(event);
+    const { tool, exitCode } = readToolAndExit(event);
     const out = judge({
       tool,
       result: { exitCode, output: undefined },
