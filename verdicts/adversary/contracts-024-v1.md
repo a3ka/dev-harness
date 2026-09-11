@@ -1,110 +1,126 @@
 FAIL
 
-# Адверсарий: контракт 024, круг 1
+# Адверсарий: контракт 024, круг 2
 
-Судимая база: `main` `dca83fbfd1f414ffc5f251226aaa3e082addb6ae`. Предмет и проверки не менялись. Каждый контрпример запускался в отдельной одноразовой копии этого коммита под `/tmp/adv024-*`; основной checkout менялся только этим файлом. Состояния ниже именованы как `S-*`.
+Судимая база: `main` `01ed097b8155b604ccbe838d0d4b0807667c71c1`,
+`frozen/contracts/024/2 = HEAD`. Все мутации и репро ниже сделаны только в
+одноразовых клонах под `/tmp`; основной checkout менялся только этим вердиктом.
+Н-39 дословно: «стабы к ветвям привязывает architect по коду, НЕ проза контракта; контракт несёт инварианты + rc-команды».
 
-## Блокер 1 — отказ `git status` превращается в зелёную сверку
+## Блокер 1 — подмена доступной `sha256sum` на PATH делает живую утечку «чистой»
 
-**Обход — `S-git-status-1`.** Между снимком и сверкой в основной checkout добавлен `S-git-status-failure.txt`. В `PATH` перед настоящим `git` помещён отдельный контрольный `git`: все команды, нужные для канонизации/`rev-parse`, передаются `/usr/bin/git`, но `git -C <root> status …` завершает работу с `rc=1`. Это ровно отказ источника манифеста, который по `do_snapshot`/`do_check` должен дать именованный отказ, а не содержательный пустой манифест.
-
-В `/tmp/adv024-status-fail`:
+**Контрпример `S-path-forged-sha256`.** Это конформный живой git-checkout с уже
+существующим untracked-файлом `S-path-forged-sha`: он пуст перед снимком и после
+снимка становится однобайтным. В `PATH` перед `/usr/bin` поставлена исполнимая
+`sha256sum`, возвращающая грамматически корректный постоянный 64-hex отпечаток
+для stdin и любого аргумента. Остальные восемь требуемых программ настоящие.
 
 ```text
-PATH=/tmp/adv024-status-fail-bin:/usr/bin TMPDIR=/tmp/adv024-status-fail-snaps \
-  /usr/bin/bash scripts/check_no_leak.sh --snapshot /tmp/adv024-status-fail    # rc=0
-printf 'leak-after-status-failure\n' > S-git-status-failure.txt
-PATH=/tmp/adv024-status-fail-bin:/usr/bin TMPDIR=/tmp/adv024-status-fail-snaps \
-  /usr/bin/bash scripts/check_no_leak.sh --check /tmp/adv024-status-fail       # rc=0
+PATH=/tmp/dev-harness-adv2/fake-bin:/usr/bin:/bin \
+TMPDIR=/tmp/adv024-path-forged \
+  bash scripts/check_no_leak.sh --snapshot /tmp/dev-harness-adv2/repo  # rc=0
+truncate -s 1 S-path-forged-sha
+PATH=/tmp/dev-harness-adv2/fake-bin:/usr/bin:/bin \
+TMPDIR=/tmp/adv024-path-forged \
+  bash scripts/check_no_leak.sh --check /tmp/dev-harness-adv2/repo     # rc=0
 # stdout: основной чекаут чист
 ```
 
-Причина в коде: `emit_manifest` читает `git status` через process substitution, а `manifest` возвращает статус `sort`; отказ producer не попадает ни в `m="$(manifest …)"`, ни в `cur="$(manifest …)"`. Следовательно, после сбоя `status` снимок и текущий манифест оба пусты, а реальная новая запись проходит. Это отказ, выглядящий успехом, и прямое нарушение основного свойства детектора.
+Детектор проверяет лишь `command -v sha256sum`: доступная подмена проходит
+предпроверку. Оба манифеста содержат одинаковый постоянный fingerprint при том,
+что байты tracked входа изменились после снимка; утечка не названа. Это именно
+класс «инструмент мимо PATH», не прежний закрытый класс отсутствующей утилиты
+(rc 127). Оракул из 18 ворот зелёный в штатном PATH, но не испытывает эту
+реальную форму среды; следовательно, его зелёность не защищает И-5 в обещанном
+`PATH`-уважающем CLI.
 
-## Блокер 2 — отсутствующие `sha256sum` и `cut` (rc 127) дают «чисто»
+**Положительный контроль.** Та же последовательность с настоящим PATH на
+`S-positive-control` дала `rc=1` и `ОТКАЗ: основной чекаут загрязнён:
+S-positive-control`; следовательно, контрпример не является вечно-красным либо
+перепутанным вопросом.
 
-**Обход — `S-no-sha256sum`.** В отдельном `/tmp/adv024-no-sha` `PATH` содержит `git`, `sort`, `comm`, `mkdir`, `cat`, но намеренно не содержит `sha256sum` и `cut`. До снимка `.githooks/pre-push` уже изменён; после снимка в него дописана новая строка. Так проверяется именно новая утечка в уже грязном tracked-пути, а не появление самого пути.
+## Блокер 2 — symlink-подмена внешнего манифеста позволяет выдать новую запись за базу
+
+**Контрпример `S-external-snapshot-symlink`.** В отдельном репозитории с одним
+закоммиченным `seed` снимок A сделан при размере `seed=1`. После `truncate -s 2
+seed` снимок B сделан в другом `TMPDIR`. Затем, только вне стерегомого дерева,
+`porcelain` снимка A заменён ссылкой на `porcelain` снимка B. В обоих файлах
+первая строка корректна и одинаково содержит `root /tmp/adv024-symlink-tree`.
 
 ```text
-PATH=/tmp/adv024-no-sha-bin TMPDIR=/tmp/adv024-no-sha-snaps \
-  /usr/bin/bash scripts/check_no_leak.sh --snapshot /tmp/adv024-no-sha          # rc=0
-# stderr: sha256sum: command not found; cut: command not found
-printf 'post-snapshot-leak\n' >> .githooks/pre-push
-PATH=/tmp/adv024-no-sha-bin TMPDIR=/tmp/adv024-no-sha-snaps \
-  /usr/bin/bash scripts/check_no_leak.sh --check /tmp/adv024-no-sha             # rc=0
-# stderr: sha256sum: command not found; cut: command not found
+TMPDIR=/tmp/adv024-symlink-a \
+  bash scripts/check_no_leak.sh --snapshot /tmp/adv024-symlink-tree  # rc=0
+truncate -s 2 /tmp/adv024-symlink-tree/seed
+TMPDIR=/tmp/adv024-symlink-b \
+  bash scripts/check_no_leak.sh --snapshot /tmp/adv024-symlink-tree  # rc=0
+mv /tmp/adv024-symlink-a/dev-harness-leak/26476c9b/porcelain \
+   /tmp/adv024-symlink-a/dev-harness-leak/26476c9b/porcelain-base
+ln -s /tmp/adv024-symlink-b/dev-harness-leak/26476c9b/porcelain \
+   /tmp/adv024-symlink-a/dev-harness-leak/26476c9b/porcelain
+TMPDIR=/tmp/adv024-symlink-a \
+  bash scripts/check_no_leak.sh --check /tmp/adv024-symlink-tree     # rc=0
 # stdout: основной чекаут чист
 ```
 
-`sha256sum`-ошибка сводится к постоянному отпечатку `ERR`; отказ вычисления пути снимка также не прерывает скрипт без `set -e`. Для одной и той же уже-грязной записи ` M:ERR` дельта пуста. Контракт обещает `rc=2` для непригодного окружения, но проверяет только наличие `git`; отсутствие обязательных утилит не fail-closed. Это независимый контрпример класса «инструмент мимо PATH / rc 127 выглядит успехом».
+`--check` следует ссылке и доверяет подменённой базе: root-строка ловит только
+чужой корень, не подмену снимка того же корня. Тем самым модификация `seed` между
+исходным снимком и сверкой не наблюдается. Путь манифеста намеренно находится
+вне дерева и `TMPDIR` объявлен частью API, поэтому это не ignored-путь и не
+названный предел «сговор/спавн-без-вердикта»; это live bypass хранения манифеста.
 
-## Блокер 3 — ветвь B можно сделать формально зелёной без защиты судьи
+## Исполненные отрицательные и положительные контроли
 
-**Обход — `S-B-norma-without-hook`.** В отдельном `/tmp/adv024-branch-b` добавлена ровно одна запрошенная строка нормы в `roles/orchestrator.md`; никакой исполнимый путь спавна и ни одна проверка не менялись. Все предъявленные зелёные критерии стали зелёными на живом `check_no_leak.sh`:
+- `S-status-refusal`: `git status` через PATH вернул `rc=1`; `--snapshot` дал
+  именованный `NOT_IMPLEMENTED: манифест не прочитан: git status rc=1 ...`,
+  `rc=2`. Закрытие к1 работает.
+- `S-no-sha256sum`: PATH содержал все остальные обязательные программы, но не
+  `sha256sum`; `--snapshot` дал `NOT_IMPLEMENTED: утилита sha256sum отсутствует`,
+  `rc=2`. Закрытие rc=127-класса работает.
+- `S-empty-tree`: пустой инициализированный git-репозиторий прошёл
+  `--snapshot` затем `--check` с `rc=0` и «основной чекаут чист». Пустой вход сам
+  по себе не объявлен утечкой и не является находкой.
+- Снимок в один момент и запись после него на настоящем PATH проверены
+  `S-positive-control` выше: ровно соответствующая утечка краснеет, а не все
+  сценарии.
+- `bash fixtures/check_judge_gate/probe_slabyh_detektora.sh` → `rc=0`: честная
+  форма прошла все 18 ворот, каждая из 17 слабых форм умерла именованно, и
+  безымянный `exit 1` отвергнут. Это не покрывает два живых обхода выше.
+- `bash fixtures/check_judge_gate/red_stenogrammy_sudej_024.sh` на судимой базе
+  → `rc=0`, честная вакуумная зелёность: норма-строка ещё не приземлена.
+  В отдельном клоне после коммита нормы `S-anchor-missing` без строки
+  `check_no_leak --check ... rc` дал именованный `rc=1`; обновление файла с
+  корректной стенограммой дало `rc=0`; переименование и удаление стенограммы
+  (`S-anchor-renamed`) снова дали `rc=1`. Удаление и повторное внесение нормы не
+  сдвинуло pickaxe-границу (осталась `90632d1...`), а norm-коммит, пришедший
+  cherry-pick, дал границу `8ff106d...` и поймал `S-cherry-missing` с `rc=1`.
+  A+M-множество и самая ранняя граница работают в испытанных формах.
+- Ignored-путь не заявляется находкой: он прямо исключён Демаркацией 024.
+  «Сговор/спавн-без-вердикта» также не объявляется новым FAIL: это прямо
+  названный cognitive-only предел контракта.
 
-```text
-bash fixtures/check_judge_gate/red_norma_stroka_024.sh                            # rc=0
-# норма-строка 024 приземлена дословно (grep -F, побайтово)
-bash fixtures/check_judge_gate/red_detektor_utechek.sh                            # rc=0, 14/14 ворот
-bash fixtures/check_judge_gate/canary_zhivoj_024.sh /tmp/adv024-branch-b          # rc=0
-bash scripts/verify_antiplacebo.sh . --scope check_judge_gate                     # rc=0, 3/3
-```
-
-Но поиск `check_no_leak` в фактическом пути спавна `scripts/spawn_agent.sh` дал пустой результат: до судьи не выполняются ни `--snapshot`, ни `--check`, а значит утечка main перед заданием судьи не останавливает спавн. Одна строка, проверяемая `grep -F`, является документальной декларацией, не исполнимой связкой. Состояние удовлетворяет существующим проверкам, но судья реально не защищён. Сам контракт называет остаток «аудитом стенограмм», однако это не превращает критерий «перед каждым спавном судьи» в исполнимое свойство.
-
-На исходном `dca83fb` ветвь B даже не приземлена: `bash fixtures/check_judge_gate/red_norma_stroka_024.sh` вернул `rc=1` с «норма-строка 024 не приземлена». Это ожидаемое до done состояние, но не устраняет приведённый зелёный контрпример после буквального приземления.
-
-## Дополнительные обходы манифеста — совет
-
-Все четыре состояния ниже дали `rc=0` и stdout `основной чекаут чист` на настоящем детекторе. Они подтверждают, что манифест хранит только `XY` и разыменованные байты, а не полное состояние файловой системы:
-
-| Состояние (отдельный клон) | Действие после снимка | Фактический результат | Класс |
-|---|---|---|---|
-| `S-symlink-equal-target` (`/tmp/adv024-symlink`) | неотслеживаемая ссылка `link: payload-A` заменена на `link: payload-B`; оба target содержат одинаковые байты | `readlink …/link` = `payload-B`; `--check` → `rc=0` | совет: ссылка — другой объект/путь, но `sha256sum` разыменовывает её |
-| `S-chmod-untracked` (`/tmp/adv024-chmod`) | у старого неотслеживаемого `tool` режим `0644 → 0755` | `stat` = `755`; `--check` → `rc=0` | совет |
-| `S-empty-directory-after-snapshot` (`/tmp/adv024-empty-dir`) | создан пустой каталог | `stat` = `directory`; `--check` → `rc=0` | совет |
-| `S-xattr-untracked` (`/tmp/adv024-xattr`) | у старого неотслеживаемого файла задан `user.adv024=changed` | `setfattr` успешен; `--check` → `rc=0` | совет |
-
-Также исполнены `S-mtime-untracked` (`touch -d '2030-01-02 03:04:05 UTC'`) и `S-hardlink-topology` (второй файл заменён hard link на первый с теми же байтами); оба дали `rc=0`. Это не основания данного FAIL: точный контракт говорит о sha256 содержимого, но не называет эти слепые зоны в Демаркации, хотя обещает манифест состояния дерева. Для symlink следует хешировать payload ссылки (`readlink`), а при расширении предмета — тип/режим и явно решить, входят ли каталоги/xattr/link topology.
-
-`S-ignored-path` отдельно дал `rc=0` после создания `.env.adv024`; это **не находка**, потому что ignored-пути честно исключены Демаркацией 024 и адресованы 025.
-
-## Снимок и параллельность — совет с воспроизводимым обходом
-
-Удаление снимка проверено как положительный контроль fail-closed: после `rm -rf /tmp/adv024-snapshot-substitute-snaps/dev-harness-leak` `--check` вернул `rc=1` и «снимок отсутствует».
-
-Но в `S-parallel-last-wins` (`/tmp/adv024-parallel`) две независимые церемонии одного root делят один предсказуемый файл `${TMPDIR}/dev-harness-leak/<hash8>/porcelain`:
-
-```text
-# сессия A
-TMPDIR=/tmp/adv024-parallel-snaps bash scripts/check_no_leak.sh --snapshot /tmp/adv024-parallel  # rc=0
-printf 'leak-from-A\n' > S-parallel-A-leak.txt
-# сессия B того же root (последний снимок заменяет A)
-TMPDIR=/tmp/adv024-parallel-snaps bash scripts/check_no_leak.sh --snapshot /tmp/adv024-parallel  # rc=0
-# A сверяет свою пачку
-TMPDIR=/tmp/adv024-parallel-snaps bash scripts/check_no_leak.sh --check /tmp/adv024-parallel     # rc=0, «основной чекаут чист»
-```
-
-То же получается в `S-storage-rebase` (`/tmp/adv024-snapshot-substitute`), если после записи `S-storage-forged-snapshot.txt` подменить базу повторным `--snapshot`: `--check` вернул `rc=0`. Root-строка защищает только чужой корень/hash8-коллизию (ворота 13 это ловят), не свежесть, владельца пачки или целостность текущей базы. Это явно документированная семантика «последний выигрывает», поэтому класс — совет, а не дополнительное основание FAIL; при параллельных пачках требуется изоляция снимка/nonce либо запрет конкурирующих церемоний.
-
-## Контрольные эксперименты и не-регресс
-
-На неизменённом живом механизме в отдельном `/tmp/adv024-baseline`:
+## Приёмочные наблюдения
 
 ```text
-bash fixtures/check_judge_gate/red_detektor_utechek.sh                            # rc=0, 14/14
-bash fixtures/check_judge_gate/red_detektor_utechek.sh                            # rc=0, повтор с новыми случайными toy-входами, 14/14
-bash fixtures/check_judge_gate/probe_slabyh_detektora.sh                          # rc=0
-bash fixtures/check_judge_gate/canary_zhivoj_024.sh /tmp/adv024-baseline          # rc=0
-bash scripts/verify_antiplacebo.sh . --scope check_judge_gate                     # rc=0, 3/3
- git diff --exit-code frozen/contracts/024/1 -- contracts/024-detektor-utechek-osnovnogo-chekauta.md  # rc=0
+bash scripts/verify_antiplacebo.sh . --scope check_judge_gate  # rc=0
+ git diff --exit-code frozen/contracts/024/2..HEAD -- \
+   fixtures/check_judge_gate/ scripts/check_no_leak.sh         # rc=0, пусто
 ```
 
-`probe_slabyh_detektora.sh` дал зелёный честной минимальной форме на всех 14 воротах, поймал 13 поставленных слабых форм по имени ворот и причине и отверг `exit 1` без диагностики. Следовательно, red/проба не являются вечно-красным шумом; найденные блокеры лежат за их входным пространством.
+На основном checkout исполнена заданная интерим-норма:
 
-## Требуемое исправление
+```text
+стенограмма: check_no_leak --check → rc=0
+```
 
-1. Перестроить `manifest` без process substitution, которая теряет rc `git status`; статус и отсутствие **каждой** обязательной утилиты (`git`, `sha256sum`, `cut`, `sort`, `comm`) должны давать именованный fail-closed `rc=2` до решения «чисто».
-2. Добавить в red-прогон контрпримеры `S-git-status-1` и `S-no-sha256sum`, включая уже-грязный tracked-путь.
-3. Сделать ветвь B исполнимой: обернуть реальный путь каждого судейского спавна снимком/сверкой и проверять это исполнением, а не только наличием строки в роли.
-4. После правки повторить два red-прогона, probe, live canary, scoped `check_judge_gate`, ветвь B и frozen-diff.
+## Требуемая правка
+
+1. Сделать происхождение и исполнимость программ, формирующих адрес снимка и
+   fingerprint, доверенной/неподменяемой частью детектора (одного наличия в PATH
+   недостаточно), и добавить живой red-контрпример `S-path-forged-sha256`.
+2. Сделать снимок защищённым от replacement/symlink-подмены между `--snapshot` и
+   `--check` либо fail-closed при небезопасном типе/целостности внешнего пути; root
+   одной строкой не является доказательством свежести или целостности. Добавить
+   живой red-контрпример `S-external-snapshot-symlink`.
+3. После правки повторить оба контрпримера, положительный контроль, probe,
+   scoped `check_judge_gate` и frozen-diff. Полный прогон остаётся задачей CI
+   (Н-48), не этого судьи.
