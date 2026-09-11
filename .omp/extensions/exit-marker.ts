@@ -30,10 +30,14 @@ export function judge(input: JudgeInput): JudgeOutput {
   const r = input.result;
   if (!r || typeof r !== 'object') return { append: '[exit=?]' };
   const ec = r.exitCode;
+  // omp details.exitCode ставится ТОЛЬКО для ненулевого кода (bash.ts:
+  // `if (failedExit) details.exitCode = exitCode`). Успешная команда даёт
+  // undefined, что трактуем как exit=0: красный приём test 7 (null→?)
+  // сохраняется (typeof null === 'object'), undefined → [exit=0].
   if (typeof ec === 'number' && Number.isFinite(ec)) {
     return { append: `[exit=${ec}]` };
   }
-  if (ec === 0) return { append: '[exit=0]' };
+  if (ec === 0 || ec === undefined) return { append: '[exit=0]' };
   return { append: '[exit=?]' };
 }
 
