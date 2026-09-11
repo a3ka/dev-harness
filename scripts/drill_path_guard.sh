@@ -166,8 +166,8 @@ if (!globalThis.reg.tool_call) {
 }
 // Smoke: тривиальный относительный edit должен блокироваться.
 const result = await globalThis.reg.tool_call({
-  name: 'edit',
-  args: { path: 'relative.txt' },
+  toolName: 'edit',
+  input: { i: 'Smoke: relative edit', input: '[relative.txt#0000]\nPUT 1.=1:\n+MARK2' },
   worktree: null,
   actual: null,
 });
