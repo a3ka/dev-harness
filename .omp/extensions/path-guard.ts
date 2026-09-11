@@ -20,13 +20,21 @@
 //     принципа; свободный абсолют непиннованного = корень А-72).
 //   - pin не существует → refuse «не существует».
 //   - pin ≠ actual → refuse «не совпадает».
-//   - artifact://, local://, skill://, agent://, history://, xd:// — allowlist
-//     (Г3); pass в любой сессии.
+//   - URI (artifact://, local://, skill://, agent://, history://, xd://):
+//     pinned сессия pass (Г3); unpinned (worktree:null) — ТОЛЬКО artifact://
+//     проходит, иные внутренние URI — block Н-85 (резолюция 2026-09-11 «дыра B»;
+//     null-allowlist узкое «скратч/artifact», local://, mcp://, skill:// — НЕ
+//     исключение слова владельца; fix 025 правка-круг 3, вердикт d141dd9
+//     блокер 2).
 //   - read/grep/glob и bash без формы записи — pass (Г1 «читать свободно»).
 
 import { realpathSync } from 'node:fs';
 
 // ── Allowlist URI-схем (Г3 «internal URI харнеса») ─────────────────────────────
+// В pinned сессии все они pass; в unpinned (worktree:null) — ТОЛЬКО artifact://
+// (см. isUnpinnedInternalURI). Слово владельца 2026-09-11 дословно: null-allowlist
+// = скратч/artifact; local://, mcp://, skill://, agent://, history://, xd:// — НЕ
+// исключение.
 const URI_SCHEMES: readonly string[] = [
   'artifact://',
   'local://',
@@ -52,6 +60,17 @@ export type JudgeInput = {
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 function isAllowedURI(p: string): boolean {
   return URI_SCHEMES.some((s) => p.startsWith(s));
+}
+
+// Непиннованная сессия + URI из allowlist'а, но НЕ artifact:// —
+// fail-closed «внутренний URI непиннованной сессии — дефолт-запрет,
+// слово владельца 2026-09-11: скратч/artifact». local://, mcp://,
+// skill://, agent://, history://, xd:// у непинна → блок Н-85.
+function isUnpinnedInternalURI(p: string, worktree: string | null): boolean {
+  if (worktree !== null) return false;     // pinned — allowlist действует целиком
+  if (!isAllowedURI(p)) return false;      // не URI — другая ветвь судьи
+  if (p.startsWith('artifact://')) return false; // unpinned artifact:// — pass
+  return true;                              // unpinned + иная URI-схема — block
 }
 
 function getVerifyBase(): string {
@@ -99,7 +118,7 @@ function isWriteCommand(cmd: string): boolean {
   if (/(?:^|\s)perl(?:\s|$)/.test(c) && /\s-i(?:\b|\.|\s|$)/.test(c)) return true;
   // python / python3 -c 'CODE' — code может содержать open()/Path().write_*().
   if (/(?:^|\s)python[23]?(?:\s|$)/.test(c) && /\s-c\b/.test(c)) return true;
-   return false;
+  return false;
 }
 
 // Извлечение файловых операндов из команды: после > / >> и последний для sed -i.
@@ -300,10 +319,12 @@ function extractPythonStringLiterals(code: string): string[] {
   return out;
 }
 
-// Проверяет, что resolved-путь — внутри пина (если задан) или allowlist'а
-// (URI-схемы Г3 + scratch ${TMPDIR:-/tmp}/dev-harness-verify). Для НЕпиннованных
-// сессий (canonicalWt === null) — pass ТОЛЬКО при попадании в allowlist; всё
-// остальное fail-closed (резолюция 2026-09-11 — абсолют-в-MAIN-чекаут блок).
+// Проверяет, что resolved-путь — внутри пина (если задан) или scratch
+// ${TMPDIR:-/tmp}/dev-harness-verify. URI-схемы НЕ идут через pathAllowed
+// (они обрабатываются выше — isUnpinnedInternalURI для непинна или pass
+// для пина). Для НЕпиннованных сессий (canonicalWt === null) — pass ТОЛЬКО
+// при попадании в scratch; всё остальное fail-closed (резолюция 2026-09-11 —
+// абсолют-в-MAIN-чекаут блок).
 function pathAllowed(
   resolved: string,
   canonicalWt: string | null,
@@ -318,6 +339,12 @@ function pathAllowed(
   return false;
 }
 
+// Именованная причина для блока URI у непиннованной сессии (слово владельца
+// 2026-09-11 «дыра B» + Н-85-подпись).
+function unpinnedURIReason(p: string): string {
+  return `внутренний URI непиннованной сессии запрещён — Н-85: дефолт-запрет, слово владельца 2026-09-11 «дыра B»: null-allowlist = ${getVerifyBase()}/**, artifact://; цель ${p}`;
+}
+
 // ── Решения для edit / write ───────────────────────────────────────────────────
 function judgeEditWrite(
   args: Record<string, unknown>,
@@ -327,8 +354,16 @@ function judgeEditWrite(
   const path = String(args.path ?? '');
   if (!path) return { decision: 'pass' };
 
-  // Allowlist URI — pass ВСЕГДА (Г3): artifact://, local://, skill:// и др.
-  if (isAllowedURI(path)) return { decision: 'pass' };
+  // URI-схемы: pinned — pass (Г3); unpinned — ТОЛЬКО artifact://, иные внутренние
+  // URI (local://, mcp://, skill://, agent://, history://, xd://) — block Н-85
+  // с именованной причиной (резолюция 2026-09-11 «дыра B», дословно
+  // null-allowlist = скратч/artifact). Сверка pinned/unpinned — по
+  // canonicalWt (worktree был проканонизирован через safeRealpath в judge()).
+  if (isAllowedURI(path)) {
+    if (canonicalWt !== null) return { decision: 'pass' };
+    if (path.startsWith('artifact://')) return { decision: 'pass' };
+    return { decision: 'block', reason: unpinnedURIReason(path) };
+  }
 
   // Относительный путь — блок ВСЕГДА (Г1, Г2: вектор утечки).
   if (!path.startsWith('/')) {
@@ -338,17 +373,17 @@ function judgeEditWrite(
     };
   }
 
-  // Абсолютный путь — общий pathAllowed. Пиновые сессии: pass in-pin + allowlist;
-  // непиннованные: pass ТОЛЬКО allowlist (scratch + URI-схемы). Всё прочее —
-  // блок (резолюция владельца 2026-09-11: непиннованный ребёнок ДЕФОЛТ-ЗАПРЕЩЁН
-  // на чекаут-запись).
+  // Абсолютный путь — общий pathAllowed. Пиновые сессии: pass in-pin + scratch;
+  // непиннованные: pass ТОЛЬКО scratch (URI у непинна обработаны выше). Всё
+  // прочее — блок (резолюция владельца 2026-09-11: непиннованный ребёнок
+  // ДЕФОЛТ-ЗАПРЕЩЁН на чекаут-запись).
   if (pathAllowed(path, canonicalWt, worktree)) return { decision: 'pass' };
 
   return {
     decision: 'block',
     reason:
       worktree === null
-        ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${path} не в allowlist (${getVerifyBase()}/**, artifact://, local:// и др.)`
+        ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${path} не в null-allowlist (${getVerifyBase()}/**, artifact://)`
         : `запись вне пина запрещена — Н-85: путь ${path} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
   };
 }
@@ -379,7 +414,13 @@ function judgeBash(
   }
 
   for (const op of operands) {
-    if (isAllowedURI(op)) continue;
+    // URI-схемы: pinned — pass (Г3); unpinned — ТОЛЬКО artifact://, иные
+    // внутренние URI — block Н-85 (зеркало judgeEditWrite, единая семантика).
+    if (isAllowedURI(op)) {
+      if (canonicalWt !== null) continue;
+      if (op.startsWith('artifact://')) continue;
+      return { decision: 'block', reason: unpinnedURIReason(op) };
+    }
 
     let resolved: string;
     if (op.startsWith('/')) {
@@ -397,15 +438,15 @@ function judgeBash(
       resolved = realCwd.endsWith('/') ? `${realCwd}${op}` : `${realCwd}/${op}`;
     }
 
-    // Непиннованная сессия + абсолютный операнд вне allowlist — блок по
-    // pathAllowed (резолюция 2026-09-11). Пиновая + операнд вне пина и не в
-    // allowlist — блок по Н-85.
+    // Непиннованная сессия + абсолютный операнд вне scratch — блок по
+    // pathAllowed (резолюция 2026-09-11). URI у непинна уже отсеяны выше.
+    // Пиновая + операнд вне пина и не в scratch — блок по Н-85.
     if (!pathAllowed(resolved, canonicalWt, worktree)) {
       return {
         decision: 'block',
         reason:
           worktree === null
-            ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${resolved} не в allowlist`
+            ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${resolved} не в null-allowlist (${getVerifyBase()}/**, artifact://)`
             : `запись вне пина запрещена — Н-85: путь ${resolved} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
       };
     }
@@ -500,7 +541,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 //
 // Структура omp-события tool_call (замерено живым probe025, формат ИЗ ЭТОГО ПРОГОНА):
 //   { type:'tool_call', toolName:'edit'|'write'|..., toolCallId, input:<args> }
-//   input — это объект arguments модели. Для edit: {i, input:'[path#tag]\nPUT …'},
+//   input — это объект arguments модели. Для edit: {i, input:'[path#tag]\n…'},
 //   для write: {i, path, content}, для bash: {i, command, cwd?},
 //   для read/grep/glob: {i, path}. Предыдущий код читал call.name/call.args — этих полей
 //   в новом omp-событии НЕТ, handler молча пропускал любой ввод (регрессия, поймана
@@ -508,8 +549,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 //
 // Пин/actual берётся из event.worktree/event.actual (если omp их передаёт) иначе
 // process.env.WORKTREE/process.env.PI_ACTUAL/process.cwd(). Сессия без WORKTREE —
-// непиннованная: пишет ТОЛЬКО в allowlist (resдолюция 2026-09-11; было свободно,
-// закрыто fail-closed против принципа, корень А-72).
+// непиннованная: пишет ТОЛЬКО в null-allowlist = scratch ∪ artifact:/
+// (резолюция 2026-09-11 «дыра B»; local://, mcp://, skill:// — не исключение;
+// fix 025 правка-круг 3).
 type PiLike = {
   on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
 };
