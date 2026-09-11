@@ -95,6 +95,24 @@ export default function register(pi: unknown): void {
       result: { exitCode, output: undefined },
     });
     if (out.append === null) return undefined;
-    return { append: out.append };
+    // omp API (shared-events.ts ToolResultEventResult) принимает content/details/
+    // isError; поле append НЕ ВХОДИТ в схему и тихо игнорируется харнесом.
+    // Дописываем маркер В ПОСЛЕДНИЙ текстовый блок content (или добавляем
+    // новый блок, если текстовых нет). Так судья видит [exit=N] и в стенограмме,
+    // и при ручном чтении.
+    const ev = event as Record<string, unknown>;
+    const content = Array.isArray(ev.content) ? (ev.content as Array<Record<string, unknown>>) : [];
+    const newContent = content.map((c) => ({ ...c }));
+    let lastTextIdx = -1;
+    for (let i = newContent.length - 1; i >= 0; i--) {
+      if (newContent[i] && newContent[i].type === 'text') { lastTextIdx = i; break; }
+    }
+    if (lastTextIdx >= 0) {
+      const t = newContent[lastTextIdx];
+      newContent[lastTextIdx] = { ...t, text: `${String(t.text ?? '')}\n${out.append}` };
+    } else {
+      newContent.push({ type: 'text', text: out.append });
+    }
+    return { content: newContent };
   });
 }
