@@ -47,8 +47,15 @@
 #
 # Выход: 0 — снимок сделан / дельта пуста («основной чекаут чист»); 1 — именованный
 #               отказ («основной чекаут загрязнён: <имена>» / «снимок отсутствует» /
-#               «корень обязан быть абсолютным» / «снимок чужого корня»); 2 — окружение
-#               не годится (нет git, каталог/репозиторий недоступны).
+#               «корень обязан быть абсолютным» / «снимок чужого корня» / «снимок
+#               не прочитан» — кейс v4: чтение снимка cat||true тот же класс
+#               «отказ producer ≠ молчаливый успех», имя дано);
+#               2 — окружение не годится (нет утилит закрытого списка, git status
+#               rc≠0, нет git, каталог/репозиторий недоступны, sha256sum не смог
+#               прочесть tracked-файл, HEAD submodule не читается — кейс v4:
+#               константы 'ERR'/'--' маскировали отказ как валидный отпечаток;
+#               теперь именованный NOT_IMPLEMENTED rc 2, формат — для последующей
+#               сверки побайтово воротами 17/18 фикс-круга архитектора 024).
 set -uo pipefail
 export LC_ALL=C
 
@@ -81,7 +88,20 @@ case "$ROOT_ARG" in
     ;;
 esac
 
-command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
+# Блокер 2 вердикта d67ac4b: явная предпроверка ЗАКРЫТОГО списка утилит ДО любой
+# работы. rc=2 NOT_IMPLEMENTED именованный «утилита X отсутствует» по грамматике
+# контракта 024 («rc 2 — окружение не годится»; «утилита мимо PATH / rc 127
+# выглядит успехом»). Перечень — по факту использования в этом скрипте: git
+# (все вызовы), sha256sum/cut (hash8-каталог снимка, отпечаток файла), sort
+# (канонический манифест и снимок/текущая дельта), comm (дельта-ПОДМНОЖЕСТВО),
+# mkdir (каталог снимка), cat (чтение снапшота), mktemp (буфер git status —
+# переменная-посредник с фиксацией rc, см. emit_manifest ниже). Ловит класс
+# S-no-sha256sum: sha256sum/cut rc 127 НЕ превращается в «чисто».
+for util in git sha256sum cut sort comm mkdir cat mktemp; do
+  command -v "$util" >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: утилита %s отсутствует\n' "$util" >&2; exit 2; }
+done
+
 # Канонизация корня — cd + pwd -P. После этого ВСЕ дальнейшие операции идут по $CANON,
 # cwd детектора не имеет значения (ворота 7/8: грязный cwd не влияет на решение).
 CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" \
@@ -97,33 +117,95 @@ SNAP="$SNAP_DIR/porcelain"
 # Манифест состояния дерева: рекурсивно, пофайлово, по содержимому.
 # emit_manifest <канон-корень> <префикс-путей> — префикс пуст на верхнем уровне и
 # наращивается при рекурсии в submodule (внутренние пути идут как "<sub>/<file>").
+#
+# Блокер 1 вердикта d67ac4b: rc `git status` фиксируется ДО ветвлений и ДО стрима,
+# переменной-посредником через mktemp (process substitution `< <(git ...)` rc
+# producer'а глотает — провал status с пустым stdout неотличим от чистого дерева
+# и проходит как «основной чекаут чист»). Любой rc≠0 ⇒ rc=2 NOT_IMPLEMENTED
+# именованный «манифест не прочитан: git status rc=N в <root>», дальнейшая
+# работа не выполняется.
+#
+# ПРЕВЕНТИВЫ ТОГО ЖЕ КЛАССА (консультация v4, same_class_preventive — отказ producer'а
+# ВЫГЛЯДИТ как валидный отпечаток / валидное чтение, маскируя неснятое состояние):
+#   1. sha256sum не смог прочесть tracked-файл (chmod 000 / битый fd / etc): rc=2
+#      NOT_IMPLEMENTED: «не смог прочитать <полный-путь>». Константа 'ERR' маскировала
+#      допись в нечитаемый уже-грязный путь как «тот же отпечаток» — два нечитаемых
+#      состояния были неотличимы.
+#   2. rev-parse HEAD в submodule-рекурсии недостижим (submodule не инициализирован
+#      ИЛИ не git-репозиторий ИЛИ права): rc=2 NOT_IMPLEMENTED: «HEAD недостижим в
+#      <полный-путь>». Константа '-' маскировала отказ как валидный sha.
+#   3. (см. do_check ниже) чтение снимка под `|| true` маскировало отказ cat как
+#      пустую базу — направление безопасное (ложное «загрязнён», не «чисто»), но
+#      причина была безымянна; теперь rc=1 ОТКАЗ «снимок не прочитан: <путь>».
+#
+# Рекурсия emit_manifest → emit_manifest: внутренний rc=2 (sha256sum/rev-parse
+# fail) распространяется вверх через `emit_manifest ... || return 2` — иначе
+# внешний return был бы 0 и провал маскировался «основной чекаут чист».
 emit_manifest() {  # <root> <prefix>
-  local root="$1" prefix="$2" entry xy path full fp head
+  local root="$1" prefix="$2" entry xy path full fp head status_rc tmpf
+  tmpf="$(mktemp)" || {
+    printf 'NOT_IMPLEMENTED: mktemp отказал\n' >&2
+    return 2
+  }
+  # Явная фиксация rc producer'а в переменной (Н-85/Н-84: rc без пайпов).
+  git -C "$root" status --porcelain -uall -z --no-renames --ignore-submodules=none \
+    > "$tmpf" 2>/dev/null
+  status_rc=$?
+  if [ "$status_rc" -ne 0 ]; then
+    rm -f -- "$tmpf"
+    printf 'NOT_IMPLEMENTED: манифест не прочитан: git status rc=%d в %s\n' \
+      "$status_rc" "$root" >&2
+    return 2
+  fi
   while IFS= read -r -d '' entry; do
     xy="${entry:0:2}"
     path="${entry:3}"; path="${path%/}"
     full="$root/$path"
     if [ -d "$full" ] && [ -e "$full/.git" ]; then
       # submodule/gitlink или вложенный репозиторий — @head + РЕКУРСИЯ внутрь с префиксом.
-      head="$(git -C "$full" rev-parse HEAD 2>/dev/null || printf -- '-')"
+      # Превентив 2: константа '-' маскировала отказ producer'а. Грамматика контракта
+      # требует @head:<sha> — отсутствие sha ломает формат, fail-closed rc=2 именованный.
+      if ! head="$(git -C "$full" rev-parse HEAD 2>/dev/null)"; then
+        rm -f -- "$tmpf"
+        printf 'NOT_IMPLEMENTED: HEAD недостижим в %s\n' "$full" >&2
+        return 2
+      fi
       printf '%s:@head:%s\t%s%s\n' "$xy" "$head" "$prefix" "$path"
-      emit_manifest "$full" "$prefix$path/"
+      # || return 2 — внутренний fail-closed НЕ маскируется внешним 0.
+      emit_manifest "$full" "$prefix$path/" || return 2
     elif [ -e "$full" ]; then
       # обычный файл — sha256 байтов.
-      fp="$(sha256sum -- "$full" 2>/dev/null)" && fp="${fp%% *}" || fp='ERR'
+      # Превентив 1: константа 'ERR' маскировала отказ producer'а (нечитаемый файл
+      # давал тот же отпечаток, что и любой другой нечитаемый — допись невидима).
+      if ! fp="$(sha256sum -- "$full" 2>/dev/null)"; then
+        rm -f -- "$tmpf"
+        printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$full" >&2
+        return 2
+      fi
+      fp="${fp%% *}"
       printf '%s:%s\t%s%s\n' "$xy" "$fp" "$prefix" "$path"
     else
       # D-запись (удалённое) — отпечаток отсутствия.
       printf '%s:-\t%s%s\n' "$xy" "$prefix" "$path"
     fi
-  done < <(git -C "$root" status --porcelain -uall -z --no-renames --ignore-submodules=none 2>/dev/null)
+  done < "$tmpf"
+  rm -f -- "$tmpf"
 }
 manifest() { emit_manifest "$1" "$2" | sort; }
 
 do_snapshot() {
-  local m
-  m="$(manifest "$CANON" '')" \
-    || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
+  local m manifest_rc
+  m="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    # rc=2 NOT_IMPLEMENTED (git status rc≠0, mktemp отказ, sha256sum/rev-parse
+    # fail в рекурсии — превентивы 1/2) — сообщение уже напечатано в emit_manifest;
+    # rc 2 контракта 024 для непригодного окружения должен сохраняться, а не
+    # превращаться в rc 1 «ОТКАЗ».
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
   mkdir -p "$SNAP_DIR" \
     || { printf 'NOT_IMPLEMENTED: %s не создать\n' "$SNAP_DIR" >&2; exit 2; }
   # Перезапись: последний выигрывает (И-1, ворота 6).
@@ -131,7 +213,7 @@ do_snapshot() {
 }
 
 do_check() {
-  local first base cur delta names l p
+  local first base cur delta names l p manifest_rc
   # И-4 fail-closed: снимок отсутствует — отказ, НЕ пропуск.
   if [ ! -f "$SNAP" ]; then
     printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
@@ -140,14 +222,38 @@ do_check() {
   fi
   # Первая строка — root <канон>. Не сошлась — чужой снимок (hash8-коллизия ИЛИ подмена,
   # совет 1 вердикта). Имена НЕ извлекаем — это не утечка, это ошибка церемонии.
-  { IFS= read -r first; base="$(cat)"; } < "$SNAP" || true
+  #
+  # ПРЕВЕНТИВ 3: `|| true` маскировал отказ cat как пустую базу (направление
+  # безопасное, ложное «загрязнён» вместо «чисто», но причина безымянна). Теперь
+  # именованный fail-closed rc=1 ОТКАЗ рядом с «снимок отсутствует»/«снимок чужого
+  # корня» — снимок существовал по `[ -f "$SNAP" ]`, но прочесть нельзя.
+  #
+  # Два ОТДЕЛЬНЫХ чтения (НЕ shared fd через `{ read; cat; } < "$SNAP"`): shared fd
+  # при провале редиректа оставляет first/base не присвоенными — set -u стреляет на
+  # следующем обращении к $first, маскируя наш именованный отказ. С отдельными
+  # `< "$SNAP"` bash возвращает явный код возврата на каждом.
+  first=""
+  if ! IFS= read -r first < "$SNAP"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  base=""
+  if ! base="$(cat -- "$SNAP" 2>/dev/null)"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
   if [ "$first" != "root $CANON" ]; then
     printf 'ОТКАЗ: %s: снимок = [%s], сверяется [%s] — hash8-коллизия либо чужой файл; переснимите свою пачку\n' \
       "$P_CHUZH" "$first" "$CANON" >&2
     exit 1
   fi
-  cur="$(manifest "$CANON" '')" \
-    || { printf 'ОТКАЗ: status отказал в %s\n' "$CANON" >&2; exit 1; }
+  cur="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
   # Дельта — ПОДМНОЖЕСТВО: новые строки манифеста ⇒ утечка. Исчезновения — чистка, не краснеем.
   delta="$(printf '%s\n' "$cur" | comm -23 - <(printf '%s\n' "$base" | sort))"
   if [ -n "$delta" ]; then
