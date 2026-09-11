@@ -1,5 +1,7 @@
 // Расширение omp: страж вектора утечки + пин WORKTREE.
-// Контракт 025, пачка A (вектор) и C (пин/allowlist, Г1-Г3).
+// Контракт 025, пачка A (вектор) и C (пин/allowlist, Г1-Г3) + резолюция
+// владельца 2026-09-11 «ДЫРА B / А-122»: абсолют-в-MAIN-чекаут блокируется,
+// непиннованный ребёнок ДЕФОЛТ-ЗАПРЕЩЁН на чекаут-запись, scratch/artifact — pass.
 //
 // Два режима:
 //   1. CLI: `node path-guard.ts --judge '<json>'` — синтетический tool_call,
@@ -8,18 +10,19 @@
 //      tool_call-событие фабрика судит вызов и возвращает {block,reason} или
 //      undefined. Ошибки handler'а трактуются как fail-closed (omp сам).
 //
-// Решения (контракт 025 §Пачка A-1, §Пачка C-1):
+// Решения (контракт 025 §Пачка A-1, §Пачка C-1 + резолюция 2026-09-11):
 //   - edit/write ОТНОСИТЕЛЬНЫМ path → block «Н-85: абсолютный путь или cwd».
 //   - bash форма записи + относительный операнд + нет cwd → block «Н-85».
-//   - запись АБСОЛЮТНАЯ в-пинне + actual == pin → pass.
-//   - запись абсолютная вне пина (включая чужой корень) → block «Н-85».
+//   - edit/write АБСОЛЮТНЫМ path → pass только если путь в-пинне, в scratch
+//     (${TMPDIR:-/tmp}/dev-harness-verify/**) или URI-схеме allowlist'а (Г3).
+//   - запись АБСОЛЮТНАЯ вне пина/allowlist → block «Н-85».
+//     В т.ч. абсолют-в-MAIN-чекаут из непиннованной сессии (fail-closed против
+//     принципа; свободный абсолют непиннованного = корень А-72).
 //   - pin не существует → refuse «не существует».
 //   - pin ≠ actual → refuse «не совпадает».
-//   - dev-harness-verify, artifact://, local://, skill://, agent://,
-//     history://, xd:// — allowlist (Г3); pass.
+//   - artifact://, local://, skill://, agent://, history://, xd:// — allowlist
+//     (Г3); pass в любой сессии.
 //   - read/grep/glob и bash без формы записи — pass (Г1 «читать свободно»).
-//   - worktree:null (главная сессия) — пина нет, относительная запись всё равно
-//     блокируется ветвью A-1; абсолютная запись свободна по общим правилам.
 
 import { realpathSync } from 'node:fs';
 
@@ -297,17 +300,21 @@ function extractPythonStringLiterals(code: string): string[] {
   return out;
 }
 
-// Проверяет, что resolved-путь — внутри пина или allowlist'а. canonicalWt может
-// быть null (главная сессия) — тогда проверка только allowlist'а.
+// Проверяет, что resolved-путь — внутри пина (если задан) или allowlist'а
+// (URI-схемы Г3 + scratch ${TMPDIR:-/tmp}/dev-harness-verify). Для НЕпиннованных
+// сессий (canonicalWt === null) — pass ТОЛЬКО при попадании в allowlist; всё
+// остальное fail-closed (резолюция 2026-09-11 — абсолют-в-MAIN-чекаут блок).
 function pathAllowed(
   resolved: string,
   canonicalWt: string | null,
   worktree: string | null,
 ): boolean {
   if (isAllowedURI(resolved)) return true;
-  if (worktree === null || canonicalWt === null) return true;
-  if (isWithin(canonicalWt, resolved)) return true;
   if (isWithin(getVerifyBase(), resolved)) return true;
+  if (canonicalWt !== null && isWithin(canonicalWt, resolved)) return true;
+  // Непиннованная сессия + путь не в allowlist — fail-closed (бывшая ветка
+  // «worktree===null → pass» снята как корень А-72).
+  void worktree;
   return false;
 }
 
@@ -320,10 +327,10 @@ function judgeEditWrite(
   const path = String(args.path ?? '');
   if (!path) return { decision: 'pass' };
 
-  // Allowlist URI
+  // Allowlist URI — pass ВСЕГДА (Г3): artifact://, local://, skill:// и др.
   if (isAllowedURI(path)) return { decision: 'pass' };
 
-  // Относительный путь — всегда блок (Г1, Г2: вектор утечки).
+  // Относительный путь — блок ВСЕГДА (Г1, Г2: вектор утечки).
   if (!path.startsWith('/')) {
     return {
       decision: 'block',
@@ -331,15 +338,18 @@ function judgeEditWrite(
     };
   }
 
-  // Главная сессия (worktree:null) — пина нет; абсолютная запись свободна.
-  if (worktree === null) return { decision: 'pass' };
-
-  // Абсолютный путь в пинне или allowlist'е — pass.
+  // Абсолютный путь — общий pathAllowed. Пиновые сессии: pass in-pin + allowlist;
+  // непиннованные: pass ТОЛЬКО allowlist (scratch + URI-схемы). Всё прочее —
+  // блок (резолюция владельца 2026-09-11: непиннованный ребёнок ДЕФОЛТ-ЗАПРЕЩЁН
+  // на чекаут-запись).
   if (pathAllowed(path, canonicalWt, worktree)) return { decision: 'pass' };
 
   return {
     decision: 'block',
-    reason: `запись вне пина запрещена — Н-85: путь ${path} не входит в WORKTREE=${canonicalWt}`,
+    reason:
+      worktree === null
+        ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${path} не в allowlist (${getVerifyBase()}/**, artifact://, local:// и др.)`
+        : `запись вне пина запрещена — Н-85: путь ${path} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
   };
 }
 
@@ -387,10 +397,16 @@ function judgeBash(
       resolved = realCwd.endsWith('/') ? `${realCwd}${op}` : `${realCwd}/${op}`;
     }
 
+    // Непиннованная сессия + абсолютный операнд вне allowlist — блок по
+    // pathAllowed (резолюция 2026-09-11). Пиновая + операнд вне пина и не в
+    // allowlist — блок по Н-85.
     if (!pathAllowed(resolved, canonicalWt, worktree)) {
       return {
         decision: 'block',
-        reason: `запись вне пина запрещена — Н-85: путь ${resolved} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
+        reason:
+          worktree === null
+            ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${resolved} не в allowlist`
+            : `запись вне пина запрещена — Н-85: путь ${resolved} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
       };
     }
   }
@@ -492,8 +508,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 //
 // Пин/actual берётся из event.worktree/event.actual (если omp их передаёт) иначе
 // process.env.WORKTREE/process.env.PI_ACTUAL/process.cwd(). Сессия без WORKTREE —
-// главная: allowlist не сужается, но относительная запись всё равно блокируется
-// ветвью A-1 (контракт Г1: «страж целит вектор»).
+// непиннованная: пишет ТОЛЬКО в allowlist (resдолюция 2026-09-11; было свободно,
+// закрыто fail-closed против принципа, корень А-72).
 type PiLike = {
   on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
 };
