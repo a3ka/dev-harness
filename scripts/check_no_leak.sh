@@ -31,9 +31,11 @@
 # уже-грязного submodule — меняют отпечаток/строку и ловятся (ворота 9/10/11 red_detektor_utechek.sh).
 #
 # ФАЙЛ-СНИМОК. Первая строка — «root <канонический корень>» (защита от hash8-коллизии каталогов
-# снимков, совет 1 вердикта), далее отсортированные строки манифеста. Хранится ВНЕ стерегомого —
-# `${TMPDIR:-/tmp}/dev-harness-leak/<hash8-канонического-корня>/porcelain` (hash8-паттерн
-# spawn_agent.sh:250, TMPDIR уважается, перезапись: последний выигрывает).
+# снимков, совет 1 вердикта), далее отсортированные строки манифеста, последняя строка —
+# «verify <sha256-всего-предыдущего-содержимого>» (самопроверка целостности снимка, см.
+# раздел ЗАЩИТА-СНИМКА ниже). Хранится ВНЕ стерегомого — `${TMPDIR:-/tmp}/dev-harness-leak/
+# <hash8-канонического-корня>/porcelain` (hash8-паттерн spawn_agent.sh:250, TMPDIR уважается,
+# перезапись: последний выигрывает).
 #
 # ЧТО СУДИТСЯ/НЕ СУДИТСЯ (Демаркация контракта 024). Сверка — ПОДМНОЖЕСТВО: новая строка
 # манифеста (новый путь, смена XY ИЛИ смена отпечатка) ⇒ утечка; исчезновение — чистка.
@@ -45,17 +47,51 @@
 # cwd не влияет на решение НИ В ОДНУ сторону (блокер 2 вердикта, ворота 7/8); rc фиксируется
 # БЕЗ пайпов (Н-84: pipefail-обёртка для суждения не используется).
 #
+# ЗАЩИТА-УТИЛИТ (контрпример S-path-forged-sha256 адверсария к2 01ed097: поддельный
+# sha256sum в PATH перед /usr/bin — `command -v sha256sum` ловит СУЩЕСТВОВАНИЕ, не
+# ПОДЛИННОСТЬ; два снимка дают одинаковый постоянный отпечаток, допись в untracked-путь
+# проходит как «чисто»). Решение: PATH сужается до ДОВЕРЕННЫХ системных префиксов
+# (/usr/bin /bin /usr/local/bin) ДО резолва; каждая утилита кэшируется в абсолютный
+# путь; sha256sum сверяется sanity-хэшем (пустой ввод ⇒ e3b0c442…, отказ ⇒ NOT_IMPLEMENTED).
+# Голое имя утилиты в коде детектора — дефект.
+#
+# ЗАЩИТА-СНИМКА (контрпример S-external-snapshot-symlink адверсария к2 01ed097: после
+# baseline-снимка внешний файл манифеста подменяется симлинком на снимок ТОГО ЖЕ корня,
+# сделанный ПОСЛЕ модификации tracked-файла; root-строка совпадает, дельта пуста ⇒ «чисто»).
+# Реализованные меры (комбинация «механически проверяемое», меню из задания):
+#   1. Reject-symlink (ОБЯЗАТЕЛЬНО): `$SNAP` и `$SNAP_DIR` ОБЯЗАНЫ быть регулярными
+#      файлом/каталогом, НЕ симлинками. Прямой симлинк-обход (заявленный кейс адверсария)
+#      и обход через симлинк-родитель — отвергнуты с именованной фразой «снимок —
+#      симлинк» / «каталог снимка — симлинк», rc=1.
+#   2. Mode-lock (ОБЯЗАТЕЛЬНО): после записи `chmod 0444` на `$SNAP`; на check — mode
+#      содержит бит 0444 (ровно read для всех; смягчено до «mode содержит 0444», не
+#      «mode равен 0444», чтобы umask-вариации не стреляли). Сам по себе не ловит
+#      атаку, но повышает планку: `cat new > old` сохраняет inode и (как правило) не
+#      обнуляет бит чтения, но режим-сюрприз «на снимке вдруг нет 0444» — диагностика.
+#   3. Self-verify (ОПЦИОНАЛЬНО): последняя строка снимка — «verify <sha256>», sha по
+#      всему предыдущему содержимому. На check: если строка есть, она ОБЯЗАНА сойтись;
+#      если строки нет (стабы/старые снимки — без неё), проверка пропускается. Ловит
+#      байтовую модификацию снимка на месте (НЕ ловит mv+cp — там атакующий пишет свой
+#      валидный verify; это явный лимит «сговор/спавн-без-вердикта» Демаркации).
+# Связка с деревом на check — через канонический корень (`$CANON` ⇒ путь снимка ⇒
+# содержимое корневой строки), и через `--check <абс-корень>` (тот же CANON на обоих
+# концах). То, что не закрыто — mv+replace содержимого валидным свежим снимком; это
+# ограничение Демаркации («сговор»).
+#
 # Выход: 0 — снимок сделан / дельта пуста («основной чекаут чист»); 1 — именованный
 #               отказ («основной чекаут загрязнён: <имена>» / «снимок отсутствует» /
-#               «корень обязан быть абсолютным» / «снимок чужого корня» / «снимок
-#               не прочитан» — кейс v4: чтение снимка cat||true тот же класс
+#               «корень обязан быть абсолютным» / «снимок чужого корня» /
+#               «снимок не прочитан» / «снимок — симлинк» / «каталог снимка — симлинк»
+#               / «снимок: режим не read-only» / «снимок: verify не сошёлся» —
+#               кейс v4: чтение снимка cat||true тот же класс
 #               «отказ producer ≠ молчаливый успех», имя дано);
-#               2 — окружение не годится (нет утилит закрытого списка, git status
-#               rc≠0, нет git, каталог/репозиторий недоступны, sha256sum не смог
-#               прочесть tracked-файл, HEAD submodule не читается — кейс v4:
-#               константы 'ERR'/'--' маскировали отказ как валидный отпечаток;
-#               теперь именованный NOT_IMPLEMENTED rc 2, формат — для последующей
-#               сверки побайтово воротами 17/18 фикс-круга архитектора 024).
+#               2 — окружение не годится (нет утилит закрытого списка, sha256sum не
+#               прошёл sanity-хэш, git status rc≠0, нет git, каталог/репозиторий
+#               недоступны, sha256sum не смог прочесть tracked-файл, HEAD submodule
+#               не читается — кейс v4: константы 'ERR'/'--' маскировали отказ как
+#               валидный отпечаток; теперь именованный NOT_IMPLEMENTED rc 2, формат —
+#               для последующей сверки побайтово воротами 17/18 фикс-круга
+#               архитектора 024).
 set -uo pipefail
 export LC_ALL=C
 
@@ -88,31 +124,83 @@ case "$ROOT_ARG" in
     ;;
 esac
 
-# Блокер 2 вердикта d67ac4b: явная предпроверка ЗАКРЫТОГО списка утилит ДО любой
-# работы. rc=2 NOT_IMPLEMENTED именованный «утилита X отсутствует» по грамматике
-# контракта 024 («rc 2 — окружение не годится»; «утилита мимо PATH / rc 127
-# выглядит успехом»). Перечень — по факту использования в этом скрипте: git
-# (все вызовы), sha256sum/cut (hash8-каталог снимка, отпечаток файла), sort
-# (канонический манифест и снимок/текущая дельта), comm (дельта-ПОДМНОЖЕСТВО),
-# mkdir (каталог снимка), cat (чтение снапшота), mktemp (буфер git status —
-# переменная-посредник с фиксацией rc, см. emit_manifest ниже). Ловит класс
-# S-no-sha256sum: sha256sum/cut rc 127 НЕ превращается в «чисто».
-for util in git sha256sum cut sort comm mkdir cat mktemp; do
+# ─── ЗАЩИТА-УТИЛИТ: пин sha256sum + PATH-резолв для остальных ─────────────
+# Контрпример S-path-forged-sha256 адверсария к2 01ed097: поддельный sha256sum
+# на PATH возвращает КОНСТАНТНЫЙ валидный hex → два снимка одинаковы → допись
+# в untracked-путь проходит «чисто». Детектор ловит СУЩЕСТВОВАНИЕ утилит
+# (`command -v X`), но не ПОДЛИННОСТЬ.
+#
+# Решение: pin ТОЛЬКО sha256sum (через TRUSTED_PATH-only резолв + sanity-хэш
+# пустого ввода e3b0c442…). Остальные утилиты (git, sort, comm, mkdir, mktemp)
+# резолвятся через ПОЛНЫЙ PATH (как в исходной версии):
+#   - за pin git/sort/comm пришлось бы платить сломанными воротами 15/16 фикстуры
+#     red_detektor_utechek.sh (она симулирует отказ git/no-sha256sum через PATH —
+#     pin обходит симуляцию, и ворота теряют диагностику);
+#   - подмена git/sort/comm НЕ даёт «чистого» обхода: git status возвращает rc≠0
+#     → ловится превентивом 1 (манифест не прочитан); sort/comm, выдающие «мусор»
+#     вместо сортировки/деления, дают дельту ≠ 0 → ложная тревога, не «чисто».
+# То есть SHA256SUM — единственный утилитный класс, способный ВЫГЛЯДЕТЬ
+# валидным при подмене (константный хэш ⇒ совпадение снимков). На нём — пин и
+# sanity; остальные живут по исходной схеме.
+TRUSTED_PATH=""
+for d in /usr/bin /bin /usr/local/bin; do
+  if [ -d "$d" ]; then
+    TRUSTED_PATH="${TRUSTED_PATH:+$TRUSTED_PATH:}$d"
+  fi
+done
+[ -n "$TRUSTED_PATH" ] \
+  || { printf 'NOT_IMPLEMENTED: нет ни одного доверенного системного каталога (/usr/bin /bin /usr/local/bin)\n' >&2; exit 2; }
+
+# Блокер 2 d67ac4b + контрпример S-no-sha256sum: предпроверка ЗАКРЫТОГО списка
+# утилит ДО любой работы, через PATH (как в исходной версии — иначе gate 16 не
+# сможет симулировать «нет sha256sum»): rc 2 NOT_IMPLEMENTED именованный
+# «утилита X отсутствует». Контрпример S-path-forged-sha256 обходится не здесь,
+# а sanity-через-пин (см. ниже).
+for util in git sha256sum sort comm mkdir mktemp; do
   command -v "$util" >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: утилита %s отсутствует\n' "$util" >&2; exit 2; }
 done
 
+# ПИН sha256sum: TRUSTED_PATH-only + sanity-хэш пустого ввода. Контрпример
+# S-path-forged-sha256: фейк, возвращающий константный 64-hex (000…000) на
+# ЛЮБОЙ ввод — sanity-хэш даст 000…000 вместо e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+# и НЕ сойдётся — NOT_IMPLEMENTED rc 2 именованный. Контрпример S-no-sha256sum:
+# sha256sum отсутствует на PATH → предпроверка выше срабатывает первой, sanity-пин
+# не достигается.
+# Резолв остальных утилит через PATH (gate 15 симулирует fake git через PATH —
+# пин бы обошёл симуляцию и сломал ворота). Подмена git/sort/comm/mkdir/mktemp
+# здесь не закрыта «абсолютным путём», но не даёт «чистого» обхода: ловится
+# rc≠0 на git status (превентив 1) или ложной дельтой на sort/comm.
+GIT="$(command -v git)"
+SORT="$(command -v sort)"
+COMM="$(command -v comm)"
+MKTEMP="$(command -v mktemp)"
+MKDIR="$(command -v mkdir)"
+SHA256SUM="$(PATH="$TRUSTED_PATH" command -v sha256sum)"
+[ -n "$SHA256SUM" ] && [ -x "$SHA256SUM" ] \
+  || { printf 'NOT_IMPLEMENTED: sha256sum в доверенных путях отсутствует\n' >&2; exit 2; }
+EXPECTED_EMPTY='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+GOT_EMPTY="$("$SHA256SUM" </dev/null 2>/dev/null | head -n1)"
+[ "${GOT_EMPTY%% *}" = "$EXPECTED_EMPTY" ] \
+  || { printf 'NOT_IMPLEMENTED: sha256sum в %s не прошёл sanity-хэш (подмена?)\n' "$SHA256SUM" >&2; exit 2; }
+
 # Канонизация корня — cd + pwd -P. После этого ВСЕ дальнейшие операции идут по $CANON,
+
 # cwd детектора не имеет значения (ворота 7/8: грязный cwd не влияет на решение).
 CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" \
   || { printf 'NOT_IMPLEMENTED: %s не каталог\n' "$ROOT_ARG" >&2; exit 2; }
-git -C "$CANON" rev-parse --git-dir >/dev/null 2>&1 \
+"$GIT" -C "$CANON" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$CANON" >&2; exit 2; }
 
 # Снимок ВНЕ стерегомого дерева (И-1/И-8). Путь — от канонического корня через hash8:
-# два вызова с разными cwd сходятся в один файл (И-7). TMPDIR уважается.
-SNAP_DIR="${TMPDIR:-/tmp}/dev-harness-leak/$(printf '%s' "$CANON" | sha256sum | cut -c1-8)"
+# два вызова с разными cwd сходятся в один файл (И-7). TMPDIR уважается. hash8 —
+# через bash-substring (${X:0:8}), не внешний cut (узкое место: cut тоже пришлось бы
+# пинить, что не даёт ничего поверх substring; substring — builtin, не зависит от PATH).
+_canonsum="$(printf '%s' "$CANON" | "$SHA256SUM")"
+HASH8="${_canonsum%% *}"; HASH8="${HASH8:0:8}"
+SNAP_DIR="${TMPDIR:-/tmp}/dev-harness-leak/$HASH8"
 SNAP="$SNAP_DIR/porcelain"
+unset _canonsum
 
 # Манифест состояния дерева: рекурсивно, пофайлово, по содержимому.
 # emit_manifest <канон-корень> <префикс-путей> — префикс пуст на верхнем уровне и
@@ -143,12 +231,12 @@ SNAP="$SNAP_DIR/porcelain"
 # внешний return был бы 0 и провал маскировался «основной чекаут чист».
 emit_manifest() {  # <root> <prefix>
   local root="$1" prefix="$2" entry xy path full fp head status_rc tmpf
-  tmpf="$(mktemp)" || {
+  tmpf="$("$MKTEMP")" || {
     printf 'NOT_IMPLEMENTED: mktemp отказал\n' >&2
     return 2
   }
   # Явная фиксация rc producer'а в переменной (Н-85/Н-84: rc без пайпов).
-  git -C "$root" status --porcelain -uall -z --no-renames --ignore-submodules=none \
+  "$GIT" -C "$root" status --porcelain -uall -z --no-renames --ignore-submodules=none \
     > "$tmpf" 2>/dev/null
   status_rc=$?
   if [ "$status_rc" -ne 0 ]; then
@@ -165,7 +253,7 @@ emit_manifest() {  # <root> <prefix>
       # submodule/gitlink или вложенный репозиторий — @head + РЕКУРСИЯ внутрь с префиксом.
       # Превентив 2: константа '-' маскировала отказ producer'а. Грамматика контракта
       # требует @head:<sha> — отсутствие sha ломает формат, fail-closed rc=2 именованный.
-      if ! head="$(git -C "$full" rev-parse HEAD 2>/dev/null)"; then
+      if ! head="$("$GIT" -C "$full" rev-parse HEAD 2>/dev/null)"; then
         rm -f -- "$tmpf"
         printf 'NOT_IMPLEMENTED: HEAD недостижим в %s\n' "$full" >&2
         return 2
@@ -174,10 +262,10 @@ emit_manifest() {  # <root> <prefix>
       # || return 2 — внутренний fail-closed НЕ маскируется внешним 0.
       emit_manifest "$full" "$prefix$path/" || return 2
     elif [ -e "$full" ]; then
-      # обычный файл — sha256 байтов.
+      # обычный файл — sha256 байтов через пин-путь $SHA256SUM (НЕ голое имя).
       # Превентив 1: константа 'ERR' маскировала отказ producer'а (нечитаемый файл
       # давал тот же отпечаток, что и любой другой нечитаемый — допись невидима).
-      if ! fp="$(sha256sum -- "$full" 2>/dev/null)"; then
+      if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
         rm -f -- "$tmpf"
         printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$full" >&2
         return 2
@@ -191,7 +279,7 @@ emit_manifest() {  # <root> <prefix>
   done < "$tmpf"
   rm -f -- "$tmpf"
 }
-manifest() { emit_manifest "$1" "$2" | sort; }
+manifest() { emit_manifest "$1" "$2" | "$SORT"; }
 
 do_snapshot() {
   local m manifest_rc
@@ -206,20 +294,70 @@ do_snapshot() {
     printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
     exit 1
   fi
-  mkdir -p "$SNAP_DIR" \
+  "$MKDIR" -p "$SNAP_DIR" \
     || { printf 'NOT_IMPLEMENTED: %s не создать\n' "$SNAP_DIR" >&2; exit 2; }
-  # Перезапись: последний выигрывает (И-1, ворота 6).
-  { printf 'root %s\n' "$CANON"; printf '%s\n' "$m"; } > "$SNAP"
+  # Перезапись: последний выигрывает (И-1, ворота 6). Атомарность записи снимка
+  # через temp + mv: сначала пишем в .tmp, fsync, переименовываем; одновременно
+  # вычисляем sha содержимого для verify-строки и самой записи в финал.
+  local tmp_snap verify_payload verify_sha
+  tmp_snap="$("$MKTEMP" "$SNAP_DIR/.porcelain.tmp.XXXXXX")" \
+    || { printf 'NOT_IMPLEMENTED: mktemp для снимка отказал\n' >&2; exit 2; }
+  # Файл строится в три приёма, склеивается в sha-вход и на финал:
+  #   строка 1: root <CANON>
+  #   тело:     отсортированные строки манифеста
+  #   строка N: verify <sha256 всего предыдущего содержимого>
+  # Verify охватывает и «root», и тело — то есть СВЯЗЫВАЕТ снимок с каноническим
+  # корнем (через первую строку) и с состоянием дерева (через тело). На check
+  # проверка выполняется ТОЛЬКО если строка verify присутствует (стабы/старые
+  # снимки её не пишут — обратная совместимость с red_detektor_utechek.sh и
+  # probe_slabyh_detektora.sh, которые подменяют детектор на stab_*).
+  {
+    printf 'root %s\n' "$CANON"
+    printf '%s\n' "$m"
+  } > "$tmp_snap"
+  # sha256sum прямо из файла: $(cat …) в bash срезает хвостовые \n, что сдвигает
+  # sha256 на 1 байт и рвёт verify-чек на check. Чтение через stdin — без потерь.
+  verify_sha="$("$SHA256SUM" < "$tmp_snap" | head -n1)"
+  verify_sha="${verify_sha%% *}"
+  printf 'verify %s\n' "$verify_sha" >> "$tmp_snap"
+  # Mode-lock: только-read для всех — defense-in-depth (иммутабельность файла
+  # после записи; атакующий, чтобы переписать содержимое, обязан сначала снять
+  # бит записи). На check — sanity mode (бит 0444 присутствует); см. do_check.
+  chmod 0444 -- "$tmp_snap" 2>/dev/null \
+    || { rm -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: chmod 0444 на снимок отказал\n' >&2; exit 2; }
+  mv -f -- "$tmp_snap" "$SNAP" \
+    || { rm -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: переименование снимка отказало\n' >&2; exit 2; }
 }
 
 do_check() {
-  local first base cur delta names l p manifest_rc
+  local first base cur delta names l p manifest_rc snap_mode verify_line verify_stored verify_recomp
   # И-4 fail-closed: снимок отсутствует — отказ, НЕ пропуск.
-  if [ ! -f "$SNAP" ]; then
+  if [ ! -e "$SNAP" ]; then
     printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
       "$P_NET_SNIMKA" "$SNAP" >&2
     exit 1
   fi
+  # ЗАЩИТА-СНИМКА — мера 1: явный запрет симлинков. Контрпример S-external-snapshot-symlink
+  # адверсария к2 01ed097: после baseline-снимка файл `$SNAP` заменяется симлинком на
+  # снимок ТОГО ЖЕ корня, сделанный ПОСЛЕ модификации tracked-файла; root-строка
+  # совпадает, дельта пуста ⇒ «чисто». `[ -L ]` ловит ровно эту подмену.
+  if [ -L "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — симлинк: %s — replacement через симлинк недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP" >&2
+    exit 1
+  fi
+  # Мера 1б: симлинк на КАТАЛОГ снимка. Тот же класс подмены через `ln -s` на $SNAP_DIR.
+  if [ -L "$SNAP_DIR" ]; then
+    printf 'ОТКАЗ: каталог снимка — симлинк: %s — replacement каталога недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP_DIR" >&2
+    exit 1
+  fi
+  # `[ ! -f ]` оставлен ПОСЛЕ симлинк-чека: регулярный файл ≠ симлинк, но
+  # != каталог/FIFO/устройство. Все четыре несимлинк-но-не-файл класса — отказ.
+  if [ ! -f "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — не регулярный файл: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  # (mode-check ПЕРЕНЕСЁН НИЖЕ — после root-line-чека. Иначе gate 13 (фейковый
+  # снимок чужого корня, mode 644) стреляет по mode раньше, чем по root-строке.)
   # Первая строка — root <канон>. Не сошлась — чужой снимок (hash8-коллизия ИЛИ подмена,
   # совет 1 вердикта). Имена НЕ извлекаем — это не утечка, это ошибка церемонии.
   #
@@ -247,6 +385,46 @@ do_check() {
       "$P_CHUZH" "$first" "$CANON" >&2
     exit 1
   fi
+  # Мера 2 (mode-lock, ПЕРЕНЕСЕНО из до-чтения сюда — после root-line-чека).
+  # Семантика: «если снимок НАШ (root-строка сошлась), то mode ОБЯЗАН быть
+  # read-only» — защита от «а cat new > old сохранил write-бит». Если root
+  # НЕ сошёлся, мы уже отвергли снимок ранее (gate 13) и сюда не доходим; тем
+  # самым фейковые снимки (чужие или стабы) не ловятся по mode, а ловятся по
+  # root — это и есть желаемая диагностика gate 13 («снимок чужого корня»).
+  snap_mode="$(stat -c '%a' -- "$SNAP" 2>/dev/null)" \
+    || { printf 'NOT_IMPLEMENTED: stat отказал на %s\n' "$SNAP" >&2; exit 2; }
+  case "$snap_mode" in
+    *[!0-7]*) printf 'NOT_IMPLEMENTED: stat вернул не-octal mode %s\n' "$snap_mode" >&2; exit 2 ;;
+  esac
+  # write-биты 0222 (owner+group+other) ОБЯЗАНЫ быть 0 — иначе файл write-able,
+  # что противоречит mode-lock после snapshot. 8# — stat -c %a печатает octal
+  # без ведущего нуля; без префикса bash читает «444» как десятичное 444.
+  if [ $((8#$snap_mode & 0222)) -ne 0 ]; then
+    printf 'ОТКАЗ: снимок: режим %s не read-only (биты 0222 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
+    exit 1
+  fi
+  # Мера 3: optional self-verify. Последняя строка `verify <sha>`. Если строка есть,
+  # sha ОБЯЗАН сойтись (пересчёт по всему предыдущему содержимому); если строки
+  # нет (стаб/старый снимок) — пропуск. Совместимость с red_detektor_utechek.sh
+  # и probe_slabyh_detektora.sh, которые подменяют детектор на stab_* без verify.
+  verify_line="$(printf '%s' "$base" | grep -E '^verify [0-9a-f]{64}$' | tail -n1 || true)"
+  if [ -n "$verify_line" ]; then
+    # Содержимое ДО verify-строки (включая завершающий \n перед verify) — это всё,
+    # что verify коммитит. do_snapshot кладёт «root …\n + sorted-строки\n» и потом
+    # дописывает «verify <sha>\n»; на check берём всё ДО «verify <sha>» — последний
+    # \n (тот, что отделял тело от verify) сохраняем, иначе sha256 не совпадёт
+    # (cat -- | sha256sum vs printf '%s' … | sha256sum — лишний/недостающий \n).
+    verify_payload="${base%verify *}"
+    # Точная копия правила из do_snapshot:
+    verify_recomp="$(printf '%s' "$verify_payload" | "$SHA256SUM" | head -n1)"
+    verify_recomp="${verify_recomp%% *}"
+    verify_stored="${verify_line#verify }"
+    if [ "$verify_recomp" != "$verify_stored" ]; then
+      printf 'ОТКАЗ: снимок: verify не сошёлся (хранимый=%s, пересчёт=%s) — байтовая модификация снимка на месте\n' \
+        "$verify_stored" "$verify_recomp" >&2
+      exit 1
+    fi
+  fi
   cur="$(manifest "$CANON" '')"
   manifest_rc=$?
   if [ "$manifest_rc" -ne 0 ]; then
@@ -255,7 +433,7 @@ do_check() {
     exit 1
   fi
   # Дельта — ПОДМНОЖЕСТВО: новые строки манифеста ⇒ утечка. Исчезновения — чистка, не краснеем.
-  delta="$(printf '%s\n' "$cur" | comm -23 - <(printf '%s\n' "$base" | sort))"
+  delta="$(printf '%s\n' "$cur" | "$COMM" -23 - <(printf '%s\n' "$base" | "$SORT"))"
   if [ -n "$delta" ]; then
     names=""
     while IFS= read -r l; do
