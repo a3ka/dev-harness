@@ -4,8 +4,8 @@
 #
 # Контракт 025, пачки A-1 и C-1. Дрилл копируется раннером в $WORK/scripts/
 # через BARRIER_ROOT; субъект подкладывает фикстура. Зелёный контроль: реальный
-# subject на честных входах даёт ВЕРНЫЕ решения judge (11 входов И-1 + 9 входов
-# И-5 = 20 предъявлений) И default-фабрика регистрирует tool_call handler,
+# subject на честных входах даёт ВЕРНЫЕ решения judge (13 входов И-1 + 9 входов
+# И-5 = 22 предъявления) И default-фабрика регистрирует tool_call handler,
 # который судит верно. Красное: стаб-фикстура ловится по сценарию — rc=1 + подстрока
 # ПРИЧИНЫ. Стабы:
 #
@@ -116,17 +116,19 @@ case "$scenario" in
     }
     WT_JSON="\"worktree\":\"$PIN\",\"actual\":\"$PIN\""
 
-    # ── И-1 (пачка A, 11 входов) ────────────────────────────────────────────────
+    # ── И-1 (пачка A, 13 входов) ────────────────────────────────────────────────
     expect "edit-относительный"      block  "{\"tool\":\"edit\",\"args\":{\"path\":\"$F\"},$WT_JSON}"
     expect "write-относительный"     block  "{\"tool\":\"write\",\"args\":{\"path\":\"$F\"},$WT_JSON}"
     expect "sed-i-без-cwd"           block  "{\"tool\":\"bash\",\"args\":{\"command\":\"sed -i s/a/b/ $F\"},$WT_JSON}"
     expect "printf-redirect-без-cwd" block  "{\"tool\":\"bash\",\"args\":{\"command\":\"printf x >> $F\"},$WT_JSON}"
     expect "redirect-без-cwd"        block  "{\"tool\":\"bash\",\"args\":{\"command\":\"echo x > $F\"},$WT_JSON}"
+    expect "touch-без-cwd"          block  "{\"tool\":\"bash\",\"args\":{\"command\":\"touch $F\"},$WT_JSON}"
     expect "edit-относительный-главная" block  "{\"tool\":\"edit\",\"args\":{\"path\":\"$F\"},\"worktree\":null,\"actual\":null}"
     expect "чтение-read"             pass   "{\"tool\":\"read\",\"args\":{\"path\":\"$F\"},$WT_JSON}"
     expect "чтение-grep"             pass   "{\"tool\":\"grep\",\"args\":{\"pattern\":\"x\",\"path\":\"$F\"},$WT_JSON}"
     expect "bash-чтение"             pass   "{\"tool\":\"bash\",\"args\":{\"command\":\"cat $F\"},$WT_JSON}"
     expect "bash-write-cwd"          pass   "{\"tool\":\"bash\",\"args\":{\"command\":\"sed -i s/a/b/ $F\",\"cwd\":\"$PIN\"},$WT_JSON}"
+    expect "touch-с-cwd"            pass   "{\"tool\":\"bash\",\"args\":{\"command\":\"touch $F\",\"cwd\":\"$PIN\"},$WT_JSON}"
     expect "edit-абсолютный-в-пинне" pass   "{\"tool\":\"edit\",\"args\":{\"path\":\"$PIN/$F\"},$WT_JSON}"
 
     # ── И-5 (пачка C, 9 входов) ────────────────────────────────────────────────
@@ -185,7 +187,7 @@ EOF
       exit 1
     fi
 
-    printf '  ok   real: 20 предъявлений judge (И-1 + И-5) верны; фабрика регистрирует tool_call handler и блокирует относительный edit\n' >&2
+    printf '  ok   real: 22 предъявления judge (И-1 + И-5) верны; фабрика регистрирует tool_call handler и блокирует относительный edit\n' >&2
     exit 0
     ;;
 
