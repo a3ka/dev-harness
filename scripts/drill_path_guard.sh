@@ -5,9 +5,9 @@
 # Контракт 025, пачки A-1 и C-1. Дрилл копируется раннером в $WORK/scripts/
 # через BARRIER_ROOT; субъект подкладывает фикстура. Зелёный контроль: реальный
 # subject на честных входах даёт ВЕРНЫЕ решения judge (13 входов И-1 + 9 входов
-# И-5 = 22 предъявления) И default-фабрика регистрирует tool_call handler,
-# который судит верно. Красное: стаб-фикстура ловится по сценарию — rc=1 + подстрока
-# ПРИЧИНЫ. Стабы:
+# И-5 + 3 входа null-allowlist правка-круг 3 = 25 предъявлений) И default-фабрика
+# регистрирует tool_call handler, который судит верно. Красное: стаб-фикстура
+# ловится по сценарию — rc=1 + подстрока ПРИЧИНЫ. Стабы:
 #
 #   1. fail_closed_no_module:       стаб — файл отсутствует, --judge вернёт ошибку.
 #   2. stub_always_pass:            стаб-JSON «всегда pass», умирает на блок-ветвях.
@@ -76,9 +76,10 @@ scenario="$(detect_stub)"
 case "$scenario" in
 
   real)
-    # ПОВЕДЕНЧЕСКАЯ проверка реальных субъектов на 20 входах контракта 025:
-    # И-1 (11) + И-5 (9). Каждый вход — через --judge; решение сверяется с ожиданием.
-    # Строим изолированные mktemp-пути (контракт Н-39: инвариантность к значениям).
+    # ПОВЕДЕНЧЕСКАЯ проверка реальных субъектов на 25 входах контракта 025:
+    # И-1 (13) + И-5 (9) + null-allowlist (3, правка-круг 3). Каждый вход — через
+    # --judge; решение сверяется с ожиданием. Строим изолированные mktemp-пути
+    # (контракт Н-39: инвариантность к значениям).
     PIN="$(mktemp -d "${TMPDIR:-/tmp}/pg025dpin.XXXXXX")"
     FOREIGN="$(mktemp -d "${TMPDIR:-/tmp}/pg025dforeign.XXXXXX")"
     VERIFY_BASE="${TMPDIR:-/tmp}/dev-harness-verify"
@@ -142,6 +143,15 @@ case "$scenario" in
     expect "запись-local-URI"             pass   "{\"tool\":\"write\",\"args\":{\"path\":\"local://025/$F\"},\"worktree\":\"$PIN\",\"actual\":\"$PIN\"}"
     expect "пинн-расходится-с-фактом"     refuse "{\"tool\":\"write\",\"args\":{\"path\":\"$PIN/$F\"},\"worktree\":\"$PIN\",\"actual\":\"$FOREIGN\"}"
 
+    # ── null-allowlist (правка-круг 3, вердикт d141dd9 блокер 2) ──────────────
+    # unpinned (worktree:null): ТОЛЬКО скратч ∪ artifact:// — pass; иные внутренние
+    # URI (local://, mcp://, skill://, agent://, history://, xd://) — block Н-85
+    # (слово владельца 2026-09-11 «дыра B»: null-allowlist узкое «скратч/artifact»,
+    # НЕ «свободные абсолюты»). Пин-сессии — без изменений (И-5 строки выше).
+    expect "null-local-URI-блок"      block "{\"tool\":\"write\",\"args\":{\"path\":\"local://025/$F\"},\"worktree\":null,\"actual\":null}"
+    expect "null-artifact-URI-pass"   pass  "{\"tool\":\"write\",\"args\":{\"path\":\"artifact://025/$F\"},\"worktree\":null,\"actual\":null}"
+    expect "null-scratch-pass"        pass  "{\"tool\":\"write\",\"args\":{\"path\":\"$VERIFY_DIR/$F\"},\"worktree\":null,\"actual\":null}"
+
     # ── интеграция default-фабрики: должна зарегистрировать tool_call ───────────
     PI="$WORK/fake-pi.mjs"
     cat > "$PI" <<'EOF'
@@ -187,7 +197,7 @@ EOF
       exit 1
     fi
 
-    printf '  ok   real: 22 предъявления judge (И-1 + И-5) верны; фабрика регистрирует tool_call handler и блокирует относительный edit\n' >&2
+    printf '  ok   real: 25 предъявлений judge (И-1 + И-5 + null-allowlist) верны; фабрика регистрирует tool_call handler и блокирует относительный edit\n' >&2
     exit 0
     ;;
 
