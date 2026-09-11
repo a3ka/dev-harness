@@ -296,7 +296,7 @@ fixtures/check_judge_gate/. Общих файлов нет; если обе па
 - норма-строка roles/orchestrator.md приземлена (владелец-канал, условие done) И
   `bash fixtures/check_judge_gate/red_norma_stroka_024.sh` → rc 0 «приземлена
   дословно»;
-- red_stenogrammy_sudej_024.sh → rc 0 на done-коммите (граница — коммит приземления норма-строки, git log -1 -- roles/orchestrator.md);
+- red_stenogrammy_sudej_024.sh → rc 0 на done-коммите (граница — коммит приземления норма-строки: самый ранний коммит, внёсший норма-строку в roles/orchestrator.md по диффу содержания — git log --reverse --full-history -S<норма-строка из red_norma_stroka_024.sh> -- roles/orchestrator.md, позднейшие правки роли границу НЕ сдвигают);
 - полный CI зелёный на done-коммите: `bash scripts/check_ci_gate.sh . <done-SHA>`
   → rc 0.
 
