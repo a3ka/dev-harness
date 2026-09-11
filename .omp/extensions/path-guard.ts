@@ -89,7 +89,14 @@ function isWriteCommand(cmd: string): boolean {
   if (/(?:^|\s)truncate(?:\s|$)/.test(c)) return true;
   if (/(?:^|\s)install(?:\s|$)/.test(c)) return true;
   if (/(?:^|\s)ln(?:\s|$)/.test(c)) return true;
-  return false;
+  // mkdir — форма записи (создаёт каталог; относительный путь без cwd → вектор).
+  if (/(?:^|\s)mkdir(?:\s|$)/.test(c)) return true;
+  // perl -i — in-place edit (perl без -i только читает/пешет явно, через FILE,
+  // но -i меняет FILE на месте; совмещённые флаги -pi/-pie/-i.bak ловятся по \s-i).
+  if (/(?:^|\s)perl(?:\s|$)/.test(c) && /\s-i(?:\b|\.|\s|$)/.test(c)) return true;
+  // python / python3 -c 'CODE' — code может содержать open()/Path().write_*().
+  if (/(?:^|\s)python[23]?(?:\s|$)/.test(c) && /\s-c\b/.test(c)) return true;
+   return false;
 }
 
 // Извлечение файловых операндов из команды: после > / >> и последний для sed -i.
@@ -138,6 +145,156 @@ function extractFileOperands(cmd: string): string[] {
   }
 
   return operands;
+}
+
+// Извлечение операндов для новых команд записи (B-2: mkdir / perl -i / python3 -c).
+// Каждая команда имеет свою грамматику; общего решения нет — выделяем в одну функцию
+// чтобы при добавлении следующей формы предмет не разрастался.
+function extractExtraWriteOperands(cmd: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const pushOp = (p: string): void => {
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      out.push(p);
+    }
+  };
+
+  // Корректная токенизация с уважением кавычек и backslash — иначе разделитель
+  // внутри python/perl-кода (например ';' в `from x import y; Path("z")...`) рвёт
+  // команду по шву и мы теряем хвост, в котором лежит путь.
+  const tokens = tokenizeShell(cmd);
+  const cmds = splitShellCommands(tokens);
+
+  for (const argv of cmds) {
+    if (argv.length === 0) continue;
+    const head = argv[0];
+
+    // mkdir DIR [DIR …] — каждый не-флаг аргумент.
+    if (head === 'mkdir') {
+      for (let i = 1; i < argv.length; i++) {
+        if (!argv[i].startsWith('-')) pushOp(argv[i]);
+      }
+      continue;
+    }
+
+    // perl [-i[.bak]] [-pe|-pi|-pie|-ne] [-e 'CODE'] FILE [FILE …]
+    if (head === 'perl') {
+      let hasInplace = false;
+      let skipNext = false;
+      for (let i = 1; i < argv.length; i++) {
+        const a = argv[i];
+        if (skipNext) { skipNext = false; continue; }
+        if (a === '-i' || a.startsWith('-i')) { hasInplace = true; continue; }
+        if (a === '-e' || a === '-E' || a === '-n' || a === '-p' || a === '-l' ||
+            a.startsWith('-I') || a.startsWith('-M') || a.startsWith('-F')) {
+          // Совмещённые -pe/-pie/-pi содержат и флаг, и -e; их правый операнд
+          // — СЛЕДУЮЩИЙ токен, который для -pe/-pie/-pi/-ne/-np ВСЕГДА код.
+          // Для совмещённых флагов следующего токена быть не должно (perl сам
+          // жалуется), но на всякий случай — скипаем.
+          skipNext = true; continue;
+        }
+        if (a.startsWith('-')) continue;
+        pushOp(a);
+      }
+      // Если -i нет — это НЕ in-place edit; операнды (если были добавлены) выкидываем.
+      // (perl без -i лишь читает/печатает, не пишет в файл.)
+      if (!hasInplace) {
+        const argSet = new Set(argv.slice(1).filter((a) => !a.startsWith('-') && a !== 'perl'));
+        for (let i = out.length - 1; i >= 0; i--) {
+          if (argSet.has(out[i])) out.splice(i, 1);
+        }
+      }
+      continue;
+    }
+
+    // python / python3 / python2 -c 'CODE' — из CODE вытаскиваем строковые литералы.
+    if (head === 'python' || head === 'python2' || head === 'python3' ||
+        /^python\d+$/.test(head)) {
+      for (let i = 1; i < argv.length - 1; i++) {
+        if (argv[i] === '-c') {
+          const code = argv[i + 1];
+          for (const lit of extractPythonStringLiterals(code)) pushOp(lit);
+          break;
+        }
+      }
+      continue;
+    }
+  }
+
+  return out;
+}
+
+// Токенизация shell-строки с уважением одинарных/двойных кавычек и backtick,
+// а также backslash-эскейпов. Разделители команд: | & ; (вне кавычек).
+function tokenizeShell(s: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quote: "'" | '"' | '`' | null = null;
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (quote === "'") {
+      // В одинарных кавычках ничего не интерпретируется (кроме закрывающей ').
+      if (ch === "'") { quote = null; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    if (quote === '"' || quote === '`') {
+      if (ch === '\\' && i + 1 < s.length) {
+        cur += s[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === quote) { quote = null; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    // Без кавычек.
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; i++; continue; }
+    if (ch === '\\' && i + 1 < s.length) { cur += s[i + 1]; i += 2; continue; }
+    if (/\s/.test(ch) || ch === '|' || ch === '&' || ch === ';') {
+      if (cur.length > 0) { out.push(cur); cur = ''; }
+      if (ch === '|' || ch === '&' || ch === ';') out.push(ch);
+      i++; continue;
+    }
+    cur += ch; i++;
+  }
+  if (cur.length > 0) out.push(cur);
+  return out;
+}
+
+// Разбиение токенов на отдельные команды по операторам | & ; .
+function splitShellCommands(tokens: string[]): string[][] {
+  const cmds: string[][] = [];
+  let cur: string[] = [];
+  for (const t of tokens) {
+    if (t === '|' || t === ';' || t === '&') {
+      if (cur.length > 0) { cmds.push(cur); cur = []; }
+    } else {
+      cur.push(t);
+    }
+  }
+  if (cur.length > 0) cmds.push(cur);
+  return cmds;
+}
+
+// Извлечение строковых литералов из python-кода: оба вида кавычек, без r/f/b-префиксов.
+// Подход достаточен для тестовых форм B-2: open("p"), Path("p").write_text(...),
+// os.rename("a", "b"), shutil.copy("s", "d"). Тривиальные .replace/комментарии не мешают.
+function extractPythonStringLiterals(code: string): string[] {
+  const out: string[] = [];
+  const re = /(?<![A-Za-z0-9_])(?:r|R|b|B|f|F|rb|br|RB|Br|bR|fr|rf|Fr|fR|RF|rF)?(["'])(?:\\.|(?!\1).)*\1/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(code)) !== null) {
+    const full = m[0];
+    // снять префикс и кавычки
+    const open = full.indexOf(m[1]);
+    const inner = full.slice(open + 1, full.length - 1);
+    // разрешить только строки, похожие на пути: непустые, без переносов
+    if (inner.length > 0 && !inner.includes('\n')) {
+      out.push(inner);
+    }
+  }
+  return out;
 }
 
 // Проверяет, что resolved-путь — внутри пина или allowlist'а. canonicalWt может
@@ -201,7 +358,10 @@ function judgeBash(
   // Форма чтения — всегда pass (Г1 «читать свободно»).
   if (!isWriteCommand(cmd)) return { decision: 'pass' };
 
-  const operands = extractFileOperands(cmd);
+  const operands = [
+    ...extractFileOperands(cmd),
+    ...extractExtraWriteOperands(cmd),
+  ];
   if (operands.length === 0) {
     // Команда формы записи, но операндов не извлекли — безопасный пропуск,
     // чтобы не заблокировать легитимную форму записи с экзотическим синтаксисом.
