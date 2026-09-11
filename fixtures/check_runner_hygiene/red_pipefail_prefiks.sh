@@ -35,7 +35,12 @@ ORACLE='set -o pipefail; trap '\''[ "$?" -eq 141 ] && exit 0'\'' EXIT;'
 
 out="$(ORACLE="$ORACLE" SUBJ="$SUBJ" node --input-type=module -e '
 const ORACLE = process.env.ORACLE;
-const mod = await import("file://" + process.env.SUBJ);
+const { pathToFileURL } = await import("node:url");
+// URL — ТОЛЬКО pathToFileURL: конкатенация "file://"+путь при ОТНОСИТЕЛЬНОМ корне
+// (документированная форма вызова «. », §И-2) давала file://./… с хостом — Node 26
+// отвергает (ERR_INVALID_FILE_URL_HOST, замер: попытка №4 Impl025e); pathToFileURL
+// также процент-кодирует не-ASCII/пробелы в пути.
+const mod = await import(pathToFileURL(process.env.SUBJ).href);
 if (typeof mod.default !== "function") {
   console.error("КРАСНОЕ 025-И-2: модуль не экспортирует factory-функцию — присвоение префикса невозможно");
 }
