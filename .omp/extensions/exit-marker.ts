@@ -76,19 +76,35 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // тихо возвращал undefined (нет content-блока) и [exit=N] в tool_result не появлялся.
 // Регрессия поймана живым probe025: bash false|true → exit 1, агент видел текст
 // "(no output) ... Command exited with code 1", без маркера [exit=1].
+//
+// ВАЖНО: handler принимает ОБЕ формы входа:
+//   - реальная omp-форма (probe025): {toolName, details:{exitCode, ...}, content, ...}.
+//   - drill-смоук форма (drill_exit_marker.sh): {tool, result:{exitCode, output}}.
+// Обе передаются readToolAndExit, который мерджит их: реальная форма ОМП
+// приоритетна, drill-форма — fallback (поддерживает совместимость drill'а).
 
 type PiLike = {
   on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
 };
 
+function readExitFromField(field: unknown): unknown {
+  if (field === null || typeof field !== 'object') return undefined;
+  return (field as Record<string, unknown>).exitCode;
+}
+
 function readToolAndExit(event: unknown): { tool: string; exitCode: unknown } {
   if (event === null || typeof event !== 'object') return { tool: '', exitCode: undefined };
   const e = event as Record<string, unknown>;
-  const tool = typeof e.toolName === 'string' ? e.toolName : '';
-  const details = e.details;
-  if (details === null || typeof details !== 'object') return { tool, exitCode: undefined };
-  const d = details as Record<string, unknown>;
-  return { tool, exitCode: d.exitCode };
+  // Реальная omp-форма: event.toolName (string) + event.details.exitCode.
+  const toolName = typeof e.toolName === 'string' ? e.toolName : '';
+  // Drill-форма: event.tool (string) + event.result.exitCode.
+  const toolAlt = typeof e.tool === 'string' ? e.tool : '';
+  const tool = toolName || toolAlt;
+  // Приоритет у реальной формы (details.exitCode), fallback на drill-форму.
+  const fromDetails = readExitFromField(e.details);
+  const fromResult = readExitFromField(e.result);
+  const exitCode = fromDetails !== undefined ? fromDetails : fromResult;
+  return { tool, exitCode };
 }
 
 export default function register(pi: unknown): void {
@@ -114,6 +130,12 @@ export default function register(pi: unknown): void {
     // кодом на isError=false (executionError undefined для bash без throw).
     // Проброс isError=true для ненулевого кода — модель видит ошибку по
     // штатному полю isError и верно интерпретирует pipefail-смерть.
+    //
+    // Также пробрасываем .append — чтобы drill-смоук (drill_exit_marker.sh,
+    // scripts/drill_exit_marker.sh) мог проверить маркер непосредственно по
+    // возврату handler'а, без разбора content. omp wrapper .append игнорирует
+    // (он не входит в ToolResultEventResult), но в полиморфной среде drill'а
+    // это контрактная форма «маркер виден» (контракт §B-2).
     const ev = event as Record<string, unknown>;
     const content = Array.isArray(ev.content) ? (ev.content as Array<Record<string, unknown>>) : [];
     const newContent = content.map((c) => ({ ...c }));
@@ -128,6 +150,8 @@ export default function register(pi: unknown): void {
     } else {
       newContent.push({ type: 'text', text: out.append });
     }
-    return failedExit ? { content: newContent, isError: true } : { content: newContent };
+    return failedExit
+      ? { append: out.append, content: newContent, isError: true }
+      : { append: out.append, content: newContent };
   });
 }

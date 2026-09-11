@@ -1,5 +1,7 @@
 // Расширение omp: страж вектора утечки + пин WORKTREE.
-// Контракт 025, пачка A (вектор) и C (пин/allowlist, Г1-Г3).
+// Контракт 025, пачка A (вектор) и C (пин/allowlist, Г1-Г3) + резолюция
+// владельца 2026-09-11 «ДЫРА B / А-122»: абсолют-в-MAIN-чекаут блокируется,
+// непиннованный ребёнок ДЕФОЛТ-ЗАПРЕЩЁН на чекаут-запись, scratch/artifact — pass.
 //
 // Два режима:
 //   1. CLI: `node path-guard.ts --judge '<json>'` — синтетический tool_call,
@@ -8,18 +10,19 @@
 //      tool_call-событие фабрика судит вызов и возвращает {block,reason} или
 //      undefined. Ошибки handler'а трактуются как fail-closed (omp сам).
 //
-// Решения (контракт 025 §Пачка A-1, §Пачка C-1):
+// Решения (контракт 025 §Пачка A-1, §Пачка C-1 + резолюция 2026-09-11):
 //   - edit/write ОТНОСИТЕЛЬНЫМ path → block «Н-85: абсолютный путь или cwd».
 //   - bash форма записи + относительный операнд + нет cwd → block «Н-85».
-//   - запись АБСОЛЮТНАЯ в-пинне + actual == pin → pass.
-//   - запись абсолютная вне пина (включая чужой корень) → block «Н-85».
+//   - edit/write АБСОЛЮТНЫМ path → pass только если путь в-пинне, в scratch
+//     (${TMPDIR:-/tmp}/dev-harness-verify/**) или URI-схеме allowlist'а (Г3).
+//   - запись АБСОЛЮТНАЯ вне пина/allowlist → block «Н-85».
+//     В т.ч. абсолют-в-MAIN-чекаут из непиннованной сессии (fail-closed против
+//     принципа; свободный абсолют непиннованного = корень А-72).
 //   - pin не существует → refuse «не существует».
 //   - pin ≠ actual → refuse «не совпадает».
-//   - dev-harness-verify, artifact://, local://, skill://, agent://,
-//     history://, xd:// — allowlist (Г3); pass.
+//   - artifact://, local://, skill://, agent://, history://, xd:// — allowlist
+//     (Г3); pass в любой сессии.
 //   - read/grep/glob и bash без формы записи — pass (Г1 «читать свободно»).
-//   - worktree:null (главная сессия) — пина нет, относительная запись всё равно
-//     блокируется ветвью A-1; абсолютная запись свободна по общим правилам.
 
 import { realpathSync } from 'node:fs';
 
@@ -89,7 +92,14 @@ function isWriteCommand(cmd: string): boolean {
   if (/(?:^|\s)truncate(?:\s|$)/.test(c)) return true;
   if (/(?:^|\s)install(?:\s|$)/.test(c)) return true;
   if (/(?:^|\s)ln(?:\s|$)/.test(c)) return true;
-  return false;
+  // mkdir — форма записи (создаёт каталог; относительный путь без cwd → вектор).
+  if (/(?:^|\s)mkdir(?:\s|$)/.test(c)) return true;
+  // perl -i — in-place edit (perl без -i только читает/пешет явно, через FILE,
+  // но -i меняет FILE на месте; совмещённые флаги -pi/-pie/-i.bak ловятся по \s-i).
+  if (/(?:^|\s)perl(?:\s|$)/.test(c) && /\s-i(?:\b|\.|\s|$)/.test(c)) return true;
+  // python / python3 -c 'CODE' — code может содержать open()/Path().write_*().
+  if (/(?:^|\s)python[23]?(?:\s|$)/.test(c) && /\s-c\b/.test(c)) return true;
+   return false;
 }
 
 // Извлечение файловых операндов из команды: после > / >> и последний для sed -i.
@@ -140,17 +150,171 @@ function extractFileOperands(cmd: string): string[] {
   return operands;
 }
 
-// Проверяет, что resolved-путь — внутри пина или allowlist'а. canonicalWt может
-// быть null (главная сессия) — тогда проверка только allowlist'а.
+// Извлечение операндов для новых команд записи (B-2: mkdir / perl -i / python3 -c).
+// Каждая команда имеет свою грамматику; общего решения нет — выделяем в одну функцию
+// чтобы при добавлении следующей формы предмет не разрастался.
+function extractExtraWriteOperands(cmd: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const pushOp = (p: string): void => {
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      out.push(p);
+    }
+  };
+
+  // Корректная токенизация с уважением кавычек и backslash — иначе разделитель
+  // внутри python/perl-кода (например ';' в `from x import y; Path("z")...`) рвёт
+  // команду по шву и мы теряем хвост, в котором лежит путь.
+  const tokens = tokenizeShell(cmd);
+  const cmds = splitShellCommands(tokens);
+
+  for (const argv of cmds) {
+    if (argv.length === 0) continue;
+    const head = argv[0];
+
+    // mkdir DIR [DIR …] — каждый не-флаг аргумент.
+    if (head === 'mkdir') {
+      for (let i = 1; i < argv.length; i++) {
+        if (!argv[i].startsWith('-')) pushOp(argv[i]);
+      }
+      continue;
+    }
+
+    // perl [-i[.bak]] [-pe|-pi|-pie|-ne] [-e 'CODE'] FILE [FILE …]
+    if (head === 'perl') {
+      let hasInplace = false;
+      let skipNext = false;
+      for (let i = 1; i < argv.length; i++) {
+        const a = argv[i];
+        if (skipNext) { skipNext = false; continue; }
+        if (a === '-i' || a.startsWith('-i')) { hasInplace = true; continue; }
+        if (a === '-e' || a === '-E' || a === '-n' || a === '-p' || a === '-l' ||
+            a.startsWith('-I') || a.startsWith('-M') || a.startsWith('-F')) {
+          // Совмещённые -pe/-pie/-pi содержат и флаг, и -e; их правый операнд
+          // — СЛЕДУЮЩИЙ токен, который для -pe/-pie/-pi/-ne/-np ВСЕГДА код.
+          // Для совмещённых флагов следующего токена быть не должно (perl сам
+          // жалуется), но на всякий случай — скипаем.
+          skipNext = true; continue;
+        }
+        if (a.startsWith('-')) continue;
+        pushOp(a);
+      }
+      // Если -i нет — это НЕ in-place edit; операнды (если были добавлены) выкидываем.
+      // (perl без -i лишь читает/печатает, не пишет в файл.)
+      if (!hasInplace) {
+        const argSet = new Set(argv.slice(1).filter((a) => !a.startsWith('-') && a !== 'perl'));
+        for (let i = out.length - 1; i >= 0; i--) {
+          if (argSet.has(out[i])) out.splice(i, 1);
+        }
+      }
+      continue;
+    }
+
+    // python / python3 / python2 -c 'CODE' — из CODE вытаскиваем строковые литералы.
+    if (head === 'python' || head === 'python2' || head === 'python3' ||
+        /^python\d+$/.test(head)) {
+      for (let i = 1; i < argv.length - 1; i++) {
+        if (argv[i] === '-c') {
+          const code = argv[i + 1];
+          for (const lit of extractPythonStringLiterals(code)) pushOp(lit);
+          break;
+        }
+      }
+      continue;
+    }
+  }
+
+  return out;
+}
+
+// Токенизация shell-строки с уважением одинарных/двойных кавычек и backtick,
+// а также backslash-эскейпов. Разделители команд: | & ; (вне кавычек).
+function tokenizeShell(s: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quote: "'" | '"' | '`' | null = null;
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (quote === "'") {
+      // В одинарных кавычках ничего не интерпретируется (кроме закрывающей ').
+      if (ch === "'") { quote = null; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    if (quote === '"' || quote === '`') {
+      if (ch === '\\' && i + 1 < s.length) {
+        cur += s[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === quote) { quote = null; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    // Без кавычек.
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; i++; continue; }
+    if (ch === '\\' && i + 1 < s.length) { cur += s[i + 1]; i += 2; continue; }
+    if (/\s/.test(ch) || ch === '|' || ch === '&' || ch === ';') {
+      if (cur.length > 0) { out.push(cur); cur = ''; }
+      if (ch === '|' || ch === '&' || ch === ';') out.push(ch);
+      i++; continue;
+    }
+    cur += ch; i++;
+  }
+  if (cur.length > 0) out.push(cur);
+  return out;
+}
+
+// Разбиение токенов на отдельные команды по операторам | & ; .
+function splitShellCommands(tokens: string[]): string[][] {
+  const cmds: string[][] = [];
+  let cur: string[] = [];
+  for (const t of tokens) {
+    if (t === '|' || t === ';' || t === '&') {
+      if (cur.length > 0) { cmds.push(cur); cur = []; }
+    } else {
+      cur.push(t);
+    }
+  }
+  if (cur.length > 0) cmds.push(cur);
+  return cmds;
+}
+
+// Извлечение строковых литералов из python-кода: оба вида кавычек, без r/f/b-префиксов.
+// Подход достаточен для тестовых форм B-2: open("p"), Path("p").write_text(...),
+// os.rename("a", "b"), shutil.copy("s", "d"). Тривиальные .replace/комментарии не мешают.
+function extractPythonStringLiterals(code: string): string[] {
+  const out: string[] = [];
+  const re = /(?<![A-Za-z0-9_])(?:r|R|b|B|f|F|rb|br|RB|Br|bR|fr|rf|Fr|fR|RF|rF)?(["'])(?:\\.|(?!\1).)*\1/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(code)) !== null) {
+    const full = m[0];
+    // снять префикс и кавычки
+    const open = full.indexOf(m[1]);
+    const inner = full.slice(open + 1, full.length - 1);
+    // разрешить только строки, похожие на пути: непустые, без переносов
+    if (inner.length > 0 && !inner.includes('\n')) {
+      out.push(inner);
+    }
+  }
+  return out;
+}
+
+// Проверяет, что resolved-путь — внутри пина (если задан) или allowlist'а
+// (URI-схемы Г3 + scratch ${TMPDIR:-/tmp}/dev-harness-verify). Для НЕпиннованных
+// сессий (canonicalWt === null) — pass ТОЛЬКО при попадании в allowlist; всё
+// остальное fail-closed (резолюция 2026-09-11 — абсолют-в-MAIN-чекаут блок).
 function pathAllowed(
   resolved: string,
   canonicalWt: string | null,
   worktree: string | null,
 ): boolean {
   if (isAllowedURI(resolved)) return true;
-  if (worktree === null || canonicalWt === null) return true;
-  if (isWithin(canonicalWt, resolved)) return true;
   if (isWithin(getVerifyBase(), resolved)) return true;
+  if (canonicalWt !== null && isWithin(canonicalWt, resolved)) return true;
+  // Непиннованная сессия + путь не в allowlist — fail-closed (бывшая ветка
+  // «worktree===null → pass» снята как корень А-72).
+  void worktree;
   return false;
 }
 
@@ -163,10 +327,10 @@ function judgeEditWrite(
   const path = String(args.path ?? '');
   if (!path) return { decision: 'pass' };
 
-  // Allowlist URI
+  // Allowlist URI — pass ВСЕГДА (Г3): artifact://, local://, skill:// и др.
   if (isAllowedURI(path)) return { decision: 'pass' };
 
-  // Относительный путь — всегда блок (Г1, Г2: вектор утечки).
+  // Относительный путь — блок ВСЕГДА (Г1, Г2: вектор утечки).
   if (!path.startsWith('/')) {
     return {
       decision: 'block',
@@ -174,15 +338,18 @@ function judgeEditWrite(
     };
   }
 
-  // Главная сессия (worktree:null) — пина нет; абсолютная запись свободна.
-  if (worktree === null) return { decision: 'pass' };
-
-  // Абсолютный путь в пинне или allowlist'е — pass.
+  // Абсолютный путь — общий pathAllowed. Пиновые сессии: pass in-pin + allowlist;
+  // непиннованные: pass ТОЛЬКО allowlist (scratch + URI-схемы). Всё прочее —
+  // блок (резолюция владельца 2026-09-11: непиннованный ребёнок ДЕФОЛТ-ЗАПРЕЩЁН
+  // на чекаут-запись).
   if (pathAllowed(path, canonicalWt, worktree)) return { decision: 'pass' };
 
   return {
     decision: 'block',
-    reason: `запись вне пина запрещена — Н-85: путь ${path} не входит в WORKTREE=${canonicalWt}`,
+    reason:
+      worktree === null
+        ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${path} не в allowlist (${getVerifyBase()}/**, artifact://, local:// и др.)`
+        : `запись вне пина запрещена — Н-85: путь ${path} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
   };
 }
 
@@ -201,7 +368,10 @@ function judgeBash(
   // Форма чтения — всегда pass (Г1 «читать свободно»).
   if (!isWriteCommand(cmd)) return { decision: 'pass' };
 
-  const operands = extractFileOperands(cmd);
+  const operands = [
+    ...extractFileOperands(cmd),
+    ...extractExtraWriteOperands(cmd),
+  ];
   if (operands.length === 0) {
     // Команда формы записи, но операндов не извлекли — безопасный пропуск,
     // чтобы не заблокировать легитимную форму записи с экзотическим синтаксисом.
@@ -227,10 +397,16 @@ function judgeBash(
       resolved = realCwd.endsWith('/') ? `${realCwd}${op}` : `${realCwd}/${op}`;
     }
 
+    // Непиннованная сессия + абсолютный операнд вне allowlist — блок по
+    // pathAllowed (резолюция 2026-09-11). Пиновая + операнд вне пина и не в
+    // allowlist — блок по Н-85.
     if (!pathAllowed(resolved, canonicalWt, worktree)) {
       return {
         decision: 'block',
-        reason: `запись вне пина запрещена — Н-85: путь ${resolved} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
+        reason:
+          worktree === null
+            ? `запись в чекаут из непиннованной сессии запрещена — Н-85/А-122: путь ${resolved} не в allowlist`
+            : `запись вне пина запрещена — Н-85: путь ${resolved} не входит в WORKTREE=${canonicalWt ?? '(главная сессия)'} и не в allowlist`,
       };
     }
   }
@@ -332,8 +508,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 //
 // Пин/actual берётся из event.worktree/event.actual (если omp их передаёт) иначе
 // process.env.WORKTREE/process.env.PI_ACTUAL/process.cwd(). Сессия без WORKTREE —
-// главная: allowlist не сужается, но относительная запись всё равно блокируется
-// ветвью A-1 (контракт Г1: «страж целит вектор»).
+// непиннованная: пишет ТОЛЬКО в allowlist (resдолюция 2026-09-11; было свободно,
+// закрыто fail-closed против принципа, корень А-72).
 type PiLike = {
   on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
 };
