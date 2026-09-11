@@ -85,6 +85,10 @@ function isWriteCommand(cmd: string): boolean {
   if (/(?:^|\s)mv(?:\s|$)/.test(c)) return true;
   if (/(?:^|\s)rm(?:\s|$)/.test(c)) return true;
   if (/(?:^|\s)dd(?:\s|$)/.test(c)) return true;
+  if (/(?:^|\s)touch(?:\s|$)/.test(c)) return true;
+  if (/(?:^|\s)truncate(?:\s|$)/.test(c)) return true;
+  if (/(?:^|\s)install(?:\s|$)/.test(c)) return true;
+  if (/(?:^|\s)ln(?:\s|$)/.test(c)) return true;
   return false;
 }
 
@@ -120,9 +124,10 @@ function extractFileOperands(cmd: string): string[] {
     }
   }
 
-  // tee / cp / mv / rm / dd — каждый не-флаг аргумент (после ключевого слова
-  // и до следующего оператора | & ; или конца команды).
-  for (const kw of ['tee', 'cp', 'mv', 'rm', 'dd']) {
+  // tee / cp / mv / rm / dd / touch / truncate / install / ln — каждый
+  // не-флаг аргумент (после ключевого слова и до следующего оператора
+  // | & ; или конца команды).
+  for (const kw of ['tee', 'cp', 'mv', 'rm', 'dd', 'touch', 'truncate', 'install', 'ln']) {
     const kwRe = new RegExp(`(?:^|[|&;])\\s*${kw}\\b([^|&;]*)`, 'g');
     while ((m = kwRe.exec(c)) !== null) {
       const args = m[1].trim().split(/\s+/).filter(Boolean);
