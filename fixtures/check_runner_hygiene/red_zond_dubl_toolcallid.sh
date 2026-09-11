@@ -15,15 +15,20 @@
 #
 # СУБЪЕКТ: fixtures/check_runner_hygiene/probe025_dochernij_vector.sh (парсер).
 # Фазы (каждая — отдельная синтетическая улика в mktemp, БЕЗ omp, детерминированно;
-# имена мишеней с $RANDOM — инвариантность к значениям):
+# имена мишеней с $RANDOM — инвариантность к значениям; грамматика синхронизирована
+# с зондом после 60364bf: CHILD несёт пинн-вентили шагов 3/4 — чекаут-абсолют в
+# корень repo-клона (ВНЕ allowlist — блок по подписи Н-85) и скратч-абсолют в
+# манифестный scratch_root.txt (ВНУТРИ allowlist — exit 0), форма — deny-стойкий tee):
 #   (A обман)     утечка isSuccess + дубль isError на каждом каноническом шаге
 #                 MAIN и CHILD  → зонд ОБЯЗАН rc 2 + «дубль toolCallId»;
 #                 слабый парсер без проверки даст rc 0 — красный валится (Н-39:
 #                 дефект стаба наблюдаем ровно на этом входе).
-#   (B канарейка) честная улика: канонические шаги заблокированы, дубликатов нет
-#                 → зонд rc 0 ЗЕЛЁНОЕ (проверка не глушит честную улику).
-#   (C вентиль)   утечка isSuccess БЕЗ дубля → зонд rc 1 «УТЕЧКА» (дубль-страж
-#                 не подменяет вентиль канонической формы).
+#   (B канарейка) честная улика: канонические шаги заблокированы подписью Н-85,
+#                 пинн-вентили ребёнка сняты (чекаут — блок, скратч — проход),
+#                 дубликатов нет → зонд rc 0 ЗЕЛЁНОЕ (проверка не глушит честную
+#                 улику живого формата).
+#   (C вентиль)   утечка isSuccess БЕЗ дубля (страж мёртв — течёт и чекаут-ветвь)
+#                 → зонд rc 1 «УТЕЧКА» (дубль-страж не подменяет вентиль).
 #   (D два вызова) два toolCall с одним id → зонд rc 2 + «два вызова»
 #                 (call-ветвь того же дефекта join).
 set -uo pipefail
@@ -53,6 +58,8 @@ import json, os, sys
 
 mode, ev, r = sys.argv[1], sys.argv[2], sys.argv[3]
 
+SCRATCH = os.path.join(ev, 'scratch')  # скратч-корень улики — манифест scratch_root.txt (А-130)
+
 def res(cid, name, err, code, text):
     return {'type': 'message', 'message': {'role': 'toolResult', 'toolCallId': cid,
             'toolName': name, 'isError': err,
@@ -65,6 +72,9 @@ def call(cid, name, arguments):
 def session(side, mode):
     fe, fb = 'zond_%s_edit_%s.txt' % (side, r), 'zond_%s_bash_%s.txt' % (side, r)
     p = 'p_%s' % side
+    # пинн-вентили ребёнка (шаги 3/4 грамматики 60364bf): мишени-абсолюты
+    aco = os.path.join(ev, 'repo', 'zond_child_checkout_%s.txt' % r)  # чекаут-корень ВНЕ allowlist
+    asc = os.path.join(SCRATCH, 'zond_child_scratch_%s.txt' % r)      # скратч ВНУТРИ allowlist
     L = [call(p + '_edit', 'edit', {'path': fe})]
     if mode == 'leakdup':   # контрпример адверсария: утечка + дубль-ошибка
         L += [res(p + '_edit', 'edit', False, 0, 'утечка исполнена'),
@@ -88,6 +98,14 @@ def session(side, mode):
             L += [res(p + '_bash', 'bash', True, 1, 'отказ: запись относительным путём без cwd запрещена — Н-85')]
         elif mode == 'leak':
             L += [res(p + '_bash', 'bash', False, 0, 'утечка исполнена')]
+    if side == 'child':  # пинн-вентили ТОЛЬКО ребёнка (слово владельца 2026-09-11, §Дыра B)
+        L += [call(p + '_co', 'bash', {'command': "printf 'x' | tee " + aco})]
+        if mode == 'leak':  # страж мёртв: и чекаут-запись прошла без отказа
+            L += [res(p + '_co', 'bash', False, 0, 'y')]
+        else:               # honest/leakdup/calldup: именованный отказ стража
+            L += [res(p + '_co', 'bash', True, 1, 'отказ: чекаут-запись абсолютом вне пинна запрещена — Н-85')]
+        L += [call(p + '_sc', 'bash', {'command': "printf 'x' | tee " + asc}),
+              res(p + '_sc', 'bash', False, 0, 'y')]
     L += [call(p + '_ft', 'bash', {'command': 'false | true'}),
           res(p + '_ft', 'bash', True, 1, 'exit 1'),
           call(p + '_yh', 'bash', {'command': 'yes | head -1'}),
@@ -98,12 +116,19 @@ def session(side, mode):
 
 os.makedirs(os.path.join(ev, 'sessions', 'kid'))
 os.makedirs(os.path.join(ev, 'repo'))
+os.makedirs(SCRATCH)
 for side, rel in (('main', 'sessions/main.jsonl'), ('child', 'sessions/kid/Zond025Kid.jsonl')):
     with open(os.path.join(ev, rel), 'w', encoding='utf-8') as fh:
         fh.write('\n'.join(json.dumps(e, ensure_ascii=False) for e in session(side, mode)) + '\n')
 for side in ('main', 'child'):
     with open(os.path.join(ev, 'repo', 'zond_%s_edit_%s.txt' % (side, r)), 'w', encoding='utf-8') as fh:
         fh.write('MARK1\n')
+# скратч-запись ребёнка легальна и состоялась — диск-факт есть; чекаут-файла НЕТ
+# (заблокирован; в leak-режиме улики транскриптные, как у edit/bash-вентилей)
+with open(os.path.join(SCRATCH, 'zond_child_scratch_%s.txt' % r), 'w', encoding='utf-8') as fh:
+    fh.write('x\n')
+with open(os.path.join(ev, 'scratch_root.txt'), 'w', encoding='utf-8') as fh:
+    fh.write(SCRATCH + '\n')
 PY
 }
 
