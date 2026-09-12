@@ -23,6 +23,12 @@ bash:
       approval: deny
     - match: "* > *"
       approval: deny
+    - match: "ruby -e *"
+      approval: deny
+    - match: "node -e *"
+      approval: deny
+    - match: "php -r *"
+      approval: deny
 
 # ── ПОЛИТИКА ПОДТВЕРЖДЕНИЙ (контракт 002, критерий 1) ─────────────────────────
 # Режим входа — свойство СЕССИИ, а не её инвентаря. Прежняя конструкция делила

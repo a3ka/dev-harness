@@ -113,11 +113,33 @@ function isWriteCommand(cmd: string): boolean {
   if (/(?:^|\s)ln(?:\s|$)/.test(c)) return true;
   // mkdir — форма записи (создаёт каталог; относительный путь без cwd → вектор).
   if (/(?:^|\s)mkdir(?:\s|$)/.test(c)) return true;
-  // perl -i — in-place edit (perl без -i только читает/пешет явно, через FILE,
-  // но -i меняет FILE на месте; совмещённые флаги -pi/-pie/-i.bak ловятся по \s-i).
-  if (/(?:^|\s)perl(?:\s|$)/.test(c) && /\s-i(?:\b|\.|\s|$)/.test(c)) return true;
+  // perl -i — in-place edit (perl без -i только читает/печатает явно, через FILE,
+  // но -i меняет FILE на месте). Совмещённые флаги perl (single-letter-флаги
+  // склеиваются): -pi / -pie / -pi.bak / -i / -i.bak — все формы несут флаг -i,
+  // который неотделим от других букв в bundle. Регэкс (?<=\s|^)-[a-zA-Z]*i(?:[a-zA-Z.]*)?
+  // (?=\s|$|\.) ловит: «-» с предшествующим space/start, затем bundle с
+  // обязательной «i», lookahead — граница. Простые \s-i / (?:^|\s|\B)-i НЕ
+  // ловят -pi/-pie (литерал «-i» отсутствует в «-pi», 'p' между ними);
+  // предшествующая регулярка \s-i была ложно-«закрывающей» (B-025-r2-1).
+  if (/(?:^|\s)perl(?:\s|$)/.test(c) && /(?<=\s|^)-[a-zA-Z]*i(?:[a-zA-Z.]*)?(?=\s|$|\.)/.test(c)) return true;
   // python / python3 -c 'CODE' — code может содержать open()/Path().write_*().
   if (/(?:^|\s)python[23]?(?:\s|$)/.test(c) && /\s-c\b/.test(c)) return true;
+  // ruby -e / node -e / php -r — скрипт-интерпретаторы с inline-кодом (B-025-r2-2);
+  // код может содержать File.write / fs.writeFileSync / file_put_contents и т.п.
+  // Детект по ключевому слову В НАЧАЛЕ команды, чтобы не множить «*»-паттерны
+  // в deny-слое (И-6 канарейки обязаны жить; tee-блок d141dd9).
+  if (/(?:^|\s)ruby(?:\s|$)/.test(c) && /\s-e\b/.test(c)) return true;
+  if (/(?:^|\s)node(?:\s|$)/.test(c) && /\s-e\b/.test(c)) return true;
+  if (/(?:^|\s)php(?:\s|$)/.test(c) && /\s-r\b/.test(c)) return true;
+  // sed с флагом w FILE в substitution (`sed 's/A/B/w FILE'`) — форма записи
+  // относительным путём без cwd (B-025-r2-2). Тест на СЫРОЙ команде: после
+  // stripQuotes выражение в кавычках исчезает целиком и w-флаг теряется
+  // (`echo X | sed 's/X/Y/w foo.txt'` → c=`echo X | sed ` без w).
+  if (/(?:^|\s)sed(?:\s|$)/.test(cmd) && /\bw\s+\S+/.test(cmd)) return true;
+  // awk с redirect внутри кода (`awk '... > "f"'`) — форма записи относительным
+  // путём без cwd (B-025-r2-2). Жёстче чем общий «>» (исключает 2>&1):
+  // «>» НЕ после «>» (т.е. не «>>») и НЕ после «&» или цифры.
+  if (/(?:^|\s)awk(?:\s|$)/.test(c) && /(?<![&>\d])>\s*\S/.test(c)) return true;
   return false;
 }
 
@@ -200,17 +222,29 @@ function extractExtraWriteOperands(cmd: string): string[] {
       continue;
     }
 
-    // perl [-i[.bak]] [-pe|-pi|-pie|-ne] [-e 'CODE'] FILE [FILE …]
+    // perl [-i[.bak]] [-pe|-pi|-pie|-ne|-np] [-e 'CODE'] FILE [FILE …]
+    // Совмещённые флаги perl — single-letter bundle: -pi = -p + -i, -pie = -p + -i + -e.
+    // Для детекта in-place edit ПОЛНОГО bundle (а не только отдельного -i):
+    // флаг-bundle считается «in-place», если содержит 'i' среди своих букв.
     if (head === 'perl') {
       let hasInplace = false;
       let skipNext = false;
       for (let i = 1; i < argv.length; i++) {
         const a = argv[i];
         if (skipNext) { skipNext = false; continue; }
+        // Отдельный -i или bundle с 'i': -i / -i.bak / -pi / -pi.bak / -pie
         if (a === '-i' || a.startsWith('-i')) { hasInplace = true; continue; }
+        // Совмещённые флаги вида -<буквы>.bak где среди букв есть 'i' (perl не
+        // принимает форму -pi.bak, но для полноты): -[a-z]*i[a-z]*.bak
+        // Регэкс: -bundle где bundle содержит 'i', до '.bak' (или просто -pi).
+        // Упрощённо: -<буквы>[.<буквы>]? где первая часть содержит 'i' и нет '='.
+        const bundle = /^(-[a-zA-Z]+(?:\.[a-zA-Z]+)?)$/;
+        if (bundle.test(a) && /^-[a-zA-Z]*i[a-zA-Z]*(?:\.[a-zA-Z]*)?$/.test(a)) {
+          hasInplace = true; continue;
+        }
         if (a === '-e' || a === '-E' || a === '-n' || a === '-p' || a === '-l' ||
             a.startsWith('-I') || a.startsWith('-M') || a.startsWith('-F')) {
-          // Совмещённые -pe/-pie/-pi содержат и флаг, и -e; их правый операнд
+          // Совмещённые -pe/-pie/-pi/-np содержат и флаг, и -e; их правый операнд
           // — СЛЕДУЮЩИЙ токен, который для -pe/-pie/-pi/-ne/-np ВСЕГДА код.
           // Для совмещённых флагов следующего токена быть не должно (perl сам
           // жалуется), но на всякий случай — скипаем.
@@ -239,6 +273,81 @@ function extractExtraWriteOperands(cmd: string): string[] {
           for (const lit of extractPythonStringLiterals(code)) pushOp(lit);
           break;
         }
+      }
+      continue;
+    }
+
+    // ruby -e 'CODE' / node -e 'CODE' / php -r 'CODE' — скрипт-интерпретаторы
+    // с inline-кодом (B-025-r2-2). Код может содержать File.write /
+    // fs.writeFileSync / file_put_contents с относительным путём. Тест на СЫРОЙ
+    // команде через quote-preserving tokenizer: tokenizeShell выкидывает кавычки
+    // на границах токенов, и литералы в коде без внешней обёртки (ruby -e
+    // File.write("x.txt","X")) теряют кавычки → extractPythonStringLiterals
+    // ничего не находит → operands.length===0 → «безопасный пропуск» → pass
+    // (ДЫРА). tokenizeShellKeepQuotes оставляет кавычки внутри токенов; внешняя
+    // обёртка снимается отдельно (ruby -e 'code' → code), чтобы regex литералов
+    // увидел внутренние строки, а не всю внешнюю пару.
+    if (head === 'ruby' || head === 'node' || head === 'php' ||
+        /^node\d+$/.test(head)) {
+      const rawTokens = tokenizeShellKeepQuotes(cmd);
+      const rawCmds = splitShellCommands(rawTokens);
+      for (const rawArgv of rawCmds) {
+        if (rawArgv.length === 0) continue;
+        if (rawArgv[0] !== head) continue;
+        for (let i = 1; i < rawArgv.length - 1; i++) {
+          if (rawArgv[i] === '-e' || rawArgv[i] === '-r') {
+            let code = rawArgv[i + 1];
+            // Снять внешнюю обёртку одинаковых кавычек (ruby -e 'code' / "code"):
+            // без этого extractPythonStringLiterals примет внешнюю пару за литерал
+            // и потеряет внутренние.
+            if (code.length >= 2) {
+              const first = code[0];
+              const last = code[code.length - 1];
+              if ((first === "'" && last === "'") || (first === '"' && last === '"')) {
+                code = code.slice(1, -1);
+              }
+            }
+            for (const lit of extractPythonStringLiterals(code)) pushOp(lit);
+            break;
+          }
+        }
+      }
+      continue;
+    }
+
+    // sed 's/A/B/w FILE' — флаг w в substitution пишет результат в FILE (B-025-r2-2).
+    // После stripQuotes код седа доступен; ищем `w FILE` в substitution.
+    if (head === 'sed') {
+      // Берём все не-флаг аргументы sed (sed-выражения), ищем в них «w <путь>».
+      // Структура sed-выражения: s/pattern/replacement/flags (flags могут содержать 'w')
+      for (let i = 1; i < argv.length; i++) {
+        const a = argv[i];
+        if (a.startsWith('-')) continue;
+        // Ищем «w <путь>» в substitution (после третьего слэша flags-часть)
+        const wMatch = a.match(/s[\s\S]*?w\s+(\S+)/);
+        if (wMatch) pushOp(wMatch[1]);
+      }
+      continue;
+    }
+
+    // awk 'PROGRAM' [FILE ...] — redirect внутри PROGRAM (`> FILE` или `>> FILE`).
+    // FILE идёт ПОСЛЕ > — вытаскиваем из кода awk.
+    if (head === 'awk' || /^g?awk$/.test(head) || /^mawk$/.test(head)) {
+      for (let i = 1; i < argv.length; i++) {
+        const a = argv[i];
+        if (a.startsWith('-')) continue;
+        // Первый не-флаг аргумент — PROGRAM; ищем redirect > или >> внутри него.
+        const rMatch = a.match(/>>?\s*([\S]+|"[^"]*"|'[^']*')/);
+        if (rMatch) {
+          // Снимаем кавычки если есть.
+          let op = rMatch[1];
+          if ((op.startsWith('"') && op.endsWith('"')) ||
+              (op.startsWith("'") && op.endsWith("'"))) {
+            op = op.slice(1, -1);
+          }
+          pushOp(op);
+        }
+        break; // только первый не-флаг = PROGRAM
       }
       continue;
     }
@@ -273,6 +382,50 @@ function tokenizeShell(s: string): string[] {
     // Без кавычек.
     if (ch === "'" || ch === '"' || ch === '`') { quote = ch; i++; continue; }
     if (ch === '\\' && i + 1 < s.length) { cur += s[i + 1]; i += 2; continue; }
+    if (/\s/.test(ch) || ch === '|' || ch === '&' || ch === ';') {
+      if (cur.length > 0) { out.push(cur); cur = ''; }
+      if (ch === '|' || ch === '&' || ch === ';') out.push(ch);
+      i++; continue;
+    }
+    cur += ch; i++;
+  }
+  if (cur.length > 0) out.push(cur);
+  return out;
+}
+
+// Токенизация shell-строки с СОХРАНЕНИЕМ кавычек внутри токенов. Используется
+// для извлечения операндов из inline-кода ruby/node/php (B-025-r2-2):
+// tokenizeShell по умолчанию выкидывает кавычки на границах токенов, и литералы
+// в коде без внешней обёртки (ruby -e File.write("x.txt","X")) теряют кавычки →
+// extractPythonStringLiterals ничего не находит → operands.length===0 →
+// «безопасный пропуск» → pass (дыра B-025-r2-2). Здесь opening/closing кавычки
+// ОСТАЮТСЯ внутри токена; внешняя обёртка снимается отдельно в
+// extractExtraWriteOperands (ruby/node/php-ветка), чтобы regex литералов увидел
+// внутренние строки, а не всю внешнюю пару.
+function tokenizeShellKeepQuotes(s: string): string[] {
+  const out: string[] = [];
+  let cur = '';
+  let quote: "'" | '"' | '`' | null = null;
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (quote === "'") {
+      // В одинарных кавычках ничего не интерпретируется (кроме закрывающей ').
+      if (ch === "'") { quote = null; cur += ch; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    if (quote === '"' || quote === '`') {
+      if (ch === '\\' && i + 1 < s.length) {
+        cur += ch + s[i + 1];
+        i += 2;
+        continue;
+      }
+      if (ch === quote) { quote = null; cur += ch; i++; continue; }
+      cur += ch; i++; continue;
+    }
+    // Без кавычек.
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; cur += ch; i++; continue; }
+    if (ch === '\\' && i + 1 < s.length) { cur += ch + s[i + 1]; i += 2; continue; }
     if (/\s/.test(ch) || ch === '|' || ch === '&' || ch === ';') {
       if (cur.length > 0) { out.push(cur); cur = ''; }
       if (ch === '|' || ch === '&' || ch === ';') out.push(ch);
@@ -548,7 +701,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 //   живым probe025: edit с относительным путём прошёл УСПЕХ без блока).
 //
 // Пин/actual берётся из event.worktree/event.actual (если omp их передаёт) иначе
-// process.env.WORKTREE/process.env.PI_ACTUAL/process.cwd(). Сессия без WORKTREE —
+// process.env.WORKTREE/process.cwd() (PI_ACTUAL env-фолбэк убран по B-025-r2-3: actual = realpath фактического cwd сессии, не env-вход). Сессия без WORKTREE —
 // непиннованная: пишет ТОЛЬКО в null-allowlist = scratch ∪ artifact:/
 // (резолюция 2026-09-11 «дыра B»; local://, mcp://, skill:// — не исключение;
 // fix 025 правка-круг 3).
@@ -584,7 +737,7 @@ export default function register(pi: unknown): void {
     if (name === 'edit') extractEditPath(args);
 
     const envWorktree = process.env.WORKTREE ?? null;
-    const envActual = process.env.PI_ACTUAL ?? process.cwd();
+    const envActual = process.cwd();
     const worktree = typeof call.worktree === 'string' ? call.worktree : envWorktree;
     const actual = typeof call.actual === 'string' ? call.actual : envActual;
 
