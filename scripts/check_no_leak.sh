@@ -47,13 +47,26 @@
 # cwd не влияет на решение НИ В ОДНУ сторону (блокер 2 вердикта, ворота 7/8); rc фиксируется
 # БЕЗ пайпов (Н-84: pipefail-обёртка для суждения не используется).
 #
-# ЗАЩИТА-УТИЛИТ (контрпример S-path-forged-sha256 адверсария к2 01ed097: поддельный
-# sha256sum в PATH перед /usr/bin — `command -v sha256sum` ловит СУЩЕСТВОВАНИЕ, не
-# ПОДЛИННОСТЬ; два снимка дают одинаковый постоянный отпечаток, допись в untracked-путь
-# проходит как «чисто»). Решение: PATH сужается до ДОВЕРЕННЫХ системных префиксов
-# (/usr/bin /bin /usr/local/bin) ДО резолва; каждая утилита кэшируется в абсолютный
-# путь; sha256sum сверяется sanity-хэшем (пустой ввод ⇒ e3b0c442…, отказ ⇒ NOT_IMPLEMENTED).
-# Голое имя утилиты в коде детектора — дефект.
+# ЗАЩИТА-УТИЛИТ (контрпример S-path-forged-sha256 адверсария к2 01ed097:
+# поддельная sha256sum в PATH перед /usr/bin — `command -v sha256sum` ловит
+# СУЩЕСТВОВАНИЕ, не ПОДЛИННОСТЬ; два снимка дают одинаковый постоянный
+# отпечаток, допись в untracked-путь проходит как «чисто»).
+# Класс-фикс (вердикт к3 8911b68, контрпримеры S-path-fake-git-clean /
+# S-path-fake-comm-clean): фикс 04ba744 пинил ТОЛЬКО sha256sum и оставлял
+# git/sort/comm/mkdir/mktemp под полным PATH; адверсарий показал, что
+# любая внешняя утилита, резолвленная мимо TRUSTED_PATH, даёт «чистый»
+# обход (git: rc=0 + пустой porcelain ⇒ пустой манифест ⇒ дельта пуста;
+# comm: rc=0 + пустой stdout ⇒ дельта пуста). Это ОДИН класс «инструмент
+# мимо PATH» (Н-39: стабы к ветвям привязывает architect по коду), закрыт
+# ВЕРТИКАЛЬНО — пином КАЖДОЙ внешней утилиты, которую скрипт зовёт.
+# Решение: PATH сужается до ДОВЕРЕННЫХ системных префиксов
+# (/usr/bin /bin /usr/local/bin) ДО резолва; КАЖДАЯ утилита кэшируется в
+# абсолютный путь через `PATH="$TRUSTED_PATH" command -v`; sha256sum
+# дополнительно сверяется sanity-хэшем пустого ввода (e3b0c442…).
+# Голое имя утилиты в коде детектора после блока пина — дефект.
+# Список пин-резолвленных утилит (импортирован architect'ом, сверен
+# следующим адверсарием): git, sha256sum, sort, comm, mkdir, mktemp,
+# stat, chmod, mv, cat, head, grep, rm.
 #
 # ЗАЩИТА-СНИМКА (контрпример S-external-snapshot-symlink адверсария к2 01ed097: после
 # baseline-снимка внешний файл манифеста подменяется симлинком на снимок ТОГО ЖЕ корня,
@@ -68,22 +81,29 @@
 #      «mode равен 0444», чтобы umask-вариации не стреляли). Сам по себе не ловит
 #      атаку, но повышает планку: `cat new > old` сохраняет inode и (как правило) не
 #      обнуляет бит чтения, но режим-сюрприз «на снимке вдруг нет 0444» — диагностика.
-#   3. Self-verify (ОПЦИОНАЛЬНО): последняя строка снимка — «verify <sha256>», sha по
-#      всему предыдущему содержимому. На check: если строка есть, она ОБЯЗАНА сойтись;
-#      если строки нет (стабы/старые снимки — без неё), проверка пропускается. Ловит
-#      байтовую модификацию снимка на месте (НЕ ловит mv+cp — там атакующий пишет свой
-#      валидный verify; это явный лимит «сговор/спавн-без-вердикта» Демаркации).
+#   3. Self-verify (ОБЯЗАТЕЛЬНО для прод-снимков, класс-фикс вердикта к3 — контрпример
+#      S-mv-replace-no-verify 8911b68): последняя строка снимка — «verify <sha256>», sha
+#      по всему предыдущему содержимому. На check отсутствие verify в прод-снимке =
+#      именованный отказ (не молчаливый пропуск ветки «if -n verify_line»). Совместимость
+#      со стабами `fixtures/check_judge_gate/stab_detektor_*.sh` (подмена детектора на
+#      stab_* в пробе) не нарушается: они НЕ зовут продовский --check (их ворота 12/13
+#      итд. судит сам stab, а canary и red_detektor_utechek.sh работают с прод-детектором
+#      и его снимки ВСЕГДА пишут verify — обратная совместимость со стабами держится через
+#      их обособленный код, а не через глобальное послабление verify). Ловит байтовую
+#      модификацию снимка на месте И mv+replace БЕЗ verify (явный лимит «сговор с
+#      валидным verify» Демаркации остаётся).
 # Связка с деревом на check — через канонический корень (`$CANON` ⇒ путь снимка ⇒
 # содержимое корневой строки), и через `--check <абс-корень>` (тот же CANON на обоих
-# концах). То, что не закрыто — mv+replace содержимого валидным свежим снимком; это
-# ограничение Демаркации («сговор»).
+# концах). То, что не закрыто — mv+replace содержимого ВАЛИДНЫМ свежим снимком (с
+# правильным verify на текущем дереве); это ограничение Демаркации («сговор»).
 #
 # Выход: 0 — снимок сделан / дельта пуста («основной чекаут чист»); 1 — именованный
 #               отказ («основной чекаут загрязнён: <имена>» / «снимок отсутствует» /
 #               «корень обязан быть абсолютным» / «снимок чужого корня» /
 #               «снимок не прочитан» / «снимок — симлинк» / «каталог снимка — симлинк»
-#               / «снимок: режим не read-only» / «снимок: verify не сошёлся» —
-#               кейс v4: чтение снимка cat||true тот же класс
+#               / «снимок: режим не read-only» / «снимок: verify не сошёлся» /
+#               «снимок: verify-строка отсутствует — обязательна для прод-снимков»
+#               — кейс v4: чтение снимка cat||true тот же класс
 #               «отказ producer ≠ молчаливый успех», имя дано);
 #               2 — окружение не годится (нет утилит закрытого списка, sha256sum не
 #               прошёл sanity-хэш, git status rc≠0, нет git, каталог/репозиторий
@@ -124,24 +144,36 @@ case "$ROOT_ARG" in
     ;;
 esac
 
-# ─── ЗАЩИТА-УТИЛИТ: пин sha256sum + PATH-резолв для остальных ─────────────
-# Контрпример S-path-forged-sha256 адверсария к2 01ed097: поддельный sha256sum
+# ─── ЗАЩИТА-УТИЛИТ: пин ВСЕХ внешних утилит через TRUSTED_PATH (класс-фикс) ──
+# Контрпример S-path-forged-sha256 адверсария к2 01ed097: поддельная sha256sum
 # на PATH возвращает КОНСТАНТНЫЙ валидный hex → два снимка одинаковы → допись
-# в untracked-путь проходит «чисто». Детектор ловит СУЩЕСТВОВАНИЕ утилит
-# (`command -v X`), но не ПОДЛИННОСТЬ.
+# в untracked-путь проходит «чисто». Детектор ловил СУЩЕСТВОВАНИЕ утилит
+# (`command -v X`), но не ПОДЛИННОСТЬ — фикс 04ba744 закрыл sha256sum.
 #
-# Решение: pin ТОЛЬКО sha256sum (через TRUSTED_PATH-only резолв + sanity-хэш
-# пустого ввода e3b0c442…). Остальные утилиты (git, sort, comm, mkdir, mktemp)
-# резолвятся через ПОЛНЫЙ PATH (как в исходной версии):
-#   - за pin git/sort/comm пришлось бы платить сломанными воротами 15/16 фикстуры
-#     red_detektor_utechek.sh (она симулирует отказ git/no-sha256sum через PATH —
-#     pin обходит симуляцию, и ворота теряют диагностику);
-#   - подмена git/sort/comm НЕ даёт «чистого» обхода: git status возвращает rc≠0
-#     → ловится превентивом 1 (манифест не прочитан); sort/comm, выдающие «мусор»
-#     вместо сортировки/деления, дают дельту ≠ 0 → ложная тревога, не «чисто».
-# То есть SHA256SUM — единственный утилитный класс, способный ВЫГЛЯДЕТЬ
-# валидным при подмене (константный хэш ⇒ совпадение снимков). На нём — пин и
-# sanity; остальные живут по исходной схеме.
+# Класс «инструмент мимо PATH» (вердикт к3 8911b68) — контрпримеры
+# S-path-fake-git-clean и S-path-fake-comm-clean: фикс 04ba744 пинил ТОЛЬКО
+# sha256sum и оставлял git/sort/comm/mkdir/mktemp под полным PATH. Это НЕ
+# «закрытый случай» — адверсарий показал, что любая внешняя утилита,
+# резолвленная мимо TRUSTED_PATH, даёт «чистый» обход:
+#   * поддельный git, возвращающий rc=0 + пустой porcelain ⇒ пустой манифест ⇒
+#     оба снимка пусты ⇒ дельта пуста ⇒ «чисто»;
+#   * поддельный comm, возвращающий rc=0 + пустой stdout ⇒ дельта пуста ⇒
+#     «чисто» (форма «мусорный comm» даёт ложную тревогу ≠ «чисто» — но
+#     «чистый пустой stdout» неотличим от «дельты нет»).
+# Дополнительный класс (stat/chmod/mv/cat/head/grep/rm — голое имя в коде
+# детектора): подмена через PATH даёт аналогичный обход (cat → поддельный
+# cat с rc=0 + пустым stdout ⇒ «снимок не прочитан» ОТЛОВИМ, но «подмена
+# printf '%s' "$base"» — отдельный путь). Закрытие — ВЕРТИКАЛЬНО: пин
+# КАЖДОЙ внешней утилиты, которую скрипт зовёт. Н-39: стабы к ветвям
+# привязывает architect по коду, не проза контракта — здесь одна вертикаль.
+#
+# ИТОГОВЫЙ СПИСОК пин-резолвленных утилит (коммит-сообщение несёт побайтово;
+# architect импортирует и сверит следующий адверсарий):
+#   git, sha256sum, sort, comm, mkdir, mktemp, stat, chmod, mv, cat,
+#   head, grep, rm
+# — каждая через `PATH="$TRUSTED_PATH" command -v` кэшируется в абсолютный
+# путь. Любое отсутствие в доверенных путях ⇒ NOT_IMPLEMENTED rc 2 именованный.
+# Голое имя утилиты в коде детектора после этого блока — дефект.
 TRUSTED_PATH=""
 for d in /usr/bin /bin /usr/local/bin; do
   if [ -d "$d" ]; then
@@ -151,36 +183,73 @@ done
 [ -n "$TRUSTED_PATH" ] \
   || { printf 'NOT_IMPLEMENTED: нет ни одного доверенного системного каталога (/usr/bin /bin /usr/local/bin)\n' >&2; exit 2; }
 
-# Блокер 2 d67ac4b + контрпример S-no-sha256sum: предпроверка ЗАКРЫТОГО списка
-# утилит ДО любой работы, через PATH (как в исходной версии — иначе gate 16 не
-# сможет симулировать «нет sha256sum»): rc 2 NOT_IMPLEMENTED именованный
-# «утилита X отсутствует». Контрпример S-path-forged-sha256 обходится не здесь,
-# а sanity-через-пин (см. ниже).
+# Предпроверка ЗАКРЫТОГО списка утилит ДО любой работы (блокер 2 d67ac4b +
+# контрпример S-no-sha256sum 8911b68: предпроверка через PATH, чтобы gate 16
+# фикстуры red_detektor_utechek.sh мог симулировать «нет sha256sum» —
+# BIN16 фикстуры кладёт минимальный PATH без sha256sum). Список — минимальный
+# (только те 6 утилит, что нужны предпроверке для gate 15/16). Для новых
+# утилит (stat/chmod/mv/cat/head/grep/rm) доверие обеспечивает пин ниже:
+# резолв через TRUSTED_PATH-only; если в BIN16 нет stat и пин падает на
+# stat — это НЕ ожидаемая ветка, но и не ломает gate 16 (gate 16 идёт
+# первым через sha256sum, которого в BIN16 нет). На честном PATH новые
+# утилиты присутствуют (любой Linux /usr/bin).
 for util in git sha256sum sort comm mkdir mktemp; do
   command -v "$util" >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: утилита %s отсутствует\n' "$util" >&2; exit 2; }
 done
 
-# ПИН sha256sum: TRUSTED_PATH-only + sanity-хэш пустого ввода. Контрпример
-# S-path-forged-sha256: фейк, возвращающий константный 64-hex (000…000) на
-# ЛЮБОЙ ввод — sanity-хэш даст 000…000 вместо e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-# и НЕ сойдётся — NOT_IMPLEMENTED rc 2 именованный. Контрпример S-no-sha256sum:
-# sha256sum отсутствует на PATH → предпроверка выше срабатывает первой, sanity-пин
-# не достигается.
-# Резолв остальных утилит через PATH (gate 15 симулирует fake git через PATH —
-# пин бы обошёл симуляцию и сломал ворота). Подмена git/sort/comm/mkdir/mktemp
-# здесь не закрыта «абсолютным путём», но не даёт «чистого» обхода: ловится
-# rc≠0 на git status (превентив 1) или ложной дельтой на sort/comm.
-GIT="$(command -v git)"
-SORT="$(command -v sort)"
-COMM="$(command -v comm)"
-MKTEMP="$(command -v mktemp)"
-MKDIR="$(command -v mkdir)"
+# ПИН ВСЕХ ВНЕШНИХ УТИЛИТ через TRUSTED_PATH-only резолв. Каждая —
+# абсолютный путь + sanity-проверка `[ -x "$X" ]`. sha256sum дополнительно
+# sanity-хэшем пустого ввода e3b0c442… (S-path-forged-sha256): фейк,
+# возвращающий константный 64-hex на ЛЮБОЙ ввод, sanity-хэш даст 000…000
+# вместо e3b0c442… и НЕ сойдётся — NOT_IMPLEMENTED rc 2 именованный.
+# head заменяет голое `head -n1` на пин-путь `$HEAD -n1` (sha256sum-вывод
+# парсится первым токеном, атака на head тривиальна: пустая строка +
+# поддельный sha — пиновый head резолвится из /usr/bin, не из fake-bin).
+GIT="$(PATH="$TRUSTED_PATH" command -v git)"
+[ -n "$GIT" ] && [ -x "$GIT" ] \
+  || { printf 'NOT_IMPLEMENTED: git в доверенных путях отсутствует\n' >&2; exit 2; }
+SORT="$(PATH="$TRUSTED_PATH" command -v sort)"
+[ -n "$SORT" ] && [ -x "$SORT" ] \
+  || { printf 'NOT_IMPLEMENTED: sort в доверенных путях отсутствует\n' >&2; exit 2; }
+COMM="$(PATH="$TRUSTED_PATH" command -v comm)"
+[ -n "$COMM" ] && [ -x "$COMM" ] \
+  || { printf 'NOT_IMPLEMENTED: comm в доверенных путях отсутствует\n' >&2; exit 2; }
+MKTEMP="$(PATH="$TRUSTED_PATH" command -v mktemp)"
+[ -n "$MKTEMP" ] && [ -x "$MKTEMP" ] \
+  || { printf 'NOT_IMPLEMENTED: mktemp в доверенных путях отсутствует\n' >&2; exit 2; }
+MKDIR="$(PATH="$TRUSTED_PATH" command -v mkdir)"
+[ -n "$MKDIR" ] && [ -x "$MKDIR" ] \
+  || { printf 'NOT_IMPLEMENTED: mkdir в доверенных путях отсутствует\n' >&2; exit 2; }
+STAT="$(PATH="$TRUSTED_PATH" command -v stat)"
+[ -n "$STAT" ] && [ -x "$STAT" ] \
+  || { printf 'NOT_IMPLEMENTED: stat в доверенных путях отсутствует\n' >&2; exit 2; }
+CHMOD="$(PATH="$TRUSTED_PATH" command -v chmod)"
+[ -n "$CHMOD" ] && [ -x "$CHMOD" ] \
+  || { printf 'NOT_IMPLEMENTED: chmod в доверенных путях отсутствует\n' >&2; exit 2; }
+MV="$(PATH="$TRUSTED_PATH" command -v mv)"
+[ -n "$MV" ] && [ -x "$MV" ] \
+  || { printf 'NOT_IMPLEMENTED: mv в доверенных путях отсутствует\n' >&2; exit 2; }
+CAT="$(PATH="$TRUSTED_PATH" command -v cat)"
+[ -n "$CAT" ] && [ -x "$CAT" ] \
+  || { printf 'NOT_IMPLEMENTED: cat в доверенных путях отсутствует\n' >&2; exit 2; }
+HEAD="$(PATH="$TRUSTED_PATH" command -v head)"
+[ -n "$HEAD" ] && [ -x "$HEAD" ] \
+  || { printf 'NOT_IMPLEMENTED: head в доверенных путях отсутствует\n' >&2; exit 2; }
+GREP="$(PATH="$TRUSTED_PATH" command -v grep)"
+[ -n "$GREP" ] && [ -x "$GREP" ] \
+  || { printf 'NOT_IMPLEMENTED: grep в доверенных путях отсутствует\n' >&2; exit 2; }
+TAIL="$(PATH="$TRUSTED_PATH" command -v tail)"
+[ -n "$TAIL" ] && [ -x "$TAIL" ] \
+  || { printf 'NOT_IMPLEMENTED: tail в доверенных путях отсутствует\n' >&2; exit 2; }
+RM="$(PATH="$TRUSTED_PATH" command -v rm)"
+[ -n "$RM" ] && [ -x "$RM" ] \
+  || { printf 'NOT_IMPLEMENTED: rm в доверенных путях отсутствует\n' >&2; exit 2; }
 SHA256SUM="$(PATH="$TRUSTED_PATH" command -v sha256sum)"
 [ -n "$SHA256SUM" ] && [ -x "$SHA256SUM" ] \
   || { printf 'NOT_IMPLEMENTED: sha256sum в доверенных путях отсутствует\n' >&2; exit 2; }
 EXPECTED_EMPTY='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-GOT_EMPTY="$("$SHA256SUM" </dev/null 2>/dev/null | head -n1)"
+GOT_EMPTY="$("$SHA256SUM" </dev/null 2>/dev/null | "$HEAD" -n1)"
 [ "${GOT_EMPTY%% *}" = "$EXPECTED_EMPTY" ] \
   || { printf 'NOT_IMPLEMENTED: sha256sum в %s не прошёл sanity-хэш (подмена?)\n' "$SHA256SUM" >&2; exit 2; }
 
@@ -240,7 +309,7 @@ emit_manifest() {  # <root> <prefix>
     > "$tmpf" 2>/dev/null
   status_rc=$?
   if [ "$status_rc" -ne 0 ]; then
-    rm -f -- "$tmpf"
+    "$RM" -f -- "$tmpf"
     printf 'NOT_IMPLEMENTED: манифест не прочитан: git status rc=%d в %s\n' \
       "$status_rc" "$root" >&2
     return 2
@@ -254,7 +323,7 @@ emit_manifest() {  # <root> <prefix>
       # Превентив 2: константа '-' маскировала отказ producer'а. Грамматика контракта
       # требует @head:<sha> — отсутствие sha ломает формат, fail-closed rc=2 именованный.
       if ! head="$("$GIT" -C "$full" rev-parse HEAD 2>/dev/null)"; then
-        rm -f -- "$tmpf"
+        "$RM" -f -- "$tmpf"
         printf 'NOT_IMPLEMENTED: HEAD недостижим в %s\n' "$full" >&2
         return 2
       fi
@@ -266,7 +335,7 @@ emit_manifest() {  # <root> <prefix>
       # Превентив 1: константа 'ERR' маскировала отказ producer'а (нечитаемый файл
       # давал тот же отпечаток, что и любой другой нечитаемый — допись невидима).
       if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
-        rm -f -- "$tmpf"
+        "$RM" -f -- "$tmpf"
         printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$full" >&2
         return 2
       fi
@@ -277,7 +346,7 @@ emit_manifest() {  # <root> <prefix>
       printf '%s:-\t%s%s\n' "$xy" "$prefix" "$path"
     fi
   done < "$tmpf"
-  rm -f -- "$tmpf"
+  "$RM" -f -- "$tmpf"
 }
 manifest() { emit_manifest "$1" "$2" | "$SORT"; }
 
@@ -308,25 +377,31 @@ do_snapshot() {
   #   строка N: verify <sha256 всего предыдущего содержимого>
   # Verify охватывает и «root», и тело — то есть СВЯЗЫВАЕТ снимок с каноническим
   # корнем (через первую строку) и с состоянием дерева (через тело). На check
-  # проверка выполняется ТОЛЬКО если строка verify присутствует (стабы/старые
-  # снимки её не пишут — обратная совместимость с red_detektor_utechek.sh и
-  # probe_slabyh_detektora.sh, которые подменяют детектор на stab_*).
+  # проверка ВСЕГДА обязательна (класс-фикс вердикта к3, контрпример
+  # S-mv-replace-no-verify 8911b68): отсутствие verify-строки в прод-снимке
+  # = именованный отказ «verify-строка отсутствует — обязательна для прод-снимков».
+  # Совместимость со стабами `fixtures/check_judge_gate/stab_detektor_*.sh`
+  # держится НЕ через глобальное послабление, а через обособленный код стабов:
+  # canary и red_detektor_utechek.sh работают с прод-детектором и его снимки
+  # ВСЕГДА пишут verify; стабы НЕ зовут прод-verify и проверяются собственной
+  # веткой слабого детектора (probe_slabyh_detektora.sh, фаза 1 «честная форма»
+  # против стaba с verify-строкой — то же имя, та же грамматика verify).
   {
     printf 'root %s\n' "$CANON"
     printf '%s\n' "$m"
   } > "$tmp_snap"
   # sha256sum прямо из файла: $(cat …) в bash срезает хвостовые \n, что сдвигает
   # sha256 на 1 байт и рвёт verify-чек на check. Чтение через stdin — без потерь.
-  verify_sha="$("$SHA256SUM" < "$tmp_snap" | head -n1)"
+  verify_sha="$("$SHA256SUM" < "$tmp_snap" | "$HEAD" -n1)"
   verify_sha="${verify_sha%% *}"
   printf 'verify %s\n' "$verify_sha" >> "$tmp_snap"
   # Mode-lock: только-read для всех — defense-in-depth (иммутабельность файла
   # после записи; атакующий, чтобы переписать содержимое, обязан сначала снять
   # бит записи). На check — sanity mode (бит 0444 присутствует); см. do_check.
-  chmod 0444 -- "$tmp_snap" 2>/dev/null \
-    || { rm -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: chmod 0444 на снимок отказал\n' >&2; exit 2; }
-  mv -f -- "$tmp_snap" "$SNAP" \
-    || { rm -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: переименование снимка отказало\n' >&2; exit 2; }
+  "$CHMOD" 0444 -- "$tmp_snap" 2>/dev/null \
+    || { "$RM" -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: chmod 0444 на снимок отказал\n' >&2; exit 2; }
+  "$MV" -f -- "$tmp_snap" "$SNAP" \
+    || { "$RM" -f -- "$tmp_snap"; printf 'NOT_IMPLEMENTED: переименование снимка отказало\n' >&2; exit 2; }
 }
 
 do_check() {
@@ -376,7 +451,7 @@ do_check() {
     exit 1
   fi
   base=""
-  if ! base="$(cat -- "$SNAP" 2>/dev/null)"; then
+  if ! base="$("$CAT" -- "$SNAP" 2>/dev/null)"; then
     printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
     exit 1
   fi
@@ -391,7 +466,7 @@ do_check() {
   # НЕ сошёлся, мы уже отвергли снимок ранее (gate 13) и сюда не доходим; тем
   # самым фейковые снимки (чужие или стабы) не ловятся по mode, а ловятся по
   # root — это и есть желаемая диагностика gate 13 («снимок чужого корня»).
-  snap_mode="$(stat -c '%a' -- "$SNAP" 2>/dev/null)" \
+  snap_mode="$("$STAT" -c '%a' -- "$SNAP" 2>/dev/null)" \
     || { printf 'NOT_IMPLEMENTED: stat отказал на %s\n' "$SNAP" >&2; exit 2; }
   case "$snap_mode" in
     *[!0-7]*) printf 'NOT_IMPLEMENTED: stat вернул не-octal mode %s\n' "$snap_mode" >&2; exit 2 ;;
@@ -403,27 +478,36 @@ do_check() {
     printf 'ОТКАЗ: снимок: режим %s не read-only (биты 0222 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
     exit 1
   fi
-  # Мера 3: optional self-verify. Последняя строка `verify <sha>`. Если строка есть,
-  # sha ОБЯЗАН сойтись (пересчёт по всему предыдущему содержимому); если строки
-  # нет (стаб/старый снимок) — пропуск. Совместимость с red_detektor_utechek.sh
-  # и probe_slabyh_detektora.sh, которые подменяют детектор на stab_* без verify.
-  verify_line="$(printf '%s' "$base" | grep -E '^verify [0-9a-f]{64}$' | tail -n1 || true)"
-  if [ -n "$verify_line" ]; then
-    # Содержимое ДО verify-строки (включая завершающий \n перед verify) — это всё,
-    # что verify коммитит. do_snapshot кладёт «root …\n + sorted-строки\n» и потом
-    # дописывает «verify <sha>\n»; на check берём всё ДО «verify <sha>» — последний
-    # \n (тот, что отделял тело от verify) сохраняем, иначе sha256 не совпадёт
-    # (cat -- | sha256sum vs printf '%s' … | sha256sum — лишний/недостающий \n).
-    verify_payload="${base%verify *}"
-    # Точная копия правила из do_snapshot:
-    verify_recomp="$(printf '%s' "$verify_payload" | "$SHA256SUM" | head -n1)"
-    verify_recomp="${verify_recomp%% *}"
-    verify_stored="${verify_line#verify }"
-    if [ "$verify_recomp" != "$verify_stored" ]; then
-      printf 'ОТКАЗ: снимок: verify не сошёлся (хранимый=%s, пересчёт=%s) — байтовая модификация снимка на месте\n' \
-        "$verify_stored" "$verify_recomp" >&2
-      exit 1
-    fi
+  # Мера 3: ОБЯЗАТЕЛЬНЫЙ self-verify (класс-фикс вердикта к3 — контрпример
+  # S-mv-replace-no-verify 8911b68). Последняя строка `verify <sha>` ОБЯЗАНА
+  # присутствовать в прод-снимке: атакующий, имеющий право писать в свой TMPDIR,
+  # делает `mv -f` своего снимка БЕЗ verify — старая ветка «if -n verify_line»
+  # пропускала verify-чек, дельта считалась от подогнанного манифеста ⇒ «чисто».
+  # Теперь отсутствие verify — НЕ молчаливый пропуск, а именованный rc=1 ОТКАЗ.
+  # Совместимость со стабами `fixtures/check_judge_gate/stab_detektor_*.sh`
+  # (НЕ пишут verify) держится через их обособленный код — canary и red_detektor
+  # используют прод-детектор (ВСЕГДА пишет verify) и проверяются против него;
+  # стабы — отдельный код, проверяются своей веткой слабого детектора и к
+  # прод-verify-чеку не приходят.
+  verify_line="$(printf '%s' "$base" | "$GREP" -E '^verify [0-9a-f]{64}$' | "$TAIL" -n1 || true)"
+  if [ -z "$verify_line" ]; then
+    printf 'ОТКАЗ: снимок: verify-строка отсутствует — обязательна для прод-снимков (отсутствие verify = подмена/сговор, не «совместимость со стабом»; контрпример S-mv-replace-no-verify к3 8911b68)\n' >&2
+    exit 1
+  fi
+  # Содержимое ДО verify-строки (включая завершающий \n перед verify) — это всё,
+  # что verify коммитит. do_snapshot кладёт «root …\n + sorted-строки\n» и потом
+  # дописывает «verify <sha>\n»; на check берём всё ДО «verify <sha>» — последний
+  # \n (тот, что отделял тело от verify) сохраняем, иначе sha256 не совпадёт
+  # (cat -- | sha256sum vs printf '%s' … | sha256sum — лишний/недостающий \n).
+  verify_payload="${base%verify *}"
+  # Точная копия правила из do_snapshot:
+  verify_recomp="$(printf '%s' "$verify_payload" | "$SHA256SUM" | "$HEAD" -n1)"
+  verify_recomp="${verify_recomp%% *}"
+  verify_stored="${verify_line#verify }"
+  if [ "$verify_recomp" != "$verify_stored" ]; then
+    printf 'ОТКАЗ: снимок: verify не сошёлся (хранимый=%s, пересчёт=%s) — байтовая модификация снимка на месте\n' \
+      "$verify_stored" "$verify_recomp" >&2
+    exit 1
   fi
   cur="$(manifest "$CANON" '')"
   manifest_rc=$?
