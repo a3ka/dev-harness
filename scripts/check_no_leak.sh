@@ -239,6 +239,9 @@ HEAD="$(PATH="$TRUSTED_PATH" command -v head)"
 GREP="$(PATH="$TRUSTED_PATH" command -v grep)"
 [ -n "$GREP" ] && [ -x "$GREP" ] \
   || { printf 'NOT_IMPLEMENTED: grep в доверенных путях отсутствует\n' >&2; exit 2; }
+TAIL="$(PATH="$TRUSTED_PATH" command -v tail)"
+[ -n "$TAIL" ] && [ -x "$TAIL" ] \
+  || { printf 'NOT_IMPLEMENTED: tail в доверенных путях отсутствует\n' >&2; exit 2; }
 RM="$(PATH="$TRUSTED_PATH" command -v rm)"
 [ -n "$RM" ] && [ -x "$RM" ] \
   || { printf 'NOT_IMPLEMENTED: rm в доверенных путях отсутствует\n' >&2; exit 2; }
@@ -486,7 +489,7 @@ do_check() {
   # используют прод-детектор (ВСЕГДА пишет verify) и проверяются против него;
   # стабы — отдельный код, проверяются своей веткой слабого детектора и к
   # прод-verify-чеку не приходят.
-  verify_line="$(printf '%s' "$base" | "$GREP" -E '^verify [0-9a-f]{64}$' | tail -n1 || true)"
+  verify_line="$(printf '%s' "$base" | "$GREP" -E '^verify [0-9a-f]{64}$' | "$TAIL" -n1 || true)"
   if [ -z "$verify_line" ]; then
     printf 'ОТКАЗ: снимок: verify-строка отсутствует — обязательна для прод-снимков (отсутствие verify = подмена/сговор, не «совместимость со стабом»; контрпример S-mv-replace-no-verify к3 8911b68)\n' >&2
     exit 1
