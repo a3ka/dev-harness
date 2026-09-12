@@ -1,0 +1,65 @@
+{
+  "_comment": "ЕДИНСТВЕННЫЙ источник назначений моделей (решение владельца 2026-09-12: правка моделей = правка ТОЛЬКО этого файла + npm run gen:harness). Производные: .omp/agents/*.md (роль→тир) и секция modelRoles в .omp/config.yml (тир→модель) — обе генерируются scripts/gen-harness.ts и сверяются --check. Фолбеки — ДЕКЛАРАЦИИ до механизма Н-50: сегодня подмена ручная (процедура в роли оркестратора); поле fallback — вход контракта Н-50. Имена моделей — только из каталога omp models <провайдер> --json (Н-17). Основания решений — в why; даты решений — в git.",
+  "tiers": {
+    "default": {
+      "model": "zai/glm-5.3",
+      "fallback": "anthropic/claude-sonnet-5",
+      "why": "ведущая сессия (оркестратор). Решение 2026-09-12 — glm-5.3 (инверсия «дешёвой сессии» MiniMax от 2026-08-24; Н-51: разделение жгло glm всё равно, $32 на 011). 1M, 1.4/4.4 — цена 5.2. Текстовая: кадры — тир vision. Фолбек — слово владельца 2026-09-12: последний Sonnet (1M, 2/10)."
+    },
+    "vision": {
+      "model": "minimax/MiniMax-M3",
+      "fallback": null,
+      "why": "просмотр кадров: единственный тир с обязанностью картинок; inspect_image убран из инвентаря сессии (Н-20), тир держит долг на его возвращение."
+    },
+    "task": {
+      "model": "minimax/MiniMax-M3",
+      "fallback": "anthropic/claude-sonnet-5",
+      "why": "implementer: массовая работа, расход через прокси учёта; владелец поднимает лимит MiniMax (2026-09-12). Фолбек — Sonnet: квотная смерть 2056 (2026-09-11) больше не останавливает работу."
+    },
+    "smol": {
+      "model": "minimax/MiniMax-M2.5-lightning",
+      "fallback": null,
+      "why": "мелкие шаги: перечисления, короткие выборки."
+    },
+    "slow": {
+      "model": "zai/glm-5.3",
+      "fallback": "anthropic/claude-opus-5",
+      "why": "architect: frontier + ред-тесты; окно 1M обязательно (замер: стенограммы 4.5 МБ; у OpenAI потолок 272K — кросс-вендор фолбека окну нет). GLM с 2026-08-17 (цена; ранее claude-opus-5), 5.3 с 2026-09-12 (каталог omp 18.1.18, цена 5.2). Подписка Coding Plan: расход виден в лимитах кредитов z.ai."
+    },
+    "advisor": {
+      "model": "openai-codex/gpt-5.6-terra",
+      "fallback": "anthropic/claude-opus-5",
+      "why": "adversary: судья реализации вне семейств авторов (glm/minimax); terra — доказанный атакующий (живые обходы в каждом круге)."
+    },
+    "apex": {
+      "model": "openai-codex/gpt-6-astra",
+      "fallback": "anthropic/claude-opus-5",
+      "why": "critic: топ чужого семейства на самом дешёвом этапе — один круг на контракт, реализаций ещё нет (три версии критерия шага 5 стоили 12/35/8 фикстур). Топ = gpt-6-astra («Астра») с 2026-09-12 (10/50, каталог 18.1.18); ранее gpt-5.6-sol (2026-08-17)."
+    },
+    "audit": {
+      "model": "anthropic/claude-opus-5",
+      "fallback": "openai-codex/gpt-5.6-sol",
+      "why": "reviewer: решение 2026-09-12 — opus-5 (1M, «важная часть работы»; duty «перепроверяет ВСЁ»). Фолбек — сопоставимая модель OpenAI (sol, 4/20), слово владельца. Судьи реализации разведены по вендорам: 2 OpenAI + 2 Anthropic, все на разных моделях."
+    },
+    "plan": {
+      "model": "anthropic/claude-fable-5",
+      "fallback": "anthropic/claude-opus-5",
+      "why": "arbiter: 1M под предмет и ВСЕ вердикты кругов; созывается редко. Фолбек вынужденно тот же вендор: у OpenAI в каталоге нет 1M."
+    },
+    "steward": {
+      "model": "anthropic/claude-haiku-4-5",
+      "fallback": "openai-codex/gpt-5.6-luna",
+      "why": "steward: ответ прецедентом из decisions/; дормант (0 сессий за историю), чтение — дешёвая полка; дорогой тир plan освобождён."
+    }
+  },
+  "roles": {
+    "orchestrator": "default",
+    "architect": "slow",
+    "implementer": "task",
+    "adversary": "advisor",
+    "critic": "apex",
+    "reviewer": "audit",
+    "arbiter": "plan",
+    "steward": "steward"
+  }
+}

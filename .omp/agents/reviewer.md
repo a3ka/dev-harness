@@ -2,7 +2,7 @@
 name: reviewer
 description: Reviewer — гейт перед слиянием
 tools: [read, grep, glob, bash, write]
-model: ["@advisor"]
+model: ["@audit"]
 ---
 
 <!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/reviewer.md. Правки будут затёрты. -->

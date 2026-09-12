@@ -25,7 +25,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadRoles, RoleParseError, type Role } from './roles.ts'
+import { loadRoles, RoleParseError, AGENT_MODELS, type Role } from './roles.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const ROLES_DIR = join(ROOT, 'roles')
@@ -47,6 +47,8 @@ if (!existsSync(ROLES_DIR)) {
 
 const banner = (slug: string): string =>
   `<!-- ${MARK} из roles/${slug}.md. Правки будут затёрты. -->`
+
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** Формат субагента omp. Модель — ССЫЛКОЙ на роль модели, а не идентификатором:
  *  конкретная модель остаётся в одном месте, `.omp/config.yml`, и меняется там же. */
@@ -138,6 +140,55 @@ if (existsSync(target)) {
         drift.push(`сгенерирован нами, но роли уже нет: ${f}`)
       }
     }
+  }
+}
+
+// ── modelRoles в .omp/config.yml — ГЕНЕРИРУЕТСЯ из config/agent_models.json ───
+// Решение владельца 2026-09-12: единственный источник назначений моделей —
+// config/agent_models.json; эта секция — производная, правится перегенерацией
+// (`npm run gen:harness`). Маркеры ограждают секцию, остальной конфиг не трогается.
+// `--into` здесь ни при чём: конфиг моделей один на репозиторий, агентские каталоги
+// проекту не принадлежат.
+const MR_BEGIN = '# ── modelRoles: СГЕНЕРИРОВАНО из config/agent_models.json — правь только там ──'
+const MR_END = '# ── /modelRoles ──'
+const renderModelRoles = (): string =>
+  [
+    MR_BEGIN,
+    'modelRoles:',
+    ...Object.entries(AGENT_MODELS.tiers).map(([tier, spec]) =>
+      spec.fallback
+        ? `  ${tier}: "${spec.model}"  # фолбек (декларация Н-50): ${spec.fallback}`
+        : `  ${tier}: "${spec.model}"`),
+    MR_END,
+  ].join('\n')
+
+if (!INTO) {
+  const cfgPath = join(ROOT, '.omp', 'config.yml')
+  if (!existsSync(cfgPath)) { console.error('NOT_IMPLEMENTED: нет .omp/config.yml'); process.exit(2) }
+  const cfg = readFileSync(cfgPath, 'utf8')
+  let updated = cfg
+  if (cfg.includes(MR_BEGIN)) {
+    updated = cfg.replace(new RegExp(`${escapeRe(MR_BEGIN)}[\s\S]*?${escapeRe(MR_END)}`), renderModelRoles())
+  } else {
+    // первый переход на генерацию: ручная секция (с шапкой «Раскладка моделей»)
+    // заменяется целиком — до следующего раздела-заголовка либо ключа верхнего уровня
+    const head = cfg.indexOf('# ── Раскладка моделей')
+    const head2 = head >= 0 ? head : cfg.search(/^modelRoles:/m)
+    if (head2 < 0) { console.error('FAIL в .omp/config.yml нет ни маркеров modelRoles, ни ручной секции'); process.exit(1) }
+    const after = cfg.slice(head2)
+    const nextHdr = after.slice(1).search(/^# ── /m)
+    const nextKey = after.search(/^(?![#\s])/m)
+    let cut = -1
+    if (nextHdr >= 0) cut = nextHdr + 1
+    else if (nextKey >= 0) cut = nextKey
+    const end = cut < 0 ? cfg.length : head2 + cut
+    updated = cfg.slice(0, head2) + renderModelRoles() + '\n\n' + cfg.slice(end)
+  }
+  if (CHECK) {
+    if (cfg !== updated) drift.push('modelRoles в .omp/config.yml расходится с config/agent_models.json')
+  } else if (cfg !== updated) {
+    writeFileSync(cfgPath, updated)
+    console.log('modelRoles: .omp/config.yml перегенерирован из config/agent_models.json')
   }
 }
 

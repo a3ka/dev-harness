@@ -2,7 +2,7 @@
 name: steward
 description: Steward — ответ по прецеденту
 tools: [read, grep, glob]
-model: ["@plan"]
+model: ["@steward"]
 ---
 
 <!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/steward.md. Правки будут затёрты. -->

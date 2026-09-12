@@ -27,24 +27,21 @@ export interface Role {
   readonly verdict: string | null
   readonly body: string
 }
-/** Роль → роль модели omp. Основание каждой строки — в `AGENTS.md`.
- *
- *  `adversary` и `reviewer` делят `advisor` намеренно: это «модель судьи», и оба судят
- *  работу автора, значит оба обязаны быть вне его семейства. Вопросы у них разные, а
- *  требование к семейству одно, и конкретная модель остаётся в одном месте. */
-const MODEL_ROLE: Record<string, string> = {
-  orchestrator: 'default',// ведущая сессия: дешёвый диспетчер (MiniMax), vision для кадров
-  architect: 'slow',      // автор конструкции — субагент frontier + ред-тестов
-  implementer: 'task',    // дешёвая кодовая полоса; НЕ `default`, потому что `default` —
-                          // модель ВЕДУЩЕЙ СЕССИИ (orchestrator), а ей нужен vision (кадры)
-  adversary: 'advisor',   // ломает проверку исполнением; ДРУГОЕ семейство
-  critic: 'apex',         // судит план ДО заморозки. Решение владельца 2026-08-17: ТОП
-                          // чужого семейства, а не общий с судьями реализации `advisor`.
-                          // Дорогая проверка стоит на дешёвом этапе, а план — самый дешёвый
-  reviewer: 'advisor',    // гейт перед слиянием; тоже вне семейства автора
-  arbiter: 'plan',        // разрешает тупик; 1M контекста под предмет и все вердикты
-  steward: 'plan',        // отвечает только прецедентом из decisions/; 1M контекста под реестр,
-                          // то же семейство-полка, что у арбитра, — читает много, решает мало
+/** Роль → роль модели omp. Единственный источник назначений — `config/agent_models.json`
+ * (решение владельца 2026-09-12: правка моделей = правка одного файла; производные —
+ * `.omp/agents/*.md` и секция `modelRoles` в `.omp/config.yml` — генерируются и
+ * сверяются). Таблица ниже ВЫВОДИТСЯ из его секции `roles`; основания (why) — там же. */
+export interface TierSpec { readonly model: string; readonly fallback: string | null; readonly why: string }
+export interface AgentModels {
+  readonly tiers: Record<string, TierSpec>
+  readonly roles: Record<string, string>
+}
+export const AGENT_MODELS: AgentModels = JSON.parse(
+  readFileSync(join(import.meta.dirname, '..', 'config', 'agent_models.json'), 'utf8'),
+)
+const MODEL_ROLE: Record<string, string> = AGENT_MODELS.roles
+for (const t of Object.values(MODEL_ROLE)) {
+  if (!AGENT_MODELS.tiers[t]) throw new RoleParseError(`тир «${t}» присвоен роли, но в config/agent_models.json его нет`)
 }
 
 export class RoleParseError extends Error {}
