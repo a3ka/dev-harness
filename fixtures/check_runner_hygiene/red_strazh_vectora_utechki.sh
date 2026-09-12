@@ -78,4 +78,19 @@ expect "bash-чтение-без-cwd"        pass 0 "{\"tool\":\"bash\",\"args\"
 expect "bash-запись-с-cwd-в-пинне"  pass 0 "{\"tool\":\"bash\",\"args\":{\"command\":\"sed -i s/a/b/ $F\",\"cwd\":\"$PIN\"},$WT_JSON}"
 expect "edit-абсолютный-в-пинне"    pass 0 "{\"tool\":\"edit\",\"args\":{\"path\":\"$PIN/$F\"},$WT_JSON}"
 
+# ── к2 (вердикт c02f01a, B-025-r2-1/-r2-2): формы записи вне deny-набора. Совмещённые
+# флаги perl — буква i внутри bundle (-pi/-pi.bak/-pie), \s-i её не видит; скрипт-
+# интерпретаторы inline-кодом (ruby -e File.write / node -e writeFileSync /
+# php -r file_put_contents); sed с флагом w FILE. Те же Г1/Г2: запись относительным
+# операндом без cwd → block Н-85. Подделка PI_ACTUAL (B-025-r2-3) judge-формой
+# НЕвыразима: env-фолбэк живёт только в фабрике register() (path-guard.ts:586-589),
+# judge-CLI его не читает — основание и прогон в А-134 NABLIUDENIA_ARCHITECT.md.
+expect "perl-pi-без-cwd"               block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"perl -pi -e 's/a/b/' $F\"},$WT_JSON}"
+expect "perl-pi.bak-без-cwd"           block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"perl -pi.bak -e 's/a/b/' $F\"},$WT_JSON}"
+expect "perl-pie-без-cwd"              block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"perl -pie 's/a/b/' $F\"},$WT_JSON}"
+expect "ruby-e-file-write-без-cwd"     block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"ruby -e 'File.write(\\\"$F\\\",\\\"X\\\")'\"},$WT_JSON}"
+expect "node-e-writefilesync-без-cwd"  block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"node -e 'require(\\\"fs\\\").writeFileSync(\\\"$F\\\",\\\"X\\\")'\"},$WT_JSON}"
+expect "php-r-fileputcontents-без-cwd" block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"php -r 'file_put_contents(\\\"$F\\\",\\\"X\\\");'\"},$WT_JSON}"
+expect "sed-w-file-без-cwd"            block 1 "{\"tool\":\"bash\",\"args\":{\"command\":\"echo X | sed 's/X/Y/w $F'\"},$WT_JSON}"
+
 exit 0
