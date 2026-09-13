@@ -366,6 +366,7 @@ red_mera_parallelnosti_okon.sh (мера 021) в fixtures/check_zones/. НОВЫ
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
+СПАСЕНО architect: 80eff00e15009ad81f27dc2dbaed78bf77c8144c — инфраструктурный фикс Н-88 (апгрейд omp 17.2.10→18.1.18): gen-harness вырожденный режим для частичных деревьев фикстур (scripts/gen-harness.ts, scripts/roles.ts); пути в зоне architect заморозок 003/6 и 010, предмет 025 не тронут; прецедент 003 v3 (арбитраж — механизм создан ровно для этого случая)
 
 `.omp/config.yml` исторически числится в ЗОНА architect контрактов 005/010 —
 объединение зон это допускает (прецедент: NABLIUDENIA.md в зонах orchestrator и
