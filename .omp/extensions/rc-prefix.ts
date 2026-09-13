@@ -1,9 +1,9 @@
-// Расширение omp: носитель env PI_SHELL_PREFIX — pipefail + 141-маппинг.
+// Расширение omp: носитель env PI_SHELL_PREFIX + tool_result-патчер (141 → 0).
 // Контракт 025 §Пачка B-1 (замороженный тег frozen/contracts/025/1).
 //
 // Схема настроек билда ключа prefix НЕ ИМЕЕТ (замер круга 2: 453 ключа, из «prefix»
-// только нерелевантный hindsight.bankIdPrefix; пробы bash.prefix / prefix / shell.prefix
-// / bash.commandPrefix → rc 1 Unknown setting). Реальный носитель — env
+// только нерелевантный hindsight.bankIdPrefix; пробы bash.prefix / prefix /
+// shell.prefix / bash.commandPrefix → rc 1 Unknown setting). Реальный носитель — env
 // PI_SHELL_PREFIX («Optional command prefix wrapper», environment-variables.md):
 // executor харнеса оборачивает КАЖДУЮ bash-команду значением этой переменной.
 //
@@ -32,42 +32,48 @@
 // Фикстура red_pipefail_prefiks.sh проверяет побайтовое совпадение значения
 // через node-import + default() + сравнение process.env.PI_SHELL_PREFIX.
 //
-// ── ДОПОЛНИТЕЛЬНЫЙ КАНАЛ: tool_call-ревизия (omp 18.1.18+, ночная правка
-// 2026-09-13). Замер живой ночи: после апгрейда omp 17.2.10 → 18.1.18 харнес
-// ПЕРЕСТАЛ оборачивать bash-команды значением PI_SHELL_PREFIX (команда
-// `yes | head -1` отдаёт сырой 141 с isError=true — ложная краснота легитимного
-// раннего выхода, Г4-кавер). Одновременно pipefail встроен в omp. Контракт
-// §B-1 жив, инвариант И-2 жив; мёртв только механизм доставки префикса.
+// ── ИСТОРИЯ КАНАЛОВ ДОСТАВКИ pipefail-ПОДАВЛЕНИЯ (omp 18.1.18+, замер 2026-09-13) ─
+// Круг 2 (commit b11aa9a): env PI_SHELL_PREFIX + tool_call-ревизия
+//   (pi.on('tool_call', …) с возвратом {input:{command:'<PREFIX> '+…}}).
+//   Ночная правка 2026-09-13 на бинаре 18.1.18:
+//     - env-канал МЁРТВ: команды НЕ оборачиваются значением PI_SHELL_PREFIX
+//       (харнес 18.1.18 перестал выставлять commandPrefix-обёртку; одновременно
+//       pipefail встроен в omp явно). Улика: `yes | head -1` отдаёт сырой 141
+//       с isError=true (ложная краснота легитимного раннего выхода, Г4-кавер).
+//     - tool_call-ревизия МЁРТВА на бинаре 18.1.18: handler стреляет (маркер
+//       FIRED-<pid> в /tmp/revprobe/), но правка input не доезжает до execute —
+//       команда исполняется без префикса, даёт сырой 141. Мёртвая ветка,
+//       утверждающая поведение — ложная мера: удалена целиком.
 //
-// Новый канал (omp://extensions.md «Tool lifecycle», tool_call-event):
-// перехват pre-exec умеет РЕВИЗИТЬ input инструмента — то, что реально
-// уйдёт в execute. Расширение регистрирует tool_call-handler, который для
-// инструмента bash предпендит ТУ ЖЕ побайтовую строку B-1 + один пробел,
-// если команда ещё НЕ начинается с неё (идемпотентность обязательна — повторный
-// прогон зонда или явная запись bash -c '<PREFIX>; …' не должны удваивать
-// префикс). Handler-ошибки трактуются omp как fail-closed (extensions.md
-// «tool_call errors block execution»); дополнительно ловим ошибки доступа
-// к неожиданным формам input и возвращаем именованный блок, как path-guard:
-// явный «reason» виден судье в стенограмме (а не «Tool execution was blocked»
-// без контекста).
+// Круг 3 (эта правка): tool_result-патч — носитель сменился С инвазивного
+// pre-exec (tool_call-ревизия) НА реактивный post-exec (tool_result-маппинг).
 //
-// ИДЕНТИЧНОСТЬ ЗНАЧЕНИЯ: строка PREFIX и её форма с пробелом PREFIX + ' '
-// ПОБАЙТОВО совпадают с замороженным оракулом red_pipefail_prefiks.sh:34 —
-// фикстура проверяет process.env.PI_SHELL_PREFIX через node-import + base64
-// и сравнивает; ревизия использует ту же константу, не литерал.
+// tool_result-патч: если event.toolName === 'bash' && event.details?.exitCode
+// === 141, возвращаем { isError: false, details: { ...event.details, exitCode:
+// 0 } }. Агрегат 141 (SIGPIPE в пайплайне) маппится в 0 — вызов перестаёт
+// быть ошибкой; модель видит isError=false, executor фиксирует
+// details.exitCode=0. Видимый код остаётся судье через маркер B-2 [exit=141]:
+// exit-marker.ts грузится РАНЬШЕ по алфавиту файлов (.omp/extensions/exit-marker.ts
+// < rc-prefix.ts) и патчит content с маркером [exit=N] на основе details.exitCode
+// ДО того, как rc-prefix зануляет exitCode; omp runner.ts:1280-1304 мерджит
+// возвраты handler'ов последовательно (currentEvent.details переприсваивается
+// целиком, content не трогается rc-prefix'ом) — финал: content=[exit=141],
+// isError=false, details.exitCode=0. Параллельный пример с exit 7 → 7
+// (не 141) НЕ тронут; false|true → exit 1 НЕ тронут. Только 141, только bash.
+//
+// Доказательство достижимости tool_result-канала: живая проба ночи 2026-09-13
+// (трейс в .zones/dev/.omp/profiles/dev/agent/sessions/-tmp-revprobe/
+// 2026-09-13T02-10-00-698Z_01a09887-*.jsonl): command "yes | head -1" → вызов
+// handler'а → возврат {isError:false, details:{...exitCode:0}} → в стенограмме
+// сессии details.exitCode=0 при isError=false. Маркер PATCHED-141 в /tmp/revprobe/.
+// Источник формы события: dump в /tmp/revprobe/RES-296918 (до патча), RES-297052
+// (exit 7 не тронут, контроль избирательности).
 
 const PREFIX = "set -o pipefail; trap '[ \"$?\" -eq 141 ] && exit 0' EXIT;";
-const PREFIX_WITH_SPACE = `${PREFIX} `;
 
 type PiLike = {
   on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
 };
-
-// Тип-гард для tool_call-event: omp по контракту передаёт объект (см. wrapper.ts),
-// узкая проверка формы — null/undefined выкидываем, всё остальное Record.
-function isToolCallEvent(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object';
-}
 
 export default function setupRcPrefix(pi?: unknown): void {
   // Инвариант И-2: присвоение process.env.PI_SHELL_PREFIX побайтово.
@@ -79,24 +85,17 @@ export default function setupRcPrefix(pi?: unknown): void {
   const p = pi as PiLike;
   if (typeof p.on !== 'function') return;
 
-  p.on('tool_call', (call: unknown) => {
-    if (!isToolCallEvent(call)) return undefined;
-    if (call.toolName !== 'bash') return undefined;
-    const raw = call.input;
-    if (raw === undefined || raw === null || typeof raw !== 'object') {
-      return undefined;
-    }
-    const input = raw as Record<string, unknown>;
-    if (typeof input.command !== 'string') return undefined;
-    // Идемпотентность: если уже есть префикс + пробел — ничего не делаем
-    // (модель могла сама выставить bash -c '<PREFIX>; …', повторный прогон
-    // зонда или собственный канал доставки префикса не должны удваивать).
-    if (input.command.startsWith(PREFIX_WITH_SPACE)) return undefined;
-    // Ревизия input: копия (не мутируем event) — omp использует её как
-    // effectiveParams для execute и для второго раунда approval-gate
-    // (wrapper.ts:229-231 — «handler-owned; not re-normalized»).
+  p.on('tool_result', (event: unknown) => {
+    if (event === null || typeof event !== 'object') return undefined;
+    const e = event as Record<string, unknown>;
+    if (e.toolName !== 'bash') return undefined;
+    const details = e.details;
+    if (details === null || typeof details !== 'object') return undefined;
+    const d = details as Record<string, unknown>;
+    if (d.exitCode !== 141) return undefined;
     return {
-      input: { ...input, command: `${PREFIX_WITH_SPACE}${input.command}` },
+      isError: false,
+      details: { ...d, exitCode: 0 },
     };
   });
 }
