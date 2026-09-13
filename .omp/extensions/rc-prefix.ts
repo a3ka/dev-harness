@@ -31,9 +31,72 @@
 //
 // Фикстура red_pipefail_prefiks.sh проверяет побайтовое совпадение значения
 // через node-import + default() + сравнение process.env.PI_SHELL_PREFIX.
+//
+// ── ДОПОЛНИТЕЛЬНЫЙ КАНАЛ: tool_call-ревизия (omp 18.1.18+, ночная правка
+// 2026-09-13). Замер живой ночи: после апгрейда omp 17.2.10 → 18.1.18 харнес
+// ПЕРЕСТАЛ оборачивать bash-команды значением PI_SHELL_PREFIX (команда
+// `yes | head -1` отдаёт сырой 141 с isError=true — ложная краснота легитимного
+// раннего выхода, Г4-кавер). Одновременно pipefail встроен в omp. Контракт
+// §B-1 жив, инвариант И-2 жив; мёртв только механизм доставки префикса.
+//
+// Новый канал (omp://extensions.md «Tool lifecycle», tool_call-event):
+// перехват pre-exec умеет РЕВИЗИТЬ input инструмента — то, что реально
+// уйдёт в execute. Расширение регистрирует tool_call-handler, который для
+// инструмента bash предпендит ТУ ЖЕ побайтовую строку B-1 + один пробел,
+// если команда ещё НЕ начинается с неё (идемпотентность обязательна — повторный
+// прогон зонда или явная запись bash -c '<PREFIX>; …' не должны удваивать
+// префикс). Handler-ошибки трактуются omp как fail-closed (extensions.md
+// «tool_call errors block execution»); дополнительно ловим ошибки доступа
+// к неожиданным формам input и возвращаем именованный блок, как path-guard:
+// явный «reason» виден судье в стенограмме (а не «Tool execution was blocked»
+// без контекста).
+//
+// ИДЕНТИЧНОСТЬ ЗНАЧЕНИЯ: строка PREFIX и её форма с пробелом PREFIX + ' '
+// ПОБАЙТОВО совпадают с замороженным оракулом red_pipefail_prefiks.sh:34 —
+// фикстура проверяет process.env.PI_SHELL_PREFIX через node-import + base64
+// и сравнивает; ревизия использует ту же константу, не литерал.
 
 const PREFIX = "set -o pipefail; trap '[ \"$?\" -eq 141 ] && exit 0' EXIT;";
+const PREFIX_WITH_SPACE = `${PREFIX} `;
 
-export default function setupRcPrefix(): void {
+type PiLike = {
+  on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown;
+};
+
+// Тип-гард для tool_call-event: omp по контракту передаёт объект (см. wrapper.ts),
+// узкая проверка формы — null/undefined выкидываем, всё остальное Record.
+function isToolCallEvent(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+export default function setupRcPrefix(pi?: unknown): void {
+  // Инвариант И-2: присвоение process.env.PI_SHELL_PREFIX побайтово.
+  // Побайтово гарантировано TS-литералом; оракул red_pipefail_prefiks.sh
+  // проверяет через node-import + base64.
   process.env.PI_SHELL_PREFIX = PREFIX;
+
+  if (!pi || typeof pi !== 'object') return;
+  const p = pi as PiLike;
+  if (typeof p.on !== 'function') return;
+
+  p.on('tool_call', (call: unknown) => {
+    if (!isToolCallEvent(call)) return undefined;
+    if (call.toolName !== 'bash') return undefined;
+    const raw = call.input;
+    if (raw === undefined || raw === null || typeof raw !== 'object') {
+      return undefined;
+    }
+    const input = raw as Record<string, unknown>;
+    if (typeof input.command !== 'string') return undefined;
+    // Идемпотентность: если уже есть префикс + пробел — ничего не делаем
+    // (модель могла сама выставить bash -c '<PREFIX>; …', повторный прогон
+    // зонда или собственный канал доставки префикса не должны удваивать).
+    if (input.command.startsWith(PREFIX_WITH_SPACE)) return undefined;
+    // Ревизия input: копия (не мутируем event) — omp использует её как
+    // effectiveParams для execute и для второго раунда approval-gate
+    // (wrapper.ts:229-231 — «handler-owned; not re-normalized»).
+    return {
+      input: { ...input, command: `${PREFIX_WITH_SPACE}${input.command}` },
+    };
+  });
 }
