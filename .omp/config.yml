@@ -64,3 +64,14 @@ modelRoles:
 task:
   isolation:
     mode: btrfs
+
+retry:
+  modelFallback: true
+  fallbackRevertPolicy: cooldown-expiry
+  fallbackChains:
+    default: ["anthropic/claude-sonnet-5"]
+    slow: ["anthropic/claude-opus-5"]
+    task: ["anthropic/claude-sonnet-5"]
+    advisor: ["anthropic/claude-opus-5"]
+    apex: ["anthropic/claude-opus-5"]
+    plan: ["anthropic/claude-opus-5"]
