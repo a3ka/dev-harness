@@ -14,14 +14,16 @@
  * потому что `scripts/verify_antiplacebo.sh` требует фикстуру от каждого барьера и не
  * умеет догадываться: файл без объявленной роли — отказ.
  */
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 export interface Role {
   readonly slug: string
   readonly title: string
-  /** Роль модели omp: `@slow`, `@advisor`, `@plan`. Конкретный id — в `.omp/config.yml`. */
-  readonly modelRole: string
+  /** Роль модели omp: `@slow`, `@advisor`, `@plan`. Конкретный id — в `.omp/config.yml`.
+   *  null — ВЫРОЖДЕННЫЙ режим: `config/agent_models.json` в этом дереве нет, тир
+   *  неизвестен, рендер опускает строку `model`. */
+  readonly modelRole: string | null
   readonly tools: readonly string[]
   /** Куда роль ОБЯЗАНА положить артефакт, либо null. Вердикт в переписке не переживает сессию. */
   readonly verdict: string | null
@@ -36,15 +38,27 @@ export interface AgentModels {
   readonly tiers: Record<string, TierSpec>
   readonly roles: Record<string, string>
 }
-export const AGENT_MODELS: AgentModels = JSON.parse(
-  readFileSync(join(import.meta.dirname, '..', 'config', 'agent_models.json'), 'utf8'),
-)
-const MODEL_ROLE: Record<string, string> = AGENT_MODELS.roles
-for (const t of Object.values(MODEL_ROLE)) {
-  if (!AGENT_MODELS.tiers[t]) throw new RoleParseError(`тир «${t}» присвоен роли, но в config/agent_models.json его нет`)
-}
 
 export class RoleParseError extends Error {}
+
+/** Таблица моделей — ЛЕНИВО и терпимо к отсутствию файла. Фикстуры анти-плацебо собирают
+ * ЧАСТИЧНЫЕ деревья (ровно то, что судит их предмет), и чтение на уровне импорта валило
+ * генератор ENOENT-ом внутри ЗЕЛЁНОЙ фазы чужого барьера (overlay/gen-harness, a9ea528,
+ * замер 2026-09-13). Отсутствие файла — ВЫРОЖДЕННЫЙ режим (null): сверка «роль↔таблица»
+ * и «тир∈tiers» не исполняется вовсе, роль допускается без тира — назначение моделей в
+ * этом дереве не заявлено, и суждение о нём невозможно. */
+let modelsCache: AgentModels | null | undefined
+export function agentModels(): AgentModels | null {
+  if (modelsCache !== undefined) return modelsCache
+  const p = join(import.meta.dirname, '..', 'config', 'agent_models.json')
+  if (!existsSync(p)) { modelsCache = null; return modelsCache }
+  const am = JSON.parse(readFileSync(p, 'utf8')) as AgentModels
+  for (const t of Object.values(am.roles)) {
+    if (!am.tiers[t]) throw new RoleParseError(`тир «${t}» присвоен роли, но в config/agent_models.json его нет`)
+  }
+  modelsCache = am
+  return modelsCache
+}
 
 const field = (fm: string, name: string): string | null => {
   const m = new RegExp(`^${name}:\\s*(.+)$`, 'm').exec(fm)
@@ -65,8 +79,10 @@ export function parseRole(dir: string, file: string): Role | null {
   if (slug !== file.replace(/\.md$/, '')) {
     throw new RoleParseError(`${file}: поле role «${slug}» не совпадает с именем файла — два имени одной роли разойдутся`)
   }
-  const modelRole = MODEL_ROLE[slug]
-  if (!modelRole) throw new RoleParseError(`${file}: роль «${slug}» отсутствует в таблице ролей моделей`)
+  const modelRole = agentModels()?.roles[slug] ?? null
+  if (agentModels() !== null && modelRole === null) {
+    throw new RoleParseError(`${file}: роль «${slug}» отсутствует в таблице ролей моделей`)
+  }
   const tools = list(field(fm, 'tools'))
   if (tools.length === 0) throw new RoleParseError(`${file}: пустой инвентарь — роль обязана объявить, чем работает`)
   const title = /^#\s+(.+)$/m.exec(body)?.[1]?.trim() ?? slug
@@ -82,7 +98,8 @@ export function loadRoles(dir: string): Role[] {
     .sort((a, b) => a.slug.localeCompare(b.slug))
   // Обратная сторона сверки: запись в таблице без файла роли означает либо удалённую
   // роль, либо опечатку в имени. И то и другое тихо оставило бы модель без потребителя.
-  for (const slug of Object.keys(MODEL_ROLE)) {
+  // Исполняется только в полном режиме — без таблицы сверять не с чем.
+  for (const slug of Object.keys(agentModels()?.roles ?? {})) {
     if (!roles.some((r) => r.slug === slug)) {
       throw new RoleParseError(`таблица ролей моделей называет «${slug}», но файла roles/${slug}.md нет`)
     }
