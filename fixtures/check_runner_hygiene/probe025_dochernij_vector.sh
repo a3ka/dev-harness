@@ -122,6 +122,11 @@ def load(path):
             'join вызов-результат неоднозначен, улика противоречива (B-025-4)' % (kind, cid, os.path.basename(path)))
         sys.exit(2)
 
+    def orphan(kind, cid):  # осиротевшее событие (B-025-r3-1): только одна сторона join'a
+        say('ЗОНД 025-И-6: исход не снят — осиротевшее событие (%s) toolCallId=%s в %s: '
+            'join вызов-результат неполон, улика противоречива (B-025-r3-1)' % (kind, cid, os.path.basename(path)))
+        sys.exit(2)
+
     for line in read_text(path).splitlines():
         line = line.strip()
         if not line:
@@ -165,6 +170,19 @@ def load(path):
             results.append({'name': str(m.get('toolName') or c.get('name') or ''),
                             'argstr': c.get('argstr', ''), 'cmd': c.get('cmd', ''),
                             'isError': bool(m.get('isError')), 'exit': code, 'text': txt})
+    # ПОЛНОТА join (B-025-r3-1, вердикт e437ffa): дубликаты toolCallId уже fail-closed
+    # выше, но осиротевший toolResult (id есть в результатах, нет в вызовах) и
+    # осиротевший toolCall (есть вызов, ни одного результата за всю улику) молча
+    # принимались как честная улика — атакующий мог подмешать/скрыть свидетельство одной
+    # стороной. Проверяется ПОСЛЕ полного парсинга транскрипта (результат
+    # может прийти ПОЗЖЕ своего вызова в той же трассе).
+    orphan_results = seen_res - set(calls.keys())
+    if orphan_results:
+        orphan('результат без вызова', sorted(orphan_results)[0])
+    orphan_calls = set(calls.keys()) - seen_res
+    if orphan_calls:
+        orphan('вызов без результата', sorted(orphan_calls)[0])
+
     return results
 
 def has_relative(s, fe):

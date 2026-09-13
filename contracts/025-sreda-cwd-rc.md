@@ -141,18 +141,38 @@ d141dd9):** грамматика паттернов (литерал + `*`) не 
 
 ### Пачка B — pipefail + маркер (Г4)
 
-**B-1. Extension rc-prefix (.omp/extensions/rc-prefix.ts) — носитель env
-PI_SHELL_PREFIX.** Схема настроек билда ключа prefix НЕ ИМЕЕТ (замер круга 2:
-`omp config list --json` — 453 ключа, из «prefix» только нерелевантный
-hindsight.bankIdPrefix; пробы `bash.prefix` / `prefix` / `shell.prefix` /
-`bash.commandPrefix` → каждая rc 1 Unknown setting). Реальный носитель — env
-`PI_SHELL_PREFIX` («Optional command prefix wrapper», omp://environment-variables.md):
-executor харнеса оборачивает КАЖДУЮ bash-команду значением этой переменной — у
-ГЛАВНОЙ и у ДОЧЕРНИХ сессий (B3: launch-env дошёл до ребёнка; D: extension-присвоение
-дошло до ребёнка при снятом launch-env). **Кто выставляет: extension rc-prefix при
-загрузке** — default-export factory присваивает `process.env.PI_SHELL_PREFIX`
-(пруф D: носитель полностью в-деревен, работоспособен без launch-env). ЕДИНЫЙ
-ИСТОЧНИК значения — ЭТА строка контракта; модуль несёт её ПОБАЙТОВО:
+**B-1. Носитель pipefail+141→0-семантики — tool_result-патч (АКТУАЛЬНО,
+omp ≥18.1.18; respec v4, РАЗРЕШИЛ-ВЛАДЕЛЕЦ 2026-09-13 — см. тело коммита).**
+Исторический носитель до апгрейда 18.1.18 (схема настроек билда ключа
+prefix НЕ ИМЕЛА: замер круга 2, `omp config list --json` — 453 ключа, из «prefix»
+только нерелевантный hindsight.bankIdPrefix; пробы `bash.prefix`/`prefix`/`shell.prefix`/
+`bash.commandPrefix` → каждая rc 1 Unknown setting) — env `PI_SHELL_PREFIX` («Optional
+command prefix wrapper», omp://environment-variables.md), выставляемый default-export
+factory `.omp/extensions/rc-prefix.ts` при загрузке, оборачивавший КАЖДУЮ bash-команду
+строкой:
+
+```
+set -o pipefail; trap '[ "$?" -eq 141 ] && exit 0' EXIT;
+```
+
+ИЗМЕРЕНО (Н-88, 2026-09-12, апгрейд 17.2.10→18.1.18):
+этот env-инжект БОЛЬШЕ НЕ ПРИМЕНЯЕТСЯ к bash-командам (проба с эхо-префиксом —
+ноль исполнений); текст выше описывает МЁРТВЫЙ носитель. ДЕЙСТВУЮЩИЙ
+носитель ТОЙ ЖЕ наблюдаемой семантики — tool_result-патч того же расширения
+(`rc-prefix.ts`, коммит 2c30d54): вместо инжекции команды патчится РЕЗУЛЬТАТ bash-вызова
+НАПРЯМУЮ — `exitCode 141` мапится в `0`, когда `isError=false` (тот же критерий
+агрегата SIGPIPE, что и в прежнем trap-тексте выше). `.omp/extensions/exit-marker.ts` (B-2)
+грузится РАНЬШЕ АЛФАВИТНО и вписывает видимый `[exit=141]` в стенограмму ДО
+зануления патчем — судья видит истинный код (семантика Р3 не потеряна сменой носителя;
+живой контроль этого именно факта — вердикт к3-025, verdicts/adversary/contracts-025-v3.md).
+Зависимость от omp 18.1.18 «pipefail встроен» (persistent shell) — НЕ версия-запинена,
+контролируется ЖИВЫМ тестом: И-6 (`probe025_dochernij_vector.sh`) — явный поведенческий зонд,
+краснеющий на `false | true`/`yes | head` при живом прогоне, не автоматический upgrade-guard —
+остаточный риск (следующий апгрейд omp может сменить встроенное поведение МЕЖДУ
+раундами адверсария, ловец — только следующий живой прогон И-6, не CI-пин версии) —
+названо явно, не молчаливое везение. ЕДИНЫЙ ИСТОЧНИК значения трап-строки — ЭТА
+строка контракта выше (исторический носитель её нёс ПОБАЙТОВО; текущий воспроизводит
+ту ЖЕ семантику через патч):
 
 ```
 set -o pipefail; trap '[ "$?" -eq 141 ] && exit 0' EXIT;
