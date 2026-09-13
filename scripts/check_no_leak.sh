@@ -112,6 +112,44 @@
 #               валидный отпечаток; теперь именованный NOT_IMPLEMENTED rc 2, формат —
 #               для последующей сверки побайтово воротами 17/18 фикс-круга
 #               архитектора 024).
+# ─── САНИТИЗАЦИЯ ОКРУЖЕНИЯ (структурный фикс круга 4 адверсария contracts-024-v1.md) ────
+# BASH_ENV подставляет shell-функцию `command`, перехватывающую TRUSTED_PATH-резолв ДО того,
+# как пин вообще срабатывает (S-bashenv-command-function); GIT_DIR/GIT_WORK_TREE перенаправляют
+# ВСЕ git-вызовы на чужой репозиторий даже при правильно запиненном пути к бинарю
+# (S-git-dir-work-tree-injection). Оба — частные случаи ОДНОГО класса «произвольная
+# переменная окружения меняет резолв/поведение утилиты»; перечисление
+# конкретных имён (эти две, LD_PRELOAD, IFS, …) — треадмилл: круг N+1 найдёт переменную N+1.
+# Структурное закрытие: `env -i` перед стартом детектора — ни одна НЕ ПЕРЕЧИСЛЕННАЯ
+# явно ниже переменная не переживает re-exec, независимо от имени. `env`/итоговый
+# `bash` резолвируются АБСОЛЮТНЫМ путём из доверенных каталогов (НЕ через входящий PATH —
+# тот же класс атаки мог бы подменить и их). Остаточный когнитивный предел:
+# если сам BASH_ENV успел переопределить `exec`/`printf`/`[` до этой строки — вне демонстрированного
+# адверсарием класса (омнипотентный атакующий внутри того же процесса — вне самозащиты скрипта).
+if [ -z "${_CNL_SANITIZED:-}" ]; then
+  _cnl_env=""
+  for _cnl_p in /usr/bin/env /bin/env; do
+    [ -x "$_cnl_p" ] && { _cnl_env="$_cnl_p"; break; }
+  done
+  [ -n "$_cnl_env" ] \
+    || { printf 'NOT_IMPLEMENTED: env не найден в доверенных путях (/usr/bin /bin)\n' >&2; exit 2; }
+  _cnl_bash=""
+  for _cnl_p in /usr/bin/bash /bin/bash; do
+    [ -x "$_cnl_p" ] && { _cnl_bash="$_cnl_p"; break; }
+  done
+  [ -n "$_cnl_bash" ] \
+    || { printf 'NOT_IMPLEMENTED: bash не найден в доверенных путях (/usr/bin /bin)\n' >&2; exit 2; }
+  _cnl_trusted=""
+  for _cnl_d in /usr/bin /bin /usr/local/bin; do
+    [ -d "$_cnl_d" ] && _cnl_trusted="${_cnl_trusted:+$_cnl_trusted:}$_cnl_d"
+  done
+  exec "$_cnl_env" -i _CNL_SANITIZED=1 \
+    PATH="$_cnl_trusted" \
+    HOME="${HOME:-/root}" \
+    TMPDIR="${TMPDIR:-/tmp}" \
+    LC_ALL=C \
+    "$_cnl_bash" "$0" "$@"
+fi
+
 set -uo pipefail
 export LC_ALL=C
 
