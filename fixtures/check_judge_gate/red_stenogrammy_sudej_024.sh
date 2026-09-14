@@ -115,7 +115,7 @@ BOUNDARY="${all_landings%%$'\n'*}"
 mapfile -t VERDICTS < <(
   git -C "$REPO" log --no-renames --full-history --diff-filter=AM \
     --format= --name-only "$BOUNDARY"..HEAD -- \
-    verdicts/critic verdicts/adversary verdicts/reviewer verdicts/arbitration \
+    verdicts/critic verdicts/adversary verdicts/review verdicts/arbitration \
     | sort -u | sed '/^$/d'
 )
 
