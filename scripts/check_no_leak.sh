@@ -26,7 +26,7 @@
 #   * каталог с .git (submodule/вложенный репозиторий) — «@head:<sha HEAD>» + РЕКУРСИЯ манифеста
 #     вложенного репозитория с префиксом пути (правка внутри уже-грязного submodule меняет
 #     вложенный отпечаток);
-#   * отсутствующий путь (D) — «-».
+#   * отсутствующий путь (D) — отпечаток `-».
 # Дополнение байтов в уже-грязный tracked-путь, файл под свёрнутым `?? dir/`, правка внутри
 # уже-грязного submodule — меняют отпечаток/строку и ловятся (ворота 9/10/11 red_detektor_utechek.sh).
 #
@@ -72,10 +72,15 @@
 # baseline-снимка внешний файл манифеста подменяется симлинком на снимок ТОГО ЖЕ корня,
 # сделанный ПОСЛЕ модификации tracked-файла; root-строка совпадает, дельта пуста ⇒ «чисто»).
 # Реализованные меры (комбинация «механически проверяемое», меню из задания):
-#   1. Reject-symlink (ОБЯЗАТЕЛЬНО): `$SNAP` и `$SNAP_DIR` ОБЯЗАНЫ быть регулярными
-#      файлом/каталогом, НЕ симлинками. Прямой симлинк-обход (заявленный кейс адверсария)
-#      и обход через симлинк-родитель — отвергнуты с именованной фразой «снимок —
-#      симлинк» / «каталог снимка — симлинк», rc=1.
+#   1. Reject-symlink (ОБЯЗАТЕЛЬНО): `$SNAP`, `$SNAP_DIR` И ПРОМЕЖУТОЧНЫЙ
+#      `${TMPDIR:-/tmp}/dev-harness-leak` ОБЯЗАНЫ быть регулярными файлом/каталогом,
+#      НЕ симлинками. Прямой симлинк-обход (заявленный кейс к2 адверсария) и обход
+#      через симлинк-родитель (`$SNAP_DIR`) — отвергнуты с именованной фразой «снимок —
+#      симлинк» / «каталог снимка — симлинк», rc=1. Промежуточный симлинк на
+#      `$TMPDIR/dev-harness-leak` (наблюдение H адверсария к5 4dfc0ff: атакующий
+#      подменяет каталог целиком симлинком на свежее дерево с валидным verify-снимком,
+#      обходя проверки -L на $SNAP/$SNAP_DIR) — отвергнут фразой «промежуточный
+#      каталог — симлинк», rc=1.
 #   2. Mode-lock (ОБЯЗАТЕЛЬНО): после записи `chmod 0444` на `$SNAP`; на check — mode
 #      содержит бит 0444 (ровно read для всех; смягчено до «mode содержит 0444», не
 #      «mode равен 0444», чтобы umask-вариации не стреляли). Сам по себе не ловит
@@ -101,6 +106,7 @@
 #               отказ («основной чекаут загрязнён: <имена>» / «снимок отсутствует» /
 #               «корень обязан быть абсолютным» / «снимок чужого корня» /
 #               «снимок не прочитан» / «снимок — симлинк» / «каталог снимка — симлинк»
+#               / «промежуточный каталог — симлинк» — наблюдение H к5 адверсария
 #               / «снимок: режим не read-only» / «снимок: verify не сошёлся» /
 #               «снимок: verify-строка отсутствует — обязательна для прод-снимков»
 #               — кейс v4: чтение снимка cat||true тот же класс
@@ -112,83 +118,85 @@
 #               валидный отпечаток; теперь именованный NOT_IMPLEMENTED rc 2, формат —
 #               для последующей сверки побайтово воротами 17/18 фикс-круга
 #               архитектора 024).
-# ─── САНИТИЗАЦИЯ ОКРУЖЕНИЯ (структурный фикс круга k5 — default-deny whitelist) ──
-# Контрпример блокер 1 (S-cnl-sanitized-guard-off): часовой `_CNL_SANITIZED` сам
-# был флагом в АТАКУЮЩЕМ окружении — единственным присваиванием `_CNL_SANITIZED=1`
-# пропускался `exec env -i`, и весь входящий env (BASH_ENV/GIT_DIR/GIT_WORK_TREE)
-# доживал до тела детектора нетронутым. Закрытие: часовой — НЕ «булевый флаг»,
-# а ПОДМНОЖЕСТВО текущего окружения явному whitelist'у. default-deny: всё, чего
-# нет в whitelist'е, удаляется через `env -i KEY=VAL ...`. Идемпотентность: после
-# первой же re-exec с whitelist_only — все переменные «в whitelist'е», проверка
-# сразу истинна, рекурсии нет.
+# ─── ЗАЩИТА-СРЕДЫ (фикс блокеров 1-4 адверсария к5 4dfc0ff; блокеров 1-2 к4 01ed097) ──
+# Коммит daaee0a принёс `env -i` re-exec с часовым `_CNL_SANITIZED=1`. Адверсарий
+# к5 (4dfc0ff) показал, что часовой — user-controllable env var: установка
+# `_CNL_SANITIZED=1` в окружении выключает всю санитизацию целиком, и оба
+# вектора к4 (BASH_ENV `command`, GIT_DIR/GIT_WORK_TREE) воскресают
+# (S-cnl-sanitized-guard-off, блокер 1 к5).
 #
-# Контрпримеры блокеров 2/3 (S-home-git-config-excludes / S-home-fsmonitor-tracked):
-# HOME пропускался из входящего окружения и `git status` подтягивал
-# `$HOME/.gitconfig` с core.excludesFile / core.fsmonitor, скрывавший утечку И
-# модификацию tracked-файла. Закрытие: HOME принудительно задаётся внутри
-# whitelist'а в /nonexistent (утилиты, которым нужен HOME для записи, упадут
-# fail-closed явно), И дополнительно GIT_CONFIG_GLOBAL/SYSTEM=/dev/null блокирует
-# чтение git'ом И `$HOME/.gitconfig`, И `/etc/gitconfig`. Тот же механизм лечит и
-# деривативы (trustLevel в attacker-controlled .gitconfig) — git не читает ничего
-# из home/cwd, кроме собственного .git/config (легитимный; см. Демаркацию).
+# СТРУКТУРНОЕ ЗАКРЫТИЕ: re-exec с user-controllable guard НЕПРИГОДЕН. Решение —
+# in-process санитизация в текущем bash-процессе, без re-exec, без env-часового.
+# Перечисленные ниже классы атак снимаются ЯВНЫМ unset в текущем скрипте; новые
+# переменные/функции, не перечисленные адверсарием, остаются на следующие круги
+# (Н-39: стабы к ветвям привязывает architect по коду; новые классы — новый
+# круг адверсария, не треадмилл-перечисление).
 #
-# Контрмеры пространства имён: `env`/`bash`/итоговая util-обвязка резолвятся
-# АБСОЛЮТНЫМ путём из /usr/bin /bin /usr/local/bin — тот же класс «мимо PATH»
-# мог бы подменить и их. Остаточный когнитивный предел: если сам BASH_ENV успел
-# переопределить `exec`/`printf`/`[` ДО этой строки — вне демонстрированного
-# адверсарием класса (омнипотентный атакующий внутри того же процесса —
-# вне самозащиты скрипта).
-_cnl_WHITELIST='_CNL_SANITIZED _CNL_WHITELIST PATH HOME TMPDIR LC_ALL LANG LC_COLLATE LC_CTYPE LC_MESSAGES LC_MONETARY LC_NUMERIC LC_PAPER LC_NAME LC_TELEPHONE LC_TIME GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM PWD SHLVL _'
-# Идемпотентный цикл: пока в окружении ЕСТЬ что-то не из whitelist'а — re-exec
-# с ТОЛЬКО whitelist'ом (HOME=/nonexistent, TMPDIR=/tmp, GIT_CONFIG_*=/dev/null).
-# Бесконечной рекурсии нет: после первого re-exec все переменные «в whitelist'е»,
-# цикл сразу выходит и идём дальше.
-_cnl_untrusted=1
-while [ "$_cnl_untrusted" = 1 ]; do
-  _cnl_untrusted=0
-  while IFS='=' read -r _cnl_k _cnl_v; do
-    [ -n "$_cnl_k" ] || continue
-    case " $_cnl_WHITELIST " in
-      *" $_cnl_k "*) ;;
-      *) _cnl_untrusted=1; break ;;
-    esac
-  done < <(env -0)
-_cnl_TMPDIR="${TMPDIR:-/tmp}"
-  if [ "$_cnl_untrusted" = 1 ]; then
-    _cnl_env=""
-    for _cnl_p in /usr/bin/env /bin/env; do
-      [ -x "$_cnl_p" ] && { _cnl_env="$_cnl_p"; break; }
-    done
-    [ -n "$_cnl_env" ] \
-      || { printf 'NOT_IMPLEMENTED: env не найден в доверенных путях (/usr/bin /bin)\n' >&2; exit 2; }
-    _cnl_bash=""
-    for _cnl_p in /usr/bin/bash /bin/bash; do
-      [ -x "$_cnl_p" ] && { _cnl_bash="$_cnl_p"; break; }
-    done
-    [ -n "$_cnl_bash" ] \
-      || { printf 'NOT_IMPLEMENTED: bash не найден в доверенных путях (/usr/bin /bin)\n' >&2; exit 2; }
-    _cnl_trusted=""
-    for _cnl_d in /usr/bin /bin /usr/local/bin; do
-      [ -d "$_cnl_d" ] && _cnl_trusted="${_cnl_trusted:+$_cnl_trusted:}$_cnl_d"
-    done
-    exec "$_cnl_env" -i \
-      _CNL_SANITIZED=1 \
-      _CNL_WHITELIST="$_cnl_WHITELIST" \
-      _CNL_TMPDIR="$_cnl_TMPDIR" \
-      PATH="$_cnl_trusted" \
-      HOME=/nonexistent \
-      TMPDIR="$_cnl_TMPDIR" \
-      LC_ALL=C \
-      GIT_CONFIG_GLOBAL=/dev/null \
-      GIT_CONFIG_SYSTEM=/dev/null \
-      GIT_CONFIG_NOSYSTEM=1 \
-      "$_cnl_bash" "$0" "$@"
-  fi
-done
-unset _cnl_untrusted _cnl_WHITELIST _cnl_TMPDIR _cnl_env _cnl_bash _cnl_trusted _cnl_p _cnl_d
+# Закрытые классы (вердикт к4 01ed097 + вердикт к5 4dfc0ff):
+#   (1) S-bashenv-command-function (к4 блокер 1): `unset -f command` снимает
+#       shell-функцию `command`, определённую BASH_ENV в родительском bash
+#       ДО старта скрипта и перехватывающую TRUSTED_PATH-резолв
+#       (`PATH="$TRUSTED_PATH" command -v git`). Без снятия пин возвращает
+#       путь к фейковому бинарю, и вся защита TRUSTED_PATH обходится.
+#   (2) S-git-dir-work-tree-injection (к4 блокер 2): `unset GIT_DIR GIT_WORK_TREE
+#       GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_OBJECT_DATABASE
+#       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES`
+#       снимает переменные, перенаправляющие ВСЕ git-вызовы на чужой репозиторий
+#       даже при запиненном пути к `git`-бинарю. Объединение списков из
+#       scripts/spawn_agent.sh:38-40 и scripts/check_ci_gate.sh:25-26 (включая
+#       GIT_OBJECT_DATABASE, прецедент check_ci_gate — скорее всего опечатка,
+#       но включено для устойчивости прецедента).
+#   (3) S-cnl-sanitized-guard-off (к5 блокер 1): re-exec с env-часовым
+#       `_CNL_SANITIZED` снят; вместо него — in-process санитизация без
+#       часового. Атакующий, выставляющий `_CNL_SANITIZED=1` в окружении,
+#       теперь НЕ обходит защиту, потому что нет if-check на user-controllable
+#       переменную и нет re-exec.
+#   (4) S-home-git-config-excludes / S-home-fsmonitor-tracked (к5 блокеры 2, 3):
+#       `unset HOME` + `export GIT_CONFIG_GLOBAL=/dev/null
+#       GIT_CONFIG_SYSTEM=/dev/null` + `unset XDG_CONFIG_HOME XDG_DATA_HOME
+#       XDG_CACHE_HOME` снимают чтение `$HOME/.gitconfig` (где атакующий через
+#       core.excludesFile прячет untracked-мусор) и core.fsmonitor (где
+#       атакующий подсовывает свой fsmonitor-хук и делает tracked-модификации
+#       невидимыми для porcelain). HOME из whitelist `env -i HOME=${HOME:-/root}`
+#       коммита daaee0a давал атакующему прямой контроль; фикс — HOME снимается
+#       и не наследуется.
+#
+# ПОБОЧНЫЙ ЭФФЕКТ отказа от `env -i PATH=$TRUSTED_PATH`: фикс регрессии приёмочной
+# команды `bash fixtures/check_judge_gate/red_detektor_utechek.sh` ворот 16
+# (S-no-sha256sum, блокер 2 d67ac4b). До фикса фикстура BIN16 могла снять
+# sha256sum с PATH и наблюдать «манифест не годится ⇒ rc 2 именованный». После
+# коммита daaee0a `env -i PATH=$_cnl_trusted` стирал PATH фикстуры и находил
+# настоящий sha256sum в /usr/bin — ворота 16 краснели на судимом HEAD (бисект
+# коммита 4dfc0ff ровно к этому коммиту). Отказ от `env -i` восстанавливает
+# ворота 16: детектор использует запиненный $SHA256SUM (абсолютный путь из
+# TRUSTED_PATH) для РАБОТЫ, но предпроверка `command -v sha256sum` идёт по
+# унаследованному PATH церемонии — фикстура BIN16 снова наблюдаема.
+#
+# ПОБОЧНЫЙ ЭФФЕКТ (H к5): `unset IFS` снимает отравление IFS (например,
+# IFS=':' ломает `for util in git sha256sum …`), тот же класс «переменная
+# меняет поведение» что (1)/(2). На существующем коде IFS в `read` сбрасывается
+# через `IFS= read -r …`, но `for util in …` идёт со глобальным IFS.
+#
+# Остаточный риск (назван прямо, не молчит): BASH_ENV, переопределяющий
+# функции `printf`/`[`/`cd`/`exec`/`set` ДО нашего скрипта — те же, что в
+# оговорке шапки daaee0a (омнипотентный атакующий внутри bash-процесса).
+# Адверсарий к5 не продемонстрировал этот класс против in-process санитизации;
+# следующий круг адверсария, если найдёт, добавит `unset -f printf cd` etc.
+# Перечисление ВСЕХ имён — треадмилл (Н-39); структурно: каждая конкретная
+# функция, ИМЯ которой известно, снимается по факту демонстрации.
+unset -f command 2>/dev/null || true
+unset BASH_ENV ENV
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_OBJECT_DATABASE GIT_ALTERNATE_OBJECT_DIRECTORIES \
+      GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES \
+      GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM
+unset HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME
+unset IFS
 
 set -uo pipefail
 export LC_ALL=C
+
+# ЕДИНЫЙ источник фраз — Демаркация контракта 024, потребители несут побайтово.
 P_ZAGR='основной чекаут загрязнён'
 P_CHISTO='основной чекаут чист'
 P_NET_SNIMKA='снимок отсутствует'
@@ -266,6 +274,12 @@ done
 # stat — это НЕ ожидаемая ветка, но и не ломает gate 16 (gate 16 идёт
 # первым через sha256sum, которого в BIN16 нет). На честном PATH новые
 # утилиты присутствуют (любой Linux /usr/bin).
+#
+# Структурное обоснование (фикс блокера 4 к5): фикстура BIN16 манипулирует
+# PATH, чтобы наблюдать rc 2 «утилита отсутствует». До коммита daaee0a
+# `env -i PATH=$TRUSTED_PATH` стирал этот PATH — gate 16 краснела. Отказ
+# от env -i (in-process санитизация выше) восстанавливает предпроверку как
+# наблюдаемый rc 2 в BIN16.
 for util in git sha256sum sort comm mkdir mktemp; do
   command -v "$util" >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: утилита %s отсутствует\n' "$util" >&2; exit 2; }
@@ -327,7 +341,6 @@ GOT_EMPTY="$("$SHA256SUM" </dev/null 2>/dev/null | "$HEAD" -n1)"
   || { printf 'NOT_IMPLEMENTED: sha256sum в %s не прошёл sanity-хэш (подмена?)\n' "$SHA256SUM" >&2; exit 2; }
 
 # Канонизация корня — cd + pwd -P. После этого ВСЕ дальнейшие операции идут по $CANON,
-
 # cwd детектора не имеет значения (ворота 7/8: грязный cwd не влияет на решение).
 CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" \
   || { printf 'NOT_IMPLEMENTED: %s не каталог\n' "$ROOT_ARG" >&2; exit 2; }
@@ -335,20 +348,15 @@ CANON="$(cd "$ROOT_ARG" 2>/dev/null && pwd -P)" \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$CANON" >&2; exit 2; }
 
 # Снимок ВНЕ стерегомого дерева (И-1/И-8). Путь — от канонического корня через hash8:
-# два вызова с разными cwd сходятся в один файл (И-7). TMPDIR после subset-re-exec
-# жёстко задан в /tmp (наблюдение G: TMPDIR из АТАКУЮЩЕГО окружения нельзя
-# пропускать — снап попадал под snap-каталог атакующего, и `[L]` на $SNAP/$SNAP_DIR
-# не ловит). hash8 — через bash-substring (${X:0:8}), не внешний cut: cut тоже
-# пришлось бы пинить, substring — builtin, не зависит от PATH.
+# два вызова с разными cwd сходятся в один файл (И-7). TMPDIR уважается. hash8 —
+# через bash-substring (${X:0:8}), не внешний cut (узкое место: cut тоже пришлось бы
+# пинить, что не даёт ничего поверх substring; substring — builtin, не зависит от PATH).
 _canonsum="$(printf '%s' "$CANON" | "$SHA256SUM")"
 HASH8="${_canonsum%% *}"; HASH8="${HASH8:0:8}"
-SNAP_DIR="${TMPDIR:-/tmp}/dev-harness-leak/$HASH8"
+TMPDIR_BASE="${TMPDIR:-/tmp}"
+SNAP_DIR="$TMPDIR_BASE/dev-harness-leak/$HASH8"
 SNAP="$SNAP_DIR/porcelain"
 unset _canonsum
-# TMPDIR уважается (фикстуры используют свой TMPDIR для само-очистки); в проде
-# TMPDIR=/tmp после re-exec. Компонент-симлинк-чек (наблюдения G/H) идёт ниже
-# в do_check — каждое звено пути от ${TMPDIR:-/tmp} до $SNAP ОБЯЗАНО быть
-# регулярным каталогом/файлом, НЕ симлинком.
 
 # Манифест состояния дерева: рекурсивно, пофайлово, по содержимому.
 # emit_manifest <канон-корень> <префикс-путей> — префикс пуст на верхнем уровне и
@@ -427,79 +435,8 @@ emit_manifest() {  # <root> <prefix>
   done < "$tmpf"
   "$RM" -f -- "$tmpf"
 }
+manifest() { emit_manifest "$1" "$2" | "$SORT"; }
 
-
-# DOT-GIT МАНИФЕСТ (находка 5, S-dot-git-leak). Контрпример: `.git/hooks/*` и
-# `.git/config` лежат ВНУТРИ основного чекаута и НЕ отражаются в porcelain
-# (`git status --porcelain -uall` их не выводит по построению). Подмена активного
-# `.git/hooks/pre-push` отключала сам pre-push-барьер (форма исходного инцидента
-# 2026-09-10, `.githooks/pre-push`). Закрытие: ОТДЕЛЬНЫЙ manifest — sha256
-# содержимого `.git/hooks/*` (рекурсивно по не-симлинк-узлам) и `.git/config` —
-# шьётся в общий снапшот/сверку строками `DOTGIT:<sha>\t<path>`. Грамматика
-# отличается от `XY:` (нет двухсимвольного префикса), сортируется вместе.
-#
-# emit_dotgit_manifest <канон-корень> — рекурсивный обход .git/hooks и одного
-# файла .git/config. Внутренний rc=2 (sha256sum не смог прочесть) распространяется
-# вверх так же, как у emit_manifest (`|| return 2`). Симлинки ПРОПУСКАЮТСЯ на
-# каждом уровне — они могут dangle или вести в attacker-controlled каталог; их
-# присутствие само по себе не отражается в манифесте, и подмена через симлинк
-# не пройдёт (нет строки ⇒ чистка по Демаркации, но и утечки нет — симлинк
-# атакующего не в нашем отпечатке; проверка пути на симлинк делается ДО этого
-# обхода).
-emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
-  local dir="$1" pre="$2" entry p fp
-  for entry in "$dir"/*; do
-    [ -e "$entry" ] || continue
-    [ -L "$entry" ] && continue   # симлинки пропускаем (см. комментарий выше)
-    if [ -f "$entry" ]; then
-      if ! fp="$("$SHA256SUM" -- "$entry" 2>/dev/null)"; then
-        printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$entry" >&2
-        return 2
-      fi
-      fp="${fp%% *}"
-      # entry ведущий слэш съедаем: «/<dir>/<basename>» → «<dir-basename>…»
-      printf 'DOTGIT:%s\t%s/%s\n' "$fp" "$pre" "${entry##*/}"
-    elif [ -d "$entry" ]; then
-      emit_dotgit_manifest_walk "$entry" "$pre/${entry##*/}" || return 2
-    fi
-  done
-}
-emit_dotgit_manifest() {  # <канон-корень>
-  local gitdir="$1/.git" hooksdir entry fp
-  [ -d "$gitdir" ] || return 0   # нет .git/ — нечего хешировать
-  # 1. .git/hooks/* (рекурсивно, не-симлинк). Префикс путей: «.git/hooks[/...]».
-  hooksdir="$gitdir/hooks"
-  if [ -d "$hooksdir" ]; then
-    emit_dotgit_manifest_walk "$hooksdir" ".git/hooks" || return 2
-  fi
-  # 2. .git/config (один файл — точка контроля trustLevel/receive.denyCurrentBranch
-    # и пр., которые влияют на всё поведение git; подмена эквивалентна
-    # конфигурированию «зеркального» репозитория).
-  if [ -f "$gitdir/config" ]; then
-    if ! fp="$("$SHA256SUM" -- "$gitdir/config" 2>/dev/null)"; then
-      printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$gitdir/config" >&2
-      return 2
-    fi
-    fp="${fp%% *}"
-    printf 'DOTGIT:%s\t.git/config\n' "$fp"
-  fi
-}
-# Итоговая manifest() сшивает porcelain + dot-git и сортирует ЕДИНЫМ sort.
-# Под «единой сортировкой» означает: hash8-снимок стабилен между двумя вызовами
-# вне зависимости от того, что porcelain/dot-git вернули порознь (sort на общем
-# стриме), и verify-sha обновляется в do_snapshot при том же содержимом.
-#
-# pipefail локально: «Левый side пайпа — сабшелл, переменные в нём не выживают
-# наружу» (приём v4 неявный). С pipefail exit of pipeline = правый-most non-zero,
-# и emit_manifest rc 2 (git status / sha256sum / rev-parse отказ) корректно
-# прорастает до $? после `m=$(...)` в do_snapshot без подмены sort'ом.
-manifest() {
-  set -o pipefail
-  {
-    emit_manifest "$1" "${2:-}"
-    emit_dotgit_manifest "$1"
-  } | "$SORT"
-}
 do_snapshot() {
   local m manifest_rc
   m="$(manifest "$CANON" '')"
@@ -562,36 +499,30 @@ do_check() {
       "$P_NET_SNIMKA" "$SNAP" >&2
     exit 1
   fi
-  # ЗАЩИТА-СНИМКА — полная проверка пути (контрпример наблюдения H, вердикт k5):
-  # каждый КОМПОНЕНТ пути от TMPDIR-корня до $SNAP включительно обязан быть
-  # реальным каталогом/файлом, НЕ симлинком. Защищает от:
-  #   * прямой подмены $SNAP симлинком (мера 1 в.к2 адверсария 01ed097);
-  #   * подмены $SNAP_DIR симлинком (мера 1б);
-  #   * подмены ПРОМЕЖУТОЧНОГО компонента ${TMPDIR:-/tmp}/dev-harness-leak/<hash8>
-  #     симлинком — ранее проходило мимо -L, атакующий перенаправлял снап в свой
-  #     каталог и подменял файл снимка «свежим», проходящим сверку (наблюдение H);
-  #   * подмены ПРОМЕЖУТОЧНОГО компонента $TMPDIR/dev-harness-leak тем же приёмом
-  #     без симлинка-родителя (наблюдение G — TMPDIR пропускался).
-  # Реализация: ровно один проход по разбиению пути на абсолютные компоненты.
-  # Bash не имеет `$path_parts` builtin; используем `IFS='/' read -ra` (read — builtin,
-  # не требует пина, и не подменяется PATH-атакой).
-  local cnl_pfx="" cnl_i=1 cnl_n=0 cnl_part
-  local -a cnl_parts=()
-  IFS='/' read -r -a cnl_parts <<< "$SNAP"
-  cnl_n="${#cnl_parts[@]}"
-  # cnl_parts[0]="" от ведущего '/'; первый реальный компонент — cnl_parts[1].
-  while [ "$cnl_i" -lt "$cnl_n" ]; do
-    cnl_pfx="${cnl_pfx}/${cnl_parts[$cnl_i]}"
-    if [ -L "$cnl_pfx" ]; then
-      printf 'ОТКАЗ: компонент пути снимка — симлинк: %s (replacement промежуточного каталога недопустим; наблюдение H к5)\n' "$cnl_pfx" >&2
-      exit 1
-    fi
-    cnl_i=$((cnl_i+1))
-  done
-  # Сам $SNAP (последний компонент) — отдельная явная проверка после цикла,
-  # для ясного сообщения.
+  # ЗАЩИТА-СНИМКА — мера 1: явный запрет симлинков. Контрпример S-external-snapshot-symlink
+  # адверсария к2 01ed097: после baseline-снимка файл `$SNAP` заменяется симлинком на
+  # снимок ТОГО ЖЕ корня, сделанный ПОСЛЕ модификации tracked-файла; root-строка
+  # совпадает, дельта пуста ⇒ «чисто». `[ -L ]` ловит ровно эту подмену.
   if [ -L "$SNAP" ]; then
     printf 'ОТКАЗ: снимок — симлинк: %s — replacement через симлинк недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP" >&2
+    exit 1
+  fi
+  # Мера 1б: симлинк на КАТАЛОГ снимка. Тот же класс подмены через `ln -s` на $SNAP_DIR.
+  if [ -L "$SNAP_DIR" ]; then
+    printf 'ОТКАЗ: каталог снимка — симлинк: %s — replacement каталога недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP_DIR" >&2
+    exit 1
+  fi
+  # Мера 1в (наблюдение H адверсария к5 4dfc0ff): симлинк на ПРОМЕЖУТОЧНЫЙ
+  # `$TMPDIR/dev-harness-leak`. Атакующий снимает оригинальный `$TMPDIR/dev-harness-leak`
+  # и создаёт симлинк `$TMPDIR/dev-harness-leak` → `$stash/dev-harness-leak`,
+  # где `$stash/dev-harness-leak/$HASH8/porcelain` — СВЕЖИЙ снимок ТОГО ЖЕ корня,
+  # сделанный ПОСЛЕ модификации tracked-файла (root-строка совпадает, verify валиден).
+  # `$SNAP` и `$SNAP_DIR` при таком обходе — регулярные (атакующий контролирует
+  # содержимое stash), проверки -L на них ПРОХОДЯТ, дельта пуста, rc 0 «чисто».
+  # Единственная защита — `[ -L ]` на самом промежуточном `$TMPDIR/dev-harness-leak`.
+  if [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
+    printf 'ОТКАЗ: промежуточный каталог — симлинк: %s/dev-harness-leak — replacement промежуточного каталога недопустим (ЗАЩИТА-СНИМКА наблюдение H адверсария к5)\n' \
+      "$TMPDIR_BASE" >&2
     exit 1
   fi
   # `[ ! -f ]` оставлен ПОСЛЕ симлинк-чека: регулярный файл ≠ симлинк, но
