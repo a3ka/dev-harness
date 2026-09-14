@@ -263,6 +263,14 @@ fixtures/check_zones/, мера 021; красные/стабы/пробы дет
 fixtures/check_judge_gate/. Общих файлов нет; если обе пачки тянут один путь — стоп
 и доклад (условие пары из задания оркестратора).
 
+СПАСЕНО architect: 32d580c720058175ffde95a9aa117f15b574a711 — коммит правит
+contracts/025-sreda-cwd-rc.md (СОБСТВЕННАЯ зона architect контракта 025, не 024);
+попадает под суд 024 артефактом windowing-механизма check_zones.sh — оба контрактных
+окна (024 и 025) одновременно открыты (нет done/contracts/024/1), прямой коммит на
+main без wip/025/architect-merge не исключается фильтром «land: wip/<OTHER>/…»
+(scripts/check_zones.sh:302-316), потому явное СПАСЕНО здесь наравне с зеркальной
+строкой в contracts/025-sreda-cwd-rc.md (verdicts/critic/contracts-025-v5.md).
+
 ## Приёмочный критерий
 
 ### Красное сейчас (ДО реализации; прямые запуски — red/stab/probe/canary вне case_*-глоба раннера)
