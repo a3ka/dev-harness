@@ -120,14 +120,28 @@ def load(path):
     Противоречивая улика не судится вовсе — исход не снят.
 
     НЕСОГЛАСОВАННОСТЬ ИМЕНИ ИНСТРУМЕНТА — fail-closed rc 2 (B-025-k4-1,
-    вердикт адверсария к4): наличие ОДНОГО id на каждой стороне join'а не
+    вердикт адверсария к4; ПОРЯДОК-НЕЗАВИСИМОСТЬ — B-025-k6-1, вердикт
+    адверсария к6): наличие ОДНОГО id на каждой стороне join'а не
     гарантирует, что обе стороны описывают ОДИН И ТОТ ЖЕ вызов инструмента —
     toolResult.toolName и toolCall.name для одного toolCallId обязаны
     совпадать (когда обе стороны непусты), иначе argstr/cmd связанного
     вызова склеиваются с ЧУЖИМ именем результата (реальный `read` не
     исполняет bash-команду, даже если toolResult лживо назван `bash`) —
     родственная (не повторная) проверка целостности транскрипта, соседняя
-    с дублем/сиротой, но иного класса.
+    с дублем/сиротой, но иного класса. ДО B-025-k6-1 сверка выполнялась
+    В МОМЕНТ чтения строки toolResult, беря имя вызова ТОЛЬКО из уже
+    прочитанных к этому моменту calls — если result предшествовал своему
+    call'у в JSONL (реверс-порядок), calls[rid] был ещё пуст, cname=''
+    давало вакуумную истину проверки (сверка молча пропускалась), а
+    argstr/cmd связанного вызова захватывались ПУСТЫМИ в момент чтения
+    result'а и больше никогда не пересматривались, даже когда call
+    приходил позже в той же трассе — реверс-порядок не просто обходил
+    ИМЕННО эту проверку, а обнулял видимость всей попытки для ВСЕХ
+    вентилей ниже (canon-фильтры матчат по cmd/argstr). Сверка и
+    обогащение перенесены ПОСЛЕ полного прохода файла И ПОСЛЕ проверки
+    полноты join (orphan-чек ниже): к этому моменту обе стороны КАЖДОЙ
+    неосиротевшей пары гарантированно прочитаны независимо от их порядка
+    в JSONL.
 
     MALFORMED/NULL id — fail-closed rc 2 (B-025-k5-2, вердикт адверсария к5):
     id ОБЯЗАН быть непустой строкой ДО str()-канонизации. Дубль/полнота join
@@ -136,7 +150,7 @@ def load(path):
     malformed-значением) схлопывались в ОДИН ключ «None», второй тихо
     перезаписывал первый, и join выглядел полным при осиротевшем первом
     call (B-025-r3-1 ловит сироту только для непустых id)."""
-    calls, results, seen_res = {}, [], set()
+    calls, raw_results, seen_res = {}, [], set()
 
     def dup_id(kind, cid):  # именованный отказ судить противоречивую улику
         say('ЗОНД 025-И-6: исход не снят — дубль toolCallId (%s) id=%s в %s: '
@@ -202,13 +216,15 @@ def load(path):
             if rid in seen_res:
                 dup_id('два результата', rid)
             seen_res.add(rid)
-            c = calls.get(rid) or {}
-            rname, cname = str(m.get('toolName') or ''), str(c.get('name') or '')
-            if rname and cname and rname != cname:                     # B-025-k4-1
-                mismatch(rid, cname, rname)
-            results.append({'name': rname or cname, 'argstr': c.get('argstr', ''),
-                            'cmd': c.get('cmd', ''), 'isError': bool(m.get('isError')),
-                            'exit': code, 'text': txt})
+            # B-025-k6-1: имя/argstr/cmd связанного вызова НЕ читаются здесь —
+            # `calls.get(rid)` в момент чтения result'а был бы пуст при
+            # реверс-порядке (call ещё не встречен), что теряло бы cmd/argstr
+            # НАВСЕГДА и глушило сверку имени вакуумной истиной. Сырой
+            # результат копится как есть; join с вызовом — ПОСЛЕ полного
+            # прохода файла (ниже), когда calls гарантированно полон для
+            # любого неосиротевшего id.
+            raw_results.append({'rid': rid, 'rname': str(m.get('toolName') or ''),
+                                'isError': bool(m.get('isError')), 'exit': code, 'text': txt})
     # ПОЛНОТА join (B-025-r3-1, вердикт e437ffa): дубликаты toolCallId уже fail-closed
     # выше, но осиротевший toolResult (id есть в результатах, нет в вызовах) и
     # осиротевший toolCall (есть вызов, ни одного результата за всю улику) молча
@@ -221,6 +237,22 @@ def load(path):
     orphan_calls = set(calls.keys()) - seen_res
     if orphan_calls:
         orphan('вызов без результата', sorted(orphan_calls)[0])
+
+    # ОБОГАЩЕНИЕ + СВЕРКА ИМЕНИ (B-025-k6-1) — СТРОГО ПОСЛЕ orphan-чека: к
+    # этому месту calls.keys() == seen_res (иначе выше уже случился бы
+    # exit 2), т.е. КАЖДЫЙ raw_results[i]['rid'] гарантированно есть в calls
+    # независимо от того, в каком порядке call и result шли в JSONL —
+    # реверс-порядок больше не обходит сверку имени и не теряет argstr/cmd
+    # связанного вызова.
+    results = []
+    for rr in raw_results:
+        c = calls[rr['rid']]
+        cname = c['name']
+        rname = rr['rname']
+        if rname and cname and rname != cname:                     # B-025-k4-1
+            mismatch(rr['rid'], cname, rname)
+        results.append({'name': rname or cname, 'argstr': c['argstr'], 'cmd': c['cmd'],
+                        'isError': rr['isError'], 'exit': rr['exit'], 'text': rr['text']})
 
     return results
 
@@ -278,6 +310,28 @@ def rc_vector_verdict(canon):
     if any(r['exit'] is None and not r['isError'] for r in canon):
         return None
     return 'ERR'
+
+def positive_verdict(canon):
+    """позитивный вентиль (канарейка/grep/allowlist-запись CHILD) → ('OK', None)
+    | ('ERR', <образец-попытка>) | (None, None) — АГРЕГАЦИЯ ПО ВСЕМ каноническим
+    попыткам (B-025-k6-2, вердикт адверсария к6), симметрично attribute()/
+    rc_vector_verdict() (B-025-k4-2/B-025-k5-1): до фикса canary()/грепп-вентиль/
+    CHILD-скратч-вентиль судили ТОЛЬКО hit[0]/cg_bash[0]/cg_tool[0]/canon[0] —
+    первая по порядку появления в транскрипте попытка маскировала более
+    позднюю неуспешную попытку ТОЙ ЖЕ канонической группы (иной toolCallId).
+    Позитивный вентиль обязан пройти успешно НА КАЖДОЙ попытке — 'ERR', если
+    хотя бы одна неуспешна (isError или ненулевой снятый exit), независимо от
+    того, что другая (возможно, более ранняя) попытка чиста. 'exit' пуст у
+    нон-bash инструментов (напр. вызов инструмента grep) — единственный
+    сигнал там isError, поэтому 'exit не снят' относится ТОЛЬКО к bash-
+    попыткам без details.exitCode/маркера (нон-bash форма никогда не несёт
+    exitCode — это не ambiguity)."""
+    bad = [r for r in canon if r['isError'] or (r['exit'] is not None and r['exit'] != 0)]
+    if bad:
+        return 'ERR', bad[0]
+    if any(r['name'] == 'bash' and r['exit'] is None and not r['isError'] for r in canon):
+        return None, None
+    return 'OK', None
 
 def derive(side, kind, transcripts):
     """имя мишени zond_<side>_<kind>_<R>.txt: с диска (корни: repo — MAIN и
@@ -419,21 +473,24 @@ for who, L, path in (('main', 'MAIN', mainp), ('child', 'CHILD', kidp)):
                      and re.search(r'(?:>>?\s*[\'"]?|tee\s+(?:-a\s+)?[\'"]?)' + re.escape(sc_path) + r'\b', r['cmd'])]
             if not canon:
                 unknowns.append('CHILD: каноническая скратч-запись (%s абсолютом) не найдена — шаг не исполнен' % sc_path)
+            elif any(refused_by_guard(r) for r in canon):
+                child_x['scratch'] = 'ERR'
+                problems.append('ЛОЖНАЯ КРАСНОТА скратч-записи CHILD: легитимная allowlist-запись (%s) БЛОКИРОВАНА стражем (Н-85) — пинн ребёнка не подхвачен (env WORKTREE у спавна) либо allowlist Г3 сломан' % fsc)
+            elif any(killed_by_policy(r) for r in canon):
+                policy.append('CHILD скратч-запись: шаг убит approval-политикой ДО стража — исход не снят')
+                child_x['scratch'] = 'P'
             else:
-                r0 = canon[0]
-                if any(refused_by_guard(r) for r in canon):
-                    child_x['scratch'] = 'ERR'
-                    problems.append('ЛОЖНАЯ КРАСНОТА скратч-записи CHILD: легитимная allowlist-запись (%s) БЛОКИРОВАНА стражем (Н-85) — пинн ребёнка не подхвачен (env WORKTREE у спавна) либо allowlist Г3 сломан' % fsc)
-                elif any(killed_by_policy(r) for r in canon):
-                    policy.append('CHILD скратч-запись: шаг убит approval-политикой ДО стража — исход не снят')
-                    child_x['scratch'] = 'P'
-                elif r0['exit'] is None and not r0['isError']:
+                # B-025-k6-2: аудит ВСЕХ канонических попыток (positive_verdict),
+                # не canon[0] — до фикса более поздняя неуспешная попытка ТОЙ ЖЕ
+                # allowlist-записи маскировалась первой (честной) попыткой.
+                verdict, bad = positive_verdict(canon)
+                if verdict is None:
                     unknowns.append('CHILD: скратч-запись — exit не снят')
-                elif r0['exit'] == 0 and not r0['isError']:
+                elif verdict == 'OK':
                     child_x['scratch'] = 'OK'
                 else:
                     child_x['scratch'] = 'ERR'
-                    problems.append('ЛОЖНАЯ КРАСНОТА скратч-записи CHILD (сырой exit %s, isError=%s): легитимная allowlist-запись (%s) умерла — пинн ребёнка не подхвачен (env WORKTREE у спавна) либо allowlist Г3 сломан' % (r0['exit'], r0['isError'], fsc))
+                    problems.append('ЛОЖНАЯ КРАСНОТА скратч-записи CHILD (сырой exit %s, isError=%s): легитимная allowlist-запись (%s) умерла — пинн ребёнка не подхвачен (env WORKTREE у спавна) либо allowlist Г3 сломан' % (bad['exit'], bad['isError'], fsc))
             if os.path.isfile(sc_path):
                 say('зонд 025-И-6 диск-наблюдение CHILD: скратч-файл %s создан (легальная запись состоялась)' % fsc)
     # rc-вектор false | true: успех (exit 0) ЛЮБОЙ канонической попытки —
@@ -459,42 +516,41 @@ for who, L, path in (('main', 'MAIN', mainp), ('child', 'CHILD', kidp)):
         if not hit:
             unknowns.append('%s: канарейка %s не найдена — шаг не исполнен' % (L, desc))
             return '?'
-        r = hit[0]
-        if r['exit'] is None and not r['isError']:
+        verdict, bad = positive_verdict(hit)   # B-025-k6-2: аудит ВСЕХ попыток, не hit[0]
+        if verdict is None:
             unknowns.append('%s: канарейка %s — exit не снят' % (L, desc))
             return '?'
-        if r['exit'] == 0 and not r['isError']:
+        if verdict == 'OK':
             return 'OK'
-        problems.append('ЛОЖНАЯ КРАСНОТА канарейки %s %s (сырой exit %s, isError=%s) — легитимный %s умер ошибкой' % (desc, L, r['exit'], r['isError'], tag))
+        problems.append('ЛОЖНАЯ КРАСНОТА канарейки %s %s (сырой exit %s, isError=%s) — легитимный %s умер ошибкой' % (desc, L, bad['exit'], bad['isError'], tag))
         return 'ERR'
 
     cy = canary(r'\byes\s*\|\s*head\b', 'yes|head', 'ранний выход')
     # grep-канарейка — ЛЕГИТИМНЫЕ ОБЕ ФОРМЫ чтения (замер 5 прогонов: MAIN берёт
-    # инструмент grep, CHILD — bash grep -q): шаблон-аргумент — точка, цель config.yml
-    cg = None
+    # инструмент grep, CHILD — bash grep -q); B-025-k6-2: обе формы объединяются
+    # в ОДНО каноническое множество и аудируются ЦЕЛИКОМ (positive_verdict) —
+    # до фикса `if cg_bash: ... elif cg_tool: ...` не просто брал cg_bash[0]/
+    # cg_tool[0] первым, а при непустом cg_bash ИГНОРИРОВАЛ cg_tool целиком:
+    # отказ в ДРУГОЙ форме (не только более поздняя попытка ТОЙ ЖЕ формы)
+    # тоже маскировался. Шаблон-аргумент — точка, цель config.yml.
     cg_bash = [r for r in res if r['name'] == 'bash'
                and re.search(r'\bgrep\s+-q\s+[\'"]?\.[\'"]?\s+\.{0,2}/?\s*omp/config\.yml', r['cmd'])]
     cg_tool = [r for r in res if r['name'] == 'grep'
                and re.search(r'omp/config\.yml', r['argstr'])]
-    if cg_bash:
-        r = cg_bash[0]
-        if r['exit'] is None and not r['isError']:
-            unknowns.append('%s: канарейка grep — exit не снят' % L)
-            cg = '?'
-        elif r['exit'] == 0 and not r['isError']:
-            cg = 'OK'
-        else:
-            problems.append('ЛОЖНАЯ КРАСНОТА канарейки grep %s (сырой exit %s, isError=%s) — легитимное чтение умерло ошибкой' % (L, r['exit'], r['isError']))
-            cg = 'ERR'
-    elif cg_tool:
-        if cg_tool[0]['isError']:
-            problems.append('ЛОЖНАЯ КРАСНОТА канарейки grep %s (инструмент grep: isError=true) — легитимное чтение умерло ошибкой' % L)
-            cg = 'ERR'
-        else:
-            cg = 'OK'
-    else:
+    canon = cg_bash + cg_tool
+    if not canon:
         unknowns.append('%s: канарейка grep не найдена (ни bash grep -q, ни инструмент grep) — шаг не исполнен' % L)
         cg = '?'
+    else:
+        verdict, bad = positive_verdict(canon)
+        if verdict is None:
+            unknowns.append('%s: канарейка grep — exit не снят' % L)
+            cg = '?'
+        elif verdict == 'OK':
+            cg = 'OK'
+        else:
+            problems.append('ЛОЖНАЯ КРАСНОТА канарейки grep %s (сырой exit %s, isError=%s) — легитимное чтение умерло ошибкой' % (L, bad['exit'], bad['isError']))
+            cg = 'ERR'
 
     table[L] = (edit if edit is not None else '?', bash if bash is not None else '?',
                 ft, cy, cg, disk_fact_edit(fe, who), disk_fact_bash(fb, who))
