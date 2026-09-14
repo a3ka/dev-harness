@@ -127,7 +127,15 @@ def load(path):
     вызова склеиваются с ЧУЖИМ именем результата (реальный `read` не
     исполняет bash-команду, даже если toolResult лживо назван `bash`) —
     родственная (не повторная) проверка целостности транскрипта, соседняя
-    с дублем/сиротой, но иного класса."""
+    с дублем/сиротой, но иного класса.
+
+    MALFORMED/NULL id — fail-closed rc 2 (B-025-k5-2, вердикт адверсария к5):
+    id ОБЯЗАН быть непустой строкой ДО str()-канонизации. Дубль/полнота join
+    выше проверялись только для id not in (None, ''), но ЛЮБОЙ raw id всё
+    равно сохранялся под ключом str(id) — два call с id=null (или иным
+    malformed-значением) схлопывались в ОДИН ключ «None», второй тихо
+    перезаписывал первый, и join выглядел полным при осиротевшем первом
+    call (B-025-r3-1 ловит сироту только для непустых id)."""
     calls, results, seen_res = {}, [], set()
 
     def dup_id(kind, cid):  # именованный отказ судить противоречивую улику
@@ -146,6 +154,13 @@ def load(path):
             'join вызов-результат противоречив (B-025-k4-1)' % (cid, os.path.basename(path), cname, rname))
         sys.exit(2)
 
+    def malformed_id(kind, raw):  # id обязан быть непустой строкой ДО str()-канонизации (B-025-k5-2)
+        say('ЗОНД 025-И-6: исход не снят — malformed/null toolCallId (%s)=%r в %s: '
+            'id обязан быть непустой строкой до str()-канонизации, иначе коллизия '
+            'молча схлопывает разные call/result события в один ключ, улика '
+            'противоречива (B-025-k5-2)' % (kind, raw, os.path.basename(path)))
+        sys.exit(2)
+
     for line in read_text(path).splitlines():
         line = line.strip()
         if not line:
@@ -162,16 +177,17 @@ def load(path):
             for b in m.get('content') or []:
                 if isinstance(b, dict) and b.get('type') == 'toolCall':
                     cid = b.get('id')
-                    if cid not in (None, '') and str(cid) in calls:
-                        dup_id('два вызова', str(cid))
+                    if not isinstance(cid, str) or cid == '':
+                        malformed_id('toolCall.id', cid)
+                    if cid in calls:
+                        dup_id('два вызова', cid)
                     args = b.get('arguments')
                     if isinstance(args, dict):
                         argstr = json.dumps(args, ensure_ascii=False)
                         cmd = str(args.get('command') or '')
                     else:
                         argstr, cmd = str(args), ''
-                    calls[str(b.get('id'))] = {'name': str(b.get('name') or ''),
-                                               'argstr': argstr, 'cmd': cmd}
+                    calls[cid] = {'name': str(b.get('name') or ''), 'argstr': argstr, 'cmd': cmd}
         elif role == 'toolResult':
             txt = ''.join(b.get('text', '') for b in (m.get('content') or [])
                           if isinstance(b, dict) and b.get('type') == 'text')
@@ -181,14 +197,15 @@ def load(path):
                 marks = re.findall(r'\[exit=(\d+)\]', txt)   # маркер B-2 — запасной
                 code = int(marks[-1]) if marks else None
             rid = m.get('toolCallId')
-            if rid not in (None, '') and str(rid) in seen_res:
-                dup_id('два результата', str(rid))
-            if rid not in (None, ''):
-                seen_res.add(str(rid))
-            c = calls.get(str(rid)) or {}
+            if not isinstance(rid, str) or rid == '':
+                malformed_id('toolResult.toolCallId', rid)
+            if rid in seen_res:
+                dup_id('два результата', rid)
+            seen_res.add(rid)
+            c = calls.get(rid) or {}
             rname, cname = str(m.get('toolName') or ''), str(c.get('name') or '')
             if rname and cname and rname != cname:                     # B-025-k4-1
-                mismatch(str(rid), cname, rname)
+                mismatch(rid, cname, rname)
             results.append({'name': rname or cname, 'argstr': c.get('argstr', ''),
                             'cmd': c.get('cmd', ''), 'isError': bool(m.get('isError')),
                             'exit': code, 'text': txt})
@@ -245,6 +262,22 @@ def attribute(canon):
     if any(killed_by_policy(r) for r in canon):
         return 'policy'
     return 'other'
+
+def rc_vector_verdict(canon):
+    """rc-вектор (false | true и родственные) — агрегация ПО ВСЕМ каноническим
+    попыткам (B-025-k5-1, вердикт адверсария к5), тот же принцип, что
+    attribute()/B-025-k4-2: raw toolResult УСПЕШНОЙ (exit==0) попытки
+    перевешивает ERR другой попытки ТОЙ ЖЕ канонической группы (иной
+    toolCallId) — до фикса судился только hit[0], первая по порядку
+    появления в транскрипте попытка маскировала более позднюю живую.
+    Возвращает 'OK' (живой pipefail — красный), None (exit не снят ни у
+    одной попытки) или 'ERR' (pipefail жив; НЕСКОЛЬКО честных отказов —
+    len(canon)>1 сам по себе не означает утечку)."""
+    if any(r['exit'] == 0 for r in canon):
+        return 'OK'
+    if any(r['exit'] is None and not r['isError'] for r in canon):
+        return None
+    return 'ERR'
 
 def derive(side, kind, transcripts):
     """имя мишени zond_<side>_<kind>_<R>.txt: с диска (корни: repo — MAIN и
@@ -403,18 +436,20 @@ for who, L, path in (('main', 'MAIN', mainp), ('child', 'CHILD', kidp)):
                     problems.append('ЛОЖНАЯ КРАСНОТА скратч-записи CHILD (сырой exit %s, isError=%s): легитимная allowlist-запись (%s) умерла — пинн ребёнка не подхвачен (env WORKTREE у спавна) либо allowlist Г3 сломан' % (r0['exit'], r0['isError'], fsc))
             if os.path.isfile(sc_path):
                 say('зонд 025-И-6 диск-наблюдение CHILD: скратч-файл %s создан (легальная запись состоялась)' % fsc)
-    # rc-вектор false | true: успех (exit 0) = красный; любой ненулевой/ошибка = ERR
+    # rc-вектор false | true: успех (exit 0) ЛЮБОЙ канонической попытки —
+    # красный (агрегация по всем попыткам, не только первой — B-025-k5-1);
+    # иначе (ни одной попытки exit==0) — ERR, порядок в транскрипте не влияет
     ft = '?'
     hit = [r for r in res if r['name'] == 'bash' and re.search(r'\bfalse\s*\|\s*true\b', r['cmd'])]
     if not hit:
         unknowns.append('%s: вызов false | true не найден — шаг не исполнен' % L)
     else:
-        r = hit[0]
-        if r['exit'] is None and not r['isError']:
+        verdict = rc_vector_verdict(hit)
+        if verdict is None:
             unknowns.append('%s: false | true — exit не снят (нет details.exitCode и маркера [exit=N])' % L)
-        elif r['exit'] == 0:
+        elif verdict == 'OK':
             ft = 'OK'
-            problems.append('rc-гигиена %s жива: false | true прошло успехом (сырой exit 0 из транскрипта) — pipefail-носитель не действует' % L)
+            problems.append('rc-гигиена %s жива: false | true прошло успехом (сырой exit 0 из транскрипта — хотя бы одна каноническая попытка, независимо от порядка появления) — pipefail-носитель не действует' % L)
         else:
             ft = 'ERR'
 
