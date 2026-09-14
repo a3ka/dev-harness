@@ -490,6 +490,37 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
         return 2
       fi
       printf 'DOTGIT:SYMLINK:%s\t%s/%s\n' "$target" "$pre" "${entry##*/}"
+      # Б3 (фикс адверсария contracts-024-k8, S-dotgit-symlink-target-mutation):
+      # одна SYMLINK-строка с readlink-целью НЕ ловит подмену БАЙТОВ цели —
+      # цель мутирует (`.git/info/exclude` → симлинк `../hidden-exclude` ВНЕ
+      # .git, либо симлинк ВНЕ канон-корня целиком — оба репро адверсария к8
+      # доказывают явно), readlink-цель НЕ меняется, SYMLINK-строка стабильна,
+      # git следует симлинку и молча начинает игнорировать утечку ⇒ «чисто».
+      # Решение: РАЗРЕШИТЬ цель полностью через `readlink -f` (канонизация
+      # «.»/«..», цель МОЖЕТ лежать вне .git и вне канон-корня); если резолв
+      # ведёт в читаемый регулярный файл — добавить ВТОРУЮ строку манифеста
+      # ПО ТОМУ ЖЕ ключу-пути `<pre>/<name>` с sha256 БАЙТОВ цели. Подмена
+      # байтов цели меняет CONTENT-строку ⇒ дельта ⇒ rc=1 именованный.
+      # `readlink -f` возвращает rc≠0 только на нерезолвимой канонизации —
+      # именованный NOT_IMPLEMENTED rc=2. Dangling (цель не существует) и
+      # не-файл (каталог/FIFO/устройство) — маркерная строка DOTGIT:DANGLING,
+      # чтобы не молчать и не падать неназванно: snapshot и check несут
+      # РАЗНЫЕ маркеры (DANGLING↔CONTENT либо разные CONTENT-sha) при подмене,
+      # дельта ловит оба направления.
+      if ! resolved="$("$READLINK" -f -- "$entry" 2>/dev/null)"; then
+        printf 'NOT_IMPLEMENTED: readlink -f отказал на %s (цель=%s)\n' "$entry" "$target" >&2
+        return 2
+      fi
+      if [ -n "$resolved" ] && [ -f "$resolved" ] && [ -r "$resolved" ]; then
+        if ! fp="$("$SHA256SUM" -- "$resolved" 2>/dev/null)"; then
+          printf 'NOT_IMPLEMENTED: не смог прочитать цель симлинка %s (%s)\n' "$entry" "$resolved" >&2
+          return 2
+        fi
+        fp="${fp%% *}"
+        printf 'DOTGIT:CONTENT:%s\t%s/%s\n' "$fp" "$pre" "${entry##*/}"
+      else
+        printf 'DOTGIT:DANGLING:%s\t%s/%s\n' "$resolved" "$pre" "${entry##*/}"
+      fi
       continue
     fi
     if [ -f "$entry" ]; then
@@ -726,13 +757,50 @@ do_check() {
       "$verify_stored" "$verify_recomp" >&2
     exit 1
   fi
-  cur="$(manifest "$CANON" '')"
+  # Б4 (фикс адверсария contracts-024-k8, S-porcelain-dotgit-toctou): один
+  # прочёт манифеста читает porcelain (`emit_manifest`) и dot-git walk
+  # (`emit_dotgit_manifest`) НЕАТОМАРНО, ДВУМЯ отдельными producer-вызовами —
+  # между ними окно, в которое атакующий переключает `.git/info/exclude`
+  # (скрыть-утечку → восстановить-baseline) так, что porcelain видит
+  # скрытое, а dot-git walk видит уже восстановленное (или наоборот); оба
+  # producer'а по отдельности выглядят «согласованными со снимком», хотя
+  # физически файл утечки существует. Повторный прогон адверсария —
+  # 5 из 5 ложных «чисто».
+  #
+  # Решение: вычислить ПОЛНЫЙ комбинированный манифест (`manifest()` целиком)
+  # ДВАЖДЫ ПОДРЯД, без другой работы между вызовами. Если оба чтения СОВПАДАЮТ
+  # байт-в-байт — дерево было согласованным на протяжении обоих прочтений
+  # (окно гонки не поймало мутацию), и дальше судим по ОБЫЧНОЙ дельте против
+  # снимка (как раньше). Если чтения РАСХОДЯТСЯ — сам факт расхождения ЕСТЬ
+  # сигнал «дерево мутировало во время сверки»: `--check` ОБЯЗАН отказать
+  # ИМЕНОВАННО, а не молча доверять первому/второму чтению (оба уже показали,
+  # что видели РАЗНЫЕ состояния одного и того же дерева в одну сверку).
+  #
+  # Carve-out `.git/info/refs` (легитимный git-дрейф, red_info_refs_drift_024)
+  # не ломается: refs вообще НЕ входит ни в одно из двух чтений манифеста
+  # (пропуск в emit_dotgit_manifest_walk), поэтому обычный дрейф refs МЕЖДУ
+  # двумя чтениями не может вызвать их расхождение — оба чтения одинаково
+  # НЕ видят refs.
+  cur1="$(manifest "$CANON" '')"
   manifest_rc=$?
   if [ "$manifest_rc" -ne 0 ]; then
     [ "$manifest_rc" -eq 2 ] && exit 2
     printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
     exit 1
   fi
+  cur2="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  if [ "$cur1" != "$cur2" ]; then
+    printf 'ОТКАЗ: %s: основной чекаут мутировал во время сверки — повторное чтение разошлось с первым (porcelain и dot-git walk идут неатомарно; фикс блокера Б4 адверсария contracts-024-k8)\n' \
+      "$P_ZAGR" >&2
+    exit 1
+  fi
+  cur="$cur1"
   # Дельта — ПОДМНОЖЕСТВО: новые строки манифеста ⇒ утечка. Исчезновения — чистка, не краснеем.
   delta="$(printf '%s\n' "$cur" | "$COMM" -23 - <(printf '%s\n' "$base" | "$SORT"))"
   if [ -n "$delta" ]; then
