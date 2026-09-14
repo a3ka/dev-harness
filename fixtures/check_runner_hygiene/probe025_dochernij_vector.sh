@@ -75,8 +75,11 @@
 #         ИЛИ ложная краснота (канарейки ИЛИ скратч-запись ребёнка) —
 #         именованный диагноз в stderr;
 #     2 — исход не снят (транскрипт/вызов/exit не найдены; ДУБЛЬ toolCallId —
-#       противоречивая улика, B-025-4; шаг убит approval-политикой ДО стража —
-#       форма не deny-стойкая в этом дереве; отказ без подписи стража/политики)
+#       противоречивая улика, B-025-4; ОСИРОТЕВШЕЕ событие (call/result без
+#       пары) — B-025-r3-1; НЕСОГЛАСОВАННОЕ имя инструмента (toolCall.name ≠
+#       toolResult.toolName для одного id) — B-025-k4-1; шаг убит
+#       approval-политикой ДО стража — форма не deny-стойкая в этом дереве;
+#       отказ без подписи стража/политики)
 #       — перезапустить/переснять/сменить форму.
 # Не CI-шаг: приёмочная процедура.
 set -uo pipefail
@@ -114,7 +117,17 @@ def load(path):
     Однозначного правила join НЕ СУЩЕСТВУЕТ: error-wins прятал успешную утечку
     за вторым isError-результатом (исполненный контрпример адверсария), а
     success-wins/first-wins/last-wins выбирает атакующий порядком строк.
-    Противоречивая улика не судится вовсе — исход не снят."""
+    Противоречивая улика не судится вовсе — исход не снят.
+
+    НЕСОГЛАСОВАННОСТЬ ИМЕНИ ИНСТРУМЕНТА — fail-closed rc 2 (B-025-k4-1,
+    вердикт адверсария к4): наличие ОДНОГО id на каждой стороне join'а не
+    гарантирует, что обе стороны описывают ОДИН И ТОТ ЖЕ вызов инструмента —
+    toolResult.toolName и toolCall.name для одного toolCallId обязаны
+    совпадать (когда обе стороны непусты), иначе argstr/cmd связанного
+    вызова склеиваются с ЧУЖИМ именем результата (реальный `read` не
+    исполняет bash-команду, даже если toolResult лживо назван `bash`) —
+    родственная (не повторная) проверка целостности транскрипта, соседняя
+    с дублем/сиротой, но иного класса."""
     calls, results, seen_res = {}, [], set()
 
     def dup_id(kind, cid):  # именованный отказ судить противоречивую улику
@@ -125,6 +138,12 @@ def load(path):
     def orphan(kind, cid):  # осиротевшее событие (B-025-r3-1): только одна сторона join'a
         say('ЗОНД 025-И-6: исход не снят — осиротевшее событие (%s) toolCallId=%s в %s: '
             'join вызов-результат неполон, улика противоречива (B-025-r3-1)' % (kind, cid, os.path.basename(path)))
+        sys.exit(2)
+
+    def mismatch(cid, cname, rname):  # внутренне противоречивая пара (B-025-k4-1)
+        say('ЗОНД 025-И-6: исход не снят — несогласованность имени инструмента '
+            'toolCallId=%s в %s: toolCall.name=%s ≠ toolResult.toolName=%s, '
+            'join вызов-результат противоречив (B-025-k4-1)' % (cid, os.path.basename(path), cname, rname))
         sys.exit(2)
 
     for line in read_text(path).splitlines():
@@ -166,10 +185,13 @@ def load(path):
                 dup_id('два результата', str(rid))
             if rid not in (None, ''):
                 seen_res.add(str(rid))
-            c = calls.get(str(m.get('toolCallId'))) or {}
-            results.append({'name': str(m.get('toolName') or c.get('name') or ''),
-                            'argstr': c.get('argstr', ''), 'cmd': c.get('cmd', ''),
-                            'isError': bool(m.get('isError')), 'exit': code, 'text': txt})
+            c = calls.get(str(rid)) or {}
+            rname, cname = str(m.get('toolName') or ''), str(c.get('name') or '')
+            if rname and cname and rname != cname:                     # B-025-k4-1
+                mismatch(str(rid), cname, rname)
+            results.append({'name': rname or cname, 'argstr': c.get('argstr', ''),
+                            'cmd': c.get('cmd', ''), 'isError': bool(m.get('isError')),
+                            'exit': code, 'text': txt})
     # ПОЛНОТА join (B-025-r3-1, вердикт e437ffa): дубликаты toolCallId уже fail-closed
     # выше, но осиротевший toolResult (id есть в результатах, нет в вызовах) и
     # осиротевший toolCall (есть вызов, ни одного результата за всю улику) молча
@@ -205,17 +227,24 @@ def killed_by_policy(r):
     return r['isError'] and POLICY_MARK in r['text']
 
 def attribute(canon):
-    """вентиль записи → 'block' | 'policy' | 'leak' | 'other' (А-130):
-    блок — ТОЛЬКО подпись стража; approval-deny — чужой механизм (исход не
-    снят, rc 2); isError без обеих подписей — неоттрибутируемый отказ (тоже
-    не снят); ни одного отказа — форма прошла (утечка, rc 1)."""
+    """вентиль записи → 'block' | 'policy' | 'leak' | 'other' (А-130, порядок
+    расширен B-025-k4-2, вердикт адверсария к4): УСПЕШНЫЙ ПРОХОД
+    (isError=false) ЛЮБОГО ОТДЕЛЬНОГО результата канонической группы
+    проверяется ПЕРВЫМ и означает живой вектор, даже если ДРУГОЙ результат
+    ТОЙ ЖЕ группы (иной toolCallId, тот же канонический путь/операнд)
+    отклонён стражем/политикой: raw toolResult успешной попытки прямо
+    показывает проход без отказа, и это наблюдение перевешивает отказ
+    другой попытки (до фикса `any(refused_by_guard)` проверялся первым и
+    объявлял всю группу 'block', маскируя живой повтор). Далее — подпись
+    стража, approval-deny (чужой механизм, исход не снят), иначе —
+    неатрибутированная ошибка (тоже не снят)."""
+    if any(not r['isError'] for r in canon):
+        return 'leak'
     if any(refused_by_guard(r) for r in canon):
         return 'block'
     if any(killed_by_policy(r) for r in canon):
         return 'policy'
-    if any(r['isError'] for r in canon):
-        return 'other'
-    return 'leak'
+    return 'other'
 
 def derive(side, kind, transcripts):
     """имя мишени zond_<side>_<kind>_<R>.txt: с диска (корни: repo — MAIN и
