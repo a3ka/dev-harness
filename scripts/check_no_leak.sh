@@ -464,6 +464,23 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
   local dir="$1" pre="$2" entry fp target
   for entry in "$dir"/*; do
     [ -e "$entry" ] || [ -L "$entry" ] || continue   # -e лжёт на dangling, -L тоже нужен
+    # Класс пропуска внутри .git/info/: git-сопровождаемые кэш-файлы.
+    # Текущий (и единственный в git 2.x) представитель — `refs`, генерируется
+    # `git update-server-info` (вызывается косвенно через `git gc`, `git repack`,
+    # server-side receive-pack). Содержимое легитимно дрейфует между снимком
+    # и сверкой из-за ОБЫЧНЫХ git-операций (коммиты/ветки/worktree → новый SHA
+    # → новая строка) БЕЗ участия враждебной стороны; включение refs в
+    # манифест давало ложные «основной чекаут загрязнён» на честном входе
+    # (прогон оркестратора на долгоживущем чекауте после многих часов работы).
+    # Класс закрыт именной строкой-пропуском (Н-39: новые классы — новый круг,
+    # не перечисление): git документирует содержимое .git/info/ в
+    # gitrepository-layout(5) и `git help update-server-info`; сегодня класс
+    # = {refs}. Появление нового файла того же класса — расширение списка с
+    # тем же обоснованием. exclude / attributes / sparse-checkout / grafts —
+    # пользовательские rules, НЕ кэш — остаются в обходе (блокер Б1 ревью v1).
+    case "$pre/${entry##*/}" in
+      .git/info/refs) continue ;;     # git-кэш dumb-HTTP transport
+    esac
     if [ -L "$entry" ]; then
       # Симлинк внутри .git/hooks/: включаем в отпечаток через readlink
       # (фикс блокера 3, S-dotgit-hook-symlink). readlink работает и на
