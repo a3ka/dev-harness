@@ -251,7 +251,7 @@ esac
 # ИТОГОВЫЙ СПИСОК пин-резолвленных утилит (коммит-сообщение несёт побайтово;
 # architect импортирует и сверит следующий адверсарий):
 #   git, sha256sum, sort, comm, mkdir, mktemp, stat, chmod, mv, cat,
-#   head, grep, rm
+#   head, grep, rm, readlink
 # — каждая через `PATH="$TRUSTED_PATH" command -v` кэшируется в абсолютный
 # путь. Любое отсутствие в доверенных путях ⇒ NOT_IMPLEMENTED rc 2 именованный.
 # Голое имя утилиты в коде детектора после этого блока — дефект.
@@ -332,6 +332,14 @@ TAIL="$(PATH="$TRUSTED_PATH" command -v tail)"
 RM="$(PATH="$TRUSTED_PATH" command -v rm)"
 [ -n "$RM" ] && [ -x "$RM" ] \
   || { printf 'NOT_IMPLEMENTED: rm в доверенных путях отсутствует\n' >&2; exit 2; }
+# readlink — фикс блокера 3 адверсария contracts-024-k6 (S-dotgit-hook-symlink):
+# симлинк .git/hooks/pre-push на внешний исполняемый файл ранее давал ложный
+# rc=0 «чисто», потому что emit_dotgit_manifest_walk пропускал симлинки целиком.
+# Теперь симлинки внутри .git/hooks/ включаются в отпечаток строкой
+# DOTGIT:SYMLINK:<readlink-цель>\t<путь> — подмена цели меняет отпечаток.
+READLINK="$(PATH="$TRUSTED_PATH" command -v readlink)"
+[ -n "$READLINK" ] && [ -x "$READLINK" ] \
+  || { printf 'NOT_IMPLEMENTED: readlink в доверенных путях отсутствует\n' >&2; exit 2; }
 SHA256SUM="$(PATH="$TRUSTED_PATH" command -v sha256sum)"
 [ -n "$SHA256SUM" ] && [ -x "$SHA256SUM" ] \
   || { printf 'NOT_IMPLEMENTED: sha256sum в доверенных путях отсутствует\n' >&2; exit 2; }
@@ -440,17 +448,33 @@ emit_manifest() {  # <root> <prefix>
 # .git/hooks/pre-push или правка .git/config невидима для `git status`, которая
 # по конструкции не отражает состояние самого .git/ — активный барьер pre-push
 # отключается подменой, ЭТО и есть путь исходного инцидента, породившего 024).
-# Внутренний rc=2 (sha256sum не смог прочесть) распространяется вверх так же,
-# как у emit_manifest (`|| return 2`). Симлинки ПРОПУСКАЮТСЯ на каждом уровне —
-# они могут dangle или вести в attacker-controlled каталог; их присутствие само
-# по себе не отражается в манифесте, и подмена через симлинк не пройдёт (нет
-# строки ⇒ чистка по Демаркации, но и утечки нет — проверка пути на симлинк
-# делается ДО этого обхода, раздел ЗАЩИТА-СНИМКА).
+# Внутренний rc=2 (sha256sum не смог прочесть / readlink не смог прочесть)
+# распространяется вверх так же, как у emit_manifest (`|| return 2`). Симлинки
+# внутри .git/hooks/ ВКЛЮЧАЮТСЯ в отпечаток (фикс блокера 3 адверсария
+# contracts-024-k6, S-dotgit-hook-symlink): ранее симлинк .git/hooks/pre-push на
+# внешний исполняемый файл молча пропускался обходом `[ -L && continue`, и
+# сверка объявляла «чисто» при живой подмене активного барьера. Теперь симлинк
+# порождает строку DOTGIT:SYMLINK:<readlink-цель>\t<путь> — подмена цели
+# симлинка (или самого факта наличия симлинка) меняет отпечаток ⇒ rc=1 именованный
+# на сверке. readlink работает и на dangling-симлинках (цель всё равно извлекается),
+# поэтому битые симлинки тоже ловятся. readlink пинован через $READLINK (тот же
+# паттерн TRUSTED_PATH, что для прочих утилит), и при отказе readlink снимается
+# именованным rc=2 — симлинки не «выпадают» в молчаливый пропуск.
 emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
-  local dir="$1" pre="$2" entry fp
+  local dir="$1" pre="$2" entry fp target
   for entry in "$dir"/*; do
-    [ -e "$entry" ] || continue
-    [ -L "$entry" ] && continue   # симлинки пропускаем (см. комментарий выше)
+    [ -e "$entry" ] || [ -L "$entry" ] || continue   # -e лжёт на dangling, -L тоже нужен
+    if [ -L "$entry" ]; then
+      # Симлинк внутри .git/hooks/: включаем в отпечаток через readlink
+      # (фикс блокера 3, S-dotgit-hook-symlink). readlink работает и на
+      # dangling — для подмены достаточно самого факта симлинка.
+      if ! target="$("$READLINK" -- "$entry" 2>/dev/null)"; then
+        printf 'NOT_IMPLEMENTED: не смог прочитать цель симлинка %s\n' "$entry" >&2
+        return 2
+      fi
+      printf 'DOTGIT:SYMLINK:%s\t%s/%s\n' "$target" "$pre" "${entry##*/}"
+      continue
+    fi
     if [ -f "$entry" ]; then
       if ! fp="$("$SHA256SUM" -- "$entry" 2>/dev/null)"; then
         printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$entry" >&2
