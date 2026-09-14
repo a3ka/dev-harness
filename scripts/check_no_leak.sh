@@ -435,7 +435,74 @@ emit_manifest() {  # <root> <prefix>
   done < "$tmpf"
   "$RM" -f -- "$tmpf"
 }
-manifest() { emit_manifest "$1" "$2" | "$SORT"; }
+# emit_dotgit_manifest <канон-корень> — рекурсивный обход .git/hooks и одного
+# файла .git/config (находка 5 адверсария к5 4dfc0ff, S-dot-git-leak: подмена
+# .git/hooks/pre-push или правка .git/config невидима для `git status`, которая
+# по конструкции не отражает состояние самого .git/ — активный барьер pre-push
+# отключается подменой, ЭТО и есть путь исходного инцидента, породившего 024).
+# Внутренний rc=2 (sha256sum не смог прочесть) распространяется вверх так же,
+# как у emit_manifest (`|| return 2`). Симлинки ПРОПУСКАЮТСЯ на каждом уровне —
+# они могут dangle или вести в attacker-controlled каталог; их присутствие само
+# по себе не отражается в манифесте, и подмена через симлинк не пройдёт (нет
+# строки ⇒ чистка по Демаркации, но и утечки нет — проверка пути на симлинк
+# делается ДО этого обхода, раздел ЗАЩИТА-СНИМКА).
+emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
+  local dir="$1" pre="$2" entry fp
+  for entry in "$dir"/*; do
+    [ -e "$entry" ] || continue
+    [ -L "$entry" ] && continue   # симлинки пропускаем (см. комментарий выше)
+    if [ -f "$entry" ]; then
+      if ! fp="$("$SHA256SUM" -- "$entry" 2>/dev/null)"; then
+        printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$entry" >&2
+        return 2
+      fi
+      fp="${fp%% *}"
+      printf 'DOTGIT:%s\t%s/%s\n' "$fp" "$pre" "${entry##*/}"
+    elif [ -d "$entry" ]; then
+      emit_dotgit_manifest_walk "$entry" "$pre/${entry##*/}" || return 2
+    fi
+  done
+}
+emit_dotgit_manifest() {  # <канон-корень>
+  local gitdir="$1/.git" hooksdir fp
+  [ -d "$gitdir" ] || return 0   # нет .git/ — нечего хешировать
+  # 1. .git/hooks/* (рекурсивно, не-симлинк). Префикс путей: «.git/hooks[/...]».
+  hooksdir="$gitdir/hooks"
+  if [ -d "$hooksdir" ]; then
+    emit_dotgit_manifest_walk "$hooksdir" ".git/hooks" || return 2
+  fi
+  # 2. .git/config (один файл — точка контроля receive.denyCurrentBranch и пр.,
+  # влияющих на всё поведение git; подмена эквивалентна конфигурированию
+  # «зеркального» репозитория).
+  if [ -f "$gitdir/config" ]; then
+    if ! fp="$("$SHA256SUM" -- "$gitdir/config" 2>/dev/null)"; then
+      printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$gitdir/config" >&2
+      return 2
+    fi
+    fp="${fp%% *}"
+    printf 'DOTGIT:%s\t.git/config\n' "$fp"
+  fi
+}
+# manifest() сшивает porcelain (emit_manifest) + dot-git (emit_dotgit_manifest)
+# и сортирует ЕДИНЫМ sort. Оба producer'а вызываются ПО ОТДЕЛЬНОСТИ через прямую
+# командную подстановку (НЕ через `{ p1; p2; } | sort` — регрессия ворот 15
+# круга k6/k7: группа `{ }` в пайпе отдаёт для pipefail rc ПОСЛЕДНЕЙ команды
+# внутри группы, теряя rc более ранней; здесь `$?` читается СРАЗУ после каждой
+# отдельной подстановки — Н-84/Н-85: rc без пайпов, каждый producer явно).
+# Пустой вывод producer'а не даёт пустой строки в манифесте (`[ -n ... ] &&`).
+manifest() {
+  local out_a out_b rc
+  out_a="$(emit_manifest "$1" "${2:-}")"
+  rc=$?
+  [ "$rc" -eq 0 ] || return "$rc"
+  out_b="$(emit_dotgit_manifest "$1")"
+  rc=$?
+  [ "$rc" -eq 0 ] || return "$rc"
+  {
+    [ -n "$out_a" ] && printf '%s\n' "$out_a"
+    [ -n "$out_b" ] && printf '%s\n' "$out_b"
+  } | "$SORT"
+}
 
 do_snapshot() {
   local m manifest_rc
