@@ -495,6 +495,15 @@ emit_dotgit_manifest() {  # <канон-корень>
   if [ -d "$hooksdir" ]; then
     emit_dotgit_manifest_walk "$hooksdir" ".git/hooks" || return 2
   fi
+  # 3. .git/info/* — per-repo rules (exclude/sparse-checkout/attributes/grafts).
+  # Правка exclude САМА ПО СЕБЕ невидима porcelain И ослепляет источник манифеста
+  # для файлов под новым правилом (блокер Б1 ревью v1). Закрытие ВЕРТИКАЛЬНОЕ —
+  # emit_dotgit_manifest_walk по всему каталогу .git/info/. Н-39: новые классы —
+  # новый круг адверсария, не перечисление.
+  infodir="$gitdir/info"
+  if [ -d "$infodir" ]; then
+    emit_dotgit_manifest_walk "$infodir" ".git/info" || return 2
+  fi
   # 2. .git/config (один файл — точка контроля receive.denyCurrentBranch и пр.,
   # влияющих на всё поведение git; подмена эквивалентна конфигурированию
   # «зеркального» репозитория).
