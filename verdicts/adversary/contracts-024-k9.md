@@ -13,9 +13,8 @@ FAIL
 Обязательная стенограмма (прогнана ДО записи вердикта, cwd = корень клона):
 
 ```text
-$ bash scripts/check_no_leak.sh --check /tmp/dev-harness-024-k9
+bash scripts/check_no_leak.sh --check /tmp/dev-harness-024-k9 → rc=0
 основной чекаут чист
-rc=0
 ```
 
 ## Позитивный контроль — проверка НЕ вечно-красная
