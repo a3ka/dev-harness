@@ -418,6 +418,10 @@ unset _canonsum
 # Все rc-отказы producer'а распространяются вверх через `|| return 2` (Н-84).
 emit_tracked_manifest() {  # <канон-корень> <префикс-путей>
   local root="$1" prefix="$2" tmpf_s tmpf_p path full mode sha1 fp head
+  tmpf_s="$("$MKTEMP")" || {
+    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
+    return 2
+  }
   tmpf_p="$("$MKTEMP")" || {
     "$RM" -f -- "$tmpf_s"
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
