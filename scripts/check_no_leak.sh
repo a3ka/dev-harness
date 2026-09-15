@@ -37,7 +37,7 @@
 # <hash8-канонического-корня>/porcelain` (hash8-паттерн spawn_agent.sh:250, TMPDIR уважается,
 # перезапись: последний выигрывает).
 #
-# ЧТО СУДИТСЯ/НЕ СУДИТСЯ (Демаркация контракта 024). Сверка — ПОДМНОЖЕСТВО: новая строка
+# ЧТО Судится/НЕ Судится (Демаркация контракта 024). Сверка — ПОДМНОЖЕСТВО: новая строка
 # манифеста (новый путь, смена XY ИЛИ смена отпечатка) ⇒ утечка; исчезновение — чистка.
 # Записи в ignored-пути (porcelain их не отражает) и скоммиченные до сверки изменения истории —
 # вне 024 (адрес 025). Снятие/сверка НЕ меняют porcelain стерегомого (ворота 14; снимок лежит
@@ -161,6 +161,18 @@
 #       невидимыми для porcelain). HOME из whitelist `env -i HOME=${HOME:-/root}`
 #       коммита daaee0a давал атакующему прямой контроль; фикс — HOME снимается
 #       и не наследуется.
+#   (5) S-git-config-count-env (Н-96 адверсария contracts-024-k10):
+#       `unset GIT_CONFIG_COUNT` снимает счётчик семейства
+#       `GIT_CONFIG_KEY_<n>`/`GIT_CONFIG_VALUE_<n>` — без COUNT git
+#       игнорирует все KEY_n/VALUE_n (документировано в git-config(1):
+#       «If GIT_CONFIG_COUNT is not set, all GIT_CONFIG_KEY_<n>/VALUE_<n>
+#       are ignored»). Ровно тот же класс «переменная подсовывает
+#       core.excludesFile», что уже закрыт через GIT_CONFIG_GLOBAL/SYSTEM
+#       и HOME; минимальный класс-фикс — одно имя. Без него атакующий
+#       делает `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.excludesFile
+#       GIT_CONFIG_VALUE_0=/path/to/rules` перед запуском детектора, и
+#       porcelain прячет утечку как и в (4), но мимо снятого
+#       GIT_CONFIG_GLOBAL (потому что окружение первичнее).
 #
 # ПОБОЧНЫЙ ЭФФЕКТ отказа от `env -i PATH=$TRUSTED_PATH`: фикс регрессии приёмочной
 # команды `bash fixtures/check_judge_gate/red_detektor_utechek.sh` ворот 16
@@ -190,7 +202,8 @@ unset BASH_ENV ENV
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_OBJECT_DATABASE GIT_ALTERNATE_OBJECT_DIRECTORIES \
       GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES \
-      GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM
+      GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_CONFIG_NOSYSTEM \
+      GIT_CONFIG_COUNT
 unset HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME
 unset IFS
 
@@ -468,6 +481,23 @@ emit_manifest() {  # <root> <prefix>
 # поэтому битые симлинки тоже ловятся. readlink пинован через $READLINK (тот же
 # паттерн TRUSTED_PATH, что для прочих утилит), и при отказе readlink снимается
 # именованным rc=2 — симлинки не «выпадают» в молчаливый пропуск.
+#
+# Б8 (фикс адверсария contracts-024-k10, S-separate-gitdir-dotgit-blind):
+# `.git` бывает НЕ каталогом, а РЕГУЛЯРНЫМ файлом с содержимым `gitdir: <path>`
+# (формы: `--separate-git-dir <внешний-gitdir>` от `git init`; или worktree-форма
+# `.git/worktrees/<n>/.git`-подобная — `gitdir: <абс-worktree-gitdir>`). Ранний
+# `[ -d "$gitdir" ] || return 0` (был защитой «нет .git/ — нечего хешировать»)
+# ВЫХОДИЛ целиком для обеих форм: dot-git половина манифеста пуста ⇒ подмена
+# `pre-push` или правка `.git/config` НЕВИДИМА (ложный «чисто» при живой подмене
+# активного барьера, исходный инцидент 024). Резолвим реальный gitdir из файла
+# через парсинг первой строки (`gitdir: <path>`); относительные пути (worktree,
+# где gitdir указывает внутрь основного репозитория `.git/worktrees/<n>/`)
+# резолвятся от $1; абсолютные — как есть. Канонизация через `readlink -f`
+# снимает промежуточные симлинки в пути (для типовой формы путь и так абсолютный
+# и без симлинков; для нестандартных setup-ов `readlink -f` нормализует). Резолв
+# выполняется на КАЖДОМ запуске (snapshot и check) — путь детерминирован, и
+# `readlink -f` даёт одинаковый канонический путь в обоих режимах, иначе
+# `first` строка снимка (root) и фактический walked gitdir расходились бы.
 emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
   local dir="$1" pre="$2" entry fp target
   for entry in "$dir"/*; do
@@ -544,7 +574,32 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
   done
 }
 emit_dotgit_manifest() {  # <канон-корень>
-  local gitdir="$1/.git" hooksdir fp
+  local gitdir="$1/.git" hooksdir fp gdot_content resolved
+  # Б8: `.git` ФАЙЛ (не каталог) — `--separate-git-dir` или worktree-форма.
+  # Резолвим реальный gitdir из файла (формат: `gitdir: <path>\n`). Парсим
+  # первую строку, убираем `gitdir: ` префикс, снимаем trailing newline.
+  # Относительные пути резолвятся от $1 (worktree часто пишет относительный
+  # путь к `.git/worktrees/<n>/`); абсолютные — как есть. Канонизация через
+  # `readlink -f` (пинованный $READLINK; TRUSTED_PATH-only) снимает
+  # симлинки/`.`/`..`. Если `.git`-файл не читаем или `readlink -f` отказал —
+  # NOT_IMPLEMENTED rc=2 именованный (отказ producer'а ≠ молчаливый успех).
+  if [ -f "$gitdir" ]; then
+    if ! gdot_content="$("$CAT" -- "$gitdir" 2>/dev/null)"; then
+      printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$gitdir" >&2
+      return 2
+    fi
+    resolved="${gdot_content#gitdir: }"
+    resolved="${resolved%$'\n'}"
+    case "$resolved" in
+      /*) ;;
+      *)  resolved="$1/$resolved" ;;
+    esac
+    if ! resolved="$("$READLINK" -f -- "$resolved" 2>/dev/null)"; then
+      printf 'NOT_IMPLEMENTED: readlink -f отказал на %s\n' "$resolved" >&2
+      return 2
+    fi
+    gitdir="$resolved"
+  fi
   [ -d "$gitdir" ] || return 0   # нет .git/ — нечего хешировать
   # 1. .git/hooks/* (рекурсивно, не-симлинк). Префикс путей: «.git/hooks[/...]».
   hooksdir="$gitdir/hooks"
@@ -571,6 +626,48 @@ emit_dotgit_manifest() {  # <канон-корень>
     fp="${fp%% *}"
     printf 'DOTGIT:%s\t.git/config\n' "$fp"
   fi
+  # Б7 (фикс адверсария contracts-024-k10, S-external-excludesFile-target):
+  # `core.excludesFile` указывает на ВНЕШНИЙ файл правил; `git status
+  # --porcelain` НЕ показывает файлы под новыми правилами, а `.git/config`
+  # может оставаться стабильным (правило УЖЕ выставлено до снимка, мутируются
+  # ТОЛЬКО байты цели). Закрытие — захэшировать СОДЕРЖИМОЕ цели отдельной
+  # строкой манифеста. Резолв пути: относительный — от $1 (как делает сам git);
+  # абсолютный — как есть. Файл цели может быть симлинком — sha256sum через
+  # `$SHA256SUM -- <path>` идёт по open(2), которая следует симлинкам, так
+  # что результат совпадает с тем, что видит git. Если цель не существует —
+  # маркерная строка DOTGIT:EXCLUDES:UNREADABLE (snapshot и check несут
+  # разные маркеры на изменение состояния файла).
+  # HOME/XDG_CONFIG_* сняты, GIT_CONFIG_GLOBAL/SYSTEM сняты, GIT_CONFIG_COUNT
+  # снят (см. начало файла, защита-среды к5 + Н-96) ⇒ `git config --get`
+  # читает ТОЛЬКО локальный `.git/config` (через worktree-config-overlay для
+  # worktree-формы; тот же путь, что ходит `git status`).
+  local exval exfp
+  if exval="$("$GIT" -C "$1" config --get core.excludesFile 2>/dev/null)"; then
+    exval="${exval%$'\n'}"
+    if [ -n "$exval" ]; then
+      case "$exval" in
+        /*) ;;
+        *)  exval="$1/$exval" ;;
+      esac
+      if [ -f "$exval" ] && [ -r "$exval" ]; then
+        if ! exfp="$("$SHA256SUM" -- "$exval" 2>/dev/null)"; then
+          printf 'NOT_IMPLEMENTED: не смог прочитать core.excludesFile цель %s\n' "$exval" >&2
+          return 2
+        fi
+        exfp="${exfp%% *}"
+        printf 'DOTGIT:EXCLUDES:%s\t%s\n' "$exfp" "$exval"
+      else
+        # Цель задана, но файла нет (или нечитаем). Маркер, чтобы не молчать:
+        # появление файла → UNREADABLE→CONTENT, удаление/повреждение →
+        # CONTENT→UNREADABLE, байтовая правка → CONTENT→другой CONTENT.
+        printf 'DOTGIT:EXCLUDES:UNREADABLE\t%s\n' "$exval"
+      fi
+    fi
+  fi
+  # `if exval=$(...)` с `-z` после strip: если ключ не задан, `git config
+  # --get` возвращает rc=1, переменная остаётся пустой. НЕ unset/return —
+  # пустой exval просто означает «по умолчанию», дефолтный путь
+  # `.git/info/exclude` уже покрыт walk-ом выше; молчание тут — норма.
 }
 # emit_index_flags_manifest <канон-корень> — печатает строки для tracked-путей,
 # у которых ВКЛЮЧЕНЫ биты skip-worktree/assume-unchanged (S/s/h — НЕ дефолтное H).
@@ -728,7 +825,7 @@ do_snapshot() {
   # корнем (через первую строку) и с состоянием дерева (через тело). На check
   # проверка ВСЕГДА обязательна (класс-фикс вердикта к3, контрпример
   # S-mv-replace-no-verify 8911b68): отсутствие verify-строки в прод-снимке
-  # = именованный отказ «verify-строка отсутствует — обязательна для прод-снимков».
+  # = именный отказ «verify-строка отсутствует — обязательна для прод-снимков».
   # Совместимость со стабами `fixtures/check_judge_gate/stab_detektor_*.sh`
   # держится НЕ через глобальное послабление, а через обособленный код стабов:
   # canary и red_detektor_utechek.sh работают с прод-детектором и его снимки
@@ -800,12 +897,12 @@ do_check() {
   #
   # ПРЕВЕНТИВ 3: `|| true` маскировал отказ cat как пустую базу (направление
   # безопасное, ложное «загрязнён» вместо «чисто», но причина безымянна). Теперь
-  # именованный fail-closed rc=1 ОТКАЗ рядом с «снимок отсутствует»/«снимок чужого
+  # именный fail-closed rc=1 ОТКАЗ рядом с «снимок отсутствует»/«снимок чужого
   # корня» — снимок существовал по `[ -f "$SNAP" ]`, но прочесть нельзя.
   #
   # Два ОТДЕЛЬНЫХ чтения (НЕ shared fd через `{ read; cat; } < "$SNAP"`): shared fd
   # при провале редиректа оставляет first/base не присвоенными — set -u стреляет на
-  # следующем обращении к $first, маскируя наш именованный отказ. С отдельными
+  # следующем обращении к $first, маскируя наш именный отказ. С отдельными
   # `< "$SNAP"` bash возвращает явный код возврата на каждом.
   first=""
   if ! IFS= read -r first < "$SNAP"; then
@@ -837,7 +934,7 @@ do_check() {
   # что противоречит mode-lock после snapshot. 8# — stat -c %a печатает octal
   # без ведущего нуля; без префикса bash читает «444» как десятичное 444.
   if [ $((8#$snap_mode & 0222)) -ne 0 ]; then
-    printf 'ОТКАЗ: снимок: режим %s не read-only (биты 0222 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
+    printf 'ОТКАЗ: снимок: режим %s не read-only (биты 022 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
     exit 1
   fi
   # Мера 3: ОБЯЗАТЕЛЬНЫЙ self-verify (класс-фикс вердикта к3 — контрпример
@@ -845,7 +942,7 @@ do_check() {
   # присутствовать в прод-снимке: атакующий, имеющий право писать в свой TMPDIR,
   # делает `mv -f` своего снимка БЕЗ verify — старая ветка «if -n verify_line»
   # пропускала verify-чек, дельта считалась от подогнанного манифеста ⇒ «чисто».
-  # Теперь отсутствие verify — НЕ молчаливый пропуск, а именованный rc=1 ОТКАЗ.
+  # Теперь отсутствие verify — НЕ молчаливый пропуск, а именный rc=1 ОТКАЗ.
   # Совместимость со стабами `fixtures/check_judge_gate/stab_detektor_*.sh`
   # (НЕ пишут verify) держится через их обособленный код — canary и red_detektor
   # используют прод-детектор (ВСЕГДА пишет verify) и проверяются против него;
@@ -887,7 +984,7 @@ do_check() {
   # (окно гонки не поймало мутацию), и дальше судим по ОБЫЧНОЙ дельте против
   # снимка (как раньше). Если чтения РАСХОДЯТСЯ — сам факт расхождения ЕСТЬ
   # сигнал «дерево мутировало во время сверки»: `--check` ОБЯЗАН отказать
-  # ИМЕНОВАННО, а не молча доверять первому/второму чтению (оба уже показали,
+  # ИМЕННО, а не молча доверять первому/второму чтению (оба уже показали,
   # что видели РАЗНЫЕ состояния одного и того же дерева в одну сверку).
   #
   # Carve-out `.git/info/refs` (легитимный git-дрейф, red_info_refs_drift_024)
