@@ -66,7 +66,8 @@
 # Голое имя утилиты в коде детектора после блока пина — дефект.
 # Список пин-резолвленных утилит (импортирован architect'ом, сверен
 # следующим адверсарием): git, sha256sum, sort, comm, mkdir, mktemp,
-# stat, chmod, mv, cat, head, grep, rm.
+# stat, chmod, mv, cat, head, grep, rm, readlink, find.  # find добавлен
+# для Б6 walk-а по .gitignore-файлам в рабочем дереве (см. emit_gitignore_walk).
 #
 # ЗАЩИТА-СНИМКА (контрпример S-external-snapshot-symlink адверсария к2 01ed097: после
 # baseline-снимка внешний файл манифеста подменяется симлинком на снимок ТОГО ЖЕ корня,
@@ -340,6 +341,13 @@ RM="$(PATH="$TRUSTED_PATH" command -v rm)"
 READLINK="$(PATH="$TRUSTED_PATH" command -v readlink)"
 [ -n "$READLINK" ] && [ -x "$READLINK" ] \
   || { printf 'NOT_IMPLEMENTED: readlink в доверенных путях отсутствует\n' >&2; exit 2; }
+# find — пин для Б6 walk-а по .gitignore-файлам рабочего дерева
+# (emit_gitignore_walk использует `find <root> -name .gitignore -type f
+# -not -path "<root>/.git/*"`). Без пина атакующий подменяет `find` через PATH
+# и глушит обход ⇒ детектор не видит новый самоигнорирующий `.gitignore`.
+FIND="$(PATH="$TRUSTED_PATH" command -v find)"
+[ -n "$FIND" ] && [ -x "$FIND" ] \
+  || { printf 'NOT_IMPLEMENTED: find в доверенных путях отсутствует\n' >&2; exit 2; }
 SHA256SUM="$(PATH="$TRUSTED_PATH" command -v sha256sum)"
 [ -n "$SHA256SUM" ] && [ -x "$SHA256SUM" ] \
   || { printf 'NOT_IMPLEMENTED: sha256sum в доверенных путях отсутствует\n' >&2; exit 2; }
@@ -564,7 +572,98 @@ emit_dotgit_manifest() {  # <канон-корень>
     printf 'DOTGIT:%s\t.git/config\n' "$fp"
   fi
 }
+# emit_index_flags_manifest <канон-корень> — печатает строки для tracked-путей,
+# у которых ВКЛЮЧЕНЫ биты skip-worktree/assume-unchanged (S/s/h — НЕ дефолтное H).
+# Блокер Б5 адверсария contracts-024-k9 (S-update-index-blinds-porcelain):
+# `git status --porcelain` НЕ показывает tracked-файлы с битами assume-unchanged
+# или skip-worktree, даже если байты на диске отличаются от индекса. Адверсарий
+# нащупал направление явно: побайтовый хеш `.git/index` НЕПРИГОДЕН — индекс
+# легитимно переписывается самим `git status` при refresh stat-кэша (проверяется
+# двойным прогоном `git status` и сверкой `git hash-object .git/index` до/после;
+# если разойдётся на честном входе, хеш негоден — задание к9 просит проверить).
+# Наблюдаемая величина того же смысла, меняющаяся РОВНО при постановке/снятии
+# бита — `git ls-files -v`: флаги H/h/S/s на каждом tracked-пути. В дефолте все
+# строки `H ...`. Постановка либо снятие бита МЕНЯЕТ флаг ⇒ новая строка
+# манифеста ⇒ дельта на сверке ⇒ rc=1 именованный. Грамматика (проверено на
+# текущем git): "<flag><пробел><path>", flag — один ASCII-символ в начале
+# строки; возможные иные коды (C/R/?) на сегодня не наблюдались в стандартных
+# репозиториях, но они тоже НЕ дефолт — на всякий случай включаем всё, что ≠ H
+# (резерв: новые git-версии могут добавить иные коды, мы их увидим).
+# Формат манифеста: `INDEXFLAG:<flag>\t<path>` — тот же ключ-путь, что у
+# porcelain-записей; конфликта формата нет (porcelain не использует префикс
+# INDEXFLAG). Внутренний rc≠0 (ls-files отказал) распространяется вверх через
+# `|| return 2` — превентив того же класса, что для emit_manifest (Н-85).
+emit_index_flags_manifest() {  # <канон-корень>
+  local root="$1" tmpf line flag path
+  tmpf="$("$MKTEMP")" || {
+    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_index_flags_manifest\n' >&2
+    return 2
+  }
+  # ls-files -v rc фиксируется ДО чтения файла (Н-84/Н-85: rc без пайпов).
+  if ! "$GIT" -C "$root" ls-files -v > "$tmpf" 2>/dev/null; then
+    "$RM" -f -- "$tmpf"
+    printf 'NOT_IMPLEMENTED: git ls-files -v отказал в %s\n' "$root" >&2
+    return 2
+  fi
+  while IFS= read -r line; do
+    # Грамматика: "<flag><space><path>"; flag — ОДИН символ в начале строки.
+    flag="${line%% *}"
+    [ "${#flag}" -ge 1 ] || continue
+    case "$flag" in
+      H) continue ;;  # дефолтное cached-состояние — пропускаем, шум.
+    esac
+    path="${line#* }"
+    printf 'INDEXFLAG:%s\t%s\n' "$flag" "$path"
+  done < "$tmpf"
+  "$RM" -f -- "$tmpf"
+}
+# emit_gitignore_walk <канон-корень> — рекурсивный walk .gitignore файлов
+# ВНЕ .git/ (там своя ветка emit_dotgit_manifest_walk — обход .git/info/*).
+# Блокер Б6 адверсария contracts-024-k9 (S-self-ignoring-worktree-gitignore):
+# новая `.gitignore` в рабочем дереве, которая ИГНОРИРУЕТ САМА СЕБЯ
+# (паттерн `.gitignore` в её собственных правилах), невидима для `git status
+# --porcelain -uall` (файл под собственным правилом). Без отдельного обхода
+# детектор не видит НИ сам `.gitignore`, НИ файл утечки под ним — ложный
+# «чисто» при живой утечке.
+# Решение — тот же класс, что уже закрыт для `.git/info/exclude` (Б1 ревью v1):
+# walk по всему дереву, sha256 содержимого каждого `.gitignore` в манифест.
+# НОВЫЙ `.gitignore` (отсутствовавший на снимке) — новая строка манифеста ⇒
+# дельта ⇒ rc=1 именованный. САМА утечка остаётся невидимой (вне 024, и вне
+# прецедента — превенция 025 allowlist); но сам факт появления/изменения
+# `.gitignore` — детектируется, аналогично `.git/info/exclude`. Симметрия
+# «тот же класс, что уже закрыт для .git/info/exclude» — структурное
+# основание, не повтор строки.
+# Производительность: `find <root> -name .gitignore -type f -not -path
+# "<root>/.git/*"` (один обход, без полного рекурсивного хеширования дерева);
+# адверсарий НЕ блокировал на объёме. find пинован через $FIND (тот же
+# паттерн TRUSTED_PATH) — атакующий не подменяет обход через PATH.
+# Формат манифеста: `WTIGNORE:<sha>\t<отн-путь-от-корня>`.
+# Внутренний rc≠0 (find/sha256sum отказал) распространяется через `|| return 2`.
+emit_gitignore_walk() {  # <канон-корень>
+  local root="$1" found fp rel
+  # find через process substitution; rc find подстановки — последний rc пайпа,
+  # но НЕ путается с read: read возвращает 0 пока есть строки. find rc=2
+  # именованный NOT_IMPLEMENTED, если find не найден (пин ловит выше).
+  while IFS= read -r found; do
+    [ -n "$found" ] || continue
+    if ! fp="$("$SHA256SUM" -- "$found" 2>/dev/null)"; then
+      printf 'NOT_IMPLEMENTED: не смог прочитать %s (WTIGNORE walk)\n' "$found" >&2
+      return 2
+    fi
+    fp="${fp%% *}"
+    # Путь относительно корня — отрезаем "$root/" префикс.
+    rel="${found#"$root"/}"
+    printf 'WTIGNORE:%s\t%s\n' "$fp" "$rel"
+  done < <("$FIND" "$root" -name .gitignore -type f -not -path "$root/.git/*" 2>/dev/null)
+}
 # manifest() сшивает porcelain (emit_manifest) + dot-git (emit_dotgit_manifest)
+# + index-flags (emit_index_flags_manifest — Б5) + worktree-gitignore-walk
+# (emit_gitignore_walk — Б6) и сортирует ЕДИНЫМ sort. Все четыре producer'а
+# вызываются ПО ОТДЕЛЬНОСТИ через прямую командную подстановку (НЕ через
+# `{ p1; p2; } | sort` — регрессия ворот 15 круга k6/k7: группа `{ }` в пайпе
+# отдаёт для pipefail rc ПОСЛЕДНЕЙ команды внутри группы, теряя rc более
+# ранней; здесь `$?` читается СРАЗУ после каждой отдельной подстановки —
+# Н-84/Н-85: rc без пайпов, каждый producer явно).
 # и сортирует ЕДИНЫМ sort. Оба producer'а вызываются ПО ОТДЕЛЬНОСТИ через прямую
 # командную подстановку (НЕ через `{ p1; p2; } | sort` — регрессия ворот 15
 # круга k6/k7: группа `{ }` в пайпе отдаёт для pipefail rc ПОСЛЕДНЕЙ команды
@@ -572,16 +671,31 @@ emit_dotgit_manifest() {  # <канон-корень>
 # отдельной подстановки — Н-84/Н-85: rc без пайпов, каждый producer явно).
 # Пустой вывод producer'а не даёт пустой строки в манифесте (`[ -n ... ] &&`).
 manifest() {
-  local out_a out_b rc
+  local out_a out_b out_c out_d rc
   out_a="$(emit_manifest "$1" "${2:-}")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
   out_b="$(emit_dotgit_manifest "$1")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
+  out_c="$(emit_index_flags_manifest "$1")"   # Б5: assume-unchanged / skip-worktree
+  rc=$?
+  [ "$rc" -eq 0 ] || return "$rc"
+  out_d="$(emit_gitignore_walk "$1")"          # Б6: самоигнорирующие worktree .gitignore
+  rc=$?
+  [ "$rc" -eq 0 ] || return "$rc"
+  # `:` в конце группы — гарантия rc=0 группы при pipefail. Без этого,
+  # если ПОСЛЕДНИЙ producer (out_d) пуст, его `[ -n "" ] && printf` возвращает 1
+  # (test ложен ⇒ конструкция возвращает 1), и pipeline отдаёт rc=1 даже
+  # когда sort и предыдущие producer'ы прошли успешно. Прецедент «группа в
+  # пайпе отдаёт rc последней команды» обходится финальным `:` после всех
+  # `&& printf` — он всегда успешен и перебивает 1 от ложного теста в хвосте.
   {
     [ -n "$out_a" ] && printf '%s\n' "$out_a"
     [ -n "$out_b" ] && printf '%s\n' "$out_b"
+    [ -n "$out_c" ] && printf '%s\n' "$out_c"
+    [ -n "$out_d" ] && printf '%s\n' "$out_d"
+    :
   } | "$SORT"
 }
 
