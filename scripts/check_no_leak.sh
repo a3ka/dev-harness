@@ -418,10 +418,6 @@ unset _canonsum
 # Все rc-отказы producer'а распространяются вверх через `|| return 2` (Н-84).
 emit_tracked_manifest() {  # <канон-корень> <префикс-путей>
   local root="$1" prefix="$2" tmpf_s tmpf_p path full mode sha1 fp head
-  tmpf_s="$("$MKTEMP")" || {
-    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
-    return 2
-  }
   tmpf_p="$("$MKTEMP")" || {
     "$RM" -f -- "$tmpf_s"
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
@@ -430,8 +426,10 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
   # 1) Заполняем ассоциативный массив mode/sha1 из `ls-files -s -z`.
   # rc producer'а фиксируется ДО чтения файла (Н-84/Н-85: rc без пайпов).
   if ! "$GIT" -C "$root" ls-files -s -z > "$tmpf_s" 2>/dev/null; then
+    local _lfrc=$?
     "$RM" -f -- "$tmpf_s" "$tmpf_p"
-    printf 'NOT_IMPLEMENTED: git ls-files -s отказал в %s\n' "$root" >&2
+    printf 'NOT_IMPLEMENTED: манифест не прочитан: git ls-files -s rc=%d в %s\n' \
+      "$_lfrc" "$root" >&2
     return 2
   fi
   declare -A TRACKED_INFO=()
