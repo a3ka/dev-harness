@@ -477,6 +477,10 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
           "$RM" -f -- "$tmpf_p"
           return 2
         }
+        emit_dotgit_manifest "$full" "$prefix$path/" || {
+          "$RM" -f -- "$tmpf_p"
+          return 2
+        }
       else
         # gitlink без развёрнутого рабочего дерева — маркер MISSING.
         printf 'TRACKED:@head:MISSING\t%s%s\n' "$prefix" "$path"
@@ -647,6 +651,10 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
             "$RM" -f -- "$tmpf"
             return 2
           }
+          emit_dotgit_manifest "$full" "$prefix$clean_path/" || {
+            "$RM" -f -- "$tmpf"
+            return 2
+          }
         fi
       else
         # Не-git каталог — именованный маркер, не молчание, не rc=2.
@@ -747,8 +755,14 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
     # = {refs}. Появление нового файла того же класса — расширение списка с
     # тем же обоснованием. exclude / attributes / sparse-checkout / grafts —
     # пользовательские rules, НЕ кэш — остаются в обходе (блокер Б1 ревью v1).
+    # Паттерн `*/info/refs` ловит и корневой `.git/info/refs`, и refs вложенных
+    # dot-git (recursive emit_dotgit_manifest через gitlink/untracked-repo, префикс
+    # вида `sub/info` либо `nested/info`): один и тот же класс кэша по прецеденту
+    # вердикта к11 3c6791d — refs дрейфует легитимно между снимком и сверкой
+    # (update-server-info), включение в манифест давало бы ложные «загрязнён»
+    # при живой git-операции (commit/new branch).
     case "$pre/${entry##*/}" in
-      .git/info/refs) continue ;;     # git-кэш dumb-HTTP transport
+      */info/refs) continue ;;     # git-кэш dumb-HTTP transport (root + nested)
     esac
     if [ -L "$entry" ]; then
       # Симлинк внутри .git/hooks/: включаем в отпечаток через readlink
@@ -805,7 +819,9 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
   done
 }
 emit_dotgit_manifest() {  # <канон-корень>
-  local gitdir="$1/.git" hooksdir gdot_content resolved
+  local root="$1" pre="$2" gitdir hooksdir infodir gdot_content resolved mod name
+  [ -n "$pre" ] || pre=""
+  gitdir="$root/.git"
   # Б8: `.git` ФАЙЛ (не каталог) — `--separate-git-dir` или worktree-форма.
   # Резолвим реальный gitdir из файла (формат: `gitdir: <path>\n`). Парсим
   # первую строку, убираем `gitdir: ` префикс, снимаем trailing newline.
@@ -823,7 +839,7 @@ emit_dotgit_manifest() {  # <канон-корень>
     resolved="${resolved%$'\n'}"
     case "$resolved" in
       /*) ;;
-      *)  resolved="$1/$resolved" ;;
+      *)  resolved="$root/$resolved" ;;
     esac
     if ! resolved="$("$READLINK" -f -- "$resolved" 2>/dev/null)"; then
       printf 'NOT_IMPLEMENTED: readlink -f отказал на %s\n' "$resolved" >&2
@@ -832,10 +848,13 @@ emit_dotgit_manifest() {  # <канон-корень>
     gitdir="$resolved"
   fi
   [ -d "$gitdir" ] || return 0   # нет .git/ — нечего хешировать
-  # 1. .git/hooks/* (рекурсивно, не-симлинк). Префикс путей: «.git/hooks[/...]».
+  # 1. .git/hooks/* (рекурсивно, не-симлинк). Префикс путей: «<pre>.git/hooks[/...]»
+  # для корневого вызова (pre="") — `.git/hooks[/...]`, для рекурсивного из
+  # gitlink/untracked-repo — `<путь-вложенного-репо>/hooks[/...]` (закрывает
+  # блокер S-nested-dotgit-blind адверсария contracts-024-k12, нога-3 в рекурсии).
   hooksdir="$gitdir/hooks"
   if [ -d "$hooksdir" ]; then
-    emit_dotgit_manifest_walk "$hooksdir" ".git/hooks" || return 2
+    emit_dotgit_manifest_walk "$hooksdir" "${pre}.git/hooks" || return 2
   fi
   # 3. .git/info/* — per-repo rules (exclude/sparse-checkout/attributes/grafts).
   # Правка exclude САМА ПО СЕБЕ невидима porcelain И ослепляет источник манифеста
@@ -844,7 +863,7 @@ emit_dotgit_manifest() {  # <канон-корень>
   # новый круг адверсария, не перечисление.
   infodir="$gitdir/info"
   if [ -d "$infodir" ]; then
-    emit_dotgit_manifest_walk "$infodir" ".git/info" || return 2
+    emit_dotgit_manifest_walk "$infodir" "${pre}.git/info" || return 2
   fi
   # 2. .git/config (один файл — точка контроля receive.denyCurrentBranch и пр.,
   # влияющих на всё поведение git; подмена эквивалентна конфигурированию
@@ -855,7 +874,28 @@ emit_dotgit_manifest() {  # <канон-корень>
       return 2
     fi
     fp="${fp%% *}"
-    printf 'DOTGIT:%s\t.git/config\n' "$fp"
+    printf 'DOTGIT:%s\t%s.git/config\n' "$fp" "$pre"
+  fi
+  # 4. .git/modules/<имя>/ — gitdir'ы подмодулей, физически лежат ВНУТРИ
+  # корневого .git. Существуют только для ТРЕКЕД-сабмодулей (untracked-вложенные
+  # репо не порождают .git/modules/<name>/). Рекурсивный вызов emit_dotgit_manifest
+  # из emit_tracked_manifest для gitlink (`<root>/sub/.git` файл, резолвится
+  # в `<root>/.git/modules/sub/`) ИДЁТ ПО ТЕМ ЖЕ ФАЙЛАМ с другим префиксом
+  # (`sub/hooks/...` вместо `.git/modules/sub/hooks/...`): двойной обход даёт
+  # ДВЕ строки манифеста на один и тот же файл — обе в snapshot/check, обе
+  # синхронны по sha, ложных дельт нет. Это сознательный defense-in-depth: если
+  # кто-то подменит `.git/modules/<name>/` (минуя `.git`-файл сабмодуля) — корневой
+  # walk ловит; если кто-то подменит сам gitdir (внутри `..`) — обе строки дельтятся
+  # синхронно, имена обоих префиксов в выводе. Закрывает сценарий B адверсария
+  # contracts-024-k12 (подмена pre-push в gitdir'е подмодуля
+  # `<root>/.git/modules/<name>/hooks/pre-push`).
+  if [ -z "$pre" ] && [ -d "$gitdir/modules" ]; then
+    for mod in "$gitdir/modules"/*; do
+      [ -e "$mod" ] || [ -L "$mod" ] || continue
+      [ -d "$mod" ] || continue   # только каталоги (стандартная форма)
+      name="${mod##*/}"
+      emit_dotgit_manifest "$mod" ".git/modules/$name/" || return 2
+    done
   fi
   # УДАЛЕНО в v6: ветка DOTGIT:EXCLUDES для внешней цели core.excludesFile.
   # Слепящий эффект core.excludesFile нейтрализован корневым срезом —
@@ -885,7 +925,7 @@ manifest() {
   out_b="$(emit_untracked_manifest "$1" "${2:-}")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
-  out_c="$(emit_dotgit_manifest "$1")"
+  out_c="$(emit_dotgit_manifest "$1" "${2:-}")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
   {
