@@ -454,7 +454,7 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
     info="${TRACKED_INFO[$path]:-::}"
     mode="${info%%:*}"
     sha1="${info#*:}"
-    full="$root/$prefix$path"
+    full="$root/$path"
     # gitlink/submodule (mode 160000 в `ls-files -s`): @head + рекурсия.
     if [ "$mode" = "160000" ]; then
       if [ -d "$full" ]; then
@@ -538,7 +538,7 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     return 2
   fi
   while IFS= read -r -d '' path; do
-    full="$root/$prefix$path"
+    full="$root/$path"
     if [ -d "$full" ]; then
       # `ls-files --others` без `--directory` отдаёт файлы, не каталоги;
       # но с --recurse-submodules подкаталог submodule может появиться как
