@@ -690,8 +690,21 @@ emit_dotgit_manifest() {  # <канон-корень>
 # porcelain-записей; конфликта формата нет (porcelain не использует префикс
 # INDEXFLAG). Внутренний rc≠0 (ls-files отказал) распространяется вверх через
 # `|| return 2` — превентив того же класса, что для emit_manifest (Н-85).
+# Б9 (фикс адверсария contracts-024-k11, S-index-flag-stable-blinds-bytes):
+# флаг, поставленный ДО снимка и стабильный, не даёт дельты (флаг один и тот же
+# в обоих манифестах), а байты файла между тем мутировали — porcelain их не
+# видит (бит отключает сравнение), INDEXFLAG-строка хранит только флаг, не
+# содержимое ⇒ обе половины манифеста согласованы со снимком ⇒ rc=0 «чисто»
+# при живой правке tracked-файла. Решение: ВКЛЮЧИТЬ В СТРОКУ манифеста sha256
+# БАЙТОВ рабочего файла (по образцу DOTGIT:CONTENT фикса Б3 к8):
+#   INDEXFLAG:<flag>:<sha256>\t<path>
+# Правка байтов ⇒ новая строка манифеста ⇒ дельта ⇒ rc=1 именованный.
+# Файл удалён/нечитаем (chmod 000) — маркер `UNREADABLE` (по образцу
+# DOTGIT:EXCLUDES:UNREADABLE), чтобы дельта ловила появление/удаление/
+# повреждение файла (snapshot UNREADABLE → check CONTENT или наоборот даёт
+# разные строки ⇒ новая строка в дельте).
 emit_index_flags_manifest() {  # <канон-корень>
-  local root="$1" tmpf line flag path
+  local root="$1" tmpf line flag path fp full
   tmpf="$("$MKTEMP")" || {
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_index_flags_manifest\n' >&2
     return 2
@@ -710,7 +723,23 @@ emit_index_flags_manifest() {  # <канон-корень>
       H) continue ;;  # дефолтное cached-состояние — пропускаем, шум.
     esac
     path="${line#* }"
-    printf 'INDEXFLAG:%s\t%s\n' "$flag" "$path"
+    full="$root/$path"
+    # sha256 байтов рабочего файла через пин-путь $SHA256SUM (НЕ голое имя;
+    # тот же класс защит-утилит, что emit_manifest). Файл удалён (rm) или
+    # нечитаем (chmod 000, битый fd, etc) — UNREADABLE-маркер, чтобы дельта
+    # ловила появление/удаление/повреждение. sha256sum не смог прочесть по
+    # иной причине (вне read/f-чека) — именованный NOT_IMPLEMENTED rc=2.
+    if [ -f "$full" ] && [ -r "$full" ]; then
+      if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
+        "$RM" -f -- "$tmpf"
+        printf 'NOT_IMPLEMENTED: не смог прочитать %s (INDEXFLAG walk)\n' "$full" >&2
+        return 2
+      fi
+      fp="${fp%% *}"
+      printf 'INDEXFLAG:%s:%s\t%s\n' "$flag" "$fp" "$path"
+    else
+      printf 'INDEXFLAG:%s:UNREADABLE\t%s\n' "$flag" "$path"
+    fi
   done < "$tmpf"
   "$RM" -f -- "$tmpf"
 }
