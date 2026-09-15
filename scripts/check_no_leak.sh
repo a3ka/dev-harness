@@ -571,23 +571,33 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     # снимаем его для пути в манифесте (формат манифеста без слэша, см.
     # форматы строк выше).
     clean_path="${path%/}"
-    # Класс пропуска под `.zones/`: harness-рантайм — SQLite WAL
-    # (`agent.db-wal`, `agent.db-shm`) и живой транскрипт сессии (`sessions/*.jsonl`).
-    # Содержимое легитимно дрейфует от САМОЙ работающей сессии harness'а
-    # между снимком и сверкой (SQLite write-ahead log пишется непрерывно;
-    # JSONL-транскрипт сессии аппендится); включение этих путей в манифест
-    # давало ложные rc=1 «основной чекаут загрязнён» при ПОЛНОЙ тишине
-    # оркестратора (корневой срез №2 2026-09-15: rc=1 «мутировал во время
-    # сверки» ВСЕГДА на основном дереве — выявлено find -newer за 60с).
+    # Класс пропуска под `.zones/`: harness-рантайм — SQLite WAL/SHM (ЛЮБАЯ база:
+    # `agent.db-wal`, `agent.db-shm`, `history.db-wal`, `history.db-shm`, и любая
+    # будущая `*.db-wal`/`*.db-shm` под `agent/`), живой транскрипт сессии
+    # (`sessions/*.jsonl` на ЛЮБОЙ глубине под sessions/) и лог-файлы рантайма
+    # (`omp.YYYY-MM-DD.N.log` и любой `*.log` под `logs/`). Содержимое легитимно
+    # дрейфует от САМОЙ работающей сессии harness'а между снимком и сверкой
+    # (SQLite write-ahead log пишется непрерывно; JSONL-транскрипт сессии
+    # аппендится; лог-файлы ротируются оркестратором); включение этих путей
+    # в манифест давало ложные rc=1 «основной чекаут загрязнён» при ПОЛНОЙ
+    # тишине оркестратора (корневой срез №2 2026-09-15: rc=1 «мутировал во
+    # время сверки» ВСЕГДА на основном дереве — выявлено find -newer за 60с;
+    # полный набор расходящихся путей: `.zones/.../agent/history.db-wal`,
+    # `.zones/.../agent/history.db-shm`, `.zones/.../logs/omp.*.log`).
+    # Паттерны `*` в case матчат `/` (НЕ как pathname-glob) — покрывают ЛЮБУЮ
+    # глубину профиля (`.zones/dev/.omp/profiles/dev/agent/...`).
     # Класс закрыт именной строкой-пропуском по прецеденту `.git/info/refs`
     # в `emit_dotgit_manifest_walk` (тот же механизм `case` с glob);
     # Н-39: новые классы — новый круг адверсария, не перечисление.
     # Имена паттернов ИСЧЕРПЫВАЮЩЕ названы; НЕ весь `.zones/` — ЛЮБЫЕ
-    # другие пути под `.zones/` остаются в манифесте и утечки туда ловятся.
+    # другие пути под `.zones/` остаются в манифесте и утечки туда ловятся
+    # (`.zones/.../evil.txt`, `.zones/.../agent/evil.db` (не -wal/-shm),
+    # `.zones/.../logs/evil.bin` — НЕ проходят под carve-out).
     case "$clean_path" in
-      .zones/*/agent/agent.db-wal) continue ;;     # harness SQLite WAL
-      .zones/*/agent/agent.db-shm) continue ;;     # harness SQLite SHM
-      .zones/*/agent/sessions/*.jsonl) continue ;; # harness живой jsonl-транскрипт сессии
+      .zones/*/agent/*.db-wal) continue ;;         # harness SQLite WAL (любая база)
+      .zones/*/agent/*.db-shm) continue ;;         # harness SQLite SHM (любая база)
+      .zones/*/agent/sessions/*.jsonl) continue ;; # harness живой jsonl-транскрипт сессии (любая глубина)
+      .zones/*/logs/*.log) continue ;;             # harness лог-файлы рантайма
     esac
     full="$root/$clean_path"
     if [ ! -e "$full" ]; then
