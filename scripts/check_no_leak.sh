@@ -523,7 +523,7 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
 # добавлена). Внутренний rc≠0 (mktemp отказал, ls-files отказал,
 # sha256sum не смог прочесть) распространяется через `|| return 2`.
 emit_untracked_manifest() {  # <канон-корень> <префикс-путей>
-  local root="$1" prefix="$2" tmpf path full fp
+  local root="$1" prefix="$2" tmpf path full sha_line sha rest
   tmpf="$("$MKTEMP")" || {
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_untracked_manifest\n' >&2
     return 2
@@ -539,24 +539,37 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     printf 'NOT_IMPLEMENTED: git ls-files --others отказал в %s\n' "$root" >&2
     return 2
   fi
+  # БАТЧЕВЫЙ sha256sum: один spawn на ВСЕ файлы (экономия: N spawn'ов → 1;
+  # canary_vremya требует t_check ≤ 3*t_raw + 3 c, ARG_MAX 2MB позволяет
+  # тысячи файлов за один argv). Пропускаем каталоги (readlink-каталог
+  # submodule-а): sha256sum на каталоге завершается rc 1, БАТЧ целиком
+  # падает. Превентив 1 (v4): нечитаемый файл в batch — общий
+  # NOT_IMPLEMENTED именованный (конкретный путь недоступен — один
+  # sha256sum на всё).
+  local -a paths=()
   while IFS= read -r -d '' path; do
     full="$root/$path"
-    if [ -d "$full" ]; then
-      # `ls-files --others` без `--directory` отдаёт файлы, не каталоги;
-      # но с --recurse-submodules подкаталог submodule может появиться как
-      # неразвёрнутый (readlink покажет внешний gitdir) — пропускаем
-      # не-файлы, чтобы sha256sum не падал с NOT_IMPLEMENTED.
-      continue
+    if [ -f "$full" ] && [ -r "$full" ]; then
+      paths+=("$full")
     fi
-    if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
-      "$RM" -f -- "$tmpf"
-      printf 'NOT_IMPLEMENTED: не смог прочитать %s (UNTRACKED)\n' "$full" >&2
+  done < "$tmpf"
+  if [ "${#paths[@]}" -gt 0 ]; then
+    if ! "$SHA256SUM" -- "${paths[@]}" > "${tmpf}.sum" 2>/dev/null; then
+      "$RM" -f -- "$tmpf" "${tmpf}.sum"
+      printf 'NOT_IMPLEMENTED: не смог прочитать untracked в %s (UNTRACKED batch)\n' "$root" >&2
       return 2
     fi
-    fp="${fp%% *}"
-    printf 'UNTRACKED:%s\t%s%s\n' "$fp" "$prefix" "$path"
-  done < "$tmpf"
-  "$RM" -f -- "$tmpf"
+  else
+    : > "${tmpf}.sum"
+  fi
+  while IFS= read -r sha_line; do
+    sha="${sha_line%% *}"
+    rest="${sha_line#* }"
+    # rest — абсолютный путь; восстанавливаем относительный
+    rest="${rest#"$root"/}"
+    printf 'UNTRACKED:%s\t%s%s\n' "$sha" "$prefix" "$rest"
+  done < "${tmpf}.sum"
+  "$RM" -f -- "$tmpf" "${tmpf}.sum"
 }
 # НОГА-3 — DOTGIT (БЕЗ ИЗМЕНЕНИЙ v5). emit_dotgit_manifest_walk обходит
 # .git/hooks и .git/info рекурсивно с симлинк-развилкой (Б3 CONTENT/DANGLING)
