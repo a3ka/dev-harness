@@ -542,16 +542,30 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
   # БАТЧЕВЫЙ sha256sum: один spawn на ВСЕ файлы (экономия: N spawn'ов → 1;
   # canary_vremya требует t_check ≤ 3*t_raw + 3 c, ARG_MAX 2MB позволяет
   # тысячи файлов за один argv). Пропускаем каталоги (readlink-каталог
-  # submodule-а): sha256sum на каталоге завершается rc 1, БАТЧ целиком
-  # падает. Превентив 1 (v4): нечитаемый файл в batch — общий
-  # NOT_IMPLEMENTED именованный (конкретный путь недоступен — один
-  # sha256sum на всё).
   local -a paths=()
   while IFS= read -r -d '' path; do
     full="$root/$path"
-    if [ -f "$full" ] && [ -r "$full" ]; then
-      paths+=("$full")
+    if [ ! -e "$full" ]; then
+      # Может случиться после конкурентного удаления между ls-files и
+      # проверкой; пропускаем как обычное исчезновение (детектор судит
+      # состояние, не историю — в следующий снимок путь не появится).
+      continue
     fi
+    if [ ! -f "$full" ]; then
+      # Каталог (readlink-каталог submodule'а) — пропускаем, sha256sum на
+      # каталоге вернул бы rc 1 и разрушил БАТЧ; tracked-нога обработает
+      # вложенное содержимое submodule'а рекурсивно.
+      continue
+    fi
+    if [ ! -r "$full" ]; then
+      # Превентив 1 (v4): нечитаемый путь → NOT_IMPLEMENTED rc 2 именованный.
+      # ДОЛЖЕН упасть ДО записи снимка: иначе детектор судит по деградировавшему
+      # манифесту и теряет мутацию в нечитаемом пути (v4 класс ERR-константы).
+      "$RM" -f -- "$tmpf"
+      printf 'NOT_IMPLEMENTED: не смог прочитать %s (UNTRACKED)\n' "$full" >&2
+      return 2
+    fi
+    paths+=("$full")
   done < "$tmpf"
   if [ "${#paths[@]}" -gt 0 ]; then
     if ! "$SHA256SUM" -- "${paths[@]}" > "${tmpf}.sum" 2>/dev/null; then
