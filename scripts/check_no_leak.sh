@@ -514,16 +514,37 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
 # поглощены корневым срезом.
 # Формат строки:
 #   UNTRACKED:<sha256-байтов>\t<путь>
-# gitlink'и не входят в `ls-files --others` (это tracked-категория);
+#   UNTRACKED-REPO:<sha HEAD>\t<путь>          — вложенный неотслеживаемый git-repo
+#                                                (правка внутри него меняет вложенный
+#                                                отпечаток; ворота-11 семантика для
+#                                                untracked-вложенных репо, симметрия
+#                                                с TRACKED-ногой @head)
+#   UNTRACKED-REPO:HEAD_UNREACHABLE\t<путь>    — вложенный .git есть, но rev-parse HEAD
+#                                                отказал (orphan-ветка / битый refs);
+#                                                именованный маркер, не молчание, не
+#                                                падение всего снимка
+#   UNTRACKED-DIR:NON_GIT\t<путь>              — не-git каталог; именованный маркер,
+#                                                не молчание, не падение снимка
+# gitlink'и не входят в `ls-files --others` (это tracked-категория).
 # recursion в развёрнутые submodule'ы — для утечки-внутри-submodule
 # (замер 2026-09-15: без --recurse-submodules untracked-категория
 # верхнего уровня НЕ включает вложенные submodule-каталоги; с
 # --recurse-submodules — включает; для симметрии с TRACKED-ногой и
 # превентива «утечка внутри уже-развёрнутого submodule» — рекурсия
-# добавлена). Внутренний rc≠0 (mktemp отказал, ls-files отказал,
-# sha256sum не смог прочесть) распространяется через `|| return 2`.
+# добавлена). АНАЛНОГИЧНО для НЕОТСЛЕЖИВАЕМЫХ вложенных git-репо: ls-files
+# --others отдаёт сам каталог с trailing slash (НЕ рекурсирует внутрь
+# из-за границы .git); запись-каталог обрабатывается отдельной веткой —
+# rev-parse HEAD (пин $GIT) + рекурсия emit_tracked_manifest/emit_untracked_manifest
+# того репо с префиксом (та же семья, отдельные вызовы с -C <dir>). Эталон
+# семантики — СТАРЫЙ emit_manifest (история до корневого среза, 8d065d8~1):
+# @head:<sha HEAD> + РЕКУРСИЯ внутрь с префиксом. Внутренний rc≠0 (mktemp
+# отказал, ls-files отказал, sha256sum не смог прочесть, rev-parse HEAD
+# внутри рекурсии) распространяется через `|| return 2` — НЕ маскируется
+# внешним 0. Защита от циклов symlink — канонизация корня (уже есть в
+# проекте, верхний уровень): на каждом шаге рекурсии путь внутри
+# фиксирован, и ls-files --others не зацикливается (граница .git).
 emit_untracked_manifest() {  # <канон-корень> <префикс-путей>
-  local root="$1" prefix="$2" tmpf path full sha_line sha rest
+  local root="$1" prefix="$2" tmpf path full sha_line sha rest clean_path head
   tmpf="$("$MKTEMP")" || {
     printf 'NOT_IMPLEMENTED: mktemp отказал в emit_untracked_manifest\n' >&2
     return 2
@@ -541,20 +562,68 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
   fi
   # БАТЧЕВЫЙ sha256sum: один spawn на ВСЕ файлы (экономия: N spawn'ов → 1;
   # canary_vremya требует t_check ≤ 3*t_raw + 3 c, ARG_MAX 2MB позволяет
-  # тысячи файлов за один argv). Пропускаем каталоги (readlink-каталог
+  # тысячи файлов за один argv). Каталоги (запись с trailing slash от
+  # ls-files --others — это вложенный неотслеживаемый git-repo, см. ниже)
+  # обрабатываются ОТДЕЛЬНОЙ веткой (рекурсия), не идут в БАТЧ.
   local -a paths=()
   while IFS= read -r -d '' path; do
-    full="$root/$path"
+    # ls-files --others отдаёт каталоги с trailing slash (`tmp/t4/`) —
+    # снимаем его для пути в манифесте (формат манифеста без слэша, см.
+    # форматы строк выше).
+    clean_path="${path%/}"
+    full="$root/$clean_path"
     if [ ! -e "$full" ]; then
       # Может случиться после конкурентного удаления между ls-files и
       # проверкой; пропускаем как обычное исчезновение (детектор судит
       # состояние, не историю — в следующий снимок путь не появится).
       continue
     fi
-    if [ ! -f "$full" ]; then
-      # Каталог (readlink-каталог submodule'а) — пропускаем, sha256sum на
-      # каталоге вернул бы rc 1 и разрушил БАТЧ; tracked-нога обработает
-      # вложенное содержимое submodule'а рекурсивно.
+    if [ -d "$full" ]; then
+      # ВЕТКА ВЛЕТКИ (задание 024-v6 +семантика для untracked-вложенных):
+      # ls-files --others отдаёт сам каталог с trailing slash, потому что
+      # внутри есть .git (граница рекурсии git). Две развилки:
+      #   (а) `.git` (файл или каталог) есть — вложенный неотслеживаемый
+      #       git-repo. Пин `$GIT -C <full> rev-parse HEAD` снимает @head;
+      #       на успехе — строка UNTRACKED-REPO:<sha> + РЕКУРСИЯ
+      #       (tracked-нога и untracked-нога ТОГО репо с префиксом
+      #       <prefix+clean_path>/). На отказе rev-parse — именованный
+      #       маркер UNTRACKED-REPO:HEAD_UNREACHABLE (orphan / битый refs);
+      #       НЕ молчание (v4 класс ERR-константы — отказ producer'а
+      #       ВЫГЛЯДИТ как валидный отпечаток), НЕ падение всего снимка.
+      #   (б) `.git` нет — обычный не-git каталог (теоретически ls-files
+      #       --others их рекурсивно РАСКРЫВАЕТ до файлов, но симлинк-
+      #       петля / особая конфигурация могут дать запись-каталог).
+      #       Именованный маркер UNTRACKED-DIR:NON_GIT, не молчание, не
+      #       падение снимка.
+      # Рекурсия — та же семья, отдельные вызовы `emit_tracked_manifest`
+      # и `emit_untracked_manifest` с -C <full> (как и в emit_tracked_manifest
+      # для gitlink:472-479); внутренний fail-closed распространяется
+      # через `|| return 2`. Глубина конечна (вложенность tmp-скратча
+      # замеряна ≤ 8 на основном дереве, сегодня), циклы через symlink
+      # — канонизация корня на верхнем уровне + граница .git для ls-files.
+      if [ -e "$full/.git" ]; then
+        if ! head="$("$GIT" -C "$full" rev-parse HEAD 2>/dev/null)"; then
+          # Недостижимый HEAD — именованный маркер, не молчание, не rc=2.
+          printf 'UNTRACKED-REPO:HEAD_UNREACHABLE\t%s%s\n' "$prefix" "$clean_path"
+        else
+          printf 'UNTRACKED-REPO:%s\t%s%s\n' "$head" "$prefix" "$clean_path"
+          # || return 2 — внутренний fail-closed (mktemp отказ, ls-files
+          # отказ, sha256sum нечитаемый файл в рекурсии, и т.п.) НЕ
+          # маскируется внешним 0; это та же механика, что в
+          # emit_tracked_manifest для submodule (line:472-479).
+          emit_tracked_manifest "$full" "$prefix$clean_path/" || {
+            "$RM" -f -- "$tmpf"
+            return 2
+          }
+          emit_untracked_manifest "$full" "$prefix$clean_path/" || {
+            "$RM" -f -- "$tmpf"
+            return 2
+          }
+        fi
+      else
+        # Не-git каталог — именованный маркер, не молчание, не rc=2.
+        printf 'UNTRACKED-DIR:NON_GIT\t%s%s\n' "$prefix" "$clean_path"
+      fi
       continue
     fi
     if [ ! -r "$full" ]; then
@@ -568,10 +637,40 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     paths+=("$full")
   done < "$tmpf"
   if [ "${#paths[@]}" -gt 0 ]; then
-    if ! "$SHA256SUM" -- "${paths[@]}" > "${tmpf}.sum" 2>/dev/null; then
-      "$RM" -f -- "$tmpf" "${tmpf}.sum"
-      printf 'NOT_IMPLEMENTED: не смог прочитать untracked в %s (UNTRACKED batch)\n' "$root" >&2
-      return 2
+    # ЧАНКИНГ батча sha256sum (live-блокер к11: 17318 путей × ~102B = 1.77MB
+    # превышает ARG_MAX=2MB на грани; лимит в ~64КБ на argv даёт запас ×30 и
+    # держит каждый spawn детерминированно ниже ARG_MAX, не «у грани»). Цикл
+    # по батчам: rc КАЖДОГО sha256sum проверяется ИМЕННО (НЕ pipefail,
+    # НЕ «&&» — кейс v4: класс ERR-константы маскировал отказ producer'а
+    # как валидный отпечаток). На отказе — NOT_IMPLEMENTED rc 2 именованный,
+    # файл снимка удаляется (как и до чанкинга). Замер canary_vremya:
+    # batch ≤ ~5ms каждый на /tmp/dev-harness ⇒ ~500 spawn ≈ 2.5с overhead,
+    # вписывается в бюджет «3*t_raw + 3 c» (t_raw замерено ~2c).
+    : > "${tmpf}.sum"
+    local -a chunk=()
+    local chunk_bytes=0
+    local CHUNK_MAX=65536
+    local p pb
+    for p in "${paths[@]}"; do
+      pb=${#p}
+      if [ "$chunk_bytes" -gt 0 ] && [ $((chunk_bytes + pb + 1)) -gt "$CHUNK_MAX" ]; then
+        if ! "$SHA256SUM" -- "${chunk[@]}" >> "${tmpf}.sum" 2>/dev/null; then
+          "$RM" -f -- "$tmpf" "${tmpf}.sum"
+          printf 'NOT_IMPLEMENTED: не смог прочитать untracked в %s (UNTRACKED batch)\n' "$root" >&2
+          return 2
+        fi
+        chunk=()
+        chunk_bytes=0
+      fi
+      chunk+=("$p")
+      chunk_bytes=$((chunk_bytes + pb + 1))
+    done
+    if [ "${#chunk[@]}" -gt 0 ]; then
+      if ! "$SHA256SUM" -- "${chunk[@]}" >> "${tmpf}.sum" 2>/dev/null; then
+        "$RM" -f -- "$tmpf" "${tmpf}.sum"
+        printf 'NOT_IMPLEMENTED: не смог прочитать untracked в %s (UNTRACKED batch)\n' "$root" >&2
+        return 2
+      fi
     fi
   else
     : > "${tmpf}.sum"
@@ -581,7 +680,11 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     # второй спецификация GNU coreutils для машинной парсинга).
     sha="${sha_line%% *}"
     rest="${sha_line#*  }"
-    # rest — абсолютный путь; восстанавливаем относительный
+    # rest — абсолютный путь; восстанавливаем относительный.
+    # clean_path используется для представления (без trailing slash, если
+    # был), но здесь path — реальный файл без trailing slash, так что
+    # rest сводится к относительному пути файла. Симметрия с TRACKED-ногой:
+    # в манифесте путь файла идёт КАК ЕСТЬ (с компонентами), без нормализации.
     rest="${rest#"$root"/}"
     printf 'UNTRACKED:%s\t%s%s\n' "$sha" "$prefix" "$rest"
   done < "${tmpf}.sum"
