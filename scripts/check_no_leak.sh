@@ -527,8 +527,12 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     return 2
   }
   # ls-files --others БЕЗ --exclude-standard: ВСЕ untracked, мимо ignore-правил.
-  # --recurse-submodules: симметрия с TRACKED-ногой (внутри submodule утечка видна).
-  if ! "$GIT" -C "$root" ls-files --others -z --recurse-submodules > "$tmpf" 2>/dev/null; then
+  # Рекурсия в submodule'ы для untracked идёт ЧЕРЕЗ emit_tracked_manifest
+  # (когда gitlink развёрнут — recursive вызов emit_untracked_manifest на
+  # внутреннем корне), НЕ через флаг `--recurse-submodules` (тот
+  # поддерживает ТОЛЬКО --cached/--stage режимы git-ls-files, --others
+  # даёт «unsupported mode» rc 128 — замер 2026-09-15).
+  if ! "$GIT" -C "$root" ls-files --others -z > "$tmpf" 2>/dev/null; then
     "$RM" -f -- "$tmpf"
     printf 'NOT_IMPLEMENTED: git ls-files --others отказал в %s\n' "$root" >&2
     return 2
