@@ -18,17 +18,31 @@
 # Относительный путь в обоих режимах ⇒ rc 1 «корень обязан быть абсолютным» ДО какого-либо cd
 # (блокер 5 вердикта 4d1d265).
 #
-# МАНИФЕСТ судит СОДЕРЖИМОЕ, не строку статуса (блокер 1 вердикта 4d1d265: «строка porcelain
-# описывает состояние пути, не его байты» — три контрольных эксперимента обходили v1). Для
-# каждой записи `git status --porcelain -uall -z --no-renames --ignore-submodules=none`
-# строка «XY:отпечаток<TAB>путь»:
-#   * обычный файл — sha256 байтов;
-#   * каталог с .git (submodule/вложенный репозиторий) — «@head:<sha HEAD>» + РЕКУРСИЯ манифеста
-#     вложенного репозитория с префиксом пути (правка внутри уже-грязного submodule меняет
-#     вложенный отпечаток);
-#   * отсутствующий путь (D) — отпечаток `-».
-# Дополнение байтов в уже-грязный tracked-путь, файл под свёрнутым `?? dir/`, правка внутри
-# уже-грязного submodule — меняют отпечаток/строку и ловятся (ворота 9/10/11 red_detektor_utechek.sh).
+# КОРНЕВОЙ СРЕЗ ИСТОЧНИКА МАНИФЕСТА (v6, 2026-09-15, путь 1 владельца; Н-89: порочность
+# перечисления носителей ослепления, 8 классов / 8 адверсарий-кругов).
+# Манифест — ОБЪЕДИНЕНИЕ трёх ног, единый sort:
+#   1. TRACKED (tracked-байты): `git ls-files -z` (пинованный $GIT) перечисляет КАЖДЫЙ
+#      tracked-путь — флаги assume-unchanged/skip-worktree на перечисление НЕ влияют
+#      (замер 2026-09-15). Строка ноги несёт sha256 БАЙТОВ рабочего файла и sha1
+#      staged-блоба (`git ls-files -s`); путь вне диска (sparse/deleted) — маркер
+#      MISSING; gitlink/submodule — @head + РЕКУРСИЯ с префиксом.
+#      Поглощает tracked-половину porcelain emit_manifest (XY не нужно — байты КАЖДОГО
+#      пути независимо от состояния); поглощает INDEXFLAG (флаги больше ничего не
+#      ослепляют — дельта по байтам).
+#   2. UNTRACKED (untracked-байты): `git ls-files --others -z` БЕЗ --exclude-standard
+#      перечисляет КАЖДЫЙ неотслеживаемый путь с sha256 байтов, МИМО ЛЮБЫХ ignore-правил
+#      (.gitignore, .git/info/exclude, core.excludesFile, env-config). Заменяет
+#      porcelain-untracked и emit_gitignore_walk как источник. Само-скрывающийся
+#      .gitignore сам — untracked-путь ноги 2, виден.
+#   3. DOTGIT (dot-git) — БЕЗ ИЗМЕНЕНИЙ v5: обход .git/hooks|info|config с Б3 (симлинки
+#      + CONTENT-строки), Б8 (gitdir-резолв из .git-файла), carve-out .git/info/refs.
+#      Не удаляется: ls-files --others НЕ видит .git; исходный инцидент 024 (подмена
+#      pre-push) закрывается только этой ногой.
+# ПОЧЕМУ КОРНЕВОЙ СРЕЗ: каждый новый носитель ослепления porcelain-форм стоил
+# адверсарий-круг (8 классов / 8 кругов). Срез судит БАЙТЫ (TRACKED-нога) и ВИДИМОСТЬ
+# (UNTRACKED-нога мимо ignore), а не перечисление форм доверия git. Внешняя цель
+# core.excludesFile более не наблюдаема как dot-git-строка (EXCLUDES-строка удалена);
+# её слепящий эффект нейтрализован UNTRACKED-ногой (утечка видна напрямую).
 #
 # ФАЙЛ-СНИМОК. Первая строка — «root <канонический корень>» (защита от hash8-коллизии каталогов
 # снимков, совет 1 вердикта), далее отсортированные строки манифеста, последняя строка —
@@ -38,10 +52,13 @@
 # перезапись: последний выигрывает).
 #
 # ЧТО Судится/НЕ Судится (Демаркация контракта 024). Сверка — ПОДМНОЖЕСТВО: новая строка
-# манифеста (новый путь, смена XY ИЛИ смена отпечатка) ⇒ утечка; исчезновение — чистка.
-# Записи в ignored-пути (porcelain их не отражает) и скоммиченные до сверки изменения истории —
-# вне 024 (адрес 025). Снятие/сверка НЕ меняют porcelain стерегомого (ворота 14; снимок лежит
-# в TMPDIR, все git-вызовы -C).
+# манифеста (новый путь, новые байты, новый staged-отпечаток, новый маркер MISSING)
+# ⇒ утечка; исчезновение — чистка. Записи в ignored-пути по v6 БОЛЬШЕ НЕ вне 024
+# (UNTRACKED-нога видит все пути, МИМО ignore) — узкая грань с именованной Демаркацией
+# пересмотрена срезом: ignored-запись ВИДНА детектору (корневой срез её нейтрализует
+# как носитель ослепления); утечка, дошедшая до КОММИТА до ближайшей --check, остаётся
+# вне 024 (судит состояние, не историю). Снятие/сверка НЕ меняют porcelain стерегомого
+# (ворота 14; снимок лежит в TMPDIR, все git-вызовы -C).
 #
 # ГИГИЕНА Н-85. Корень проверяется на абсолютность ДО cd; все git-вызовы `git -C <канон>` —
 # cwd не влияет на решение НИ В ОДНУ сторону (блокер 2 вердикта, ворота 7/8); rc фиксируется
@@ -66,8 +83,7 @@
 # Голое имя утилиты в коде детектора после блока пина — дефект.
 # Список пин-резолвленных утилит (импортирован architect'ом, сверен
 # следующим адверсарием): git, sha256sum, sort, comm, mkdir, mktemp,
-# stat, chmod, mv, cat, head, grep, rm, readlink, find.  # find добавлен
-# для Б6 walk-а по .gitignore-файлам в рабочем дереве (см. emit_gitignore_walk).
+# stat, chmod, mv, cat, head, tail, grep, rm, readlink.
 #
 # ЗАЩИТА-СНИМКА (контрпример S-external-snapshot-symlink адверсария к2 01ed097: после
 # baseline-снимка внешний файл манифеста подменяется симлинком на снимок ТОГО ЖЕ корня,
@@ -88,7 +104,7 @@
 #      атаку, но повышает планку: `cat new > old` сохраняет inode и (как правило) не
 #      обнуляет бит чтения, но режим-сюрприз «на снимке вдруг нет 0444» — диагностика.
 #   3. Self-verify (ОБЯЗАТЕЛЬНО для прод-снимков, класс-фикс вердикта к3 — контрпример
-#      S-mv-replace-no-verify 8911b68): последняя строка снимка — «verify <sha256>», sha
+#      S-mv-replace-no-verify 8911b68): последняя строка снимка — «verify <sha>», sha
 #      по всему предыдущему содержимому. На check отсутствие verify в прод-снимке =
 #      именованный отказ (не молчаливый пропуск ветки «if -n verify_line»). Совместимость
 #      со стабами `fixtures/check_judge_gate/stab_detektor_*.sh` (подмена детектора на
@@ -190,7 +206,7 @@
 # меняет поведение» что (1)/(2). На существующем коде IFS в `read` сбрасывается
 # через `IFS= read -r …`, но `for util in …` идёт со глобальным IFS.
 #
-# Остаточный риск (назван прямо, не молчит): BASH_ENV, переопределяющий
+# Остаточный риск (назван прям, не молчит): BASH_ENV, переопределяющий
 # функции `printf`/`[`/`cd`/`exec`/`set` ДО нашего скрипта — те же, что в
 # оговорке шапки daaee0a (омнипотентный атакующий внутри bash-процесса).
 # Адверсарий к5 не продемонстрировал этот класс против in-process санитизации;
@@ -265,7 +281,7 @@ esac
 # ИТОГОВЫЙ СПИСОК пин-резолвленных утилит (коммит-сообщение несёт побайтово;
 # architect импортирует и сверит следующий адверсарий):
 #   git, sha256sum, sort, comm, mkdir, mktemp, stat, chmod, mv, cat,
-#   head, grep, rm, readlink
+#   head, tail, grep, rm, readlink
 # — каждая через `PATH="$TRUSTED_PATH" command -v` кэшируется в абсолютный
 # путь. Любое отсутствие в доверенных путях ⇒ NOT_IMPLEMENTED rc 2 именованный.
 # Голое имя утилиты в коде детектора после этого блока — дефект.
@@ -284,7 +300,7 @@ done
 # BIN16 фикстуры кладёт минимальный PATH без sha256sum). Список — минимальный
 # (только те 6 утилит, что нужны предпроверке для gate 15/16). Для новых
 # утилит (stat/chmod/mv/cat/head/grep/rm) доверие обеспечивает пин ниже:
-# резолв через TRUSTED_PATH-only; если в BIN16 нет stat и пин падает на
+# резолв через TRUSTED_PATH-only; если в BIN16 нет stat и пин п утит на
 # stat — это НЕ ожидаемая ветка, но и не ломает gate 16 (gate 16 идёт
 # первым через sha256sum, которого в BIN16 нет). На честном PATH новые
 # утилиты присутствуют (любой Linux /usr/bin).
@@ -354,13 +370,6 @@ RM="$(PATH="$TRUSTED_PATH" command -v rm)"
 READLINK="$(PATH="$TRUSTED_PATH" command -v readlink)"
 [ -n "$READLINK" ] && [ -x "$READLINK" ] \
   || { printf 'NOT_IMPLEMENTED: readlink в доверенных путях отсутствует\n' >&2; exit 2; }
-# find — пин для Б6 walk-а по .gitignore-файлам рабочего дерева
-# (emit_gitignore_walk использует `find <root> -name .gitignore -type f
-# -not -path "<root>/.git/*"`). Без пина атакующий подменяет `find` через PATH
-# и глушит обход ⇒ детектор не видит новый самоигнорирующий `.gitignore`.
-FIND="$(PATH="$TRUSTED_PATH" command -v find)"
-[ -n "$FIND" ] && [ -x "$FIND" ] \
-  || { printf 'NOT_IMPLEMENTED: find в доверенных путях отсутствует\n' >&2; exit 2; }
 SHA256SUM="$(PATH="$TRUSTED_PATH" command -v sha256sum)"
 [ -n "$SHA256SUM" ] && [ -x "$SHA256SUM" ] \
   || { printf 'NOT_IMPLEMENTED: sha256sum в доверенных путях отсутствует\n' >&2; exit 2; }
@@ -387,117 +396,173 @@ SNAP_DIR="$TMPDIR_BASE/dev-harness-leak/$HASH8"
 SNAP="$SNAP_DIR/porcelain"
 unset _canonsum
 
-# Манифест состояния дерева: рекурсивно, пофайлово, по содержимому.
-# emit_manifest <канон-корень> <префикс-путей> — префикс пуст на верхнем уровне и
-# наращивается при рекурсии в submodule (внутренние пути идут как "<sub>/<file>").
-#
-# Блокер 1 вердикта d67ac4b: rc `git status` фиксируется ДО ветвлений и ДО стрима,
-# переменной-посредником через mktemp (process substitution `< <(git ...)` rc
-# producer'а глотает — провал status с пустым stdout неотличим от чистого дерева
-# и проходит как «основной чекаут чист»). Любой rc≠0 ⇒ rc=2 NOT_IMPLEMENTED
-# именованный «манифест не прочитан: git status rc=N в <root>», дальнейшая
-# работа не выполняется.
-#
-# ПРЕВЕНТИВЫ ТОГО ЖЕ КЛАССА (консультация v4, same_class_preventive — отказ producer'а
-# ВЫГЛЯДИТ как валидный отпечаток / валидное чтение, маскируя неснятое состояние):
-#   1. sha256sum не смог прочесть tracked-файл (chmod 000 / битый fd / etc): rc=2
-#      NOT_IMPLEMENTED: «не смог прочитать <полный-путь>». Константа 'ERR' маскировала
-#      допись в нечитаемый уже-грязный путь как «тот же отпечаток» — два нечитаемых
-#      состояния были неотличимы.
-#   2. rev-parse HEAD в submodule-рекурсии недостижим (submodule не инициализирован
-#      ИЛИ не git-репозиторий ИЛИ права): rc=2 NOT_IMPLEMENTED: «HEAD недостижим в
-#      <полный-путь>». Константа '-' маскировала отказ как валидный sha.
-#   3. (см. do_check ниже) чтение снимка под `|| true` маскировало отказ cat как
-#      пустую базу — направление безопасное (ложное «загрязнён», не «чисто»), но
-#      причина была безымянна; теперь rc=1 ОТКАЗ «снимок не прочитан: <путь>».
-#
-# Рекурсия emit_manifest → emit_manifest: внутренний rc=2 (sha256sum/rev-parse
-# fail) распространяется вверх через `emit_manifest ... || return 2` — иначе
-# внешний return был бы 0 и провал маскировался «основной чекаут чист».
-emit_manifest() {  # <root> <prefix>
-  local root="$1" prefix="$2" entry xy path full fp head status_rc tmpf
-  tmpf="$("$MKTEMP")" || {
-    printf 'NOT_IMPLEMENTED: mktemp отказал\n' >&2
+# ─── v6 КОРНЕВОЙ СРЕЗ: producers манифеста ────────────────────────────────────
+# НОГА-1 — TRACKED (tracked-байты). Источник — `git ls-files -z` (пути) и
+# `git ls-files -s -z` (mode/sha1/stage), то же семейство ls-files. Гранулярность:
+# КАЖДЫЙ tracked-путь (флаги assume-unchanged/skip-worktree на перечисление НЕ
+# влияют — замер 2026-09-15). Формат строки:
+#   TRACKED:<sha256-байтов-рабочего-файла>:<sha1-staged-блоба>\t<путь>
+# Нечитаемый / отсутствующий (sparse, deleted) рабочий файл — маркер MISSING
+# вместо sha256 (именованный маркер, не молчание): TRACKED:MISSING:<sha1>\t<путь>.
+# Без такого маркера два нечитаемых состояния были бы неотличимы — превентив
+# класса ERR-константы из v4 (детализация в Н-39-формате стабов). gitlink/
+# submodule (mode 160000 в `ls-files -s`) — строка `TRACKED:@head:<sha HEAD>\t<путь>`
+# плюс РЕКУРСИЯ манифеста внутрь с префиксом пути (правка внутри уже-грязного
+# submodule меняет вложенный отпечаток; ворота 11). Достижимость внутреннего
+# репозитория — через `$full` каталог (если gitlink развёрнут; иначе — маркер
+# MISSING для вложенного подмодуля: `--separate-gitdir`-форма отдельного
+# gitdir'а отличается от рабочего дерева, см. Б8 фикс в emit_dotgit_manifest).
+# Детализация sha1-staged сохраняет закрытый класс индексной подсадки
+# (`git update-index --cacheinfo` при нетронутых байтах даёт смену sha1 в
+# строке TRACKED, новая строка ⇒ дельта ⇒ rc 1) — замер E8 матрицы 2026-09-15.
+# Все rc-отказы producer'а распространяются вверх через `|| return 2` (Н-84).
+emit_tracked_manifest() {  # <канон-корень> <префикс-путей>
+  local root="$1" prefix="$2" tmpf_s tmpf_p path full mode sha1 fp head
+  tmpf_s="$("$MKTEMP")" || {
+    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
     return 2
   }
-  # Явная фиксация rc producer'а в переменной (Н-85/Н-84: rc без пайпов).
-  "$GIT" -C "$root" status --porcelain -uall -z --no-renames --ignore-submodules=none \
-    > "$tmpf" 2>/dev/null
-  status_rc=$?
-  if [ "$status_rc" -ne 0 ]; then
-    "$RM" -f -- "$tmpf"
-    printf 'NOT_IMPLEMENTED: манифест не прочитан: git status rc=%d в %s\n' \
-      "$status_rc" "$root" >&2
+  tmpf_p="$("$MKTEMP")" || {
+    "$RM" -f -- "$tmpf_s"
+    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_tracked_manifest\n' >&2
+    return 2
+  }
+  # 1) Заполняем ассоциативный массив mode/sha1 из `ls-files -s -z`.
+  # rc producer'а фиксируется ДО чтения файла (Н-84/Н-85: rc без пайпов).
+  if ! "$GIT" -C "$root" ls-files -s -z > "$tmpf_s" 2>/dev/null; then
+    "$RM" -f -- "$tmpf_s" "$tmpf_p"
+    printf 'NOT_IMPLEMENTED: git ls-files -s отказал в %s\n' "$root" >&2
     return 2
   fi
+  declare -A TRACKED_INFO=()
   while IFS= read -r -d '' entry; do
-    xy="${entry:0:2}"
-    path="${entry:3}"; path="${path%/}"
-    full="$root/$path"
-    if [ -d "$full" ] && [ -e "$full/.git" ]; then
-      # submodule/gitlink или вложенный репозиторий — @head + РЕКУРСИЯ внутрь с префиксом.
-      # Превентив 2: константа '-' маскировала отказ producer'а. Грамматика контракта
-      # требует @head:<sha> — отсутствие sha ломает формат, fail-closed rc=2 именованный.
-      if ! head="$("$GIT" -C "$full" rev-parse HEAD 2>/dev/null)"; then
-        "$RM" -f -- "$tmpf"
-        printf 'NOT_IMPLEMENTED: HEAD недостижим в %s\n' "$full" >&2
-        return 2
+    # Грамматика ls-files -s: "<mode> <sha1> <stage>\t<path>" (NUL-separated).
+    # Первые три поля — пробелами; имя пути идёт после первого TAB.
+    mode="${entry%% *}"
+    sha1="${entry#* }"; sha1="${sha1%% *}"
+    path="${entry#*$'\t'}"
+    TRACKED_INFO["$path"]="$mode:$sha1"
+  done < "$tmpf_s"
+  "$RM" -f -- "$tmpf_s"
+  # 2) Перечисляем пути через `ls-files -z` (порядок тот же, что у ls-files -s -z).
+  if ! "$GIT" -C "$root" ls-files -z > "$tmpf_p" 2>/dev/null; then
+    "$RM" -f -- "$tmpf_p"
+    printf 'NOT_IMPLEMENTED: git ls-files отказал в %s\n' "$root" >&2
+    return 2
+  fi
+  while IFS= read -r -d '' path; do
+    info="${TRACKED_INFO[$path]:-::}"
+    mode="${info%%:*}"
+    sha1="${info#*:}"
+    full="$root/$prefix$path"
+    # gitlink/submodule (mode 160000 в `ls-files -s`): @head + рекурсия.
+    if [ "$mode" = "160000" ]; then
+      if [ -d "$full" ]; then
+        if ! head="$("$GIT" -C "$full" rev-parse HEAD 2>/dev/null)"; then
+          "$RM" -f -- "$tmpf_p"
+          printf 'NOT_IMPLEMENTED: HEAD недостижим в %s\n' "$full" >&2
+          return 2
+        fi
+        printf 'TRACKED:@head:%s\t%s%s\n' "$head" "$prefix" "$path"
+        # Рекурсия с префиксом «<path>/» — внутренние tracked-пути
+        # попадают в манифест с префиксом; изменение внутри развёрнутого
+        # submodule (ворота 11) меняет вложенный отпечаток.
+        emit_tracked_manifest "$full" "$prefix$path/" || {
+          "$RM" -f -- "$tmpf_p"
+          return 2
+        }
+        emit_untracked_manifest "$full" "$prefix$path/" || {
+          "$RM" -f -- "$tmpf_p"
+          return 2
+        }
+      else
+        # gitlink без развёрнутого рабочего дерева — маркер MISSING.
+        printf 'TRACKED:@head:MISSING\t%s%s\n' "$prefix" "$path"
       fi
-      printf '%s:@head:%s\t%s%s\n' "$xy" "$head" "$prefix" "$path"
-      # || return 2 — внутренний fail-closed НЕ маскируется внешним 0.
-      emit_manifest "$full" "$prefix$path/" || return 2
-    elif [ -e "$full" ]; then
-      # обычный файл — sha256 байтов через пин-путь $SHA256SUM (НЕ голое имя).
-      # Превентив 1: константа 'ERR' маскировала отказ producer'а (нечитаемый файл
-      # давал тот же отпечаток, что и любой другой нечитаемый — допись невидима).
+      continue
+    fi
+    # Обычный tracked-файл: sha256 байтов через пин-путь $SHA256SUM.
+    # Превентив v4 (ERR-константа): нечитаемый/отсутствующий файл — маркер
+    # MISSING, чтобы дельта ловила появление/удаление/повреждение.
+    if [ -f "$full" ] && [ -r "$full" ]; then
       if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
-        "$RM" -f -- "$tmpf"
+        "$RM" -f -- "$tmpf_p"
         printf 'NOT_IMPLEMENTED: не смог прочитать %s\n' "$full" >&2
         return 2
       fi
       fp="${fp%% *}"
-      printf '%s:%s\t%s%s\n' "$xy" "$fp" "$prefix" "$path"
+      printf 'TRACKED:%s:%s\t%s%s\n' "$fp" "$sha1" "$prefix" "$path"
     else
-      # D-запись (удалённое) — отпечаток отсутствия.
-      printf '%s:-\t%s%s\n' "$xy" "$prefix" "$path"
+      printf 'TRACKED:MISSING:%s\t%s%s\n' "$sha1" "$prefix" "$path"
     fi
+  done < "$tmpf_p"
+  "$RM" -f -- "$tmpf_p"
+  unset TRACKED_INFO
+}
+# НОГА-2 — UNTRACKED (untracked-байты). Источник — `git ls-files --others -z`
+# БЕЗ `--exclude-standard`. КАЖДЫЙ неотслеживаемый путь с sha256 байтов,
+# МИМО ЛЮБЫХ ignore-правил (.gitignore, .git/info/exclude, core.excludesFile,
+# env-config GIT_CONFIG_COUNT/KEY_n/VALUE_n, --exclude-per-directory и пр.).
+# По умолчанию (без `--exclude-standard`) ls-files --others НЕ применяет
+# ни одно ignore-правило, и НЕ сворачивает untracked-каталоги (--directory
+# по умолчанию выключен). Поведенческий контроль-КОНТРОЛЬ Б6 (self-hide):
+# новый самоигнорирующийся `.gitignore` сам — untracked-путь ноги 2
+# (ls-files --others его видит, никакое правило его не скрывает).
+# Замена porcelain-untracked И emit_gitignore_walk как источника — оба
+# поглощены корневым срезом.
+# Формат строки:
+#   UNTRACKED:<sha256-байтов>\t<путь>
+# gitlink'и не входят в `ls-files --others` (это tracked-категория);
+# recursion в развёрнутые submodule'ы — для утечки-внутри-submodule
+# (замер 2026-09-15: без --recurse-submodules untracked-категория
+# верхнего уровня НЕ включает вложенные submodule-каталоги; с
+# --recurse-submodules — включает; для симметрии с TRACKED-ногой и
+# превентива «утечка внутри уже-развёрнутого submodule» — рекурсия
+# добавлена). Внутренний rc≠0 (mktemp отказал, ls-files отказал,
+# sha256sum не смог прочесть) распространяется через `|| return 2`.
+emit_untracked_manifest() {  # <канон-корень> <префикс-путей>
+  local root="$1" prefix="$2" tmpf path full fp
+  tmpf="$("$MKTEMP")" || {
+    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_untracked_manifest\n' >&2
+    return 2
+  }
+  # ls-files --others БЕЗ --exclude-standard: ВСЕ untracked, мимо ignore-правил.
+  # --recurse-submodules: симметрия с TRACKED-ногой (внутри submodule утечка видна).
+  if ! "$GIT" -C "$root" ls-files --others -z --recurse-submodules > "$tmpf" 2>/dev/null; then
+    "$RM" -f -- "$tmpf"
+    printf 'NOT_IMPLEMENTED: git ls-files --others отказал в %s\n' "$root" >&2
+    return 2
+  fi
+  while IFS= read -r -d '' path; do
+    full="$root/$prefix$path"
+    if [ -d "$full" ]; then
+      # `ls-files --others` без `--directory` отдаёт файлы, не каталоги;
+      # но с --recurse-submodules подкаталог submodule может появиться как
+      # неразвёрнутый (readlink покажет внешний gitdir) — пропускаем
+      # не-файлы, чтобы sha256sum не падал с NOT_IMPLEMENTED.
+      continue
+    fi
+    if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
+      "$RM" -f -- "$tmpf"
+      printf 'NOT_IMPLEMENTED: не смог прочитать %s (UNTRACKED)\n' "$full" >&2
+      return 2
+    fi
+    fp="${fp%% *}"
+    printf 'UNTRACKED:%s\t%s%s\n' "$fp" "$prefix" "$path"
   done < "$tmpf"
   "$RM" -f -- "$tmpf"
 }
-# emit_dotgit_manifest <канон-корень> — рекурсивный обход .git/hooks и одного
-# файла .git/config (находка 5 адверсария к5 4dfc0ff, S-dot-git-leak: подмена
-# .git/hooks/pre-push или правка .git/config невидима для `git status`, которая
-# по конструкции не отражает состояние самого .git/ — активный барьер pre-push
-# отключается подменой, ЭТО и есть путь исходного инцидента, породившего 024).
-# Внутренний rc=2 (sha256sum не смог прочесть / readlink не смог прочесть)
-# распространяется вверх так же, как у emit_manifest (`|| return 2`). Симлинки
-# внутри .git/hooks/ ВКЛЮЧАЮТСЯ в отпечаток (фикс блокера 3 адверсария
-# contracts-024-k6, S-dotgit-hook-symlink): ранее симлинк .git/hooks/pre-push на
-# внешний исполняемый файл молча пропускался обходом `[ -L && continue`, и
-# сверка объявляла «чисто» при живой подмене активного барьера. Теперь симлинк
-# порождает строку DOTGIT:SYMLINK:<readlink-цель>\t<путь> — подмена цели
-# симлинка (или самого факта наличия симлинка) меняет отпечаток ⇒ rc=1 именованный
-# на сверке. readlink работает и на dangling-симлинках (цель всё равно извлекается),
-# поэтому битые симлинки тоже ловятся. readlink пинован через $READLINK (тот же
-# паттерн TRUSTED_PATH, что для прочих утилит), и при отказе readlink снимается
-# именованным rc=2 — симлинки не «выпадают» в молчаливый пропуск.
-#
-# Б8 (фикс адверсария contracts-024-k10, S-separate-gitdir-dotgit-blind):
-# `.git` бывает НЕ каталогом, а РЕГУЛЯРНЫМ файлом с содержимым `gitdir: <path>`
-# (формы: `--separate-git-dir <внешний-gitdir>` от `git init`; или worktree-форма
-# `.git/worktrees/<n>/.git`-подобная — `gitdir: <абс-worktree-gitdir>`). Ранний
-# `[ -d "$gitdir" ] || return 0` (был защитой «нет .git/ — нечего хешировать»)
-# ВЫХОДИЛ целиком для обеих форм: dot-git половина манифеста пуста ⇒ подмена
-# `pre-push` или правка `.git/config` НЕВИДИМА (ложный «чисто» при живой подмене
-# активного барьера, исходный инцидент 024). Резолвим реальный gitdir из файла
-# через парсинг первой строки (`gitdir: <path>`); относительные пути (worktree,
-# где gitdir указывает внутрь основного репозитория `.git/worktrees/<n>/`)
-# резолвятся от $1; абсолютные — как есть. Канонизация через `readlink -f`
-# снимает промежуточные симлинки в пути (для типовой формы путь и так абсолютный
-# и без симлинков; для нестандартных setup-ов `readlink -f` нормализует). Резолв
-# выполняется на КАЖДОМ запуске (snapshot и check) — путь детерминирован, и
-# `readlink -f` даёт одинаковый канонический путь в обоих режимах, иначе
-# `first` строка снимка (root) и фактический walked gitdir расходились бы.
+# НОГА-3 — DOTGIT (БЕЗ ИЗМЕНЕНИЙ v5). emit_dotgit_manifest_walk обходит
+# .git/hooks и .git/info рекурсивно с симлинк-развилкой (Б3 CONTENT/DANGLING)
+# и carve-out `.git/info/refs`. emit_dotgit_manifest резолвит `.git`-файл
+# (Б8, --separate-git-dir форма) и хеширует содержимое `.git/config`.
+# В v6 УДАЛЕНА: ветка DOTGIT:EXCLUDES для внешней цели core.excludesFile.
+# ПОЧЕМУ: новая UNTRACKED-нога видит саму утечку МИМО ignore-правил
+# (порочность перечисления носителей ослепления — Н-89); слепящий эффект
+# core.excludesFile нейтрализован корневым срезом без отдельной ветки.
+# Замер красной пробы переносится с имени носителя ($EXT/rules) на имя
+# утечки ($UTECHKA) — re-анкер контролей 2/3 red_excludes_target_024.sh
+# в приёмочной пачке architect'а (правка вне зоны implementer).
 emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
   local dir="$1" pre="$2" entry fp target
   for entry in "$dir"/*; do
@@ -574,7 +639,7 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
   done
 }
 emit_dotgit_manifest() {  # <канон-корень>
-  local gitdir="$1/.git" hooksdir fp gdot_content resolved
+  local gitdir="$1/.git" hooksdir gdot_content resolved
   # Б8: `.git` ФАЙЛ (не каталог) — `--separate-git-dir` или worktree-форма.
   # Резолвим реальный gitdir из файла (формат: `gitdir: <path>\n`). Парсим
   # первую строку, убираем `gitdir: ` префикс, снимаем trailing newline.
@@ -626,201 +691,41 @@ emit_dotgit_manifest() {  # <канон-корень>
     fp="${fp%% *}"
     printf 'DOTGIT:%s\t.git/config\n' "$fp"
   fi
-  # Б7 (фикс адверсария contracts-024-k10, S-external-excludesFile-target):
-  # `core.excludesFile` указывает на ВНЕШНИЙ файл правил; `git status
-  # --porcelain` НЕ показывает файлы под новыми правилами, а `.git/config`
-  # может оставаться стабильным (правило УЖЕ выставлено до снимка, мутируются
-  # ТОЛЬКО байты цели). Закрытие — захэшировать СОДЕРЖИМОЕ цели отдельной
-  # строкой манифеста. Резолв пути: относительный — от $1 (как делает сам git);
-  # абсолютный — как есть. Файл цели может быть симлинком — sha256sum через
-  # `$SHA256SUM -- <path>` идёт по open(2), которая следует симлинкам, так
-  # что результат совпадает с тем, что видит git. Если цель не существует —
-  # маркерная строка DOTGIT:EXCLUDES:UNREADABLE (snapshot и check несут
-  # разные маркеры на изменение состояния файла).
-  # HOME/XDG_CONFIG_* сняты, GIT_CONFIG_GLOBAL/SYSTEM сняты, GIT_CONFIG_COUNT
-  # снят (см. начало файла, защита-среды к5 + Н-96) ⇒ `git config --get`
-  # читает ТОЛЬКО локальный `.git/config` (через worktree-config-overlay для
-  # worktree-формы; тот же путь, что ходит `git status`).
-  local exval exfp
-  if exval="$("$GIT" -C "$1" config --get core.excludesFile 2>/dev/null)"; then
-    exval="${exval%$'\n'}"
-    if [ -n "$exval" ]; then
-      case "$exval" in
-        /*) ;;
-        *)  exval="$1/$exval" ;;
-      esac
-      if [ -f "$exval" ] && [ -r "$exval" ]; then
-        if ! exfp="$("$SHA256SUM" -- "$exval" 2>/dev/null)"; then
-          printf 'NOT_IMPLEMENTED: не смог прочитать core.excludesFile цель %s\n' "$exval" >&2
-          return 2
-        fi
-        exfp="${exfp%% *}"
-        printf 'DOTGIT:EXCLUDES:%s\t%s\n' "$exfp" "$exval"
-      else
-        # Цель задана, но файла нет (или нечитаем). Маркер, чтобы не молчать:
-        # появление файла → UNREADABLE→CONTENT, удаление/повреждение →
-        # CONTENT→UNREADABLE, байтовая правка → CONTENT→другой CONTENT.
-        printf 'DOTGIT:EXCLUDES:UNREADABLE\t%s\n' "$exval"
-      fi
-    fi
-  fi
-  # `if exval=$(...)` с `-z` после strip: если ключ не задан, `git config
-  # --get` возвращает rc=1, переменная остаётся пустой. НЕ unset/return —
-  # пустой exval просто означает «по умолчанию», дефолтный путь
-  # `.git/info/exclude` уже покрыт walk-ом выше; молчание тут — норма.
+  # УДАЛЕНО в v6: ветка DOTGIT:EXCLUDES для внешней цели core.excludesFile.
+  # Слепящий эффект core.excludesFile нейтрализован корневым срезом —
+  # нога-2 (UNTRACKED) видит КАЖДЫЙ неотслеживаемый путь с sha256 байтов
+  # МИМО ЛЮБЫХ ignore-правил (включая саму внешнюю цель и её правила).
+  # Замер красной пробы (red_excludes_target_024) переносится с имени
+  # носителя на имя утечки — re-анкер контролей 2/3 в приёмочной пачке
+  # architect'а (зона architect, не implementer).
 }
-# emit_index_flags_manifest <канон-корень> — печатает строки для tracked-путей,
-# у которых ВКЛЮЧЕНЫ биты skip-worktree/assume-unchanged (S/s/h — НЕ дефолтное H).
-# Блокер Б5 адверсария contracts-024-k9 (S-update-index-blinds-porcelain):
-# `git status --porcelain` НЕ показывает tracked-файлы с битами assume-unchanged
-# или skip-worktree, даже если байты на диске отличаются от индекса. Адверсарий
-# нащупал направление явно: побайтовый хеш `.git/index` НЕПРИГОДЕН — индекс
-# легитимно переписывается самим `git status` при refresh stat-кэша (проверяется
-# двойным прогоном `git status` и сверкой `git hash-object .git/index` до/после;
-# если разойдётся на честном входе, хеш негоден — задание к9 просит проверить).
-# Наблюдаемая величина того же смысла, меняющаяся РОВНО при постановке/снятии
-# бита — `git ls-files -v`: флаги H/h/S/s на каждом tracked-пути. В дефолте все
-# строки `H ...`. Постановка либо снятие бита МЕНЯЕТ флаг ⇒ новая строка
-# манифеста ⇒ дельта на сверке ⇒ rc=1 именованный. Грамматика (проверено на
-# текущем git): "<flag><пробел><path>", flag — один ASCII-символ в начале
-# строки; возможные иные коды (C/R/?) на сегодня не наблюдались в стандартных
-# репозиториях, но они тоже НЕ дефолт — на всякий случай включаем всё, что ≠ H
-# (резерв: новые git-версии могут добавить иные коды, мы их увидим).
-# Формат манифеста: `INDEXFLAG:<flag>\t<path>` — тот же ключ-путь, что у
-# porcelain-записей; конфликта формата нет (porcelain не использует префикс
-# INDEXFLAG). Внутренний rc≠0 (ls-files отказал) распространяется вверх через
-# `|| return 2` — превентив того же класса, что для emit_manifest (Н-85).
-# Б9 (фикс адверсария contracts-024-k11, S-index-flag-stable-blinds-bytes):
-# флаг, поставленный ДО снимка и стабильный, не даёт дельты (флаг один и тот же
-# в обоих манифестах), а байты файла между тем мутировали — porcelain их не
-# видит (бит отключает сравнение), INDEXFLAG-строка хранит только флаг, не
-# содержимое ⇒ обе половины манифеста согласованы со снимком ⇒ rc=0 «чисто»
-# при живой правке tracked-файла. Решение: ВКЛЮЧИТЬ В СТРОКУ манифеста sha256
-# БАЙТОВ рабочего файла (по образцу DOTGIT:CONTENT фикса Б3 к8):
-#   INDEXFLAG:<flag>:<sha256>\t<path>
-# Правка байтов ⇒ новая строка манифеста ⇒ дельта ⇒ rc=1 именованный.
-# Файл удалён/нечитаем (chmod 000) — маркер `UNREADABLE` (по образцу
-# DOTGIT:EXCLUDES:UNREADABLE), чтобы дельта ловила появление/удаление/
-# повреждение файла (snapshot UNREADABLE → check CONTENT или наоборот даёт
-# разные строки ⇒ новая строка в дельте).
-emit_index_flags_manifest() {  # <канон-корень>
-  local root="$1" tmpf line flag path fp full
-  tmpf="$("$MKTEMP")" || {
-    printf 'NOT_IMPLEMENTED: mktemp отказал в emit_index_flags_manifest\n' >&2
-    return 2
-  }
-  # ls-files -v rc фиксируется ДО чтения файла (Н-84/Н-85: rc без пайпов).
-  if ! "$GIT" -C "$root" ls-files -v > "$tmpf" 2>/dev/null; then
-    "$RM" -f -- "$tmpf"
-    printf 'NOT_IMPLEMENTED: git ls-files -v отказал в %s\n' "$root" >&2
-    return 2
-  fi
-  while IFS= read -r line; do
-    # Грамматика: "<flag><space><path>"; flag — ОДИН символ в начале строки.
-    flag="${line%% *}"
-    [ "${#flag}" -ge 1 ] || continue
-    case "$flag" in
-      H) continue ;;  # дефолтное cached-состояние — пропускаем, шум.
-    esac
-    path="${line#* }"
-    full="$root/$path"
-    # sha256 байтов рабочего файла через пин-путь $SHA256SUM (НЕ голое имя;
-    # тот же класс защит-утилит, что emit_manifest). Файл удалён (rm) или
-    # нечитаем (chmod 000, битый fd, etc) — UNREADABLE-маркер, чтобы дельта
-    # ловила появление/удаление/повреждение. sha256sum не смог прочесть по
-    # иной причине (вне read/f-чека) — именованный NOT_IMPLEMENTED rc=2.
-    if [ -f "$full" ] && [ -r "$full" ]; then
-      if ! fp="$("$SHA256SUM" -- "$full" 2>/dev/null)"; then
-        "$RM" -f -- "$tmpf"
-        printf 'NOT_IMPLEMENTED: не смог прочитать %s (INDEXFLAG walk)\n' "$full" >&2
-        return 2
-      fi
-      fp="${fp%% *}"
-      printf 'INDEXFLAG:%s:%s\t%s\n' "$flag" "$fp" "$path"
-    else
-      printf 'INDEXFLAG:%s:UNREADABLE\t%s\n' "$flag" "$path"
-    fi
-  done < "$tmpf"
-  "$RM" -f -- "$tmpf"
-}
-# emit_gitignore_walk <канон-корень> — рекурсивный walk .gitignore файлов
-# ВНЕ .git/ (там своя ветка emit_dotgit_manifest_walk — обход .git/info/*).
-# Блокер Б6 адверсария contracts-024-k9 (S-self-ignoring-worktree-gitignore):
-# новая `.gitignore` в рабочем дереве, которая ИГНОРИРУЕТ САМА СЕБЯ
-# (паттерн `.gitignore` в её собственных правилах), невидима для `git status
-# --porcelain -uall` (файл под собственным правилом). Без отдельного обхода
-# детектор не видит НИ сам `.gitignore`, НИ файл утечки под ним — ложный
-# «чисто» при живой утечке.
-# Решение — тот же класс, что уже закрыт для `.git/info/exclude` (Б1 ревью v1):
-# walk по всему дереву, sha256 содержимого каждого `.gitignore` в манифест.
-# НОВЫЙ `.gitignore` (отсутствовавший на снимке) — новая строка манифеста ⇒
-# дельта ⇒ rc=1 именованный. САМА утечка остаётся невидимой (вне 024, и вне
-# прецедента — превенция 025 allowlist); но сам факт появления/изменения
-# `.gitignore` — детектируется, аналогично `.git/info/exclude`. Симметрия
-# «тот же класс, что уже закрыт для .git/info/exclude» — структурное
-# основание, не повтор строки.
-# Производительность: `find <root> -name .gitignore -type f -not -path
-# "<root>/.git/*"` (один обход, без полного рекурсивного хеширования дерева);
-# адверсарий НЕ блокировал на объёме. find пинован через $FIND (тот же
-# паттерн TRUSTED_PATH) — атакующий не подменяет обход через PATH.
-# Формат манифеста: `WTIGNORE:<sha>\t<отн-путь-от-корня>`.
-# Внутренний rc≠0 (find/sha256sum отказал) распространяется через `|| return 2`.
-emit_gitignore_walk() {  # <канон-корень>
-  local root="$1" found fp rel
-  # find через process substitution; rc find подстановки — последний rc пайпа,
-  # но НЕ путается с read: read возвращает 0 пока есть строки. find rc=2
-  # именованный NOT_IMPLEMENTED, если find не найден (пин ловит выше).
-  while IFS= read -r found; do
-    [ -n "$found" ] || continue
-    if ! fp="$("$SHA256SUM" -- "$found" 2>/dev/null)"; then
-      printf 'NOT_IMPLEMENTED: не смог прочитать %s (WTIGNORE walk)\n' "$found" >&2
-      return 2
-    fi
-    fp="${fp%% *}"
-    # Путь относительно корня — отрезаем "$root/" префикс.
-    rel="${found#"$root"/}"
-    printf 'WTIGNORE:%s\t%s\n' "$fp" "$rel"
-  done < <("$FIND" "$root" -name .gitignore -type f -not -path "$root/.git/*" 2>/dev/null)
-}
-# manifest() сшивает porcelain (emit_manifest) + dot-git (emit_dotgit_manifest)
-# + index-flags (emit_index_flags_manifest — Б5) + worktree-gitignore-walk
-# (emit_gitignore_walk — Б6) и сортирует ЕДИНЫМ sort. Все четыре producer'а
-# вызываются ПО ОТДЕЛЬНОСТИ через прямую командную подстановку (НЕ через
-# `{ p1; p2; } | sort` — регрессия ворот 15 круга k6/k7: группа `{ }` в пайпе
-# отдаёт для pipefail rc ПОСЛЕДНЕЙ команды внутри группы, теряя rc более
-# ранней; здесь `$?` читается СРАЗУ после каждой отдельной подстановки —
-# Н-84/Н-85: rc без пайпов, каждый producer явно).
-# и сортирует ЕДИНЫМ sort. Оба producer'а вызываются ПО ОТДЕЛЬНОСТИ через прямую
-# командную подстановку (НЕ через `{ p1; p2; } | sort` — регрессия ворот 15
-# круга k6/k7: группа `{ }` в пайпе отдаёт для pipefail rc ПОСЛЕДНЕЙ команды
-# внутри группы, теряя rc более ранней; здесь `$?` читается СРАЗУ после каждой
-# отдельной подстановки — Н-84/Н-85: rc без пайпов, каждый producer явно).
-# Пустой вывод producer'а не даёт пустой строки в манифесте (`[ -n ... ] &&`).
+# manifest() сшивает три ноги v6 (TRACKED + UNTRACKED + DOTGIT) и сортирует
+# ЕДИНЫМ sort. Каждый producer вызывается через прямую командную подстановку
+# (НЕ через `{ p1; p2; } | sort` — регрессия ворот 15 круга k6/k7: группа
+# `{ }` в пайпе отдаёт для pipefail rc ПОСЛЕДНЕЙ команды внутри группы,
+# теряя rc более ранней; здесь `$?` читается СРАЗУ после каждой отдельной
+# подстановки — Н-84/Н-85: rc без пайпов, каждый producer явно).
+# Финальный `:` в группе — гарантия rc=0 группы при pipefail: если ПОСЛЕДНИЙ
+# producer пуст, его `[ -n "" ] && printf` возвращает 1 (test ложен ⇒
+# конструкция возвращает 1), и pipeline отдаёт rc=1 даже когда sort и
+# предыдущие producer'ы прошли успешно. Прецедент «группа в пайпе отдаёт
+# rc последней команды» обходится финальным `:` после всех `&& printf` —
+# он всегда успешен и перебивает 1 от ложного теста в хвосте.
 manifest() {
-  local out_a out_b out_c out_d rc
-  out_a="$(emit_manifest "$1" "${2:-}")"
+  local out_a out_b out_c rc
+  out_a="$(emit_tracked_manifest "$1" "${2:-}")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
-  out_b="$(emit_dotgit_manifest "$1")"
+  out_b="$(emit_untracked_manifest "$1" "${2:-}")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
-  out_c="$(emit_index_flags_manifest "$1")"   # Б5: assume-unchanged / skip-worktree
+  out_c="$(emit_dotgit_manifest "$1")"
   rc=$?
   [ "$rc" -eq 0 ] || return "$rc"
-  out_d="$(emit_gitignore_walk "$1")"          # Б6: самоигнорирующие worktree .gitignore
-  rc=$?
-  [ "$rc" -eq 0 ] || return "$rc"
-  # `:` в конце группы — гарантия rc=0 группы при pipefail. Без этого,
-  # если ПОСЛЕДНИЙ producer (out_d) пуст, его `[ -n "" ] && printf` возвращает 1
-  # (test ложен ⇒ конструкция возвращает 1), и pipeline отдаёт rc=1 даже
-  # когда sort и предыдущие producer'ы прошли успешно. Прецедент «группа в
-  # пайпе отдаёт rc последней команды» обходится финальным `:` после всех
-  # `&& printf` — он всегда успешен и перебивает 1 от ложного теста в хвосте.
   {
     [ -n "$out_a" ] && printf '%s\n' "$out_a"
     [ -n "$out_b" ] && printf '%s\n' "$out_b"
     [ -n "$out_c" ] && printf '%s\n' "$out_c"
-    [ -n "$out_d" ] && printf '%s\n' "$out_d"
     :
   } | "$SORT"
 }
@@ -830,10 +735,10 @@ do_snapshot() {
   m="$(manifest "$CANON" '')"
   manifest_rc=$?
   if [ "$manifest_rc" -ne 0 ]; then
-    # rc=2 NOT_IMPLEMENTED (git status rc≠0, mktemp отказ, sha256sum/rev-parse
-    # fail в рекурсии — превентивы 1/2) — сообщение уже напечатано в emit_manifest;
-    # rc 2 контракта 024 для непригодного окружения должен сохраняться, а не
-    # превращаться в rc 1 «ОТКАЗ».
+    # rc=2 NOT_IMPLEMENTED (mktemp отказ, sha256sum/rev-parse fail в
+    # рекурсии — превентивы 1/2) — сообщение уже напечатано в producer'е;
+    # rc 2 контракта 024 для непригодного окружения должен сохраняться,
+    # а не превращаться в rc 1 «ОТКАЗ».
     [ "$manifest_rc" -eq 2 ] && exit 2
     printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
     exit 1
@@ -998,14 +903,14 @@ do_check() {
     exit 1
   fi
   # Б4 (фикс адверсария contracts-024-k8, S-porcelain-dotgit-toctou): один
-  # прочёт манифеста читает porcelain (`emit_manifest`) и dot-git walk
-  # (`emit_dotgit_manifest`) НЕАТОМАРНО, ДВУМЯ отдельными producer-вызовами —
-  # между ними окно, в которое атакующий переключает `.git/info/exclude`
-  # (скрыть-утечку → восстановить-baseline) так, что porcelain видит
-  # скрытое, а dot-git walk видит уже восстановленное (или наоборот); оба
-  # producer'а по отдельности выглядят «согласованными со снимком», хотя
-  # физически файл утечки существует. Повторный прогон адверсария —
-  # 5 из 5 ложных «чисто».
+  # прочёт манифеста читает TRACKED/UNTRACKED (`emit_tracked_manifest` +
+  # `emit_untracked_manifest`) и dot-git walk (`emit_dotgit_manifest`)
+  # НЕАТОМАРНО, ТРЕМЯ отдельными producer-вызовами — между ними окно, в
+  # которое атакующий переключает `.git/info/exclude` (скрыть-утечку →
+  # восстановить-baseline) так, что untracked-нога видит скрытое, а dot-git
+  # walk видит уже восстановленное (или наоборот); все три producer'а по
+  # отдельности выглядят «согласованными со снимком», хотя физически файл
+  # утечки существует. Повторный прогон адверсария — 5 из 5 ложных «чисто».
   #
   # Решение: вычислить ПОЛНЫЙ комбинированный манифест (`manifest()` целиком)
   # ДВАЖДЫ ПОДРЯД, без другой работы между вызовами. Если оба чтения СОВПАДАЮТ
@@ -1036,7 +941,7 @@ do_check() {
     exit 1
   fi
   if [ "$cur1" != "$cur2" ]; then
-    printf 'ОТКАЗ: %s: основной чекаут мутировал во время сверки — повторное чтение разошлось с первым (porcelain и dot-git walk идут неатомарно; фикс блокера Б4 адверсария contracts-024-k8)\n' \
+    printf 'ОТКАЗ: %s: основной чекаут мутировал во время сверки — повторное чтение разошлось с первым (три producer-ноги идут неатомарно; фикс блокера Б4 адверсария contracts-024-k8)\n' \
       "$P_ZAGR" >&2
     exit 1
   fi
