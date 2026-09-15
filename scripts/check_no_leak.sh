@@ -563,8 +563,10 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     : > "${tmpf}.sum"
   fi
   while IFS= read -r sha_line; do
+    # Формат sha256sum: "<64hex>  <file>" (два пробела между sha и file —
+    # второй спецификация GNU coreutils для машинной парсинга).
     sha="${sha_line%% *}"
-    rest="${sha_line#* }"
+    rest="${sha_line#*  }"
     # rest — абсолютный путь; восстанавливаем относительный
     rest="${rest#"$root"/}"
     printf 'UNTRACKED:%s\t%s%s\n' "$sha" "$prefix" "$rest"
