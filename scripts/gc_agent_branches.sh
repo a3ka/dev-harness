@@ -36,6 +36,16 @@
 #       `done/contracts/NNN/*` → реап независимо от возраста;
 #   (б) возраст — имя без распознанного NNN И mtime записи старше N дней (по умолчанию 7;
 #       флаг `--tmp-reap-age N`). mtime — lstat САМОЙ записи через python3 (Н-60).
+#       Возраст — ВЕЩЕСТВЕННОЕ сравнение секунд `(now - mtime) > N*86400` (вердикт к1: int-усечение
+#       суток теряло кандидатов на границе `(N, N+1)`; порог передаётся в python, не зашит).
+# NNN-извлечение ПЕРЕКРЫВАЮЩЕЕСЯ (python re.finditer с lookahead `(?=(0[0-9][0-9]))`): `x0026`
+# даёт И `002`, И `026` — иначе активный `026` терялся за неперекрывающимся `grep -oE`.
+# Кандидат-лист NUL-РАЗДЕЛЁННЫЙ от `git ls-files --others -z` до конца обработки: newline-конверсия
+# `tr '\0' '\n'` ломала LF-имена (`tmp/$'old\n021'/` распадалось на ложные строки, исходная запись
+# переживала реап). Поле `rel` в выводе python кодируется base64 — без LF/TAB/backslash в
+# транспортном представлении; bash декодирует перед использованием в путях.
+# Отказ `git ls-files --others -z -- tmp/` — fail-closed rc 2 «NOT_IMPLEMENTED: git ls-files
+# отказал» (вердикт к1: хвостовой `|| :` маскировал отказ под пустой успешный список).
 # Распознанный NNN = есть `contracts/NNN-*.md` в дереве. NNN без файла контракта и без
 # done-тега — аноним, правило возраста. NNN распознан БЕЗ done-тега = АКТИВНЫЙ контекст
 # (скратч живого майлстоуна) → запись ВЫЖИВАЕТ независимо от возраста. При коллизии
@@ -266,10 +276,46 @@ if [ -d "$ROOT/tmp" ]; then
   #    Без --exclude-standard — tmp/ в .gitignore не должен делать источник слепым (024 нога-2).
   #    awk сворачивает tmp/X/Y/Z → tmp/X; файлы на верхнем уровне tmp/X → tmp/X (НЕ в tmp,
   #    иначе риск удалить сам tmp/).
-  g ls-files --others -z -- 'tmp/' 2>/dev/null \
-    | tr '\0' '\n' \
-    | awk -F/ 'NF>=2 && $2!="" {print $1"/"$2}' \
-    | sort -u > "$TMP/reap_candidates" || : > "$TMP/reap_candidates"
+  if ! g ls-files --others -z -- 'tmp/' > "$TMP/reap_ls_raw" 2>/dev/null; then
+    ls_rc=$?
+    printf 'NOT_IMPLEMENTED: git ls-files отказал (rc=%d)\n' "$ls_rc" >&2
+    exit 2
+  fi
+
+  # Сводка кандидатов в NUL-разделённый файл: untracked-источник → свёртка до
+  # верхнеуровневой записи (tmp/X/Y/Z → tmp/X). Python читает NUL-байты и
+  # кладёт NUL-байты между записями — никакой newline-конверсии.
+  python3 - "$TMP/reap_ls_raw" > "$TMP/reap_candidates" <<'PYEOF'
+import sys
+try:
+    with open(sys.argv[1], 'rb') as fh:
+        data = fh.read()
+except OSError as ex:
+    print(f"NOT_IMPLEMENTED: ls-files-сырьё не читается: {ex}", file=sys.stderr)
+    sys.exit(2)
+
+parts = data.split(b'\x00')
+cands = set()
+for raw in parts:
+    if not raw:
+        continue
+    s = raw.decode('utf-8', errors='surrogateescape')
+    pp = s.split('/')
+    if len(pp) >= 3 and pp[1]:
+        cands.add(pp[0] + '/' + pp[1])
+    elif len(pp) == 2 and pp[1]:
+        cands.add(s)
+
+if cands:
+    sys.stdout.buffer.write(b'\x00'.join(
+        c.encode('utf-8', errors='surrogateescape') for c in sorted(cands)
+    ) + b'\x00')
+PYEOF
+  py_rc=$?
+  if [ "$py_rc" -ne 0 ]; then
+    printf 'NOT_IMPLEMENTED: свёртка кандидатов отказала (rc=%d)\n' "$py_rc" >&2
+    exit 2
+  fi
 
   if [ -s "$TMP/reap_candidates" ]; then
     # 2. Распознанные NNN: contracts/NNN-*.md в дереве.
@@ -297,28 +343,50 @@ if [ -d "$ROOT/tmp" ]; then
     # stdin в python3 — тело скрипта (heredoc); данные о кандидатах идут через argv[2],
     # чтобы не конфликтовать с stdin-источником скрипта. Файл `reap_candidates` уже
     # newline-terminated; lstat делаем по абсолютному пути os.path.join(ROOT, rel).
-    python3 - "$ROOT" "$TMP/reap_candidates" > "$TMP/reap_ages" <<'PYEOF'
-import os, sys, time
+    python3 - "$ROOT" "$TMP/reap_candidates" "$tmp_reap_age" \
+        > "$TMP/reap_ages" <<'PYEOF'
+import os, sys, time, re, base64
 root = sys.argv[1]
-candidates = sys.argv[2]
-now = time.time()
+candidates_path = sys.argv[2]
 try:
-    with open(candidates, 'r', encoding='utf-8') as fh:
-        for raw in fh:
-            rel = raw.rstrip('\n')
-            if not rel:
-                continue
-            full = os.path.join(root, rel)
-            try:
-                st = os.lstat(full)
-            except OSError:
-                print(f"{rel}\t-1")
-                continue
-            days = int((now - st.st_mtime) / 86400)
-            print(f"{rel}\t{days}")
+    threshold_days = float(sys.argv[3])
+except ValueError as ex:
+    print(f"NOT_IMPLEMENTED: --tmp-reap-age не float: {ex}", file=sys.stderr)
+    sys.exit(2)
+threshold_seconds = threshold_days * 86400.0
+
+try:
+    with open(candidates_path, 'rb') as fh:
+        data = fh.read()
 except OSError as ex:
     print(f"NOT_IMPLEMENTED: candidates не читается: {ex}", file=sys.stderr)
     sys.exit(2)
+
+now = time.time()
+out = bytearray()
+for raw in data.split(b'\x00'):
+    if not raw:
+        continue
+    rel = raw.decode('utf-8', errors='surrogateescape')
+    full = os.path.join(root, rel)
+    try:
+        st = os.lstat(full)
+    except OSError:
+        continue
+    age_sec = now - st.st_mtime
+    cand_age = 1 if age_sec > threshold_seconds else 0
+    age_str = f"{age_sec / 86400.0:.1f}"
+
+    base = rel[4:] if rel.startswith('tmp/') else rel
+    nnns = sorted(set(m.group(1) for m in re.finditer(r'(?=(0[0-9][0-9]))', base)))
+    nnns_str = ' '.join(nnns)
+
+    rel_b64 = base64.b64encode(rel.encode('utf-8')).decode('ascii')
+    out.extend(f"{rel_b64}\t{cand_age}\t{age_str}\t{nnns_str}".encode('utf-8'))
+    out.extend(b'\x00')
+
+if out:
+    sys.stdout.buffer.write(bytes(out))
 PYEOF
     py_rc=$?
     if [ "$py_rc" -ne 0 ]; then
@@ -330,15 +398,22 @@ PYEOF
     #    * NNN распознан (contracts/NNN-*.md) БЕЗ done-тега → АКТИВНЫЙ, ВЫЖИВАЕТ всегда;
     #    * иначе любой NNN в имени с done-тегом → done, реап;
     #    * иначе (аноним, без распознанного NNN) → возраст: mtime > tmp_reap_age → реап.
-    while IFS=$'\t' read -r entry age_days; do
-      [ -n "$entry" ] || continue
-      base="${entry#tmp/}"
-      nnns="$(printf '%s' "$base" | grep -oE '0[0-9][0-9]' | sort -u || true)"
+    while IFS= read -r -d '' record; do
+      b64_rel="${record%%$'\t'*}"
+      tmp1="${record#*$'\t'}"
+      cand_age="${tmp1%%$'\t'*}"
+      tmp2="${tmp1#*$'\t'}"
+      age_str="${tmp2%%$'\t'*}"
+      nnns_str="${tmp2#*$'\t'}"
+
+      [ -n "$b64_rel" ] || continue
+      entry="$(printf '%s' "$b64_rel" | base64 -d 2>/dev/null)"
 
       has_active=0
       has_done=0
       done_nnn=""
-      for n in $nnns; do
+      for n in $nnns_str; do
+        [ -n "$n" ] || continue
         if grep -qxF -- "$n" "$TMP/reap_done_nnns" 2>/dev/null; then
           has_done=1
           done_nnn="$n"
@@ -357,8 +432,8 @@ PYEOF
       reason=""
       if [ "$has_done" -eq 1 ]; then
         reason="done ${done_nnn}"
-      elif [ -n "$age_days" ] && [ "$age_days" -gt "$tmp_reap_age" ] 2>/dev/null; then
-        reason="возраст ${age_days}d"
+      elif [ "$cand_age" = "1" ]; then
+        reason="возраст ${age_str}d"
       fi
 
       [ -n "$reason" ] || continue
