@@ -222,7 +222,7 @@ Reviewer сверяет product/architecture-результат с конкре�
 ## Зоны
 
 ЗОНА architect: contracts/027-doc-priemka.md fixtures/check_check_contract_ready/ fixtures/freeze_contract/ fixtures/check_document/ NABLIUDENIA_ARCHITECT.md
-ЗОНА implementer: scripts/doc_contract.ts scripts/check_document.ts scripts/render_document.ts scripts/check_contract_ready.sh scripts/check_check_contract_ready.sh scripts/freeze_contract.sh package.json .github/workflows/ci.yml
+ЗОНА implementer: scripts/doc_contract.ts scripts/check_document.ts scripts/render_document.ts scripts/check_document.sh scripts/render_document.sh scripts/check_contract_ready.sh scripts/check_check_contract_ready.sh scripts/freeze_contract.sh package.json .github/workflows/ci.yml (v2: обёртки .sh — барьеры приёмки для scope_select, .sh-only по построению; несут шапку с Кодами возврата + rc, делегируют вычисление в node; .ts остаются библиотекой; расширяет покрытие приёмки, не ослабляет)
 ЗОНА orchestrator: AGENTS.md roles/orchestrator.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
