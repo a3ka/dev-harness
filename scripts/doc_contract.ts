@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 /**
- * Грамматика doc-контракта 027 — единый разбор JSON-блока `## Док-приёмка`,
- * профилей product/architecture, ID-грамматики с кириллицей+Ё/ё, путей,
- * типизированных dependencies и check-типов. БИБЛИОТЕКА — НЕ БАРЬЕР: не имеет
- * собственных кодов возврата; вызывающая сторона (check_document.ts /
- * render_document.ts) переводит именованный отказ в rc=1, а отсутствие
- * основания — в rc=2.
+ * НЕ БАРЬЕР: библиотека грамматики doc-контракта 027. Без собственных кодов возврата:
+ * CLI (check_document.ts/render_document.ts) переводит именованный отказ в rc=1,
+ * а отсутствие основания — в rc=2. verify_antiplacebo читает эту строку как объявление
+ * роли файла и не требует фикстуру.
  *
- * Шов один: `runDocCheck(spec, package, opts)` собирает проверки по порядку
- * и возвращает { rc, reason }; помощники ниже — публичные, читают только
- * переданные данные и пригодны для тестов напрямую.
+ * Шов один: помощники parseSpecFromMarkdown, validateSpecSchema, loadFrozenSpec,
+ * resolveGitSource, runProbeIsolated, generateFormalRegion и др. — читают
+ * только переданные данные и пригодны для тестов напрямую.
  */
 import { spawnSync } from 'node:child_process'
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
@@ -106,8 +104,6 @@ export function parseSpecFromMarkdown(md: string): unknown {
 }
 
 // ── Валидация локального относительного пути ────────────────────────────────
-// Контракт 027 §Грамматика: относительно корня, без пустого компонента/`.`/`..`,
-// без NUL, без выхода через симлинк; абсолютный — не превращается в локальный.
 export function validatePath(p: unknown): string | null {
   if (typeof p !== 'string') return 'не строка'
   if (p.length === 0) return 'пустой путь'
@@ -145,13 +141,9 @@ export function validateDependency(d: unknown): string | null {
   }
 }
 
-type Spec = Record<string, unknown>
-type Pkg = Record<string, unknown>
-
 const REQUIRED_KEYS = ['sections', 'scenarios', 'components', 'links', 'decisions', 'failures'] as const
 
 // ── Валидация схемы spec ─────────────────────────────────────────────────────
-// Возвращает null при успехе; строку с именованной причиной при отказе.
 export function validateSpecSchema(spec: unknown): string | null {
   if (spec == null || typeof spec !== 'object' || Array.isArray(spec))
     return 'spec не JSON-объект'
@@ -332,6 +324,7 @@ function validateQuestion(qRaw: unknown, seen: Set<string>): string | null {
   }
   return null
 }
+
 // ── Загрузка frozen-спеки через git refs ─────────────────────────────────────
 export function loadFrozenSpec(root: string, contractPath: string):
   { spec: unknown; version: number; commit: string } | null {
@@ -424,8 +417,6 @@ async function walkFiles(root: string): Promise<string[]> {
 }
 
 // ── Генерация формального фрагмента ─────────────────────────────────────────
-// Возвращает многострочный текст, содержащий id, value, status, source/decision
-// КАЖДОГО утверждения. Полный формат строк свободен по контракту.
 export function generateFormalRegion(spec: unknown, pkg: unknown): string {
   const s = (spec ?? {}) as { assertions?: Array<Record<string, unknown>> }
   const p = (pkg ?? {}) as {
@@ -552,10 +543,6 @@ export function checkSectionMarkers(md: string, requiredIds: string[]): string |
 }
 
 // ── Проверка калибровки (preflight): positive конформен, negative отвергнут ──
-// Возвращает null при успехе; строку с именованной причиной при отказе.
-// Сравнение structural: positive полностью валиден относительно spec;
-// каждый negative имеет пустое/пропущенное обязательное множество, где
-// positive его содержит (т.е. negative отвергается НЕ синтаксисом, а violation).
 export function checkCalibration(root: string, spec: unknown, calibration: {
   positive: string
   negative: Array<{ evidence: string; violation: string }>
@@ -587,9 +574,6 @@ export function checkCalibration(root: string, spec: unknown, calibration: {
       try {
         negPkg = JSON.parse(negContent)
       } catch (e) {
-        // negative парсится — синтаксический отказ сам по себе не есть отвержение violation
-        // (контракт). Однако если JSON битый, мы не можем утверждать, что нарушение — это
-        // объявленный violation. Требуем конформный JSON.
         return `negative не конформен (битый JSON): ${(e as Error).message}`
       }
       const negErr = validatePackageAgainstSpec(spec, negPkg)
@@ -602,13 +586,11 @@ export function checkCalibration(root: string, spec: unknown, calibration: {
 }
 
 // ── Валидация package относительно spec (без запуска check) ─────────────────
-// Используется для калибровки и для structural sanity-check результата.
 export function validatePackageAgainstSpec(spec: unknown, pkg: unknown): string | null {
   const idErr = checkIdSets(spec, pkg)
   if (idErr) return idErr
   const eoErr = checkEvidenceOwnership(spec, pkg)
   if (eoErr) return eoErr
-  // Профильная структура.
   const s = (spec ?? {}) as { profile?: string; required?: Record<string, unknown> }
   const p = (pkg ?? {}) as Record<string, unknown>
   const required = (s.required ?? {}) as Record<string, unknown>
