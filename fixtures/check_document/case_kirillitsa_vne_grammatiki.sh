@@ -37,7 +37,9 @@ cat > "$G/docs/ёж.evidence.json" <<'EOF'
   "scenarios": [{"id": "Сц", "actor": "User", "input": "число",
                  "outcomes": [{"id": "У", "kind": "success"}, {"id": "О", "kind": "failure"}]}],
   "decisions": [{"id": "Р"}],
-  "failures": [{"id": "О"}]
+  "failures": [{"id": "О"}],
+  "assertions": [{"id": "Факт-Ёж", "status": "as-is", "kind": "observation", "value": 7, "evidence": "Основание-ёж"}],
+  "evidence": [{"id": "Основание-ёж", "assertion": "Факт-Ёж", "kind": "observation", "source": "Источник-ёж"}]
 }
 EOF
 cat > "$G/docs/ёж.md" <<'EOF'
