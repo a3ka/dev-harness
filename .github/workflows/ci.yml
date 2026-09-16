@@ -66,6 +66,12 @@ jobs:
         # и УТВЕРЖДАЕТ код+причину; ветви зоны/проба/счёт/арбитраж/готов.
         run: npm run check:contract-ready
 
+      - name: Doc-приёмка (контракт 027)
+        # Самодостаточен: прогоняет 8 прямых red_doc_* на игрушечных деревьях
+        # в mktemp (субъект — check_document.ts/render_document.ts); python3 и git
+        # доступны. rc=0 закрывает пункт приёмки шага.
+        run: npm run check:document
+
       - name: Судья через CI-сигнал (контракт 008)
         # Самодостаточен: подставляет ФЕЙКОВЫЙ check_ci_gate.sh рядом с предметом
         # judge_gate.sh, реагирующий на exact-matching SHA PASS_THIS_SHA_GREEN.
