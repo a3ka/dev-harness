@@ -395,6 +395,48 @@ TMPDIR_BASE="${TMPDIR:-/tmp}"
 SNAP_DIR="$TMPDIR_BASE/dev-harness-leak/$HASH8"
 SNAP="$SNAP_DIR/porcelain"
 unset _canonsum
+# ─── КОДИРОВАНИЕ ПУТЕЙ МАНИФЕСТА (фикс блокера к13 адверсария contracts-024-k13) ─
+# Манифест — построчный текст, передаётся через line-oriented `sort`/`comm`. Путь в
+# строке идёт ПОСЛЕ таба как литеральная последовательность байт. Если путь содержит
+# `\n` (0x0A) или `\t` (0x09) — он разрывает ОДНУ строку на НЕСКОЛЬКО, и фрагмент
+# префикса становится самостоятельной строкой манифеста. Контрпример к13:
+#   каталог-носитель с именем `inject\nDOTGIT:<sha>\tnested` (перевод строки +
+# табуляция в имени) порождает DOTGIT-строку, которая после split на `\n` даёт
+# строку `DOTGIT:<sha>\tnested/.git/hooks/pre-push` — побайтовое совпадение со
+# строкой РЕАЛЬНОГО будущего вложенного `.git/hooks/pre-push`. После удаления
+# carrier исчезновение игнорируется по семантике подмножества (`comm -23`), а
+# новая строка уже совпадает со старой подделкой ⇒ дельта пуста ⇒ rc 0 при
+# живом payload. Это не форма имени в диагностике — это полноценная подделка
+# самой строки манифеста до передачи в `comm`.
+#
+# Решение: ОБРАТИМОЕ кодирование байт-разрушителей пути в стиле printf-%q/git-escape
+#   `\`  (0x5C) → `\\` (два байта 0x5C 0x5C) — иначе следующий шаг ввёл бы
+#                     ложный escape-символ; ПЕРВЫЙ шаг обязателен.
+#   `\n` (0x0A)  → `\n` (два байта 0x5C 0x6E) — реальный перевод строки разорвал
+#                     бы строку манифеста на две.
+#   `\t` (0x09)  → `\t` (два байта 0x5C 0x74) — табуляция-сеттер манифеста
+#                     (разделитель sha-поля от пути), коллизия через колонки.
+# Применяется ЕДИНОЙ функцией `enc_path` во ВСЕХ emit_* ногах — иначе инъекция
+# переезжает между ногами (carrier может быть сформирован любой из трёх; правка
+# только DOTGIT-ноги оставляет TRACKED/UNTRacked-ветки уязвимыми).
+# Дешифрование детектору НЕ нужно: verify-строка снимка (sha256 поверх байт файла)
+# привязывает состояние, а не представление; sort/comm работают над байтами строк
+# и не интерпретируют escape-пары как метасимволы. Диагностика «основной чекаут
+# загрязнён: <имена>» выводит закодированный путь — допустимо по контракту
+# («при пробе с \n в имени допускается экранированный вывод — как уже делает
+# sha256sum»); все red_*.sh/canary_*.sh/probe_slabyh фикстуры используют ASCII
+# без спецсимволов в именах мусора, закодированная форма равна исходной.
+# Совместимость со стабами `fixtures/check_judge_gate/stab_detektor_*.sh`
+# (НЕ используют прод-кодировщик, у каждого своя печать) держится через их
+# обособленный код: проба идёт мимо enc_path, стабы проверяются собственной
+# веткой слабого детектора.
+enc_path() {
+  local p="$1"
+  p="${p//\\/\\\\}"     # \ → \\  (первый шаг — иначе ввели бы ложный escape)
+  p="${p//$'\n'/\\n}"   # 0x0A → \n (литеральная пара байт 0x5C 0x6E)
+  p="${p//$'\t'/\\t}"   # 0x09 → \t (литеральная пара байт 0x5C 0x74)
+  printf '%s' "$p"
+}
 
 # ─── v6 КОРНЕВОЙ СРЕЗ: producers манифеста ────────────────────────────────────
 # НОГА-1 — TRACKED (tracked-байты). Источник — `git ls-files -z` (пути) и
@@ -465,7 +507,7 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
           printf 'NOT_IMPLEMENTED: HEAD недостижим в %s\n' "$full" >&2
           return 2
         fi
-        printf 'TRACKED:@head:%s\t%s%s\n' "$head" "$prefix" "$path"
+        printf 'TRACKED:@head:%s\t%s\n' "$head" "$(enc_path "${prefix}${path}")"
         # Рекурсия с префиксом «<path>/» — внутренние tracked-пути
         # попадают в манифест с префиксом; изменение внутри развёрнутого
         # submodule (ворота 11) меняет вложенный отпечаток.
@@ -483,7 +525,7 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
         }
       else
         # gitlink без развёрнутого рабочего дерева — маркер MISSING.
-        printf 'TRACKED:@head:MISSING\t%s%s\n' "$prefix" "$path"
+        printf 'TRACKED:@head:MISSING\t%s\n' "$(enc_path "${prefix}${path}")"
       fi
       continue
     fi
@@ -497,9 +539,9 @@ emit_tracked_manifest() {  # <канон-корень> <префикс-путе�
         return 2
       fi
       fp="${fp%% *}"
-      printf 'TRACKED:%s:%s\t%s%s\n' "$fp" "$sha1" "$prefix" "$path"
+      printf 'TRACKED:%s:%s\t%s\n' "$fp" "$sha1" "$(enc_path "${prefix}${path}")"
     else
-      printf 'TRACKED:MISSING:%s\t%s%s\n' "$sha1" "$prefix" "$path"
+      printf 'TRACKED:MISSING:%s\t%s\n' "$sha1" "$(enc_path "${prefix}${path}")"
     fi
   done < "$tmpf_p"
   "$RM" -f -- "$tmpf_p"
@@ -636,9 +678,9 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
       if [ -e "$full/.git" ]; then
         if ! head="$("$GIT" -C "$full" rev-parse HEAD 2>/dev/null)"; then
           # Недостижимый HEAD — именованный маркер, не молчание, не rc=2.
-          printf 'UNTRACKED-REPO:HEAD_UNREACHABLE\t%s%s\n' "$prefix" "$clean_path"
+          printf 'UNTRACKED-REPO:HEAD_UNREACHABLE\t%s\n' "$(enc_path "${prefix}${clean_path}")"
         else
-          printf 'UNTRACKED-REPO:%s\t%s%s\n' "$head" "$prefix" "$clean_path"
+          printf 'UNTRACKED-REPO:%s\t%s\n' "$head" "$(enc_path "${prefix}${clean_path}")"
           # || return 2 — внутренний fail-closed (mktemp отказ, ls-files
           # отказ, sha256sum нечитаемый файл в рекурсии, и т.п.) НЕ
           # маскируется внешним 0; это та же механика, что в
@@ -658,7 +700,7 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
         fi
       else
         # Не-git каталог — именованный маркер, не молчание, не rc=2.
-        printf 'UNTRACKED-DIR:NON_GIT\t%s%s\n' "$prefix" "$clean_path"
+        printf 'UNTRACKED-DIR:NON_GIT\t%s\n' "$(enc_path "${prefix}${clean_path}")"
       fi
       continue
     fi
@@ -722,7 +764,7 @@ emit_untracked_manifest() {  # <канон-корень> <префикс-пут�
     # rest сводится к относительному пути файла. Симметрия с TRACKED-ногой:
     # в манифесте путь файла идёт КАК ЕСТЬ (с компонентами), без нормализации.
     rest="${rest#"$root"/}"
-    printf 'UNTRACKED:%s\t%s%s\n' "$sha" "$prefix" "$rest"
+    printf 'UNTRACKED:%s\t%s\n' "$sha" "$(enc_path "${prefix}${rest}")"
   done < "${tmpf}.sum"
   "$RM" -f -- "$tmpf" "${tmpf}.sum"
 }
@@ -772,7 +814,7 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
         printf 'NOT_IMPLEMENTED: не смог прочитать цель симлинка %s\n' "$entry" >&2
         return 2
       fi
-      printf 'DOTGIT:SYMLINK:%s\t%s/%s\n' "$target" "$pre" "${entry##*/}"
+      printf 'DOTGIT:SYMLINK:%s\t%s\n' "$target" "$(enc_path "${pre}/${entry##*/}")"
       # Б3 (фикс адверсария contracts-024-k8, S-dotgit-symlink-target-mutation):
       # одна SYMLINK-строка с readlink-целью НЕ ловит подмену БАЙТОВ цели —
       # цель мутирует (`.git/info/exclude` → симлинк `../hidden-exclude` ВНЕ
@@ -800,9 +842,9 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
           return 2
         fi
         fp="${fp%% *}"
-        printf 'DOTGIT:CONTENT:%s\t%s/%s\n' "$fp" "$pre" "${entry##*/}"
+        printf 'DOTGIT:CONTENT:%s\t%s\n' "$fp" "$(enc_path "${pre}/${entry##*/}")"
       else
-        printf 'DOTGIT:DANGLING:%s\t%s/%s\n' "$resolved" "$pre" "${entry##*/}"
+        printf 'DOTGIT:DANGLING:%s\t%s\n' "$resolved" "$(enc_path "${pre}/${entry##*/}")"
       fi
       continue
     fi
@@ -812,7 +854,7 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
         return 2
       fi
       fp="${fp%% *}"
-      printf 'DOTGIT:%s\t%s/%s\n' "$fp" "$pre" "${entry##*/}"
+      printf 'DOTGIT:%s\t%s\n' "$fp" "$(enc_path "${pre}/${entry##*/}")"
     elif [ -d "$entry" ]; then
       emit_dotgit_manifest_walk "$entry" "$pre/${entry##*/}" || return 2
     fi
@@ -874,7 +916,7 @@ emit_dotgit_manifest() {  # <канон-корень>
       return 2
     fi
     fp="${fp%% *}"
-    printf 'DOTGIT:%s\t%s.git/config\n' "$fp" "$pre"
+    printf 'DOTGIT:%s\t%s\n' "$fp" "$(enc_path "${pre}.git/config")"
   fi
   # 4. .git/modules/<имя>/ — gitdir'ы подмодулей, физически лежат ВНУТРИ
   # корневого .git. Существуют только для ТРЕКЕД-сабмодулей (untracked-вложенные
