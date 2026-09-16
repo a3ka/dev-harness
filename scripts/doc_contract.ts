@@ -319,22 +319,24 @@ function validateQuestion(qRaw: unknown, seen: Set<string>): string | null {
   if (!isValidId(q.id)) return `spec.questions[*].id вне грамматики: ${String(q.id)}`
   if (seen.has(q.id as string)) return `spec.questions[*]: дубль id: ${q.id}`
   seen.add(q.id as string)
-  if (q.state !== 'resolved' && q.state !== 'open')
-    return `spec.questions[${q.id}].state не resolved|open`
+  // state объявляется в результате (package), не в критерии; если объявлен здесь —
+  // обязаны сходиться с пакетом. Здесь лишь минимальная проверка типа.
+  if (q.state !== undefined && q.state !== 'resolved' && q.state !== 'open')
+    return `spec.questions[${q.id}].state не resolved|open: ${String(q.state)}`
   if (q.state === 'open') {
     if (q.blocking !== false || q.allow_open !== true)
-      return `spec.questions[${q.id}]: open требует blocking=false, allow_open=true`
+    return `spec.questions[${q.id}]: open требует blocking=false, allow_open=true`
   } else if (q.state === 'resolved') {
     if (typeof q.decision !== 'string' || !isValidId(q.decision))
-      return `spec.questions[${q.id}].decision вне грамматики`
+    return `spec.questions[${q.id}].decision вне грамматики`
   }
   return null
 }
-
 // ── Загрузка frozen-спеки через git refs ─────────────────────────────────────
 export function loadFrozenSpec(root: string, contractPath: string):
   { spec: unknown; version: number; commit: string } | null {
-  const m = contractPath.match(/^contracts\/0*(\d+)-/)
+  // Извлекаем NNN с ведущими нулями, как в имени тега: contracts/001-yozh.md → «001».
+  const m = contractPath.match(/^contracts\/(0+\d+)-/)
   if (!m) return null
   const nnn = m[1]
   const refs = spawnSync('git', ['-C', root, 'for-each-ref', '--format=%(refname)',
