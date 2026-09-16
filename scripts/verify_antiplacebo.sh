@@ -383,13 +383,21 @@ owner_alive() {  # <pid> <pgid-из-lock>
   case "${2:-}" in ''|*[!0-9]*) return 1 ;; esac
   [ "$(ps -o pgid= -p "$1" 2>/dev/null | tr -d ' ')" = "$2" ]
 }
+# Фикстуре разрешено оставить в $WORK каталоги, закрытые на запись: красный вход
+# вида chmod 555 обязан ПЕРСИСТИРОВАТЬ до повторного прогона проверяющего, и он
+# же убивает rm -rf раннера Permission denied (CI 67bd7a9, case_zhnets_reapstale).
+# w с себя снял тот же uid — ему же u+w и вернуть перед удалением.
+wipe_ro() {  # <путь>: u+w рекурсивно, затем rm -rf; неудачи не роняют вызывателя
+  chmod -R u+w "$1" 2>/dev/null || true
+  rm -rf "$1" 2>/dev/null || true
+}
  for l in "$SCRATCH"/verify_antiplacebo-*.lock; do
    [ -f "$l" ] || continue
   pid=""; pgid=""
   read -r pid pgid _ < "$l" 2>/dev/null || true
   if [ -n "${pid:-}" ] && ! owner_alive "$pid" "${pgid:-}"; then
      rm -f "$l"
-     rm -rf "$SCRATCH/run-$pid" 2>/dev/null || true
+     wipe_ro "$SCRATCH/run-$pid"
    fi
  done
 for f in "$SCRATCH"/*; do
@@ -398,7 +406,7 @@ for f in "$SCRATCH"/*; do
   case "$bn" in
     verify_antiplacebo-*.lock) ;;             # lock (в т.ч. чужой live) — не трогаем
     run-*) pid="${bn#run-}"
-           kill -0 "$pid" 2>/dev/null || rm -rf "$f" ;;
+           kill -0 "$pid" 2>/dev/null || wipe_ro "$f" ;;
     *) if [ "$SWEEP_JUNK" = 1 ]; then rm -rf "$f"; fi ;;  # base64-обрывки — только в СВОЁМ/явном скратче
   esac
 done
@@ -448,8 +456,8 @@ release() {
   # при rc=0 без отказов каталоги убираются, течь не заводим.
   rm -f "$LOCK" 2>/dev/null || true
   if [ "${fails:-0}" -eq 0 ]; then
-    rm -rf "$RUN" 2>/dev/null || true
-    if [ "$OWN_SCRATCH" = 1 ]; then rm -rf "$SCRATCH" 2>/dev/null || true; fi
+    wipe_ro "$RUN"
+    if [ "$OWN_SCRATCH" = 1 ]; then wipe_ro "$SCRATCH"; fi
   fi
 }
 trap release EXIT
@@ -729,4 +737,5 @@ if [ "$fails" -gt 0 ]; then
   printf 'расхождений: %d · прогон оставлен в %s\n' "$fails" "$RUN" >&2
   exit 1
 fi
+chmod -R u+w "$RUN" 2>/dev/null || true
 rm -rf "$RUN"
