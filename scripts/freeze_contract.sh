@@ -24,6 +24,13 @@
 #
 # В stdout — только `v<N>`: команда записи, чей вывод читают глазами и скриптом.
 #
+# DOC-ЗАМОРОЗКА (контракт 027 §Freeze): для doc-контракта (`## Док-приёмка` с
+# `type: documentation`) повторяет doc-preflight ПОСЛЕ всех кодовых проверок
+# (реестр/грамматика/коммитность/причина/вердикт/кап) и ДО записи тега. Отказ
+# doc-preflight — rc=1 без записи тега; rc=2 — rc=1 (fail-closed). Тип определяется
+# общим разбором в doc_contract.ts; НЕ кодовой эвристикой «тест отсутствующего
+# документа красен».
+#
 # Коды возврата: 0 — заморожено, 1 — отказ, 2 — нечем проверить.
 set -euo pipefail
 
@@ -228,6 +235,27 @@ if [ "$circles" -ge 3 ]; then
     printf '  ok   кап кругов: %s кругов, арбитр был (титул «%s») — %s\n' "$circles" "$marker" "$arbiter" >&2
   else
     printf '  ok   кап кругов: %s кругов, заморозка словом владельца\n' "$circles" >&2
+  fi
+fi
+
+# ── 6б. DOC-PREFLIGHT (контракт 027 §Freeze) ──────────────────────────────────
+# Для doc-контракта повторяет doc-preflight ДО записи тега: ветвь ready уже
+# потребовала его при созыве судьи; freeze дублирует тот же прогон, потому что
+# рабочая копия могла измениться между раундами. Отказ — rc=1 без тега; rc=2
+# (нечем проверить) — rc=1 (fail-closed): нечего проверить ≠ проверено, иначе
+# пустой/битый evidence прятал бы нарушение под нехватку инструмента. Общий
+# модуль doc_contract.ts определяет тип по `## Док-приёмка` + `type: documentation`.
+target_content="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
+if printf '%s' "$target_content" | grep -qE '^## Док-приёмка' \
+   && printf '%s' "$target_content" | grep -qE '"type":[[:space:]]*"documentation"'; then
+  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)"
+  doc_rc=$?
+  if [ "$doc_rc" = "0" ]; then
+    printf '  ok   doc-preflight: заморозка %s прошла проверку\n' "$TARGET" >&2
+  elif [ "$doc_rc" = "2" ]; then
+    die "doc-preflight: нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+  else
+    die "doc-preflight: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
   fi
 fi
 
