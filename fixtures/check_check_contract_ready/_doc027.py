@@ -227,8 +227,8 @@ def formal(root):
 
 def formal_content(body, tokens, label, previous=None):
     # Independent of renderer --check: tokens belong INSIDE the formal region.
-    # Empty/constant, value-blind, status-blind and source-blind renderers are
-    # bound respectively to content-control, value, status and source below.
+    # Empty, value-blind, status-blind and source-blind renderers are bound
+    # respectively to content-control, value, status and source below.
     import re
     if not body.strip():
         fail(label, 'formal-фрагмент пуст: факты не сгенерированы')
@@ -344,14 +344,16 @@ def rejected(action, label):
     import contextlib
     import io
     output = io.StringIO()
+    code = None
     with contextlib.redirect_stderr(output):
         try:
             action()
         except SystemExit as error:
-            if error.code != 1 or f'ОТКАЗ DOC-{CASE}/{label}:' not in output.getvalue():
-                fail('selftest-diagnosis', output.getvalue())
-        else:
-            fail('selftest-survivor', label)
+            code = error.code
+    if code is None:
+        fail('selftest-survivor', label)
+    if code != 1 or f'ОТКАЗ DOC-{CASE}/{label}:' not in output.getvalue():
+        fail('selftest-diagnosis', output.getvalue())
     print(output.getvalue().strip())
 
 
