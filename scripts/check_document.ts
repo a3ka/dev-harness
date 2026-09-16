@@ -17,7 +17,7 @@
  * package.value) снимается В ПАМЯТЬ ДО запуска probe и сравнивается с его
  * структурным результатом; основной проект не модифицируется.
  */
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import {
@@ -28,6 +28,7 @@ import {
   checkSectionMarkers,
   deepEqual,
   loadFrozenSpec,
+  parseSpecFromMarkdown,
   resolveGitSource,
   runProbeIsolated,
   validatePackageAgainstSpec,
@@ -58,7 +59,6 @@ function usage(): void {
   process.stderr.write('usage: node scripts/check_document.ts --root <project> --contract <path> --preflight|--check\n')
 }
 
-// Преобразует именованный отказ в печать на stderr и rc=1.
 function fail(reason: string): never {
   process.stderr.write(`ОТКАЗ DOC: ${reason}\n`)
   process.exit(1)
@@ -72,7 +72,7 @@ function skip(reason: string): never {
 async function loadWorkingSpec(root: string, contractPath: string): Promise<unknown> {
   const text = await readFile(join(root, contractPath), 'utf-8')
   try {
-    return (await import('./doc_contract.ts')).parseSpecFromMarkdown(text)
+    return parseSpecFromMarkdown(text)
   } catch (e) {
     fail(`contract: ${(e as Error).message}`)
   }
@@ -132,7 +132,6 @@ async function main(): Promise<void> {
   for (const a of assertions) {
     const check = a.check as Record<string, unknown>
     if (a.status === 'to-be') {
-      // decision-check: ссылка на объявленный decision в required.decisions и в package.decisions.
       const decisionId = a.decision as string
       const reqDecisions = new Set((required.decisions as string[] | undefined) ?? [])
       const pkgDecisions = ((pkg as Record<string, unknown>).decisions as Array<Record<string, unknown>>) ?? []
@@ -144,7 +143,6 @@ async function main(): Promise<void> {
         fail(`assertion[${a.id}].decision ${decisionId} не accepted (state=${String(d.state)})`)
       continue
     }
-    // as-is: обязателен value в package.
     const pa = pkgAssertions.find((x) => x.id === a.id)
     if (!pa) fail(`assertion[${a.id}]: нет в package.assertions`)
     if (pa.value === undefined) fail(`assertion[${a.id}]: package.value отсутствует`)
@@ -152,9 +150,8 @@ async function main(): Promise<void> {
       const sourceId = check.source as string
       const src = sourceMap.get(sourceId)
       if (!src) fail(`assertion[${a.id}].check.source ${sourceId} не объявлен`)
-      if (src.kind === 'external') {
+      if (src.kind === 'external')
         fail(`assertion[${a.id}]: внешний источник не подходит для механического as-is`)
-      }
       const resolved = await resolveGitSource(args.root, src as {
         path: string; commit: string; blob: string; freshness: string
       })
@@ -174,9 +171,8 @@ async function main(): Promise<void> {
       const sourceId = check.source as string
       const src = sourceMap.get(sourceId)
       if (!src) fail(`assertion[${a.id}].check.source ${sourceId} не объявлен`)
-      if (src.kind === 'external') {
+      if (src.kind === 'external')
         fail(`assertion[${a.id}]: внешний источник не подходит для механического as-is`)
-      }
       const resolved = await resolveGitSource(args.root, src as {
         path: string; commit: string; blob: string; freshness: string
       })
@@ -184,9 +180,8 @@ async function main(): Promise<void> {
         fail(`assertion[${a.id}]: current-источник ${sourceId} дрейфует относительно объявленного blob`)
       const text = resolved.bytes.toString('utf-8')
       const lines = text.split(/\r?\n/)
-      const expected = check.expected as string
-      const found = lines.includes(expected)
-      if (!found) fail(`assertion[${a.id}]: expected-строка не найдена в ${sourceId}`)
+      if (!lines.includes(check.expected as string))
+        fail(`assertion[${a.id}]: expected-строка не найдена в ${sourceId}`)
     } else if (check.type === 'probe') {
       const argv = check.argv as string[]
       const result = await runProbeIsolated(args.root, argv)

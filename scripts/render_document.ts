@@ -18,6 +18,7 @@ import { join } from 'node:path'
 
 import {
   generateFormalRegion,
+  parseSpecFromMarkdown,
   replaceFormalRegion,
   splitFormalRegion,
 } from './doc_contract.ts'
@@ -57,12 +58,8 @@ async function main(): Promise<void> {
   const contractPath = join(args.root, args.contract)
   const contractText = await readFile(contractPath, 'utf-8')
   let spec: unknown
-  try {
-    const mod = await import('./doc_contract.ts')
-    spec = mod.parseSpecFromMarkdown(contractText)
-  } catch (e) {
-    fail(`contract: ${(e as Error).message}`)
-  }
+  try { spec = parseSpecFromMarkdown(contractText) }
+  catch (e) { fail(`contract: ${(e as Error).message}`) }
   const outputs = (spec as Record<string, unknown>).outputs as Record<string, string>
   if (!outputs) fail('contract.outputs отсутствует')
   const mdPath = join(args.root, outputs.markdown)
@@ -71,9 +68,7 @@ async function main(): Promise<void> {
   try {
     const text = await readFile(evidencePath, 'utf-8')
     pkg = JSON.parse(text)
-  } catch (e) {
-    skip(`evidence не читается: ${(e as Error).message}`)
-  }
+  } catch (e) { skip(`evidence не читается: ${(e as Error).message}`) }
   const newBody = generateFormalRegion(spec, pkg)
   const mdText = await readFile(mdPath, 'utf-8')
   const parts = splitFormalRegion(mdText)
