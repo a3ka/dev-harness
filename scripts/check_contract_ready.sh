@@ -12,11 +12,12 @@
 #   - `счёт: N фикстур в <каталог>/` — если объявлено, фактический счёт `case_*.sh` в <каталог>/ == N;
 #   - `арбитраж: <отн-путь>.md` — если объявлено, файл существует И строка 1 == «РЕШЕНИЕ»;
 #   - ДОПОЛНИТЕЛЬНО для doc-контракта (`## Док-приёмка` с `type: documentation`):
-#     doc-preflight через `scripts/check_document.ts --root <root> --contract contract.md
-#     --preflight` (контракт 027 §Doc-ветви ready). ТИП определяется единым разбором в
-#     doc_contract.ts; НЕ кодовой эвристикой по отсутствию документа.
+#     doc-preflight через `<harness>/scripts/check_document.ts --root <root> --contract
+#     contract.md --preflight` (контракт 027 §Doc-ветви ready). ТИП определяется единым
+#     разбором в doc_contract.ts; НЕ кодовой эвристикой по отсутствию документа.
 #   коды: 0 зелёный (печатает «OK» последней строкой); иначе 1 + первая ИМЕНОВАННАЯ причина.
 
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${1:?использование: $0 <корень-дерева>}"
 CONTRACT="$ROOT/contract.md"
 
@@ -95,7 +96,7 @@ fi
 # RC≠0 с ИМЕНОВАННОЙ причиной ДО выхода. rc=2 (NOT_IMPLEMENTED: нет evidence/JSON)
 # трактуется как «нечем проверить» и НЕ считается зелёным — fail-closed.
 if grep -qE '^## Док-приёмка' "$CONTRACT" && grep -qE '"type":[[:space:]]*"documentation"' "$CONTRACT"; then
-  doc_out="$(cd "$ROOT" && node "$ROOT/scripts/check_document.ts" --root "$ROOT" --contract contract.md --preflight 2>&1)"
+  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract contract.md --preflight 2>&1)"
   doc_rc=$?
   if [ "$doc_rc" = "0" ]; then
     :
