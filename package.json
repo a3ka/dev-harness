@@ -19,6 +19,7 @@
     "check:overlay": "bash scripts/overlay.sh --check",
     "models:actual": "bash scripts/models_actual.sh",
     "check:antiplacebo": "bash scripts/verify_antiplacebo.sh",
+    "check:document": "for f in fixtures/check_check_contract_ready/red_doc_obligations.sh fixtures/check_check_contract_ready/red_doc_product.sh fixtures/check_check_contract_ready/red_doc_architecture.sh fixtures/check_check_contract_ready/red_doc_evidence.sh fixtures/check_check_contract_ready/red_doc_assertions.sh fixtures/check_check_contract_ready/red_doc_status_render.sh fixtures/check_check_contract_ready/red_doc_oracle.sh fixtures/freeze_contract/red_doc_lifecycle.sh; do bash \"$f\" || exit 1; done",
     "check:measure-probe": "bash fixtures/check_zones/probe_slabye_realizacii.sh",
     "check:scope-select": "bash scripts/check_scope_select.sh",
     "check:scoped-run": "bash scripts/check_scoped_run.sh",
