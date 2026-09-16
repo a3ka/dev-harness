@@ -1,0 +1,310 @@
+#!/usr/bin/env python3
+"""027 public-seam probes; no implementation of the checker.
+Н-39 bindings: always-green dies on every negative; always-red on controls;
+headings-only -> obligations/missing; product-only -> architecture/dangling;
+exists-only -> evidence/drift; rc-only -> assertions/value; rc2-green -> unavailable;
+status-blind -> proposal; renderer-noop -> manual; disk-oracle -> rewrite.
+Before the new CLI exists, the REAL old readiness gate is the subject: it
+accepts typed contracts but ignores the obligations. This is not a fake checker.
+"""
+import copy
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+
+REPO = Path(__file__).resolve().parents[2]
+CASE = sys.argv[1]
+ENV = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+ENV.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+
+
+def fail(label, text):
+    print(f'ОТКАЗ DOC-{CASE}/{label}: {text}', file=sys.stderr)
+    raise SystemExit(1)
+
+
+def run(args, root):
+    return subprocess.run([str(x) for x in args], cwd=root, env=ENV,
+                          text=True, capture_output=True)
+
+
+def git(root, *args, author='architect'):
+    p = run(['git', '-c', f'user.name={author}', '-c', f'user.email={author}@fixture.local',
+             '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', *args], root)
+    if p.returncode:
+        fail('fixture-git', p.stderr)
+    return p.stdout.strip()
+
+
+def put(root, path, text):
+    p = root / path
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding='utf-8')
+
+
+def dump(value):
+    return json.dumps(value, ensure_ascii=False, indent=2) + '\n'
+
+
+def save(root, spec, package):
+    text = ('# Договор Ёж\n\nЗОНА implementer: docs/\nЗОНА architect: contracts/ fixtures/\n\n'
+            '## Док-приёмка\n\n```json\n' + dump(spec) + '```\n')
+    put(root, 'contracts/001-yozh.md', text)
+    put(root, 'contract.md', text)
+    put(root, 'docs/ёж.evidence.json', dump(package))
+
+
+def commit(root, message, author='architect'):
+    git(root, 'add', '-A')
+    git(root, 'commit', '-qm', message, author=author)
+
+
+def toy(root):
+    root.mkdir()
+    git(root, 'init', '-q', '-b', 'main')
+    git(root, 'config', 'user.name', 'architect')
+    git(root, 'config', 'user.email', 'architect@fixture.local')
+    put(root, 'данные/ёлка.json', dump({'число': 7}))
+    put(root, 'решения/Ёж.md', '# Ёж\nРешение принято для игрушки.\n')
+    put(root, 'fixtures/probe.py', 'print("{\\"число\\":7}")\n')
+    commit(root, 'источники')
+    profile = 'architecture' if CASE == 'architecture' else 'product'
+    s = {'type': 'documentation', 'version': 1, 'profile': profile,
+         'outputs': {'markdown': 'docs/ёж.md', 'evidence': 'docs/ёж.evidence.json'},
+         'required': {'sections': ['Обзор-Ёж'], 'scenarios': ['Сценарий-ёж'] if profile == 'product' else [],
+                      'components': ['Компонент-Ёж', 'Компонент-ёлка'] if profile == 'architecture' else [],
+                      'links': ['Связь-ёж'] if profile == 'architecture' else [],
+                      'decisions': ['Решение-Ёж'], 'failures': ['Отказ-ёж']},
+         'assertions': [{'id': 'Факт-Ёж', 'status': 'as-is', 'kind': 'observation',
+                         'evidence': 'Основание-ёж', 'check': {'type': 'json-pointer',
+                         'source': 'Источник-ёж', 'pointer': '/число', 'expected': 7}}],
+         'sources': [{'id': 'Источник-ёж', 'kind': 'git', 'path': 'данные/ёлка.json',
+                      'commit': git(root, 'rev-parse', 'HEAD'),
+                      'blob': git(root, 'rev-parse', 'HEAD:данные/ёлка.json'), 'freshness': 'current'}],
+         'questions': [{'id': 'Вопрос-Ёж', 'blocking': True, 'allow_open': False}],
+         'calibration': {'positive': 'fixtures/positive.json', 'negative': [
+             {'evidence': 'fixtures/negative.json', 'violation': 'coverage'}]}}
+    p = {'version': 1, 'profile': profile, 'document_date': '2026-09-16',
+         'sections': [{'id': 'Обзор-Ёж'}],
+         'scenarios': [{'id': 'Сценарий-ёж', 'actor': 'Читатель Ёж', 'input': 'число',
+                        'outcomes': [{'id': 'Успех-Ёж', 'kind': 'success', 'result': 'семь'},
+                                     {'id': 'Отказ-ёж', 'kind': 'failure', 'result': 'нет данных'}]}] if profile == 'product' else [],
+         'components': [{'id': 'Компонент-Ёж', 'boundary': 'ввод'},
+                        {'id': 'Компонент-ёлка', 'boundary': 'хранение'}] if profile == 'architecture' else [],
+         'links': [{'id': 'Связь-ёж', 'from': 'Компонент-Ёж', 'to': 'Компонент-ёлка',
+                    'contract': 'Передача-Ёж'}] if profile == 'architecture' else [],
+         'decisions': [{'id': 'Решение-Ёж', 'state': 'accepted', 'source': 'решения/Ёж.md'}],
+         'failures': [{'id': 'Отказ-ёж', 'result': 'отказать без потери'}],
+         'questions': [{'id': 'Вопрос-Ёж', 'state': 'resolved', 'decision': 'Решение-Ёж'}],
+         'assertions': [{'id': 'Факт-Ёж', 'status': 'as-is', 'kind': 'observation',
+                         'value': 7, 'evidence': 'Основание-ёж'}],
+         'evidence': [{'id': 'Основание-ёж', 'assertion': 'Факт-Ёж', 'kind': 'observation',
+                       'source': 'Источник-ёж', 'dependencies': [
+                           {'type': 'observation-time', 'value': '2026-09-15T12:00:00Z'},
+                           {'type': 'data-time', 'value': '2026-09-14T12:00:00Z'},
+                           {'type': 'calculation-version', 'value': 'расчёт-Ёж-1'}]}]}
+    put(root, 'docs/ёж.md', '# Ёж\n\n<!-- doc:section Обзор-Ёж -->\nОбъяснение.\n\n<!-- doc:formal:start -->\n<!-- doc:formal:end -->\n')
+    save(root, s, p)
+    put(root, 'fixtures/positive.json', dump(p))
+    n = copy.deepcopy(p)
+    n['sections'] = []
+    put(root, 'fixtures/negative.json', dump(n))
+    put(root, 'verdicts/critic/contracts-001-v1.md', 'accept\nИгрушка.\n')
+    commit(root, 'договор')
+    git(root, 'tag', '-a', 'frozen/contracts/001/1', '-m', 'игрушечная заморозка')
+    return s, p
+
+
+def subject(root, mode='--check'):
+    checker = REPO / 'scripts/check_document.ts'
+    if not checker.exists():
+        return run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root)
+    return run(['node', checker, '--root', root, '--contract', 'contracts/001-yozh.md', mode], root)
+
+
+def render(root, check=False):
+    renderer = REPO / 'scripts/render_document.ts'
+    if not renderer.exists():
+        return subject(root)
+    return run(['node', renderer, '--root', root, '--contract', 'contracts/001-yozh.md'] +
+               (['--check'] if check else []), root)
+
+
+def expect(result, rc, label):
+    if result.returncode != rc:
+        fail(label, f'поведение rc={result.returncode}, требуется {rc}; ' + (result.stderr + result.stdout).strip())
+    if rc == 1 and not (result.stderr + result.stdout).strip():
+        fail(label, 'отказ без именованной причины')
+
+
+def control(root):
+    expect(render(root), 0, 'render-control')
+    expect(subject(root), 0, 'positive-control')
+
+
+def mutate(root, s, p, label, mutation):
+    altered = copy.deepcopy(p)
+    mutation(altered)
+    save(root, s, altered)
+    r = render(root)
+    if r.returncode not in (0, 1):
+        fail(label, f'генерация не состоялась rc={r.returncode}: {r.stderr}')
+    expect(subject(root), 1, label)
+    save(root, s, p)
+    control(root)
+
+
+def refreeze(root, s, p):
+    save(root, s, p)
+    commit(root, 'новый игрушечный критерий')
+    tags = git(root, 'tag', '--list', 'frozen/contracts/001/*').splitlines()
+    git(root, 'tag', '-a', f'frozen/contracts/001/{len(tags) + 1}', '-m', 'игрушечная версия')
+
+
+def obligations(root, s, p):
+    mutate(root, s, p, 'missing', lambda x: x.update(sections=[]))
+    mutate(root, s, p, 'duplicate', lambda x: x['sections'].append(x['sections'][0].copy()))
+    mutate(root, s, p, 'substring', lambda x: x['sections'][0].update(id='Обзор-Ёжик'))
+    text = (root / 'docs/ёж.md').read_text()
+    put(root, 'docs/ёж.md', text.replace('<!-- doc:section Обзор-Ёж -->', '<!-- упоминание Обзор-Ёж -->'))
+    expect(subject(root), 1, 'section-position')
+
+
+def product(root, s, p):
+    mutate(root, s, p, 'outcomes', lambda x: x['scenarios'][0].update(outcomes=[]))
+    mutate(root, s, p, 'blocking-question', lambda x: x['questions'][0].update(state='open', decision=None))
+    s['questions'][0].update(blocking=False, allow_open=True)
+    p['questions'][0].update(state='open', decision=None)
+    refreeze(root, s, p)
+    control(root)
+
+
+def architecture(root, s, p):
+    mutate(root, s, p, 'dangling', lambda x: x['links'][0].update(to='Чужой-ёж'))
+    mutate(root, s, p, 'decision', lambda x: x.update(decisions=[]))
+    mutate(root, s, p, 'failure', lambda x: x.update(failures=[]))
+
+
+def evidence(root, s, p):
+    put(root, 'данные/ёлка.json', dump({'число': 8}))
+    expect(subject(root), 1, 'drift')
+    put(root, 'данные/ёлка.json', dump({'число': 7}))
+    control(root)
+    mutate(root, s, p, 'ownership', lambda x: x['evidence'][0].update(assertion='Другой-Ёж'))
+    mutate(root, s, p, 'evidence-kind', lambda x: x['evidence'][0].update(kind='experiment-plan'))
+    s['sources'][0]['freshness'] = 'historical'
+    refreeze(root, s, p)
+    put(root, 'данные/ёлка.json', dump({'число': 8}))
+    control(root)
+
+
+def assertions(root, s, p):
+    mutate(root, s, p, 'value', lambda x: x['assertions'][0].update(value=8))
+    s['assertions'][0]['check'] = {'type': 'probe', 'argv': ['python3', 'fixtures/probe.py'],
+                                    'pointer': '/число', 'expected': 7}
+    refreeze(root, s, p)
+    control(root)
+    put(root, 'fixtures/probe.py', 'print("{\\"число\\":8}")\n')
+    expect(subject(root), 1, 'probe-result')
+    put(root, 'fixtures/probe.py', 'raise SystemExit(2)\n')
+    expect(subject(root), 2, 'unavailable')
+
+
+def status_render(root, s, p):
+    mutate(root, s, p, 'proposal', lambda x: x['assertions'][0].update(status='to-be'))
+    text = (root / 'docs/ёж.md').read_text()
+    put(root, 'docs/ёж.md', text.replace('<!-- doc:formal:start -->', '<!-- doc:formal:start -->\nподделка Ёж'))
+    expect(render(root, True), 1, 'manual')
+    expect(render(root), 0, 'regenerate')
+    expect(render(root, True), 0, 'render-check')
+    s['assertions'][0] = {'id': 'Факт-Ёж', 'status': 'to-be', 'kind': 'proposal',
+                         'decision': 'Решение-Ёж', 'check': {'type': 'decision'}}
+    p['assertions'][0] = {'id': 'Факт-Ёж', 'status': 'to-be', 'kind': 'proposal',
+                         'decision': 'Решение-Ёж', 'value': 'будет семь'}
+    p['evidence'] = []
+    refreeze(root, s, p)
+    control(root)
+
+
+def oracle(root, s, p):
+    s['assertions'][0]['check'] = {'type': 'probe', 'argv': ['python3', 'fixtures/probe.py'],
+                                    'pointer': '/число', 'expected': 7}
+    refreeze(root, s, p)
+    control(root)
+    # Rewrite expected+claim to 8, then emit 8: original expected 7 must win.
+    put(root, 'fixtures/probe.py', 'from pathlib import Path\nimport json\n'
+        'p=Path("docs/ёж.evidence.json"); x=json.loads(p.read_text())\n'
+        'x["assertions"][0]["value"]=8; p.write_text(json.dumps(x,ensure_ascii=False))\n'
+        'p=Path("contracts/001-yozh.md"); p.write_text(p.read_text().replace("\\"expected\\": 7", "\\"expected\\": 8"))\n'
+        'print(json.dumps({"число":8},ensure_ascii=False))\n')
+    expect(subject(root), 1, 'rewrite')
+    put(root, 'fixtures/probe.py', 'print("{\\"число\\":7}")\n')
+    save(root, s, p)
+    expect(render(root), 0, 'restore')
+    def snapshot():
+        return {str(f.relative_to(root)): hashlib.sha256(f.read_bytes()).hexdigest()
+                for f in root.rglob('*') if f.is_file() and '.git' not in f.parts}
+    before = snapshot()
+    expect(subject(root), 0, 'readonly-control')
+    if snapshot() != before:
+        fail('readonly', 'check изменил предмет')
+
+
+def lifecycle(root, s, p):
+    expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 0, 'ready-control')
+    for tag in git(root, 'tag', '--list', 'frozen/*').splitlines():
+        git(root, 'tag', '-d', tag)
+    s['required']['sections'] = []
+    save(root, s, p)
+    commit(root, 'пустые doc-обязательства')
+    expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 1, 'ready-preflight')
+    before = git(root, 'for-each-ref', '--format=%(refname):%(objectname)', 'refs/tags/frozen/')
+    expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж', root], root), 1, 'freeze-preflight')
+    if git(root, 'for-each-ref', '--format=%(refname):%(objectname)', 'refs/tags/frozen/') != before:
+        fail('freeze-atomic', 'отказ оставил frozen-тег')
+    s['required']['sections'] = ['Обзор-Ёж']
+    save(root, s, p)
+    s['calibration']['negative'][0]['evidence'] = 'fixtures/positive.json'
+    save(root, s, p)
+    commit(root, 'неразличимая калибровка')
+    expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 1, 'ready-calibration')
+    expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж', root], root), 1, 'freeze-calibration')
+    if git(root, 'tag', '--list', 'frozen/*'):
+        fail('calibration-atomic', 'неразличимая калибровка оставила тег')
+    s['calibration']['negative'][0]['evidence'] = 'fixtures/negative.json'
+    save(root, s, p)
+    commit(root, 'исправлены обязательства')
+    expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 0, 'ready-doc-control')
+    expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж', root], root), 0, 'freeze-doc-control')
+    regressions(root, s, p)
+
+
+def regressions(root, s, p):
+    git(root, 'tag', '-a', 'ustav/1', '-m', 'игрушечный устав')
+    expect(run(['bash', REPO / 'scripts/check_contract_frozen.sh', root], root), 0, 'frozen-control')
+    expect(run(['bash', REPO / 'scripts/check_charter.sh', root], root), 0, 'charter-control')
+    # Live author identity, not a local-config impersonation (016).
+    git(root, 'config', '--unset', 'user.name')
+    git(root, 'config', '--unset', 'user.email')
+    put(root, 'docs/allowed.txt', 'Ёж\n')
+    commit(root, 'допустимый документ', author='implementer')
+    expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 0, 'zone-control')
+    put(root, 'чужое.txt', 'утечка ёж\n')
+    commit(root, 'выход за зону', author='implementer')
+    expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 1, 'zone-escape')
+    put(root, 'contracts/001-yozh.md', (root / 'contracts/001-yozh.md').read_text() + '\nизменён критерий\n')
+    commit(root, 'несанкционированный критерий')
+    expect(run(['bash', REPO / 'scripts/check_contract_frozen.sh', root], root), 1, 'frozen-change')
+    expect(run(['bash', REPO / 'scripts/check_charter.sh', root], root), 1, 'charter-change')
+
+
+with tempfile.TemporaryDirectory(prefix='doc027-', dir='/tmp') as scratch:
+    root = Path(scratch) / 'project'
+    spec, package = toy(root)
+    if CASE != 'lifecycle':
+        control(root)
+    globals()[CASE](root, spec, package)
