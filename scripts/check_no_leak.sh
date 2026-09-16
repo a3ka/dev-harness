@@ -814,7 +814,7 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
         printf 'NOT_IMPLEMENTED: не смог прочитать цель симлинка %s\n' "$entry" >&2
         return 2
       fi
-      printf 'DOTGIT:SYMLINK:%s\t%s\n' "$target" "$(enc_path "${pre}/${entry##*/}")"
+      printf 'DOTGIT:SYMLINK:%s\t%s\n' "$(enc_path "$target")" "$(enc_path "${pre}/${entry##*/}")"
       # Б3 (фикс адверсария contracts-024-k8, S-dotgit-symlink-target-mutation):
       # одна SYMLINK-строка с readlink-целью НЕ ловит подмену БАЙТОВ цели —
       # цель мутирует (`.git/info/exclude` → симлинк `../hidden-exclude` ВНЕ
@@ -844,7 +844,7 @@ emit_dotgit_manifest_walk() {  # <dir> <prefix-от-канон-корня>
         fp="${fp%% *}"
         printf 'DOTGIT:CONTENT:%s\t%s\n' "$fp" "$(enc_path "${pre}/${entry##*/}")"
       else
-        printf 'DOTGIT:DANGLING:%s\t%s\n' "$resolved" "$(enc_path "${pre}/${entry##*/}")"
+        printf 'DOTGIT:DANGLING:%s\t%s\n' "$(enc_path "$resolved")" "$(enc_path "${pre}/${entry##*/}")"
       fi
       continue
     fi
