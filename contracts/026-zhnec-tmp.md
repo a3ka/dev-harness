@@ -68,7 +68,8 @@
 ## Зоны
 
 ЗОНА architect: contracts/026-zhnec-tmp.md fixtures/gc_agent_branches/ NABLIUDENIA_ARCHITECT.md
-ЗОНА implementer: scripts/gc_agent_branches.sh scripts/verify_antiplacebo.sh (v2: wipe_ro в cleanup-механике раннера — не меняет приёмочную семантику, только chmod перед rm; архитектор доказал A/B-прогонами что фикстура не виновата, дефект в очистке)
+ЗОНА implementer: scripts/gc_agent_branches.sh scripts/verify_antiplacebo.sh
+ЗОНА orchestrator: contracts/026-zhnec-tmp.md (v3: АДМИНИСТРАТИВНЫЙ респек зон — v2-коммит f859ff4 сделан оркестратором напрямую по РАЗРЕШИЛ-ВЛАДЕЛЕЦ, зона architect; v3 легализует этот класс: административные zone-респеки церемонии — orchestrator-канал по прецеденту owner-channel d28c688)
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
