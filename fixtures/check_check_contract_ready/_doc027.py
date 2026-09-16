@@ -214,7 +214,76 @@ def assertions(root, s, p):
     expect(subject(root), 2, 'unavailable')
 
 
+def formal(root):
+    lines = (root / 'docs/ёж.md').read_text(encoding='utf-8').splitlines(keepends=True)
+    start, end = '<!-- doc:formal:start -->', '<!-- doc:formal:end -->'
+    starts = [i for i, line in enumerate(lines) if line.rstrip('\r\n') == start]
+    ends = [i for i, line in enumerate(lines) if line.rstrip('\r\n') == end]
+    if len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]:
+        fail('formal-boundaries', 'нужна единственная упорядоченная пара границ')
+    a, b = starts[0], ends[0]
+    return ''.join(lines[:a + 1]), ''.join(lines[a + 1:b]), ''.join(lines[b:])
+
+
+def formal_content(body, tokens, label, previous=None):
+    # Independent of renderer --check: tokens belong INSIDE the formal region.
+    # Empty, value-blind, status-blind and source-blind renderers are bound
+    # respectively to content-control, value, status and source below.
+    import re
+    if not body.strip():
+        fail(label, 'formal-фрагмент пуст: факты не сгенерированы')
+    for token in tokens:
+        if not re.search(r'(?<![\w-])' + re.escape(token) + r'(?![\w-])', body):
+            fail(label, f'formal-фрагмент не содержит самостоятельное значение {token}')
+    if previous is not None and body == previous:
+        fail(label, 'formal-фрагмент не зависит от изменённого обязательства')
+
+
+def rendered_content(root, tokens, label, previous=None):
+    prefix, _, suffix = formal(root)
+    control(root)
+    after_prefix, body, after_suffix = formal(root)
+    if (prefix, suffix) != (after_prefix, after_suffix):
+        fail(label, 'renderer изменил свободный текст или section-маркеры')
+    formal_content(body, tokens, label, previous)
+    expect(render(root, True), 0, label + '-check')
+    expect(render(root), 0, label + '-repeat')
+    if formal(root) != (prefix, body, suffix):
+        fail(label, 'повторная генерация недетерминированна')
+    return body
+
+
 def status_render(root, s, p):
+    def freeze_package():
+        put(root, 'fixtures/positive.json', dump(p))
+        negative = copy.deepcopy(p)
+        negative['sections'] = []
+        put(root, 'fixtures/negative.json', dump(negative))
+        refreeze(root, s, p)
+
+    # Both values exist in the SAME source blob: a value-blind renderer
+    # cannot pass merely by displaying a changed source OID.
+    put(root, 'данные/ёлка.json', dump({'число': 'СемьЁж', 'другое': 'ВосемьЁлка'}))
+    commit(root, 'два синтетических значения')
+    s['sources'][0].update(commit=git(root, 'rev-parse', 'HEAD'),
+                          blob=git(root, 'rev-parse', 'HEAD:данные/ёлка.json'))
+    s['sources'].append(dict(s['sources'][0], id='Источник-ёлка'))
+    s['assertions'][0]['check']['expected'] = 'СемьЁж'
+    p['assertions'][0]['value'] = 'СемьЁж'
+    freeze_package()
+    base = rendered_content(root, ['Факт-Ёж', 'СемьЁж', 'as-is', 'Источник-ёж'],
+                            'content-control')
+    s['assertions'][0]['check'].update(pointer='/другое', expected='ВосемьЁлка')
+    p['assertions'][0]['value'] = 'ВосемьЁлка'
+    freeze_package()
+    changed = rendered_content(root, ['Факт-Ёж', 'ВосемьЁлка', 'as-is', 'Источник-ёж'],
+                               'value', base)
+    # Only the used source changes; declared sources and their bytes stay put.
+    s['assertions'][0]['check']['source'] = 'Источник-ёлка'
+    p['evidence'][0]['source'] = 'Источник-ёлка'
+    freeze_package()
+    sourced = rendered_content(root, ['Факт-Ёж', 'ВосемьЁлка', 'as-is', 'Источник-ёлка'],
+                               'source', changed)
     mutate(root, s, p, 'proposal', lambda x: x['assertions'][0].update(status='to-be'))
     text = (root / 'docs/ёж.md').read_text()
     put(root, 'docs/ёж.md', text.replace('<!-- doc:formal:start -->', '<!-- doc:formal:start -->\nподделка Ёж'))
@@ -224,10 +293,35 @@ def status_render(root, s, p):
     s['assertions'][0] = {'id': 'Факт-Ёж', 'status': 'to-be', 'kind': 'proposal',
                          'decision': 'Решение-Ёж', 'check': {'type': 'decision'}}
     p['assertions'][0] = {'id': 'Факт-Ёж', 'status': 'to-be', 'kind': 'proposal',
-                         'decision': 'Решение-Ёж', 'value': 'будет семь'}
+                         'decision': 'Решение-Ёж', 'value': 'ВосемьЁлка'}
     p['evidence'] = []
-    refreeze(root, s, p)
-    control(root)
+    freeze_package()
+    rendered_content(root, ['Факт-Ёж', 'ВосемьЁлка', 'to-be', 'Решение-Ёж'],
+                     'status', sourced)
+
+
+def snapshot(root):
+    return {str(f.relative_to(root)): hashlib.sha256(f.read_bytes()).hexdigest()
+            for f in root.rglob('*') if f.is_file() and '.git' not in f.parts}
+
+
+def preserving_check(root, rc, label, checker=subject):
+    # Capture BEFORE the mutator; compare immediately, even on rejection.
+    # A memory-oracle checker running in-place dies on preservation, not rewrite.
+    # A disk-oracle checker in isolation dies on rewrite, not preservation.
+    before = snapshot(root)
+    result = checker(root)
+    if snapshot(root) != before:
+        fail(label + '-preservation', 'check изменил исходный проект')
+    expect(result, rc, label)
+
+
+def rewriting_probe(value):
+    return ('from pathlib import Path\nimport json\n'
+            'p=Path("docs/ёж.evidence.json"); x=json.loads(p.read_text())\n'
+            'x["assertions"][0]["value"]=8; p.write_text(json.dumps(x,ensure_ascii=False))\n'
+            'p=Path("contracts/001-yozh.md"); p.write_text(p.read_text().replace("\\"expected\\": 7", "\\"expected\\": 8"))\n'
+            f'print(json.dumps({{"число":{value}}},ensure_ascii=False))\n')
 
 
 def oracle(root, s, p):
@@ -235,23 +329,115 @@ def oracle(root, s, p):
                                     'pointer': '/число', 'expected': 7}
     refreeze(root, s, p)
     control(root)
-    # Rewrite expected+claim to 8, then emit 8: original expected 7 must win.
-    put(root, 'fixtures/probe.py', 'from pathlib import Path\nimport json\n'
-        'p=Path("docs/ёж.evidence.json"); x=json.loads(p.read_text())\n'
-        'x["assertions"][0]["value"]=8; p.write_text(json.dumps(x,ensure_ascii=False))\n'
-        'p=Path("contracts/001-yozh.md"); p.write_text(p.read_text().replace("\\"expected\\": 7", "\\"expected\\": 8"))\n'
-        'print(json.dumps({"число":8},ensure_ascii=False))\n')
-    expect(subject(root), 1, 'rewrite')
+    # Positive control mutates the sandbox too, but returns the original fact.
+    # Rejecting ALL mutating probes is not a substitute for memory + isolation.
+    put(root, 'fixtures/probe.py', rewriting_probe(7))
+    preserving_check(root, 0, 'mutating-control')
+    put(root, 'fixtures/probe.py', rewriting_probe(8))
+    preserving_check(root, 1, 'rewrite')
+    # Nothing is restored before the preservation assertion above.
     put(root, 'fixtures/probe.py', 'print("{\\"число\\":7}")\n')
-    save(root, s, p)
-    expect(render(root), 0, 'restore')
-    def snapshot():
-        return {str(f.relative_to(root)): hashlib.sha256(f.read_bytes()).hexdigest()
-                for f in root.rglob('*') if f.is_file() and '.git' not in f.parts}
-    before = snapshot()
-    expect(subject(root), 0, 'readonly-control')
-    if snapshot() != before:
-        fail('readonly', 'check изменил предмет')
+    preserving_check(root, 0, 'readonly-control')
+
+
+def rejected(action, label):
+    import contextlib
+    import io
+    output = io.StringIO()
+    code = None
+    with contextlib.redirect_stderr(output):
+        try:
+            action()
+        except SystemExit as error:
+            code = error.code
+    if code is None:
+        fail('selftest-survivor', label)
+    if code != 1 or f'ОТКАЗ DOC-{CASE}/{label}:' not in output.getvalue():
+        fail('selftest-diagnosis', output.getvalue())
+    print(output.getvalue().strip())
+
+
+def status_render_selftest(root, s, p):
+    # Execute the whole public probe with narrow synthetic subjects. These are
+    # not implementations of doc-check: only the two revised measures are judged.
+    from unittest.mock import patch
+    for mode, refusal in [('honest', None), ('empty', 'content-control'),
+                          ('value-blind', 'value'), ('source-blind', 'source'),
+                          ('status-blind', 'status')]:
+        project = root.parent / mode
+        spec, package = toy(project)
+
+        def body():
+            package = json.loads((project / 'docs/ёж.evidence.json').read_text())
+            assertion = package['assertions'][0]
+            if mode == 'empty':
+                return ''
+            value = 'СемьЁж' if mode == 'value-blind' else str(assertion['value'])
+            status = 'as-is' if mode == 'status-blind' else assertion['status']
+            source = (package['evidence'][0]['source'] if package['evidence']
+                      else assertion['decision'])
+            if mode == 'source-blind':
+                source = 'Источник-ёж'
+            return f"| {assertion['id']} | {value} | {status} | {source} |\n"
+
+        def renderer(project, check=False):
+            prefix, old, suffix = formal(project)
+            expected = body()
+            if check:
+                return subprocess.CompletedProcess([], int(old != expected), '', 'formal mismatch')
+            put(project, 'docs/ёж.md', prefix + expected + suffix)
+            return subprocess.CompletedProcess([], 0, '', '')
+
+        def checker(project):
+            text = (project / 'contracts/001-yozh.md').read_text()
+            spec = json.loads(text.split('```json\n', 1)[1].split('```', 1)[0])
+            package = json.loads((project / 'docs/ёж.evidence.json').read_text())
+            mismatch = spec['assertions'][0]['status'] != package['assertions'][0]['status']
+            return subprocess.CompletedProcess([], int(mismatch), '', 'status mismatch')
+
+        with patch.dict(globals(), render=renderer, subject=checker):
+            action = lambda: status_render(project, spec, package)
+            if refusal:
+                rejected(action, refusal)
+            else:
+                action()
+                print('CONTROL DOC-status_render: непустой renderer, value/source/status')
+
+
+def oracle_selftest(root, s, p):
+    import shutil
+    # The probe really runs and rewrites files, in a copied project or in-place.
+    # Each weak subject is presented where its defect is observable (Н-39).
+    cases = [(7, True, False, 0, 'mutating-control', None),
+             (8, True, False, 1, 'rewrite', None),
+             (8, False, False, 1, 'rewrite', 'rewrite-preservation'),
+             (8, True, True, 1, 'rewrite', 'rewrite')]
+    for index, (value, isolated, disk_oracle, rc, label, refusal) in enumerate(cases):
+        project = root.parent / f'oracle-{index}'
+        spec, package = toy(project)
+        put(project, 'fixtures/probe.py', rewriting_probe(value))
+
+        def checker(project):
+            original = json.loads((project / 'docs/ёж.evidence.json').read_text())['assertions'][0]['value']
+            with tempfile.TemporaryDirectory(prefix='doc027-sandbox-', dir='/tmp') as scratch:
+                sandbox = Path(scratch) / 'project'
+                if isolated:
+                    shutil.copytree(project, sandbox)
+                else:
+                    sandbox = project
+                result = run(['python3', 'fixtures/probe.py'], sandbox)
+                expect(result, 0, 'selftest-probe')
+                expected = (json.loads((sandbox / 'docs/ёж.evidence.json').read_text())
+                            ['assertions'][0]['value'] if disk_oracle else original)
+                actual = json.loads(result.stdout)['число']
+                return subprocess.CompletedProcess([], int(actual != expected), '', 'probe value mismatch')
+
+        action = lambda: preserving_check(project, rc, label, checker)
+        if refusal:
+            rejected(action, refusal)
+        else:
+            action()
+            print(f'CONTROL DOC-oracle/{label}: rc={rc}, исходный проект сохранён')
 
 
 def lifecycle(root, s, p):
@@ -305,6 +491,9 @@ def regressions(root, s, p):
 with tempfile.TemporaryDirectory(prefix='doc027-', dir='/tmp') as scratch:
     root = Path(scratch) / 'project'
     spec, package = toy(root)
-    if CASE != 'lifecycle':
-        control(root)
-    globals()[CASE](root, spec, package)
+    if sys.argv[2:] == ['--self-test'] and CASE in ('status_render', 'oracle'):
+        globals()[CASE + '_selftest'](root, spec, package)
+    else:
+        if CASE != 'lifecycle':
+            control(root)
+        globals()[CASE](root, spec, package)
