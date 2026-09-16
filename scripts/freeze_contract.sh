@@ -248,8 +248,11 @@ fi
 target_content="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
 if printf '%s' "$target_content" | grep -qE '^## Док-приёмка' \
    && printf '%s' "$target_content" | grep -qE '"type":[[:space:]]*"documentation"'; then
-  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)"
-  doc_rc=$?
+  # `set -e` трактует отказ команды в `$(...)` как отказ присваивания и ВЫХОДИТ,
+  # не дойдя до ветвления по $?. || true поглощает этот отказ; doc_rc ниже несёт
+  # реальный rc отказа и ведёт ветвление.
+  doc_rc=0
+  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)" || doc_rc=$?
   if [ "$doc_rc" = "0" ]; then
     printf '  ok   doc-preflight: заморозка %s прошла проверку\n' "$TARGET" >&2
   elif [ "$doc_rc" = "2" ]; then
@@ -260,6 +263,7 @@ if printf '%s' "$target_content" | grep -qE '^## Док-приёмка' \
 fi
 
 # ── 7. тег ────────────────────────────────────────────────────────────────────
+
 
 # Существующий тег — отказ САМОГО git, и печатается его сообщением: своя проверка «а есть ли
 # тег» была бы вторым разбором того же предмета и разошлась бы с git молча (гонка между
