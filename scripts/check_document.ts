@@ -117,6 +117,27 @@ async function main(): Promise<void> {
   if (idErr) fail(`idsets: ${idErr}`)
   const eoErr = checkEvidenceOwnership(frozen.spec, pkg)
   if (eoErr) fail(`evidence-ownership: ${eoErr}`)
+
+  // Консистентность questions: spec декларирует id+blocking+allow_open;
+  // package несёт state+decision. Если package.state='open', spec обязан
+  // разрешать (blocking=false, allow_open=true).
+  const specQuestions = (spec.questions as Array<Record<string, unknown>>) ?? []
+  const pkgQuestions = ((pkg as Record<string, unknown>).questions as Array<Record<string, unknown>>) ?? []
+  for (const pq of pkgQuestions) {
+    const sq = specQuestions.find((x) => x.id === pq.id)
+    if (!sq) fail(`package.questions[${pq.id}]: не объявлен в spec`)
+    if (pq.state === 'open') {
+      if (sq.blocking !== false || sq.allow_open !== true)
+        fail(`questions[${pq.id}]: package.state=open, но spec требует blocking=true или allow_open=false`)
+    } else if (pq.state === 'resolved') {
+      if (typeof pq.decision !== 'string' || !pq.decision)
+        fail(`questions[${pq.id}]: package.state=resolved требует decision`)
+      const reqDecs = new Set(((spec.required as Record<string, unknown>)?.decisions as string[] | undefined) ?? [])
+      if (!reqDecs.has(pq.decision))
+        fail(`questions[${pq.id}].decision ${pq.decision} не в required.decisions`)
+    }
+  }
+
   // Section markers.
   const mdText = await readFile(join(args.root, markdownPath), 'utf-8')
   const required = (spec.required as Record<string, unknown>) ?? {}
@@ -141,11 +162,22 @@ async function main(): Promise<void> {
       if (!d) fail(`assertion[${a.id}].decision ${decisionId} отсутствует в package.decisions`)
       if (d.state !== 'accepted')
         fail(`assertion[${a.id}].decision ${decisionId} не accepted (state=${String(d.state)})`)
+      // package.assertions[i] должен быть to-be с тем же decision.
+      const pa = pkgAssertions.find((x) => x.id === a.id)
+      if (!pa) fail(`assertion[${a.id}]: нет в package.assertions`)
+      if (pa.status !== 'to-be')
+        fail(`assertion[${a.id}]: package.status=${String(pa.status)} ≠ spec.status=to-be`)
+      if (pa.decision !== decisionId)
+        fail(`assertion[${a.id}]: package.decision=${String(pa.decision)} ≠ spec.decision=${decisionId}`)
       continue
     }
     const pa = pkgAssertions.find((x) => x.id === a.id)
     if (!pa) fail(`assertion[${a.id}]: нет в package.assertions`)
     if (pa.value === undefined) fail(`assertion[${a.id}]: package.value отсутствует`)
+    if (pa.status !== 'as-is')
+      fail(`assertion[${a.id}]: package.status=${String(pa.status)} ≠ spec.status=as-is`)
+    if (pa.kind !== a.kind)
+      fail(`assertion[${a.id}]: package.kind=${String(pa.kind)} ≠ spec.kind=${String(a.kind)}`)
     if (check.type === 'json-pointer') {
       const sourceId = check.source as string
       const src = sourceMap.get(sourceId)
