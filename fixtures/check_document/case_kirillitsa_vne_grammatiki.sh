@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # ── зелёный контроль: реальный предмет против конформного spec ──
-G="$WORK/green"; mkdir -p "$G/scripts" "$G/contracts"
+G="$WORK/green"; mkdir -p "$G/scripts" "$G/contracts" "$G/fixtures"
 cp "$REPO/scripts/doc_contract.ts" "$G/scripts/doc_contract.ts"
 chmod +x "$G/scripts/doc_contract.ts"
 cat > "$G/contracts/001-yozh.md" <<'EOF'
@@ -21,7 +21,7 @@ cat > "$G/contracts/001-yozh.md" <<'EOF'
   "version": 1,
   "profile": "product",
   "outputs": {"markdown": "docs/x.md", "evidence": "docs/x.evidence.json"},
-  "required": {"sections": ["Обзор-Ёж"], "scenarios": ["Сценарий-ёж"], "components": [], "links": [], "decisions": ["Решение-Ёж"], "failures": ["Отказ-ёж"]},
+  "required": {"sections": ["Обзор-Ёж"], "scenarios": ["Сц"], "components": [], "links": [], "decisions": ["Р"], "failures": ["О"]},
   "assertions": [],
   "sources": [],
   "questions": [],
@@ -29,8 +29,7 @@ cat > "$G/contracts/001-yozh.md" <<'EOF'
 }
 ```
 EOF
-mkdir -p "$G/fixtures"
-echo '{}' > "$G/fixtures/p.json"
+echo '{"sections":[{"id":"Обзор-Ёж"}]}' > "$G/fixtures/p.json"
 echo '{"sections": []}' > "$G/fixtures/n.json"
 "$BARRIER" --root "$G" --contract contracts/001-yozh.md --preflight
 
