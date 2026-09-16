@@ -5,6 +5,72 @@
 
 ---
 
+addendum = """
+## ГДЕ МЫ (2026-09-16 вечер — СОХРАНЕНИЕ ДВУХ ПАРАЛЛЕЛЬНЫХ МАЙЛСТОУНОВ; завтра один оркестратор ведёт оба)
+
+**HEAD:** `ece528e` = origin/main, дерево чисто. CI: roles/gen ПОЧИНЕН этой сессией (ece528e), ожидается зелёный на следующем прогоне.
+
+### КОНТРАКТ 026 «жнец ./tmp» (Н-97) — в работе, близко
+
+| Этап | Статус |
+|---|---|
+| Frontier + draft | ✅ `77d5309` |
+| Критик (2 круга: FAIL→accept) | ✅ `dbeffd4` |
+| **frozen v1** | ✅ |
+| Реализация (TMP-РЕАП, 176 строк) | ✅ landed `67bd7a9` |
+| wipe_ro cleanup фикс | ✅ landed `fb1e3da` |
+| Зона-респеки v2+v3 (verify_antiplacebo + orchestrator admin) | ✅ frozen v3 `ac0297d` |
+| Адверсарий к1: FAIL (5 блокеров) | ✅ закрыто 5 фиксами `b7630fd`→land `c7d7a4d` |
+| Адверсарий к2: FAIL (2 новых края) | ⏳ **СЛЕДУЮЩИЙ ШАГ: фикс** |
+
+**К2-блокеры (verdicts/adversary/contracts-026-k2.md на main):**
+1. **Base64 terminal-LF identity collapse**: bash `$(base64 -d)` срезает хвостовые LF — `tmp/done021\\n` декодируется в `tmp/done021`, rm идёт по несуществующему пути, rc=0 при живой записи. Фикс: NUL-разделённый base64 вывод (не command substitution) или явно экранировать хвостовые LF.
+2. **Swallowed done-tag for-each-ref failure**: `if g for-each-ref ...; then ... fi` без else → отказ источника done-тегов выглядит как «done нет». Фикс: else → rc 2 именованный.
+3. Дополнительно (не блокеры): --tmp-reap-age NaN/inf/negative принимаются без валидации; base64 decoder failure → rc 127 вместо rc 2.
+
+**После фикса к2:** к3 → (accept?) → ревьюер → done/contracts/026/1 → **живой close-out** (первый реальный реап ./tmp, 1.2 ГБ) → норма-строка close-out в roles/orchestrator.md.
+
+### КОНТРАКТ 027 «doc-приёмка» (§8 ROADMAP) — вторая сессия (астра)
+
+| Этап | Статус |
+|---|---|
+| Frontier + draft | ✅ вторая сессия |
+| Критик (2 круга: FAIL→accept) | ✅ `3782fdd` |
+| **frozen v1** | ✅ `e2734f9` |
+| Роли (reviewer doc-профиль + implementer docwriter) | ✅ `184437f` |
+| v2 zone (+check_document.sh +render_document.sh) | ✅ `75f5ffe` + critic accept `ad045dd` |
+| Реализация | ✅ `84d1435` (check_document/render_document) |
+| roles/gen регенерация | ✅ ПОЧИНЕНА этой сессией (`ece528e`) — Н-92 |
+| Суды | ⏳ не начаты |
+
+**Следующий шаг 027:** CI зелёный → адверсарий → ревьюер → done. Зоны: implementer=scripts/check_document.sh scripts/render_document.sh; reviewer=суд doc-пакетов по §Мандату из frozen v1.
+
+### ЗАВТРА: ОДИН ОРКЕСТРАТОР ВЕДЁТ ОБА
+
+Зоны не пересекаются. Порядок:
+1. `./workshop` (стартап: HANDOFF → ROADMAP → NABLIUDENIA)
+2. **026-фикс к2** (2 блокера, оба маленькие: base64-хвост + fail-closed else) → батарея → land → CI
+3. **026-к3** (адверсарий) → при accept → ревьюер → done → close-out
+4. **027-суды** параллельно или после 026-done (CI на объединённом HEAD)
+5. Оба done → очередь автономности (Н-88 → Н-85-семья → ...)
+
+**Worktrees живы** (переживут ребут в /tmp):
+- `/tmp/dev-harness-worktrees/775e24e1/wip-026-architect` (ветка wip/026/architect)
+- `/tmp/dev-harness-worktrees/775e24e1/wip-027-implementer` (ветка wip/027/implementer)
+
+**Клоны судей** (могут пригодиться для верификации):
+- `/tmp/adversary026-k1`, `/tmp/adversary026-k2` (сохранены)
+- `/tmp/dev-harness-verify/adversary024k12` … к15 (сохранены)
+
+**Грабли этой сессии (не повторять):**
+- Н-92: правка roles/ без gen:harness — починена этой сессией, вторая сессия должна знать
+- CI-очередь: две сессии → удвоение (40-90 мин)
+- worktree в detached HEAD после pull — проверяй `git branch --show-current`
+- base64-транспорт в TMP-РЕАП имеет хвостовую LF-коллизию (к2-блокер №1)
+"""
+
+---
+
 ## ГДЕ МЫ (2026-09-15 ~04:40 — ТОЧКА СОХРАНЕНИЯ: 024 прошёл к8/к9 с тремя фикс-циклами, всё запушено, CI на 4ada541 в полёте; владелец уходит, сессия продолжает автономно по его слову «выполняй тут все автономно»)
 
 
