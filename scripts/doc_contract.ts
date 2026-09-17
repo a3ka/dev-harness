@@ -10,10 +10,10 @@
  * только переданные данные и пригодны для тестов напрямую.
  */
 import { spawnSync } from 'node:child_process'
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { readdir } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 
 // ── ID-грамматика ────────────────────────────────────────────────────────────
@@ -26,13 +26,16 @@ export function isValidId(id: unknown): id is string {
 
 // ── JSON-pointer (RFC 6901, минимальный) ─────────────────────────────────────
 export function applyJsonPointer(root: unknown, pointer: string): unknown {
-  if (pointer === '' || pointer === '/') return root
+  if (pointer === '') return root
   if (!pointer.startsWith('/')) throw new Error(`json-pointer не начинается с '/': ${pointer}`)
   const parts = pointer.split('/').slice(1).map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'))
   let cur: unknown = root
   for (const p of parts) {
     if (cur == null || typeof cur !== 'object') throw new Error(`путь на null: ${pointer}`)
-    cur = (cur as Record<string, unknown>)[p]
+    const obj = cur as Record<string, unknown>
+    if (!Object.prototype.hasOwnProperty.call(obj, p))
+      throw new Error(`json-pointer ключ отсутствует (RFC6901 '/' = токен пустого имени, не root): ${pointer}`)
+    cur = obj[p]
   }
   return cur
 }
@@ -113,6 +116,53 @@ export function validatePath(p: unknown): string | null {
   for (const part of parts) {
     if (part.length === 0) return 'пустой компонент'
     if (part === '.' || part === '..') return 'компонент `.`/`..`'
+  }
+  return null
+}
+
+// ── Безопасное разрешение локального пути: канонизация + отказ при побеге ───
+// из корня через симлинк (контракт 027 §Грамматика: «без... выхода через симлинк»).
+export type SafePathResult =
+  | { ok: true; path: string }
+  | { ok: false; escaped: boolean; message: string }
+
+export async function resolveSafePath(root: string, relPath: string): Promise<SafePathResult> {
+  const pathErr = validatePath(relPath)
+  if (pathErr) return { ok: false, escaped: false, message: `путь невалиден: ${relPath}: ${pathErr}` }
+  let rootReal: string
+  try {
+    rootReal = await realpath(root)
+  } catch (e) {
+    return { ok: false, escaped: false, message: `корень не резолвится: ${(e as Error).message}` }
+  }
+  const target = join(root, relPath)
+  let targetReal: string
+  try {
+    targetReal = await realpath(target)
+  } catch (e) {
+    return { ok: false, escaped: false, message: `путь не читается: ${relPath}: ${(e as Error).message}` }
+  }
+  const rel = relative(rootReal, targetReal)
+  if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
+    return { ok: false, escaped: true, message: `путь выходит за пределы корня через симлинк: ${relPath}` }
+  }
+  return { ok: true, path: targetReal }
+}
+
+// ── Валидация argv probe: без shell-интерпретатора и без shell-метасимволов ──
+const SHELL_BASENAMES = new Set([
+  'sh', 'bash', 'dash', 'ksh', 'zsh', 'csh', 'tcsh', 'ash', 'mksh', 'busybox',
+  'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe',
+])
+const SHELL_META_RE = /[;&|`$(){}<>\n]/
+
+export function validateProbeArgv(argv: string[]): string | null {
+  for (const tok of argv) {
+    const base = tok.split(/[\\/]/).pop() ?? tok
+    if (SHELL_BASENAMES.has(base.toLowerCase()))
+      return `probe.argv несёт shell-интерпретатор без shell-обёртки: ${tok}`
+    if (SHELL_META_RE.test(tok))
+      return `probe.argv несёт shell-метасимвол в argv-токене: ${tok}`
   }
   return null
 }
@@ -269,6 +319,8 @@ function validateAssertion(aRaw: unknown, seen: Set<string>): string | null {
     } else if (cO.type === 'probe') {
       if (!Array.isArray(cO.argv) || cO.argv.length === 0 || !cO.argv.every((x) => typeof x === 'string'))
         return `spec.assertions[${a.id}].check.argv не массив строк`
+      const argvErr = validateProbeArgv(cO.argv as string[])
+      if (argvErr) return `spec.assertions[${a.id}].check.argv: ${argvErr}`
       if (typeof cO.pointer !== 'string' || !cO.pointer.startsWith('/'))
         return `spec.assertions[${a.id}].check.pointer не RFC6901`
     }
@@ -361,13 +413,30 @@ export async function resolveGitSource(root: string, source: {
   const cat = spawnSync('git', ['-C', root, 'cat-file', 'blob', source.blob], { encoding: 'buffer' })
   if (cat.status !== 0) throw new Error(`блоб ${source.blob} не разрешается`)
   const blobBytes = cat.stdout as Buffer
+
+  // Commit:path обязан разрешиться ИМЕННО в объявленный blob (контракт 027
+  // §Грамматика). cat-file выше лишь доказывает, что blob СУЩЕСТВУЕТ где-то
+  // в репозитории — не что он лежит по объявленному commit:path.
+  const ref = spawnSync('git', ['-C', root, 'rev-parse', '--verify', '--quiet',
+    `${source.commit}:${source.path}`], { encoding: 'utf-8' })
+  const refBlob = ref.status === 0 ? ref.stdout.trim() : ''
+  if (refBlob !== source.blob) {
+    throw new Error(
+      `commit:path ${source.commit}:${source.path} не разрешается в объявленный blob ` +
+      `${source.blob} (фактически: ${refBlob || 'путь отсутствует в commit'})`)
+  }
+
   if (source.freshness === 'historical') {
     return { bytes: blobBytes, mode: 'historical', path: source.path }
   }
-  const fsPath = join(root, source.path)
+  const safe = await resolveSafePath(root, source.path)
+  if (!safe.ok) {
+    if (safe.escaped) throw new Error(safe.message)
+    return { bytes: blobBytes, mode: 'drift', path: source.path }
+  }
   let current: Buffer
   try {
-    current = await readFile(fsPath)
+    current = await readFile(safe.path)
   } catch {
     return { bytes: blobBytes, mode: 'drift', path: source.path }
   }
@@ -548,9 +617,11 @@ export function checkCalibration(root: string, spec: unknown, calibration: {
   negative: Array<{ evidence: string; violation: string }>
 }): Promise<string | null> {
   return (async () => {
+    const posSafe = await resolveSafePath(root, calibration.positive)
+    if (!posSafe.ok) return `positive: ${posSafe.message}`
     let posContent: string
     try {
-      posContent = await readFile(join(root, calibration.positive), 'utf-8')
+      posContent = await readFile(posSafe.path, 'utf-8')
     } catch (e) {
       return `positive не читается: ${calibration.positive}: ${(e as Error).message}`
     }
@@ -564,9 +635,11 @@ export function checkCalibration(root: string, spec: unknown, calibration: {
     const posErr = validatePackageAgainstSpec(spec, posPkg)
     if (posErr) return `positive не конформен: ${posErr}`
     for (const neg of calibration.negative) {
+      const negSafe = await resolveSafePath(root, neg.evidence)
+      if (!negSafe.ok) return `negative: ${negSafe.message}`
       let negContent: string
       try {
-        negContent = await readFile(join(root, neg.evidence), 'utf-8')
+        negContent = await readFile(negSafe.path, 'utf-8')
       } catch (e) {
         return `negative не читается: ${neg.evidence}: ${(e as Error).message}`
       }

@@ -33,6 +33,7 @@ import {
   loadFrozenSpec,
   parseSpecFromMarkdown,
   resolveGitSource,
+  resolveSafePath,
   runProbeIsolated,
   validatePackageAgainstSpec,
   validateSpecSchema,
@@ -82,8 +83,13 @@ async function loadWorkingSpec(root: string, contractPath: string): Promise<unkn
 }
 
 async function loadPackage(root: string, evidencePath: string): Promise<unknown> {
+  const safe = await resolveSafePath(root, evidencePath)
+  if (!safe.ok) {
+    if (safe.escaped) fail(safe.message)
+    skip(safe.message)
+  }
   let text: string
-  try { text = await readFile(join(root, evidencePath), 'utf-8') }
+  try { text = await readFile(safe.path, 'utf-8') }
   catch (e) { skip(`evidence не читается: ${(e as Error).message}`) }
   try { return JSON.parse(text) }
   catch (e) { fail(`evidence не валидный JSON: ${(e as Error).message}`) }
@@ -142,7 +148,12 @@ async function main(): Promise<void> {
   }
 
   // Section markers.
-  const mdText = await readFile(join(args.root, markdownPath), 'utf-8')
+  const mdSafe = await resolveSafePath(args.root, markdownPath)
+  if (!mdSafe.ok) {
+    if (mdSafe.escaped) fail(mdSafe.message)
+    skip(mdSafe.message)
+  }
+  const mdText = await readFile(mdSafe.path, 'utf-8')
   const required = (spec.required as Record<string, unknown>) ?? {}
   const sectionIds = Array.isArray(required.sections) ? (required.sections as string[]) : []
   const smErr = checkSectionMarkers(mdText, sectionIds)
@@ -220,6 +231,8 @@ async function main(): Promise<void> {
     } else if (check.type === 'probe') {
       const argv = check.argv as string[]
       const result = await runProbeIsolated(args.root, argv)
+      if (result.rc === 1)
+        fail(`assertion[${a.id}]: probe ${argv.join(' ')} сообщил нарушение (rc=1): ${result.stderr.trim() || 'нет stderr'}`)
       if (result.rc !== 0)
         skip(`probe ${argv.join(' ')} вернул rc=${result.rc}: ${result.stderr.trim() || 'нет stderr'}`)
       let parsed: unknown

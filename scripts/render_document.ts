@@ -24,6 +24,7 @@ import {
   generateFormalRegion,
   parseSpecFromMarkdown,
   replaceFormalRegion,
+  resolveSafePath,
   splitFormalRegion,
 } from './doc_contract.ts'
 
@@ -66,8 +67,18 @@ async function main(): Promise<void> {
   catch (e) { fail(`contract: ${(e as Error).message}`) }
   const outputs = (spec as Record<string, unknown>).outputs as Record<string, string>
   if (!outputs) fail('contract.outputs отсутствует')
-  const mdPath = join(args.root, outputs.markdown)
-  const evidencePath = join(args.root, outputs.evidence)
+  const mdSafe = await resolveSafePath(args.root, outputs.markdown)
+  if (!mdSafe.ok) {
+    if (mdSafe.escaped) fail(mdSafe.message)
+    skip(mdSafe.message)
+  }
+  const mdPath = mdSafe.path
+  const evSafe = await resolveSafePath(args.root, outputs.evidence)
+  if (!evSafe.ok) {
+    if (evSafe.escaped) fail(evSafe.message)
+    skip(evSafe.message)
+  }
+  const evidencePath = evSafe.path
   let pkg: unknown
   try {
     const text = await readFile(evidencePath, 'utf-8')
