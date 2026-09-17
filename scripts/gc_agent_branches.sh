@@ -52,13 +52,29 @@
 # под пустой done-набор).
 # Отказ `git ls-files --others -z -- tmp/` — fail-closed rc 2 «NOT_IMPLEMENTED: git ls-files
 # отказал» (вердикт к1: хвостовой `|| :` маскировал отказ под пустой успешный список).
-# --tmp-reap-age валидируется ВСЕГДА, ДО построения списка кандидатов, а не только когда
-# список непуст (вердикт к3: валидация внутри `[ -s reap_candidates ]` пропускала
-# NaN/inf/отрицательное с rc 0 при пустом источнике). Перед КАЖДЫМ удалением контроль
-# tracked (`git ls-files -- <entry>`) fail-closed на отказе git: rc 2 «NOT_IMPLEMENTED»,
-# НЕ молчаливое «tracked нет» (вердикт к3: `$()` глушил ненулевой rc второго `ls-files`
-# в пустой stdout, неотличимый от честного ответа «tracked-файлов нет» — tracked
-# удалялся вместе с untracked без единого отказа).
+# --tmp-reap-age валидируется ВСЕГДА, СРАЗУ при разборе флага в argv-цикле, ДО любого
+# обращения к ROOT/tmp (вердикт к4 FAIL 1: валидация лежала внутри `if [ -d "$ROOT/tmp" ]`
+# — отсутствующий каталог пропускал невалидное значение с rc 0 независимо от построения
+# списка кандидатов). Строго ПОЛОЖИТЕЛЬНОЕ конечное число — `math.isfinite(v) and v > 0.0`
+# (вердикт к4 FAIL 1: прежнее условие `v < 0` принимало 0/0.0/-0.0 — нулевой порог не
+# положителен: возраст не может квалифицировать запись быстрее, чем она создана).
+# Перед КАЖДЫМ удалением контроль tracked (`git ls-files -- <entry>`) fail-closed на
+# отказе git: rc 2 «NOT_IMPLEMENTED», НЕ молчаливое «tracked нет» (вердикт к3: `$()`
+# глушил ненулевой rc второго `ls-files` в пустой stdout, неотличимый от честного ответа
+# «tracked-файлов нет» — tracked удалялся вместе с untracked без единого отказа).
+# TOCTOU (вердикт к4 FAIL 2): повторный `git ls-files` НЕМЕДЛЕННО перед удалением не
+# закрывает гонку — тот же check-then-act шов между отдельными внешними вызовами.
+# Правильный примитив — python3 lstat ДО контроля (идентичность dev:ino записи-кандидата)
+# и ВТОРОЙ lstat СЛИТО с самим актом удаления в ОДНОМ python3-процессе без exec внешнего
+# `rm` (устраняет класс атаки «подставной rm подменяет запись после своего запуска, перед
+# настоящим удалением» — удаляющий вызов И ЕСТЬ процесс, взявший второй lstat).
+# Расхождение dev:ino между первым и вторым lstat → именованный TOCTOU rc 2, запись НЕ
+# ТРОГАЕТСЯ. Остаточное окно — между os.lstat() и os.remove()/shutil.rmtree() внутри
+# ОДНОГО процесса без промежуточного fork/exec: выиграть эту гонку значит подменить
+# запись между двумя системными вызовами одного процесса — точность, практически
+# требующая контроля планировщика ядра уровня root, а не обычного параллельного
+# мутатора. Полное закрытие (эксклюзивная блокировка ./tmp поперёк ВСЕХ процессов) —
+# отдельное архитектурное решение вне слоя 1 механизма, не точечный фикс.
 # Распознанный NNN = есть `contracts/NNN-*.md` в дереве. NNN без файла контракта и без
 # done-тега — аноним, правило возраста. NNN распознан БЕЗ done-тега = АКТИВНЫЙ контекст
 # (скратч живого майлстоуна) → запись ВЫЖИВАЕТ независимо от возраста. При коллизии
@@ -98,8 +114,10 @@ usage() {
     NNN распознан, если есть contracts/NNN-*.md в дереве; NNN с done-тегом — done; NNN
     распознан без done-тега — АКТИВНЫЙ контекст → запись ВЫЖИВАЕТ независимо от возраста
     (приоритет активного номера над done в одном имени). --tmp-reap-age N — порог возраста
-    в днях для правила (б); валидируется как положительное конечное число (NaN/inf/отрицательное
-    → rc 2 «NOT_IMPLEMENTED», вердикт к2).
+    в днях для правила (б); валидируется СРАЗУ при разборе флага (до обращения к tmp/) как
+    СТРОГО ПОЛОЖИТЕЛЬНОЕ конечное число: NaN/inf/0/отрицательное → rc 2 «NOT_IMPLEMENTED»
+    (вердикт к4). Подмена untracked→tracked записи между контролем и удалением — именованный
+    TOCTOU rc 2 (вердикт к4, lstat dev:ino до/после контроля, см. коды возврата).
   * sweep остатков worktrees — python3-lstat (Н-60), fifo/сломанные симлинки подсвечиваются.
 
 Коды возврата: 0 — порядок; 1 — заявленная зависшая не наблюдается или сменена (И-6),
@@ -113,16 +131,38 @@ root_arg=""
 expect_kept=()
 tmp_reap_apply=0
 tmp_reap_age=7
+tmp_reap_age_given=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --root) root_arg="${2:?}"; shift 2 ;;
     --expect-kept) expect_kept+=("${2:?}"); shift 2 ;;
     --tmp-reap-apply) tmp_reap_apply=1; shift ;;
-    --tmp-reap-age) tmp_reap_age="${2:?}"; shift 2 ;;
+    --tmp-reap-age) tmp_reap_age="${2:?}"; tmp_reap_age_given=1; shift 2 ;;
     --help|-h) usage ;;
     *) printf 'gc_agent_branches: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
   esac
 done
+
+# --tmp-reap-age валидируется ВСЕГДА, СРАЗУ при разборе флага — ДО обращения к ROOT/tmp
+# (вердикт к4 FAIL 1: прежняя валидация лежала внутри `if [ -d "$ROOT/tmp" ]`, отсутствующий
+# каталог пропускал невалидное значение с rc 0). Значение по умолчанию (7) — доверенный
+# литерал, python3 не требуется, если флаг не передан явно. Строго ПОЛОЖИТЕЛЬНОЕ конечное
+# число (вердикт к4 FAIL 1: `v < 0` принимало 0/0.0/-0.0 — нулевой порог не положителен).
+if [ "$tmp_reap_age_given" -eq 1 ]; then
+  command -v python3 >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: нет python3 для валидации --tmp-reap-age (Н-60)\n' >&2; exit 2; }
+  if ! python3 -c '
+import sys, math
+try:
+    v = float(sys.argv[1])
+except ValueError:
+    sys.exit(2)
+sys.exit(0 if (math.isfinite(v) and v > 0.0) else 2)
+' "$tmp_reap_age" 2>/dev/null; then
+    printf 'NOT_IMPLEMENTED: --tmp-reap-age не положительное конечное число: %s\n' "$tmp_reap_age" >&2
+    exit 2
+  fi
+fi
 
 if [ -z "$root_arg" ]; then
   ROOT="$(pwd -P 2>/dev/null || pwd)"
@@ -286,23 +326,9 @@ if [ -d "$ROOT/tmp" ]; then
   command -v python3 >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: нет python3 для TMP-РЕАП (Н-60)\n' >&2; exit 2; }
 
-  # 0. Валидация --tmp-reap-age ВСЕГДА, ДО построения списка кандидатов (вердикт к3:
-  #    валидация лежала внутри ветви `[ -s reap_candidates ]` — NaN/inf/отрицательное
-  #    проходили молча rc 0, когда источник пуст; порог обязан отвергаться независимо
-  #    от того, есть ли что реапить).
-  if ! python3 -c '
-import sys, math
-try:
-    v = float(sys.argv[1])
-except ValueError:
-    sys.exit(2)
-if math.isnan(v) or math.isinf(v) or v < 0:
-    sys.exit(2)
-' "$tmp_reap_age" 2>/dev/null; then
-    printf 'NOT_IMPLEMENTED: --tmp-reap-age не положительное конечное число: %s\n' "$tmp_reap_age" >&2
-    exit 2
-  fi
-
+  # 0. --tmp-reap-age уже провалидирован СРАЗУ при разборе флага (вердикт к4 FAIL 1) —
+  #    ДО этой точки и НЕЗАВИСИМО от существования $ROOT/tmp. Повторной валидации здесь
+  #    не требуется.
   # 1. Источник кандидатов: untracked в tmp/, свёртка до верхнеуровневой записи.
   #    Без --exclude-standard — tmp/ в .gitignore не должен делать источник слепым (024 нога-2).
   #    awk сворачивает tmp/X/Y/Z → tmp/X; файлы на верхнем уровне tmp/X → tmp/X (НЕ в tmp,
@@ -391,7 +417,7 @@ try:
 except ValueError as ex:
     print(f"NOT_IMPLEMENTED: --tmp-reap-age не float: {ex}", file=sys.stderr)
     sys.exit(2)
-if math.isnan(threshold_days) or math.isinf(threshold_days) or threshold_days < 0:
+if not (math.isfinite(threshold_days) and threshold_days > 0.0):
     print(f"NOT_IMPLEMENTED: --tmp-reap-age не положительное конечное число: {sys.argv[3]!r}", file=sys.stderr)
     sys.exit(2)
 threshold_seconds = threshold_days * 86400.0
@@ -484,6 +510,18 @@ PYEOF
       [ -n "$reason" ] || continue
 
       if [ "$tmp_reap_apply" -eq 1 ]; then
+        # lstat_1 — идентичность (dev:ino) записи ДО контроля tracked: закрывает подмену,
+        # случившуюся МЕЖДУ построением кандидат-листа и запуском контроля (вердикт к4
+        # FAIL 2). Пустая строка — запись уже не lstat-ится (ENOENT/др.) в этой точке.
+        id_before="$(python3 -c '
+import sys, os
+try:
+    st = os.lstat(sys.argv[1])
+    sys.stdout.write(f"{st.st_dev}:{st.st_ino}")
+except OSError:
+    pass
+' "$ROOT/$entry" 2>/dev/null)" || id_before=""
+
         # Мера (б) инварианта 2: перед каждым удалением — контроль tracked, fail-closed
         # на ЛЮБОМ отказе git (вердикт к3: `$()` глушил rc второго `ls-files`; отказ git
         # давал пустой stdout, неотличимый от честного «tracked нет» — tracked удалялся
@@ -500,17 +538,54 @@ PYEOF
           printf 'ОТКАЗ: смешанный вход %s: tracked+untracked — владельцу\n' "$entry" >&2
           exit 1
         fi
-        # ОСТАТОЧНЫЙ РИСК (вердикт к3, TOCTOU-заметка, названа не как основание FAIL):
-        # между этим контролем и `rm -rf` ниже — check-then-act окно. Внешний процесс,
-        # подменяющий запись НА ЭТОМ ИМЕНИ между проверкой и удалением, может подсунуть
-        # свежую замену вместо проверенной — `rm` уйдёт по имени, а не по иноду. Барьер
-        # НЕ проектирован против параллельного мутатора того же tmp/<entry> в процессе
-        # СВОЕГО прогона (ни здесь, ни в остальных ветвях скрипта нет блокировки дерева);
-        # полное закрытие требует эксклюзивной блокировки ./tmp поперёк ВСЕХ процессов —
-        # отдельное архитектурное решение вне слоя 1 механизма, не точечный фикс.
-        if ! rm -rf -- "$ROOT/$entry" 2>/dev/null; then
+
+        # TOCTOU (вердикт к4 FAIL 2): повторный git ls-files НЕМЕДЛЕННО перед rm НЕ
+        # закрывает гонку — тот же check-then-act шов между отдельными внешними вызовами
+        # (подставной rm может подменить запись ПОСЛЕ своего запуска, ДО настоящего
+        # удаления). Правильный примитив — ВТОРОЙ lstat СЛИТ с самим актом удаления в
+        # ОДНОМ python3-процессе, без exec внешнего `rm`: удаляющий вызов И ЕСТЬ процесс,
+        # взявший второй lstat — подмена цели через PATH-хайджекинг внешнего `rm` больше
+        # не имеет точки приложения. Расхождение dev:ino между первым и вторым lstat →
+        # именованный TOCTOU rc 2, запись НЕ ТРОГАЕТСЯ.
+        # ОСТАТОЧНЫЙ РИСК: окно между os.lstat() и os.remove()/shutil.rmtree() ВНУТРИ
+        # одного и того же процесса, без промежуточного fork/exec, — несколько машинных
+        # инструкций. Выиграть эту гонку значит подменить запись НА ЭТОМ ИМЕНИ строго
+        # между двумя системными вызовами одного процесса; такая точность практически
+        # требует контроля планировщика ядра уровня root, а не обычной параллельной
+        # мутации соседним процессом. Полное закрытие требует эксклюзивной блокировки
+        # ./tmp поперёк ВСЕХ процессов — отдельное архитектурное решение вне слоя 1
+        # механизма, не точечный фикс.
+        del_rc=0; del_err=""
+        del_err="$(python3 -c '
+import sys, os, shutil
+before, path = sys.argv[1], sys.argv[2]
+try:
+    st = os.lstat(path)
+    after = f"{st.st_dev}:{st.st_ino}"
+except OSError:
+    after = ""
+if not before or before != after:
+    sys.stderr.write(f"запись подменена между контролем и удалением (dev:ino {before!r} -> {after!r})")
+    sys.exit(3)
+try:
+    if os.path.isdir(path) and not os.path.islink(path):
+        shutil.rmtree(path)
+    else:
+        os.remove(path)
+except OSError as ex:
+    sys.stderr.write(str(ex))
+    sys.exit(4)
+except Exception as ex:
+    sys.stderr.write(str(ex))
+    sys.exit(4)
+' "$id_before" "$ROOT/$entry" 2>&1)" || del_rc=$?
+        if [ "$del_rc" -eq 3 ]; then
+          printf 'NOT_IMPLEMENTED: TOCTOU %s: %s\n' "$entry" "$del_err" >&2
+          exit 2
+        fi
+        if [ "$del_rc" -ne 0 ]; then
           # Снимаем chmod, если он блокирует — НЕ ТРОГАЕМ chmod (fail-closed: владелец
-          # видит именованный отказ и решает). Очищаем trap перед аварийным выходом.
+          # видит именованный отказ и решает).
           printf 'ОТКАЗ: не удалось удалить %s\n' "$entry" >&2
           exit 1
         fi
