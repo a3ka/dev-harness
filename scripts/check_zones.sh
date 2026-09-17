@@ -332,7 +332,11 @@ while IFS=$'\t' read -r nnn since; do
       continue
     fi
     checked=$((checked + 1))
-    awk -F'\t' -v a="$an" -v n="$nnn" '$1 == a && $3 == n { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
+    # Н-100: зона автора — ОБЪЕДИНЕНИЕ путей из ВСЕХ замороженных контрактов — так заявлено
+    # шапкой выше и так судит check_staged (единый читатель lib_zones). Per-contract фильтр
+    # красил легальные коммиты перекрывающихся окон (026∥027): путь зоны B внутри диапазона
+    # окна A выходил «вне зоны» у второго потребителя зон, пройдя первого.
+    awk -F'\t' -v a="$an" '$1 == a { print $2 }' "$TMP/zones_scoped" | sort -u > "$TMP/mine"
     while IFS= read -r f; do
       [ -n "$f" ] || continue
       # draft-признание (контракт 023, ветвь iv): ПО НОМЕРУ ПУТИ M (не номеру ОКОНА nnn).
@@ -392,7 +396,7 @@ while IFS=$'\t' read -r nnn since; do
           *)  [ "$f" = "$p" ] && { inside=0; break; } ;;
         esac
       done < "$TMP/mine"
-      [ "$inside" -eq 0 ] || bad "коммит вне зоны: $an ${c:0:8} $f — зона контракта $nnn: $(tr '\n' ' ' < "$TMP/mine")"
+      [ "$inside" -eq 0 ] || bad "коммит вне зоны: $an ${c:0:8} $f — зона автора (объединение всех замороженных): $(tr '\n' ' ' < "$TMP/mine")"
     done < <(g diff-tree -r --no-commit-id --name-only --no-renames "$c")
   done < "$TMP/commits"
 done < "$TMP/ranges"
