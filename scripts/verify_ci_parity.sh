@@ -218,10 +218,13 @@ done < "$SCRIPTS_TSV"
 # Вывод — TSV `path<TAB>lineno<TAB>команда<TAB>команда-в-схлопнутых-пробелах`, где lineno —
 # строка ключа `run:`, то есть место, куда смотреть в workflow.
 WF_CMDS_TSV="$RUN/wf_commands.tsv"
-python3 - "$GH" "$WF_CMDS_TSV" "$PARSE_FAILS" <<'PY'
+# Контракт 020, инварианты 3 и 4: matrix-включения и запуск анти-плацебо.
+MATRIX_TSV="$RUN/matrix.tsv"
+ANTI_TSV="$RUN/antiplacebo.tsv"
+python3 - "$GH" "$WF_CMDS_TSV" "$MATRIX_TSV" "$ANTI_TSV" "$PARSE_FAILS" <<'PY'
 import os, re, sys
 
-gh_dir, out_path, fails_path = sys.argv[1], sys.argv[2], sys.argv[3]
+gh_dir, out_path, matrix_out, anti_out, fails_path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 fails = []
 
 # ── подмножество YAML ──────────────────────────────────────────────────────────
@@ -685,6 +688,96 @@ for path in all_files:
         for cmd in split_commands(script):
             all_cmds.append((path, lineno, cmd))
 
+# ── разбор matrix и анти-плацебо (контракт 020, инв. 3, 4) ──────────────────
+# Тот же обход `.github/**`, что для команд. parse_map ВОЗВРАЩАЕТ кортеж
+# (val, lineno) на КАЖДОЕ значение в m[key], и сам `jobs`, `strategy`, `matrix`,
+# `steps` тоже кортежи — внутренний dict берётся по индексу [0]. Скаляры
+# (например, имя 'on' → None-подобное значение) пропускаются.
+def _val(node):
+    """Достаёт значение из кортежа (val, lineno) или возвращает None."""
+    if isinstance(node, tuple) and len(node) >= 1:
+        return node[0]
+    return node
+
+matrix_entries = []   # (path, lineno, jobname, shard, keys_str)
+anti_cmds = []        # (path, lineno, jobname, cmd, has_scope_keys(0/1), in_matrix(0/1))
+for path in all_files:
+    try:
+        doc = parse_yaml(path)
+    except Exception:
+        continue
+    if not isinstance(doc, dict):
+        continue
+    jobs = _val(doc.get('jobs'))
+    if not isinstance(jobs, dict):
+        continue
+    for jobname, jobval_t in jobs.items():
+        jobval = _val(jobval_t)
+        if not isinstance(jobval, dict):
+            continue
+        # matrix извлекается независимо от steps.
+        strat = _val(jobval.get('strategy'))
+        in_matrix = 0
+        if isinstance(strat, dict):
+            mx = _val(strat.get('matrix'))
+            if isinstance(mx, dict):
+                inc = _val(mx.get('include'))
+                if isinstance(inc, list):
+                    for entry_t in inc:
+                        entry = _val(entry_t)
+                        if not isinstance(entry, dict):
+                            continue
+                        shard_pair = entry.get('shard', ('', 0))
+                        shard_val, _slno = _val(shard_pair), (shard_pair[1] if isinstance(shard_pair, tuple) else 0)
+                        keys_pair = entry.get('keys', ('', 0))
+                        keys_val, _klno = _val(keys_pair), (keys_pair[1] if isinstance(keys_pair, tuple) else 0)
+                        if not isinstance(shard_val, str) or not shard_val:
+                            fails.append(
+                                f'{path}:{_slno}: matrix.include запись без shard — структурная ошибка шардирования'
+                            )
+                            continue
+                        if not isinstance(keys_val, str) or not keys_val:
+                            fails.append(
+                                f'{path}:{_klno}: matrix.include запись shard={shard_val!r} без keys — структурная ошибка шардирования'
+                            )
+                            continue
+                        matrix_entries.append((path, _slno, jobname, shard_val, keys_val))
+                        in_matrix = 1
+        # анти-плацебо: любой run-шаг, содержащий «npm run check:antiplacebo».
+        steps_val = _val(jobval.get('steps'))
+        if isinstance(steps_val, list):
+            for step_t in steps_val:
+                step = _val(step_t)
+                if not isinstance(step, dict):
+                    continue
+                run_pair = step.get('run', ('', 0))
+                rv = _val(run_pair)
+                rl = run_pair[1] if isinstance(run_pair, tuple) else 0
+                if not isinstance(rv, str) or not rv.strip():
+                    continue
+                norm_script = ' '.join(rv.split())
+                if 'npm run check:antiplacebo' not in norm_script:
+                    continue
+                has_scope_keys = 1 if ('--scope ${{ matrix.keys }}' in norm_script) else 0
+                anti_cmds.append((path, rl, jobname, rv, has_scope_keys, in_matrix))
+
+with open(matrix_out, 'w', encoding='utf-8') as f:
+    for path, lineno, jobname, shard, keys_str in matrix_entries:
+        if '\t' in keys_str:
+            fails.append(f'{path}:{lineno}: shard {shard!r} содержит табуляцию в keys — учёт по TSV не различит')
+            continue
+        for k in keys_str.split():
+            if not k:
+                continue
+            f.write(f'{path}\t{lineno}\t{jobname}\t{shard}\t{k}\n')
+
+with open(anti_out, 'w', encoding='utf-8') as f:
+    for path, lineno, jobname, cmd, has_scope, in_matrix in anti_cmds:
+        if '\t' in cmd:
+            fails.append(f'{path}:{lineno}: команда анти-плацебо содержит табуляцию — учёт по TSV не различит')
+            continue
+        f.write(f'{path}\t{lineno}\t{jobname}\t{" ".join(cmd.split())}\t{has_scope}\t{in_matrix}\n')
+
 with open(out_path, 'w', encoding='utf-8') as f:
     for path, lineno, cmd in all_cmds:
         if '\t' in cmd:
@@ -858,12 +951,85 @@ while IFS= read -r c; do
   fi
 done < <(printf '%s\n' "${!EXC_CMD[@]}" | sort)
 
+# ── 4b. контракт 020 — инварианты шардирования ────────────────────────────
+FIXTURES="$ROOT/fixtures"
+fixture_keys=()
+if [ -d "$FIXTURES" ]; then
+  while IFS= read -r d; do
+    k="$(basename "$d")"
+    if find "$d" -maxdepth 1 -type f -name 'case_*.sh' -print -quit | grep -q .; then
+      fixture_keys+=("$k")
+    fi
+  done < <(find "$FIXTURES" -mindepth 1 -maxdepth 1 -type d | sort)
+fi
+
+# Накопители шардов: объявляются ДО веток, чтобы `set -u` не ловил их на чтении
+# в ветке, которая не выполнилась бы.
+declare -A SHARD_KEYS=()
+declare -A KEY_SHARDS=()
+
+while IFS=$'\t' read -r path ln jobname shard key; do
+  [ -n "$key" ] || continue
+  if [ -z "${SHARD_KEYS[$shard]:-}" ]; then
+    SHARD_KEYS["$shard"]="$key"
+  else
+    SHARD_KEYS["$shard"]="${SHARD_KEYS[$shard]} $key"
+  fi
+  KEY_SHARDS["$key"]="${KEY_SHARDS[$key]:-} $shard"
+done < "$MATRIX_TSV"
+
+# 4b.1. Полнота в обе стороны — ИНВАРИАНТ 3.
+if [ "${#fixture_keys[@]}" -gt 0 ]; then
+  if [ "${#SHARD_KEYS[@]}" -eq 0 ]; then
+    sample="${fixture_keys[0]}"
+    bad "шардный запуск анти-плацебо не объявлен: fixtures/$sample есть, а matrix-джобы в .github/** нет"
+  else
+    covered_set="$(printf '%s\n' "${!KEY_SHARDS[@]}" | sort -u)"
+    for k in "${fixture_keys[@]}"; do
+      if ! printf '%s\n' "$covered_set" | grep -qxF "$k"; then
+        bad "$k не покрыт шардингом — ключ не назван ни одним шардом"
+      fi
+    done
+  fi
+fi
+
+# Сторона «мёртвый ключ» + «дубль ключа».
+while IFS=$'\t' read -r path ln jobname shard key; do
+  [ -n "$key" ] || continue
+  if [ ! -d "$FIXTURES/$key" ] || ! find "$FIXTURES/$key" -maxdepth 1 -type f -name 'case_*.sh' -print -quit | grep -q .; then
+    bad "$key назван шардом $shard, но каталога fixtures/$key нет — мёртвый ключ"
+    continue
+  fi
+  list="${KEY_SHARDS[$key]:-}"
+  set -- $list
+  if [ "$#" -gt 1 ]; then
+    first="$1"; shift
+    rest=""
+    while [ $# -gt 0 ]; do rest="${rest:+$rest, }$1"; shift; done
+    bad "$key приписан двум шардам: $first, $rest"
+  fi
+done < "$MATRIX_TSV"
+
+# 4b.2. Исключительность шардного запуска — ИНВАРИАНТ 4.
+while IFS=$'\t' read -r path ln jobname cmd has_scope in_matrix; do
+  [ -n "$cmd" ] || continue
+  rel="${path#"$ROOT"/}"
+  [ "$has_scope" -eq 1 ] && continue
+  if [ "$in_matrix" -eq 1 ]; then
+    bad "$rel:$ln ($jobname): шардный запуск анти-плацебо не несёт --scope с ключами — форма: $cmd"
+  else
+    bad "$rel:$ln ($jobname): запуск анти-плацебо вне шардной matrix (не несёт --scope с ключами): $cmd"
+  fi
+done < "$ANTI_TSV"
+
 # ── 5. итог ───────────────────────────────────────────────────────────────────
 total_wf=$(wc -l < "$WF_CMDS_TSV" | tr -d ' ')
 total_scripts=$(wc -l < "$SCRIPTS_TSV" | tr -d ' ')
 total_exc=$(wc -l < "$EXC_TSV" | tr -d ' ')
-printf '\nworkflow-команд: %d · скриптов в приёмке: %d · объявленных исключений: %d · расхождений: %d\n' \
-  "$total_wf" "$total_scripts" "$total_exc" "$fails" >&2
+total_matrix=$(wc -l < "$MATRIX_TSV" | tr -d ' ')
+total_anti=$(wc -l < "$ANTI_TSV" | tr -d ' ')
+printf '\nworkflow-команд: %d · скриптов в приёмке: %d · объявленных исключений: %d · matrix-ключей: %d · анти-плацебо-запусков: %d · расхождений: %d\n' \
+  "$total_wf" "$total_scripts" "$total_exc" "$total_matrix" "$total_anti" "$fails" >&2
 if [ "$fails" -gt 0 ]; then
   exit 1
 fi

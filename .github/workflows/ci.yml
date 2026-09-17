@@ -28,6 +28,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  antiplacebo:
+    runs-on: ubuntu-latest
+    # Р3 контракта 020: timeout шарда — 20 мин (запас 2,4× к средней цене шарда
+    # 8,5 мин; см. §Профилировка). fail-fast: false — одна красная фикстура не
+    # отменяет остальные шарды, иначе полный прогон теряет смысл (Н-63).
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Р1: N=5, LPT-разбиение 357 case (см. §Профилировка: посадочное
+        # 72/72/71/71/71). Ключи — пути в scripts/ без расширения, через пробел.
+        # Имя скрипта npm run check:antiplacebo — СТАТИЧНО (правило 6),
+        # шаблон только в --scope (предмет п.1 «имя статично»).
+        include:
+          - shard: ap1
+            keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches check_no_rewrite render_document next_id
+          - shard: ap2
+            keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready drill_nabludenia_nechitaemo overlay
+          - shard: ap3
+            keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
+          - shard: ap4
+            keys: verify_antiplacebo check_protected check_hooks check_charter drill_gate_draft check_document gen-harness drill_protected_exception
+          - shard: ap5
+            keys: check_metering verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `check:protected` сверяет достижимую историю — тот же аргумент, что в
+          # главной джобе (см. её checkout): на глубине 1 объединение достижимых
+          # коммитов равно HEAD, барьер стал бы пусто-зелёным.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        # Node 26 — требование совместимости с прокси учёта под --permission
+        # (флаг есть в node ≥ ~24/26). Совпадает с engines в package.json и с
+        # версией в главной джобе.
+        with:
+          node-version: 26
+      - name: Анти-плацебо · шард ${{ matrix.shard }}
+        # Р1/предмет п.1: --scope задаёт КОНКРЕТНЫЕ ключи шарда (на которых
+        # scope_select выберет case-*). --changed отменён — он видел только
+        # последний пуш (Н-87) и не давал scoped-выбор.
+        run: npm run check:antiplacebo -- --scope ${{ matrix.keys }}
   ci:
     runs-on: ubuntu-latest
     steps:
@@ -51,9 +93,6 @@ jobs:
         # иначе расхождение найдёт не эта команда, а следующая, и причина будет названа
         # не та. Самопроверка правила обязана стоять первой.
         run: npm run check:ci-parity
-
-      - name: Анти-плацебо
-        run: npm run check:antiplacebo -- --changed ${{ github.event.before }}
 
       - name: Проба слабых реализаций меры параллельности (контракт 021, И-7)
         # Условие V2 контракта 021 (Н-43): проба — не on-demand. CI обязан гонять её на
