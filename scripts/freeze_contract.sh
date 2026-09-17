@@ -238,6 +238,8 @@ if [ "$circles" -ge 3 ]; then
   fi
 fi
 
+_doc_type_out=""
+_doc_type_rc=1
 # ── 6б. DOC-PREFLIGHT (контракт 027 §Freeze) ──────────────────────────────────
 # Для doc-контракта повторяет doc-preflight ДО записи тега: ветвь ready уже
 # потребовала его при созыве судьи; freeze дублирует тот же прогон, потому что
@@ -249,31 +251,46 @@ fi
 # JSON по строкам. Подстрочная эвристика `grep '"type":[[:space:]]*"documentation"'`
 # была блокером F1 ревьюера 027: конформный JSON с ключом/значением на разных
 # строках проходил freeze без doc-preflight и замораживался с пустыми
-# required.sections. Передаём содержимое через tmp-файл, т.к. CLI принимает
-# путь, а не stdin — freeze читает блоб из HEAD через `git cat-file`.
+# required.sections.
+#
+# RC CLI `--type`: 0 — валидный doc-контракт; 1 — НЕ doc-контракт; 2 —
+# МАЛЬФОРМНЫЙ (раздел «## Док-приёмка» есть, но parseSpecFromMarkdown отверг
+# — много разделов/блоков, чужой маркер, битый JSON; блокер F5 ревьюера 027 к2);
+# 3 — usage/IO. Ветвящий код:
+#   rc=0 → прогнать doc-preflight, rc≠0 из него — fail;
+#   rc=1 → контракт НЕ doc-ветки, doc-preflight неприменим, пропустить (как до фикса);
+#   rc=2 → мальформный doc-контракт: die rc=1 без тега;
+#   rc=3 → usage/IO, die с системным сообщением.
+#
+# Передаём содержимое через tmp-файл, т.к. CLI принимает путь, а не stdin —
+# freeze читает блоб из HEAD через `git cat-file`.
 target_content="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
 _doc_type_tmp="$(mktemp -t doc027.XXXXXX 2>/dev/null || true)"
+_doc_type_rc=1
+_doc_type_out=""
 if [ -n "${_doc_type_tmp:-}" ]; then
   printf '%s' "$target_content" > "$_doc_type_tmp"
-  _is_doc=0
-  if (cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$_doc_type_tmp") >/dev/null 2>&1; then
-    _is_doc=1
-  fi
+  _doc_type_out="$(cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$_doc_type_tmp" 2>&1)"
+  _doc_type_rc=$?
+  _doc_type_rc="${_doc_type_rc:-0}"
   rm -f "$_doc_type_tmp"
-  if [ "$_is_doc" = "1" ]; then
-    # `set -e` трактует отказ команды в `$(...)` как отказ присваивания и ВЫХОДИТ,
-    # не дойдя до ветвления по $?. || true поглощает этот отказ; doc_rc ниже несёт
-    # реальный rc отказа и ведёт ветвление.
-    doc_rc=0
-    doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)" || doc_rc=$?
-    if [ "$doc_rc" = "0" ]; then
-      printf '  ok   doc-preflight: заморозка %s прошла проверку\n' "$TARGET" >&2
-    elif [ "$doc_rc" = "2" ]; then
-      die "doc-preflight: нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
-    else
-      die "doc-preflight: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
-    fi
-  fi
+  case "$_doc_type_rc" in
+    0)
+      doc_rc=0
+      doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)" || doc_rc=$?
+      if [ "$doc_rc" = "0" ]; then
+        printf '  ok   doc-preflight: заморозка %s прошла проверку\n' "$TARGET" >&2
+      elif [ "$doc_rc" = "2" ]; then
+        die "doc-preflight: нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+      else
+        die "doc-preflight: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+      fi
+      ;;
+    1) : ;;
+    2) die "doc-preflight: мальформный doc-контракт: $(printf '%s' "$_doc_type_out" | tr '\n' ' ' | tail -c 240)" ;;
+    3) die "doc-preflight: тип doc-контракта не определяется: $(printf '%s' "$_doc_type_out" | tr '\n' ' ' | tail -c 240)" ;;
+    *) die "doc-preflight: тип doc-контракта: неизвестный rc=$_doc_type_rc: $(printf '%s' "$_doc_type_out" | tr '\n' ' ' | tail -c 240)" ;;
+  esac
 fi
 
 # ── 7. тег ────────────────────────────────────────────────────────────────────
