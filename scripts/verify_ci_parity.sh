@@ -743,7 +743,19 @@ for path in all_files:
                             continue
                         matrix_entries.append((path, _slno, jobname, shard_val, keys_val))
                         in_matrix = 1
-        # анти-плацебо: любой run-шаг, содержащий «npm run check:antiplacebo».
+        # анти-плацебо: любой run-шаг, содержащий `npm run check:antiplacebo` или его
+        # официальный псевдоним `npm run-script check:antiplacebo` — это одна и та же
+        # команда (`npm run-script` — alias npm, признанный тем же барьером в правиле 6:
+        # покрытие скриптом идёт через `^npm[[:space:]]+(run|run-script)[[:space:]]+…`).
+        # Прежняя редакция искала литерал `npm run check:antiplacebo`, и сохранённый
+        # прежний `--changed`-шаг через `npm run-script` проходил зелёным (находка
+        # адверсария 020 к1): псевдоним в ANTI_TSV не попадал, исключительность матрицы
+        # его не видела. Здесь обе формы сначала нормализуются к каноническому `npm run`,
+        # и инвариант 4 (только шардный шаг с `--scope`) применяется одинаково — взаимная
+        # исключительность обеих форм запуска: либо все запуски анти-плацебо — шардные
+        # (через любой из псевдонимов), либо это красное. Иные префиксы (`npx npm run …`,
+        # переменная окружения, путь через `PATH`) здесь не распознаются намеренно: они
+        # подменяют исполнителя и совпадение по подстроке было бы ложной мерой.
         steps_val = _val(jobval.get('steps'))
         if isinstance(steps_val, list):
             for step_t in steps_val:
@@ -756,9 +768,13 @@ for path in all_files:
                 if not isinstance(rv, str) or not rv.strip():
                     continue
                 norm_script = ' '.join(rv.split())
-                if 'npm run check:antiplacebo' not in norm_script:
+                # Нормализация псевдонима npm: `run-script` → `run` на границе слова.
+                # После неё проверка строки одна для обеих форм — взаимная исключительность
+                # запусков достигается тем, что инвариант 4 не различает псевдонимы.
+                norm_for_anti = re.sub(r'\bnpm\s+run-script\b', 'npm run', norm_script)
+                if 'npm run check:antiplacebo' not in norm_for_anti:
                     continue
-                has_scope_keys = 1 if ('--scope ${{ matrix.keys }}' in norm_script) else 0
+                has_scope_keys = 1 if ('--scope ${{ matrix.keys }}' in norm_for_anti) else 0
                 anti_cmds.append((path, rl, jobname, rv, has_scope_keys, in_matrix))
 
 with open(matrix_out, 'w', encoding='utf-8') as f:
