@@ -90,12 +90,17 @@ if grep -qE '^арбитраж: ' "$CONTRACT"; then
 fi
 
 # ── 5. Doc-preflight (контракт 027) ──────────────────────────────────────────────
-# ТИП определяется разбором `## Док-приёмка` + `type: documentation` в contract.md —
-# НЕ по отсутствию готового Markdown (эвристика, отвергнутая в 027 §Freeze). Если
-# контракт — documentation, ОБЯЗАН пройти doc-preflight (схема + калибровка); иначе
-# RC≠0 с ИМЕНОВАННОЙ причиной ДО выхода. rc=2 (NOT_IMPLEMENTED: нет evidence/JSON)
-# трактуется как «нечем проверить» и НЕ считается зелёным — fail-closed.
-if grep -qE '^## Док-приёмка' "$CONTRACT" && grep -qE '"type":[[:space:]]*"documentation"' "$CONTRACT"; then
+# ТИП определяется ОБЩИМ модулем `doc_contract.ts` через CLI `--type <файл>` —
+# единый разбор грамматики (parseSpecFromMarkdown), не зависит от разбиения
+# JSON по строкам. Подстрочная эвристика `grep '"type":[[:space:]]*"documentation"'`
+# была блокером F1 ревьюера 027: конформный JSON с ключом/значением на разных
+# строках проходил ready rc=0 без doc-preflight и замораживался с пустыми
+# required.sections (обязательство контракта 027 §Freeze/charter: «doc-ветвь
+# ready распознаёт тип через общий модуль»). Если контракт — documentation,
+# ОБЯЗАН пройти doc-preflight (схема + калибровка); иначе RC≠0 с ИМЕНОВАННОЙ
+# причиной ДО выхода. rc=2 (NOT_IMPLEMENTED: нет evidence/JSON) трактуется как
+# «нечем проверить» и НЕ считается зелёным — fail-closed.
+if (cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$CONTRACT") >/dev/null 2>&1; then
   doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract contract.md --preflight 2>&1)"
   doc_rc=$?
   if [ "$doc_rc" = "0" ]; then
