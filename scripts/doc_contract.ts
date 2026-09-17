@@ -16,6 +16,7 @@ import { readdir } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 
 // ── ID-грамматика ────────────────────────────────────────────────────────────
 // Контракт 027 §Грамматика: класс [A-Za-zА-Яа-яЁё0-9][A-Za-zА-Яа-яЁё0-9_-]*.
@@ -775,4 +776,52 @@ export function validatePackageAgainstSpec(spec: unknown, pkg: unknown): string 
     }
   }
   return null
+}
+
+// ── CLI: детектор типа doc-контракта (контракт 027 §Freeze: «Doc-ветвь ready
+// распознаёт тип через общий модуль»; блокер F1 ревьюера 027 — старая подстрочная
+// эвристика `grep '"type":[[:space:]]*"documentation"'` пропускала конформный
+// JSON с ключом/значением на разных строках и пустыми required.sections через
+// rc=0 без doc-preflight). Единый разбор грамматики (parseSpecFromMarkdown)
+// корректен для любого JSON-формата внутри fenced-блока — не зависит от того,
+// на одной строке ключ/значение или на разных.
+// Коды возврата: 0 — spec.type === 'documentation' (парсинг ОК); 1 — не
+// doc-контракт (нет раздела, битый JSON, type≠documentation); 2 — usage /
+// файл не прочтён.
+export function detectDocTypeFromFile(file: string): number {
+  let md: string
+  try {
+    md = readFileSync(file, 'utf8')
+  } catch (e) {
+    process.stderr.write(`node doc_contract.ts --type: не прочесть ${file}: ${(e as Error).message}\n`)
+    return 2
+  }
+  let spec: unknown
+  try {
+    spec = parseSpecFromMarkdown(md)
+  } catch {
+    return 1
+  }
+  if (spec == null || typeof spec !== 'object' || Array.isArray(spec)) return 1
+  const s = spec as Record<string, unknown>
+  return s.type === 'documentation' ? 0 : 1
+}
+
+// CLI-вход: активируется только при ПРЯМОМ запуске файла (`node doc_contract.ts …`).
+// Импорт из check_document.ts и render_document.ts НЕ вызывает эту ветку — их
+// собственный process.argv[1] указывает на их файл, а endsWith здесь ловит только
+// запуск самого doc_contract.ts.
+const _argv1 = process.argv[1] ?? ''
+if (_argv1.endsWith('/doc_contract.ts') || _argv1.endsWith('\\doc_contract.ts')) {
+  const _argv = process.argv.slice(2)
+  if (_argv.length === 0 || _argv[0] !== '--type') {
+    process.stderr.write('Usage: node scripts/doc_contract.ts --type <contract.md>\n')
+    process.exit(2)
+  }
+  const _file = _argv[1]
+  if (!_file) {
+    process.stderr.write('node doc_contract.ts --type: не указан файл\n')
+    process.exit(2)
+  }
+  process.exit(detectDocTypeFromFile(_file))
 }

@@ -244,21 +244,35 @@ fi
 # рабочая копия могла измениться между раундами. Отказ — rc=1 без тега; rc=2
 # (нечем проверить) — rc=1 (fail-closed): нечего проверить ≠ проверено, иначе
 # пустой/битый evidence прятал бы нарушение под нехватку инструмента. Общий
-# модуль doc_contract.ts определяет тип по `## Док-приёмка` + `type: documentation`.
+# модуль doc_contract.ts определяет тип через CLI `--type <файл>` —
+# единый разбор грамматики (parseSpecFromMarkdown), не зависит от разбиения
+# JSON по строкам. Подстрочная эвристика `grep '"type":[[:space:]]*"documentation"'`
+# была блокером F1 ревьюера 027: конформный JSON с ключом/значением на разных
+# строках проходил freeze без doc-preflight и замораживался с пустыми
+# required.sections. Передаём содержимое через tmp-файл, т.к. CLI принимает
+# путь, а не stdin — freeze читает блоб из HEAD через `git cat-file`.
 target_content="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
-if printf '%s' "$target_content" | grep -qE '^## Док-приёмка' \
-   && printf '%s' "$target_content" | grep -qE '"type":[[:space:]]*"documentation"'; then
-  # `set -e` трактует отказ команды в `$(...)` как отказ присваивания и ВЫХОДИТ,
-  # не дойдя до ветвления по $?. || true поглощает этот отказ; doc_rc ниже несёт
-  # реальный rc отказа и ведёт ветвление.
-  doc_rc=0
-  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)" || doc_rc=$?
-  if [ "$doc_rc" = "0" ]; then
-    printf '  ok   doc-preflight: заморозка %s прошла проверку\n' "$TARGET" >&2
-  elif [ "$doc_rc" = "2" ]; then
-    die "doc-preflight: нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
-  else
-    die "doc-preflight: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+_doc_type_tmp="$(mktemp -t doc027.XXXXXX 2>/dev/null || true)"
+if [ -n "${_doc_type_tmp:-}" ]; then
+  printf '%s' "$target_content" > "$_doc_type_tmp"
+  _is_doc=0
+  if (cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$_doc_type_tmp") >/dev/null 2>&1; then
+    _is_doc=1
+  fi
+  rm -f "$_doc_type_tmp"
+  if [ "$_is_doc" = "1" ]; then
+    # `set -e` трактует отказ команды в `$(...)` как отказ присваивания и ВЫХОДИТ,
+    # не дойдя до ветвления по $?. || true поглощает этот отказ; doc_rc ниже несёт
+    # реальный rc отказа и ведёт ветвление.
+    doc_rc=0
+    doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract "$TARGET" --preflight 2>&1)" || doc_rc=$?
+    if [ "$doc_rc" = "0" ]; then
+      printf '  ok   doc-preflight: заморозка %s прошла проверку\n' "$TARGET" >&2
+    elif [ "$doc_rc" = "2" ]; then
+      die "doc-preflight: нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+    else
+      die "doc-preflight: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+    fi
   fi
 fi
 
