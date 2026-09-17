@@ -151,6 +151,16 @@ done
 if [ "$tmp_reap_age_given" -eq 1 ]; then
   command -v python3 >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: нет python3 для валидации --tmp-reap-age (Н-60)\n' >&2; exit 2; }
+  # Runtime-проверка python3 (вердикт к5): PATH-резолв (`command -v`) НЕ гарантирует
+  # что бинарь реально запускается — отравленный PATH-python3 печатает мусор и
+  # выходит rc 127, и под `set -e` это пробрасывается СЫРЫМ rc 127 вместо
+  # объявленного rc 2 «NOT_IMPLEMENTED». Прецедент к2 (base64): инструмент без
+  # runtime-проверки маскирует отказ под «не найдено/пусто». Здесь — ДО
+  # python3-вызова валидации ниже.
+  if ! python3 -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then
+    printf 'NOT_IMPLEMENTED: python3 найден, но не запускается (Н-60, вердикт к5)\n' >&2
+    exit 2
+  fi
   if ! python3 -c '
 import sys, math
 try:
@@ -325,6 +335,15 @@ reap_total=0
 if [ -d "$ROOT/tmp" ]; then
   command -v python3 >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: нет python3 для TMP-РЕАП (Н-60)\n' >&2; exit 2; }
+  # Runtime-проверка python3 (вердикт к5): голые вызовы ниже (candidate-folding
+  # строки 345+, lstat 410+) сидят под `set -e`, и отравленный PATH-python3
+  # (rc 127) пробрасывается СЫРЫМ вместо объявленного rc 2 «NOT_IMPLEMENTED».
+  # Прецедент к2 (base64): инструмент без runtime-проверки — обход. Проверка
+  # ДО основного пути, не внутри.
+  if ! python3 -c 'import sys; sys.exit(0)' >/dev/null 2>&1; then
+    printf 'NOT_IMPLEMENTED: python3 найден, но не запускается (Н-60, вердикт к5)\n' >&2
+    exit 2
+  fi
 
   # 0. --tmp-reap-age уже провалидирован СРАЗУ при разборе флага (вердикт к4 FAIL 1) —
   #    ДО этой точки и НЕЗАВИСИМО от существования $ROOT/tmp. Повторной валидации здесь
