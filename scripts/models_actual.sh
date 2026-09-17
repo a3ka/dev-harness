@@ -17,7 +17,27 @@
 # Коды возврата: 0 — модель совпала с заявленной, 1 — разошлась, 2 — нечем проверить.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ZONE="$HERE/.zones/dev"
+# Потребитель следует разрешённому корню (контракт 028, инвариант 7):
+# HARNESS_SESSION_HOME (унаследован от сессии) — первый приоритет; иначе —
+# побайтовая формула с тем же `hash8-канон-корня` (внешняя оболочка, та же
+# грамматика, что в workshop: единая формула, единая ручка).
+if [ -n "${HARNESS_SESSION_HOME:-}" ]; then
+  ZONE="$HARNESS_SESSION_HOME"
+else
+  _028_ROOT_TAIL=""
+  _028_ROOT="$HERE"
+  while [ ! -d "$_028_ROOT" ] && [ "$_028_ROOT" != "/" ]; do
+    _028_ROOT_TAIL="/${_028_ROOT##*/}$_028_ROOT_TAIL"
+    _028_ROOT="${_028_ROOT%/*}"
+  done
+  if [ -d "$_028_ROOT" ]; then
+    _028_CANON="$(cd "$_028_ROOT" && pwd -P)$_028_ROOT_TAIL"
+  else
+    _028_CANON="$(cd "$HERE" && pwd -P)"
+  fi
+  _028_HASH8="$(printf '%s' "$_028_CANON" | sha256sum | cut -c1-8)"
+  ZONE="${HARNESS_SCRATCH:-${XDG_STATE_HOME:-$HOME/.local/state}/dev-harness-sessions/$_028_HASH8}/zones/dev"
+fi
 
 ALL=0
 [ "${1:-}" = "--all" ] && ALL=1
