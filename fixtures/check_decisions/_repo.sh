@@ -66,17 +66,28 @@ write_contract() {
 # `$REPO` — это каталог, где лежит барьер и где живут нужные хеши. Без `$REPO`
 # фикстура не знает, где основное `.git`, и `cat-file -e` красит «основание не
 # разрешается» на зелёной основе, перебивая внесённый отказ.
+#
+# `.git` — НЕ ВСЕГДА КАТАЛОГ. В ворктри `$REPO/.git` — файл с `gitdir: <путь>`,
+# и прежняя проверка `[ -d ]` молча пропускала импорт: объекты в подставное
+# дерево не попадали, и зелёный контроль фикстуры видел «основание не
+# разрешается в истории» по ВСЕМ семи записям, не находя зелёного окна.
+# Канонический путь к ОБЩЕЙ `objects/` берётся через `git rev-parse
+# --git-common-dir`: для основного репо это его же `.git`, для ворктри —
+# `.git` основного репо (объекты шарятся между ними). Так зелёный контроль
+# восстанавливается в ОБОИХ случаях без правки самих фикстур.
 import_main_objects() {
   local r="$1"
-  local main_gitdir="${REPO:-}/.git"
-  [ -d "$main_gitdir" ] || return 0
+  local main_common
+  main_common="$(git -C "${REPO:-}" rev-parse --git-common-dir 2>/dev/null)" || return 0
+  case "$main_common" in /*) ;; *) main_common="$PWD/$main_common" ;; esac
+  [ -d "$main_common/objects" ] || return 0
   # `git fetch` не принимает хеш как refspec, и одиночные объекты он не вытягивает.
   # Копируем `objects/` основного репозитория в подставное: `cat-file -e` потом
   # видит хеш через локальный `objects/`. `.git/objects/pack` не копируется
   # отдельно — `objects/` уже включает и pack-файлы основного репо.
   local r_gitdir
   r_gitdir="$(git -C "$r" rev-parse --absolute-git-dir)"
-  cp -rn "$main_gitdir/objects/." "$r_gitdir/objects/"
+  cp -rn "$main_common/objects/." "$r_gitdir/objects/"
 }
 
 make_repo() {
