@@ -699,6 +699,87 @@ def _val(node):
         return node[0]
     return node
 
+
+class _Unresolved(Exception):
+    """Сигнал «переменная рядом с npm run статически не разрешима» — поднимается
+    внутри callback'ов re.sub и ловится вокруг обоих проходов подстановки."""
+
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+
+
+# Индирекция имени npm-скрипта/бинарника (находка адверсария 020 к2): `npm run
+# "$ANTI_SCRIPT"` и `"$NPM_BIN" run check:antiplacebo` — переменная НА МЕСТЕ,
+# где грамматика контракта 020 (§Предмет п.1) требует статичное имя. Токен —
+# `$NAME`, `${NAME}`, в одинарных или без кавычек; `${{ … }}` (GH-выражение,
+# `matrix.keys` в --scope) НЕ совпадает: после `\$\{?` второй символ обязан
+# быть буквой/подчёркиванием, а не ещё одной `{`. Позиция скрипта требует
+# ЛИТЕРАЛЬНОГО `npm run`/`npm run-script` перед токеном; позиция бинарника —
+# токен перед `run`/`run-script`. Одинарные кавычки (`'$FOO'`) не совпадают
+# намеренно: shell их не раскрывает, это не индирекция.
+NPM_BIN_VAR_RE = re.compile(r'("?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?)(\s+run(?:-script)?\b)')
+NPM_SCRIPT_VAR_RE = re.compile(r'(\bnpm\s+run(?:-script)?\s+)("?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?)')
+VAR_TOKEN_RE = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)')
+
+
+def _var_name(tok):
+    tok = tok.strip()
+    if len(tok) >= 2 and tok[0] == '"' and tok[-1] == '"':
+        tok = tok[1:-1]
+    m = VAR_TOKEN_RE.fullmatch(tok)
+    if not m:
+        return None
+    return m.group(1) or m.group(2)
+
+
+def _literal_env_map(node):
+    """`env:` как статическая карта имя→значение. Значение с `${{ … }}` внутри само
+    неразрешимо статически (индирекция через GH-контекст, не через shell) и не
+    включается — резолюции им нет, как если бы объявления не было вовсе."""
+    out = {}
+    if not isinstance(node, dict):
+        return out
+    for k, pair in node.items():
+        v = _val(pair)
+        if isinstance(v, str) and '${{' not in v:
+            out[k] = v
+    return out
+
+
+def _resolve_npm_indirection(script, env_map):
+    """Подставляет ЛИТЕРАЛЬНЫЕ env-объявления (шаг → джоба → workflow, уже
+    смешаны в `env_map` с этим приоритетом на месте вызова) в командную
+    позицию `npm run`/бинарника npm. Разрешённая переменная становится частью
+    текста и дальше проверяется как всегда; неразрешённая — сигнал (script,
+    имя) без изменений: та же переменная, что и подана, чтобы вызывающий
+    код мог назвать её в отказе."""
+
+    def sub_bin(m):
+        tok, suffix = m.group(1), m.group(2)
+        name = _var_name(tok)
+        if name is None:
+            return m.group(0)
+        if name not in env_map:
+            raise _Unresolved(name)
+        return env_map[name] + suffix
+
+    def sub_script(m):
+        prefix, tok = m.group(1), m.group(2)
+        name = _var_name(tok)
+        if name is None:
+            return m.group(0)
+        if name not in env_map:
+            raise _Unresolved(name)
+        return prefix + env_map[name]
+
+    try:
+        out = NPM_BIN_VAR_RE.sub(sub_bin, script)
+        out = NPM_SCRIPT_VAR_RE.sub(sub_script, out)
+    except _Unresolved as e:
+        return script, e.name
+    return out, None
+
 matrix_entries = []   # (path, lineno, jobname, shard, keys_str)
 anti_cmds = []        # (path, lineno, jobname, cmd, has_scope_keys(0/1), in_matrix(0/1))
 for path in all_files:
@@ -753,9 +834,27 @@ for path in all_files:
         # его не видела. Здесь обе формы сначала нормализуются к каноническому `npm run`,
         # и инвариант 4 (только шардный шаг с `--scope`) применяется одинаково — взаимная
         # исключительность обеих форм запуска: либо все запуски анти-плацебо — шардные
-        # (через любой из псевдонимов), либо это красное. Иные префиксы (`npx npm run …`,
-        # переменная окружения, путь через `PATH`) здесь не распознаются намеренно: они
-        # подменяют исполнителя и совпадение по подстроке было бы ложной мерой.
+        # (через любой из псевдонимов), либо это красное.
+        #
+        # ИНДИРЕКЦИЯ ИМЕНИ/БИНАРНИКА (находка адверсария 020 к2): `npm run "$ANTI_SCRIPT"`
+        # с `env: {ANTI_SCRIPT: check:antiplacebo}` и `"$NPM_BIN" run check:antiplacebo` с
+        # `env: {NPM_BIN: npm}` исполняли скрытый запуск, а прежняя редакция видела только
+        # ЛИТЕРАЛ `npm run check:antiplacebo` — переменная в командной позиции проходила
+        # мимо совпадения по подстроке. Задача неразрешима в общем виде (значение
+        # произвольной shell-переменной вычислить нельзя), поэтому решение —
+        # fail-closed по тому же принципу, что уже действует для heredoc/xargs/eval
+        # (см. `form_outside_subset`): единственный легальный способ узнать значение —
+        # ЛИТЕРАЛЬНОЕ (не `${{ … }}`) объявление `env:` на этом шаге, его джобе или
+        # workflow (`_resolve_npm_indirection`, приоритет шаг → джоба → workflow —
+        # тот же порядок, каким его разрешил бы сам shell). Разрешённая переменная
+        # подставляется и проверяется как обычный литерал теми же правилами ниже.
+        # НЕРАЗРЕШЁННАЯ переменная — красное с её именем, БЕЗУСЛОВНО: `команда:`
+        # исключение в `config/ci_parity_exceptions.txt` его не покрывает (это
+        # инструмент правила 6, а не инварианта 4) — тестовое дерево к2 несло ровно
+        # такое исключение, и барьер обязан был увидеть запуск независимо от него.
+        # Прочие префиксы (`env npm run …`, `/usr/bin/env npm run …`, `npm exec -- npm
+        # run …`) уже ловятся простым совпадением по подстроке (см. вердикт к2) —
+        # префикс перед литеральным `npm run check:antiplacebo` совпадению не мешает.
         steps_val = _val(jobval.get('steps'))
         if isinstance(steps_val, list):
             for step_t in steps_val:
@@ -768,10 +867,24 @@ for path in all_files:
                 if not isinstance(rv, str) or not rv.strip():
                     continue
                 norm_script = ' '.join(rv.split())
+                env_map = {}
+                env_map.update(_literal_env_map(_val(doc.get('env', ({}, 0)))))
+                env_map.update(_literal_env_map(_val(jobval.get('env', ({}, 0)))))
+                env_map.update(_literal_env_map(_val(step.get('env', ({}, 0)))))
+                resolved_script, unresolved_var = _resolve_npm_indirection(norm_script, env_map)
+                if unresolved_var:
+                    fails.append(
+                        f'{path}:{rl}: шаг несёт нерасширенную индирекцию рядом с npm run '
+                        f'(переменная {unresolved_var}) — исключительность запуска '
+                        f'check:antiplacebo непроверяема; используйте статическое имя либо '
+                        f'статически объявленный env (без ${{{{ … }}}}) на этом шаге, джобе '
+                        f'или workflow'
+                    )
+                    continue
                 # Нормализация псевдонима npm: `run-script` → `run` на границе слова.
                 # После неё проверка строки одна для обеих форм — взаимная исключительность
                 # запусков достигается тем, что инвариант 4 не различает псевдонимы.
-                norm_for_anti = re.sub(r'\bnpm\s+run-script\b', 'npm run', norm_script)
+                norm_for_anti = re.sub(r'\bnpm\s+run-script\b', 'npm run', resolved_script)
                 if 'npm run check:antiplacebo' not in norm_for_anti:
                     continue
                 has_scope_keys = 1 if ('--scope ${{ matrix.keys }}' in norm_for_anti) else 0
