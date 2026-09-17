@@ -96,21 +96,40 @@ fi
 # была блокером F1 ревьюера 027: конформный JSON с ключом/значением на разных
 # строках проходил ready rc=0 без doc-preflight и замораживался с пустыми
 # required.sections (обязательство контракта 027 §Freeze/charter: «doc-ветвь
-# ready распознаёт тип через общий модуль»). Если контракт — documentation,
-# ОБЯЗАН пройти doc-preflight (схема + калибровка); иначе RC≠0 с ИМЕНОВАННОЙ
-# причиной ДО выхода. rc=2 (NOT_IMPLEMENTED: нет evidence/JSON) трактуется как
-# «нечем проверить» и НЕ считается зелёным — fail-closed.
-if (cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$CONTRACT") >/dev/null 2>&1; then
-  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract contract.md --preflight 2>&1)"
-  doc_rc=$?
-  if [ "$doc_rc" = "0" ]; then
-    :
-  elif [ "$doc_rc" = "2" ]; then
-    fail "doc-preflight" "нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
-  else
-    fail "doc-preflight" "$(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
-  fi
-fi
+# ready распознаёт тип через общий модуль»).
+#
+# RC CLI `--type`: 0 — валидный doc-контракт; 1 — НЕ doc-контракт (раздела
+# «## Док-приёмка» нет); 2 — МАЛЬФОРМНЫЙ doc-контракт (раздел есть, но
+# parseSpecFromMarkdown отверг: много разделов/блоков, чужой маркер, битый JSON);
+# 3 — usage/файл не прочтён. Ветвящий код:
+#   rc=0 → прогнать doc-preflight (check_document.ts --preflight), rc≠0 из него — fail;
+#   rc=1 → контракт НЕ doc-ветки, doc-preflight неприменим, пропустить (как и до фикса);
+#   rc=2 → мальформный doc-контракт: rc=1 с именованной причиной ДО выхода
+#           (блокер F5 ревьюера 027 к2 — ранее этот случай молча проходил как
+#           «не doc-контракт», и freeze фиксировал двусмысленный контракт);
+#   rc=3 → usage/IO, fail с системным сообщением.
+#
+# rc=2 (NOT_IMPLEMENTED: нет evidence/JSON) трактуется как «нечем проверить» и
+# НЕ считается зелёным — fail-closed.
+_doc_type_out="$(cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$CONTRACT" 2>&1)"
+_doc_type_rc=$?
+case "$_doc_type_rc" in
+  0)
+    doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract contract.md --preflight 2>&1)"
+    doc_rc=$?
+    if [ "$doc_rc" = "0" ]; then
+      :
+    elif [ "$doc_rc" = "2" ]; then
+      fail "doc-preflight" "нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+    else
+      fail "doc-preflight" "$(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+    fi
+    ;;
+  1) : ;;
+  2) fail "doc-preflight" "мальформный doc-контракт: $(printf '%s' "$_doc_type_out" | tr '\n' ' ' | tail -c 240)" ;;
+  3) fail "doc-preflight" "тип doc-контракта не определяется: $(printf '%s' "$_doc_type_out" | tr '\n' ' ' | tail -c 240)" ;;
+  *) fail "doc-preflight" "тип doc-контракта: неизвестный rc=$_doc_type_rc: $(printf '%s' "$_doc_type_out" | tr '\n' ' ' | tail -c 240)" ;;
+esac
 
 # Все 5 проверок зелёные.
 printf 'OK\n'

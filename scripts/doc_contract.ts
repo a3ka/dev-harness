@@ -79,38 +79,56 @@ export function deepEqual(a: unknown, b: unknown): boolean {
 }
 
 // ── Разбор JSON-блока из `## Док-приёмка` ────────────────────────────────────
+// Грамматика doc-контракта (контракт 027 §Грамматика): «ровно один раздел
+// `## Док-приёмка` и ровно один fenced `json`-блок внутри него». Любая иная
+// кратность — неоднозначный блок и именованный отказ rc=1 (там же, перечень
+// отказов). Счётчик проходит ВЕСЬ markdown (разделы) и ВЕСЬ первый раздел до
+// следующего заголовка уровня 1–2 (fenced-блоки) — ранее второй раздел/блок
+// молча терялся, и freeze проходил над двумя взаимно противоречивыми
+// нормативными блоками (блокер F5 ревьюера 027 к2).
 export function parseSpecFromMarkdown(md: string): unknown {
   const lines = md.split(/\r?\n/)
-  let inSection = false
+  let sectionStart = -1
+  let sectionCount = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s+Док-приёмка\s*$/.test(lines[i])) {
+      if (sectionStart < 0) sectionStart = i
+      sectionCount++
+    }
+  }
+  if (sectionCount === 0) throw new Error('нет раздела «## Док-приёмка»')
+  if (sectionCount > 1) {
+    throw new Error(
+      `неоднозначный блок: разделов «## Док-приёмка» = ${sectionCount} (требуется ровно 1)`
+    )
+  }
   let fenceStart = -1
   let fenceEnd = -1
   let fenceMarker = ''
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (!inSection) {
-      if (/^##\s+Док-приёмка\s*$/.test(line)) {
-        inSection = true
-        for (let j = i + 1; j < lines.length; j++) {
-          if (/^#{1,2}\s/.test(lines[j])) break
-          const m = lines[j].match(/^```(\w+)\s*$/)
-          if (m) {
-            fenceMarker = m[1]
-            fenceStart = j
-            for (let k = j + 1; k < lines.length; k++) {
-              if (/^```\s*$/.test(lines[k])) {
-                fenceEnd = k
-                break
-              }
-            }
+  let fenceCount = 0
+  for (let j = sectionStart + 1; j < lines.length; j++) {
+    if (/^#{1,2}\s/.test(lines[j])) break
+    const m = lines[j].match(/^```(\w+)\s*$/)
+    if (m) {
+      fenceCount++
+      if (fenceCount === 1) {
+        fenceMarker = m[1]
+        fenceStart = j
+        for (let k = j + 1; k < lines.length; k++) {
+          if (/^```\s*$/.test(lines[k])) {
+            fenceEnd = k
             break
           }
         }
-        break
       }
     }
   }
-  if (!inSection) throw new Error('нет раздела «## Док-приёмка»')
-  if (fenceStart < 0 || fenceEnd < 0) throw new Error('в разделе «## Док-приёмка» нет fenced json-блока')
+  if (fenceCount === 0) throw new Error('в разделе «## Док-приёмка» нет fenced json-блока')
+  if (fenceCount > 1) {
+    throw new Error(
+      `неоднозначный блок: fenced-блоков в разделе «## Док-приёмка» = ${fenceCount} (требуется ровно 1)`
+    )
+  }
   if (fenceMarker !== 'json') throw new Error(`fenced-блок не помечен как json: ${fenceMarker}`)
   const text = lines.slice(fenceStart + 1, fenceEnd).join('\n')
   try {
@@ -785,22 +803,40 @@ export function validatePackageAgainstSpec(spec: unknown, pkg: unknown): string 
 // rc=0 без doc-preflight). Единый разбор грамматики (parseSpecFromMarkdown)
 // корректен для любого JSON-формата внутри fenced-блока — не зависит от того,
 // на одной строке ключ/значение или на разных.
-// Коды возврата: 0 — spec.type === 'documentation' (парсинг ОК); 1 — не
-// doc-контракт (нет раздела, битый JSON, type≠documentation); 2 — usage /
-// файл не прочтён.
+//
+// Коды возврата:
+//   0 — spec.type === 'documentation' (парсинг ОК и раздел/блок единственные);
+//   1 — НЕ doc-контракт: раздела «## Док-приёмка» нет вообще;
+//   2 — МАЛЬФОРМНЫЙ doc-контракт: раздел «## Док-приёмка» есть, но parseSpecFromMarkdown
+//       отверг по грамматике (много разделов/блоков, чужой маркер fenced, битый JSON,
+//       пустые required.sections на стадии validateSpecSchema — последнее идёт через
+//       check_document.ts --preflight, но сюда попадает только если секция/блок
+//       формально корректны и type==='documentation', а rc=2 здесь тогда не
+//       сработает — это нормально, потому что validateSpecSchema ловит дальше);
+//   3 — usage / файл не прочтён.
+//
+// Различение (1) vs (2) даёт воротам правильный ветвящий код: (1) — пропустить
+// doc-preflight как неприменимый, (2) — отказать rc=1 с именованной причиной.
+// До этого правки parseSpecFromMarkdown ошибку «неоднозначный блок» забирал
+// rc=1, ворота трактовали её как «не doc-контракт», freeze проходил над двумя
+// противоречивыми блоками (блокер F5 ревьюера 027 к2).
 export function detectDocTypeFromFile(file: string): number {
   let md: string
   try {
     md = readFileSync(file, 'utf8')
   } catch (e) {
     process.stderr.write(`node doc_contract.ts --type: не прочесть ${file}: ${(e as Error).message}\n`)
-    return 2
+    return 3
   }
+  // «## Док-приёмка» есть? Если нет — это (1), не doc-контракт; иначе любая
+  // ошибка parseSpecFromMarkdown — это (2), мальформный doc-контракт.
+  const hasSection = /^##\s+Док-приёмка\s*$/m.test(md)
   let spec: unknown
   try {
     spec = parseSpecFromMarkdown(md)
-  } catch {
-    return 1
+  } catch (e) {
+    process.stderr.write(`node doc_contract.ts --type: ${(e as Error).message}\n`)
+    return hasSection ? 2 : 1
   }
   if (spec == null || typeof spec !== 'object' || Array.isArray(spec)) return 1
   const s = spec as Record<string, unknown>
@@ -816,12 +852,12 @@ if (_argv1.endsWith('/doc_contract.ts') || _argv1.endsWith('\\doc_contract.ts'))
   const _argv = process.argv.slice(2)
   if (_argv.length === 0 || _argv[0] !== '--type') {
     process.stderr.write('Usage: node scripts/doc_contract.ts --type <contract.md>\n')
-    process.exit(2)
+    process.exit(3)
   }
   const _file = _argv[1]
   if (!_file) {
     process.stderr.write('node doc_contract.ts --type: не указан файл\n')
-    process.exit(2)
+    process.exit(3)
   }
   process.exit(detectDocTypeFromFile(_file))
 }
