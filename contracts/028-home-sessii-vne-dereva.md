@@ -133,9 +133,11 @@ A/B/C: `omp config path` следует за HOME). Это обобщение ca
 ## Зоны
 
 ЗОНА architect: contracts/028-home-sessii-vne-dereva.md fixtures/check_judge_gate/ NABLIUDENIA_ARCHITECT.md
+СПАСЕНО architect: dad01175e995584c6528baab1eb38ae3012ef2e9 8662a6617d955f70e8868d2f1522227f47729274 — легальная посадка/перенос проб лаунчера по ЗОНЕ v1 (fixtures/workshop/ была зоной architect до v2-респека); v2 снял путь — ретро-де-зонирование класса 75f5ffe, коммиты легальны в своё время; РАЗРЕШИЛ-ВЛАДЕЛЕЦ v3 (слово владельца 2026-09-17).
 ЗОНА implementer: workshop scripts/models_actual.sh config/ci_parity_exceptions.txt fixtures/models_actual/ .gitignore
 ЗОНА orchestrator: AGENTS.md roles/orchestrator.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
+ЗОНА arbiter: verdicts/arbitration/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
 
