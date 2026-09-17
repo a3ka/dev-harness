@@ -49,7 +49,7 @@ jobs:
           - shard: ap3
             keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
           - shard: ap4
-            keys: verify_antiplacebo check_protected check_hooks check_charter drill_gate_draft check_document gen-harness drill_protected_exception
+            keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception
           - shard: ap5
             keys: check_metering verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual
     steps:

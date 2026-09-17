@@ -952,6 +952,34 @@ while IFS= read -r c; do
 done < <(printf '%s\n' "${!EXC_CMD[@]}" | sort)
 
 # ── 4b. контракт 020 — инварианты шардирования ────────────────────────────
+# Ключи вне шардного разбиения (ИМЕНОВАННЫЙ СПИСОК). Каждый такой ключ имеет
+# каталог фикстур, НЕ должен быть в `keys:` ни одного шарда (включение туда
+# ломает ап-шаг целиком: `npm run check:antiplacebo -- --scope … <key> …` →
+# rc=1 «неизвестный ключ»), и прогонается раннером только в full-режиме.
+# Молчаливый пропуск здесь был бы тем гейтом, что зеленее CI: сумма-инвариант
+# не имел бы права их покрывать И одновременно не имел бы права требовать их
+# покрытия — выбор между двумя провалами. Решение: ИМЕНОВАТЬ каждый такой
+# ключ, и пропуск в проверке полноты от его имени — не молча.
+#
+# Сейчас два таких ключа с разными причинами:
+#   `verify_antiplacebo` — сам раннер анти-плацебо. Шапка `scripts/verify_antiplacebo.sh`
+#     одновременно содержит «Коды возврата:» и «НЕ БАРЬЕР:» (последний как
+#     пример грамматики в документации), `header_role` селектора даёт `bp`,
+#     `is_barrier` отказывает на матче роли.
+#   `gen-harness` — `scripts/gen-harness.ts` (TypeScript, не `.sh`). Сам
+#     барьер по шапке (`Коды возврата: 0 — …, 1 — …, 2 — …`), фикстуры
+#     `fixtures/gen-harness/case_*.sh` есть. `scope_select.sh --scope
+#     gen-harness` пытается открыть `scripts/gen-harness.sh` (hardcoded в
+#     `is_barrier`, контракт 006 зона architect — фрозенный), awk падает,
+#     ключ отвергается кодом 1 «неизвестный ключ». Включение его в `keys:`
+#     любого шарда ломает ап-шаг; full-прогон подхватывает `.ts`-барьер в
+#     общем цикле по `scripts/`.
+UNSCOPABLE_KEYS=(verify_antiplacebo gen-harness)
+declare -A IS_UNSCOPABLE=()
+for k in "${UNSCOPABLE_KEYS[@]}"; do
+  IS_UNSCOPABLE["$k"]=1
+done
+
 FIXTURES="$ROOT/fixtures"
 fixture_keys=()
 if [ -d "$FIXTURES" ]; then
@@ -979,13 +1007,24 @@ while IFS=$'\t' read -r path ln jobname shard key; do
 done < "$MATRIX_TSV"
 
 # 4b.1. Полнота в обе стороны — ИНВАРИАНТ 3.
+# Сам-барьеры исключены по ИМЕНИ из обеих сторон: они не должны быть в шарде,
+# и их отсутствие в шарде не считается выпадением. Настоящие ключи
+# (НЕ в SELF_BARRIER_KEYS) проверяются как прежде.
 if [ "${#fixture_keys[@]}" -gt 0 ]; then
   if [ "${#SHARD_KEYS[@]}" -eq 0 ]; then
-    sample="${fixture_keys[0]}"
-    bad "шардный запуск анти-плацебо не объявлен: fixtures/$sample есть, а matrix-джобы в .github/** нет"
+    sample=""
+    for k in "${fixture_keys[@]}"; do
+      if [ -z "${IS_UNSCOPABLE[$k]:-}" ]; then
+        sample="$k"; break
+      fi
+    done
+    if [ -n "$sample" ]; then
+      bad "шардный запуск анти-плацебо не объявлен: fixtures/$sample есть, а matrix-джобы в .github/** нет"
+    fi
   else
     covered_set="$(printf '%s\n' "${!KEY_SHARDS[@]}" | sort -u)"
     for k in "${fixture_keys[@]}"; do
+      [ -n "${IS_UNSCOPABLE[$k]:-}" ] && continue
       if ! printf '%s\n' "$covered_set" | grep -qxF "$k"; then
         bad "$k не покрыт шардингом — ключ не назван ни одним шардом"
       fi
