@@ -132,7 +132,7 @@ A/B/C: `omp config path` следует за HOME). Это обобщение ca
 
 ## Зоны
 
-ЗОНА architect: contracts/028-home-sessii-vne-dereva.md fixtures/workshop/ fixtures/check_judge_gate/ NABLIUDENIA_ARCHITECT.md
+ЗОНА architect: contracts/028-home-sessii-vne-dereva.md fixtures/check_judge_gate/ NABLIUDENIA_ARCHITECT.md
 ЗОНА implementer: workshop scripts/models_actual.sh config/ci_parity_exceptions.txt fixtures/models_actual/ .gitignore
 ЗОНА orchestrator: AGENTS.md roles/orchestrator.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
@@ -143,7 +143,7 @@ A/B/C: `omp config path` следует за HOME). Это обобщение ca
 staged-копией в `${TMPDIR}/dev-harness-verify/028-architect/`, садятся
 land_probes.sh по тегу `frozen/contracts/028/1` (прецедент 020). Семья
 `fixtures/check_judge_gate/` — дом красных/канареек детектора по замороженному
-тексту 024 (`check_no_leak.sh:3-7`); `fixtures/workshop/` — новая семья лаунчера.
+тексту 024 (`check_no_leak.sh:3-7`); пробы лаунчера (028) живут в этом же доме.
 
 ## Приёмочный критерий
 
@@ -157,14 +157,14 @@ land_probes.sh по тегу `frozen/contracts/028/1` (прецедент 020). 
 подстановки за предмет); Н-39 — из критерия убраны утверждения о том, какой
 стаб на каком входе красен, остались инварианты + rc-команды.
 
-1. `bash fixtures/workshop/red_scratch_vnutri_dereva.sh` — rc 1 → 0.
+1. `bash fixtures/check_judge_gate/red_scratch_vnutri_dereva.sh` — rc 1 → 0.
    Ветка: блок ZONE workshop (:45) / отказ. Вход: явный `HARNESS_SCRATCH`,
    указывающий внутрь клона. Честная реализация: именованный отказ (пин
    подстроки «внутри стерегомого дерева»), rc≠0 — КОД отказа проверяется
    предъявлением (блокер 2 вердикта v1: напечатанный отказ с кодом успеха
    неотличим для вызывающей автоматики от согласия), каталог скратча НЕ
    создан, НИ ОДНОГО нового пути во всём дереве, omp НЕ запущен.
-2. `bash fixtures/workshop/red_zony_net_v_dereve.sh` — rc 1 → 0.
+2. `bash fixtures/check_judge_gate/red_zony_net_v_dereve.sh` — rc 1 → 0.
    Ветви: :437/:502 `export HOME` + :465/:546 `exec` + экспорт
    `HARNESS_SESSION_HOME` (инвариант 1). Вход: внешний `HARNESS_SCRATCH` +
    запуск workshop в одноразовом клоне (omp — PATH-подставной, объявлен в
@@ -184,7 +184,7 @@ land_probes.sh по тегу `frozen/contracts/028/1` (прецедент 020). 
    `$HOME` — без передачи и без ручек-источников — уходит в другой корень
    (rc 2 «трейсов в зоне нет»). Живой end-to-end (настоящая сессия omp на
    живом дереве) — канарейка 5.
-3. `bash fixtures/workshop/red_xdg_vnutri_dereva.sh` — rc 1 → 0 (блокер 1
+3. `bash fixtures/check_judge_gate/red_xdg_vnutri_dereva.sh` — rc 1 → 0 (блокер 1
    вердикта v1). Ветка: блок ZONE / каноническая проверка результата.
    ДВА входа одного класса: (а) `env -u HARNESS_SCRATCH XDG_STATE_HOME=<корень>/…`
    — дефолт-канал уводит HOME внутрь дерева под другим именем
@@ -206,7 +206,7 @@ land_probes.sh по тегу `frozen/contracts/028/1` (прецедент 020). 
    (именной carve-out composer) опровергнут МЕРОЙ, не прогоном: NOT-COVERED-набор
    (`composer/status.json`, `welcome.json`, `.npm/_logs/*.log`, `agent.db`,
    `autoqa.db`) шире паттерна — каждый апдейт omp переоткрывает класс.
-6. `bash fixtures/workshop/red_migratsija_sohrannost.sh` — rc 1 → 0 (блокер 3
+6. `bash fixtures/check_judge_gate/red_migratsija_sohrannost.sh` — rc 1 → 0 (блокер 3
    вердикта v1). Ветка: церемония миграции + первый запуск. Игрушка: одноразовый
    клон со старой раскладкой `<клон>/.zones/dev/.omp/…` (agent.db, трейсы
    сессии с известным id, composer status.json) → ДО-манифест sha256 →
@@ -222,12 +222,12 @@ land_probes.sh по тегу `frozen/contracts/028/1` (прецедент 020). 
 
 Прогоны (точные команды; сейчас → после):
 
-    bash fixtures/workshop/red_scratch_vnutri_dereva.sh            # rc 1 → 0
-    bash fixtures/workshop/red_zony_net_v_dereve.sh                # rc 1 → 0
-    bash fixtures/workshop/red_xdg_vnutri_dereva.sh                # rc 1 → 0
+    bash fixtures/check_judge_gate/red_scratch_vnutri_dereva.sh    # rc 1 → 0
+    bash fixtures/check_judge_gate/red_zony_net_v_dereve.sh        # rc 1 → 0
+    bash fixtures/check_judge_gate/red_xdg_vnutri_dereva.sh        # rc 1 → 0
     bash fixtures/check_judge_gate/red_regress_028_zony_evil.sh    # rc 0 → 0 (регресс-пара)
     bash fixtures/check_judge_gate/canary_solo_028.sh <абс-корень> # rc 1 → 0 (живое дерево)
-    bash fixtures/workshop/red_migratsija_sohrannost.sh            # rc 1 → 0
+    bash fixtures/check_judge_gate/red_migratsija_sohrannost.sh    # rc 1 → 0
 
 ## Порядок миграции (церемония владельца, mv — не удаление)
 
