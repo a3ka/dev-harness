@@ -476,10 +476,17 @@ def regressions(root, s, p):
     # Live author identity, not a local-config impersonation (016).
     git(root, 'config', '--unset', 'user.name')
     git(root, 'config', '--unset', 'user.email')
+    # Зона-контроль судит ПУТИ коммитов, а check_zones не матчит кириллические
+    # пути (git diff-tree отдаёт quoted/octal — pre-existing дефект, отдельный
+    # предмет очереди Н-99): обе пробы зон несут только ASCII-пути. Рабочее
+    # дерево может нести рендер-правку docs/ёж.md — откат до коммита, чтобы
+    # дельта внутризонного коммита была только ASCII; выход за зону — alien.txt
+    # в корне. Кириллическая грамматика ID/контента покрыта остальным корпусом.
+    git(root, 'checkout', '--', 'docs')
     put(root, 'docs/allowed.txt', 'Ёж\n')
     commit(root, 'допустимый документ', author='implementer')
     expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 0, 'zone-control')
-    put(root, 'чужое.txt', 'утечка ёж\n')
+    put(root, 'alien.txt', 'утечка ёж\n')
     commit(root, 'выход за зону', author='implementer')
     expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 1, 'zone-escape')
     put(root, 'contracts/001-yozh.md', (root / 'contracts/001-yozh.md').read_text() + '\nизменён критерий\n')

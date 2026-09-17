@@ -11,8 +11,13 @@
 #   - `- `<команда в бэктиках>`` — проба: реальный ИСПОЛНЯЕМЫЙ файл, выходит ≠0 на текущем дереве;
 #   - `счёт: N фикстур в <каталог>/` — если объявлено, фактический счёт `case_*.sh` в <каталог>/ == N;
 #   - `арбитраж: <отн-путь>.md` — если объявлено, файл существует И строка 1 == «РЕШЕНИЕ»;
+#   - ДОПОЛНИТЕЛЬНО для doc-контракта (`## Док-приёмка` с `type: documentation`):
+#     doc-preflight через `<harness>/scripts/check_document.ts --root <root> --contract
+#     contract.md --preflight` (контракт 027 §Doc-ветви ready). ТИП определяется единым
+#     разбором в doc_contract.ts; НЕ кодовой эвристикой по отсутствию документа.
 #   коды: 0 зелёный (печатает «OK» последней строкой); иначе 1 + первая ИМЕНОВАННАЯ причина.
 
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${1:?использование: $0 <корень-дерева>}"
 CONTRACT="$ROOT/contract.md"
 
@@ -83,6 +88,25 @@ if grep -qE '^арбитраж: ' "$CONTRACT"; then
   [ "$first" = "РЕШЕНИЕ" ] \
     || fail "арбитраж" "первая строка $full: '$first' ≠ 'РЕШЕНИЕ'"
 fi
-# Все 4 проверки зелёные.
+
+# ── 5. Doc-preflight (контракт 027) ──────────────────────────────────────────────
+# ТИП определяется разбором `## Док-приёмка` + `type: documentation` в contract.md —
+# НЕ по отсутствию готового Markdown (эвристика, отвергнутая в 027 §Freeze). Если
+# контракт — documentation, ОБЯЗАН пройти doc-preflight (схема + калибровка); иначе
+# RC≠0 с ИМЕНОВАННОЙ причиной ДО выхода. rc=2 (NOT_IMPLEMENTED: нет evidence/JSON)
+# трактуется как «нечем проверить» и НЕ считается зелёным — fail-closed.
+if grep -qE '^## Док-приёмка' "$CONTRACT" && grep -qE '"type":[[:space:]]*"documentation"' "$CONTRACT"; then
+  doc_out="$(cd "$ROOT" && node "$SELF_DIR/check_document.ts" --root "$ROOT" --contract contract.md --preflight 2>&1)"
+  doc_rc=$?
+  if [ "$doc_rc" = "0" ]; then
+    :
+  elif [ "$doc_rc" = "2" ]; then
+    fail "doc-preflight" "нечем проверить: $(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+  else
+    fail "doc-preflight" "$(printf '%s' "$doc_out" | tr '\n' ' ' | tail -c 240)"
+  fi
+fi
+
+# Все 5 проверок зелёные.
 printf 'OK\n'
 exit 0

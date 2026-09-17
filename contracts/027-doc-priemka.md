@@ -224,6 +224,7 @@ Reviewer сверяет product/architecture-результат с конкре�
 ЗОНА architect: contracts/027-doc-priemka.md fixtures/check_check_contract_ready/ fixtures/freeze_contract/ fixtures/check_document/ NABLIUDENIA_ARCHITECT.md
 ЗОНА implementer: scripts/doc_contract.ts scripts/check_document.ts scripts/render_document.ts scripts/check_document.sh scripts/render_document.sh scripts/check_contract_ready.sh scripts/check_check_contract_ready.sh scripts/freeze_contract.sh package.json .github/workflows/ci.yml (v2: обёртки .sh — барьеры приёмки для scope_select, .sh-only по построению; несут шапку с Кодами возврата + rc, делегируют вычисление в node; .ts остаются библиотекой; расширяет покрытие приёмки, не ослабляет)
 ЗОНА orchestrator: AGENTS.md roles/orchestrator.md HANDOFF.md NABLIUDENIA.md
+СПАСЕНО orchestrator: 75f5ffeda43e90983335790c16de0c6690856e23 — административный zone-респект: v2-зона-экспансия 027 совершена orchestrator-каналом (решение владельца 2026-09-16, критик accept ad045dd); класс легализован прозой 026 v3:72 (orchestrator-канал по прецеденту owner-channel d28c688), грамматика ЗОНА класс прозой не выражает — вывод из суда по грамматике 003-v3 (Н-100, остаток union-фикса)
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
