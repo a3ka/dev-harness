@@ -25,7 +25,7 @@ cat > "$G/contracts/001-yozh.md" <<'EOF'
   "assertions": [{"id": "Факт-Ёж", "status": "as-is", "kind": "observation", "evidence": "Основание-ёж",
                   "check": {"type": "json-pointer", "source": "Источник-ёж", "pointer": "/число", "expected": 7}}],
   "sources": [{"id": "Источник-ёж", "kind": "git", "path": "данные/ёлка.json",
-               "commit": "deadbeef", "blob": "deadbeef", "freshness": "historical"}],
+               "commit": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "blob": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "freshness": "historical"}],
   "questions": [],
   "calibration": {"positive": "fixtures/p.json", "negative": [{"evidence": "fixtures/n.json", "violation": "coverage"}]}
 }
