@@ -270,8 +270,7 @@ _doc_type_rc=1
 _doc_type_out=""
 if [ -n "${_doc_type_tmp:-}" ]; then
   printf '%s' "$target_content" > "$_doc_type_tmp"
-  _doc_type_out="$(cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$_doc_type_tmp" 2>&1)"
-  _doc_type_rc=$?
+  _doc_type_out="$(cd "$ROOT" && node "$SELF_DIR/doc_contract.ts" --type "$_doc_type_tmp" 2>&1)" || _doc_type_rc=$?
   _doc_type_rc="${_doc_type_rc:-0}"
   rm -f "$_doc_type_tmp"
   case "$_doc_type_rc" in
