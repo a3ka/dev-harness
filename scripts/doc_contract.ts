@@ -10,7 +10,8 @@
  * только переданные данные и пригодны для тестов напрямую.
  */
 import { spawnSync } from 'node:child_process'
-import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { constants as fsConstants } from 'node:fs'
+import { copyFile, mkdir, mkdtemp, open, realpath, rm, writeFile } from 'node:fs/promises'
 import { readdir } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { dirname, isAbsolute, join, relative, sep } from 'node:path'
@@ -24,11 +25,23 @@ export function isValidId(id: unknown): id is string {
   return typeof id === 'string' && ID_RE.test(id)
 }
 
+// ── Git OID-грамматика ────────────────────────────────────────────────────────
+// Контракт 027 §Источники: «полный OID» — ровно 40 (sha1) или 64 (sha256) hex-
+// символов; исключает short-SHA и произвольные строки, которые `git rev-parse`
+// тоже готов резолвить.
+const GIT_OID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
+
 // ── JSON-pointer (RFC 6901, минимальный) ─────────────────────────────────────
 export function applyJsonPointer(root: unknown, pointer: string): unknown {
   if (pointer === '') return root
   if (!pointer.startsWith('/')) throw new Error(`json-pointer не начинается с '/': ${pointer}`)
-  const parts = pointer.split('/').slice(1).map((p) => p.replace(/~1/g, '/').replace(/~0/g, '~'))
+  const parts = pointer.split('/').slice(1).map((p) => {
+    // RFC6901: единственные допустимые escape — '~0'→'~' и '~1'→'/'; любой
+    // иной '~' (включая нетранслируемое «~~») — невалидный токен, не молчаливый
+    // проход мимо неизвестной пары.
+    if (/~(?![01])/.test(p)) throw new Error(`json-pointer невалидный '~'-escape в токене: ${pointer}`)
+    return p.replace(/~1/g, '/').replace(/~0/g, '~')
+  })
   let cur: unknown = root
   for (const p of parts) {
     if (cur == null || typeof cur !== 'object') throw new Error(`путь на null: ${pointer}`)
@@ -122,8 +135,15 @@ export function validatePath(p: unknown): string | null {
 
 // ── Безопасное разрешение локального пути: канонизация + отказ при побеге ───
 // из корня через симлинк (контракт 027 §Грамматика: «без... выхода через симлинк»).
+// TOCTOU: раньше realpath() (канонизация) и последующий readFile(path) были
+// РАЗНЫМИ операциями резолвинга пути — окно между ними позволяет подменить
+// финальный компонент на симлинк (LD_PRELOAD-гонка на open()). Фикс: путь
+// резолвится ОДИН раз (realpath), fd открывается СРАЗУ следом с O_NOFOLLOW —
+// если атакующий успел подменить файл на симлинк именно в этот момент, open
+// с O_NOFOLLOW откажет (ELOOP), а не молча последует за симлинком; байты
+// читаются из уже открытого fd, путь строкой повторно не резолвится.
 export type SafePathResult =
-  | { ok: true; path: string }
+  | { ok: true; path: string; bytes: Buffer }
   | { ok: false; escaped: boolean; message: string }
 
 export async function resolveSafePath(root: string, relPath: string): Promise<SafePathResult> {
@@ -146,23 +166,49 @@ export async function resolveSafePath(root: string, relPath: string): Promise<Sa
   if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
     return { ok: false, escaped: true, message: `путь выходит за пределы корня через симлинк: ${relPath}` }
   }
-  return { ok: true, path: targetReal }
+  const flags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0)
+  let fh
+  try {
+    fh = await open(targetReal, flags)
+  } catch (e) {
+    return { ok: false, escaped: false, message: `путь не читается: ${relPath}: ${(e as Error).message}` }
+  }
+  try {
+    const bytes = await fh.readFile()
+    return { ok: true, path: targetReal, bytes }
+  } finally {
+    await fh.close()
+  }
 }
 
-// ── Валидация argv probe: без shell-интерпретатора и без shell-метасимволов ──
-const SHELL_BASENAMES = new Set([
-  'sh', 'bash', 'dash', 'ksh', 'zsh', 'csh', 'tcsh', 'ash', 'mksh', 'busybox',
-  'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'pwsh.exe',
-])
-const SHELL_META_RE = /[;&|`$(){}<>\n]/
+// ── Валидация argv probe: allowlist исполняемого файла + запрет code-eval ────
+// Инвариант контракта: «probe запускается без shell». Блоклист известных
+// shell-basename'ов обходится кавычками/юникод-гомоглифами в имени файла
+// (`./'sh'`, `./sh；`) и косвенными загрузчиками (`xargs -a args python3`,
+// где сам инжектируемый код невидим в argv). Вместо расширения блоклиста по
+// одному — allowlist по коду (Н-39): argv[0] обязан РАВНЯТЬСЯ, после
+// NFKC-нормализации, одному из явно перечисленных PATH-резолвимых
+// интерпретаторов, БЕЗ разделителя пути (не произвольный файл проекта —
+// расширение списка есть код-правка, не проза контракта). Любой токен argv
+// (независимо от позиции) с флагом встраивания кода — -c/-e/--eval, включая
+// присоединённую форму -cКОД/-eКОД и --eval=КОД — запрещён, поскольку
+// позволяет интерпретатору исполнить произвольный код в обход argv-модели.
+const ALLOWED_PROBE_EXECUTABLES: Record<string, true> = { python3: true, python: true, node: true }
+
+function hasCodeEvalFlag(tok: string): boolean {
+  if (tok === '-c' || tok === '-e' || tok === '--eval') return true
+  if ((tok.startsWith('-c') || tok.startsWith('-e')) && !tok.startsWith('--') && tok.length > 2) return true
+  if (tok.startsWith('--eval=')) return true
+  return false
+}
 
 export function validateProbeArgv(argv: string[]): string | null {
-  for (const tok of argv) {
-    const base = tok.split(/[\\/]/).pop() ?? tok
-    if (SHELL_BASENAMES.has(base.toLowerCase()))
-      return `probe.argv несёт shell-интерпретатор без shell-обёртки: ${tok}`
-    if (SHELL_META_RE.test(tok))
-      return `probe.argv несёт shell-метасимвол в argv-токене: ${tok}`
+  const normalized = argv.map((t) => t.normalize('NFKC'))
+  if (!Object.prototype.hasOwnProperty.call(ALLOWED_PROBE_EXECUTABLES, normalized[0]))
+    return `probe.argv[0] не в allowlist разрешённых исполняемых файлов: ${argv[0]}`
+  for (const tok of normalized) {
+    if (hasCodeEvalFlag(tok))
+      return `probe.argv несёт аргумент встраивания кода: ${tok}`
   }
   return null
 }
@@ -340,6 +386,14 @@ function validateSource(srcRaw: unknown, seen: Set<string>): string | null {
       if (typeof s[k] !== 'string' || (s[k] as string).length === 0)
         return `spec.sources[${s.id}].${k} не строка`
     }
+    // Полный git OID (контракт 027 §Источники): ровно 40 (sha1) или 64 (sha256)
+    // hex-символов, не short-SHA и не произвольная строка. Тип объекта (что
+    // commit — именно commit, не тег/дерево) проверяется отдельно с доступом
+    // к git в resolveGitSource; здесь — только формат.
+    for (const k of ['commit', 'blob'] as const) {
+      if (!GIT_OID_RE.test(s[k] as string))
+        return `spec.sources[${s.id}].${k} не полный git OID (40/64 hex): ${String(s[k])}`
+    }
     if (s.freshness !== 'current' && s.freshness !== 'historical')
       return `spec.sources[${s.id}].freshness не current|historical`
     const err = validatePath(s.path)
@@ -414,6 +468,21 @@ export async function resolveGitSource(root: string, source: {
   if (cat.status !== 0) throw new Error(`блоб ${source.blob} не разрешается`)
   const blobBytes = cat.stdout as Buffer
 
+  // source.commit обязан быть OID именно commit-объекта, не тега/дерева/блоба
+  // (контракт 027 §Источники: «полный OID»). Формат (40/64 hex) проверен схемой
+  // (validateSource); здесь — тип объекта, с доступом к git. Дереференс
+  // `<oid>^{commit}`: для настоящего commit-OID результат совпадает с самим
+  // OID; для annotated tag — с OID ПОД ним (peeled), т.е. отличается — это и
+  // ловит подмену OID тега вместо OID коммита.
+  const deref = spawnSync('git', ['-C', root, 'rev-parse', '--verify', '--quiet',
+    `${source.commit}^{commit}`], { encoding: 'utf-8' })
+  const derefOid = deref.status === 0 ? deref.stdout.trim() : ''
+  if (derefOid !== source.commit) {
+    throw new Error(
+      `source.commit ${source.commit} не является OID коммита ` +
+      `(дереференс ^{commit}: ${derefOid || 'не резолвится'})`)
+  }
+
   // Commit:path обязан разрешиться ИМЕННО в объявленный blob (контракт 027
   // §Грамматика). cat-file выше лишь доказывает, что blob СУЩЕСТВУЕТ где-то
   // в репозитории — не что он лежит по объявленному commit:path.
@@ -434,13 +503,7 @@ export async function resolveGitSource(root: string, source: {
     if (safe.escaped) throw new Error(safe.message)
     return { bytes: blobBytes, mode: 'drift', path: source.path }
   }
-  let current: Buffer
-  try {
-    current = await readFile(safe.path)
-  } catch {
-    return { bytes: blobBytes, mode: 'drift', path: source.path }
-  }
-  if (!current.equals(blobBytes)) return { bytes: blobBytes, mode: 'drift', path: source.path }
+  if (!safe.bytes.equals(blobBytes)) return { bytes: blobBytes, mode: 'drift', path: source.path }
   return { bytes: blobBytes, mode: 'current', path: source.path }
 }
 
@@ -619,15 +682,9 @@ export function checkCalibration(root: string, spec: unknown, calibration: {
   return (async () => {
     const posSafe = await resolveSafePath(root, calibration.positive)
     if (!posSafe.ok) return `positive: ${posSafe.message}`
-    let posContent: string
-    try {
-      posContent = await readFile(posSafe.path, 'utf-8')
-    } catch (e) {
-      return `positive не читается: ${calibration.positive}: ${(e as Error).message}`
-    }
     let posPkg: unknown
     try {
-      posPkg = JSON.parse(posContent)
+      posPkg = JSON.parse(posSafe.bytes.toString('utf-8'))
     } catch (e) {
       return `positive не валидный JSON: ${(e as Error).message}`
     }
@@ -637,15 +694,9 @@ export function checkCalibration(root: string, spec: unknown, calibration: {
     for (const neg of calibration.negative) {
       const negSafe = await resolveSafePath(root, neg.evidence)
       if (!negSafe.ok) return `negative: ${negSafe.message}`
-      let negContent: string
-      try {
-        negContent = await readFile(negSafe.path, 'utf-8')
-      } catch (e) {
-        return `negative не читается: ${neg.evidence}: ${(e as Error).message}`
-      }
       let negPkg: unknown
       try {
-        negPkg = JSON.parse(negContent)
+        negPkg = JSON.parse(negSafe.bytes.toString('utf-8'))
       } catch (e) {
         return `negative не конформен (битый JSON): ${(e as Error).message}`
       }

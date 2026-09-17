@@ -78,14 +78,12 @@ async function main(): Promise<void> {
     if (evSafe.escaped) fail(evSafe.message)
     skip(evSafe.message)
   }
-  const evidencePath = evSafe.path
   let pkg: unknown
   try {
-    const text = await readFile(evidencePath, 'utf-8')
-    pkg = JSON.parse(text)
+    pkg = JSON.parse(evSafe.bytes.toString('utf-8'))
   } catch (e) { skip(`evidence не читается: ${(e as Error).message}`) }
   const newBody = generateFormalRegion(spec, pkg)
-  const mdText = await readFile(mdPath, 'utf-8')
+  const mdText = mdSafe.bytes.toString('utf-8')
   const parts = splitFormalRegion(mdText)
   if (!parts) fail('формальные границы отсутствуют или дублированы')
   if (args.check) {

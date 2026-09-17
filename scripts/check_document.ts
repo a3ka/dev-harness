@@ -88,10 +88,7 @@ async function loadPackage(root: string, evidencePath: string): Promise<unknown>
     if (safe.escaped) fail(safe.message)
     skip(safe.message)
   }
-  let text: string
-  try { text = await readFile(safe.path, 'utf-8') }
-  catch (e) { skip(`evidence не читается: ${(e as Error).message}`) }
-  try { return JSON.parse(text) }
+  try { return JSON.parse(safe.bytes.toString('utf-8')) }
   catch (e) { fail(`evidence не валидный JSON: ${(e as Error).message}`) }
 }
 
@@ -153,7 +150,7 @@ async function main(): Promise<void> {
     if (mdSafe.escaped) fail(mdSafe.message)
     skip(mdSafe.message)
   }
-  const mdText = await readFile(mdSafe.path, 'utf-8')
+  const mdText = mdSafe.bytes.toString('utf-8')
   const required = (spec.required as Record<string, unknown>) ?? {}
   const sectionIds = Array.isArray(required.sections) ? (required.sections as string[]) : []
   const smErr = checkSectionMarkers(mdText, sectionIds)
