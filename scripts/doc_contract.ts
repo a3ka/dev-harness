@@ -838,9 +838,16 @@ export function detectDocTypeFromFile(file: string): number {
     process.stderr.write(`node doc_contract.ts --type: ${(e as Error).message}\n`)
     return hasSection ? 2 : 1
   }
-  if (spec == null || typeof spec !== 'object' || Array.isArray(spec)) return 1
+  if (spec == null || typeof spec !== 'object' || Array.isArray(spec)) {
+    process.stderr.write('node doc_contract.ts --type: fenced json-блок не является объектом (требуется объект с полем type)\n')
+    return 2
+  }
   const s = spec as Record<string, unknown>
-  return s.type === 'documentation' ? 0 : 1
+  if (s.type !== 'documentation') {
+    process.stderr.write(`node doc_contract.ts --type: fenced json-блок — type=${JSON.stringify(s.type)} (требуется "documentation")\n`)
+    return 2
+  }
+  return 0
 }
 
 // CLI-вход: активируется только при ПРЯМОМ запуске файла (`node doc_contract.ts …`).
