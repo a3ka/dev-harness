@@ -42,8 +42,15 @@
 # даёт И `002`, И `026` — иначе активный `026` терялся за неперекрывающимся `grep -oE`.
 # Кандидат-лист NUL-РАЗДЕЛЁННЫЙ от `git ls-files --others -z` до конца обработки: newline-конверсия
 # `tr '\0' '\n'` ломала LF-имена (`tmp/$'old\n021'/` распадалось на ложные строки, исходная запись
-# переживала реап). Поле `rel` в выводе python кодируется base64 — без LF/TAB/backslash в
-# транспортном представлении; bash декодирует перед использованием в путях.
+# переживала реап). Поле `rel` передаётся NUL-разделёнными raw-байтами между python и bash
+# (`read -d ''` дважды: путь и метаданные), без command substitution: `$()` сжимает хвостовые LF,
+# и допустимые имена `tmp/done021` и `tmp/$'done021\n'` коллизировали в одном транспортном
+# значении (вердикт к2). Base64 в bash-части снят: инструмент не оправдан, а его отказ (rc=127)
+# не нормализуется к объявленному rc 2 «NOT_IMPLEMENTED» (вердикт к2). --tmp-reap-age
+# валидируется в python: NaN/inf/отрицательное → rc 2 «NOT_IMPLEMENTED» (вердикт к2). Отказ
+# источника done-тегов (`git for-each-ref refs/tags/done/contracts/`) — fail-closed rc 2
+# «NOT_IMPLEMENTED» (вердикт к2: `if g for-each-ref …; then … fi` без `else` маскировал отказ
+# под пустой done-набор).
 # Отказ `git ls-files --others -z -- tmp/` — fail-closed rc 2 «NOT_IMPLEMENTED: git ls-files
 # отказал» (вердикт к1: хвостовой `|| :` маскировал отказ под пустой успешный список).
 # Распознанный NNN = есть `contracts/NNN-*.md` в дереве. NNN без файла контракта и без
@@ -85,7 +92,8 @@ usage() {
     NNN распознан, если есть contracts/NNN-*.md в дереве; NNN с done-тегом — done; NNN
     распознан без done-тега — АКТИВНЫЙ контекст → запись ВЫЖИВАЕТ независимо от возраста
     (приоритет активного номера над done в одном имени). --tmp-reap-age N — порог возраста
-    в днях для правила (б).
+    в днях для правила (б); валидируется как положительное конечное число (NaN/inf/отрицательное
+    → rc 2 «NOT_IMPLEMENTED», вердикт к2).
   * sweep остатков worktrees — python3-lstat (Н-60), fifo/сломанные симлинки подсвечиваются.
 
 Коды возврата: 0 — порядок; 1 — заявленная зависшая не наблюдается или сменена (И-6),
@@ -329,29 +337,39 @@ PYEOF
       sort -u "$TMP/reap_recognized_nnns" -o "$TMP/reap_recognized_nnns"
     fi
 
-    # 3. NNN с done-тегом: refs/tags/done/contracts/NNN/*.
+    # 3. NNN с done-тегом: refs/tags/done/contracts/NNN/*. Отказ источника — fail-closed
+    #    rc 2 «NOT_IMPLEMENTED» (вердикт к2: отсутствие fail-closed `else` маскировало отказ
+    #    под пустой done-набор, и свежий done-кандидат переживал apply с rc=0).
     : > "$TMP/reap_done_nnns"
     if g for-each-ref --format='%(refname:short)' 'refs/tags/done/contracts/' \
          > "$TMP/reap_done_nnns.raw" 2>/dev/null; then
       sed -nE 's|^done/contracts/(0[0-9][0-9])/.*|\1|p' "$TMP/reap_done_nnns.raw" \
         | sort -u > "$TMP/reap_done_nnns" || : > "$TMP/reap_done_nnns"
+    else
+      ref_rc=$?
+      printf 'NOT_IMPLEMENTED: git for-each-ref (done-теги) отказал (rc=%d)\n' "$ref_rc" >&2
+      exit 2
     fi
 
     # 4. mtime каждой записи-кандидата — python3 lstat (Н-60: GNU find слеп к fifo/симлинкам).
-    #    На входе — NL-разделённый список путей относительно ROOT. На выходе — строки
-    #    «path<TAB>days» (days — целое число дней; -1 при ошибке lstat).
-    # stdin в python3 — тело скрипта (heredoc); данные о кандидатах идут через argv[2],
-    # чтобы не конфликтовать с stdin-источником скрипта. Файл `reap_candidates` уже
-    # newline-terminated; lstat делаем по абсолютному пути os.path.join(ROOT, rel).
+    #    На входе — NUL-разделённый список путей относительно ROOT. На выходе — пары
+    #    NUL-разделённых raw-полей: <path>\x00<cand_age>\t<age_str>\t<nnns_str>\x00.
+    #    Транспорт пути — raw-байты (НЕ base64): command substitution `$()` сжимает хвостовые
+    #    LF, и `tmp/done021` ≡ `tmp/$'done021\n'` для башевой декодировки (вердикт к2).
+    #    `--tmp-reap-age` валидируется: NaN/inf/отрицательное → rc 2 «NOT_IMPLEMENTED»
+    #    (вердикт к2: без проверки --tmp-reap-age NaN/inf/-1 принимались).
     python3 - "$ROOT" "$TMP/reap_candidates" "$tmp_reap_age" \
         > "$TMP/reap_ages" <<'PYEOF'
-import os, sys, time, re, base64
+import os, sys, time, re, math
 root = sys.argv[1]
 candidates_path = sys.argv[2]
 try:
     threshold_days = float(sys.argv[3])
 except ValueError as ex:
     print(f"NOT_IMPLEMENTED: --tmp-reap-age не float: {ex}", file=sys.stderr)
+    sys.exit(2)
+if math.isnan(threshold_days) or math.isinf(threshold_days) or threshold_days < 0:
+    print(f"NOT_IMPLEMENTED: --tmp-reap-age не положительное конечное число: {sys.argv[3]!r}", file=sys.stderr)
     sys.exit(2)
 threshold_seconds = threshold_days * 86400.0
 
@@ -381,8 +399,12 @@ for raw in data.split(b'\x00'):
     nnns = sorted(set(m.group(1) for m in re.finditer(r'(?=(0[0-9][0-9]))', base)))
     nnns_str = ' '.join(nnns)
 
-    rel_b64 = base64.b64encode(rel.encode('utf-8')).decode('ascii')
-    out.extend(f"{rel_b64}\t{cand_age}\t{age_str}\t{nnns_str}".encode('utf-8'))
+    # Транспорт: <path>\x00<cand_age>\t<age_str>\t<nnns_str>\x00.
+    # Хвостовой LF в `path` (например `tmp/$'done021\n'`) сохраняется: bash читает
+    # raw-байты двумя `read -d ''`, без `$()`.
+    out.extend(rel.encode('utf-8', errors='surrogateescape'))
+    out.extend(b'\x00')
+    out.extend(f"{cand_age}\t{age_str}\t{nnns_str}".encode('utf-8'))
     out.extend(b'\x00')
 
 if out:
@@ -398,16 +420,16 @@ PYEOF
     #    * NNN распознан (contracts/NNN-*.md) БЕЗ done-тега → АКТИВНЫЙ, ВЫЖИВАЕТ всегда;
     #    * иначе любой NNN в имени с done-тегом → done, реап;
     #    * иначе (аноним, без распознанного NNN) → возраст: mtime > tmp_reap_age → реап.
-    while IFS= read -r -d '' record; do
-      b64_rel="${record%%$'\t'*}"
-      tmp1="${record#*$'\t'}"
-      cand_age="${tmp1%%$'\t'*}"
-      tmp2="${tmp1#*$'\t'}"
-      age_str="${tmp2%%$'\t'*}"
-      nnns_str="${tmp2#*$'\t'}"
-
-      [ -n "$b64_rel" ] || continue
-      entry="$(printf '%s' "$b64_rel" | base64 -d 2>/dev/null)"
+    #    `entry` приходит raw-байтами из python — хвостовой LF сохраняется, идентичность
+    #    пути не теряется (вердикт к2).
+    while :; do
+      IFS= read -r -d '' entry || break
+      IFS= read -r -d '' metadata || break
+      [ -n "$entry" ] || continue
+      cand_age="${metadata%%$'\t'*}"
+      tmp1="${metadata#*$'\t'}"
+      age_str="${tmp1%%$'\t'*}"
+      nnns_str="${tmp1#*$'\t'}"
 
       has_active=0
       has_done=0
