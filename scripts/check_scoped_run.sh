@@ -480,21 +480,30 @@ if want ч2; then
   printf '  ok   (ч2) не-README нулевая выборка → RC=0, 0 барьеров\n' >&2
 fi
 
-# ── (ci) ПРОВОДКА: ci.yml гонит анти-плацебо scoped через --changed github.event.before ──
+# ── (ci) ПРОВОДКА: ci.yml гонит анти-плацебо scoped (--scope <ключи/шаблон>
+#                ЛИБО legacy --changed ${{ github.event.before }}) ──────────────
 # Читает РЕАЛЬНЫЙ ci.yml (предмет implementer), проверка — architect. Засчитывается ТОЛЬКО
 # ИСПОЛНЯЕМАЯ часть run:-строки — YAML- И shell-комментарий (всё от первого '#') отсечены
 # (арбитраж krasnye-proby-granica-primera п.1). github.event.before у check:no-rewrite не подходит.
+# Обе формы валидны: Н-87 закрыт через --scope с matrix.keys (контракт 020), и приёмка
+# обратно совместима с legacy-формой --changed github.event.before из истории.
 if want ci; then
   CI="$ROOT/.github/workflows/ci.yml"
   [ -f "$CI" ] || die ci "нет $CI — проводку scoped CI негде проверить"
   # Строка run: с анти-плацебо ДО shell-комментария ([^#]* останавливается на '#'); режем комментарий.
   ci_line="$(grep -E '^[[:space:]]*run:[^#]*antiplacebo' "$CI" | head -1)"
   ci_exec="${ci_line%%#*}"
+  # Приёмка: ЛИБО --scope с ключами/шаблоном (контракт 020: --scope ${{ matrix.keys }}),
+  # ЛИБО legacy --changed ${{ github.event.before }} — обе формы = «CI гонит анти-плацебо scoped».
   case "$ci_exec" in
+    *antiplacebo*--scope*\$*)
+      printf '  ok   (ci) ci.yml: ИСПОЛНЯЕМАЯ run-строка гонит анти-плацебо scoped (--scope <шаблон>)\n' >&2 ;;
+    *antiplacebo*--scope*[[:space:]][^[:space:]-]*)
+      printf '  ok   (ci) ci.yml: ИСПОЛНЯЕМАЯ run-строка гонит анти-плацебо scoped (--scope <ключи>)\n' >&2 ;;
     *antiplacebo*--changed*github.event.before*)
-      printf '  ok   (ci) ci.yml: ИСПОЛНЯЕМАЯ run-строка гонит анти-плацебо scoped (--changed github.event.before)\n' >&2 ;;
+      printf '  ok   (ci) ci.yml: ИСПОЛНЯЕМАЯ run-строка гонит анти-плацебо scoped (legacy --changed github.event.before)\n' >&2 ;;
     *)
-      die ci "ci.yml: --changed \${{ github.event.before }} НЕ в ИСПОЛНЯЕМОЙ части run:-строки анти-плацебо (после '#' = shell-комментарий, не считается)." ;;
+      die ci "ci.yml: ИСПОЛНЯЕМАЯ часть run:-строки анти-плацебо обязана содержать ЛИБО '--scope <ключи/шаблон>', ЛИБО legacy '--changed \${{ github.event.before }}' (после '#' = shell-комментарий, не считается)." ;;
   esac
 fi
 
