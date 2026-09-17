@@ -37,17 +37,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Р1 (контракт 020, v3.1): подъём шардов N=5 → N=6 — `check_metering`
-        # (22 стаб-кейса, длинный шест, измерено профилировкой ~2,4× бюджета)
-        # вынесен в ОТДЕЛЬНЫЙ шард ap6, иначе прочие ключи ап5 упирались в
-        # timeout-minutes: 20 (см. историю отмен CI 5a0c560). Решение закрыто
-        # в Р1 слова владельца «4–6, референс пересобирается на прилёте»;
-        # sum-инвариант в `scripts/verify_ci_parity.sh` от числа шардов не
-        # зависит — сводка ключей динамическая. Прочие параметры
-        # (concurrency, timeout-minutes, fetch-depth, node 26, fail-fast:
-        # false) — на месте. Ключи — пути в scripts/ без расширения, через
-        # пробел. Имя `npm run check:antiplacebo` — СТАТИЧНО (правило 6),
-        # шаблон только в --scope (предмет п.1 «имя статично»).
+        # Р1 (контракт 020, v3.1): подъём шардов N=6 → N=5. v3.1 вынес `check_metering`
+        # в отдельный шард ap6 (длинный шест, измерено профилировкой ~2,4× бюджета
+        # остальных ключей ап5, без этого они упирались в timeout-minutes: 20,
+        # см. историю отмен CI 5a0c560); сумма-инвариант в `scripts/verify_ci_parity.sh`
+        # от числа шардов не зависит — сводка ключей динамическая. v3.2 ОТКАЗЫВАЕТСЯ от
+        # шарда ap6 (контракт 020 v3.2, метеринг — флейки-выброс по решению владельца
+        # 2026-09-17: требует живого прокси/upstream, красная фаза зависает на healthz
+        # после рестарта `_restart_proxy_and_upstream`, замер 2026-09-17; маска Н-87 —
+        # в --changed-CI почти не гейтил, полный прогон проходил раз; КОМПЕНСАЦИЯ:
+        # ручной полный прогон перед done×4, cognitive-only остаток до де-флейка —
+        # хвост 017, очередь нормализации). Каталог `fixtures/check_metering/` (22 case)
+        # остаётся и покрывается сумма-инвариантом через ИМЕНОВАННОЕ исключение
+        # `UNSCOPABLE_KEYS` в `scripts/verify_ci_parity.sh` — без шардного шага и
+        # без присутствия в `keys:` какого-либо шарда (такое присутствие ломало бы
+        # ап-шаг rc=1 «неизвестный ключ»). Прочие параметры (concurrency,
+        # timeout-minutes, fetch-depth, node 26, fail-fast: false) — на месте.
+        # Ключи — пути в scripts/ без расширения, через пробел. Имя
+        # `npm run check:antiplacebo` — СТАТИЧНО (правило 6), шаблон только в --scope
+        # (предмет п.1 «имя статично»).
         include:
           - shard: ap1
             keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches check_no_rewrite render_document next_id
@@ -59,8 +67,6 @@ jobs:
             keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception
           - shard: ap5
             keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual
-          - shard: ap6
-            keys: check_metering
     steps:
       - uses: actions/checkout@v4
         with:
