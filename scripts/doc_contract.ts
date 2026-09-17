@@ -166,7 +166,10 @@ export async function resolveSafePath(root: string, relPath: string): Promise<Sa
   if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) {
     return { ok: false, escaped: true, message: `путь выходит за пределы корня через симлинк: ${relPath}` }
   }
-  const flags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0)
+  if (fsConstants.O_NOFOLLOW === undefined) {
+    return { ok: false, escaped: false, message: 'платформа без O_NOFOLLOW: чтение без TOCTOU-защиты невозможно' }
+  }
+  const flags = fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW
   let fh
   try {
     fh = await open(targetReal, flags)
@@ -182,17 +185,22 @@ export async function resolveSafePath(root: string, relPath: string): Promise<Sa
 }
 
 // ── Валидация argv probe: allowlist исполняемого файла + запрет code-eval ────
-// Инвариант контракта: «probe запускается без shell». Блоклист известных
-// shell-basename'ов обходится кавычками/юникод-гомоглифами в имени файла
-// (`./'sh'`, `./sh；`) и косвенными загрузчиками (`xargs -a args python3`,
-// где сам инжектируемый код невидим в argv). Вместо расширения блоклиста по
-// одному — allowlist по коду (Н-39): argv[0] обязан РАВНЯТЬСЯ, после
-// NFKC-нормализации, одному из явно перечисленных PATH-резолвимых
-// интерпретаторов, БЕЗ разделителя пути (не произвольный файл проекта —
-// расширение списка есть код-правка, не проза контракта). Любой токен argv
-// (независимо от позиции) с флагом встраивания кода — -c/-e/--eval, включая
-// присоединённую форму -cКОД/-eКОД и --eval=КОД — запрещён, поскольку
-// позволяет интерпретатору исполнить произвольный код в обход argv-модели.
+// Граница безопасности здесь — НЕ allowlist argv[0] и НЕ блок флагов -c/-e/--eval
+// (их перечислимой границы нет: `--import=data:…`, `-m`, `-r`, data:-URI, xargs и
+// прочие косвенные загрузчики кода в argv не видны). ЧЕСТНАЯ граница — изоляция
+// чекаута (sandbox) + оракул в памяти + freeze контракта при freeze + суд ревьюера
+// над argv как над видимым кодом. Allowlist по коду (Н-39) и запрет наиболее
+// вероятных code-eval-флагов оставлены как гигиена наиболее вероятных форм
+// (произвольный файл проекта — НЕ код argv; расширение списка есть код-правка,
+// не проза контракта).
+// Allowlist argv[0]: обязан РАВНЯТЬСЯ, после NFKC-нормализации, одному из явно
+// перечисленных PATH-резолвимых интерпретаторов, БЕЗ разделителя пути.
+// Гигиена code-eval: токен argv (любая позиция) с флагом встраивания кода
+// — -c/-e/--eval, включая присоединённую форму -cКОД/-eКОД и --eval=КОД —
+// отвергается, поскольку интерпретатор исполнит произвольный код в обход argv-модели.
+// Residual (вердикт 027, находка 1): probe.argv — исполняемая программа ЦЕЛИКОМ,
+// включая флаги интерпретатора (`--import`/`-m`/`-r`/data:-URI); allowlist и
+// запрет `-c`/`-e` — гигиена, не граница. Судить содержимое argv при freeze как код.
 const ALLOWED_PROBE_EXECUTABLES: Record<string, true> = { python3: true, python: true, node: true }
 
 function hasCodeEvalFlag(tok: string): boolean {
