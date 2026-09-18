@@ -194,7 +194,15 @@ if (!INTO) {
     const cfg = readFileSync(cfgPath, 'utf8')
     let updated = cfg
     if (cfg.includes(MR_BEGIN)) {
-      updated = cfg.replace(new RegExp(`${escapeRe(MR_BEGIN)}[\s\S]*?${escapeRe(MR_END)}`), renderModelRoles(am))
+      // Регекс собирается КОНКАТЕНАЦИЕЙ обычных строк, а НЕ template literal (Н-110):
+      // внутри `…` последовательности \s и \S — нераспознанные escape'ы ЯЗЫКА, движок
+      // молча съедает обратный слеш ещё при парсинге исходника, и в RegExp приходило
+      // [sS]*? — класс «буква s или S», который не может пройти многострочную секцию
+      // до закрывающего маркера. replace() не находил совпадения, молча возвращал
+      // исходную строку: запись НИКОГДА не происходила, а --check НИКОГДА не видел
+      // дрейфа (молчаливо ложно-зелёный гейт с 2026-09-12).
+      const middle = '[\\s\\S]*?'
+      updated = cfg.replace(new RegExp(escapeRe(MR_BEGIN) + middle + escapeRe(MR_END)), renderModelRoles(am))
     } else {
       // первый переход на генерацию: ручная секция (с шапкой «Раскладка моделей»)
       // заменяется целиком — до следующего раздела-заголовка либо ключа верхнего уровня
