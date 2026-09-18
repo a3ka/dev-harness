@@ -43,8 +43,17 @@ date -d @0 >/dev/null 2>&1 || { printf 'check_fork_route.sh: date -d не раб
 # известным empty-hash отличает настоящий sha256sum от любой обёртки-плацебо.
 # Тот же способ проверки, что уже применён в verify_consultant.sh (там адверсарий
 # круга 2 подтвердил корректность: `fake_sha_rc127` rc=2 на подменённом sha256sum).
+# ИНВ. 10 (арбитраж tcb-granica-put-029.md §3, замер 3c): rc привязывается
+# НЕЗАВИСИМО от текста — обёртка, печатающая корректный empty-hash и выходящая
+# ненулём (1 или 127), иначе проходит текстовую сверку. Успех = верный ТЕКСТ И
+# нулевой rc; отказ — rc=2 «нечем проверить».
 EXPECTED_EMPTY_SHA='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 GOT_EMPTY_SHA="$(printf '' | sha256sum | cut -d' ' -f1)"
+SHA_RC=$?
+if [ "$SHA_RC" -ne 0 ]; then
+  printf 'check_fork_route.sh: sha256sum непригоден — нечем проверить (rc=%s)\n' "$SHA_RC" >&2
+  exit 2
+fi
 if [ "$GOT_EMPTY_SHA" != "$EXPECTED_EMPTY_SHA" ]; then
   printf 'check_fork_route.sh: sha256sum не работает (ожидался %s, получен %s)\n' \
          "$EXPECTED_EMPTY_SHA" "$GOT_EMPTY_SHA" >&2
