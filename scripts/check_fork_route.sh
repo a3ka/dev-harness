@@ -32,7 +32,12 @@ done
 [ -d "$ROOT" ] || { printf 'check_fork_route.sh: --root %s не каталог\n' "$ROOT" >&2; exit 2; }
 
 # ── инструменты (код 2 «нечем проверить») ────────────────────────────────────
-command -v git >/dev/null 2>&1 || { printf 'check_fork_route.sh: нет инструмента git\n' >&2; exit 2; }
+# ИНВ. 10 (по аналогии с sha256sum ниже): проверяем РЕАЛЬНЫЙ вызов, а не `command -v`.
+# `command -v` пропускает обёртку, которая при запуске немедленно падает в 1
+# (находка 2 адверсария круга 4: `route-broken-git rc=0` при git-обёртке,
+# разрешающейся command -v и роняющей rc=1 при вызове). Сам git в этом скрипте
+# для содержательной работы не используется — нужна только ЖИВОСТЬ утилиты.
+git --version >/dev/null 2>&1 || { printf 'check_fork_route.sh: нет инструмента git (неработоспособен)\n' >&2; exit 2; }
 command -v date >/dev/null 2>&1 || { printf 'check_fork_route.sh: нет инструмента date\n' >&2; exit 2; }
 date -d @0 >/dev/null 2>&1 || { printf 'check_fork_route.sh: date -d не работает\n' >&2; exit 2; }
 
