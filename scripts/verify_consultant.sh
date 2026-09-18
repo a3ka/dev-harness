@@ -29,19 +29,43 @@ done
 [ -d "$ROOT" ] || { printf 'verify_consultant.sh: --root %s не каталог\n' "$ROOT" >&2; exit 2; }
 [ -r "$OTVET" ] || { printf 'verify_consultant.sh: --otvet %s не читается\n' "$OTVET" >&2; exit 2; }
 
-# ── инструменты ──────────────────────────────────────────────────────────────
-for tool in git sha256sum date; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    printf 'verify_consultant.sh: нет инструмента %s\n' "$tool" >&2
-    exit 2
-  fi
-done
+# ── инструменты (код 2 «нечем проверить») ───────────────────────────────────
+# Проверка РЕАЛЬНЫМ вызовом, а не `command -v` — обёртка с тем же именем в PATH
+# проходит `command -v` и не проходит фактический запуск (находка 2 адверсария:
+# fake_sha_rc127 rc=0 при sha256sum-обёртке, печатающей "deadbeef  -" и выходящей
+# в 127). sha256sum сверяется на ИЗВЕСТНОМ пустом вводе: выходной хеш обязан
+# совпасть, иначе обёртка-плацебо тоже не пройдёт.
+EXPECTED_EMPTY_SHA='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+GOT_EMPTY_SHA="$(printf '' | sha256sum | cut -d' ' -f1)"
+if [ "$GOT_EMPTY_SHA" != "$EXPECTED_EMPTY_SHA" ]; then
+  printf 'verify_consultant.sh: sha256sum не работает (ожидался %s, получен %s)\n' \
+         "$EXPECTED_EMPTY_SHA" "$GOT_EMPTY_SHA" >&2
+  exit 2
+fi
+command -v git >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инструмента git\n' >&2; exit 2; }
+command -v date >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инструмента date\n' >&2; exit 2; }
 date -d @0 >/dev/null 2>&1 || { printf 'verify_consultant.sh: date -d не работает\n' >&2; exit 2; }
 
 # ── нормализация вывода (единая с каркасом проб) ─────────────────────────────
 # Захват `$( )` отбрасывает завершающие LF; `printf '%s' | sha256sum`.
+# ПОШАГОВЫЙ вызов конвейера с проверкой КАЖДОГО rc: обёртка-sha256sum, печатающая
+# «deadbeef  -» и выходящая в 127, в однострочном конвейере молча возвращает
+# «deadbeef» через `cut` (находка 2 адверсария, fake_sha_rc127 rc=0). Здесь
+# `${PIPESTATUS[@]}` проверяется ДО возврата значения — фейковая обёртка роняет
+# rc 2, и вызывающий код видит расхождение rc/вывода.
 sha_vyvoda() {  # <stdout+stderr многострочно>
-  printf '%s' "$1" | sha256sum | cut -d' ' -f1
+  local out rc_sum
+  out="$(printf '%s' "$1" | sha256sum)"
+  rc_sum=$?
+  [ "$rc_sum" -eq 0 ] || {
+    printf 'sha_vyvoda: sha256sum провалился rc=%s\n' "$rc_sum" >&2
+    return 2; }
+  out="${out%% *}"
+  if [ -z "$out" ]; then
+    printf 'sha_vyvoda: sha256sum дал пустой вывод\n' >&2
+    return 2
+  fi
+  printf '%s' "$out"
 }
 
 # ── разбор ответа ────────────────────────────────────────────────────────────
@@ -58,8 +82,16 @@ MODEL="$(resp_field МОДЕЛЬ)"
 VOOPROS="$(resp_field ВОПРОС)"
 REKOM="$(resp_field РЕКОМЕНДАЦИЯ)"
 
-if [ -z "$MODEL" ]; then
-  printf 'ответ без строки МОДЕЛЬ — запрет двойной роли ненаблюдаем\n' >&2
+# ЧЕТЫРЕ поля обязательны (инв. 8): ПРЕДМЕТ / МОДЕЛЬ / ВОПРОС / РЕКОМЕНДАЦИЯ.
+# Без любого из них ответ есть декой — например, отсутствие ВОПРОСА лишает
+# рекомендацию предмета суждения (находка 3 адверсария, absent_header_fields rc=0).
+missing=""
+[ -n "$PREDMET"  ] || missing="${missing:+$missing }ПРЕДМЕТ"
+[ -n "$MODEL"    ] || missing="${missing:+$missing }МОДЕЛЬ"
+[ -n "$VOOPROS"  ] || missing="${missing:+$missing }ВОПРОС"
+[ -n "$REKOM"    ] || missing="${missing:+$missing }РЕКОМЕНДАЦИЯ"
+if [ -n "$missing" ]; then
+  printf 'ответ без обязательных полей шапки — отсутствует: %s\n' "$missing" >&2
   exit 1
 fi
 
@@ -84,12 +116,23 @@ ALLOWED_VERBS='git sha256sum cat ls'
 ALLOWED_GIT_SUBS='status log diff ls-files rev-parse cat-file show'
 ALLOWED_OPTS='--porcelain --short --stat --name-only --name-status --cached --verify --quiet -1 -n -p -s -t'
 
-# Метасимволы, запрещённые ВСЕГДЕ.
-FORBIDDEN_META=';|&$><`'"'"''
+# Метасимволы, запрещённые ВСЕГДЕ. Старая редакция матчила ОДНУ ЦЕЛУЮ строку из 8
+# символов через `case *"$FORBIDDEN_META"*` — так ни один символ в отдельности не
+# ловился, и `ls $(touch ...)` проходило, потому что `$` сам по себе не был
+# подстрокой из 8 символов (находка 1 адверсария, command injection). Теперь —
+# посимвольный перебор закрытого множества `; | & $ > < \` ( )`. `'` (одиночная
+# кавычка) намеренно НЕ входит: внутри `'...'` пользовательская команда может
+# упомянуть «it's», и отказ по апострофу ронял бы честные ответы; кавычки
+# балансируются аргументным разбором после.
+FORBIDDEN_META_CHARS='; | & $ > < \` ( )'
 
 # ── проверка строки команды: метасимволы ─────────────────────────────────────
-contains_forbidden() {  # <строка>  → 0 если нашёлся метасимвол
-  case "$1" in *"$FORBIDDEN_META"*) return 0 ;; *) return 1 ;; esac
+contains_forbidden() {  # <строка>  → 0 если нашёлся ЛЮБОЙ метасимвол
+  local c
+  for c in $FORBIDDEN_META_CHARS; do
+    [[ "$1" == *"$c"* ]] && return 0
+  done
+  return 1
 }
 
 # Сбор троек из блока. Каждая тройка — последовательные КОМАНДА / RC / ВЫВОД-SHA256.
@@ -179,6 +222,29 @@ if [ -n "$SUBMODULE_PATH" ]; then
   exit 1
 fi
 
+# ── Г5 (alternates, ДО первого переисполнения) ────────────────────────────────
+# `.git/objects/info/alternates` указывает на ЧУЖОЙ object store: `git show <sha>`
+# из внешнего репозитория возвращает rc 0, и sha его payload совпадает с
+# заявленным в ответе — корневое дерево при этом может не иметь HEAD вовсе
+# (находка 4 адверсария, alternates rc=0 no_root_head=yes external_output=yes).
+# Г1/G2/Г4 этот канал не закрывают: Г1 чистит ENV, Г2 сканит КЛЮЧИ конфига,
+# Г4 смотрит гитлинки. Проверяем РЕЗОЛВНУТЫЙ gitdir (через `git rev-parse`, иначе
+# файл-указатель `.git` при `--separate-git-dir` теряется) и его `objects/info/alternates`.
+ALT_GITDIR="$(env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
+  git -C "$ROOT" rev-parse --git-dir 2>/dev/null)"
+if [ -n "$ALT_GITDIR" ]; then
+  case "$ALT_GITDIR" in
+    /*) ALT_ABS="$ALT_GITDIR" ;;
+    *)  ALT_ABS="$ROOT/$ALT_GITDIR" ;;
+  esac
+  if [ -f "$ALT_ABS/objects/info/alternates" ]; then
+    printf 'alternates вне границы: %s/objects/info/alternates ссылается на чужой object store — корень может оказаться подменён\n' \
+           "$ALT_ABS" >&2
+    rm -rf "$EMPTY_HOOKS_DIR"
+    exit 1
+  fi
+fi
 # ── ПЕРЕИСПОЛНЕНИЕ КАЖДОЙ ТРОЙКИ (Г1 + Г3) ──────────────────────────────────
 declare -a ORACLE_RC=()
 declare -a ORACLE_SHA=()
@@ -268,10 +334,13 @@ for triple in "${TRIPLES[@]}"; do
     for a in "${argv[@]:1}"; do git_cmd+=("$a"); done
     out="$("${git_cmd[@]}" 2>&1)"; rc=$?
   else
-    # sha256sum / cat / ls
-    out="$( env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+    # sha256sum / cat / ls — прямой вызов разобранного argv в `$ROOT` через
+    # `env -i` (Г1). `bash -c "... $cmd"` ронял `$(...)` через двойную
+    # shell-интерпретацию (находка 1 адверсария); здесь argv уже разобран и
+    # передаётся массивом — никакой повторной интерпретации нет.
+    out="$( cd "$ROOT" && env -i PATH="$PATH" LC_ALL=C.UTF-8 \
             GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
-            bash -c "cd '$ROOT' && $cmd" 2>&1 )"
+            "${argv[@]}" 2>&1 )"
     rc=$?
   fi
 

@@ -68,6 +68,17 @@ iso_to_epoch() {  # <iso>
   date -u -d "$iso" +%s 2>/dev/null
 }
 
+# Жёсткая проверка формата «ГГГГ-ММ-ДДTчч:мм:ссZ» (контракт, инв. 4: время
+# в журнале — ISO). Мусор вроде «18-09-2026 not-ISO» проходил `date -d`, ронял
+# iso_to_epoch в пустую строку, и очередь молча считалась «головы нет» — то
+# есть ФЛАШ по возрасту не срабатывал, а барьер печатал «ЖДЁМ» (находка 7
+# адверсария, flush_bad_timestamp rc=0). Здесь формат проверяется ДО любой
+# попытки `date -d` — неизмеримое время не молчит.
+iso_is_valid() {  # <iso>  → 0 если формат корректен
+  local iso="$1"
+  [[ "$iso" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+}
+
 NOW="$(date -u +%s)"
 
 # Перечень признаков воли (закрытый, инв. 2) и признаков дизайна (закрытый, инв. 3).
@@ -79,6 +90,51 @@ DIZ_PRIZNAKI_ALL="$DIZ_PRIZNAKI_VYSOKO рутина"
 FORKS_DIR="$ROOT/forks"
 mapfile -t RECORD_FILES < <(find "$FORKS_DIR" -maxdepth 1 -type f -name '*.md' 2>/dev/null | sort)
 RECORD_COUNT="${#RECORD_FILES[@]}"
+
+# ── 0) Грамматика журнала (ИМЕНОВАННЫЙ отказ rc 1, до любых режимов) ────────
+# Имя файла — ASCII [a-z0-9-]+; поле ФОРК: обязано совпасть с именем; поле
+# КЛАСС: встречается НЕ БОЛЕЕ одного раза (иначе запись неразборчива);
+# время ЗАВЕДЁН (если есть) — ISO «ГГГГ-ММ-ДДTчч:мм:ссZ»; ФОРК: уникален
+# между файлами. Старая редакция это не судила, и запись могла нести
+# нечитаемый id, противоречивые КЛАСС/ФОРК и мусор вместо ISO — всё молча
+# принималось (находка 5 адверсария, record_grammar rc=0). Здесь ВСЁ
+# проверяется один раз ДО режимов SCHET/FLUSH/обычный, чтобы ошибка грамматики
+# НЕ маскировалась под «всё хорошо, ЖДЁМ».
+declare -A FORK_SEEN=()
+for f in "${RECORD_FILES[@]}"; do
+  id="$(basename "$f" .md)"
+  if ! [[ "$id" =~ ^[a-z0-9-]+$ ]]; then
+    printf 'грамматика записи: имя «%s» вне ASCII [a-z0-9-]+: %s\n' "$id" "$f" >&2
+    exit 1
+  fi
+  fork_val="$(record_field "$f" "ФОРК")"
+  if [ -z "$fork_val" ]; then
+    printf 'грамматика записи: отсутствует поле ФОРК: %s\n' "$id" >&2
+    exit 1
+  fi
+  if [ "$fork_val" != "$id" ]; then
+    printf 'грамматика записи: ФОРК «%s» не совпадает с именем «%s»: %s\n' \
+           "$fork_val" "$id" "$f" >&2
+    exit 1
+  fi
+  if [ -n "${FORK_SEEN[$fork_val]:-}" ]; then
+    printf 'грамматика записи: дубликат ФОРК «%s» между файлами: %s и %s\n' \
+           "$fork_val" "${FORK_SEEN[$fork_val]}" "$f" >&2
+    exit 1
+  fi
+  FORK_SEEN["$fork_val"]="$f"
+  klass_count="$(grep -cE '^КЛАСС:' "$f" 2>/dev/null)"
+  if [ "${klass_count:-0}" -gt 1 ]; then
+    printf 'грамматика записи: поле КЛАСС встречается %s раз — должно быть одно: %s\n' \
+           "$klass_count" "$id" >&2
+    exit 1
+  fi
+  zavedjon_val="$(record_field "$f" "ЗАВЕДЁН")"
+  if [ -n "$zavedjon_val" ] && ! iso_is_valid "$zavedjon_val"; then
+    printf 'грамматика записи: ЗАВЕДЁН «%s» не ISO: %s\n' "$zavedjon_val" "$id" >&2
+    exit 1
+  fi
+done
 
 # ── 1) предварительный обход: для каждой записи определить, валидна ли она как
 #    ЗАСВИДЕТЕЛЬСТВОВАННАЯ воля владельца (для счётчика передаточных, инв. 5).
@@ -157,6 +213,10 @@ if [ "$MODE" = "flush" ]; then
       printf 'батч-запись без поля ЗАВЕДЁН — возраст головы неизмерим: %s\n' "$id" >&2
       exit 1
     fi
+    if ! iso_is_valid "$zavedjon"; then
+      printf 'батч-запись с невалидным ISO-временем ЗАВЕДЁН — возраст головы неизмерим: %s\n' "$id" >&2
+      exit 1
+    fi
   done
 
   # Собственно очередь и триггеры.
@@ -165,7 +225,7 @@ if [ "$MODE" = "flush" ]; then
   any_blocking=0
   for id in "${RECORD_IDS[@]}"; do
     route="${RECORD_ROUTE[$id]}"
-    otvecheno="$(record_field "$f" "ОТВЕЧЕНО")"
+    otvecheno="$(record_field "$ROOT/forks/$id.md" "ОТВЕЧЕНО")"
     [ "$route" = "батч" ] || continue
     [ "$otvecheno" = "да" ] && continue
     queue_size=$((queue_size + 1))
