@@ -46,6 +46,26 @@ command -v git >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инс�
 command -v date >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инструмента date\n' >&2; exit 2; }
 date -d @0 >/dev/null 2>&1 || { printf 'verify_consultant.sh: date -d не работает\n' >&2; exit 2; }
 
+# ── TRUSTED_PATH для `env -i` (Г1 арбитража, находка 2 адверсария круга 2) ───
+# ЗАКРЫТЫЙ env-allowlist требует, чтобы PATH внутри `env -i` НЕ зависел от
+# PATH вызывающего: иначе PATH-обёртка для git/sha256sum/cat/ls проходит
+# проверку, консультант выдаёт «честные» числа, а обёртка исполняется
+# (`path-git-wrapper rc=0; path-git-marker=yes`). Проверяем каждую утилиту
+# по АБСОЛЮТНОМУ пути в фиксированном списке системных каталогов — `/usr/bin`
+# и `/bin` (на этом дистрибутиве). Если утилиты нет ни в одном из них,
+# отказываем rc=2 «нечем проверить» — это та же семантика, что у command -v.
+TRUSTED_PATH=''
+for tool in git sha256sum cat ls; do
+  if [ -x "/usr/bin/$tool" ]; then
+    case ":$TRUSTED_PATH:" in *:/usr/bin:*) ;; *) TRUSTED_PATH="${TRUSTED_PATH:+$TRUSTED_PATH:}/usr/bin" ;; esac
+  elif [ -x "/bin/$tool" ]; then
+    case ":$TRUSTED_PATH:" in *:/bin:*) ;; *) TRUSTED_PATH="${TRUSTED_PATH:+$TRUSTED_PATH:}/bin" ;; esac
+  else
+    printf 'verify_consultant.sh: нет инструмента %s в /usr/bin или /bin\n' "$tool" >&2
+    exit 2
+  fi
+done
+
 # ── нормализация вывода (единая с каркасом проб) ─────────────────────────────
 # Захват `$( )` отбрасывает завершающие LF; `printf '%s' | sha256sum`.
 # ПОШАГОВЫЙ вызов конвейера с проверкой КАЖДОГО rc: обёртка-sha256sum, печатающая
@@ -170,7 +190,7 @@ fi
 # `git config --list --local`. Судятся КЛЮЧИ закрытым перечнем.
 EMPTY_HOOKS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/v029-empty-hooks.XXXXXX")"
 
-env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+env -i PATH="$TRUSTED_PATH" LC_ALL=C.UTF-8 \
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
   git -C "$ROOT" config --list --local > "$ROOT/.v029-config-scan" 2> "$ROOT/.v029-config-scan.err"
 SCAN_RC=$?
@@ -199,7 +219,7 @@ done < "$ROOT/.v029-config-scan"
 rm -f "$ROOT/.v029-config-scan" "$ROOT/.v029-config-scan.err"
 
 # ── Г4 (субмодули, ДО первого переисполнения) ────────────────────────────────
-env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+env -i PATH="$TRUSTED_PATH" LC_ALL=C.UTF-8 \
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
   git -C "$ROOT" ls-files -s > "$ROOT/.v029-ls-files-scan" 2> "$ROOT/.v029-ls-files-scan.err"
 SCAN_RC=$?
@@ -230,7 +250,7 @@ fi
 # Г1/G2/Г4 этот канал не закрывают: Г1 чистит ENV, Г2 сканит КЛЮЧИ конфига,
 # Г4 смотрит гитлинки. Проверяем РЕЗОЛВНУТЫЙ gitdir (через `git rev-parse`, иначе
 # файл-указатель `.git` при `--separate-git-dir` теряется) и его `objects/info/alternates`.
-ALT_GITDIR="$(env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+ALT_GITDIR="$(env -i PATH="$TRUSTED_PATH" LC_ALL=C.UTF-8 \
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
   git -C "$ROOT" rev-parse --git-dir 2>/dev/null)"
 if [ -n "$ALT_GITDIR" ]; then
@@ -328,7 +348,7 @@ for triple in "${TRIPLES[@]}"; do
   if [ "$verb" = "git" ]; then
     # собираем команду с `-c core.hooksPath=<пусто> -C <root>`, далее сама команда.
     # Исходный argv[1..] подставляется без изменений.
-    git_cmd=( env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+    git_cmd=( env -i PATH="$TRUSTED_PATH" LC_ALL=C.UTF-8 \
               GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
               git -c "core.hooksPath=$EMPTY_HOOKS_DIR" -C "$ROOT" )
     for a in "${argv[@]:1}"; do git_cmd+=("$a"); done
@@ -338,7 +358,7 @@ for triple in "${TRIPLES[@]}"; do
     # `env -i` (Г1). `bash -c "... $cmd"` ронял `$(...)` через двойную
     # shell-интерпретацию (находка 1 адверсария); здесь argv уже разобран и
     # передаётся массивом — никакой повторной интерпретации нет.
-    out="$( cd "$ROOT" && env -i PATH="$PATH" LC_ALL=C.UTF-8 \
+    out="$( cd "$ROOT" && env -i PATH="$TRUSTED_PATH" LC_ALL=C.UTF-8 \
             GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_OPTIONAL_LOCKS=0 \
             "${argv[@]}" 2>&1 )"
     rc=$?
