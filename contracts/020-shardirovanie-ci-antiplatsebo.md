@@ -86,6 +86,10 @@ ap5 (71): check_metering verify_ci_parity check_ids check_ceilings check_contrac
    пункт в приёмке (`scripts` в `package.json` либо объявлена в
    `config/ci_parity_exceptions.txt` с причиной); `scripts/verify_ci_parity.sh` —
    зелёный на новой проводке.
+   `config/ci_parity_exceptions.txt`):
+   `команда: npm run check:antiplacebo -- "$TMP_ROOT" = сам-тесты раннера
+   анти-плацебо на минимальном mktemp-корне, аргумент — путь корня; оплата
+   предписана арбитражем c8aaa67`
 2. **Scoped-режим для судей (Н-48) сохраняется:** `bash scripts/verify_antiplacebo.sh
    <корень> --scope <ключ>` работает дословно как сегодня — шардирование меняет ТОЛЬКО
    CI-проводку, не раннер и не CLI.
@@ -104,7 +108,7 @@ ap5 (71): check_metering verify_ci_parity check_ids check_ceilings check_contrac
 
 ## Зоны
 
-ЗОНА implementer: .github/workflows/ci.yml scripts/verify_ci_parity.sh fixtures/verify_ci_parity/
+ЗОНА implementer: .github/workflows/ci.yml scripts/verify_ci_parity.sh config/ci_parity_exceptions.txt fixtures/verify_ci_parity/
 ЗОНА architect: contracts/020-shardirovanie-ci-antiplatsebo.md fixtures/verify_ci_parity/ NABLIUDENIA_ARCHITECT.md
 
 Строки — литералом первой колонки по грамматике lib_zones (без буллетов, глобов и
