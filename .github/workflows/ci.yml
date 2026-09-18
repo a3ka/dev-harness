@@ -119,6 +119,7 @@ jobs:
         # (та же механика, что у residual-оплат инварианта 4 — арбитраж c8aaa67, §Решение п.2).
         # Прямой вызов `bash scripts/verify_antiplacebo.sh …` в workflow НЕ писать — красный
         # флаг residual (см. замер 6: ветвь «барьер остался зелёным на обманном дереве»).
+        run: |
           TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
           trap 'rm -rf "$TMP_ROOT"' EXIT
           mkdir -p "$TMP_ROOT/scripts"
