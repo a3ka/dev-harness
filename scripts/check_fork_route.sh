@@ -32,13 +32,24 @@ done
 [ -d "$ROOT" ] || { printf 'check_fork_route.sh: --root %s не каталог\n' "$ROOT" >&2; exit 2; }
 
 # ── инструменты (код 2 «нечем проверить») ────────────────────────────────────
-for tool in git sha256sum date; do
-  if ! command -v "$tool" >/dev/null 2>&1; then
-    printf 'check_fork_route.sh: нет инструмента %s\n' "$tool" >&2
-    exit 2
-  fi
-done
+command -v git >/dev/null 2>&1 || { printf 'check_fork_route.sh: нет инструмента git\n' >&2; exit 2; }
+command -v date >/dev/null 2>&1 || { printf 'check_fork_route.sh: нет инструмента date\n' >&2; exit 2; }
 date -d @0 >/dev/null 2>&1 || { printf 'check_fork_route.sh: date -d не работает\n' >&2; exit 2; }
+
+# sha256sum проверяется РЕАЛЬНЫМ вызовом на пустом вводе, а не `command -v`:
+# обёртка с тем же именем проходит `command -v` и не проходит фактический запуск
+# (находка 1 адверсария круга 2: `route-fake-sha-zero-wrong-empty` rc=0 при
+# sha256sum-обёртке, печатающей «deadbeef  -» и выходящей в 0). Сверка с
+# известным empty-hash отличает настоящий sha256sum от любой обёртки-плацебо.
+# Тот же способ проверки, что уже применён в verify_consultant.sh (там адверсарий
+# круга 2 подтвердил корректность: `fake_sha_rc127` rc=2 на подменённом sha256sum).
+EXPECTED_EMPTY_SHA='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+GOT_EMPTY_SHA="$(printf '' | sha256sum | cut -d' ' -f1)"
+if [ "$GOT_EMPTY_SHA" != "$EXPECTED_EMPTY_SHA" ]; then
+  printf 'check_fork_route.sh: sha256sum не работает (ожидался %s, получен %s)\n' \
+         "$EXPECTED_EMPTY_SHA" "$GOT_EMPTY_SHA" >&2
+  exit 2
+fi
 
 # ── разбор одной записи журнала ──────────────────────────────────────────────
 # Поля — формат «КЛЮЧ: значение» по одной на строку.
