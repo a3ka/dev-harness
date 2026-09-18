@@ -109,6 +109,25 @@ jobs:
         # не та. Самопроверка правила обязана стоять первой.
         run: npm run check:ci-parity
 
+      - name: Сам-тесты раннера анти-плацебо (арбитраж 020 c8aaa67, замер 5)
+        # Замер 5 арбитража: 23 фикстуры `fixtures/verify_antiplacebo/` на МИНИМАЛЬНОМ
+        # mktemp-корне (52 с стены — рецепт CI-шага дёшев, минуты CI не часы).
+        # Раннер `scripts/verify_antiplacebo.sh` ЗАМОРОЖЕН в этом круге — копия в mktemp-корень,
+        # не правка; фикстуры `fixtures/verify_antiplacebo/` — те же 23 case.
+        # Имя `npm run check:antiplacebo` СТАТИЧНО (правило 6); аргумент `$TMP_ROOT` ломает
+        # равенство значению скрипта → оплата записью команда: в `ci_parity_exceptions.txt`
+        # (та же механика, что у residual-оплат инварианта 4 — арбитраж c8aaa67, §Решение п.2).
+        # Прямой вызов `bash scripts/verify_antiplacebo.sh …` в workflow НЕ писать — красный
+        # флаг residual (см. замер 6: ветвь «барьер остался зелёным на обманном дереве»).
+        run: |
+          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
+          trap 'rm -rf "$TMP_ROOT"' EXIT
+          mkdir -p "$TMP_ROOT/scripts"
+          mkdir -p "$TMP_ROOT/fixtures/verify_antiplacebo"
+          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
+          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
+          npm run check:antiplacebo -- "$TMP_ROOT"
+
       - name: Проба слабых реализаций меры параллельности (контракт 021, И-7)
         # Условие V2 контракта 021 (Н-43): проба — не on-demand. CI обязан гонять её на
         # каждом пуше, иначе честность меры проверяется только в момент сдачи пачки и
