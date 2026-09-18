@@ -35,8 +35,18 @@ done
 # fake_sha_rc127 rc=0 при sha256sum-обёртке, печатающей "deadbeef  -" и выходящей
 # в 127). sha256sum сверяется на ИЗВЕСТНОМ пустом вводе: выходной хеш обязан
 # совпасть, иначе обёртка-плацебо тоже не пройдёт.
+# ИНВ. 10 (арбитраж tcb-granica-put-029.md §3, замер 3c): rc привязывается
+# НЕЗАВИСИМО от текста — обёртка, печатающая корректный empty-hash и выходящая
+# ненулём (1 или 127), иначе проходит текстовую сверку. Успех = верный ТЕКСТ И
+# нулевой rc; отказ — rc=2 «нечем проверить». Семантика инв. 10:
+# сломанный ИНСТРУМЕНТ не вменяется консультанту как ложь (замер M4 арбитража).
 EXPECTED_EMPTY_SHA='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 GOT_EMPTY_SHA="$(printf '' | sha256sum | cut -d' ' -f1)"
+SHA_RC=$?
+if [ "$SHA_RC" -ne 0 ]; then
+  printf 'verify_consultant.sh: sha256sum непригоден — нечем проверить (rc=%s)\n' "$SHA_RC" >&2
+  exit 2
+fi
 if [ "$GOT_EMPTY_SHA" != "$EXPECTED_EMPTY_SHA" ]; then
   printf 'verify_consultant.sh: sha256sum не работает (ожидался %s, получен %s)\n' \
          "$EXPECTED_EMPTY_SHA" "$GOT_EMPTY_SHA" >&2
@@ -365,7 +375,16 @@ for triple in "${TRIPLES[@]}"; do
   fi
 
   ORACLE_RC+=("$rc")
-  ORACLE_SHA+=("$(sha_vyvoda "$out")")
+  # ИНВ. 10: провал sha_vyvoda (return 2) обязан давать итоговый rc=2, а не
+  # rc=1 «расхождение вывода» (арбитраж tcb-granica-put-029.md §3, замер M4).
+  # Сломанный ИНСТРУМЕНТ не вменяется консультанту как ложь.
+  got_sha="$(sha_vyvoda "$out")"; sha_rc=$?
+  ORACLE_SHA+=("$got_sha")
+  if [ "$sha_rc" -ne 0 ]; then
+    printf 'verify_consultant.sh: sha256sum непригоден — нечем проверить (sha_vyvoda rc=%s)\n' "$sha_rc" >&2
+    rm -rf "$EMPTY_HOOKS_DIR"
+    exit 2
+  fi
 done
 
 # ── СВЕРКА заявленных rc/sha со своими ──────────────────────────────────────
