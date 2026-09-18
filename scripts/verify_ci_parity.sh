@@ -888,29 +888,33 @@ for path in all_files:
                 rl = run_pair[1] if isinstance(run_pair, tuple) else 0
                 if not isinstance(rv, str) or not rv.strip():
                     continue
-                norm_script = ' '.join(rv.split())
                 env_map = {}
                 env_map.update(_literal_env_map(_val(doc.get('env', ({}, 0)))))
                 env_map.update(_literal_env_map(_val(jobval.get('env', ({}, 0)))))
                 env_map.update(_literal_env_map(_val(step.get('env', ({}, 0)))))
-                resolved_script, unresolved_var = _resolve_npm_indirection(norm_script, env_map)
-                if unresolved_var:
-                    fails.append(
-                        f'{path}:{rl}: шаг несёт нерасширенную индирекцию рядом с npm run '
-                        f'(переменная {unresolved_var}) — исключительность запуска '
-                        f'check:antiplacebo непроверяема; используйте статическое имя либо '
-                        f'статически объявленный env (без ${{{{ … }}}}) на этом шаге, джобе '
-                        f'или workflow'
-                    )
-                    continue
-                # Нормализация псевдонима npm: `run-script` → `run` на границе слова.
-                # После неё проверка строки одна для обеих форм — взаимная исключительность
-                # запусков достигается тем, что инвариант 4 не различает псевдонимы.
-                norm_for_anti = re.sub(r'\bnpm\s+run-script\b', 'npm run', resolved_script)
-                if 'npm run check:antiplacebo' not in norm_for_anti:
-                    continue
-                has_scope_keys = 1 if ('--scope ${{ matrix.keys }}' in norm_for_anti) else 0
-                anti_cmds.append((path, rl, jobname, rv, has_scope_keys, in_matrix))
+                # ИЗОЛЯЦИЯ КОМАНДЫ (находка ревьюера к3, БВ2/Н1): резолюция индирекции и
+                # проверка --scope велись на ВСЁМ схлопнутом теле run: — посторонний
+                # текст в run: (комментарий, соседняя команда), СОВПАДАЮЩИЙ с объявленным
+                # исключением/--scope, легализовал ЧУЖОЙ несвязанный запуск. Разбираем тело
+                # на отдельные команды ТЕМ ЖЕ `split_commands`, что и правило 6, и судим КАЖДУЮ
+                # команду анти-плацебо ИЗОЛИРОВАННО.
+                for part in split_commands(rv):
+                    part_norm = ' '.join(part.split())
+                    resolved_part, unresolved_var = _resolve_npm_indirection(part_norm, env_map)
+                    if unresolved_var:
+                        fails.append(
+                            f'{path}:{rl}: шаг несёт нерасширенную индирекцию рядом с npm run '
+                            f'(переменная {unresolved_var}) — исключительность запуска '
+                            f'check:antiplacebo непроверяема; используйте статическое имя либо '
+                            f'статически объявленный env (без ${{{{ … }}}}) на этом шаге, джобе '
+                            f'или workflow'
+                        )
+                        continue
+                    norm_for_anti = re.sub(r'\bnpm\s+run-script\b', 'npm run', resolved_part)
+                    if 'npm run check:antiplacebo' not in norm_for_anti:
+                        continue
+                    has_scope_keys = 1 if ('--scope ${{ matrix.keys }}' in part_norm) else 0
+                    anti_cmds.append((path, rl, jobname, part_norm, has_scope_keys, in_matrix))
 
 with open(matrix_out, 'w', encoding='utf-8') as f:
     for path, lineno, jobname, shard, keys_str in matrix_entries:
@@ -1266,12 +1270,10 @@ while IFS=$'\t' read -r path ln jobname cmd has_scope in_matrix; do
   rel="${path#"$ROOT"/}"
   [ "$has_scope" -eq 1 ] && continue
   paid=0
-  for c in "${!EXC_CMD[@]}"; do
-    if [[ "$cmd" == *"$c"* ]]; then
-      EXC_CMD_USED["$c"]=1
-      paid=1
-    fi
-  done
+  if [ -n "${EXC_CMD[$cmd]:-}" ]; then
+    EXC_CMD_USED["$cmd"]=1
+    paid=1
+  fi
   [ "$paid" -eq 1 ] && continue
   if [ "$in_matrix" -eq 1 ]; then
     bad "$rel:$ln ($jobname): шардный запуск анти-плацебо не несёт --scope с ключами — форма: $cmd"
