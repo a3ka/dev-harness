@@ -239,7 +239,7 @@ if [ "$circles" -ge 3 ]; then
 fi
 
 _doc_type_out=""
-_doc_type_rc=1
+_doc_type_rc=0
 # ── 6б. DOC-PREFLIGHT (контракт 027 §Freeze) ──────────────────────────────────
 # Для doc-контракта повторяет doc-preflight ДО записи тега: ветвь ready уже
 # потребовала его при созыве судьи; freeze дублирует тот же прогон, потому что
@@ -266,7 +266,7 @@ _doc_type_rc=1
 # freeze читает блоб из HEAD через `git cat-file`.
 target_content="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
 _doc_type_tmp="$(mktemp -t doc027.XXXXXX 2>/dev/null || true)"
-_doc_type_rc=1
+_doc_type_rc=0
 _doc_type_out=""
 if [ -n "${_doc_type_tmp:-}" ]; then
   printf '%s' "$target_content" > "$_doc_type_tmp"
