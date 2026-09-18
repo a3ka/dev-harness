@@ -35,6 +35,62 @@ igrushka() {  # <корень>
   kgi "$r" commit -q -m 'основание'
 }
 
+# ЧУЖОЙ КОНФИГ (граница Г2): внешний diff-драйвер проверяемого корня. Сам скрипт лежит
+# ВНЕ корня — иначе он попал бы в `git status` игрушки и разошёл бы оракул близнеца;
+# маркер пишется В корень, потому что предъявляется именно запись в проверяемое дерево.
+vneshnij_diff() {  # <корень> <файл-маркера от корня> <каталог для скрипта вне корня>
+  local r="$1" m="$2" s="$3/write-diff.sh"
+  mkdir -p "$3"
+  printf '#!/bin/sh\nprintf "side-effect\\n" > "%s/%s"\n' "$r" "$m" > "$s"
+  chmod 755 "$s"
+  kgi "$r" config diff.external "$s"
+}
+
+# ГОЛЫЙ ХУК (граница Г3): исполняемый хук в .git/hooks проверяемого корня. Конфиг при
+# этом ПУСТ (ровно init-ключи) — канал живёт вне конфига.
+krjuk_marker() {  # <корень> <имя хука> <файл-маркера от корня>
+  local r="$1" h="$2" m="$3"
+  printf '#!/bin/sh\nprintf "marker\\n" > "%s/%s"\n' "$r" "$m" > "$r/.git/hooks/$h"
+  chmod 755 "$r/.git/hooks/$h"
+}
+
+# НЕВИННЫЙ локальный конфиг: оставить ровно то, что кладёт `git init` (перечень Г2).
+konfig_nevinnyj() {  # <корень>
+  local r="$1" k
+  for k in $(kgi "$r" config --list --local | sed -n 's/^\([^=]*\)=.*/\1/p'); do
+    case "$k" in
+      core.repositoryformatversion|core.filemode|core.bare|core.logallrefupdates) ;;
+      core.ignorecase|core.precomposeunicode|core.symlinks) ;;
+      *) kgi "$r" config --unset-all "$k" ;;
+    esac
+  done
+}
+
+# СУПЕРПРОЕКТ С ГИТЛИНКОМ (граница Г4): конфиг КОРНЯ невинен, канал живёт в
+# конфиг-пространстве субмодуля, недостижимом для скана корня.
+superproekt() {  # <корень> <каталог-источник субмодуля>
+  local r="$1" src="$2"
+  igrushka "$src"
+  igrushka "$r"
+  kgi "$r" -c protocol.file.allow=always submodule add -q "$src" sub
+  kgi "$r" add -- .gitmodules sub
+  kgi "$r" commit -q -m 'гитлинк'
+  konfig_nevinnyj "$r"
+}
+
+# Злые настройки СУБМОДУЛЯ: core.fsmonitor в его конфиге + его собственный хук.
+zlo_submodulja() {  # <корень super> <маркер fsmonitor> <маркер хука> <каталог вне корня>
+  local r="$1" mf="$2" mh="$3" s="$4/fsmon.sh"
+  mkdir -p "$4"
+  printf '#!/bin/sh\nprintf "marker\\n" > "%s/%s"\nexit 1\n' "$r" "$mf" > "$s"
+  chmod 755 "$s"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    git --git-dir="$r/.git/modules/sub" config core.fsmonitor "$s"
+  printf '#!/bin/sh\nprintf "marker\\n" > "%s/%s"\n' "$r" "$mh" \
+    > "$r/.git/modules/sub/hooks/post-index-change"
+  chmod 755 "$r/.git/modules/sub/hooks/post-index-change"
+}
+
 # ЧЕСТНЫЙ оракул: rc команды в корне игрушки (в память проверяющего).
 rc_komandy() {  # <корень> <команда>
   local r="$1" c="$2" rc=0
