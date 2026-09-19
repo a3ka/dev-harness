@@ -67,7 +67,12 @@
 #      HEAD / ls-files / status читают refs/heads) → ПОСЛЕ rc 1 «переснятие не
 #      доказано: реестр зон не несёт ни одной судейской зоны — читатель ослеплён»
 #      + снимок не тронут. Стаб «запасной префикс/кэш при отказе читателя» умирает
-#      здесь: ослеплённый реестр не доказывает зону.
+#      здесь: ослеплённый реестр не доказывает зону;
+#   р10 ОТКАЗ ЧИТАТЕЛЯ rc≠0 (Б4, обход дословно «при ненулевом zones_load — по
+#      запасному префиксу/кэшу»): toy с origin, frozen-тег запушен на origin и
+#      удалён ЛОКАЛЬНО (измерено пробой: registry_state видит потерю, zones_load
+#      rc 2, механика манифеста жива) → ПОСЛЕ rc 1 «реестр зон недоступен» +
+#      снимок не тронут; стаб с запасным кэшем умирает здесь.
 #
 # На каждом отказывающем входе (р2–р5, р7) фикстура сверяет ОБА факта: именованный
 # отказ И НЕИЗМЕННОСТЬ снимка (байты до == байты после; --check остаётся rc 1 с теми
@@ -293,5 +298,19 @@ chmod 000 "$KURI/.git/refs/tags"
 ozhid_otkaz р9 'переснятие не доказано: реестр зон не несёт ни одной судейской зоны'
 chmod 755 "$KURI/.git/refs/tags"
 
-printf 'ok: дверь переснятия 031 — все ворота пройдены (р0..р9)\n'
+# ── р10: отказ читателя зон rc≠0 (Б4) ───────────────────────────────────────────
+KURI="$WORK/v10_${RANDOM}"
+mk_sud_root "$KURI"
+KURI_ORIG="$KURI-origin.git"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "$KURI_ORIG"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$KURI" remote add origin "$KURI_ORIG"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$KURI" push -q origin main
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$KURI" push -q origin refs/tags/frozen/contracts/001/1
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail р10 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+commit_kak "$KURI" reviewer "verdicts/review/contracts-001-k10.md" 'accept — честный вердикт'
+gtoy "$KURI" tag -d frozen/contracts/001/1 >/dev/null
+ozhid_otkaz р10 'реестр зон недоступен'
+
+printf 'ok: дверь переснятия 031 — все ворота пройдены (р0..р10)\n'
 exit 0

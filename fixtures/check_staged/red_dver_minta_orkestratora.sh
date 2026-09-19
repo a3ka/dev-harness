@@ -122,6 +122,7 @@ mapfile -t RD < <(awk 'BEGIN{srand();
 N1="${RD[0]}"; N1x="${RD[1]}"; N1y="${RD[2]}"; N2="${RD[3]}"; N3="${RD[4]}"
 N4="${RD[5]}"; N5="${RD[6]}"; N6="${RD[7]}"; N7="${RD[8]}"; N8="${RD[9]}"
 N9="${RD[10]}"; N10="${RD[11]}"; N5b="${RD[12]}"; N8b="${RD[13]}"
+N4b="$(printf '%03d' $((6 + RD[21] % 4)))"   # 006-009, производный от случайного — вне занятых диапазонов
 
 # Субъект — копия scripts/ под случайным именем (BARRIER_ROOT-паттерн).
 BARRIER="$WORK/subj-${RD[12]}"
@@ -301,6 +302,27 @@ run_bar "$T4"
 assert_no_new_id_tags "$T4" "$t4_id0"
 if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'уже в манифесте — повторный минт'; then
   printf 'ОТКАЗ: в4: повторный минт %s не опознан (rc %s, ожидан rc 1 «дверь минта 031: номер %s уже в манифесте — повторный минт»): %s\n' "$N4" "$BAR_RC" "$N4" "$BAR_ERR" >&2
+  exit 1
+fi
+
+# ── в4б: дрейф реестра — повтор виден только с origin/main (совет 3 круга 1) ────
+# Авторитет коммитит строку N4b и пушит main; локальный HEAD откатан мимо строки
+# (reset --hard HEAD~1) — staged-дельта чисто-добавительная ЛОКАЛЬНО, повтор живёт
+# только на живой шапке origin/main. ПОСЛЕ: rc 1 «уже в манифесте — повторный минт»
+# (origin-половина условия 3). СЕГОДНЯ: «вне зоны» — красное по имени.
+T4b="$WORK/kor-${RD[22]}v4b"
+make_repo_orchzone "$T4b"
+toy_origin "$T4b" >/dev/null
+mint_tag_avtoritet "$T4b" "$N4b"
+mint_row_commit "$T4b" "$N4b"
+g "$T4b" reset -q --hard HEAD~1
+set_author "$T4b" orchestrator
+stage_row "$T4b" "$N4b" "$(git -C "$T4b" rev-parse "refs/tags/id/CONTRACT/$N4b")"
+t4b_id0="$(id_tags_of "$T4b")"
+run_bar "$T4b"
+assert_no_new_id_tags "$T4b" "$t4b_id0"
+if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'уже в манифесте — повторный минт'; then
+  printf 'ОТКАЗ: в4б: дрейф реестра %s (строка на origin/main, HEAD откачан) не опознан (rc %s, ожидан rc 1 «дверь минта 031: номер %s уже в манифесте — повторный минт»): %s\n' "$N4b" "$BAR_RC" "$N4b" "$BAR_ERR" >&2
   exit 1
 fi
 
@@ -498,5 +520,5 @@ if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'вне зоны: 
   exit 1
 fi
 
-printf 'ok: дверь минта 031 — все ворота пройдены (в0..в13, в5б, в8б)\n'
+printf 'ok: дверь минта 031 — все ворота пройдены (в0..в13, в4б, в5б, в8б)\n'
 exit 0
