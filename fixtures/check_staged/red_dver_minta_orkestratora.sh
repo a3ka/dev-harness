@@ -75,11 +75,20 @@
 #       (дверь не расширяет права за пределы orchestrator);
 #   в11 ПРИЗНАНИЕ в check_zones, честный случай (Б1 круга 1): полный минт
 #       ЗАКОММИЧЕН orchestrator'ом в открытом окне toy-контракта → $BARRIER/
-#       check_zones.sh на toy: СЕГОДНЯ rc 1 «коммит вне зоны» (боль CI предъявлена
-#       красным), ПОСЛЕ rc 0 (признание исключает ровно путь манифеста);
+#       check_zones.sh на toy: СЕГОДНЯ rc 1 «коммит вне зоны» с именем пути
+#       registry/contracts.tsv (боль CI предъявлена красным), ПОСЛЕ rc 0 (признание
+#       исключает ровно путь манифеста);
 #   в12 признание НЕ индульгенция (Б1): orchestrator коммитит ПРАКУ существующей
-#       строки манифеста (не-минтная дельта того же пути) → check_zones rc 1
-#       «коммит вне зоны» ДО и ПОСЛЕ — убивает стаб «пропускать registry/ целиком»;
+#       строки манифеста (не-минтную дельту того же пути) → check_zones rc 1
+#       «коммит вне зоны» с именем пути ДО и ПОСЛЕ — убивает стаб «пропускать
+#       registry/ целиком»;
+#   в11/в12 (починка Б1 по вердикту арбитра 9f86d1c): судимые коммиты создаёт
+#       commit_kak — ФАКТИЧЕСКИЙ автор локального конфига (set_author); помощник g
+#       несёт «-c user.name=Фикстура», перекрывающий конфиг, — параметр командной
+#       строки сильнее, и прежние ворота судили НЕ того автора. Ворота ассертят
+#       %an == orchestrator ДО вызова check_zones (самопроверка предъявления,
+#       критерий 2 вердикта): класс «фикстурный помощник молча подменил автора»
+#       умирает в самих воротах, а не в следующем круге критика.
 #   в13 дверь НЕ индульгенция на staged-коммит (Б2 круга 1): честная строка
 #       манифеста + отдельный путь вне зоны (registry/extra.tsv) в ОДНОМ staged →
 #       rc 1 именем ВТОРОГО пути ∧ stdout несёт judged-строку двери для манифеста.
@@ -191,6 +200,25 @@ stage_row() {  # <корень> <NNN> <sha>
   mkdir -p "$r/registry"
   printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
   g "$r" add -A
+}
+
+# commit_kak <корень> <сообщение>: коммит АВТОРОМ ЛОКАЛЬНОГО КОНФИГА репо (set_author),
+# БЕЗ -c-перекрытия user.name — g() несёт «-c user.name=Фикстура», перекрывающий
+# конфиг (механизм дыры Б1, вердикт арбитра 9f86d1c, замер 1).
+commit_kak() {  # <корень> <сообщение>
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+    git -C "$1" -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m "$2"
+}
+
+# assert_an_orchestrator <корень> <ворота>: судимый коммит несёт ФАКТИЧЕСКОГО автора
+# orchestrator (критерий 2 вердикта 9f86d1c) — предъявление проверяет само предъявление.
+assert_an_orchestrator() {  # <корень> <ворота>
+  local an
+  an="$(git -C "$1" log -1 --format=%an)"
+  if [ "$an" != orchestrator ]; then
+    printf 'ОТКАЗ: %s: судимый коммит несёт автора «%s», ожидан orchestrator — предъявление подменено (Б1, вердикт 9f86d1c): %s\n' "$2" "$an" "$1" >&2
+    exit 1
+  fi
 }
 
 run_bar() {  # <корень> → stdout/stderr в $BAR_OUT/$BAR_ERR, rc в $BAR_RC
@@ -453,18 +481,28 @@ if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'вне зоны';
 fi
 
 # ── в11: признание в check_zones — честный минт в открытом окне (Б1) ───────────
-# СЕГОДНЯ: rc 1 «коммит вне зоны» — боль CI предъявлена красным. ПОСЛЕ: rc 0.
+# Судимый коммит — commit_kak (ФАКТИЧЕСКИЙ автор orchestrator), не g(): его
+# «-c user.name=Фикстура» перекрывал set_author — механизм дыры Б1 (вердикт
+# 9f86d1c). СЕГОДНЯ: rc 1 «коммит вне зоны» с именем пути — боль CI предъявлена
+# красным. ПОСЛЕ: rc 0 (признание исключает ровно путь манифеста).
 T11="$WORK/korcz-${RD[19]}"
 make_repo_orchzone "$T11"
 toy_origin "$T11" >/dev/null
 mint_tag_avtoritet "$T11" "$N1"
 set_author "$T11" orchestrator
 stage_row "$T11" "$N1" "$(git -C "$T11" rev-parse "refs/tags/id/CONTRACT/$N1")"
-g "$T11" commit -q -m "манифест: выдача $N1"
+commit_kak "$T11" "манифест: выдача $N1"
+assert_an_orchestrator "$T11" в11
 CZ_OUT="$(bash "$BARRIER/check_zones.sh" "$T11" 2>"$WORK/cz_err11")" && CZ_RC=0 || CZ_RC=$?
 CZ_ERR="$(cat "$WORK/cz_err11")"
-if [ "$CZ_RC" -ne 0 ]; then
-  printf 'ОТКАЗ: в11: признание минта в check_zones отсутствует — честный закоммиченный минт %s (orchestrator, открытое окно) красит CI: rc %s: %s %s\n' "$N1" "$CZ_RC" "$CZ_OUT" "$CZ_ERR" >&2
+if [ "$CZ_RC" -eq 0 ]; then
+  :  # ПОСЛЕ реализации: признание исключило ровно путь манифеста из суда — зелёное
+elif [ "$CZ_RC" -eq 1 ] && printf '%s%s' "$CZ_OUT" "$CZ_ERR" | grep -qF 'вне зоны' \
+   && printf '%s%s' "$CZ_OUT" "$CZ_ERR" | grep -qF 'registry/contracts.tsv'; then
+  printf 'ОТКАЗ: в11: боль CI предъявлена (СЕГОДНЯ): честный закоммиченный минт %s (%%an=orchestrator, открытое окно) красит check_zones — rc 1 «вне зоны» с именем пути; ПОСЛЕ реализации ожидан rc 0 (признание минта): %s %s\n' "$N1" "$CZ_OUT" "$CZ_ERR" >&2
+  exit 1
+else
+  printf 'ОТКАЗ: в11: неожиданное поведение check_zones на честном минте %s (rc %s; ожидан СЕГОДНЯ rc 1 «вне зоны» + registry/contracts.tsv, ПОСЛЕ rc 0): %s %s\n' "$N1" "$CZ_RC" "$CZ_OUT" "$CZ_ERR" >&2
   exit 1
 fi
 
@@ -492,7 +530,8 @@ io.open(f,'w',encoding='utf-8').writelines(out)
 PYE
 set_author "$T12" orchestrator
 g "$T12" add -A
-g "$T12" commit -q -m "правка строки манифеста $N1x (не-минтная дельта)"
+commit_kak "$T12" "правка строки манифеста $N1x (не-минтная дельта)"
+assert_an_orchestrator "$T12" в12
 CZ_OUT="$(bash "$BARRIER/check_zones.sh" "$T12" 2>"$WORK/cz_err12")" && CZ_RC=0 || CZ_RC=$?
 CZ_ERR="$(cat "$WORK/cz_err12")"
 if [ "$CZ_RC" -ne 1 ] || ! { printf '%s%s' "$CZ_OUT" "$CZ_ERR" | grep -qF 'вне зоны'; } \
