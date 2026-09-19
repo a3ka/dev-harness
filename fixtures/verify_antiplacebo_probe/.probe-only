@@ -1,0 +1,4 @@
+probe-only каталог (контракт 034): предмет — probe-only семантика раннера
+verify_antiplacebo (§2 «фикстура без барьера») и селектора scope_select; субъекты запуска
+— scripts/verify_antiplacebo.sh и scripts/scope_select.sh на мини-деревьях, барьерного
+ключа для этого предмета в scripts/ нет. Предъявления red_*.sh — прямые, судьями.
