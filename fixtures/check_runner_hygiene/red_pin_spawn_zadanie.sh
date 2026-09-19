@@ -6,9 +6,9 @@
 # п1 п6 п7 п7б п8 п9 п11 п12 (пин из задания отсутствует, «вне пина»-семантика не
 # различима, дыра `..` жива, --extract-pin нет). ПОСЛЕ реализации: rc 0.
 #
-# 19 ветвей приёмки: п0–п15 + п4а/п4б/п7б; каждая ветвь = именованные входы,
+# 20 ветвей приёмки: п0–п15 + п4а/п4б/п4в/п7б; каждая ветвь = именованные входы,
 # ветвь красная, если КРАСЕН любой её вход. Накопление: прогон не стопится на
-# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 19.
+# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 20.
 # Все toy-репо и негативные каталоги — ПОД реальным namespace
 # /tmp/dev-harness-worktrees (канарейка п2 судит живой префикс, не toy-имя;
 # уникальность mktemp-суффиксом — А-88, два прогона = разные пути).
@@ -21,11 +21,12 @@
 #     пин A); «только session_start» — на п12 (branch/tree не поднимают пин);
 #     «задание выше события» — на п13; «задание выше env» — на п14;
 #     «env выше события» — на п15; «последняя user-запись перепинивает» — на п9;
-#   * п3/п4/п4а/п4б/п5 — грамматика М1 (будущая ветвь извлечения): стабы
+#   * п3/п4/п4а/п4б/п4в/п5 — грамматика М1 (будущая ветвь извлечения): стабы
 #     «первый WORKTREE= где угодно» / «без live-проверки .git» / «gitdir-цель не
-#     проверяется» / «формат .git-содержимого не проверяется» / «без сверки
-#     spawn-формы» умирают каждый на СВОЕЙ ветви (цель записи — ВНУТРИ
-#     проверяемого пути: запиннувший стаб даёт pass и валит ассерт block);
+#     проверяется» / «формат .git-содержимого не проверяется» / «`.git` —
+#     каталог, не файл, не проверяется» / «без сверки spawn-формы» умирают
+#     каждый на СВОЕЙ ветви (цель записи — ВНУТРИ проверяемого пути:
+#     запиннувший стаб даёт pass и валит ассерт block);
 #   * п6 — причина «вне пина» :543/:609 против unpinned-причины :542/:608
 #     (сегодня блок есть, но семантика своя/чужая цель не различима);
 #   * п7/п7б — isWithin :88-91 сырой префикс (обе allowlist-ветви, дыра `..`
@@ -73,9 +74,11 @@ mkdir -p "$TOY/wip-105-de"
 printf 'gitdir: %s/.git/worktrees/nesushhestvuet\n' "$TOY" > "$TOY/wip-105-de/.git"   # п4а: цель gitdir мертва
 mkdir -p "$TOY/wip-106-df"
 printf 'ne-gitdir-musor\n' "$TOY" > "$TOY/wip-106-df/.git"        # п4б: содержимое не формата
+mkdir -p "$TOY/wip-107-dg"
+git -C "$TOY/wip-107-dg" init -q -b main                          # п4в: .git — КАТАЛОГ, не файл
 
 # ── Накопление: ветвь красная, если красен любой её вход ──────────────────────
-ORDER=(п0 п1 п2 п3 п4 п4а п4б п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
+ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; done
 
@@ -130,10 +133,10 @@ const handlers = {};
 mod.default({ on: (n, cb) => { handlers[n] = cb; } });
 const EV = { start: 'session_start', branch: 'session_branch', tree: 'session_tree' };
 const ctxs = new Map();
-const branch = (asg) => (asg && asg !== '-' ? [{
+const branch = (asg) => (asg && asg !== '-' ? asg.split('+').map((f) => ({
   type: 'message',
-  message: { role: 'user', content: [{ type: 'text', text: asg.split('+').map((f) => readFileSync(f, 'utf8')).join('\n') }] },
-}] : []);
+  message: { role: 'user', content: [{ type: 'text', text: readFileSync(f, 'utf8') }] },
+})) : []);
 const ctxOf = (id, asg) => {
   if (!ctxs.has(id)) {
     ctxs.set(id, { sessionManager: { getBranch: () => branch(asg), getSessionId: () => id } });
@@ -181,6 +184,7 @@ printf 'Пара контрактов.\n032: WORKTREE=%s, BRANCH=wip/101/aa.\n03
 printf 'Мёртвая цель.\nWORKTREE=%s, BRANCH=wip/104/dd.\n' "$TOY/wip-104-dd" > "$TOY/asg-dead.txt"
 printf 'Gitdir-цель мертва.\nWORKTREE=%s, BRANCH=wip/105/de.\n' "$TOY/wip-105-de" > "$TOY/asg-gitdir-dead.txt"
 printf 'Gitdir-мусор.\nWORKTREE=%s, BRANCH=wip/106/df.\n' "$TOY/wip-106-df" > "$TOY/asg-gitdir-musor.txt"
+printf 'Git-каталог, не файл.\nWORKTREE=%s, BRANCH=wip/107/dg.\n' "$TOY/wip-107-dg" > "$TOY/asg-git-dir.txt"
 printf 'Форма рассогласована.\nWORKTREE=%s, BRANCH=wip/102/bb.\n' "$WTA" > "$TOY/asg-mismatch.txt"
 printf 'Steering-подмена.\nWORKTREE=%s, BRANCH=wip/102/bb.\n' "$WTB" > "$TOY/asg-steer.txt"
 
@@ -211,6 +215,8 @@ calls_run "A:start:$TOY/asg-gitdir-dead.txt;A:call:$TOY/wip-105-de/f.txt"
 call_assert "п4а-gitdir-цель-мертва-блок" 1 block ""
 calls_run "A:start:$TOY/asg-gitdir-musor.txt;A:call:$TOY/wip-106-df/f.txt"
 call_assert "п4б-gitdir-musor-блок" 1 block ""
+calls_run "A:start:$TOY/asg-git-dir.txt;A:call:$TOY/wip-107-dg/f.txt"
+call_assert "п4в-git-katalog-блок" 1 block ""
 
 # ── п5: путь и ветка рассогласованы по spawn-форме ⇒ null ─────────────────────
 calls_run "A:start:$TOY/asg-mismatch.txt;A:call:$WTA/new-file.txt"
@@ -287,7 +293,7 @@ calls_run "A:start:$TOY/asg-none.txt;A:call:$WTB/f15b.txt:$WTB:$WTB;A:call:$WTC/
 call_assert "п15-sobytie-vyshe-env-pass" 1 pass ""
 call_assert "п15-env-vne-pina-блок"     2 block "вне пина"
 
-# ── Сводка: все 19 маркеров, пустая выборка = дефект фикстуры ─────────────────
+# ── Сводка: все 20 маркеров, пустая выборка = дефект фикстуры ─────────────────
 RED=0; GRN=0
 for m in "${ORDER[@]}"; do
   if [ -z "${RAN[$m]:-}" ]; then
