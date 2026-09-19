@@ -514,6 +514,9 @@ function judgeEditWrite(
   // canonicalWt (worktree был проканонизирован через safeRealpath в judge()).
   if (isAllowedURI(path)) {
     if (canonicalWt !== null) return { decision: 'pass' };
+    // Контракт 030 Н-106: QA-канал xd://report_issue — точный путь без суффиксов.
+    // Исключение есть путь ЦЕЛИКОМ, не схема: xd://report_issue/x и иные xd:// остаются заблокированы.
+    if (path === 'xd://report_issue') return { decision: 'pass' };
     if (path.startsWith('artifact://')) return { decision: 'pass' };
     return { decision: 'block', reason: unpinnedURIReason(path) };
   }
@@ -571,6 +574,9 @@ function judgeBash(
     // внутренние URI — block Н-85 (зеркало judgeEditWrite, единая семантика).
     if (isAllowedURI(op)) {
       if (canonicalWt !== null) continue;
+      // Контракт 030 Н-106: QA-канал xd://report_issue — точный путь без суффиксов.
+      // Зеркало judgeEditWrite: единая семантика для write- и bash-операндной ветвей.
+      if (op === 'xd://report_issue') continue;
       if (op.startsWith('artifact://')) continue;
       return { decision: 'block', reason: unpinnedURIReason(op) };
     }

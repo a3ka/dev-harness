@@ -95,6 +95,7 @@ usage() {
   cat >&2 <<USAGE
 использование: gc_agent_branches.sh [--root <каталог>] [--expect-kept <ref>[=<oid>]]…
                     [--tmp-reap-apply] [--tmp-reap-age <дней>]
+                    [--wip-grace-hours <часов>]
 
 Поведение:
   * wip/* слитые в main → авто-снос (ref + worktree);
@@ -118,6 +119,13 @@ usage() {
     СТРОГО ПОЛОЖИТЕЛЬНОЕ конечное число: NaN/inf/0/отрицательное → rc 2 «NOT_IMPLEMENTED»
     (вердикт к4). Подмена untracked→tracked записи между контролем и удалением — именованный
     TOCTOU rc 2 (вердикт к4, lstat dev:ino до/после контроля, см. коды возврата).
+  * --wip-grace-hours <часов> — грация для пустых слитых wip/* (контракт 030 Н-107): ветка
+    переживает реап, если её reflog содержит ровно одно событие (создание) И возраст
+    (mtime reflog-файла) меньше N часов. Дефолт 24. Строго положительное конечное число,
+    валидируется при разборе argv (как --tmp-reap-age). НЕпустые (≥2 события reflog)
+    достижимые сносятся безусловно — грация их не задерживает. Reflog-файл недоступен →
+    fail-closed (ветка выживает, stderr называет «reflog»). Ветка + причина выживания
+    печатаются в stderr одной связкой.
   * sweep остатков worktrees — python3-lstat (Н-60), fifo/сломанные симлинки подсвечиваются.
 
 Коды возврата: 0 — порядок; 1 — заявленная зависшая не наблюдается или сменена (И-6),
@@ -132,12 +140,15 @@ expect_kept=()
 tmp_reap_apply=0
 tmp_reap_age=7
 tmp_reap_age_given=0
+wip_grace_hours=24
+wip_grace_hours_given=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --root) root_arg="${2:?}"; shift 2 ;;
     --expect-kept) expect_kept+=("${2:?}"); shift 2 ;;
     --tmp-reap-apply) tmp_reap_apply=1; shift ;;
     --tmp-reap-age) tmp_reap_age="${2:?}"; tmp_reap_age_given=1; shift 2 ;;
+    --wip-grace-hours) wip_grace_hours="${2:?}"; wip_grace_hours_given=1; shift 2 ;;
     --help|-h) usage ;;
     *) printf 'gc_agent_branches: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
   esac
@@ -174,6 +185,27 @@ sys.exit(0 if (math.isfinite(v) and v > 0.0) else 2)
   fi
 fi
 
+# --wip-grace-hours валидируется СРАЗУ при разборе флага — ДО обращения к ROOT (симметрия
+# --tmp-reap-age, вердикт 026 к4). Дефолт (24) — доверенный литерал; валидация только при
+# явной передаче. Строго положительное конечное число: 0 / NaN / inf / отрицательное → rc 1
+# «положительное» (вердикт 030 Н-107; контракт называет 0/NaN/inf неположительными).
+if [ "$wip_grace_hours_given" -eq 1 ]; then
+  command -v python3 >/dev/null 2>&1     || { printf 'NOT_IMPLEMENTED: нет python3 для валидации --wip-grace-hours (Н-60)
+' >&2; exit 2; }
+  if ! python3 -c '
+import sys, math
+try:
+    v = float(sys.argv[1])
+except ValueError:
+    sys.exit(1)
+sys.exit(0 if (math.isfinite(v) and v > 0.0) else 1)
+' "$wip_grace_hours" 2>/dev/null; then
+    printf 'ОТКАЗ: --wip-grace-hours должно быть положительное конечное число: %s
+' "$wip_grace_hours" >&2
+    exit 1
+  fi
+fi
+
 if [ -z "$root_arg" ]; then
   ROOT="$(pwd -P 2>/dev/null || pwd)"
 else
@@ -205,16 +237,62 @@ while IFS= read -r ref; do
   [ -n "$oid" ] && oid_before["$ref"]="$oid"
 done < "$TMP/wip_before"
 
-# СЛИТЫЕ wip/* → удаление ref + worktree. Слитой считается wip/*, чей tip ДОСТИЖИМ из HEAD
-# (merge- или fast-forward). Реестр refs/heads/wip/* — единственный источник истины.
+# СЛИТЫЕ wip/* → удаление ref + worktree С ГРАЦИЕЙ ДЛЯ ПУСТЫХ (контракт 030 Н-107).
+# Слитой считается wip/*, чей tip ДОСТИЖИМ из HEAD (merge- или fast-forward). Реестр
+# refs/heads/wip/* — единственный источник истины о СЛИТОСТИ.
+# Источник истины о РАБОТЕ на ветке — reflog (топология не различает слитую с работой от
+# пустой: merge-base(tip,HEAD)==tip для обеих; инв. 5 контракта 026, совет круга 1 :79).
+# Меры:
+#   * «пуста» := reflog содержит РОВНО одно событие (создание). ≥2 событий — с работой.
+#   * возраст пустой := mtime .git/logs/refs/heads/<ветка> через python3 lstat (та же мера,
+#     что инв. 5 контракта 026; touch-управляемый фикстурой).
+#   * reflog недоступен → fail-closed: ветка НЕ классифицируема → выживает, stderr «reflog».
+#   * НЕпустые достижимые сносятся НЕЗАВИСИМО от возраста (как раньше; грация их не тормозит).
+#   * stderr-канал связывает ветку и причину одной строкой с ключевым словом «граци» или
+#     «reflog». Пиннуты: имя ветки, слово-маркер, КАНАЛ stderr, однострочная связь. Полная
+#     фраза — свобода реализации (потеря канала и связи «эта ветка — эта причина» красна).
 removed=0
 kept=0
 while IFS= read -r ref; do
   [ -n "$ref" ] || continue
   tip="$(g rev-parse --verify --quiet "$ref" 2>/dev/null || true)"
   [ -n "$tip" ] || continue
-  if g merge-base --is-ancestor "$tip" HEAD 2>/dev/null; then
-    # Удалить worktree, если он жив (отдельная операция; ref удаляется ПОСЛЕ).
+  if ! g merge-base --is-ancestor "$tip" HEAD 2>/dev/null; then
+    kept=$((kept + 1))
+    continue
+  fi
+  branch="${ref#refs/heads/}"
+  reflog_file="$ROOT/.git/logs/refs/heads/$branch"
+  if [ ! -f "$reflog_file" ] || [ ! -r "$reflog_file" ]; then
+    # reflog недоступен — fail-closed (инв. 3).
+    kept=$((kept + 1))
+    printf 'wip/%s — reflog недоступен, выживает (грация не применима, fail-closed)\n' "$branch" >&2
+    continue
+  fi
+  reflog_events="$(wc -l < "$reflog_file" 2>/dev/null || printf 0)"
+  if [ "$reflog_events" -lt 2 ]; then
+    # ПУСТАЯ: ≥ грации → снести; < грации → выживает с причиной «граци».
+    age_secs="$(python3 -c '
+import os, sys, time
+try:
+    st = os.lstat(sys.argv[1])
+    print(int(time.time() - st.st_mtime))
+except OSError:
+    print(-1)
+' "$reflog_file" 2>/dev/null || printf -- -1)"
+    if [ "$age_secs" -lt 0 ]; then
+      # lstat отказал — fail-closed (источник возраста пропал между reflog-существованием и lstat).
+      kept=$((kept + 1))
+      printf 'wip/%s — reflog возраст недоступен, выживает (грация не применима)\n' "$branch" >&2
+      continue
+    fi
+    threshold_secs="$(python3 -c "print(int(float('$wip_grace_hours') * 3600))")"
+    if [ "$age_secs" -lt "$threshold_secs" ]; then
+      kept=$((kept + 1))
+      printf 'wip/%s — пустая, %s < грации %sч, выживает (грация Н-107)\n' "$branch" "${age_secs}s" "$wip_grace_hours" >&2
+      continue
+    fi
+    # старше грации — снести как падающую.
     wt="$(g worktree list --porcelain 2>/dev/null \
           | awk -v br="$ref" '
               /^worktree / { wt = $2; next }
@@ -223,10 +301,19 @@ while IFS= read -r ref; do
     if [ -n "$wt" ] && [ "$wt" != "$ROOT" ] && [ -d "$wt" ]; then
       g worktree remove --force "$wt" 2>/dev/null || true
     fi
-    g branch -D "${ref#refs/heads/}" 2>/dev/null && removed=$((removed + 1)) || true
-  else
-    kept=$((kept + 1))
+    g branch -D "$branch" 2>/dev/null && removed=$((removed + 1)) || true
+    continue
   fi
+  # НЕпустая (≥2 событий) — снести как раньше (close-out без тормозов, инв. 5).
+  wt="$(g worktree list --porcelain 2>/dev/null \
+        | awk -v br="$ref" '
+            /^worktree / { wt = $2; next }
+            /^branch /   { if ($2 == br) { print wt; exit } }
+          ')"
+  if [ -n "$wt" ] && [ "$wt" != "$ROOT" ] && [ -d "$wt" ]; then
+    g worktree remove --force "$wt" 2>/dev/null || true
+  fi
+  g branch -D "$branch" 2>/dev/null && removed=$((removed + 1)) || true
 done < "$TMP/wip_before"
 
 # Снимок refs/heads/wip/ ПОСЛЕ GC.

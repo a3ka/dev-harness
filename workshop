@@ -470,7 +470,7 @@ fi
 # `inspect_image` убран из инвентаря по решению владельца (Н-20): модель сессии
 # текстовая (glm-5.2), инструмент без глаз — тихий брак. Вернуть при появлении
 # vision-модели на роли сессии.
-TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,task,todo"
+TOOLS="read,edit,write,bash,grep,glob,hub,lsp,web_search,task,todo"
 
 # ── работа НАД инструментом ──────────────────────────────────────────────────
 if [ -z "$PROJECT" ]; then
