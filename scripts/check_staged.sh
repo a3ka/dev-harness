@@ -258,7 +258,7 @@ sys.stdout.write("1" if r else "0")
 sys.exit(0 if r else 1)'
 }
 # Канарейка: тот же конвейер на заведомо с control-символом stdin И на чистом. Оба
-# прогона обязаны вернуть ожидаемый exit code И маркер stdout; любое расхождение —
+# прогона обязаны вернуть ожиданный exit code И маркер stdout; любое расхождение —
 # подменённый/битый python3, fail-closed.
 cc_out="$(printf 'a\nb' | _py_check)"
 cc_rc=$?
@@ -442,8 +442,14 @@ for f in "${staged[@]}"; do
       door_rc=1; door_msg="дверь минта 031: дельта манифеста не только-добавление"
     else
       # 2. грамматика + парсинг (NNN, sha) каждой добавленной строки.
+      # ALL-LINES predicate (контракт 031/4, механизм 1, условие 2): грамматику
+      # «^[0-9]{3} → [0-9a-f]{40}$» обязана держать КАЖДАЯ добавленная (+) содержательная
+      # строка манифеста, не только подмножество. valid_count == add_count — иначе
+      # именованный отказ «строка не по грамматике манифеста» (закрывает обход вердикта
+      # contracts-031-v1.md, дыра: смешанная дельта valid+ASCII проходила молча).
       added_lines="$(printf '%s\n' "$diff_out" | sed -n 's/^\+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
-      if [ -z "$added_lines" ]; then
+      valid_count="$(printf '%s\n' "$added_lines" | awk 'NF { c++ } END { print c+0 }')"
+      if [ "$valid_count" -ne "$add_count" ]; then
         door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"
       else
         door_pairs="$scratch_dir/door_pairs"
