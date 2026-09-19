@@ -436,8 +436,9 @@ for f in "${staged[@]}"; do
     door_msg=""
     # 1. форма: ТОЛЬКО добавления (N ≥ 1 +<content>, ноль -<content>).
     diff_out="$(git -C "$ROOT" diff --cached -U0 -- registry/contracts.tsv 2>/dev/null || true)"
-    add_count="$(printf '%s\n' "$diff_out" | awk '/^\+([^+]|$)/ { c++ } END { print c+0 }')"
-    del_count="$(printf '%s\n' "$diff_out" | awk '/^-[^-]/ { c++ } END { print c+0 }')"
+    hunk_body="$(printf '%s\n' "$diff_out" | awk '/^@@/ { h=1; next } /^diff / { h=0 } h')"
+    add_count="$(printf '%s\n' "$hunk_body" | awk '/^\+/ { c++ } END { print c+0 }')"
+    del_count="$(printf '%s\n' "$hunk_body" | awk '/^-/ { c++ } END { print c+0 }')"
     if [ "$add_count" -lt 1 ] || [ "$del_count" -ne 0 ]; then
       door_rc=1; door_msg="дверь минта 031: дельта манифеста не только-добавление"
     else
@@ -445,9 +446,9 @@ for f in "${staged[@]}"; do
       # ALL-LINES predicate (контракт 031/4, механизм 1, условие 2): грамматику
       # «^[0-9]{3} → [0-9a-f]{40}$» обязана держать КАЖДАЯ добавленная (+) содержательная
       # строка манифеста, не только подмножество. valid_count == add_count — иначе
-      # именованный отказ «строка не по грамматике манифеста» (закрывает обход вердикта
-      # contracts-031-v1.md, дыра: смешанная дельта valid+ASCII проходила молча).
-      added_lines="$(printf '%s\n' "$diff_out" | sed -n 's/^\+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
+      # именованный отказ «строка не по грамматике манифеста». Перечисление ведётся
+      # по hunk_body — хунк-контекстный парсер арбитража verdicts/arbitration/diff-parser-031-dver-mina.md.
+      added_lines="$(printf '%s\n' "$hunk_body" | sed -n 's/^+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
       valid_count="$(printf '%s\n' "$added_lines" | awk 'NF { c++ } END { print c+0 }')"
       if [ "$valid_count" -ne "$add_count" ]; then
         door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"

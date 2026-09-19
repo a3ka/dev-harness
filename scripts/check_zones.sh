@@ -402,8 +402,9 @@ while IFS=$'\t' read -r nnn since; do
           # Самый первый коммит: дельта против пустого дерева.
           mint_diff="$(g diff -U0 $(g rev-parse --verify 4b825dc642cb6eb9a060e54bf899d15f3f938a82) "$c" -- registry/contracts.tsv 2>/dev/null || true)"
         fi
-        mint_add="$(printf '%s\n' "$mint_diff" | awk '/^\+([^+]|$)/ { c++ } END { print c+0 }')"
-        mint_del="$(printf '%s\n' "$mint_diff" | awk '/^-[^-]/ { c++ } END { print c+0 }')"
+        hunk_body="$(printf '%s\n' "$mint_diff" | awk '/^@@/ { h=1; next } /^diff / { h=0 } h')"
+        mint_add="$(printf '%s\n' "$hunk_body" | awk '/^\+/ { c++ } END { print c+0 }')"
+        mint_del="$(printf '%s\n' "$hunk_body" | awk '/^-/ { c++ } END { print c+0 }')"
         if [ "$mint_add" -lt 1 ] || [ "$mint_del" -ne 0 ]; then
           bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: дельта манифеста не только-добавление"
           continue
@@ -412,9 +413,9 @@ while IFS=$'\t' read -r nnn since; do
         # ALL-LINES predicate (контракт 031/4, механизм 1, условие 2): грамматику
         # обязана держать КАЖДАЯ добавленная (+) содержательная строка манифеста, не
         # только подмножество. valid_count == mint_add — иначе именованный отказ
-        # «строка не по грамматике манифеста» (закрывает обход вердикта
-        # contracts-031-v1.md, дыра: смешанная дельта valid+ASCII проходила молча).
-        added_lines="$(printf '%s\n' "$mint_diff" | sed -n 's/^\+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
+        # «строка не по грамматике манифеста». Перечисление ведётся по hunk_body —
+        # хунк-контекстный парсер арбитража verdicts/arbitration/diff-parser-031-dver-mina.md.
+        added_lines="$(printf '%s\n' "$hunk_body" | sed -n 's/^+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
         valid_count="$(printf '%s\n' "$added_lines" | awk 'NF { c++ } END { print c+0 }')"
         if [ "$valid_count" -ne "$mint_add" ]; then
           bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
