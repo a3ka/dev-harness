@@ -178,7 +178,7 @@ sha) — строкой в журнал сессии; отказ --retake = СТ
 ## Зоны
 
 ЗОНА architect: contracts/031-strazh-semejstvo-mint-i-bazlajn.md fixtures/check_staged/red_dver_minta_orkestratora.sh fixtures/check_judge_gate/red_peresnjatie_bazlajna.sh NABLIUDENIA_ARCHITECT.md
-ЗОНА implementer: scripts/check_staged.sh scripts/check_zones.sh scripts/check_no_leak.sh scripts/lib_zones.sh fixtures/check_staged/case_dver_minta_legitimnyj.sh fixtures/check_staged/case_dver_minta_forma.sh fixtures/check_staged/case_dver_minta_reestr.sh fixtures/check_staged/case_dver_minta_provenans.sh fixtures/check_staged/case_dver_minta_vetka.sh fixtures/check_staged/case_dver_minta_priznanie.sh fixtures/check_judge_gate/case_peresnjatie_legitimnyj.sh fixtures/check_judge_gate/case_peresnjatie_forma.sh fixtures/check_judge_gate/case_peresnjatie_zony.sh fixtures/check_judge_gate/case_peresnjatie_porcelain.sh fixtures/check_judge_gate/case_peresnjatie_chitatel.sh
+ЗОНА implementer: scripts/check_staged.sh scripts/check_zones.sh scripts/check_no_leak.sh scripts/lib_zones.sh fixtures/check_staged/case_dver_minta_legitimnyj.sh fixtures/check_staged/case_dver_minta_forma.sh fixtures/check_staged/case_dver_minta_reestr.sh fixtures/check_staged/case_dver_minta_provenans.sh fixtures/check_staged/case_dver_minta_vetka.sh fixtures/check_zones/case_dver_minta_priznanie.sh fixtures/check_judge_gate/case_peresnjatie_legitimnyj.sh fixtures/check_judge_gate/case_peresnjatie_forma.sh fixtures/check_judge_gate/case_peresnjatie_zony.sh fixtures/check_judge_gate/case_peresnjatie_porcelain.sh fixtures/check_judge_gate/case_peresnjatie_chitatel.sh
 ЗОНА orchestrator: roles/orchestrator.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
@@ -187,10 +187,14 @@ sha) — строкой в журнал сессии; отказ --retake = СТ
 РАБОТА НЕ РАЗДАЁТСЯ: registry/contracts.tsv (исключительная dual-control зона — дверь минта 031 судит её САМА, в зоны не переезжает; ловец И-7 023 жив) scripts/next_id.sh scripts/spawn_agent.sh scripts/land_agent.sh scripts/freeze_contract.sh scripts/check_ids.sh scripts/verify_antiplacebo.sh (раннер не правится) .githooks/ (зона 022) scripts/check_judge_gate.sh scripts/judge_gate.sh (заморожены 008) .github/workflows/ci.yml package.json (семьи check_staged/check_judge_gate уже в ключах CI:65 — новых точек приёмки нет)
 
 Непересечение (без новой семантики приоритета, совет 2 круга 1): СТРОКИ 031 между
-собой путей не пересекают. Каталоги fixtures/check_staged/ и fixtures/check_judge_gate/
+собой путей не пересекают. Каталоги fixtures/check_staged/, fixtures/check_judge_gate/ и fixtures/check_zones/
 остаются зоной architect ЦЕЛИКОМ (016/024 — объединение зон не вычитает права),
 implementer получает перечисленные ТОЧЕЧНЫЕ case-файлы в них — прецедент 029
-(совместный каталог, поимённые файлы); red_* остаются у архитектора. Изменение
+(совместный каталог, поимённые файлы); red_* остаются у архитектора. case_dver_minta_priznanie несёт СВОЙ локальный
+author-механизм — коммит судимого дерева делается локально внутри case
+(существующий примитив commit_as каркаса, fixtures/check_zones/_repo.sh:24); сам
+helper fixtures/check_zones/_repo.sh НЕ правится — зона implementer за helper не
+пробивается. Изменение
 scripts/check_zones.sh и scripts/lib_zones.sh — implementer (021/023-прецедент);
 зоны_load rc-контракт для существующих потребителей (check_zones/check_staged) 031
 НЕ меняет — различение ослеплённого читателя живёт в самой двери переснятия.
@@ -270,8 +274,8 @@ scripts/check_zones.sh и scripts/lib_zones.sh — implementer (021/023-прец
 - оба red_* → rc 0, по ДВА прогона с разными случайными входами (ворота пройдены на
   новом коде, включая self-mint/peeled-sha/недоступный origin/не-ровно-один-файл);
 - case_* исполнителя (case_dver_minta_*.sh, case_peresnjatie_*.sh) зелёные в
-  verify_antiplacebo своих семей (check_staged, check_judge_gate) — CI-точки уже
-  прописаны;
+  verify_antiplacebo своих семей (check_staged, check_judge_gate; признание —
+  check_zones) — CI-точки уже прописаны;
 - норма-строка 222 дописана дословно: `grep -cF 'отказ --retake = СТОП и доклад'
   roles/orchestrator.md` → 1 (побайтовое присутствие хвоста нормы — ГРАНИЦА
   механической приёмки текста нормы; смысл нормы судит ревьюер, не grep — названо
