@@ -12,9 +12,10 @@
 # 2026-09-10 (Г5): «D→среда ДА, D детектор (дёшев, независим, механизирует ручную меру), среда
 # превенция». Этот файл — D.
 #
-# КАК ЗОВЁТСЯ. Два режима, ОДИН абсолютный корень основного чекаута:
+# КАК ЗОВЁТСЯ. Три режима, ОДИН абсолютный корень основного чекаута:
 #   --snapshot <абс-корень>  манифест состояния дерева в файле ВНЕ стерегомого;
-#   --check    <абс-корень>  дельта манифеста: новые строки ⇒ rc 1 «основной чекаут загрязнён».
+#   --check    <абс-корень>  дельта манифеста: новые строки ⇒ rc 1 «основной чекаут загрязнён»;
+#   --retake   <абс-корень>  (контракт 031) переснятие базлайна при честной вердиктной дельте судьи.
 # Относительный путь в обоих режимах ⇒ rc 1 «корень обязан быть абсолютным» ДО какого-либо cd
 # (блокер 5 вердикта 4d1d265).
 #
@@ -234,13 +235,13 @@ P_ABS='корень обязан быть абсолютным'
 P_CHUZH='снимок чужого корня'
 
 usage() {
-  printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check <абс-корень>\n' >&2
+  printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake <абс-корень>\n' >&2
   exit 1
 }
 [ "$#" -eq 2 ] || usage
 MODE="$1"; ROOT_ARG="$2"
 case "$MODE" in
-  --snapshot|--check) ;;
+  --snapshot|--check|--retake) ;;
   *) usage ;;
 esac
 
@@ -1209,8 +1210,171 @@ do_check() {
   printf '%s\n' "$P_CHISTO"
 }
 
+do_retake() {
+  local first base cur delta names l p manifest_rc snap_mode verify_line verify_stored verify_recomp
+  local delta_path retake_zones retake_zones_rc retake_fail retake_auth retake_sha retake_msg
+  local cur1 cur2 porcelain_out porcelain_rc
+  # Подгружаем lib_zones.sh для zones_load (контракт 031, Б4 — ЕДИНСТВЕННЫЙ читатель зон).
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_zones.sh"
+  # 1. Снимок существует и цел (защиты-снимка 024 дословно).
+  if [ ! -e "$SNAP" ]; then
+    printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
+      "$P_NET_SNIMKA" "$SNAP" >&2
+    exit 1
+  fi
+  if [ -L "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — симлинк: %s — replacement через симлинк недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP" >&2
+    exit 1
+  fi
+  if [ -L "$SNAP_DIR" ]; then
+    printf 'ОТКАЗ: каталог снимка — симлинк: %s — replacement каталога недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP_DIR" >&2
+    exit 1
+  fi
+  if [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
+    printf 'ОТКАЗ: промежуточный каталог — симлинк: %s/dev-harness-leak — replacement промежуточного каталога недопустим (ЗАЩИТА-СНИМКА наблюдение H адверсария к5)\n' \
+      "$TMPDIR_BASE" >&2
+    exit 1
+  fi
+  if [ ! -f "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — не регулярный файл: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  first=""
+  if ! IFS= read -r first < "$SNAP"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  base=""
+  if ! base="$("$CAT" -- "$SNAP" 2>/dev/null)"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  if [ "$first" != "root $CANON" ]; then
+    printf 'ОТКАЗ: %s: снимок = [%s], сверяется [%s] — hash8-коллизия либо чужой файл; переснимите свою пачку\n' \
+      "$P_CHUZH" "$first" "$CANON" >&2
+    exit 1
+  fi
+  snap_mode="$("$STAT" -c '%a' -- "$SNAP" 2>/dev/null)" \
+    || { printf 'NOT_IMPLEMENTED: stat отказал на %s\n' "$SNAP" >&2; exit 2; }
+  case "$snap_mode" in
+    *[!0-7]*) printf 'NOT_IMPLEMENTED: stat вернул не-octal mode %s\n' "$snap_mode" >&2; exit 2 ;;
+  esac
+  if [ $((8#$snap_mode & 0222)) -ne 0 ]; then
+    printf 'ОТКАЗ: снимок: режим %s не read-only (биты 022 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
+    exit 1
+  fi
+  verify_line="$(printf '%s' "$base" | "$GREP" -E '^verify [0-9a-f]{64}$' | "$TAIL" -n1 || true)"
+  if [ -z "$verify_line" ]; then
+    printf 'ОТКАЗ: снимок: verify-строка отсутствует — обязательна для прод-снимков (отсутствие verify = подмена/сговор, не «совместимость с»; контрпример S-mv-replace-no-verify к3 8911b68)\n' >&2
+    exit 1
+  fi
+  verify_payload="${base%verify *}"
+  verify_recomp="$(printf '%s' "$verify_payload" | "$SHA256SUM" | "$HEAD" -n1)"
+  verify_recomp="${verify_recomp%% *}"
+  verify_stored="${verify_line#verify }"
+  if [ "$verify_recomp" != "$verify_stored" ]; then
+    printf 'ОТКАЗ: снимок: verify не сошёлся (хранимый=%s, пересчёт=%s) — байтовая модификация снимка на месте\n' \
+      "$verify_stored" "$verify_recomp" >&2
+    exit 1
+  fi
+  # 2. Закоммиченность доказуема байтами: porcelain + bytes равенство.
+  porcelain_out="$("$GIT" -C "$CANON" status --porcelain 2>/dev/null)" || porcelain_rc=$?
+  porcelain_rc=${porcelain_rc:-0}
+  if [ "$porcelain_rc" -ne 0 ] || [ -n "$porcelain_out" ]; then
+    printf 'ОТКАЗ: переснятие не доказано: porcelain не чист — дельта обязана быть закоммичена\n' >&2
+    exit 1
+  fi
+  # Двукратное чтение манифеста (Б4 адверсария 024-k8 — TOCTOU на dot-git).
+  cur1="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  cur2="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  if [ "$cur1" != "$cur2" ]; then
+    printf 'ОТКАЗ: %s: основной чекаут мутировал во время сверки — повторное чтение разошлось с первым (три producer-ноги идут неатомарно; фикс блокера Б4 адверсария contracts-024-k8)\n' \
+      "$P_ZAGR" >&2
+    exit 1
+  fi
+  cur="$cur1"
+  # Дельта — новые строки манифеста vs базлайн.
+  delta="$(printf '%s\n' "$cur" | "$COMM" -23 - <(printf '%s\n' "$base" | "$SORT"))"
+  # 3. Дельта непуста.
+  if [ -z "$delta" ]; then
+    printf 'ОТКАЗ: переснятие не доказано: дельта пуста — нечего переснимать\n' >&2
+    exit 1
+  fi
+  # 4. Ровно один путь в дельте. Извлекаем уникальные пути (после табуляции).
+  delta_paths="$(printf '%s\n' "$delta" | awk -F'\t' '{print $2}' | sort -u)"
+  n_paths="$(printf '%s\n' "$delta_paths" | wc -l | tr -d ' ' || true)"
+  if [ -z "$n_paths" ] || [ "$n_paths" -ne 1 ]; then
+    printf 'ОТКАЗ: переснятие не доказано: дельта не ровно-один-файл\n' >&2
+    exit 1
+  fi
+  delta_path="$(printf '%s\n' "$delta_paths" | head -1)"
+  # 2б. Байты рабочего файла == байты `git cat-file HEAD:<path>` (мимо assume-unchanged/skip-worktree).
+  work_bytes="$("$SHA256SUM" -- "$CANON/$delta_path" 2>/dev/null | "$HEAD" -n1 || true)"
+  work_bytes="${work_bytes%% *}"
+  head_bytes="$("$GIT" -C "$CANON" cat-file -p "HEAD:$delta_path" 2>/dev/null | "$SHA256SUM" | "$HEAD" -n1 || true)"
+  head_bytes="${head_bytes%% *}"
+  if [ -z "$work_bytes" ] || [ "$work_bytes" != "$head_bytes" ]; then
+    printf 'ОТКАЗ: переснятие не доказано: байты дельта-пути не закоммичены (porcelain лжёт: assume-unchanged/skip-worktree)\n' >&2
+    exit 1
+  fi
+  # 5. Путь вердиктный: покрыт ЗОНА-строкой какого-либо замороженного контракта,
+  # и эта зона начинается с `verdicts/`. zones_load — ЕДИНСТВЕННЫЙ читатель.
+  LIB_ZONES_ROOT="$CANON"
+  retake_zones="$(zones_load "$CANON" 2>/dev/null)" || {
+    printf 'ОТКАЗ: реестр зон недоступен\n' >&2
+    exit 1
+  }
+  # Зон с префиксом `verdicts/` в реестре нет — ослеплённый читатель (Б4 круга 1).
+  if ! awk -F'\t' '$2 ~ /^verdicts\//' "$retake_zones/zones_scoped" | grep -q .; then
+    printf 'ОТКАЗ: переснятие не доказано: реестр зон не несёт ни одной судейской зоны — читатель ослеплён\n' >&2
+    exit 1
+  fi
+  # Найти ЗОНА-строки, ПОКРЫВАЮЩИЕ путь и начинающиеся с verdicts/.
+  covered_zones="$(awk -F'\t' -v p="$delta_path" '$2 ~ /^verdicts\// {
+    if ($2 ~ /\/$/) { if (p ~ $2) print }
+    else { if (p == $2) print }
+  }' "$retake_zones/zones_scoped" | sort -u)"
+  if [ -z "$covered_zones" ]; then
+    printf 'ОТКАЗ: переснятие не доказано: путь не вердиктный (зона судьи не объявлена)\n' >&2
+    exit 1
+  fi
+  # 6. Автор последнего коммита, коснувшегося пути, ∈ владельцев этих зон.
+  retake_auth="$("$GIT" -C "$CANON" log -1 --format=%an -- "$delta_path" 2>/dev/null || true)"
+  if [ -z "$retake_auth" ]; then
+    printf 'ОТКАЗ: переснятие не доказано: путь не вердиктный (зона судьи не объявлена)\n' >&2
+    exit 1
+  fi
+  owners="$(awk -F'\t' -v p="$delta_path" '$2 ~ /^verdicts\// {
+    if ($2 ~ /\/$/) { if (p ~ $2) print $1 }
+    else { if (p == $2) print $1 }
+  }' "$retake_zones/zones_scoped" | sort -u)"
+  if ! printf '%s\n' "$owners" | grep -qxF -- "$retake_auth"; then
+    printf 'ОТКАЗ: переснятие не доказано: автор дельты не судья зоны\n' >&2
+    exit 1
+  fi
+  # Успех: переснимаем базлайн ТЕМ ЖЕ форматом (root + sorted + verify, mode 0444).
+  do_snapshot
+  retake_sha="$("$GIT" -C "$CANON" rev-parse "HEAD" 2>/dev/null || true)"
+  printf 'базлайн переснят: вердиктная дельта %s (автор %s, коммит %s)\n' "$delta_path" "$retake_auth" "$retake_sha"
+  exit 0
+}
+
 case "$MODE" in
   --snapshot) do_snapshot ;;
   --check)    do_check ;;
+  --retake)   do_retake ;;
 esac
 exit 0
