@@ -51,7 +51,23 @@
 #      зелёная). Убивает слабую форму «--retake = --snapshot»;
 #   р7 verdicts/ПОДКАТАЛОГ без ЗОНА-строки (verdicts/konsul/x.md, зона объявлена
 #      только на verdicts/review/) → ПОСЛЕ rc 1 «…путь не вердиктный (зона судьи не
-#      объявлена)» + снимок не тронут. Пинует: источник — реестр зон, не префикс.
+#      объявлена)» + снимок не тронут. Пинует: источник — реестр зон, не префикс;
+#   р8 НЕЗАКОММИЧЕННЫЕ байты под assume-unchanged (Б3 круга 1, воспроизведение
+#      критика): вердикт закоммичен reviewer, снимок снят, затем байты файла
+#      изменены БЕЗ коммита и путь помечен `git update-index --assume-unchanged` —
+#      porcelain ПУСТ, дельта однопутная вердиктная, автор последнего коммита
+#      reviewer: ШЕСТЬ прежних условий сходились, седьмое (побайтовое равенство
+#      HEAD) обязано отказать → ПОСЛЕ rc 1 «переснятие не доказано: байты
+#      дельта-пути не закоммичены (porcelain лжёт: assume-unchanged/skip-worktree)»
+#      + снимок не тронут. Продолжение корневой меры 024 (статус-флаги не
+#      ослепляют), не запрет конкретного флага;
+#   р9 ОСЛЕПЛЁННЫЙ ЧИТАТЕЛЬ зон (Б4 круга 1): .git/refs/tags закрыт на чтение
+#      ПОСЛЕ снимка и вердикта (измерено пробой круга 2: zones_load rc 0 с ПУСТЫМ
+#      zones_scoped — молчаливый fail-open; механика манифеста жива: rev-parse
+#      HEAD / ls-files / status читают refs/heads) → ПОСЛЕ rc 1 «переснятие не
+#      доказано: реестр зон не несёт ни одной судейской зоны — читатель ослеплён»
+#      + снимок не тронут. Стаб «запасной префикс/кэш при отказе читателя» умирает
+#      здесь: ослеплённый реестр не доказывает зону.
 #
 # На каждом отказывающем входе (р2–р5, р7) фикстура сверяет ОБА факта: именованный
 # отказ И НЕИЗМЕННОСТЬ снимка (байты до == байты после; --check остаётся rc 1 с теми
@@ -254,5 +270,28 @@ run_subj --snapshot "$KURI"
 commit_kak "$KURI" reviewer "verdicts/konsul/svidetelstvo-${RANDOM}.md" 'свидетельство вне зоны'
 ozhid_otkaz р7 'переснятие не доказано: путь не вердиктный (зона судьи не объявлена)'
 
-printf 'ok: дверь переснятия 031 — все ворота пройдены (р0..р7)\n'
+# ── р8: незакоммиченные байты под assume-unchanged (Б3) ─────────────────────────
+KURI="$WORK/v8_${RANDOM}"
+mk_sud_root "$KURI"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail р8 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+commit_kak "$KURI" reviewer "verdicts/review/contracts-001-k8.md" 'accept — честный вердикт'
+printf 'ПОДМЕНА: незакоммиченные байты\n' > "$KURI/verdicts/review/contracts-001-k8.md"
+gtoy "$KURI" update-index --assume-unchanged "verdicts/review/contracts-001-k8.md"
+# контроль воспроизведения: porcelain ЛЖЁТ «чисто» — иначе вход не вход Б3
+gtoy "$KURI" status --porcelain | grep -q . && fail р8 контроля "porcelain видит правку — вход не воспроизводит Б3"
+ozhid_otkaz р8 'переснятие не доказано: байты дельта-пути не закоммичены'
+gtoy "$KURI" update-index --no-assume-unchanged "verdicts/review/contracts-001-k8.md" 2>/dev/null || true
+
+# ── р9: ослеплённый читатель зон (Б4) ───────────────────────────────────────────
+KURI="$WORK/v9_${RANDOM}"
+mk_sud_root "$KURI"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail р9 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+commit_kak "$KURI" reviewer "verdicts/review/contracts-001-k9.md" 'accept — честный вердикт'
+chmod 000 "$KURI/.git/refs/tags"
+ozhid_otkaz р9 'переснятие не доказано: реестр зон не несёт ни одной судейской зоны'
+chmod 755 "$KURI/.git/refs/tags"
+
+printf 'ok: дверь переснятия 031 — все ворота пройдены (р0..р9)\n'
 exit 0

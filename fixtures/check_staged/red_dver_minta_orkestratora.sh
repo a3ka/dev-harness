@@ -50,6 +50,10 @@
 #       повторный минт»;
 #   в5  тег не создан вовсе: строка на N5, тега id/CONTRACT/N5 нет → ПОСЛЕ rc 1
 #       «дверь минта 031: тег id/CONTRACT/N5 не жив локально»;
+#   в5б LIGHTWEIGHT-тег (совет 3 круга 1): `git tag` без -a — объект-КОММИТ под
+#       refs/tags, грамматики строки не нарушает → ПОСЛЕ rc 1 «дверь минта 031: тег
+#       id/CONTRACT/N5б не аннотированный» (аннотированность — имя отдельное от
+#       «не жив»);
 #   в6  self-mint: тег создан ЛОКАЛЬНО, НЕ запушен (ровно self-mint агента из
 #       worktree; refs общие) → ПОСЛЕ rc 1 «дверь минта 031: тег N6 не выдан
 #       авторитетом: тег не достижим на origin»;
@@ -60,10 +64,25 @@
 #       несуществующий путь (файловый, детерминированно; DNS не касается) → ПОСЛЕ
 #       rc 1 «дверь минта 031: авторитет недоступен» (fail-closed; имя отдельное от
 #       «не выдан авторитетом»);
+#   в8б ДРЕЙФ АВТОРИТЕТА (совет 3 круга 1): origin ДОСТУПЕН, но несёт ДРУГОЙ
+#       tag-object под тем же refs/tags/id/CONTRACT/N8б (локальный тег == строке;
+#       второй объект форс-пушнут на origin) → ПОСЛЕ rc 1 «дверь минта 031: sha
+#       тега на origin ≠ sha строки (дрейф авторитета)» — имя отдельное от
+#       недостижимости в8;
 #   в9  ветка не main: свой wip/<N9>/orchestrator (страж 018 пускает — своя ветка),
 #       полный резерв, строка staged → ПОСЛЕ rc 1 «дверь минта 031: дверь не на main»;
 #   в10 не-orchestrator: implementer при ПОЛНОМ резерве → «вне зоны» ДО и ПОСЛЕ
-#       (дверь не расширяет права за пределы orchestrator).
+#       (дверь не расширяет права за пределы orchestrator);
+#   в11 ПРИЗНАНИЕ в check_zones, честный случай (Б1 круга 1): полный минт
+#       ЗАКОММИЧЕН orchestrator'ом в открытом окне toy-контракта → $BARRIER/
+#       check_zones.sh на toy: СЕГОДНЯ rc 1 «коммит вне зоны» (боль CI предъявлена
+#       красным), ПОСЛЕ rc 0 (признание исключает ровно путь манифеста);
+#   в12 признание НЕ индульгенция (Б1): orchestrator коммитит ПРАКУ существующей
+#       строки манифеста (не-минтная дельта того же пути) → check_zones rc 1
+#       «коммит вне зоны» ДО и ПОСЛЕ — убивает стаб «пропускать registry/ целиком»;
+#   в13 дверь НЕ индульгенция на staged-коммит (Б2 круга 1): честная строка
+#       манифеста + отдельный путь вне зоны (registry/extra.tsv) в ОДНОМ staged →
+#       rc 1 именем ВТОРОГО пути ∧ stdout несёт judged-строку двери для манифеста.
 #
 # Охрана «судья не создаёт тег id/*» (мера не меняет предмет): снимок id-тегов ДО
 # вызова против ПОСЛЕ на каждом судимом репо (правило 8 — ожидание в памяти).
@@ -97,10 +116,12 @@ mapfile -t RD < <(awk 'BEGIN{srand();
   printf "%03d\n", 105+int(rand()*5);
   printf "%03d\n", 110+int(rand()*5);
   printf "%03d\n", 115+int(rand()*5);
-  for (i=0;i<9;i++) printf "%d\n", 10000000+int(rand()*89999999)}')
+  printf "%03d\n", 10+int(rand()*5);
+  printf "%03d\n", 15+int(rand()*4);
+  for (i=0;i<11;i++) printf "%d\n", 10000000+int(rand()*89999999)}')
 N1="${RD[0]}"; N1x="${RD[1]}"; N1y="${RD[2]}"; N2="${RD[3]}"; N3="${RD[4]}"
 N4="${RD[5]}"; N5="${RD[6]}"; N6="${RD[7]}"; N7="${RD[8]}"; N8="${RD[9]}"
-N9="${RD[10]}"; N10="${RD[11]}"
+N9="${RD[10]}"; N10="${RD[11]}"; N5b="${RD[12]}"; N8b="${RD[13]}"
 
 # Субъект — копия scripts/ под случайным именем (BARRIER_ROOT-паттерн).
 BARRIER="$WORK/subj-${RD[12]}"
@@ -297,6 +318,22 @@ if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'не жив ло�
   exit 1
 fi
 
+# ── в5б: lightweight-тег — объект-коммит под refs/tags ─────────────────────────
+T5b="$WORK/kor-${RD[16]}v5b"
+make_repo_orchzone "$T5b"
+toy_origin "$T5b" >/dev/null
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$T5b" tag "id/CONTRACT/$N5b"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$T5b" push -q origin "refs/tags/id/CONTRACT/$N5b"
+set_author "$T5b" orchestrator
+stage_row "$T5b" "$N5b" "$(git -C "$T5b" rev-parse "refs/tags/id/CONTRACT/$N5b")"
+t5b_id0="$(id_tags_of "$T5b")"
+run_bar "$T5b"
+assert_no_new_id_tags "$T5b" "$t5b_id0"
+if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'не аннотированный'; then
+  printf 'ОТКАЗ: в5б: lightweight-тег %s не опознан (rc %s, ожидан rc 1 «дверь минта 031: тег id/CONTRACT/%s не аннотированный»): %s\n' "$N5b" "$BAR_RC" "$N5b" "$BAR_ERR" >&2
+  exit 1
+fi
+
 # ── в6: self-mint — тег локально, НЕ на origin ──────────────────────────────────
 T6="$WORK/kor-${RD[17]}"
 make_repo_orchzone "$T6"
@@ -344,6 +381,23 @@ if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'авторите�
   exit 1
 fi
 
+# ── в8б: дрейф авторитета — origin доступен, sha другой ───────────────────────
+T8b="$WORK/kor-${RD[17]}v8b"
+make_repo_orchzone "$T8b"
+toy_origin "$T8b" >/dev/null
+mint_tag_avtoritet "$T8b" "$N8b"
+g "$T8b" tag -a "vremennyj-${RD[18]}" -m 'второй объект (фикстура: дрейф авторитета)'
+g "$T8b" push -q --force origin "refs/tags/vremennyj-${RD[18]}:refs/tags/id/CONTRACT/$N8b"
+set_author "$T8b" orchestrator
+stage_row "$T8b" "$N8b" "$(git -C "$T8b" rev-parse "refs/tags/id/CONTRACT/$N8b")"
+t8b_id0="$(id_tags_of "$T8b")"
+run_bar "$T8b"
+assert_no_new_id_tags "$T8b" "$t8b_id0"
+if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'sha тега на origin ≠ sha строки'; then
+  printf 'ОТКАЗ: в8б: дрейф авторитета %s не опознан (rc %s, ожидан rc 1 «дверь минта 031: sha тега на origin ≠ sha строки (дрейф авторитета)»): %s\n' "$N8b" "$BAR_RC" "$BAR_ERR" >&2
+  exit 1
+fi
+
 # ── в9: ветка не main (своя wip — страж 018 пускает, дверь обязана отказать) ────
 T9="$WORK/kor-${RD[20]}"
 make_repo_orchzone "$T9"
@@ -376,5 +430,73 @@ if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'вне зоны';
   exit 1
 fi
 
-printf 'ok: дверь минта 031 — все ворота пройдены (в0..в10)\n'
+# ── в11: признание в check_zones — честный минт в открытом окне (Б1) ───────────
+# СЕГОДНЯ: rc 1 «коммит вне зоны» — боль CI предъявлена красным. ПОСЛЕ: rc 0.
+T11="$WORK/korcz-${RD[19]}"
+make_repo_orchzone "$T11"
+toy_origin "$T11" >/dev/null
+mint_tag_avtoritet "$T11" "$N1"
+set_author "$T11" orchestrator
+stage_row "$T11" "$N1" "$(git -C "$T11" rev-parse "refs/tags/id/CONTRACT/$N1")"
+g "$T11" commit -q -m "манифест: выдача $N1"
+CZ_OUT="$(bash "$BARRIER/check_zones.sh" "$T11" 2>"$WORK/cz_err11")" && CZ_RC=0 || CZ_RC=$?
+CZ_ERR="$(cat "$WORK/cz_err11")"
+if [ "$CZ_RC" -ne 0 ]; then
+  printf 'ОТКАЗ: в11: признание минта в check_zones отсутствует — честный закоммиченный минт %s (orchestrator, открытое окно) красит CI: rc %s: %s %s\n' "$N1" "$CZ_RC" "$CZ_OUT" "$CZ_ERR" >&2
+  exit 1
+fi
+
+# ── в12: признание НЕ индульгенция — не-минтная дельта того же пути (Б1) ────────
+T12="$WORK/korcz-${RD[20]}"
+make_repo_orchzone "$T12"
+toy_origin "$T12" >/dev/null
+mint_tag_avtoritet "$T12" "$N1x"
+mint_row_commit "$T12" "$N1x"
+g "$T12" tag -d "id/CONTRACT/$N1x" >/dev/null
+g "$T12" tag -a "id/CONTRACT/$N1x" -m 'выдача (фикстура: переминт для правки строки)'
+g "$T12" push -q --force origin "refs/tags/id/CONTRACT/$N1x"
+novyj12="$(git -C "$T12" rev-parse "refs/tags/id/CONTRACT/$N1x")"
+python3 - "$T12/registry/contracts.tsv" "$N1x" "$novyj12" <<'PYE'
+import io,sys
+f,n,sha=sys.argv[1],sys.argv[2],sys.argv[3]
+lines=io.open(f,encoding='utf-8').read().splitlines(True)
+out=[]
+for L in lines:
+    if L.startswith(n+' '):
+        out.append('%s → %s\n'%(n,sha))
+    else:
+        out.append(L)
+io.open(f,'w',encoding='utf-8').writelines(out)
+PYE
+set_author "$T12" orchestrator
+g "$T12" add -A
+g "$T12" commit -q -m "правка строки манифеста $N1x (не-минтная дельта)"
+CZ_OUT="$(bash "$BARRIER/check_zones.sh" "$T12" 2>"$WORK/cz_err12")" && CZ_RC=0 || CZ_RC=$?
+CZ_ERR="$(cat "$WORK/cz_err12")"
+if [ "$CZ_RC" -ne 1 ] || ! { printf '%s%s' "$CZ_OUT" "$CZ_ERR" | grep -qF 'вне зоны'; } \
+   || ! { printf '%s%s' "$CZ_OUT" "$CZ_ERR" | grep -qF 'registry/contracts.tsv'; }; then
+  printf 'ОТКАЗ: в12: не-минтная дельта registry/contracts.tsv пропущена признанием (rc %s, ожидан rc 1 «коммит вне зоны» с именем пути): %s %s\n' "$CZ_RC" "$CZ_OUT" "$CZ_ERR" >&2
+  exit 1
+fi
+
+# ── в13: дверь НЕ индульгенция на staged-коммит (Б2) ────────────────────────────
+T13="$WORK/kor-${RD[12]}sm"
+make_repo_orchzone "$T13"
+toy_origin "$T13" >/dev/null
+mint_tag_avtoritet "$T13" "$N1y"
+set_author "$T13" orchestrator
+stage_row "$T13" "$N1y" "$(git -C "$T13" rev-parse "refs/tags/id/CONTRACT/$N1y")"
+mkdir -p "$T13/registry"
+printf 'мусор вне зоны\n' > "$T13/registry/extra.tsv"
+g "$T13" add -A
+t13_id0="$(id_tags_of "$T13")"
+run_bar "$T13"
+assert_no_new_id_tags "$T13" "$t13_id0"
+if [ "$BAR_RC" -ne 1 ] || ! printf '%s' "$BAR_ERR" | grep -qF 'вне зоны: registry/extra.tsv' \
+   || ! printf '%s' "$BAR_OUT" | grep -qF 'дверь минта 031'; then
+  printf 'ОТКАЗ: в13: смешанный staged (честный минт %s + registry/extra.tsv вне зоны) судится неверно (rc %s, ожидан rc 1 «вне зоны: registry/extra.tsv» ∧ judged-строка манифеста): %s | %s\n' "$N1y" "$BAR_RC" "$BAR_OUT" "$BAR_ERR" >&2
+  exit 1
+fi
+
+printf 'ok: дверь минта 031 — все ворота пройдены (в0..в13, в5б, в8б)\n'
 exit 0
