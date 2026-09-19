@@ -185,6 +185,20 @@ done < <(find "$SCRIPTS" \( -type f -o -type l \) | sort)
 [ "${#barriers[@]}" -gt 0 ] || skip "в $SCRIPTS нет ни одного барьера — предъявлять нечего"
 
 # ── 2. Сверка в обе стороны: фикстура без барьера — тоже расхождение ───────────
+# Класс probe-only (контракт 034, инв. 1): .probe-only ∧ ≥1 red_*.sh ∧ нет case_*.sh ∧
+# нет барьерного ключа — легальный; не флагается ни в полном, ни в scoped, ни в
+# --changed прогоне. Не-ослабление (инв. 2): маркер ∧ ключ → «противоречие ролей»;
+# маркер ∧ case_* → «смешение ролей каталога»; без маркера → «фикстура без барьера».
+# Пустой/отсутствующий маркер (включая только-добавление без причины) не легализует
+# каталог: прецедент check_zones «причина пуста — объявление без причины неотличимо
+# из опечатки» (034 frontier п.1).
+is_probe_only_legal() {  # <каталог>
+  local d="$1"
+  [ -s "$d/.probe-only" ] || return 1
+  find "$d" -maxdepth 1 -type f -name 'red_*.sh' -print -quit 2>/dev/null | grep -q . || return 1
+  find "$d" -maxdepth 1 -type f -name 'case_*.sh' -print -quit 2>/dev/null | grep -q . && return 1
+  return 0
+}
 if [ -d "$FIXTURES" ]; then
   for d in "$FIXTURES"/*; do
     [ -d "$d" ] || continue
@@ -193,7 +207,19 @@ if [ -d "$FIXTURES" ]; then
     for kk in "${keys[@]}"; do
       if [ "$kk" = "$k" ]; then found=1; fi
     done
-    [ "$found" -eq 1 ] || bad "fixtures/$k: фикстура без барьера — она ничего не держит"
+    # Легальный probe-only — пропускаем (034, инв. 1).
+    is_probe_only_legal "$d" && continue
+    # Барьерный ключ найден — проверяем согласованность с маркером (034, инв. 2).
+    if [ "$found" -eq 1 ]; then
+      [ -s "$d/.probe-only" ] && bad "fixtures/$k: барьерный каталог с маркером .probe-only — противоречие ролей"
+      continue
+    fi
+    # Не-барьерный ключ. Маркер ∧ case_* — смешение; без маркера — «фикстура без барьера».
+    if [ -s "$d/.probe-only" ]; then
+      bad "fixtures/$k: probe-only каталог с case_*.sh — смешение ролей каталога"
+    else
+      bad "fixtures/$k: фикстура без барьера — она ничего не держит"
+    fi
   done
 fi
 
@@ -238,12 +264,17 @@ if [ -n "$SCOPE_MODE" ]; then
         printf 'SCOPED: нерезолвимый base — fail-safe полный прогон\n' >&2
         printf 'MODE: full\n'; sel_rc=0; mode=full
       else
+        # FAIL-CLOSED EARLY EXIT (034, инв. 2, к1-Б1): нулевая выборка при резолвимом base НЕ
+        # легализует дерево с уже накопленными §2 отказами — счётчик fails живёт до выхода.
+        # Контрпример A вердикта к1: стаб, сохранивший ранний exit 0 при напечатанном FAIL,
+        # стирал отказы нелегального каталога при легальной probe-правке в диффе.
+        [ "$fails" -gt 0 ] && exit 1
         printf 'SCOPED: 0 задетых при резолвимом base — нечего гонять, зелёно\n' >&2
         printf 'MODE: none\n'; exit 0
       fi
     else
       printf 'SCOPED: 0 задетых — scoped ничего не доказал, полный гейт в CI\n' >&2
-        printf 'MODE: needs-full\n'; exit 2
+      printf 'MODE: needs-full\n'; exit 2
     fi
   fi
   [ "$sel_rc" = 0 ] || { bad "scope_select отказал (код $sel_rc): $sel_out"; exit 1; }
@@ -728,7 +759,7 @@ if [ "$before" != "$after" ]; then
   fi
   bad "дерево изменилось вне \$WORK — файлы: ${menjalis% }"
   printf '       фикстура обязана жить в $WORK; если названные файлы правит кто-то другой\n' >&2
-  printf '       (соседный агент, редактор) — прогон недостоверен целиком, а не в одной строке\n' >&2
+  printf '       (соседный агент, редактор) — прогон недостоверен целом, а не в одной строке\n' >&2
 fi
 
 printf '\nбарьеров: %d · фикстур: %d · предъявлено красным повторным прогоном: %d\n' \
