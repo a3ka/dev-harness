@@ -55,6 +55,11 @@ fi
 command -v git >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инструмента git\n' >&2; exit 2; }
 command -v date >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инструмента date\n' >&2; exit 2; }
 date -d @0 >/dev/null 2>&1 || { printf 'verify_consultant.sh: date -d не работает\n' >&2; exit 2; }
+# Граница файловых операндов cat/ls относительно --root (дефект 1 круга 4):
+# realpath нужен для канонизации позиционных операндов с резолвом симлинков.
+# Сама проверка выполняется барьером, не в env -i — realpath не идёт в TRUSTED_PATH.
+command -v realpath >/dev/null 2>&1 || { printf 'verify_consultant.sh: нет инструмента realpath\n' >&2; exit 2; }
+ROOT_CANON="$(realpath -m -- "$ROOT")"
 
 # ── TRUSTED_PATH для `env -i` (Г1 арбитража, находка 2 адверсария круга 2) ───
 # ЗАКРЫТЫЙ env-allowlist требует, чтобы PATH внутри `env -i` НЕ зависел от
@@ -102,6 +107,11 @@ sha_vyvoda() {  # <stdout+stderr многострочно>
 # Шапка: ПРЕДМЕТ / МОДЕЛЬ / ВОПРОС / РЕКОМЕНДАЦИЯ.
 # Блок: ОСНОВАНИЕ-ДЕРЕВО с тройками КОМАНДА / RC / ВЫВОД-SHA256.
 RESP="$(cat "$OTVET")"
+CAT_RC=$?
+if [ "$CAT_RC" -ne 0 ]; then
+  printf 'verify_consultant.sh: cat непригоден — нечем проверить (rc=%s)\n' "$CAT_RC" >&2
+  exit 2
+fi
 
 resp_field() {  # <имя поля>
   printf '%s\n' "$RESP" | sed -n "s/^${1}:[[:space:]]*//p" | head -n 1
@@ -162,6 +172,27 @@ contains_forbidden() {  # <строка>  → 0 если нашёлся ЛЮБО
   for c in $FORBIDDEN_META_CHARS; do
     [[ "$1" == *"$c"* ]] && return 0
   done
+  return 1
+}
+
+# Канонический путь позиционного операнда cat/ls (дефект 1 круга 4). Без этой
+# проверки `cat ../outside.txt` и `cat evidence-link` (симлинк из $ROOT на
+# файл ВНЕ $ROOT) проходили барьер как честный «ОСНОВАНИЕ-ДЕРЕВО» про чужой
+# файл: запуск «в каталоге $ROOT» — НЕ граница для абсолютных, `..`- и
+# симлинк-путей (Г1–Г5 этого не судят). Канонизируем через `realpath -m`
+# (резолвит симлинки И допускает несуществующие компоненты), затем сверяем
+# с $ROOT_CANON — по подстроке «$ROOT_CANON/» либо равенству.
+v_predelah_root() {  # <arg>  → 0 если ВНУТРИ $ROOT, 1 если СНАРУЖИ
+  local arg="$1"
+  local canonical
+  if [[ "$arg" = /* ]]; then
+    canonical="$(realpath -m -- "$arg" 2>/dev/null || true)"
+  else
+    canonical="$(realpath -m -- "$ROOT/$arg" 2>/dev/null || true)"
+  fi
+  [ -n "$canonical" ] || return 1
+  [ "$canonical" = "$ROOT_CANON" ] && return 0
+  [[ "$canonical" == "$ROOT_CANON"/* ]] && return 0
   return 1
 }
 
@@ -352,6 +383,28 @@ for triple in "${TRIPLES[@]}"; do
              # их нет, для cat/ls/sha256sum — допустимо; канал записи ими не открывается)
     esac
   done
+
+  # 5б) Граница файловых операндов cat/ls относительно --root (дефект 1 круга 4).
+  #    Для verb ∈ {cat, ls} каждый позиционный аргумент канонизируется (резолв
+  #    симлинков через realpath -m) и сверяется с $ROOT_CANON. Несовпадение —
+  #    именованный отказ «вне белого списка», как и для прочих нарушений
+  #    белого списка. git-подкоманды НЕ судятся здесь: гитлинк и прочие пути
+  #    через git-переисполнение не открывают файлы из ФС проверяемого корня
+  #    мимо env -i (путь идёт как аргумент git, не shell), и приоритет круга 4
+  #    за cat/ls — дословный эксплойт вердикта.
+  if [ "$verb" = "cat" ] || [ "$verb" = "ls" ]; then
+    for arg in "${argv[@]:1}"; do
+      case "$arg" in
+        --) continue ;;
+        -*) continue ;;
+      esac
+      if ! v_predelah_root "$arg"; then
+        printf 'вне белого списка: файловый операнд «%s» указывает за пределы --root=%s — %s\n' \
+               "$arg" "$ROOT" "$cmd" >&2
+        exit 1
+      fi
+    done
+  fi
 
   # 6) Переисполнение под Г1 + Г3. Для git подставляем `-c core.hooksPath=<empty>` и
   #    `-C <root>`. Исполнение — в каталоге ROOT, как требует проверяющий.
