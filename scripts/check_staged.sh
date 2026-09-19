@@ -436,7 +436,7 @@ for f in "${staged[@]}"; do
     door_msg=""
     # 1. форма: ТОЛЬКО добавления (N ≥ 1 +<content>, ноль -<content>).
     diff_out="$(git -C "$ROOT" diff --cached -U0 -- registry/contracts.tsv 2>/dev/null || true)"
-    add_count="$(printf '%s\n' "$diff_out" | awk '/^\+[^+]/ { c++ } END { print c+0 }')"
+    add_count="$(printf '%s\n' "$diff_out" | awk '/^\+([^+]|$)/ { c++ } END { print c+0 }')"
     del_count="$(printf '%s\n' "$diff_out" | awk '/^-[^-]/ { c++ } END { print c+0 }')"
     if [ "$add_count" -lt 1 ] || [ "$del_count" -ne 0 ]; then
       door_rc=1; door_msg="дверь минта 031: дельта манифеста не только-добавление"
