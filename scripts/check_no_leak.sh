@@ -1214,6 +1214,9 @@ do_retake() {
   local first base cur delta names l p manifest_rc snap_mode verify_line verify_stored verify_recomp
   local delta_path retake_zones retake_zones_rc retake_fail retake_auth retake_sha retake_msg
   local cur1 cur2 porcelain_out porcelain_rc
+  # Подгружаем lib_zones.sh для zones_load (контракт 031, Б4 — ЕДИНСТВЕННЫЙ читатель зон).
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_zones.sh"
   # 1. Снимок существует и цел (защиты-снимка 024 дословно).
   if [ ! -e "$SNAP" ]; then
     printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
