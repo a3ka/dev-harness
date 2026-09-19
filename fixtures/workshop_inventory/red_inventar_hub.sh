@@ -95,7 +95,7 @@
 #   Позитивы (доказательство не-всегда-красности):
 #   w4/w5/w6 (мини) — база с hub, FABLE без; FABLE С edit при базе с hub (edit —
 #             свободный признак состава); база без edit, но с hub;
-#   pos (дерево) — базовая строка :473 с ,hub — все три наблюдения зелёные;
+#   pos (дерево) — базовая строка с hub (:473; на пост-hub базе — легальная перестановка hub-в-конце, не живой литерал) — все три наблюдения зелёные;
 #   v4 (дерево) — ЛЕГАЛЬНАЯ форма: база вынесена в сорсимый файл С hub —
 #             к3-Б2: полная команда обязана давать 0, предусловия не запрещают.
 # ЯКОРЬ СУДЬИ: строка `if [ "${1:-}" = "--version" ]…` стаба ниже — дословный
@@ -352,12 +352,19 @@ SRC='. "$HERE/scripts/session_tools.sh"'
 # исполненные дописи к3-Б1 (LF) и его брат на CR — байты дословно, без склейки
 LF_DOPIS="    TOOLS=\"\$TOOLS\"\$'\\n,hub'"
 CR_DOPIS="    TOOLS=\"\$TOOLS\"\$'\\r,hub'"
+# HUBBASE — реализованная база Н-105 (hub между glob и lsp, :473): новая честная база —
+# вариант-деревья строятся НА НЕЙ, модифицируя её (ИЗ-2 доклада Implementer030: якоря
+# только от до-hub формы пропускали всю батарею «громко», оголяя живой суд). BASE —
+# до-предметная форма: на ней проба всё ещё строит варианты и красна живым судом $REPO.
+# HUB — hub-в-конце: цель дописей pos/k2 и легальная перестановка базы — позитив pos
+# не совпадает байт-в-байт с живой формой: живой суд не зелёнит единственный литерал.
+HUBBASE='TOOLS="read,edit,write,bash,grep,glob,hub,lsp,web_search,task,todo"'
 mkvar() {  # <имя> <awk-прог> [<содержимое scripts/session_tools.sh>]
   local name="$1" prog="$2"
   local t="$WORK/trees/$name"
   rm -rf "$t"; mkdir -p "$t"
   ( cd "$REPO" && tar -cf - --exclude=./.git . ) | ( cd "$t" && tar -xf - )
-  BASE="$BASE" NOEDIT="$NOEDIT" HUB="$HUB" STOMP="$STOMP" FABK1="$FAB_K1" \
+  BASE="$BASE" NOEDIT="$NOEDIT" HUB="$HUB" HUBBASE="$HUBBASE" STOMP="$STOMP" FABK1="$FAB_K1" \
   FAB="$FAB_RE" SRC="$SRC" LFD="$LF_DOPIS" CRD="$CR_DOPIS" \
     awk "$prog" "$REPO/workshop" > "$t/workshop"
   chmod 755 "$t/workshop"
@@ -365,30 +372,30 @@ mkvar() {  # <имя> <awk-прог> [<содержимое scripts/session_tool
   git -C "$t" init -q   # проектному пути достаточно git-репозитория (rev-parse)
 }
 
-mkvar pos '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next } { print }'
-mkvar k1  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["NOEDIT"]; next }
+mkvar pos '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next } { print }'
+mkvar k1  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["NOEDIT"]; next }
            $0 == ENVIRON["FAB"] || $0 == ENVIRON["FABK1"] { print ENVIRON["FABK1"]; next }
            { print }'
-mkvar k2  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; print ENVIRON["BASE"]; next } { print }'
+mkvar k2  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; print ENVIRON["BASE"]; next } { print }'
 # v1: «условное» затирание внутри СУЩЕСТВУЮЩЕГО if [ -z "$PROJECT" ] до FABLE
-mkvar v1  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
+mkvar v1  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
            $0 == "if [ -z \"$PROJECT\" ]; then" { print; print ENVIRON["STOMP"]; next } { print }'
 # v2: затирание сразу после fi блока FABLE (с отступом, до exec тул-режима)
-mkvar v2  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
+mkvar v2  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
            /РЕЖИМ FABLE  консультант read-only/ { print; f = 1; next }
            f && /^  fi$/ { print; print ENVIRON["STOMP"]; f = 0; next } { print }'
 # v3: сорс файла БЕЗ hub сразу после hub-строки (текстовый сканер сорс не видит)
-mkvar v3  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; print ENVIRON["SRC"]; next } { print }' "$BASE"
+mkvar v3  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; print ENVIRON["SRC"]; next } { print }' "$BASE"
 # v4: ЛЕГАЛЬНОЕ дерево — базовая строка заменена сорсом файла С hub (к3-Б2: зелёное)
-mkvar v4  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["SRC"]; next } { print }' "$HUB"
+mkvar v4  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["SRC"]; next } { print }' "$HUB"
 # v5: hub цел; затирание кол.0 перед require_metering "$PROJECT" (проектный путь)
-mkvar v5  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
+mkvar v5  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
            /^require_metering "\$PROJECT"$/ { print ENVIRON["BASE"]; print; next } { print }'
 # b1: исполненный обход к3-Б1 ДОСЛОВНО — LF-допис сразу после FABLE-присваивания
-mkvar b1  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
+mkvar b1  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
            $0 == ENVIRON["FAB"] { print; print ENVIRON["LFD"]; next } { print }'
 # cr: брат к3-Б1 на CR — тот же класс контрольного байта, одна ветвь \uXXXX
-mkvar cr  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
+mkvar cr  '$0 == ENVIRON["BASE"] || $0 == ENVIRON["HUBBASE"] || $0 == ENVIRON["HUB"] { print ENVIRON["HUB"]; next }
            $0 == ENVIRON["FAB"] { print; print ENVIRON["CRD"]; next } { print }'
 
 # ── подпись класса: ПОЛНЫЙ инвентарь строк-признаков построенного артефакта ───
@@ -400,19 +407,19 @@ postroil() {  # <имя>: rc 0 = инвентарь класса сошлся т
   local nm="$1"
   local w="$WORK/trees/$nm/workshop" s="$WORK/trees/$nm/scripts/session_tools.sh"
   local inv
-  inv="$(cfx "$HUB" "$w")/$(cfx "$BASE" "$w")/$(cfx "$NOEDIT" "$w")/$(cfx "$FAB_K1" "$w")/$(cfx "$STOMP" "$w")/$(cfx "$FAB_RE" "$w")/$(cfx "$SRC" "$w")/$(cfx "$LF_DOPIS" "$w")/$(cfx "$CR_DOPIS" "$w")"
-  # порядок инвентаря: HUB/BASE/NOEDIT/FABK1/STOMP/FAB/SRC/LFD/CRD
+  inv="$(cfx "$HUB" "$w")/$(cfx "$HUBBASE" "$w")/$(cfx "$BASE" "$w")/$(cfx "$NOEDIT" "$w")/$(cfx "$FAB_K1" "$w")/$(cfx "$STOMP" "$w")/$(cfx "$FAB_RE" "$w")/$(cfx "$SRC" "$w")/$(cfx "$LF_DOPIS" "$w")/$(cfx "$CR_DOPIS" "$w")"
+  # порядок инвентаря: HUB/HUBBASE/BASE/NOEDIT/FABK1/STOMP/FAB/SRC/LFD/CRD
   case "$nm" in
-    pos) [ "$inv" = '1/0/0/0/0/1/0/0/0' ] ;;
-    k1)  [ "$inv" = '0/0/1/1/0/0/0/0/0' ] ;;
-    k2)  [ "$inv" = '1/1/0/0/0/1/0/0/0' ] ;;
-    v1)  [ "$inv" = '1/0/0/0/1/1/0/0/0' ] ;;
-    v2)  [ "$inv" = '1/0/0/0/1/1/0/0/0' ] ;;
-    v3)  [ "$inv" = '1/0/0/0/0/1/1/0/0' ] && [ "$(cfx "$BASE" "$s")" = 1 ] ;;
-    v4)  [ "$inv" = '0/0/0/0/0/1/1/0/0' ] && [ "$(cfx "$HUB" "$s")" = 1 ] ;;
-    v5)  [ "$inv" = '1/1/0/0/0/1/0/0/0' ] ;;
-    b1)  [ "$inv" = '1/0/0/0/0/1/0/1/0' ] ;;
-    cr)  [ "$inv" = '1/0/0/0/0/1/0/0/1' ] ;;
+    pos) [ "$inv" = '1/0/0/0/0/0/1/0/0/0' ] ;;
+    k1)  [ "$inv" = '0/0/0/1/1/0/0/0/0/0' ] ;;
+    k2)  [ "$inv" = '1/0/1/0/0/0/1/0/0/0' ] ;;
+    v1)  [ "$inv" = '1/0/0/0/0/1/1/0/0/0' ] ;;
+    v2)  [ "$inv" = '1/0/0/0/0/1/1/0/0/0' ] ;;
+    v3)  [ "$inv" = '1/0/0/0/0/0/1/1/0/0' ] && [ "$(cfx "$BASE" "$s")" = 1 ] ;;
+    v4)  [ "$inv" = '0/0/0/0/0/0/1/1/0/0' ] && [ "$(cfx "$HUB" "$s")" = 1 ] ;;
+    v5)  [ "$inv" = '1/0/1/0/0/0/1/0/0/0' ] ;;
+    b1)  [ "$inv" = '1/0/0/0/0/0/1/0/1/0' ] ;;
+    cr)  [ "$inv" = '1/0/0/0/0/0/1/0/0/1' ] ;;
     *)   return 1 ;;
   esac
 }
