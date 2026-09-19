@@ -14,14 +14,6 @@ set -uo pipefail
 . "$(dirname "$0")/_repo.sh"
 : "${WORK:?WORK должен быть определён раннером}"
 
-g() {
-  local r="$1"; shift
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-  git -C "$r" \
-      -c user.name=Фикстура -c user.email=fixture@local \
-      -c commit.gpgsign=false -c core.hooksPath=/dev/null \
-      -c init.defaultBranch=main "$@"
-}
 make_repo_orchzone() {
   local r="$1"
   mkdir -p "$r/contracts" "$r/scripts"
@@ -37,8 +29,7 @@ make_repo_orchzone() {
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email orchestrator@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
-  g "$r" add -A
-  g "$r" commit -q -m 'основание'
+  commit_all "$r" 'основание'
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
 }
 mint_tag_avtoritet() {
@@ -51,11 +42,6 @@ stage_row() {
   mkdir -p "$r/registry"
   printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
   g "$r" add -A
-}
-commit_kak() {
-  local r="$1" msg="$2"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-    git -C "$r" -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m "$msg"
 }
 toy_origin() {
   local r="$1" orig="${1%/}-origin.git"
@@ -70,22 +56,20 @@ GREEN="$WORK/repo_green"
 make_repo_orchzone "$GREEN"
 toy_origin "$GREEN"
 mint_tag_avtoritet "$GREEN" "030"
-set_author "$GREEN" orchestrator
 sha="$(git -C "$GREEN" rev-parse "refs/tags/id/CONTRACT/030")"
 stage_row "$GREEN" "030" "$sha"
-commit_kak "$GREEN" "манифест: выдача 030 (orchestrator)"
-"$BARRIER" "$GREEN" || true   # check_zones на toy → rc 0
+commit_as "$GREEN" orchestrator "манифест: выдача 030 (orchestrator)"
+"$BARRIER" "$GREEN" || true
 
 # ── красный: правка существующей строки (закоммиченная как НЕ-минт) ──────────
 RED="$WORK/repo_red"
 make_repo_orchzone "$RED"
 toy_origin "$RED"
 mint_tag_avtoritet "$RED" "031"
-set_author "$RED" orchestrator
 # Сначала честный минт — коммитим оригинальную строку:
 sha="$(git -C "$RED" rev-parse "refs/tags/id/CONTRACT/031")"
 stage_row "$RED" "031" "$sha"
-commit_kak "$RED" "реестр: резерв 031"
+commit_as "$RED" orchestrator "реестр: резерв 031"
 # Затем ПЕРЕМИНТ тега (новый sha) + правка строки манифеста на новый sha —
 # коммит меняет строку (НЕ только-добавление). Признание проверяет
 # tag-object-sha == sha строки на момент коммита, и если sha совпадает с
@@ -95,5 +79,5 @@ mint_tag_avtoritet "$RED" "031"   # свежий sha для тега id/CONTRACT
 new_sha="$(git -C "$RED" rev-parse "refs/tags/id/CONTRACT/031")"
 sed -i "s/^031 → .*$/031 → $new_sha/" "$RED/registry/contracts.tsv"
 g "$RED" add -A
-commit_kak "$RED" "правка строки манифеста 031 (не-минтная дельта)"
-"$BARRIER" "$RED" || true   # check_zones: «дверь минта 031: дельта манифеста не только-добавление»
+commit_as "$RED" orchestrator "правка строки манифеста 031 (не-минтная дельта)"
+"$BARRIER" "$RED" || true
