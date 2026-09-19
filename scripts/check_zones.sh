@@ -402,7 +402,7 @@ while IFS=$'\t' read -r nnn since; do
           # Самый первый коммит: дельта против пустого дерева.
           mint_diff="$(g diff -U0 $(g rev-parse --verify 4b825dc642cb6eb9a060e54bf899d15f3f938a82) "$c" -- registry/contracts.tsv 2>/dev/null || true)"
         fi
-        mint_add="$(printf '%s\n' "$mint_diff" | awk '/^\+[^+]/ { c++ } END { print c+0 }')"
+        mint_add="$(printf '%s\n' "$mint_diff" | awk '/^\+([^+]|$)/ { c++ } END { print c+0 }')"
         mint_del="$(printf '%s\n' "$mint_diff" | awk '/^-[^-]/ { c++ } END { print c+0 }')"
         if [ "$mint_add" -lt 1 ] || [ "$mint_del" -ne 0 ]; then
           bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: дельта манифеста не только-добавление"
