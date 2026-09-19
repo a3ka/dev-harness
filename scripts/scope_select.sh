@@ -55,6 +55,17 @@ header_role() {
 is_barrier() { [ "$(header_role "$root/scripts/$1.sh")" = b ]; }
 is_library() { case "$(header_role "$root/scripts/$1.sh")" in *p*) true ;; *) false ;; esac; }
 
+# `is_probe_only_legal <каталог>` — 0, если каталог — легальный probe-only (034, инв. 1):
+# непустой маркер .probe-only ∧ ≥1 red_*.sh ∧ нет case_*.sh ∧ нет барьерного ключа.
+# Зеркало verify_antiplacebo.sh §2: то же определение легальности в обоих механизмах.
+is_probe_only_legal() {
+  local d="$1"
+  [ -s "$d/.probe-only" ] || return 1
+  find "$d" -maxdepth 1 -type f -name 'red_*.sh' -print -quit 2>/dev/null | grep -q . || return 1
+  find "$d" -maxdepth 1 -type f -name 'case_*.sh' -print -quit 2>/dev/null | grep -q . && return 1
+  return 0
+}
+
 emit_marker() { printf 'SCOPED: %s\n' "$*" >&2; }
 
 # `header_lines <файл|->` — печатает строки первого непрерывного головного блока комментариев.
@@ -178,7 +189,13 @@ case "$flag" in
               esac
               ;;
             fixtures/*/*)
-              k="${p#fixtures/}"; k="${k%%/*}"; keys="$keys $k" ;;
+              k="${p#fixtures/}"; k="${k%%/*}"
+              # Probe-only legal каталог (034, инв. 3): каталог не барьер, правка ничего
+              # не выбирает у барьеров → не добавляем в keys. Иначе mode=scoped с посторонним
+              # ключом: verify_antiplacebo не находит барьер → ложный «ни один не попал».
+              # Контра-пример B вердикта к1: «консервативный MODE: full» НЕ есть нуль выбора;
+              # здесь — НЕ добавляем ключ (наблюдаемый нуль через needs-full без KEY: строк).
+              is_probe_only_legal "$root/fixtures/$k" || keys="$keys $k" ;;
           esac
           ;;
         need_path2)
