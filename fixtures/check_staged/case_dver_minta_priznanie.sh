@@ -1,13 +1,15 @@
-# ПРИЧИНА: вне зоны: registry/contracts.tsv
+# ПРИЧИНА: дверь минта 031: дельта манифеста не только-добавление
 #
 # Контракт 031, ветвь ii (минт-признание в check_zones.sh): путь registry/contracts.tsv
 # под автором orchestrator исключается из суда зон ⟺ дельта коммита по этому пути —
 # только-добавление строк грамматики манифеста ∧ для каждой строки тег
 # id/CONTRACT/<NNN> жив локально ∧ tag-object-sha == sha строки.
 # Зелёный — check_zones на toy с честным закоммиченным минтом (rc 0).
-# Красный — check_zones на toy с закоммиченной правкой существующей строки манифеста
-# (не-минтная дельта того же пути): «вне зоны: registry/contracts.tsv» — НЕ
-# признание пропускает, потому что дельта — правка, не только-добавление.
+# Красный — check_zones на toy с НЕ-минтной дельтой того же пути: после честного
+# минта — повторный коммит, который ПРАВИТ строку манифеста (а не добавляет):
+# «дверь минта 031: дельта манифеста не только-добавление». Признание НЕ
+# индульгенция: проверяет дельту на только-добавление ПЕРВОЙ (как и дверь); провал —
+# bad() с именем причины.
 set -uo pipefail
 . "$(dirname "$0")/_repo.sh"
 : "${WORK:?WORK должен быть определён раннером}"
@@ -19,13 +21,6 @@ g() {
       -c user.name=Фикстура -c user.email=fixture@local \
       -c commit.gpgsign=false -c core.hooksPath=/dev/null \
       -c init.defaultBranch=main "$@"
-}
-toy_origin() {
-  local r="$1" orig="${1%/}-origin.git"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "$orig"
-  git -C "$orig" symbolic-ref HEAD refs/heads/main 2>/dev/null || true
-  g "$r" remote add origin "$orig"
-  g "$r" push -q origin main
 }
 make_repo_orchzone() {
   local r="$1"
@@ -57,13 +52,20 @@ stage_row() {
   printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
   g "$r" add -A
 }
-commit_kak() {  # автор ЛОКАЛЬНОГО конфига (set_author выставил orchestrator)
+commit_kak() {
   local r="$1" msg="$2"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
     git -C "$r" -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m "$msg"
 }
+toy_origin() {
+  local r="$1" orig="${1%/}-origin.git"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "$orig"
+  git -C "$orig" symbolic-ref HEAD refs/heads/main 2>/dev/null || true
+  g "$r" remote add origin "$orig"
+  g "$r" push -q origin main
+}
 
-# ── зелёный: честный минт, закоммиченный orchestrator'ом (open window) ────────
+# ── зелёный: один честный минт одним коммитом ─────────────────────────────────
 GREEN="$WORK/repo_green"
 make_repo_orchzone "$GREEN"
 toy_origin "$GREEN"
@@ -72,22 +74,26 @@ set_author "$GREEN" orchestrator
 sha="$(git -C "$GREEN" rev-parse "refs/tags/id/CONTRACT/030")"
 stage_row "$GREEN" "030" "$sha"
 commit_kak "$GREEN" "манифест: выдача 030 (orchestrator)"
-"$BARRIER" "$GREEN" || true   # check_zones на toy
+"$BARRIER" "$GREEN" || true   # check_zones на toy → rc 0
 
-# ── красный: правка существующей строки манифеста (не-минт) ───────────────────
+# ── красный: правка существующей строки (закоммиченная как НЕ-минт) ──────────
 RED="$WORK/repo_red"
 make_repo_orchzone "$RED"
 toy_origin "$RED"
 mint_tag_avtoritet "$RED" "031"
-# Коммитим первую строку манифеста авторитетом — потом переминтим и поправим sha.
 set_author "$RED" orchestrator
-stage_row "$RED" "031" "$(git -C "$RED" rev-parse "refs/tags/id/CONTRACT/031")"
+# Сначала честный минт — коммитим оригинальную строку:
+sha="$(git -C "$RED" rev-parse "refs/tags/id/CONTRACT/031")"
+stage_row "$RED" "031" "$sha"
 commit_kak "$RED" "реестр: резерв 031"
+# Затем ПЕРЕМИНТ тега (новый sha) + правка строки манифеста на новый sha —
+# коммит меняет строку (НЕ только-добавление). Признание проверяет
+# tag-object-sha == sha строки на момент коммита, и если sha совпадает с
+# текущим тегом — sha-часть проходит; дельта — нет.
 g "$RED" tag -d "id/CONTRACT/031" >/dev/null
-mint_tag_avtoritet "$RED" "031"   # свежий sha на новый тег
-# Правка существующей строки (не-минтная дельта): sed перезаписывает sha.
+mint_tag_avtoritet "$RED" "031"   # свежий sha для тега id/CONTRACT/031
 new_sha="$(git -C "$RED" rev-parse "refs/tags/id/CONTRACT/031")"
 sed -i "s/^031 → .*$/031 → $new_sha/" "$RED/registry/contracts.tsv"
 g "$RED" add -A
-commit_kak "$RED" "правка строки манифеста 031 (не-минт)"
-"$BARRIER" "$RED" || true   # check_zones откажет: дельта не только-добавление
+commit_kak "$RED" "правка строки манифеста 031 (не-минтная дельта)"
+"$BARRIER" "$RED" || true   # check_zones: «дверь минта 031: дельта манифеста не только-добавление»
