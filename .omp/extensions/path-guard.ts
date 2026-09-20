@@ -126,7 +126,8 @@ function isLiveLinkedWorktree(p: string): boolean {
   } catch {
     return false;
   }
-  const m = text.match(/^gitdir:\s*(.+?)\s*$/m);
+  const trimmed = text.trim();
+  const m = trimmed.match(/^gitdir:\s*(\S+)$/);
   if (!m || !m[1]) return false;
   try {
     statSync(m[1]);
@@ -903,7 +904,20 @@ export default function register(pi: unknown): void {
     const eventActual = typeof call.actual === 'string' ? call.actual : null;
 
     const sid = getSessionId(ctx);
-    const assignmentPin = sid !== null ? (sessionPins.get(sid) ?? null) : null;
+    let assignmentPin = sid !== null ? (sessionPins.get(sid) ?? null) : null;
+
+    // Вариант D (живая проводка, дизайн Architect032A1): если оба старших источника
+    // (событие, env) пусты и из sessionPins пин не получен — попытка ленивого
+    // подъёма из ветки сессии. Мемоизируем ТОЛЬКО ненулевой результат: null
+    // оставляем для повтора на следующем call (lifecycle мог записать null на
+    // пустой ветке, и его надо уметь перебить).
+    if (eventWorktree === null && envWorktree === null && assignmentPin === null) {
+      const lifted = extractPinFromBranch(getBranch(ctx));
+      if (lifted !== null) {
+        if (sid !== null) sessionPins.set(sid, lifted);
+        assignmentPin = lifted;
+      }
+    }
 
     let worktree: string | null;
     let actual: string;
