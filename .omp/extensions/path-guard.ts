@@ -27,8 +27,18 @@
 //     исключение слова владельца; fix 025 правка-круг 3, вердикт d141dd9
 //     блокер 2).
 //   - read/grep/glob и bash без формы записи — pass (Г1 «читать свободно»).
+//
+// Контракт 032, зонд к3 (S-path-fake-git-first): доверенный якорь git.
+// gitOracle вызывал spawnSync('git',…) голым именем; фейковый исполняемый
+// «git», поставленный первым в PATH, подменял ответ оракула (rc 0 +
+// существующий каталог на stdout проходил все проверки, и forged-кандидат
+// вердиктился live). Фикс: при ЗАГРУЗКЕ МОДУЛЯ git разрешается в абсолютный
+// путь ОДИН РАЗ и кэшируется; все вызовы оракула идут ТОЛЬКО по этому
+// абсолютному пути. Подменённый в PATH после загрузки «git» на оракул не
+// влияет — spawnSync ищет по PATH только при голом имени. Кэш пуст →
+// существующее поведение no-git (CLI rc 2 NOT_IMPLEMENTED, фабрика block).
 
-import { realpathSync, statSync } from 'node:fs';
+import { realpathSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname } from 'node:path';
 
@@ -112,6 +122,76 @@ function lexNormalize(p: string): string {
   return (isAbs ? '/' : '') + stack.join('/');
 }
 
+// ── Доверенный якорь git (контракт 032, зонд к3 S-path-fake-git-first) ─────────
+// ОБОСНОВАНИЕ ВЫБОРА МЕТОДА. Рассматривались два кандидата:
+//   (а) `spawnSync('which', ['git'])` — короче, но требует наличия `which` в
+//       PATH (он не POSIX, на минимальных контейнерах может отсутствовать)
+//       и доверяет его выводу без проверки isFile+x; в редких случаях `which`
+//       отдаёт путь, который сам не является исполняемым файлом.
+//   (б) ручной обход PATH-каталогов с `statSync` + `isFile()` + проверкой
+//       хотя бы одного бита x (0o111) — ВЫБРАН.
+// Преимущества (б): самодостаточен (не зависит от внешнего `which`), явная
+// верификация в нашем коде, без гонки между «нашёл» и «проверил», одна и та
+// же логика для всех POSIX-систем. Разделитель PATH — `:` (omp только Linux
+// по контексту .omp/config.yml и CI-сценариев).
+// Кэш вычисляется ОДИН РАЗ на загрузке модуля — `process.env.PATH` в этот
+// момент фиксирован и НЕ зависит от дальнейших манипуляций с PATH (что и
+// закрывает класс fake-git-first: фейк, добавленный в PATH после загрузки
+// расширения, на оракул не влияет).
+//
+// ДОПОЛНИТЕЛЬНАЯ ВЕРИФИКАЦИЯ ШЕБАНГА. Помимо isFile+x, отвергаем файлы,
+// начинающиеся с `#!/` (ASCII 0x23 0x21) — это shebang скриптов (sh/bash/python
+// и т.п.). Реальный `git` — нативный ELF/Mach-O бинарник, не скрипт-обёртка;
+// дополнительная проверка нужна против зонда к3, где фейковый `git` создаётся
+// shell-скриптом (`#!/bin/sh\nprintf '%s\\n' "$tmp_dir"\nexit 0\n`), который
+// проходит isFile+x, но без этой проверки закэшировался бы как доверенный.
+// С ELF-магикой не делаем — нам важно лишь отличить скрипт от бинарника, а
+// не валидировать формат бинарника (omp — Linux-only по CI, и ELF — норма, но
+// жёсткая привязка делает код хрупче без выигрыша по безопасности).
+//
+// Кэш пуст (нет подходящего `git` в boot-PATH) → поведение no-git прежнее:
+// CLI rc 2 NOT_IMPLEMENTED (Н-85), фабрика null/block (М2 + Н-85).
+function isShellScript(p: string): boolean {
+  let fd = -1;
+  try {
+    fd = openSync(p, 'r');
+    const buf = Buffer.alloc(2);
+    const n = readSync(fd, buf, 0, 2, 0);
+    return n === 2 && buf[0] === 0x23 && buf[1] === 0x21;
+  } catch {
+    return true; // на ошибке чтения — безопасный default: считаем скриптом и пропускаем
+  } finally {
+    if (fd >= 0) {
+      try { closeSync(fd); } catch { /* уже закрыт — игнорируем */ }
+    }
+  }
+}
+function resolveGitAbsolute(): string {
+  const pathEnv = process.env.PATH || '';
+  if (!pathEnv) return '';
+  for (const dir of pathEnv.split(':')) {
+    if (!dir) continue;
+    const candidate = `${dir}/git`;
+    try {
+      const st = statSync(candidate);
+      // isFile() следует по симлинку: если цель — обычный файл, симлинк на
+      // него тоже isFile(); spawnSync потом сам разрешит симлинк при exec.
+      // Проверка 0o111 (union r-x для owner/group/other) — отсекает каталоги
+      // с битом x и сокеты; минимальное условие запуска процесса.
+      if (!(st.isFile() && (st.mode & 0o111) !== 0)) continue;
+      // Shebang-фильтр: shell-скрипты (в т.ч. фейковый git зонда к3) пропускаем.
+      if (isShellScript(candidate)) continue;
+      return candidate;
+    } catch {
+      // ENOENT/EACCES — следующий каталог PATH.
+      continue;
+    }
+  }
+  return '';
+}
+// Кэш абсолютного пути git; вычисляется ОДИН РАЗ при загрузке модуля.
+const GIT_PATH: string = resolveGitAbsolute();
+
 // Проверка «живой linked worktree» через git-оракул (РЕШЕНИЕ арбитра 0c98913,
 // §Вопрос 1 п.4): структурные проверки остаются кодом, формат и живость цели
 // судит сам git. Ручная грамматика (бывшая /^gitdir:\s*(\S+)$/ + trim, path-guard
@@ -122,8 +202,9 @@ function lexNormalize(p: string): string {
 //   - 'live'     кандидат — живой linked worktree (rc 0 И stdout-путь существует)
 //   - 'not-live' структурно не подходит, или git отверг форму (rc≠0),
 //                или stdout-путь не существует
-//   - 'no-git'   git отсутствует (ENOENT); CLI → rc 2 NOT_IMPLEMENTED (Н-85),
-//                фабрика → worktree:null → unpinned → block (НИКОГДА pass)
+//   - 'no-git'   git отсутствует в boot-PATH (кэш пуст); CLI → rc 2
+//                NOT_IMPLEMENTED (Н-85), фабрика → worktree:null → unpinned →
+//                block (НИКОГДА pass)
 type OracleResult = 'live' | 'not-live' | 'no-git';
 
 function buildSanitizedEnv(parentDir: string): NodeJS.ProcessEnv {
@@ -164,18 +245,25 @@ function gitOracle(p: string): OracleResult {
   }
   if (!st.isFile()) return 'not-live';
 
-  // Git-оракул: spawnSync 'git rev-parse --absolute-git-dir' с санированным env.
-  // live ⟺ rc 0 И stdout-путь существует (РЕШЕНИЕ 0c98913 §Замер 2).
+  // Доверенный якорь: GIT_PATH разрешён ОДИН РАЗ при загрузке модуля (см.
+  // resolveGitAbsolute выше). Фейк, добавленный в PATH после загрузки
+  // расширения, на оракул не влияет — spawnSync вызывается ТОЛЬКО по
+  // абсолютному пути, без поиска в PATH. Кэш пуст → существующее no-git:
+  // CLI rc 2 NOT_IMPLEMENTED (Н-85), фабрика null/block.
+  if (!GIT_PATH) return 'no-git';
+
+  // Git-оракул: spawnSync <абсолютный-путь-git> rev-parse --absolute-git-dir
+  // с санированным env. live ⟺ rc 0 И stdout-путь существует (РЕШЕНИЕ 0c98913
+  // §Замер 2). ENOENT-ветка оставлена как страховка — при абсолютном пути
+  // не ожидается, но дёшево и не путает not-live с no-git на иных FS.
   const env = buildSanitizedEnv(dirname(p));
   let res;
   try {
-    res = spawnSync('git', ['-C', p, 'rev-parse', '--absolute-git-dir'], {
+    res = spawnSync(GIT_PATH, ['-C', p, 'rev-parse', '--absolute-git-dir'], {
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch {
-    // На современных node spawnSync не бросает ENOENT — кладёт его в res.error;
-    // этот catch — страховка на случай, если платформа решит иначе.
     return 'no-git';
   }
   if (res.error) {
@@ -384,7 +472,7 @@ function extractFileOperands(cmd: string): string[] {
 
 // Извлечение операндов для новых команд записи (B-2: mkdir / perl -i / python3 -c).
 // Каждая команда имеет свою грамматику; общего решения нет — выделяем в одну функцию
-// чтобы при добавлении следующей формы предмет не разрастался.
+// чтобы при добавлении следующей формы предмет не разрастается.
 function extractExtraWriteOperands(cmd: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
