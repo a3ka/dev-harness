@@ -129,6 +129,14 @@ while IFS= read -r line; do
   cmd="$(printf '%s' "$line" | sed -nE 's/^замер: `([^`]+)` = [0-9]+ census ([^ ]+)$/\1/p')"
   n="$(printf '%s' "$line" | sed -nE 's/^замер: `[^`]+` = ([0-9]+) census ([^ ]+)$/\1/p')"
   glob="$(printf '%s' "$line" | sed -nE 's/^замер: `[^`]+` = [0-9]+ census ([^ ]+)$/\1/p')"
+  # Грамматика path-glob ДО любого исполнения (В2-обход: контрактный токен —
+  # исполняемый shell-код, если попадёт в bash -c без разбора). Только буквы,
+  # цифры и [._/*?-]; любой иной символ ($, (, ), {, }, ;, |, &, <, >, \, ', ", пробел…)
+  # — именованный отказ ДО того, как cmd вообще запущена.
+  if ! printf '%s' "$glob" | grep -qE '^[A-Za-z0-9._/*?-]+$'; then
+    printf 'спек-гейт 036: census-глоб вне грамматики path-glob\n'
+    exit 1
+  fi
   if ! printf '%s' "$cmd" | grep -Fq -- "$glob"; then
     printf 'спек-гейт 036: замер не по грамматике: census-глоб не входит в команду\n'
     exit 1
@@ -147,7 +155,11 @@ while IFS= read -r line; do
     printf 'спек-гейт 036: замер расходится: заявлено %s, команда даёт %s\n' "$n" "$M1"
     exit 1
   fi
-  M2="$(cd "$ROOT" && bash -c "shopt -s nullglob; files=( $glob ); echo \${#files[@]}")"
+  # Независимый пересчёт БЕЗ построения новой bash -c строки: $glob раскрывается
+  # обычным parameter expansion текущего интерпретатора (word-splitting +
+  # pathname expansion), а не как исходный текст нового скрипта — command
+  # substitution в значении переменной здесь не переисполняется.
+  M2="$(cd "$ROOT" && shopt -s nullglob && files=( $glob ) && printf '%s\n' "${#files[@]}")"
   if [ "$M2" -ne "$n" ]; then
     printf 'спек-гейт 036: замер расходится: заявлено %s, дерево даёт %s\n' "$n" "$M2"
     exit 1
@@ -312,10 +324,15 @@ done <<<"$DRAFT_BODY"
 # расширяет фильтр до всех коммитов, КОСНУВШИХСЯ выпадения (прямо или через
 # изменение зоны в контракте). Пустое множество = ЗОНА выпала без СПАСЕНО
 # сохранения, именованный отказ (стаб с3 «зоны-только-синтаксис» здесь мёртв).
+#
+# Автор — ТОЧНОЕ равенство %an роли, не `git log --author` (regex/подстрока):
+# `--author` подхватил бы `implementer-evil` под роль `implementer`, и чужой
+# коммит был бы принят как «покрытый», хотя роль другая (В3-обход).
 for key in "${!_dropped_role_path[@]}"; do
   role="${key%%/*}"
   path="${key#*/}"
-  commits="$(g log --author="$role" --pretty=format:'%H' "$c_since..$c_until" -- "$path" "$CONTRACT_PATH" 2>/dev/null || true)"
+  commits="$(g log --pretty=format:'%H%x09%an' "$c_since..$c_until" -- "$path" "$CONTRACT_PATH" 2>/dev/null \
+    | awk -F'\t' -v role="$role" '$2 == role { print $1 }' || true)"
   if [ -z "$commits" ]; then
     max_tag="frozen/contracts/$NNN/$vmax"
     for v in $(printf '%s\n' "${!_frozen_v_ref[@]}" | sort -rn); do
