@@ -98,7 +98,7 @@ root="$1"; c="$2"
 fails=0
 while IFS= read -r cmd; do
   [ -n "$cmd" ] || continue
-  (cd "$root" && timeout 60 bash $cmd) >/dev/null 2>&1
+  (cd "$root" && timeout 60 $cmd) >/dev/null 2>&1
   [ $? -eq 0 ] && { printf 'спек-гейт 036: проба зелёна на черновике\n' >&2; fails=1; }
 done < <(grep '^- `' "$root/$c" | sed -e 's/^- `//' -e 's/`.*//')
 [ "$fails" -eq 0 ] && echo OK
