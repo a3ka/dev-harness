@@ -14,7 +14,7 @@
 set -euo pipefail
 mkdir -p "$WORK/scripts"
 for f in freeze_contract.sh check_contract_frozen.sh check_charter.sh \
-         next_id.sh lib_registry.sh lib_roles.sh; do
+         next_id.sh lib_registry.sh lib_roles.sh check_spec_ready.sh; do
   cp "$REPO/scripts/$f" "$WORK/scripts/"
 done
 
