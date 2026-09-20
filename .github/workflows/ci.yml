@@ -60,7 +60,7 @@ jobs:
           - shard: ap1
             keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches check_no_rewrite render_document next_id
           - shard: ap2
-            keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready drill_nabludenia_nechitaemo overlay
+            keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready drill_nabludenia_nechitaemo overlay
           - shard: ap3
             keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
           - shard: ap4
