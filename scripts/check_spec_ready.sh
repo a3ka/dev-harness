@@ -74,7 +74,7 @@ DRAFT_BODY="$(cat "$ROOT/$CONTRACT_PATH")"
 while IFS= read -r line; do
   [ -n "$line" ] || continue
   case "$line" in
-    "- `"*) ;;  # проба
+    '- `'*) ;;  # проба
     *) continue ;;
   esac
   back="$(printf '%s' "$line" | sed -nE 's/^- `([^`]*)`.*$/\1/p')"
@@ -249,7 +249,7 @@ done
 declare -A _spaseno_role_hashes=()
 while IFS= read -r sline; do
   case "$sline" in
-    "СПАСЕНО "*)
+    "СПАСЕНО "*|"СПАСЕНО:"*)
       full_line="$sline"
       rest="${sline#СПАСЕНО }"
       s_author="${rest%%:*}"
