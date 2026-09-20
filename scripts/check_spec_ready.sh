@@ -339,7 +339,7 @@ while IFS= read -r zline; do
       fi
       ;;
   esac
-done <<<"$DRAFT_BODY"
+done <<<"$DRAFT_FULL"
 
 # Выпавшие пути.
 declare -A _dropped_role_path=()
@@ -509,7 +509,7 @@ for role in "${!_spaseno_role_hashes[@]}"; do
     done
   done
   if [ "$tied" -eq 0 ]; then
-    s_line="$(printf '%s\n' "$DRAFT_BODY" | grep "^СПАСЕНО ${role}: " | head -1)"
+    s_line="$(printf '%s\n' "$DRAFT_FULL" | grep "^СПАСЕНО ${role}: " | head -1)"
     printf 'спек-гейт 036: СПАСЕНО не привязан к выпавшему пути: %s\n' "$s_line"
     exit 1
   fi
