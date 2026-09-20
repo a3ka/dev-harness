@@ -64,7 +64,7 @@ base="$(basename "$CONTRACT_PATH")"
 NNN="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
 [ -n "$NNN" ] || { printf 'NOT_IMPLEMENTED: имя контракта вне грамматики NNN-<slug>.md: %s\n' "$base" >&2; exit 2; }
 
-DRAFT_BODY="$(awk '/^## Приёмочный критерий/{f=1;next} f&&/^## /{exit} f' "$ROOT/$CONTRACT_PATH")
+DRAFT_BODY="$(awk '/^## Приёмочный критерий/{f=1;next} f&&/^## /{exit} f' "$ROOT/$CONTRACT_PATH")"
 [ -n "$DRAFT_BODY" ] || DRAFT_BODY="$(cat "$ROOT/$CONTRACT_PATH")"  # нет секции — весь файл (fail-open по скоупу, не по существу)
 
 # ── В1. ПРОБЫ: каждая строка «- `<cmd>`» ──────────────────────────────────────
