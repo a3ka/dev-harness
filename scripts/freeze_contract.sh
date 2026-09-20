@@ -318,3 +318,25 @@ if ! out="$(g tag -a "$tag" -m "$REASON" 2>&1)"; then
 fi
 printf 'v%s\n' "$v"
 printf '  ok   заморожено: %s → %s («%s»)\n' "$TARGET" "$tag" "$REASON" >&2
+
+# ── 8. реестр заморозок (контракт 036 §Freeze, г5б «писатель остаётся единственным»): ──
+# тег ИМЕЕТ быть записан ⇒ строка манифеста registry/contracts.tsv записывается ТЕМ ЖЕ
+# актом (отказ атомарен выше — тег/реестр не тронуты вместе). Формат строки: «NNN →
+# <tag-object-sha>» где sha — tag-object-sha только что созданного frozen-тега (то, чем
+# freeze владеет единолично с момента g tag -a). Идемпотентность: существующая строка
+# с тем же NNN перезаписывается (двойная запись = два смысла одного идентификатора,
+# правило 5 нормы).
+tag_sha="$(g rev-parse --verify --quiet "$tag" 2>/dev/null || true)"
+if [ -z "$tag_sha" ]; then
+  printf 'ОТКАЗ: реестр не записан: tag-object-sha для %s не получен\n' "$tag" >&2
+  exit 1
+fi
+reg_path="$ROOT/registry/contracts.tsv"
+mkdir -p "$ROOT/registry"
+tmp_reg="$(mktemp "${TMPDIR:-/tmp}/reg_036.XXXXXX" 2>/dev/null || mktemp)"
+if [ -f "$reg_path" ]; then
+  grep -v "^$NNN → " "$reg_path" > "$tmp_reg" 2>/dev/null || true
+fi
+printf '%s → %s\n' "$NNN" "$tag_sha" >> "$tmp_reg"
+mv "$tmp_reg" "$reg_path"
+printf '  ok   реестр записан: %s → %s\n' "$NNN" "$tag_sha" >&2
