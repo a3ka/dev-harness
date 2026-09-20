@@ -68,6 +68,79 @@ DRAFT_FULL="$(cat "$ROOT/$CONTRACT_PATH")"
 DRAFT_BODY="$(awk '/^## Приёмочный критерий/{f=1;next} f&&/^## /{exit} f' "$ROOT/$CONTRACT_PATH")"
 [ -n "$DRAFT_BODY" ] || DRAFT_BODY="$DRAFT_FULL"  # нет секции приёмки — весь файл (В1 fail-open по скоупу)
 
+# ── Раннее чтение ЗОНА-строк черновика (нужно уже В1: В4-2 обязан знать семью
+# пробы и не судить семью, чей барьер ЭТИМ ЖЕ черновиком заявлен к правке —
+# см. В4-1 ниже). Полный разбор В3 (перенос+СПАСЕНО) остаётся на своём месте;
+# этот проход даёт ТОЛЬКО _draft_role_paths/_draft_role_declared.
+declare -A _draft_role_paths=()
+declare -A _draft_role_declared=()
+while IFS= read -r _v4_zline; do
+  case "$_v4_zline" in
+    "ЗОНА "*":"*)
+      _v4_zrole="$(printf '%s' "$_v4_zline" | sed -nE 's/^ЗОНА ([^:[:space:]]+):[[:space:]]*(.*)$/\1/p')"
+      _v4_zrest="$(printf '%s' "$_v4_zline" | sed -nE 's/^ЗОНА [^:[:space:]]+:[[:space:]]*(.*)$/\1/p')"
+      [ -n "$_v4_zrole" ] || continue
+      _draft_role_declared["$_v4_zrole"]=1
+      if [ -n "$_v4_zrest" ]; then
+        _v4_zprev="${_draft_role_paths[$_v4_zrole]:-}"
+        for _v4_zp in $_v4_zrest; do
+          case " $_v4_zprev " in *" $_v4_zp "*) ;; *) _v4_zprev="$_v4_zprev $_v4_zp" ;; esac
+        done
+        _draft_role_paths["$_v4_zrole"]="${_v4_zprev# }"
+      else
+        _draft_role_paths["$_v4_zrole"]="${_draft_role_paths[$_v4_zrole]:-}"
+      fi
+      ;;
+  esac
+done <<<"$DRAFT_FULL"
+
+# ── В4. ARGV-СОВМЕСТИМОСТЬ (Н-113): оракул грамматики барьера — сам барьер
+# (живой вызов), не парсинг прозы (правило 8). Семья <key> = каталог
+# fixtures/check_<key>/…; её барьер — scripts/check_<key>.sh. Два литерала
+# грамматического отказа диспетчера — из ЕДИНОГО места (не дублируются по
+# фикстурам): «ОТКАЗ диспетчер» (неизвестная ветвь), «использование:» (argv
+# arity/спецификация $0). Семья, чей барьер ЭТИМ ЖЕ черновиком заявлен к
+# правке — не судится молча гейтом: именованная пометка, В4 для неё решает
+# критик (барьер — движущаяся цель на момент драфта).
+_V4_GRAMMAR_REJECT_1='ОТКАЗ диспетчер'
+_V4_GRAMMAR_REJECT_2='использование:'
+_v4_is_grammar_reject() {
+  printf '%s' "$1" | grep -Fq -- "$_V4_GRAMMAR_REJECT_1" && return 0
+  printf '%s' "$1" | grep -Fq -- "$_V4_GRAMMAR_REJECT_2" && return 0
+  return 1
+}
+_v4_family_of_path() {  # <относительный путь> → печатает <key>, если путь лежит
+                        # в fixtures/check_<key>/…; иначе rc1 без вывода.
+  case "$1" in
+    fixtures/check_*/*)
+      local _v4_rest="${1#fixtures/check_}"
+      printf '%s' "${_v4_rest%%/*}"
+      return 0
+      ;;
+  esac
+  return 1
+}
+_V4_FAMILY_EXCEPTIONS=''  # известные исключения В4-1 (семья без scripts/check_<key>.sh
+                          # по замыслу) — пусто: сейчас каждая check_<key>-фикстура
+                          # имеет барьер; новое исключение называется здесь явно.
+_v4_all_draft_paths=''
+for _v4_r in "${!_draft_role_paths[@]}"; do
+  _v4_all_draft_paths="$_v4_all_draft_paths ${_draft_role_paths[$_v4_r]}"
+done
+declare -A _v4_families_seen=()
+declare -A _v4_family_in_edit=()
+for _v4_r in "${!_draft_role_paths[@]}"; do
+  for _v4_p in ${_draft_role_paths[$_v4_r]}; do
+    _v4_key="$(_v4_family_of_path "$_v4_p" 2>/dev/null)" || continue
+    [ -n "$_v4_key" ] || continue
+    _v4_families_seen["$_v4_key"]=1
+    case " $_v4_all_draft_paths " in
+      *" scripts/check_${_v4_key}.sh "*) _v4_family_in_edit["$_v4_key"]=1 ;;
+    esac
+  done
+done
+declare -A _v4_family_green_probe_seen=()
+
 # ── В1. ПРОБЫ: каждая строка «- `<cmd>`» ──────────────────────────────────────
 # Грамматика: префикс «- `», команда в бэктиках до закрывающего бэктика; опциональный
 # суффикс «→ красная: <фраза>» — фраза извлекается срезом после «→ красная: ».
@@ -100,6 +173,26 @@ while IFS= read -r line; do
     printf 'спек-гейт 036: проба превысила таймаут\n'
     exit 1
   fi
+  # В4-2. Argv-совместимость: проба живёт в fixtures/check_<key>/… и её код
+  # зовёт СВОЮ семью (литерал scripts/check_<key>.sh или канал $BARRIER) →
+  # живой вызов уже состоялся строкой выше ($out/$rc); грамматический отказ
+  # барьера в выводе — несовместимость, НЕЗАВИСИМО от заявленной автором
+  # причины (закрывает А2-дыру: диспетчер-фраза, скопированная в суффикс,
+  # маскирует мёртвую пробу под «легитимно красную»; оракул — живой вызов,
+  # не заявленный текст, правило 8).
+  if [ -n "${probe_path:-}" ]; then
+    _v4_fam="$(_v4_family_of_path "$probe_path" 2>/dev/null)" || _v4_fam=""
+    if [ -n "$_v4_fam" ] && [ -z "${_v4_family_in_edit[$_v4_fam]:-}" ] \
+       && [ -e "$ROOT/scripts/check_${_v4_fam}.sh" ] \
+       && [ -f "$ROOT/$probe_path" ] \
+       && grep -Eq '(\$BARRIER|scripts/check_'"$_v4_fam"'\.sh)' "$ROOT/$probe_path"; then
+      if _v4_is_grammar_reject "$out"; then
+        printf 'спек-гейт 036: проба несовместима с грамматикой барьера семьи %s (argv-совместимость): %s\n' "$_v4_fam" "$probe_path"
+        exit 1
+      fi
+      _v4_family_green_probe_seen["$_v4_fam"]=1
+    fi
+  fi
   if [ "$rc" -eq 0 ]; then
     continue
   fi
@@ -112,6 +205,32 @@ while IFS= read -r line; do
     exit 1
   fi
 done < <(printf '%s\n' "$DRAFT_BODY" | grep -E '^- `' || true)
+
+# ── В4-1/В4-3. Каталог семей + живой зелёный контроль (Н-113) ────────────────
+# В4-1: каждая fixtures/check_<key>/…, упомянутая в ЗОНА-строках черновика,
+# обязана иметь scripts/check_<key>.sh — иначе именованный отказ «семья без
+# барьера» (закрывает вторую половину 031-v3-класса: «check_no_leak — НЕ
+# БАРЬЕР, scope_select неизвестный ключ»). В4-3: семья, куда заявлен хотя бы
+# один case-путь (в т.ч. будущий), обязана нести ≥1 живую пробу вызова своего
+# барьера, грамматически совместимую (В4-2) — иначе автор никогда не
+# столкнул argv своего case с реальной грамматикой барьера ДО заморозки.
+for _v4_key in "${!_v4_families_seen[@]}"; do
+  if [ -n "${_v4_family_in_edit[$_v4_key]:-}" ]; then
+    printf 'спек-гейт 036: В4 — семья %s в правке этим же черновиком — В4 для неё судит критик\n' "$_v4_key" >&2
+    continue
+  fi
+  _v4_barrier_rel="scripts/check_${_v4_key}.sh"
+  _v4_known=0
+  for _v4_ex in $_V4_FAMILY_EXCEPTIONS; do [ "$_v4_ex" = "$_v4_key" ] && _v4_known=1; done
+  if [ "$_v4_known" -eq 0 ] && [ ! -e "$ROOT/$_v4_barrier_rel" ]; then
+    printf 'спек-гейт 036: семья без барьера: %s не существует (семья %s)\n' "$_v4_barrier_rel" "$_v4_key"
+    exit 1
+  fi
+  if [ -e "$ROOT/$_v4_barrier_rel" ] && [ -z "${_v4_family_green_probe_seen[$_v4_key]:-}" ]; then
+    printf 'спек-гейт 036: зелёный контроль семьи не предъявлен: %s — ни одна проба приёмки не вызвала %s грамматически совместимо\n' "$_v4_key" "$_v4_barrier_rel"
+    exit 1
+  fi
+done
 
 # Физический (canonical) резолв элемента census-раскрытия против канонического
 # корня — арбитраж 036 корень А: лексика (`..`, ведущий `/`) не ловит symlink,
@@ -317,29 +436,6 @@ for v in $(printf '%s\n' "${!_frozen_v_ref[@]}" | sort -n); do
     esac
   done <<<"$body"
 done
-
-# Чтение ЗОНА-строк черновика (рабочее дерево).
-declare -A _draft_role_paths=()
-declare -A _draft_role_declared=()
-while IFS= read -r zline; do
-  case "$zline" in
-    "ЗОНА "*":"*)
-      role="$(printf '%s' "$zline" | sed -nE 's/^ЗОНА ([^:[:space:]]+):[[:space:]]*(.*)$/\1/p')"
-      rest="$(printf '%s' "$zline" | sed -nE 's/^ЗОНА [^:[:space:]]+:[[:space:]]*(.*)$/\1/p')"
-      [ -n "$role" ] || continue
-      _draft_role_declared["$role"]=1
-      if [ -n "$rest" ]; then
-        prev="${_draft_role_paths[$role]:-}"
-        for p in $rest; do
-          case " $prev " in *" $p "*) ;; *) prev="$prev $p" ;; esac
-        done
-        _draft_role_paths["$role"]="${prev# }"
-      else
-        _draft_role_paths["$role"]="${_draft_role_paths[$role]:-}"
-      fi
-      ;;
-  esac
-done <<<"$DRAFT_FULL"
 
 # Выпавшие пути.
 declare -A _dropped_role_path=()
