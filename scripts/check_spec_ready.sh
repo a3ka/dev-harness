@@ -55,7 +55,7 @@ ROOT="$(cd "$ROOT" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: кор�
 
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$ROOT" >&2; exit 2; }
-git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: в %s нет ни одного коммита\n' "$ROOT" >&2; exit 2; }
+git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: в %s нет ни одного коммита\n' >&2; exit 2; }
 
 g() { git -C "$ROOT" "$@"; }
 
@@ -111,7 +111,7 @@ while IFS= read -r line; do
   fi
 done < <(printf '%s\n' "$DRAFT_BODY" | grep -E '^- `' || true)
 
-# ── В2. ЗАМЕРЫ: строки «замер: `<cmd>` = N census <glob>» ─────────────────────
+# ── В2. ЗАМЕРЫ: строки «замер: `<cmd>` = N census <glob>` ───────────────────
 # Грамматика: `замер: ` префикс, N = ^[0-9]+$, <glob> — одиночный токен без пробелов.
 # Две меры (правило 4 AGENTS): команда даёт M1 (последняя строка stdout, целое);
 # ГЕЙТ САМ раскрывает glob от корня → M2.
@@ -303,11 +303,33 @@ while IFS= read -r sline; do
 done <<<"$DRAFT_BODY"
 
 # (а) Все коммиты автора по выпавшему пути в окне должны быть покрыты СПАСЕНО.
+# Контракт сам по себе меняет зону: коммит, ПЕРЕПИСЫВАЮЩИЙ ЗОНА-строку в
+# contracts/<NNN>-*.md, "трогает" каждый путь, который в этой ЗОНА-строке
+# исчезает (выпадает) — это и есть В3-перенос, и СПАСЕНО-покрытие требуется
+# именно потому, что коммит меняет ЗОНА-декларацию, а не файл по этому пути
+# (файла может и не быть: 036 закрывает v4-класс 75f5ffe/v4 «молча выкинул
+# покрытие трёх коммитов»). diff-tree по двум путям — путь И файл контракта —
+# расширяет фильтр до всех коммитов, КОСНУВШИХСЯ выпадения (прямо или через
+# изменение зоны в контракте). Пустое множество = ЗОНА выпала без СПАСЕНО
+# сохранения, именованный отказ (стаб с3 «зоны-только-синтаксис» здесь мёртв).
 for key in "${!_dropped_role_path[@]}"; do
   role="${key%%/*}"
   path="${key#*/}"
-  commits="$(g log --author="$role" --pretty=format:'%H' "$c_since..$c_until" -- "$path" 2>/dev/null || true)"
-  [ -n "$commits" ] || continue
+  commits="$(g log --author="$role" --pretty=format:'%H' "$c_since..$c_until" -- "$path" "$CONTRACT_PATH" 2>/dev/null || true)"
+  if [ -z "$commits" ]; then
+    max_tag="frozen/contracts/$NNN/$vmax"
+    for v in $(printf '%s\n' "${!_frozen_v_ref[@]}" | sort -rn); do
+      ref="${_frozen_v_ref[$v]}"
+      body="$(g cat-file -p "${ref}^{commit}:$CONTRACT_PATH" 2>/dev/null || true)"
+      if [ -n "$body" ] && printf '%s\n' "$body" | grep -qE "^ЗОНА ${role}:.*[[:space:]]${path}([[:space:]]|$)"; then
+        max_tag="frozen/contracts/$NNN/$v"
+        break
+      fi
+    done
+    printf 'спек-гейт 036: перенос зоны: %s (%s): нет коммитов автора, закрепляющих покрытие СПАСЕНО (замороженный %s)\n' \
+      "$path" "$role" "$max_tag"
+    exit 1
+  fi
   role_hashes=" ${_spaseno_role_hashes[$role]:-} "
   for sha in $commits; do
     case "$role_hashes" in
