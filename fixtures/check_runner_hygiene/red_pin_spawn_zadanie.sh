@@ -6,9 +6,14 @@
 # п1 п6 п7 п7б п8 п9 п11 п12 (пин из задания отсутствует, «вне пина»-семантика не
 # различима, дыра `..` жива, --extract-pin нет). ПОСЛЕ реализации: rc 0.
 #
-# 20 ветвей приёмки: п0–п15 + п4а/п4б/п4в/п7б; каждая ветвь = именованные входы,
+# ПОСТ-ФРИЗ п4г (вердикт адверсария 032 k1 — А1 multiline-gitdir-обход, f596d97):
+# реализация ищет gitdir-строку флагом /m ВНУТРИ мусорного .git-файла и принимает
+# подделку «мусор + настоящая gitdir-строка настоящего linked worktree + мусор».
+# СЕГОДНЯ п4г КРАСНАЯ на обоих входах (фабрика + CLI), после фикса — зелёная.
+#
+# 21 ветвь приёмки: п0–п15 + п4а/п4б/п4в/п4г/п7б; каждая ветвь = именованные входы,
 # ветвь красная, если КРАСЕН любой её вход. Накопление: прогон не стопится на
-# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 20.
+# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 21.
 # Все toy-репо и негативные каталоги — ПОД реальным namespace
 # /tmp/dev-harness-worktrees (канарейка п2 судит живой префикс, не toy-имя;
 # уникальность mktemp-суффиксом — А-88, два прогона = разные пути).
@@ -21,10 +26,11 @@
 #     пин A); «только session_start» — на п12 (branch/tree не поднимают пин);
 #     «задание выше события» — на п13; «задание выше env» — на п14;
 #     «env выше события» — на п15; «последняя user-запись перепинивает» — на п9;
-#   * п3/п4/п4а/п4б/п4в/п5 — грамматика М1 (будущая ветвь извлечения): стабы
+#   * п3/п4/п4а/п4б/п4в/п4г/п5 — грамматика М1 (будущая ветвь извлечения): стабы
 #     «первый WORKTREE= где угодно» / «без live-проверки .git» / «gitdir-цель не
 #     проверяется» / «формат .git-содержимого не проверяется» / «`.git` —
-#     каталог, не файл, не проверяется» / «без сверки spawn-формы» умирают
+#     каталог, не файл, не проверяется» / «без сверки spawn-формы» /
+#     «gitdir-строка ищется /m ВНУТРИ мусорного .git» умирают
 #     каждый на СВОЕЙ ветви (цель записи — ВНУТРИ проверяемого пути:
 #     запиннувший стаб даёт pass и валит ассерт block);
 #   * п6 — причина «вне пина» :543/:609 против unpinned-причины :542/:608
@@ -76,9 +82,11 @@ mkdir -p "$TOY/wip-106-df"
 printf 'ne-gitdir-musor\n' "$TOY" > "$TOY/wip-106-df/.git"        # п4б: содержимое не формата
 mkdir -p "$TOY/wip-107-dg"
 git -C "$TOY/wip-107-dg" init -q -b main                          # п4в: .git — КАТАЛОГ, не файл
+mkdir -p "$TOY/wip-108-dh"
+{ printf 'ne-gitdir-zagolovok\n'; cat "$WTA/.git"; printf 'musornyj-hvost\n'; } > "$TOY/wip-108-dh/.git"   # п4г: gitdir-строка ВНУТРИ мусора (цель = настоящий gitdir WTA, зонд 032 k1)
 
 # ── Накопление: ветвь красная, если красен любой её вход ──────────────────────
-ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
+ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п4г п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; done
 
@@ -185,6 +193,7 @@ printf 'Мёртвая цель.\nWORKTREE=%s, BRANCH=wip/104/dd.\n' "$TOY/wip-1
 printf 'Gitdir-цель мертва.\nWORKTREE=%s, BRANCH=wip/105/de.\n' "$TOY/wip-105-de" > "$TOY/asg-gitdir-dead.txt"
 printf 'Gitdir-мусор.\nWORKTREE=%s, BRANCH=wip/106/df.\n' "$TOY/wip-106-df" > "$TOY/asg-gitdir-musor.txt"
 printf 'Git-каталог, не файл.\nWORKTREE=%s, BRANCH=wip/107/dg.\n' "$TOY/wip-107-dg" > "$TOY/asg-git-dir.txt"
+printf 'Задание 032 (gitdir в мусоре).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/108/dh.\nПервым действием cd в worktree.\n' "$TOY/wip-108-dh" > "$TOY/asg-gitdir-v-musore.txt"
 printf 'Форма рассогласована.\nWORKTREE=%s, BRANCH=wip/102/bb.\n' "$WTA" > "$TOY/asg-mismatch.txt"
 printf 'Steering-подмена.\nWORKTREE=%s, BRANCH=wip/102/bb.\n' "$WTB" > "$TOY/asg-steer.txt"
 
@@ -208,7 +217,7 @@ expect_judge "п2-без-пары-файл-блок" block "Н-85" "{\"tool\":\"
 calls_run "A:start:$TOY/asg-two.txt;A:call:$WTA/new-file.txt"
 call_assert "п3-две-пары-блок" 1 block ""
 
-# ── п4/п4а/п4б: spawn-путь не является живым worktree (три разных входа) ──────
+# ── п4/п4а/п4б/п4в: spawn-путь не является живым worktree (четыре разных входа) ─
 calls_run "A:start:$TOY/asg-dead.txt;A:call:$TOY/wip-104-dd/f.txt"
 call_assert "п4-не-worktree-блок" 1 block ""
 calls_run "A:start:$TOY/asg-gitdir-dead.txt;A:call:$TOY/wip-105-de/f.txt"
@@ -217,6 +226,15 @@ calls_run "A:start:$TOY/asg-gitdir-musor.txt;A:call:$TOY/wip-106-df/f.txt"
 call_assert "п4б-gitdir-musor-блок" 1 block ""
 calls_run "A:start:$TOY/asg-git-dir.txt;A:call:$TOY/wip-107-dg/f.txt"
 call_assert "п4в-git-katalog-блок" 1 block ""
+
+# ── п4г (пост-фриз, вердикт 032 k1 А1): gitdir-строка ВНУТРИ мусорного .git ────
+# Вход зонда адверсария (extract-bypass-probe.mjs): мусор ДО и ПОСЛЕ настоящей
+# gitdir-строки настоящего linked worktree (цель существует!). Фабрика:
+# session_start с этим заданием + tool_call write в кандидат ⇒ блок — стаб
+# «/m-поиск внутренней строки» запинивает подделку и даёт pass ≠ block (красное).
+# CLI-вход той же ветви — в п8 (extract() объявлен ниже по файлу).
+calls_run "A:start:$TOY/asg-gitdir-v-musore.txt;A:call:$TOY/wip-108-dh/f.txt"
+call_assert "п4г-gitdir-v-musore-блок" 1 block ""
 
 # ── п5: путь и ветка рассогласованы по spawn-форме ⇒ null ─────────────────────
 calls_run "A:start:$TOY/asg-mismatch.txt;A:call:$WTA/new-file.txt"
@@ -251,6 +269,10 @@ extract "п8-честная-пара"        "$WTA" "$(cat "$TOY/asg-one.txt")"
 extract "п8-переменная-не-токен" "null" "Первым действием cd \$WORKTREE и работай."
 extract "п8-склейка-слева"       "null" "xWORKTREE=/tmp/a BRANCH=wip/999/z."
 extract "п8-относительное"       "null" "WORKTREE=relative/path BRANCH=wip/999/z."
+# п4г-CLI: тот же кандидат через --extract-pin ⇒ null — М1 «содержимое .git —
+# строка формата gitdir:» означает ВЕСЬ файл одной строкой; стаб «/m» возвращает
+# путь подделки — красное (вход воспроизводит extract-bypass-probe.mjs).
+extract "п4г-extract-null" "null" "$(cat "$TOY/asg-gitdir-v-musore.txt")"
 
 # ── п9: steering роли user НЕ перепинивает (пин = первая user-запись) ─────────
 calls_run "A:start:$TOY/asg-one.txt+$TOY/asg-steer.txt;A:call:$WTA/f9a.txt;A:call:$WTB/f9b.txt"
