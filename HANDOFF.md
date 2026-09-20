@@ -244,6 +244,24 @@ GitHub PR / GitLab MR; stage/unstage/revert по блокам; импорт PR-�
 
 035 close-out: census ./tmp: 10 верхнеуровневых (3 непустых, 7 пустых), draft020 ×2 снесены
 
+## ГОТОВНОСТЬ К СЛОВАМ ВЛАДЕЛЬЦА (чекпойнт ~21:00 — всё подготовлено, ждём)
+
+**Слово 1**: `РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/036-spec-tochnost-prefriz-gejt.md Н-113 В4 argv-совместимость`
+→ исполнить: bash /tmp/dev-harness-verify/scratch/land-036v3.sh (v3-текст 6fe98203 + 4 фикстуры
+24fa3109/e1dc9084/89de6889/672de0c3 + ci-ключ ap2, owner-identity коммит) → критик на HEAD →
+freeze 036 3 → CI зелёный.
+
+**Слово 2**: снос зависших wip/032/architect + wip/035/architect → жнецом; разблокирует
+architect-приземления в main. Сразу после: приземлить Н-107 red-фикстуру — файл
+/tmp/dev-harness-verify/scratch/n107fix/fixtures/gc_agent_branches/red_reap_done_svezhij_vyzhivaet.sh
+блоб 7e4675e967a2b3eb4863708b81a187b663e738ca (свидетель 7e11c9e rc 1 — дыра жива до фикса;
+после 309b384 rc 0 ×2; стаб-привязки S-done-vsyo/S-bez-svjazki/S-grazija-vsem-done/
+S-ignor-zakrytija/S-bez-vozrasta по Н-39).
+
+**После обоих слов**: критик-круг 036 v3 → freeze → done-обновление? (036 уже done — v3 это
+расширение заморозки, done-тег остаётся) → scoped прогоны → **ДОКЛАД ВЛАДЕЛЬЦУ перед Фазой А**
+(слово владельца: остановиться и доложить). Затем Фаза А А1∥А2.
+
 ## ГДЕ МЫ (2026-09-20 ~20:30 — верхняя четвёрка: Н-112 закрыта, Н-107 код приземлён, Н-113 за словом владельца)
 
 **done×8 стоят** (029–036, последний 035=ef5ff3a после слова владельца об историческом
