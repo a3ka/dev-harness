@@ -33,7 +33,7 @@
 # удалением контроль `git ls-files -- tmp/<запись>` — непустой под untracked-кандидатом =
 # «смешанный вход» rc 1, запись ЦЕЛА, fail-closed). Критерий реапа кандидата:
 #   (а) done-тег — имя содержит NNN (`0[0-9][0-9]`) И в репозитории есть тег
-#       `done/contracts/NNN/*` → реап независимо от возраста;
+#       `done/contracts/NNN/*` → реап, С ГРАЦИЕЙ Н-107 (контракт 030, детали — блок TMP-РЕАП);
 #   (б) возраст — имя без распознанного NNN И mtime записи старше N дней (по умолчанию 7;
 #       флаг `--tmp-reap-age N`). mtime — lstat САМОЙ записи через python3 (Н-60).
 #       Возраст — ВЕЩЕСТВЕННОЕ сравнение секунд `(now - mtime) > N*86400` (вердикт к1: int-усечение
@@ -81,6 +81,23 @@
 # (активный и done в одном имени) — приоритет активного номера. Dry-run по умолчанию
 # (каждый прогон печатает TMP-РЕАП список в stderr); удаление — ТОЛЬКО `--tmp-reap-apply`.
 #
+# ГРАЦИЯ Н-107 (контракт 030, симметрия ветковой грации инв. 5): чистая проверка
+# «done ⇒ реап независимо от возраста» сносит СВЕЖИЙ rework-скратч, спавненный ПОСЛЕ
+# close-out уже done-контракта (rework/v2/v3 по тому же NNN) — жертва гонки, не хвост
+# уборки. Различитель — момент закрытия: `mtime ≤ creatordate(последнего
+# done/contracts/NNN/*)` — запись ДО закрытия, остаток уборки, реапится СРАЗУ, hygiene
+# 026 не тормозится; `mtime > creatordate` — запись ПОСЛЕ закрытия, кандидат rework:
+# `now - mtime > --wip-grace-hours` (та же ручка, что грация пустых веток — одна
+# семантика «свежесть артефакта спавна») → брошенный rework, реап; иначе — СВЕЖИЙ
+# rework, ВЫЖИВАЕТ, stderr несёт строку-связку «свежий rework — ВЫЖИВАЕТ (грация
+# Н-107)». Источник даты закрытия — `%(creatordate:unix)` for-each-ref (карта
+# NNN → max по всем done/contracts/NNN/*): tagger date для аннотированных тегов,
+# committer date подлежащего коммита для лёгких (замер: лёгкий тег даёт ПУСТОЙ
+# `%(taggerdate:unix)`, но непустой `%(creatordate:unix)`; done-теги фикстур
+# `_zhnets.sh` — ЛЁГКИЕ (`git tag done/contracts/NNN/1` без `-a`) — taggerdate дал бы
+# фальшивый fail-closed на каждом их прогоне). Дата закрытия/mtime недоступны →
+# fail-closed: запись ВЫЖИВАЕТ (симметрия reflog-ветки, инв. 3 выше).
+#
 # Коды возврата: 0 — слитые снесены и всё заявленное наблюдается, 1 — заявленная зависшая
 # не наблюдается либо её цель сменена (наблюдаемое отклонение И-6), либо смешанный вход
 # TMP-РЕАП, либо не удалось удалить TMP-РЕАП-кандидата, 2 — нечем проверить (нет git /
@@ -112,14 +129,19 @@ usage() {
     «git ls-files -- tmp/<запись>» — непустой контроль под untracked-кандидатом = «смешанный
     вход» rc 1, запись ЦЕЛА, fail-closed). Критерий реапа: done-тег NNN в имени, либо имя
     без распознанного NNN и mtime записи старше N дней (по умолчанию 7; --tmp-reap-age).
-    NNN распознан, если есть contracts/NNN-*.md в дереве; NNN с done-тегом — done; NNN
+    NNN распознан, если есть contracts/NNN-*.md в дереве; NNN с done-тегом — done, С
+    ГРАЦИЕЙ Н-107 (контракт 030): запись ДО закрытия (mtime ≤ creatordate последнего
+    done/contracts/NNN/*) реапится сразу; ПОСЛЕ закрытия — реапится, если старше
+    --wip-grace-hours (брошенный rework), иначе ВЫЖИВАЕТ (свежий rework, stderr несёт
+    «грация Н-107»); дата закрытия/mtime недоступны → fail-closed, запись ВЫЖИВАЕТ. NNN
     распознан без done-тега — АКТИВНЫЙ контекст → запись ВЫЖИВАЕТ независимо от возраста
     (приоритет активного номера над done в одном имени). --tmp-reap-age N — порог возраста
     в днях для правила (б); валидируется СРАЗУ при разборе флага (до обращения к tmp/) как
     СТРОГО ПОЛОЖИТЕЛЬНОЕ конечное число: NaN/inf/0/отрицательное → rc 2 «NOT_IMPLEMENTED»
     (вердикт к4). Подмена untracked→tracked записи между контролем и удалением — именованный
     TOCTOU rc 2 (вердикт к4, lstat dev:ino до/после контроля, см. коды возврата).
-  * --wip-grace-hours <часов> — грация для пустых слитых wip/* (контракт 030 Н-107): ветка
+  * --wip-grace-hours <часов> — ОБЩАЯ ручка (контракт 030 Н-107, одна семантика «свежесть
+    артефакта спавна») для грации пустых слитых wip/* И для done-NNN TMP-РЕАП: ветка
     переживает реап, если её reflog содержит ровно одно событие (создание) И возраст
     (mtime reflog-файла) меньше N часов. Дефолт 24. Строго положительное конечное число,
     валидируется при разборе argv (как --tmp-reap-age). НЕпустые (≥2 события reflog)
@@ -496,10 +518,18 @@ PYEOF
     #    rc 2 «NOT_IMPLEMENTED» (вердикт к2: отсутствие fail-closed `else` маскировало отказ
     #    под пустой done-набор, и свежий done-кандидат переживал apply с rc=0).
     : > "$TMP/reap_done_nnns"
-    if g for-each-ref --format='%(refname:short)' 'refs/tags/done/contracts/' \
+    if g for-each-ref --format='%(refname:short) %(creatordate:unix)' 'refs/tags/done/contracts/' \
          > "$TMP/reap_done_nnns.raw" 2>/dev/null; then
       sed -nE 's|^done/contracts/(0[0-9][0-9])/.*|\1|p' "$TMP/reap_done_nnns.raw" \
         | sort -u > "$TMP/reap_done_nnns" || : > "$TMP/reap_done_nnns"
+      # Карта NNN -> ПОСЛЕДНЯЯ дата закрытия (max creatordate по всем done/contracts/NNN/*).
+      # `%(creatordate:unix)`, НЕ `%(taggerdate:unix)`: лёгкие теги (без `-a`) не имеют
+      # tagger-а — taggerdate у них ПУСТ, а фикстуры `_zhnets.sh` кладут done-теги именно
+      # лёгкими (замер) — taggerdate дал бы фальшивый fail-closed на каждом их прогоне.
+      # creatordate = tagger date для аннотированных, committer date подлежащего коммита
+      # для лёгких — надёжен в обоих случаях.
+      awk '$1 ~ /^done\/contracts\// { n=split($1,p,"/"); nnn=p[3]; if ($2+0>ts[nnn]) ts[nnn]=$2+0 }
+           END { for (n in ts) print n, ts[n] }' "$TMP/reap_done_nnns.raw" | sort > "$TMP/reap_done_ts"
     else
       ref_rc=$?
       printf 'NOT_IMPLEMENTED: git for-each-ref (done-теги) отказал (rc=%d)\n' "$ref_rc" >&2
@@ -571,9 +601,13 @@ PYEOF
       exit 2
     fi
 
-    # 5. Квалификация + действие. Критерий (инвариант 3):
+    # 5. Квалификация + действие. Критерий (инвариант 3, ГРАЦИЯ Н-107 в done-ветке):
     #    * NNN распознан (contracts/NNN-*.md) БЕЗ done-тега → АКТИВНЫЙ, ВЫЖИВАЕТ всегда;
-    #    * иначе любой NNN в имени с done-тегом → done, реап;
+    #    * иначе любой NNN в имени с done-тегом → done: mtime ≤ creatordate последнего
+    #      done/contracts/NNN/* → запись ДО закрытия, реап немедленно; mtime > creatordate
+    #      И старше --wip-grace-hours → брошенный rework, реап; иначе → СВЕЖИЙ rework,
+    #      ВЫЖИВАЕТ (stderr несёт «грация Н-107»); дата закрытия/mtime недоступны →
+    #      fail-closed, ВЫЖИВАЕТ (симметрия reflog-ветки);
     #    * иначе (аноним, без распознанного NNN) → возраст: mtime > tmp_reap_age → реап.
     #    `entry` приходит raw-байтами из python — хвостовой LF сохраняется, идентичность
     #    пути не теряется (вердикт к2).
@@ -608,7 +642,57 @@ PYEOF
 
       reason=""
       if [ "$has_done" -eq 1 ]; then
-        reason="done ${done_nnn}"
+        # Мера (б) инварианта 2, ПЕРЕД грацией: смешанный tracked+untracked вход под
+        # done-именованной записью — структурная порча независимо от того, реапится ли
+        # запись сейчас или переживает грацию Н-107. Проверка ДО решения о грации —
+        # иначе свежий (грация-защищённый) смешанный вход тихо переживал бы прогон,
+        # ни разу не насторожив владельца (находка анти-плацебо: без этого
+        # `case_zhnets_aktiv_vyzhivaet.sh` зеленел на обманном дереве).
+        if [ "$tmp_reap_apply" -eq 1 ]; then
+          tracked_out=""; tracked_rc=0
+          tracked_out="$(g ls-files -- "$entry" 2>/dev/null)" || tracked_rc=$?
+          if [ "$tracked_rc" -ne 0 ]; then
+            printf 'NOT_IMPLEMENTED: git ls-files (tracked-контроль) отказал для %s (rc=%d)\n' \
+              "$entry" "$tracked_rc" >&2
+            exit 2
+          fi
+          if [ -n "$tracked_out" ]; then
+            printf 'ОТКАЗ: смешанный вход %s: tracked+untracked — владельцу\n' "$entry" >&2
+            exit 1
+          fi
+        fi
+        # ГРАЦИЯ Н-107 (контракт 030): свежий rework-вход, спавненный ПОСЛЕ close-out уже
+        # done-контракта, не обязан сноситься вместе с остатком закрытия. Различитель —
+        # момент закрытия: mtime ≤ creatordate(последнего done/contracts/NNN/*) — запись
+        # ДО закрытия, реап сразу; иначе — ПОСЛЕ закрытия, кандидат rework: старше
+        # --wip-grace-hours → брошенный, реап; иначе → свежий, ВЫЖИВАЕТ.
+        done_ts="$(awk -v n="$done_nnn" '$1 == n { print $2; exit }' "$TMP/reap_done_ts" 2>/dev/null)"
+        entry_mtime="$(python3 -c '
+import os, sys
+try:
+    print(int(os.lstat(sys.argv[1]).st_mtime))
+except OSError:
+    print(0)
+' "$ROOT/$entry" 2>/dev/null || printf 0)"
+        if [ -z "$done_ts" ] || [ "$entry_mtime" -eq 0 ]; then
+          # дата закрытия / mtime записи недоступны — fail-closed: выживает (симметрия
+          # reflog-ветки).
+          printf 'TMP-РЕАП: %s  done %s дата закрытия недоступна — ВЫЖИВАЕТ (fail-closed)\n' \
+            "$entry" "$done_nnn" >&2
+          continue
+        elif [ "$entry_mtime" -le "$done_ts" ]; then
+          reason="done ${done_nnn} (запись до закрытия)"
+        else
+          now_ts="$(date +%s)"
+          done_grace_secs="$(python3 -c "print(int(float('$wip_grace_hours') * 3600))")"
+          if [ "$((now_ts - entry_mtime))" -gt "$done_grace_secs" ]; then
+            reason="done ${done_nnn} (после закрытия, старше грации)"
+          else
+            printf 'TMP-РЕАП: %s  done %s свежий rework — ВЫЖИВАЕТ (грация Н-107)\n' \
+              "$entry" "$done_nnn" >&2
+            continue
+          fi
+        fi
       elif [ "$cand_age" = "1" ]; then
         reason="возраст ${age_str}d"
       fi
