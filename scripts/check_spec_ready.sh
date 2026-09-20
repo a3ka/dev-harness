@@ -64,8 +64,9 @@ base="$(basename "$CONTRACT_PATH")"
 NNN="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
 [ -n "$NNN" ] || { printf 'NOT_IMPLEMENTED: имя контракта вне грамматики NNN-<slug>.md: %s\n' "$base" >&2; exit 2; }
 
+DRAFT_FULL="$(cat "$ROOT/$CONTRACT_PATH")"
 DRAFT_BODY="$(awk '/^## Приёмочный критерий/{f=1;next} f&&/^## /{exit} f' "$ROOT/$CONTRACT_PATH")"
-[ -n "$DRAFT_BODY" ] || DRAFT_BODY="$(cat "$ROOT/$CONTRACT_PATH")"  # нет секции — весь файл (fail-open по скоупу, не по существу)
+[ -n "$DRAFT_BODY" ] || DRAFT_BODY="$DRAFT_FULL"  # нет секции приёмки — весь файл (В1 fail-open по скоупу)
 
 # ── В1. ПРОБЫ: каждая строка «- `<cmd>`» ──────────────────────────────────────
 # Грамматика: префикс «- `», команда в бэктиках до закрывающего бэктика; опциональный
@@ -408,7 +409,7 @@ while IFS= read -r sline; do
       _spaseno_role_hashes["$s_author"]="$prev $valid_hashes"
       ;;
   esac
-done <<<"$DRAFT_BODY"
+done <<<"$DRAFT_FULL"
 
 # (а) Все коммиты автора по выпавшему пути в окне должны быть покрыты СПАСЕНО.
 # Контракт сам по себе меняет зону: коммит, ПЕРЕПИСЫВАЮЩИЙ ЗОНА-строку в
