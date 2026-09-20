@@ -244,6 +244,25 @@ GitHub PR / GitLab MR; stage/unstage/revert по блокам; импорт PR-�
 
 035 close-out: census ./tmp: 10 верхнеуровневых (3 непустых, 7 пустых), draft020 ×2 снесены
 
+## СПАСЕНИЕ SCRATCH ПЕРЕД ВЫКЛЮЧЕНИЕМ (tmpfs! /tmp стирается)
+
+Критичные артефакты Н-116 закоммичены в объектное хранилище git (переживают выключение;
+/tmp — tmpfs, scratch-каталог умрёт). НОВАЯ СЕССИЯ — первым делом восстанови:
+
+```bash
+mkdir -p /tmp/dev-harness-verify/scratch/n116
+git -C /home/aka/Documents/dev-harness cat-file -p 34d6b74b9f372e064430681c902cad0b49f1bea7 > /tmp/dev-harness-verify/scratch/n116/frontier-v2.md
+git -C /home/aka/Documents/dev-harness cat-file -p 8852e2612ce59744af4317ab4c4775ba99df4216 > /tmp/dev-harness-verify/scratch/n116/soreview.md
+git -C /home/aka/Documents/dev-harness cat-file -p 0bf429621f639f510cd6dc48d797dcff14127b3f > /tmp/dev-harness-verify/scratch/n116/frontier-provodka-done-gate.md
+```
+
+- frontier-v2.md = 34d6b74b (ДИЗАЙН Н-116: все 4 блокера закрыты, R1-R9+G/D1-D10+G, грилинг §10)
+- soreview.md = 8852e261 (СОreview: ДИЗАЙН-ДЫРЯВЫЙ 4 блокера — все закрыты в v2)
+- frontier-v1 = 0bf42962 (историческая база замеров)
+
+Прочий scratch (n113, n107, v4fix и т.д.) — уже приземлён в main или воспроизводим из докладов
+в этой HANDOFF-истории; гибель tmp для них некритична. HANDOFF — сам источник истины.
+
 ## КОНЕЦ ДНЯ 2026-09-20 (чекпойнт ~01:20 2026-09-21 — владелец спит, сессия закрывается)
 
 **Итог дня**: done×8 (029–036, включая 035 по слову владельца и 036 v3/v4-сагу) · верхняя
