@@ -28,7 +28,7 @@
 //     блокер 2).
 //   - read/grep/glob и bash без формы записи — pass (Г1 «читать свободно»).
 
-import { realpathSync } from 'node:fs';
+import { realpathSync, statSync, readFileSync } from 'node:fs';
 
 // ── Allowlist URI-схем (Г3 «internal URI харнеса») ─────────────────────────────
 // В pinned сессии все они pass; в unpinned (worktree:null) — ТОЛЬКО artifact://
@@ -55,6 +55,8 @@ export type JudgeInput = {
   args: Record<string, unknown>;
   worktree?: string | null;
   actual?: string | null;
+  // Для пина-из-задания сверка с actual НЕ применяется (М2 контракт 032).
+  skipActualCheck?: boolean;
 };
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
@@ -89,6 +91,127 @@ function isWithin(parent: string, child: string): boolean {
   // parent обязан быть канонизирован (без symlink, без ..)
   return child === parent || child.startsWith(`${parent}/`);
 }
+
+// Лексическая нормализация «..» и «.» в пути (М4, контракт 032). Разбор сегментов:
+function lexNormalize(p: string): string {
+  if (!p) return p;
+  const isAbs = p.startsWith('/');
+  const segs = p.split('/');
+  const stack: string[] = [];
+  for (const seg of segs) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      // POSIX: .. у корня для абсолюта и до первого сегмента для относительного
+      if (stack.length > 0) stack.pop();
+      continue;
+    }
+    stack.push(seg);
+  }
+  return (isAbs ? '/' : '') + stack.join('/');
+}
+
+// Проверка «живой linked worktree» (М1 контракт 032): <путь>/.git ФАЙЛ (НЕ каталог),
+function isLiveLinkedWorktree(p: string): boolean {
+  const dotGit = `${p}/.git`;
+  let st;
+  try {
+    st = statSync(dotGit);
+  } catch {
+    return false;
+  }
+  if (!st.isFile()) return false;
+  let text: string;
+  try {
+    text = readFileSync(dotGit, 'utf8');
+  } catch {
+    return false;
+  }
+  const m = text.match(/^gitdir:\s*(.+?)\s*$/m);
+  if (!m || !m[1]) return false;
+  try {
+    statSync(m[1]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Извлечение пина из текста задания (М1 контракт 032). Три условия одновременно:
+function extractPin(text: string): { worktree: string | null } {
+  // 1) ровно одна spawn-пара: токен WORKTREE=<абс> + BRANCH=wip/<NNN>/<автор>;
+  const tokenRe = /(?:^|[:;,])\s*(WORKTREE|BRANCH)=([^\s,;]+)/g;
+  let wtCount = 0, brCount = 0;
+  let wt: string | null = null, br: string | null = null;
+  let mm: RegExpExecArray | null;
+  while ((mm = tokenRe.exec(text)) !== null) {
+    if (mm[1] === 'WORKTREE') { wtCount++; wt = mm[2]; }
+    else { brCount++; br = mm[2]; }
+  }
+  if (wtCount !== 1 || brCount !== 1 || wt === null || br === null) {
+    return { worktree: null };
+  }
+  // Терминальная пунктуация (точка в конце предложения): .strip без потери хвостовых точек пути (нет в фикстурах).
+  const cleanValue = (s: string): string => s.replace(/[.,;:!?]+$/, '');
+  wt = cleanValue(wt);
+  br = cleanValue(br);
+  // Абсолютный путь.
+  if (!wt.startsWith('/')) return { worktree: null };
+  // 2) spawn-форма: basename(<путь>) == wip-<NNN>-<автор>.
+  const brMatch = br.match(/^wip\/(\d+)\/([A-Za-z0-9_-]+)$/);
+  if (!brMatch) return { worktree: null };
+  const segs = wt.split('/');
+  const baseName = segs[segs.length - 1] ?? '';
+  const expectedBase = `wip-${brMatch[1]}-${brMatch[2]}`;
+  if (baseName !== expectedBase) return { worktree: null };
+  // 3) живой linked worktree.
+  if (!isLiveLinkedWorktree(wt)) return { worktree: null };
+  return { worktree: wt };
+}
+
+// Чтение session_id из omp-контекста (М2: ключ для модульной карты пинов).
+function getSessionId(ctx: unknown): string | null {
+  if (!ctx || typeof ctx !== 'object') return null;
+  const sm = (ctx as { sessionManager?: { getSessionId?: () => unknown } }).sessionManager;
+  if (!sm || typeof sm !== 'object') return null;
+  if (typeof sm.getSessionId !== 'function') return null;
+  const v = sm.getSessionId();
+  return typeof v === 'string' ? v : null;
+}
+
+// Чтение ветки сессии (массив сообщений) из omp-контекста.
+function getBranch(ctx: unknown): unknown {
+  if (!ctx || typeof ctx !== 'object') return [];
+  const sm = (ctx as { sessionManager?: { getBranch?: () => unknown } }).sessionManager;
+  if (!sm || typeof sm !== 'object') return [];
+  if (typeof sm.getBranch !== 'function') return [];
+  return sm.getBranch();
+}
+
+// Извлечение пина из ветки: ТОЛЬКО ПЕРВАЯ user-запись (п9 — steering НЕ перепинивает).
+function extractPinFromBranch(branch: unknown): string | null {
+  if (!Array.isArray(branch)) return null;
+  for (const entry of branch) {
+    if (!entry || typeof entry !== 'object') continue;
+    const msg = (entry as { message?: { role?: string; content?: unknown } }).message;
+    if (!msg || typeof msg !== 'object') continue;
+    if (msg.role !== 'user') continue;
+    const content = msg.content;
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue;
+      const p = part as { type?: string; text?: string };
+      if (p.type === 'text' && typeof p.text === 'string') {
+        return extractPin(p.text).worktree;
+      }
+    }
+  }
+  return null;
+}
+
+// Пин из задания — модульная переменная с КЛЮЧОМ session_id (М2: «registries are
+// process-wide», модульная переменная без ключа = перенос пина между сессиями,
+// запрещено; прецедент п11 «B наследует пин A»).
+const sessionPins = new Map<string, string | null>();
 
 // Детект формы записи в bash-команде. Полосим кавычки (простое удаление
 // секций в одинарных/двойных/backtick), затем ищем sed -i / > / >> / tee / cp / mv / rm.
@@ -484,8 +607,10 @@ function pathAllowed(
   worktree: string | null,
 ): boolean {
   if (isAllowedURI(resolved)) return true;
-  if (isWithin(getVerifyBase(), resolved)) return true;
-  if (canonicalWt !== null && isWithin(canonicalWt, resolved)) return true;
+  // Лексическая нормализация .. и . в ОБЕИХ allowlist-ветвях (М4 контракт 032).
+  const normalized = lexNormalize(resolved);
+  if (isWithin(getVerifyBase(), normalized)) return true;
+  if (canonicalWt !== null && isWithin(canonicalWt, normalized)) return true;
   // Непиннованная сессия + путь не в allowlist — fail-closed (бывшая ветка
   // «worktree===null → pass» снята как корень А-72).
   void worktree;
@@ -620,7 +745,10 @@ export function judge(input: JudgeInput): Decision {
   const worktree = input.worktree ?? null;
   const actual = input.actual ?? null;
 
-  // 1. Канонизация и сверка пина (если задан).
+  // 1. Канонизация и сверка пина (если задан). Для пина-из-задания (М2 контракт
+  // 032) сверка с actual НЕ применяется: actual процесса := cwd ведущей сессии,
+  // а не worktree цели; аутентичность пина-из-задания — из грамматики М1, не cwd.
+  const skipActualCheck = input.skipActualCheck === true;
   let canonicalWt: string | null = null;
   let canonicalActual: string | null = null;
   if (worktree) {
@@ -631,17 +759,19 @@ export function judge(input: JudgeInput): Decision {
         reason: `пинн WORKTREE не существует: ${worktree}`,
       };
     }
-    if (actual) {
-      canonicalActual = safeRealpath(actual);
-      if (canonicalActual === null) canonicalActual = actual;
-    } else {
-      canonicalActual = canonicalWt;
-    }
-    if (canonicalWt !== canonicalActual) {
-      return {
-        decision: 'refuse',
-        reason: `пинн WORKTREE не совпадает с фактическим рабочим деревом сессии (пин=${canonicalWt}, факт=${canonicalActual})`,
-      };
+    if (!skipActualCheck) {
+      if (actual) {
+        canonicalActual = safeRealpath(actual);
+        if (canonicalActual === null) canonicalActual = actual;
+      } else {
+        canonicalActual = canonicalWt;
+      }
+      if (canonicalWt !== canonicalActual) {
+        return {
+          decision: 'refuse',
+          reason: `пинн WORKTREE не совпадает с фактическим рабочим деревом сессии (пин=${canonicalWt}, факт=${canonicalActual})`,
+        };
+      }
     }
   }
 
@@ -666,29 +796,40 @@ export function judge(input: JudgeInput): Decision {
 // ── CLI: `node path-guard.ts --judge '<json>'` ─────────────────────────────────
 function runCLI(): void {
   const argv = process.argv.slice(2);
-  const i = argv.indexOf('--judge');
-  if (i === -1 || !argv[i + 1]) {
-    console.error('FAIL: нужен --judge <json>');
-    process.exit(2);
+  if (argv[0] === '--extract-pin') {
+    if (!argv[1]) {
+      console.error('FAIL: нужен --extract-pin <text>');
+      process.exit(2);
+    }
+    process.stdout.write(`${JSON.stringify(extractPin(argv[1]))}\n`);
+    process.exit(0);
   }
-  let input: JudgeInput;
-  try {
-    input = JSON.parse(argv[i + 1]);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`FAIL: невалидный JSON: ${msg}`);
-    process.exit(2);
+  if (argv[0] === '--judge') {
+    if (!argv[1]) {
+      console.error('FAIL: нужен --judge <json>');
+      process.exit(2);
+    }
+    let input: JudgeInput;
+    try {
+      input = JSON.parse(argv[1]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`FAIL: невалидный JSON: ${msg}`);
+      process.exit(2);
+    }
+    let result: Decision;
+    try {
+      result = judge(input);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`FAIL: ошибка judge: ${msg}`);
+      process.exit(2);
+    }
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    process.exit(0);
   }
-  let result: Decision;
-  try {
-    result = judge(input);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error(`FAIL: ошибка judge: ${msg}`);
-    process.exit(2);
-  }
-  process.stdout.write(`${JSON.stringify(result)}\n`);
-  process.exit(0);
+  console.error('FAIL: нужен --judge <json> или --extract-pin <text>');
+  process.exit(2);
 }
 
 // Запуск CLI, когда файл — прямой аргумент node (не import).
@@ -733,7 +874,20 @@ export default function register(pi: unknown): void {
   const p = pi as PiLike;
   if (typeof p.on !== 'function') return;
 
-  p.on('tool_call', (call: unknown) => {
+  // Lifecycle (М2 контракт 032): каждое из трёх событий — самостоятельный
+  // источник восстановления пина из ПЕРВОЙ user-записи ветки. session_start,
+  // session_branch, session_tree (п12: branch/tree поднимают пин и без start).
+  const lifecycle = (_event: unknown, ctx: unknown): void => {
+    const sid = getSessionId(ctx);
+    if (typeof sid !== 'string') return;
+    const branch = getBranch(ctx);
+    sessionPins.set(sid, extractPinFromBranch(branch));
+  };
+  p.on('session_start', lifecycle);
+  p.on('session_branch', lifecycle);
+  p.on('session_tree', lifecycle);
+
+  p.on('tool_call', (call: unknown, ctx: unknown) => {
     if (!isToolCallEvent(call)) return undefined;
     const name = typeof call.toolName === 'string' ? call.toolName : '';
     const raw = call.input;
@@ -742,14 +896,38 @@ export default function register(pi: unknown): void {
       : {};
     if (name === 'edit') extractEditPath(args);
 
+    // Источники пина (М2; п13–п15 приоритеты): событие > env > пин-задания.
     const envWorktree = process.env.WORKTREE ?? null;
     const envActual = process.cwd();
-    const worktree = typeof call.worktree === 'string' ? call.worktree : envWorktree;
-    const actual = typeof call.actual === 'string' ? call.actual : envActual;
+    const eventWorktree = typeof call.worktree === 'string' ? call.worktree : null;
+    const eventActual = typeof call.actual === 'string' ? call.actual : null;
+
+    const sid = getSessionId(ctx);
+    const assignmentPin = sid !== null ? (sessionPins.get(sid) ?? null) : null;
+
+    let worktree: string | null;
+    let actual: string;
+    let skipActualCheck = false;
+    if (eventWorktree !== null) {
+      worktree = eventWorktree;
+      actual = eventActual ?? envActual;
+    } else if (envWorktree !== null) {
+      worktree = envWorktree;
+      actual = eventActual ?? envActual;
+    } else if (assignmentPin !== null) {
+      // М2: для пина-из-задания сверка с actual НЕ применяется (аутентичность
+      // пина — из грамматики М1, actual процесса := cwd ведущей сессии, не worktree цели).
+      worktree = assignmentPin;
+      actual = eventActual ?? envActual;
+      skipActualCheck = true;
+    } else {
+      worktree = null;
+      actual = eventActual ?? envActual;
+    }
 
     let result: Decision;
     try {
-      result = judge({ tool: name, args, worktree, actual });
+      result = judge({ tool: name, args, worktree, actual, skipActualCheck });
     } catch {
       return { block: true, reason: 'Н-85: внутренняя ошибка стража пути' };
     }
