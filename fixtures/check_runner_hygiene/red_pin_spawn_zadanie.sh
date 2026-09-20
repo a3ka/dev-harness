@@ -4,19 +4,28 @@
 # judge-CLI (грамматика 025) И фабрика register() + новый режим --extract-pin
 # (грамматика 032 М1/М2). Круг A1 закрыт (ленд 8db23d8): 21 ветвь зелёная.
 # КРУГ B1 (к2 11a09e3, РЕШЕНИЕ арбитра 0c98913, корень 1, red-first ДО git-оракула):
-# СЕГОДНЯ rc 1, красные ветви — п4д/п4е/п4ж/п4з/п4и (пять не-канонических форм
-# .git-файла при ЖИВОЙ gitdir-цели: git reject 128, субъект принимает — ручная
-# грамматика мягче git) и п4н (PATH без git: fail-closed отсутствия инструмента —
-# CLI rc 2 NOT_IMPLEMENTED, фабрика block). ПОСЛЕ git-оракула: rc 0.
+# ветви п4д–п4и (пять не-канонических форм .git-файла при ЖИВОЙ gitdir-цели)
+# и п4н (PATH без git) были красными ДО git-оракула; оракул landed (2777def)
+# — п4д–п4н зелёные, база 30/30.
+#
+# КРУГ к3 (вердикт адверсария contracts-032-v3 — S-path-fake-git-first,
+# red-first ДО доверенного якоря): gitOracle зовёт ГОЛОЕ имя «git»
+# (spawnSync :172), а санированный env копирует process.env.PATH
+# (buildSanitizedEnv :144-147) — фейковый executable первым в PATH печатает
+# существующий каталог и проходит все проверки оракула (:186-194: rc 0,
+# непустой stdout, statSync цели). СЕГОДНЯ rc 1, красные ветви — п4о/п4п:
+# forged-кандидат (.git=«not a gitfile\n») при fake-git-first — CLI обязан
+# null (сегодня пин), фабрика обязан block (сегодня pass). ПОСЛЕ доверенного
+# якоря (git из доверенного абсолютного пути, мимо входного PATH): rc 0.
 #
 # ПОСТ-ФРИЗ п4г (вердикт адверсария 032 k1 — А1 multiline-gitdir-обход, f596d97):
 # реализация ищет gitdir-строку флагом /m ВНУТРИ мусорного .git-файла и принимает
 # подделку «мусор + настоящая gitdir-строка настоящего linked worktree + мусор».
 # СЕГОДНЯ п4г КРАСНАЯ на обоих входах (фабрика + CLI), после фикса — зелёная.
 #
-# 30 ветвей приёмки: п0–п15 + п4а–п4н + п7б; каждая ветвь = именованные входы,
+# 33 ветви приёмки: п0–п15 + п4а–п4р + п7б; каждая ветвь = именованные входы,
 # ветвь красная, если КРАСЕН любой её вход. Накопление: прогон не стопится на
-# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 30.
+# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 33.
 # Все toy-репо и негативные каталоги — ПОД реальным namespace
 # /tmp/dev-harness-worktrees (канарейка п2 судит живой префикс, не toy-имя;
 # уникальность mktemp-суффиксом — А-88, два прогона = разные пути).
@@ -47,9 +56,17 @@
 #   * п4к/п4л/п4м — положительные контроли (канон/CRLF/lone-CR): ручная грамматика
 #     И будущий git-оракул форму принимают — зелёные ДО и ПОСЛЕ фикса (ловят
 #     over-block оракула);
-#   * п4н — субъект git сегодня не вызывает вовсе (:114-138 statSync/readFileSync):
-#     PATH без git даёт CLI rc 0 пин / фабрику pass; стаб «оракул не fail-closed»
-#     умирает здесь — ожидания rc 2 NOT_IMPLEMENTED (Н-85) / block Н-85;
+#   * п4н — fail-closed отсутствия инструмента: PATH без git ⇒ CLI rc 2
+#     NOT_IMPLEMENTED (Н-85) / фабрика block Н-85; стаб «оракул не fail-closed»
+#     умирает здесь (зелёная с 2777def, красное = регресс);
+#   * п4о/п4п — S-path оракула: spawnSync('git',…) :172 голым именем, env
+#     копирует process.env.PATH :144-147; стаб «фейковый git первым в PATH»
+#     (печать существующего tmp-dir, rc 0) проходит :186-194 и вердиктит live
+#     для .git=«not a gitfile\n» — умирает на п4о (CLI пин ≠ null) и п4п
+#     (фабрика pass ≠ block);
+#   * п4р — контроль вечнокрасности: fake-git-first + ЧЕСТНЫЙ linked worktree
+#     ⇒ пин обязателен ДО и ПОСЛЕ фикса (CLI non-null + фабрика pass); якорь,
+#     отвергающий честный ответ из-за самого фейка в PATH, красен здесь;
 #   * п6 — причина «вне пина» :543/:609 против unpinned-причины :542/:608
 #     (сегодня блок есть, но семантика своя/чужая цель не различима);
 #   * п7/п7б — isWithin :88-91 сырой префикс (обе allowlist-ветви, дыра `..`
@@ -77,6 +94,14 @@ OUTSIDE="$(mktemp -d "$NS/pg032vne.XXXXXX")"   # негативный катал
 VERIFY_DIR="$(mktemp -d "$VERIFY_BASE/pg032.XXXXXX")"
 NOGIT="$(mktemp -d "$VERIFY_DIR/nogit.XXXXXX")"   # PATH без git, но с node (п4н)
 ln -s "$(command -v node)" "$NOGIT/node"
+FAKEBIN="$(mktemp -d "$VERIFY_DIR/fakebin.XXXXXX")"   # fake-git-first (п4о/п4п/п4р, зонд к3)
+cat > "$FAKEBIN/git" <<FAKEGIT   # дословная форма зонда к3: существующий tmp-dir, rc 0
+#!/bin/sh
+printf '%s\n' "$VERIFY_DIR"
+exit 0
+FAKEGIT
+chmod 755 "$FAKEBIN/git"
+FG_PATH="$FAKEBIN:$PATH"                   # фейк ПЕРВЫМ, настоящий git в хвосте PATH
 trap 'rm -rf "$TOY" "$OUTSIDE" "$VERIFY_DIR"' EXIT
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
@@ -103,6 +128,8 @@ mkdir -p "$TOY/wip-107-dg"
 git -C "$TOY/wip-107-dg" init -q -b main                          # п4в: .git — КАТАЛОГ, не файл
 mkdir -p "$TOY/wip-108-dh"
 { printf 'ne-gitdir-zagolovok\n'; cat "$WTA/.git"; printf 'musornyj-hvost\n'; } > "$TOY/wip-108-dh/.git"   # п4г: gitdir-строка ВНУТРИ мусора (цель = настоящий gitdir WTA, зонд 032 k1)
+mkdir -p "$TOY/wip-117-dq"
+printf 'not a gitfile\n' > "$TOY/wip-117-dq/.git"   # п4о/п4п: forged-кандидат к3 — .git вне git-грамматики
 # ── B1-кандидаты (к2 11a09e3 / РЕШЕНИЕ 0c98913): НАСТОЯЩИЕ linked worktrees, .git
 # перезаписан формой — gitdir-цель существует и жива, отвергается именно ФОРМА.
 # mk_b1 <суффикс> <printf-формат>: %s = живой gitdir ЭТОГО же worktree.
@@ -122,7 +149,7 @@ mk_b1 115-do 'gitdir: %s\r\n'            # п4л: КОНТРОЛЬ — CRLF
 mk_b1 116-dp 'gitdir: %s\r'              # п4м: КОНТРОЛЬ — lone-CR
 
 # ── Накопление: ветвь красная, если красен любой её вход ──────────────────────
-ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п4г п4д п4е п4ж п4з п4и п4к п4л п4м п4н п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
+ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п4г п4д п4е п4ж п4з п4и п4к п4л п4м п4н п4о п4п п4р п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; done
 
@@ -242,6 +269,7 @@ printf 'Задание 032 (B1 два пробела и CR).\n## Contract\n032: 
 printf 'Задание 032 (контроль канон).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/114/dn.\n' "$TOY/wip-114-dn" > "$TOY/asg-kanon.txt"
 printf 'Задание 032 (контроль CRLF).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/115/do.\n' "$TOY/wip-115-do" > "$TOY/asg-crlf.txt"
 printf 'Задание 032 (контроль lone-CR).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/116/dp.\n' "$TOY/wip-116-dp" > "$TOY/asg-cr.txt"
+printf 'Задание 032 (fake-git forged).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/117/dq.\n' "$TOY/wip-117-dq" > "$TOY/asg-fakegit.txt"
 
 # ── п0: зелёный контроль — null-allowlist 025 жив ДО и ПОСЛЕ ──────────────────
 expect_judge "п0-внешняя-цель-блок"   block "Н-85" "{\"tool\":\"write\",\"args\":{\"path\":\"$OUTSIDE/f.txt\"},\"worktree\":null,\"actual\":null}"
@@ -295,10 +323,14 @@ expect_judge "п7-скретч-обход-точка-точка" block "Н-85"  
 expect_judge "п7б-пин-обход-точка-точка"   block "вне пина" "{\"tool\":\"write\",\"args\":{\"path\":\"$WTA/../wip-102-bb/f.txt\"},\"worktree\":\"$WTA\",\"actual\":\"$WTA\"}"
 
 # ── п8: токен-гигиена нового CLI-режима --extract-pin (М1) ────────────────────
-extract() {  # <ветвь> <ожидание: null | <путь>> <текст>
-  local vetka="$1" want="$2" text="$3" out rc got
+extract() {  # <ветвь> <ожидание: null | <путь>> <текст> [PATH-префикс]
+  local vetka="$1" want="$2" text="$3" p="${4:-}" out rc got
   RAN["${vetka%%-*}"]=1
-  out="$(node "$SUBJ" --extract-pin "$text" 2>&1)"; rc=$?
+  if [ -n "$p" ]; then
+    out="$(env PATH="$p" node "$SUBJ" --extract-pin "$text" 2>&1)"; rc=$?
+  else
+    out="$(node "$SUBJ" --extract-pin "$text" 2>&1)"; rc=$?
+  fi
   if [ "$rc" -eq 2 ]; then
     fail "$vetka" "режим --extract-pin отсутствует (rc 2 NOT_IMPLEMENTED): ${out:-<пусто>}"
     return
@@ -391,9 +423,8 @@ ctl_gate п4м 116-dp "$TOY/asg-cr.txt"     # gitdir: <path>\r — lone-CR
 
 # ── п4н: PATH без git — fail-closed отсутствия инструмента (Н-85, РЕШЕНИЕ 0c98913)
 # Вход: канонический asg-one (живой WTA), PATH = ТОЛЬКО node (симлинк, без git).
-# Сегодня субъект git не спрашивает вовсе: CLI rc 0 пин, фабрика pass — красное.
-# После оракула отсутствие git НИКОГДА pass: CLI rc 2 NOT_IMPLEMENTED, фабрика
-# null→block Н-85 (как п2: unpinned-сессия вне null-allowlist).
+# Оракул landed (2777def): отсутствие git НИКОГДА pass — CLI rc 2 NOT_IMPLEMENTED,
+# фабрика null→block Н-85 (как п2); зелёная, красное = регресс fail-closed.
 RAN[п4н]=1
 ng_out="$(env PATH="$NOGIT" node "$SUBJ" --extract-pin "$(cat "$TOY/asg-one.txt")" 2>&1)"; ng_rc=$?
 if [ "$ng_rc" -eq 2 ]; then
@@ -407,7 +438,23 @@ fi
 CALLS_OUT="$(env -u WORKTREE PATH="$NOGIT" node "$TOY/drv.mjs" "$SUBJ" "A:start:$TOY/asg-one.txt;A:call:$WTA/f-nogit.txt" 2>&1)"; CALLS_RC=$?
 call_assert "п4н-фабрика-block" 1 block "Н-85"
 
-# ── Сводка: все 30 маркеров, пустая выборка = дефект фикстуры ─────────────────
+# ── п4о/п4п (к3): fake-git-first + forged-кандидат — дословная форма зонда ─────
+# oracle-adversary.mjs к3: .git=«not a gitfile\n», fake-bin/git печатает
+# существующий tmp-dir (rc 0), PATH=fake-bin:$PATH. Стаб «оракул верит PATH-git»
+# вердиктит live подделке: CLI пин ≠ null (п4о), фабрика pass ≠ block (п4п).
+extract "п4о-fakegit-extract-null" "null" "$(cat "$TOY/asg-fakegit.txt")" "$FG_PATH"
+CALLS_OUT="$(env -u WORKTREE PATH="$FG_PATH" node "$TOY/drv.mjs" "$SUBJ" "A:start:$TOY/asg-fakegit.txt;A:call:$TOY/wip-117-dq/f.txt" 2>&1)"; CALLS_RC=$?
+call_assert "п4п-fakegit-fabrika-block" 1 block ""
+
+# ── п4р: контроль вечнокрасности — fake-git-first + ЧЕСТНЫЙ linked worktree: ───
+# пин обязателен ДО и ПОСЛЕ фикса: фейк подменяет и честный ответ; якорь,
+# отвергающий честный worktree из-за самого факта фейка в PATH, красен здесь.
+extract "п4р-chestnyj-worktree-pri-fejke" "$WTA" "$(cat "$TOY/asg-one.txt")" "$FG_PATH"
+CALLS_OUT="$(env -u WORKTREE PATH="$FG_PATH" node "$TOY/drv.mjs" "$SUBJ" "A:start:$TOY/asg-one.txt;A:call:$WTA/f-r.txt" 2>&1)"; CALLS_RC=$?
+call_assert "п4р-fabrika-pass" 1 pass ""
+
+
+# ── Сводка: все 33 маркера, пустая выборка = дефект фикстуры ─────────────────
 RED=0; GRN=0
 for m in "${ORDER[@]}"; do
   if [ -z "${RAN[$m]:-}" ]; then
