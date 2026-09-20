@@ -2,18 +2,21 @@
 # КРАСНОЕ 032 v2 (Н-111(б), черновик-контракт v2 к к2): пин task-спавна из строки
 # задания — недостроенная половина 025 §C-1. СУБЪЕКТ: .omp/extensions/path-guard.ts —
 # judge-CLI (грамматика 025) И фабрика register() + новый режим --extract-pin
-# (грамматика 032 М1/М2). СЕГОДНЯ (дерево без пиннинга): rc 1, красные ветви —
-# п1 п6 п7 п7б п8 п9 п11 п12 (пин из задания отсутствует, «вне пина»-семантика не
-# различима, дыра `..` жива, --extract-pin нет). ПОСЛЕ реализации: rc 0.
+# (грамматика 032 М1/М2). Круг A1 закрыт (ленд 8db23d8): 21 ветвь зелёная.
+# КРУГ B1 (к2 11a09e3, РЕШЕНИЕ арбитра 0c98913, корень 1, red-first ДО git-оракула):
+# СЕГОДНЯ rc 1, красные ветви — п4д/п4е/п4ж/п4з/п4и (пять не-канонических форм
+# .git-файла при ЖИВОЙ gitdir-цели: git reject 128, субъект принимает — ручная
+# грамматика мягче git) и п4н (PATH без git: fail-closed отсутствия инструмента —
+# CLI rc 2 NOT_IMPLEMENTED, фабрика block). ПОСЛЕ git-оракула: rc 0.
 #
 # ПОСТ-ФРИЗ п4г (вердикт адверсария 032 k1 — А1 multiline-gitdir-обход, f596d97):
 # реализация ищет gitdir-строку флагом /m ВНУТРИ мусорного .git-файла и принимает
 # подделку «мусор + настоящая gitdir-строка настоящего linked worktree + мусор».
 # СЕГОДНЯ п4г КРАСНАЯ на обоих входах (фабрика + CLI), после фикса — зелёная.
 #
-# 21 ветвь приёмки: п0–п15 + п4а/п4б/п4в/п4г/п7б; каждая ветвь = именованные входы,
+# 30 ветвей приёмки: п0–п15 + п4а–п4н + п7б; каждая ветвь = именованные входы,
 # ветвь красная, если КРАСЕН любой её вход. Накопление: прогон не стопится на
-# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 21.
+# первом красном — в конце именованная сводка «ВЕТВЬ <маркер> <статус>» по всем 30.
 # Все toy-репо и негативные каталоги — ПОД реальным namespace
 # /tmp/dev-harness-worktrees (канарейка п2 судит живой префикс, не toy-имя;
 # уникальность mktemp-суффиксом — А-88, два прогона = разные пути).
@@ -33,6 +36,20 @@
 #     «gitdir-строка ищется /m ВНУТРИ мусорного .git» умирают
 #     каждый на СВОЕЙ ветви (цель записи — ВНУТРИ проверяемого пути:
 #     запиннувший стаб даёт pass и валит ассерт block);
+#   * п4д/п4е/п4ж/п4з/п4и (B1, круг к2/арбитраж) — ручная грамматика
+#     isLiveLinkedWorktree :129-130 (text.trim() + /^gitdir:\s*(\S+)$/ + statSync
+#     цели) мягче git на пяти формах (таблица к2 11a09e3, воспроизведена арбитром
+#     0c98913): стабы «\s* = ноль пробелов» (п4д), «trim() срезает BOM U+FEFF»
+#     (п4е), «\s включает NBSP U+00A0» (п4ж), «trim() срезает ведущий пробел»
+#     (п4з), «trim() срезает CR + \s* ест второй пробел» (п4и) умирают каждый на
+#     СВОЕЙ форме: цель — ЖИВОЙ настоящий gitdir, запиннивший стаб даёт
+#     pass ≠ ассерт block и CLI-пин ≠ ассерт null;
+#   * п4к/п4л/п4м — положительные контроли (канон/CRLF/lone-CR): ручная грамматика
+#     И будущий git-оракул форму принимают — зелёные ДО и ПОСЛЕ фикса (ловят
+#     over-block оракула);
+#   * п4н — субъект git сегодня не вызывает вовсе (:114-138 statSync/readFileSync):
+#     PATH без git даёт CLI rc 0 пин / фабрику pass; стаб «оракул не fail-closed»
+#     умирает здесь — ожидания rc 2 NOT_IMPLEMENTED (Н-85) / block Н-85;
 #   * п6 — причина «вне пина» :543/:609 против unpinned-причины :542/:608
 #     (сегодня блок есть, но семантика своя/чужая цель не различима);
 #   * п7/п7б — isWithin :88-91 сырой префикс (обе allowlist-ветви, дыра `..`
@@ -58,6 +75,8 @@ mkdir -p "$NS" "$VERIFY_BASE"
 TOY="$(mktemp -d "$NS/pg032.XXXXXX")"    # toy-репо ПОД namespace (А-88: суффикс)
 OUTSIDE="$(mktemp -d "$NS/pg032vne.XXXXXX")"   # негативный каталог ПОД namespace
 VERIFY_DIR="$(mktemp -d "$VERIFY_BASE/pg032.XXXXXX")"
+NOGIT="$(mktemp -d "$VERIFY_DIR/nogit.XXXXXX")"   # PATH без git, но с node (п4н)
+ln -s "$(command -v node)" "$NOGIT/node"
 trap 'rm -rf "$TOY" "$OUTSIDE" "$VERIFY_DIR"' EXIT
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
@@ -84,9 +103,26 @@ mkdir -p "$TOY/wip-107-dg"
 git -C "$TOY/wip-107-dg" init -q -b main                          # п4в: .git — КАТАЛОГ, не файл
 mkdir -p "$TOY/wip-108-dh"
 { printf 'ne-gitdir-zagolovok\n'; cat "$WTA/.git"; printf 'musornyj-hvost\n'; } > "$TOY/wip-108-dh/.git"   # п4г: gitdir-строка ВНУТРИ мусора (цель = настоящий gitdir WTA, зонд 032 k1)
+# ── B1-кандидаты (к2 11a09e3 / РЕШЕНИЕ 0c98913): НАСТОЯЩИЕ linked worktrees, .git
+# перезаписан формой — gitdir-цель существует и жива, отвергается именно ФОРМА.
+# mk_b1 <суффикс> <printf-формат>: %s = живой gitdir ЭТОГО же worktree.
+mk_b1() {
+  local wt="$TOY/wip-$1"
+  git -C "$TOY" branch "wip/${1/-//}"
+  git -C "$TOY" worktree add -q "$wt" "wip/${1/-//}"
+  printf "$2" "$TOY/.git/worktrees/wip-$1" > "$wt/.git"
+}
+mk_b1 109-di 'gitdir:%s\n'                # п4д: без пробела после двоеточия
+mk_b1 110-dj '\357\273\277gitdir: %s\n'  # п4е: BOM-префикс (EF BB BF)
+mk_b1 111-dk 'gitdir:\302\240%s\n'       # п4ж: NBSP-разделитель (C2 A0)
+mk_b1 112-dl ' gitdir: %s\n'             # п4з: ведущий ASCII-пробел
+mk_b1 113-dm 'gitdir:  %s\r'             # п4и: двойной пробел + CR (без LF)
+mk_b1 114-dn 'gitdir: %s\n'              # п4к: КОНТРОЛЬ — канон
+mk_b1 115-do 'gitdir: %s\r\n'            # п4л: КОНТРОЛЬ — CRLF
+mk_b1 116-dp 'gitdir: %s\r'              # п4м: КОНТРОЛЬ — lone-CR
 
 # ── Накопление: ветвь красная, если красен любой её вход ──────────────────────
-ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п4г п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
+ORDER=(п0 п1 п2 п3 п4 п4а п4б п4в п4г п4д п4е п4ж п4з п4и п4к п4л п4м п4н п5 п6 п7 п7б п8 п9 п10 п11 п12 п13 п14 п15)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; done
 
@@ -196,6 +232,16 @@ printf 'Git-каталог, не файл.\nWORKTREE=%s, BRANCH=wip/107/dg.\n' "
 printf 'Задание 032 (gitdir в мусоре).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/108/dh.\nПервым действием cd в worktree.\n' "$TOY/wip-108-dh" > "$TOY/asg-gitdir-v-musore.txt"
 printf 'Форма рассогласована.\nWORKTREE=%s, BRANCH=wip/102/bb.\n' "$WTA" > "$TOY/asg-mismatch.txt"
 printf 'Steering-подмена.\nWORKTREE=%s, BRANCH=wip/102/bb.\n' "$WTB" > "$TOY/asg-steer.txt"
+# B1-формы и контроли (форма пары — канон «032: WORKTREE=…» как asg-one: токен
+# требует [:;,]^ перед WORKTREE=, bare-форма не пиннится — измерено в HANDOFF):
+printf 'Задание 032 (B1 без пробела).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/109/di.\n' "$TOY/wip-109-di" > "$TOY/asg-b1-di.txt"
+printf 'Задание 032 (B1 BOM).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/110/dj.\n' "$TOY/wip-110-dj" > "$TOY/asg-b1-dj.txt"
+printf 'Задание 032 (B1 NBSP).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/111/dk.\n' "$TOY/wip-111-dk" > "$TOY/asg-b1-dk.txt"
+printf 'Задание 032 (B1 ведущий пробел).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/112/dl.\n' "$TOY/wip-112-dl" > "$TOY/asg-b1-dl.txt"
+printf 'Задание 032 (B1 два пробела и CR).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/113/dm.\n' "$TOY/wip-113-dm" > "$TOY/asg-b1-dm.txt"
+printf 'Задание 032 (контроль канон).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/114/dn.\n' "$TOY/wip-114-dn" > "$TOY/asg-kanon.txt"
+printf 'Задание 032 (контроль CRLF).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/115/do.\n' "$TOY/wip-115-do" > "$TOY/asg-crlf.txt"
+printf 'Задание 032 (контроль lone-CR).\n## Contract\n032: WORKTREE=%s, BRANCH=wip/116/dp.\n' "$TOY/wip-116-dp" > "$TOY/asg-cr.txt"
 
 # ── п0: зелёный контроль — null-allowlist 025 жив ДО и ПОСЛЕ ──────────────────
 expect_judge "п0-внешняя-цель-блок"   block "Н-85" "{\"tool\":\"write\",\"args\":{\"path\":\"$OUTSIDE/f.txt\"},\"worktree\":null,\"actual\":null}"
@@ -315,7 +361,53 @@ calls_run "A:start:$TOY/asg-none.txt;A:call:$WTB/f15b.txt:$WTB:$WTB;A:call:$WTC/
 call_assert "п15-sobytie-vyshe-env-pass" 1 pass ""
 call_assert "п15-env-vne-pina-блок"     2 block "вне пина"
 
-# ── Сводка: все 20 маркеров, пустая выборка = дефект фикстуры ─────────────────
+# ── п4д–п4и: B1-формы .git-файла (к2 11a09e3, РЕШЕНИЕ арбитра 0c98913) ──────────
+# Кандидат — НАСТОЯЩИЙ linked worktree (gitdir-цель жива), .git перезаписан формой:
+# git отвергает ФОРМУ (reject 128, замер 1 арбитража), субъект сегодня принимает
+# (ручная грамматика мягче git). Каждый вход красен САМ по себе: фабрика → block,
+# CLI → null (стаб «грамматика принимает форму» даёт pass/пин ≠ ассерт).
+b1_gate() {  # <ветвь> <суффикс> <asg> — красная B1-ветвь: фабрика block + CLI null
+  calls_run "A:start:$3;A:call:$TOY/wip-$2/f.txt"
+  call_assert "$1-фабрика-block" 1 block ""
+  extract "$1-extract-null" "null" "$(cat "$3")"
+}
+b1_gate п4д 109-di "$TOY/asg-b1-di.txt"   # gitdir:<path> — без пробела после ':'
+b1_gate п4е 110-dj "$TOY/asg-b1-dj.txt"   # BOM (EF BB BF) перед 'gitdir:'
+b1_gate п4ж 111-dk "$TOY/asg-b1-dk.txt"   # NBSP (C2 A0) вместо ASCII-пробела
+b1_gate п4з 112-dl "$TOY/asg-b1-dl.txt"   # ведущий ASCII-пробел
+b1_gate п4и 113-dm "$TOY/asg-b1-dm.txt"   # двойной пробел + CR (без LF)
+
+# ── п4к/п4л/п4м: положительные контроли — канон/CRLF/lone-CR принимаются ОБЕИМИ ──
+# сторонами (ручной грамматикой сегодня, git-оракулом после): фабрика pass, CLI
+# пин. Красный контроль = over-block будущего оракула (стал строже git).
+ctl_gate() {  # <ветвь> <суффикс> <asg> — контроль: фабрика pass + CLI пин
+  calls_run "A:start:$3;A:call:$TOY/wip-$2/f.txt"
+  call_assert "$1-фабрика-pass" 1 pass ""
+  extract "$1-extract-pin" "$TOY/wip-$2" "$(cat "$3")"
+}
+ctl_gate п4к 114-dn "$TOY/asg-kanon.txt"  # gitdir: <path>\n — канон
+ctl_gate п4л 115-do "$TOY/asg-crlf.txt"   # gitdir: <path>\r\n — CRLF
+ctl_gate п4м 116-dp "$TOY/asg-cr.txt"     # gitdir: <path>\r — lone-CR
+
+# ── п4н: PATH без git — fail-closed отсутствия инструмента (Н-85, РЕШЕНИЕ 0c98913)
+# Вход: канонический asg-one (живой WTA), PATH = ТОЛЬКО node (симлинк, без git).
+# Сегодня субъект git не спрашивает вовсе: CLI rc 0 пин, фабрика pass — красное.
+# После оракула отсутствие git НИКОГДА pass: CLI rc 2 NOT_IMPLEMENTED, фабрика
+# null→block Н-85 (как п2: unpinned-сессия вне null-allowlist).
+RAN[п4н]=1
+ng_out="$(env PATH="$NOGIT" node "$SUBJ" --extract-pin "$(cat "$TOY/asg-one.txt")" 2>&1)"; ng_rc=$?
+if [ "$ng_rc" -eq 2 ]; then
+  case "$ng_out" in
+    *NOT_IMPLEMENTED*) ;;
+    *) fail "п4н-cli-not-implemented" "rc 2 без маркера NOT_IMPLEMENTED: ${ng_out:-<пусто>}";;
+  esac
+else
+  fail "п4н-cli-not-implemented" "ожидался rc 2 NOT_IMPLEMENTED, получено rc $ng_rc: ${ng_out:-<пусто>}"
+fi
+CALLS_OUT="$(env -u WORKTREE PATH="$NOGIT" node "$TOY/drv.mjs" "$SUBJ" "A:start:$TOY/asg-one.txt;A:call:$WTA/f-nogit.txt" 2>&1)"; CALLS_RC=$?
+call_assert "п4н-фабрика-block" 1 block "Н-85"
+
+# ── Сводка: все 30 маркеров, пустая выборка = дефект фикстуры ─────────────────
 RED=0; GRN=0
 for m in "${ORDER[@]}"; do
   if [ -z "${RAN[$m]:-}" ]; then
