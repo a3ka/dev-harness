@@ -28,7 +28,9 @@
 //     блокер 2).
 //   - read/grep/glob и bash без формы записи — pass (Г1 «читать свободно»).
 
-import { realpathSync, statSync, readFileSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { dirname } from 'node:path';
 
 // ── Allowlist URI-схем (Г3 «internal URI харнеса») ─────────────────────────────
 // В pinned сессии все они pass; в unpinned (worktree:null) — ТОЛЬКО artifact://
@@ -110,35 +112,93 @@ function lexNormalize(p: string): string {
   return (isAbs ? '/' : '') + stack.join('/');
 }
 
-// Проверка «живой linked worktree» (М1 контракт 032): <путь>/.git ФАЙЛ (НЕ каталог),
-function isLiveLinkedWorktree(p: string): boolean {
+// Проверка «живой linked worktree» через git-оракул (РЕШЕНИЕ арбитра 0c98913,
+// §Вопрос 1 п.4): структурные проверки остаются кодом, формат и живость цели
+// судит сам git. Ручная грамматика (бывшая /^gitdir:\s*(\S+)$/ + trim, path-guard
+// до 032) УДАЛЕНА целиком — третий регэксп этого класса не появится: два круга
+// подряд ручная грамматика оказалась мягче git (A1 multiline /m, B1
+// не-канонические формы), класс закрывается заменой судьи. Возвращает три
+// состояния:
+//   - 'live'     кандидат — живой linked worktree (rc 0 И stdout-путь существует)
+//   - 'not-live' структурно не подходит, или git отверг форму (rc≠0),
+//                или stdout-путь не существует
+//   - 'no-git'   git отсутствует (ENOENT); CLI → rc 2 NOT_IMPLEMENTED (Н-85),
+//                фабрика → worktree:null → unpinned → block (НИКОГДА pass)
+type OracleResult = 'live' | 'not-live' | 'no-git';
+
+function buildSanitizedEnv(parentDir: string): NodeJS.ProcessEnv {
+  // Прецедент scripts/spawn_agent.sh:38-40 — unset GIT_DIR-семейство, /dev/null на
+  // GIT_CONFIG_*; плюс GIT_CEILING_DIRECTORIES=<родитель кандидата> против
+  // восхождения к чужому родительскому репо (РЕШЕНИЕ 0c98913 §Вопрос 1 п.4 —
+  // «гигиена спавна процесса из расширения»).
+  const drop: Record<string, true> = {
+    GIT_DIR: true,
+    GIT_WORK_TREE: true,
+    GIT_INDEX_FILE: true,
+    GIT_OBJECT_DIRECTORY: true,
+    GIT_ALTERNATE_OBJECT_DIRECTORIES: true,
+    GIT_TEMPLATE_DIR: true,
+    GIT_CEILING_DIRECTORIES: true,
+  };
+  const env: NodeJS.ProcessEnv = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (drop[k]) continue;
+    if (v !== undefined) env[k] = v;
+  }
+  env.GIT_CONFIG_GLOBAL = '/dev/null';
+  env.GIT_CONFIG_SYSTEM = '/dev/null';
+  env.GIT_CEILING_DIRECTORIES = parentDir;
+  return env;
+}
+
+function gitOracle(p: string): OracleResult {
+  // Структурные проверки — кодом (РЕШЕНИЕ 0c98913 §Вопрос 1 п.4): <путь>/.git
+  // существует и это ФАЙЛ (НЕ каталог). Фильтрует п4 (нет .git) и п4в
+  // (.git-каталог) ДО дорогого spawnSync.
   const dotGit = `${p}/.git`;
   let st;
   try {
     st = statSync(dotGit);
   } catch {
-    return false;
+    return 'not-live';
   }
-  if (!st.isFile()) return false;
-  let text: string;
+  if (!st.isFile()) return 'not-live';
+
+  // Git-оракул: spawnSync 'git rev-parse --absolute-git-dir' с санированным env.
+  // live ⟺ rc 0 И stdout-путь существует (РЕШЕНИЕ 0c98913 §Замер 2).
+  const env = buildSanitizedEnv(dirname(p));
+  let res;
   try {
-    text = readFileSync(dotGit, 'utf8');
+    res = spawnSync('git', ['-C', p, 'rev-parse', '--absolute-git-dir'], {
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
   } catch {
-    return false;
+    // На современных node spawnSync не бросает ENOENT — кладёт его в res.error;
+    // этот catch — страховка на случай, если платформа решит иначе.
+    return 'no-git';
   }
-  const trimmed = text.trim();
-  const m = trimmed.match(/^gitdir:\s*(\S+)$/);
-  if (!m || !m[1]) return false;
+  if (res.error) {
+    const code = (res.error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') return 'no-git';
+    return 'not-live';
+  }
+  if (res.status !== 0) return 'not-live';
+  const gitdirPath = (res.stdout ?? '').toString('utf8').trim();
+  if (!gitdirPath) return 'not-live';
   try {
-    statSync(m[1]);
-    return true;
+    statSync(gitdirPath);
+    return 'live';
   } catch {
-    return false;
+    return 'not-live';
   }
 }
 
 // Извлечение пина из текста задания (М1 контракт 032). Три условия одновременно:
-function extractPin(text: string): { worktree: string | null } {
+// noGit различает «не живой» (фабрика → null/block) и «git отсутствует» (CLI
+// отдельно ловит rc 2 NOT_IMPLEMENTED; фабрика идёт через extractPinFromBranch
+// и о noGit просто не знает — её путь даст null/block как у прочих fail-closed).
+function extractPin(text: string): { worktree: string | null; noGit: boolean } {
   // 1) ровно одна spawn-пара: токен WORKTREE=<абс> + BRANCH=wip/<NNN>/<автор>;
   const tokenRe = /(?:^|[:;,])\s*(WORKTREE|BRANCH)=([^\s,;]+)/g;
   let wtCount = 0, brCount = 0;
@@ -149,24 +209,29 @@ function extractPin(text: string): { worktree: string | null } {
     else { brCount++; br = mm[2]; }
   }
   if (wtCount !== 1 || brCount !== 1 || wt === null || br === null) {
-    return { worktree: null };
+    return { worktree: null, noGit: false };
   }
   // Терминальная пунктуация (точка в конце предложения): .strip без потери хвостовых точек пути (нет в фикстурах).
   const cleanValue = (s: string): string => s.replace(/[.,;:!?]+$/, '');
   wt = cleanValue(wt);
   br = cleanValue(br);
   // Абсолютный путь.
-  if (!wt.startsWith('/')) return { worktree: null };
+  if (!wt.startsWith('/')) return { worktree: null, noGit: false };
   // 2) spawn-форма: basename(<путь>) == wip-<NNN>-<автор>.
   const brMatch = br.match(/^wip\/(\d+)\/([A-Za-z0-9_-]+)$/);
-  if (!brMatch) return { worktree: null };
+  if (!brMatch) return { worktree: null, noGit: false };
   const segs = wt.split('/');
   const baseName = segs[segs.length - 1] ?? '';
   const expectedBase = `wip-${brMatch[1]}-${brMatch[2]}`;
-  if (baseName !== expectedBase) return { worktree: null };
-  // 3) живой linked worktree.
-  if (!isLiveLinkedWorktree(wt)) return { worktree: null };
-  return { worktree: wt };
+  if (baseName !== expectedBase) return { worktree: null, noGit: false };
+  // 3) живой linked worktree через git-оракул (РЕШЕНИЕ 0c98913 §Вопрос 1 п.4).
+  // Гигиена: оракул вызывается ТОЛЬКО здесь, после структурных условий и полной
+  // грамматики пары; успешный пин мемоизируется (М2) — спавна git на каждый
+  // tool_call нет.
+  const status = gitOracle(wt);
+  if (status === 'no-git') return { worktree: null, noGit: true };
+  if (status !== 'live') return { worktree: null, noGit: false };
+  return { worktree: wt, noGit: false };
 }
 
 // Чтение session_id из omp-контекста (М2: ключ для модульной карты пинов).
@@ -189,6 +254,8 @@ function getBranch(ctx: unknown): unknown {
 }
 
 // Извлечение пина из ветки: ТОЛЬКО ПЕРВАЯ user-запись (п9 — steering НЕ перепинивает).
+// На фабричном пути noGit не используется: фабрика должна fail-closed null/block (Н-85),
+// а CLI --extract-pin отдельно ловит noGit через extractPin (см. runCLI).
 function extractPinFromBranch(branch: unknown): string | null {
   if (!Array.isArray(branch)) return null;
   for (const entry of branch) {
@@ -802,7 +869,16 @@ function runCLI(): void {
       console.error('FAIL: нужен --extract-pin <text>');
       process.exit(2);
     }
-    process.stdout.write(`${JSON.stringify(extractPin(argv[1]))}\n`);
+    const result = extractPin(argv[1]);
+    if (result.noGit) {
+      // CLI-конвенция Н-85 NOT_IMPLEMENTED: инструмент, на котором держится
+      // git-оракул, отсутствует — fail-closed. Фабрика идёт по тому же extractPin
+      // (через extractPinFromBranch), и на noGit даёт worktree:null → сессия
+      // unpinned → block Н-85 (п4н: фабрика block «Н-85»).
+      console.error('NOT_IMPLEMENTED: git отсутствует — git-оракул не может судить .git-форму (spawn ENOENT; PATH без git)');
+      process.exit(2);
+    }
+    process.stdout.write(`${JSON.stringify({ worktree: result.worktree })}\n`);
     process.exit(0);
   }
   if (argv[0] === '--judge') {
