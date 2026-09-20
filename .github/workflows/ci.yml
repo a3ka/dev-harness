@@ -155,6 +155,12 @@ jobs:
         # доступны. rc=0 закрывает пункт приёмки шага.
         run: npm run check:document
 
+      - name: Спек-точность пре-фриз (контракт 036, В4)
+        # Самодостаточен: spec-preflight на живом дереве — контракт 036 заморожен и является
+        # честным входом гейта (в4-семьи в правке этим же черновиком — stderr-пометка, судит
+        # критик). rc=0 закрывает пункт приёмки шага (правило 6; г8 v3).
+        run: npm run check:spec-ready -- . contracts/036-spec-tochnost-prefriz-gejt.md
+
       - name: Судья через CI-сигнал (контракт 008)
         # Самодостаточен: подставляет ФЕЙКОВЫЙ check_ci_gate.sh рядом с предметом
         # judge_gate.sh, реагирующий на exact-matching SHA PASS_THIS_SHA_GREEN.
