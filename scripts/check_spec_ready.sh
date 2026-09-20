@@ -114,7 +114,8 @@ done < <(printf '%s\n' "$DRAFT_BODY" | grep -E '^- `' || true)
 # ── В2. ЗАМЕРЫ: строки «замер: `<cmd>` = N census <glob>` ───────────────────
 # Грамматика: `замер: ` префикс, N = ^[0-9]+$, <glob> — одиночный токен без пробелов.
 # Две меры (правило 4 AGENTS): команда даёт M1 (последняя строка stdout, целое);
-# ГЕЙТ САМ раскрывает glob от корня → M2.
+# ГЕЙТ САМ раскрывает glob от корня → M2, ДО и ПОСЛЕ исполнения M1 (fix 036-k2 В3:
+# снимок дерева до возможной мутации кандидатом самой замер-командой).
 while IFS= read -r line; do
   [ -n "$line" ] || continue
   case "$line" in
@@ -132,15 +133,41 @@ while IFS= read -r line; do
   # Грамматика path-glob ДО любого исполнения (В2-обход: контрактный токен —
   # исполняемый shell-код, если попадёт в bash -c без разбора). Только буквы,
   # цифры и [._/*?-]; любой иной символ ($, (, ), {, }, ;, |, &, <, >, \, ', ", пробел…)
-  # — именованный отказ ДО того, как cmd вообще запущена.
-  if ! printf '%s' "$glob" | grep -qE '^[A-Za-z0-9._/*?-]+$'; then
+  # — именованный отказ ДО того, как cmd вообще запущена. LC_ALL=C — классификация
+  # символа НЕ зависит от локали (fix 036-k2 доп.: `LANG=en_US.UTF-8` пропускал
+  # `prøbes/*.sh` как «ASCII», потому что `[A-Za-z]` в UTF-8-локали цепляет и
+  # composed-буквы вроде `ø`; в C-локали тот же класс строго байтовый).
+  if ! printf '%s' "$glob" | LC_ALL=C grep -qE '^[A-Za-z0-9._/*?-]+$'; then
     printf 'спек-гейт 036: census-глоб вне грамматики path-glob\n'
     exit 1
   fi
+  # Сегментная проверка path-glob (fix 036-k2 В2): ASCII-класс сам по себе
+  # допускает `../` — census уходит за корень-кандидат (k2: `../outside/*.txt`).
+  # Глоб ОБЯЗАН быть ОТНОСИТЕЛЬНЫМ путём внутри корня: ведущий `/` и любой
+  # сегмент `..` — именованный отказ ДО любого исполнения/раскрытия.
+  case "$glob" in
+    /*)
+      printf 'спек-гейт 036: census-глоб вне грамматики path-glob (выход из корня)\n'
+      exit 1
+      ;;
+  esac
+  _glob_segments=()
+  IFS='/' read -ra _glob_segments <<< "$glob"
+  for _glob_seg in "${_glob_segments[@]}"; do
+    if [ "$_glob_seg" = '..' ]; then
+      printf 'спек-гейт 036: census-глоб вне грамматики path-glob (выход из корня)\n'
+      exit 1
+    fi
+  done
   if ! printf '%s' "$cmd" | grep -Fq -- "$glob"; then
     printf 'спек-гейт 036: замер не по грамматике: census-глоб не входит в команду\n'
     exit 1
   fi
+  # (а) M2_pre — независимый пересчёт ДО исполнения M1 (fix 036-k2 В3: снимок
+  # дерева до возможной мутации кандидатом; иначе `touch fabricated.txt; ...`
+  # подделал бы М2, создав ровно тот файл, который потом сам же и посчитан).
+  M2_pre="$(cd "$ROOT" && shopt -s nullglob && files=( $glob ) && printf '%s\n' "${#files[@]}")"
+  # (б) исполнить M1 (команда предмета).
   out="$(cd "$ROOT" && timeout 60 bash -c "$cmd" 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then
     printf 'спек-гейт 036: замер не исполнен: rc %s\n' "$rc"
@@ -151,17 +178,26 @@ while IFS= read -r line; do
     printf 'спек-гейт 036: замер не читается: вывод не целое\n'
     exit 1
   fi
+  # (в) M2_post — независимый пересчёт ПОСЛЕ исполнения M1, БЕЗ построения
+  # новой bash -c строки: $glob раскрывается обычным parameter expansion
+  # текущего интерпретатора (word-splitting + pathname expansion), а не как
+  # исходный текст нового скрипта — command substitution в значении переменной
+  # здесь не переисполняется.
+  M2_post="$(cd "$ROOT" && shopt -s nullglob && files=( $glob ) && printf '%s\n' "${#files[@]}")"
+  # (г) M1 == M2_pre == M2_post == N. Расхождение M2_pre/M2_post — дерево
+  # изменено самой замер-командой (k2 В3) — судится РАНЬШЕ сравнения с N:
+  # иначе подделанный M2_post мог бы случайно совпасть с N и обход остался бы
+  # скрыт за честным на вид «замер расходится».
+  if [ "$M2_pre" -ne "$M2_post" ]; then
+    printf 'спек-гейт 036: дерево изменено замер-командой\n'
+    exit 1
+  fi
   if [ "$M1" -ne "$n" ]; then
     printf 'спек-гейт 036: замер расходится: заявлено %s, команда даёт %s\n' "$n" "$M1"
     exit 1
   fi
-  # Независимый пересчёт БЕЗ построения новой bash -c строки: $glob раскрывается
-  # обычным parameter expansion текущего интерпретатора (word-splitting +
-  # pathname expansion), а не как исходный текст нового скрипта — command
-  # substitution в значении переменной здесь не переисполняется.
-  M2="$(cd "$ROOT" && shopt -s nullglob && files=( $glob ) && printf '%s\n' "${#files[@]}")"
-  if [ "$M2" -ne "$n" ]; then
-    printf 'спек-гейт 036: замер расходится: заявлено %s, дерево даёт %s\n' "$n" "$M2"
+  if [ "$M2_pre" -ne "$n" ]; then
+    printf 'спек-гейт 036: замер расходится: заявлено %s, дерево даёт %s\n' "$n" "$M2_pre"
     exit 1
   fi
 done < <(printf '%s\n' "$DRAFT_BODY" | grep '^замер: ' || true)
@@ -328,11 +364,35 @@ done <<<"$DRAFT_BODY"
 # Автор — ТОЧНОЕ равенство %an роли, не `git log --author` (regex/подстрока):
 # `--author` подхватил бы `implementer-evil` под роль `implementer`, и чужой
 # коммит был бы принят как «покрытый», хотя роль другая (В3-обход).
+#
+# NUL-сериализация (fix 036-k2 В1): git допускает табуляцию в user.name,
+# поэтому TSV-строка `%H%x09%an`, читаемая awk-полем `-F'\t'`, резалась бы
+# ровно этой табуляцией — `implementer<TAB>evil` проходил бы как `implementer`.
+# `-z` + `%x00` разделяют И записи, И поля НОЛЕМ: NUL не встречается ни в SHA,
+# ни в имени автора, байты имени не теряются; `mapfile -d ''` читает пары без
+# участия awk/tab. Сравнение автора — ТОЧНОЕ `$_an_name == $role`.
 for key in "${!_dropped_role_path[@]}"; do
   role="${key%%/*}"
   path="${key#*/}"
-  commits="$(g log --pretty=format:'%H%x09%an' "$c_since..$c_until" -- "$path" "$CONTRACT_PATH" 2>/dev/null \
-    | awk -F'\t' -v role="$role" '$2 == role { print $1 }' || true)"
+  mapfile -d '' -t _an_fields < <(g log -z --pretty=format:'%H%x00%an' "$c_since..$c_until" -- "$path" "$CONTRACT_PATH" 2>/dev/null)
+  commits=""
+  _an_i=0
+  while [ "$_an_i" -lt "${#_an_fields[@]}" ]; do
+    _an_sha="${_an_fields[$_an_i]}"
+    _an_name="${_an_fields[$((_an_i+1))]}"
+    # Имя автора с табуляцией — вне грамматики (паритет с lib_zones:
+    # tab_in_author), именованный отказ ДО сравнения с ролью — тихое
+    # несовпадение спрятало бы обход, а не назвало его.
+    case "$_an_name" in
+      *$'\t'*)
+        printf 'спек-гейт 036: имя автора вне грамматики (табуляция)\n'
+        exit 1
+        ;;
+    esac
+    [ "$_an_name" = "$role" ] && commits="$commits $_an_sha"
+    _an_i=$((_an_i+2))
+  done
+  commits="${commits# }"
   if [ -z "$commits" ]; then
     max_tag="frozen/contracts/$NNN/$vmax"
     for v in $(printf '%s\n' "${!_frozen_v_ref[@]}" | sort -rn); do
