@@ -1,11 +1,21 @@
 # Контракт 036 — спек-точность: пре-фриз прогонный класс-гейт (п.6 плана владельца)
 
-Статус: черновик v2 — закрытие Б1/Б2/Б3 круга 1 (verdicts/critic/contracts-036-v1.md
-@ a4fc8af). Основание — живое слово владельца 2026-09-20 ~02:15 (HANDOFF «ГДЕ МЫ»
-~02:20, дословно по существу): «усилить критик-гейт на спек-точность ДО масштабирования
-(031×4 frozen — на N≥3 это N× owner-налог подписей; меньше frozen-версий на контракт =
-меньше РАЗРЕШИЛ-касаний). Порядок: п.6 СТРОГО до п.5». Минт: id/CONTRACT/036 (f1476610),
-строка реестра 8baa6fb. Заморозка — после круга критика.
+Статус: черновик 036/2 — ре-фриз frozen/contracts/036/1 (6fb4493) ровно по двум пунктам
+вердикта ревьюера verdicts/review/contracts-036-k1.md @ 2cb78be. Б1 — ЗОНА implementer
+расширена с трёх поимённых case-файлов на каталог fixtures/check_check_spec_ready/ целиком:
+арбитражный маршрут 74c1f8d поручил четвёртую case-фикстуру (symlink-класс), зону не назвав,
+и 0a4336a приземлил её --no-verify; законный маршрут «ре-фриз 036/2 с каталожной
+ЗОНА-строкой» проходится этим текстом — самосанкция не повторяется, покрытие переноса
+объявлено СПАСЕНО ниже. Б2 — приёмка обязана живым прогоном bash scripts/check_zones.sh
+по репозиторию (проба г6, красная до этой заморозки, + пункт зелёного ПОСЛЕ). Основа v1 —
+живое слово владельца 2026-09-20 ~02:15: усилить критик-гейт на спек-точность ДО
+масштабирования, п.6 СТРОГО до п.5. Минт: id/CONTRACT/036 (f1476610), строка реестра
+8baa6fb. Ре-фриз замороженного текста — правило 11: заморозка только после прямого слова
+владельца.
+
+<!-- РАЗРЕШИЛ-ВЛАДЕЛЕЦ: строку добавляет оркестратор по прямому слову владельца (правило 11).
+     Этот комментарий-заглушка подписью НЕ является и в первую колонку не пишется;
+     черновик без подписи не замораживать (Н-59: молчание и пауза слова НЕ дают). -->
 
 ## Предмет
 
@@ -150,7 +160,8 @@
 ## Зоны
 
 ЗОНА architect: contracts/036-spec-tochnost-prefriz-gejt.md NABLIUDENIA_ARCHITECT.md fixtures/freeze_contract/red_prichina_predmeta_036.sh fixtures/freeze_contract/red_zamer_036.sh fixtures/freeze_contract/red_spec_preflight_036.sh fixtures/check_zones/red_perenos_zony_036.sh
-ЗОНА implementer: scripts/check_spec_ready.sh scripts/check_check_spec_ready.sh scripts/freeze_contract.sh fixtures/check_check_spec_ready/case_prichina_predmeta.sh fixtures/check_check_spec_ready/case_zamer.sh fixtures/check_check_spec_ready/case_perenos_zony.sh fixtures/freeze_contract/case_spec_preflight_gejt.sh .github/workflows/ci.yml package.json
+ЗОНА implementer: scripts/check_spec_ready.sh scripts/check_check_spec_ready.sh scripts/freeze_contract.sh fixtures/check_check_spec_ready/ fixtures/freeze_contract/case_spec_preflight_gejt.sh .github/workflows/ci.yml package.json
+СПАСЕНО implementer: b98896acabd9d810c7bc746c2dd6d0839b4fbc0a — 036/2 Б1: три поимённых case-файла поглощены каталогом семьи fixtures/check_check_spec_ready/ (роль та же; В3-матчинг токенный, поглощение каталогом формально есть перенос — коммит-создатель семьи покрыт явно)
 ЗОНА orchestrator: roles/critic.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
@@ -159,15 +170,18 @@
 РАБОТА НЕ РАЗДАЁТСЯ: scripts/check_contract_ready.sh scripts/check_check_contract_ready.sh (пин 008/мета-барьер не трогается — новая грамматика в новом гейте, старый API неизменен) scripts/verify_antiplacebo.sh (раннер не правится) scripts/lib_registry.sh scripts/lib_zones.sh scripts/next_id.sh .githooks/ (зона 022) registry/contracts.tsv (dual-control, 023/031) frozen-теги (читаются; пишет только freeze_contract) roles/ кроме critic verdicts/ (судейский канал) fixtures/check_check_spec_ready/_helpers и fixtures/freeze_contract/_repo.sh fixtures/check_zones/_repo.sh (общие помощники — зона implementer по принадлежности семей, правка не требуется)
 
 Непересечение и размещение red-файлов (Б2): все четыре red_* архитектора ложатся В ТОТ
-ЖЕ коммит, что и контракт, — в каталоги, ОТКРЫТЫЕ для architect сегодня (живая матрица
-круга 1: fixtures/freeze_contract/ и fixtures/check_zones/ — staged rc 0; каталог
-fixtures/check_check_spec_ready/ для architect закрыт до заморозки и НЕ используется).
-Пост-фриз-дверь: после frozen 036/1 ЗОНА-строки этого контракта откроют и закрытый
-каталог — ТОЛЬКО для избыточных red-файлов сверх четырёх базовых; базовые четыре
-лежат в открытых и после заморозки. case_*-файлы implementer'а остаются в
-fixtures/check_check_spec_ready/ (новая семья мета-барьера); .github/workflows/ci.yml
-и package.json — implementer ПО ИМЕНИ: новая семья check_check_spec_ready добавляется
-в CI (гейт зеленее CI не бывает); прямые запуски red_* — вне case_*-глоба раннера (А-82).
+ЖЕ коммит, что и контракт, — в каталоги, ОТКРЫТЫЕ для architect (живая матрица круга 1:
+fixtures/freeze_contract/ и fixtures/check_zones/ — staged rc 0); каталог
+fixtures/check_check_spec_ready/ архитектору НЕ раздаётся. v2 (Б1 ревьюера 2cb78be):
+этот каталог — зона implementer ЦЕЛИКОМ — все case-фикстуры семьи мета-барьера, включая
+case_symlink_vne_kornja.sh арбитражного маршрута 74c1f8d, и _helpers; пост-фриз-дверь
+v1 «каталог для избыточных red_* архитектора» этим ре-фризом снята: семья едина и
+принадлежит исполнителю, добавление case-фикстуры судейским маршрутом ре-фриза больше
+не требует. Избыточные red_* архитектора (сверх четырёх базовых, лежащих в открытых
+каталогах) — только через ЗОНА-строку архитектора в следующей версии контракта.
+.github/workflows/ci.yml и package.json — implementer ПО ИМЕНИ: новая семья
+check_check_spec_ready добавляется в CI (гейт зеленее CI не бывает); прямые запуски
+red_* — вне case_*-глоба раннера (А-82).
 
 ## Приёмочный критерий
 
@@ -178,7 +192,8 @@ fixtures/check_check_spec_ready/ (новая семья мета-барьера)
 
 ### Красное сейчас (все четыре файла НА ДЕРЕВЕ этим же коммитом; вход «отсутствующий
 гейт» даёт rc 1 с именем ПРЕДМЕТ 036 НЕ РЕАЛИЗОВАН — не 127; стаб-привязки Н-39 живут
-В КОДЕ фикстур, не в прозе контракта):
+В КОДЕ фикстур, не в прозе контракта; v2-добавка г6 — репо-проба, красная ДО заморозки
+036/2 и зелёная после):
 
 - `bash fixtures/freeze_contract/red_prichina_predmeta_036.sh` → красная: ПРЕДМЕТ 036 НЕ РЕАЛИЗОВАН
   Ворота: г1 зелёный контроль (проба rc 0 → гейт rc 0 «OK»; проба rc 1 с совпавшей
@@ -216,11 +231,20 @@ fixtures/check_check_spec_ready/ (новая семья мета-барьера)
   замер → freeze rc 1, тега нет); г5г отрицательный В3-вход конец-в-конец (v2-перенос
   зоны без СПАСЕНО при живом frozen/1 → freeze rc 1, тега v2 нет); живой тег на красном
   черновике = ОТКАЗ.
+- `bash scripts/check_zones.sh .` → красная: коммит вне зоны
+  Ворота: г6 боль Б1/Б2 ревьюера 2cb78be — живой гейт зон ПО РЕПОЗИТОРИЮ, не toy:
+  до заморозки 036/2 зона implementer не покрывает case-фикстуру арбитражного маршрута
+  74c1f8d → rc 1 «коммит вне зоны» (единственный FAIL дерева — 0a4336a); эта заморозка
+  легализует каталог, проба зеленеет — rc 0 обязан быть предъявлен стенограммой
+  (зелёное ПОСЛЕ). Красна ровно предметом поправки: red-first на самом ре-фризе.
 
 Зелёное ПОСЛЕ (приёмка реализованного): все четыре red_* → rc 0; мета-барьер новой
 семьи — `npm run check:antiplacebo -- --scope check_check_spec_ready` → rc 0; соседние
 семьи не сломаны — `npm run check:antiplacebo -- --scope freeze_contract` → rc 0 и
-`npm run check:antiplacebo -- --scope check_zones` → rc 0; freeze живого следующего
+`npm run check:antiplacebo -- --scope check_zones` → rc 0; зоны репозитория зелены
+(Б2, добавка v2) — `bash scripts/check_zones.sh .` → rc 0 стенограммой по ВСЕМУ
+репозиторию, не только внутри toy-фикстур (г4б-жив судит toy, этот пункт — живое дерево;
+мера отсутствовала во всех семи судейских кругах v1); freeze живого следующего
 контракта (первый бенефициар — 037+): стенограмма писателя реестра — вывод команды
 `bash scripts/freeze_contract.sh contracts/037-<слаг>.md "<причина>"` с rc 0, приложен
 к кругу DONE; это санкционированная заморозка живого контракта (действие писателя
