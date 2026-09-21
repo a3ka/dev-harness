@@ -167,6 +167,16 @@ while IFS= read -r c; do
 done < <(git rev-list HEAD)
 sort -u "$TMP/existed.raw" > "$TMP/existed"
 git ls-tree -r --name-only HEAD -- "${prefixes[@]}" | sort -u > "$TMP/head"
+# Множество блобов на HEAD — для проверки «блоб B жив на HEAD хотя бы под одним путём»
+# (контракт 039, §Семантика п.1, условие Б). Снимается здесь ОДИН РАЗ, а не в цикле по
+# каждому исчезнувшему пути: `git ls-tree -r HEAD` повторять N раз дорого, и перевычисление
+# от ветки цикла одно и то же. `$TMP/head_blobs` — отсортированное множество блобов всего
+# дерева HEAD, не только защищённой области: путь q носителя перенесённого артефакта может
+# жить и ВНЕ области защиты, и его блоб обязан считаться.
+: > "$TMP/head_blobs.raw"
+git ls-tree -r HEAD | awk '{print $3}' >> "$TMP/head_blobs.raw"
+sort -u "$TMP/head_blobs.raw" > "$TMP/head_blobs"
+rm -f "$TMP/head_blobs.raw"
 
 # Разность считается `comm`, а не циклом на bash: это ДРУГАЯ мера, и она не повторяет способ,
 # которым собраны оба множества.
@@ -219,19 +229,74 @@ excuse_for() {  # <путь> → 0, если удаление разрешено
   return 1
 }
 
-gone=0; excused=0
+# ПЕРЕНОС (контракт 039, §Семантика п.1). Путь p из missing считается перенесённым, если
+# выполнены ОБА условия ОДНОВРЕМЕННО:
+#   А) в удаляющем коммите c (той же мерой `--no-renames -m --diff-filter=D`) появился путь
+#      q ≠ p (статус A той же мерой) с блобом РОВНО B;
+#   Б) блоб B присутствует в `git ls-tree -r HEAD` хотя бы под одним путём.
+# Merge с РАЗНЫМИ блобами p в родителях — переноса нет, fail-closed (требуется ALLOW).
+# Реализация, проверяющая только (Б) и пропускающая (А), зеленеет по одному следу блоба
+# на HEAD — блокер Б1 (verdicts/critic/contracts-039-v1.md, dccde2d); проба R7 держит
+# конъюнкцию.
+moved_for() {  # <путь> → 0, если перенос признан (оба условия выполнены)
+  local p="$1" c parent_blob_b blob q_blob unique_blobs
+  c="$(git log HEAD --full-history --no-renames -m --diff-filter=D --format=%H -- "$p" | sed -n 1p)"
+  [ -n "$c" ] || return 1
+
+  # Б — блоб p в родителе c; разные блобы в нескольких родителях → переноса нет, fail-closed.
+  local -a parent_blobs=()
+  local parent
+  while IFS= read -r parent; do
+    [ -n "$parent" ] || continue
+    blob="$(git ls-tree "$parent" -- "$p" 2>/dev/null | awk -v pth="$p" '$4 == pth { print $3; exit }')"
+    [ -n "$blob" ] && parent_blobs+=("$blob")
+  done < <(git log -1 --format=%P "$c")
+  [ "${#parent_blobs[@]}" -ge 1 ] || return 1
+  unique_blobs="$(printf '%s\n' "${parent_blobs[@]}" | sort -u | wc -l | tr -d ' ')"
+  [ "$unique_blobs" = "1" ] || return 1
+  parent_blob_b="${parent_blobs[0]}"
+
+  # Условие Б: блоб B жив на HEAD хотя бы под одним путём. Множество блобов снято выше
+  # одним прогоном `git ls-tree -r HEAD` (включая файлы ВНЕ области защиты — носитель
+  # перенесённого артефакта может жить где угодно) и записано в `$TMP/head_blobs`. Здесь
+  # только проверка членства; ранний `awk exit` в пайпе дал бы SIGPIPE на upstream и
+  # вернул rc 141 под `set -o pipefail` — за это отвечает предагрегация в файл.
+  grep -qxF "$parent_blob_b" "$TMP/head_blobs" || return 1
+
+  # Условие А: в c появился путь q ≠ p статусом A с блобом РОВНО B. `--diff-filter=A` НЕ
+  # используется намеренно: фильтр ищет коммит с ЛЮБЫМ A в истории и возвращает ЕГО, а не
+  # текущий c — блокер Б1 (контрпример R7): q появляется коммитом РАНЬШЕ c, фильтр находит
+  # именно тот коммит и зеленит признание переноса, нарушая инвариант «A именно в c».
+  # Поэтому здесь мерой берётся `--no-renames -m` БЕЗ `--diff-filter`, и статус A отбирается
+  # уже в обходе (тот же подход, что в `excuse_for` для ALLOW-строки).
+  local q_path status q_blob
+  while IFS=$'\t' read -r status q_path; do
+    [ "$status" = "A" ] || continue
+    [ -n "$q_path" ] || continue
+    [ "$q_path" != "$p" ] || continue
+    q_blob="$(git ls-tree "$c" -- "$q_path" 2>/dev/null | awk -v pth="$q_path" '$4 == pth { print $3; exit }')"
+    [ "$q_blob" = "$parent_blob_b" ] && return 0
+  done < <(git log -1 --no-renames -m --pretty=format: --name-status "$c" 2>/dev/null)
+  return 1
+}
+
+gone=0; excused=0; moved=0
 while IFS= read -r p; do
   [ -n "$p" ] || continue
   if excuse_for "$p"; then
     excused=$((excused + 1))
     ok "исчез с явного разрешения: $p"
+  elif moved_for "$p"; then
+    moved=$((moved + 1))
+    ok "перенесён, контент жив на HEAD: $p"
   else
     gone=$((gone + 1))
     bad "защищённый артефакт существовал и на HEAD его нет: $p"
   fi
 done < "$TMP/missing"
 
-printf '\nобласть: %s · коммитов пройдено: %d · существовало: %d · на HEAD: %d · исчезло: %d · с разрешения: %d\n' \
-  "${prefixes[*]}" "$commits" "$(wc -l < "$TMP/existed")" "$(wc -l < "$TMP/head")" "$gone" "$excused" >&2
+printf '\nобласть: %s · коммитов пройдено: %d · существовало: %d · на HEAD: %d · исчезло: %d · с разрешения: %d · перенесено: %d\n' \
+  "${prefixes[*]}" "$commits" "$(wc -l < "$TMP/existed")" "$(wc -l < "$TMP/head")" "$gone" "$excused" "$moved" >&2
+
 
 [ "$fails" -eq 0 ] || exit 1

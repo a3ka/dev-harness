@@ -64,7 +64,7 @@ jobs:
           - shard: ap3
             keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
           - shard: ap4
-            keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception check_fork_route verify_consultant
+            keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
           - shard: ap5
             keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual
     steps:
@@ -274,6 +274,11 @@ jobs:
         # Зелёная ветвь исключения фикстурой не выражается — анти-плацебо доказывает только
         # красное. Дрилл переворачивает полярность и потому стоит в проводке отдельной строкой.
         run: npm run drill:protected-exception
+
+      - name: "Дрилл: честный перенос распознаётся"
+        # Зелёная ветвь переноса (контракт 039): анти-плацебо доказывает только красное,
+        # дрилл переворачивает полярность. По прецеденту дрилла исключения отдельной строкой.
+        run: npm run drill:protected-rename
 
       - name: История не перезаписана
         # Единственное место, где прежняя вершина ветки ИЗВЕСТНА: локально её не знает никто,
