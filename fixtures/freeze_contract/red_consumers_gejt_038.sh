@@ -10,6 +10,11 @@
 # census-замер «cat … | wc -l = N census …» согласован обеими мерами (файлы =
 # строки = пары). Вторая обязательная точка гейта — шаг 6а done_contract.sh
 # (Б2); здесь предъявлена freeze-точка, done-точку предъявляет D-семья.
+# v4 (арбитраж 038-Б3 / b0e4bef): маппинг сеет НАСТОЯЩИЕ пути писателей-
+# минимума стабами по коду реальных — scripts/freeze_contract.sh (под тестом),
+# scripts/lib_registry.sh, scripts/done_contract.sh; предикат п1 судит поимённо
+# эти три имени, честная основа зелёна по составу — красит именно п3, не п1
+# (toy-имена ломали и это: п1 краснел бы первым с другой фразой).
 #
 # Каталог ОТКРЫТ для architect (зона 027-architect; каталожный прецедент
 # 036-Б1: red-файлы ложатся в УЖЕ покрытом каталоге). Файл ложится ТЕМ ЖЕ
@@ -20,7 +25,7 @@
 # ВОРОТА — конец-в-конец через НАСТОЯЩИЙ scripts/freeze_contract.sh на toy
 # (оракул в памяти предъявления: теги/реестр сняты ДО вызова; диск проверяемого
 # после попытки не перечитывается как истина — только как след попытки):
-#   п3   писатель scripts/writer.sh тронут в окне frozen/1..HEAD, потребитель
+#   п3   писатель scripts/freeze_contract.sh тронут в окне frozen/1..HEAD, потребитель
 #        fixtures/reader.sh не покрыт ПРОБОЙ (строки ПОТРЕБИТЕЛЬ нет; замер
 #        несётся — красит именно п3, не п1) → freeze rc 1, отказ несёт
 #        «потребители 116» и «нет ПОТРЕБИТЕЛЬ-пробы», тега v2 нет, реестр
@@ -63,17 +68,18 @@ write_contract() {  # <каталог> <тело после «## Приёмка�
 # обязан быть честным (3), иначе toy-freeze v1 упадёт раньше предъявления.
 CENSUS='замер: `cat scripts/consumers.d/*.tsv | wc -l` = 3 census scripts/consumers.d/*.tsv'
 
-# База семьи: маппинг файл-на-пару — ТРИ писателя-минимума (writer под тестом +
-# два созвучных, чьи пары к живым читателям), пробы живут, всё закоммичено.
+# База семьи: маппинг файл-на-пару — ТРИ писателя-минимума НАСТОЯЩИМИ путями
+# (арбитраж 038-Б3: freeze_contract под тестом + lib_registry и done_contract
+# парами к живым читателям), пробы живут, всё закоммичено.
 seed_consumers() {  # <каталог> <фраза-честной-пробы>
   local r="$1" phrase="$2"
   mkdir -p "$r/scripts/consumers.d" "$r/fixtures"
-  printf 'scripts/writer.sh\tfixtures/reader.sh\n' > "$r/scripts/consumers.d/writer.sh__reader_sh.tsv"
-  printf 'scripts/libw.sh\tscripts/spawner.sh\n'     > "$r/scripts/consumers.d/libw.sh__spawner_sh.tsv"
-  printf 'scripts/donew.sh\tscripts/speccer.sh\n'    > "$r/scripts/consumers.d/donew.sh__speccer_sh.tsv"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/writer.sh"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/libw.sh"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/donew.sh"
+  printf 'scripts/freeze_contract.sh\tfixtures/reader.sh\n' > "$r/scripts/consumers.d/freeze_contract.sh__reader_sh.tsv"
+  printf 'scripts/lib_registry.sh\tscripts/spawner.sh\n'    > "$r/scripts/consumers.d/lib_registry.sh__spawner_sh.tsv"
+  printf 'scripts/done_contract.sh\tscripts/speccer.sh\n'   > "$r/scripts/consumers.d/done_contract.sh__speccer_sh.tsv"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/freeze_contract.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/lib_registry.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/done_contract.sh"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/spawner.sh"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/speccer.sh"
   printf '# consumer fixture\n' > "$r/fixtures/reader.sh"
@@ -96,7 +102,7 @@ run_freeze "$T1" 'v1 chestno'
 [ "$LAST_RC" -eq 0 ] || { printf 'ОТКАЗ: подготовка п3: freeze v1 дал rc %s:\n%s\n' "$LAST_RC" "$LAST_OUT" >&2; exit 1; }
 # v2: правка писателя В ОКНЕ, проба снята (замер несётся — красит п3, не п1)
 put_verdict "$T1" 2 accept
-printf '#!/usr/bin/env bash\n# pravka pisatelja v okne\nexit 0\n' > "$T1/scripts/writer.sh"
+printf '#!/usr/bin/env bash\n# pravka pisatelja v okne\nexit 0\n' > "$T1/scripts/freeze_contract.sh"
 write_contract "$T1" "- \`bash p_ok.sh\` → красная: FRAZA-P3
 
 $CENSUS"
@@ -114,7 +120,7 @@ commit_all "$T2" 'v1: pisatel pokryt'
 run_freeze "$T2" 'v1 chestno'
 [ "$LAST_RC" -eq 0 ] || { printf 'ОТКАЗ: подготовка п3-пробы: freeze v1 дал rc %s:\n%s\n' "$LAST_RC" "$LAST_OUT" >&2; exit 1; }
 put_verdict "$T2" 2 accept
-printf '#!/usr/bin/env bash\n# pravka pisatelja v okne\nexit 0\n' > "$T2/scripts/writer.sh"
+printf '#!/usr/bin/env bash\n# pravka pisatelja v okne\nexit 0\n' > "$T2/scripts/freeze_contract.sh"
 write_contract "$T2" "- \`bash p_ok.sh\` → красная: FRAZA-P3P
 
 $CENSUS

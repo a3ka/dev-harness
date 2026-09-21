@@ -3,8 +3,22 @@
 Статус: черновик 038 в дереве; круг 1 — FAIL к1 «набор артефактов неполон»
 (verdicts/critic/contracts-038-v1.md, 8700ea7), закрыт в v2 (0aa0803); круг 2 —
 FAIL к2, пять блокеров Б1–Б5 (verdicts/critic/contracts-038-v2.md, 5cc1398;
-репро критика: /tmp/dev-harness-verify/scratch/{audit,compat}-038-k2.py).
-**v3 — закрытие к2 (эта правка)**: Б1 верификация потребителя = ТОЛЬКО проба
+репро критика: /tmp/dev-harness-verify/scratch/{audit,compat}-038-k2.py). Круг 3 —
+FAIL к3, два повторных предмета (verdicts/critic/contracts-038-v3.md, e9d52b5) →
+арбитраж b0e4bef (verdicts/arbitration/038-dostizhimost-i-zony.md): РЕШЕНИЕ по
+обоим исполнено в v4.
+**v4 — исполнение РЕШЕНИЯ арбитра b0e4bef (эта правка, два предмета к3)**:
+Б3-достижимость — каркасы _toy.sh обеих семей с маппингом и freeze-проба сеют
+НАСТОЯЩИЕ пути писателей-минимум стабами по коду реальных
+(scripts/freeze_contract.sh — под тестом, scripts/lib_registry.sh,
+scripts/done_contract.sh); предикат п1 НЕ ослаблен («любые три разных» —
+названный обход, отвергнут арбитром); добавлен красный вход состава red_C6
+«писатели-минимум не зарегистрированы». Б5-зоны — три каталога семей объявлены
+ДОПОЛНИТЕЛЬНО в ЗОНА implementer (двойное объявление, union-семантика 033;
+прецеденты 027:224+235, 020:111-112), раннер пачки — точный файл
+fixtures/_krasnye_038.sh в ЗОНА architect. Пачка перегнана (31 файл), обе
+пробы арбитра воспроизведены на исправленном дереве (§Меры).
+**v3 — закрытие к2**: Б1 верификация потребителя = ТОЛЬКО проба
 исполнения (ЗОНА-альтернатива удалена); Б2 обязательная точка повторной
 верификации — шаг 6а писателя done (окно frozen..HEAD на момент тега);
 Б3 маппинг файл-на-пару `scripts/consumers.d/`, census-совместимая замер-форма
@@ -281,7 +295,7 @@ spawn_agent остался на минт-sha — spawn по замороженн
 
 ## Зоны
 
-ЗОНА architect: contracts/038-provodka-done-gejt.md NABLIUDENIA_ARCHITECT.md fixtures/check_provodka/ fixtures/done_contract/ fixtures/check_consumers/
+ЗОНА architect: contracts/038-provodka-done-gejt.md NABLIUDENIA_ARCHITECT.md fixtures/check_provodka/ fixtures/done_contract/ fixtures/check_consumers/ fixtures/_krasnye_038.sh
 ЗОНА implementer: scripts/check_provodka.sh scripts/done_contract.sh scripts/check_consumers.sh scripts/consumers.d/ scripts/freeze_contract.sh scripts/verify_ci_parity.sh fixtures/drill_contract_change/ .github/workflows/ci.yml package.json
 ЗОНА orchestrator: roles/architect.md roles/orchestrator.md roles/reviewer.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
@@ -301,8 +315,20 @@ CI-ключи, не через новые хуки).
   architect/orchestrator/reviewer — правило 14: не автором судимого предмета в открытом
   кругу; редактирует orchestrator/владелец МЕЖДУ кругами.
 - fixtures/check_provodka/, fixtures/done_contract/, fixtures/check_consumers/ —
-  каталоги семей ЦЕЛИКОМ architect (каталожный прецедент 036-Б1/v3: case-файлы тем же
-  коммитом, что контракт); барьеры и писатель — implementer.
+  каталоги семей с ДВОЙНЫМ объявлением (арбитраж 038-Б5 / b0e4bef; union-семантика
+  033; прецеденты 027:224+235 и 020:111-112 — архитекторская строка сохранена,
+  implementer добавлен ниже):
+
+  ЗОНА implementer: fixtures/check_provodka/ fixtures/done_contract/ fixtures/check_consumers/
+
+  До заморозки в семьи пишет только architect; первым пост-фриз коммитом
+  architect приземляет red_*/green_*/_toy.sh байт-в-байт (и раннер — точный
+  файл fixtures/_krasnye_038.sh, ЗОНА architect); implementer добавляет туда
+  case_*.sh как часть реализации (§Исполнимые команды, фаза 2). Residual
+  двойного объявления: в общем каталоге implementer технически может тронуть
+  байт-пиненные файлы архитектора — судит ревьюер по диффу (зоны —
+  параллелизм и границы, не ловля дефектов: шапка check_zones); тот же
+  принятый остаток уже заморожен в 027 и 020.
 - fixtures/drill_contract_change/ — потребитель freeze (copy-list): обновление
   copy-list на новые вызываемые freeze скрипты — implementer, верифицируется гейтом
   потребителей (п3: путь в ЗОНА-строках этой пачки).
@@ -318,12 +344,17 @@ CI-ключи, не через новые хуки).
 `check_check_contract_ready`, шард ap2, ci.yml:63). Игрушка НЕ сетапит local user.name
 (урок 016: фикстура не маскирует живое; идентичность — ТОЛЬКО конфигом игрушечного
 дерева, канон fixtures/freeze_contract/_repo.sh, живое дерево не трогается). Замер
-пачки v3 (числа — из прогона раннера, не из головы): R 10+2 (red_R1–R10,
+пачки v4 (числа — из прогона раннера, не из головы): R 10+2 (red_R1–R10,
 green_G1/G2), D 8+3 (red_D1–D5, D7–D9; зелёные входы таблицы — green_D6,
-green_D10, green_G), C 5+2 (red_C1–C5, green_G1/G2; C2-новый вход v3 —
-анти-Б1: потребитель В ЗОНА-строках, пробы нет → тот же отказ «нет
-ПОТРЕБИТЕЛЬ-пробы»): 30 пробных файлов + 3 каркаса _toy.sh + 3 маркера
-.probe-only + раннер _krasnye_038.sh; приземление несёт замер-строки по дереву.
+green_D10, green_G), C 6+2 (red_C1–C6, green_G1/G2; C2 — анти-Б1: потребитель
+В ЗОНА-строках, пробы нет → тот же отказ «нет ПОТРЕБИТЕЛЬ-пробы»; C6 — новый
+вход v4, арбитраж 038-Б3-в: состав писателей-минимума): 31 пробный файл +
+3 каркаса _toy.sh + 3 маркера .probe-only + раннер _krasnye_038.sh; приземление
+несёт замер-строки по дереву. Игрушки с маппингом (check_consumers,
+done_contract) и freeze-проба сеют НАСТОЯЩИЕ пути писателей-минимум стабами
+`exit 0` по коду реальных (писатель под тестом — scripts/freeze_contract.sh):
+предикат п1 судит поимённо именно эти три имени — toy-имена делали честный
+зелёный C/G1, D/G и freeze-контроль недостижимыми (к3-Б1, арбитраж b0e4bef).
 
 ### R-семейство (check_provodka.sh) — red: rc 1 своим предъявлением
 
@@ -367,6 +398,7 @@ green_D10, green_G), C 5+2 (red_C1–C5, green_G1/G2; C2-новый вход v3 
 | C3 | ПОТРЕБИТЕЛЬ-проба есть, исполняется rc≠0 | отказ «ПОТРЕБИТЕЛЬ-проба красна» |
 | C4 | маппинг: путь не существует | отказ «путь маппинга не существует» |
 | C5 | контракт правит писателя (маппинг на его frozen-дереве есть), замер-строки нет | отказ «замер маппинга отсутствует» |
+| C6 (v4, арбитраж 038-Б3) | маппинг без одного из писателей-минимума (файл его пары изъят; замер несётся) | отказ «писатели-минимум не зарегистрированы: <W>» |
 | G1 | писатель в окне, проба зелёная, ЗОНА-строки потребителя НЕТ | rc 0 — покрытие даёт только проба |
 | G2 | писатель в окне НЕ тронут (vacuous) | rc 0 |
 
@@ -392,17 +424,19 @@ fixtures/check_consumers/ имеют барьеры scripts/check_<key>.sh (В4-
 
 - **Фаза 1 — до реализации (снято живьём на судимом HEAD)**:
   `bash /tmp/dev-harness-verify/scratch/n116-red/_krasnye_038.sh` → таблица всех
-  файлов с rc (30 × rc=1 «ПРЕДМЕТ 038 НЕ РЕАЛИЗОВАН»), итоговый rc 0 в режиме
+  файлов с rc (31 × rc=1 «ПРЕДМЕТ 038 НЕ РЕАЛИЗОВАН»), итоговый rc 0 в режиме
   EXPECT_RC=1; пустая выборка — отказ раннера (А-199: rc проверяется до разбора).
   Одиночный вход:
   `bash /tmp/dev-harness-verify/scratch/n116-red/check_provodka/red_R1_pole_net.sh`
-  → rc 1 (до реализации) — и симметрично для каждого из 30 файлов семей.
+  → rc 1 (до реализации) — и симметрично для каждого из 31 файла семей.
 - **Фаза 2 — с реализацией (пост-фриз, implementer)**: (а) приземление
   red_*/green_* и каркасов _toy.sh ПЕРВЫМ коммитом архитектора в
   fixtures/check_provodka/, fixtures/done_contract/, fixtures/check_consumers/
   байт-в-байт — правится ТОЛЬКО строка REPO каркаса _toy.sh (пин скратча →
   вычисление от $HERE/../..); имена red_*/green_* — прямой запуск, вне
-  case_*-глоба раннера (А-82); (б) implementer СОЗДАЁТ case_*.sh-презентации по
+  case_*-глоба раннера (А-82); тем же коммитом приземляется раннер пачки —
+  точный файл `fixtures/_krasnye_038.sh` (ЗОНА architect; арбитраж 038-Б5-г);
+  (б) implementer СОЗДАЁТ case_*.sh-презентации по
   протоколу раннера ($BARRIER/$WORK/$REPO, каноническая шапка кодов) — НОВЫЕ
   файлы реализатора, не часть architect-пачки: конфликта «байт-в-байт против
   case-глоба» нет (Б5); (в) тем же коммитом, что барьеры, implementer подключает
@@ -410,12 +444,12 @@ fixtures/check_consumers/ имеют барьеры scripts/check_<key>.sh (В4-
   сумму-инвариант verify_ci_parity — до этого момента новых CI-ключей НЕТ, прямые
   прогоны фазы 1 проводкой CI не являются (правило «гейт не зеленее CI» — ключ
   рождается вместе с case-файлами и барьером). Контроль фазы 2:
-  `EXPECT_RC=0 bash fixtures/check_provodka/../_krasnye_038.sh` после приземления —
-  30 × rc=0; приземлённый вход: `bash fixtures/check_provodka/red_R1_pole_net.sh`
+  `EXPECT_RC=0 bash fixtures/_krasnye_038.sh` после приземления —
+  31 × rc=0; приземлённый вход: `bash fixtures/check_provodka/red_R1_pole_net.sh`
   → rc 0; `bash scripts/verify_antiplacebo.sh --scope check_provodka done_contract
   check_consumers` → rc 0.
 - **freeze-семья (закоммичена; каталог покрыт зоной 027-architect; файл обновлён
-  до v3 тем же коммитом, что контракт)**:
+  до v4 тем же коммитом, что контракт)**:
   `bash fixtures/freeze_contract/red_consumers_gejt_038.sh` — до реализации rc 1
   «ПРЕДМЕТ 038 НЕ РЕАЛИЗОВАН» (живой красный отсутствием гейта, 034-паттерн), после
   реализации rc 0 (ворота п3 / п3-проба / vacuous — шапка файла). Зелёный контроль
@@ -574,5 +608,22 @@ ci.yml тем же коммитом, что барьер и case_-презент
   (1 фикстура, ≈4 с), --scope spawn_agent (2, ≈5 с), --scope
   check_check_contract_ready (4, ≈5 с), --scope check_spec_ready (8, ≈10 с) —
   counts/timing из живых прогонов time(1) этой сессии.
+- Проба арбитра п1 (вердикт b0e4bef, замер 4) воспроизведена на исправленном
+  каркасе v4: `bash /tmp/dev-harness-verify/scratch/n116-red/_v4_writers_probe.sh`
+  → rc 0 — три писателя-минимума зарегистрированы настоящими путями
+  (freeze_contract/lib_registry/done_contract), стабы сеются, census
+  3 файла = 3 пары = 3 писателя обеими мерами; контрольный красный той же
+  меры (изъятие пары done_contract) красит состав.
+- Проба арбитра зон (arbiter-038-zones-v4.py, замер 3) воспроизведена на ТОЧНОМ
+  блобе v4 (коммит, без правок строк): `python3
+  /tmp/dev-harness-verify/scratch/arch038v4-zones-repro.py` → живой
+  check_zones rc 0 на case-коммите implementer в трёх семьях при двойном
+  объявлении.
+- Пачка перегнана после правки каркасов: `bash
+  /tmp/dev-harness-verify/scratch/n116-red/_krasnye_038.sh` → итог
+  «31 файлов, расхождений 0 (режим ожидания rc=1)», итоговый rc 0;
+  freeze-проба на дереве — rc 1 «ПРЕДМЕТ 038 НЕ РЕАЛИЗОВАН» (честный красный
+  034-паттерна); зелёный контроль семьи red_spec_preflight_036.sh — rc 0;
+  census-проба против живого спек-гейта — OK rc 0 (перепрогон этой сессии).
 
 Сверка якоря: diff rc=0; md5 e1108d2f8c358359ea7dd7558214191a (оба вхождения); 585 байт.
