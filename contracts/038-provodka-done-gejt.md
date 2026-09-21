@@ -319,7 +319,7 @@ CI-ключи, не через новые хуки).
   033; прецеденты 027:224+235 и 020:111-112 — архитекторская строка сохранена,
   implementer добавлен ниже):
 
-  ЗОНА implementer: fixtures/check_provodka/ fixtures/done_contract/ fixtures/check_consumers/
+ЗОНА implementer: fixtures/check_provodka/ fixtures/done_contract/ fixtures/check_consumers/
 
   До заморозки в семьи пишет только architect; первым пост-фриз коммитом
   architect приземляет red_*/green_*/_toy.sh байт-в-байт (и раннер — точный
