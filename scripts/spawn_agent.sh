@@ -143,13 +143,29 @@ if [ -n "$nnn" ]; then
     ROOT="$ROOT" nnn_padded_gate="$nnn_padded_gate" bash -c '
       ROOT="$1"; nnn_padded_gate="$2"
       export ROOT nnn_padded_gate
-      # 2а. ls-remote origin tag — вывод на stdout, stderr в /dev/null. Если ls-remote
-      # провалился (rc≠0), stdout пуст; проверяем rc явно.
-      tag_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn_padded_gate" 2>/dev/null)"
-      tag_rc=$?
-      if [ "$tag_rc" -ne 0 ]; then printf "NETERR|tag\n"; exit 0; fi
-      sha_origin="$(printf "%s\n" "$tag_out" | head -1 | awk "{print \$1}")"
-      if [ -z "$sha_origin" ]; then printf "MISSING|tag\n"; exit 0; fi
+      # 2а. ls-remote origin по обоим пространствам имён тегов номера NNN:
+      # id/CONTRACT/<NNN> (минт, якорь dual-control, 023) и frozen/contracts/<NNN>/*
+      # (заморозка, 036-г5б). Строка реестра санкционирована, если её sha совпал с
+      # tag-object-sha ЛЮБОГО из этих тегов на origin (membership вместо одного
+      # одно-sha-сравнения; регресс А-198). Anchor 2а: минт-тег id/CONTRACT/<NNN>
+      # обязан жить на origin — freeze_contract минт-тег не удаляет; его отсутствие
+      # на origin трактуется как MISSING|tag (fail-closed; не молчаливо).
+      # Peeled-строки ^{} (sha коммита, на который указывает аннотированный тег) исключаем:
+      # в membership идёт tag-object-sha (sha самого аннотированного тега с tagger/
+      # временем/сообщением). Фильтр — grep -v по '}' (peeled-refname кончается на
+      # ^{}, sha — hex без '}').
+      mint_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn_padded_gate" 2>/dev/null)"
+      mint_rc=$?
+      if [ "$mint_rc" -ne 0 ]; then printf "NETERR|tag\n"; exit 0; fi
+      mint_sha_origin="$(printf "%s\n" "$mint_out" | grep -v "}" | head -1 | awk "{print \$1}")"
+      if [ -z "$mint_sha_origin" ]; then printf "MISSING|tag\n"; exit 0; fi
+      # Frozen-теги номера NNN на origin (множество tag-object-sha). Сходимость:
+      # переминт id/CONTRACT/<NNN> не меняет frozen-теги — membership остаётся
+      # стабильным на любом frozen-состоянии авторитета (дизайн «а»).
+      frozen_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/frozen/contracts/$nnn_padded_gate/*" 2>/dev/null)"
+      frozen_rc=$?
+      if [ "$frozen_rc" -ne 0 ]; then printf "NETERR|frozen\n"; exit 0; fi
+      frozen_shas="$(printf "%s\n" "$frozen_out" | grep -v "}" | awk "{print \$1}")"
       # 2б. живая шапка origin/main
       main_out="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>/dev/null)"
       main_rc=$?
@@ -175,15 +191,28 @@ if [ -n "$nnn" ]; then
       # чтобы awk внутри не интерпретировал UTF-8), awk печатает третье поле (40-hex sha).
       manifest_sha="$(printf "%s\n" "$manifest_text" | grep -F "${nnn_padded_gate} → " | head -1 | awk "{print \$3}")"
       if [ -z "$manifest_sha" ]; then printf "MISSING|line\n"; exit 0; fi
-      if [ "$manifest_sha" != "$sha_origin" ]; then
-        printf "MISMATCH|%s|%s\n" "$manifest_sha" "$sha_origin"
+      # 3в: membership — manifest_sha ∈ {mint_sha_origin} ∪ {frozen_shas}. Дверь
+      # dual-control не ослаблена: посторонний 40-hex (даже настоящий тег-объект
+      # другого номера) не входит во множество тегов NNN → отказ «не выдан
+      # авторитетом». MISMATCH-формат сохранён для диагностики: вторая sha —
+      # mint_sha_origin (якорь 2а, первичный представитель авторитета).
+      found=0
+      if [ "$manifest_sha" = "$mint_sha_origin" ]; then found=1; fi
+      if [ "$found" -eq 0 ]; then
+        while IFS= read -r fs; do
+          [ -z "$fs" ] && continue
+          if [ "$manifest_sha" = "$fs" ]; then found=1; break; fi
+        done <<< "$frozen_shas"
+      fi
+      if [ "$found" -eq 0 ]; then
+        printf "MISMATCH|%s|%s\n" "$manifest_sha" "$mint_sha_origin"
         exit 0
       fi
-      printf "OK|%s\n" "$sha_origin"
+      printf "OK|%s\n" "$manifest_sha"
     ' _ "$ROOT" "$nnn_padded_gate"
   )"
   case "$dual_result" in
-    NETERR\|tag|NETERR\|main|EMPTY\|main)
+    NETERR\|tag|NETERR\|main|NETERR\|frozen|EMPTY\|main)
       printf 'ОТКАЗ: авторитет недоступен (ls-remote origin не ответил: %s) — fail-closed, обрыв сети НЕ открывает дверь\n' "${dual_result#NETERR|}" >&2
       exit 1
       ;;
