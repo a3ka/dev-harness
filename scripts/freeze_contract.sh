@@ -148,13 +148,21 @@ if ! out="$(cd "$ROOT" && bash "$SELF_DIR/check_spec_ready.sh" "$ROOT" "$TARGET"
   # проверено, иначе красный прогон прятался бы под нехватку инструмента.
   printf '%s\n' "$out" | tail -n 1 | grep -Fxq 'OK' && [ "$spec_rc" -eq 0 ] || die "spec-preflight 036 красен: $(printf '%s' "$out" | head -n 1)"
 fi
-
-_doc_type_out=""
-_doc_type_rc=0
-# ── 6б. DOC-PREFLIGHT (контракт 027 §Freeze) ──────────────────────────────────
-# Для doc-контракта повторяет doc-preflight ДО записи тега: ветвь ready уже
-# потребовала его при созыве судьи; freeze дублирует тот же прогон, потому что
-# рабочая копия могла измениться между раундами. Отказ — rc=1 без тега; rc=2
+# ── 6а-bis. CONSUMERS-GATE (контракт 038 §Freeze-верификация потребителей) ─
+# Проводка в freeze: реестр → грамматика → коммитность → причина → вердикт →
+# spec-preflight (036) → check_consumers (ЭТОТ) → doc-preflight (027) →
+# кап → тег. Окно = последний frozen/contracts/<NNN>/<v>..HEAD НА МОМЕНТ ВЫЗОВА.
+# Красный = rc 1 «ОТКАЗ: потребители 116 красны: <первая причина>»; rc 2 →
+# rc 1 fail-closed.
+if [ -f "$SELF_DIR/check_consumers.sh" ]; then
+  cons_out=""
+  cons_rc=0
+  cons_out="$(cd "$ROOT" && bash "$SELF_DIR/check_consumers.sh" "$ROOT" "$TARGET" 2>&1)" || cons_rc=$?
+  if [ "$cons_rc" -ne 0 ]; then
+    cons_first="$(printf '%s' "$cons_out" | head -n 1)"
+    die "потребители 116 красны: $cons_first"
+  fi
+fi
 # (нечем проверить) — rc=1 (fail-closed): нечего проверить ≠ проверено, иначе
 # пустой/битый evidence прятал бы нарушение под нехватку инструмента. Общий
 # модуль doc_contract.ts определяет тип через CLI `--type <файл>` —
