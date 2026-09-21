@@ -33,6 +33,13 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+# ДОВЕРЕННЫЙ PATH — ДО ПЕРВОЙ ВНЕШНЕЙ КОМАНДЫ. Прецедент scripts/check_protected.sh:
+# тот же вектор, что для comm (подмен fakebin → тихий «зелёный»), закрывает и тут.
+# Утилиты, чей подмен даёт vacuous rc0 при `|| true` (git, sort, tail, sed, awk и
+# пр.) — все резолвятся через $PATH; фиксируем PATH и ниже требуем наличие нужных
+# по именам. Отсутствие утилиты в доверенном PATH — именной rc=2, не молчаливый зелёный.
+export PATH=/usr/bin:/bin
+
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_registry.sh"
@@ -126,8 +133,29 @@ done
 # При первой заморозке — минт-резерв 023 (frozen-тега ещё нет → окно пустое,
 # vacuous rc 0). Регистратор (ЭТОТ контракт 038) — здесь vacuous: frozen-тега
 # нет, на нём consumers.d ещё нет.
-last_frozen="$(git -C "$ROOT" tag -l 'frozen/contracts/'"$n"'/*' 2>/dev/null | sort -V | tail -n 1 || true)"
-
+#
+# FAIL-CLOSED на инструментах (Б2, контракт 038): прежняя редакция маскировала
+# ЛЮБОЙ отказ пайплайна `|| true`, и ветка «нет frozen-тега, окно пустое,
+# vacuous rc 0» срабатывала ошибочно при подменённом tail/sort/git (fakebin →
+# rc=127) или обрезанном PATH. Без пайпа — раздельные команды с проверкой rc
+# каждой (тот же паттерн, что check_protected.sh использует для comm):
+# отказ инструмента обязан быть именным rc=2/rc=1, не тихой пустотой.
+_tags_tmp="$(mktemp -t last_frozen116.XXXXXX 2>/dev/null || mktemp)" \
+  || skip "потребители: last_frozen: нечем создать tmp-файл"
+_sorted_tmp="$(mktemp -t last_frozen116s.XXXXXX 2>/dev/null || mktemp)" \
+  || { /usr/bin/rm -f "$_tags_tmp"; skip "потребители: last_frozen: нечем создать tmp-файл"; }
+trap 'rm -f "$_tags_tmp" "$_sorted_tmp"' EXIT
+git -C "$ROOT" tag -l "frozen/contracts/$n/*" > "$_tags_tmp" 2>/dev/null \
+  || { rm -f "$_tags_tmp" "$_sorted_tmp"; trap - EXIT; die "потребители: last_frozen: git tag -l отказал (PATH/реестр?)"; }
+sort -V "$_tags_tmp" > "$_sorted_tmp" 2>/dev/null \
+  || { rm -f "$_tags_tmp" "$_sorted_tmp"; trap - EXIT; die "потребители: last_frozen: sort отказал"; }
+# tail — последний шаг окна. С rc != 0 (fakebin/tail возвращает 127 при
+# отсутствии утилиты в PATH) — именной отказ, а не тихая пустота «окно
+# пустое, vacuous rc 0» ниже. Trap чистит tmp-файлы и на ветке die.
+last_frozen="$(tail -n 1 "$_sorted_tmp" 2>/dev/null)" \
+  || die "потребители: last_frozen: tail отказал (нет утилиты в доверенном PATH)"
+/usr/bin/rm -f "$_tags_tmp" "$_sorted_tmp"
+trap - EXIT
 body="$(cat "$ROOT/$CONTRACT_PATH")"
 
 if [ -z "$last_frozen" ]; then
