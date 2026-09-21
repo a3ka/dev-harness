@@ -466,6 +466,14 @@ def lifecycle(root, s, p):
     commit(root, 'исправлены обязательства')
     expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 0, 'ready-doc-control')
     expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж', root], root), 0, 'freeze-doc-control')
+    # Реестровый шаг церемонии (036 §Freeze, г5б «писатель остаётся единственным»):
+    # freeze ПИШЕТ registry/contracts.tsv, но не коммитит — строку фиксирует
+    # freeze-актор отдельным коммитом ДО регрессий (живой прецедент 56ec133).
+    # Без шага git add -A уводит реестр в чужой коммит: зоны игрушки — docs/ и
+    # contracts/ fixtures/, реестр вне обеих; owner не объявлен ЗОНА-строками,
+    # и check_zones его не судит (минт-дверь 031 судит реестр только под
+    # orchestrator).
+    commit(root, 'реестр заморозки 001', author='owner')
     regressions(root, s, p)
 
 
@@ -486,6 +494,21 @@ def regressions(root, s, p):
     put(root, 'docs/allowed.txt', 'Ёж\n')
     commit(root, 'допустимый документ', author='implementer')
     expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 0, 'zone-control')
+    # Проба неослабления (слово владельца): церемониальный owner-коммит выше отвёл
+    # реестр от суда, но суд над реестром под implementer обязан остаться красным.
+    # Дописывается ДУБЛЬ живой строки манифеста (грамматика и sha те же, тег жив)
+    # — состояние реестра зелёное, и красный приходит ТОЛЬКО от суда зон:
+    # минт-дверь 031 пускает registry/contracts.tsv лишь под orchestrator
+    # (check_zones.sh:397), зона implementer — docs/ → bad «коммит вне зоны»
+    # (:471). Ослабление «реестр под implementer не судится» красит эту пробу.
+    registry = (root / 'registry/contracts.tsv').read_text()
+    put(root, 'registry/contracts.tsv', registry + registry.splitlines()[-1] + '\n')
+    commit(root, 'реестр под implementer', author='implementer')
+    expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 1, 'zone-registry')
+    # Пробный коммит убираем из истории: каждая зона-проба красна СВОИМ
+    # предъявлением (Н-39) — zone-escape ниже обязана остаться единственной
+    # красной в своём прогоне, а не ехать поверх красного реестра.
+    git(root, 'reset', '--hard', 'HEAD~1')
     put(root, 'alien.txt', 'утечка ёж\n')
     commit(root, 'выход за зону', author='implementer')
     expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 1, 'zone-escape')
