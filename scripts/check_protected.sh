@@ -71,6 +71,15 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+# ДОВЕРЕННЫЙ PATH — ДО ПЕРВОЙ ВНЕШНЕЙ КОМАНДЫ. Адверсарий круга 1 контракта 039 предъявил,
+# что `comm -23 …` (разность `existed` и `head` → `missing`) резолвится через унаследованный
+# $PATH: фейковый `comm` с rc0 и пустым выводом делает ЛЮБОЕ удаление без ALLOW зелёным
+# (компрометация ВСЕГО барьера, не только новой фичи переноса). Тот же вектор закрывает
+# git, mkdir, mktemp, sort, awk и пр., потому что все они внешние. Фиксируем PATH здесь и
+# ниже проверяем наличие нужных утилит по именам — отсутствие даёт именной rc=2, а не
+# молчаливый зелёный «нечем отказать».
+export PATH=/usr/bin:/bin
+
 ROOT="$(cd "${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}" && pwd)"
 cd "$ROOT"
 
@@ -78,11 +87,12 @@ fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
 bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
-
-command -v git >/dev/null 2>&1 || skip "нет git — истории нет"
+command -v git >/dev/null 2>&1  || skip "нет git в доверенном PATH — истории нет"
+# comm — та самая утилита, чей подмен даёт зелёное без ALLOW. Если её нет в доверенном
+# PATH, барьер ОБЯЗАН отказать с именным rc=2, а не считать пустую разность зелёной.
+command -v comm >/dev/null 2>&1 || skip "нет comm в доверенном PATH — разность множеств нечем считать"
 git rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репозиторий git — истории нет"
 git rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
-
 if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
   printf 'ОТКАЗ: история усечена (shallow) — на глубине 1 инвариант подтверждается сам собой\n' >&2
   printf 'Лечится в проводке: actions/checkout с fetch-depth: 0.\n' >&2
@@ -167,14 +177,20 @@ while IFS= read -r c; do
 done < <(git rev-list HEAD)
 sort -u "$TMP/existed.raw" > "$TMP/existed"
 git ls-tree -r --name-only HEAD -- "${prefixes[@]}" | sort -u > "$TMP/head"
-# Множество блобов на HEAD — для проверки «блоб B жив на HEAD хотя бы под одним путём»
-# (контракт 039, §Семантика п.1, условие Б). Снимается здесь ОДИН РАЗ, а не в цикле по
-# каждому исчезнувшему пути: `git ls-tree -r HEAD` повторять N раз дорого, и перевычисление
-# от ветки цикла одно и то же. `$TMP/head_blobs` — отсортированное множество блобов всего
-# дерева HEAD, не только защищённой области: путь q носителя перенесённого артефакта может
-# жить и ВНЕ области защиты, и его блоб обязан считаться.
+# Множество блобов на HEAD — для проверки «блоб B жив на HEAD хотя бы под одним путём КАК
+# РЕГУЛЯРНЫЙ ФАЙЛ» (контракт 039, §Семантика п.1, условие Б, усиление круга 1). Снимается
+# здесь ОДИН РАЗ, а не в цикле по каждому исчезнувшему пути: `git ls-tree -r HEAD` повторять
+# N раз дорого, и перевычисление от ветки цикла одно и то же. `$TMP/head_blobs` — отсорти-
+# рованное множество блобов всего дерева HEAD, не только защищённой области: путь q носителя
+# перенесённого артефакта может жить и ВНЕ области защиты, и его блоб обязан считаться.
+#
+# РЕГУЛЯРНЫЙ ФАЙЛ, А НЕ ЛЮБОЙ НОСИТЕЛЬ. Адверсарий круга 1 предъявил, что чистый OID-матч
+# принимает dangling symlink: git хранит цель симлинка как блоб, и тот же блоб уживается с
+# mode 120000 на пути q — это непригодный носитель. Условие «жив на HEAD» здесь читается
+# как «жив на HEAD КАК регулярный файл (mode 100644/100755)»; 120000/160000/040000
+# отброшены фильтром ниже. mode — первое поле `git ls-tree`.
 : > "$TMP/head_blobs.raw"
-git ls-tree -r HEAD | awk '{print $3}' >> "$TMP/head_blobs.raw"
+git ls-tree -r HEAD | awk '$1 ~ /^(100644|100755)$/ {print $3}' >> "$TMP/head_blobs.raw"
 sort -u "$TMP/head_blobs.raw" > "$TMP/head_blobs"
 rm -f "$TMP/head_blobs.raw"
 
@@ -244,38 +260,42 @@ moved_for() {  # <путь> → 0, если перенос признан (об�
   [ -n "$c" ] || return 1
 
   # Б — блоб p в родителе c; разные блобы в нескольких родителях → переноса нет, fail-closed.
+  # `git log -1 --format=%P` отдаёт всех родителей ОДНОЙ СТРОКОЙ через пробел: до фикса `while
+  # read` трактовал её как ОДИН object name, и octopus-merge (3+ родителя с одним и тем же
+  # блобом у всех) давал ложный rc=1 — false-red, не дыра безопасности, но отказ на честном
+  # переносе через merge. Разбиваем строку на слова ПЕРЕД обходом.
   local -a parent_blobs=()
-  local parent
-  while IFS= read -r parent; do
+  local -a parents=()
+  read -r -a parents < <(git log -1 --format=%P "$c")
+  local parent blob
+  for parent in "${parents[@]}"; do
     [ -n "$parent" ] || continue
     blob="$(git ls-tree "$parent" -- "$p" 2>/dev/null | awk -v pth="$p" '$4 == pth { print $3; exit }')"
     [ -n "$blob" ] && parent_blobs+=("$blob")
-  done < <(git log -1 --format=%P "$c")
+  done
   [ "${#parent_blobs[@]}" -ge 1 ] || return 1
   unique_blobs="$(printf '%s\n' "${parent_blobs[@]}" | sort -u | wc -l | tr -d ' ')"
   [ "$unique_blobs" = "1" ] || return 1
   parent_blob_b="${parent_blobs[0]}"
-
-  # Условие Б: блоб B жив на HEAD хотя бы под одним путём. Множество блобов снято выше
-  # одним прогоном `git ls-tree -r HEAD` (включая файлы ВНЕ области защиты — носитель
-  # перенесённого артефакта может жить где угодно) и записано в `$TMP/head_blobs`. Здесь
-  # только проверка членства; ранний `awk exit` в пайпе дал бы SIGPIPE на upstream и
+  # Условие Б: блоб B жив на HEAD хотя бы под одним путём КАК РЕГУЛЯРНЫЙ ФАЙЛ. Множество
+  # блобов снято выше одним прогоном `git ls-tree -r HEAD` (включая файлы ВНЕ области защиты —
+  # носитель перенесённого артефакта может жить где угодно) и записано в `$TMP/head_blobs`
+  # с фильтром mode 100644/100755 (закрывает обход 1: dangling symlink с тем же блобом).
+  # Здесь только проверка членства; ранний `awk exit` в пайпе дал бы SIGPIPE на upstream и
   # вернул rc 141 под `set -o pipefail` — за это отвечает предагрегация в файл.
   grep -qxF "$parent_blob_b" "$TMP/head_blobs" || return 1
-
-  # Условие А: в c появился путь q ≠ p статусом A с блобом РОВНО B. `--diff-filter=A` НЕ
-  # используется намеренно: фильтр ищет коммит с ЛЮБЫМ A в истории и возвращает ЕГО, а не
-  # текущий c — блокер Б1 (контрпример R7): q появляется коммитом РАНЬШЕ c, фильтр находит
-  # именно тот коммит и зеленит признание переноса, нарушая инвариант «A именно в c».
-  # Поэтому здесь мерой берётся `--no-renames -m` БЕЗ `--diff-filter`, и статус A отбирается
-  # уже в обходе (тот же подход, что в `excuse_for` для ALLOW-строки).
   local q_path status q_blob
   while IFS=$'\t' read -r status q_path; do
     [ "$status" = "A" ] || continue
     [ -n "$q_path" ] || continue
     [ "$q_path" != "$p" ] || continue
-    q_blob="$(git ls-tree "$c" -- "$q_path" 2>/dev/null | awk -v pth="$q_path" '$4 == pth { print $3; exit }')"
-    [ "$q_blob" = "$parent_blob_b" ] && return 0
+    # РЕГУЛЯРНЫЙ ФАЙЛ на пути q в c. До фикса — только OID-матч, и dangling symlink q с
+    # mode 120000 при том же блобе (git хранит цель симлинка как блоб) давал ложный rc0.
+    # mode — первое поле `git ls-tree`; 100644/100755 — единственные пригодные носители,
+    # потому что rename с mode-change на 120000/160000/040000 в следующем коммите даёт
+    # тот же обход. Фильтр в awk: и mode, и имя.
+    q_blob="$(git ls-tree "$c" -- "$q_path" 2>/dev/null | awk -v pth="$q_path" '$1 ~ /^(100644|100755)$/ && $4 == pth { print $3; exit }')"
+    [ "$q_blob" = "$parent_blob_b" ] && [ -n "$q_blob" ] && return 0
   done < <(git log -1 --no-renames -m --pretty=format: --name-status "$c" 2>/dev/null)
   return 1
 }
