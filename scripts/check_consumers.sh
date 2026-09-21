@@ -106,7 +106,7 @@ for f in "${map_files[@]}"; do
   c_base="${bn#*__}"
   [ "${writer##*/}" = "$w_base" ] \
     || die "потребители 116: имя файла маппинга не соответствует паре: $f"
-  cbn_raw="${consumer##*/}"
+  consumer_notrail="${consumer%/}"; cbn_raw="${consumer_notrail##*/}"
   cbn_norm="${cbn_raw//./_}"
   [ "$cbn_norm" = "$c_base" ] \
     || die "потребители 116: имя файла маппинга не соответствует паре: $f"
