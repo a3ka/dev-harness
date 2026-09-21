@@ -53,7 +53,9 @@
     "drill:gate-draft": "bash scripts/drill_gate_draft.sh",
     "drill:startup-digest": "bash scripts/drill_startup_digest.sh",
     "drill:nabludenia-nechitaemo": "bash scripts/drill_nabludenia_nechitaemo.sh",
-    "check:ci-gate": "bash scripts/check_ci_gate.sh",
-    "check:spec-ready": "bash scripts/check_spec_ready.sh"
+    "check:spec-ready": "bash scripts/check_spec_ready.sh",
+    "check:provodka": "bash scripts/check_provodka.sh",
+    "done:contract": "bash scripts/done_contract.sh",
+    "check:consumers": "bash scripts/check_consumers.sh"
   }
 }

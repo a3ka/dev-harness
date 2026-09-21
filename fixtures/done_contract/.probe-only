@@ -1,4 +1,0 @@
-семья: done_contract (контракт 038, Н-116)
-статус: probe-only — красная пачка scratch, прямые прогоны red_*/green_*; вне case_*-глоба раннера (А-82)
-источник: /tmp/dev-harness-verify/scratch/n116-red/done_contract/ (закрытие к1, verdicts/critic/contracts-038-v1.md)
-приземление: пост-фриз ПЕРВЫМ коммитом архитектора в fixtures/done_contract/ байт-в-байт; правится ТОЛЬКО строка REPO в _toy.sh (пин скратча → вычисление от $HERE); прецедент 034/5ac1478

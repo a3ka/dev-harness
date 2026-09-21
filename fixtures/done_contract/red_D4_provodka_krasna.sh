@@ -22,7 +22,7 @@ refuse 'D4a' 'done: ПРОВОДКА красна: проводка: guard-фа�
 
 # Ворот б-1: канон барьера — призрачный путь даёт rc 2 (не rc 1: нечем проверить).
 T="$WORK/t4b"; make_drepo "$T" "$GREEN_PROVODKA"
-rc=0; out="$(cd "$T" && bash "$PROVODKA_BARRIER" contracts/404-ghost.md 2>&1)" || rc=$?
+rc=0; out="$(cd "$T" && bash "$PROVODKA_BARRIER" "$T" contracts/404-ghost.md 2>&1)" || rc=$?
 [ "$rc" -eq 2 ] || { printf 'ОТКАЗ: D4b-1: барьер на призраке дал rc %s, ожидался 2:\n%s\n' "$rc" "$out" >&2; exit 1; }
 printf 'D4b-1: канон rc 2 на призраке жив\n' >&2
 

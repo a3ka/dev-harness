@@ -233,6 +233,21 @@ while IFS=$'\t' read -r name value vnorm; do
   SCRIPT_VALUE["$vnorm"]="$name"
 done < "$SCRIPTS_TSV"
 
+# scripts/<basename>.sh (без .sh) → npm-имя скрипта, чьё ЗНАЧЕНИЕ на него ссылается.
+# Используется ниже для распознавания покрытия через `--scope <key>` шарда (контракт 038:
+# check_provodka, done_contract, check_consumers в шарде ap2 покрываются через
+# `npm run check:antiplacebo -- --scope <key>` — прямой `npm run` потребовал бы аргументов
+# (root contract), CI своего контекста для их подстановки не имеет). Прецедент пары
+# matrix.key `check_check_contract_ready` ↔ npm `check:contract-ready` (прямой шаг CI).
+declare -A SCRIPT_BY_BASENAME=()
+while IFS=$'\t' read -r name value _vnorm; do
+  [ -n "$name" ] || continue
+  base="$(printf '%s' "$value" | sed -nE 's@.*scripts/([A-Za-z0-9_]+\.sh).*@\1@p')"
+  [ -n "$base" ] || continue
+  base_noext="${base%.sh}"
+  [ -z "${SCRIPT_BY_BASENAME[$base_noext]:-}" ] && SCRIPT_BY_BASENAME["$base_noext"]="$name"
+done < "$SCRIPTS_TSV"
+
 # ── 2. разбор команд из .github/** ─────────────────────────────────────────────
 # Разбор в два шага: YAML → структура, `run:` шага → список shell-команд. Оба шага
 # объяснены в шапке файла; здесь только то, что нужно читателю кода.
@@ -1067,6 +1082,33 @@ while IFS=$'\t' read -r path ln cmd norm; do
     bad "$rel:$ln: команда «$cmd» есть в CI, но нет пункта в приёмке и не объявлена исключением"
   fi
 done < "$WF_CMDS_TSV"
+
+# Покрытие через matrix.keys шардов: имя скрипта в scripts/, названное ключом шарда,
+# покрывает npm-скрипт, чьё значение ссылается на scripts/<key>.sh. Прецедент 038:
+# check_provodka, done_contract, check_consumers в шарде ap2 покрываются через
+# `npm run check:antiplacebo -- --scope <key>` — прямой `npm run` потребовал бы
+# аргументов (root contract), CI своего контекста не имеет.
+declare -A MATRIX_KEYS=()
+while IFS=$'\t' read -r _path _ln _jobname _shard key; do
+  [ -n "$key" ] || continue
+  MATRIX_KEYS["$key"]=1
+done < "$MATRIX_TSV"
+for key in "${!MATRIX_KEYS[@]}"; do
+  if [ -n "${SCRIPT_BY_BASENAME[$key]:-}" ]; then
+    npm_name="${SCRIPT_BY_BASENAME[$key]}"
+    # Скрипт, объявленный ИСКЛЮЧЕНИЕМ (например, команда записи freeze:contract, или
+    # локальный предмет check:skills-live) — НЕ покрывается матричным ключом: запись
+    # исключения в config/ci_parity_exceptions.txt сама и есть заявленная причина
+    # отсутствия в CI, и трактовать её как «недостижимую» значит ломать замысел
+    # правила 6. Прецедент: шард ap2 несёт matrix.key `freeze_contract` (как fixtures
+    # freeze_contract/), но `freeze:contract` — команда записи, в CI её нет, исключение
+    # обязано остаться живым.
+    if [ -n "${EXC_SCRIPT[$npm_name]:-}" ]; then
+      continue
+    fi
+    covered_keys+=("$npm_name")
+  fi
+done
 
 # Проход 2: каждый скрипт либо покрыт, либо объявлен исключением с причиной.
 while IFS=$'\t' read -r name value vnorm; do

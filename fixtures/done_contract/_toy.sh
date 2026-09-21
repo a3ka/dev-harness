@@ -47,7 +47,8 @@ make_drepo() {
 GREEN_PROVODKA='ПРОВОДКА:
 - role=roles/fixer.md «Norma stroki roli v igrushke D.»'
 GHOST_PROVODKA='ПРОВОДКА:
-- guard=scripts/ghost.sh'
+- guard=scripts/ghost.sh
+- role=roles/fixer.md «Norma stroki roli v igrushke D.»'
 
 put_verdict() {  # <корень> <базовое-имя-файла> <первая строка>
   local r="$1" name="$2" first="$3"
@@ -58,9 +59,8 @@ put_verdict() {  # <корень> <базовое-имя-файла> <перва
 done_tags() { g "$1" tag -l 'done/contracts/*' | sort; }
 
 # run_writer <каталог> <причина> — НАСТОЯЩИЙ писатель в cwd игрушки; rc/вывод в LAST_*
-LAST_OUT=''; LAST_RC=0
 run_writer() {
-  LAST_OUT="$(cd "$1" && bash "$SUBJ" contracts/001-x.md "$2" 2>&1)"; LAST_RC=$?
+  LAST_OUT="$(cd "$1" && bash "$SUBJ" contracts/001-x.md "$2" "$1" 2>&1)"; LAST_RC=$?
 }
 
 # refuse <имя-входа> <фраза>: писатель обязан дать rc 1 и назвать причину дословно.
