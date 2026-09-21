@@ -53,7 +53,7 @@ put_contract() {
 # run_barrier <каталог> — НАСТОЯЩИЙ барьер против игрушки; rc/вывод в LAST_*
 LAST_OUT=''; LAST_RC=0
 run_barrier() {
-  LAST_OUT="$(cd "$1" && bash "$SUBJ" contracts/001-x.md 2>&1)"; LAST_RC=$?
+  LAST_OUT="$(cd "$1" && bash "$SUBJ" "$1" contracts/001-x.md 2>&1)"; LAST_RC=$?
 }
 
 # refuse <имя-входа> <фраза>: барьер обязан дать rc 1 и назвать причину ДОСЛОВНО.
