@@ -5,9 +5,9 @@
 FAIL к2, пять блокеров Б1–Б5 (verdicts/critic/contracts-038-v2.md, 5cc1398;
 репро критика: /tmp/dev-harness-verify/scratch/{audit,compat}-038-k2.py). Круг 3 —
 FAIL к3, два повторных предмета (verdicts/critic/contracts-038-v3.md, e9d52b5) →
-арбитраж b0e4bef (verdicts/arbitration/038-dostizhimost-i-zony.md): РЕШЕНИЕ по
+арбитраж b0e4beb (verdicts/arbitration/038-dostizhimost-i-zony.md): РЕШЕНИЕ по
 обоим исполнено в v4.
-**v4 — исполнение РЕШЕНИЯ арбитра b0e4bef (эта правка, два предмета к3)**:
+**v4 — исполнение РЕШЕНИЯ арбитра b0e4beb (эта правка, два предмета к3)**:
 Б3-достижимость — каркасы _toy.sh обеих семей с маппингом и freeze-проба сеют
 НАСТОЯЩИЕ пути писателей-минимум стабами по коду реальных
 (scripts/freeze_contract.sh — под тестом, scripts/lib_registry.sh,
@@ -315,7 +315,7 @@ CI-ключи, не через новые хуки).
   architect/orchestrator/reviewer — правило 14: не автором судимого предмета в открытом
   кругу; редактирует orchestrator/владелец МЕЖДУ кругами.
 - fixtures/check_provodka/, fixtures/done_contract/, fixtures/check_consumers/ —
-  каталоги семей с ДВОЙНЫМ объявлением (арбитраж 038-Б5 / b0e4bef; union-семантика
+  каталоги семей с ДВОЙНЫМ объявлением (арбитраж 038-Б5 / b0e4beb; union-семантика
   033; прецеденты 027:224+235 и 020:111-112 — архитекторская строка сохранена,
   implementer добавлен ниже):
 
@@ -354,7 +354,7 @@ green_D10, green_G), C 6+2 (red_C1–C6, green_G1/G2; C2 — анти-Б1: по�
 done_contract) и freeze-проба сеют НАСТОЯЩИЕ пути писателей-минимум стабами
 `exit 0` по коду реальных (писатель под тестом — scripts/freeze_contract.sh):
 предикат п1 судит поимённо именно эти три имени — toy-имена делали честный
-зелёный C/G1, D/G и freeze-контроль недостижимыми (к3-Б1, арбитраж b0e4bef).
+зелёный C/G1, D/G и freeze-контроль недостижимыми (к3-Б1, арбитраж b0e4beb).
 
 ### R-семейство (check_provodka.sh) — red: rc 1 своим предъявлением
 
@@ -608,7 +608,7 @@ ci.yml тем же коммитом, что барьер и case_-презент
   (1 фикстура, ≈4 с), --scope spawn_agent (2, ≈5 с), --scope
   check_check_contract_ready (4, ≈5 с), --scope check_spec_ready (8, ≈10 с) —
   counts/timing из живых прогонов time(1) этой сессии.
-- Проба арбитра п1 (вердикт b0e4bef, замер 4) воспроизведена на исправленном
+- Проба арбитра п1 (вердикт b0e4beb, замер 4) воспроизведена на исправленном
   каркасе v4: `bash /tmp/dev-harness-verify/scratch/n116-red/_v4_writers_probe.sh`
   → rc 0 — три писателя-минимума зарегистрированы настоящими путями
   (freeze_contract/lib_registry/done_contract), стабы сеются, census
