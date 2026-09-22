@@ -98,9 +98,9 @@
 #   bash scripts/check_provodka.sh <отн-путь-контракта>
 #
 # Коды возврата: 0 — проводка зелёная, 1 — отказ, 2 — нечем проверить.
-if [[ "$(/usr/bin/tr '\0' '\n' < /proc/$$/environ)" != $'PATH=/usr/bin:/bin\nLC_ALL=C.UTF-8' ]]; then
+if ( return 0 2>/dev/null ) || [[ "$(/usr/bin/tr '\0' '\n' < /proc/$$/environ)" != $'PATH=/usr/bin:/bin\nLC_ALL=C.UTF-8' ]]; then
   POSIXLY_CORRECT=1
-  exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /usr/bin/bash "$0" "$@"
+  exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /usr/bin/bash "${BASH_SOURCE[0]}" "$@"
 fi
 set -uo pipefail
 
