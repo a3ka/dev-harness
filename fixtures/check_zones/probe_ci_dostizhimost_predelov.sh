@@ -190,10 +190,18 @@ def parse_seq(lines, i, ind):
             items.append(d)
         else:
             # содержимое элемента начинается в своей колонке (типичный
-            # "- name: X" или "- run: Y")
-            lines[i] = ' ' * col + content
-            d, i = parse_block_map(lines, i, col)
-            items.append(d)
+            # "- name: X" или "- run: Y"). Без ':' на верхнем уровне сам
+            # элемент — СКАЛЯР (типичный "- jobname" needs-элемент), не
+            # отображение: parse_block_map() на строке без "ключ:" молча
+            # пропускает её и вернула бы {}, теряя значение (ИЗЙ2,
+            # critic contracts-040-v3.md).
+            if re.match(r'^[^:]+:\s?', content):
+                lines[i] = ' ' * col + content
+                d, i = parse_block_map(lines, i, col)
+                items.append(d)
+            else:
+                items.append(resolve_scalar(content))
+                i += 1
     return items, i
 
 # найти "jobs:" на верхнем уровне
@@ -231,6 +239,11 @@ for jobname, (jv, jstart) in jobs_map.items():
         continue
     jmap, _ = parse_block_map(raw, j0, jsub_ind)
     has_if = 'if' in jmap
+    has_coe = False
+    if 'continue-on-error' in jmap:
+        cv, _ = jmap['continue-on-error']
+        if resolve_scalar(cv) == 'true':
+            has_coe = True
     needs = []
     if 'needs' in jmap:
         nv, nstart = jmap['needs']
@@ -255,7 +268,7 @@ for jobname, (jv, jstart) in jobs_map.items():
         else:
             print("FAIL\tформа шага вне объявленного подмножества: steps: не блочный список в джобе %s" % jobname)
             sys.exit(0)
-    parsed_jobs[jobname] = {"if": has_if, "needs": needs, "steps": steps}
+    parsed_jobs[jobname] = {"if": has_if, "coe": has_coe, "needs": needs, "steps": steps}
 
 def needs_closure_has_if(jobname, seen=None):
     seen = seen or set()
@@ -302,6 +315,8 @@ def check_key(key):
                     return ("FAIL", "шаг для %s несёт continue-on-error: true" % key)
             if j["if"]:
                 return ("FAIL", "джоба %s (несёт шаг для %s) сама имеет if:" % (jobname, key))
+            if j["coe"]:
+                return ("FAIL", "джоба %s (несёт шаг для %s) сама имеет continue-on-error: true" % (jobname, key))
             if needs_closure_has_if(jobname):
                 return ("FAIL", "needs-замыкание джобы %s (несёт шаг для %s) содержит if:" % (jobname, key))
             return ("OK", jobname)
