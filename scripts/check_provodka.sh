@@ -74,7 +74,20 @@
 #       типа (FIFO/устройство/каталог): атомарный exec-open и пост-open
 #       `[ -f "/proc/self/fd/N" ]` — ОБА остаются на месте (двойная проверка
 #       дешевле возможного зависания).
-#
+# Круг 9 — гард враждебного environ (РЕШЕНИЕ второго арбитража 3792de7,
+#   verdicts/arbitration/038-vrazhdebnaja-sreda-zapuska.md): ПЕРЕД всем
+#   остальным кодом файла (включая `set -uo pipefail` и `export PATH=...`
+#   круга 8) проверяется точное побайтовое равенство environ канону
+#   `PATH=/usr/bin:/bin\nLC_ALL=C.UTF-8`; любое расхождение (экспортированные
+#   bash-функции, IFS, локаль, BASH_ENV, SHELLOPTS, PATH-шимы) триггерит
+#   re-exec через `env -i` в ЧИСТЫЙ канонический environ. Закрывает ВЕСЬ
+#   класс «унаследованное окружение процесса» СТРУКТУРНО — `export PATH`
+#   круга 8 становится вторичной защитой (после re-exec PATH уже канон);
+#   прецедент `check_consumers.sh:41` / `check_protected.sh:81` сохранён
+#   для diff-сравнения. Маскирование `exit` внутри `die()` закрыто ТЕМ ЖЕ
+#   механизмом — отдельного фикса не требуется. Граница модели угроз
+#   (`SHELLOPTS=noexec`, BASH_ENV с exit, подмена тулчейна /usr/bin) НЕ
+#   закрывается текстом файла и НЕ является предметом дальнейших кругов.
 
 # Контракт API:
 #   вход: $1 = <отн-путь-контракта> (относительно cwd — канон барьеров дерева);
@@ -85,6 +98,10 @@
 #   bash scripts/check_provodka.sh <отн-путь-контракта>
 #
 # Коды возврата: 0 — проводка зелёная, 1 — отказ, 2 — нечем проверить.
+if [[ "$(/usr/bin/tr '\0' '\n' < /proc/$$/environ)" != $'PATH=/usr/bin:/bin\nLC_ALL=C.UTF-8' ]]; then
+  POSIXLY_CORRECT=1
+  exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C.UTF-8 /usr/bin/bash "$0" "$@"
+fi
 set -uo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
