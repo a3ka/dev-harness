@@ -25,6 +25,7 @@ run() {
   printf '%s: rc=%s\n' "$label" "$rc"
 }
 
+# Vector 1 — out-of-grammar trailing text after a pipe, in all three channels.
 printf 'ПРОВОДКА:\n- guard=scripts/valid.sh\nПРОВОДКА-ЭНФОРСМЕНТ: honest guard-only channel\n' > "$ROOT/contracts/honest-guard.md"
 run honest-guard honest-guard.md 0
 printf 'ПРОВОДКА:\n- guard=scripts/valid.sh|trailing\nПРОВОДКА-ЭНФОРСМЕНТ: honest guard-only channel\n' > "$ROOT/contracts/red-guard.md"
@@ -40,4 +41,12 @@ run honest-charter honest-charter.md 0
 printf 'ПРОВОДКА:\n- charter=AGENTS.md §Target «Charter norm.»|trailing\n' > "$ROOT/contracts/red-charter.md"
 run pipe-tailed-charter-red red-charter.md 0
 
-printf 'REPRODUCED: a literal pipe truncates all three channel payloads before grammar validation, so malformed guard, role, and charter declarations return green.\n'
+# Vector 2 — an entire second channel concealed behind the pipe. Written on two
+# lines the same pair is correctly rejected (control), so the only difference is
+# the pipe.
+printf 'ПРОВОДКА:\n- role=roles/valid.md «Role norm.»\n- role=roles/absent.md «Nonexistent norm.»\n' > "$ROOT/contracts/two-line.md"
+run two-line-second-channel-control two-line.md 1
+printf 'ПРОВОДКА:\n- role=roles/valid.md «Role norm.»|role=roles/absent.md «Nonexistent norm.»\n' > "$ROOT/contracts/hidden.md"
+run pipe-hidden-second-channel-red hidden.md 0
+
+printf 'REPRODUCED: a literal pipe truncates the channel payload before grammar validation — trailing junk in all three channels and an entire concealed second role channel all return green.\n'
