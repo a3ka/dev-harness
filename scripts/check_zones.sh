@@ -327,10 +327,96 @@ while IFS=$'\t' read -r nnn since; do
     comm -23 "$TMP/commits_sorted" "$TMP/exclude" > "$TMP/judged"
     mv "$TMP/judged" "$TMP/commits"
   fi
+
+  # ── A2 BATCHING (контракт 040, §Инварианты п.1) ───────────────────────────────
+  # Два метаданных на коммит — автор коммита (раньше: per-commit `g log -1 --format='%an' "$c"`,
+  # `:333`) и список путей дельты (раньше: per-commit `g diff-tree -r --no-commit-id --name-only
+  # --no-renames "$c"`, `:472`) — извлекаются ОДНИМ batched-запросом НА ОКНО. Число git-вызовов
+  # ВНУТРИ окна перестаёт зависеть от числа коммитов: было N (автор) + N (diff-tree) = 2N,
+  # стало 2 (по одному batched-вызову на мету). Решающая логика, bad()/ok(), СПАСЕНО,
+  # merge-исключение по `land: wip/<OTHER>/…`, draft/минт-признания и фильтр процессных файлов
+  # остаются БАЙТ-В-БАЙТ: меняется ТОЛЬКО способ добычи двух мет; редкие ветви
+  # (draft/минт/СПАСЕНО-ancestry) по-прежнему линейны по ЗАТРОНУТЫМ путям/контрактам, не по
+  # общему числу коммитов (§Инварианты п.1 явно).
+  #
+  # ОБА batched-запроса ниже ОДИНАКОВЫЕ для ЛЮБОГО числа коммитов в $TMP/commits: форма
+  # `--no-walk --stdin` для `git log` сохраняет порядок stdin→stdout; форма `--stdin`
+  # для `git diff-tree` БЕЗ `--no-commit-id` (default) выводит SHA-заголовок перед блоком
+  # путей — это эквивалент per-commit-семантики (для пустого коммита — 0 путей, что
+  # совпадает с тем, что даёт `git diff-tree --no-commit-id --name-only <root>`). Флаги
+  # `--root -m` НЕ ставим: они включают файлы корневого коммита и merge-only-пути, чего
+  # per-commit-форма НЕ возвращает — для check_protected те же флаги ОБЯЗАТЕЛЬНЫ
+  # (§Инварианты п.5), там семантика другая.
+
+  # 1. БATCHED author lookup (вместо per-commit log -1): один git-вызов на ОКНО.
+  #    `--no-walk --stdin` сохраняет порядок строк stdin → строк stdout; формат
+  #    `%H%x00%an%x00` кладёт SHA и автора через NUL-разделитель (автор может
+  #    содержать пробелы — TAB-разделение ненадёжно). Неудача команды трактуется
+  #    как пустой map (тогда ВСЕ коммиты упадут на последующем look-up'е как
+  #    «автор не найден» — то же поведение, что до батчинга на пустом субъекте).
+  #
+  #    ГАРД на пустом списке судимых коммитов: `git log --no-walk --format=… --stdin`
+  #    с ПУСТЫМ stdin возвращает запись ТЕКУЩЕГО HEAD (fallback-поведение голого stdin
+  #    у git log) — не пустой вывод. На пустом окне такая «лишняя» запись привела бы
+  #    к ложному совпадению HEAD_sha с $TMP/authors (если автор HEAD — зонный) и к
+  #    холостому вызову diff-tree по HEAD; внутренний цикл читает $TMP/commits (тут
+  #    пусто), так что к checked-счётчику это не идёт, но лишний git-вызов и лишняя
+  #    запись в $TMP/matched_commits — мусор, которого допускать нельзя (та же
+  #    причина, по которой для diff-tree уже стоит `[ -s "$TMP/matched_commits" ]`).
+  if [ -s "$TMP/commits" ]; then
+    g log --no-walk --format='%H%x00%an%x00' --stdin < "$TMP/commits" \
+      > "$TMP/author_nul" 2>/dev/null || : > "$TMP/author_nul"
+  else
+    : > "$TMP/author_nul"
+  fi
+  # Разбор NUL-record'ов попарно в TAB-разделённый map sha TAB author.
+  # `git log` ставит '\n' ПОСЛЕ каждой пары `\0\0` (запись формата «%H%x00%an%x00\n»
+  # на коммит): если этого '\n' не снять, awk с RS='\0' увидит следующий SHA как
+  # record «\n<sha>», regex /^[0-9a-f]{40}$/ не совпадёт, и ВСЕ записи кроме первой
+  # будут отброшены — author_map потеряет N-1 из N записей, и `checked` рухнет
+  # (замерено на реальном дереве: 19 вместо 1046). tr -d '\n' снимает разделители
+  # строк; имя автора '\n' по грамматике git log не содержит, искажение полей
+  # исключено.
+  tr -d '\n' < "$TMP/author_nul" > "$TMP/author_nul.tmp" && mv "$TMP/author_nul.tmp" "$TMP/author_nul"
+  awk -v RS='\0' '
+    (NR % 2 == 1) && /^[0-9a-f]{40}$/ { sha = $0; next }
+    (NR % 2 == 0) && sha != ""        { printf("%s\t%s\n", sha, $0); sha = "" }
+  ' "$TMP/author_nul" > "$TMP/author_map" || : > "$TMP/author_map"
+
+  # Хронологический список коммитов, чей автор — в $TMP/authors (зоны окна).
+  # Автор-фильтрация СНИМАЕТСЯ из горячего цикла: --no-merges --reverse отдал
+  # $TMP/commits в хронологическом порядке; awk не нарушает порядок. Дедупликация
+  # (seen[$1]++) — защита от повторов в $TMP/commits, которые не должны возникать,
+  # но если возникнут, батчинг потеряет не более одной записи.
+  awk -F'\t' '
+    NR==FNR { z[$1]=1; next }
+    ($2 in z) { if (!seen[$1]++) print $1 }
+  ' "$TMP/authors" "$TMP/author_map" > "$TMP/matched_commits"
+
+  # 2. БATCHED diff-tree (вместо per-commit diff-tree): один git-вызов на ОКНО.
+  #    Без `--no-commit-id` (default) — формат «SHA\npath1\n…\nsha2\npath1\n…»; пустой
+  #    коммит (например, корневой с 0 путями) ПРОПУСКАЕТСЯ без вывода — точно как
+  #    и в per-commit-форме, для которой `git diff-tree --no-commit-id --name-only <root>`
+  #    даёт 0 путей. `--no-renames` — для детерминизма относительно `diff.renames`
+  #    конфига машины читателя (та же причина, что уже записана в
+  #    check_protected.sh для `excuse_for`/`moved_for`).
+  if [ -s "$TMP/matched_commits" ]; then
+    g diff-tree -r --no-renames --name-only --stdin \
+      < "$TMP/matched_commits" > "$TMP/paths_raw"
+  else
+    : > "$TMP/paths_raw"
+  fi
+
+  # Счётчик `commits` ниже считает коммиты, дошедшие ДО author-фильтра (как и
+  # в исходной форме, §Инварианты п.1); для не-совпавших цикл пройдёт, увеличит
+  # `commits`, прочтёт автора из map (O(awk)), skip'нет — что эквивалентно
+  # per-commit форме по счётчикам и текстам ok/bad.
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     commits=$((commits + 1))
-    an="$(g log -1 --format='%an' "$c")"
+    # BATCHED author-lookup: O(1) awk-map-read вместо per-commit git-вызова.
+    an="$(awk -F'\t' -v c="$c" '$1 == c { print $2; exit }' "$TMP/author_map")"
+    [ -n "$an" ] || continue
     grep -qxF -- "$an" "$TMP/authors" || continue
     if grep -qxF "$(printf '%s\t%s\t%s' "$an" "$c" "$nnn")" "$TMP/saved"; then
       printf '  ok   контракт %s: коммит %s (%s) — СПАСЕНО, из суда зон выведен\n' "$nnn" "${c:0:8}" "$an" >&2
@@ -469,12 +555,23 @@ while IFS=$'\t' read -r nnn since; do
         esac
       done < "$TMP/mine"
       [ "$inside" -eq 0 ] || bad "коммит вне зоны: $an ${c:0:8} $f — зона автора (объединение всех замороженных): $(tr '\n' ' ' < "$TMP/mine")"
-    done < <(g diff-tree -r --no-commit-id --name-only --no-renames "$c")
+    # BATCHED paths lookup: пути $c из $TMP/paths_raw (один awk на коммит, без git).
+    # Структура $TMP/paths_raw: «sha\npath1\n…\nsha\npath1\n…» — diff-tree выдаёт
+    # SHA-заголовок ПЕРЕД каждым блоком путей; для коммита без путей (например,
+    # корневой) SHA-заголовка НЕТ, и его совпавший по автору коммит трактуется как
+    # «нет paths to check» — то же поведение, что у per-commit-формы, для которой
+    # `git diff-tree --no-commit-id --name-only <root>` тоже даёт 0 путей.
+    done < <(awk -v want="$c" '
+      BEGIN { found = 0 }
+      /^[0-9a-f]{40}$/ {
+        if (found) { exit }
+        if ($0 == want) found = 1
+        next
+      }
+      found { print }
+    ' "$TMP/paths_raw")
   done < "$TMP/commits"
 done < "$TMP/ranges"
-
-# Н-53: сводная строка называет исключённое СПИСКОМ.
-process_list="$(tr '\n' ' ' < "$TMP/process_excluded" | sed 's/[[:space:]]*$//')"
 printf '\nпроцессных вне суда:%s\n' "${process_list:+ $process_list}" >&2
 
 printf '\nзамороженных контрактов: %d · объявленных авторов: %d · коммитов в диапазонах: %d · проверено по зонам: %d\n' \
