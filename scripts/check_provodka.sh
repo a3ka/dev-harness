@@ -40,6 +40,16 @@
 #       `«`: грамматика `§<полный заголовок секции> «<норма>»` — без пробела
 #       строка вне грамматики.
 #
+# Круг 7 — фикс БАГА `exec N<&- 2>/dev/null`: `exec` без команды применяет
+#   СВОИ редиректы К ТЕКУЩЕМУ ШЕЛЛУ ПЕРМАНЕНТНО. `2>/dev/null` на close-строке
+#   НЕ scoped на «подавить ошибку именно этого close», а ПЕРЕНАПРАВЛЯЕТ STDERR
+#   ВСЕГО скрипта в /dev/null навсегда. Из-за этого любой последующий die()
+#   (`>&2`) молча проваливается, а `bash -x` обрывается на первой такой строке.
+#   Удалена `2>/dev/null` из ВСЕХ 9 close-строк (4 для fd 9, 5 для fd 11); сами
+#   close-вызовы (`exec N<&-`) безопасны на практике — закрытие уже-открытого,
+#   только что использованного дескриптора практически никогда не отказывает,
+#   а в файле нет `set -e` даже НЕ-ноль от голого `exec N<&-` не убьёт скрипт.
+#
 # Контракт API:
 #   вход: $1 = <отн-путь-контракта> (относительно cwd — канон барьеров дерева);
 #   rc 0 — проводка зелёная;
@@ -298,7 +308,7 @@ for ch in "${channels[@]}"; do
       # fd (read даёт EISDIR). Явная проверка типа через тот же /proc/self/fd —
       # fail-closed для не-регулярных файлов.
       [ -f "/proc/self/fd/9" ] || {
-        exec 9<&- 2>/dev/null || true
+        exec 9<&- || true
         die "проводка: role-файл не существует: $path"
       }
       # К — канонизация через дескриптор: `readlink -f /proc/self/fd/9`
@@ -308,7 +318,7 @@ for ch in "${channels[@]}"; do
       # отказ.
       resolved="$(readlink -f -- "/proc/self/fd/9" 2>/dev/null || true)"
       if [ -z "$resolved" ] || ! role_component_ok "${resolved#"$ROOT"/roles/}"; then
-        exec 9<&- 2>/dev/null || true
+        exec 9<&- || true
         die "проводка: role-канал обязан ссылаться строго на roles/<роль>.md, получено: $path (резолв: $resolved)"
       fi
       # г4 — норма-строка ищется через ТОТ ЖЕ дескриптор (круг 6 Б1, закрывает
@@ -316,10 +326,10 @@ for ch in "${channels[@]}"; do
       # и не `$ROOT/$path` — повторного открытия по имени НЕТ. Подмена файла по
       # пути ПОСЛЕ открытия не меняет содержимого, которое видит grep.
       if ! grep -Fxq -- "$norm" "/proc/self/fd/9"; then
-        exec 9<&- 2>/dev/null || true
+        exec 9<&- || true
         die "проводка: норма-строка не найдена в role-файле: $path"
       fi
-      exec 9<&- 2>/dev/null || true
+      exec 9<&- || true
       ;;
     charter)
       path="${rest%% *}"
@@ -370,7 +380,7 @@ for ch in "${channels[@]}"; do
         die "проводка: секция устава не найдена: §${header_text}"
       fi
       [ -f "/proc/self/fd/11" ] || {
-        exec 11<&- 2>/dev/null || true
+        exec 11<&- || true
         die "проводка: секция устава не найдена: §${header_text}"
       }
       # Канонизация через дескриптор. У charter ЕДИНСТВЕННАЯ легитимная цель —
@@ -380,7 +390,7 @@ for ch in "${channels[@]}"; do
       # нет»; новую фразу НЕ вводим, канон §0).
       resolved="$(readlink -f -- "/proc/self/fd/11" 2>/dev/null || true)"
       if [ "$resolved" != "$ROOT/AGENTS.md" ]; then
-        exec 11<&- 2>/dev/null || true
+        exec 11<&- || true
         die "проводка: секция устава не найдена: §${header_text}"
       fi
       # Тело секции через ТОТ ЖЕ дескриптор: awk получает `/proc/self/fd/11`
@@ -389,14 +399,14 @@ for ch in "${channels[@]}"; do
       # и подменил файл ПОСЛЕ exec — fd по-прежнему указывает на СТАРЫЙ inode.
       section_body="$(charter_section_body "/proc/self/fd/11" "$header_text")"
       if [ -z "$section_body" ]; then
-        exec 11<&- 2>/dev/null || true
+        exec 11<&- || true
         die "проводка: секция устава не найдена: §${header_text}"
       fi
       if ! printf '%s\n' "$section_body" | grep -Fxq -- "$norm"; then
-        exec 11<&- 2>/dev/null || true
+        exec 11<&- || true
         die "проводка: норма-строка не найдена в теле секции §${header_text}"
       fi
-      exec 11<&- 2>/dev/null || true
+      exec 11<&- || true
       ;;
   esac
 done
