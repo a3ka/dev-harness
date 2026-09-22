@@ -296,9 +296,51 @@ role_component_ok() {
 # закомментированной строке вызова в `.githooks/*` или `.github/workflows/*.yml`.
 # Комментарий sh (`#`-строки) и закомментированный yml-шаг (строки, чей
 # первый не-пробельный символ `#`) НЕ считаются (контракт §Инварианты 3, г2).
+# Круг 14 — закрыт обход «ERE-инъекция в basename guard-файла»
+# (verdicts/adversary/contracts-038-guard-ere-metacharacters.md): $bname
+# интерполируется НАПРЯМУЮ в ERE-паттерн grep -E. Если basename содержит
+# ERE-метасимвол (`.`, `*`, `[`, `]`, `\`, `(`, `)`, `{`, `}`, `|`, `+`,
+# `?`, `^`, `$`) — он интерпретируется КАК REGEX, и совершенно ДРУГОЕ слово
+# в workflow/hook может случайно совпасть с паттерном (например guard
+# `scripts/a.b.sh` — `.` матчит любой символ, и `scripts/axb.sh` в workflow
+# ошибочно засчитывается как подключение; аналогично `*`, `[`, `\`).
+# Экранируем ERE-метасимволы в $bname ПЕРЕД подстановкой в паттерн; границы-слова
+# `(^|[^[:alnum:]_])` и `([^[:alnum:]_]|$)` НЕ экранировать — они часть грамматики
+# паттерна, а не входные данные. Литеральный substring-префильтр
+# (`*"$bname"*` в case) остаётся на месте и опирается на те же данные
+# (prefilter НЕ решает класс, см. вердикт: разные слова под x<name>x).
 guard_is_wired() {
   local root="$1" guard="$2"
   local bname="${guard##*/}"; bname="${bname%.sh}"
+  # ERE-экранирование $bname: backslash первым (чтобы не задэкетить свои
+  # backslash'и), затем все ERE-метасимволы из списка
+  # `. [ ] ( ) { } * + ? | ^ $`. Порядок важен только для `\` — его экранируем
+  # раньше любого другого символа, чтобы последующие замены не задэкетили
+  # свежевставленные backslash'и. bash parameter-expansion «${var//pat/repl}»
+  # матчит литерально (без regex), экранирование здесь — литеральная вставка.
+  # ERE-экранирование $bname: bash parameter-expansion `${var//pat/repl}` для
+  # метасимвола `}` имеет особенность — лидирующий `\\` в REPL откусывает закрывающую
+  # скобку самого параметра-expansion, и `}` уходит мимо (живая проверка set -x:
+  # `${x//\}/\\}` даёт `a\b`, не `a\}b`). Литеральная строка-донор хранится в
+  # отдельных переменных, и `${var//pat/$helper}` подставляет литеральный `\<char>`
+  # без ложного закрытия параметра. Б
+  local r_dot='\.' r_lb='\[' r_rb='\]' r_lp='\(' r_rp='\)'
+  local r_lcb='\{' r_rcb='\}' r_star='\*' r_plus='\+' r_qm='\?'
+  local r_pipe='\|' r_car='\^' r_dol='\$'
+  local esc_bname="${bname//\\/\\\\}"
+  esc_bname="${esc_bname//./$r_dot}"
+  esc_bname="${esc_bname//[/$r_lb}"
+  esc_bname="${esc_bname//]/$r_rb}"
+  esc_bname="${esc_bname//(/$r_lp}"
+  esc_bname="${esc_bname//)/$r_rp}"
+  esc_bname="${esc_bname//{/$r_lcb}"
+  esc_bname="${esc_bname//\}/$r_rcb}"
+  esc_bname="${esc_bname//\*/$r_star}"
+  esc_bname="${esc_bname//\+/$r_plus}"
+  esc_bname="${esc_bname//\?/$r_qm}"
+  esc_bname="${esc_bname//|/$r_pipe}"
+  esc_bname="${esc_bname//^/$r_car}"
+  esc_bname="${esc_bname//\$/$r_dol}"
   local githooks_dir="$root/.githooks" wf_dir="$root/.github/workflows"
   local found=0
   if [ -d "$githooks_dir" ]; then
@@ -308,7 +350,7 @@ guard_is_wired() {
         case "$trimmed" in '#'*) continue ;; esac
         case "$trimmed" in
           *"$bname"*)
-            if printf '%s' "$line" | grep -Eq "(^|[^[:alnum:]_])${bname}([^[:alnum:]_]|$)"; then
+            if printf '%s' "$line" | grep -Eq "(^|[^[:alnum:]_])${esc_bname}([^[:alnum:]_]|$)"; then
               found=1
               break 2
             fi
@@ -325,7 +367,7 @@ guard_is_wired() {
         case "$trimmed" in '#'*) continue ;; esac
         case "$trimmed" in
           *"$bname"*)
-            if printf '%s' "$line" | grep -Eq "(^|[^[:alnum:]_])${bname}([^[:alnum:]_]|$)"; then
+            if printf '%s' "$line" | grep -Eq "(^|[^[:alnum:]_])${esc_bname}([^[:alnum:]_]|$)"; then
               found=1
               break 2
             fi
