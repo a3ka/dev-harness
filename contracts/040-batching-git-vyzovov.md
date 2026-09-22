@@ -65,7 +65,7 @@ wall-clock. Архитектор верифицирует не-ослаблен�
 - Первый шаг implementer'а — измерить ИСТИННЫЙ текущий потолок (`timeout 300+`
   локально на `check_zones.sh`, не просто «>65с») — твёрдое число для критика
   (см. §Первый шаг — диагностическое измерение, не приёмочный критерий).
-- `check_protected.sh` (`:130-132` roleblobs, `:172-177` existed.raw — два цикла
+- Скрипт `check_protected.sh` (`:130-132` roleblobs, `:172-177` existed.raw — два цикла
   `git rev-list HEAD` + per-commit `git ls-tree`, измерено 23.538с, тот же класс)
   чинится В ЭТОМ ЖЕ КОНТРАКТЕ техникой **`git rev-list HEAD | git diff-tree -r
   --root -m --no-renames {--name-only|--raw} --stdin -- <pathspec>`** — та же
