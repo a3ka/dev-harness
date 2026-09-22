@@ -1,33 +1,48 @@
 #!/usr/bin/env bash
-# Красное 040 (Н-126 доп. + поправка 1 владельца) — check_protected.sh: (А)
-# СТРУКТУРНЫЙ (без wall-clock) предел git-вызовов на toy-дереве с M фоновыми
-# коммитами ПОСЛЕ merge `-s ours`, что защищённый путь introduce-нул и
-# discard-нул одновременно; (Б) КОРРЕКТНОСТЬ на этом же дереве — РЕАЛЬНЫЙ
-# барьер обязан ловить пропажу И до, И после батчинга (гарантия Н-39, тот же
-# приём, что red_predel_git_vyzovov.sh для check_zones); (В) КРАСНОЕ
-# ПОДТВЕРЖДЕНИЕ конкретного риска — наивная `rev-list --objects -- pathspec`
-# (БЕЗ --full-history) МОЛЧА теряет путь на этом же дереве (поправка 1), и
-# ДВЕ корректные альтернативные формы его находят.
+# Красное 040 v3 (Н-126 доп.) — check_protected.sh: (А) ДИФФЕРЕНЦИАЛЬНЫЙ
+# структурный (без wall-clock) предел git-вызовов, (Б) КОРРЕКТНОСТЬ на `-s
+# ours`-пропаже И на дубликат-блоб-пропаже — НА ОБОИХ toy-деревьях, (В) ТРИ
+# живых подтверждения техники diff-tree --stdin (РЕШЕНИЕ арбитража, §Б4).
+#
+# РЕШЕНИЕ АРБИТРАЖА (verdicts/arbitration/040-batching-kriterii-i-tehnika.md):
+#
+# §Б1 — «тот же критерий обязателен для Р2»: абсолютная граница BOUND=30
+#   пропускала мутант, батчащий первые 55 из 60 фоновых коммитов (12<=30).
+#   Дифференциальная пара M_low=60/M_high=360 (тот же S, что у check_zones,
+#   Δ=300>=2·S) закрывает класс тем же неравенством, что и Б1 для check_zones:
+#   честная реализация не растёт с M вовсе (O(1) на употребление), любой
+#   оставшийся по-коммитный хвост растёт С M и превышает S на M_high.
+#
+# §Б4 — «rev-list --objects — неправильный КЛАСС техники»: она перечисляет
+#   УНИКАЛЬНЫЕ ОБЪЕКТЫ с ОДНИМ представительным именем на объект, а барьеру
+#   нужно множество ПАР «путь в дереве достижимого коммита» — при двух путях
+#   с идентичными байтами (один блоб) она МОЛЧА теряет имя второго. Замена —
+#   НЕ дополнение, а полная замена — техникой A2:
+#     git rev-list HEAD | git diff-tree -r --root -m --no-renames
+#         {--name-only|--raw} --stdin -- <pathspec>
+#   `--root` обязателен (иначе теряется путь, живущий с корневого коммита —
+#   diff-tree без --root пропускает root-коммиты целиком), `-m` обязателен
+#   (иначе теряется путь, СОЗДАННЫЙ в самом мерж-коммите — без -m мерж-коммиты
+#   не диффятся вовсе), `--no-renames` обязателен (иначе результат зависит от
+#   `diff.renames` конфига машины читателя). Три риска измерены арбитром (З2)
+#   и воспроизведены здесь живьём на РАВНО ТОМ ЖЕ классе toy.
+#
+# Старые шаги «п.В»/«форма 1»/«форма 2» (наивная rev-list --objects БЕЗ
+# --full-history теряет `-s ours`-путь; --full-history и «без pathspec+фильтр»
+# его находят) УДАЛЕНЫ ЦЕЛИКОМ вместе со СНЯТОЙ техникой — они проверяли риск
+# запрещённого теперь класса. Поправка 1 владельца (запрет наивной формы)
+# снята вместе с ним (§Б4 РЕШЕНИЕ п.2 — средство было ошибочным, не вкусовым).
 #
 # СЧЁТЧИК ВЫЗОВОВ — НЕ PATH-шим. `check_protected.sh:81` сам делает
-# `export PATH=/usr/bin:/bin` (доверенный PATH против адверсария 039) — любой
-# шим, подложенный ПЕРЕД вызовом, стирается ЭТОЙ строкой субъекта ДО первой
-# внешней команды, и PATH-шпион в стиле red_predel_git_vyzovov.sh даёт ЛОЖНЫЙ
-# нуль (проверено живьём при разработке — план Б). Вместо этого — приём
-# `check_spec_ready.sh:246-253` (уже в дереве): `SHELLOPTS=xtrace
-# BASH_XTRACEFD=9` заставляет ДОЧЕРНИЙ bash включить трассировку СРАЗУ на
-# старте, ДО собственного `set -euo pipefail` субъекта, независимо от того,
-# что субъект потом делает с PATH — трассировка логирует КОМАНДУ КАК НАПИСАНО
-# (`git ...`), не резолвнутый бинарник. Каждая строка `+…+ git …` — один
-# вызов.
+# `export PATH=/usr/bin:/bin` — любой шим стирается ЭТОЙ строкой субъекта ДО
+# первой внешней команды. Вместо этого — приём `check_spec_ready.sh:246-253`:
+# `SHELLOPTS=xtrace BASH_XTRACEFD=9` заставляет ДОЧЕРНИЙ bash трассировать
+# СРАЗУ на старте, ДО собственного `set -euo pipefail` субъекта, независимо от
+# того, что субъект делает с PATH — трассировка логирует КОМАНДУ КАК НАПИСАНО.
 #
-# git-упрощение истории (поправка 1 контракта 040): pathspec-ограниченный
-# обход ревизий по умолчанию отсекает ветку, TREESAME первому родителю на
-# merge `-s ours`, — коммит, где путь появился, никогда не посещается.
-#
-# Коды возврата: 0 — предел держится И корректность не потеряна И риск/лечение
-#                подтверждены; 1 — именованный отказ (сегодня: предел
-#                превышен — п.А); 2 — NOT_IMPLEMENTED (субъект/git отсутствует).
+# Коды возврата: 0 — оба предела держатся И корректность (ours + дубликат-блоб)
+#                не потеряна НА ОБОИХ деревьях И все три риска техники
+#                подтверждены; 1 — именованный отказ; 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -39,74 +54,166 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 
 fail() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 
-# ── toy-дерево: база + ветка `vetka` (добавляет plans/002-vetka.md) + merge
-# -s ours (путь исчезает без единого diff'а с удалением) + M фоновых коммитов
-# ПОСЛЕ мержа (раздувают ОБА per-commit-цикла check_protected — roleblobs
-# :130-132 и existed.raw :172-177 — БЕЗ добавления новых защищённых путей) ──
-R="$WORK/repo"
-M=60
-mkdir -p "$R/roles" "$R/plans" "$R/verdicts/adversary"
-g() { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" \
+# ── параметры (Б1, "тот же S", что и check_zones) ──────────────────────────
+M_LOW=60
+M_HIGH=360
+S=15
+BOUND=30
+
+# build_tree <M> <outdir> — база (roles/adversary + -s ours-пропажа + пара
+# идентичных-по-байтам путей, один удалён без ALLOW — новый постоянный красный
+# вход §Б4 п.4) + M фоновых коммитов ПОСЛЕ. База ОДИНАКОВА между LOW/HIGH —
+# единственная переменная это M (дифференциальный опыт, Б1).
+build_tree() {
+  local M="$1" R="$2" j
+  mkdir -p "$R/roles" "$R/plans" "$R/verdicts/adversary"
+  g() { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$R" \
+        -c user.name=Фикстура -c user.email=fixture@local \
+        -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
+  commit_all() { g add -A; g commit -q -m "$1"; }
+
+  printf -- '---\nname: adversary\nverdict: verdicts/adversary/\n---\nадверсарий\n' > "$R/roles/adversary.md"
+  printf 'подставной план\n'    > "$R/plans/001-p.md"
+  printf 'подставной вердикт\n' > "$R/verdicts/adversary/v-a.md"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$R"
+  commit_all 'основание'
+
+  g checkout -q -b vetka
+  printf 'план из ветки\n' > "$R/plans/002-vetka.md"
+  commit_all 'план добавлен в ветке'
+  g checkout -q main
+  g merge -q -s ours vetka -m 'ветка влита стратегией ours'
+
+  # НОВЫЙ постоянный красный вход (§Б4 РЕШЕНИЕ п.4): два пути с ИДЕНТИЧНЫМИ
+  # байтами (один блоб), один удалён БЕЗ ALLOW и без переноса. Сегодняшний
+  # (медленный, per-commit ls-tree) check_protected.sh корректен здесь (не
+  # использует rev-list --objects) — обязан остаться rc=1 И ПОСЛЕ батчинга:
+  # это оракул, отличающий ПРАВИЛЬНЫЙ класс техники (diff-tree --stdin) от
+  # ЗАПРЕЩЁННОГО (rev-list --objects, §Б4).
+  printf 'одинаковые байты\n' > "$R/plans/910-a.md"
+  printf 'одинаковые байты\n' > "$R/plans/910-b.md"
+  commit_all 'добавлена пара идентичных-по-байтам путей'
+  rm -f "$R/plans/910-b.md"
+  commit_all 'удалён 910-b.md (дубликат-блоб) без ALLOW'
+
+  j=1
+  while [ "$j" -le "$M" ]; do
+    g commit -q --allow-empty -m "фон $j"
+    j=$((j + 1))
+  done
+}
+
+# run_trace <repo> — прогоняет check_protected.sh под внешней трассировкой
+# (иммунна к export PATH субъекта); заполняет глобальные RC/OUT/CALLS.
+run_trace() {
+  local R="$1" TRACE
+  TRACE="$WORK/trace.$RANDOM.$$"
+  : > "$TRACE"
+  OUT="$(env SHELLOPTS=xtrace BASH_XTRACEFD=9 bash "$CP" "$R" 2>&1 9>"$TRACE")"; RC=$?
+  CALLS="$(grep -cE '^\+{1,} git ' "$TRACE")"
+}
+
+# ── дерево LOW (M=60) ───────────────────────────────────────────────────────
+R_LOW="$WORK/repo-low"
+build_tree "$M_LOW" "$R_LOW"
+run_trace "$R_LOW"
+RC_LOW="$RC"; OUT_LOW="$OUT"; CALLS_LOW="$CALLS"
+
+# ── дерево HIGH (M=360) ──────────────────────────────────────────────────────
+R_HIGH="$WORK/repo-high"
+build_tree "$M_HIGH" "$R_HIGH"
+run_trace "$R_HIGH"
+RC_HIGH="$RC"; OUT_HIGH="$OUT"; CALLS_HIGH="$CALLS"
+
+# ── п.Б (Н-39, на ОБОИХ деревьях): ours-пропажа И дубликат-блоб-пропажа ─────
+for pair in "LOW:$RC_LOW:$OUT_LOW" "HIGH:$RC_HIGH:$OUT_HIGH"; do
+  label="${pair%%:*}"; rest="${pair#*:}"; rc="${rest%%:*}"; out="${rest#*:}"
+  [ "$rc" -eq 1 ] || fail "$label: check_protected.sh rc=$rc, ожидался 1
+$out"
+  printf '%s\n' "$out" | grep -qF 'существовал и на HEAD его нет: plans/002-vetka.md' \
+    || fail "$label: причина ours-пропажи не названа дословно
+$out"
+  printf '%s\n' "$out" | grep -qF 'существовал и на HEAD его нет: plans/910-b.md' \
+    || fail "$label: причина дубликат-блоб-пропажи не названа дословно (§Б4 п.4)
+$out"
+done
+printf 'п.Б держится НА ОБОИХ деревьях (M=%d и M=%d): ours-пропажа И дубликат-блоб-пропажа пойманы\n' "$M_LOW" "$M_HIGH" >&2
+
+printf 'git-подпроцессов: LOW(M=%d)=%d, HIGH(M=%d)=%d\n' "$M_LOW" "$CALLS_LOW" "$M_HIGH" "$CALLS_HIGH" >&2
+
+# ── п.А (ГРУБЫЙ, абсолютный, на LOW) ────────────────────────────────────────
+printf 'абсолютная граница (грубая, на LOW): %d - граница: %d\n' "$CALLS_LOW" "$BOUND" >&2
+[ "$CALLS_LOW" -le "$BOUND" ] \
+  || fail "git-вызовов на LOW $CALLS_LOW > грубой границы $BOUND — O(коммитов) пере-скан похоже не заменён вовсе"
+
+# ── п.В (РЕШАЮЩИЙ, дифференциальный): C_high - C_low <= S, Δ>=2·S ──────────
+delta_M=$((M_HIGH - M_LOW))
+[ "$delta_M" -ge $((2 * S)) ] || fail "конструкция фикстуры нарушена: Δ=$delta_M < 2*S=$((2 * S))"
+diff_calls=$((CALLS_HIGH - CALLS_LOW))
+printf 'дифференциал: C_high(%d) - C_low(%d) = %d - граница S = %d (Δ=%d, Δ>=2S: %d>=%d)\n' \
+  "$CALLS_HIGH" "$CALLS_LOW" "$diff_calls" "$S" "$delta_M" "$delta_M" "$((2 * S))" >&2
+[ "$diff_calls" -le "$S" ] \
+  || fail "дифференциал git-вызовов $diff_calls > S=$S — O(коммитов) пере-скан (roleblobs и/или existed.raw остались по-коммитными)"
+
+# ── ТРИ живых подтверждения техники (§Б4, замер арбитра З2) ─────────────────
+# Отдельный маленький toy: путь с корневого коммита (никогда не менявшийся),
+# путь, СОЗДАННЫЙ в самом мерж-коммите (реальный two-parent merge, не -s
+# ours), и пара путей с ОДИНАКОВЫМИ байтами (один блоб), второй удалён.
+T="$WORK/repo-tech"
+mkdir -p "$T/plans"
+t() { GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$T" \
       -c user.name=Фикстура -c user.email=fixture@local \
       -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"; }
-commit_all() { g add -A; g commit -q -m "$1"; }
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$T"
+printf 'root\n' > "$T/plans/000-root.md"
+t add -A; t commit -q -m 'root commit with root-only path'
 
-printf -- '---\nname: adversary\nverdict: verdicts/adversary/\n---\nадверсарий\n' > "$R/roles/adversary.md"
-printf 'подставной план\n'    > "$R/plans/001-p.md"
-printf 'подставной вердикт\n' > "$R/verdicts/adversary/v-a.md"
-GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$R"
-commit_all 'основание'
+t checkout -q -b feature
+printf 'feature\n' > "$T/plans/001-feature.md"
+t add -A; t commit -q -m 'feature commit'
+t checkout -q main
+printf 'main\n' > "$T/plans/002-main.md"
+t add -A; t commit -q -m 'main commit'
+t merge -q --no-ff feature -m 'merge feature'
+printf 'merge-born\n' > "$T/plans/003-merge-born.md"
+t add -A
+t commit -q --amend --no-edit
 
-g checkout -q -b vetka
-printf 'план из ветки\n' > "$R/plans/002-vetka.md"
-commit_all 'план добавлен в ветке'
-BLOB="$(g rev-parse HEAD:plans/002-vetka.md)"
-g checkout -q main
-g merge -q -s ours vetka -m 'ветка влита стратегией ours'
+printf 'одинаковые байты\n' > "$T/plans/900-a.md"
+printf 'одинаковые байты\n' > "$T/plans/900-b.md"
+t add -A; t commit -q -m 'add dup-blob pair'
+rm -f "$T/plans/900-b.md"
+t add -A; t commit -q -m 'delete 900-b.md (dup-blob)'
 
-j=1
-while [ "$j" -le "$M" ]; do
-  g commit -q --allow-empty -m "фон $j"
-  j=$((j + 1))
-done
+old_paths="$(t rev-list HEAD --objects --full-history -- ':(literal)plans/' | awk 'NF>1{print $2}')"
+new_paths="$(t rev-list HEAD | t diff-tree -r --root -m --no-renames --name-only --stdin -- ':(literal)plans/' | grep -vE '^[0-9a-f]{40}$')"
+noroot_paths="$(t rev-list HEAD | t diff-tree -r -m --no-renames --name-only --stdin -- ':(literal)plans/' | grep -vE '^[0-9a-f]{40}$')"
+nom_paths="$(t rev-list HEAD | t diff-tree -r --root --no-renames --name-only --stdin -- ':(literal)plans/' | grep -vE '^[0-9a-f]{40}$')"
 
-# ── прогон check_protected.sh под внешней трассировкой (иммунна к PATH) ────
-TRACE="$WORK/trace.log"
-: > "$TRACE"
-out="$(env SHELLOPTS=xtrace BASH_XTRACEFD=9 bash "$CP" "$R" 2>&1 9>"$TRACE")"; rc=$?
-calls="$(grep -cE '^\+{1,} git ' "$TRACE")"
-
-# ── п.Б (Н-39, гарантия от быстрой-неверной): пропажа ОБЯЗАНА быть поймана,
-# И сегодня (по-коммитная техника), И после батчинга (разрешённые формы п.1) ──
-[ "$rc" -eq 1 ] || fail "п.Б: check_protected.sh rc=$rc на toy с M=$M фоновыми коммитами, ожидался 1
-$out"
-printf '%s\n' "$out" | grep -qF 'существовал и на HEAD его нет: plans/002-vetka.md' \
-  || fail "п.Б: причина не названа дословно
-$out"
-printf 'п.Б держится: check_protected.sh (rc=1) ловит -s ours-пропажу И на дереве с M=%d фоновыми коммитами\n' "$M" >&2
-
-# ── п.А (СТРУКТУРНЫЙ ПРЕДЕЛ, без wall-clock): малая константа, а не O(M) ────
-BOUND=30
-printf 'git-подпроцессов на прогон check_protected.sh (трассировка SHELLOPTS=xtrace): %d - граница: %d\n' "$calls" "$BOUND" >&2
-[ "$calls" -le "$BOUND" ] \
-  || fail "git-вызовов $calls > границы $BOUND — O(коммитов) пере-скан (roleblobs :130-132 + existed.raw :172-177): каждый фоновый коммит получает git ls-tree НА ОБА цикла вместо ДВУХ вызовов git rev-list --objects"
-
-# ── п.В (КРАСНОЕ подтверждено — поправка 1): наивная форма ТЕРЯЕТ путь ──────
-naive_paths="$(g rev-list HEAD --objects -- ':(literal)plans/' | awk 'NF>1{print $2}')"
-if printf '%s\n' "$naive_paths" | grep -qF 'plans/002-vetka.md'; then
-  fail "п.В: наивная git rev-list --objects -- pathspec НАШЛА путь — риск не воспроизведён на этом git, вход не работает"
+# 1. Дубликат-блоб: СТАРАЯ техника ТЕРЯЕТ 900-b.md, НОВАЯ держит.
+if printf '%s\n' "$old_paths" | grep -qF 'plans/900-b.md'; then
+  fail "риск 1 не воспроизведён: старая техника (rev-list --objects) НАШЛА plans/900-b.md — вход не работает на этом git"
 fi
-printf 'п.В (КРАСНОЕ подтверждено): наивная `rev-list --objects -- pathspec` (без --full-history) НЕ видит plans/002-vetka.md — запрещённая техника (поправка 1)\n' >&2
+printf '%s\n' "$new_paths" | grep -qF 'plans/900-b.md' \
+  || fail "риск 1: НОВАЯ техника (diff-tree --stdin) тоже потеряла plans/900-b.md — регрессия самой техники"
+printf 'риск 1 подтверждён: дубликат-блоб — старая техника (rev-list --objects) ТЕРЯЕТ plans/900-b.md, новая (diff-tree --root -m --stdin) ДЕРЖИТ\n' >&2
 
-fh_paths="$(g rev-list HEAD --objects --full-history -- ':(literal)plans/' | awk 'NF>1{print $2}')"
-printf '%s\n' "$fh_paths" | grep -qF 'plans/002-vetka.md' \
-  || fail "форма 1 (--full-history) НЕ нашла путь — ожидаемая корректная форма не работает на этом git"
-printf 'форма 1 корректна: `rev-list --objects --full-history -- pathspec` видит путь\n' >&2
+# 2. Без --root теряется корневой путь.
+if printf '%s\n' "$noroot_paths" | grep -qF 'plans/000-root.md'; then
+  fail "риск 2 не воспроизведён: diff-tree БЕЗ --root всё равно нашёл plans/000-root.md"
+fi
+printf '%s\n' "$new_paths" | grep -qF 'plans/000-root.md' \
+  || fail "риск 2: полная форма (С --root) тоже не нашла plans/000-root.md"
+printf 'риск 2 подтверждён: diff-tree БЕЗ --root теряет plans/000-root.md (корневой коммит), С --root — держит\n' >&2
 
-np_paths="$(g rev-list HEAD --objects | awk 'NF>1{print $2}' | grep '^plans/' || true)"
-printf '%s\n' "$np_paths" | grep -qF 'plans/002-vetka.md' \
-  || fail "форма 2 (без pathspec + фильтр) НЕ нашла путь"
-printf 'форма 2 корректна: `rev-list --objects` без pathspec + awk-фильтр видит путь\n' >&2
+# 3. Без -m теряется путь, созданный в самом мерж-коммите.
+if printf '%s\n' "$nom_paths" | grep -qF 'plans/003-merge-born.md'; then
+  fail "риск 3 не воспроизведён: diff-tree БЕЗ -m всё равно нашёл plans/003-merge-born.md"
+fi
+printf '%s\n' "$new_paths" | grep -qF 'plans/003-merge-born.md' \
+  || fail "риск 3: полная форма (С -m) тоже не нашла plans/003-merge-born.md"
+printf 'риск 3 подтверждён: diff-tree БЕЗ -m теряет plans/003-merge-born.md (путь мерж-коммита), С -m — держит\n' >&2
 
-printf 'блоб vetka:plans/002-vetka.md = %s (для справки)\n' "$BLOB" >&2
+printf 'ПРЕДЕЛ ДЕРЖИТСЯ: LOW=%d<=%d (грубо) И дифференциал %d<=%d (решающе) И все 3 риска техники подтверждены\n' \
+  "$CALLS_LOW" "$BOUND" "$diff_calls" "$S" >&2
 exit 0
