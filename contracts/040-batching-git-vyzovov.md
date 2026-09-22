@@ -361,8 +361,11 @@ DAG reachability на графе ~2000 узлов БЕЗ дополнитель�
 Все команды — из корня дерева. rc указан как приёмочное значение (канон 008,
 §Инварианты п.0); где нужен вывод — подстрока указана дословно. Пин
 пространства имён (§Инварианты п.11) — architect-коммит
-`f0b6de662d4826ed1707f2b97fef1c8aeeb06435` (этот же круг, красная пачка ДО
-текста контракта, живо подтверждено ниже).
+`1b67f790fd922b2248622a289ec29ad7889826de` (круг v3-fix — фикс находок
+И1/И2 critic `contracts-040-v3.md` (`1934156`): джоба-уровневый
+continue-on-error и блочный needs-список в
+`probe_ci_dostizhimost_predelov.sh`; поверх пина
+`f0b6de662d4826ed1707f2b97fef1c8aeeb06435`, живо подтверждено ниже).
 
 | # | Проба | Команда | ДО (сегодня) | ПОСЛЕ (A2 + diff-tree --stdin) |
 |---|---|---|---|---|
@@ -373,7 +376,7 @@ DAG reachability на графе ~2000 узлов БЕЗ дополнитель�
 | Р5 | Живой барьер зелёный на реальном дереве после фикса | `bash scripts/check_zones.sh .` | НЕ детерминированный rc голой командой — см. сноску 1 (Н-126 — таймаут ВЫЗЫВАЮЩЕГО `check_spec_ready.sh:241`, не гарантированно rc субъекта) | rc=0 |
 | Р6 | check_protected живой на реальном дереве, без регресса корректности | `bash scripts/check_protected.sh .` | rc=0 (сегодня зелёный) | rc=0, ЗАМЕТНО быстрее (качественная евиденция, не гейт — численный гейт уже в Р2) |
 | Р7 | check_zones укладывается в исходный hard-timeout — прямое закрытие Н-126 | `timeout 60 bash scripts/check_zones.sh .` | см. сноску 1: код возврата ЭТОЙ команды прямой (без echo-обёртки, канон 008): `124` намерил владелец (Н-126); критик получил `0` в своём окружении/моменте | `rc=0` (укладывается в исходные 60с БЕЗ бампа порога — инвариант владельца «НЕ таймаут-бамп») |
-| Р8 | Пин ПРОСТРАНСТВА ИМЁН приёмочных артефактов architect (РЕШЕНИЕ Б2 п.2, ЗАМЕНЯЕТ прежний список-из-двух-файлов) | `git diff --exit-code f0b6de662d4826ed1707f2b97fef1c8aeeb06435 HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'` | rc=0, пусто (живой прогон ниже) | rc=0, пусто (implementer НЕ трогает и НЕ добавляет файлы в эти 8 пространств; правка/добавление легальны ТОЛЬКО новым architect-кругом, обновляющим и сам пин) |
+| Р8 | Пин ПРОСТРАНСТВА ИМЁН приёмочных артефактов architect (РЕШЕНИЕ Б2 п.2, ЗАМЕНЯЕТ прежний список-из-двух-файлов) | `git diff --exit-code 1b67f790fd922b2248622a289ec29ad7889826de HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'` | rc=0, пусто (живой прогон ниже) | rc=0, пусто (implementer НЕ трогает и НЕ добавляет файлы в эти 8 пространств; правка/добавление легальны ТОЛЬКО новым architect-кругом, обновляющим и сам пин) |
 | Р9 | CI-достижимость — fail-closed СТРУКТУРНЫЙ предикат (РЕШЕНИЕ Б3 часть 2, ЗАМЕНЯЕТ прежнюю текстовую пробу) | `bash fixtures/check_zones/probe_ci_dostizhimost_predelov.sh .` | **rc=2**, `NOT_IMPLEMENTED` (npm-ключи ещё не существуют — живой прогон ниже) | rc=0, «CI-ДОСТИЖИМОСТЬ ДЕРЖИТСЯ (СТРУКТУРНО, fail-closed): …» (npm rc == прямой rc фикстуры ДЛЯ ОБЕИХ проб; ПРЯМОЙ шаг без `if:`/`continue-on-error`/shell-операторов в обеих джобах и их needs-замыкании; безусловный push/pull_request триггер; `verify_ci_parity.sh` зелёный) |
 
 Сноска 1 (закрывает 2 неблокирующих совета круга 1 критика, contracts-040-v1.md):
@@ -429,18 +432,20 @@ $ echo "rc=$?"
 rc=0
 ```
 
-### Живой прогон Р8 (круг 3, main-чекаут сразу после architect-коммита пачки)
+### Живой прогон Р8 (круг v3-fix, коммит `1b67f790fd922b2248622a289ec29ad7889826de`)
 
 ```
-$ git diff --exit-code f0b6de662d4826ed1707f2b97fef1c8aeeb06435 HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'
+$ git diff --exit-code 1b67f790fd922b2248622a289ec29ad7889826de HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'
 $ echo "rc=$?"
 rc=0
 ```
 
-Контрфакт (та же команда против РОДИТЕЛЯ architect-коммита — обязана дать
-непустой diff, иначе пин ничего не пинует): `git diff --exit-code
-f0b6de662d4826ed1707f2b97fef1c8aeeb06435~1 HEAD -- <те же 8 паттернов>` →
-rc=1, diff показывает все три переписанных файла — механизм ловит правку.
+Контрфакт (та же команда против РОДИТЕЛЯ нового architect-коммита — обязана
+дать непустой diff, иначе пин ничего не пинует): `git diff --exit-code
+1b67f790fd922b2248622a289ec29ad7889826de~1 HEAD -- <те же 8 паттернов>` →
+rc=1, diff показывает ОДИН изменённый файл
+(`fixtures/check_zones/probe_ci_dostizhimost_predelov.sh`, 20 insertions(+),
+5 deletions(-)) — механизм ловит правку.
 
 ### Живой прогон Р9 (круг 3, main-чекаут + изолированный клон)
 
