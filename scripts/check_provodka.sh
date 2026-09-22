@@ -195,7 +195,13 @@ done
 # ── Классификация каналов (г0 структура) ─────────────────────────────────────
 # Каждая строка разбирается ровно один раз; неизвестный формат → отказ
 # «строка вне грамматики» с САМОЙ строкой дословно.
-channels=()
+# Круг 12 Бс (channel-pipe-truncation, см. шапку): параллельные
+# индексированные массивы вместо одной delimited-строки. kind/rest/ln лежат в
+# разных слотах — разделитель в данных невозможен
+# по построению.
+channel_kinds=()
+channel_rests=()
+channel_lns=()
 for ln in "${channel_lines[@]}"; do
   body_part="${ln#- }"
   kind=""
@@ -206,15 +212,17 @@ for ln in "${channel_lines[@]}"; do
     *) die "проводка: строка вне грамматики: $ln" ;;
   esac
   rest="${body_part#*=}"
-  channels+=("$kind|$rest|$ln")
+  channel_kinds+=("$kind")
+  channel_rests+=("$rest")
+  channel_lns+=("$ln")
 done
 
 # ── г0-доп (В1): guard-only без обоснования ──────────────────────────────────
 # Без role/charter-канала и без непустой строки «ПРОВОДКА-ЭНФОРСМЕНТ:» —
 # отказ ДО проверки каналов (контракт §Инварианты 3, В1).
 has_role=0; has_charter=0; has_enf=0
-for ch in "${channels[@]}"; do
-  case "${ch%%|*}" in
+for ((i=0; i<${#channel_kinds[@]}; i++)); do
+  case "${channel_kinds[$i]}" in
     role)    has_role=1 ;;
     charter) has_charter=1 ;;
   esac
@@ -338,9 +346,14 @@ charter_section_body() {
   local file="$1" header_text="$2"
   awk -v h="$header_text" '
     {
-      if (match($0, /^#+[[:space:]]+/)) {
-        cur_lvl = RLENGTH - 1
-        cur_text = substr($0, RSTART+RLENGTH)
+      if (match($0, /^#+/)) {
+        cur_lvl = RLENGTH
+        rest = substr($0, RSTART+RLENGTH)
+        if (match(rest, /^[[:space:]]+/)) {
+          cur_text = substr(rest, RSTART+RLENGTH)
+        } else {
+          cur_text = rest
+        }
         if (cur_text == h && !in_body) { start_lvl = cur_lvl; in_body = 1; next }
         if (in_body && cur_lvl <= start_lvl) { in_body = 0; next }
       }
@@ -349,10 +362,10 @@ charter_section_body() {
   ' "$file"
 }
 
-for ch in "${channels[@]}"; do
-  kind="${ch%%|*}"
-  rest="${ch#*|}"; rest="${rest%%|*}"
-  orig="${ch##*|}"
+for ((i=0; i<${#channel_kinds[@]}; i++)); do
+  kind="${channel_kinds[$i]}"
+  rest="${channel_rests[$i]}"
+  orig="${channel_lns[$i]}"
   case "$kind" in
     guard)
       guard="$rest"
