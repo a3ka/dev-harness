@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
+# ПРИЧИНА: модель угроз: список ЗАЩИЩАЕТ: пуст (нет буллета)
 # Р9 (green) — полный честный вход: оба списка, по два буллета каждый → rc 0.
+#
+# Красная половина (конверсия на протокол verify_antiplacebo.sh, находка Н1
+# verdicts/review/contracts-041-k1.md) — та же структура, но список
+# ЗАЩИЩАЕТ: обрублен до пустого (метка есть, буллетов нет) → rc 1.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
 
-W="$(mktemp -d "${TMPDIR:-/tmp}/tm_case09.XXXXXX")"; trap 'rm -rf "$W"' EXIT
-F="$W/c.md"
-put_contract "$F" '# kontrakt
+if [ -z "${BARRIER:-}" ]; then
+  BARRIER="$SUBJ"
+  WORK="$(mktemp -d "${TMPDIR:-/tmp}/tm_case09.XXXXXX")"
+  trap 'rm -rf "$WORK"' EXIT
+fi
+
+put_contract "$WORK/g.md" '# kontrakt
 
 ## Predmet
 p
@@ -20,6 +29,21 @@ p
 НЕ ЗАЩИЩАЕТ:
 - враждебное окружение вызывающего процесса за пределами базового PATH-экспорта
 - смысловую адекватность буллетов модели угроз которую судит критик а не барьер'
-run_barrier "$W" 'c.md'
-accept 'case_09'
+run_barrier "$WORK" 'g.md'
+[ "${BARRIER:-x}" = "$SUBJ" ] && accept 'case_09 (зелёный: полный честный вход, два буллета в каждом списке)'
+
+put_contract "$WORK/r.md" '# kontrakt
+
+## Predmet
+p
+
+## Модель угроз
+
+ЗАЩИЩАЕТ:
+
+НЕ ЗАЩИЩАЕТ:
+- враждебное окружение вызывающего процесса за пределами базового PATH-экспорта'
+run_barrier "$WORK" 'r.md'
+[ "${BARRIER:-x}" = "$SUBJ" ] && refuse 'case_09 (красный: та же структура, ЗАЩИЩАЕТ обрублен)' 'модель угроз: список ЗАЩИЩАЕТ: пуст (нет буллета)'
+
 exit 0
