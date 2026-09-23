@@ -346,7 +346,7 @@ implementer-раздачи, а НЕ факультативный довесок 
 
 ## Зоны
 
-ЗОНА architect: contracts/037-samodostatochnyj-cwd-i-priemnik-task.md fixtures/check_runner_hygiene/red_self_contained_cwd.sh fixtures/accept_task_commit/red_accept_task_commit.sh roles/architect.md roles/orchestrator.md NABLIUDENIA_ARCHITECT.md
+ЗОНА architect: contracts/037-samodostatochnyj-cwd-i-priemnik-task.md fixtures/self_contained_cwd/red_self_contained_cwd.sh fixtures/accept_task_commit/red_accept_task_commit.sh roles/architect.md roles/orchestrator.md NABLIUDENIA_ARCHITECT.md
 
 ЗОНА implementer: .omp/extensions/path-guard.ts scripts/accept_task_commit.sh fixtures/parsing_hygiene_battery/profiles/accept_task_commit.sh
 
@@ -368,7 +368,7 @@ implementer-раздачи, а НЕ факультативный довесок 
 Непересечение: 032 владеет `path-guard.ts`'s УЖЕ существующей грамматикой пина
 (М1–М4 032, не тронуты этим контрактом — новая ветвь ДОБАВЛЕНА, ни одна
 существующая строка не переписана); 037 добавляет ИСКЛЮЧИТЕЛЬНО новую ветвь
-`pathAllowed()` + новый CLI-путь для её проверки. Новые файлы (`fixtures/check_runner_hygiene/red_self_contained_cwd.sh`,
+`pathAllowed()` + новый CLI-путь для её проверки. Новые файлы (`fixtures/self_contained_cwd/red_self_contained_cwd.sh`,
 `fixtures/accept_task_commit/`, `scripts/accept_task_commit.sh`) — целиком
 037, ни с кем не пересекаются по имени.
 
@@ -399,7 +399,7 @@ landed норма-правки orchestrator/implementer-каналом (012, 016
 
 ### Красное сейчас (прямые запуски, А-82/А-174 — не через CI/npm)
 
-- Р1 (red). `bash fixtures/check_runner_hygiene/red_self_contained_cwd.sh .`
+- Р1 (red). `bash fixtures/self_contained_cwd/red_self_contained_cwd.sh .`
   → rc 1, вывод содержит `КРАСНОЕ 037: ветвь «п1»` (`judge()` сегодня
   игнорирует `actual` при `worktree:null` — self-contained-позитив даёт
   `block`, ожидание `pass`). Остальные 5 ветвей (п2–п6, структурные

@@ -5936,3 +5936,61 @@ green_* безусловно rc=0, red_* — rc=0 ЛИБО (если §Неза�
 драфта явно называют СВОЙ subject нереализованным) допустимый non-zero,
 сверенный с ИМЕНОВАННОЙ причиной в самом red_*-файле (Н-39-стиль), а не
 голым «rc≠0 = провал».
+
+### А-244. `red_self_contained_cwd.sh` в `fixtures/check_runner_hygiene/` — семья привязана к БАРЬЕРУ (verify_antiplacebo.sh), а файл тестирует ДРУГОЙ субъект (path-guard.ts); структурно несовместимо с task-б precision-гейта 043 `ЗАКРЫТО (этой же пачкой)`
+
+**Что произошло:** после Fix037 (Б1-Б4 зона-коллизий) и implementer's task-б
+rc-чек rewrite, precision-гейт 043 на 037 упал ТРЕТЬЕЙ, структурной причиной:
+«барьер runner_hygiene не вызван живьём (/proc-наблюдение не нашло exec)»
+(`scripts/check_precision_gate.sh:346`). Причина — `fixtures/check_runner_hygiene/`
+ПРИВЯЗАНА (по имени каталога, task-б §Инварианты) к барьеру
+`scripts/check_runner_hygiene.sh`, чей субъект — `scripts/verify_antiplacebo.sh`
+(гигиена раннера: lock/race/scratch/sostav, контракт 011 §Предмет, живьём
+подтверждено чтением его же шапки). Мой `red_self_contained_cwd.sh` тестирует
+СОВСЕМ ДРУГОЙ субъект — `.omp/extensions/path-guard.ts` НАПРЯМУЮ (node,
+judge()-протокол) — и СТРУКТУРНО не может вызвать `check_runner_hygiene.sh`
+живьём, потому что не имеет к нему отношения. Живой grep подтвердил: ДВА
+соседних файла той же директории — `red_pin_spawn_zadanie.sh` (032) и
+`red_pin_allowlist.sh` (025) — несут ТОТ ЖЕ `SUBJ="$ROOT/.omp/extensions/path-guard.ts"`,
+т.е. та же misplacement — историческая, не моя одноразовая ошибка. Она не
+проявлялась РАНЬШЕ, потому что ни один механизм ДО task-б (043) не проверял
+«case-файл семьи живьём вызывает барьер СЕМЬИ» — конвенция «фикстура живёт
+в семье СВОЕГО барьера» существовала НЕПИСАНОЙ (контракт 034 §Боль 1
+называет `.omp/extensions/path-guard.ts` КАНОНИЧЕСКИМ примером «предмет вне
+scripts/, не имеет барьерного ключа» — ровно мой случай, я его просто не
+применил при первой раздаче файла, скопировав соседство red_pin_*.sh БЕЗ
+проверки их СОБСТВЕННОЙ корректности размещения).
+**Цена:** третий круг precision-гейта (после Б1-Б4 зона-коллизий и task-б
+rc-чек фикса implementer'а) — чтение task-б кода
+(`scripts/check_precision_gate.sh:203-350`), сверка с established-прецедентом
+(`scripts/drill_path_guard.sh`, `contracts/025-*.md` зона implementer) и
+`contracts/034-*.md` (probe-only механизм, §Боль 1 дословно про path-guard.ts),
+решение и правка — около 20 минут этим вызовом.
+**Источник:** живой прогон `bash scripts/check_precision_gate.sh <клон>
+contracts/037-*.md` → «fixtures/check_runner_hygiene/red_self_contained_cwd.sh:
+барьер runner_hygiene не вызван живьём»; `scripts/check_runner_hygiene.sh:1-8`
+(шапка, субъект `verify_antiplacebo.sh`); `fixtures/check_runner_hygiene/red_pin_allowlist.sh:19`
+и `red_pin_spawn_zadanie.sh:81` (оба `SUBJ=".../path-guard.ts"`, тот же паттерн).
+**Класс:** ИНСТРУМЕНТА (моего собственного прошлого выбора размещения,
+унаследованного от НЕПРОВЕРЕННОГО соседства) — копирование директории по
+визуальному сходству соседних файлов БЕЗ проверки, что их барьер (по имени
+каталога) СЕМАНТИЧЕСКИ совпадает с их субъектом; проверка появилась только
+task-б (043), но признак несовпадения был читаем и раньше (шапка
+`check_runner_hygiene.sh` против `SUBJ=` каждого red_pin_*.sh).
+**ЧЕМ ЗАКРЫТО:** перенесён `fixtures/check_runner_hygiene/red_self_contained_cwd.sh`
+→ `fixtures/self_contained_cwd/red_self_contained_cwd.sh` (новый probe-only
+каталог, контракт 034 инв. 1, маркер `.probe-only` объясняет ПОСТОЯННОСТЬ
+классификации — барьера `scripts/check_self_contained_cwd.sh` не будет
+никогда, в отличие от временного маркера `fixtures/accept_task_commit/`).
+`contracts/037-*.md` обновлён во ВСЕХ трёх ссылках (ЗОНА architect, «Новые
+файлы», Р1 приёмки) — живой grep подтвердил отсутствие иных ссылок. Файл сам
+НЕ менялся байт-в-байт (сверено `diff` HEAD-версии против новой — идентично);
+красная причина «п1» та же и голым вызовом, и с явным root. Живые прогоны
+ПОСЛЕ переноса: `check_precision_gate.sh` rc 0 (было rc 1); Р4-регресс 032
+(`red_pin_spawn_zadanie.sh`) — 31/31, не тронут; `verify_antiplacebo.sh
+--changed <старый HEAD>` — «0 задетых, зелено» (§1/§2 не флагуют новый
+probe-only каталог); `check_zones.sh` rc 0. `red_pin_spawn_zadanie.sh` (032)
+и `red_pin_allowlist.sh` (025) — ВНЕ моей зоны, НЕ тронуты; тот же структурный
+дефект в НИХ остаётся ОТКРЫТ (дремлет — они «старые» относительно ЛЮБОГО
+будущего mint-тега, если их не заденет владеющий контракт напрямую; риск
+низкий, но не нулевой).

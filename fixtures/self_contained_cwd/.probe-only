@@ -1,0 +1,24 @@
+probe-only каталог (контракт 034, инв. 1): предмет — 037 M1 (self-contained-cwd
+allowlist в .omp/extensions/path-guard.ts, Н-111 часть А). red_self_contained_cwd.sh
+тестирует path-guard.ts НАПРЯМУЮ (node, judge()-протокол) — ровно тот класс
+предмета, что 034 §Боль 1 называет канонической иллюстрацией «предмет вне
+scripts/, не имеет барьерного ключа» (текст 034 дословно упоминает
+.omp/extensions/path-guard.ts этим примером). Барьера scripts/check_self_contained_cwd.sh
+НЕ существует и не появится: М1 — новая ветвь path-guard.ts, не отдельный
+scripts/check_*.sh. Прецедент — scripts/drill_path_guard.sh (контракт 025,
+implementer-зона), классифицирован «НЕ БАРЬЕР: дрилл прямого запуска...
+runner-семья fixtures/<имя>/ не заводится по заморозке 025 И-7».
+
+Классификация ПОСТОЯННАЯ, не переходная: в отличие от fixtures/accept_task_commit/
+(маркер снимется, когда implementer поставит scripts/accept_task_commit.sh),
+здесь барьера не будет никогда — субъект живёт в .ts-расширении, не в scripts/.
+
+Перенесено из fixtures/check_runner_hygiene/ (precision-гейт 043 §Инварианты
+задача б: НОВЫЙ case-файл ОБЯЗАН живьём вызывать барьер СЕМЬИ каталога, где
+лежит — check_runner_hygiene.sh тестирует verify_antiplacebo.sh, ДРУГОЙ субъект;
+структурно невыполнимо для файла, размещённого не в той семье). Файл НЕ менялся
+байт-в-байт, кроме пути — красная причина «п1» та же.
+
+Предъявление — прямой прогон `bash fixtures/self_contained_cwd/red_self_contained_cwd.sh
+[<корень>]` (вне case_*-глоба раннера), исполняется судьями/архитектором
+напрямую; красное сегодня (ветвь «п1», rc 1), зелёное после implementer-раздачи М1.
