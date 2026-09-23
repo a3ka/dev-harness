@@ -1,0 +1,14 @@
+probe-only каталог (контракт 034, инв. 1) — библиотека реиспользуемой
+батареи гигиены парсинга (Направление 3, контракт 041): lib.sh определяет
+4 класса (delimiter-collision / regex-injection / silent-drop /
+self-application-green), profiles/<гард>.sh даёт их реализацию для
+конкретного гарда, run_battery.sh — общий раннер. НЕ барьер (run_battery.sh
+не судит форму контракта) и НЕ case-семья шардового раннера
+verify_antiplacebo — это просто библиотека, которую в живой прогон запускают
+red_battery_*.sh ниже (каждый — обёртка вокруг `bash run_battery.sh <профиль>`,
+транслирует rc батареи в свой rc). Каталог НЕ имеет барьерного ключа в
+scripts/ и НЕ должен фигурировать в `keys:` шардов CI; area-scan
+verify_antiplacebo.sh (scripts/verify_antiplacebo.sh:199-213) легально
+пропускает каталог при выполнении: .probe-only ∧ ≥1 red_*.sh ∧ нет case_*.sh.
+Прямой прогон батареи — на живом дереве контракта 041 (dogfood-профиль
+check_threat_model) и как регрессия check_provodka (038 после круга 15).
