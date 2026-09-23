@@ -40,9 +40,9 @@
    `fixtures/self_contained_cwd/` (контракт 034 инв. 1, постоянный маркер — барьера
    `scripts/check_self_contained_cwd.sh` не будет никогда, прецедент `drill_path_guard.sh`
    025 И-7). Байт-идентичность содержимого подтверждена диффом, exec-бит восстановлен.
-4. **Консультант (engineering-fork, `verdicts/consultant/037-b4-home-condition-scope-v1.md`
-   = `34e66be`)** — вызван по НОВОМУ протоколу владельца (fork record `forks/037-b4-home-
-   condition-scope.md`, маршрут (а) default-open). **Рекомендация:** (а) узкая процедурная
+4. **Консультант (engineering-fork, `verdicts/consultant/b4-home-condition-scope-037-v1.md`
+   = `34e66be`)** — вызван по НОВОМУ протоколу владельца (fork record `forks/b4-home-
+   condition-scope-037.md`, маршрут (а) default-open). **Рекомендация:** (а) узкая процедурная
    модель М3 п.4 условно приемлема, НО ТОЛЬКО при явном согласии владельца на утрату
    машинного запрета — и, что важно, НАШЁЛ, что текст 037 в ДРУГИХ местах (§Предмет,
    обоснование М1 п.4, М3 п.3, §Развилки) ВСЁ ЕЩЁ буквально обещает противоположное
@@ -61,7 +61,7 @@
 governance-решение):** contracts/037-*.md §Остаточный риск, последний буллет — принять
 узкую процедурную модель М1 п.4 КАК ЕСТЬ (вариант (а) консультанта) ИЛИ запросить частичное
 переоткрытие Q3 именно для этого узкого случая (вариант (в)). Материал для решения:
-`forks/037-b4-home-condition-scope.md` + `verdicts/consultant/037-b4-home-condition-scope-v1.md`
+`forks/b4-home-condition-scope-037.md` + `verdicts/consultant/b4-home-condition-scope-037-v1.md`
 (оба на origin/main). Это НЕ РАЗРЕШИЛ-ВЛАДЕЛЕЦ-ситуация (037 не заморожен, pre-freeze
 правка текста не требует подписи) — но это ПРОДУКТОВОЕ решение о scope/threat-model,
 которое оркестратор не принимает сам (`Reduce scope only with explicit user approval`).

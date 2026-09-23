@@ -1,4 +1,4 @@
-ФОРК: 037-b4-home-condition-scope
+ФОРК: b4-home-condition-scope-037
 ВОПРОС: Критик circle 1 (verdicts/critic/contracts-037-v1.md, Б4) нашёл дыру в
 контракте 037 §Инварианты М1 п.4 (self-contained-cwd allowlist, HOME-условие):
 из нормы 028 «HOME вне чекаута» неверно выведено обратное «чекаут никогда не
@@ -24,4 +24,4 @@ upstream-класса, который Q3 отверг? Живой текст —
 ЗАВЕДЁН: 2026-09-23T22:01:24Z
 АВТОР: orchestrator (default/glm-5.3)
 БЛОКИРУЕТ: нет
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да
