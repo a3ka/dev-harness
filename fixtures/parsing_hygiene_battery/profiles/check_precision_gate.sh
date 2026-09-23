@@ -61,14 +61,18 @@ p
 }
 
 battery_silent_drop() {
-  # ДВЕ независимые коллизии в одном черновике (разные пути, разные чужие
-  # NNN) — ни одна не должна быть молча пропущена: гейт обязан красить (хотя
-  # бы первую детерминированную) вместо тихого rc0.
+  # Б1 fix: ДВА чужих NNN на ОДНОМ пути (991 alice + 992 bob владеют
+  # shared/file.txt) — черновик объявляет ПЕРЕСЕЧЕНИЕ только для 991;
+  # гейт обязан красить НЕОБЪЯВЛЕННУЮ 992 (прежний код останавливался
+  # на первой коллизии и молча пропускал нарушение предмета). И отдельная
+  # коллизия на ДРУГОМ пути (one/first.txt / 991 alice) — для покрытия
+  # исходного класса silent-drop.
   local w
   w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pg_sd.XXXXXX")"
   mk_toy_repo "$w"
+  mk_foreign_frozen "$w" 991 alice shared/file.txt
+  mk_foreign_frozen "$w" 992 bob shared/file.txt
   mk_foreign_frozen "$w" 991 alice one/first.txt
-  mk_foreign_frozen "$w" 992 bob two/second.txt
   put_draft "$w/contracts/043-toy-draft.md" '# k
 
 ## Predmet
@@ -76,7 +80,10 @@ p
 
 ## Зоны
 
-ЗОНА architect: contracts/043-toy-draft.md one/first.txt two/second.txt'
+ЗОНА architect: contracts/043-toy-draft.md shared/file.txt one/first.txt
+
+ПЕРЕСЕЧЕНИЕ architect: shared/file.txt — 991 объявлен только первый
+ПЕРЕСЕЧЕНИЕ architect: one/first.txt — 991 объявлен для второго пути'
   local out rc
   out="$("$PG_SUBJ" "$w" 'contracts/043-toy-draft.md' 2>&1)"; rc=$?
   rm -rf "$w"

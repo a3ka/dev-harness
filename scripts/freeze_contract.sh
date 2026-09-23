@@ -183,6 +183,24 @@ fi
 #
 # Передаём содержимое через tmp-файл, т.к. CLI принимает путь, а не stdin —
 # freeze читает блоб из HEAD через `git cat-file`.
+# ── 6а-ter. PRECISION-GATE (контракт 043 §Инварианты п.7, freeze-time backstop) ─
+# Три задачи гейта: зона-коллизия union, живая полярность case-файлов,
+# паритет CI — все три до записи тега. Красный прогон = rc 1 «ОТКАЗ:
+# precision-гейт 043 красен: <первая причина>», тег/реестр не тронуты
+# (отказ атомарен, тот же приём, что 038 §6а-bis несёт). rc 2
+# (NOT_IMPLEMENTED — гейт недоступен) трактуется как fail-closed rc 1
+# (норма 036 §Freeze). Условный `if [ -f … ]` — bootstrap-защита,
+# аналогичная consumers-gate 038 (окно между заморозкой ЭТОГО контракта
+# и приземлением файла implementer'ом).
+if [ -f "$SELF_DIR/check_precision_gate.sh" ]; then
+  pg_out=""
+  pg_rc=0
+  pg_out="$(cd "$ROOT" && bash "$SELF_DIR/check_precision_gate.sh" "$ROOT" "$TARGET" 2>&1)" || pg_rc=$?
+  if [ "$pg_rc" -ne 0 ]; then
+    pg_first="$(printf '%s' "$pg_out" | head -n 1)"
+    die "precision-гейт 043 красен: $pg_first"
+  fi
+fi
 target_content="$(g cat-file -p "HEAD:$TARGET" 2>/dev/null || true)"
 _doc_type_tmp="$(mktemp -t doc027.XXXXXX 2>/dev/null || true)"
 _doc_type_rc=0
