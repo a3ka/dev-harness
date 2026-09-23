@@ -282,6 +282,11 @@ scripts/accept_task_commit.sh --source <путь> --branch wip/<NNN>/<автор
 находит совпадение (снято живым прогоном ЭТОЙ пачкой — Приёмка Р3 ниже, уже
 зелёное, не «После реализации»).
 
+## Незаполненные требования:
+- М1 (`.omp/extensions/path-guard.ts`, implementer-зона) — новая ветвь `pathAllowed()` из §Инварианты М1 не реализована; Р1 самопозитив (ветвь «п1») остаётся `block` до implementer-раздачи.
+- М2 (`scripts/accept_task_commit.sh`, implementer-зона) — приёмник не существует; Р2 остаётся NOT_IMPLEMENTED до implementer-раздачи.
+- М2 (`fixtures/parsing_hygiene_battery/profiles/accept_task_commit.sh`, implementer-зона) — обязательная батарея 041 §Инварианты п.5 не поставлена; Р8 не может быть предъявлен до implementer-раздачи.
+
 
 ## Зоны
 
