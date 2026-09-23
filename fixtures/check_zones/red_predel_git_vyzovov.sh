@@ -60,6 +60,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/red040-predel.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 [ -f "$CZ" ] || { printf 'NOT_IMPLEMENTED: субъект не найден: %s\n' "$CZ" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
+command -v strace >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет strace (run_trace требует внешнюю syscall-трассировку — см. комментарий там)\n' >&2; exit 2; }
 
 fail() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 
@@ -137,21 +138,46 @@ build_tree() {
   g -c user.name=agent03 -c user.email=agent03@local commit -q -m 'agent03 пишет в чужую зону'
 }
 
-# run_trace <repo> — прогоняет check_zones.sh под внешней трассировкой (арбитраж 040-II,
-# Граница v4 п.1: verdicts/arbitration/contracts-040-batching-dostatochnost-oraculu.md).
-# check_zones.sh теперь САМ делает `export PATH=/usr/bin:/bin` до первой внешней команды —
-# любой PATH-шим (прежняя форма этой функции, PATH-spy) стирается ЭТОЙ строкой субъекта,
-# тем же классом, что уже решён для check_protected.sh: приём `check_spec_ready.sh:246-253`
-# / `fixtures/check_protected/red_predel_git_vyzovov_ours.sh:106-114`. `SHELLOPTS=xtrace
-# BASH_XTRACEFD=9` заставляет ДОЧЕРНИЙ bash трассировать СРАЗУ на старте, ДО собственного
-# `set -euo pipefail` субъекта, независимо от того, что субъект делает с PATH —
-# трассировка логирует КОМАНДУ КАК НАПИСАНО. Заполняет глобальные RC/OUT/CALLS.
+# run_trace <repo> — прогоняет check_zones.sh под ВНЕШНЕЙ syscall-трассировкой (ревью круга
+# done, verdicts/review/contracts-040-k1.md, Б1; закрывает NABLIUDENIA_ARCHITECT.md А-232,
+# статус был ОТКРЫТО). Прежняя форма (`env SHELLOPTS=xtrace BASH_XTRACEFD=9`, унаследованные
+# переменные) умирала молча: check_zones.sh v6 первой строкой делает `exec /usr/bin/env -i
+# PATH=… LC_ALL=… bash "$0" "$@"` (герметичное окружение, Н-130/арбитраж 040-III) — re-exec
+# стирает ОБЕ измерительные переменные вместе со всем остальным унаследованным, и счётчик
+# читал 0 на ЛЮБОМ входе. Ревьюер предъявил это своей мерой: мутант «per-commit `git log -1`
+# вернулся в горячий цикл :824» проходил Р1 с rc=0 байт-в-байт тем же выводом — барьер не
+# отличал предмет контракта от его полного отсутствия.
+#
+# `strace -f -e trace=execve` смотрит СНАРУЖИ процесса через ptrace на уровне ЯДРА — канал не
+# проходит через окружение субъекта и не может быть стёрт ничем, что субъект делает со своими
+# переменными (env -i, unset, экспортированные функции): execve — syscall, ядро сообщает о нём
+# трассирующему ДО того, как у нового образа появляется шанс исполнить хоть одну инструкцию.
+# Живой прогон на РЕАЛЬНОМ CI-раннере (ubuntu-24.04, strace 6.8, GitHub Actions, замер этого
+# круга) подтвердил переживаемость эмпирически: синтетический дочерний процесс, делающий ТОТ
+# ЖЕ `exec env -i PATH=… bash -c …`, что и check_zones.sh v6, остался под трассировкой целиком —
+# оба `git`-вызова внутри пойманы (`execve("/usr/bin/git", …)` x2 из 2 реальных), несмотря на
+# то что окружение re-exec'нутого bash сжалось со 114 переменных до 2. Локальная рабочая
+# станция strace не несёт (`command -v strace` rc=1) — измерение живёт там, где утилита
+# установлена (CI); отсюда явный NOT_IMPLEMENTED-гард на неё в шапке файла, тем же классом,
+# что уже стоит на git.
+#
+# Счёт — по PATHNAME-аргументу execve (первая строка вызова, ДО argv-массива), не по имени
+# программы в argv[0] и не по shell-уровню: субъект зовёт git через свою локальную обёртку
+# `g() { git -C "$ROOT" "$@"; }` (check_zones.sh:277) — обёртка не меняет того факта, что
+# КАЖДЫЙ вызов `g …` в итоге даёт РОВНО один execve резолвящегося через запиненный PATH
+# (/usr/bin:/bin — check_zones.sh:226) бинаря `git`; счётчик на уровне syscall агностичен к
+# shell-обёртке по построению. Якорь на закрывающую кавычку сразу после `git` отсекает
+# `gitk`, `git-upload-pack` и любого другого префиксного тёзку. ОСТАТОЧНЫЙ РИСК: `-e
+# trace=execve` не покрывает `execveat` (родственный syscall того же семейства) — ни bash,
+# ни git в этом стеке им не пользуются (проверено тем же живым прогоном), но интерпретатор с
+# иным путём запуска в будущем это предположение может снять; чинить по факту появления, не
+# заранее.
 run_trace() {
   local R="$1" TRACE
   TRACE="$WORK/trace.$RANDOM.$$"
   : > "$TRACE"
-  OUT="$(env SHELLOPTS=xtrace BASH_XTRACEFD=9 bash "$CZ" "$R" 2>&1 9>"$TRACE")"; RC=$?
-  CALLS="$(grep -cE '^\+{1,} git ' "$TRACE")"
+  OUT="$(strace -f -e trace=execve -o "$TRACE" bash "$CZ" "$R" 2>&1)"; RC=$?
+  CALLS="$(grep -cE 'execve\("([^"]*/)?git", \[' "$TRACE")"
 }
 
 # ── дерево LOW ────────────────────────────────────────────────────────────
