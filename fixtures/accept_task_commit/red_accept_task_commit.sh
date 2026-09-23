@@ -16,6 +16,12 @@
 #   * п4 (несуществующая целевая ветка) — стаб «создаёт ветку сам, если её
 #     нет» умирает здесь: ожидание именованный отказ, стаб — молчаливое
 #     создание.
+#   * п5 (Б3 критика contracts-037-v1.md: смешанный диапазон, ВНУТРЕННИЙ
+#     коммит чужой, tip корректен) — стаб «проверяет автора только
+#     FETCH_HEAD/tip, не каждый коммит диапазона» умирает здесь: ожидание
+#     rc≠0 и ветка НЕ сдвинута ЦЕЛИКОМ (М2:225-228 «КАЖДЫЙ»), стаб — rc0 и
+#     весь диапазон (включая чужой внутренний коммит) cherry-pick-нут, ровно
+#     класс дня 029-031 внутри range вместо tip.
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/scripts/accept_task_commit.sh"
@@ -50,7 +56,22 @@ printf 'z\n' > "$SRC_BAD/h.txt"
 git -C "$SRC_BAD" add h.txt
 git -C "$SRC_BAD" -c user.name=critic -c user.email=critic@dev-harness.local -c commit.gpgsign=false commit -qm 'wrong author'
 
-ORDER=(п1 п2 п3 п4)
+# ── SRC_MIXED: смешанный диапазон — ВНУТРЕННИЙ коммит чужой, tip корректен ──
+# (Б3 критика contracts-037-v1.md: доказывает М2:225-228 «КАЖДЫЙ коммит
+# диапазона», не только FETCH_HEAD/tip — критик: «источник base ->
+# commit(critic) -> commit(implementer) принимается целиком при
+# --author implementer» на tip-only проверке).
+SRC_MIXED="$TOY/src-mixed"
+git clone -q "$MAIN" "$SRC_MIXED" 2>/dev/null
+git -C "$SRC_MIXED" checkout -q -b work
+printf 'p\n' > "$SRC_MIXED/p.txt"
+git -C "$SRC_MIXED" add p.txt
+git -C "$SRC_MIXED" -c user.name=critic -c user.email=critic@dev-harness.local -c commit.gpgsign=false commit -qm 'internal wrong author'
+printf 'q\n' > "$SRC_MIXED/q.txt"
+git -C "$SRC_MIXED" add q.txt
+git -C "$SRC_MIXED" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'tip correct author'
+
+ORDER=(п1 п2 п3 п4 п5)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() { RAN["$1"]=1; ST["$1"]=1; printf 'КРАСНОЕ 037: ветвь «%s» — %s\n' "$1" "$2" >&2; }
@@ -97,6 +118,21 @@ if [ -x "$SUBJ" ]; then
   case "$out4" in
     *"не существует"*) ;;
     *) fail п4 "reason не называет отсутствие ветки: $out4" ;;
+  esac
+
+  # ── п5: СМЕШАННЫЙ диапазон — tip корректен, ВНУТРЕННИЙ коммит чужой ────────
+  # (Б3: М2:225-228 требует КАЖДЫЙ коммит диапазона; различает "проверка
+  # только tip/FETCH_HEAD" от "проверка каждого коммита диапазона").
+  before_tip5="$(git -C "$MAIN" rev-parse wip/201/implementer)"
+  out5="$("$SUBJ" --root "$MAIN" --source "$SRC_MIXED" --branch wip/201/implementer --author implementer 2>&1)"; rc5=$?
+  after_tip5="$(git -C "$MAIN" rev-parse wip/201/implementer)"
+  ok п5
+  if [ "$rc5" -eq 0 ] || [ "$after_tip5" != "$before_tip5" ]; then
+    fail п5 "смешанный диапазон принят по tip-only проверке (rc=$rc5, before=$before_tip5, after=$after_tip5, вывод: $out5)"
+  fi
+  case "$out5" in
+    *critic*) ;;
+    *) fail п5 "reason не называет фактического автора critic внутреннего коммита: $out5" ;;
   esac
 fi
 

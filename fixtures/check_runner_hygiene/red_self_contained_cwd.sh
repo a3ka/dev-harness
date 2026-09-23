@@ -42,7 +42,7 @@
 #   * п6 (регресс 025: пустой null-allowlist жив) — контроль, зелёный ДО
 #     и ПОСЛЕ.
 set -uo pipefail
-ROOT="${1:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
 
 if [ ! -f "$SUBJ" ]; then
