@@ -94,3 +94,20 @@ gc:agent-branches = команда записи: сносит слитые wip/*
 команда: cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh" = копия раннера анти-плацебо в mktemp-корень сам-тестов (арбитраж 020 c8aaa67, замер 5): раннер ЗАМОРОЖЕН в этом круге — копия, не правка; рецепт замера 5
 команда: cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/" = копия 23 фикстур сам-тестов раннера в mktemp-корень (арбитраж 020 c8aaa67, замер 5): раннер гоняет ТОЛЬКО фикстуры из корня — `fixtures/verify_antiplacebo/case_*.sh`; рецепт замера 5
 команда: npm run check:antiplacebo -- "$TMP_ROOT" = сам-тесты раннера анти-плацебо на минимальном mktemp-корне, аргумент — путь корня; оплата предписана арбитражем c8aaa67
+# ──────────────────────────────────────────────────────────────────────────────
+# Сам-тесты барьера check_threat_model (контракт 041). Раннер
+# `fixtures/_krasnye_041.sh` — бесПОШТУЧНЫЙ (каждый case_*.sh само-верифицирующий,
+# без протокола `# ПРИЧИНА:` шардового раннера verify_antiplacebo, scripts/verify_antiplacebo.sh:611-614).
+# Включение `check_threat_model` в `keys:` любого шарда сразу красит этот шард на
+# тех же 10 файлах: scope_select принимает ключ (после правки шапки check_threat_model.sh
+# архитектором), шардовый раннер требует `# ПРИЧИНА:`, которого в этих case_*.sh нет.
+# Переписывать 10 case под чужой протокол вне контракта 041; покрытие — ОТДЕЛЬНЫМ
+# шагом CI вне matrix (аналог `verify_antiplacebo` SELF_COVERED_KEYS, арбитраж c8aaa67).
+# Ключ `check_threat_model` в SELF_COVERED_KEYS, шаг джобы `ci` «Сам-тесты барьера
+# check_threat_model (контракт 041)» запускает `npm run check:threat-model-selftest`
+# на каждом пуше. full-прогон анти-плацебо этого ключа отвергнут самой архитектурой
+# 041 (dogfood-семья case_*.sh писалась под бесПОШТУЧНЫЙ раннер, не под scope-селектор).
+# (команда: npm run check:threat-model-selftest НЕ объявлена — она покрыта
+# правилом 6 verify_ci_parity.sh:1062-1068 как `npm run <NAME>`, где NAME есть
+# ключом в scripts/ package.json; объявление здесь сделало бы её «недостижимой»
+# по :1373 «команда есть пункт приёмки».)

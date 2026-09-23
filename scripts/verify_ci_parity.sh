@@ -1152,8 +1152,8 @@ done < <(printf '%s\n' "${!EXC_SCRIPT[@]}" | sort)
 #
 # Сейчас два ключа вне шардного разбиения (UNSCOPABLE_KEYS) с разными причинами
 # (образец — `check_metering`: Н-103 + слово владельца + cognitive-only компенсация)
-# и один ключ с покрытием отдельным шагом вне matrix (SELF_COVERED_KEYS) — `verify_antiplacebo`,
-# см. арбитраж c8aaa67, §Решение п.2:
+# и два ключа с покрытием отдельным шагом вне matrix (SELF_COVERED_KEYS) — `verify_antiplacebo`
+# и `check_threat_model` (контракт 041), см. арбитраж c8aaa67, §Решение п.2 (прецедент для verify_antiplacebo):
 #   `verify_antiplacebo` — сам-раннер анти-плацебо, НЕ БАРЬЕР по шапке.
 #     Шапка `scripts/verify_antiplacebo.sh` одновременно содержит «Коды возврата:»
 #     и «НЕ БАРЬЕР:» (последний — пример грамматики в документации); `header_role`
@@ -1174,6 +1174,35 @@ done < <(printf '%s\n' "${!EXC_SCRIPT[@]}" | sort)
 #     матрицу); full-прогон отсутствует по дизайну (Н-48: дорого и не
 #     масштабируется). Каталог `fixtures/verify_antiplacebo/` (23 case) остаётся,
 #     покрытие — сам-тест-шагом, а не шардным анти-плацебо.
+#   `check_threat_model` (контракт 041) — обычный барьер ПО ШАПКЕ (после правки
+#     архитектором шапки `scripts/check_threat_model.sh`: добавлена каноническая
+#     строка `# Коды возврата: …` для classify() — коммит «041: …шапка» в истории),
+#     `is_barrier` отдаёт «b», ключ проходит селектор. НО его 10 case_*.sh
+#     (`fixtures/check_threat_model/case_01…case_10_self_application_on_041.sh`)
+#     написаны для БЕСПОШТУЧНОГО раннера `fixtures/_krasnye_041.sh` — каждый
+#     case_*.sh само-верифицирующий (печатает таблицу, агрегат, rc=0 в зелёном)
+#     и НЕ несёт шапку `# ПРИЧИНА: <подстрока вывода барьера>`, которую ОБЯЗАТЕЛЬНО
+#     требует стандартный case-протокол шардового раннера
+#     (`scripts/verify_antiplacebo.sh:611-614`, инвариант «каждый case объявляет
+#     подстроку rc=1 вывода барьера»). Включение `check_threat_model` в `keys:`
+#     любого шарда (ap1…ap5) окрашивает этот шард на тех же 10 файлах: классификатор
+#     зелёный, scope_select принимает ключ, шардовый прогон verify_antiplacebo
+#     требует `# ПРИЧИНА:`, которого в этих case_*.sh нет — 10 FAIL по формату
+#     протокола, без касательства к честности барьера. Переписывать 10 case под
+#     чужой им протокол ВНЕ предмета контракта 041 (догфуд-семья раннера писалась
+#     ДО появления шардового анти-плацебо); покрытие — ОТДЕЛЬНЫМ шагом сам-тестов
+#     по аналогии с `verify_antiplacebo`. Шаг джобы `ci`
+#     «Сам-тесты барьера check_threat_model (контракт 041)» запускает
+#     `npm run check:threat-model-selftest` (= `bash fixtures/_krasnye_041.sh`)
+#     на каждом пуше; раннер ЗАМОРОЖЕН в этом круге — копия не нужна, прогон на
+#     живом дереве (10 case_*.sh используют mktemp-корни внутри, не мутируют
+#     стерегомое дерево). Оплата шага — записью в `config/ci_parity_exceptions.txt`
+#     (та же механика, что у `verify_antiplacebo` SELF_COVERED, арбитраж c8aaa67).
+#     Каталог `fixtures/check_threat_model/` (10 case) остаётся, покрытие — сам-тест-
+#     шагом, а не шардным анти-плацебо. Ключ `check_threat_model` в
+#     SELF_COVERED_KEYS, без ключа в `keys:` шарда; full-прогон отсутствует по
+#     дизайну (Н-48: дорого и не масштабируется) + та же причина, что у
+#     `verify_antiplacebo` — исполнение раннера на дереве есть прогон сам-тестов.
 #   `gen-harness` — TS-барьер без `.sh`. `scripts/gen-harness.ts` (TypeScript), сам
 #     барьер по шапке (`Коды возврата: 0 — …, 1 — …, 2 — …`); фикстуры `fixtures/
 #     gen-harness/case_*.sh` (2 case) есть. `scope_select.sh` пытается открыть
@@ -1213,7 +1242,7 @@ done
 # компенсация scoped-прогонов) и перенос в SELF_COVERED_KEYS — арбитраж c8aaa67,
 # §Решение п.2: покрытие обеспечено отдельным шагом сам-тестов на минимальном
 # mktemp-корне.
-SELF_COVERED_KEYS=(verify_antiplacebo)
+SELF_COVERED_KEYS=(verify_antiplacebo check_threat_model)
 declare -A IS_SELF_COVERED=()
 for k in "${SELF_COVERED_KEYS[@]}"; do
   IS_SELF_COVERED["$k"]=1

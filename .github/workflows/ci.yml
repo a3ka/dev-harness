@@ -128,6 +128,21 @@ jobs:
           cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
           npm run check:antiplacebo -- "$TMP_ROOT"
 
+      - name: Сам-тесты барьера check_threat_model (контракт 041)
+        # Сам-тестовый ключ `check_threat_model` (SELF_COVERED_KEYS в
+        # scripts/verify_ci_parity.sh:1245, прецедент `verify_antiplacebo` выше):
+        # 10 case_*.sh в fixtures/check_threat_model/ написаны для БЕСПОШТУЧНОГО
+        # раннера fixtures/_krasnye_041.sh (dogfood-семья контракта 041) — каждый
+        # case само-верифицирующий, без шапки `# ПРИЧИНА:`, которую требует
+        # стандартный case-протокол шардового verify_antiplacebo (scripts/verify_antiplacebo.sh:611-614).
+        # Переписывать 10 case под чужой протокол вне контракта 041. Покрытие —
+        # ОТДЕЛЬНЫМ шагом CI вне matrix (как `verify_antiplacebo`): раннер ЗАМОРОЖЕН
+        # в этом круге, прогон на живом дереве (каждый case_*.sh строит mktemp-корень
+        # внутри, не мутирует стерегомое дерево). rc-команда закрывает пункт приёмки
+        # шага (правило 6). Оплата — запись `check:threat-model-selftest = <причина>`
+        # в config/ci_parity_exceptions.txt.
+        run: npm run check:threat-model-selftest
+
       - name: Проба слабых реализаций меры параллельности (контракт 021, И-7)
         # Условие V2 контракта 021 (Н-43): проба — не on-demand. CI обязан гонять её на
         # каждом пуше, иначе честность меры проверяется только в момент сдачи пачки и
