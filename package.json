@@ -60,7 +60,7 @@
     "check:spec-ready": "bash scripts/check_spec_ready.sh",
     "check:provodka": "bash scripts/check_provodka.sh",
     "done:contract": "bash scripts/done_contract.sh",
-    "check:precision-gate": "bash scripts/check_precision_gate.sh .",
+    "check:precision-gate": "bash scripts/check_precision_gate.sh . contracts/043-precizionnyj-prefriz-gejt.md",
     "check:consumers": "bash scripts/check_consumers.sh",
     "check:provodka-family-selftest": "EXPECT_RC=0 bash fixtures/_krasnye_038.sh"
   }
