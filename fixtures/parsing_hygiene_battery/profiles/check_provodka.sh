@@ -31,42 +31,51 @@ battery_delimiter_collision() {
     return 1
   fi
 
-  # (б, генерализация verdicts/adversary/contracts-041-parsing-hygiene.md
-  # НА ВТОРОЙ гард батареи — адверсарий проверял ТОЛЬКО check_threat_model
-  # профиль; ТА ЖЕ дисциплина применена здесь, даже БЕЗ живого обхода: 038
-  # УЖЕ несёт параллельные массивы с круга 12, регресс не ожидается, но
-  # сила самой батареи обязана расти симметрично на ОБОИХ профилях).
-  # ДВА role-канала в ОДНОМ поле ПРОВОДКА, КАЖДЫЙ с внутренним `|` в
-  # СОБСТВЕННОЙ норма-строке, указывающие на РАЗНЫЕ role-файлы с РАЗНЫМ
-  # содержимым. Наблюдаемое доказательство, что ОБЕ записи сохранены
-  # ОТДЕЛЬНО (не только общий rc «зелёного» дерева g) — ЦЕЛЕВОЙ негативный
-  # контроль: канал №2 нарочно указывает на role-файл, чей ЖИВОЙ текст НЕ
-  # совпадает с его же норма-строкой. Честная per-канальная проверка
-  # обязана провалиться ИМЕНОВАННОЙ причиной, называющей ИМЕННО
-  # roles/fixer2.md — не roles/fixer1.md, не «строка вне грамматики». Если
-  # бы реализация join'ила «rest» обоих каналов в одну строку через `|` и
-  # восстанавливала записи split'ом (тот же класс ошибки, что нашёл
-  # адверсарий на check_threat_model), это ЛИБО смешало бы норму/путь
-  # между каналами (другое сообщение или неверный путь), ЛИБО канал №2
-  # вообще выпал бы из проверки (rc_b ошибочно 0) — оба исхода здесь
-  # ловятся.
-  local w2 g norm1 norm2 out_g rc_g out_b rc_b
-  w2="$(mktemp -d "${TMPDIR:-/tmp}/battery_pk_dc2.XXXXXX")"; g="$w2/toy"; _provodka_toy "$g"
-  norm1='Norma odna so znakom | vnutri teksta odna.'
-  norm2='Norma dva s drugim | vnutri teksta dva.'
-  printf '# role fixture 1\n\n%s\n' "$norm1" > "$g/roles/fixer1.md"
-  printf '# role fixture 2\n\n%s\n' "$norm2" > "$g/roles/fixer2.md"
-  printf '# kontrakt\n\n## Predmet\np\n\nПРОВОДКА:\n- role=roles/fixer1.md «%s»\n- role=roles/fixer2.md «%s»\n' \
-    "$norm1" "$norm2" > "$g/contracts/001-x.md"
-  out_g="$(bash "$PROVODKA_SUBJ" "$g" "contracts/001-x.md" 2>&1)"; rc_g=$?
+  # (б, генерализация verdicts/adversary/contracts-041-parsing-hygiene-v2.md
+  # — АДВЕРСАРИЙ КРУГ 2, f89c5e2). Прежняя версия этого случая закрывала
+  # РОВНО N=2 role-канала; обманная реализация круга 2 честно проверяет
+  # первые ДВА канала (не join+split — честные параллельные массивы НА
+  # ПЕРВЫХ ДВУХ индексах), но ИГНОРИРУЕТ канал №3 и далее (хардкод длины
+  # цикла, не длины поля) — на N=2 неотличима от честной (то, сколько
+  # канала прежний тест и строил); форж-канал №3 честный гард ловит
+  # (rc 1, именует roles/fixerN.md), обманный — не доходит до него
+  # (rc 0 ошибочно). Просто поднять N с 2 до другого хардкода (заранее
+  # известного адверсарию из файла) — НЕ структурный фикс, тот же класс,
+  # отложенный на следующий круг (см. отчёт architect круга 3).
+  # СТРУКТУРНЫЙ фикс: ЦИКЛ строит n3=4 role-канала (число, НЕ
+  # встречавшееся в прежних вердиктах — 1,2,3 уже «засвечены» как
+  # кандидаты хардкода читающим файл стабом), forge применяется к
+  # ПОСЛЕДНЕМУ каналу, чьё ИМЯ ВЫЧИСЛЕНО из ТОЙ ЖЕ переменной $n3
+  # (`roles/fixer${n3}.md`), а не вписано руками как "fixer2" — код,
+  # проверяющий только первые K<n3 каналов (K=2 круга 2 или ЛЮБОЙ K<4),
+  # никогда не доходит до forged N-го канала → rc 0 ошибочно, тогда как
+  # честный гард обязан упасть ИМЕННО на нём. Позитив: все n3 канала
+  # честны → rc 0 (доказывает, что легитимный вход той же формы и длины
+  # не ломается). Как и в check_threat_model, это не доказывает защиту
+  # от адверсария, заранее подбирающего cap=4, зная этот файл —
+  # фундаментальный предел example-based теста; закрывает конкретно
+  # продемонстрированный класс «cap ниже длины поля», не абсолютно любое
+  # N (см. отчёт architect).
+  local w3 g3 n3 i chnorm body3 out3g rc3g out3b rc3b lastfile
+  n3=4
+  body3=""
+  w3="$(mktemp -d "${TMPDIR:-/tmp}/battery_pk_dc3.XXXXXX")"; g3="$w3/toy"; _provodka_toy "$g3"
+  for ((i = 1; i <= n3; i++)); do
+    chnorm="Norma kanala nomer ${i} so znakom | vnutri teksta kanala ${i}."
+    printf '# role fixture %d\n\n%s\n' "$i" "$chnorm" > "$g3/roles/fixer${i}.md"
+    body3+="- role=roles/fixer${i}.md «${chnorm}»"$'\n'
+  done
+  printf '# kontrakt\n\n## Predmet\np\n\nПРОВОДКА:\n%s' "$body3" > "$g3/contracts/001-x.md"
+  out3g="$(bash "$PROVODKA_SUBJ" "$g3" "contracts/001-x.md" 2>&1)"; rc3g=$?
 
-  printf '# role fixture 2 forged\n\nSovsem drugoj tekst bez sviazi s normoj.\n' > "$g/roles/fixer2.md"
-  out_b="$(bash "$PROVODKA_SUBJ" "$g" "contracts/001-x.md" 2>&1)"; rc_b=$?
-  rm -rf "$w2"
+  lastfile="$g3/roles/fixer${n3}.md"
+  printf '# role fixture forged\n\nSovsem drugoj tekst bez sviazi s normoj poslednego kanala.\n' > "$lastfile"
+  out3b="$(bash "$PROVODKA_SUBJ" "$g3" "contracts/001-x.md" 2>&1)"; rc3b=$?
+  rm -rf "$w3"
 
-  [ "$rc_g" -eq 0 ] \
-    && [ "$rc_b" -eq 1 ] \
-    && printf '%s' "$out_b" | grep -Fq 'проводка: норма-строка не найдена в role-файле: roles/fixer2.md'
+  [ "$rc3g" -eq 0 ] \
+    && [ "$rc3b" -eq 1 ] \
+    && printf '%s' "$out3b" | grep -Fq "$(printf 'проводка: норма-строка не найдена в role-файле: roles/fixer%d.md' "$n3")"
 }
 
 battery_regex_injection() {
@@ -105,9 +114,43 @@ battery_silent_drop() {
 }
 
 battery_self_application_green() {
-  # Само-применение: check_provodka.sh на СОБСТВЕННОМ буквальном тексте
-  # контракта 038 (носителя поля ПРОВОДКА) — GREEN, без правки его кода.
+  # (а) Само-применение: check_provodka.sh на СОБСТВЕННОМ буквальном
+  # тексте контракта 038 (носителя поля ПРОВОДКА) — GREEN, без правки
+  # его кода.
   local out rc
   out="$(cd "$PROVODKA_REPO" && bash "$PROVODKA_SUBJ" "$PROVODKA_REPO" "contracts/038-provodka-done-gejt.md" 2>&1)"; rc=$?
-  [ "$rc" -eq 0 ]
+  [ "$rc" -eq 0 ] || return 1
+
+  # (б, verdicts/adversary/contracts-041-parsing-hygiene-v2.md — АДВЕРСАРИЙ
+  # КРУГ 2, f89c5e2) Обманный гард круга 2 хардкодил ИМЕННО путь
+  # `contracts/038-provodka-done-gejt.md` зашитой константой всегда-accept
+  # («self-application именно contracts/038-provodka-done-gejt.md
+  # принимает зашитой константой» — дословно из вердикта). Проверка (а)
+  # выше на ЭТОМ ЖЕ пути её не ловит ПО ПОСТРОЕНИЮ: это позитивный тест
+  # на ЗАВЕДОМО валидном содержимом — хардкод-стаб и честный гард ОБА
+  # дают rc 0 (согласны), различить их позитивом НЕЛЬЗЯ (первая версия
+  # ЭТОГО фикса, отвергнутая на живой проверке architect ДО коммита,
+  # пробовала «та же валидная ПРОВОДКА, ДРУГОЙ путь» — но это ТОЖЕ
+  # позитив: на пути, где хардкода нет, честная логика без бага отвечает
+  # «валидно» тем же согласием — переименование пути САМО ПО СЕБЕ не
+  # рождает наблюдаемого расхождения без НЕГАТИВНОГО контроля). СТРУКТУРНЫЙ
+  # фикс — НЕГАТИВНЫЙ контроль ИМЕННО НА ТОЙ ЖЕ строке пути
+  # `contracts/038-provodka-done-gejt.md`, но в СВЕЖЕМ одноразовом корне
+  # (toy-дерево, НЕ реальный репозиторий): честный гард резолвит
+  # root+path в конкретный файл и парсит его СОДЕРЖИМОЕ — ему всё равно,
+  # что путь ТЕКСТУАЛЬНО совпадает со строкой из контракта 038; стаб, у
+  # которого условие `[ "$CONTRACT_PATH" = "contracts/038-provodka-done-
+  # gejt.md" ]` не оглядывается на корень — сработает ОДИНАКОВО что на
+  # реальном репозитории, что на toy-дереве с ФОРЖЕНЫМ содержимым под тем
+  # же именем. Toy-дерево несёт role-канал, чья норма-строка НЕ совпадает
+  # с живым текстом role-файла (та же forge-дисциплина, что уже доказана
+  # в battery_delimiter_collision); честный гард обязан дать именно rc 1
+  # с именем roles/fixer.md, хардкод-по-пути — ошибочно rc 0.
+  local w4 out4 rc4
+  w4="$(mktemp -d "${TMPDIR:-/tmp}/battery_pk_selfhard.XXXXXX")"; _provodka_toy "$w4"
+  printf '# kontrakt forged self-application-path probe\n\n## Predmet\np\n\nПРОВОДКА:\n- role=roles/fixer.md «Sovershenno drugaja norma nikak ne sovpadajet s faktom v fajle.»\n' \
+    > "$w4/contracts/038-provodka-done-gejt.md"
+  out4="$(bash "$PROVODKA_SUBJ" "$w4" "contracts/038-provodka-done-gejt.md" 2>&1)"; rc4=$?
+  rm -rf "$w4"
+  [ "$rc4" -eq 1 ] && printf '%s' "$out4" | grep -Fq 'проводка: норма-строка не найдена в role-файле: roles/fixer.md'
 }
