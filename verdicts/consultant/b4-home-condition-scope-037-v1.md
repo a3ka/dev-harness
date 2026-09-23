@@ -1,4 +1,4 @@
-ПРЕДМЕТ: 037-b4-home-condition-scope
+ПРЕДМЕТ: b4-home-condition-scope-037
 МОДЕЛЬ: openai-codex/gpt-6-astra
 ВОПРОС: Критик circle 1 (verdicts/critic/contracts-037-v1.md, Б4) нашёл дыру в
 контракте 037 §Инварианты М1 п.4 (self-contained-cwd allowlist, HOME-условие):
