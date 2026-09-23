@@ -30,6 +30,17 @@
 #          названо честно, не скрыто);
 #   rc 2 — нечем проверить (нет git/контракта/NNN-грамматики/реестра/тега минта,
 #          когда нужен задаче б).
+#
+# НЕ БАРЬЕР: классификация verify_antiplacebo.sh §1 area-scan — семья
+# fixtures/check_precision_gate/ называет файлы `red_*`/`green_*` по грамматике
+# ЭТОГО ЖЕ контракта (задача б выше — красные/зелёные basename-полярности), а
+# не `case_*.sh` — конверсия в case_*-семью не выполнена (прецедент
+# drill_path_guard.sh/drill_exit_marker.sh: «red_* вне case_*-глоба раннера»,
+# «конверсия — пачка ARCHITECT после land»). Верификация — прямой прогон
+# fixtures/_krasnye_043.sh (агрегатор всех 9 сценариев Р1-Р9) и self-application
+# green_09 на РЕАЛЬНОМ contracts/043-*.md. Реальный вызов гейта — freeze_contract.sh
+# (Вариант Б) и обязательная bash-команда критика (Вариант В), не shard
+# verify_antiplacebo (решение владельца, grilling agent://FrontierPrecisionGate).
 set -uo pipefail
 export PATH=/usr/bin:/bin
 
