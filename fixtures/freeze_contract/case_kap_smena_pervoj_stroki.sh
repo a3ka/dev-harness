@@ -36,8 +36,13 @@ make_repo "$RA"
 "$BARRIER" contracts/001-x.md "контроль: один круг, один вердикт" "$RA"
 
 RB="$WORK/repo-shum"
-mkdir -p "$RB/contracts" "$RB/verdicts/critic" "$RB/tmp"
+# repo-shum строится ВРУЧНУЮ (не через make_repo — история ниже гуще одного коммита-основания),
+# поэтому вакуумный CI-паритет (см. _repo.sh: почему нужны эти три файла) дублируется здесь же.
+mkdir -p "$RB/contracts" "$RB/verdicts/critic" "$RB/tmp" "$RB/.github/workflows" "$RB/config"
 printf 'предмет, критерий готовности, РАБОТА НЕ РАЗДАЁТСЯ: кодификация\n' > "$RB/contracts/001-x.md"
+printf 'name: ci\non: push\njobs: {}\n' > "$RB/.github/workflows/ci.yml"
+printf '{"scripts": {}}\n' > "$RB/package.json"
+: > "$RB/config/ci_parity_exceptions.txt"
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$RB"
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config user.name Фикстура
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config user.email fixture@local
