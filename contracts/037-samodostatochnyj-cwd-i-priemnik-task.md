@@ -497,8 +497,8 @@ landed норма-правки orchestrator/implementer-каналом (012, 016
   структурная: М3 п.4 выше требует `isolated:true` у любого вложенного
   `_task`, которому нужна запись.
 - **Принятие узкого процедурного сужения — ОТКРЫТО, ждёт владельца.**
-  Консультант (`verdicts/consultant/037-b4-home-condition-scope-v1.md`,
-  форк `forks/037-b4-home-condition-scope.md`) не нашёл другого технического
+  Консультант (`verdicts/consultant/b4-home-condition-scope-037-v1.md`,
+  форк `forks/b4-home-condition-scope-037.md`) не нашёл другого технического
   основания различить владельца self-contained cwd от вложенного голого
   `_task` в исследованном интерфейсе `judge()`/`register()`; рекомендовал
   вариант (а) — принять процедурную модель М3 п.4 КАК ЕСТЬ при явном
