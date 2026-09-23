@@ -143,6 +143,28 @@ jobs:
         # в config/ci_parity_exceptions.txt.
         run: npm run check:threat-model-selftest
 
+      - name: Сам-тесты семьи ПРОВОДКА (контракт 038)
+        # Раннер fixtures/_krasnye_038.sh (dogfood-семья контракта 038, тот же
+        # архитектурный класс, что check_threat_model выше): 37 red_*/green_*.sh
+        # трёх барьеров (check_provodka, done_contract, check_consumers) — прямой
+        # запуск ВНЕ case_*-глоба шардового verify_antiplacebo (А-82), написаны
+        # под протокол приёмочной таблицы контракта 038, не под шардовый
+        # `# ПРИЧИНА:`-протокол. Найдено ревьюером без единого вызывающего в CI
+        # (verdicts/review/contracts-038-k1.md, Р2) — раннер жив и зелен, но не
+        # подключён. Ключи check_provodka/done_contract/check_consumers УЖЕ в
+        # шарде ap2 (30 case_*.sh) — этот шаг НЕ дублирует шард и НЕ входит в
+        # SELF_COVERED_KEYS (scripts/verify_ci_parity.sh:1245): ключи остаются
+        # покрытыми шардингом как раньше, а эта строка закрывает ОСТАЛЬНЫЕ 37
+        # предъявлений таблицы (R-/D-/C- red_*/green_*), которые шардовый
+        # раннер не видит по имени файла. EXPECT_RC=0 — режим `_krasnye_038.sh`
+        # для реализованного предмета (интерактивный режим по умолчанию — 1,
+        # для пред-предметного красного). rc-команда закрывает пункт приёмки
+        # шага (правило 6); отдельной записи в config/ci_parity_exceptions.txt
+        # не требуется — `npm run check:provodka-family-selftest` покрыт
+        # правилом 6 (:1043) как `npm run <имя>`, тот же случай, что
+        # `check:threat-model-selftest` (см. запись в конце exceptions.txt).
+        run: npm run check:provodka-family-selftest
+
       - name: Проба слабых реализаций меры параллельности (контракт 021, И-7)
         # Условие V2 контракта 021 (Н-43): проба — не on-demand. CI обязан гонять её на
         # каждом пуше, иначе честность меры проверяется только в момент сдачи пачки и
