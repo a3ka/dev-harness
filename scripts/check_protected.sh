@@ -137,9 +137,42 @@ trap 'rm -rf "$TMP"' EXIT
 # врастания. Если всё же врастёт — именное исключение того же класса, что удаление артефакта:
 # строка `ALLOW-UNPARSED-ROLE: <блоб> <причина>` в теле любого достижимого коммита.
 : > "$TMP/roleblobs"
-while IFS= read -r c; do
-  git ls-tree -r "$c" -- roles/ 2>/dev/null | awk '$4 ~ /\.md$/ { print $3 "\t" $4 }' >> "$TMP/roleblobs"
-done < <(git rev-list HEAD)
+# ОСТАТОЧНЫЙ РИСК, записан прямо: блоб, уже вросший в историю, переписью не лечится. На
+# нынешнем main таких нет (арбитраж, замер 5), будущие ловятся этим же гейтом на push до
+# врастания. Если всё же врастёт — именное исключение того же класса, что удаление артефакта:
+# строка `ALLOW-UNPARSED-ROLE: <блоб> <причина>` в теле любого достижимого коммита.
+
+# ── BATCHED roleblobs (контракт 040, §Инварианты п.5 — техника diff-tree --stdin) ─
+# Старая форма: per-commit `git ls-tree -r "$c" -- roles/` (≈N процессов; 23.538 с
+# на реальном дереве 1944 коммито-окон). Заменена на ОДИН конвейер
+#   git rev-list HEAD | git diff-tree -r --root -m --no-renames --raw --stdin \
+#     -- ':(literal)roles/'
+# `--root` обязателен (§Инварианты п.5): без него теряется путь, живущий с
+# корневого коммита и никогда не менявшийся (замер арбитра З2). `-m` обязателен:
+# без него merge-коммиты не диффятся (замер З2). `--no-renames` обязателен —
+# иначе результат зависит от `diff.renames` конфига машины читателя (та же причина,
+# что уже записана для `excuse_for`/`moved_for`). `--raw` — отдаёт mode И dst-blob
+# одной строкой, mode прямо нужен для условия «жив КАК регулярный файл». Цена —
+# ОДИН git-процесс на употребление вместо ≈1944.
+#
+# Разбор строки --raw при `--stdin` с `--root -m`: каждая запись имеет ЗАГОЛОВОК-коммит
+# (40-hex SHA одной строкой) перед блоком raw-строк `:old_mode SP new_mode SP old_blob
+# SP new_blob SP status<TAB>path`. Фильтр по `$1 ~ /^:/` отсекает SHA-заголовки.
+# Из оставшихся полей `$2` — новая mode (100644/100755 — регулярный файл; 120000/
+# 160000/040000 — симлинк/сабмодуль/каталог, отбрасываются), `$4` — new_blob, `$6` —
+# path. Остаются блобы с mode 100644/100755, имя пути матчит `\.md$` (как и в исходной
+# форме).
+: > "$TMP/roleblobs"
+git rev-list HEAD \
+  | git diff-tree -r --root -m --no-renames --raw --stdin -- ':(literal)roles/' \
+  | awk '
+      $1 ~ /^:/ && $2 ~ /^(100644|100755)$/ {
+        path = $6
+        if (path ~ /\.md$/) {
+          printf("%s\t%s\n", $4, path)
+        }
+      }
+    ' >> "$TMP/roleblobs"
 sort -u "$TMP/roleblobs" -o "$TMP/roleblobs"
 
 # Прощённые блобы — по той же форме, что разрешение на удаление: путь-в-истории плюс причина.
@@ -179,12 +212,25 @@ prefixes+=(":(literal)plans/")
 mapfile -t prefixes < <(printf '%s\n' "${prefixes[@]}" | sort -u)
 
 # ── что существовало хоть в одном достижимом коммите ──────────────────────────
-: > "$TMP/existed.raw"
-commits=0
-while IFS= read -r c; do
-  commits=$((commits + 1))
-  git ls-tree -r --name-only "$c" -- "${prefixes[@]}" >> "$TMP/existed.raw"
-done < <(git rev-list HEAD)
+# BATCHED existed.raw (§Инварианты п.5): ОДИН конвейер вместо per-commit ls-tree.
+#   git rev-list HEAD | git diff-tree -r --root -m --no-renames --name-only --stdin
+#     -- "${prefixes[@]}"
+# Те же обязательные флаги `--root -m --no-renames`. `--name-only` достаточно — для
+# `existed` нужны только пути (блобы не нужны на этом шаге; они появятся в
+# `head_blobs` ниже через `ls-tree -r HEAD`). `--stdin` сорсы явных вызовов и
+# снимает классический класс O(коммитов) пере-скана.
+#
+# Формат вывода `--name-only --stdin` при `--root -m`: SHA-заголовок перед блоком,
+# затем пути блока; пустые коммиты (без дельты) ПРОПУСКАЮТСЯ целиком. Фильтруем
+# SHA-строки (40 hex) перед `sort -u`, чтобы они НЕ попали в `$TMP/existed` —
+# иначе `comm -23` сольёт их с `$TMP/head` (путями) и `missing` засорится блобами
+# (наблюдалось на этом дереве; см. также риск 2 §Приёмка Р2 — лишнее про «без
+# --root» — там же).
+commits="$(git rev-list HEAD | wc -l | tr -d ' ')"
+git rev-list HEAD \
+  | git diff-tree -r --root -m --no-renames --name-only --stdin -- "${prefixes[@]}" \
+  | grep -v '^[0-9a-f]\{40\}$' \
+  > "$TMP/existed.raw"
 sort -u "$TMP/existed.raw" > "$TMP/existed"
 git ls-tree -r --name-only HEAD -- "${prefixes[@]}" | sort -u > "$TMP/head"
 # Множество блобов на HEAD — для проверки «блоб B жив на HEAD хотя бы под одним путём КАК
