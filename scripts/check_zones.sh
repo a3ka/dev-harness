@@ -47,6 +47,19 @@
 # репозиторий, то есть его коммиты пересматриваются на приёмке пачки. Ужесточение — подписанные
 # коммиты со сверкой ключа и имени — включается словом владельца.
 #
+# ВТОРОЙ ОСТАТОЧНЫЙ РИСК, тоже `cognitive-only` (арбитраж 040-II, Граница v4 п.6:
+# verdicts/arbitration/contracts-040-batching-dostatochnost-oraculu.md): доверенный PATH
+# (см. ниже) закрывает ПОЛНОТУ batched-вывода (сверка множеств ключей — author_map/
+# paths_raw guards ниже), но НЕ его ПОДЛИННОСТЬ. Подмена `/usr/bin/git` (root-доступ,
+# скомпрометированный пакет) либо неподписанные коммиты с произвольным содержимым —
+# барьером не проверяются по построению; три независимых замера арбитра (З-B/З-C/З-D)
+# доказали, что этот класс НЕ закрывается никакой проверкой ВНУТРИ барьера — сверщик сам
+# живёт в TCB того же PATH, что и потенциально подменённый инструмент, а входное
+# множество (`git rev-list`) фальсифицируемо ниже по течению от любой сверки. Чек-лист
+# А-223 (NABLIUDENIA_ARCHITECT.md): «rc + сверка множеств ключей, И НЕ БОЛЬШЕ —
+# подлинность содержимого не предмет вывода-арифметики, предмет границы доверия».
+# Ужесточение (signed commits) — словом владельца, как и у риска `user.name` выше.
+#
 # Merge-коммиты пропускаются; их содержимое — предмет ревью.
 #
 # РЕФАКТОРИНГ (контракт 016, срез 1): чтение замороженных контрактов и ЗОНА-строк ВЫНЕСЕНО в
@@ -64,6 +77,35 @@ set -euo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+# ДОВЕРЕННЫЙ PATH — ДО ПЕРВОЙ ВНЕШНЕЙ КОМАНДЫ (арбитраж 040-II, Граница v4 п.1:
+# verdicts/arbitration/contracts-040-batching-dostatochnost-oraculu.md; та же доктрина,
+# что check_protected.sh:66-95 с контракта 039). Три круга адверсария на A2-батчинге
+# предъявляли PATH-spy — подменённый `git`, резолвящийся через унаследованный $PATH, с
+# константным автором либо усечённым выводом; арбитр независимо измерил (З-E): под
+# тотальным git-саботажником check_protected.sh продолжает работать (PATH запинен, ноль
+# вызовов спая), а ЭТОТ барьер падал (PATH не был запинен). Вектор закрывает ЛЮБУЮ
+# внешнюю утилиту ниже, не только git. Фиксируем PATH здесь, ДО первого внешнего вызова
+# (`dirname` при вычислении SELF_DIR ниже) — и проверяем наличие КАЖДОЙ употребляемой в
+# ЭТОМ файле утилиты по имени: отсутствие даёт именной rc=2, а не необъяснённый крах.
+# ОСТАТОЧНЫЙ РИСК подлинности вывода при живом PATH — см. выше, рядом с риском `user.name`.
+export PATH=/usr/bin:/bin
+
+skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+command -v dirname >/dev/null 2>&1 || skip "нет dirname в доверенном PATH — путь скрипта нечем вычислить"
+command -v git     >/dev/null 2>&1 || skip "нет git в доверенном PATH — историю коммитов нечем читать"
+command -v awk     >/dev/null 2>&1 || skip "нет awk в доверенном PATH — разбор зон, авторов и путей нечем вести"
+command -v sed     >/dev/null 2>&1 || skip "нет sed в доверенном PATH — хунк-парсер минт-дельты нечем вести"
+command -v grep    >/dev/null 2>&1 || skip "нет grep в доверенном PATH — фильтрацию строк нечем вести"
+command -v sort    >/dev/null 2>&1 || skip "нет sort в доверенном PATH — множества коммитов и авторов нечем упорядочить"
+command -v tr      >/dev/null 2>&1 || skip "нет tr в доверенном PATH — служебную очистку строк нечем вести"
+command -v wc      >/dev/null 2>&1 || skip "нет wc в доверенном PATH — счёт строк нечем вести"
+command -v mktemp  >/dev/null 2>&1 || skip "нет mktemp в доверенном PATH — скратч-каталог нечем создать"
+command -v mkdir   >/dev/null 2>&1 || skip "нет mkdir в доверенном PATH — tmp/ нечем создать"
+command -v cp      >/dev/null 2>&1 || skip "нет cp в доверенном PATH — вывод zones_load нечем скопировать"
+command -v rm      >/dev/null 2>&1 || skip "нет rm в доверенном PATH — скратч нечем убрать"
+command -v mv      >/dev/null 2>&1 || skip "нет mv в доверенном PATH — промежуточные файлы нечем переименовать"
+command -v comm    >/dev/null 2>&1 || skip "нет comm в доверенном PATH — разность судимых и исключённых коммитов нечем считать"
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEXT_ID_LIB=1
@@ -303,7 +345,12 @@ while IFS=$'\t' read -r nnn since; do
   # Линейный rev-list (как раньше) — для контрактов с ЗАКРЫТЫМИ окнами и
   # без чужих wip/<OTHER>/… merge'ей даёт ту же сводку (регресс-инвариант
   # ветви Г; для 017/019 merge'и без `land:` маркера тоже остаются).
-  g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  if ! g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null; then
+    printf 'ОТКАЗ: git rev-list --no-merges --reverse отказал (контракт %s, диапазон %s) — список судимых коммитов окна недоступен.\n' "$nnn" "$range" >&2
+    printf 'Лечится: диагностируйте git-окружение (PATH, версия git, доступность объектной базы) и повторите прогон.\n' >&2
+    printf 'Без списка коммитов окно стало бы пусто-зелёным — это дороже красного (прецедент case_reestr_nedostupen, тот же класс, что круг 1 контракта 040, арбитраж 040-II п.3).\n' >&2
+    exit 1
+  fi
   # Исключаем коммиты, принесённые ЧУЖИМИ wip-merge'ями (`land: wip/<OTHER>/…`):
   # в последовательной истории таких нет, регресс закрытых контрактов
   # держится; в открытом окне с cross-track касанием они уходят. Merge'и
@@ -447,17 +494,60 @@ while IFS=$'\t' read -r nnn since; do
   ' "$TMP/authors" "$TMP/author_map" > "$TMP/matched_commits"
 
   # 2. БATCHED diff-tree (вместо per-commit diff-tree): один git-вызов на ОКНО.
-  #    Без `--no-commit-id` (default) — формат «SHA\npath1\n…\nsha2\npath1\n…»; пустой
-  #    коммит (например, корневой с 0 путями) ПРОПУСКАЕТСЯ без вывода — точно как
-  #    и в per-commit-форме, для которой `git diff-tree --no-commit-id --name-only <root>`
-  #    даёт 0 путей. `--no-renames` — для детерминизма относительно `diff.renames`
-  #    конфига машины читателя (та же причина, что уже записана в
+  #    `--always` (арбитраж 040-II, Граница v4 п.2: verdicts/arbitration/
+  #    contracts-040-batching-dostatochnost-oraculu.md, замер З-A) печатает SHA-заголовок
+  #    ДЛЯ КАЖДОГО входного SHA, включая root и коммит с нулевым диффом против родителя —
+  #    без этого флага такой коммит пропускался БЕЗ заголовка вовсе, и «SHA отсутствует в
+  #    paths_raw» было структурно неразличимо между «легитимно пустой/root коммит» и
+  #    «обрезан атакой» (незакрытый сосед-риск А-223, назван architect'ом в круге 2, не
+  #    адверсарием). С `--always` пути такого коммита остаются 0 строк (per-commit-
+  #    семантика «0 путей» сохранена байт-в-байт, замер З-A) — меняется ТОЛЬКО
+  #    присутствие заголовка. `--no-renames` — для детерминизма относительно
+  #    `diff.renames` конфига машины читателя (та же причина, что уже записана в
   #    check_protected.sh для `excuse_for`/`moved_for`).
   if [ -s "$TMP/matched_commits" ]; then
-    g diff-tree -r --no-renames --name-only --stdin \
+    g diff-tree -r --no-renames --name-only --always --stdin \
       < "$TMP/matched_commits" > "$TMP/paths_raw"
   else
     : > "$TMP/paths_raw"
+  fi
+
+  # ── A2 paths_raw completeness guard (арбитраж 040-II, Граница v4 п.2) ──────────
+  # Тот же паттерн, что author_map completeness guard выше (круг 2 адверсария): успешный
+  # (rc=0) batched-вызов НЕ доказывает ПОЛНЫЙ вывод — усечение потока после произвольного
+  # блока (находка (б) круга 3, verdicts/adversary/contracts-040-oracle-a2-diff-tree-v2.md)
+  # даёт rc=0 с частью заголовков отсутствующей. С `--always` (выше) разбор блоков
+  # (`/^[0-9a-f]{40}$/`, см. цикл ниже) остаётся байт-в-байт, а неоднозначность «нет
+  # заголовка» снята: КАЖДЫЙ SHA из `$TMP/matched_commits` обязан иметь РОВНО ОДИН
+  # заголовок в `$TMP/paths_raw`. Судимое множество merge-коммитов не содержит (окно
+  # строится `--no-merges` — см. обход коммитов выше), поэтому «ровно один» корректно
+  # определён без дополнительных оговорок про merge-повторы. Сверх missing/dup (как у
+  # author_map) — ещё и EXTRA: заголовок в выводе, которого нет во входном множестве —
+  # именно так адверсарий мог бы сдвинуть границу чужого блока. Несовпадение (нехватка,
+  # задвоение ИЛИ лишний) — ТОТ ЖЕ именованный fail-closed класс и код возврата, что явный
+  # отказ команды и author_map-сверка: один симптом того же корня («batched-вывод путей
+  # окна недостоверен»). Ноль дополнительных git-вызовов — сверка идёт по уже полученным
+  # файлам этого же окна.
+  awk '
+    NR == FNR { if ($0 != "") want[$0] = 1; next }
+    /^[0-9a-f]{40}$/ { seen[$0]++ }
+    END {
+      missing = 0; dup = 0; extra = 0
+      for (s in want) {
+        if (!(s in seen))      missing++
+        else if (seen[s] != 1) dup++
+      }
+      for (s in seen) { if (!(s in want)) extra++ }
+      printf("%d\t%d\t%d\n", missing, dup, extra)
+    }
+  ' "$TMP/matched_commits" "$TMP/paths_raw" > "$TMP/paths_raw_completeness"
+  IFS=$'\t' read -r missing_paths dup_paths extra_paths < "$TMP/paths_raw_completeness"
+  if [ "${missing_paths:-0}" -gt 0 ] || [ "${dup_paths:-0}" -gt 0 ] || [ "${extra_paths:-0}" -gt 0 ]; then
+    printf 'ОТКАЗ: batched git diff-tree --stdin вернул неполный/искажённый поток (контракт %s, диапазон %s) — %s SHA без заголовка путей, %s SHA с более чем одним заголовком, %s лишних заголовков без судимого SHA; список путей окна недостоверен.\n' \
+      "$nnn" "$range" "${missing_paths:-0}" "${dup_paths:-0}" "${extra_paths:-0}" >&2
+    printf 'Лечится: диагностируйте git-окружение (PATH, версия git, доступность объектной базы) и повторите прогон.\n' >&2
+    printf 'Частичный, но синтаксически валидный успешный вывод опаснее явного отказа — недостающий/лишний заголовок сделал бы нарушителя невидимым либо исказил границы блока (verdicts/adversary/contracts-040-oracle-a2-diff-tree-v2.md, находка (б); арбитраж 040-II п.2).\n' >&2
+    exit 1
   fi
 
   # Счётчик `commits` ниже считает коммиты, дошедшие ДО author-фильтра (как и

@@ -63,8 +63,6 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 
 fail() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 
-GITREAL="$(command -v git)"
-
 # ── параметры (Б1, калибровка З4) ──────────────────────────────────────────
 K=12
 M=60
@@ -139,34 +137,33 @@ build_tree() {
   g -c user.name=agent03 -c user.email=agent03@local commit -q -m 'agent03 пишет в чужую зону'
 }
 
-# run_spycount <repo> — прогоняет check_zones.sh через git-шпиона (приём
-# fixtures/check_runner_hygiene/red_pin_spawn_zadanie.sh); заполняет глобальные
-# RC/OUT/CALLS для ЭТОГО прогона.
-run_spycount() {
-  local R="$1" SPY COUNTFILE
-  SPY="$WORK/spy.$RANDOM.$$"; mkdir -p "$SPY"
-  COUNTFILE="$WORK/count.$RANDOM.$$"
-  : > "$COUNTFILE"
-  cat > "$SPY/git" <<EOF
-#!/bin/sh
-printf 'x' >> "$COUNTFILE"
-exec "$GITREAL" "\$@"
-EOF
-  chmod 755 "$SPY/git"
-  OUT="$(PATH="$SPY:$PATH" bash "$CZ" "$R" 2>&1)"; RC=$?
-  CALLS="$(wc -c < "$COUNTFILE" | tr -d ' ')"
+# run_trace <repo> — прогоняет check_zones.sh под внешней трассировкой (арбитраж 040-II,
+# Граница v4 п.1: verdicts/arbitration/contracts-040-batching-dostatochnost-oraculu.md).
+# check_zones.sh теперь САМ делает `export PATH=/usr/bin:/bin` до первой внешней команды —
+# любой PATH-шим (прежняя форма этой функции, PATH-spy) стирается ЭТОЙ строкой субъекта,
+# тем же классом, что уже решён для check_protected.sh: приём `check_spec_ready.sh:246-253`
+# / `fixtures/check_protected/red_predel_git_vyzovov_ours.sh:106-114`. `SHELLOPTS=xtrace
+# BASH_XTRACEFD=9` заставляет ДОЧЕРНИЙ bash трассировать СРАЗУ на старте, ДО собственного
+# `set -euo pipefail` субъекта, независимо от того, что субъект делает с PATH —
+# трассировка логирует КОМАНДУ КАК НАПИСАНО. Заполняет глобальные RC/OUT/CALLS.
+run_trace() {
+  local R="$1" TRACE
+  TRACE="$WORK/trace.$RANDOM.$$"
+  : > "$TRACE"
+  OUT="$(env SHELLOPTS=xtrace BASH_XTRACEFD=9 bash "$CZ" "$R" 2>&1 9>"$TRACE")"; RC=$?
+  CALLS="$(grep -cE '^\+{1,} git ' "$TRACE")"
 }
 
 # ── дерево LOW ────────────────────────────────────────────────────────────
 R_LOW="$WORK/repo-low"
 build_tree "$L_LOW" "$R_LOW"
-run_spycount "$R_LOW"
+run_trace "$R_LOW"
 RC_LOW="$RC"; OUT_LOW="$OUT"; CALLS_LOW="$CALLS"
 
 # ── дерево HIGH ───────────────────────────────────────────────────────────
 R_HIGH="$WORK/repo-high"
 build_tree "$L_HIGH" "$R_HIGH"
-run_spycount "$R_HIGH"
+run_trace "$R_HIGH"
 RC_HIGH="$RC"; OUT_HIGH="$OUT"; CALLS_HIGH="$CALLS"
 
 # ── ассерт 1: нарушение ОБЯЗАНО быть поймано НА ОБОИХ деревьях (Б1 п.4) ─────
