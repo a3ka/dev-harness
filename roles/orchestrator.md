@@ -306,3 +306,9 @@ omp — жёсткий wall-clock обрыв субагента встроен �
 Норма-строка (ПРОВОДКА roles/orchestrator.md, заморожена 038/1):
 
 До done/тега прогони done_contract.sh; ручной git tag done/… — обход гейта.
+
+## Ceremony кодового `_task`-дозвона (контракт 037)
+
+Норма-строка (ПРОВОДКА roles/orchestrator.md, заморожена 037/1):
+
+Кодовый _task-дозвон несёт ceremony-инструкцию: isolated:true для architect/implementer-пачек, scripts/accept_task_commit.sh для материализации результата голого _task на wip-ветку, прямая запись в общий чекаут из unpinned-сессии остаётся запрещённой.
