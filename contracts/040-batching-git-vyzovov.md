@@ -27,6 +27,29 @@ HIGH=6376, дифференциал 4680>15 — живой прогон ниже
 круга 1 (грамматика ПРОВОДКА, закрыта живым rc=0), форма Р7 без маскирующего
 `echo`, счёт фикстур 21/20 и выбор `case_*.sh`.
 
+**v2 — Пин Р8 обновлён на architect-коммит `b38e78ac1e353be132cda2abbe6152b03fa9c275`
+(закрытие Б2, ревьюер круг 1: `verdicts/review/contracts-040-k1.md`, `d23086f`).**
+Между прежним пином (`1b67f790…`) и подготовкой этой правки запиненное
+пространство §Инварианты п.11 тронули ДВА architect-коммита подряд, ни один
+не обновил сам пин: `fac8fe6` (круг v4, доверенный PATH, исполнение Границы
+v4 арбитража 040-II — это и есть находка Б2) и `b38e78a` (круг Б1 ТОГО ЖЕ
+ревьюерского вердикта: `red_predel_git_vyzovov.sh` переведён на внешнюю
+`strace -f -e trace=execve`-трассировку взамен `SHELLOPTS=xtrace`,
+стираемого `env -i` re-exec'ом субъекта — закрывает измерительный дефект Б1
+ИЗ ТОГО ЖЕ вердикта). Норма (§Зоны, дословно) требует обновления пина ТЕМ
+ЖЕ коммитом: «правка или добавление в них легальны ТОЛЬКО новым
+architect-кругом, обновляющим и сам пин Р8» — не исполнено ни разу.
+Диспенсации не было ни в одном из трёх арбитражей контракта (ревьюер
+сверил все три целиком); необходимость самих правок (`fac8fe6`, `b38e78a`)
+не оспаривается ни одной стороной — владелец решил: не арбитраж, а прямая
+правка-катчап текста новой версией. Живой архивный поиск по всей истории 8
+запиненных глобов подтверждает: `b38e78a` — ПОСЛЕДНИЙ коммит, реально
+тронувший хоть один из них на момент подготовки этой правки (§Приёмка Р8,
+живой прогон ниже). Единственный тронутый ЭТОЙ правкой файл — сам контракт
+(преамбула §Приёмка, строка Р8 таблицы, раздел «Живой прогон Р8»);
+`scripts/`, `fixtures/` не трогаются, новый architect-круг фикстур не
+открывается.
+
 ## Предмет
 
 Н-126 (`NABLIUDENIA.md`, коммит `90a5d73`): `check_zones.sh` — O(контракты×коммиты)
@@ -361,11 +384,13 @@ DAG reachability на графе ~2000 узлов БЕЗ дополнитель�
 Все команды — из корня дерева. rc указан как приёмочное значение (канон 008,
 §Инварианты п.0); где нужен вывод — подстрока указана дословно. Пин
 пространства имён (§Инварианты п.11) — architect-коммит
-`1b67f790fd922b2248622a289ec29ad7889826de` (круг v3-fix — фикс находок
-И1/И2 critic `contracts-040-v3.md` (`1934156`): джоба-уровневый
-continue-on-error и блочный needs-список в
-`probe_ci_dostizhimost_predelov.sh`; поверх пина
-`f0b6de662d4826ed1707f2b97fef1c8aeeb06435`, живо подтверждено ниже).
+`b38e78ac1e353be132cda2abbe6152b03fa9c275` (круг Б1 ревьюера круга 1:
+`red_predel_git_vyzovov.sh` переведён на внешнюю `strace -f -e
+trace=execve` трассировку взамен `SHELLOPTS=xtrace`, стираемого `env -i`
+re-exec'ом субъекта; пин на этот коммит поднят v2-амендментом текста
+контракта, закрывающим Б2 того же вердикта — см. преамбулу «v2 —» выше);
+поверх пина `1b67f790fd922b2248622a289ec29ad7889826de` (круг v3-fix), живо
+подтверждено ниже).
 
 | # | Проба | Команда | ДО (сегодня) | ПОСЛЕ (A2 + diff-tree --stdin) |
 |---|---|---|---|---|
@@ -376,7 +401,7 @@ continue-on-error и блочный needs-список в
 | Р5 | Живой барьер зелёный на реальном дереве после фикса | `bash scripts/check_zones.sh .` | НЕ детерминированный rc голой командой — см. сноску 1 (Н-126 — таймаут ВЫЗЫВАЮЩЕГО `check_spec_ready.sh:241`, не гарантированно rc субъекта) | rc=0 |
 | Р6 | check_protected живой на реальном дереве, без регресса корректности | `bash scripts/check_protected.sh .` | rc=0 (сегодня зелёный) | rc=0, ЗАМЕТНО быстрее (качественная евиденция, не гейт — численный гейт уже в Р2) |
 | Р7 | check_zones укладывается в исходный hard-timeout — прямое закрытие Н-126 | `timeout 60 bash scripts/check_zones.sh .` | см. сноску 1: код возврата ЭТОЙ команды прямой (без echo-обёртки, канон 008): `124` намерил владелец (Н-126); критик получил `0` в своём окружении/моменте | `rc=0` (укладывается в исходные 60с БЕЗ бампа порога — инвариант владельца «НЕ таймаут-бамп») |
-| Р8 | Пин ПРОСТРАНСТВА ИМЁН приёмочных артефактов architect (РЕШЕНИЕ Б2 п.2, ЗАМЕНЯЕТ прежний список-из-двух-файлов) | `git diff --exit-code 1b67f790fd922b2248622a289ec29ad7889826de HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'` | rc=0, пусто (живой прогон ниже) | rc=0, пусто (implementer НЕ трогает и НЕ добавляет файлы в эти 8 пространств; правка/добавление легальны ТОЛЬКО новым architect-кругом, обновляющим и сам пин) |
+| Р8 | Пин ПРОСТРАНСТВА ИМЁН приёмочных артефактов architect (РЕШЕНИЕ Б2 п.2, ЗАМЕНЯЕТ прежний список-из-двух-файлов) | `git diff --exit-code b38e78ac1e353be132cda2abbe6152b03fa9c275 HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'` | rc=0, пусто (живой прогон ниже) | rc=0, пусто (implementer НЕ трогает и НЕ добавляет файлы в эти 8 пространств; правка/добавление легальны ТОЛЬКО новым architect-кругом, обновляющим и сам пин) |
 | Р9 | CI-достижимость — fail-closed СТРУКТУРНЫЙ предикат (РЕШЕНИЕ Б3 часть 2, ЗАМЕНЯЕТ прежнюю текстовую пробу) | `bash fixtures/check_zones/probe_ci_dostizhimost_predelov.sh .` | **rc=2**, `NOT_IMPLEMENTED` (npm-ключи ещё не существуют — живой прогон ниже) | rc=0, «CI-ДОСТИЖИМОСТЬ ДЕРЖИТСЯ (СТРУКТУРНО, fail-closed): …» (npm rc == прямой rc фикстуры ДЛЯ ОБЕИХ проб; ПРЯМОЙ шаг без `if:`/`continue-on-error`/shell-операторов в обеих джобах и их needs-замыкании; безусловный push/pull_request триггер; `verify_ci_parity.sh` зелёный) |
 
 Сноска 1 (закрывает 2 неблокирующих совета круга 1 критика, contracts-040-v1.md):
@@ -432,20 +457,37 @@ $ echo "rc=$?"
 rc=0
 ```
 
-### Живой прогон Р8 (круг v3-fix, коммит `1b67f790fd922b2248622a289ec29ad7889826de`)
+### Живой прогон Р8 (v2-амендмент, пин поднят на коммит `b38e78ac1e353be132cda2abbe6152b03fa9c275`)
+
+Находка Б2 ревьюера круга 1 (`verdicts/review/contracts-040-k1.md`, `d23086f`):
+между прежним пином (`1b67f790…`) и HEAD запиненное пространство тронули
+ДВА коммита без обновления пина — `fac8fe6` (круг v4, PATH-пин) и
+`b38e78a` (круг Б1, strace-трассировка execve, того же ревьюерского
+вердикта). Правка ниже — только текст контракта: пин поднимается НА уже
+состоявшийся `b38e78a`; `scripts/` и `fixtures/` этим v2-амендментом не
+трогаются.
 
 ```
-$ git diff --exit-code 1b67f790fd922b2248622a289ec29ad7889826de HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'
+$ git diff --exit-code b38e78ac1e353be132cda2abbe6152b03fa9c275 HEAD -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'
 $ echo "rc=$?"
 rc=0
 ```
 
-Контрфакт (та же команда против РОДИТЕЛЯ нового architect-коммита — обязана
-дать непустой diff, иначе пин ничего не пинует): `git diff --exit-code
-1b67f790fd922b2248622a289ec29ad7889826de~1 HEAD -- <те же 8 паттернов>` →
-rc=1, diff показывает ОДИН изменённый файл
-(`fixtures/check_zones/probe_ci_dostizhimost_predelov.sh`, 20 insertions(+),
-5 deletions(-)) — механизм ловит правку.
+Контрфакт (та же команда против РОДИТЕЛЯ нового architect-коммита —
+обязана дать непустой diff, иначе пин ничего не пинует):
+
+```
+$ git diff --exit-code b38e78ac1e353be132cda2abbe6152b03fa9c275~1 HEAD --stat -- ':(glob)fixtures/check_zones/red_*' ':(glob)fixtures/check_zones/probe_*' ':(glob)fixtures/check_zones/stab_*' ':(glob)fixtures/check_zones/_*' ':(glob)fixtures/check_protected/red_*' ':(glob)fixtures/check_protected/probe_*' ':(glob)fixtures/check_protected/stab_*' ':(glob)fixtures/check_protected/_*'
+ fixtures/check_zones/red_predel_git_vyzovov.sh | 48 ++++++++++++++++++++------
+ 1 file changed, 37 insertions(+), 11 deletions(-)
+$ echo "rc=$?"
+rc=1
+```
+
+Непустой diff — ровно содержимое самого коммита `b38e78a` (его родитель
+`d23086f` уже включает предыдущую правку `fac8fe6`, поэтому прогон не
+смешивает две правки в одну: `b38e78a~1` — ревьюерский коммит `d23086f`,
+не `fac8fe6`). Механизм не пуст по построению.
 
 ### Живой прогон Р9 (круг 3, main-чекаут + изолированный клон)
 
