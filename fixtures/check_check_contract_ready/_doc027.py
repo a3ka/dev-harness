@@ -71,6 +71,13 @@ def toy(root):
     put(root, 'данные/ёлка.json', dump({'число': 7}))
     put(root, 'решения/Ёж.md', '# Ёж\nРешение принято для игрушки.\n')
     put(root, 'fixtures/probe.py', 'print("{\\"число\\":7}")\n')
+    # Вакуумный CI-паритет (тот же приём, что fixtures/freeze_contract/_repo.sh):
+    # precision-гейт 043 зовёт verify_ci_parity.sh на КАЖДОЙ заморозке (см. lifecycle()
+    # ниже, вызывающей freeze_contract.sh конец-в-конец) — без .github/package.json/
+    # исключений toy-дерево получало rc=2 «нечем проверить» ДО собственного предмета.
+    put(root, '.github/workflows/ci.yml', 'name: ci\non: push\njobs: {}\n')
+    put(root, 'package.json', '{"scripts": {}}\n')
+    put(root, 'config/ci_parity_exceptions.txt', '')
     commit(root, 'источники')
     profile = 'architecture' if CASE == 'architecture' else 'product'
     s = {'type': 'documentation', 'version': 1, 'profile': profile,
