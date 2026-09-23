@@ -120,11 +120,58 @@ battery_silent_drop() {
 }
 
 battery_self_application_green() {
-  # Само-применение: check_threat_model.sh на СОБСТВЕННОМ буквальном тексте
-  # контракта 041 — GREEN (это её жеself-application-green экземпляр).
+  # (а) Само-применение: check_threat_model.sh на СОБСТВЕННОМ буквальном
+  # тексте контракта 041 — GREEN (это её же self-application-green
+  # экземпляр).
   local out rc contract
   contract="$(cd "$TM_REPO/contracts" && ls 041-*.md 2>/dev/null | head -n1)"
   [ -n "$contract" ] || return 1
   out="$(cd "$TM_REPO" && bash "$TM_SUBJ" "$TM_REPO" "contracts/$contract" 2>&1)"; rc=$?
-  [ "$rc" -eq 0 ]
+  [ "$rc" -eq 0 ] || return 1
+
+  # (б, ДОДЕЛ АРБИТРАЖА 041 п.2 — verdicts/arbitration/
+  # contracts-041-battery-example-based-predel.md, «Решение по существу»
+  # п.2, дословно: «для check_threat_model — ДОБАВЛЕНИЕ негативного
+  # path-контроля, которого там нет вовсе (сейчас self-application-green
+  # этого профиля — только позитив; хардкод contracts/041-* прошёл бы его
+  # так же, как прошёл у соседа)».) До этого додела (а) выше была
+  # ЕДИНСТВЕННОЙ проверкой класса: честный гард на ЗАВЕДОМО валидном 041
+  # даёт rc 0. Гипотетический стаб, хардкодящий accept ПО СТРОКЕ/ПАТТЕРНУ
+  # ПУТИ (тот же класс обхода, что круг 3 нашёл у соседа check_provodka,
+  # здесь — `contracts/041-*` вместо литерала 038) даёт rc 0 на ЭТОМ ЖЕ
+  # валидном входе — позитив различить не может ПО ПОСТРОЕНИЮ (стаб и
+  # честный гард согласны).
+  #
+  # Негативный контроль — ТА ЖЕ дисциплина, что додел соседа: цикл по
+  # живому glob `contracts/*.md` ТЕКУЩЕГО репозитория (single source, НЕ
+  # ручная константа), для КАЖДОГО пути — свежий forged toy-корень
+  # (mktemp) под ЭТИМ ЖЕ относительным именем, несущий НЕВАЛИДНУЮ секцию
+  # «## Модель угроз» (список ЗАЩИЩАЕТ: присутствует, но пуст — тот же
+  # forge, что battery_silent_drop выше, дискриминирует его от
+  # отсутствующей секции целиком, которая честно даёт rc 0). Честный гард
+  # обязан дать rc 1 с именованной причиной НА КАЖДОМ пути без
+  # исключения, включая путь самого 041-контракта — путь-паттерн-стаб
+  # `contracts/041-*` ложно принимает форженое содержимое РОВНО на этом
+  # пути (единственном в множестве, матчащем паттерн) и ловится там же.
+  local relpath w5 f5 out5 rc5 tested=0 bad=0
+  while IFS= read -r relpath; do
+    [ -n "$relpath" ] || continue
+    tested=$((tested + 1))
+    w5="$(mktemp -d "${TMPDIR:-/tmp}/battery_tm_selfneg.XXXXXX")"
+    f5="$w5/$relpath"
+    mkdir -p "${f5%/*}"
+    _tm_write "$f5" 'ЗАЩИЩАЕТ:
+
+НЕ ЗАЩИЩАЕТ:
+- враждебное окружение вызывающего процесса за пределами базового PATH-экспорта'
+    out5="$(bash "$TM_SUBJ" "$w5" "$relpath" 2>&1)"; rc5=$?
+    rm -rf "$w5"
+    if [ "$rc5" -ne 1 ] || ! printf '%s' "$out5" | grep -Fq 'модель угроз: список ЗАЩИЩАЕТ: пуст (нет буллета)'; then
+      bad=$((bad + 1))
+      printf 'БАТАРЕЯ %s: self-application-негатив пробит на пути %s (rc=%s)\n' \
+        "${PROFILE_NAME:-check_threat_model}" "$relpath" "$rc5" >&2
+    fi
+  done < <(cd "$TM_REPO" && printf '%s\n' contracts/*.md | LC_ALL=C sort)
+  [ "$tested" -gt 0 ] || return 1
+  [ "$bad" -eq 0 ]
 }

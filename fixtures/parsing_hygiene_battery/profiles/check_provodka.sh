@@ -121,36 +121,56 @@ battery_self_application_green() {
   out="$(cd "$PROVODKA_REPO" && bash "$PROVODKA_SUBJ" "$PROVODKA_REPO" "contracts/038-provodka-done-gejt.md" 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] || return 1
 
-  # (б, verdicts/adversary/contracts-041-parsing-hygiene-v2.md — АДВЕРСАРИЙ
-  # КРУГ 2, f89c5e2) Обманный гард круга 2 хардкодил ИМЕННО путь
-  # `contracts/038-provodka-done-gejt.md` зашитой константой всегда-accept
-  # («self-application именно contracts/038-provodka-done-gejt.md
-  # принимает зашитой константой» — дословно из вердикта). Проверка (а)
-  # выше на ЭТОМ ЖЕ пути её не ловит ПО ПОСТРОЕНИЮ: это позитивный тест
-  # на ЗАВЕДОМО валидном содержимом — хардкод-стаб и честный гард ОБА
-  # дают rc 0 (согласны), различить их позитивом НЕЛЬЗЯ (первая версия
-  # ЭТОГО фикса, отвергнутая на живой проверке architect ДО коммита,
-  # пробовала «та же валидная ПРОВОДКА, ДРУГОЙ путь» — но это ТОЖЕ
-  # позитив: на пути, где хардкода нет, честная логика без бага отвечает
-  # «валидно» тем же согласием — переименование пути САМО ПО СЕБЕ не
-  # рождает наблюдаемого расхождения без НЕГАТИВНОГО контроля). СТРУКТУРНЫЙ
-  # фикс — НЕГАТИВНЫЙ контроль ИМЕННО НА ТОЙ ЖЕ строке пути
-  # `contracts/038-provodka-done-gejt.md`, но в СВЕЖЕМ одноразовом корне
-  # (toy-дерево, НЕ реальный репозиторий): честный гард резолвит
+  # (б, ДОДЕЛ АРБИТРАЖА 041 п.2 — verdicts/arbitration/
+  # contracts-041-battery-example-based-predel.md, «Решение по существу»
+  # п.2 + Замер З3.) Круг 3 адверсария
+  # (verdicts/adversary/contracts-041-parsing-hygiene-v3.md) предъявил
+  # хардкод-стаб, различающий ИМЕННО строку пути
+  # `contracts/038-provodka-done-gejt.md` (условие `[ "$CONTRACT_PATH" =
+  # "contracts/038-provodka-done-gejt.md" ]`, минуя фактическое чтение
+  # содержимого) — прежняя версия негативного контроля проверяла ТОЛЬКО
+  # этот один путь, и стаб проходил её тривиально, отвечая честно ровно
+  # на единственном проверяемом пути. Точечная константа (А-225) закрывает
+  # C (эту конкретную строку), а не класс «хардкод ЛЮБОГО известного
+  # пути» — арбитраж разделил находку РОВНО так: адверсарий прав в том,
+  # что дыра закрываема одним ходом (Замер З3), автор прав в том, что
+  # предел РЕАЛЬНЕЕ (класс без единой константы, Замер З2 — вне области
+  # этого додела, именованный остаток). Додел (пункт 2 решения): множество
+  # путей негативного контроля — НЕ ручная константа, а ЖИВОЙ glob
+  # `contracts/*.md` ТЕКУЩЕГО репозитория (single source — та же
+  # дисциплина, что уже несёт n/m/n3 выше и соседний профиль); путь
+  # forge-файла и путь, передаваемый гарду, — ОДНА переменная цикла
+  # ($relpath), не два места, которые могут разойтись.
+  #
+  # Для КАЖДОГО пути из живого glob строится СВЕЖИЙ forged toy-корень
+  # (mktemp, НЕ реальный репозиторий) под ЭТИМ ЖЕ относительным именем —
+  # та же forge-дисциплина, что и раньше: role-канал, чья норма-строка НЕ
+  # совпадает с фактическим текстом role-файла. Честный гард резолвит
   # root+path в конкретный файл и парсит его СОДЕРЖИМОЕ — ему всё равно,
-  # что путь ТЕКСТУАЛЬНО совпадает со строкой из контракта 038; стаб, у
-  # которого условие `[ "$CONTRACT_PATH" = "contracts/038-provodka-done-
-  # gejt.md" ]` не оглядывается на корень — сработает ОДИНАКОВО что на
-  # реальном репозитории, что на toy-дереве с ФОРЖЕНЫМ содержимым под тем
-  # же именем. Toy-дерево несёт role-канал, чья норма-строка НЕ совпадает
-  # с живым текстом role-файла (та же forge-дисциплина, что уже доказана
-  # в battery_delimiter_collision); честный гард обязан дать именно rc 1
-  # с именем roles/fixer.md, хардкод-по-пути — ошибочно rc 0.
-  local w4 out4 rc4
-  w4="$(mktemp -d "${TMPDIR:-/tmp}/battery_pk_selfhard.XXXXXX")"; _provodka_toy "$w4"
-  printf '# kontrakt forged self-application-path probe\n\n## Predmet\np\n\nПРОВОДКА:\n- role=roles/fixer.md «Sovershenno drugaja norma nikak ne sovpadajet s faktom v fajle.»\n' \
-    > "$w4/contracts/038-provodka-done-gejt.md"
-  out4="$(bash "$PROVODKA_SUBJ" "$w4" "contracts/038-provodka-done-gejt.md" 2>&1)"; rc4=$?
-  rm -rf "$w4"
-  [ "$rc4" -eq 1 ] && printf '%s' "$out4" | grep -Fq 'проводка: норма-строка не найдена в role-файле: roles/fixer.md'
+  # что путь ТЕКСТУАЛЬНО совпадает с любой строкой любого настоящего
+  # контракта; ожидание — rc 1 с именованной причиной НА КАЖДОМ пути без
+  # исключения. Хардкод-по-одной-строке (круг 3) теперь ложно проходит
+  # РОВНО на своей строке и ловится на любой другой из множества — Замер
+  # З3 живого прогона одноразового клона арбитра: 40 путей, 1 пробитие на
+  # стабе круга 3, 0 пробитий на честном гарде (обе цифры воспроизведены
+  # живьём этим кругом — см. отчёт architect).
+  local relpath w4 out4 rc4 tested=0 bad=0
+  while IFS= read -r relpath; do
+    [ -n "$relpath" ] || continue
+    tested=$((tested + 1))
+    w4="$(mktemp -d "${TMPDIR:-/tmp}/battery_pk_selfhard.XXXXXX")"
+    _provodka_toy "$w4"
+    mkdir -p "$w4/${relpath%/*}"
+    printf '# kontrakt forged self-application-path probe\n\n## Predmet\np\n\nПРОВОДКА:\n- role=roles/fixer.md «Sovershenno drugaja norma nikak ne sovpadajet s faktom v fajle.»\n' \
+      > "$w4/$relpath"
+    out4="$(bash "$PROVODKA_SUBJ" "$w4" "$relpath" 2>&1)"; rc4=$?
+    rm -rf "$w4"
+    if [ "$rc4" -ne 1 ] || ! printf '%s' "$out4" | grep -Fq 'проводка: норма-строка не найдена в role-файле: roles/fixer.md'; then
+      bad=$((bad + 1))
+      printf 'БАТАРЕЯ %s: self-application-негатив пробит на пути %s (rc=%s)\n' \
+        "${PROFILE_NAME:-check_provodka}" "$relpath" "$rc4" >&2
+    fi
+  done < <(cd "$PROVODKA_REPO" && printf '%s\n' contracts/*.md | LC_ALL=C sort)
+  [ "$tested" -gt 0 ] || return 1
+  [ "$bad" -eq 0 ]
 }
