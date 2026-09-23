@@ -1,13 +1,37 @@
 #!/usr/bin/env bash
+# ПРИЧИНА: модель угроз: список ЗАЩИЩАЕТ: отсутствует
 # Р2 (red) — список ЗАЩИЩАЕТ: отсутствует целиком, НЕ ЗАЩИЩАЕТ: честен →
-# rc 1, именованная причина.
+# rc 1, именованная причина. Зелёная половина (конверсия на протокол
+# verify_antiplacebo.sh, находка Н1 verdicts/review/contracts-041-k1.md) —
+# положительный контроль: полный честный вход → rc 0, обязателен антиплацебо-
+# протоколом (фикстура без зелёного контроля неотличима от вечно-красного
+# барьера).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
 
-W="$(mktemp -d "${TMPDIR:-/tmp}/tm_case02.XXXXXX")"; trap 'rm -rf "$W"' EXIT
-F="$W/c.md"
-put_contract "$F" '# kontrakt
+if [ -z "${BARRIER:-}" ]; then
+  BARRIER="$SUBJ"
+  WORK="$(mktemp -d "${TMPDIR:-/tmp}/tm_case02.XXXXXX")"
+  trap 'rm -rf "$WORK"' EXIT
+fi
+
+put_contract "$WORK/g.md" '# kontrakt
+
+## Predmet
+p
+
+## Модель угроз
+
+ЗАЩИЩАЕТ:
+- корректный разбор буллетов независимо от их текстового содержимого и знаков
+
+НЕ ЗАЩИЩАЕТ:
+- враждебное окружение вызывающего процесса за пределами базового PATH-экспорта'
+run_barrier "$WORK" 'g.md'
+[ "${BARRIER:-x}" = "$SUBJ" ] && accept 'case_02 (зелёный: полный честный вход)'
+
+put_contract "$WORK/r.md" '# kontrakt
 
 ## Predmet
 p
@@ -16,6 +40,7 @@ p
 
 НЕ ЗАЩИЩАЕТ:
 - враждебное окружение вызывающего процесса за пределами базового PATH-экспорта'
-run_barrier "$W" 'c.md'
-refuse 'case_02' 'модель угроз: список ЗАЩИЩАЕТ: отсутствует'
+run_barrier "$WORK" 'r.md'
+[ "${BARRIER:-x}" = "$SUBJ" ] && refuse 'case_02 (красный)' 'модель угроз: список ЗАЩИЩАЕТ: отсутствует'
+
 exit 0

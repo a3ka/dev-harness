@@ -66,7 +66,7 @@ jobs:
           - shard: ap4
             keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
           - shard: ap5
-            keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual
+            keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model
     steps:
       - uses: actions/checkout@v4
         with:
@@ -129,18 +129,25 @@ jobs:
           npm run check:antiplacebo -- "$TMP_ROOT"
 
       - name: Сам-тесты барьера check_threat_model (контракт 041)
-        # Сам-тестовый ключ `check_threat_model` (SELF_COVERED_KEYS в
-        # scripts/verify_ci_parity.sh:1245, прецедент `verify_antiplacebo` выше):
-        # 10 case_*.sh в fixtures/check_threat_model/ написаны для БЕСПОШТУЧНОГО
-        # раннера fixtures/_krasnye_041.sh (dogfood-семья контракта 041) — каждый
-        # case само-верифицирующий, без шапки `# ПРИЧИНА:`, которую требует
-        # стандартный case-протокол шардового verify_antiplacebo (scripts/verify_antiplacebo.sh:611-614).
-        # Переписывать 10 case под чужой протокол вне контракта 041. Покрытие —
-        # ОТДЕЛЬНЫМ шагом CI вне matrix (как `verify_antiplacebo`): раннер ЗАМОРОЖЕН
-        # в этом круге, прогон на живом дереве (каждый case_*.sh строит mktemp-корень
-        # внутри, не мутирует стерегомое дерево). rc-команда закрывает пункт приёмки
-        # шага (правило 6). Оплата — запись `check:threat-model-selftest = <причина>`
-        # в config/ci_parity_exceptions.txt.
+        # Раннер fixtures/_krasnye_041.sh (dogfood-семья контракта 041,
+        # тот же архитектурный класс, что «Сам-тесты семьи ПРОВОДКА» ниже):
+        # 11 case_*.sh в fixtures/check_threat_model/ САМО-верифицирующие в
+        # прямом режиме (rc собственной сборки) И одновременно несут шапку
+        # `# ПРИЧИНА:` стандартного case-протокола шардового
+        # verify_antiplacebo.sh (scripts/verify_antiplacebo.sh:611-614) —
+        # конверсия закрыла находку Н1 verdicts/review/contracts-041-k1.md:
+        # ключ `check_threat_model` теперь ОБЫЧНЫЙ шардируемый барьер (шард
+        # ap5 выше), SELF_COVERED_KEYS-исключение для него в
+        # scripts/verify_ci_parity.sh — устаревший follow-up ВНЕ зоны
+        # architect (не config/, не verify_ci_parity.sh), implementer
+        # снимает отдельным проходом. Этот шаг ОСТАЁТСЯ рядом с шардом —
+        # НЕ дублирование, а прямой прогон fixtures/_krasnye_041.sh как
+        # такового (§Приёмка Р11 контракта 041 называет именно эту команду);
+        # раннер строит mktemp-корни внутри, не мутирует стерегомое дерево.
+        # rc-команда закрывает пункт приёмки шага (правило 6). Оплата —
+        # запись `check:threat-model-selftest = <причина>` в
+        # config/ci_parity_exceptions.txt (устаревший текст записи —
+        # тот же follow-up, что и SELF_COVERED_KEYS выше).
         run: npm run check:threat-model-selftest
 
       - name: Сам-тесты семьи ПРОВОДКА (контракт 038)
