@@ -47,7 +47,7 @@
 // голого имени, без повторного поиска). Кэш пуст → поведение no-git прежнее:
 // CLI rc 2 NOT_IMPLEMENTED (Н-85), фабрика null/block.
 
-import { realpathSync, statSync, openSync, readSync, closeSync } from 'node:fs';
+import { realpathSync, statSync, openSync, readSync, closeSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname } from 'node:path';
 
@@ -78,8 +78,12 @@ export type JudgeInput = {
   actual?: string | null;
   // Для пина-из-задания сверка с actual НЕ применяется (М2 контракт 032).
   skipActualCheck?: boolean;
+  // 037 §Инварианты М1 п.5: sessionName = basename(getSessionFile(), '.jsonl')
+  // для владелец-корреляции с .omp-isolation-owner.json/id. Отсутствие/не-строка →
+  // fail-closed (см. isSelfContainedCwdEligible). В CLI-пути поле приходит в JSON;
+  // в фабрике вычисляется из ctx.sessionManager.getSessionFile().
+  sessionName?: string | null;
 };
-
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 function isAllowedURI(p: string): boolean {
   return URI_SCHEMES.some((s) => p.startsWith(s));
@@ -315,7 +319,6 @@ function extractPin(text: string): { worktree: string | null; noGit: boolean } {
   if (status !== 'live') return { worktree: null, noGit: false };
   return { worktree: wt, noGit: false };
 }
-
 // Чтение session_id из omp-контекста (М2: ключ для модульной карты пинов).
 function getSessionId(ctx: unknown): string | null {
   if (!ctx || typeof ctx !== 'object') return null;
@@ -326,7 +329,29 @@ function getSessionId(ctx: unknown): string | null {
   return typeof v === 'string' ? v : null;
 }
 
-// Чтение ветки сессии (массив сообщений) из omp-контекста.
+// Чтение sessionName из omp-контекста (037 §Инварианты М1 п.5:
+// basename(absolute_path_to_session_jsonl, '.jsonl') — иерархическое имя сессии,
+// ТОТ ЖЕ формат, что `id` в .omp-isolation-owner.json). Возвращает null при
+// любом нарушении (не-строка, пустая, без суффикса `.jsonl`, нет метода)
+// — fail-closed (contract 037 §Инварианты М1 п.5 «getSessionFile() не строка,
+// пустая или без суффикса .jsonl → условие НЕ выполнено»). НЕ путать с
+// getSessionId — это UUID-пространство, всегда ложное против owner.json.id
+// (Н1 критика contracts-037-b4-resolution-v1.md, заблокировавшая предыдущую
+// редакцию п.5).
+function getSessionName(ctx: unknown): string | null {
+  if (!ctx || typeof ctx !== 'object') return null;
+  const sm = (ctx as { sessionManager?: { getSessionFile?: () => unknown } }).sessionManager;
+  if (!sm || typeof sm !== 'object') return null;
+  if (typeof sm.getSessionFile !== 'function') return null;
+  const v = sm.getSessionFile();
+  if (typeof v !== 'string') return null;
+  if (!v) return null;
+  if (!v.endsWith('.jsonl')) return null;
+  const slash = v.lastIndexOf('/');
+  const base = slash >= 0 ? v.slice(slash + 1) : v;
+  // basename без расширения .jsonl. base здесь заведомо кончается на .jsonl.
+  return base.slice(0, -'.jsonl'.length);
+}
 function getBranch(ctx: unknown): unknown {
   if (!ctx || typeof ctx !== 'object') return [];
   const sm = (ctx as { sessionManager?: { getBranch?: () => unknown } }).sessionManager;
@@ -334,7 +359,6 @@ function getBranch(ctx: unknown): unknown {
   if (typeof sm.getBranch !== 'function') return [];
   return sm.getBranch();
 }
-
 // Извлечение пина из ветки: ТОЛЬКО ПЕРВАЯ user-запись (п9 — steering НЕ перепинивает).
 // На фабричном пути noGit не используется: фабрика должна fail-closed null/block (Н-85),
 // а CLI --extract-pin отдельно ловит noGit через extractPin (см. runCLI).
@@ -751,16 +775,122 @@ function extractPythonStringLiterals(code: string): string[] {
 // для пина). Для НЕпиннованных сессий (canonicalWt === null) — pass ТОЛЬКО
 // при попадании в scratch; всё остальное fail-closed (резолюция 2026-09-11 —
 // абсолют-в-MAIN-чекаут блок).
+// 037 §Инварианты М1: проверяет, что <canonicalActual> удовлетворяет ОДНОВРЕМЕННО
+// п.2–п.5 (п.1 «worktree===null» проверяется снаружи — caller'ом pathAllowed,
+// т.к. это условие уже есть в подписи). Возвращает true ⟺ cwd — самодостаточный
+// git-клон ВНУТРИ $HOME, владелец которого совпадает с вызывающей сессией. Любое
+// нарушение — fail-closed (return false), без диагностики (контракт 037 §Инварианты
+// М1 «fail-closed, та же дисциплина, что п.1–4»).
+function isSelfContainedCwdEligible(
+  canonicalActual: string,
+  sessionName: string | null,
+): boolean {
+  // п.2: <canonicalActual>/.git существует и ЭТО КАТАЛОГ (не gitfile-указатель
+  // линкованного worktree — зеркало gitOracle на path-guard.ts:232-239).
+  let dotGitStat;
+  try {
+    dotGitStat = statSync(`${canonicalActual}/.git`);
+  } catch {
+    return false;
+  }
+  if (!dotGitStat.isDirectory()) return false;
+
+  // п.3: git-оракул — переиспользует GIT_PATH/buildSanitizedEnv (контракт 037
+  // §Инварианты М1 п.3, «тот же санированный spawn, что gitOracle»). Условие —
+  // «ровно одна запись worktree и realpath совпадает с canonicalActual».
+  // git отсутствует / spawn-ошибка / rc≠0 → fail-closed (тот же контракт, что
+  // gitOracle: «git-отсутствие НИКОГДА не даёт pass»).
+  if (!GIT_PATH) return false;
+  const env = buildSanitizedEnv(dirname(canonicalActual));
+  let res;
+  try {
+    res = spawnSync(
+      GIT_PATH,
+      ['-C', canonicalActual, 'worktree', 'list', '--porcelain'],
+      { env, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+  } catch {
+    return false;
+  }
+  if (res.error) return false;
+  if (res.status !== 0) return false;
+  const stdout = (res.stdout ?? '').toString('utf8');
+  const wtPaths: string[] = [];
+  for (const line of stdout.split('\n')) {
+    if (line.startsWith('worktree ')) {
+      wtPaths.push(line.slice('worktree '.length).trim());
+    }
+  }
+  if (wtPaths.length !== 1) return false;
+  const realWt = safeRealpath(wtPaths[0]);
+  if (realWt !== canonicalActual) return false;
+
+  // п.4: isWithin(realpath(process.env.HOME), canonicalActual) — envActual
+  // обязан быть ПОТОМКОМ (или самим) реального $HOME этой сессии. Пустой/не
+  // заданный HOME → fail-closed (контракт 037 §Инварианты М1 п.4).
+  const homeRaw = process.env.HOME;
+  if (!homeRaw) return false;
+  const realHome = safeRealpath(homeRaw);
+  if (!realHome) return false;
+  if (!isWithin(realHome, canonicalActual)) return false;
+
+  // п.5: владелец-корреляция — <dirname(canonicalActual)>/.omp-isolation-owner.json
+  // существует, JSON-парсится, несёт строковое поле `id`, литерально (===) равное
+  // sessionName (basename(getSessionFile(), '.jsonl')). Отсутствие файла / не-строка
+  // sessionName / ошибка парсинга / id не строка / несовпадение → fail-closed.
+  // owner.json — живой артефакт харнеса, пишется ИМ САМИМ при создании
+  // изолированного клона, не гостевым кодом (контракт 037 §Инварианты М1 п.5
+  // обоснование).
+  if (typeof sessionName !== 'string' || sessionName.length === 0) return false;
+  const ownerJsonPath = `${dirname(canonicalActual)}/.omp-isolation-owner.json`;
+  let ownerContent: string;
+  try {
+    ownerContent = readFileSync(ownerJsonPath, 'utf8');
+  } catch {
+    return false;
+  }
+  let ownerObj: unknown;
+  try {
+    ownerObj = JSON.parse(ownerContent);
+  } catch {
+    return false;
+  }
+  if (!ownerObj || typeof ownerObj !== 'object') return false;
+  const ownerId = (ownerObj as { id?: unknown }).id;
+  if (typeof ownerId !== 'string') return false;
+  if (ownerId !== sessionName) return false;
+
+  return true;
+}
+
 function pathAllowed(
   resolved: string,
   canonicalWt: string | null,
+  canonicalActual: string | null,
   worktree: string | null,
+  sessionName: string | null,
 ): boolean {
   if (isAllowedURI(resolved)) return true;
   // Лексическая нормализация .. и . в ОБЕИХ allowlist-ветвях (М4 контракт 032).
   const normalized = lexNormalize(resolved);
   if (isWithin(getVerifyBase(), normalized)) return true;
   if (canonicalWt !== null && isWithin(canonicalWt, normalized)) return true;
+  // 037 §Инварианты М1: новая ветвь для unpinned-сессии (worktree===null)
+  // ВНУТРИ self-contained cwd. Разрешает запись ТОЛЬКО если все пять условий
+  // выполнены (п.1 снаружи — worktree===null; п.2–п.5 внутри
+  // isSelfContainedCwdEligible) — fail-closed при нарушении любого. Цель
+  // разрешена ⟺ isWithin(canonicalActual, normalized) — СТРОГО пространство
+  // внутри этого же envActual (никакого расширения на соседние пути; М1 не
+  // namespace-открытие, символ в символ та же дисциплина, что М3/п2 контракта
+  // 032 для пина-из-задания).
+  if (
+    worktree === null &&
+    canonicalActual !== null &&
+    isSelfContainedCwdEligible(canonicalActual, sessionName) &&
+    isWithin(canonicalActual, normalized)
+  ) {
+    return true;
+  }
   // Непиннованная сессия + путь не в allowlist — fail-closed (бывшая ветка
   // «worktree===null → pass» снята как корень А-72).
   void worktree;
@@ -777,7 +907,9 @@ function unpinnedURIReason(p: string): string {
 function judgeEditWrite(
   args: Record<string, unknown>,
   canonicalWt: string | null,
+  canonicalActual: string | null,
   worktree: string | null,
+  sessionName: string | null,
 ): Decision {
   const path = String(args.path ?? '');
   if (!path) return { decision: 'pass' };
@@ -808,7 +940,7 @@ function judgeEditWrite(
   // непиннованные: pass ТОЛЬКО scratch (URI у непинна обработаны выше). Всё
   // прочее — блок (резолюция владельца 2026-09-11: непиннованный ребёнок
   // ДЕФОЛТ-ЗАПРЕЩЁН на чекаут-запись).
-  if (pathAllowed(path, canonicalWt, worktree)) return { decision: 'pass' };
+  if (pathAllowed(path, canonicalWt, canonicalActual, worktree, sessionName)) return { decision: 'pass' };
 
   return {
     decision: 'block',
@@ -819,11 +951,12 @@ function judgeEditWrite(
   };
 }
 
-// ── Решения для bash ──────────────────────────────────────────────────────────
 function judgeBash(
   args: Record<string, unknown>,
   canonicalWt: string | null,
+  canonicalActual: string | null,
   worktree: string | null,
+  sessionName: string | null,
 ): Decision {
   const cmd = String(args.command ?? '');
   const cwdRaw = args.cwd;
@@ -875,7 +1008,7 @@ function judgeBash(
     // Непиннованная сессия + абсолютный операнд вне scratch — блок по
     // pathAllowed (резолюция 2026-09-11). URI у непинна уже отсеяны выше.
     // Пиновая + операнд вне пина и не в scratch — блок по Н-85.
-    if (!pathAllowed(resolved, canonicalWt, worktree)) {
+    if (!pathAllowed(resolved, canonicalWt, canonicalActual, worktree, sessionName)) {
       return {
         decision: 'block',
         reason:
@@ -894,6 +1027,11 @@ export function judge(input: JudgeInput): Decision {
   const { tool, args } = input;
   const worktree = input.worktree ?? null;
   const actual = input.actual ?? null;
+  // 037 §Инварианты М1 п.5: sessionName — новое поле JudgeInput, приходит из
+  // JSON в CLI-пути, из ctx.sessionManager.getSessionFile()-basename в фабрике
+  // (см. register() ниже). Отсутствие/не-строка → fail-closed в новой ветви
+  // pathAllowed (isSelfContainedCwdEligible).
+  const sessionName = input.sessionName ?? null;
 
   // 1. Канонизация и сверка пина (если задан). Для пина-из-задания (М2 контракт
   // 032) сверка с actual НЕ применяется: actual процесса := cwd ведущей сессии,
@@ -923,6 +1061,13 @@ export function judge(input: JudgeInput): Decision {
         };
       }
     }
+  } else if (actual) {
+    // 037 §Инварианты М1: для unpinned-сессии тоже вычисляем canonicalActual
+    // (нужен в новой ветви pathAllowed — п.4 «isWithin(realHOME, canonicalActual)»,
+    // п.5 «dirname(canonicalActual)/.omp-isolation-owner.json»). Если actual не
+    // резолвится (safeRealpath===null) — оставляем null, новая ветвь не сработает
+    // (fail-closed); старая ветвь fail-closed на null-allowlist уже отказывает.
+    canonicalActual = safeRealpath(actual) ?? actual;
   }
 
   // 2. Распределение по типу инструмента.
@@ -931,13 +1076,13 @@ export function judge(input: JudgeInput): Decision {
     // тем же ключом, что bash, если omp передаёт args.code / args.command.
     const evalCode = args.code !== undefined ? String(args.code) : String(args.command ?? '');
     const bashLike: Record<string, unknown> = { ...args, command: evalCode };
-    return judgeBash(bashLike, canonicalWt, worktree);
+    return judgeBash(bashLike, canonicalWt, canonicalActual, worktree, sessionName);
   }
   if (tool === 'edit' || tool === 'write') {
-    return judgeEditWrite(args, canonicalWt, worktree);
+    return judgeEditWrite(args, canonicalWt, canonicalActual, worktree, sessionName);
   }
   if (tool === 'bash') {
-    return judgeBash(args, canonicalWt, worktree);
+    return judgeBash(args, canonicalWt, canonicalActual, worktree, sessionName);
   }
   // read / grep / glob / прочие — pass (Г1).
   return { decision: 'pass' };
@@ -1097,9 +1242,15 @@ export default function register(pi: unknown): void {
       actual = eventActual ?? envActual;
     }
 
+    // 037 §Инварианты М1 п.5: sessionName = basename(ctx.sessionManager.getSessionFile(),
+    // '.jsonl') — иерархическое имя сессии, ТОТ ЖЕ формат, что `id` в
+    // .omp-isolation-owner.json. getSessionName возвращает null при нарушении
+    // (не-строка / пустая / без суффикса .jsonl) — fail-closed в новой ветви.
+    const sessionName = getSessionName(ctx);
+
     let result: Decision;
     try {
-      result = judge({ tool: name, args, worktree, actual, skipActualCheck });
+      result = judge({ tool: name, args, worktree, actual, skipActualCheck, sessionName });
     } catch {
       return { block: true, reason: 'Н-85: внутренняя ошибка стража пути' };
     }
