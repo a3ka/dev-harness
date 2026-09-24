@@ -42,13 +42,16 @@
 #   * п6 (регресс 025: пустой null-allowlist жив) — контроль, зелёный ДО
 #     и ПОСЛЕ.
 #   * п7 (ВЛАДЕЛЕЦ-КОРРЕЛЯЦИЯ, §Инварианты М1 п.5 контракта 037, Б4 критика
-#     contracts-037-v1.md) — ТОТ ЖЕ SELFCONTAINED cwd, что п1 (байт-в-байт
-#     canonicalActual — имитация вложенного голого `_task`-внука ИЗНУТРИ
-#     isolated-родителя), но `sessionId` В JudgeInput НЕ совпадает с `id`
-#     артефакта `.omp-isolation-owner.json` — стаб «п.1–4 достаточны,
-#     sessionId не нужен» умирает здесь: ожидание block И ДО, И ПОСЛЕ
-#     (реализация, скопировавшая только п.1–4 без владелец-корреляции,
-#     ошибочно дала бы pass — ровно регрессия Б4).
+#     contracts-037-v1.md, Н1 критика contracts-037-b4-resolution-v1.md) —
+#     ТОТ ЖЕ SELFCONTAINED cwd, что п1 (байт-в-байт canonicalActual —
+#     имитация вложенного голого `_task`-внука ИЗНУТРИ isolated-родителя),
+#     но `sessionName` В JudgeInput (реалистичное иерархическое имя —
+#     родитель.ребёнок, ТОТ ЖЕ формат, что owner.json.id — живой замер Н1
+#     критика: НЕ UUID, который производит `getSessionId()`) НЕ совпадает
+#     с `id` артефакта `.omp-isolation-owner.json` — стаб «п.1–4
+#     достаточны, sessionName не нужен» умирает здесь: ожидание block И
+#     ДО, И ПОСЛЕ (реализация, скопировавшая только п.1–4 без владелец-
+#     корреляции, ошибочно дала бы pass — ровно регрессия Б4).
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
@@ -89,9 +92,13 @@ mkinit "$SELFCONTAINED"
 # владелец-корреляция) — лежит СНАРУЖИ самого клона (родитель каталог
 # $SELFCONTAINED, не внутри него), пишется ХАРНЕССОМ при создании
 # изолированного клона; здесь имитирован форматом, подтверждённым живым
-# замером той же пачки (agent://Architect037Redesign/IsolatedProbeParent037):
-# `{"pid":…,"id":"<agent-id>","startToken":…}`.
-printf '{"pid":424242,"id":"owner-session","startToken":"1"}' \
+# замером (Architect037FixN1, three-topology `_task`-проба через
+# supervised omp -p, Н1 критика contracts-037-b4-resolution-v1.md): `id`
+# — ИЕРАРХИЧЕСКОЕ имя сессии, ТОТ ЖЕ формат, что basename
+# `ctx.sessionManager.getSessionFile()` без `.jsonl`, НЕ UUID
+# `getSessionId()`.
+# `{"pid":…,"id":"<родитель>[.<ребёнок>]","startToken":…}`.
+printf '{"pid":424242,"id":"TestOwner037","startToken":"1"}' \
   > "$(dirname "$SELFCONTAINED")/.omp-isolation-owner.json"
 
 # п2 — под $HOME, но .git — ФАЙЛ с мёртвой gitdir-целью (не настоящий живой
@@ -147,8 +154,12 @@ expect_judge() {  # <ветвь> <block|pass> <substr> <HOME-override|-> <json>
 }
 
 # ── п1: позитив — self-contained под $HOME, цель ВНУТРИ него ──────────────────
+# sessionName = ТОЧНО owner.json.id (реалистичная форма — Н1 критика: в
+# проде оба производятся ИЗ ОДНОГО понятия харнеса «иерархическое имя
+# сессии» — basename(getSessionFile()) владельца литерально равен его же
+# owner.json.id, живой замер — контракт §Инварианты М1 п.5).
 expect_judge п1 pass "" "$FAKEHOME" \
-  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionId\":\"owner-session\"}"
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionName\":\"TestOwner037\"}"
 
 # ── п2: .git — файл (не каталог) под $HOME ⇒ блок ──────────────────────────────
 expect_judge п2 block "Н-85" "$FAKEHOME" \
@@ -171,10 +182,14 @@ expect_judge п6 block "Н-85" "-" \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$OUTSIDE_NS/prosto/f6.txt\"},\"worktree\":null,\"actual\":null}"
 
 # ── п7: ВЛАДЕЛЕЦ-КОРРЕЛЯЦИЯ (037 §Инварианты М1 п.5, Б4 критика
-# contracts-037-v1.md) — ТОТ ЖЕ SELFCONTAINED cwd, что и п1, но sessionId
-# НЕ совпадает с owner.json'а id ⇒ блок И ДО, И ПОСЛЕ реализации ──────────
+# contracts-037-v1.md, Н1 критика contracts-037-b4-resolution-v1.md) —
+# ТОТ ЖЕ SELFCONTAINED cwd, что и п1, но sessionName — РЕАЛИСТИЧНОЕ имя
+# ГОЛОГО ВЛОЖЕННОГО РЕБЁНКА (родитель.ребёнок — та же форма, что живой
+# замер контракта §Инварианты М1 п.5 показал для N1Bare:
+# TestOwner037.NestedBare037 при owner.json id=TestOwner037), НЕ
+# совпадает с owner.json'а id ⇒ блок И ДО, И ПОСЛЕ реализации ──────────
 expect_judge п7 block "Н-85" "$FAKEHOME" \
-  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f7.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionId\":\"nested-child-session\"}"
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f7.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionName\":\"TestOwner037.NestedBare037\"}"
 
 RED=0; GRN=0; NORUN=0
 for m in "${ORDER[@]}"; do
