@@ -208,9 +208,42 @@ jobs:
         # Запускается ПОСЛЕ check:ci-parity (порядок — verify_ci_parity
         # сначала, иначе при красном паритете check_precision_gate будет
         # блокирован на своём же шаге (в) раньше времени). rc=0 закрывает
-        # пункт приёмки шага; фикстуры contracts/043-* (Р10/Р11) уже
-        # доказывают самодостаточность гейта.
+        # пункт приёмки шага; семейная CI-приёмка Р10/Р11 проводится
+        # двумя прямыми шагами ниже — см. §Приёмка контракта 043.
         run: npm run check:precision-gate
+
+      - name: Сам-тесты семьи precision-гейт (контракт 043)
+        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041: раннер
+        # `fixtures/_krasnye_043.sh` (dogfood-семья контракта 043) гоняет
+        # ВСЕ 14 red_*/green_*-файлов семей `check_precision_gate/`,
+        # структурно заявляющих полярность (`red_`/`green_`); шардовый
+        # verify_antiplacebo выбирает только `case_*.sh` (scripts/verify_antiplacebo.sh:585)
+        # и этой семьи НЕ видит (её файлы — `red_*/green_*`, не `case_*`).
+        # Тот же архитектурный класс, что и ранее подключённые
+        # «Сам-тесты семьи ПРОВОДКА (контракт 038)» / «Сам-тесты барьера
+        # check_threat_model (контракт 041)». Ключ `npm run check:precision-family-selftest`
+        # покрыт правилом 6 verify_ci_parity.sh (:1043) как `npm run <имя>`,
+        # тот же случай, что `check:provodka-family-selftest` /
+        # `check:threat-model-selftest` — запись в config/ci_parity_exceptions.txt
+        # НЕ требуется. rc=0 закрывает пункт приёмки шага (правило 6).
+        run: npm run check:precision-family-selftest
+
+      - name: Батарея гигиены парсинга для precision-гейт (контракт 043)
+        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041: раннер
+        # `fixtures/parsing_hygiene_battery/run_battery.sh check_precision_gate`
+        # (реиспользуемая батарея контракта 041, применённая как dogfood для
+        # 043) гоняет четыре класса гигиены парсинга против barriers-а
+        # семьи — delimiter-collision, regex-injection, silent-drop,
+        # self-application-green. Без прямого шага CI исполняет только
+        # `check:precision-gate` (self-application) и пропускает регрессию
+        # гигиены парсинга — ровно класс дефекта Н-113/Н-115, ради
+        # которого контракт заведён (арбитраж 043-Б4 §Решение, прецедент
+        # 038/041). Ключ `npm run check:precision-battery` покрыт правилом 6
+        # verify_ci_parity.sh (:1043) как `npm run <имя>`, тот же случай,
+        # что `check:precision-family-selftest` выше — запись в
+        # config/ci_parity_exceptions.txt НЕ требуется. rc=0 закрывает
+        # пункт приёмки шага (правило 6).
+        run: npm run check:precision-battery
 
       - name: Спек-точность пре-фриз (контракт 036, В4)
         # Самодостаточен: spec-preflight на живом дереве — контракт 036 заморожен и является

@@ -344,6 +344,7 @@ CI») — та же пара путей, которую ЭТОТ контрак�
   коллизии; задача (б) — семья `precision_gate` пропущена п.3.0, stderr несёт
   именованную пометку; задача (в) — паритет CI чист); замер архитектора: real
   ~3с.
+- Р14 (ПРОВОДКА CI, семейная приёмка Р10/Р11 — арбитраж 043-Б4). `grep -Fq 'npm run check:precision-family-selftest' .github/workflows/ci.yml` И `grep -Fq 'npm run check:precision-battery' .github/workflows/ci.yml` И `grep -Fq '"check:precision-family-selftest": "bash fixtures/_krasnye_043.sh"' package.json` И `grep -Fq '"check:precision-battery": "bash fixtures/parsing_hygiene_battery/run_battery.sh check_precision_gate"' package.json` → rc 0 каждое (доказательство проводки прямых шагов семейной CI-приёмки Р10/Р11 по прецеденту 038/041; та же дисциплина дословности, что Р12 несёт для роли критика — `grep -Fq` сверяет байт-в-байт, никаких glob/regex; ключи покрыты правилом 6 verify_ci_parity.sh :1043, отдельной записи в `config/ci_parity_exceptions.txt` не требуется).
 
 ## ПРОВОДКА
 

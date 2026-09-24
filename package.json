@@ -62,6 +62,8 @@
     "done:contract": "bash scripts/done_contract.sh",
     "check:precision-gate": "bash scripts/check_precision_gate.sh . contracts/043-precizionnyj-prefriz-gejt.md",
     "check:consumers": "bash scripts/check_consumers.sh",
-    "check:provodka-family-selftest": "EXPECT_RC=0 bash fixtures/_krasnye_038.sh"
+    "check:provodka-family-selftest": "EXPECT_RC=0 bash fixtures/_krasnye_038.sh",
+    "check:precision-family-selftest": "bash fixtures/_krasnye_043.sh",
+    "check:precision-battery": "bash fixtures/parsing_hygiene_battery/run_battery.sh check_precision_gate"
   }
 }
