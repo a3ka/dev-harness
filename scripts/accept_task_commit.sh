@@ -27,7 +27,7 @@
 # IDENTITY COMPARISON: ЛИТЕРАЛЬНОЕ bash-равенство `[ = ]`,
 # НИКОГДА grep -E/glob, построенный из untrusted %an/%ae.
 #
-# КОДЫ ВОЗВРАТА:
+# Коды возврата:
 #   0 — принято (stdout: ACCEPTED branch=<branch> tip=<sha>)
 #   1 — именованный отказ (ветка не существует / нечего принимать / identity
 #       расхождение / cherry-pick конфликт; --branch НЕ изменяется)
