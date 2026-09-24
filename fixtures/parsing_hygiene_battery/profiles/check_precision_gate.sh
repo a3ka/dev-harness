@@ -72,7 +72,7 @@ battery_silent_drop() {
   mk_toy_repo "$w"
   mk_foreign_frozen "$w" 991 alice shared/file.txt
   mk_foreign_frozen "$w" 992 bob shared/file.txt
-  mk_foreign_frozen "$w" 991 alice one/first.txt
+  mk_foreign_frozen "$w" 993 alice one/first.txt
   put_draft "$w/contracts/043-toy-draft.md" '# k
 
 ## Predmet
@@ -83,7 +83,7 @@ p
 ЗОНА architect: contracts/043-toy-draft.md shared/file.txt one/first.txt
 
 ПЕРЕСЕЧЕНИЕ architect: shared/file.txt — 991 объявлен только первый
-ПЕРЕСЕЧЕНИЕ architect: one/first.txt — 991 объявлен для второго пути'
+ПЕРЕСЕЧЕНИЕ architect: one/first.txt — 993 объявлен для второго пути'
   local out rc
   out="$("$PG_SUBJ" "$w" 'contracts/043-toy-draft.md' 2>&1)"; rc=$?
   rm -rf "$w"

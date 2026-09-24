@@ -45,11 +45,11 @@ p
 run_barrier "$WORK" 'contracts/043-toy-draft.md'
 # Два канала ловят обход — прямой rc и /proc-наблюдение. Принимаем любой.
 [ "${BARRIER:-x}" = "$SUBJ" ] && {
-  if printf '%s' "$LAST_OUT" | grep -Fq 'барьер dummy не вызван живьём'; then
+  if [ "$LAST_RC" -eq 1 ] && printf '%s' "$LAST_OUT" | grep -Fq 'барьер dummy не вызван живьём'; then
     printf 'case_15: подделка трассы через BASH_XTRACEFD поймана /proc-наблюдением\n' >&2
     exit 0
   fi
-  if printf '%s' "$LAST_OUT" | grep -Fq 'самопроверка провалена'; then
+  if [ "$LAST_RC" -eq 1 ] && printf '%s' "$LAST_OUT" | grep -Fq 'самопроверка провалена'; then
     printf 'case_15: подделка трассы через BASH_XTRACEFD поймана прямой самопроверкой\n' >&2
     exit 0
   fi
