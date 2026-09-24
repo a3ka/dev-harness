@@ -63,6 +63,25 @@
 #     ожидание block (п.6: у Inner есть .git-несущий предок Outer),
 #     сегодня pass — обход воспроизведён живьём, байт-в-байт как в
 #     вердикте адверсария.
+#   * п9 (ВНЕ-HOME с ПОЛНОСТЬЮ валидными п.2/п.3/п.5/п.6 — блокер Р1
+#     вердикта verdicts/review/contracts-037-v1.md): revert фикса M1
+#     `20d821d` оставлял эту фикстуру 8/8 зелёной над открытой дырой;
+#     клетка подаёт sessionName=owner.json.id в dirname(кандидата),
+#     .git-каталог + worktree list==1, БЕЗ .git-предков до filesystem
+#     root, кандидат ВНЕ $HOME — стаб «п.5+п.6 достаточно,
+#     HOME-принадлежность не проверяется» умирает здесь: ожидание block
+#     (единственный отказчик — п.4 `!isWithin(realHome, _)`), при
+#     откате `20d821d` — pass (клетка краснеет).
+#   * п10 (canonicalActual === realHome — САМ HOME как cwd; тот же
+#     блокер Р1): isWithin равенство НЕ ловит (child===parent — истина),
+#     п.6-цикл при равенстве пропускается, owner.json в dirname(HOME)
+#     валиден — стаб «явная проверка равенства не нужна» умирает здесь:
+#     ожидание block (единственный отказчик — `canonicalActual ===
+#     realHome`), при откате `20d821d` — pass (клетка краснеет).
+#     ОБЕ базы п9/п10 СОЗНАТЕЛЬНО вне ${TMPDIR:-/tmp}/dev-harness-verify
+#     — иначе pass даёт scratch-allowlist 025 и зонд ничего не
+#     доказывает (ловушка Н-85/А-122, названа адверсарием m1m2-recheck
+#     и повторена ревьюером contracts-037-v1.md).
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
@@ -80,7 +99,7 @@ VERIFY_BASE="${TMPDIR:-/tmp}/dev-harness-verify"
 mkdir -p "$NS" "$FAKEHOME_BASE" "$VERIFY_BASE"
 FAKEHOME="$(mktemp -d "$FAKEHOME_BASE/pg037home.XXXXXX")"
 OUTSIDE_NS="$(mktemp -d "$NS/pg037out.XXXXXX")"
-trap 'rm -rf "$FAKEHOME" "$OUTSIDE_NS"' EXIT
+trap 'rm -rf "$FAKEHOME" "$OUTSIDE_NS" "$P4BASE" "$HOMEBASE"' EXIT
 
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
@@ -145,7 +164,33 @@ printf '{"pid":424242,"id":"Owner037","startToken":"1"}' \
 printf '{"pid":424242,"id":"Owner037.NestedBare","startToken":"1"}' \
   > "$OUTER/.omp-isolation-owner.json"
 
-ORDER=(п1 п2 п3 п4 п5 п6 п7 п8)
+# п9/п10 — блокер Р1 ревьюера (verdicts/review/contracts-037-v1.md):
+# фикс M1 `20d821d` (п.4: явный отказ canonicalActual===realHome +
+# isWithin(realHome, canonicalActual)) не был прижат НИ ОДНОЙ клеткой.
+# Сетапы НЕ ДЕЛЯТ ни одного каталога со старыми клетками (независимость
+# красноты: каждая смерть — своя строка `20d821d`).
+
+# п9 — ВНЕ-HOME кандидат с валидными п.2/п.3/п.5/п.6: отдельный
+# mktemp-namespace (не $OUTSIDE_NS старой п4), owner.json в dirname
+# кандидата с id === sessionName, НИ ОДИН предок до filesystem root
+# не несёт .git — в реальном коде отказ даёт ТОЛЬКО п.4 (вне realHome).
+P4BASE="$(mktemp -d "$NS/pg037p4.XXXXXX")"
+P4OUT="$P4BASE/m"
+mkinit "$P4OUT"
+printf '{"pid":424242,"id":"OutsideOwner037","startToken":"1"}' \
+  > "$P4BASE/.omp-isolation-owner.json"
+
+# п10 — canonicalActual === realHome: репо-каталог, поданный КАК
+# HOME-override; owner.json в dirname(HOME) с id === sessionName.
+# п.6-цикл при равенстве пропускается, isWithin(parent,parent)=истина —
+# в реальном коде отказ даёт ТОЛЬКО явная проверка равенства п.4.
+HOMEBASE="$(mktemp -d "$FAKEHOME_BASE/pg037homeown.XXXXXX")"
+HOME_ITSELF="$HOMEBASE/self"
+mkinit "$HOME_ITSELF"
+printf '{"pid":424242,"id":"HomeItself037","startToken":"1"}' \
+  > "$HOMEBASE/.omp-isolation-owner.json"
+
+ORDER=(п1 п2 п3 п4 п5 п6 п7 п8 п9 п10)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() {
@@ -229,6 +274,17 @@ expect_judge п8 pass "" "$FAKEHOME" \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$OUTER/f8.txt\"},\"worktree\":null,\"actual\":\"$OUTER\",\"sessionName\":\"Owner037\"}"
 expect_judge п8 block "Н-85" "$FAKEHOME" \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$INNER/pwned.txt\"},\"worktree\":null,\"actual\":\"$INNER\",\"sessionName\":\"Owner037.NestedBare\"}"
+
+# ── п9: ВНЕ-HOME, п.2/п.3/п.5/п.6 валидны ⇒ блок (единственный
+# отказчик — п.4 isWithin; при откате 20d821d даёт pass = красная) ────
+expect_judge п9 block "Н-85" "$FAKEHOME" \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$P4OUT/f9.txt\"},\"worktree\":null,\"actual\":\"$P4OUT\",\"sessionName\":\"OutsideOwner037\"}"
+
+# ── п10: canonicalActual === realHome (HOME сам как cwd) ⇒ блок
+# (единственный отказчик — явное равенство п.4; isWithin его не ловит;
+# при откате 20d821d даёт pass = красная) ──────────────────────────────
+expect_judge п10 block "Н-85" "$HOME_ITSELF" \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$HOME_ITSELF/f10.txt\"},\"worktree\":null,\"actual\":\"$HOME_ITSELF\",\"sessionName\":\"HomeItself037\"}"
 
 RED=0; GRN=0; NORUN=0
 for m in "${ORDER[@]}"; do
