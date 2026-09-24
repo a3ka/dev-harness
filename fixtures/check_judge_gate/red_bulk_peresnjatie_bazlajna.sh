@@ -18,9 +18,11 @@
 # Имя ВНЕ case_*-глоба раннера — НАМЕРЕННО (прецедент red_peresnjatie_bazlajna.sh 031
 # + поправка v3 031: case-файлы семьи check_judge_gate геновно недостижимы, раннер
 # заморожен 008): до реализации предмет предъявляется ПРЯМЫМ запуском; приёмка — ДВА
-# прогона подряд с РАЗНЫМИ случайными входами. Фикстура ДВУХФАЗНАЯ: сегодня красна
-# ЕДИНОЙ причиной (режим --retake-bulk отсутствует — диспетчер отказывает на ВСЕХ
-# входах одинаково), после реализации все ворота зелёные.
+# прогона подряд с РАЗНЫМИ случайными входами. Ядро Н-139 реализовано (bc4085a,
+# б0–б10 зелёные ×2); carve-out Н-147 отсутствует: бб1/бб2/бб6 КРАСНЫ (дверь
+# отказывает на признаваемом черновике либо именует черновик вместо соседнего
+# пути), бб3–бб5 — КАНАРЕЙКИ (отказ уже верен и ДО, и ПОСЛЕ — охраняют переход,
+# грамматика «Канарейки» 023). После реализации carve-out все ворота зелёные.
 #
 # Форма — по прецеденту red_peresnjatie_bazlajna.sh: собственный WORK вне дерева,
 # TMPDIR редиректится в скратч прогона (снимки субъекта — не в дереве и не в /tmp
@@ -74,8 +76,34 @@
 #   б10 дельта ПУСТА (снимок соответствует дереву) → ПОСЛЕ rc 1 «переснятие-bulk не
 #      доказано: дельта пуста — нечего переснимать» (пустая выборка красная, не
 #      зелёная) + --check rc 0 (дерево чисто — пустая дельта не «загрязнение»).
+#   бб1 (Н-147, рука А И-3 023): черновик НОВОГО контракта в СТРОГОМ toy-реестре
+#      (зона architect — ТОЛЬКО файл contracts/001-x.md, не каталог: грамматика
+#      живого реестра), тег id/CONTRACT/<NNN> — НА САМОМ draft-коммите, заморозки
+#      NNN нет → rc 0 + стенограмма «(автор architect, коммит <sha>)» + итог
+#      «путей 1» + --check rc 0. СЕГОДНЯ отказ «путь … не покрыт ни одной зоной»;
+#   бб2 (Н-147, рука Б — РЕАЛЬНАЯ боль 044): резерв id/CONTRACT/<NNN> на ПРЕДКЕ
+#      (взят до черновика), ДВЕ итерации черновика, заморозки нет → rc 0,
+#      стенограмма несёт sha ПОСЛЕДНЕЙ итерации, итог «путей 1». СЕГОДНЯ отказ
+#      «путь … не покрыт ни одной зоной»;
+#   бб3 пост-freeze (КАНАРЕЙКА): контракт NNN УЖЕ заморожен
+#      (frozen/contracts/<NNN>/1 в предках судимого коммита), итерация его файла
+#      чужой рукой (reviewer — владелец ДРУГОЙ зоны реестра) → итерация НЕ
+#      признаётся, путь судится ЗАМОРОЖЕННОЙ зоной (блоб несёт свою ЗОНА-строку)
+#      → отказ «автор reviewer пути <путь> не владелец зоны». Стаб, признавший
+#      пост-freeze итерацию, умирает здесь: reviewer входит в объединение
+#      владельцев, но не в покрывающую зону;
+#   бб4 нет тега вообще (КАНАРЕЙКА): contracts/<NNN>-*.md с номером, назначенным
+#      РУКОЙ (id/CONTRACT/<NNN> не существует вовсе) → отказ «путь … не покрыт
+#      ни одной зоной». Стаб, признающий по одному паттерну пути, умирает здесь;
+#   бб5 чужой резерв (КАНАРЕЙКА): тег id/CONTRACT/<NNN> жив, НО его коммит — на
+#      боковой ветке, НЕ предок судимого → отказ «путь … не покрыт ни одной
+#      зоной». Стаб, признающий по существованию тега без ancestry, умирает здесь;
+#   бб6 граница признания: черновик с резервом на предке (признаваем) + ВТОРОЙ
+#      путь той же дельты ВНЕ паттерна (docs/, зон нет) → отказ обязан именовать
+#      ВТОРОЙ путь, НЕ черновик: тег — не индульгенция на дельту. СЕГОДНЯ отказ
+#      именует ЧЕРНОВИК (лексикографически раньше) — красное.
 #
-# На каждом отказывающем входе (б2–б9) фикстура сверяет ТРОЙКУ: именованный отказ ∧
+# На каждом отказывающем входе (б2–б9, бб3–бб6) фикстура сверяет ТРОЙКУ: именованный отказ ∧
 # байты снимка до == после ∧ --check остаётся rc 1 «основной чекаут загрязнён» —
 # прячущее переснятие наблюдаемо краснеет.
 #
@@ -116,18 +144,22 @@ gtoy() {
     git -C "$d" -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
 }
 
-# mk_bulk_root <каталог>: toy-репо с замороженным контрактом 001, зонирующим ЧЕТЫРЕ
-# зоны (класс Н-139: дельта живёт в РАЗНЫХ зонах, ВНЕ verdicts/-префикса): ЗОНА
-# reviewer: verdicts/review/, ЗОНА architect: contracts/, ЗОНА implementer: scripts/,
-# ЗОНА orchestrator: HANDOFF.md. Зоны читает zones_load по тегу frozen/contracts/001/1
-# — единый читатель ЗОНА-строк.
-mk_bulk_root() {  # <каталог>
-  local r="$1"
-  mkdir -p "$r/contracts" "$r/verdicts/review" "$r/scripts"
+# mk_bulk_root <каталог> [строгий]: toy-репо с замороженным контрактом 001, зонирующим
+# ЧЕТЫРЕ зоны (класс Н-139: дельта живёт в РАЗНЫХ зонах, ВНЕ verdicts/-префикса): ЗОНА
+# reviewer: verdicts/review/, ЗОНА implementer: scripts/, ЗОНА orchestrator: HANDOFF.md;
+# зона architect — БЕЗ второго аргумента каталог contracts/ (входы б0–б10, без изменений),
+# в режиме «строгий» — ТОЛЬКО свой файл contracts/001-x.md: грамматика ЖИВОГО реестра
+# (каждый контракт зонирует свой черновик, не каталог). Без строгого режима боль Н-147
+# в toy невоспроизводима — contracts/<NNN>-*.md нового NNN покрыт бы зоной каталога.
+# Зоны читает zones_load по тегу frozen/contracts/001/1 — единый читатель ЗОНА-строк.
+mk_bulk_root() {  # <каталог> [строгий]
+  local r="$1" arch_zona='contracts/'
+  if [ "${2:-}" = строгий ]; then arch_zona='contracts/001-x.md'; fi
+  mkdir -p "$r/contracts" "$r/verdicts/review" "$r/scripts" "$r/docs"
   {
     printf '# контракт 001\n\n## Предмет\nподставной предмет\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n'
     printf 'ЗОНА reviewer: verdicts/review/\n'
-    printf 'ЗОНА architect: contracts/\n'
+    printf 'ЗОНА architect: %s\n' "$arch_zona"
     printf 'ЗОНА implementer: scripts/\n'
     printf 'ЗОНА orchestrator: HANDOFF.md\n'
   } > "$r/contracts/001-x.md"
@@ -375,5 +407,134 @@ if [ "$SUBJ_RC" -ne 0 ]; then
 fi
 ok б10 "пустая дельта красна именем, не зелёна молча"
 
-printf 'ok: дверь bulk-переснятия 044 — все ворота пройдены (б0..б10)\n'
+# ── бб1 (Н-147, рука А): черновик НОВОГО контракта, резерв на самом коммите ──────
+NNN1="$(printf '%03d' $((100 + RANDOM % 50)))"
+KURI="$WORK/bb1_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб1 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP1="contracts/${NNN1}-novyj-${RANDOM}.md"
+commit_kak "$KURI" architect "$DP1" 'черновик нового контракта'
+SHA_BB1="$(gtoy "$KURI" log -1 --format=%H -- "$DP1")"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN1" -m 'резерв на самом коммите' "$SHA_BB1"
+gtoy "$KURI" push -q origin main
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN1"
+run_subj --check "$KURI"
+[ "$SUBJ_RC" -eq 1 ] || fail бб1 детектора "--check обязан видеть дельту черновика (rc=$SUBJ_RC): $SUBJ_OUT"
+run_subj --retake-bulk "$KURI"
+if [ "$SUBJ_RC" -ne 0 ]; then
+  fail бб1 режима "черновик с резервом на самом коммите не принят (rc=$SUBJ_RC): $SUBJ_OUT"
+fi
+has "базлайн переснят: bulk-дельта $DP1 (автор architect, коммит $SHA_BB1)" \
+  || fail бб1 стенограммы "нет строки черновика $DP1: $SUBJ_OUT"
+has 'базлайн переснят: bulk-дельта — путей 1, незакоммиченного/неслитого 0' \
+  || fail бб1 итога "нет итоговой строки одного пути: $SUBJ_OUT"
+run_subj --check "$KURI"
+if [ "$SUBJ_RC" -ne 0 ] || ! has "$P_CHISTO"; then
+  fail бб1 пост-чека "после переснятия --check обязан быть чист (rc=$SUBJ_RC): $SUBJ_OUT"
+fi
+ok бб1 "черновик нового контракта признан (тег на коммите), переснят, чекаут чист"
+
+# ── бб2 (Н-147, рука Б — случай 044): резерв на предке, итерации, заморозки нет ──
+NNN2="$(printf '%03d' $((150 + RANDOM % 50)))"
+KURI="$WORK/bb2_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+BASE2="$(gtoy "$KURI" rev-parse HEAD)"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN2" -m 'резерв до черновика' "$BASE2"
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN2"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб2 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP2="contracts/${NNN2}-iteracii-${RANDOM}.md"
+commit_kak "$KURI" architect "$DP2" 'черновик: первая итерация'
+append_kak  "$KURI" architect "$DP2" 'черновик: вторая итерация'
+SHA_BB2="$(gtoy "$KURI" log -1 --format=%H -- "$DP2")"
+gtoy "$KURI" push -q origin main
+run_subj --check "$KURI"
+[ "$SUBJ_RC" -eq 1 ] || fail бб2 детектора "--check обязан видеть дельту черновика (rc=$SUBJ_RC): $SUBJ_OUT"
+run_subj --retake-bulk "$KURI"
+if [ "$SUBJ_RC" -ne 0 ]; then
+  fail бб2 режима "итерации резерва без заморозки не приняты (rc=$SUBJ_RC): $SUBJ_OUT"
+fi
+has "базлайн переснят: bulk-дельта $DP2 (автор architect, коммит $SHA_BB2)" \
+  || fail бб2 стенограммы "нет строки черновика $DP2: $SUBJ_OUT"
+has 'базлайн переснят: bulk-дельта — путей 1, незакоммиченного/неслитого 0' \
+  || fail бб2 итога "нет итоговой строки одного пути: $SUBJ_OUT"
+run_subj --check "$KURI"
+if [ "$SUBJ_RC" -ne 0 ] || ! has "$P_CHISTO"; then
+  fail бб2 пост-чека "после переснятия --check обязан быть чист (rc=$SUBJ_RC): $SUBJ_OUT"
+fi
+ok бб2 "резерв на предке + итерации без заморозки признаны (боль Н-147/044)"
+
+# ── бб3 (КАНАРЕЙКА): пост-freeze итерация НЕ признаётся — судится замороженной зоной ──
+NNN3="$(printf '%03d' $((200 + RANDOM % 50)))"
+KURI="$WORK/bb3_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+BASE3="$(gtoy "$KURI" rev-parse HEAD)"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN3" -m 'резерв' "$BASE3"
+F3="contracts/${NNN3}-zamorozhen-${RANDOM}.md"
+{
+  printf '# контракт %s\n\n## Предмет\nпредмет третьего\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n' "$NNN3"
+  printf 'ЗОНА architect: %s\n' "$F3"
+} > "$KURI/$F3"
+gtoy "$KURI" -c user.name=architect -c user.email=architect@local add -A
+gtoy "$KURI" -c user.name=architect -c user.email=architect@local commit -q -m "заморозка $NNN3"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "frozen/contracts/$NNN3/1" -m 'утверждён'
+gtoy "$KURI" push -q origin main
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN3" "refs/tags/frozen/contracts/$NNN3/1"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб3 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+append_kak "$KURI" reviewer "$F3" 'пост-freeze итерация чужой рукой'
+gtoy "$KURI" push -q origin main
+ozhid_otkaz бб3 "переснятие-bulk не доказано: автор reviewer пути $F3 не владелец зоны"
+
+# ── бб4 (КАНАРЕЙКА): номера нет в реестре вовсе — «назначен рукой» ───────────────
+NNN4="$(printf '%03d' $((250 + RANDOM % 50)))"
+KURI="$WORK/bb4_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб4 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP4="contracts/${NNN4}-rucnoj-${RANDOM}.md"
+commit_kak "$KURI" architect "$DP4" 'номер назначен рукой — без резерва'
+gtoy "$KURI" push -q origin main
+ozhid_otkaz бб4 "переснятие-bulk не доказано: путь $DP4 не покрыт ни одной зоной"
+
+# ── бб5 (КАНАРЕЙКА): тег жив, но его коммит — НЕ предок судимого (чужой резерв) ──
+NNN5="$(printf '%03d' $((300 + RANDOM % 50)))"
+KURI="$WORK/bb5_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+gtoy "$KURI" checkout -q -b "chuzhoj-rezerv-${RANDOM}"
+gtoy "$KURI" -c user.name=orchestrator -c user.email=orchestrator@local commit -q --allow-empty -m 'резервная сторона истории'
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN5" -m 'чужой резерв'
+gtoy "$KURI" checkout -q main
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN5"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб5 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP5="contracts/${NNN5}-pod-chuzhim-rezervom-${RANDOM}.md"
+commit_kak "$KURI" architect "$DP5" 'черновик под чужой резерв'
+gtoy "$KURI" push -q origin main
+ozhid_otkaz бб5 "переснятие-bulk не доказано: путь $DP5 не покрыт ни одной зоной"
+
+# ── бб6: признание исключает ТОЛЬКО contracts/<M>-* — сосед судится обычным 7б ───
+NNN6="$(printf '%03d' $((350 + RANDOM % 50)))"
+KURI="$WORK/bb6_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+BASE6="$(gtoy "$KURI" rev-parse HEAD)"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN6" -m 'резерв до черновика' "$BASE6"
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN6"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб6 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP6="contracts/${NNN6}-granica-${RANDOM}.md"
+NP6="docs/storona-${RANDOM}.md"
+commit_kak "$KURI" architect "$DP6" 'черновик — признаваемый'
+commit_kak "$KURI" architect "$NP6" 'соседний путь вне паттерна'
+gtoy "$KURI" push -q origin main
+ozhid_otkaz бб6 "переснятие-bulk не доказано: путь $NP6 не покрыт ни одной зоной"
+
+printf 'ok: дверь bulk-переснятия 044 — все ворота пройдены (б0..б10, бб1..бб6)\n'
 exit 0
