@@ -52,6 +52,17 @@
 #     достаточны, sessionName не нужен» умирает здесь: ожидание block И
 #     ДО, И ПОСЛЕ (реализация, скопировавшая только п.1–4 без владелец-
 #     корреляции, ошибочно дала бы pass — ровно регрессия Б4).
+#   * п8 (ПОДДЕЛКА OWNER.JSON ЧЕРЕЗ ВЛОЖЕННЫЙ РЕПО — блокер M1 вердикта
+#     verdicts/adversary/contracts-037-m1m2-adversary.md; §Инварианты М1
+#     п.6 v2) — ВЛАДЕЛЕЦ Outer (легитимно допущен: контроль даёт pass И
+#     ДО, И ПОСЛЕ) создаёт ВНУТРИ Outer вложенный git-репо Inner и пишет
+#     Outer/.omp-isolation-owner.json (ОН СНАРУЖИ Inner, НО ВНУТРИ уже
+#     разрешённого Outer) с id ЧУЖОЙ сессии; unpinned-сессия с cwd=Inner
+#     и sessionName=этот id читает ПОДДЕЛКУ как harness-артефакт — стаб
+#     «п.1–5 достаточны, вложенность cwd не проверяется» умирает здесь:
+#     ожидание block (п.6: у Inner есть .git-несущий предок Outer),
+#     сегодня pass — обход воспроизведён живьём, байт-в-байт как в
+#     вердикте адверсария.
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
@@ -120,7 +131,21 @@ SIBLINGS_MAIN="$SIBLINGS_BASE/m"
 MAINLIKE="$OUTSIDE_NS/mainlike"
 mkinit "$MAINLIKE"
 
-ORDER=(п1 п2 п3 п4 п5 п6 п7)
+# п8 — блокер M1: ВЛАДЕЛЕЦ Outer (допущен п.1–5; harness-owner.json лежит
+# в dirname(Outer)=$FAKEHOME) создаёт ВНУТРИ себя вложенный репо Inner,
+# ЗАТЕМ пишет Outer/.omp-isolation-owner.json (dirname(Inner)==Outer —
+# читается как owner.json ДЛЯ Inner, физически внутри записываемого
+# владельцем дерева) с id ЧУЖОЙ сессии Owner037.NestedBare.
+OUTER="$FAKEHOME/outer"
+mkinit "$OUTER"
+INNER="$OUTER/inner"
+mkinit "$INNER"
+printf '{"pid":424242,"id":"Owner037","startToken":"1"}' \
+  > "$FAKEHOME/.omp-isolation-owner.json"
+printf '{"pid":424242,"id":"Owner037.NestedBare","startToken":"1"}' \
+  > "$OUTER/.omp-isolation-owner.json"
+
+ORDER=(п1 п2 п3 п4 п5 п6 п7 п8)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() {
@@ -190,6 +215,20 @@ expect_judge п6 block "Н-85" "-" \
 # совпадает с owner.json'а id ⇒ блок И ДО, И ПОСЛЕ реализации ──────────
 expect_judge п7 block "Н-85" "$FAKEHOME" \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f7.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionName\":\"TestOwner037.NestedBare037\"}"
+
+# ── п8: ПОДДЕЛКА OWNER.JSON ЧЕРЕЗ ВЛОЖЕННЫЙ РЕПО (блокер M1 вердикта
+# адверсария; §Инварианты М1 п.6 v2). КОНТРОЛЬ: владелец Outer легитимен —
+# pass И ДО (п.1–5 реализованы, ef736e9), И ПОСЛЕ п.6 (у Outer нет
+# .git-несущих предков между Outer и $FAKEHOME — реализация, блокирующая
+# контроль, — регресс легитимного владельца). АТАКА: чужая unpinned-сессия
+# с cwd=Inner и sessionName, равным ПОДДЕЛАННОМУ владельцем id, — сегодня
+# pass (обход жив, воспроизведён этой пачкой зондом против настоящего
+# --judge), после п.6 — block (предок Outer несёт .git-каталог; отказ до
+# чтения owner.json). ────────────────────────────────────────────────────
+expect_judge п8 pass "" "$FAKEHOME" \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$OUTER/f8.txt\"},\"worktree\":null,\"actual\":\"$OUTER\",\"sessionName\":\"Owner037\"}"
+expect_judge п8 block "Н-85" "$FAKEHOME" \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$INNER/pwned.txt\"},\"worktree\":null,\"actual\":\"$INNER\",\"sessionName\":\"Owner037.NestedBare\"}"
 
 RED=0; GRN=0; NORUN=0
 for m in "${ORDER[@]}"; do

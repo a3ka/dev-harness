@@ -22,6 +22,20 @@
 #     rc≠0 и ветка НЕ сдвинута ЦЕЛИКОМ (М2:225-228 «КАЖДЫЙ»), стаб — rc0 и
 #     весь диапазон (включая чужой внутренний коммит) cherry-pick-нут, ровно
 #     класс дня 029-031 внутри range вместо tip.
+#   * п6 (ЧЕРЕЗ диапазон: линейный диапазон из ДВУХ честных коммитов —
+#     блокер M2 того же вердикта, argv-баг RANGE_SHAS против ЗАМОРОЖЕННОГО
+#     М2 п.5 «cherry-pick-нуть ВЕСЬ диапазон») — стаб «принимает только
+#     одно-коммитный частный случай (многострочная строка == один argv)»
+#     умирает здесь: ожидание rc0 + на ветке РОВНО оба коммита +
+#     committer==author==implementer; сегодня rc1 «cherry-pick отказал»,
+#     ветка не сдвинута (живой прогон этой пачки это подтвердил).
+#   * п7 (мерж-политика М2 4а v2) — стаб «мерж не требует именованной
+#     политики, сойдёт безымянный отказ cherry-pick» умирает здесь:
+#     честный merge (оба родителя + сам мерж — %an/%ae честные) — ожидание
+#     rc1 ИМЕНОВАННЫЙ «мерж-коммит в диапазоне» + ветка не сдвинута +
+#     временный worktree не протёк; сегодня rc1 БЕЗЫМЯННЫЙ «cherry-pick
+#     отказал (конфликт или иная ошибка)» — ни политики, ни имени причины
+#     (живой прогон этой пачки это подтвердил).
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/scripts/accept_task_commit.sh"
@@ -71,7 +85,38 @@ printf 'q\n' > "$SRC_MIXED/q.txt"
 git -C "$SRC_MIXED" add q.txt
 git -C "$SRC_MIXED" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'tip correct author'
 
-ORDER=(п1 п2 п3 п4 п5)
+# ── SRC_TWO: ЧЕСТНЫЙ ЛИНЕЙНЫЙ диапазон из ДВУХ коммитов (оба %an/%ae
+# честные) — различает «принимает весь диапазон» (М2 п.5) от
+# одно-коммитного частного случая: argv-баг RANGE_SHAS (одна строка с
+# переводами строк == ОДИН argv cherry-pick) — блокер M2 вердикта
+# адверсария; диапазон branch..FETCH_HEAD = ровно {two:1, two:2}.
+SRC_TWO="$TOY/src-two"
+git clone -q "$MAIN" "$SRC_TWO" 2>/dev/null
+git -C "$SRC_TWO" checkout -q -b work
+printf 'a\n' > "$SRC_TWO/a.txt"
+git -C "$SRC_TWO" add a.txt
+git -C "$SRC_TWO" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'two honest: first'
+printf 'b\n' > "$SRC_TWO/b.txt"
+git -C "$SRC_TWO" add b.txt
+git -C "$SRC_TWO" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'two honest: second'
+
+# ── SRC_MERGE: ЧЕСТНЫЙ merge в диапазоне (c1, c2 и сам мерж — все %an/%ae
+# честные) — направление «явная политика merge» (М2 4а v2): identity
+# проходит, cherry-pick мержа без политики невозможен.
+SRC_MERGE="$TOY/src-merge"
+git clone -q "$MAIN" "$SRC_MERGE" 2>/dev/null
+git -C "$SRC_MERGE" checkout -q -b work
+printf 'm1\n' > "$SRC_MERGE/m1.txt"
+git -C "$SRC_MERGE" add m1.txt
+git -C "$SRC_MERGE" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'merge case: c1'
+git -C "$SRC_MERGE" checkout -q -b side main
+printf 's\n' > "$SRC_MERGE/s.txt"
+git -C "$SRC_MERGE" add s.txt
+git -C "$SRC_MERGE" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'merge case: c2'
+git -C "$SRC_MERGE" checkout -q work
+git -C "$SRC_MERGE" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false merge -q --no-edit side
+
+ORDER=(п1 п2 п3 п4 п5 п6 п7)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() { RAN["$1"]=1; ST["$1"]=1; printf 'КРАСНОЕ 037: ветвь «%s» — %s\n' "$1" "$2" >&2; }
@@ -134,6 +179,39 @@ if [ -x "$SUBJ" ]; then
     *critic*) ;;
     *) fail п5 "reason не называет фактического автора critic внутреннего коммита: $out5" ;;
   esac
+
+  # ── п6: ЧЕРЕЗ диапазон — линейный ДВА честных коммита ⇒ rc0 + на ветке 2
+  before6="$(git -C "$MAIN" rev-parse wip/201/implementer)"
+  out6="$("$SUBJ" --root "$MAIN" --source "$SRC_TWO" --branch wip/201/implementer --author implementer 2>&1)"; rc6=$?
+  after6="$(git -C "$MAIN" rev-parse wip/201/implementer)"
+  cnt6=0
+  if [ "$after6" != "$before6" ]; then
+    cnt6="$(git -C "$MAIN" rev-list --count "$before6..wip/201/implementer")"
+  fi
+  an6="$(git -C "$MAIN" log -1 --format=%an wip/201/implementer)"
+  cn6="$(git -C "$MAIN" log -1 --format=%cn wip/201/implementer)"
+  fA=1; git -C "$MAIN" cat-file -e wip/201/implementer:a.txt 2>/dev/null || fA=0
+  fB=1; git -C "$MAIN" cat-file -e wip/201/implementer:b.txt 2>/dev/null || fB=0
+  ok п6
+  if [ "$rc6" -ne 0 ] || [ "$cnt6" -ne 2 ] || [ "$an6" != "implementer" ] || [ "$cn6" != "implementer" ] || [ "$fA" -ne 1 ] || [ "$fB" -ne 1 ]; then
+    fail п6 "честный линейный диапазон из двух коммитов не принят (rc=$rc6, на-ветке=$cnt6, an=$an6, cn=$cn6, a.txt=$fA, b.txt=$fB, вывод: $out6)"
+  fi
+
+  # ── п7: ЧЕСТНЫЙ merge в диапазоне ⇒ именованный отказ 4а, ветка не тронута
+  before7="$(git -C "$MAIN" rev-parse wip/201/implementer)"
+  out7="$("$SUBJ" --root "$MAIN" --source "$SRC_MERGE" --branch wip/201/implementer --author implementer 2>&1)"; rc7=$?
+  after7="$(git -C "$MAIN" rev-parse wip/201/implementer)"
+  ok п7
+  if [ "$rc7" -eq 0 ] || [ "$after7" != "$before7" ]; then
+    fail п7 "честный merge ошибочно принят или ветка сдвинута (rc=$rc7, before=$before7, after=$after7, вывод: $out7)"
+  fi
+  case "$out7" in
+    *мерж*) ;;
+    *) fail п7 "reason не называет мерж-политику 4а (нет слова «мерж»): $out7" ;;
+  esac
+  if ls -d "${TMPDIR:-/tmp}"/accept_task_commit.* >/dev/null 2>&1; then
+    fail п7 "протёк временный worktree: $(ls -d "${TMPDIR:-/tmp}"/accept_task_commit.*)"
+  fi
 fi
 
 RED=0; GRN=0; NORUN=0
