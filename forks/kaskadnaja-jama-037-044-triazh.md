@@ -54,4 +54,4 @@ check_protected.sh PATH-security; корневые причины 043/round-cap-
 ЗАВЕДЁН: 2026-09-24T14:46:37Z
 АВТОР: orchestrator (default/glm-5.3)
 БЛОКИРУЕТ: нет
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да — verdicts/consultant/kaskadnaja-jama-037-044-triazh-v1.md (fb200cd); Вариант X исполнен оркестратором: 044 done (frozen/044/1 → done/contracts/044/1), 037 done (frozen/037/2 → done/contracts/037/1), 043 v2/done отложен отдельным решением владельца после эмпирической проверки СПАСЕНО (Н-150), триаж уточнён (реально 65/64 открытых, корзины 35/15/23)
