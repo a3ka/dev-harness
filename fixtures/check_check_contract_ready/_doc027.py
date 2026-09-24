@@ -473,14 +473,29 @@ def lifecycle(root, s, p):
     commit(root, 'исправлены обязательства')
     expect(run(['bash', REPO / 'scripts/check_contract_ready.sh', root], root), 0, 'ready-doc-control')
     expect(run(['bash', REPO / 'scripts/freeze_contract.sh', 'contracts/001-yozh.md', 'Ёж', root], root), 0, 'freeze-doc-control')
-    # Реестровый шаг церемонии (036 §Freeze, г5б «писатель остаётся единственным»):
-    # freeze ПИШЕТ registry/contracts.tsv, но не коммитит — строку фиксирует
-    # freeze-актор отдельным коммитом ДО регрессий (живой прецедент 56ec133).
-    # Без шага git add -A уводит реестр в чужой коммит: зоны игрушки — docs/ и
-    # contracts/ fixtures/, реестр вне обеих; owner не объявлен ЗОНА-строками,
-    # и check_zones его не судит (минт-дверь 031 судит реестр только под
-    # orchestrator).
-    commit(root, 'реестр заморозки 001', author='owner')
+    # Реестровый шаг церемонии (036 §Freeze, г5б «писатель остаётся единственным»)
+    # в Н-132-семантике (4807c1d, предписание владельца): freeze САМ коммитит
+    # registry/contracts.tsv identity-оркестратора тем же актом, что и тег, —
+    # тема «freeze: registry NNN → <tag-object-sha>». Ожидания снимаются в память
+    # СРАЗУ после успешной заморозки, до регрессий: HEAD обязан быть самокоммитом
+    # реестра (freeze коммитит последним актом), porcelain — чист (реестр не
+    # остаётся uncommitted-modified и не уезжает в следующий случайный коммит
+    # любой identity/зоны). Мутационная различимость: без самокоммита в freeze
+    # HEAD остаётся «исправлены обязательства» и porcelain грязен — обе проверки
+    # краснеют именованными отказами.
+    tags = git(root, 'tag', '--list', 'frozen/contracts/001/*').splitlines()
+    if len(tags) != 1:
+        fail('freeze-registry-commit', f'после заморозки ожидался ровно один тег frozen/contracts/001/*, получено: {tags}')
+    tag_sha = git(root, 'rev-parse', tags[0])
+    subject = git(root, 'log', '-1', '--format=%s')
+    if subject != f'freeze: registry 001 → {tag_sha}':
+        fail('freeze-registry-commit',
+             f'HEAD после freeze — не самокоммит реестра: тема «{subject}» ≠ «freeze: registry 001 → {tag_sha}»')
+    author = git(root, 'log', '-1', '--format=%an <%ae>')
+    if author != 'orchestrator <orchestrator@dev-harness.local>':
+        fail('freeze-registry-commit', f'самокоммит реестра не orchestrator-identity: {author}')
+    if git(root, 'status', '--porcelain'):
+        fail('freeze-registry-clean', 'porcelain не чист после заморозки — реестр оставлен незакоммиченным')
     regressions(root, s, p)
 
 
@@ -501,8 +516,9 @@ def regressions(root, s, p):
     put(root, 'docs/allowed.txt', 'Ёж\n')
     commit(root, 'допустимый документ', author='implementer')
     expect(run(['bash', REPO / 'scripts/check_zones.sh', root], root), 0, 'zone-control')
-    # Проба неослабления (слово владельца): церемониальный owner-коммит выше отвёл
-    # реестр от суда, но суд над реестром под implementer обязан остаться красным.
+    # Проба неослабления (слово владельца): самокоммит реестра freeze идёт под
+    # orchestrator, которого toy ЗОНА-строками не объявляет, — суд зон его не
+    # судит; но суд над реестром под implementer обязан остаться красным.
     # Дописывается ДУБЛЬ живой строки манифеста (грамматика и sha те же, тег жив)
     # — состояние реестра зелёное, и красный приходит ТОЛЬКО от суда зон:
     # минт-дверь 031 пускает registry/contracts.tsv лишь под orchestrator
