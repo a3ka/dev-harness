@@ -1,0 +1,11 @@
+probe-only каталог (контракт 034, инв. 1) — батарея red_gitw_obmen.sh
+прогоняет 12 клеток (г0-г12) и стаб-пак против SUBJECT-обёртки
+scripts/gitw (контракт 045, pre-exchange гард цели git-обмена). Каталог
+НЕ имеет барьерного ключа в scripts/ (scripts/gitw — сама цель гарда,
+не барьер в смысле verify_antiplacebo: её рантайм — exec внешнего git,
+а не суждение формы контракта/зон/проводки), и НЕ должен фигурировать
+в `keys:` шардов CI; area-scan verify_antiplacebo.sh (scripts/verify_antiplacebo.sh:199-213)
+легально пропускает каталог при выполнении: .probe-only ∧ ≥1 red_*.sh ∧
+нет case_*.sh. Прямой прогон батареи — в живой сессии имплементера при
+реализации контракта и как регрессия dogfood-шага в CI
+(`bash fixtures/_krasnye_045.sh scripts/gitw`, контракт 045 §ПРОВОДКА).

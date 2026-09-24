@@ -245,6 +245,29 @@ jobs:
         # пункт приёмки шага (правило 6).
         run: npm run check:precision-battery
 
+
+      - name: Сам-тесты pre-exchange гард (контракт 045)
+        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043: раннер
+        # `fixtures/_krasnye_045.sh` (dogfood-семья контракта 045) гоняет
+        # `fixtures/gitw/red_gitw_obmen.sh` — батарею 12 клеток (г0–г12)
+        # плюс стаб-пак из 11 обманных реализаций — против `scripts/gitw`
+        # (pre-exchange гард цели push/fetch/pull, единый корень Н-141+Н-143
+        # +Н-148 + probe C). Шардовый verify_antiplacebo выбирает только
+        # `case_*.sh` (scripts/verify_antiplacebo.sh:585), и этой семьи НЕ
+        # видит (её файл — `red_gitw_obmen.sh`, не `case_*`). Архитектурный
+        # класс тот же, что ранее подключённые «Сам-тесты семьи ПРОВОДКА» /
+        # «Сам-тесты барьера check_threat_model» / «Сам-тесты семьи
+        # precision-гейт». Ключ `npm run check:gitw-family-selftest`
+        # покрыт правилом 6 verify_ci_parity.sh (:1043) как `npm run <имя>`,
+        # тот же случай, что `check:precision-family-selftest` —
+        # запись в config/ci_parity_exceptions.txt НЕ требуется.
+        # Самодостаточен: батарея строит toy-мир во временных каталогах,
+        # не мутирует стерегомое дерево; единственный сетевой запрос —
+        # `git ls-remote <канон>` для клетки живости г6 (toy-каталог
+        # GIT_EXCHANGE_GUARD_CANONICAL, не требует сети). rc=0 закрывает
+        # пункт приёмки шага (правило 6).
+        run: npm run check:gitw-family-selftest
+
       - name: Спек-точность пре-фриз (контракт 036, В4)
         # Самодостаточен: spec-preflight на живом дереве — контракт 036 заморожен и является
         # честным входом гейта (в4-семьи в правке этим же черновиком — stderr-пометка, судит

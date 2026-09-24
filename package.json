@@ -64,6 +64,7 @@
     "check:consumers": "bash scripts/check_consumers.sh",
     "check:provodka-family-selftest": "EXPECT_RC=0 bash fixtures/_krasnye_038.sh",
     "check:precision-family-selftest": "bash fixtures/_krasnye_043.sh",
-    "check:precision-battery": "bash fixtures/parsing_hygiene_battery/run_battery.sh check_precision_gate"
+    "check:precision-battery": "bash fixtures/parsing_hygiene_battery/run_battery.sh check_precision_gate",
+    "check:gitw-family-selftest": "bash fixtures/_krasnye_045.sh scripts/gitw"
   }
 }
