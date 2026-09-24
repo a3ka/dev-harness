@@ -26,6 +26,14 @@
 # бб1–бб6 зелёные (канарейки бб3–бб5 — зелёные и ДО, и ПОСЛЕ, грамматика
 # «Канарейки» 023).
 #
+# Пост-freeze усиление по Р1 ревьюера (8e03596; вторая половина требования
+# адверсария 622d2e5:57-61 — «И ДОБАВИТЬ КРАСНЫЕ ВАРИАНТЫ БЕЗ ДЕФИСА», законно
+# пост-заморозочно по AGENTS.md:150-152): клетки бб7–бб9 прижимают ОБЕ половины
+# код-фикса Б7б (872132b) — грамматика дефиса (бб7/бб8) и пост-freeze симметрия
+# рук А/Б (бб9); откат каждой половины ПО ОТДЕЛЬНОСТИ красит фикстуру на СВОЕЙ
+# клетке (мутационная проба — привязка в §ВХОДЫ; зона architect, замороженный
+# текст контракта не тронут).
+#
 # Форма — по прецеденту red_peresnjatie_bazlajna.sh: собственный WORK вне дерева,
 # TMPDIR редиректится в скратч прогона (снимки субъекта — не в дереве и не в /tmp
 # соседних прогонов), имена файлов/каталогов случайны КАЖДЫЙ прогон.
@@ -104,8 +112,28 @@
 #      путь той же дельты ВНЕ паттерна (docs/, зон нет) → отказ обязан именовать
 #      ВТОРОЙ путь, НЕ черновик: тег — не индульгенция на дельту. СЕГОДНЯ отказ
 #      именует ЧЕРНОВИК (лексикографически раньше) — красное.
+#   бб7 (Р1 ревьюера 8e03596; Б7б-половина «грамматика без дефиса», рука А):
+#      contracts/<NNN>not-a-draft-*.md — basename с трёхцифровым префиксом, четвёртый
+#      байт НЕ дефис, ЖИВОЙ резерв id/CONTRACT/<NNN> НА САМОМ коммите (форма,
+#      максимально благоприятная мутанту), вне зон строгого реестра → отказ «путь …
+#      не покрыт ни одной зоной» + снимок не тронут + --check красен. Мутант без
+#      проверки четвёртого байта (priznanie_chernovika_7b,
+#      `[ "${base:3:1}" = "-" ] || return 1`) умирает здесь: дверь ложно признаёт
+#      не-черновик по цифровому префиксу и переснимает живую красную дельту;
+#   бб8 (та же половина Б7б, форма «без суффикса вовсе»): contracts/<NNN> — basename
+#      ровно три цифры, тот же живой резерв на самом коммите → тот же именованный
+#      отказ. Отдельная клетка от бб7 (Н-39: каждая форма — СВОЙ вход): стаб
+#      «признавать любой цифровой префикс» красен на каждой независимо;
+#   бб9 (Б7б-половина «пост-freeze рука А»): контракт <NNN> УЖЕ заморожен
+#      (frozen/contracts/<NNN>/1 в предках судимого коммита), id/CONTRACT/<NNN>
+#      ПЕРЕНАЗНАЧЕН на коммит незонированного grammar-конформного
+#      contracts/<NNN>-*.md → отказ «путь … не покрыт ни одной зоной», НЕ success.
+#      Мутант без пост-freeze отказа ДО выбора рук умирает здесь: переназначенный
+#      тег даёт руке А ложный success. Позитивная симметрия — бб1/бб2: легитимный
+#      до-freeze contracts/<M>-*.md с живым резервом признаётся и переснимается —
+#      сужение грамматики честный путь НЕ перерезает;
 #
-# На каждом отказывающем входе (б2–б9, бб3–бб6) фикстура сверяет ТРОЙКУ: именованный отказ ∧
+# На каждом отказывающем входе (б2–б9, бб3–бб9) фикстура сверяет ТРОЙКУ: именованный отказ ∧
 # байты снимка до == после ∧ --check остаётся rc 1 «основной чекаут загрязнён» —
 # прячущее переснятие наблюдаемо краснеет.
 #
@@ -538,5 +566,64 @@ commit_kak "$KURI" architect "$NP6" 'соседний путь вне патте
 gtoy "$KURI" push -q origin main
 ozhid_otkaz бб6 "переснятие-bulk не доказано: путь $NP6 не покрыт ни одной зоной"
 
-printf 'ok: дверь bulk-переснятия 044 — все ворота пройдены (б0..б10, бб1..бб6)\n'
+# ── бб7 (Р1 ревьюера; грамматика Б7б — три цифры БЕЗ дефиса, рука А) ─────────────
+NNN7="$(printf '%03d' $((400 + RANDOM % 50)))"
+KURI="$WORK/bb7_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб7 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP7="contracts/${NNN7}not-a-draft-${RANDOM}.md"
+commit_kak "$KURI" architect "$DP7" 'не-черновик: цифровой префикс без дефиса'
+SHA_BB7="$(gtoy "$KURI" log -1 --format=%H -- "$DP7")"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN7" -m 'резерв на самом коммите' "$SHA_BB7"
+gtoy "$KURI" push -q origin main
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN7"
+ozhid_otkaz бб7 "переснятие-bulk не доказано: путь $DP7 не покрыт ни одной зоной"
+
+# ── бб8 (грамматика Б7б — basename ровно три цифры, суффикса нет вовсе) ──────────
+NNN8="$(printf '%03d' $((450 + RANDOM % 50)))"
+KURI="$WORK/bb8_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб8 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+DP8="contracts/${NNN8}"
+commit_kak "$KURI" architect "$DP8" 'не-черновик: basename ровно три цифры'
+SHA_BB8="$(gtoy "$KURI" log -1 --format=%H -- "$DP8")"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN8" -m 'резерв на самом коммите' "$SHA_BB8"
+gtoy "$KURI" push -q origin main
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN8"
+ozhid_otkaz бб8 "переснятие-bulk не доказано: путь $DP8 не покрыт ни одной зоной"
+
+# ── бб9 (пост-freeze рука А: переназначенный резерв на незонированном пути) ──────
+NNN9="$(printf '%03d' $((500 + RANDOM % 50)))"
+KURI="$WORK/bb9_${RANDOM}"
+mk_bulk_root "$KURI" строгий
+mk_origin "$KURI"
+BASE9="$(gtoy "$KURI" rev-parse HEAD)"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "id/CONTRACT/$NNN9" -m 'резерв до заморозки' "$BASE9"
+gtoy "$KURI" push -q origin "refs/tags/id/CONTRACT/$NNN9"
+F9="contracts/${NNN9}-original-${RANDOM}.md"
+{
+  printf '# контракт %s\n\n## Предмет\nпредмет девятого\n\n## Критерий готовности\nкоманда с кодом возврата\n\n## Исполнители и зоны\n' "$NNN9"
+  printf 'ЗОНА architect: %s\n' "$F9"
+} > "$KURI/$F9"
+gtoy "$KURI" -c user.name=architect -c user.email=architect@local add -A
+gtoy "$KURI" -c user.name=architect -c user.email=architect@local commit -q -m "заморозка $NNN9"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -a "frozen/contracts/$NNN9/1" -m 'утверждён'
+gtoy "$KURI" push -q origin main
+gtoy "$KURI" push -q origin "refs/tags/frozen/contracts/$NNN9/1"
+run_subj --snapshot "$KURI"
+[ "$SUBJ_RC" -eq 0 ] || fail бб9 снимка "snapshot отказал rc=$SUBJ_RC: $SUBJ_OUT"
+E9="contracts/${NNN9}-evil-${RANDOM}.md"
+commit_kak "$KURI" architect "$E9" 'пост-freeze незонированный путь'
+SHA_E9="$(gtoy "$KURI" log -1 --format=%H -- "$E9")"
+gtoy "$KURI" -c user.name=Фикстура -c user.email=fixture@local tag -f -a "id/CONTRACT/$NNN9" -m 'резерв переназначен (рука А)' "$SHA_E9"
+gtoy "$KURI" push -q origin main
+gtoy "$KURI" push -q --force origin "refs/tags/id/CONTRACT/$NNN9"
+ozhid_otkaz бб9 "переснятие-bulk не доказано: путь $E9 не покрыт ни одной зоной"
+
+
+printf 'ok: дверь bulk-переснятия 044 — все ворота пройдены (б0..б10, бб1..бб9)\n'
 exit 0
