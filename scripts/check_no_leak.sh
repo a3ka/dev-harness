@@ -1390,6 +1390,45 @@ do_retake() {
 # «не прочитан»/«чужой корень»/«режим не read-only»/«verify отсутствует»/
 # «verify не сошёлся»), zones_load — ЕДИНСТВЕННЫЙ читатель ЗОНА-строк (граница-5
 # 031 дословно; 044 новый ПОТРЕБИТЕЛЬ, не второй читатель).
+# И-3 признание (iv) (контракт 023; draft-признание (контракт 023, ветвь iv;
+# брат check_zones.sh:846-888) — будущая правка И-3 обязана найти оба места
+# grep'ом по якорю. Семантика дословно 023 (замороженный текст): путь
+# contracts/<M>-* (M — первые три символа basename, РОВНО три цифры) признаётся,
+# если (рука А) тег id/CONTRACT/<M> указывает НА САМОМ коммите C, или (рука Б) тег
+# id/CONTRACT/<M> жив ∧ его коммит предок C ∧ НЕТ ни одного тега
+# frozen/contracts/<M>/*, чей коммит — предок C. Возвращает 0 если признан, иначе 1.
+# Граница-7 (б) 044: потребитель-local копия предиката; дрейф прижат двумя семьями
+# фикстур (023 red_priznanie_po_nomery_puti.sh и 044 бб1–бб6) и этим якорем.
+priznanie_chernovika_7b() {
+  local path="$1" c="$2"
+  local base head3 path_m tag_commit ft ft_commit
+  # путь обязан матчить contracts/<M>-* (M — первые три символа basename, РОВНО три цифры)
+  [ "${path%%/*}" = "contracts" ] || return 1
+  base="${path##*/}"
+  head3="${base:0:3}"
+  case "$head3" in
+    [0-9][0-9][0-9]) path_m="$head3" ;;
+    *) return 1 ;;
+  esac
+  # рука А: тег id/CONTRACT/<M> НА САМОМ коммите C
+  if "$GIT" -C "$CANON" tag --points-at "$c" "id/CONTRACT/$path_m" 2>/dev/null \
+       | grep -qxF -- "id/CONTRACT/$path_m"; then
+    return 0
+  fi
+  # рука Б: тег жив ∧ его коммит — предок C ∧ НЕТ frozen/contracts/<M>/* в предках C
+  tag_commit="$("$GIT" -C "$CANON" rev-parse --verify --quiet "refs/tags/id/CONTRACT/$path_m^{commit}" 2>/dev/null || true)"
+  [ -n "$tag_commit" ] || return 1
+  "$GIT" -C "$CANON" merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null || return 1
+  while IFS= read -r ft; do
+    [ -z "$ft" ] && continue
+    ft_commit="$("$GIT" -C "$CANON" rev-parse --verify --quiet "${ft}^{commit}" 2>/dev/null || true)"
+    if [ -n "$ft_commit" ] && "$GIT" -C "$CANON" merge-base --is-ancestor "$ft_commit" "$c" 2>/dev/null; then
+      return 1
+    fi
+  done < <("$GIT" -C "$CANON" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$path_m/" 2>/dev/null || true)
+  return 0
+}
+
 do_retake_bulk() {
   local first base cur delta manifest_rc snap_mode verify_line verify_stored verify_recomp
   local retake_zones porcelain_out porcelain_rc cur1 cur2
@@ -1560,6 +1599,16 @@ do_retake_bulk() {
       printf 'ОТКАЗ: переснятие-bulk не доказано: байты дельта-пути не закоммичены (porcelain лжёт: assume-unchanged/skip-worktree)\n' >&2
       exit 1
     fi
+    # ЕДИНЫЙ источник sha+auth для 7б/7в/7г/стенограммы (контракт 044 §Инварианты):
+    # ОДИН вызов `git log -1 --format=%H -- <путь>` на путь (для C, merge-base,
+    # стенограммы); author — отдельный вызов с тем же коммитом, но для ДРУГОГО поля
+    # (`%an` против `%H`), это НЕ «второй раз» того же вызова.
+    last_sha="$("$GIT" -C "$CANON" log -1 --format=%H -- "$path" 2>/dev/null || true)"
+    if [ -z "$last_sha" ]; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: коммит пути %s не достижим на origin/main\n' "$path" >&2
+      exit 1
+    fi
+    last_auth="$("$GIT" -C "$CANON" log -1 --format=%an -- "$path" 2>/dev/null || true)"
     # 7б. Путь покрыт ≥ 1 зоной ПОЛНОГО реестра. Литеральная семантика
     # zones_match_path (lib_zones.sh): каталог-зона с trailing `/` — start-with
     # (`index(p, zpath) == 1`); файл-зона без слэша — точное равенство. Без
@@ -1576,25 +1625,36 @@ do_retake_bulk() {
         }
       }' "$retake_zones/zones_scoped" | sort -u)"
     if [ -z "$covered_zones" ]; then
-      printf 'ОТКАЗ: переснятие-bulk не доказано: путь %s не покрыт ни одной зоной\n' "$path" >&2
-      exit 1
+      # ВТОРОЙ приём (Н-147, контракт 044 §«Признание черновика в шаге 7б»): путь
+      # матчит contracts/<M>-* → двухрукое draft-признание того же коммита C (тот же
+      # last_sha, что судят 7в/7г/стенограмма). Сработала любая рука → путь считается
+      # покрытым БЕЗ чтения зон ДЛЯ ЭТОГО пути, владельцы для 7г — ОБЪЕДИНЕНИЕ
+      # владельцев ВСЕХ зон полного реестра (колонка авторов zones_scoped — та же
+      # аудит-популяция check_zones; у признанного черновика покрывающих зон нет по
+      # построению, иначе вечный отказ). Ни одна рука → существующий отказ.
+      # Признание СНИМАЕТ ТОЛЬКО шаг 7б; 7а/7в/7г/8 для ЭТОГО пути идут по общим
+      # правилам (тот же last_sha/last_auth, тот же merge-base, та же автор-проверка).
+      if priznanie_chernovika_7b "$path" "$last_sha"; then
+        owners="$(awk -F'\t' '$1 != "" {print $1}' "$retake_zones/zones_scoped" | sort -u)"
+      else
+        printf 'ОТКАЗ: переснятие-bulk не доказано: путь %s не покрыт ни одной зоной\n' "$path" >&2
+        exit 1
+      fi
+    else
+      # Обычный путь: владельцы ПОКРЫВАЮЩИХ зон (НЕ весь реестр — иначе ЛЮБОЙ
+      # владелец реестра подошёл бы, противоположно двери).
+      owners="$(printf '%s\n' "$covered_zones" | awk -F'\t' '{print $1}' | sort -u)"
     fi
-    # 7в. Слит: sha последнего коммита пути — предок origin/main. Тот же вызов,
-    # что для стенограммы ниже — единый источник факта, не повторный log.
-    last_sha="$("$GIT" -C "$CANON" log -1 --format=%H -- "$path" 2>/dev/null || true)"
-    if [ -z "$last_sha" ]; then
-      printf 'ОТКАЗ: переснятие-bulk не доказано: коммит пути %s не достижим на origin/main\n' "$path" >&2
-      exit 1
-    fi
+    # 7в. Слит: sha последнего коммита пути — предок origin/main. last_sha
+    # вычислен выше — единый источник факта для 7б/7в/стенограммы, не повторный log.
     if ! "$GIT" -C "$CANON" merge-base --is-ancestor "$last_sha" origin/main 2>/dev/null; then
       printf 'ОТКАЗ: переснятие-bulk не доказано: коммит %s пути %s не достижим на origin/main\n' "$last_sha" "$path" >&2
       exit 1
     fi
     # 7г. Автор того же коммита ∈ владельцы покрывающих зон (литеральное равенство
-    # строк, как 031 п.6). Множество владельцев строится из ПЕРЕСЕЧЕНИЯ owners×
-    # covered_zones (НЕ весь реестр — иначе владелец ЛЮБОЙ зоны подошёл бы).
-    last_auth="$("$GIT" -C "$CANON" log -1 --format=%an -- "$path" 2>/dev/null || true)"
-    owners="$(printf '%s\n' "$covered_zones" | awk -F'\t' '{print $1}' | sort -u)"
+    # строк, как 031 п.6). Для признанного черновика `owners` уже несёт объединение
+    # ВСЕХ зон полного реестра (см. выше); необъявленный автор черновика отказывает
+    # ИМЕНЕМ, не молча (Н-56: дверь СТРОЖЕ check_zones).
     if ! printf '%s\n' "$owners" | grep -qxF -- "$last_auth"; then
       printf 'ОТКАЗ: переснятие-bulk не доказано: автор %s пути %s не владелец зоны\n' "$last_auth" "$path" >&2
       exit 1
