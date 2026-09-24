@@ -2,7 +2,7 @@
 # КРАСНОЕ 045 (scripts/gitw — pre-exchange гард цели git-обмена, единый корень
 # Н-141+Н-143+Н-148 + probe C): обёртки ещё не существует — честная часть батареи
 # красна ЕДИНСТВЕННОЙ причиной «предмет отсутствует» (fail-fast, г0), а стаб-пак
-# (исполняется ДО честных клеток) зелён И ДО реализации: девять обманных стабов
+# (исполняется ДО честных клеток) зелён И ДО реализации: одиннадцать обманных стабов
 # умирают каждый на СВОЕЙ клетке именованно — различимость батареи не зависит от
 # существования честного кода.
 #
@@ -22,7 +22,14 @@
 #                    (И-2: неизвестная арность = несудимость = отказ);
 #   * RAW-ПЕЧАТЬ   — печатает URL без санитизации байтов          → умирает г10
 #                    (И-6: перенос строки в URL не может родить
-#                    вторую строку отказа «gitw ОТКАЗ: …»).
+#                    вторую строку отказа «gitw ОТКАЗ: …»);
+#   * ОДНА-ФОРМА   — предпочитает config --get, игнорирует        → умирает г11
+#                    неканонический get-url при непустой первой
+#                    (критик 045-Б2: живой обход — ядро-носитель
+#                    в таком виде исполняло push в чужой bare);
+#   * PUSHURL-ИГНОР — не судит remote.origin.pushurl —           → умирает г12
+#                    фактическую цель push (критик 045-Б3: push
+#                    реально уходит на pushurl-цель).
 #
 # Клетки честной части (каждая ≡ ровно одна фраза/условие отказа из контракта
 # 045 §Инварианты; фразы grep -F дословно):
@@ -43,7 +50,12 @@
 #   г8  та же подмена → pull: F1;
 #   г9  неизвестный ведущий флаг: F3 с именем флага (fail-closed разбор);
 #   г10 URL с управляющими байтами: ровно ОДНА строка «gitw ОТКАЗ: …», перенос
-#       строки санитизирован в «?» (подделка второй строки отказа невозможна).
+#       строки санитизирован в «?» (подделка второй строки отказа невозможна);
+#   г11 критик 045-Б2: канонический ФАЙЛОВЫЙ remote.origin.url +
+#       insteadOf-перекрытие на чужой путь — РАСКРЫТЫЙ url неканоничен и
+#       является фактической целью настоящего git → F1 + чужой bare НЕ тронут;
+#   г12 критик 045-Б3: обе формы url каноничны, remote.origin.pushurl на
+#       чужой bare — фактическая цель push → F1 + pushurl-получатель НЕ тронут.
 #
 # Режимы: внешний (по умолчанию) — стаб-пак затем честные клетки против
 # ${GITW:-<корень>/scripts/gitw}; внутренний (RED_GITW_INNER=1) — только честные
@@ -139,6 +151,29 @@ REPO4="$WORK/r4-mertvyj"
 git clone -q "$R1" "$REPO4" 2>/dev/null
 git -C "$REPO4" remote set-url origin "$DEAD"
 
+# REPO8 — insteadOf-перекрытие: ФАЙЛОВЫЙ url каноничен (B1), РАСКРЫТЫЙ — чужой
+# путь B3, он же фактическая цель настоящего git (клетка г11, критик 045-Б2).
+# Начальный push выполняется ДО установки insteadOf — уходит в B1, не в B3.
+REPO8="$WORK/r8-insteadof"
+git init -q -b main "$REPO8"
+printf 's\n' > "$REPO8/s.txt"
+git -C "$REPO8" add s.txt
+ident "$REPO8" -m init8
+git -C "$REPO8" remote add origin "$B1"
+git -C "$REPO8" push -q -u origin main 2>/dev/null
+git -C "$REPO8" config url."$B3".insteadOf "$B1"
+
+# REPO9 — pushurl на чужой bare: ОБЕ формы url каноничны (B1), фактическая цель
+# push = pushurl (B3) — клетка г12, критик 045-Б3.
+REPO9="$WORK/r9-pushurl"
+git init -q -b main "$REPO9"
+printf 't\n' > "$REPO9/t.txt"
+git -C "$REPO9" add t.txt
+ident "$REPO9" -m init9
+git -C "$REPO9" remote add origin "$B1"
+git -C "$REPO9" push -q -u origin main 2>/dev/null
+git -C "$REPO9" config remote.origin.pushurl "$B3"
+
 CANON_B1="$B1"    # канонический URL toy-мира (ручка обёртки)
 
 tip_of() { git -C "$1" rev-parse "${2:-main}" 2>/dev/null; }
@@ -153,7 +188,7 @@ mk_stub_core() {
 # нет И-1 (разрешение настоящего git через PATH-скан), нет И-9 (наследование
 # среды), exec не побайтово-прозрачный по построению ручек. Дыры стабов —
 # ручки: JUDGE_SUBS, MATCH_MODE, HONOR_DASHC, HONOR_DASHC_IN_QUERY,
-# JUDGE_EXPLICIT, LIVENESS, STRICT_FLAGS, SANITIZE.
+# JUDGE_EXPLICIT, LIVENESS, STRICT_FLAGS, SANITIZE, URL_DOUBLING, HONOR_PUSHURL.
 REAL=/usr/bin/git
 CANON="${GIT_EXCHANGE_GUARD_CANONICAL:-ssh://git@github.com/a3ka/dev-harness.git}"
 JUDGE_SUBS="${JUDGE_SUBS:-push fetch pull}"
@@ -164,6 +199,8 @@ JUDGE_EXPLICIT="${JUDGE_EXPLICIT:-1}"
 LIVENESS="${LIVENESS:-1}"
 STRICT_FLAGS="${STRICT_FLAGS:-1}"
 SANITIZE="${SANITIZE:-1}"
+URL_DOUBLING="${URL_DOUBLING:-1}"
+HONOR_PUSHURL="${HONOR_PUSHURL:-1}"
 F1='gitw ОТКАЗ: URL origin не канонический: '
 F2='gitw ОТКАЗ: авторитет недоступен: ls-remote '
 F3='gitw ОТКАЗ: неизвестный глобальный флаг: '
@@ -214,12 +251,41 @@ if [ "$judged" -eq 1 ]; then
     esac
   done
   if [ -z "$target" ]; then
-    # ДВОЙНАЯ сверка (спека 045 И-4): config --get видит -c перекрытия,
-    # remote get-url видит insteadOf-переписывание; живой замер этой пачки:
-    # remote get-url -c НЕ видит (возвращает файловое значение) — потому обе.
+    # Сверка КАЖДОЙ непустой формы цели (спека 045 И-4 после критика-Б2/Б3):
+    # config --get видит -c перекрытия; remote get-url видит insteadOf-
+    # переписывание (живой замер: remote get-url при -c возвращает ФАЙЛОВОЕ
+    # значение) — потому обе; для push дополнительно обе формы pushurl —
+    # фактическая цель push = pushurl ЕСЛИ задан, иначе url.
     u_cfg="$("$REAL" "${qc[@]}" config --get remote.origin.url 2>/dev/null || true)"
     u_get="$("$REAL" "${qc[@]}" remote get-url origin 2>/dev/null || true)"
-    if [ -n "$u_cfg" ]; then target="$u_cfg"; elif [ -n "$u_get" ]; then target="$u_get"; fi
+    p_cfg=""; p_get=""
+    if [ "$HONOR_PUSHURL" -eq 1 ] && [ "$sub" = push ]; then
+      p_cfg="$("$REAL" "${qc[@]}" config --get remote.origin.pushurl 2>/dev/null || true)"
+      p_get="$("$REAL" "${qc[@]}" remote get-url --push origin 2>/dev/null || true)"
+    fi
+    if [ "$URL_DOUBLING" -eq 1 ]; then
+      # честная ветвь: ВСЕ непустые формы обязаны быть литерально каноничны;
+      # фактическая цель (именуется в F1, цель живости): push с заданным
+      # pushurl → раскрытый pushurl, иначе раскрытый url.
+      bad=""
+      for v in "$u_cfg" "$u_get" "$p_cfg" "$p_get"; do
+        [ -n "$v" ] || continue
+        okf=1
+        if [ "$MATCH_MODE" = "literal" ]; then [ "$v" = "$CANON" ] || okf=0
+        else case "$v" in *"$CANON"*) ;; *) okf=0 ;; esac; fi
+        [ "$okf" -eq 1 ] || bad=1
+      done
+      if [ -n "$p_cfg" ]; then eff="$p_get"; else eff="$u_get"; fi
+      if [ -n "$bad" ]; then
+        printf '%s%s\n' "$F1" "$(san "$eff")" >&2
+        exit 1
+      fi
+      target="$eff"
+    else
+      # ДЫРА стаба ОДНА-ФОРМА (живой обход критика 045-Б2): предпочитает
+      # config --get, игнорирует неканонический get-url при непустой первой.
+      if [ -n "$u_cfg" ]; then target="$u_cfg"; elif [ -n "$u_get" ]; then target="$u_get"; fi
+    fi
   fi
   if [ -n "$target" ]; then
     ok=1
@@ -243,7 +309,7 @@ exec "$REAL" "${orig[@]}"
 CORE
 }
 
-# ── стабы: девять обманных реализаций, дыра каждого — одна ручка ─────────────
+# ── стабы: одиннадцать обманных реализаций, дыра каждого — одна ручка ────────
 mk_stubs() {
   mkdir -p "$WORK/stabs"
   mk_stub_core
@@ -274,6 +340,15 @@ mk_stubs() {
   # RAW-ПЕЧАТЬ: URL в отказе без санитизации — смерть г10.
   printf '#!/usr/bin/env bash\nSANITIZE=0\nsource "$(dirname "$0")/_core.sh"\n' \
     > "$WORK/stabs/rawprint.sh"
+  # ОДНА-ФОРМА: предпочитает config --get, игнорирует неканонический get-url
+  # при непустой первой (ровно движок-носитель до правки по критику 045-Б2) —
+  # смерть г11.
+  printf '#!/usr/bin/env bash\nURL_DOUBLING=0\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/odnaforma.sh"
+  # PUSHURL-ИГНОР: не судит remote.origin.pushurl — фактическую цель push
+  # (живой обход критика 045-Б3) — смерть г12.
+  printf '#!/usr/bin/env bash\nHONOR_PUSHURL=0\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/pushurlskip.sh"
   chmod +x "$WORK/stabs"/*.sh
 }
 
@@ -283,6 +358,7 @@ run_stub_pack() {
   local pairs=(
     "pushonly:г2" "podstroka:г1б" "cignor:г3" "configfile:г4" "urlargskip:г5"
     "nolsremote:г6" "pullskip:г8" "flagskip:г9" "rawprint:г10"
+    "odnaforma:г11" "pushurlskip:г12"
   )
   local pair name cell rc
   for pair in "${pairs[@]}"; do
@@ -415,6 +491,28 @@ run_honest_cells() {
   grep -qF 'prov?gitw' "$WORK/e10" \
     || die_cell г10 "санитизация не видна (ожидался «prov?gitw…» с гашением перевода строки)"
   ok_cell г10
+
+  # г11 критик 045-Б2: канонический ФАЙЛОВЫЙ url + insteadOf-перекрытие —
+  # раскрытый url неканоничен и ЯВЛЯЕТСЯ фактической целью настоящего git.
+  before11="$(tip_of "$B3")"
+  ( cd "$REPO8" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push ) >"$WORK/o11" 2>"$WORK/e11"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e11"; } \
+    || die_cell г11 "rc=$rc, insteadOf-раскрытая цель обязана отказать F1: $(tail -n 2 "$WORK/e11" | tr '\n' ' ')"
+  grep -qF -- "$B3" "$WORK/e11" || die_cell г11 "раскрытая неканоническая цель не названа в отказе"
+  [ "$(tip_of "$B3")" = "$before11" ] || die_cell г11 "чужой bare продвинулся — обмен исполнился"
+  ok_cell г11
+
+  # г12 критик 045-Б3: pushurl на чужой bare при каноничных обеих формах url —
+  # фактическая цель push = pushurl.
+  before12="$(tip_of "$B3")"
+  ( cd "$REPO9" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push ) >"$WORK/o12" 2>"$WORK/e12"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e12"; } \
+    || die_cell г12 "rc=$rc, pushurl-цель push обязана отказать F1: $(tail -n 2 "$WORK/e12" | tr '\n' ' ')"
+  grep -qF -- "$B3" "$WORK/e12" || die_cell г12 "pushurl-цель не названа в отказе"
+  [ "$(tip_of "$B3")" = "$before12" ] || die_cell г12 "pushurl-получатель продвинулся — обмен исполнился"
+  ok_cell г12
 }
 
 # ── диспетчер режимов ─────────────────────────────────────────────────────────
@@ -425,5 +523,5 @@ fi
 
 run_stub_pack
 run_honest_cells
-printf 'gitw: батарея зелёная (клетки г0-г10 + 9 стабов на своих клетках)\n'
+printf 'gitw: батарея зелёная (клетки г0-г12 + 11 стабов на своих клетках)\n'
 exit 0
