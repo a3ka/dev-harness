@@ -32,7 +32,8 @@
 #                    реально уходит на pushurl-цель).
 #
 # Клетки честной части (каждая ≡ ровно одна фраза/условие отказа из контракта
-# 045 §Инварианты; фразы grep -F дословно):
+# 045 §Инварианты; г13-г16 — из вердикта адверсария 045-v1, живой обход
+# именованного remote и SCP-формы; фразы grep -F дословно):
 #   г0  положительный контроль: канонический toy-origin — push+fetch+pull все
 #       прозрачны, bare-получатель продвинулся ровно на пушимый tip;
 #   г1  Н-141/Н-143: origin клона = путь рабочего репо → push: F1 + цель названа
@@ -56,6 +57,15 @@
 #       является фактической целью настоящего git → F1 + чужой bare НЕ тронут;
 #   г12 критик 045-Б3: обе формы url каноничны, remote.origin.pushurl на
 #       чужой bare — фактическая цель push → F1 + pushurl-получатель НЕ тронут.
+#   г13 адверсарий 045-v1: канонический origin + именованный remote evil на
+#       чужой bare, «push evil HEAD:refs/heads/named-push» → F1R + раскрытая
+#       цель названа + чужой bare НЕ продвинут (обход именованного remote,
+#       SHA-доказано вердиктом ea1925f);
+#   г14 тот же evil, «fetch evil main» → F1R + FETCH_HEAD без чужого SHA;
+#   г15 тот же evil, «pull evil main» → F1R + HEAD жертвы не сдвинут;
+#   г16 SCP-форма явной цели «git@example.test:any/path» (GIT_SSH_COMMAND-
+#       адаптер обслуживает настоящий receive-pack чужой bare, сеть не
+#       нужна — приём адверсария) → F1 + SCP-получатель НЕ продвинут.
 #
 # Режимы: внешний (по умолчанию) — стаб-пак затем честные клетки против
 # ${GITW:-<корень>/scripts/gitw}; внутренний (RED_GITW_INNER=1) — только честные
@@ -84,6 +94,11 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 F1P='gitw ОТКАЗ: URL origin не канонический: '
 F2P='gitw ОТКАЗ: авторитет недоступен: ls-remote '
 F3P='gitw ОТКАЗ: неизвестный глобальный флаг: '
+# F1R — отказ именованного remote (фикс живого обхода адверсария 045-v1;
+# форма «URL remote <имя>» согласована с реализацией scripts/gitw до её
+# коммита: именованная фактическая цель ≠ origin, классическая F1 — только
+# для дефолтного origin и явных URL-аргументов).
+F1R='gitw ОТКАЗ: URL remote evil не канонический: '
 
 die_cell() { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 ok_cell()  { printf 'ok: %s\n' "$1"; }
@@ -173,6 +188,35 @@ ident "$REPO9" -m init9
 git -C "$REPO9" remote add origin "$B1"
 git -C "$REPO9" push -q -u origin main 2>/dev/null
 git -C "$REPO9" config remote.origin.pushurl "$B3"
+
+# EVILSRC/B4 — чужой bare с СОБСТВЕННЫМ tip'ом поверх истории B1 (клетки
+# г13-г16, адверсарий 045-v1): пустой bare дал бы отказ САМОГО git, а не
+# живой обход — fetch/pull с evil обязаны быть настоящим обменом, чтобы
+# краснота клеток была SHA-доказуемой.
+EVILSRC="$WORK/evil-istochnik"
+git clone -q "$R1" "$EVILSRC" 2>/dev/null
+printf 'e\n' > "$EVILSRC/e.txt"
+git -C "$EVILSRC" add e.txt
+ident "$EVILSRC" -m 'evil tip'
+B4="$WORK/b4-chuzhoj"
+git init -q -b main --bare "$B4"
+git -C "$EVILSRC" push -q "$B4" main 2>/dev/null
+
+# REPO10 — жертва именованного remote: origin КАНОНИЧЕН (B1), добавлен
+# именованный remote evil на чужой bare B4. main жертвы = tip B1, B4/main =
+# tip B1 + чужой коммит → до фикса «pull evil main» — чистый fast-forward
+# на чужой SHA (сильнейшее доказательство живого обмена).
+REPO10="$WORK/r10-zhertva"
+git clone -q "$R1" "$REPO10" 2>/dev/null
+git -C "$REPO10" remote set-url origin "$B1"
+git -C "$REPO10" remote add evil "$B4"
+
+# SSHAD — GIT_SSH_COMMAND-адаптер (приём адверсария 045-v1, дословно
+# перенесён): SCP-цель git@example.test:any/path обслуживается настоящим
+# receive-pack/upload-pack чужой bare B4 локально, сеть не нужна.
+SSHAD="$WORK/ssh-adapter.sh"
+printf '#!/usr/bin/env bash\nlast="${@: -1}"\ncase "$last" in git-receive-pack\\ *) exec git receive-pack "%s" ;; git-upload-pack\\ *) exec git upload-pack "%s" ;; esac\nexit 1\n' "$B4" "$B4" > "$SSHAD"
+chmod +x "$SSHAD"
 
 CANON_B1="$B1"    # канонический URL toy-мира (ручка обёртки)
 
@@ -513,6 +557,51 @@ run_honest_cells() {
   grep -qF -- "$B3" "$WORK/e12" || die_cell г12 "pushurl-цель не названа в отказе"
   [ "$(tip_of "$B3")" = "$before12" ] || die_cell г12 "pushurl-получатель продвинулся — обмен исполнился"
   ok_cell г12
+
+  # г13 адверсарий 045-v1: именованный remote evil при каноническом origin —
+  # фактическая цель push по git-семантике; до фикса обход жив (rc0 + ref в
+  # чужой bare), после — F1R с названной раскрытой целью.
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push evil HEAD:refs/heads/named-push ) >"$WORK/o13" 2>"$WORK/e13"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e13"; } \
+    || die_cell г13 "rc=$rc, именованный remote обязан судиться F1R (адверсарий 045-v1: живой обход push evil): $(tail -n 2 "$WORK/e13" | tr '\n' ' ')"
+  grep -qF -- "$B4" "$WORK/e13" || die_cell г13 "фактическая цель (раскрытый url remote evil) не названа в отказе"
+  [ -z "$(git -C "$B4" for-each-ref --format='%(refname)' refs/heads/named-push)" ] \
+    || die_cell г13 "чужая bare продвинулась (named-push) — обмен исполнился"
+  ok_cell г13
+
+  # г14 адверсарий 045-v1: fetch по именованному remote — чужой SHA не должен
+  # попасть в FETCH_HEAD жертвы.
+  rm -f "$REPO10/.git/FETCH_HEAD"
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" fetch evil main ) >"$WORK/o14" 2>"$WORK/e14"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e14"; } \
+    || die_cell г14 "rc=$rc, fetch по именованному remote обязан отказать F1R: $(tail -n 2 "$WORK/e14" | tr '\n' ' ')"
+  if [ -e "$REPO10/.git/FETCH_HEAD" ] && grep -qF "$(tip_of "$B4" main)" "$REPO10/.git/FETCH_HEAD"; then
+    die_cell г14 "FETCH_HEAD содержит чужой SHA — обмен исполнился"
+  fi
+  ok_cell г14
+
+  # г15 адверсарий 045-v1: pull по именованному remote — HEAD жертвы не
+  # сдвигается на чужой tip (до фикса — чистый fast-forward на SHA B4/main).
+  before15="$(tip_of "$REPO10")"
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" pull evil main ) >"$WORK/o15" 2>"$WORK/e15"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e15"; } \
+    || die_cell г15 "rc=$rc, pull по именованному remote обязан отказать F1R: $(tail -n 2 "$WORK/e15" | tr '\n' ' ')"
+  [ "$(tip_of "$REPO10")" = "$before15" ] || die_cell г15 "HEAD жертвы сместился — pull исполнился"
+  ok_cell г15
+
+  # г16 адверсарий 045-v1: SCP-форма явной цели — адаптер обслуживает
+  # настоящий receive-pack чужой bare (сеть не нужна); явный target →
+  # классическая F1 (та же ветка, что г5/г12).
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" GIT_SSH_COMMAND="$SSHAD" "$SUBJ" push git@example.test:any/path HEAD:refs/heads/scp-push ) >"$WORK/o16" 2>"$WORK/e16"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e16"; } \
+    || die_cell г16 "rc=$rc, SCP-форма явной цели обязана отказать F1: $(tail -n 2 "$WORK/e16" | tr '\n' ' ')"
+  [ -z "$(git -C "$B4" for-each-ref --format='%(refname)' refs/heads/scp-push)" ] \
+    || die_cell г16 "SCP-получатель продвинулся — обмен исполнился"
+  ok_cell г16
 }
 
 # ── диспетчер режимов ─────────────────────────────────────────────────────────
@@ -523,5 +612,5 @@ fi
 
 run_stub_pack
 run_honest_cells
-printf 'gitw: батарея зелёная (клетки г0-г12 + 11 стабов на своих клетках)\n'
+printf 'gitw: батарея зелёная (клетки г0-г16 + 11 стабов на своих клетках)\n'
 exit 0
