@@ -421,10 +421,27 @@ if [ "${#FAMILIES[@]}" -gt 0 ]; then
             _cur="${_PG_PPID[$_cur]:-}"
           done
           [ "$_in_tree" -eq 1 ] || continue
-          # argv[1] = путь скрипта для `bash <script>` или для прямого exec
-          # с shebang-интерпретатором (argv[0]=<script>, argv[1..]=его args).
+          # argv-индексация: Linux binfmt_script поддерживает НЕ БОЛЕЕ
+          # ОДНОГО опционального shebang-аргумента, поэтому cmdline живого
+          # скрипта всегда одно из двух (NUL-поля, без финального NUL на
+          # конце аргументов — стандартный вывод /proc/<pid>/cmdline):
+          #
+          #   [interpreter, script_path, ...args]              — shebang без опции
+          #                                                     (например `#!/usr/bin/env bash`,
+          #                                                     `#!/bin/bash`),
+          #   [interpreter, shebang_option, script_path, ...args]
+          #                                                    — shebang С ОПЦИЕЙ
+          #                                                     (например `#!/bin/bash -e`,
+          #                                                     `#!/usr/bin/env -S bash -e`),
+          #                                                     либо явный
+          #                                                     `bash -e /abs/barrier`
+          #                                                     (тот же cmdline-формат).
+          #
+          # Ядро НЕ поддерживает два+ shebang-аргумента, поэтому путь скрипта
+          # ВСЕГДА либо на позиции 1, либо на позиции 2 — НИКОГДА дальше.
           # Литеральное сравнение абсолютного пути барьера: ни regex, ни glob
           # из untrusted-стороны (норма 041 §Инварианты п.2(iii)).
+          #
           # Б6 fix (043 round-3, ЛОЖНЫЙ ОТКАЗ честному вызову С АРГУМЕНТОМ):
           # прежнее скользящее окно `_argv0=$_argv1; _argv1=$_part` читало ВСЕ
           # NUL-поля cmdline и оставляло в `_argv1` ПОСЛЕДНЕЕ поле, а не второе.
@@ -432,22 +449,35 @@ if [ "${#FAMILIES[@]}" -gt 0 ]; then
           # это случайно совпадало с argv[1]; для `bash <barrier> <arg...>`
           # (cmdline=3+ поля: bash,barrier,arg[,arg]...) сравнивался
           # последний аргумент, а не путь барьера — ложный отказ честному
-          # вызову, грабивший новый green_18. Теперь: массив с остановкой
-          # после двух полей — argv[0]=интерпретатор, argv[1]=путь скрипта
-          # (для `bash <script>` И для прямого exec с shebang-интерпретатором
-          # по тому же cmdline-формату: bash=<script>,argv1..N=args). Чистые
-          # bash-встроенные, никакого fork на pid (весь смысл Б5 fix).
+          # вызову, грабивший новый green_18.
+          #
+          # Б7 fix (043 round-4, ЛОЖНЫЙ ОТКАЗ честному вызову С ОПЦИЕЙ В
+          # SHEBANG): прежний код читал ровно 2 NUL-поля и сравнивал ТОЛЬКО
+          # argv[1]. Для shebang С опцией (например `#!/bin/bash -e`)
+          # cmdline = [bash, -e, <script>], argv[1] = "-e", argv[2] = <script>;
+          # прежний код сравнивал "-e" с путём барьера → false negative →
+          # «барьер не вызван живьём» на честном входе (нарушение правила 7
+          # AGENTS.md). Теперь: чтение 3 NUL-полей, сравнение ОБА argv[1] И
+          # argv[2] (литерально). Поиск НЕ расширяется дальше позиции 2 —
+          # расширение поверхности совпадения рискует ложными позитивами на
+          # чужих данных-аргументах, случайно совпавших с путём барьера
+          # (норма 041 §Инварианты п.2(iii) — untrusted-untrusted сравнение).
+          # Чистые bash-встроенные, никакого fork на pid (весь смысл Б5 fix).
           _argv=()
           while IFS= read -r -d $'\0' _part; do
             _argv+=("$_part")
-            [ "${#_argv[@]}" -ge 2 ] && break
+            [ "${#_argv[@]}" -ge 3 ] && break
           done < "$_d/cmdline"
           _argv1="${_argv[1]:-}"
+          _argv2="${_argv[2]:-}"
           [ -n "$_argv1" ] || continue
           case "$_argv1" in
             "$barrier") live=1; break 2 ;;
           esac
-          unset _argv _argv1 _part _cur _in_tree
+          case "$_argv2" in
+            "$barrier") live=1; break 2 ;;
+          esac
+          unset _argv _argv1 _argv2 _part _cur _in_tree
         done
         unset _PG_PPID
       done
