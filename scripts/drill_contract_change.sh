@@ -89,6 +89,22 @@ printf '# контракт 001\n\nРАБОТА НЕ РАЗДАЁТСЯ: подс
 printf 'accept\nвердикт критика v1\n' > "$W/verdicts/critic/contracts-001-v1.md"
 printf '# норма\n'   > "$W/AGENTS.md"
 printf '# роадмап\n' > "$W/ROADMAP.md"
+# ВАКУУМНЫЙ CI-ПАРИТЕТ обязателен по той же причине, что и в fixtures/freeze_contract/
+# _repo.sh (контракт 043, freeze-time backstop через check_precision_gate.sh →
+# verify_ci_parity.sh): `freeze_contract.sh` на КАЖДОЙ попытке заморозки зовёт precision-гейт,
+# а гейт последней задачей (в) зовёт `verify_ci_parity.sh`. На toy-дереве без `.github/`,
+# `package.json` и `config/ci_parity_exceptions.txt` verify_ci_parity.sh даёт rc=2 «нечем
+# проверить», гейт — rc=1 (это была ЛОЖНАЯ краснота: паритет не нарушен, его нельзя
+# проверить), freeze — die. Три файла ниже делают сверку ВАКУУМНОЙ (ноль workflow-команд,
+# ноль скриптов приёмки, ноль исключений — сверять нечего ни с одной стороны), а не ослабляют
+# её: verify_ci_parity.sh возвращает rc=0 честно, потому что обеим сторонам сверки нечего
+# предъявить друг другу. Прецедент architect: fixtures/freeze_contract/_repo.sh (f36eead) и
+# fixtures/check_check_contract_ready/_doc027.py (c9d319d) — здесь для 4-го независимого
+# toy-repo конструктора (drill_charter, tmp/drill-charter.*).
+mkdir -p "$W/.github/workflows" "$W/config"
+printf 'name: ci\non: push\njobs: {}\n' > "$W/.github/workflows/ci.yml"
+printf '{"scripts": {}}\n' > "$W/package.json"
+: > "$W/config/ci_parity_exceptions.txt"
 base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$W"
 # Локальная идентичность нужна потому, что `freeze_contract.sh` зовёт `git tag -a` без `-c`: в
 # герметичном окружении он иначе падает с `empty ident name`, и дрилл валил бы себя своей же пробой.
