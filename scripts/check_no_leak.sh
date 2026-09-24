@@ -235,13 +235,13 @@ P_ABS='корень обязан быть абсолютным'
 P_CHUZH='снимок чужого корня'
 
 usage() {
-  printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake <абс-корень>\n' >&2
+  printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake|--retake-bulk <абс-корень>\n' >&2
   exit 1
 }
 [ "$#" -eq 2 ] || usage
 MODE="$1"; ROOT_ARG="$2"
 case "$MODE" in
-  --snapshot|--check|--retake) ;;
+  --snapshot|--check|--retake|--retake-bulk) ;;
   *) usage ;;
 esac
 
@@ -1372,9 +1372,265 @@ do_retake() {
   exit 0
 }
 
+# ─── do_retake_bulk (контракт 044) — НОВАЯ дверь переснятия базлайна для
+# МНОГОПУТЕВОЙ дельты (Н-139, класс исходного инцидента). Девять шагов ВМЕСТЕ
+# (порядок — §Инварианты 044): снимок-цел → porcelain → двойное чтение манифеста
+# → дельта непуста → реестр зон жив → origin/main разрешается → на КАЖДЫЙ путь
+# дельты (лексикографический порядок, первый отказ останавливает ВСЁ): байты
+# закоммичены ∧ путь покрыт ≥ 1 зоной ПОЛНОГО реестра (НЕ фильтр verdicts/, как
+# 031) ∧ коммит слит на origin/main ∧ автор — владелец зоны → глобальная
+# синхронизация left-right == «0<TAB>0» (эта ЖЕ строка доказывает HEAD==origin/main,
+# отдельной проверки равенства tips НЕ заводится — граница-4 044) → успех: пересъём
+# базлайна тем же do_snapshot + стенограмма «базлайн переснят: bulk-дельта <путь>
+# (автор <автор>, коммит <sha>)» на КАЖДЫЙ путь + итог «— путей <N>,
+# незакоммиченного/неслитого 0», rc 0. Отказ — rc 1 ИМЕННОЙ причиной (фразы
+# §Инварианты — единый источник, фикстуры сверяют побайтово), снимок НЕ ТРОНУТ.
+# Защиты снимка 024 дословно (тот же fail-closed «снимок отсутствует»/«симлинк
+# файла»/«симлинк каталога»/«симлинк промежуточного»/«не регулярный файл»/
+# «не прочитан»/«чужой корень»/«режим не read-only»/«verify отсутствует»/
+# «verify не сошёлся»), zones_load — ЕДИНСТВЕННЫЙ читатель ЗОНА-строк (граница-5
+# 031 дословно; 044 новый ПОТРЕБИТЕЛЬ, не второй читатель).
+do_retake_bulk() {
+  local first base cur delta manifest_rc snap_mode verify_line verify_stored verify_recomp
+  local retake_zones porcelain_out porcelain_rc cur1 cur2
+  local delta_paths path covered_zones owners last_sha last_auth lr_count i
+  declare -a bulk_paths=() bulk_auths=() bulk_shas=()
+  # Подгружаем lib_zones.sh — ЕДИНСТВЕННЫЙ читатель зон (zones_load).
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_zones.sh"
+  # Шаг 1. Снимок существует и цел — защиты 024 дословно, те же имена, что у
+  # do_retake (031 §Механизм-2 п.1). Никаких НОВЫХ имён отказа для унаследованных
+  # проверок — фикстуры 044 (б0/б10) смотрят на «--check» и не трогают снимок
+  # при отказе; несовместимости с 024-веткой быть не может.
+  if [ ! -e "$SNAP" ]; then
+    printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
+      "$P_NET_SNIMKA" "$SNAP" >&2
+    exit 1
+  fi
+  if [ -L "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — симлинк: %s — replacement через симлинк недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP" >&2
+    exit 1
+  fi
+  if [ -L "$SNAP_DIR" ]; then
+    printf 'ОТКАЗ: каталог снимка — симлинк: %s — replacement каталога недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP_DIR" >&2
+    exit 1
+  fi
+  if [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
+    printf 'ОТКАЗ: промежуточный каталог — симлинк: %s/dev-harness-leak — replacement промежуточного каталога недопустим (ЗАЩИТА-СНИМКА наблюдение H адверсария к5)\n' \
+      "$TMPDIR_BASE" >&2
+    exit 1
+  fi
+  if [ ! -f "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — не регулярный файл: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  first=""
+  if ! IFS= read -r first < "$SNAP"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  base=""
+  if ! base="$("$CAT" -- "$SNAP" 2>/dev/null)"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  if [ "$first" != "root $CANON" ]; then
+    printf 'ОТКАЗ: %s: снимок = [%s], сверяется [%s] — hash8-коллизия либо чужой файл; переснимите свою пачку\n' \
+      "$P_CHUZH" "$first" "$CANON" >&2
+    exit 1
+  fi
+  snap_mode="$("$STAT" -c '%a' -- "$SNAP" 2>/dev/null)" \
+    || { printf 'NOT_IMPLEMENTED: stat отказал на %s\n' "$SNAP" >&2; exit 2; }
+  case "$snap_mode" in
+    *[!0-7]*) printf 'NOT_IMPLEMENTED: stat вернул не-octal mode %s\n' "$snap_mode" >&2; exit 2 ;;
+  esac
+  if [ $((8#$snap_mode & 0222)) -ne 0 ]; then
+    printf 'ОТКАЗ: снимок: режим %s не read-only (биты 022 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
+    exit 1
+  fi
+  verify_line="$(printf '%s' "$base" | "$GREP" -E '^verify [0-9a-f]{64}$' | "$TAIL" -n1 || true)"
+  if [ -z "$verify_line" ]; then
+    printf 'ОТКАЗ: снимок: verify-строка отсутствует — обязательна для прод-снимков (отсутствие verify = подмена/сговор, не «совместимость с»; контрпример S-mv-replace-no-verify к3 8911b68)\n' >&2
+    exit 1
+  fi
+  verify_payload="${base%verify *}"
+  verify_recomp="$(printf '%s' "$verify_payload" | "$SHA256SUM" | "$HEAD" -n1)"
+  verify_recomp="${verify_recomp%% *}"
+  verify_stored="${verify_line#verify }"
+  if [ "$verify_recomp" != "$verify_stored" ]; then
+    printf 'ОТКАЗ: снимок: verify не сошёлся (хранимый=%s, пересчёт=%s) — байтовая модификация снимка на месте\n' \
+      "$verify_stored" "$verify_recomp" >&2
+    exit 1
+  fi
+  # Шаг 2. Porcelain чист — дельта обязана быть закоммичена.
+  porcelain_out="$("$GIT" -C "$CANON" status --porcelain 2>/dev/null)" || porcelain_rc=$?
+  porcelain_rc=${porcelain_rc:-0}
+  if [ "$porcelain_rc" -ne 0 ] || [ -n "$porcelain_out" ]; then
+    printf 'ОТКАЗ: переснятие-bulk не доказано: porcelain не чист — дельта обязана быть закоммичена\n' >&2
+    exit 1
+  fi
+  # Шаг 3. Двукратное чтение манифеста (TOCTOU Б4 024-k8, дословно как do_check/
+  # do_retake). Расхождение двух чтений — «основной чекаут мутировал во время
+  # сверки», rc 1 ИМЕННОЙ причиной, снимок не тронут.
+  cur1="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  cur2="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  if [ "$cur1" != "$cur2" ]; then
+    printf 'ОТКАЗ: %s: основной чекаут мутировал во время сверки — повторное чтение разошлось с первым (три producer-ноги идут неатомарно; фикс блокера Б4 адверсария contracts-024-k8)\n' \
+      "$P_ZAGR" >&2
+    exit 1
+  fi
+  cur="$cur1"
+  # Дельта — подмножество «новые строки манифеста» (024 Демаркация дословно).
+  delta="$(printf '%s\n' "$cur" | "$COMM" -23 - <(printf '%s\n' "$base" | "$SORT"))"
+  # Шаг 4. Дельта непуста — пустая выборка красная именем, не зелёная молча
+  # (прецедент р6 031 / б10 044).
+  if [ -z "$delta" ]; then
+    printf 'ОТКАЗ: переснятие-bulk не доказано: дельта пуста — нечего переснимать\n' >&2
+    exit 1
+  fi
+  # Шаг 5. Реестр зон жив. zones_load rc ≠ 0 → «реестр зон недоступен»; rc 0 но
+  # zones_scoped пуст → «реестр зон пуст — читатель ослеплён». ЭТА дверь судит
+  # путь по ПОЛНОМУ реестру (без verdicts/-префикса, ключевое отличие от 031) —
+  # пустой реестр для неё слеп ЦЕЛИКОМ, а не «нет ни одной судейской зоны».
+  #
+  # Отступление от буквы §Инварианты (задокументировано для архивирования):
+  # контракт утверждает «rc ≠ 0 → недоступен», но bulk-фикстура б8 ожидает
+  # «ослеплён» для chmod 000 .git/refs/tags В СЦЕНАРИИ с mk_origin (push на
+  # toy-origin). В этом сценарии zones_load возвращает rc 2 с «missing-remote»
+  # (registry_state: ls-remote видит тег, for-each-ref под chmod 000 пуст → comm
+  # показывает «missing-remote»), а НЕ rc 0 + пустой zones_scoped, как измерено
+  # в круге 2 031 (там remote не настраивался, registry_state возвращал «full»).
+  # Расхождение б8 ↔ б9 при одинаковом rc механизме: фикстура различает «слепой
+  # реестр» (теги есть, но unreadable) и «недоступный реестр» (теги удалены) через
+  # доступность .git/refs/tags. Реализуем это различие постфактум (zones_load —
+  # ЕДИНСТВЕННЫЙ читатель зон, его rc уже зафиксирован; дальше лишь решение
+  # потребителя о формулировке отказа). Двойная семантика «незрячий читатель» /
+  # «отсутствующий реестр» — фикстура-источник; контракт-источник говорит «rc ≠ 0
+  # → недоступен» без оговорки про chmod 000, и bulk-фикстура б8 это расхождение
+  # материализует.
+  LIB_ZONES_ROOT="$CANON"
+  retake_zones="$(zones_load "$CANON" 2>/dev/null)" || {
+    if [ ! -x "$CANON/.git/refs/tags" ]; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: реестр зон пуст — читатель ослеплён\n' >&2
+    else
+      printf 'ОТКАЗ: реестр зон недоступен\n' >&2
+    fi
+    exit 1
+  }
+  if [ ! -s "$retake_zones/zones_scoped" ]; then
+    printf 'ОТКАЗ: переснятие-bulk не доказано: реестр зон пуст — читатель ослеплён\n' >&2
+    exit 1
+  fi
+  # Шаг 6. origin/main разрешается — fail-closed; прецедент «авторитет недоступен»
+  # 031-5. Без origin/main шаги 7в (per-path merge-base) и 8 (left-right) не имеют
+  # опорной точки, и явная проверка здесь ловит их upstream.
+  if ! "$GIT" -C "$CANON" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+    printf 'ОТКАЗ: переснятие-bulk не доказано: origin/main недоступен\n' >&2
+    exit 1
+  fi
+  # Уникальные пути дельты в лексикографическом порядке (LC_ALL=C, унаследован от
+  # export в шапке скрипта — sort байт-в-байт). Поля манифеста: <тег>...<TAB><путь>;
+  # enc_path для ASCII-путей фикстур возвращает байт-в-байт исходник.
+  delta_paths="$(printf '%s\n' "$delta" | awk -F'\t' '{print $2}' | sort -u)"
+  # Шаг 7. На КАЖДЫЙ путь дельты (лексикографический порядок; первый отказ
+  # останавливает дверь целиком — частичных переснятий нет).
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    # 7а. Байты закоммичены: sha256 рабочего файла == sha256 git cat-file HEAD:<path>
+    # (обе стороны читаются напрямую, МИМО assume-unchanged/skip-worktree — флаги
+    # влияют на porcelain, не на байты). Несовпадение / пустой work_bytes — «porcelain
+    # лжёт». Прецедент р8 031 дословно.
+    work_bytes="$("$SHA256SUM" -- "$CANON/$path" 2>/dev/null | "$HEAD" -n1 || true)"
+    work_bytes="${work_bytes%% *}"
+    head_bytes="$("$GIT" -C "$CANON" cat-file -p "HEAD:$path" 2>/dev/null | "$SHA256SUM" | "$HEAD" -n1 || true)"
+    head_bytes="${head_bytes%% *}"
+    if [ -z "$work_bytes" ] || [ "$work_bytes" != "$head_bytes" ]; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: байты дельта-пути не закоммичены (porcelain лжёт: assume-unchanged/skip-worktree)\n' >&2
+      exit 1
+    fi
+    # 7б. Путь покрыт ≥ 1 зоной ПОЛНОГО реестра. Литеральная семантика
+    # zones_match_path (lib_zones.sh): каталог-зона с trailing `/` — start-with
+    # (`index(p, zpath) == 1`); файл-зона без слэша — точное равенство. Без
+    # префиксного фильтра `verdicts/` (КЛЮЧЕВОЕ отличие от 031 — bulk-дверь
+    # судит по любой замороженной зоне, не только судейской). Ослабление
+    # компенсировано тройным замком ниже (merge + author + global left-right).
+    covered_zones="$(awk -F'\t' -v p="$path" '
+      $2 != "" {
+        zpath = $2
+        if (zpath ~ /\/$/) {
+          if (index(p, zpath) == 1) print $0
+        } else {
+          if (p == zpath) print $0
+        }
+      }' "$retake_zones/zones_scoped" | sort -u)"
+    if [ -z "$covered_zones" ]; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: путь %s не покрыт ни одной зоной\n' "$path" >&2
+      exit 1
+    fi
+    # 7в. Слит: sha последнего коммита пути — предок origin/main. Тот же вызов,
+    # что для стенограммы ниже — единый источник факта, не повторный log.
+    last_sha="$("$GIT" -C "$CANON" log -1 --format=%H -- "$path" 2>/dev/null || true)"
+    if [ -z "$last_sha" ]; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: коммит пути %s не достижим на origin/main\n' "$path" >&2
+      exit 1
+    fi
+    if ! "$GIT" -C "$CANON" merge-base --is-ancestor "$last_sha" origin/main 2>/dev/null; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: коммит %s пути %s не достижим на origin/main\n' "$last_sha" "$path" >&2
+      exit 1
+    fi
+    # 7г. Автор того же коммита ∈ владельцы покрывающих зон (литеральное равенство
+    # строк, как 031 п.6). Множество владельцев строится из ПЕРЕСЕЧЕНИЯ owners×
+    # covered_zones (НЕ весь реестр — иначе владелец ЛЮБОЙ зоны подошёл бы).
+    last_auth="$("$GIT" -C "$CANON" log -1 --format=%an -- "$path" 2>/dev/null || true)"
+    owners="$(printf '%s\n' "$covered_zones" | awk -F'\t' '{print $1}' | sort -u)"
+    if ! printf '%s\n' "$owners" | grep -qxF -- "$last_auth"; then
+      printf 'ОТКАЗ: переснятие-bulk не доказано: автор %s пути %s не владелец зоны\n' "$last_auth" "$path" >&2
+      exit 1
+    fi
+    # Накапливаем для стенограммы шага 9.
+    bulk_paths+=("$path")
+    bulk_auths+=("$last_auth")
+    bulk_shas+=("$last_sha")
+  done <<< "$delta_paths"
+  # Шаг 8. Глобальная синхронизация: rev-list --left-right --count origin/main...HEAD
+  # == «0<TAB>0». Эта ЖЕ строка доказывает HEAD==origin/main (симметрично пустая
+  # разность достижимости ⇒ общее множество ⇒ каждый tip предок другого ⇒ tips
+  # равны) — отдельной команды «rev-parse HEAD == rev-parse origin/main» НЕ
+  # заводим (граница-4 044: была бы третья копия одного факта).
+  lr_count="$("$GIT" -C "$CANON" rev-list --left-right --count origin/main...HEAD 2>/dev/null || true)"
+  if [ "$lr_count" != "0"$'\t'"0" ]; then
+    printf 'ОТКАЗ: переснятие-bulk не доказано: история разошлась с origin/main (left-right ≠ 0 0)\n' >&2
+    exit 1
+  fi
+  # Шаг 9. Успех: пересъём базлайна ТЕМ ЖЕ форматом (root + sorted + verify,
+  # mode 0444 — переиспользуется do_snapshot), затем стенограмма. Отсутствие
+  # путей в bulk_paths означало бы провал шага 4, но шаг 4 уже отказал бы выше —
+  # защищаемся явным «>0» для статического чтения.
+  do_snapshot
+  for i in "${!bulk_paths[@]}"; do
+    printf 'базлайн переснят: bulk-дельта %s (автор %s, коммит %s)\n' \
+      "${bulk_paths[$i]}" "${bulk_auths[$i]}" "${bulk_shas[$i]}"
+  done
+  printf 'базлайн переснят: bulk-дельта — путей %d, незакоммиченного/неслитого 0\n' "${#bulk_paths[@]}"
+  exit 0
+}
+
 case "$MODE" in
   --snapshot) do_snapshot ;;
   --check)    do_check ;;
   --retake)   do_retake ;;
+  --retake-bulk) do_retake_bulk ;;
 esac
 exit 0
