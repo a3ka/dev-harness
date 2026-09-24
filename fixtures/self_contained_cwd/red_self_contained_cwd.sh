@@ -41,6 +41,14 @@
 #     здесь: ожидание block;
 #   * п6 (регресс 025: пустой null-allowlist жив) — контроль, зелёный ДО
 #     и ПОСЛЕ.
+#   * п7 (ВЛАДЕЛЕЦ-КОРРЕЛЯЦИЯ, §Инварианты М1 п.5 контракта 037, Б4 критика
+#     contracts-037-v1.md) — ТОТ ЖЕ SELFCONTAINED cwd, что п1 (байт-в-байт
+#     canonicalActual — имитация вложенного голого `_task`-внука ИЗНУТРИ
+#     isolated-родителя), но `sessionId` В JudgeInput НЕ совпадает с `id`
+#     артефакта `.omp-isolation-owner.json` — стаб «п.1–4 достаточны,
+#     sessionId не нужен» умирает здесь: ожидание block И ДО, И ПОСЛЕ
+#     (реализация, скопировавшая только п.1–4 без владелец-корреляции,
+#     ошибочно дала бы pass — ровно регрессия Б4).
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/.omp/extensions/path-guard.ts"
@@ -77,6 +85,15 @@ mkinit() {  # <путь> — git init минимальный репо, .git КА
 SELFCONTAINED="$FAKEHOME/profiles/dev/wt/t1/m"
 mkinit "$SELFCONTAINED"
 
+# owner.json артефакт харнеса (§Инварианты М1 п.5 контракта 037,
+# владелец-корреляция) — лежит СНАРУЖИ самого клона (родитель каталог
+# $SELFCONTAINED, не внутри него), пишется ХАРНЕССОМ при создании
+# изолированного клона; здесь имитирован форматом, подтверждённым живым
+# замером той же пачки (agent://Architect037Redesign/IsolatedProbeParent037):
+# `{"pid":…,"id":"<agent-id>","startToken":…}`.
+printf '{"pid":424242,"id":"owner-session","startToken":"1"}' \
+  > "$(dirname "$SELFCONTAINED")/.omp-isolation-owner.json"
+
 # п2 — под $HOME, но .git — ФАЙЛ с мёртвой gitdir-целью (не настоящий живой
 # linked worktree; структурная проверка «каталог, не файл» обязана отвергнуть).
 GITFILE_CASE="$FAKEHOME/profiles/dev/wt/t2/m"
@@ -96,7 +113,7 @@ SIBLINGS_MAIN="$SIBLINGS_BASE/m"
 MAINLIKE="$OUTSIDE_NS/mainlike"
 mkinit "$MAINLIKE"
 
-ORDER=(п1 п2 п3 п4 п5 п6)
+ORDER=(п1 п2 п3 п4 п5 п6 п7)
 declare -A ST RAN
 for m in "${ORDER[@]}"; do ST[$m]=0; RAN[$m]=0; done
 fail() {
@@ -131,7 +148,7 @@ expect_judge() {  # <ветвь> <block|pass> <substr> <HOME-override|-> <json>
 
 # ── п1: позитив — self-contained под $HOME, цель ВНУТРИ него ──────────────────
 expect_judge п1 pass "" "$FAKEHOME" \
-  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\"}"
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionId\":\"owner-session\"}"
 
 # ── п2: .git — файл (не каталог) под $HOME ⇒ блок ──────────────────────────────
 expect_judge п2 block "Н-85" "$FAKEHOME" \
@@ -152,6 +169,12 @@ expect_judge п5 block "Н-85" "$FAKEHOME" \
 # ── п6: регресс 025 — пустой null-allowlist (внешняя цель) жив ────────────────
 expect_judge п6 block "Н-85" "-" \
   "{\"tool\":\"write\",\"args\":{\"path\":\"$OUTSIDE_NS/prosto/f6.txt\"},\"worktree\":null,\"actual\":null}"
+
+# ── п7: ВЛАДЕЛЕЦ-КОРРЕЛЯЦИЯ (037 §Инварианты М1 п.5, Б4 критика
+# contracts-037-v1.md) — ТОТ ЖЕ SELFCONTAINED cwd, что и п1, но sessionId
+# НЕ совпадает с owner.json'а id ⇒ блок И ДО, И ПОСЛЕ реализации ──────────
+expect_judge п7 block "Н-85" "$FAKEHOME" \
+  "{\"tool\":\"write\",\"args\":{\"path\":\"$SELFCONTAINED/sub/dir/f7.txt\"},\"worktree\":null,\"actual\":\"$SELFCONTAINED\",\"sessionId\":\"nested-child-session\"}"
 
 RED=0; GRN=0; NORUN=0
 for m in "${ORDER[@]}"; do
