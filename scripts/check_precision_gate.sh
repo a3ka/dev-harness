@@ -425,17 +425,29 @@ if [ "${#FAMILIES[@]}" -gt 0 ]; then
           # с shebang-интерпретатором (argv[0]=<script>, argv[1..]=его args).
           # Литеральное сравнение абсолютного пути барьера: ни regex, ни glob
           # из untrusted-стороны (норма 041 §Инварианты п.2(iii)).
-          _argv0=""
-          _argv1=""
+          # Б6 fix (043 round-3, ЛОЖНЫЙ ОТКАЗ честному вызову С АРГУМЕНТОМ):
+          # прежнее скользящее окно `_argv0=$_argv1; _argv1=$_part` читало ВСЕ
+          # NUL-поля cmdline и оставляло в `_argv1` ПОСЛЕДНЕЕ поле, а не второе.
+          # Для `bash <script>` без аргументов (cmdline=2 поля: bash,script)
+          # это случайно совпадало с argv[1]; для `bash <barrier> <arg...>`
+          # (cmdline=3+ поля: bash,barrier,arg[,arg]...) сравнивался
+          # последний аргумент, а не путь барьера — ложный отказ честному
+          # вызову, грабивший новый green_18. Теперь: массив с остановкой
+          # после двух полей — argv[0]=интерпретатор, argv[1]=путь скрипта
+          # (для `bash <script>` И для прямого exec с shebang-интерпретатором
+          # по тому же cmdline-формату: bash=<script>,argv1..N=args). Чистые
+          # bash-встроенные, никакого fork на pid (весь смысл Б5 fix).
+          _argv=()
           while IFS= read -r -d $'\0' _part; do
-            _argv0="$_argv1"
-            _argv1="$_part"
+            _argv+=("$_part")
+            [ "${#_argv[@]}" -ge 2 ] && break
           done < "$_d/cmdline"
+          _argv1="${_argv[1]:-}"
           [ -n "$_argv1" ] || continue
           case "$_argv1" in
             "$barrier") live=1; break 2 ;;
           esac
-          unset _argv0 _argv1 _part _cur _in_tree
+          unset _argv _argv1 _part _cur _in_tree
         done
         unset _PG_PPID
       done
