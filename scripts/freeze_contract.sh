@@ -365,4 +365,14 @@ if [ -f "$reg_path" ]; then
 fi
 printf '%s → %s\n' "$NNN" "$tag_sha" >> "$tmp_reg"
 mv "$tmp_reg" "$reg_path"
+# ── 9. самокоммит реестра (Н-132): freeze_contract коммитит свою запись, иначе
+# registry/contracts.tsv остаётся uncommitted-modified после КАЖДОЙ заморозки и
+# подхватывается случайным следующим коммитом любой identity/зоны. Атомарность
+# с тегом: отказ коммита = die rc=1, тот же приём, что и при отказе `g tag -a` выше.
+if ! out="$(g add registry/contracts.tsv && \
+  g -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
+    commit -m "freeze: registry $NNN → $tag_sha" 2>&1)"; then
+  die "реестр не закоммичен: $out"
+fi
+printf '  ok   реестр закоммичен: %s → %s\n' "$NNN" "$tag_sha" >&2
 printf '  ok   реестр записан: %s → %s\n' "$NNN" "$tag_sha" >&2
