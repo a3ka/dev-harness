@@ -32,10 +32,12 @@
 #   * п7 (мерж-политика М2 4а v2) — стаб «мерж не требует именованной
 #     политики, сойдёт безымянный отказ cherry-pick» умирает здесь:
 #     честный merge (оба родителя + сам мерж — %an/%ae честные) — ожидание
-#     rc1 ИМЕНОВАННЫЙ «мерж-коммит в диапазоне» + ветка не сдвинута +
-#     временный worktree не протёк; сегодня rc1 БЕЗЫМЯННЫЙ «cherry-pick
-#     отказал (конфликт или иная ошибка)» — ни политики, ни имени причины
-#     (живой прогон этой пачки это подтвердил).
+#     ТОЧНЫЙ rc=1 (не любой ненулевой; блокер contracts-037-v2:26-33) +
+#     ИМЕНОВАННЫЙ «мерж-коммит в диапазоне» с sha первого мержа (фикстура
+#     знает его — сама создала мерж, MERGE_SHA) + ветка не сдвинута +
+#     временный worktree не протёк; стаб «безымянный отказ cherry-pick без
+#     sha / не-1 rc» умер на живом прогоне этой пачки до усиления, теперь
+#     умирает и на обходе contracts-037-v2:26-33.
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 SUBJ="$ROOT/scripts/accept_task_commit.sh"
@@ -115,6 +117,15 @@ git -C "$SRC_MERGE" add s.txt
 git -C "$SRC_MERGE" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false commit -qm 'merge case: c2'
 git -C "$SRC_MERGE" checkout -q work
 git -C "$SRC_MERGE" -c user.name=implementer -c user.email=implementer@dev-harness.local -c commit.gpgsign=false merge -q --no-edit side
+# SHA мержа фиксируется ЗДЕСЬ, при создании (блокер contracts-037-v2:26-33):
+# п7 сверяет этот sha с диагностикой отказа 4а. Самопроверка входа — tip
+# ветки work действительно мерж (родителей > 1); иначе вход п7 неконформен
+# грамматике предмета и сломана сама фикстура (пустая выборка — красное).
+MERGE_SHA="$(git -C "$SRC_MERGE" rev-parse HEAD)"
+case "$(git -C "$SRC_MERGE" log -1 --format=%P HEAD)" in
+  *' '*) : ;;
+  *) printf 'NOT_IMPLEMENTED: SRC_MERGE tip не мерж — вход п7 неконформен\n' >&2; exit 2 ;;
+esac
 
 ORDER=(п1 п2 п3 п4 п5 п6 п7)
 declare -A ST RAN
@@ -197,14 +208,24 @@ if [ -x "$SUBJ" ]; then
     fail п6 "честный линейный диапазон из двух коммитов не принят (rc=$rc6, на-ветке=$cnt6, an=$an6, cn=$cn6, a.txt=$fA, b.txt=$fB, вывод: $out6)"
   fi
 
-  # ── п7: ЧЕСТНЫЙ merge в диапазоне ⇒ именованный отказ 4а, ветка не тронута
+  # ── п7: ЧЕСТНЫЙ merge в диапазоне ⇒ именованный отказ 4а ТОЧНО rc=1 с sha
+  # (блокер contracts-037-v2:26-33: прежнее «ненулевой rc + слово „мерж“»
+  # пропускало обход «ОТКАЗ: мерж не поддерживается» без sha с rc=2 —
+  # живой прогон этой пачки подтвердил дыру до усиления).
   before7="$(git -C "$MAIN" rev-parse wip/201/implementer)"
   out7="$("$SUBJ" --root "$MAIN" --source "$SRC_MERGE" --branch wip/201/implementer --author implementer 2>&1)"; rc7=$?
   after7="$(git -C "$MAIN" rev-parse wip/201/implementer)"
   ok п7
-  if [ "$rc7" -eq 0 ] || [ "$after7" != "$before7" ]; then
-    fail п7 "честный merge ошибочно принят или ветка сдвинута (rc=$rc7, before=$before7, after=$after7, вывод: $out7)"
+  if [ "$rc7" -ne 1 ]; then
+    fail п7 "отказ 4а обязан быть ТОЧНЫМ rc=1 (М2 4а :408), получен rc=$rc7 (вывод: $out7)"
   fi
+  if [ "$after7" != "$before7" ]; then
+    fail п7 "ветка сдвинута на отказе 4а (before=$before7, after=$after7, вывод: $out7)"
+  fi
+  case "$out7" in
+    *"$MERGE_SHA"*) ;;
+    *) fail п7 "reason не называет sha первого мержа $MERGE_SHA: $out7" ;;
+  esac
   case "$out7" in
     *мерж*) ;;
     *) fail п7 "reason не называет мерж-политику 4а (нет слова «мерж»): $out7" ;;
