@@ -832,7 +832,40 @@ function isSelfContainedCwdEligible(
   if (!homeRaw) return false;
   const realHome = safeRealpath(homeRaw);
   if (!realHome) return false;
-  if (!isWithin(realHome, canonicalActual)) return false;
+  // п.6: истинный верхний корень (анцестор-проверка; v2 — блокер M1
+  // вердикта verdicts/adversary/contracts-037-m1m2-adversary.md, §Инварианты
+  // М1 п.6 контракта 037). НИ ОДИН каталог СТРОГО между canonicalActual и
+  // realpath($HOME) не несёт собственную .git-запись — каталог обычного
+  // репозитория ИЛИ файл-gitfile линкованного worktree (обе формы значат
+  // «рабочее дерево git»; gitfile с мёртвым gitdir — наличие, fail-closed).
+  // Сам $HOME из обхода исключён. Обнаружение ЛЮБОЙ .git-записи у ЛЮБОГО
+  // предка → условие НЕ выполнено (fail-closed): ветвь отказана ЦЕЛИКОМ,
+  // БЕЗ чтения owner.json — вложенный canonicalActual отказан независимо
+  // от того, что записано в артефакте п.5. Кауза: пока ни один предок
+  // canonicalActual не является git-деревом, dirname(canonicalActual) не
+  // лежит внутри никакого гостя-записываемого git-дерева — геометрическое
+  // доказательство недоступности артефакта п.5 (контракт 037 §Инварианты
+  // М1 п.6 «Кауза»).
+  if (canonicalActual !== realHome) {
+    let cur = dirname(canonicalActual);
+    // Ходим вверх строго ДО realHome (realHome исключён из обхода).
+    // canonicalActual под realHome уже гарантирован п.4 (canonicalActual
+    // прошёл isWithin(realHome, _)), так что без встречи с realHome выше
+    // не уйдём; защита parent===cur ловит неожиданный root.
+    while (cur !== realHome) {
+      try {
+        statSync(`${cur}/.git`);
+        // Любое присутствие (.git-каталог ИЛИ .git-файл; мёртвый gitdir —
+        // наличие) → отказ ЦЕЛИКОМ, до owner.json.
+        return false;
+      } catch {
+        // .git отсутствует здесь — продолжаем подъём.
+      }
+      const parent = dirname(cur);
+      if (parent === cur) break; // filesystem root (defensive).
+      cur = parent;
+    }
+  }
 
   // п.5: владелец-корреляция — <dirname(canonicalActual)>/.omp-isolation-owner.json
   // существует, JSON-парсится, несёт строковое поле `id`, литерально (===) равное

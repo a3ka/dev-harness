@@ -30,9 +30,14 @@
 # Коды возврата:
 #   0 — принято (stdout: ACCEPTED branch=<branch> tip=<sha>)
 #   1 — именованный отказ (ветка не существует / нечего принимать / identity
-#       расхождение / cherry-pick конфликт; --branch НЕ изменяется)
+#       расхождение / мерж-коммит в диапазоне — не поддерживается / cherry-pick
+#       конфликт; --branch НЕ изменяется)
 #   2 — нечем проверить (нет git / --source не репозиторий / --root не
 #       репозиторий / --source/--root не локальный каталог)
+#
+# ДИАПАЗОН КАК МАССИВ: RANGE_SHAS — bash-массив (НЕ многострочная строка),
+# cherry-pick "${RANGE_SHAS[@]}" разворачивает каждый sha в ОТДЕЛЬНЫЙ argv —
+# фикс argv-бага RANGE_SHAS против замороженного М2 п.5.
 set -euo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
@@ -139,9 +144,19 @@ if ! printf '%s\n' "$FETCH_HEAD_SHA" | grep -Eqx '[0-9a-f]{40}'; then
   exit 2
 fi
 
-# Шаг 3: диапазон <--branch>..FETCH_HEAD.
-RANGE_SHAS="$(git -C "$ROOT" rev-list "$BRANCH_ARG..$FETCH_HEAD_SHA" 2>/dev/null || true)"
-if [ -z "$RANGE_SHAS" ]; then
+# Шаг 3: диапазон <--branch>..FETCH_HEAD. Собираем в МАССИВ (не в одну
+# многострочную строку) — argv-баг RANGE_SHAS против замороженного М2 п.5
+# (cherry-pick "$RANGE_SHAS" получал ОДИН argv с embedded newline вместо
+# отдельных аргументов на коммит; честный линейный диапазон из НЕСКОЛЬКИХ
+# коммитов не мог быть cherry-pick-нут одним вызовом; живая проба блокера
+# M2 вердикта адверсария). Контракт 037 §Инварианты М2 п.5 «cherry-pick
+# диапазона на <--branch>» — каждый sha ОТДЕЛЬНЫМ argv.
+RANGE_SHAS=()
+while IFS= read -r sha; do
+  [ -n "$sha" ] || continue
+  RANGE_SHAS+=("$sha")
+done < <(git -C "$ROOT" rev-list "$BRANCH_ARG..$FETCH_HEAD_SHA" 2>/dev/null || true)
+if [ "${#RANGE_SHAS[@]}" -eq 0 ]; then
   printf 'ОТКАЗ: нечего принимать — диапазон %s..%s пуст\n' "$BRANCH_ARG" "$FETCH_HEAD_SHA" >&2
   exit 1
 fi
@@ -151,8 +166,7 @@ fi
 EXPECTED_AN="$AUTHOR_ARG"
 EXPECTED_AE="${AUTHOR_ARG}@dev-harness.local"
 
-while IFS= read -r sha; do
-  [ -n "$sha" ] || continue
+for sha in "${RANGE_SHAS[@]}"; do
   if ! printf '%s\n' "$sha" | grep -Eqx '[0-9a-f]{40}'; then
     printf 'ОТКАЗ: диапазон вернул не-sha: %s\n' "$sha" >&2
     exit 1
@@ -168,7 +182,19 @@ while IFS= read -r sha; do
       "$sha" "$actual_an" "$actual_ae" "$EXPECTED_AN" "$EXPECTED_AE" >&2
     exit 1
   fi
-done <<< "$RANGE_SHAS"
+  # Шаг 4а (v2 — блокер M2 вердикта адверсария): мерж-политика — %P с
+  # более одним родителем → ИМЕНОВАННЫЙ отказ rc1 «мерж-коммит в диапазоне —
+  # не поддерживается» с называнием sha первого мержа; --branch не меняется.
+  # ТЕМ ЖЕ проходом по диапазону, что п.4 (выше). %P — пробело-разделённые
+  # parent sha; один свн. пэрент = нет пробела; два+ свн. = пробел =
+  # мерж-коммит. Контракт 037 §Инварианты М2 4а.
+  parents="$(git -C "$ROOT" log -1 --format='%P' "$sha")"
+  case "$parents" in
+    *' '*)
+      printf 'ОТКАЗ: мерж-коммит в диапазоне — не поддерживается sha=%s\n' "$sha" >&2
+      exit 1 ;;
+  esac
+done
 
 # Шаг 5: cherry-pick через одноразовый временный worktree. --root'ов
 # чекаут НЕ переключается; временный worktree полностью изолирует
@@ -193,7 +219,7 @@ if ! git -C "$WT_PATH" \
      -c user.name="$EXPECTED_AN" \
      -c user.email="$EXPECTED_AE" \
      -c commit.gpgsign=false \
-     cherry-pick "$RANGE_SHAS" >/dev/null 2>&1; then
+     cherry-pick "${RANGE_SHAS[@]}" >/dev/null 2>&1; then
   # Чистим worktree и tmpdir через trap. --branch НЕ изменён (мы работали
   # в отдельном worktree; refs/heads/<--branch> в --root нетронут).
   printf 'ОТКАЗ: cherry-pick отказал (конфликт или иная ошибка)\n' >&2
