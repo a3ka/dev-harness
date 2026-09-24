@@ -30,8 +30,8 @@ cp "$REPO/scripts/check_precision_gate.sh" "$REPO_CLONE/scripts/check_precision_
 cp "$REPO/scripts/freeze_contract.sh" "$REPO_CLONE/scripts/freeze_contract.sh"
 chmod +x "$REPO_CLONE/scripts/check_precision_gate.sh" "$REPO_CLONE/scripts/freeze_contract.sh"
 
-# Заминчиваем 044 в клоне.
-( cd "$REPO_CLONE" && git tag "id/CONTRACT/044" )
+# Заминчиваем 446 в клоне (неиспользованный toy-номер: захардкоженный реальный NNN ломается первым же реальным минтом этого номера — 044 заминчен 96dcb44, тег приезжает в clone и git tag отказывает на дубле).
+( cd "$REPO_CLONE" && git tag "id/CONTRACT/446" )
 
 # Регистрируем frozen/contracts/999/1 с alice ЗОНА для shared/thing.txt.
 mkdir -p "$REPO_CLONE/contracts" "$REPO_CLONE/shared"
@@ -50,27 +50,27 @@ touch "$REPO_CLONE/shared/thing.txt"
 
 # Вердикт критика (иначе freeze споткнётся об отсутствие вердикта, а не о precision-гейте).
 mkdir -p "$REPO_CLONE/verdicts/critic"
-cat > "$REPO_CLONE/verdicts/critic/contracts-044-v1.md" <<EOF
+cat > "$REPO_CLONE/verdicts/critic/contracts-446-v1.md" <<EOF
 accept
 
-# Verdict for 044
+# Verdict for 446
 EOF
 
 # Черновик с НЕОБЪЯВЛЕННОЙ коллизией — precision-гейт должен красить, freeze отказать.
-DRAFT_FILE="contracts/044-toy-draft.md"
+DRAFT_FILE="contracts/446-toy-draft.md"
 cat > "$REPO_CLONE/$DRAFT_FILE" <<EOF
-# kontrakt 044 — toy
+# kontrakt 446 — toy
 
 ## Predmet
 тестовый контракт для проверки freeze-time backstop.
 
 ## Зоны
 
-ЗОНА architect: contracts/044-toy-draft.md shared/thing.txt
+ЗОНА architect: contracts/446-toy-draft.md shared/thing.txt
 
 (Нет строки ПЕРЕСЕЧЕНИЕ — коллизия с shared/thing.txt (NNN 999 alice) НЕ объявлена.)
 EOF
-( cd "$REPO_CLONE" && git add -A && git commit -q -m "test draft 044 + verdict" )
+( cd "$REPO_CLONE" && git add -A && git commit -q -m "test draft 446 + verdict" )
 
 # Прогон freeze. Ожидаем rc 1 + именованную причину.
 FREEZE_OUT=""
@@ -87,9 +87,9 @@ if ! printf '%s' "$FREEZE_OUT" | grep -Fq 'precision-гейт 043 красен:'
   exit 1
 fi
 
-# Тег frozen/contracts/044/1 НЕ должен существовать.
-if ( cd "$REPO_CLONE" && git tag -l 'frozen/contracts/044/*' | grep -q . ); then
-  printf 'ОТКАЗ: freeze_time_hook: тег frozen/contracts/044/* всё-таки записан\n' >&2
+# Тег frozen/contracts/446/1 НЕ должен существовать.
+if ( cd "$REPO_CLONE" && git tag -l 'frozen/contracts/446/*' | grep -q . ); then
+  printf 'ОТКАЗ: freeze_time_hook: тег frozen/contracts/446/* всё-таки записан\n' >&2
   exit 1
 fi
 
