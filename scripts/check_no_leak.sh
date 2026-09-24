@@ -84,7 +84,7 @@
 # Голое имя утилиты в коде детектора после блока пина — дефект.
 # Список пин-резолвленных утилит (импортирован architect'ом, сверен
 # следующим адверсарием): git, sha256sum, sort, comm, mkdir, mktemp,
-# stat, chmod, mv, cat, head, tail, grep, rm, readlink.
+# stat, chmod, mv, cat, head, tail, grep, rm, readlink, awk.
 #
 # ЗАЩИТА-СНИМКА (контрпример S-external-snapshot-symlink адверсария к2 01ed097: после
 # baseline-снимка внешний файл манифеста подменяется симлинком на снимок ТОГО ЖЕ корня,
@@ -272,17 +272,20 @@ esac
 #   * поддельный comm, возвращающий rc=0 + пустой stdout ⇒ дельта пуста ⇒
 #     «чисто» (форма «мусорный comm» даёт ложную тревогу ≠ «чисто» — но
 #     «чистый пустой stdout» неотличим от «дельты нет»).
-# Дополнительный класс (stat/chmod/mv/cat/head/grep/rm — голое имя в коде
+# Дополнительный класс (stat/chmod/mv/cat/head/grep/rm/awk — голое имя в коде
 # детектора): подмена через PATH даёт аналогичный обход (cat → поддельный
 # cat с rc=0 + пустым stdout ⇒ «снимок не прочитан» ОТЛОВИМ, но «подмена
-# printf '%s' "$base"» — отдельный путь). Закрытие — ВЕРТИКАЛЬНО: пин
-# КАЖДОЙ внешней утилиты, которую скрипт зовёт. Н-39: стабы к ветвям
-# привязывает architect по коду, не проза контракта — здесь одна вертикаль.
+# printf '%s' "$base"» — отдельный путь). Фикс Б7б третьего круга 044: добавлен
+# пин awk после того, как новый bulk-код do_retake_bulk начал звать голый awk;
+# ошибка awk rc=127 маскировалась пустым stdout в pipeline и давала ложный success
+# переснятия нулевого числа путей. Закрытие — ВЕРТИКАЛЬНО: пин КАЖДОЙ внешней
+# утилиты, которую скрипт зовёт. Н-39: стабы к ветвям привязывает architect по
+# коду, не проза контракта — здесь одна вертикаль.
 #
 # ИТОГОВЫЙ СПИСОК пин-резолвленных утилит (коммит-сообщение несёт побайтово;
 # architect импортирует и сверит следующий адверсарий):
 #   git, sha256sum, sort, comm, mkdir, mktemp, stat, chmod, mv, cat,
-#   head, tail, grep, rm, readlink
+#   head, tail, grep, rm, readlink, awk
 # — каждая через `PATH="$TRUSTED_PATH" command -v` кэшируется в абсолютный
 # путь. Любое отсутствие в доверенных путях ⇒ NOT_IMPLEMENTED rc 2 именованный.
 # Голое имя утилиты в коде детектора после этого блока — дефект.
@@ -300,7 +303,7 @@ done
 # фикстуры red_detektor_utechek.sh мог симулировать «нет sha256sum» —
 # BIN16 фикстуры кладёт минимальный PATH без sha256sum). Список — минимальный
 # (только те 6 утилит, что нужны предпроверке для gate 15/16). Для новых
-# утилит (stat/chmod/mv/cat/head/grep/rm) доверие обеспечивает пин ниже:
+# утилит (stat/chmod/mv/cat/head/grep/rm/awk) доверие обеспечивает пин ниже:
 # резолв через TRUSTED_PATH-only; если в BIN16 нет stat и пин п утит на
 # stat — это НЕ ожидаемая ветка, но и не ломает gate 16 (gate 16 идёт
 # первым через sha256sum, которого в BIN16 нет). На честном PATH новые
@@ -371,6 +374,16 @@ RM="$(PATH="$TRUSTED_PATH" command -v rm)"
 READLINK="$(PATH="$TRUSTED_PATH" command -v readlink)"
 [ -n "$READLINK" ] && [ -x "$READLINK" ] \
   || { printf 'NOT_IMPLEMENTED: readlink в доверенных путях отсутствует\n' >&2; exit 2; }
+# awk — фикс Б7б третьего круга 044 (находка гигиены адверсария):
+# новый bulk-код do_retake_bulk звал сырой awk в pipeline на 4 местах
+# (delta_paths / covered_zones / owners-чёрный / owners-покрытие), без
+# пина и без проверки rc. Поддельный awk, возвращающий rc=127 (или
+# rc≠0 с пустым stdout), маскировался пустым stdout в pipeline и
+# превращал отказ утилиты в ложный success переснятия нулевого числа путей.
+# Голое имя awk в коде детектора после блока пина — дефект.
+AWK="$(PATH="$TRUSTED_PATH" command -v awk)"
+[ -n "$AWK" ] && [ -x "$AWK" ] \
+  || { printf 'NOT_IMPLEMENTED: awk в доверенных путях отсутствует\n' >&2; exit 2; }
 SHA256SUM="$(PATH="$TRUSTED_PATH" command -v sha256sum)"
 [ -n "$SHA256SUM" ] && [ -x "$SHA256SUM" ] \
   || { printf 'NOT_IMPLEMENTED: sha256sum в доверенных путях отсутствует\n' >&2; exit 2; }
@@ -1314,7 +1327,13 @@ do_retake() {
     exit 1
   fi
   # 4. Ровно один путь в дельте. Извлекаем уникальные пути (после табуляции).
-  delta_paths="$(printf '%s\n' "$delta" | awk -F'\t' '{print $2}' | sort -u)"
+  # Пин $AWK + $SORT (фикс Б7б гигиены 044): rc обоих проверяется ИМЕННО, без
+  # маскировки пустым stdout. Поддельный awk rc=127 давал ложный success на
+  # пустой выборке.
+  if ! delta_paths="$(printf '%s\n' "$delta" | "$AWK" -F'\t' '{print $2}' | "$SORT" -u)"; then
+    printf 'NOT_IMPLEMENTED: awk/sort не извлёк delta_paths (rc утилиты)\n' >&2
+    exit 2
+  fi
   n_paths="$(printf '%s\n' "$delta_paths" | wc -l | tr -d ' ' || true)"
   if [ -z "$n_paths" ] || [ "$n_paths" -ne 1 ]; then
     printf 'ОТКАЗ: переснятие не доказано: дельта не ровно-один-файл\n' >&2
@@ -1338,6 +1357,9 @@ do_retake() {
     exit 1
   }
   # Зон с префиксом `verdicts/` в реестре нет — ослеплённый читатель (Б4 круга 1).
+  # (do_retake использует сырой awk/sort вне зоны implementer-fix 044 Б7б: правка
+  # этого места выходит за рамки текущего задания; класс закрыт вертикально в
+  # do_retake_bulk, который теперь пиннут + проверяется rc).
   if ! awk -F'\t' '$2 ~ /^verdicts\//' "$retake_zones/zones_scoped" | grep -q .; then
     printf 'ОТКАЗ: переснятие не доказано: реестр зон не несёт ни одной судейской зоны — читатель ослеплён\n' >&2
     exit 1
@@ -1390,13 +1412,21 @@ do_retake() {
 # «не прочитан»/«чужой корень»/«режим не read-only»/«verify отсутствует»/
 # «verify не сошёлся»), zones_load — ЕДИНСТВЕННЫЙ читатель ЗОНА-строк (граница-5
 # 031 дословно; 044 новый ПОТРЕБИТЕЛЬ, не второй читатель).
+# ГИГИЕНА Б7б третьего круга 044 (адверсарий): ВСЕ новые bulk-вызовы внешних
+# утилит идут через ПИН-пути и проверку rc; сырых `awk`/`sort` в коде — дефект.
+# Поддельный awk rc=127 маскировался пустым stdout в pipeline и превращал отказ
+# утилиты в ложный success переснятия нулевого числа путей. После каждого
+# capture — `if ! ... ; then NOT_IMPLEMENTED rc 2 именованный`.
 # И-3 признание (iv) (контракт 023; draft-признание (контракт 023, ветвь iv;
 # брат check_zones.sh:846-888) — будущая правка И-3 обязана найти оба места
 # grep'ом по якорю. Семантика дословно 023 (замороженный текст): путь
-# contracts/<M>-* (M — первые три символа basename, РОВНО три цифры) признаётся,
-# если (рука А) тег id/CONTRACT/<M> указывает НА САМОМ коммите C, или (рука Б) тег
+# contracts/<M>-* (M — первые три символа basename, РОВНО три цифры;
+# четвёртый байт basename — ЛИТЕРАЛЬНЫЙ дефис) признаётся, если (рука А) тег
+# id/CONTRACT/<M> указывает НА САМОМ коммите C, или (рука Б) тег
 # id/CONTRACT/<M> жив ∧ его коммит предок C ∧ НЕТ ни одного тега
-# frozen/contracts/<M>/*, чей коммит — предок C. Возвращает 0 если признан, иначе 1.
+# frozen/contracts/<M>/*, чей коммит — предок C. Возвращает 0 если признан,
+# иначе 1. ПОСТ-freeze проверка ОБЩАЯ для обеих рук (выполняется ДО выбора
+# руки А/Б, фикс дыры предиката Б7б).
 # Граница-7 (б) 044: потребитель-local копия предиката; дрейф прижат двумя семьями
 # фикстур (023 red_priznanie_po_nomery_puti.sh и 044 бб1–бб6) и этим якорем.
 priznanie_chernovika_7b() {
@@ -1410,15 +1440,25 @@ priznanie_chernovika_7b() {
     [0-9][0-9][0-9]) path_m="$head3" ;;
     *) return 1 ;;
   esac
-  # рука А: тег id/CONTRACT/<M> НА САМОМ коммите C
-  if "$GIT" -C "$CANON" tag --points-at "$c" "id/CONTRACT/$path_m" 2>/dev/null \
-       | grep -qxF -- "id/CONTRACT/$path_m"; then
-    return 0
-  fi
-  # рука Б: тег жив ∧ его коммит — предок C ∧ НЕТ frozen/contracts/<M>/* в предках C
-  tag_commit="$("$GIT" -C "$CANON" rev-parse --verify --quiet "refs/tags/id/CONTRACT/$path_m^{commit}" 2>/dev/null || true)"
-  [ -n "$tag_commit" ] || return 1
-  "$GIT" -C "$CANON" merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null || return 1
+  # Контракт 023 «И-3 признание (iv)» дословно: грамматика — contracts/<M>-*;
+  # после распознанного трёхцифрового path_m четвёртый байт basename ОБЯЗАН
+  # быть литеральным дефисом (иначе basename в канонической грамматике
+  # не лежит — 123, 123not-a-draft.md, 123_not_a_draft.md и пр. идут зонным
+  # судом). Без этого — обход блокера Б7б адверсария contracts-044-v1 (первые
+  # три цифры шире грамматики contracts/<M>-*, обход классом «резерв номера
+  # с не-дефисным basename»).
+  [ "${base:3:1}" = "-" ] || return 1
+  # ПОСТ-freeze отказ ОБЕИХ рук (симметрия рук А/Б обязательна — Б7б адверсария
+  # contracts-044-v1, дыра предиката): если ЛЮБОЙ тег frozen/contracts/<M>/*
+  # уже в предках C — путь судится зонами (замороженный блоб несёт свою
+  # ЗОНА-строку), итерации резерва ПОСЛЕ заморозки НЕ признаются. Контракт
+  # 023 дословно: «Итерации резерва ДО заморозки признаются; ПОСЛЕ заморозки —
+  # НЕТ: путь судится зонами». Проверка идёт ДО выбора руки (рука А иначе
+  # даёт ложный success на переназначенном локальном id/CONTRACT-теге — тот
+  # же класс «коммит ОТ ИМЕНИ владельца зоны», что и остаточный риск 023
+  # (iii), но без семантической защиты «пост-freeze — нет»). После этой
+  # проверки рука А и рука Б симметрично работают на «доверенном до-freeze»
+  # коммите C.
   while IFS= read -r ft; do
     [ -z "$ft" ] && continue
     ft_commit="$("$GIT" -C "$CANON" rev-parse --verify --quiet "${ft}^{commit}" 2>/dev/null || true)"
@@ -1426,6 +1466,15 @@ priznanie_chernovika_7b() {
       return 1
     fi
   done < <("$GIT" -C "$CANON" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$path_m/" 2>/dev/null || true)
+  # рука А: тег id/CONTRACT/<M> НА САМОМ коммите C
+  if "$GIT" -C "$CANON" tag --points-at "$c" "id/CONTRACT/$path_m" 2>/dev/null \
+       | grep -qxF -- "id/CONTRACT/$path_m"; then
+    return 0
+  fi
+  # рука Б: тег жив ∧ его коммит — предок C (пост-freeze уже отсечён выше)
+  tag_commit="$("$GIT" -C "$CANON" rev-parse --verify --quiet "refs/tags/id/CONTRACT/$path_m^{commit}" 2>/dev/null || true)"
+  [ -n "$tag_commit" ] || return 1
+  "$GIT" -C "$CANON" merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null || return 1
   return 0
 }
 
@@ -1582,7 +1631,12 @@ do_retake_bulk() {
   # Уникальные пути дельты в лексикографическом порядке (LC_ALL=C, унаследован от
   # export в шапке скрипта — sort байт-в-байт). Поля манифеста: <тег>...<TAB><путь>;
   # enc_path для ASCII-путей фикстур возвращает байт-в-байт исходник.
-  delta_paths="$(printf '%s\n' "$delta" | awk -F'\t' '{print $2}' | sort -u)"
+  # ПИН $AWK/$SORT + rc-проверка (фикс Б7б третьего круга 044):
+  # поддельный awk/sort не должен маскироваться в пустой success.
+  if ! delta_paths="$(printf '%s\n' "$delta" | "$AWK" -F'\t' '{print $2}' | "$SORT" -u)"; then
+    printf 'NOT_IMPLEMENTED: извлечение delta_paths упало (awk/sort rc≠0)\n' >&2
+    exit 2
+  fi
   # Шаг 7. На КАЖДЫЙ путь дельты (лексикографический порядок; первый отказ
   # останавливает дверь целиком — частичных переснятий нет).
   while IFS= read -r path; do
@@ -1615,7 +1669,11 @@ do_retake_bulk() {
     # префиксного фильтра `verdicts/` (КЛЮЧЕВОЕ отличие от 031 — bulk-дверь
     # судит по любой замороженной зоне, не только судейской). Ослабление
     # компенсировано тройным замком ниже (merge + author + global left-right).
-    covered_zones="$(awk -F'\t' -v p="$path" '
+    # ПИН $AWK/$SORT + rc-проверка (фикс Б7б третьего круга 044): без проверки
+    # rc поддельный awk rc=127 маскировался пустым stdout и давал ложный success
+    # переснятия нулевого числа путей — «базлайн переснят: bulk-дельта — путей 0»
+    # при rc 0 (замер адверсария): НЕ возможно после фикса.
+    if ! covered_zones="$("$AWK" -F'\t' -v p="$path" '
       $2 != "" {
         zpath = $2
         if (zpath ~ /\/$/) {
@@ -1623,7 +1681,10 @@ do_retake_bulk() {
         } else {
           if (p == zpath) print $0
         }
-      }' "$retake_zones/zones_scoped" | sort -u)"
+      }' "$retake_zones/zones_scoped" | "$SORT" -u)"; then
+      printf 'NOT_IMPLEMENTED: covered_zones упало (awk/sort rc≠0) для %s\n' "$path" >&2
+      exit 2
+    fi
     if [ -z "$covered_zones" ]; then
       # ВТОРОЙ приём (Н-147, контракт 044 §«Признание черновика в шаге 7б»): путь
       # матчит contracts/<M>-* → двухрукое draft-признание того же коммита C (тот же
@@ -1635,7 +1696,11 @@ do_retake_bulk() {
       # Признание СНИМАЕТ ТОЛЬКО шаг 7б; 7а/7в/7г/8 для ЭТОГО пути идут по общим
       # правилам (тот же last_sha/last_auth, тот же merge-base, та же автор-проверка).
       if priznanie_chernovika_7b "$path" "$last_sha"; then
-        owners="$(awk -F'\t' '$1 != "" {print $1}' "$retake_zones/zones_scoped" | sort -u)"
+        # ПИН $AWK/$SORT + rc-проверка (фикс Б7б).
+        if ! owners="$("$AWK" -F'\t' '$1 != "" {print $1}' "$retake_zones/zones_scoped" | "$SORT" -u)"; then
+          printf 'NOT_IMPLEMENTED: owners (чёрный признание) упало (awk/sort rc≠0)\n' >&2
+          exit 2
+        fi
       else
         printf 'ОТКАЗ: переснятие-bulk не доказано: путь %s не покрыт ни одной зоной\n' "$path" >&2
         exit 1
@@ -1643,7 +1708,11 @@ do_retake_bulk() {
     else
       # Обычный путь: владельцы ПОКРЫВАЮЩИХ зон (НЕ весь реестр — иначе ЛЮБОЙ
       # владелец реестра подошёл бы, противоположно двери).
-      owners="$(printf '%s\n' "$covered_zones" | awk -F'\t' '{print $1}' | sort -u)"
+      # ПИН $AWK/$SORT + rc-проверка (фикс Б7б).
+      if ! owners="$(printf '%s\n' "$covered_zones" | "$AWK" -F'\t' '{print $1}' | "$SORT" -u)"; then
+        printf 'NOT_IMPLEMENTED: owners (покрытие) упало (awk/sort rc≠0) для %s\n' "$path" >&2
+        exit 2
+      fi
     fi
     # 7в. Слит: sha последнего коммита пути — предок origin/main. last_sha
     # вычислен выше — единый источник факта для 7б/7в/стенограммы, не повторный log.
