@@ -373,34 +373,71 @@ if [ "${#FAMILIES[@]}" -gt 0 ]; then
       #
       # Ограничение (документировано в §Модель угроз НЕ ЗАЩИЩАЕТ): при
       # уникально коротком exec'е окно опроса может пропустить cmdline —
-      # практический замер bash startup + `exit 0` ≥5мс на ubuntu-latest CI;
-      # один проход /proc read = O(10µs) → ≥500 попыток на окно — пропуск
-      # не наблюдается; теоретический sub-ms exec — граница механизма.
+      # граница механизма.
+      #
+      # Б5 fix (043 round-2, ЛОЖНЫЙ ОТКАЗ честному вызову): прежняя реализация
+      # порождала ПОДПРОЦЕСС awk И tr|sed на КАЖДЫЙ /proc/<pid>/status И
+      # /proc/<pid>/cmdline (~3 fork на процесс × 550 процессов = ~1.4с на одну
+      # итерацию внешнего цикла). Барьер `sleep 1` живёт ~1.05с — глоб
+      # `/proc/[0-9]*` экспандится ОДИН РАЗ на старте `for`, и за время одной
+      # итерации процесса барьера может ещё не быть в списке (case bash ещё
+      # делает setup) или уже нет (sleep вернулся). Получали 0–1 внешнюю
+      # итерацию за окно живого exec — ровно «/proc-наблюдение не нашло exec»
+      # на честном входе. Переписано на чистые bash-встроенные: чтение PPid из
+      # /proc/<pid>/status — параметрическим разбором в переменную (без fork);
+      # чтение argv[1] из /proc/<pid>/cmdline — `read -d $'\0'` (без fork);
+      # построение ppid-карты один раз на старте внешней итерации (≈40мс на
+      # 550 процессов), обход дерева — по карте в памяти (≈5мс). Итого одна
+      # внешняя итерация ≈50мс → ≥20 итераций за окно `sleep 1`, барьер
+      # ловится устойчиво. Глоб `/proc/[0-9]*` переэкспандится на каждом витке
+      # внешнего while, чтобы свеже-форкнутый процесс попал в выборку.
       bash "$fam_dir/$cf" &
       case_pid=$!
       live=0
       traced_rc=0
       while kill -0 "$case_pid" 2>/dev/null; do
-        for proc_dir in /proc/[0-9]*; do
-          [ -r "$proc_dir/status" ] || continue
-          cur_pp="$(awk '/^PPid:/ {print $2}' "$proc_dir/status" 2>/dev/null || true)"
-          in_tree=0
-          cur="$cur_pp"
-          while [ -n "$cur" ] && [ "$cur" -gt 1 ] 2>/dev/null; do
-            if [ "$cur" = "$case_pid" ]; then in_tree=1; break; fi
-            [ -r "/proc/$cur/status" ] || break
-            cur="$(awk '/^PPid:/ {print $2}' "/proc/$cur/status" 2>/dev/null || true)"
+        declare -A _PG_PPID=()
+        for _d in /proc/[0-9]*; do
+          [ -r "$_d/status" ] || continue
+          _p="${_d##*/}"
+          # Разбор PPid из status bash-встроенным regex (≈30мс на 540 процессов
+          # против ≈740мс при параметрическом разборе — bash для speed-up).
+          _content=$(<"$_d/status")
+          if [[ "$_content" =~ $'\n'PPid:[[:space:]]+([0-9]+) ]]; then
+            _PG_PPID["$_p"]="${BASH_REMATCH[1]}"
+          else
+            _PG_PPID["$_p"]=""
+          fi
+        done
+        for _d in /proc/[0-9]*; do
+          [ -r "$_d/cmdline" ] || continue
+          _p="${_d##*/}"
+          # потомок case_pid (включая сам case_pid — `exec` в нём оставляет
+          # argv[1] барьера; оригинальный walk-up от PPid этот случай не ловил).
+          _cur="$_p"
+          _in_tree=0
+          while [ -n "$_cur" ] && [ "$_cur" -gt 1 ] 2>/dev/null; do
+            if [ "$_cur" = "$case_pid" ]; then _in_tree=1; break; fi
+            _cur="${_PG_PPID[$_cur]:-}"
           done
-          [ "$in_tree" -eq 1 ] || continue
-          # КОМАНДНАЯ ПОЗИЦИЯ — argv[1] cmdline (argv[0]=имя процесса).
+          [ "$_in_tree" -eq 1 ] || continue
+          # argv[1] = путь скрипта для `bash <script>` или для прямого exec
+          # с shebang-интерпретатором (argv[0]=<script>, argv[1..]=его args).
           # Литеральное сравнение абсолютного пути барьера: ни regex, ни glob
           # из untrusted-стороны (норма 041 §Инварианты п.2(iii)).
-          cmdline_first="$(tr '\0' '\n' < "$proc_dir/cmdline" 2>/dev/null | sed -n '2p' || true)"
-          [ -n "$cmdline_first" ] || continue
-          case "$cmdline_first" in
+          _argv0=""
+          _argv1=""
+          while IFS= read -r -d $'\0' _part; do
+            _argv0="$_argv1"
+            _argv1="$_part"
+          done < "$_d/cmdline"
+          [ -n "$_argv1" ] || continue
+          case "$_argv1" in
             "$barrier") live=1; break 2 ;;
           esac
+          unset _argv0 _argv1 _part _cur _in_tree
         done
+        unset _PG_PPID
       done
       wait "$case_pid" || traced_rc=$?
 
