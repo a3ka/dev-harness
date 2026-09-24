@@ -832,6 +832,18 @@ function isSelfContainedCwdEligible(
   if (!homeRaw) return false;
   const realHome = safeRealpath(homeRaw);
   if (!realHome) return false;
+  // п.4 (FAIL-CLOSED, СРАЗУ после realHome, ДО п.6-цикла): canonicalActual
+  // обязан быть СТРОГО внутри realHome. canonicalActual === realHome
+  // (HOME-сам-себе) отвергается явно: п.6-цикл при равенстве пропускается
+  // (`if (canonicalActual !== realHome)`), и единственный оставшийся
+  // разрушитель — корреляция с owner.json в `dirname(realHome)`,
+  // которую п.6 явно запрещает («canonicalActual === HOME никогда не
+  // допускается по п.5»). Регрессия п.6-рефакторинга: realHome
+  // вычислялся, но `isWithin(realHome, canonicalActual)` НЕ вызывался —
+  // outside-HOME canonicalActual с валидным owner.json в `dirname(_)`
+  // проходил анцестор-цикл до filesystem root без отказа.
+  if (canonicalActual === realHome) return false;
+  if (!isWithin(realHome, canonicalActual)) return false;
   // п.6: истинный верхний корень (анцестор-проверка; v2 — блокер M1
   // вердикта verdicts/adversary/contracts-037-m1m2-adversary.md, §Инварианты
   // М1 п.6 контракта 037). НИ ОДИН каталог СТРОГО между canonicalActual и
