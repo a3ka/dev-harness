@@ -97,7 +97,7 @@ case "$sub" in
   *) exec "$REAL" "${orig[@]}" ;;
 esac
 
-# ── И-4a: repository argument — URL / SCP / path / bare-name ──────────────
+# ── И-4a: repository argument — URL / SCP / path / bare-name / --repo= ────
 # Git docs (gitrepository-layout / git-push «repository argument»): четыре
 # синтаксические формы:
 #   URL-like : содержит '://'
@@ -108,28 +108,102 @@ esac
 #   bare     : всё прочее — потенциальное имя настроенного remote (см. И-4б)
 # Имя, не попавшее ни в одну форму, но не настроенное как remote — настоящий
 # git сам откажет, обёртка передаёт вызов (канарейка г7-класса, И-2).
+#
+# РАСШИРЕНИЕ (адверсарий 045-v3 confirm, полное закрытие):
+# `git push --repo=<repository>` (`git help push`: «equivalent to the
+# <repository> argument. If both are specified, the command-line argument
+# takes precedence»). Распознаётся ДО generic `-*`-skip — без этого живой
+# обход: `--repo=evil --all` молча проглатывался, target оставался пуст,
+# обёртка проверяла канонический origin, настоящий git исполнял push в
+# неканонический remote `evil`.
+#
+# ПРЕЦЕДЕНТ (man git-push): «the command-line argument takes precedence».
+# Позиционная цель СИЛЬНЕЕ --repo=: `push --repo=origin <evil-path>` реально
+# уходит в <evil-path> (замер арх-разведки 045-2 живьём на git 2.55).
+# Реализация БУКВАЛЬНОГО приоритета --repo открыла бы НОВЫЙ обход
+# (--repo=origin отмывает злой позиционный, клетка г17ж + стаб repoprio
+# архитектора). Поэтому --repo=* запоминается в repo_value и применяется
+# ТОЛЬКО если позиционная цель не найдена; последний --repo=* выигрывает
+# (соответствует семантике git при множественных --repo=).
+#
+# Раздельная форма `--repo <value>` (045-v3 confirm, полное закрытие):
+# предыдущий резон «`-*`-skip потребляет `--repo`, `<value>` падает в
+# bare_name и проходит И-4б как именованный remote» оказался ЛОЖНЫМ
+# (арх-проверка живьём, репро в /tmp/dev-harness-verify/scratch/
+# impl045-v2-repro.sh). `<value>` действительно попадает в bare_name,
+# но это ЛОМАЕТ цикл (break) ДО позиционной цели. Итог: `gitw push
+# `--repo origin <evil-path>` проверяет origin (canonical, pass), реальный
+# git пушит в <evil-path> (man git-push «command-line argument takes
+# precedence»). ТО ЖЕ предметное поле, что и equals-форма: «позиционная
+# цель сильнее --repo», просто эксплуатируется через раздельный токен.
+#
+# Фикс: arm `--repo)` arity 2 — ЗАПОМНИТЬ значение в repo_value (как и
+# equals-форма), НЕ выставлять target/bare_name и НЕ break'ать цикл
+# (позиционная цель ОБЯЗАНА выиграть; пост-цикл классифицирует
+# repo_value той же логикой, что и equals-форма). Защита от выхода за
+# массив: `--repo` последним токеном → fail-closed отказ с явным
+# сообщением (без неё `${orig[$((i+1))]}` под Bash ≥4.4 на пустой
+# индекс читает пустую строку молча — симптом «призрачной цели»,
+# пустой repo_value проваливает fallback в дефолтный origin и
+# восстанавливает обход). Стаб reposepskip архитектора (Н-39) ловит
+# «оба токена пропустить» — arm явно потребляет оба токена за раз,
+# отдельной правки стаба не требует.
+#
+# СХЛОПЫВАНИЕ arm `*:*)` (045-v3 confirm, г18, завис→обход):
+# предыдущая редакция разбирала scp-like vs path-with-colon через
+# внутренний `*/*) ;;` (slash-before-colon → не scp-like). ДВА дефекта:
+#   (a) ЗАВИС: `*/*) ;;` не двигал индекс → токен `dir/sub:branch`
+#       крутил цикл вечно (rc124 под timeout 5s).
+#   (b) ПРЕВРАЩЕНИЕ ЗАВИСА В ОБХОД: даже фикс «`i=$((i+1))`»
+#       (промежуточный вариант) открывал обход — `dir/sub:branch` шёл
+#       дальше, real git трактовал его как repository + refspec,
+#       пушил в `dir/sub` с созданием ветки `branch` на неканоническом
+#       получателе (architect, замер живьём git 2.55).
+# Коренное исправление (architect, замерено дважды): ПЕРВЫЙ непозиционный
+# токен у git push ВСЕГДА repository-цель — refspec физически не может
+# стоять первым позиционным, repository всегда перед ним (man git-push).
+# Сложная классификация scp-vs-path БЕСПОЛЕЗНА и ОПАСНА (две описанные
+# ловушки в одной конструкции). Схлопываем arm `*:*)` целиком в
+# «содержит `/` → это цель, break»: `dir/sub:branch`, `dir/sub`,
+# `user@host:path/with/slash` — ВСЕ идут в target и ОБЯЗАНЫ пройти И-5.
+# Без `/` (чистый scp `host:repo.git`, чистый bare `origin`) → fallback
+# на default-`*` (bare_name → И-4б, проверка настроенного remote).
+# URL-like (`*://*`) и path-like (`/*|../*|./*`) классификации СОХРАНЕНЫ
+# — они верны и не имеют описанных ловушек; трогаем только `*:*)` arm.
 target=""
 bare_name=""
+repo_value=""
 while [ "$i" -lt "$n" ]; do
   a="${orig[$i]}"
   case "$a" in
+    --repo)
+      # Раздельная форма arity-2 (полное закрытие 045-v3 confirm, см. шапку).
+      # Без break: позиционная цель ОБЯЗАНА выиграть (прецедент выше).
+      [ "$((i+1))" -lt "$n" ] || { printf 'gitw ОТКАЗ: --repo без значения\n' >&2; exit 1; }
+      repo_value="${orig[$((i+1))]}"
+      i=$((i+2))
+      ;;
+    --repo=*)
+      # Равн-форма: запомнить VALUE, НЕ выставлять target/bare_name —
+      # позиционная цель должна выиграть (man git-push «command-line
+      # argument takes precedence»). Последний --repo=* выигрывает.
+      repo_value="${a#--repo=}"
+      i=$((i+1))
+      ;;
     *://*|/*|../*|./*)
       target="$a"
       i=$((i+1))
       break
       ;;
-    *:*)
-      # SCP-like: двоеточие ДО первого слэша. ${a%%:*} — префикс до ПЕРВОГО
-      # ':'; если в нём нет '/', форма — scp-like (а не path-like `a/b:c`).
-      prefix="${a%%:*}"
-      case "$prefix" in
-        */*) ;; # slash before colon → не scp-like
-        *)
-          target="$a"
-          i=$((i+1))
-          break
-          ;;
-      esac
+    */*)
+      # Содержит слэш — это цель (любая: scp-путь, path-with-colon,
+      # явный локальный путь, выглядящий странно). ОПАСНОСТЬ arm `*:*)`
+      # (двойная: завис + превращение зависа в обход) снята
+      # схлопыванием — см. шапку И-4a. Без слэша (scp `host:repo.git`,
+      # bare `origin`) — fallback на `*)` ниже.
+      target="$a"
+      i=$((i+1))
+      break
       ;;
     -*) i=$((i+1)) ;;
     *)
@@ -140,6 +214,19 @@ while [ "$i" -lt "$n" ]; do
       ;;
   esac
 done
+
+# Fallback: если позиционная цель не найдена, использовать --repo=*
+# (запомненное выше; если их было несколько — последнее, как и git).
+# Та же логика, что и в основном цикле: URL/path/slash → target,
+# иначе → bare_name (И-4б проверит настроенный remote).
+if [ -z "$target" ] && [ -z "$bare_name" ] && [ -n "$repo_value" ]; then
+  value="$repo_value"
+  case "$value" in
+    *://*|/*|../*|./*) target="$value" ;;
+    */*) target="$value" ;;
+    *) bare_name="$value" ;;
+  esac
+fi
 
 if [ -z "$target" ]; then
   # ── И-4б: цель из настроенного remote (явное имя или дефолтный origin) ──
