@@ -274,7 +274,7 @@ HEAD-тексту контракта (`freeze_contract.sh:126-138` читает 
 
 ЗОНА architect: contracts/043-precizionnyj-prefriz-gejt.md NABLIUDENIA_ARCHITECT.md roles/critic.md scripts/check_precision_gate.sh fixtures/check_precision_gate/ fixtures/parsing_hygiene_battery/profiles/check_precision_gate.sh fixtures/_krasnye_043.sh
 
-ЗОНА implementer: scripts/check_precision_gate.sh fixtures/check_precision_gate/ scripts/freeze_contract.sh .github/workflows/ci.yml package.json
+ЗОНА implementer: scripts/check_precision_gate.sh fixtures/check_precision_gate/ fixtures/parsing_hygiene_battery/profiles/check_precision_gate.sh scripts/freeze_contract.sh .github/workflows/ci.yml package.json
 
 Двойное объявление `scripts/check_precision_gate.sh` и `fixtures/check_precision_gate/`
 под ОБОИМИ авторами — union-семантика 033 (прецедент 027:224+235, 020:111-112):
@@ -302,7 +302,8 @@ CI») — та же пара путей, которую ЭТОТ контрак�
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 тот же путь ci.yml выше по той же причине
 ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 контракт 015 сам явно документирует двойное владение implementer только для одноразового коммита миграции заголовков, architect владеет обычными записями как везде
 ПЕРЕСЕЧЕНИЕ architect: roles/critic.md — 036 036 завёл orchestrator-канал для нормы стенограммы spec-preflight, 041 уже правил ту же роль architect-каналом без спора, тот же прецедент применяется здесь
-СПАСЕНО implementer: 80e1ea842f17332fa11d91cba35aade740f00515 8766e76946658b548bb9d4be870dfcf0b97ef288 — 80e1ea84: оркестратор ошибочно назвал fixtures/parsing_hygiene_battery/profiles/check_precision_gate.sh implementer-зоной в задании фикса Н2 (ревьюер-находка круга 1 verdicts/review/contracts-043-v1.md — вердикт описывает дефект до исправления, не подтверждение исправленного состояния), фактически путь был только architect-зоной (contracts/043-precizionnyj-prefriz-gejt.md:275); содержание правки — две согласованные замены 991→993 (вызов mk_foreign_frozen и строка ПЕРЕСЕЧЕНИЕ) в прежде мёртвой части входа battery_silent_drop профиля, без влияния на гейт; основание строки — сам дифф, механически проверяемый любым судьёй в любой момент: git show 80e1ea84 -- fixtures/parsing_hygiene_battery/profiles/check_precision_gate.sh содержит ровно эти две замены 991→993 и ничего более в этом файле. 8766e769: сама эта СПАСЕНО-строка для 80e1ea84 была добавлена implementer'ом непосредственно в architect-зонный contracts/043-precizionnyj-prefriz-gejt.md (строка 275 заявляет путь ТОЛЬКО architect) — вторичный выход-за-зону, порождённый попыткой implementer'а закрыть 80e1ea84 без вовлечения architect; диагностирован и зарегистрирован Н-144 (чекпойнт 32 HANDOFF.md); ремедиация — консолидация обоих коммитов под этой строкой, выполненная architect'ом
+ПЕРЕСЕЧЕНИЕ implementer: fixtures/parsing_hygiene_battery/profiles/check_precision_gate.sh — 041 каталог батареи целиком architect-зона 041; профиль пинит строки барьера, правимого implementer-зоной (прецедент 037)
+СПАСЕНО implementer: 8766e76946658b548bb9d4be870dfcf0b97ef288 9c372335b2755540b15e569f47120472646a8335 — одноразовое списание: 8766e769 внёс СПАСЕНО-строку в черновик v2 (контент принят критиком), 9c372335 исполнил перенос/фикстуры 045 по ошибочному брифингу оркестратора (Н-150); окно 043 судит их лишь потому, что открыто
 
 ## Приёмка
 
