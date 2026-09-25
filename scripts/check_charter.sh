@@ -50,6 +50,25 @@
 # родителю. Грамматика razreshil() и вердикты НЕ меняются: разрешённый merge несёт строку
 # РАЗРЕШИЛ в теле merge-коммита, evil merge без строки — «изменён без разрешения владельца».
 #
+# ГРАНДФАЗЕР-АЛЛОУЛИСТ (контракт 046, ветвь 1, узкий non-rewriteable) — 7 пар (SHA, путь),
+# санкционированных владельцем текстом в сессии 2026-09-25. Источник санкции — аннотации
+# тегов `frozen/contracts/037/2`, `frozen/contracts/043/2`, `frozen/contracts/045/2`. Эти
+# коммиты несут уставную дельту, но не несут строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ (по процедурным
+# причинам, не из-за обхода); история неприкосновенна — коммиты НЕ редактируются задним
+# числом, разрешение записано здесь как статическое допущение, и только для ровно этих
+# 7 SHA. «Н-124 прецедент, узкий grandfather, не-переписываемое».
+#
+# Ровно 7 SHA из этих тегов:
+#   0872189c654c9728f2753c36a48f99a0322ad2fd  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md
+#   19678a0034fba8906a4103965516494de2ae58d2  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md
+#   02f7b0cd0ce0172c66bdfe783648fa37cf853920  contracts/043-precizionnyj-prefriz-gejt.md
+#   9906f63122278ba28ffd4fee9741ef94c5466a5a  contracts/043-precizionnyj-prefriz-gejt.md
+#   4de64aa195acc309dd6d4cee876515ebeed28725  contracts/043-precizionnyj-prefriz-gejt.md
+#   8766e76946658b548bb9d4be870dfcf0b97ef288  contracts/043-precizionnyj-prefriz-gejt.md
+#   cea3a8f0c8194a8813b7d24503acc4e1686fbab0  contracts/045-pre-exchange-guard-gitw.md
+#
+# НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
+#
 # is_charter_path (контракт 019, ветвь 1 — единый источник предиката). Staged-путь
 # уставного класса — AGENTS.md/ROADMAP.md при живом теге ustav/1; plans/NNN-*.md/contracts/NNN-*.md
 # при живом теге frozen/<dir>/<NNN>/1. Предикат экспортируется библиотекой и импортируется
@@ -132,7 +151,29 @@ charter_diff_paths() {
 # ── разрешение обязано лежать в ТОМ ЖЕ коммите ────────────────────────────────
 # Разбор — по образцу `excuse_for()`: путь в кавычках либо до первого пробела, остаток — причина.
 razreshil() {  # <коммит> <путь> → 0, если разрешение выдано ИМЕННО этим коммитом
-  local c="$1" p="$2" body line path reason
+  local c="$1" p="$2"
+
+  # ── ГРАНДФАЗЕР-АЛЛОУЛИСТ (см. шапку, контракт 046, ветвь 1) ────────────────
+  # Проверяется ДО обычного разбора тела коммита. Возврат 0, если пара (SHA, путь)
+  # входит в ровно эти 7 строк; иначе — падение в основную грамматику.
+  case "$c" in
+    0872189c654c9728f2753c36a48f99a0322ad2fd)
+      [ "$p" = "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md" ] && return 0 ;;
+    19678a0034fba8906a4103965516494de2ae58d2)
+      [ "$p" = "contracts/037-samodostatochnyj-cwd-i-priemnik-task.md" ] && return 0 ;;
+    02f7b0cd0ce0172c66bdfe783648fa37cf853920)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    9906f63122278ba28ffd4fee9741ef94c5466a5a)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    4de64aa195acc309dd6d4cee876515ebeed28725)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    8766e76946658b548bb9d4be870dfcf0b97ef288)
+      [ "$p" = "contracts/043-precizionnyj-prefriz-gejt.md" ] && return 0 ;;
+    cea3a8f0c8194a8813b7d24503acc4e1686fbab0)
+      [ "$p" = "contracts/045-pre-exchange-guard-gitw.md" ] && return 0 ;;
+  esac
+
+  local body line path reason
   body="$(g log -1 --format=%B "$c")"
   while IFS= read -r line; do
     if [ "${line:0:1}" = '"' ]; then
