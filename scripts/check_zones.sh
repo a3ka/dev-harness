@@ -844,7 +844,8 @@ while IFS=$'\t' read -r nnn since; do
     while IFS= read -r -d '' f; do
       [ -n "$f" ] || continue
       # draft-признание (контракт 023, ветвь iv): ПО НОМЕРУ ПУТИ M (не номеру ОКОНА nnn).
-      # Парсим M из basename f (три цифры, дефис, не-цифра). Две руки:
+      # Грамматика ДОСЛОВНО 023: contracts/<M>-* — первые три байта basename РОВНО
+      # цифры И четвёртый байт basename — ЛИТЕРАЛЬНЫЙ дефис. Две руки:
       #   рука А — тег id/CONTRACT/<M> указывает НА САМОМ судимом коммите C
       #     (обобщение ручной 021 с «номера окна» на «номер пути»: покрывает
       #     А-89 «draft в чужом открытом окне» и исторические теги-на-коммите);
@@ -854,6 +855,16 @@ while IFS=$'\t' read -r nnn since; do
       #     — путь судится зонами);
       #   исключается ТОЛЬКО путь contracts/<M>-*; прочие пути того же коммита
       #   идут обычным порядком (тег не индульгенция на весь коммит).
+      # И-3 признание (iv) — БЛИЗНЕЦ: та же логика живёт в scripts/check_no_leak.sh,
+      # функция priznanie_chernovika_7b (граница-7 (б) контракта 044). Правка И-3
+      # обязана найти ОБА места grep'ом по этому якорю. КОПИИ НЕ ТОЖДЕСТВЕННЫ и
+      # обязаны разойтись ровно в одном месте: у близнеца пост-freeze отказ вынесен
+      # ДО выбора руки (фикс 872132b, блокер Б7б адверсария 044 — предмет ТОЙ двери,
+      # --retake-bulk, где рука А правом не является), здесь он остаётся в руке Б,
+      # потому что 023 (iv) даёт руку А БЕЗУСЛОВНОЙ дословно, а её живой страж —
+      # fixtures/check_zones/case_draft_priznanie.sh (И-4 контракта 021). Симметрия
+      # рук здесь — смена нормы двух замороженных контрактов, не правка кода;
+      # измерено контрактом 047 и вынесено в его §Риски открытым вопросом владельцу.
       skip_path=
       if [ "${f%%/*}" = "contracts" ]; then
         base="${f##*/}"            # e.g. M-slug.md
@@ -861,25 +872,36 @@ while IFS=$'\t' read -r nnn since; do
         case "$head3" in
           [0-9][0-9][0-9])
             path_m="$head3"
-            # рука А: тег id/CONTRACT/<M> на самом коммите C
-            if g tag --points-at "$c" "id/CONTRACT/$path_m" 2>/dev/null \
-                 | grep -qxF -- "id/CONTRACT/$path_m"; then
-              skip_path=1
-            else
-              # рука Б: тег жив ∧ его коммит is-ancestor C ∧ НЕТ frozen/contracts/<M>/* в предках C
-              tag_commit="$(g rev-parse --verify --quiet "refs/tags/id/CONTRACT/$path_m^{commit}" 2>/dev/null || true)"
-              if [ -n "$tag_commit" ] && g merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null; then
-                freeze_in_ancestors=0
-                while IFS= read -r ft; do
-                  [ -z "$ft" ] && continue
-                  ft_commit="$(g rev-parse --verify --quiet "${ft}^{commit}" 2>/dev/null || true)"
-                  if [ -n "$ft_commit" ] && g merge-base --is-ancestor "$ft_commit" "$c" 2>/dev/null; then
-                    freeze_in_ancestors=1
-                    break
+            # Четвёртый байт basename ОБЯЗАН быть литеральным дефисом (грамматика
+            # contracts/<M>-* дословно). Форма ПОЛОЖИТЕЛЬНАЯ («равен дефису»), а не
+            # отрицание множества: у голого трёхцифрового basename (contracts/123)
+            # четвёртого байта нет вовсе, и любое отрицание («не буква», «не
+            # подчёркивание») его пропустило бы. Без этой строки — обход Н-149
+            # (близнец блокера Б7б адверсария 044): 123not-a-draft.md,
+            # 123_not_a_draft.md и голый 123 выводились из суда зон при живом теге
+            # id/CONTRACT/123, то есть ЛЮБОЙ путь под contracts/ с цифровым
+            # префиксом коммитился мимо объявленной зоны.
+            if [ "${base:3:1}" = "-" ]; then
+              # рука А: тег id/CONTRACT/<M> на самом коммите C
+              if g tag --points-at "$c" "id/CONTRACT/$path_m" 2>/dev/null \
+                   | grep -qxF -- "id/CONTRACT/$path_m"; then
+                skip_path=1
+              else
+                # рука Б: тег жив ∧ его коммит is-ancestor C ∧ НЕТ frozen/contracts/<M>/* в предках C
+                tag_commit="$(g rev-parse --verify --quiet "refs/tags/id/CONTRACT/$path_m^{commit}" 2>/dev/null || true)"
+                if [ -n "$tag_commit" ] && g merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null; then
+                  freeze_in_ancestors=0
+                  while IFS= read -r ft; do
+                    [ -z "$ft" ] && continue
+                    ft_commit="$(g rev-parse --verify --quiet "${ft}^{commit}" 2>/dev/null || true)"
+                    if [ -n "$ft_commit" ] && g merge-base --is-ancestor "$ft_commit" "$c" 2>/dev/null; then
+                      freeze_in_ancestors=1
+                      break
+                    fi
+                  done < <(g for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$path_m/" 2>/dev/null)
+                  if [ "$freeze_in_ancestors" -eq 0 ]; then
+                    skip_path=1
                   fi
-                done < <(g for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$path_m/" 2>/dev/null)
-                if [ "$freeze_in_ancestors" -eq 0 ]; then
-                  skip_path=1
                 fi
               fi
             fi
