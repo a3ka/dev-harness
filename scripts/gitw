@@ -7,7 +7,7 @@
 #
 # Коды возврата:
 # 0 — обмен исполнен (или не-обменная подкоманда прозрачно передана через И-8)
-# 1 — отказ: F1 URL не канонический, F2 авторитет недоступен, F3 неизвестный флаг
+# 1 — отказ: F1 URL не канонический, F2 авторитет недоступен, F3 неизвестный глобальный флаг
 # 2 — NOT_IMPLEMENTED: настоящий git не найден в PATH (И-1, граница-1)
 set -uo pipefail
 
@@ -162,7 +162,7 @@ esac
 # Коренное исправление (architect, замерено дважды): ПЕРВЫЙ непозиционный
 # токен у git push ВСЕГДА repository-цель — refspec физически не может
 # стоять первым позиционным, repository всегда перед ним (man git-push).
-# Сложная классификация scp-vs-path БЕСПОЛЕЗНА и ОПАСНА (две описанные
+# Сложная классификация scp-vs-path БЕСПОЛЕЗНА и ОПАСНА (две описанных
 # ловушки в одной конструкции). Схлопываем arm `*:*)` целиком в
 # «содержит `/` → это цель, break»: `dir/sub:branch`, `dir/sub`,
 # `user@host:path/with/slash` — ВСЕ идут в target и ОБЯЗАНЫ пройти И-5.
@@ -170,6 +170,36 @@ esac
 # на default-`*` (bare_name → И-4б, проверка настроенного remote).
 # URL-like (`*://*`) и path-like (`/*|../*|./*`) классификации СОХРАНЕНЫ
 # — они верны и не имеют описанных ловушек; трогаем только `*:*)` arm.
+#
+# ── И-4в (round2): цель из настроенного remote С УЧЁТОМ git-config-резолюции
+# ─────────────────────────────────────────────────────────────────────────────
+# (закрытие живых обходов через git-config-based НЕЯВНОЕ разрешение цели —
+# адверсарий 045 round2: pushRemote/pushDefault/branch.remote/fetch --all)
+#
+# Git применяет конфиг-резолюцию при ОТСУТСТВИИ явной/--repo цели
+# (`git help config`, branch.<name>.remote; `git help push`):
+#   push:    branch.<current>.pushRemote → remote.pushDefault
+#            → branch.<current>.remote → origin
+#   pull:    branch.<current>.remote → origin
+#   fetch:   branch.<current>.remote → origin (single-remote)
+#            --all / --multiple — обмен с КАЖДЫМ настроенным remote
+#            одновременно (`git help fetch`: «Fetch all remotes, except for
+#            the ones that have the remote.<name>.skipFetchAll configuration
+#            variable set»)
+# Текущая ветка = `git symbolic-ref --quiet --short HEAD`; detached HEAD
+# (rc≠0) — branch-специфичные ключи НЕ применяются, остаётся
+# remote.pushDefault (push) / origin (fetch/pull).
+#
+# Решение: обёртка вычисляет тот же список целей, что и git, и проверяет
+# КАЖДУЮ перед исполнением. Хотя бы одна не прошла — отказ всему обмену
+# (fail-closed, никаких частичных обменов: «fetch --all» с одним evil-remote
+# отказывает ЦЕЛИКОМ, не обменивается с origin в обход evil).
+#
+# Приоритеты резолюции внутри блока: bare_name (явный аргумент пользователя
+# или значение --repo) → конфиг-цепочка по `$sub`. Для multi-remote берётся
+# `git remote` (список ВСЕХ настроенных remote), bare_name не учитывается —
+# --all/--multiple по семантике git работают со ВСЕМИ remote, не с
+# переданными именами (прецедент архитектора).
 target=""
 bare_name=""
 repo_value=""
@@ -229,98 +259,296 @@ if [ -z "$target" ] && [ -z "$bare_name" ] && [ -n "$repo_value" ]; then
 fi
 
 if [ -z "$target" ]; then
-  # ── И-4б: цель из настроенного remote (явное имя или дефолтный origin) ──
-  # Какой remote проверяем: bare_name (первый bare-аргумент) если задан,
-  # иначе origin — поведение по умолчанию для «без positional-цели».
-  check_remote="${bare_name:-origin}"
+  # ── И-4в: цель из настроенного remote с УЧЁТОМ git-config-резолюции ─────────
+  # (см. шапку И-4в). Сначала — служебная разведка для вычисления списка
+  # целей.
 
-  # Зондирование настроенности: `config --get remote.<name>.url` rc≠0 ⇔
-  # remote НЕ настроен (ключ отсутствует в любом уровне конфига).
-  # Это — единственный надёжный канал «настроенности»: `remote get-url`
-  # может раскрыть insteadOf и вернуть URL при пустом config-ключе (критик
-  # 045-Б2). rc≠0 → передача настоящему git (канарейка г7-класса) —
-  # независимо от того, явно имя или дефолтный origin (И-2).
-  probe_rc=0
-  u_cfg="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "remote.$check_remote.url" 2>/dev/null)" \
-    || probe_rc=$?
-  if [ "$probe_rc" -ne 0 ]; then
-    exec "$REAL" "${orig[@]}"
+  # Find subcommand index in orig[] — для scan на --all/--multiple ПОСЛЕ sub.
+  sub_idx=0
+  for ((__k=0; __k<n; __k++)); do
+    case "${orig[$__k]}" in
+      push|fetch|pull) sub_idx=$__k; break ;;
+    esac
+  done
+  unset __k
+
+  # Текущая ветка (пустая строка при detached HEAD; rc≠0 → пустая).
+  current_branch="$("$REAL" "${ctx[@]}" "${cfg[@]}" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+
+  # Multi-remote: ТРИГГЕРЫ (замер живьём архитектором, git 2.55):
+  #   argv `--all`, argv `--multiple`, конфиг `fetch.all=true`
+  # Распространяется на fetch И pull (замер: `git pull --all` при origin+zevil
+  # реально тянет ОБА remote, чужой tip оказывается в FETCH_HEAD — клетка г27).
+  # `push --all` — refspec-режим «all branches», НЕ мульти (триггерить на нём
+  # мульти нельзя — сломает клетки г17/г28: push --all у пуша другая семантика).
+  # `--no-all` ОТМЕНЯЕТ `fetch.all=true` (man git-fetch: «overridden by passing
+  # --no-all»). `--no-multiple` симметрично (на всякий случай).
+  multi_remote=0
+  if [ "$sub" = "fetch" ] || [ "$sub" = "pull" ]; then
+    __has_all=0; __has_noall=0; __has_multiple=0
+    for ((__k=sub_idx+1; __k<n; __k++)); do
+      case "${orig[$__k]}" in
+        --all) __has_all=1 ;;
+        --no-all) __has_noall=1 ;;
+        --multiple) __has_multiple=1 ;;
+      esac
+    done
+    if [ "$__has_all" -eq 1 ] || [ "$__has_multiple" -eq 1 ]; then
+      multi_remote=1
+    elif [ "$__has_noall" -eq 0 ]; then
+      # fetch.all=true в КОНФИГЕ (`git config --get --bool fetch.all` →
+      # «true» при включённом; rc≠1 при отсутствии ключа — НЕ триггерит).
+      __fa="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get --bool fetch.all 2>/dev/null || true)"
+      case "$__fa" in
+        true|yes|on|1) multi_remote=1 ;;
+      esac
+    fi
+    unset __has_all __has_noall __has_multiple __fa
   fi
+  unset __k
 
-  # Remote НАСТРОЕН (probe_rc=0). Снимаем остальные формы цели, ловя rc
-  # КАЖДОЙ: `|| true` подменяет rc на 0 и пустой результат — неотличимо от
-  # «нет ключа». Этим злоупотребляет проба 127 адверсария 045: rc≠0 на
-  # настроенном remote → «пустой origin» → тихая передача в неканон.
-  # Теперь rc явный (И-4/проба 127):
-  #
-  #   config --get remote.<name>.url          (видит -c перекрытия, без insteadOf)
-  #   remote get-url <name>                   (видит insteadOf)
-  # Для push дополнительно:
-  #   config --get remote.<name>.pushurl
-  #   remote get-url --push <name>
-  # (критик 045-Б2/Б3: ОБЕ формы обязаны проверяться.)
-  #
-  # <контекст> = сохранённые -C/-c/--git-dir/--work-tree глобальные флаги
-  # ОБЯЗАТЕЛЬНО те же, что у исполняемого вызова (И-4: единство разрешения).
-  # Bash word-splits: индексные массивы в кавычках — каждый элемент
-  # отдельный argv (И-4). Сравнения целых строк (И-5) — без glob/regex.
-  u_get_rc=0
-  u_get="$("$REAL" "${ctx[@]}" "${cfg[@]}" remote get-url "$check_remote" 2>/dev/null)" \
-    || u_get_rc=$?
-  p_cfg=""; p_get=""
-  p_cfg_rc=0; p_get_rc=0
-  if [ "$sub" = push ]; then
-    p_cfg="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "remote.$check_remote.pushurl" 2>/dev/null)" \
-      || p_cfg_rc=$?
-    p_get="$("$REAL" "${ctx[@]}" "${cfg[@]}" remote get-url --push "$check_remote" 2>/dev/null)" \
-      || p_get_rc=$?
+  # Список remote-имён для проверки.
+  remotes_list=()
+  if [ "$multi_remote" -eq 1 ]; then
+    # Только настроенные remote (`git remote`). Если команда не сработала
+    # (нет remote вовсе — крайний canary) — передаём настоящему git (он сам
+    # откажет «No remote configured to allow fetching from»): обёртка не
+    # присваивает чужие отказы (И-2, канарейка г7-класса).
+    while IFS= read -r __r; do
+      [ -n "$__r" ] && remotes_list+=("$__r")
+    done < <("$REAL" "${ctx[@]}" "${cfg[@]}" remote 2>/dev/null)
+    unset __r
+    if [ "${#remotes_list[@]}" -eq 0 ]; then
+      exec "$REAL" "${orig[@]}"
+    fi
+  elif [ -n "$bare_name" ]; then
+    # Явный аргумент пользователя или значение --repo: один remote,
+    # существующая семантика И-4б (F1R для именованных).
+    remotes_list=("$bare_name")
+  else
+    case "$sub" in
+      push)
+        # 1) branch.<current>.pushRemote (при наличии ветки)
+        if [ -n "$current_branch" ]; then
+          __r="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "branch.$current_branch.pushRemote" 2>/dev/null || true)"
+          [ -n "$__r" ] && remotes_list=("$__r")
+        fi
+        # 2) remote.pushDefault
+        if [ "${#remotes_list[@]}" -eq 0 ]; then
+          __r="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "remote.pushDefault" 2>/dev/null || true)"
+          [ -n "$__r" ] && remotes_list=("$__r")
+        fi
+        # 3) branch.<current>.remote (при наличии ветки)
+        if [ "${#remotes_list[@]}" -eq 0 ] && [ -n "$current_branch" ]; then
+          __r="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "branch.$current_branch.remote" 2>/dev/null || true)"
+          [ -n "$__r" ] && remotes_list=("$__r")
+        fi
+        # 4) origin (default)
+        if [ "${#remotes_list[@]}" -eq 0 ]; then
+          remotes_list=("origin")
+        fi
+        ;;
+      fetch|pull)
+        # 1) branch.<current>.remote
+        if [ -n "$current_branch" ]; then
+          __r="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "branch.$current_branch.remote" 2>/dev/null || true)"
+          [ -n "$__r" ] && remotes_list=("$__r")
+        fi
+        # 2) origin (default)
+        if [ "${#remotes_list[@]}" -eq 0 ]; then
+          remotes_list=("origin")
+        fi
+        ;;
+    esac
   fi
+  unset __r 2>/dev/null || true
 
-  # (3) fail-closed F1: запрос на НАСТРОЕННОМ remote (probe_rc=0) — rc≠0.
-  # URL-запросы (`remote get-url`) ОБЯЗАНЫ вернуть rc=0; pushurl-запрос
-  # `config --get remote.<name>.pushurl` законно rc=1 при незаданном
-  # pushurl (pushurl опционален). `remote get-url --push` rc=1 — отказ.
-  if [ "$u_get_rc" -ne 0 ] || [ "$p_get_rc" -ne 0 ]; then
-    printf 'gitw ОТКАЗ: запрос URL настроенного remote %s завершился неуспешно\n' \
-      "$(sanitize "$check_remote")" >&2
-    exit 1
-  fi
+  # Цикл проверки КАЖДОГО remote в списке. Любая ошибка → отказ всего обмена
+  # (fail-closed). Для multi-remote liveness тоже делается здесь (per-remote),
+  # а И-7 ниже пропускается — единый `ls-remote <target>` для multi-remote
+  # не имеет смысла (нет единого target'а).
+  any_bad=0
+  first_eff=""
+  bad_lines=()   # строки отказа: "<remote>: <reason>"
 
-  # URL-запросы ОБЯЗАНЫ вернуть непусто (настроенный remote имеет URL);
-  # pushurl-запросы могут быть пустыми (pushurl опционален, «не задан» — норма).
-  if [ -z "$u_cfg" ] || [ -z "$u_get" ]; then
-    printf 'gitw ОТКАЗ: URL настроенного remote %s пуст\n' \
-      "$(sanitize "$check_remote")" >&2
-    exit 1
-  fi
+  for check_remote in "${remotes_list[@]}"; do
+    # Зондирование настроенности: `config --get remote.<name>.url` rc≠0 ⇔
+    # remote НЕ настроен (ключ отсутствует в любом уровне конфига).
+    # Единственный надёжный канал «настроенности»: `remote get-url` может
+    # раскрыть insteadOf и вернуть URL при пустом config-ключе (критик 045-Б2).
+    # single-remote: rc≠0 → передача настоящему git (канарейка г7-класса).
+    # multi-remote: rc≠0 не должно случаться (мы перечислили только
+    # настроенные через `git remote`); на всякий случай — canary.
+    probe_rc=0
+    u_cfg="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "remote.$check_remote.url" 2>/dev/null)" \
+      || probe_rc=$?
+    if [ "$probe_rc" -ne 0 ]; then
+      if [ "$multi_remote" -eq 1 ]; then
+        any_bad=1
+        bad_lines+=("$(sanitize "$check_remote"): запрос URL завершился неуспешно")
+        continue
+      fi
+      exec "$REAL" "${orig[@]}"
+    fi
 
-  # Каждая НЕПУСТАЯ форма обязана быть ЛИТЕРАЛЬНО канонична (И-5). Любая
-  # неканоническая форма → отказ F1.
-  bad=0
-  for v in "$u_cfg" "$u_get" "$p_cfg" "$p_get"; do
-    [ -z "$v" ] && continue
-    if [ "$v" != "$CANON" ]; then bad=1; fi
+    # Remote НАСТРОЕН. Снимаем остальные формы цели, ловя rc КАЖДОЙ: `|| true`
+    # подменяет rc на 0 и пустой результат — неотличимо от «нет ключа». Этим
+    # злоупотребляет проба 127 адверсария 045: rc≠0 на настроенном remote →
+    # «пустой origin» → тихая передача в неканон. Теперь rc явный (И-4/проба 127):
+    #
+    #   config --get remote.<name>.url          (видит -c перекрытия, без insteadOf)
+    #   remote get-url <name>                   (видит insteadOf)
+    # Для push дополнительно:
+    #   config --get remote.<name>.pushurl
+    #   remote get-url --push <name>
+    # (критик 045-Б2/Б3: ОБЕ формы обязаны проверяться.)
+    #
+    # <контекст> = сохранённые -C/-c/--git-dir/--work-tree глобальные флаги
+    # ОБЯЗАТЕЛЬНО те же, что у исполняемого вызова (И-4: единство разрешения).
+    u_get_rc=0
+    u_get="$("$REAL" "${ctx[@]}" "${cfg[@]}" remote get-url "$check_remote" 2>/dev/null)" \
+      || u_get_rc=$?
+    p_cfg=""; p_get=""
+    p_cfg_rc=0; p_get_rc=0
+    if [ "$sub" = push ]; then
+      p_cfg="$("$REAL" "${ctx[@]}" "${cfg[@]}" config --get "remote.$check_remote.pushurl" 2>/dev/null)" \
+        || p_cfg_rc=$?
+      p_get="$("$REAL" "${ctx[@]}" "${cfg[@]}" remote get-url --push "$check_remote" 2>/dev/null)" \
+        || p_get_rc=$?
+    fi
+
+    # fail-closed: запрос на НАСТРОЕННОМ remote (probe_rc=0) — rc≠0.
+    # URL-запросы (`remote get-url`) ОБЯЗАНЫ вернуть rc=0; pushurl-запрос
+    # `config --get remote.<name>.pushurl` законно rc=1 при незаданном
+    # pushurl (pushurl опционален). `remote get-url --push` rc=1 — отказ.
+    if [ "$u_get_rc" -ne 0 ] || [ "$p_get_rc" -ne 0 ]; then
+      any_bad=1
+      bad_lines+=("$(sanitize "$check_remote"): запрос URL завершился неуспешно")
+      continue
+    fi
+
+    # URL-запросы ОБЯЗАНЫ вернуть непусто (настроенный remote имеет URL);
+    # pushurl-запросы могут быть пустыми (pushurl опционален).
+    if [ -z "$u_cfg" ] || [ -z "$u_get" ]; then
+      any_bad=1
+      bad_lines+=("$(sanitize "$check_remote"): URL настроенного remote пуст")
+      continue
+    fi
+
+    # Каждая НЕПУСТАЯ форма обязана быть ЛИТЕРАЛЬНО канонична (И-5).
+    bad=0
+    for v in "$u_cfg" "$u_get" "$p_cfg" "$p_get"; do
+      [ -z "$v" ] && continue
+      if [ "$v" != "$CANON" ]; then bad=1; fi
+    done
+
+    # Фактическая цель: для push с заданным pushurl — раскрытый pushurl,
+    # иначе раскрытый url. (pushurl «задан» = `config --get pushurl` непуст.)
+    if [ "$sub" = push ] && [ -n "$p_cfg" ]; then eff="$p_get"; else eff="$u_get"; fi
+    [ -n "$eff" ] || eff="$u_cfg"
+
+    if [ "$bad" -eq 1 ]; then
+      any_bad=1
+      bad_lines+=("$(sanitize "$check_remote"): URL не канонический: $(sanitize "$eff")")
+      continue
+    fi
+
+    # Для multi-remote liveness делаем ЗДЕСЬ (per-remote); для single-remote —
+    # ниже в И-7, на eff первой (и единственной) записи.
+    if [ "$multi_remote" -eq 1 ]; then
+      "$REAL" "${ctx[@]}" ls-remote "$eff" HEAD >/dev/null 2>&1
+      lrc=$?
+      if [ "$lrc" -ne 0 ]; then
+        any_bad=1
+        bad_lines+=("$(sanitize "$check_remote"): авторитет недоступен (ls-remote rc=$lrc)")
+        continue
+      fi
+    fi
+
+    [ -z "$first_eff" ] && first_eff="$eff"
   done
 
-  # Фактическая цель: для push с заданным pushurl — раскрытый pushurl,
-  # иначе раскрытый url. (pushurl «задан» = `config --get pushurl` непуст.)
-  if [ "$sub" = push ] && [ -n "$p_cfg" ]; then eff="$p_get"; else eff="$u_get"; fi
-  [ -n "$eff" ] || eff="$u_cfg"
-
-  if [ "$bad" -eq 1 ]; then
-    # Сообщение F1: «URL origin» для origin (дефолтный или именованный —
-    # преемственность с существующими клетками г0-г12), «URL remote <name>»
-    # для прочих имён (новые клетки г13+ архитектора, явная атрибуция).
-    if [ "$check_remote" = origin ]; then
-      printf 'gitw ОТКАЗ: URL origin не канонический: %s\n' \
-        "$(sanitize "$eff")" >&2
+  if [ "$any_bad" -eq 1 ]; then
+    # Multi-remote (или несколько плохих): ВСЕ плохие перечисляются (один
+    # отказ на remote — обёртка не прячет «кто именно»). Формат: обёрточный
+    # заголовок + ПО ОДНОЙ строке F1R/F2-формата на каждый плохой remote
+    # (так что grep -qF по существующим фразам «gitw ОТКАЗ: URL remote
+    # <имя> не канонический: » работает без изменений — прецедент
+    # архитектуры, клетки г19+).
+    if [ "$multi_remote" -eq 1 ] || [ "${#bad_lines[@]}" -gt 1 ]; then
+      printf 'gitw ОТКАЗ: многоцелевой обмен отказан, неканонические или недоступные цели:\n' >&2
+      for line in "${bad_lines[@]}"; do
+        rname="${line%%:*}"
+        reason="${line#*: }"
+        case "$reason" in
+          "авторитет недоступен"*)
+            printf '  gitw ОТКАЗ: авторитет недоступен: ls-remote %s rc=%s\n' \
+              "$(sanitize "$rname")" "${reason##*rc=}" >&2
+            ;;
+          "запрос URL завершился неуспешно")
+            printf '  gitw ОТКАЗ: запрос URL настроенного remote %s завершился неуспешно\n' \
+              "$(sanitize "$rname")" >&2
+            ;;
+          "URL настроенного remote пуст")
+            printf '  gitw ОТКАЗ: URL настроенного remote %s пуст\n' \
+              "$(sanitize "$rname")" >&2
+            ;;
+          "URL не канонический: "*)
+            eff="${reason#URL не канонический: }"
+            if [ "$rname" = origin ]; then
+              printf '  gitw ОТКАЗ: URL origin не канонический: %s\n' \
+                "$(sanitize "$eff")" >&2
+            else
+              printf '  gitw ОТКАЗ: URL remote %s не канонический: %s\n' \
+                "$(sanitize "$rname")" "$(sanitize "$eff")" >&2
+            fi
+            ;;
+          *)
+            printf '  gitw ОТКАЗ: URL remote %s: %s\n' \
+              "$(sanitize "$rname")" "$(sanitize "$reason")" >&2
+            ;;
+        esac
+      done
     else
-      printf 'gitw ОТКАЗ: URL remote %s не канонический: %s\n' \
-        "$(sanitize "$check_remote")" "$(sanitize "$eff")" >&2
+      # single-remote failure — старая F1/F1R/F2-семантика для grep -F.
+      line="${bad_lines[0]}"
+      rname="${line%%:*}"
+      reason="${line#*: }"
+      case "$reason" in
+        "авторитет недоступен"*)
+          printf 'gitw ОТКАЗ: авторитет недоступен: ls-remote %s rc=%s\n' \
+            "$(sanitize "$rname")" "${reason##*rc=}" >&2
+          ;;
+        "запрос URL завершился неуспешно")
+          printf 'gitw ОТКАЗ: запрос URL настроенного remote %s завершился неуспешно\n' \
+            "$(sanitize "$rname")" >&2
+          ;;
+        "URL настроенного remote пуст")
+          printf 'gitw ОТКАЗ: URL настроенного remote %s пуст\n' \
+            "$(sanitize "$rname")" >&2
+          ;;
+        "URL не канонический: "*)
+          eff="${reason#URL не канонический: }"
+          if [ "$rname" = origin ]; then
+            printf 'gitw ОТКАЗ: URL origin не канонический: %s\n' \
+              "$(sanitize "$eff")" >&2
+          else
+            printf 'gitw ОТКАЗ: URL remote %s не канонический: %s\n' \
+              "$(sanitize "$rname")" "$(sanitize "$eff")" >&2
+          fi
+          ;;
+        *)
+          printf 'gitw ОТКАЗ: URL remote %s: %s\n' \
+            "$(sanitize "$rname")" "$(sanitize "$reason")" >&2
+          ;;
+      esac
     fi
     exit 1
   fi
-  target="$eff"
+
+  # Все проверки прошли. target = eff первого (и единственного для single)
+  # remote — для downstream И-5/И-7 (single-remote).
+  target="$first_eff"
 fi
 
 # ── И-5: сверка цели с каноном (для ЛЮБОЙ формы — явный URL или origin) ────
@@ -330,6 +558,8 @@ fi
 # (выше). И-4(a): «первый не-опциональный ... если он URL-подобен — цель = он»,
 # и И-5 требует сверку. Живая проба критика 045-Б5: явный неканонический URL
 # так же опасен, как подмена origin (модель угроз перечисляет ОБЕ формы явно).
+# Для multi-remote target = first_eff первого прошедшего remote — он каноничен
+# (проверено выше в И-4в), И-5 здесь no-op.
 if [ -n "$target" ] && [ "$target" != "$CANON" ]; then
   printf 'gitw ОТКАЗ: URL origin не канонический: %s\n' "$(sanitize "$target")" >&2
   exit 1
@@ -338,11 +568,14 @@ fi
 # ── И-7: живость авторитета — fail-closed ──────────────────────────────────
 # Цель = фактическая цель обмена из И-4. Сетевой сбой не есть санкция:
 # rc≠0 → rc 1 F2.
-"$REAL" "${ctx[@]}" ls-remote "$target" HEAD >/dev/null 2>&1
-lrc=$?
-if [ "$lrc" -ne 0 ]; then
-  printf 'gitw ОТКАЗ: авторитет недоступен: ls-remote %s rc=%s\n' "$target" "$lrc" >&2
-  exit 1
+# Для multi-remote liveness уже проверен per-remote в И-4в — здесь no-op.
+if [ "${multi_remote:-0}" -ne 1 ]; then
+  "$REAL" "${ctx[@]}" ls-remote "$target" HEAD >/dev/null 2>&1
+  lrc=$?
+  if [ "$lrc" -ne 0 ]; then
+    printf 'gitw ОТКАЗ: авторитет недоступен: ls-remote %s rc=%s\n' "$target" "$lrc" >&2
+    exit 1
+  fi
 fi
 
 # ── И-8: прозрачная передача ─────────────────────────────────────────────────
