@@ -2,7 +2,7 @@
 # КРАСНОЕ 045 (scripts/gitw — pre-exchange гард цели git-обмена, единый корень
 # Н-141+Н-143+Н-148 + probe C): обёртки ещё не существует — честная часть батареи
 # красна ЕДИНСТВЕННОЙ причиной «предмет отсутствует» (fail-fast, г0), а стаб-пак
-# (исполняется ДО честных клеток) зелён И ДО реализации: одиннадцать обманных стабов
+# (исполняется ДО честных клеток) зелён И ДО реализации: двадцать обманных стабов
 # умирают каждый на СВОЕЙ клетке именованно — различимость батареи не зависит от
 # существования честного кода.
 #
@@ -30,6 +30,28 @@
 #   * PUSHURL-ИГНОР — не судит remote.origin.pushurl —           → умирает г12
 #                    фактическую цель push (критик 045-Б3: push
 #                    реально уходит на pushurl-цель).
+#   * РЕПО-РАВНО-СКВОЗЬ — `--repo=VALUE` не признан целью   → умирает г17
+#                    (живой обход адверсария 045-v3: equals-форма
+#                    проходит как безобидный `-*`-флаг, судится origin);
+#   * РЕПО-ПАРА-СЪЕДЕНА — `--repo VALUE` съеден как флаг     → умирает г17б
+#                    арности 2 без суждения значения;
+#   * РЕПО-ТОЛЬКО-ИМЯ — equals-форма признана лишь для       → умирает г17в
+#                    bare-имени, значение-путь не судится;
+#   * РЕПО-БЕЗ-SCP — bare и path признаны, SCP-форма         → умирает г17г
+#                    значения не судится;
+#   * РЕПО-ГЛУХОЙ-РАВНО — отказ на equals-форме БЕЗ сверки   → умирает г17д
+#                    с каноном (над-блокировка);
+#   * РЕПО-ГЛУХОЙ-ПАРА — то же для раздельной формы          → умирает г17е;
+#   * РЕПО-ПРИОРИТЕТ — --repo поставлен ВЫШЕ позиционной     → умирает г17ж
+#                    цели (против git-push(1): «If both are specified,
+#                    the command-line argument takes precedence»);
+#   * РЕПО-ПАРА-СКВОЗЬ-1 — `--repo` пропущен на ОДИН токен   → умирает г17з
+#                    (значение обрывает позиционный скан: форма
+#                    «судится» совпадением и рушится, как только за
+#                    опцией стоит настоящая позиционная цель).
+#   * СЛЭШ-ДВОЕТОЧИЕ-СКВОЗЬ — первый позиционный токен вида  → умирает г18
+#                    `dir/sub:branch` пропущен вместо суждения (судится
+#                    настроенный origin, обмен уходит в путь-цель).
 #
 # Клетки честной части (каждая ≡ ровно одна фраза/условие отказа из контракта
 # 045 §Инварианты; г13-г16 — из вердикта адверсария 045-v1, живой обход
@@ -66,6 +88,34 @@
 #   г16 SCP-форма явной цели «git@example.test:any/path» (GIT_SSH_COMMAND-
 #       адаптер обслуживает настоящий receive-pack чужой bare, сеть не
 #       нужна — приём адверсария) → F1 + SCP-получатель НЕ продвинут.
+#   г17  адверсарий 045-v3 (ЖИВОЙ обход, SHA-доказан): канонический origin +
+#        «push --force --repo=evil --all» — equals-форма опции ЕСТЬ
+#        repository-аргумент git-push(1) → F1R + раскрытая цель названа +
+#        чужой bare НЕ продвинут;
+#   г17б та же атака раздельной формой «--repo evil» → F1R + bare не продвинут;
+#   г17в equals-форма со значением-ПУТЁМ (не имя remote) → F1 + путь назван +
+#        чужой bare НЕ продвинут (классификация значения полна, не только bare);
+#   г17г equals-форма со значением SCP-формы (адаптер обслуживает чужой bare)
+#        → F1 + SCP-цель названа + чужой bare НЕ продвинут;
+#   г17д положительный контроль: «push --repo=origin» при КАНОНИЧЕСКОМ origin
+#        проходит rc0 без «gitw ОТКАЗ» (гард не имеет права глухо отказывать
+#        на самой опции — над-блокировка ломает законный обмен);
+#   г17е тот же положительный контроль раздельной формой «--repo origin»;
+#   г17ж приоритет позиционной цели (git-push(1) дословно: «If both are
+#        specified, the command-line argument takes precedence»; замерено
+#        живьём на git 2.55): «push --repo=origin <чужой-bare> main» уходит в
+#        ЧУЖОЙ bare → F1 + чужая цель названа + она НЕ продвинута (канонический
+#        --repo НЕ отмывает злую позиционную цель);
+#   г17з то же раздельной формой «--repo origin <чужой-bare> main» — значение
+#        опции обязано ВЫЙТИ из позиционного скана, а скан продолжиться до
+#        настоящей позиционной цели.
+#   г18  первый позиционный токен с двоеточием ПОСЛЕ слэша («dir/sub:branch»)
+#        ЕСТЬ repository-аргумент: замерено (git 2.55), что git трактует его
+#        как ЛОКАЛЬНЫЙ ПУТЬ и реально пушит во вложенный bare, а токен вида
+#        refs/a:refs/b в этой позиции git читает как репозиторий, не refspec
+#        («does not appear to be a git repository») — refspec первым
+#        позиционным невозможен по построению. → обёртка обязана ЗАВЕРШИТЬСЯ
+#        (не зациклиться) и отказать F1 + вложенный bare НЕ продвинут.
 #
 # Режимы: внешний (по умолчанию) — стаб-пак затем честные клетки против
 # ${GITW:-<корень>/scripts/gitw}; внутренний (RED_GITW_INNER=1) — только честные
@@ -219,6 +269,16 @@ printf '#!/usr/bin/env bash\nlast="${@: -1}"\ncase "$last" in git-receive-pack\\
 chmod +x "$SSHAD"
 
 CANON_B1="$B1"    # канонический URL toy-мира (ручка обёртки)
+# REPO11 — жертва клетки г18: origin КАНОНИЧЕН (B1), а внутри рабочего дерева
+# лежит bare-репозиторий по ОТНОСИТЕЛЬНОМУ пути с двоеточием ПОСЛЕ слэша.
+# Замер (git 2.55): `push dir/sub:branch main` реально пушит в него — значит
+# пропуск такого токена обёрткой есть обход, а не безобидная терпимость.
+REPO11="$WORK/r11-slash-colon"
+git clone -q "$R1" "$REPO11" 2>/dev/null
+git -C "$REPO11" remote set-url origin "$B1"
+mkdir -p "$REPO11/dir"
+git init -q -b main --bare "$REPO11/dir/sub:branch"
+SLASHCOLON="$REPO11/dir/sub:branch"
 
 tip_of() { git -C "$1" rev-parse "${2:-main}" 2>/dev/null; }
 
@@ -232,7 +292,8 @@ mk_stub_core() {
 # нет И-1 (разрешение настоящего git через PATH-скан), нет И-9 (наследование
 # среды), exec не побайтово-прозрачный по построению ручек. Дыры стабов —
 # ручки: JUDGE_SUBS, MATCH_MODE, HONOR_DASHC, HONOR_DASHC_IN_QUERY,
-# JUDGE_EXPLICIT, LIVENESS, STRICT_FLAGS, SANITIZE, URL_DOUBLING, HONOR_PUSHURL.
+# JUDGE_EXPLICIT, LIVENESS, STRICT_FLAGS, SANITIZE, URL_DOUBLING, HONOR_PUSHURL,
+# REPO_EQ_FORMS, REPO_OPT_SEP, REPO_BLIND, REPO_PRIORITY.
 REAL=/usr/bin/git
 CANON="${GIT_EXCHANGE_GUARD_CANONICAL:-ssh://git@github.com/a3ka/dev-harness.git}"
 JUDGE_SUBS="${JUDGE_SUBS:-push fetch pull}"
@@ -245,6 +306,23 @@ STRICT_FLAGS="${STRICT_FLAGS:-1}"
 SANITIZE="${SANITIZE:-1}"
 URL_DOUBLING="${URL_DOUBLING:-1}"
 HONOR_PUSHURL="${HONOR_PUSHURL:-1}"
+# Ручки --repo-семейства (вердикт адверсария 045-v3, живой обход equals-формы):
+# REPO_EQ_FORMS — какие формы значения `--repo=VALUE` стаб признаёт целью
+#                 (ПУСТО ≠ «по умолчанию»: подстановка без двоеточия, иначе
+#                 стаб-дыра REPO_EQ_FORMS="" молча получила бы честный
+#                 список и перестала быть дырой — замерено на этой пачке);
+# REPO_OPT_SEP  — разбор раздельной формы `--repo VALUE`: arm (честно, опция
+#                 арности 2 + скан продолжается) | skip1 (пропуск одного
+#                 токена) | skip2 (пара съедена молча);
+# REPO_BLIND    — отказывать БЕЗ сверки с каноном на форме eq|sep;
+# REPO_PRIORITY — ставить --repo ВЫШЕ позиционной цели (против git-push(1)).
+REPO_EQ_FORMS="${REPO_EQ_FORMS-bare path scp url}"
+REPO_OPT_SEP="${REPO_OPT_SEP:-arm}"
+REPO_BLIND="${REPO_BLIND:-}"
+# SLASH_COLON   — первый позиционный токен с двоеточием ПОСЛЕ слэша:
+#                 target (честно, он и есть repository-аргумент) | skip.
+SLASH_COLON="${SLASH_COLON:-target}"
+REPO_PRIORITY="${REPO_PRIORITY:-0}"
 F1='gitw ОТКАЗ: URL origin не канонический: '
 F2='gitw ОТКАЗ: авторитет недоступен: ls-remote '
 F3='gitw ОТКАЗ: неизвестный глобальный флаг: '
@@ -282,30 +360,99 @@ if [ "$judged" -eq 1 ]; then
     qc+=("$el")
   done
   [ "$HONOR_DASHC_IN_QUERY" -eq 1 ] && qc+=("${cfg[@]}")
-  target=""
-  look="$*"
-  for a in $look; do
+  target=""; bare_name=""; repo_val=""; repo_form=""
+  # Классификатор формы репозитория (git: URL / SCP / path / bare-имя
+  # настроенного remote) — общий для позиционной цели и значения --repo.
+  form_of() {
+    case "$1" in
+      *://*) printf url ;;
+      /*|../*|./*) printf path ;;
+      *:*) case "${1%%:*}" in */*) printf path ;; *) printf scp ;; esac ;;
+      *) printf bare ;;
+    esac
+  }
+  rest=("$@")
+  m=${#rest[@]}
+  j=0
+  while [ "$j" -lt "$m" ]; do
+    a="${rest[$j]}"
     case "$a" in
+      --repo=*)
+        # ДЫРА REPO_EQ_FORMS: какие формы значения equals-формы стаб вообще
+        # признаёт целью ("" — никакую: ровно живой обход адверсария 045-v3).
+        v="${a#--repo=}"
+        f="$(form_of "$v")"
+        for want in $REPO_EQ_FORMS; do
+          [ "$want" = "$f" ] && { repo_val="$v"; repo_form=eq; }
+        done
+        j=$((j+1))
+        ;;
+      --repo)
+        # Честно (arm): опция арности 2 — значение ВЫХОДИТ из позиционного
+        # скана, а скан ПРОДОЛЖАЕТСЯ и находит настоящую позиционную цель
+        # (git-push(1): позиционная сильнее --repo).
+        # ДЫРА skip2: пара съедена молча — не судится ни значение, ни
+        # позиционная цель за ней.
+        # ДЫРА skip1: пропуск на ОДИН токен — значение остаётся в позиционном
+        # скане и ОБРЫВАЕТ его; раздельная форма «судится» лишь совпадением и
+        # разваливается, как только за опцией стоит позиционная цель.
+        case "$REPO_OPT_SEP" in
+          arm)
+            [ "$((j+1))" -lt "$m" ] && { repo_val="${rest[$((j+1))]}"; repo_form=sep; }
+            j=$((j+2))
+            ;;
+          skip1) j=$((j+1)) ;;
+          *) j=$((j+2)) ;;
+        esac
+        ;;
       *://*|/*|../*|./*)
         [ "$JUDGE_EXPLICIT" -eq 1 ] && target="$a"
         break
         ;;
-      -*) ;;
-      *) break ;;
+      *:*)
+        # ЧЕСТНО: первый позиционный токен ЕСТЬ repository-аргумент git,
+        # какой бы формы он ни был (замер: refs/a:refs/b в этой позиции git
+        # читает как репозиторий, а dir/sub:branch — как локальный путь и
+        # реально пушит в него). ДЫРА SLASH_COLON=skip: токен с двоеточием
+        # ПОСЛЕ слэша пропущен, судится настроенный origin — клетка г18.
+        case "${a%%:*}" in
+          */*)
+            if [ "$SLASH_COLON" = skip ]; then j=$((j+1)); else
+              [ "$JUDGE_EXPLICIT" -eq 1 ] && target="$a"
+              break
+            fi
+            ;;
+          *) [ "$JUDGE_EXPLICIT" -eq 1 ] && target="$a"; break ;;
+        esac
+        ;;
+      -*) j=$((j+1)) ;;
+      *) bare_name="$a"; break ;;
     esac
   done
+  # git-push(1): «--repo=<repository> ... If both are specified, the
+  # command-line argument takes precedence» (замерено живьём: push
+  # --repo=origin <чужой-путь> main уходит в ЧУЖОЙ путь). Значит --repo —
+  # цель ТОЛЬКО при отсутствии позиционной. ДЫРА REPO_PRIORITY=1: перекрывает.
+  if [ -n "$repo_val" ] \
+     && { [ "$REPO_PRIORITY" -eq 1 ] || { [ -z "$target" ] && [ -z "$bare_name" ]; }; }; then
+    case "$(form_of "$repo_val")" in
+      bare) bare_name="$repo_val"; target="" ;;
+      *) target="$repo_val"; bare_name="" ;;
+    esac
+  fi
   if [ -z "$target" ]; then
     # Сверка КАЖДОЙ непустой формы цели (спека 045 И-4 после критика-Б2/Б3):
     # config --get видит -c перекрытия; remote get-url видит insteadOf-
     # переписывание (живой замер: remote get-url при -c возвращает ФАЙЛОВОЕ
     # значение) — потому обе; для push дополнительно обе формы pushurl —
     # фактическая цель push = pushurl ЕСЛИ задан, иначе url.
-    u_cfg="$("$REAL" "${qc[@]}" config --get remote.origin.url 2>/dev/null || true)"
-    u_get="$("$REAL" "${qc[@]}" remote get-url origin 2>/dev/null || true)"
+    check_remote="${bare_name:-origin}"
+    u_cfg="$("$REAL" "${qc[@]}" config --get "remote.$check_remote.url" 2>/dev/null || true)"
+    u_get="$("$REAL" "${qc[@]}" remote get-url "$check_remote" 2>/dev/null || true)"
     p_cfg=""; p_get=""
     if [ "$HONOR_PUSHURL" -eq 1 ] && [ "$sub" = push ]; then
-      p_cfg="$("$REAL" "${qc[@]}" config --get remote.origin.pushurl 2>/dev/null || true)"
-      p_get="$("$REAL" "${qc[@]}" remote get-url --push origin 2>/dev/null || true)"
+      p_cfg="$("$REAL" "${qc[@]}" config --get "remote.$check_remote.pushurl" 2>/dev/null || true)"
+      p_get="$("$REAL" "${qc[@]}" remote get-url --push "$check_remote" 2>/dev/null || true)"
     fi
     if [ "$URL_DOUBLING" -eq 1 ]; then
       # честная ветвь: ВСЕ непустые формы обязаны быть литерально каноничны;
@@ -320,8 +467,16 @@ if [ "$judged" -eq 1 ]; then
         [ "$okf" -eq 1 ] || bad=1
       done
       if [ -n "$p_cfg" ]; then eff="$p_get"; else eff="$u_get"; fi
+      # ДЫРА REPO_BLIND=eq|sep: отказ БЕЗ сверки с каноном, когда цель пришла
+      # из --repo соответствующей формы (над-блокировка — клетки г17д/г17е).
+      [ -n "$REPO_BLIND" ] && [ "$REPO_BLIND" = "$repo_form" ] && bad=1
       if [ -n "$bad" ]; then
-        printf '%s%s\n' "$F1" "$(san "$eff")" >&2
+        if [ "$check_remote" = origin ]; then
+          printf '%s%s\n' "$F1" "$(san "$eff")" >&2
+        else
+          printf 'gitw ОТКАЗ: URL remote %s не канонический: %s\n' \
+            "$(san "$check_remote")" "$(san "$eff")" >&2
+        fi
         exit 1
       fi
       target="$eff"
@@ -353,7 +508,7 @@ exec "$REAL" "${orig[@]}"
 CORE
 }
 
-# ── стабы: одиннадцать обманных реализаций, дыра каждого — одна ручка ────────
+# ── стабы: двадцать обманных реализаций, дыра каждого — одна ручка ───────────
 mk_stubs() {
   mkdir -p "$WORK/stabs"
   mk_stub_core
@@ -393,6 +548,45 @@ mk_stubs() {
   # (живой обход критика 045-Б3) — смерть г12.
   printf '#!/usr/bin/env bash\nHONOR_PUSHURL=0\nsource "$(dirname "$0")/_core.sh"\n' \
     > "$WORK/stabs/pushurlskip.sh"
+  # РЕПО-РАВНО-СКВОЗЬ: `--repo=VALUE` не признаётся целью вовсе — ровно живой
+  # обход адверсария 045-v3 (equals-форма проходит как безобидный `-*`-флаг,
+  # судится настроенный origin) — смерть г17.
+  printf '#!/usr/bin/env bash\nREPO_EQ_FORMS=""\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/repoeqskip.sh"
+  # РЕПО-ПАРА-СЪЕДЕНА: `--repo VALUE` проглочен как «безобидный флаг арности
+  # 2» — ни значение, ни позиционная цель не судятся — смерть г17б.
+  printf '#!/usr/bin/env bash\nREPO_OPT_SEP=skip2\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/reposepskip.sh"
+  # РЕПО-ТОЛЬКО-ИМЯ: equals-форма признаётся лишь для bare-имени настроенного
+  # remote, значение-путь проходит мимо суждения — смерть г17в.
+  printf '#!/usr/bin/env bash\nREPO_EQ_FORMS="bare"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/repoeqbare.sh"
+  # РЕПО-БЕЗ-SCP: признаёт bare и path, но не SCP-форму значения — смерть г17г.
+  printf '#!/usr/bin/env bash\nREPO_EQ_FORMS="bare path"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/repoeqpath.sh"
+  # РЕПО-ГЛУХОЙ-РАВНО: отказ на equals-форме БЕЗ сверки с каноном
+  # (над-блокировка: канонический `--repo=origin` умирает) — смерть г17д.
+  printf '#!/usr/bin/env bash\nREPO_BLIND=eq\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/repoblindeq.sh"
+  # РЕПО-ГЛУХОЙ-ПАРА: то же для раздельной формы — смерть г17е.
+  printf '#!/usr/bin/env bash\nREPO_BLIND=sep\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/repoblindsep.sh"
+  # РЕПО-ПРИОРИТЕТ: --repo поставлен ВЫШЕ позиционной цели (против
+  # git-push(1): «If both are specified, the command-line argument takes
+  # precedence») — канонический `--repo=origin` отмывает злую позиционную
+  # цель — смерть г17ж.
+  printf '#!/usr/bin/env bash\nREPO_PRIORITY=1\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/repoprio.sh"
+  # РЕПО-ПАРА-СКВОЗЬ-1: `--repo` пропущен на ОДИН токен (значение остаётся в
+  # позиционном скане и обрывает его) — раздельная форма «работает» лишь
+  # совпадением: при настоящей позиционной цели за опцией судится значение
+  # опции, а обмен уходит в позиционную — смерть г17з.
+  printf '#!/usr/bin/env bash\nREPO_OPT_SEP=skip1\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/reposep1.sh"
+  # СЛЭШ-ДВОЕТОЧИЕ-СКВОЗЬ: первый позиционный токен `dir/sub:branch` пропущен
+  # вместо суждения — обмен уходит в путь-цель, а судится origin — смерть г18.
+  printf '#!/usr/bin/env bash\nSLASH_COLON=skip\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/slashcolonskip.sh"
   chmod +x "$WORK/stabs"/*.sh
 }
 
@@ -403,6 +597,9 @@ run_stub_pack() {
     "pushonly:г2" "podstroka:г1б" "cignor:г3" "configfile:г4" "urlargskip:г5"
     "nolsremote:г6" "pullskip:г8" "flagskip:г9" "rawprint:г10"
     "odnaforma:г11" "pushurlskip:г12"
+    "repoeqskip:г17" "reposepskip:г17б" "repoeqbare:г17в" "repoeqpath:г17г"
+    "repoblindeq:г17д" "repoblindsep:г17е" "repoprio:г17ж" "reposep1:г17з"
+    "slashcolonskip:г18"
   )
   local pair name cell rc
   for pair in "${pairs[@]}"; do
@@ -411,7 +608,10 @@ run_stub_pack() {
     RED_GITW_INNER=1 GITW="$WORK/stabs/$name.sh" bash "$0" "$ROOT" \
       >"$WORK/out-$name" 2>"$WORK/err-$name"
     rc=$?
-    if [ "$rc" -ne 1 ] || ! grep -q "ОТКАЗ: $cell" "$WORK/err-$name"; then
+    # Сверка имени клетки — с ДВОЕТОЧИЕМ-терминатором (die_cell печатает
+    # «ОТКАЗ: <клетка>: …»): без него «г17» совпало бы подстрокой с «г17б»,
+    # и стаб, доживший до чужой клетки, зачёлся бы как умерший на своей.
+    if [ "$rc" -ne 1 ] || ! grep -qF "ОТКАЗ: $cell: " "$WORK/err-$name"; then
       die_cell "стаб-$name" "не умер на клетке $cell (rc=$rc): $(tail -n 3 "$WORK/err-$name" | tr '\n' ' ')"
     fi
     printf 'ok: стаб-%s умирает на %s\n' "$name" "$cell"
@@ -602,6 +802,113 @@ run_honest_cells() {
   [ -z "$(git -C "$B4" for-each-ref --format='%(refname)' refs/heads/scp-push)" ] \
     || die_cell г16 "SCP-получатель продвинулся — обмен исполнился"
   ok_cell г16
+
+  # ── г17-г17з: опция --repo как repository-аргумент (вердикт адверсария
+  # 045-v3, ЖИВОЙ обход). git-push(1): «--repo=<repository> — This option is
+  # equivalent to the <repository> argument. If both are specified, the
+  # command-line argument takes precedence». Замерено живьём (git 2.55):
+  # «push --force --repo=evil --all» реально двигает refs/heads/main ЧУЖОГО
+  # bare, а обёртка до фикса пропускает `--repo=…` как безобидный `-*`-флаг
+  # и судит НЕ ту цель (настроенный origin). Каждая клетка доказывает отказ
+  # ДВУМЯ мерами: rc + неподвижность чужого получателя (rc сам по себе
+  # обхода не опровергает — урок А-259).
+
+  # г17 equals-форма, значение = bare-имя настроенного remote → И-4б по ЭТОМУ
+  # имени (не по origin) → F1R.
+  before17="$(tip_of "$B4")"
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --force --repo=evil --all ) >"$WORK/o17" 2>"$WORK/e17"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e17"; } \
+    || die_cell г17 "rc=$rc, --repo=<имя> есть repository-аргумент и обязан судиться (живой обход адверсария 045-v3): $(tail -n 2 "$WORK/e17" | tr '\n' ' ')"
+  grep -qF -- "$B4" "$WORK/e17" || die_cell г17 "раскрытая цель --repo=evil не названа в отказе"
+  [ "$(tip_of "$B4")" = "$before17" ] || die_cell г17 "чужой bare продвинулся — обмен исполнился"
+  ok_cell г17
+
+  # г17б та же атака раздельной формой.
+  before17b="$(tip_of "$B4")"
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --force --repo evil --all ) >"$WORK/o17b" 2>"$WORK/e17b"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e17b"; } \
+    || die_cell г17б "rc=$rc, раздельная форма --repo обязана судиться так же, как equals: $(tail -n 2 "$WORK/e17b" | tr '\n' ' ')"
+  [ "$(tip_of "$B4")" = "$before17b" ] || die_cell г17б "чужой bare продвинулся — обмен исполнился"
+  ok_cell г17б
+
+  # г17в equals-форма, значение = ПУТЬ (не имя настроенного remote): классификация
+  # значения обязана быть полной, а не только bare-именем.
+  before17v="$(tip_of "$B4")"
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --force "--repo=$B4" --all ) >"$WORK/o17v" 2>"$WORK/e17v"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e17v"; } \
+    || die_cell г17в "rc=$rc, --repo=<путь> обязан судиться как явная цель: $(tail -n 2 "$WORK/e17v" | tr '\n' ' ')"
+  grep -qF -- "$B4" "$WORK/e17v" || die_cell г17в "цель-путь не названа в отказе"
+  [ "$(tip_of "$B4")" = "$before17v" ] || die_cell г17в "чужой bare продвинулся — обмен исполнился"
+  ok_cell г17в
+
+  # г17г equals-форма, значение SCP-формы: адаптер обслуживает настоящий
+  # receive-pack чужой bare (сеть не нужна — приём адверсария, как г16).
+  before17g="$(tip_of "$B4")"
+  ( cd "$REPO10" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" GIT_SSH_COMMAND="$SSHAD" "$SUBJ" push --force --repo=git@example.test:any/path --all ) >"$WORK/o17g" 2>"$WORK/e17g"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e17g"; } \
+    || die_cell г17г "rc=$rc, --repo=<scp> обязан судиться как явная цель: $(tail -n 2 "$WORK/e17g" | tr '\n' ' ')"
+  grep -qF -- 'git@example.test:any/path' "$WORK/e17g" || die_cell г17г "SCP-цель не названа в отказе"
+  [ "$(tip_of "$B4")" = "$before17g" ] || die_cell г17г "чужой bare продвинулся — обмен исполнился"
+  ok_cell г17г
+
+  # г17д положительный контроль equals-формы: канонический origin обязан
+  # проходить. Гард, отказывающий на САМОЙ опции, ломает законный обмен —
+  # это не «безопаснее», это неработающий предмет.
+  ( cd "$R1" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --repo=origin ) >"$WORK/o17d" 2>"$WORK/e17d"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г17д "rc=$rc, --repo=origin при КАНОНИЧЕСКОМ origin обязан пройти: $(tail -n 2 "$WORK/e17d" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e17d"; then die_cell г17д "отказ на канонической цели (над-блокировка опции)"; fi
+  ok_cell г17д
+
+  # г17е тот же положительный контроль раздельной формой.
+  ( cd "$R1" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --repo origin ) >"$WORK/o17e" 2>"$WORK/e17e"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г17е "rc=$rc, --repo origin при КАНОНИЧЕСКОМ origin обязан пройти: $(tail -n 2 "$WORK/e17e" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e17e"; then die_cell г17е "отказ на канонической цели (над-блокировка опции)"; fi
+  ok_cell г17е
+
+  # г17ж приоритет позиционной цели над equals-формой: настоящий git уходит в
+  # ПОЗИЦИОННЫЙ чужой bare, канонический --repo=origin его НЕ отмывает.
+  before17zh="$(tip_of "$B3")"
+  ( cd "$R1" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --repo=origin "$B3" main ) >"$WORK/o17zh" 2>"$WORK/e17zh"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e17zh"; } \
+    || die_cell г17ж "rc=$rc, позиционная цель сильнее --repo (git-push(1)) и обязана судиться: $(tail -n 2 "$WORK/e17zh" | tr '\n' ' ')"
+  grep -qF -- "$B3" "$WORK/e17zh" || die_cell г17ж "позиционная цель не названа в отказе"
+  [ "$(tip_of "$B3")" = "$before17zh" ] || die_cell г17ж "позиционный получатель продвинулся — обмен исполнился"
+  ok_cell г17ж
+
+  # г17з то же раздельной формой: значение опции обязано ВЫЙТИ из позиционного
+  # скана, а скан — продолжиться до настоящей позиционной цели.
+  before17z="$(tip_of "$B3")"
+  ( cd "$R1" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" "$SUBJ" push --repo origin "$B3" main ) >"$WORK/o17z" 2>"$WORK/e17z"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e17z"; } \
+    || die_cell г17з "rc=$rc, значение раздельной формы не есть позиционная цель — скан обязан идти дальше: $(tail -n 2 "$WORK/e17z" | tr '\n' ' ')"
+  grep -qF -- "$B3" "$WORK/e17z" || die_cell г17з "позиционная цель не названа в отказе"
+  [ "$(tip_of "$B3")" = "$before17z" ] || die_cell г17з "позиционный получатель продвинулся — обмен исполнился"
+  ok_cell г17з
+
+  # г18 первый позиционный токен с двоеточием ПОСЛЕ слэша. Клетка различает
+  # ТРИ исхода: зависание (цикл разбора без прогресса), обмен в путь-цель
+  # (токен пропущен, судится origin) и честный отказ.
+  before18="$(tip_of "$SLASHCOLON")"
+  ( cd "$REPO11" && GIT_EXCHANGE_GUARD_CANONICAL="$CANON_B1" timeout 10 "$SUBJ" push 'dir/sub:branch' main ) >"$WORK/o18" 2>"$WORK/e18"
+  rc=$?
+  [ "$rc" -ne 124 ] \
+    || die_cell г18 "обёртка ЗАВИСЛА (timeout): цикл разбора не гарантирует прогресс на токене «dir/sub:branch»"
+  { [ "$rc" -eq 1 ] && grep -qF "$F1P" "$WORK/e18"; } \
+    || die_cell г18 "rc=$rc, первый позиционный токен ЕСТЬ repository-аргумент git и обязан судиться: $(tail -n 2 "$WORK/e18" | tr '\n' ' ')"
+  grep -qF -- 'dir/sub:branch' "$WORK/e18" || die_cell г18 "путь-цель не названа в отказе"
+  [ "$(tip_of "$SLASHCOLON")" = "$before18" ] \
+    || die_cell г18 "вложенный bare продвинулся — обмен исполнился в путь-цель"
+  ok_cell г18
 }
 
 # ── диспетчер режимов ─────────────────────────────────────────────────────────
@@ -612,5 +919,5 @@ fi
 
 run_stub_pack
 run_honest_cells
-printf 'gitw: батарея зелёная (клетки г0-г16 + 11 стабов на своих клетках)\n'
+printf 'gitw: батарея зелёная (клетки г0-г18 + 20 стабов на своих клетках)\n'
 exit 0
