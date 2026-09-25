@@ -226,12 +226,12 @@ registry/contracts.tsv (dual-control 023/031) NABLIUDENIA.md HANDOFF.md (кан�
 
 | # | Проба | Команда | Результат |
 |---|---|---|---|
-| Р5 | Барьер на реальном дереве | `bash scripts/check_protected.sh .` | rc=0, «исчезло: 0 · с разрешения: 30 · перенесено: 10»; счётчики обхода: на `5baf803` — «коммитов пройдено: 2322 · существовало: 477 · на HEAD: 437», на HEAD круга 2 — 2327 · 478 · 438; 1.8с |
+| Р5 | Барьер на реальном дереве | `bash scripts/check_protected.sh .` | rc=0 и строка решения «исчезло: 0 · с разрешения: 30 · перенесено: 10». Счётчики ОБХОДА за приёмку не отвечают и в ней не пиннуются: они растут с КАЖДЫМ коммитом ветки (на `5baf803` — «коммитов пройдено: 2322 · существовало: 477 · на HEAD: 437»). 1.8с |
 | Р6 | Старые 25 `case_*.sh` семьи не правлены, не удалены, не переименованы | `git diff --exit-code --diff-filter=MD --no-renames 90419deeca0849430da448c640ce30a0f80ed78b HEAD -- ':(glob)fixtures/check_protected/case_*'` | rc=0 (добавление новых легально) |
 | Р7 | Зелёная ветвь «исключение принято» (дрилл; анти-плацебо её доказать не умеет) | `bash scripts/drill_protected_exception.sh` | rc=0 |
 | Р8 | Зелёная ветвь «перенос признан» | `bash scripts/drill_protected_rename.sh` | rc=0 |
 | Р9 | Н-127: удаление за отставшим родителем мержа (оракул `merge-tree`) | `bash fixtures/check_protected/repro_n127_otstavshij_roditel.sh` | rc=0 |
-| Р10 | Суд зон на пачке | `bash scripts/check_zones.sh .` | rc=0; счёт зависит от живых заморозок и ветки: на `5baf803` — «коммитов в диапазонах: 2123 · проверено по зонам: 1374», на HEAD круга 2 — 2121 · 1371 |
+| Р10 | Суд зон на пачке | `bash scripts/check_zones.sh .` | rc=0. Счёт зависит от живых заморозок и от числа коммитов ветки, за приёмку не отвечает и в ней не пиннуется (на `5baf803` — «коммитов в диапазонах: 2123 · проверено по зонам: 1374») |
 | Р11 | Пре-фриз precision-гейт 043 на этом черновике | `bash scripts/check_precision_gate.sh . contracts/046-germetichnoe-okruzhenie-check-protected.md` | rc=0, «OK» (задача (б) по семье protected пропущена: барьер правится этим же черновиком) |
 | Р12 | Форма модели угроз (041) и проводки (038) | `bash scripts/check_threat_model.sh . contracts/046-germetichnoe-okruzhenie-check-protected.md` И `bash scripts/check_provodka.sh . contracts/046-germetichnoe-okruzhenie-check-protected.md` И `bash scripts/check_consumers.sh . contracts/046-germetichnoe-okruzhenie-check-protected.md` | rc=0 · rc=0 · rc=0 |
 | Р13 | Страж call-budget контракта 040 после смены канала (§Инварианты п.7) | `bash fixtures/check_protected/red_predel_git_vyzovov_ours.sh` | rc=2 `NOT_IMPLEMENTED: нет strace` на рабочей станции (strace здесь нет — измерено, тот же статус, что у близнеца `check_zones`); измерение живёт в CI (ubuntu-24.04, strace 6.8) |
