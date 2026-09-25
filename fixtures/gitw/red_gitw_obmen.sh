@@ -2,9 +2,9 @@
 # КРАСНОЕ 045 (scripts/gitw — pre-exchange гард цели git-обмена, единый корень
 # Н-141+Н-143+Н-148 + probe C): обёртки ещё не существует — честная часть батареи
 # красна ЕДИНСТВЕННОЙ причиной «предмет отсутствует» (fail-fast, г0), а стаб-пак
-# (исполняется ДО честных клеток) зелён И ДО реализации: двадцать обманных стабов
-# умирают каждый на СВОЕЙ клетке именованно — различимость батареи не зависит от
-# существования честного кода.
+# (исполняется ДО честных клеток) зелён И ДО реализации: тридцать восемь обманных
+# стабов умирают каждый на СВОЕЙ клетке именованно — различимость батареи не
+# зависит от существования честного кода.
 #
 # ПРИВЯЗКА К КОДУ (Н-39: стаб умирает там, где его дефект НАБЛЮДАЕМ):
 #   * ПУШ-ТОЛЬКО   — судит только push, fetch/pull насквозь      → умирает г2
@@ -52,6 +52,40 @@
 #   * СЛЭШ-ДВОЕТОЧИЕ-СКВОЗЬ — первый позиционный токен вида  → умирает г18
 #                    `dir/sub:branch` пропущен вместо суждения (судится
 #                    настроенный origin, обмен уходит в путь-цель).
+#   * РЕЗОЛЮЦИЯ-СКВОЗЬ — неявная цель (нет позиционной, нет      → умирает г19
+#                    --repo) всегда жёстко зашитый origin —
+#                    ровно живой обход вердикта 045-v3-round2;
+#   * РЕЗОЛЮЦИЯ-ГЛУХАЯ — отказ при ЛЮБОМ заданном pushDefault/    → умирает г19п
+#                    pushRemote БЕЗ сверки с каноном (над-блок);
+#   * РЕЗОЛЮЦИЯ-БЕЗ-C — запросы резолюции без ctx/cfg: ключ,      → умирает г19в
+#                    заданный только `-c`, невидим суждению;
+#   * PUSHREMOTE-СКВОЗЬ — цепочка push без branch.<b>.pushRemote  → умирает г20
+#   * ПРИОРИТЕТ-ИНВЕРСИЯ — remote.pushDefault поставлен ВЫШЕ      → умирает г21
+#                    branch.<b>.pushRemote (против git-config(5));
+#   * BRANCHREMOTE-ВЫШЕ — branch.<b>.remote поставлен ВЫШЕ        → умирает г21п
+#                    pushDefault (над-блокировка законного push);
+#   * PULL-КОНФИГ-СКВОЗЬ — fetch/pull всегда судят origin,        → умирает г22
+#                    branch.<b>.remote не разрешается;
+#   * FETCH-КОНФИГ-СКВОЗЬ — branch.<b>.remote разрешается лишь    → умирает г23
+#                    для pull, не для fetch;
+#   * МУЛЬТИ-СКВОЗЬ — --all/--multiple/fetch.all не признаны       → умирает г24
+#                    мульти-обменом (судится одна цель);
+#   * МУЛЬТИ-ПЕРВЫЙ — перечисляет remote, судит только первый      → умирает г24
+#                    (в клетке чужой remote стоит ВТОРЫМ);
+#   * МУЛЬТИ-ЧАСТИЧНЫЙ — обменивается с каноническими ДО отказа    → умирает г24
+#                    на неканоническом (частичный обмен);
+#   * МУЛЬТИ-ГЛУХОЙ — отказ на самом флаге --all без сверки        → умирает г24п
+#   * МУЛЬТИ-ТОЛЬКО-ALL — признан --all, не признан --multiple    → умирает г25
+#   * МУЛЬТИ-БЕЗ-КОНФИГА — признаны флаги, не признан             → умирает г26
+#                    конфиг fetch.all=true;
+#   * КОНФИГ-МУЛЬТИ-ГЛУХОЙ — отказ на самом fetch.all без сверки  → умирает г26п
+#   * PULL-МУЛЬТИ-СКВОЗЬ — мульти-режим только для fetch,          → умирает г27
+#                    pull --all проходит мимо;
+#   * DETACHED-ГЛУХОЙ — отказ при detached HEAD всегда             → умирает г28а
+#   * ABBREV-REF — имя ветки из `rev-parse --abbrev-ref HEAD`      → умирает г28б
+#                    (при detached — литерал HEAD, и резолюция
+#                    читает branch.HEAD.*, которого git не
+#                    применяет).
 #
 # Клетки честной части (каждая ≡ ровно одна фраза/условие отказа из контракта
 # 045 §Инварианты; г13-г16 — из вердикта адверсария 045-v1, живой обход
@@ -117,6 +151,41 @@
 #        позиционным невозможен по построению. → обёртка обязана ЗАВЕРШИТЬСЯ
 #        (не зациклиться) и отказать F1 + вложенный bare НЕ продвинут.
 #
+# ── г19-г28б: НЕЯВНОЕ разрешение remote через git-config (вердикт адверсария
+# contracts-045-v3-confirm-round2). Разбор argv закрыт клетками г17-г18, но при
+# ОТСУТСТВИИ позиционной цели и --repo remote выбирает КОНФИГ, а обёртка судила
+# жёстко зашитый origin. Цепочки измерены живьём (git 2.55, замер architect
+# /tmp/dev-harness-verify/scratch-arch045-config/probe_cells.sh; git-config(5)
+# дословно: pushRemote «overrides remote.pushDefault for pushing from branch
+# <name>», pushDefault «Overrides branch.<name>.remote for all branches»):
+#   push      : branch.<b>.pushRemote → remote.pushDefault → branch.<b>.remote → origin
+#   fetch/pull: branch.<b>.remote → origin
+#   мульти-обмен (ТОЛЬКО fetch/pull): --all | --multiple | fetch.all=true
+#   «текущая ветка» = symbolic-ref --quiet --short HEAD; detached → пусто, и
+#   branch-ключи НЕ применяются.
+#   г19  remote.pushDefault=evil → F1R + чужой bare НЕ продвинут;
+#   г19п положительный контроль: pushDefault=origin при НАСТРОЕННОМ чужом
+#        remote — единичный режим судит РАЗРЕШЁННУЮ цель, не все настроенные;
+#   г19в тот же ключ ТОЛЬКО через `-c` → F1R (резолюция несёт ctx/cfg вызова);
+#   г20  branch.<b>.pushRemote=evil → F1R; г20п — тот же ключ = origin → rc0;
+#   г21  pushRemote=evil ПРИ pushDefault=origin → F1R (pushRemote сильнее);
+#   г21п branch.remote=evil ПРИ pushDefault=origin → rc0 (pushDefault сильнее;
+#        замер: push реально уходит в origin — отказ тут есть над-блокировка);
+#   г21в branch.<b>.remote=evil ОДИН → F1R (последняя ступень цепочки push);
+#   г22  pull по branch.<b>.remote=evil → F1R + HEAD жертвы не сдвинут;
+#   г22п тот же ключ = origin → rc0;
+#   г23  fetch БЕЗ аргументов по branch.<b>.remote=evil → F1R + FETCH_HEAD не создан;
+#   г24  fetch --all при origin(канон)+zevil(неканон) → F1Z + FETCH_HEAD НЕ создан
+#        (fail-closed на ВЕСЬ мульти-обмен, не частично; имя zevil стоит ПОСЛЕ
+#        origin в выводе `git remote` — «судить первый» здесь умирает);
+#   г24п fetch --all в мире с единственным каноническим origin → rc0;
+#   г25  fetch --multiple origin zevil → F1Z + FETCH_HEAD не создан; г25п — канон-мир;
+#   г26  fetch.all=true + plain fetch → F1Z + FETCH_HEAD не создан; г26п — канон-мир;
+#   г27  pull --all при origin+zevil → F1Z + FETCH_HEAD не создан;
+#   г28а положительный контроль detached HEAD (канон origin, push --all --force) → rc0;
+#   г28б detached HEAD + ПРИМАНКА branch.HEAD.pushRemote=origin при
+#        remote.pushDefault=evil → F1R evil (замер: настоящий git пушит в EVIL).
+#
 # Режимы: внешний (по умолчанию) — стаб-пак затем честные клетки против
 # ${GITW:-<корень>/scripts/gitw}; внутренний (RED_GITW_INNER=1) — только честные
 # клетки против $GITW (используется внешним режимом для прогонки стабов).
@@ -149,6 +218,9 @@ F3P='gitw ОТКАЗ: неизвестный глобальный флаг: '
 # коммита: именованная фактическая цель ≠ origin, классическая F1 — только
 # для дефолтного origin и явных URL-аргументов).
 F1R='gitw ОТКАЗ: URL remote evil не канонический: '
+# F1Z — отказ именованного remote мульти-обмена (клетки г24-г27): чужой remote
+# назван zevil, чтобы стоять ПОСЛЕ origin в выводе `git remote`.
+F1Z='gitw ОТКАЗ: URL remote zevil не канонический: '
 
 die_cell() { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
 ok_cell()  { printf 'ok: %s\n' "$1"; }
@@ -280,6 +352,30 @@ mkdir -p "$REPO11/dir"
 git init -q -b main --bare "$REPO11/dir/sub:branch"
 SLASHCOLON="$REPO11/dir/sub:branch"
 
+# ── изолированный мир клеток г19-г28б (разрешение remote через git-config) ────
+# У КАЖДОЙ клетки СВОЙ канонический bare и СВОЙ чужой bare: общие затирались
+# первым же обходом, и «до == после» тогда есть артефакт меры, а не отсутствие
+# обхода (замер architect на первой редакции пробы). Локальный коммит жертвы
+# уникален — иначе force-push «уже актуально» невидим побочным эффектом.
+NV_D=""; NV_CANON=""; NV_EVIL=""
+nv_victim() { # $1 — метка клетки; $2 — имя remote для чужого bare ("" — не добавлять)
+  NV_D="$WORK/nv-$1"; NV_CANON="$WORK/nv-$1-kanon.git"; NV_EVIL="$WORK/nv-$1-chuzhoj.git"
+  cp -r "$B1" "$NV_CANON"
+  cp -r "$B4" "$NV_EVIL"
+  git clone -q "$R1" "$NV_D" 2>/dev/null
+  git -C "$NV_D" remote set-url origin "$NV_CANON"
+  [ -n "${2:-}" ] && git -C "$NV_D" remote add "$2" "$NV_EVIL"
+  # Клон ставит branch.main.remote=origin — снимаем, чтобы в каждой клетке
+  # работал РОВНО тот ключ цепочки, который она проверяет.
+  git -C "$NV_D" config --unset branch.main.remote 2>/dev/null
+  git -C "$NV_D" config branch.main.merge refs/heads/main
+  printf '%s\n' "$1" > "$NV_D/local-$1.txt"
+  git -C "$NV_D" add "local-$1.txt"
+  ident "$NV_D" -m "local $1"
+  rm -f "$NV_D/.git/FETCH_HEAD"
+  return 0
+}
+
 tip_of() { git -C "$1" rev-parse "${2:-main}" 2>/dev/null; }
 
 # ── ядро стаба (УПРОЩЁННЫЙ движок-носитель; НЕ реализация 045) ────────────────
@@ -323,6 +419,34 @@ REPO_BLIND="${REPO_BLIND:-}"
 #                 target (честно, он и есть repository-аргумент) | skip.
 SLASH_COLON="${SLASH_COLON:-target}"
 REPO_PRIORITY="${REPO_PRIORITY:-0}"
+# Ручки резолюции неявной цели (вердикт адверсария 045-v3-confirm, round 2):
+# CFG_RESOLVE=0      — неявная цель всегда origin (ровно живой обход вердикта);
+# CFG_QUERY_CTX=0    — запросы резолюции без ctx/cfg (`-c` перекрытие невидимо);
+# PUSH_CHAIN         — состав и ПОРЯДОК цепочки push (git: pushremote →
+#                      pushdefault → branchremote → origin);
+# FETCHPULL_RESOLVE  — подкоманды, где honored branch.<b>.remote;
+# BRANCH_SRC=abbrev  — имя ветки из `rev-parse --abbrev-ref HEAD` (при detached
+#                      литерал HEAD → чтение branch.HEAD.*, которого git не
+#                      применяет);
+# CFG_BLIND=1        — отказ при заданном pushDefault/pushRemote БЕЗ сверки;
+# DETACH_BLIND=1     — отказ при detached HEAD всегда;
+# MULTI_SUBS         — подкоманды, где мульти-обмен возможен (git: fetch, pull);
+# MULTI_TRIGGERS     — что включает мульти (all | multiple | cfgall);
+# MULTI_SCOPE=first  — судить только ПЕРВЫЙ настроенный remote;
+# MULTI_EXEC=partial — обменяться с каноническими ДО отказа на неканоническом;
+# MULTI_BLIND=argv|cfg — глухой отказ на самом триггере без сверки.
+CFG_RESOLVE="${CFG_RESOLVE:-1}"
+CFG_QUERY_CTX="${CFG_QUERY_CTX:-1}"
+PUSH_CHAIN="${PUSH_CHAIN-pushremote pushdefault branchremote}"
+FETCHPULL_RESOLVE="${FETCHPULL_RESOLVE-fetch pull}"
+BRANCH_SRC="${BRANCH_SRC:-symbolic}"
+CFG_BLIND="${CFG_BLIND:-0}"
+DETACH_BLIND="${DETACH_BLIND:-0}"
+MULTI_SUBS="${MULTI_SUBS-fetch pull}"
+MULTI_TRIGGERS="${MULTI_TRIGGERS-all multiple cfgall}"
+MULTI_SCOPE="${MULTI_SCOPE:-all}"
+MULTI_EXEC="${MULTI_EXEC:-atomic}"
+MULTI_BLIND="${MULTI_BLIND:-}"
 F1='gitw ОТКАЗ: URL origin не канонический: '
 F2='gitw ОТКАЗ: авторитет недоступен: ls-remote '
 F3='gitw ОТКАЗ: неизвестный глобальный флаг: '
@@ -440,13 +564,99 @@ if [ "$judged" -eq 1 ]; then
       *) target="$repo_val"; bare_name="" ;;
     esac
   fi
+  # ── неявное разрешение цели по git-config (вердикт 045-v3-confirm, round 2) ──
+  # Ни позиционной цели, ни --repo: remote выбирает КОНФИГ, и судить обязаны
+  # ИМЕННО его (цепочки — в шапке клеток г19-г28б).
+  qr=("${qc[@]}")
+  # ДЫРА CFG_QUERY_CTX=0: запросы резолюции теряют -C/-c (клетка г19в).
+  [ "$CFG_QUERY_CTX" -eq 0 ] && qr=()
+  in_list() { local w="$1"; shift; local x; for x in $*; do [ "$x" = "$w" ] && return 0; done; return 1; }
+  cfgget() { "$REAL" "${qr[@]}" config --get "$1" 2>/dev/null; }
+  branch_name() {
+    # ДЫРА BRANCH_SRC=abbrev: при detached даёт литерал HEAD (клетка г28б).
+    if [ "$BRANCH_SRC" = abbrev ]; then
+      "$REAL" "${qr[@]}" rev-parse --abbrev-ref HEAD 2>/dev/null
+    else
+      "$REAL" "${qr[@]}" symbolic-ref --quiet --short HEAD 2>/dev/null
+    fi
+  }
+  resolve_single() {
+    # ДЫРА CFG_RESOLVE=0: неявная цель всегда origin — живой обход вердикта.
+    [ "$CFG_RESOLVE" -eq 0 ] && { printf '%s' "${bare_name:-origin}"; return; }
+    [ -n "$bare_name" ] && { printf '%s' "$bare_name"; return; }
+    local b v step; b="$(branch_name)"
+    if [ "$sub" = push ]; then
+      for step in $PUSH_CHAIN; do
+        v=""
+        case "$step" in
+          pushremote)   [ -n "$b" ] && v="$(cfgget "branch.$b.pushRemote")" ;;
+          pushdefault)  v="$(cfgget remote.pushDefault)" ;;
+          branchremote) [ -n "$b" ] && v="$(cfgget "branch.$b.remote")" ;;
+        esac
+        [ -n "$v" ] && { printf '%s' "$v"; return; }
+      done
+    elif in_list "$sub" "$FETCHPULL_RESOLVE"; then
+      if [ -n "$b" ]; then
+        v="$(cfgget "branch.$b.remote")"
+        [ -n "$v" ] && { printf '%s' "$v"; return; }
+      fi
+    fi
+    printf origin
+  }
+  # ДЫРА DETACH_BLIND=1: глухой отказ при detached HEAD (клетка г28а).
+  if [ "$DETACH_BLIND" -eq 1 ] && [ -z "$(branch_name)" ]; then
+    printf 'gitw ОТКАЗ: URL origin не канонический: detached-HEAD\n' >&2
+    exit 1
+  fi
+  multi=0; multi_kind=""
+  if [ -z "$target" ] && in_list "$sub" "$MULTI_SUBS"; then
+    for a in ${rest[@]+"${rest[@]}"}; do
+      case "$a" in
+        --all)      in_list all "$MULTI_TRIGGERS" && { multi=1; multi_kind=argv; } ;;
+        --multiple) in_list multiple "$MULTI_TRIGGERS" && { multi=1; multi_kind=argv; } ;;
+      esac
+    done
+    if [ "$multi" -eq 0 ] && in_list cfgall "$MULTI_TRIGGERS"; then
+      case "$(cfgget fetch.all)" in true|yes|on|1) multi=1; multi_kind=cfg ;; esac
+    fi
+  fi
+  if [ "$multi" -eq 1 ]; then
+    names="$("$REAL" "${qr[@]}" remote 2>/dev/null)"
+    # Настроенных remote нет — отказывает сам git (канарейка г7-класса).
+    [ -n "$names" ] || exec "$REAL" "${orig[@]}"
+    # ДЫРА MULTI_SCOPE=first: судится только первый настроенный remote.
+    [ "$MULTI_SCOPE" = first ] && names="$(printf '%s\n' "$names" | sed -n 1p)"
+    for nm in $names; do
+      un="$("$REAL" "${qr[@]}" remote get-url "$nm" 2>/dev/null)"
+      if [ "$un" != "$CANON" ]; then
+        printf 'gitw ОТКАЗ: URL remote %s не канонический: %s\n' "$(san "$nm")" "$(san "$un")" >&2
+        exit 1
+      fi
+      # ДЫРА MULTI_EXEC=partial: обмен с уже проверенными ДО отказа на следующем.
+      [ "$MULTI_EXEC" = partial ] && "$REAL" "${qc[@]}" fetch "$nm" >/dev/null 2>&1
+    done
+    # ДЫРА MULTI_BLIND: глухой отказ на самом триггере (над-блокировка).
+    if [ -n "$MULTI_BLIND" ] && [ "$MULTI_BLIND" = "$multi_kind" ]; then
+      printf 'gitw ОТКАЗ: URL remote %s не канонический: %s\n' \
+        "$(san "$(printf '%s\n' "$names" | sed -n 1p)")" "$(san "$CANON")" >&2
+      exit 1
+    fi
+    target="$CANON"
+  fi
   if [ -z "$target" ]; then
     # Сверка КАЖДОЙ непустой формы цели (спека 045 И-4 после критика-Б2/Б3):
     # config --get видит -c перекрытия; remote get-url видит insteadOf-
     # переписывание (живой замер: remote get-url при -c возвращает ФАЙЛОВОЕ
     # значение) — потому обе; для push дополнительно обе формы pushurl —
     # фактическая цель push = pushurl ЕСЛИ задан, иначе url.
-    check_remote="${bare_name:-origin}"
+    check_remote="$(resolve_single)"
+    # ДЫРА CFG_BLIND=1: отказ при заданном pushDefault/pushRemote БЕЗ сверки.
+    cfg_key_blind=0
+    if [ "$CFG_BLIND" -eq 1 ]; then
+      bb="$(branch_name)"
+      [ -n "$(cfgget remote.pushDefault)" ] && cfg_key_blind=1
+      if [ -n "$bb" ] && [ -n "$(cfgget "branch.$bb.pushRemote")" ]; then cfg_key_blind=1; fi
+    fi
     u_cfg="$("$REAL" "${qc[@]}" config --get "remote.$check_remote.url" 2>/dev/null || true)"
     u_get="$("$REAL" "${qc[@]}" remote get-url "$check_remote" 2>/dev/null || true)"
     p_cfg=""; p_get=""
@@ -470,6 +680,7 @@ if [ "$judged" -eq 1 ]; then
       # ДЫРА REPO_BLIND=eq|sep: отказ БЕЗ сверки с каноном, когда цель пришла
       # из --repo соответствующей формы (над-блокировка — клетки г17д/г17е).
       [ -n "$REPO_BLIND" ] && [ "$REPO_BLIND" = "$repo_form" ] && bad=1
+      [ "$cfg_key_blind" -eq 1 ] && bad=1
       if [ -n "$bad" ]; then
         if [ "$check_remote" = origin ]; then
           printf '%s%s\n' "$F1" "$(san "$eff")" >&2
@@ -587,6 +798,62 @@ mk_stubs() {
   # вместо суждения — обмен уходит в путь-цель, а судится origin — смерть г18.
   printf '#!/usr/bin/env bash\nSLASH_COLON=skip\nsource "$(dirname "$0")/_core.sh"\n' \
     > "$WORK/stabs/slashcolonskip.sh"
+  # ── стабы резолюции неявной цели (вердикт 045-v3-confirm, round 2) ─────────
+  # РЕЗОЛЮЦИЯ-СКВОЗЬ: неявная цель всегда origin — ровно живой обход вердикта.
+  printf '#!/usr/bin/env bash\nCFG_RESOLVE=0\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/cfgorigin.sh"
+  # РЕЗОЛЮЦИЯ-ГЛУХАЯ: отказ при заданном pushDefault/pushRemote БЕЗ сверки.
+  printf '#!/usr/bin/env bash\nCFG_BLIND=1\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/cfgblind.sh"
+  # РЕЗОЛЮЦИЯ-БЕЗ-C: запросы резолюции без ctx/cfg — ключ из `-c` невидим.
+  printf '#!/usr/bin/env bash\nCFG_QUERY_CTX=0\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/cfgnodashc.sh"
+  # PUSHREMOTE-СКВОЗЬ: цепочка push без branch.<b>.pushRemote.
+  printf '#!/usr/bin/env bash\nPUSH_CHAIN="pushdefault branchremote"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/pushremskip.sh"
+  # ПРИОРИТЕТ-ИНВЕРСИЯ: pushDefault выше pushRemote (против git-config(5)).
+  printf '#!/usr/bin/env bash\nPUSH_CHAIN="pushdefault pushremote branchremote"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/precedinvert.sh"
+  # BRANCHREMOTE-ВЫШЕ: branch.<b>.remote выше pushDefault — над-блокировка
+  # законного push (замер: git в этой конфигурации уходит в origin).
+  printf '#!/usr/bin/env bash\nPUSH_CHAIN="branchremote pushremote pushdefault"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/branchremabove.sh"
+  # PULL-КОНФИГ-СКВОЗЬ: fetch/pull всегда судят origin.
+  printf '#!/usr/bin/env bash\nFETCHPULL_RESOLVE=""\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/pullcfgskip.sh"
+  # FETCH-КОНФИГ-СКВОЗЬ: branch.<b>.remote разрешается лишь для pull.
+  printf '#!/usr/bin/env bash\nFETCHPULL_RESOLVE="pull"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/pullonlycfg.sh"
+  # МУЛЬТИ-СКВОЗЬ: ни один триггер мульти-обмена не признан.
+  printf '#!/usr/bin/env bash\nMULTI_TRIGGERS=""\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/multinone.sh"
+  # МУЛЬТИ-ПЕРВЫЙ: судится только первый настроенный remote.
+  printf '#!/usr/bin/env bash\nMULTI_SCOPE=first\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/multifirst.sh"
+  # МУЛЬТИ-ЧАСТИЧНЫЙ: обмен с каноническими ДО отказа на неканоническом.
+  printf '#!/usr/bin/env bash\nMULTI_EXEC=partial\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/multipartial.sh"
+  # МУЛЬТИ-ГЛУХОЙ: отказ на самом флаге --all/--multiple без сверки.
+  printf '#!/usr/bin/env bash\nMULTI_BLIND=argv\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/multiblind.sh"
+  # МУЛЬТИ-ТОЛЬКО-ALL: --multiple не признан мульти-обменом.
+  printf '#!/usr/bin/env bash\nMULTI_TRIGGERS="all"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/multionlyall.sh"
+  # МУЛЬТИ-БЕЗ-КОНФИГА: флаги признаны, конфиг fetch.all=true — нет.
+  printf '#!/usr/bin/env bash\nMULTI_TRIGGERS="all multiple"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/multinocfg.sh"
+  # КОНФИГ-МУЛЬТИ-ГЛУХОЙ: отказ на самом fetch.all без сверки.
+  printf '#!/usr/bin/env bash\nMULTI_BLIND=cfg\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/cfgallblind.sh"
+  # PULL-МУЛЬТИ-СКВОЗЬ: мульти-режим только для fetch, pull --all мимо.
+  printf '#!/usr/bin/env bash\nMULTI_SUBS="fetch"\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/pullallskip.sh"
+  # DETACHED-ГЛУХОЙ: отказ при detached HEAD всегда (над-блокировка).
+  printf '#!/usr/bin/env bash\nDETACH_BLIND=1\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/detachblind.sh"
+  # ABBREV-REF: имя ветки из rev-parse --abbrev-ref (при detached — «HEAD»).
+  printf '#!/usr/bin/env bash\nBRANCH_SRC=abbrev\nsource "$(dirname "$0")/_core.sh"\n' \
+    > "$WORK/stabs/abbrevref.sh"
   chmod +x "$WORK/stabs"/*.sh
 }
 
@@ -600,6 +867,11 @@ run_stub_pack() {
     "repoeqskip:г17" "reposepskip:г17б" "repoeqbare:г17в" "repoeqpath:г17г"
     "repoblindeq:г17д" "repoblindsep:г17е" "repoprio:г17ж" "reposep1:г17з"
     "slashcolonskip:г18"
+    "cfgorigin:г19" "cfgblind:г19п" "cfgnodashc:г19в" "pushremskip:г20"
+    "precedinvert:г21" "branchremabove:г21п" "pullcfgskip:г22" "pullonlycfg:г23"
+    "multinone:г24" "multifirst:г24" "multipartial:г24" "multiblind:г24п"
+    "multionlyall:г25" "multinocfg:г26" "cfgallblind:г26п" "pullallskip:г27"
+    "detachblind:г28а" "abbrevref:г28б"
   )
   local pair name cell rc
   for pair in "${pairs[@]}"; do
@@ -909,6 +1181,245 @@ run_honest_cells() {
   [ "$(tip_of "$SLASHCOLON")" = "$before18" ] \
     || die_cell г18 "вложенный bare продвинулся — обмен исполнился в путь-цель"
   ok_cell г18
+
+  # ── г19-г28б: НЕЯВНОЕ разрешение remote через git-config (вердикт адверсария
+  # contracts-045-v3-confirm-round2). Цепочки и раскладка клеток — в шапке файла;
+  # каждая негативная клетка доказана ПОБОЧНЫМ ЭФФЕКТОМ (SHA чужого bare либо
+  # существование FETCH_HEAD), а не одним rc (урок А-259), каждая «п»/«а» —
+  # положительный контроль против над-блокировки законного обмена.
+
+  # г19 remote.pushDefault=evil: ни позиционной цели, ни --repo.
+  nv_victim 19 evil
+  git -C "$NV_D" config remote.pushDefault evil
+  b19="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o19" 2>"$WORK/e19"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e19"; } \
+    || die_cell г19 "rc=$rc, remote.pushDefault=evil ЕСТЬ фактическая цель push: $(tail -n 2 "$WORK/e19" | tr '\n' ' ')"
+  grep -qF -- "$NV_EVIL" "$WORK/e19" || die_cell г19 "раскрытая цель pushDefault не названа в отказе"
+  [ "$(tip_of "$NV_EVIL")" = "$b19" ] || die_cell г19 "чужой bare продвинулся — обмен исполнился"
+  ok_cell г19
+
+  # г19п положительный контроль: канонический pushDefault при НАСТРОЕННОМ чужом
+  # remote — единичный режим судит РАЗРЕШЁННУЮ цель, а не все настроенные.
+  nv_victim 19p evil
+  git -C "$NV_D" config branch.main.remote origin
+  git -C "$NV_D" config remote.pushDefault origin
+  b19p="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o19p" 2>"$WORK/e19p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г19п "rc=$rc, канонический pushDefault обязан пройти: $(tail -n 2 "$WORK/e19p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e19p"; then die_cell г19п "отказ на канонической цели (над-блокировка резолюции)"; fi
+  [ "$(tip_of "$NV_EVIL")" = "$b19p" ] || die_cell г19п "обмен ушёл в чужой bare"
+  ok_cell г19п
+
+  # г19в тот же ключ ТОЛЬКО через `-c`: запрос резолюции обязан нести ctx/cfg
+  # исполняемого вызова (И-4: единство разрешения).
+  nv_victim 19v evil
+  b19v="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" -c remote.pushDefault=evil push --force ) >"$WORK/o19v" 2>"$WORK/e19v"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e19v"; } \
+    || die_cell г19в "rc=$rc, -c remote.pushDefault=evil обязан быть виден резолюции: $(tail -n 2 "$WORK/e19v" | tr '\n' ' ')"
+  [ "$(tip_of "$NV_EVIL")" = "$b19v" ] || die_cell г19в "чужой bare продвинулся — обмен исполнился"
+  ok_cell г19в
+
+  # г20 branch.<текущая>.pushRemote=evil.
+  nv_victim 20 evil
+  git -C "$NV_D" config branch.main.pushRemote evil
+  b20="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o20" 2>"$WORK/e20"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e20"; } \
+    || die_cell г20 "rc=$rc, branch.main.pushRemote=evil ЕСТЬ фактическая цель push: $(tail -n 2 "$WORK/e20" | tr '\n' ' ')"
+  [ "$(tip_of "$NV_EVIL")" = "$b20" ] || die_cell г20 "чужой bare продвинулся — обмен исполнился"
+  ok_cell г20
+
+  # г20п положительный контроль: канонический pushRemote.
+  nv_victim 20p evil
+  git -C "$NV_D" config branch.main.remote origin
+  git -C "$NV_D" config branch.main.pushRemote origin
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o20p" 2>"$WORK/e20p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г20п "rc=$rc, канонический pushRemote обязан пройти: $(tail -n 2 "$WORK/e20p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e20p"; then die_cell г20п "отказ на канонической цели (над-блокировка)"; fi
+  ok_cell г20п
+
+  # г21 приоритет: pushRemote БЬЁТ pushDefault (git-config(5): «It also overrides
+  # remote.pushDefault for pushing from branch <name>»; замер живьём).
+  nv_victim 21 evil
+  git -C "$NV_D" config remote.pushDefault origin
+  git -C "$NV_D" config branch.main.pushRemote evil
+  b21="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o21" 2>"$WORK/e21"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e21"; } \
+    || die_cell г21 "rc=$rc, pushRemote сильнее pushDefault — судиться обязан evil: $(tail -n 2 "$WORK/e21" | tr '\n' ' ')"
+  [ "$(tip_of "$NV_EVIL")" = "$b21" ] || die_cell г21 "чужой bare продвинулся — обмен исполнился"
+  ok_cell г21
+
+  # г21п приоритет в другую сторону: pushDefault БЬЁТ branch.remote (git-config(5):
+  # «Overrides branch.<name>.remote for all branches»; замер: push реально уходит
+  # в origin). Отказ здесь = над-блокировка законного обмена.
+  nv_victim 21p evil
+  git -C "$NV_D" config branch.main.remote evil
+  git -C "$NV_D" config remote.pushDefault origin
+  b21p="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o21p" 2>"$WORK/e21p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г21п "rc=$rc, pushDefault=origin сильнее branch.remote=evil — обмен законен: $(tail -n 2 "$WORK/e21p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e21p"; then die_cell г21п "отказ на канонической цели (цепочка push перевёрнута)"; fi
+  [ "$(tip_of "$NV_EVIL")" = "$b21p" ] || die_cell г21п "обмен ушёл в чужой bare"
+  ok_cell г21п
+
+  # г21в branch.<b>.remote=evil ОДИН (pushRemote и pushDefault пусты) —
+  # последняя ступень цепочки push перед дефолтным origin.
+  nv_victim 21v evil
+  git -C "$NV_D" config branch.main.remote evil
+  b21v="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --force ) >"$WORK/o21v" 2>"$WORK/e21v"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e21v"; } \
+    || die_cell г21в "rc=$rc, при пустых pushRemote/pushDefault цель push есть branch.main.remote: $(tail -n 2 "$WORK/e21v" | tr '\n' ' ')"
+  [ "$(tip_of "$NV_EVIL")" = "$b21v" ] || die_cell г21в "чужой bare продвинулся — обмен исполнился"
+  ok_cell г21в
+
+  # г22 pull по branch.<текущая>.remote=evil (репро адверсария: жертва реально
+  # подтягивала чужой tip).
+  nv_victim 22 evil
+  git -C "$NV_D" config branch.main.remote evil
+  b22="$(tip_of "$NV_D" HEAD)"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" -c user.name=t -c user.email=t@t.local pull --no-rebase ) >"$WORK/o22" 2>"$WORK/e22"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e22"; } \
+    || die_cell г22 "rc=$rc, pull разрешает remote через branch.main.remote: $(tail -n 2 "$WORK/e22" | tr '\n' ' ')"
+  [ "$(tip_of "$NV_D" HEAD)" = "$b22" ] || die_cell г22 "HEAD жертвы сместился — pull исполнился"
+  ok_cell г22
+
+  # г22п положительный контроль: канонический branch.remote для pull.
+  nv_victim 22p evil
+  git -C "$NV_D" config branch.main.remote origin
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" -c user.name=t -c user.email=t@t.local pull --no-rebase ) >"$WORK/o22p" 2>"$WORK/e22p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г22п "rc=$rc, pull по каноническому branch.remote обязан пройти: $(tail -n 2 "$WORK/e22p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e22p"; then die_cell г22п "отказ на канонической цели (над-блокировка)"; fi
+  ok_cell г22п
+
+  # г23 fetch БЕЗ аргументов по branch.<b>.remote=evil.
+  nv_victim 23 evil
+  git -C "$NV_D" config branch.main.remote evil
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch ) >"$WORK/o23" 2>"$WORK/e23"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e23"; } \
+    || die_cell г23 "rc=$rc, fetch разрешает remote через branch.main.remote: $(tail -n 2 "$WORK/e23" | tr '\n' ' ')"
+  [ ! -e "$NV_D/.git/FETCH_HEAD" ] || die_cell г23 "FETCH_HEAD создан — обмен исполнился"
+  ok_cell г23
+
+  # г24 fetch --all: настоящий git обменивается со ВСЕМИ настроенными remote
+  # (git-fetch(1): «Fetch all remotes»). Чужой remote назван zevil — он стоит
+  # ПОСЛЕ origin в выводе `git remote`, и «судить только первый» здесь умирает.
+  nv_victim 24 zevil
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch --all ) >"$WORK/o24" 2>"$WORK/e24"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1Z" "$WORK/e24"; } \
+    || die_cell г24 "rc=$rc, --all обязан судить КАЖДЫЙ настроенный remote: $(tail -n 2 "$WORK/e24" | tr '\n' ' ')"
+  grep -qF -- "$NV_EVIL" "$WORK/e24" || die_cell г24 "неканоническая цель не названа в отказе"
+  [ ! -e "$NV_D/.git/FETCH_HEAD" ] \
+    || die_cell г24 "FETCH_HEAD создан — мульти-обмен исполнился хотя бы частично"
+  ok_cell г24
+
+  # г24п положительный контроль: мир с ЕДИНСТВЕННЫМ каноническим origin.
+  nv_victim 24p ""
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch --all ) >"$WORK/o24p" 2>"$WORK/e24p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г24п "rc=$rc, --all при каноничных remote обязан пройти: $(tail -n 2 "$WORK/e24p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e24p"; then die_cell г24п "глухой отказ на самом флаге --all (над-блокировка)"; fi
+  ok_cell г24п
+
+  # г25 fetch --multiple origin zevil: перечисление имён в argv не спасает —
+  # обмен идёт с каждым, включая неканонический.
+  nv_victim 25 zevil
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch --multiple origin zevil ) >"$WORK/o25" 2>"$WORK/e25"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1Z" "$WORK/e25"; } \
+    || die_cell г25 "rc=$rc, --multiple есть мульти-обмен, а не первое имя: $(tail -n 2 "$WORK/e25" | tr '\n' ' ')"
+  [ ! -e "$NV_D/.git/FETCH_HEAD" ] || die_cell г25 "FETCH_HEAD создан — мульти-обмен исполнился"
+  ok_cell г25
+
+  # г25п положительный контроль --multiple в канон-мире.
+  nv_victim 25p ""
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch --multiple origin ) >"$WORK/o25p" 2>"$WORK/e25p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г25п "rc=$rc, --multiple при каноничных remote обязан пройти: $(tail -n 2 "$WORK/e25p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e25p"; then die_cell г25п "глухой отказ на флаге --multiple (над-блокировка)"; fi
+  ok_cell г25п
+
+  # г26 fetch.all=true: мульти-обмен включается КОНФИГОМ, argv чист (git-config(5):
+  # «If true, fetch will attempt to update all available remotes»; замер живьём —
+  # чужой tip реально оказывается в FETCH_HEAD).
+  nv_victim 26 zevil
+  git -C "$NV_D" config fetch.all true
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch ) >"$WORK/o26" 2>"$WORK/e26"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1Z" "$WORK/e26"; } \
+    || die_cell г26 "rc=$rc, fetch.all=true включает мульти-обмен и обязан судиться: $(tail -n 2 "$WORK/e26" | tr '\n' ' ')"
+  [ ! -e "$NV_D/.git/FETCH_HEAD" ] || die_cell г26 "FETCH_HEAD создан — мульти-обмен исполнился"
+  ok_cell г26
+
+  # г26п положительный контроль fetch.all=true в канон-мире.
+  nv_victim 26p ""
+  git -C "$NV_D" config fetch.all true
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" fetch ) >"$WORK/o26p" 2>"$WORK/e26p"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г26п "rc=$rc, fetch.all=true при каноничных remote обязан пройти: $(tail -n 2 "$WORK/e26p" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e26p"; then die_cell г26п "глухой отказ на конфиге fetch.all (над-блокировка)"; fi
+  ok_cell г26п
+
+  # г27 pull --all: мульти-режим не ограничен fetch (замер: pull --all тянет ВСЕ
+  # настроенные remote, чужой tip оказывается в FETCH_HEAD).
+  nv_victim 27 zevil
+  git -C "$NV_D" config branch.main.remote origin
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" -c user.name=t -c user.email=t@t.local pull --all --no-rebase ) >"$WORK/o27" 2>"$WORK/e27"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1Z" "$WORK/e27"; } \
+    || die_cell г27 "rc=$rc, pull --all есть мульти-обмен: $(tail -n 2 "$WORK/e27" | tr '\n' ' ')"
+  [ ! -e "$NV_D/.git/FETCH_HEAD" ] || die_cell г27 "FETCH_HEAD создан — мульти-обмен исполнился"
+  ok_cell г27
+
+  # г28а положительный контроль detached HEAD: branch-ключей нет, цель —
+  # канонический origin, обмен законен (замер: push --all при detached проходит).
+  nv_victim 28a ""
+  git -C "$NV_D" checkout -q --detach HEAD
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --all --force ) >"$WORK/o28a" 2>"$WORK/e28a"
+  rc=$?
+  [ "$rc" -eq 0 ] \
+    || die_cell г28а "rc=$rc, detached HEAD с каноническим origin обязан пройти: $(tail -n 2 "$WORK/e28a" | tr '\n' ' ')"
+  if grep -qF 'gitw ОТКАЗ' "$WORK/e28a"; then die_cell г28а "глухой отказ на detached HEAD (над-блокировка)"; fi
+  ok_cell г28а
+
+  # г28б detached HEAD + ПРИМАНКА branch.HEAD.pushRemote=origin при
+  # remote.pushDefault=evil. Замер (git 2.55): текущей ветки нет, branch.HEAD.*
+  # НЕ применяется, и push --all --force реально уходит в ЧУЖОЙ bare. Реализация,
+  # берущая имя ветки из `rev-parse --abbrev-ref HEAD` (литерал «HEAD» при
+  # detached), прочтёт приманку, увидит канонический origin и пропустит обмен.
+  nv_victim 28b evil
+  git -C "$NV_D" config branch.HEAD.pushRemote origin
+  git -C "$NV_D" config remote.pushDefault evil
+  git -C "$NV_D" checkout -q --detach HEAD
+  b28b="$(tip_of "$NV_EVIL")"
+  ( cd "$NV_D" && GIT_EXCHANGE_GUARD_CANONICAL="$NV_CANON" "$SUBJ" push --all --force ) >"$WORK/o28b" 2>"$WORK/e28b"
+  rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "$F1R" "$WORK/e28b"; } \
+    || die_cell г28б "rc=$rc, при detached HEAD цель есть remote.pushDefault=evil, branch.HEAD.* — приманка: $(tail -n 2 "$WORK/e28b" | tr '\n' ' ')"
+  [ "$(tip_of "$NV_EVIL")" = "$b28b" ] || die_cell г28б "чужой bare продвинулся — обмен исполнился"
+  ok_cell г28б
 }
 
 # ── диспетчер режимов ─────────────────────────────────────────────────────────
@@ -919,5 +1430,5 @@ fi
 
 run_stub_pack
 run_honest_cells
-printf 'gitw: батарея зелёная (клетки г0-г18 + 20 стабов на своих клетках)\n'
+printf 'gitw: батарея зелёная (клетки г0-г28б + 38 стабов на своих клетках)\n'
 exit 0
