@@ -97,7 +97,7 @@ case "$sub" in
   *) exec "$REAL" "${orig[@]}" ;;
 esac
 
-# ── И-4a: repository argument — URL / SCP / path / bare-name ──────────────
+# ── И-4a: repository argument — URL / SCP / path / bare-name / --repo= ────
 # Git docs (gitrepository-layout / git-push «repository argument»): четыре
 # синтаксические формы:
 #   URL-like : содержит '://'
@@ -108,11 +108,43 @@ esac
 #   bare     : всё прочее — потенциальное имя настроенного remote (см. И-4б)
 # Имя, не попавшее ни в одну форму, но не настроенное как remote — настоящий
 # git сам откажет, обёртка передаёт вызов (канарейка г7-класса, И-2).
+#
+# РАСШИРЕНИЕ (адверсарий 045-v3 confirm): `git push --repo=<repository>`
+# (`git help push`: «equivalent to the <repository> argument. If both are
+# specified, the command-line argument takes precedence»). Распознаётся
+# ДО generic `-*`-skip — без этого живой обход: `--repo=evil --all` молча
+# проглатывался, target оставался пуст, обёртка проверяла канонический
+# origin, настоящий git исполнял push в неканонический remote `evil`.
+#
+# ПРЕЦЕДЕНТ (man git-push): «the command-line argument takes precedence».
+# Позиционная цель СИЛЬНЕЕ --repo=: `push --repo=origin <evil-path>` реально
+# уходит в <evil-path> (замер арх-разведки 045-2). Реализация БУКВАЛЬНОГО
+# приоритета --repo открыла бы НОВЫЙ обход (--repo=origin отмывает злой
+# позиционный). Поэтому --repo=* запоминается в repo_value и применяется
+# ТОЛЬКО если позиционная цель не найдена; последний --repo=* выигрывает
+# (соответствует семантике git при множественных --repo=).
+#
+# Раздельная форма `--repo <value>` НЕ обрабатывается отдельно: существующий
+# `-*`-skip обёртки потребляет `--repo`, а `<value>` естественно попадает
+# в arm `*` (default) как bare_name и подвергается И-4б-проверке настроенного
+# remote (арх-замер 045-2: текущий gitw уже отказывает F1R для
+# `push --repo evil --all`). Добавление отдельного handler для `--repo`
+# (arity 2) — лишняя поверхность и потенциальная ловушка «оба токена
+# пропустить», которая снимает bare_name-классификацию со `value` и
+# восстанавливает обход через дефолтный origin (стаб reposepskip архитектора).
 target=""
 bare_name=""
+repo_value=""
 while [ "$i" -lt "$n" ]; do
   a="${orig[$i]}"
   case "$a" in
+    --repo=*)
+      # Равн-форма: запомнить VALUE, НЕ выставлять target/bare_name —
+      # позиционная цель должна выиграть (man git-push «command-line
+      # argument takes precedence»). Последний --repo=* выигрывает.
+      repo_value="${a#--repo=}"
+      i=$((i+1))
+      ;;
     *://*|/*|../*|./*)
       target="$a"
       i=$((i+1))
@@ -140,6 +172,23 @@ while [ "$i" -lt "$n" ]; do
       ;;
   esac
 done
+
+# Fallback: если позиционная цель не найдена, использовать --repo=*
+# (запомненное выше; если их было несколько — последнее, как и git).
+if [ -z "$target" ] && [ -z "$bare_name" ] && [ -n "$repo_value" ]; then
+  value="$repo_value"
+  case "$value" in
+    *://*|/*|../*|./*) target="$value" ;;
+    *:*)
+      vprefix="${value%%:*}"
+      case "$vprefix" in
+        */*) bare_name="$value" ;; # slash-before-colon → не scp-like, но тоже bare (path с двоеточием)
+        *) target="$value" ;;
+      esac
+      ;;
+    *) bare_name="$value" ;;
+  esac
+fi
 
 if [ -z "$target" ]; then
   # ── И-4б: цель из настроенного remote (явное имя или дефолтный origin) ──
