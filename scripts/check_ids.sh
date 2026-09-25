@@ -32,12 +32,22 @@
 #   - кириллица в имени (`007-план.md`) — репозиторий по-русски, кириллица в области.
 #
 # ОБЛАСТЬ ВЫВЕДЕНА ИЗ ПРЕДМЕТА, а не задана списком. Класс → куда он кладётся:
-#   PLAN    → plans/                       — планы в корне;
-#   VERDICT → verdicts/<роль>/             — пути читаются из roles/*.md (поле `verdict:`),
-#                                             а не вписываются вторым списком;
-#   ADR     → decisions/                   — место выбрано в `next_id.sh` и повторено здесь,
-#                                             чтобы разные пути не заводили ещё одну
-#                                             ручную таблицу.
+#   PLAN         → plans/                       — планы в корне;
+#   VERDICT      → verdicts/<роль>/             — пути читаются из roles/*.md (поле `verdict:`),
+#                                                а не вписываются вторым списком;
+#   ADR          → decisions/                   — место выбрано в `next_id.sh` и повторено здесь,
+#                                                чтобы разные пути не заводили ещё одну
+#                                                ручную таблицу;
+#   ARBITRATION  → verdicts/arbitration/        — arbiter-резолюции (решение владельца
+#                                                2026-09-25 через орк-канал по Н-144-следствию:
+#                                                link-class, не mint-class). ВЕДУЩИЕ 3 цифры
+#                                                в имени — ССЫЛКА на предмет-контракт, НЕ
+#                                                VERDICT-заявка. Семантика: не выдаётся через
+#                                                mint (id/VERDICT/<N> никогда не минтится),
+#                                                а сверяется на СУЩЕСТВОВАНИЕ контракта
+#                                                (id/CONTRACT/<N> или contracts/<N>-*.md).
+#                                                Файлы без номера (oblast-i-porog.md и т.п.)
+#                                                остаются вне грамматики, как для VERDICT.
 #
 # ОБХОД РЕКУРСИВНЫЙ. `verdicts/adversary/2026/002-x.md` — артефакт, и должен быть виден
 # и при выдаче, и при сверке. Прежняя редакция ограничивалась `-maxdepth 1` и такие пути
@@ -187,12 +197,19 @@ class_locs() {
     VERDICT)
       [ -d "$HERE/roles" ] || return 0
       # Печатаются только валидные: о невалидных отказ уже вынесен выше.
-      role_declarations "$HERE" | awk -F'\t' '$1 == "ok" { print $3 }'
+      # ARBITRATION-локация (verdicts/arbitration/) исключена из VERDICT: arbiter-резолюции
+      # обслуживаются ОТДЕЛЬНЫМ классом ARBITRATION (link-class) с другой грамматикой
+      # (см. resolve_contract_ref), иначе две сверки ругаются на одни и те же файлы.
+      role_declarations "$HERE" | awk -F'\t' '$1 == "ok" && $3 != "verdicts/arbitration/" { print $3 }'
       ;;
     ADR)     printf 'decisions/\n' ;;
     # Контракт майлстоуна — предмет, критерий готовности и зоны исполнителей. Каталога может не
     # быть: тогда максимум считается по тегам `id/CONTRACT/*`, как у любой пустой локации.
     CONTRACT) printf 'contracts/\n' ;;
+    # Arbiter-резолюции: ведущее число в имени — ССЫЛКА на контракт, не VERDICT-заявка.
+    # Контракт-ссылка проверяется через resolve_contract_ref (ниже) — на СУЩЕСТВОВАНИЕ
+    # предмета-контракта, не на id/VERDICT/<N>.
+    ARBITRATION) printf 'verdicts/arbitration/\n' ;;
     *)       return 1 ;;
   esac
 }
@@ -264,7 +281,31 @@ if ! is_registry_complete; then
   exit 1
 fi
 
-for class in PLAN VERDICT ADR CONTRACT; do
+# ── резолюция контракт-ссылки для класса ARBITRATION ──────────────────────────
+# «Файл с ведущим N в verdicts/arbitration/ ссылается на контракт N»: контракт
+# существует, если есть `id/CONTRACT/N` (замёрз) ИЛИ `contracts/N-*.md` (черновик
+# или замёрзший файл). Проверка дешёвая: один git-вызов + один find. Зовётся ТОЛЬКО
+# для класса ARBITRATION (link-class) — для PLAN/VERDICT/ADR/CONTRACT остаётся
+# прежняя сверка `id/<CLASS>/<N>` (mint-class).
+resolve_contract_ref() {
+  local n="$1" p
+  # Прямой id/CONTRACT/N — источник истины для замёрзших контрактов.
+  p="$(printf 'id/CONTRACT/%03d' "$n")"
+  if git -C "$HERE" for-each-ref --format='%(refname:short)' "refs/tags/id/CONTRACT/" 2>/dev/null \
+       | grep -qx "$p"; then
+    return 0
+  fi
+  # Черновик или замёрзший файл контракта с тем же номером. -maxdepth 1 — канон
+  # плоской раскладки contracts/, вложений нет (заморожено в 022/016).
+  if [ -d "$HERE/contracts" ] \
+       && find "$HERE/contracts" -maxdepth 1 -type f -name "$(printf '%03d' "$n")-*.md" -print -quit 2>/dev/null \
+       | grep -q .; then
+    return 0
+  fi
+  return 1
+}
+
+for class in PLAN VERDICT ADR CONTRACT ARBITRATION; do
   # Множество выданных номеров — для проверки «номер назначен рукой».
   declare -A has_tag=()
   n=""
@@ -296,14 +337,14 @@ for class in PLAN VERDICT ADR CONTRACT; do
     rc=0
     parse_artifact_basename "$name" || rc=$?
     [ -n "${ARTIFACT_NUMBER:-}" ] || continue
-    artifacts+=("$f"$'\t'"$ARTIFACT_NUMBER"$'\t'"$rc")
+    artifacts+=("$f"$'\t'"$ARTIFACT_NUMBER"$'\t'"$rc"$'\t'"$name")
   done < <(collect_paths "$class")
   # Первый проход: ошибки формата и «номер назначен рукой». Артефакт без тега при
   # существующем теге для того же номера — ветка (в). Файл с неправильным форматом
   # (`7-x.md`, `0007-x.md`) — отдельное красное, чтобы владелец видел, ЧТО чинить.
   for line in "${artifacts[@]:-}"; do
     [ -n "$line" ] || continue
-    IFS=$'\t' read -r f n rc <<<"$line"
+    IFS=$'\t' read -r f n rc name <<<"$line"
     [ -n "$f" ] && [ -n "$n" ] || continue
     rel="${f#"$HERE"/}"
     if [ "$rc" = "2" ]; then
@@ -313,8 +354,15 @@ for class in PLAN VERDICT ADR CONTRACT; do
       violations=$((violations + 1))
       continue
     fi
-    if [ -z "${has_tag[$n]:-}" ]; then
+    # ARBITRATION: ссылка на контракт, а не VERDICT-номер — сверка mint-тега неприменима.
+    if [ "$class" != "ARBITRATION" ] && [ -z "${has_tag[$n]:-}" ]; then
       bad "номер $n назначен рукой, а не механизмом: $rel"
+      violations=$((violations + 1))
+    fi
+    # ARBITRATION: замена «номер назначен рукой» — контракт-ссылка не разрешается.
+    # Для остальных классов — обратная сторона той же логики (mint-дисциплина).
+    if [ "$class" = "ARBITRATION" ] && ! resolve_contract_ref "$n"; then
+      bad "контракт-ссылка $n не разрешается (нет id/CONTRACT/$n и нет contracts/$n-*.md): $rel"
       violations=$((violations + 1))
     fi
   done
@@ -328,16 +376,24 @@ for class in PLAN VERDICT ADR CONTRACT; do
   other_rel=""
   for line in "${artifacts[@]:-}"; do
     [ -n "$line" ] || continue
-    IFS=$'\t' read -r f n rc <<<"$line"
+    IFS=$'\t' read -r f n rc name <<<"$line"
     [ -n "$f" ] && [ -n "$n" ] || continue
     [ "$rc" = "0" ] || continue
     rel="${f#"$HERE"/}"
-    if [ -n "${seen[$n]:-}" ]; then
+    # Для ARBITRATION uniqueness-ключ = полный basename (контракт+слаг): один контракт
+    # может иметь НЕСКОЛЬКО arbitration-резолюций (Б4, БС7 и т.д.), каждая со своим
+    # слагом. Дубль — это ОДНО-имённая пара <контракт, слаг>. Для остальных классов
+    # uniqueness-ключ = просто N (mint-дисциплина: один номер = один артефакт).
+    _dup_key="$n"
+    if [ "$class" = "ARBITRATION" ] && [ -n "${name:-}" ]; then
+      _dup_key="${name%.md}"
+    fi
+    if [ -n "${seen[$_dup_key]:-}" ]; then
       other_rel="${seen[$n]#"$HERE"/}"
       bad "одинаковый номер $n в классе $class: $other_rel и $rel"
       violations=$((violations + 1))
     else
-      seen[$n]="$f"
+      seen[$_dup_key]="$f"
     fi
   done
   unset seen has_tag artifacts line f n rc rel digit_count other_rel
