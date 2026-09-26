@@ -183,6 +183,43 @@ ROADMAP §8 на принятый документ — оркестратору 
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: HANDOFF.md NABLIUDENIA.md
 
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 002 002 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 002
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 003 003 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 003
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 004 004 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 004
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 005 005 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 005
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 006 006 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 006
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 007 007 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 007
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 008 008 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 008
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 010 010 отдал HANDOFF.md architect'у административным каналом (устав/roles/.omp); 048 использует HANDOFF.md обычным оркестраторским каналом чекпойнта «ГДЕ МЫ», не работой 010
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 002 та же административная зона 002 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 002
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 003 та же административная зона 003 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 003
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 004 та же административная зона 004 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 004
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 005 та же административная зона 005 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 005
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 006 та же административная зона 006 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 006
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 007 та же административная зона 007 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 007
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 008 та же административная зона 008 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 008
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 010 та же административная зона 010 (architect); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 010
+
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 015 015 отдал NABLIUDENIA*.md implementer'у ТОЛЬКО миграционной пачкой заголовков (уже исполнена и закрыта); 048 пишет NABLIUDENIA.md обычным оркестраторским наблюдением, не работой 015
+
+ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 015 отдал NABLIUDENIA*.md implementer'у ТОЛЬКО миграционной пачкой заголовков (уже исполнена и закрыта); 048 architect пишет NABLIUDENIA_ARCHITECT.md обычным операционным наблюдением, не работой 015
+
+
 Калибровка — часть критерия: freeze повторяет preflight до тега, поэтому позитив и три
 негатива пишет architect до заморозки (`fixtures/check_check_contract_ready/doc_048/` — существующая frozen-зона architect 036, не новая семья), а не
 implementer после — отступление от шаблона задания, вынужденное порядком 027.
