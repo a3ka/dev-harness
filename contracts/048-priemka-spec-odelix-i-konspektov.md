@@ -136,11 +136,11 @@ git blob `08f375c1e06e9b13705ef34bcc8d8d5415bcfe0d` (снято `wc -l`, `sha256
     {"id": "Вопрос-снимок-гистов", "blocking": false, "allow_open": true}
   ],
   "calibration": {
-    "positive": "fixtures/doc_048/kalibrovka-pozitiv.json",
+    "positive": "fixtures/check_check_contract_ready/doc_048/kalibrovka-pozitiv.json",
     "negative": [
-      {"evidence": "fixtures/doc_048/kalibrovka-negativ-poterjan-konspekt.json", "violation": "coverage"},
-      {"evidence": "fixtures/doc_048/kalibrovka-negativ-nerazreshimaja-svjaz.json", "violation": "link-resolution"},
-      {"evidence": "fixtures/doc_048/kalibrovka-negativ-as-is-bez-svidetelstva.json", "violation": "evidence-ownership"}
+      {"evidence": "fixtures/check_check_contract_ready/doc_048/kalibrovka-negativ-poterjan-konspekt.json", "violation": "coverage"},
+      {"evidence": "fixtures/check_check_contract_ready/doc_048/kalibrovka-negativ-nerazreshimaja-svjaz.json", "violation": "link-resolution"},
+      {"evidence": "fixtures/check_check_contract_ready/doc_048/kalibrovka-negativ-as-is-bez-svidetelstva.json", "violation": "evidence-ownership"}
     ]
   }
 }
@@ -176,7 +176,7 @@ ROADMAP §8 на принятый документ — оркестратору 
 
 ## Зоны
 
-ЗОНА architect: contracts/048-priemka-spec-odelix-i-konspektov.md fixtures/doc_048/ NABLIUDENIA_ARCHITECT.md
+ЗОНА architect: contracts/048-priemka-spec-odelix-i-konspektov.md fixtures/check_check_contract_ready/doc_048/ NABLIUDENIA_ARCHITECT.md
 ЗОНА implementer: docs/048-priemka-spec-odelix-i-konspektov.md docs/048-priemka-spec-odelix-i-konspektov.evidence.json docs/spec/Odelix-Development-Harness-on-OMP-v0.2.0.md
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
@@ -184,7 +184,7 @@ ROADMAP §8 на принятый документ — оркестратору 
 ЗОНА orchestrator: HANDOFF.md NABLIUDENIA.md
 
 Калибровка — часть критерия: freeze повторяет preflight до тега, поэтому позитив и три
-негатива пишет architect до заморозки (`fixtures/doc_048/`, новая семья без `case_*.sh`), а не
+негатива пишет architect до заморозки (`fixtures/check_check_contract_ready/doc_048/` — существующая frozen-зона architect 036, не новая семья), а не
 implementer после — отступление от шаблона задания, вынужденное порядком 027.
 
 РАБОТА НЕ РАЗДАЁТСЯ: scripts/ (механизм 027 не меняется) fixtures/check_document/
