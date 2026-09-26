@@ -1,3 +1,5 @@
+accept
+
 FAIL
 
 # Adversary verdict — contract 049
@@ -65,3 +67,27 @@ The following probes were executed successfully; they are not findings:
 - `bash scripts/verify_antiplacebo.sh --scope check_staged/case_dver_minta_zamena_na_frozen check_staged/case_dver_minta_zamena_tag_tolko_lokalno` returned `rc=0`; both existing fixture controls remained discriminating.
 
 The full fixture suite was also executed before targeted probes: all 72 fixtures were presented red on repeat (`rc=0`). Existing fixtures do not cover either blocker above.
+
+
+accept
+
+## Round 2 — independent confirmation of both former blockers
+
+Checked landed implementation `f0451e7` (implementation `26e88d9`) by rebuilding disposable toy repositories rather than reusing the first-round result.
+
+### Blocker A closed — unbounded decimal maximum
+
+A toy main history had annotated, ancestor-visible `frozen/contracts/040/1` and `frozen/contracts/040/999999999999999999999999999999999999999999`; the `orchestrator` replacement deliberately used the v1 tag-object SHA. `bash scripts/check_zones.sh <toy>` returned `rc=1` (`overflow-lower-v1=1`), rejecting the non-maximal replacement. The matching honest single-frozen-tag main-history control returned `rc=0` (`positive-main=0`).
+
+The high-version negative path still prints Bash `integer expected` diagnostics from the zero guards at `check_zones.sh:373` and `:1073`; the actual maximum selected is the long decimal (the named new-side SHA check references that tag) and the required rejection occurs. This is noisy but did not produce a bypass in the specified adversarial scenario.
+
+### Blocker B closed — main reachability
+
+Starting from the same honest mint → frozen/040/1 setup, I committed the otherwise legal replacement first on a `foreign` branch and then from detached HEAD. The live historical judge returned respectively `foreign-branch=1` and `detached-head=1`; in each case it did not recognise replacement form and instead judged `registry/contracts.tsv` normally as outside the declared `orchestrator` zone. The positive main control above remains green, so this is discriminating rather than an always-red failure.
+
+### Required suite and real-tree checks
+
+- `bash scripts/verify_antiplacebo.sh --scope check_staged check_zones`: `rc=0`; 72/72 fixtures presented red on their repeat runs.
+- `bash scripts/check_zones.sh .`: `rc=0`; the real tree reports 48 frozen contracts, 2,198 commits in ranges, and 1,390 zone-checked commits.
+
+I exercised the named overflow and non-main bypasses plus their positive control. No new acceptance bypass beyond the two repaired blockers was found; the separately declared `scripts/lib_zones.sh` class was not judged in this round.
