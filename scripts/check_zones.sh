@@ -267,6 +267,27 @@ LIB_ZONES_ROOT="$ROOT"
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
 bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
+
+# DECIMAL STRING GREATER-THAN — корректное сравнение decimal-строк ЛЮБОЙ длины (Блокер A,
+# контракт 049 v1 адверсария: `[ -gt ]` ограничен диапазоном long (~64 бита), а грамматика
+# версии контракта — `[0-9]+` без ограничения длины; подавленная 2>/dev/null ошибка `[` при
+# переполнении молча НЕ обновляла vmax → дверь принимала замену на МЕНЬШУЮ версию при
+# существующей БОЛЬШЕЙ). Рецепт: 1) убрать ведущие нули (оставить «0», если всё нули);
+# 2) разные длины — длиннее означает БОЛЬШЕ; 3) та же длина — лексикографическое сравнение
+# в C-локали совпадает с числовым для цифровых строк одной длины. Никаких внешних утилит
+# (`bc`) — работает на чистом bash. Возвращает 0, если a > b, иначе 1.
+decimal_gt() {
+  local a="${1-}" b="${2-}" al bl
+  # Strip leading zeros (keep at least one digit — "0" if input was all zeros)
+  a="${a#"${a%%[!0]*}"}"; a="${a:-0}"
+  b="${b#"${b%%[!0]*}"}"; b="${b:-0}"
+  al=${#a}; bl=${#b}
+  if [ "$al" -gt "$bl" ]; then return 0; fi
+  if [ "$al" -lt "$bl" ]; then return 1; fi
+  # Same length — lex compare. C-locale decimal strings of same length lex-equal numeric.
+  [[ "$a" > "$b" ]] && return 0 || return 1
+}
+
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_registry.sh"
 
@@ -345,8 +366,8 @@ while IFS= read -r nnn; do
   vmax=0
   while IFS= read -r t; do
     if [[ "$t" =~ ^refs/tags/frozen/contracts/${nnn}/([0-9]+)$ ]]; then
-      k=$((10#${BASH_REMATCH[1]}))
-      [ "$k" -gt "$vmax" ] && vmax="$k"
+      k="${BASH_REMATCH[1]}"
+      if decimal_gt "$k" "$vmax"; then vmax="$k"; fi
     fi
   done < "$TMP/tags"
   [ "$vmax" -gt 0 ] || continue
@@ -1019,6 +1040,23 @@ while IFS=$'\t' read -r nnn since; do
           # Новая сторона = tag-object frozen/contracts/<NNN>/<vmax> (locally alive, ANNOTATED).
           # Старая сторона = tag-object id/CONTRACT/<NNN> ИЛИ frozen/contracts/<NNN>/<vmax-1>.
           # Провенанс ТОЛЬКО ЛОКАЛЬНО; ls-remote origin форма замены НЕ зовёт (§Инварианты п.3).
+          #
+          # Блокер B (закрыт v1 адверсария, contracts-049-v1-adversary.md): форма замены
+          # признаётся ТОЛЬКО когда судимый коммит C — ПРЕДОК (или сам) refs/heads/main
+          # (прецедент check_staged.sh §Инварианты п.3 — там условие ветки main применено к
+          # замене ТОЧНО ТАК ЖЕ; иначе коммит в чужой wip или на detached HEAD мог бы обойти
+          # staged-барьер, но был бы признан историческим судом). C не на main — форма замены
+          # НЕ признаётся, путь судится зонами как обычно (для orchestrator+registry/contracts.tsv
+          # вне ветки main обычный суд даёт «вне зоны», как для любого незаявленного пути).
+          on_main_replace=0
+          if g merge-base --is-ancestor "$c" "refs/heads/main" 2>/dev/null; then
+            on_main_replace=1
+          fi
+          if [ "$on_main_replace" -eq 0 ]; then
+            # C не предок main — форма REPLACE НЕ признаётся; ничего не делаем здесь,
+            # ниже (после if/else) skip_path=1 НЕ выставится (см. condition на skip_path).
+            :
+          else
           vmax=0
           while IFS= read -r ref; do
             [ -n "$ref" ] || continue
@@ -1029,7 +1067,7 @@ while IFS=$'\t' read -r nnn since; do
             tag_commit="$(g rev-parse --verify --quiet "${ref}^{commit}" 2>/dev/null || true)"
             if [ -z "$tag_commit" ]; then continue; fi
             if g merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null; then
-              if [ "$v" -gt "$vmax" ] 2>/dev/null; then vmax="$v"; fi
+              if decimal_gt "$v" "$vmax"; then vmax="$v"; fi
             fi
           done < <(g for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$add_nnn/" 2>/dev/null)
           if [ "$vmax" -eq 0 ]; then
@@ -1074,9 +1112,17 @@ while IFS=$'\t' read -r nnn since; do
             bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$((vmax-1))"
             continue
           fi
-        fi
+          fi  # закрывает if [ "$on_main_replace" -eq 0 ]; then … else … (Блокер B)
+        fi  # закрывает if [ "$form_mode" = "add" ]; then … else … (REPLACE branch)
         # Признание прошло — путь исключается ИЗ ЭТОГО ПУТИ (не из коммита).
-        skip_path=1
+        # Блокер B: skip_path=1 выставляется только если (form_mode=add) ИЛИ
+        # (form_mode=replace И C — предок refs/heads/main, on_main_replace=1).
+        # Если C не на main при форме REPLACE — форма замены НЕ признаётся,
+        # путь судится зонами как обычно (см. ниже `[ -n "$skip_path" ] → continue` ловит
+        # только выставленное значение, пустая строка пропускает).
+        if [ "$form_mode" = "add" ] || [ "$on_main_replace" -eq 1 ]; then
+          skip_path=1
+        fi
       fi
       if [ -n "$skip_path" ]; then
         continue
