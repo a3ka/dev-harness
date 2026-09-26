@@ -132,7 +132,7 @@ frozen-тега>` и сам её коммитит под `orchestrator`. Есл�
 
 ## Зоны
 
-ЗОНА architect: contracts/049-dver-minta-zamena-na-frozen.md fixtures/check_staged/case_dver_minta_zamena_na_frozen.sh fixtures/check_staged/case_dver_minta_zamena_na_proizvolnyj.sh fixtures/check_staged/case_dver_minta_udalenie_stroki.sh fixtures/check_staged/case_dver_minta_zamena_ne_maksimalnaja_versija.sh fixtures/check_staged/case_dver_minta_staraja_stroka_proizvolnaja.sh fixtures/check_zones/case_dver_minta_zamena_na_frozen.sh fixtures/check_zones/case_dver_minta_zamena_na_proizvolnyj.sh fixtures/check_zones/case_dver_minta_udalenie_stroki.sh fixtures/check_zones/case_dver_minta_zamena_ne_maksimalnaja_versija.sh fixtures/check_zones/case_dver_minta_staraja_stroka_proizvolnaja.sh
+ЗОНА architect: contracts/049-dver-minta-zamena-na-frozen.md fixtures/check_staged/case_dver_minta_zamena_na_frozen.sh fixtures/check_staged/case_dver_minta_zamena_na_proizvolnyj.sh fixtures/check_staged/case_dver_minta_udalenie_stroki.sh fixtures/check_staged/case_dver_minta_zamena_ne_maksimalnaja_versija.sh fixtures/check_staged/case_dver_minta_staraja_stroka_proizvolnaja.sh fixtures/check_staged/case_dver_minta_zamena_tag_tolko_lokalno.sh fixtures/check_zones/case_dver_minta_zamena_na_frozen.sh fixtures/check_zones/case_dver_minta_zamena_na_proizvolnyj.sh fixtures/check_zones/case_dver_minta_udalenie_stroki.sh fixtures/check_zones/case_dver_minta_zamena_ne_maksimalnaja_versija.sh fixtures/check_zones/case_dver_minta_staraja_stroka_proizvolnaja.sh
 ЗОНА implementer: scripts/check_staged.sh scripts/check_zones.sh
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
@@ -165,7 +165,7 @@ frozen-тега>` и сам её коммитит под `orchestrator`. Есл�
 | Р5 | Замена на произвольный, check_zones | `bash scripts/verify_antiplacebo.sh --scope check_zones/case_dver_minta_zamena_na_proizvolnyj` | rc=0 | rc=0 |
 | Р6 | Удаление строки, check_zones | `bash scripts/verify_antiplacebo.sh --scope check_zones/case_dver_minta_udalenie_stroki` | rc=0 | rc=0 |
 | Р7 | Прежние фикстуры обеих семей не правлены, не удалены, не переименованы | `git diff --exit-code --diff-filter=MD --no-renames a55789903559a4ec9395ca08dc00f64a33f088e3 HEAD -- fixtures/check_staged fixtures/check_zones` | rc=0 | rc=0 |
-| Р8 | Обе семьи целиком | `bash scripts/verify_antiplacebo.sh --scope check_staged check_zones` | **rc=1**, «фикстур: 71 · предъявлено красным повторным прогоном: 65», FAIL ровно шесть — `case_dver_minta_zamena_na_frozen.sh`, `case_dver_minta_zamena_ne_maksimalnaja_versija.sh`, `case_dver_minta_staraja_stroka_proizvolnaja.sh` в каждой из двух семей | rc=0, «фикстур: 71 · предъявлено красным повторным прогоном: 71» |
+| Р8 | Обе семьи целиком | `bash scripts/verify_antiplacebo.sh --scope check_staged check_zones` | **rc=1**, «фикстур: 72 · предъявлено красным повторным прогоном: 65», FAIL ровно семь — `case_dver_minta_zamena_na_frozen.sh`, `case_dver_minta_zamena_ne_maksimalnaja_versija.sh`, `case_dver_minta_staraja_stroka_proizvolnaja.sh` в каждой из двух семей и `check_staged/case_dver_minta_zamena_tag_tolko_lokalno.sh` | rc=0, «фикстур: 72 · предъявлено красным повторным прогоном: 72» |
 | Р9 | Синтаксис обоих барьеров | `bash -n scripts/check_staged.sh && bash -n scripts/check_zones.sh` | rc=0 | rc=0 |
 | Р10 | Форма модели угроз (041), проводки (038), потребителей (038) | `bash scripts/check_threat_model.sh . contracts/049-dver-minta-zamena-na-frozen.md` И `bash scripts/check_provodka.sh . contracts/049-dver-minta-zamena-na-frozen.md` И `bash scripts/check_consumers.sh . contracts/049-dver-minta-zamena-na-frozen.md` | rc=0 · rc=0 · rc=0 | rc=0 · rc=0 · rc=0 |
 | Р11 | Живой красный Н-156 на реальном дереве | `bash scripts/check_zones.sh .` | **rc=1**, FAIL ровно один: «коммит вне зоны: orchestrator 2db10bfe registry/contracts.tsv — дверь минта 031: дельта манифеста не только-добавление» | строки с `2db10bfe` в выводе нет (§Риски 3) |
@@ -174,9 +174,10 @@ frozen-тега>` и сам её коммитит под `orchestrator`. Есл�
 | Р14 | Старая строка произвольная, check_staged | `bash scripts/verify_antiplacebo.sh --scope check_staged/case_dver_minta_staraja_stroka_proizvolnaja` | **rc=1**, «нет положительного контроля» (оба вызова барьера rc 1) | **rc=0**, причина «ОТКАЗ: дверь минта 031:» |
 | Р15 | Не максимальная версия, check_zones | `bash scripts/verify_antiplacebo.sh --scope check_zones/case_dver_minta_zamena_ne_maksimalnaja_versija` | **rc=1**, «нет положительного контроля» (оба вызова барьера rc 1) | **rc=0**, причина «registry/contracts.tsv — дверь минта 031:» |
 | Р16 | Старая строка произвольная, check_zones | `bash scripts/verify_antiplacebo.sh --scope check_zones/case_dver_minta_staraja_stroka_proizvolnaja` | **rc=1**, «нет положительного контроля» (оба вызова барьера rc 1) | **rc=0**, причина «registry/contracts.tsv — дверь минта 031:» |
+| Р17 | Замена на НЕзапушенный frozen-тег (тег только локально — порядок freeze_contract.sh шаги 7→9), check_staged | `bash scripts/verify_antiplacebo.sh --scope check_staged/case_dver_minta_zamena_tag_tolko_lokalno` | **rc=1**, «нет положительного контроля» (оба вызова барьера rc 1) | **rc=0**, причина «ОТКАЗ: дверь минта 031:»; реализация, сохранившая `ls-remote origin` для frozen-тега (§Инварианты п.3), здесь rc=1 «нет положительного контроля» |
 
 Р2/Р3/Р5/Р6 зелёные и ДО фикса: это регрессионные стражи «как сейчас» — фикс не имеет права их
-покрасить. Красное предъявление контракта — Р1, Р4, Р13, Р14, Р15, Р16.
+покрасить. Красное предъявление контракта — Р1, Р4, Р13, Р14, Р15, Р16, Р17.
 
 ## ПРОВОДКА
 
