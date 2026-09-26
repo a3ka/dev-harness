@@ -1,4 +1,6 @@
-FAIL
+ACCEPT
+
+> Финальный вердикт — круг 3, раздел в конце файла. Круги 1 и 2 (оба FAIL) оставлены ниже как история.
 
 # Контракт 049: ревью, круг 1
 
@@ -318,3 +320,188 @@ FAIL
    с rc=1.
 2. Н3: на усмотрение автора (не блокирует).
 3. Н1, С1, С2 — к владельцу.
+
+---
+
+# Контракт 049: ревью, круг 3 — ACCEPT (финальный)
+
+## Привязка к блобам
+
+- Судимый HEAD `ef1fa44` (land `645d60d`, автор `implementer`). `scripts/check_staged.sh` блоб
+  `60a0080415c2f3744c824b6bd5983e31899dde9c`, `scripts/check_zones.sh` блоб
+  `355ee101a820a2fe0119283331008775f8be2e78`. Контракт: блоб `ddb9825e6537e6bdfd08ea96e465687ed9e4d998`
+  не изменился. `git diff --stat frozen/contracts/049/1 HEAD -- contracts/049-… fixtures/check_staged fixtures/check_zones roles`
+  пуст, rc=0.
+- ACCEPT относится только к этим двум блобам скриптов. Новая редакция любого из них принятие не наследует.
+
+## Итог
+
+**Б1' закрыт.** Блокеров нет. Все входы, на которых круги 1–2 давали fail-open или крах, теперь
+дают отказ с rc=1, и цикл суда больше не рвётся. Строку `check_zones.sh:1137` на круге 2 я не смог
+прогнать и записал [INFERENCE]. Теперь она измерена: на `6878289` падает, на HEAD проходит.
+Полный дифф реализации `a557899..HEAD` перечитан, новых обрывов и крахов на сконструированных входах
+нет. Остаются не блокирующие Н1 и Н3 (к владельцу) и два новых замечания, Н4 и Н5. Советы С1 и С2 в
+силе. Правило «третий FAIL по одной причине» здесь не применяется: вердикт ACCEPT, все находки
+implementer чинил без спора.
+
+## Закрыто
+
+### Б1' — закрыт
+
+- **Область правки.** `git diff --stat 6878289 HEAD -- scripts/check_staged.sh scripts/check_zones.sh`:
+  `2 files changed, 2 insertions(+), 2 deletions(-)`. `git diff --stat 6878289 HEAD` по всему дереву
+  даёт те же 2 файла, лишнего нет. Хунки: `check_staged.sh @654` и `check_zones.sh @1134`, по одной
+  строке в каждом. Меняется только текст сообщения отказа: `$((vmax-1))` → `$vmax_prev`.
+  Коммит `645d60d` один, атомарный, автор `implementer`, ссылается на «049 — закрытие Б1'».
+  Фикстуры, контракт и роли не тронуты (см. привязку).
+- **Счёт двумя мерами.** (1) Regex-поиск `\$\(\(vmax` по рабочему дереву обоих файлов: 2 совпадения,
+  `check_staged.sh:95` и `check_zones.sh:292`, оба строки-комментарии хелпера (`# из decimal-строки…`).
+  (2) `git grep -nF '$((vmax' HEAD -- scripts/check_staged.sh scripts/check_zones.sh`: те же 2 строки,
+  обе начинаются с `#`. Исполняемых `$((vmax` — 0. На круге 2 их было 2, на круге 1 — 4.
+- **`$vmax_prev` в сообщении всегда определён.** Сообщение печатается только при `old_ok=0`. Это
+  значит, что ветвь id/CONTRACT не прошла и перед сообщением в той же ветви выполнилось
+  `vmax_prev=$(decimal_sub1 "$vmax")`. Под `set -u` в `check_zones` непривязанной переменной нет.
+
+## Прогоны круга 3 (сырой вывод, мои)
+
+- `REPO=$PWD bash /tmp/dev-harness-verify/rv049/probe2.sh`, вход `08` плюс посторонний файл (на
+  круге 2 здесь было rc=0):
+  ```
+  staged:
+  registry/contracts.tsv
+  scripts/zz_vne_zony.sh
+  check_staged s_08_smuggle (scripts/zz_vne_zony.sh вне зоны orchestrator; обязан быть ОТКАЗ):
+  ОТКАЗ: дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/040, ни tag-object frozen/contracts/040/7
+  judged: scripts/zz_vne_zony.sh
+  ОТКАЗ: вне зоны: scripts/zz_vne_zony.sh
+  rc=1
+  ```
+- `probe3.sh`, вход `09` плюс посторонний файл (на круге 2 было rc=0):
+  ```
+  == check_staged vmax=09 (мусор → v09) + посторонний scripts/zz_vne_zony.sh (staged: registry/contracts.tsv scripts/zz_vne_zony.sh )
+    ОТКАЗ: дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/040, ни tag-object frozen/contracts/040/8
+    judged: scripts/zz_vne_zony.sh
+    ОТКАЗ: вне зоны: scripts/zz_vne_zony.sh
+    rc=1
+  ```
+  Там же: `decimal_sub1` из обеих копий — 0 расхождений с python на 300+300 случайных входах. Позитив
+  `v99 → v100` проходит, rc=0.
+- `probe.sh`, check_staged. Сообщение теперь называет версию, которую дверь действительно искала
+  (на круге 2 здесь было `/1` и `/7` соответственно):
+  ```
+  check_staged positive-mint-v1     rc=0  judged: registry/contracts.tsv (дверь минта 031: +1 строк ↔ живые dual-control теги)
+  check_staged overflow-v1-to-vBIG  rc=1  ОТКАЗ: … ни tag-object frozen/contracts/040/18446744073709551617
+  check_staged octal-v7-to-v010     rc=1  ОТКАЗ: … ни tag-object frozen/contracts/040/9
+  check_staged control-v7-to-v10    rc=1  ОТКАЗ: … ни tag-object frozen/contracts/040/9
+  check_staged crash-v1-to-v08      rc=1  ОТКАЗ: … ни tag-object frozen/contracts/040/7
+  ```
+  В check_zones overflow, 010 и 08 по-прежнему дают rc=128. Это С2: замороженная ветвь СПАСЕНО, как
+  на `a557899`.
+- **Новая проба `probe4.sh`: `check_zones.sh:1137` доведён до исполнения.** Чтобы С2 не падал раньше
+  двери, живы теги `7`, `8` и `08`. `decimal_gt` выбирает vmax=`08`. Дальше идут коммиты «мусор → v08»
+  и затем посторонний `orchestrator → scripts/zz_vne_zony.sh`.
+  - HEAD `ef1fa44`: аудит проходит до конца, посторонний коммит пойман.
+    ```
+    == check_zones: garbage → v08 (теги 7, 8, 08), затем посторонний orchestrator→scripts/zz_vne_zony.sh
+      FAIL коммит вне зоны: orchestrator dce65581 registry/contracts.tsv — дверь минта 031: sha новой строки ≠ tag-object-sha frozen/contracts/040/08
+      FAIL коммит вне зоны: orchestrator ba79efbd registry/contracts.tsv — дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/040, ни tag-object frozen/contracts/040/7
+      FAIL коммит вне зоны: orchestrator 2932179f scripts/zz_vne_zony.sh — зона автора (объединение всех замороженных): HANDOFF.md
+      rc=1
+    == check_zones: 7 → v08 (теги 7, 8, 08), затем посторонний orchestrator→scripts/zz_vne_zony.sh
+      FAIL коммит вне зоны: orchestrator 39fa2564 registry/contracts.tsv — дверь минта 031: sha новой строки ≠ tag-object-sha frozen/contracts/040/08
+      FAIL коммит вне зоны: orchestrator 8e25dddb scripts/zz_vne_zony.sh — зона автора (объединение всех замороженных): HANDOFF.md
+      rc=1
+    ```
+    Первый FAIL в каждом прогоне относится к подготовительному коммиту: в нём строка меняется на
+    не-vmax версию, и это верный отказ. Во втором прогоне позитив `v7 → v08` признан, FAIL на этот
+    коммит нет.
+  - Красный контроль: тот же `probe4.sh` против `scripts/check_zones.sh` на `6878289` (worktree
+    одноразового SSH-клона). Аудит обрывается, посторонний коммит не назван:
+    ```
+    == check_zones: garbage → v08 (теги 7, 8, 08), затем посторонний orchestrator→scripts/zz_vne_zony.sh
+      FAIL коммит вне зоны: orchestrator 06fe0e02 registry/contracts.tsv — дверь минта 031: sha новой строки ≠ tag-object-sha frozen/contracts/040/08
+    /tmp/dev-harness-verify/rv049/old6878289/scripts/check_zones.sh: line 1137: 08: value too great for base (error token is "08")
+      rc=1
+    ```
+- **Р8 в одноразовом SSH-клоне.** `git clone ssh://git@github.com/a3ka/dev-harness.git`,
+  `ls-remote` показывает origin/main = `ef1fa44`, затем `checkout -B main ef1fa44`, дерево чистое.
+  `bash scripts/verify_antiplacebo.sh --scope check_staged check_zones` →
+  `барьеров: 2 · фикстур: 72 · предъявлено красным повторным прогоном: 72`, rc=0.
+- **Р11 на живом дереве.** `bash scripts/check_zones.sh .` →
+  `замороженных контрактов: 48 · объявленных авторов: 5 · коммитов в диапазонах: 2217 · проверено по зонам: 1403`, rc=0.
+
+## Общий обзор диффа `a557899..HEAD` (оба скрипта, +430/−137)
+
+Прочитан целиком заново. Каждое место, где значение из имени тега (грамматика `[0-9]+`, длина не
+ограничена, ведущие нули разрешены) попадает в арифметику или числовое сравнение:
+
+- `decimal_sub1`. `$((n - 1))`, `$((i - 1))` и `$((i + 1))` считают длину и индексы строки.
+  `$((d - 1))` применяется к одной цифре `1..9`: ветвь `d != "0"`, а `d` — один символ строки.
+  Восьмеричного прочтения и переполнения здесь нет.
+- `decimal_gt`. `[ -gt ]` и `[ -lt ]` сравнивают только длины. `[[ > ]]` сравнивает цифровые
+  строки одной длины после снятия ведущих нулей.
+- check_staged, выбор vmax: `sort -n | tail -1`. GNU `sort -n` сравнивает числа произвольной длины
+  с ведущими нулями без переполнения. `vmax_prev != "0"` — строковое сравнение.
+- check_zones, `[ "$vmax" -eq 0 ]`: см. Н5. Исход верный, креша нет.
+- `set -u` в check_zones: `on_main_replace` читается только при `form_mode=replace`, потому что
+  `[ add ] || [ … ]` замыкается раньше. `rem_nnn`, `rem_sha` и `add_nnn` определены на своих ветвях.
+
+Нового обрыва или краха не найдено.
+
+## Не блокирующие замечания
+
+### Н1 — без изменений, у владельца
+
+### Н3 — частично (граница «0» в `decimal_sub1`), у автора/владельца
+
+Хелпер по-прежнему заворачивает `0` в `9`, а комментарий «Вход нормализован» остался. После Б1'
+сообщение на `vmax=0` называет `/9` вместо `/-1`: `probe3.sh` → `… frozen/contracts/040/9`, rc=1.
+Решение fail-closed.
+
+### Н4 — в ветви «(б) нет» сообщение отказа называет несуществующий тег (класс: точность текста отказа)
+
+- Фрагмент: `check_staged.sh:657` и `check_zones.sh:1137`. При `vmax=1` получается `vmax_prev=0`,
+  дверь `/0` не ищет, но сообщение его называет.
+- Сырой вывод (`REPO=$PWD bash /tmp/dev-harness-verify/rv049/probe5.sh`):
+  ```
+  == check_staged vmax=1 (мусор → v1; ветви (б) нет)
+    ОТКАЗ: дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/040, ни tag-object frozen/contracts/040/0
+    rc=1
+  ```
+- Это пожелание из моего «что закрыть» круга 2, и оно не выполнено. FAIL оно не даёт: решение
+  верное (отказ, rc=1), а замороженный п.4 требует от текста только префикса «дверь минта 031:», и
+  префикс есть. Требование к тексту сверх заморозки не входит в круг судьи задним числом. Решает
+  владелец.
+
+### Н5 — `[ "$vmax" -eq 0 ]` в check_zones на vmax > 2^63 шумит в stderr (класс: диагностический шум)
+
+- Фрагмент: `check_zones.sh`, проверка «нет frozen-тегов для замены». Изолированный прогон под
+  `set -euo pipefail`:
+  ```
+  bash: line 1: [: 18446744073709551618: integer expected
+  nonzero-branch rc_ok
+  08 nonzero-branch
+  survived
+  ```
+  `[` возвращает 2, и выполнение идёт в ветвь «не ноль». Для такой vmax это верно: скрипт не падает,
+  отказ не пропускается. На реальном входе строка недостижима, потому что раньше падает С2. Совет:
+  сравнивать строкой (`[ "$vmax" = 0 ]`), так как vmax стартует литералом `0`.
+
+## Советы (вне предмета)
+
+- С1 и С2 без изменений, к владельцу. Лечить их одним контрактом, и в тот же контракт отнести Н3,
+  Н4 и Н5: единое представление версии для `lib_zones`, СПАСЕНО и двери.
+
+## Что проверено (сводка круга 3)
+
+| Проба | Команда | Результат |
+|---|---|---|
+| Область | `git diff --stat 6878289 HEAD -- scripts/check_staged.sh scripts/check_zones.sh` | `2 files changed, 2 insertions(+), 2 deletions(-)`, только текст сообщения |
+| Счёт `$((vmax` | regex-поиск по дереву + `git grep -nF` по HEAD | 2 + 2 совпадения, все в комментариях; в коде 0 |
+| Б1' репро `08` | `probe2.sh` | rc=1, оба отказа (дверь `/7` + посторонний) |
+| Б1' репро `09` | `probe3.sh` | rc=1, оба отказа (дверь `/8` + посторонний) |
+| Б2 остаток | `probe.sh` check_staged | все rc=1, сообщение = версия поиска |
+| `check_zones:1137` | `probe4.sh` HEAD / `6878289` | HEAD: 3 FAIL, аудит цел; `6878289`: `line 1137: 08: value too great for base`, посторонний не назван |
+| Р8 | `verify_antiplacebo.sh --scope check_staged check_zones`, SSH-клон на `ef1fa44` | 72/72, rc=0 |
+| Р11 | `bash scripts/check_zones.sh .` (живое дерево) | `… проверено по зонам: 1403`, rc=0 |
+| Фикстуры/контракт/роли | `git diff --stat frozen/contracts/049/1 HEAD -- …` | пусто, rc=0 |
