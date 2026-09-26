@@ -11,7 +11,7 @@
 # `--model` (workshop:99-108, :531). Переопределение `default`/`vision` (как в models-claude.yml)
 # сессию НЕ переключает — она осталась бы на базовом `slow: zai/glm-5.2`.
 #
-# МОДЕЛЬ. `claude-opus-4-8` — окно 1M токенов, тем же основанием, что и выбор glm-5.2 на роль
+# МОДЕЛЬ. `claude-opus-5-5` (с 2026-09-26, слово владельца; ранее `claude-opus-4-8`) — окно 1M токенов, тем же основанием, что и выбор glm-5.2 на роль
 # (.omp/config.yml:60): длинная стенограмма не должна идти со сжатием истории.
 #
 # ЧЕГО ЭТОТ ОВЕРЛЕЙ СТОИТ, кроме денег. Расход Anthropic не считается НИГДЕ — ни через прокси
@@ -20,4 +20,4 @@
 # minimax, и require_metering по-прежнему проверяет METERING_PROXY_URL/TOKEN.
 
 modelRoles:
-  slow: "anthropic/claude-opus-4-8"
+  slow: "anthropic/claude-opus-5-5"
