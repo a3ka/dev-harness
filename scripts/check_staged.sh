@@ -91,6 +91,31 @@ CHARTER_LIB=1
 # import-gate. Без `set -e` последующие ветвления и `|| true` работают как прежде.
 set +e
 
+# DECIMAL STRING DECREMENT (Б1/Б2, контракт 049 v2 ревьюера): корректное вычитание единицы
+# из decimal-строки ЛЮБОЙ длины. `$((vmax - 1))` ломается дважды — (1) leading zero →
+# восьмеричная интерпретация (08 → SYNTAX ERROR, цифры 8/9 в восьмеричном — обрыв скрипта
+# на «value too great for base»); (2) переполнение 64-битного диапазона. Этот хелпер
+# работает ТОЛЬКО на ИНДЕКСАХ цикла и ОДИНОЧНЫХ цифрах 0-9, никогда на многозначном числе
+# целиком. Алгоритм: обход справа налево, одалживаем десятку из старшего разряда;
+# «0» → «9», иначе декремент цифры и стоп. Вход нормализован (без ведущих нулей, кроме «0»).
+decimal_sub1() {
+  local s="$1" n=${#1} i d
+  local out="$s"
+  i=$((n - 1))
+  while [ "$i" -ge 0 ]; do
+    d="${out:$i:1}"
+    if [ "$d" != "0" ]; then
+      out="${out:0:$i}$((d - 1))${out:$((i + 1))}"
+      break
+    fi
+    out="${out:0:$i}9${out:$((i + 1))}"
+    i=$((i - 1))
+  done
+  out="${out#"${out%%[!0]*}"}"
+  [ -n "$out" ] || out="0"
+  printf '%s' "$out"
+}
+
 ROOT="${1:-$SELF_DIR/..}"
 case "$ROOT" in
   /*) ;;
@@ -618,8 +643,8 @@ for f in "${staged[@]}"; do
                   old_ok=1
                 fi
                 if [ "$old_ok" -eq 0 ]; then
-                  vmax_prev=$((vmax - 1))
-                  if [ "$vmax_prev" -ge 1 ]; then
+                  vmax_prev=$(decimal_sub1 "$vmax")
+                  if [ -n "$vmax_prev" ] && [ "$vmax_prev" != "0" ]; then
                     ref_prev="refs/tags/frozen/contracts/$add_nnn/$vmax_prev"
                     if git -C "$ROOT" show-ref --verify --quiet "$ref_prev" \
                        && [ "$(git -C "$ROOT" cat-file -t "$ref_prev" 2>/dev/null || true)" = "tag" ] \
