@@ -97,6 +97,20 @@ Pocock, скилл codebase-design); полного цитируемого те�
 ЗОНА critic: verdicts/critic/
 ЗОНА reviewer: verdicts/review/
 
+ПЕРЕСЕЧЕНИЕ architect: .omp/agents/architect.md — 016 016 зонировал генерат под orchestrator вместе с roles/architect.md для своей разовой норма-правки роли; в 050 генерат — механический выход node scripts/gen-harness.ts из roles/architect.md, правимого этим контрактом (Инвариант 7, Р4), самостоятельной правки генерата нет
+ПЕРЕСЕЧЕНИЕ architect: roles/architect.md — 012 implementer-зона 012 на этом пути — landed разовая isolation-инструкция норма-текста; architect в 050 добавляет независимые секции Н2–Н4, ту правку не трогает (прецедент 037)
+ПЕРЕСЕЧЕНИЕ architect: roles/architect.md — 016 orchestrator-зона 016 на этом пути — landed разовая норма-правка роли; architect в 050 добавляет независимые секции Н2–Н4, ту правку не трогает (прецедент 037)
+ПЕРЕСЕЧЕНИЕ architect: roles/architect.md — 038 orchestrator-зона 038 на этом пути — landed разовая вставка ПРОВОДКА-канала норма-текста; 050 доставляет свои нормы тем же каналом, ту норму не трогает (Р2)
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 012 та же landed разовая isolation-инструкция 012, что для roles/architect.md выше, тот же прецедент и та же причина
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 026 orchestrator-зона 026 на этом пути — landed разовая норма-строка close-out шага (Б5); architect в 050 добавляет независимую секцию Н5, ту норму не трогает (прецедент 037)
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 027 orchestrator-зона 027 на этом пути — landed правка doc-приёмки; architect в 050 добавляет независимую секцию Н5, ту правку не трогает (прецедент 037)
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 028 orchestrator-зона 028 на этом пути — её штатная орг-зона; architect в 050 добавляет независимую секцию Н5, то содержимое не трогает (прецедент 037)
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 029 та же штатная орг-зона, что 028, тот же прецедент и та же причина
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 031 orchestrator-зона 031 на этом пути — landed норма-строка дельты close-out; architect в 050 добавляет независимую секцию Н5, ту норму не трогает (прецедент 037)
+ПЕРЕСЕЧЕНИЕ architect: roles/orchestrator.md — 038 та же landed разовая вставка ПРОВОДКА-канала 038, что для roles/architect.md выше, та же причина (Р2)
+ПЕРЕСЕЧЕНИЕ architect: roles/reviewer.md — 027 orchestrator-зона 027 на этом пути — landed правка doc-приёмки ревьюера; architect в 050 добавляет независимую секцию Н1, ту правку не трогает
+ПЕРЕСЕЧЕНИЕ architect: roles/reviewer.md — 038 та же landed разовая вставка ПРОВОДКА-канала 038, что для roles/architect.md выше, та же причина (Р2)
+
 Реализация — architect (правка трёх ролей + пересборка `.omp/agents`), ПОСЛЕ заморозки; implementer
 не нужен: кода нет. Адверсарий не зовётся: барьеров и фикстур этот контракт не вводит, ломать
 нечего; красное предъявление — Р1 на коммите контракта. `ЗОНА orchestrator: .review/` использует
@@ -123,7 +137,7 @@ Pocock, скилл codebase-design); полного цитируемого те�
 | Р3 | правило: потолок персон 51200 байт | `bash scripts/check_ceilings.sh` | rc=0 | rc=0 |
 | Р4 | правило: сгенерированные агенты равны ролям | `node scripts/gen-harness.ts --check` | rc=0 | rc=0 |
 | Р5 | правило: скиллы и зеркало не тронуты | `git diff --exit-code 9e75e3567b54a8382dafd28c13a7c1977b42ffed HEAD -- skills .agents/skills` | rc=0 | rc=0 |
-| Р6 | правило: дифф только в зонах architect | `git diff --quiet 9e75e3567b54a8382dafd28c13a7c1977b42ffed HEAD -- . ':!contracts/050-faza-b-slozhnost-narezka-ac-reslop.md' ':!roles/reviewer.md' ':!roles/architect.md' ':!roles/orchestrator.md' ':!.omp/agents/reviewer.md' ':!.omp/agents/architect.md' ':!.omp/agents/orchestrator.md'` | rc=0 | rc=0 |
+| Р6 | правило: дифф от минт-базы вне зон architect — только судейские и процессные каналы (`.review/`, вердикты, наблюдения, HANDOFF, запись заморозки в реестре) | `git diff --quiet 9e75e3567b54a8382dafd28c13a7c1977b42ffed HEAD -- . ':!contracts/050-faza-b-slozhnost-narezka-ac-reslop.md' ':!roles/reviewer.md' ':!roles/architect.md' ':!roles/orchestrator.md' ':!.omp/agents/reviewer.md' ':!.omp/agents/architect.md' ':!.omp/agents/orchestrator.md' ':!.review/' ':!verdicts/critic/' ':!verdicts/review/' ':!verdicts/adversary/' ':!NABLIUDENIA.md' ':!NABLIUDENIA_ARCHITECT.md' ':!HANDOFF.md' ':!registry/contracts.tsv'` | rc=0 | rc=0 |
 | Р7 | правило: Н4 на себе — в этом разделе нет неизмеримых слов | блок Р7 ниже | rc=0 | rc=0 |
 | Р8 | правило: пре-фриз гейт 043 | `bash scripts/check_precision_gate.sh . contracts/050-faza-b-slozhnost-narezka-ac-reslop.md` | rc=0 (снимается на коммите контракта) | rc=0 |
 | Р9 | правило: потребители 038 | `bash scripts/check_consumers.sh . contracts/050-faza-b-slozhnost-narezka-ac-reslop.md` | rc=0 (снимается на коммите контракта) | rc=0 |
@@ -145,7 +159,10 @@ Pocock, скилл codebase-design); полного цитируемого те�
   автор пишет неизмеримую строку, ловец — критик по порогу «обход»: неизмеримая строка
   выполнима на дереве, где предмет не сделан;
 - Н5 наблюдаема с первым файлом `.review/*.md` владельца: коммит `orchestrator` со сменой
-  `status: ready` на `partial` или `done`.
+  `status: ready` на `partial` или `done`;
+- Р6 судит дерево, не автора: чужой предмет, приземлённый на main между минтом и HEAD
+  реализации вне перечисленных каналов, краснит Р6 без вины реализации; ловец — ревьюер 050
+  чтением `git diff --name-status` с теми же pathspec.
 
 ## ПРОВОДКА
 
