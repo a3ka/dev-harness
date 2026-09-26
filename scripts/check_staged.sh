@@ -411,22 +411,39 @@ for f in "${staged[@]}"; do
     esac
   fi
 
-  # ── Контракт 031, ветвь i: дверь минта оркестратора (Н-81) ─────────────────
+  # ── Контракт 031, ветвь i: дверь минта оркестратора (Н-81, расширена 049) ─
   # staged-путь registry/contracts.tsv под автором orchestrator пропускается БЕЗ
-  # суда зон ⟺ ШЕСТЬ условий ВМЕСТЕ (порядок: форма → грамматика → реестр →
-  # провенанс-локально → провенанс-origin → ветка; образец 023 (iii)):
-  #   1. форма: staged-дельта пути (git diff --cached -U0) — ТОЛЬКО добавления
-  #      (N ≥ 1 +<content>, ноль -<content>);
-  #   2. грамматика каждой добавленной строки: «^[0-9]{3} → [0-9a-f]{40}$»
-  #      (NNN ровно %03d, U+2192, 40-hex = ША ОБЪЕКТА аннотированного тега);
-  #   3. реестр: NNN отсутствует в манифесте HEAD И в манифесте ЖИВОЙ шапки
-  #      origin/main (механика 023 (iii) — ls-remote шапки → fetch → cat-file);
-  #   4. провенанс-локально: тег id/CONTRACT/<NNN> жив локально (show-ref --verify),
-  #      объект — ANNOTATED TAG (`cat-file -t` == `tag`); tag-object-sha == sha строки;
-  #   5. провенанс-origin: тот же тег достижим на origin (ls-remote), sha на origin ==
-  #      sha строки; отказ сети → «авторитет недоступен» (имя ОТДЕЛЬНОЕ от «не выдан
-  #      авторитетом» — 023:289-290 дословно);
-  #   6. ветка: текущая ветка = main.
+  # суда зон, если дельта держит ОДНУ ИЗ ДВУХ ФОРМ:
+  #   ФОРМА ADD (только-добавление; ШЕСТЬ условий, как до 049):
+  #     1. форма: ТОЛЬКО добавления (N ≥ 1 +<content>, ноль -<content>);
+  #     2. грамматика каждой добавленной строки: «^[0-9]{3} → [0-9a-f]{40}$»
+  #        (NNN ровно %03d, U+2192, 40-hex = ША ОБЪЕКТА аннотированного тега);
+  #     3. реестр: NNN отсутствует в манифесте HEAD И в манифесте ЖИВОЙ шапки
+  #        origin/main (механика 023 (iii) — ls-remote шапки → fetch → cat-file);
+  #     4. провенанс-локально: тег id/CONTRACT/<NNN> жив локально (show-ref --verify),
+  #        объект — ANNOTATED TAG (`cat-file -t` == `tag`); tag-object-sha == sha строки;
+  #     5. провенанс-origin: тот же тег достижим на origin (ls-remote), sha на origin ==
+  #        sha строки; отказ сети → «авторитет недоступен» (имя ОТДЕЛЬНОЕ от «не выдан
+  #        авторитетом» — 023:289-290 дословно);
+  #     6. ветка: текущая ветка = main.
+  #   ФОРМА REPLACE (замена строки NNN на tag-object frozen-тега ТОГО ЖЕ NNN; ЧЕТЫРЕ условия):
+  #     1. форма: дельта = ровно одна -<content> и ровно одна +<content>, NNN одинаковый
+  #        у обеих; позиция строк в файле не судится (форма freeze: grep -v + дописать
+  #        в конец даёт два хунка на одном NNN — обязано проходить);
+  #     2. грамматика обеих сторон (как в ФОРМЕ ADD); новая сторона = tag-object
+  #        аннотированного refs/tags/frozen/contracts/<NNN>/<vmax> ЛОКАЛЬНО (без ls-remote
+  #        origin, §Риски 1 владелец (а)), старая сторона = tag-object id/CONTRACT/<NNN>
+  #        ИЛИ refs/tags/frozen/contracts/<NNN>/<vmax-1>; vmax — наибольшее целое среди
+  #        ЖИВЫХ ЛОКАЛЬНО тегов refs/tags/frozen/contracts/<NNN>/<v> по грамматике [0-9]+,
+  #        той же мерой, что check_zones.sh выбирает высшую заморозку; vmax-1 < 1 — ветви (б) нет;
+  #     3. провенанс обеих сторон ТОЛЬКО ЛОКАЛЬНО: show-ref --verify ∧ cat-file -t = tag ∧
+  #        tag-object-sha = sha строки; ls-remote origin форма замены НЕ зовёт — отказ сети
+  #        её не касается (§Инварианты п.3 контракта 049); условие 3 ADD-формы (NNN отсутствует
+  #        в манифесте) к замене не применяется, так как NNN по построению есть в HEAD;
+  #     4. ветка: текущая ветка = main (как ADD-форма).
+  # Любая другая дельта (удаление без замены, add≥2 del≥1, разные NNN у − и +, новая сторона
+  # вне правила, старая сторона вне правила) — отказ с прежним префиксом «дверь минта 031:»;
+  # имена новых причин — за тем же префиксом.
   # Прочие staged-пути того же коммита судятся обычным порядком (дверь — НЕ
   # индульгенция на весь коммит, инвариант 021 :337-339).
   # Дверь действительна ТОЛЬКО для автора orchestrator: implementer/прочие агенты
@@ -434,117 +451,194 @@ for f in "${staged[@]}"; do
   if [ "$author" = "orchestrator" ] && [ "$f" = "registry/contracts.tsv" ]; then
     door_rc=0
     door_msg=""
-    # 1. форма: ТОЛЬКО добавления (N ≥ 1 +<content>, ноль -<content>).
+    form_mode=""
+    # 1. форма: ТОЛЬКО-добавление (N≥1 +строка, 0 −строк) ИЛИ замена (ровно 1 −строка, ровно 1 +строка).
     diff_out="$(git -C "$ROOT" diff --cached -U0 -- registry/contracts.tsv 2>/dev/null || true)"
     hunk_body="$(printf '%s\n' "$diff_out" | awk '/^@@/ { h=1; next } /^diff / { h=0 } h')"
     add_count="$(printf '%s\n' "$hunk_body" | awk '/^\+/ { c++ } END { print c+0 }')"
     del_count="$(printf '%s\n' "$hunk_body" | awk '/^-/ { c++ } END { print c+0 }')"
-    if [ "$add_count" -lt 1 ] || [ "$del_count" -ne 0 ]; then
-      door_rc=1; door_msg="дверь минта 031: дельта манифеста не только-добавление"
-    else
-      # 2. грамматика + парсинг (NNN, sha) каждой добавленной строки.
-      # ALL-LINES predicate (контракт 031/4, механизм 1, условие 2): грамматику
-      # «^[0-9]{3} → [0-9a-f]{40}$» обязана держать КАЖДАЯ добавленная (+) содержательная
-      # строка манифеста, не только подмножество. valid_count == add_count — иначе
-      # именованный отказ «строка не по грамматике манифеста». Перечисление ведётся
-      # по hunk_body — хунк-контекстный парсер арбитража verdicts/arbitration/diff-parser-031-dver-mina.md.
-      added_lines="$(printf '%s\n' "$hunk_body" | sed -n 's/^+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
-      valid_count="$(printf '%s\n' "$added_lines" | awk 'NF { c++ } END { print c+0 }')"
-      if [ "$valid_count" -ne "$add_count" ]; then
+    if [ "$add_count" -ge 1 ] && [ "$del_count" -eq 0 ]; then
+      form_mode="add"
+    elif [ "$add_count" -eq 1 ] && [ "$del_count" -eq 1 ]; then
+      form_mode="replace"
+      # Парсим −строку и проверяем её грамматику (та же, что у +строки).
+      removed_lines="$(printf '%s\n' "$hunk_body" | sed -n 's/^-\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
+      rem_valid="$(printf '%s\n' "$removed_lines" | awk 'NF { c++ } END { print c+0 }')"
+      if [ "$rem_valid" -ne 1 ]; then
         door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"
       else
-        door_pairs="$scratch_dir/door_pairs"
-        : > "$door_pairs"
-        while IFS= read -r ln; do
-          [ -n "$ln" ] || continue
-          nnn="${ln%% *}"
-          sha_ln="${ln##* }"
-          if [ -z "$nnn" ] || [ -z "$sha_ln" ]; then
-            door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"
-          else
-            printf '%s\t%s\n' "$nnn" "$sha_ln" >> "$door_pairs"
-          fi
-        done <<< "$added_lines"
-        if [ "$door_rc" -eq 0 ]; then
-          head_manifest="$(git -C "$ROOT" cat-file -p "HEAD:registry/contracts.tsv" 2>/dev/null || true)"
-          ls_main_err="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>&1 >"$scratch_dir/ls_main031")"
-          ls_main_rc=$?
-          if [ "$ls_main_rc" -ne 0 ]; then
+        rem_nnn="$(printf '%s\n' "$removed_lines" | awk 'NR==1 { print substr($0,1,3); exit }')"
+        rem_sha="$(printf '%s\n' "$removed_lines" | awk 'NR==1 { print substr($0,length($0)-39); exit }')"
+        if [ -z "$rem_nnn" ] || [ -z "$rem_sha" ]; then
+          door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"
+        fi
+      fi
+    else
+      door_rc=1; door_msg="дверь минта 031: дельта манифеста не только-добавление"
+    fi
+    # 2. грамматика + парсинг (NNN, sha) каждой +строки (как до расширения 049).
+    # ALL-LINES predicate (контракт 031/4, механизм 1, условие 2): грамматику
+    # «^[0-9]{3} → [0-9a-f]{40}$» обязана держать КАЖДАЯ + содержательная строка манифеста.
+    added_lines="$(printf '%s\n' "$hunk_body" | sed -n 's/^+\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
+    valid_count="$(printf '%s\n' "$added_lines" | awk 'NF { c++ } END { print c+0 }')"
+    if [ "$valid_count" -ne "$add_count" ]; then
+      door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"
+    else
+      door_pairs="$scratch_dir/door_pairs"
+      : > "$door_pairs"
+      while IFS= read -r ln; do
+        [ -n "$ln" ] || continue
+        nnn="${ln%% *}"
+        sha_ln="${ln##* }"
+        if [ -z "$nnn" ] || [ -z "$sha_ln" ]; then
+          door_rc=1; door_msg="дверь минта 031: строка не по грамматике манифеста"
+        else
+          printf '%s\t%s\n' "$nnn" "$sha_ln" >> "$door_pairs"
+        fi
+      done <<< "$added_lines"
+      # NNN − и + строк формы REPLACE должны совпадать.
+      if [ "$door_rc" -eq 0 ] && [ "$form_mode" = "replace" ]; then
+        add_nnn="$(awk -F'\t' 'NR==1 { print $1; exit }' "$door_pairs")"
+        if [ "$add_nnn" != "$rem_nnn" ]; then
+          door_rc=1; door_msg="дверь минта 031: номера − и + строк разные"
+        fi
+      fi
+      if [ "$door_rc" -eq 0 ] && [ "$form_mode" = "add" ]; then
+        head_manifest="$(git -C "$ROOT" cat-file -p "HEAD:registry/contracts.tsv" 2>/dev/null || true)"
+        ls_main_err="$(git -C "$ROOT" ls-remote "origin" "refs/heads/main" 2>&1 >"$scratch_dir/ls_main031")"
+        ls_main_rc=$?
+        if [ "$ls_main_rc" -ne 0 ]; then
+          door_rc=1; door_msg="дверь минта 031: авторитет недоступен"
+        else
+          origin_main_sha="$(awk '{print $1}' "$scratch_dir/ls_main031" 2>/dev/null | head -1)"
+          if [ -z "$origin_main_sha" ]; then
             door_rc=1; door_msg="дверь минта 031: авторитет недоступен"
           else
-            origin_main_sha="$(awk '{print $1}' "$scratch_dir/ls_main031" 2>/dev/null | head -1)"
-            if [ -z "$origin_main_sha" ]; then
+            if ! git -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
               door_rc=1; door_msg="дверь минта 031: авторитет недоступен"
             else
-              if ! git -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
-                door_rc=1; door_msg="дверь минта 031: авторитет недоступен"
-              else
-                origin_manifest="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null || true)"
-                pair_fail=0
-                # 3. реестр: NNN отсутствует в HEAD и в origin/main (повторный минт запрещён).
+              origin_manifest="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null || true)"
+              pair_fail=0
+              # 3. реестр: NNN отсутствует в HEAD и в origin/main (повторный минт запрещён).
+              while IFS=$'\t' read -r nnn sha_ln; do
+                [ -n "$nnn" ] || continue
+                if [ "$pair_fail" -ne 0 ]; then break; fi
+                if printf '%s\n' "$head_manifest" | grep -qF "${nnn} → "; then
+                  door_rc=1; door_msg="дверь минта 031: номер ${nnn} уже в манифесте — повторный минт"
+                  pair_fail=1; break
+                fi
+                if printf '%s\n' "$origin_manifest" | grep -qF "${nnn} → "; then
+                  door_rc=1; door_msg="дверь минта 031: номер ${nnn} уже в манифесте — повторный минт"
+                  pair_fail=1; break
+                fi
+              done < "$door_pairs"
+              # 4. провенанс-локально: тег id/CONTRACT/<NNN> жив, ANNOTATED, sha == sha строки.
+              if [ "$pair_fail" -eq 0 ]; then
                 while IFS=$'\t' read -r nnn sha_ln; do
                   [ -n "$nnn" ] || continue
                   if [ "$pair_fail" -ne 0 ]; then break; fi
-                  if printf '%s\n' "$head_manifest" | grep -qF "${nnn} → "; then
-                    door_rc=1; door_msg="дверь минта 031: номер ${nnn} уже в манифесте — повторный минт"
+                  if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn"; then
+                    door_rc=1; door_msg="дверь минта 031: тег id/CONTRACT/$nnn не жив локально"
                     pair_fail=1; break
                   fi
-                  if printf '%s\n' "$origin_manifest" | grep -qF "${nnn} → "; then
-                    door_rc=1; door_msg="дверь минта 031: номер ${nnn} уже в манифесте — повторный минт"
+                  tag_obj_type="$(git -C "$ROOT" cat-file -t "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
+                  if [ "$tag_obj_type" != "tag" ]; then
+                    door_rc=1; door_msg="дверь минта 031: тег id/CONTRACT/$nnn не аннотированный"
+                    pair_fail=1; break
+                  fi
+                  tag_obj_sha="$(git -C "$ROOT" rev-parse "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
+                  if [ "$tag_obj_sha" != "$sha_ln" ]; then
+                    door_rc=1; door_msg="дверь минта 031: sha строки ≠ tag-object-sha живого тега"
                     pair_fail=1; break
                   fi
                 done < "$door_pairs"
-                # 4. провенанс-локально: тег жив, ANNOTATED, sha == sha строки.
-                if [ "$pair_fail" -eq 0 ]; then
-                  while IFS=$'\t' read -r nnn sha_ln; do
-                    [ -n "$nnn" ] || continue
-                    if [ "$pair_fail" -ne 0 ]; then break; fi
-                    if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn"; then
-                      door_rc=1; door_msg="дверь минта 031: тег id/CONTRACT/$nnn не жив локально"
-                      pair_fail=1; break
-                    fi
-                    tag_obj_type="$(git -C "$ROOT" cat-file -t "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
-                    if [ "$tag_obj_type" != "tag" ]; then
-                      door_rc=1; door_msg="дверь минта 031: тег id/CONTRACT/$nnn не аннотированный"
-                      pair_fail=1; break
-                    fi
-                    tag_obj_sha="$(git -C "$ROOT" rev-parse "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
-                    if [ "$tag_obj_sha" != "$sha_ln" ]; then
-                      door_rc=1; door_msg="дверь минта 031: sha строки ≠ tag-object-sha живого тега"
-                      pair_fail=1; break
-                    fi
-                  done < "$door_pairs"
-                fi
-                # 5. провенанс-origin: тег достижим, sha на origin == sha строки.
-                if [ "$pair_fail" -eq 0 ]; then
-                  while IFS=$'\t' read -r nnn sha_ln; do
-                    [ -n "$nnn" ] || continue
-                    if [ "$pair_fail" -ne 0 ]; then break; fi
-                    ls_err="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn" 2>&1 >"$scratch_dir/ls_tag031")"
-                    ls_rc=$?
-                    if [ "$ls_rc" -ne 0 ]; then
-                      door_rc=1; door_msg="дверь минта 031: авторитет недоступен"
-                      pair_fail=1; break
-                    fi
-                    sha_origin="$(awk '{print $1}' "$scratch_dir/ls_tag031" 2>/dev/null | head -1)"
-                    if [ -z "$sha_origin" ]; then
-                      door_rc=1; door_msg="дверь минта 031: тег ${nnn} не выдан авторитетом: тег не достижим на origin"
-                      pair_fail=1; break
-                    fi
-                    if [ "$sha_origin" != "$sha_ln" ]; then
-                      door_rc=1; door_msg="дверь минта 031: sha тега на origin ≠ sha строки (дрейф авторитета)"
-                      pair_fail=1; break
-                    fi
-                  done < "$door_pairs"
-                fi
-                # 6. ветка = main.
-                if [ "$pair_fail" -eq 0 ]; then
-                  current_branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
-                  if [ "$current_branch" != "main" ]; then
-                    door_rc=1; door_msg="дверь минта 031: дверь не на main"
+              fi
+              # 5. провенанс-origin: тег достижим, sha на origin == sha строки.
+              if [ "$pair_fail" -eq 0 ]; then
+                while IFS=$'\t' read -r nnn sha_ln; do
+                  [ -n "$nnn" ] || continue
+                  if [ "$pair_fail" -ne 0 ]; then break; fi
+                  ls_err="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$nnn" 2>&1 >"$scratch_dir/ls_tag031")"
+                  ls_rc=$?
+                  if [ "$ls_rc" -ne 0 ]; then
+                    door_rc=1; door_msg="дверь минта 031: авторитет недоступен"
+                    pair_fail=1; break
                   fi
+                  sha_origin="$(awk '{print $1}' "$scratch_dir/ls_tag031" 2>/dev/null | head -1)"
+                  if [ -z "$sha_origin" ]; then
+                    door_rc=1; door_msg="дверь минта 031: тег ${nnn} не выдан авторитетом: тег не достижим на origin"
+                    pair_fail=1; break
+                  fi
+                  if [ "$sha_origin" != "$sha_ln" ]; then
+                    door_rc=1; door_msg="дверь минта 031: sha тега на origin ≠ sha строки (дрейф авторитета)"
+                    pair_fail=1; break
+                  fi
+                done < "$door_pairs"
+              fi
+              # 6. ветка = main.
+              if [ "$pair_fail" -eq 0 ]; then
+                current_branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+                if [ "$current_branch" != "main" ]; then
+                  door_rc=1; door_msg="дверь минта 031: дверь не на main"
                 fi
               fi
+            fi
+          fi
+        fi
+      fi
+      # ФОРМА REPLACE: 1− 1+ с тем же NNN. Только локальный провенанс; vmax — наибольшее
+      # целое среди ЖИВЫХ ЛОКАЛЬНО тегов refs/tags/frozen/contracts/<NNN>/<v> (грамматика [0-9]+).
+      if [ "$door_rc" -eq 0 ] && [ "$form_mode" = "replace" ]; then
+        add_nnn="$(awk -F'\t' 'NR==1 { print $1; exit }' "$door_pairs")"
+        add_sha="$(awk -F'\t' 'NR==1 { print $2; exit }' "$door_pairs")"
+        vmax="$(git -C "$ROOT" for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$add_nnn/" 2>/dev/null \
+                | awk -F/ '{ v=$NF; if (v ~ /^[0-9]+$/) print v }' \
+                | sort -n | tail -1)"
+        if [ -z "$vmax" ]; then
+          door_rc=1; door_msg="дверь минта 031: дельта манифеста не только-добавление (нет frozen-тегов для замены)"
+        else
+          ref_new="refs/tags/frozen/contracts/$add_nnn/$vmax"
+          if ! git -C "$ROOT" show-ref --verify --quiet "$ref_new"; then
+            door_rc=1; door_msg="дверь минта 031: тег frozen/contracts/$add_nnn/$vmax не жив локально"
+          else
+            new_tag_type="$(git -C "$ROOT" cat-file -t "$ref_new" 2>/dev/null || true)"
+            if [ "$new_tag_type" != "tag" ]; then
+              door_rc=1; door_msg="дверь минта 031: тег frozen/contracts/$add_nnn/$vmax не аннотированный"
+            else
+              new_tag_sha="$(git -C "$ROOT" rev-parse "$ref_new" 2>/dev/null || true)"
+              if [ "$new_tag_sha" != "$add_sha" ]; then
+                door_rc=1; door_msg="дверь минта 031: sha новой строки ≠ tag-object-sha frozen/contracts/$add_nnn/$vmax"
+              else
+                # Старая сторона: tag-object id/CONTRACT/<NNN> ИЛИ frozen/contracts/<NNN>/<vmax-1>.
+                old_ok=0
+                ref_mint="refs/tags/id/CONTRACT/$add_nnn"
+                if git -C "$ROOT" show-ref --verify --quiet "$ref_mint" \
+                   && [ "$(git -C "$ROOT" cat-file -t "$ref_mint" 2>/dev/null || true)" = "tag" ] \
+                   && [ "$(git -C "$ROOT" rev-parse "$ref_mint" 2>/dev/null || true)" = "$rem_sha" ]; then
+                  old_ok=1
+                fi
+                if [ "$old_ok" -eq 0 ]; then
+                  vmax_prev=$((vmax - 1))
+                  if [ "$vmax_prev" -ge 1 ]; then
+                    ref_prev="refs/tags/frozen/contracts/$add_nnn/$vmax_prev"
+                    if git -C "$ROOT" show-ref --verify --quiet "$ref_prev" \
+                       && [ "$(git -C "$ROOT" cat-file -t "$ref_prev" 2>/dev/null || true)" = "tag" ] \
+                       && [ "$(git -C "$ROOT" rev-parse "$ref_prev" 2>/dev/null || true)" = "$rem_sha" ]; then
+                      old_ok=1
+                    fi
+                  fi
+                fi
+                if [ "$old_ok" -eq 0 ]; then
+                  door_rc=1; door_msg="дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$((vmax-1))"
+                fi
+              fi
+            fi
+          fi
+          # 4. ветка = main (REPLACE-форма тоже — §Инварианты п.3 контракта 049).
+          if [ "$door_rc" -eq 0 ]; then
+            current_branch="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo detached)"
+            if [ "$current_branch" != "main" ]; then
+              door_rc=1; door_msg="дверь минта 031: дверь не на main"
             fi
           fi
         fi
