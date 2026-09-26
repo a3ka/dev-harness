@@ -253,7 +253,7 @@ frozen-блоба» в roles/orchestrator.md) — этот инцидент по
 нужно применять и к ЗАДАНИЯМ implementer-фиксов, не только к спавну
 architect/implementer-пачек контракта.
 
-### Н-149. `scripts/check_zones.sh:846-888` несёт ТУ ЖЕ функцию-брата `priznanie_chernovika_7b` (И-3 признание, контракт 023) с ТЕМИ ЖЕ тремя дефектами, что нашёл и закрыл адверсарий в `scripts/check_no_leak.sh` (Б7б, contracts-044-v1) — грамматика «первые три цифры» шире `contracts/<M>-*` (нет проверки дефиса), пост-freeze защита только в одной руке, голый `awk`/`sort` без пина `ЗАКРЫТО (контракт 047, done/contracts/047/1): байт-4-дефис + симметрия рук А/Б + pin awk/sort применены к scripts/check_zones.sh, verify_antiplacebo --scope check_zones 38/38 (SSH-клон, ревьюер круг 2, `4cd08e2`)`
+### Н-149. `scripts/check_zones.sh:846-888` несёт ТУ ЖЕ функцию-брата `priznanie_chernovika_7b` (И-3 признание, контракт 023) с ТЕМИ ЖЕ тремя дефектами, что нашёл и закрыл адверсарий в `scripts/check_no_leak.sh` (Б7б, contracts-044-v1) — грамматика «первые три цифры» шире `contracts/<M>-*` (нет проверки дефиса), пост-freeze защита только в одной руке, голый `awk`/`sort` без пина `ЗАКРЫТО (контракт 047, done/contracts/047/1): байт-4-дефис применён к scripts/check_zones.sh (+ клетка на unicode-гомоглиф); симметрия рук А/Б ОТВЕРГНУТА измерением (047 §В-4) — асимметрия оставлена нормой решением владельца (047 §Риски 1); pin awk/sort неприменим — check_zones.sh уже герметизирован (env -i, контракт 046); verify_antiplacebo --scope check_zones 38/38 (SSH-клон, ревьюер круг 2, `4cd08e2`)`
 
 **Что произошло:** `Impl044Б7бFix` (implementer, фикс блокера Б7б контракта 044)
 чинил `priznanie_chernovika_7b` в `check_no_leak.sh` и попутно, вне своей зоны,
