@@ -908,13 +908,28 @@ while IFS=$'\t' read -r nnn since; do
             ;;
         esac
       fi
-      # ── минт-признание (контракт 031, ветвь ii): путь registry/contracts.tsv под
-      # автором orchestrator исключается ИЗ ЭТОГО ПУТИ ⟺ дельта коммита по этому
-      # пути — только-добавление строк грамматики манифеста ∧ для каждой строки тег
-      # id/CONTRACT/<NNN> жив локально ∧ tag-object-sha == sha строки. Провенанс на
-      # origin НЕ перепроверяется (дверь 031 (i) решила его на входе, прецедент 023
-      # (iv)). Fail-closed: чтение локального реестра — тег, удалённый к моменту
-      # аудита, красит признание; лечение восстановлением тега, не ослаблением.
+      # ── минт-признание (контракт 031, ветвь ii, расширено 049): путь
+      # registry/contracts.tsv под автором orchestrator исключается ИЗ ЭТОГО ПУТИ,
+      # если дельта держит ОДНУ ИЗ ДВУХ ФОРМ:
+      #   ФОРМА ADD (только-добавление, как до 049): дельта коммита по этому пути —
+      #     только-добавление строк грамматики манифеста ∧ для каждой строки тег
+      #     id/CONTRACT/<NNN> жив локально ∧ tag-object-sha == sha строки.
+      #   ФОРМА REPLACE (замена строки NNN на tag-object frozen-тега ТОГО ЖЕ NNN,
+      #   контракт 049 §Инварианты п.1-3): дельта = ровно одна -<content> и ровно
+      #     одна +<content>, NNN одинаковый у обеих; новая сторона = tag-object
+      #     аннотированного refs/tags/frozen/contracts/<NNN>/<vmax>; старая сторона =
+      #     tag-object id/CONTRACT/<NNN> ИЛИ refs/tags/frozen/contracts/<NNN>/<vmax-1>;
+      #     vmax — наибольшее целое среди frozen-тегов того же NNN, чей коммит
+      #     (`<тег>^{commit}`) — ПРЕДОК судимого коммита C (`merge-base --is-ancestor`),
+      #     §Инварианты п.1 контракта 049; vmax-1 < 1 — ветви (б) нет. Провенанс обеих
+      #     сторон ТОЛЬКО ЛОКАЛЬНО: show-ref --verify ∧ cat-file -t = tag ∧ tag-object-sha
+      #     == sha строки; ls-remote origin форма замены НЕ зовёт — отказ сети её не касается.
+      #     Условие ADD-формы (NNN отсутствует в манифесте) к замене не применяется, так
+      #     как NNN по построению есть в манифесте HEAD (в check_zones — в родителе судимого
+      #     коммита).
+      # Провенанс на origin НЕ перепроверяется (дверь 031 (i) решила его на входе,
+      # прецедент 023 (iv)). Fail-closed: чтение локального реестра — тег, удалённый к
+      # моменту аудита, красит признание; лечение восстановлением тега, не ослаблением.
       if [ "$an" = "orchestrator" ] && [ "$f" = "registry/contracts.tsv" ]; then
         # Дельта коммита по этому пути vs родитель.
         if g rev-parse --verify --quiet "${c}^" >/dev/null 2>&1; then
@@ -926,7 +941,25 @@ while IFS=$'\t' read -r nnn since; do
         hunk_body="$(printf '%s\n' "$mint_diff" | awk '/^@@/ { h=1; next } /^diff / { h=0 } h')"
         mint_add="$(printf '%s\n' "$hunk_body" | awk '/^\+/ { c++ } END { print c+0 }')"
         mint_del="$(printf '%s\n' "$hunk_body" | awk '/^-/ { c++ } END { print c+0 }')"
-        if [ "$mint_add" -lt 1 ] || [ "$mint_del" -ne 0 ]; then
+        # 1. форма: ТОЛЬКО-добавление (N≥1 +строка, 0 −строк) ИЛИ замена (1 −строка, 1 +строка).
+        form_mode=""
+        if [ "$mint_add" -ge 1 ] && [ "$mint_del" -eq 0 ]; then
+          form_mode="add"
+        elif [ "$mint_add" -eq 1 ] && [ "$mint_del" -eq 1 ]; then
+          form_mode="replace"
+          removed_lines="$(printf '%s\n' "$hunk_body" | sed -n 's/^-\([0-9]\{3\} \xe2\x86\x92 [0-9a-f]\{40\}\)$/\1/p')"
+          rem_valid="$(printf '%s\n' "$removed_lines" | awk 'NF { c++ } END { print c+0 }')"
+          if [ "$rem_valid" -ne 1 ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
+            continue
+          fi
+          rem_nnn="$(printf '%s\n' "$removed_lines" | awk 'NR==1 { print substr($0,1,3); exit }')"
+          rem_sha="$(printf '%s\n' "$removed_lines" | awk 'NR==1 { print substr($0,length($0)-39); exit }')"
+          if [ -z "$rem_nnn" ] || [ -z "$rem_sha" ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
+            continue
+          fi
+        else
           bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: дельта манифеста не только-добавление"
           continue
         fi
@@ -942,38 +975,108 @@ while IFS=$'\t' read -r nnn since; do
           bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
           continue
         fi
-        # Проверка каждой строки: тег жив ∧ ANNOTATED ∧ tag-object-sha == sha строки.
-        mint_fail=0
-        while IFS= read -r ln; do
-          [ -n "$ln" ] || continue
-          if [ "$mint_fail" -ne 0 ]; then break; fi
-          nnn="${ln%% *}"
-          sha_ln="${ln##* }"
-          if [ -z "$nnn" ] || [ -z "$sha_ln" ]; then
-            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
-            mint_fail=1; break
+        # Для формы REPLACE: NNN − и + строк должны совпадать.
+        if [ "$form_mode" = "replace" ]; then
+          add_nnn="$(printf '%s\n' "$added_lines" | awk 'NR==1 { print substr($0,1,3); exit }')"
+          if [ "$add_nnn" != "$rem_nnn" ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: номера − и + строк разные"
+            continue
           fi
-          if ! g show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn"; then
-            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: тег id/CONTRACT/$nnn не жив локально"
-            mint_fail=1; break
-          fi
-          tag_type="$(g cat-file -t "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
-          if [ "$tag_type" != "tag" ]; then
-            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: тег id/CONTRACT/$nnn не аннотированный"
-            mint_fail=1; break
-          fi
-          tag_sha="$(g rev-parse "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
-          if [ "$tag_sha" != "$sha_ln" ]; then
-            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha строки ≠ tag-object-sha живого тега"
-            mint_fail=1; break
-          fi
-        done <<< "$added_lines"
-        if [ "$mint_fail" -eq 0 ]; then
-          # Признание прошло — путь исключается ИЗ ЭТОГО ПУТИ (не из коммита).
-          skip_path=1
-        else
-          continue
         fi
+        # ФОРМА ADD: проверка id/CONTRACT/<NNN> жив ∧ ANNOTATED ∧ tag-object-sha == sha строки.
+        # (прежнее поведение check_zones 031 (ii), сохранено дословно).
+        if [ "$form_mode" = "add" ]; then
+          mint_fail=0
+          while IFS= read -r ln; do
+            [ -n "$ln" ] || continue
+            if [ "$mint_fail" -ne 0 ]; then break; fi
+            nnn="${ln%% *}"
+            sha_ln="${ln##* }"
+            if [ -z "$nnn" ] || [ -z "$sha_ln" ]; then
+              bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: строка не по грамматике манифеста"
+              mint_fail=1; break
+            fi
+            if ! g show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn"; then
+              bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: тег id/CONTRACT/$nnn не жив локально"
+              mint_fail=1; break
+            fi
+            tag_type="$(g cat-file -t "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
+            if [ "$tag_type" != "tag" ]; then
+              bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: тег id/CONTRACT/$nnn не аннотированный"
+              mint_fail=1; break
+            fi
+            tag_sha="$(g rev-parse "refs/tags/id/CONTRACT/$nnn" 2>/dev/null || true)"
+            if [ "$tag_sha" != "$sha_ln" ]; then
+              bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha строки ≠ tag-object-sha живого тега"
+              mint_fail=1; break
+            fi
+          done <<< "$added_lines"
+          if [ "$mint_fail" -ne 0 ]; then
+            continue
+          fi
+        else
+          # ФОРМА REPLACE: vmax = max v среди frozen/contracts/<NNN>/<v>, чей^{commit} — предок C.
+          # Новая сторона = tag-object frozen/contracts/<NNN>/<vmax> (locally alive, ANNOTATED).
+          # Старая сторона = tag-object id/CONTRACT/<NNN> ИЛИ frozen/contracts/<NNN>/<vmax-1>.
+          # Провенанс ТОЛЬКО ЛОКАЛЬНО; ls-remote origin форма замены НЕ зовёт (§Инварианты п.3).
+          vmax=0
+          while IFS= read -r ref; do
+            [ -n "$ref" ] || continue
+            v="${ref##*/}"
+            case "$v" in
+              *[!0-9]*) continue ;;  # отбрасываем не-числовые версии (грамматика [0-9]+)
+            esac
+            tag_commit="$(g rev-parse --verify --quiet "${ref}^{commit}" 2>/dev/null || true)"
+            if [ -z "$tag_commit" ]; then continue; fi
+            if g merge-base --is-ancestor "$tag_commit" "$c" 2>/dev/null; then
+              if [ "$v" -gt "$vmax" ] 2>/dev/null; then vmax="$v"; fi
+            fi
+          done < <(g for-each-ref --format='%(refname)' "refs/tags/frozen/contracts/$add_nnn/" 2>/dev/null)
+          if [ "$vmax" -eq 0 ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: дельта манифеста не только-добавление (нет frozen-тегов для замены)"
+            continue
+          fi
+          add_sha="$(printf '%s\n' "$added_lines" | awk 'NR==1 { print substr($0,length($0)-39); exit }')"
+          # 2'. Новая сторона.
+          ref_new="refs/tags/frozen/contracts/$add_nnn/$vmax"
+          if ! g show-ref --verify --quiet "$ref_new"; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: тег frozen/contracts/$add_nnn/$vmax не жив локально"
+            continue
+          fi
+          new_tag_type="$(g cat-file -t "$ref_new" 2>/dev/null || true)"
+          if [ "$new_tag_type" != "tag" ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: тег frozen/contracts/$add_nnn/$vmax не аннотированный"
+            continue
+          fi
+          new_tag_sha="$(g rev-parse "$ref_new" 2>/dev/null || true)"
+          if [ "$new_tag_sha" != "$add_sha" ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha новой строки ≠ tag-object-sha frozen/contracts/$add_nnn/$vmax"
+            continue
+          fi
+          # 3'. Старая сторона: id/CONTRACT/<NNN> ИЛИ frozen/contracts/<NNN>/<vmax-1>.
+          old_ok=0
+          ref_mint="refs/tags/id/CONTRACT/$add_nnn"
+          if g show-ref --verify --quiet "$ref_mint"              && [ "$(g cat-file -t "$ref_mint" 2>/dev/null || true)" = "tag" ]              && [ "$(g rev-parse "$ref_mint" 2>/dev/null || true)" = "$rem_sha" ]; then
+            old_ok=1
+          fi
+          if [ "$old_ok" -eq 0 ]; then
+            vmax_prev=$((vmax - 1))
+            if [ "$vmax_prev" -ge 1 ]; then
+              ref_prev="refs/tags/frozen/contracts/$add_nnn/$vmax_prev"
+              # Применим ancestor-меру и к vmax-1 (он тоже должен быть предком C).
+              tag_commit_prev="$(g rev-parse --verify --quiet "${ref_prev}^{commit}" 2>/dev/null || true)"
+              if [ -n "$tag_commit_prev" ]                  && g merge-base --is-ancestor "$tag_commit_prev" "$c" 2>/dev/null                  && g show-ref --verify --quiet "$ref_prev"                  && [ "$(g cat-file -t "$ref_prev" 2>/dev/null || true)" = "tag" ]                  && [ "$(g rev-parse "$ref_prev" 2>/dev/null || true)" = "$rem_sha" ]; then
+                old_ok=1
+              fi
+            fi
+          fi
+          if [ "$old_ok" -eq 0 ]; then
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$((vmax-1))"
+            continue
+          fi
+        fi
+        # Признание прошло — путь исключается ИЗ ЭТОГО ПУТИ (не из коммита).
+        skip_path=1
       fi
       if [ -n "$skip_path" ]; then
         continue
