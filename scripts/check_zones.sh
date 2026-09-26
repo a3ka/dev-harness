@@ -1134,7 +1134,7 @@ while IFS=$'\t' read -r nnn since; do
             fi
           fi
           if [ "$old_ok" -eq 0 ]; then
-            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$((vmax-1))"
+            bad "коммит вне зоны: $an ${c:0:8} $f — дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$vmax_prev"
             continue
           fi
           fi  # закрывает if [ "$on_main_replace" -eq 0 ]; then … else … (Блокер B)

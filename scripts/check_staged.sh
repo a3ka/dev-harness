@@ -654,7 +654,7 @@ for f in "${staged[@]}"; do
                   fi
                 fi
                 if [ "$old_ok" -eq 0 ]; then
-                  door_rc=1; door_msg="дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$((vmax-1))"
+                  door_rc=1; door_msg="дверь минта 031: sha старой строки ≠ ни tag-object id/CONTRACT/$add_nnn, ни tag-object frozen/contracts/$add_nnn/$vmax_prev"
                 fi
               fi
             fi
