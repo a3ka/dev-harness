@@ -43,17 +43,17 @@ tools:
 
 # ── modelRoles: СГЕНЕРИРОВАНО из config/agent_models.json — правь только там ──
 modelRoles:
-  default: "zai/glm-5.3"  # фолбек (декларация Н-50): anthropic/claude-sonnet-5
+  default: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5
   vision: "minimax/MiniMax-M3"
-  task: "minimax/MiniMax-M3"  # фолбек (декларация Н-50): anthropic/claude-sonnet-5
+  task: "minimax/MiniMax-M3"  # фолбек: anthropic/claude-sonnet-5
   smol: "minimax/MiniMax-M2.5-lightning"
-  slow: "zai/glm-5.3"  # фолбек (декларация Н-50): anthropic/claude-opus-5-5
-  advisor: "openai-codex/gpt-5.6-terra"  # фолбек (декларация Н-50): anthropic/claude-opus-5-5
-  apex: "openai-codex/gpt-6-astra"  # фолбек (декларация Н-50): anthropic/claude-opus-5-5
-  audit: "anthropic/claude-opus-5-5"  # фолбек (декларация Н-50): openai-codex/gpt-5.6-sol
-  plan: "anthropic/claude-fable-5"  # фолбек (декларация Н-50): anthropic/claude-opus-5-5
-  consultant: "openai-codex/gpt-6-astra"  # фолбек (декларация Н-50): anthropic/claude-opus-5-5
-  steward: "anthropic/claude-haiku-4-5"  # фолбек (декларация Н-50): openai-codex/gpt-5.6-luna
+  slow: "zai/glm-5.3"  # фолбек: anthropic/claude-opus-5-5
+  advisor: "openai-codex/gpt-5.6-terra"  # фолбек: anthropic/claude-opus-5-5
+  apex: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-opus-5-5
+  audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
+  plan: "anthropic/claude-fable-5-1"  # фолбек: anthropic/claude-opus-5-5
+  consultant: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-opus-5-5
+  steward: "anthropic/claude-haiku-4-5"  # фолбек: openai-codex/gpt-6-luna
 # ── /modelRoles ──
 
 # ── Изоляция спавна субагентов (решение владельца 2026-08-26, шаг А контракта 012) ─
@@ -69,10 +69,12 @@ task:
 retry:
   modelFallback: true
   fallbackRevertPolicy: cooldown-expiry
+  # ── fallbackChains: СГЕНЕРИРОВАНО из config/agent_models.json (fallback + autoFallback) — правь только там ──
   fallbackChains:
     default: ["anthropic/claude-sonnet-5"]
-    slow: ["anthropic/claude-opus-5-5"]
     task: ["anthropic/claude-sonnet-5"]
+    slow: ["anthropic/claude-opus-5-5"]
     advisor: ["anthropic/claude-opus-5-5"]
     apex: ["anthropic/claude-opus-5-5"]
     plan: ["anthropic/claude-opus-5-5"]
+  # ── /fallbackChains ──

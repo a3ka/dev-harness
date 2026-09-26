@@ -26,12 +26,15 @@
  *   node scripts/gen-harness.ts --check             — сравнить, упасть при расхождении
  *   node scripts/gen-harness.ts --into <каталог>    — положить роли в указанный каталог
  *   node scripts/gen-harness.ts --into <каталог> --check
+ *   node scripts/gen-harness.ts --resolve-overlay <оверлей.yml>
+ *                                                   — напечатать оверлей моделей с `@семейство`,
+ *                                                     развёрнутыми в id из config/agent_models.json
  *
  * Коды возврата: 0 — совпало либо записано, 1 — расхождение, 2 — нечем проверить.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadRoles, RoleParseError, agentModels, type AgentModels, type Role } from './roles.ts'
+import { loadRoles, RoleParseError, agentModels, resolveModelRef, type AgentModels, type Role } from './roles.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const ROLES_DIR = join(ROOT, 'roles')
@@ -113,6 +116,30 @@ if (promptAt >= 0) {
   process.exit(0)
 }
 
+// `--resolve-overlay <файл>` печатает оверлей моделей (`config/models-*.yml`) с каждой
+// ссылкой `"@семейство"` в строках-значениях, развёрнутой в id из секции `models` реестра;
+// строки-комментарии (`#`) идут как есть. Лаунчер отдаёт omp РАЗВЁРНУТУЮ копию: omp про
+// семейства не знает. Здесь, а не в bash: разбор ссылки один (`resolveModelRef`), второй
+// разошёлся бы молча. Неизвестное семейство — отказ rc 1.
+const resolveAt = args.indexOf('--resolve-overlay')
+if (resolveAt >= 0) {
+  const file = args[resolveAt + 1]
+  if (!file || file.startsWith('--')) { console.error('нужен путь: --resolve-overlay <оверлей.yml>'); process.exit(2) }
+  if (!existsSync(file)) { console.error(`FAIL оверлея нет: ${file}`); process.exit(1) }
+  const am = agentModels()
+  if (am === null) { console.error('NOT_IMPLEMENTED: нет config/agent_models.json — семейства разворачивать нечем'); process.exit(2) }
+  try {
+    const out = readFileSync(file, 'utf8').split('\n').map((line) => /^\s*#/.test(line)
+      ? line
+      : line.replace(/"(@[A-Za-z0-9_.-]+)"/g, (_m, ref: string) => `"${resolveModelRef(am, ref, file)}"`)).join('\n')
+    process.stdout.write(out)
+  } catch (e) {
+    if (e instanceof RoleParseError) { console.error(`FAIL ${e.message}`); process.exit(1) }
+    throw e
+  }
+  process.exit(0)
+}
+
 const target = INTO ?? join(ROOT, '.omp', 'agents')
 const drift: string[] = []
 let written = 0
@@ -172,11 +199,32 @@ const renderModelRoles = (am: AgentModels): string =>
   [
     MR_BEGIN,
     'modelRoles:',
-    ...Object.entries(am.tiers).map(([tier, spec]) =>
-      spec.fallback
-        ? `  ${tier}: "${spec.model}"  # фолбек (декларация Н-50): ${spec.fallback}`
-        : `  ${tier}: "${spec.model}"`),
+    ...Object.entries(am.tiers).map(([tier, spec]) => {
+      const model = resolveModelRef(am, spec.model, `tiers.${tier}.model`)
+      return spec.fallback
+        ? `  ${tier}: "${model}"  # фолбек: ${resolveModelRef(am, spec.fallback, `tiers.${tier}.fallback`)}`
+        : `  ${tier}: "${model}"`
+    }),
     MR_END,
+  ].join('\n')
+
+// ── retry.fallbackChains — ЖИВЫЕ цепочки подмены omp (`retry.modelFallback: true`) ────
+// Производная полей `fallback` + `autoFallback: true` реестра: тир без флага остаётся на
+// ручной подмене (Н-50; консультант — «не молчаливая подмена», roles/consultant.md). До
+// 2026-09-26 секция правилась руками и разошлась бы с реестром при первой же смене версии:
+// замер — opus-5 → 5-5 потребовал ручной правки ровно здесь, генератор её не видел.
+// Маркеры — комментарии ВНУТРИ блока `retry:` (отступ 2): YAML их игнорирует,
+// остальной `retry:` не трогается.
+const FC_BEGIN = '  # ── fallbackChains: СГЕНЕРИРОВАНО из config/agent_models.json (fallback + autoFallback) — правь только там ──'
+const FC_END = '  # ── /fallbackChains ──'
+const renderFallbackChains = (am: AgentModels): string =>
+  [
+    FC_BEGIN,
+    '  fallbackChains:',
+    ...Object.entries(am.tiers)
+      .filter(([, spec]) => spec.fallback !== null && spec.autoFallback === true)
+      .map(([tier, spec]) => `    ${tier}: ["${resolveModelRef(am, spec.fallback as string, `tiers.${tier}.fallback`)}"]`),
+    FC_END,
   ].join('\n')
 
 if (!INTO) {
@@ -218,11 +266,25 @@ if (!INTO) {
       const end = cut < 0 ? cfg.length : head2 + cut
       updated = cfg.slice(0, head2) + renderModelRoles(am) + '\n\n' + cfg.slice(end)
     }
+    // fallbackChains — поверх уже развёрнутой секции modelRoles, дрейф судится ОТДЕЛЬНО:
+    // имя секции в отказе говорит, какую производную чинить.
+    let withChains = updated
+    if (updated.includes(FC_BEGIN)) {
+      const middle = '[\\s\\S]*?'   // конкатенацией, не template literal (Н-110, см. выше)
+      withChains = updated.replace(new RegExp(escapeRe(FC_BEGIN) + middle + escapeRe(FC_END)), renderFallbackChains(am))
+    } else {
+      // первый переход на генерацию: ручной блок `  fallbackChains:` внутри `retry:` со
+      // строками отступа 4 заменяется целиком
+      const manual = /^ {2}fallbackChains:\n(?: {4}.*\n)*/m
+      if (!manual.test(updated)) { console.error('FAIL в .omp/config.yml нет ни маркеров fallbackChains, ни ручного блока retry.fallbackChains'); process.exit(1) }
+      withChains = updated.replace(manual, renderFallbackChains(am) + '\n')
+    }
     if (CHECK) {
       if (cfg !== updated) drift.push('modelRoles в .omp/config.yml расходится с config/agent_models.json')
-    } else if (cfg !== updated) {
-      writeFileSync(cfgPath, updated)
-      console.log('modelRoles: .omp/config.yml перегенерирован из config/agent_models.json')
+      if (updated !== withChains) drift.push('retry.fallbackChains в .omp/config.yml расходится с config/agent_models.json')
+    } else if (cfg !== withChains) {
+      writeFileSync(cfgPath, withChains)
+      console.log('modelRoles/fallbackChains: .omp/config.yml перегенерирован из config/agent_models.json')
     }
   }
 }

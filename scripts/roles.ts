@@ -31,15 +31,39 @@ export interface Role {
 }
 /** Роль → роль модели omp. Единственный источник назначений — `config/agent_models.json`
  * (решение владельца 2026-09-12: правка моделей = правка одного файла; производные —
- * `.omp/agents/*.md` и секция `modelRoles` в `.omp/config.yml` — генерируются и
- * сверяются). Таблица ниже ВЫВОДИТСЯ из его секции `roles`; основания (why) — там же. */
-export interface TierSpec { readonly model: string; readonly fallback: string | null; readonly why: string }
+ * `.omp/agents/*.md`, секции `modelRoles` и `retry.fallbackChains` в `.omp/config.yml` —
+ * генерируются и сверяются). Таблица ниже ВЫВОДИТСЯ из его секции `roles`; основания (why) — там же.
+ *
+ * СЕМЕЙСТВА (`models`, слово владельца 2026-09-26): «семейство → последняя версия», например
+ * `"opus": "anthropic/claude-opus-5-5"`. Тиры и оверлеи ссылаются на семейство `@opus`, и смена
+ * версии — ОДНА строка в `models`. Литеральный id по-прежнему законен (фикстуры, разовые пробы). */
+export interface TierSpec {
+  readonly model: string
+  readonly fallback: string | null
+  /** true — фолбек ещё и ЖИВАЯ цепочка подмены omp (`retry.fallbackChains`); иначе подмена ручная (Н-50). */
+  readonly autoFallback?: boolean
+  readonly why: string
+}
 export interface AgentModels {
+  readonly models?: Record<string, string>
   readonly tiers: Record<string, TierSpec>
   readonly roles: Record<string, string>
 }
 
 export class RoleParseError extends Error {}
+
+/** `@семейство` → id из секции `models`; литерал — как есть. ЕДИНСТВЕННЫЙ разбор ссылки:
+ *  генератор и лаунчер (через `gen-harness.ts --resolve-overlay`) зовут его, а не копию. */
+export function resolveModelRef(am: AgentModels, ref: string, where: string): string {
+  if (!ref.startsWith('@')) return ref
+  const name = ref.slice(1)
+  const id = am.models?.[name]
+  if (id === undefined) {
+    const known = Object.keys(am.models ?? {}).map((k) => `@${k}`).join(', ') || 'секции models нет'
+    throw new RoleParseError(`неизвестное семейство «${ref}» в ${where}; объявлены: ${known}`)
+  }
+  return id
+}
 
 /** Таблица моделей — ЛЕНИВО и терпимо к отсутствию файла. Фикстуры анти-плацебо собирают
  * ЧАСТИЧНЫЕ деревья (ровно то, что судит их предмет), и чтение на уровне импорта валило
@@ -55,6 +79,10 @@ export function agentModels(): AgentModels | null {
   const am = JSON.parse(readFileSync(p, 'utf8')) as AgentModels
   for (const t of Object.values(am.roles)) {
     if (!am.tiers[t]) throw new RoleParseError(`тир «${t}» присвоен роли, но в config/agent_models.json его нет`)
+  }
+  for (const [t, spec] of Object.entries(am.tiers)) {
+    resolveModelRef(am, spec.model, `tiers.${t}.model`)
+    if (spec.fallback !== null) resolveModelRef(am, spec.fallback, `tiers.${t}.fallback`)
   }
   modelsCache = am
   return modelsCache

@@ -450,10 +450,22 @@ fi
 # ── оверлей моделей ──────────────────────────────────────────────────────────
 # Смена модели живой сессии — не правка конфига, а ЯВНЫЙ флаг запуска. Так видно в баннере,
 # на чём идёт сессия, и так же выясняется, чем она отличалась, когда результат разошёлся.
+#
+# Оверлей ссылается на СЕМЕЙСТВА (`slow: "@opus"`), а версия живёт одной строкой в
+# config/agent_models.json (секция models, слово владельца 2026-09-26). omp про семейства
+# не знает, поэтому ему отдаётся РАЗВЁРНУТАЯ копия в зоне сессии; разворачивает генератор
+# (`--resolve-overlay`) — разбор ссылки один на репозиторий. Литеральный id проходит как есть.
 OVERLAY=()
+MODELS_SRC=""
 if [ -n "$MODELS" ]; then
   [ -f "$MODELS" ] || [ -f "$HERE/$MODELS" ] || die "оверлея моделей нет: $MODELS"
   [ -f "$MODELS" ] && MODELS="$(cd "$(dirname "$MODELS")" && pwd)/$(basename "$MODELS")" || MODELS="$HERE/$MODELS"
+  MODELS_SRC="$MODELS"
+  mkdir -p "$ZONE"
+  node "$HERE/scripts/gen-harness.ts" --resolve-overlay "$MODELS_SRC" > "$ZONE/models-overlay.yml" \
+    || die "оверлей $MODELS_SRC не развёрнут — ссылка на семейство, которого нет в config/agent_models.json (секция models)"
+  [ -s "$ZONE/models-overlay.yml" ] || die "оверлей $MODELS_SRC развёрнут в пустой файл"
+  MODELS="$ZONE/models-overlay.yml"
   OVERLAY=(--config "$MODELS")
 fi
 
@@ -494,11 +506,15 @@ if [ -z "$PROJECT" ]; then
   node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
     || die "не удалось получить промпт роли $SESSION_ROLE"
   if [ "$FABLE" = "1" ]; then
-    LIVE_MODEL="anthropic/claude-fable-5"
+    # Модель — семейство `fable` из config/agent_models.json (секция models), не литерал:
+    # версия правится там одной строкой. Читается grep'ом, как session_model() читает
+    # конфиг: этот путь не зовёт node (формат — одна пара «ключ: значение» на строку).
+    LIVE_MODEL="$(grep -oE '^\s+"fable":\s*"[^"]+"' "$HERE/config/agent_models.json" | sed 's/.*"\(.*\)"/\1/')"
+    [ -n "$LIVE_MODEL" ] || die "семейство fable не объявлено в config/agent_models.json (секция models)"
     TOOLS="read,grep,glob,bash,web_search,task,todo"
     FABLE_PROMPT="$HOME/session-prompt-fable.md"
     cp "$PROMPT_FILE" "$FABLE_PROMPT"
-    printf '\n\n# РЕЖИМ КОНСУЛЬТАНТА (--fable)\nТы на claude-fable-5 ПАРАЛЛЕЛЬНО рабочей сессии-оркестратору (она ведёт живое дерево main). Роль СОВЕЩАТЕЛЬНАЯ: обсуждаешь архитектуру будущих майлстоунов и читаешь код, дерево НЕ трогаешь (инвентарь без edit/write/lsp). Любую правку/коммит делает рабочая сессия по слову владельца — ты только советуешь и разведываешь. НЕ коммить, НЕ пушь, НЕ спавни пишущих субагентов.\n' >> "$FABLE_PROMPT"
+    printf '\n\n# РЕЖИМ КОНСУЛЬТАНТА (--fable)\nТы на %s ПАРАЛЛЕЛЬНО рабочей сессии-оркестратору (она ведёт живое дерево main). Роль СОВЕЩАТЕЛЬНАЯ: обсуждаешь архитектуру будущих майлстоунов и читаешь код, дерево НЕ трогаешь (инвентарь без edit/write/lsp). Любую правку/коммит делает рабочая сессия по слову владельца — ты только советуешь и разведываешь. НЕ коммить, НЕ пушь, НЕ спавни пишущих субагентов.\n' "$LIVE_MODEL" >> "$FABLE_PROMPT"
     PROMPT_FILE="$FABLE_PROMPT"
     printf '  РЕЖИМ FABLE  консультант read-only на %s — параллельно оркестратору\n' "$LIVE_MODEL" >&2
   fi
@@ -587,7 +603,7 @@ printf '  политика     always-ask (инструменты спрашив
 if [ "${YOLO:-0}" = "1" ]; then
   printf '  РЕЖИМ: подтверждения СНЯТЫ, слово владельца\n' >&2
 fi
-printf '  модели       %s\n' "$([ -n "$MODELS" ] && basename "$MODELS" || echo '.omp/config.yml (без оверлея)')" >&2
+printf '  модели       %s\n' "$([ -n "$MODELS_SRC" ] && basename "$MODELS_SRC" || echo '.omp/config.yml (без оверлея)')" >&2
 if [ -n "$PLAN" ]; then
   printf '  план         %s (%s строк)\n' "$PLAN" "$(wc -l < "$PLAN")" >&2
 else
