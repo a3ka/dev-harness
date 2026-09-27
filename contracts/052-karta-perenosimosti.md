@@ -39,8 +39,8 @@ file:line этой карты проверяем пробой приёмки «�
 4. У продуктовых репо нет CI-гейтов харнесса, анти-плацебо, зон, паков; стеки Rust/TS —
    перенос независим от языка.
 
-Б6-факт (закрыт этой пачкой, записан дословно): «профиль Odelix лежит в
-odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
+Б6-факт (закрыт этой пачкой, записан дословно, без добавленных слов): «профиль Odelix
+в odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 
 ## КАРТА — главная таблица
 
@@ -68,21 +68,21 @@ odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 | scripts/check_charter.sh | универсален | scripts/check_charter.sh:12 AGENTS.md — норма системы; scripts/check_charter.sh:13 ROADMAP.md в нём же | нет | устав проекта: свои AGENTS.md/ROADMAP.md и тег `ustav/1` своего репо |
 | scripts/check_check_contract_ready.sh | универсален | scripts/check_check_contract_ready.sh:6 fixtures/check_check_contract_ready/case_*.sh; scripts/check_check_contract_ready.sh:14 verdicts/arbitration/ | нет | метабарьер семьи «НЕ БАРЬЕР»; предмет появляется с контрактами проекта — правки не требует |
 | scripts/check_check_spec_ready.sh | универсален | scripts/check_check_spec_ready.sh:5 fixtures/check_check_spec_ready/case_*.sh | нет | метабарьер; без правки |
-| scripts/check_ci_gate.sh | параметр-профиля | scripts/check_ci_gate.sh:1 вход GITHUB_TOKEN (jq/curl в теле) | нет | CI проекта (В5): свой workflow-реф и токен; «ждёт финального каталога» для org/repo Odelix на GitHub |
+| scripts/check_ci_gate.sh | параметр-профиля | scripts/check_ci_gate.sh:15 GITHUB_TOKEN опционален (check-runs curl) | нет | CI проекта (В5): свой workflow-реф и токен; «ждёт финального каталога» для org/repo Odelix на GitHub |
 | scripts/check_consumers.sh | универсален | scripts/check_consumers.sh:4 окно frozen/contracts/<NNN>/<v>..HEAD; scripts/check_consumers.sh:65 registry_state 'frozen/' | нет | теги заморозок проекта; scripts/consumers.d/ маппинг переносится как есть |
 | scripts/check_contract_frozen.sh | универсален | scripts/check_contract_frozen.sh:10 теги frozen/*; scripts/check_contract_frozen.sh:64 registry_state 'frozen/' | нет | теги заморозок проекта (заводятся с нуля, история харнесса не мигрирует) |
-| scripts/check_contract_ready.sh | универсален | scripts/check_contract_ready.sh:1 API `<корень> <контракт>`; judge проб/зон/замеров (036) | нет | пре-фриз гейт контрактов проекта; без правки |
+| scripts/check_contract_ready.sh | универсален | scripts/check_contract_ready.sh:21 вход — корень-дерева обязательным аргументом; judge проб/зон/замеров (036) | нет | пре-фриз гейт контрактов проекта; без правки |
 | scripts/check_decisions.sh | параметр-профиля | scripts/check_decisions.sh:2 реестр `decisions/`; scripts/check_decisions.sh:16 пин contracts/002-*.md | нет | профиль: ведёт ли проект свой `decisions/`;基底-контракты проекта свои |
-| scripts/check_document.sh | универсален | scripts/check_document.sh:1 вход в node-часть doc-приёмки 027 | нет | doc-приёмка 027 на docs/ проекта; без правки |
-| scripts/check_document.ts | универсален | scripts/check_document.ts:1 node-раннер doc-приёмки 027 | нет | без правки; предмет — доки проекта |
+| scripts/check_document.sh | универсален | scripts/check_document.sh:24 exec node — вход в node-часть doc-приёмки 027 | нет | doc-приёмка 027 на docs/ проекта; без правки |
+| scripts/check_document.ts | универсален | scripts/check_document.ts:63 usage-строка CLI doc-приёмки 027 | нет | без правки; предмет — доки проекта |
 | scripts/check_fork_route.sh | параметр-профиля | scripts/check_fork_route.sh:192 verdicts/consultant/; scripts/check_fork_route.sh:253 `forks/<id>.md` поле ОТВЕЧЕНО | нет | профиль: ведёт ли проект forks/ (029); судимая грамматика без правки |
 | scripts/check_hooks.sh | параметр-профиля | scripts/check_hooks.sh:8 .githooks/pre-commit; scripts/check_hooks.sh:9 вызов scripts/check_staged.sh | нет | package.json проекта: `hooks:install` → core.hooksPath .githooks (В5) |
 | scripts/check_ids.sh | универсален | scripts/check_ids.sh:17 verdicts/adversary/; scripts/check_ids.sh:26 артефакт без номера | нет | теги id/CONTRACT/<NNN> проекта; next_id.sh без правки |
 | scripts/check_judge_gate.sh | универсален | scripts/check_judge_gate.sh:5 fixtures/check_judge_gate/case_*.sh (семья «НЕ БАРЬЕР») | нет | метабарьер; без правки |
 | scripts/check_metering.sh | параметр-профиля | scripts/check_metering.sh:20 дом секретов `~/.config/dev-harness/secrets.env`; scripts/check_metering.sh:92 requests.jsonl | нет | окружение сессии мастерской; URL/токен из профиля (config/metering.json) |
 | scripts/check_nabludenia.sh | не-переносим | scripts/check_nabludenia.sh:4 NABLIUDENIA.md `### Н-NN.`; scripts/check_nabludenia.sh:5 NABLIUDENIA_ARCHITECT.md `### А-NN.` | нет | не переносим: предмет — журналы наблюдений мастерской; проект планом журнала не заводит (см. §Что НЕ переносим) |
-| scripts/check_no_leak.sh | универсален | scripts/check_no_leak.sh:51 снапшот `${TMPDIR}/dev-harness-leak/` вне дерева; scripts/check_no_leak.sh:5 детектор утечек | нет | детектор утечек сессий: работает из мастерской над любым репо; без правки |
-| scripts/check_no_rewrite.sh | универсален | scripts/check_no_rewrite.sh:1 вход `<before> <sha>` (.github/workflows/ci.yml:416) | нет | гейт пуша проекта; без правки |
+| scripts/check_no_leak.sh | универсален | scripts/check_no_leak.sh:51 снапшот `${TMPDIR}/dev-harness-leak/` вне дерева; scripts/check_no_leak.sh:94 дом снимка — регулярные файл/каталог | нет | детектор утечек сессий: работает из мастерской над любым репо; без правки |
+| scripts/check_no_rewrite.sh | универсален | scripts/check_no_rewrite.sh:21 вход — прежняя и новая вершины ветки (.github/workflows/ci.yml:416) | нет | гейт пуша проекта; без правки |
 | scripts/check_precision_gate.sh | универсален | scripts/check_precision_gate.sh:8 правило 7 AGENTS.md (ПЕРЕСЕЧЕНИЕ); scripts/check_precision_gate.sh:4 Н-113/Н-115 | нет | пре-фриз precision-гейт 043 контрактов проекта; без правки |
 | scripts/check_protected.sh | универсален | scripts/check_protected.sh:77 verdicts/adversary/contracts-040-v5-circle.md; scripts/check_protected.sh:120 verdicts/arbitration/ | нет | защищённые артефакты проекта (список путей судим по грамматике 040) |
 | scripts/check_provodka.sh | универсален | scripts/check_provodka.sh:34 charter= ровно `AGENTS.md`; scripts/check_provodka.sh:36 `$ROOT/AGENTS.md` | нет | ПРОВОДКА-гейт 038 контрактов проекта; канон цели — AGENTS.md проекта |
@@ -98,17 +98,17 @@ odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 | scripts/done_contract.sh | универсален | scripts/done_contract.sh:2 тег done/contracts/<NNN>/<v>; scripts/done_contract.sh:33 вход `contracts/NNN-*.md` | нет | писатель done-тегов проекта; без правки |
 | scripts/draft_nabludenia.sh | не-переносим | scripts/draft_nabludenia.sh:3 черновики в `${TMPDIR}/dev-harness-nabludenia/drafts/`; scripts/draft_nabludenia.sh:12 вне стерегомого | нет | не переносим: журнал наблюдений мастерской (§Что НЕ переносим) |
 | scripts/drill_contract_change.sh | универсален | scripts/drill_contract_change.sh:29 Н-15; scripts/drill_contract_change.sh:87 toy `contracts/`, `verdicts/critic/` | нет | дрилл устава проекта; без правки |
-| scripts/drill_exit_marker.sh | универсален | scripts/drill_exit_marker.sh:3 .omp/extensions/exit-marker.ts; scripts/drill_exit_marker.sh:21 НЕ БАРЬЕР | нет | дрилл расширения сессии; без правки |
+| scripts/drill_exit_marker.sh | только-харнесс | scripts/drill_exit_marker.sh:3 .omp/extensions/exit-marker.ts; scripts/drill_exit_marker.sh:21 НЕ БАРЬЕР | нет | дрилл расширения сессии мастерской (exit-marker.ts — только-харнесс); в дереве проекта предмета нет |
 | scripts/drill_gate_draft.sh | не-переносим | scripts/drill_gate_draft.sh:3 scripts/draft_nabludenia.sh + .omp/extensions/gate-draft.ts; scripts/drill_gate_draft.sh:6 `$WORK/{scripts,.omp/extensions}` | нет | не переносим: предмет — черновик наблюдения мастерской (§Что НЕ переносим) |
 | scripts/drill_nabludenia_nechitaemo.sh | не-переносим | scripts/drill_nabludenia_nechitaemo.sh:13 chmod 000 NABLIUDENIA.md; scripts/drill_nabludenia_nechitaemo.sh:37 toy NABLIUDENIA.md | нет | не переносим: тот же предмет-журнал (§Что НЕ переносим) |
-| scripts/drill_next_id_race.sh | универсален | scripts/drill_next_id_race.sh:1 вход — атомарность next_id | нет | дрилл выдачи номеров контрактов проекта; без правки |
-| scripts/drill_path_guard.sh | универсален | scripts/drill_path_guard.sh:3 .omp/extensions/path-guard.ts; scripts/drill_path_guard.sh:25 НЕ БАРЬЕР | нет | дрилл стража путей сессии; без правки |
+| scripts/drill_next_id_race.sh | универсален | scripts/drill_next_id_race.sh:45 BARRIER — next_id.sh рядом с собой; атомарность выдачи | нет | дрилл выдачи номеров контрактов проекта; без правки |
+| scripts/drill_path_guard.sh | только-харнесс | scripts/drill_path_guard.sh:3 .omp/extensions/path-guard.ts; scripts/drill_path_guard.sh:25 НЕ БАРЬЕР | нет | дрилл стража путей сессии мастерской (path-guard.ts — только-харнесс, норма 037); в дереве проекта предмета нет |
 | scripts/drill_protected_exception.sh | универсален | scripts/drill_protected_exception.sh:55 toy roles/, verdicts/adversary/, plans/; scripts/drill_protected_exception.sh:56 frontmatter `verdict: verdicts/adversary/` | нет | дрилл исключений защищённых артефактов проекта; без правки |
 | scripts/drill_protected_rename.sh | универсален | scripts/drill_protected_rename.sh:12 verdicts/adversary/v-1.md; scripts/drill_protected_rename.sh:15 перенос вне `verdicts/…/` | нет | дрилл честного переноса 039; без правки |
-| scripts/drill_startup_digest.sh | универсален | scripts/drill_startup_digest.sh:3 nabludenia_digest + startup-digest.ts; scripts/drill_startup_digest.sh:21 указатель на HANDOFF | нет | дрилл дайджеста старта сессии; без правки |
+| scripts/drill_startup_digest.sh | только-харнесс | scripts/drill_startup_digest.sh:3 nabludenia_digest + startup-digest.ts; scripts/drill_startup_digest.sh:21 указатель на HANDOFF | нет | дрилл дайджеста старта сессии (nabludenia_digest.sh — не-переносим; startup-digest.ts — только-харнесс); предмет в проект не копируется |
 | scripts/freeze_contract.sh | универсален | scripts/freeze_contract.sh:2 тег `frozen/<каталог>/<NNN>/<v>`; scripts/freeze_contract.sh:23 вход contracts/001-x.md + КОРЕНЬ | нет | заморозка контрактов/планов проекта; без правки |
 | scripts/gc_agent_branches.sh | универсален | scripts/gc_agent_branches.sh:36 done/contracts/NNN/* реап; scripts/gc_agent_branches.sh:50 refs/tags/done/contracts/ fail-closed | нет | сборка веток wip/ проекта; без правки |
-| scripts/judge_gate.sh | универсален | scripts/judge_gate.sh:1 вход — судья через CI-сигнал (008) | нет | гейт судьи контрактов проекта; без правки |
+| scripts/judge_gate.sh | универсален | scripts/judge_gate.sh:2 судья гейтит через CI-сигнал; вход — sha аргументом (строка 9) | нет | гейт судьи контрактов проекта; без правки |
 | scripts/land_agent.sh | универсален | scripts/land_agent.sh:160 блобы frozen/* до merge; scripts/land_agent.sh:166 for-each-ref refs/tags/frozen/ | нет | ленд веток wip/ проекта в его main; без правки |
 | scripts/lib_registry.sh | универсален | scripts/lib_registry.sh:17 префиксы id/, frozen/, ustav/; scripts/lib_registry.sh:26 frozen/<каталог>/<NNN>/1 | нет | библиотека тегов-реестра проекта; без правки |
 | scripts/lib_roles.sh | универсален | scripts/lib_roles.sh:6 verdicts/review/shag-5.md; scripts/lib_roles.sh:8 поле `verdict: verdicts/*/` | нет | разбор frontmatter ролей; без правки |
@@ -118,21 +118,21 @@ odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 | scripts/nabludenia_digest.sh | не-переносим | scripts/nabludenia_digest.sh:3 указатель HANDOFF §«ГДЕ МЫ»; scripts/nabludenia_digest.sh:14 черновики из `${TMPDIR}/dev-harness-nabludenia/drafts/` | нет | не переносим: дайджест журнала наблюдений мастерской (§Что НЕ переносим) |
 | scripts/next_id.sh | универсален | scripts/next_id.sh:8 резервация git-тегом (mech-2-ids); scripts/next_id.sh:15 пути VERDICT из roles/*.md поле `verdict:` | нет | выдача номеров контрактов/вердиктов проекта; без правки |
 | scripts/overlay.sh | только-харнесс | scripts/overlay.sh:20 PIN=config/harness_pin.json; scripts/overlay.sh:79 modelRoles в `.omp/config.yml` | нет | слой ролей мастерской поверх бинаря omp; проектные сессии получает workshop |
-| scripts/render_document.sh | универсален | scripts/render_document.sh:1 вход в node-часть рендера 027 | нет | рендер doc-приёмки 027 проекта; без правки |
-| scripts/render_document.ts | универсален | scripts/render_document.ts:1 node-раннер рендера 027 | нет | без правки |
+| scripts/render_document.sh | универсален | scripts/render_document.sh:26 exec node — вход в node-часть рендера 027 | нет | рендер doc-приёмки 027 проекта; без правки |
+| scripts/render_document.ts | универсален | scripts/render_document.ts:9 usage-строка CLI рендера 027 | нет | без правки |
 | scripts/scope_select.sh | универсален | scripts/scope_select.sh:129 traversal из fixtures/; scripts/scope_select.sh:137 `fixtures/<bar>/<cas>.sh` | нет | выбор case_* по --scope для CI проекта; без правки |
 | scripts/spawn_agent.sh | универсален | scripts/spawn_agent.sh:2 ветка `wip/<NNN>/<автор>` + worktree вне стерегомого; scripts/spawn_agent.sh:99 `implementer@dev-harness.local` | нет | спавн субагентов контрактов проекта; домен почты — параметр профиля |
 | scripts/verify_antiplacebo.sh | универсален | scripts/verify_antiplacebo.sh:66 соглашение `fixtures/<ключ барьера>/case_*.sh`; scripts/verify_antiplacebo.sh:585 find case_*.sh | нет | раннер анти-плацебо над корпусом фикстур проекта (В4); без правки |
 | scripts/verify_ci_parity.sh | универсален | scripts/verify_ci_parity.sh:5 «каждая команда из run:» AGENTS.md; scripts/verify_ci_parity.sh:15 config/ci_parity_exceptions.txt | нет | паритет run:/приёмка для ci.yml проекта (В5); без правки |
-| scripts/verify_consultant.sh | параметр-профиля | scripts/verify_consultant.sh:21 `--root` обязательный; scripts/verify_consultant.sh:27 вход `--otvet` | нет | проверка ответов консультанта (029) на forks/ проекта |
+| scripts/verify_consultant.sh | параметр-профиля | scripts/verify_consultant.sh:27 `--root` обязателен; scripts/verify_consultant.sh:21 usage `--root <корень> --otvet <файл ответа>` | нет | проверка ответов консультанта (029) на forks/ проекта |
 | scripts/doc_contract.ts | универсален | scripts/doc_contract.ts:276 profile ∈ {product,architecture}; scripts/doc_contract.ts:464 тег frozen/contracts/${nnn}/ | нет | ядро doc-приёмки 027; без правки |
 | scripts/gen-harness.ts | только-харнесс | scripts/gen-harness.ts:3 источник `roles/*.md`; scripts/gen-harness.ts:18 config/agent_models.json + `.omp/config.yml` | нет | генерация агентов/промптов из ролей мастерской; раскладывается workshop'ом в HOME сессии |
 | scripts/roles.ts | только-харнесс | scripts/roles.ts:23 роль модели `@slow`/`@advisor`; scripts/roles.ts:34 `.omp/agents/*.md` + modelRoles `.omp/config.yml` | нет | типы ролей мастерской; потребляется gen-harness |
-| scripts/gitw | параметр-профиля | scripts/gitw:41 CANON `ssh://git@github.com/a3ka/dev-harness.git` (ручка GIT_EXCHANGE_GUARD_CANONICAL) | нет | профиль В2: канон проекта Odelix; git-обмены только через gitw (045) |
+| scripts/gitw | параметр-профиля | scripts/gitw:41 CANON `ssh://git@github.com/a3ka/dev-harness.git` (ручка GIT_EXCHANGE_GUARD_CANONICAL) | нет | профиль В2: канон проекта Odelix (org/repo на GitHub — «ждёт финального каталога»); git-обмены только через gitw (045) |
 | scripts/consumers.d/ (6 tsv) | универсален | scripts/consumers.d/freeze_contract.sh__spawn_agent_sh.tsv и ещё 5 пар писатель→потребитель (замер census: contracts/029-auto-konsultant-forkov.md:299) | нет | маппинг потребителей писателей воркфлоу; состав — параметр набора барьеров проекта |
-| scripts/proxy/metering_proxy.ts | только-харнесс | scripts/proxy/metering_proxy.ts:5 modelRoles вне `omp config list`; адрес — .env.example METERING_PROXY_URL (порт 8787 локально) | нет | прокси учёта поднимает мастерская; проектные сессии идут через URL из профиля |
-| .githooks/pre-commit | параметр-профиля | .githooks/pre-commit:1 судья staged — вызов scripts/check_staged.sh | нет | hooks проекта; установка `git config core.hooksPath .githooks` (package.json:40) |
-| .githooks/pre-push | параметр-профиля | .githooks/pre-push:1 чартер-суд диапазона пуша (022); кольцо CHARTER_LIB из scripts/check_charter.sh | нет | hooks проекта; ls-remote своего origin |
+| scripts/proxy/metering_proxy.ts | только-харнесс | .omp/config.yml:5 modelRoles вне `omp config list` (свои); адрес — .env.example METERING_PROXY_URL (порт 8787 локально) | нет | прокси учёта поднимает мастерская; проектные сессии идут через URL из профиля |
+| .githooks/pre-commit | параметр-профиля | .githooks/pre-commit:19 exec bash scripts/check_staged.sh — судья staged | нет | hooks проекта; установка `git config core.hooksPath .githooks` (package.json:40) |
+| .githooks/pre-push | параметр-профиля | .githooks/pre-push:53 кольцо CHARTER_LIB из scripts/check_charter.sh — чартер-суд диапазона пуша (022) | нет | hooks проекта; ls-remote своего origin |
 | .omp/extensions/exit-marker.ts | только-харнесс | scripts/drill_exit_marker.sh:3 | нет | расширение сессии; раскладывается workshop'ом |
 | .omp/extensions/gate-draft.ts | не-переносим | scripts/drill_gate_draft.sh:3 | нет | не переносим: предмет — черновик наблюдения (§Что НЕ переносим) |
 | .omp/extensions/path-guard.ts | только-харнесс | scripts/drill_path_guard.sh:3; норма 037 five-condition allowlist | нет | страж путей сессии; норма 037 дословно |
@@ -158,7 +158,7 @@ odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 | ci.yml шаг «Гигиена раннера + форма нормы приёмки» | параметр-профиля | .github/workflows/ci.yml:286 check:runner-hygiene | нет | В5 |
 | ci.yml шаг «Грамматика наблюдений» | не-переносим | .github/workflows/ci.yml:293 check:nabludenia | нет | не переносим: предмет — NABLIUDENIA мастерской (§Что НЕ переносим) |
 | ci.yml шаг «Дрилл — черновик наблюдения на отказ гейта» | не-переносим | .github/workflows/ci.yml:298 drill:gate-draft | нет | не переносим: тот же предмет |
-| ci.yml шаг «Дрилл — дайджест старта сессии» | универсален | .github/workflows/ci.yml:303 drill:startup-digest | нет | В5 |
+| ci.yml шаг «Дрилл — дайджест старта сессии» | только-харнесс | .github/workflows/ci.yml:303 drill:startup-digest | нет | шаг CI мастерской; на CI проекта шага нет (предмет — только-харнесс) |
 | ci.yml шаг «Дрилл — нечитаемость файлов наблюдений» | не-переносим | .github/workflows/ci.yml:309 drill:nabludenia-nechitaemo | нет | не переносим: тот же предмет |
 | ci.yml шаг «Генератор ролей под чек» | параметр-профиля | .github/workflows/ci.yml:312 check:gen | нет | В5 |
 | ci.yml шаг «Selftest прокси учёта» | параметр-профиля | .github/workflows/ci.yml:319 metering:selftest | нет | В5 |
@@ -194,7 +194,7 @@ odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 | опора config/ (pin, metering, models, exceptions) | параметр-профиля | scripts/overlay.sh:20 harness_pin.json; scripts/gen-harness.ts:18 agent_models.json; scripts/verify_ci_parity.sh:15 ci_parity_exceptions.txt; workshop:465 models-src | нет | пин omp-версии и исключения паритета — свои у каждого репо; agent_models/models-*.yml — мастерская |
 | опора .env.example + дом секретов | параметр-профиля | workshop:125 `~/.config/dev-harness/secrets.env`; .env.example METERING_PROXY_URL (порт 8787 локально) | нет | В3: bootstrap окружения проектной сессии (боль 3) |
 | опора skills/ (4 навыка) | только-харнесс | scripts/check_skills.sh:11 каталог из четырёх | нет | канон навыков мастерской; в проект не копируется |
-| опора fixtures/ (корпус анти-плацебо) | универсален | scripts/verify_antiplacebo.sh:66 `fixtures/<ключ>/case_*.sh`; 60 семей (каталог) | нет | В4: корпус красных предъявлений под барьеры проекта; формат без правки |
+| опора fixtures/ (корпус анти-плацебо) | универсален | scripts/verify_antiplacebo.sh:66 `fixtures/<ключ>/case_*.sh`; 56 каталогов, из них 47 с case_*.sh (живой замер) | нет | В4: корпус красных предъявлений под барьеры проекта; формат без правки |
 
 Счёт: 69 scripts/ + 2 .githooks/ + 5 .omp/extensions/ + 1 workshop + 40 ci.yml-шагов + 9
 ролей + 7 опора = **133 механизма**. Команда счёта — §Приёмка (проба 1 и замеры census).
@@ -224,19 +224,20 @@ NABLIUDENIA*.md/HANDOFF.md/ROADMAP.md мастерской остаются в d
 Слово владельца 2026-09-27: финальную версию каталогов сбросит позже; до неё привязки к
 структуре репо Odelix считать UNVERIFIED и работ, зависящих от структуры (Б4, Г2/Г3), не
 начинать. Ячейки карты, зависящие от структуры репо Odelix, помечены «ждёт финального
-каталога» (check_ci_gate.sh, ci_diag.sh — org/repo на GitHub; стек-шаги CI проекта — В5).
+каталога» (check_ci_gate.sh, ci_diag.sh, gitw — org/repo на GitHub; стек-шаги CI проекта — В5).
 Замены через профиль В2 (пути воркфлоу: contracts/, registry/, verdicts/, fixtures/) от
 каталогов Odelix не зависят — грамматика путей едина для любого репо.
 
-Б6-факт (дословно): «профиль Odelix лежит в odelix-stack/development/ODELIX-PROJECT-
-PROFILE.md».
+Б6-факт (дословно из HANDOFF.md:57): «профиль Odelix в
+odelix-stack/development/ODELIX-PROJECT-PROFILE.md».
 
 ## Док-приёмка
 
 Профиль `architecture` (прецедент 048, решение 1: карта — компоненты и связи над
 живым деревом; product-сценарий с actor/outcomes здесь был бы выдуман). Doc-артефакт —
 сам этот контракт: карта и есть предмет, отдельного markdown не заводится; пакет
-evidence появляется в пачке заморозки.
+evidence появляется в пачке v2 — docs/052-karta-perenosimosti.evidence.json, один
+коммит с контрактом.
 
 ```json
 {
@@ -269,16 +270,19 @@ fenced-блока §Приёмка (прогон живьём, см. «Крас�
 префлайт не доказывает отвержение битого пакета именно этой спекой; ловец — самотест
 семьи check_document в CI (шаг Doc-приёмка) и критик следующего круга.
 
-Пакет `docs/052-karta-perenosimosti.evidence.json` (пишет architect в пачке заморозки
-по слову оркестратора): точное покрытие required-множеств — components с полем
-boundary, links с from/to по компонентам и contract-ID, decisions state=accepted с
-source, failures с result; assertions/questions/evidence — пустые массивы. До
-заморозки --check честно возвращает rc=2 «нет frozen-спеки» (механика loadFrozenSpec:
-теги frozen/contracts/052/*); rc=0 — после заморозки против пакета.
+Пакет `docs/052-karta-perenosimosti.evidence.json` пишет architect в пачке v2 (этот
+коммит; зона — §Зоны) по слову оркестратора: точное покрытие required-множеств —
+components с полем boundary, links с from/to по компонентам и contract-ID, decisions
+state=accepted с source, failures с result; assertions/questions/evidence — пустые
+массивы. Честная лестница: (1) `--preflight` → rc=0 на черновике v2 (живой прогон,
+§Приёмка); (2) `--check` → rc=0 на HEAD ПОСЛЕ заморозки v2 против этого пакета
+(наибольшая frozen-версия; механика loadFrozenSpec: теги frozen/contracts/052/*).
+Промежуточная ступень измерена в этой пачке живьём: frozen-спека 1 несёт ту же
+required-схему, и `--check` с этим пакетом уже даёт rc=0 — прогон записан в §Приёмка.
 
 ## Зоны
 
-ЗОНА architect: contracts/052-karta-perenosimosti.md
+ЗОНА architect: contracts/052-karta-perenosimosti.md docs/052-karta-perenosimosti.evidence.json
 
 РАБОТА НЕ РАЗДАЁТСЯ: карта — единый doc-артефакт frontier, одна таблица = один предмет;
 потребители (контракты В2 профиля, В4 барьеров, В5 CI репо) читают её как вход, не
@@ -304,13 +308,16 @@ check_document в матрице анти-плацебо (.github/workflows/ci.y
 contracts/052-karta-perenosimosti.md → rc=0; bash scripts/check_consumers.sh .
 contracts/052-karta-perenosimosti.md → rc=0.
 
-Doc-профиль 027 (живой rc на этом черновике): node scripts/doc_contract.ts --type
-contracts/052-karta-perenosimosti.md → rc=0 (doc-контракт распознан); bash
+Doc-профиль 027, лестница честная, каждая ступень живым rc: node scripts/doc_contract.ts
+--type contracts/052-karta-perenosimosti.md → rc=0 (doc-контракт распознан); bash
 scripts/check_document.sh --root . --contract contracts/052-karta-perenosimosti.md
---preflight → rc=0 (схема спеки зелёная; калибровка отсутствует по решению ниже);
-bash scripts/check_document.sh --root . --contract contracts/052-karta-perenosimosti.md
---check → до заморозки rc=2 «нет frozen-спеки» (нечем проверить: тега
-frozen/contracts/052/* нет), после заморозки с пакетом evidence → rc=0.
+--preflight → rc=0 на черновике v2 (схема спеки зелёная; калибровка отсутствует по
+решению ниже); bash scripts/check_document.sh --root . --contract
+contracts/052-karta-perenosimosti.md --check → rc=0 на HEAD ПОСЛЕ заморозки v2 против
+пакета docs/052-karta-perenosimosti.evidence.json из этой пачки. Промежуточная ступень
+измерена сейчас, до freeze v2: frozen-спека 1 несёт ту же required-схему, `--check`
+с пакетом уже даёт rc=0 живьём; слово о версии 2 скажет прогон оркестратора после
+freeze v2.
 
 Инвентарные предъявления — исполняемые команды с корня дерева (fenced-блок; каждая
 обязана давать rc=0 на этом черновике, красная ветвь печатает именованную причину в
