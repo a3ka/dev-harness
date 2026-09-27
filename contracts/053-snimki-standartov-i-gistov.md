@@ -69,7 +69,8 @@ API `api.github.com/gists/<id>` живьём: каждый гист `public=fals
 - pocock-skills — https://github.com/mattpocock/skills
 - reslop — https://github.com/tshemsedinov/reslop
 
-Канон-строка пина в принимающем документе (ровно три, судится Д7):
+Канон-строка пина в принимающем документе (ровно три — по одной на каждое из репо
+выше; дубль одного репо вместо другого и пропуск репо караются Д7):
 
     Пин: metarhia/metaskills → <40-hex> (снято ГГГГ-ММ-ДД)
     Пин: mattpocock/skills → <40-hex> (снято ГГГГ-ММ-ДД)
@@ -146,7 +147,9 @@ HEAD ПОСЛЕ заморозки против пакета evidence (меха�
 Принимающий документ несёт ровно 5 section-маркеров `required.sections`; в
 `Стандарты-владельца` и `Гисты-полные-тексты` — обе таблицы этой пачки (источник →
 редакция/путь → байты → sha256 → снимок), все десять sha256 — самостоятельными
-токенами; в `Пины-репозиториев` — ровно три канон-строки пина со значениями,
+токенами, каждый — в одной строке таблицы с путём своего снимка (Д8 сверяет пары
+sha256↔снимок против таблиц этой пачки, а не только счёт); в `Пины-репозиториев` —
+ровно три канон-строки пина, по одной на каждое репо (Д7), со значениями,
 снятыми `git ls-remote <url> HEAD`, и датой съёма; в `Связь-с-картой-утилизации` —
 указатели на строки 048 (ARCHITECTURE.md → architecture pack C/D, CODING-STANDARDS.md →
 language-typescript pack C, гисты → B/C, metaskills/pocock → C): снимки — вход паков
@@ -163,6 +166,29 @@ language-typescript pack C, гисты → B/C, metaskills/pocock → C): сни
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
 ЗОНА orchestrator: HANDOFF.md NABLIUDENIA.md
+
+Пересечения перечислены ВСЕ живым перечислителем этой пачки (union заморозок
+zones_load + перебор каждой чужой записи на путях этой пачки; мера ниже — 17 строк
+на 17 чужих записей: HANDOFF.md — architect 002–008/010, NABLIUDENIA.md — architect
+002–008/010 и implementer 015; после правки задача (а) гейта 043 зелёная):
+
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 002 зона эпохи до переворота 010: architect тогда был ведущей сессией и нёс журнал HANDOFF.md своей зоной; с 011 путь — штатная орг-зона orchestrator; 053 пишет только чекпойнт цикла 053, содержимое эпохи 002 не трогает
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 003 та же архитекторская зона до переворота 010 (журнал HANDOFF.md у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 004 та же архитекторская зона до переворота 010 (журнал HANDOFF.md у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 005 та же архитекторская зона до переворота 010 (журнал HANDOFF.md у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 006 та же архитекторская зона до переворота 010 (журнал HANDOFF.md у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 007 та же архитекторская зона до переворота 010 (журнал HANDOFF.md у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 008 та же архитекторская зона до переворота 010 (журнал HANDOFF.md у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 010 архитекторская зона самого переворота 010 (последняя архитекторская заявка журнала); с 011 путь — штатная орг-зона orchestrator; 053 пишет только чекпойнт цикла 053
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 002 зона эпохи до переворота 010: architect тогда был ведущей сессией и нёс журнал наблюдений NABLIUDENIA.md своей зоной; с 011 путь — штатная орг-зона orchestrator; 053 пишет только наблюдения цикла 053, содержимое эпохи 002 не трогает
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 003 та же архитекторская зона до переворота 010 (журнал наблюдений у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 004 та же архитекторская зона до переворота 010 (журнал наблюдений у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 005 та же архитекторская зона до переворота 010 (журнал наблюдений у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 006 та же архитекторская зона до переворота 010 (журнал наблюдений у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 007 та же архитекторская зона до переворота 010 (журнал наблюдений у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 008 та же архитекторская зона до переворота 010 (журнал наблюдений у ведущей сессии); та же причина, что для 002
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 010 архитекторская зона самого переворота 010 (последняя архитекторская заявка журнала наблюдений); с 011 путь — штатная орг-зона orchestrator; 053 пишет только наблюдения цикла 053
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 015 implementer-зона 015 — механизмы ядра наблюдений (scripts/check_nabludenia.sh и семья, Н-записи) с этим путём; 053 механизмы 015 не трогает, запись наблюдений цикла 053 делает orchestrator
 
 РАБОТА НЕ РАЗДАЁТСЯ: scripts/ fixtures/ (механизм 027 не меняется) ROADMAP.md AGENTS.md
 roles/ registry/ package.json .github/workflows/ci.yml; паки фазы C (потребители снимков —
@@ -194,9 +220,21 @@ printf '%s  %s\n' c77616e10b33c1b9a6cfd57522705cd834c1de884ea437c1ab23e8e95ab488
 printf '%s  %s\n' cba2ce510768cb78b157663e7252f04884835e1d1a76529bb16a5f505b38bbf7 docs/owner/gists/13d53d3a62a9f1803f650bbe555c9d35-Big-tasks.md af03ff176ba021bd03fe5493869dd9a4bcee2210eb01d4a830e67d59929d4b9a docs/owner/gists/a7c5f6770b0269c34106fb86ad7402ef-Vertical-Horizontal.md b9580f40aea4b0d110e3004ef614bc9a1ad6144a2259c41294c3df1e20fbefed docs/owner/gists/6ce301f58c3a661fc4e304a4c1400014-Acceptance-criteria.md 1a52e31362a38920f8be5044976fdead7b76c2f58bbd0f5b53fcab78cccb6a86 docs/owner/gists/956420ff93f738356c66a896df5e1bd6-01-ADR.md 5532e09635228a8b1794bf238331ea710575909783caf905e12d9f58edf1eaa0 docs/owner/gists/b23c72df843a94b896c106b7b4d30304-01-Records.md 61f67480a585fe202d53970a4433b0db80608a5dda498f61a1ddd547613a182d docs/owner/gists/7d520fefcd1313847536368ee763263f-NFR.md 63495382460eb04f5cdb0598f1168d5769c242b649cecf425295f2aadfaae3b7 docs/owner/gists/e741b3235f1be44221b145e143d4bfa6-Terminology.md 219a7f5005b9fcd369f88e2bea1dd81a50de009a156cb62554480d7913df225f docs/owner/gists/566ff0f053aeb7713e45022638a65ab1-AI-Architecture-Complexity.md | sha256sum -c --status
 # Д6 множество снимков гистов ровно 8               ДО rc=1  ПОСЛЕ rc=0
 test "$(ls docs/owner/gists/*.md 2>/dev/null | wc -l)" -eq 8
-# Д7 ровно три канон-строки пина (40-hex + дата)    ДО rc=1  ПОСЛЕ rc=0
-test "$(grep -cE '^Пин: (metarhia/metaskills|mattpocock/skills|tshemsedinov/reslop) → [0-9a-f]{40} \(снято [0-9]{4}-[0-9]{2}-[0-9]{2}\)$' "$MD" 2>/dev/null)" -eq 3
-# Д8 десять разных sha256 в принимающем документе   ДО rc=1  ПОСЛЕ rc=0
+# Д7 пин-состав точный: по одной канон-строке на каждое из трёх репо   ДО rc=1  ПОСЛЕ rc=0
+for r in metarhia/metaskills mattpocock/skills tshemsedinov/reslop; do test "$(grep -cE "^Пин: $r → [0-9a-f]{40} \(снято [0-9]{4}-[0-9]{2}-[0-9]{2}\)$" "$MD" 2>/dev/null)" -eq 1 || exit 1; done
+# Д8 оракул-таблица в $MD: 10 пар sha256↔снимок в одной строке + 10 разных   ДО rc=1  ПОСЛЕ rc=0
+while read -r s p; do grep -F "$s" "$MD" 2>/dev/null | grep -Fq -- "$p" || exit 1; done <<'TBL'
+c77616e10b33c1b9a6cfd57522705cd834c1de884ea437c1ab23e8e95ab488f3 docs/owner/ARCHITECTURE.md
+36e3244fdafb907459fdd6a1c19b3d53aa08badd176441b494b77014f0a32bec docs/owner/CODING-STANDARDS.md
+cba2ce510768cb78b157663e7252f04884835e1d1a76529bb16a5f505b38bbf7 docs/owner/gists/13d53d3a62a9f1803f650bbe555c9d35-Big-tasks.md
+af03ff176ba021bd03fe5493869dd9a4bcee2210eb01d4a830e67d59929d4b9a docs/owner/gists/a7c5f6770b0269c34106fb86ad7402ef-Vertical-Horizontal.md
+b9580f40aea4b0d110e3004ef614bc9a1ad6144a2259c41294c3df1e20fbefed docs/owner/gists/6ce301f58c3a661fc4e304a4c1400014-Acceptance-criteria.md
+1a52e31362a38920f8be5044976fdead7b76c2f58bbd0f5b53fcab78cccb6a86 docs/owner/gists/956420ff93f738356c66a896df5e1bd6-01-ADR.md
+5532e09635228a8b1794bf238331ea710575909783caf905e12d9f58edf1eaa0 docs/owner/gists/b23c72df843a94b896c106b7b4d30304-01-Records.md
+61f67480a585fe202d53970a4433b0db80608a5dda498f61a1ddd547613a182d docs/owner/gists/7d520fefcd1313847536368ee763263f-NFR.md
+63495382460eb04f5cdb0598f1168d5769c242b649cecf425295f2aadfaae3b7 docs/owner/gists/e741b3235f1be44221b145e143d4bfa6-Terminology.md
+219a7f5005b9fcd369f88e2bea1dd81a50de009a156cb62554480d7913df225f docs/owner/gists/566ff0f053aeb7713e45022638a65ab1-AI-Architecture-Complexity.md
+TBL
 test "$(grep -oE '[0-9a-f]{64}' "$MD" 2>/dev/null | sort -u | wc -l)" -eq 10
 # Д9 ровно 5 section-маркеров                       ДО rc=1  ПОСЛЕ rc=0
 test "$(grep -Ec '^<!-- doc:section [^ ]+ -->$' "$MD" 2>/dev/null)" -eq 5
@@ -214,7 +252,13 @@ bash scripts/check_zones.sh .
 зелёные; (2) седьмой гист заменён байтами шестого под чужим именем → красна Д5; (3)
 девятый лишний файл в `docs/owner/gists/` → красна Д6 (счёт 9) при зелёных Д4/Д5;
 (4) пин «metaskills → latest» вместо 40-hex → красна Д7; (5) слитые секции принимающего
-документа → красна Д9.
+документа → красна Д9; (6) три копии канон-строки metaskills вместо пинов
+pocock-skills и reslop → красна
+Д7 (metaskills 3≠1, у двух требуемых репо 0), Д4–Д6/Д8/Д9 зелёные — обход критика
+к1 (Б2); (7) sha256 ARCHITECTURE.md в таблице принимающего документа заменён 64
+нулями, снимок не тронут → красна Д8 (пара c776…f3 ↔ docs/owner/ARCHITECTURE.md
+исчезла из строки таблицы), Д4/Д5 зелёные — обход критика к1 (Б3); (8) дубль одного
+sha256 вместо уникального десятого → красна Д8 (совет критика к1).
 
 ## ПРОВОДКА
 
