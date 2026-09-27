@@ -197,6 +197,7 @@ gate-структура покрывает исполнителя (адверс�
 
 ЗОНА architect: contracts/029-auto-konsultant-forkov.md fixtures/check_fork_route/_forks.sh fixtures/check_fork_route/red_marshrut_a_inzhenernyj.sh fixtures/check_fork_route/red_marshrut_b_volja_batch.sh fixtures/check_fork_route/red_marshrut_v_soreview.sh fixtures/check_fork_route/red_flush_batcha.sh fixtures/check_fork_route/red_schet_peredatochnyh.sh fixtures/check_fork_route/red_zapret_dvojnoj_roli.sh fixtures/check_fork_route/red_degradacija_taimer.sh fixtures/verify_consultant/_konsult.sh fixtures/verify_consultant/red_deko_bez_rc.sh fixtures/verify_consultant/red_lozhnyj_rc.sh NABLIUDENIA_ARCHITECT.md
 ЗОНА implementer: scripts/check_fork_route.sh scripts/verify_consultant.sh fixtures/check_fork_route/case_fork_route_peredatochnoe.sh fixtures/check_fork_route/case_fork_route_soreview_rutina.sh fixtures/verify_consultant/case_verify_consultant_deko.sh roles/consultant.md
+ЗОНА orchestrator: forks/
 ЗОНА orchestrator: roles/orchestrator.md HANDOFF.md NABLIUDENIA.md
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
