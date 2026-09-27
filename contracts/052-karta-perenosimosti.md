@@ -231,6 +231,51 @@ NABLIUDENIA*.md/HANDOFF.md/ROADMAP.md мастерской остаются в d
 Б6-факт (дословно): «профиль Odelix лежит в odelix-stack/development/ODELIX-PROJECT-
 PROFILE.md».
 
+## Док-приёмка
+
+Профиль `architecture` (прецедент 048, решение 1: карта — компоненты и связи над
+живым деревом; product-сценарий с actor/outcomes здесь был бы выдуман). Doc-артефакт —
+сам этот контракт: карта и есть предмет, отдельного markdown не заводится; пакет
+evidence появляется в пачке заморозки.
+
+```json
+{
+  "type": "documentation",
+  "version": 1,
+  "profile": "architecture",
+  "outputs": {
+    "markdown": "contracts/052-karta-perenosimosti.md",
+    "evidence": "docs/052-karta-perenosimosti.evidence.json"
+  },
+  "required": {
+    "sections": [],
+    "scenarios": [],
+    "components": ["Карта-механизмов", "Дерево-живого-инвентаря", "Замкнутый-алфавит-классов"],
+    "links": ["Карта-из-дерева", "Карта-во-В2-В4-В5"],
+    "decisions": ["Решение-состав-через-diff-множеств", "Решение-класс-точным-равенством", "Решение-ссылка-пробой-живьём"],
+    "failures": ["Отказ-подмена-строки", "Отказ-чужой-класс", "Отказ-мёртвая-ссылка"]
+  },
+  "assertions": [],
+  "sources": [],
+  "questions": []
+}
+```
+
+Калибровка в спеке опущена сознательно: валидатор 027 считает её необязательной
+(spec.calibration отсутствует — префлайт пропускает ветку), а файлы калибровки вне
+единственного файла этого круга (задание оркестратора: правки только в контракт,
+один коммит). Красные предъявления карты несут подмены критика против команд
+fenced-блока §Приёмка (прогон живьём, см. «Красные предъявления»). Остаточный риск:
+префлайт не доказывает отвержение битого пакета именно этой спекой; ловец — самотест
+семьи check_document в CI (шаг Doc-приёмка) и критик следующего круга.
+
+Пакет `docs/052-karta-perenosimosti.evidence.json` (пишет architect в пачке заморозки
+по слову оркестратора): точное покрытие required-множеств — components с полем
+boundary, links с from/to по компонентам и contract-ID, decisions state=accepted с
+source, failures с result; assertions/questions/evidence — пустые массивы. До
+заморозки --check честно возвращает rc=2 «нет frozen-спеки» (механика loadFrozenSpec:
+теги frozen/contracts/052/*); rc=0 — после заморозки против пакета.
+
 ## Зоны
 
 ЗОНА architect: contracts/052-karta-perenosimosti.md
@@ -241,10 +286,16 @@ PROFILE.md».
 
 ## ПРОВОДКА
 
-ПРОВОДКА: новый нормы этот doc-контракт не вводит; предмет — инвентарь as-is. Проводка
-существующих норм не меняется: классы/замены карты становятся входом контрактов В2/В4/В5
-(оркестратор раздаёт); приёмка — как у прецедента 048 (doc-контракт 027, калибровка
-check_spec_ready/check_consumers).
+ПРОВОДКА:
+- guard=scripts/check_document.sh
+
+ПРОВОДКА-ЭНФОРСМЕНТ: предмет — инвентарный артефакт (карта as-is), не поведенческая
+норма роли, поэтому канал один — guard. Живой механизм: check_document.sh —
+doc-preflight на черновике (схема спеки раздела «## Док-приёмка»), --check против
+наибольшей frozen-версии после заморозки (пакет evidence). Проводка слова: ключ
+check_document в матрице анти-плацебо (.github/workflows/ci.yml:67) и шаг Doc-приёмка
+(.github/workflows/ci.yml:200). Новых ключей CI и новых норм ролей контракт не вводит:
+классы и замены карты — вход контрактов В2/В4/В5, их проводку несут те контракты.
 
 ## Приёмка
 
@@ -253,24 +304,51 @@ check_spec_ready/check_consumers).
 contracts/052-karta-perenosimosti.md → rc=0; bash scripts/check_consumers.sh .
 contracts/052-karta-perenosimosti.md → rc=0.
 
-Инвентарные предъявления doc-профиля 027 — исполняемые команды с корня дерева
-(fenced-блок; каждая обязана давать rc=0 на этом черновике, красная ветвь печатает
-именованную причину в echo; грамматике В1-проб эти строки не соответствуют
-сознательно — их второй токен не обязан существовать путём):
+Doc-профиль 027 (живой rc на этом черновике): node scripts/doc_contract.ts --type
+contracts/052-karta-perenosimosti.md → rc=0 (doc-контракт распознан); bash
+scripts/check_document.sh --root . --contract contracts/052-karta-perenosimosti.md
+--preflight → rc=0 (схема спеки зелёная; калибровка отсутствует по решению ниже);
+bash scripts/check_document.sh --root . --contract contracts/052-karta-perenosimosti.md
+--check → до заморозки rc=2 «нет frozen-спеки» (нечем проверить: тега
+frozen/contracts/052/* нет), после заморозки с пакетом evidence → rc=0.
+
+Инвентарные предъявления — исполняемые команды с корня дерева (fenced-блок; каждая
+обязана давать rc=0 на этом черновике, красная ветвь печатает именованную причину в
+echo и выходит rc=1; грамматике В1-проб эти строки не соответствуют сознательно —
+их второй токен не обязан существовать путём). Полнота проверяется СВЕРКОЙ МНОЖЕСТВ
+карта↔дерево (comm по отсортированным уникальным спискам), а не одними счётчиками:
+замена строки карты копией соседа краснеет потерянной ссылкой в diff множеств
+(счётчики при этом зелёные — ровно обход Б1 круга 1), дубликат без потери —
+счётчиком строк. Алфавит класса судится ТОЧНЫМ равенством одному из четырёх
+токенов, не подстрокой. Извлекатель file:line покрывает и файлы без расширения —
+workshop и голый gitw (резолвится в scripts/gitw) — и краснеет на несуществующем
+номере строки.
 
 ```
 bash -c 'n=$(grep -c "^| " contracts/052-karta-perenosimosti.md); [ "$n" -eq 134 ] || { echo "строк таблицы $n != 134 (шапка + 133 механизма)"; exit 1; }'
 bash -c 'c(){ n=$(grep -c "^| $1" contracts/052-karta-perenosimosti.md); [ "$n" -eq "$2" ] || { echo "строк секции «$1» $n != $2"; ec=1; }; }; ec=0; c "scripts/" 69; c ".githooks/" 2; c ".omp/extensions/" 5; c "workshop" 1; c "ci.yml шаг" 40; c "роль " 9; c "опора " 7; exit $ec'
-awk -F'|' '/^\| /{if($2~/Механизм/)next; for(i=2;i<=6;i++)if($i~/^[ \t]*$/){print "пустая колонка в строке " NR; bad=1} if($3!~/универсален|параметр-профиля|только-харнесс|не-переносим/){print "класс вне алфавита в строке " NR ": " $3; bad=1}} END{exit bad}' contracts/052-karta-perenosimosti.md
-bash -c 'grep -oE "([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+):[0-9]+" contracts/052-karta-perenosimosti.md | sort -u | while IFS=: read -r f l; do awk -v n="$l" "NR==n{ok=1} END{exit !ok}" "$f" || { echo "file:line не существует живьём: $f:$l"; exit 1; }; done'
-bash -c 'ec=0; for f in scripts/*.sh scripts/*.ts scripts/gitw; do grep -q "^| $f |" contracts/052-karta-perenosimosti.md || { echo "нет строки карты: $f"; ec=1; }; done; for f in .githooks/pre-commit .githooks/pre-push .omp/extensions/exit-marker.ts .omp/extensions/gate-draft.ts .omp/extensions/path-guard.ts .omp/extensions/rc-prefix.ts .omp/extensions/startup-digest.ts; do grep -q "^| $f |" contracts/052-karta-perenosimosti.md || { echo "нет строки карты: $f"; ec=1; }; done; grep -q "^| workshop " contracts/052-karta-perenosimosti.md || { echo "нет строки workshop"; ec=1; }; grep -q "^| scripts/consumers.d/" contracts/052-karta-perenosimosti.md || { echo "нет строки consumers.d"; ec=1; }; grep -q "^| scripts/proxy/metering_proxy.ts |" contracts/052-karta-perenosimosti.md || { echo "нет строки proxy"; ec=1; }; for l in $(grep -n "run:" .github/workflows/ci.yml | cut -d: -f1); do grep -q "ci.yml:$l" contracts/052-karta-perenosimosti.md || { echo "нет строки карты для ci.yml run: строка $l"; ec=1; }; done; exit $ec'
+awk -F'|' '/^\| /{if($2~/Механизм/)next; for(i=2;i<=6;i++)if($i~/^[ \t]*$/){print "пустая колонка в строке " NR; bad=1} c=$3; gsub(/^[ \t]+|[ \t]+$/,"",c); if(c!="универсален"&&c!="параметр-профиля"&&c!="только-харнесс"&&c!="не-переносим"){print "класс вне алфавита в строке " NR ": " c; bad=1}} END{exit bad}' contracts/052-karta-perenosimosti.md
+bash -c 'grep -oE "(workshop|gitw|[A-Za-z0-9_.-]+\.[A-Za-z0-9_-]+|[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+):[0-9]+" contracts/052-karta-perenosimosti.md | sort -u | while IFS=: read -r f l; do [ -f "$f" ] || f="scripts/$f"; awk -v n="$l" "NR==n{ok=1} END{exit !ok}" "$f" || { echo "file:line не существует живьём: $f:$l"; exit 1; }; done'
+bash -c 'export LC_ALL=C; l=$({ ls scripts/*.sh scripts/*.ts scripts/gitw; find scripts/proxy -type f; echo scripts/consumers.d/; } | sort -u); m=$(awk -F"|" "/^\\| scripts\\//{n=\$2; gsub(/^[ \t]+|[ \t]+\$/,\"\",n); sub(/ .*/,\"\",n); print n}" contracts/052-karta-perenosimosti.md | sort -u); a=$(comm -23 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); b=$(comm -13 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); [ -z "$a" ] || { echo "в дереве без строки карты: $a"; exit 1; }; [ -z "$b" ] || { echo "в карте без механизма дерева: $b"; exit 1; }'
+bash -c 'export LC_ALL=C; l=$(grep -n "run:" .github/workflows/ci.yml | cut -d: -f1 | sort -u); m=$(awk "/^\\| ci\\.yml шаг/" contracts/052-karta-perenosimosti.md | grep -oE "ci\\.yml:[0-9]+" | cut -d: -f2 | sort -u); a=$(comm -23 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); b=$(comm -13 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); [ -z "$a" ] || { echo "шаги run: ci.yml без строки карты: $a"; exit 1; }; [ -z "$b" ] || { echo "строки карты ci.yml без run: в дереве: $b"; exit 1; }'
+bash -c 'export LC_ALL=C; l=$(ls .omp/agents/*.md | sed "s/.*\///; s/\.md$//" | sort -u); m=$(awk -F"|" "/^\\| роль /{n=\$2; gsub(/^[ \t]+|[ \t]+\$/,\"\",n); sub(/^роль /,\"\",n); print n}" contracts/052-karta-perenosimosti.md | sort -u); a=$(comm -23 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); b=$(comm -13 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); [ -z "$a" ] || { echo "роли дерева без строки карты: $a"; exit 1; }; [ -z "$b" ] || { echo "строки карты-роли без файла: $b"; exit 1; }'
+bash -c 'export LC_ALL=C; l=$(ls .omp/extensions/*.ts .githooks/* | sort -u); m=$(awk -F"|" "/^\\| (\\.omp\\/extensions|\\.githooks)\\//{n=\$2; gsub(/^[ \t]+|[ \t]+\$/,\"\",n); print n}" contracts/052-karta-perenosimosti.md | sort -u); a=$(comm -23 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); b=$(comm -13 <(printf "%s\n" "$l") <(printf "%s\n" "$m")); [ -z "$a" ] || { echo "файлы дерева без строки карты: $a"; exit 1; }; [ -z "$b" ] || { echo "строки карты без файла дерева: $b"; exit 1; }'
+bash -c 'C=contracts/052-karta-perenosimosti.md; [ "$(grep -c "^| workshop " "$C")" -eq 1 ] || { echo "строк workshop != 1"; exit 1; }; [ "$(ls scripts/consumers.d/*.tsv | wc -l)" -eq 6 ] || { echo "tsv в scripts/consumers.d != 6"; exit 1; }; o=$(awk -F"|" "/^\\| опора /{n=\$2; gsub(/^[ \t]+|[ \t]+\$/,\"\",n); sub(/^опора /,\"\",n); sub(/ .*/,\"\",n); sub(/\/\$/,\"\",n); print n}" "$C" | sort); e=$(printf "%s\n" package.json AGENTS.md .omp/config.yml config .env.example skills fixtures | sort); [ "$o" = "$e" ] || { echo "состав опор != семь заявленных"; exit 1; }; for p in $o; do [ -e "$p" ] || { echo "опора не существует живьём: $p"; exit 1; }; done'
 ```
+
+Красные предъявления (подмены критика круга 1; прогон живьём на копии файла с
+восстановлением, команды приёмки без правок): (1) замена строки «История не
+перезаписана» копией строки «Замороженные планы и контракты неизменны» → краснеет
+сверка состава ci.yml (потерян номер run:-строки), счётчики зелёные; (2) класс
+«НЕ-универсален-МУСОР» в строке accept_task_commit → краснеет точный алфавит;
+(3) несуществующий номер строки у workshop → краснеет file:line. Каждая подмена
+красит свою ветвь.
 
 Проба В1 (зелёная на черновике; единственная строка файла в грамматике проб гейта):
 
 - `bash scripts/check_consumers.sh . contracts/052-karta-perenosimosti.md` → красная: писатель окна 052 без пробы потребителя
 
-Замеры census (В2 spec_ready):
+замеры census (В2 spec_ready):
 
 замер: `ls scripts/*.sh | wc -l` = 61 census scripts/*.sh
 замер: `ls scripts/*.ts | wc -l` = 5 census scripts/*.ts
@@ -279,4 +357,4 @@ bash -c 'ec=0; for f in scripts/*.sh scripts/*.ts scripts/gitw; do grep -q "^| $
 замер: `ls .omp/extensions/*.ts | wc -l` = 5 census .omp/extensions/*.ts
 
 Имя счёта карты: `grep -c "^| " contracts/052-karta-perenosimosti.md` = 134 (1 шапка +
-133 механизма; команды проб 1-2 своряют и по секциям).
+133 механизма; команды проб 1-2 сверяют и по секциям).
