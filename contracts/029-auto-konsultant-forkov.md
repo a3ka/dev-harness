@@ -293,3 +293,14 @@ rc 1 «передаточное касание» означает, что воп
   команды) не пиннован: значение — решение исполнителя, наблюдаемого требования нет.
 - Хранение журнала `forks/` в истории (коммитить ли записи) — вне предмета; барьер судит
   дерево, а не индекс.
+
+## Freeze-верификация потребителей (038 §Freeze-верификация — механика рефриза, не новая норма)
+
+замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv
+
+ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
+ПОТРЕБИТЕЛЬ fixtures/drill_contract_change/: bash scripts/verify_antiplacebo.sh --scope drill_contract_change
+ПОТРЕБИТЕЛЬ scripts/spawn_agent.sh: bash scripts/verify_antiplacebo.sh --scope spawn_agent
+ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/check_spec_ready.sh . contracts/029-auto-konsultant-forkov.md
+
+(census-строка — байт-в-байт под regex check_consumers.sh:224; пробы: 0.2с/2.4с/2.3с/2.0с, все rc=0.)
