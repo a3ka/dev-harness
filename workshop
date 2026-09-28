@@ -749,37 +749,74 @@ printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 # ── М2/И-4: PID-лок ─────────────────────────────────────────────────────────
 # Лок `$PSTATE/sessions/<hash8(realpath(корень репо))>.lock`; hash8 =
 # `sha256 | cut -c1-8`. Каталог-лока хранит PID владельца в файле `pid`.
-# Живой PID → rc 1 W3 (корень и pid названы); нечисловой/пустой — мёртвый
-# (замена).
 #
-# Фикс 055-к2 (адверсарий круг 1, блокер 2): прежняя версия использовала
-# `printf > $LOCK_FILE` ПОСЛЕ проверки `[ -f $LOCK_FILE ]`. Это TOCTOU:
-# два конкурентных live-старта оба видели отсутствие файла, оба писали
-# `$$` — второй поверх первого, и оба доходили до `exec omp` (адверсарий
-# измерил 3-6 успешных exec на 64 параллельных запусках). Атомарный
-# захват — `mkdir` (POSIX гарантирует атомарность создания каталога;
-# EEXIST если уже есть). Probe делает только ПРОВЕРКУ без занятия (И-6:
-# баннер/промпт в $PSTATE/home, это НЕ сессия-лок); live делает `mkdir`
-# перед `exec omp`, затем пишет PID в `$LOCK_FILE/pid`. PID переживает
-# exec (И-5); мёртвый процесс сам делает лок замещаемым (И-6).
+# Протокол владения (фикс 055-r3, адверсарий круг 3):
+#   - Каталог БЕЗ pid-файла = LIVE (race window: победитель между mkdir
+#     и записью pid). Это ЗАКРЫВАЕТ stale-delete race: параллельный старт
+#     НЕ стирает чужой живой захват, а отказывает с W3.
+#   - Каталог + pid-файл с числовым живым pid = LIVE (отказ W3).
+#   - Каталог + pid-файл с числовым мёртвым pid = STALE (rm -rf, перезахват).
+#   - Каталог + pid-файл с нечисловым содержимым = STALE (битый лок, rm -rf).
+#   - Каталог + ПУСТОЙ pid-файл = STALE (pid-файл создан, но пуст — это
+#     НЕ race window, а последствие аварии владельца между `touch pid` и
+#     `printf > pid`; прибираем).
+#
+# Прецедент фикса 055-к2: прежняя версия трактовала пустой/нечисловой pid
+# как мёртвый и rm -rf'ила каталог, что позволяло параллельному live-старту
+# войти и обе сессии доходили до exec (starts=2 — измерено адверсарием).
+# Атомарный захват — `mkdir` (POSIX гарантирует атомарность создания
+# каталога; EEXIST если уже есть). Live делает `mkdir` перед `exec omp`,
+# затем пишет PID в `$LOCK_FILE/pid`. PID переживает exec (И-5); мёртвый
+# процесс сам делает лок замещаемым (И-6).
 REPO_REALPATH="$(cd "$PROJECT" && pwd -P)"
 LOCK_HASH8="$(printf '%s' "$REPO_REALPATH" | sha256sum | cut -c1-8)"
 LOCK_DIR="$PSTATE/sessions"
 LOCK_FILE="$LOCK_DIR/$LOCK_HASH8.lock"
 mkdir -p "$LOCK_DIR"
 if [ -d "$LOCK_FILE" ]; then
-  LOCK_PID_VAL="$(cat "$LOCK_FILE/pid" 2>/dev/null || true)"
-  LOCK_ALIVE=0
-  case "$LOCK_PID_VAL" in
-    ''|*[!0-9]*) LOCK_ALIVE=0 ;;
-    *) kill -0 "$LOCK_PID_VAL" 2>/dev/null && LOCK_ALIVE=1 || LOCK_ALIVE=0 ;;
-  esac
-  if [ "$LOCK_ALIVE" = "1" ]; then
-    printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid %s). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" "$LOCK_PID_VAL" >&2
-    exit 1
+  LOCK_HAS_PIDFILE=0
+  LOCK_PID_VAL=""
+  if [ -f "$LOCK_FILE/pid" ]; then
+    LOCK_HAS_PIDFILE=1
+    LOCK_PID_VAL="$(cat "$LOCK_FILE/pid" 2>/dev/null || true)"
   fi
-  # Мёртвый владелец → прибираем каталог, чтобы живой режим мог переподнять.
-  rm -rf "$LOCK_FILE" 2>/dev/null || true
+  LOCK_DISPOSITION=""
+  if [ "$LOCK_HAS_PIDFILE" = "0" ]; then
+    # Каталог есть, pid-файла нет → LIVE (race window mkdir→pid).
+    LOCK_DISPOSITION="live_no_pidfile"
+  else
+    case "$LOCK_PID_VAL" in
+      '')
+        # pid-файл существует, но пуст → STALE.
+        LOCK_DISPOSITION="stale_empty_pidfile"
+        ;;
+      *[!0-9]*)
+        # Нечисловой pid → STALE (битый лок).
+        LOCK_DISPOSITION="stale_non_numeric"
+        ;;
+      *)
+        if kill -0 "$LOCK_PID_VAL" 2>/dev/null; then
+          LOCK_DISPOSITION="live_alive"
+        else
+          LOCK_DISPOSITION="stale_dead"
+        fi
+        ;;
+    esac
+  fi
+  case "$LOCK_DISPOSITION" in
+    live_no_pidfile)
+      printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid не объявлен, владелец в окне mkdir→pid). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" >&2
+      exit 1
+      ;;
+    live_alive)
+      printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid %s). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" "$LOCK_PID_VAL" >&2
+      exit 1
+      ;;
+    stale_*)
+      # STALE → прибираем каталог, чтобы живой режим мог переподнять.
+      rm -rf "$LOCK_FILE" 2>/dev/null || true
+      ;;
+  esac
 fi
 
 # ── ПРОБА: ДО `exec omp`, печатает баннер пробы и выходит 0 ────────────────
