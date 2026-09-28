@@ -396,13 +396,34 @@ check_packs_array() {
   local ft
   ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
   [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
-  local arr
-  arr="$(jq -r --arg p "$path" 'if (getpath($p | split(".")) | type) == "array" then (getpath($p | split(".")) | join("\n")) else empty end' "$file" 2>/dev/null)"
-  while IFS= read -r item; do
-    [ -z "$item" ] && continue
-    printf '%s' "$item" | grep -Eq '^[a-z0-9][a-z0-9_-]*$' \
-      || die_p "значение вне алфавита: $path: $item"
-  done <<<"$arr"
+  # Фикс 055-к2 (адверсарий круг 1): итерация через `jq` ВМЕСТО
+  # `join("\n") + read-loop`. Прежний путь через `while IFS= read` от
+  # пустого heredoc `<<<""` читал ОДНУ пустую строку (`item=""`) даже для
+  # пустого массива `[]` — и после `[ -z "$item" ] && continue` отбрасывал
+  # её тихо. Это и был обход: `[""]` и `[]` шли одной дорогой.
+  #
+  # Двухступенчатая проверка: сначала `length` посчитанного списка плохих
+  # элементов (всё через `jq -r`, чтобы JSON-грамматика осталась в ОДНОМ
+  # месте). Затем — извлечение первого плохого с маркером «EMPTY_MARKER»
+  # для пустых/только-пробельных элементов (иначе `command substitution`
+  # съедает trailing newlines, и пустой результат не отличить от
+  # «элемента нет»).
+  local bad_count first_bad
+  bad_count="$(jq -r --arg p "$path" '
+    [getpath($p | split("."))[] | select(test("^[a-z0-9][a-z0-9_-]*$") | not)] | length' \
+    "$file" 2>/dev/null || echo 0)"
+  if [ "${bad_count:-0}" -gt 0 ]; then
+    first_bad="$(jq -r --arg p "$path" '
+      [getpath($p | split("."))[]
+       | select(test("^[a-z0-9][a-z0-9_-]*$") | not)
+       | if (. | test("^\\s*$")) then "EMPTY_MARKER" else . end][0] // "EMPTY_MARKER"' \
+      "$file" 2>/dev/null || echo EMPTY_MARKER)"
+    if [ "$first_bad" = "EMPTY_MARKER" ]; then
+      die_p "значение вне алфавита: $path: пусто"
+    else
+      die_p "значение вне алфавита: $path: $first_bad"
+    fi
+  fi
 }
 # Репо-слой — packs на верхнем уровне; слой проекта — defaults.packs.
 check_packs_array repo    packs

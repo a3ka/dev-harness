@@ -674,7 +674,21 @@ rm -f "$MERGED_PROFILE_FILE"
 # вычисленный ДО подмены HOME (прецедент workshop:75-80 — та же болезнь
 # «разрешившийся внутрь» уже закрыта в 028). Ни один из четырёх путей не
 # содержит `dev-harness-sessions` (дев-зона мастерской).
+#
+# Фикс 055-к2 (адверсарий круг 1, блокер 3): PSTATE-base обязан быть
+# АБСОЛЮТНЫМ путём. Относительный путь зависит от CWD запускающего, и при
+# запуске из project checkout кладёт PSTATE внутрь судимого дерева —
+# `relative-state/dev-harness-projects/<id>` создаётся прямо в репо проекта,
+# и `check_no_leak` потом видит изменение. Дефолт `$HOME/.local/state` —
+# абсолютный; проблема — только при заданном извне HARNESS_SCRATCH/
+# XDG_STATE_HOME. Отказ ДО mkdir и экспорта HOME, чтобы ни одного файла в
+# дереве не появилось.
 PSTATE_BASE="${HARNESS_SCRATCH:-${XDG_STATE_HOME:-$HOME/.local/state}}"
+case "$PSTATE_BASE" in
+  /*) ;;
+  *) printf 'workshop ОТКАЗ: PSTATE-base относительный: %s. XDG_STATE_HOME и HARNESS_SCRATCH обязаны быть абсолютным путём ВНЕ чекаута проекта (наследуемый дефолт %s — абсолютный)\n' "$PSTATE_BASE" "${HOME:-/}"/.local/state >&2
+     exit 1 ;;
+esac
 PSTATE="$PSTATE_BASE/dev-harness-projects/$PROJECT_ID_VAL"
 export HARNESS_SESSION_HOME="$PSTATE/home"
 export HOME="$PSTATE/home"
@@ -734,18 +748,27 @@ printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 
 # ── М2/И-4: PID-лок ─────────────────────────────────────────────────────────
 # Лок `$PSTATE/sessions/<hash8(realpath(корень репо))>.lock`; hash8 =
-# `sha256 | cut -c1-8`. Содержимое — PID владельца. Живой PID → rc 1 W3
-# (корень и pid названы); нечисловой/пустой — мёртвый (замена). Probe
-# судит механизм без занятия (И-6: баннер/промпт — в $PSTATE/home, это НЕ
-# сессия-лок); live пишет $$ ПЕРЕД exec (PID переживает exec — мёртвый
-# процесс сам делает лок замещаемым).
+# `sha256 | cut -c1-8`. Каталог-лока хранит PID владельца в файле `pid`.
+# Живой PID → rc 1 W3 (корень и pid названы); нечисловой/пустой — мёртвый
+# (замена).
+#
+# Фикс 055-к2 (адверсарий круг 1, блокер 2): прежняя версия использовала
+# `printf > $LOCK_FILE` ПОСЛЕ проверки `[ -f $LOCK_FILE ]`. Это TOCTOU:
+# два конкурентных live-старта оба видели отсутствие файла, оба писали
+# `$$` — второй поверх первого, и оба доходили до `exec omp` (адверсарий
+# измерил 3-6 успешных exec на 64 параллельных запусках). Атомарный
+# захват — `mkdir` (POSIX гарантирует атомарность создания каталога;
+# EEXIST если уже есть). Probe делает только ПРОВЕРКУ без занятия (И-6:
+# баннер/промпт в $PSTATE/home, это НЕ сессия-лок); live делает `mkdir`
+# перед `exec omp`, затем пишет PID в `$LOCK_FILE/pid`. PID переживает
+# exec (И-5); мёртвый процесс сам делает лок замещаемым (И-6).
 REPO_REALPATH="$(cd "$PROJECT" && pwd -P)"
 LOCK_HASH8="$(printf '%s' "$REPO_REALPATH" | sha256sum | cut -c1-8)"
 LOCK_DIR="$PSTATE/sessions"
 LOCK_FILE="$LOCK_DIR/$LOCK_HASH8.lock"
 mkdir -p "$LOCK_DIR"
-if [ -f "$LOCK_FILE" ]; then
-  LOCK_PID_VAL="$(cat "$LOCK_FILE" 2>/dev/null || true)"
+if [ -d "$LOCK_FILE" ]; then
+  LOCK_PID_VAL="$(cat "$LOCK_FILE/pid" 2>/dev/null || true)"
   LOCK_ALIVE=0
   case "$LOCK_PID_VAL" in
     ''|*[!0-9]*) LOCK_ALIVE=0 ;;
@@ -755,6 +778,8 @@ if [ -f "$LOCK_FILE" ]; then
     printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid %s). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" "$LOCK_PID_VAL" >&2
     exit 1
   fi
+  # Мёртвый владелец → прибираем каталог, чтобы живой режим мог переподнять.
+  rm -rf "$LOCK_FILE" 2>/dev/null || true
 fi
 
 # ── ПРОБА: ДО `exec omp`, печатает баннер пробы и выходит 0 ────────────────
@@ -765,10 +790,31 @@ if [ "$PROBE" = "1" ]; then
   exit 0
 fi
 
-# ── М2/И-5: живой режим занимает лок — `$$` ПЕРЕД `exec omp` ──────────────
-# PID переживает exec (И-5); мёртвый процесс сам делает лок замещаемым —
-# отдельного релиза не существует и не нужно.
-printf '%s\n' "$$" > "$LOCK_FILE"
+# ── М2/И-5: живой режим занимает лок — `mkdir` АТОМАРНО перед `exec omp` ──
+# `mkdir` атомарен (POSIX): два параллельных live-старта оба видят
+# отсутствие каталога и оба зовут mkdir; только один получает rc=0,
+# второй — EEXIST. Победитель пишет PID в `$LOCK_FILE/pid`, затем делает
+# `exec omp`. PID переживает exec (И-5); мёртвый процесс сам делает
+# лок замещаемым — отдельного релиза не существует и не нужно.
+if ! mkdir "$LOCK_FILE" 2>/dev/null; then
+  # Гонка потеряна: между нашим `rm -rf` мёртвого владельца (выше) и mkdir,
+  # либо параллельный live-старт создал каталог. В обоих случаях — вторая
+  # сессия; ищем pid победителя и отказываем с W3, иначе — аварийный отказ.
+  if [ -f "$LOCK_FILE/pid" ]; then
+    LIVE_LOCK_PID="$(cat "$LOCK_FILE/pid" 2>/dev/null || true)"
+    case "$LIVE_LOCK_PID" in
+      ''|*[!0-9]*) ;;
+      *)
+        if kill -0 "$LIVE_LOCK_PID" 2>/dev/null; then
+          printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid %s). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" "$LIVE_LOCK_PID" >&2
+          exit 1
+        fi
+        ;;
+    esac
+  fi
+  die "атомарный захват PID-лока не удался: $LOCK_FILE"
+fi
+printf '%s\n' "$$" > "$LOCK_FILE/pid"
 
 printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа с проектом\n' >&2
 printf '  проект       %s\n' "$PROJECT" >&2
