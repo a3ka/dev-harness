@@ -64,10 +64,18 @@ prompt="$TMP_STUB_HOME/prompt.md"
 mkdir -p "$TMP_STUB_HOME"
 # b5: STUB_GLOBAL_OK — читаем `--get` вместо `--local`, глобальный
 # receive.denyCurrentBranch=refuse из HOME/.gitconfig удовлетворяет.
-if [ -n "${STUB_GLOBAL_OK:-}" ]; then
+# b8: STUB_GITDIR_OK — НЕ санируем GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/
+# GIT_COMMON_DIR перед `git config --local --get`. Это имитирует обход
+# 054-фикс-раунд 4, круг 2: унаследованный GIT_DIR редиректит локальную
+# настройку в чужой git-dir, и bare-репо с `receive.denyCurrentBranch=refuse`
+# проходит проверку.
+if [ -n "${STUB_GITDIR_OK:-}" ]; then
+  v="$(git -C "$repo" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
+elif [ -n "${STUB_GLOBAL_OK:-}" ]; then
   v="$(git -C "$repo" config --get receive.denyCurrentBranch 2>/dev/null || true)"
 else
-  v="$(git -C "$repo" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
+  # ЧЕСТНЫЙ workshop санирует GIT_* env и принудительно указывает --git-dir.
+  v="$(git --git-dir="$repo/.git" -C "$repo" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
 fi
 if [ -n "${STUB_DENY_NONEMPTY:-}" ]; then
   [ -n "$v" ] || { printf "workshop ОТКАЗ: receive.denyCurrentBranch='' в %s, ожидается 'refuse'. Исправление: git -C %s config receive.denyCurrentBranch refuse\n" "$repo" "$repo" >&2; exit 1; }
@@ -147,6 +155,57 @@ if [ -z "${STUB_ACCEPT_EMPTY_CMD:-}" ]; then
     if jq -e --arg f "$f" '.commands | type == "object" and has($f)' "$repo/harness.project.json" >/dev/null 2>&1; then
       v="$(jq -r --arg f "$f" '.commands[$f] | if type == "string" and length > 0 then . else empty end' "$repo/harness.project.json")"
       [ -n "$v" ] || { printf 'profile ОТКАЗ: значение вне алфавита: commands.%s: пусто\n' "$f" >&2; exit 1; }
+    fi
+  done
+fi
+# b7: STUB_ACCEPT_NON_STRING — НЕ делаем type-gate для строковых полей и для
+# barriers.mandatory/optional. Число/boolean/null/array для `projectId`/
+# `workspaceId`/`version`/`projectLayer.version`/`projectLayer.profilePath`/
+# `repoId`/`ci.workflow`/`canonicalRemote` проходит, и массив для barriers.*
+# не проверяется. Имитация обхода 054-фикс-раунд 4, круг 2: резолвер
+# принимает нестроковые JSON-значения.
+if [ -z "${STUB_ACCEPT_NON_STRING:-}" ]; then
+  # type-gate для строковых полей репо
+  for fld in repoId; do
+    ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$repo/harness.project.json")"
+    [ "$ft" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: %s: <%s>\n' "$fld" "$ft" >&2; exit 1; }
+  done
+  # type-gate для строковых полей слоя проекта
+  for fld in version projectId workspaceId; do
+    ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json")"
+    [ "$ft" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: %s: <%s>\n' "$fld" "$ft" >&2; exit 1; }
+  done
+  # type-gate для ci.workflow / git.canonicalRemote
+  if jq -e '.ci | type == "object"' "$repo/harness.project.json" >/dev/null 2>&1; then
+    cw_type="$(jq -r '.ci.workflow | type' "$repo/harness.project.json")"
+    [ "$cw_type" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: ci.workflow: <%s>\n' "$cw_type" >&2; exit 1; }
+  fi
+  if jq -e '.git | type == "object"' "$repo/harness.project.json" >/dev/null 2>&1; then
+    cr_type="$(jq -r '.git.canonicalRemote | type' "$repo/harness.project.json")"
+    [ "$cr_type" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: canonicalRemote: <%s>\n' "$cr_type" >&2; exit 1; }
+  fi
+  # type-gate для projectLayer.version / projectLayer.profilePath
+  pl_v_type="$(jq -r '.projectLayer.version | type' "$repo/harness.project.json")"
+  [ "$pl_v_type" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: projectLayer.version: <%s>\n' "$pl_v_type" >&2; exit 1; }
+  pl_p_type="$(jq -r '.projectLayer.profilePath | type' "$repo/harness.project.json")"
+  [ "$pl_p_type" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: projectLayer.profilePath: <%s>\n' "$pl_p_type" >&2; exit 1; }
+  # type-gate для schemaVersion (число, не строка)
+  for f in repo_schema project_schema; do
+    case "$f" in
+      repo_schema) src="$repo/harness.project.json" ;;
+      project_schema) src="${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json" ;;
+    esac
+    st="$(jq -r '.schemaVersion | type' "$src")"
+    [ "$st" = "number" ] || { printf 'profile ОТКАЗ: значение вне алфавита: schemaVersion: <%s>\n' "$st" >&2; exit 1; }
+  done
+  # type-gate для barriers.mandatory / barriers.optional (должен быть массив)
+  for path in barriers.mandatory barriers.optional defaults.barriers.mandatory defaults.barriers.optional; do
+    if jq -e --arg p "$path" 'getpath($p | split(".")) | type' "$repo/harness.project.json" >/dev/null 2>&1 \
+       || jq -e --arg p "$path" 'getpath($p | split(".")) | type' "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json" >/dev/null 2>&1; then
+      file="$repo/harness.project.json"
+      [[ "$path" == defaults.* ]] && file="${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json"
+      bt="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file")"
+      [ "$bt" = "array" ] || { printf 'profile ОТКАЗ: значение вне алфавита: %s: <%s>\n' "$path" "$bt" >&2; exit 1; }
     fi
   done
 fi
@@ -419,6 +478,45 @@ cell_b6() { # numeric-bootstrap-pin: {"version":7} принималось как
   { [ "$rc" -eq 1 ] && grep -qF 'значение вне алфавита: version:' <<<"$out"; } && return 0
   return 1
 }
+cell_b7() { # non-string-string-field: нестроковые JSON-значения в строковых полях
+  # Проверяет 3 представительных подкейса из 6 контрмоделей адверсария 054
+  # круг 2: projectId (число), ci.workflow (число), barriers.mandatory (строка
+  # вместо массива). Полное покрытие — отдельные контрмодели, эта клетка —
+  # минимально достаточная для различимости (каждая подкейс-контрмодель даёт
+  # именованный отказ; общий обходной стаб с `STUB_ACCEPT_NON_STRING` ловится
+  # здесь же, потому что отказ по подкейсу срабатывает раньше).
+  local layer="$WORK/b7-layer" r="$WORK/b7-repo" out rc
+  rm -rf "$layer" "$r"; mkdir -p "$layer/registry"
+  # Слой проекта — projectId: 7 (число) и barriers.mandatory: "x" (строка)
+  cat > "$layer/registry/harness-project.json" <<EOF
+{"schemaVersion":1,"version":"v10","projectId":7,"workspaceId":"w1","defaults":{"language":"typescript","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"barriers":{"mandatory":"x","optional":[]}}}
+EOF
+  repo_make "$r" typescript 1 1 v10
+  # Репо — ci.workflow: 7 (число)
+  jq '.ci.workflow = 7' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
+  # Должен быть rc=1 и ОДНО из имён отказа (projectId/ci.workflow/barriers.*)
+  { [ "$rc" -eq 1 ] && grep -qE 'значение вне алфавита: (projectId|ci.workflow|barriers\.[a-z]+): <' <<<"$out"; } && return 0
+  return 1
+}
+cell_b8() { # GIT_DIR-redirects-local-4.3: GIT_DIR редиректит --local в чужой git-dir
+  local r="$WORK/b8-repo" home="$WORK/b8-home" bare="$WORK/b8-bare" out rc
+  rm -rf "$r" "$home" "$bare"
+  mkdir -p "$home" "$bare"
+  # Bare с настройкой refuse — именно оттуда GIT_DIR будет читать «refuse»
+  (cd "$bare" && git init --bare -q)
+  git config --file "$bare/config" receive.denyCurrentBranch refuse
+  repo_make "$r" typescript 1 1 v10
+  # Снять локальную настройку в репо — обход именно в этом: bare с refuse
+  # подменяет отсутствующую локальную настройку через унаследованный GIT_DIR.
+  git -C "$r" config --unset receive.denyCurrentBranch
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" GIT_DIR="$bare" bash "$1" --probe "$r" 2>&1)"; rc=$?
+  # ЧЕСТНЫЙ workshop санирует GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/GIT_COMMON_DIR
+  # и принудительно указывает --git-dir, поэтому deny_val берётся из
+  # $r/.git/config (а там пусто) → отказ W2.
+  { [ "$rc" -eq 1 ] && grep -qF "receive.denyCurrentBranch=" <<<"$out" && grep -qF "ожидается 'refuse'" <<<"$out" && grep -qF 'Исправление: git -C' <<<"$out"; } && return 0
+  return 1
+}
 
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
@@ -444,6 +542,9 @@ run_stub_pack() {
   NAMES+=(HEADER-ONLY);       CELLS+=(b4);  KNOBS+=("STUB_HEADER_ONLY_OK=1")
   NAMES+=(GLOBAL-4.3);        CELLS+=(b5);  KNOBS+=("STUB_GLOBAL_OK=1")
   NAMES+=(NUMERIC-PIN);       CELLS+=(b6);  KNOBS+=("STUB_ACCEPT_NUMERIC_PIN=1")
+  # ── обходы 054-фикс-раунд 4 (adversary verdict round 2) ──
+  NAMES+=(NON-STRING-OK);     CELLS+=(b7);  KNOBS+=("STUB_ACCEPT_NON_STRING=1")
+  NAMES+=(GITDIR-OK);         CELLS+=(b8);  KNOBS+=("STUB_GITDIR_OK=1")
   [ "${#NAMES[@]}" -gt 0 ] || die_pack 'пустая выборка стаб-пака — не проверено ничего'
   export HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" RULES_HDR="$HDR" HARNESS_ROOT="$ROOT" TMP_STUB_HOME="$WORK/stub-home"
   local i cell kn subj
@@ -451,9 +552,9 @@ run_stub_pack() {
     total=$((total + 1))
     cell="${CELLS[$i]}"
     kn="${KNOBS[$i]}"
-    # Обходы b1/b2/b3 — резолвер; b4 — обёртка gen-harness; b5/b6 — workshop.
+    # Обходы b1/b2/b3/b7 — резолвер; b4 — обёртка gen-harness; b5/b6/b8 — workshop.
     case "$cell" in
-      b1|b2|b3)
+      b1|b2|b3|b7)
         stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
         subj="$WORK/stub/scripts/profile_resolver.sh"
         ;;
@@ -461,7 +562,7 @@ run_stub_pack() {
         stub_gen_harness "$WORK/stub/gen-harness.ts"
         subj="$WORK/stub/gen-harness.ts"
         ;;
-      b5|b6)
+      b5|b6|b8)
         stub_workshop "$WORK/stub/workshop"
         subj="$WORK/stub/workshop"
         ;;
@@ -502,13 +603,13 @@ run_honest() {
       FAIL=1
     fi
   done
-  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3; do
+  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7; do
     if ! cell_resolver_run "$cell"; then
       printf 'клетка %s (resolver): красная\n' "$cell" >&2
       FAIL=1
     fi
   done
-  for cell in b5 b6; do
+  for cell in b5 b6 b8; do
     if ! cell_workshop_run "$cell"; then
       printf 'клетка %s (workshop): красная\n' "$cell" >&2
       FAIL=1
@@ -599,6 +700,16 @@ cell_workshop_run() {
       out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$WORKSHOP" --probe "$r" 2>&1)"; rc=$?
       { [ "$rc" -eq 1 ] && grep -qF 'значение вне алфавита: version:' <<<"$out"; } || return 1
       ;;
+    b8)
+      local bare="$WORK/b8-h-bare"
+      rm -rf "$bare"; mkdir -p "$bare"
+      (cd "$bare" && git init --bare -q)
+      git config --file "$bare/config" receive.denyCurrentBranch refuse
+      r="$WORK/b8-h"; repo_make "$r" typescript 1 1 v10
+      git -C "$r" config --unset receive.denyCurrentBranch
+      out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" GIT_DIR="$bare" bash "$WORKSHOP" --probe "$r" 2>&1)"; rc=$?
+      { [ "$rc" -eq 1 ] && grep -qF "receive.denyCurrentBranch=" <<<"$out" && grep -qF "ожидается 'refuse'" <<<"$out" && grep -qF 'Исправление: git -C' <<<"$out"; } || return 1
+      ;;
     *) return 0 ;;
   esac
 }
@@ -665,6 +776,15 @@ EOF2
          jq --arg sib "../b3-sibling.json" '.projectLayer.profilePath = $sib' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
          out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
          { [ "$rc" -eq 1 ] && grep -qF 'корень слоя проекта не задан/недоступен' <<<"$out"; } || return 1 ;;
+    b7) local layer="$WORK/b7-r-layer"
+         rm -rf "$layer"; mkdir -p "$layer/registry"
+         cat > "$layer/registry/harness-project.json" <<EOF2
+{"schemaVersion":1,"version":"v10","projectId":7,"workspaceId":"w1","defaults":{"language":"typescript","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"barriers":{"mandatory":"x","optional":[]}}}
+EOF2
+         r="$WORK/b7-r"; repo_make "$r" typescript 1 1 v10
+         jq '.ci.workflow = 7' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
+         out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
+         { [ "$rc" -eq 1 ] && grep -qE 'значение вне алфавита: (projectId|ci.workflow|barriers\.[a-z]+): <' <<<"$out"; } || return 1 ;;
     *) return 0 ;;
   esac
 }
