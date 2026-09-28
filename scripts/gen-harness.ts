@@ -116,6 +116,41 @@ if (promptAt >= 0) {
   process.exit(0)
 }
 
+// `--agents-rules <файл>` печатает секцию правил мастерской из AGENTS.md для
+// промпта проектной сессии (контракт 054, И-14). Заголовок секции — литеральная
+// константа (граница-4: один читатель одного инварианта); секцию нет в файле →
+// rc 1, G1. Файла нет → rc 2, NOT_IMPLEMENTED. ИЗВЛЕЧЕНИЕ идёт здесь, в TS —
+// не sed/awk в workshop (второй читатель расходится молча).
+const AGENTS_RULES_HEADER = '## Правила, каждое из которых уже стоило времени'
+const agentsRulesAt = args.indexOf('--agents-rules')
+if (agentsRulesAt >= 0) {
+  const file = args[agentsRulesAt + 1]
+  if (!file || file.startsWith('--')) { console.error('нужен путь: --agents-rules <AGENTS.md>'); process.exit(2) }
+  if (!existsSync(file)) { console.error(`NOT_IMPLEMENTED: файла нет: ${file}`); process.exit(2) }
+  const text = readFileSync(file, 'utf8')
+  // Извлечение: строка заголовка + всё тело до следующей строки вида «## » или до EOF.
+  // ПОБАЙТОВО — тело правил является значением, и любое преобразование (trim и т.д.)
+  // меняло бы байты и ломало бы «файл промпта содержит ту же секцию, что и AGENTS.md».
+  const lines = text.split('\n')
+  const startIdx = lines.findIndex((l) => l === AGENTS_RULES_HEADER)
+  if (startIdx < 0) {
+    console.error(`FAIL секции правил нет: ${AGENTS_RULES_HEADER}`)
+    process.exit(1)
+  }
+  let endIdx = lines.length
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    if (/^## /.test(lines[i])) { endIdx = i; break }
+  }
+  const slice = lines.slice(startIdx, endIdx)
+  // Без завершающей новой строки: содержимое секции должно быть ПОБАЙТОВО
+  // тем же, что есть в AGENTS.md. Промежуточная вставка с append > не
+  // добавляет свою \n, и тело секции встаёт в файл промпта как
+  // продолжение предыдущей строки (роли). Лишний \n даёт ложное различие
+  // при byte-by-byte сверке к8.
+  process.stdout.write(slice.join('\n'))
+  process.exit(0)
+}
+
 // `--resolve-overlay <файл>` печатает оверлей моделей (`config/models-*.yml`) с каждой
 // ссылкой `"@семейство"` в строках-значениях, развёрнутой в id из секции `models` реестра;
 // строки-комментарии (`#`) идут как есть. Лаунчер отдаёт omp РАЗВЁРНУТУЮ копию: omp про

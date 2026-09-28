@@ -380,6 +380,12 @@ run_check_metering() {
 # ── разбор аргументов ────────────────────────────────────────────────────────
 PROJECT=""; PLAN=""; MODELS=""; RESUME=""; CONFIG_ARG=""; FABLE=0
 CHECK_METERING=0
+# РЕЖИМ ПРОЕКТА — ПРОБА (контракт 054, М2): исполняет код режима проекта
+# (load_env → bootstrap_env → пин omp → резолвер И-1..И-6 → 4.3-проверка И-10 →
+# раскладка ролей → промпт И-9) ДО exec omp и выходит rc 0 строкой `workshop
+# PROBE OK: <репо>` и строкой `PROMPT: <файл>`. Один код режима — для `--probe`
+# (CI/фикстуры) и для `./workshop <репо>` (живой); граница-3.
+PROBE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     # Значение берётся проверкой, а не `shift` вслепую: `shift` при пустом списке возвращает
@@ -400,6 +406,11 @@ while [ $# -gt 0 ]; do
     # РЕЖИМ ПРОВЕРКИ ПРОКСИ. Отдельный флаг, не вход в сессию: аргументы после него
     # НЕ интерпретируются как проект или `--plan`. Всё, что ниже — для talk/work.
     --check-metering) CHECK_METERING=1 ;;
+    # ПРОБА РЕЖИМА ПРОЕКТА. Тот же путь, что и `<репо>`, но ДО `exec omp`: печатает
+    # `workshop PROBE OK` и `PROMPT: <путь>` строками, и выходит rc 0. Используется
+    # фикстурами и CI вместо живого запуска. Любой отказ по пути — rc 1 с
+    # именованной фразой (P1..P7, P8, P9, W2 — дословно).
+    --probe) PROBE=1 ;;
     # Путь к конфигу прокси. Имеет смысл ТОЛЬКО под --check-metering; вне его режим
     # отвергает значение как нераспознанное, чтобы не плодить скрытых путей.
     --config) CONFIG_ARG="${2:-}"; [ $# -ge 2 ] && shift ;;
@@ -556,24 +567,91 @@ git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1 \
 load_env "$PROJECT"
 bootstrap_env
 
-PIN="$PROJECT/config/harness_pin.json"
-[ -f "$PIN" ] || skip "у проекта нет пина версии харнеса ($PIN) — сверять не с чем"
-command -v jq >/dev/null 2>&1 || skip "нет jq — пин не прочитать"
-want_ver="$(jq -r '.version' "$PIN")"
-got_ver="$(omp --version 2>/dev/null | sed 's|^omp/||')"
-[ "$want_ver" = "$got_ver" ] \
-  || die "версия харнеса $got_ver, проект пинит $want_ver. Обновление наложением слоя, а не молча"
+# ── И-13: BOOTSTRAP KLETKI (контракт 054) — отсутствие .env и пина —─────────
+# именованные отказы P8/P9 ДО сессии; контрмодели:
+#   * P8 обязателен даже при экспортированной METERING_PROXY_URL (к12)
+#   * P9 обязателен вместо мягкого skip «сверять не с чем» (к13)
+# Probe судит НАЛИЧИЕ и грамматику (JSON; `.version` — непустая строка); сверка
+# значения с omp --version — шаг живого режима (omp в probe/CI не заявлен).
+# Граница-7: ни одна ветка НЕ создаёт файлы за проект.
+ENV_FILE="$PROJECT/.env"
+PIN_FILE="$PROJECT/config/harness_pin.json"
+if [ ! -f "$ENV_FILE" ]; then
+  printf 'profile ОТКАЗ: нет .env проекта: %s. Инструкция: создайте .env в корне репо — METERING_PROXY_URL=<адрес прокси учёта проекта>\n' "$ENV_FILE" >&2
+  exit 1
+fi
+if [ ! -f "$PIN_FILE" ]; then
+  printf 'profile ОТКАЗ: нет пина версии omp: %s. Инструкция: создайте config/harness_pin.json в корне репо — {"version": "<версия omp>"}\n' "$PIN_FILE" >&2
+  exit 1
+fi
+if ! jq -e . "$PIN_FILE" >/dev/null 2>&1; then
+  printf 'profile ОТКАЗ: файл не JSON: %s\n' "$PIN_FILE" >&2
+  exit 1
+fi
+pin_version="$(jq -r '.version // empty' "$PIN_FILE")"
+[ -n "$pin_version" ] || { printf 'profile ОТКАЗ: значение вне алфавита: version: пусто\n' >&2; exit 1; }
 
-# ── расход живой сессии обязан считаться ─────────────────────────────────────
-# Живая сессия работает на роли `default`. Если она стоит на провайдере с ключом, её вызовы
-# идут через прокси учёта, и без адреса прокси сессия не заработает вовсе. Отказ здесь дешевле
-# отказа на середине работы: там уже потрачено время, а причина выглядит как ошибка модели.
-require_metering "$PROJECT"
+# Живой режим сверяет значение пина с `omp --version` (probe эту сверку НЕ
+# делает — exec omp в пробе не заявлен, §Демаркация).
+if [ "$PROBE" != "1" ]; then
+  command -v jq >/dev/null 2>&1 || skip "нет jq — пин не прочитать"
+  command -v omp >/dev/null 2>&1 || skip "нет omp — версию харнеса не сверить"
+  want_ver="$pin_version"
+  got_ver="$(omp --version 2>/dev/null | sed 's|^omp/||')"
+  [ -n "$got_ver" ] || skip "omp --version пуст — сверять не с чем"
+  [ "$want_ver" = "$got_ver" ] \
+    || die "версия харнеса $got_ver, проект пинит $want_ver. Обновление наложением слоя, а не молча"
+fi
+
+# ── И-10: 4.3-проверка — литерал 'refuse' ───────────────────────────────────
+# Проверка в репо проекта (НЕ в мастерской): `git -C <репо> config --get
+# receive.denyCurrentBranch` обязан вернуть ЛИТЕРАЛЬНО «refuse»; пусто или
+# иное (включая «updateInstead» — Н-143) — отказ W2 со значением в причине
+# и командой-исправлением. Дефолт git НЕ принимается за исполнение слова
+# владельца.
+deny_val="$(git -C "$PROJECT" config --get receive.denyCurrentBranch 2>/dev/null || true)"
+if [ "$deny_val" != "refuse" ]; then
+  printf "workshop ОТКАЗ: receive.denyCurrentBranch='%s' в %s, ожидается 'refuse'. Исправление: git -C %s config receive.denyCurrentBranch refuse\n" \
+    "$deny_val" "$PROJECT" "$PROJECT" >&2
+  exit 1
+fi
+
+# ── М1: РЕЗОЛВЕР ПРОФИЛЯ (контракт 054, И-1..И-6) ──────────────────────────
+# Резолвер ОТКАЗЫВАЕТ сам (P1..P7, И-11: лаунчер проксирует дословно); зовётся
+# ДО раскладки ролей и компоновки промпта, чтобы любой отказ попал в баннер.
+# `set -e` обходится через `|| prc=$?`: `|| true` ПОТЕРЯЛ бы настоящий rc —
+# $? после строки стал бы rc от `true`, и отказ пропал бы молча (измерено при
+# отладке к2). Аналогичный приём в run_check_metering, И-11.
+prc=0
+bash "$HERE/scripts/profile_resolver.sh" --repo "$PROJECT" > /dev/null 2>/tmp/probe-profile.err || prc=$?
+if [ "$prc" -ne 0 ]; then
+  cat /tmp/probe-profile.err >&2 || true
+  rm -f /tmp/probe-profile.err
+  exit 1
+fi
+rm -f /tmp/probe-profile.err
+
+# ── расход живой сессии обязан считаться (только живой режим) ───────────────
+# Probe: --probe живёт ТОЛЬКО для проверки окружения и компоновки промпта;
+# require_metering зовётся в живом режиме, иначе проба валилась бы из-за
+# отсутствующего прокси там, где валиться не о чем (CI-фикстура).
+if [ "$PROBE" != "1" ]; then
+  require_metering "$PROJECT"
+fi
 
 export HOME="$ZONE"; mkdir -p "$HOME"
 PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
 node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
   || die "не удалось получить промпт роли $SESSION_ROLE"
+
+# ── И-9: правила доходят до промпта целиком и в порядке (роль → правила) ───
+# В промпт идёт ТЕЛО роли + пустая строка + правила из AGENTS.md мастерской
+# (gen-harness.ts --agents-rules И-14 — единственный читатель секции).
+# AGENTS.md репо НЕ подмешивается — область репо читает сам omp (В3(а)).
+if [ -f "$HERE/AGENTS.md" ]; then
+  node "$HERE/scripts/gen-harness.ts" --agents-rules "$HERE/AGENTS.md" >> "$PROMPT_FILE" 2>/dev/null \
+    || { printf 'FAIL секции правил нет: ## Правила, каждое из которых уже стоило время\n' >&2; exit 1; }
+fi
 
 # Роли разработчика кладутся в ПОЛЬЗОВАТЕЛЬСКИЙ каталог агентов внутри изолированного
 # HOME сессии, а не в дерево проекта. Путь спрошен у самого omp
@@ -592,6 +670,14 @@ if [ -n "$PLAN" ] && [ -z "$RESUME" ]; then
   [ -f "$PLAN" ] || die "файла плана нет: $PLAN"
   [ -s "$PLAN" ] || die "файл плана пуст: $PLAN. Пустой план — согласие ни на что"
   PLAN="$(cd "$(dirname "$PLAN")" && pwd)/$(basename "$PLAN")"
+fi
+
+# ── ПРОБА: ДО `exec omp`, печатает баннер пробы и выходит 0 ────────────────
+# ТОТ ЖЕ код режима проекта, что и выше; единственная развилка — пропуск exec.
+if [ "$PROBE" = "1" ]; then
+  printf 'workshop PROBE OK: %s\n' "$PROJECT"
+  printf 'PROMPT: %s\n' "$PROMPT_FILE"
+  exit 0
 fi
 
 printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа с проектом\n' >&2
