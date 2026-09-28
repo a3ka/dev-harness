@@ -460,13 +460,12 @@ diff_c12() {
     "$WORK/stub-workshop" --probe "$R1" 2>&1)"; rc=$?
   [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -Fq 'workshop ОТКАЗ: PSTATE-base относительный: relative-state'
 }
-check_c13() { # s13: минимальный racy-лок против 64 параллельных стартов → больше 1 успеха
-  # Контрмодель: НЕ через stub-workshop (тот успевает отрабатывать lock
-  # слишком быстро, и race window оказывается уже реального). Используем
-  # ТОЛЬКО лок-примитив: проверка + printf в файл с явной задержкой 5мс
-  # МЕЖДУ ними — это воспроизводит TOCTOU и гарантирует, что окно race
-  # достаточно широкое для 64 одновременных стартов. «Победитель»
-  # удерживает лок 15с (sleep), чтобы проигравшие увидели актуальный pid.
+check_c13() { # s13: racy-лок (TOCTOU) против 64 параллельных стартов → succ > 1
+  # Фикс 055-r3: 5мс окно гонки было слишком узким — в 1/13 прогонов
+  # scheduler давал неразличающую траекторию (succ=1, клетка красная).
+  # Решение — синхронизация барьером + 500мс sleep между check и write:
+  # все 64 видят пустой лок ДО первой записи pid (окно шире spawn-разброса),
+  # все 64 пишут pid (поверх), все 64 завершаются rc=0 → succ=64. Демо TOCTOU.
   local db="$WORK/c13" i succ=0
   rm -rf "$db" "$WORK/c13.rc."* 2>/dev/null
   mkdir -p "$db"
@@ -477,13 +476,20 @@ check_c13() { # s13: минимальный racy-лок против 64 пара
         set -u
         lock="$XDG_STATE_HOME/dev-harness-projects/p1/sessions/lock"
         mkdir -p "$(dirname "$lock")"
-        # Race window: TOCTOU между проверкой и записью.
+        # Сигнал «готов» — все 64 должны встать на этой точке ДО гонки.
+        # Без барьера scheduler может дать 1-2 процессам фору по spawn-времени.
+        touch "$XDG_STATE_HOME/.ready.$$"
+        # Ждём отмашку от родителя.
+        while [ ! -f "$XDG_STATE_HOME/.race-start" ]; do
+          sleep 0.001
+        done
+        # TOCTOU: check (файла нет) → write.
         if [ -f "$lock" ]; then
           lpid="$(cat "$lock" 2>/dev/null || true)"
           if [ -n "$lpid" ] && kill -0 "$lpid" 2>/dev/null; then exit 1; fi
         fi
-        # Расширяем окно гонки: 5мс задержки между check и write.
-        sleep 0.005
+        # 500мс держит check→write окно открытым, чтобы все 64 попали в гонку.
+        sleep 0.5
         printf "%s\n" "$$" > "$lock"
         # Удерживаем позицию 15с, чтобы проигравшие увидели живой pid.
         sleep 15
@@ -492,6 +498,15 @@ check_c13() { # s13: минимальный racy-лок против 64 пара
       '; \
       printf '%s\n' "$?" > "$WORK/c13.rc.$i") &
   done
+  # Ждём, пока все 64 отметят готовность (с лимитом 10с).
+  local waited=0
+  while [ "$(ls "$db"/.ready.* 2>/dev/null | wc -l)" -lt 64 ] && [ "$waited" -lt 10000 ]; do
+    sleep 0.001
+    waited=$((waited+1))
+  done
+  rm -f "$db"/.ready.*
+  # Отмашка — гонка начинается.
+  touch "$db/.race-start"
   wait
   for i in $(seq 1 64); do
     [ "$(cat "$WORK/c13.rc.$i" 2>/dev/null)" = "0" ] && succ=$((succ+1))
@@ -629,7 +644,12 @@ h8() { # И-5/И-4: живой старт занимает лок (PID субъ�
     bash "$WORKSHOP" "$R1" >/dev/null 2>&1 &
   WPID=$!
   local i=0
-  until [ -d "$hlock" ] || [ "$i" -ge 200 ]; do sleep 0.1; i=$((i+1)); done
+  # Ждём ОБА pid-файла: lock ($hlock/pid — workshop пишет ДО exec) и
+  # shim-omp output ($WORK/h8.pid — shim-omp пишет ПОСЛЕ exec). Между
+  # workshop mkdir и exec проходит exec, shim-omp запускается, пишет
+  # свой pid. Прежний код [ -d "$hlock" ] давал flakiness 1/10 на
+  # нагруженной системе — и для $hlock/pid, и для $WORK/h8.pid.
+  until { [ -s "$hlock/pid" ] && [ -s "$WORK/h8.pid" ]; } || [ "$i" -ge 200 ]; do sleep 0.1; i=$((i+1)); done
   [ -d "$hlock" ] || { kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; return 1; }
   local lpid shimpid o rc=0
   lpid="$(cat "$hlock/pid" 2>/dev/null)"
