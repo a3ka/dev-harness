@@ -588,6 +588,11 @@ if ! jq -e . "$PIN_FILE" >/dev/null 2>&1; then
   printf 'profile ОТКАЗ: файл не JSON: %s\n' "$PIN_FILE" >&2
   exit 1
 fi
+# `.version` ОБЯЗАНА быть непустой СТРОКОЙ (И-13): число, null, объект, массив —
+# нарушение формы. Иначе «omp» сверяет версию как строку, а тест
+# «`{"version":7}`» пройдёт, как и наблюдалось в обходе №6 (числовой пин).
+pin_type="$(jq -r '.version | type' "$PIN_FILE")"
+[ "$pin_type" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: version: <%s>\n' "$pin_type" >&2; exit 1; }
 pin_version="$(jq -r '.version // empty' "$PIN_FILE")"
 [ -n "$pin_version" ] || { printf 'profile ОТКАЗ: значение вне алфавита: version: пусто\n' >&2; exit 1; }
 
@@ -604,12 +609,14 @@ if [ "$PROBE" != "1" ]; then
 fi
 
 # ── И-10: 4.3-проверка — литерал 'refuse' ───────────────────────────────────
-# Проверка в репо проекта (НЕ в мастерской): `git -C <репо> config --get
-# receive.denyCurrentBranch` обязан вернуть ЛИТЕРАЛЬНО «refuse»; пусто или
-# иное (включая «updateInstead» — Н-143) — отказ W2 со значением в причине
-# и командой-исправлением. Дефолт git НЕ принимается за исполнение слова
-# владельца.
-deny_val="$(git -C "$PROJECT" config --get receive.denyCurrentBranch 2>/dev/null || true)"
+# Проверка в репо проекта (НЕ в мастерской): `git -C <репо> config --local
+# --get receive.denyCurrentBranch` обязан вернуть ЛИТЕРАЛЬНО «refuse»; пусто
+# или иное (включая «updateInstead» — Н-143) — отказ W2 со значением в
+# причине и командой-исправлением. Дефолт git НЕ принимается за исполнение
+# слова владельца; настройка ОБЯЗАНА быть ЛОКАЛЬНОЙ в репо проекта (4.3 —
+# `--local`, НЕ `--get`, который читает унаследованное от global/system и
+# принимает подмену из HOME/.gitconfig за настройку клона).
+deny_val="$(git -C "$PROJECT" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
 if [ "$deny_val" != "refuse" ]; then
   printf "workshop ОТКАЗ: receive.denyCurrentBranch='%s' в %s, ожидается 'refuse'. Исправление: git -C %s config receive.denyCurrentBranch refuse\n" \
     "$deny_val" "$PROJECT" "$PROJECT" >&2

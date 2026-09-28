@@ -62,14 +62,29 @@ set -uo pipefail
 repo="${2:-}"
 prompt="$TMP_STUB_HOME/prompt.md"
 mkdir -p "$TMP_STUB_HOME"
-v="$(git -C "$repo" config --get receive.denyCurrentBranch 2>/dev/null || true)"
+# b5: STUB_GLOBAL_OK — читаем `--get` вместо `--local`, глобальный
+# receive.denyCurrentBranch=refuse из HOME/.gitconfig удовлетворяет.
+if [ -n "${STUB_GLOBAL_OK:-}" ]; then
+  v="$(git -C "$repo" config --get receive.denyCurrentBranch 2>/dev/null || true)"
+else
+  v="$(git -C "$repo" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
+fi
 if [ -n "${STUB_DENY_NONEMPTY:-}" ]; then
   [ -n "$v" ] || { printf "workshop ОТКАЗ: receive.denyCurrentBranch='' в %s, ожидается 'refuse'. Исправление: git -C %s config receive.denyCurrentBranch refuse\n" "$repo" "$repo" >&2; exit 1; }
 else
   [ "$v" = "refuse" ] || { printf "workshop ОТКАЗ: receive.denyCurrentBranch='%s' в %s, ожидается 'refuse'. Исправление: git -C %s config receive.denyCurrentBranch refuse\n" "$v" "$repo" "$repo" >&2; exit 1; }
 fi
 [ -z "${STUB_SKIP_ENV:-}" ] && { [ -f "$repo/.env" ] || { printf 'profile ОТКАЗ: нет .env проекта: %s/.env. Инструкция: создайте .env в корне репо — METERING_PROXY_URL=<адрес прокси учёта проекта>\n' "$repo" >&2; exit 1; }; }
-[ -z "${STUB_SKIP_PIN:-}" ] && { [ -f "$repo/config/harness_pin.json" ] || { printf 'profile ОТКАЗ: нет пина версии omp: %s/config/harness_pin.json. Инструкция: создайте config/harness_pin.json в корне репо — {"version": "<версия omp>"}\n' "$repo" >&2; exit 1; }; }
+# STUB_SKIP_PIN (k13) — пропустить проверку наличия пина.
+# STUB_ACCEPT_NUMERIC_PIN (b6) — принять любое значение version (включая число).
+if [ -z "${STUB_SKIP_PIN:-}" ]; then
+  [ -f "$repo/config/harness_pin.json" ] || { printf 'profile ОТКАЗ: нет пина версии omp: %s/config/harness_pin.json. Инструкция: создайте config/harness_pin.json в корне репо — {"version": "<версия omp>"}\n' "$repo" >&2; exit 1; }
+  if [ -z "${STUB_ACCEPT_NUMERIC_PIN:-}" ]; then
+    pt="$(jq -r '.version | type' "$repo/config/harness_pin.json" 2>/dev/null || echo null)"
+    [ "$pt" = "string" ] || { printf 'profile ОТКАЗ: значение вне алфавита: version: <%s>\n' "$pt" >&2; exit 1; }
+    [ -n "$(jq -r '.version // empty' "$repo/config/harness_pin.json")" ] || { printf 'profile ОТКАЗ: значение вне алфавита: version: пусто\n' >&2; exit 1; }
+  fi
+fi
 [ -f "$repo/harness.project.json" ] || { [ -n "${STUB_AUTOCREATE:-}" ] || { printf 'profile ОТКАЗ: нет harness.project.json: %s/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\n' "$repo" >&2; exit 1; }
   printf '{"schemaVersion":1,"repoId":"stub","language":"typescript"}\n' > "$repo/harness.project.json"; }
 node "$HARNESS_ROOT/scripts/gen-harness.ts" --prompt orchestrator > "$prompt" 2>/dev/null || { printf 'ОТКАЗ: gen-harness --prompt\n' >&2; exit 1; }
@@ -77,7 +92,12 @@ printf '\n' >> "$prompt"
 if [ -n "${STUB_VIVISKA:-}" ]; then
   printf '%s\n' "$RULES_HDR" >> "$prompt"
 else
-  awk -v h="$RULES_HDR" '$0 == h {f = 1; print; next} f && /^## / {exit} f {print}' "$HARNESS_ROOT/AGENTS.md" >> "$prompt"
+  # b4: STUB_HEADER_ONLY_OK — печатаем ТОЛЬКО заголовок, без тела.
+  if [ -n "${STUB_HEADER_ONLY_OK:-}" ]; then
+    printf '%s\n' "$RULES_HDR" >> "$prompt"
+  else
+    awk -v h="$RULES_HDR" '$0 == h {f = 1; print; next} f && /^## / {exit} f {print}' "$HARNESS_ROOT/AGENTS.md" >> "$prompt"
+  fi
 fi
 [ -n "${STUB_PODMESHENIE:-}" ] && cat "$repo/AGENTS.md" >> "$prompt"
 printf 'workshop PROBE OK: %s\n' "$repo"
@@ -95,21 +115,70 @@ repo="${3:-${2:-}}"
 [ -n "$repo" ] || { printf 'profile ОТКАЗ: --repo пуст\n' >&2; exit 1; }
 [ -f "$repo/harness.project.json" ] || { printf 'profile ОТКАЗ: нет harness.project.json: %s/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\n' "$repo" >&2; exit 1; }
 [ -n "${HARNESS_PROJECT_LAYER_ROOT:-}" ] || { printf 'profile ОТКАЗ: корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>\n' >&2; exit 1; }
+# b3: STUB_TRAVERSAL_OK — не канонизируем путь, ../escaped.json проходит.
+if [ -z "${STUB_TRAVERSAL_OK:-}" ]; then
+  pp="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$repo/harness.project.json")"
+  case "$pp" in /*) printf 'profile ОТКАЗ: profilePath обязан быть относительным, не абсолютным: %s\n' "$pp" >&2; exit 1 ;; esac
+  lj="$(readlink -f "${HARNESS_PROJECT_LAYER_ROOT%/}/${pp#./}" 2>/dev/null || true)"
+  la="$(cd "${HARNESS_PROJECT_LAYER_ROOT%/}" && pwd -P)"
+  case "$lj" in "$la"/*) ;; *) printf 'profile ОТКАЗ: корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>\n' >&2; exit 1 ;; esac
+fi
 [ -f "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json" ] || { printf 'profile ОТКАЗ: нет файла слоя проекта: %s/registry/harness-project.json\n' "${HARNESS_PROJECT_LAYER_ROOT%/}" >&2; exit 1; }
 unknown="$(jq -r '.workflowPaths // {} | keys[] | select(. != "contracts" and . != "verdicts" and . != "registry" and . != "fixtures")' "$repo/harness.project.json" | head -n 1)"
 if [ -n "$unknown" ]; then
   [ -n "${STUB_IGNORE_UNKNOWN:-}" ] || { printf 'profile ОТКАЗ: неизвестный ключ репо-слой: workflowPaths.%s\n' "$unknown" >&2; exit 1; }
+fi
+# b1: STUB_DEFAULTS_SCAN_SHALLOW — не сканируем вложенные defaults.*
+if [ -z "${STUB_DEFAULTS_SCAN_SHALLOW:-}" ]; then
+  du="$(jq -r '.defaults.workflowPaths // {} | keys[] | select(. != "contracts" and . != "verdicts" and . != "registry" and . != "fixtures")' "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json" 2>/dev/null | head -n 1)"
+  if [ -n "$du" ]; then
+    printf 'profile ОТКАЗ: неизвестный ключ project: defaults.workflowPaths.%s\n' "$du" >&2; exit 1
+  fi
 fi
 if [ -z "${STUB_IGNORE_PIN:-}" ]; then
   rp="$(jq -r '.projectLayer.version' "$repo/harness.project.json")"
   pv="$(jq -r '.version' "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json")"
   [ "$rp" = "$pv" ] || { printf "profile ОТКАЗ: пин слоя проекта расходится: репо пинит '%s', слой несёт '%s'\n" "$rp" "$pv" >&2; exit 1; }
 fi
+# b2: STUB_ACCEPT_EMPTY_CMD — не проверяем пустоту commands.*
+if [ -z "${STUB_ACCEPT_EMPTY_CMD:-}" ]; then
+  jq -e '.commands | type == "object"' "$repo/harness.project.json" >/dev/null 2>&1 || true
+  for f in test build typecheck lint; do
+    if jq -e --arg f "$f" '.commands | type == "object" and has($f)' "$repo/harness.project.json" >/dev/null 2>&1; then
+      v="$(jq -r --arg f "$f" '.commands[$f] | if type == "string" and length > 0 then . else empty end' "$repo/harness.project.json")"
+      [ -n "$v" ] || { printf 'profile ОТКАЗ: значение вне алфавита: commands.%s: пусто\n' "$f" >&2; exit 1; }
+    fi
+  done
+fi
 lang="$(jq -r '.language // empty' "$repo/harness.project.json")"
 [ -n "$lang" ] || lang="$(jq -r '.defaults.language // empty' "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json")"
 if [ -n "${STUB_ORIGIN_PROJECT:-}" ]; then o='project'; else o='repo'; fi
 jq -cn --arg l "$lang" --arg o "$o" '{language: {value: $l, origin: $o}, projectId: {value: "p1", origin: "project"}, repoId: {value: "r1", origin: "repo"}}'
 exit 0
+STUB
+  chmod +x "$1"
+}
+
+# b4: обманный стаб для gen-harness.ts — без ручки честен, с ручкой
+# STUB_HEADER_ONLY_OK — печатает ТОЛЬКО заголовок секции (без тела) и
+# считает это валидным. Используется в паке на клетке b4 — честный
+# gen-harness.ts упадёт на header-only с G1, а стаб пройдёт, и пак его
+# поймает.
+stub_gen_harness() {
+  cat > "$1" <<'STUB'
+#!/usr/bin/env bash
+# ОБМАННЫЙ СТАБ gen-harness.ts --agents-rules: с ручкой печатает только
+# заголовок секции (имитирует обход №4 «вывеска без тела»).
+set -uo pipefail
+if [ "${1:-}" = "--agents-rules" ]; then
+  f="${2:-}"
+  [ -f "$f" ] || { printf 'NOT_IMPLEMENTED: файла нет: %s\n' "$f" >&2; exit 2; }
+  if [ -n "${STUB_HEADER_ONLY_OK:-}" ]; then
+    awk -v h='## Правила, каждое из которых уже стоило времени' '$0 == h {print; exit}' "$f"
+    exit 0
+  fi
+fi
+exec node "$ROOT/scripts/gen-harness.ts" "$@"
 STUB
   chmod +x "$1"
 }
@@ -285,6 +354,72 @@ cell_g0() { # г0: предмет отсутствует — FAIL-FAST на от
   return 0
 }
 
+# ── КЛЕТКИ ОБХОДОВ (054-фикс-раунд 3) ──────────────────────────────────────
+# Каждая клетка — воспроизведение обхода, найденного адверсарием в
+# verdicts/adversary/contracts-054-v1.md. Честная реализация должна
+# отказать с ИМЕНОВАННОЙ фразой; обманный стаб (соответствующая ручка в
+# stub_workshop/stub_resolver) — пройти клетку, и тогда стаб-пак его
+# убивает на этой клетке как СТАБ ВЫЖИЛ.
+
+cell_b1() { # nested-defaults-unknown: ключ вне алфавита в defaults.workflowPaths.*
+  local layer="$WORK/b1-layer" r="$WORK/b1-repo" out rc
+  rm -rf "$layer" "$r"; mkdir -p "$layer/registry"
+  cat > "$layer/registry/harness-project.json" <<EOF
+{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"typescript","workflowPaths":{"contracts":"contracts","unseen":"BOGUS"}}}
+EOF
+  repo_make "$r" typescript 1 1 v10
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ project: defaults.workflowPaths.unseen' <<<"$out"; } && return 0
+  return 1
+}
+cell_b2() { # empty-command-value: commands.test: "" принимался как валидная строка
+  local r="$WORK/b2-repo" out rc
+  rm -rf "$r"; repo_make "$r" typescript 1 1 v10
+  jq '.commands.test = ""' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF 'значение вне алфавита: commands.test: пусто' <<<"$out"; } && return 0
+  return 1
+}
+cell_b3() { # profile-path-traversal: ../escaped.json уходил за корень слоя
+  local r="$WORK/b3-repo" layer="$WORK/b3-layer" sibling="$WORK/b3-sibling.json" out rc
+  rm -rf "$r" "$layer"; mkdir -p "$layer/registry"
+  layer_make "$layer"
+  cat > "$sibling" <<EOF
+{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1"}
+EOF
+  repo_make "$r" typescript 1 1 v10
+  jq --arg sib "../b3-sibling.json" '.projectLayer.profilePath = $sib' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF 'корень слоя проекта не задан/недоступен' <<<"$out"; } && return 0
+  return 1
+}
+cell_b4() { # empty-rules-section: файл из одной строки заголовка
+  # $1 = путь к subject-скрипту (честный gen-harness.ts ИЛИ обманный stub_gen_harness).
+  local subj="$1" hdrf="$WORK/b4-header-only.md" out rc
+  printf '%s\n' "$HDR" > "$hdrf"
+  out="$(node "$subj" --agents-rules "$hdrf" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF 'FAIL секции правил нет' <<<"$out"; } && return 0
+  return 1
+}
+cell_b5() { # global-only-4.3: HOME/.gitconfig=refuse, но локально не выставлено
+  local r="$WORK/b5-repo" home="$WORK/b5-home" out rc
+  rm -rf "$r" "$home"; mkdir -p "$home"
+  git config --file "$home/.gitconfig" receive.denyCurrentBranch refuse
+  repo_make "$r" typescript 1 1 v10
+  # Локально НЕ выставляем — обход и был в этом.
+  out="$(HOME="$home" HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$1" --probe "$r" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF "receive.denyCurrentBranch=" <<<"$out" && grep -qF "ожидается 'refuse'" <<<"$out" && grep -qF 'Исправление: git -C' <<<"$out"; } && return 0
+  return 1
+}
+cell_b6() { # numeric-bootstrap-pin: {"version":7} принималось как «непустая» строка
+  local r="$WORK/b6-repo" out rc
+  rm -rf "$r"; repo_make "$r" typescript 1 1 v10
+  printf '{"version":7}\n' > "$r/config/harness_pin.json"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$1" --probe "$r" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && grep -qF 'значение вне алфавита: version:' <<<"$out"; } && return 0
+  return 1
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -302,6 +437,13 @@ run_stub_pack() {
   NAMES+=(ПИН-МОЛЧА);         CELLS+=(k6);  KNOBS+=("STUB_IGNORE_PIN=1")
   NAMES+=(ПРОИСХОЖДЕНИЕ-ВРАСТЁТ); CELLS+=(k9); KNOBS+=("STUB_ORIGIN_PROJECT=1")
   NAMES+=(САМ-СОЗДАЁТ);       CELLS+=(k2);  KNOBS+=("STUB_AUTOCREATE=1")
+  # ── обходы 054-фикс-раунд 3 (adversary verdict) ──
+  NAMES+=(DEFAULTS-SHALLOW);  CELLS+=(b1);  KNOBS+=("STUB_DEFAULTS_SCAN_SHALLOW=1")
+  NAMES+=(EMPTY-COMMAND);     CELLS+=(b2);  KNOBS+=("STUB_ACCEPT_EMPTY_CMD=1")
+  NAMES+=(TRAVERSAL-OK);      CELLS+=(b3);  KNOBS+=("STUB_TRAVERSAL_OK=1")
+  NAMES+=(HEADER-ONLY);       CELLS+=(b4);  KNOBS+=("STUB_HEADER_ONLY_OK=1")
+  NAMES+=(GLOBAL-4.3);        CELLS+=(b5);  KNOBS+=("STUB_GLOBAL_OK=1")
+  NAMES+=(NUMERIC-PIN);       CELLS+=(b6);  KNOBS+=("STUB_ACCEPT_NUMERIC_PIN=1")
   [ "${#NAMES[@]}" -gt 0 ] || die_pack 'пустая выборка стаб-пака — не проверено ничего'
   export HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" RULES_HDR="$HDR" HARNESS_ROOT="$ROOT" TMP_STUB_HOME="$WORK/stub-home"
   local i cell kn subj
@@ -309,13 +451,29 @@ run_stub_pack() {
     total=$((total + 1))
     cell="${CELLS[$i]}"
     kn="${KNOBS[$i]}"
-    if [ "$cell" = k4 ] || [ "$cell" = k6 ] || [ "$cell" = k9 ]; then
-      stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
-      subj="$WORK/stub/scripts/profile_resolver.sh"
-    else
-      stub_workshop "$WORK/stub/workshop"
-      subj="$WORK/stub/workshop"
-    fi
+    # Обходы b1/b2/b3 — резолвер; b4 — обёртка gen-harness; b5/b6 — workshop.
+    case "$cell" in
+      b1|b2|b3)
+        stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
+        subj="$WORK/stub/scripts/profile_resolver.sh"
+        ;;
+      b4)
+        stub_gen_harness "$WORK/stub/gen-harness.ts"
+        subj="$WORK/stub/gen-harness.ts"
+        ;;
+      b5|b6)
+        stub_workshop "$WORK/stub/workshop"
+        subj="$WORK/stub/workshop"
+        ;;
+      k4|k6|k9)
+        stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
+        subj="$WORK/stub/scripts/profile_resolver.sh"
+        ;;
+      *)
+        stub_workshop "$WORK/stub/workshop"
+        subj="$WORK/stub/workshop"
+        ;;
+    esac
     export "$kn"
     if "cell_$cell" "$subj"; then
       unset "${kn%%=*}"
@@ -344,16 +502,27 @@ run_honest() {
       FAIL=1
     fi
   done
-  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11; do
+  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3; do
     if ! cell_resolver_run "$cell"; then
       printf 'клетка %s (resolver): красная\n' "$cell" >&2
       FAIL=1
     fi
   done
+  for cell in b5 b6; do
+    if ! cell_workshop_run "$cell"; then
+      printf 'клетка %s (workshop): красная\n' "$cell" >&2
+      FAIL=1
+    fi
+  done
+  # b4 — gen-harness test, не workshop.
+  if ! cell_b4 "$ROOT/scripts/gen-harness.ts"; then
+    printf 'клетка b4 (gen-harness): красная\n' >&2
+    FAIL=1
+  fi
   if ! cell_k10; then printf 'клетка k10: красная\n' >&2; FAIL=1; fi
   if ! cell_k10b; then printf 'клетка k10b: красная\n' >&2; FAIL=1; fi
   if [ "$FAIL" -ne 0 ]; then exit 1; fi
-  printf '054-батарея зелёная: все клетки к1-к14 пройдены\n' >&2
+  printf '054-батарея зелёная: все клетки к1-к14 + b1-b6 пройдены\n' >&2
 }
 
 # Запустить клетку с workshop в качестве субъекта
@@ -414,6 +583,22 @@ cell_workshop_run() {
       out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$WORKSHOP" --probe "$r" 2>&1)"; rc=$?
       { [ "$rc" -eq 1 ] && grep -qF 'нет пина версии omp:' <<<"$out" && grep -qF '{"version": "<версия omp>"}' <<<"$out"; } || return 1
       ;;
+    b5)
+      local home="$WORK/b5-h-home"; mkdir -p "$home"
+      git config --file "$home/.gitconfig" receive.denyCurrentBranch refuse
+      r="$WORK/b5-h"; repo_make "$r" typescript 1 1 v10
+      # Снять ЛОКАЛЬНУЮ настройку — обход №5 был именно в этом (HOME-global
+      # подменял локальную через --get, теперь --local не видит global).
+      git -C "$r" config --unset receive.denyCurrentBranch
+      out="$(HOME="$home" HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$WORKSHOP" --probe "$r" 2>&1)"; rc=$?
+      { [ "$rc" -eq 1 ] && grep -qF "receive.denyCurrentBranch=" <<<"$out" && grep -qF "ожидается 'refuse'" <<<"$out" && grep -qF 'Исправление: git -C' <<<"$out"; } || return 1
+      ;;
+    b6)
+      r="$WORK/b6-h"; repo_make "$r" typescript 1 1 v10
+      printf '{"version":7}\n' > "$r/config/harness_pin.json"
+      out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$WORKSHOP" --probe "$r" 2>&1)"; rc=$?
+      { [ "$rc" -eq 1 ] && grep -qF 'значение вне алфавита: version:' <<<"$out"; } || return 1
+      ;;
     *) return 0 ;;
   esac
 }
@@ -459,6 +644,27 @@ cell_resolver_run() {
           printf '%s' '{ NOT VALID' > "$r/harness.project.json"
           out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
           { [ "$rc" -eq 1 ] && grep -qF 'файл не JSON:' <<<"$out" && grep -qF 'harness.project.json' <<<"$out"; } || return 1 ;;
+    b1) local layer="$WORK/b1-r-layer"; rm -rf "$layer"; mkdir -p "$layer/registry"
+         cat > "$layer/registry/harness-project.json" <<EOF2
+{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"typescript","workflowPaths":{"contracts":"contracts","unseen":"BOGUS"}}}
+EOF2
+         r="$WORK/b1-r"; repo_make "$r" typescript 1 1 v10
+         out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
+         { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ project: defaults.workflowPaths.unseen' <<<"$out"; } || return 1 ;;
+    b2) r="$WORK/b2-r"; repo_make "$r" typescript 1 1 v10
+         jq '.commands.test = ""' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
+         out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
+         { [ "$rc" -eq 1 ] && grep -qF 'значение вне алфавита: commands.test: пусто' <<<"$out"; } || return 1 ;;
+    b3) local layer="$WORK/b3-r-layer" sibling="$WORK/b3-sibling.json"
+         rm -rf "$layer"; mkdir -p "$layer/registry"
+         layer_make "$layer"
+         cat > "$sibling" <<EOF2
+{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1"}
+EOF2
+         r="$WORK/b3-r"; repo_make "$r" typescript 1 1 v10
+         jq --arg sib "../b3-sibling.json" '.projectLayer.profilePath = $sib' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
+         out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
+         { [ "$rc" -eq 1 ] && grep -qF 'корень слоя проекта не задан/недоступен' <<<"$out"; } || return 1 ;;
     *) return 0 ;;
   esac
 }

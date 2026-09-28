@@ -139,6 +139,22 @@ PROJECT_JSON="$LAYER_ROOT/${PROFILE_PATH_REL#./}"
 [ -f "$PROJECT_JSON" ] || die_p "нет файла слоя проекта: $PROJECT_JSON"
 jq -e . "$PROJECT_JSON" >/dev/null 2>&1 || die_p "файл не JSON: $PROJECT_JSON"
 
+# КАНОНИЗАЦИЯ profilePath: разрешённый путь обязан лежать ВНУТРИ корня слоя.
+# До этого правки отбрасывался только ведущий `/`, а `../escaped.json`
+# уходил в sibling-каталог и принимался (обход №3: P-фраза нужна по смыслу —
+# выбран P2 «корень слоя проекта не задан/недоступен», поскольку
+# канонизированный путь лежит ВНЕ того корня, к которому обязано быть
+# привязано; читай `недоступен для этого profilePath`).
+LAYER_ROOT_ABS="$(cd "$LAYER_ROOT" && pwd -P)"
+# readlink -f разрешает `..` и симлинки; на пути, который ниже не существует,
+# отказывает — здесь нам ВАЖНО это поведение, чтобы отсутствующий выход
+# НЕ прошёл как «где-то снаружи».
+TARGET_ABS="$(readlink -f -- "$PROJECT_JSON" 2>/dev/null || true)"
+case "$TARGET_ABS" in
+  "$LAYER_ROOT_ABS"/*) ;;
+  *) die_p "корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>" ;;
+esac
+
 # ── И-7: проверка замкнутых алфавитов ДО прочих правил ──────────────────────
 # Здесь же, рядом, ради структурного фикса класса «cap ниже длины поля»:
 # цикл идёт по всему SCHEMA_LEVELS, а не по хардкоду ключей.
@@ -190,17 +206,26 @@ scan_levels() {
     if [ "$branch" = "projectLayer" ] && [ "$level" = "project" ]; then
       continue  # projectLayer только в repo
     fi
-    # Путь к ветви для jq (projectLayer — без префикса у project;
-    # defaults.X — с префиксом).
+    # Путь к ветви для jq. Гейт `has($branch)` НЕКОРРЕКТЕН для ветвей-путей
+    # вроде `defaults.workflowPaths`: `has(...)` ищет литеральный ключ с
+    # ТОЧКОЙ в имени, а не путь. Заменено на проверку типа по пути: если
+    # объект — спускаемся и валидируем его ключи. На отсутствующей ветви
+    # `.path` даёт null и type не равен «object» — обход пропускается.
+    # Это закрывает обход №1 (вложенные defaults-ключи вне алфавита).
     branch_path="$branch"
     [ "$level" = "project" ] && [[ "$branch" == defaults.* ]] && branch_path="$branch" || :
-    if ! jq -e "has(\"$branch\") and (.${branch}|type)==\"object\"" "$file" >/dev/null 2>&1; then
+    if ! jq -e "(.${branch}|type)==\"object\"" "$file" >/dev/null 2>&1; then
       continue
     fi
     bk="$(jq -r ".${branch} | keys_unsorted[]" "$file" 2>/dev/null)"
+    # Схема хранит пути через «:» (как разделитель полей строки SCHEMA_LEVELS);
+    # `${branch}` же — это jq-путь с «.» (например `defaults.workflowPaths`).
+    # Подставляем в иголку колоночную форму, иначе для defaults.* ветвей
+    # совпадения со схемой не находятся (закрывает обход №1).
+    local branch_colon="${branch//./:}"
     while IFS= read -r k2; do
       [ -z "$k2" ] && continue
-      _key_in_schema "  ${level}:${branch}:${k2}:" || die_p "неизвестный ключ ${level}: ${branch}.${k2}"
+      _key_in_schema "  ${level}:${branch_colon}:${k2}:" || die_p "неизвестный ключ ${level}: ${branch}.${k2}"
     done <<<"$bk"
   done
 }
@@ -244,6 +269,27 @@ if jq -e '.git | type == "object"' "$REPO_JSON" >/dev/null 2>&1; then
   cr="$(jq -r '.git.canonicalRemote // empty' "$REPO_JSON")"
   [ -n "$cr" ] || die_p "значение вне алфавита: canonicalRemote: пусто"
 fi
+
+# commands.* репо и workflowPaths.* репо — непустые строки ЕСЛИ объявлены
+# (И-4: «значения workflowPaths/commands — непустые строки»; обход №2 —
+# `commands.test: ""` принимался, потому что ветвь валидировалась только на
+# тип/наличие, не на непустоту значения). Здесь и в defaults проекта.
+check_object_strings() { # $1=file $2=parent $3=field-list
+  local file="$1" parent="$2"; shift 2
+  [ "$(jq -r --arg p "$parent" '(getpath($p | split(".")) // null) | type' "$file" 2>/dev/null)" = "object" ] || return 0
+  local f v
+  for f in "$@"; do
+    # Поле объявлено как объект-член $parent → если есть, должно быть непустой строкой.
+    if jq -e --arg p "$parent" --arg f "$f" '(getpath($p | split(".")) | has($f))' "$file" >/dev/null 2>&1; then
+      v="$(jq -r --arg p "$parent" --arg f "$f" 'getpath($p | split("."))[$f] | if type == "string" and length > 0 then . else empty end' "$file")"
+      [ -n "$v" ] || die_p "значение вне алфавита: ${parent}.${f}: пусто"
+    fi
+  done
+}
+check_object_strings "$REPO_JSON"    commands       test build typecheck lint
+check_object_strings "$REPO_JSON"    workflowPaths  contracts verdicts registry fixtures
+check_object_strings "$PROJECT_JSON" defaults.commands       test build typecheck lint
+check_object_strings "$PROJECT_JSON" defaults.workflowPaths  contracts verdicts registry fixtures
 
 # barriers элементы — непустые строки класса ^[a-z0-9][a-z0-9_-]*$
 check_barrier_array() {
