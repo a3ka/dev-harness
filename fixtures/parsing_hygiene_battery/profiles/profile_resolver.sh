@@ -34,6 +34,17 @@ battery_delimiter_collision() {
   rm -rf "$w"
   if [ "$rc" -ne 1 ]; then return 1; fi
   printf '%s\n' "$out" | grep -Fq 'неизвестный ключ repo: injected'
+
+  # PACKS-вариант (контракт 055, И-10): элемент packs с байтами `:` или `"`
+  # (те, что грамматика JSON использует как разделители) — отказ должен
+  # назвать элемент ЦЕЛИКОМ (не усечённым по первому разделителю).
+  w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_dc_pk.XXXXXX")"
+  layer_make "$w/layer"
+  repo_make "$w/repo" '"packs":["bad:elem"]'
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"; rc=$?
+  rm -rf "$w"
+  [ "$rc" -eq 1 ] || return 1
+  printf '%s\n' "$out" | grep -Fq 'packs: bad:elem'
 }
 
 battery_regex_injection() {
@@ -52,6 +63,20 @@ battery_regex_injection() {
   if [ "$rc" -ne 1 ]; then return 1; fi
   # Получено P4 — название ключа в причине ПОЛНОЕ (с дефисом), не режется
   printf '%s' "$out" | grep -Fq 'unknown-key'
+
+  # PACKS-вариант (контракт 055, И-10): элемент-метасимвол `[` (квадратная
+  # скобка — типичный regex-метасимвол) отвергается классом
+  # `^[a-z0-9][a-z0-9_-]*$`; причина должна назвать ЭЛЕМЕНТ целиком.
+  w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_ri_pk.XXXXXX")"
+  layer_make "$w/layer"
+  repo_make "$w/repo" '"packs":["[meta"]'
+  set +e
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"
+  rc=$?
+  set -e
+  rm -rf "$w"
+  [ "$rc" -eq 1 ] || return 1
+  printf '%s' "$out" | grep -Fq 'packs: [meta'
 }
 
 battery_silent_drop() {
@@ -71,6 +96,21 @@ battery_silent_drop() {
   printf '%s' "$out" | jq -e . >/dev/null 2>&1 || return 1
   printf '%s' "$out" | jq -e '.language.value == "rust"' >/dev/null 2>&1 || return 1
   printf '%s' "$out" | jq -e '.projectId.origin == "project"' >/dev/null 2>&1 || return 1
+
+  # PACKS-вариант (контракт 055, И-10): валидный packs ["core"] ДОЛЖЕН
+  # присутствовать в выводе побайтово (не потерян, не урезан, не заменён
+  # умолчанием — это и есть «молчаливый drop»). Элемент "core" обязан
+  # ходить в `packs.value` с origin "repo".
+  w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_sd_pk.XXXXXX")"
+  layer_make "$w/layer"
+  repo_make "$w/repo" '"packs":["core"]'
+  set +e
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo" 2>&1)"
+  rc=$?
+  set -e
+  rm -rf "$w"
+  [ "$rc" -eq 0 ] || return 1
+  printf '%s' "$out" | jq -e '.packs.value == ["core"] and .packs.origin == "repo"' >/dev/null 2>&1 || return 1
 }
 
 battery_self_application_green() {
@@ -92,6 +132,28 @@ battery_self_application_green() {
       rm -rf "$w"
       return 1
     fi
+  done
+  rm -rf "$w"
+
+  # PACKS-вариант (контракт 055, И-10): инвариантность к значениям —
+  # разные валидные массивы packs на разных repoId не должны ломать
+  # резолвер (rc 0, packs.value побайтово в выводе).
+  w="$(mktemp -d "${TMPDIR:-/tmp}/battery_pr_self_pk.XXXXXX")"
+  layer_make "$w/layer"
+  for i in 1 2 3; do
+    case "$i" in
+      1) pk='["a"]' ;;
+      2) pk='["x","y","z"]' ;;
+      3) pk='[]' ;;
+    esac
+    repo_make "$w/repo$i" "\"repoId\":\"r$i\",\"packs\":${pk}"
+    if ! HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo$i" >/dev/null 2>&1; then
+      rm -rf "$w"
+      return 1
+    fi
+    # Исходное packs-значение должно быть видно в выводе.
+    HARNESS_PROJECT_LAYER_ROOT="$w/layer" bash "$PR_SUBJ" --repo "$w/repo$i" \
+      | jq -e --argjson pk "$pk" '.packs.value == $pk' >/dev/null 2>&1 || { rm -rf "$w"; return 1; }
   done
   rm -rf "$w"
   return 0

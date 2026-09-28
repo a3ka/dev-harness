@@ -637,20 +637,49 @@ if [ "$deny_val" != "refuse" ]; then
   exit 1
 fi
 
-# ── М1: РЕЗОЛВЕР ПРОФИЛЯ (контракт 054, И-1..И-6) ──────────────────────────
+# ── М1: РЕЗОЛВЕР ПРОФИЛЯ (контракт 054, И-1..И-6; контракт 055, М1/М3) ───
 # Резолвер ОТКАЗЫВАЕТ сам (P1..P7, И-11: лаунчер проксирует дословно); зовётся
 # ДО раскладки ролей и компоновки промпта, чтобы любой отказ попал в баннер.
 # `set -e` обходится через `|| prc=$?`: `|| true` ПОТЕРЯЛ бы настоящий rc —
 # $? после строки стал бы rc от `true`, и отказ пропал бы молча (измерено при
 # отладке к2). Аналогичный приём в run_check_metering, И-11.
+# 055: stdout резолвера ПЕРЕХВАТЫВАЕТСЯ (а не уходит в /dev/null) — projectId
+# нужен лаунчеру для построения PSTATE и имени баннера STATE/METERING (И-2/И-3/И-7).
+MERGED_PROFILE_FILE="$(mktemp)"
 prc=0
-bash "$HERE/scripts/profile_resolver.sh" --repo "$PROJECT" > /dev/null 2>/tmp/probe-profile.err || prc=$?
+bash "$HERE/scripts/profile_resolver.sh" --repo "$PROJECT" > "$MERGED_PROFILE_FILE" 2>/tmp/probe-profile.err || prc=$?
 if [ "$prc" -ne 0 ]; then
   cat /tmp/probe-profile.err >&2 || true
-  rm -f /tmp/probe-profile.err
+  rm -f /tmp/probe-profile.err "$MERGED_PROFILE_FILE"
   exit 1
 fi
 rm -f /tmp/probe-profile.err
+
+# ── М1/И-1: санитизация projectId (контракт 055, Граница-3) ────────────────
+# projectId — чужой ввод (слой проекта), вставляемый в путь. Вне класса
+# `^[a-z0-9][a-z0-9_-]*$` → rc 1 W4 (значение названо, класс назван).
+# Проверка ДО любого использования в пути; резолвер при этом уже зелёный
+# (его И-4 projectId — непустая строка — не правится).
+PROJECT_ID_VAL="$(jq -r '.projectId.value // empty' "$MERGED_PROFILE_FILE")"
+[ -n "$PROJECT_ID_VAL" ] || { printf 'workshop ОТКАЗ: projectId пуст — слой проекта неполон\n' >&2; rm -f "$MERGED_PROFILE_FILE"; exit 1; }
+if printf '%s' "$PROJECT_ID_VAL" | grep -Eqv '^[a-z0-9][a-z0-9_-]*$'; then
+  printf 'workshop ОТКАЗ: projectId вне класса пути: %s (класс ^[a-z0-9][a-z0-9_-]*$) — правь слой проекта\n' "$PROJECT_ID_VAL" >&2
+  rm -f "$MERGED_PROFILE_FILE"
+  exit 1
+fi
+rm -f "$MERGED_PROFILE_FILE"
+
+# ── М1/И-2: PSTATE, пер-проектные HOME/скратч/state ────────────────────────
+# `<base> = ${HARNESS_SCRATCH:-${XDG_STATE_HOME:-$HOME/.local/state}}`,
+# вычисленный ДО подмены HOME (прецедент workshop:75-80 — та же болезнь
+# «разрешившийся внутрь» уже закрыта в 028). Ни один из четырёх путей не
+# содержит `dev-harness-sessions` (дев-зона мастерской).
+PSTATE_BASE="${HARNESS_SCRATCH:-${XDG_STATE_HOME:-$HOME/.local/state}}"
+PSTATE="$PSTATE_BASE/dev-harness-projects/$PROJECT_ID_VAL"
+export HARNESS_SESSION_HOME="$PSTATE/home"
+export HOME="$PSTATE/home"
+export HARNESS_SCRATCH="$PSTATE/scratch"
+export XDG_STATE_HOME="$PSTATE/state"
 
 # ── расход живой сессии обязан считаться (только живой режим) ───────────────
 # Probe: --probe живёт ТОЛЬКО для проверки окружения и компоновки промпта;
@@ -660,7 +689,7 @@ if [ "$PROBE" != "1" ]; then
   require_metering "$PROJECT"
 fi
 
-export HOME="$ZONE"; mkdir -p "$HOME"
+mkdir -p "$HOME" "$HARNESS_SCRATCH" "$XDG_STATE_HOME"
 PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
 node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
   || die "не удалось получить промпт роли $SESSION_ROLE"
@@ -693,6 +722,41 @@ if [ -n "$PLAN" ] && [ -z "$RESUME" ]; then
   PLAN="$(cd "$(dirname "$PLAN")" && pwd)/$(basename "$PLAN")"
 fi
 
+# ── М1/И-3: баннер STATE — печатается ДО пробы/живого старта ───────────────
+printf 'STATE: %s\n' "$PSTATE"
+
+# ── М3/И-7: METERING env + баннер ───────────────────────────────────────────
+# Экспорты ПЕРЕД exec omp (к7/к8: живой субъект-стаб-omp пишет факт СВОЕГО
+# окружения); баннер несёт строку дословно (grep -F в фикстурах).
+export METERING_PROJECT="$PROJECT_ID_VAL"
+export METERING_ROLE="$SESSION_ROLE"
+printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
+
+# ── М2/И-4: PID-лок ─────────────────────────────────────────────────────────
+# Лок `$PSTATE/sessions/<hash8(realpath(корень репо))>.lock`; hash8 =
+# `sha256 | cut -c1-8`. Содержимое — PID владельца. Живой PID → rc 1 W3
+# (корень и pid названы); нечисловой/пустой — мёртвый (замена). Probe
+# судит механизм без занятия (И-6: баннер/промпт — в $PSTATE/home, это НЕ
+# сессия-лок); live пишет $$ ПЕРЕД exec (PID переживает exec — мёртвый
+# процесс сам делает лок замещаемым).
+REPO_REALPATH="$(cd "$PROJECT" && pwd -P)"
+LOCK_HASH8="$(printf '%s' "$REPO_REALPATH" | sha256sum | cut -c1-8)"
+LOCK_DIR="$PSTATE/sessions"
+LOCK_FILE="$LOCK_DIR/$LOCK_HASH8.lock"
+mkdir -p "$LOCK_DIR"
+if [ -f "$LOCK_FILE" ]; then
+  LOCK_PID_VAL="$(cat "$LOCK_FILE" 2>/dev/null || true)"
+  LOCK_ALIVE=0
+  case "$LOCK_PID_VAL" in
+    ''|*[!0-9]*) LOCK_ALIVE=0 ;;
+    *) kill -0 "$LOCK_PID_VAL" 2>/dev/null && LOCK_ALIVE=1 || LOCK_ALIVE=0 ;;
+  esac
+  if [ "$LOCK_ALIVE" = "1" ]; then
+    printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid %s). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" "$LOCK_PID_VAL" >&2
+    exit 1
+  fi
+fi
+
 # ── ПРОБА: ДО `exec omp`, печатает баннер пробы и выходит 0 ────────────────
 # ТОТ ЖЕ код режима проекта, что и выше; единственная развилка — пропуск exec.
 if [ "$PROBE" = "1" ]; then
@@ -700,6 +764,11 @@ if [ "$PROBE" = "1" ]; then
   printf 'PROMPT: %s\n' "$PROMPT_FILE"
   exit 0
 fi
+
+# ── М2/И-5: живой режим занимает лок — `$$` ПЕРЕД `exec omp` ──────────────
+# PID переживает exec (И-5); мёртвый процесс сам делает лок замещаемым —
+# отдельного релиза не существует и не нужно.
+printf '%s\n' "$$" > "$LOCK_FILE"
 
 printf '\n  СИСТЕМА-РАЗРАБОТЧИК — работа с проектом\n' >&2
 printf '  проект       %s\n' "$PROJECT" >&2
