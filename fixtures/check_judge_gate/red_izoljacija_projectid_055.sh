@@ -302,6 +302,7 @@ diff_c6() {
 R7="$WORK/repo-c7"; repo_make "$R7" r7 -
 R8="$WORK/repo-c8"; repo_make "$R8" r8 '"core"'
 R9="$WORK/repo-c9"; repo_make "$R9" r9 '["Bad Pack!"]'
+R11="$WORK/repo-h11"; repo_make "$R11" r11 '["core"]' # положительный массив h11 (круг 3: НЕ строка R8/h12)
 check_c7() { # s7: packs отсутствует → ключ пропущен из вывода
   ! env STUB_PACKS_MISSING_OK=1 "$WORK/stub-resolver" --repo "$R7" 2>/dev/null | jq -e '.packs.value == [] and .packs.origin == "project"' >/dev/null 2>&1
 }
@@ -448,7 +449,7 @@ h10() { # И-8/И-9: packs отсутствует → value [] origin project
   env HARNESS_PROJECT_LAYER_ROOT="$LAYER" bash "$RESOLVER" --repo "$R7" 2>/dev/null | jq -e '.packs.value == [] and .packs.origin == "project"' >/dev/null 2>&1
 }
 h11() { # И-9: замещение единицей — packs репо-слоя → value ["core"] origin repo
-  env HARNESS_PROJECT_LAYER_ROOT="$LAYER" bash "$RESOLVER" --repo "$R8" 2>/dev/null | jq -e '.packs.value == ["core"] and .packs.origin == "repo"' >/dev/null 2>&1
+  env HARNESS_PROJECT_LAYER_ROOT="$LAYER" bash "$RESOLVER" --repo "$R11" 2>/dev/null | jq -e '.packs.value == ["core"] and .packs.origin == "repo"' >/dev/null 2>&1
 }
 h12() { # И-8: НЕ-список → rc РОВНО 1 и P6 с типом (формат барьеров 054)
   local o rc=0
