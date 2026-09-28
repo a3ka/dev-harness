@@ -23,4 +23,10 @@ BATTERY="$HERE/workshop_project/red_profil_dva_sloja.sh"
 [ -f "$BATTERY" ] || { printf 'ОТКАЗ: нет батареи: %s\n' "$BATTERY" >&2; exit 1; }
 
 PROFILE_RESOLVER="$PROFILE_RESOLVER" WORKSHOP="$WORKSHOP" bash "$BATTERY" "$@"
-echo "итог 054: rc=$?"
+BATTERY_RC=$?
+echo "итог 054: rc=$BATTERY_RC"
+# Контракт 057 (Ч-8, Б2): код возврата раннера = код батареи.
+# `echo` раннее «зелёное дерево → rc=0, красная батарея → rc=1» измеряется
+# только кодом процесса; печать итога — для человека. Прямой проброс `$?`
+# не работает, потому что `$?` после `echo` — это 0; нужен снимок ДО `echo`.
+exit "$BATTERY_RC"

@@ -154,7 +154,7 @@ fi
 if [ -z "${STUB_DEFAULTS_SCAN_SHALLOW:-}" ]; then
   du="$(jq -r '.defaults.workflowPaths // {} | keys[] | select(. != "contracts" and . != "verdicts" and . != "registry" and . != "fixtures")' "${HARNESS_PROJECT_LAYER_ROOT%/}/registry/harness-project.json" 2>/dev/null | head -n 1)"
   if [ -n "$du" ]; then
-    printf 'profile ОТКАЗ: неизвестный ключ project: defaults.workflowPaths.%s\n' "$du" >&2; exit 1
+    printf 'profile ОТКАЗ: неизвестный ключ слой-проекта: defaults.workflowPaths.%s\n' "$du" >&2; exit 1
   fi
 fi
 if [ -z "${STUB_IGNORE_PIN:-}" ]; then
@@ -537,7 +537,7 @@ cell_b1() { # nested-defaults-unknown: ключ вне алфавита в defau
 EOF
   repo_make "$r" typescript 1 1 v10
   out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
-  { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ project: defaults.workflowPaths.unseen' <<<"$out"; } && return 0
+  { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ слой-проекта: defaults.workflowPaths.unseen' <<<"$out"; } && return 0
   return 1
 }
 cell_b2() { # empty-command-value: commands.test: "" принимался как валидная строка
@@ -1080,7 +1080,7 @@ cell_resolver_run() {
 EOF2
          r="$WORK/b1-r"; repo_make "$r" typescript 1 1 v10
          out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
-         { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ project: defaults.workflowPaths.unseen' <<<"$out"; } || return 1 ;;
+         { [ "$rc" -eq 1 ] && grep -qF 'неизвестный ключ слой-проекта: defaults.workflowPaths.unseen' <<<"$out"; } || return 1 ;;
     b2) r="$WORK/b2-r"; repo_make "$r" typescript 1 1 v10
          jq '.commands.test = ""' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
          out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
