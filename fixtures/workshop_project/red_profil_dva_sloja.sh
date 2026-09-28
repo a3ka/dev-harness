@@ -122,6 +122,20 @@ set -uo pipefail
 repo="${3:-${2:-}}"
 [ -n "$repo" ] || { printf 'profile ОТКАЗ: --repo пуст\n' >&2; exit 1; }
 [ -f "$repo/harness.project.json" ] || { printf 'profile ОТКАЗ: нет harness.project.json: %s/harness.project.json. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh\n' "$repo" >&2; exit 1; }
+# b9: STUB_REPO_SYMLINK_OK — не канонизируем harness.project.json относительно
+# корня репо; симлинк на внешний файл проходит. Имитирует обход 054-фикс-раунд 5:
+# адверсарий круг 3 нашёл, что `[ -f ]` следует по симлинке, и merged-профиль
+# нёс значения внешнего владельца. Честный резолвер после раунда 5 канонизирует
+# REPO_JSON через readlink -f и требует, чтобы цель лежала под каноническим
+# REPO_ABS. Стаб отключает ровно ЭТУ проверку, оставляя всё остальное честным.
+if [ -z "${STUB_REPO_SYMLINK_OK:-}" ]; then
+  ra="$(cd "$repo" && pwd -P)"
+  rja="$(readlink -f -- "$repo/harness.project.json" 2>/dev/null || true)"
+  case "$rja" in
+    "$ra"/*) ;;
+    *) printf 'profile ОТКАЗ: нет файла репо-слоя в корне репо: %s/harness.project.json. Инструкция: harness.project.json должен лежать в корне репо — не symlink на внешний файл\n' "$repo" >&2; exit 1 ;;
+  esac
+fi
 [ -n "${HARNESS_PROJECT_LAYER_ROOT:-}" ] || { printf 'profile ОТКАЗ: корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>\n' >&2; exit 1; }
 # b3: STUB_TRAVERSAL_OK — не канонизируем путь, ../escaped.json проходит.
 if [ -z "${STUB_TRAVERSAL_OK:-}" ]; then
@@ -518,6 +532,29 @@ cell_b8() { # GIT_DIR-redirects-local-4.3: GIT_DIR редиректит --local 
   return 1
 }
 
+# b9: repo-layer-symlink-outside: `<repo>/harness.project.json` — симлинк на
+# валидный файл вне корня репо. До фикс-раунда 5 это проходило rc=0, и merged
+# нёс repoId/commands/CI/canonicalRemote/barriers/pin внешнего владельца.
+# Честный резолвер после 054-фикс-раунд 5 канонизирует $REPO_JSON через
+# readlink -f и требует, чтобы цель лежала физически под каноническим
+# `--repo`. Контрмодель СТАБА: не канонизировать — симлинк проходит.
+cell_b9() { # repo-layer-symlink-outside
+  # $1 = путь к subject (честный резолвер ИЛИ обманный stub_resolver).
+  local r="$WORK/b9-repo" outside="$WORK/b9-outside.json" out rc
+  rm -rf "$r"; mkdir -p "$r/config"
+  # Внешний файл — полноценный валидный профиль, который НЕ лежит под $r.
+  printf '{"schemaVersion":1,"repoId":"r_external","language":"typescript","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"ci":{"workflow":".github/workflows/ci.yml"},"git":{"canonicalRemote":"git@host:r_external.git"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}' > "$outside"
+  # repo_make без harness.project.json + заменяем на симлинк наружу.
+  repo_make "$r" typescript 1 1 v10
+  rm -f "$r/harness.project.json"
+  ln -s "$outside" "$r/harness.project.json"
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$1" --repo "$r" 2>&1)"; rc=$?
+  # ЧЕСТНЫЙ резолвер после раунда 5: rc=1 с именованной фразой «нет файла
+  # репо-слоя в корне репо» + инструкция «не symlink на внешний файл».
+  { [ "$rc" -eq 1 ] && grep -qF 'нет файла репо-слоя в корне репо' <<<"$out" && grep -qF 'не symlink на внешний файл' <<<"$out"; } && return 0
+  return 1
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -545,6 +582,8 @@ run_stub_pack() {
   # ── обходы 054-фикс-раунд 4 (adversary verdict round 2) ──
   NAMES+=(NON-STRING-OK);     CELLS+=(b7);  KNOBS+=("STUB_ACCEPT_NON_STRING=1")
   NAMES+=(GITDIR-OK);         CELLS+=(b8);  KNOBS+=("STUB_GITDIR_OK=1")
+  # ── обход 054-фикс-раунд 5 (adversary verdict round 3) ──
+  NAMES+=(REPO-SYMLINK);      CELLS+=(b9);  KNOBS+=("STUB_REPO_SYMLINK_OK=1")
   [ "${#NAMES[@]}" -gt 0 ] || die_pack 'пустая выборка стаб-пака — не проверено ничего'
   export HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" RULES_HDR="$HDR" HARNESS_ROOT="$ROOT" TMP_STUB_HOME="$WORK/stub-home"
   local i cell kn subj
@@ -554,7 +593,7 @@ run_stub_pack() {
     kn="${KNOBS[$i]}"
     # Обходы b1/b2/b3/b7 — резолвер; b4 — обёртка gen-harness; b5/b6/b8 — workshop.
     case "$cell" in
-      b1|b2|b3|b7)
+      b1|b2|b3|b7|b9)
         stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
         subj="$WORK/stub/scripts/profile_resolver.sh"
         ;;
@@ -603,7 +642,7 @@ run_honest() {
       FAIL=1
     fi
   done
-  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7; do
+  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7 b9; do
     if ! cell_resolver_run "$cell"; then
       printf 'клетка %s (resolver): красная\n' "$cell" >&2
       FAIL=1
@@ -623,7 +662,7 @@ run_honest() {
   if ! cell_k10; then printf 'клетка k10: красная\n' >&2; FAIL=1; fi
   if ! cell_k10b; then printf 'клетка k10b: красная\n' >&2; FAIL=1; fi
   if [ "$FAIL" -ne 0 ]; then exit 1; fi
-  printf '054-батарея зелёная: все клетки к1-к14 + b1-b6 пройдены\n' >&2
+  printf '054-батарея зелёная: все клетки к1-к14 + b1-b9 пройдены\n' >&2
 }
 
 # Запустить клетку с workshop в качестве субъекта
@@ -785,6 +824,14 @@ EOF2
          jq '.ci.workflow = 7' "$r/harness.project.json" > "$r/_n" && mv "$r/_n" "$r/harness.project.json"
          out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
          { [ "$rc" -eq 1 ] && grep -qE 'значение вне алфавита: (projectId|ci.workflow|barriers\.[a-z]+): <' <<<"$out"; } || return 1 ;;
+    b9) local r="$WORK/b9-r" outside="$WORK/b9-outside.json"
+         rm -rf "$r"; mkdir -p "$r/config"
+         printf '{"schemaVersion":1,"repoId":"r_external","language":"typescript","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"ci":{"workflow":".github/workflows/ci.yml"},"git":{"canonicalRemote":"git@host:r_external.git"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}' > "$outside"
+         repo_make "$r" typescript 1 1 v10
+         rm -f "$r/harness.project.json"
+         ln -s "$outside" "$r/harness.project.json"
+         out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
+         { [ "$rc" -eq 1 ] && grep -qF 'нет файла репо-слоя в корне репо' <<<"$out" && grep -qF 'не symlink на внешний файл' <<<"$out"; } || return 1 ;;
     *) return 0 ;;
   esac
 }

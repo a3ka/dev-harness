@@ -123,6 +123,22 @@ done
 REPO_JSON="$REPO/harness.project.json"
 [ -f "$REPO_JSON" ] || die_p "нет harness.project.json: $REPO_JSON. Инструкция: создайте harness.project.json в корне репо — состав ключей: scripts/profile_resolver.sh"
 
+# КАНОНИЗАЦИЯ репо-слоя: harness.project.json обязан физически лежать ВНУТРИ
+# корня --repo. Адверсарий 054 круг 3: симлинк `<repo>/harness.project.json →
+# <внешний-валидный-файл>` принимался rc=0, и merged-профиль нёс repoId/
+# commands/CI/canonicalRemote/barriers/pin из внешнего владельца. `[ -f ]`
+# следует по симлинке, и `jq` читает цель; нужна явная проверка resolved-пути.
+# Прецедент — канонизация project-layer ниже (LAYER_ROOT_ABS / TARGET_ABS);
+# зеркальная семантика: «корень слоя недоступен для этого пути». P-фраза по
+# контракту 054 в стиле P3 «нет файла слоя»: симлинк за пределами репо —
+# «нет файла репо-слоя в этом корне», с точной инструкцией.
+REPO_ABS="$(cd "$REPO" && pwd -P)"
+REPO_JSON_ABS="$(readlink -f -- "$REPO_JSON" 2>/dev/null || true)"
+case "$REPO_JSON_ABS" in
+  "$REPO_ABS"/*) ;;
+  *) die_p "нет файла репо-слоя в корне репо: $REPO_JSON. Инструкция: harness.project.json должен лежать в корне репо — не symlink на внешний файл" ;;
+esac
+
 # ── И-2: слой проекта и его корень ─────────────────────────────────────────
 LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-}"
 [ -n "$LAYER_ROOT" ] && [ -d "$LAYER_ROOT" ] \
