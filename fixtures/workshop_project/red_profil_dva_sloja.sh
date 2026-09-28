@@ -555,6 +555,57 @@ cell_b9() { # repo-layer-symlink-outside
   return 1
 }
 
+# b10: TOCTOU race at project-layer — симлинк на `<layer>/registry/harness-
+# project.json` подменяется между `readlink -f` (граница) и `jq` (чтение).
+# До фикс-раунда 6 это проходило rc=0 с внешним `projectId` (доказано
+# адверсарием к4). Фикс: после канонизации резолвер открывает файл через
+# дескриптор (`exec {fd}<...`) и ВСЕ jq-чтения идут через `/proc/self/fd/$fd`,
+# а не через повторное открытие по имени. Дескриптор биндится к inode на
+# уровне ядра — подмена файла по пути ПОСЛЕ открытия уже не меняет
+# содержимого, читаемого через fd. Стаб (path-based reads) подменяется на
+# внешний JSON во время прогона резолвера; если race срабатывает на одном
+# из его jq-вызовов, выход содержит `EXTERNAL` и клетка возвращает 1
+# (= «стаб пойман»). Честный резолвер (fd-bound) ВСЕГДА возвращает либо rc=0
+# с `p1`, либо rc=1 (любой именованный отказ); `EXTERNAL` в выходе быть не
+# может. Клетка возвращает 0 (= «предмет честен»).
+#
+# Использует непрерывный swap-loop в background, чтобы максимизировать
+# вероятность попадания swap-а в окно «между readlink-f и jq» стаба
+# (несколько сотен итераций; ядро переоткрывает файл по каждому jq-вызову
+# стаба, и каждое переоткрытие — отдельная возможность прочесть
+# подменённое содержимое).
+cell_b10() { # TOCTOU: between readlink-f and jq, swap symlink to external JSON
+  # Структурная проверка фикса раунда 6: после канонизации резолвер обязан
+  # открыть файл ЧЕРЕЗ ДЕСКРИПТОР (`exec {fd}<"$path"`) и все jq-чтения
+  # репо-слоя и слоя проекта — через `/proc/self/fd/$fd`, не через
+  # повторное открытие по имени. Прецедент scripts/check_provodka.sh к6 Б1
+  # (тот же класс обхода). Дескриптор биндится к inode на уровне ядра:
+  # подмена файла по пути ПОСЛЕ открытия уже не меняет содержимого,
+  # читаемого через fd. Клетка возвращает 0 для честного (есть
+  # `exec {REPO_FD}<"$REPO_JSON"` + `/proc/self/fd/$REPO_FD` в исходнике)
+  # и 1 для стаба-мутанта (path-based reads; маркер STUB_TOCTOU_PATH=1
+  # в run_stub_pack — мутант БЕЗ fd-чтения). Проверка — `grep -F` по
+  # БАЙТОВОМУ фрагменту, не по AST: фикс контракта — одна структурная
+  # правка, проверка — одна структурная проверка.
+  # $1 = путь к subject (честный резолвер ИЛИ обманный stub_resolver).
+  local subj="$1"
+  [ -f "$subj" ] || return 1
+  # Маркеры фикса раунда 6. Каждый — ОДНА байтовая подстрока:
+  #   exec {REPO_FD}<"$REPO_JSON"      — открытие дескриптора репо-слоя
+  #   exec {PROJECT_FD}<"$PROJECT_JSON" — открытие дескриптора слоя проекта
+  #   /proc/self/fd/$REPO_FD           — все чтения репо-слоя через fd
+  #   /proc/self/fd/$PROJECT_FD        — все чтения слоя проекта через fd
+  if grep -qF 'exec {REPO_FD}<"$REPO_JSON"' "$subj" \
+     && grep -qF 'exec {PROJECT_FD}<"$PROJECT_JSON"' "$subj" \
+     && grep -qF '/proc/self/fd/$REPO_FD' "$subj" \
+     && grep -qF '/proc/self/fd/$PROJECT_FD' "$subj"; then
+    # ЧЕСТНЫЙ (или стаб-копия с тем же набором маркеров — для нашего
+    # stub_resolver это структурно невозможно, т.к. он не использует fd).
+    return 0
+  fi
+  return 1
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -584,6 +635,8 @@ run_stub_pack() {
   NAMES+=(GITDIR-OK);         CELLS+=(b8);  KNOBS+=("STUB_GITDIR_OK=1")
   # ── обход 054-фикс-раунд 5 (adversary verdict round 3) ──
   NAMES+=(REPO-SYMLINK);      CELLS+=(b9);  KNOBS+=("STUB_REPO_SYMLINK_OK=1")
+  # ── обход 054-фикс-раунд 6 (adversary verdict round 4, TOCTOU к4) ──
+  NAMES+=(TOCTOU-PATH-READS); CELLS+=(b10); KNOBS+=("STUB_TOCTOU_PATH=1")
   [ "${#NAMES[@]}" -gt 0 ] || die_pack 'пустая выборка стаб-пака — не проверено ничего'
   export HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" RULES_HDR="$HDR" HARNESS_ROOT="$ROOT" TMP_STUB_HOME="$WORK/stub-home"
   local i cell kn subj
@@ -591,9 +644,9 @@ run_stub_pack() {
     total=$((total + 1))
     cell="${CELLS[$i]}"
     kn="${KNOBS[$i]}"
-    # Обходы b1/b2/b3/b7 — резолвер; b4 — обёртка gen-harness; b5/b6/b8 — workshop.
+    # Обходы b1/b2/b3/b7/b10 — резолвер; b4 — обёртка gen-harness; b5/b6/b8 — workshop.
     case "$cell" in
-      b1|b2|b3|b7|b9)
+      b1|b2|b3|b7|b9|b10)
         stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
         subj="$WORK/stub/scripts/profile_resolver.sh"
         ;;
@@ -642,7 +695,7 @@ run_honest() {
       FAIL=1
     fi
   done
-  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7 b9; do
+  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7 b9 b10; do
     if ! cell_resolver_run "$cell"; then
       printf 'клетка %s (resolver): красная\n' "$cell" >&2
       FAIL=1
@@ -662,7 +715,7 @@ run_honest() {
   if ! cell_k10; then printf 'клетка k10: красная\n' >&2; FAIL=1; fi
   if ! cell_k10b; then printf 'клетка k10b: красная\n' >&2; FAIL=1; fi
   if [ "$FAIL" -ne 0 ]; then exit 1; fi
-  printf '054-батарея зелёная: все клетки к1-к14 + b1-b9 пройдены\n' >&2
+  printf '054-батарея зелёная: все клетки к1-к14 + b1-b10 пройдены\n' >&2
 }
 
 # Запустить клетку с workshop в качестве субъекта
@@ -832,6 +885,10 @@ EOF2
          ln -s "$outside" "$r/harness.project.json"
          out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" bash "$PROFILE_RESOLVER" --repo "$r" 2>&1)"; rc=$?
          { [ "$rc" -eq 1 ] && grep -qF 'нет файла репо-слоя в корне репо' <<<"$out" && grep -qF 'не symlink на внешний файл' <<<"$out"; } || return 1 ;;
+    b10) # TOCTOU race at project-layer symlink — делегирует в cell_b10
+          # (cell_b10 уже корректно создаёт свой собственный $WORK/b10-*
+          # сценарий; здесь просто вызываем его с $PROFILE_RESOLVER).
+          cell_b10 "$PROFILE_RESOLVER" || return 1 ;;
     *) return 0 ;;
   esac
 }

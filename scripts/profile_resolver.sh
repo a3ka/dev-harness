@@ -139,6 +139,24 @@ case "$REPO_JSON_ABS" in
   *) die_p "нет файла репо-слоя в корне репо: $REPO_JSON. Инструкция: harness.project.json должен лежать в корне репо — не symlink на внешний файл" ;;
 esac
 
+# АТОМАРНЫЙ FD-OPEN репо-слоя (054-фикс-раунд 6, закрытие TOCTOU к4).
+# Между `readlink -f` (граница) и первым `jq`-чтением pathname можно было
+# подменить symlink на внешний валидный JSON → rc=0 с внешним repoId
+# (доказано адверсарием к4). Фикс — открыть файл ЧЕРЕЗ ДЕСКРИПТОР один раз
+# после канонизации (`exec {fd}<...`). Дескриптор биндится к inode на уровне
+# ядра — подмена файла по пути ПОСЛЕ открытия уже не меняет содержимого,
+# которое видит jq через fd. Все jq-чтения репо-слоя ниже идут через
+# `$REPO_JSON_FD` (= `/proc/self/fd/$REPO_FD`), а не через повторное
+# открытие по имени `$REPO_JSON`. Один объект ФС для проверки границы
+# и чтения = окно закрыто. Прецедент scripts/check_provodka.sh круг 6 Б1
+# (тот же класс обхода).
+exec {REPO_FD}<"$REPO_JSON" || die_p "не удалось открыть репо-слой: $REPO_JSON"
+[ -f "/proc/self/fd/$REPO_FD" ] || {
+  exec {REPO_FD}<&- || true
+  die_p "не удалось открыть репо-слой: $REPO_JSON"
+}
+REPO_JSON_FD="/proc/self/fd/$REPO_FD"
+
 # ── И-2: слой проекта и его корень ─────────────────────────────────────────
 LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-}"
 [ -n "$LAYER_ROOT" ] && [ -d "$LAYER_ROOT" ] \
@@ -146,8 +164,8 @@ LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-}"
 
 # Байтовая валидация JSON обоих слоёв ДО прочих чтений (И-7). jq сам отказывает
 # на мусоре; отказ проксирован фразой P7 с именем файла.
-jq -e . "$REPO_JSON" >/dev/null 2>&1 || die_p "файл не JSON: $REPO_JSON"
-PROFILE_PATH_REL="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$REPO_JSON")"
+jq -e . "$REPO_JSON_FD" >/dev/null 2>&1 || die_p "файл не JSON: $REPO_JSON"
+PROFILE_PATH_REL="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$REPO_JSON_FD")"
 # Только относительный путь (граница-2: абсолютный путь в версионируемом файле
 # запрещён). Здесь — отбрасываем ведущий слэш и принимаем как относительный
 # от HARNESS_PROJECT_LAYER_ROOT.
@@ -156,7 +174,6 @@ case "$PROFILE_PATH_REL" in
 esac
 PROJECT_JSON="$LAYER_ROOT/${PROFILE_PATH_REL#./}"
 [ -f "$PROJECT_JSON" ] || die_p "нет файла слоя проекта: $PROJECT_JSON"
-jq -e . "$PROJECT_JSON" >/dev/null 2>&1 || die_p "файл не JSON: $PROJECT_JSON"
 
 # КАНОНИЗАЦИЯ profilePath: разрешённый путь обязан лежать ВНУТРИ корня слоя.
 # До этого правки отбрасывался только ведущий `/`, а `../escaped.json`
@@ -173,6 +190,21 @@ case "$TARGET_ABS" in
   "$LAYER_ROOT_ABS"/*) ;;
   *) die_p "корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>" ;;
 esac
+
+# АТОМАРНЫЙ FD-OPEN слоя проекта (054-фикс-раунд 6). Все jq-чтения слоя
+# проекта ниже идут через `$PROJECT_JSON_FD` (= `/proc/self/fd/$PROJECT_FD`),
+# не через повторное открытие по имени `$PROJECT_JSON`. Дескриптор биндится
+# к inode на уровне ядра — подмена файла по пути ПОСЛЕ открытия уже не
+# меняет содержимого, читаемого jq через fd. Байтовая валидация JSON
+# перенесена СЮДА (после канонизации И открытия дескриптора), чтобы jq
+# гарантированно читал тот же объект, что прошёл readlink-проверку.
+exec {PROJECT_FD}<"$PROJECT_JSON" || die_p "не удалось открыть слой проекта: $PROJECT_JSON"
+[ -f "/proc/self/fd/$PROJECT_FD" ] || {
+  exec {PROJECT_FD}<&- || true
+  die_p "не удалось открыть слой проекта: $PROJECT_JSON"
+}
+PROJECT_JSON_FD="/proc/self/fd/$PROJECT_FD"
+jq -e . "$PROJECT_JSON_FD" >/dev/null 2>&1 || die_p "файл не JSON: $PROJECT_JSON"
 
 # ── И-7: проверка замкнутых алфавитов ДО прочих правил ──────────────────────
 # Здесь же, рядом, ради структурного фикса класса «cap ниже длины поля»:
@@ -248,8 +280,8 @@ scan_levels() {
     done <<<"$bk"
   done
 }
-scan_levels repo   "$REPO_JSON"
-scan_levels project "$PROJECT_JSON"
+scan_levels repo   "$REPO_JSON_FD"
+scan_levels project "$PROJECT_JSON_FD"
 
 # ── И-4: значения и обязательные поля ───────────────────────────────────────
 # schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript}.
@@ -261,10 +293,10 @@ declare -A A
 # 054 круг 2 (наблюдение 6) принял `schemaVersion: "1"` — строковое значение
 # прошло как валидное, и merged-профиль нес `schemaVersion.value: "1"`.
 # Фикс: требовать type == number И значение == 1.
-A[repo_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$REPO_JSON")"
-A[repo_schemaVersion]="$(jq -r '.schemaVersion' "$REPO_JSON")"
-A[project_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$PROJECT_JSON")"
-A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON")"
+A[repo_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$REPO_JSON_FD")"
+A[repo_schemaVersion]="$(jq -r '.schemaVersion' "$REPO_JSON_FD")"
+A[project_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$PROJECT_JSON_FD")"
+A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON_FD")"
 [ "${A[repo_schemaVersion_type]}" = "number" ] \
   || die_p "значение вне алфавита: schemaVersion: <${A[repo_schemaVersion_type]}>"
 [ "${A[repo_schemaVersion]}" = "1" ] || die_p "значение вне алфавита: schemaVersion: ${A[repo_schemaVersion]}"
@@ -272,7 +304,7 @@ A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON")"
   || die_p "значение вне алфавита: schemaVersion: <${A[project_schemaVersion_type]}>"
 [ "${A[project_schemaVersion]}" = "1" ] || die_p "значение вне алфавита: schemaVersion: ${A[project_schemaVersion]}"
 
-A[repo_language]="$(jq -r '.language' "$REPO_JSON")"
+A[repo_language]="$(jq -r '.language' "$REPO_JSON_FD")"
 case "${A[repo_language]}" in
   rust|typescript) ;;
   *) die_p "значение вне алфавита: language: ${A[repo_language]}" ;;
@@ -280,31 +312,31 @@ esac
 
 # Обязательные строки репо-слоя
 for fld in repoId; do
-  v="$(jq -r --arg f "$fld" 'if has($f) and (.[$f] | type) == "string" and (.[$f] | length) > 0 then .[$f] else empty end' "$REPO_JSON")"
-  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$REPO_JSON")"
+  v="$(jq -r --arg f "$fld" 'if has($f) and (.[$f] | type) == "string" and (.[$f] | length) > 0 then .[$f] else empty end' "$REPO_JSON_FD")"
+  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$REPO_JSON_FD")"
   [ "$ft" = "string" ] || die_p "значение вне алфавита: $fld: <$ft>"
   [ -n "$v" ] || die_p "значение вне алфавита: $fld: пусто"
 done
 
 # Обязательные строки слоя проекта
 for fld in version projectId workspaceId; do
-  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$PROJECT_JSON")"
+  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$PROJECT_JSON_FD")"
   [ "$ft" = "string" ] || die_p "значение вне алфавита: $fld: <$ft>"
-  v="$(jq -r --arg f "$fld" '.[$f] // empty' "$PROJECT_JSON")"
+  v="$(jq -r --arg f "$fld" '.[$f] // empty' "$PROJECT_JSON_FD")"
   [ -n "$v" ] || die_p "значение вне алфавита: $fld: пусто"
 done
 
 # ci.workflow репо и canonicalRemote репо — непустые строки (если ветвь объявлена)
-if jq -e '.ci | type == "object"' "$REPO_JSON" >/dev/null 2>&1; then
-  cw_type="$(jq -r '.ci.workflow | type' "$REPO_JSON")"
+if jq -e '.ci | type == "object"' "$REPO_JSON_FD" >/dev/null 2>&1; then
+  cw_type="$(jq -r '.ci.workflow | type' "$REPO_JSON_FD")"
   [ "$cw_type" = "string" ] || die_p "значение вне алфавита: ci.workflow: <$cw_type>"
-  cw="$(jq -r '.ci.workflow // empty' "$REPO_JSON")"
+  cw="$(jq -r '.ci.workflow // empty' "$REPO_JSON_FD")"
   [ -n "$cw" ] || die_p "значение вне алфавита: ci.workflow: пусто"
 fi
-if jq -e '.git | type == "object"' "$REPO_JSON" >/dev/null 2>&1; then
-  cr_type="$(jq -r '.git.canonicalRemote | type' "$REPO_JSON")"
+if jq -e '.git | type == "object"' "$REPO_JSON_FD" >/dev/null 2>&1; then
+  cr_type="$(jq -r '.git.canonicalRemote | type' "$REPO_JSON_FD")"
   [ "$cr_type" = "string" ] || die_p "значение вне алфавита: canonicalRemote: <$cr_type>"
-  cr="$(jq -r '.git.canonicalRemote // empty' "$REPO_JSON")"
+  cr="$(jq -r '.git.canonicalRemote // empty' "$REPO_JSON_FD")"
   [ -n "$cr" ] || die_p "значение вне алфавита: canonicalRemote: пусто"
 fi
 
@@ -333,19 +365,19 @@ check_object_strings() { # $1=file $2=parent $3=field-list
     fi
   done
 }
-check_object_strings "$REPO_JSON"    commands       test build typecheck lint
-check_object_strings "$REPO_JSON"    workflowPaths  contracts verdicts registry fixtures
-check_object_strings "$PROJECT_JSON" defaults.commands       test build typecheck lint
-check_object_strings "$PROJECT_JSON" defaults.workflowPaths  contracts verdicts registry fixtures
+check_object_strings "$REPO_JSON_FD"    commands       test build typecheck lint
+check_object_strings "$REPO_JSON_FD"    workflowPaths  contracts verdicts registry fixtures
+check_object_strings "$PROJECT_JSON_FD" defaults.commands       test build typecheck lint
+check_object_strings "$PROJECT_JSON_FD" defaults.workflowPaths  contracts verdicts registry fixtures
 
 # projectLayer.version и projectLayer.profilePath — обязательные строки репо
 # (И-4). Их type-gate стоит ОТДЕЛЬНО от check_object_strings, потому что они
 # лежат в ветви `projectLayer`, не в commands/workflowPaths. Адверсарий 054
 # круг 2 принял `projectLayer.profilePath: 7` через `jq -r` (число
 # превратилось в строку «7»).
-pl_v_type="$(jq -r '.projectLayer.version | type' "$REPO_JSON")"
+pl_v_type="$(jq -r '.projectLayer.version | type' "$REPO_JSON_FD")"
 [ "$pl_v_type" = "string" ] || die_p "значение вне алфавита: projectLayer.version: <$pl_v_type>"
-pl_p_type="$(jq -r '.projectLayer.profilePath | type' "$REPO_JSON")"
+pl_p_type="$(jq -r '.projectLayer.profilePath | type' "$REPO_JSON_FD")"
 [ "$pl_p_type" = "string" ] || die_p "значение вне алфавита: projectLayer.profilePath: <$pl_p_type>"
 
 # barriers элементы — непустые строки класса ^[a-z0-9][a-z0-9_-]*$
@@ -354,8 +386,8 @@ pl_p_type="$(jq -r '.projectLayer.profilePath | type' "$REPO_JSON")"
 # объявляли массив — это и был обход (`barriers.mandatory: "not-array"` шёл).
 check_barrier_array() {
   local level="$1" path="$2"
-  local file="$REPO_JSON"
-  [ "$level" = "project" ] && file="$PROJECT_JSON"
+  local file="$REPO_JSON_FD"
+  [ "$level" = "project" ] && file="$PROJECT_JSON_FD"
   # Ключ отсутствует в этом уровне — пропускаем (проверка ниже берёт из
   # присутствующего уровня; для репо-слоя опционально, для проекта —
   # defaults.barriers.* обязателен по схеме, но не по типу на этом этапе).
@@ -386,8 +418,8 @@ check_barrier_array project defaults.barriers.optional
 # скобках, элемент вне класса → имя элемента в причине.
 check_packs_array() {
   local level="$1" path="$2"
-  local file="$REPO_JSON"
-  [ "$level" = "project" ] && file="$PROJECT_JSON"
+  local file="$REPO_JSON_FD"
+  [ "$level" = "project" ] && file="$PROJECT_JSON_FD"
   # `getpath` на отсутствующем пути даёт null; `null == null` — истина, и
   # мы пропускаем ключ. НЕ-массив при явном задании падает ниже на P6.
   if jq -e --arg p "$path" 'getpath($p | split(".")) == null' "$file" >/dev/null 2>&1; then
@@ -430,8 +462,8 @@ check_packs_array repo    packs
 check_packs_array project defaults.packs
 
 # ── И-5: пин версии слоя проекта ───────────────────────────────────────────
-PIN="$(jq -r '.projectLayer.version' "$REPO_JSON")"
-LAYER_VER="$(jq -r '.version' "$PROJECT_JSON")"
+PIN="$(jq -r '.projectLayer.version' "$REPO_JSON_FD")"
+LAYER_VER="$(jq -r '.version' "$PROJECT_JSON_FD")"
 [ "$PIN" = "$LAYER_VER" ] || die_p "пин слоя проекта расходится: репо пинит '$PIN', слой несёт '$LAYER_VER'"
 
 # ── И-6: слияние с происхождением ──────────────────────────────────────────
@@ -445,8 +477,8 @@ LAYER_VER="$(jq -r '.version' "$PROJECT_JSON")"
 # Все значения ниже вынуты ПОТОКОВО из обоих файлов ключами; происхождение —
 # JSON-литерал "repo" / "project" выводится из факта наличия ключа в источнике.
 MERGED=$(jq -n \
-  --slurpfile repo "$REPO_JSON" \
-  --slurpfile project "$PROJECT_JSON" \
+  --slurpfile repo "$REPO_JSON_FD" \
+  --slurpfile project "$PROJECT_JSON_FD" \
   --arg layerRoot "$LAYER_ROOT" \
   '
   ($repo[0]) as $r |
