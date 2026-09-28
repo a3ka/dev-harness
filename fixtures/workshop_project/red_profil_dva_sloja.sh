@@ -256,6 +256,101 @@ STUB
   chmod +x "$1"
 }
 
+# b11: МУТАНТНЫЙ СТАБ резолвера с check-then-open порядком (054-фикс-раунд 7).
+# Структурно повторяет резолвер, но readlink -f на pathname ВЫПОЛНЯЕТСЯ
+# ДО exec {fd}<"$REPO_JSON" (и то же для project-layer). Окно между
+# readlink и exec открыто для подмены: между возвратом readlink (который
+# проверяет границу на ОДНОЙ цели) и открытием fd (которое читает УЖЕ
+# ДРУГОЙ inode, если симлинк подменён) атакующий может подменить симлинк
+# на внешний валидный JSON. Клетка cell_b11 ловит этот мутант: ставит
+# readlink-шим через BASH_ENV, который атомарно подменяет симлинк сразу
+# после возврата readlink (имитация обхода 054-v1 круг 5 — доказано
+# адверсарием). Мутант выдаёт rc=0 с ВНЕШНИМ repoId; клетка видит это
+# и убивает мутанта как «стаб выжил». Честный резолвер после фикса 7
+# (exec {fd}< ПЕРВЫМ, readlink /proc/self/fd/$fd ВТОРЫМ) — подмена симлинка
+# после exec не меняет inode fd, и readlink видит прежний внутренний
+# путь → rc=0 с ВНУТРЕННИМ repoId; клетка зелёная.
+#
+# Структура мутанта повторяет честный резолвер по И-1..И-6, чтобы
+# различие было ИСКЛЮЧИТЕЛЬНО в порядке «readlink -f pathname → exec»,
+# а не в других нюансах (другие обходы — отдельные стабы в пакете).
+stub_resolver_checkopen() {
+  cat > "$1" <<'STUB'
+#!/usr/bin/env bash
+# МУТАНТНЫЙ СТАБ резолвера 054 с check-then-open порядком — для клетки b11.
+set -uo pipefail
+REPO=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) REPO="${2:-}"; [ $# -ge 2 ] && shift ;;
+    *) REPO="$1" ;;
+  esac
+  shift
+done
+[ -n "$REPO" ] || { printf 'profile ОТКАЗ: usage: --repo <корень>\n' >&2; exit 1; }
+[ -d "$REPO" ] || { printf 'profile ОТКАЗ: каталог репо не существует: %s\n' "$REPO" >&2; exit 1; }
+
+# ── репо-слой (CHECK-THEN-OPEN — мутантный порядок) ──────────────────────────
+REPO_JSON="$REPO/harness.project.json"
+[ -f "$REPO_JSON" ] || { printf 'profile ОТКАЗ: нет harness.project.json: %s\n' "$REPO_JSON" >&2; exit 1; }
+REPO_ABS="$(cd "$REPO" && pwd -P)"
+# CHECK-THEN-OPEN: readlink -f pathname ДО exec {fd}< — окно для подмены.
+REPO_JSON_ABS="$(readlink -f -- "$REPO_JSON" 2>/dev/null || true)"
+case "$REPO_JSON_ABS" in
+  "$REPO_ABS"/*) ;;
+  *) printf 'profile ОТКАЗ: нет файла репо-слоя в корне репо: %s. Инструкция: harness.project.json должен лежать в корне репо — не symlink на внешний файл\n' "$REPO_JSON" >&2; exit 1 ;;
+esac
+exec {REPO_FD}<"$REPO_JSON" || { printf 'profile ОТКАЗ: не удалось открыть репо-слой: %s\n' "$REPO_JSON" >&2; exit 1; }
+[ -f "/proc/self/fd/$REPO_FD" ] || { exec {REPO_FD}<&- || true; printf 'profile ОТКАЗ: не удалось открыть репо-слой: %s\n' "$REPO_JSON" >&2; exit 1; }
+REPO_JSON_FD="/proc/self/fd/$REPO_FD"
+jq -e . "$REPO_JSON_FD" >/dev/null 2>&1 || { printf 'profile ОТКАЗ: файл не JSON: %s\n' "$REPO_JSON" >&2; exit 1; }
+
+# ── слой проекта (CHECK-THEN-OPEN — мутантный порядок) ─────────────────────
+LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-}"
+[ -n "$LAYER_ROOT" ] && [ -d "$LAYER_ROOT" ] \
+  || { printf 'profile ОТКАЗ: корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>\n' >&2; exit 1; }
+PROFILE_PATH_REL="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$REPO_JSON_FD")"
+case "$PROFILE_PATH_REL" in
+  /*) printf 'profile ОТКАЗ: profilePath обязан быть относительным, не абсолютным: %s\n' "$PROFILE_PATH_REL" >&2; exit 1 ;;
+esac
+PROJECT_JSON="$LAYER_ROOT/${PROFILE_PATH_REL#./}"
+[ -f "$PROJECT_JSON" ] || { printf 'profile ОТКАЗ: нет файла слоя проекта: %s\n' "$PROJECT_JSON" >&2; exit 1; }
+LAYER_ROOT_ABS="$(cd "$LAYER_ROOT" && pwd -P)"
+# ТОЖЕ check-then-open для project-layer.
+TARGET_ABS="$(readlink -f -- "$PROJECT_JSON" 2>/dev/null || true)"
+case "$TARGET_ABS" in
+  "$LAYER_ROOT_ABS"/*) ;;
+  *) printf 'profile ОТКАЗ: корень слоя проекта не задан/недоступен. Инструкция: export HARNESS_PROJECT_LAYER_ROOT=<корень клона слоя проекта (odelix-stack)>\n' >&2; exit 1 ;;
+esac
+exec {PROJECT_FD}<"$PROJECT_JSON" || { printf 'profile ОТКАЗ: не удалось открыть слой проекта: %s\n' "$PROJECT_JSON" >&2; exit 1; }
+[ -f "/proc/self/fd/$PROJECT_FD" ] || { exec {PROJECT_FD}<&- || true; printf 'profile ОТКАЗ: не удалось открыть слой проекта: %s\n' "$PROJECT_JSON" >&2; exit 1; }
+PROJECT_JSON_FD="/proc/self/fd/$PROJECT_FD"
+jq -e . "$PROJECT_JSON_FD" >/dev/null 2>&1 || { printf 'profile ОТКАЗ: файл не JSON: %s\n' "$PROJECT_JSON" >&2; exit 1; }
+
+# ── пин версии ──────────────────────────────────────────────────────────────
+PIN="$(jq -r '.projectLayer.version' "$REPO_JSON_FD")"
+LAYER_VER="$(jq -r '.version' "$PROJECT_JSON_FD")"
+[ "$PIN" = "$LAYER_VER" ] || { printf 'profile ОТКАЗ: пин слоя проекта расходится: репо пинит "%s", слой несёт "%s"\n' "$PIN" "$LAYER_VER" >&2; exit 1; }
+
+# ── минимальное слияние (как у stub_resolver; проверяет, что merged-профиль
+# читает содержимое ОТКРЫТОГО fd, и потому external repoId проходит при
+# мутантном порядке — клетка b11 ловит это по .repoId.value).
+jq -n \
+  --slurpfile repo "$REPO_JSON_FD" \
+  --slurpfile project "$PROJECT_JSON_FD" \
+  --arg layerRoot "$LAYER_ROOT" \
+  '($repo[0]) as $r | ($project[0]) as $p |
+   {language: {value: $r.language, origin: "repo"},
+    projectId: {value: $p.projectId, origin: "project"},
+    workspaceId: {value: $p.workspaceId, origin: "project"},
+    repoId: {value: $r.repoId, origin: "repo"},
+    schemaVersion: {value: $p.schemaVersion, origin: "project"},
+    projectLayer: {value: {version: $r.projectLayer.version, profilePath: $r.projectLayer.profilePath, layerRoot: $layerRoot}, origin: "repo"}}'
+exit 0
+STUB
+  chmod +x "$1"
+}
+
 # ── клетки-предикаты ─────────────────────────────────────────────────────────
 # 0 — испытуемый проходит клетку; 1 — пойман.
 cell_k2() { # workshop: нет профиля → P1, файл НЕ создан (САМ-СОЗДАЁТ)
@@ -606,6 +701,124 @@ cell_b10() { # TOCTOU: between readlink-f and jq, swap symlink to external JSON
   return 1
 }
 
+# b11: TOCTOU-FD-FIRST-RACE — runtime race test (закрытие TOCTOU к5,
+# 054-фикс-раунд 7). В отличие от b10 (структурная проверка маркеров
+# фикса раунда 6), b11 запускает РЕАЛЬНУЮ гонку и различает порядок
+# по ПОВЕДЕНИЮ, не по байтовым маркерам.
+#
+# Сценарий: `<repo>/harness.project.json` — симлинк на
+# `config/harness_internal.json` (ВНУТРИ репо, валидный JSON с repoId=r_internal).
+# Клетка через BASH_ENV подсовывает шим readlink: на ЛЮБОЙ вызов readlink
+# с аргументом, оканчивающимся на `harness.project.json`, шим атомарно
+# подменяет симлинк на `<внешний-файл>` (r_external) И возвращает
+# канонический путь старой (внутренней) цели. Это имитирует атаку
+# адверсария 054-v1, круг 5 (PATH-шим readlink + подмена сразу после
+# возврата, до exec).
+#
+# Семантика:
+#   - ЧЕСТНЫЙ (фикс 7: exec {fd}< ПЕРВЫМ, readlink /proc/self/fd/$fd ВТОРЫМ):
+#       exec {fd}<"harness.project.json" → fd биндится к INTERNAL inode
+#       (подмена ещё не произошла — шим readlink не вызывался).
+#       readlink /proc/self/fd/$fd → шим: аргумент `/proc/self/fd/$fd`
+#       не матчит `*harness.project.json`, БЕЗ подмены; возвращает путь
+#       к INTERNAL inode → проверка OK.
+#       jq через fd → содержимое INTERNAL → merged.repoId = r_internal.
+#       Клетка зелёная (rc=0, repoId=r_internal).
+#   - МУТАНТ (check-then-open: readlink -f pathname ПЕРВЫМ, exec {fd}< ВТОРЫМ):
+#       readlink -f "harness.project.json" → шим: матч, атомарная подмена
+#       симлинка, возврат пути INTERNAL (как будто всё в порядке).
+#       exec {fd}<"harness.project.json" → ОС открывает файл ПО ПОДМЕНЁННОМУ
+#       симлинку → fd биндится к EXTERNAL inode.
+#       jq через fd → содержимое EXTERNAL → merged.repoId = r_external.
+#       Клетка видит r_external → возвращает 1 (стаб пойман, красная).
+#
+# Определение «честный vs мутант»: клетка НЕ различает по исходнику —
+# она прогоняет реальную гонку и смотрит в вывод. Честный после фикса 7
+# ВСЕГДА выдаёт rc=0 с repoId=r_internal; мутант ВСЕГДА выдаёт
+# rc=0 с repoId=r_external (внешний JSON валиден). rc≠0 для обоих —
+# клетка тоже красная (тест не доказан).
+cell_b11() {
+  local subj="$1"
+  [ -f "$subj" ] || return 1
+  local r="$WORK/b11-r"
+  local outside="$WORK/b11-outside.json"
+  local inside="$r/config/harness_internal.json"
+  rm -rf "$r" "$outside"; mkdir -p "$r/config"
+  git -C "$r" init -q
+  git -C "$r" config receive.denyCurrentBranch refuse
+  # INTERNAL: ВНУТРИ репо (config/) — пройдёт readlink-проверку и в честном,
+  # и в мутантном сценарии (до подмены).
+  cat > "$inside" <<'EOF'
+{"schemaVersion":1,"repoId":"r_internal","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  # EXTERNAL: ВНЕ репо — валидный JSON, но внешний repoId; подменённый
+  # симлинк наведёт fd именно сюда.
+  cat > "$outside" <<'EOF'
+{"schemaVersion":1,"repoId":"r_external","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  # Заводим слой проекта (для мутанта — он попытается и его прочитать;
+  # нам нужно, чтобы подмена не затрагивала LAYER_ROOT).
+  layer_make "$WORK/b11-layer"
+  # Симлинк harness.project.json → config/harness_internal.json
+  ln -s config/harness_internal.json "$r/harness.project.json"
+  # BASH_ENV: шим readlink. Подменяет симлинк сразу после возврата.
+  local shimdir="$WORK/b11-shim"
+  rm -rf "$shimdir"; mkdir -p "$shimdir"
+  cat > "$shimdir/setup.sh" <<'SHIM'
+#!/usr/bin/env bash
+# BASH_ENV-шим readlink. Подменяет симлинк `<dirname>/harness.project.json`
+# на $B11_EXTERNAL АТОМАРНО после возврата readlink, если вызван с
+# аргументом, оканчивающимся на `harness.project.json`. Вызовы на
+# `/proc/self/fd/...` НЕ триггерят подмену (там нет такой подстроки).
+readlink() {
+  local args=("$@")
+  local result
+  result="$(/usr/bin/readlink "${args[@]}" 2>/dev/null || true)"
+  local arg d cur
+  for arg in "${args[@]}"; do
+    case "$arg" in
+      *harness.project.json)
+        d="$(dirname -- "$arg")"
+        if [ -L "$d/harness.project.json" ]; then
+          cur="$(/usr/bin/readlink "$d/harness.project.json" 2>/dev/null || true)"
+          # Подменяем ТОЛЬКО пока симлинк указывает на *_internal.json
+          # (т.е. ещё не подменён). После первой подмены cur указывает
+          # на external — повторных подмен нет.
+          case "$cur" in
+            *harness_internal.json)
+              if [ -n "${B11_EXTERNAL:-}" ] && [ -f "${B11_EXTERNAL:-}" ]; then
+                rm -f "$d/harness.project.json"
+                ln -s "${B11_EXTERNAL:-}" "$d/harness.project.json"
+              fi
+              ;;
+          esac
+        fi
+        ;;
+    esac
+  done
+  printf '%s\n' "$result"
+}
+SHIM
+  # Прогон subject (честный резолвер ИЛИ мутант check-then-open).
+  local out rc
+  out="$(B11_EXTERNAL="$outside" BASH_ENV="$shimdir/setup.sh" \
+        HARNESS_PROJECT_LAYER_ROOT="$WORK/b11-layer" \
+        bash "$subj" --repo "$r" 2>&1)"
+  rc=$?
+  # Восстанавливаем симлинк для последующих прогонов (если клетку дёрнут ещё раз).
+  rm -f "$r/harness.project.json"
+  ln -s config/harness_internal.json "$r/harness.project.json"
+  # ЧЕСТНЫЙ (фикс 7): rc=0, repoId=r_internal. МУТАНТ: rc=0, repoId=r_external
+  # (внешний JSON валиден и проходит все проверки, кроме readlink-через-fd,
+  # которого у мутанта нет). rc≠0 — тест не доказан (клетка красная).
+  [ "$rc" -eq 0 ] || return 1
+  local rid
+  rid="$(printf '%s' "$out" | jq -r '.repoId.value // empty' 2>/dev/null)"
+  [ "$rid" = "r_internal" ] && return 0
+  # rid = r_external → мутант пойман; rid = empty / иной → тест не доказан.
+  return 1
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -637,6 +850,15 @@ run_stub_pack() {
   NAMES+=(REPO-SYMLINK);      CELLS+=(b9);  KNOBS+=("STUB_REPO_SYMLINK_OK=1")
   # ── обход 054-фикс-раунд 6 (adversary verdict round 4, TOCTOU к4) ──
   NAMES+=(TOCTOU-PATH-READS); CELLS+=(b10); KNOBS+=("STUB_TOCTOU_PATH=1")
+  # ── обход 054-фикс-раунд 7 (adversary verdict round 5, TOCTOU к5): МУТАНТ
+  # с check-then-open порядком (readlink -f pathname ДО exec {fd}<). Клетка
+  # b11 ловит его по .repoId.value в выводе (rc=0, но r_external). Этот
+  # стаб использует ОТДЕЛЬНЫЙ генератор stub_resolver_checkopen (структурно
+  # повторяет резолвер, но порядок операций инвертирован) — НЕ knob в
+  # stub_resolver, потому что мутант должен реально делать readlink -f
+  # на pathname и exec {fd}<, а stub_resolver использует jq на pathname
+  # напрямую и fd-семантикой не обладает. Помещаем в пакет как b11.
+  NAMES+=(TOCTOU-CHECK-OPEN); CELLS+=(b11); KNOBS+=("")
   [ "${#NAMES[@]}" -gt 0 ] || die_pack 'пустая выборка стаб-пака — не проверено ничего'
   export HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" RULES_HDR="$HDR" HARNESS_ROOT="$ROOT" TMP_STUB_HOME="$WORK/stub-home"
   local i cell kn subj
@@ -644,11 +866,16 @@ run_stub_pack() {
     total=$((total + 1))
     cell="${CELLS[$i]}"
     kn="${KNOBS[$i]}"
-    # Обходы b1/b2/b3/b7/b10 — резолвер; b4 — обёртка gen-harness; b5/b6/b8 — workshop.
+    # Обходы b1/b2/b3/b7/b10 — резолвер; b4 — обёртка gen-harness; b5/b6/b8 — workshop;
+    # b11 — мутант резолвера с check-then-open (отдельный генератор, без knob).
     case "$cell" in
       b1|b2|b3|b7|b9|b10)
         stub_resolver "$WORK/stub/scripts/profile_resolver.sh"
         subj="$WORK/stub/scripts/profile_resolver.sh"
+        ;;
+      b11)
+        stub_resolver_checkopen "$WORK/stub/scripts/profile_resolver_checkopen.sh"
+        subj="$WORK/stub/scripts/profile_resolver_checkopen.sh"
         ;;
       b4)
         stub_gen_harness "$WORK/stub/gen-harness.ts"
@@ -667,12 +894,12 @@ run_stub_pack() {
         subj="$WORK/stub/workshop"
         ;;
     esac
-    export "$kn"
+    [ -n "$kn" ] && export "$kn"
     if "cell_$cell" "$subj"; then
-      unset "${kn%%=*}"
+      [ -n "$kn" ] && unset "${kn%%=*}"
       die_pack "СТАБ ВЫЖИЛ: ${NAMES[$i]} прошёл клетку $cell — различимость не доказана"
     fi
-    unset "${kn%%=*}"
+    [ -n "$kn" ] && unset "${kn%%=*}"
     caught=$((caught + 1))
     printf 'стаб пойман: %s — клетка %s\n' "${NAMES[$i]}" "$cell"
   done
@@ -695,7 +922,7 @@ run_honest() {
       FAIL=1
     fi
   done
-  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7 b9 b10; do
+  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7 b9 b10 b11; do
     if ! cell_resolver_run "$cell"; then
       printf 'клетка %s (resolver): красная\n' "$cell" >&2
       FAIL=1
@@ -715,7 +942,7 @@ run_honest() {
   if ! cell_k10; then printf 'клетка k10: красная\n' >&2; FAIL=1; fi
   if ! cell_k10b; then printf 'клетка k10b: красная\n' >&2; FAIL=1; fi
   if [ "$FAIL" -ne 0 ]; then exit 1; fi
-  printf '054-батарея зелёная: все клетки к1-к14 + b1-b10 пройдены\n' >&2
+  printf '054-батарея зелёная: все клетки к1-к14 + b1-b11 пройдены\n' >&2
 }
 
 # Запустить клетку с workshop в качестве субъекта
