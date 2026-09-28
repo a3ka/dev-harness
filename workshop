@@ -616,7 +616,21 @@ fi
 # слова владельца; настройка ОБЯЗАНА быть ЛОКАЛЬНОЙ в репо проекта (4.3 —
 # `--local`, НЕ `--get`, который читает унаследованное от global/system и
 # принимает подмену из HOME/.gitconfig за настройку клона).
-deny_val="$(git -C "$PROJECT" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
+#
+# ДОПОЛНЕНИЕ 054-фикс-раунд 4 (адверсарий круг 2, класс W2): `git -C <репо>
+# config --local` НЕ привязывает git к репо, если в окружении выставлен
+# `GIT_DIR` — локальная настройка читается из чужого git-dir. Санируем
+# окружение (отмена унаследованных GIT_*) И принудительно указываем
+# `--git-dir="$PROJECT/.git"`, чтобы ни один путь разрешения конфига не ушёл
+# мимо репо проекта.
+saved_git_dir="${GIT_DIR-}"; saved_git_wt="${GIT_WORK_TREE-}"
+saved_git_idx="${GIT_INDEX_FILE-}"; saved_git_cd="${GIT_COMMON_DIR-}"
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR
+deny_val="$(git --git-dir="$PROJECT/.git" -C "$PROJECT" config --local --get receive.denyCurrentBranch 2>/dev/null || true)"
+if [ -n "$saved_git_dir" ]; then export GIT_DIR="$saved_git_dir"; fi
+if [ -n "$saved_git_wt" ]; then export GIT_WORK_TREE="$saved_git_wt"; fi
+if [ -n "$saved_git_idx" ]; then export GIT_INDEX_FILE="$saved_git_idx"; fi
+if [ -n "$saved_git_cd" ]; then export GIT_COMMON_DIR="$saved_git_cd"; fi
 if [ "$deny_val" != "refuse" ]; then
   printf "workshop ОТКАЗ: receive.denyCurrentBranch='%s' в %s, ожидается 'refuse'. Исправление: git -C %s config receive.denyCurrentBranch refuse\n" \
     "$deny_val" "$PROJECT" "$PROJECT" >&2

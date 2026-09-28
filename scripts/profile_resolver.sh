@@ -237,9 +237,20 @@ scan_levels project "$PROJECT_JSON"
 # repoId, projectId, workspaceId, canonicalRemote, version, profilePath,
 # ci.workflow — непустые строки.
 declare -A A
+# `schemaVersion` — JSON-литерал 1 (число), не строка «1». Контракт И-4 говорит
+# «`schemaVersion` = 1 (литерально)»; в JSON это число, не строка. Адверсарий
+# 054 круг 2 (наблюдение 6) принял `schemaVersion: "1"` — строковое значение
+# прошло как валидное, и merged-профиль нес `schemaVersion.value: "1"`.
+# Фикс: требовать type == number И значение == 1.
+A[repo_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$REPO_JSON")"
 A[repo_schemaVersion]="$(jq -r '.schemaVersion' "$REPO_JSON")"
+A[project_schemaVersion_type]="$(jq -r '.schemaVersion | type' "$PROJECT_JSON")"
 A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON")"
+[ "${A[repo_schemaVersion_type]}" = "number" ] \
+  || die_p "значение вне алфавита: schemaVersion: <${A[repo_schemaVersion_type]}>"
 [ "${A[repo_schemaVersion]}" = "1" ] || die_p "значение вне алфавита: schemaVersion: ${A[repo_schemaVersion]}"
+[ "${A[project_schemaVersion_type]}" = "number" ] \
+  || die_p "значение вне алфавита: schemaVersion: <${A[project_schemaVersion_type]}>"
 [ "${A[project_schemaVersion]}" = "1" ] || die_p "значение вне алфавита: schemaVersion: ${A[project_schemaVersion]}"
 
 A[repo_language]="$(jq -r '.language' "$REPO_JSON")"
@@ -251,21 +262,29 @@ esac
 # Обязательные строки репо-слоя
 for fld in repoId; do
   v="$(jq -r --arg f "$fld" 'if has($f) and (.[$f] | type) == "string" and (.[$f] | length) > 0 then .[$f] else empty end' "$REPO_JSON")"
+  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$REPO_JSON")"
+  [ "$ft" = "string" ] || die_p "значение вне алфавита: $fld: <$ft>"
   [ -n "$v" ] || die_p "значение вне алфавита: $fld: пусто"
 done
 
 # Обязательные строки слоя проекта
 for fld in version projectId workspaceId; do
+  ft="$(jq -r --arg f "$fld" 'if has($f) then (.[$f] | type) else "missing" end' "$PROJECT_JSON")"
+  [ "$ft" = "string" ] || die_p "значение вне алфавита: $fld: <$ft>"
   v="$(jq -r --arg f "$fld" '.[$f] // empty' "$PROJECT_JSON")"
   [ -n "$v" ] || die_p "значение вне алфавита: $fld: пусто"
 done
 
 # ci.workflow репо и canonicalRemote репо — непустые строки (если ветвь объявлена)
 if jq -e '.ci | type == "object"' "$REPO_JSON" >/dev/null 2>&1; then
+  cw_type="$(jq -r '.ci.workflow | type' "$REPO_JSON")"
+  [ "$cw_type" = "string" ] || die_p "значение вне алфавита: ci.workflow: <$cw_type>"
   cw="$(jq -r '.ci.workflow // empty' "$REPO_JSON")"
   [ -n "$cw" ] || die_p "значение вне алфавита: ci.workflow: пусто"
 fi
 if jq -e '.git | type == "object"' "$REPO_JSON" >/dev/null 2>&1; then
+  cr_type="$(jq -r '.git.canonicalRemote | type' "$REPO_JSON")"
+  [ "$cr_type" = "string" ] || die_p "значение вне алфавита: canonicalRemote: <$cr_type>"
   cr="$(jq -r '.git.canonicalRemote // empty' "$REPO_JSON")"
   [ -n "$cr" ] || die_p "значение вне алфавита: canonicalRemote: пусто"
 fi
@@ -274,13 +293,22 @@ fi
 # (И-4: «значения workflowPaths/commands — непустые строки»; обход №2 —
 # `commands.test: ""` принимался, потому что ветвь валидировалась только на
 # тип/наличие, не на непустоту значения). Здесь и в defaults проекта.
+#
+# ДОПОЛНЕНИЕ 054-фикс-раунд 4 (адверсарий круг 2, класс P6): если поле
+# объявлено, оно должно быть СТРОГО JSON-string, не число/boolean/null/array/
+# object. Старая проверка `if type == "string" and length > 0 then . else
+# empty end` уже отсеивала нестроковые значения, но единым сообщением
+# `пусто`; здесь — отдельный gate с типом в `<...>`, чтобы байт-в-байт
+# различать «не строка» и «пустая строка».
 check_object_strings() { # $1=file $2=parent $3=field-list
   local file="$1" parent="$2"; shift 2
   [ "$(jq -r --arg p "$parent" '(getpath($p | split(".")) // null) | type' "$file" 2>/dev/null)" = "object" ] || return 0
-  local f v
+  local f v ft
   for f in "$@"; do
     # Поле объявлено как объект-член $parent → если есть, должно быть непустой строкой.
     if jq -e --arg p "$parent" --arg f "$f" '(getpath($p | split(".")) | has($f))' "$file" >/dev/null 2>&1; then
+      ft="$(jq -r --arg p "$parent" --arg f "$f" 'getpath($p | split("."))[$f] | type' "$file" 2>/dev/null)"
+      [ "$ft" = "string" ] || die_p "значение вне алфавита: ${parent}.${f}: <${ft}>"
       v="$(jq -r --arg p "$parent" --arg f "$f" 'getpath($p | split("."))[$f] | if type == "string" and length > 0 then . else empty end' "$file")"
       [ -n "$v" ] || die_p "значение вне алфавита: ${parent}.${f}: пусто"
     fi
@@ -291,21 +319,42 @@ check_object_strings "$REPO_JSON"    workflowPaths  contracts verdicts registry 
 check_object_strings "$PROJECT_JSON" defaults.commands       test build typecheck lint
 check_object_strings "$PROJECT_JSON" defaults.workflowPaths  contracts verdicts registry fixtures
 
+# projectLayer.version и projectLayer.profilePath — обязательные строки репо
+# (И-4). Их type-gate стоит ОТДЕЛЬНО от check_object_strings, потому что они
+# лежат в ветви `projectLayer`, не в commands/workflowPaths. Адверсарий 054
+# круг 2 принял `projectLayer.profilePath: 7` через `jq -r` (число
+# превратилось в строку «7»).
+pl_v_type="$(jq -r '.projectLayer.version | type' "$REPO_JSON")"
+[ "$pl_v_type" = "string" ] || die_p "значение вне алфавита: projectLayer.version: <$pl_v_type>"
+pl_p_type="$(jq -r '.projectLayer.profilePath | type' "$REPO_JSON")"
+[ "$pl_p_type" = "string" ] || die_p "значение вне алфавита: projectLayer.profilePath: <$pl_p_type>"
+
 # barriers элементы — непустые строки класса ^[a-z0-9][a-z0-9_-]*$
+# ДОПОЛНЕНИЕ 054-фикс-раунд 4: ключ `barriers.mandatory/optional` обязан быть
+# МАССИВОМ. Прежняя проверка пропускала молча, если ни репо, ни слой не
+# объявляли массив — это и был обход (`barriers.mandatory: "not-array"` шёл).
 check_barrier_array() {
   local level="$1" path="$2"
-  if jq -e ".$path | type == \"array\"" "$REPO_JSON" >/dev/null 2>&1 \
-     || jq -e ".$path | type == \"array\"" "$PROJECT_JSON" >/dev/null 2>&1; then
-    local file="$REPO_JSON"
-    [ "$level" = "project" ] && file="$PROJECT_JSON"
-    local arr
-    arr="$(jq -r "if .$path | type == \"array\" then (.$path | join(\"\\n\")) else empty end" "$file" 2>/dev/null)"
-    while IFS= read -r item; do
-      [ -z "$item" ] && continue
-      printf '%s' "$item" | grep -Eq '^[a-z0-9][a-z0-9_-]*$' \
-        || die_p "значение вне алфавита: $path: $item"
-    done <<<"$arr"
+  local file="$REPO_JSON"
+  [ "$level" = "project" ] && file="$PROJECT_JSON"
+  # Ключ отсутствует в этом уровне — пропускаем (проверка ниже берёт из
+  # присутствующего уровня; для репо-слоя опционально, для проекта —
+  # defaults.barriers.* обязателен по схеме, но не по типу на этом этапе).
+  # `has(...)` в jq принимает литеральный ключ, не путь; для путей с точками
+  # (`defaults.barriers.mandatory`) идём через `getpath`.
+  if ! jq -e --arg p "$path" 'getpath($p | split(".")) | type' "$file" >/dev/null 2>&1; then
+    return 0
   fi
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
+  [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
+  local arr
+  arr="$(jq -r --arg p "$path" 'if (getpath($p | split(".")) | type) == "array" then (getpath($p | split(".")) | join("\n")) else empty end' "$file" 2>/dev/null)"
+  while IFS= read -r item; do
+    [ -z "$item" ] && continue
+    printf '%s' "$item" | grep -Eq '^[a-z0-9][a-z0-9_-]*$' \
+      || die_p "значение вне алфавита: $path: $item"
+  done <<<"$arr"
 }
 # Для репо-слоя — если barriers.mandatory/optional заданы
 check_barrier_array repo    barriers.mandatory
