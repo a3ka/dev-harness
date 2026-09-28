@@ -607,16 +607,12 @@ h3() { # И-4/И-6: живой лок → probe rc РОВНО 1 и ПОЛНАЯ 
   [ "$rc" -eq 1 ] && printf '%s' "$o" | grep -Fq "$(w3_line "$(cd "$R1" && pwd -P)" "$HOLDER")"
 }
 h4() { # И-4: мёртвый PID в локе → замещение, probe rc 0
-  # Фикс 055-r4: grace-период (60с) после смерти владельца — даже
-  # мёртвый pid = LIVE пока каталог-лок свежий. Чтобы клетка судила
-  # СВОЙ инвариант («мёртвый pid → замещение»), устариваем mtime
-  # каталога-лока ЗА grace-период: touch -d фиксирует mtime
-  # каталога в прошлом, и workshop видит stale_dead → rm -rf → mt
-  # нового лока → probe rc 0.
+  # Frozen Граница-4 «мёртвый → замена» дословно: pid мёртв → rm -rf
+  # каталога лока, перезахват, probe rc 0. Без подгонки touch -d —
+  # мёртвый pid замещается НЕМЕДЛЕННО.
   sleep 30 & DEAD=$!; kill "$DEAD" 2>/dev/null; wait "$DEAD" 2>/dev/null
   mkdir -p "$hlock" 2>/dev/null
   printf '%s\n' "$DEAD" > "$hlock/pid"
-  touch -d "@$(( $(date +%s) - 3600 ))" "$hlock"
   probe_run "$LAYER" >/dev/null 2>&1
 }
 h5() { # И-4 (битый лок): нечисловое содержимое → замещение, probe rc 0
