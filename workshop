@@ -750,27 +750,19 @@ printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 # Лок `$PSTATE/sessions/<hash8(realpath(корень репо))>.lock`; hash8 =
 # `sha256 | cut -c1-8`. Каталог-лока хранит PID владельца в файле `pid`.
 #
-# Протокол владения (фикс 055-r4, адверсарий круг 4):
+# Протокол владения (frozen/contracts/055/1, Граница-4):
 #   - Каталог БЕЗ pid-файла = LIVE (владелец в окне mkdir→pid, ещё не
 #     опубликовал pid). Это закрывает race-window между mkdir и записью
 #     pid: параллельный старт НЕ стирает чужой живой захват.
-#   - Каталог + pid-файл с ПУСТЫМ или НЕЧИСЛОВЫМ содержимым = LIVE
-#     (NOT-YET-PUBLISHED). Владелец между tmp+mv ещё не завершил атомарную
-#     публикацию, либо pid-файл сиротский — битый лок НЕ блокирует
-#     проект НАВСЕГДА (grace-период по mtime каталога, см. ниже).
+#   - Каталог + pid-файл с ПУСТЫМ или НЕЧИСЛОВЫМ содержимым = STALE
+#     (rm -rf, замещение). Битый лок НЕ блокирует проект: И-4
+#     дословно «Нечисловой/пустой содержимое — трактется как мёртвый
+#     (замена), не как отказ».
 #   - Каталог + pid-файл с числовым ЖИВЫМ pid = LIVE (отказ W3).
-#   - Каталог + pid-файл с числовым МЁРТВЫМ pid + ЛОК СВЕЖИЙ (< grace) =
-#     LIVE. Grace-период ЗАКРЫВАЕТ sequential-takeover race: 64
-#     параллельных live-старта, победитель умирает в окне 10с shim-сна,
-#     ЗАПАЗДАВШИЙ стартёр (CPU contention на `node gen-harness.ts`)
-#     приходит через 1-15с ПОСЛЕ смерти победителя и видит мёртвый pid;
-#     без grace он захватывает лок, обе сессии доходят до exec
-#     (succ=2 — измерено 054-к6 адверсарием 3/3 на HEAD=40ab940).
-#     С grace — mtime каталога ещё свежий, refuse W3. PID-reuse остаётся
-#     остаточным риском (контракт 055 §Модель угроз).
-#   - Каталог + pid-файл с числовым МЁРТВЫМ pid + ЛОК СТАРЫЙ (≥ grace)
-#     = STALE (rm -rf, перезахват) — зависшая сессия не блокирует
-#     проект навсегда.
+#   - Каталог + pid-файл с числовым МЁРТВЫМ pid = STALE (rm -rf,
+#     замещение) — мёртвый процесс сам делает лок замещаемым (И-5);
+#     frozen «мёртвый → замена» дословно. Остаточный риск PID-reuse
+#     назван в §Модель угроз.
 #
 # Атомарный захват каталога — `mkdir` (POSIX EEXIST при коллизии).
 # Атомарная публикация pid — `tmp+mv` ВНУТРИ каталога-лока: пишем pid в
@@ -778,8 +770,7 @@ printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 # атомарен) переименовывает в `pid`. Файл `pid` либо отсутствует, либо
 # содержит полный числовой pid — промежуточного «пустого» состояния нет.
 # PID переживает exec (И-5); мёртвый процесс сам делает лок
-# замещаемым после grace-периода (И-6).
-LOCK_GRACE_SECONDS="${WORKSHOP_LOCK_GRACE_SECONDS:-60}"
+# замещаемым (И-6).
 REPO_REALPATH="$(cd "$PROJECT" && pwd -P)"
 LOCK_HASH8="$(printf '%s' "$REPO_REALPATH" | sha256sum | cut -c1-8)"
 LOCK_DIR="$PSTATE/sessions"
@@ -815,20 +806,11 @@ if [ -d "$LOCK_FILE" ]; then
         ;;
     esac
   fi
-  # Grace-период (фикс 055-r4): мёртвый pid = LIVE, если каталог-лок
-  # свежий (mtime < LOCK_GRACE_SECONDS). Это закрывает sequential-takeover
-  # race в окне между смертью победителя и приходом запаздавшего
-  # стартёра при 64 параллельных live-стартах с 10с shim-сном
-  # (succ=2 — измерено 054-к6 3/3 на HEAD=40ab940). PID-reuse остаётся
-  # остаточным риском (контракт 055 §Модель угроз).
-  if [ "$LOCK_DISPOSITION" = "stale_dead" ]; then
-    LOCK_DIR_MTIME="$(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)"
-    LOCK_NOW="$(date +%s)"
-    LOCK_AGE=$((LOCK_NOW - LOCK_DIR_MTIME))
-    if [ "$LOCK_AGE" -lt "$LOCK_GRACE_SECONDS" ]; then
-      LOCK_DISPOSITION="live_recently_dead"
-    fi
-  fi
+  # Мёртвый pid → STALE безусловно (frozen Граница-4 «мёртвый → замена»).
+  # При seq_restart (победитель умер, второй приходит сразу) — второй
+  # замещает мёртвый лок немедленно. Race-window между смертью
+  # победителя и приходом запаздавшего стартёра — отдельный предмет
+  # (sequential-takeover вне замороженной И-4/И-5).
   case "$LOCK_DISPOSITION" in
     live_no_pidfile)
       printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid не объявлен, владелец в окне mkdir→pid). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" >&2
@@ -836,10 +818,6 @@ if [ -d "$LOCK_FILE" ]; then
       ;;
     live_alive)
       printf 'workshop ОТКАЗ: на корне %s уже идёт сессия (pid %s). Вторая сессия на том же корне запрещена (Н-108): заверши её или работай в другом клоне\n' "$REPO_REALPATH" "$LOCK_PID_VAL" >&2
-      exit 1
-      ;;
-    live_recently_dead)
-      printf 'workshop ОТКАЗ: на корне %s недавно умерла сессия (pid %s, %s сек назад). Лок держится grace-период %s с после смерти владельца, чтобы НЕ пропустить вторую сессию в окне sequential-takeover (Н-108): подождите или удалите лок вручную\n' "$REPO_REALPATH" "$LOCK_PID_VAL" "$LOCK_AGE" "$LOCK_GRACE_SECONDS" >&2
       exit 1
       ;;
     stale_*)
@@ -864,7 +842,7 @@ fi
 # `printf > $LOCK_FILE/pid.tmp` + `mv $LOCK_FILE/pid.tmp $LOCK_FILE/pid`
 # (POSIX rename атомарен): промежуточного «пустого pid-файла» нет.
 # PID переживает exec (И-5); мёртвый процесс сам делает лок
-# замещаемым после grace-периода (И-6).
+# замещаемым (И-6, frozen «мёртвый → замена»).
 LOCK_PID_TMP="$LOCK_FILE/pid.tmp.$$"
 if ! mkdir "$LOCK_FILE" 2>/dev/null; then
   # Гонка потеряна: между нашим `rm -rf` мёртвого владельца (выше) и mkdir,

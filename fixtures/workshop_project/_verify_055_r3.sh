@@ -85,8 +85,10 @@ rm -rf "$LOCK_FILE"
 rm -rf "$WORK/state"
 
 # ── (б) 64 параллельных live-старта → ровно 1 успех (повтор 2 раза) ─────────
-# Использует реальный workshop (НЕ stub). shim-omp спит 10с, чтобы
-# старт-«победитель» удерживал лок достаточно долго для подсчёта.
+# Использует реальный workshop (НЕ stub). shim-omp спит 60с — больше
+# длительности раунда — чтобы старт-«победитель» удерживал лок всё
+# время подсчёта (frozen Граница-4 «мёртвый → замена»): иначе
+# запаздавший стартёр увидел бы мёртвый pid и захватил лок вторым.
 cat > "$SHIMDIR/omp" <<'SHIM'
 #!/usr/bin/env bash
 if [ "${1:-}" = "--version" ]; then printf 'omp/v10\n'; exit 0; fi
@@ -105,7 +107,7 @@ parallel_round() { # $1=номер раунда
   for i in $(seq 1 64); do
     (env PATH="$SHIMDIR:$PATH" XDG_STATE_HOME="$tmpbase" HARNESS_PROJECT_LAYER_ROOT="$LAYER" \
       ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key METERING_PROXY_TOKEN=toy-token \
-      SHIM_SLEEP=10 SHIM_OUT="$WORK/p$round.p.$i" \
+      SHIM_SLEEP=60 SHIM_OUT="$WORK/p$round.p.$i" \
       bash "$WORKSHOP" "$REPO" >/dev/null 2>&1; \
       printf '%s\n' "$?" > "$WORK/p$round.rc.$i") &
   done
