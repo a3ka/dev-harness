@@ -99,6 +99,9 @@ SCHEMA_LEVELS='
 
   project:defaults:barriers:mandatory:required
   project:defaults:barriers:optional:required
+
+  repo:packs:optional
+  project:defaults:packs:optional
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
@@ -362,6 +365,33 @@ check_barrier_array repo    barriers.optional
 check_barrier_array project defaults.barriers.mandatory
 check_barrier_array project defaults.barriers.optional
 
+# packs элементы — массив класса ^[a-z0-9][a-z0-9_-]*$ (контракт 055, И-8).
+# Тот же формат P6, что и check_barrier_array: НЕ-массив → `<тип>` в угловых
+# скобках, элемент вне класса → имя элемента в причине.
+check_packs_array() {
+  local level="$1" path="$2"
+  local file="$REPO_JSON"
+  [ "$level" = "project" ] && file="$PROJECT_JSON"
+  # `getpath` на отсутствующем пути даёт null; `null == null` — истина, и
+  # мы пропускаем ключ. НЕ-массив при явном задании падает ниже на P6.
+  if jq -e --arg p "$path" 'getpath($p | split(".")) == null' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
+  [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
+  local arr
+  arr="$(jq -r --arg p "$path" 'if (getpath($p | split(".")) | type) == "array" then (getpath($p | split(".")) | join("\n")) else empty end' "$file" 2>/dev/null)"
+  while IFS= read -r item; do
+    [ -z "$item" ] && continue
+    printf '%s' "$item" | grep -Eq '^[a-z0-9][a-z0-9_-]*$' \
+      || die_p "значение вне алфавита: $path: $item"
+  done <<<"$arr"
+}
+# Репо-слой — packs на верхнем уровне; слой проекта — defaults.packs.
+check_packs_array repo    packs
+check_packs_array project defaults.packs
+
 # ── И-5: пин версии слоя проекта ───────────────────────────────────────────
 PIN="$(jq -r '.projectLayer.version' "$REPO_JSON")"
 LAYER_VER="$(jq -r '.version' "$PROJECT_JSON")"
@@ -424,7 +454,12 @@ MERGED=$(jq -n \
         elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.optional != null then { value: $p.defaults.barriers.optional, origin: "project" }
         else { value: [], origin: "project" } end
       )
-    }
+    },
+    packs: (
+      if $r.packs != null then { value: $r.packs, origin: "repo" }
+      elif $p.defaults and $p.defaults.packs != null then { value: $p.defaults.packs, origin: "project" }
+      else { value: [], origin: "project" } end
+    )
   }
   | del(.. | nulls)
   ')
