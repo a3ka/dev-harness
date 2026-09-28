@@ -364,3 +364,6 @@ scripts/check_consumers.sh . contracts/057-…md` → rc 0; `bash scripts/check_
 contracts/057-…md` → rc 0; `bash scripts/check_threat_model.sh . contracts/057-…md` →
 rc 0; `bash scripts/check_zones.sh .` → rc 0 на зонах 057 (предсуществующая FAIL-строка
 грамматики ЗОНА в contracts/055 (записана адверсарием 40ab940, суд 055) — не предмет 057).
+
+## Незаполненные требования:
+нет
