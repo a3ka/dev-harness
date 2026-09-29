@@ -248,12 +248,18 @@ _key_in_schema() {  # <искомая-строка>
 
 scan_levels() {
   local level="$1" file="$2"
+  # Контракт 057 (Ч-3, Б5): P4 дословно по frozen-блобу 054 — литерал
+  # `<репо-слой|слой-проекта>`, не `repo`/`project`. Здесь отображаем имя
+  # уровня в каноническую форму ДЛЯ ПЕЧАТИ; внутренний ключ `repo`/`project`
+  # для $SCHEMA_LEVELS сохраняем (нужен для поиска в схеме).
+  local level_label="репо-слой"
+  [ "$level" = "project" ] && level_label="слой-проекта"
   # Корневые ключи
   local roots
   roots="$(jq -r 'keys_unsorted[]' "$file" 2>/dev/null)" || die_p "файл не JSON: $file"
   while IFS= read -r k; do
     [ -z "$k" ] && continue
-    _key_in_schema "  ${level}:${k}:" || die_p "неизвестный ключ ${level}: ${k}"
+    _key_in_schema "  ${level}:${k}:" || die_p "неизвестный ключ ${level_label}: ${k}"
   done <<<"$roots"
 
   # Дочерние ветви корня. Здесь НЕЛЬЗЯ использовать `piped-while`: каждый
@@ -270,7 +276,7 @@ scan_levels() {
       dk="$(jq -r '.defaults | keys_unsorted[]' "$file" 2>/dev/null)"
       while IFS= read -r k; do
         [ -z "$k" ] && continue
-        _key_in_schema "  project:defaults:${k}:" || die_p "неизвестный ключ project: defaults.${k}"
+        _key_in_schema "  project:defaults:${k}:" || die_p "неизвестный ключ ${level_label}: defaults.${k}"
       done <<<"$dk"
     fi
   fi
@@ -298,7 +304,7 @@ scan_levels() {
     local branch_colon="${branch//./:}"
     while IFS= read -r k2; do
       [ -z "$k2" ] && continue
-      _key_in_schema "  ${level}:${branch_colon}:${k2}:" || die_p "неизвестный ключ ${level}: ${branch}.${k2}"
+      _key_in_schema "  ${level}:${branch_colon}:${k2}:" || die_p "неизвестный ключ ${level_label}: ${branch}.${k2}"
     done <<<"$bk"
   done
 }
@@ -410,12 +416,14 @@ check_barrier_array() {
   local level="$1" path="$2"
   local file="$REPO_JSON_FD"
   [ "$level" = "project" ] && file="$PROJECT_JSON_FD"
-  # Ключ отсутствует в этом уровне — пропускаем (проверка ниже берёт из
-  # присутствующего уровня; для репо-слоя опционально, для проекта —
-  # defaults.barriers.* обязателен по схеме, но не по типу на этом этапе).
-  # `has(...)` в jq принимает литеральный ключ, не путь; для путей с точками
-  # (`defaults.barriers.mandatory`) идём через `getpath`.
-  if ! jq -e --arg p "$path" 'getpath($p | split(".")) | type' "$file" >/dev/null 2>&1; then
+  # Контракт 057 (Ч-2, Б3): «ключ отсутствует — пропускаем». Для ветвей,
+  # объявленных в схеме как optional, отсутствие в ОБОИХ слоях — норма
+  # (форма M Ч-1). Раньше `getpath | type` для отсутствующего пути даёт
+  # «null», и прежняя ветвь падала на `<null>` — это и был мёртвый
+  # переход (вердикт Б3). Теперь явный гейт «getpath == null → skip»
+  # (тот же приём, что в check_packs_array ниже): путь отсутствует —
+  # return 0 без диагностики; путь задан не-массивом — die_p с типом.
+  if jq -e --arg p "$path" 'getpath($p | split(".")) == null' "$file" >/dev/null 2>&1; then
     return 0
   fi
   local ft
@@ -538,12 +546,12 @@ MERGED=$(jq -n \
       mandatory: (
         if $r.barriers and $r.barriers.mandatory != null then { value: $r.barriers.mandatory, origin: "repo" }
         elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.mandatory != null then { value: $p.defaults.barriers.mandatory, origin: "project" }
-        else { value: [], origin: "project" } end
+        else null end
       ),
       optional: (
         if $r.barriers and $r.barriers.optional != null then { value: $r.barriers.optional, origin: "repo" }
         elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.optional != null then { value: $p.defaults.barriers.optional, origin: "project" }
-        else { value: [], origin: "project" } end
+        else null end
       )
     },
     packs: (
