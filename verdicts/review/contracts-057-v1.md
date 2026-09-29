@@ -1,6 +1,192 @@
-FAIL
+accept
 
-# Ревьюер 057 — круг 1: батарея 054 честный измеритель + Б3
+# Ревьюер 057 — консолидация кругов 1–2: батарея 054 честный измеритель + Б3
+
+## Круг 2 — закрытие Б-1 (m1–m6 / п.5 / п.5б)
+
+Мандат круга 2: судится ТОЛЬКО закрытие Б-1 круга 1; прочее круга 1 не
+пересуживается (закрыто там же, ниже без изменений). Предмет: `748f617`
+(implementer, «клетки m1-m6»), слито `6fd291b`; `09ba1f5` (orchestrator,
+перенос ключа ci.yml ap3→ap5). Судился одноразовый SSH-клон `origin/main` =
+`09ba1f5` в `/tmp/dev-harness-verify/rev057k2`; мутанты — в отдельных клонах
+`r057k2-brr`, `r057k2-brr2`, проба якоря — `r057k2-anc`. Основной checkout —
+только чтение. Прогоны батарей последовательные (С-2 круга 1: b11m вероятностна
+под нагрузкой).
+
+### Красный вход: `.git/config` основного чекаута
+
+```text
+до:        ee1444766dcd4467db3622d64fb78505aacf55ea130e7fa18cacf1e3b6ce0f09
+середина:  ee1444766dcd4467db3622d64fb78505aacf55ea130e7fa18cacf1e3b6ce0f09  (HEAD 09ba1f5, porcelain 0)
+после:     ee1444766dcd4467db3622d64fb78505aacf55ea130e7fa18cacf1e3b6ce0f09  (перед коммитом вердикта; HEAD 09ba1f5, porcelain 0)
+```
+
+### (а) Батарея на честном дереве: rc 0, 36 клеток
+
+```text
+$ bash fixtures/_krasnye_054.sh 2>&1 | tee k2-honest.log | grep …; echo RC=${PIPESTATUS[0]}
+b11h: ok=72 refused=56 leak=0 (RACE_N=128)
+b11m: ok=65 refused=54 leak=9 (RACE_N=128, мутант check-then-open)
+СВЕРКА: m1 … СВЕРКА: m6
+m6: честный rc=0 листовое слияние; мутант rc=0 barriers.optional потерян (различение работает)
+честная часть: проверено предъявлений 36
+итог 054: rc=0
+RC=0
+```
+
+Своя мера (другие команды того же лога): `grep -c '^СВЕРКА: '` = 36,
+`sort -u | wc -l` = 36 (дубликатов нет), `grep -cE '^СВЕРКА: m[1-6]$'` = 6;
+python-подсчёт `startswith('СВЕРКА: ')` = 36, `стаб пойман:` = 20; литеральный
+`HONEST_CELLS` = 7+9+6+1+1+3+3+6 = 36. Печатное N=36 = C=36.
+
+### (а) Мутант замещения ветви: КРАСНЫЙ на m6, ЗЕЛЁНЫЙ на A/G/F/C/M
+
+Два независимых мутанта `scripts/profile_resolver.sh` (оба — семантика
+контрмодели критика 057-v1:24–29 «есть объект `barriers` в репо → ветвь
+замещена целиком»):
+
+```diff
+# brr — мой мутант круга 1 (строка 553), тот, что круг 1 пропускал
+-        elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.optional != null then …
++        elif ($r.barriers|not) and $p.defaults and $p.defaults.barriers and $p.defaults.barriers.optional != null then …
+# brr2 — полное замещение ветви (строки 547, 552)
+-        if $r.barriers and $r.barriers.mandatory != null then { value: $r.barriers.mandatory, origin: "repo" }
++        if $r.barriers != null then { value: $r.barriers.mandatory, origin: "repo" }
+-        if $r.barriers and $r.barriers.optional != null then { value: $r.barriers.optional, origin: "repo" }
++        if $r.barriers != null then { value: $r.barriers.optional, origin: "repo" }
+```
+
+Батарея (раннер) против мутантов — m1..m5 исполнены и зелёны (диспетчер валит
+на ПЕРВОЙ красной, m6 — последняя в списке), m6 красная с причиной `barriers.optional`:
+
+```text
+== brr
+b11h: ok=74 refused=54 leak=0 (RACE_N=128)
+b11m: ok=59 refused=57 leak=12 (RACE_N=128, мутант check-then-open)
+СВЕРКА: m1 … СВЕРКА: m5, СВЕРКА: m6
+m6: честный barriers.optional.origin != project
+054-батарея ОТКАЗ: ЧЕСТНАЯ ЧАСТЬ: клетка m6 красная
+итог 054: rc=1
+brr_RUNNER_RC=1
+== brr2
+b11h: ok=71 refused=57 leak=0 (RACE_N=128)
+b11m: ok=55 refused=58 leak=15 (RACE_N=128, мутант check-then-open)
+СВЕРКА: m1 … СВЕРКА: m5, СВЕРКА: m6   (grep -c '^СВЕРКА: ' = 36)
+m6: честный barriers.optional.origin != project
+054-батарея ОТКАЗ: ЧЕСТНАЯ ЧАСТЬ: клетка m6 красная
+итог 054: rc=1
+brr2_RUNNER_RC=1
+```
+
+Независимая мера (моя toy-проба `k2-forms.sh`, НЕ код батареи; те же шесть форм
+Ч-1, резолвер вызывается напрямую):
+
+```text
+== честный
+A rc=0 barriers={mandatory:{check_zones,project},optional:{check_metering,project}} cmd.test.origin=project
+G rc=0 barriers={mandatory:{check_zones,project},optional:{check_metering,project}} cmd.test.origin=repo
+F rc=0 barriers={mandatory:{check_no_leak,repo},optional:{check_metering,repo}}     cmd.test.origin=project
+C rc=0 barriers={mandatory:{check_no_leak,repo},optional:{check_metering,repo}}     cmd.test.origin=repo
+M rc=0 barriers={} cmd.test.origin=-
+P rc=0 barriers={mandatory:{check_no_leak,repo},optional:{check_metering,project}}  cmd.test.origin=project
+== brr   A/G/F/C/M — байт-в-байт как честный; P rc=0 barriers={"mandatory":{"value":["check_no_leak"],"origin":"repo"}}
+== brr2  A/G/F/C/M — байт-в-байт как честный; P rc=0 barriers={…mandatory…,"optional":{"origin":"repo"}}
+```
+
+То есть мутант на A/G/F/C/M от честного неотличим (п.5б «зелёен на A/G/F/C/M»),
+на P теряет `barriers.optional` — и именно клетка m6 это ловит.
+
+Заякоренность самопробы m6 (п.5б «патч не применился → клетка красная
+именованно»), изолированный прогон `cell_m6` (функции извлечены из батареи):
+
+```text
+честный резолвер                       → m6: честный rc=0 листовое слияние; мутант rc=0 barriers.optional потерян  M6_RC=0
+дрейф текста ветви ($r.barriers)→(…)   → ANCHOR MISMATCH: orig_block not found verbatim
+  (семантика честная)                    m6: КРАСНАЯ — патч не применился: anchored barriers-блок не найден     M6_RC=1
+brr                                    → m6: честный barriers.optional.origin != project                        M6_RC=1
+brr2                                   → m6: честный barriers.optional.origin != project                        M6_RC=1
+```
+
+### (б) frozen-diff пуст
+
+```text
+$ git diff --name-only 939dc64 HEAD -- contracts/ frozen/ AGENTS.md roles/ | wc -l   → 0
+$ git diff --quiet frozen/contracts/057/1 HEAD -- contracts/057-…md; echo $?        → 0
+$ git diff --name-only 7c7b559 HEAD → .github/workflows/ci.yml, fixtures/workshop_project/red_profil_dva_sloja.sh
+```
+
+### (г) scoped profile_resolver 9/9
+
+```text
+$ bash scripts/verify_antiplacebo.sh --scope profile_resolver 2>&1 | tee k2-scoped.log; echo AP_RC=${PIPESTATUS[0]}
+SCOPED: барьеров 1 из выборки — не для приёмки
+  ok   profile_resolver/case_defaults_vne_alfavita.sh … «значение вне алфавита: defaults.barriers.mandatory»
+  ok   profile_resolver/case_fail_ne_json.sh … «файл не JSON»
+  ok   profile_resolver/case_neizvestnyj_kljuch_repo_sloja.sh … «неизвестный ключ репо-слой: workflowPaths.contrete»
+  ok   profile_resolver/case_neizvestnyj_kljuch_sloja_proekta.sh … «неизвестный ключ слой-проекта: boguskey»
+  ok   profile_resolver/case_net_fajla_repo_sloja.sh … «нет harness.project.json»
+  ok   profile_resolver/case_net_fajla_sloja_proekta.sh … «нет файла слоя проекта»
+  ok   profile_resolver/case_rashozhdenie_pina_sloja.sh … «пин слоя проекта расходится»
+  ok   profile_resolver/case_vneshnij_symlink_repo_sloja.sh … «не symlink на внешний файл»
+  ok   profile_resolver/case_znachenie_vne_alfavita.sh … «значение вне алфавита: language»
+барьеров: 1 · фикстур: 9 · предъявлено красным повторным прогоном: 9
+AP_RC=0
+своя мера: grep -cE '^\s+ok\s' лога = 9; git ls-files fixtures/profile_resolver | wc -l = 9
+```
+
+### Семь пунктов роли — только дельта круга 2
+
+1. **Область.** `748f617` — один файл `red_profil_dva_sloja.sh` (ЗОНА implementer,
+   ПЕРЕСЕЧЕНИЕ «правится ТОЛЬКО файл red_profil_dva_sloja.sh»); резолвер не тронут. PASS.
+2. **Сырой вывод.** Коммит приводит приёмку с rc; повторено мной выше. PASS.
+3. **Проверка под реализацию.** Автор дописал клетки в своей зоне; клетки
+   круга 1 не ослаблены (diff — только вставки + одна строка диспетчера). PASS.
+4. **Красное предъявлено.** m6 красна на двух мутантах замещения ветви и на
+   дрейфе якоря; m1–m5 — позитивные формы п.5, красная для них п.5б не
+   требует (мутант обязан быть на них зелёным — и зелён). PASS.
+5. **Атомарность.** Один коммит, одна задача 057, ссылка на предмет. PASS.
+6. **Норма.** frozen-diff пуст (б). PASS.
+7. **Счётные утверждения.** «36 предъявлений» — своей мерой 36 (grep -c,
+   sort -u, python, литеральный список); «9/9» — см. (г). PASS.
+
+### Паразитная сложность (050) — новые артефакты `748f617`
+
+| Артефакт | (1) свойство | (2) состояние | (3) совместная правка | (4) глубина | (5) потребитель / повтор | Класс |
+|---|---|---|---|---|---|---|
+| `cell_m1`..`cell_m5` (семья) | Ч-1, п.5 | `$WORK/mN-{r,layer}`, явное | JSON слоя с `defaults` повторён дословно в m1/m2/m3/m6, 5 блоков из пяти `jq -r … origin` — правка схемы слоя = 4–6 мест в одном файле | интерфейс 1 арг, работа — 1 прогон + 5 сверок; мелкие копии | п.5 батареи; повторяют друг друга | ACCIDENTAL (совет): проще — одна `cell_form <тег> <repo_json> <layer_json> <путь=origin…>`; отсутствующего свойства нет → не блокирует |
+| `cell_m6` (+ встроенный python-патч) | Ч-1, п.5б | `$WORK/m6-*`, копия `m6-mutated.sh`; причина печатается | 1 файл; якорь дублирует 12 строк ветви резолвера — правка ветви = 2 места, но это требование п.5б (анкер, прецедент Ч-5) | ок | п.5б | ESSENTIAL. Совет: `grep -qF` пред-проверка трёх подстрок дублирует `orig_block not in src` (тот же совет, что b11m круга 1); сообщение ветви «совпал … это невозможно; проверь якорь» путано |
+| `_setup_form_repo` | фикстуры п.5 | нет | 1 | ок | m1–m6 | ESSENTIAL. Совет: `git config receive.denyCurrentBranch refuse` резолверу не нужна |
+| m1–m5 через `cell_resolver_run` | Ч-6 | нет | 3 места на форму (список, `dispatch_honest_cell`, `cell_resolver_run`) против 2 у m6 | двухуровневый диспетчер с `*) return 0` на втором уровне (совет С круга 1) | — | ACCIDENTAL (совет): прямой `m[1-5]) cell_$cell "$PROFILE_RESOLVER"` в `dispatch_honest_cell`, как m6 |
+| ключ `profile_resolver` ap3→ap5 (`09ba1f5`) | Ч-10 | нет | 1 | ок | CI | см. «Вопрос владельцу» |
+
+### Вопрос владельцу (не FAIL, вне мандата круга 2)
+
+`09ba1f5` (orchestrator) перенёс `profile_resolver` из `keys` шарда ap3 в ap5
+по таймауту ap3. Замороженные Ч-10 (строка 188) и ПЕРЕСЕЧЕНИЕ ci.yml (строки
+256–257) называют буквально «шард ap3». Свойство Ч-10 «CI исполняет клетки»
+сохранено (ключ один, в ap5; ci.yml:69), но буква контракта разошлась с деревом, и правку
+внёс не implementer. Мандат круга 2 — закрытие m1–m6, поэтому не судится;
+владельцу — принять как операционную правку матрицы или оформить.
+
+Наблюдение: m6 исполняется только батареей 054 (судейская, Граница-3), не CI —
+`krasnye_054|red_profil` по `.github/`, `package.json`, `fixtures/profile_resolver/`
+ноль попаданий. П.5б требует клетку батареи, не CI-ключ — не FAIL.
+
+### Итог круга 2
+
+accept — Б-1 закрыт: клетки m1–m6 существуют и исполняются (36 предъявлений,
+N=C), мутант замещения ветви `barriers` (два варианта) красен на m6 с
+причиной `barriers.optional` и зелен на A/G/F/C/M, дрейф якоря красен
+именованно; frozen-diff пуст; scoped profile_resolver 9/9; `.git/config`
+основного без изменений. Блокеров нет; советы выше не блокируют.
+
+---
+
+## Круг 1 (сохранён; блокер Б-1 закрыт кругом 2)
+
+Вердикт круга 1 (блоб 7c7b559): FAIL
+
+#### Ревьюер 057 — круг 1: батарея 054 честный измеритель + Б3
 
 Судился одноразовый SSH-клон `origin/main` = `9cd6bf2` в
 `/tmp/dev-harness-verify/rev057`; мутанты — в отдельных свежих SSH-клонах
@@ -10,16 +196,16 @@ FAIL
 `frozen/contracts/057/1` (tag-object `eba0f818…` → commit `939dc64`,
 блоб контракта `8b934a4c…` = HEAD-блоб).
 
-## Красный вход: `.git/config`
+### Красный вход: `.git/config`
 
 ```text
 до:    ee1444766dcd4467db3622d64fb78505aacf55ea130e7fa18cacf1e3b6ce0f09  (основной)
 после: ee1444766dcd4467db3622d64fb78505aacf55ea130e7fa18cacf1e3b6ce0f09  (основной, перед коммитом вердикта)
 ```
 
-## Блокеры
+### Блокеры
 
-### Б-1 (FAIL, класс: заявленное ≠ сделанному / зелёное без красного) — клеток m1–m6 нет, мутант замещения ветви `barriers` зелёный в батарее И в CI
+#### Б-1 (FAIL, класс: заявленное ≠ сделанному / зелёное без красного) — клеток m1–m6 нет, мутант замещения ветви `barriers` зелёный в батарее И в CI
 
 Обязательства frozen 057: Ч-1 («мутант … на P теряет `barriers.optional` —
 краснеет клеткой m6 (п.5/п.5б)»), приёмка п.5 («фикстуры m1–m6 честной
@@ -78,7 +264,7 @@ implementer'у `fixtures/workshop_project/red_profil_dva_sloja.sh`; Ч-1 (М1) �
 прецеденту `cell_b11m` (заякоренная правка строки `optional` ветви слияния;
 якорь не найден → красная именованно).
 
-## Что закрыто (прогнано мной)
+### Что закрыто (прогнано мной)
 
 | Предмет | Команда (клон `rev057`) | Наблюдение |
 |---|---|---|
@@ -111,7 +297,7 @@ LIT_RUNNER_RC=0
 LIT_P1B_RC=1 N=1 C=30
 ```
 
-## Семь пунктов роли
+### Семь пунктов роли
 
 1. **Область.** `34d0c06`/`8430ce1` трогают только `scripts/profile_resolver.sh`,
    `fixtures/_krasnye_054.sh`, `red_profil_dva_sloja.sh`, `fixtures/profile_resolver/`
@@ -133,21 +319,21 @@ LIT_P1B_RC=1 N=1 C=30
 7. **Счётные утверждения.** «30/30» — `N=30 C=30` (grep -c событий); «9/9» — 9 ok-строк и
    9 файлов glob; «4/4» — вывод батареи; «20/20» стабов — `grep -c '^стаб пойман: '`=20. PASS.
 
-## ПРОВОДКА (038)
+### ПРОВОДКА (038)
 
 Канал один — `guard=scripts/verify_antiplacebo.sh`; существует и подключён
 ключом `profile_resolver` в ap3; барьер именно этого предмета (семья
 `fixtures/profile_resolver/` адресует `scripts/profile_resolver.sh` по ключу).
 ПРОВОДКА-ЭНФОРСМЕНТ обоснован честно: поведенческих норм ролей нет. PASS.
 
-## Граница-2: `.probe-only`
+### Граница-2: `.probe-only`
 
 `fixtures/workshop_project/` = `.probe-only`, `red_profil_dva_sloja.sh`,
 `red_izoljacija_projectid.sh`, `_verify_055_r3.sh`; `case_*` — ноль. Форма 034
 инв.1 (маркер ∧ red_* ∧ нет case_*) соблюдена; Б4 закрыт исполнением новой семьи
 в CI, не снятием маркера. Легитимно. PASS.
 
-## Паразитная сложность (050)
+### Паразитная сложность (050)
 
 | Артефакт | (1) свойство | (2) состояние | (3) совместная правка | (4) глубина | (5) потребитель / повтор | Класс |
 |---|---|---|---|---|---|---|
@@ -161,7 +347,7 @@ LIT_P1B_RC=1 N=1 C=30
 | `getpath == null` гейт | Ч-2 | нет | 1 | ок | п.5/п.6 | ESSENTIAL |
 | ключ ci.yml | Ч-10 | нет | 1 | ок | CI | ESSENTIAL |
 
-## Советы (не блокируют)
+### Советы (не блокируют)
 
 - С-1. b11h/b11m считают `refused` любой rc≠0 и rc=0 с чужим repoId; Ч-4 говорит
   «rc 1 ∧ именованный отказ → refused». Крах резолвера (rc 2, без фразы) сейчас
@@ -177,7 +363,7 @@ LIT_P1B_RC=1 N=1 C=30
 - С-4. Форма M оставляет пустые контейнеры `barriers:{}`/`commands:{}` в выводе;
   Ч-1 требует отсутствия листьев — соблюдено; пустые объекты — на усмотрение.
 
-## Итог
+### Итог
 
 FAIL — одна находка-блокер Б-1 (m1–m6 / п.5б: мутант замещения ветви `barriers`
 проходит батарею и CI). Б1/Б2/Б4/Б5 закрыты и воспроизведены; Б3 закрыт по
