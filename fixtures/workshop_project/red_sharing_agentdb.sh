@@ -263,14 +263,15 @@ diff_c3() {
   [ "$n" -eq 1 ] && [ -L "$p" ] \
     && ! find "$home" -name side-agent.dat -print -quit 2>/dev/null | grep -q .
 }
-check_c4() { # s4 «пересоздаёт»: inode валидной ссылки изменился
+check_c4() { # s4 «пересоздаёт»: readlink валидной ссылки заменён на каноническую цель
   local b="$WORK/c4"; rm -rf "$b"; mkdir -p "$b"
-  local d o p i1 i2; d="$(stub_mk_devdb "$b")"; o="$WORK/c4.out"; p="$(stub_projdb "$b")"
-  mkdir -p "$(dirname -- "$p")"; ln -s -- "$d" "$p"; i1="$(stat -c %i -- "$p")"
+  local d o p d_alt; d="$(stub_mk_devdb "$b")"; o="$WORK/c4.out"; p="$(stub_projdb "$b")"
+  d_alt="$(dirname -- "$d")/./$(basename -- "$d")"
+  mkdir -p "$(dirname -- "$p")"; ln -s -- "$d_alt" "$p"
   STUB_RECREATE=1 stub_probe "$b" "$o"
-  i2="$(stat -c %i -- "$p" 2>/dev/null || printf x)"
-  [ "$(readlink -- "$p" 2>/dev/null)" = "$d" ] && [ "$i1" = "$i2" ] && return 1
-  return 0
+  # стаб делает rm+ln с канонической $DEVDB==d → readlink==d (≠d_alt) → rc 0 (пойман);
+  # честный L1 не трогает ссылку → readlink остаётся d_alt → rc 1 (не пойман).
+  [ "$(readlink -- "$p" 2>/dev/null)" = "$d" ]
 }
 diff_c4() {
   local b="$WORK/c4d"; rm -rf "$b"; mkdir -p "$b"
