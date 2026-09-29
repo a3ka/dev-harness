@@ -746,6 +746,72 @@ export METERING_PROJECT="$PROJECT_ID_VAL"
 export METERING_ROLE="$SESSION_ROLE"
 printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 
+# ── М шаринг: симлинк PROJDB на дев-базу DEVDB (контракт 058, И-1) ─────────
+# Шаг между экспортами М1 055 и блоком М2 PID-лока. Стартовые $ZONE (формула
+# 028, вычислена ДО подмены HOME) и $PROFILE — потребляются как есть, не
+# пересчитываются. DEVDB = $ZONE/.omp/profiles/$PROFILE/agent/agent.db;
+# PROJDB = $PSTATE/home/.omp/profiles/$PROFILE/agent/agent.db. Дерево ветвей
+# И-1 — единственная точка правды: код и батарея судят по нему (058 §Единый
+# источник семантик). Баннер `AGENTDB:` несёт фактическую ветвь — молчание
+# невозможно (И-1/И-3). Все ветви продолжают запуск rc 0; W8 — предупреждение,
+# не отказ (Граница-5). Шаг работает и в probe, и в живом — один код
+# (Граница-4, прецедент 054 STATE/METERING).
+AGENTDB_DEVDB="$ZONE/.omp/profiles/$PROFILE/agent/agent.db"
+AGENTDB_PROJDB="$PSTATE/home/.omp/profiles/$PROFILE/agent/agent.db"
+if [ -L "$AGENTDB_PROJDB" ]; then
+  # L*: симлинк на месте — readlink побайтово сверяем с DEVDB
+  AGENTDB_CUR="$(readlink -- "$AGENTDB_PROJDB" 2>/dev/null || true)"
+  if [ "$AGENTDB_CUR" = "$AGENTDB_DEVDB" ] && [ -e "$AGENTDB_DEVDB" ]; then
+    # L1: валидная ссылка на живой DEVDB — идемпотентно, не трогаем
+    printf 'AGENTDB: %s\n' "$AGENTDB_DEVDB"
+  elif [ -e "$AGENTDB_DEVDB" ]; then
+    # L2: readlink != DEVDB или цель мертва при живом DEVDB — чинить цель
+    ln -sfn -- "$AGENTDB_DEVDB" "$AGENTDB_PROJDB"
+    printf 'AGENTDB: %s\n' "$AGENTDB_DEVDB"
+  elif [ -n "$AGENTDB_CUR" ] && [ -e "$AGENTDB_CUR" ]; then
+    # L3a: работающая ссылка на чужую живую цель, DEVDB отсутствует —
+    # working setup не ломаем, баннер несёт фактический readlink
+    printf 'AGENTDB: %s\n' "$AGENTDB_CUR"
+  else
+    # L3b: dangling (цель мертва), DEVDB отсутствует — rm, проект получит
+    # свою пустую; ссылку не восстанавливаем (нечего)
+    rm -f -- "$AGENTDB_PROJDB"
+    printf 'AGENTDB: изолирована\n'
+  fi
+elif [ -e "$AGENTDB_PROJDB" ]; then
+  # R*: регулярный файл или каталог
+  if [ -f "$AGENTDB_PROJDB" ] && [ ! -s "$AGENTDB_PROJDB" ]; then
+    # R0: пустой регулярный файл — заместить ссылкой при живом DEVDB
+    if [ -e "$AGENTDB_DEVDB" ]; then
+      rm -f -- "$AGENTDB_PROJDB"
+      mkdir -p -- "$(dirname -- "$AGENTDB_PROJDB")"
+      ln -s -- "$AGENTDB_DEVDB" "$AGENTDB_PROJDB"
+      printf 'AGENTDB: %s\n' "$AGENTDB_DEVDB"
+    else
+      # R0 при отсутствующем DEVDB — замещение невозможно, файл не трогать
+      printf 'AGENTDB: изолирована\n'
+    fi
+  else
+    # R1: непустой регулярный файл или каталог — данные владельца,
+    # не теряем молча; предупреждение W8 в stderr, баннер A2 в stdout
+    printf 'workshop ПРЕДУПРЕЖДЕНИЕ: agent.db проекта — не симлинк, шаринг не активен (W8): %s — перенеси файл и перезапусти\n' "$AGENTDB_PROJDB" >&2
+    printf 'AGENTDB: изолирована\n'
+  fi
+else
+  # C*: PROJDB отсутствует
+  if [ -e "$AGENTDB_DEVDB" ]; then
+    # C1: живой DEVDB — родитель PROJDB ещё не существует (HOME проекта
+    # только что подменён в М1), mkdir -p родителя + ln -s
+    mkdir -p -- "$(dirname -- "$AGENTDB_PROJDB")"
+    ln -s -- "$AGENTDB_DEVDB" "$AGENTDB_PROJDB"
+    printf 'AGENTDB: %s\n' "$AGENTDB_DEVDB"
+  else
+    # C2: ни DEVDB, ни PROJDB — ничего не создавать (ни ссылки, ни
+    # каталогов шага), баннер A2
+    printf 'AGENTDB: изолирована\n'
+  fi
+fi
+
 # ── М2/И-4: PID-лок ─────────────────────────────────────────────────────────
 # Лок `$PSTATE/sessions/<hash8(realpath(корень репо))>.lock`; hash8 =
 # `sha256 | cut -c1-8`. Каталог-лока хранит PID владельца в файле `pid`.
