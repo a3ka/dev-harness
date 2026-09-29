@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+# 059-БАТАРЕЯ — workshop_project (контракт 059, IV-1а: сверка объявленного
+# пути профиля ci.workflow с деревом репо; боль Б-4 пилота ODX-STK-001).
+#
+# Переносная форма семьи (прецедент 054/055/058). Структура:
+#   1. СТАБ-ПАК (6 ручек обмана) — зелёный ДО и ПОСЛЕ реализации: каждый
+#      обманный стаб умирает на СВОЕЙ клетке (привязка по коду, Н-39).
+#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к9) — красная ДО реализации (предмет отсутствует:
+#      резолвер HEAD не сверяет объявление с деревом), зелёная ПОСЛЕ.
+#
+# Прогон: bash red_sverka_puti_profylja.sh [корень worktree]
+#   rc 0 — стаб-пак пойман весь, диффпроба чиста И честные клетки зелёные.
+#   rc 1 — расхождение (на HEAD ожидаемо и ДОКАЗЫВАЕТ боль Б-4).
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ROOT="${1:-$(cd "$HERE/../.." && pwd -P)}"
+PROFILE_RESOLVER="${PROFILE_RESOLVER:-$ROOT/scripts/profile_resolver.sh}"
+WORKSHOP="${WORKSHOP:-$ROOT/workshop}"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+die_pack() { printf '059-батарея ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+[ -f "$PROFILE_RESOLVER" ] || die_pack "нет резолвера: $PROFILE_RESOLVER"
+[ -f "$WORKSHOP" ] || die_pack "нет workshop: $WORKSHOP"
+command -v git >/dev/null 2>&1 || die_pack "нет git"
+command -v jq >/dev/null 2>&1 || die_pack "нет jq"
+command -v readlink >/dev/null 2>&1 || die_pack "нет readlink"
+
+# Ложные зелёные от протекающего окружения (прецедент 058:67).
+unset HARNESS_SESSION_HOME HARNESS_SCRATCH METERING_PROJECT METERING_ROLE
+
+# ── строители toy-мира ────────────────────────────────────────────────────────
+# $3 = фрагмент JSON ветви ci ("" = ветвь не объявлена).
+layer_make() { # $1=корень слоя $2=projectId $3=ci-фрагмент
+  mkdir -p "$1/registry"
+  printf '{"schemaVersion":1,"version":"v10","projectId":"%s","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"cargo test","build":"cargo build","typecheck":"cargo check","lint":"cargo clippy"},"git":{"canonicalRemote":"git@host:p1.git"}%s,"barriers":{"mandatory":["check_zones"],"optional":[]}}}' "$2" "$3" > "$1/registry/harness-project.json"
+}
+layer_min() { # слой БЕЗ defaults вовсе (схема 054: defaults — optional)
+  mkdir -p "$1/registry"
+  printf '{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1"}' > "$1/registry/harness-project.json"
+}
+repo_make() { # $1=корень репо $2=repoId $3=ci-фрагмент $4=git(1|0)
+  local r="$1"
+  mkdir -p "$r/config"
+  [ "${4:-1}" = "1" ] && { git -C "$r" init -q; git -C "$r" config receive.denyCurrentBranch refuse; }
+  printf '{"schemaVersion":1,"repoId":"%s","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"}%s,"git":{"canonicalRemote":"git@host:r1.git"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}' "$2" "$3" > "$r/harness.project.json"
+  printf '{"version":"v10"}\n' > "$r/config/harness_pin.json"
+  printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
+}
+CI_YML=',"ci":{"workflow":".github/workflows/ci.yml"}'
+wf_make() { mkdir -p "$(dirname -- "$1")"; printf 'name: toy ci\n' > "$1"; }
+
+# ── прогонщики ────────────────────────────────────────────────────────────────
+resolve() { # $1=резолвер $2=репо $3=слой $4=выход stderr; rc наружу
+  env HARNESS_PROJECT_LAYER_ROOT="$3" bash "$1" --repo "$2" > /dev/null 2>"$4"
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# СТАБ-ПАК: обманный стаб-резолвер; обманывает ровно одной ручкой STUB_*.
+# Без ручек честен на всех сценариях (диффпроба). Клетки стаб-пака НЕ зависят
+# от честного кода — зелёны ДО и ПОСЛЕ реализации (прецедент 045/054/058).
+# ══════════════════════════════════════════════════════════════════════════════
+STUB="$WORK/stub-resolver"
+cat > "$STUB" <<'STUBEOF'
+#!/usr/bin/env bash
+# ОБМАННЫЙ СТАБ резолвера 059: без ручек честен на сценариях к1-к8; ровно
+# одна ручка STUB_* обманывает (и умирает на своей клетке). Реализацией НЕ
+# является. Литералы отказов — байт-в-байт из контракта 059 (И-3): стаб и
+# честная реализация различимы только ручкой, не текстом отказа.
+set -uo pipefail
+repo=""; layer="${HARNESS_PROJECT_LAYER_ROOT:?}"
+while [ $# -gt 0 ]; do case "$1" in
+  --repo) repo="$2"; shift 2 ;;
+  *) shift ;;
+esac; done
+repo="$(cd "$repo" && pwd -P)"
+rj="$repo/harness.project.json"; pj="$layer/registry/harness-project.json"
+cw="$(jq -r '.ci.workflow // empty' "$rj" 2>/dev/null)"
+if [ -z "$cw" ] && [ -z "${STUB_REPO_ONLY:-}" ]; then
+  cw="$(jq -r '.defaults.ci.workflow // empty' "$pj" 2>/dev/null)"
+fi
+emit_merged() { printf '{"ci":{"value":{"workflow":"%s"},"origin":"repo"}}\n' "$cw"; }
+if [ -z "$cw" ] || [ -n "${STUB_NO_CHECK:-}" ]; then emit_merged; exit 0; fi
+die() { printf 'profile ОТКАЗ: %s\n' "$1" >&2; exit 1; }
+case "$cw" in
+  /*) if [ -n "${STUB_ABS_OK:-}" ] && [ -e "$cw" ]; then emit_merged; exit 0; fi
+      die "ci.workflow обязан быть относительным путём от корня репо, получен абсолютный: <$cw>" ;;
+esac
+joined="$repo/$cw"
+if [ -n "${STUB_NO_CANON:-}" ]; then
+  [ -f "$joined" ] || die "объявленный путь отсутствует в дереве репо: ci.workflow=$cw от корня $repo"
+  emit_merged; exit 0
+fi
+canon="$(readlink -f -- "$joined" 2>/dev/null || true)"
+if [ -n "${STUB_ESCAPE_OK:-}" ]; then
+  [ -e "$joined" ] || die "объявленный путь отсутствует в дереве репо: ci.workflow=$cw от корня $repo"
+  emit_merged; exit 0
+fi
+[ -n "$canon" ] && [ -e "$canon" ] || die "объявленный путь отсутствует в дереве репо: ci.workflow=$cw от корня $repo"
+case "$canon" in
+  "$repo"/*) ;;
+  *) die "ci.workflow выходит за корень репо после канонизации: $cw -> $canon вне $repo" ;;
+esac
+if [ -n "${STUB_DIR_OK:-}" ]; then
+  [ -e "$canon" ] || die "объявленный путь отсутствует в дереве репо: ci.workflow=$cw от корня $repo"
+  emit_merged; exit 0
+fi
+[ -f "$canon" ] || die "объявленный путь не файл: ci.workflow=$cw — каталог"
+emit_merged; exit 0
+STUBEOF
+chmod +x "$STUB"
+
+# Сценарии стаб-пака (те же входы, что у честных клеток; печатают "репо\nслой").
+scn_k1() { local L="$WORK/s1-layer" R="$WORK/s1-repo"; layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0; printf '%s\n%s\n' "$R" "$L"; }
+scn_k2() { local L="$WORK/s2-layer" R="$WORK/s2-repo"; layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "" 0; printf '%s\n%s\n' "$R" "$L"; }
+scn_k3() { local L="$WORK/s3-layer" R="$WORK/s3-repo"; layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0; wf_make "$R/.github/workflows/ci.yml"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k4() { local L="$WORK/s4-layer" R="$WORK/s4-repo"; layer_make "$L" p1 ',"ci":{"workflow":"/etc/hostname"}'; repo_make "$R" r1 ',"ci":{"workflow":"/etc/hostname"}' 0; printf '%s\n%s\n' "$R" "$L"; }
+scn_k5() { local L="$WORK/s5-layer" R="$WORK/s5/repo"; mkdir -p "$WORK/s5"; printf 'x: 1\n' > "$WORK/escape.yml"; layer_make "$L" p1 ',"ci":{"workflow":"../../escape.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"../../escape.yml"}' 0; printf '%s\n%s\n' "$R" "$L"; }
+scn_k6() { local L="$WORK/s6-layer" R="$WORK/s6/repo" T="$WORK/s6/outside.yml"; mkdir -p "$WORK/s6"; printf 'x: 1\n' > "$T"; layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0; mkdir -p "$R/.github/workflows"; rm -f -- "$R/.github/workflows/ci.yml"; ln -s -- "$T" "$R/.github/workflows/ci.yml"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k7() { local L="$WORK/s7-layer" R="$WORK/s7-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci"}' 0; mkdir -p "$R/ci"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k8() { local L="$WORK/s8-layer" R="$WORK/s8-repo"; layer_min "$L"; repo_make "$R" r1 "" 0; printf '%s\n%s\n' "$R" "$L"; }
+
+stub_rc() { # $1=сценарий → rc стаба на этом сценарии (ручки из окружения)
+  local io R L e rc
+  io="$($1)"; R="${io%%$'\n'*}"; L="${io#*$'\n'}"
+  e="$WORK/stub-run.err"; : > "$e"
+  rc=0; env HARNESS_PROJECT_LAYER_ROOT="$L" bash "$STUB" --repo "$R" >/dev/null 2>"$e" || rc=$?
+  return "$rc"
+}
+
+# Диффпроба: стаб БЕЗ ручек обязан вести себя как честная реализация на всех
+# восьми сценариях (иначе стаб-пак ничего не доказывает).
+diff_fail=0
+scn_check() { # $1=сценарий $2=ожидание (1=отказ, 0=успех)
+  stub_rc "$1"; local rc=$?
+  [ "$rc" -eq "$2" ] || { diff_fail=$((diff_fail+1)); printf 'диффпроба %s: стаб без ручек нечестен (rc=%s, ожидание %s)\n' "$1" "$rc" "$2" >&2; }
+}
+scn_check scn_k1 1
+scn_check scn_k2 1
+scn_check scn_k3 0
+scn_check scn_k4 1
+scn_check scn_k5 1
+scn_check scn_k6 1
+scn_check scn_k7 1
+scn_check scn_k8 0
+
+# Клетки стаб-пака: обман ручкой ОБЯЗАН быть различим на её сценарии —
+# стаб с ручкой ведёт себя НЕ как ожидание клетки → обман пойман (стаб
+# «умер»). Совпадение с ожиданием = батарея слепа к ручке (ПРОСКОК).
+stub_total=0; stub_caught_n=0
+knob_cell() { # $1=клетка $2=ручка $3=сценарий $4=ожидание честного поведения
+  stub_total=$((stub_total+1))
+  local io R L e rc
+  io="$($3)"; R="${io%%$'\n'*}"; L="${io#*$'\n'}"
+  e="$WORK/knob-$1.err"; : > "$e"
+  rc=0; env "$2=1" HARNESS_PROJECT_LAYER_ROOT="$L" bash "$STUB" --repo "$R" >/dev/null 2>"$e" || rc=$?
+  if [ "$rc" -eq "$4" ]; then
+    printf 'стаб-клетка %s: ПРОСКОК — ручка %s не различима (батарея слепа)\n' "$1" "$2" >&2
+  else
+    stub_caught_n=$((stub_caught_n+1)); printf 'стаб-клетка %s: ПОЙМАН (ручка %s)\n' "$1" "$2" >&2
+  fi
+}
+knob_cell s1 STUB_NO_CHECK   scn_k1 1
+knob_cell s2 STUB_REPO_ONLY  scn_k2 1
+knob_cell s3 STUB_ABS_OK     scn_k4 1
+knob_cell s4 STUB_NO_CANON   scn_k6 1
+knob_cell s5 STUB_ESCAPE_OK  scn_k5 1
+knob_cell s6 STUB_DIR_OK     scn_k7 1
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ЧЕСТНЫЕ КЛЕТКИ: живой резолвер/workshop HEAD. Каждая клетка красна СВОИМ
+# предъявлением (Н-39: объединённая клетка не зачитывается по первой точке).
+# ══════════════════════════════════════════════════════════════════════════════
+honest_fail=0; honest_total=0
+hcell() { # $1=имя $2=функция-проверка (rc 0 = зелено)
+  honest_total=$((honest_total+1))
+  if "$2"; then printf 'честная %s: ЗЕЛЕНАЯ\n' "$1" >&2
+  else honest_fail=$((honest_fail+1)); printf 'честная %s: КРАСНАЯ\n' "$1" >&2; fi
+}
+
+hk1() { # отсутствует, происхождение repo
+  local L="$WORK/hk1-layer" R="$WORK/hk1-repo" E="$WORK/hk1.err" rc
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" \
+    && grep -Fq '.github/workflows/ci.yml' "$E"
+}
+hk2() { # отсутствует, происхождение project (defaults.ci)
+  local L="$WORK/hk2-layer" R="$WORK/hk2-repo" E="$WORK/hk2.err" rc
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "" 0
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E"
+}
+hk3() { # объявлен и существует → rc 0, merged несёт значение дословно
+  local L="$WORK/hk3-layer" R="$WORK/hk3-repo" O="$WORK/hk3.out" rc
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0
+  wf_make "$R/.github/workflows/ci.yml"
+  rc=0; env HARNESS_PROJECT_LAYER_ROOT="$L" bash "$PROFILE_RESOLVER" --repo "$R" > "$O" 2>/dev/null || rc=$?
+  [ "$rc" -eq 0 ] && [ "$(jq -r '.ci.value.workflow' "$O")" = ".github/workflows/ci.yml" ]
+}
+hk4() { # абсолютный путь (файл существует вне дерева)
+  local L="$WORK/hk4-layer" R="$WORK/hk4-repo" E="$WORK/hk4.err" rc
+  layer_make "$L" p1 ',"ci":{"workflow":"/etc/hostname"}'; repo_make "$R" r1 ',"ci":{"workflow":"/etc/hostname"}' 0
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'обязан быть относительным' "$E" && grep -Fq '/etc/hostname' "$E"
+}
+hk5() { # ../../-побег: файл существует ВНЕ репо
+  local L="$WORK/hk5-layer" R="$WORK/hk5/repo" E="$WORK/hk5.err" rc
+  mkdir -p "$WORK/hk5"; printf 'x: 1\n' > "$WORK/escape.yml"
+  layer_make "$L" p1 ',"ci":{"workflow":"../../escape.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"../../escape.yml"}' 0
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'выходит за корень репо' "$E"
+}
+hk6() { # симлинк внутри репа на цель вне репа
+  local L="$WORK/hk6-layer" R="$WORK/hk6/repo" E="$WORK/hk6.err" T="$WORK/hk6/outside.yml" rc
+  mkdir -p "$WORK/hk6"; printf 'x: 1\n' > "$T"
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0
+  mkdir -p "$R/.github/workflows"; rm -f -- "$R/.github/workflows/ci.yml"; ln -s -- "$T" "$R/.github/workflows/ci.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'выходит за корень репо' "$E"
+}
+hk7() { # на месте объявления — каталог
+  local L="$WORK/hk7-layer" R="$WORK/hk7-repo" E="$WORK/hk7.err" rc
+  layer_make "$L" p1 ',"ci":{"workflow":"ci"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci"}' 0
+  mkdir -p "$R/ci"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'не файл' "$E"
+}
+hk8() { # ci не объявлен нигде → rc 0 (не объявлено — не судимо)
+  local L="$WORK/hk8-layer" R="$WORK/hk8-repo" E="$WORK/hk8.err" rc
+  layer_min "$L"; repo_make "$R" r1 "" 0
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E"; rc=$?
+  [ "$rc" -eq 0 ] && [ ! -s "$E" ]
+}
+hk9() { # живой workshop --probe: отказ проксирован (И-11) И ни одной структуры
+  local L="$WORK/hk9-layer" R="$WORK/hk9-repo" E="$WORK/hk9.err" B="$WORK/hk9-base" rc
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 1
+  mkdir -p "$B"
+  rc=0; env XDG_STATE_HOME="$B" HARNESS_PROJECT_LAYER_ROOT="$L" bash "$WORKSHOP" --probe "$R" >/dev/null 2>"$E" || rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'ci.workflow' "$E" \
+    && grep -Fq 'объявленный путь отсутствует в дереве репо' "$E" \
+    && [ ! -e "$B/dev-harness-projects/p1" ]
+}
+
+hcell к1 hk1
+hcell к2 hk2
+hcell к3 hk3
+hcell к4 hk4
+hcell к5 hk5
+hcell к6 hk6
+hcell к7 hk7
+hcell к8 hk8
+hcell к9 hk9
+
+printf 'итог 059-батареи: стаб-пак %s/%s пойман, диффпроба ошибок %s, честные %s/%s зелёные\n' \
+  "$stub_caught_n" "$stub_total" "$diff_fail" "$((honest_total-honest_fail))" "$honest_total" >&2
+[ "$stub_caught_n" -eq "$stub_total" ] && [ "$diff_fail" -eq 0 ] && [ "$honest_fail" -eq 0 ]
