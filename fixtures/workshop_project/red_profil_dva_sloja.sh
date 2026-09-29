@@ -1046,6 +1046,245 @@ EOF
   [ "$leak" -ge 1 ]
 }
 
+# ── КЛЕТКИ СЛИЯНИЯ barriers (контракт 057 Ч-1, §5/§5б; формы A/G/F/C/M/P) ──
+# Шесть конформных форм обязаны разрешаться rc 0; форма P дополнительно
+# различает листовое слияние (честная) от замещения ветви (мутант) —
+# Ч-1 «единица слияния ЛИСТ, не ветвь barriers». Контрмодель критика
+# 057-v1:24–29: «есть объект barriers в репо → ветвь замещена целиком»;
+# на формах A/G/F/C/M мутант зелёен (одинаковый результат), на P — красен:
+# `barriers.optional` теряет вклад из defaults. Клетки m1–m6 — фикстуры
+# честной части (Ч-7), счёт попадает в общий N=СВЕРКА-строк.
+
+# Общая запись для kletka form: построить repo и layer c заданными JSON.
+#   $1=repo dir; $2=layer dir (coздаёт $2/registry); $3=repo JSON content;
+#   $4=layer JSON content (полный путь registry/harness-project.json
+#   перезаписывается).
+_setup_form_repo() {
+  local r="$1" layer="$2" repo_json="$3" layer_json="$4"
+  rm -rf "$r" "$layer"; mkdir -p "$r" "$layer/registry"
+  git -C "$r" init -q
+  git -C "$r" config receive.denyCurrentBranch refuse
+  printf '%s' "$repo_json" > "$r/harness.project.json"
+  printf '%s' "$layer_json" > "$layer/registry/harness-project.json"
+}
+
+# m1: Форма A (репо только обязательные + слой с полными defaults,
+# incl. barriers) → barriers.* origin="project", commands.* origin="project",
+# language.origin="repo".
+cell_m1() {
+  local subj="$1" r="$WORK/m1-r" layer="$WORK/m1-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"git":{"canonicalRemote":"git@host:p.git"},"ci":{"workflow":".github/workflows/ci.yml"},"barriers":{"mandatory":["check_zones"],"optional":["check_metering"]}}}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+  local out rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm1: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  # Происхождения по Ч-1 форма A.
+  [ "$(jq -r '.language.origin' <<<"$out")" = "repo" ] || { printf 'm1: language.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.mandatory.origin' <<<"$out")" = "project" ] || { printf 'm1: barriers.mandatory.origin != project\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.optional.origin' <<<"$out")" = "project" ] || { printf 'm1: barriers.optional.origin != project\n' >&2; return 1; }
+  [ "$(jq -r '.commands.test.origin' <<<"$out")" = "project" ] || { printf 'm1: commands.test.origin != project\n' >&2; return 1; }
+  [ "$(jq -r '.workflowPaths.contracts.origin' <<<"$out")" = "project" ] || { printf 'm1: workflowPaths.contracts.origin != project\n' >&2; return 1; }
+  return 0
+}
+
+# m2: Форма G (репо все ветви КРОМЕ barriers + слой с defaults) →
+# barriers.* origin="project", прочие origin="repo".
+cell_m2() {
+  local subj="$1" r="$WORK/m2-r" layer="$WORK/m2-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"git":{"canonicalRemote":"git@host:r.git"},"ci":{"workflow":".github/workflows/ci.yml"},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"git":{"canonicalRemote":"git@host:p.git"},"ci":{"workflow":".github/workflows/ci.yml"},"barriers":{"mandatory":["check_zones"],"optional":["check_metering"]}}}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+  local out rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm2: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  [ "$(jq -r '.language.origin' <<<"$out")" = "repo" ] || { printf 'm2: language.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.mandatory.origin' <<<"$out")" = "project" ] || { printf 'm2: barriers.mandatory.origin != project\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.optional.origin' <<<"$out")" = "project" ] || { printf 'm2: barriers.optional.origin != project\n' >&2; return 1; }
+  [ "$(jq -r '.commands.test.origin' <<<"$out")" = "repo" ] || { printf 'm2: commands.test.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.workflowPaths.contracts.origin' <<<"$out")" = "repo" ] || { printf 'm2: workflowPaths.contracts.origin != repo\n' >&2; return 1; }
+  return 0
+}
+
+# m3: Форма F (репо только обязательные + barriers + слой с defaults) →
+# barriers.* origin="repo", commands.* origin="project".
+cell_m3() {
+  local subj="$1" r="$WORK/m3-r" layer="$WORK/m3-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"git":{"canonicalRemote":"git@host:p.git"},"ci":{"workflow":".github/workflows/ci.yml"},"barriers":{"mandatory":["check_zones"],"optional":["check_metering"]}}}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+  local out rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm3: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  [ "$(jq -r '.language.origin' <<<"$out")" = "repo" ] || { printf 'm3: language.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.mandatory.origin' <<<"$out")" = "repo" ] || { printf 'm3: barriers.mandatory.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.optional.origin' <<<"$out")" = "repo" ] || { printf 'm3: barriers.optional.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.commands.test.origin' <<<"$out")" = "project" ] || { printf 'm3: commands.test.origin != project\n' >&2; return 1; }
+  [ "$(jq -r '.workflowPaths.contracts.origin' <<<"$out")" = "project" ] || { printf 'm3: workflowPaths.contracts.origin != project\n' >&2; return 1; }
+  return 0
+}
+
+# m4: Форма C (репо все ветви + слой БЕЗ defaults) → все листы origin="repo".
+cell_m4() {
+  local subj="$1" r="$WORK/m4-r" layer="$WORK/m4-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"git":{"canonicalRemote":"git@host:r.git"},"ci":{"workflow":".github/workflows/ci.yml"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1"}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+  local out rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm4: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  [ "$(jq -r '.language.origin' <<<"$out")" = "repo" ] || { printf 'm4: language.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.mandatory.origin' <<<"$out")" = "repo" ] || { printf 'm4: barriers.mandatory.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.barriers.optional.origin' <<<"$out")" = "repo" ] || { printf 'm4: barriers.optional.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.commands.test.origin' <<<"$out")" = "repo" ] || { printf 'm4: commands.test.origin != repo\n' >&2; return 1; }
+  [ "$(jq -r '.workflowPaths.contracts.origin' <<<"$out")" = "repo" ] || { printf 'm4: workflowPaths.contracts.origin != repo\n' >&2; return 1; }
+  return 0
+}
+
+# m5: Форма M (оба слоя только обязательные) → rc 0, листья barriers/
+# commands отсутствуют (пустые объекты после del(.. | nulls), не null).
+cell_m5() {
+  local subj="$1" r="$WORK/m5-r" layer="$WORK/m5-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1"}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+  local out rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm5: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  # language из репо.
+  [ "$(jq -r '.language.origin' <<<"$out")" = "repo" ] || { printf 'm5: language.origin != repo\n' >&2; return 1; }
+  # Листья barriers/commands ОТСУТСТВУЮТ — после `del(.. | nulls)` объекты
+  # остаются пустыми. Проверяем отсутствие самих ключей-листьев (а не
+  # null — это был бы контрамодельный обход).
+  if jq -e 'has("barriers") and ((.barriers.mandatory // null) != null or (.barriers.optional // null) != null)' <<<"$out" >/dev/null 2>&1; then
+    printf 'm5: barriers содержит ненулевые листья (должны отсутствовать)\n' >&2
+    return 1
+  fi
+  if jq -e 'has("commands") and ((.commands.test // null) != null or (.commands.build // null) != null or (.commands.typecheck // null) != null or (.commands.lint // null) != null)' <<<"$out" >/dev/null 2>&1; then
+    printf 'm5: commands содержит ненулевые листья (должны отсутствовать)\n' >&2
+    return 1
+  fi
+  return 0
+}
+
+# m6: Форма P (репо barriers ТОЛЬКО с mandatory + слой с полными defaults,
+# оба листа barriers) + мутант check-then-merge (замещение ветви barriers
+# целиком из репо). По Ч-1: честная реализация сливает barriers.leaf-wise
+# (mandatory из репо, optional из defaults) → rc 0 с разными origin;
+# мутант замещает ветвь barriers целиком → rc 0, НО barriers.optional
+# теряет вклад из defaults (нет в выводе). Клетка проверяет ОБА условия:
+#   - честный: rc 0, barriers.mandatory.origin="repo", barriers.optional
+#     .origin="project" с value=["check_metering"];
+#   - мутант: rc 0, НО barriers.optional отсутствует или имеет иное
+#     значение (барьер утратил различение → клетка красная).
+# Патч мутанта — anchored: якорь = дословный barriers-блок из
+# profile_resolver.sh; патч не применился → клетка красная именованно.
+cell_m6() {
+  local subj="$1"
+  [ -f "$subj" ] || return 1
+  local r="$WORK/m6-r" layer="$WORK/m6-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"},"barriers":{"mandatory":["check_no_leak"]}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"git":{"canonicalRemote":"git@host:p.git"},"ci":{"workflow":".github/workflows/ci.yml"},"barriers":{"mandatory":["check_zones"],"optional":["check_metering"]}}}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+
+  # ── честная реализация: rc 0, листовое слияние barriers ──────────────
+  local out rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm6: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  if [ "$(jq -r '.barriers.mandatory.origin' <<<"$out")" != "repo" ]; then
+    printf 'm6: честный barriers.mandatory.origin != repo\n' >&2; return 1
+  fi
+  if [ "$(jq -r '.barriers.mandatory.value | join(",")' <<<"$out")" != "check_no_leak" ]; then
+    printf 'm6: честный barriers.mandatory.value != ["check_no_leak"]\n' >&2; return 1
+  fi
+  if [ "$(jq -r '.barriers.optional.origin' <<<"$out")" != "project" ]; then
+    printf 'm6: честный barriers.optional.origin != project\n' >&2; return 1
+  fi
+  if [ "$(jq -r '.barriers.optional.value | join(",")' <<<"$out")" != "check_metering" ]; then
+    printf 'm6: честный barriers.optional.value != ["check_metering"]\n' >&2; return 1
+  fi
+
+  # ── мутант: замещение ветви barriers целиком ──────────────────────────
+  local mutated="$WORK/m6-mutated.sh"
+  cp "$subj" "$mutated"
+  # Якорь: дословный barriers-блок из profile_resolver.sh (Ч-5 прецедент —
+  # anchored-патч b11m, проверка исходника по grep -F).
+  if ! grep -qF 'barriers: {' "$mutated" \
+     || ! grep -qF 'barriers.mandatory' "$mutated" \
+     || ! grep -qF 'barriers.optional' "$mutated"; then
+    printf 'm6: КРАСНАЯ — патч не применился: исходник изменился (нет якорей barriers-блока)\n' >&2
+    return 1
+  fi
+  if ! python3 - "$mutated" <<'PYEOF'; then
+import sys
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as f:
+    src = f.read()
+# Honest barriers block (листовое слияние — Ч-1 «единица слияния ЛИСТ»).
+# Anchors MUST match profile_resolver.sh verbatim (включая отступы).
+orig_block = (
+    '    barriers: {\n'
+    '      mandatory: (\n'
+    '        if $r.barriers and $r.barriers.mandatory != null then { value: $r.barriers.mandatory, origin: "repo" }\n'
+    '        elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.mandatory != null then { value: $p.defaults.barriers.mandatory, origin: "project" }\n'
+    '        else null end\n'
+    '      ),\n'
+    '      optional: (\n'
+    '        if $r.barriers and $r.barriers.optional != null then { value: $r.barriers.optional, origin: "repo" }\n'
+    '        elif $p.defaults and $p.defaults.barriers and $p.defaults.barriers.optional != null then { value: $p.defaults.barriers.optional, origin: "project" }\n'
+    '        else null end\n'
+    '      )\n'
+    '    },'
+)
+# Mutant block — замещение ветви barriers целиком (контрмодель критика
+# 057-v1:24–29; при наличии barriers в репо листья НЕ наследуются из
+# defaults — ветвь берётся из репо целиком; структура {mandatory, optional}
+# СОХРАНЯЕТСЯ, чтобы на формах A/G/F/C/M мутант был зелёным, а на P —
+# терял barriers.optional (mutant leaves null когда лист не задан в репо).
+mut_block = (
+    '    barriers: {\n'
+    '      mandatory: (\n'
+    '        if $r.barriers != null then { value: $r.barriers.mandatory, origin: "repo" }\n'
+    '        elif $p.defaults != null and $p.defaults.barriers != null then { value: $p.defaults.barriers.mandatory, origin: "project" }\n'
+    '        else null end\n'
+    '      ),\n'
+    '      optional: (\n'
+    '        if $r.barriers != null then { value: $r.barriers.optional, origin: "repo" }\n'
+    '        elif $p.defaults != null and $p.defaults.barriers != null then { value: $p.defaults.barriers.optional, origin: "project" }\n'
+    '        else null end\n'
+    '      )\n'
+    '    },'
+)
+if orig_block not in src:
+    print("ANCHOR MISMATCH: orig_block not found verbatim", file=sys.stderr)
+    sys.exit(1)
+new_src = src.replace(orig_block, mut_block, 1)
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(new_src)
+PYEOF
+    printf 'm6: КРАСНАЯ — патч не применился: anchored barriers-блок не найден\n' >&2
+    return 1
+  fi
+
+  # Прогон мутанта — rc 0, но barriers.optional теряет вклад из defaults.
+  local mout mrc
+  mout="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$mutated" --repo "$r" 2>&1)"; mrc=$?
+  if [ "$mrc" -ne 0 ]; then
+    printf 'm6: мутант rc=%d (ожидался 0 — мутант не должен крашиться, лишь терять лист)\n' "$mrc" >&2
+    return 1
+  fi
+  # Различение: barriers.optional.value должен ОТЛИЧАТЬСЯ от
+  # ["check_metering"] — иначе мутант утратил различение, барьер больше
+  # не различает листовое слияние от замещения ветви. Причина красного —
+  # `barriers.optional` (Ч-5, §5б «причина называет barriers.optional»).
+  if jq -e '.barriers.optional.value == ["check_metering"]' <<<"$mout" >/dev/null 2>&1; then
+    printf 'm6: КРАСНАЯ — barriers.optional.value совпал с ["check_metering"]: мутант различим как честный, барьер утратил различение (barriers.optional потерян в мутанте, но совпал с честным — это невозможно; проверь якорь)\n' >&2
+    return 1
+  fi
+  printf 'm6: честный rc=0 листовое слияние; мутант rc=0 barriers.optional потерян (различение работает)\n' >&2
+  return 0
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -1163,6 +1402,10 @@ run_honest() {
     b5 b6 b8
     # gen-harness --agents-rules
     b4 k10 k10b
+    # слияние barriers (контракт 057 Ч-1): формы A/G/F/C/M/P (§5/§5б)
+    # m1..m5 — позитивные формы (rc 0, происхождения по Ч-1);
+    # m6 — форма P + мутант замещения ветви (Ч-5, §5б).
+    m1 m2 m3 m4 m5 m6
   )
 
   local sverka_count=0 cell
@@ -1194,11 +1437,13 @@ dispatch_honest_cell() {
     # workshop-субъект
     k1|k7a|k7b|k7c|k8|k12|k13|b5|b6|b8) cell_workshop_run "$cell" ;;
     # resolver-субъект
-    k2|k3|k3b|k4|k4b|k5|k6|k9|k11|b1|b2|b3|b7|b9|b10) cell_resolver_run "$cell" ;;
+    k2|k3|k3b|k4|k4b|k5|k6|k9|k11|b1|b2|b3|b7|b9|b10|m1|m2|m3|m4|m5) cell_resolver_run "$cell" ;;
     # честная гонка RACE_N=128 (Ч-4)
     b11h) cell_b11h "$PROFILE_RESOLVER" ;;
     # дифф-проба мутанта (Ч-5)
     b11m) cell_b11m "$PROFILE_RESOLVER" ;;
+    # форма P + мутант замещения ветви barriers (контракт 057 §5б, Ч-5)
+    m6) cell_m6 "$PROFILE_RESOLVER" ;;
     # gen-harness --agents-rules
     b4) cell_b4 "$ROOT/scripts/gen-harness.ts" ;;
     # gen-harness --agents-rules — отсутствие файла и несуществующий файл
@@ -1378,6 +1623,12 @@ EOF2
           # (cell_b10 уже корректно создаёт свой собственный $WORK/b10-*
           # сценарий; здесь просто вызываем его с $PROFILE_RESOLVER).
           cell_b10 "$PROFILE_RESOLVER" || return 1 ;;
+    # ── слияние barriers — формы A/G/F/C/M (контракт 057 §5, Ч-1) ──────────
+    m1) cell_m1 "$PROFILE_RESOLVER" ;;
+    m2) cell_m2 "$PROFILE_RESOLVER" ;;
+    m3) cell_m3 "$PROFILE_RESOLVER" ;;
+    m4) cell_m4 "$PROFILE_RESOLVER" ;;
+    m5) cell_m5 "$PROFILE_RESOLVER" ;;
     *) return 0 ;;
   esac
 }
