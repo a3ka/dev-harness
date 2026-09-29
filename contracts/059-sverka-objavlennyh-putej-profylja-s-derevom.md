@@ -110,6 +110,9 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
 
 ## Зоны (check_zones)
 
+ЗОНА architect: contracts/059-sverka-objavlennyh-putej-profylja-s-derevom.md fixtures/check_judge_gate/red_sverka_puti_profylja.sh
+ЗОНА implementer: scripts/profile_resolver.sh fixtures/workshop_project/red_profil_dva_sloja.sh fixtures/workshop_project/red_izoljacija_projectid.sh fixtures/workshop_project/red_sharing_agentdb.sh fixtures/_krasnye_059.sh .github/workflows/ci.yml package.json
+
 - **architect** (этот коммит): `contracts/059-*.md`,
   `fixtures/check_judge_gate/red_sverka_puti_profylja.sh`.
 - **implementer**: `scripts/profile_resolver.sh` (блок И-1..И-4 между :585 —
