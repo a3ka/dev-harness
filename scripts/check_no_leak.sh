@@ -235,13 +235,13 @@ P_ABS='корень обязан быть абсолютным'
 P_CHUZH='снимок чужого корня'
 
 usage() {
-  printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake|--retake-bulk <абс-корень>\n' >&2
+  printf 'ОТКАЗ диспетчер: использование: check_no_leak.sh --snapshot|--check|--retake|--retake-bulk|--retake-ahead <абс-корень>\n' >&2
   exit 1
 }
 [ "$#" -eq 2 ] || usage
 MODE="$1"; ROOT_ARG="$2"
 case "$MODE" in
-  --snapshot|--check|--retake|--retake-bulk) ;;
+  --snapshot|--check|--retake|--retake-bulk|--retake-ahead) ;;
   *) usage ;;
 esac
 
@@ -1756,10 +1756,209 @@ do_retake_bulk() {
   exit 0
 }
 
+# ─── do_retake_ahead (контракт 056) — дверь механизации условия (г) санкции
+# снимка. Семь шагов ВМЕСТЕ (порядок — §Инварианты 056): снимок-цел → porcelain
+# чист → двойное чтение манифеста → дельта непуста → ни одного `.git/*` в дельте
+# → КАЖДЫЙ путь ∈ `git diff --name-only origin/main..HEAD` → переснятие. Отказ —
+# rc 1 ИМЕННОЙ причиной (фразы §Инварианты 056 — единый источник, фикстура
+# сверяет побайтово), снимок НЕ ТРОНУТ: на непустой дельте последующий --check
+# остаётся красным («переснятие, прячущее недоказанную дельту, краснеет» — слово
+# владельца 2026-09-19, наследовано из 031/044 дословно). Успех — rc 0 +
+# стенограмма «базлайн переснят: ahead-дельта <путь>» на КАЖДЫЙ путь + итог
+# «— путей <N>, вне диффа 0», последующий --check rc 0 «чист».
+# Защиты снимка 024 дословно (тот же fail-closed «снимок отсутствует»/«симлинк
+# файла»/«симлинк каталога»/«симлинк промежуточного»/«не регулярный файл»/
+# «не прочитан»/«чужой корень»/«режим не read-only»/«verify отсутствует»/
+# «verify не сошёлся» — те же имена, что у do_retake/do_retake_bulk; НОВЫХ имён
+# для унаследованных защит не заводится). Граница-6 056: дверь НЕ читает реестр
+# зон, авторов и origin-достижимость за пределами явной проверки шага 6 (прецедент
+# границы-4 044); поэтому zones_load/lib_zones.sh НЕ подгружаются здесь (как в
+# 031/044) — этой двери они не нужны. ГИГИЕНА: ВСЕ внешние утилиты (git/sort/awk/
+# comm/grep/head/sha256sum/stat/chmod/mv/cat) — через ПИН-пути из шапки скрипта
+# с проверкой rc (фикс Б7б третьего круга 044); сырых `awk`/`sort`/`grep` —
+# дефект.
+do_retake_ahead() {
+  local first base cur delta manifest_rc snap_mode verify_line verify_stored verify_recomp
+  local porcelain_out porcelain_rc cur1 cur2
+  local delta_paths path diff_paths diff_rc
+  declare -a ahead_paths=()
+  # Шаг 1. Снимок существует и цел — защиты 024 дословно, те же имена, что у
+  # do_retake (031 §Механизм-2 п.1) и do_retake_bulk (044 §Инварианты шаг 1).
+  if [ ! -e "$SNAP" ]; then
+    printf 'ОТКАЗ: %s (%s) — снимок ДО спавна пачки обязателен: без него сверка отказывает, а не пропускает (fail-closed)\n' \
+      "$P_NET_SNIMKA" "$SNAP" >&2
+    exit 1
+  fi
+  if [ -L "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — симлинк: %s — replacement через симлинк недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP" >&2
+    exit 1
+  fi
+  if [ -L "$SNAP_DIR" ]; then
+    printf 'ОТКАЗ: каталог снимка — симлинк: %s — replacement каталога недопустим (ЗАЩИТА-СНИМКА к2 адверсария)\n' "$SNAP_DIR" >&2
+    exit 1
+  fi
+  if [ -L "$TMPDIR_BASE/dev-harness-leak" ]; then
+    printf 'ОТКАЗ: промежуточный каталог — симлинк: %s/dev-harness-leak — replacement промежуточного каталога недопустим (ЗАЩИТА-СНИМКА наблюдение H адверсария к5)\n' \
+      "$TMPDIR_BASE" >&2
+    exit 1
+  fi
+  if [ ! -f "$SNAP" ]; then
+    printf 'ОТКАЗ: снимок — не регулярный файл: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  first=""
+  if ! IFS= read -r first < "$SNAP"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  base=""
+  if ! base="$("$CAT" -- "$SNAP" 2>/dev/null)"; then
+    printf 'ОТКАЗ: снимок не прочитан: %s\n' "$SNAP" >&2
+    exit 1
+  fi
+  if [ "$first" != "root $CANON" ]; then
+    printf 'ОТКАЗ: %s: снимок = [%s], сверяется [%s] — hash8-коллизия либо чужой файл; переснимите свою пачку\n' \
+      "$P_CHUZH" "$first" "$CANON" >&2
+    exit 1
+  fi
+  snap_mode="$("$STAT" -c '%a' -- "$SNAP" 2>/dev/null)" \
+    || { printf 'NOT_IMPLEMENTED: stat отказал на %s\n' "$SNAP" >&2; exit 2; }
+  case "$snap_mode" in
+    *[!0-7]*) printf 'NOT_IMPLEMENTED: stat вернул не-octal mode %s\n' "$snap_mode" >&2; exit 2 ;;
+  esac
+  if [ $((8#$snap_mode & 0222)) -ne 0 ]; then
+    printf 'ОТКАЗ: снимок: режим %s не read-only (биты 022 ≠ 0) — подмена или рассинхрон\n' "$snap_mode" >&2
+    exit 1
+  fi
+  verify_line="$(printf '%s' "$base" | "$GREP" -E '^verify [0-9a-f]{64}$' | "$TAIL" -n1 || true)"
+  if [ -z "$verify_line" ]; then
+    printf 'ОТКАЗ: снимок: verify-строка отсутствует — обязательна для прод-снимков (отсутствие verify = подмена/сговор, не «совместимость с»; контрпример S-mv-replace-no-verify к3 8911b68)\n' >&2
+    exit 1
+  fi
+  verify_payload="${base%verify *}"
+  verify_recomp="$(printf '%s' "$verify_payload" | "$SHA256SUM" | "$HEAD" -n1)"
+  verify_recomp="${verify_recomp%% *}"
+  verify_stored="${verify_line#verify }"
+  if [ "$verify_recomp" != "$verify_stored" ]; then
+    printf 'ОТКАЗ: снимок: verify не сошёлся (хранимый=%s, пересчёт=%s) — байтовая модификация снимка на месте\n' \
+      "$verify_stored" "$verify_recomp" >&2
+    exit 1
+  fi
+  # Шаг 2. Porcelain чист — дельта обязана быть закоммичена. Незакоммиченная
+  # правка (staged/working) снимает ahead-детерминизм: ahead-коммиты могут не
+  # покрывать worktree, и «каждый путь ∈ diff» теряет смысл. Зеркало do_retake
+  # и do_retake_bulk (те же внешние утилиты и та же конструкция rc).
+  porcelain_out="$("$GIT" -C "$CANON" status --porcelain 2>/dev/null)" || porcelain_rc=$?
+  porcelain_rc=${porcelain_rc:-0}
+  if [ "$porcelain_rc" -ne 0 ] || [ -n "$porcelain_out" ]; then
+    printf 'ОТКАЗ: переснятие-ahead не доказано: porcelain не чист — дельта обязана быть закоммичена\n' >&2
+    exit 1
+  fi
+  # Шаг 3. Двукратное чтение манифеста (TOCTOU Б4 024-k8, дословно как
+  # do_check/do_retake/do_retake_bulk). Расхождение двух чтений — «основной
+  # чекаут мутировал во время сверки», rc 1 ИМЕННОЙ причиной, снимок не тронут.
+  cur1="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  cur2="$(manifest "$CANON" '')"
+  manifest_rc=$?
+  if [ "$manifest_rc" -ne 0 ]; then
+    [ "$manifest_rc" -eq 2 ] && exit 2
+    printf 'ОТКАЗ: status отказал в %s (rc=%d)\n' "$CANON" "$manifest_rc" >&2
+    exit 1
+  fi
+  if [ "$cur1" != "$cur2" ]; then
+    printf 'ОТКАЗ: %s: основной чекаут мутировал во время сверки — повторное чтение разошлось с первым (три producer-ноги идут неатомарно; фикс блокера Б4 адверсария contracts-024-k8)\n' \
+      "$P_ZAGR" >&2
+    exit 1
+  fi
+  cur="$cur1"
+  # Дельта — подмножество «новые строки манифеста» (024 Демаркация дословно).
+  delta="$(printf '%s\n' "$cur" | "$COMM" -23 - <(printf '%s\n' "$base" | "$SORT"))"
+  # Шаг 4. Дельта непуста — пустая выборка красная именем, не зелёная молча
+  # (прецедент р6 031 / б10 044; новая формулировка для ahead-двери).
+  if [ -z "$delta" ]; then
+    printf 'ОТКАЗ: переснятие-ahead не доказано: дельта пуста — нечего переснимать\n' >&2
+    exit 1
+  fi
+  # Извлекаем уникальные пути дельты в лексикографическом порядке (LC_ALL=C —
+  # унаследованный export в шапке скрипта; sort байт-в-байт). Поля манифеста:
+  # <тег>...<TAB><путь>; enc_path для ASCII-путей фикстуры возвращает байт-в-байт
+  # исходник. ПИН $AWK/$SORT + rc-проверка (фикс Б7б третьего круга 044):
+  # поддельный awk/sort не должен маскироваться в пустой success.
+  if ! delta_paths="$(printf '%s\n' "$delta" | "$AWK" -F'\t' '{print $2}' | "$SORT" -u)"; then
+    printf 'NOT_IMPLEMENTED: извлечение delta_paths упало (awk/sort rc≠0)\n' >&2
+    exit 2
+  fi
+  # Шаг 5. Ни одного `.git/*` в дельте — ОТДЕЛЬНАЯ именованная ветвь ДО
+  # membership (граница-3 056). Литеральный предикат: путь == `.git` ИЛИ
+  # начинается с `.git/` (префикс-строка, НЕ regex по байтам данных; норма 041
+  # границы-6). На инцидентах Н-164/165/166 `.git/config` ∉ diff и формально
+  # ловился бы и membership-шагом, но класс обязан звучать ИМЕНЕМ («.git/* в
+  # дельте отказа»), а не прятаться за генерическое «вне диффа» (п.9 Н-165,
+  # красная пара задания). Лексикографический порядок delta_paths (sort -u
+  # выше) фиксирует первый отказ.
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    case "$path" in
+      .git|.git/*)
+        printf 'ОТКАЗ: переснятие-ahead не доказано: .git/* в дельте отказа: %s — СТОП и доклад, снимок не снимать ни по какой санкции (Н-165 п.9, Н-166)\n' \
+          "$path" >&2
+        exit 1
+        ;;
+    esac
+  done <<< "$delta_paths"
+  # Шаг 6. Каждый путь ∈ дифф. ОДНИМ вызовом `git diff --name-only
+  # origin/main..HEAD` снимаем вывод в память ДО посоставочного сравнения
+  # (оракул в памяти проверяющего, правило 8); rc ≠ 0 → «origin/main недоступен»
+  # fail-closed именем, не сырой fatal (прецедент р9 031/б9 044). Затем на
+  # КАЖДЫЙ путь дельты (лексикографический порядок delta_paths; первый отказ
+  # останавливает дверь целиком — частичных переснятий нет): литеральное
+  # построчное членство `grep -Fxq` (якорь терминатора — вся строка; regex из
+  # данных не строится, норма 041). Подмена через PATH grep'а закрыта ПИН-путем
+  # $GREP из шапки скрипта.
+  # rc диффа фиксируется ПОСЛЕ command substitution напрямую: `if ! …; then
+  # $?` даёт 0 (успех отрицания), а НЕ rc git (Н-84/Н-85: rc без пайпов);
+  # конструкция `var=$(cmd); rc=$?` — единственная, которая наследует rc cmd
+  # в чистом виде (замер 2026-09-29, реализация 056).
+  diff_paths="$("$GIT" -C "$CANON" diff --name-only origin/main..HEAD 2>/dev/null)"
+  diff_rc=$?
+  if [ "$diff_rc" -ne 0 ]; then
+    printf 'ОТКАЗ: переснятие-ahead не доказано: origin/main недоступен\n' >&2
+    exit 1
+  fi
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    if ! printf '%s\n' "$diff_paths" | "$GREP" -Fxq -- "$path"; then
+      printf 'ОТКАЗ: переснятие-ahead не доказано: путь %s вне диффа origin/main..HEAD\n' "$path" >&2
+      exit 1
+    fi
+    ahead_paths+=("$path")
+  done <<< "$delta_paths"
+  # Шаг 7. Успех: пересъём базлайна ТЕМ ЖЕ форматом (root + sorted + verify,
+  # mode 0444 — переиспользуется do_snapshot), затем стенограмма — СТРОКА НА
+  # КАЖДЫЙ путь: «базлайн переснят: ahead-дельта <путь>», ЗАТЕМ итоговая
+  # «базлайн переснят: ahead-дельта — путей <N>, вне диффа 0»; rc 0.
+  # Последующий --check → rc 0 «основной чекаут чист» (предъявляется фикстурой
+  # а1).
+  do_snapshot
+  local p
+  for p in "${ahead_paths[@]}"; do
+    printf 'базлайн переснят: ahead-дельта %s\n' "$p"
+  done
+  printf 'базлайн переснят: ahead-дельта — путей %d, вне диффа 0\n' "${#ahead_paths[@]}"
+  exit 0
+}
+
 case "$MODE" in
   --snapshot) do_snapshot ;;
   --check)    do_check ;;
   --retake)   do_retake ;;
   --retake-bulk) do_retake_bulk ;;
+  --retake-ahead) do_retake_ahead ;;
 esac
 exit 0
