@@ -703,45 +703,60 @@ if [ "$PROBE" != "1" ]; then
   require_metering "$PROJECT"
 fi
 
-# ── N2 (вердикт contracts-058-v2): канонический гард цепочки родителей PROJDB ──
-# И-2 («только agent.db») требует, чтобы в дереве $PSTATE/home после шага была
-# не более одной симлинки и её путь — PROJDB. Если владелец ДО probe оставил
-# $PSTATE/home (или иной компонент цепочки) симлинком на внешний каталог,
-# `mkdir -p $HOME` и `ln -s ... $AGENTDB_PROJDB` идут через эту симлинку:
-# сквозь неё материализуются session-prompt-*.md / .omp/agent/agents / state
-# И дочерний PROJDB — то есть состояние выходит за пределы PSTATE, а «только
-# agent.db» нарушено. Защита: ДО первой записи (mkdir ниже, gen-harness,
-# AGENTDB) канонизировать цепочку родителей целевого пути agent.db
-# (спуск до существующего предка + pwd -P, прецедент 028) и пройти каждый
-# компонент этой цепочки наверх: существующая симлинка обязана `readlink -f`
-# указывать под канон-PSTATE_BASE. Уход наружу — fail-closed именованным
-# отказом ДО mkdir/ln. Честный случай (без симлинок) — guard проходит
-# молча, поведение прежнее.
-_PSTATE_BASE_TAIL=""
-_PSTATE_BASE_RES="$PSTATE_BASE"
-while [ ! -e "$_PSTATE_BASE_RES" ] && [ "$_PSTATE_BASE_RES" != "/" ]; do
-  _PSTATE_BASE_TAIL="/${_PSTATE_BASE_RES##*/}$_PSTATE_BASE_TAIL"
-  _PSTATE_BASE_RES="${_PSTATE_BASE_RES%/*}"
+# ── N2 (вердикт contracts-058-v2, круг 3): канонический гард цепочек ─────────
+# И-2 («только agent.db») требует, чтобы в дереве $PSTATE после шага была не
+# более одной симлинки и её путь — PROJDB. Если владелец ДО probe оставил
+# компонент материализации (любой из сессионного HOME проекта,
+# PSTATE/scratch, PSTATE/state, PSTATE/sessions или PROJDB/agent-цепочки)
+# симлинком наружу канон-PSTATE — `mkdir -p $HOME`, `ln -s ... $AGENTDB_PROJDB`,
+# раскладка ролей в $AGENTS, mkdir каталога PID-лока идут через эту симлинку
+# СКВОЗЬ неё: состояние выходит за пределы PSTATE, а «только agent.db»
+# нарушено (живой workshop в probe/проектном режиме кладёт сессионный home в
+# $XDG_STATE_HOME/dev-harness-projects/<projectId>/home, см. probe_run :223-225
+# и клетку к16 fixtures/workshop_project/red_sharing_agentdb.sh:593-617).
+#
+# Защита: ДО первой записи (mkdir ниже, gen-harness, AGENTDB, mkdir PID-лока)
+# канонизировать КАЖДУЮ цепочку родителей материализации (спуск до
+# существующего предка + pwd -P, прецедент 028) и пройти её снизу вверх до
+# $PSTATE включительно: существующая симлинка обязана `readlink -f`
+# указывать ВНУТРЬ канон-PSTATE (НЕ канон-PSTATE_BASE — иначе симлинк
+# $PSTATE/home → $PSTATE_BASE/сосед остаётся под канон-PSTATE_BASE и
+# проходит, а данные уходят из канон-PSTATE; к16 это и показывает).
+# Уход наружу канон-PSTATE — fail-closed именованным отказом ДО mkdir/ln.
+# Честный случай (без симлинок ИЛИ симлинка ВНУТРИ канон-PSTATE) — guard
+# проходит молча, поведение прежнее.
+_PSTATE_TAIL=""
+_PSTATE_RES="$PSTATE"
+while [ ! -e "$_PSTATE_RES" ] && [ "$_PSTATE_RES" != "/" ]; do
+  _PSTATE_TAIL="/${_PSTATE_RES##*/}$_PSTATE_TAIL"
+  _PSTATE_RES="${_PSTATE_RES%/*}"
 done
-if [ -e "$_PSTATE_BASE_RES" ]; then
-  _PSTATE_BASE_CANON="$(cd "$_PSTATE_BASE_RES" && pwd -P)$_PSTATE_BASE_TAIL"
+if [ -e "$_PSTATE_RES" ]; then
+  _PSTATE_CANON="$(cd "$_PSTATE_RES" && pwd -P)$_PSTATE_TAIL"
 else
-  _PSTATE_BASE_CANON="$PSTATE_BASE"
+  _PSTATE_CANON="$PSTATE"
 fi
-_AGENTDB_PROJDB_PARENT="$PSTATE/home/.omp/profiles/$PROFILE/agent"
-_CHAIN="$_AGENTDB_PROJDB_PARENT"
-while [ -n "$_CHAIN" ] && [ "$_CHAIN" != "/" ]; do
-  if [ -L "$_CHAIN" ]; then
-    _CHAIN_REAL="$(readlink -f -- "$_CHAIN" 2>/dev/null || true)"
-    case "${_CHAIN_REAL}/" in
-      "${_PSTATE_BASE_CANON}/"*) ;;
-      *) printf 'workshop ОТКАЗ: компонент PSTATE — симлинк наружу канон-корня (N2): %s → %s (ожидается под %s) — оформи промежуточные компоненты PSTATE как обычные каталоги и перезапусти\n' "$_CHAIN" "$_CHAIN_REAL" "$_PSTATE_BASE_CANON" >&2
-         exit 1 ;;
-    esac
-  fi
-  _CHAIN="$(dirname -- "$_CHAIN")"
-done
-unset _PSTATE_BASE_TAIL _PSTATE_BASE_RES _PSTATE_BASE_CANON _CHAIN _CHAIN_REAL _AGENTDB_PROJDB_PARENT
+_n2_chain_check() { # $1 = лист материализации; обход снизу вверх до $PSTATE вкл.
+  local _c="$1" _r
+  while [ -n "$_c" ] && [ "$_c" != "/" ]; do
+    if [ -L "$_c" ]; then
+      _r="$(readlink -f -- "$_c" 2>/dev/null || true)"
+      case "${_r}/" in
+        "${_PSTATE_CANON}/"*) ;;
+        *) printf 'workshop ОТКАЗ: компонент PSTATE — симлинк наружу канон-PSTATE (N2): %s → %s (ожидается под %s) — оформи промежуточные компоненты PSTATE как обычные каталоги и перезапусти\n' "$_c" "$_r" "$_PSTATE_CANON" >&2
+           exit 1 ;;
+      esac
+    fi
+    [ "$_c" = "$PSTATE" ] && break
+    _c="$(dirname -- "$_c")"
+  done
+}
+_n2_chain_check "$PSTATE/home/.omp/profiles/$PROFILE/agent"   # PROJDB/agent-цепочка
+_n2_chain_check "$PSTATE/home/.omp/agent/agents"             # сессионый home проекта (mkdir родителя под AGENTS)
+_n2_chain_check "$PSTATE/scratch"                            # HARNESS_SCRATCH (mkdir)
+_n2_chain_check "$PSTATE/state"                              # XDG_STATE_HOME (mkdir)
+_n2_chain_check "$PSTATE/sessions"                           # PID-лок каталог (mkdir -p)
+unset _PSTATE_TAIL _PSTATE_RES _PSTATE_CANON _n2_chain_check
 
 mkdir -p "$HOME" "$HARNESS_SCRATCH" "$XDG_STATE_HOME"
 PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
