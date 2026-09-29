@@ -397,6 +397,13 @@ check_object_strings "$REPO_JSON_FD"    commands       test build typecheck lint
 check_object_strings "$REPO_JSON_FD"    workflowPaths  contracts verdicts registry fixtures
 check_object_strings "$PROJECT_JSON_FD" defaults.commands       test build typecheck lint
 check_object_strings "$PROJECT_JSON_FD" defaults.workflowPaths  contracts verdicts registry fixtures
+# 054-фикс-Б8: defaults.git.canonicalRemote и defaults.ci.workflow — теми же
+# правилами И-4, что и репо-ветви (непустая строка, JSON-string). Адверсарий
+# 054 круг 3: workflow:7 / canonicalRemote:"" / canonicalRemote:[1] проходили
+# rc=0 после фикс-Б7, и defaults попадал в merged (И-4 нарушено). Паттерн —
+# зеркало репо-ветвей (`if jq -e '.git | type == "object"' ...`, строки 357-369).
+check_object_strings "$PROJECT_JSON_FD" defaults.git       canonicalRemote
+check_object_strings "$PROJECT_JSON_FD" defaults.ci        workflow
 
 # projectLayer.version и projectLayer.profilePath — обязательные строки репо
 # (И-4). Их type-gate стоит ОТДЕЛЬНО от check_object_strings, потому что они

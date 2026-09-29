@@ -1751,12 +1751,16 @@ EOF2
     m3) cell_m3 "$PROFILE_RESOLVER" ;;
     m4) cell_m4 "$PROFILE_RESOLVER" ;;
     m5) cell_m5 "$PROFILE_RESOLVER" ;;
-    # silent-drop defaults.git/ci (054 фикс-Б7; И-4/И-6 frozen 054)
-    m7) cell_m7 "$PROFILE_RESOLVER" ;;
     # С5 ревьюера 054 к2 (тот же файл): внутренний диспетчер обязан быть
     # fail-closed — неизвестное resolver-имя клетки должно краснить диспетчер.
     # Молчаливое `*) return 0` (как было) рождает ложное прохождение, если
     # внешний диспетчер направит сюда имя, не покрытое case-ветвями.
+    #
+    # 054-фикс-Б9: ветвь `m7) cell_m7 ...` удалена — мёртвая (dispatch_honest_cell
+    # направляет m7 напрямую в cell_m7, минуя cell_resolver_run). Список
+    # routing-имен зафиксирован в dispatch_honest_cell: `k2|k3|k3b|k4|k4b|
+    # k5|k6|k9|k11|b1|b2|b3|b7|b9|b10|m1|m2|m3|m4|m5`; m6 и m7 идут
+    # прямой веткой.
     *) return 1 ;;
   esac
 }
