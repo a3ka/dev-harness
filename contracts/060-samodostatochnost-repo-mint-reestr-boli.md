@@ -187,6 +187,9 @@ R3 = HARNESS_TOOLS_ROOT=<путь>      (строка промпта, grep -F п
 
 ## Зоны (check_zones)
 
+ЗОНА architect: contracts/060-samodostatochnost-repo-mint-reestr-boli.md fixtures/check_judge_gate/red_samodostatochnost_repo_060.sh
+ЗОНА implementer: workshop scripts/next_id.sh scripts/freeze_contract.sh scripts/draft_nabludenia.sh fixtures/_krasnye_060.sh fixtures/workshop_project/red_samodostatochnost_repo.sh .github/workflows/ci.yml package.json
+
 - **architect** (этот коммит): `contracts/060-*.md`,
   `fixtures/check_judge_gate/red_samodostatochnost_repo_060.sh` (до-заморозочная
   батарея по действующей заморозке каталога; перенос в
