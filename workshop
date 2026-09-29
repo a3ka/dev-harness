@@ -703,6 +703,46 @@ if [ "$PROBE" != "1" ]; then
   require_metering "$PROJECT"
 fi
 
+# ── N2 (вердикт contracts-058-v2): канонический гард цепочки родителей PROJDB ──
+# И-2 («только agent.db») требует, чтобы в дереве $PSTATE/home после шага была
+# не более одной симлинки и её путь — PROJDB. Если владелец ДО probe оставил
+# $PSTATE/home (или иной компонент цепочки) симлинком на внешний каталог,
+# `mkdir -p $HOME` и `ln -s ... $AGENTDB_PROJDB` идут через эту симлинку:
+# сквозь неё материализуются session-prompt-*.md / .omp/agent/agents / state
+# И дочерний PROJDB — то есть состояние выходит за пределы PSTATE, а «только
+# agent.db» нарушено. Защита: ДО первой записи (mkdir ниже, gen-harness,
+# AGENTDB) канонизировать цепочку родителей целевого пути agent.db
+# (спуск до существующего предка + pwd -P, прецедент 028) и пройти каждый
+# компонент этой цепочки наверх: существующая симлинка обязана `readlink -f`
+# указывать под канон-PSTATE_BASE. Уход наружу — fail-closed именованным
+# отказом ДО mkdir/ln. Честный случай (без симлинок) — guard проходит
+# молча, поведение прежнее.
+_PSTATE_BASE_TAIL=""
+_PSTATE_BASE_RES="$PSTATE_BASE"
+while [ ! -e "$_PSTATE_BASE_RES" ] && [ "$_PSTATE_BASE_RES" != "/" ]; do
+  _PSTATE_BASE_TAIL="/${_PSTATE_BASE_RES##*/}$_PSTATE_BASE_TAIL"
+  _PSTATE_BASE_RES="${_PSTATE_BASE_RES%/*}"
+done
+if [ -e "$_PSTATE_BASE_RES" ]; then
+  _PSTATE_BASE_CANON="$(cd "$_PSTATE_BASE_RES" && pwd -P)$_PSTATE_BASE_TAIL"
+else
+  _PSTATE_BASE_CANON="$PSTATE_BASE"
+fi
+_AGENTDB_PROJDB_PARENT="$PSTATE/home/.omp/profiles/$PROFILE/agent"
+_CHAIN="$_AGENTDB_PROJDB_PARENT"
+while [ -n "$_CHAIN" ] && [ "$_CHAIN" != "/" ]; do
+  if [ -L "$_CHAIN" ]; then
+    _CHAIN_REAL="$(readlink -f -- "$_CHAIN" 2>/dev/null || true)"
+    case "${_CHAIN_REAL}/" in
+      "${_PSTATE_BASE_CANON}/"*) ;;
+      *) printf 'workshop ОТКАЗ: компонент PSTATE — симлинк наружу канон-корня (N2): %s → %s (ожидается под %s) — оформи промежуточные компоненты PSTATE как обычные каталоги и перезапусти\n' "$_CHAIN" "$_CHAIN_REAL" "$_PSTATE_BASE_CANON" >&2
+         exit 1 ;;
+    esac
+  fi
+  _CHAIN="$(dirname -- "$_CHAIN")"
+done
+unset _PSTATE_BASE_TAIL _PSTATE_BASE_RES _PSTATE_BASE_CANON _CHAIN _CHAIN_REAL _AGENTDB_PROJDB_PARENT
+
 mkdir -p "$HOME" "$HARNESS_SCRATCH" "$XDG_STATE_HOME"
 PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
 node "$HERE/scripts/gen-harness.ts" --prompt "$SESSION_ROLE" > "$PROMPT_FILE" \
