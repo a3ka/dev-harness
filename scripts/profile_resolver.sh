@@ -540,8 +540,22 @@ MERGED=$(jq -n \
       typecheck: vscal(["commands","typecheck"]),
       lint:      vscal(["commands","lint"])
     },
-    git:       (if $r.git and $r.git.canonicalRemote != null then { value: { canonicalRemote: $r.git.canonicalRemote }, origin: "repo" } else null end),
-    ci:        (if $r.ci and $r.ci.workflow != null then { value: { workflow: $r.ci.workflow }, origin: "repo" } else null end),
+    # 054-фикс-Б7 (закрытие silent-drop defaults.git/ci): репо-слой
+    # перекрывает defaults слоя проекта для git.canonicalRemote и
+    # ci.workflow — ранее ветвь `elif $p.defaults…` отсутствовала, и
+    # `else null end` молча отбрасывал defaults из слоя проекта (И-4/И-6
+    # frozen 054; контрмодель Б7 — «defaults.git/ci не дошли до merged»).
+    # Тот же шаблон, что barriers.mandatory/optional ниже.
+    git: (
+      if $r.git and $r.git.canonicalRemote != null then { value: { canonicalRemote: $r.git.canonicalRemote }, origin: "repo" }
+      elif $p.defaults and $p.defaults.git and $p.defaults.git.canonicalRemote != null then { value: { canonicalRemote: $p.defaults.git.canonicalRemote }, origin: "project" }
+      else null end
+    ),
+    ci: (
+      if $r.ci and $r.ci.workflow != null then { value: { workflow: $r.ci.workflow }, origin: "repo" }
+      elif $p.defaults and $p.defaults.ci and $p.defaults.ci.workflow != null then { value: { workflow: $p.defaults.ci.workflow }, origin: "project" }
+      else null end
+    ),
     barriers: {
       mandatory: (
         if $r.barriers and $r.barriers.mandatory != null then { value: $r.barriers.mandatory, origin: "repo" }

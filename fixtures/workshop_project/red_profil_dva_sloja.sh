@@ -1285,6 +1285,116 @@ PYEOF
   return 0
 }
 
+# m7: Б7 — defaults.git.canonicalRemote и defaults.ci.workflow НЕ отбрасываются
+# silent-drop (И-4/И-6 frozen 054). Честная реализация MERGE-ит defaults.git/ci
+# так же, как barriers.mandatory/optional. Клетка проверяет ОБА условия:
+#   - честный: rc 0, при `defaults.git.canonicalRemote="git@host:p.git"` и
+#     репо без ветви `git` — merged.git.origin="project",
+#     merged.git.value.canonicalRemote="git@host:p.git"; то же для ci.workflow;
+#   - мутант: старая ветка `else null end` (без `elif $p.defaults…`) →
+#     merged.git == null и merged.ci == null. Клетка красная, если мутант
+#     совпал с честным (silent-drop утратил различение).
+# Якоря (Ч-5): дословный git/ci-блок из profile_resolver.sh после Б7-фикса;
+# патч не применился → клетка красная именованно.
+cell_m7() {
+  local subj="$1"
+  [ -f "$subj" ] || return 1
+  local r="$WORK/m7-r" layer="$WORK/m7-layer"
+  local repo_json='{"schemaVersion":1,"repoId":"r1","language":"typescript","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}'
+  local layer_json='{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git@host:p.git"},"ci":{"workflow":"project-ci.yml"},"barriers":{"mandatory":["check_zones"],"optional":[]}}}'
+  _setup_form_repo "$r" "$layer" "$repo_json" "$layer_json"
+
+  # ── честная реализация: rc 0, git/ci из defaults → origin="project" ────
+  local rc
+  out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$subj" --repo "$r" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || { printf 'm7: честный rc=%d out=%s\n' "$rc" "$out" >&2; return 1; }
+  if [ "$(jq -r '.git.origin' <<<"$out")" != "project" ]; then
+    printf 'm7: честный git.origin != project (silent-drop Б7)\n' >&2; return 1
+  fi
+  if [ "$(jq -r '.git.value.canonicalRemote' <<<"$out")" != "git@host:p.git" ]; then
+    printf 'm7: честный git.value.canonicalRemote != git@host:p.git\n' >&2; return 1
+  fi
+  if [ "$(jq -r '.ci.origin' <<<"$out")" != "project" ]; then
+    printf 'm7: честный ci.origin != project (silent-drop Б7)\n' >&2; return 1
+  fi
+  if [ "$(jq -r '.ci.value.workflow' <<<"$out")" != "project-ci.yml" ]; then
+    printf 'm7: честный ci.value.workflow != project-ci.yml\n' >&2; return 1
+  fi
+
+  # ── мутант: silent-drop (старая ветка `else null end` БЕЗ defaults) ─────
+  local mutated="$WORK/m7-mutated.sh"
+  cp "$subj" "$mutated"
+  # Якоря — дословный git/ci-блок ПОСЛЕ Б7-фикса (тот же, что мы только
+  # что закоммитили в profile_resolver.sh; `elif $p.defaults…` присутствует).
+  if ! grep -qF 'p.defaults.git' "$mutated" \
+     || ! grep -qF 'p.defaults.ci' "$mutated"; then
+    printf 'm7: КРАСНАЯ — патч не применился: исходник изменился (нет якорей p.defaults.git/ci)\n' >&2
+    return 1
+  fi
+  if ! python3 - "$mutated" <<'PYEOF'; then
+import sys
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as f:
+    src = f.read()
+
+# Honest (после Б7-фикса): git/ci сливаются из defaults слоя проекта.
+# Anchors MUST match profile_resolver.sh verbatim (включая отступы).
+orig_block = (
+    '    git: (\n'
+    '      if $r.git and $r.git.canonicalRemote != null then { value: { canonicalRemote: $r.git.canonicalRemote }, origin: "repo" }\n'
+    '      elif $p.defaults and $p.defaults.git and $p.defaults.git.canonicalRemote != null then { value: { canonicalRemote: $p.defaults.git.canonicalRemote }, origin: "project" }\n'
+    '      else null end\n'
+    '    ),\n'
+    '    ci: (\n'
+    '      if $r.ci and $r.ci.workflow != null then { value: { workflow: $r.ci.workflow }, origin: "repo" }\n'
+    '      elif $p.defaults and $p.defaults.ci and $p.defaults.ci.workflow != null then { value: { workflow: $p.defaults.ci.workflow }, origin: "project" }\n'
+    '      else null end\n'
+    '    ),'
+)
+# Mutant (silent-drop): `elif $p.defaults…` убран; и git, и ci
+# молча возвращают null, если репо не задал ветвь (контрмодель Б7).
+mut_block = (
+    '    git: (if $r.git and $r.git.canonicalRemote != null then { value: { canonicalRemote: $r.git.canonicalRemote }, origin: "repo" } else null end),\n'
+    '    ci: (if $r.ci and $r.ci.workflow != null then { value: { workflow: $r.ci.workflow }, origin: "repo" } else null end),'
+)
+if orig_block not in src:
+    print("ANCHOR MISMATCH: orig_block not found verbatim", file=sys.stderr)
+    sys.exit(1)
+new_src = src.replace(orig_block, mut_block, 1)
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(new_src)
+PYEOF
+    printf 'm7: КРАСНАЯ — патч не применился: anchored git/ci-блок не найден\n' >&2
+    return 1
+  fi
+
+  # Прогон мутанта — silent-drop: git=null, ci=null (после del(.. | nulls)
+  # ключи отсутствуют; ищем различимо).
+  local mout mrc
+  mout="$(HARNESS_PROJECT_LAYER_ROOT="$layer" bash "$mutated" --repo "$r" 2>&1)"; mrc=$?
+  if [ "$mrc" -ne 0 ]; then
+    printf 'm7: мутант rc=%d (ожидался 0 — мутант не должен крашиться, лишь отбросить defaults)\n' "$mrc" >&2
+    return 1
+  fi
+  # Различение: мутант НЕ ДОЛЖЕН дать merged.git.origin="project"
+  # с canonicalRemote из defaults. Если мутант дал то же, что честный —
+  # silent-drop утратил различение (Б7 не держится барьером).
+  if [ "$(jq -r '.git.origin // "<absent>"' <<<"$mout")" = "project" ]; then
+    printf 'm7: КРАСНАЯ — мутант выдал git.origin="project" как честный: silent-drop утратил различение (defaults.git дошёл до merged через мутант — проверь якорь)\n' >&2
+    return 1
+  fi
+  if [ "$(jq -r '.git.value.canonicalRemote // "<absent>"' <<<"$mout")" = "git@host:p.git" ]; then
+    printf 'm7: КРАСНАЯ — мутант выдал git.canonicalRemote=git@host:p.git как честный: silent-drop утратил различение\n' >&2
+    return 1
+  fi
+  if [ "$(jq -r '.ci.origin // "<absent>"' <<<"$mout")" = "project" ]; then
+    printf 'm7: КРАСНАЯ — мутант выдал ci.origin="project" как честный: silent-drop утратил различение (defaults.ci дошёл до merged через мутант — проверь якорь)\n' >&2
+    return 1
+  fi
+  printf 'm7: честный rc=0 defaults.git/ci merged origin=project; мутант rc=0 silent-drop отбросил defaults.git/ci (различение работает)\n' >&2
+  return 0
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -1406,6 +1516,11 @@ run_honest() {
     # m1..m5 — позитивные формы (rc 0, происхождения по Ч-1);
     # m6 — форма P + мутант замещения ветви (Ч-5, §5б).
     m1 m2 m3 m4 m5 m6
+    # m7 — defaults.git/ci silent-drop (054 фикс-Б7; И-4/И-6 frozen 054):
+    # честная реализация MERGE-ит defaults.git.canonicalRemote/ci.workflow
+    # из слоя проекта, мутант silent-drop (старая `else null end`) теряет
+    # defaults — клетка ловит ответ m6-стиля (мутант отличим от честного).
+    m7
   )
 
   local sverka_count=0 cell
@@ -1444,6 +1559,8 @@ dispatch_honest_cell() {
     b11m) cell_b11m "$PROFILE_RESOLVER" ;;
     # форма P + мутант замещения ветви barriers (контракт 057 §5б, Ч-5)
     m6) cell_m6 "$PROFILE_RESOLVER" ;;
+    # silent-drop defaults.git/ci (054 фикс-Б7; И-4/И-6 frozen 054)
+    m7) cell_m7 "$PROFILE_RESOLVER" ;;
     # gen-harness --agents-rules
     b4) cell_b4 "$ROOT/scripts/gen-harness.ts" ;;
     # gen-harness --agents-rules — отсутствие файла и несуществующий файл
@@ -1536,7 +1653,12 @@ cell_workshop_run() {
       out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/layer" GIT_DIR="$bare" bash "$WORKSHOP" --probe "$r" 2>&1)"; rc=$?
       { [ "$rc" -eq 1 ] && grep -qF "receive.denyCurrentBranch=" <<<"$out" && grep -qF "ожидается 'refuse'" <<<"$out" && grep -qF 'Исправление: git -C' <<<"$out"; } || return 1
       ;;
-    *) return 0 ;;
+    # С5 ревьюера 054 к2 (тот же файл): внутренний диспетчер обязан
+    # быть fail-closed — неизвестное workshop-имя клетки должно краснить
+    # диспетчер, а не возвращать 0 (как было). Молчаливое приёмствие
+    # неизвестной клетки рождает ложное прохождение, если внешний
+    # диспетчер честной части направит сюда имя, не покрытое case-ветвями.
+    *) return 1 ;;
   esac
 }
 
@@ -1629,7 +1751,13 @@ EOF2
     m3) cell_m3 "$PROFILE_RESOLVER" ;;
     m4) cell_m4 "$PROFILE_RESOLVER" ;;
     m5) cell_m5 "$PROFILE_RESOLVER" ;;
-    *) return 0 ;;
+    # silent-drop defaults.git/ci (054 фикс-Б7; И-4/И-6 frozen 054)
+    m7) cell_m7 "$PROFILE_RESOLVER" ;;
+    # С5 ревьюера 054 к2 (тот же файл): внутренний диспетчер обязан быть
+    # fail-closed — неизвестное resolver-имя клетки должно краснить диспетчер.
+    # Молчаливое `*) return 0` (как было) рождает ложное прохождение, если
+    # внешний диспетчер направит сюда имя, не покрытое case-ветвями.
+    *) return 1 ;;
   esac
 }
 
