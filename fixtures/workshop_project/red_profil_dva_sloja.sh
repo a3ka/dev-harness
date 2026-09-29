@@ -819,6 +819,233 @@ SHIM
   return 1
 }
 
+# b11h: честная гонка против РЕАЛЬНОГО резолвера (контракт 057 Ч-4).
+# В отличие от cell_b11 (single-run BASH_ENV-шим), здесь RACE_N=128 запусков
+# резолвера, фоновый цикл АТОМАРНО (mv -T) перекидывает симлинк
+# `<repo>/harness.project.json` между внутренним (ВНУТРИ репо) и внешним
+# (ВНЕ репо) целями. Классификация каждого запуска:
+#   rc=0 ∧ repoId=r_internal → ok (symlink был внутренним на момент exec)
+#   rc=1 (любой именованный отказ) → refused (symlink был внешним на момент
+#     exec, или другая причина; внешний симлинк в момент exec → отказ P3)
+#   rc=0 ∧ repoId=r_external → УТЕЧКА (это НЕ ДОЛЖНО произойти для честного,
+#     fd-first резолвера: exec {fd}< открывает fd ПЕРВЫМ, и readlink
+#     /proc/self/fd/$fd привязан к inode на момент exec — подмена симлинка
+#     ПОСЛЕ exec не меняет inode fd)
+# RACE_N=128 — константа клетки b11h (Ч-4), расчёт достаточности — там же.
+#
+# ВАЖНО: внутренний JSON — БЕЗ `barriers` (конформант по Ч-1: замороженное
+# И-4 «остальные ветви опциональны»). Это и было причиной мёртвой ветви
+# `*) return 0` в старом диспетчере — на форме M резолвер не должен падать,
+# но старый диспетчер не имел отдельной клетки под эту форму и считал
+# прохождение по молчанию.
+cell_b11h() { # race against honest resolver (RACE_N=128)
+  local subj="$1"
+  [ -f "$subj" ] || return 1
+  local r="$WORK/b11h-r"
+  local internal="$r/config/harness_internal.json"
+  local external="$WORK/b11h-external.json"
+  rm -rf "$r" "$external"; mkdir -p "$r/config"
+  # Internal — ВНУТРИ репо (`$r/config/`), конформант Ч-1 (без barriers).
+  # Иначе readlink /proc/self/fd/$fd даёт путь вне репо и резолвер сразу
+  # отказывает rc=1 по P3 (тест не доказан — refused, не ok).
+  cat > "$internal" <<'EOF'
+{"schemaVersion":1,"repoId":"r_internal","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  # External — вне репо, валидный JSON с r_external.
+  cat > "$external" <<'EOF'
+{"schemaVersion":1,"repoId":"r_external","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  layer_make "$WORK/b11h-layer"
+  # Изначально симлинк указывает на internal — иначе первый запуск уже
+  # сразу даст rc=1 (symlink missing).
+  ln -s "$internal" "$r/harness.project.json"
+
+  # Фоновый цикл атомарной подмены симлинка через mv -T. Создаём новый
+  # симлинк в `.tmp_link`, потом mv -T поверх `harness.project.json` —
+  # `rename(2)` атомарен на уровне ядра (между unlink и rename есть
+  # короткое окно, где dest не существует — оно и есть окно гонки).
+  (
+    local n=0
+    while [ "$n" -lt 200000 ]; do
+      n=$((n + 1))
+      ln -s "$external" "$r/.tmp_link" 2>/dev/null
+      mv -T "$r/.tmp_link" "$r/harness.project.json" 2>/dev/null || true
+      ln -s "$internal" "$r/.tmp_link" 2>/dev/null
+      mv -T "$r/.tmp_link" "$r/harness.project.json" 2>/dev/null || true
+    done
+  ) &
+  local swap_pid=$!
+
+  local RACE_N=128 ok=0 refused=0 leak=0
+  local i out rc rid
+  for i in $(seq 1 "$RACE_N"); do
+    out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/b11h-layer" bash "$subj" --repo "$r" 2>&1)"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      rid="$(printf '%s' "$out" | jq -r '.repoId.value // empty' 2>/dev/null)"
+      if [ "$rid" = "r_internal" ]; then
+        ok=$((ok + 1))
+      elif [ "$rid" = "r_external" ]; then
+        leak=$((leak + 1))
+      else
+        # rc=0, но repoId неожиданный — ни ok, ни leak; для честного это
+        # невозможно (формы A/G/F/C/M/P отдают ожидаемое), но если бы
+        # произошло — относим к refused (не leak).
+        refused=$((refused + 1))
+      fi
+    else
+      refused=$((refused + 1))
+    fi
+  done
+
+  kill "$swap_pid" 2>/dev/null || true
+  wait "$swap_pid" 2>/dev/null || true
+  # Восстанавливаем симлинк на internal — на случай повторного вызова
+  # клетки в той же сессии.
+  rm -f "$r/harness.project.json" "$r/.tmp_link"
+  ln -s "$internal" "$r/harness.project.json"
+
+  # Ч-4: «счёт ok/refused/leak напечатан» — единственный источник для
+  # визуального судьи; rc батареи судится по нулю утечек (Ч-4).
+  printf 'b11h: ok=%d refused=%d leak=%d (RACE_N=%d)\n' \
+    "$ok" "$refused" "$leak" "$RACE_N" >&2
+  # ЧЕСТНЫЙ резолвер (fd-first): утечек быть не должно. ≥1 утечка —
+  # барьер пропустил TOCTOU к5 (round 7 фикс не сработал).
+  [ "$leak" -eq 0 ]
+}
+
+# b11m: ДИФФЕРЕНЦИАЛЬНАЯ МУТАНТ-ПРОБА (контракт 057 Ч-5).
+# Копия резолвера в рабочем каталоге клетки; заякоренная перестановка
+# check-then-open (readlink -f pathname ДО exec {fd}<) через literal-anchored
+# patch — если якорь не найден, клетка красная именованно (барьер обязан
+# следовать за субъектом). Та же гонка RACE_N=128, что и b11h, но против
+# мутантной копии. Ожидание: ≥1 утечка — барьер РАЗЛИЧАЕТ честное от
+# мутанта; 0 утечек → клетка красная (патч применился, но мутант не дал
+# ожидаемого поведения — барьер перестал различать).
+cell_b11m() { # diff mutant probe (RACE_N=128)
+  local subj="$1"
+  [ -f "$subj" ] || return 1
+  local mutated="$WORK/b11m-mutated.sh"
+  cp "$subj" "$mutated"
+
+  # Заякоренная перестановка: literal-anchored sed-патч. Якоря (Ч-5):
+  #   exec {REPO_FD}<"$REPO_JSON"           — открытие fd репо-слоя
+  #   REPO_JSON_ABS="$(readlink -f -- "/proc/self/fd/$REPO_FD" — readlink ПОСЛЕ exec
+  # Если любой якорь отсутствует — исходник дрейфовал → клетка красная
+  # именованно (НЕ зелёная — патч не применился).
+  if ! grep -qF 'exec {REPO_FD}<"$REPO_JSON"' "$mutated" \
+     || ! grep -qF 'REPO_JSON_ABS="$(readlink -f -- "/proc/self/fd/$REPO_FD"' "$mutated"; then
+    printf 'b11m: КРАСНАЯ — патч не применился: исходник изменился (нет якорей readlink/exec)\n' >&2
+    return 1
+  fi
+
+  # Патч: вырезаем строку `exec {REPO_FD}<"$REPO_JSON" || die_p "не удалось
+  # открыть репо-слой: $REPO_JSON"` и ВСТАВЛЯЕМ ПЕРЕД ней блок readlink -f
+  # pathname + case. Затем удаляем старую пару readlink/case (после exec).
+  # Используем python3 — multiline text replace в bash ненадёжен.
+  if ! python3 - "$mutated" <<'PYEOF'; then
+import sys
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as f:
+    src = f.read()
+
+# Заменяемый блок (honest fd-first pattern)
+orig_block = (
+    'exec {REPO_FD}<"$REPO_JSON" || die_p "не удалось открыть репо-слой: $REPO_JSON"\n'
+    '[ -f "/proc/self/fd/$REPO_FD" ] || {\n'
+    '  exec {REPO_FD}<&- || true\n'
+    '  die_p "не удалось открыть репо-слой: $REPO_JSON"\n'
+    '}\n'
+    'REPO_JSON_ABS="$(readlink -f -- "/proc/self/fd/$REPO_FD" 2>/dev/null || true)"\n'
+    'case "$REPO_JSON_ABS" in\n'
+    '  "$REPO_ABS"/*) ;;\n'
+    '  *) exec {REPO_FD}<&- || true\n'
+    '     die_p "нет файла репо-слоя в корне репо: $REPO_JSON. Инструкция: harness.project.json должен лежать в корне репо \u2014 не symlink на внешний файл" ;;\n'
+    'esac'
+)
+
+# Мутантный блок (check-then-open)
+mut_block = (
+    'REPO_JSON_ABS="$(readlink -f -- "$REPO_JSON" 2>/dev/null || true)"\n'
+    'case "$REPO_JSON_ABS" in\n'
+    '  "$REPO_ABS"/*) ;;\n'
+    '  *) die_p "нет файла репо-слоя в корне репо: $REPO_JSON. Инструкция: harness.project.json должен лежать в корне репо \u2014 не symlink на внешний файл" ;;\n'
+    'esac\n'
+    'exec {REPO_FD}<"$REPO_JSON" || die_p "не удалось открыть репо-слой: $REPO_JSON"\n'
+    '[ -f "/proc/self/fd/$REPO_FD" ] || {\n'
+    '  exec {REPO_FD}<&- || true\n'
+    '  die_p "не удалось открыть репо-слой: $REPO_JSON"\n'
+    '}'
+)
+
+if orig_block not in src:
+    print("ANCHOR MISMATCH: orig_block not found verbatim", file=sys.stderr)
+    sys.exit(1)
+
+new_src = src.replace(orig_block, mut_block, 1)
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(new_src)
+PYEOF
+    printf 'b11m: КРАСНАЯ — патч не применился: %s не содержит ожидаемый блок\n' "$mutated" >&2
+    return 1
+  fi
+
+  # ── та же гонка, что и b11h, но против мутантной копии ───────────────────
+  local r="$WORK/b11m-r"
+  local internal="$r/config/harness_internal.json"
+  local external="$WORK/b11m-external.json"
+  rm -rf "$r" "$external"; mkdir -p "$r/config"
+  cat > "$internal" <<'EOF'
+{"schemaVersion":1,"repoId":"r_internal","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  cat > "$external" <<'EOF'
+{"schemaVersion":1,"repoId":"r_external","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  layer_make "$WORK/b11m-layer"
+  ln -s "$internal" "$r/harness.project.json"
+
+  (
+    local n=0
+    while [ "$n" -lt 200000 ]; do
+      n=$((n + 1))
+      ln -s "$external" "$r/.tmp_link" 2>/dev/null
+      mv -T "$r/.tmp_link" "$r/harness.project.json" 2>/dev/null || true
+      ln -s "$internal" "$r/.tmp_link" 2>/dev/null
+      mv -T "$r/.tmp_link" "$r/harness.project.json" 2>/dev/null || true
+    done
+  ) &
+  local swap_pid=$!
+
+  local RACE_N=128 ok=0 refused=0 leak=0
+  local i out rc rid
+  for i in $(seq 1 "$RACE_N"); do
+    out="$(HARNESS_PROJECT_LAYER_ROOT="$WORK/b11m-layer" bash "$mutated" --repo "$r" 2>&1)"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      rid="$(printf '%s' "$out" | jq -r '.repoId.value // empty' 2>/dev/null)"
+      if [ "$rid" = "r_internal" ]; then
+        ok=$((ok + 1))
+      elif [ "$rid" = "r_external" ]; then
+        leak=$((leak + 1))
+      else
+        refused=$((refused + 1))
+      fi
+    else
+      refused=$((refused + 1))
+    fi
+  done
+
+  kill "$swap_pid" 2>/dev/null || true
+  wait "$swap_pid" 2>/dev/null || true
+  rm -f "$r/harness.project.json" "$r/.tmp_link"
+  ln -s "$internal" "$r/harness.project.json"
+
+  printf 'b11m: ok=%d refused=%d leak=%d (RACE_N=%d, мутант check-then-open)\n' \
+    "$ok" "$refused" "$leak" "$RACE_N" >&2
+  # МУТАНТ (check-then-open): ожидаем ≥1 утечку. 0 утечек → клетка красная.
+  [ "$leak" -ge 1 ]
+}
+
 # ── СТАБ-ПАК (ДО честной части; зелёный и ДО и ПОСЛЕ реализации) ────────────
 # Каждый обманный стаб умирает на СВОЕЙ клетке именованно (Н-39, различимость
 # не зависит от существования честного кода).
@@ -912,37 +1139,72 @@ run_stub_pack() {
 run_honest() {
   cell_g0  || { echo "Г0 ПРЕДМЕТ ОТСУТСТВУЕТ (ожидалось до реализации)" >&2; exit 1; }
   layer_make "$WORK/layer"
-  # Клетки разнесены по типу субъекта: workshop_cells — workshop --probe,
-  # resolver_cells — резолвер; gen-harness_cells — отдельные.
-  local FAIL=0
-  local cell
-  for cell in k1 k7a k7b k7c k8 k12 k13; do
-    if ! cell_workshop_run "$cell"; then
-      printf 'клетка %s (workshop): красная\n' "$cell" >&2
-      FAIL=1
+  # Контракт 057 (Ч-6, Ч-7): единый список клеток в порядке исполнения.
+  # Диспетчер ниже ОБРАБАТЫВАЕТ каждую явно и валит на неизвестной (Ч-6,
+  # fail-closed). Каждая ИСПОЛНЕННАЯ клетка печатает событие-строку
+  # `СВЕРКА: <cell>` (Ч-7 — единственный источник счёта предъявлений;
+  # внешняя мера приёмки п.1б сверяет печатный N против `grep -c '^СВЕРКА: '`).
+  # Итоговая печать использует ТОЛЬКО счётчик исполненных клеток, не
+  # литеральный список (старая «все клетки к1-к14 + b1-b11 пройдены» ложна
+  # дважды: b11 не исполнялась, к14 исполняется отдельной командой — С4).
+  declare -a HONEST_CELLS=(
+    # workshop-субъект (workshop --probe)
+    k1 k7a k7b k7c k8 k12 k13
+    # resolver-субъект (scripts/profile_resolver.sh --repo ...)
+    k2 k3 k3b k4 k4b k5 k6 k9 k11
+    # resolver-обходы (стаб-пак ловит обманки; честная часть прогоняет на тех
+    # же входах, но с REAL resolver — должна дать именованный rc=1)
+    b1 b2 b3 b7 b9 b10
+    # честная гонка RACE_N=128 (Ч-4)
+    b11h
+    # дифф-проба мутанта (Ч-5)
+    b11m
+    # workshop-обходы
+    b5 b6 b8
+    # gen-harness --agents-rules
+    b4 k10 k10b
+  )
+
+  local sverka_count=0 cell
+  for cell in "${HONEST_CELLS[@]}"; do
+    sverka_count=$((sverka_count + 1))
+    # СВЕРКА-строка — единственный источник счёта (Ч-7).
+    printf 'СВЕРКА: %s\n' "$cell"
+    if ! dispatch_honest_cell "$cell"; then
+      die_pack "ЧЕСТНАЯ ЧАСТЬ: клетка $cell красная"
     fi
   done
-  for cell in k2 k3 k3b k4 k4b k5 k6 k9 k11 b1 b2 b3 b7 b9 b10 b11; do
-    if ! cell_resolver_run "$cell"; then
-      printf 'клетка %s (resolver): красная\n' "$cell" >&2
-      FAIL=1
-    fi
-  done
-  for cell in b5 b6 b8; do
-    if ! cell_workshop_run "$cell"; then
-      printf 'клетка %s (workshop): красная\n' "$cell" >&2
-      FAIL=1
-    fi
-  done
-  # b4 — gen-harness test, не workshop.
-  if ! cell_b4 "$ROOT/scripts/gen-harness.ts"; then
-    printf 'клетка b4 (gen-harness): красная\n' >&2
-    FAIL=1
+
+  if [ "$sverka_count" -eq 0 ]; then
+    # Ч-7: ноль предъявлений — красная.
+    die_pack "ЧЕСТНАЯ ЧАСТЬ: не проверено ни одной клетки (нуль предъявлений)"
   fi
-  if ! cell_k10; then printf 'клетка k10: красная\n' >&2; FAIL=1; fi
-  if ! cell_k10b; then printf 'клетка k10b: красная\n' >&2; FAIL=1; fi
-  if [ "$FAIL" -ne 0 ]; then exit 1; fi
-  printf '054-батарея зелёная: все клетки к1-к14 + b1-b11 пройдены\n' >&2
+  # Ч-7: итоговая печать содержит СЧЁТЧИК (N), который сверяется внешней
+  # мерой — `grep -c '^СВЕРКА: '` того же лога. Собственная печать батареи
+  # не доказательство (критик 057-v1:35–44).
+  printf 'честная часть: проверено предъявлений %d\n' "$sverka_count" >&2
+}
+
+# Диспетчер честной клетки (контракт 057 Ч-6). Неизвестное имя → `*)` с
+# именованной красной (НЕ `return 0` как было): различимость, что клетка
+# исполнена, — в списке `HONEST_CELLS`, а не в молчаливом default-case.
+dispatch_honest_cell() {
+  local cell="$1"
+  case "$cell" in
+    # workshop-субъект
+    k1|k7a|k7b|k7c|k8|k12|k13|b5|b6|b8) cell_workshop_run "$cell" ;;
+    # resolver-субъект
+    k2|k3|k3b|k4|k4b|k5|k6|k9|k11|b1|b2|b3|b7|b9|b10) cell_resolver_run "$cell" ;;
+    # честная гонка RACE_N=128 (Ч-4)
+    b11h) cell_b11h "$PROFILE_RESOLVER" ;;
+    # дифф-проба мутанта (Ч-5)
+    b11m) cell_b11m "$PROFILE_RESOLVER" ;;
+    # gen-harness --agents-rules
+    b4) cell_b4 "$ROOT/scripts/gen-harness.ts" ;;
+    # gen-harness --agents-rules — отсутствие файла и несуществующий файл
+    k10|k10b) "cell_$cell" ;;
+    *) return 1 ;;  # Ч-6: fail-closed на неизвестной клетке
+  esac
 }
 
 # Запустить клетку с workshop в качестве субъекта
