@@ -1925,12 +1925,44 @@ do_retake_ahead() {
   # $?` даёт 0 (успех отрицания), а НЕ rc git (Н-84/Н-85: rc без пайпов);
   # конструкция `var=$(cmd); rc=$?` — единственная, которая наследует rc cmd
   # в чистом виде (замер 2026-09-29, реализация 056).
-  diff_paths="$("$GIT" -C "$CANON" diff --name-only origin/main..HEAD 2>/dev/null)"
+  # КАНОНИЗАЦИЯ сравнения (F1 вердикта 056-v1, фикс implementer): манифест хранит
+  # enc_path-кодированные пути (защита грамматики от \n / \t / \\ в формате),
+  # а `git diff --name-only` без -z эмитит C-style quoting (`"docs/a\\b.md"`)
+  # — мимо той же формы, сравнение ложно отказывает честный ahead-путь с
+  # обратным слэшем. Сверяем обе стороны в enc_path-кодированной форме:
+  # `-z` снимает C-style quoting (литеральный путь, NUL-сепаратор), enc_path
+  # на каждом пути приводит его к той же форме, что лежит в delta_paths.
+  # Грамматика манифеста (алфавит без табов, enc_path-правила) НЕ меняется;
+  # расширение bytes==origin (А-292) НЕ возвращается. На пустых NUL-записях
+  # пропуск (контрактная семантика diff'а их не несёт).
+  # `-z`-вывод идёт через временный файл: command substitution в bash 5.x
+  # стирает ВСЕ NUL-байты из захваченного значения (не только хвостовые),
+  # что для multi-path diff'а сшило бы имена в одну строку; файл сохраняет
+  # байты 1:1, `read -d ''` идёт по NUL-сепаратору. Тот же mktemp+rm-паттерн,
+  # что у do_snapshot (фиксура не наблюдает — путь под $TMPDIR_BASE).
+  diff_raw_tmp="$("$MKTEMP" "$TMPDIR_BASE/.no_leak_diff.XXXXXX")" \
+    || { printf 'NOT_IMPLEMENTED: mktemp для diff_raw отказал\n' >&2; exit 2; }
+  # rc диффа фиксируется ПОСЛЕ перенаправления напрямую: `if ! …; then $?` даёт 0
+  # (успех отрицания), а НЕ rc git (Н-84/Н-85: rc без пайпов); конструкция с
+  # отдельной переменной сохраняет rc (замер 2026-09-29, реализация 056).
+  "$GIT" -C "$CANON" diff -z --name-only origin/main..HEAD 2>/dev/null > "$diff_raw_tmp"
   diff_rc=$?
   if [ "$diff_rc" -ne 0 ]; then
+    "$RM" -f -- "$diff_raw_tmp"
     printf 'ОТКАЗ: переснятие-ahead не доказано: origin/main недоступен\n' >&2
     exit 1
   fi
+  diff_paths=""
+  while IFS= read -r -d '' p || [ -n "$p" ]; do
+    [ -z "$p" ] && continue
+    ep="$(enc_path "$p")"
+    if [ -z "$diff_paths" ]; then
+      diff_paths="$ep"
+    else
+      diff_paths="${diff_paths}"$'\n'"${ep}"
+    fi
+  done < "$diff_raw_tmp"
+  "$RM" -f -- "$diff_raw_tmp"
   while IFS= read -r path; do
     [ -n "$path" ] || continue
     if ! printf '%s\n' "$diff_paths" | "$GREP" -Fxq -- "$path"; then
