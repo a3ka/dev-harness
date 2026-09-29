@@ -174,3 +174,6 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
 guard: батарея + раннер `_krasnye_059.sh` + ci-шаг + ключ package.json
 (прецедент 058: раннер/CI/ключ у implementer, проверяется consumers-gate 038
 на заморозке).
+
+## Незаполненные требования:
+нет
