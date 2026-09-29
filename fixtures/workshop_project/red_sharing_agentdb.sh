@@ -15,8 +15,11 @@
 #      предикатом, не случаем).
 #   2. г0 «предмет отсутствует» — FAIL-FAST до честной части: в workshop нет
 #      шага AGENTDB → честная часть не исполняется, rc 1 (ДО реализации).
-#   3. ЧЕСТНАЯ ЧАСТЬ (клетки к1..к11, к13, к14 — к12 cognitive-only в
-#      контракте) — зелёная ПОСЛЕ реализации.
+#   3. ЧЕСТНАЯ ЧАСТЬ (клетки к1..к11, к13..к15) — зелёная ПОСЛЕ реализации.
+#      Фикс-раунд по вердикту contracts-058-v1 (пост-заморозочное усиление
+#      гейта, прецедент 005): к12 (И-6) теперь ИСПОЛНИМАЯ — dev-вход с
+#      безопасным omp-shim (F2); к15 — projectId=p2 с живым DEVDB (F1:
+#      зашитая константа p1 обязана краснеть).
 #
 # Привязки обманных стабов к клеткам (Н-39 — живут ЗДЕСЬ, в коде батареи,
 # не в прозе контракта; каждый стаб красен на входе, где его дефект
@@ -82,6 +85,11 @@ repo_make() { # $1=корень репо $2=repoId
 }
 LAYER="$WORK/layer-p1"; layer_make "$LAYER" p1
 R1="$WORK/repo-p1"; repo_make "$R1" r1
+# F1 (вердикт 058-v1): второй конформный вход — слой с projectId=p2 и своё
+# toy-репо (прецедент LAYER2/R2 батареи 055); честная клетка к15 судит на
+# нём C1/PSTATE/A1 — И-1 применим к любому projectId допустимой грамматики.
+LAYER2="$WORK/layer-p2"; layer_make "$LAYER2" p2
+R2="$WORK/repo-p2"; repo_make "$R2" r2
 
 # ── СТАБ-OMP: субъект живого режима (к10 честной клетки) ─────────────────────
 # Пишет факт СВОЕГО окружения и маркер в $HOME/.omp/.../agent.db СВОЕЙ сессии.
@@ -96,6 +104,14 @@ printf 'livesubj-058\n' >> "$HOME/.omp/profiles/dev/agent/agent.db" 2>/dev/null 
 exit 0
 SHIM
 chmod +x "$SHIMDIR/omp"
+
+# ── БЕЗОПАСНЫЙ omp-shim ДЛЯ DEV-ВХОДА (к12, F2): не пишет НИЧЕГО — ни agent.db,
+# ни фактов; дев-ветвь судится по выводу лаунчера и отсутствию agent.db под
+# базой. Отделен от SHIMDIR: тот пишет маркер в agent.db СВОЕЙ сессии (к10) и
+# в дев-зоне создал бы agent.db сам.
+DEVSHIMDIR="$WORK/devshim"; mkdir -p "$DEVSHIMDIR"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$DEVSHIMDIR/omp"
+chmod +x "$DEVSHIMDIR/omp"
 
 # ── ОБМАННЫЙ СТАБ лаунчера 058: только шаг шаринга; обманывает ровно одной ───
 # ручкой STUB_*; без ручек честен на своих клетках (c1..c9). Формула дев-зоны
@@ -195,6 +211,9 @@ mk_devdb() { # $1=база → создаёт живой маркерный DEVD
 }
 probe_run() { # $1=база; probe живого workshop, rc наружу
   env XDG_STATE_HOME="$1" HARNESS_PROJECT_LAYER_ROOT="$LAYER" bash "$WORKSHOP" --probe "$R1"
+}
+probe_run2() { # $1=база; probe живого workshop со слоем p2 (к15, F1)
+  env XDG_STATE_HOME="$1" HARNESS_PROJECT_LAYER_ROOT="$LAYER2" bash "$WORKSHOP" --probe "$R2"
 }
 live_run() { # $1=база дампа $2=база состояния; живой workshop со стаб-omp
   env PATH="$SHIMDIR:$PATH" XDG_STATE_HOME="$2" HARNESS_PROJECT_LAYER_ROOT="$LAYER" \
@@ -386,7 +405,7 @@ if ! grep -qF 'AGENTDB:' "$WORKSHOP" 2>/dev/null; then
   exit 1
 fi
 
-# ── ЧЕСТНАЯ ЧАСТЬ (клетки к1..к11, к13, к14; к12 — cognitive-only контракт) ──
+# ── ЧЕСТНАЯ ЧАСТЬ (клетки к1..к11, к13..к15; к12 исполняема — F2 вердикта) ──
 HONEST=0; HSEEN=0
 hcell() { local n="$1"; shift; HSEEN=$((HSEEN+1)); "$@" && HONEST=$((HONEST+1)) || printf '058-батарея: честная клетка %s красная\n' "$n" >&2; }
 projdb_of() { printf '%s/dev-harness-projects/p1/home/.omp/profiles/dev/agent/agent.db' "$1"; }
@@ -499,6 +518,26 @@ k11() { # И-5, регресс: батареи 054/055 зелёные на де�
     -u METERING_PROJECT -u METERING_ROLE bash "$ROOT/fixtures/_krasnye_055.sh" >/dev/null 2>&1 || r2=$?
   [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ]
 }
+
+k12() { # И-6 (F2 вердикта 058-v1: к12 исполняема): дев-вход БЕЗ проекта,
+        # безопасный omp-shim в PATH. Ожидания в ПАМЯТИ до вызова: rc 0; в
+        # выводе НЕТ ни 'AGENTDB:', ни фразы W8; маркер живого DEVDB дев-зоны
+        # не изменён; под базой НЕ возникло ни одного agent.db помимо DEVDB —
+        # шаг живёт только в проектной ветви (Граница-6). Печать AGENTDB: в
+        # дев-ветви (мутант F2) краснеет выводом, не статикой исходника.
+  local b="$WORK/k12"; rm -rf "$b"; mkdir -p "$b"
+  local d out rc=0
+  d="$(mk_devdb "$b")"
+  out="$(env -u HARNESS_PROJECT_LAYER_ROOT PATH="$DEVSHIMDIR:$PATH" \
+    XDG_STATE_HOME="$b" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
+    METERING_PROXY_TOKEN=toy-token METERING_PROXY_URL=http://toy.invalid:1 \
+    bash "$WORKSHOP" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] \
+    && ! printf '%s\n' "$out" | grep -Fq 'AGENTDB:' \
+    && ! printf '%s\n' "$out" | grep -Fq 'не симлинк, шаринг не активен' \
+    && [ "$(cat -- "$d" 2>/dev/null)" = 'devmark-058' ] \
+    && ! find "$b" -name agent.db ! -path "$d" -print -quit 2>/dev/null | grep -q .
+}
 k13() { # И-1 L3a: работающая ссылка на чужую живую цель, DEVDB нет — не тронута, баннер фактического readlink
   local b="$WORK/k13"; rm -rf "$b"; mkdir -p "$b"
   local out rc=0 p other i1 i2; p="$(projdb_of "$b")"
@@ -520,6 +559,24 @@ k14() { # И-1 R0 без DEVDB: пустой файл не тронут, A2 (з�
     && printf '%s\n' "$out" | grep -Fxq 'AGENTDB: изолирована'
 }
 
+k15() { # И-1 C1 для projectId≠p1 (F1 вердикта 058-v1): слой p2, живой маркерный
+        # DEVDB, свой toy-репо R2; probe обязан создать ссылку PROJDB на DEVDB
+        # (C1), PSTATE — .../dev-harness-projects/p2, баннер A1, маркер читается
+        # через ссылку. Мутант «exec честного только для p1, иначе поддельное
+        # A2 rc=0» здесь красен: нет ни ссылки, ни STATE-строки, баннер A2.
+        # НЕ исключение для p1 и НЕ статическая проверка исходника (требование
+        # вердикта дословно).
+  local b="$WORK/k15"; rm -rf "$b"; mkdir -p "$b"
+  local d out rc=0 p
+  d="$(mk_devdb "$b")"; p="$b/dev-harness-projects/p2/home/.omp/profiles/dev/agent/agent.db"
+  out="$(probe_run2 "$b" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] \
+    && printf '%s\n' "$out" | grep -Fxq "STATE: $b/dev-harness-projects/p2" \
+    && [ -L "$p" ] && [ "$(readlink -- "$p")" = "$d" ] \
+    && grep -Fq 'devmark-058' "$p" \
+    && printf '%s\n' "$out" | grep -Fxq "AGENTDB: $d"
+}
+
 hcell к1 k1
 hcell к2 k2
 hcell к3 k3
@@ -531,9 +588,11 @@ hcell к8 k8
 hcell к9 k9
 hcell к10 k10
 hcell к11 k11
+hcell к12 k12
 hcell к13 k13
 hcell к14 k14
-[ "$HSEEN" -eq 13 ] || die_pack "счёт честных клеток ≠ 13: $HSEEN (к12 — cognitive-only в контракте)"
+hcell к15 k15
+[ "$HSEEN" -eq 15 ] || die_pack "счёт честных клеток ≠ 15: $HSEEN (пустая/лишняя выборка — красная)"
 [ "$HONEST" -eq "$HSEEN" ] || { printf 'честная часть: %s из %s\n' "$HONEST" "$HSEEN" >&2; exit 1; }
-printf 'честная часть: 13/13 зелёная; предъявлений: стабы 9/9 + дифф 9/9 + честные 13/13\n'
+printf 'честная часть: 15/15 зелёная; предъявлений: стабы 9/9 + дифф 9/9 + честные 15/15\n'
 exit 0
