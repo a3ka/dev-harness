@@ -32,6 +32,15 @@
 #
 set -uo pipefail
 
+# Санация git-окружения (прецедент spawn_agent.sh, контракт 060 A1): ни один
+# git-вызов этого скрипта не должен читать GIT_DIR/GIT_WORK_TREE/прочие
+# переназначения, унаследованные от вызывающей сессии. Без них HEAD записи в
+# <env>/.harness/nabludenia-drafts/ обязан быть HEAD репозитория <env>, а не
+# чужого чекаута. Unset безопасен, если переменные не выставлены (байт-в-байт
+# прежнее поведение, клетка к6в).
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GUARDED_ROOT="$(cd "$SELF_DIR/.." && pwd)"
 COMMAND="${1:-}"
