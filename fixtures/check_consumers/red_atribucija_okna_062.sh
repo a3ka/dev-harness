@@ -19,6 +19,12 @@
 #   к5 (г) без писателя — vacuous rc 0 всегда;
 #   к6      merge БЕЗ `land:` маркера — внутренний: принесённая правка
 #          писателя судится — зелёная всегда.
+#   к7 (И-2) правка писателя СВОИМ коммитом и ВОЗВРАТ исходного содержимого
+#          следующим своим — КРАСНАЯ до реализации (конечный дифф пуст,
+#          сегодня rc 0), зелёная после: покоммитная тронутость;
+#   к8 (И-4) объект тега-границы удалён (tag -l листингует, разрешение
+#          диапазона отказывает) — КРАСНАЯ до реализации (сегодня тихий
+#          vacuous rc 0), зелёная после: именованный отказ добычи окна.
 #
 # СТАБ-ПАК (Н-39: обман ровно одной ручкой; привязка стабов к ветвям — ЭТОТ
 # код, не проза контракта; стаб-пак зелёный ДО и ПОСЛЕ реализации —
@@ -30,11 +36,17 @@
 #   s3 «все land: чужие» — исключает и СВОИ ленды; смерть к3, честен на к2;
 #   s4 «все merge чужие» — исключает и внутренние слияния; смерть к6,
 #       честен на к2.
+#   s5 «endpoint-фильтр»  — грамматика честная, но тронутость требует
+#       непустого конечного диффа тег..HEAD (контрмодель критика 062-к1);
+#       смерть к7, честен на к2 (диффпроба);
+#   s6 «ошибка→пустое»    — окно и тронутость честные, отказ добычи
+#       проглатывается в пустое множество (контрмодель критика 062-к1);
+#       смерть к8, честен на к2 (диффпроба).
 # Стабы судят только отсутствие пробы (клетки смерти/контроля проб не несут);
 # фраза отказа — дословно фраза гейта.
 #
 # rc: 0 ⟺ стаб-пак пойман весь ∧ честные клетки зелёные ∧ выборки непусты;
-# на HEAD ожидается rc 1 (красная — клетка к1: предмет не реализован).
+# на HEAD ожидается rc 1 (красные — клетки к1/к7/к8: предмет не реализован).
 # Скрипт не печатает PASS — только счёт просмотренного (правило роли).
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
@@ -98,6 +110,15 @@ chk_refuse() {
   return 1
 }
 
+PHRASE4='потребители 116: список судимых коммитов окна недоступен'
+chk_win_refuse() { # именованный отказ добычи окна (И-4): rc 1 + дословная фраза
+  if [ "$LAST_RC" -eq 1 ] && printf '%s\n' "$LAST_OUT" | grep -Fq "$PHRASE4"; then
+    printf '  ok   %s: отказ добычи окна rc 1, причина названа дословно\n' "$1" >&2; return 0
+  fi
+  printf '  FAIL %s: rc %s, ожидался отказ 1 с дословной причиной «%s»\nвывод гейта:\n%s\n' "$1" "$LAST_RC" "$PHRASE4" "$LAST_OUT" >&2
+  return 1
+}
+
 with_stub() { SUBJ="$1"; }
 restore_subj() { SUBJ="$REAL_SUBJ"; }
 
@@ -151,6 +172,27 @@ k6() { # merge БЕЗ land-маркера — внутренний: принес
   run_gate "$T" contracts/062-x.md
   chk_refuse 'к6: merge без land-маркера — внутренний, судится'
 }
+k7() { # (И-2) правка-и-возврат своими коммитами хребта — КРАСНАЯ до реализации
+  local T="$WORK/k7"; mkt62 "$T"
+  put_draft62 "$T" "$CENSUS"
+  cp "$T/scripts/freeze_contract.sh" "$WORK/k7-orig"
+  touch_writer "$T"; commit_all "$T" 'svoja pravka pisatelja na khrebte'
+  cp "$WORK/k7-orig" "$T/scripts/freeze_contract.sh"
+  commit_all "$T" 'vozvrat iskhodnogo soderzhimogo pisatelja'
+  run_gate "$T" contracts/062-x.md
+  chk_refuse 'к7: правка-и-возврат в своей ветке судится (покоммитная тронутость)'
+}
+k8() { # (И-4) отказ добычи окна — именованный rc 1, не vacuous; КРАСНАЯ до реализации
+  local T="$WORK/k8" obj f
+  mkt62 "$T"
+  put_draft62 "$T" "$CENSUS"
+  obj="$(git -C "$T" rev-parse frozen/contracts/062/1)"
+  f="$T/.git/objects/${obj:0:2}/${obj:2}"
+  [ -f "$f" ] || { printf '  FAIL к8: объект тега-границы не loose-файл: %s\n' "$f" >&2; return 1; }
+  rm -f "$f"
+  run_gate "$T" contracts/062-x.md
+  chk_win_refuse 'к8: отказ добычи окна — именованный отказ, не пустое множество'
+}
 
 honest_total=0; honest_green=0; honest_fail=""
 hcell() { # hcell <имя> <функция>
@@ -165,6 +207,8 @@ hcell к3-свой-ленд-судится k3
 hcell к4-проба-живая-rc0 k4
 hcell к5-без-писателя-vacuous k5
 hcell к6-merge-без-маркера-внутренний k6
+hcell к7-правка-i-vozvrat-suditsja k7
+hcell к8-otkaz-dobychi-okna-imenovan k8
 
 # ── СТАБ-ПАК (обманные реализации; игрушки честных клеток уже построены) ─────
 STUBS="$WORK/stubs"; mkdir -p "$STUBS"
@@ -271,6 +315,90 @@ done < <(comm -23 "$COMMITS" "$EXCL")
 printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
 exit 1
 EOF
+# s5 «endpoint-фильтр»: грамматика окна честная (И-1), тронутость по коммиту
+# честная, НО требует непустого конечного диффа тег..HEAD — правка-и-возврат
+# уходит из окна (контрмодель критика 062-к1 по И-2; поведение ДО 062).
+cat > "$STUBS/s5_endpoint_filtr.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+EXCL="$(mktemp)"; COMMITS="$(mktemp)"
+trap 'rm -f "$EXCL" "$COMMITS"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS"; then
+  printf 'потребители 116: список судимых коммитов окна недоступен\n' >&2
+  exit 1
+fi
+git -C "$ROOT" diff-tree --no-commit-id --name-only -r "$last_frozen"..HEAD \
+  -- scripts/freeze_contract.sh 2>/dev/null | grep -q . || exit 0
+: >"$EXCL"
+git -C "$ROOT" rev-list --merges "$last_frozen..HEAD" 2>/dev/null | while IFS= read -r mc; do
+  [ -n "$mc" ] || continue
+  msg="$(git -C "$ROOT" log -1 --format=%s "$mc" 2>/dev/null)"
+  case "$msg" in
+    "land: wip/$n/"*) ;;
+    "land: wip/"*) git -C "$ROOT" rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null >>"$EXCL" ;;
+  esac
+done
+sort -u "$EXCL" -o "$EXCL"
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  if git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" \
+       -- scripts/freeze_contract.sh 2>/dev/null | grep -q .; then
+    hit=1; break
+  fi
+done < <(comm -23 "$COMMITS" "$EXCL")
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
+
+# s6 «ошибка→пустое множество»: грамматика окна и покоммитная тронутость
+# честные, но отказ добычи множества проглатывается в пустоту — vacuous rc 0
+# (контрмодель критика 062-к1 по И-4: контур «|| true» на rev-list).
+cat > "$STUBS/s6_oshibka_pusto.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+ROOT="${1:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+CONTRACT_PATH="${2:?ispolzovanie: <koren> <otn-put-kontrakta>}"
+base="${CONTRACT_PATH##*/}"
+n="$(printf '%s' "$base" | sed -nE 's/^([0-9]{3})-.*/\1/p')"
+[ -n "$n" ] || exit 2
+command -v git >/dev/null 2>&1 || exit 2
+last_frozen="$(git -C "$ROOT" tag -l "frozen/contracts/$n/*" 2>/dev/null | sort -V | tail -n 1)"
+[ -n "$last_frozen" ] || exit 0
+EXCL="$(mktemp)"; COMMITS="$(mktemp)"
+trap 'rm -f "$EXCL" "$COMMITS"' EXIT
+git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u >"$COMMITS" || true
+: >"$EXCL"
+git -C "$ROOT" rev-list --merges "$last_frozen..HEAD" 2>/dev/null | while IFS= read -r mc; do
+  [ -n "$mc" ] || continue
+  msg="$(git -C "$ROOT" log -1 --format=%s "$mc" 2>/dev/null)"
+  case "$msg" in
+    "land: wip/$n/"*) ;;
+    "land: wip/"*) git -C "$ROOT" rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null >>"$EXCL" ;;
+  esac
+done
+sort -u "$EXCL" -o "$EXCL"
+hit=0
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  if git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" \
+       -- scripts/freeze_contract.sh 2>/dev/null | grep -q .; then
+    hit=1; break
+  fi
+done < <(comm -23 "$COMMITS" "$EXCL")
+[ "$hit" -eq 0 ] && exit 0
+printf 'потребители 116: писатель scripts/freeze_contract.sh изменён, потребитель fixtures/reader.sh не верифицирован: нет ПОТРЕБИТЕЛЬ-пробы\n' >&2
+exit 1
+EOF
 chmod +x "$STUBS"/*.sh
 
 stub_total=0; stub_caught=0; stub_esc=""
@@ -334,6 +462,30 @@ s4_diff() { # диффпроба: хребет судится честно
   restore_subj
   chk_refuse 's4-диффпроба: хребет судит как честный (вход к2)'
 }
+s5() { # смерть к7: endpoint-фильтр отпускает правку-и-возврат (конечный дифф пуст)
+  with_stub "$STUBS/s5_endpoint_filtr.sh"
+  run_gate "$WORK/k7" contracts/062-x.md
+  restore_subj
+  chk_rc0 's5: правка-и-возврат ушла из окна по конечному диффу (вход к7) — пойман'
+}
+s5_diff() { # диффпроба: на сохранённой правке s5 честен (отказ теми же словами)
+  with_stub "$STUBS/s5_endpoint_filtr.sh"
+  run_gate "$WORK/k2" contracts/062-x.md
+  restore_subj
+  chk_refuse 's5-диффпроба: сохранённая правка судится как честная (вход к2)'
+}
+s6() { # смерть к8: отказ добычи проглочен в vacuous rc 0
+  with_stub "$STUBS/s6_oshibka_pusto.sh"
+  run_gate "$WORK/k8" contracts/062-x.md
+  restore_subj
+  chk_rc0 's6: отказ добычи окна стал пустым множеством, rc 0 (вход к8) — пойман'
+}
+s6_diff() { # диффпроба: на живом окне s6 честен (отказ теми же словами)
+  with_stub "$STUBS/s6_oshibka_pusto.sh"
+  run_gate "$WORK/k2" contracts/062-x.md
+  restore_subj
+  chk_refuse 's6-диффпроба: живое окно судится как честное (вход к2)'
+}
 
 scell s1-линейный-судия s1
 scell s2-слепец-окна s2
@@ -343,6 +495,10 @@ dcell s1-диффпроба s1_diff
 dcell s2-диффпроба s2_diff
 dcell s3-диффпроба s3_diff
 dcell s4-диффпроба s4_diff
+scell s5-endpoint-filtr s5
+scell s6-oshibka-pusto s6
+dcell s5-диффпроба s5_diff
+dcell s6-диффпроба s6_diff
 
 # ── итог: счёт просмотренного; пустая выборка — красное ───────────────────────
 printf '062: честных клеток %d, зелёных %d, красных:%s\n' \
