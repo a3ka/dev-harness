@@ -10,7 +10,7 @@
 # остаётся судьёй; тег НЕ минтится (next_id), пуш НЕ делается (gitw).
 #
 # ПРИВЯЗКА К КОДУ (Н-39; входы — номера из НЕПЕРЕСЕКАЮЩИХСЯ поддиапазонов
-# 940-979, вне занятых 023 (120-939) и 031 (020-119)):
+# 940-984, вне занятых 023 (120-939) и 031 (020-119)):
 #   м0 зелёная (п1-класс 037: отсутствующий субъект — предъявляемое КРАСНОЕ
 #     ДО): полный авторитетный минт тега (аннотирован + запушен на origin),
 #     строки нет → rc 0, stdout MINTED, в манифесте HEAD ровно одна строка
@@ -35,6 +35,16 @@
 #     коммит orchestrator'ом через живой pre-commit-хук → коммит ОТКАЗАН
 #     именем «дверь минта 031», HEAD не двинулся — скрипт не может обойти
 #     дверь, и сама дверь жива (не плацебо-зелёная).
+#   м5 неотвратимость двери для скрипта: строка N5 в ЖИВОЙ шапке origin/main,
+#     локальный HEAD позади (гонка) → коммит САМОГО скрипта отказан дверью:
+#     rc 1, stderr «дверь минта 031», HEAD не двинулся, дерево чисто. На этом
+#     же классе входа умирает клетка стМ4 — копия субъекта с инъекцией
+#     «-c core.hooksPath=/dev/null» в командную строку коммита (дословный
+#     обход критика к1 Б2): её коммит идёт МИМО двери (rc 0, MINTED, HEAD
+#     двинулся) — «коммит прошёл мимо двери»;
+#   м6 конфиг-дизарм: core.hooksPath toy ведёт в каталог без живого
+#     pre-commit → именованный отказ ДО записи: rc 1, «дверь 031 отключена
+#     конфигом», строки нет в worktree, HEAD не двинулся;
 #
 # Стабы — мутантные КОПИИ субъекта (одна sed-ручка на копию; применение
 # проверяется ДВУМЯ мерами: cmp с субъектом ∧ литеральный grep -F маркер).
@@ -63,7 +73,7 @@ BARRIER="$WORK/subj-scripts"
 cp -r "$ROOT/scripts" "$BARRIER"
 
 # Случайные входы (А-88): м0 940-949 · м1 950-954 · м1б 955-959 · м2 960-964 ·
-# м3 965-969 · м4 970-974 · стаб-тоя 975-977.
+# м3 965-969 · м4 970-974 · стаб-тоя 975-977 · м5 978-979 · м6 980-984.
 mapfile -t RD < <(awk 'BEGIN{srand();
   printf "%03d\n", 940+int(rand()*10);
   printf "%03d\n", 950+int(rand()*5);
@@ -71,8 +81,10 @@ mapfile -t RD < <(awk 'BEGIN{srand();
   printf "%03d\n", 960+int(rand()*5);
   printf "%03d\n", 965+int(rand()*5);
   printf "%03d\n", 970+int(rand()*5);
-  for(i=0;i<4;i++) printf "%d\n", 10000000+int(rand()*89999999)}')
-N0="${RD[0]}"; N1="${RD[1]}"; N1B="${RD[2]}"; N2="${RD[3]}"; N3="${RD[4]}"; N4="${RD[5]}"
+  for(i=0;i<4;i++) printf "%d\n", 10000000+int(rand()*89999999);
+  printf "%03d\n", 978+int(rand()*2);
+  printf "%03d\n", 980+int(rand()*5)}')
+N0="${RD[0]}"; N1="${RD[1]}"; N1B="${RD[2]}"; N2="${RD[3]}"; N3="${RD[4]}"; N4="${RD[5]}"; N5="${RD[10]}"; N6="${RD[11]}"
 
 g() {
   local r="$1"; shift
@@ -233,6 +245,35 @@ if [ -x "$SUBJ" ]; then
   else fail м4 "rc=$rc4 err=$err4 cnt=$cnt4"; fi
   g "$T4" reset -q HEAD -- registry/contracts.tsv 2>/dev/null
   g "$T4" checkout -- registry/contracts.tsv 2>/dev/null
+  # ── м5: неотвратимость двери для САМОГО скрипта — гонка: строка N5 уже в
+  # живой шапке origin/main, локальный HEAD позади. Дверь обязана отказать
+  # коммиту СКРИПТА («повторный минт» по живой шапке) — rc 1 именем двери и
+  # точечный откат (Б2 круга 1: м4 доказывал живость двери, не обязательность).
+  T5="$WORK/k5-${RD[9]}"; mk_toy "$T5"; authority_tag "$T5" "$N5"; authority_line "$T5" "$N5"
+  g "$T5" reset -q --hard HEAD~1
+  head5="$(git -C "$T5" rev-parse HEAD)"
+  out5="$("$SUBJ" --root "$T5" --nnn "$N5" 2>"$WORK/e5")"; rc5=$?
+  err5="$(cat "$WORK/e5")"
+  dirty5="$(git -C "$T5" status --porcelain)"
+  cnt5="$(git -C "$T5" rev-list --count "$head5..HEAD")"
+  if [ "$rc5" -eq 1 ] && printf '%s' "$err5" | grep -qF 'дверь минта 031' \
+     && [ -z "$dirty5" ] && [ "$cnt5" -eq 0 ]; then pass м5
+  else fail м5 "rc=$rc5 err=$err5 dirty=${dirty5:-чисто} cnt=$cnt5"; fi
+
+  # ── м6: конфиг-дизарм — core.hooksPath ведёт мимо живого pre-commit →
+  # именованный отказ ДО записи строки (дерево не мутируется вовсе).
+  T6="$WORK/k6-${RD[10]}"; mk_toy "$T6"; authority_tag "$T6" "$N6"
+  mkdir -p "$WORK/nohooks6"
+  g "$T6" config core.hooksPath "$WORK/nohooks6"
+  head6="$(git -C "$T6" rev-parse HEAD)"
+  out6="$("$SUBJ" --root "$T6" --nnn "$N6" 2>"$WORK/e6")"; rc6=$?
+  err6="$(cat "$WORK/e6")"
+  line6="$(grep -cF "$N6 → " "$T6/registry/contracts.tsv" 2>/dev/null || true)"
+  cnt6="$(git -C "$T6" rev-list --count "$head6..HEAD")"
+  if [ "$rc6" -eq 1 ] && printf '%s' "$err6" | grep -qF 'дверь 031 отключена конфигом' \
+     && [ "${line6:-0}" -eq 0 ] && [ "$cnt6" -eq 0 ]; then pass м6
+  else fail м6 "rc=$rc6 err=$err6 line=${line6:-0} cnt=$cnt6"; fi
+
 
   # ── стабы: мутантные копии субъекта; нейтрализация = ВСЕГДА-ЛОЖНОЕ условие ─
   mk_stub() { # <копия> <sed-выражение> <литеральный маркер>
@@ -273,9 +314,24 @@ if [ -x "$SUBJ" ]; then
       RED=$((RED+1)); REPS+=("стМ3: ПРОШЁЛ как честный — дефект батареи")
     else GRN=$((GRN+1)); REPS+=("стМ3: мёртв (отказ пришёл именем двери, не скрипта: ${errs3:-пусто})"); fi
   else NORUN=$((NORUN+1)); REPS+=("стМ3: не построен (sed-ручка не применилась)"); fi
+  # стМ4 «hooksPath-инъекция в командную строку коммита» (клетка Б2 круга 1 —
+  # дословный обход критика: добавленный -c core.hooksPath=/dev/null отключает
+  # дверь ТОЛЬКО на коммите скрипта). Вход — гонка м5-класса: дверь обязана
+  # отказать; мутант, чей коммит прошёл мимо двери, наблюдаем (rc 0/MINTED).
+  if mk_stub "$WORK/ml-stM4.sh" 's|git -C "$ROOT" commit|git -C "$ROOT" -c core.hooksPath=/dev/null commit|' '-c core.hooksPath=/dev/null commit'; then
+    TS4="$WORK/s4c-${RD[10]}"; mk_toy "$TS4"; authority_tag "$TS4" "$N5"; authority_line "$TS4" "$N5"
+    g "$TS4" reset -q --hard HEAD~1
+    head4c="$(git -C "$TS4" rev-parse HEAD)"
+    out4c="$("$WORK/ml-stM4.sh" --root "$TS4" --nnn "$N5" 2>"$WORK/es4")"; rcs4=$?
+    errs4="$(cat "$WORK/es4")"
+    cnt4c="$(git -C "$TS4" rev-list --count "$head4c..HEAD")"
+    if [ "$rcs4" -eq 1 ] && printf '%s' "$errs4" | grep -qF 'дверь минта 031' && [ "$cnt4c" -eq 0 ]; then
+      RED=$((RED+1)); REPS+=("стМ4: ПРОШЁЛ как честный (инъекция не отключила дверь) — дефект батареи")
+    else GRN=$((GRN+1)); REPS+=("стМ4: мёртв (коммит прошёл мимо двери: rc=$rcs4 out=$out4c cnt=$cnt4c)"); fi
+  else NORUN=$((NORUN+1)); REPS+=("стМ4: не построен (sed-ручка не применилась)"); fi
 fi
 
 for r in "${REPS[@]}"; do printf 'КРАСНОЕ 068b: %s\n' "$r" >&2; done
-printf 'ИТОГ 068b (mint_line): ветвей 6, стабов 3, красных %d, зелёных %d, не прогнано %d\n' "$RED" "$GRN" "$NORUN"
+printf 'ИТОГ 068b (mint_line): ветвей 8, стабов 4, красных %d, зелёных %d, не прогнано %d\n' "$RED" "$GRN" "$NORUN"
 [ "$RED" -eq 0 ] || exit 1
 exit 0
