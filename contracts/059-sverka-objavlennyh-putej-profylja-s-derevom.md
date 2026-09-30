@@ -5,8 +5,8 @@
 `fixtures/_krasnye_059.sh` + строка маркера семьи, прецедент 058 `aafe5d5`.
 Fix059w 2026-09-30: преждевременно вшитые ci-шаг и ключ package.json ИЗЪЯТЫ —
 подключение guard-канала переносится на реализационную пачку (CI черновика
-зелёный; до реализации батарея предъявляется локально/раннером и
-прецизионным пре-фриз гейтом 043 — см. ПРОВОДКА). Заморозка — оркестратор.
+зелёный; до реализации батарея предъявляется судьями каждого круга
+локально/раннером — см. ПРОВОДКА). Заморозка — оркестратор.
 
 ## Предмет
 
@@ -112,27 +112,37 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
   отсутствует → rc 0 + merged = repo-значение (И-1: сверяется ЭФФЕКТИВНОЕ
   значение; реализация, судящая оба исходных объявления, здесь отказывает),
   к11 зеркало: эффективный repo-путь отсутствует, project-путь существует →
-  rc 1 называет repo-значение. Отказные клетки (к1/к2/к4–к7/к11) проверяют
-  И пустоту stdout — ранняя печать merged до отказа неразличима без неё (И-4).
-- **Стаб-пак** (обманные стаб-резолверы; каждый обманывает ровно одной ручкой
-  `STUB_*`, включая контрмодели ранней печати и сверки всех объявлений;
-  перечень ручек и привязка к клеткам — код батареи, НЕ проза, Н-39;
-  прецедент 054/058; зелёный ДО и ПОСЛЕ реализации): каждая ручка умирает на
-  своём входе + диффпроба: стаб без ручек честен на всех десяти сценариях
-  (rc И класс stdout).
+  rc 1 называет repo-значение, к12 FIFO на месте объявления (`mkfifo`) →
+  отказ «не файл», stdout пуст (И-2(г): предикат — регулярный файл;
+  арбитраж 059-к3 9e874be п.2/п.3). Отказные клетки (к1/к2/к4–к7/к11/к12)
+  проверяют И пустоту stdout — ранняя печать merged до отказа неразличима
+  без неё (И-4).
+- **Стаб-пак** (девять обманных стаб-резолверов; каждый обманывает ровно
+  одной ручкой `STUB_*`, включая контрмодели ранней печати, сверки всех
+  объявлений и предиката «не каталог» вместо «регулярного файла» — ручка
+  `STUB_NOT_DIR`, привязка к к12 кодом, Н-39; перечень ручек и привязка к
+  клеткам — код батареи, НЕ проза; прецедент 054/058; зелёный ДО и ПОСЛЕ
+  реализации): каждая ручка умирает на своём входе + диффпроба: стаб без
+  ручек честен на всех одиннадцати сценариях (rc И класс stdout).
+- socket/device в батарее не предъявляются: тот же предикат, что FIFO;
+  закрыты чтением исходника судьёй (арбитраж 059-к3 9e874be п.3.4) —
+  клеток по ним не заводить.
 - rc батареи 0 ⟺ стаб-пак пойман весь И диффпроба чиста И честные клетки
   зелёные; на HEAD ожидается rc 1 (красная — предмет отсутствует).
 
 ## Зоны (check_zones)
 
 ЗОНА architect: contracts/059-sverka-objavlennyh-putej-profylja-s-derevom.md fixtures/workshop_project/red_sverka_puti_profylja.sh fixtures/_krasnye_059.sh
-ЗОНА implementer: scripts/profile_resolver.sh fixtures/workshop_project/red_profil_dva_sloja.sh fixtures/workshop_project/red_izoljacija_projectid.sh fixtures/workshop_project/red_sharing_agentdb.sh .github/workflows/ci.yml package.json
+ЗОНА implementer: scripts/profile_resolver.sh fixtures/workshop_project/red_profil_dva_sloja.sh fixtures/workshop_project/red_izoljacija_projectid.sh fixtures/workshop_project/red_sharing_agentdb.sh fixtures/profile_resolver/ fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh fixtures/workshop_project/_verify_055_r3.sh .github/workflows/ci.yml package.json
 
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 architect-зона (историческая заявка до отвердевания конвенции разделения проверка/проводка; прецедент оформления — 045/057/058). Дельта — один прямой шаг `bash fixtures/_krasnye_059.sh` после шага 058 (прецедент 045/058: сам-тесты семьи ВНЕ case_*-глоба шарда); новая джоба/шард-ключ не вводятся
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 architect-зона (та же историческая причина, что 011; прецедент оформления — 045/057/058). Дельта — тот же один прямой шаг; новая джоба/шард-ключ не вводятся
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; тот же общий носитель ключей, что ci.yml; implementer-union 002–058 — те же роли, что у этого контракта). Дельта — один ключ `check:declared-path-family-selftest` (прецедент 058: check:sharing-family-selftest)
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (та же историческая причина, что 011). Дельта — тот же один ключ
 ПЕРЕСЕЧЕНИЕ implementer: fixtures/workshop_project/red_sharing_agentdb.sh — 058 architect-зона (заморожена): toy-мир 058 объявляет `.github/workflows/ci.yml` без файла (:72/:79) — implementer 059 создаёт объявленный файл; клетки и стаб-пак 058 не правятся, регресс приёмки `bash fixtures/_krasnye_058.sh` rc 0
+ПЕРЕСЕЧЕНИЕ implementer: fixtures/profile_resolver/ — 057 implementer-зона (заморожена): восемь из девяти case_*.sh объявляют ci.workflow без файла (девятый — case_net_fajla_repo_sloja.sh — ci не объявляет; арбитраж 059-к3 9e874be З4) — implementer 059 создаёт объявленные toy-файлы; клетки и ожидания не правятся
+ПЕРЕСЕЧЕНИЕ implementer: fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh — 041 architect-зона каталога (заморожена; тот же файл в 054/055 implementer-зоне каталога): оба строителя объявляют ci.yml без файла — implementer 059 создаёт объявленный toy-файл; клетки и ожидания не правятся
+ПЕРЕСЕЧЕНИЕ implementer: fixtures/workshop_project/_verify_055_r3.sh — 055 implementer-зона каталога (заморожена; та же зона каталога у 054): toy-мир объявляет ci без файла — implementer 059 создаёт объявленный toy-файл; клетки и ожидания не правятся
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_sverka_puti_profylja.sh — 054 implementer-зона каталога (заморожена): новый файл семьи, файлы 054 не правятся (прецедент 058)
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_sverka_puti_profylja.sh — 055 implementer-зона каталога (заморожена): red_izoljacija_projectid.sh не правится
 
@@ -154,12 +164,18 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
   исторической architect-зоной 011/015).
 - **implementer**: `scripts/profile_resolver.sh` (блок И-1..И-4 между :585 —
   конец MERGED-jq — и :587 — `printf`); toy-миры семейных батарей, объявляющие
-  ci без файла (правка accompanies, иначе честные клетки 054/055/058 краснеют):
+  ci без файла (правка accompanies, иначе честные клетки 041/054/055/057/058
+  краснеют — арбитраж 059-к3 9e874be З4/С2):
   `fixtures/workshop_project/red_profil_dva_sloja.sh` (строители :39/:46;
   inline-JSON :601, :641, :1077, :1095, :1096, :1114, :1130, :1187, :1304,
   :1730, :1738), `fixtures/workshop_project/red_izoljacija_projectid.sh`
   (:59, :67, :69), `fixtures/workshop_project/red_sharing_agentdb.sh`
-  (:72, :79) — в каждом объявленном toy-пути создать файл. Батарею 059
+  (:72, :79), `fixtures/profile_resolver/` (восемь из девяти case_*.sh
+  объявляют ci без файла; девятый — case_net_fajla_repo_sloja.sh — ci не
+  объявляет), `fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh`
+  (оба строителя объявляют ci.yml без файла),
+  `fixtures/workshop_project/_verify_055_r3.sh` — единая дельта: создать
+  объявленный toy-файл; клетки и ожидания не правятся. Батарею 059
   (`red_sverka_puti_profylja.sh`) правка НЕ касается: её toy-миры обязаны
   содержать отсутствующие пути — это предмет. ci-шаг 059 и ключ
   package.json подключаются этой же реализационной пачкой (см. ПРОВОДКА).
@@ -174,7 +190,7 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
   rc 0, stdout НЕпуст и `jq -r '.ci.value.workflow'` = объявленное значение
   дословно.
 - дано: отказ любого класса (нет файла / абсолютный / побег / симлинк наружу
-  / каталог / зеркало перекрытия); когда: та же команда, stdout в файл;
+  / каталог / FIFO / зеркало перекрытия); когда: та же команда, stdout в файл;
   тогда: rc 1 И stdout-файл ПУСТ (`[ ! -s ]`) — пара к зелёному сценарию
   выше: ранняя печать merged до отказа без этой проверки неразличима (И-4).
 - дано: repo объявляет `ci.workflow="ci/repo.yml"` (файл существует),
@@ -196,6 +212,9 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
   тогда: rc 1, stderr `grep -F 'выходит за корень репо'`.
 - дано: объявленный путь — каталог; когда: та же команда; тогда: rc 1,
   stderr `grep -F 'не файл'`.
+- дано: объявленный путь — FIFO внутри репо (`mkfifo`); когда: та же команда,
+  stdout в файл; тогда: rc 1, stderr `grep -F 'не файл'`, stdout ПУСТ
+  (И-2(г): предикат — регулярный файл; арбитраж 059-к3 9e874be п.3).
 - дано: ci не объявлен ни репо, ни слоем; когда: та же команда; тогда: rc 0
   (в merged нет ветви ci).
 - дано: toy-репо с git+pin+.env, ci объявлен, файла нет; когда:
@@ -207,7 +226,10 @@ odelix-stack 6bd25c9): «Профиль объявляет `.github/workflows/ha
   пойман весь + диффпроба чиста + честные клетки зелёные); на HEAD rc 1
   (красная — предмет отсутствует).
 - правило: после правки toy-миров `bash fixtures/_krasnye_058.sh` остаётся
-  rc 0 (регресс соседней семьи закрыт созданием объявленных файлов).
+  rc 0 (регресс соседней семьи закрыт созданием объявленных файлов), И
+  `bash scripts/verify_antiplacebo.sh --scope profile_resolver` rc 0, И
+  `bash fixtures/_krasnye_041.sh` rc 0 (раннер 041; арбитраж 059-к3 С2 —
+  мигрируемые toy-миры 041/057).
 
 ## ПРОВОДКА
 
@@ -227,8 +249,9 @@ check:sharing-family-selftest) — вносится РЕАЛИЗАЦИОННОЙ
 предметом (fix059w 2026-09-30: CI черновика обязан быть зелёным;
 преждевременно вшитый шаг держал CI красным до реализации — батарея красна
 по конструкции). До проводки батарея предъявляется судьями каждого круга
-локально/раннером и прецизионным пре-фриз гейтом 043 (полярность red_*-семьи
-заявлена в ЗОНА выше); г2 check_provodka («guard подключён») на черновике до
+локально/раннером (точка подключения — precision-гейт 043 семью
+fixtures/workshop_project/ не исполняет: семьи полярности собираются только из
+fixtures/check_*/*); г2 check_provodka («guard подключён») на черновике до
 проводки законно красен и зеленеет вместе с ней — связывающий прогон живёт в
 done_contract.sh (шаг 6), freeze_contract.sh check_provodka не вызывает.
 Батарея красна ДО реализации предмета (г0 «предмет отсутствует») и зеленеет
