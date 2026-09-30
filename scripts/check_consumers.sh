@@ -218,8 +218,7 @@ for w in "${!writer_consumers[@]}"; do
     # `out=… || die …` сохраняет stderr diff-tree в вывод отказа (по конвенции
     # файла; die — прецедент п2 catch-all «потребители 116: писатель … изменён,
     # потребитель … не верифицирован: …»).
-    out="$( { git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- "$w"; } 2>&1 )" \
-      || die "потребители 116: список судимых коммитов окна недоступен: $out"
+    out="$(git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- "$w")" || die "потребители 116: список судимых коммитов окна недоступен"
     [ -n "$out" ] && { hit=1; break; }
   done < <(comm -23 "$_commits_tmp" "$_excl_tmp")
   if [ "$hit" -eq 1 ]; then
