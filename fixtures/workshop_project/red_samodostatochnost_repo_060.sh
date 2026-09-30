@@ -287,13 +287,13 @@ EOF
   out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" HARNESS_SCRATCH="$WORK/scratch" \
     bash "$ROOT/workshop" --probe "$toy7" 2>"$WORK/k7.err")"; rc=$?
   [ $rc -eq 0 ] || return 1
-  printf '%s\n' "$out" | grep -qF "WORKFLOW: $toy7" || return 1
-  printf '%s\n' "$out" | grep -qF 'TOOLS: ' || return 1
+  printf '%s\n' "$out" | grep -Fxq "WORKFLOW: $toy7" || return 1
+  printf '%s\n' "$out" | grep -Fxq "TOOLS: $ROOT" || return 1
   p="$(printf '%s\n' "$out" | sed -n 's/^PROMPT: //p')"
   { [ -n "$p" ] && [ -f "$p" ]; } || return 1
   grep -Fxq "$R1" "$p" || return 1
-  grep -qF "HARNESS_WORKFLOW_ROOT=$toy7" "$p" || return 1
-  grep -qF 'HARNESS_TOOLS_ROOT=' "$p" || return 1
+  grep -Fxq "HARNESS_WORKFLOW_ROOT=$toy7" "$p" || return 1
+  grep -Fxq "HARNESS_TOOLS_ROOT=$ROOT" "$p" || return 1
 }
 k8() { # (И-1) живой лаунчер: рука ЭКСПОРТИРОВАНА — потомок (стаб-omp) видит обе переменные
   local toy8 layer8 out rc
@@ -460,7 +460,9 @@ EOF
 cat >"$STUBS/scripts/workshop" <<EOF
 #!/usr/bin/env bash
 # стаб workshop (060): честен = probe несёт WORKFLOW/TOOLS + блок R1-R3, живой
-# режим экспортирует ОБЕ руки и исполняет потомка (\$WORKSHOP_CHILD)
+# режим экспортирует ОБЕ руки и исполняет потомка (\$WORKSHOP_CHILD). Ручка
+# STUB_TOOLS_PROJECT (критик 060-к3 Б1): W10 и R3 печатаются из \$toy —
+# текстовый маршрут инструментов = PROJECT — при ВЕРНОМ экспорте (\$here).
 set -uo pipefail
 probe=0; toy=""
 case "\${1:-}" in
@@ -468,6 +470,8 @@ case "\${1:-}" in
   *) toy="\${1:-}" ;;
 esac
 here="\$(cd "\$(dirname "\$0")/.." && pwd)"
+tools="\$here"
+if [ "\${STUB_TOOLS_PROJECT:-0}" = "1" ]; then tools="\$toy"; fi
 pstate="\${HARNESS_SCRATCH:-\${XDG_STATE_HOME:-\$HOME/.local/state}}/dev-harness-projects/stab060"
 mkdir -p "\$pstate/home"
 prompt="\$pstate/home/session-prompt-orchestrator.md"
@@ -479,24 +483,25 @@ if [ "\$probe" = "1" ]; then
   if [ "\${STUB_PROMPT_NO_ROUTE:-0}" != "1" ]; then
     printf '%s\n' '$R1' >>"\$prompt"
     printf 'HARNESS_WORKFLOW_ROOT=%s\n' "\$toy" >>"\$prompt"
-    printf 'HARNESS_TOOLS_ROOT=%s\n' "\$here" >>"\$prompt"
+    printf 'HARNESS_TOOLS_ROOT=%s\n' "\$tools" >>"\$prompt"
     printf 'WORKFLOW: %s\n' "\$toy"
-    printf 'TOOLS: %s\n' "\$here"
+    printf 'TOOLS: %s\n' "\$tools"
   fi
   printf 'workshop PROBE OK: %s\n' "\$toy"
   printf 'PROMPT: %s\n' "\$prompt"
   exit 0
 fi
-# живой режим: честен = экспорт обеих рук ДО потомка (к8)
+# живой режим: честен = экспорт обеих рук ДО потомка (к8); при STUB_TOOLS_PROJECT
+# экспорт остаётся верным — дефект только в печати W10/R3
 if [ "\${STUB_NO_EXPORT:-0}" != "1" ]; then
   export HARNESS_WORKFLOW_ROOT="\$toy"
   export HARNESS_TOOLS_ROOT="\$here"
 fi
 printf '%s\n' '$R1' >>"\$prompt"
 printf 'HARNESS_WORKFLOW_ROOT=%s\n' "\$toy" >>"\$prompt"
-printf 'HARNESS_TOOLS_ROOT=%s\n' "\$here" >>"\$prompt"
+printf 'HARNESS_TOOLS_ROOT=%s\n' "\$tools" >>"\$prompt"
 printf 'WORKFLOW: %s\n' "\$toy"
-printf 'TOOLS: %s\n' "\$here"
+printf 'TOOLS: %s\n' "\$tools"
 printf 'PROMPT: %s\n' "\$prompt"
 exec "\${WORKSHOP_CHILD:-/bin/true}" "\$toy"
 EOF
@@ -677,6 +682,26 @@ s12_diff() {
   HARNESS_WORKFLOW_ROOT='relative/path' bash "$STUBS/scripts/freeze" contracts/003-x.md 's12d' "$TA12" >/dev/null 2>&1 || return 1
   grep -qF '003 → ' "$TA12/registry/contracts.tsv" 2>/dev/null
 }
+s13() { # дефект: текстовый маршрут TOOLS = PROJECT при верном экспорте (критик 060-к3 Б1)
+  local out rc p
+  out="$(STUB_TOOLS_PROJECT=1 HARNESS_SCRATCH="$WORK/scratch_s13" bash "$STUBS/scripts/workshop" --probe "$TOYS" 2>/dev/null)"; rc=$?
+  [ $rc -eq 0 ] || return 1
+  p="$(printf '%s\n' "$out" | sed -n 's/^PROMPT: //p')"
+  { [ -n "$p" ] && [ -f "$p" ]; } || return 1
+  if grep -Fxq "HARNESS_TOOLS_ROOT=$STUBS" "$p"; then return 1; fi
+  rm -f "$WORK/s13.env"
+  STUB_TOOLS_PROJECT=1 WORKSHOP_CHILD="$CHILDDUMP" CHILD_ENV="$WORK/s13.env" \
+    HARNESS_SCRATCH="$WORK/scratch_s13l" bash "$STUBS/scripts/workshop" "$TOYS" >/dev/null 2>&1 || return 1
+  [ -s "$WORK/s13.env" ] || return 1
+  grep -Fxq "HARNESS_TOOLS_ROOT=$STUBS" "$WORK/s13.env"
+}
+s13_diff() {
+  local out p
+  out="$(HARNESS_SCRATCH="$WORK/scratch_s13d" bash "$STUBS/scripts/workshop" --probe "$TOYS" 2>/dev/null)" || return 1
+  printf '%s\n' "$out" | grep -Fxq "TOOLS: $STUBS" || return 1
+  p="$(printf '%s\n' "$out" | sed -n 's/^PROMPT: //p')"
+  grep -Fxq "HARNESS_TOOLS_ROOT=$STUBS" "$p"
+}
 
 scell s1-env-игнор s1
 scell s2-относительный-молча-next_id s2
@@ -690,8 +715,9 @@ scell s9-env-затирает-аргумент s9
 scell s10-относительный-env-затирает-аргумент s10
 scell s11-без-env-ветвь-сломана s11
 scell s12-freeze-N1-при-валидном-аргументе s12
+scell s13-текстовый-маршрут-tools-из-project s13
 diff_fail=""
-for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff s12_diff; do
+for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff s12_diff s13_diff; do
   "$d" || diff_fail="$diff_fail $d"
 done
 
