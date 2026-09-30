@@ -210,9 +210,17 @@ for w in "${!writer_consumers[@]}"; do
   hit=0
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    if git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- "$w" 2>/dev/null | grep -q .; then
-      hit=1; break
-    fi
+    # И-4: отказ git-инструмента добычи окна (rev-list/log/diff-tree) — ИМЕНОВАННЫЙ
+    # rc 1 дословной фразой «потребители 116: список судимых коммитов окна
+    # недоступен», не тихая пустота. Раньше здесь стояла форма
+    # `2>/dev/null | grep -q .` — pipefail превращал rc 128 diff-tree в «не тронут»
+    # (vacuous rc 0), отказ маскировался под законно пустое множество. Захват
+    # `out=… || die …` сохраняет stderr diff-tree в вывод отказа (по конвенции
+    # файла; die — прецедент п2 catch-all «потребители 116: писатель … изменён,
+    # потребитель … не верифицирован: …»).
+    out="$( { git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- "$w"; } 2>&1 )" \
+      || die "потребители 116: список судимых коммитов окна недоступен: $out"
+    [ -n "$out" ] && { hit=1; break; }
   done < <(comm -23 "$_commits_tmp" "$_excl_tmp")
   if [ "$hit" -eq 1 ]; then
     touched_writers+=("$w")

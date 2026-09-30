@@ -69,6 +69,7 @@
     "check:sharing-family-selftest": "bash fixtures/_krasnye_058.sh",
     "check:declared-path-family-selftest": "bash fixtures/_krasnye_059.sh",
     "check:samodostatochnost-family-selftest": "bash fixtures/_krasnye_060.sh",
-    "check:merge-gate-family-selftest": "bash fixtures/check_judge_gate/krasnye_063.sh"
+    "check:merge-gate-family-selftest": "bash fixtures/check_judge_gate/krasnye_063.sh",
+    "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh"
   }
 }
