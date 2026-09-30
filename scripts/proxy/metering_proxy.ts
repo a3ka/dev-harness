@@ -1277,6 +1277,42 @@ export function selftest(): number {
       if (reloaded.secrets_env !== `${fakeHome}/.config/dev-harness/secrets-064.env`) {
         fails.push(`home: после восстановления HOME раскрытие не вернулось: «${reloaded.secrets_env}»`)
       }
+      // ── Р-1′: пин «имя поля по месту плейсхолдера» (${HOME} только в data_dir) ──
+      // secrets_env абсолютный, ${HOME} только в data_dir. При заданной HOME конфиг
+      // раскрывается; при отсутствующей HOME отказ ОБЯЗАН назвать data_dir (не
+      // secrets_env) — иначе мутант m1 (откат порядка проверок: HOME-проверка раньше
+      // плейсхолдер-проверки внутри expandHomePath) проходит с rc 0: первое по
+      // порядку поле, у которого expandHomePath заходит, и даст «secrets_env», хотя
+      // плейсхолдера в нём нет. Пин — на этом входе.
+      process.env.HOME = fakeHome
+      const ddOnlyPath = path.join(tmp, 'home-dd-only.json')
+      fs.writeFileSync(ddOnlyPath, JSON.stringify({
+        port: 0,
+        healthz_window_sec: 5,
+        secrets_env: sec,                                                  // абсолютный путь, ${HOME} НЕ используется
+        data_dir: '${HOME}/.local/share/dev-harness/metering-064',         // ${HOME} ТОЛЬКО здесь
+        upstream: {},
+        prices: {},
+        ceilings: {},
+        now_file: null,
+      }))
+      const ddOnlyCfg = loadConfig(ddOnlyPath)
+      if (ddOnlyCfg.data_dir !== `${fakeHome}/.local/share/dev-harness/metering-064`) {
+        fails.push(`home: dd-only — cfg.data_dir = «${ddOnlyCfg.data_dir}», ожидался раскрытый в ${fakeHome}/…`)
+      }
+      // HOME отсутствует — отказ называет data_dir (где плейсхолдер), не secrets_env (где его нет).
+      delete process.env.HOME
+      let ddOnlyMsg = ''
+      try {
+        loadConfig(ddOnlyPath)
+      } catch (e) {
+        ddOnlyMsg = (e as Error).message
+      }
+      if (ddOnlyMsg === '') {
+        fails.push('home: dd-only — loadConfig при отсутствующей HOME и ${HOME} только в data_dir должен отказать')
+      } else if (!ddOnlyMsg.includes('data_dir') || ddOnlyMsg.includes('secrets_env')) {
+        fails.push(`home: dd-only — отказ должен назвать data_dir, а не secrets_env; фактически: ${ddOnlyMsg}`)
+      }
     } finally {
       if (savedHome === undefined) delete process.env.HOME
       else process.env.HOME = savedHome
