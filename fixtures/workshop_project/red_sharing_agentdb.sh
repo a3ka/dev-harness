@@ -91,6 +91,12 @@ repo_make() { # $1=корень репо $2=repoId
   printf '{"schemaVersion":1,"repoId":"%s","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"ci":{"workflow":".github/workflows/ci.yml"},"git":{"canonicalRemote":"git@host:r1.git"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}' "$2" > "$r/harness.project.json"
   printf '{"version":"v10"}\n' > "$r/config/harness_pin.json"
   printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
+  # С2-миграция toy-миров (контракт 059): объявленный CI-toy-файл
+  # `.github/workflows/ci.yml` создаётся в репо, иначе после реализации
+  # И-2(г) клетки к1..к16 краснеют — резолвер проверяет существование
+  # файла на REPO_ABS; прецедент арбитраж 059-к3 9e874be С2.
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy ci\n' > "$r/.github/workflows/ci.yml"
 }
 LAYER="$WORK/layer-p1"; layer_make "$LAYER" p1
 R1="$WORK/repo-p1"; repo_make "$R1" r1

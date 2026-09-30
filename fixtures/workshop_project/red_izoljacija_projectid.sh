@@ -70,6 +70,12 @@ repo_make() { # $1=корень репо $2=repoId $3=packs-jq-значение 
   fi
   printf '{"version":"v10"}\n' > "$r/config/harness_pin.json"
   printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
+  # С2-миграция toy-миров (контракт 059): объявленный CI-toy-файл
+  # `.github/workflows/ci.yml` создаётся в репо, иначе после реализации
+  # И-2(г) клетки h1..h17 краснеют — резолвер проверяет существование
+  # файла на REPO_ABS; прецедент арбитраж 059-к3 9e874be С2.
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy ci\n' > "$r/.github/workflows/ci.yml"
 }
 root_hash8() { printf '%s' "$(cd "$1" && pwd -P)" | sha256sum | cut -c1-8; }
 
