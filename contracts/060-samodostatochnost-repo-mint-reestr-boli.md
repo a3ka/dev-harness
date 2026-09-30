@@ -333,6 +333,7 @@ scripts/verify_antiplacebo.sh:585). Строка R1 в промпте лаунч
 подключён») на черновике до проводки законно красен и зеленеет вместе с ней —
 связывающий прогон живёт в done_contract.sh (шаг 6), freeze_contract.sh
 check_provodka не вызывает.
+ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
 
 ## Незаполненные требования:
 нет
