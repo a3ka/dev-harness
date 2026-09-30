@@ -269,6 +269,23 @@ function jsonStringify(obj: unknown): string {
 const MARKER_FILE = '.appendonly.json'
 const BUDGET_FILE = 'budget.json'
 const CALLS_FILE = 'calls.jsonl'
+
+/**
+ * Раскрытие литерального плейсхолдера `${HOME}` в строке пути (контракт 064).
+ * Грамматика — литеральная подстрока `${HOME}` (начало или любое место строки
+ * значения); вхождение заменяется на значение `process.env.HOME` ДО любого
+ * fs-вызова. ${HOME} в окружении отсутствует/пуст → ИМЕНОВАННЫЙ отказ с
+ * именем поля: под cwd НЕ создаётся ничего (инвариант 4).
+ */
+export function expandHomePath(value: string, fieldName: string): string {
+  const home = process.env.HOME
+  if (home === undefined || home === '') {
+    throw new Error(`config: ${fieldName}: переменная HOME отсутствует или пуста — именованный отказ старта`)
+  }
+  if (!value.includes('${HOME}')) return value
+  return value.split('${HOME}').join(home)
+}
+
 function loadConfig(configPath: string): Config {
   const text = fs.readFileSync(configPath, 'utf8')
   let raw: Record<string, unknown>
@@ -341,15 +358,22 @@ function loadConfig(configPath: string): Config {
     )
     ceilingsOut[provider] = { usd_per_month: usd }
   }
+  // Раскрытие ${HOME} в полях-путей ДО любого fs-вызова. HOME-проверка живёт
+  // внутри expandHomePath: отсутствующая/пустая → ИМЕНОВАННЫЙ отказ старта
+  // (инвариант 4 — под cwd не должно появиться ничего).
+  const secretsEnvExpanded = expandHomePath(raw.secrets_env as string, 'secrets_env')
+  const dataDirExpanded = expandHomePath(raw.data_dir as string, 'data_dir')
+  const rawNowFile = (raw.now_file as string | null) ?? null
+  const nowFileExpanded = rawNowFile ? expandHomePath(rawNowFile, 'now_file') : null
   return {
     port: raw.port as number,
     healthz_window_sec: (raw.healthz_window_sec as number) ?? 5,
-    secrets_env: raw.secrets_env as string,
-    data_dir: raw.data_dir as string,
+    secrets_env: secretsEnvExpanded,
+    data_dir: dataDirExpanded,
     upstream: raw.upstream as Record<string, string>,
     prices: pricesOut,
     ceilings: ceilingsOut,
-    now_file: (raw.now_file as string | null) ?? null,
+    now_file: nowFileExpanded,
   }
 }
 
@@ -1149,6 +1173,137 @@ export function selftest(): number {
     try { parseTokensInt('9007199254740993', 'usage.prompt_tokens') } catch { bigTokCaught = true }
     if (!bigTokCaught) {
       fails.push('int64: parseTokensInt("9007199254740993") — отказ (выше 2^53)')
+    }
+    // ── раскрытие ${HOME} в data_dir/secrets_env/now_file (контракт 064) ──
+    // Прямой вызов expandHomePath — задан HOME: плейсхолдер раскрывается;
+    // имя поля попадает в stderr отказа при отсутствующем/пустом HOME.
+    const savedHome = process.env.HOME
+    const fakeHome = path.join(tmp, 'fake-home')
+    fs.mkdirSync(fakeHome, { recursive: true })
+    process.env.HOME = fakeHome
+    try {
+      const ddExpanded = expandHomePath('${HOME}/.local/share/dev-harness/metering-064', 'data_dir')
+      if (ddExpanded !== `${fakeHome}/.local/share/dev-harness/metering-064`) {
+        fails.push(`home: expandHomePath(data_dir) = «${ddExpanded}», ожидался раскрытый в ${fakeHome}/…`)
+      }
+      // Литеральная подстрока в середине строки — тоже раскрывается.
+      const midExpanded = expandHomePath('/var/cache/${HOME}/metering', 'data_dir')
+      if (midExpanded !== `/var/cache/${fakeHome}/metering`) {
+        fails.push(`home: expandHomePath(/var/cache/\${HOME}/…) = «${midExpanded}», ожидался раскрытый /var/cache/${fakeHome}/…`)
+      }
+      // Без плейсхолдера — строка проходит дословно.
+      const noPh = expandHomePath('/abs/path/metering', 'data_dir')
+      if (noPh !== '/abs/path/metering') {
+        fails.push(`home: expandHomePath без плейсхолдера должна быть дословно, фактически «${noPh}»`)
+      }
+      // loadConfig через конфиг с ${HOME} — раскрыто в cfg.data_dir/secrets_env/now_file.
+      const homeCfgPath = path.join(tmp, 'home-cfg.json')
+      fs.writeFileSync(homeCfgPath, JSON.stringify({
+        port: 0,
+        healthz_window_sec: 5,
+        secrets_env: '${HOME}/.config/dev-harness/secrets-064.env',
+        data_dir: '${HOME}/.local/share/dev-harness/metering-064',
+        upstream: {},
+        prices: {},
+        ceilings: {},
+        now_file: '${HOME}/.local/share/dev-harness/metering-064/now',
+      }))
+      const homeCfg = loadConfig(homeCfgPath)
+      if (homeCfg.data_dir !== `${fakeHome}/.local/share/dev-harness/metering-064`) {
+        fails.push(`home: cfg.data_dir = «${homeCfg.data_dir}», ожидался раскрытый`)
+      }
+      if (homeCfg.secrets_env !== `${fakeHome}/.config/dev-harness/secrets-064.env`) {
+        fails.push(`home: cfg.secrets_env = «${homeCfg.secrets_env}», ожидался раскрытый`)
+      }
+      if (homeCfg.now_file !== `${fakeHome}/.local/share/dev-harness/metering-064/now`) {
+        fails.push(`home: cfg.now_file = «${homeCfg.now_file}», ожидался раскрытый`)
+      }
+      // now_file:null — поле остаётся null.
+      const nullNowPath = path.join(tmp, 'null-now.json')
+      fs.writeFileSync(nullNowPath, JSON.stringify({
+        port: 0,
+        healthz_window_sec: 5,
+        secrets_env: sec,
+        data_dir: dataDir,
+        upstream: {},
+        prices: {},
+        ceilings: {},
+        now_file: null,
+      }))
+      const nullNowCfg = loadConfig(nullNowPath)
+      if (nullNowCfg.now_file !== null) {
+        fails.push(`home: cfg.now_file = «${nullNowCfg.now_file}», ожидался null при null в конфиге`)
+      }
+      // HOME отсутствует (env -u HOME): ИМЕНОВАННЫЙ отказ старта — поле в сообщении.
+      delete process.env.HOME
+      const homeAbsPath = path.join(tmp, 'home-abs.json')
+      fs.writeFileSync(homeAbsPath, JSON.stringify({
+        port: 0,
+        healthz_window_sec: 5,
+        secrets_env: sec,
+        data_dir: dataDir,
+        upstream: {},
+        prices: {},
+        ceilings: {},
+        now_file: null,
+      }))
+      let noHomeMsg = ''
+      try {
+        loadConfig(homeAbsPath)
+      } catch (e) {
+        noHomeMsg = (e as Error).message
+      }
+      // Абсолютный data_dir без ${HOME} — loadConfig идёт по нему как раньше; отказа нет.
+      // Чтобы поймать именно отсутствие HOME, добавим ${HOME} в data_dir.
+      const homePhPath = path.join(tmp, 'home-ph.json')
+      fs.writeFileSync(homePhPath, JSON.stringify({
+        port: 0,
+        healthz_window_sec: 5,
+        secrets_env: '${HOME}/.config/dev-harness/secrets-064.env',
+        data_dir: dataDir,
+        upstream: {},
+        prices: {},
+        ceilings: {},
+        now_file: null,
+      }))
+      let noHomePhMsg = ''
+      try {
+        loadConfig(homePhPath)
+      } catch (e) {
+        noHomePhMsg = (e as Error).message
+      }
+      if (noHomePhMsg === '') {
+        fails.push('home: loadConfig при отсутствующей HOME и ${HOME} в secrets_env — должен отказать')
+      } else if (!noHomePhMsg.includes('secrets_env') || !noHomePhMsg.includes('HOME')) {
+        fails.push(`home: отказ должен назвать поле (secrets_env) и HOME; фактически: ${noHomePhMsg}`)
+      }
+      // HOME ПУСТОЙ: тот же именованный отказ.
+      process.env.HOME = ''
+      let emptyHomeMsg = ''
+      try {
+        loadConfig(homePhPath)
+      } catch (e) {
+        emptyHomeMsg = (e as Error).message
+      }
+      if (emptyHomeMsg === '') {
+        fails.push('home: loadConfig при пустой HOME — должен отказать')
+      } else if (!emptyHomeMsg.includes('secrets_env') || !emptyHomeMsg.includes('HOME')) {
+        fails.push(`home: пустая HOME — отказ должен назвать поле и HOME; фактически: ${emptyHomeMsg}`)
+      }
+      // HOME снова задан — конфиг с ${HOME} раскрывается чисто, без побочных эффектов.
+      process.env.HOME = fakeHome
+      const reloaded = loadConfig(homePhPath)
+      if (reloaded.secrets_env !== `${fakeHome}/.config/dev-harness/secrets-064.env`) {
+        fails.push(`home: после восстановления HOME раскрытие не вернулось: «${reloaded.secrets_env}»`)
+      }
+      // noHomeMsg не используется (абсолютный путь — не наш случай), но компилятор ts-strict
+      // может предупредить — оставляем локальную фиксацию через явный гард.
+      if (noHomeMsg !== '' && !noHomeMsg.includes('HOME')) {
+        fails.push(`home: сообщение об отсутствующей HOME должно содержать HOME; фактически: ${noHomeMsg}`)
+      }
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME
+      else process.env.HOME = savedHome
     }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })

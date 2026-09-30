@@ -1288,6 +1288,150 @@ EOF
   return 0
 }
 
+branch_н() {
+  # (н) — раскрытие ${HOME} рантаймом прокси + именованный отказ старта
+  # при отсутствующей/пустой HOME (контракт 064, инварианты 1-4).
+  # Две клетки:
+  #   (н1) HOME задан (песочница): конфиг с литералом ${HOME} — пять утверждений зонда.
+  #   (н2) HOME УДАЛЁН (`env -u HOME`): старт ОТКАЗАН, stderr НЕЙМУЕТ HOME, под cwd
+  #        не создаётся НИЧЕГО.
+  local workdir="$TMP_ROOT/branch_н.$$"
+  mkdir -p "$workdir"
+  # Случайные хвосты — тест не должен угадываться.
+  local h_dd="dd-$(rnd_label 8)"
+  local h_se="se-$(rnd_label 8)"
+  local provider model token up_dir up_port rid
+  provider="$(rnd_label 6)"
+  model="$(rnd_label 6)"
+  token="$(rnd_label 24)"
+  rid="$(rnd_label 16)"
+  # Песочница HOME — ВНУТРИ ветви: при `env -u HOME` прокси запускается без HOME,
+  # а при `export HOME=$work` — изолированно от родительского main.
+  local fake_home="$workdir/home"
+  local tree="$workdir/tree"
+  mkdir -p "$fake_home/.config/dev-harness" "$tree"
+
+  up_dir="$workdir/up"
+  stub_upstream "$up_dir" >/dev/null
+  up_port="$(cat "$up_dir/port")"
+
+  # Конфиг с литералом ${HOME} (и ветвих — данные, secrets_env — секреты).
+  local cfg="$workdir/cfg.json"
+  cat > "$cfg" <<EOF
+{
+  "port": 0,
+  "healthz_window_sec": 5,
+  "secrets_env": "\${HOME}/.config/dev-harness/secrets-${h_se}.env",
+  "data_dir":   "\${HOME}/.local/share/dev-harness/metering-${h_dd}",
+  "upstream":   { "${provider}": "http://127.0.0.1:${up_port}" },
+  "prices":     { "${provider}": { "${model}": { "per_m_tokens": { "in": 1200000, "out": 3400000 } } } },
+  "ceilings":   { "${provider}": { "usd_per_month": 1000000000 } },
+  "now_file":   null
+}
+EOF
+  # Секреты — В ПЕСОЧНИЦЕ HOME.
+  printf 'METERING_TOKEN_%s=%s\n' "$(rnd_label 8)" "$token" > "$fake_home/.config/dev-harness/secrets-${h_se}.env"
+
+  # ── КЛЕТКА (н1): HOME задан — пять утверждений зонда ──────────────────────
+  local pidfile="$workdir/proxy.pid" logf="$workdir/proxy.log" errf="$workdir/proxy.err"
+  local dd="$fake_home/.local/share/dev-harness/metering-${h_dd}"
+  (
+    cd "$tree" && HOME="$fake_home" exec node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg"
+  ) > "$logf" 2> "$errf" &
+  local pid="$!"
+  echo "$pid" > "$pidfile"
+  local i port
+  port=""
+  for i in $(seq 1 1200); do
+    if [ -s "$dd/.actual_port" ]; then port="$(cat "$dd/.actual_port" 2>/dev/null)"; [ -n "$port" ] && [ "$port" != "0" ] && break; fi
+    if ! kill -0 "$pid" 2>/dev/null; then
+      bad "н1: прокси погиб до репорта порта, err: $(tail -n 3 "$errf" | tr '\n' ' ')"
+      rm -rf "$workdir"; return 1
+    fi
+    sleep 0.05
+  done
+  if [ -z "$port" ]; then
+    kill "$pid" 2>/dev/null || true
+    bad "н1: ${HOME}-путь не раскрылся — файл-порт не в песочнице HOME, err: $(tail -n 3 "$errf" | tr '\n' ' ')"
+    rm -rf "$workdir"; return 1
+  fi
+  # healthz 200
+  if ! curl -fsS -o /dev/null -m 2 "http://127.0.0.1:${port}/healthz" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    bad "н1: healthz не 200 на порту $port"; rm -rf "$workdir"; return 1
+  fi
+  # POST с токеном 200 (secrets_env раскрыт)
+  local resp status
+  resp="$(req POST "http://127.0.0.1:${port}/${provider}/chat/completions" \
+    "$token" "$model" "body-н1" "application/octet-stream" "$rid")"
+  status="$(printf '%s\n' "$resp" | head -1)"
+  if [ "$status" != "200" ]; then
+    kill "$pid" 2>/dev/null || true
+    bad "н1: запрос с токеном дал ${status:-<пусто>}, а не 200 — secrets_env не раскрыт"; rm -rf "$workdir"; return 1
+  fi
+  # calls.jsonl в раскрытом data_dir с коррелидатром
+  if ! grep -Fq "$rid" "$dd/calls.jsonl" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    bad "н1: calls.jsonl не в песочнице HOME (коррелятора $rid нет)"; rm -rf "$workdir"; return 1
+  fi
+  # cwd-дерево ($tree) — ЧИСТО: под cwd не выросло НИЧЕГО.
+  if [ -n "$(find "$tree" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+    kill "$pid" 2>/dev/null || true
+    local dirt; dirt="$(find "$tree" -mindepth 1 -print -quit 2>/dev/null)"
+    bad "н1: cwd-дерево не чисто: $dirt"; rm -rf "$workdir"; return 1
+  fi
+  kill "$pid" 2>/dev/null || true
+  for i in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$pid" 2>/dev/null || break; sleep 0.05; done
+  kill -9 "$pid" 2>/dev/null || true
+  rm -f "$pidfile"
+  # Гасим хвосты upstream в $up_dir.
+  if [ -f "$up_dir/stub.pid" ]; then
+    local uppid; uppid="$(cat "$up_dir/stub.pid")"
+    [ -n "$uppid" ] && kill -- "-$uppid" 2>/dev/null || kill "$uppid" 2>/dev/null || true
+  fi
+
+  # ── КЛЕТКА (н2): HOME УДАЛЁН — именованный отказ старта, под cwd ничего ────
+  local tree2="$workdir/tree2"
+  mkdir -p "$tree2"
+  local errf2="$workdir/proxy2.err" pidfile2="$workdir/proxy2.pid"
+  local rc alive dirt2
+  (
+    cd "$tree2" && env -u HOME node $PROXY_NODE_FLAGS "$PROXY" --config "$cfg"
+  ) >/dev/null 2> "$errf2" &
+  local pid2="$!"
+  echo "$pid2" > "$pidfile2"
+  alive=1
+  for i in $(seq 1 200); do
+    dirt2="$(find "$tree2" -mindepth 1 -print -quit 2>/dev/null)"
+    if [ -n "$dirt2" ]; then
+      kill "$pid2" 2>/dev/null || true
+      bad "н2: старт не отказан — под cwd вырос $dirt2"; rm -rf "$workdir"; return 1
+    fi
+    if ! kill -0 "$pid2" 2>/dev/null; then alive=0; break; fi
+    sleep 0.05
+  done
+  if [ "$alive" -eq 1 ]; then
+    kill "$pid2" 2>/dev/null || true
+    bad "н2: старт не отказан — прокси жив без HOME дольше 10 с"; rm -rf "$workdir"; return 1
+  fi
+  wait "$pid2"; rc=$?
+  if [ "$rc" -eq 0 ]; then
+    bad "н2: старт не отказан — выход кодом 0 без HOME, err: $(tail -n 3 "$errf2" | tr '\n' ' ')"; rm -rf "$workdir"; return 1
+  fi
+  # stderr ДОЛЖЕН называть HOME — иначе отказ без имени (зелёного нам не давать).
+  local tail3; tail3="$(tail -n 5 "$errf2" 2>/dev/null | tr '\n' ' ')"
+  case "$tail3" in *HOME*) ;; *)
+    bad "н2: отказ не именованный — stderr не называет HOME: $tail3"; rm -rf "$workdir"; return 1 ;;
+  esac
+  # cwd всё ещё пуст ПОСЛЕ отказа — никаких записей до отказа.
+  if [ -n "$(find "$tree2" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+    bad "н2: запись до отказа — под cwd что-то выросло"; rm -rf "$workdir"; return 1
+  fi
+  rm -rf "$workdir"
+  ok "н: ${HOME} раскрывается рантаймом (5 утверждений зонда) + отсутствующий HOME даёт именованный отказ старта"
+  return 0
+}
+
 branch_м() {
   # (м) ЗАГОЛОВОК ЖИВОГО ВЫЗОВА — ЗАМЕР автора при исполнении: доносит ли клиентский канал
   # `x-request-id` до upstream. Сценарий default-режима: поднимаем прокси (если (д) его убил),
@@ -1389,11 +1533,13 @@ main() {
   # падала с «work: unbound variable», а гашение не доходило до конца (замер 2026-08-20).
   trap "kill_all_proxies '$work'; proxy_down $proxy_pid; rm -rf '$work'" EXIT
 
-  # СПИСОК ВЕТВЕЙ ОБЪЯВЛЕН ОДНИМ МЕСТОМ и сверяется по числу: контракт обещает 15.
+  # СПИСОК ВЕТВЕЙ ОБЪЯВЛЕН ОДНИМ МЕСТОМ и сверяется по числу: контракт обещает 16
+  # (контракт 064 добавил (н) — раскрытие ${HOME} рантаймом + именованный отказ старта
+  # при отсутствующей/пустой HOME).
   # Расхождение счёта — отказ, а не молчаливый прогон подмножества (самопроверка счёта).
-  local -a BRANCHES=(а б в в2 г г2 д е ж з и к1 к2 л м)
-  if [ "${#BRANCHES[@]}" -ne 15 ]; then
-    printf 'ОТКАЗ: объявлено ветвей %d, контракт обещает 15\n' "${#BRANCHES[@]}" >&2
+  local -a BRANCHES=(а б в в2 г г2 д е ж з и к1 к2 л м н)
+  if [ "${#BRANCHES[@]}" -ne 16 ]; then
+    printf 'ОТКАЗ: объявлено ветвей %d, контракт обещает 16\n' "${#BRANCHES[@]}" >&2
     exit 1
   fi
   # ОТСУТСТВИЕ ВЕТВИ — НЕ ЗЕЛЁНОЕ. Прежняя редакция держала заглушки `return 0`, и барьер
@@ -1416,11 +1562,11 @@ main() {
     exit 1
   fi
   if [ "$notimpl" -gt 0 ]; then
-    printf '\nNOT_IMPLEMENTED: реализовано %d ветвей из 15, не реализованы: %s\n' \
-      "$((15 - notimpl))" "${missing% }" >&2
+    printf '\nNOT_IMPLEMENTED: реализовано %d ветвей из 16, не реализованы: %s\n' \
+      "$((16 - notimpl))" "${missing% }" >&2
     exit 2
   fi
-  printf '\nбарьер зелёный: 15 ветвей пройдены\n' >&2
+  printf '\nбарьер зелёный: 16 ветвей пройдены\n' >&2
   rm -rf "$work"
 }
 
