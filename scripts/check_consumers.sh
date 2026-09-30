@@ -162,13 +162,64 @@ if [ -z "$last_frozen" ]; then
   exit 0
 fi
 
-# Писатели в правке: зарегистрированные писатели, тронутые коммитами окна.
+# ── п2: судимое множество окна СВОЕЙ ветки/лендов (контракт 062, И-1..И-4) ────
+# Грамматика своей-ветки — побайтово из scripts/check_zones.sh:551-554 (021,
+# ветвь А): все reachable не-merge коммиты диапазона `frozen/contracts/<n>/<v>..HEAD`
+# ∪ … ∪ ИСКЛЮЧЕНИЕ коммитов, принесённых ЧУЖИМИ лендами `land: wip/<OTHER>/…`
+# (`rev-list <merge>^1..<merge> --no-merges` по каждому чужому merge — тот же
+# родительский примитив, что у check_zones). Свои ленды `land: wip/<n>/…` НЕ
+# исключаем; merge БЕЗ `land:` маркера — внутренний, тоже не исключаем.
+#
+# Покоммитная тронутость (И-2): зарегистрированный писатель тронут ⟺ хотя бы
+# один коммит судимого множества менял блоб его пути (diff-tree по коммиту).
+# Конечный дифф диапазона тег..HEAD в предикат НЕ входит — линейный
+# endpoint-diff больше не применяется ни к одному писателю.
+#
+# FAIL-CLOSED на инструментах (И-4, Б2 038): отказ добычи судимого множества
+# (rev-list диапазона отказал — тег-граница не разрешается в объекты, диапазон
+# невалиден) — именованный rc 1 дословной фразой «потребители 116: список
+# судимых коммитов окна недоступен», не тихая пустота (vacuous rc 0 по И-3 —
+# ДРУГОЙ исход: коммиты окна добыты успешно и писателей не трогали).
+_commits_tmp="$(mktemp -t window_commits116.XXXXXX 2>/dev/null || mktemp)" \
+  || die "потребители 116: окно: нечем создать tmp-файл"
+_excl_tmp="$(mktemp -t window_exclude116.XXXXXX 2>/dev/null || mktemp)" \
+  || { /usr/bin/rm -f "$_commits_tmp"; die "потребители 116: окно: нечем создать tmp-файл"; }
+trap 'rm -f "$_commits_tmp" "$_excl_tmp"' EXIT
+if ! git -C "$ROOT" rev-list --no-merges "$last_frozen..HEAD" 2>/dev/null | sort -u > "$_commits_tmp"; then
+  rm -f "$_commits_tmp" "$_excl_tmp"; trap - EXIT
+  die "потребители 116: список судимых коммитов окна недоступен"
+fi
+: > "$_excl_tmp"
+git -C "$ROOT" rev-list --merges "$last_frozen..HEAD" 2>/dev/null | while IFS= read -r mc; do
+  [ -n "$mc" ] || continue
+  msg="$(git -C "$ROOT" log -1 --format=%s "$mc" 2>/dev/null)"
+  case "$msg" in
+    "land: wip/$n/"*) ;;  # свой merge — НЕ исключаем
+    "land: wip/"*) git -C "$ROOT" rev-list --no-merges "${mc}^1..${mc}" 2>/dev/null >> "$_excl_tmp" ;;
+  esac
+done
+sort -u "$_excl_tmp" -o "$_excl_tmp"
+
+# Писатели в правке: зарегистрированные писатели, тронутые коммитами судимого
+# множества окна (покоммитная тронутость И-2). Бежим по коммитам judgeable-set
+# (`comm -23 commits exclude` — оба файла лекс-сортированы, хронология не нужна:
+# для тронутости достаточно существования коммита), для каждого коммита
+# diff-tree путей писателя; первый hit по писателю → писатель тронут.
 touched_writers=()
 for w in "${!writer_consumers[@]}"; do
-  if git -C "$ROOT" diff-tree --no-commit-id --name-only -r "$last_frozen"..HEAD -- "$w" 2>/dev/null | grep -q .; then
+  hit=0
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    if git -C "$ROOT" diff-tree -r --no-commit-id --name-only "$c" -- "$w" 2>/dev/null | grep -q .; then
+      hit=1; break
+    fi
+  done < <(comm -23 "$_commits_tmp" "$_excl_tmp")
+  if [ "$hit" -eq 1 ]; then
     touched_writers+=("$w")
   fi
 done
+/usr/bin/rm -f "$_commits_tmp" "$_excl_tmp"
+trap - EXIT
 
 # Пустое окно — vacuous rc 0
 if [ "${#touched_writers[@]}" -eq 0 ]; then
