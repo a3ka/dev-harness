@@ -5,7 +5,7 @@
 # Переносная форма семьи (прецедент 054/055/058). Структура:
 #   1. СТАБ-ПАК (9 ручек обмана) — зелёный ДО и ПОСЛЕ реализации: каждый
 #      обманный стаб умирает на СВОЕЙ клетке (привязка по коду, Н-39).
-#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к19) — красная ДО реализации (предмет отсутствует:
+#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к24) — красная ДО реализации (предмет отсутствует:
 #      резолвер HEAD не сверяет объявление с деревом), зелёная ПОСЛЕ.
 # Ожидание каждой клетки — ПАРА (rc, класс stdout): отказ = rc 1 И stdout
 # ПУСТ (И-4: ранняя печать merged до отказа неразличима без проверки
@@ -19,6 +19,17 @@
 # срез завершающих LF подстановкой команд CW/CANON принимает фантомный путь
 # (нарушенные И-1/И-2(б)); к19 — внутренний \n («ci/a\nb.yml», файла нет):
 # отказ ровно ОДНОЙ P-строкой (И-3).
+# Усиление пост-заморозки-3 (арбитраж 059 420753f, п.(г)-architect):
+# к20/к21 — NUL в значении (хвостовой repo-origin / внутренний
+# project-origin) при реальном ci/ok.yml → ОТСУТСТВУЕТ (NUL не бывает
+# путём ни в одной POSIX-ФС), rc 1, stdout пуст, stderr байт-в-байт одной
+# P-строкой в $'…'-форме (таблица п.8: NUL → \x00); к22/к23 — файл с LF
+# в имени СУЩЕСТВУЕТ (внутренний / хвостовой \n) → rc 0, stderr пуст,
+# merged дословно (к23 ловит срез CANON — З-А арбитра); к24 — обычное
+# значение «ci/my ü.yml» (файла нет, LC_ALL=C) — сырье байт-в-байт (п.8:
+# нет C-байтов — сырье в любой локали). Все пять красны против резолвера
+# 1d47c43-класса без додела реализатора — честное красное предъявление.
+#
 #
 # Прогон: bash red_sverka_puti_profylja.sh [корень worktree]
 #   rc 0 — стаб-пак пойман весь, диффпроба чиста И честные клетки зелёные.
@@ -37,6 +48,7 @@ command -v git >/dev/null 2>&1 || die_pack "нет git"
 command -v jq >/dev/null 2>&1 || die_pack "нет jq"
 command -v readlink >/dev/null 2>&1 || die_pack "нет readlink"
 command -v mkfifo >/dev/null 2>&1 || die_pack "нет mkfifo"
+command -v cmp >/dev/null 2>&1 || die_pack "нет cmp"
 
 # Ложные зелёные от протекающего окружения (прецедент 058:67).
 unset HARNESS_SESSION_HOME HARNESS_SCRATCH METERING_PROJECT METERING_ROLE
@@ -66,6 +78,9 @@ QUOTE_YML=',"ci":{"workflow":"ci/'"'"'quoted'"'"'.yml"}'
 LINK_YML=',"ci":{"workflow":"ci/link.yml"}'
 LF_TAIL_YML=',"ci":{"workflow":"ci/ok.yml\n"}'
 LF_IN_YML=',"ci":{"workflow":"ci/a\nb.yml"}'
+NUL_TAIL_YML=',"ci":{"workflow":"ci/ok.yml\u0000"}'
+NUL_IN_YML=',"ci":{"workflow":"ci/ok.yml\u0000x"}'
+UNI_MISS_YML=',"ci":{"workflow":"ci/my ü.yml"}'
 wf_make() { mkdir -p "$(dirname -- "$1")"; printf 'name: toy ci\n' > "$1"; }
 
 # ── прогонщики ────────────────────────────────────────────────────────────────
@@ -383,23 +398,89 @@ hk17() { # к17 (059-к1 D): live-зеркало к9 БЕЗ --probe — та ж�
 hk18() { # к18 (059-к1 Р1): LF-хвост — часть значения: объявлен «ci/ok.yml\n»,
          # файл ci/ok.yml существует, объекта ci/ok.yml<LF> в дереве НЕТ →
          # rc 1 «отсутствует», stdout пуст (срез trailing-LF командной
-         # подстановкой в CW/CANON принимает фантомный путь — И-1/И-2(б))
-  local L="$WORK/hk18-layer" R="$WORK/hk18-repo" E="$WORK/hk18.err" O="$WORK/hk18.out" rc
+         # подстановкой в CW/CANON принимает фантомный путь — И-1/И-2(б)).
+         # Ужесточено арбитражем 059 420753f п.(г): фраза байт-в-байт
+         # с $'ci/ok.yml\n' (п.8: та же форма, что и сейчас).
+  local L="$WORK/hk18-layer" R="$WORK/hk18-repo" E="$WORK/hk18.err" O="$WORK/hk18.out" X="$WORK/hk18.exp" rc
   layer_make "$L" p1 "$LF_TAIL_YML"; repo_make "$R" r1 "$LF_TAIL_YML" 0
   wf_make "$R/ci/ok.yml"
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" \
-    && grep -Fq 'ci/ok.yml' "$E" && one_p_line "$E"
+  printf '%s\n' "profile ОТКАЗ: объявленный путь отсутствует в дереве репо: ci.workflow=\$'ci/ok.yml\\n' от корня $(cd "$R" && pwd -P)" > "$X"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && one_p_line "$E" && cmp -s "$E" "$X"
 }
 hk19() { # к19 (059-к1 Р2): внутренний \n в значении «ci/a\nb.yml» (файла нет):
          # отказ обязан остаться ровно ОДНОЙ P-строкой (И-3) — сырая
          # интерполяция $CW в die_p рвёт фразу: обрезок «b.yml …» уходит
-         # второй строкой без префикса «profile ОТКАЗ: »
-  local L="$WORK/hk19-layer" R="$WORK/hk19-repo" E="$WORK/hk19.err" O="$WORK/hk19.out" rc
+         # второй строкой без префикса «profile ОТКАЗ: ». Ужесточено
+         # арбитражем 059 420753f п.(г): фраза байт-в-байт с $'ci/a\nb.yml'.
+  local L="$WORK/hk19-layer" R="$WORK/hk19-repo" E="$WORK/hk19.err" O="$WORK/hk19.out" X="$WORK/hk19.exp" rc
   layer_make "$L" p1 "$LF_IN_YML"; repo_make "$R" r1 "$LF_IN_YML" 0
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" \
-    && grep -Fq 'ci/a' "$E" && grep -Fq 'b.yml' "$E" && one_p_line "$E"
+  printf '%s\n' "profile ОТКАЗ: объявленный путь отсутствует в дереве репо: ci.workflow=\$'ci/a\\nb.yml' от корня $(cd "$R" && pwd -P)" > "$X"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && one_p_line "$E" && cmp -s "$E" "$X"
+}
+hk20() { # к20 (арбитраж 059 420753f, Н1/п.(а)): хвостовой NUL в значении
+         # repo-origin «ci/ok.yml<NUL>» при реальном ci/ok.yml: NUL не может
+         # быть частью пути ни в одной POSIX-ФС → ОТСУТСТВУЕТ (И-2(б)),
+         # rc 1, stdout пуст, stderr байт-в-байт одной P-строкой с $'…'-формой
+         # значения (таблица п.8: NUL → \x00). Мутанты «срезать NUL» и
+         # «судить префикс до NUL» (1d47c43: read -d '') дают rc 0 —
+         # красны по rc, а не только по фразе.
+  local L="$WORK/hk20-layer" R="$WORK/hk20-repo" E="$WORK/hk20.err" O="$WORK/hk20.out" X="$WORK/hk20.exp" rc
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$NUL_TAIL_YML" 0
+  wf_make "$R/ci/ok.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  printf '%s\n' "profile ОТКАЗ: объявленный путь отсутствует в дереве репо: ci.workflow=\$'ci/ok.yml\\x00' от корня $(cd "$R" && pwd -P)" > "$X"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && one_p_line "$E" && cmp -s "$E" "$X"
+}
+hk21() { # к21 (арбитраж 059 420753f, Н1/п.(а)): NUL ВНУТРИ значения
+         # project-origin «ci/ok.yml<NUL>x» (defaults.ci.workflow слоя,
+         # repo без ci) при реальном ci/ok.yml → тот же отказ ОТСУТСТВУЕТ
+         # байт-в-байт с $'ci/ok.yml\x00x'. На 1d47c43-классе rc 0 +
+         # предупреждение «ignored null byte» второй строкой stderr.
+  local L="$WORK/hk21-layer" R="$WORK/hk21-repo" E="$WORK/hk21.err" O="$WORK/hk21.out" X="$WORK/hk21.exp" rc
+  layer_make "$L" p1 "$NUL_IN_YML"; repo_make "$R" r1 "" 0
+  wf_make "$R/ci/ok.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  printf '%s\n' "profile ОТКАЗ: объявленный путь отсутствует в дереве репо: ci.workflow=\$'ci/ok.yml\\x00x' от корня $(cd "$R" && pwd -P)" > "$X"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && one_p_line "$E" && cmp -s "$E" "$X"
+}
+hk22() { # к22 (арбитраж 059 420753f, Н2/п.(б)): LF ВНУТРИ имени — файл
+         # ci/a<LF>b.yml СУЩЕСТВУЕТ и объявлен «ci/a\nb.yml» → rc 0,
+         # stdout непуст, stderr пуст, merged (jq -c) несёт значение
+         # дословно (следствие п.6 для к3 контракта). Красна на
+         # 1d47c43-классе: ветвь «LF в имени → отсутствует» отказывает
+         # существующему файлу (rc 1).
+  local L="$WORK/hk22-layer" R="$WORK/hk22-repo" E="$WORK/hk22.err" O="$WORK/hk22.out" rc
+  layer_make "$L" p1 "$LF_IN_YML"; repo_make "$R" r1 "$LF_IN_YML" 0
+  wf_make "$R/ci/a"$'\n'"b.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$O" ] && [ ! -s "$E" ] && [ "$(jq -c '.ci.value.workflow' "$O")" = '"ci/a\nb.yml"' ]
+}
+hk23() { # к23 (арбитраж 059 420753f, З-А/п.5): LF-хвост имени — файл
+         # ci/ok.yml<LF> СУЩЕСТВУЕТ, ci/ok.yml НЕ создан, объявлено
+         # «ci/ok.yml\n» → rc 0, stderr пуст, merged (jq -c) дословно.
+         # Назначение клетки: после снятия ветви «LF → отсутствует» без
+         # байт-точного CANON остаётся красной — $(readlink -f …) срезает
+         # хвостовой LF канонизированного пути (31/32 байта, -e нет) →
+         # ложное «отсутствует».
+  local L="$WORK/hk23-layer" R="$WORK/hk23-repo" E="$WORK/hk23.err" O="$WORK/hk23.out" rc
+  layer_make "$L" p1 "$LF_TAIL_YML"; repo_make "$R" r1 "$LF_TAIL_YML" 0
+  wf_make "$R/ci/ok.yml"$'\n'
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$O" ] && [ ! -s "$E" ] && [ "$(jq -c '.ci.value.workflow' "$O")" = '"ci/ok.yml\n"' ]
+}
+hk24() { # к24 (арбитраж 059 420753f, Н3/п.8): форма обычного значения и
+         # локаль: объявлено «ci/my ü.yml», файла нет, резолвер под
+         # LC_ALL=C → rc 1, stdout пуст, stderr байт-в-байт с СЫРЫМ
+         # значением (нет байтов из C — сырье в любой локали; printf %q
+         # под LC_ALL=C даёт $'ci/my\ \303\274.yml'-класс — красна по
+         # фразе).
+  local L="$WORK/hk24-layer" R="$WORK/hk24-repo" E="$WORK/hk24.err" O="$WORK/hk24.out" X="$WORK/hk24.exp" rc
+  layer_make "$L" p1 "$UNI_MISS_YML"; repo_make "$R" r1 "$UNI_MISS_YML" 0
+  rc=0; env LC_ALL=C HARNESS_PROJECT_LAYER_ROOT="$L" bash "$PROFILE_RESOLVER" --repo "$R" >"$O" 2>"$E" || rc=$?
+  printf '%s\n' "profile ОТКАЗ: объявленный путь отсутствует в дереве репо: ci.workflow=ci/my ü.yml от корня $(cd "$R" && pwd -P)" > "$X"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && one_p_line "$E" && cmp -s "$E" "$X"
 }
 
 hcell к1 hk1
@@ -421,6 +502,11 @@ hcell к16 hk16
 hcell к17 hk17
 hcell к18 hk18
 hcell к19 hk19
+hcell к20 hk20
+hcell к21 hk21
+hcell к22 hk22
+hcell к23 hk23
+hcell к24 hk24
 
 printf 'итог 059-батареи: стаб-пак %s/%s пойман, диффпроба ошибок %s, честные %s/%s зелёные\n' \
   "$stub_caught_n" "$stub_total" "$diff_fail" "$((honest_total-honest_fail))" "$honest_total" >&2
