@@ -371,6 +371,24 @@ case "${1:-}" in
     class="$1"
     ;;
 esac
+
+# ── И-2 (контракт 060): рука HARNESS_WORKFLOW_ROOT — env > дефолт ─────────────
+# Лестница (Граница-2): явный КОРЕНЬ первым аргументом > env > дефолт. Аргумент
+# уже обработан выше: при валидном КОРЕНЬ env НЕ читается — лестница короткого
+# замыкания (критик 060-к1 С3; контрольные клетки к6г/к6д). env оперативен
+# ТОЛЬКО когда КОРЕНЬ не передан: относительное значение → именованный отказ
+# N1 rc 1 ДО любого git-вызова (Граница-3: значение вставляется в пути
+# git-операций — class path-injection; прецедент PSTATE-base workshop:686-691).
+if [ "$root_given" != "1" ] && [ -n "${HARNESS_WORKFLOW_ROOT:-}" ]; then
+  case "${HARNESS_WORKFLOW_ROOT}" in
+    /*)
+      HERE="$(cd "$HARNESS_WORKFLOW_ROOT" && pwd)"
+      ;;
+    *)
+      die "workflow ОТКАЗ: HARNESS_WORKFLOW_ROOT обязан быть абсолютным путём, получен: $HARNESS_WORKFLOW_ROOT"
+      ;;
+  esac
+fi
 unset root_given
 
 # ── локации класса (через общий помощник next_id_locations_for_class) ──────────
