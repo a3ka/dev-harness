@@ -31,11 +31,15 @@
 #       process.cwd() (process.env.HOME ?? cwd) вместо отказа — наблюдаем на
 #       входе «env -u HOME + конфиг с ${HOME}»: старт НЕ отказан, под cwd
 #       растёт дерево (движок dvigatel_nohome);
-#   Б   боль (определяющая): ЧЕСТНЫЙ прокси + конфиг с ${HOME}, ДВЕ клетки:
+#   Б   боль (определяющая): ЧЕСТНЫЙ прокси + конфиг с ${HOME}, ТРИ клетки:
 #       (б1) HOME задан (песочница) — сегодня красна (пишет мимо песочницы),
 #       ПОСЛЕ реализации зелёна; (б2) HOME УДАЛЁН (env -u HOME, вход вердикта
 #       064-Б1) — инвариант 4: именованный отказ старта ДО записи в cwd;
-#       сегодня красна (старт не отказан), ПОСЛЕ реализации зелёна.
+#       сегодня красна (старт не отказан), ПОСЛЕ реализации зелёна;
+#       (б3) ДВА вхождения ${HOME} в ОДНОМ data_dir (вход вердикта 0065a7f) —
+#       честная реализация раскрывает ОБА: порт-файл в полностью раскрытом
+#       пути, литеральных байтов ${HOME} ни в одном пути до fs, cwd чист;
+#       стаб первого-вхождения replace('${HOME}',…) красен только здесь.
 # Инвариант трекаемости (б) — тоже прогоном: закоммиченный config/metering.json
 # несёт data_dir/secrets_env с литеральным префиксом «${HOME}» и без машинно-
 # специфичных абсолютных путей — зелёное и до, и после (конфиг не меняется).
@@ -81,16 +85,18 @@ unset PROBE017_LIB
 PROXY="$R/scripts/proxy/metering_proxy.ts"   # библиотечный PROXY — копия семьи
 
 # ── движок: один прогон прокси, все утверждения; результат в Z_RC/Z_REASON ─────
-# Аргументы: <файл-прокси> <метка> <режим: abs|home>. Ожидания снимаются в память
-# ДО вызова субъекта (правило 8); диск проверяемого как истина не перечитывается.
-# Утверждения: (1) .actual_port в РАСКРЫТОМ data_dir конфига; (2) healthz 200;
-# (3) POST с токеном 200 (secrets_env раскрыт); (4) calls.jsonl в раскрытом
-# data_dir с коррелятором; (5) cwd-дерево ЧИСТО (ни ${HOME}-литерала, ни чего
-# либо ещё). Быстрые красные: буквальное «${HOME}»-дерево под cwd; порт-файл в
-# чужом месте под песочницей.
+# Аргументы: <файл-прокси> <метка> <режим: abs|home|home2>. Ожидания снимаются
+# в память ДО вызова субъекта (правило 8); диск проверяемого как истина не
+# перечитывается. Утверждения: (1) .actual_port в РАСКРЫТОМ data_dir конфига;
+# (2) healthz 200; (3) POST с токеном 200 (secrets_env раскрыт); (4) calls.jsonl
+# в раскрытом data_dir с коррелятором; (5) cwd-дерево ЧИСТО (ни ${HOME}-литерала,
+# ни чего либо ещё); (6) НИ один путь до fs (песочница HOME и cwd) не несёт
+# литеральных байтов ${HOME} — прямое требование вердикта 0065a7f. Быстрые
+# красные: буквальное «${HOME}»-дерево под cwd; порт-файл в чужом месте под
+# песочницей.
 dvigatel() {
   local proxy="$1" tag="$2" mode="$3"
-  local home tree cfg dd t1 t2 role model token rid pref up_dir up_port
+  local home tree cfg dd ddcfg t1 t2 role model token rid pref up_dir up_port
   local pid port i cand status tail3
   Z_RC=0; Z_REASON=""
   home="$WORK/home-$tag"; tree="$WORK/tree-$tag"
@@ -98,26 +104,50 @@ dvigatel() {
   role="$(rnd_label 8)"; model="$(rnd_label 8)"; token="$(rnd_label 24)"; rid="$(rnd_label 12)"
   # СЛУЧАЙНЫЕ хвосты: стаб-хардкод (С2) не может угадать раскрытый путь.
   t1="$(rnd c1)"; t2="$(rnd c2)"
+  # Режимы поля путей: abs — абсолютные пути (ЗК); home — литеральный ${HOME}
+  # в начале каждого пути (С1-С3, б1); home2 — ДВА вхождения ${HOME} в ОДНОМ
+  # data_dir (б3, вердикт 0065a7f): стаб первого-вхождения replace('${HOME}',…)
+  # проходит home-вход и различим только здесь. Ожидаемый РАСКРЫТЫЙ dd —
+  # всегда в памяти ДО вызова субъекта (правило 8): честная реализация обязана
+  # раскрыть ОБА вхождения; у стаба порт-файл падает мимо dd — с литеральными
+  # байтами ${HOME} в пути.
+  case "$mode" in
+    abs)        pref="$home" ;;
+    home|home2) pref='${HOME}' ;;
+    *) die "dvigatel: неизвестный режим: $mode" ;;
+  esac
   dd="$home/.local/share/dev-harness/metering-064-$t2"
+  ddcfg="${pref}/.local/share/dev-harness/metering-064-$t2"
+  if [ "$mode" = home2 ]; then
+    dd="$home/lab064-$t2/$home/metering-064-$t2"
+    ddcfg="\${HOME}/lab064-$t2/\${HOME}/metering-064-$t2"
+  fi
   printf 'METERING_TOKEN_%s=%s\n' "$role" "$token" > "$home/.config/dev-harness/secrets-064-$t1.env"
   up_dir="$WORK/up-$tag"; up_port="$(stub_upstream "$up_dir")"
-  if [ "$mode" = home ]; then pref='${HOME}'; else pref="$home"; fi
   cfg="$WORK/cfg-$tag.json"
   cat > "$cfg" <<EOF
 {
   "port": 0,
   "healthz_window_sec": 5,
   "secrets_env": "${pref}/.config/dev-harness/secrets-064-${t1}.env",
-  "data_dir": "${pref}/.local/share/dev-harness/metering-064-${t2}",
+  "data_dir": "$ddcfg",
   "upstream": { "prov-${tag}": "http://127.0.0.1:${up_port}" },
   "prices": { "prov-${tag}": { "${model}": { "per_m_tokens": { "in": 1200000, "out": 3400000 } } } },
   "ceilings": { "prov-${tag}": { "usd_per_month": 1000000000 } },
   "now_file": null
 }
 EOF
-  # грамматика предъявления: в home-режиме конфиг несёт ЛИТЕРАЛЬНЫЙ ${HOME}
-  if [ "$mode" = home ] && ! grep -Fq '"${HOME}/' "$cfg"; then
+  # грамматика предъявления: в home-режимах конфиг несёт ЛИТЕРАЛЬНЫЙ ${HOME}
+  if [ "$mode" != abs ] && ! grep -Fq '"${HOME}/' "$cfg"; then
     die "сборка конфига сломана: литерал \${HOME} раскрылся до записи ($cfg)"
+  fi
+  # home2: в самом поле data_dir ДОЛЖНО остаться ДВА литеральных вхождения
+  # ${HOME} (сверка по полю, а не по соседним строкам конфига).
+  if [ "$mode" = home2 ]; then
+    case "$(jq -r '.data_dir' "$cfg")" in
+      *'${HOME}'*'${HOME}'*) ;;
+      *) die "сборка конфига сломана: в data_dir меньше ДВУХ литеральных \${HOME}" ;;
+    esac
   fi
   ( cd "$tree" && HOME="$home" exec node $PROXY_NODE_FLAGS "$proxy" --config "$cfg" ) \
     > "$WORK/log-$tag.out" 2> "$WORK/log-$tag.err" &
@@ -172,6 +202,15 @@ EOF
   if [ -n "$cand" ]; then
     proxy_down "$pid"; Z_RC=1
     Z_REASON="cwd-дерево не чисто: $cand"
+    return 0
+  fi
+  # (6) НИ один путь, дошедший до fs, не несёт литеральных байтов ${HOME} —
+  # ни в песочнице HOME, ни под cwd (вердикт 0065a7f: стаб первого-вхождения
+  # оставляет второе вхождение литеральными байтами и оно доходит до fs).
+  cand="$(find "$home" "$tree" -name '*${HOME}*' -print -quit 2>/dev/null)"
+  if [ -n "$cand" ]; then
+    proxy_down "$pid"; Z_RC=1
+    Z_REASON="литеральные байты \${HOME} дошли до fs: $cand"
     return 0
   fi
   proxy_down "$pid"
@@ -389,7 +428,7 @@ if [ "$Z_RC" != 1 ] || ! soderzhit "$Z_REASON" "старт не отказан";
 fi
 printf '  ok   С4: стаб «cwd-фолбэк» пойман — при env -u HOME старт не отказан\n' >&2
 
-# ── Б: боль (определяющая) — честный прокси, конфиг с ${HOME}, ДВЕ клетки ──────
+# ── Б: боль (определяющая) — честный прокси, конфиг с ${HOME}, ТРИ клетки ─────
 cp "$REPO/scripts/proxy/metering_proxy.ts" "$PROXY"   # восстановить честную копию после стабов
 pain=""
 dvigatel "$PROXY" bol home
@@ -402,8 +441,13 @@ if [ "$Z_RC" != 0 ]; then
   pain="${pain:+$pain; }отсутствующий HOME не даёт именованного отказа старта — $Z_REASON"
   printf '  red  Б2: боль жива (env -u HOME): %s\n' "$Z_REASON" >&2
 fi
+dvigatel "$PROXY" bol3 home2
+if [ "$Z_RC" != 0 ]; then
+  pain="${pain:+$pain; }раскрыто только ПЕРВОЕ вхождение \${HOME} — стаб вердикта 0065a7f жив — $Z_REASON"
+  printf '  red  Б3: боль жива (ДВА ${HOME} в data_dir): %s\n' "$Z_REASON" >&2
+fi
 if [ -n "$pain" ]; then
   die "064 боль жива: $pain"
 fi
-printf 'ok: 064 — ${HOME} раскрывается рантаймом; отсутствующий HOME отказывает старт (ЗК зелёный, С1-С4 пойманы, обе клетки боли зелёные)\n' >&2
+printf 'ok: 064 — ${HOME} раскрывается рантаймом, в т.ч. ДВА вхождения в одном поле; отсутствующий HOME отказает старт (ЗК зелёный, С1-С4 пойманы, все ТРИ клетки боли зелёные)\n' >&2
 exit 0
