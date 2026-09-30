@@ -62,43 +62,94 @@ if ! is_gate "$COMMAND"; then
   exit 0
 fi
 
-# ── инвариант 2: TMPDIR вне стерегомого дерева ───────────────────────────────────
-D_BASE_RAW="${TMPDIR:-/tmp}"
-D_BASE=""
-# Канонизация спуском до существующего предка + pwd -P (мера каноникализации 014).
-_p="$D_BASE_RAW"; _tail=""
-while [ ! -d "$_p" ] && [ -n "$_p" ]; do _tail="/${_p##*/}${_tail}"; _p="${_p%/*}"; done
-if [ -n "$_p" ] && _canon="$(cd "$_p" 2>/dev/null && pwd -P 2>/dev/null)"; then
-  D_BASE="${_canon}${_tail}"
+# ── И-4 (контракт 060): рука HARNESS_WORKFLOW_ROOT — env-ветка черновиков ─────
+# env непуст → черновики пишутся ВНУТРИ репо проекта (`<env>/.harness/
+# nabludenia-drafts/`, mkdir -p; Граница-4: без проверки TMPDIR, проект сам
+# решает, коммитить ли их). Относительное значение → именованный отказ N1 rc
+# 1 ДО письма (Граница-3: значение вставляется в пути git-операций — class
+# path-injection). env не установлен → дефолтная ветвь TMPDIR байт-в-байт
+# (контрольная клетка к6в, контракт :108 «env не установлен → пул как сегодня,
+# байт-в-байт»).
+PROJ_ROOT=""
+if [ -n "${HARNESS_WORKFLOW_ROOT:-}" ]; then
+  case "${HARNESS_WORKFLOW_ROOT}" in
+    /*)
+      PROJ_ROOT="$(cd "$HARNESS_WORKFLOW_ROOT" && pwd)"
+      ;;
+    *)
+      printf 'workflow ОТКАЗ: HARNESS_WORKFLOW_ROOT обязан быть абсолютным путём, получен: %s\n' "$HARNESS_WORKFLOW_ROOT" >&2
+      exit 1
+      ;;
+  esac
 fi
-_root_canon="$(cd "$GUARDED_ROOT" 2>/dev/null && pwd -P 2>/dev/null || printf '%s' "$GUARDED_ROOT")"
-if [ -z "$D_BASE" ]; then
-  printf 'FAIL дерево: TMPDIR не разрешается в канонический путь (%s)\n' "$D_BASE_RAW" >&2
-  exit 1
-fi
-case "$D_BASE" in
-  "$_root_canon"|"$_root_canon"/*)
-    printf 'FAIL дерево: TMPDIR внутри стерегомого корня (%s � %s) — черновики ВНЕ дерева\n' \
-      "$D_BASE" "$_root_canon" >&2
+
+if [ -n "$PROJ_ROOT" ]; then
+  # env-ветка: черновики ВНУТРИ репо проекта; HEAD именно от репо проекта.
+  DRAFTS="$PROJ_ROOT/.harness/nabludenia-drafts"
+  if ! mkdir -p "$DRAFTS" 2>/dev/null; then
+    printf 'draft_nabludenia: mkdir %s не удался\n' "$DRAFTS" >&2
+    exit 0
+  fi
+  if [ ! -f "$DRAFTS/README.md" ]; then
+    {
+      printf '# ЧЕРНОВИКИ, не записи: записать в NABLIUDENIA с адресом (механизм 1 красен без него)\n'
+      printf '# ИЛИ отвергнуть. Поднимаются дайджестом старта сессии.\n'
+    } > "$DRAFTS/README.md" 2>/dev/null || {
+      printf 'draft_nabludenia: README не записан\n' >&2
+    }
+  fi
+  # HEAD репозитория проекта (короткий хеш). Вне git — прочерк.
+  if command -v git >/dev/null 2>&1 && git -C "$PROJ_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    HEAD_SHORT="$(git -C "$PROJ_ROOT" rev-parse --verify --short=8 HEAD 2>/dev/null || printf -- '-')"
+  else
+    HEAD_SHORT="-"
+  fi
+else
+  # инвариант 2: TMPDIR вне стерегомого дерева (дефолтная ветвь; к6в) ────────────
+  D_BASE_RAW="${TMPDIR:-/tmp}"
+  D_BASE=""
+  # Канонизация спуском до существующего предка + pwd -P (мера каноникализации 014).
+  _p="$D_BASE_RAW"; _tail=""
+  while [ ! -d "$_p" ] && [ -n "$_p" ]; do _tail="/${_p##*/}${_tail}"; _p="${_p%/*}"; done
+  if [ -n "$_p" ] && _canon="$(cd "$_p" 2>/dev/null && pwd -P 2>/dev/null)"; then
+    D_BASE="${_canon}${_tail}"
+  fi
+  _root_canon="$(cd "$GUARDED_ROOT" 2>/dev/null && pwd -P 2>/dev/null || printf '%s' "$GUARDED_ROOT")"
+  if [ -z "$D_BASE" ]; then
+    printf 'FAIL дерево: TMPDIR не разрешается в канонический путь (%s)\n' "$D_BASE_RAW" >&2
     exit 1
-    ;;
-esac
+  fi
+  case "$D_BASE" in
+    "$_root_canon"|"$_root_canon"/*)
+      printf 'FAIL дерево: TMPDIR внутри стерегомого корня (%s � %s) — черновики ВНЕ дерева\n' \
+        "$D_BASE" "$_root_canon" >&2
+      exit 1
+      ;;
+  esac
 
-DRAFTS="$D_BASE/dev-harness-nabludenia/drafts"
+  DRAFTS="$D_BASE/dev-harness-nabludenia/drafts"
 
-if ! mkdir -p "$DRAFTS" 2>/dev/null; then
-  printf 'draft_nabludenia: mkdir %s не удался\n' "$DRAFTS" >&2
-  exit 0   # fail-open: сессия не падает
-fi
+  if ! mkdir -p "$DRAFTS" 2>/dev/null; then
+    printf 'draft_nabludenia: mkdir %s не удался\n' "$DRAFTS" >&2
+    exit 0   # fail-open: сессия не падает
+  fi
 
-# Шапка README кладётся при первом создании каталога. Идемпотентно: только если README нет.
-if [ ! -f "$DRAFTS/README.md" ]; then
-  {
-    printf '# ЧЕРНОВИКИ, не записи: записать в NABLIUDENIA с адресом (механизм 1 красен без него)\n'
-    printf '# ИЛИ отвергнуть. Поднимаются дайджестом старта сессии.\n'
-  } > "$DRAFTS/README.md" 2>/dev/null || {
-    printf 'draft_nabludenia: README не записан\n' >&2
-  }
+  # Шапка README кладётся при первом создании каталога. Идемпотентно: только если README нет.
+  if [ ! -f "$DRAFTS/README.md" ]; then
+    {
+      printf '# ЧЕРНОВИКИ, не записи: записать в NABLIUDENIA с адресом (механизм 1 красен без него)\n'
+      printf '# ИЛИ отвергнуть. Поднимаются дайджестом старта сессии.\n'
+    } > "$DRAFTS/README.md" 2>/dev/null || {
+      printf 'draft_nabludenia: README не записан\n' >&2
+    }
+  fi
+
+  # HEAD репозитория скрипта (короткий хеш). Вне git — прочерк.
+  if command -v git >/dev/null 2>&1 && git -C "$GUARDED_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    HEAD_SHORT="$(git -C "$GUARDED_ROOT" rev-parse --verify --short=8 HEAD 2>/dev/null || printf -- '-')"
+  else
+    HEAD_SHORT="-"
+  fi
 fi
 
 # ── инвариант 4: дедуп по ключу (команда + первая FAIL-строка) ──────────────────
@@ -110,13 +161,6 @@ HASH="$(printf '%s' "$KEY" | sha256sum | cut -d' ' -f1 | cut -c1-16)"
 
 DATE="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 GATE_NAME="$COMMAND"
-
-# HEAD репозитория скрипта (короткий хеш). Вне git — прочерк.
-if command -v git >/dev/null 2>&1 && git -C "$GUARDED_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-  HEAD_SHORT="$(git -C "$GUARDED_ROOT" rev-parse --verify --short=8 HEAD 2>/dev/null || printf -- '-')"
-else
-  HEAD_SHORT="-"
-fi
 
 # FAIL: первые ≤3 строки (плоские, перевод строки заменён на ` | `).
 FAIL_LINES="$(printf '%s' "$FAIL_HEAD" | head -n 3 | paste -sd' | ' - 2>/dev/null)"

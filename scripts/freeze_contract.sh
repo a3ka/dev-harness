@@ -56,9 +56,30 @@ skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
 TARGET="${1:-}"
 REASON="${2:-}"
-ROOT="${3:-$(cd "$SELF_DIR/.." && pwd)}"
+ROOT_DEFAULT="$(cd "$SELF_DIR/.." && pwd)"
+ROOT="${3:-}"
 
 [ -n "$TARGET" ] || die "не назван предмет: bash scripts/freeze_contract.sh <plans/NNN-*.md|contracts/NNN-*.md> \"<причина>\" [корень]"
+
+# ── И-3 (контракт 060): рука HARNESS_WORKFLOW_ROOT — env > дефолт (после $3) ───
+# Лестница (Граница-2): $3 > env > дефолт. Явный $3 перебивает env, и при
+# валидном $3 env НЕ читается — лестница короткого замыкания (критик 060-к2
+# Б1; контрольная клетка к6е: валидный $3 + относительный неиспользуемый env →
+# $3 побеждает, N1 нет, реестр в $3-репо). env оперативен ТОЛЬКО когда $3 не
+# передан: относительное значение → именованный отказ N1 rc 1 ДО любого
+# git-вызова (Граница-3: значение вставляется в пути git-операций — class
+# path-injection; прецедент PSTATE-base workshop:686-691).
+if [ -z "$ROOT" ] && [ -n "${HARNESS_WORKFLOW_ROOT:-}" ]; then
+  case "${HARNESS_WORKFLOW_ROOT}" in
+    /*)
+      ROOT="$HARNESS_WORKFLOW_ROOT"
+      ;;
+    *)
+      die "workflow ОТКАЗ: HARNESS_WORKFLOW_ROOT обязан быть абсолютным путём, получен: $HARNESS_WORKFLOW_ROOT"
+      ;;
+  esac
+fi
+[ -n "$ROOT" ] || ROOT="$ROOT_DEFAULT"
 
 command -v git >/dev/null 2>&1 || skip "нет git — реестр заморозок вести нечем"
 [ -d "$ROOT" ] || skip "корня нет: $ROOT"
