@@ -82,6 +82,11 @@ wip/060/architect») несёт v2-правку `contracts/060-…`, санкц�
 
 ЗОНА architect: contracts/065-perenos-strok-sankeij-v-merge-lendy.md scripts/check_charter.sh scripts/land_agent.sh fixtures/check_charter/ fixtures/land_agent/ NABLIUDENIA_ARCHITECT.md
 
+ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 015 объявляет двойное владение (architect+implementer) для одноразовой landed-миграции заголовков; 065 владеет путём как обычной записью воркфлоу-наблюдений (А-297), содержание чужих правок не трогает — прецедент 037
+ПЕРЕСЕЧЕНИЕ architect: scripts/check_charter.sh — 019 implementer-зона 019 — история тех замороженных правок; 065 переносит владение по слову владельца 2026-09-30 (реализация одним архитектором), ту историю не трогает
+ПЕРЕСЕЧЕНИЕ architect: scripts/check_charter.sh — 022 implementer-зона 022 — та же история land-кольца; 065 переносит владение по слову владельца 2026-09-30, ту историю не трогает
+ПЕРЕСЕЧЕНИЕ architect: scripts/land_agent.sh — 016 implementer-зона 016 — история срезов land_agent; 065 переносит владение по слову владельца 2026-09-30 (реализация одним архитектором), ту историю не трогает
+ПЕРЕСЕЧЕНИЕ architect: scripts/land_agent.sh — 022 implementer-зона 022 — та же история; 065 переносит владение по слову владельца 2026-09-30, ту историю не трогает
 Перенос `scripts/check_charter.sh` и `scripts/land_agent.sh` от implementer (016/019/022) —
 по слову владельца 2026-09-30: «кодовый контракт + красные + реализация одним архитектором».
 Про окно между land и заморозкой — §Риски.
