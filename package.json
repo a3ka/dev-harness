@@ -68,6 +68,7 @@
     "check:gitw-family-selftest": "bash fixtures/_krasnye_045.sh scripts/gitw",
     "check:sharing-family-selftest": "bash fixtures/_krasnye_058.sh",
     "check:declared-path-family-selftest": "bash fixtures/_krasnye_059.sh",
-    "check:samodostatochnost-family-selftest": "bash fixtures/_krasnye_060.sh"
+    "check:samodostatochnost-family-selftest": "bash fixtures/_krasnye_060.sh",
+    "check:merge-gate-family-selftest": "bash fixtures/check_judge_gate/krasnye_063.sh"
   }
 }
