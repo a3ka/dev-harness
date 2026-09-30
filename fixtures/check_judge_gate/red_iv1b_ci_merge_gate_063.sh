@@ -17,7 +17,8 @@
 #   к5  .review status: done → не блокирует, rc 0;
 #   к6  4 команды + барьер → rc 0 ∧ маркеры шагов ∧ строки команд (отступ 10);
 #   к7  vacuous (цель есть, команд/барьеров нет) → rc 0, фраза, байты целы;
-#   к8  ленд зелёного входа → rc 0 ∧ merge-коммит (2 родителя) ∧ subject;
+#   к8  ленд зелёного входа (чужая identity в конфиге игрушки) → rc 0 ∧
+#       merge-коммит (2 родителя) ∧ subject ∧ committer == orchestrator (И-7);
 #   к9  ленд красного входа → rc 1, фраза гейта, HEAD неизменен;
 #   к10 барьер без файла → rc 1, фраза отсутствия барьера, цель не тронута.
 #   к11 исполнимость: маркерные команды (СЛУЧАЙНЫЕ значения) + барьер
@@ -63,6 +64,10 @@
 #       в GitHub джоба выключена; смерть к11 (cmp с эталоном И-10 при
 #       наблюдаемых эффектах И-9), честен по И-9 — лог эффектов идентичен
 #       честному (диффпроба: И-9 без И-10 обход не ловит).
+#   s7 «identity-обходчик» (арбитраж 4253dd0, Б5) — ленд с ЧЕСТНЫМ встроенным
+#       гейтом и merge --no-ff, но merge БЕЗ identity оркестратора: committer
+#       — из конфига репо (Fixture); смерть к8 (committer ≠ orchestrator,
+#       И-7), честен на к9 — красный вход отказывает (диффпробы);
 #
 # rc: 0 ⟺ стаб-пак пойман весь ∧ диффпробы чисты ∧ честные клетки зелёные
 # ∧ выборки непусты; на HEAD ожидается rc 1 (красная — предмет не реализован).
@@ -336,7 +341,9 @@ k7() { # vacuous: команд/барьеров нет → rc 0, фраза, б�
   [ "$before" = "$after" ] || { printf '  FAIL к7: файл-цель тронут (sha разошлись)\n' >&2; return 1; }
   return 0
 }
-k8() { # ленд зелёного входа: merge --no-ff (два родителя), subject land:
+k8() { # ленд зелёного входа: merge --no-ff (два родителя), subject land:,
+       # committer == orchestrator (И-7; 4-й предикат — арбитраж 4253dd0 Б5;
+       # вход несёт чужую identity: mkt ставит user.name=Fixture)
   local T="$WORK/k8"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"
   g "$T" checkout -q -b feat-x
   printf 'izmenenie vetki\n' > "$T/feature.txt"
@@ -348,6 +355,8 @@ k8() { # ленд зелёного входа: merge --no-ff (два родит�
   [ "$np" -eq 3 ] || { printf '  FAIL к8: у HEAD %s полей родителя (ожидалось 3 = два родителя) — ff-слияние?\n' "$np" >&2; return 1; }
   local subj; subj="$(g "$T" log -1 --format=%s)"
   [ "$subj" = "land: feat-x" ] || { printf '  FAIL к8: subject «%s» ≠ «land: feat-x»\n' "$subj" >&2; return 1; }
+  local cmt; cmt="$(g "$T" log -1 --format=%cn HEAD)"
+  [ "$cmt" = orchestrator ] || { printf '  FAIL к8: committer merge-коммита «%s» ≠ «orchestrator» (И-7)\n' "$cmt" >&2; return 1; }
   return 0
 }
 k9() { # ленд красного входа: rc 1, фраза гейта, HEAD неизменен
@@ -668,6 +677,40 @@ mkdir -p "$(dirname "$REPO/$CW")"
 } > "$REPO/$CW"
 exit 0
 EOF
+
+# s7 «identity-обходчик» (арбитраж 4253dd0, Б5): встроенный гейт ЧЕСТЕН,
+# merge ЧЕСТНЫЙ --no-ff, но merge идёт БЕЗ identity оркестратора — committer
+# берётся из конфига репо (Fixture): предикаты rc/родители/subject проходят,
+# committer-инвариант И-7 — нет.
+cat > "$STUBS/s7_identity_obhodchik.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+REPO=""; BR=""
+while [ $# -gt 0 ]; do case "$1" in --repo) REPO="$2"; shift 2;; --branch) BR="$2"; shift 2;; *) shift;; esac; done
+[ -n "$REPO" ] && [ -n "$BR" ] || { printf 'land project ОТКАЗ: usage: bash scripts/land_project.sh --repo <корень> --branch <ветка>\n' >&2; exit 1; }
+V="$(bash "${RESOLVER:?}" --repo "$REPO" 2>/dev/null | jq -r '.workflowPaths.verdicts.value // empty')"
+blocked=0
+while IFS= read -r rf; do
+  [ -n "$rf" ] || continue
+  [ -f "$REPO/$rf" ] || continue
+  st="$(awk 'NR==1{fm=($0=="---")} fm&&NR>1{if($0=="---")exit; if($0~/^status: /){sub(/^status: /,"");print;exit}}' "$REPO/$rf")"
+  if [ "$st" = "ready" ] || [ "$st" = "partial" ]; then
+    printf 'merge gate ОТКАЗ: незакрытая находка ревьюера: %s (status: %s)\n' "$rf" "$st" >&2
+    blocked=1
+  fi
+done < <(cd "$REPO" && find .review -maxdepth 1 -name '*.md' 2>/dev/null)
+[ "$blocked" -eq 0 ] || exit 1
+found=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  first="$(git -C "$REPO" show "HEAD:$f" 2>/dev/null | head -n1 || true)"
+  if [ "$first" = "accept" ]; then found=1; break; fi
+done < <(cd "$REPO" && find "$V" -type f -name '*.md' 2>/dev/null)
+[ "$found" -eq 1 ] || { printf 'merge gate ОТКАЗ: нет закоммиченного accept-вердикта ревьюера\n' >&2; exit 1; }
+git -C "$REPO" -c commit.gpgsign=false merge --no-ff -m "land: $BR" "$BR" >/dev/null 2>&1 || {
+  printf 'ОТКАЗ: merge отказал\n' >&2; exit 1; }
+exit 0
+EOF
 chmod +x "$STUBS"/*.sh
 
 stub_total=0; stub_caught=0; stub_esc=""
@@ -795,6 +838,22 @@ s6_diff() { # контроль: ТОТ ЖЕ стаб на входе испол�
   [ "$wrc" -eq 0 ] && cmp -s "$WORK/s6c-expected" "$T/.harness/toy-ran.log"
 }
 
+s7() { # смерть к8 (И-7, арбитраж 4253dd0 Б5): rc 0, два родителя и subject
+       # честны, но committer merge-коммита — из конфига репо (Fixture)
+  local T="$WORK/s7d"; mk_in_k8 "$T"
+  bash "$STUBS/s7_identity_obhodchik.sh" --repo "$T" --branch feat-x >/dev/null 2>&1
+  local rc=$? np cmt
+  np="$(g "$T" rev-list --parents -n1 HEAD | wc -w)"
+  cmt="$(g "$T" log -1 --format=%cn HEAD)"
+  [ "$rc" -eq 0 ] && [ "$np" -eq 3 ] && [ "$cmt" != orchestrator ]
+}
+s7_diff() { # контроль к9: красный вход отказывает, HEAD неизменен
+  local T="$WORK/s7c"; mk_in_k9 "$T"
+  local b; b="$(g "$T" rev-parse HEAD)"
+  bash "$STUBS/s7_identity_obhodchik.sh" --repo "$T" --branch feat-x >/dev/null 2>&1
+  [ $? -eq 1 ] && [ "$(g "$T" rev-parse HEAD)" = "$b" ]
+}
+
 scell s1-гейт-слепец-к-ready s1
 scell s2-генератор-без-команд s2
 scell s3-no-ff-обходчик s3
@@ -807,6 +866,8 @@ dcell s4-диффпроба s4_diff
 dcell s5-диффпроба s5_diff
 scell s6-выключатель-контура s6
 dcell s6-диффпроба s6_diff
+scell s7-identity-obhodchik s7
+dcell s7-диффпроба s7_diff
 
 # ── итог: счёт просмотренного; пустая выборка — красное ───────────────────────
 printf '063: честных клеток %d, зелёных %d, красных:%s\n' \
