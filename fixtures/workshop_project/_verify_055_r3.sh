@@ -31,12 +31,16 @@ layer_make() {
 }
 repo_make() {
   local r="$1" rid="$2"
-  mkdir -p "$r/config"
+  mkdir -p "$r/config" "$r/.github/workflows"
   git -C "$r" init -q
   git -C "$r" config receive.denyCurrentBranch refuse
   printf '{"schemaVersion":1,"repoId":"%s","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"ci":{"workflow":".github/workflows/ci.yml"},"git":{"canonicalRemote":"git@host:r1.git"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}' "$rid" > "$r/harness.project.json"
   printf '{"version":"v10"}\n' > "$r/config/harness_pin.json"
   printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
+  # С2-миграция toy-миров (арбитраж 059 п.4): объявленный CI-toy-файл
+  # `.github/workflows/ci.yml` создаётся, иначе после реализации И-2(г)
+  # резолвер откажет по «объявленный путь отсутствует».
+  : > "$r/.github/workflows/ci.yml"
 }
 
 # Стаб-omp (как в клетках h7/h8) — субъект, которого exec'ит workshop.

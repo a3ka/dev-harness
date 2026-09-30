@@ -25,6 +25,9 @@ printf '{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","
 G_REPO="$WORK/green/repo"; mkdir -p "$G_REPO"
 printf '{"schemaVersion":1,"repoId":"r1","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}\n' \
   > "$G_REPO/harness.project.json"
+# С2-миграция toy-миров (арбитраж 059 п.4): эффективный ci.workflow="ci.yml"
+# наследуется из слоя (репо не объявляет); резолвер И-2(г) проверяет файл.
+: > "$G_REPO/ci.yml"
 ln -sfn "$GREEN_LAYER" "$WORK/layer"
 BARRIER_ROOT="$WORK" "$BARRIER" --repo "$G_REPO"
 
@@ -35,5 +38,8 @@ printf '{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","
 R_REPO="$WORK/red/repo"; mkdir -p "$R_REPO"
 printf '{"schemaVersion":1,"repoId":"r1","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}\n' \
   > "$R_REPO/harness.project.json"
+# С2-миграция toy-миров (арбитраж 059 п.4): красное P6 срабатывает раньше
+# И-2(г), но объявленный файл всё равно создаётся — единообразие.
+: > "$R_REPO/ci.yml"
 ln -sfn "$RED_LAYER" "$WORK/layer"
 BARRIER_ROOT="$WORK" "$BARRIER" --repo "$R_REPO"

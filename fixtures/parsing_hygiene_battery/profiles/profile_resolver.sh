@@ -17,6 +17,11 @@ repo_make() { # $1=каталог репо, $2=extra-json-fragment для реп
   fi
   mkdir -p "$1/config"
   printf '{"schemaVersion":1,"repoId":"r1","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"barriers":{"mandatory":[],"optional":[]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}%s}' "$extra_frag" > "$1/harness.project.json"
+  # С2-миграция toy-миров (арбитраж 059 п.4): объявленный CI-toy-файл `ci.yml`
+  # создаётся в репо, иначе после реализации И-2(г) клетки к3 (silent-drop) и
+  # self-application-green краснеют (эффективное значение ci.yml мерджится
+  # из репо/слоя — резолвер проверяет существование файла на REPO_ABS).
+  : > "$1/ci.yml"
 }
 
 battery_delimiter_collision() {
