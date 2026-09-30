@@ -1,9 +1,12 @@
 # Контракт 063 — IV-1б: CI проекта из профиля + ворота слияния (боли Б-3/Б-8, дыры Д3/Д4)
 
 Статус: черновик (артефакт архитектора). Коммит фикса: этот контракт + батарея
-`fixtures/check_merge_gate/red_iv1b_ci_merge_gate_063.sh` + раннер
-`fixtures/check_merge_gate/krasnye_063.sh` (новая семья 063, каталог семьи —
-не корень fixtures/: урок 062). Заморозка — оркестратор. Реализация —
+`fixtures/check_judge_gate/red_iv1b_ci_merge_gate_063.sh` + раннер
+`fixtures/check_judge_gate/krasnye_063.sh` (покрытая семья: architect-зона
+каталога заморожена 008/024/028 — перенос из временного
+`fixtures/check_merge_gate/` по прецедентам 054:295-299 и 059:146-147
+закрывает bootstrap-петлю А-66: коммит в непокрытый каталог держал
+check_zones красным до заморозки). Заморозка — оркестратор. Реализация —
 implementer в своей зоне.
 
 ## §Существующее
@@ -213,9 +216,9 @@ issue-map ≡ ISSUES.json (schema-check, Б-6) — задача сессии ode
 
 ## Красные предъявления (носитель — код батареи, Н-39)
 
-Батарея `fixtures/check_merge_gate/red_iv1b_ci_merge_gate_063.sh`, раннер
-`fixtures/check_merge_gate/krasnye_063.sh` (прогон:
-`bash fixtures/check_merge_gate/krasnye_063.sh [корень]`; rc 1 на HEAD —
+Батарея `fixtures/check_judge_gate/red_iv1b_ci_merge_gate_063.sh`, раннер
+`fixtures/check_judge_gate/krasnye_063.sh` (прогон:
+`bash fixtures/check_judge_gate/krasnye_063.sh [корень]`; rc 1 на HEAD —
 честные клетки красны до реализации, rc 0 после).
 
 Честные клетки (живые новые скрипты этого дерева, игрушки на двухслойном
@@ -243,31 +246,46 @@ s2 «генератор-заглушка без команд профиля» (�
 
 ## Зоны (check_zones)
 
-ЗОНА architect: contracts/063-ci-proekta-iz-profylja-vorota-slijanija.md fixtures/check_merge_gate/red_iv1b_ci_merge_gate_063.sh fixtures/check_merge_gate/krasnye_063.sh
+ЗОНА architect: contracts/063-ci-proekta-iz-profylja-vorota-slijanija.md
 ЗОНА implementer: scripts/check_merge_gate.sh scripts/gen_ci_workflow.sh scripts/land_project.sh fixtures/check_merge_gate/ .github/workflows/ci.yml package.json
 
-ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 architect-зона (историческая заявка до отвердевания конвенции; прецедент оформления 045/057/058/059/062): дельта — один прямой шаг `bash fixtures/check_merge_gate/krasnye_063.sh` после шага 062; новая джоба/шард-ключ не вводятся
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 architect-зона (историческая заявка до отвердевания конвенции; прецедент оформления 045/057/058/059/062): дельта — один прямой шаг `bash fixtures/check_judge_gate/krasnye_063.sh` после шага 062; новая джоба/шард-ключ не вводятся
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 architect-зона (та же историческая причина, что 011): дельта — тот же один прямой шаг
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; общий носитель ключей): дельта — один ключ `check:merge-gate-family-selftest` (прецеденты 058/059/060/062)
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (та же причина, что 011): дельта — тот же один ключ
-ПЕРЕСЕЧЕНИЕ implementer: fixtures/check_merge_gate/ — 063 architect-зона каталога (эта же пачка, заморозки нет — прецедент само-пересечения семьи 038/062): case-файлы реализации — по прецеденту пачки 038 (С-серия), файлы батареи/раннера 063 реализацией не правятся
 
-Примечание: семья `fixtures/check_merge_gate/` НОВАЯ (до 063 каталога нет —
-сверено живым `ls fixtures/`), раннер лежит в каталоге своей семьи, не в
-корне fixtures/ (урок 062). Порядок с соседями: 062-раннер семьи
+Примечание: батарея и раннер лежат в ПОКРЫТОМ каталоге семьи
+`fixtures/check_judge_gate/` (architect-зона каталога — живые заморозки
+008/024/028, сверено `git for-each-ref 'refs/tags/frozen/contracts/'`:
+зона автора — ОБЪЕДИНЕНИЕ путей всех замороженных контрактов) и коммитятся
+architect в пачке черновика по ДЕЙСТВУЮЩЕЙ заморозке каталога — прецедент
+054:295-299 (черновик зон каталога не переобъявляет: пути батареи/раннера
+заявлением в ЗОНА-строках 063 не покрываются — 063 барьер этой семьи
+scripts/check_judge_gate.sh не правит, а заявленная в ЗОНА чужая семья
+заставила бы precision-гейт 043 задачу (б) требовать от red-файла живого
+вызова ЧУЖОГО барьера). Коммит
+архитектора зелён check_zones СРАЗУ — транзиентного красного и
+bootstrap-петли А-66 нет (перенос из временного `fixtures/check_merge_gate/`,
+где каталог не покрыт ни одной живой заморозкой). Каталог
+`fixtures/check_merge_gate/` — НОВАЯ implementer-зона под case-файлы семьи
+(до 063 каталога нет — сверено живым `ls fixtures/`; заявок в живых
+заморозках нет — не пересечение; case_*-имена ассоциированы с барьером
+`scripts/check_merge_gate.sh` по соглашению verify_antiplacebo — прецедент
+пачки 038, С-серия; файлы батареи/раннера 063 лежат вне этого каталога и
+реализацией не правятся). Порядок с соседями: 062-раннер семьи
 check_consumers пачку 063 не судит (другой каталог); зарегистрированных
-писателей пачка не трогает (сверено `scripts/consumers.d/`). До заморозки
-063 коммиты архитектора в новых путях дают транзиентный красный check_zones
-(зоны читаются из заморозок); заморозка 063 закрывает union — измеренный
-прецедент 045/058/059/062.
+писателей пачка не трогает (сверено `scripts/consumers.d/`); в case_*-глоб
+шарда verify_antiplacebo имена krasnye_*/red_iv1b_* не попадают (прецедент
+059).
 
-- **architect** (коммит фикса): `contracts/063-*.md`, батарея
-  `fixtures/check_merge_gate/red_iv1b_ci_merge_gate_063.sh`, раннер
-  `fixtures/check_merge_gate/krasnye_063.sh`.
+- **architect** (коммит фикса): `contracts/063-*.md` (зона 063) + батарея
+  `fixtures/check_judge_gate/red_iv1b_ci_merge_gate_063.sh` + раннер
+  `fixtures/check_judge_gate/krasnye_063.sh` — по ДЕЙСТВУЮЩЕЙ заморозке
+  каталога 008/024/028, не зоной 063 (примечание выше; прецедент 054).
 - **implementer** (реализационная пачка): `scripts/check_merge_gate.sh`
   (И-1..И-3, И-8), `scripts/gen_ci_workflow.sh` (И-4..И-6, И-8),
   `scripts/land_project.sh` (И-7); ci-шаг
-  `bash fixtures/check_merge_gate/krasnye_063.sh` после шага 062
+  `bash fixtures/check_judge_gate/krasnye_063.sh` после шага 062
   (.github/workflows/ci.yml) + ключ package.json
   `check:merge-gate-family-selftest` (см. ПРОВОДКА); case-файлы семьи — по
   мере надобности.
@@ -313,7 +331,7 @@ check_consumers пачку 063 не судит (другой каталог); з
   тогда: rc 1, stderr содержит дословно `ci-генератор ОТКАЗ: объявленный
   барьер отсутствует в дереве: probe-a (.harness/fixtures/probe-a.sh)`,
   файл-цель не тронут.
-- правило: `bash fixtures/check_merge_gate/krasnye_063.sh`; rc 0 после
+- правило: `bash fixtures/check_judge_gate/krasnye_063.sh`; rc 0 после
   реализации, rc 1 до (честные клетки красны — предмет не реализован).
 - правило (живые полярности владельца, odelix-workstation): временный
   клон `/home/aka/Documents/odelix/odelix-workstation` (НЕ живой чекаут;
@@ -327,7 +345,7 @@ check_consumers пачку 063 не судит (другой каталог); з
 
 ### Красное сейчас
 
-`bash fixtures/check_merge_gate/krasnye_063.sh` — rc 1 живым прогоном на
+`bash fixtures/check_judge_gate/krasnye_063.sh` — rc 1 живым прогоном на
 этом дереве: честные клетки к1..к10 красны (скрипты предмета отсутствуют,
 bash rc 127 — отсутствие барьера и есть честный красный, 034-паттерн);
 стаб-пак 3/3 пойман, диффпробы 3/3 зелёные — различимость не зависит от
@@ -336,18 +354,19 @@ bash rc 127 — отсутствие барьера и есть честный �
 ## ПРОВОДКА
 
 ПРОВОДКА:
-- guard=fixtures/check_merge_gate/krasnye_063.sh
+- guard=fixtures/check_judge_gate/krasnye_063.sh
 
 ПРОВОДКА-ЭНФОРСМЕНТ: предмет 063 — чистый энфорсмент (ворот слияния и
 перенос объявлений профиля в CI), поведенческой нормы для ролей нет:
 reslop-норма `.review/` уже живёт в roles/reviewer.md (владелец, 2026-09-29),
 063 даёт ей исполнителя, норму не дублирует; «merge только --no-ff» —
 механизм land_project.sh (guard-канал), не строка роли. Канал один — guard:
-раннер `fixtures/check_merge_gate/krasnye_063.sh`, исполняющий батарею
-`fixtures/check_merge_gate/red_iv1b_ci_merge_gate_063.sh` (семья НОВАЯ,
-каталог семьи — урок 062; в case_*-глоб шарда verify_antiplacebo не
-попадает — прецедент 059). Подключение guard-канала — РЕАЛИЗАЦИОННОЙ пачкой
-вместе с предметом: прямой ci-шаг `bash fixtures/check_merge_gate/krasnye_063.sh`
+раннер `fixtures/check_judge_gate/krasnye_063.sh`, исполняющий батарею
+`fixtures/check_judge_gate/red_iv1b_ci_merge_gate_063.sh` (покрытая семья
+check_judge_gate — architect-зона каталога 008/024/028, файлы семьи не
+правятся; в case_*-глоб шарда verify_antiplacebo не попадает — прецедент
+059). Подключение guard-канала — РЕАЛИЗАЦИОННОЙ пачкой вместе с предметом:
+прямой ci-шаг `bash fixtures/check_judge_gate/krasnye_063.sh`
 после шага 062 (.github/workflows/ci.yml) плюс ключ package.json
 `check:merge-gate-family-selftest` (равен значению шага — четвёртая форма
 правила 6 verify_ci_parity.sh; прецеденты 058/059/060/062). До проводки
