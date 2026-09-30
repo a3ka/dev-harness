@@ -20,6 +20,15 @@
 #   к8  ленд зелёного входа → rc 0 ∧ merge-коммит (2 родителя) ∧ subject;
 #   к9  ленд красного входа → rc 1, фраза гейта, HEAD неизменен;
 #   к10 барьер без файла → rc 1, фраза отсутствия барьера, цель не тронута.
+#   к11 исполнимость: маркерные команды + барьер → локальное исполнение
+#       джобы rc 0 ∧ лог эффектов байт-в-байт test/build/typecheck/lint/
+#       barrier-probe-ok в порядке И-4 (И-9а);
+#   к12 распространение отказа: команда test падает exit 9 → локальное
+#       исполнение rc 9 ∧ в логе эффектов ТОЛЬКО «test» — шаги после
+#       упавшего не исполняются (И-9б);
+#   к13 tracked-вердикт с первой строкой FAIL в HEAD, рабочая копия
+#       переписана на accept → rc 1 «нет закоммиченного accept-вердикта»:
+#       судится блоб HEAD, не рабочая копия (И-2).
 #   КРАСНЫЕ до реализации: скриптов нет → bash rc 127 (034-паттерн:
 #   отсутствие барьера и есть честный красный).
 #
@@ -28,12 +37,21 @@
 # различимость не зависит от честного кода; резолвер профиля — стабам
 # разрешён: он НЕ предмет 063):
 #   s1 «гейт-слепец к ready-файлам» — гейт, игнорирующий .review/ целиком;
-#       смерть к2 (пропускает блокирующий вход), честен на к1 (диффпроба);
+#       смерть к2 (пропускает блокирующий вход), честен на к1 (диффпробы);
 #   s2 «генератор-заглушка без команд» — пишет шаблон джобы БЕЗ шагов
-#       команд/барьеров; смерть к6, честен на к7 — vacuous-вход (диффпроба);
+#       команд/барьеров; смерть к6, честен на к7 — vacuous-вход (диффпробы);
 #   s3 «--no-ff-обходчик» — ленд с честным встроенным гейтом, но merge БЕЗ
 #       --no-ff; смерть к8 (ff: HEAD с одним родителем), честен на к9
-#       (красный вход отказывает — диффпроба).
+#       (красный вход отказывает — диффпробы);
+#   s4 «heredoc-транспорт» — резолв/vacuous/отсутствие барьера честны, все
+#       маркеры шагов и строки команд на месте, но команды/барьеры — ДАННЫЕ
+#       no-op-шага `: <<'COMMANDS'`: не исполняется ни одна; смерть к11
+#       (эффектов нет), честен на к6 — маркеры и строки на месте
+#       (диффпробы);
+#   s5 «грязная копия вердикта» — .review и перечисление tracked-файлов
+#       честны, но первая строка вердикта читается из РАБОЧЕГО файла, не
+#       из блоба HEAD; смерть к13 (ворота открыты без accept в HEAD),
+#       честен на к1 — чистый закоммиченный accept (диффпробы).
 #
 # rc: 0 ⟺ стаб-пак пойман весь ∧ диффпробы чисты ∧ честные клетки зелёные
 # ∧ выборки непусты; на HEAD ожидается rc 1 (красная — предмет не реализован).
@@ -102,6 +120,31 @@ REPO_JSON_VAC='{
   "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
   "ci": {"workflow": ".github/workflows/harness.yml"}
 }'
+# repo-слой: exec-вариант (команды-маркеры + барьер — эффекты наблюдаемы
+# локальным исполнением И-9; значения команд — обычные данные профиля,
+# клетка от них не зависит: конформен любой непустой набор)
+REPO_JSON_EXEC='{
+  "schemaVersion": 1,
+  "repoId": "toy63",
+  "language": "typescript",
+  "projectLayer": {"version": "t1", "profilePath": "registry/harness-project.json"},
+  "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
+  "commands": {"test": "echo test >> .harness/toy-ran.log", "build": "echo build >> .harness/toy-ran.log", "typecheck": "echo typecheck >> .harness/toy-ran.log", "lint": "echo lint >> .harness/toy-ran.log"},
+  "ci": {"workflow": ".github/workflows/harness.yml"},
+  "barriers": {"mandatory": ["probe-ok"], "optional": []}
+}'
+# repo-слой: execfail-вариант (та же форма; команда test падает exit 9 —
+# отказ шага распространяется на джобу, поздние шаги не исполняются)
+REPO_JSON_EXECFAIL='{
+  "schemaVersion": 1,
+  "repoId": "toy63",
+  "language": "typescript",
+  "projectLayer": {"version": "t1", "profilePath": "registry/harness-project.json"},
+  "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
+  "commands": {"test": "echo test >> .harness/toy-ran.log; exit 9", "build": "echo build >> .harness/toy-ran.log", "typecheck": "echo typecheck >> .harness/toy-ran.log", "lint": "echo lint >> .harness/toy-ran.log"},
+  "ci": {"workflow": ".github/workflows/harness.yml"},
+  "barriers": {"mandatory": ["probe-ok"], "optional": []}
+}'
 
 mkt() { # <каталог> <repo-json>
   mkdir -p "$1/.harness/verdicts" "$1/.github/workflows"
@@ -123,11 +166,39 @@ review_file() { # <каталог> <имя> <status>
   printf -- '---\nstatus: %s\n---\n\n- [ ] nakhodka 1\n' "$3" > "$1/.review/$2"
 }
 
+mk_probe_ok() { # <каталог> — барьер-маркер probe-ok (эффект — строка в лог)
+  mkdir -p "$1/.harness/fixtures"
+  printf '#!/usr/bin/env bash\necho barrier-probe-ok >> .harness/toy-ran.log\n' \
+    > "$1/.harness/fixtures/probe-ok.sh"
+}
+
 # ── незавершающие проверки (батарея считает, не умирает на первой) ───────────
 LAST_OUT=''; LAST_RC=0
 run_gate() { LAST_OUT="$(bash "$GATE" --repo "$1" 2>&1)"; LAST_RC=$?; }
 run_gen()  { LAST_OUT="$(bash "$GEN" --repo "$1" 2>&1)";  LAST_RC=$?; }
 run_land() { LAST_OUT="$(bash "$LAND" --repo "$1" --branch "$2" 2>&1)"; LAST_RC=$?; }
+
+# ── локальное исполнение джобы harness (предъявление И-9; способ локального
+# предъявления выбирает автор батареи, внешний GitHub не требуется): шаги
+# извлекаются по фиксированному лейауту И-4 — «        run: |» открывает
+# тело, строки с отступом ровно 10 — тело (шаги без run:, например uses:,
+# пропускаются); тела исполняются ПОДРЯД, каждое отдельным bash -c в корне
+# репо; отказ шага = отказ джобы (rc шага), поздние шаги не исполняются ──
+wf_run() { # <repo> <wf-файл>; rc = rc первого упавшего шага, 0 = все зелёные
+  local repo="$1" wf="$2" line body='' have=0
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$have" -eq 1 ]; then
+      case "$line" in
+        '          '*) body+="${line:10}"$'\n'; continue ;;
+      esac
+      ( cd "$repo" && bash -c "$body" ) || return $?
+      have=0; body=''
+    fi
+    if [ "$line" = '        run: |' ]; then have=1; body=''; fi
+  done
+  if [ "$have" -eq 1 ]; then ( cd "$repo" && bash -c "$body" ) || return $?; fi
+  return 0
+}
 
 chk_rc0() {
   if [ "$LAST_RC" -eq 0 ]; then printf '  ok   %s\n' "$1" >&2; return 0; fi
@@ -241,6 +312,46 @@ k10() { # барьер объявлен, файла нет → rc 1 дослов
   grep -Fxq '# tsel bez bariera' "$T/$CW" || { printf '  FAIL к10: файл-цель тронут при отказе\n' >&2; return 1; }
   return 0
 }
+k11() { # исполнимость: каждый шаг переноса производит свой эффект (И-9а)
+  local T="$WORK/k11"; mkt "$T" "$REPO_JSON_EXEC"
+  mk_probe_ok "$T"
+  printf '# tsel\n' > "$T/$CW"; commit_all "$T" 'exec toy'
+  run_gen "$T"
+  chk_rc0 'к11: генератор rc 0' || return 1
+  local wrc=0; wf_run "$T" "$T/$CW" || wrc=$?
+  [ "$wrc" -eq 0 ] || { printf '  FAIL к11: локальное исполнение джобы rc %s, ожидался 0\n' "$wrc" >&2; return 1; }
+  printf 'test\nbuild\ntypecheck\nlint\nbarrier-probe-ok\n' > "$WORK/k11-expected"
+  cmp -s "$WORK/k11-expected" "$T/.harness/toy-ran.log" || {
+    printf '  FAIL к11: эффекты шагов не совпали байт-в-байт (команды как данные не исполняются?)\n' >&2
+    cat "$T/.harness/toy-ran.log" >&2 2>/dev/null
+    return 1
+  }
+  return 0
+}
+k12() { # распространение отказа: rc команды = rc джобы, поздние шаги не исполняются (И-9б)
+  local T="$WORK/k12"; mkt "$T" "$REPO_JSON_EXECFAIL"
+  mk_probe_ok "$T"
+  printf '# tsel\n' > "$T/$CW"; commit_all "$T" 'execfail toy'
+  run_gen "$T"
+  chk_rc0 'к12: генератор rc 0' || return 1
+  local wrc=0; wf_run "$T" "$T/$CW" || wrc=$?
+  [ "$wrc" -eq 9 ] || { printf '  FAIL к12: rc локального исполнения %s, ожидался 9 (отказ шага не распространён)\n' "$wrc" >&2; return 1; }
+  printf 'test\n' > "$WORK/k12-expected"
+  cmp -s "$WORK/k12-expected" "$T/.harness/toy-ran.log" || {
+    printf '  FAIL к12: после упавшего шага исполнены поздние (лог ≠ ровно «test»)\n' >&2
+    cat "$T/.harness/toy-ran.log" >&2 2>/dev/null
+    return 1
+  }
+  return 0
+}
+k13() { # tracked-вердикт FAIL в HEAD, рабочая копия переписана на accept → rc 1 (И-2)
+  local T="$WORK/k13"; mkt "$T" "$REPO_JSON_GATE"
+  printf 'FAIL\n\ntoy verdikt revju\n' > "$T/.harness/verdicts/stk-063-review.md"
+  commit_all "$T" 'verdikt FAIL'
+  printf 'accept\n' > "$T/.harness/verdicts/stk-063-review.md" # грязная рабочая копия
+  run_gate "$T"
+  chk_refuse 'к13: грязная рабочая копия вердикта не считается — судится блоб HEAD' "$P_NOVERD"
+}
 
 honest_total=0; honest_green=0; honest_fail=""
 hcell() { # hcell <имя> <функция>
@@ -259,6 +370,9 @@ hcell к7-generator-vacuous k7
 hcell к8-lend-no-ff-merge-kommit k8
 hcell к9-lend-krasnyj-vhod-otkaz k9
 hcell к10-barier-bez-fajla k10
+hcell к11-ispolnitelnost-shagov k11
+hcell к12-rasprostranenie-otkaza k12
+hcell к13-griaznaja-kopija-verdikta k13
 
 # ── СТАБ-ПАК (обманные реализации; входы честных клеток пересоздаются) ───────
 STUBS="$WORK/stubs"; mkdir -p "$STUBS"
@@ -344,6 +458,86 @@ git -C "$REPO" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.
   printf 'ОТКАЗ: merge отказал\n' >&2; exit 1; }
 exit 0
 EOF
+
+# s4 «heredoc-транспорт» (обход Б1): резолв/vacuous/отсутствие-барьера
+# честны, ВСЕ маркеры шагов и строки команд присутствуют с нужными
+# отступами, но команды/барьеры — ДАННЫЕ no-op-шага `: <<'COMMANDS'`:
+# ни одна команда профиля не исполняется.
+cat > "$STUBS/s4_heredoc_transport.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+REPO=""
+while [ $# -gt 0 ]; do case "$1" in --repo) REPO="$2"; shift 2;; *) shift;; esac; done
+[ -n "$REPO" ] || { printf 'usage: --repo <корень>\n' >&2; exit 1; }
+M="$(bash "${RESOLVER:?}" --repo "$REPO" 2>/dev/null)" || { printf '%s\n' "$M" >&2; exit 1; }
+CW="$(printf '%s' "$M" | jq -r '.ci.value.workflow // empty')"
+NC="$(printf '%s' "$M" | jq -r '[.commands[]?.value] | map(select(. != null)) | length')"
+NB="$(printf '%s' "$M" | jq -r '.barriers.mandatory.value // [] | length')"
+if [ "$NC" -eq 0 ] && [ "$NB" -eq 0 ]; then
+  printf 'ci-генератор: профиль не объявляет команд и барьеров — vacuous, файл не тронут\n' >&2
+  exit 0
+fi
+[ -n "$CW" ] || { printf 'ci-генератор: профиль не объявляет ci.workflow — генерировать некуда\n' >&2; exit 0; }
+FIX="$(printf '%s' "$M" | jq -r '.workflowPaths.fixtures.value // empty')"
+while IFS= read -r b; do
+  [ -n "$b" ] || continue
+  [ -f "$REPO/$FIX/$b.sh" ] || { printf 'ci-генератор ОТКАЗ: объявленный барьер отсутствует в дереве: %s (%s/%s.sh)\n' "$b" "$FIX" "$b" >&2; exit 1; }
+done < <(printf '%s' "$M" | jq -r '.barriers.mandatory.value[]?')
+mkdir -p "$(dirname "$REPO/$CW")"
+{
+  printf '# GENERATED by dev-harness gen_ci_workflow — не править руками; источник — harness.project.json\n'
+  printf 'name: harness\non: [push, pull_request]\njobs:\n  harness:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
+  printf '      - name: transport\n        run: |\n'
+  printf '          : <<%s\n' "'COMMANDS'"
+  for k in test build typecheck lint; do
+    v="$(printf '%s' "$M" | jq -r --arg k "$k" '.commands[$k].value // empty')"
+    [ -n "$v" ] || continue
+    printf '          - name: commands.%s\n' "$k"
+    while IFS= read -r l; do printf '          %s\n' "$l"; done <<< "$v"
+  done
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    printf '          - name: barriers.%s\n' "$b"
+    printf '          bash %s/%s.sh\n' "$FIX" "$b"
+  done < <(printf '%s' "$M" | jq -r '.barriers.mandatory.value[]?')
+  printf '          COMMANDS\n'
+} > "$REPO/$CW"
+exit 0
+EOF
+
+# s5 «грязная копия вердикта» (обход Б2): .review и перечисление
+# tracked-файлов честны (незакоммиченный вердикт не виден), но первая
+# строка читается из РАБОЧЕГО файла, а не из блоба HEAD.
+cat > "$STUBS/s5_griaznaja_kopija.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+REPO=""
+while [ $# -gt 0 ]; do case "$1" in --repo) REPO="$2"; shift 2;; *) shift;; esac; done
+[ -n "$REPO" ] || { printf 'usage: --repo <корень>\n' >&2; exit 1; }
+V="$(bash "${RESOLVER:?}" --repo "$REPO" 2>/dev/null | jq -r '.workflowPaths.verdicts.value // empty')"
+[ -n "$V" ] || { printf 'merge gate ОТКАЗ: профиль не объявляет workflowPaths.verdicts — вердикты негде искать\n' >&2; exit 1; }
+blocked=0
+while IFS= read -r rf; do
+  [ -n "$rf" ] || continue
+  [ -f "$REPO/$rf" ] || continue
+  st="$(awk 'NR==1{fm=($0=="---")} fm&&NR>1{if($0=="---")exit; if($0~/^status: /){sub(/^status: /,"");print;exit}}' "$REPO/$rf")"
+  if [ "$st" = "ready" ] || [ "$st" = "partial" ]; then
+    printf 'merge gate ОТКАЗ: незакрытая находка ревьюера: %s (status: %s)\n' "$rf" "$st" >&2
+    blocked=1
+  fi
+done < <(cd "$REPO" && find .review -maxdepth 1 -name '*.md' 2>/dev/null)
+[ "$blocked" -eq 0 ] || exit 1
+found=0
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  case "$f" in *.md) ;; *) continue ;; esac
+  [ -f "$REPO/$f" ] || continue
+  first="$(head -n1 "$REPO/$f")" # РУЧКА ОБМАНА: рабочий файл, не HEAD-блоб
+  [ "$first" = "accept" ] && { found=1; break; }
+done < <(git -C "$REPO" ls-files -c -- "$V")
+[ "$found" -eq 1 ] || { printf 'merge gate ОТКАЗ: нет закоммиченного accept-вердикта ревьюера\n' >&2; exit 1; }
+exit 0
+EOF
 chmod +x "$STUBS"/*.sh
 
 stub_total=0; stub_caught=0; stub_esc=""
@@ -376,6 +570,17 @@ mk_in_k8() { # ленд-вход зелёный: ветка ahead
 }
 mk_in_k9() { # ленд-вход красный: ready-файл + ветка ahead
   local T="$1"; mk_in_k8 "$T"; review_file "$T" 2026-09-30-01.md ready
+}
+mk_in_k11() { # генераторный вход с маркерными командами и барьером
+  local T="$1"; mkt "$T" "$REPO_JSON_EXEC"
+  mk_probe_ok "$T"
+  printf '# tsel\n' > "$T/$CW"; commit_all "$T" 'exec toy'
+}
+mk_in_k13() { # tracked FAIL-вердикт, рабочая копия переписана на accept
+  local T="$1"; mkt "$T" "$REPO_JSON_GATE"
+  printf 'FAIL\n\ntoy verdikt revju\n' > "$T/.harness/verdicts/stk-063-review.md"
+  commit_all "$T" 'verdikt FAIL'
+  printf 'accept\n' > "$T/.harness/verdicts/stk-063-review.md"
 }
 
 s1() { # смерть к2: слепец пропускает блокирующий вход (rc 0 = дефект наблюдён)
@@ -410,13 +615,48 @@ s3_diff() { # контроль к9: красный вход отказывает
   bash "$STUBS/s3_ff_obhodchik.sh" --repo "$T" --branch feat-x >/dev/null 2>&1
   [ $? -eq 1 ] && [ "$(g "$T" rev-parse HEAD)" = "$b" ]
 }
+s4() { # смерть к11: команды-данные heredoc не производят эффектов
+  local T="$WORK/s4d"; mk_in_k11 "$T"
+  bash "$STUBS/s4_heredoc_transport.sh" --repo "$T" >/dev/null 2>&1
+  local grc=$? wrc=0
+  wf_run "$T" "$T/$CW" || wrc=$?
+  [ "$grc" -eq 0 ] && [ "$wrc" -eq 0 ] && ! grep -Fxq 'test' "$T/.harness/toy-ran.log" 2>/dev/null
+}
+s4_diff() { # контроль к6: все маркеры шагов и строки команд на месте — стаб честен
+  local T="$WORK/s4c"; mk_in_k6 "$T"
+  bash "$STUBS/s4_heredoc_transport.sh" --repo "$T" >/dev/null 2>&1
+  local rc=$? ok=1 m c
+  [ "$rc" -eq 0 ] || ok=0
+  for m in 'commands.test' 'commands.build' 'commands.typecheck' 'commands.lint' 'barriers.probe-a'; do
+    grep -Fq -- "- name: $m" "$T/$CW" || ok=0
+  done
+  for c in 'npm test' 'npm run build' 'tsc --noEmit' 'npm run lint'; do
+    grep -Fxq "          $c" "$T/$CW" || ok=0
+  done
+  grep -Fxq '          bash .harness/fixtures/probe-a.sh' "$T/$CW" || ok=0
+  [ "$ok" -eq 1 ]
+}
+s5() { # смерть к13: грязная копия tracked-вердикта открывает ворота (rc 0 = дефект наблюдён)
+  local T="$WORK/s5d"; mk_in_k13 "$T"
+  bash "$STUBS/s5_griaznaja_kopija.sh" --repo "$T" >/dev/null 2>&1
+  [ $? -eq 0 ]
+}
+s5_diff() { # контроль к1: чистый закоммиченный accept — стаб честен
+  local T="$WORK/s5c"; mk_in_k1 "$T"
+  bash "$STUBS/s5_griaznaja_kopija.sh" --repo "$T" >/dev/null 2>&1
+  [ $? -eq 0 ]
+}
 
 scell s1-гейт-слепец-к-ready s1
 scell s2-генератор-без-команд s2
 scell s3-no-ff-обходчик s3
+scell s4-heredoc-transport s4
+scell s5-griaznaja-kopija-verdikta s5
 dcell s1-диффпроба s1_diff
 dcell s2-диффпроба s2_diff
 dcell s3-диффпроба s3_diff
+dcell s4-диффпроба s4_diff
+dcell s5-диффпроба s5_diff
 
 # ── итог: счёт просмотренного; пустая выборка — красное ───────────────────────
 printf '063: честных клеток %d, зелёных %d, красных:%s\n' \
