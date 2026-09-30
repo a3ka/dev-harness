@@ -19,10 +19,15 @@ G="$WORK/green/repo"; mkdir -p "$G"
 # workflowPaths, commands, git, ci.
 printf '{"schemaVersion":1,"repoId":"r1","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}\n' \
   > "$G/harness.project.json"
+# С2-миграция toy-миров (арбитраж 059 п.4): объявленный CI-toy-файл `ci.yml`.
+: > "$G/ci.yml"
 BARRIER_ROOT="$WORK" "$BARRIER" --repo "$G"
 
 # ── красное: лишний ключ workflowPaths.contrete → rc 1 + P4 ─────────────────
 R="$WORK/red/repo"; mkdir -p "$R"
 printf '{"schemaVersion":1,"repoId":"r1","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures","contrete":"x"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}\n' \
   > "$R/harness.project.json"
+# С2-миграция toy-миров (арбитраж 059 п.4): P4 срабатывает раньше, но файл
+# всё равно создаётся — единообразие миграции.
+: > "$R/ci.yml"
 BARRIER_ROOT="$WORK" "$BARRIER" --repo "$R"

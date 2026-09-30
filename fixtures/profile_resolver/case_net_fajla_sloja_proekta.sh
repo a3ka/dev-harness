@@ -22,6 +22,9 @@ mkdir -p "$REPO"
 # Репо — только обязательные (форма A берёт остальное из defaults слоя).
 printf '{"schemaVersion":1,"repoId":"r1","language":"rust","projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}\n' \
   > "$REPO/harness.project.json"
+# С2-миграция toy-миров (арбитраж 059 п.4): эффективный ci.workflow="ci.yml"
+# наследуется из слоя (репо не объявляет).
+: > "$REPO/ci.yml"
 
 # ── зелёный контроль: форма A → rc 0 ────────────────────────────────────────
 mkdir -p "$LAYER_OK/registry"
