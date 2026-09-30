@@ -5,20 +5,37 @@
 # сессии ведутся НА РЕПО-СТОРОНЕ (HARNESS_WORKFLOW_ROOT), а не в очередях
 # харнесса.
 #
+# Адрес — семья fixtures/workshop_project/ (probe-only 034), раннер
+# fixtures/_krasnye_060.sh. До-заморозочный адрес в fixtures/check_judge_gate/
+# закрыт коммитом фикса к1: перенос исполнен архитектором, второй носитель
+# критерия не остаётся (критик 060-к1 Б1/С2; прецедент адреса — 058/059).
+#
 # ЧЕСТНАЯ часть (живые скрипты HEAD из песочницы-КОПИИ харнесса — реальное
-# дерево не трогается ни одним прогоном): к1-к5, к7 — КРАСНЫЕ до реализации,
+# дерево не трогается ни одним прогоном; живой лаунчер — из $ROOT, состояние в
+# HARNESS_SCRATCH-песочнице): к1-к5(а,б,в), к7, к8 — КРАСНЫЕ до реализации,
 # зелёные после. КОНТРОЛЬНЫЕ зелёные-всегда: к6 (env не установлен — дефолтная
-# ветвь жива), к6б (явный корень-аргумент сильнее env).
+# ветвь next_id жива), к6б (явный корень-аргумент freeze $3 сильнее env), к6в
+# (env не установлен — дефолтная ветвь draft жива: запись в машинном пуле с
+# HEAD чекаута), к6г (явный корень-аргумент next_id сильнее env: два
+# ДОПУСТИМЫХ корня — тег в аргументном репо ∧ очередь env-репо неизменна;
+# критик 060-к1 Б6), к6д (валидный аргумент + относительный неиспользуемый
+# env — аргумент побеждает, rc 0, N1 нет; критик 060-к1 С3).
+#
+# к8 (критик 060-к1 Б4): экспорт руки наблюдается ОКРУЖЕНИЕМ ПОТОМКА — живой
+# запуск (не probe) со стаб-omp в PATH, который пишет факт СВОЕГО окружения;
+# строки баннера/промпта отдельно доставкой руки НЕ являются (прецедент
+# наблюдения экспортов потомка — 055 h7/h8).
 #
 # Грамматика freeze (проверена прогоном на HEAD): заморозка требует коммита
 # предмета, непустой причины и вердикта `verdicts/critic/contracts-<NNN>-v1.md`
 # с первой строкой `accept` — toy-репо несут эти файлы. next_id берёт максимум
 # ПО ФАЙЛАМ тоже: toy минта не содержит номерных контрактов (иначе выдаст 003,
-# а не 001).
+# а не 001). Запись draft-черновика: `ДАТА · ГЕЙТ <cmd> · HEAD <hash8> · FAIL:
+# <строки> · повторов: N`, имя файла — sha256-ключ, не README.
 #
 # СТАБ-ПАК (Н-39): обманные реализации, умирающие ровно на своих клетках;
 # привязка стабов к ветвям — ЭТОТ код, не проза контракта. Каждый стаб без
-# ручки честен на своём сценарии (диффпроба), с ручкой — расходится с честной
+# ручки честен на своем сценарии (диффпроба), с ручкой — расходится с честной
 # реализацией ровно на клетке смерти.
 #
 # rc: 0 ⟺ стаб-пак пойман весь ∧ честные клетки зелёные ∧ контрольные зелёные
@@ -99,6 +116,17 @@ TOY_M="$WORK/toy_mint";  mk_toy_mint "$TOY_M"
 TOY_F="$WORK/toy_freeze"; mk_toy_freeze "$TOY_F" 001
 TOYB="$WORK/toyB";       mk_toy_freeze "$TOYB" 002
 
+# ── стаб-omp для к8: живой режим заканчивается exec omp (поиск по PATH); стаб
+#    пишет факт СВОЕГО окружения — субъект наблюдения экспорта руки (055 h7/h8)
+SHIM8="$WORK/shim8"; mkdir -p "$SHIM8"
+cat >"$SHIM8/omp" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "--version" ]; then printf 'omp/v10\n'; exit 0; fi
+env | LC_ALL=C sort >"${SHIM_ENV:-/dev/null}"
+exit 0
+EOF
+chmod +x "$SHIM8/omp"
+
 # ── счётчики ──────────────────────────────────────────────────────────────────
 honest_total=0; honest_green=0; honest_fail=""
 hcell() { # hcell <имя> <функция>
@@ -138,12 +166,19 @@ k3() { # (е) freeze: строка реестра + самокоммит в toy 
   after="$(sha256sum "$COPY/registry/contracts.tsv" 2>/dev/null || printf 'ABSENT')"
   [ "$before" = "$after" ] || return 1
 }
-k4() { # (ж) draft: черновик в <toy>/.harness/nabludenia-drafts/ ∧ машинный пул без новых
-  local before
+k4() { # (ж) draft: ЗАПИСЬ (не README) в <toy>/.harness/… с HEAD именно toy ∧ пул без новых
+  local before h f found
   before="$(list_pool)"
-  # уникальный FAIL-хвост прогонa: дедуп черновиков не должен съесть красноту
+  h="$(git -C "$TOY_M" rev-parse --short=8 HEAD)"
+  # уникальный FAIL-хвост прогона: дедуп черновиков не должен съесть красноту
   HARNESS_WORKFLOW_ROOT="$TOY_M" bash "$COPY/scripts/draft_nabludenia.sh" 'scripts/check_x060.sh' "FAIL k4 $WORK" >/dev/null 2>&1 || return 1
-  [ -n "$(find "$TOY_M/.harness/nabludenia-drafts" -type f 2>/dev/null)" ] || return 1
+  found=0
+  for f in "$TOY_M/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    grep -qF "· HEAD $h ·" "$f" && found=1
+  done
+  [ $found -eq 1 ] || return 1
   [ "$(list_pool)" = "$before" ] || return 1
 }
 k5a() { # (Граница-3) относительный env → rc 1 + N1 у next_id
@@ -158,6 +193,17 @@ k5b() { # (Граница-3) относительный env → rc 1 + N1 у fre
   [ $rc -eq 1 ] || return 1
   grep -qF "${N1P}relative/path" "$WORK/k5b.err" || return 1
 }
+k5v() { # (Граница-3) относительный env у draft → rc 1 + N1 + НИ ОДНОЙ записи
+  local before rc
+  before="$(list_pool)"
+  mkdir -p "$WORK/rel5v"
+  ( cd "$WORK/rel5v" && HARNESS_WORKFLOW_ROOT='relative/path' \
+      bash "$COPY/scripts/draft_nabludenia.sh" 'scripts/check_x060.sh' "FAIL k5v $WORK" ) >/dev/null 2>"$WORK/k5v.err"; rc=$?
+  [ $rc -eq 1 ] || return 1
+  grep -qF "${N1P}relative/path" "$WORK/k5v.err" || return 1
+  [ -z "$(find "$WORK/rel5v" -type f 2>/dev/null)" ] || return 1
+  [ "$(list_pool)" = "$before" ] || return 1
+}
 k6() { # КОНТРОЛЬ (зелёная всегда): env не установлен → дефолтная ветвь резервирует в HERE-дефолте (копия)
   local out rc
   out="$(env -u HARNESS_WORKFLOW_ROOT bash "$COPY/scripts/next_id.sh" CONTRACT 2>/dev/null)"; rc=$?
@@ -165,10 +211,39 @@ k6() { # КОНТРОЛЬ (зелёная всегда): env не установ
   case "$out" in ''|*[!0-9]*) return 1 ;; esac
   git -C "$COPY" for-each-ref --format='%(refname)' refs/tags/id/ | grep -Fxq "refs/tags/id/CONTRACT/$out" || return 1
 }
-k6b() { # КОНТРОЛЬ (зелёная всегда): явный корень-аргумент $3 сильнее env
+k6b() { # КОНТРОЛЬ (зелёная всегда): явный корень-аргумент $3 сильнее env (freeze)
   HARNESS_WORKFLOW_ROOT="$TOY_F" bash "$COPY/scripts/freeze_contract.sh" contracts/002-x.md 'k6b' "$TOYB" >/dev/null 2>&1 || return 1
   grep -qF '002 → ' "$TOYB/registry/contracts.tsv" 2>/dev/null || return 1
   if [ -f "$TOY_F/registry/contracts.tsv" ] && grep -qF '002 → ' "$TOY_F/registry/contracts.tsv"; then return 1; fi
+}
+k6v() { # КОНТРОЛЬ (зелёная всегда): env не установлен → дефолтная ветвь draft жива
+  local pool="$WORK/pool6v" f found
+  mkdir -p "$pool"
+  env -u HARNESS_WORKFLOW_ROOT TMPDIR="$pool" \
+    bash "$COPY/scripts/draft_nabludenia.sh" 'scripts/check_x060.sh' "FAIL k6v $WORK" >/dev/null 2>&1 || return 1
+  found=0
+  for f in "$pool/dev-harness-nabludenia/drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    grep -qF "· HEAD $(git -C "$COPY" rev-parse --short=8 HEAD) ·" "$f" && found=1
+  done
+  [ $found -eq 1 ]
+}
+k6g() { # КОНТРОЛЬ (зелёная всегда): явный корень-аргумент next_id сильнее env (Б6: два ДОПУСТИМЫХ корня)
+  local before out rc
+  before="$(git -C "$TOY_M" for-each-ref refs/tags/id/)"
+  out="$(HARNESS_WORKFLOW_ROOT="$TOY_M" bash "$COPY/scripts/next_id.sh" "$TOYB" CONTRACT 2>/dev/null)"; rc=$?
+  [ $rc -eq 0 ] || return 1
+  case "$out" in ''|*[!0-9]*) return 1 ;; esac
+  git -C "$TOYB" for-each-ref --format='%(refname)' refs/tags/id/ | grep -Fxq "refs/tags/id/CONTRACT/$out" || return 1
+  [ "$(git -C "$TOY_M" for-each-ref refs/tags/id/)" = "$before" ] || return 1
+}
+k6d() { # КОНТРОЛЬ (зелёная всегда): валидный аргумент + относительный неиспользуемый env → аргумент побеждает, N1 нет (С3)
+  local out rc
+  out="$(HARNESS_WORKFLOW_ROOT='relative/path' bash "$COPY/scripts/next_id.sh" "$TOYB" CONTRACT 2>/dev/null)"; rc=$?
+  [ $rc -eq 0 ] || return 1
+  case "$out" in ''|*[!0-9]*) return 1 ;; esac
+  git -C "$TOYB" for-each-ref --format='%(refname)' refs/tags/id/ | grep -Fxq "refs/tags/id/CONTRACT/$out"
 }
 k7() { # (И-1) лаунчер: probe несёт WORKFLOW/TOOLS и блок R1-R3 в промпте
   local toy7 layer out rc p
@@ -180,16 +255,16 @@ k7() { # (И-1) лаунчер: probe несёт WORKFLOW/TOOLS и блок R1-R
   printf 'toy7\n' >"$toy7/README.md"
   printf 'ci: toy7\n' >"$toy7/.github/workflows/ci.yml"
   cat >"$toy7/harness.project.json" <<'EOF'
-{"schemaVersion":1,"repoId":"toy060","language":"typescript","ci":{"workflow":".github/workflows/ci.yml"},"projectLayer":{"version":"1.0.0","profilePath":"registry/harness-project.json"}}
+{"schemaVersion":1,"repoId":"toy060","language":"typescript","ci":{"workflow":".github/workflows/ci.yml"},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
 EOF
-  printf '{"version":"0.0.0-toy"}\n' >"$toy7/config/harness_pin.json"
+  printf '{"version":"v10"}\n' >"$toy7/config/harness_pin.json"
   printf 'METERING_PROXY_URL=http://127.0.0.1:9\n' >"$toy7/.env"
   git -C "$toy7" add -A
   git -C "$toy7" commit -qm init
   git -C "$toy7" config receive.denyCurrentBranch refuse
   mkdir -p "$layer/registry"
   cat >"$layer/registry/harness-project.json" <<'EOF'
-{"schemaVersion":1,"version":"1.0.0","projectId":"toy060","workspaceId":"ws060"}
+{"schemaVersion":1,"version":"v10","projectId":"toy060","workspaceId":"ws060"}
 EOF
   out="$(HARNESS_PROJECT_LAYER_ROOT="$layer" HARNESS_SCRATCH="$WORK/scratch" \
     bash "$ROOT/workshop" --probe "$toy7" 2>"$WORK/k7.err")"; rc=$?
@@ -202,16 +277,52 @@ EOF
   grep -qF "HARNESS_WORKFLOW_ROOT=$toy7" "$p" || return 1
   grep -qF 'HARNESS_TOOLS_ROOT=' "$p" || return 1
 }
+k8() { # (И-1) живой лаунчер: рука ЭКСПОРТИРОВАНА — потомок (стаб-omp) видит обе переменные
+  local toy8 layer8 out rc
+  toy8="$WORK/toy8"; layer8="$WORK/layer8"
+  git init -q "$toy8"
+  git -C "$toy8" config user.name toy
+  git -C "$toy8" config user.email toy@toy.local
+  mkdir -p "$toy8/.github/workflows" "$toy8/registry" "$toy8/config"
+  printf 'toy8\n' >"$toy8/README.md"
+  printf 'ci: toy8\n' >"$toy8/.github/workflows/ci.yml"
+  cat >"$toy8/harness.project.json" <<'EOF'
+{"schemaVersion":1,"repoId":"toy060l","language":"typescript","ci":{"workflow":".github/workflows/ci.yml"},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}
+EOF
+  printf '{"version":"v10"}\n' >"$toy8/config/harness_pin.json"
+  printf 'METERING_PROXY_URL=http://127.0.0.1:9\n' >"$toy8/.env"
+  git -C "$toy8" add -A
+  git -C "$toy8" commit -qm init
+  git -C "$toy8" config receive.denyCurrentBranch refuse
+  mkdir -p "$layer8/registry"
+  cat >"$layer8/registry/harness-project.json" <<'EOF'
+{"schemaVersion":1,"version":"v10","projectId":"toy060l","workspaceId":"ws060l"}
+EOF
+  rm -f "$WORK/k8.env"
+  out="$(env PATH="$SHIM8:$PATH" HARNESS_PROJECT_LAYER_ROOT="$layer8" \
+    HARNESS_SCRATCH="$WORK/scratch8" ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key \
+    METERING_PROXY_TOKEN=toy-token SHIM_ENV="$WORK/k8.env" \
+    bash "$ROOT/workshop" "$toy8" 2>"$WORK/k8.err")"; rc=$?
+  [ $rc -eq 0 ] || return 1
+  [ -s "$WORK/k8.env" ] || return 1
+  grep -Fxq "HARNESS_WORKFLOW_ROOT=$toy8" "$WORK/k8.env" || return 1
+  grep -Fxq "HARNESS_TOOLS_ROOT=$ROOT" "$WORK/k8.env" || return 1
+}
 
 hcell к1-д-mint-на-репо-стороне k1
 hcell к2-д-серия-002 k2
 hcell к3-е-реестр-в-toy k3
-hcell к4-ж-черновики-в-toy k4
+hcell к4-ж-запись-с-HEAD-toy k4
 hcell к5а-N1-next_id k5a
 hcell к5б-N1-freeze k5b
-hcell к6-контроль-дефолт k6
-hcell к6б-контроль-аргумент-сильнее-env k6b
+hcell к5в-N1-draft-без-записей k5v
+hcell к6-контроль-дефолт-next_id k6
+hcell к6б-контроль-аргумент-сильнее-env-freeze k6b
+hcell к6в-контроль-дефолт-draft k6v
+hcell к6г-контроль-аргумент-сильнее-env-next_id k6g
+hcell к6д-контроль-аргумент-при-относительном-env k6d
 hcell к7-лаунчер-probe k7
+hcell к8-лаунчер-экспорт-руки-потомку k8
 
 # ── СТАБ-ПАК (Н-39: обман ровно одной ручкой; привязка к клеткам — этот код) ──
 # Стабы лежат в <root>/scripts/<имя> — так «сторона стаба-харнесса» = сам STUBS
@@ -226,18 +337,38 @@ git -C "$STUBS" config user.email toy@toy.local
 git -C "$STUBS" add -A
 git -C "$STUBS" commit -qm init
 
+# потомок-свидетель для стаба workshop: пишет факт СВОЕГО окружения (к8-класс)
+CHILDDUMP="$WORK/childbin/dump-env"; mkdir -p "$WORK/childbin"
+cat >"$CHILDDUMP" <<'EOF'
+#!/usr/bin/env bash
+env | LC_ALL=C sort >"${CHILD_ENV:-/dev/null}"
+exit 0
+EOF
+chmod +x "$CHILDDUMP"
+
 cat >"$STUBS/scripts/next_id" <<'EOF'
 #!/usr/bin/env bash
-# стаб next_id (060): честен = уважает HARNESS_WORKFLOW_ROOT, N1 на относительном
+# стаб next_id (060): честен = лестница КОРЕНЬ-аргумент > env > дефолт, N1 на относительном
 set -uo pipefail
-here="${HARNESS_WORKFLOW_ROOT:-}"
+root_arg=""
+for a in "$@"; do
+  case "$a" in
+    PLAN|VERDICT|ADR|CONTRACT|ISSUE) ;;
+    *) root_arg="$a" ;;
+  esac
+done
+here="$root_arg"
+if [ "${STUB_ENV_OVER_ARG:-0}" = "1" ] && [ -n "${HARNESS_WORKFLOW_ROOT:-}" ]; then
+  here="${HARNESS_WORKFLOW_ROOT:-}"
+fi
+if [ -z "$here" ]; then here="${HARNESS_WORKFLOW_ROOT:-}"; fi
+if [ "${STUB_ENV_IGNORED:-0}" = "1" ]; then here="$(cd "$(dirname "$0")/.." && pwd)"; fi
 if [ -n "$here" ] && [ "${here#/}" = "$here" ]; then
   if [ "${STUB_RELATIVE_OK:-0}" != "1" ]; then
     printf 'workflow ОТКАЗ: HARNESS_WORKFLOW_ROOT обязан быть абсолютным путём, получен: %s\n' "$here" >&2
     exit 1
   fi
 fi
-if [ "${STUB_ENV_IGNORED:-0}" = "1" ]; then here="$(cd "$(dirname "$0")/.." && pwd)"; fi
 [ -n "$here" ] || here="$(cd "$(dirname "$0")/.." && pwd)"
 git -C "$here" rev-parse --git-dir >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: %s не репозиторий git — выдавать номера негде\n' "$here" >&2; exit 2; }
 max="$(git -C "$here" tag -l 'id/CONTRACT/*' | sed 's|id/CONTRACT/||; s/^0*//' | sort -n | tail -1)"
@@ -272,26 +403,46 @@ git -C "$root" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.
 EOF
 cat >"$STUBS/scripts/draft" <<'EOF'
 #!/usr/bin/env bash
-# стаб draft (060): честен = черновики в <env>/.harness/nabludenia-drafts/
+# стаб draft (060): честен = env → <env>/.harness/nabludenia-drafts (запись с HEAD
+# env-репо), без env → машинный пул (запись с HEAD стороны стаба), N1 на относительном
 set -uo pipefail
 cmd="${1:-}"; head="${2:-}"
-if [ "${STUB_DRAFT_SHARED:-0}" = "1" ]; then
-  dest="${TMPDIR:-/tmp}/dev-harness-nabludenia/drafts"
+stub_root="$(cd "$(dirname "$0")/.." && pwd)"
+stub_head="$(git -C "$stub_root" rev-parse --short=8 HEAD 2>/dev/null || printf -- '-')"
+env_root="${HARNESS_WORKFLOW_ROOT:-}"
+if [ -n "$env_root" ] && [ "${env_root#/}" = "$env_root" ]; then
+  if [ "${STUB_DRAFT_REL_OK:-0}" != "1" ]; then
+    printf 'workflow ОТКАЗ: HARNESS_WORKFLOW_ROOT обязан быть абсолютным путём, получен: %s\n' "$env_root" >&2
+    exit 1
+  fi
+fi
+if [ -z "$env_root" ] && [ "${STUB_DRAFT_NO_ENV_HARNESS:-0}" = "1" ]; then
+  dest="$stub_root/.harness/nabludenia-drafts"
+elif [ -n "$env_root" ] && [ "${STUB_DRAFT_SHARED:-0}" != "1" ]; then
+  dest="$env_root/.harness/nabludenia-drafts"
 else
-  dest_root="${HARNESS_WORKFLOW_ROOT:-}"
-  [ -n "$dest_root" ] || dest_root="$(cd "$(dirname "$0")/.." && pwd)"
-  dest="$dest_root/.harness/nabludenia-drafts"
+  dest="${TMPDIR:-/tmp}/dev-harness-nabludenia/drafts"
+fi
+if [ -n "$env_root" ] && [ "${STUB_DRAFT_HARNESS_HEAD:-0}" != "1" ]; then
+  rec_head="$(git -C "$env_root" rev-parse --short=8 HEAD 2>/dev/null || printf -- '-')"
+else
+  rec_head="$stub_head"
 fi
 mkdir -p "$dest"
 f="$dest/$(printf '%s' "$cmd$head" | sha256sum | cut -c1-16).md"
-printf 'ДАТА · ГЕЙТ %s · FAIL: %s\n' "$cmd" "$head" >"$f"
+printf 'ДАТА · ГЕЙТ %s · HEAD %s · FAIL: %s · повторов: 1\n' "$cmd" "$rec_head" "$head" >"$f"
 EOF
 cat >"$STUBS/scripts/workshop" <<EOF
 #!/usr/bin/env bash
-# стаб workshop --probe (060): честен = probe несёт WORKFLOW/TOOLS + блок R1-R3
+# стаб workshop (060): честен = probe несёт WORKFLOW/TOOLS + блок R1-R3, живой
+# режим экспортирует ОБЕ руки и исполняет потомка (\$WORKSHOP_CHILD)
 set -uo pipefail
-toy=""
-[ "\${1:-}" = "--probe" ] && toy="\${2:-}"
+probe=0; toy=""
+case "\${1:-}" in
+  --probe) probe=1; toy="\${2:-}" ;;
+  *) toy="\${1:-}" ;;
+esac
+here="\$(cd "\$(dirname "\$0")/.." && pwd)"
 pstate="\${HARNESS_SCRATCH:-\${XDG_STATE_HOME:-\$HOME/.local/state}}/dev-harness-projects/stab060"
 mkdir -p "\$pstate/home"
 prompt="\$pstate/home/session-prompt-orchestrator.md"
@@ -299,21 +450,44 @@ prompt="\$pstate/home/session-prompt-orchestrator.md"
   printf 'роль\n\n'
   printf 'правила\n\n'
 } >"\$prompt"
-if [ "\${STUB_PROMPT_NO_ROUTE:-0}" != "1" ]; then
-  printf '%s\n' '$R1' >>"\$prompt"
-  printf 'HARNESS_WORKFLOW_ROOT=%s\n' "\$toy" >>"\$prompt"
-  printf 'HARNESS_TOOLS_ROOT=%s\n' "\$(cd "\$(dirname "\$0")/.." && pwd)" >>"\$prompt"
-  printf 'WORKFLOW: %s\n' "\$toy"
-  printf 'TOOLS: %s\n' "\$(cd "\$(dirname "\$0")/.." && pwd)"
+if [ "\$probe" = "1" ]; then
+  if [ "\${STUB_PROMPT_NO_ROUTE:-0}" != "1" ]; then
+    printf '%s\n' '$R1' >>"\$prompt"
+    printf 'HARNESS_WORKFLOW_ROOT=%s\n' "\$toy" >>"\$prompt"
+    printf 'HARNESS_TOOLS_ROOT=%s\n' "\$here" >>"\$prompt"
+    printf 'WORKFLOW: %s\n' "\$toy"
+    printf 'TOOLS: %s\n' "\$here"
+  fi
+  printf 'workshop PROBE OK: %s\n' "\$toy"
+  printf 'PROMPT: %s\n' "\$prompt"
+  exit 0
 fi
-printf 'workshop PROBE OK: %s\n' "\$toy"
+# живой режим: честен = экспорт обеих рук ДО потомка (к8)
+if [ "\${STUB_NO_EXPORT:-0}" != "1" ]; then
+  export HARNESS_WORKFLOW_ROOT="\$toy"
+  export HARNESS_TOOLS_ROOT="\$here"
+fi
+printf '%s\n' '$R1' >>"\$prompt"
+printf 'HARNESS_WORKFLOW_ROOT=%s\n' "\$toy" >>"\$prompt"
+printf 'HARNESS_TOOLS_ROOT=%s\n' "\$here" >>"\$prompt"
+printf 'WORKFLOW: %s\n' "\$toy"
+printf 'TOOLS: %s\n' "\$here"
 printf 'PROMPT: %s\n' "\$prompt"
+exec "\${WORKSHOP_CHILD:-/bin/true}" "\$toy"
 EOF
 chmod +x "$STUBS/scripts/next_id" "$STUBS/scripts/freeze" "$STUBS/scripts/draft" "$STUBS/scripts/workshop"
 
 TOYS="$WORK/toy_stubs"; mk_toy_mint "$TOYS"
 mkdir -p "$TOYS/contracts"; printf '# toy 002\n' >"$TOYS/contracts/002-x.md"
 git -C "$TOYS" add -A; git -C "$TOYS" commit -qm contracts
+TA9="$WORK/toy9a"; mk_toy_mint "$TA9"
+TB9="$WORK/toy9b"; mk_toy_mint "$TB9"
+
+clear_id_tags() {
+  git -C "$1" tag -l 'id/CONTRACT/*' | while IFS= read -r t; do
+    [ -n "$t" ] && git -C "$1" tag -d "$t" >/dev/null 2>&1
+  done
+}
 
 s1() { # дефект: env игнорируется → номер уходит в очередь стаба-«харнесса»
   local out
@@ -327,7 +501,7 @@ s1_diff() {
   HARNESS_WORKFLOW_ROOT="$TOYS" bash "$STUBS/scripts/next_id" >/dev/null 2>&1 || return 1
   git -C "$TOYS" tag -l 'id/CONTRACT/*' | grep -q .
 }
-s2() { # дефект: относительный env молча принимается
+s2() { # дефект: относительный env молча принимается (next_id)
   local rc
   STUB_RELATIVE_OK=1 HARNESS_WORKFLOW_ROOT='relative/path' bash "$STUBS/scripts/next_id" >/dev/null 2>&1; rc=$?
   [ $rc -ne 1 ]
@@ -374,14 +548,113 @@ s5_diff() {
   p="$(printf '%s\n' "$out" | sed -n 's/^PROMPT: //p')"
   grep -Fxq "$R1" "$p"
 }
+s6() { # дефект: HEAD записи черновика от харнесс-стороны, не от env-репо (к4-класс)
+  local f stub_h
+  stub_h="$(git -C "$STUBS" rev-parse --short=8 HEAD)"
+  STUB_DRAFT_HARNESS_HEAD=1 HARNESS_WORKFLOW_ROOT="$TOYS" bash "$STUBS/scripts/draft" 'scripts/check_s6.sh' "FAIL s6 $WORK" >/dev/null 2>&1 || return 1
+  for f in "$TOYS/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    grep -qF "· HEAD $stub_h ·" "$f" && return 0
+  done
+  return 1
+}
+s6_diff() {
+  local toy_h f
+  toy_h="$(git -C "$TOYS" rev-parse --short=8 HEAD)"
+  HARNESS_WORKFLOW_ROOT="$TOYS" bash "$STUBS/scripts/draft" 'scripts/check_s6d.sh' "FAIL s6d $WORK" >/dev/null 2>&1 || return 1
+  for f in "$TOYS/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    grep -qF "· HEAD $toy_h ·" "$f" && return 0
+  done
+  return 1
+}
+s7() { # дефект: относительный env у draft молча принимается (к5в-класс)
+  local rc
+  mkdir -p "$WORK/rel7"
+  ( cd "$WORK/rel7" && STUB_DRAFT_REL_OK=1 HARNESS_WORKFLOW_ROOT='relative/path' \
+      bash "$STUBS/scripts/draft" 'scripts/check_s7.sh' "FAIL s7 $WORK" ) >/dev/null 2>&1; rc=$?
+  [ $rc -ne 1 ] && return 0
+  [ -n "$(find "$WORK/rel7" -type f 2>/dev/null)" ]
+}
+s7_diff() {
+  local rc
+  mkdir -p "$WORK/rel7d"
+  ( cd "$WORK/rel7d" && HARNESS_WORKFLOW_ROOT='relative/path' \
+      bash "$STUBS/scripts/draft" 'scripts/check_s7d.sh' "FAIL s7d $WORK" ) >/dev/null 2>&1; rc=$?
+  [ $rc -eq 1 ]
+}
+s8() { # дефект: строки печатаются, экспорта руки нет — потомок не видит env (к8-класс)
+  rm -f "$WORK/s8.env"
+  STUB_NO_EXPORT=1 WORKSHOP_CHILD="$CHILDDUMP" CHILD_ENV="$WORK/s8.env" \
+    HARNESS_SCRATCH="$WORK/scratch_s8" bash "$STUBS/scripts/workshop" "$TOYS" >/dev/null 2>&1 || return 1
+  [ -s "$WORK/s8.env" ] || return 1
+  ! grep -Fxq "HARNESS_WORKFLOW_ROOT=$TOYS" "$WORK/s8.env"
+}
+s8_diff() {
+  rm -f "$WORK/s8d.env"
+  WORKSHOP_CHILD="$CHILDDUMP" CHILD_ENV="$WORK/s8d.env" \
+    HARNESS_SCRATCH="$WORK/scratch_s8d" bash "$STUBS/scripts/workshop" "$TOYS" >/dev/null 2>&1 || return 1
+  grep -Fxq "HARNESS_WORKFLOW_ROOT=$TOYS" "$WORK/s8d.env" \
+    && grep -Fxq "HARNESS_TOOLS_ROOT=$STUBS" "$WORK/s8d.env"
+}
+s9() { # дефект: env затирает явный валидный корень next_id (к6г-класс, Б6)
+  local rc
+  clear_id_tags "$TB9"
+  STUB_ENV_OVER_ARG=1 HARNESS_WORKFLOW_ROOT="$TB9" bash "$STUBS/scripts/next_id" "$TA9" CONTRACT >/dev/null 2>&1; rc=$?
+  [ $rc -eq 0 ] || return 1
+  git -C "$TB9" tag -l 'id/CONTRACT/*' | grep -q . || return 1
+  ! git -C "$TA9" tag -l 'id/CONTRACT/*' | grep -q .
+}
+s9_diff() {
+  clear_id_tags "$TA9"; clear_id_tags "$TB9"
+  HARNESS_WORKFLOW_ROOT="$TB9" bash "$STUBS/scripts/next_id" "$TA9" CONTRACT >/dev/null 2>&1 || return 1
+  git -C "$TA9" tag -l 'id/CONTRACT/*' | grep -q . || return 1
+  ! git -C "$TB9" tag -l 'id/CONTRACT/*' | grep -q .
+}
+s10() { # дефект: относительный неиспользуемый env затирает валидный аргумент (к6д-класс, С3)
+  local rc
+  clear_id_tags "$TA9"
+  STUB_ENV_OVER_ARG=1 HARNESS_WORKFLOW_ROOT='relative/path' bash "$STUBS/scripts/next_id" "$TA9" CONTRACT >/dev/null 2>&1; rc=$?
+  [ $rc -ne 0 ] || return 1
+  ! git -C "$TA9" tag -l 'id/CONTRACT/*' | grep -q .
+}
+s10_diff() {
+  clear_id_tags "$TA9"
+  HARNESS_WORKFLOW_ROOT='relative/path' bash "$STUBS/scripts/next_id" "$TA9" CONTRACT >/dev/null 2>&1 || return 1
+  git -C "$TA9" tag -l 'id/CONTRACT/*' | grep -q .
+}
+s11() { # дефект: без-env ветвь draft сломана — уходит в <сторона стаба>/.harness (к6в-класс)
+  local pool="$WORK/pool11"
+  mkdir -p "$pool"
+  rm -rf "$STUBS/.harness"
+  env -u HARNESS_WORKFLOW_ROOT TMPDIR="$pool" STUB_DRAFT_NO_ENV_HARNESS=1 \
+    bash "$STUBS/scripts/draft" 'scripts/check_s11.sh' "FAIL s11 $WORK" >/dev/null 2>&1 || return 1
+  [ -n "$(find "$STUBS/.harness/nabludenia-drafts" -type f 2>/dev/null)" ] || return 1
+  [ -z "$(find "$pool/dev-harness-nabludenia" -type f 2>/dev/null)" ]
+}
+s11_diff() {
+  local pool="$WORK/pool11d"
+  mkdir -p "$pool"
+  rm -rf "$STUBS/.harness"
+  env -u HARNESS_WORKFLOW_ROOT TMPDIR="$pool" \
+    bash "$STUBS/scripts/draft" 'scripts/check_s11d.sh' "FAIL s11d $WORK" >/dev/null 2>&1 || return 1
+  [ -n "$(find "$pool/dev-harness-nabludenia/drafts" -type f 2>/dev/null)" ] || return 1
+  [ -z "$(find "$STUBS/.harness" -type f 2>/dev/null)" ]
+}
 
 scell s1-env-игнор s1
-scell s2-относительный-молча s2
+scell s2-относительный-молча-next_id s2
 scell s3-freeze-без-env s3
 scell s4-общий-пул s4
 scell s5-probe-без-маршрута s5
+scell s6-HEAD-записи-от-харнесса s6
+scell s7-относительный-молча-draft s7
+scell s8-экспорта-руки-нет s8
+scell s9-env-затирает-аргумент s9
+scell s10-относительный-env-затирает-аргумент s10
+scell s11-без-env-ветвь-сломана s11
 diff_fail=""
-for d in s1_diff s2_diff s3_diff s4_diff s5_diff; do
+for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff; do
   "$d" || diff_fail="$diff_fail $d"
 done
 
