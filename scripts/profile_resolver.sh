@@ -655,9 +655,8 @@ MERGED=$(jq -n \
 # делит по NUL, но execvp делит cmdline по whitespace/LF); сентинел `printf x;
 # ${VAR%x}"` режет ровно один завершающий LF — недостаточно для `z/ok.yml\n`
 # (теряет решающий байт). Поэтому — `readlink -f -z | IFS= read -r -d ''`.
-_CW_BYTES_TMP=$(mktemp)
 _CW_PATH_TMP=$(mktemp)
-trap 'rm -f "$_CW_BYTES_TMP" "$_CW_PATH_TMP"' EXIT
+trap 'rm -f "$_CW_PATH_TMP"' EXIT
 
 # Один jq-фильтр по MERGED (рекомендация арбитра п.8): судит и печатает байты.
 # Выход — JSON-объект с булевыми атрибутами и экранированным `<CW>`. Сам выход
@@ -725,11 +724,6 @@ fi
 if [ "$_CW_NUL" = "true" ]; then
   die_p "объявленный путь отсутствует в дереве репо: ci.workflow=$_CW_RENDERED от корня $REPO_ABS"
 fi
-
-# Step D: байтовое значение ci.workflow — в временный файл через `jq -j` (НЕ
-# `$(…)`, НЕ `read`, НЕ `cat`). Это и есть байтовая форма значения из MERGED;
-# никакая bash-переменная значением не является.
-printf '%s' "$MERGED" | jq -j '.ci.value.workflow // ""' > "$_CW_BYTES_TMP" 2>/dev/null || true
 
 # Step E: readlink -f -z на байтово-полном пути `$REPO_ABS/<значение>`. Целевой
 # путь строится конкатенацией во временном файле через две `printf`+`jq -j`
