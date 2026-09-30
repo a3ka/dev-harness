@@ -27,6 +27,14 @@
 # запуск (не probe) со стаб-omp в PATH, который пишет факт СВОЕГО окружения;
 # строки баннера/промпта отдельно доставкой руки НЕ являются (прецедент
 # наблюдения экспортов потомка — 055 h7/h8).
+# Усиление пост-заморозки (вердикт адверсария 060-к1, прецедент 059 6d1c30e):
+# к9 (A1) — валидный env + унаследованный GIT_DIR чужого репо → запись несёт
+# ПРОЕКТНЫЙ HEAD (санация a8c011a уже в HEAD); к10 (A2) — два draft-вызова
+# одним ключом → ОДНА запись с «повторов: 2» (идемпотентность строителя И-4,
+# mkdir -p). Обе зелёные на HEAD; против каждой — точечный мутант s14/s15:
+# скрэтч-копия живого draft_nabludenia.sh с ЕДИНСТВЕННОЙ правкой из вердикта
+# (s14 — revert санации a8c011a, s15 — mkdir-цепочка строителя без -p у
+# DRAFTS), честный близнец — сам $COPY (диффпробы s14_diff/s15_diff).
 #
 # Грамматика freeze (проверена прогоном на HEAD): заморозка требует коммита
 # предмета, непустой причины и вердикта `verdicts/critic/contracts-<NNN>-v1.md`
@@ -327,6 +335,49 @@ EOF
   grep -Fxq "HARNESS_TOOLS_ROOT=$ROOT" "$WORK/k8.env" || return 1
 }
 
+k9() { # (A1, вердикт 060-к1) валидный env + унаследованный GIT_DIR чужого репо
+       # → запись несёт ПРОЕКТНЫЙ HEAD (санация a8c011a), не чужой
+  local proj fnd ph fh before rc n=0 hit=0 f
+  before="$(list_pool)"
+  proj="$WORK/toyk9";  mk_toy_mint "$proj"
+  fnd="$WORK/toyk9f";  mk_toy_mint "$fnd"
+  printf 'foreign\n' >"$fnd/foreign.md"
+  git -C "$fnd" add -A && git -C "$fnd" commit -qm foreign || return 1
+  ph="$(git -C "$proj" rev-parse --short=8 HEAD)"
+  fh="$(git -C "$fnd" rev-parse --short=8 HEAD)"
+  [ "$ph" != "$fh" ] || return 1   # два РАЗНЫХ HEAD — иначе клетка слепа
+  GIT_DIR="$fnd/.git" HARNESS_WORKFLOW_ROOT="$proj" \
+    bash "$COPY/scripts/draft_nabludenia.sh" 'scripts/check_x060.sh' "FAIL k9 $WORK" >/dev/null 2>&1; rc=$?
+  [ $rc -eq 0 ] || return 1
+  for f in "$proj/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    n=$((n+1))
+    grep -qF "· HEAD $ph ·" "$f" && hit=1
+  done
+  [ $n -eq 1 ] || return 1
+  [ $hit -eq 1 ] || return 1
+  [ "$(list_pool)" = "$before" ] || return 1
+}
+k10() { # (A2, вердикт 060-к1) два draft-вызова одним ключом → ОДНА запись,
+        # счётчик «повторов: 2» (строитель И-4 идемпотентен: mkdir -p)
+  local proj rc1 rc2 n=0 f
+  proj="$WORK/toyk10"; mk_toy_mint "$proj"
+  HARNESS_WORKFLOW_ROOT="$proj" bash "$COPY/scripts/draft_nabludenia.sh" \
+    'scripts/check_x060.sh' "FAIL k10 $WORK" >/dev/null 2>&1; rc1=$?
+  HARNESS_WORKFLOW_ROOT="$proj" bash "$COPY/scripts/draft_nabludenia.sh" \
+    'scripts/check_x060.sh' "FAIL k10 $WORK" >/dev/null 2>&1; rc2=$?
+  [ $rc1 -eq 0 ] || return 1
+  [ $rc2 -eq 0 ] || return 1
+  for f in "$proj/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    n=$((n+1))
+    grep -qF '· повторов: 2' "$f" || return 1
+  done
+  [ $n -eq 1 ]
+}
+
 hcell к1-д-mint-на-репо-стороне k1
 hcell к2-д-серия-002 k2
 hcell к3-е-реестр-в-toy k3
@@ -342,6 +393,8 @@ hcell к6д-контроль-аргумент-при-относительном-
 hcell к6е-контроль-аргумент-freeze-при-относительном-env k6e
 hcell к7-лаунчер-probe k7
 hcell к8-лаунчер-экспорт-руки-потомку k8
+hcell к9-A1-HEAD-проекта-при-чужом-GIT_DIR k9
+hcell к10-A2-повтор-одна-запись-повторов-2 k10
 
 # ── СТАБ-ПАК (Н-39: обман ровно одной ручкой; привязка к клеткам — этот код) ──
 # Стабы лежат в <root>/scripts/<имя> — так «сторона стаба-харнесса» = сам STUBS
@@ -513,6 +566,39 @@ git -C "$TOYS" add -A; git -C "$TOYS" commit -qm contracts
 TA9="$WORK/toy9a"; mk_toy_mint "$TA9"
 TB9="$WORK/toy9b"; mk_toy_mint "$TB9"
 TA12="$WORK/toy12"; mk_toy_freeze "$TA12" 003
+
+# ── МУТАНТ-ПАК (вердикт адверсария 060-к1 A1/A2): скрэтч-копии ЖИВОГО
+#    draft_nabludenia.sh из $COPY с ЕДИНСТВЕННОЙ правкой из вердикта; форма
+#    подмены субъекта — та же обвязка, что у STUBS (клетка указывает путь
+#    мутанта). Честный близнец — pristine $COPY (диффпробы s14/s15). Мутант
+#    обязан отличаться от честной копии ровно заявленной правкой — иначе
+#    проводка батареи сломана: именованный отказ, НЕ молча. ──────────────────
+MUT_A1="$WORK/mut_a1"; MUT_A2="$WORK/mut_a2"
+mkdir -p "$MUT_A1/scripts" "$MUT_A2/scripts"
+# A1-мутант = revert санации a8c011a: без unset унаследованный GIT_DIR
+# redirect'ит все git -C "$PROJ_ROOT" на чужую базу → HEAD записи чужой
+sed -e '/^# Санация git-окружения (прецедент spawn_agent\.sh, контракт 060 A1): ни один$/,/^      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES$/d' \
+  "$COPY/scripts/draft_nabludenia.sh" >"$MUT_A1/scripts/draft_nabludenia.sh"
+# A2-мутант = mkdir-цепочка вердикта (дословно): первый вызов строит, повтор
+# падает на mkdir существующего DRAFTS и НЕ обновляет запись/счётчик
+awk '
+  envm && index($0, "if ! mkdir -p \"$DRAFTS\" 2>/dev/null; then") {
+    print "  if ! mkdir -p \"$PROJ_ROOT/.harness\" 2>/dev/null || ! mkdir \"$DRAFTS\" 2>/dev/null; then"
+    envm=0; next
+  }
+  index($0, "DRAFTS=\"$PROJ_ROOT/.harness/nabludenia-drafts\"") { envm=1 }
+  { print }
+' "$COPY/scripts/draft_nabludenia.sh" >"$MUT_A2/scripts/draft_nabludenia.sh"
+cmp -s "$COPY/scripts/draft_nabludenia.sh" "$MUT_A1/scripts/draft_nabludenia.sh" && {
+  printf 'ОТКАЗ: мутант A1 не отличается от честной копии — санация a8c011a не найдена\n' >&2; exit 1; }
+grep -qF 'unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY' \
+  "$MUT_A1/scripts/draft_nabludenia.sh" && {
+  printf 'ОТКАЗ: мутант A1 не снял санацию GIT_DIR\n' >&2; exit 1; }
+grep -Fq 'if ! mkdir -p "$PROJ_ROOT/.harness" 2>/dev/null || ! mkdir "$DRAFTS" 2>/dev/null; then' \
+  "$MUT_A2/scripts/draft_nabludenia.sh" || {
+  printf 'ОТКАЗ: мутант A2 не получил mkdir-цепочку вердикта\n' >&2; exit 1; }
+cmp -s "$COPY/scripts/draft_nabludenia.sh" "$MUT_A2/scripts/draft_nabludenia.sh" && {
+  printf 'ОТКАЗ: мутант A2 не отличается от честной копии — mkdir-строка не найдена\n' >&2; exit 1; }
 
 clear_id_tags() {
   git -C "$1" tag -l 'id/CONTRACT/*' | while IFS= read -r t; do
@@ -703,6 +789,77 @@ s13_diff() {
   grep -Fxq "HARNESS_TOOLS_ROOT=$STUBS" "$p"
 }
 
+s14() { # дефект (A1, мутант = revert санации a8c011a): унаследованный GIT_DIR
+        # redirect'ит git -C PROJ_ROOT → в проектной записи ЧУЖОЙ HEAD
+  local proj fnd ph fh rc n=0 hit=0 f
+  proj="$WORK/toys14"; mk_toy_mint "$proj"
+  fnd="$WORK/toys14f"; mk_toy_mint "$fnd"
+  printf 'foreign\n' >"$fnd/foreign.md"
+  git -C "$fnd" add -A && git -C "$fnd" commit -qm foreign || return 1
+  ph="$(git -C "$proj" rev-parse --short=8 HEAD)"
+  fh="$(git -C "$fnd" rev-parse --short=8 HEAD)"
+  [ "$ph" != "$fh" ] || return 1
+  GIT_DIR="$fnd/.git" HARNESS_WORKFLOW_ROOT="$proj" \
+    bash "$MUT_A1/scripts/draft_nabludenia.sh" 'scripts/check_x060.sh' "FAIL s14 $WORK" >/dev/null 2>&1; rc=$?
+  [ $rc -eq 0 ] || return 1
+  for f in "$proj/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    n=$((n+1))
+    grep -qF "· HEAD $fh ·" "$f" && hit=1
+  done
+  [ $n -eq 1 ] && [ $hit -eq 1 ]   # чужой HEAD в записи → дефект наблюдён
+}
+s14_diff() { # честный близнец: та же GIT_DIR-атака на pristine → ПРОЕКТНЫЙ HEAD
+  local proj fnd ph f
+  proj="$WORK/toys14d"; mk_toy_mint "$proj"
+  fnd="$WORK/toys14df"; mk_toy_mint "$fnd"
+  printf 'foreign\n' >"$fnd/foreign.md"
+  git -C "$fnd" add -A && git -C "$fnd" commit -qm foreign || return 1
+  ph="$(git -C "$proj" rev-parse --short=8 HEAD)"
+  GIT_DIR="$fnd/.git" HARNESS_WORKFLOW_ROOT="$proj" \
+    bash "$COPY/scripts/draft_nabludenia.sh" 'scripts/check_x060.sh' "FAIL s14d $WORK" >/dev/null 2>&1 || return 1
+  for f in "$proj/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    grep -qF "· HEAD $ph ·" "$f" && return 0
+  done
+  return 1
+}
+s15() { # дефект (A2, мутант-строитель вердикта): повтор глушится mkdir'ом —
+        # счётчик «повторов: 2» не вырастает (запись остаётся с «повторов: 1»)
+  local proj rc2 n=0 upd=0 f
+  proj="$WORK/toys15"; mk_toy_mint "$proj"
+  HARNESS_WORKFLOW_ROOT="$proj" bash "$MUT_A2/scripts/draft_nabludenia.sh" \
+    'scripts/check_x060.sh' "FAIL s15 $WORK" >/dev/null 2>&1
+  HARNESS_WORKFLOW_ROOT="$proj" bash "$MUT_A2/scripts/draft_nabludenia.sh" \
+    'scripts/check_x060.sh' "FAIL s15 $WORK" >/dev/null 2>"$WORK/s15.err"; rc2=$?
+  [ $rc2 -eq 0 ] || return 1     # мутант fail-open: rc 0 при мёртвом строителе
+  for f in "$proj/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    n=$((n+1))
+    grep -qF '· повторов: 2' "$f" && upd=1
+  done
+  [ $n -ge 1 ] || return 1       # первый вызов записал черновик
+  [ $upd -eq 0 ]                 # «повторов: 2» НЕТ → дефект наблюдён
+}
+s15_diff() { # честный близнец: pristine, те же два вызова → ОДНА запись, «повторов: 2»
+  local proj n=0 f
+  proj="$WORK/toys15d"; mk_toy_mint "$proj"
+  HARNESS_WORKFLOW_ROOT="$proj" bash "$COPY/scripts/draft_nabludenia.sh" \
+    'scripts/check_x060.sh' "FAIL s15d $WORK" >/dev/null 2>&1 || return 1
+  HARNESS_WORKFLOW_ROOT="$proj" bash "$COPY/scripts/draft_nabludenia.sh" \
+    'scripts/check_x060.sh' "FAIL s15d $WORK" >/dev/null 2>&1 || return 1
+  for f in "$proj/.harness/nabludenia-drafts"/*.md; do
+    [ -e "$f" ] || continue
+    [ "$(basename "$f")" = "README.md" ] && continue
+    n=$((n+1))
+    grep -qF '· повторов: 2' "$f" || return 1
+  done
+  [ $n -eq 1 ]
+}
+
 scell s1-env-игнор s1
 scell s2-относительный-молча-next_id s2
 scell s3-freeze-без-env s3
@@ -716,8 +873,10 @@ scell s10-относительный-env-затирает-аргумент s10
 scell s11-без-env-ветвь-сломана s11
 scell s12-freeze-N1-при-валидном-аргументе s12
 scell s13-текстовый-маршрут-tools-из-project s13
+scell s14-A1-мутант-без-санации-GIT_DIR s14
+scell s15-A2-мутант-строитель-неидемпотентен s15
 diff_fail=""
-for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff s12_diff s13_diff; do
+for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff s12_diff s13_diff s14_diff s15_diff; do
   "$d" || diff_fail="$diff_fail $d"
 done
 
