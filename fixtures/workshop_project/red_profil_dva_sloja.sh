@@ -47,6 +47,14 @@ repo_make() {
   [ "$with_pin" = 1 ] && printf '{"version":"%s"}\n' "$pin" > "$r/config/harness_pin.json"
   [ "$with_env" = 1 ] && printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
   printf '# Toy project AGENTS\n\n%s\n\nПравило toy-репо: не подмешиваться в системный промпт.\n' "$TOY_HDR" > "$r/AGENTS.md"
+  # С2-миграция toy-миров (контракт 059): объявленный CI-toy-файл создаётся,
+  # иначе после реализации И-2(г) клетки 054 краснеют (эффективный
+  # ci.workflow=".github/workflows/ci.yml" мерджится из репо/слоя — резолвер
+  # проверяет существование файла на REPO_ABS; прецедент арбитраж 059-к3
+  # 9e874be С2). Inline-JSON :601, :1077, :1096, :1114, :1130, :1187, :1304 —
+  # в этих клетках строится отдельный toy-репо, поэтому ИМ тоже нужен файл.
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy ci\n' > "$r/.github/workflows/ci.yml"
 }
 section_of() {
   awk -v h="$HDR" '$0 == h {f = 1; print; next} f && /^## / {exit} f {print}' "$1"
@@ -761,6 +769,14 @@ EOF
   layer_make "$WORK/b11-layer"
   # Симлинк harness.project.json → config/harness_internal.json
   ln -s config/harness_internal.json "$r/harness.project.json"
+  # С2-миграция toy-миров (контракт 059): слой декларирует
+  # ci.workflow=".github/workflows/ci.yml" → эффективное значение берётся
+  # из слоя (И-1); резолвер после реализации 059 проверяет существование
+  # файла в репо (И-2(г)). Создаём файл в toy-репо здесь, иначе клетка
+  # b11 краснеет не по своему предмету (TOCTOU), а по отсутствию
+  # объявленного файла.
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy ci\n' > "$r/.github/workflows/ci.yml"
   # BASH_ENV: шим readlink. Подменяет симлинк сразу после возврата.
   local shimdir="$WORK/b11-shim"
   rm -rf "$shimdir"; mkdir -p "$shimdir"
@@ -859,6 +875,12 @@ EOF
   # Изначально симлинк указывает на internal — иначе первый запуск уже
   # сразу даст rc=1 (symlink missing).
   ln -s "$internal" "$r/harness.project.json"
+  # С2-миграция toy-миров (контракт 059): слой декларирует
+  # ci.workflow=".github/workflows/ci.yml" — резолвер проверяет существование
+  # файла в репо (И-2(г)). Без файла клетка краснеет не по своему предмету
+  # (TOCTOU race), а по отсутствию объявленного файла.
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy ci\n' > "$r/.github/workflows/ci.yml"
 
   # Фоновый цикл атомарной подмены симлинка через mv -T. Создаём новый
   # симлинк в `.tmp_link`, потом mv -T поверх `harness.project.json` —
@@ -1003,6 +1025,10 @@ EOF
 EOF
   layer_make "$WORK/b11m-layer"
   ln -s "$internal" "$r/harness.project.json"
+  # С2-миграция toy-миров (контракт 059): см. b11 — слой декларирует
+  # ci.workflow, И-2(г) требует файла в репо.
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy ci\n' > "$r/.github/workflows/ci.yml"
 
   (
     local n=0
@@ -1066,6 +1092,24 @@ _setup_form_repo() {
   git -C "$r" config receive.denyCurrentBranch refuse
   printf '%s' "$repo_json" > "$r/harness.project.json"
   printf '%s' "$layer_json" > "$layer/registry/harness-project.json"
+  # С2-миграция toy-миров (контракт 059): если слой или репо декларирует
+  # `ci.workflow`, создаём файл по этому пути (после канонизации внутри $r).
+  # inline-JSON клеток m1/m2/m3/m4/m6/m7/b7 обходит `repo_make` и идёт
+  # напрямую через _setup_form_repo; здесь же перехватываем ВСЕ остальные
+  # случаи, чтобы после реализации И-2(г) клетки m1/m2/m3/m4/m6/m7/b7 не
+  # краснели из-за отсутствия объявленного файла. Путь берётся ЭФФЕКТИВНЫЙ
+  # (И-1): если обе ветви заданы, репо перекрывает слой; иначе — что есть.
+  local cw=""
+  if printf '%s' "$repo_json" | grep -Eq '"ci"[[:space:]]*:[[:space:]]*\{'; then
+    cw="$(printf '%s' "$repo_json" | jq -r '.ci.workflow // empty' 2>/dev/null)"
+  fi
+  if [ -z "$cw" ] && printf '%s' "$layer_json" | grep -Eq '"ci"[[:space:]]*:[[:space:]]*\{'; then
+    cw="$(printf '%s' "$layer_json" | jq -r '.defaults.ci.workflow // empty' 2>/dev/null)"
+  fi
+  if [ -n "$cw" ] && [ "$cw" != "null" ]; then
+    mkdir -p "$r/$(dirname -- "$cw")"
+    printf 'name: toy ci\n' > "$r/$cw"
+  fi
 }
 
 # m1: Форма A (репо только обязательные + слой с полными defaults,
