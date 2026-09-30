@@ -132,7 +132,8 @@ wip/060/architect») несёт v2-правку `contracts/060-…`, санкц�
 ## ПРОВОДКА
 
 ПРОВОДКА:
-- guard=verify_antiplacebo шарды ap4 (check_charter) и ap2 (land_agent), .github/workflows/ci.yml
+- guard=scripts/check_charter.sh
+- guard=scripts/land_agent.sh
 
 ПРОВОДКА-ЭНФОРСМЕНТ: предмет 065 — чистый энфорсмент (механизм переноса строк в merge-тело
 и статическое допущение одной исторической пары; поведенческой нормы для ролей нет —
