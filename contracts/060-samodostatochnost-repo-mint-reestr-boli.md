@@ -334,6 +334,9 @@ scripts/verify_antiplacebo.sh:585). Строка R1 в промпте лаунч
 связывающий прогон живёт в done_contract.sh (шаг 6), freeze_contract.sh
 check_provodka не вызывает.
 ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
+ПОТРЕБИТЕЛЬ fixtures/drill_contract_change/: bash scripts/verify_antiplacebo.sh --scope drill_contract_change
+ПОТРЕБИТЕЛЬ scripts/spawn_agent.sh: bash scripts/verify_antiplacebo.sh --scope spawn_agent
+ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/check_spec_ready.sh . contracts/060-samodostatochnost-repo-mint-reestr-boli.md
 
 ## Незаполненные требования:
 нет
