@@ -18,6 +18,23 @@ bad=0; total=0
 for fam in check_provodka done_contract check_consumers; do
   for f in "$HERE/$fam"/red_*.sh "$HERE/$fam"/green_*.sh; do
     [ -f "$f" ] || continue
+    # 062: общая семья накапливает РАННИЕ батареи ПОЗДНЕЙШИХ контрактов
+    # (red_*_<NNN>.sh, красные до своей реализации). Раннер 038 судит ТОЛЬКО
+    # пачку 038: чужая NNN-батарея имеет собственную проводку (реализационная
+    # пачка своего контракта, прецеденты 058/059/060) и здесь пропускается с
+    # печатью — молчаливый прогон красной чужой батареи в EXPECT_RC=0 держал
+    # бы CI черновика красным (класс 059 22d3faf). Файлы пачки 038 суффикса
+    # _<NNN>.sh не несут (C1..C6/G1..G2), skip для них не срабатывает.
+    fn="$(basename "$f")"
+    case "$fn" in
+      red_*_0[0-9][0-9].sh|green_*_0[0-9][0-9].sh)
+        fnnn="${fn##*_}"; fnnn="${fnnn%.sh}"
+        if [ "$fnnn" != "038" ]; then
+          printf '%s/%s rc=skip (чужой NNN %s: ранняя батарея контракта %s, раннер 038 судит только пачку 038)\n' "$fam" "$fn" "$fnnn" "$fnnn"
+          continue
+        fi
+        ;;
+    esac
     total=$((total + 1))
     out="$(bash "$f" 2>&1)"; rc=$?
     printf '%s/%s rc=%s\n' "$fam" "$(basename "$f")" "$rc"
