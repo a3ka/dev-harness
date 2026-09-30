@@ -19,7 +19,9 @@
 # HEAD чекаута), к6г (явный корень-аргумент next_id сильнее env: два
 # ДОПУСТИМЫХ корня — тег в аргументном репо ∧ очередь env-репо неизменна;
 # критик 060-к1 Б6), к6д (валидный аргумент + относительный неиспользуемый
-# env — аргумент побеждает, rc 0, N1 нет; критик 060-к1 С3).
+# env — аргумент побеждает, rc 0, N1 нет; критик 060-к1 С3), к6е (та же
+# комбинация у freeze: rc 0, N1 нет, строка реестра в аргументном toy ∧
+# реестр копии байт-в-байт; критик 060-к2 Б1).
 #
 # к8 (критик 060-к1 Б4): экспорт руки наблюдается ОКРУЖЕНИЕМ ПОТОМКА — живой
 # запуск (не probe) со стаб-omp в PATH, который пишет факт СВОЕГО окружения;
@@ -46,6 +48,11 @@ set -uo pipefail
 
 BATTERY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${1:-$(cd "$BATTERY_DIR/../.." && pwd)}"
+# критик 060-к2 С1: явный корень канонизируется ДО любого использования —
+# к8 сравнивает HARNESS_TOOLS_ROOT литерально (grep -Fx), буквальный `.` из
+# раннера даст ложное красное после реализации (контракт :295 — корень
+# канонический)
+ROOT="$(cd "$ROOT" 2>/dev/null && pwd)" || { printf 'ОТКАЗ: корень харнесса не открывается: %s\n' "${1:-$BATTERY_DIR/../..}" >&2; exit 1; }
 
 # ── снимки стерегомого дерева (реального) — сверка в конце, прогоны их не трогают ──
 real_id_before="$(git -C "$ROOT" for-each-ref refs/tags/id/ 2>/dev/null)"
@@ -115,6 +122,7 @@ git -C "$COPY" commit -qm init
 TOY_M="$WORK/toy_mint";  mk_toy_mint "$TOY_M"
 TOY_F="$WORK/toy_freeze"; mk_toy_freeze "$TOY_F" 001
 TOYB="$WORK/toyB";       mk_toy_freeze "$TOYB" 002
+TOYE="$WORK/toyE";       mk_toy_freeze "$TOYE" 003
 
 # ── стаб-omp для к8: живой режим заканчивается exec omp (поиск по PATH); стаб
 #    пишет факт СВОЕГО окружения — субъект наблюдения экспорта руки (055 h7/h8)
@@ -245,6 +253,16 @@ k6d() { # КОНТРОЛЬ (зелёная всегда): валидный ар�
   case "$out" in ''|*[!0-9]*) return 1 ;; esac
   git -C "$TOYB" for-each-ref --format='%(refname)' refs/tags/id/ | grep -Fxq "refs/tags/id/CONTRACT/$out"
 }
+k6e() { # КОНТРОЛЬ: валидный $3 + относительный неиспользуемый env у freeze → аргумент побеждает (критик 060-к2 Б1)
+  local before after rc
+  before="$(sha256sum "$COPY/registry/contracts.tsv" 2>/dev/null || printf 'ABSENT')"
+  HARNESS_WORKFLOW_ROOT='relative/path' bash "$COPY/scripts/freeze_contract.sh" contracts/003-x.md 'k6e' "$TOYE" >/dev/null 2>"$WORK/k6e.err"; rc=$?
+  [ $rc -eq 0 ] || return 1
+  if grep -qF "$N1P" "$WORK/k6e.err" 2>/dev/null; then return 1; fi
+  grep -qF '003 → ' "$TOYE/registry/contracts.tsv" 2>/dev/null || return 1
+  after="$(sha256sum "$COPY/registry/contracts.tsv" 2>/dev/null || printf 'ABSENT')"
+  [ "$before" = "$after" ]
+}
 k7() { # (И-1) лаунчер: probe несёт WORKFLOW/TOOLS и блок R1-R3 в промпте
   local toy7 layer out rc p
   toy7="$WORK/toy7"; layer="$WORK/layer"
@@ -321,6 +339,7 @@ hcell к6б-контроль-аргумент-сильнее-env-freeze k6b
 hcell к6в-контроль-дефолт-draft k6v
 hcell к6г-контроль-аргумент-сильнее-env-next_id k6g
 hcell к6д-контроль-аргумент-при-относительном-env k6d
+hcell к6е-контроль-аргумент-freeze-при-относительном-env k6e
 hcell к7-лаунчер-probe k7
 hcell к8-лаунчер-экспорт-руки-потомку k8
 
@@ -379,8 +398,14 @@ EOF
 cat >"$STUBS/scripts/freeze" <<'EOF'
 #!/usr/bin/env bash
 # стаб freeze (060): честен = ROOT-лестница $3 > env > дефолт, N1 на относительном
+# (N1 — только когда env ОПЕРАТИВЕН, т.е. $3 нет; ручка STUB_FREEZE_ENV_FIRST —
+# контрмодель критика 060-к2 Б1: валидация env ДО лестницы, ложный N1 при валидном $3)
 set -uo pipefail
 TARGET="${1:-}"; ARG_ROOT="${3:-}"
+if [ "${STUB_FREEZE_ENV_FIRST:-0}" = "1" ] && [ -n "${HARNESS_WORKFLOW_ROOT:-}" ] && [ "${HARNESS_WORKFLOW_ROOT#/}" = "${HARNESS_WORKFLOW_ROOT}" ]; then
+  printf 'workflow ОТКАЗ: HARNESS_WORKFLOW_ROOT обязан быть абсолютным путём, получен: %s\n' "${HARNESS_WORKFLOW_ROOT}" >&2
+  exit 1
+fi
 root="$ARG_ROOT"
 if [ -z "$root" ]; then root="${HARNESS_WORKFLOW_ROOT:-}"; fi
 if [ -n "$root" ] && [ "${root#/}" = "$root" ]; then
@@ -482,6 +507,7 @@ mkdir -p "$TOYS/contracts"; printf '# toy 002\n' >"$TOYS/contracts/002-x.md"
 git -C "$TOYS" add -A; git -C "$TOYS" commit -qm contracts
 TA9="$WORK/toy9a"; mk_toy_mint "$TA9"
 TB9="$WORK/toy9b"; mk_toy_mint "$TB9"
+TA12="$WORK/toy12"; mk_toy_freeze "$TA12" 003
 
 clear_id_tags() {
   git -C "$1" tag -l 'id/CONTRACT/*' | while IFS= read -r t; do
@@ -641,6 +667,16 @@ s11_diff() {
   [ -n "$(find "$pool/dev-harness-nabludenia/drafts" -type f 2>/dev/null)" ] || return 1
   [ -z "$(find "$STUBS/.harness" -type f 2>/dev/null)" ]
 }
+s12() { # дефект: freeze валидирует env ДО лестницы — валидный $3 + относительный env → ложный N1/отказ (к6е-класс, критик 060-к2 Б1)
+  local rc
+  STUB_FREEZE_ENV_FIRST=1 HARNESS_WORKFLOW_ROOT='relative/path' bash "$STUBS/scripts/freeze" contracts/003-x.md 's12' "$TA12" >/dev/null 2>&1; rc=$?
+  [ $rc -ne 0 ] && return 0
+  ! grep -qF '003 → ' "$TA12/registry/contracts.tsv" 2>/dev/null
+}
+s12_diff() {
+  HARNESS_WORKFLOW_ROOT='relative/path' bash "$STUBS/scripts/freeze" contracts/003-x.md 's12d' "$TA12" >/dev/null 2>&1 || return 1
+  grep -qF '003 → ' "$TA12/registry/contracts.tsv" 2>/dev/null
+}
 
 scell s1-env-игнор s1
 scell s2-относительный-молча-next_id s2
@@ -653,8 +689,9 @@ scell s8-экспорта-руки-нет s8
 scell s9-env-затирает-аргумент s9
 scell s10-относительный-env-затирает-аргумент s10
 scell s11-без-env-ветвь-сломана s11
+scell s12-freeze-N1-при-валидном-аргументе s12
 diff_fail=""
-for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff; do
+for d in s1_diff s2_diff s3_diff s4_diff s5_diff s6_diff s7_diff s8_diff s9_diff s10_diff s11_diff s12_diff; do
   "$d" || diff_fail="$diff_fail $d"
 done
 
