@@ -5,8 +5,9 @@
 #
 # Аргументы:
 #   --repo <корень>   путь к корню репозитория проекта (обязательно);
-#   --branch ИМЯ      имя ветки для приземления (обязательно);
-#   --orchestrator ИМЯ имя merge-коммита (по умолчанию orchestrator).
+#   --branch ИМЯ      имя ветки для приземления (обязательно).
+# Identity merge-коммита — литерал `orchestrator` (И-7, без настраиваемого CLI-аргумента;
+# сверка committer==orchestrator не должна вырождаться в сверку с аргументом).
 #
 # Коды возврата:
 #   0 — посажено локально (merge-коммит с двумя родителями, subject `land: <ветка>`,
@@ -29,12 +30,11 @@ usage() {
   exit 1
 }
 
-REPO=""; BRANCH=""; ORCH="orchestrator"
+REPO=""; BRANCH=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo)         REPO="${2:?}"; shift 2 ;;
     --branch)       BRANCH="${2:?}"; shift 2 ;;
-    --orchestrator) ORCH="${2:?}"; shift 2 ;;
     --help|-h)      usage ;;
     *)              printf 'land project ОТКАЗ: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
   esac
@@ -72,24 +72,22 @@ if [ "$GATE_RC" -ne 0 ]; then
 fi
 
 # Merge ТОЛЬКО --no-ff, identity оркестратора литералом в ОДНОЙ СТРОКЕ с
-# `git merge` (канарейка 016 И-5; ff-слияние невозможно по построению).
-# subject `land: <ветка>`. commit.gpgsign=false — иначе CI-окружение без GPG
-# ключа красит merge отказом. ВСЕ -c флаги и merge идут в одной команде.
-MERGE_CMD=(git -C "$REPO" \
-  -c user.name="$ORCH" \
-  -c user.email="${ORCH}@dev-harness.local" \
-  -c commit.gpgsign=false \
-  merge --no-ff -m "land: $BRANCH" "$BRANCH")
-if ! "${MERGE_CMD[@]}" >/dev/null 2>&1; then
+# `git merge` (канарейка 016 И-5: `grep -nE 'user\.(name|email)'` обязана
+# находить строку merge). identity — литерал `orchestrator` (Р-3 вердикта
+# 123efc3: НИКАКОГО CLI-флага --orchestrator — сверка committer==orchestrator
+# не должна вырождаться в сверку с аргументом). ff-слияние невозможно
+# по построению. subject `land: <ветка>`. commit.gpgsign=false — иначе
+# CI-окружение без GPG-ключа красит merge отказом.
+if ! git -C "$REPO" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local -c commit.gpgsign=false merge --no-ff -m "land: $BRANCH" "$BRANCH" >/dev/null 2>&1; then
   printf 'land project ОТКАЗ: merge --no-ff %s отказал — конфликт или иная ошибка git\n' "$BRANCH" >&2
   exit 1
 fi
 
-# Сверка committer после merge (И-7). merge_cn == orchestrator.
+# Сверка committer после merge (И-7). merge_cn == orchestrator (литерал).
 merge_cn="$(git -C "$REPO" log -1 --format=%cn HEAD)"
-if [ "$merge_cn" != "$ORCH" ]; then
-  printf 'land project ОТКАЗ: merge-коммит подписан %s, ожидался %s — identity оркестратора не применилась\n' \
-    "$merge_cn" "$ORCH" >&2
+if [ "$merge_cn" != orchestrator ]; then
+  printf 'land project ОТКАЗ: merge-коммит подписан %s, ожидался orchestrator — identity оркестратора не применилась\n' \
+    "$merge_cn" >&2
   exit 1
 fi
 
