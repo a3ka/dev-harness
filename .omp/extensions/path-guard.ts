@@ -285,8 +285,15 @@ function gitOracle(p: string): OracleResult {
 // отдельно ловит rc 2 NOT_IMPLEMENTED; фабрика идёт через extractPinFromBranch
 // и о noGit просто не знает — её путь даст null/block как у прочих fail-closed).
 function extractPin(text: string): { worktree: string | null; noGit: boolean } {
-  // 1) ровно одна spawn-пара: токен WORKTREE=<абс> + BRANCH=wip/<NNN>/<автор>;
-  const tokenRe = /(?:^|[:;,])\s*(WORKTREE|BRANCH)=([^\s,;]+)/g;
+  // 1) ровно одна spawn-пара: токен WORKTREE=<абс> + BRANCH=wip/<NNN>/<автор>.
+  // 066 (Н-173а/Н-162): пара распознаётся в ЛЮБОЙ строковой позиции текста
+  // задания — флаг /m даёт якорю ^ начало КАЖДОЙ строки (двухстрочная пара и
+  // пара после префикса харнесса больше не дают молча unpinned), а двоеточие
+  // изъято из класса значения: разделитель однострочной формы
+  // pin:WORKTREE=<абс>:BRANCH=wip/<NNN>/<автор> не съедается значением.
+  // В легитимных значениях (Linux-абсолюты, ветки wip/<NNN>/<автор>)
+  // двоеточия нет — изъятие ничего не сужает.
+  const tokenRe = /(?:^|[:;,])\s*(WORKTREE|BRANCH)=([^\s,;:]+)/gm;
   let wtCount = 0, brCount = 0;
   let wt: string | null = null, br: string | null = null;
   let mm: RegExpExecArray | null;
@@ -1250,6 +1257,15 @@ export default function register(pi: unknown): void {
     const envActual = process.cwd();
     const eventWorktree = typeof call.worktree === 'string' ? call.worktree : null;
     const eventActual = typeof call.actual === 'string' ? call.actual : null;
+    // 066 (Н-173б): фактический cwd спавна — из СОБЫТИЯ, не из cwd демона:
+    // сначала call.actual (если omp несёт поле — уже предпочитался и до 066),
+    // затем cwd самого tool-вызова (bash несёт cwd ввода — cwd спавна виден
+    // в событии вызова; edit/write его не несут — остаток назван в 066).
+    // envActual = process.cwd() ПРОЦЕССА ДЕМОНА (cwd основного чекаута) —
+    // только последний фолбэк: фолбэк-первым он гасил М1-п.5 037 —
+    // owner.json изолированного клона никогда не срабатывал (Н-173/Obs065:
+    // CLI с actual=<клон> pass, рантайм с actual=<демон-cwd> block).
+    const argsActual = typeof args.cwd === 'string' && args.cwd.length > 0 ? args.cwd : null;
 
     const sid = getSessionId(ctx);
     let assignmentPin = sid !== null ? (sessionPins.get(sid) ?? null) : null;
@@ -1272,19 +1288,19 @@ export default function register(pi: unknown): void {
     let skipActualCheck = false;
     if (eventWorktree !== null) {
       worktree = eventWorktree;
-      actual = eventActual ?? envActual;
+      actual = eventActual ?? argsActual ?? envActual;
     } else if (envWorktree !== null) {
       worktree = envWorktree;
-      actual = eventActual ?? envActual;
+      actual = eventActual ?? argsActual ?? envActual;
     } else if (assignmentPin !== null) {
       // М2: для пина-из-задания сверка с actual НЕ применяется (аутентичность
       // пина — из грамматики М1, actual процесса := cwd ведущей сессии, не worktree цели).
       worktree = assignmentPin;
-      actual = eventActual ?? envActual;
+      actual = eventActual ?? argsActual ?? envActual;
       skipActualCheck = true;
     } else {
       worktree = null;
-      actual = eventActual ?? envActual;
+      actual = eventActual ?? argsActual ?? envActual;
     }
 
     // 037 §Инварианты М1 п.5: sessionName = basename(ctx.sessionManager.getSessionFile(),

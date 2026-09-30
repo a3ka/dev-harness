@@ -1,0 +1,8 @@
+probe-only каталог (прецедент fixtures/self_contained_cwd, 034 §Боль 1): предмет —
+066 (extractPin-грамматика + источник actual спавна в .omp/extensions/path-guard.ts,
+Н-173). red_extract_pin_actual_066.sh тестирует path-guard.ts НАПРЯМУЮ (node,
+--extract-pin/--judge-протокол + фабрика через import-драйвер) — у предмета нет
+барьерного ключа scripts/check_*.sh, case_*-глоб раннера его не подхватывает.
+Предъявление — прямой прогон `bash fixtures/path_guard/red_extract_pin_actual_066.sh
+[<корень>]` (вне case_*-глоба раннера), исполняется судьями/архитектором напрямую;
+красное сегодня (ветви а1, а1б, а2, б3 — rc 1), зелёное после реализации 066.
