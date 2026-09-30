@@ -1265,6 +1265,12 @@ export default function register(pi: unknown): void {
     // только последний фолбэк: фолбэк-первым он гасил М1-п.5 037 —
     // owner.json изолированного клона никогда не срабатывал (Н-173/Obs065:
     // CLI с actual=<клон> pass, рантайм с actual=<демон-cwd> block).
+    // Р-1 (вердикт c3c6379): argsActual — ТОЛЬКО непиннованная ветвь (М1-п.5
+    // 037). Пиннованные ветви держат pre-066 цепочку eventActual ?? envActual:
+    // cwd tool-вызова — поле, которым управляет агент; допущенное в сверку
+    // «пин = actual» (025) оно и открывало подмену (cwd процесса ≠ пину +
+    // вписанный cwd=<пин> → pass), и ломало pass пиннованной сессии на bash
+    // cwd=<подкаталог пина>.
     const argsActual = typeof args.cwd === 'string' && args.cwd.length > 0 ? args.cwd : null;
 
     const sid = getSessionId(ctx);
@@ -1284,19 +1290,18 @@ export default function register(pi: unknown): void {
     }
 
     let worktree: string | null;
-    let actual: string;
+    let actual: string | null = null;
     let skipActualCheck = false;
     if (eventWorktree !== null) {
       worktree = eventWorktree;
-      actual = eventActual ?? argsActual ?? envActual;
+      actual = eventActual ?? envActual;
     } else if (envWorktree !== null) {
       worktree = envWorktree;
-      actual = eventActual ?? argsActual ?? envActual;
+      actual = eventActual ?? envActual;
     } else if (assignmentPin !== null) {
       // М2: для пина-из-задания сверка с actual НЕ применяется (аутентичность
       // пина — из грамматики М1, actual процесса := cwd ведущей сессии, не worktree цели).
       worktree = assignmentPin;
-      actual = eventActual ?? argsActual ?? envActual;
       skipActualCheck = true;
     } else {
       worktree = null;
