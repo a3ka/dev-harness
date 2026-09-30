@@ -8,6 +8,10 @@
 # грязном дереве, дописывает строку в registry/contracts.tsv и КОММИТИТ её на
 # main с identity orchestrator. Дверь 031 (check_staged ADD-форма) остаётся
 # СУДЬЁЙ: скрипт её не подменяет и не обходит — commit идёт штатным хуком.
+# НЕОТВРАТИМОСТЬ (Б2 круга 1): эффективный hooks-каталог проверен ДО записи
+# (конфиг-дизарм → именованный отказ), командная строка коммита НЕ несёт ни
+# одного -c (identity — env GIT_AUTHOR_*/GIT_COMMITTER_*): hooksPath-инъекция
+# -c остаётся единственной чужеродной точкой и различима клеткой батареи.
 #
 # ЧТО НЕ ДЕЛАЕТ: НЕ минтит тег (next_id — единый источник выдачи номеров);
 # НЕ пушит (публикация — отдельный шаг оркестратора через scripts/gitw, норма
@@ -28,7 +32,8 @@
 #   авторитет недоступен (origin не настроен, ls-remote отказал — fail-closed,
 #   обрыв сети НЕ пишет строку) / тег не достижим на origin (self-mint) /
 #   sha локального тега ≠ sha тега на origin (переминт) / номер уже в
-#   манифесте — повторный минт / HEAD не main / грязное дерево.
+#   манифесте — повторный минт / HEAD не main / грязное дерево / дверь 031
+#   отключена конфигом (эффективный hooks-каталог без живого pre-commit).
 # rc 2 — нечем проверить (нет git, --root не репозиторий, --nnn вне грамматики).
 #
 # ГРАММАТИКА СТРУКТУРНЫХ ПОЛЕЙ (норма 041 §Инварианты п.2):
@@ -102,6 +107,24 @@ if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
   printf 'ОТКАЗ: грязное дерево — коммит строки реестра обязан быть единственным предметом\n' >&2
   exit 1
 fi
+# 0. Дверь 031 неотвратима для ЭТОГО коммита (Б2 круга 1): эффективный
+# hooks-каталог обязан нести ИСПОЛНЯЕМЫЙ pre-commit ЕЩЁ ДО записи строки —
+# конфиг-дизарм (core.hooksPath ведёт мимо двери) отказывает именем. Формы
+# с ~ не распознаются → отказ (fail-closed, как и пустой каталог).
+hooks_cfg="$(git -C "$ROOT" config --get core.hooksPath || true)"
+if [ -n "$hooks_cfg" ]; then
+  case "$hooks_cfg" in
+    /*) HOOKS_DIR="$hooks_cfg" ;;
+    *)  HOOKS_DIR="$ROOT/$hooks_cfg" ;;
+  esac
+else
+  gitdir="$(git -C "$ROOT" rev-parse --git-dir)"
+  case "$gitdir" in /*) HOOKS_DIR="$gitdir/hooks" ;; *) HOOKS_DIR="$ROOT/$gitdir/hooks" ;; esac
+fi
+if [ ! -x "$HOOKS_DIR/pre-commit" ]; then
+  printf 'ОТКАЗ: дверь 031 отключена конфигом (эффективный hooks-каталог %s без исполняемого pre-commit) — строка реестра коммитится только сквозь живую дверь\n' "$HOOKS_DIR" >&2
+  exit 1
+fi
 
 # 1. Тег жив локально (реестр первичен — зеркалит порядок двери 023/031).
 if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$NNN"; then
@@ -155,12 +178,14 @@ fi
 
 # 5. Пишем строку и коммитим с identity orchestrator (дверь 031 действительна
 # ТОЛЬКО для автора orchestrator). Строка — ОДНИМ printf (U+2192 литералом),
-# грамматика не переизобретается. Явная identity в ОДНОЙ строке с commit —
-# канарейка И-5 (Н-61/А-25).
+# грамматика не переизобретается. Identity — ЯВНЫМ env в ОДНОЙ строке с commit
+# (канарейка И-5, Н-61/А-25); командная строка коммита НЕ несёт НИ ОДНОГО -c:
+# подпись — флагом --no-gpg-sign, единственная оставшаяся точка обхода двери
+# (hooksPath-инъекция -c) чужеродна и ловится клеткой батареи (Б2 круга 1).
 mkdir -p "$ROOT/registry"
 printf '%s → %s\n' "$NNN" "$TAG_SHA" >> "$ROOT/registry/contracts.tsv"
 git -C "$ROOT" add -- registry/contracts.tsv
-if ! git -C "$ROOT" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local -c commit.gpgsign=false commit -q -m "реестр: строка $NNN (mint_line, контракт 068)"; then
+if ! GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local GIT_COMMITTER_NAME=orchestrator GIT_COMMITTER_EMAIL=orchestrator@dev-harness.local git -C "$ROOT" commit -q --no-gpg-sign -m "реестр: строка $NNN (mint_line, контракт 068)"; then
   # Откат точечный: вернуть index+worktree пути к HEAD (дверь отказала —
   # например, номер уже в манифесте ЖИВОЙ шапки origin/main).
   git -C "$ROOT" checkout HEAD -- registry/contracts.tsv 2>/dev/null || true
