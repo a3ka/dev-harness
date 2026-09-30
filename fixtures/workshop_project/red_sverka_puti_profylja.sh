@@ -3,9 +3,9 @@
 # пути профиля ci.workflow с деревом репо; боль Б-4 пилота ODX-STK-001).
 #
 # Переносная форма семьи (прецедент 054/055/058). Структура:
-#   1. СТАБ-ПАК (8 ручек обмана) — зелёный ДО и ПОСЛЕ реализации: каждый
+#   1. СТАБ-ПАК (9 ручек обмана) — зелёный ДО и ПОСЛЕ реализации: каждый
 #      обманный стаб умирает на СВОЕЙ клетке (привязка по коду, Н-39).
-#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к11) — красная ДО реализации (предмет отсутствует:
+#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к12) — красная ДО реализации (предмет отсутствует:
 #      резолвер HEAD не сверяет объявление с деревом), зелёная ПОСЛЕ.
 # Ожидание каждой клетки — ПАРА (rc, класс stdout): отказ = rc 1 И stdout
 # ПУСТ (И-4: ранняя печать merged до отказа неразличима без проверки
@@ -27,6 +27,7 @@ die_pack() { printf '059-батарея ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || die_pack "нет git"
 command -v jq >/dev/null 2>&1 || die_pack "нет jq"
 command -v readlink >/dev/null 2>&1 || die_pack "нет readlink"
+command -v mkfifo >/dev/null 2>&1 || die_pack "нет mkfifo"
 
 # Ложные зелёные от протекающего окружения (прецедент 058:67).
 unset HARNESS_SESSION_HOME HARNESS_SCRATCH METERING_PROJECT METERING_ROLE
@@ -120,7 +121,14 @@ if [ -n "${STUB_DIR_OK:-}" ]; then
   [ -e "$canon" ] || die "объявленный путь отсутствует в дереве репо: ci.workflow=$cw от корня $repo"
   emit_merged; exit 0
 fi
-[ -f "$canon" ] || die "объявленный путь не файл: ci.workflow=$cw"
+# Ручка STUB_NOT_DIR (контрмодель И-2(г), арбитраж 059-к3 9e874be п.3):
+# предикат «не каталог» вместо «регулярного файла» — на FIFO (существует и
+# не каталог) пропускает объявление, печатая merged вопреки отказу «не файл».
+if [ -n "${STUB_NOT_DIR:-}" ]; then
+  [ ! -d "$canon" ] || die "объявленный путь не файл: ci.workflow=$cw"
+else
+  [ -f "$canon" ] || die "объявленный путь не файл: ci.workflow=$cw"
+fi
 emit_merged; exit 0
 STUBEOF
 chmod +x "$STUB"
@@ -136,6 +144,7 @@ scn_k7() { local L="$WORK/s7-layer" R="$WORK/s7-repo"; layer_make "$L" p1 ',"ci"
 scn_k8() { local L="$WORK/s8-layer" R="$WORK/s8-repo"; layer_min "$L"; repo_make "$R" r1 "" 0; printf '%s\n%s\n' "$R" "$L"; }
 scn_k10() { local L="$WORK/s10-layer" R="$WORK/s10-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci/obsolete.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/repo.yml"}' 0; wf_make "$R/ci/repo.yml"; printf '%s\n%s\n' "$R" "$L"; }
 scn_k11() { local L="$WORK/s11-layer" R="$WORK/s11-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci/exists.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/missing.yml"}' 0; wf_make "$R/ci/exists.yml"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k12() { local L="$WORK/s12-layer" R="$WORK/s12-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci/pipe"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/pipe"}' 0; mkdir -p "$R/ci"; rm -f -- "$R/ci/pipe"; mkfifo -- "$R/ci/pipe"; printf '%s\n%s\n' "$R" "$L"; }
 
 stub_run() { # $1=сценарий $2=stdout-файл → rc стаба (ручки из окружения)
   local io R L e rc
@@ -150,7 +159,7 @@ expect_pair() { # $1=rc $2=stdout-файл $3=ожидание (1=отказ, 0=
 }
 
 # Диффпроба: стаб БЕЗ ручек обязан вести себя как честная реализация на всех
-# десяти сценариях (rc И класс stdout; иначе стаб-пак ничего не доказывает).
+# одиннадцати сценариях (rc И класс stdout; иначе стаб-пак ничего не доказывает).
 diff_fail=0
 scn_check() { # $1=сценарий $2=ожидание (1=отказ, 0=успех)
   local o rc; o="$WORK/diff-$1.out"
@@ -167,6 +176,7 @@ scn_check scn_k7 1
 scn_check scn_k8 0
 scn_check scn_k10 0
 scn_check scn_k11 1
+scn_check scn_k12 1
 
 # Клетки стаб-пака: обман ручкой ОБЯЗАН быть различим на её сценарии —
 # стаб с ручкой ведёт себя НЕ как ожидание клетки → обман пойман (стаб
@@ -192,6 +202,7 @@ knob_cell s5 STUB_ESCAPE_OK  scn_k5  1
 knob_cell s6 STUB_DIR_OK     scn_k7  1
 knob_cell s7 STUB_EARLY_PRINT scn_k1 1
 knob_cell s8 STUB_ALL_DECL   scn_k10 0
+knob_cell s9 STUB_NOT_DIR  scn_k12 1
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ЧЕСТНЫЕ КЛЕТКИ: живой резолвер/workshop HEAD. Каждая клетка красна СВОИМ
@@ -287,6 +298,14 @@ hk11() { # зеркало перекрытия: эффективный repo-пу
   [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" \
     && grep -Fq 'ci/missing.yml' "$E" && ! grep -Fq 'ci/exists.yml' "$E"
 }
+hk12() { # на месте объявления — FIFO (mkfifo); stdout пуст (И-2(г): предикат -f,
+         # арбитраж 059-к3 9e874be п.2 — «не каталог» здесь НЕ отказ)
+  local L="$WORK/hk12-layer" R="$WORK/hk12-repo" E="$WORK/hk12.err" O="$WORK/hk12.out" rc
+  layer_make "$L" p1 ',"ci":{"workflow":"ci/pipe"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/pipe"}' 0
+  mkdir -p "$R/ci"; mkfifo -- "$R/ci/pipe"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'не файл' "$E"
+}
 
 hcell к1 hk1
 hcell к2 hk2
@@ -299,6 +318,7 @@ hcell к8 hk8
 hcell к9 hk9
 hcell к10 hk10
 hcell к11 hk11
+hcell к12 hk12
 
 printf 'итог 059-батареи: стаб-пак %s/%s пойман, диффпроба ошибок %s, честные %s/%s зелёные\n' \
   "$stub_caught_n" "$stub_total" "$diff_fail" "$((honest_total-honest_fail))" "$honest_total" >&2
