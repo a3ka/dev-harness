@@ -179,15 +179,7 @@ g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null | sort > "$
 # строки), дедупликация — только точных повторов. СИНТЕЗ ЗАПРЕЩЁН: строки берутся
 # исключительно из тел коммитов диапазона main..tip, поэтому зло-ленд ветки без
 # строки даёт merge-тело без строки и остаётся красным для check_charter.
-g rev-list "$range" > "$TMPF/range_shas"
-: > "$TMPF/sanctions_all"
-while IFS= read -r sha; do
-  [ -n "$sha" ] || continue
-  g log -1 --format=%B "$sha" >> "$TMPF/sanctions_all"
-  printf '\n' >> "$TMPF/sanctions_all"
-done < "$TMPF/range_shas"
-awk '/^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ || /^ALLOW-ARTIFACT-DELETE:/ { print }' "$TMPF/sanctions_all" \
-  | awk '!seen[$0]++' > "$TMPF/sanctions"
+g log --format=%B "$range" | awk '(/^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ || /^ALLOW-ARTIFACT-DELETE:/) && !seen[$0]++' > "$TMPF/sanctions"
 # Сообщение merge: первый абзац И-6/016 сохранён, строки-санкции — следующими строками
 # без отступа (первая колонка — требование грамматики). Пустое множество строк даёт
 # сообщение байт-в-байт как до 065.
