@@ -20,15 +20,19 @@
 #   к8  ленд зелёного входа → rc 0 ∧ merge-коммит (2 родителя) ∧ subject;
 #   к9  ленд красного входа → rc 1, фраза гейта, HEAD неизменен;
 #   к10 барьер без файла → rc 1, фраза отсутствия барьера, цель не тронута.
-#   к11 исполнимость: маркерные команды + барьер → локальное исполнение
-#       джобы rc 0 ∧ лог эффектов байт-в-байт test/build/typecheck/lint/
-#       barrier-probe-ok в порядке И-4 (И-9а);
+#   к11 исполнимость: маркерные команды (СЛУЧАЙНЫЕ значения) + барьер
+#       (случайное имя) → генератор rc 0 ∧ cmp -s с эталоном И-10 ∧
+#       локальное исполнение джобы rc 0 ∧ лог эффектов байт-в-байт
+#       m-test/m-build/m-tc/m-lint/m-bar-<rand> в порядке И-4 (И-9а+И-10);
 #   к12 распространение отказа: команда test падает exit 9 → локальное
-#       исполнение rc 9 ∧ в логе эффектов ТОЛЬКО «test» — шаги после
-#       упавшего не исполняются (И-9б);
+#       исполнение rc 9 ∧ в логе эффектов ТОЛЬКО маркер m-test-<rand> —
+#       шаги после упавшего не исполняются (И-9б);
 #   к13 tracked-вердикт с первой строкой FAIL в HEAD, рабочая копия
 #       переписана на accept → rc 1 «нет закоммиченного accept-вердикта»:
 #       судится блоб HEAD, не рабочая копия (И-2).
+#   к14 семантика GitHub тела (арбитраж 063-Б4, замер 6): команда test —
+#       «false; echo after-<rand> >> лог» → локальное исполнение rc 1 ∧
+#       after в логе нет (-e) ∧ поздние шаги эффектов не дают (И-9ii);
 #   КРАСНЫЕ до реализации: скриптов нет → bash rc 127 (034-паттерн:
 #   отсутствие барьера и есть честный красный).
 #
@@ -47,11 +51,18 @@
 #       маркеры шагов и строки команд на месте, но команды/барьеры — ДАННЫЕ
 #       no-op-шага `: <<'COMMANDS'`: не исполняется ни одна; смерть к11
 #       (эффектов нет), честен на к6 — маркеры и строки на месте
-#       (диффпробы);
+#       (диффпробы); после фикса И-9(i) «поймано» — НЕ-vacuous: раннер
+#       читает файл-аргумент, вердикт не зависит от stdin батареи;
 #   s5 «грязная копия вердикта» — .review и перечисление tracked-файлов
 #       честны, но первая строка вердикта читается из РАБОЧЕГО файла, не
 #       из блоба HEAD; смерть к13 (ворота открыты без accept в HEAD),
-#       честен на к1 — чистый закоммиченный accept (диффпробы).
+#       честен на к1 — чистый закоммиченный accept (диффпробы);
+#   s6 «выключатель контура» (обход Б4, арбитраж dea4268) — резолв/vacuous/
+#       отсутствие барьера/маркеры к6/тела шагов и их эффекты ЧЕСТНЫ, но
+#       файл-цель несёт ключ джобы сверх контура И-10 (`if: ${{ false }}`):
+#       в GitHub джоба выключена; смерть к11 (cmp с эталоном И-10 при
+#       наблюдаемых эффектах И-9), честен по И-9 — лог эффектов идентичен
+#       честному (диффпроба: И-9 без И-10 обход не ловит).
 #
 # rc: 0 ⟺ стаб-пак пойман весь ∧ диффпробы чисты ∧ честные клетки зелёные
 # ∧ выборки непусты; на HEAD ожидается rc 1 (красная — предмет не реализован).
@@ -77,6 +88,9 @@ P_NOVERD='merge gate ОТКАЗ: нет закоммиченного accept-ве
 P_GENVAC='ci-генератор: профиль не объявляет команд и барьеров — vacuous, файл не тронут'
 P_NOBARRIER='ci-генератор ОТКАЗ: объявленный барьер отсутствует в дереве: probe-a (.harness/fixtures/probe-a.sh)'
 CW='.github/workflows/harness.yml'
+# Случайные значения игрушки исполнимости (демаркация 063, арбитраж 063-Б4):
+# эталон И-10 — функция входа, не подсмотренная константа (прецедент 024).
+RND="r$RANDOM$RANDOM"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/red063.XXXXXX")"
 cleanup() { rm -rf "$WORK"; }
@@ -120,31 +134,43 @@ REPO_JSON_VAC='{
   "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
   "ci": {"workflow": ".github/workflows/harness.yml"}
 }'
-# repo-слой: exec-вариант (команды-маркеры + барьер — эффекты наблюдаемы
-# локальным исполнением И-9; значения команд — обычные данные профиля,
-# клетка от них не зависит: конформен любой непустой набор)
-REPO_JSON_EXEC='{
+# repo-слой: exec-вариант (команды-маркеры со СЛУЧАЙНЫМИ значениями + барьер
+# со случайным именем — эффекты наблюдаемы локальным исполнением И-9;
+# клетка от значений не зависит: конформен любой непустой набор)
+REPO_JSON_EXEC="$(printf '{
   "schemaVersion": 1,
   "repoId": "toy63",
   "language": "typescript",
   "projectLayer": {"version": "t1", "profilePath": "registry/harness-project.json"},
   "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
-  "commands": {"test": "echo test >> .harness/toy-ran.log", "build": "echo build >> .harness/toy-ran.log", "typecheck": "echo typecheck >> .harness/toy-ran.log", "lint": "echo lint >> .harness/toy-ran.log"},
+  "commands": {"test": "echo m-test-%s >> .harness/toy-ran.log", "build": "echo m-build-%s >> .harness/toy-ran.log", "typecheck": "echo m-tc-%s >> .harness/toy-ran.log", "lint": "echo m-lint-%s >> .harness/toy-ran.log"},
   "ci": {"workflow": ".github/workflows/harness.yml"},
-  "barriers": {"mandatory": ["probe-ok"], "optional": []}
-}'
+  "barriers": {"mandatory": ["bar-%s"], "optional": []}
+}' "$RND" "$RND" "$RND" "$RND" "$RND")"
 # repo-слой: execfail-вариант (та же форма; команда test падает exit 9 —
 # отказ шага распространяется на джобу, поздние шаги не исполняются)
-REPO_JSON_EXECFAIL='{
+REPO_JSON_EXECFAIL="$(printf '{
   "schemaVersion": 1,
   "repoId": "toy63",
   "language": "typescript",
   "projectLayer": {"version": "t1", "profilePath": "registry/harness-project.json"},
   "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
-  "commands": {"test": "echo test >> .harness/toy-ran.log; exit 9", "build": "echo build >> .harness/toy-ran.log", "typecheck": "echo typecheck >> .harness/toy-ran.log", "lint": "echo lint >> .harness/toy-ran.log"},
+  "commands": {"test": "echo m-test-%s >> .harness/toy-ran.log; exit 9", "build": "echo m-build-%s >> .harness/toy-ran.log", "typecheck": "echo m-tc-%s >> .harness/toy-ran.log", "lint": "echo m-lint-%s >> .harness/toy-ran.log"},
   "ci": {"workflow": ".github/workflows/harness.yml"},
-  "barriers": {"mandatory": ["probe-ok"], "optional": []}
-}'
+  "barriers": {"mandatory": ["bar-%s"], "optional": []}
+}' "$RND" "$RND" "$RND" "$RND" "$RND")"
+# repo-слой: ghsem-вариант (семантика GitHub тела, замер 6 арбитража 063-Б4:
+# false гасит тело, after-эффекта нет, поздние шаги не исполняются)
+REPO_JSON_GHSEM="$(printf '{
+  "schemaVersion": 1,
+  "repoId": "toy63",
+  "language": "typescript",
+  "projectLayer": {"version": "t1", "profilePath": "registry/harness-project.json"},
+  "workflowPaths": {"contracts": ".harness/contracts", "verdicts": ".harness/verdicts", "registry": ".harness/registry", "fixtures": ".harness/fixtures"},
+  "commands": {"test": "false; echo after-%s >> .harness/toy-ran.log", "build": "echo m-build-%s >> .harness/toy-ran.log", "typecheck": "echo m-tc-%s >> .harness/toy-ran.log", "lint": "echo m-lint-%s >> .harness/toy-ran.log"},
+  "ci": {"workflow": ".github/workflows/harness.yml"},
+  "barriers": {"mandatory": ["bar-%s"], "optional": []}
+}' "$RND" "$RND" "$RND" "$RND" "$RND")"
 
 mkt() { # <каталог> <repo-json>
   mkdir -p "$1/.harness/verdicts" "$1/.github/workflows"
@@ -166,10 +192,10 @@ review_file() { # <каталог> <имя> <status>
   printf -- '---\nstatus: %s\n---\n\n- [ ] nakhodka 1\n' "$3" > "$1/.review/$2"
 }
 
-mk_probe_ok() { # <каталог> — барьер-маркер probe-ok (эффект — строка в лог)
+mk_probe_ok() { # <каталог> — барьер-маркер bar-$RND (эффект — строка в лог)
   mkdir -p "$1/.harness/fixtures"
-  printf '#!/usr/bin/env bash\necho barrier-probe-ok >> .harness/toy-ran.log\n' \
-    > "$1/.harness/fixtures/probe-ok.sh"
+  printf '#!/usr/bin/env bash\necho m-bar-%s >> .harness/toy-ran.log\n' "$RND" \
+    > "$1/.harness/fixtures/bar-$RND.sh"
 }
 
 # ── незавершающие проверки (батарея считает, не умирает на первой) ───────────
@@ -178,12 +204,15 @@ run_gate() { LAST_OUT="$(bash "$GATE" --repo "$1" 2>&1)"; LAST_RC=$?; }
 run_gen()  { LAST_OUT="$(bash "$GEN" --repo "$1" 2>&1)";  LAST_RC=$?; }
 run_land() { LAST_OUT="$(bash "$LAND" --repo "$1" --branch "$2" 2>&1)"; LAST_RC=$?; }
 
-# ── локальное исполнение джобы harness (предъявление И-9; способ локального
-# предъявления выбирает автор батареи, внешний GitHub не требуется): шаги
-# извлекаются по фиксированному лейауту И-4 — «        run: |» открывает
-# тело, строки с отступом ровно 10 — тело (шаги без run:, например uses:,
-# пропускаются); тела исполняются ПОДРЯД, каждое отдельным bash -c в корне
-# репо; отказ шага = отказ джобы (rc шага), поздние шаги не исполняются ──
+# ── локальное исполнение джобы harness (предъявление И-9 по РЕШЕНИЮ
+# арбитража 063-Б4): раннер читает ФАЙЛ-АРГУМЕНТ — результат инвариантен к
+# stdin батареи (не блокируется и не подъедает его); шаги извлекаются по
+# фиксированному лейауту И-4 — «        run: |» открывает тело, строки с
+# отступом ровно 10 — тело (шаги без run:, например uses:, пропускаются);
+# тела исполняются ПОДРЯД, каждое отдельным `bash --noprofile --norc -eo
+# pipefail -c` в корне репо (форма `shell: bash` GitHub по умолчанию —
+# ненулевая команда тела гасит тело); отказ шага = отказ джобы (rc шага),
+# поздние шаги не исполняются ──
 wf_run() { # <repo> <wf-файл>; rc = rc первого упавшего шага, 0 = все зелёные
   local repo="$1" wf="$2" line body='' have=0
   while IFS= read -r line || [ -n "$line" ]; do
@@ -191,13 +220,39 @@ wf_run() { # <repo> <wf-файл>; rc = rc первого упавшего ша�
       case "$line" in
         '          '*) body+="${line:10}"$'\n'; continue ;;
       esac
-      ( cd "$repo" && bash -c "$body" ) || return $?
+      ( cd "$repo" && bash --noprofile --norc -eo pipefail -c "$body" ) || return $?
       have=0; body=''
     fi
     if [ "$line" = '        run: |' ]; then have=1; body=''; fi
-  done
-  if [ "$have" -eq 1 ]; then ( cd "$repo" && bash -c "$body" ) || return $?; fi
+  done < "$wf"
+  if [ "$have" -eq 1 ]; then ( cd "$repo" && bash --noprofile --norc -eo pipefail -c "$body" ) || return $?; fi
   return 0
+}
+
+# эталон И-10 (закрытая форма файла-цели): контур — ЛИТЕРАЛ контракта 063,
+# шаги — по правилу И-4 из резолва профиля игрушки; случайные значения
+# делают эталон функцией входа, не подсмотренной константой (прецедент 024)
+wf_etalon() { # <repo>; эталон файла-цели на stdout
+  local repo="$1" M k v b FIX
+  M="$(bash "$RESOLVER" --repo "$repo" 2>/dev/null)"
+  FIX="$(printf '%s' "$M" | jq -r '.workflowPaths.fixtures.value // empty')"
+  printf '# GENERATED by dev-harness gen_ci_workflow — не править руками; источник — harness.project.json\n'
+  printf 'name: harness\non: [push, pull_request]\njobs:\n  harness:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
+  for k in test build typecheck lint; do
+    v="$(printf '%s' "$M" | jq -r --arg k "$k" '.commands[$k].value // empty')"
+    [ -n "$v" ] || continue
+    printf '      - name: commands.%s\n        run: |\n' "$k"
+    while IFS= read -r l; do printf '          %s\n' "$l"; done <<< "$v"
+  done
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    printf '      - name: barriers.%s\n        run: |\n          bash %s/%s.sh\n' "$b" "$FIX" "$b"
+  done < <(printf '%s' "$M" | jq -r '.barriers.mandatory.value[]?')
+}
+
+# ожидаемый лог эффектов игрушки исполнимости (маркеры случайны — RND)
+exp_full_log() {
+  printf 'm-test-%s\nm-build-%s\nm-tc-%s\nm-lint-%s\nm-bar-%s\n' "$RND" "$RND" "$RND" "$RND" "$RND"
 }
 
 chk_rc0() {
@@ -243,7 +298,7 @@ k5() { # .review status: done → не блокирует
   run_gate "$T"
   chk_rc0 'к5: закрытая находка (done) не блокирует'
 }
-k6() { # генератор: команды+барьер перенесены в джобу
+k6() { # генератор: команды+барьер перенесены в джобу; файл = эталон И-10
   local T="$WORK/k6"; mkt "$T" "$REPO_JSON_GEN"
   mkdir -p "$T/.harness/fixtures"
   printf '# stub barrier\nprintf barrier-ok\n' > "$T/.harness/fixtures/probe-a.sh"
@@ -261,6 +316,12 @@ k6() { # генератор: команды+барьер перенесены в
     grep -Fxq "          $c" "$F" || { printf '  FAIL к6: команда не своей строкой (отступ 10): %s\n' "$c" >&2; ok=0; }
   done
   grep -Fxq '          bash .harness/fixtures/probe-a.sh' "$F" || { printf '  FAIL к6: нет строки барьера\n' >&2; ok=0; }
+  wf_etalon "$T" > "$WORK/k6-etalon"
+  cmp -s "$F" "$WORK/k6-etalon" || {
+    printf '  FAIL к6: файл-цель ≠ эталону И-10 (закрытая форма)\n' >&2
+    diff -u "$WORK/k6-etalon" "$F" >&2 || true
+    ok=0
+  }
   [ "$ok" -eq 1 ]
 }
 k7() { # vacuous: команд/барьеров нет → rc 0, фраза, байты цели неизменны
@@ -312,15 +373,21 @@ k10() { # барьер объявлен, файла нет → rc 1 дослов
   grep -Fxq '# tsel bez bariera' "$T/$CW" || { printf '  FAIL к10: файл-цель тронут при отказе\n' >&2; return 1; }
   return 0
 }
-k11() { # исполнимость: каждый шаг переноса производит свой эффект (И-9а)
+k11() { # исполнимость: каждый шаг переноса производит свой эффект (И-9а+И-10)
   local T="$WORK/k11"; mkt "$T" "$REPO_JSON_EXEC"
   mk_probe_ok "$T"
   printf '# tsel\n' > "$T/$CW"; commit_all "$T" 'exec toy'
   run_gen "$T"
   chk_rc0 'к11: генератор rc 0' || return 1
+  wf_etalon "$T" > "$WORK/k11-etalon"
+  cmp -s "$T/$CW" "$WORK/k11-etalon" || {
+    printf '  FAIL к11: файл-цель ≠ эталону И-10 (закрытая форма)\n' >&2
+    diff -u "$WORK/k11-etalon" "$T/$CW" >&2 || true
+    return 1
+  }
   local wrc=0; wf_run "$T" "$T/$CW" || wrc=$?
   [ "$wrc" -eq 0 ] || { printf '  FAIL к11: локальное исполнение джобы rc %s, ожидался 0\n' "$wrc" >&2; return 1; }
-  printf 'test\nbuild\ntypecheck\nlint\nbarrier-probe-ok\n' > "$WORK/k11-expected"
+  exp_full_log > "$WORK/k11-expected"
   cmp -s "$WORK/k11-expected" "$T/.harness/toy-ran.log" || {
     printf '  FAIL к11: эффекты шагов не совпали байт-в-байт (команды как данные не исполняются?)\n' >&2
     cat "$T/.harness/toy-ran.log" >&2 2>/dev/null
@@ -336,9 +403,9 @@ k12() { # распространение отказа: rc команды = rc д
   chk_rc0 'к12: генератор rc 0' || return 1
   local wrc=0; wf_run "$T" "$T/$CW" || wrc=$?
   [ "$wrc" -eq 9 ] || { printf '  FAIL к12: rc локального исполнения %s, ожидался 9 (отказ шага не распространён)\n' "$wrc" >&2; return 1; }
-  printf 'test\n' > "$WORK/k12-expected"
+  printf 'm-test-%s\n' "$RND" > "$WORK/k12-expected"
   cmp -s "$WORK/k12-expected" "$T/.harness/toy-ran.log" || {
-    printf '  FAIL к12: после упавшего шага исполнены поздние (лог ≠ ровно «test»)\n' >&2
+    printf '  FAIL к12: после упавшего шага исполнены поздние (лог ≠ ровно маркер test)\n' >&2
     cat "$T/.harness/toy-ran.log" >&2 2>/dev/null
     return 1
   }
@@ -351,6 +418,23 @@ k13() { # tracked-вердикт FAIL в HEAD, рабочая копия пер�
   printf 'accept\n' > "$T/.harness/verdicts/stk-063-review.md" # грязная рабочая копия
   run_gate "$T"
   chk_refuse 'к13: грязная рабочая копия вердикта не считается — судится блоб HEAD' "$P_NOVERD"
+}
+k14() { # семантика GitHub тела (замер 6 арбитража 063-Б4): false гасит тело
+        # (-e), after-эффекта нет, поздние шаги не исполняются (И-9ii)
+  local T="$WORK/k14"; mkt "$T" "$REPO_JSON_GHSEM"
+  mk_probe_ok "$T"
+  printf '# tsel\n' > "$T/$CW"; commit_all "$T" 'ghsem toy'
+  run_gen "$T"
+  chk_rc0 'к14: генератор rc 0' || return 1
+  local wrc=0; wf_run "$T" "$T/$CW" || wrc=$?
+  [ "$wrc" -eq 1 ] || { printf '  FAIL к14: rc локального исполнения %s, ожидался 1 (семантика -e)\n' "$wrc" >&2; return 1; }
+  if [ -f "$T/.harness/toy-ran.log" ] && grep -Fq "after-$RND" "$T/.harness/toy-ran.log"; then
+    printf '  FAIL к14: after-эффект в логе — тело не погашено -e\n' >&2; return 1
+  fi
+  if [ -f "$T/.harness/toy-ran.log" ] && grep -Fq "m-build-$RND" "$T/.harness/toy-ran.log"; then
+    printf '  FAIL к14: поздние шаги исполнились после упавшего\n' >&2; return 1
+  fi
+  return 0
 }
 
 honest_total=0; honest_green=0; honest_fail=""
@@ -373,6 +457,7 @@ hcell к10-barier-bez-fajla k10
 hcell к11-ispolnitelnost-shagov k11
 hcell к12-rasprostranenie-otkaza k12
 hcell к13-griaznaja-kopija-verdikta k13
+hcell к14-semantika-github-tela k14
 
 # ── СТАБ-ПАК (обманные реализации; входы честных клеток пересоздаются) ───────
 STUBS="$WORK/stubs"; mkdir -p "$STUBS"
@@ -538,6 +623,51 @@ done < <(git -C "$REPO" ls-files -c -- "$V")
 [ "$found" -eq 1 ] || { printf 'merge gate ОТКАЗ: нет закоммиченного accept-вердикта ревьюера\n' >&2; exit 1; }
 exit 0
 EOF
+
+# s6 «выключатель контура» (обход Б4, арбитраж dea4268): резолв/vacuous/
+# отсутствие барьера/маркеры к6/тела шагов и их эффекты ЧЕСТНЫ — файл
+# отличается от эталона И-10 РОВНО одной строкой `if:` джобы, в GitHub
+# выключающей джобу целиком; раннер условий не вычисляет (П2) — смерть
+# ловит закрытая форма И-10, диффпроба показывает живые эффекты И-9.
+cat > "$STUBS/s6_vyklyuchatel_kontura.sh" <<'EOF'
+#!/usr/bin/env bash
+set -uo pipefail
+REPO=""
+while [ $# -gt 0 ]; do case "$1" in --repo) REPO="$2"; shift 2;; *) shift;; esac; done
+[ -n "$REPO" ] || { printf 'usage: --repo <корень>\n' >&2; exit 1; }
+M="$(bash "${RESOLVER:?}" --repo "$REPO" 2>/dev/null)" || { printf '%s\n' "$M" >&2; exit 1; }
+CW="$(printf '%s' "$M" | jq -r '.ci.value.workflow // empty')"
+NC="$(printf '%s' "$M" | jq -r '[.commands[]?.value] | map(select(. != null)) | length')"
+NB="$(printf '%s' "$M" | jq -r '.barriers.mandatory.value // [] | length')"
+if [ "$NC" -eq 0 ] && [ "$NB" -eq 0 ]; then
+  printf 'ci-генератор: профиль не объявляет команд и барьеров — vacuous, файл не тронут\n' >&2
+  exit 0
+fi
+[ -n "$CW" ] || { printf 'ci-генератор: профиль не объявляет ci.workflow — генерировать некуда\n' >&2; exit 0; }
+FIX="$(printf '%s' "$M" | jq -r '.workflowPaths.fixtures.value // empty')"
+while IFS= read -r b; do
+  [ -n "$b" ] || continue
+  [ -f "$REPO/$FIX/$b.sh" ] || { printf 'ci-генератор ОТКАЗ: объявленный барьер отсутствует в дереве: %s (%s/%s.sh)\n' "$b" "$FIX" "$b" >&2; exit 1; }
+done < <(printf '%s' "$M" | jq -r '.barriers.mandatory.value[]?')
+mkdir -p "$(dirname "$REPO/$CW")"
+{
+  printf '# GENERATED by dev-harness gen_ci_workflow — не править руками; источник — harness.project.json\n'
+  printf 'name: harness\non: [push, pull_request]\njobs:\n  harness:\n'
+  printf '    if: ${{ false }}\n'
+  printf '    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
+  for k in test build typecheck lint; do
+    v="$(printf '%s' "$M" | jq -r --arg k "$k" '.commands[$k].value // empty')"
+    [ -n "$v" ] || continue
+    printf '      - name: commands.%s\n        run: |\n' "$k"
+    while IFS= read -r l; do printf '          %s\n' "$l"; done <<< "$v"
+  done
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    printf '      - name: barriers.%s\n        run: |\n          bash %s/%s.sh\n' "$b" "$FIX" "$b"
+  done < <(printf '%s' "$M" | jq -r '.barriers.mandatory.value[]?')
+} > "$REPO/$CW"
+exit 0
+EOF
 chmod +x "$STUBS"/*.sh
 
 stub_total=0; stub_caught=0; stub_esc=""
@@ -646,6 +776,24 @@ s5_diff() { # контроль к1: чистый закоммиченный acce
   bash "$STUBS/s5_griaznaja_kopija.sh" --repo "$T" >/dev/null 2>&1
   [ $? -eq 0 ]
 }
+s6() { # смерть к11 (И-10): файл неконформен — cmp с эталоном расходится —
+       # ПРИ наблюдаемых эффектах И-9 (wf_run исполняет все шаги, rc 0)
+  local T="$WORK/s6d"; mk_in_k11 "$T"
+  bash "$STUBS/s6_vyklyuchatel_kontura.sh" --repo "$T" >/dev/null 2>&1
+  local grc=$? wrc=0
+  wf_etalon "$T" > "$WORK/s6d-etalon"
+  cmp -s "$T/$CW" "$WORK/s6d-etalon" && return 1
+  wf_run "$T" "$T/$CW" || wrc=$?
+  [ "$grc" -eq 0 ] && [ "$wrc" -eq 0 ]
+}
+s6_diff() { # контроль: ТОТ ЖЕ стаб на входе исполнимости — лог эффектов
+            # идентичен честному (И-9 без И-10 обход не ловит)
+  local T="$WORK/s6c"; mk_in_k11 "$T"
+  bash "$STUBS/s6_vyklyuchatel_kontura.sh" --repo "$T" >/dev/null 2>&1
+  local wrc=0; wf_run "$T" "$T/$CW" || wrc=$?
+  exp_full_log > "$WORK/s6c-expected"
+  [ "$wrc" -eq 0 ] && cmp -s "$WORK/s6c-expected" "$T/.harness/toy-ran.log"
+}
 
 scell s1-гейт-слепец-к-ready s1
 scell s2-генератор-без-команд s2
@@ -657,6 +805,8 @@ dcell s2-диффпроба s2_diff
 dcell s3-диффпроба s3_diff
 dcell s4-диффпроба s4_diff
 dcell s5-диффпроба s5_diff
+scell s6-выключатель-контура s6
+dcell s6-диффпроба s6_diff
 
 # ── итог: счёт просмотренного; пустая выборка — красное ───────────────────────
 printf '063: честных клеток %d, зелёных %d, красных:%s\n' \
