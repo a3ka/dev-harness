@@ -278,11 +278,11 @@ const CALLS_FILE = 'calls.jsonl'
  * именем поля: под cwd НЕ создаётся ничего (инвариант 4).
  */
 export function expandHomePath(value: string, fieldName: string): string {
+  if (!value.includes('${HOME}')) return value
   const home = process.env.HOME
   if (home === undefined || home === '') {
     throw new Error(`config: ${fieldName}: переменная HOME отсутствует или пуста — именованный отказ старта`)
   }
-  if (!value.includes('${HOME}')) return value
   return value.split('${HOME}').join(home)
 }
 
@@ -1236,25 +1236,6 @@ export function selftest(): number {
       }
       // HOME отсутствует (env -u HOME): ИМЕНОВАННЫЙ отказ старта — поле в сообщении.
       delete process.env.HOME
-      const homeAbsPath = path.join(tmp, 'home-abs.json')
-      fs.writeFileSync(homeAbsPath, JSON.stringify({
-        port: 0,
-        healthz_window_sec: 5,
-        secrets_env: sec,
-        data_dir: dataDir,
-        upstream: {},
-        prices: {},
-        ceilings: {},
-        now_file: null,
-      }))
-      let noHomeMsg = ''
-      try {
-        loadConfig(homeAbsPath)
-      } catch (e) {
-        noHomeMsg = (e as Error).message
-      }
-      // Абсолютный data_dir без ${HOME} — loadConfig идёт по нему как раньше; отказа нет.
-      // Чтобы поймать именно отсутствие HOME, добавим ${HOME} в data_dir.
       const homePhPath = path.join(tmp, 'home-ph.json')
       fs.writeFileSync(homePhPath, JSON.stringify({
         port: 0,
@@ -1295,11 +1276,6 @@ export function selftest(): number {
       const reloaded = loadConfig(homePhPath)
       if (reloaded.secrets_env !== `${fakeHome}/.config/dev-harness/secrets-064.env`) {
         fails.push(`home: после восстановления HOME раскрытие не вернулось: «${reloaded.secrets_env}»`)
-      }
-      // noHomeMsg не используется (абсолютный путь — не наш случай), но компилятор ts-strict
-      // может предупредить — оставляем локальную фиксацию через явный гард.
-      if (noHomeMsg !== '' && !noHomeMsg.includes('HOME')) {
-        fails.push(`home: сообщение об отсутствующей HOME должно содержать HOME; фактически: ${noHomeMsg}`)
       }
     } finally {
       if (savedHome === undefined) delete process.env.HOME
