@@ -151,11 +151,14 @@ fi
 # коммитов не мог быть cherry-pick-нут одним вызовом; живая проба блокера
 # M2 вердикта адверсария). Контракт 037 §Инварианты М2 п.5 «cherry-pick
 # диапазона на <--branch>» — каждый sha ОТДЕЛЬНЫМ argv.
+# --reverse (контракт 068, боль 4 ручных replay за день 2026-09-30): массив
+# идёт ОТ СТАРШЕГО К МЛАДШЕМУ — cherry-pick диапазона обязан идти от старшего
+# к младшему, иначе младший применяется на базу без старшего и конфликтует.
 RANGE_SHAS=()
 while IFS= read -r sha; do
   [ -n "$sha" ] || continue
   RANGE_SHAS+=("$sha")
-done < <(git -C "$ROOT" rev-list "$BRANCH_ARG..$FETCH_HEAD_SHA" 2>/dev/null || true)
+done < <(git -C "$ROOT" rev-list --reverse "$BRANCH_ARG..$FETCH_HEAD_SHA" 2>/dev/null || true)
 if [ "${#RANGE_SHAS[@]}" -eq 0 ]; then
   printf 'ОТКАЗ: нечего принимать — диапазон %s..%s пуст\n' "$BRANCH_ARG" "$FETCH_HEAD_SHA" >&2
   exit 1
