@@ -13,6 +13,10 @@
 #
 # ПРЕДМЕТ ОБЯЗАН БЫТЬ В HEAD worktree (И-8). Грязный главный чекаут → rc 1 (И-7).
 # Сцепка+реестр ролей: committer==author у диапазона wip-ветки — проверка ДО merge.
+# Строки-санкции ветки (И-10, контракт 065): РАЗРЕШИЛ-ВЛАДЕЛЕЦ/ALLOW-ARTIFACT-DELETE
+# из тел коммитов диапазона переносятся в тело merge-коммита ДОСЛОВНО; синтез запрещён
+# (зло-ленд без строки остаётся красным для check_charter). Первый абзац «land: <ветка>»
+# сохранён.
 #
 # КОНТРАКТ ВЫХОДА (контракт 022, ветвь C, И-6): rc 0 при успехе означает «посажено
 # ЛОКАЛЬНО» — вывод содержит строку «LANDED main=<sha> branch=<…>», ветка wip/<NNN>/<автор>
@@ -164,6 +168,33 @@ mkdir -p "$ROOT/tmp"
 TMPF="$(mktemp -d "$ROOT/tmp/land_agent.XXXXXX")"
 trap 'rm -rf "$TMPF" "$out"' EXIT
 g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null | sort > "$TMPF/tags_before" || : > "$TMPF/tags_before"
+# ── И-10 (контракт 065): перенос строк-санкций ветки в тело merge-коммита ─────
+# check_charter (019 И-7) судит merge по дельте к ПЕРВОМУ родителю: ленд ветки с
+# санкционированной frozen-правкой (строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле КОММИТА ВЕТКИ)
+# создавал merge с уставной дельтой и без строки — и красил CI (боли 037/043/045,
+# 060: merge f2b911f, санкция в веточном 7b0bc92). Переносятся строки тех же
+# грамматик, что читают razreshil() в check_charter и разбор ALLOW в check_protected:
+# маркер РАЗРЕШИЛ-ВЛАДЕЛЕЦ: либо ALLOW-ARTIFACT-DELETE: в ПЕРВОЙ КОЛОНКЕ строки тела.
+# Перенос ДОСЛОВНЫЙ (байты не меняются; --cleanup=verbatim ниже не даёт git стрипнуть
+# строки), дедупликация — только точных повторов. СИНТЕЗ ЗАПРЕЩЁН: строки берутся
+# исключительно из тел коммитов диапазона main..tip, поэтому зло-ленд ветки без
+# строки даёт merge-тело без строки и остаётся красным для check_charter.
+g rev-list "$range" > "$TMPF/range_shas"
+: > "$TMPF/sanctions_all"
+while IFS= read -r sha; do
+  [ -n "$sha" ] || continue
+  g log -1 --format=%B "$sha" >> "$TMPF/sanctions_all"
+  printf '\n' >> "$TMPF/sanctions_all"
+done < "$TMPF/range_shas"
+awk '/^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ || /^ALLOW-ARTIFACT-DELETE:/ { print }' "$TMPF/sanctions_all" \
+  | awk '!seen[$0]++' > "$TMPF/sanctions"
+# Сообщение merge: первый абзац И-6/016 сохранён, строки-санкции — следующими строками
+# без отступа (первая колонка — требование грамматики). Пустое множество строк даёт
+# сообщение байт-в-байт как до 065.
+{
+  printf 'land: %s\n' "$branch_arg"
+  cat "$TMPF/sanctions"
+} > "$TMPF/msg"
 
 # Готовим env-identity для merge. git -c ... -c ... выставляет identity для ОДНОГО вызова.
 # Это и есть merge identity ОРКЕСТРАТОРА, зашитая в скрипте, а не наследуемая (контракт Q2/Q3).
@@ -179,7 +210,7 @@ MERGE_ARGS=(
 # И-5: grep-канарейка требует, чтобы В ОДНОЙ СТРОКЕ с `git merge` стояла явная identity.
 # Подстановка через переменную канарейку обходит — grep ищет буквально `user.(name|email)=`
 # в той же строке, что и `merge`. Потому пишем identity литералом.
-if ! git -C "$ROOT" -c user.name="$orchestrator" -c user.email="${orchestrator}@dev-harness.local" -c commit.gpgsign=false merge --no-ff -m "land: $branch_arg" "$branch_arg" >/dev/null 2>&1; then
+if ! git -C "$ROOT" -c user.name="$orchestrator" -c user.email="${orchestrator}@dev-harness.local" -c commit.gpgsign=false merge --no-ff --cleanup=verbatim -F "$TMPF/msg" "$branch_arg" >/dev/null 2>&1; then
   printf 'ОТКАЗ: merge --no-ff %s отказал — конфликт или иная ошибка git\n' "$branch_arg" >&2
   exit 1
 fi
