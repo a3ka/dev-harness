@@ -41,7 +41,9 @@
 #        каталог agent/, не файл PROJDB; маркеры дев-зоны видны); честно:
 #        ровно одна ссылка и её путь PROJDB.
 #   s4 STUB_RECREATE        «пересоздаёт»         — красен на к4 (inode
-#        валидной ссылки изменился); честно: L1 не трогает ссылку.
+#        валидной ссылки изменился; pin ln -P на сам симлинк вне
+#        PSTATE/home держит старый inode — переиспользование невозможно
+#        ни на какой ФС, Р1 contracts-058-v1); честно: L1 не трогает ссылку.
 #   s5 STUB_NO_FIX          «не чинит цель»       — красен на к5 (readlink
 #        остался старым при живом DEVDB); честно: ln -sfn на текущий DEVDB.
 #   s6 STUB_CLOBBER         «затирает регулярный» — красен на к7 (непустой
@@ -329,20 +331,23 @@ diff_c3() {
   [ "$n" -eq 1 ] && [ -L "$p" ] \
     && ! find "$home" -name side-agent.dat -print -quit 2>/dev/null | grep -q .
 }
-check_c4() { # s4 «пересоздаёт»: readlink валидной ссылки заменён на каноническую цель
+check_c4() { # s4 «пересоздаёт»: inode валидной ссылки изменился (Р1 contracts-058-v1)
   local b="$WORK/c4"; rm -rf "$b"; mkdir -p "$b"
-  local d o p d_alt; d="$(stub_mk_devdb "$b")"; o="$WORK/c4.out"; p="$(stub_projdb "$b")"
-  d_alt="$(dirname -- "$d")/./$(basename -- "$d")"
-  mkdir -p "$(dirname -- "$p")"; ln -s -- "$d_alt" "$p"
+  local d o p i1 i2; d="$(stub_mk_devdb "$b")"; o="$WORK/c4.out"; p="$(stub_projdb "$b")"
+  mkdir -p "$(dirname -- "$p")"; ln -s -- "$d" "$p"; i1="$(stat -c %i -- "$p")"; ln -P -- "$p" "$b/pin"
   STUB_RECREATE=1 stub_probe "$b" "$o"
-  # стаб делает rm+ln с канонической $DEVDB==d → readlink==d (≠d_alt) → rc 0 (пойман);
-  # честный L1 не трогает ссылку → readlink остаётся d_alt → rc 1 (не пойман).
-  [ "$(readlink -- "$p" 2>/dev/null)" = "$d" ]
+  # Канонический L1-вход (readlink==DEVDB, цель жива; форма пробы c4pin, 2/2):
+  # стаб с ручкой делает rm+ln → НОВЫЙ inode → пойман; pin — жёсткая ссылка
+  # на САМ симлинк вне PSTATE/home — держит старый inode, переиспользование
+  # невозможно ни на какой ФС. Честный L1 и стаб без ручки ссылку не трогают
+  # → inode тот же (диффпроба diff_c4; честная к4 тем же приёмом).
+  i2="$(stat -c %i -- "$p" 2>/dev/null || printf x)"
+  [ "$(readlink -- "$p" 2>/dev/null)" = "$d" ] && [ "$i1" != "$i2" ]
 }
 diff_c4() {
   local b="$WORK/c4d"; rm -rf "$b"; mkdir -p "$b"
   local d o p i1 i2; d="$(stub_mk_devdb "$b")"; o="$WORK/c4d.out"; p="$(stub_projdb "$b")"
-  mkdir -p "$(dirname -- "$p")"; ln -s -- "$d" "$p"; i1="$(stat -c %i -- "$p")"
+  mkdir -p "$(dirname -- "$p")"; ln -s -- "$d" "$p"; i1="$(stat -c %i -- "$p")"; ln -P -- "$p" "$b/pin"
   stub_probe "$b" "$o"
   i2="$(stat -c %i -- "$p" 2>/dev/null || printf x)"
   [ "$(readlink -- "$p")" = "$d" ] && [ "$i1" = "$i2" ] && grep -Fxq "AGENTDB: $d" "$o"
@@ -469,11 +474,13 @@ k1() { # И-1 C1 + И-4а: ссылка возникает, маркер дев-
     && printf '%s\n' "$out" | grep -Fxq "AGENTDB: $d"
 }
 k2() { # И-1 C2: DEVDB нет — ни ссылки, ни каталогов шага, баннер A2
+        # (Р2 contracts-058-v1: предикат судит dirname PROJDB — каталог ШАГА;
+        # раскладка 054 `.omp/agent/agents` живёт в другом поддереве, предикату не мешает)
   local b="$WORK/k2"; rm -rf "$b"; mkdir -p "$b"
   local out rc=0 p; p="$(projdb_of "$b")"
   out="$(probe_run "$b" 2>&1)"; rc=$?
   [ "$rc" -eq 0 ] \
-    && [ ! -e "$p" ] && [ ! -L "$p" ] \
+    && [ ! -e "$p" ] && [ ! -L "$p" ] && [ ! -e "$(dirname -- "$p")" ] \
     && printf '%s\n' "$out" | grep -Fxq 'AGENTDB: изолирована'
 }
 k3() { # И-2: ровно одна ссылка в дереве PSTATE/home, её путь PROJDB; маркеры дев-зоны не видны
@@ -488,11 +495,12 @@ k3() { # И-2: ровно одна ссылка в дереве PSTATE/home, е�
   [ "$n" -eq 1 ] && [ -L "$p" ] \
     && ! find "$home" \( -name side-agent.dat -o -name side-zone.dat \) -print -quit 2>/dev/null | grep -q .
 }
-k4() { # И-3 L1: повторный probe не пересоздает валидную ссылку
+k4() { # И-3 L1: повторный probe не пересоздает валидную ссылку (inode
+        # закреплён pin ln -P вне PSTATE/home: мутант rm+ln красен детерминированно — Р1)
   local b="$WORK/k4"; rm -rf "$b"; mkdir -p "$b"
   local d out rc=0 p i1 i2; d="$(mk_devdb "$b")"; p="$(projdb_of "$b")"
   probe_run "$b" >/dev/null 2>&1
-  i1="$(stat -c %i -- "$p" 2>/dev/null || printf x)"
+  i1="$(stat -c %i -- "$p" 2>/dev/null || printf x)"; ln -P -- "$p" "$b/pin"
   out="$(probe_run "$b" 2>&1)"; rc=$?
   i2="$(stat -c %i -- "$p" 2>/dev/null || printf x)"
   [ "$rc" -eq 0 ] && [ "$(readlink -- "$p")" = "$d" ] && [ "$i1" = "$i2" ] \
