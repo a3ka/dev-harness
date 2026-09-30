@@ -26,9 +26,16 @@
 #   С3  стаб «порт-только»: .actual_port пишется в раскрытый путь (имитация
 #       фикса), secrets_env/journal остаются литеральными — наблюдаем на входе
 #       «POST с токеном»: статус не 200, журнала в раскрытом data_dir нет.
-#   Б   боль (определяющая): ЧЕСТНЫЙ прокси + конфиг с ${HOME} в песочнице HOME —
-#       сегодня красна именованной причиной, ПОСЛЕ реализации зелёна.
-#
+#   С4  стаб «cwd-фолбэк» (мутант вердикта 064-Б1): раскрытие честное при
+#       заданном HOME, но при ОТСУТСТВУЮЩЕМ HOME плейсхолдер молча подставляет
+#       process.cwd() (process.env.HOME ?? cwd) вместо отказа — наблюдаем на
+#       входе «env -u HOME + конфиг с ${HOME}»: старт НЕ отказан, под cwd
+#       растёт дерево (движок dvigatel_nohome);
+#   Б   боль (определяющая): ЧЕСТНЫЙ прокси + конфиг с ${HOME}, ДВЕ клетки:
+#       (б1) HOME задан (песочница) — сегодня красна (пишет мимо песочницы),
+#       ПОСЛЕ реализации зелёна; (б2) HOME УДАЛЁН (env -u HOME, вход вердикта
+#       064-Б1) — инвариант 4: именованный отказ старта ДО записи в cwd;
+#       сегодня красна (старт не отказан), ПОСЛЕ реализации зелёна.
 # Инвариант трекаемости (б) — тоже прогоном: закоммиченный config/metering.json
 # несёт data_dir/secrets_env с литеральным префиксом «${HOME}» и без машинно-
 # специфичных абсолютных путей — зелёное и до, и после (конфиг не меняется).
@@ -170,6 +177,77 @@ EOF
   proxy_down "$pid"
 }
 
+# ── движок отсутствующего HOME: инвариант 4 — отказ старта ДО любой записи ──────
+# Аргументы: <файл-прокси> <метка>. Вход вердикта 064-Б1: конфиг home-профиля
+# (литеральный ${HOME}), переменная HOME УДАЛЕНА из окружения прокси (env -u
+# HOME) — мутант «process.env.HOME ?? process.cwd()» проходит все входы с
+# ЗАДАННЫМ HOME и различим только здесь. Ожидания в памяти ДО вызова (правило 8):
+# честная реализация ОТКАЗЫВАЕТ старт — ненулевой код выхода, stderr называет
+# HOME, под cwd НЕ создаётся ничего (запись до отказа нарушает инвариант 4).
+dvigatel_nohome() {
+  local proxy="$1" tag="$2"
+  local home tree cfg t1 t2 role model token up_dir up_port
+  local pid rc i alive dirt tail3
+  Z_RC=0; Z_REASON=""
+  home="$WORK/home-$tag"; tree="$WORK/tree-$tag"
+  mkdir -p "$home/.config/dev-harness" "$tree"
+  role="$(rnd_label 8)"; model="$(rnd_label 8)"; token="$(rnd_label 24)"
+  # СЛУЧАЙНЫЕ хвосты — тот же профиль полей, что у dvigatel home-режима.
+  t1="$(rnd n1)"; t2="$(rnd n2)"
+  printf 'METERING_TOKEN_%s=%s\n' "$role" "$token" > "$home/.config/dev-harness/secrets-064-$t1.env"
+  up_dir="$WORK/up-$tag"; up_port="$(stub_upstream "$up_dir")"
+  cfg="$WORK/cfg-$tag.json"
+  cat > "$cfg" <<EOF
+{
+  "port": 0,
+  "healthz_window_sec": 5,
+  "secrets_env": "\${HOME}/.config/dev-harness/secrets-064-$t1.env",
+  "data_dir": "\${HOME}/.local/share/dev-harness/metering-064-$t2",
+  "upstream": { "prov-${tag}": "http://127.0.0.1:${up_port}" },
+  "prices": { "prov-${tag}": { "${model}": { "per_m_tokens": { "in": 1200000, "out": 3400000 } } } },
+  "ceilings": { "prov-${tag}": { "usd_per_month": 1000000000 } },
+  "now_file": null
+}
+EOF
+  # грамматика предъявления: конфиг несёт ЛИТЕРАЛЬНЫЙ ${HOME}
+  grep -Fq '"${HOME}/' "$cfg" || die "сборка конфига сломана: литерал \${HOME} раскрылся до записи ($cfg)"
+  # запуск с УДАЛЁННОЙ переменной HOME — различающий вход вердикта 064-Б1
+  ( cd "$tree" && exec env -u HOME node $PROXY_NODE_FLAGS "$proxy" --config "$cfg" ) \
+    > "$WORK/log-$tag.out" 2> "$WORK/log-$tag.err" &
+  pid=$!
+  alive=1
+  for i in $(seq 1 200); do   # бюджет 10 с — потолок от зависания, не окно (А-18)
+    dirt="$(find "$tree" -mindepth 1 -print -quit 2>/dev/null)"
+    if [ -n "$dirt" ]; then
+      proxy_down "$pid"; Z_RC=1
+      Z_REASON="старт не отказан: под cwd вырос путь до отказа: $dirt"
+      return 0
+    fi
+    if ! kill -0 "$pid" 2>/dev/null; then alive=0; break; fi
+    sleep 0.05
+  done
+  if [ "$alive" -eq 1 ]; then
+    proxy_down "$pid"; Z_RC=1
+    Z_REASON="старт не отказан: прокси жив без HOME дольше 10 с"
+    return 0
+  fi
+  wait "$pid"; rc=$?
+  tail3="$(tail -n 5 "$WORK/log-$tag.err" 2>/dev/null | tr '\n' ' ')"
+  if [ "$rc" -eq 0 ]; then
+    Z_RC=1; Z_REASON="старт не отказан: выход кодом 0 без HOME (хвост err: ${tail3:-<пусто>})"
+    return 0
+  fi
+  if ! soderzhit "$tail3" "HOME"; then
+    Z_RC=1; Z_REASON="отказ без имени: stderr не называет HOME (код $rc, хвост err: ${tail3:-<пусто>})"
+    return 0
+  fi
+  dirt="$(find "$tree" -mindepth 1 -print -quit 2>/dev/null)"
+  if [ -n "$dirt" ]; then
+    Z_RC=1; Z_REASON="запись до отказа: под cwd вырос $dirt"
+    return 0
+  fi
+}
+
 # ── ЗК: зелёный контроль зонда на абсолютных путях — зелёное И СЕГОДНЯ ─────────
 dvigatel "$PROXY" zk abs
 if [ "$Z_RC" != 0 ]; then
@@ -278,11 +356,54 @@ if [ "$Z_RC" != 1 ] || ! { soderzhit "$Z_REASON" "не 200" || soderzhit "$Z_REA
 fi
 printf '  ok   С3: стаб «порт-только» пойман — секреты/журнал не раскрыты\n' >&2
 
-# ── Б: боль — честный прокси, конфиг с ${HOME} ─────────────────────────────────
+# ── С4: стаб «cwd-фолбэк» — отсутствующий HOME молча подставляет cwd ───────────
+# Мутант вердикта 064-Б1: process.env.HOME ?? process.cwd() проходит ВСЕ входы с
+# заданным HOME (включая клетку б1); различающий вход один — env -u HOME (Н-39:
+# стаб предъявляется ровно на входе своего дефекта).
+cat > "$WORK/stub-c4.ts" <<'STUB'
+// Стаб С4 (064): раскрытие честное при заданном HOME, но при ОТСУТСТВУЮЩЕМ HOME
+// плейсхолдер молча подставляет process.cwd() вместо именованного отказа старта.
+import * as http from "node:http";
+import * as fs from "node:fs";
+import * as path from "node:path";
+const i = process.argv.indexOf("--config");
+const cfg = JSON.parse(fs.readFileSync(process.argv[i + 1], "utf8"));
+const expand = (s: string) => s.replace("${HOME}", process.env.HOME ?? process.cwd());
+const dd = expand(cfg.data_dir);
+fs.mkdirSync(dd, { recursive: true });
+const srv = http.createServer((req, res) => {
+  if (req.url === "/healthz") { res.statusCode = 200; res.end("ok"); return; }
+  res.statusCode = 404; res.end();
+});
+srv.listen(0, "127.0.0.1", () => {
+  const a = srv.address();
+  const p = typeof a === "object" && a ? a.port : cfg.port;
+  fs.writeFileSync(path.join(dd, ".actual_port"), String(p));
+  process.stderr.write("stub-c4 on " + p + "\n");
+});
+STUB
+stub_proxy "$WORK/stub-c4.ts"
+dvigatel_nohome "$PROXY" s4
+if [ "$Z_RC" != 1 ] || ! soderzhit "$Z_REASON" "старт не отказан"; then
+  die "С4: стаб «cwd-фолбэк» не пойман (или пойман не той причиной): rc=$Z_RC причина: $Z_REASON"
+fi
+printf '  ok   С4: стаб «cwd-фолбэк» пойман — при env -u HOME старт не отказан\n' >&2
+
+# ── Б: боль (определяющая) — честный прокси, конфиг с ${HOME}, ДВЕ клетки ──────
 cp "$REPO/scripts/proxy/metering_proxy.ts" "$PROXY"   # восстановить честную копию после стабов
+pain=""
 dvigatel "$PROXY" bol home
 if [ "$Z_RC" != 0 ]; then
-  die "064 боль жива: прокси не раскрывает \${HOME} в data_dir/secrets_env — $Z_REASON"
+  pain="прокси не раскрывает \${HOME} в data_dir/secrets_env — $Z_REASON"
+  printf '  red  Б1: боль жива (HOME задан): %s\n' "$Z_REASON" >&2
 fi
-printf 'ok: 064 — ${HOME} раскрывается рантаймом (ЗК зелёный, С1-С3 пойманы, боль зелёная)\n' >&2
+dvigatel_nohome "$PROXY" bol2
+if [ "$Z_RC" != 0 ]; then
+  pain="${pain:+$pain; }отсутствующий HOME не даёт именованного отказа старта — $Z_REASON"
+  printf '  red  Б2: боль жива (env -u HOME): %s\n' "$Z_REASON" >&2
+fi
+if [ -n "$pain" ]; then
+  die "064 боль жива: $pain"
+fi
+printf 'ok: 064 — ${HOME} раскрывается рантаймом; отсутствующий HOME отказывает старт (ЗК зелёный, С1-С4 пойманы, обе клетки боли зелёные)\n' >&2
 exit 0
