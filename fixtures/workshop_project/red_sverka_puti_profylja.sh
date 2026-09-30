@@ -5,11 +5,15 @@
 # Переносная форма семьи (прецедент 054/055/058). Структура:
 #   1. СТАБ-ПАК (9 ручек обмана) — зелёный ДО и ПОСЛЕ реализации: каждый
 #      обманный стаб умирает на СВОЕЙ клетке (привязка по коду, Н-39).
-#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к12) — красная ДО реализации (предмет отсутствует:
+#   2. ЧЕСТНАЯ ЧАСТЬ (к1..к17) — красная ДО реализации (предмет отсутствует:
 #      резолвер HEAD не сверяет объявление с деревом), зелёная ПОСЛЕ.
 # Ожидание каждой клетки — ПАРА (rc, класс stdout): отказ = rc 1 И stdout
 # ПУСТ (И-4: ранняя печать merged до отказа неразличима без проверки
 # пустоты); успех = rc 0 И stdout НЕпуст (merged напечатан).
+# Усиление пост-заморозки (вердикт адверсария 059-к1, прецедент 005): к13..к16 —
+# честные входы грамматики И-2 (внутренний .., unicode, кавычка, внутренний
+# symlink), к17 — live-зеркало к9 (И-5: сверка работает и БЕЗ --probe);
+# отказные клетки несут ровно одну P-строку stderr (И-3).
 #
 # Прогон: bash red_sverka_puti_profylja.sh [корень worktree]
 #   rc 0 — стаб-пак пойман весь, диффпроба чиста И честные клетки зелёные.
@@ -51,6 +55,10 @@ repo_make() { # $1=корень репо $2=repoId $3=ci-фрагмент $4=git
   printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
 }
 CI_YML=',"ci":{"workflow":".github/workflows/ci.yml"}'
+DOTDOT_YML=',"ci":{"workflow":"ci/../ci.yml"}'
+UNI_YML=',"ci":{"workflow":"ci/ü.yml"}'
+QUOTE_YML=',"ci":{"workflow":"ci/'"'"'quoted'"'"'.yml"}'
+LINK_YML=',"ci":{"workflow":"ci/link.yml"}'
 wf_make() { mkdir -p "$(dirname -- "$1")"; printf 'name: toy ci\n' > "$1"; }
 
 # ── прогонщики ────────────────────────────────────────────────────────────────
@@ -145,6 +153,10 @@ scn_k8() { local L="$WORK/s8-layer" R="$WORK/s8-repo"; layer_min "$L"; repo_make
 scn_k10() { local L="$WORK/s10-layer" R="$WORK/s10-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci/obsolete.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/repo.yml"}' 0; wf_make "$R/ci/repo.yml"; printf '%s\n%s\n' "$R" "$L"; }
 scn_k11() { local L="$WORK/s11-layer" R="$WORK/s11-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci/exists.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/missing.yml"}' 0; wf_make "$R/ci/exists.yml"; printf '%s\n%s\n' "$R" "$L"; }
 scn_k12() { local L="$WORK/s12-layer" R="$WORK/s12-repo"; layer_make "$L" p1 ',"ci":{"workflow":"ci/pipe"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/pipe"}' 0; mkdir -p "$R/ci"; rm -f -- "$R/ci/pipe"; mkfifo -- "$R/ci/pipe"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k13() { local L="$WORK/s13-layer" R="$WORK/s13-repo"; layer_make "$L" p1 "$DOTDOT_YML"; repo_make "$R" r1 "$DOTDOT_YML" 0; mkdir -p "$R/ci"; wf_make "$R/ci.yml"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k14() { local L="$WORK/s14-layer" R="$WORK/s14-repo"; layer_make "$L" p1 "$UNI_YML"; repo_make "$R" r1 "$UNI_YML" 0; wf_make "$R/ci/ü.yml"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k15() { local L="$WORK/s15-layer" R="$WORK/s15-repo"; layer_make "$L" p1 "$QUOTE_YML"; repo_make "$R" r1 "$QUOTE_YML" 0; wf_make "$R/ci/'quoted'.yml"; printf '%s\n%s\n' "$R" "$L"; }
+scn_k16() { local L="$WORK/s16-layer" R="$WORK/s16-repo"; layer_make "$L" p1 "$LINK_YML"; repo_make "$R" r1 "$LINK_YML" 0; wf_make "$R/ci/real.yml"; ln -s -- real.yml "$R/ci/link.yml"; printf '%s\n%s\n' "$R" "$L"; }
 
 stub_run() { # $1=сценарий $2=stdout-файл → rc стаба (ручки из окружения)
   local io R L e rc
@@ -157,9 +169,12 @@ expect_pair() { # $1=rc $2=stdout-файл $3=ожидание (1=отказ, 0=
   if [ "$3" -eq 1 ]; then [ "$1" -eq 1 ] && [ ! -s "$2" ]
   else [ "$1" -eq 0 ] && [ -s "$2" ]; fi
 }
+one_p_line() { # $1=stderr-файл → rc 0 ⟺ ровно ОДНА строка И она класса «profile ОТКАЗ: » (И-3)
+  [ "$(grep -c '' "$1")" -eq 1 ] && grep -q '^profile ОТКАЗ: ' "$1"
+}
 
 # Диффпроба: стаб БЕЗ ручек обязан вести себя как честная реализация на всех
-# одиннадцати сценариях (rc И класс stdout; иначе стаб-пак ничего не доказывает).
+# пятнадцати сценариях (rc И класс stdout; иначе стаб-пак ничего не доказывает).
 diff_fail=0
 scn_check() { # $1=сценарий $2=ожидание (1=отказ, 0=успех)
   local o rc; o="$WORK/diff-$1.out"
@@ -177,6 +192,10 @@ scn_check scn_k8 0
 scn_check scn_k10 0
 scn_check scn_k11 1
 scn_check scn_k12 1
+scn_check scn_k13 0
+scn_check scn_k14 0
+scn_check scn_k15 0
+scn_check scn_k16 0
 
 # Клетки стаб-пака: обман ручкой ОБЯЗАН быть различим на её сценарии —
 # стаб с ручкой ведёт себя НЕ как ожидание клетки → обман пойман (стаб
@@ -207,7 +226,7 @@ knob_cell s9 STUB_NOT_DIR  scn_k12 1
 # ══════════════════════════════════════════════════════════════════════════════
 # ЧЕСТНЫЕ КЛЕТКИ: живой резолвер/workshop HEAD. Каждая клетка красна СВОИМ
 # предъявлением (Н-39: объединённая клетка не зачитывается по первой точке).
-# Отказные клетки несут и пустоту stdout (И-4).
+# Отказные клетки несут и пустоту stdout (И-4) И ровно одну P-строку stderr (И-3).
 # ══════════════════════════════════════════════════════════════════════════════
 honest_fail=0; honest_total=0
 hcell() { # $1=имя $2=функция-проверка (rc 0 = зелено)
@@ -221,13 +240,13 @@ hk1() { # отсутствует, происхождение repo; отказ а
   layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
   [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" \
-    && grep -Fq '.github/workflows/ci.yml' "$E"
+    && grep -Fq '.github/workflows/ci.yml' "$E" && one_p_line "$E"
 }
 hk2() { # отсутствует, происхождение project (defaults.ci); stdout пуст
   local L="$WORK/hk2-layer" R="$WORK/hk2-repo" E="$WORK/hk2.err" O="$WORK/hk2.out" rc
   layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "" 0
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" && one_p_line "$E"
 }
 hk3() { # объявлен и есть → rc 0, merged несёт значение дословно, stdout непуст
   local L="$WORK/hk3-layer" R="$WORK/hk3-repo" E="$WORK/hk3.err" O="$WORK/hk3.out" rc
@@ -240,14 +259,14 @@ hk4() { # абсолютный путь (файл существует вне д
   local L="$WORK/hk4-layer" R="$WORK/hk4-repo" E="$WORK/hk4.err" O="$WORK/hk4.out" rc
   layer_make "$L" p1 ',"ci":{"workflow":"/etc/hostname"}'; repo_make "$R" r1 ',"ci":{"workflow":"/etc/hostname"}' 0
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'обязан быть относительным' "$E" && grep -Fq '/etc/hostname' "$E"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'обязан быть относительным' "$E" && grep -Fq '/etc/hostname' "$E" && one_p_line "$E"
 }
 hk5() { # ../../-побег: файл существует ВНЕ репо; stdout пуст
   local L="$WORK/hk5-layer" R="$WORK/hk5/repo" E="$WORK/hk5.err" O="$WORK/hk5.out" rc
   mkdir -p "$WORK/hk5"; printf 'x: 1\n' > "$WORK/escape.yml"
   layer_make "$L" p1 ',"ci":{"workflow":"../../escape.yml"}'; repo_make "$R" r1 ',"ci":{"workflow":"../../escape.yml"}' 0
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'выходит за корень репо' "$E"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'выходит за корень репо' "$E" && one_p_line "$E"
 }
 hk6() { # симлинк внутри репа на цель вне репо; stdout пуст
   local L="$WORK/hk6-layer" R="$WORK/hk6/repo" E="$WORK/hk6.err" O="$WORK/hk6.out" T="$WORK/hk6/outside.yml" rc
@@ -255,14 +274,14 @@ hk6() { # симлинк внутри репа на цель вне репо; st
   layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 0
   mkdir -p "$R/.github/workflows"; rm -f -- "$R/.github/workflows/ci.yml"; ln -s -- "$T" "$R/.github/workflows/ci.yml"
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'выходит за корень репо' "$E"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'выходит за корень репо' "$E" && one_p_line "$E"
 }
 hk7() { # на месте объявления — каталог; stdout пуст
   local L="$WORK/hk7-layer" R="$WORK/hk7-repo" E="$WORK/hk7.err" O="$WORK/hk7.out" rc
   layer_make "$L" p1 ',"ci":{"workflow":"ci"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci"}' 0
   mkdir -p "$R/ci"
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'не файл' "$E"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'не файл' "$E" && one_p_line "$E"
 }
 hk8() { # ci не объявлен нигде → rc 0, merged напечатан (не объявлено — не судимо)
   local L="$WORK/hk8-layer" R="$WORK/hk8-repo" E="$WORK/hk8.err" O="$WORK/hk8.out" rc
@@ -296,7 +315,7 @@ hk11() { # зеркало перекрытия: эффективный repo-пу
   wf_make "$R/ci/exists.yml"
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
   [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'объявленный путь отсутствует в дереве репо: ci.workflow=' "$E" \
-    && grep -Fq 'ci/missing.yml' "$E" && ! grep -Fq 'ci/exists.yml' "$E"
+    && grep -Fq 'ci/missing.yml' "$E" && ! grep -Fq 'ci/exists.yml' "$E" && one_p_line "$E"
 }
 hk12() { # на месте объявления — FIFO (mkfifo); stdout пуст (И-2(г): предикат -f,
          # арбитраж 059-к3 9e874be п.2 — «не каталог» здесь НЕ отказ)
@@ -304,7 +323,55 @@ hk12() { # на месте объявления — FIFO (mkfifo); stdout пус
   layer_make "$L" p1 ',"ci":{"workflow":"ci/pipe"}'; repo_make "$R" r1 ',"ci":{"workflow":"ci/pipe"}' 0
   mkdir -p "$R/ci"; mkfifo -- "$R/ci/pipe"
   resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
-  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'не файл' "$E"
+  [ "$rc" -eq 1 ] && [ ! -s "$O" ] && grep -Fq 'не файл' "$E" && one_p_line "$E"
+}
+hk13() { # к13 (059-к1 A): внутренний компонент «..» — ci/../ci.yml, файл и
+         # ПРОМЕЖУТОЧНЫЙ каталог ci существуют (readlink -f разрешает только
+         # существующие промежуточные компоненты — И-2(б)), канонизация внутри
+         # репо → rc 0 И merged ДОСЛОВНО «ci/../ci.yml» (грамматика И-2 не
+         # сужается до плоских путей; мутант-отказчик ловится здесь)
+  local L="$WORK/hk13-layer" R="$WORK/hk13-repo" E="$WORK/hk13.err" O="$WORK/hk13.out" rc
+  layer_make "$L" p1 "$DOTDOT_YML"; repo_make "$R" r1 "$DOTDOT_YML" 0
+  mkdir -p "$R/ci"; wf_make "$R/ci.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$O" ] && [ "$(jq -r '.ci.value.workflow' "$O")" = "ci/../ci.yml" ]
+}
+hk14() { # к14 (059-к1 B): unicode-компонент ci/ü.yml — реальный файл → rc 0 И
+         # точное значение merged (представление пути не сужается до ASCII)
+  local L="$WORK/hk14-layer" R="$WORK/hk14-repo" E="$WORK/hk14.err" O="$WORK/hk14.out" rc
+  layer_make "$L" p1 "$UNI_YML"; repo_make "$R" r1 "$UNI_YML" 0
+  wf_make "$R/ci/ü.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$O" ] && [ "$(jq -r '.ci.value.workflow' "$O")" = "ci/ü.yml" ]
+}
+hk15() { # к15 (059-к1 B): символ одинарной кавычки в имени ci/'quoted'.yml —
+         # реальный файл → rc 0 И точное значение merged (алфавит байта не сужается)
+  local L="$WORK/hk15-layer" R="$WORK/hk15-repo" E="$WORK/hk15.err" O="$WORK/hk15.out" rc
+  layer_make "$L" p1 "$QUOTE_YML"; repo_make "$R" r1 "$QUOTE_YML" 0
+  wf_make "$R/ci/'quoted'.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$O" ] && [ "$(jq -r '.ci.value.workflow' "$O")" = "ci/'quoted'.yml" ]
+}
+hk16() { # к16 (059-к1 C): симлинк ВНУТРИ репо на регулярный файл внутри
+         # (ci/link.yml -> real.yml): канонизация не покидает репо → rc 0 И merged
+         # «ci/link.yml» дословно (запрещён только симлинк НАРУЖУ — к6)
+  local L="$WORK/hk16-layer" R="$WORK/hk16-repo" E="$WORK/hk16.err" O="$WORK/hk16.out" rc
+  layer_make "$L" p1 "$LINK_YML"; repo_make "$R" r1 "$LINK_YML" 0
+  wf_make "$R/ci/real.yml"; ln -s -- real.yml "$R/ci/link.yml"
+  resolve "$PROFILE_RESOLVER" "$R" "$L" "$E" "$O"; rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$O" ] && [ "$(jq -r '.ci.value.workflow' "$O")" = "ci/link.yml" ]
+}
+hk17() { # к17 (059-к1 D): live-зеркало к9 БЕЗ --probe — та же семантика сверки
+         # (И-5): некорректный ci.workflow → rc 1, отказ резолвера в stderr,
+         # ни одной структуры. Live сверяет пин с omp --version (workshop:614) —
+         # на PATH фейковый omp/v10 под пин toy-репо, как в прогонах адверсария.
+  local L="$WORK/hk17-layer" R="$WORK/hk17-repo" E="$WORK/hk17.err" B="$WORK/hk17-base" FB="$WORK/hk17-bin" rc
+  layer_make "$L" p1 "$CI_YML"; repo_make "$R" r1 "$CI_YML" 1
+  mkdir -p "$B" "$FB"; printf '#!/usr/bin/env bash\necho omp/v10\n' > "$FB/omp"; chmod +x -- "$FB/omp"
+  rc=0; env PATH="$FB:$PATH" XDG_STATE_HOME="$B" HARNESS_PROJECT_LAYER_ROOT="$L" bash "$WORKSHOP" "$R" >/dev/null 2>"$E" || rc=$?
+  [ "$rc" -eq 1 ] && grep -Fq 'ci.workflow' "$E" \
+    && grep -Fq 'объявленный путь отсутствует в дереве репо' "$E" \
+    && [ ! -e "$B/dev-harness-projects/p1" ]
 }
 
 hcell к1 hk1
@@ -319,6 +386,11 @@ hcell к9 hk9
 hcell к10 hk10
 hcell к11 hk11
 hcell к12 hk12
+hcell к13 hk13
+hcell к14 hk14
+hcell к15 hk15
+hcell к16 hk16
+hcell к17 hk17
 
 printf 'итог 059-батареи: стаб-пак %s/%s пойман, диффпроба ошибок %s, честные %s/%s зелёные\n' \
   "$stub_caught_n" "$stub_total" "$diff_fail" "$((honest_total-honest_fail))" "$honest_total" >&2
