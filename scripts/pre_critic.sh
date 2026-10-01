@@ -87,9 +87,9 @@ while IFS= read -r line || [ -n "$line" ]; do
   n=$((n + 1))
   # Порог (правило 8): цитата в кавычках — отметка, не предложение.
   scan="$(printf '%s\n' "$line" | sed -e 's/«[^»]*»//g' -e 's/„[^“]*“//g' -e 's/"[^"]*"//g' -e 's/`[^`]*`//g')"
-  if printf '%s\n' "$scan" | grep -Eq "$n39_pattern_stub" \
-     && printf '%s\n' "$scan" | grep -Eq "$n39_pattern_verb" \
-     && printf '%s\n' "$scan" | grep -Eq "$n39_pattern_link"; then
+  if printf '%s\n' "$scan" | LC_ALL=C grep -Eq "$n39_pattern_stub" \
+     && printf '%s\n' "$scan" | LC_ALL=C grep -Eq "$n39_pattern_verb" \
+     && printf '%s\n' "$scan" | LC_ALL=C grep -Eq "$n39_pattern_link"; then
     refuse "Н-39: привязка стаба в прозе, строка $n"
   fi
 done < "$ROOT/$CONTRACT"
