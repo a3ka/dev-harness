@@ -3,8 +3,8 @@
 #
 # ДО реализации честная часть красна ЕДИНСТВЕННОЙ причиной «предмет
 # отсутствует» (fail-fast п0: файла scripts/gitw_preflight_071.sh нет ИЛИ
-# крюк в gitw молчит), а стаб-пак (исполняется ДО честных клеток) зелён УЖЕ
-# ДО реализации: десять обманных стабов умирают каждый на СВОЕЙ клетке
+# стаб-пак (исполняется ДО честных клеток) зелён УЖЕ
+# ДО реализации: тринадцать обманных стабов умирают каждый на СВОЕЙ клетке
 # именованной причиной — различимость батареи не зависит от честного кода.
 #
 # ПРИВЯЗКА К КОДУ (Н-39: стаб умирает там, где его дефект НАБЛЮДАМ):
@@ -24,7 +24,14 @@
 #   * s9 «MAIN-ТОЛЬКО-ЛИТЕРАЛ» — покрытие main узнаёт только по       → умирает на п6а
 #                           токену «main» (полная форма                (refs/heads/main + мусорный worktree)
 #                           refs/heads/main не покрывается)
-#   * s10 «ВСЕГДА-ЗЕЛЁНЫЙ» — exit 0 без суждения (плацебо)            → умирает на п2а (ceilings-краснота)
+#   * s11 «НЕСУДИМО-ПРОЗРАЧНО» — отказ «несудимая конфигурация»            → умирает на
+#                           не строится: нет refspec/HEAD без dst  п6г (push без refspec,
+#                           при чужой ветке — прозрачный обмен)    matching + красный main)
+#   * s12 «ЯДРО-ПО-МАЙН»   — чеки и диапазон всегда по               → умирает на
+#                           refs/heads/main, src refspec           п9а (красный candidate
+#                           игнорируется                           при зелёном main: cand:main)
+#   * s13 «ЛЮБОЙ-SUCCESS»  — conclusion=success без фильтра          → умирает на
+#                           event=pull_request                     п4е (зелёный push-прогон)
 #
 # Честные клетки (каждая ≡ ровно один именованный отказ контракта 071
 # §Инварианты; фразы grep -F дословно, префикс «gitw ПРЕДПОЛЁТ-ОТКАЗ: »):
@@ -47,16 +54,28 @@
 #   п4б  прогон conclusion=failure → тот же отказ (фильтр conclusion);
 #   п4г  API-порт закрыт → «PR-CI не сверяем» (fail-closed сеть);
 #   п4д  цель не github и ручки нет → «PR-CI не сверяем: цель не github»;
+#   п4е  зелёный success чужого event (push) → «land без зелёного
+#        PR-CI» (success ≠ success именно pull_request — слово владельца п.3);
 #   п5а  мусорный detached-worktree вне корня → «посторонний worktree: <путь>»;
 #   п5б  ветка не-wip под санкционированным корнем → тот же отказ;
 #   п5в  путь-ПОДСТРОКА «dev-harness-worktrees…» вне корня, ветка wip →
 #        отказ по ПУТИ (буквальный префикс корня, не подстрока);
 #   п6а  полная форма refs/heads/main тоже покрывается (отказ при мусоре);
 #   п6б  main:refs/heads/wip/6b не покрывается: rc 0, строк ПРЕДПОЛЁТ нет;
+#   п6г  push БЕЗ refspec при текущей ветке ≠ main (мир push.default=
+#        matching с красным main впереди) → «несудимая конфигурация
+#        refspec» fail-closed ДО отправки — прозрачный обмен двинул бы
+#        получателя (критик к1 Б4);
+#   п6д  HEAD без явного dst при текущей ветке ≠ main → тот же отказ;
 #   п6в  refspec-глоб → «refspec не разбирается» (fail-closed);
 #   п7   2 ключа из 4 в package.json → «чек-ключи не полностью»;
 #   п8   cwd ≠ отправляемое дерево: жир на main, чекаут на чистой stara —
-#        чеки обязаны видеть ОТПРАВЛЯЕМОЕ дерево (клетка стаба s2).
+#        чеки обязаны видеть ОТПРАВЛЯЕМОЕ дерево (клетка стаба s2);
+#   п9а-п9в — src ≠ main: чеки по ОТПРАВЛЯЕМОМУ src — красный candidate
+#        при зелёном синхронном main (cand:main → отказ ceilings, цель не
+#        двинута), HEAD:main при ветке candidate (src = HEAD), зелёная
+#        пара: candidate:main проходит и ставит цель на tip candidate
+#        (критик к1 Б5);
 #
 # Метод: toy-мир = bare-цель B1 (ручка GIT_EXCHANGE_GUARD_CANONICAL) +
 # репо T с ПОЛНЫМ harness-tree (git archive HEAD — чеки зависимы: без
@@ -126,6 +145,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 GP = sys.argv[1]
 FP = sys.argv[2]
+PP = sys.argv[3]
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
@@ -135,10 +155,13 @@ class H(BaseHTTPRequestHandler):
         try:
             GREEN = set(x for x in open(GP).read().split() if x)
             FAIL = set(x for x in open(FP).read().split() if x)
+            PUSH = set(x for x in open(PP).read().split() if x)
         except OSError:
-            GREEN, FAIL = set(), set()
+            GREEN, FAIL, PUSH = set(), set(), set()
         if sha in GREEN:
             body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+        elif sha in PUSH:
+            body = {"total_count": 1, "workflow_runs": [{"id": 3, "event": "push", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
         elif sha in FAIL:
             body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure"}]}
         else:
@@ -151,10 +174,11 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(raw)
     def log_message(self, *a): pass
 srv = HTTPServer(('127.0.0.1', 0), H)
-open(sys.argv[3], 'w').write(str(srv.server_port))
+open(sys.argv[4], 'w').write(str(srv.server_port))
 srv.serve_forever()
 PYEOF
-python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/port" &
+: > "$APIDIR/push.list"
+python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/port" &
 API_PID=$!
 APORT=""
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -219,6 +243,7 @@ mk_second_land() {
   git -C "$T" add demx071.txt && ident "$T" -m 'work by demx'
   local p2; p2="$(git -C "$T" rev-parse refs/heads/wip/071/demx)"
   [ "$mode" = "failure" ] && printf '%s\n' "$p2" >> "$APIDIR/fail.list"
+  [ "$mode" = "pushok" ] && printf '%s\n' "$p2" >> "$APIDIR/push.list"
   git -C "$T" checkout -q main
   git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/demx' wip/071/demx \
     || die_cell "demx-$mode" "второй land-merge не построился"
@@ -280,15 +305,39 @@ WTROOT="${TMPDIR:-/tmp}/dev-harness-worktrees"
 API="${GITW_PREFLIGHT_071_API:-}"
 REASON() { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 # ── покрытие main ──────────────────────────────────────────────────────────
-main_cov=0
+curbr="$(git symbolic-ref -q HEAD 2>/dev/null || true)"
+main_cov=0; unjudge=0; saw_ref=0; send_src=""
 for a in "$@"; do
   case "$a" in -*) continue ;; esac
-  dst="${a#*:}"; [ "$dst" = "$a" ] && dst="$a"
-  dst="${dst#refs/heads/}"
-  if [ "$DEF" = "s9" ]; then [ "$a" = "main" ] && main_cov=1
-  elif [ "$dst" = "main" ]; then main_cov=1; fi
+  saw_ref=1
+  case "$a" in *\**) REASON "refspec не разбирается: $a" ;; esac
+  if [ "$DEF" = "s9" ]; then
+    if [ "$a" = "main" ]; then main_cov=1; send_src="$a"; fi
+    continue
+  fi
+  src="${a%%:*}"; dst="${a#*:}"
+  if [ "$dst" != "$a" ]; then
+    dst="${dst#refs/heads/}"
+    if [ "$dst" = "main" ]; then main_cov=1; send_src="$src"; fi
+  else
+    case "$src" in
+      main|refs/heads/main) main_cov=1; send_src="$src" ;;
+      HEAD)
+        if [ "$curbr" = "refs/heads/main" ]; then main_cov=1; send_src=HEAD; else unjudge=1; fi ;;
+      *) : ;;
+    esac
+  fi
 done
+if [ "$saw_ref" -eq 0 ]; then
+  if [ "$curbr" = "refs/heads/main" ]; then main_cov=1; send_src=HEAD; else unjudge=1; fi
+fi
+if [ "$unjudge" -eq 1 ] && [ "$DEF" != "s11" ]; then
+  REASON "несудимая конфигурация refspec: явного dst нет при текущей ветке ${curbr:-detached}"
+fi
 [ "$main_cov" -eq 1 ] || exit 0
+[ -n "$send_src" ] || REASON "refspec не разбирается: удаление main"
+[ "$DEF" = "s12" ] && send_src=refs/heads/main
+send_tip="$(git rev-parse -q --verify "$send_src" 2>/dev/null)" || REASON "отправляемый src не разрешается: $send_src"
 # ── (4) worktree ───────────────────────────────────────────────────────────
 first=1
 path=""; branch=""
@@ -347,13 +396,15 @@ while IFS=' ' read -r h s; do
   if [ "$DEF" = "s6" ]; then
     tc="$(printf '%s' "$body" | jq -r '.total_count // 0' 2>/dev/null)"; [ "$tc" -gt 0 ] || continue
   fi
-  if [ "$DEF" = "s5" ]; then
+  if [ "$DEF" = "s13" ]; then
+    n="$(printf '%s' "$body" | jq -r '[.workflow_runs[] | select(.conclusion=="success")] | length' 2>/dev/null)"
+  elif [ "$DEF" = "s5" ]; then
     n="$(printf '%s' "$body" | jq -r '.total_count // 0' 2>/dev/null)"
   else
     n="$(printf '%s' "$body" | jq -r '[.workflow_runs[] | select(.event=="pull_request" and .conclusion=="success")] | length' 2>/dev/null)"
   fi
   [ "${n:-0}" -ge 1 ] || REASON "land без зелёного PR-CI: $br ($p)"
-done < <(git log --first-parent --merges --format='%H %s' "$rmain..refs/heads/main" 2>/dev/null)
+done < <(git log --first-parent --merges --format='%H %s' "$rmain..$send_tip" 2>/dev/null)
 # ── (1) четыре чека на отправляемом дереве ─────────────────────────────────
 command -v npm >/dev/null 2>&1 || REASON "чек-раннер недоступен: npm"
 nk=0
@@ -366,7 +417,7 @@ tw="$WTROOT/$(printf '%08x' $(( (RANDOM << 16 ^ RANDOM) & 0xffffffff )))"
 if [ "$DEF" = "s2" ]; then
   cwd="$PWD"
 else
-  git worktree add -q --detach "$tw" refs/heads/main 2>/dev/null || REASON "дерево чеков не строится"
+  git worktree add -q --detach "$tw" "$send_src" 2>/dev/null || REASON "дерево чеков не строится"
   cwd="$tw"
 fi
 if [ "$DEF" = "s1" ]; then
@@ -384,7 +435,7 @@ COREEOF
 chmod +x "$CORE"
 
 mk_stub() { printf '#!/usr/bin/env bash\nSTUB_DEFECT=%s\nexec bash %q "$@"\n' "$1" "$CORE" > "$WORK/stubs_$1.sh"; chmod +x "$WORK/stubs_$1.sh"; }
-for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10; do mk_stub "$s"; done
+for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13; do mk_stub "$s"; done
 
 run_stub() { # run_stub <стаб> <режим-api> <аргументы push...>
   local st="$1" apimode="$2"; shift 2
@@ -434,6 +485,19 @@ stub_violation() { # stub_violation <класс>
     garbage-wt)
       mk_world sv-garbage
       git -C "$T" worktree add -q --detach "$WORK/slob071" main >/dev/null 2>&1 ;;
+    nesudimyj)
+      mk_world sv-nesud
+      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main'
+      git -C "$T" checkout -q wip/071/demo ;;
+    src-ne-main)
+      mk_world sv-srcne
+      git -C "$T" checkout -q -b wip/071/cand
+      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat cand'
+      git -C "$T" checkout -q main ;;
+    pushok)
+      mk_world sv-pushok; mk_second_land pushok ;;
     *) die_cell стаб "неизвестный класс мира: $1" ;;
   esac
 }
@@ -452,6 +516,9 @@ run_stub_pack() {
     "s8:podstroka:посторонний worktree"
     "s9:garbage-wt:посторонний worktree"
     "s10:ceilings:чек красный: check:ceilings"
+    "s11:nesudimyj:несудимая конфигурация refspec"
+    "s12:src-ne-main:чек красный: check:ceilings"
+    "s13:pushok:land без зелёного PR-CI: wip/071/demx"
   )
   local pair st kind want api_mode toks
   local caught=0 diff=0
@@ -460,6 +527,8 @@ run_stub_pack() {
     api_mode=api; toks=(main)
     [ "$st" = "s9" ] && toks=(refs/heads/main)
     [ "$st" = "s7" ] && api_mode=dead
+    [ "$st" = "s11" ] && toks=()
+    [ "$st" = "s12" ] && toks=(wip/071/cand:main)
     # мир-нарушение: обманный стаб обязан ПРОЖИТЬ его (rc 0 либо отказ не той
     # причиной) — именно это и есть «пойман»: мир настоящий, дефект различим.
     # Отказался правильно — дефект мёртв, батарея красна (стаб не обманут).
@@ -545,6 +614,7 @@ run_honest_cells() {
   PATH="$FARM" command -v npm >/dev/null 2>&1 && die_cell п2д "ферма не построена: npm в ней выжил"
   PATH="$FARM" command -v git  >/dev/null 2>&1 || die_cell п2д "ферма без git — ветвь не построена"
   mk_world p2d
+  SNAP_B1="$(git -C "$B1" rev-parse -q --verify refs/heads/main 2>/dev/null || printf НЕТ)"
   ( cd "$T" && PATH="$FARM" env GIT_EXCHANGE_GUARD_CANONICAL="$B1" GITW_PREFLIGHT_071_API="$APIBASE" \
       bash "$TOY/scripts/gitw" push origin main ) >"$WORK/last.out" 2>"$WORK/last.err"
   RC=$?
@@ -597,6 +667,12 @@ run_honest_cells() {
   expect_refuse п4д "${PF}PR-CI не сверяем: цель не github"
   bare_frozen п4д; ok_cell 'п4д: не-github цель без ручки — отказ'
 
+  # п4е: зелёный success ЧУЖОГО event (push) — не санкция (слово владельца п.3)
+  mk_world p4e; mk_second_land pushok
+  run_push api origin main
+  expect_refuse п4е "${PF}land без зелёного PR-CI: wip/071/demx"
+  bare_frozen п4е; ok_cell 'п4е: success event=push не санкционирует land'
+
   # п5а: мусорный detached worktree вне корня
   mk_world p5a
   git -C "$T" worktree add -q --detach "$WORK/slob5a" main >/dev/null 2>&1
@@ -644,6 +720,22 @@ run_honest_cells() {
   expect_refuse п6в "${PF}refspec не разбирается"
   bare_frozen п6в; ok_cell 'п6в: refspec-глоб — именованный отказ'
 
+  # п6г: push БЕЗ refspec при текущей ветке ≠ main — несудимая конфигурация
+  # (мир push.default=matching: прозрачная реализация отправила бы красный main)
+  mk_world p6g
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main'
+  git -C "$T" config push.default matching
+  git -C "$T" checkout -q wip/071/demo
+  run_push api origin
+  expect_refuse п6г "${PF}несудимая конфигурация refspec"
+  bare_frozen п6г; ok_cell 'п6г: push без refspec вне main — fail-closed отказ'
+
+  # п6д: HEAD без явного dst при текущей ветке ≠ main — тот же отказ
+  run_push api origin HEAD
+  expect_refuse п6д "${PF}несудимая конфигурация refspec"
+  bare_frozen п6д; ok_cell 'п6д: HEAD без dst вне main — fail-closed отказ'
+
   # п7: чек-ключи не полностью (2 из 4)
   mk_world p7
   ( cd "$T" && python3 - <<'PYE'
@@ -667,6 +759,37 @@ PYE
   run_push api origin main
   expect_refuse п8 "${PF}чек красный: check:ceilings"
   bare_frozen п8; ok_cell 'п8: чеки на отправляемом дереве, не на чекауте'
+
+  # п9а: src ≠ main — чеки обязаны идти по ОТПРАВЛЯЕМОМУ src (критик к1 Б5)
+  mk_world p9a
+  git -C "$T" checkout -q -b wip/071/cand
+  python3 -c "print('z'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat cand'
+  git -C "$T" checkout -q main
+  run_push api origin wip/071/cand:main
+  expect_refuse п9а "${PF}чек красный: check:ceilings"
+  bare_frozen п9а; ok_cell 'п9а: чеки по отправляемому src (cand:main), не по main'
+
+  # п9б: HEAD:main при текущей ветке candidate — src = HEAD
+  mk_world p9b
+  git -C "$T" checkout -q -b wip/071/cand
+  python3 -c "print('z'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat cand'
+  run_push api origin HEAD:main
+  expect_refuse п9б "${PF}чек красный: check:ceilings"
+  bare_frozen п9б; ok_cell 'п9б: HEAD:main — чеки на HEAD (candidate), не на main'
+
+  # п9в: зелёная пара — candidate:main с зелёным деревом проходит, цель на tip
+  mk_world p9v
+  git -C "$T" checkout -q -b wip/071/cand
+  printf 'кандидат зелёный\n' > "$T/cand071.txt"
+  git -C "$T" add cand071.txt && ident "$T" -m 'green cand'
+  git -C "$T" checkout -q main
+  run_push api origin wip/071/cand:main
+  [ "$RC" -eq 0 ] || die_cell п9в "зелёный candidate:main отказан: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$(git -C "$T" rev-parse refs/heads/wip/071/cand)" ] \
+    || die_cell п9в "цель не на tip candidate"
+  ok_cell 'п9в: зелёный candidate:main проходит, цель на tip candidate'
 }
 
 # ── порядок: само-проверка → стаб-пак → честные клетки ───────────────────────
@@ -674,5 +797,5 @@ OKN=0
 run_stub_pack
 run_honest_cells
 CELLS=$((OKN - 1))
-printf 'честные клетки: %s/%s зелёные; стаб-пак 10/10 + дифф 10/10\n' "$CELLS" "$CELLS"
+printf 'честные клетки: %s/%s зелёные; стаб-пак 13/13 + дифф 13/13\n' "$CELLS" "$CELLS"
 exit 0
