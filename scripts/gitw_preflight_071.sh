@@ -43,17 +43,27 @@ TGT="${1:?цель не передана}"
 shift
 
 # ── определение ОТПРАВЛЯЕМОГО src (по refspec/текущей ветке) ────────────────
-# Конвенция та же, что в крюке: src:main → src, без : → сам токен, HEAD →
-# rev-parse HEAD, без refspec → текущая ветка. Удаление main (`:main`) и
+# Конвенция та же, что в крюке: src:main → src, без : — сам токен, HEAD →
+# rev-parse HEAD, без refspec — текущая ветка. Удаление main (`:main`) и
 # глоб в refspec — именованные отказы fail-closed.
+#
+# Уточнение несудимости (по слову владельца 2026-10-01, симметрично крюку):
+# «несудимая конфигурация refspec» — ТОЛЬКО когда effective refspec МОГ
+# отправить main неявно (push.default=matching при ветках; upstream-ветка
+# с upstream=main). detached HEAD без явного dst при push.default, который
+# не покрывает main → effective push пуст → прозрачно. Явное покрытие
+# (прямой main/src:main/HEAD:main/refs/heads/main/--all/--mirror) →
+# main_cov=1 (предполёт обязателен).
 curbr_short="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 main_cov=0
 saw_ref=0
 send_src=""
 unsupported_reason=""
+all_or_mirror=0
 
 for a in "$@"; do
   case "$a" in
+    --all|--mirror) all_or_mirror=1; continue ;;
     -*) continue ;;
     *) saw_ref=1 ;;
   esac
@@ -90,8 +100,14 @@ for a in "$@"; do
         if [ "$curbr_short" = "main" ]; then
           main_cov=1
           send_src="HEAD"
+        elif [ -z "$curbr_short" ]; then
+          # detached HEAD + push HEAD: git фатально (нет current branch),
+          # effective push пуст → прозрачно (без unsupported_reason)
+          :
         else
-          unsupported_reason="HEAD без явного dst при текущей ветке ${curbr_short:-detached}"
+          # HEAD без явного dst при чужой ветке — refspec неоднозначен,
+          # несудимая конфигурация
+          unsupported_reason="HEAD без явного dst при текущей ветке $curbr_short"
         fi
         ;;
     esac
@@ -103,8 +119,40 @@ if [ "$saw_ref" -eq 0 ]; then
   if [ "$curbr_short" = "main" ]; then
     main_cov=1
     send_src="HEAD"
-  else
-    unsupported_reason="явного dst нет при текущей ветке ${curbr_short:-detached}"
+  elif [ -n "$curbr_short" ]; then
+    # ветка ≠ main: push.default мог бы неявно покрыть main
+    pd="$(git config --get push.default 2>/dev/null || true)"
+    case "$pd" in
+      matching)
+        unsupported_reason="явного dst нет при текущей ветке $curbr_short" ;;
+      upstream|simple|current)
+        merge_dst="$(git config --get "branch.$curbr_short.merge" 2>/dev/null || true)"
+        case "$merge_dst" in
+          refs/heads/main)
+            unsupported_reason="явного dst нет при текущей ветке $curbr_short" ;;
+        esac
+        ;;
+    esac
+  fi
+  # detached HEAD без refspec → git фатально (нет current branch),
+  # effective push пуст → прозрачно
+fi
+
+# --all|--mirror → явное покрытие main (контракт 071 §Инвариант 2);
+# подавляет unsupported_reason (--all отменяет неоднозначность dst).
+if [ "$all_or_mirror" -eq 1 ]; then
+  main_cov=1
+  unsupported_reason=""
+  if [ -z "$send_src" ]; then
+    # для --all/--mirror src = локальная main (если есть) — это отправляемое
+    # дерево для чеков (1)/(3). В группе wip/071/main/src/main — refspec не
+    # собирается, git толкает ВСЕ refs/heads/* (--all) или все refs/*
+    # (--mirror); локальная main — представительный src чека.
+    if git show-ref --verify --quiet refs/heads/main; then
+      send_src="main"
+    else
+      send_src="HEAD"
+    fi
   fi
 fi
 
@@ -201,78 +249,91 @@ unset RSHA
 # ── чек (3): каждый merge «land: wip/<NNN>/<автор>» в диапазоне ─────────────
 # Вершина main на цели ls-remote … tip отправляемого src. Второй родитель
 # каждого merge — sha, по которому спрашиваем PR-CI GitHub API.
-API_BASE="${GITW_PREFLIGHT_071_API:-}"
-remote_url="$(git remote get-url "$TGT" 2>/dev/null || true)"
-github_repo=""
-if [ -z "$API_BASE" ]; then
-  # без ручки: https://api.github.com + repo из эффективной цели
-  # (конвенция check_ci_gate.sh:56-62). Если remote не github формы — нет ручки
-  # и цель не github → отказ.
-  case "$remote_url" in
-    ssh://git@github.com/*|git@github.com:*|https://github.com/*)
-      github_repo="$(printf '%s' "$remote_url" \
-        | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
-      github_repo="$(printf '%s' "$github_repo" | sed -E 's/\.git$//')"
-      API_BASE="https://api.github.com/repos/${github_repo}"
-      ;;
-  esac
-fi
-[ -n "$API_BASE" ] \
-  || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: цель не github\n' >&2; exit 1; }
-# Базовый API: ".../repos/owner/repo" (фикстуры держат base БЕЗ /actions/runs;
-# конвенция ручки — base включает owner/repo, эндпоинт дописывает предполёт).
-# Толерантность к полному пути: если уже заканчивается на /actions/runs — pass.
-case "$API_BASE" in
-  */actions/runs) API="$API_BASE" ;;
-  *)              API="${API_BASE}/actions/runs" ;;
-esac
-
+#
+# Граница применимости API-проверки: если в $rmain..$send_tip НЕТ ни одного
+# merge-subject «land: wip/<NNN>/<автор>» → API-запрос не формируется,
+# чек (3) прозрачен (мержей нет — проверять нечего). API_BASE
+# резолвится только когда есть что проверять: для не-github целей без ручки
+# и без мержей — прозрачно (не отказываем «PR-CI не сверяем: цель не
+# github» — это был бы над-блок для легитимного push --all при локальном
+# bare-получателе).
 rmain="$(git ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
 [ -n "$rmain" ] \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: вершина main на цели не читается\n' >&2; exit 1; }
 
+# Сначала собираем список land-мержей в диапазоне
+land_merges=()
 while IFS=$'\t' read -r h s; do
   case "$s" in
-    "land: wip/"[0-9][0-9][0-9]/*) : ;;
-    *) continue ;;
+    "land: wip/"[0-9][0-9][0-9]/*) land_merges+=("$h"$'\t'"$s") ;;
   esac
-  br="${s#land: }"
-  p="$(git rev-parse --verify --quiet "$h^2" 2>/dev/null)"
-  if [ -z "$p" ]; then
-    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
-    exit 1
-  fi
-  if ! body="$(curl -fsS -m 20 \
-        -H 'Accept: application/vnd.github+json' \
-        -H 'X-GitHub-Api-Version: 2022-11-28' \
-        "${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"}" \
-        "$API?event=pull_request&head_sha=$p" 2>/dev/null)"; then
-    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2
-    exit 1
-  fi
-  n="$(printf '%s' "$body" | jq -r '[.workflow_runs[]? | select((.event=="pull_request") and (.conclusion=="success"))] | length' 2>/dev/null)"
-  n="${n:-0}"
-  if ! [[ "$n" =~ ^[0-9]+$ ]]; then n=0; fi
-  if [ "$n" -lt 1 ]; then
-    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI: %s (%s)\n' "$br" "$p" >&2
-    exit 1
-  fi
 done < <(git log --first-parent --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
+
+# Мержей нет → прозрачно (нет объекта проверки)
+if [ "${#land_merges[@]}" -gt 0 ]; then
+  API_BASE="${GITW_PREFLIGHT_071_API:-}"
+  remote_url="$(git remote get-url "$TGT" 2>/dev/null || true)"
+  github_repo=""
+  if [ -z "$API_BASE" ]; then
+    case "$remote_url" in
+      ssh://git@github.com/*|git@github.com:*|https://github.com/*)
+        github_repo="$(printf '%s' "$remote_url" \
+          | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
+        github_repo="$(printf '%s' "$github_repo" | sed -E 's/\.git$//')"
+        API_BASE="https://api.github.com/repos/${github_repo}"
+        ;;
+    esac
+  fi
+  [ -n "$API_BASE" ] \
+    || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: цель не github\n' >&2; exit 1; }
+  case "$API_BASE" in
+    */actions/runs) API="$API_BASE" ;;
+    *)              API="${API_BASE}/actions/runs" ;;
+  esac
+
+  for entry in "${land_merges[@]}"; do
+    h="${entry%%$'\t'*}"; s="${entry#*$'\t'}"
+    br="${s#land: }"
+    p="$(git rev-parse --verify --quiet "$h^2" 2>/dev/null)"
+    if [ -z "$p" ]; then
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
+      exit 1
+    fi
+    if ! body="$(curl -fsS -m 20 \
+          -H 'Accept: application/vnd.github+json' \
+          -H 'X-GitHub-Api-Version: 2022-11-28' \
+          "${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"}" \
+          "$API?event=pull_request&head_sha=$p" 2>/dev/null)"; then
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2
+      exit 1
+    fi
+    n="$(printf '%s' "$body" | jq -r '[.workflow_runs[]? | select((.event=="pull_request") and (.conclusion=="success"))] | length' 2>/dev/null)"
+    n="${n:-0}"
+    if ! [[ "$n" =~ ^[0-9]+$ ]]; then n=0; fi
+    if [ "$n" -lt 1 ]; then
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI: %s (%s)\n' "$br" "$p" >&2
+      exit 1
+    fi
+  done
+  unset land_merges
+fi
 
 # ── чек (1): четыре npm-ключа на ОТПРАВЛЯЕМОМ дереве ───────────────────────
 command -v npm >/dev/null 2>&1 \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-раннер недоступен: npm\n' >&2; exit 1; }
 
-# cwd должен содержать package.json (репозиторий вызова)
-[ -f package.json ] \
-  || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-ключи не полностью: package.json отсутствует\n' >&2; exit 1; }
-
+# 0 ключей в дереве (включая отсутствие package.json) — чеки неприменимы,
+# обмен продолжается (контракт 071 §Инвариант 3). Без этого фикс-теста toy-
+# миры без package.json (положительный контроль push --all) упирались бы в
+# fail-closed «чек-ключи не полностью» — над-блок.
 nk=0
-for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
-  if grep -qF "\"$k\"" package.json; then
-    nk=$((nk+1))
-  fi
-done
+if [ -f package.json ]; then
+  for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
+    if grep -qF "\"$k\"" package.json; then
+      nk=$((nk+1))
+    fi
+  done
+fi
 [ "$nk" -eq 0 ] && {
   printf 'gitw ПРЕДПОЛЁТ: чеки неприменимы — дерево не несёт ключей check:*\n' >&2
   exit 0
