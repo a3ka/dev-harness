@@ -94,9 +94,14 @@
 #             проходит), но pgid ЧУЖОЙ, — владелец МЁРТВ (pid перерождён): lock
 #             убирается, прогон идёт rc=0, живой посторонний процесс цел —
 #             райдер (iii);
-#   (izolcfg) .omp/config.yml несёт вложенный ключ task.isolation.mode: btrfs —
-#             изоляция спавна субагентов (решение владельца 2026-08-26, шаг А:
-#             НЕ кодом — встроенной harness-фичей);
+#   (izolcfg) .omp/config.yml несёт ПАРУ ключей контракта 067 —
+#             task.isolation.enabled: true (вложенный) + ВЕРХНЕУРОВНЕВЫЙ
+#             isolation.backend: auto (замкнутый enum: PAL omp выбирает бэкенд
+#             по ФС машины): изоляция спавна субагентов (решение владельца
+#             2026-08-26, шаг А, обновлено контрактом 067 2026-10-01; НЕ кодом —
+#             встроенной harness-фичей); легаси task.isolation.mode: <backend>
+#             и явные пины backend: btrfs|rcopy|<иное> отвергаются именованной
+#             причиной;
 #   (klon)    roles/architect.md несёт правило клона роли: ${TMPDIR}/dev-harness-
 #             <роль>/repo, вне стерегомого дерева (клон внутри ./tmp сам мутация);
 #   (izolnorm) roles/orchestrator.md несёт «isolated: true» на спавн параллельных
@@ -809,20 +814,83 @@ if want pidrec; then
   ok '(pidrec) живой pid с чужим pgid опознан мёртвым владельцем: lock убран, прогон прошёл rc=0, decoy цел'
 fi
 
-# ── (izolcfg) .omp/config.yml включает task.isolation.mode: btrfs ──────────────
-# Шаг А решения владельца 2026-08-26: изоляция спавна субагентов включается
-# ВСТРОЕННОЙ harness-фичей (task.isolation.mode), НЕ кодом раннера. Сейчас ключа
-# нет → режим none: параллельные пачки работают над живым деревом (замер шага 1).
+# ── (izolcfg) .omp/config.yml: пара ключей 067 — enabled:true + верхнеуровневая backend:auto ──
+# Контракт 067 (решение владельца 2026-08-26, шаг А, обновлено 2026-10-01): изоляция
+# спавна субагентов объявляется парой ключей omp — `task.isolation.enabled: true`
+# (вложенный выключатель) + ВЕРХНЕУРОВНЕВЫЙ `isolation.backend: auto` (замкнутый
+# enum: auto apfs btrfs zfs reflink overlayfs projfs block-clone rcopy; PAL omp
+# выбирает бэкенд по ФС машины). Легаси-пин `task.isolation.mode: <backend>` и явные
+# пины `isolation.backend: btrfs|rcopy|<иное>` запрещены — конфиг, перенесённый между
+# машинами, молча объявлял бы ложь о ФС (замер контракта 067 §Предмет: на ext4-сервере
+# PAL omp откатывается в rcopy через `~/.omp/profiles/*/wt/<id>/m`, конфиг при этом
+# объявлял btrfs). Половины нормы нет (enabled без backend; backend без enabled;
+# enabled:false даже при правильном backend — различитель Б2 вердикта 4305580).
 if want izolcfg; then
   C="$ROOT/.omp/config.yml"
-  [ -f "$C" ] || die izolcfg "нет $C — ключ изоляции спавна объявить негде (решение владельца 2026-08-26, шаг А)"
-  awk '/^task:[[:space:]]*$/             { t = 1; next }
-       t && /^[^#[:space:]][^:]*:/       { exit }
-       t && /^[[:space:]]*isolation:[[:space:]]*$/ { i = 1; next }
-       i && /^[[:space:]]*mode:[[:space:]]*btrfs[[:space:]]*$/ { found = 1; exit }
-       END { exit !found }' "$C" \
-    || die izolcfg ".omp/config.yml не несёт вложенный ключ task.isolation.mode: btrfs — нет изоляции спавна: параллельные пачки контендятся за живое дерево (решение владельца 2026-08-26, шаг А; замер шага 1: два параллельных verify — оба RC=1, 279с/29с, воспроизведено дважды)"
-  ok '(izolcfg) .omp/config.yml несёт task.isolation.mode: btrfs'
+  [ -f "$C" ] || die izolcfg "нет $C — пару ключей изоляции спавна объявить негде (контракт 067; решение владельца 2026-08-26, шаг А)"
+  awk '
+    BEGIN { in_task = 0; in_task_isol = 0; in_top_isol = 0
+            have_mode = 0
+            have_task_isol_backend = 0
+            have_enabled = 0; enabled = ""
+            have_backend = 0; backend = "" }
+    # Регистрация входа в task и его подсекций:
+    /^task:[[:space:]]*$/ { in_task = 1; next }
+    in_task && /^[[:space:]]+isolation:[[:space:]]*$/ { in_task_isol = 1; in_top_isol = 0; next }
+    /^isolation:[[:space:]]*$/ { in_top_isol = 1; in_task_isol = 0; in_task = 0; next }
+    # Выход из секций на новой верхнеуровневой строке:
+    in_task_isol && /^[^[:space:]]/ { in_task = 0; in_task_isol = 0; next }
+    in_top_isol && /^[^[:space:]]/ { in_top_isol = 0; next }
+    # Регистрация зависимостей (правила ниже проверяют ОБА флага, чтобы случай
+    # пересечения «line подходит под оба контекста» обрабатывался однозначно):
+    in_task_isol && !in_top_isol && /^[[:space:]]+mode:[[:space:]]*[^[:space:]]/ { have_mode = 1; next }
+    in_task_isol && !in_top_isol && /^[[:space:]]+backend:[[:space:]]*[^[:space:]]/ { have_task_isol_backend = 1; next }
+    in_task_isol && !in_top_isol && /^[[:space:]]+enabled:[[:space:]]*(true|false)[[:space:]]*$/ {
+      have_enabled = 1
+      if (match($0, /:[[:space:]]*(true|false)[[:space:]]*$/, arr)) enabled = arr[1]
+      next
+    }
+    in_top_isol && !in_task_isol && /^[[:space:]]+backend:[[:space:]]*[A-Za-z0-9_-]+/ {
+      have_backend = 1; backend = $2; next
+    }
+    END {
+      if (have_mode) {
+        print "LEGACY_MODE: легаси-пин task.isolation.mode: <backend> запрещён контрактом 067 — ПИННИТ файловую систему машины (на btrfs-домашней молчит, на ext4-сервере лжёт о btrfs); единственный путь — пара task.isolation.enabled + верхнеуровневый isolation.backend (omp://tools/task.md:116 + omp://settings.md «Field-level migrations»)"
+        exit 1
+      }
+      if (have_task_isol_backend) {
+        print "LEGACY_PATH: ключ backend под task.isolation (легаси-путь); верхнеуровневый isolation.backend — единственный допустимый (контракт 067)"
+        exit 1
+      }
+      if (have_enabled && enabled == "false") {
+        print "ENABLED: false — изоляция спавна выключена (enabled: false), параллельные пачки architect/implementer контендятся за живое дерево (контракт 067; решение владельца 2026-08-26, шаг А; замер шага 1: два параллельных verify — оба RC=1 «FAIL дерево изменилось», 279с/29с)"
+        exit 1
+      }
+      if (have_enabled && enabled != "true") {
+        print "ENABLED_INVALID: task.isolation.enabled должен быть true (контракт 067)"
+        exit 1
+      }
+      if (have_enabled && !have_backend) {
+        print "HALF: task.isolation.enabled объявлен, верхнеуровневый isolation.backend — нет (ПОЛОВИНА нормы 067 не принимается)"
+        exit 1
+      }
+      if (!have_enabled && have_backend) {
+        print "HALF: верхнеуровневый isolation.backend объявлен, task.isolation.enabled — нет (ПОЛОВИНА нормы 067 не принимается)"
+        exit 1
+      }
+      if (have_enabled && have_backend && backend != "auto") {
+        print "PINNED_BACKEND: верхнеуровневый isolation.backend «" backend "» ПИННИТ файловую систему машины; единственное допустимое значение — auto (PAL omp выбирает бэкенд по ФС сам; контракт 067, замкнутый enum omp://tools/task.md:116)"
+        exit 1
+      }
+      if (!have_enabled && !have_backend) {
+        print "NO_KEYS: .omp/config.yml не несёт ни task.isolation.enabled, ни верхнеуровневого isolation.backend — нет изоляции спавна (решение владельца 2026-08-26, шаг А; пара ключей 067 обязательна)"
+        exit 1
+      }
+      exit 0
+    }
+  ' "$C" >"$WORK/izolcfg.reason" 2>/dev/null \
+    || { reason="$(cat "$WORK/izolcfg.reason" 2>/dev/null || echo причина не записана)"; reason="${reason%%$'\n'*}"; die izolcfg "$reason"; }
+  ok '(izolcfg) .omp/config.yml: task.isolation.enabled: true + верхнеуровневая isolation.backend: auto'
 fi
 
 # ── (klon) правило клона роли в roles/architect.md — вне стерегомого дерева ────

@@ -56,15 +56,24 @@ modelRoles:
   steward: "anthropic/claude-haiku-4-5"  # фолбек: openai-codex/gpt-6-luna
 # ── /modelRoles ──
 
-# ── Изоляция спавна субагентов (решение владельца 2026-08-26, шаг А контракта 012) ─
+# ── Изоляция спавна субагентов (контракт 067: backend auto, шаг А контракта 012) ─
 # Параллельные пачки architect/implementer не контендятся за живое дерево: каждое
 # дерево процесса в своём сабволюме. Включается ВСТРОЕННОЙ harness-фичей, НЕ
 # кодом раннера и НЕ нашим скриптом (иначе — обход, см. Н-48, замер шага 1: два
 # параллельных verify над живым деревом — оба RC=1 «FAIL дерево изменилось»,
-# 279с/29с, воспроизведено дважды).
+# 279с/29с, воспроизведено дважды). Контракт 067 заменил легаси-пин
+# `task.isolation.mode: <бэкенд>` на пару ключей: вложенный
+# `task.isolation.enabled: true` (выключатель) + ВЕРХНЕУРОВНЕВЫЙ
+# `isolation.backend: auto` (замкнутый enum omp; PAL omp выбирает бэкенд по ФС
+# машины сам — один и тот же конфиг на btrfs-домашней даёт сабволюмы, на
+# ext4-сервере даёт копию через rcopy fallback). Источник: omp://tools/task.md:116
+# + omp://settings.md «Field-level migrations».
 task:
   isolation:
-    mode: btrfs
+    enabled: true
+
+isolation:
+  backend: auto
 
 retry:
   modelFallback: true

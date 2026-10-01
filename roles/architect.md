@@ -241,8 +241,9 @@ architect'а ушла в историю под именем `orchestrator`, а `
 Клон роли — в `${TMPDIR}/dev-harness-architect/repo`, НЕ `./tmp/<имя>/repo`.
 Клон внутри стерегомого дерева сам является мутацией стерегомого (шаг А решения
 владельца 2026-08-26: параллельные пачки architect/implementer спавнятся
-`isolated: true`, см. `.omp/config.yml` → `task.isolation.mode: btrfs`, и клон
-роли — снаружи дерева по построению). У остальных ролей правило уже было
+`isolated: true`, см. `.omp/config.yml` → пара ключей контракта 067
+`task.isolation.enabled: true` + верхнеуровневый `isolation.backend: auto`,
+и клон роли — снаружи дерева по построению). У остальных ролей правило уже было
 (implementer.md:36, critic.md:155, adversary.md:26, reviewer.md:43); architect
 был единственным без него.
 
