@@ -228,7 +228,7 @@ guard-канала — прямой ci-шаг `bash scripts/check_github_token_0
 
 ## Приёмка (сценарии; грамматика 050)
 
-- `bash fixtures/_krasnye_070.sh`
+- `bash fixtures/_krasnye_070.sh` → красная: предмет отсутствует
   - А1. дано: нечиненое дерево (шага GitHub-токена в workshop нет); когда:
     команда выше; тогда: rc 1, stderr «ОТКАЗ: предмет отсутствует … не
     печатает строку `GITHUB: read`», stdout «стаб-пак: 7/7 поймано,
