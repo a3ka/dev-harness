@@ -106,7 +106,7 @@ PF='gitw ПРЕДПОЛЁТ-ОТКАЗ: '
 POK='gitw ПРЕДПОЛЁТ: '
 
 die_cell() { printf 'ОТКАЗ: %s: %s\n' "$1" "$2" >&2; exit 1; }
-ok_cell()  { printf 'ok: %s\n' "$1"; }
+ok_cell()  { printf 'ok: %s\n' "$1"; OKN=$(( ${OKN:-0} + 1 )); }
 
 ident() { local d="$1"; shift; git -C "$d" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false commit -q "$@"; }
 h8()     { printf '%08x' $(( (RANDOM << 16 ^ RANDOM) & 0xffffffff )); }
@@ -670,7 +670,9 @@ PYE
 }
 
 # ── порядок: само-проверка → стаб-пак → честные клетки ───────────────────────
+OKN=0
 run_stub_pack
 run_honest_cells
-printf 'честные клетки: 19/19 зелёные; стаб-пак 10/10 + дифф 10/10\n'
+CELLS=$((OKN - 1))
+printf 'честные клетки: %s/%s зелёные; стаб-пак 10/10 + дифф 10/10\n' "$CELLS" "$CELLS"
 exit 0
