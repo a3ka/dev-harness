@@ -1,0 +1,18 @@
+probe-only каталог (контракт 034): предмет — батарея 072 perezapusk_sessii
+«дверь перезапуска сессии»; субъекты запуска — scripts/orch_restart.sh (новый,
+реализационная пачка) И расширение scripts/gc_agent_branches.sh (удаление
+мусорных worktree) И строка roles/orchestrator.md:387 (touch → bash
+scripts/orch_restart.sh) — три самостояния в одной батарее, не одиночный
+барьер; барьерного ключа scripts/perezapusk_sessii.sh НЕТ и не появится
+(прецедент fixtures/workshop_project/). Каталог назван НЕ по ключу
+scripts/orch_restart: с реализацией предмета у scripts/orch_restart.sh
+появится собственная case-семья fixtures/orch_restart/ (verify_antiplacebo
+судит её шапкой «Коды возврата:»), а probe-only каталог с маркером не
+имеет права быть барьерным каталогом (verify_antiplacebo: «барьерный
+каталог с маркером .probe-only — противоречие ролей»). Предъявление
+red_dver_perezapuska_072.sh — прямое (вне case_*-глоба раннера), через
+агрегатор fixtures/_krasnye_072.sh, исполняется судьями/архитектором;
+красное ДО честной части (г0 «предмет отсутствует» — носителя
+scripts/orch_restart.sh в дереве нет), зелёное после; стаб-пак (7 обманных
+стабов двери) остаётся зелёным ПОСЛЕ реализации — различимость не зависит
+от честного кода (прецеденты 058/070).
