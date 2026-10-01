@@ -181,7 +181,7 @@ wip/[0-9]{3}/[^/]+ под /dev-harness-worktrees/[0-9a-f]{8}/. Значения 
 
 ## Зоны (check_zones)
 
-ЗОНА architect: contracts/071-predpolet-gitw-push-main.md fixtures/gitw_predpolet/red_predpolet_071.sh fixtures/gitw_predpolet/.probe-only fixtures/_krasnye_071.sh NABLIUDENIA_ARCHITECT.md
+ЗОНА architect: contracts/071-predpolet-gitw-push-main.md fixtures/gitw_predpolet/red_predpolet_071.sh fixtures/gitw_predpolet/.probe-only fixtures/_krasnye_071.sh
 
 ЗОНА implementer: scripts/gitw scripts/gitw_preflight_071.sh .github/workflows/ci.yml package.json
 
@@ -193,7 +193,7 @@ wip/[0-9]{3}/[^/]+ под /dev-harness-worktrees/[0-9a-f]{8}/. Значения 
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 architect-зона (историческая заявка; прецедент 058/070): та же дельта одним шагом
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; общий носитель ключей с ci.yml): дельта — один ключ check:gitw-predpolet-family-selftest, значение = команде шага (прецедент 070: check:github-token-family-selftest)
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (историческая заявка): та же дельта одним ключом
-ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 implementer-зона двойного владения (landed-миграция заголовков); 071 владеет путём как записью воркфлоу-наблюдений (прецедент 037/065/066/069)
+NABLIUDENIA_ARCHITECT.md — вне зон 071 начиная с v2.1, слово владельца 2026-10-01 (вечер) дословно: «NABLIUDENIA_ARCHITECT.md — НЕ в ЗОНА-строках architect новых контрактов, начиная с 071 v2 / 072 v2. check_staged (016) тогда сам откажет архитектору в записи — механизм уже есть. А-записи architect передаёт текстом в отчёте; номер и запись — оркестратор, учётным маршрутом, по живому дереву. Без нового кода.» Записи А-317 уже в дереве легально; прежняя заявка пересечения с 015 implementer-зоной двойного владения (landed-миграция заголовков) снята
 
 РАБОТА НЕ РАЗДАЁТСЯ: fixtures/gitw/ (замороженная батарея 045 — потому семья 071 живёт в новом каталоге fixtures/gitw_predpolet/) scripts/orch_restart.sh scripts/gc_agent_branches.sh (072) roles/ (072) scripts/verify_antiplacebo.sh (030/044; новая батарея вне case_*-глоба) registry/contracts.tsv (минт 071 стоит; dual-control 023/031) .omp/ (005/002 frozen)
 
