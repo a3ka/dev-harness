@@ -115,8 +115,6 @@ mk_toy() {
   printf '# передача\n' > "$t/HANDOFF.md"
   printf 'seed\n' > "$t/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$t"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$t" config user.name orchestrator
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$t" config user.email orchestrator@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$t" config commit.gpgsign false
   g "$t" add -A
   g "$t" commit -q -m 'основание: контракт и зона orchestrator'
