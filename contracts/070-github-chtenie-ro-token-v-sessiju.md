@@ -114,7 +114,6 @@ issues/project items (боль) и явную offline-разметку отсу�
 ## Модель угроз
 
 ЗАЩИЩАЕТ:
-
 - молчаливую деградацию (боль Б-2: NOT_RUN без пометки) — offline виден
   баннером и env-режимом; стаб s3 ловится клеткой с3, честная клетка к3;
 - утечку значения в логи — стаб s1 ловится клеткой с1 (значение в выводе),
@@ -130,7 +129,6 @@ issues/project items (боль) и явную offline-разметку отсу�
   честная клетка к4.
 
 НЕ ЗАЩИЩАЕТ:
-
 - scope самого токена — свойство выдачи GitHub (владелец); лаунчер не
   понижает и не повышает привилегии значения;
 - печать значения самим потребителем внутри сессии (env-команды агента) —
@@ -143,18 +141,11 @@ issues/project items (боль) и явную offline-разметку отсу�
 
 Носитель — fixtures/workshop_project/red_github_token_070.sh (прямое
 предъявление; имя вне case_*-глоба раннера — семья probe-only 034,
-прецедент 058), раннер — fixtures/_krasnye_070.sh. Привязки стабов к
-входам живут в коде батареи (Н-39), таблица ниже — зеркало её шапки:
-
-| стаб | ручка | дефект | вход, где дефект наблюдаем |
-|---|---|---|---|
-| s1 | STUB_PRINT_VALUE | печатает значение | токен в доме; вывод прогона |
-| s2 | STUB_WRITE_FILE | дописывает в .env дерева | токен в доме; файлы после прогона |
-| s3 | STUB_SILENT | молчит без токена | дома нет; вывод прогона |
-| s4 | STUB_OVERWRITE | файл побеждает внешний env | внешний A + файл B; env-дамп |
-| s5 | STUB_REQUIRE | фатальный отказ без токена | дома нет; rc прогона |
-| s6 | STUB_NO_EXPORT | не экспортирует в сессию | токен в доме; env-дамп |
-| s7 | STUB_NO_MODE | режим не доходит до сессии | токен в доме; env-дамп |
+прецедент 058), раннер — fixtures/_krasnye_070.sh. Привязки стабов к входам
+(ручка → дефект → вход, где дефект наблюдаем) живут ТОЛЬКО в коде батареи
+fixtures/workshop_project/red_github_token_070.sh (Н-39); контракт несёт
+инварианты и rc-команды. Состав обманок — стабы s1..s7 с ручками STUB_*;
+счёт предъявлений (стаб-пак 7/7 + диффпроба 7/7) живёт прогоном батареи.
 
 Красное ДО реализации — г0, ПОВЕДЕНЧЕСКИЙ fail-fast (не греп исходника):
 живой workshop --probe на toy-проекте с токеном в toy-доме не печатает
@@ -176,7 +167,11 @@ ODELIX_GITHUB_TOKEN, значение непустое), а также отсу�
 
 ЗОНА architect: contracts/070-github-chtenie-ro-token-v-sessiju.md fixtures/workshop_project/red_github_token_070.sh fixtures/_krasnye_070.sh fixtures/workshop_project/.probe-only NABLIUDENIA_ARCHITECT.md
 
-ЗОНА implementer (после заморозки): workshop .github/workflows/ci.yml package.json
+ЗОНА implementer: workshop .github/workflows/ci.yml package.json
+
+Зона implementer раздаётся ПОСЛЕ заморозки (слово владельца 2026-10-01, см.
+«Незаполненные требования»): ЗОНА-строка заявляет исполнителя precision-гейту
+043 заранее, до заморозки работа по ней не раздаётся.
 
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 028 implementer-зона: стартовая формула дев-зоны ПОТРЕБЛЯЕТСЯ, не правится; канонический guard 028 не переступается (дом токена читается по HOME ДО подмены, шаг пишет только env)
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 030 implementer-зона (инвентарь/гонки спавна): дельта 070 новых процессов не спавнит; spawn-ветки не трогаются
@@ -184,13 +179,18 @@ ODELIX_GITHUB_TOKEN, значение непустое), а также отсу�
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 054 implementer-зона (заморожена frozen/contracts/054/1): дельта — один блок шага рядом с load_env/bootstrap_env (:580-581, :512-514) и баннерная строка рядом с METERING (:836); probe/промпт/P8/P9/4.3-семантики 054 не правятся, судятся своими клетками 054
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 055 implementer-зона (заморожена frozen/contracts/055/1): экспорты М1/лок М2/метеринг М3 без дельт; PSTATE-пути компонент dev-harness-sessions не приобретают
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 058 architect-зона (шаг шаринга agent.db, landed): блок GITHUB встраивается рядом с баннерами, шаг AGENTDB не трогается, батарея 058 остаётся зелёной
-ПЕРЕСЕЧЕНИЕ implementer: workshop — 059/060 (landed): сверка путей профиля и HARNESS_WORKFLOW_ROOT-экспорты не затрагиваются
-ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011/015 architect-зоны (исторические заявки; прецедент 058): дельта — один прямой шаг `bash fixtures/_krasnye_070.sh` после шага семьи 060; новая джоба/шард-ключ не вводятся
-ПЕРЕСЕЧЕНИЕ implementer: package.json — 011/015 architect-зоны (исторические заявки; общий носитель ключей с ci.yml): дельта — один ключ check:github-token-family-selftest (прецедент 058: check:sharing-family-selftest)
+ПЕРЕСЕЧЕНИЕ implementer: workshop — 059 (landed): сверка путей профиля и HARNESS_WORKFLOW_ROOT-экспорты не затрагиваются
+ПЕРЕСЕЧЕНИЕ implementer: workshop — 060 (landed): сверка путей профиля и HARNESS_WORKFLOW_ROOT-экспорты не затрагиваются
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 architect-зона (историческая заявка; прецедент 058): дельта — один прямой шаг `bash scripts/check_github_token_070.sh` после шага семьи 060; новая джоба/шард-ключ не вводятся
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 architect-зона (историческая заявка; прецедент 058): дельта — один прямой шаг `bash scripts/check_github_token_070.sh` после шага семьи 060; новая джоба/шард-ключ не вводятся
+ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; общий носитель ключей с ci.yml): дельта — один ключ check:github-token-family-selftest (прецедент 058: check:sharing-family-selftest)
+ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (историческая заявка; общий носитель ключей с ci.yml): дельта — один ключ check:github-token-family-selftest (прецедент 058: check:sharing-family-selftest)
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 054 implementer-зона каталога (заморожена): новый файл семьи, файлы 054 не правятся (прецедент 055/058)
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 055 implementer-зона каталога (заморожена): red_izoljacija_projectid.sh и _verify_055_r3.sh не правятся
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 057 implementer-зона (заморожена): red_profil_dva_sloja.sh не правится
-ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 058/059/060 architect-зоны семьи: red_* соседей не правятся, батарея 070 батареи соседей не зовёт
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 058 architect-зона семьи: red_* соседей не правятся, батарея 070 батареи соседей не зовёт
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 059 architect-зона семьи: red_* соседей не правятся, батарея 070 батареи соседей не зовёт
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/red_github_token_070.sh — 060 architect-зона семьи: red_* соседей не правятся, батарея 070 батареи соседей не зовёт
 ПЕРЕСЕЧЕНИЕ architect: fixtures/_krasnye_070.sh — 058 architect-зона раннера: новый отдельный раннер, _krasnye_054/055/058/059/060 не правятся
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/.probe-only — 054 implementer-зона каталога (заморожена): в маркер семьи дописана строка 070 (прецедент 058: строки 055/058)
 ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 implementer-зона двойного владения (landed-миграция заголовков); 070 владеет путём как записью воркфлоу-наблюдений (прецедент 037/065/066/069)
@@ -200,27 +200,31 @@ ODELIX_GITHUB_TOKEN, значение непустое), а также отсу�
 ## ПРОВОДКА
 
 ПРОВОДКА:
-- guard=fixtures/_krasnye_070.sh
+- guard=scripts/check_github_token_070.sh
 
 ПРОВОДКА-ЭНФОРСМЕНТ: предмет 070 — механизм лаунчера (передача токена в
-сессию), не поведенческая норма ролей; канал один — guard: раннер семьи
-`fixtures/_krasnye_070.sh`, исполняющий батарею
+сессию), не поведенческая норма ролей; канал один — guard
+`scripts/check_github_token_070.sh` (грамматика 038 / AGENTS.md:175:
+guard=scripts/<имя>.sh) — БУДУЩИЙ барьер: создаётся реализационной пачкой
+ВМЕСТЕ с предметом и ci-шагом; до этого г1 («guard-файл не существует») и
+г2 («guard не подключён») check_provodka красны ПО УМЫСЛУ до предмета —
+прецедент 058:347 «красен по умыслу до предмета»; freeze_contract.sh
+check_provodka не вызывает, связывающий прогон живёт в done_contract.sh
+(шаг 6). Раннер `fixtures/_krasnye_070.sh`, исполняющий батарею
 `fixtures/workshop_project/red_github_token_070.sh` (семья probe-only 034:
 файлы red_* вне case_*-глоба шарда verify_antiplacebo,
 scripts/verify_antiplacebo.sh:585; ключ семьи — маркер
-fixtures/workshop_project/.probe-only). Подключение guard-канала — прямой
-ci-шаг `bash fixtures/_krasnye_070.sh` после шага семьи 060
-(.github/workflows/ci.yml) плюс ключ `check:github-token-family-selftest`
-(package.json, равен значению шага — четвёртая форма правила 6
-verify_ci_parity.sh) — вносится РЕАЛИЗАЦИОННОЙ пачкой вместе с предметом
-(прецедент 059/060: преждевременно вшитый шаг держал CI красным до
-реализации — батарея красна по конструкции). До проводки батарея
-предъявляется судьями каждого круга и критиком напрямую; г2 check_provodka
-(«guard подключён») на черновике до проводки законно красен и зеленеет
-вместе с ней — связывающий прогон живёт в done_contract.sh (шаг 6),
-freeze_contract.sh check_provodka не вызывает. Батарея красна ДО реализации
-(г0 «предмет отсутствует») и зеленеет вместе с ней; норм-строк ролей
-контракт не вводит.
+fixtures/workshop_project/.probe-only), — инструмент крёстной предъявки
+судьям каждого круга и критику напрямую, ВНЕ поля ПРОВОДКА. Подключение
+guard-канала — прямой ci-шаг `bash scripts/check_github_token_070.sh`
+(барьер делегирует раннеру семьи `fixtures/_krasnye_070.sh`) после шага
+семьи 060 (.github/workflows/ci.yml) плюс ключ
+`check:github-token-family-selftest` (package.json, равен значению шага —
+четвёртая форма правила 6 verify_ci_parity.sh) — вносится РЕАЛИЗАЦИОННОЙ
+пачкой вместе с предметом (прецедент 059/060: преждевременно вшитый шаг
+держал CI красным до реализации — батарея красна по конструкции). Батарея
+красна ДО реализации (г0 «предмет отсутствует») и зеленеет вместе с ней;
+норм-строк ролей контракт не вводит.
 
 ## Приёмка (сценарии; грамматика 050)
 
@@ -259,8 +263,11 @@ freeze_contract.sh check_provodka не вызывает. Батарея крас
   Ловец дрейфа scope — владелец на выдаче.
 - Печать значения потребителем внутри сессии (env-команды агента) — за
   границей exec; механизма нет, ловец — дисциплина роли/владелец.
-- Токен истекает 2026-10-29: деградация УЖЕ явная по предмету (offline
-  баннер + режим), фатального отказа не появится; продление — шаг владельца.
+- Токен истекает 2026-10-29: режим определяется НАЛИЧИЕМ непустого значения
+  (инварианты 1/5), не его живостью — истёкший непустой PAT оставляет режим
+  read (ошибки API — на стороне потребителя), offline наступает только когда
+  владелец убирает/очищает значение или файл; фатального отказа не появится;
+  продление/ротация значения — шаг владельца.
 
 ## Незаполненные требования:
 
