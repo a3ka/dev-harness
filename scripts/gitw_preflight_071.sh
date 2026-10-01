@@ -201,10 +201,10 @@ unset RSHA
 # ── чек (3): каждый merge «land: wip/<NNN>/<автор>» в диапазоне ─────────────
 # Вершина main на цели ls-remote … tip отправляемого src. Второй родитель
 # каждого merge — sha, по которому спрашиваем PR-CI GitHub API.
-API="${GITW_PREFLIGHT_071_API:-}"
+API_BASE="${GITW_PREFLIGHT_071_API:-}"
 remote_url="$(git remote get-url "$TGT" 2>/dev/null || true)"
 github_repo=""
-if [ -z "$API" ]; then
+if [ -z "$API_BASE" ]; then
   # без ручки: https://api.github.com + repo из эффективной цели
   # (конвенция check_ci_gate.sh:56-62). Если remote не github формы — нет ручки
   # и цель не github → отказ.
@@ -213,12 +213,19 @@ if [ -z "$API" ]; then
       github_repo="$(printf '%s' "$remote_url" \
         | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
       github_repo="$(printf '%s' "$github_repo" | sed -E 's/\.git$//')"
-      API="https://api.github.com/repos/${github_repo}/actions/runs"
+      API_BASE="https://api.github.com/repos/${github_repo}"
       ;;
   esac
 fi
-[ -n "$API" ] \
+[ -n "$API_BASE" ] \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: цель не github\n' >&2; exit 1; }
+# Базовый API: ".../repos/owner/repo" (фикстуры держат base БЕЗ /actions/runs;
+# конвенция ручки — base включает owner/repo, эндпоинт дописывает предполёт).
+# Толерантность к полному пути: если уже заканчивается на /actions/runs — pass.
+case "$API_BASE" in
+  */actions/runs) API="$API_BASE" ;;
+  *)              API="${API_BASE}/actions/runs" ;;
+esac
 
 rmain="$(git ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
 [ -n "$rmain" ] \
