@@ -124,14 +124,19 @@ cat > "$APIDIR/srv.py" <<'PYEOF'
 import json, re, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
-GREEN = set(x for x in open(sys.argv[1]).read().split() if x)
-FAIL = set(x for x in open(sys.argv[2]).read().split() if x)
+GP = sys.argv[1]
+FP = sys.argv[2]
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         if not re.match(r'^/repos/[^/]+/[^/]+/actions/runs$', u.path):
             self.send_response(404); self.end_headers(); return
         sha = (parse_qs(u.query).get('head_sha') or [''])[0]
+        try:
+            GREEN = set(x for x in open(GP).read().split() if x)
+            FAIL = set(x for x in open(FP).read().split() if x)
+        except OSError:
+            GREEN, FAIL = set(), set()
         if sha in GREEN:
             body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
         elif sha in FAIL:
