@@ -67,6 +67,13 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/red068b.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+# env-изоляция identity (068, разблокировка заморозки): переменные окружения
+# GIT_AUTHOR_*/GIT_COMMITTER_* БЬЮТ и toy-конфиг, и -c — наследованная из
+# freeze-окружения orchestrator-identity переписывала identity toy-коммитов.
+# Снимаем наследие: identity каждого коммита — ЯВНЫЙ -c (роль по замыслу).
+unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
+      GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
+
 # Субъект-барьер двери: копия scripts/ (check_staged + lib_zones/next_id/check_charter
 # соседство sourcing'а — BARRIER_ROOT-паттерн семьи check_staged).
 BARRIER="$WORK/subj-scripts"
@@ -88,8 +95,10 @@ N0="${RD[0]}"; N1="${RD[1]}"; N1B="${RD[2]}"; N2="${RD[3]}"; N3="${RD[4]}"; N4="
 
 g() {
   local r="$1"; shift
+  # Явная identity на каждом вызове (env-изоляция 068): -c, не наследие окружения.
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-  git -C "$r" -c commit.gpgsign=false -c core.hooksPath=/dev/null "$@"
+  git -C "$r" -c commit.gpgsign=false -c core.hooksPath=/dev/null \
+     -c user.name=orchestrator -c user.email=orchestrator@local "$@"
 }
 
 # mk_toy <каталог>: toy с замороженным контрактом 001, зоной orchestrator
@@ -145,7 +154,9 @@ authority_line() {
   printf '%s → %s\n' "$2" "$sha" >> "$1/registry/contracts.tsv"
   g "$1" add -A
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-    git -C "$1" -c commit.gpgsign=false commit -q -m "реестр: резерв $2 (авторитетная строка)"
+    git -C "$1" -c commit.gpgsign=false \
+      -c user.name=orchestrator -c user.email=orchestrator@local \
+      commit -q -m "реестр: резерв $2 (авторитетная строка)"
   g "$1" push -q origin main
 }
 
@@ -236,7 +247,9 @@ if [ -x "$SUBJ" ]; then
   g "$T4" add -- registry/contracts.tsv
   head4="$(git -C "$T4" rev-parse HEAD)"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-    git -C "$T4" -c commit.gpgsign=false commit -q -m "реестр: строка $N4 (неверный sha)" 2>"$WORK/e4"
+    git -C "$T4" -c commit.gpgsign=false \
+      -c user.name=orchestrator -c user.email=orchestrator@local \
+      commit -q -m "реестр: строка $N4 (неверный sha)" 2>"$WORK/e4"
   rc4=$?
   err4="$(cat "$WORK/e4")"
   cnt4="$(git -C "$T4" rev-list --count "$head4..HEAD")"
