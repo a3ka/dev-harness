@@ -124,9 +124,8 @@ cat > "$APIDIR/srv.py" <<'PYEOF'
 import json, re, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
-BASE = open(sys.argv[1]).read().strip()
-GREEN = set(x for x in open(sys.argv[2]).read().split() if x)
-FAIL = set(x for x in open(sys.argv[3]).read().split() if x)
+GREEN = set(x for x in open(sys.argv[1]).read().split() if x)
+FAIL = set(x for x in open(sys.argv[2]).read().split() if x)
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
@@ -147,10 +146,10 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(raw)
     def log_message(self, *a): pass
 srv = HTTPServer(('127.0.0.1', 0), H)
-open(sys.argv[4], 'w').write(str(srv.server_port))
+open(sys.argv[3], 'w').write(str(srv.server_port))
 srv.serve_forever()
 PYEOF
-python3 "$APIDIR/srv.py" "$APIDIR" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/port" &
+python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/port" &
 API_PID=$!
 APORT=""
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -196,7 +195,7 @@ mk_world() {
     printf 'демо-коммит ленда\n' > "$T/demo071.txt"
     git -C "$T" add demo071.txt && ident "$T" -m 'work by demo'
     git -C "$T" checkout -q main
-    git -C "$T" merge --no-ff -q -m 'land: wip/071/demo' wip/071/demo \
+    git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/demo' wip/071/demo \
       || die_cell "$name" "land-merge не построился"
     P="$(git -C "$T" rev-parse refs/heads/wip/071/demo)"
     printf '%s\n' "$P" >> "$APIDIR/green.list"
@@ -216,7 +215,7 @@ mk_second_land() {
   local p2; p2="$(git -C "$T" rev-parse refs/heads/wip/071/demx)"
   [ "$mode" = "failure" ] && printf '%s\n' "$p2" >> "$APIDIR/fail.list"
   git -C "$T" checkout -q main
-  git -C "$T" merge --no-ff -q -m 'land: wip/071/demx' wip/071/demx \
+  git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/demx' wip/071/demx \
     || die_cell "demx-$mode" "второй land-merge не построился"
 }
 
