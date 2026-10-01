@@ -835,23 +835,53 @@ if want izolcfg; then
             have_enabled = 0; enabled = ""
             have_backend = 0; backend = "" }
     # Регистрация входа в task и его подсекций:
-    /^task:[[:space:]]*$/ { in_task = 1; next }
-    in_task && /^[[:space:]]+isolation:[[:space:]]*$/ { in_task_isol = 1; in_top_isol = 0; next }
+    /^task:[[:space:]]*$/ { in_task = 1; in_task_isol = 0; in_top_isol = 0; next }
+    in_task && /^  isolation:[[:space:]]*$/ { in_task_isol = 1; in_top_isol = 0; next }
     /^isolation:[[:space:]]*$/ { in_top_isol = 1; in_task_isol = 0; in_task = 0; next }
-    # Выход из секций на новой верхнеуровневой строке:
-    in_task_isol && /^[^[:space:]]/ { in_task = 0; in_task_isol = 0; next }
-    in_top_isol && /^[^[:space:]]/ { in_top_isol = 0; next }
-    # Регистрация зависимостей (правила ниже проверяют ОБА флага, чтобы случай
-    # пересечения «line подходит под оба контекста» обрабатывался однозначно):
-    in_task_isol && !in_top_isol && /^[[:space:]]+mode:[[:space:]]*[^[:space:]]/ { have_mode = 1; next }
-    in_task_isol && !in_top_isol && /^[[:space:]]+backend:[[:space:]]*[^[:space:]]/ { have_task_isol_backend = 1; next }
-    in_task_isol && !in_top_isol && /^[[:space:]]+enabled:[[:space:]]*(true|false)[[:space:]]*$/ {
+    # Выход из секций (Р-1, вердикт ревьюера contracts-067-v1: прежний сброс
+    # срабатывал ТОЛЬКО из in_task_isol/in_top_isol и не закрывал «голый»
+    # in_task, если вложенная isolation: ещё не встретилась — sibling (к9:
+    # retry.isolation.enabled при in_task=1 от СОСЕДНЕГО task:) и deep (к10:
+    # task.nested.isolation.enabled глубже task.isolation) проходили как
+    # «изоляция включена», а omp фактически видел её ВЫКЛЮЧЕННОЙ). Любая
+    # НОВАЯ верхнеуровневая строка (не комментарий, не пустая) сбрасывает ВЕСЬ
+    # контекст целиком — открывающие правила task:/isolation: выше уже
+    # обработали СВОИ строки через next, так что этот catch-all ловит только
+    # ЧУЖИЕ верхнеуровневые ключи (retry:, modelRoles:, bash: и т.п.).
+    /^[^[:space:]#]/ { in_task = 0; in_task_isol = 0; in_top_isol = 0; next }
+    # Сосед глубины 2 ПОД task: (другой ключ, не isolation:) закрывает
+    # task.isolation — различающий вход «чужой-enabled» (к13, Р-1): enabled:
+    # false в task.isolation не должен пережить до конца файла и быть
+    # перезаписан отсутствующим совпадением из СОСЕДНЕЙ task.other.enabled: true
+    # (та строка на глубине 4 под other: — in_task_isol уже закрыт ЗДЕСЬ, до
+    # неё, так что она просто не регистрируется).
+    in_task_isol && /^  [^[:space:]#]/ { in_task_isol = 0; next }
+    # Регистрация зависимостей: якоря глубины СТРОГИЕ (Р-1 deep + С-2
+    # extra-nested) — РОВНО 4 пробела для ключей task.isolation (mode/backend/
+    # enabled), РОВНО 2 пробела для верхнеуровневого isolation.backend; форма
+    # пары сверена с живым .omp/config.yml (task: → `  isolation:` →
+    # `    enabled: true`; isolation: → `  backend: auto`). Правила ниже
+    # проверяют ОБА флага, чтобы случай «line подходит под оба контекста»
+    # обрабатывался однозначно.
+    in_task_isol && !in_top_isol && /^    mode:[[:space:]]*[^[:space:]]/ { have_mode = 1; next }
+    in_task_isol && !in_top_isol && /^    backend:[[:space:]]*[^[:space:]]/ { have_task_isol_backend = 1; next }
+    in_task_isol && !in_top_isol && /^    enabled:[[:space:]]*(true|false)[[:space:]]*$/ {
       have_enabled = 1
       if (match($0, /:[[:space:]]*(true|false)[[:space:]]*$/, arr)) enabled = arr[1]
       next
     }
-    in_top_isol && !in_task_isol && /^[[:space:]]+backend:[[:space:]]*[A-Za-z0-9_-]+/ {
-      have_backend = 1; backend = $2; next
+    # Р-2 (вердикт ревьюера): значение backend сравнивается ЦЕЛИКОМ, не первым
+    # словом ($2) — «  backend: auto btrfs» (хвост) раньше проходило как
+    # «auto». Срез # .*$ (комментарий) и хвостовых пробелов, затем литеральное
+    # сравнение всей оставшейся строки.
+    in_top_isol && !in_task_isol && /^  backend:[[:space:]]*[^[:space:]]/ {
+      have_backend = 1
+      val = $0
+      sub(/^  backend:[[:space:]]*/, "", val)
+      sub(/[[:space:]]*#.*$/, "", val)
+      sub(/[[:space:]]+$/, "", val)
+      backend = val
+      next
     }
     END {
       if (have_mode) {
@@ -864,10 +894,6 @@ if want izolcfg; then
       }
       if (have_enabled && enabled == "false") {
         print "ENABLED: false — изоляция спавна выключена (enabled: false), параллельные пачки architect/implementer контендятся за живое дерево (контракт 067; решение владельца 2026-08-26, шаг А; замер шага 1: два параллельных verify — оба RC=1 «FAIL дерево изменилось», 279с/29с)"
-        exit 1
-      }
-      if (have_enabled && enabled != "true") {
-        print "ENABLED_INVALID: task.isolation.enabled должен быть true (контракт 067)"
         exit 1
       }
       if (have_enabled && !have_backend) {
