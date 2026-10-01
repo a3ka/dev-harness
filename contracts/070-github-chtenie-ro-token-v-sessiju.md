@@ -167,7 +167,7 @@ ODELIX_GITHUB_TOKEN, значение непустое), а также отсу�
 
 ЗОНА architect: contracts/070-github-chtenie-ro-token-v-sessiju.md fixtures/workshop_project/red_github_token_070.sh fixtures/_krasnye_070.sh fixtures/workshop_project/.probe-only NABLIUDENIA_ARCHITECT.md
 
-ЗОНА implementer: workshop .github/workflows/ci.yml package.json
+ЗОНА implementer: workshop .github/workflows/ci.yml package.json scripts/check_github_token_070.sh
 
 Зона implementer раздаётся ПОСЛЕ заморозки (слово владельца 2026-10-01, см.
 «Незаполненные требования»): ЗОНА-строка заявляет исполнителя precision-гейту
