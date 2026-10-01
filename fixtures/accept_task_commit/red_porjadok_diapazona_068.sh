@@ -48,6 +48,15 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/red068a.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+# env-изоляция identity (068, разблокировка заморозки): переменные окружения
+# GIT_AUTHOR_*/GIT_COMMITTER_* БЬЮТ -c user.name — наследованная из freeze-
+# окружения (freeze_contract экспортирует GIT_COMMITTER_NAME=orchestrator)
+# orchestrator-identity отравляла toy-коммиты и cherry-pick субъекта:
+# «identity расхождение» без заявленной причины. Снимаем наследие — identity
+# определяется ТОЛЬКО явным -c каждого коммита (фикстура и субъект-ребёнок).
+unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
+      GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
+
 BR=wip/210/implementer
 
 # mk_main <каталог>: toy-main с base-коммитом (seq.txt=base) и веткой $BR на base.
