@@ -7,9 +7,10 @@
 # СЕГОДНЯ (ДО реализации): конфиг живого дерева несёт легаси-пин
 # task.isolation.mode: btrfs (пин машины: на ext4-сервере PAL omp сам откатывается
 # в копию …/wt/<id>/m — замер 2026-10-01 в контракте 067 §Предмет); ветвь izolcfg
-# (v1) благословляет легаси-пин и не знает новых ключей → ветвей 7, красных 2.
+# (v1) благословляет легаси-пин и не знает новых ключей → ветвей 8, красных 3
+# (к1, к2, к8 — записи живых прогонов в контракте 067 §Красные предъявления).
 # ПОСЛЕ реализации (ОДНИМ коммитом: конфиг + ветвь izolcfg v2 + toy _lib.sh + строки
-# ролей): ветвей 7, красных 0, зелёных 7.
+# ролей): ветвей 8, красных 0, зелёных 8.
 #
 # ГРАММАТИКА нормы (единый источник omp://tools/task.md:116 + omp://settings.md
 # «Field-level migrations»; буквальные ключи):
@@ -35,11 +36,18 @@
 #   к5 «изоляция выключена» — enabled: false → ОТВЕРГНУТ;
 #   к6 «enabled без backend» — половина нормы, авто-детект не объявлен → ОТВЕРГНУТ;
 #   к7 «backend не там»   — backend: auto ВЛОЖЕН в task.isolation (путь ключа
-#                           перепутан с легаси) → ОТВЕРГНУТ.
+#                           перепутан с легаси) → ОТВЕРГНУТ;
+#   к8 «выключено при auto» — enabled: false + ПРАВИЛЬНЫЙ верхнеуровневый
+#                           isolation.backend: auto (различитель Б2 вердикта
+#                           4305580): обход «v2 проверяет backend, игнорирует
+#                           enabled» принимает этот вход → ОТВЕРГНУТ с причиной
+#                           «enabled: false» в отказе.
 # Анти-таутология: оракул — rc живой ветви izolcfg настоящего барьера (никаких
-# копий грамматики здесь); барьер-«всё-принимаю» ловится к2-к7, барьер-«всё-
-# отвергаю» ловится к1. Текущая v1 — это буквально стаб «без авто-детекта»:
-# к2 красна на ней сегодня, поймано живым прогоном.
+# копий грамматики здесь); каждая клетка ожидает честное поведение ветви на
+# СВОЁМ входе; привязка вход↔клетка↔ожидание — этот код (Н-39, канон Arb064).
+# Записи живых прогонов на ветке v1: к2 красна (v1 ПРИНИМАЕТ легаси-пин —
+# главный флип предмета), к8 красна (v1 отвергает БЕЗ именованной причины
+# «enabled: false»).
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 BARRIER="$ROOT/scripts/check_runner_hygiene.sh"
@@ -56,12 +64,16 @@ mk_cell() {
   mk_green_root "$WORK/$1"
 }
 
-ORDER=(к1-norma-avto к2-stab-legasi-pin к3-stab-pin-btrfs к4-stab-hardkod-rcopy к5-vykljucheno к6-bez-backend к7-backend-ne-tam)
+ORDER=(к1-norma-avto к2-stab-legasi-pin к3-stab-pin-btrfs к4-stab-hardkod-rcopy к5-vykljucheno к6-bez-backend к7-backend-ne-tam к8-vykljucheno-s-backend)
 declare -A ST RAN
 
-# run_cell <имя> <ожидание: accept|reject> — живой прогон ветви izolcfg барьера.
+# run_cell <имя> <ожидание: accept|reject> [обязательная подстрока причины] —
+# живой прогон ветви izolcfg барьера. Третий аргумент — различитель Б2 (вердикт
+# 4305580): причина отказа обязана нести его ДОСЛОВНО (grep -F); v1 отвергает
+# к8 без именованной причины → клетка красная, обход «v2 без проверки enabled»
+# даёт rc 0 → тоже красная, честная v2 — зелёная.
 run_cell() {
-  local name="$1" expect="$2" rc
+  local name="$1" expect="$2" reason="${3:-}" rc
   bash "$BARRIER" "$WORK/$name" izolcfg >"$WORK/$name.out" 2>"$WORK/$name.err"
   rc=$?
   RAN[$name]=1; ST[$name]=1
@@ -72,10 +84,11 @@ run_cell() {
       printf 'ВЕТВЬ %s красная: ожидался ПРИЁМ нормы (rc 0 + ok (izolcfg)), получено rc=%s: %s\n' "$name" "$rc" "$(tr '\n' ' ' < "$WORK/$name.err")" >&2
     fi
   else
-    if [ "$rc" -eq 1 ] && grep -q 'ОТКАЗ ветвь (izolcfg)' "$WORK/$name.err"; then
+    if [ "$rc" -eq 1 ] && grep -q 'ОТКАЗ ветвь (izolcfg)' "$WORK/$name.err" \
+       && { [ -z "$reason" ] || grep -qF -- "$reason" "$WORK/$name.err"; }; then
       ST[$name]=0
     else
-      printf 'ВЕТВЬ %s красная: ожидался ОТКАЗ rc=1 с именованной причиной «ОТКАЗ ветвь (izolcfg)», получено rc=%s: %s\n' "$name" "$rc" "$(tr '\n' ' ' < "$WORK/$name.err")" >&2
+      printf 'ВЕТВЬ %s красная: ожидался ОТКАЗ rc=1 с именованной причиной «ОТКАЗ ветвь (izolcfg)»%s, получено rc=%s: %s\n' "$name" "${reason:+ и дословной «$reason»}" "$rc" "$(tr '\n' ' ' < "$WORK/$name.err")" >&2
     fi
   fi
 }
@@ -165,6 +178,22 @@ task:
     backend: auto
 EOF
 run_cell к7-backend-ne-tam reject
+
+# ── к8 (Б2, вердикт 4305580): изоляция выключена ПРИ правильном backend —
+# различающая пара к5 (тот же дефект enabled: false, но вторая половина нормы
+# на месте): обход «v2 проверяет backend: auto, игнорирует enabled» принимает
+# этот вход; честная v2 обязана отвергнуть с причиной «enabled: false».
+mk_cell к8-vykljucheno-s-backend
+cat > "$WORK/к8-vykljucheno-s-backend/.omp/config.yml" <<'EOF'
+# Конфигурация (игрушечная — клетка к8 батареи 067: изоляция выключена, backend правильный)
+task:
+  isolation:
+    enabled: false
+
+isolation:
+  backend: auto
+EOF
+run_cell к8-vykljucheno-s-backend reject 'enabled: false'
 
 # ── Сводка: пустая выборка = дефект фикстуры (правило мер роли) ───────────────
 RED=0; GRN=0; UNRUN=""
