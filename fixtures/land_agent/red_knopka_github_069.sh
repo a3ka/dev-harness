@@ -21,7 +21,9 @@
 #     барьер жив, предъявление не вечно-красное.
 #
 # Ожидание снято в память ДО вызова субъекта (правило 8): main_before; диск
-# проверяемого как истина не перечитывается. Серийные вызовы — `|| true` (А-32).
+# проверяемого как истина не перечитывается. Красные вызовы обязаны выйти rc≠0:
+# rc=0 при ожидаемом отказе — стаб печатает текст без отказа (вердикт 45a7d68).
+# Зелёный вызов серийный — `|| true`, его отказ ловит assert_landed (А-32).
 # Identity-окружение чистое (урок 068): явные пары author/committer у КАЖДОГО
 # коммита, наследуемых GIT_AUTHOR_*/GIT_COMMITTER_* нет.
 #
@@ -68,10 +70,15 @@ case "$sig" in
   *) printf 'ОТКАЗ: сигнатура кнопки не построена на main: %s\n' "$sig" >&2; exit 1 ;;
 esac
 main_before="$(git -C "$R" rev-parse main)"
-out_a="$("$BARRIER" --branch wip/069/implementer --worktree "$WORK/wt-knopka" --root "$R" 2>&1 || true)"
-if printf '%s\n' "$out_a" | grep -qF 'не несёт коммитов относительно main' \
+out_a="$("$BARRIER" --branch wip/069/implementer --worktree "$WORK/wt-knopka" --root "$R" 2>&1)"
+rc_a=$?
+if [ "$rc_a" -ne 0 ] \
+   && printf '%s\n' "$out_a" | grep -qF 'не несёт коммитов относительно main' \
    && [ "$(git -C "$R" rev-parse main)" = "$main_before" ]; then
   kr=$((kr+1))
+elif [ "$rc_a" -eq 0 ]; then
+  printf 'ОТКАЗ: мутант А: land_agent вернул rc=0 при ожидаемом отказе — стаб печатает текст без отказа\n' >&2
+  otkaz=1
 else
   printf 'ОТКАЗ: мутант А — land_agent не отказал кнопке пост-фактум: %s\n' "$out_a" >&2
   otkaz=1
@@ -89,11 +96,16 @@ git -C "$WORK/wt-upd" -c commit.gpgsign=false -c core.hooksPath=/dev/null \
 git -C "$R" log --format=%cn main..wip/070/implementer | grep -qxF 'GitHub' \
   || { printf 'ОТКАЗ: мутант Б — GitHub-committer не в диапазоне ветки, вход не построен\n' >&2; exit 1; }
 main_before="$(git -C "$R" rev-parse main)"
-out_b="$("$BARRIER" --branch wip/070/implementer --worktree "$WORK/wt-upd" --root "$R" 2>&1 || true)"
-if printf '%s\n' "$out_b" | grep -qF 'имя вне реестра ролей' \
+out_b="$("$BARRIER" --branch wip/070/implementer --worktree "$WORK/wt-upd" --root "$R" 2>&1)"
+rc_b=$?
+if [ "$rc_b" -ne 0 ] \
+   && printf '%s\n' "$out_b" | grep -qF 'имя вне реестра ролей' \
    && printf '%s\n' "$out_b" | grep -qF 'GitHub' \
    && [ "$(git -C "$R" rev-parse main)" = "$main_before" ]; then
   kr=$((kr+1))
+elif [ "$rc_b" -eq 0 ]; then
+  printf 'ОТКАЗ: мутант Б: land_agent вернул rc=0 при ожидаемом отказе — стаб печатает текст без отказа\n' >&2
+  otkaz=1
 else
   printf 'ОТКАЗ: мутант Б — land_agent не назвал GitHub вне реестра (И-9): %s\n' "$out_b" >&2
   otkaz=1
