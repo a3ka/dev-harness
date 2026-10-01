@@ -10,7 +10,9 @@
 # (v1) благословляет легаси-пин и не знает новых ключей → ветвей 8, красных 3
 # (к1, к2, к8 — записи живых прогонов в контракте 067 §Красные предъявления).
 # ПОСЛЕ реализации (ОДНИМ коммитом: конфиг + ветвь izolcfg v2 + toy _lib.sh + строки
-# ролей): ветвей 8, красных 0, зелёных 8.
+# ролей): ветвей 14, красных 0, зелёных 14 (14 клеток: 8 базовых круга 1 + к9–к13
+# усиления круга 2 + к14 усиления по вердикту ревьюера к2 Р-2а, пост-заморозкой по
+# прецеденту 005).
 #
 # ГРАММАТИКА нормы (единый источник omp://tools/task.md:116 + omp://settings.md
 # «Field-level migrations»; буквальные ключи):
@@ -74,6 +76,14 @@
 #                           подсекции: omp видит enabled=false, ветвь
 #                           обязана отвергнуть с «enabled: false» — Р-1
 #                           различение по флагу in_task_isol.
+#   к14 «хвост-без-пробела» — верхнеуровневый `isolation:`/`  backend:
+#                           auto#btrfs` (значение с хвостом без пробела перед
+#                           `#`); квантор `*` в `sub(/[[:space:]]*#.*$/,…)`
+#                           срезал `#` и без предшествующего пробела, проходя
+#                           значение как «auto». Р-2а fix: `*` → `+` в
+#                           `[[:space:]]+#.*$`. Контроль: вход `backend:
+#                           btrfs` уже покрыт к3 «без отката». Ожидание:
+#                           PINNED_BACKEND (значение «auto#btrfs» ≠ «auto»).
 # Анти-таутология: оракул — rc живой ветви izolcfg настоящего барьера (никаких
 # копий грамматики здесь); каждая клетка ожидает честное поведение ветви на
 # СВОЁМ входе; привязка вход↔клетка↔ожидание — этот код (Н-39, канон Arb064).
@@ -82,7 +92,10 @@
 # «enabled: false»). Усиление по вердикту адверсария 067-v1 (Д1/Д2): клетки
 # к9–к13 суживают структурную грамматику (Р-1/Р-2/С-2), к2–к7 пинуют
 # именованные причины LEGACY_MODE/PINNED_BACKEND/LEGACY_PATH/HALF (прецедент
-# 005).
+# 005). Усиление по вердикту ревьюера 067-v2 Р-2а (пост-заморозкой, прецедент
+# 005): к14 «хвост-без-пробела» пинует мутант `*`/`+` в срезе `#`-комментария —
+# без неё `backend: auto#btrfs` проходит барьер v2 как «auto» (PINNED_BACKEND
+# не пинуется); контроль `backend: btrfs` уже покрыт к3.
 set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 BARRIER="$ROOT/scripts/check_runner_hygiene.sh"
@@ -99,7 +112,7 @@ mk_cell() {
   mk_green_root "$WORK/$1"
 }
 
-ORDER=(к1-norma-avto к2-stab-legasi-pin к3-stab-pin-btrfs к4-stab-hardkod-rcopy к5-vykljucheno к6-bez-backend к7-backend-ne-tam к8-vykljucheno-s-backend к9-sibling-stab к10-deep-stab к11-trailing-backend к12-extra-nested-backend к13-chuzhoj-enabled)
+ORDER=(к1-norma-avto к2-stab-legasi-pin к3-stab-pin-btrfs к4-stab-hardkod-rcopy к5-vykljucheno к6-bez-backend к7-backend-ne-tam к8-vykljucheno-s-backend к9-sibling-stab к10-deep-stab к11-trailing-backend к12-extra-nested-backend к13-chuzhoj-enabled к14-hvost-bez-probela)
 declare -A ST RAN
 
 # run_cell <имя> <ожидание: accept|reject> [обязательная подстрока причины] —
@@ -329,6 +342,27 @@ isolation:
   backend: auto
 EOF
 run_cell к13-chuzhoj-enabled reject 'enabled: false'
+
+# ── к14 (Р-2а, вердикт ревьюера 067-v2): «хвост-без-пробела» —
+# верхнеуровневый `isolation:`/`  backend: auto#btrfs` (значение с хвостом
+# без пробела перед `#`). v1 принимал этот вход как `auto` (rc=0 ok): квантор
+# `*` в `sub(/[[:space:]]*#.*$/, …)` срезал `#` без предшествующего пробела,
+# хвост `#btrfs` отбрасывался как комментарий. Р-2а fix: `*` → `+` —
+# `[[:space:]]+#.*$` требует хотя бы один пробел перед `#`. После фикса
+# значение «auto#btrfs» сравнивается ЦЕЛИКОМ с `auto` и отлучается как
+# PINNED_BACKEND (инв. 4: значение с хвостом не совпадают). Контроль —
+# вход `backend: btrfs` уже покрыт к3 «без отката». Ожидание: PINNED_BACKEND.
+mk_cell к14-hvost-bez-probela
+cat > "$WORK/к14-hvost-bez-probela/.omp/config.yml" <<'EOF'
+# Конфигурация (игрушечная — клетка к14 батареи 067: хвост без пробела)
+task:
+  isolation:
+    enabled: true
+
+isolation:
+  backend: auto#btrfs
+EOF
+run_cell к14-hvost-bez-probela reject 'PINNED_BACKEND'
 
 # ── Сводка: пустая выборка = дефект фикстуры (правило мер роли) ───────────────
 RED=0; GRN=0; UNRUN=""

@@ -878,7 +878,7 @@ if want izolcfg; then
       have_backend = 1
       val = $0
       sub(/^  backend:[[:space:]]*/, "", val)
-      sub(/[[:space:]]*#.*$/, "", val)
+      sub(/[[:space:]]+#.*$/, "", val)
       sub(/[[:space:]]+$/, "", val)
       backend = val
       next
