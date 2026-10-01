@@ -71,6 +71,7 @@
     "check:samodostatochnost-family-selftest": "bash fixtures/_krasnye_060.sh",
     "check:github-token-family-selftest": "bash scripts/check_github_token_070.sh",
     "check:gitw-predpolet-family-selftest": "bash fixtures/_krasnye_071.sh",
+    "check:orch-restart-family-selftest": "bash fixtures/_krasnye_072.sh",
     "check:merge-gate-family-selftest": "bash fixtures/check_judge_gate/krasnye_063.sh",
     "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh"
   }
