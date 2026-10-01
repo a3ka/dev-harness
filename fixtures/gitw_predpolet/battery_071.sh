@@ -460,16 +460,22 @@ run_stub_pack() {
     api_mode=api; toks=(main)
     [ "$st" = "s9" ] && toks=(refs/heads/main)
     [ "$st" = "s7" ] && api_mode=dead
+    # мир-нарушение: обманный стаб обязан ПРОЖИТЬ его (rc 0 либо отказ не той
+    # причиной) — именно это и есть «пойман»: мир настоящий, дефект различим.
+    # Отказался правильно — дефект мёртв, батарея красна (стаб не обманут).
     stub_violation "$kind"
     run_stub "$st" "$api_mode" "${toks[@]}"
-    expect_refuse "стаб-$st" "$PF$want"
+    if [ "$RC" -eq 1 ] && grep -qF -- "$PF$want" "$WORK/last.err"; then
+      die_cell "стаб-$st" "не обманут: отказался на «$want» правильно — дефект не воспроизводится"
+    fi
     caught=$((caught+1))
-    # диффпроба на зелёном мире (свежий mk_world: теги синхронны, PR зелёный)
+    # диффпроба на зелёном мире (свежий mk_world): тот же стаб обязан пройти
+    # чистый мир rc 0 — иначе он параноик, а не обманка (А-308).
     mk_world "sv-clean-$st"
     run_stub "$st" api main
     [ "$RC" -eq 0 ] || die_cell "стаб-$st" "над-блокировка: чистый мир rc=$RC: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
     diff=$((diff+1))
-    printf 'ok: стаб-%s умирает на %s и проходит чистый мир\n' "$st" "$kind"
+    printf 'ok: стаб-%s прожил «%s» и проходит чистый мир\n' "$st" "$kind"
   done
   printf 'стаб-пак: %s/%s поймано, диффпроба %s/%s\n' "$caught" "${#pairs[@]}" "$diff" "${#pairs[@]}"
   [ "$caught" -eq "${#pairs[@]}" ] && [ "$diff" -eq "${#pairs[@]}" ]
