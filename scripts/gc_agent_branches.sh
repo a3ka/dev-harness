@@ -435,6 +435,58 @@ for entry in os.scandir(base):
 PYEOF
 fi
 
+# ─── МУСОРНЫЕ WORKTREE (расширение контракта 072, инвариант 4) ───────────────
+# Мусорный worktree: запись git worktree list --porcelain НЕ основного чекаута,
+# чья ветка НЕ refs/heads/wip/[0-9]{3}/<автор> (включая detached/bare).
+# Реестр wip/* не трогается (016/026/030 — landed-зоны того же автора).
+# Поведение:
+#   * чистый (porcelain worktree пуст) ∧ приземлённый (HEAD-коммит worktree
+#     достижим из HEAD) → удаляется самим GC (worktree remove + branch -D);
+#   * неудаляемый (грязный / неприземлённый) → печатается в stderr
+#     «мусорный worktree: <путь>» и приводит к rc 1 (вызывающая дверь
+#     перезапуска увидит именованный отказ и перечислит путь в гейте).
+# Действие оформлено так, чтобы двери было наблюдаемо делегирование: вызов
+# появляется в логе обёртки-регистратора из батареи 072.
+garbage_named=0
+while IFS= read -r wt_path && IFS= read -r wt_head && IFS= read -r wt_branch; do
+  [ -n "$wt_path" ] || continue
+  [ "$wt_path" = "$ROOT" ] && continue
+  case "$wt_branch" in
+    refs/heads/wip/[0-9][0-9][0-9]/*) continue ;;
+  esac
+  landed=0
+  if [ -n "$wt_head" ]; then
+    g merge-base --is-ancestor "$wt_head" HEAD 2>/dev/null && landed=1
+  fi
+  wt_dirty="$(git -C "$wt_path" status --porcelain 2>/dev/null || true)"
+  if [ "$landed" -eq 1 ] && [ -z "$wt_dirty" ]; then
+    # чистый приземлённый — удаляем сами (worktree + связанный ref detached)
+    branch_arg=""
+    if [ "$wt_branch" != "detached" ] && [ "$wt_branch" != "bare" ]; then
+      branch_arg="$wt_branch"
+    fi
+    if g worktree remove --force "$wt_path" 2>/dev/null; then
+      # ref удаляем ТОЛЬКО если есть чем (detached/bare — ref нет)
+      if [ -n "$branch_arg" ]; then
+        g branch -D "${branch_arg#refs/heads/}" 2>/dev/null || true
+      fi
+      printf 'мусорный worktree: %s — удалён чистый приземлённый\n' "$wt_path" >&2
+    else
+      printf 'мусорный worktree: %s\n' "$wt_path" >&2
+      garbage_named=$((garbage_named + 1))
+    fi
+  else
+    printf 'мусорный worktree: %s\n' "$wt_path" >&2
+    garbage_named=$((garbage_named + 1))
+  fi
+done < <(g worktree list --porcelain | awk '
+  /^worktree / { if (p != "") { print p; print h; print b }; p=substr($0,10); h=""; b="detached" }
+  /^HEAD /     { h=substr($0,6) }
+  /^branch /   { b=substr($0,8) }
+  /^bare$/     { b="bare" }
+  END { if (p != "") { print p; print h; print b } }
+')
+
 # ─── TMP-РЕАП (контракт 026, слой 1 Н-97) ────────────────────────────────────
 # Реап скратча in-tree ./tmp при close-out. Источник — untracked (не перечисляет tracked);
 # свёртка до верхнеуровневой записи (первый компонент после tmp/). tracked не кандидат
@@ -787,7 +839,7 @@ except Exception as ex:
   fi
 fi
 
-printf 'GC: слито и снесено %d · зависших %d · отказов OID %d · TMP-РЕАП кандидатов %d\n' \
-  "$removed" "$kept" "$fails" "$reap_total" >&2
+printf 'GC: слито и снесено %d · зависших %d · отказов OID %d · TMP-РЕАП кандидатов %d · мусорных worktree названо %d\n' \
+  "$removed" "$kept" "$fails" "$reap_total" "$garbage_named" >&2
 
-[ "$fails" -eq 0 ] || exit 1
+[ "$fails" -eq 0 ] && [ "$garbage_named" -eq 0 ] || exit 1
