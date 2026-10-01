@@ -18,7 +18,7 @@
 #
 # Структура (v2, правка по вердикту критика к1: Б2 стартовый след, Б3 суд
 # самого GC + инструментированное делегирование):
-#   1. СТАБ-ПАК (9 обманных стабов двери, ручки STUB_*) — зелёный ДО и
+#   1. СТАБ-ПАК (10 обманных стабов двери, ручки STUB_*) — зелёный ДО и
 #      ПОСЛЕ реализации: каждый стаб умирает на СВОЕЙ клетке; диффпроба —
 #      те же стабы БЕЗ ручек проходят те же клетки (ловля предикатом,
 #      не случаем).
@@ -32,7 +32,7 @@
 #   3. г0 «предмет отсутствует» — fail-fast по НОСИТЕЛЮ: в дереве нет
 #      scripts/orch_restart.sh → клетки двери не исполняются, rc 1
 #      (ДО-мера пачки: grep -rc orch_restart scripts/ roles/ = 0).
-#   4. ЧЕСТНАЯ ЧАСТЬ ДВЕРИ (клетки к1..к10) — зелёная ПОСЛЕ реализации:
+#   4. ЧЕСТНАЯ ЧАСТЬ ДВЕРИ (клетки к1..к11) — зелёная ПОСЛЕ реализации:
 #      к1 всё зелёно (неслитый легальный wip-worktree ВЫЖИВАЕТ) → rc 0,
 #      маркер, след перезаписан;
 #      к2 HEAD впереди origin → отказ «HEAD», маркера нет;
@@ -50,6 +50,11 @@
 #      стартового следа», маркера нет;
 #      к10 первое использование: следа НЕТ → дверь инициализирует след и
 #      отказывает по (в2) — инициализация НЕ вакуумна, файл следа создан.
+#      к11 клетка ПЕРЕХОДА (арбитраж 072-Б2): S1 зелёная дверь (rc 0,
+#      маркер, след := момент завершения) → маркер снят батареей, HANDOFF
+#      не менялся → S2 rc 1 «HANDOFF.md изменён до стартового следа
+#      сессии», маркера нет → новый HANDOFF-коммит той же identity
+#      (sleep 1) → S3 rc 0, маркер.
 #
 # Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи,
 # не в прозе контракта; каждый стаб красен на входе, где его дефект
@@ -77,6 +82,10 @@
 #   s9 STUB_INLINE_DELETE «удаляет мусорный worktree сама, мимо GC» —
 #        красен на к7-входе с обёрткой-регистратором: каталог удалён, НО
 #        вызов GC не зафиксирован — расширение GC обойдено дверью (Б3).
+#   s10 STUB_TRACE_MOMENT «пишет след = ct(HANDOFF)−1 вместо момента
+#        завершения» (выходная сторона, мутант критика к2) — красен на
+#        к11-входе, стадия S2: повторный вход без нового HANDOFF-коммита
+#        даёт rc 0 и маркер — обход повторного входа открыт (Б2).
 #
 # ИНСТРУМЕНТИРОВАНИЕ ДЕЛЕГИРОВАНИЯ: в мирах батареи scripts/gc_agent_branches.sh
 # — ОБЁРТКА-РЕГИСТРАТОР: пишет строку «GC-CALLED <argv>» во ВНЕШНИЙ лог
@@ -114,7 +123,7 @@
 # именно детектор.
 #
 # Прогон: bash red_dver_perezapuska_072.sh [корень worktree]
-#   rc 0 — стаб-пак пойман (9/9) И диффпроба (9/9) И честная часть (12/12).
+#   rc 0 — стаб-пак пойман (10/10) И диффпроба (10/10) И честная часть (13/13).
 #   rc 1 — расхождение / предмет отсутствует (г0, ДО реализации двери).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -168,6 +177,17 @@ TRACE="${ORCH_SESSION_START:-/tmp/dev-harness-verify/orch-session-start}"
 refuse() { printf 'ОТКАЗ: %s\n' "$1" >&2; exit 1; }
 trace_write() { # атомарная замена одной ISO-строкой
   mkdir -p "$(dirname "$TRACE")"
+  if [ "${STUB_TRACE_MOMENT:-}" = 1 ]; then
+    # ОБМАНА выходной стороны (критик к2, арбитраж 072-Б2): след :=
+    # ct(HANDOFF)−1с вместо момента завершения — повторный вход без
+    # нового HANDOFF-коммита проходит ногу (в2), обход открыт.
+    local m_ep
+    m_ep="$(git -C "$ROOT" log -1 --format=%ct -- HANDOFF.md 2>/dev/null)" \
+      || m_ep="$(date +%s)"
+    printf '%s\n' "$(date -Is -d "@$((m_ep-1))")" > "$TRACE.tmp.$$" \
+      && mv -f "$TRACE.tmp.$$" "$TRACE"
+    return
+  fi
   printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" && mv -f "$TRACE.tmp.$$" "$TRACE"
 }
 wt_pairs() { git -C "$ROOT" worktree list --porcelain | awk '
@@ -392,6 +412,12 @@ violate_J() { # к10, первое использование: следа НЕТ
   trace_absent
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
+violate_K() { # к11, клетка ПЕРЕХОДА (арбитраж 072-Б2): ЗЕЛЁНЫЙ мир — та
+  # же расстановка, что violate_A (живой неслитый wip, след в прошлом,
+  # снимок); «нарушение» порождается САМОЙ последовательностью прогонов:
+  # повторный вход без нового HANDOFF-коммита обязан отказывать ногой (в2)
+  violate_A
+}
 violate_GC() { # мир г1 (прямой суд GC): неслитый wip + чистый приземлённый
   # мусор + грязный мусор; дверь не зовётся — снимок/след не нужны
   git -C "$T" worktree add -q -b wip/072/architect "$T-wip" main
@@ -499,7 +525,49 @@ build_cell() {
   "$v"
 }
 
-# ── СТАБ-ПАК: 9 стабов × (ручка=дефект ловится, ручки нет — диффпроба) ──────
+# run_seq_cell <метка> <строитель> <установка> [ENV=1 …]: клетка ПЕРЕХОДА
+# к11 (арбитраж 072-Б2, различающий вход (i)): S1 зелёная дверь (rc 0,
+# маркер, след := момент завершения) → батарея снимает маркер, HANDOFF
+# не менялся → S2 обязан rc 1 «HANDOFF.md изменён до стартового следа
+# сессии», маркера нет → новый HANDOFF-коммит той же identity (sleep 1:
+# committer-дата строго новее следа S1) → S3 rc 0, маркер. Любая
+# упавшая стадия краснит клетку целиком (SEQ_FAIL).
+run_seq_cell() {
+  local tag="$1" v="$2" inst="$3"; shift 3
+  local M="$WORK/seq-$tag"
+  T="$WORK/st-$tag"; TRACE="$M-trace"; GCLOG="$M-gclog"
+  build_cell "$T" "$v" "$inst"
+  rm -f "$GCLOG"
+  SEQ_FAIL=0
+  # S1: зелёная дверь (след в прошлом относительно HANDOFF-коммита)
+  cp "$TRACE" "$TRACE.pre"
+  run_subject "$T" "$M-s1" "$@"
+  CELL_FAIL=0; p_A "$tag-S1" "$M-s1" "$S_RC" "$M-s1.err" "$M-s1.out"
+  [ "$CELL_FAIL" -eq 0 ] || SEQ_FAIL=1
+  # батарея снимает маркер; HANDOFF-коммит НЕ менялся
+  rm -f "$M-s1"
+  run_subject "$T" "$M-s2" "$@"
+  CELL_FAIL=0; p_I "$tag-S2" "$M-s2" "$S_RC" "$M-s2.err" "$M-s2.out"
+  [ "$CELL_FAIL" -eq 0 ] || SEQ_FAIL=1
+  # новый HANDOFF-коммит той же identity; sleep 1 — committer-дата строго
+  # новее следа, которым завершилась S1 (git %ct — секундное разрешение)
+  sleep 1
+  printf '## ГДЕ МЫ (toy, переход)\n' > "$T/HANDOFF.md"
+  git -C "$T" add HANDOFF.md
+  git -C "$T" commit -qm 'toy: новый HANDOFF (клетка перехода)'
+  git -C "$T" push -q origin main
+  # пересъём детекторного базлайна ПОСЛЕ нового коммита (канон violate_D:
+  # HANDOFF-коммит сессии — легальная дельта, входит в базлайн; детектор
+  # судит МУСОР ПОСЛЕ базлайна, не правку HANDOFF)
+  bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
+  # S3: зелёная дверь на новом HANDOFF-коммите
+  cp "$TRACE" "$TRACE.pre"
+  run_subject "$T" "$M-s3" "$@"
+  CELL_FAIL=0; p_A "$tag-S3" "$M-s3" "$S_RC" "$M-s3.err" "$M-s3.out"
+  [ "$CELL_FAIL" -eq 0 ] || SEQ_FAIL=1
+}
+
+# ── СТАБ-ПАК: 10 стабов × (ручка=дефект ловится, ручки нет — диффпроба) ─────
 stab_caught=0; diff_green=0
 run_cell_pair() { # $1=метка $2=нарушение $3=предикат $4=ручка
   local tag="$1" v="$2" pred="$3" knob="$4"
@@ -528,6 +596,23 @@ run_cell_pair() { # $1=метка $2=нарушение $3=предикат $4=�
   fi
 }
 
+# s10 — стаб ВЫХОДНОЙ СТОРОНЫ (арбитраж 072-Б2): клетка перехода к11 на
+# обеих сторонах: с ручкой (мутант критика к2 «след = ct(HANDOFF)−1»)
+# стадия S2 даёт rc 0 и маркер — предикат честного поведения падает,
+# дефект пойман; без ручки та же последовательность зелёна (диффпроба).
+run_seq_pair() { # $1=метка $2=строитель $3=ручка
+  run_seq_cell "$1(ручка)" "$2" stub_install "STUB_$3=1"
+  if [ "$SEQ_FAIL" -ne 0 ]; then stab_caught=$((stab_caught+1)); else
+    printf 'стаб-пак ОТКАЗ: стаб %s с ручкой ПРОШЁЛ клетку перехода (%s)\n' "$3" "$1" >&2
+    exit 1
+  fi
+  run_seq_cell "$1(дифф)" "$2" stub_install
+  if [ "$SEQ_FAIL" -eq 0 ]; then diff_green=$((diff_green+1)); else
+    printf 'стаб-пак ОТКАЗ: диффпроба перехода %s упала без ручки\n' "$1" >&2
+    exit 1
+  fi
+}
+
 run_cell_pair s1 violate_B p_B SKIP_HEAD
 run_cell_pair s2 violate_C p_C SKIP_PORCELAIN
 run_cell_pair s3 violate_D p_D SKIP_HANDOFF
@@ -537,8 +622,9 @@ run_cell_pair s6 violate_C p_C EAGER_MARKER
 run_cell_pair s7 violate_G p_G2 NO_DELETE
 run_cell_pair s8 violate_I p_I SKIP_TRACE
 run_cell_pair s9 violate_G p_G2 INLINE_DELETE
-printf 'стаб-пак: %d/9 поймано, диффпроба %d/9\n' "$stab_caught" "$diff_green"
-[ "$stab_caught" -eq 9 ] && [ "$diff_green" -eq 9 ] \
+run_seq_pair s10 violate_K TRACE_MOMENT
+printf 'стаб-пак: %d/10 поймано, диффпроба %d/10\n' "$stab_caught" "$diff_green"
+[ "$stab_caught" -eq 10 ] && [ "$diff_green" -eq 10 ] \
   || die_pack "счёт стаб-пака не сошёлся (поймано $stab_caught, дифф $diff_green)"
 
 # ── ЧЕСТНАЯ ЧАСТЬ ────────────────────────────────────────────────────────────
@@ -567,7 +653,7 @@ if [ ! -f "$ROOT/scripts/orch_restart.sh" ]; then
   exit 1
 fi
 
-# ── ЧЕСТНАЯ ЧАСТЬ ДВЕРИ: к1..к10 против реальных скриптов дерева ────────────
+# ── ЧЕСТНАЯ ЧАСТЬ ДВЕРИ: к1..к11 против реальных скриптов дерева ────────────
 run_honest() { # $1=метка $2=нарушение $3=предикат
   local tag="$1" v="$2" pred="$3"
   honest_total=$((honest_total+1))
@@ -590,8 +676,13 @@ run_honest к7 violate_G p_G2
 run_honest к8 violate_H p_H
 run_honest к9 violate_I p_I
 run_honest к10 violate_J p_J
+# к11 — клетка ПЕРЕХОДА против реальной двери (арбитраж 072-Б2):
+# последовательный вход без нового HANDOFF-коммита обязан отказывать
+honest_total=$((honest_total+1))
+run_seq_cell к11 violate_K honest_install
+if [ "$SEQ_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
 printf 'честная часть: %d/%d зелёная\n' "$honest_green" "$honest_total"
 [ "$honest_green" -eq "$honest_total" ] \
   || die_pack "честная часть красна ($honest_green/$honest_total)"
-printf 'итог 072-батареи: предъявлений стабы 9/9 + дифф 9/9 + честные 12/12\n'
+printf 'итог 072-батареи: предъявлений стабы 10/10 + дифф 10/10 + честные 13/13\n'
 exit 0
