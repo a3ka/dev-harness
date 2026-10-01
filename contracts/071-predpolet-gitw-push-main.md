@@ -144,9 +144,12 @@
 
 ## Красные предъявления
 
-Носитель — fixtures/gitw_predpolet/battery_071.sh (каталог ВНЕ fixtures/gitw/:
+Носитель — fixtures/gitw_predpolet/red_predpolet_071.sh (каталог ВНЕ fixtures/gitw/:
 замороженный раннер 045 _krasnye_045.sh глобит fixtures/gitw/red_*.sh — новое
-имя там сломало бы семью), раннер — fixtures/_krasnye_071.sh. Привязки
+имя там сломало бы семью), раннер — fixtures/_krasnye_071.sh; каталог —
+probe-only семья 034: маркер fixtures/gitw_predpolet/.probe-only + red_*-имя +
+ни одного case_* (шард verify_antiplacebo исполняет только case_*, и его же
+сверка «фикстура без барьера» требует маркер. Привязки
 стабов к входам (Н-39: ручка → дефект → вход, где дефект наблюдаем) живут
 ТОЛЬКО в коде батареи. Состав: честные клетки п0–п7 (п0 — предмет существует
 и крюк звонит; fail-fast: отсутствие scripts/gitw_preflight_071.sh ИЛИ
@@ -179,7 +182,7 @@ wip/[0-9]{3}/[^/]+ под /dev-harness-worktrees/[0-9a-f]{8}/. Значения 
 
 ## Зоны (check_zones)
 
-ЗОНА architect: contracts/071-predpolet-gitw-push-main.md fixtures/gitw_predpolet/battery_071.sh fixtures/_krasnye_071.sh NABLIUDENIA_ARCHITECT.md
+ЗОНА architect: contracts/071-predpolet-gitw-push-main.md fixtures/gitw_predpolet/red_predpolet_071.sh fixtures/gitw_predpolet/.probe-only fixtures/_krasnye_071.sh NABLIUDENIA_ARCHITECT.md
 
 ЗОНА implementer: scripts/gitw scripts/gitw_preflight_071.sh .github/workflows/ci.yml package.json
 
