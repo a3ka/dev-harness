@@ -421,3 +421,9 @@ owner.json` × `sessionId`): вложенный `_task`, порождённый 
 Норма-строка (ПРОВОДКА roles/orchestrator.md, контракт 068):
 
 Минт-строка реестра контрактов — только scripts/mint_line.sh --nnn <NNN> --root <корень> (скрипт сам сверяет dual-control провенанс тега id/CONTRACT/<NNN> локально и на origin, отказывает fail-closed без сети/переминта/повторного номера и коммитит строку <NNN> → <tag-object-sha> на main identity orchestrator; тег минтит next_id, пуш строки — отдельный шаг через bash scripts/gitw; многокоммитные пачки субагентов принимает scripts/accept_task_commit.sh — диапазон черри-пикается от старшего к младшему, ручной replay не нужен).
+
+## PR-маршрут контракта (069)
+
+Норма-строка (ПРОВОДКА roles/orchestrator.md, контракт 069):
+
+PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw, PR открывается как CI-гейт по своему ref (pull_request-триггер ci.yml, concurrency-группа ci-<github.ref> — PR-прогон не отменяет main-прогон); слияние — ТОЛЬКО scripts/land_agent.sh локально после зелёного PR, кнопка Merge в UI GitHub запрещена (её merge даёт committer GitHub без маркера land: wip/… — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
