@@ -2,8 +2,8 @@
 # 072-БАТАРЕЯ — «дверь перезапуска сессии»: scripts/orch_restart.sh —
 # ЕДИНСТВЕННЫЙ способ поставить маркер /tmp/dev-harness-verify/orch-restart
 # (слово владельца 2026-10-01, дословно в HANDOFF «ГДЕ МЫ»: гейт
-# HEAD == origin/main; porcelain пусто; HANDOFF.md изменён коммитом ЭТОЙ
-# сессии; check_no_leak rc 0; нет мусорных worktree → иначе именованный
+# HEAD == origin/main; porcelain пусто; HANDOFF.md изменён коммитом
+# ЭТОЙ сессии; check_no_leak rc 0; нет мусорных worktree → иначе именованный
 # отказ; мусорные worktree чистые и приземлённые — удалить (расширение
 # gc_agent_branches), прочие — назвать; строка роли «touch …» →
 # «bash scripts/orch_restart.sh»; до done 072 маркер — прежним touch по
@@ -16,25 +16,40 @@
 # fixtures/_krasnye_072.sh. До-заморозочный носитель закоммичен АРХИТЕКТОРОМ
 # (красные предъявления ДО круга критика; прецеденты 058/070).
 #
-# Структура (070-прецедент):
-#   1. СТАБ-ПАК (7 обманных стабов двери, ручки STUB_*) — зелёный ДО и
+# Структура (v2, правка по вердикту критика к1: Б2 стартовый след, Б3 суд
+# самого GC + инструментированное делегирование):
+#   1. СТАБ-ПАК (9 обманных стабов двери, ручки STUB_*) — зелёный ДО и
 #      ПОСЛЕ реализации: каждый стаб умирает на СВОЕЙ клетке; диффпроба —
 #      те же стабы БЕЗ ручек проходят те же клетки (ловля предикатом,
 #      не случаем).
-#   2. г0 «предмет отсутствует» — fail-fast по НОСИТЕЛЮ: в дереве нет
-#      scripts/orch_restart.sh → честная часть не исполняется, rc 1
-#      (ДО-мера пачки: на 04b55b3 grep -c orch_restart scripts/ = 0).
-#   3. ЧЕСТНАЯ ЧАСТЬ (клетки к1..к8) — зелёная ПОСЛЕ реализации:
-#      к1 всё зелёно (легальный wip-worktree ВЫЖИВАЕТ) → rc 0, маркер;
+#   2. г1 «суд самого GC» — ПРЯМОЙ прогон scripts/gc_agent_branches.sh на
+#      конформном мире: чистый приземлённый мусорный worktree удаляется
+#      САМИМ GC, грязный жив и назван (rc 1 — неудаляемый мусор), неслитый
+#      wip жив; г2 — зелёная ветвь того же суда (без неудаляемого мусора:
+#      rc 0, чистый приземлённый удалён). Исполняются ДО г0 и КРАСНЫ на
+#      нынешнем дереве (расширения ещё нет) — красное предъявление
+#      расширения GC как такового (Б3), не только конечного эффекта двери.
+#   3. г0 «предмет отсутствует» — fail-fast по НОСИТЕЛЮ: в дереве нет
+#      scripts/orch_restart.sh → клетки двери не исполняются, rc 1
+#      (ДО-мера пачки: grep -rc orch_restart scripts/ roles/ = 0).
+#   4. ЧЕСТНАЯ ЧАСТЬ ДВЕРИ (клетки к1..к10) — зелёная ПОСЛЕ реализации:
+#      к1 всё зелёно (неслитый легальный wip-worktree ВЫЖИВАЕТ) → rc 0,
+#      маркер, след перезаписан;
 #      к2 HEAD впереди origin → отказ «HEAD», маркера нет;
 #      к3 porcelain грязен → отказ, маркера нет;
-#      к4 HANDOFF.md последним коммитил ЧУЖОЙ автор → отказ, маркера нет;
+#      к4 HANDOFF.md последним коммитил ЧУЖОЙ автор → отказ (в1), маркера нет;
 #      к5 детектор красен (новый untracked после снимка) → отказ, маркера нет;
 #      к6 мусорный worktree ГРЯЗНЫЙ → отказ с путём, worktree жив, маркера нет;
-#      к7 мусорный worktree ЧИСТЫЙ+ПРИЗЕМЛЁННЫЙ → удалён (расширение gc),
-#      rc 0, маркер;
+#      к7 мусорный worktree ЧИСТЫЙ+ПРИЗЕМЛЁННЫЙ → удалён РАСШИРЕНИЕМ GC
+#      (вызов GC зафиксирован внешним логом обёртки-регистратора), rc 0,
+#      маркер;
 #      к8 мусорный worktree ЧИСТЫЙ+НЕПРИЗЕМЛЁННЫЙ → отказ с путём, worktree
-#      жив, маркера нет.
+#      жив, маркера нет;
+#      к9 ОБХОД Б2: HANDOFF-коммит той же identity, но СТАРЕЕ стартового
+#      следа (след новее — «сессия S2 с тем же user.name») → отказ «до
+#      стартового следа», маркера нет;
+#      к10 первое использование: следа НЕТ → дверь инициализирует след и
+#      отказывает по (в2) — инициализация НЕ вакуумна, файл следа создан.
 #
 # Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи,
 # не в прозе контракта; каждый стаб красен на входе, где его дефект
@@ -53,37 +68,54 @@
 #   s6 STUB_EAGER_MARKER  «ставит маркер ДО проверок» — красен на к3-входе:
 #        отказ правильный (rc 1, причина porcelain), НО МАРКЕР СТОИТ —
 #        рестарт запущен бы при отказавшей двери (неатомарность порядка).
-#   s7 STUB_NO_DELETE     «не удаляет чистые приземлённые» — красен на
-#        к7-входе: rc 0 и маркер, НО мусорный worktree ВЫЖИЛ — расширение
-#        gc не исполнено дверью.
+#   s7 STUB_NO_DELETE     «не удаляет чистые приземлённые» (ручка съедена
+#        стаб-GC) — красен на к7-входе: rc 0 и маркер, НО мусорный worktree
+#        ВЫЖИЛ — расширение gc не исполнено.
+#   s8 STUB_SKIP_TRACE    «не сверяет дату HANDOFF-коммита со стартовым
+#        следом» — красен на к9-входе (след новее коммита, identity та же):
+#        маркер поставлен — обход «та же identity, чужая сессия» открыт (Б2).
+#   s9 STUB_INLINE_DELETE «удаляет мусорный worktree сама, мимо GC» —
+#        красен на к7-входе с обёрткой-регистратором: каталог удалён, НО
+#        вызов GC не зафиксирован — расширение GC обойдено дверью (Б3).
+#
+# ИНСТРУМЕНТИРОВАНИЕ ДЕЛЕГИРОВАНИЯ: в мирах батареи scripts/gc_agent_branches.sh
+# — ОБЁРТКА-РЕГИСТРАТОР: пишет строку «GC-CALLED <argv>» во ВНЕШНИЙ лог
+# (путь знает только батарея, субъекту не передаётся) и exec-ит носитель
+# gc_real.sh (стаб-GC в мирах стабов; копия настоящего GC в честных мирах).
+# Оракул вызова — память батареи, не диск проверяемого (правило 8).
 #
 # Демаркация контрпримеров (уроки 019): КОНФОРМНЫЕ входы по грамматике
 # предмета — toy-репозиторий: ветка main, remote origin (локальный bare,
 # origin/main существует), HANDOFF.md закоммичен, субъект (стаб или копия
 # реальных скриптов) закоммичен и отправлен в origin, детекторный снимок
-# ${TMPDIR}/dev-harness-leak сделан по канону check_no_leak; мусорный
-# worktree = запись git worktree list НЕ основного чекаута с веткой вне
-# refs/heads/wip/[0-9][0-9][0-9]/* (включая detached) либо с чужим
-# состоянием (грязь/неприземлённость). Пути toy-миров СЛУЧАЙНЫ на каждый
-# прогон (mktemp; инвариантность к путям/именам): стаб с зашитым литералом
-# пути пройти клетку не может. Валидный контрпример = инвариантность к
-# путям ∧ расхождение честного и стаба на КОНФОРМНОМ входе.
+# ${TMPDIR}/dev-harness-leak сделан по канону check_no_leak, стартовый
+# след — одна ISO-8601 строка (прошлое для зелёных клеток, будущее для
+# к9, отсутствие для к10); мусорный worktree = запись git worktree list НЕ
+# основного чекаута с веткой вне refs/heads/wip/[0-9][0-9][0-9]/*
+# (включая detached); легальный wip в клетках НЕСЛИТ (tip недостижим из
+# HEAD) — этого требует сам GC (слитые wip он сносит по 016). Пути toy-миров
+# СЛУЧАЙНЫ на каждый прогон (mktemp; инвариантность к путям/именам): стаб
+# с зашитым литералом пути пройти клетку не может. Валидный контрпример =
+# инвариантность к путям ∧ расхождение честного и стаба на КОНФОРМНОМ входе.
 #
-# ГИГИЕНА МАРКЕРА: батарея НИКОГДА не читает и не пишет живой путь
-# /tmp/dev-harness-verify/orch-restart — все прогоны идут с
-# ORCH_RESTART_MARKER=<toy-путь> (тест-шов предмета); ambient-значение
-# снято до начала; живой orch-loop не потревожен.
+# ГИГИЕНА МАРКЕРА И СЛЕДА: батарея НИКОГДА не читает и не пишет живые пути
+# /tmp/dev-harness-verify/orch-restart и
+# /tmp/dev-harness-verify/orch-session-start — все прогоны идут с
+# ORCH_RESTART_MARKER=<toy-путь> ORCH_SESSION_START=<toy-путь> (тест-швы
+# предмета); ambient-значения сняты до начала; живой orch-loop не потревожен.
 #
 # ПОРЯДОК СТРОИТЕЛЬСТВА КЛЕТКИ (атрибуция причин): toy-мир → установка
-# субъекта (стаб/копия) → COMMIT+push субъекта (porcelain чист, HEAD==origin)
-# → расстановка нарушения → детекторный снимок ПОСЛЕ расстановки (базлайн
-# включает нарушение → детектор зелёный, отказ атрибутируется СВОЕЙ
-# ветвью). Единственное исключение — к5: там нарушение и есть «строка
-# ПОСЛЕ снимка», снимок делается до и эта клетка судит именно детектор.
+# субъекта (стаб/копия + обёртка-регистратор GC) → COMMIT+push субъекта
+# (porcelain чист, HEAD==origin) → расстановка нарушения (нарушение +
+# стартовый след: прошлое/будущее/отсутствие) → детекторный снимок ПОСЛЕ
+# расстановки (базлайн включает нарушение → детектор зелёный, отказ
+# атрибутируется СВОЕЙ ветвью). Единственное исключение — к5: там нарушение
+# и есть «строка ПОСЛЕ снимка», снимок делается до и эта клетка судит
+# именно детектор.
 #
 # Прогон: bash red_dver_perezapuska_072.sh [корень worktree]
-#   rc 0 — стаб-пак пойман (7/7) И диффпроба (7/7) И честная часть (8/8).
-#   rc 1 — расхождение / предмет отсутствует (г0, ДО реализации).
+#   rc 0 — стаб-пак пойман (9/9) И диффпроба (9/9) И честная часть (12/12).
+#   rc 1 — расхождение / предмет отсутствует (г0, ДО реализации двери).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="${1:-$(cd "$HERE/../.." && pwd -P)}"
@@ -92,8 +124,8 @@ trap 'rm -rf "$WORK"' EXIT
 die_pack() { printf '072-батарея ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || die_pack "нет git"
 
-# Гигиена: ambient-шов снят; живой путь не читается и не пишется.
-unset ORCH_RESTART_MARKER
+# Гигиена: ambient-швы сняты; живые пути не читаются и не пишутся.
+unset ORCH_RESTART_MARKER ORCH_SESSION_START
 
 STAB_SRC="$ROOT/scripts/check_no_leak.sh"
 [ -f "$STAB_SRC" ] || die_pack "в дереве нет scripts/check_no_leak.sh — батарея строит toy-мир на нём"
@@ -122,6 +154,9 @@ toy_make() { # $1=toy-root
 
 # СТАБ-ДВЕРЬ: полная обманная реализация предмета; ручки STUB_* выкрашивают
 # ровно одну ветвь. Без ручек — честное поведение всех ветвей (диффпроба).
+# Делегирование: честный путь запускает обёртку-регистратор GC своего
+# корня (та же команда, что предписана настоящей двери), ручка
+# STUB_INLINE_DELETE удаляет сама, мимо GC.
 write_stub() { # $1=toy-root
   cat > "$1/scripts/orch_restart.sh" <<'STUB'
 #!/usr/bin/env bash
@@ -129,7 +164,19 @@ write_stub() { # $1=toy-root
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 MARKER="${ORCH_RESTART_MARKER:-/tmp/dev-harness-verify/orch-restart}"
+TRACE="${ORCH_SESSION_START:-/tmp/dev-harness-verify/orch-session-start}"
 refuse() { printf 'ОТКАЗ: %s\n' "$1" >&2; exit 1; }
+trace_write() { # атомарная замена одной ISO-строкой
+  mkdir -p "$(dirname "$TRACE")"
+  printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" && mv -f "$TRACE.tmp.$$" "$TRACE"
+}
+wt_pairs() { git -C "$ROOT" worktree list --porcelain | awk '
+  /^worktree / { if (p != "") print p "|" h "|" b; p=substr($0,10); h=""; b="detached" }
+  /^HEAD /     { h=substr($0,6) }
+  /^branch /   { b=substr($0,8) }
+  /^bare$/     { b="bare" }
+  END { if (p != "") print p "|" h "|" b; }
+'; }
 if [ "${STUB_EAGER_MARKER:-}" = 1 ]; then
   mkdir -p "$(dirname "$MARKER")"; touch "$MARKER"
 fi
@@ -146,45 +193,125 @@ if [ "${STUB_SKIP_HANDOFF:-}" != 1 ]; then
     || refuse 'NOT_IMPLEMENTED: нет HANDOFF.md'
   me="$(git -C "$ROOT" config user.name)"
   { [ -n "$la" ] && [ "$la" = "$me" ]; } || refuse 'HANDOFF.md изменён не этой сессией'
+  if [ "${STUB_SKIP_TRACE:-}" != 1 ]; then
+    [ -f "$TRACE" ] || trace_write
+    t_line="$(tail -n 1 "$TRACE" 2>/dev/null)" || refuse 'NOT_IMPLEMENTED: стартовый след нечитаем'
+    [ -n "$t_line" ] || refuse 'NOT_IMPLEMENTED: стартовый след нечитаем'
+    t_ep="$(date -d "$t_line" +%s 2>/dev/null)" || refuse 'NOT_IMPLEMENTED: стартовый след нечитаем'
+    c_ep="$(git -C "$ROOT" log -1 --format=%ct -- HANDOFF.md 2>/dev/null)" \
+      || refuse 'NOT_IMPLEMENTED: нет HANDOFF.md'
+    [ "$c_ep" -gt "$t_ep" ] || refuse 'HANDOFF.md изменён до стартового следа сессии'
+  fi
 fi
 if [ "${STUB_SKIP_DETECTOR:-}" != 1 ]; then
   dout="$(bash "$ROOT/scripts/check_no_leak.sh" --check "$ROOT" 2>&1)"; drc=$?
   [ "$drc" -eq 0 ] || refuse "детектор красен: $dout"
 fi
 if [ "${STUB_SKIP_WORKTREE:-}" != 1 ]; then
-  wt_list="$(git -C "$ROOT" worktree list --porcelain)"
-  while IFS='|' read -r wt_path wt_head wt_branch; do
-    [ -n "$wt_path" ] || continue
-    [ "$wt_path" = "$ROOT" ] && continue
-    case "$wt_branch" in
-      refs/heads/wip/[0-9][0-9][0-9]/*) continue ;;
-    esac
-    landed=0
-    git -C "$ROOT" merge-base --is-ancestor "$wt_head" HEAD 2>/dev/null && landed=1
-    wt_dirty="$(git -C "$wt_path" status --porcelain 2>/dev/null)"
-    if [ "$landed" -eq 1 ] && [ -z "$wt_dirty" ]; then
-      if [ "${STUB_NO_DELETE:-}" = 1 ]; then
-        printf 'СТАБ: мусорный worktree пропущен без удаления: %s\n' "$wt_path" >&2
-      else
+  if [ "${STUB_INLINE_DELETE:-}" = 1 ]; then
+    # ОБМАН (Б3): дверь удаляет мусор сама, минуя GC
+    while IFS='|' read -r wt_path wt_head wt_branch; do
+      [ -n "$wt_path" ] || continue
+      [ "$wt_path" = "$ROOT" ] && continue
+      case "$wt_branch" in refs/heads/wip/[0-9][0-9][0-9]/*) continue ;; esac
+      landed=0
+      git -C "$ROOT" merge-base --is-ancestor "$wt_head" HEAD 2>/dev/null && landed=1
+      wt_dirty="$(git -C "$wt_path" status --porcelain 2>/dev/null)"
+      if [ "$landed" -eq 1 ] && [ -z "$wt_dirty" ]; then
         git -C "$ROOT" worktree remove "$wt_path" \
           || refuse "не смог удалить мусорный worktree: $wt_path"
+      else
+        refuse "мусорный worktree: $wt_path"
       fi
-    else
+    done < <(wt_pairs)
+  else
+    # честный путь стаба: делегирование GC обёрткой-регистратором + переснятие
+    bash "$ROOT/scripts/gc_agent_branches.sh" --root "$ROOT" >/dev/null 2>&1 || true
+    while IFS='|' read -r wt_path wt_head wt_branch; do
+      [ -n "$wt_path" ] || continue
+      [ "$wt_path" = "$ROOT" ] && continue
+      case "$wt_branch" in refs/heads/wip/[0-9][0-9][0-9]/*) continue ;; esac
       refuse "мусорный worktree: $wt_path"
-    fi
-  done < <(printf '%s\n' "$wt_list" | awk '
-    /^worktree / { if (p != "") print p "|" h "|" b; p=substr($0,10); h=""; b="detached" }
-    /^HEAD /     { h=substr($0,6) }
-    /^branch /   { b=substr($0,8) }
-    /^bare$/     { b="bare" }
-    END { if (p != "") print p "|" h "|" b; }
-  ')
+    done < <(wt_pairs)
+  fi
 fi
 mkdir -p "$(dirname "$MARKER")"
 touch "$MARKER"
+trace_write
 printf 'ПЕРЕЗАПУСК: маркер поставлен\n'
 exit 0
 STUB
+}
+
+# СТАБ-GC: обманное «расширение GC» для миров стабов — только ветвь мусорных
+# worktree; реестр wip не трогает. Ручка STUB_NO_DELETE выкрашивает удаление.
+write_gc_stub() { # $1=toy-root
+  cat > "$1/scripts/gc_real.sh" <<'GSTUB'
+#!/usr/bin/env bash
+# СТАБ-GC (обманное расширение GC; ручка STUB_NO_DELETE)
+set -uo pipefail
+ROOT=""; while [ $# -gt 0 ]; do case "$1" in --root) ROOT="$2"; shift 2 ;; *) shift ;; esac; done
+ROOT="${ROOT:?СТАБ-GC: нет --root}"
+fail=0
+while IFS='|' read -r wt_path wt_head wt_branch; do
+  [ -n "$wt_path" ] || continue
+  [ "$wt_path" = "$ROOT" ] && continue
+  case "$wt_branch" in refs/heads/wip/[0-9][0-9][0-9]/*) continue ;; esac
+  landed=0
+  git -C "$ROOT" merge-base --is-ancestor "$wt_head" HEAD 2>/dev/null && landed=1
+  wt_dirty="$(git -C "$wt_path" status --porcelain 2>/dev/null)"
+  if [ "$landed" -eq 1 ] && [ -z "$wt_dirty" ]; then
+    if [ "${STUB_NO_DELETE:-}" = 1 ]; then
+      printf 'СТАБ-GC: пропуск удаления: %s\n' "$wt_path" >&2
+    else
+      git -C "$ROOT" worktree remove "$wt_path" || fail=1
+    fi
+  else
+    printf 'мусорный worktree: %s\n' "$wt_path" >&2
+    fail=1
+  fi
+done < <(git -C "$ROOT" worktree list --porcelain | awk '
+  /^worktree / { if (p != "") print p "|" h "|" b; p=substr($0,10); h=""; b="detached" }
+  /^HEAD /     { h=substr($0,6) }
+  /^branch /   { b=substr($0,8) }
+  /^bare$/     { b="bare" }
+  END { if (p != "") print p "|" h "|" b; }
+')
+exit "$fail"
+GSTUB
+}
+
+# ОБЁРТКА-РЕГИСТРАТОР GC: фиксирует вызов внешним логом (оракул батареи,
+# субъекту путь не передаётся), затем exec-ит носитель gc_real.sh.
+write_gc_shim() { # $1=toy-root $2=абс-путь лога вызовов
+  cat > "$1/scripts/gc_agent_branches.sh" <<SHIM
+#!/usr/bin/env bash
+printf '%s\n' "GC-CALLED \$*" >> '$2'
+exec bash "\$(dirname "\$0")/gc_real.sh" "\$@"
+SHIM
+}
+
+# stub_install: субъект-стаб + стаб-GC + обёртка-регистратор.
+stub_install() { # глобали T/TRACE/GCLOG уже выставлены (прецедент write_stub_alias v1)
+  write_stub "$T"
+  write_gc_stub "$T"
+  write_gc_shim "$T" "$GCLOG"
+}
+
+# gc_only_install: носитель gc_real.sh — копия НАСТОЯЩЕГО GC дерева.
+gc_only_install() {
+  [ -f "$ROOT/scripts/gc_agent_branches.sh" ] || return 1
+  cp "$ROOT/scripts/gc_agent_branches.sh" "$T/scripts/gc_real.sh"
+  write_gc_shim "$T" "$GCLOG"
+  return 0
+}
+
+# honest_install: субъект честной части — копии реальных скриптов дерева.
+honest_install() {
+  [ -f "$ROOT/scripts/orch_restart.sh" ] || return 1
+  cp "$ROOT/scripts/orch_restart.sh" "$T/scripts/orch_restart.sh"
+  gc_only_install || return 1
+  return 0
 }
 
 # subject_commit: закоммитить и отправить субъект клетки (porcelain чист,
@@ -195,28 +322,32 @@ subject_commit() {
   git -C "$T" push -q origin main
 }
 
-# honest_install: субъект честной части — копии реальных скриптов дерева.
-honest_install() {
-  [ -f "$ROOT/scripts/orch_restart.sh" ] || return 1
-  cp "$ROOT/scripts/orch_restart.sh" "$T/scripts/orch_restart.sh"
-  cp "$ROOT/scripts/gc_agent_branches.sh" "$T/scripts/gc_agent_branches.sh"
-  return 0
-}
+# ── стартовый след: прошлое / будущее / отсутствие ───────────────────────────
+trace_past()   { printf '%s\n' "$(date -Is -d '1 hour ago')" > "$TRACE"; }
+trace_future() { printf '%s\n' "$(date -Is -d '+1 hour')" > "$TRACE"; }
+trace_absent() { rm -f "$TRACE"; }
 
 # ── расстановка нарушений (после commit субъекта) ────────────────────────────
-# Каждая violate_* ЗАКАНЧИВАЕТСЯ детекторным снимком по канону (базлайн
-# включает нарушение); исключение violate_E — НАЧИНАЕТСЯ со снимка.
-violate_A() { # всё зелёно + легальный wip-worktree жив
+# Каждая violate_* ЗАКАНЧИВАЕТСЯ стартовым следом (кроме к9/к10 — их след и
+# есть нарушение) и детекторным снимком по канону (базлайн включает
+# нарушение); исключение violate_E — снимок ДО игнор-файла; violate_GC —
+# мир прямого суда GC (дверь не зовётся, снимок/след не нужны).
+violate_A() { # всё зелёно + НЕСЛИТЫЙ легальный wip-worktree жив
   git -C "$T" worktree add -q -b wip/072/architect "$T-wip" main
+  git -C "$T-wip" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
+    commit -q --allow-empty -m 'toy: живой неслитый wip'
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
 violate_B() { # HEAD впереди origin/main
   printf 'x\n' >> "$T/HANDOFF.md"
   git -C "$T" add HANDOFF.md && git -C "$T" commit -qm 'toy: вперёд origin'
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
 violate_C() { # porcelain грязен (untracked)
   printf 'мусор\n' > "$T/leak.txt"
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
 violate_D() { # HANDOFF.md последним коммитил чужой автор
@@ -224,28 +355,58 @@ violate_D() { # HANDOFF.md последним коммитил чужой авт
   git -C "$T" add HANDOFF.md
   git -C "$T" -c user.name=chuzhoj -c user.email=chuzhoj@x commit -qm 'toy: чужой HANDOFF'
   git -C "$T" push -q origin main
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
 violate_E() { # детектор красен: новый IGNORED-файл ПОСЛЕ снимка (porcelain
   # слеп к ignored, UNTRACKED-нога детектора видит мимо ignore — разделение
   # ветвей: отказ атрибутируется детектору, не porcelain)
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
   printf 'утечка\n' > "$T/ignored-leak.txt"
 }
 violate_F() { # мусорный worktree ГРЯЗНЫЙ → выживает, называется
   git -C "$T" worktree add -q -b garbage-dirty "$T-gwt" main
   printf 'грязь\n' > "$T-gwt/dirty.txt"
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
 violate_G() { # мусорный worktree ЧИСТЫЙ+ПРИЗЕМЛЁННЫЙ (tip == main) → удалить
   git -C "$T" worktree add -q -b garbage-clean "$T-gwt" main
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
 violate_H() { # мусорный worktree ЧИСТЫЙ+НЕПРИЗЕМЛЁННЫЙ → назвать
   git -C "$T" worktree add -q -b garbage-unlanded "$T-gwt" main
   git -C "$T-gwt" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
     commit -q --allow-empty -m 'toy: неприземлённый'
+  trace_past
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
+}
+violate_I() { # к9, ОБХОД Б2: след НОВЕЕ HANDOFF-коммита той же identity
+  # (последний HANDOFF-коммит — orchestrator, совершён ДО границы сессии)
+  trace_future
+  bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
+}
+violate_J() { # к10, первое использование: следа НЕТ (инициализация не вакуумна)
+  trace_absent
+  bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
+}
+violate_GC() { # мир г1 (прямой суд GC): неслитый wip + чистый приземлённый
+  # мусор + грязный мусор; дверь не зовётся — снимок/след не нужны
+  git -C "$T" worktree add -q -b wip/072/architect "$T-wip" main
+  git -C "$T-wip" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
+    commit -q --allow-empty -m 'toy: живой неслитый wip'
+  git -C "$T" worktree add -q -b garbage-clean "$T-gwt" main
+  git -C "$T" worktree add -q -b garbage-dirty "$T-dirty" main
+  printf 'грязь\n' > "$T-dirty/dirty.txt"
+}
+violate_GC2() { # мир г2 (прямой суд GC, зелёная ветвь): неслитый wip +
+  # чистый приземлённый мусор; неудаляемого мусора нет — GC обязан rc 0
+  git -C "$T" worktree add -q -b wip/072/architect "$T-wip" main
+  git -C "$T-wip" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
+    commit -q --allow-empty -m 'toy: живой неслитый wip'
+  git -C "$T" worktree add -q -b garbage-clean "$T-gwt" main
 }
 
 # run_subject <toy> <marker> [VAR=1 …]: прогон субъекта клетки.
@@ -253,7 +414,7 @@ run_subject() {
   local t="$1" m="$2"; shift 2
   rm -f "$m"
   mkdir -p "$(dirname "$m")"
-  ( cd / && env ORCH_RESTART_MARKER="$m" "$@" bash "$t/scripts/orch_restart.sh" ) \
+  ( cd / && env ORCH_RESTART_MARKER="$m" ORCH_SESSION_START="$TRACE" "$@" bash "$t/scripts/orch_restart.sh" ) \
     > "$m.out" 2> "$m.err"
   S_RC=$?
 }
@@ -261,11 +422,14 @@ run_subject() {
 # ── предикаты клеток: честное поведение, пиннутые маркеры ───────────────────
 # Позиции: $1=имя $2=маркер $3=rc $4=stderr-файл $5=stdout-файл.
 fail_cell() { printf 'клетка %s: %s\n' "$1" "$2" >&2; CELL_FAIL=1; }
-p_A() { # rc 0, маркер стоит, stdout ПЕРЕЗАПУСК, легальный wip-worktree жив
+p_A() { # rc 0, маркер стоит, stdout ПЕРЕЗАПУСК, легальный wip-worktree жив,
+  # стартовый след ПЕРЕЗАПИСАН моментом завершения (зелёная пара А4)
   [ "$3" -eq 0 ] || { fail_cell "$1" "ожидался rc 0, получен $3: $(cat "$4")"; return 1; }
   [ -e "$2" ] || { fail_cell "$1" "маркер не поставлен"; return 1; }
   grep -Fq 'ПЕРЕЗАПУСК' "$5" || { fail_cell "$1" "нет строки ПЕРЕЗАПУСК в stdout"; return 1; }
   [ -d "$T-wip" ] || { fail_cell "$1" "легальный wip-worktree удалён"; return 1; }
+  [ "$(cat "$TRACE" 2>/dev/null)" != "$(cat "$TRACE.pre" 2>/dev/null)" ] \
+    || { fail_cell "$1" "стартовый след не перезаписан зелёным завершением"; return 1; }
   return 0
 }
 p_refuse() { # $6=подстрока причины; rc≠0, маркера нет, stderr несёт причину
@@ -279,16 +443,26 @@ p_B() { p_refuse "$1" "$2" "$3" "$4" "$5" 'HEAD расходится с origin/m
 p_C() { p_refuse "$1" "$2" "$3" "$4" "$5" 'porcelain непуст'; }
 p_D() { p_refuse "$1" "$2" "$3" "$4" "$5" 'HANDOFF.md изменён не этой сессией'; }
 p_E() { p_refuse "$1" "$2" "$3" "$4" "$5" 'детектор'; }
+p_I() { # отказ (в2): HANDOFF-коммит старее стартового следа
+  p_refuse "$1" "$2" "$3" "$4" "$5" 'HANDOFF.md изменён до стартового следа сессии'
+}
+p_J() { # первое использование: отказ (в2) + след СОЗДАН (инициализация не вакуумна)
+  p_refuse "$1" "$2" "$3" "$4" "$5" 'HANDOFF.md изменён до стартового следа сессии' || return 1
+  [ -f "$TRACE" ] || { fail_cell "$1" "стартовый след не инициализирован"; return 1; }
+  return 0
+}
 p_F() { # отказ «мусорный worktree» с путём, worktree жив
   p_refuse "$1" "$2" "$3" "$4" "$5" 'мусорный worktree' || return 1
   grep -Fq "$T-gwt" "$4" || { fail_cell "$1" "путь мусорного worktree не назван"; return 1; }
   [ -d "$T-gwt" ] || { fail_cell "$1" "грязный worktree удалён (запрещено)"; return 1; }
   return 0
 }
-p_G() { # rc 0, маркер, мусорный worktree УДАЛЁН расширением gc
+p_G2() { # rc 0, маркер, мусорный worktree УДАЛЁН, вызов GC зафиксирован внешним логом
   [ "$3" -eq 0 ] || { fail_cell "$1" "ожидался rc 0, получен $3: $(cat "$4")"; return 1; }
   [ -e "$2" ] || { fail_cell "$1" "маркер не поставлен"; return 1; }
   [ -d "$T-gwt" ] && { fail_cell "$1" "чистый приземлённый worktree не удалён"; return 1; }
+  grep -Fq "GC-CALLED --root $T" "$GCLOG" 2>/dev/null \
+    || { fail_cell "$1" "вызов GC не зафиксирован внешним логом (удаление мимо GC?)"; return 1; }
   return 0
 }
 p_H() { # отказ с путём, worktree жив
@@ -297,25 +471,43 @@ p_H() { # отказ с путём, worktree жив
   [ -d "$T-gwt" ] || { fail_cell "$1" "неприземлённый worktree удалён (запрещено)"; return 1; }
   return 0
 }
+p_gc() { # г1 (ветвь отказа): rc 1; чистый приземлённый УДАЛЁН самим GC; грязный
+  # жив и назван фразой с путём; неслитый wip жив (расширение наблюдаемо
+  # само по себе — Б3; неудаляемый мусор по инварианту 4 даёт rc 1)
+  [ -d "$T-gwt" ] && { fail_cell "$1" "чистый приземлённый мусорный worktree не удалён самим GC"; return 1; }
+  [ "$3" -eq 1 ] || { fail_cell "$1" "ожидался rc 1 GC (неудаляемый мусор), получен $3"; return 1; }
+  [ -d "$T-dirty" ] || { fail_cell "$1" "грязный мусорный worktree удалён GC (запрещено)"; return 1; }
+  grep -Fq 'мусорный worktree' "$4" || { fail_cell "$1" "нет фразы «мусорный worktree» в stderr GC"; return 1; }
+  grep -Fq "$T-dirty" "$4" || { fail_cell "$1" "грязный мусорный worktree не назван в stderr GC"; return 1; }
+  [ -d "$T-wip" ] || { fail_cell "$1" "легальный wip-worktree удалён GC (запрещено)"; return 1; }
+  return 0
+}
+p_gc2() { # г2 (зелёная ветвь): rc 0; чистый приземлённый УДАЛЁН самим GC; wip жив
+  [ "$3" -eq 0 ] || { fail_cell "$1" "ожидался rc 0 GC, получен $3: $(cat "$4")"; return 1; }
+  [ -d "$T-gwt" ] && { fail_cell "$1" "чистый приземлённый мусорный worktree не удалён самим GC"; return 1; }
+  [ -d "$T-wip" ] || { fail_cell "$1" "легальный wip-worktree удалён GC (запрещено)"; return 1; }
+  return 0
+}
 
 # build_cell <toy> <нарушение> <установка-субъекта>
 build_cell() {
   local t="$1" v="$2" inst="$3"
-  rm -rf "$t" "$t-origin.git" "$t-wip" "$t-gwt"
+  rm -rf "$t" "$t-origin.git" "$t-wip" "$t-gwt" "$t-dirty"
   toy_make "$t"
   "$inst"
   subject_commit
   "$v"
 }
 
-# ── СТАБ-ПАК: 7 стабов × (ручка=дефект ловится, ручки нет — диффпроба) ──────
+# ── СТАБ-ПАК: 9 стабов × (ручка=дефект ловится, ручки нет — диффпроба) ──────
 stab_caught=0; diff_green=0
 run_cell_pair() { # $1=метка $2=нарушение $3=предикат $4=ручка
   local tag="$1" v="$2" pred="$3" knob="$4"
   local M="$WORK/m-$tag"
   # проход с ручкой: дефект ОБЯЗАН быть пойман (предикат честного поведения падает)
-  T="$WORK/t-$tag-on"
-  build_cell "$T" "$v" write_stub_alias
+  T="$WORK/t-$tag-on"; TRACE="$M-on-trace"; GCLOG="$M-on-gclog"
+  build_cell "$T" "$v" stub_install
+  rm -f "$GCLOG"
   run_subject "$T" "$M-on" "STUB_$knob=1"
   CELL_FAIL=0
   "$pred" "$tag(ручка)" "$M-on" "$S_RC" "$M-on.err" "$M-on.out"
@@ -324,8 +516,9 @@ run_cell_pair() { # $1=метка $2=нарушение $3=предикат $4=�
     exit 1
   fi
   # диффпроба: та же клетка БЕЗ ручки — честное поведение держится
-  T="$WORK/t-$tag-off"
-  build_cell "$T" "$v" write_stub_alias
+  T="$WORK/t-$tag-off"; TRACE="$M-off-trace"; GCLOG="$M-off-gclog"
+  build_cell "$T" "$v" stub_install
+  rm -f "$GCLOG"
   run_subject "$T" "$M-off"
   CELL_FAIL=0
   "$pred" "$tag(дифф)" "$M-off" "$S_RC" "$M-off.err" "$M-off.out"
@@ -334,7 +527,6 @@ run_cell_pair() { # $1=метка $2=нарушение $3=предикат $4=�
     exit 1
   fi
 }
-write_stub_alias() { write_stub "$T"; }
 
 run_cell_pair s1 violate_B p_B SKIP_HEAD
 run_cell_pair s2 violate_C p_C SKIP_PORCELAIN
@@ -342,25 +534,47 @@ run_cell_pair s3 violate_D p_D SKIP_HANDOFF
 run_cell_pair s4 violate_E p_E SKIP_DETECTOR
 run_cell_pair s5 violate_F p_F SKIP_WORKTREE
 run_cell_pair s6 violate_C p_C EAGER_MARKER
-run_cell_pair s7 violate_G p_G NO_DELETE
-printf 'стаб-пак: %d/7 поймано, диффпроба %d/7\n' "$stab_caught" "$diff_green"
-[ "$stab_caught" -eq 7 ] && [ "$diff_green" -eq 7 ] \
+run_cell_pair s7 violate_G p_G2 NO_DELETE
+run_cell_pair s8 violate_I p_I SKIP_TRACE
+run_cell_pair s9 violate_G p_G2 INLINE_DELETE
+printf 'стаб-пак: %d/9 поймано, диффпроба %d/9\n' "$stab_caught" "$diff_green"
+[ "$stab_caught" -eq 9 ] && [ "$diff_green" -eq 9 ] \
   || die_pack "счёт стаб-пака не сошёлся (поймано $stab_caught, дифф $diff_green)"
 
-# ── г0: носитель предмета ───────────────────────────────────────────────────
+# ── ЧЕСТНАЯ ЧАСТЬ ────────────────────────────────────────────────────────────
+honest_green=0; honest_total=0
+
+# г1: ПРЯМОЙ суд самого GC (до г0: расширение красно уже на нынешнем дереве)
+run_gc_cell() { # $1=метка $2=строитель мира $3=предикат
+  local tag="$1" v="$2" pred="$3"
+  honest_total=$((honest_total+1))
+  T="$WORK/ht-$tag"; TRACE="$WORK/ht-$tag-trace"; GCLOG="$WORK/ht-$tag-gclog"
+  build_cell "$T" "$v" gc_only_install
+  rm -f "$GCLOG" "$TRACE"
+  ( cd / && bash "$T/scripts/gc_agent_branches.sh" --root "$T" ) \
+    > "$WORK/g-$tag.out" 2> "$WORK/g-$tag.err"
+  S_RC=$?
+  CELL_FAIL=0
+  "$pred" "$tag" "$WORK/g-$tag" "$S_RC" "$WORK/g-$tag.err" "$WORK/g-$tag.out"
+  if [ "$CELL_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
+}
+run_gc_cell г1 violate_GC p_gc
+run_gc_cell г2 violate_GC2 p_gc2
+
+# г0: носитель предмета (двери)
 if [ ! -f "$ROOT/scripts/orch_restart.sh" ]; then
   printf 'ОТКАЗ: предмет отсутствует — в дереве нет scripts/orch_restart.sh\n' >&2
   exit 1
 fi
 
-# ── ЧЕСТНАЯ ЧАСТЬ: к1..к8 против реальных скриптов дерева ───────────────────
-honest_green=0; honest_total=0
+# ── ЧЕСТНАЯ ЧАСТЬ ДВЕРИ: к1..к10 против реальных скриптов дерева ────────────
 run_honest() { # $1=метка $2=нарушение $3=предикат
   local tag="$1" v="$2" pred="$3"
   honest_total=$((honest_total+1))
   local M="$WORK/h-$tag"
-  T="$WORK/ht-$tag"
+  T="$WORK/ht-$tag"; TRACE="$M-trace"; GCLOG="$M-gclog"
   build_cell "$T" "$v" honest_install
+  cp "$TRACE" "$TRACE.pre" 2>/dev/null || : > "$TRACE.pre"
   run_subject "$T" "$M"
   CELL_FAIL=0
   "$pred" "$tag" "$M" "$S_RC" "$M.err" "$M.out"
@@ -372,10 +586,12 @@ run_honest к3 violate_C p_C
 run_honest к4 violate_D p_D
 run_honest к5 violate_E p_E
 run_honest к6 violate_F p_F
-run_honest к7 violate_G p_G
+run_honest к7 violate_G p_G2
 run_honest к8 violate_H p_H
+run_honest к9 violate_I p_I
+run_honest к10 violate_J p_J
 printf 'честная часть: %d/%d зелёная\n' "$honest_green" "$honest_total"
 [ "$honest_green" -eq "$honest_total" ] \
   || die_pack "честная часть красна ($honest_green/$honest_total)"
-printf 'итог 072-батареи: предъявлений стабы 7/7 + дифф 7/7 + честные 8/8\n'
+printf 'итог 072-батареи: предъявлений стабы 9/9 + дифф 9/9 + честные 12/12\n'
 exit 0
