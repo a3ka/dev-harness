@@ -136,6 +136,59 @@ bootstrap_env() {
   [ "$wrote" -eq 0 ] || printf '  ok   .env дописан из дома секретов (~/.config/dev-harness)\n' >&2
 }
 
+# ── GitHub-токен для сессии (контракт 070, Б-2 ODX-STK-001) ─────────────────
+# Чтение read-only fine-grained PAT ODELIX_GITHUB_TOKEN из дома ВНЕ репозитория
+# (${HOME-до-подмены}/.config/odelix/github.env, по решению владельца чекпойнт
+# #61 правка (3)) в окружение ребёнка сессии. Одна реализация на ОБА входа —
+# проектный (строка 580) и дев (строка 513) — переиспользует конвенции
+# bootstrap_env: KEY=VALUE (разрез по первому «=», срез парных кавычек),
+# «уже заданное НЕ затирается» (инвариант 6 — внешний env-токен CI/фикстур
+# побеждает файл, файл не перезаписывает env), деградация явная и НЕ
+# фатальная (инвариант 5 — нет дома или пусто → offline, ODELIX_GITHUB_TOKEN
+# в env сессии НЕ экспортирован, HARNESS_GITHUB_MODE=offline, rc запуска не
+# отказывает). Баннер несёт ТОЛЬКО режим (`GITHUB: read|offline`) — значение в
+# выводе не печатается (инвариант 4, к1); значение в файлы деревьев не
+# дописывается (инвариант 3, к5 — ни .env мастерской, ни .env проекта, ни
+# PSTATE, ни промпт). Шаг зовётся ДО подмены HOME (строки 515/707), иначе
+# путь к дому токена ушёл бы в PSTATE-каталог сессии.
+load_github_token() {
+  local gh_home="${HOME}/.config/odelix/github.env" gh_token=""
+  # Сначала — уже заданное env (CI/фикстуры; инвариант 6): внешний токен
+  # побеждает файл.
+  if [ -n "${ODELIX_GITHUB_TOKEN:-}" ]; then
+    export HARNESS_GITHUB_MODE=read
+    printf 'GITHUB: read\n'
+    return 0
+  fi
+  # Затем — файл из дома ВНЕ репозитория; пустое значение трактуется как
+  # отсутствие (не подставляем).
+  if [ -f "$gh_home" ]; then
+    local k v
+    while IFS='=' read -r k v; do
+      case "$k" in ''|'#'*) continue ;; esac
+      k="${k%% *}"
+      case "$k" in
+        ODELIX_GITHUB_TOKEN)
+          v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
+          [ -n "$v" ] && gh_token="$v"
+          ;;
+      esac
+    done < "$gh_home"
+  fi
+  if [ -n "$gh_token" ]; then
+    export ODELIX_GITHUB_TOKEN="$gh_token"
+    export HARNESS_GITHUB_MODE=read
+    printf 'GITHUB: read\n'
+  else
+    # Деградация явная, не фатальная: переменной ODELIX_GITHUB_TOKEN в env
+    # сессии НЕТ (unset, не пусто) — потребитель различает «не задан» от
+    # «задан пусто».
+    unset ODELIX_GITHUB_TOKEN
+    export HARNESS_GITHUB_MODE=offline
+    printf 'GITHUB: offline\n'
+  fi
+}
+
 
 # Живая сессия работает на роли `default`. Стоит она на провайдере с ключом — вызовы идут
 # через прокси учёта, и без адреса сессия не заработает вовсе. Отказ при запуске дешевле
@@ -511,6 +564,7 @@ if [ -z "$PROJECT" ]; then
   fi
   load_env "$HERE"
   bootstrap_env
+  load_github_token
   require_metering "$HERE"
   export HOME="$ZONE"; mkdir -p "$HOME"
   PROMPT_FILE="$HOME/session-prompt-$SESSION_ROLE.md"
@@ -579,6 +633,7 @@ printf 'TOOLS: %s\n' "$HARNESS_TOOLS_ROOT"
 # настоящей причины.
 load_env "$PROJECT"
 bootstrap_env
+load_github_token
 
 # ── И-13: BOOTSTRAP KLETKI (контракт 054) — отсутствие .env и пина —─────────
 # именованные отказы P8/P9 ДО сессии; контрмодели:
