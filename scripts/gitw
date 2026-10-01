@@ -578,6 +578,86 @@ if [ "${multi_remote:-0}" -ne 1 ]; then
   fi
 fi
 
+# ── Крюк 071: предполёт при пуше в main (контракт 071) ───────────────────────
+# Встаёт ПОСЛЕ И-7 (живость) и ДО И-8 (exec): при push с покрытием
+# refs/heads/main на канонической цели — вызов соседнего
+# scripts/gitw_preflight_071.sh; rc≠0 → выход с этим кодом ДО отправки
+# (получатель не тронут). Разборы/отказы 045 байт-в-байт не трогаются
+# (инвариант 9 контракта 071); дельта здесь — только крюк.
+#   * push без покрытия — обмен прозрачен, семантика 045 неизменна;
+#   * push с покрытием — именованные отказы по контракту 071.
+if [ "$sub" = "push" ]; then
+  PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+  PF_SCRIPT="$PF_DIR/gitw_preflight_071.sh"
+  if [ -f "$PF_SCRIPT" ]; then
+    curbr_short="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    cov=0
+    has_glob=0
+    no_dst=0
+    n_refs=$((n - i))
+    if [ "$n_refs" -eq 0 ]; then
+      # без refspec — текущая ветка определяет покрытие
+      if [ "$curbr_short" = "main" ]; then
+        cov=1
+      else
+        no_dst=1
+      fi
+    else
+      for ((__pfj=i; __pfj<n; __pfj++)); do
+        __pfa="${orig[$__pfj]}"
+        case "$__pfa" in -*) continue ;; esac
+        # глоб в refspec — fail-closed именованный отказ
+        case "$__pfa" in
+          *\**) has_glob=1; continue ;;
+        esac
+        if [ "${__pfa#*:}" != "$__pfa" ]; then
+          # форма src:dst
+          __pf_dst="${__pfa#*:}"
+          case "$__pf_dst" in
+            refs/heads/main|main) cov=1 ;;
+          esac
+          __pf_src="${__pfa%%:*}"
+          # удаление main (`:main`) — отправляемого дерева нет
+          if [ -z "$__pf_src" ] && [ "$__pf_dst" = "main" -o "$__pf_dst" = "refs/heads/main" ]; then
+            printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: refspec не разбирается: удаление main\n' >&2
+            exit 1
+          fi
+        else
+          # bare-форма: __pfa — это dst
+          case "$__pfa" in
+            refs/heads/main|main) cov=1 ;;
+            HEAD)
+              if [ "$curbr_short" = "main" ]; then
+                cov=1
+              else
+                # HEAD без явного dst при чужой ветке — push.default мог бы
+                # неявно отправить main; несудимая конфигурация
+                no_dst=1
+              fi
+              ;;
+          esac
+        fi
+      done
+    fi
+    unset __pfj __pfa __pf_dst __pf_src
+    if [ "$has_glob" -eq 1 ]; then
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: refspec не разбирается: глоб в refspec\n' >&2
+      exit 1
+    fi
+    if [ "$no_dst" -eq 1 ]; then
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: несудимая конфигурация refspec: явного dst нет при текущей ветке %s\n' "${curbr_short:-detached}" >&2
+      exit 1
+    fi
+    if [ "$cov" -eq 1 ]; then
+      "$PF_SCRIPT" "$target" "${orig[@]}"
+      prc=$?
+      if [ "$prc" -ne 0 ]; then
+        exit "$prc"
+      fi
+    fi
+  fi
+fi
+
 # ── И-8: прозрачная передача ─────────────────────────────────────────────────
 # Прошедшее суждение → exec "$REAL" "${orig[@]}". argv побайтово тот же,
 # код возврата реального git, stdout/stderr не перехватываются, обёртка
