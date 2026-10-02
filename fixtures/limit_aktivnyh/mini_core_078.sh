@@ -47,6 +47,9 @@ refs="$(git -C "$root" ls-remote origin 'refs/tags/frozen/contracts/*' 'refs/tag
 # Индексы split — С ПРЕФИКСОМ refs/: frozen/done NNN = a[5] (refs, tags, frozen|done,
 # contracts, NNN, v), wip NNN = a[4] (refs, heads, wip, NNN, автор). Сдвиг индекса —
 # измеренный дефект первой редакции (клетка нарушА ловила «активных 0» живым прогоном).
+# ДЕДУП пересечения (обход double_namespace, критик 078 к2): act — МНОЖЕСТВО, оба
+# пространства пишут ОДИН ключ act[k]=1 (не инкремент, не отдельные ключи) — NNN,
+# лежащий и в frozen, и в wip, активен ОДИН раз; стаб-Ж батареи ломает именно это.
 active="$(printf '%s\n' "$refs" | awk '
   $2 ~ /^refs\/tags\/frozen\/contracts\/[0-9][0-9][0-9]\// { split($2, a, "/"); f[a[5]]=1 }
   $2 ~ /^refs\/tags\/done\/contracts\/[0-9][0-9][0-9]\//   { split($2, a, "/"); d[a[5]]=1 }
