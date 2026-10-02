@@ -6,14 +6,23 @@
 #       ${OPS_SERVER_BIN_DST}/orch-loop, режим 755, sha256 == пин станции
 #       (оракул — в памяти батареи, снят ДО вызова субъекта), умолчальный
 #       путь назначения не трогается;
-#   к1b user-перечитывание ПОСЛЕ записи: шины cp/cat/install в PATH батареи
-#       портят байт в адресате на пути копирования (B1, адверсарий r1:
-#       cat > dst и install -m 755 живьём проходили cp-шину) — честный
-#       субъект обязан отказать rc 1 «расхождение» с именем файла; субъект,
-#       копирующий НЕИЗВЕСТНЫМ механизмом (dd, rsync, mv, tee, python,
-#       shell-редирект без cat — остаточный риск, не расширяется), инертен
-#       для всех шин — печатная пометка, не доказательство; для симуляции
-#       различение несут стаб s7 и канальные пробы cp/cat/install;
+#   к1b user-перечитывание ПОСЛЕ записи (B3, адверсарий r2: tee без
+#       перечитывания проходил батарею): ДВА канала порчи адресата
+#       */orch-loop. (1) шины cp/cat/install в PATH (B1, адверсарий r1);
+#       (2) СТРУКТУРНЫЙ — LD_PRELOAD-interposer korrupt_write_074.c,
+#       собранный в скратче прогона: первый write-класс-вызов (write/
+#       pwrite64/writev/fwrite/fwrite_unlocked/copy_file_range/sendfile/
+#       sendfile64/syscall-номера) в дескриптор, открытый на запись по
+#       пути */orch-loop, несёт испорченный байт — ЛЮБОЙ механизм
+#       копирования (cp/cat/install/tee/dd/python/rsync, shell-редирект)
+#       получает испорченную запись; счётчик испорченных записей — в
+#       журнале ORCH074_CORRUPT_LOG (неинертность канала самодоказуема).
+#       Честный субъект обязан отказать rc 1 «расхождение» с именем файла;
+#       ленивый — даёт rc 0 и красен. Остаточный предел (назван, не
+#       расширяется): rename-класс (mv внутри одной ФС не пишет байты) и
+#       прямые сисколлы мимо PLT/syscall(2) у статически слинкованного
+#       субъекта; для симуляции различение несут стаб s7 и канальные
+#       пробы cp/cat/install/tee/dd/python3;
 #   к2  verify на зелёном мире: все 9 адресатов == репо → rc 0 и строка
 #       «сверка: 9/9»;
 #   к3  verify на расхождении — ПАРАМЕТРИЗОВАНО по всем девяти адресатам:
@@ -82,6 +91,18 @@ command -v python3  >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет python3
 
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/ops074.XXXXXX")" || { printf 'ОТКАЗ: mktemp\n' >&2; exit 2; }
 trap 'rm -rf "$SCRATCH"' EXIT
+
+# ── структурный корруптор к1b (B3, адверсарий r2): исходник — в семье батареи,
+# сборка — в скратче прогона (бинарник в репо не живёт). Нет компилятора —
+# канал «любой механизм» мёртв, это НЕ зелёное: rc 2 NOT_IMPLEMENTED.
+KORRUPT_SRC="$HERE/korrupt_write_074.c"
+KORRUPT_SO="$SCRATCH/korrupt_write_074.so"
+build_interposer() {
+  command -v cc >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет cc — interposer к1b не собирается, канал «любой механизм» мёртв (B3)\n' >&2; exit 2; }
+  cc -shared -fPIC -O2 -Wall -o "$KORRUPT_SO" "$KORRUPT_SRC" 2>"$SCRATCH/cc.err" || {
+    printf 'NOT_IMPLEMENTED: interposer не компилируется: %s\n' "$(tail -3 "$SCRATCH/cc.err")" >&2; exit 2; }
+}
+build_interposer
 
 fails=0
 red() { fails=$((fails + 1)); printf '  КРАСНО: %s\n' "$*"; }
@@ -312,20 +333,23 @@ cell_k1() { # <subject>: user-конвергенция
   return 0
 }
 
-cell_k1b() { # <subject>: user-перечитывание sha256 ПОСЛЕ записи (шины cp/cat/install)
+cell_k1b() { # <subject>: user-перечитывание sha256 ПОСЛЕ записи (структурный корруптор)
   # Вердикт критика к1 (совет :113): отказ обязана давать САМА команда
   # установки на расхождении после записи, а не только verify. B1
-  # (адверсарий r1, живой прогон): субъекты, копирующие мимо cp (cat > dst,
-  # install -m 755) БЕЗ перечитывания, проходили к1b — cp-шина была для
-  # них инертна. Канал порчи расширен до трёх механизмов копирования,
-  # известных по коду клетки (Н-39): cp, cat, install; каждая шина портит
-  # байт в адресате */orch-loop НА ПУТИ копирования — cp/install по
-  # последнему аргументу, cat по stdout редиректа субъекта (чтение мимо
-  # редиректа инертно). Остаточный риск (назван, не расширяется до
-  # бесконечности): субъект, копирующий НЕИЗВЕСТНЫМ механизмом (dd, rsync,
-  # mv, tee, python, shell-редирект > без cat), инертен для всех трёх шин —
-  # печатная пометка, не зелёное доказательство; различение на симуляции
-  # несут стаб s7 и канальные пробы run_k1b_channels.
+  # (адверсарий r1): субъекты, копирующие мимо cp (cat > dst, install -m
+  # 755) БЕЗ перечитывания, проходили cp-шину. B3 (адверсарий r2, ЖИВОЙ
+  # прогон): tee-копирование без перечитывания проходило ВСЕ шины —
+  # перечисление механизмов не масштабируется. Структурное закрытие:
+  # LD_PRELOAD-interposer портит первый write-класс-вызов в дескриптор,
+  # открытый на запись по пути */orch-loop (какой бы механизм ни звал —
+  # цель спрашивается у ядра через /proc/self/fd, так что наследованные
+  # после exec дескрипторы и dup2 внутри dd тоже накрыты); шины
+  # cp/cat/install в PATH остаются второй, независимой парой контроля.
+  # Неинертность канала самодоказуема: interposer ведёт счёт испорченных
+  # записей в $W/korrupt.log. Остаточный предел (назван, не
+  # расширяется): rename-класс (mv внутри одной ФС байтов не пишет) и
+  # прямые сисколлы мимо PLT/syscall(2) у статически слинкованного
+  # субъекта; различение на симуляции несут стаб s7 и канальные пробы.
   local W="$SCRATCH/k1b" rc h real_cp real_cat real_install
   rm -rf "$W"; mkdir -p "$W/bin" "$W/home" "$W/shim"
   real_cp="$(command -v cp)"
@@ -355,16 +379,25 @@ case "\$last" in */orch-loop) printf 'X' >>"\$last" ;; esac
 exit "\$rc"
 INSEOF
   chmod 755 "$W/shim/cp" "$W/shim/cat" "$W/shim/install"
-  PATH="$W/shim:$PATH" OPS_SERVER_SRC="$OPS_SRC" OPS_SERVER_BIN_DST="$W/bin" \
+  rm -f "$W/korrupt.log"
+  PATH="$W/shim:$PATH" LD_PRELOAD="$KORRUPT_SO" ORCH074_CORRUPT_LOG="$W/korrupt.log" \
+    OPS_SERVER_SRC="$OPS_SRC" OPS_SERVER_BIN_DST="$W/bin" \
     HOME="$W/home" bash "$1" user >"$W/out" 2>"$W/err"; rc=$?
+  local nkor=0
+  [ -f "$W/korrupt.log" ] && nkor="$(grep -c . "$W/korrupt.log")"
   if [ -f "$W/bin/orch-loop" ]; then h="$(hash_of "$W/bin/orch-loop")"; else h=none; fi
   if [ "$h" = "${PIN['user/orch-loop']}" ]; then
-    printf '  k1b: шины cp/cat/install инертны (субъект копирует неизвестным механизмом — остаточный риск) — проба не судит, перечитывание судится стабом s7 и канальными пробами\n'
+    if [ "$nkor" -gt 0 ]; then
+      printf 'k1b: interposer учёл %s порч, но байты адресата целы — канал мёртв (Н-39)\n' "$nkor"
+      return 1
+    fi
+    printf '  k1b: все каналы порчи инертны (субъект не пишет байты — rename-класс, остаточный предел) — проба не судит, перечитывание судится стабом s7 и канальными пробами\n'
     return 0
   fi
-  [ "$rc" -ne 0 ] || { printf 'k1b: rc=0 на испорченной записи — user-часть не перечитывает sha256\n'; return 1; }
+  [ "$rc" -ne 0 ] || { printf 'k1b: rc=0 на испорченной записи (interposer: %s, шины: cp/cat/install) — user-часть не перечитывает sha256\n' "$nkor"; return 1; }
   grep -q 'расхождение' "$W/err" || { printf 'k1b: отказ без маркера «расхождение»\n'; return 1; }
   grep -Fq 'orch-loop' "$W/err" || { printf 'k1b: отказ без имени файла\n'; return 1; }
+  printf '  k1b: субъект отказался на испорченной записи (interposer испортил записей: %s)\n' "$nkor"
   return 0
 }
 
@@ -553,20 +586,26 @@ run_stub_pack() {
   return 0
 }
 
-# ── канальные пробы к1b (B1, адверсарий r1): на каждый механизм копирования ───
-# cp/cat/install — ДВЕ вариации симуляции: честная (копирует механизмом,
-# перечитывает sha256 ПОСЛЕ записи) обязана ЗЕЛЕНЕТЬ на к1b — шина
-# механизма портит адресат, честный отказывается rc 1 «расхождение»;
-# ленивая (тот же механизм, перечитывание нейтрализовано) обязана быть
-# ПОЙМАННОЙ красным. Отрицательные пробы обязательны для КАЖДОЙ шины:
-# шина, не поймавшая своего ленивого, — дефект шины, а не предмета.
+# ── канальные пробы к1b (B1/B3, адверсары r1/r2): на каждый механизм ───────────
+# копирования — ДВЕ вариации симуляции: честная (копирует механизмом,
+# перечитывает sha256 ПОСЛЕ записи) обязана ЗЕЛЕНЕТЬ на к1b — канал порчи
+# портит адресат, честный отказывается rc 1 «расхождение»; ленивая (тот же
+# механизм, перечитывание нейтрализовано) обязана быть ПОЙМАННОЙ красным.
+# Отрицательные пробы обязательны для КАЖДОГО канала: канал, не поймавший
+# своего ленивого, — дефект канала, а не предмета. Множество механизмов:
+# cp/cat/install — шины PATH + interposer (B1); tee/dd/python3 — ТОЛЬКО
+# interposer (B3: вход живого обхода адверсария r2 — tee-мир проходил
+# батарею с rc 0, шин для этих механизмов нет).
 K1B_CP_LINE='cp -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"'
 run_k1b_channels() {
   local mech repl hd ld out rc ch=0 cc=0
-  for mech in cp cat install; do
+  for mech in cp cat install tee dd python3; do
     case "$mech" in
       cat) repl='{ cat -- "$SRC_ROOT/user/orch-loop" >"$BIN_DST/orch-loop"; } || die_write "$BIN_DST/orch-loop"' ;;
       install) repl='install -m 755 -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"' ;;
+      tee) repl='{ tee "$BIN_DST/orch-loop" <"$SRC_ROOT/user/orch-loop" >"$BIN_DST/chan-null"; } || die_write "$BIN_DST/orch-loop"' ;;
+      dd) repl='dd if="$SRC_ROOT/user/orch-loop" of="$BIN_DST/orch-loop" status=none || die_write "$BIN_DST/orch-loop"' ;;
+      python3) repl='python3 -c '\''import shutil,sys; shutil.copyfile(sys.argv[1], sys.argv[2])'\'' "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"' ;;
       *) repl='' ;;
     esac
     hd="$SCRATCH/chan_${mech}_honest"; ld="$SCRATCH/chan_${mech}_lazy"
@@ -581,7 +620,7 @@ run_k1b_channels() {
     if [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q 'инертн'; then
       ch=$((ch + 1))
     else
-      red "канал $mech: честная вариация не доказана на к1b (красна или шина инертна — зелёное без порчи)"
+      red "канал $mech: честная вариация не доказана на к1b (красна или канал инертен — зелёное без порчи)"
     fi
     if cell_k1b "$ld/install.sh" >/dev/null 2>&1; then
       red "канал $mech: ленивая вариация (без перечитывания) жива на к1b (Н-39)"
@@ -590,7 +629,7 @@ run_k1b_channels() {
       printf '  канал %s: честный отказался, ленивый пойман\n' "$mech"
     fi
   done
-  printf 'к1b-каналы: честные %d/3, ленивые пойманы %d/3\n' "$ch" "$cc"
+  printf 'к1b-каналы: честные %d/6, ленивые пойманы %d/6\n' "$ch" "$cc"
   return 0
 }
 
