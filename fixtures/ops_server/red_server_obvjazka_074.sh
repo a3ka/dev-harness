@@ -6,10 +6,14 @@
 #       ${OPS_SERVER_BIN_DST}/orch-loop, режим 755, sha256 == пин станции
 #       (оракул — в памяти батареи, снят ДО вызова субъекта), умолчальный
 #       путь назначения не трогается;
-#   к1b user-перечитывание ПОСЛЕ записи: cp-шина батареи портит копию в
-#       пути записи — честный субъект обязан отказать rc 1 «расхождение»
-#       с именем файла; шина инертна (субъект копирует мимо cp) — печатная
-#       пометка, не доказательство; для симуляции различение несёт стаб s7;
+#   к1b user-перечитывание ПОСЛЕ записи: шины cp/cat/install в PATH батареи
+#       портят байт в адресате на пути копирования (B1, адверсарий r1:
+#       cat > dst и install -m 755 живьём проходили cp-шину) — честный
+#       субъект обязан отказать rc 1 «расхождение» с именем файла; субъект,
+#       копирующий НЕИЗВЕСТНЫМ механизмом (dd, rsync, mv, tee, python,
+#       shell-редирект без cat — остаточный риск, не расширяется), инертен
+#       для всех шин — печатная пометка, не доказательство; для симуляции
+#       различение несут стаб s7 и канальные пробы cp/cat/install;
 #   к2  verify на зелёном мире: все 9 адресатов == репо → rc 0 и строка
 #       «сверка: 9/9»;
 #   к3  verify на расхождении — ПАРАМЕТРИЗОВАНО по всем девяти адресатам:
@@ -240,17 +244,25 @@ RMDEOF
 # оставаться без них независимо от состояния честного дерева. Мир с
 # указателями (1) идемпотентен: уже стоящая строка не дублируется.
 build_docs() { # <каталог> <указатели:1|0>
+  # C2 (адверсарий r1): одна мера с клеткой к7 — «указатель приземлён»
+  # судится по ПЕРВОЙ секции «ГДЕ МЫ» (инвариант 10: «В ПЕРВОЙ секции»),
+  # не grep'ом по всему HANDOFF: на судимом дереве строка стоит в старой
+  # секции, целый файл говорил «приземлён», к7 по первой секции краснел.
+  # Мир с указателями применяет их к первой секции ИДЕМПОТЕНТНО (уже
+  # стоит — копия как есть); роль мерится той же мерой — разделом якоря.
   mkdir -p "$1/ops/server" "$1/roles"
   write_sim_readme "$1/ops/server/README.md"
   if [ "$2" -eq 1 ]; then
-    if grep -Fxq -- "$ROLE_PTR" "$REPO_ROOT/roles/orchestrator.md"; then
+    if awk -v a="$ROLE_ANCHOR" 'index($0,a)==1{f=1;next} f && /^## /{exit} f' \
+        "$REPO_ROOT/roles/orchestrator.md" | grep -Fxq -- "$ROLE_PTR"; then
       cp -- "$REPO_ROOT/roles/orchestrator.md" "$1/roles/orchestrator.md"
     else
       awk -v a="$ROLE_ANCHOR" -v ptr="$ROLE_PTR" \
         'index($0,a)==1 && !d {print; print ptr; d=1; next} {print}' \
         "$REPO_ROOT/roles/orchestrator.md" >"$1/roles/orchestrator.md"
     fi
-    if grep -Fxq -- "$HANDOFF_PTR" "$REPO_ROOT/HANDOFF.md"; then
+    if awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f' \
+        "$REPO_ROOT/HANDOFF.md" | grep -Fxq -- "$HANDOFF_PTR"; then
       cp -- "$REPO_ROOT/HANDOFF.md" "$1/HANDOFF.md"
     else
       awk -v ptr="$HANDOFF_PTR" \
@@ -300,16 +312,25 @@ cell_k1() { # <subject>: user-конвергенция
   return 0
 }
 
-cell_k1b() { # <subject>: user-перечитывание sha256 ПОСЛЕ записи (cp-шина)
+cell_k1b() { # <subject>: user-перечитывание sha256 ПОСЛЕ записи (шины cp/cat/install)
   # Вердикт критика к1 (совет :113): отказ обязана давать САМА команда
-  # установки на расхождении после записи, а не только verify. Шина cp в
-  # PATH порчит копию по пути: честный субъект перечитывает sha256 и
-  # отказывает rc 1 с именем; субъект «только скопировал» молчит rc 0.
-  # Шина инертна (субъект копирует мимо cp) — печатная пометка, не зелёное
-  # доказательство; различение на симуляции несёт стаб s7.
-  local W="$SCRATCH/k1b" rc h real_cp
+  # установки на расхождении после записи, а не только verify. B1
+  # (адверсарий r1, живой прогон): субъекты, копирующие мимо cp (cat > dst,
+  # install -m 755) БЕЗ перечитывания, проходили к1b — cp-шина была для
+  # них инертна. Канал порчи расширен до трёх механизмов копирования,
+  # известных по коду клетки (Н-39): cp, cat, install; каждая шина портит
+  # байт в адресате */orch-loop НА ПУТИ копирования — cp/install по
+  # последнему аргументу, cat по stdout редиректа субъекта (чтение мимо
+  # редиректа инертно). Остаточный риск (назван, не расширяется до
+  # бесконечности): субъект, копирующий НЕИЗВЕСТНЫМ механизмом (dd, rsync,
+  # mv, tee, python, shell-редирект > без cat), инертен для всех трёх шин —
+  # печатная пометка, не зелёное доказательство; различение на симуляции
+  # несут стаб s7 и канальные пробы run_k1b_channels.
+  local W="$SCRATCH/k1b" rc h real_cp real_cat real_install
   rm -rf "$W"; mkdir -p "$W/bin" "$W/home" "$W/shim"
   real_cp="$(command -v cp)"
+  real_cat="$(command -v cat)"
+  real_install="$(command -v install)"
   cat >"$W/shim/cp" <<CPEOF
 #!/usr/bin/env bash
 $real_cp "\$@"; rc=\$?
@@ -317,12 +338,28 @@ for a in "\$@"; do last="\$a"; done
 case "\$last" in */orch-loop) printf 'X' >>"\$last" ;; esac
 exit "\$rc"
 CPEOF
-  chmod 755 "$W/shim/cp"
+  cat >"$W/shim/cat" <<CATEOF
+#!/usr/bin/env bash
+$real_cat "\$@"; rc=\$?
+exec 4>&1
+dst="\$(readlink -f /proc/self/fd/4 2>/dev/null || true)"
+exec 4>&-
+case "\$dst" in */orch-loop) printf 'X' >>"\$dst" ;; esac
+exit "\$rc"
+CATEOF
+  cat >"$W/shim/install" <<INSEOF
+#!/usr/bin/env bash
+$real_install "\$@"; rc=\$?
+for a in "\$@"; do last="\$a"; done
+case "\$last" in */orch-loop) printf 'X' >>"\$last" ;; esac
+exit "\$rc"
+INSEOF
+  chmod 755 "$W/shim/cp" "$W/shim/cat" "$W/shim/install"
   PATH="$W/shim:$PATH" OPS_SERVER_SRC="$OPS_SRC" OPS_SERVER_BIN_DST="$W/bin" \
     HOME="$W/home" bash "$1" user >"$W/out" 2>"$W/err"; rc=$?
   if [ -f "$W/bin/orch-loop" ]; then h="$(hash_of "$W/bin/orch-loop")"; else h=none; fi
   if [ "$h" = "${PIN['user/orch-loop']}" ]; then
-    printf '  k1b: cp-шина инертна (субъект копирует мимо cp) — проба не судит, перечитывание судится стабом s7 на симуляции\n'
+    printf '  k1b: шины cp/cat/install инертны (субъект копирует неизвестным механизмом — остаточный риск) — проба не судит, перечитывание судится стабом s7 и канальными пробами\n'
     return 0
   fi
   [ "$rc" -ne 0 ] || { printf 'k1b: rc=0 на испорченной записи — user-часть не перечитывает sha256\n'; return 1; }
@@ -516,6 +553,47 @@ run_stub_pack() {
   return 0
 }
 
+# ── канальные пробы к1b (B1, адверсарий r1): на каждый механизм копирования ───
+# cp/cat/install — ДВЕ вариации симуляции: честная (копирует механизмом,
+# перечитывает sha256 ПОСЛЕ записи) обязана ЗЕЛЕНЕТЬ на к1b — шина
+# механизма портит адресат, честный отказывается rc 1 «расхождение»;
+# ленивая (тот же механизм, перечитывание нейтрализовано) обязана быть
+# ПОЙМАННОЙ красным. Отрицательные пробы обязательны для КАЖДОЙ шины:
+# шина, не поймавшая своего ленивого, — дефект шины, а не предмета.
+K1B_CP_LINE='cp -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"'
+run_k1b_channels() {
+  local mech repl hd ld out rc ch=0 cc=0
+  for mech in cp cat install; do
+    case "$mech" in
+      cat) repl='{ cat -- "$SRC_ROOT/user/orch-loop" >"$BIN_DST/orch-loop"; } || die_write "$BIN_DST/orch-loop"' ;;
+      install) repl='install -m 755 -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"' ;;
+      *) repl='' ;;
+    esac
+    hd="$SCRATCH/chan_${mech}_honest"; ld="$SCRATCH/chan_${mech}_lazy"
+    mkdir -p "$hd" "$ld"
+    cp -- "$SIM" "$hd/install.sh"; cp -- "$SIM" "$ld/install.sh"
+    if [ -n "$repl" ]; then
+      patch_sim "$hd/install.sh" "$K1B_CP_LINE" "$repl"
+      patch_sim "$ld/install.sh" "$K1B_CP_LINE" "$repl"
+    fi
+    patch_sim "$ld/install.sh" '#__ANCHOR_S7__' 'check_one() { return 0; }'
+    out="$(cell_k1b "$hd/install.sh" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q 'инертн'; then
+      ch=$((ch + 1))
+    else
+      red "канал $mech: честная вариация не доказана на к1b (красна или шина инертна — зелёное без порчи)"
+    fi
+    if cell_k1b "$ld/install.sh" >/dev/null 2>&1; then
+      red "канал $mech: ленивая вариация (без перечитывания) жива на к1b (Н-39)"
+    else
+      cc=$((cc + 1))
+      printf '  канал %s: честный отказался, ленивый пойман\n' "$mech"
+    fi
+  done
+  printf 'к1b-каналы: честные %d/3, ленивые пойманы %d/3\n' "$ch" "$cc"
+  return 0
+}
+
 # ── LANDSIM (вердикт критика к1, блокирующая 1): дерево с приземлёнными ───────
 # указателями — батарея обязана быть зелёной на дереве, где роль/HANDOFF УЖЕ
 # несут строки-указатели (инварианты 9-10 применены к текущим документам
@@ -560,6 +638,7 @@ if cell_k7 "$OPS_ROOT"; then honest=$((honest + 1)); else red 'cell_k7'; fi
 printf 'честная часть: %d/%d зелёная\n' "$honest" "$htotal"
 
 run_stub_pack
+run_k1b_channels
 
 printf 'итог 074: красных клеток=%d стабы=%d/%d\n' "$fails" "$caught" "$stub_total"
 if [ "$fails" -ne 0 ] || [ "$caught" -ne "$stub_total" ]; then exit 1; fi
