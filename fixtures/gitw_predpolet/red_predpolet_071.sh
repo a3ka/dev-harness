@@ -4,7 +4,7 @@
 # ДО реализации честная часть красна ЕДИНСТВЕННОЙ причиной «предмет
 # отсутствует» (fail-fast п0: файла scripts/gitw_preflight_071.sh нет ИЛИ
 # стаб-пак (исполняется ДО честных клеток) зелён УЖЕ
-# ДО реализации: пятнадцать обманных стабов умирает каждый на СВОЕЙ клетке
+# ДО реализации: двадцать обманных стабов умирает каждый на СВОЕЙ клетке
 # именованной причиной — различимость батареи не зависит от честного кода.
 #
 # ПРИВЯЗКА К КОДУ (Н-39: стаб умирает там, где его дефект НАБЛЮДАМ):
@@ -38,6 +38,23 @@
 #   * s15 «HVOST-PUST-NESUDIM» — пустой хвост на main: огульное       → умирает на
 #                           «несудимая» вместо покрытия (блокнит      п7д (push без
 #                           легитимную форму не той причиной)          remote, main)
+#   * s16 «ALL-NE-POKRYVAET» — флаг --all|--mirror не строит          → умирает на
+#                           покрытие: молчаливый exit 0 (реальная     п10а (push origin
+#                           форма R-13/R-14 ревьюера 071-r2: красный  --all, ветка wip,
+#                           main уезжает молча — живая проба B)       красный main)
+#   * s17 «HVOST-V-DEVNULL» — вывод чека в /dev/null, отказ с        → умирает на
+#                           именем ключа без хвоста (корень Р-3      п11а (хвост
+#                           ревьюера 071-r1)                          «превышений/нарушений»)
+#   * s18 «LAND-VNE-GRAMM-PROPUST» — «land: …» вне грамматики       → умирает на
+#                           wip/[0-9]{3}/ молча пропущен (корень     п12а (land:
+#                           Р-4; мутант (б) ревьюера 071-r2 = снятый  wip/71/bad)
+#                           catch-all preflight:285-288)
+#   * s19 «FIRST-PARENT-ONLY» — land-диапазон по --first-parent:    → умирает на
+#                           вложенный land не судится (корень Р-5)   п13а (вложенный
+#                                                                   land wip/071/dem5)
+#   * s20 «TEG-BEZ-SHA» — отказ по тегу с именем без обоих sha      → умирает на
+#                           (корень Р-6 ревьюера 071-r1)              п14б (переприцел:
+#                                                                   оба sha)
 #
 # Честные клетки (каждая ≡ ровно один именованный отказ контракта 071
 # §Инварианты; фразы grep -F дословно, префикс «gitw ПРЕДПОЛЁТ-ОТКАЗ: »):
@@ -93,6 +110,22 @@
 #        двинута), HEAD:main при ветке candidate (src = HEAD), зелёная
 #        пара: candidate:main проходит и ставит цель на tip candidate
 #        (критик к1 Б5);
+#   п10а-п10г — И-2, R-14 ревьюера 071-r2: формы --all|--mirror ПОКРЫТЫ —
+#        push origin --all (п10а) и push origin --mirror (п10б) при ветке
+#        wip/071/demo и красном main → «чек красный: check:ceilings»,
+#        цель не двинута; зелёные пары п10в/п10г: чистый мир, ветка wip →
+#        rc 0 «чисто», bare на tip main (нет над-блока легитимной формы);
+#   п11а  Р-3: хвост вывода чека — в отказе («превышений/нарушений»
+#        строкой ниже «чек красный: check:ceilings»);
+#   п12а  Р-4: merge subject «land: wip/71/bad» вне грамматики → «land-субъект
+#        не разбирается: land: wip/71/bad» — ровно клетка, красная на
+#        мутанте (б) ревьюера 071-r2 (снятый catch-all preflight:285-288);
+#   п13а  Р-5: вложенный land (влитая ветка с собственным «land:»)
+#        не на первой родительской линии диапазона судится → «land без
+#        зелёного PR-CI: wip/071/dem5»;
+#   п14а/п14б — Р-6: отказ по тегу несёт ОБА sha: отсутствующий (п14а) —
+#        локальный sha + «цель нет»; переприцеленный (п14б) — локальный
+#        sha И sha цели рядом;
 #
 # Метод: toy-мир = bare-цель B1 (ручка GIT_EXCHANGE_GUARD_CANONICAL) +
 # репо T с ПОЛНЫМ harness-tree (git archive HEAD — чеки зависимы: без
@@ -349,9 +382,17 @@ API="${GITW_PREFLIGHT_071_API:-}"
 REASON() { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 # ── покрытие main ──────────────────────────────────────────────────────────
 curbr="$(git symbolic-ref -q HEAD 2>/dev/null || true)"
-main_cov=0; unjudge=0; saw_ref=0; send_src=""
+main_cov=0; unjudge=0; saw_ref=0; send_src=""; all_or_mirror=0
 for a in "$@"; do
-  case "$a" in -*) continue ;; esac
+  case "$a" in
+    --all|--mirror)
+      # И-2 (R-13/R-14 ревьюера 071-r2): флаг — ЯВНОЕ покрытие main; дефект
+      # s16 — флаг не признан покрытием: main_cov=0, молчаливый exit 0
+      # (живая форма: красный main уезжает молча, проба B на origin/main).
+      [ "$DEF" = "s16" ] && exit 0
+      all_or_mirror=1; continue ;;
+    -*) continue ;;
+  esac
   saw_ref=1
   case "$a" in *\**) REASON "refspec не разбирается: $a" ;; esac
   if [ "$DEF" = "s9" ]; then
@@ -381,6 +422,14 @@ if [ "$saw_ref" -eq 0 ]; then
   if [ "$DEF" = "s15" ]; then unjudge=1
   elif [ "$curbr" = "refs/heads/main" ]; then main_cov=1; send_src=HEAD
   else unjudge=1; fi
+fi
+# И-2: --all|--mirror подавляет несудимость и покрывает main (зеркалит
+# gitw_preflight_071.sh:141-157); src для чеков — локальная main.
+if [ "$all_or_mirror" -eq 1 ]; then
+  main_cov=1; unjudge=0
+  if [ -z "$send_src" ]; then
+    if git show-ref --verify --quiet refs/heads/main; then send_src="main"; else send_src="HEAD"; fi
+  fi
 fi
 if [ "$unjudge" -eq 1 ] && [ "$DEF" != "s11" ]; then
   REASON "несудимая конфигурация refspec: явного dst нет при текущей ветке ${curbr:-detached}"
@@ -429,14 +478,31 @@ while IFS=' ' read -r sha ref; do
     *) continue ;;
   esac
   r="${RSHA[$n]:-}"
-  if [ "$DEF" = "s3" ]; then [ -n "$r" ] || REASON "локальный тег не на origin: $n"
-  else [ "$r" = "$sha" ] || REASON "локальный тег не на origin: $n"; fi
+  if [ "$DEF" = "s3" ]; then
+    [ -n "$r" ] || REASON "локальный тег не на origin: $n"
+  elif [ "$DEF" = "s20" ]; then
+    # Р-6 ревьюера 071-r1: отказ с именем без sha (старая форма :241)
+    [ "$r" = "$sha" ] || REASON "локальный тег не на origin: $n"
+  else
+    [ "$r" = "$sha" ] || REASON "локальный тег не на origin: $n (локальный $sha, цель ${r:-нет})"
+  fi
 done < <(git show-ref --tags 2>/dev/null)
 # ── (3) land-merge ─────────────────────────────────────────────────────────
 rmain="$(git ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
 [ -n "$rmain" ] || REASON "PR-CI не сверяем: вершина main на цели не читается"
 while IFS=' ' read -r h s; do
-  case "$s" in "land: wip/"[0-9][0-9][0-9]/*) ;; *) continue ;; esac
+  # Р-4 ревьюера 071-r1: «land: …» вне грамматики wip/[0-9]{3}/ — именованный
+  # отказ; дефект s18 — молчаливый пропуск (мутант (б) 071-r2: снятый
+  # catch-all preflight:285-288).
+  # Р-5: диапазон БЕЗ --first-parent — вложенный land судится; дефект s19 —
+  # старая первая-родительская линия (мимо land'ов влитых веток).
+  case "$s" in
+    "land: wip/"[0-9][0-9][0-9]/*) ;;
+    "land: "*)
+      [ "$DEF" = "s18" ] && continue
+      REASON "land-субъект не разбирается: $s" ;;
+    *) continue ;;
+  esac
   br="${s#land: }"
   p="$(git rev-parse -q --verify "$h^2" 2>/dev/null)" || REASON "land-субъект не разбирается: $s"
   [ -n "$API" ] || REASON "PR-CI не сверяем: цель не github"
@@ -455,7 +521,7 @@ while IFS=' ' read -r h s; do
     n="$(printf '%s' "$body" | jq -r '[.workflow_runs[] | select(.event=="pull_request" and .conclusion=="success")] | length' 2>/dev/null)"
   fi
   [ "${n:-0}" -ge 1 ] || REASON "land без зелёного PR-CI: $br ($p)"
-done < <(git log --first-parent --merges --format='%H %s' "$rmain..$send_tip" 2>/dev/null)
+done < <(git log $([ "$DEF" = "s19" ] && printf -- '--first-parent') --merges --format='%H %s' "$rmain..$send_tip" 2>/dev/null)
 # ── (1) четыре чека на отправляемом дереве ─────────────────────────────────
 command -v npm >/dev/null 2>&1 || REASON "чек-раннер недоступен: npm"
 nk=0
@@ -476,9 +542,18 @@ if [ "$DEF" = "s1" ]; then
 else
   keys=(check:nabludenia check:ci-parity check:ceilings check:ids)
 fi
+# Р-3 ревьюера 071-r1: хвост вывода чека — в отказе; дефект s17 — вывод в
+# /dev/null, отказ с именем ключа без хвоста (старая форма :368).
+ckout="$(mktemp 2>/dev/null || printf '%s/.ckout.%s' "${TMPDIR:-/tmp}" "$$")"
 for k in "${keys[@]}"; do
-  ( cd "$cwd" && npm run --silent "$k" ) >/dev/null 2>&1 || REASON "чек красный: $k"
+  if [ "$DEF" = "s17" ]; then
+    ( cd "$cwd" && npm run --silent "$k" ) >/dev/null 2>&1 || REASON "чек красный: $k"
+  elif ! ( cd "$cwd" && npm run --silent "$k" ) >"$ckout" 2>&1; then
+    REASON "чек красный: $k
+$(tail -n 3 "$ckout" 2>/dev/null | sed -e 's/[[:space:]]*$//')"
+  fi
 done
+rm -f "$ckout"
 [ "$DEF" = "s2" ] || git worktree remove --force "$tw" 2>/dev/null
 printf 'gitw ПРЕДПОЛЁТ: чисто\n' >&2
 exit 0
@@ -486,7 +561,7 @@ COREEOF
 chmod +x "$CORE"
 
 mk_stub() { printf '#!/usr/bin/env bash\nSTUB_DEFECT=%s\nexec bash %q "$@"\n' "$1" "$CORE" > "$WORK/stubs_$1.sh"; chmod +x "$WORK/stubs_$1.sh"; }
-for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15; do mk_stub "$s"; done
+for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s20; do mk_stub "$s"; done
 
 run_stub() { # run_stub <стаб> <режим-api> <аргументы push...>
   local st="$1" apimode="$2"; shift 2
@@ -507,8 +582,10 @@ stub_violation() { # stub_violation <класс>
       mk_world sv-nabludenia
       printf '### Н-1. `ОТКРЫТО`\nтекст без адреса\n' > "$T/NABLIUDENIA.md"
       git -C "$T" add NABLIUDENIA.md && ident "$T" -m 'nablu red' ;;
-    ceilings)
-      mk_world sv-ceilings
+    ceilings|ceilings-hvost)
+      # общий мир двух стабов (s10/s17, s3/s20) — каталог уникален kind'ом:
+      # повторный mk_world по занятому имени ломается (remote origin exists)
+      mk_world "sv-$1"
       python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat role' ;;
     cwdne-tip)
@@ -516,8 +593,8 @@ stub_violation() { # stub_violation <класс>
       python3 -c "print('y'*60000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat on main'
       git -C "$T" checkout -q -b stara HEAD~1 ;;
-    teg-sha)
-      mk_world sv-tegsha
+    teg-sha|teg-sha-dva)
+      mk_world "sv-$1"
       printf 'переприцел\n' > "$T/x071.txt"; git -C "$T" add x071.txt && ident "$T" -m retag
       git -C "$T" tag -f frozen/contracts/099/1 >/dev/null ;;
     done-net)
@@ -558,6 +635,31 @@ stub_violation() { # stub_violation <класс>
       git -C "$T" checkout -q main ;;
     pushok)
       mk_world sv-pushok; mk_second_land pushok ;;
+    allflag)
+      # R-13/R-14 ревьюера 071-r2: красный main + флаг --all при ветке wip —
+      # честный предполёт обязан отказаться «чек красный»
+      mk_world sv-allflag
+      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main all'
+      git -C "$T" checkout -q wip/071/demo ;;
+    badland)
+      # Р-4 ревьюера 071-r1: merge subject «land: …» вне грамматики
+      mk_world sv-badland
+      git -C "$T" checkout -q -b wip/71/bad
+      printf 'плохой ленд\n' > "$T/bad071.txt"
+      git -C "$T" add bad071.txt && ident "$T" -m 'work by bad'
+      git -C "$T" checkout -q main
+      git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/71/bad' wip/71/bad ;;
+    vlozh-land)
+      # Р-5 ревьюера 071-r1: land внутри влитой ветки — не на first-parent
+      mk_world sv-vlozh
+      git -C "$T" checkout -q -b wip/071/dem5
+      printf 'вложенный ленд\n' > "$T/in071.txt"
+      git -C "$T" add in071.txt && ident "$T" -m 'work by dem5'
+      git -C "$T" checkout -q -b wip/071/outer main
+      git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/dem5' wip/071/dem5
+      git -C "$T" checkout -q main
+      git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'merge outer' wip/071/outer ;;
     *) die_cell стаб "неизвестный класс мира: $1" ;;
   esac
 }
@@ -581,8 +683,14 @@ run_stub_pack() {
     "s13:pushok:land без зелёного PR-CI: wip/071/demx"
     "s14:bezrefspec:чек красный: check:ceilings"
     "s15:bezrefspec2:чек красный: check:ceilings"
+    "s16:allflag:чек красный: check:ceilings"
+    "s17:ceilings-hvost:чек красный: check:ceilings"
+    "s18:badland:land-субъект не разбирается"
+    "s19:vlozh-land:land без зелёного PR-CI: wip/071/dem5"
+    "s20:teg-sha-dva:локальный тег не на origin: frozen/contracts/099/1"
   )
-  local pair st kind want api_mode toks
+  local pair st kind want api_mode toks dtok m
+  local -A STUB_MARKER=( [s17]='превышений/нарушений' [s20]='(локальный ' )
   local caught=0 diff=0
   for pair in "${pairs[@]}"; do
     IFS=: read -r st kind want _ <<<"$pair"
@@ -593,25 +701,33 @@ run_stub_pack() {
     [ "$st" = "s12" ] && toks=(wip/071/cand:main)
     [ "$st" = "s14" ] && toks=()
     [ "$st" = "s15" ] && toks=()
+    [ "$st" = "s16" ] && toks=(--all)
     # мир-нарушение: обманный стаб обязан ПРОЖИТЬ его (rc 0 либо отказ не той
     # причиной) — именно это и есть «пойман»: мир настоящий, дефект различим.
     # Отказался правильно — дефект мёртв, батарея красна (стаб не обманут).
     stub_violation "$kind"
     run_stub "$st" "$api_mode" "${toks[@]}"
     if [ "$RC" -eq 1 ] && grep -qF -- "$PF$want" "$WORK/last.err"; then
-      die_cell "стаб-$st" "не обманут: отказался на «$want» правильно — дефект не воспроизводится"
+      # маркер (Р-3/Р-6): отказ «правильный» только с хвостом/обоими sha —
+      # иначе стаб отказался именем ключа/тега, но дефект жив (s17/s20)
+      m="${STUB_MARKER[$st]:-}"
+      if [ -z "$m" ] || grep -qF -- "$m" "$WORK/last.err"; then
+        die_cell "стаб-$st" "не обманут: отказался на «$want» правильно — дефект не воспроизводится"
+      fi
     fi
     caught=$((caught+1))
     # диффпроба на зелёном мире (свежий mk_world): тот же стаб обязан пройти
     # чистый мир rc 0 — иначе он параноик, а не обманка (А-308).
     mk_world "sv-clean-$st"
-    run_stub "$st" api main
+    dtok='main'; [ "$st" = "s16" ] && dtok='--all'
+    run_stub "$st" api "$dtok"
     [ "$RC" -eq 0 ] || die_cell "стаб-$st" "над-блокировка: чистый мир rc=$RC: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
     diff=$((diff+1))
     printf 'ok: стаб-%s прожил «%s» и проходит чистый мир\n' "$st" "$kind"
   done
   printf 'стаб-пак: %s/%s поймано, диффпроба %s/%s\n' "$caught" "${#pairs[@]}" "$diff" "${#pairs[@]}"
   [ "$caught" -eq "${#pairs[@]}" ] && [ "$diff" -eq "${#pairs[@]}" ]
+  LAST_STUB_TOTAL="${#pairs[@]}"; LAST_STUB_CAUGHT="$caught"; LAST_STUB_DIFF="$diff"
 }
 
 # ── честные клетки ───────────────────────────────────────────────────────────
@@ -927,6 +1043,106 @@ PYE
   [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$(git -C "$T" rev-parse refs/heads/wip/071/cand)" ] \
     || die_cell п9в "цель не на tip candidate"
   ok_cell 'п9в: зелёный candidate:main проходит, цель на tip candidate'
+
+  # п10а: И-2 (R-14 ревьюера 071-r2) — push origin --all при ветке ≠ main:
+  # флаг ПОКРЫВАЕТ main — красный чек не уезжает (клетка стаба s16)
+  mk_world p10a
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main all'
+  git -C "$T" checkout -q wip/071/demo
+  run_push api origin --all
+  expect_refuse п10а "${PF}чек красный: check:ceilings"
+  bare_frozen п10а; ok_cell 'п10а: push origin --all (ветка wip, красный main) — покрыт, отказ'
+
+  # п10б: И-2 — push origin --mirror, тот же мир: зеркальная форма покрыта
+  mk_world p10b
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main mirror'
+  git -C "$T" checkout -q wip/071/demo
+  run_push api origin --mirror
+  expect_refuse п10б "${PF}чек красный: check:ceilings"
+  bare_frozen п10б; ok_cell 'п10б: push origin --mirror (ветка wip, красный main) — покрыт, отказ'
+
+  # п10в: зелёная пара --all: чистый мир, ветка wip → rc 0, bare на tip main
+  mk_world p10v
+  LMAIN10="$(git -C "$T" rev-parse refs/heads/main)"
+  git -C "$T" checkout -q wip/071/demo
+  run_push api origin --all
+  [ "$RC" -eq 0 ] || die_cell п10в "зелёный push origin --all отказан: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  grep -qF "${POK}чисто" "$WORK/last.err" || die_cell п10в "строка успеха не напечатана (молчание)"
+  [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$LMAIN10" ] \
+    || die_cell п10в "bare-цель не на tip main после зелёного --all"
+  ok_cell 'п10в: зелёный push origin --all проходит, bare на tip main'
+
+  # п10г: зелёная пара --mirror: тот же чистый мир → rc 0, bare на tip main
+  mk_world p10g
+  LMAIN10="$(git -C "$T" rev-parse refs/heads/main)"
+  git -C "$T" checkout -q wip/071/demo
+  run_push api origin --mirror
+  [ "$RC" -eq 0 ] || die_cell п10г "зелёный push origin --mirror отказан: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  grep -qF "${POK}чисто" "$WORK/last.err" || die_cell п10г "строка успеха не напечатана (молчание)"
+  [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$LMAIN10" ] \
+    || die_cell п10г "bare-цель не на tip main после зелёного --mirror"
+  ok_cell 'п10г: зелёный push origin --mirror проходит, bare на tip main'
+
+  # п11а: Р-3 ревьюера 071-r1 — хвост вывода чека в отказе (клетка стаба s17)
+  mk_world p11a
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat role hvost'
+  run_push api origin main
+  expect_refuse п11а "${PF}чек красный: check:ceilings"
+  grep -qF 'превышений/нарушений' "$WORK/last.err" \
+    || die_cell п11а "хвост вывода чека не в отказе (ищу «превышений/нарушений»): $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  bare_frozen п11а; ok_cell 'п11а: хвост вывода чека — в отказе (Р-3)'
+
+  # п12а: Р-4 — «land: …» вне грамматики wip/[0-9]{3}/ → именованный отказ
+  # (клетка стаба s18; ровно здесь красен мутант (б) ревьюера 071-r2 —
+  # снятый catch-all land-грамматики preflight:285-288)
+  mk_world p12a
+  git -C "$T" checkout -q -b wip/71/bad
+  printf 'плохой ленд\n' > "$T/bad071.txt"
+  git -C "$T" add bad071.txt && ident "$T" -m 'work by bad'
+  git -C "$T" checkout -q main
+  git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/71/bad' wip/71/bad
+  run_push api origin main
+  expect_refuse п12а "${PF}land-субъект не разбирается: land: wip/71/bad"
+  bare_frozen п12а; ok_cell 'п12а: land-субъект вне грамматики — именованный отказ (Р-4)'
+
+  # п13а: Р-5 — вложенный land (влитая ветка с собственным «land:») судится
+  # без first-parent (клетка стаба s19)
+  mk_world p13a
+  git -C "$T" checkout -q -b wip/071/dem5
+  printf 'вложенный ленд\n' > "$T/in071.txt"
+  git -C "$T" add in071.txt && ident "$T" -m 'work by dem5'
+  git -C "$T" checkout -q -b wip/071/outer main
+  git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/dem5' wip/071/dem5
+  git -C "$T" checkout -q main
+  git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'merge outer' wip/071/outer
+  run_push api origin main
+  expect_refuse п13а "${PF}land без зелёного PR-CI: wip/071/dem5"
+  bare_frozen п13а; ok_cell 'п13а: вложенный land не на first-parent судится (Р-5)'
+
+  # п14а: Р-6 — отсутствующий на цели тег: отказ несёт локальный sha и «нет»
+  mk_world p14a
+  git -C "$T" tag frozen/contracts/097/1
+  LSHA14="$(git -C "$T" rev-parse refs/tags/frozen/contracts/097/1)"
+  run_push api origin main
+  expect_refuse п14а "${PF}локальный тег не на origin: frozen/contracts/097/1"
+  grep -qF -- "$LSHA14" "$WORK/last.err" || die_cell п14а "локальный sha тега не назван (Р-6)"
+  grep -qF 'цель нет' "$WORK/last.err" || die_cell п14а "отметка «цель нет» не названа (Р-6)"
+  bare_frozen п14а; ok_cell 'п14а: отсутствующий тег — локальный sha и «цель нет» в отказе (Р-6)'
+
+  # п14б: Р-6 — переприцеленный тег: отказ несет ОБА sha (клетка стаба s20)
+  mk_world p14b
+  printf 'переприцел\n' > "$T/x071.txt"; git -C "$T" add x071.txt && ident "$T" -m retag
+  RSHA14="$(git -C "$B1" rev-parse refs/tags/frozen/contracts/099/1)"
+  git -C "$T" tag -f frozen/contracts/099/1 >/dev/null
+  LSHA14="$(git -C "$T" rev-parse refs/tags/frozen/contracts/099/1)"
+  run_push api origin main
+  expect_refuse п14б "${PF}локальный тег не на origin: frozen/contracts/099/1"
+  grep -qF -- "$LSHA14" "$WORK/last.err" || die_cell п14б "локальный sha тега не назван (Р-6)"
+  grep -qF -- "$RSHA14" "$WORK/last.err" || die_cell п14б "sha тега на цели не назван (Р-6)"
+  bare_frozen п14б; ok_cell 'п14б: переприцеленный тег — оба sha в отказе (Р-6)'
 }
 
 # ── порядок: само-проверка → стаб-пак → честные клетки ───────────────────────
@@ -941,5 +1157,6 @@ run_stub_pack
 sweep_wts
 run_honest_cells
 CELLS=$((OKN - 1))
-printf 'честные клетки: %s/%s зелёные; стаб-пак 15/15 + дифф 15/15\n' "$CELLS" "$CELLS"
+printf 'честные клетки: %s/%s зелёные; стаб-пак %s/%s + дифф %s/%s\n' \
+  "$CELLS" "$CELLS" "${LAST_STUB_CAUGHT:-0}" "${LAST_STUB_TOTAL:-0}" "${LAST_STUB_DIFF:-0}" "${LAST_STUB_TOTAL:-0}"
 exit 0
