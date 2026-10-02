@@ -4,7 +4,7 @@
 # ДО реализации честная часть красна ЕДИНСТВЕННОЙ причиной «предмет
 # отсутствует» (fail-fast п0: файла scripts/gitw_preflight_071.sh нет ИЛИ
 # стаб-пак (исполняется ДО честных клеток) зелён УЖЕ
-# ДО реализации: тринадцать обманных стабов умирают каждый на СВОЕЙ клетке
+# ДО реализации: пятнадцать обманных стабов умирает каждый на СВОЕЙ клетке
 # именованной причиной — различимость батареи не зависит от честного кода.
 #
 # ПРИВЯЗКА К КОДУ (Н-39: стаб умирает там, где его дефект НАБЛЮДАМ):
@@ -32,6 +32,12 @@
 #                           игнорируется                           при зелёном main: cand:main)
 #   * s13 «ЛЮБОЙ-SUCCESS»  — conclusion=success без фильтра          → умирает на
 #                           event=pull_request                     п4е (зелёный push-прогон)
+#   * s14 «HVOST-PUST-PROPUST» — пустой хвост refspec при ветке main:  → умирает на
+#                           молчаливый пропуск (корень Р-1 071-r1:    п7г (push origin
+#                           красный main уезжает молча)                без refspec, main)
+#   * s15 «HVOST-PUST-NESUDIM» — пустой хвост на main: огульное       → умирает на
+#                           «несудимая» вместо покрытия (блокнит      п7д (push без
+#                           легитимную форму не той причиной)          remote, main)
 #
 # Честные клетки (каждая ≡ ровно один именованный отказ контракта 071
 # §Инварианты; фразы grep -F дословно, префикс «gitw ПРЕДПОЛЁТ-ОТКАЗ: »):
@@ -75,6 +81,11 @@
 #        (адверсарий 071-r1 Б2); п7б (3 ключа) — клетка, которую ловит
 #        мутант предиката nk==0→nk==3 (мутант пропускает 3-ключевой src
 #        вместо отказа «не полностью»);
+#   п7г-п7д — push без refspec при текущей ветке main (А7б третья пара,
+#        Р-2 ревьюера 071-r1): красный ceilings на main + upstream
+#        main→origin/main; `push origin` без refspec (п7г) и голый
+#        `gitw push` по upstream (п7д) → «чек красный: check:ceilings»,
+#        цель не двинута (клетки стабов s14/s15);
 #   п8   cwd ≠ отправляемое дерево: жир на main, чекаут на чистой stara —
 #        чеки обязаны видеть ОТПРАВЛЯЕМОЕ дерево (клетка стаба s2);
 #   п9а-п9в — src ≠ main: чеки по ОТПРАВЛЯЕМОМУ src — красный candidate
@@ -361,7 +372,15 @@ for a in "$@"; do
   fi
 done
 if [ "$saw_ref" -eq 0 ]; then
-  if [ "$curbr" = "refs/heads/main" ]; then main_cov=1; send_src=HEAD; else unjudge=1; fi
+  # Н-39 (Р-1/Р-2 071-r1): пустой хвост refspec при ветке main — покрытие
+  # строится из текущей ветки; стабы: s14 — молчаливый пропуск пустого
+  # хвоста (корень Р-1: красный main уезжает молча), s15 — огульное
+  # «несудимая» на main вместо покрытия (не той причиной, легитимная
+  # форма блокнута).
+  if [ "$DEF" = "s14" ]; then exit 0; fi
+  if [ "$DEF" = "s15" ]; then unjudge=1
+  elif [ "$curbr" = "refs/heads/main" ]; then main_cov=1; send_src=HEAD
+  else unjudge=1; fi
 fi
 if [ "$unjudge" -eq 1 ] && [ "$DEF" != "s11" ]; then
   REASON "несудимая конфигурация refspec: явного dst нет при текущей ветке ${curbr:-detached}"
@@ -467,7 +486,7 @@ COREEOF
 chmod +x "$CORE"
 
 mk_stub() { printf '#!/usr/bin/env bash\nSTUB_DEFECT=%s\nexec bash %q "$@"\n' "$1" "$CORE" > "$WORK/stubs_$1.sh"; chmod +x "$WORK/stubs_$1.sh"; }
-for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13; do mk_stub "$s"; done
+for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15; do mk_stub "$s"; done
 
 run_stub() { # run_stub <стаб> <режим-api> <аргументы push...>
   local st="$1" apimode="$2"; shift 2
@@ -523,6 +542,14 @@ stub_violation() { # stub_violation <класс>
       python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main'
       git -C "$T" checkout -q wip/071/demo ;;
+    bezrefspec)
+      mk_world sv-bezref
+      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez refspec' ;;
+    bezrefspec2)
+      mk_world sv-bezref2
+      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez refspec' ;;
     src-ne-main)
       mk_world sv-srcne
       git -C "$T" checkout -q -b wip/071/cand
@@ -552,6 +579,8 @@ run_stub_pack() {
     "s11:nesudimyj:несудимая конфигурация refspec"
     "s12:src-ne-main:чек красный: check:ceilings"
     "s13:pushok:land без зелёного PR-CI: wip/071/demx"
+    "s14:bezrefspec:чек красный: check:ceilings"
+    "s15:bezrefspec2:чек красный: check:ceilings"
   )
   local pair st kind want api_mode toks
   local caught=0 diff=0
@@ -562,6 +591,8 @@ run_stub_pack() {
     [ "$st" = "s7" ] && api_mode=dead
     [ "$st" = "s11" ] && toks=()
     [ "$st" = "s12" ] && toks=(wip/071/cand:main)
+    [ "$st" = "s14" ] && toks=()
+    [ "$st" = "s15" ] && toks=()
     # мир-нарушение: обманный стаб обязан ПРОЖИТЬ его (rc 0 либо отказ не той
     # причиной) — именно это и есть «пойман»: мир настоящий, дефект различим.
     # Отказался правильно — дефект мёртв, батарея красна (стаб не обманут).
@@ -834,6 +865,29 @@ PYE
     || die_cell п7в "цель не на tip кандидата (0 ключей обязан пропустить и продвинуть)"
   ok_cell 'п7в: src 0-из-4 ключей (cwd main полный) — именованный пропуск, цель продвинута'
 
+  # п7г: push origin БЕЗ refspec при текущей ветке main — предполёт несётся
+  # (А7б третья пара, Р-1/Р-2 ревьюера 071-r1: парсер предполёта молчал —
+  # красный main уезжал). Мир как п2а (красный ceilings на main), upstream
+  # main→origin/main — обмен формы «push origin» доходит до exec.
+  mk_world p7g
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez refspec'
+  git -C "$T" branch --set-upstream-to=origin/main main
+  run_push api origin
+  expect_refuse п7г "${PF}чек красный: check:ceilings"
+  bare_frozen п7г; ok_cell 'п7г: push origin без refspec (main, красный чек) — предполёт несётся'
+
+  # п7д: push БЕЗ remote и refspec при текущей ветке main — тот же отказ
+  # (голый `gitw push` по upstream; клетка стаба s15: «несудимая» вместо
+  # «чек красный» не засчитывается)
+  mk_world p7d
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez remote'
+  git -C "$T" branch --set-upstream-to=origin/main main
+  run_push api
+  expect_refuse п7д "${PF}чек красный: check:ceilings"
+  bare_frozen п7д; ok_cell 'п7д: push без remote (main, красный чек) — тот же отказ'
+
   # п8: cwd ≠ отправляемое дерево — чеки видят ОТПРАВЛЯЕМОЕ дерево
   mk_world p8
   python3 -c "print('z'*60000)" > "$T/roles/orchestrator.md"
@@ -887,5 +941,5 @@ run_stub_pack
 sweep_wts
 run_honest_cells
 CELLS=$((OKN - 1))
-printf 'честные клетки: %s/%s зелёные; стаб-пак 13/13 + дифф 13/13\n' "$CELLS" "$CELLS"
+printf 'честные клетки: %s/%s зелёные; стаб-пак 15/15 + дифф 15/15\n' "$CELLS" "$CELLS"
 exit 0
