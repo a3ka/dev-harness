@@ -183,14 +183,14 @@ glob'ов; probe-only семья 034: маркер `fixtures/limit_aktivnyh/.pro
 
 ## Зоны (check_zones)
 
-ЗОНА architect: contracts/078-limit-aktivnyh-kontraktov.md fixtures/limit_aktivnyh/red_limit_aktivnyh_078.sh fixtures/limit_aktivnyh/mini_core_078.sh fixtures/limit_aktivnyh/.probe-only fixtures/_krasnye_078.sh
+ЗОНА architect: contracts/078-limit-aktivnyh-kontraktov.md fixtures/limit_aktivnyh/red_limit_aktivnyh_078.sh fixtures/limit_aktivnyh/mini_core_078.sh fixtures/limit_aktivnyh/.probe-only fixtures/_krasnye_078.sh fixtures/freeze_contract/_repo.sh
 
 ЗОНА implementer: scripts/lib_active_contracts.sh scripts/next_id.sh scripts/mint_line.sh scripts/freeze_contract.sh .github/workflows/ci.yml package.json
 
 Зона implementer раздаётся ПОСЛЕ заморозки (слово владельца: реализация не в пачке
 архитектора; правки барьерного кода по FAIL судей — architect, не implementer).
 
-ПЕРЕСЕЧЕНИЕ architect: fixtures/freeze_contract/_repo.sh — 013 дельта — make_repo добавляет bare-origin и push main; вносится ЭТОЙ пачкой, до реализации: игрушки с origin меняют только окружение, не суждения
+ПЕРЕСЕЧЕНИЕ architect: fixtures/freeze_contract/_repo.sh — 013 дельта — make_repo добавляет bare-origin и push main, g() делает remote add толерантным (set-url поверх существующего имени: замороженная case_reestr_neizvesten перезаписывает подаренный origin сломанным — строгий add умирает кодом 3 под set -euo pipefail клетки ДО красной пробы, анти-плацебо видел «красное не предъявлено»); вносится ЭТОЙ пачкой, до реализации: игрушки с origin меняют только окружение, не суждения
 ПЕРЕСЕЧЕНИЕ architect: fixtures/freeze_contract/_repo.sh — 027 дельта — та же дельта каркаса: зависимость зелёных case_* от fail-closed лимита (прецедент 043 — каркас догоняет гейт-зависимость)
 РАБОТА НЕ РАЗДАЁТСЯ: registry/contracts.tsv (минты 075–079 стоят; dual-control 023/031) scripts/check_ids.sh scripts/drill_next_id_race.sh (импортёры next_id-либы: лимит в основном коде, после библиотечного return) fixtures/mint_line/ fixtures/freeze_contract/case_*.sh (замороженные клетки: правка только каркаса _repo.sh) fixtures/check_staged/ (дверь 031) roles/ (076) scripts/verify_antiplacebo.sh (шард; семья вне case_*-глоба)
 
@@ -285,3 +285,6 @@ glob'ов; probe-only семья 034: маркер `fixtures/limit_aktivnyh/.pro
 - **Гонка «счёт → мутация»** (активный закрылся/открылся между ls-remote и тегом): окно
   секунды, два оркестратора в живом процессе не конкурируют (один цикл), граница
   «гоночный клон» next_id наследуется как есть.
+
+## Незаполненные требования:
+нет

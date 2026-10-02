@@ -29,6 +29,18 @@
 # сверки нечего предъявить друг другу.
 g() {
   local r="$1"; shift
+  # ТОЛЕРАНТНЫЙ `remote add <имя> <url>` (078): каркас дарит toy-дереву bare-origin
+  # (make_repo ниже), а замороженная клетка case_reestr_neizvesten вешает СВОЙ сломанный
+  # origin ПОВЕРХ подаренного. Строгий `git remote add` на существующем имени умирает
+  # кодом 3, под `set -euo pipefail` клетки — ДО красной пробы, и анти-плацебо видит
+  # «красное не предъявлено» вместо предмета. Каркас обязан давать ПЕРЕЗАПИСЫВАТЬ
+  # подаренный origin: add на существующем имени = set-url. Семья знает только форму
+  # `remote add <имя> <url>` без опций; прочие вызовы проходят без изменений.
+  if [ "$1" = remote ] && [ "${2:-}" = add ] && [ "$#" -ge 4 ] \
+     && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+        git -C "$r" remote get-url "$3" >/dev/null 2>&1; then
+    set -- remote set-url "$3" "$4"
+  fi
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
   git -C "$r" \
       -c user.name=Фикстура -c user.email=fixture@local \
@@ -64,6 +76,8 @@ make_repo() {
   # недоступен»; toy без origin падал бы на ПЕРВОЙ заморозке отсутствием окружения,
   # а не предметом фикстуры — тот же класс, что вакуумный CI-паритет 043 выше: каркас
   # догоняет гейт-зависимость, суждения не меняются (активных на origin нет — 0 < 2).
+  # Подаренный origin клетка обязана мочь ПЕРЕЗАПИСАТЬ своим сломанным (наблюдает
+  # unknown-remote) — потому g() выше делает `remote add` толерантным (set-url).
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "${r%/}-origin.git"
   git -C "${r%/}-origin.git" symbolic-ref HEAD refs/heads/main
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" remote add origin "${r%/}-origin.git"
