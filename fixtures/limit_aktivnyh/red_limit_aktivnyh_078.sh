@@ -35,8 +35,9 @@
 #     → rc 1, тега нет; л13: активен только сам 001 (wip/001 на origin) → v1; л14: сам
 #     001 + 2 frozen → rc 1 — вычтен только замораживаемый; л14б: сам 001 + ОДИН frozen
 #     → v1 — пограничная различает вычет субъекта: невычитающая реализация даёт rc 1);
-#   И-9 в отказных клетках: stderr сверяется числом И точным множеством NNN (diag9:
-#     «активных <N> ≥ 2: <NNN,NNN>»), л15 — слова «данные неизвестны»; не один маркер.
+#   И-9 в клетках отказа И снятия: stderr сверяется числом И точным множеством NNN
+#     (diag9: «активных <N> ≥ 2: <NNN,NNN>»; снятие — л3/л9/л12 тем же diag9),
+#     л15 — слова «данные неизвестны»; не один маркер.
 #   стаб-пак стА–стЖ — мутантные копии мини-ядра mini_core_078.sh (одна замена одной
 #     строки по маркеру «# ВЕТВЬ:…»; применение — двумя мерами: cmp ∧ grep -F):
 #     стА ls-remote→локальные refs (И-2) · стБ done не вычитает (И-6) · стВ wip не
@@ -266,7 +267,8 @@ if [ "$PRESENT" -eq 1 ]; then
   # л3: 2 frozen + строка владельца → номер выдан, stderr «снято строкой владельца». # ИНВ: И-5
   T3="$WORK/l3-$RH1"; mk_next_toy "$T3"; bare_frozen "$T3" "$ACT1"; bare_frozen "$T3" "$ACT2"
   out3="$("$SUBJ_NEXT" "$T3" CONTRACT --reason "$REASON_OK" 2>"$WORK/e3")"; rc3=$?; err3="$(cat "$WORK/e3")"
-  if [ "$rc3" -eq 0 ] && [ "$out3" = "$want2" ] && printf '%s' "$err3" | grep -qF 'снято строкой владельца'; then pass л3
+  if [ "$rc3" -eq 0 ] && [ "$out3" = "$want2" ] && printf '%s' "$err3" | grep -qF 'снято строкой владельца' \
+     && diag9 "$err3" 2 "$ACT1" "$ACT2"; then pass л3
   else fail л3 "rc=$rc3 out=$out3 err=$(printf '%s' "$err3" | sed -n 1p)"; fi
 
   # л3б (негативная пара л3): «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → отказ остаётся. # ИНВ: И-5
@@ -353,9 +355,10 @@ if [ "$PRESENT" -eq 1 ]; then
 
   # л9: 2 frozen + строка владельца → MINTED. # ИНВ: И-5
   T9="$WORK/l9-$RH1"; mk_mint_toy "$T9"; authority_tag "$T9" "$ACT3"; bare_frozen "$T9" "$ACT1"; bare_frozen "$T9" "$ACT2"; sync_tags "$T9"
-  out9="$("$SUBJ_MINT" --root "$T9" --nnn "$ACT3" --reason "$REASON_OK" 2>"$WORK/e9")"; rc9=$?
-  if [ "$rc9" -eq 0 ] && printf '%s' "$out9" | grep -qF "MINTED nnn=$ACT3"; then pass л9
-  else fail л9 "rc=$rc9 out=$out9 err=$(sed -n 1p "$WORK/e9")"; fi
+  out9="$("$SUBJ_MINT" --root "$T9" --nnn "$ACT3" --reason "$REASON_OK" 2>"$WORK/e9")"; rc9=$?; err9="$(cat "$WORK/e9")"
+  if [ "$rc9" -eq 0 ] && printf '%s' "$out9" | grep -qF "MINTED nnn=$ACT3" && printf '%s' "$err9" | grep -qF 'снято строкой владельца' \
+     && diag9 "$err9" 2 "$ACT1" "$ACT2"; then pass л9
+  else fail л9 "rc=$rc9 out=$out9 err=$(printf '%s' "$err9" | sed -n 1p)"; fi
 
   # л9б (негативная пара л9, свой чистый мир — л9 уже записала строку): строка
   # владельца без « сверх лимита» → отказ остаётся, stdout пуст. # ИНВ: И-5
@@ -395,9 +398,10 @@ if [ "$PRESENT" -eq 1 ]; then
 
   # л12: 2 frozen + строка владельца в причине → v1. # ИНВ: И-5
   T12="$WORK/l12-$RH1"; mk_freeze_toy "$T12"; bare_frozen "$T12" "$ACT1"; bare_frozen "$T12" "$ACT2"; sync_tags "$T12"
-  out12="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "$REASON_OK" "$T12" 2>"$WORK/e12")"; rc12=$?
-  if [ "$rc12" -eq 0 ] && [ "$out12" = 'v1' ]; then pass л12
-  else fail л12 "rc=$rc12 out=$out12 err=$(sed -n 1p "$WORK/e12")"; fi
+  out12="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "$REASON_OK" "$T12" 2>"$WORK/e12")"; rc12=$?; err12="$(cat "$WORK/e12")"
+  if [ "$rc12" -eq 0 ] && [ "$out12" = 'v1' ] && printf '%s' "$err12" | grep -qF 'снято строкой владельца' \
+     && diag9 "$err12" 2 "$ACT1" "$ACT2"; then pass л12
+  else fail л12 "rc=$rc12 out=$out12 err=$(printf '%s' "$err12" | sed -n 1p)"; fi
 
   # л12б (негативная пара л12, свой чистый мир — л12 уже заморозил 001): причина
   # «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → отказ остаётся, тега нет. # ИНВ: И-5
@@ -443,7 +447,7 @@ repl = {
  "В": ('ВЕТВЬ:WIP',  "    # ВЕТВЬ:WIP — СТАБ-В (wip-ветки не считаются)"),
  "Г": ('ВЕТВЬ:REASON',
    "[ \"$reason\" = \"-\" ] || case \"$reason\" in *'РАЗРЕШИЛ-ВЛАДЕЛЕЦ:'*) "
-   "printf '  ok   лимит активных контрактов: активных %s, снято строкой владельца\\n' \"$n\" >&2; exit 0 ;; esac "
+   "printf '  ok   лимит активных контрактов: снято строкой владельца, активных %s ≥ 2: %s\\n' \"$n\" \"$list\" >&2; exit 0 ;; esac "
    "# ВЕТВЬ:REASON — СТАБ-Г (широкий матчинг любой строки владельца)"),
  "Д": ('ВЕТВЬ:EXCEPT', ": # ВЕТВЬ:EXCEPT — СТАБ-Д (замораживаемый не вычитается)"),
  "Е": ('ВЕТВЬ:NETFAIL', ": # ВЕТВЬ:NETFAIL — СТАБ-Е (сеть = пропуск)"),
