@@ -193,6 +193,12 @@ glob'ов; probe-only семья 034: маркер `fixtures/limit_aktivnyh/.pro
 ПЕРЕСЕЧЕНИЕ architect: fixtures/freeze_contract/_repo.sh — 013 дельта — make_repo добавляет bare-origin и push main, g() делает remote add толерантным (set-url поверх существующего имени: замороженная case_reestr_neizvesten перезаписывает подаренный origin сломанным — строгий add умирает кодом 3 под set -euo pipefail клетки ДО красной пробы, анти-плацебо видел «красное не предъявлено»); вносится ЭТОЙ пачкой, до реализации: игрушки с origin меняют только окружение, не суждения
 ПЕРЕСЕЧЕНИЕ architect: fixtures/freeze_contract/_repo.sh — 027 дельта — та же дельта каркаса: зависимость зелёных case_* от fail-closed лимита (прецедент 043 — каркас догоняет гейт-зависимость)
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 дельта — ci-шаг bash fixtures/_krasnye_078.sh + npm-ключ check:limit-active-family-selftest (проводка А9, значение = команде шага); вносится РЕАЛИЗАЦИОННОЙ пачкой после заморозки; зона 011 не меняется, сверх проводки ci.yml не трогается
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 architect-зона (историческая заявка; прецедент 058/070/071): та же дельта одним шагом
+ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; общий носитель ключей с ci.yml): дельта — один ключ check:limit-active-family-selftest, значение = команде шага (прецедент 070/071)
+ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (историческая заявка): та же дельта одним ключом
+ПЕРЕСЕЧЕНИЕ implementer: scripts/freeze_contract.sh — 036 architect-зона (landed): дельта — только вставка лимитного ветвления после библиотечного return, спек-гейт 036 и его фикстуры не трогаются, остаются зелёными
+ПЕРЕСЕЧЕНИЕ implementer: scripts/freeze_contract.sh — 060 implementer-зона (landed): дельта — та же вставка лимита; самодостаточность 060 не трогается
+ПЕРЕСЕЧЕНИЕ implementer: scripts/next_id.sh — 060 implementer-зона (landed): дельта — только лимитное ветвление после библиотечного return; выдача номера 060 остаётся байт-в-байт
 РАБОТА НЕ РАЗДАЁТСЯ: registry/contracts.tsv (минты 075–079 стоят; dual-control 023/031) scripts/check_ids.sh scripts/drill_next_id_race.sh (импортёры next_id-либы: лимит в основном коде, после библиотечного return) fixtures/mint_line/ fixtures/freeze_contract/case_*.sh (замороженные клетки: правка только каркаса _repo.sh) fixtures/check_staged/ (дверь 031) roles/ (076) scripts/verify_antiplacebo.sh (шард; семья вне case_*-глоба)
 
 ## ПРОВОДКА
