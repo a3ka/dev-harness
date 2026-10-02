@@ -59,4 +59,13 @@ make_repo() {
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   commit_all "$r" 'основание'
+  # bare-origin (контракт 078): лимит активных контрактов в freeze_contract.sh судит
+  # по живому ls-remote origin, НЕ настроенный remote — fail-closed отказ «авторитет
+  # недоступен»; toy без origin падал бы на ПЕРВОЙ заморозке отсутствием окружения,
+  # а не предметом фикстуры — тот же класс, что вакуумный CI-паритет 043 выше: каркас
+  # догоняет гейт-зависимость, суждения не меняются (активных на origin нет — 0 < 2).
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "${r%/}-origin.git"
+  git -C "${r%/}-origin.git" symbolic-ref HEAD refs/heads/main
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" remote add origin "${r%/}-origin.git"
+  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" -c commit.gpgsign=false push -q origin main
 }
