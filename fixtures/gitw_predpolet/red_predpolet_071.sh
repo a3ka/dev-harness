@@ -115,6 +115,13 @@
 #        wip/071/demo и красном main → «чек красный: check:ceilings»,
 #        цель не двинута; зелёные пары п10в/п10г: чистый мир, ветка wip →
 #        rc 0 «чисто», bare на tip main (нет над-блока легитимной формы);
+#   п10д — к3 071-r3: значение --repo ДО remote-токена (`push --repo <v>`
+#        и `--repo=<v>`): значение — цель обмена, НЕ remote и НЕ refspec.
+#        Обе записи при красном main (мир п7г: ветка main, upstream) дают
+#        именованный отказ предполёта по префиксу «gitw ПРЕДПОЛЁТ-ОТКАЗ: »,
+#        цель не двинута. Молчаливый rc 0 = регрессия к3: пробельная форма
+#        клала ЗНАЧЕНИЕ в refspec парсера (saw_ref=1 гасил вывод покрытия
+#        по текущей ветке → main_cov=0 → прозрачный обмен, B1 двинут);
 #   п11а  Р-3: хвост вывода чека — в отказе («превышений/нарушений»
 #        строкой ниже «чек красный: check:ceilings»);
 #   п12а  Р-4: merge subject «land: wip/71/bad» вне грамматики → «land-субъект
@@ -1084,6 +1091,29 @@ PYE
   [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$LMAIN10" ] \
     || die_cell п10г "bare-цель не на tip main после зелёного --mirror"
   ok_cell 'п10г: зелёный push origin --mirror проходит, bare на tip main'
+
+  # п10д: к3 071-r3 — значение --repo ДО remote-токена: `gitw push --repo <v>`
+  # (и `--repo=<v>`): значение НЕ remote и НЕ refspec — это цель обмена.
+  # Регрессия к3: парсер предполёта не знает arity-2 у --repo, пробельная
+  # форма кладёт ЗНАЧЕНИЕ в refspec (saw_ref=1), ветка «покрытие по текущей
+  # ветке» гасится → main_cov=0 → прозрачный обмен: красный main уезжает
+  # молча (rc 0, B1 двинут, строки ПРЕДПОЛЁТ-ОТКАЗ нет). Мир как п7г:
+  # ветка main красная (ceilings), upstream main→origin/main. Обе записи
+  # обязаны дать именованный отказ предполёта, цель не двинута.
+  mk_world p10d
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main repo-do'
+  git -C "$T" branch --set-upstream-to=origin/main main
+  run_push api --repo origin
+  expect_refuse п10д "${PF}"
+  bare_frozen п10д
+  mk_world p10d2
+  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main repo-ravno'
+  git -C "$T" branch --set-upstream-to=origin/main main
+  run_push api --repo=origin
+  expect_refuse п10д "${PF}"
+  bare_frozen п10д; ok_cell 'п10д: push --repo <значение> (до remote-токена) — значение не refspec, предполёт несётся (обе формы)'
 
   # п11а: Р-3 ревьюера 071-r1 — хвост вывода чека в отказе (клетка стаба s17)
   mk_world p11a
