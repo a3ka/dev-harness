@@ -238,7 +238,13 @@ while IFS=$'\t' read -r sha name; do
       short="${name#refs/tags/}"
       remote_sha="${RSHA[$short]:-}"
       if [ "$remote_sha" != "$sha" ]; then
-        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: %s\n' "$short" >&2
+        # Имя тега + ОБА sha (вердикт ревьюера 071 r1 Р-6): для отсутствующего
+        # на цели — локальный sha и «нет» (явная отметка, что на цели тега
+        # нет вовсе); для переприцеленного — оба sha рядом, чтобы видеть
+        # РАСХОЖДЕНИЕ объектов, а не только имя.
+        remote_disp="${remote_sha:-нет}"
+        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: %s (локальный %s, цель %s)\n' \
+          "$short" "$sha" "$remote_disp" >&2
         exit 1
       fi
       ;;
@@ -261,13 +267,27 @@ rmain="$(git ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
 [ -n "$rmain" ] \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: вершина main на цели не читается\n' >&2; exit 1; }
 
-# Сначала собираем список land-мержей в диапазоне
+# Сначала собираем список land-мержей в диапазоне (вершина main на цели
+# … tip отправляемого src). БЕЗ `--first-parent` (вердикт ревьюера 071 r1
+# Р-5): land-merge не на первой родительской линии диапазона (например,
+# влитая ветка с собственным land'ом) тоже судим; иначе такой мерж
+# проходит незамеченным. Фильтр subject — единственный кейс проверки
+# (любой merge с subject «land: …» в диапазоне обязан судиться; не-land
+# merge — игнор).
+#
+# Subject «land: …» вне грамматики wip/[0-9]{3}/<автор> — именованный
+# отказ «land-субъект не разбирается» (вердикт ревьюера 071 r1 Р-4):
+# иначе такой мерж молча пропускается и оператору не видно поломки.
 land_merges=()
 while IFS=$'\t' read -r h s; do
   case "$s" in
     "land: wip/"[0-9][0-9][0-9]/*) land_merges+=("$h"$'\t'"$s") ;;
+    "land: "*)
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
+      exit 1
+      ;;
   esac
-done < <(git log --first-parent --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
+done < <(git log --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
 
 # Мержей нет → прозрачно (нет объекта проверки)
 if [ "${#land_merges[@]}" -gt 0 ]; then
@@ -364,12 +384,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
+ckout="$(mktemp 2>/dev/null || printf '%s/.ckout.%s' "${TMPDIR:-/tmp}" "$$")"
 for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
-  if ! ( cd "$tw" && npm run --silent "$k" ) >/dev/null 2>&1; then
-    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек красный: %s\n' "$k" >&2
+  if ! ( cd "$tw" && npm run --silent "$k" ) >"$ckout" 2>&1; then
+    # Хвост вывода чека — в отказе (вердикт ревьюера 071 r1 Р-3): без хвоста
+    # оператор видит «check:ceilings красный» и НЕ видит, какой потолок ёмок;
+    # зажигает именно имя ключа и хвост вывода.
+    tail_out="$(tail -n 3 "$ckout" 2>/dev/null | sed -e 's/[[:space:]]*$//')"
+    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек красный: %s\n%s\n' "$k" "$tail_out" >&2
+    rm -f "$ckout"
     exit 1
   fi
 done
+rm -f "$ckout"
 
 printf 'gitw ПРЕДПОЛЁТ: чисто\n' >&2
 exit 0
