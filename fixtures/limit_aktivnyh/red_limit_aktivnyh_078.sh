@@ -17,11 +17,15 @@
 #     строка владельца → rc 0; л3б: «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → rc 1;
 #     л4: done закрывает; л5: 2 wip; л6: резерв id-тегом не активен; л15: мёртвый
 #     origin → fail-closed);
-#   л7–л9 — mint_line (л7: 2 frozen → rc 1, HEAD не двинут; л8: 1 → MINTED; л9:
-#     строка владельца → MINTED);
+#   л7–л9 — mint_line (л7: 2 frozen → rc 1, HEAD не двинут; л7б: минтимый NNN сам
+#     активен + ещё один frozen → rc 1 — ошибочный вычет --nnn из активных ловится;
+#     л8: 1 → MINTED; л9: строка владельца → MINTED; л9б: «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без
+#     « сверх лимита» → rc 1);
 #   л10–л14 — freeze (л10: 2 frozen ≠001 → rc 1, тега нет; л11: 1 → v1; л12: строка
-#     владельца → v1; л13: активен только сам 001 (wip/001 на origin) → v1; л14:
-#     сам 001 + 2 frozen → rc 1 — вычтен только замораживаемый);
+#     владельца → v1; л12б: причина «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → rc 1,
+#     тега нет; л13: активен только сам 001 (wip/001 на origin) → v1; л14: сам 001 +
+#     2 frozen → rc 1 — вычтен только замораживаемый; л14б: сам 001 + ОДИН frozen →
+#     v1 — пограничная различает вычет субъекта: невычитающая реализация даёт rc 1);
 #   стаб-пак стА–стЕ — мутантные копии мини-ядра mini_core_078.sh (одна замена одной
 #     строки по маркеру «# ВЕТВЬ:…»; применение — двумя мерами: cmp ∧ grep -F):
 #     стА ls-remote→локальные refs (И-2) · стБ done не вычитает (И-6) · стВ wip не
@@ -270,6 +274,18 @@ if [ "$PRESENT" -eq 1 ]; then
      && [ "$lines7" -eq 0 ] && [ "$head7b" = "$head7" ] && [ -z "$dirty7" ]; then pass л7
   else fail л7 "rc=$rc_ml строк=$lines7 head_двинулся=$([ "$head7b" = "$head7" ] && echo нет || echo да) dirty=${dirty7:-чисто}"; fi
 
+  # л7б: минтимый NNN сам активен (frozen) + ещё один frozen → отказ: вычитать --nnn
+  # из активных нельзя (исключение И-4 — только freeze); вычитающая реализация
+  # пропустит (1 активный) и станет красной здесь. # ИНВ: И-3
+  T7b="$WORK/l7b-$RH2"; mk_mint_toy "$T7b"; authority_tag "$T7b" "$ACT3"; bare_frozen "$T7b" "$ACT3"; bare_frozen "$T7b" "$ACT1"; sync_tags "$T7b"
+  h7b="$(git -C "$T7b" rev-parse HEAD)"
+  out7b="$("$SUBJ_MINT" --root "$T7b" --nnn "$ACT3" 2>"$WORK/e7b")"; rc7b=$?; err7b="$(cat "$WORK/e7b")"
+  lines7b="$(git -C "$T7b" cat-file -p HEAD:registry/contracts.tsv | grep -cF "$ACT3 → " || true)"
+  dirty7b="$(git -C "$T7b" status --porcelain)"
+  if [ "$rc7b" -eq 1 ] && printf '%s' "$err7b" | grep -qF "$LIM_NAME" && [ -z "$out7b" ] \
+     && [ "$lines7b" -eq 0 ] && [ "$(git -C "$T7b" rev-parse HEAD)" = "$h7b" ] && [ -z "$dirty7b" ]; then pass л7б
+  else fail л7б "rc=$rc7b out=$out7b err=$(printf '%s' "$err7b" | sed -n 1p)"; fi
+
   # л8: 1 frozen → MINTED. # ИНВ: И-3
   T8="$WORK/l8-$RH2"; mk_mint_toy "$T8"; authority_tag "$T8" "$ACT3"; bare_frozen "$T8" "$ACT1"; sync_tags "$T8"
   out8="$("$SUBJ_MINT" --root "$T8" --nnn "$ACT3" 2>"$WORK/e8")"; rc8=$?
@@ -281,6 +297,13 @@ if [ "$PRESENT" -eq 1 ]; then
   out9="$("$SUBJ_MINT" --root "$T9" --nnn "$ACT3" --reason "$REASON_OK" 2>"$WORK/e9")"; rc9=$?
   if [ "$rc9" -eq 0 ] && printf '%s' "$out9" | grep -qF "MINTED nnn=$ACT3"; then pass л9
   else fail л9 "rc=$rc9 out=$out9 err=$(sed -n 1p "$WORK/e9")"; fi
+
+  # л9б (негативная пара л9, свой чистый мир — л9 уже записала строку): строка
+  # владельца без « сверх лимита» → отказ остаётся, stdout пуст. # ИНВ: И-5
+  T9b="$WORK/l9b-$RH2"; mk_mint_toy "$T9b"; authority_tag "$T9b" "$ACT3"; bare_frozen "$T9b" "$ACT1"; bare_frozen "$T9b" "$ACT2"; sync_tags "$T9b"
+  out9b="$("$SUBJ_MINT" --root "$T9b" --nnn "$ACT3" --reason "$REASON_NO" 2>"$WORK/e9b")"; rc9b=$?; err9b="$(cat "$WORK/e9b")"
+  if [ "$rc9b" -eq 1 ] && printf '%s' "$err9b" | grep -qF "$LIM_NAME" && [ -z "$out9b" ]; then pass л9б
+  else fail л9б "rc=$rc9b out=$out9b err=$(printf '%s' "$err9b" | sed -n 1p)"; fi
 
   # ── честные клетки freeze (л10–л14) ─────────────────────────────────────────
   # л10: 2 frozen ≠001 → отказ, тега нет, реестр не тронут. # ИНВ: И-4
@@ -301,6 +324,14 @@ if [ "$PRESENT" -eq 1 ]; then
   if [ "$rc12" -eq 0 ] && [ "$out12" = 'v1' ]; then pass л12
   else fail л12 "rc=$rc12 out=$out12 err=$(sed -n 1p "$WORK/e12")"; fi
 
+  # л12б (негативная пара л12, свой чистый мир — л12 уже заморозил 001): причина
+  # «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → отказ остаётся, тега нет. # ИНВ: И-5
+  T12b="$WORK/l12b-$RH2"; mk_freeze_toy "$T12b"; bare_frozen "$T12b" "$ACT1"; bare_frozen "$T12b" "$ACT2"; sync_tags "$T12b"
+  out12b="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "$REASON_NO" "$T12b" 2>"$WORK/e12b")"; rc12b=$?; err12b="$(cat "$WORK/e12b")"
+  if [ "$rc12b" -eq 1 ] && printf '%s' "$err12b" | grep -qF "$LIM_NAME" && [ -z "$out12b" ] \
+     && [ "$(git -C "$T12b" tag -l 'frozen/contracts/001/*' | wc -l)" -eq 0 ]; then pass л12б
+  else fail л12б "rc=$rc12b out=$out12b тегов 001=$(git -C "$T12b" tag -l 'frozen/contracts/001/*' | wc -l) err=$(printf '%s' "$err12b" | sed -n 1p)"; fi
+
   # л13: активен только сам 001 (wip/001 на origin) → v1. # ИНВ: И-4
   T13="$WORK/l13-$RH2"; mk_freeze_toy "$T13"; g "$(bare_of "$T13")" branch 'wip/001/fixture' refs/heads/main
   out13="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T13" 2>"$WORK/e13")"; rc13=$?
@@ -312,8 +343,15 @@ if [ "$PRESENT" -eq 1 ]; then
   out14="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T14" 2>"$WORK/e14")"; rc14=$?; err14="$(cat "$WORK/e14")"
   if [ "$rc14" -eq 1 ] && printf '%s' "$err14" | grep -qF "$LIM_NAME"; then pass л14
   else fail л14 "rc=$rc14 out=$out14 err=$(printf '%s' "$err14" | sed -n 1p)"; fi
+
+  # л14б (пограничная различающая вычет субъекта): сам 001 (wip) + ОДИН frozen →
+  # честный вычет сам → 1 активный → v1; невычитающая реализация видит 2 → rc 1. # ИНВ: И-4
+  T14b="$WORK/l14b-$RH2"; mk_freeze_toy "$T14b"; g "$(bare_of "$T14b")" branch 'wip/001/fixture' refs/heads/main; bare_frozen "$T14b" "$ACT1"; sync_tags "$T14b"
+  out14b="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T14b" 2>"$WORK/e14b")"; rc14b=$?
+  if [ "$rc14b" -eq 0 ] && [ "$out14b" = 'v1' ]; then pass л14б
+  else fail л14б "rc=$rc14b out=$out14b err=$(sed -n 1p "$WORK/e14b") — вычет замораживаемого не доказан: невычитающая реализация даёт здесь rc 1"; fi
 else
-  for c in л1 л2 л3 л3б л4 л5 л6 л7 л8 л9 л10 л11 л12 л13 л14 л15; do norun "$c"; done
+  for c in л1 л2 л3 л3б л4 л5 л6 л7 л7б л8 л9 л9б л10 л11 л12 л12б л13 л14 л14б л15; do norun "$c"; done
 fi
 
 # ── стаб-пак: мутантные копии мини-ядра (самодостаточен — не зависит от субъекта) ──
@@ -389,13 +427,13 @@ viol А "$TA" - - 1 0
 viol Б "$TB" - - 0 1
 viol В "$TV" - - 1 0
 viol Г "$TA" - "$REASON_NO" 1 0
-viol Д "$TA" "$ACT1" - 0 1 # активен только замораживаемый ACT1: честно 0, стаб-Д (не вычтен) видит 2 → 1
+viol Д "$TA" "$ACT1" - 0 1 # TA: 2 frozen (ACT1, ACT2), вычтен замораживаемый ACT1 → честно активен 1 → rc 0; стаб-Д не вычтен → видит 2 → rc 1
 viol Е "$TE" - - 3 0
 
 for r in "${REPS[@]}"; do printf 'КРАСНОЕ 078: %s\n' "$r" >&2; done
 if [ "$PRESENT" -eq 0 ]; then
   printf 'КРАСНОЕ 078: л0: предмет отсутствует — субъекты молчат на трёх входах лимита; предъявляемое красное ДО реализации\n' >&2
 fi
-printf 'ИТОГ 078 (лимит активных): честных ветвей 18 (л0–л15, включая л3б, + ядро0), стабов 6, применений 6, диффпроб 6, нарушений 6; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
+printf 'ИТОГ 078 (лимит активных): честных ветвей 22 (л0–л15, включая л3б, л7б, л9б, л12б, л14б, + ядро0), стабов 6, применений 6, диффпроб 6, нарушений 6; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
 [ "$RED" -eq 0 ] || exit 1
 exit 0
