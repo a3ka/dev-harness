@@ -151,6 +151,15 @@ done < <(g worktree list --porcelain | awk '
 [ "$found_garbage" -eq 0 ] || exit 1
 
 # ── ВСЁ ЗЕЛЁНОЕ: атомарная перезапись следа + постановка маркера ────────────
+# Инвариант 3, фраза 2 (072-r2 Б5): уже стоящий (чужой) маркер дверь НЕ
+# удаляет — не её состояние. Запоминаем существование и байты ДО своей
+# постановки, чтобы при отказе записи следа вернуть ровно то, что было.
+prev_marker_existed=0
+prev_marker_bytes=""
+if [ -e "$MARKER" ]; then
+  prev_marker_existed=1
+  prev_marker_bytes="$(cat "$MARKER" 2>/dev/null || printf '')"
+fi
 mkdir -p "$(dirname "$MARKER")"
 : > "$MARKER.tmp.$$" \
   || { printf 'ОТКАЗ: запись маркера не удалась: %s\n' "$MARKER" >&2; exit 1; }
@@ -160,7 +169,12 @@ mv -f "$MARKER.tmp.$$" "$MARKER" \
 mkdir -p "$(dirname "$TRACE")"
 if ! ( printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" \
        && mv -f "$TRACE.tmp.$$" "$TRACE" ); then
-  rm -f "$MARKER" 2>/dev/null || true
+  # Откат ТОЛЬКО маркера этого прогона: чужой стоявший — байт-в-байт.
+  if [ "$prev_marker_existed" -eq 0 ]; then
+    rm -f "$MARKER" 2>/dev/null || true
+  else
+    printf '%s' "$prev_marker_bytes" > "$MARKER" 2>/dev/null || :
+  fi
   printf 'ОТКАЗ: запись следа не удалась: %s\n' "$TRACE" >&2
   exit 1
 fi
