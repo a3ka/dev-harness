@@ -72,6 +72,7 @@
     "check:github-token-family-selftest": "bash scripts/check_github_token_070.sh",
     "check:gitw-predpolet-family-selftest": "bash fixtures/_krasnye_071.sh",
     "check:merge-gate-family-selftest": "bash fixtures/check_judge_gate/krasnye_063.sh",
+    "check:zony-merge-head-family-selftest": "bash fixtures/_krasnye_073.sh",
     "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh"
   }
 }
