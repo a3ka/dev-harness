@@ -49,6 +49,15 @@ GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config user
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config commit.gpgsign false
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" config core.hooksPath /dev/null
 commit_all "$RB" 'основание'
+# bare-origin (контракт 078, тот же приём, что make_repo в _repo.sh): лимит активных
+# контрактов в freeze_contract.sh судит живым ls-remote origin; не настроенный remote —
+# fail-closed «авторитет недоступен», заморозка ветви 3 умирала бы раньше предмета
+# клетки. Ручной тег frozen/001/1 ниже остаётся локальным: активных на origin нет —
+# 0 < 2, суждения клетки не меняются.
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "${RB%/}-origin.git"
+git -C "${RB%/}-origin.git" symbolic-ref HEAD refs/heads/main
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" remote add origin "${RB%/}-origin.git"
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$RB" -c commit.gpgsign=false push -q origin main
 g "$RB" tag -a frozen/contracts/001/1 -m 'v1 утверждена до истории вердиктов'
 
 put_verdict "$RB" 2 FAIL
