@@ -2,18 +2,36 @@
 # scripts/gitw_preflight_071.sh — предполётный гард обёртки scripts/gitw
 # перед push в refs/heads/main (контракт 071, §Инварианты).
 #
-# Интерфейс вызова из крюка в scripts/gitw (после И-7, до И-8):
-#   scripts/gitw_preflight_071.sh <эффективная_цель> [push-args ...]
+# Интерфейс вызова из крюка scripts/gitw (после И-7, до И-8):
+#   scripts/gitw_preflight_071.sh <target> --pf-ctx <ctx…> --pf-cfg <cfg…> <push-args…>
 #
-# argv[1] = эффективная цель обмена (canonical URL — И-5 уже сверил);
-# argv[2..] = хвост argv push (подкоманда и/или рефspec/флаги).
-# cwd = репозиторий вызова (push идёт отсюда); чеки дерева исполняются
-# на ОТПРАВЛЯЕМОМ src во временном worktree под
-# ${TMPDIR:-/tmp}/dev-harness-worktrees/<hash8>/, удаляемом до exec.
+# argv[1]                                = эффективная цель обмена (канон
+#                                          URL после И-5);
+# argv[2]                                = сентинел --pf-ctx (граница ctx);
+# argv[3 .. 3+ctx_len-1]                 = ctx[] (-C/--git-dir/--work-tree/…)
+#                                          (С4: применяется к КАЖДОМУ git
+#                                          предполёта);
+# argv[3+ctx_len]                        = сентинел --pf-cfg (граница cfg);
+# argv[4+ctx_len .. 4+ctx_len+cfg_len-1] = cfg[] (-c key=val);
+# argv[5+ctx_len+cfg_len ..]             = argv хвоста push: первым
+#                                          токеном ИДЁТ подкоманда (push),
+#                                          далее — флаги и позиционные
+#                                          (repository, refspecs).
 #
-# Крюк уже судит «покрывает ли refspec main» и зовёт этот скрипт только
-# при покрытии. Здесь мы дополнительно читаем refspec, чтобы извлечь
-# src для чека (1) и (4), и прогоняем чеки в порядке (4)→(2)→(3)→(1).
+# Крюк передаёт argv целиком — элементами массива, без скалярной подстановки
+# (С1: ни одной неквоченной подстановки на пути крюк→предполёт). ПЕРВЫЙ
+# позиционный токен в push-args после подкоманды = repository по git-push(1)
+# (всегда перед refspec, синтаксис git-push(1) «<repository> [<refspec>…]»);
+# предполёт сам его исключает из refspec-парсера. Без репозитория (push без
+# позиционного аргумента) — repository резолвится из pushRemote/pushDefault
+# (контекст ctx/cfg здесь же). Крюк уже судит «покрывает ли refspec main»;
+# здесь дополнительно читаем refspec для извлечения src и прогоняем чеки
+# в порядке (4)→(2)→(3)→(1).
+#
+# Таблица флагов push (С2: ровно одно место — здесь): известные флаги с
+# arity 0/1 и =-формами; неизвестный → «несудимая конфигурация refspec:
+# неразбираемый флаг <f>» (С3). Полный список све́рен с git-push(1) текущей
+# версии git в среде.
 #
 # Каждый отказ именован префиксом «gitw ПРЕДПОЛЁТ-ОТКАЗ: » и даёт rc 1;
 # успех и каждый пропуск печатают строку «gitw ПРЕДПОЛЁТ: …» (молчания нет).
@@ -42,77 +60,229 @@ command -v jq   >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ:
 TGT="${1:?цель не передана}"
 shift
 
-# ── определение ОТПРАВЛЯЕМОГО src (по refspec/текущей ветке) ────────────────
-# Конвенция та же, что в крюке: src:main → src, без : — сам токен, HEAD →
-# rev-parse HEAD, без refspec — текущая ветка. Удаление main (`:main`) и
-# глоб в refspec — именованные отказы fail-closed.
+# ── разбор ctx/cfg (С4: контекст вызова) ───────────────────────────────────
+# sentinel-пары --pf-ctx / --pf-cfg разделяют блоки. Между ними — элементы
+# массивов ctx и cfg (порядок и парность сохраняются 1-в-1 с gitw).
+pf_ctx=()
+pf_cfg=()
+push_args=()
+phase=pre
+for a in "$@"; do
+  case "$phase:$a" in
+    pre:--pf-ctx)       phase=ctx ;;
+    pre:--pf-cfg)       phase=cfg ;;
+    ctx:--pf-cfg)       phase=cfg ;;
+    ctx:*)              pf_ctx+=("$a") ;;
+    cfg:*)              pf_cfg+=("$a") ;;
+    pre:*)              phase=push_args; push_args+=("$a") ;;
+    push_args:*)        push_args+=("$a") ;;
+  esac
+done
+unset phase a
+
+# Удобная обёртка для git-вызовов с контекстом (С4). ВСЕ git-вызовы
+# предполёта идут через неё: НЕ через голый `git`, иначе -C/-c/--git-dir
+# игнорируются и чеки смотрят НЕ тот репозиторий.
+g() { git "${pf_ctx[@]}" "${pf_cfg[@]}" "$@"; }
+
+# ── таблица флагов push (С2/С3) — разбор токенов push-args ─────────────────
+# Состояние парсера: сначала идёт подкоманда (push), затем флаги, затем
+# позиционные: первый = repository, далее = refspecs. Возвращаем массив
+# refspec-токенов (без repository) и индекс первого позиционного.
 #
-# Уточнение несудимости (по слову владельца 2026-10-01, симметрично крюку):
-# «несудимая конфигурация refspec» — ТОЛЬКО когда effective refspec МОГ
-# отправить main неявно (push.default=matching при ветках; upstream-ветка
-# с upstream=main). detached HEAD без явного dst при push.default, который
-# не покрывает main → effective push пуст → прозрачно. Явное покрытие
-# (прямой main/src:main/HEAD:main/refs/heads/main/--all/--mirror) →
-# main_cov=1 (предполёт обязателен).
-curbr_short="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+# Возврат структуры: <repo_token>;<refspec_tokens_via_ARRAY_NAME>
+# Сторона: после вызова ${refspecs[@]} содержит refspec-токены, $repo_token —
+# первый позиционный (или пустая строка, если позиционного не было — push
+# без явного remote).
+pf_parse_push_args() {
+  local i tok new_i
+  local -a _result_refspecs
+  local _result_repo=""
+  # пропустить ведущие флаги: первый непозиционный — подкоманда
+  sub_idx=-1
+  for ((i=0; i<${#push_args[@]}; i++)); do
+    tok="${push_args[$i]}"
+    case "$tok" in
+      -*) continue ;;
+      *)   sub_idx=$i; break ;;
+    esac
+  done
+  if [ "$sub_idx" -lt 0 ]; then
+    # пустой argv — считаем, что push без аргументов
+    refspecs=()
+    repo_token=""
+    return 0
+  fi
+  # после подкоманды — флаги и позиционные
+  local state=flags  # flags → repo → refspecs
+  local delete_active=0
+  for ((i=sub_idx+1; i<${#push_args[@]}; i++)); do
+    tok="${push_args[$i]}"
+    case "$state:$tok" in
+      flags:-*)  ;;  # любой флаг в режиме flags — нормально
+      repo:-*)
+        # refspec не может начинаться с -… но флаги после repo — да.
+        # трактуем как флаг и переходим обратно в state=refspecs
+        state=refspecs
+        ;;
+      refspecs:-*) ;;
+      *:*)        # позиционный
+        case "$state" in
+          flags) state=repo; _result_repo="$tok"; continue ;;
+          repo)  state=refspecs ;;
+        esac
+        ;;
+    esac
+    case "$tok" in
+      # arity 0
+      --all|--branches|--mirror|--tags|--follow-tags|--atomic|\
+      --prune|--no-verify|--verify|\
+      -n|--dry-run|--porcelain|\
+      -q|--quiet|-v|--verbose|\
+      -u|--set-upstream|-f|--force|\
+      -4|--ipv4|-6|--ipv6|\
+      --thin|--no-thin|--progress|\
+      --force-if-includes|--no-force-if-includes|\
+      --no-signed|--signed|\
+      --no-force-with-lease|\
+      --no-recurse-submodules|\
+      --repo|--no-all|--no-multiple|\
+      --delete|-d)
+        case "$tok" in --delete|-d) delete_active=1 ;; *) delete_active=0 ;; esac
+        ;;
+      # arity 1 с =-формой: значение встроено
+      --repo=*|--push-option=*|--receive-pack=*|--exec=*|\
+      --force-with-lease=*|--signed=*|\
+      --recurse-submodules=*|--push=*|\
+      --dry-run=*|--porcelain=*|--quiet=*|--verbose=*|\
+      --set-upstream=*|--force=*|--prune=*|--tags=*|\
+      --follow-tags=*|--atomic=*|--all=*|--mirror=*|\
+      --thin=*|--no-thin=*|--progress=*|\
+      --force-if-includes=*|--no-force-if-includes=*|\
+      --verify=*|--no-verify=*|\
+      --ipv4=*|--ipv6=*)
+        ;;
+      # arity 1: значение в следующем токене
+      -o)
+        new_i=$((i+1))
+        if [ "$new_i" -ge "${#push_args[@]}" ]; then
+          printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: несудимая конфигурация refspec: флаг %s без значения\n' "$tok" >&2
+          exit 1
+        fi
+        i=$new_i
+        ;;
+      # неизвестный флаг → отказ С3
+      -*)
+        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: несудимая конфигурация refspec: неразбираемый флаг %s\n' "$tok" >&2
+        exit 1
+        ;;
+      *)
+        # позиционный — refspec
+        if [ "$delete_active" -eq 1 ]; then
+          _result_refspecs+=(":$tok")
+          delete_active=0
+        else
+          _result_refspecs+=("$tok")
+        fi
+        ;;
+    esac
+  done
+  repo_token="$_result_repo"
+  # Передать refspecs через глобальную переменную (bash)
+  refspecs=("${_result_refspecs[@]}")
+}
+
+# ── определение ОТПРАВЛЯЕМОГО src (по refspec/текущей ветке) ───────────────
+# Уточнение несудимости (по слову владельца 2026-10-01): «несудимая
+# конфигурация refspec» — ТОЛЬКО когда effective refspec МОГ отправить main
+# неявно. Явное покрытие (прямой main/src:main/HEAD:main/refs/heads/main/
+# --all/--mirror) → main_cov=1 (предполёт обязателен). detached HEAD без
+# явного dst при push.default, который не покрывает main → effective push
+# пуст → прозрачно.
+curbr_short="$(g symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
 main_cov=0
 saw_ref=0
 send_src=""
 unsupported_reason=""
 all_or_mirror=0
+repo_token=""
+refspecs=()
+pf_parse_push_args
 
-for a in "$@"; do
-  case "$a" in
-    --all|--mirror) all_or_mirror=1; continue ;;
-    -*) continue ;;
-    *) saw_ref=1 ;;
-  esac
-  # глоб в refspec — fail-closed
-  case "$a" in
+# Обход refspec-токенов: нормализация (`+` сбрасывается, `@` ≡ HEAD),
+# разбор src:dst / bare-формы, удаление main, глоб.
+for tok in "${refspecs[@]}"; do
+  [ -n "$tok" ] || continue
+  saw_ref=1
+  # глоб в refspec
+  case "$tok" in
     *\**)
-      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: refspec не разбирается: %s\n' "$a" >&2
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: refspec не разбирается: %s\n' "$tok" >&2
       exit 1
       ;;
   esac
-  if [ "${a#*:}" != "$a" ]; then
+  # Нормализация: ведущий `+` сбрасывается, `@` ≡ HEAD
+  spec="$tok"
+  case "$spec" in
+    +*) spec="${spec#+}" ;;
+  esac
+  case "$spec" in
+    @) spec="HEAD" ;;
+  esac
+  if [ "${spec#*:}" != "$spec" ]; then
     # форма src:dst
-    src="${a%%:*}"
-    dst="${a#*:}"
-    case "$dst" in
-      refs/heads/main|main)
-        # удаление main (src пуст): отправляемого дерева нет
-        if [ -z "$src" ]; then
-          printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: refspec не разбирается: удаление main\n' >&2
-          exit 1
-        fi
-        main_cov=1
-        send_src="$src"
-        ;;
-    esac
+    src="${spec%%:*}"
+    dst="${spec#*:}"
   else
-    # bare-форма: a — это dst
-    case "$a" in
-      refs/heads/main|main)
-        main_cov=1
-        send_src="$a"
-        ;;
-      HEAD)
-        if [ "$curbr_short" = "main" ]; then
-          main_cov=1
-          send_src="HEAD"
-        elif [ -z "$curbr_short" ]; then
-          # detached HEAD + push HEAD: git фатально (нет current branch),
-          # effective push пуст → прозрачно (без unsupported_reason)
-          :
-        else
-          # HEAD без явного dst при чужой ветке — refspec неоднозначен,
-          # несудимая конфигурация
-          unsupported_reason="HEAD без явного dst при текущей ветке $curbr_short"
-        fi
-        ;;
-    esac
+    # bare-форма: spec = dst, src — тот же токен (push origin main →
+    # main:main по git-push(1), НЕ :main)
+    src="$spec"
+    dst="$spec"
   fi
+  # удаление main: ТОЛЬКО когда исходный refspec начинается с `:` (после
+  # нормализации `+` сброшен, остался `:main` → src пуст).
+  # Маркер удаления: при синтаксическом разборе src пуст И исходный
+  # токен начинался с `:`. Фиксируем это ДО переписывания src для
+  # bare-формы.
+  case "$tok" in
+    :*) _is_delete=1 ;;
+    *)  _is_delete=0 ;;
+  esac
+  if [ "$_is_delete" -eq 1 ] && { [ "$dst" = "main" ] || [ "$dst" = "refs/heads/main" ]; }; then
+    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: refspec не разбирается: удаление main\n' >&2
+    exit 1
+  fi
+  case "$dst" in
+    refs/heads/main|main)
+      main_cov=1
+      # src берём из spec; пустой src = удаление, отказ выше
+      if [ -n "$src" ]; then
+        send_src="$src"
+      elif [ -z "$send_src" ]; then
+        send_src="$src"
+      fi
+      ;;
+    HEAD)
+      if [ "$curbr_short" = "main" ]; then
+        main_cov=1
+        send_src="HEAD"
+      elif [ -z "$curbr_short" ]; then
+        :  # detached HEAD, no current branch → git фатально, effective push пуст → прозрачно
+      else
+        unsupported_reason="HEAD без явного dst при текущей ветке $curbr_short"
+      fi
+      ;;
+    *)
+      # явный dst ≠ main → не покрыт (обмен прозрачен по семантике 045)
+      ;;
+  esac
 done
+
+# --all|--mirror → явное покрытие main (контракт 071 §Инвариант 2);
+# подавляет unsupported_reason (--all отменяет неоднозначность dst).
+case "${push_args[*]:-}" in
+  *--all*|*--mirror*) all_or_mirror=1 ;;
+esac
 
 # без refspec: текущая ветка определяет покрытие
 if [ "$saw_ref" -eq 0 ]; then
@@ -120,16 +290,61 @@ if [ "$saw_ref" -eq 0 ]; then
     main_cov=1
     send_src="HEAD"
   elif [ -n "$curbr_short" ]; then
-    # ветка ≠ main: push.default мог бы неявно покрыть main
-    pd="$(git config --get push.default 2>/dev/null || true)"
+    # ветка ≠ main: push.default / remote.<r>.push могли бы неявно покрыть main
+    pf_repo="${repo_token:-}"
+    if [ -z "$pf_repo" ]; then
+      pf_repo="$(g config --get "branch.$curbr_short.pushRemote" 2>/dev/null || true)"
+      [ -n "$pf_repo" ] || pf_repo="$(g config --get remote.pushDefault 2>/dev/null || true)"
+      [ -n "$pf_repo" ] || pf_repo="$(g config --get "branch.$curbr_short.remote" 2>/dev/null || true)"
+      [ -n "$pf_repo" ] || pf_repo="origin"
+    fi
+    # remote.<r>.push (--get-all) — в КОНТЕКСТЕ ctx/cfg (С4). Все значения.
+    rp_count=0
+    rp_has_main=0
+    while IFS= read -r rp; do
+      [ -n "$rp" ] || continue
+      rp_count=$((rp_count+1))
+      # Нормализация: ведущий + сбрасывается, @ ≡ HEAD
+      case "$rp" in
+        +*) rp="${rp#+}" ;;
+      esac
+      case "$rp" in
+        @) rp="HEAD" ;;
+      esac
+      if [ "${rp#*:}" != "$rp" ]; then
+        rpsrc="${rp%%:*}"; rpdst="${rp#*:}"
+      else
+        rpsrc=""; rpdst="$rp"
+      fi
+      case "$rpdst" in
+        refs/heads/main|main)
+          rp_has_main=1
+          if [ -n "$rpsrc" ] && [ -z "$send_src" ]; then
+            send_src="$rpsrc"
+          fi
+          ;;
+      esac
+    done < <(g config --get-all "remote.${pf_repo}.push" 2>/dev/null)
+    if [ "$rp_count" -gt 0 ] && [ "$rp_has_main" -eq 1 ]; then
+      main_cov=1
+      if [ -z "$send_src" ]; then send_src="HEAD"; fi
+    fi
+    # push.default — отдельный канал (сверяем всегда, даже при remote.<r>.push)
+    pd="$(g config --get push.default 2>/dev/null || true)"
     case "$pd" in
       matching)
-        unsupported_reason="явного dst нет при текущей ветке $curbr_short" ;;
+        if [ -z "$unsupported_reason" ]; then
+          unsupported_reason="явного dst нет при текущей ветке $curbr_short (push.default=matching)"
+        fi
+        ;;
       upstream|simple|current)
-        merge_dst="$(git config --get "branch.$curbr_short.merge" 2>/dev/null || true)"
+        merge_dst="$(g config --get "branch.$curbr_short.merge" 2>/dev/null || true)"
         case "$merge_dst" in
           refs/heads/main)
-            unsupported_reason="явного dst нет при текущей ветке $curbr_short" ;;
+            if [ -z "$unsupported_reason" ]; then
+              unsupported_reason="явного dst нет при текущей ветке $curbr_short (upstream=main)"
+            fi
+            ;;
         esac
         ;;
     esac
@@ -145,10 +360,8 @@ if [ "$all_or_mirror" -eq 1 ]; then
   unsupported_reason=""
   if [ -z "$send_src" ]; then
     # для --all/--mirror src = локальная main (если есть) — это отправляемое
-    # дерево для чеков (1)/(3). В группе wip/071/main/src/main — refspec не
-    # собирается, git толкает ВСЕ refs/heads/* (--all) или все refs/*
-    # (--mirror); локальная main — представительный src чека.
-    if git show-ref --verify --quiet refs/heads/main; then
+    # дерево для чеков (1)/(3).
+    if g show-ref --verify --quiet refs/heads/main; then
       send_src="main"
     else
       send_src="HEAD"
@@ -167,11 +380,11 @@ if [ "$main_cov" -ne 1 ]; then
   exit 0
 fi
 
-# ── разрешение src в commit ─────────────────────────────────────────────────
+# ── разрешение src в commit ────────────────────────────────────────────────
 # src — ветка/тег/HEAD; rev-parse по нему без ^{commit} не ловит тег-объекты.
-send_tip="$(git rev-parse --verify --quiet "${send_src}^{commit}" 2>/dev/null)"
+send_tip="$(g rev-parse --verify --quiet "${send_src}^{commit}" 2>/dev/null)"
 if [ -z "$send_tip" ]; then
-  send_tip="$(git rev-parse --verify --quiet "$send_src" 2>/dev/null)"
+  send_tip="$(g rev-parse --verify --quiet "$send_src" 2>/dev/null)"
 fi
 [ -n "$send_tip" ] \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: отправляемый src не разрешается: %s\n' "$send_src" >&2; exit 1; }
@@ -212,14 +425,14 @@ while IFS= read -r l; do
     branch\ *)   wt_branch="${l#branch }" ;;
     detached)    wt_branch="detached" ;;
   esac
-done < <(git worktree list --porcelain 2>/dev/null)
+done < <(g worktree list --porcelain 2>/dev/null)
 wt_flush
 
 # ── чек (2): локальные frozen/*|done/* теги на origin тем же объектом ───────
 # ls-remote --tags выводит "<sha>\t<ref>"; для аннотированных тегов также
 # строка с "<commit_sha>\t<ref>^{}". RSHA хранит имя тега → sha из
 # ls-remote. Сверяем с локальным git for-each-ref refs/tags.
-if ! ls_out="$(git ls-remote --tags "$TGT" 2>/dev/null)"; then
+if ! ls_out="$(g ls-remote --tags "$TGT" 2>/dev/null)"; then
   printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: ls-remote --tags %s не прошёл\n' "$TGT" >&2
   exit 1
 fi
@@ -238,10 +451,6 @@ while IFS=$'\t' read -r sha name; do
       short="${name#refs/tags/}"
       remote_sha="${RSHA[$short]:-}"
       if [ "$remote_sha" != "$sha" ]; then
-        # Имя тега + ОБА sha (вердикт ревьюера 071 r1 Р-6): для отсутствующего
-        # на цели — локальный sha и «нет» (явная отметка, что на цели тега
-        # нет вовсе); для переприцеленного — оба sha рядом, чтобы видеть
-        # РАСХОЖДЕНИЕ объектов, а не только имя.
         remote_disp="${remote_sha:-нет}"
         printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: %s (локальный %s, цель %s)\n' \
           "$short" "$sha" "$remote_disp" >&2
@@ -249,7 +458,7 @@ while IFS=$'\t' read -r sha name; do
       fi
       ;;
   esac
-done < <(git for-each-ref --format='%(objectname)%09%(refname)' refs/tags 2>/dev/null)
+done < <(g for-each-ref --format='%(objectname)%09%(refname)' refs/tags 2>/dev/null)
 unset RSHA
 
 # ── чек (3): каждый merge «land: wip/<NNN>/<автор>» в диапазоне ─────────────
@@ -259,25 +468,15 @@ unset RSHA
 # Граница применимости API-проверки: если в $rmain..$send_tip НЕТ ни одного
 # merge-subject «land: wip/<NNN>/<автор>» → API-запрос не формируется,
 # чек (3) прозрачен (мержей нет — проверять нечего). API_BASE
-# резолвится только когда есть что проверять: для не-github целей без ручки
-# и без мержей — прозрачно (не отказываем «PR-CI не сверяем: цель не
-# github» — это был бы над-блок для легитимного push --all при локальном
-# bare-получателе).
-rmain="$(git ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
+# резолвится только когда есть что проверять.
+rmain="$(g ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
 [ -n "$rmain" ] \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: вершина main на цели не читается\n' >&2; exit 1; }
 
-# Сначала собираем список land-мержей в диапазоне (вершина main на цели
-# … tip отправляемого src). БЕЗ `--first-parent` (вердикт ревьюера 071 r1
-# Р-5): land-merge не на первой родительской линии диапазона (например,
-# влитая ветка с собственным land'ом) тоже судим; иначе такой мерж
-# проходит незамеченным. Фильтр subject — единственный кейс проверки
-# (любой merge с subject «land: …» в диапазоне обязан судиться; не-land
-# merge — игнор).
-#
+# БЕЗ `--first-parent`: land-merge не на первой родительской линии
+# диапазона (например, влитая ветка с собственным land'ом) тоже судим.
 # Subject «land: …» вне грамматики wip/[0-9]{3}/<автор> — именованный
-# отказ «land-субъект не разбирается» (вердикт ревьюера 071 r1 Р-4):
-# иначе такой мерж молча пропускается и оператору не видно поломки.
+# отказ «land-субъект не разбирается».
 land_merges=()
 while IFS=$'\t' read -r h s; do
   case "$s" in
@@ -287,37 +486,23 @@ while IFS=$'\t' read -r h s; do
       exit 1
       ;;
   esac
-done < <(git log --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
+done < <(g log --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
 
-# Мержей нет → прозрачно (нет объекта проверки)
 if [ "${#land_merges[@]}" -gt 0 ]; then
   API_BASE="${GITW_PREFLIGHT_071_API:-}"
-  # Шов API_BASE: две формы (живой укус 2026-10-02 №2, клетка п8б):
-  #   полная — содержит /repos/<owner>/<repo> (как было); оставляем как есть;
-  #   КОРЕНЬ  — без /repos (фикстура п8б задаёт КОРЕНЬ мока); owner/repo
-  #             извлекаются из $TGT (эффективная цель обмена — канонический
-  #             URL после И-5: ssh://github.com/o/r.git для ssh-цели) c
-  #             подпором remote_url любого настроенного remote (TGT мог быть
-  #             путём, ssh-формой вне github-грамматики или bare-remote).
-  #             Грамматика: ssh://git@github.com/ | ssh://github.com/ |
-  #             git@github.com: | https://github.com/ → owner/repo.
-  # При пустой API_BASE КОРЕНЬ дефолтится в https://api.github.com.
   case "$API_BASE" in
     */repos/*|*/actions/runs)
-      # полная форма — оставляем как есть (все старые клетки)
       ;;
     *)
       github_repo=""
-      # 1) парсим TGT (эффективная цель обмена — канонический URL)
       if [ -n "$TGT" ]; then
         github_repo="$(printf '%s' "$TGT" \
           | sed -nE 's#^(ssh://git@github\.com/|ssh://github\.com/|git@github\.com:|https://github\.com/)([^/]+)/([^/.]+)(\.git)?$#\2/\3#p' | head -1)"
       fi
-      # 2) fallback — remote_url любого настроенного remote
       if [ -z "$github_repo" ]; then
         while IFS= read -r rname; do
           [ -n "$rname" ] || continue
-          ru="$(git remote get-url "$rname" 2>/dev/null || true)"
+          ru="$(g remote get-url "$rname" 2>/dev/null || true)"
           case "$ru" in
             "")
               ;;
@@ -330,7 +515,7 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
               fi
               ;;
           esac
-        done < <(git remote 2>/dev/null)
+        done < <(g remote 2>/dev/null)
       fi
       if [ -n "$github_repo" ]; then
         API_BASE="${API_BASE:-https://api.github.com}/repos/${github_repo}"
@@ -349,7 +534,7 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
   for entry in "${land_merges[@]}"; do
     h="${entry%%$'\t'*}"; s="${entry#*$'\t'}"
     br="${s#land: }"
-    p="$(git rev-parse --verify --quiet "$h^2" 2>/dev/null)"
+    p="$(g rev-parse --verify --quiet "$h^2" 2>/dev/null)"
     if [ -z "$p" ]; then
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
       exit 1
@@ -381,15 +566,9 @@ command -v npm >/dev/null 2>&1 \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-раннер недоступен: npm\n' >&2; exit 1; }
 
 # 0 ключей в дереве (включая отсутствие package.json) — чеки неприменимы,
-# обмен продолжается (контракт 071 §Инвариант 3). Без этого фикс-теста toy-
-# миры без package.json (положительный контроль push --all) упирались бы в
-# fail-closed «чек-ключи не полностью» — над-блок.
-#
-# Ключи считаются на ОТПРАВЛЯЕМОМ дереве ($send_tip), НЕ на cwd вызова
-# (адверсарий 071-r1 Б2: cwd чекаута и отправляемый src расходятся на
-# candidate:main — чтение из cwd даёт «правильный ответ не тому дереву»,
-# над- или под-блок в зависимости от направления расхождения).
-pkg_content="$(git show "${send_tip}:package.json" 2>/dev/null)"
+# обмен продолжается (контракт 071 §Инвариант 3).
+# Ключи считаются на ОТПРАВЛЯЕМОМ дереве ($send_tip), НЕ на cwd вызова.
+pkg_content="$(g show "${send_tip}:package.json" 2>/dev/null)"
 nk=0
 if [ -n "$pkg_content" ]; then
   for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
@@ -405,29 +584,23 @@ fi
 [ "$nk" -eq 4 ] \
   || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-ключи не полностью: %s из 4\n' "$nk" >&2; exit 1; }
 
-# Временный detached worktree на tip отправляемого src. hash8 = 8 hex
-# (та же конвенция, что в основном пуле worktree). Создаём под
-# $WTROOT/<hash8>/ и снимаем trap на EXIT (включая частичный cleanup
-# при провале чека — именованный остаток по контракту).
+# Временный detached worktree на tip отправляемого src. hash8 = 8 hex.
 hash8="$(printf '%08x' $(( (RANDOM << 16 ^ RANDOM) & 0xffffffff )))"
 tw="$WTROOT/$hash8"
 mkdir -p "$(dirname "$tw")"
-if ! git worktree add --quiet --detach "$tw" "$send_tip" 2>/dev/null; then
+if ! g worktree add --quiet --detach "$tw" "$send_tip" 2>/dev/null; then
   printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: дерево чеков не строится\n' >&2
   exit 1
 fi
 
 cleanup() {
-  git worktree remove --force "$tw" 2>/dev/null || rm -rf "$tw"
+  g worktree remove --force "$tw" 2>/dev/null || rm -rf "$tw"
 }
 trap cleanup EXIT
 
 ckout="$(mktemp 2>/dev/null || printf '%s/.ckout.%s' "${TMPDIR:-/tmp}" "$$")"
 for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
   if ! ( cd "$tw" && npm run --silent "$k" ) >"$ckout" 2>&1; then
-    # Хвост вывода чека — в отказе (вердикт ревьюера 071 r1 Р-3): без хвоста
-    # оператор видит «check:ceilings красный» и НЕ видит, какой потолок ёмок;
-    # зажигает именно имя ключа и хвост вывода.
     tail_out="$(tail -n 3 "$ckout" 2>/dev/null | sed -e 's/[[:space:]]*$//')"
     printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек красный: %s\n%s\n' "$k" "$tail_out" >&2
     rm -f "$ckout"
