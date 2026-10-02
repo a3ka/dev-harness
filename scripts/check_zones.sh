@@ -530,6 +530,11 @@ while IFS=$'\t' read -r nnn since; do
   [ -s "$TMP/authors" ] || continue
   range="$since..HEAD"
   [ -n "$until" ] && range="$since..$until"
+  # Предмет 073: якорь «главной линии» формы REPLACE — КОНЕЦ судимого окна
+  # (done-тег для закрытых, HEAD для открытых); first-parent-предокство от
+  # него чекаут-независимо: та же история mainline на ветке и на её merge
+  # с base, локальная refs/heads/main не нужна.
+  CUR_UNTIL="${until:-HEAD}"
   # Линейный rev-list (как раньше) — для контрактов с ЗАКРЫТЫМИ окнами и
   # без чужих wip/<OTHER>/… merge'ей даёт ту же сводку (регресс-инвариант
   # ветви Г; для 017/019 merge'и без `land:` маркера тоже остаются).
@@ -1066,17 +1071,23 @@ while IFS=$'\t' read -r nnn since; do
           # Старая сторона = tag-object id/CONTRACT/<NNN> ИЛИ frozen/contracts/<NNN>/<vmax-1>.
           # Провенанс ТОЛЬКО ЛОКАЛЬНО; ls-remote origin форма замены НЕ зовёт (§Инварианты п.3).
           #
-          # Блокер B (закрыт v1 адверсария, contracts-049-v1-adversary.md): форма замены
-          # признаётся ТОЛЬКО когда судимый коммит C — ПРЕДОК (или сам) refs/heads/main
-          # (прецедент check_staged.sh §Инварианты п.3 — там условие ветки main применено к
-          # замене ТОЧНО ТАК ЖЕ; иначе коммит в чужой wip или на detached HEAD мог бы обойти
-          # staged-барьер, но был бы признан историческим судом). C не на main — форма замены
-          # НЕ признаётся, путь судится зонами как обычно (для orchestrator+registry/contracts.tsv
-          # вне ветки main обычный суд даёт «вне зоны», как для любого незаявленного пути).
+          # Блокер B (закрыт v1 адверсария, contracts-049-v1-adversary.md; пересмотр
+          # 073): форма замены признаётся ТОЛЬКО когда судимый коммит C лежит на
+          # first-parent-линии, идущей от КОНЦА судимого окна (CUR_UNTIL — done-тег
+          # для закрытых, HEAD для открытых). Якорь чекаут-НЕЗАВИСИМ — внутренняя
+          # история судимого окна, не refs/heads/main (локисная ветка в CI pull_request
+          # чекауте не создаётся, отсюда живой укус Н-181, 12 коммитов судятся
+          # красным в форме без main на тех же объектах и тегах, что дают зелёное
+          # с локальной refs/heads/main). Чек-лист наружу: боковая линия (второй
+          # родитель чужого non-land merge в открытом окне) НЕ лежит на first-parent
+          # линии CUR_UNTIL — замена на ней остаётся «вне зоны» (И5).
+          # Поглощение вывода rev-list ЦЕЛИКОМ (командная подстановка), не `| grep`:
+          # ранний выход grep шлёт rev-list SIGPIPE, а set -o pipefail делает rc
+          # предиката недетерминированным (Н-181 с FIXSIM тот же класс).
           on_main_replace=0
-          if g merge-base --is-ancestor "$c" "refs/heads/main" 2>/dev/null; then
-            on_main_replace=1
-          fi
+          case " $(g rev-list --first-parent "$CUR_UNTIL" 2>/dev/null | tr '\n' ' ') " in
+            *" $c "*) on_main_replace=1 ;;
+          esac
           if [ "$on_main_replace" -eq 0 ]; then
             # C не предок main — форма REPLACE НЕ признаётся; ничего не делаем здесь,
             # ниже (после if/else) skip_path=1 НЕ выставится (см. condition на skip_path).
