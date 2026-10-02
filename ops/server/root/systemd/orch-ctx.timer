@@ -1,0 +1,8 @@
+[Unit]
+Description=orch-peak ctx — сторож контекста ведущей сессии оркестратора (раз в 15 мин)
+[Timer]
+OnCalendar=*:0/15
+Unit=orch-peak@ctx.service
+Persistent=false
+[Install]
+WantedBy=timers.target

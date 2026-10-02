@@ -1,0 +1,6 @@
+[Unit]
+Description=orch-peak: включить паузу на пик z.ai после окончания акции
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl enable --now orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer
+ExecStart=/bin/systemctl disable orch-peak-reenable.timer

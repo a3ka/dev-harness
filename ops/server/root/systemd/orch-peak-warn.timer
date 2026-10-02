@@ -1,0 +1,8 @@
+[Unit]
+Description=orch-peak warn (Mon..Fri 13:40 Asia/Singapore = пик z.ai)
+[Timer]
+OnCalendar=Mon..Fri 13:40 Asia/Singapore
+Unit=orch-peak@warn.service
+Persistent=false
+[Install]
+WantedBy=timers.target

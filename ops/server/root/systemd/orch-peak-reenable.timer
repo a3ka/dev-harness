@@ -1,0 +1,7 @@
+[Unit]
+Description=orch-peak: однократно включить паузу 2026-10-08 00:00 Asia/Singapore
+[Timer]
+OnCalendar=2026-10-08 00:00:00 Asia/Singapore
+Persistent=true
+[Install]
+WantedBy=timers.target

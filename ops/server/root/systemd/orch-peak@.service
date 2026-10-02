@@ -1,0 +1,6 @@
+[Unit]
+Description=orch-peak %i — пауза оркестратора (harness) на пик z.ai
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/orch-peak %i
+TimeoutStartSec=30min
