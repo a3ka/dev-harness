@@ -25,12 +25,24 @@
 #   И5  блокер B 049 по смыслу: боковая замена p3 (второй родитель чужого
 #       non-land merge в открытом окне 006) красит «вне зоны» в КАЖДОЙ
 #       форме — чинить формозависимость признанием ВСЕХ замен нельзя.
+#   И6  якорь «главной линии» REPLACE — first-parent от CUR_UNTIL (КОНЕЦ
+#       судимого окна), не от HEAD (мутант (в) адверсария r1 проходил батарею).
+#       Дерево fx3: закрытое окно 006 (done-тег dY на боковой sb6-линии),
+#       повторная замена f3 строки 005 — ПОСЛЕ done/005/1, ДО проверяемого
+#       HEAD, НА first-parent каждого проверяемого HEAD (b1, M), но ВНЕ
+#       first-parent(dY): честный якорь оставляет f3 непризнанной → «вне
+#       зоны» в КАЖДОЙ форме; якорь-HEAD признаёт f3 — различение. Позитив:
+#       легальная замена f2 ДО done/005/1 зелёна во всех формах fx3.
 #
 # ДЕРЕВЬЯ:
 #   fx  (с пробами): f2, r1 — легальные замены; t1 — ловушка зазора;
 #       p2 — неграмотная дельта; p3 — боковая замена (через merge стороны).
 #   fx2 (чистое): только легальные замены f2, r1 → после честной правки
 #       rc 0 во ВСЕХ формах («ветка rc 0 И merge rc 0 на одном дереве»).
+#   fx3 (И6): c0 → c_reg → f2 → d1[done005/1] → c6 → c6reg[frozen006/1]
+#       → q0[frozen005/2] → f3(повторная замена 005) → qz → Q(merge qz+dY,
+#       не land) → m2 → wip+b1 / m3 / M; dY = merge(s6, f3)[done006/1],
+#       боковая sb6 от c6reg.
 #
 # Н-39 (привязки стабов — здесь, в коде, к входам, где дефект НАБЛЮДАЕМ):
 #   s1 «фикс = расширить зоны orchestrator на registry» — патч lib_zones
@@ -48,6 +60,20 @@
 #   s4 «фикс = считать закрытые окна открытыми» — lib_zones не закрывает
 #      диапазоны done-тегом. Наблюдаем на t1 (путь scripts/trap_073.sh):
 #      честный гейт t1 не судит вовсе, s4 вносит её в окно 005 → пойман.
+#   s5 «фикс = first-parent от HEAD» (мутант (в) r1) — предикат :1088 якорит
+#      HEAD вместо "$CUR_UNTIL". Наблюдаем ТОЛЬКО на fx3 (замена f3 после
+#      done): честный гейт красит её «вне зоны», s5 признаёт — пойман; на
+#      fx/fx2 все замены лежат на first-parent и HEAD, и конца окна —
+#      различающих входов нет (потому мутант и проходил батарею).
+#
+# Счётчики (живые прогоны 2026-10-02, клон origin/main=1d76df9):
+#   ДО докрутки: rc 0, красных клеток=0, стабы=4/4; мутант (в) «first-parent
+#     от HEAD» — rc 0, ОБХОД (вердикт адверсария r1).
+#   ПОСЛЕ докрутки (настоящий коммит): rc 0, красных клеток=0, стабы=5/5;
+#     мутант (в) — rc 1, красных клеток=6, И6 красна в 4/4 формах fx3
+#     (различение: замена после done-конца признана HEAD-якорем);
+#     (а) rc 1 (15), (б) rc 1 (21), (г) rc 1 (2, отказ стаба s2); FIXSIM=1
+#     rc 0; npm run check:zones rc 0.
 #
 # Семантика: rc 1 — любой пин нарушен (ДО правки нарушены И1/И2 — живое
 # красное; стаб не пойман — недопустимо ни до, ни после); rc 0 — все пины
@@ -163,14 +189,95 @@ build_fx() {
     "$SHA_F2" "$SHA_R1" "$SHA_T1" "$SHA_P3" "$SHA_P2" "$SHA_M3" "$SHA_M" "$SHA_B1" > "$SCRATCH/$1.env"
 }
 
+# fx3 (И6, мутант (в) адверсария 073 r1): закрытое окно 006 — done-тег dY на
+# боковой sb6 (от c6reg), повторная замена f3 строки 005 (sfr5→sfr5b) — ПОСЛЕ
+# done/005/1, ДО проверяемого HEAD, НА first-parent каждого проверяемого HEAD,
+# но ВНЕ first-parent(dY): в диапазоне frozen006/1..done006/1 судится честным
+# якорем CUR_UNTIL=done006 → «вне зоны»; якорь-HEAD признаёт — различение.
+build_fx3() {
+  local fx="$SCRATCH/fx3"
+  local G="git -C $fx"
+  git init -q -b mainline "$fx"
+  $G config user.name orchestrator
+  $G config user.email orchestrator@dev-harness.local
+  mkdir -p "$fx/contracts" "$fx/registry" "$fx/scripts/zzz"
+  : > "$fx/registry/contracts.tsv"
+
+  printf 'ЗОНА orchestrator: scripts/zzz/\n' > "$fx/contracts/005-merge-head-zony.md"
+  $G add -A && $G commit -q -m 'c0: контракт 005'
+  $G tag -a id/CONTRACT/005 -m mint005
+  local sid5; sid5="$($G rev-parse id/CONTRACT/005)"
+  printf '005 → %s\n' "$sid5" > "$fx/registry/contracts.tsv"
+  $G add -A && $G commit -q -m 'минт 005'
+  $G tag -a frozen/contracts/005/1 -m freeze005
+  local sfr5; sfr5="$($G rev-parse frozen/contracts/005/1)"
+  printf '005 → %s\n' "$sfr5" > "$fx/registry/contracts.tsv"
+  $G add -A && $G commit -q -m 'f2: замена 005 (до done, легальная)'
+  SHA_F2="$($G rev-parse HEAD)"
+  printf 'x' > "$fx/scripts/zzz/d1.txt"
+  $G add -A && $G commit -q -m 'd1: закрытие 005'
+  $G tag -a done/contracts/005/1 -m done005
+
+  printf 'ЗОНА orchestrator: scripts/zzz/\n' > "$fx/contracts/006-merge-head-zony.md"
+  $G add -A && $G commit -q -m 'c6: контракт 006'
+  $G tag -a id/CONTRACT/006 -m mint006
+  local sid6; sid6="$($G rev-parse id/CONTRACT/006)"
+  printf '005 → %s\n006 → %s\n' "$sfr5" "$sid6" > "$fx/registry/contracts.tsv"
+  $G add -A && $G commit -q -m 'минт 006'
+  $G tag -a frozen/contracts/006/1 -m freeze006
+
+  # боковая линия конца окна 006 — от c6reg (ДО q0/f3): first-parent(dY)
+  # пойдёт dY→s6→c6reg и НЕ содержит f3.
+  $G checkout -q -b sb6
+  printf 'x' > "$fx/scripts/zzz/s6.txt"
+  $G add -A && $G commit -q -m 's6: боковая линия конца окна 006'
+  $G checkout -q mainline
+
+  printf 'x' > "$fx/scripts/zzz/q0.txt"
+  $G add -A && $G commit -q -m 'q0: чекпойнт (носитель frozen005/2)'
+  $G tag -a frozen/contracts/005/2 -m freeze005v2
+  local sfr5b; sfr5b="$($G rev-parse frozen/contracts/005/2)"
+  printf '005 → %s\n006 → %s\n' "$sfr5b" "$sid6" > "$fx/registry/contracts.tsv"
+  $G add -A && $G commit -q -m 'f3: повторная замена 005 после done005'
+  SHA_F3="$($G rev-parse HEAD)"
+
+  # dY — конец окна 006: merge(s6, f3), f3 вторым родителем (в диапазоне
+  # окна, вне first-parent(dY)); done-тег на dY, сведение — не land.
+  $G checkout -q sb6
+  $G merge --no-ff -q -m 'dY: сведение конца окна 006 (не land)' "$SHA_F3"
+  $G tag -a done/contracts/006/1 -m done006
+  $G checkout -q mainline
+  printf 'x' > "$fx/scripts/zzz/qz.txt"
+  $G add -A && $G commit -q -m 'qz: чекпойнт после f3'
+  $G merge --no-ff -q -m 'Q: вливание конца окна 006 (не land)' sb6
+
+  printf 'x' > "$fx/scripts/zzz/m2.txt"
+  $G add -A && $G commit -q -m 'm2: чекпойнт'
+  $G checkout -q -b wip/073/probe
+  printf 'x' > "$fx/scripts/zzz/b1.txt"
+  $G add -A && $G commit -q -m 'b1: работа ветки'
+  SHA_B1="$($G rev-parse HEAD)"
+  $G checkout -q mainline
+  printf 'x' > "$fx/scripts/zzz/m3.txt"
+  $G add -A && $G commit -q -m 'm3: продвижение базы'
+  SHA_M3="$($G rev-parse HEAD)"
+  $G checkout -q --detach wip/073/probe
+  $G merge --no-ff -q -m probe mainline
+  SHA_M="$($G rev-parse HEAD)"
+  $G checkout -q mainline
+  printf 'SHA_F2=%q\nSHA_F3=%q\nSHA_M3=%q\nSHA_M=%q\nSHA_B1=%q\n' \
+    "$SHA_F2" "$SHA_F3" "$SHA_M3" "$SHA_M" "$SHA_B1" > "$SCRATCH/fx3.env"
+}
+
 load_shas() { # <дерево>
-  SHA_F2=''; SHA_R1=''; SHA_T1=''; SHA_P3=''; SHA_P2=''; SHA_M3=''; SHA_M=''; SHA_B1=''
+  SHA_F2=''; SHA_F3=''; SHA_R1=''; SHA_T1=''; SHA_P3=''; SHA_P2=''; SHA_M3=''; SHA_M=''; SHA_B1=''
   # shellcheck disable=SC1090
   . "$SCRATCH/$1.env"
 }
 
 build_fx fx 1
 build_fx fx2 0
+build_fx3
 
 # ── копии гейта и патчи-стабы ─────────────────────────────────────────────────
 gate_copy() { # <имя>
@@ -236,6 +343,13 @@ make_stub_s4() {  # закрытые окна не закрываются done-�
   lit s4.old '    if git -C "$root" rev-parse --verify --quiet "refs/tags/$done_ref" >/dev/null; then'
   lit s4.new '    if false; then'
   patch_py "$SCRATCH/gates/s4/lib_zones.sh" "$SCRATCH/s4.old" "$SCRATCH/s4.new"
+}
+
+make_stub_s5() {  # first-parent-якорь замены = HEAD, не конец окна (мутант (в) r1)
+  gate_copy s5
+  lit s5.old '          case " $(g rev-list --first-parent "$CUR_UNTIL" 2>/dev/null | tr '"'"'\n'"'"' '"'"' '"'"') " in'
+  lit s5.new '          case " $(g rev-list --first-parent HEAD 2>/dev/null | tr '"'"'\n'"'"' '"'"' '"'"') " in'
+  patch_py "$SCRATCH/gates/s5/check_zones.sh" "$SCRATCH/s5.old" "$SCRATCH/s5.new"
 }
 
 make_fixsim() {  # А-318: симуляция честной правки — throwaway, живёт в скратче
@@ -334,6 +448,16 @@ for form in $FORMS; do
     && red "И3: p2 ушла из двери минта в «вне зоны» (форма $form)"
 done
 
+# ── 2б. И6: замена ПОСЛЕ done-конца закрытого окна (дерево fx3) ────────────────
+printf 'пины дерева fx3 (И6):\n'
+for form in $FORMS; do
+  run_gate "$HONEST" fx3 "$form"
+  grep -qxF "$(vne "$SHA_F3" registry/contracts.tsv)" "$SCRATCH/lastx" \
+    || red "И6: повторная замена f3 после done/005/1 не красна в форме $form — якорь REPLACE обязан быть концом окна (CUR_UNTIL), не HEAD (мутант (в) адверсария r1)"
+  grep -qxF "$(vne "$SHA_F2" registry/contracts.tsv)" "$SCRATCH/lastx" \
+    && red "И6: легальная замена f2 до done/005/1 красна в форме $form — позитив закрытого окна сломан"
+done
+
 # ── 3. Стаб-пак: каждый обман пойман на своём входе ───────────────────────────
 printf 'стаб-пак:\n'
 caught=0; total=0
@@ -366,6 +490,18 @@ if grep -qxF "$(vne "$SHA_T1" scripts/trap_073.sh)" "$SCRATCH/lastx"; then
   caught=$((caught + 1))
 else
   red 'стаб s4 жив: закрытые окна не вскрылись стабом (Н-39)'
+fi
+total=$((total + 1))
+if ! make_stub_s5; then
+  red 'стаб s5 не построен: предикат first-parent "$CUR_UNTIL" не найден (снесён или уже замещён HEAD-якорем) — Н-39'
+else
+  run_gate "$SCRATCH/gates/s5/check_zones.sh" fx3 M-nomain
+  if grep -qxF "$(vne "$SHA_F3" registry/contracts.tsv)" "$SCRATCH/lastx"; then
+    red 'стаб s5 жив: замена f3 после done красна как честная — HEAD-якорь не различим на fx3 (Н-39)'
+  else
+    printf '  стаб s5 пойман: замена f3 после done признана якорем HEAD (мимо конца окна 006)\n'
+    caught=$((caught + 1))
+  fi
 fi
 [ "$caught" -eq "$total" ] || red 'стаб-пак неполон'
 
