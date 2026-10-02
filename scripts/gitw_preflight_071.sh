@@ -326,10 +326,16 @@ command -v npm >/dev/null 2>&1 \
 # обмен продолжается (контракт 071 §Инвариант 3). Без этого фикс-теста toy-
 # миры без package.json (положительный контроль push --all) упирались бы в
 # fail-closed «чек-ключи не полностью» — над-блок.
+#
+# Ключи считаются на ОТПРАВЛЯЕМОМ дереве ($send_tip), НЕ на cwd вызова
+# (адверсарий 071-r1 Б2: cwd чекаута и отправляемый src расходятся на
+# candidate:main — чтение из cwd даёт «правильный ответ не тому дереву»,
+# над- или под-блок в зависимости от направления расхождения).
+pkg_content="$(git show "${send_tip}:package.json" 2>/dev/null)"
 nk=0
-if [ -f package.json ]; then
+if [ -n "$pkg_content" ]; then
   for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
-    if grep -qF "\"$k\"" package.json; then
+    if printf '%s' "$pkg_content" | grep -qF "\"$k\""; then
       nk=$((nk+1))
     fi
   done
