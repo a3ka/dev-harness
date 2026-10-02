@@ -58,7 +58,7 @@ jobs:
         # (предмет п.1 «имя статично»).
         include:
           - shard: ap1
-            keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches check_no_rewrite render_document next_id
+            keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
           - shard: ap2
             keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
           - shard: ap3
@@ -236,7 +236,11 @@ jobs:
         # результат, а не только как именованная причина задачи (в) гейта.
         # rc=0 закрывает пункт приёмки шага; семейная CI-приёмка Р10/Р11 проводится
         # двумя прямыми шагами ниже — см. §Приёмка контракта 043.
-        run: npm run check:precision-gate
+        # Контракт 072, инвариант 15 (npm-гигиена ног двери перед критиком):
+        # ключ check:precision-gate в package.json безаргументный; аргументы
+        # (. <контракт>) передаются здесь явно, чтобы «npm run … -- . <contract>»
+        # судил переданный черновик, а не запечённый в ключе.
+        run: npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
 
       - name: Сам-тесты семьи precision-гейт (контракт 043)
         # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041: раннер
@@ -321,6 +325,36 @@ jobs:
         # вместе с предметом; rc=0 закрывает пункт приёмки шага (правило 6)
         # и закрывает ПРОВОДКА-долг контракта 071.
         run: bash fixtures/_krasnye_071.sh
+      - name: Сам-тесты дверей оркестратора (контракт 072)
+        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043/045/071:
+        # раннер `fixtures/_krasnye_072.sh` (dogfood-семья контракта 072,
+        # АГРЕГАТОР двух дверей оркестратора — слово владельца 2026-10-01
+        # вечер, дословно) гоняет обе батареи — стаб-пак 10/10 + диффпроба
+        # 10/10 + честные клетки 13/13 «двери перезапуска сессии»
+        # (`fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh` против
+        # `scripts/orch_restart.sh` — расширения GC) и стаб-пак 6/6 +
+        # диффпроба 6/6 + честные клетки ч1..ч4 «двери перед критиком»
+        # (`fixtures/dver_pered_kritikom/red_dver_pred_kritikom_072.sh` против
+        # `scripts/pre_critic.sh`). Раннер `rc 0` только при зелёности ОБЕИХ
+        # батарей (прецедент _krasnye_058.sh/070.sh; контракт 057 Ч-8 Б2).
+        # Шардовый verify_antiplacebo выбирает только `case_*.sh`
+        # (`scripts/verify_antiplacebo.sh:585`), этой семьи НЕ видит (её
+        # файлы `red_dver_*.sh`, не `case_*`; семья probe-only 034;
+        # каталоги НЕ барьерные ключи, см. .probe-only). Ключи
+        # `orch_restart` и `pre_critic` в матрице шарда ap1 рядом с
+        # `gc_agent_branches` — семейство дверей оркестратора. Ключ
+        # `npm run check:orch-restart-family-selftest` в package.json равен
+        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
+        # прецедент 058/059/060/070/071). Самодостаточен: обе батареи
+        # строят toy-мир в mktemp-каталогах, стерегомое дерево не
+        # мутируют, сети нет. Шаг красен, пока предмет 072 не реализован
+        # (г0 «предмет отсутствует»); зелёным становится вместе с
+        # предметом; rc=0 закрывает пункт приёмки шага (правило 6).
+        # Санкция: контракт 072:416-418 (дословно): «Ключи orch_restart и
+        # pre_critic в матрицу шардов ci.yml и ci-шаг раннера
+        # fixtures/_krasnye_072.sh — ВЛАДЕЛЕЦ orchestrator (слово владельца
+        # или пачка 071, см. ПРОВОДКА v2), НЕ самовольная правка из 072».
+        run: bash fixtures/_krasnye_072.sh
 
       - name: Сам-тесты шаринга agent.db (контракт 058)
         # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043/045:
