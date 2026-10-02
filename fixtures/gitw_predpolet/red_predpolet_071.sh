@@ -4,7 +4,7 @@
 # ДО реализации честная часть красна ЕДИНСТВЕННОЙ причиной «предмет
 # отсутствует» (fail-fast п0: файла scripts/gitw_preflight_071.sh нет ИЛИ
 # стаб-пак (исполняется ДО честных клеток) зелён УЖЕ
-# ДО реализации: пятнадцать обманных стабов умирает каждый на СВОЕЙ клетке
+# ДО реализации: семнадцать обманных стабов умирает каждый на СВОЕЙ клетке
 # именованной причиной — различимость батареи не зависит от честного кода.
 #
 # ПРИВЯЗКА К КОДУ (Н-39: стаб умирает там, где его дефект НАБЛЮДАМ):
@@ -38,6 +38,13 @@
 #   * s15 «HVOST-PUST-NESUDIM» — пустой хвост на main: огульное       → умирает на
 #                           «несудимая» вместо покрытия (блокнит      п7д (push без
 #                           легитимную форму не той причиной)          remote, main)
+#   * s16 «ZAGOLOVOK-ODNIM-ARGV» — Authorization: Bearer уезжает в curl  → умирает на
+#                           ОДНИМ словом (живой укус №1: curl молча       п8а (мок-заголовок:
+#                           роняет заголовок, GitHub — 400)              валидный Bearer — 200,
+#                                                                      кривой — 400)
+#   * s17 «NE-ZNAET-SSH-GITHUB» — грамматика цели без формы              → умирает на
+#                           ssh://github.com/<o>/<r>.git (живой укус     п8б (ssh-цель: честный
+#                           №2: «цель не github»)                         парсит и зовёт мок)
 #
 # Честные клетки (каждая ≡ ровно один именованный отказ контракта 071
 # §Инварианты; фразы grep -F дословно, префикс «gitw ПРЕДПОЛЁТ-ОТКАЗ: »):
@@ -93,6 +100,12 @@
 #        двинута), HEAD:main при ветке candidate (src = HEAD), зелёная
 #        пара: candidate:main проходит и ставит цель на tip candidate
 #        (критик к1 Б5);
+#   п8а-п8б — боевой API-шов (живые укусы 2026-10-02): п8а — заголовок
+#        Authorization: Bearer <токен> ДОХОДИТ до мока побайтово валидным
+#        (кривой/одним-argv → 400 → отказ «PR-CI не сверяем»); п8б — цель
+#        ssh://github.com/<o>/<r>.git парсится: owner/repo спрашиваются у
+#        API по /repos/o/r/actions/runs (корневой мок, шов-КОРЕНЬ) —
+#        зелёный PR-CI читается, пуш проходит на приземлённый bare;
 #
 # Метод: toy-мир = bare-цель B1 (ручка GIT_EXCHANGE_GUARD_CANONICAL) +
 # репо T с ПОЛНЫМ harness-tree (git archive HEAD — чеки зависимы: без
@@ -100,7 +113,10 @@
 # живой замер пачки) + копии всех тегов репо (замороженность черновиков
 # доказывается тегами — check_ceilings:19-22) + land-merge «land:
 # wip/071/demo» + API-стаб (python3 http.server: green/failure/empty по
-# head_sha). Судимый субъект — копия пары scripts/gitw +
+# head_sha) + мок-заголовок (судит Authorization: Bearer побайтово:
+# 200/400) + корневой мок цели (отвечает только /repos/o/r — судит
+# парсер) + фейковый ssh (приземляет ssh://github.com/o/r.git на bare
+# мира). Судимый субъект — копия пары scripts/gitw +
 # scripts/gitw_preflight_071.sh в $WORK/toyw/ (крюк резолвит предполёт от
 # каталога самой обёртки — НЕ PATH).
 #
@@ -139,6 +155,8 @@ sweep_wts() {
 cleanup() {
   sweep_wts
   [ -n "${API_PID:-}" ] && kill "$API_PID" 2>/dev/null
+  [ -n "${HDR_PID:-}" ] && kill "$HDR_PID" 2>/dev/null
+  [ -n "${ROOT_PID:-}" ] && kill "$ROOT_PID" 2>/dev/null
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -214,6 +232,148 @@ curl -fsS -m 5 "$APIBASE/actions/runs?head_sha=proba" >/dev/null 2>&1 \
   || die_cell среда "API-стаб не отвечает на пробу (пустая выборка — не проверено ничего)"
 # мёртвый порт: занять и освободить
 DEADPORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
+
+# ── мок-заголовок (живой укус №1): судит Authorization побайтово ─────────────
+# Валидный «Authorization: Bearer <токен>» → 200 + тело по общим спискам
+# green/fail/push; кривой или отсутствующий → 400 (GitHub живьём отвечал
+# 400 на кривой заголовок). Отрицательные пробы обязательны: мок, не
+# различающий заголовок, — не барьер (слепая выборка — красное).
+TOY071TOKEN='toy071-bearer-token'
+printf '%s\n' "$TOY071TOKEN" > "$APIDIR/token"
+cat > "$APIDIR/hdrsrv.py" <<'PYEOF'
+import json, re, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+GP, FP, PP, TP = sys.argv[1:5]
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        u = urlparse(self.path)
+        if not re.match(r'^/repos/[^/]+/[^/]+/actions/runs$', u.path):
+            self.send_response(404); self.end_headers(); return
+        try:
+            want = 'Bearer ' + open(TP).read().strip()
+        except OSError:
+            self.send_response(500); self.end_headers(); return
+        if self.headers.get('Authorization') != want:
+            self.send_response(400); self.end_headers(); return
+        sha = (parse_qs(u.query).get('head_sha') or [''])[0]
+        try:
+            GREEN = set(x for x in open(GP).read().split() if x)
+            FAIL = set(x for x in open(FP).read().split() if x)
+            PUSH = set(x for x in open(PP).read().split() if x)
+        except OSError:
+            GREEN, FAIL, PUSH = set(), set(), set()
+        if sha in GREEN:
+            body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+        elif sha in PUSH:
+            body = {"total_count": 1, "workflow_runs": [{"id": 3, "event": "push", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+        elif sha in FAIL:
+            body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure"}]}
+        else:
+            body = {"total_count": 0, "workflow_runs": []}
+        raw = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+    def log_message(self, *a): pass
+srv = HTTPServer(('127.0.0.1', 0), H)
+open(sys.argv[5], 'w').write(str(srv.server_port))
+srv.serve_forever()
+PYEOF
+python3 "$APIDIR/hdrsrv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/token" "$APIDIR/hdrport" &
+HDR_PID=$!
+HDRPORT=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  [ -s "$APIDIR/hdrport" ] && HDRPORT="$(cat "$APIDIR/hdrport")" && break
+  sleep 0.2
+done
+[ -n "$HDRPORT" ] || die_cell среда "мок-заголовок не поднялся (порт не записан)"
+HDRBASE="http://127.0.0.1:$HDRPORT/repos/a3ka/dev-harness"
+curl -fsS -m 5 -H "Authorization: Bearer $TOY071TOKEN" "$HDRBASE/actions/runs?head_sha=proba" >/dev/null 2>&1 \
+  || die_cell среда "мок-заголовок не отвечает на валидный Bearer (пустая выборка — не проверено ничего)"
+curl -fsS -m 5 -H "Authorization: Bearer NEVER071" "$HDRBASE/actions/runs?head_sha=proba" >/dev/null 2>&1 \
+  && die_cell среда "мок-заголовок отвечает 200 кривому Bearer — не различает заголовок"
+curl -fsS -m 5 "$HDRBASE/actions/runs?head_sha=proba" >/dev/null 2>&1 \
+  && die_cell среда "мок-заголовок отвечает 200 без Authorization — не различает заголовок"
+
+# ── корневой мок цели (живой укус №2): отвечает ТОЛЬКО /repos/o/r ────────────
+# Шов-КОРЕНЬ без /repos: честная реализация обязана взять owner/repo из
+# ЦЕЛИ (ssh://github.com/o/r.git) и построить /repos/o/r/actions/runs;
+# чужой путь (захардкоженное имя, непарс, голый /actions/runs) — 404.
+cat > "$APIDIR/rootsrv.py" <<'PYEOF'
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
+GP, FP, PP = sys.argv[1:4]
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        u = urlparse(self.path)
+        if u.path != '/repos/o/r/actions/runs':
+            self.send_response(404); self.end_headers(); return
+        sha = (parse_qs(u.query).get('head_sha') or [''])[0]
+        try:
+            GREEN = set(x for x in open(GP).read().split() if x)
+            FAIL = set(x for x in open(FP).read().split() if x)
+            PUSH = set(x for x in open(PP).read().split() if x)
+        except OSError:
+            GREEN, FAIL, PUSH = set(), set(), set()
+        if sha in GREEN:
+            body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+        elif sha in PUSH:
+            body = {"total_count": 1, "workflow_runs": [{"id": 3, "event": "push", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+        elif sha in FAIL:
+            body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure"}]}
+        else:
+            body = {"total_count": 0, "workflow_runs": []}
+        raw = json.dumps(body).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+    def log_message(self, *a): pass
+srv = HTTPServer(('127.0.0.1', 0), H)
+open(sys.argv[4], 'w').write(str(srv.server_port))
+srv.serve_forever()
+PYEOF
+python3 "$APIDIR/rootsrv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/rootport" &
+ROOT_PID=$!
+ROOTPORT=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  [ -s "$APIDIR/rootport" ] && ROOTPORT="$(cat "$APIDIR/rootport")" && break
+  sleep 0.2
+done
+[ -n "$ROOTPORT" ] || die_cell среда "корневой мок не поднялся (порт не записан)"
+ROOT2="http://127.0.0.1:$ROOTPORT"
+curl -fsS -m 5 "$ROOT2/repos/o/r/actions/runs?head_sha=proba" >/dev/null 2>&1 \
+  || die_cell среда "корневой мок не отвечает на /repos/o/r (пустая выборка — не проверено ничего)"
+curl -fsS -m 5 "$ROOT2/repos/a3ka/dev-harness/actions/runs?head_sha=proba" >/dev/null 2>&1 \
+  && die_cell среда "корневой мок отвечает чужому owner/repo — не судит парсер цели"
+curl -fsS -m 5 "$ROOT2/actions/runs?head_sha=proba" >/dev/null 2>&1 \
+  && die_cell среда "корневой мок отвечает пути без /repos — не судит композицию цели"
+
+# ── фейковый ssh: приземление ssh://github.com/o/r.git на локальный bare ─────
+# URL-строка живёт побайтово (origin/канон/ls-remote/push идут через
+# ssh-транспорт); место назначения — локальный bare мира (FAKE_BARE из env).
+GHURL='ssh://github.com/o/r.git'
+cat > "$WORK/fakessh" <<'SSHEOF'
+#!/usr/bin/env bash
+case "$*" in
+  *upload-pack*)   exec git upload-pack "$FAKE_BARE" ;;
+  *receive-pack*)  exec git receive-pack "$FAKE_BARE" ;;
+  *) printf 'fakessh: неизвестная команда: %s\n' "$*" >&2; exit 1 ;;
+esac
+SSHEOF
+chmod +x "$WORK/fakessh"
+FAKEPROBE="$WORK/fakeprobe"; FAKEBARE="$WORK/fakeprobe.git"
+git init -q -b main "$FAKEPROBE"; git init -q --bare "$FAKEBARE"
+( cd "$FAKEPROBE" && git -c user.name=t -c user.email=t@t.local commit -q --allow-empty -m probe )
+FAKE_BARE="$FAKEBARE" GIT_SSH="$WORK/fakessh" git -C "$FAKEPROBE" ls-remote "$GHURL" HEAD >/dev/null 2>&1 \
+  || die_cell среда "фейковый ssh не приземляет ls-remote (upload-pack) на локальный bare"
+FAKE_BARE="$FAKEBARE" GIT_SSH="$WORK/fakessh" git -C "$FAKEPROBE" push -q "$GHURL" main >/dev/null 2>&1 \
+  || die_cell среда "фейковый ssh не приземляет push (receive-pack) на локальный bare"
 
 # ── конформный harness-tree: git archive HEAD ────────────────────────────────
 TREE="$WORK/tree"
@@ -292,14 +452,27 @@ cand_commit() { # cand_commit <branch> <msg>: коммитит CANDW, снима
   git -C "$T" worktree remove --force "$CANDW" 2>/dev/null
 }
 
-# прогон судимой пары; env-ручки: APIENV = base | dead | нет
-run_push() { # run_push <режим-api: api|dead|none> <аргументы push...>
+# мир ssh-цели (живой укус №2): mk_world + перенос origin на
+# ssh://github.com/<owner>/<repo>.git — форма БЕЗ user-части. Транспорт
+# приземляется фейковым ssh ($WORK/fakessh + FAKE_BARE=$B1, режим gh):
+# bare уже наполнен базовым пушем mk_world, земля ленда зелёная в общих
+# списках; URL-строка остаётся побайтовой (origin/канон/ls-remote/push).
+mk_world_ssh() { # mk_world_ssh <имя>: B1/T выставлены, origin = GHURL
+  mk_world "$1"
+  git -C "$T" remote set-url origin "$GHURL"
+}
+
+# прогон судимой пары; env-ручки: APIENV = api|dead|none|hdr|gh
+run_push() { # run_push <режим-api: api|dead|none|hdr|gh> <аргументы push...>
   local apimode="$1"; shift
   SNAP_B1="$(git -C "$B1" rev-parse -q --verify refs/heads/main 2>/dev/null || printf НЕТ)"
   local -a envs=(GIT_EXCHANGE_GUARD_CANONICAL="$B1")
   case "$apimode" in
     api)  envs+=(GITW_PREFLIGHT_071_API="$APIBASE") ;;
     dead) envs+=(GITW_PREFLIGHT_071_API="http://127.0.0.1:$DEADPORT/repos/a3ka/dev-harness") ;;
+    hdr)  envs+=(GITW_PREFLIGHT_071_API="$HDRBASE" GITHUB_TOKEN="$TOY071TOKEN") ;;
+    gh)   envs=(GIT_EXCHANGE_GUARD_CANONICAL="$GHURL" GITW_PREFLIGHT_071_API="$ROOT2"
+              GIT_SSH="$WORK/fakessh" FAKE_BARE="$B1") ;;
     none) : ;;
     *) die_cell среда "неизвестный режим api: $apimode" ;;
   esac
@@ -347,6 +520,10 @@ TGT="${1:?цель}"; shift
 WTROOT="${TMPDIR:-/tmp}/dev-harness-worktrees"
 API="${GITW_PREFLIGHT_071_API:-}"
 REASON() { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+ghparse() { # owner/repo из github-URL (грамматика живого укуса №2 включена)
+  local r; r="$(printf '%s' "$1" | sed -nE 's#^(ssh://(git@)?github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\3/\4#p' | head -1)"
+  printf '%s' "${r%.git}"
+}
 # ── покрытие main ──────────────────────────────────────────────────────────
 curbr="$(git symbolic-ref -q HEAD 2>/dev/null || true)"
 main_cov=0; unjudge=0; saw_ref=0; send_src=""
@@ -439,8 +616,35 @@ while IFS=' ' read -r h s; do
   case "$s" in "land: wip/"[0-9][0-9][0-9]/*) ;; *) continue ;; esac
   br="${s#land: }"
   p="$(git rev-parse -q --verify "$h^2" 2>/dev/null)" || REASON "land-субъект не разбирается: $s"
-  [ -n "$API" ] || REASON "PR-CI не сверяем: цель не github"
-  body="$(curl -fsS -m 10 "$API/actions/runs?event=pull_request&head_sha=$p" 2>/dev/null)" || {
+  # цель API: полный base (совместимость) либо КОРЕНЬ + owner/repo из ЦЕЛИ
+  # (живой укус №2: форма ssh://github.com/<o>/<r>.git без user-части).
+  # s17 — грамматика r2 БЕЗ этой формы: ssh-цель → «цель не github».
+  case "$API" in
+    */repos/*) : ;;
+    *)
+      gr=""
+      for u in "$TGT" "$(git remote get-url "$TGT" 2>/dev/null || true)"; do
+        case "$u" in
+          ssh://github.com/*)
+            [ "$DEF" = "s17" ] && continue
+            gr="$(ghparse "$u")"; break ;;
+          ssh://git@github.com/*|git@github.com:*|https://github.com/*)
+            gr="$(ghparse "$u")"; break ;;
+        esac
+      done
+      [ -n "$gr" ] || REASON "PR-CI не сверяем: цель не github"
+      API="$API/repos/$gr"
+      ;;
+  esac
+  # заголовок авторизации: честная форма — ДВУМЯ argv; s16 — ОДНИМ argv
+  # (конструкция живого укуса №1: curl молча роняет заголовок, мок — 400)
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    authargs=(-H "Authorization: Bearer $GITHUB_TOKEN")
+    [ "$DEF" = "s16" ] && authargs=("${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"}")
+  else
+    authargs=()
+  fi
+  body="$(curl -fsS -m 10 ${authargs[@]+"${authargs[@]}"} "$API/actions/runs?event=pull_request&head_sha=$p" 2>/dev/null)" || {
     [ "$DEF" = "s7" ] && continue
     REASON "PR-CI не сверяем: API"
   }
@@ -486,17 +690,22 @@ COREEOF
 chmod +x "$CORE"
 
 mk_stub() { printf '#!/usr/bin/env bash\nSTUB_DEFECT=%s\nexec bash %q "$@"\n' "$1" "$CORE" > "$WORK/stubs_$1.sh"; chmod +x "$WORK/stubs_$1.sh"; }
-for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15; do mk_stub "$s"; done
+for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15 s16 s17; do mk_stub "$s"; done
 
-run_stub() { # run_stub <стаб> <режим-api> <аргументы push...>
+run_stub() { # run_stub <стаб> <режим-api: api|dead|none|hdr|gh> <аргументы push...>
   local st="$1" apimode="$2"; shift 2
   local -a envs=(STUB_DEFECT="$st" GIT_EXCHANGE_GUARD_CANONICAL="$B1")
+  local tgt="$B1"
   case "$apimode" in
     api)  envs+=(GITW_PREFLIGHT_071_API="$APIBASE") ;;
     dead) envs+=(GITW_PREFLIGHT_071_API="http://127.0.0.1:$DEADPORT/repos/a3ka/dev-harness") ;;
+    hdr)  envs+=(GITW_PREFLIGHT_071_API="$HDRBASE" GITHUB_TOKEN="$TOY071TOKEN") ;;
+    gh)   tgt="$GHURL"
+          envs+=(GITW_PREFLIGHT_071_API="$ROOT2" GIT_SSH="$WORK/fakessh" FAKE_BARE="$B1") ;;
     none) : ;;
+    *) die_cell среда "неизвестный режим api: $apimode" ;;
   esac
-  ( cd "$T" && env "${envs[@]}" bash "$WORK/stubs_$st.sh" "$B1" "$@" ) >"$WORK/last.out" 2>"$WORK/last.err"
+  ( cd "$T" && env "${envs[@]}" bash "$WORK/stubs_$st.sh" "$tgt" "$@" ) >"$WORK/last.out" 2>"$WORK/last.err"
   RC=$?
 }
 
@@ -558,6 +767,10 @@ stub_violation() { # stub_violation <класс>
       git -C "$T" checkout -q main ;;
     pushok)
       mk_world sv-pushok; mk_second_land pushok ;;
+    hdr-token)
+      mk_world sv-hdr ;;
+    ssh-root)
+      mk_world_ssh sv-ssh ;;
     *) die_cell стаб "неизвестный класс мира: $1" ;;
   esac
 }
@@ -581,6 +794,8 @@ run_stub_pack() {
     "s13:pushok:land без зелёного PR-CI: wip/071/demx"
     "s14:bezrefspec:чек красный: check:ceilings"
     "s15:bezrefspec2:чек красный: check:ceilings"
+    "s16:hdr-token:УСПЕХ"
+    "s17:ssh-root:УСПЕХ"
   )
   local pair st kind want api_mode toks
   local caught=0 diff=0
@@ -593,12 +808,19 @@ run_stub_pack() {
     [ "$st" = "s12" ] && toks=(wip/071/cand:main)
     [ "$st" = "s14" ] && toks=()
     [ "$st" = "s15" ] && toks=()
+    [ "$st" = "s16" ] && api_mode=hdr
+    [ "$st" = "s17" ] && api_mode=gh
     # мир-нарушение: обманный стаб обязан ПРОЖИТЬ его (rc 0 либо отказ не той
     # причиной) — именно это и есть «пойман»: мир настоящий, дефект различим.
     # Отказался правильно — дефект мёртв, батарея красна (стаб не обманут).
     stub_violation "$kind"
     run_stub "$st" "$api_mode" "${toks[@]}"
-    if [ "$RC" -eq 1 ] && grep -qF -- "$PF$want" "$WORK/last.err"; then
+    if [ "$want" = УСПЕХ ]; then
+      # мир зелёный для честной реализации (живые укусы 2026-10-02):
+      # стаб, ПРОШЕДШИЙ его как честная (rc 0), — дефект не наблюдаем,
+      # обманка мертва; расходится (отказ/иной исход) — дефект различим.
+      [ "$RC" -eq 0 ] && die_cell "стаб-$st" "не обманут: прошёл «$kind» как честная реализация — дефект не воспроизводится"
+    elif [ "$RC" -eq 1 ] && grep -qF -- "$PF$want" "$WORK/last.err"; then
       die_cell "стаб-$st" "не обманут: отказался на «$want» правильно — дефект не воспроизводится"
     fi
     caught=$((caught+1))
@@ -927,6 +1149,36 @@ PYE
   [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$(git -C "$T" rev-parse refs/heads/wip/071/cand)" ] \
     || die_cell п9в "цель не на tip candidate"
   ok_cell 'п9в: зелёный candidate:main проходит, цель на tip candidate'
+
+  # п8а: боевой API-шов — заголовок авторизации (живой укус 2026-10-02 №1:
+  # конструкция «-H Authorization: Bearer …» ОДНИМ argv молча роняла
+  # заголовок — GitHub отвечал 400; батарея r2 не ловила: её шов смотрел
+  # на закрытый порт, отказ «по плану» совпал с отказом «по дефекту»).
+  # Мок судит заголовок побайтово: валидный Bearer → 200 + зелёный PR-CI,
+  # кривой/отсутствующий → 400. Честный предполёт ДОХОДИТ до мока с
+  # валидным заголовком, получает 200 — пуш планируется и проходит.
+  mk_world p8a
+  run_push hdr origin main
+  [ "$RC" -eq 0 ] || die_cell п8а "зелёный мир с мок-заголовком отказан: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  grep -qF "$POK" "$WORK/last.err" || die_cell п8а "строка успеха «gitw ПРЕДПОЛЁТ: » не напечатана (молчание)"
+  [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$(git -C "$T" rev-parse main)" ] \
+    || die_cell п8а "bare-цель не на tip отправленного main"
+  ok_cell 'п8а: валидный заголовок Bearer доходит до API — пуш планируется'
+
+  # п8б: парсер цели ssh://github.com/<owner>/<repo>.git (живой укус №2:
+  # origin без user-части не разбирался → «цель не github», зелёный PR-CI
+  # не спрашивался). Мир: origin переписан на ssh://github.com/o/r.git
+  # (транспорт приземлён фейковым ssh на локальный bare — URL-строка
+  # побайтово живая), шов — КОРЕНЬ мока: честный парсит owner/repo из
+  # ЦЕЛИ и зовёт API по /repos/o/r/actions/runs; мок отвечает ТОЛЬКО
+  # этому пути — захардкоженное чужое имя не проходит.
+  mk_world_ssh p8b
+  run_push gh origin main
+  [ "$RC" -eq 0 ] || die_cell п8б "ssh-цель ssh://github.com/o/r.git отказана: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  grep -qF "$POK" "$WORK/last.err" || die_cell п8б "строка успеха «gitw ПРЕДПОЛЁТ: » не напечатана (молчание)"
+  [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$(git -C "$T" rev-parse main)" ] \
+    || die_cell п8б "bare-цель не на tip отправленного main (ssh-приземление не довело)"
+  ok_cell 'п8б: ssh://github.com/o/r.git парсится — owner/repo спрашиваются у API'
 }
 
 # ── порядок: само-проверка → стаб-пак → честные клетки ───────────────────────
@@ -941,5 +1193,5 @@ run_stub_pack
 sweep_wts
 run_honest_cells
 CELLS=$((OKN - 1))
-printf 'честные клетки: %s/%s зелёные; стаб-пак 15/15 + дифф 15/15\n' "$CELLS" "$CELLS"
+printf 'честные клетки: %s/%s зелёные; стаб-пак 17/17 + дифф 17/17\n' "$CELLS" "$CELLS"
 exit 0
