@@ -461,15 +461,7 @@ while IFS= read -r wt_path && IFS= read -r wt_head && IFS= read -r wt_branch; do
   wt_dirty="$(git -C "$wt_path" status --porcelain 2>/dev/null || true)"
   if [ "$landed" -eq 1 ] && [ -z "$wt_dirty" ]; then
     # чистый приземлённый — удаляем сами (worktree + связанный ref detached)
-    branch_arg=""
-    if [ "$wt_branch" != "detached" ] && [ "$wt_branch" != "bare" ]; then
-      branch_arg="$wt_branch"
-    fi
     if g worktree remove --force "$wt_path" 2>/dev/null; then
-      # ref удаляем ТОЛЬКО если есть чем (detached/bare — ref нет)
-      if [ -n "$branch_arg" ]; then
-        g branch -D "${branch_arg#refs/heads/}" 2>/dev/null || true
-      fi
       printf 'мусорный worktree: %s — удалён чистый приземлённый\n' "$wt_path" >&2
     else
       printf 'мусорный worktree: %s\n' "$wt_path" >&2

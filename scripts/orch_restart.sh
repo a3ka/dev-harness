@@ -151,13 +151,19 @@ done < <(g worktree list --porcelain | awk '
 [ "$found_garbage" -eq 0 ] || exit 1
 
 # ── ВСЁ ЗЕЛЁНОЕ: атомарная перезапись следа + постановка маркера ────────────
-mkdir -p "$(dirname "$TRACE")"
-printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" \
-  && mv -f "$TRACE.tmp.$$" "$TRACE"
-
 mkdir -p "$(dirname "$MARKER")"
-: > "$MARKER.tmp.$$"
-mv -f "$MARKER.tmp.$$" "$MARKER"
+: > "$MARKER.tmp.$$" \
+  || { printf 'ОТКАЗ: запись маркера не удалась: %s\n' "$MARKER" >&2; exit 1; }
+mv -f "$MARKER.tmp.$$" "$MARKER" \
+  || { printf 'ОТКАЗ: запись маркера не удалась: %s\n' "$MARKER" >&2; exit 1; }
+
+mkdir -p "$(dirname "$TRACE")"
+if ! ( printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" \
+       && mv -f "$TRACE.tmp.$$" "$TRACE" ); then
+  rm -f "$MARKER" 2>/dev/null || true
+  printf 'ОТКАЗ: запись следа не удалась: %s\n' "$TRACE" >&2
+  exit 1
+fi
 
 printf 'ПЕРЕЗАПУСК: маркер поставлен\n'
 exit 0
