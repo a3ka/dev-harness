@@ -13,7 +13,10 @@
 #   л0 fail-fast (п1-класс 037): на л1/л7/л10-входах все три субъекта МОЛЧАТ (номер
 #     выдан / MINTED / заморожено v1) → rc 1 «предмет отсутствует», честные клетки
 #     не исполняются; после реализации л0 зелёная, идут все;
-#   л1–л6, л5б, л15 — next_id (л1: 2 frozen → rc 1, тег не создан; л2: 1 → rc 0; л3:
+#   л1–л6, л5б, лР, л15 — next_id (л1: 2 frozen → rc 1, тег не создан; л2: 1 → rc 0;
+#     л2б/л2в: 1 + маркер/почти-маркер в --reason → rc 0, артефакт л2, stderr БЕЗ
+#     «лимит активных» — ниже порога причина не читается и снятие не печатается
+#     (078-к3 Р3; mut1-класс «причина до порога» печатает снятие → красная); л3:
 #     строка владельца → rc 0; л3б: «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → rc 1;
 #     л4: done закрывает; л5: 2 wip; л5б: frozen+wip — СМЕШАННЫЕ пространства, активны
 #     ОБА (объединение frozen ∪ wip): «wip только при отсутствии frozen» видит 1 и
@@ -22,22 +25,35 @@
 #     дедуп-проба freeze не нужна — вычет И-4 (мини-ядро: grep -vxF по готовому
 #     множеству) обнуляет вклад замораживаемого ЦЕЛИКОМ, двойной счёт самого
 #     замораживаемого ненаблюдаем, чужое пересечение судится той же единой функцией И-1,
-#     предъявленной л5в; л6: резерв id-тегом не активен; л15: мёртвый origin →
-#     fail-closed «данные неизвестны»);
+#     предъявленной л5в; лР: РЕШЁТКА классов {F,W,FW,FD,WD,FWD,D} — по ОДНОМУ NNN на
+#     класс в одном мире, честное множество {LA,LB,LC}, оракул diag9 (смена оракула
+#     078-к3 Р1/З4): один решётчатый мир пиннует счётчик И-1 на всей решётке разом —
+#     mut2-класс «пересечение → только F» и обход к1 дают 2 {LA,LC}, double_namespace
+#     и «done не вычитается» — шесть, локальные refs — пусто; л6: резерв id-тегом не
+#     активен; л15: мёртвый origin → fail-closed «данные неизвестны»);
 #   л7–л9 — mint_line (л7: 2 frozen → rc 1, HEAD не двинут; л7б: минтимый NNN сам
 #     активен + ещё один frozen → rc 1 — ошибочный вычет --nnn из активных ловится;
-#     л8: 1 → MINTED; л9: строка владельца → MINTED; л9б: «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без
-#     « сверх лимита» → rc 1);
+#     л8: 1 → MINTED; л8б/л8в: 1 + маркер/почти-маркер в --reason → rc 0 MINTED,
+#     stderr БЕЗ «лимит активных» (078-к3 Р3); л9: строка владельца → MINTED; л9б:
+#     «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита» → rc 1);
 #   л10–л14 — freeze (л10: 2 frozen ≠001 → rc 1, тега нет, реестр/HEAD/чистота до/после;
 #     л10б: 2 чужих wip ТОЛЬКО в bare-origin (локально не fetched) + 1 fetched frozen →
 #     rc 1 «активных 3» — считающий ЛОКАЛЬНЫЕ refs видит 1 и пропускает; л11: 1 → v1;
-#     л12: строка владельца → v1; л12б: причина «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх лимита»
-#     → rc 1, тега нет; л13: активен только сам 001 (wip/001 на origin) → v1; л14: сам
-#     001 + 2 frozen → rc 1 — вычтен только замораживаемый; л14б: сам 001 + ОДИН frozen
-#     → v1 — пограничная различает вычет субъекта: невычитающая реализация даёт rc 1);
+#     л11б/л11в: 1 + маркер/почти-маркер причиной $2 → rc 0 v1, stderr БЕЗ «лимит
+#     активных» — freeze печатает свои ok-строки, сверка отрицательная (078-к3 Р3);
+#     л12: строка владельца → v1; л12б: причина «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» без « сверх
+#     лимита» → rc 1, тега нет; л13: активен только сам 001 (wip/001 на origin) → v1;
+#     л14: сам 001 + 2 frozen → rc 1 — вычтен только замораживаемый; л14б: сам 001 +
+#     ОДИН frozen → v1 — пограничная различает вычет субъекта: невычитающая реализация
+#     даёт rc 1; л14в: 001 сам в ОБОИХ пространствах (frozen/contracts/001/1 +
+#     wip/001) + frozen <ACT1> + wip <ACT2> → rc 1 «активных 2: ACT1,ACT2» — вычет И-4
+#     снимает 001 из ОБОИХ частей целиком: вычитающий одну часть до объединения видит
+#     3, mut2-класс «пересечение → только F» видит 1 и пропускает (078-к3 Р2/З5);
+#     тегов 001 сверх fetched v1 нет, реестр/HEAD/чистота нетронуты);
 #   И-9 в клетках отказа И снятия: stderr сверяется числом И точным множеством NNN
-#     (diag9: «активных <N> ≥ 2: <NNN,NNN>»; снятие — л3/л9/л12 тем же diag9),
-#     л15 — слова «данные неизвестны»; не один маркер.
+#     (diag9: «активных <N> ≥ 2: <NNN,NNN>»; снятие — л3/л9/л12, решётка лР и л14в —
+#     тем же diag9), л15 — слова «данные неизвестны»; не один маркер. Ниже порога —
+#     молчание: л2б/л2в/л8б/л8в/л11б/л11в сверяют ОТСУТСТВИЕ «лимит активных» в stderr.
 #   стаб-пак стА–стЖ — мутантные копии мини-ядра mini_core_078.sh (одна замена одной
 #     строки по маркеру «# ВЕТВЬ:…»; применение — двумя мерами: cmp ∧ grep -F):
 #     стА ls-remote→локальные refs (И-2) · стБ done не вычитает (И-6) · стВ wip не
@@ -82,17 +98,23 @@ g() { # явная identity на каждом вызове (env-изоляция
 }
 
 # Случайные значения: SEED — локальный артефакт toy (выдача = SEED+1), ACT* — активные
-# соседи на origin, RES — резерв, R — хвосты причин (инвариантность к значениям).
+# соседи на origin, RES — резерв, L* — решётка классов лР (078-к3 Р1: по одному NNN на
+# каждый из семи классов), R — хвосты причин (инвариантность к значениям).
 mapfile -t RD < <(python3 - <<'PY'
 import random
-pool = random.sample(range(985, 1000), 8)
+pool = random.sample(range(985, 1000), 12)
 print("%03d" % pool[0]); print("%03d" % pool[1]); print("%03d" % pool[2])
 print("%03d" % pool[3]); print("%03d" % pool[4]); print("%03d" % pool[5])
+print("%03d" % pool[6]); print("%03d" % pool[7]); print("%03d" % pool[8])
+print("%03d" % pool[9]); print("%03d" % pool[10]); print("%03d" % pool[11])
 print("%d" % random.randint(10000000, 99999999)); print("%d" % random.randint(10000000, 99999999))
 PY
 )
-SEED="${RD[0]}"; ACT1="${RD[1]}"; ACT2="${RD[2]}"; ACT3="${RD[3]}"; EXC="${RD[4]}"; RES="${RD[5]}"
-RH1="${RD[6]}"; RH2="${RD[7]}"
+SEED="${RD[0]}"; ACT1="${RD[1]}"; ACT2="${RD[2]}"; ACT3="${RD[3]}"; RES="${RD[5]}"
+# лР-решётка (078-к3 Р1): пул расширен 8→12 (ещё четыре; 15 хватает) — семь NNN на
+# классы {F,W,FW,FD,WD,FWD,D}; мёртвый слот RD[4] (бывший EXC) занят H-классом (D).
+LA="${RD[6]}"; LB="${RD[7]}"; LC="${RD[8]}"; LD="${RD[9]}"; LE="${RD[10]}"; LG="${RD[11]}"; LH="${RD[4]}"
+RH1="${RD[12]}"; RH2="${RD[13]}"
 REASON_OK="РАЗРЕШИЛ-ВЛАДЕЛЕЦ: сверх лимита — слово владельца 2026-10-02/${RH1}"
 REASON_NO="РАЗРЕШИЛ-ВЛАДЕЛЕЦ: иная причина ${RH2}"
 
@@ -264,6 +286,25 @@ if [ "$PRESENT" -eq 1 ]; then
   if [ "$rc2" -eq 0 ] && [ "$out2" = "$want2" ] && [ "$tags2" -eq 2 ]; then pass л2
   else fail л2 "rc=$rc2 out=$out2 want=$want2 тегов id=$tags2"; fi
 
+  # л2б (маркер ниже порога, 078-к3 Р3): свежий мир л2 (1 frozen) + REASON_OK → rc 0,
+  # артефакт как в л2 (номер+тег); stderr БЕЗ «лимит активных» — ниже порога причина
+  # не читается, снятие не печатается (mut1-класс «причина до порога» печатает →
+  # красная здесь). # ИНВ: И-5, И-9
+  T2b="$WORK/l2b-$RH1"; mk_next_toy "$T2b"; bare_frozen "$T2b" "$ACT1"
+  out2b="$("$SUBJ_NEXT" "$T2b" CONTRACT --reason "$REASON_OK" 2>"$WORK/e2b")"; rc2b=$?; err2b="$(cat "$WORK/e2b")"
+  if [ "$rc2b" -eq 0 ] && [ "$out2b" = "$want2" ] && [ "$(git -C "$T2b" tag -l 'id/CONTRACT/*' | wc -l)" -eq 2 ] \
+     && ! printf '%s' "$err2b" | grep -qF "$LIM_NAME"; then pass л2б
+  else fail л2б "rc=$rc2b out=$out2b err=$(printf '%s' "$err2b" | sed -n 1p) — маркер ниже порога меняет вывод (И-5 нарушен)"; fi
+
+  # л2в (почти-маркер ниже порога, 078-к3 Р3): свежий мир л2 + REASON_NO → rc 0, тот
+  # же артефакт; stderr БЕЗ «лимит активных» — причина ниже порога не читается ВООБЩЕ.
+  # ИНВ: И-5, И-9
+  T2v="$WORK/l2v-$RH2"; mk_next_toy "$T2v"; bare_frozen "$T2v" "$ACT1"
+  out2v="$("$SUBJ_NEXT" "$T2v" CONTRACT --reason "$REASON_NO" 2>"$WORK/e2v")"; rc2v=$?; err2v="$(cat "$WORK/e2v")"
+  if [ "$rc2v" -eq 0 ] && [ "$out2v" = "$want2" ] && [ "$(git -C "$T2v" tag -l 'id/CONTRACT/*' | wc -l)" -eq 2 ] \
+     && ! printf '%s' "$err2v" | grep -qF "$LIM_NAME"; then pass л2в
+  else fail л2в "rc=$rc2v out=$out2v err=$(printf '%s' "$err2v" | sed -n 1p) — почти-маркер ниже порога меняет вывод (И-5 нарушен)"; fi
+
   # л3: 2 frozen + строка владельца → номер выдан, stderr «снято строкой владельца». # ИНВ: И-5
   T3="$WORK/l3-$RH1"; mk_next_toy "$T3"; bare_frozen "$T3" "$ACT1"; bare_frozen "$T3" "$ACT2"
   out3="$("$SUBJ_NEXT" "$T3" CONTRACT --reason "$REASON_OK" 2>"$WORK/e3")"; rc3=$?; err3="$(cat "$WORK/e3")"
@@ -310,6 +351,26 @@ if [ "$PRESENT" -eq 1 ]; then
   if [ "$rc5v" -eq 0 ] && [ "$out5v" = "$want2" ] && [ "$(git -C "$T5v" tag -l 'id/CONTRACT/*' | wc -l)" -eq 2 ]; then pass л5в
   else fail л5в "rc=$rc5v out=$out5v err=$(sed -n 1p "$WORK/e5v") — дедупликация пересечения не доказана: double_namespace-счётчик видит 2 (NNN $ACT1 в обоих пространствах) и отказывает"; fi
 
+  # лР (решётка классов — смена оракула 078-к3 Р1/З4): по ОДНОМУ NNN на каждый из
+  # семи классов {F,W,FW,FD,WD,FWD,D} (frozen/wip/done-принадлежность одного NNN);
+  # честное множество И-1 — {LA,LB,LC}: FW-класс активен ОДИН раз, FD/WD/FWD/D
+  # закрыты done. Один мир с оракулом точного множества (diag9) пиннует счётчик на
+  # всей решётке разом: mut2-класс «пересечение → только F» (wip-only роняются при
+  # непустом пересечении) даёт {LA,LC}, обход к1 — {LA,LC}, double_namespace и
+  # «done не вычитается» — шесть, локальные refs — пусто. # ИНВ: И-1, И-6, И-9
+  TR="$WORK/lR-$RH2"; mk_next_toy "$TR"
+  bare_frozen "$TR" "$LA"                                               # F
+  bare_wip "$TR" "$LB"                                                  # W
+  bare_frozen "$TR" "$LC"; bare_wip "$TR" "$LC"                         # FW — пересечение
+  bare_frozen "$TR" "$LD"; bare_done "$TR" "$LD"                        # FD — done закрывает
+  bare_wip "$TR" "$LE"; bare_done "$TR" "$LE"                           # WD — done закрывает
+  bare_frozen "$TR" "$LG"; bare_wip "$TR" "$LG"; bare_done "$TR" "$LG"  # FWD — done закрывает
+  bare_done "$TR" "$LH"                                                 # D
+  outR="$("$SUBJ_NEXT" "$TR" CONTRACT 2>"$WORK/eR")"; rcR=$?; errR="$(cat "$WORK/eR")"
+  if [ "$rcR" -eq 1 ] && printf '%s' "$errR" | grep -qF "$LIM_NAME" && diag9 "$errR" 3 "$LA" "$LB" "$LC" \
+     && [ -z "$outR" ] && [ "$(git -C "$TR" tag -l 'id/CONTRACT/*' | wc -l)" -eq 1 ]; then pass лР
+  else fail лР "rc=$rcR out=$outR тегов id=$(git -C "$TR" tag -l 'id/CONTRACT/*' | wc -l) err=$(printf '%s' "$errR" | sed -n 1p) — решётка классов не пиннует И-1: множество обязано быть {$LA,$LB,$LC}"; fi
+
   # л6: резерв id/CONTRACT/<RES> на origin не активен; 1 frozen → выдача. # ИНВ: И-6
   T6="$WORK/l6-$RH2"; mk_next_toy "$T6"; bare_id "$T6" "$RES"; bare_frozen "$T6" "$ACT1"
   out6="$("$SUBJ_NEXT" "$T6" CONTRACT 2>"$WORK/e6")"; rc6=$?
@@ -352,6 +413,22 @@ if [ "$PRESENT" -eq 1 ]; then
   out8="$("$SUBJ_MINT" --root "$T8" --nnn "$ACT3" 2>"$WORK/e8")"; rc8=$?
   if [ "$rc8" -eq 0 ] && printf '%s' "$out8" | grep -qF "MINTED nnn=$ACT3"; then pass л8
   else fail л8 "rc=$rc8 out=$out8 err=$(sed -n 1p "$WORK/e8")"; fi
+
+  # л8б (маркер ниже порога — mint, 078-к3 Р3): сетап л8 (1 frozen) + REASON_OK →
+  # rc 0 MINTED, stderr БЕЗ «лимит активных». # ИНВ: И-5, И-9
+  T8b="$WORK/l8b-$RH1"; mk_mint_toy "$T8b"; authority_tag "$T8b" "$ACT3"; bare_frozen "$T8b" "$ACT1"; sync_tags "$T8b"
+  out8b="$("$SUBJ_MINT" --root "$T8b" --nnn "$ACT3" --reason "$REASON_OK" 2>"$WORK/e8b")"; rc8b=$?; err8b="$(cat "$WORK/e8b")"
+  if [ "$rc8b" -eq 0 ] && printf '%s' "$out8b" | grep -qF "MINTED nnn=$ACT3" \
+     && ! printf '%s' "$err8b" | grep -qF "$LIM_NAME"; then pass л8б
+  else fail л8б "rc=$rc8b out=$out8b err=$(printf '%s' "$err8b" | sed -n 1p) — маркер ниже порога меняет вывод (И-5 нарушен)"; fi
+
+  # л8в (почти-маркер ниже порога — mint, 078-к3 Р3): сетап л8 + REASON_NO → rc 0
+  # MINTED, stderr БЕЗ «лимит активных». # ИНВ: И-5, И-9
+  T8v="$WORK/l8v-$RH2"; mk_mint_toy "$T8v"; authority_tag "$T8v" "$ACT3"; bare_frozen "$T8v" "$ACT1"; sync_tags "$T8v"
+  out8v="$("$SUBJ_MINT" --root "$T8v" --nnn "$ACT3" --reason "$REASON_NO" 2>"$WORK/e8v")"; rc8v=$?; err8v="$(cat "$WORK/e8v")"
+  if [ "$rc8v" -eq 0 ] && printf '%s' "$out8v" | grep -qF "MINTED nnn=$ACT3" \
+     && ! printf '%s' "$err8v" | grep -qF "$LIM_NAME"; then pass л8в
+  else fail л8в "rc=$rc8v out=$out8v err=$(printf '%s' "$err8v" | sed -n 1p) — почти-маркер ниже порога меняет вывод (И-5 нарушен)"; fi
 
   # л9: 2 frozen + строка владельца → MINTED. # ИНВ: И-5
   T9="$WORK/l9-$RH1"; mk_mint_toy "$T9"; authority_tag "$T9" "$ACT3"; bare_frozen "$T9" "$ACT1"; bare_frozen "$T9" "$ACT2"; sync_tags "$T9"
@@ -396,6 +473,21 @@ if [ "$PRESENT" -eq 1 ]; then
   if [ "$rc11" -eq 0 ] && [ "$out11" = 'v1' ]; then pass л11
   else fail л11 "rc=$rc11 out=$out11 err=$(sed -n 1p "$WORK/e11")"; fi
 
+  # л11б (маркер ниже порога — freeze, 078-к3 Р3): сетап л11 (1 frozen ≠001) +
+  # причиной $2 REASON_OK → rc 0 v1; stderr БЕЗ «лимит активных» (freeze печатает
+  # свои ok-строки — сверка отрицательная, не «stderr пуст»). # ИНВ: И-5, И-9
+  T11b="$WORK/l11b-$RH1"; mk_freeze_toy "$T11b"; bare_frozen "$T11b" "$ACT1"; sync_tags "$T11b"
+  out11b="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "$REASON_OK" "$T11b" 2>"$WORK/e11b")"; rc11b=$?; err11b="$(cat "$WORK/e11b")"
+  if [ "$rc11b" -eq 0 ] && [ "$out11b" = 'v1' ] && ! printf '%s' "$err11b" | grep -qF "$LIM_NAME"; then pass л11б
+  else fail л11б "rc=$rc11b out=$out11b err=$(printf '%s' "$err11b" | sed -n 1p) — маркер ниже порога меняет вывод (И-5 нарушен)"; fi
+
+  # л11в (почти-маркер ниже порога — freeze, 078-к3 Р3): сетап л11 + REASON_NO →
+  # rc 0 v1, stderr БЕЗ «лимит активных». # ИНВ: И-5, И-9
+  T11v="$WORK/l11v-$RH2"; mk_freeze_toy "$T11v"; bare_frozen "$T11v" "$ACT1"; sync_tags "$T11v"
+  out11v="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "$REASON_NO" "$T11v" 2>"$WORK/e11v")"; rc11v=$?; err11v="$(cat "$WORK/e11v")"
+  if [ "$rc11v" -eq 0 ] && [ "$out11v" = 'v1' ] && ! printf '%s' "$err11v" | grep -qF "$LIM_NAME"; then pass л11в
+  else fail л11в "rc=$rc11v out=$out11v err=$(printf '%s' "$err11v" | sed -n 1p) — почти-маркер ниже порога меняет вывод (И-5 нарушен)"; fi
+
   # л12: 2 frozen + строка владельца в причине → v1. # ИНВ: И-5
   T12="$WORK/l12-$RH1"; mk_freeze_toy "$T12"; bare_frozen "$T12" "$ACT1"; bare_frozen "$T12" "$ACT2"; sync_tags "$T12"
   out12="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "$REASON_OK" "$T12" 2>"$WORK/e12")"; rc12=$?; err12="$(cat "$WORK/e12")"
@@ -429,8 +521,24 @@ if [ "$PRESENT" -eq 1 ]; then
   out14b="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T14b" 2>"$WORK/e14b")"; rc14b=$?
   if [ "$rc14b" -eq 0 ] && [ "$out14b" = 'v1' ]; then pass л14б
   else fail л14б "rc=$rc14b out=$out14b err=$(sed -n 1p "$WORK/e14b") — вычет замораживаемого не доказан: невычитающая реализация даёт здесь rc 1"; fi
+
+  # л14в (исключение на пересечении + чужой wip, 078-к3 Р2/З5): 001 сам в ОБОИХ
+  # пространствах (frozen/contracts/001/1 И wip/001/*) + frozen <ACT1> + wip <ACT2>
+  # → freeze 001: rc 1 «лимит активных», diag9 2 ACT1 ACT2 — вычет И-4 снимает 001
+  # из ОБОИХ частей целиком: вычитающий одну часть до объединения видит 3, mut2-класс
+  # «пересечение → только F» видит 1 и пропускает, невычитающая реализация видит 3.
+  # Тегов frozen/contracts/001/* сверх fetched v1 нет, реестр байт-в-байт, HEAD и
+  # чистота как в л10. # ИНВ: И-1, И-4, И-9
+  T14v="$WORK/l14v-$RH1"; mk_freeze_toy "$T14v"; bare_frozen "$T14v" 001; g "$(bare_of "$T14v")" branch 'wip/001/fixture' refs/heads/main; bare_frozen "$T14v" "$ACT1"; bare_wip "$T14v" "$ACT2"; sync_tags "$T14v"
+  head14v="$(git -C "$T14v" rev-parse HEAD)"; reg14v="$(reg_state "$T14v")"
+  out14v="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T14v" 2>"$WORK/e14v")"; rc14v=$?; err14v="$(cat "$WORK/e14v")"
+  if [ "$rc14v" -eq 1 ] && printf '%s' "$err14v" | grep -qF "$LIM_NAME" && diag9 "$err14v" 2 "$ACT1" "$ACT2" \
+     && [ -z "$out14v" ] && [ "$(git -C "$T14v" tag -l 'frozen/contracts/001/*' | wc -l)" -eq 1 ] \
+     && [ "$(git -C "$T14v" rev-parse HEAD)" = "$head14v" ] && [ "$(reg_state "$T14v")" = "$reg14v" ] \
+     && [ -z "$(git -C "$T14v" status --porcelain)" ]; then pass л14в
+  else fail л14в "rc=$rc14v out=$out14v тегов 001=$(git -C "$T14v" tag -l 'frozen/contracts/001/*' | wc -l) err=$(printf '%s' "$err14v" | sed -n 1p) — вычет исключения из ОБОИХ частей не доказан: вычитающий одну часть видит 3, mut2-класс видит 1 и пропускает"; fi
 else
-  for c in л1 л2 л3 л3б л4 л5 л5б л5в л6 л7 л7б л8 л9 л9б л10 л10б л11 л12 л12б л13 л14 л14б л15; do norun "$c"; done
+  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15; do norun "$c"; done
 fi
 
 # ── стаб-пак: мутантные копии мини-ядра (самодостаточен — не зависит от субъекта) ──
@@ -517,6 +625,6 @@ for r in "${REPS[@]}"; do printf 'КРАСНОЕ 078: %s\n' "$r" >&2; done
 if [ "$PRESENT" -eq 0 ]; then
   printf 'КРАСНОЕ 078: л0: предмет отсутствует — субъекты молчат на трёх входах лимита; предъявляемое красное ДО реализации\n' >&2
 fi
-printf 'ИТОГ 078 (лимит активных): честных ветвей 25 (л0–л15, включая л3б, л5б, л5в, л7б, л9б, л10б, л12б, л14б, + ядро0), стабов 7, применений 7, диффпроб 7, нарушений 7; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
+printf 'ИТОГ 078 (лимит активных): честных ветвей 33 (л0–л15, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, лР, + ядро0), стабов 7, применений 7, диффпроб 7, нарушений 7; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
 [ "$RED" -eq 0 ] || exit 1
 exit 0
