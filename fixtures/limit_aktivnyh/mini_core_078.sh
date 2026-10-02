@@ -37,10 +37,10 @@ except="${2:--}"
 reason="${3:--}"
 
 # И-2: авторитет обязан существовать; отказ — fail-closed rc 3, имя отдельно от ЛИМИТ.
-git -C "$root" remote get-url origin >/dev/null 2>&1 || { printf 'ОТКАЗ: лимит активных контрактов: авторитет недоступен (remote origin не настроен) — fail-closed\n' >&2; exit 3; }
+git -C "$root" remote get-url origin >/dev/null 2>&1 || { printf 'ОТКАЗ: лимит активных контрактов: авторитет недоступен (remote origin не настроен), данные неизвестны — fail-closed\n' >&2; exit 3; }
 ls_rc=0
 refs="$(git -C "$root" ls-remote origin 'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 'refs/heads/wip/*' 2>/dev/null)" || ls_rc=$? # ВЕТВЬ:LSREMOTE
-[ "$ls_rc" -eq 0 ] || { printf 'ОТКАЗ: лимит активных контрактов: авторитет недоступен (ls-remote origin rc=%s) — fail-closed\n' "$ls_rc" >&2; exit 3; } # ВЕТВЬ:NETFAIL
+[ "$ls_rc" -eq 0 ] || { printf 'ОТКАЗ: лимит активных контрактов: авторитет недоступен (ls-remote origin rc=%s), данные неизвестны — fail-closed\n' "$ls_rc" >&2; exit 3; } # ВЕТВЬ:NETFAIL
 
 # И-1/И-6: разбор трёх пространств и счёт активных — один awk, множества внутри;
 # NNN — ровно три цифры, прочие ref-компоненты молча вне счёта (не активны).
