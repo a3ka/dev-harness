@@ -18,7 +18,7 @@
 #
 # Структура (v2, правка по вердикту критика к1: Б2 стартовый след, Б3 суд
 # самого GC + инструментированное делегирование):
-#   1. СТАБ-ПАК (10 обманных стабов двери, ручки STUB_*) — зелёный ДО и
+#   1. СТАБ-ПАК (14 обманных стабов двери, ручки STUB_*) — зелёный ДО и
 #      ПОСЛЕ реализации: каждый стаб умирает на СВОЕЙ клетке; диффпроба —
 #      те же стабы БЕЗ ручек проходят те же клетки (ловля предикатом,
 #      не случаем).
@@ -32,7 +32,7 @@
 #   3. г0 «предмет отсутствует» — fail-fast по НОСИТЕЛЮ: в дереве нет
 #      scripts/orch_restart.sh → клетки двери не исполняются, rc 1
 #      (ДО-мера пачки: grep -rc orch_restart scripts/ roles/ = 0).
-#   4. ЧЕСТНАЯ ЧАСТЬ ДВЕРИ (клетки к1..к12) — зелёная ПОСЛЕ реализации:
+#   4. ЧЕСТНАЯ ЧАСТЬ ДВЕРИ (клетки к1..к16) — зелёная ПОСЛЕ реализации:
 #      к1 всё зелёно (неслитый легальный wip-worktree ВЫЖИВАЕТ) → rc 0,
 #      маркер, след перезаписан;
 #      к2 HEAD впереди origin → отказ «HEAD», маркера нет;
@@ -59,6 +59,21 @@
 #      (мусор\n<валидная ISO>) → отказ fail-closed «не ровно одна
 #      строка», маркера нет, след НЕ перезаписан (инвариант 11 требует
 #      ровно одну непустую строку, не `tail -n 1` поверх мусора).
+#      к13 (ревьюер 072-r1, Б1-П1): родитель МАРКЕРА — обычный файл →
+#      отказ записи fail-closed: rc≠0, «ПЕРЕЗАПУСК» НЕ печатается, маркера
+#      нет (инварианты 7/8);
+#      к14 (Б1-П2): каталог СЛЕДА только для чтения на зелёном завершении
+#      → rc≠0 (след не перезаписан — не «успех», инвариант 11), след
+#      нетронут; состояние маркера НЕ пиннуто (откат собственного маркера
+#      прогона — выбор реализации; инвариант 3 — про чужой стоящий);
+#      к15 (Б1, порядок): инвариант 11 «след СРАЗУ после маркера» — при
+#      невозможной записи МАРКЕРА след обязан остаться НЕТРОНУТЫМ (обратный
+#      порядок двинул бы границу сессии без маркера);
+#      к16 (Б1-П2б, клетка ПЕРЕХОДА): мир П2 → S1 отказ → S2а повтор БЕЗ
+#      нового HANDOFF-коммита, маркер КАК ОСТАВЛЕН S1 → отказ → S2б маркер
+#      снят батареей (форма пробы ревьюера) → отказ: обход арбитража
+#      072-Б2 («та же identity, чужая сессия») не открывается вновь при
+#      отказавшей записи следа.
 #
 # Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи,
 # не в прозе контракта; каждый стаб красен на входе, где его дефект
@@ -90,6 +105,18 @@
 #        завершения» (выходная сторона, мутант критика к2) — красен на
 #        к11-входе, стадия S2: повторный вход без нового HANDOFF-коммита
 #        даёт rc 0 и маркер — обход повторного входа открыт (Б2).
+#   s11 STUB_MARKER_UNCHECKED «не проверяет запись маркера» — красен на
+#        к13-входе (родитель маркера — обычный файл): rc 0 «ПЕРЕЗАПУСК»
+#        без маркера — дефект живой двери (Б1-П1).
+#   s12 STUB_TRACE_UNCHECKED «не проверяет запись следа» — красен на
+#        к14-входе (каталог следа только для чтения): rc 0 «ПЕРЕЗАПУСК»,
+#        след не перезаписан (Б1-П2).
+#   s13 STUB_TRACE_FIRST «пишет след ДО маркера» — красен на к15-входе
+#        (маркер незаписываем, след записываем): отказ корректен, НО след
+#        перезаписан — порядок обратен инварианту 11 (Б1).
+#   s14 STUB_RETRY_GREEN «стоящий маркер — след не нужен, успех» — красен
+#        на к16-входе, стадия S2а: rc 0 «ПЕРЕЗАПУСК» при отказавшей записи
+#        следа — обход 072-Б2 открыт вновь (Б1-П2б).
 #
 # ИНСТРУМЕНТИРОВАНИЕ ДЕЛЕГИРОВАНИЯ: в мирах батареи scripts/gc_agent_branches.sh
 # — ОБЁРТКА-РЕГИСТРАТОР: пишет строку «GC-CALLED <argv>» во ВНЕШНИЙ лог
@@ -127,7 +154,7 @@
 # именно детектор.
 #
 # Прогон: bash red_dver_perezapuska_072.sh [корень worktree]
-#   rc 0 — стаб-пак пойман (10/10) И диффпроба (10/10) И честная часть (14/14).
+#   rc 0 — стаб-пак пойман (14/14) И диффпроба (14/14) И честная часть (18/18).
 #   rc 1 — расхождение / предмет отсутствует (г0, ДО реализации двери).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -259,11 +286,31 @@ if [ "${STUB_SKIP_WORKTREE:-}" != 1 ]; then
     done < <(wt_pairs)
   fi
 fi
-mkdir -p "$(dirname "$MARKER")"
-touch "$MARKER"
-trace_write
-printf 'ПЕРЕЗАПУСК: маркер поставлен\n'
-exit 0
+# ── выход предмета — семантика ПОСЛЕ фикса Б1 (ревьюер 072-r1): МАРКЕР
+# пишется ПЕРВЫМ, запись ПРОВЕРЯЕТСЯ; след — СРАЗУ ПОСЛЕ маркера, запись
+# тоже проверяется; отказ любой записи → rc 1 БЕЗ «ПЕРЕЗАПУСК» (инв. 7/8/11).
+marker_write() {
+  mkdir -p "$(dirname "$MARKER")" 2>/dev/null || return 1
+  : > "$MARKER.tmp.$$" 2>/dev/null || return 1
+  mv -f "$MARKER.tmp.$$" "$MARKER" 2>/dev/null || return 1
+  return 0
+}
+finish_ok() { printf 'ПЕРЕЗАПУСК: маркер поставлен\n'; exit 0; }
+if [ "${STUB_RETRY_GREEN:-}" = 1 ] && [ -e "$MARKER" ]; then
+  # ОБМАН (П2б, обход 072-Б2): повторный вход при стоящем маркере —
+  # «след уже не нужен»: успех без записи следа.
+  finish_ok
+fi
+if [ "${STUB_TRACE_FIRST:-}" = 1 ]; then
+  # ОБМАН порядка (инвариант 11, Б1): след ДО маркера — при отказе записи
+  # маркера граница сессии уже двинута.
+  trace_write || { [ "${STUB_TRACE_UNCHECKED:-}" = 1 ] || refuse 'запись следа не удалась'; }
+  marker_write || { [ "${STUB_MARKER_UNCHECKED:-}" = 1 ] || refuse 'запись маркера не удалась'; }
+  finish_ok
+fi
+marker_write || { [ "${STUB_MARKER_UNCHECKED:-}" = 1 ] || refuse 'запись маркера не удалась'; }
+trace_write || { [ "${STUB_TRACE_UNCHECKED:-}" = 1 ] || refuse 'запись следа не удалась'; }
+finish_ok
 STUB
 }
 
@@ -430,6 +477,24 @@ violate_L() { # к12 (адверсарий 072-r1, блокер 2): старто
   printf 'не ISO-8601\n%s\n' "$(date -Is -d '1 hour ago')" > "$TRACE"
   bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
 }
+violate_M() { # к13(П1)/к15(порядок) — ревьюер 072-r1 Б1: родитель МАРКЕРА —
+  # ОБЫЧНЫЙ ФАЙЛ (путь MARKER_DIR выставлен клеткой ДО build_cell): запись
+  # маркера невозможна; мир иначе зелёный, след — прошлое.
+  mkdir -p "$(dirname "$TRACE")"
+  trace_past
+  bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
+  rm -rf "$MARKER_DIR"
+  printf 'родитель маркера — обычный файл\n' > "$MARKER_DIR"
+}
+violate_T() { # к14(П2)/к16(П2б) — ревьюер 072-r1 Б1: каталог СЛЕДА только
+  # для чтения (перезаписать след на зелёном завершении невозможно); снимок
+  # детектора пишется ВНЕ каталога следа, chmod — ПОСЛЕ снимка; клетка
+  # возвращает право записи себе до выхода (гигиена trap).
+  mkdir -p "$(dirname "$TRACE")"
+  trace_past
+  bash "$T/scripts/check_no_leak.sh" --snapshot "$T" >/dev/null 2>&1
+  chmod a-w "$(dirname "$TRACE")"
+}
 violate_GC() { # мир г1 (прямой суд GC): неслитый wip + чистый приземлённый
   # мусор + грязный мусор; дверь не зовётся — снимок/след не нужны
   git -C "$T" worktree add -q -b wip/072/architect "$T-wip" main
@@ -496,6 +561,34 @@ p_L() { # к12 (адверсарий 072-r1, блокер 2): fail-closed на �
   p_refuse "$1" "$2" "$3" "$4" "$5" 'не ровно одна строка' || return 1
   [ "$(cat "$TRACE" 2>/dev/null)" = "$(cat "$TRACE.pre" 2>/dev/null)" ] \
     || { fail_cell "$1" "стартовый след перезаписан при отказе"; return 1; }
+  return 0
+}
+p_M() { # к13 = П1 (ревьюер 072-r1 Б1): родитель маркера — обычный файл →
+  # отказ записи МАРКЕРА fail-closed: rc≠0, «ПЕРЕЗАПУСК» НЕ печатается,
+  # маркера нет (инварианты 7/8).
+  [ "$3" -ne 0 ] || { fail_cell "$1" "ожидался отказ записи маркера, получен rc 0"; return 1; }
+  grep -Fq 'ПЕРЕЗАПУСК' "$5" && { fail_cell "$1" "«ПЕРЕЗАПУСК» напечатан при отказе записи маркера"; return 1; }
+  [ -e "$2" ] && { fail_cell "$1" "маркер стоит при отказе записи маркера"; return 1; }
+  return 0
+}
+p_T() { # к14 = П2 (ревьюер 072-r1 Б1): каталог следа только для чтения на
+  # зелёном завершении → rc≠0 (след не перезаписан — не «успех», инвариант
+  # 11); «ПЕРЕЗАПУСК» НЕ печатается; след байт-в-байт равен ожиданию из
+  # ПАМЯТИ батареи (правило 8). Состояние маркера НЕ пиннуто: откат
+  # СОБСТВЕННОГО маркера прогона — выбор реализации (инвариант 3 — про
+  # чужой уже стоящий маркер).
+  [ "$3" -ne 0 ] || { fail_cell "$1" "ожидался отказ записи следа, получен rc 0"; return 1; }
+  grep -Fq 'ПЕРЕЗАПУСК' "$5" && { fail_cell "$1" "«ПЕРЕЗАПУСК» напечатан при отказе записи следа"; return 1; }
+  [ "$(cat "$TRACE" 2>/dev/null)" = "$TRACE_SNAP" ] \
+    || { fail_cell "$1" "след изменён при незаписываемом каталоге следа"; return 1; }
+  return 0
+}
+p_ORDER() { # к15 = порядок (инвариант 11 «след СРАЗУ после маркера»): при
+  # невозможной записи МАРКЕРА след обязан остаться НЕТРОНУТЫМ — обратный
+  # порядок (след до маркера) двинул бы границу сессии без маркера.
+  p_M "$1" "$2" "$3" "$4" "$5" || return 1
+  [ "$(cat "$TRACE" 2>/dev/null)" = "$TRACE_SNAP" ] \
+    || { fail_cell "$1" "след перезаписан при отказе записи маркера — порядок обратен инварианту 11"; return 1; }
   return 0
 }
 p_F() { # отказ «мусорный worktree» с путём, worktree жив
@@ -634,6 +727,100 @@ run_seq_pair() { # $1=метка $2=строитель $3=ручка
   fi
 }
 
+# ── клетки несводимого ВЫХОДА (Б1): маркер — в собственном подкаталоге
+# клетки (родитель может быть обычным файлом), след — в собственном
+# подкаталоге (может быть только для чтения); stdout/stderr клетки — НЕ под
+# битым родителем; ожидание следа — в ПАМЯТИ батареи (правило 8). ─────────
+run_exit_subject() { # $1=toy $2=marker $3=stdout $4=stderr [ENV=1 …]
+  local t="$1" m="$2" o="$3" e="$4"; shift 4
+  ( cd / && env ORCH_RESTART_MARKER="$m" ORCH_SESSION_START="$TRACE" "$@" \
+      bash "$t/scripts/orch_restart.sh" ) > "$o" 2> "$e"
+  S_RC=$?
+}
+trace_restore() { chmod u+w "$(dirname "$TRACE")" 2>/dev/null || :; }
+
+run_exit_pair() { # $1=метка $2=мир $3=предикат $4=ручка (стаб-пак Б1)
+  local tag="$1" world="$2" pred="$3" knob="$4" side
+  for side in on off; do
+    local M="$WORK/x-$tag-$side" envargs=()
+    T="$WORK/xt-$tag-$side"; TRACE="$WORK/x-trace-$tag-$side/trace"; GCLOG="$M-gclog"
+    MARKER_DIR="$M.d"; MARKER_PATH="$MARKER_DIR/mark"
+    build_cell "$T" "$world" stub_install
+    rm -f "$GCLOG"
+    TRACE_SNAP="$(cat "$TRACE" 2>/dev/null || printf '')"
+    [ "$side" = on ] && envargs=("STUB_$knob=1")
+    run_exit_subject "$T" "$MARKER_PATH" "$M.out" "$M.err" ${envargs[@]+"${envargs[@]}"}
+    trace_restore
+    CELL_FAIL=0
+    "$pred" "$tag($side)" "$MARKER_PATH" "$S_RC" "$M.err" "$M.out"
+    if [ "$side" = on ]; then
+      if [ "$CELL_FAIL" -ne 0 ]; then stab_caught=$((stab_caught+1)); else
+        printf 'стаб-пак ОТКАЗ: стаб %s с ручкой ПРОШЁЛ клетку (%s)\n' "$knob" "$tag" >&2
+        exit 1
+      fi
+    else
+      if [ "$CELL_FAIL" -eq 0 ]; then diff_green=$((diff_green+1)); else
+        printf 'стаб-пак ОТКАЗ: диффпроба %s упала без ручки\n' "$tag" >&2
+        exit 1
+      fi
+    fi
+  done
+}
+
+run_seq_exit_cell() { # к16 = П2б (ревьюер 072-r1 Б1): мир violate_T →
+  # S1 отказ → S2а повтор БЕЗ нового HANDOFF-коммита, маркер КАК ОСТАВЛЕН
+  # S1 (стоящий маркер — не «короткий путь успеха») → S2б маркер снят
+  # батареей (форма пробы ревьюера) — все стадии обязаны отказывать:
+  # обход арбитража 072-Б2 не открывается вновь при отказавшей записи
+  # следа. Любая упавшая стадия краснит клетку целиком (EXIT_SEQ_FAIL).
+  local tag="$1" world="$2" inst="$3"; shift 3
+  local M="$WORK/xq-$tag"
+  T="$WORK/xqt-$tag"; TRACE="$WORK/xq-trace-$tag/trace"; GCLOG="$M-gclog"
+  MARKER_DIR="$M.d"; MARKER_PATH="$MARKER_DIR/mark"
+  build_cell "$T" "$world" "$inst"
+  rm -f "$GCLOG"
+  EXIT_SEQ_FAIL=0
+  TRACE_SNAP="$(cat "$TRACE" 2>/dev/null || printf '')"
+  local st
+  for st in s1 s2a s2b; do
+    [ "$st" = s2b ] && rm -f "$MARKER_PATH"
+    run_exit_subject "$T" "$MARKER_PATH" "$M-$st.out" "$M-$st.err" "$@"
+    CELL_FAIL=0
+    p_T "$tag-$st" "$MARKER_PATH" "$S_RC" "$M-$st.err" "$M-$st.out"
+    [ "$CELL_FAIL" -eq 0 ] || EXIT_SEQ_FAIL=1
+  done
+  trace_restore
+}
+
+run_seq_exit_pair() { # $1=метка $2=мир $3=ручка (стаб-пак Б1, клетка П2б)
+  run_seq_exit_cell "$1(ручка)" "$2" stub_install "STUB_$3=1"
+  if [ "$EXIT_SEQ_FAIL" -ne 0 ]; then stab_caught=$((stab_caught+1)); else
+    printf 'стаб-пак ОТКАЗ: стаб %s с ручкой ПРОШЁЛ клетку П2б (%s)\n' "$3" "$1" >&2
+    exit 1
+  fi
+  run_seq_exit_cell "$1(дифф)" "$2" stub_install
+  if [ "$EXIT_SEQ_FAIL" -eq 0 ]; then diff_green=$((diff_green+1)); else
+    printf 'стаб-пак ОТКАЗ: диффпроба П2б %s упала без ручки\n' "$1" >&2
+    exit 1
+  fi
+}
+
+run_exit_honest() { # $1=метка $2=мир $3=предикат (честная часть, Б1)
+  local tag="$1" world="$2" pred="$3"
+  honest_total=$((honest_total+1))
+  local M="$WORK/xh-$tag"
+  T="$WORK/xht-$tag"; TRACE="$WORK/xh-trace-$tag/trace"; GCLOG="$M-gclog"
+  MARKER_DIR="$M.d"; MARKER_PATH="$MARKER_DIR/mark"
+  build_cell "$T" "$world" honest_install
+  rm -f "$GCLOG"
+  TRACE_SNAP="$(cat "$TRACE" 2>/dev/null || printf '')"
+  run_exit_subject "$T" "$MARKER_PATH" "$M.out" "$M.err"
+  trace_restore
+  CELL_FAIL=0
+  "$pred" "$tag" "$MARKER_PATH" "$S_RC" "$M.err" "$M.out"
+  if [ "$CELL_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
+}
+
 run_cell_pair s1 violate_B p_B SKIP_HEAD
 run_cell_pair s2 violate_C p_C SKIP_PORCELAIN
 run_cell_pair s3 violate_D p_D SKIP_HANDOFF
@@ -644,8 +831,12 @@ run_cell_pair s7 violate_G p_G2 NO_DELETE
 run_cell_pair s8 violate_I p_I SKIP_TRACE
 run_cell_pair s9 violate_G p_G2 INLINE_DELETE
 run_seq_pair s10 violate_K TRACE_MOMENT
-printf 'стаб-пак: %d/10 поймано, диффпроба %d/10\n' "$stab_caught" "$diff_green"
-[ "$stab_caught" -eq 10 ] && [ "$diff_green" -eq 10 ] \
+run_exit_pair s11 violate_M p_M MARKER_UNCHECKED
+run_exit_pair s12 violate_T p_T TRACE_UNCHECKED
+run_exit_pair s13 violate_M p_ORDER TRACE_FIRST
+run_seq_exit_pair s14 violate_T RETRY_GREEN
+printf 'стаб-пак: %d/14 поймано, диффпроба %d/14\n' "$stab_caught" "$diff_green"
+[ "$stab_caught" -eq 14 ] && [ "$diff_green" -eq 14 ] \
   || die_pack "счёт стаб-пака не сошёлся (поймано $stab_caught, дифф $diff_green)"
 
 # ── ЧЕСТНАЯ ЧАСТЬ ────────────────────────────────────────────────────────────
@@ -705,8 +896,18 @@ if [ "$SEQ_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
 # к12 (адверсарий 072-r1, блокер 2): стартовый след многострочный
 # (мусор\n<ISO>) — инвариант 11 требует ровно одну непустую строку.
 run_honest к12 violate_L p_L
+# к13..к16 — ревьюер 072-r1 Б1: запись маркера/следа не проверяется,
+# порядок обратен инварианту 11, обход 072-Б2 при отказавшей записи следа.
+run_exit_honest к13 violate_M p_M
+run_exit_honest к14 violate_T p_T
+run_exit_honest к15 violate_M p_ORDER
+# к16 = П2б — клетка ПЕРЕХОДА против реальной двери: повторный вход без
+# нового HANDOFF-коммита при отказавшей записи следа обязан отказывать.
+honest_total=$((honest_total+1))
+run_seq_exit_cell к16 violate_T honest_install
+if [ "$EXIT_SEQ_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
 printf 'честная часть: %d/%d зелёная\n' "$honest_green" "$honest_total"
 [ "$honest_green" -eq "$honest_total" ] \
   || die_pack "честная часть красна ($honest_green/$honest_total)"
-printf 'итог 072-батареи: предъявлений стабы 10/10 + дифф 10/10 + честные 14/14\n'
+printf 'итог 072-батареи: предъявлений стабы 14/14 + дифф 14/14 + честные 18/18\n'
 exit 0
