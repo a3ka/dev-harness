@@ -203,7 +203,6 @@ esac
 target=""
 bare_name=""
 repo_value=""
-__target_in_argv=0
 while [ "$i" -lt "$n" ]; do
   a="${orig[$i]}"
   case "$a" in
@@ -223,7 +222,6 @@ while [ "$i" -lt "$n" ]; do
       ;;
     *://*|/*|../*|./*)
       target="$a"
-      __target_in_argv=1
       i=$((i+1))
       break
       ;;
@@ -234,7 +232,6 @@ while [ "$i" -lt "$n" ]; do
       # схлопыванием — см. шапку И-4a. Без слэша (scp `host:repo.git`,
       # bare `origin`) — fallback на `*)` ниже.
       target="$a"
-      __target_in_argv=1
       i=$((i+1))
       break
       ;;
@@ -242,7 +239,6 @@ while [ "$i" -lt "$n" ]; do
     *)
       # Первый не-опциональный bare-аргумент — имя возможного remote.
       bare_name="$a"
-      __target_in_argv=1
       i=$((i+1))
       break
       ;;
@@ -590,25 +586,33 @@ fi
 #   * push без покрытия main — обмен прозрачен, семантика 045 неизменна;
 #   * push с покрытием main — именованные отказы по контракту 071.
 #
-# ЕДИНСТВЕННЫЙ источник истины о refspec — предполёт (вердикт ревьюера
-# 071 r1 Р-7, закрыто Р-13 r2): крюк передаёт ему ВЕСЬ хвост argv после
-# подкоманды, ЗА ВЫЧЕТОМ токена позиционной цели. Срез: `[pre_tail] [post_tail]`
-# где `pre_tail = orig[post_sub_idx..i-2]` (опции ДО remote, типа --all /
-# --mirror / -u / --follow-tags; ветвью `-*) i=$((i+1)) ;;` цикла цели
-# они не поглощены — наоборот, они и сдвинули `i` за себя), `post_tail =
-# orig[i..]` (исходный хвост). Без этого предполёт не видит --all/--mirror
-# стоящие ДО remote и при ветке ≠ main не судит main вообще: `main_cov=0`,
-# exit 0 без строки ПРЕДПОЛЁТ, exec `git push --all origin` везёт красный
-# main молча (П4/П4в/П4г вердикта 071 r2). Токен remote ИСКЛЮЧАЕТСЯ из обоих
-# хвостов: bare-имя в `post_tail` (старый `"${orig[@]:i}"`) давало бы
-# `saw_ref=1` без рефspecа и ломало ветку «нет рефspecа» (saw_ref=0) — п6г/п6д.
-# Парсер рефspecа, суждения покрытия/глоба/no-dst/--all/--mirror живут
-# в предполёте. Ровно одна ручка тестов GITW_PREFLIGHT_071_API — у
-# предполёта (контракт 071 §Инвариант 8).
+# ГРАНИЦА ARGV: крюк передаёт предполёту ВЕСЬ хвост orig[] от подкоманды
+# push, элементами массива (С1: ни одной скалярной подстановки, токены
+# доходят побайтово — глоб, пробел, пустая строка не съедаются оболочкой).
+# Первый позиционный токен (= repository по синтаксису git-push(1)
+# «<repository> [<refspec>…]») предполёт определяет и исключает сам; цикл
+# цели И-4а НЕ участвует в разборе refspec и НЕ хранит служебного
+# состояния на этот счёт (раньше тут был __target_in_argv; С2 r3 +
+# вердикт арбитра fixr5: 0 новых строк в цикле).
+#
+# КОНТЕКСТ ВЫЗОВА (С4): ctx[] (-C/--git-dir/--work-tree/…) и cfg[] (-c)
+# передаются предполёту, и предполёт применяет их к КАЖДОМУ своему git
+# (symbolic-ref, config, rev-parse, worktree list, show-ref). Без этого
+# `gitw -C <чужой-T> push origin` исполнял бы чеки против локального
+# репозитория крюка, а не против T (F-7 ревьюера 071 r3).
+#
+# ФОРМА ПЕРЕДАЧИ: target + --pf-ctx-n <N> + "${ctx[@]}" + --pf-cfg-n <M>
+# + "${cfg[@]}" + "${orig[@]:post_sub_idx}" — массивами в кавычках.
+# Сентинелы --pf-ctx-n/<N> и --pf-cfg-n/<M> фиксируют счётчики элементов
+# ctx/cfg (явный N/M; 0 если массив пуст): никаких регексов и состояний
+# парсера на стороне предполёта, токены доходят побайтово (С1).
+#
+# Ровно одна ручка тестов GITW_PREFLIGHT_071_API — у предполёта
+# (контракт 071 §Инвариант 8).
 if [ "$sub" = "push" ]; then
-  # post_sub_idx: позиция первого аргумента после 'push' (sub_idx+1).
-  # Сканируем orig[], не локальный `i` (мутирован циклом цели И-4а).
-  # Без флагов -C/--git-dir/… — обычно 1; с флагами — больше.
+  # post_sub_idx: позиция первого аргумента orig[] после 'push'.
+  # sub_idx есть только в И-4в; здесь сканируем сами (без зависимости
+  # от локального `i`, мутированного циклом цели И-4а).
   post_sub_idx=0
   for ((__pk=0; __pk<n; __pk++)); do
     case "${orig[$__pk]}" in
@@ -616,29 +620,11 @@ if [ "$sub" = "push" ]; then
     esac
   done
   unset __pk
-  # pre_tail_count: число опций ДО токена remote; remote = orig[i-1].
-  # post_tail: orig[i..] — без изменений (старый хвост).
-  # Если цикл цели НЕ нашёл remote (__target_in_argv=0: «push --all»,
-  # «push -u» без позиционной цели, И-4в ниже резолвит remote из
-  # pushRemote/pushDefault/origin), токена remote в argv нет, и весь
-  # хвост после subcommand — это pre_tail: опции, проглоченные `-*)`
-  # И-4а. Иначе «--all» молча теряется (pre_tail_count=0, post_tail
-  # пуст), и при ветке ≠ main exec «git push --all» везёт красный main
-  # без строки ПРЕДПОЛЁТ — П4г вердикта 071 r2.
-  if [ "$__target_in_argv" -eq 0 ]; then
-    pre_tail_count=$((i - post_sub_idx))
-  else
-    pre_tail_count=$((i - post_sub_idx - 1))
-  fi
-  [ "$pre_tail_count" -lt 0 ] && pre_tail_count=0
   PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
   PF_SCRIPT="$PF_DIR/gitw_preflight_071.sh"
   if [ -f "$PF_SCRIPT" ]; then
-    if [ "$pre_tail_count" -gt 0 ]; then
-      "$PF_SCRIPT" "$target" "${orig[@]:post_sub_idx:pre_tail_count}" "${orig[@]:i}"
-    else
-      "$PF_SCRIPT" "$target" "${orig[@]:i}"
-    fi
+    # Элементами массива в кавычках (С1) + ctx/cfg (С4).
+    "$PF_SCRIPT" "$target" --pf-ctx-n "${#ctx[@]}" "${ctx[@]}" --pf-cfg-n "${#cfg[@]}" "${cfg[@]}" "${orig[@]:post_sub_idx}"
     prc=$?
     if [ "$prc" -ne 0 ]; then
       exit "$prc"
