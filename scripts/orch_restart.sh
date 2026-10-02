@@ -92,10 +92,21 @@ if [ ! -f "$TRACE" ]; then
   printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" \
     && mv -f "$TRACE.tmp.$$" "$TRACE"
 fi
-t_line="$(tail -n 1 "$TRACE" 2>/dev/null)" \
+# Инвариант 11 (адверсарий 072-r1 Б2): след обязан нести РОВНО ОДНУ
+# непустую строку — лишняя строка до/после валидного ISO-8601-хвоста не
+# должна судиться `tail -n 1` вместо границы сессии (мусор\n<ISO> не
+# имеет права пройти как «ISO в прошлом»). Считаем непустые строки
+# ВСЕГО файла; ровно одна → она и есть t_line, иначе fail-closed rc 2
+# ДО `date -d` — испорченный формат не читается частично.
+nonblank_n=0; t_line=""
+while IFS= read -r _tl || [ -n "$_tl" ]; do
+  [ -n "$_tl" ] || continue
+  nonblank_n=$((nonblank_n + 1))
+  t_line="$_tl"
+done < "$TRACE" 2>/dev/null \
   || { printf 'NOT_IMPLEMENTED: стартовый след нечитаем\n' >&2; exit 2; }
-[ -n "$t_line" ] \
-  || { printf 'NOT_IMPLEMENTED: стартовый след нечитаем\n' >&2; exit 2; }
+[ "$nonblank_n" -eq 1 ] \
+  || { printf 'NOT_IMPLEMENTED: стартовый след не ровно одна строка\n' >&2; exit 2; }
 t_ep="$(date -d "$t_line" +%s 2>/dev/null)" \
   || { printf 'NOT_IMPLEMENTED: стартовый след нечитаем\n' >&2; exit 2; }
 c_ep="$(g log -1 --format=%ct -- HANDOFF.md 2>/dev/null)" \
