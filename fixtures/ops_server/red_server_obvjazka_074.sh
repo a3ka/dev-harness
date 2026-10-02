@@ -4,12 +4,18 @@
 # ПРЕДМЕТ (инварианты контракта 074):
 #   к1  user-установка сходится побайтно: ops/server/user/orch-loop →
 #       ${OPS_SERVER_BIN_DST}/orch-loop, режим 755, sha256 == пин станции
-#       (оракул — в памяти батареи, снят ДО вызова субъекта), умолчательный
+#       (оракул — в памяти батареи, снят ДО вызова субъекта), умолчальный
 #       путь назначения не трогается;
+#   к1b user-перечитывание ПОСЛЕ записи: cp-шина батареи портит копию в
+#       пути записи — честный субъект обязан отказать rc 1 «расхождение»
+#       с именем файла; шина инертна (субъект копирует мимо cp) — печатная
+#       пометка, не доказательство; для симуляции различение несёт стаб s7;
 #   к2  verify на зелёном мире: все 9 адресатов == репо → rc 0 и строка
 #       «сверка: 9/9»;
-#   к3  verify на расхождении: искажённый адресат → rc 1, stderr несёт
-#       «расхождение» и ИМЯ файла;
+#   к3  verify на расхождении — ПАРАМЕТРИЗОВАНО по всем девяти адресатам:
+#       каждый искажается по очереди (user-файл, root-файл, 7 юнитов) →
+#       rc 1, stderr несёт «расхождение» и ИМЯ искажённого; субъект,
+#       сверяющий одно имя из девяти, красен на остальных восьми пробах;
 #   к4  euid-гард root-части: запуск под harness → rc 1, stderr «root-часть
 #       требует euid 0», по швовым адресатам ничего не записано;
 #   к5  копии в репо побайтно == станции (9 sha256-пинов, живой съём
@@ -35,19 +41,29 @@
 #   s4 «неполная установка» — user-копирование пропущено; наблюдаем на
 #      входе к1: установленного файла нет вовсе;
 #   s5 «README без инвентаря» — документ-заглушка без чек-строк; вход к6;
-#   s6 «указатели не приземлены» — HANDOFF/роль без строки-указателя; вход к7.
+#   s6 «указатели не приземлены» — HANDOFF/роль без строки-указателя; вход к7;
+#   s7 «user скопировал, но не перечитал» — перечитывание sha256 в
+#      user-ветви нейтрализовано; вход к1b: cp-шина портит запись —
+#      честный субъект отказывает rc 1, s7 молчит и даёт rc 0.
 #
 # Семантика: rc 0 — честные клетки зелёные + все стабы пойманы + диффпроба
 # зелёная; rc 1 — «предмет отсутствует» (г0, ДО реализации), любая красная
-# клетка или живой стаб; rc 2 — нечем проверить. FIXSIM=1 (А-318) —
-# честная симуляция install.sh в скратче обязана дать rc 0 ЦЕЛИКОМ;
-# симуляция throwaway, в дереве репо её нет.
+# клетка или живой стаб; rc 2 — нечем проверить.
+# FIXSIM=1 (А-318) — честная симуляция install.sh в скратче обязана дать
+# rc 0 ЦЕЛИКОМ; симуляция throwaway, в дереве репо её нет.
+# LANDSIM=1 — дерево с УЖЕ приземлёнными указателями 9-10 (вердикт критика
+# к1, блокирующая 1): батарея обязана дать rc 0 и ДО, и ПОСЛЕ реального
+# приземления указателей — отрицательный мир s6 строится СРЕЗАНИЕМ
+# строк-указателей из текущих документов, а не копированием «до приземления».
 #
 # Использование:
 #   bash fixtures/ops_server/red_server_obvjazka_074.sh
 #   FIXSIM=1 bash fixtures/ops_server/red_server_obvjazka_074.sh
+#   LANDSIM=1 bash fixtures/ops_server/red_server_obvjazka_074.sh
 #   OPS_ROOT=<дерево-субъекта> bash fixtures/ops_server/red_server_obvjazka_074.sh
+
 set -uo pipefail
+
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "$HERE/../.." && pwd)}"
@@ -117,7 +133,7 @@ UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-st
 command -v sha256sum >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет sha256sum\n' >&2; exit 2; }
 [ -f "$SRC_ROOT/user/orch-loop" ] && [ -f "$SRC_ROOT/root/orch-peak" ] || {
   printf 'NOT_IMPLEMENTED: нет источника ops/server (user/orch-loop, root/orch-peak)\n' >&2; exit 2; }
-usage() { printf 'использование: ops/server/install.sh user|root|verify\n' >&2; exit 2; }
+usage() { printf 'NOT_IMPLEMENTED: использование: ops/server/install.sh user|root|verify\n' >&2; exit 2; }
 die_write() { printf 'ОТКАЗ: запись %s\n' "$1" >&2; exit 1; }
 check_one() { # <dst> <src>
   #__ANCHOR_S1__
@@ -134,6 +150,7 @@ case "$1" in
     #__ANCHOR_S4__
     [ "$skip_copy" -eq 1 ] || cp -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"
     chmod 755 "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"
+    #__ANCHOR_S7__
     #__ANCHOR_S3__
     check_one "$BIN_DST/orch-loop" "$SRC_ROOT/user/orch-loop" || exit 1
     printf 'установлено: %s/orch-loop\n' "$BIN_DST"
@@ -144,12 +161,12 @@ case "$1" in
     [ "$root_ok" -eq 1 ] || { printf 'ОТКАЗ: root-часть требует euid 0\n' >&2; exit 1; }
     mkdir -p "$SBIN_DST" "$ETC_DST" || die_write "$SBIN_DST $ETC_DST"
     cp -- "$SRC_ROOT/root/orch-peak" "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
-    chmod 755 "$SBIN_DST/orch-peak"
-    chown root:root "$SBIN_DST/orch-peak" 2>/dev/null || true
+    chmod 755 "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
+    chown root:root "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
     for u in $UNITS; do
       cp -- "$SRC_ROOT/root/systemd/$u" "$ETC_DST/$u" || die_write "$ETC_DST/$u"
-      chmod 644 "$ETC_DST/$u"
-      chown root:root "$ETC_DST/$u" 2>/dev/null || true
+      chmod 644 "$ETC_DST/$u" || die_write "$ETC_DST/$u"
+      chown root:root "$ETC_DST/$u" || die_write "$ETC_DST/$u"
     done
     rc=0
     check_one "$SBIN_DST/orch-peak" "$SRC_ROOT/root/orch-peak" || rc=1
@@ -216,20 +233,46 @@ RMDEOF
 }
 
 # ── документы мира: роль/HANDOFF с указателями или без ────────────────────────
+# Вердикт критика к1 (блокирующая 1): отрицательный мир (0) строится
+# СРЕЗАНИЕМ строк-указателей из ТЕКУЩИХ документов (фильтрация grep -Fxv), а
+# не копированием «до приземления» — после реализации инвариантов 9-10
+# честные роль/HANDOFF несут указатели, и мир без указателей обязан
+# оставаться без них независимо от состояния честного дерева. Мир с
+# указателями (1) идемпотентен: уже стоящая строка не дублируется.
 build_docs() { # <каталог> <указатели:1|0>
   mkdir -p "$1/ops/server" "$1/roles"
   write_sim_readme "$1/ops/server/README.md"
   if [ "$2" -eq 1 ]; then
-    awk -v a="$ROLE_ANCHOR" -v ptr="$ROLE_PTR" \
-      'index($0,a)==1 && !d {print; print ptr; d=1; next} {print}' \
-      "$REPO_ROOT/roles/orchestrator.md" >"$1/roles/orchestrator.md"
-    awk -v ptr="$HANDOFF_PTR" \
-      '!d && index($0,"## ГДЕ МЫ")==1 {print; print ptr; d=1; next} {print}' \
-      "$REPO_ROOT/HANDOFF.md" >"$1/HANDOFF.md"
+    if grep -Fxq -- "$ROLE_PTR" "$REPO_ROOT/roles/orchestrator.md"; then
+      cp -- "$REPO_ROOT/roles/orchestrator.md" "$1/roles/orchestrator.md"
+    else
+      awk -v a="$ROLE_ANCHOR" -v ptr="$ROLE_PTR" \
+        'index($0,a)==1 && !d {print; print ptr; d=1; next} {print}' \
+        "$REPO_ROOT/roles/orchestrator.md" >"$1/roles/orchestrator.md"
+    fi
+    if grep -Fxq -- "$HANDOFF_PTR" "$REPO_ROOT/HANDOFF.md"; then
+      cp -- "$REPO_ROOT/HANDOFF.md" "$1/HANDOFF.md"
+    else
+      awk -v ptr="$HANDOFF_PTR" \
+        '!d && index($0,"## ГДЕ МЫ")==1 {print; print ptr; d=1; next} {print}' \
+        "$REPO_ROOT/HANDOFF.md" >"$1/HANDOFF.md"
+    fi
   else
-    cp -- "$REPO_ROOT/roles/orchestrator.md" "$1/roles/orchestrator.md"
-    cp -- "$REPO_ROOT/HANDOFF.md" "$1/HANDOFF.md"
+    grep -Fxv -e "$ROLE_PTR" -e "$HANDOFF_PTR" -- \
+      "$REPO_ROOT/roles/orchestrator.md" >"$1/roles/orchestrator.md"
+    grep -Fxv -e "$ROLE_PTR" -e "$HANDOFF_PTR" -- \
+      "$REPO_ROOT/HANDOFF.md" >"$1/HANDOFF.md"
   fi
+}
+
+build_sim_tree() { # <каталог>: 9 копий + симуляция install.sh + доки с указателями
+  mkdir -p "$1/ops/server/user" "$1/ops/server/root/systemd"
+  cp -- "$REPO_ROOT/ops/server/user/orch-loop" "$1/ops/server/user/"
+  cp -- "$REPO_ROOT/ops/server/root/orch-peak" "$1/ops/server/root/"
+  local u=''
+  for u in $UNITS; do cp -- "$REPO_ROOT/ops/server/root/systemd/$u" "$1/ops/server/root/systemd/"; done
+  write_sim "$1/ops/server/install.sh"; chmod 755 "$1/ops/server/install.sh"
+  build_docs "$1" 1
 }
 
 patch_sim() { # <файл> <якорь> <замена> — единственный якорь, иначе отказ
@@ -257,6 +300,37 @@ cell_k1() { # <subject>: user-конвергенция
   return 0
 }
 
+cell_k1b() { # <subject>: user-перечитывание sha256 ПОСЛЕ записи (cp-шина)
+  # Вердикт критика к1 (совет :113): отказ обязана давать САМА команда
+  # установки на расхождении после записи, а не только verify. Шина cp в
+  # PATH порчит копию по пути: честный субъект перечитывает sha256 и
+  # отказывает rc 1 с именем; субъект «только скопировал» молчит rc 0.
+  # Шина инертна (субъект копирует мимо cp) — печатная пометка, не зелёное
+  # доказательство; различение на симуляции несёт стаб s7.
+  local W="$SCRATCH/k1b" rc h real_cp
+  rm -rf "$W"; mkdir -p "$W/bin" "$W/home" "$W/shim"
+  real_cp="$(command -v cp)"
+  cat >"$W/shim/cp" <<CPEOF
+#!/usr/bin/env bash
+$real_cp "\$@"; rc=\$?
+for a in "\$@"; do last="\$a"; done
+case "\$last" in */orch-loop) printf 'X' >>"\$last" ;; esac
+exit "\$rc"
+CPEOF
+  chmod 755 "$W/shim/cp"
+  PATH="$W/shim:$PATH" OPS_SERVER_SRC="$OPS_SRC" OPS_SERVER_BIN_DST="$W/bin" \
+    HOME="$W/home" bash "$1" user >"$W/out" 2>"$W/err"; rc=$?
+  if [ -f "$W/bin/orch-loop" ]; then h="$(hash_of "$W/bin/orch-loop")"; else h=none; fi
+  if [ "$h" = "${PIN['user/orch-loop']}" ]; then
+    printf '  k1b: cp-шина инертна (субъект копирует мимо cp) — проба не судит, перечитывание судится стабом s7 на симуляции\n'
+    return 0
+  fi
+  [ "$rc" -ne 0 ] || { printf 'k1b: rc=0 на испорченной записи — user-часть не перечитывает sha256\n'; return 1; }
+  grep -q 'расхождение' "$W/err" || { printf 'k1b: отказ без маркера «расхождение»\n'; return 1; }
+  grep -Fq 'orch-loop' "$W/err" || { printf 'k1b: отказ без имени файла\n'; return 1; }
+  return 0
+}
+
 green_world() { # <bin> <sbin> <etc>: 9 адресатов == репо (ставит батарея)
   mkdir -p "$1" "$2" "$3"
   cp -- "$OPS_SRC/user/orch-loop" "$1/orch-loop"; chmod 755 "$1/orch-loop"
@@ -276,16 +350,29 @@ cell_k2() { # <subject>: verify зелёного мира
   return 0
 }
 
-cell_k3() { # <subject>: verify расхождения (имя файла в отказе)
-  local W="$SCRATCH/k3" rc
-  rm -rf "$W"; green_world "$W/bin" "$W/sbin" "$W/etc"
-  printf 'X' >>"$W/etc/orch-ctx.timer"
-  OPS_SERVER_SRC="$OPS_SRC" OPS_SERVER_BIN_DST="$W/bin" \
-    OPS_SERVER_SBIN_DST="$W/sbin" OPS_SERVER_ETC_DST="$W/etc" \
-    bash "$1" verify >"$W/out" 2>"$W/err"; rc=$?
-  [ "$rc" -ne 0 ] || { printf 'k3: rc=0 на расхождении — сверка слепа\n'; return 1; }
-  grep -q 'расхождение' "$W/err" || { printf 'k3: отказ без маркера «расхождение»\n'; return 1; }
-  grep -q 'orch-ctx.timer' "$W/err" || { printf 'k3: отказ без имени файла\n'; return 1; }
+cell_k3() { # <subject>: verify расхождения — ПАРАМЕТРИЗОВАНО по всем девяти адресатам
+  # Вердикт критика к1 (блокирующая 2): проба обязана ловить расхождение
+  # ЛЮБОГО из девяти файлов, иначе verify, сверяющий один orch-ctx.timer,
+  # проходит приёмку. Каждый адресат искажается по очереди: user-файл,
+  # root-файл, каждый из 7 юнитов.
+  local rel base W rc dst
+  for rel in "${!PIN[@]}"; do
+    base="${rel##*/}"
+    W="$SCRATCH/k3_${rel//\//_}"
+    rm -rf "$W"; green_world "$W/bin" "$W/sbin" "$W/etc"
+    case "$rel" in
+      root/systemd/*) dst="$W/etc/$base" ;;
+      root/*)         dst="$W/sbin/$base" ;;
+      *)              dst="$W/bin/$base" ;;
+    esac
+    printf 'X' >>"$dst"
+    OPS_SERVER_SRC="$OPS_SRC" OPS_SERVER_BIN_DST="$W/bin" \
+      OPS_SERVER_SBIN_DST="$W/sbin" OPS_SERVER_ETC_DST="$W/etc" \
+      bash "$1" verify >"$W/out" 2>"$W/err"; rc=$?
+    [ "$rc" -ne 0 ] || { printf 'k3[%s]: rc=0 — сверка слепа к этому адресату\n' "$rel"; return 1; }
+    grep -q 'расхождение' "$W/err" || { printf 'k3[%s]: отказ без маркера «расхождение»\n' "$rel"; return 1; }
+    grep -Fq -- "$base" "$W/err" || { printf 'k3[%s]: отказ без имени файла %s\n' "$rel" "$base"; return 1; }
+  done
   return 0
 }
 
@@ -353,7 +440,7 @@ cell_k7() { # <docroot>: указатели HANDOFF/роли, носитель, 
   return 0
 }
 
-# ── стаб-пак: 6 обманных стабов, у каждого свой вход (Н-39) ───────────────────
+# ── стаб-пак: 7 обманных стабов, у каждого свой вход (Н-39) ───────────────────
 SIM="$SCRATCH/sim_install.sh"
 write_sim "$SIM"
 
@@ -382,7 +469,8 @@ run_stub_pack() {
     's1|#__ANCHOR_S1__|return 0|cell_k3' \
     's2|#__ANCHOR_S2__|root_ok=1|cell_k4' \
     's3|#__ANCHOR_S3__|printf X >> "$BIN_DST/orch-loop"|cell_k1' \
-    's4|#__ANCHOR_S4__|skip_copy=1|cell_k1'
+    's4|#__ANCHOR_S4__|skip_copy=1|cell_k1' \
+    's7|#__ANCHOR_S7__|check_one() { return 0; }|cell_k1b'
   do
     IFS='|' read -r nm anc repl cell <<<"$spec"
     stub_total=$((stub_total + 1))
@@ -421,22 +509,30 @@ run_stub_pack() {
   diff_run cell_k4 "$SIM"
   diff_run cell_k1 "$SIM"
   diff_run cell_k1 "$SIM"
+  diff_run cell_k1b "$SIM"
   diff_run cell_k6 "$sim_docs"
   diff_run cell_k7 "$sim_docs"
   printf 'стаб-пак: %d/%d поймано, диффпроба: %d/%d\n' "$caught" "$stub_total" "$diffok" "$diff_total"
   return 0
 }
 
+# ── LANDSIM (вердикт критика к1, блокирующая 1): дерево с приземлёнными ───────
+# указателями — батарея обязана быть зелёной на дереве, где роль/HANDOFF УЖЕ
+# несут строки-указатели (инварианты 9-10 применены к текущим документам
+# идемпотентно), субъект — честная симуляция; REPO_ROOT переводится на
+# скратч-дерево, чтобы отрицательные миры стаб-пака строились из ПРИЗЕМЛЁННЫХ
+# документов: мир s6 обязан лишаться указателей срезанием, а не копированием
+# «до приземления». Даёт rc 0 и до, и после реального приземления.
+if [ "${LANDSIM:-0}" = "1" ]; then
+  T="$SCRATCH/landed"
+  build_sim_tree "$T"
+  REPO_ROOT="$T"; OPS_SRC="$T/ops/server"
+  OPS_ROOT="$T"; SUBJ="$T/ops/server/install.sh"
+  printf 'LANDSIM: дерево с приземлёнными указателями %s (throwaway)\n' "$T"
 # ── FIXSIM (А-318): честная симуляция в скратче — батарея обязана позеленеть ──
-if [ "${FIXSIM:-0}" = "1" ]; then
+elif [ "${FIXSIM:-0}" = "1" ]; then
   T="$SCRATCH/tree"
-  mkdir -p "$T/ops/server/user" "$T/ops/server/root/systemd"
-  cp -- "$REPO_ROOT/ops/server/user/orch-loop" "$T/ops/server/user/"
-  cp -- "$REPO_ROOT/ops/server/root/orch-peak" "$T/ops/server/root/"
-  u=''
-  for u in $UNITS; do cp -- "$REPO_ROOT/ops/server/root/systemd/$u" "$T/ops/server/root/systemd/"; done
-  write_sim "$T/ops/server/install.sh"; chmod 755 "$T/ops/server/install.sh"
-  build_docs "$T" 1
+  build_sim_tree "$T"
   OPS_ROOT="$T"
   SUBJ="$T/ops/server/install.sh"
   printf 'FIXSIM: честная симуляция install.sh в %s (throwaway, А-318)\n' "$T"
@@ -458,6 +554,7 @@ for cell in cell_k1 cell_k2 cell_k3 cell_k4; do
 done
 if cell_k5; then honest=$((honest + 1)); else red 'cell_k5'; fi
 cell_k5b || red 'cell_k5b'
+cell_k1b "$SUBJ" || red 'cell_k1b'
 if cell_k6 "$OPS_ROOT"; then honest=$((honest + 1)); else red 'cell_k6'; fi
 if cell_k7 "$OPS_ROOT"; then honest=$((honest + 1)); else red 'cell_k7'; fi
 printf 'честная часть: %d/%d зелёная\n' "$honest" "$htotal"

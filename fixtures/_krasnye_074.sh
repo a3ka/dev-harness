@@ -8,6 +8,8 @@
 #   bash fixtures/_krasnye_074.sh              # прогон из корня worktree
 #   FIXSIM=1 bash fixtures/_krasnye_074.sh     # А-318: зелёное симуляцией
 #                                             # честного install.sh (throwaway /tmp)
+#   LANDSIM=1 bash fixtures/_krasnye_074.sh   # вердикт к1: зелёное на дереве
+#                                             # с УЖЕ приземлёнными указателями
 #   OPS_ROOT=<дерево-субъекта> bash fixtures/_krasnye_074.sh   # живое красное ДО
 #
 # Семантика: rc 0 — батарея зелёная (честные клетки + пойманные стабы);
