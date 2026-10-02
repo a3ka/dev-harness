@@ -113,8 +113,14 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/gitw071.XXXXXX")"
 mkdir -p "$WORK/api"
 : > "$WORK/created_wts"
-cleanup() {
+# чистка посторонних worktree-путей по журналу created_wts: на выходе (trap)
+# и МЕЖДУ фазами (sweep_wts) — путь, созданный фазой, не переживает её конец
+sweep_wts() {
   while IFS= read -r w; do [ -n "$w" ] && rm -rf "$w"; done < "$WORK/created_wts"
+  : > "$WORK/created_wts"
+}
+cleanup() {
+  sweep_wts
   [ -n "${API_PID:-}" ] && kill "$API_PID" 2>/dev/null
   rm -rf "$WORK"
 }
@@ -481,6 +487,7 @@ stub_violation() { # stub_violation <класс>
     podstroka)
       mk_world sv-podstr
       mkdir -p "$WTROOT-slob"
+      printf '%s\n' "$WTROOT-slob" >> "$WORK/created_wts"
       git -C "$T" worktree add -q -b wip/071/wtf "$WTROOT-slob/wt" main >/dev/null 2>&1 ;;
     garbage-wt)
       mk_world sv-garbage
@@ -693,6 +700,7 @@ run_honest_cells() {
   # п5в: путь-подстрока вне корня, ветка wip — судит ПУТЬ (буквальный префикс)
   mk_world p5v
   mkdir -p "$WTROOT-slob"
+  printf '%s\n' "$WTROOT-slob" >> "$WORK/created_wts"
   git -C "$T" worktree add -q -b wip/071/wtf "$WTROOT-slob/wt" main >/dev/null 2>&1
   run_push api origin main
   expect_refuse п5в "${PF}посторонний worktree: "
@@ -795,6 +803,13 @@ PYE
 # ── порядок: само-проверка → стаб-пак → честные клетки ───────────────────────
 OKN=0
 run_stub_pack
+# межфазная чистка: миры стаб-пака мертвы, но их посторонние worktree-пути
+# (журнал created_wts; у стаба podstroka — фиксированный $WTROOT-slob,
+# строковая подстрока корня) переживают свой мир. Без чистки клетка п5в
+# строит worktree на том же пути поверх остатка: worktree add молчит
+# «каталог непуст» под >/dev/null, постороннего worktree в её мире нет —
+# клетка непроходима честной реализацией (Impl071r, блокер-2).
+sweep_wts
 run_honest_cells
 CELLS=$((OKN - 1))
 printf 'честные клетки: %s/%s зелёные; стаб-пак 13/13 + дифф 13/13\n' "$CELLS" "$CELLS"
