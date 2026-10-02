@@ -292,18 +292,53 @@ done < <(git log --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
 # Мержей нет → прозрачно (нет объекта проверки)
 if [ "${#land_merges[@]}" -gt 0 ]; then
   API_BASE="${GITW_PREFLIGHT_071_API:-}"
-  remote_url="$(git remote get-url "$TGT" 2>/dev/null || true)"
-  github_repo=""
-  if [ -z "$API_BASE" ]; then
-    case "$remote_url" in
-      ssh://git@github.com/*|ssh://github.com/*|git@github.com:*|https://github.com/*)
-        github_repo="$(printf '%s' "$remote_url" \
-          | sed -nE 's#^(ssh://git@github\.com/|ssh://github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
-        github_repo="$(printf '%s' "$github_repo" | sed -E 's/\.git$//')"
-        API_BASE="https://api.github.com/repos/${github_repo}"
-        ;;
-    esac
-  fi
+  # Шов API_BASE: две формы (живой укус 2026-10-02 №2, клетка п8б):
+  #   полная — содержит /repos/<owner>/<repo> (как было); оставляем как есть;
+  #   КОРЕНЬ  — без /repos (фикстура п8б задаёт КОРЕНЬ мока); owner/repo
+  #             извлекаются из $TGT (эффективная цель обмена — канонический
+  #             URL после И-5: ssh://github.com/o/r.git для ssh-цели) c
+  #             подпором remote_url любого настроенного remote (TGT мог быть
+  #             путём, ssh-формой вне github-грамматики или bare-remote).
+  #             Грамматика: ssh://git@github.com/ | ssh://github.com/ |
+  #             git@github.com: | https://github.com/ → owner/repo.
+  # При пустой API_BASE КОРЕНЬ дефолтится в https://api.github.com.
+  case "$API_BASE" in
+    */repos/*|*/actions/runs)
+      # полная форма — оставляем как есть (все старые клетки)
+      ;;
+    *)
+      github_repo=""
+      # 1) парсим TGT (эффективная цель обмена — канонический URL)
+      if [ -n "$TGT" ]; then
+        github_repo="$(printf '%s' "$TGT" \
+          | sed -nE 's#^(ssh://git@github\.com/|ssh://github\.com/|git@github\.com:|https://github\.com/)([^/]+)/([^/.]+)(\.git)?$#\2/\3#p' | head -1)"
+      fi
+      # 2) fallback — remote_url любого настроенного remote
+      if [ -z "$github_repo" ]; then
+        while IFS= read -r rname; do
+          [ -n "$rname" ] || continue
+          ru="$(git remote get-url "$rname" 2>/dev/null || true)"
+          case "$ru" in
+            "")
+              ;;
+            *)
+              cand="$(printf '%s' "$ru" \
+                | sed -nE 's#^(ssh://git@github\.com/|ssh://github\.com/|git@github\.com:|https://github\.com/)([^/]+)/([^/.]+)(\.git)?$#\2/\3#p' | head -1)"
+              if [ -n "$cand" ]; then
+                github_repo="$cand"
+                break
+              fi
+              ;;
+          esac
+        done < <(git remote 2>/dev/null)
+      fi
+      if [ -n "$github_repo" ]; then
+        API_BASE="${API_BASE:-https://api.github.com}/repos/${github_repo}"
+      else
+        API_BASE=""
+      fi
+      ;;
+  esac
   [ -n "$API_BASE" ] \
     || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: цель не github\n' >&2; exit 1; }
   case "$API_BASE" in
