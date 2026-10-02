@@ -30,9 +30,10 @@ set -u
 # ── корни и швы ──────────────────────────────────────────────────────────────
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_ROOT="${OPS_SERVER_SRC:-$SELF_DIR}"
-BIN_DST="${OPS_SERVER_BIN_DST:-$HOME/.local/bin}"
-SBIN_DST="${OPS_SERVER_SBIN_DST:-/usr/local/sbin}"
-ETC_DST="${OPS_SERVER_ETC_DST:-/etc/systemd/system}"
+# Швы-адресаты (инвариант 6): ${VAR-…} — пустая строка = значение (намеренный пустой OPS_SERVER_BIN_DST/ETC_DST/SBIN_DST = путь по умолчанию); источник SRC остаётся с :-(отсутствие SRC = дефолт).
+BIN_DST="${OPS_SERVER_BIN_DST-$HOME/.local/bin}"
+SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
+ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
 UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
