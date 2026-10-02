@@ -198,6 +198,7 @@ glob'ов; probe-only семья 034: маркер `fixtures/limit_aktivnyh/.pro
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (историческая заявка): та же дельта одним ключом
 ПЕРЕСЕЧЕНИЕ implementer: scripts/freeze_contract.sh — 036 architect-зона (landed): дельта — только вставка лимитного ветвления после библиотечного return, спек-гейт 036 и его фикстуры не трогаются, остаются зелёными
 ПЕРЕСЕЧЕНИЕ implementer: scripts/freeze_contract.sh — 060 implementer-зона (landed): дельта — та же вставка лимита; самодостаточность 060 не трогается
+ПЕРЕСЕЧЕНИЕ implementer: scripts/mint_line.sh — 068 architect-зона (landed): дельта — только лимитное ветвление после библиотечного return; манифест-грамматика и dual-control 068 не трогаются, батарея fixtures/mint_line/ остаётся зелёной
 ПЕРЕСЕЧЕНИЕ implementer: scripts/next_id.sh — 060 implementer-зона (landed): дельта — только лимитное ветвление после библиотечного return; выдача номера 060 остаётся байт-в-байт
 РАБОТА НЕ РАЗДАЁТСЯ: registry/contracts.tsv (минты 075–079 стоят; dual-control 023/031) scripts/check_ids.sh scripts/drill_next_id_race.sh (импортёры next_id-либы: лимит в основном коде, после библиотечного return) fixtures/mint_line/ fixtures/freeze_contract/case_*.sh (замороженные клетки: правка только каркаса _repo.sh) fixtures/check_staged/ (дверь 031) roles/ (076) scripts/verify_antiplacebo.sh (шард; семья вне case_*-глоба)
 
