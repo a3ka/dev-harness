@@ -6,7 +6,11 @@
 #   И1  вердикт гейта (rc + множество FAIL-строк) на фиксированных объектах и
 #       тегах не зависит от формы чекаута: наличие/отсутствие локальной ветки
 #       refs/heads/main; ветка vs её merge с base; — матрица 2×2 на каждом
-#       из двух синтетических деревьев;
+#       из двух синтетических деревьев; Б2 к1: матрица предъявляет ДВА
+#       сохранённых SHA — B = исходная вершина ветки b1 (merge НЕ на
+#       probe-ветке, ветку не перемещает) и M = отдельный merge-коммит от
+#       b1; клетка на НЕмерженном b1 без main ловит обход «признание
+#       только для HEAD с двумя родителями».
 #   И2  замена реестровой строки (форма REPLACE двери минта 031/049),
 #       легальная на главной линии судимого окна (f2 — закрытое окно 005,
 #       r1 — открытое окно 006), НЕ красит «вне зоны» НИ В ОДНОЙ форме
@@ -34,8 +38,10 @@
 #      Наблюдаем на p3: честный гейт красит её «вне зоны» в каждой форме,
 #      s1 пропускает ЗОНОЙ — ослабление поймано.
 #   s2 «фикс = убрать проверку главной линии совсем» — check_zones:1077
-#      заменён на `if true`. Легальные f2/r1 s2 не отличает от честного
-#      фикса; наблюдаем ТОЛЬКО на p3: боковая замена признаётся → пойман.
+#      заменён на `if true`; после честной правки 073 (предикат заменён)
+#      стаб переключается на структурный якорь on_main_replace (СОВЕТ-2 к1).
+#      Легальные f2/r1 s2 не отличает от честного фикса; наблюдаем ТОЛЬКО
+#      на p3: боковая замена признаётся → пойман.
 #   s3 «фикс = заглушка двери минта» — ветка orchestrator+registry выходит
 #      из суда без проверки формы. Наблюдаем на p2: честный гейт красит
 #      именованной причиной, s3 молчит → пойман.
@@ -137,21 +143,28 @@ build_fx() {
   $G checkout -q -b wip/073/probe
   printf 'x' > "$fx/scripts/zzz/b1.txt"
   $G add -A && $G commit -q -m 'b1: работа ветки'
+  SHA_B1="$($G rev-parse HEAD)"  # Б2 к1: вершина исходной ветки сохранена ДО merge
   $G checkout -q mainline
   printf 'x' > "$fx/scripts/zzz/m3.txt"
   $G add -A && $G commit -q -m 'm3: продвижение базы'
   SHA_M3="$($G rev-parse HEAD)"
-  $G checkout -q wip/073/probe
+  # Б2 к1: merge — ОТДЕЛЬНЫЙ merge-коммит ОТ b1 на detached HEAD:
+  # probe-ветку НЕ перемещает, поэтому B-формы судят НЕмерженную исходную
+  # ветку, M-формы — merge; клетка на b1 без main ловит обход «признание
+  # только для HEAD с двумя родителями».
+  $G checkout -q --detach wip/073/probe
   $G merge --no-ff -q -m probe mainline
   SHA_M="$($G rev-parse HEAD)"
+  [ "$($G rev-parse wip/073/probe)" = "$SHA_B1" ] \
+    || { printf 'ОТКАЗ: probe-ветка перемещена merge-ем (Б2 к1)\n' >&2; exit 2; }
   $G checkout -q mainline
   # шas сборки — в свой env-файл: вторая сборка не затирает первую.
-  printf 'SHA_F2=%q\nSHA_R1=%q\nSHA_T1=%q\nSHA_P3=%q\nSHA_P2=%q\nSHA_M3=%q\nSHA_M=%q\n' \
-    "$SHA_F2" "$SHA_R1" "$SHA_T1" "$SHA_P3" "$SHA_P2" "$SHA_M3" "$SHA_M" > "$SCRATCH/$1.env"
+  printf 'SHA_F2=%q\nSHA_R1=%q\nSHA_T1=%q\nSHA_P3=%q\nSHA_P2=%q\nSHA_M3=%q\nSHA_M=%q\nSHA_B1=%q\n' \
+    "$SHA_F2" "$SHA_R1" "$SHA_T1" "$SHA_P3" "$SHA_P2" "$SHA_M3" "$SHA_M" "$SHA_B1" > "$SCRATCH/$1.env"
 }
 
 load_shas() { # <дерево>
-  SHA_F2=''; SHA_R1=''; SHA_T1=''; SHA_P3=''; SHA_P2=''; SHA_M3=''; SHA_M=''
+  SHA_F2=''; SHA_R1=''; SHA_T1=''; SHA_P3=''; SHA_P2=''; SHA_M3=''; SHA_M=''; SHA_B1=''
   # shellcheck disable=SC1090
   . "$SCRATCH/$1.env"
 }
@@ -193,7 +206,21 @@ make_stub_s2() {  # проверка главной линии убрана: з�
   gate_copy s2
   lit s2.old '          if g merge-base --is-ancestor "$c" "refs/heads/main" 2>/dev/null; then'
   lit s2.new '          if true; then'
-  patch_py "$SCRATCH/gates/s2/check_zones.sh" "$SCRATCH/s2.old" "$SCRATCH/s2.new"
+  # СОВЕТ-2 к1: якорь переживает правку :1077 — если старый предикат уже
+  # заменён честной правкой 073, стаб нейтрализует СТРУКТУРНЫЙ якорь
+  # REPLACE-ветви (инициализацию флага признания on_main_replace), не текст
+  # предиката; снос обоих якорей — именованный отказ, не молчаливый пропуск.
+  if grep -Fq '          if g merge-base --is-ancestor "$c" "refs/heads/main" 2>/dev/null; then' \
+      "$SCRATCH/gates/s2/check_zones.sh"; then
+    patch_py "$SCRATCH/gates/s2/check_zones.sh" "$SCRATCH/s2.old" "$SCRATCH/s2.new"
+  elif grep -Fq 'on_main_replace=0' "$SCRATCH/gates/s2/check_zones.sh"; then
+    lit s2b.old 'on_main_replace=0'
+    lit s2b.new 'on_main_replace=1'
+    patch_py "$SCRATCH/gates/s2/check_zones.sh" "$SCRATCH/s2b.old" "$SCRATCH/s2b.new"
+  else
+    printf '  ОТКАЗ: стаб s2 — оба якоря снесены (предикат :1077 и on_main_replace)\n' >&2
+    return 1
+  fi
 }
 
 make_stub_s3() {  # дверь минта заглушена: orchestrator+registry вне суда
@@ -213,6 +240,15 @@ make_stub_s4() {  # закрытые окна не закрываются done-�
 
 make_fixsim() {  # А-318: симуляция честной правки — throwaway, живёт в скратче
   gate_copy fixsim
+  # СОВЕТ-2 к1: симуляция патчит СТАРЫЙ предикат :1077. После честной правки
+  # его в гейте нет — гейт уже формонезависим, симуляция вырождается в
+  # дословный честный прогон (именованная пометка ниже); патчить уже-чинённый
+  # гейт значило бы тестировать симуляцию симуляции.
+  if ! grep -Fq '          if g merge-base --is-ancestor "$c" "refs/heads/main" 2>/dev/null; then' \
+      "$SCRATCH/gates/fixsim/check_zones.sh"; then
+    printf '  FIXSIM: старый предикат :1077 отсутствует — гейт уже несёт правку 073, симуляция вырождена в честный прогон\n'
+    return 0
+  fi
   lit fs1.old '  range="$since..HEAD"
   [ -n "$until" ] && range="$since..$until"'
   lit fs1.new '  range="$since..HEAD"
@@ -234,7 +270,7 @@ set_form() { # <дерево> <форма>
   $G branch -D main >/dev/null 2>&1 || true
   case "$2" in
     M-*) $G checkout -q "$SHA_M" ;;
-    B-*) $G checkout -q wip/073/probe ;;
+    B-*) $G checkout -q "$SHA_B1" ;;
   esac
   case "$2" in
     *-main) $G branch main "$SHA_M3" >/dev/null 2>&1 ;;
@@ -265,7 +301,7 @@ fi
 
 # ── 1. И1: вердикт одинаков во всех формах (оба дерева) ───────────────────────
 for tree in fx fx2; do
-  printf 'И1 матрица форм, дерево %s:\n' "$tree"
+  printf 'И1 матрица форм, дерево %s (B=%s исходная ветка, M=%s merge от неё):\n' "$tree" "${SHA_B1:0:8}" "${SHA_M:0:8}"
   prev=''
   for form in $FORMS; do
     run_gate "$HONEST" "$tree" "$form"
@@ -302,7 +338,11 @@ done
 printf 'стаб-пак:\n'
 caught=0; total=0
 for s in s1 s2; do
-  make_stub_$s; total=$((total + 1))
+  total=$((total + 1))
+  if ! make_stub_$s; then
+    red "стаб $s не построен: структурный якорь снесён реализацией (Н-39)"
+    continue
+  fi
   run_gate "$SCRATCH/gates/$s/check_zones.sh" fx M-nomain
   if grep -qxF "$(vne "$SHA_P3" registry/contracts.tsv)" "$SCRATCH/lastx"; then
     red "стаб $s жив: p3 всё ещё красна — привязка не различима (Н-39)"
