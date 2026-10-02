@@ -69,6 +69,12 @@
 #   п6д  HEAD без явного dst при текущей ветке ≠ main → тот же отказ;
 #   п6в  refspec-глоб → «refspec не разбирается» (fail-closed);
 #   п7   2 ключа из 4 в package.json → «чек-ключи не полностью»;
+#   п7а-п7в — 1/3/0 из 4 ключей в ОТПРАВЛЯЕМОМ src, cwd (main) полный —
+#        независимый вход для каждой неполноты (адверсарий 071-r1 Б1);
+#        п7в (0 ключей) судит именованный пропуск при расхождении cwd/src
+#        (адверсарий 071-r1 Б2); п7б (3 ключа) — клетка, которую ловит
+#        мутант предиката nk==0→nk==3 (мутант пропускает 3-ключевой src
+#        вместо отказа «не полностью»);
 #   п8   cwd ≠ отправляемое дерево: жир на main, чекаут на чистой stara —
 #        чеки обязаны видеть ОТПРАВЛЯЕМОЕ дерево (клетка стаба s2);
 #   п9а-п9в — src ≠ main: чеки по ОТПРАВЛЯЕМОМУ src — красный candidate
@@ -253,6 +259,26 @@ mk_second_land() {
   git -C "$T" checkout -q main
   git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/demx' wip/071/demx \
     || die_cell "demx-$mode" "второй land-merge не построился"
+}
+
+# кандидат-ветка с модифицируемым package.json, построенная СТОРОННИМ
+# worktree — $T остаётся НА MAIN (cwd push'а не переключается). Различие
+# ключей судится по ОТПРАВЛЯЕМОМУ src, не по cwd (адверсарий 071-r1 Б2):
+# checkout -b в $T (как у п9а/п9б) сделал бы cwd == src и не наблюдал бы
+# чтение не того дерева. mk_keycand создаёт ветку + временный worktree
+# (CANDW), caller правит package.json там и зовёт cand_commit.
+mk_keycand() { # mk_keycand <branch> → CANDW=<worktree-путь>
+  local br="$1"
+  git -C "$T" branch -q "$br" main
+  local cw="$WTROOT/$(h8)"; mkdir -p "$cw"
+  git -C "$T" worktree add -q "$cw/w" "$br" \
+    || die_cell "$br" "кандидат-worktree не строится"
+  printf '%s\n' "$cw" >> "$WORK/created_wts"
+  CANDW="$cw/w"
+}
+cand_commit() { # cand_commit <branch> <msg>: коммитит CANDW, снимает worktree
+  git -C "$CANDW" add -A && ident "$CANDW" -m "$2"
+  git -C "$T" worktree remove --force "$CANDW" 2>/dev/null
 }
 
 # прогон судимой пары; env-ручки: APIENV = base | dead | нет
@@ -758,6 +784,55 @@ PYE
   run_push api origin main
   expect_refuse п7 "${PF}чек-ключи не полностью"
   bare_frozen п7; ok_cell 'п7: деградация чек-ключей (2 из 4) не уезжает'
+
+  # п7а: 1 из 4 ключей в ОТПРАВЛЯЕМОМ src, cwd (main) несёт полные 4 —
+  # классификация по cwd (адверсарий 071-r1 Б2) дала бы «4 из 4» и
+  # пропустила бы отказ; honest-реализация обязана отказать по src.
+  mk_world p7a
+  mk_keycand wip/071/cand7a
+  ( cd "$CANDW" && python3 - <<'PYE'
+import json
+p = json.load(open('package.json'))
+for k in ('check:nabludenia', 'check:ci-parity', 'check:ids'):
+    p['scripts'].pop(k, None)
+json.dump(p, open('package.json', 'w'), ensure_ascii=False, indent=2)
+PYE
+  )
+  cand_commit wip/071/cand7a 'cand keys 1 of 4'
+  run_push api origin wip/071/cand7a:main
+  expect_refuse п7а "${PF}чек-ключи не полностью: 1 из 4"
+  bare_frozen п7а; ok_cell 'п7а: src 1-из-4 ключей (cwd main полный) — отказ по отправляемому дереву'
+
+  # п7б: 3 из 4 ключей в src, cwd (main) полный — тот же класс расхождения,
+  # ровно клетка, которую ловит мутант предиката nk==0→nk==3 (вердикт Б1).
+  mk_world p7b
+  mk_keycand wip/071/cand7b
+  ( cd "$CANDW" && python3 - <<'PYE'
+import json
+p = json.load(open('package.json'))
+p['scripts'].pop('check:ids', None)
+json.dump(p, open('package.json', 'w'), ensure_ascii=False, indent=2)
+PYE
+  )
+  cand_commit wip/071/cand7b 'cand keys 3 of 4'
+  run_push api origin wip/071/cand7b:main
+  expect_refuse п7б "${PF}чек-ключи не полностью: 3 из 4"
+  bare_frozen п7б; ok_cell 'п7б: src 3-из-4 ключей (cwd main полный) — отказ по отправляемому дереву'
+
+  # п7в: 0 из 4 ключей в src (package.json отсутствует), cwd (main) полный —
+  # именованный ПРОПУСК по src, обмен продолжается, цель на tip кандидата.
+  mk_world p7c
+  mk_keycand wip/071/cand7c
+  git -C "$CANDW" rm -q package.json
+  cand_commit wip/071/cand7c 'cand keys 0 of 4 (no package.json)'
+  run_push api origin wip/071/cand7c:main
+  [ "$RC" -eq 0 ] \
+    || die_cell п7в "0 ключей в src не пропущен: rc=$RC $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  grep -qF "${POK}чеки неприменимы" "$WORK/last.err" \
+    || die_cell п7в "именованный пропуск не напечатан: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
+  [ "$(git -C "$B1" rev-parse refs/heads/main)" = "$(git -C "$T" rev-parse wip/071/cand7c)" ] \
+    || die_cell п7в "цель не на tip кандидата (0 ключей обязан пропустить и продвинуть)"
+  ok_cell 'п7в: src 0-из-4 ключей (cwd main полный) — именованный пропуск, цель продвинута'
 
   # п8: cwd ≠ отправляемое дерево — чеки видят ОТПРАВЛЯЕМОЕ дерево
   mk_world p8
