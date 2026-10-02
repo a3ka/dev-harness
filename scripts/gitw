@@ -616,29 +616,69 @@ if [ "$sub" = "push" ]; then
     esac
   done
   unset __pk
-  # pre_tail_count: число опций ДО токена remote; remote = orig[i-1].
-  # post_tail: orig[i..] — без изменений (старый хвост).
+  # pre_tail_end: индекс первого токена POST_tail в orig[].
   # Если цикл цели НЕ нашёл remote (__target_in_argv=0: «push --all»,
   # «push -u» без позиционной цели, И-4в ниже резолвит remote из
   # pushRemote/pushDefault/origin), токена remote в argv нет, и весь
   # хвост после subcommand — это pre_tail: опции, проглоченные `-*)`
-  # И-4а. Иначе «--all» молча теряется (pre_tail_count=0, post_tail
+  # И-4а. Иначе «--all» молча теряется (pre_tail пуст, post_tail
   # пуст), и при ветке ≠ main exec «git push --all» везёт красный main
   # без строки ПРЕДПОЛЁТ — П4г вердикта 071 r2.
+  # ВАЖНО: remote-токен (orig[i-1] при __target_in_argv=1) ИСКЛЮЧАЕТСЯ
+  # из обоих хвостов — bare-имя в post_tail давало бы saw_ref=1 без
+  # рефspecа и ломало ветку «нет рефspecа» (saw_ref=0 → current_branch
+  # определяет покрытие). Это и был «push origin» happy-path клеток
+  # п7г/п7д: без refspec, current_branch=main → main_cov=1 → чек
+  # красного ceilings ловит. post_tail всегда стартует с i (ПОСЛЕ
+  # remote-токена), не с pre_tail_end.
   if [ "$__target_in_argv" -eq 0 ]; then
-    pre_tail_count=$((i - post_sub_idx))
+    pre_tail_end=$i
   else
-    pre_tail_count=$((i - post_sub_idx - 1))
+    pre_tail_end=$((i - 1))
   fi
-  [ "$pre_tail_count" -lt 0 ] && pre_tail_count=0
+  [ "$pre_tail_end" -lt "$post_sub_idx" ] && pre_tail_end="$post_sub_idx"
+  # Фильтрация --repo и его ЗНАЧЕНИЯ из обоих хвостов (P-1 регрессии 071
+  # fixr4: `gitw push --repo origin` на красном main → rc 0, B1 двинут
+  # молча. pre_tail ранее нёс «origin» парсеру предполёта как
+  # refspec-кандидат, saw_ref=1 без покрытия main, main_cov=0 → exit 0.
+  # --repo=<value> — один токен, --repo <value> — два токена; оба
+  # варианта обязаны быть выключены из pre_tail и post_tail, чтобы
+  # значение не читалось как refspec и не глушило ветку «нет refspec»
+  # (saw_ref=0 → current_branch/main_cov). Внутри pre_tail и post_tail
+  # обходятся ОТДЕЛЬНО: pre_tail — опции ДО remote, post_tail — хвост
+  # ПОСЛЕ remote (включая refspec и флаги вроде --all/--mirror, если
+  # они стоят после remote).
+  __scan_tail() { # __scan_tail <start> <end> → echoes args, skipping --repo[=value]
+    local __s="$1" __e="$2" __j __a
+    __j="$__s"
+    while [ "$__j" -lt "$__e" ]; do
+      __a="${orig[$__j]}"
+      case "$__a" in
+        --repo)
+          # arity-2: --repo + value. Пропускаем ОБА токена; value всегда
+          # идёт сразу за --repo (цикл И-4а жрёт их парой при первой
+          # встрече, дальше по argv не «расползается»).
+          __j=$((__j + 2)) ;;
+        --repo=*)
+          # equals-форма: один токен.
+          __j=$((__j + 1)) ;;
+        *)
+          printf '%s\n' "$__a"
+          __j=$((__j + 1)) ;;
+      esac
+    done
+  }
+  pre_tail_args="$(__scan_tail "$post_sub_idx" "$pre_tail_end")"
+  # post_tail ВСЕГДА стартует с i (после remote-токена), не с
+  # pre_tail_end. Remote-токен исключён, иначе bare-имя в post_tail
+  # (старый «${orig[@]:i}» с i указывающим на remote) читалось бы
+  # парсером как refspec-кандидат и ломало ветку «нет refspecа».
+  post_tail_args="$(__scan_tail "$i" "$n")"
   PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
   PF_SCRIPT="$PF_DIR/gitw_preflight_071.sh"
   if [ -f "$PF_SCRIPT" ]; then
-    if [ "$pre_tail_count" -gt 0 ]; then
-      "$PF_SCRIPT" "$target" "${orig[@]:post_sub_idx:pre_tail_count}" "${orig[@]:i}"
-    else
-      "$PF_SCRIPT" "$target" "${orig[@]:i}"
-    fi
+    # shellcheck disable=SC2086 # word-splitting intentional: pre_tail_args/post_tail_args are newline-separated
+    "$PF_SCRIPT" "$target" $pre_tail_args $post_tail_args
     prc=$?
     if [ "$prc" -ne 0 ]; then
       exit "$prc"
