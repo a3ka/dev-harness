@@ -296,9 +296,9 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
   github_repo=""
   if [ -z "$API_BASE" ]; then
     case "$remote_url" in
-      ssh://git@github.com/*|git@github.com:*|https://github.com/*)
+      ssh://git@github.com/*|ssh://github.com/*|git@github.com:*|https://github.com/*)
         github_repo="$(printf '%s' "$remote_url" \
-          | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
+          | sed -nE 's#^(ssh://git@github\.com/|ssh://github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
         github_repo="$(printf '%s' "$github_repo" | sed -E 's/\.git$//')"
         API_BASE="https://api.github.com/repos/${github_repo}"
         ;;
@@ -319,10 +319,13 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
       exit 1
     fi
+    gh_args=(-H 'Accept: application/vnd.github+json' \
+             -H 'X-GitHub-Api-Version: 2022-11-28')
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+      gh_args+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+    fi
     if ! body="$(curl -fsS -m 20 \
-          -H 'Accept: application/vnd.github+json' \
-          -H 'X-GitHub-Api-Version: 2022-11-28' \
-          "${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"}" \
+          "${gh_args[@]}" \
           "$API?event=pull_request&head_sha=$p" 2>/dev/null)"; then
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2
       exit 1
