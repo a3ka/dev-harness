@@ -24,6 +24,19 @@ fi
 REPO_CLONE="$(mktemp -d "${TMPDIR:-/tmp}/pg_freeze043_clone.XXXXXX")"
 git clone --quiet "$REPO" "$REPO_CLONE" || { printf 'ОТКАЗ: clone не удался\n' >&2; exit 1; }
 
+# bare-origin (контракт 078): $REPO в CI — живой чекаут, локальный clone делает origin
+# смотрящим НА $REPO, и `git ls-remote origin` из клона видит ВСЕ refs живого дерева
+# (frozen/contracts/001, 043, 071, 078, …). lib_active_contracts.sh (fail-closed по
+# живому ls-remote) тогда считает активных 4 ≥ 2 и §3-bis freeze_contract.sh
+# ОТКАЗЫВАЕТ раньше precision-гейта — фикстура краснела бы не предметом, а лимитом.
+# Тот же приём, что fixtures/freeze_contract/_repo.sh make_repo() (078 И-2):
+# подарить клону СВЕЖИЙ ПУСТОЙ bare-origin — активных 0 < 2, лимит пропускает,
+# precision-гейт остаётся единственным красным судьёй. push на bare-origin не делаем
+# (clone не публикует), пустоты достаточно.
+BARE_ORIGIN="$(mktemp -d "${TMPDIR:-/tmp}/pg_freeze043_origin.XXXXXX")"
+git init --quiet --bare "$BARE_ORIGIN"
+( cd "$REPO_CLONE" && git remote set-url origin "$BARE_ORIGIN" )
+
 # Копируем ОБНОВЛЁННЫЕ файлы гейта и freeze-time хука ИЗ worktree (они ещё
 # не закоммичены — implementer-патч, который коммитится отдельно).
 cp "$REPO/scripts/check_precision_gate.sh" "$REPO_CLONE/scripts/check_precision_gate.sh"
@@ -93,6 +106,7 @@ if ( cd "$REPO_CLONE" && git tag -l 'frozen/contracts/446/*' | grep -q . ); then
   exit 1
 fi
 
+rm -rf "$BARE_ORIGIN"
 rm -rf "$REPO_CLONE"
 printf 'case_14: freeze-time backstop refuses (rc 1, именованная причина, тег НЕ записан)\n' >&2
 exit 0

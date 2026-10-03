@@ -79,6 +79,17 @@ def toy(root):
     put(root, 'package.json', '{"scripts": {}}\n')
     put(root, 'config/ci_parity_exceptions.txt', '')
     commit(root, 'источники')
+    # bare-origin (контракт 078): лимит активных контрактов в freeze_contract.sh
+    # судит живым ls-remote origin (lib_active_contracts.sh fail-closed без remote) —
+    # toy без origin падал бы на заморозке отсутствием окружения, а не предметом
+    # фикстуры; тот же приём, что fixtures/freeze_contract/_repo.sh make_repo(). На
+    # пустом origin активных 0 < 2, замораживаемый NNN вычитается — суждения
+    # lifecycle не меняются.
+    origin = root.parent / f'{root.name}-origin.git'
+    git(root, 'init', '-q', '--bare', origin)
+    git(root, '-C', origin, 'symbolic-ref', 'HEAD', 'refs/heads/main')
+    git(root, 'remote', 'add', 'origin', origin)
+    git(root, 'push', '-q', 'origin', 'main')
     profile = 'architecture' if CASE == 'architecture' else 'product'
     s = {'type': 'documentation', 'version': 1, 'profile': profile,
          'outputs': {'markdown': 'docs/ёж.md', 'evidence': 'docs/ёж.evidence.json'},

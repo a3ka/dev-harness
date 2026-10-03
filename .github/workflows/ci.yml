@@ -635,6 +635,25 @@ jobs:
         # дрилл переворачивает полярность. По прецеденту дрилла исключения отдельной строкой.
         run: npm run drill:protected-rename
 
+      - name: Сам-тесты семьи лимит активных контрактов (контракт 078)
+        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043/045/058-074:
+        # раннер `fixtures/_krasnye_078.sh` (dogfood-семья контракта 078) гоняет
+        # `fixtures/limit_aktivnyh/red_limit_aktivnyh_078.sh` — батарею 33 честных клеток
+        # (л0–л15) + стаб-пак из 7 обманных стабов и 7 диффпроб (7+7+7+33), против трёх
+        # субъектов: `scripts/next_id.sh CONTRACT` / `scripts/mint_line.sh` /
+        # `scripts/freeze_contract.sh contracts/NNN-*.md`. Шардовый verify_antiplacebo
+        # выбирает только `case_*.sh`, этой семьи НЕ видит (её файл — `red_limit_aktivnyh_078.sh`,
+        # не `case_*`). Архитектурный класс тот же, что ранее подключённые «Сам-тесты семьи
+        # ПРОВОДКА» / «Сам-тесты барьера check_threat_model» / «Сам-тесты семьи
+        # precision-гейт» / «Сам-тесты pre-exchange гард». Ключ `npm run check:limit-active-family-selftest`
+        # покрыт правилом 6 verify_ci_parity.sh (:1043) как `npm run <имя>`, тот же случай,
+        # что `check:gitw-family-selftest` / `check:precision-family-selftest` —
+        # запись в config/ci_parity_exceptions.txt НЕ требуется. Самодостаточен: батарея
+        # строит toy-миры в mktemp-каталогах, не мутирует стерегомое дерево, сети
+        # не требует. rc-команда закрывает пункт приёмки шага (правило 6) и закрывает
+        # ПРОВОДКА-долг контракта 078.
+        run: bash fixtures/_krasnye_078.sh
+
       - name: Счётчик git-вызовов check_zones (контракт 040, §Приёмка Р1)
         # Постоянный страж дифференциального call-budget check_zones (§Б1, §Р1).
         # Форма — ОТДЕЛЬНЫЙ прямой шаг workflow (НЕ шардовый `keys:`, как v1/v2): вердикт

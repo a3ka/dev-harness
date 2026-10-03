@@ -66,10 +66,14 @@ USAGE
 
 NNN_ARG=""
 ROOT_ARG=""
+REASON_ARG=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --nnn)  NNN_ARG="${2:?}"; shift 2 ;;
-    --root) ROOT_ARG="${2:?}"; shift 2 ;;
+    --nnn)    NNN_ARG="${2:?}"; shift 2 ;;
+    --root)   ROOT_ARG="${2:?}"; shift 2 ;;
+    --reason) [ -n "$REASON_ARG" ] && { printf 'mint_line: --reason только один; получен второй\n' >&2; usage; }
+              [ "$#" -ge 2 ] || { printf 'mint_line: --reason требует значение\n' >&2; usage; }
+              REASON_ARG="$2"; shift 2 ;;
     --help|-h) usage ;;
     *) printf 'mint_line: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
   esac
@@ -167,6 +171,31 @@ fi
 if [ "$TAG_SHA" != "$sha_origin" ]; then
   printf 'ОТКАЗ: тег %s не выдан авторитетом: sha локального тега (%s) ≠ sha тега на origin (%s) — переминт\n' "$NNN" "$TAG_SHA" "$sha_origin" >&2
   exit 1
+fi
+
+# 3-bis. Лимит активных контрактов (контракт 078, И-3): после dual-control (шаг 3),
+# до проверки манифеста (шаг 4) — так авторитет уже подтверждён, а отказ дешевле
+# тяжёлых гейтов манифеста/двери 031. Счёт — живой ls-remote origin через
+# scripts/lib_active_contracts.sh; --nnn ИЗ активных НЕ вычитается (исключение
+# И-4 — только freeze; л7б ловит ошибочный вычет минтимого). Снятие — литеральная
+# подстрока OWNER_MARK в REASON_ARG (И-5; ниже порога причина не читается).
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_active_contracts.sh"
+active_list="$(active_contracts_list "$ROOT")" && active_rc=0 || active_rc=$?
+if [ "$active_rc" -ne 0 ]; then
+  # fail-closed: библиотека уже напечатала именованный отказ в stderr
+  exit 1
+fi
+active_n="$(printf '%s\n' "$active_list" | grep -c . || true)"
+if [ "$active_n" -ge 2 ]; then
+  list_csv="$(printf '%s\n' "$active_list" | paste -sd, -)"
+  if [ -n "$REASON_ARG" ] && printf '%s' "$REASON_ARG" | grep -qF 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: сверх лимита'; then
+    printf '  ok   лимит активных контрактов: снято строкой владельца, активных %s ≥ 2: %s\n' "$active_n" "$list_csv" >&2
+  else
+    printf 'ОТКАЗ: лимит активных контрактов: активных %s ≥ 2: %s\n' "$active_n" "$list_csv" >&2
+    exit 1
+  fi
 fi
 
 # 4. Повторный минт: NNN не должен жить в манифесте HEAD (дверь 031 условие 3

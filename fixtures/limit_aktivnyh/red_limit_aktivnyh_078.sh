@@ -50,6 +50,17 @@
 #     снимает 001 из ОБОИХ частей целиком: вычитающий одну часть до объединения видит
 #     3, mut2-класс «пересечение → только F» видит 1 и пропускает (078-к3 Р2/З5);
 #     тегов 001 сверх fetched v1 нет, реестр/HEAD/чистота нетронуты);
+#   л16/л17 (вход №1 адверсария 078-v1, fail-closed ПОТРЕБИТЕЛЕЙ): dual-control/
+#     грамматика/реестр прошли, отказал именно ЛИМИТНЫЙ ls-remote — PATH-шим ломает
+#     только три паттерна active_contracts_list (dual-control id/CONTRACT у mint и
+#     registry_state refs/tags/frozen/* идут к живому git) → rc 1 «авторитет
+#     недоступен … данные неизвестны» БЕЗ мутации: л16 mint (строки нет, HEAD,
+#     чистота), л17 freeze (тега нет, реестр байт-в-байт, HEAD, чистота); fail-open
+#     стаб-Фм/Фф здесь МИНТУЕТ/ЗАМОРАЖИЕТ — вход их наблюдаемости (Н-39);
+#   л18/л19/л20 (вход №2 адверсария 078-v1, ноль refs): origin жив, ls-remote rc 0,
+#     ПУСТО во всех трёх пространствах → активных 0 < 2 → нормальный успех БЕЗ
+#     диагностики лимита: л18 next_id (номер+тег), л19 mint (MINTED), л20 freeze
+#     (v1); стаб-П «пустой ответ = недоступность» отказывает ровно здесь;
 #   И-9 в клетках отказа И снятия: stderr сверяется числом И точным множеством NNN
 #     (diag9: «активных <N> ≥ 2: <NNN,NNN>»; снятие — л3/л9/л12, решётка лР и л14в —
 #     тем же diag9), л15 — слова «данные неизвестны»; не один маркер. Ниже порога —
@@ -63,6 +74,13 @@
 #     на чистом мире rc 0 (не параноик), (б) НАРУШЕНИЕ — расходится с честным ядром
 #     ровно на входе наблюдаемости дефекта; стаб-пак зелен ДО и ПОСЛЕ реализации
 #     субъекта.
+#   субъектные стабы Фм/Фф/П — мутантные копии РЕАЛЬНЫХ scripts/ (вердикт 078-v1;
+#     одна замена одной строки по якорю фактического кода, применение cmp ∧ grep -F,
+#     гейт л0 — якоря есть только у реализованного субъекта): Фм mint_line
+#     `active_rc→exit 1`→`if false` (fail-open) · Фф freeze_contract то же ·
+#     П lib_active_contracts `ls_rc -ne 0`→`… || [ -z "$refs" ]` (пустой ответ
+#     ошибочно = недоступность). Диффпробы: вне дефекта стабы честны; нарушения —
+#     ровно на входах л16/л17 (шим) и л18/л19/л20 (ноль refs).
 #
 # Активные создаются ПРЯМО В BARE origin (тег/ветка на уже запушенный main — порядок
 # Н-160 коммиты→тег соблюдён), локальные refs клона остаются пустыми: счёт по origin
@@ -537,8 +555,61 @@ if [ "$PRESENT" -eq 1 ]; then
      && [ "$(git -C "$T14v" rev-parse HEAD)" = "$head14v" ] && [ "$(reg_state "$T14v")" = "$reg14v" ] \
      && [ -z "$(git -C "$T14v" status --porcelain)" ]; then pass л14в
   else fail л14в "rc=$rc14v out=$out14v тегов 001=$(git -C "$T14v" tag -l 'frozen/contracts/001/*' | wc -l) err=$(printf '%s' "$err14v" | sed -n 1p) — вычет исключения из ОБОИХ частей не доказан: вычитающий одну часть видит 3, mut2-класс видит 1 и пропускает"; fi
+
+  # ── честные клетки входов адверсария 078-v1: fail-closed потребителей и ноль refs ──
+  # PATH-шим: rc 1 ТОЛЬКО лимитному ls-remote (три паттерна active_contracts_list);
+  # прочие git-вызовы (dual-control mint — одиночный refs/tags/id/CONTRACT/<NNN>,
+  # registry_state — refs/tags/frozen/*, локальные чтения) уходят к живому git.
+  # Так «авторитет недоступен» наблюдается ПОСЛЕ успешной dual-control — вход №1.
+  SHIM="$WORK/shim078-$RH1"; mkdir -p "$SHIM"
+  REALGIT="$(command -v git)"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do case "$a" in %s|%s|%s) exit 1 ;; esac; done\nexec %s "$@"\n' \
+    "'refs/tags/frozen/contracts/*'" "'refs/tags/done/contracts/*'" "'refs/heads/wip/*'" "$REALGIT" > "$SHIM/git"
+  chmod +x "$SHIM/git"
+
+  # л16: mint, отказ лимитного ls-remote ПОСЛЕ dual-control → fail-closed без мутации. # ИНВ: И-2, И-9
+  T16="$WORK/l16-$RH1"; mk_mint_toy "$T16"; authority_tag "$T16" "$ACT3"; bare_frozen "$T16" "$ACT1"; sync_tags "$T16"
+  h16="$(git -C "$T16" rev-parse HEAD)"
+  out16="$(PATH="$SHIM:$PATH" "$SUBJ_MINT" --root "$T16" --nnn "$ACT3" 2>"$WORK/e16")"; rc16=$?; err16="$(cat "$WORK/e16")"
+  lines16="$(git -C "$T16" cat-file -p HEAD:registry/contracts.tsv | grep -cF "$ACT3 → " || true)"
+  if [ "$rc16" -eq 1 ] && printf '%s' "$err16" | grep -qF "$LIM_NAME" \
+     && printf '%s' "$err16" | grep -qF 'авторитет недоступен' && printf '%s' "$err16" | grep -qF 'данные неизвестны' \
+     && [ -z "$out16" ] && [ "$lines16" -eq 0 ] && [ "$(git -C "$T16" rev-parse HEAD)" = "$h16" ] \
+     && [ -z "$(git -C "$T16" status --porcelain)" ]; then pass л16
+  else fail л16 "rc=$rc16 out=$out16 строк=$lines16 err=$(printf '%s' "$err16" | sed -n 1p) — отказ лимитного ls-remote после dual-control не fail-closed"; fi
+
+  # л17: freeze, отказ лимитного ls-remote → fail-closed ДО тега и реестра. # ИНВ: И-2, И-9
+  T17="$WORK/l17-$RH2"; mk_freeze_toy "$T17"; bare_frozen "$T17" "$ACT1"; sync_tags "$T17"
+  h17="$(git -C "$T17" rev-parse HEAD)"; reg17="$(reg_state "$T17")"
+  out17="$(cd / && PATH="$SHIM:$PATH" "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T17" 2>"$WORK/e17")"; rc17=$?; err17="$(cat "$WORK/e17")"
+  if [ "$rc17" -eq 1 ] && printf '%s' "$err17" | grep -qF "$LIM_NAME" \
+     && printf '%s' "$err17" | grep -qF 'авторитет недоступен' && printf '%s' "$err17" | grep -qF 'данные неизвестны' \
+     && [ -z "$out17" ] && [ "$(git -C "$T17" tag -l 'frozen/contracts/001/*' | wc -l)" -eq 0 ] \
+     && [ "$(git -C "$T17" rev-parse HEAD)" = "$h17" ] && [ "$(reg_state "$T17")" = "$reg17" ] \
+     && [ -z "$(git -C "$T17" status --porcelain)" ]; then pass л17
+  else fail л17 "rc=$rc17 out=$out17 err=$(printf '%s' "$err17" | sed -n 1p) — отказ лимитного ls-remote не fail-closed до тега/реестра"; fi
+
+  # л18: next_id, origin жив, ПУСТО во всех трёх пространствах → успех без диагностики. # ИНВ: И-1, И-3
+  T18="$WORK/l18-$RH1"; mk_next_toy "$T18"
+  out18="$("$SUBJ_NEXT" "$T18" CONTRACT 2>"$WORK/e18")"; rc18=$?; err18="$(cat "$WORK/e18")"
+  if [ "$rc18" -eq 0 ] && [ "$out18" = "$want2" ] && [ "$(git -C "$T18" tag -l 'id/CONTRACT/*' | wc -l)" -eq 2 ] \
+     && ! printf '%s' "$err18" | grep -qF "$LIM_NAME"; then pass л18
+  else fail л18 "rc=$rc18 out=$out18 err=$(printf '%s' "$err18" | sed -n 1p) — пустой авторитетный ответ ошибочно считается недоступным"; fi
+
+  # л19: mint, на origin только id/CONTRACT/<ACT3> (не активен) → MINTED без диагностики. # ИНВ: И-1, И-3
+  T19="$WORK/l19-$RH2"; mk_mint_toy "$T19"; authority_tag "$T19" "$ACT3"; sync_tags "$T19"
+  out19="$("$SUBJ_MINT" --root "$T19" --nnn "$ACT3" 2>"$WORK/e19")"; rc19=$?; err19="$(cat "$WORK/e19")"
+  if [ "$rc19" -eq 0 ] && printf '%s' "$out19" | grep -qF "MINTED nnn=$ACT3" \
+     && ! printf '%s' "$err19" | grep -qF "$LIM_NAME"; then pass л19
+  else fail л19 "rc=$rc19 out=$out19 err=$(printf '%s' "$err19" | sed -n 1p) — пустой авторитетный ответ ошибочно считается недоступным"; fi
+
+  # л20: freeze, ни одного frozen/done/wip на origin → v1 без диагностики лимита. # ИНВ: И-1, И-3, И-4
+  T20="$WORK/l20-$RH1"; mk_freeze_toy "$T20"; sync_tags "$T20"
+  out20="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH1" "$T20" 2>"$WORK/e20")"; rc20=$?; err20="$(cat "$WORK/e20")"
+  if [ "$rc20" -eq 0 ] && [ "$out20" = 'v1' ] && ! printf '%s' "$err20" | grep -qF "$LIM_NAME"; then pass л20
+  else fail л20 "rc=$rc20 out=$out20 err=$(printf '%s' "$err20" | sed -n 1p) — пустой авторитетный ответ ошибочно считается недоступным"; fi
 else
-  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15; do norun "$c"; done
+  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15 л16 л17 л18 л19 л20; do norun "$c"; done
 fi
 
 # ── стаб-пак: мутантные копии мини-ядра (самодостаточен — не зависит от субъекта) ──
@@ -621,10 +692,118 @@ viol Е "$TE" - - 3 0
 TNS="$WORK/tns-$RH1"; mk_next_toy "$TNS"; bare_frozen "$TNS" "$ACT1"; bare_wip "$TNS" "$ACT1" # ОДИН NNN в frozen И wip — double_namespace-вход
 viol Ж "$TNS" - - 0 1 # честное ядро: активен 1 → rc 0; стаб-Ж считает пересечение дважды → 2 → rc 1
 
+# ── субъектные стабы Фм/Фф/П (два класса вердикта 078-v1) ─────────────────────
+# Обманные субъекты адверсария как стабы батареи: мутантные копии РЕАЛЬНЫХ scripts/
+# (одна замена одной строки по якорю кода, применение двумя мерами cmp ∧ grep -F).
+# Гейт л0: якоря существуют только у реализованного субъекта; до реализации л0 уже
+# красная и субъектный стаб-пак не исполняется.
+if [ "$PRESENT" -eq 1 ]; then
+  declare -A SUBJ_STUB=()
+  mk_subj_stub() { # mk_subj_stub <имя> <файл-в-scripts> <якорь> <замена>: копия scripts/ + одна замена
+    local name="$1" fname="$2" anchor="$3" repl="$4" d
+    d="$WORK/subj-$name"; rm -rf "$d"; cp -r "$ROOT/scripts" "$d"
+    python3 - "$d/$fname" "$anchor" "$repl" <<'PY'
+import sys
+path, anchor, repl = sys.argv[1], sys.argv[2], sys.argv[3]
+out, hit = [], 0
+for l in open(path, encoding='utf-8'):
+    if anchor in l:
+        out.append(repl + "\n"); hit += 1
+    else:
+        out.append(l)
+assert hit == 1, f"якорь встречен {hit} раз (ожидался 1): {anchor}"
+open(path, 'w', encoding='utf-8').write(''.join(out))
+PY
+  }
+  subj_ok() { # subj_ok <имя> <файл> <якорь> <замена>: генерация + две меры применения
+    local name="$1" f="$2" a="$3" r="$4"
+    if mk_subj_stub "$name" "$f" "$a" "$r" 2>"$WORK/e-s$name" \
+       && ! cmp -s "$ROOT/scripts/$f" "$WORK/subj-$name/$f" \
+       && grep -qF "СТАБ-$name" "$WORK/subj-$name/$f"; then
+      SUBJ_STUB[$name]=1; pass "стаб${name}-применён"
+    else
+      fail "стаб${name}-применён" "мутация не применилась/не помечена: $(sed -n 1p "$WORK/e-s$name" 2>/dev/null)"
+    fi
+  }
+  subj_ok Фм mint_line.sh 'if [ "$active_rc" -ne 0 ]; then' \
+    'if false; then # СТАБ-Фм — fail-open: отказ active_contracts_list игнорируется'
+  subj_ok Фф freeze_contract.sh 'if [ "$active_rc" -ne 0 ]; then' \
+    '  if false; then # СТАБ-Фф — fail-open: отказ active_contracts_list игнорируется'
+  subj_ok П lib_active_contracts.sh 'if [ "$ls_rc" -ne 0 ]; then' \
+    '  if [ "$ls_rc" -ne 0 ] || [ -z "$refs" ]; then # СТАБ-П — пустой ls-remote ошибочно считается недоступностью'
+
+  # Диффпробы: на входе ВНЕ дефекта стабы ведут себя честно (не параноики).
+  if [ -n "${SUBJ_STUB[Фм]:-}" ]; then
+    DFM="$WORK/dfm-$RH1"; mk_mint_toy "$DFM"; authority_tag "$DFM" "$ACT3"; bare_frozen "$DFM" "$ACT1"; sync_tags "$DFM"
+    rc=0; "$WORK/subj-Фм/mint_line.sh" --root "$DFM" --nnn "$ACT3" >/dev/null 2>"$WORK/d-Фм" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass диффФм; else fail диффФм "стаб параноик: чистый мир rc=$rc: $(sed -n 1p "$WORK/d-Фм")"; fi
+  fi
+  if [ -n "${SUBJ_STUB[Фф]:-}" ]; then
+    DFF="$WORK/dff-$RH2"; mk_freeze_toy "$DFF"; bare_frozen "$DFF" "$ACT1"; sync_tags "$DFF"
+    rc=0; (cd / && "$WORK/subj-Фф/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH2" "$DFF") >/dev/null 2>"$WORK/d-Фф" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass диффФф; else fail диффФф "стаб параноик: чистый мир rc=$rc: $(sed -n 1p "$WORK/d-Фф")"; fi
+  fi
+  if [ -n "${SUBJ_STUB[П]:-}" ]; then
+    DPN="$WORK/dpn-$RH1"; mk_next_toy "$DPN"; bare_frozen "$DPN" "$ACT1"
+    rc=0; "$WORK/subj-П/next_id.sh" "$DPN" CONTRACT >/dev/null 2>"$WORK/d-П" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass диффП; else fail диффП "стаб параноик: мир с одним активным rc=$rc: $(sed -n 1p "$WORK/d-П")"; fi
+  fi
+
+  # Нарушения (Н-39): расхождение с честным ровно на входе наблюдаемости дефекта.
+  # Фм/Фф — вход л16/л17 (шим): честный rc 1 fail-closed БЕЗ мутации, стаб
+  # игнорирует отказ счёта и МИНТУЕТ/ЗАМОРАЖИЕТ (предмет №1 вердикта 078-v1).
+  if [ -n "${SUBJ_STUB[Фм]:-}" ]; then
+    NFM="$WORK/nfm-$RH2"; mk_mint_toy "$NFM"; authority_tag "$NFM" "$ACT3"; bare_frozen "$NFM" "$ACT1"; sync_tags "$NFM"
+    hrc=0; PATH="$SHIM:$PATH" "$SUBJ_MINT" --root "$NFM" --nnn "$ACT3" >/dev/null 2>&1 || hrc=$?
+    src=0; sout="$(PATH="$SHIM:$PATH" "$WORK/subj-Фм/mint_line.sh" --root "$NFM" --nnn "$ACT3" 2>/dev/null)" || src=$?
+    if [ "$hrc" -eq 1 ] && [ "$src" -eq 0 ] && printf '%s' "$sout" | grep -qF "MINTED nnn=$ACT3"; then pass нарушФм
+    else fail нарушФм "честный rc=$hrc (хотели 1), стаб rc=$src (хотели 0 MINTED) — fail-open стаб не пойман на входе л16"; fi
+  fi
+  if [ -n "${SUBJ_STUB[Фф]:-}" ]; then
+    NFF="$WORK/nff-$RH1"; mk_freeze_toy "$NFF"; bare_frozen "$NFF" "$ACT1"; sync_tags "$NFF"
+    hrc=0; (cd / && PATH="$SHIM:$PATH" "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH1" "$NFF") >/dev/null 2>&1 || hrc=$?
+    src=0; sout="$(cd / && PATH="$SHIM:$PATH" "$WORK/subj-Фф/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH1" "$NFF" 2>/dev/null)" || src=$?
+    if [ "$hrc" -eq 1 ] && [ "$src" -eq 0 ] && [ "$sout" = 'v1' ]; then pass нарушФф
+    else fail нарушФф "честный rc=$hrc (хотели 1), стаб rc=$src (хотели 0 v1) — fail-open стаб не пойман на входе л17"; fi
+  fi
+  # П — входы л18/л19/л20 (ноль refs): честный проходит успешно, стаб считает пустой
+  # ответ недоступностью и отказывает именованно (предмет №2 вердикта 078-v1).
+  # Порядок: стаб ПЕРВЫМ (отказ не оставляет следа), затем честный (успех).
+  if [ -n "${SUBJ_STUB[П]:-}" ]; then
+    NPN="$WORK/npn-$RH2"; mk_next_toy "$NPN"
+    src=0; "$WORK/subj-П/next_id.sh" "$NPN" CONTRACT >/dev/null 2>"$WORK/e-Пн" || src=$?
+    serr="$(cat "$WORK/e-Пн")"
+    hrc=0; hout="$("$SUBJ_NEXT" "$NPN" CONTRACT 2>/dev/null)" || hrc=$?
+    if [ "$src" -eq 1 ] && printf '%s' "$serr" | grep -qF 'авторитет недоступен' \
+       && printf '%s' "$serr" | grep -qF 'данные неизвестны' \
+       && [ "$hrc" -eq 0 ] && [ "$hout" = "$want2" ] \
+       && [ "$(git -C "$NPN" tag -l 'id/CONTRACT/*' | wc -l)" -eq 2 ]; then pass нарушПн
+    else fail нарушПн "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc out=$hout — стаб пустого-ответа не пойман на входе л18"; fi
+
+    NPM="$WORK/npm-$RH1"; mk_mint_toy "$NPM"; authority_tag "$NPM" "$ACT3"; sync_tags "$NPM"
+    src=0; "$WORK/subj-П/mint_line.sh" --root "$NPM" --nnn "$ACT3" >/dev/null 2>"$WORK/e-Пм" || src=$?
+    serr="$(cat "$WORK/e-Пм")"
+    hrc=0; hout="$("$SUBJ_MINT" --root "$NPM" --nnn "$ACT3" 2>/dev/null)" || hrc=$?
+    if [ "$src" -eq 1 ] && printf '%s' "$serr" | grep -qF 'авторитет недоступен' \
+       && printf '%s' "$serr" | grep -qF 'данные неизвестны' \
+       && [ "$hrc" -eq 0 ] && printf '%s' "$hout" | grep -qF "MINTED nnn=$ACT3"; then pass нарушПм
+    else fail нарушПм "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc — стаб пустого-ответа не пойман на входе л19"; fi
+
+    NPF="$WORK/npf-$RH2"; mk_freeze_toy "$NPF"; sync_tags "$NPF"
+    src=0; (cd / && "$WORK/subj-П/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH2" "$NPF") >/dev/null 2>"$WORK/e-Пф" || src=$?
+    serr="$(cat "$WORK/e-Пф")"
+    hrc=0; hout="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$NPF" 2>/dev/null)" || hrc=$?
+    if [ "$src" -eq 1 ] && printf '%s' "$serr" | grep -qF 'авторитет недоступен' \
+       && printf '%s' "$serr" | grep -qF 'данные неизвестны' \
+       && [ "$hrc" -eq 0 ] && [ "$hout" = 'v1' ]; then pass нарушПф
+    else fail нарушПф "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc — стаб пустого-ответа не пойман на входе л20"; fi
+  fi
+fi
+
 for r in "${REPS[@]}"; do printf 'КРАСНОЕ 078: %s\n' "$r" >&2; done
 if [ "$PRESENT" -eq 0 ]; then
   printf 'КРАСНОЕ 078: л0: предмет отсутствует — субъекты молчат на трёх входах лимита; предъявляемое красное ДО реализации\n' >&2
 fi
-printf 'ИТОГ 078 (лимит активных): честных ветвей 33 (л0–л15, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, лР, + ядро0), стабов 7, применений 7, диффпроб 7, нарушений 7; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
+printf 'ИТОГ 078 (лимит активных): честных ветвей 38 (л0–л20, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, л16, л17, л18, л19, л20, лР, + ядро0), стабов 10 (стА–стЖ, Фм, Фф, П), применений 10, диффпроб 10, нарушений 12; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
 [ "$RED" -eq 0 ] || exit 1
 exit 0
