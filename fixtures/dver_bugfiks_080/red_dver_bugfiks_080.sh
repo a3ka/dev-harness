@@ -138,6 +138,7 @@ toy_door2() {
       printf "## GDE (toy 080)\n" > HANDOFF.md
       cp "$1" scripts/orch_restart.sh
       cp "$2/scripts/check_no_leak.sh" scripts/ 2>/dev/null || true
+      cp "$2/scripts/lib_session.sh" scripts/ 2>/dev/null || true
       chmod +x scripts/orch_restart.sh
       git add -A
       git commit -qm "toy: init + subject"
@@ -149,6 +150,24 @@ toy_door2() {
       git push -q origin main 2>&1 | head -5
     ' _ "$subject" "$root_real" "$t"
   )
+  # Снимок ноги (г): без него дверь отказывает «ОТКАЗ: детектор красен:
+  # … снимок отсутствует» на ВСЕХ клетках, дошедших до (г) (живой прогон
+  # 2026-10-03). Конвенция 072 violate_* — снимок абсолютным путём сразу
+  # после коммита/push, пока toy чист.
+  bash "$t/scripts/check_no_leak.sh" --snapshot "$t" >/dev/null 2>&1
+  # Шов 080 — пре-инициализация стартового следа (TOY_TRACE_PREINIT_SEC,
+  # умолчание 3600): след СТАРЕЕ toy-коммита HANDOFF — честные клетки
+  # проходят (в2) без опоры на auto-init двери ct(HANDOFF)−1с, который
+  # регрессирует замороженную 072-к10 (живой прогон 2026-10-03:
+  # «клетка к10: ожидался отказ, получен rc 0», честная часть 19/20).
+  # TOY_TRACE_PREINIT_SEC=0 — след не писать (клетка, которой нужен
+  # auto-init либо отказ (в2)).
+  if [ "${TOY_TRACE_PREINIT_SEC:-3600}" -gt 0 ] 2>/dev/null; then
+    local tr="${ORCH_SESSION_START:-$WORK/trace}"
+    mkdir -p "$(dirname "$tr")"
+    printf '%s\n' "$(date -Is -d "@$(( $(date +%s) - ${TOY_TRACE_PREINIT_SEC:-3600} ))")" >"$tr.tmp.$$" \
+      && mv -f "$tr.tmp.$$" "$tr"
+  fi
 }
 
 # subagent_journal <dir> <name> <offset_sec>
@@ -336,13 +355,13 @@ run_cell_door() {
     a4)
       # env + --as no value
       (
-        cd "$t"
         rm -f "$WORK/marker"
         export ORCH_RESTART_MARKER="$WORK/marker"
         export ORCH_SESSION_START="$WORK/trace"
         export ORCH_SESS_DIR="$sess"
         export GIT_AUTHOR_NAME="architect"
         toy_door2 "$t" "$subj" "$ROOT"
+        cd "$t"
         bash scripts/orch_restart.sh --as >"$WORK/stdout" 2>"$WORK/stderr"
         echo $? > "$WORK/_rc"
       ) >/dev/null 2>&1 || true
@@ -413,13 +432,13 @@ stab_probe_rc() {
       ;;
     a4)
       (
-        cd "$t"
         rm -f "$WORK/marker"
         export ORCH_RESTART_MARKER="$WORK/marker"
         export ORCH_SESSION_START="$WORK/trace"
         export ORCH_SESS_DIR="$sess"
         export GIT_AUTHOR_NAME="architect"
         toy_door2 "$t" "$subj" "$ROOT"
+        cd "$t"
         bash scripts/orch_restart.sh --as >"$WORK/stdout_stab" 2>"$WORK/stderr_stab"
         echo $? > "$WORK/_rc_stab"
       ) >/dev/null 2>&1 || true
@@ -457,13 +476,13 @@ clean_probe_rc() {
       ;;
     a4)
       (
-        cd "$WORK/door-clean"
         rm -f "$WORK/marker"
         export ORCH_RESTART_MARKER="$WORK/marker"
         export ORCH_SESSION_START="$WORK/trace"
         export ORCH_SESS_DIR="$sess"
         export GIT_AUTHOR_NAME="architect"
         toy_door2 "$t" "$DIFFPROBE" "$ROOT"
+        cd "$WORK/door-clean"
         bash scripts/orch_restart.sh --as >"$WORK/stdout_clean" 2>"$WORK/stderr_clean"
         echo $? > "$WORK/_rc_clean"
       ) >/dev/null 2>&1 || true
@@ -796,11 +815,11 @@ run_cell_door a4 "$ROOT/scripts/orch_restart.sh" a4 p_refuse
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # (a5) --as foo --as bar → rc 1 «--as задан дважды»; pre-fix rc 2
-run_cell_door a5 "$ROOT/scripts/orch_restart.sh" a5 p_refuse
+run_cell_door a5 "$ROOT/scripts/orch_restart.sh" a5 p_refuse "--as задан дважды"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # (б1) свежий журнал → rc 1 «живые субагенты: …»; pre-fix rc 0 marker set
-run_cell_door б1 "$ROOT/scripts/orch_restart.sh" б1 p_refuse
+run_cell_door б1 "$ROOT/scripts/orch_restart.sh" б1 p_refuse "живые субагенты"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # (б2) старый журнал → rc 0; pre-fix rc 0 (passes through)
