@@ -1,5 +1,8 @@
 ## ГДЕ МЫ (2026-10-03, ~16:40 — КОНТЕКСТ-РЕСТАРТ (сторож: ≥339K); 080 DONE-ЦЕПОЧКА: критик к1 FAIL→architect закрыл 5 блокеров→критик к2 ACCEPT→landed main→FROZEN frozen/contracts/080/1 (реестр 47b9f71); 078: адверсарий к1 FAIL (2 дыры батареи, РЕАЛЬНЫЙ код уже корректен)→architect закрыл battery-gap (wip/078/architect=78a5cf8, force-push, PR#10 closed-superseded) — НЕ слит с implementer-кодом (838a587); roles/orchestrator.md п.6 батч-владельцу внесён (ec53375); §13 context-agents landed+pushed ранее (e23dc3f); PR#14 (080) CI на retrigger — ПЕРВЫМ действием проверить и допушить)
 
+Решения владельца и причины — `docs/owner/adr/README.md`; стартап читает его до брифинга (§11).
+
+
 ### Состояние на конец сессии (сырое, живыми командами)
 
 - Локальный main ВПЕРЕДИ origin на ~13 коммитов (080-land + roles-merge + verdict-filename-fix + 2×spec-gate-fix + freeze). ПУШ ЗАБЛОКИРОВАН: `gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI: wip/080/architect (9734d4e)` — требует зелёного `pull_request`-CI на PR #14 (https://github.com/a3ka/dev-harness/pull/14, branch wip/080/architect). Тег `frozen/contracts/080/1` уже НА ORIGIN (запушен отдельно, это сработало). Registry-коммит `47b9f71` — ТОЛЬКО локально, едет вместе с main.
