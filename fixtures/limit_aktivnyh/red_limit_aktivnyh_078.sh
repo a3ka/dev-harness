@@ -67,6 +67,13 @@
 #     фактической границы 1s/5s убивает 6s-ответ и ложно отказывает — до 078-v2
 #     проходил батарею целиком); л22 — ответ 17s > 15s → НОРМАТИВНЫЙ fail-closed
 #     rc=124 без мутации (SLA — часть определения недоступности, И-2);
+#   л23–л26 (вход адверсария 078-v2 к3: SLA-граница пинует ВСЕХ трёх потребителей,
+#     т1/т2 к2 дёргали только next_id — тот же делегирующий шим на входах mint/freeze:
+#     л23 mint 6s → MINTED без диагностики лимита; л24 mint 17s → именованный
+#     fail-closed rc=124 ПОСЛЕ dual-control, строки в реестре нет, HEAD/чистота
+#     нетронуты; л25 freeze 6s → v1 без диагностики; л26 freeze 17s → fail-closed
+#     rc=124 ДО тега и реестра (тег/реестр/HEAD/чистота); обманный субъект «124→0
+#     до fail-closed ветви» минтует/замораживает и краснеет на л24/л26;
 #   И-9 в клетках отказа И снятия: stderr сверяется числом И точным множеством NNN
 #     (diag9: «активных <N> ≥ 2: <NNN,NNN>»; снятие — л3/л9/л12, решётка лР и л14в —
 #     тем же diag9), л15 — слова «данные неизвестны»; не один маркер. Ниже порога —
@@ -88,7 +95,13 @@
 #     ошибочно = недоступность). Диффпробы: вне дефекта стабы честны; нарушения —
 #     ровно на входах л16/л17 (шим) и л18/л19/л20 (ноль refs).
 #     Т lib_active_contracts `timeout 15s git`→`timeout 1s git` (фактическая граница
-#     1s; 078-v2 к2): диффпроба на быстром авторитете, поимка на входе л21 (шим 6s).
+#     1s; 078-v2 к2): диффпробы на быстром авторитете (все три потребителя), поимка
+#     на входах л21/л23/л25 (шим 6s). 124м mint_line / 124ф freeze_contract (078-v2
+#     к3, обманный субъект адверсария, ДВЕ опоры: ядро всплывает таймаут дословно
+#     (return "$ls_rc") + потребитель гасит (active_rc=124→0) ДО fail-closed ветви.
+#     Одна потребительская строка нежизнена (замер: ядро возвращает 1 — гаситель
+#     молчит, стаб честен); диффпробы на быстром авторитете, поимка на входах
+#     л24/л26 (шим 17s): стабы МИНТУЮТ/ЗАМОРАЖИВАЮТ против честного rc 1.
 #
 # Активные создаются ПРЯМО В BARE origin (тег/ветка на уже запушенный main — порядок
 # Н-160 коммиты→тег соблюдён), локальные refs клона остаются пустыми: счёт по origin
@@ -622,8 +635,11 @@ if [ "$PRESENT" -eq 1 ]; then
   # active_contracts_list) отвечает после контролируемой задержки, прочие git-вызовы
   # уходят к живому git сразу. 6s — «здоровый, но медленный» авторитет
   # (6s < 15s; ловит мутантов фактической границы 1s И 5s — оба убивают 6s-ответ);
-  # 17s — исправный, но ПОЗЖЕ границы. Цена батареи: +6s (л21) и +15s (л22; обёртка
-  # режет спящий шим на 15-й секунде — TERM доходит до sleep мгновенно, rc 124).
+  # 17s — исправный, но ПОЗЖЕ границы. Цена SLA-клеток (078-v2 к3): честные л21/л23/
+  # л25 +6s каждая, л22/л24/л26 — обёртка режет спящий шим на 15-й секунде (TERM
+  # доходит до sleep мгновенно, rc 124); нарушения Т/124 добавляют ~7s (Т убит на
+  # 1s + честные 6s) и 15s+15s (честный таймаут + стаб-успех) на потребителя. Всё
+  # ограничено обёрткой 15s — зависания, ради которого она введена, здесь нет.
   mk_slowshim() { # mk_slowshim <каталог> <задержка-s>
     local d="$1"
     mkdir -p "$d"
@@ -652,8 +668,53 @@ if [ "$PRESENT" -eq 1 ]; then
      && printf '%s' "$err22" | grep -qF 'rc=124' \
      && [ -z "$out22" ] && [ "$(git -C "$T22" tag -l 'id/CONTRACT/*' | wc -l)" -eq 1 ]; then pass л22
   else fail л22 "rc=$rc22 out=$out22 err=$(printf '%s' "$err22" | sed -n 1p) — ответ позже SLA 15s не переведён в именованный fail-closed rc=124 без мутации"; fi
+
+  # л23 (граница SLA — mint, 078-v2 к3): здоровый, но медленный авторитет (6s <
+  # SLA 15s), dual-control уже прошёл → MINTED без диагностики лимита; мутант
+  # фактической границы 1s ложно отказывает после dual-control. # ИНВ: И-2
+  T23="$WORK/l23-$RH1"; mk_mint_toy "$T23"; authority_tag "$T23" "$ACT3"; sync_tags "$T23"
+  out23="$(PATH="$SLOW6:$PATH" "$SUBJ_MINT" --root "$T23" --nnn "$ACT3" 2>"$WORK/e23")"; rc23=$?; err23="$(cat "$WORK/e23")"
+  if [ "$rc23" -eq 0 ] && printf '%s' "$out23" | grep -qF "MINTED nnn=$ACT3" \
+     && ! printf '%s' "$err23" | grep -qF "$LIM_NAME"; then pass л23
+  else fail л23 "rc=$rc23 out=$out23 err=$(printf '%s' "$err23" | sed -n 1p) — здоровый, но медленный (6s < SLA 15s) авторитет отвергнут на входе mint"; fi
+
+  # л24 (граница SLA — mint, 078-v2 к3): авторитет ответил ПОЗЖЕ границы (шим 17s) →
+  # НОРМАТИВНЫЙ fail-closed ПОСЛЕ dual-control: rc 1, именованный отказ несёт rc=124,
+  # строки в реестре нет, HEAD/дерево нетронуты. Мутант «124→0 до fail-closed ветви»
+  # (к3) превращает таймаут в пустой список и МИНТУЕТ → красная здесь. # ИНВ: И-2, И-9
+  T24="$WORK/l24-$RH2"; mk_mint_toy "$T24"; authority_tag "$T24" "$ACT3"; sync_tags "$T24"
+  h24="$(git -C "$T24" rev-parse HEAD)"
+  out24="$(PATH="$SLOW17:$PATH" "$SUBJ_MINT" --root "$T24" --nnn "$ACT3" 2>"$WORK/e24")"; rc24=$?; err24="$(cat "$WORK/e24")"
+  lines24="$(git -C "$T24" cat-file -p HEAD:registry/contracts.tsv | grep -cF "$ACT3 → " || true)"
+  if [ "$rc24" -eq 1 ] && printf '%s' "$err24" | grep -qF "$LIM_NAME" \
+     && printf '%s' "$err24" | grep -qF 'авторитет недоступен' && printf '%s' "$err24" | grep -qF 'данные неизвестны' \
+     && printf '%s' "$err24" | grep -qF 'rc=124' \
+     && [ -z "$out24" ] && [ "$lines24" -eq 0 ] && [ "$(git -C "$T24" rev-parse HEAD)" = "$h24" ] \
+     && [ -z "$(git -C "$T24" status --porcelain)" ]; then pass л24
+  else fail л24 "rc=$rc24 out=$out24 строк=$lines24 err=$(printf '%s' "$err24" | sed -n 1p) — ответ позже SLA 15s не переведён в именованный fail-closed rc=124 без мутации (мутант 124→0 минтует)"; fi
+
+  # л25 (граница SLA — freeze, 078-v2 к3): здоровый медленный авторитет (6s) → v1
+  # без диагностики лимита. # ИНВ: И-2
+  T25="$WORK/l25-$RH1"; mk_freeze_toy "$T25"; sync_tags "$T25"
+  out25="$(cd / && PATH="$SLOW6:$PATH" "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH1" "$T25" 2>"$WORK/e25")"; rc25=$?; err25="$(cat "$WORK/e25")"
+  if [ "$rc25" -eq 0 ] && [ "$out25" = 'v1' ] && ! printf '%s' "$err25" | grep -qF "$LIM_NAME"; then pass л25
+  else fail л25 "rc=$rc25 out=$out25 err=$(printf '%s' "$err25" | sed -n 1p) — здоровый, но медленный (6s < SLA 15s) авторитет отвергнут на входе freeze"; fi
+
+  # л26 (граница SLA — freeze, 078-v2 к3): ответ позже границы (17s) → именованный
+  # fail-closed ДО тега и реестра: rc 1, rc=124, тега 001 нет, HEAD/реестр/дерево
+  # нетронуты; мутант «124→0» замораживает → красная здесь. # ИНВ: И-2, И-9
+  T26="$WORK/l26-$RH2"; mk_freeze_toy "$T26"; sync_tags "$T26"
+  h26="$(git -C "$T26" rev-parse HEAD)"; reg26="$(reg_state "$T26")"
+  out26="$(cd / && PATH="$SLOW17:$PATH" "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$T26" 2>"$WORK/e26")"; rc26=$?; err26="$(cat "$WORK/e26")"
+  if [ "$rc26" -eq 1 ] && printf '%s' "$err26" | grep -qF "$LIM_NAME" \
+     && printf '%s' "$err26" | grep -qF 'авторитет недоступен' && printf '%s' "$err26" | grep -qF 'данные неизвестны' \
+     && printf '%s' "$err26" | grep -qF 'rc=124' \
+     && [ -z "$out26" ] && [ "$(git -C "$T26" tag -l 'frozen/contracts/001/*' | wc -l)" -eq 0 ] \
+     && [ "$(git -C "$T26" rev-parse HEAD)" = "$h26" ] && [ "$(reg_state "$T26")" = "$reg26" ] \
+     && [ -z "$(git -C "$T26" status --porcelain)" ]; then pass л26
+  else fail л26 "rc=$rc26 out=$out26 err=$(printf '%s' "$err26" | sed -n 1p) — ответ позже SLA 15s не переведён в именованный fail-closed rc=124 до тега/реестра (мутант 124→0 замораживает)"; fi
 else
-  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15 л16 л17 л18 л19 л20 л21 л22; do norun "$c"; done
+  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15 л16 л17 л18 л19 л20 л21 л22 л23 л24 л25 л26; do norun "$c"; done
 fi
 
 # ── стаб-пак: мутантные копии мини-ядра (самодостаточен — не зависит от субъекта) ──
@@ -801,6 +862,50 @@ PYT
     fail "стабТ-применён" "мутация не применилась/не помечена (якоря timeout 15s git нет — дерево уже с иной границей?)"
   fi
 
+  # СТАБ-124м/124ф (078-v2 к3): обманный субъект адверсария — «таймаут = успешный
+  # пустой список». ДВЕ опоры (замер живым прогоном: потребительский гаситель
+  # `-eq 124` в одиночку НЕЖИЗНЕНЕН — ядро возвращает 1, стаб ведёт себя честно):
+  # ядро всплывает rc дословно (return "$ls_rc") + потребительский гаситель
+  # (active_rc=124→0) ДО fail-closed ветви. Применение — двумя мерами на КАЖДЫЙ
+  # файл (cmp ∧ grep -F маркера).
+  for pair in '124м:mint_line.sh' '124ф:freeze_contract.sh'; do
+    nm="${pair%%:*}"; cfile="${pair#*:}"
+    cdir="$WORK/subj-$nm"; rm -rf "$cdir"; cp -r "$ROOT/scripts" "$cdir"
+    python3 - "$cdir" "$cfile" "$nm" <<'PY124'
+import sys
+d, f, nm = sys.argv[1], sys.argv[2], sys.argv[3]
+GUARD = {'mint_line.sh': 'if [ "$active_rc" -eq 124 ]; then active_rc=0; fi',
+         'freeze_contract.sh': '  if [ "$active_rc" -eq 124 ]; then active_rc=0; fi'}[f]
+lib = d + '/lib_active_contracts.sh'
+out, hit = [], 0
+for l in open(lib, encoding='utf-8'):
+    if 'недоступен (ls-remote origin rc=%s)' in l:
+        out.append(l.rstrip('\n') + '; return "$ls_rc" # СТАБ-' + nm + ' — опора 1: таймаут всплывает потребителю дословно\n')
+        hit += 1
+    else:
+        out.append(l)
+assert hit == 1, 'якорь ядра встречен %d раз (ожидался 1)' % hit
+open(lib, 'w', encoding='utf-8').writelines(out)
+c = d + '/' + f
+out, hit = [], 0
+for l in open(c, encoding='utf-8'):
+    if 'if [ "$active_rc" -ne 0 ]; then' in l:
+        out.append(GUARD + ' # СТАБ-' + nm + ' — опора 2: таймаут ошибочно считается успехом (078-v2 к3)\n')
+        hit += 1
+    out.append(l)
+assert hit == 1, 'якорь потребителя встречен %d раз (ожидался 1)' % hit
+open(c, 'w', encoding='utf-8').writelines(out)
+PY124
+    if ! cmp -s "$ROOT/scripts/lib_active_contracts.sh" "$cdir/lib_active_contracts.sh" \
+       && ! cmp -s "$ROOT/scripts/$cfile" "$cdir/$cfile" \
+       && grep -qF "СТАБ-$nm" "$cdir/lib_active_contracts.sh" \
+       && grep -qF "СТАБ-$nm" "$cdir/$cfile"; then
+      SUBJ_STUB[$nm]=1; pass "стаб${nm}-применён"
+    else
+      fail "стаб${nm}-применён" "мутация не применилась/не помечена (якорь ядра или потребителя не найден)"
+    fi
+  done
+
   # Диффпробы: на входе ВНЕ дефекта стабы ведут себя честно (не параноики).
   if [ -n "${SUBJ_STUB[Фм]:-}" ]; then
     DFM="$WORK/dfm-$RH1"; mk_mint_toy "$DFM"; authority_tag "$DFM" "$ACT3"; bare_frozen "$DFM" "$ACT1"; sync_tags "$DFM"
@@ -821,6 +926,25 @@ PYT
     DFT="$WORK/dft-$RH1"; mk_next_toy "$DFT"; bare_frozen "$DFT" "$ACT1"
     rc=0; "$TSTUB/next_id.sh" "$DFT" CONTRACT >/dev/null 2>"$WORK/d-Т" || rc=$?
     if [ "$rc" -eq 0 ]; then pass диффТ; else fail диффТ "стаб параноик: быстрый авторитет rc=$rc: $(sed -n 1p "$WORK/d-Т")"; fi
+  fi
+
+  if [ -n "${SUBJ_STUB[Т]:-}" ]; then
+    DTM="$WORK/dtm-$RH1"; mk_mint_toy "$DTM"; authority_tag "$DTM" "$ACT3"; sync_tags "$DTM"
+    rc=0; "$TSTUB/mint_line.sh" --root "$DTM" --nnn "$ACT3" >/dev/null 2>"$WORK/d-Тм" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass диффТм; else fail диффТм "стаб параноик: быстрый авторитет rc=$rc: $(sed -n 1p "$WORK/d-Тм")"; fi
+    DTF="$WORK/dtf-$RH2"; mk_freeze_toy "$DTF"; sync_tags "$DTF"
+    rc=0; (cd / && "$TSTUB/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH2" "$DTF") >/dev/null 2>"$WORK/d-Тф" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass диффТф; else fail диффТф "стаб параноик: быстрый авторитет rc=$rc: $(sed -n 1p "$WORK/d-Тф")"; fi
+  fi
+  if [ -n "${SUBJ_STUB[124м]:-}" ]; then
+    DVM="$WORK/dvm-$RH1"; mk_mint_toy "$DVM"; authority_tag "$DVM" "$ACT3"; sync_tags "$DVM"
+    rc=0; "$WORK/subj-124м/mint_line.sh" --root "$DVM" --nnn "$ACT3" >/dev/null 2>"$WORK/d-124м" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass дифф124м; else fail дифф124м "стаб параноик: быстрый авторитет rc=$rc: $(sed -n 1p "$WORK/d-124м")"; fi
+  fi
+  if [ -n "${SUBJ_STUB[124ф]:-}" ]; then
+    DVF="$WORK/dvf-$RH2"; mk_freeze_toy "$DVF"; sync_tags "$DVF"
+    rc=0; (cd / && "$WORK/subj-124ф/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH2" "$DVF") >/dev/null 2>"$WORK/d-124ф" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass дифф124ф; else fail дифф124ф "стаб параноик: быстрый авторитет rc=$rc: $(sed -n 1p "$WORK/d-124ф")"; fi
   fi
 
   # Нарушения (Н-39): расхождение с честным ровно на входе наблюдаемости дефекта.
@@ -886,12 +1010,51 @@ PYT
        && [ "$hrc" -eq 0 ] && [ "$hout" = "$want2" ]; then pass нарушТ
     else fail нарушТ "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc out=$hout — мутант границы 1s не пойман на входе л21"; fi
   fi
+
+  # Т на входах mint/freeze (л23/л25, 078-v2 к3): мутант границы 1s убивает 6s-ответ
+  # ПОСЛЕ dual-control mint и ДО тега freeze; честный ждёт и проходит. Стаб первым
+  # (отказ не оставляет следа), затем честный.
+  if [ -n "${SUBJ_STUB[Т]:-}" ]; then
+    NTM="$WORK/ntm-$RH2"; mk_mint_toy "$NTM"; authority_tag "$NTM" "$ACT3"; sync_tags "$NTM"
+    src=0; PATH="$SLOW6:$PATH" "$TSTUB/mint_line.sh" --root "$NTM" --nnn "$ACT3" >/dev/null 2>"$WORK/e-Тм" || src=$?
+    serr="$(cat "$WORK/e-Тм")"
+    hrc=0; hout="$(PATH="$SLOW6:$PATH" "$SUBJ_MINT" --root "$NTM" --nnn "$ACT3" 2>/dev/null)" || hrc=$?
+    if [ "$src" -eq 1 ] && printf '%s' "$serr" | grep -qF 'авторитет недоступен' \
+       && printf '%s' "$serr" | grep -qF 'rc=124' \
+       && [ "$hrc" -eq 0 ] && printf '%s' "$hout" | grep -qF "MINTED nnn=$ACT3"; then pass нарушТм
+    else fail нарушТм "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc — мутант границы 1s не пойман на входе л23"; fi
+    NTF="$WORK/ntf-$RH1"; mk_freeze_toy "$NTF"; sync_tags "$NTF"
+    src=0; (cd / && PATH="$SLOW6:$PATH" "$TSTUB/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH1" "$NTF") >/dev/null 2>"$WORK/e-Тф" || src=$?
+    serr="$(cat "$WORK/e-Тф")"
+    hrc=0; hout="$(cd / && PATH="$SLOW6:$PATH" "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH1" "$NTF" 2>/dev/null)" || hrc=$?
+    if [ "$src" -eq 1 ] && printf '%s' "$serr" | grep -qF 'авторитет недоступен' \
+       && printf '%s' "$serr" | grep -qF 'rc=124' \
+       && [ "$hrc" -eq 0 ] && [ "$hout" = 'v1' ]; then pass нарушТф
+    else fail нарушТф "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc — мутант границы 1s не пойман на входе л25"; fi
+  fi
+  # 124м/124ф на входах л24/л26 (шим 17s): честный — именованный fail-closed rc=124
+  # без мутации; стабы-124 превращают таймаут в пустой список и МИНТУЮТ/ЗАМОРАЖИВАЮТ.
+  # Честный первым (отказ не оставляет следа), затем стаб.
+  if [ -n "${SUBJ_STUB[124м]:-}" ]; then
+    NVM="$WORK/nvm-$RH1"; mk_mint_toy "$NVM"; authority_tag "$NVM" "$ACT3"; sync_tags "$NVM"
+    hrc=0; PATH="$SLOW17:$PATH" "$SUBJ_MINT" --root "$NVM" --nnn "$ACT3" >/dev/null 2>&1 || hrc=$?
+    src=0; sout="$(PATH="$SLOW17:$PATH" "$WORK/subj-124м/mint_line.sh" --root "$NVM" --nnn "$ACT3" 2>/dev/null)" || src=$?
+    if [ "$hrc" -eq 1 ] && [ "$src" -eq 0 ] && printf '%s' "$sout" | grep -qF "MINTED nnn=$ACT3"; then pass наруш124м
+    else fail наруш124м "честный rc=$hrc (хотели 1), стаб rc=$src (хотели 0 MINTED) — fail-open мутант 124→0 не пойман на входе л24"; fi
+  fi
+  if [ -n "${SUBJ_STUB[124ф]:-}" ]; then
+    NVF="$WORK/nvf-$RH2"; mk_freeze_toy "$NVF"; sync_tags "$NVF"
+    hrc=0; (cd / && PATH="$SLOW17:$PATH" "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH2" "$NVF") >/dev/null 2>&1 || hrc=$?
+    src=0; sout="$(cd / && PATH="$SLOW17:$PATH" "$WORK/subj-124ф/freeze_contract.sh" contracts/001-x.md "причина фикстуры $RH2" "$NVF" 2>/dev/null)" || src=$?
+    if [ "$hrc" -eq 1 ] && [ "$src" -eq 0 ] && [ "$sout" = 'v1' ]; then pass наруш124ф
+    else fail наруш124ф "честный rc=$hrc (хотели 1), стаб rc=$src (хотели 0 v1) — fail-open мутант 124→0 не пойман на входе л26"; fi
+  fi
 fi
 
 for r in "${REPS[@]}"; do printf 'КРАСНОЕ 078: %s\n' "$r" >&2; done
 if [ "$PRESENT" -eq 0 ]; then
   printf 'КРАСНОЕ 078: л0: предмет отсутствует — субъекты молчат на трёх входах лимита; предъявляемое красное ДО реализации\n' >&2
 fi
-printf 'ИТОГ 078 (лимит активных): честных ветвей 40 (л0–л22, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, л16, л17, л18, л19, л20, л21, л22, лР, + ядро0), стабов 11 (стА–стЖ, Фм, Фф, П, Т), применений 11, диффпроб 11, нарушений 13; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
+printf 'ИТОГ 078 (лимит активных): честных ветвей 44 (л0–л26, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, л16, л17, л18, л19, л20, л21, л22, л23, л24, л25, л26, лР, + ядро0), стабов 13 (стА–стЖ, Фм, Фф, П, Т, 124м, 124ф), применений 13, диффпроб 15, нарушений 17; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
 [ "$RED" -eq 0 ] || exit 1
 exit 0
