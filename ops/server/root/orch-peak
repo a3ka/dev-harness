@@ -140,19 +140,55 @@ fi
 
 # current_session_dir: каталог самой свежей orch-сессии по mtime session-уровня.
 # (Единый источник для двери и сторожа — scripts/lib_session.sh.)
+# SESS_DIR = dirname(session.jsonl) / basename(session.jsonl без .jsonl):
+# каталог сессии — sibling самого свежего session-уровня .jsonl,
+# имя = basename файла без расширения (конвенция orch-peak live).
 current_session_dir() {
   local f
   # shellcheck disable=`SC2086`
   f="$(ls -t $SESS_GLOB 2>/dev/null | head -1)" || return 0
   [ -n "$f" ] || return 0
-  dirname -- "$f"
+  printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
 }
 
-# live_subagents_in <sess_dir>: имена субагентских .jsonl со свежестью <120с,
-# в алфавитном порядке через запятую. Bootstrap-import scripts/lib_session.sh.
+# Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
+# live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
+# (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит
+# scripts/lib_session.sh), определить live_subagents_in локально —
+# семантика идентична.
 if [ -f "${REPO}/scripts/lib_session.sh" ]; then
   # shellcheck disable=SC1091
   . "${REPO}/scripts/lib_session.sh"
+fi
+if ! declare -F live_subagents_in >/dev/null 2>&1; then
+  live_subagents_in() {
+    local sess_dir="${1:-}"
+    [ -n "$sess_dir" ] && [ -d "$sess_dir" ] || { return 0; }
+    local now
+    now="$(date +%s)"
+    local -a names=()
+    local f mt age name
+    for f in "$sess_dir"/*.jsonl; do
+      [ -e "$f" ] || continue
+      mt="$(stat -c %Y "$f" 2>/dev/null || echo 0)"
+      age=$((now - mt))
+      [ "$age" -lt 120 ] || continue
+      name="$(basename -- "$f" .jsonl)"
+      names+=("$name")
+    done
+    [ "${#names[@]}" -gt 0 ] || return 0
+    local IFS=$'\n'
+    # shellcheck disable=`SC2207`
+    local sorted=( $(printf '%s\n' "${names[@]}" | LC_ALL=C sort) )
+    unset IFS
+    local first=1 n out=""
+    for n in "${sorted[@]}"; do
+      if [ "$first" -eq 1 ]; then out="$n"; first=0
+      else out="$out,$n"
+      fi
+    done
+    printf '%s' "$out"
+  }
 fi
 
 # wait_live_agents: опрашивает свежесть субагентских журналов до ORCH_HARD_GRACE;
@@ -195,16 +231,19 @@ case "${1:-}" in
       # Контракт 080 инв. 8: polling живых субагентов до HARD_GRACE перед
       # постановкой маркера. На истечении — принудительный маркер + отчёт
       # «живые субагенты погибнут: <имена>» (если свежие остались).
+      # ВАЖНО: строка «погибнут» пишется ПОСЛЕ wait_saved — wait_saved
+      # перезаписывает $REPORT (tee без -a), и обратный порядок
+      # затирает факт принудительной смерти.
       sess_dir="$(current_session_dir 2>/dev/null || true)"
       live_killed=0
       if ! wait_live_agents "$sess_dir"; then
         LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
-        if [ -n "$LIVE_NAMES" ]; then
-          live_killed=1
-          printf '%s — живые субагенты погибнут: %s\n' "перезапуск по контексту (жёсткий принудительный)" "$LIVE_NAMES" | as_u tee -a "$REPORT" >/dev/null
-        fi
+        [ -n "$LIVE_NAMES" ] && live_killed=1
       fi
       wait_saved "перезапуск по контексту"
+      if [ "$live_killed" -eq 1 ]; then
+        printf '%s — живые субагенты погибнут: %s\n' "перезапуск по контексту (жёсткий принудительный)" "$LIVE_NAMES" | as_u tee -a "$REPORT" >/dev/null
+      fi
       as_u touch "$MARK" && log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию$([ "$live_killed" -eq 1 ] && echo ' (принудительно после ORCH_HARD_GRACE, имена в отчёте)')"
     elif [ "$ctx" -ge "$CTX_SOFT" ]; then
       [ -e "$st" ] && exit 0

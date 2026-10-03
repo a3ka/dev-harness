@@ -25,7 +25,10 @@ current_session_dir() {
   # shellcheck disable=`SC2086`
   f="$(ls -t $ORCH_SESS_GLOB 2>/dev/null | head -1)" || return 0
   [ -n "$f" ] || return 0
-  dirname -- "$f"
+  # SESS_DIR = dirname(session.jsonl) / basename(session.jsonl без .jsonl):
+  # каталог сессии — sibling самого свежего session-уровня .jsonl,
+  # имя = basename файла без расширения (конвенция orch-peak live).
+  printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
 }
 
 # live_subagents_in <sess_dir> — список СВЕЖИХ субагентских .jsonl
