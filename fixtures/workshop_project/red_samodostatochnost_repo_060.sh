@@ -114,6 +114,21 @@ mk_toy_freeze() {
   git -C "$d" add -A
   git -C "$d" commit -qm init
 }
+# ── bare-origin (контракт 078, прецедент 69b9386/aa5d272) для к1-к3/к6/к6б/
+# к6г/к6д/к6е: live `git ls-remote origin` фикстуры указывал бы на $REPO (живой
+# чекаут dev-harness) и видел ВСЕ refs дерева (frozen/contracts/001, 043, 071,
+# 078, …) → lib_active_contracts.sh fail-closed считал бы активных ≥ 2 →
+# next_id/freeze_contract отказывали раньше предмета клетки. Свежий ПУСТОЙ
+# bare-origin: `ls-remote origin` видит 0 refs, лимит пропускает, предмет клетки
+# остаётся судьёй. push не делаем (toy/COPY не публикуют), пустоты достаточно;
+# живёт внутри $WORK, ловится `rm -rf "$WORK"` в cleanup.
+mk_toy_origin() {
+  local d="$1" o
+  mkdir -p "$WORK/origins"
+  o="$(mktemp -d "$WORK/origins/$(basename "$d").XXXXXX")"
+  git init --quiet --bare "$o"
+  ( cd "$d" && git remote add origin "$o" )
+}
 
 # ── песочница: КОПИЯ харнесса (git-репо со scripts/ и своими контрактами) ─────
 COPY="$WORK/harness-copy"
@@ -126,11 +141,12 @@ printf '# копия 001\n' >"$COPY/contracts/001-x.md"
 printf '# копия 002\n' >"$COPY/contracts/002-y.md"
 git -C "$COPY" add -A
 git -C "$COPY" commit -qm init
+mk_toy_origin "$COPY"
 
-TOY_M="$WORK/toy_mint";  mk_toy_mint "$TOY_M"
-TOY_F="$WORK/toy_freeze"; mk_toy_freeze "$TOY_F" 001
-TOYB="$WORK/toyB";       mk_toy_freeze "$TOYB" 002
-TOYE="$WORK/toyE";       mk_toy_freeze "$TOYE" 003
+TOY_M="$WORK/toy_mint";  mk_toy_mint "$TOY_M";  mk_toy_origin "$TOY_M"
+TOY_F="$WORK/toy_freeze"; mk_toy_freeze "$TOY_F" 001; mk_toy_origin "$TOY_F"
+TOYB="$WORK/toyB";       mk_toy_freeze "$TOYB" 002; mk_toy_origin "$TOYB"
+TOYE="$WORK/toyE";       mk_toy_freeze "$TOYE" 003; mk_toy_origin "$TOYE"
 
 # ── стаб-omp для к8: живой режим заканчивается exec omp (поиск по PATH); стаб
 #    пишет факт СВОЕГО окружения — субъект наблюдения экспорта руки (055 h7/h8)
