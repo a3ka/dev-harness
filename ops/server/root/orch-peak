@@ -28,6 +28,9 @@ POLL="${ORCH_PEAK_POLL:-60}"
 CTX_SOFT="${ORCH_CTX_SOFT:-300000}"
 CTX_HARD="${ORCH_CTX_HARD:-500000}"
 SESS_GLOB="${ORCH_SESS_GLOB:-$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/*.jsonl}"
+# Контракт 080, инв. 4/8: переменные жёсткого режима для polling субагентов.
+HARD_GRACE="${ORCH_HARD_GRACE:-1800}"
+HARD_POLL="${ORCH_HARD_POLL:-60}"
 TMUX_ARGS=(); [ -n "${ORCH_TMUX_SOCK:-}" ] && TMUX_ARGS=(-L "$ORCH_TMUX_SOCK")
 mkdir -p "$STATE"
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG"; }
@@ -115,6 +118,58 @@ cur_ctx() {
   tac "$f" | grep -m1 '"usage"' | jq -r '.message.usage | ((.input // 0) + (.cacheRead // 0) + (.cacheWrite // 0))'
 }
 
+# ── Тест-шов ORCH_PEAK_TEST (контракт 080, инв. 4) ────────────────────────
+# Когда шов установлен и непуст, субъект работает в поведенческом режиме
+# без привилегий root: as_u/say/pane/omp_pids/kill_session подменяются;
+# say дописывает в $ORCH_PEAK_TEST/say.log, omp_pids читает $ORCH_PEAK_TEST/omp-pids,
+# kill_session фиксирует в $ORCH_PEAK_TEST/killed.log; без шва — обычное поведение
+# (root, runuser, tmux, реальные сигналы).
+if [ -n "${ORCH_PEAK_TEST:-}" ]; then
+  as_u() { "$@"; }
+  omp_pids() { cat "$ORCH_PEAK_TEST/omp-pids" 2>/dev/null || true; }
+  say() { printf '%s\n' "$1" >> "$ORCH_PEAK_TEST/say.log"; return 0; }
+  find_pane() { return 1; }
+  remember_pane() { :; }
+  pane() { cat "$ORCH_PEAK_TEST/pane" 2>/dev/null || true; }
+  kill_session() {
+    local pids; pids="$(omp_pids)"; [ -n "$pids" ] || return 0
+    printf 'killed: %s\n' "$pids" >> "$ORCH_PEAK_TEST/killed.log"
+    return 0
+  }
+fi
+
+# current_session_dir: каталог самой свежей orch-сессии по mtime session-уровня.
+# (Единый источник для двери и сторожа — scripts/lib_session.sh.)
+current_session_dir() {
+  local f
+  # shellcheck disable=`SC2086`
+  f="$(ls -t $SESS_GLOB 2>/dev/null | head -1)" || return 0
+  [ -n "$f" ] || return 0
+  dirname -- "$f"
+}
+
+# live_subagents_in <sess_dir>: имена субагентских .jsonl со свежестью <120с,
+# в алфавитном порядке через запятую. Bootstrap-import scripts/lib_session.sh.
+if [ -f "${REPO}/scripts/lib_session.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${REPO}/scripts/lib_session.sh"
+fi
+
+# wait_live_agents: опрашивает свежесть субагентских журналов до ORCH_HARD_GRACE;
+# если все состарились — return 0 (можно ставить маркер); если таймаут — return 1
+# (ставить маркер принудительно). Имена свежих на момент истечения — в $LIVE_NAMES.
+wait_live_agents() {
+  local sess_dir="$1" deadline first_now
+  deadline=$(( $(date +%s) + HARD_GRACE ))
+  first_now=$(date +%s)
+  while :; do
+    LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
+    [ -z "$LIVE_NAMES" ] && return 0
+    [ "$(date +%s)" -ge "$deadline" ] && return 1
+    sleep "$HARD_POLL"
+  done
+}
+
 case "${1:-}" in
   warn)
     date +%s > "$STATE/warned"
@@ -134,15 +189,27 @@ case "${1:-}" in
       [ "$(cat "$st" 2>/dev/null)" = hard ] && exit 0
       echo hard > "$st"; remember_pane
       [ -f "$STATE/ctx-$sess.warned" ] && cp "$STATE/ctx-$sess.warned" "$STATE/warned" || date +%s > "$STATE/warned"
-      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_HARD / 1000))K — ПРИНУДИТЕЛЬНЫЙ перезапуск сессии. Новых спавнов не начинай; доведи текущий шаг до коммита; main и wip-ветки — на origin; HANDOFF «ГДЕ МЫ» (что сделано, что в полёте, первое действие) — закоммитить и отправить сейчас. Проверка механическая, отсрочка до $((GRACE / 60)) мин." \
+      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_HARD / 1000))K — ПРИНУДИТЕЛЬНЫЙ перезапуск сессии. Новых спавнов не начинай; дождись завершения текущих субагентов, затем перезапуск дверью. Доведи текущий шаг до коммита; main и wip-ветки — на origin; HANDOFF «ГДЕ МЫ» (что сделано, что в полёте, первое действие) — закоммитить и отправить сейчас. Проверка механическая, отсрочка до $((GRACE / 60)) мин." \
         && log "контекст: $sess $ctx ≥ $CTX_HARD — принудительный перезапуск, сообщение отправлено" \
         || log "контекст: $sess $ctx ≥ $CTX_HARD — принудительный перезапуск (панель не найдена)"
+      # Контракт 080 инв. 8: polling живых субагентов до HARD_GRACE перед
+      # постановкой маркера. На истечении — принудительный маркер + отчёт
+      # «живые субагенты погибнут: <имена>» (если свежие остались).
+      sess_dir="$(current_session_dir 2>/dev/null || true)"
+      live_killed=0
+      if ! wait_live_agents "$sess_dir"; then
+        LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
+        if [ -n "$LIVE_NAMES" ]; then
+          live_killed=1
+          printf '%s — живые субагенты погибнут: %s\n' "перезапуск по контексту (жёсткий принудительный)" "$LIVE_NAMES" | as_u tee -a "$REPORT" >/dev/null
+        fi
+      fi
       wait_saved "перезапуск по контексту"
-      as_u touch "$MARK" && log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию"
+      as_u touch "$MARK" && log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию$([ "$live_killed" -eq 1 ] && echo ' (принудительно после ORCH_HARD_GRACE, имена в отчёте)')"
     elif [ "$ctx" -ge "$CTX_SOFT" ]; then
       [ -e "$st" ] && exit 0
       echo soft > "$st"; date +%s > "$STATE/ctx-$sess.warned"
-      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_SOFT / 1000))K. На ближайшей чистой точке (шаг закоммичен, main и wip-ветки на origin, HANDOFF «ГДЕ МЫ» обновлён и отправлен, в полёте ничего) — перезапусти сессию дверью перезапуска (scripts/orch_restart.sh, контракт 072). Done пары ждать НЕ нужно. При $((CTX_HARD / 1000))K перезапуск будет принудительным." \
+      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_SOFT / 1000))K. На ближайшей чистой точке (шаг закоммичен, main и wip-ветки на origin, HANDOFF «ГДЕ МЫ» обновлён и отправлен, в полёте ничего) — перезапусти сессию дверью перезапуска (scripts/orch_restart.sh, контракт 072). новых спавнов не начинай, дождись завершения текущей субагентов, затем перезапуск дверью. Done пары ждать НЕ нужно. При $((CTX_HARD / 1000))K перезапуск будет принудительным." \
         && log "контекст: $sess $ctx ≥ $CTX_SOFT — предупреждение отправлено" || log "контекст: $sess $ctx ≥ $CTX_SOFT — панель не найдена"
     fi ;;
   start)

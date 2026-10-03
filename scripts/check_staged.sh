@@ -155,6 +155,38 @@ if [ -z "$author" ] && [ -n "${GIT_AUTHOR_NAME:-}" ]; then
   fallback="${fallback%"${fallback##*[![:space:]]}"}"
   author="$fallback"
 fi
+
+# ── Нога (д') 080: pre-commit отказ при загрязнении ОБЩЕГО git-config ─────
+# `git worktree` делит ОДИН общий git-config со всеми worktree; запись
+# `git config --local user.{name,email}=X` (без -c/env — прямая запись в
+# file-config) из ЛЮБОГО worktree (включая linked worktree) пишет в общий
+# git-dir. Нога исполняется ПЕРВОЙ после git-preflight (есть
+# репозиторий/реестр), ДО cascade-определения автора, иначе fail-closed
+# «identity автора пуста» маскировал бы загрязнение. Чтение — НАПРЯМУЮ
+# ФАЙЛА общего git-config (не каскадный git config, который env/-c
+# перекрывали бы): `git rev-parse --git-common-dir` + `git config --file`.
+COMMON_DIR="$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null)"
+case "$COMMON_DIR" in
+  /*) ;;
+  *) COMMON_DIR="$ROOT/$COMMON_DIR" ;;
+esac
+SHARED_CFG="$COMMON_DIR/config"
+if [ -f "$SHARED_CFG" ]; then
+  _csid_user_name="$(git -C "$ROOT" config --file "$SHARED_CFG" --get user.name 2>/dev/null || true)"
+  _csid_user_email="$(git -C "$ROOT" config --file "$SHARED_CFG" --get user.email 2>/dev/null || true)"
+  if [ -n "$_csid_user_name" ] && [ -n "$_csid_user_email" ]; then
+    printf 'ОТКАЗ: identity в общем .git/config запрещена: user.name и user.email в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
+    exit 1
+  elif [ -n "$_csid_user_name" ]; then
+    printf 'ОТКАЗ: identity в общем .git/config запрещена: user.name в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
+    exit 1
+  elif [ -n "$_csid_user_email" ]; then
+    printf 'ОТКАЗ: identity в общем .git/config запрещена: user.email в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
+    exit 1
+  fi
+fi
+# (д') чистый файл или загрязнения нет — проход; остальные ветви судимы далее.
+
 # Fail-closed: оба канала пусты — коммит попал бы «empty ident» дальше по конвейеру
 # (правило Н-56), а здесь судья ОБЯЗАН зафиксировать факт пустой identity именованной
 # причиной. Ветка «не судится» ниже срабатывает ТОЛЬКО когда автор ВИДЕН и не объявлен

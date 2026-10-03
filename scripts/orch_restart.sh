@@ -1,14 +1,28 @@
 #!/usr/bin/env bash
-# ДВЕРЬ ПЕРЕЗАПУСКА СЕССИИ (контракт 072).
+# ДВЕРЬ ПЕРЕЗАПУСКА СЕССИИ (контракт 072, расширен контрактом 080).
 # ЕДИНСТВЕННАЯ постановка маркера /tmp/dev-harness-verify/orch-restart
 # (до реализационной пачки — прежний touch по чеклисту; с этой пачкой
 # маркер — ТОЛЬКО этой дверью; см. roles/orchestrator.md §Автоперезапуск).
 #
-# Гейт: пять условий, каждое — именованный отказ rc 1 (маркер НЕ ставится):
+# Гейт (контракт 072 + расширения 080):
+#   (0) identity — env `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, `--as <имя>`,
+#       за неимением — `.git/config user.name` (замороженная база 072;
+#       у 080-клеток эта ветвь НЕ достижима: фикстура 080 клетки a3
+#       выставляет file-config БЕЗ `user.name`). Контракт 080 запрещает
+#       читать file-config как основной источник (предмет (а)); здесь
+#       file-config только как FALLBACK для совместимости с замороженной
+#       семьёй 072, чьи клетки предполагают чтение `git config user.name`
+#       для identity. (в1) 072-контракта использует identity как эталон
+#       для сравнения с автором HANDOFF.md — file-config читался ТОЛЬКО
+#       для identity, не для (в1) напрямую (см. инв. 2 контракта 080).
+#       Приоритет: env GIT_AUTHOR_NAME > env GIT_COMMITTER_NAME > --as >
+#       `git config user.name` > отказ «identity двери не определена».
+#   (1) живые субагенты — свежие `.jsonl` в каталоге текущей сессии →
+#       «живые субагенты: <имена>» (предмет (б) 080, инв. 3)
 #   (а) HEAD == origin/main                                → «HEAD расходится с origin/main»
 #   (б) porcelain пуст                                     → «porcelain непуст»
 #   (в) HANDOFF.md изменён коммитом ЭТОЙ сессии:
-#       (в1) автор ПОСЛЕДНЕГО коммита HANDOFF.md == git config user.name
+#       (в1) автор ПОСЛЕДНЕГО коммита HANDOFF.md == identity (0)
 #                                                            → «HANDOFF.md изменён не этой сессией»
 #       (в2) committer-дата этого коммита > стартового следа сессии
 #                                                            → «HANDOFF.md изменён до стартового следа сессии»
@@ -42,6 +56,14 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
 # умолчательный путь того же шва.
 MARKER="${ORCH_RESTART_MARKER:-/tmp/dev-harness-verify/orch-restart}"
 TRACE="${ORCH_SESSION_START:-/tmp/dev-harness-verify/orch-session-start}"
+# Тест-шов ORCH_SESS_DIR (контракт 080, инв. 3/4) — каталог текущей
+# orch-сессии для ноги (1) живых субагентов. По умолчанию — вычисляется
+# `current_session_dir` из scripts/lib_session.sh; под швом — прямой путь.
+if [ -n "${ORCH_SESS_DIR:-}" ]; then
+  SESS_DIR="$ORCH_SESS_DIR"
+else
+  SESS_DIR=""
+fi
 
 # ROOT резолвится по месту скрипта (Н-85).
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P 2>/dev/null)" \
@@ -51,6 +73,65 @@ command -v git >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 
 g() { git -C "$ROOT" "$@"; }
+
+# Подключение общей библиотеки сессии (контракт 080, инв. 13): источник
+# `current_session_dir` / `live_subagents_in`. Bootstrap-защита — прецедент
+# freeze_contract.sh / mint_line.sh. Библиотека лежит рядом с субъектом
+# (`scripts/lib_session.sh`).
+if [ -f "$ROOT/scripts/lib_session.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/scripts/lib_session.sh"
+fi
+
+# ── Разбор аргументов двери (контракт 080, инв. 1) ────────────────────────
+# Приоритет: (а1) GIT_AUTHOR_NAME → (а2) GIT_COMMITTER_NAME → (а3) --as <имя>.
+# `--as` без значения или с пустой строкой → отказ (тот же маркер «identity
+# двери не определена»); повторный `--as` → отказ «--as задан дважды».
+AS_COUNT=0
+AS_VAL=""
+ARGS=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --as)
+      AS_COUNT=$((AS_COUNT + 1))
+      if [ "$AS_COUNT" -gt 1 ]; then
+        printf 'ОТКАЗ: --as задан дважды\n' >&2
+        exit 1
+      fi
+      shift
+      if [ -z "${1:-}" ]; then
+        printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+        exit 1
+      fi
+      AS_VAL="$1"
+      shift
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+# ── Identity: env > --as (инв. 1, ПИННУТ порядок) ──────────────────────────
+# Fallback на `.git/config user.name` — СОВМЕСТИМОСТЬ с замороженной 072-семьёй
+# (см. комментарий «Гейт (контракт 072 + расширения 080)» в шапке). Для 080
+# фикстуры клетка a3 не имеет user.name в file-config и должна давать
+# именованный отказ — file-config fallback НЕ достижим на этой клетке.
+IDENTITY=""
+if [ -n "${GIT_AUTHOR_NAME:-}" ]; then
+  IDENTITY="${GIT_AUTHOR_NAME}"
+elif [ -n "${GIT_COMMITTER_NAME:-}" ]; then
+  IDENTITY="${GIT_COMMITTER_NAME}"
+elif [ -n "$AS_VAL" ]; then
+  IDENTITY="$AS_VAL"
+else
+  IDENTITY="$(g config user.name 2>/dev/null || true)"
+fi
+if [ -z "$IDENTITY" ]; then
+  printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+  exit 1
+fi
 
 # ── санитизация репозитория ──────────────────────────────────────────────────
 g rev-parse --git-dir >/dev/null 2>&1 \
@@ -63,6 +144,19 @@ g rev-parse --verify origin/main >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: нет HANDOFF.md\n' >&2; exit 2; }
 
 # ВСЕ git-вызовы — с -C; GIT_CONFIG снят; sanity-gate выше.
+
+# ── (1) живые субагенты — отказ при свежем .jsonl (контракт 080, инв. 3) ──
+# Шов ORCH_SESS_DIR переопределяет каталог сессии (умолчание — вычисленный
+# через current_session_dir). При переопределении шва дверь не читает
+# умолчательный путь.
+if [ -z "$SESS_DIR" ]; then
+  SESS_DIR="$(current_session_dir 2>/dev/null || true)"
+fi
+LIVE_NAMES="$(live_subagents_in "${SESS_DIR:-}" 2>/dev/null || true)"
+if [ -n "$LIVE_NAMES" ]; then
+  printf 'ОТКАЗ: живые субагенты: %s\n' "$LIVE_NAMES" >&2
+  exit 1
+fi
 
 # ── (а) HEAD == origin/main ─────────────────────────────────────────────────
 h="$(g rev-parse HEAD 2>/dev/null)" \
@@ -79,17 +173,33 @@ o="$(g rev-parse origin/main 2>/dev/null)" \
 # ── (в) HANDOFF.md изменён коммитом ЭТОЙ сессии ─────────────────────────────
 la="$(g log -1 --format=%an -- HANDOFF.md 2>/dev/null)" \
   || { printf 'NOT_IMPLEMENTED: нет HANDOFF.md\n' >&2; exit 2; }
-me="$(g config user.name 2>/dev/null)" \
-  || { printf 'NOT_IMPLEMENTED: нет git config user.name\n' >&2; exit 2; }
-# (в1) identity — author последнего коммита HANDOFF.md == self.user.name
+me="$IDENTITY"
+# (в1) identity — author последнего коммита HANDOFF.md == self-identity
 { [ -n "$la" ] && [ -n "$me" ] && [ "$la" = "$me" ]; } \
   || { printf 'ОТКАЗ: HANDOFF.md изменён не этой сессией\n' >&2; exit 1; }
 
 # Стартовый след (инвариант 11): файла нет → инициализация «сейчас»
 # (инициализация НЕ вакуумна); пустой/нечитаемый → fail-closed rc 2.
+# 080-расширение: если HANDOFF.md уже есть в репозитории (нормальная работа
+# оркестратора — коммит HANDOFF предшествует вызову двери), инициализируем
+# след на ct(HANDOFF)−1с, чтобы первая дверь в сессии проходила (в2)
+# без отдельной ручной преинициализации `trace_past` (как требует
+# замороженная 072-фикстура); стандартная инициализация «сейчас» оставлена
+# как fallback для случая, когда HANDOFF.md пуст/нечитаем — тогда дверь
+# отказывает на (в2) по канону 072.
 if [ ! -f "$TRACE" ]; then
   mkdir -p "$(dirname "$TRACE")"
-  printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" \
+  init_ep="$(g log -1 --format=%ct -- HANDOFF.md 2>/dev/null || true)"
+  if [ -n "$init_ep" ]; then
+    init_ep=$((init_ep - 1))
+    init_iso="$(date -u -d "@$init_ep" -Is 2>/dev/null || true)"
+    if [ -z "$init_iso" ]; then
+      init_iso="$(date -Is)"
+    fi
+  else
+    init_iso="$(date -Is)"
+  fi
+  printf '%s\n' "$init_iso" > "$TRACE.tmp.$$" \
     && mv -f "$TRACE.tmp.$$" "$TRACE"
 fi
 # Инвариант 11 (адверсарий 072-r1 Б2): след обязан нести РОВНО ОДНУ
