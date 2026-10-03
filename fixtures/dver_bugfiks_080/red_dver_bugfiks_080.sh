@@ -9,17 +9,21 @@
 # 058/070/072/078).
 #
 # Структура (v1):
-#   1. СТАБ-ПАК (8 обманных стабов + 8 диффпроб): каждый стаб красен
+#   1. СТАБ-ПАК (9 обманных стабов + 9 диффпроб): каждый стаб красен
 #      на входе, где его дефект наблюдаем; clean-stub на той же клетке
 #      даёт другой rc → стаб пойман; clean-stub на чистом входе
 #      проходит rc 0 → диффпроба зелёная.
-#   2. ЧЕСТНАЯ ЧАСТЬ (12 клеток a1-a5, б1-б3, в1-в2, г1-г2) — против
-#      реальных scripts/orch_restart.sh и ops/server/root/orch-peak
-#      дерева; предъявляется живым прогоном.
+#   2. ЧЕСТНАЯ ЧАСТЬ (16 клеток a1-a5, б1-б3, в1-в2, г1-г2, д'1-д'4) — против
+#      реальных scripts/orch_restart.sh, ops/server/root/orch-peak
+#      И scripts/check_staged.sh дерева; предъявляется живым прогоном.
 #   3. г0 — fail-fast: orch_restart.sh без расширения (нет env/--as) →
 #      батарея красна на клетках двери.
 #
 # Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ):
+#   s9 STUB:CSID_PARTIAL         «нога (д') в check_staged.sh проверяет
+#        ТОЛЬКО user.name, НЕ user.email» — красен на д'2-входе
+#        (sandbox с user.email без user.name): s9 rc 0 (пропускает),
+#        clean-stub rc 1 (ловит).
 #   s1 STUB:IDENTITY_FILECONFIG  «только git config user.name» — красен
 #        на a1-входе: env identity + file-config пуст → rc 2 NOT_IMPLEMENTED.
 #   s2 STUB:IDENTITY_AS_REQUIRED «требует --as, env игнорирует» — красен
@@ -144,7 +148,8 @@ S2="$HERE/stub_s2.sh"
 S3="$HERE/stub_s3.sh"
 S4="$HERE/stub_s4.sh"
 S5="$HERE/stub_s5.sh"
-for f in "$MINI" "$DIFFPROBE" "$S1" "$S2" "$S3" "$S4" "$S5"; do
+S9="$HERE/stub_s9.sh"
+for f in "$MINI" "$DIFFPROBE" "$S1" "$S2" "$S3" "$S4" "$S5" "$S9"; do
   [ -f "$f" ] || die_pack "в батарее нет $f"
 done
 
@@ -222,7 +227,7 @@ fi
 STAB_CAUGHT=0
 DIFF_GREEN=0
 HONEST_GREEN=0
-HONEST_TOTAL=12
+HONEST_TOTAL=16
 
 # ── ХЕЛПЕРЫ предикатов ───────────────────────────────────────────────────
 fail_cell() { printf 'клетка %s: %s\n' "$1" "$2" >&2; CELL_FAIL=1; }
@@ -494,6 +499,108 @@ run_peak_stab_cell() { # $1=name $2=stub-path $3=cell $4=phrase
   fi
 }
 
+# helpers ноги (д') (sandbox check_staged) ─
+setup_cs_sandbox() {
+  local s="$1" wn="$2" we="$3"
+  rm -rf "$s"
+  mkdir -p "$s"
+  (
+    cd "$s" || return 1
+    git init -q -b main
+    : > .trigger
+    git add .trigger
+    git -c user.name=architect -c user.email=architect@dev-harness.local commit -qm "sandbox: init"
+    cp -r "$ROOT/scripts" "./scripts"
+    if [ "$wn" = 1 ]; then
+      git config user.name "leaked-by-sandbox"
+    fi
+    if [ "$we" = 1 ]; then
+      git config user.email "leaked@by-sandbox"
+    fi
+  ) >/dev/null 2>&1
+}
+
+run_cs_subject() {
+  local s="$1" staged="$2" rcfile="$3" stderr_file="$4" stdout_file="$5"
+  (
+    cd "$s" || return 1
+    if [ -n "$staged" ]; then
+      cp "$staged" "scripts/check_staged.sh"
+    fi
+    bash scripts/check_staged.sh . >"$stdout_file" 2>"$stderr_file"
+    echo $? > "$rcfile"
+  ) >/dev/null 2>&1 || true
+}
+
+run_cs_subject_env() {
+  local s="$1" staged="$2" rcfile="$3" stderr_file="$4" stdout_file="$5"
+  (
+    cd "$s" || return 1
+    if [ -n "$staged" ]; then
+      cp "$staged" "scripts/check_staged.sh"
+    fi
+    export GIT_AUTHOR_NAME="env-bot"
+    bash scripts/check_staged.sh . >"$stdout_file" 2>"$stderr_file"
+    echo $? > "$rcfile"
+  ) >/dev/null 2>&1 || true
+}
+
+run_cs_cell() {
+  local name="$1" s="$2" staged="$3" wn="$4" we="$5" predicate="$6" expect="$7"
+  setup_cs_sandbox "$s" "$wn" "$we"
+  CELL_FAIL=0
+  if [ "$predicate" = "p_pass" ]; then
+    run_cs_subject_env "$s" "$staged" "$WORK/cs_rc" "$WORK/cs_err" "$WORK/cs_out"
+  else
+    run_cs_subject "$s" "$staged" "$WORK/cs_rc" "$WORK/cs_err" "$WORK/cs_out"
+  fi
+  local rc; rc=$(cat "$WORK/cs_rc" 2>/dev/null || echo "?")
+  local err; err=$(cat "$WORK/cs_err" 2>/dev/null || echo "")
+  case "$predicate" in
+    p_pass)
+      if [ "$rc" = "0" ]; then :; else fail_cell "$name" "rc=$rc err=$err (ожидалось rc=0)"; fi ;;
+    p_refuse)
+      if [ "$rc" = "1" ] && printf '%s' "$err" | grep -qF -- "$expect"; then
+        : # ok
+      else
+        fail_cell "$name" "rc=$rc err=$err (ожидалось rc=1 stderr содержит «$expect»)"
+      fi ;;
+  esac
+  rm -rf "$s"
+}
+
+run_cs_stab_cell() {
+  local name="$1" stub="$2"
+  local s_stab="$WORK/cs-stab"
+  local s_clean="$WORK/cs-clean"
+  # Sandbox с user.email (без user.name) + env GIT_AUTHOR_NAME=env-bot.
+  # Post-fix: real ловит user.email → rc 1; s9 пропускает (частичная проверка)
+  # → identity из env → "не судится" → rc 0. РАЗЛИЧИЕ → пойман.
+  setup_cs_sandbox "$s_stab" 0 1
+  run_cs_subject_env "$s_stab" "$stub" "$WORK/cs_rc_stab" "$WORK/cs_err_stab" "$WORK/cs_out_stab"
+  local s_rc; s_rc=$(cat "$WORK/cs_rc_stab" 2>/dev/null || echo "?")
+  setup_cs_sandbox "$s_clean" 0 1
+  run_cs_subject_env "$s_clean" "" "$WORK/cs_rc_clean" "$WORK/cs_err_clean" "$WORK/cs_out_clean"
+  local c_rc; c_rc=$(cat "$WORK/cs_rc_clean" 2>/dev/null || echo "?")
+  if [ "$s_rc" != "$c_rc" ]; then
+    STAB_CAUGHT=$((STAB_CAUGHT + 1))
+    echo "  stab-$name: caught (s_rc=$s_rc c_rc=$c_rc)"
+  else
+    fail_cell "стаб-$name" "stab_rc=$s_rc clean_rc=$c_rc (ожидалось РАЗЛИЧИЕ; s9 пропускает email, real — нет)"
+  fi
+  local s_clean2="$WORK/cs-clean2"
+  setup_cs_sandbox "$s_clean2" 0 0
+  run_cs_subject_env "$s_clean2" "" "$WORK/cs_rc_clean2" "$WORK/cs_err_clean2" "$WORK/cs_out_clean2"
+  local dg_rc; dg_rc=$(cat "$WORK/cs_rc_clean2" 2>/dev/null || echo "?")
+  if [ "$dg_rc" = "0" ]; then
+    DIFF_GREEN=$((DIFF_GREEN + 1))
+    echo "  diff-$name: green (clean stub на чистом входе rc=0)"
+  else
+    fail_cell "дифф-$name" "clean-stub на чистом входе: rc=$dg_rc (ожидалось 0)"
+  fi
+  rm -rf "$s_stab" "$s_clean" "$s_clean2"
+}
+
 # ── Прогон пака стабов ──────────────────────────────────────────────────
 run_stab_cell s1 "$S1" a1
 run_stab_cell s2 "$S2" a1
@@ -503,6 +610,16 @@ run_stab_cell s5 "$S5" a5
 run_peak_stab_cell s6 "$S6" в1 "$PHRASE_OK"
 run_peak_stab_cell s7 "$S7" г1 'ORCH_HARD_GRACE'
 run_peak_stab_cell s8 "$S8" г2 'живые субагенты погибнут'
+
+# (s9) — нога (д') в check_staged.sh проверяет ТОЛЬКО user.name;
+# тест привязан к д'2-входу (sandbox с user.email, без user.name) +
+# env GIT_AUTHOR_NAME=env-bot (чтобы identity была валидна и post-fix
+# real reject'нул по (д') с rc 1, а s9 пропустил — rc 0 «не судится»).
+# Pre-fix: оба fail-closed → одинаковый rc → не пойман.
+# Post-fix: real rc 1, s9 rc 0 → DIFFERENT → пойман.
+# diffprobe (д'3): real check_staged на чистом sandbox без user.* +
+# env identity → rc 0.
+run_cs_stab_cell s9 "$S9"
 
 # ── ЧЕСТНАЯ ЧАСТЬ ────────────────────────────────────────────────────────
 echo "── честная часть (real subjects) ──"
@@ -571,14 +688,30 @@ else
   fail_cell г2 "grep «живые субагенты погибнут» в $ORCHPEAK_SRC не нашёл"
 fi
 
+# (д'1) sandbox с user.name в .git/config → rc 1 «identity в общем .git/config запрещена»
+run_cs_cell "д'1" "$WORK/cs-d1" "" 1 0 p_refuse "identity в общем .git/config запрещена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (д'2) sandbox с user.email (без user.name) → rc 1 тот же маркер
+run_cs_cell "д'2" "$WORK/cs-d2" "" 0 1 p_refuse "identity в общем .git/config запрещена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (д'3) sandbox без user.*, identity через env → rc 0
+run_cs_cell "д'3" "$WORK/cs-d3" "" 0 0 p_pass ""
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (д'4) sandbox без user.*, identity через env (без -c) → rc 0
+run_cs_cell "д'4" "$WORK/cs-d4" "" 0 0 p_pass ""
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
 # ── ИТОГ ────────────────────────────────────────────────────────────────
 echo ""
-printf 'стаб-пак: %d/8 поймано, диффпроба %d/8\n' "$STAB_CAUGHT" "$DIFF_GREEN"
+printf 'стаб-пак: %d/9 поймано, диффпроба %d/9\n' "$STAB_CAUGHT" "$DIFF_GREEN"
 printf 'честная часть: %d/%d зелёная\n' "$HONEST_GREEN" "$HONEST_TOTAL"
-printf 'итог 080-батареи: предъявлений стабы %d/8 + дифф %d/8 + честные %d/%d\n' \
+printf 'итог 080-батареи: предъявлений стабы %d/9 + дифф %d/9 + честные %d/%d\n' \
   "$STAB_CAUGHT" "$DIFF_GREEN" "$HONEST_GREEN" "$HONEST_TOTAL"
 
-if [ "$STAB_CAUGHT" -ne 8 ] || [ "$DIFF_GREEN" -ne 8 ] || [ "$HONEST_GREEN" -ne "$HONEST_TOTAL" ]; then
-  die_pack "батарея красная: стабы=$STAB_CAUGHT/8 дифф=$DIFF_GREEN/8 честные=$HONEST_GREEN/$HONEST_TOTAL"
+if [ "$STAB_CAUGHT" -ne 9 ] || [ "$DIFF_GREEN" -ne 9 ] || [ "$HONEST_GREEN" -ne "$HONEST_TOTAL" ]; then
+  die_pack "батарея красная: стабы=$STAB_CAUGHT/9 дифф=$DIFF_GREEN/9 честные=$HONEST_GREEN/$HONEST_TOTAL"
 fi
 exit 0
