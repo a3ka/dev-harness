@@ -61,6 +61,12 @@
 #     ПУСТО во всех трёх пространствах → активных 0 < 2 → нормальный успех БЕЗ
 #     диагностики лимита: л18 next_id (номер+тег), л19 mint (MINTED), л20 freeze
 #     (v1); стаб-П «пустой ответ = недоступность» отказывает ровно здесь;
+#   л21/л22 (вход №3 адверсария 078-v2 к2, граница SLA 15s И-2): делегирующий
+#     PATH-шим git задерживает ТОЛЬКО лимитный ls-remote (те же три паттерна):
+#     л21 — ответ 6s < 15s, здоровый, но медленный → нормальный успех (мутант
+#     фактической границы 1s/5s убивает 6s-ответ и ложно отказывает — до 078-v2
+#     проходил батарею целиком); л22 — ответ 17s > 15s → НОРМАТИВНЫЙ fail-closed
+#     rc=124 без мутации (SLA — часть определения недоступности, И-2);
 #   И-9 в клетках отказа И снятия: stderr сверяется числом И точным множеством NNN
 #     (diag9: «активных <N> ≥ 2: <NNN,NNN>»; снятие — л3/л9/л12, решётка лР и л14в —
 #     тем же diag9), л15 — слова «данные неизвестны»; не один маркер. Ниже порога —
@@ -81,6 +87,8 @@
 #     П lib_active_contracts `ls_rc -ne 0`→`… || [ -z "$refs" ]` (пустой ответ
 #     ошибочно = недоступность). Диффпробы: вне дефекта стабы честны; нарушения —
 #     ровно на входах л16/л17 (шим) и л18/л19/л20 (ноль refs).
+#     Т lib_active_contracts `timeout 15s git`→`timeout 1s git` (фактическая граница
+#     1s; 078-v2 к2): диффпроба на быстром авторитете, поимка на входе л21 (шим 6s).
 #
 # Активные создаются ПРЯМО В BARE origin (тег/ветка на уже запушенный main — порядок
 # Н-160 коммиты→тег соблюдён), локальные refs клона остаются пустыми: счёт по origin
@@ -608,8 +616,44 @@ if [ "$PRESENT" -eq 1 ]; then
   out20="$(cd / && "$SUBJ_FREEZE" contracts/001-x.md "причина фикстуры $RH1" "$T20" 2>"$WORK/e20")"; rc20=$?; err20="$(cat "$WORK/e20")"
   if [ "$rc20" -eq 0 ] && [ "$out20" = 'v1' ] && ! printf '%s' "$err20" | grep -qF "$LIM_NAME"; then pass л20
   else fail л20 "rc=$rc20 out=$out20 err=$(printf '%s' "$err20" | sed -n 1p) — пустой авторитетный ответ ошибочно считается недоступным"; fi
+
+  # ── клетки границы SLA 15s (адверсарий 078-v2 к2): наблюдаемость timeout-обёртки ──
+  # Делегирующий PATH-шим git (техника адверсария): ЛИМИТНЫЙ ls-remote (три паттерна
+  # active_contracts_list) отвечает после контролируемой задержки, прочие git-вызовы
+  # уходят к живому git сразу. 6s — «здоровый, но медленный» авторитет
+  # (6s < 15s; ловит мутантов фактической границы 1s И 5s — оба убивают 6s-ответ);
+  # 17s — исправный, но ПОЗЖЕ границы. Цена батареи: +6s (л21) и +15s (л22; обёртка
+  # режет спящий шим на 15-й секунде — TERM доходит до sleep мгновенно, rc 124).
+  mk_slowshim() { # mk_slowshim <каталог> <задержка-s>
+    local d="$1"
+    mkdir -p "$d"
+    printf '#!/usr/bin/env bash\nfor a in "$@"; do case "$a" in %s|%s|%s) sleep %s; exec %s "$@" ;; esac; done\nexec %s "$@"\n' \
+      "'refs/tags/frozen/contracts/*'" "'refs/tags/done/contracts/*'" "'refs/heads/wip/*'" "$2" "$REALGIT" "$REALGIT" > "$d/git"
+    chmod +x "$d/git"
+  }
+  SLOW6="$WORK/slow078-6s-$RH1"; mk_slowshim "$SLOW6" 6
+  SLOW17="$WORK/slow078-17s-$RH2"; mk_slowshim "$SLOW17" 17
+
+  # л21: медленный, но ЗДОРОВЫЙ авторитет (ответ 6s < SLA 15s) → нормальный успех без
+  # диагностики — мутант фактической границы 1s/5s убивает 6s-ответ и ложно отказывает
+  # (дыра 078-v2: батарея не наблюдала границу вовсе). # ИНВ: И-2
+  T21="$WORK/l21-$RH2"; mk_next_toy "$T21"
+  out21="$(PATH="$SLOW6:$PATH" "$SUBJ_NEXT" "$T21" CONTRACT 2>"$WORK/e21")"; rc21=$?; err21="$(cat "$WORK/e21")"
+  if [ "$rc21" -eq 0 ] && [ "$out21" = "$want2" ] && ! printf '%s' "$err21" | grep -qF "$LIM_NAME"; then pass л21
+  else fail л21 "rc=$rc21 out=$out21 err=$(printf '%s' "$err21" | sed -n 1p) — здоровый, но медленный (6s < SLA 15s) авторитет отвергнут: фактическая граница таймаута уже нормативной"; fi
+
+  # л22: исправный авторитет ответил ПОЗЖЕ границы 15s (шим 17s) → НОРМАТИВНЫЙ
+  # fail-closed (SLA И-2, 078-v2): rc 124 обёртки переводится в именованный отказ,
+  # мутации нет — тег сверх seed не создан. # ИНВ: И-2, И-9
+  T22="$WORK/l22-$RH1"; mk_next_toy "$T22"
+  out22="$(PATH="$SLOW17:$PATH" "$SUBJ_NEXT" "$T22" CONTRACT 2>"$WORK/e22")"; rc22=$?; err22="$(cat "$WORK/e22")"
+  if [ "$rc22" -eq 1 ] && printf '%s' "$err22" | grep -qF "$LIM_NAME" \
+     && printf '%s' "$err22" | grep -qF 'авторитет недоступен' && printf '%s' "$err22" | grep -qF 'данные неизвестны' \
+     && printf '%s' "$err22" | grep -qF 'rc=124' \
+     && [ -z "$out22" ] && [ "$(git -C "$T22" tag -l 'id/CONTRACT/*' | wc -l)" -eq 1 ]; then pass л22
+  else fail л22 "rc=$rc22 out=$out22 err=$(printf '%s' "$err22" | sed -n 1p) — ответ позже SLA 15s не переведён в именованный fail-closed rc=124 без мутации"; fi
 else
-  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15 л16 л17 л18 л19 л20; do norun "$c"; done
+  for c in л1 л2 л2б л2в л3 л3б л4 л5 л5б л5в лР л6 л7 л7б л8 л8б л8в л9 л9б л10 л10б л11 л11б л11в л12 л12б л13 л14 л14б л14в л15 л16 л17 л18 л19 л20 л21 л22; do norun "$c"; done
 fi
 
 # ── стаб-пак: мутантные копии мини-ядра (самодостаточен — не зависит от субъекта) ──
@@ -731,6 +775,31 @@ PY
     '  if false; then # СТАБ-Фф — fail-open: отказ active_contracts_list игнорируется'
   subj_ok П lib_active_contracts.sh 'if [ "$ls_rc" -ne 0 ]; then' \
     '  if [ "$ls_rc" -ne 0 ] || [ -z "$refs" ]; then # СТАБ-П — пустой ls-remote ошибочно считается недоступностью'
+  # СТАБ-Т (078-v2 к2): мутантная копия scripts/ с ФАКТИЧЕСКОЙ границей 1s — та же
+  # техника, что Фм/Фф/П; якорь в середине строки с refspec-кавычками, потому мутация —
+  # python-replace значения таймаута, маркер — хвостом той же строки.
+  TSTUB="$WORK/subj-Т"; rm -rf "$TSTUB"; cp -r "$ROOT/scripts" "$TSTUB"
+  python3 - "$TSTUB/lib_active_contracts.sh" <<'PYT'
+import sys
+path = sys.argv[1]
+lines = open(path, encoding='utf-8').readlines()
+out, hit = [], 0
+for l in lines:
+    if 'timeout 15s git' in l:
+        out.append(l.replace('timeout 15s git', 'timeout 1s git').rstrip('\n')
+                   + ' # СТАБ-Т — фактическая граница 1s: вялый 2s-авторитет убит как зависший (078-v2 к2)\n')
+        hit += 1
+    else:
+        out.append(l)
+assert hit == 1, 'якорь timeout 15s git встречен %d раз (ожидался 1)' % hit
+open(path, 'w', encoding='utf-8').write(''.join(out))
+PYT
+  if ! cmp -s "$ROOT/scripts/lib_active_contracts.sh" "$TSTUB/lib_active_contracts.sh" \
+     && grep -qF 'СТАБ-Т' "$TSTUB/lib_active_contracts.sh"; then
+    SUBJ_STUB[Т]=1; pass "стабТ-применён"
+  else
+    fail "стабТ-применён" "мутация не применилась/не помечена (якоря timeout 15s git нет — дерево уже с иной границей?)"
+  fi
 
   # Диффпробы: на входе ВНЕ дефекта стабы ведут себя честно (не параноики).
   if [ -n "${SUBJ_STUB[Фм]:-}" ]; then
@@ -747,6 +816,11 @@ PY
     DPN="$WORK/dpn-$RH1"; mk_next_toy "$DPN"; bare_frozen "$DPN" "$ACT1"
     rc=0; "$WORK/subj-П/next_id.sh" "$DPN" CONTRACT >/dev/null 2>"$WORK/d-П" || rc=$?
     if [ "$rc" -eq 0 ]; then pass диффП; else fail диффП "стаб параноик: мир с одним активным rc=$rc: $(sed -n 1p "$WORK/d-П")"; fi
+  fi
+  if [ -n "${SUBJ_STUB[Т]:-}" ]; then
+    DFT="$WORK/dft-$RH1"; mk_next_toy "$DFT"; bare_frozen "$DFT" "$ACT1"
+    rc=0; "$TSTUB/next_id.sh" "$DFT" CONTRACT >/dev/null 2>"$WORK/d-Т" || rc=$?
+    if [ "$rc" -eq 0 ]; then pass диффТ; else fail диффТ "стаб параноик: быстрый авторитет rc=$rc: $(sed -n 1p "$WORK/d-Т")"; fi
   fi
 
   # Нарушения (Н-39): расхождение с честным ровно на входе наблюдаемости дефекта.
@@ -798,12 +872,26 @@ PY
        && [ "$hrc" -eq 0 ] && [ "$hout" = 'v1' ]; then pass нарушПф
     else fail нарушПф "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc — стаб пустого-ответа не пойман на входе л20"; fi
   fi
+  # Т — вход л21 (медленный 6s авторитет, предмет 078-v2 к2): честный с границей 15s
+  # ждёт и проходит, мутант с фактической границей 1s убивает ответ на первой секунде
+  # и отказывает — расхождение ровно на входе наблюдаемости (Н-39). Стаб первым:
+  # отказ не оставляет следа, честный затем выдаёт номер.
+  if [ -n "${SUBJ_STUB[Т]:-}" ]; then
+    NTT="$WORK/ntt-$RH2"; mk_next_toy "$NTT"
+    src=0; PATH="$SLOW6:$PATH" "$TSTUB/next_id.sh" "$NTT" CONTRACT >/dev/null 2>"$WORK/e-Тн" || src=$?
+    serr="$(cat "$WORK/e-Тн")"
+    hrc=0; hout="$(PATH="$SLOW6:$PATH" "$SUBJ_NEXT" "$NTT" CONTRACT 2>/dev/null)" || hrc=$?
+    if [ "$src" -eq 1 ] && printf '%s' "$serr" | grep -qF 'авторитет недоступен' \
+       && printf '%s' "$serr" | grep -qF 'rc=124' \
+       && [ "$hrc" -eq 0 ] && [ "$hout" = "$want2" ]; then pass нарушТ
+    else fail нарушТ "стаб rc=$src err=$(printf '%s' "$serr" | sed -n 1p), честный rc=$hrc out=$hout — мутант границы 1s не пойман на входе л21"; fi
+  fi
 fi
 
 for r in "${REPS[@]}"; do printf 'КРАСНОЕ 078: %s\n' "$r" >&2; done
 if [ "$PRESENT" -eq 0 ]; then
   printf 'КРАСНОЕ 078: л0: предмет отсутствует — субъекты молчат на трёх входах лимита; предъявляемое красное ДО реализации\n' >&2
 fi
-printf 'ИТОГ 078 (лимит активных): честных ветвей 38 (л0–л20, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, л16, л17, л18, л19, л20, лР, + ядро0), стабов 10 (стА–стЖ, Фм, Фф, П), применений 10, диффпроб 10, нарушений 12; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
+printf 'ИТОГ 078 (лимит активных): честных ветвей 40 (л0–л22, включая л2б, л2в, л3б, л5б, л5в, л7б, л8б, л8в, л9б, л10б, л11б, л11в, л12б, л14б, л14в, л16, л17, л18, л19, л20, л21, л22, лР, + ядро0), стабов 11 (стА–стЖ, Фм, Фф, П, Т), применений 11, диффпроб 11, нарушений 13; красных %d, зелёных %d, не исполнено %d\n' "$RED" "$GRN" "$NORUN" >&2
 [ "$RED" -eq 0 ] || exit 1
 exit 0
