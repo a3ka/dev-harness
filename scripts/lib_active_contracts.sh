@@ -44,8 +44,18 @@ active_contracts_list() {
     return 1
   fi
 
+  # BOUNDED NETWORK CALL (контракт 078, замер 2026-10-03): «живой ls-remote origin»
+  # в CI-песочнице без исходящего SSH/HTTPS — это блокирующий connect на DNS/TCP,
+  # который висит минутами вместо быстрого отказа rc=128. И-2 рассчитан на БЫСТРЫЙ
+  # fail-closed («авторитет недоступен, данные неизвестны»), а не на тишину до
+  # timeout-minutes шарда (PR#11 run 37143315606, ap2 cancel 18:42Z после 18:12Z
+  # последней строки лога). ОБЁРТКА timeout 15s — единый протокол-агностик
+  # (работает и для локального bare-origin в фикстурах freeze_contract, и для
+  # реального ssh://github в worktree): 15s — верхняя граница, при которой
+  # нормальный ls-remote (~1-2s) укладывается без шума, а зависший connect/read
+  # убивается SIGTERM с rc=124 и переводится в fail-closed rc=1.
   local refs ls_rc=0
-  refs="$(git -C "$root" ls-remote origin 'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 'refs/heads/wip/*' 2>/dev/null)" || ls_rc=$?
+  refs="$(timeout 15s git -C "$root" ls-remote origin 'refs/tags/frozen/contracts/*' 'refs/tags/done/contracts/*' 'refs/heads/wip/*' 2>/dev/null)" || ls_rc=$?
   if [ "$ls_rc" -ne 0 ]; then
     printf 'ОТКАЗ: лимит активных контрактов: авторитет недоступен (ls-remote origin rc=%s), данные неизвестны — fail-closed\n' "$ls_rc" >&2
     return 1
