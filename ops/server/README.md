@@ -99,6 +99,19 @@ orch-peak-stop.timer orch-peak-start.timer`. Не трогать `orch-ctx.timer
   `~/odelix/odx-rshnn`, и т. п. (по числу пилотных репозиториев), на них
   может указывать пилот A3 — обвязка не лезет в них сама, но `orch-loop`
   стартует `workshop --yolo` именно в текущем `~/dev-harness`.
+- **Ключи GitHub (rw/ro разделение)** — `~/.ssh/config` станции несёт `Match exec`-блок:
+  `exec "/home/harness/.ssh/github-rw-cwd"` → при успехе ключ `id_ed25519` (rw), иначе
+  `id_dh_ro` (ro). `github-rw-cwd` разрешает запись ТОЛЬКО если текущий каталог (`pwd -P`)
+  начинается с `/home/harness/dev-harness` или `/home/harness/odelix/`; абсолютный путь в
+  `exec` обязателен — относительный ломается под `HOME=<зона omp-сессии>` (dash раскрывает
+  `~/.ssh/...` по зонному, а не станционному, пути — `Match` молча падает в `false`, всегда
+  RO). Deploy-key `id_dh_ro.pub` зарегистрирован на GitHub как id **165245253**
+  (`harness-ro@hetzner`, `read_only: true`, подтверждено `gh api repos/.../keys`). `id_ed25519`
+  (rw) — ЛИЧНЫЙ ключ аккаунта `a3ka`, НЕ deploy-key репозитория (в `repos/.../keys` не
+  числится). Шаблоны без секретов (`ops/server/user/ssh/config`,
+  `ops/server/user/ssh/github-rw-cwd`) и их подключение в `install.sh` — ОТЛОЖЕНО (новые
+  пути вне текущей ЗОНА-строки контракта 074, нужна правка зоны); сверено живьём
+  2026-10-03, записано со слов станции.
 
 ## Установка из репо
 
