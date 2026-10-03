@@ -8,14 +8,21 @@
 # АРХИТЕКТОРОМ (красные предъявления ДО круга критика; прецеденты
 # 058/070/072/078).
 #
-# Структура (v1):
+# Структура (v2, круг 2 по вердикту критика к1):
 #   1. СТАБ-ПАК (9 обманных стабов + 9 диффпроб): каждый стаб красен
 #      на входе, где его дефект наблюдаем; clean-stub на той же клетке
 #      даёт другой rc → стаб пойман; clean-stub на чистом входе
 #      проходит rc 0 → диффпроба зелёная.
-#   2. ЧЕСТНАЯ ЧАСТЬ (16 клеток a1-a5, б1-б3, в1-в2, г1-г2, д'1-д'4) — против
-#      реальных scripts/orch_restart.sh, ops/server/root/orch-peak
-#      И scripts/check_staged.sh дерева; предъявляется живым прогоном.
+#   2. ЧЕСТНАЯ ЧАСТЬ (21 клетка a1-a5, б1-б3, в1-в3, г1-г2, г6-г8,
+#      д'1-д'5) — против реальных scripts/orch_restart.sh,
+#      ops/server/root/orch-peak И scripts/check_staged.sh дерева;
+#      предъявляется живым прогоном. Клетки в3/г6/г7/г8 — ПОВЕДЕНЧЕСКИЕ:
+#      субъект реально запускается командой ctx в sandbox-мире через шов
+#      ORCH_PEAK_TEST (инв. 4 контракта), наблюдается ПРИНЯТОЕ РЕШЕНИЕ
+#      (say.log с фразой / маркер поставлен-ждёт / отчёт «погибнут»),
+#      не только текст исходника. Клетка д'5 — linked worktree:
+#      загрязнение ОБЩЕГО config командой из worktree, субъект
+#      запущен ИЗ worktree (живая проба критика к1).
 #   3. г0 — fail-fast: orch_restart.sh без расширения (нет env/--as) →
 #      батарея красна на клетках двери.
 #
@@ -51,20 +58,34 @@
 # SBIN_DST; install.sh verify с швом OPS_SERVER_SRC/SBIN_DST/BIN_DST/ETC_DST.
 #
 # Прогон: bash red_dver_bugfiks_080.sh [корень worktree]
-#   rc 0 — стаб-пак 8/8 пойман + диффпроба 8/8 + честные 12/12.
+#   rc 0 — стаб-пак 9/9 пойман + диффпроба 9/9 + честные 21/21.
 #   rc 1 — расхождение / стаб не пойман.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 ROOT="${1:-$(cd "$HERE/../.." && pwd -P)}"
+# Аргумент-корень абсолютизируется ДО любого cd (иначе toy-строители,
+# уже сделавшие cd, читают относительный «./scripts/...» мимо клона —
+# измерено кругом 2: прогон с аргументом «.» дал rc=127 по всем клеткам).
+case "$ROOT" in
+  /*) ;;
+  *) ROOT="$PWD/$ROOT" ;;
+esac
+ROOT="$(cd "$ROOT" 2>/dev/null && pwd -P)" || { printf 'ОТКАЗ: корень %s не каталог\n' "$ROOT" >&2; exit 1; }
 
 die_pack() { printf '080-батарея ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || die_pack "нет git"
 command -v touch >/dev/null 2>&1 || die_pack "нет touch"
+command -v jq >/dev/null 2>&1 || die_pack "нет jq (cur_ctx субъекта читает usage через jq)"
+command -v timeout >/dev/null 2>&1 || die_pack "нет timeout (поведенческие клетки в3/г6-г8)"
 
-# Гигиена: ambient-швы сняты.
+# Гигиена: ambient-шовы сняты (включая шовы orch-peak — поведенческие
+# клетки подставляют СВОИ миры; ambient-переменные станции не должны
+# просачиваться в субъект).
 unset ORCH_RESTART_MARKER ORCH_SESSION_START ORCH_SESS_DIR \
-      GIT_AUTHOR_NAME GIT_COMMITTER_NAME ORCH_HARD_GRACE ORCH_HARD_POLL
-
+      GIT_AUTHOR_NAME GIT_COMMITTER_NAME ORCH_HARD_GRACE ORCH_HARD_POLL \
+      ORCH_PEAK_TEST ORCH_TMUX_SOCK ORCH_USER ORCH_REPO ORCH_MARK \
+      ORCH_STATE ORCH_LOG ORCH_REPORT ORCH_CTX_SOFT ORCH_CTX_HARD \
+      ORCH_SESS_GLOB ORCH_PEAK_GRACE ORCH_PEAK_POLL
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -196,10 +217,13 @@ if grep -qF "$PHRASE_OK" "$S6"; then
   sed -i "\|$PHRASE_OK|d" "$S6"
 fi
 
-# (s7) orch-peak WITHOUT polling var
+# (s7) orch-peak WITHOUT polling var: удаляются ВСЕ строки, содержащие
+# ORCH_HARD_GRACE / ORCH_HARD_POLL — форма строки (присваивание,
+# подстановка, отступ) — выбор реализатора, стаб обязан быть
+# различим при любой форме
 S7="$WORK/orch-peak-s7"
 cp "$ORCHPEAK_SRC" "$S7"
-sed -i 's/^ORCH_HARD_GRACE=.*//g; /^ORCH_HARD_POLL=/d' "$S7"
+sed -i '/ORCH_HARD_GRACE/d; /ORCH_HARD_POLL/d' "$S7"
 
 # (s8) orch-peak WITHOUT report string
 S8="$WORK/orch-peak-s8"
@@ -227,7 +251,7 @@ fi
 STAB_CAUGHT=0
 DIFF_GREEN=0
 HONEST_GREEN=0
-HONEST_TOTAL=16
+HONEST_TOTAL=21
 
 # ── ХЕЛПЕРЫ предикатов ───────────────────────────────────────────────────
 fail_cell() { printf 'клетка %s: %s\n' "$1" "$2" >&2; CELL_FAIL=1; }
@@ -499,6 +523,90 @@ run_peak_stab_cell() { # $1=name $2=stub-path $3=cell $4=phrase
   fi
 }
 
+# ── Поведенческий мир orch-peak (шов ORCH_PEAK_TEST, инв. 4 контракта) ──────
+# peak_world <dir> <usage-tokens> <agent|пусто> <age-sec|пусто=без журнала>:
+#   session-level .jsonl (cur_ctx читает usage через jq) + каталог сессии
+#   (совпадает с basename session-файла — та же конвенция, что у живых
+#   журналов) с субагентским <agent>.jsonl управляемого mtime + чистый
+#   toy-repo для ORCH_REPO (unsaved/wait_saved) + omp-pids файл шва.
+PEAK_SESS="20261003T120000_00000000-1111-2222-3333-444444444444"
+peak_world() {
+  local w="$1" usage="$2" agent="$3" age="$4"
+  rm -rf "$w"
+  mkdir -p "$w/peak-sess/$PEAK_SESS" "$w/testdir/state" "$w/repo"
+  printf '{"message":{"usage":{"input":%s,"cacheRead":0,"cacheWrite":0}}}\n' "$usage" \
+    > "$w/peak-sess/$PEAK_SESS.jsonl"
+  if [ -n "$agent" ]; then
+    : > "$w/peak-sess/$PEAK_SESS/$agent.jsonl"
+    [ -n "$age" ] && touch -d "@$(( $(date +%s) - age ))" "$w/peak-sess/$PEAK_SESS/$agent.jsonl"
+  fi
+  printf '424242\n' > "$w/testdir/omp-pids"
+  (
+    cd "$w/repo" || return 1
+    git init -q -b main
+    printf '## GDE (peak toy 080)\n' > HANDOFF.md
+    git init -q --bare -b main origin.git
+    git remote add origin "$PWD/origin.git"
+    git add -A
+    git -c user.name=architect -c user.email=architect@dev-harness.local \
+      commit -qm "toy: peak repo"
+    git push -q origin main >/dev/null 2>&1 || true
+  ) >/dev/null 2>&1
+}
+
+# run_peak_ctx <world-dir> <subject> [env NAME=VAL …] — запуск `ctx` в мире.
+#   Наблюдаемые выходы: $w/rc, $w/testdir/say.log (шов say), $w/mark,
+#   $w/report (явные ORCH_MARK/ORCH_REPORT). ORCH_TMUX_SOCK — несуществующий
+#   сокет: реальные tmux-панели станции не тронуты ни до, ни после правки.
+run_peak_ctx_env() {
+  local w="$1" subj="$2"
+  shift 2
+  rm -f "$w/rc" "$w/rc_stderr" "$w/mark" "$w/report" \
+        "$w/testdir/say.log" "$w/testdir/report" "$w/testdir/mark"
+  (
+    cd "$w" || exit 1
+    export ORCH_USER="$(id -un)"
+    export ORCH_REPO="$w/repo"
+    export ORCH_MARK="$w/mark"
+    export ORCH_REPORT="$w/report"
+    export ORCH_PEAK_TEST="$w/testdir"
+    export ORCH_SESS_GLOB="$w/peak-sess/*.jsonl"
+    export ORCH_TMUX_SOCK="$w/no-tmux-socket"
+    export ORCH_STATE="$w/testdir/state"
+    export ORCH_LOG="$w/testdir/log"
+    export ORCH_CTX_SOFT=300000
+    export ORCH_CTX_HARD=500000
+    export "$@"
+    timeout 30 bash "$subj" ctx >/dev/null 2>"$w/rc_stderr"
+    echo $? > "$w/rc"
+  ) >/dev/null 2>&1 || true
+}
+
+# Фоновый вариант для клетки г7 (состаривание журнала ПОКА субъект ждёт).
+run_peak_ctx_bg() {
+  local w="$1" subj="$2"
+  shift 2
+  rm -f "$w/rc" "$w/rc_stderr" "$w/mark" "$w/report" \
+        "$w/testdir/say.log" "$w/testdir/report" "$w/testdir/mark"
+  (
+    cd "$w" || exit 1
+    export ORCH_USER="$(id -un)"
+    export ORCH_REPO="$w/repo"
+    export ORCH_MARK="$w/mark"
+    export ORCH_REPORT="$w/report"
+    export ORCH_PEAK_TEST="$w/testdir"
+    export ORCH_SESS_GLOB="$w/peak-sess/*.jsonl"
+    export ORCH_TMUX_SOCK="$w/no-tmux-socket"
+    export ORCH_STATE="$w/testdir/state"
+    export ORCH_LOG="$w/testdir/log"
+    export ORCH_CTX_SOFT=300000
+    export ORCH_CTX_HARD=500000
+    export "$@"
+    timeout 30 bash "$subj" ctx >/dev/null 2>"$w/rc_stderr"
+    echo $? > "$w/rc"
+  ) >/dev/null 2>&1 &
+}
+
 # helpers ноги (д') (sandbox check_staged) ─
 setup_cs_sandbox() {
   local s="$1" wn="$2" we="$3"
@@ -601,6 +709,53 @@ run_cs_stab_cell() {
   rm -rf "$s_stab" "$s_clean" "$s_clean2"
 }
 
+# helpers клетки д'5 (linked worktree — живая проба критика к1):
+# sandbox-репозиторий с ЗАКОММИЧЕННОЙ scripts-копией + linked worktree;
+# загрязнение ОБЩЕГО config выполняется командой ИЗ worktree
+# (git config --local в worktree пишет в общий git-dir — измерено),
+# субъект запускается ИЗ worktree.
+setup_cs_worktree_sandbox() {
+  local s="$1"
+  rm -rf "$s" "$s-wt"
+  mkdir -p "$s"
+  (
+    cd "$s" || return 1
+    git init -q -b main
+    cp -r "$ROOT/scripts" scripts
+    : > .trigger
+    git add -A
+    git -c user.name=architect -c user.email=architect@dev-harness.local \
+      commit -qm "sandbox: init + scripts"
+    git worktree add -q "$s-wt" -b wt-sandbox
+    git -C "$s-wt" config --local user.name "leaked-by-worktree"
+    : > "$s-wt/wt.trigger"
+    git -C "$s-wt" add wt.trigger
+  ) >/dev/null 2>&1
+}
+
+run_cs_worktree_cell() {
+  local name="$1" s="$2" predicate="$3" expect="$4"
+  setup_cs_worktree_sandbox "$s"
+  CELL_FAIL=0
+  (
+    cd "$s-wt" || exit 1
+    export GIT_AUTHOR_NAME="env-bot"
+    bash scripts/check_staged.sh . >"$WORK/csw_out" 2>"$WORK/csw_err"
+    echo $? > "$WORK/csw_rc"
+  ) >/dev/null 2>&1 || true
+  local rc; rc=$(cat "$WORK/csw_rc" 2>/dev/null || echo "?")
+  local err; err=$(cat "$WORK/csw_err" 2>/dev/null || echo "")
+  case "$predicate" in
+    p_refuse)
+      if [ "$rc" = "1" ] && printf '%s' "$err" | grep -qF -- "$expect"; then
+        : # ok
+      else
+        fail_cell "$name" "rc=$rc err=$err (ожидалось rc=1 stderr содержит «$expect»; прямой ROOT/.git/config в worktree не видит загрязнения — до реализации нога (д') отсутствует)"
+      fi ;;
+  esac
+  rm -rf "$s" "$s-wt"
+}
+
 # ── Прогон пака стабов ──────────────────────────────────────────────────
 run_stab_cell s1 "$S1" a1
 run_stab_cell s2 "$S2" a1
@@ -656,6 +811,63 @@ run_cell_door б2 "$ROOT/scripts/orch_restart.sh" б2 p_pass
 run_cell_door б3 "$ROOT/scripts/orch_restart.sh" б3 p_pass
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
+# ── ПОВЕДЕНЧЕСКИЕ клетки сторожа (шов ORCH_PEAK_TEST) ─────────────────────
+# (в3) SOFT: сообщение с фразой ДОСТАВЛЕНО (say.log шва), маркер не ставится.
+W3="$WORK/peak-v3"
+peak_world "$W3" 400000 "" ""
+run_peak_ctx_env "$W3" "$ORCHPEAK_SRC"
+CELL_FAIL=0
+if grep -qF "$PHRASE_OK" "$W3/testdir/say.log" 2>/dev/null && [ ! -e "$W3/mark" ]; then
+  HONEST_GREEN=$((HONEST_GREEN + 1))
+else
+  fail_cell в3 "say.log=[$(cat "$W3/testdir/say.log" 2>/dev/null)] mark=$([ -e "$W3/mark" ] && echo есть || echo нет) (ожидалось: фраза в say.log, маркера нет — до реализации шов ORCH_PEAK_TEST не поддержан)"
+fi
+
+# (г6) HARD, свежих нет на входе: маркер ставится, отчёта «погибнут» нет.
+W6="$WORK/peak-g6"
+peak_world "$W6" 600000 OldPeakAgent 300
+run_peak_ctx_env "$W6" "$ORCHPEAK_SRC" \
+  ORCH_HARD_GRACE=5 ORCH_HARD_POLL=1 ORCH_PEAK_GRACE=1 ORCH_PEAK_POLL=1
+CELL_FAIL=0
+if [ -e "$W6/mark" ] && ! grep -qF 'живые субагенты погибнут' "$W6/report" 2>/dev/null; then
+  HONEST_GREEN=$((HONEST_GREEN + 1))
+else
+  fail_cell г6 "mark=$([ -e "$W6/mark" ] && echo есть || echo нет) report=[$(cat "$W6/report" 2>/dev/null)] (ожидалось: маркер поставлен, «погибнут» в отчёте НЕТ — до реализации шов не поддержан: as_u/runuser отказывает без root, маркер не ставится)"
+fi
+
+# (г7) HARD, свежий состарился ДО таймаута: маркер ПОСЛЕ состаривания
+# (до состаривания маркера нет — наблюдается ожидание), отчёта «погибнут» нет.
+W7="$WORK/peak-g7"
+peak_world "$W7" 600000 LivePeakAgent 0
+run_peak_ctx_bg "$W7" "$ORCHPEAK_SRC" \
+  ORCH_HARD_GRACE=8 ORCH_HARD_POLL=1 ORCH_PEAK_GRACE=1 ORCH_PEAK_POLL=1
+sleep 2
+CELL_FAIL=0
+if [ -e "$W7/mark" ]; then
+  fail_cell г7 "маркер поставлен ДО состаривания журнала (на T+2s журнал ещё свежий — до реализации опрос свежести отсутствует, предмет (г) не реализован)"
+else
+  touch -d "@$(( $(date +%s) - 300 ))" "$W7/peak-sess/$PEAK_SESS/LivePeakAgent.jsonl"
+  for _ in $(seq 1 40); do [ -s "$W7/rc" ] && break; sleep 1; done
+  if [ -e "$W7/mark" ] && ! grep -qF 'живые субагенты погибнут' "$W7/report" 2>/dev/null; then
+    HONEST_GREEN=$((HONEST_GREEN + 1))
+  else
+    fail_cell г7 "после состаривания: mark=$([ -e "$W7/mark" ] && echo есть || echo нет) report=[$(cat "$W7/report" 2>/dev/null)] (ожидалось: маркер поставлен, «погибнут» НЕТ)"
+  fi
+fi
+
+# (г8) HARD, свежий НЕ состарился за ORCH_HARD_GRACE: принудительный маркер
+# + отчёт «живые субагенты погибнут: <имя>» (окно свежести 120s ≫ grace 3s).
+W8="$WORK/peak-g8"
+peak_world "$W8" 600000 LivePeak2 0
+run_peak_ctx_env "$W8" "$ORCHPEAK_SRC" \
+  ORCH_HARD_GRACE=3 ORCH_HARD_POLL=1 ORCH_PEAK_GRACE=1 ORCH_PEAK_POLL=1
+CELL_FAIL=0
+if [ -e "$W8/mark" ] && grep -qF 'живые субагенты погибнут: LivePeak2' "$W8/report" 2>/dev/null; then
+  HONEST_GREEN=$((HONEST_GREEN + 1))
+else
+  fail_cell г8 "mark=$([ -e "$W8/mark" ] && echo есть || echo нет) report=[$(cat "$W8/report" 2>/dev/null)] (ожидалось: принудительный маркер + «живые субагенты погибнут: LivePeak2» в отчёте — до реализации шов не поддержан)"
+fi
+
 # Клетки в1-в2, г1-г2 (real ops/server/root/orch-peak + install.sh verify)
 sandbox_install "$ORCHPEAK_SRC"
 CELL_FAIL=0
@@ -696,12 +908,20 @@ run_cs_cell "д'1" "$WORK/cs-d1" "" 1 0 p_refuse "identity в общем .git/co
 run_cs_cell "д'2" "$WORK/cs-d2" "" 0 1 p_refuse "identity в общем .git/config запрещена"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
-# (д'3) sandbox без user.*, identity через env → rc 0
+# (д'3) sandbox без user.*, identity коммита через -c: git пробрасывает
+# -c-значения в hook-окружение как GIT_AUTHOR_* (измерено, шапка
+# check_staged.sh), клетка моделирует hook-окружение env-прогоном → rc 0
 run_cs_cell "д'3" "$WORK/cs-d3" "" 0 0 p_pass ""
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
-# (д'4) sandbox без user.*, identity через env (без -c) → rc 0
+# (д'4) sandbox без user.*, identity через env сессии (без -c) → rc 0
 run_cs_cell "д'4" "$WORK/cs-d4" "" 0 0 p_pass ""
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (д'5) linked worktree: загрязнение ОБЩЕГО config из worktree (живая
+# проба критика к1 — прямой $ROOT/.git/config в worktree не видит его);
+# субъект запущен ИЗ worktree → rc 1 с маркером (д')
+run_cs_worktree_cell "д'5" "$WORK/cs-d5" p_refuse "identity в общем .git/config запрещена"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # ── ИТОГ ────────────────────────────────────────────────────────────────
