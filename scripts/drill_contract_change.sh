@@ -56,7 +56,14 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 
 mkdir -p "$ROOT/tmp"
 W="$(mktemp -d "$ROOT/tmp/drill-charter.XXXXXX")"
-trap 'rm -rf "$W"' EXIT
+# bare-origin (контракт 078, правка вне зон по прямому слову владельца 2026-10-03,
+# прецедент 54ff90f): toy-дерево $W без remote origin — lib_active_contracts.sh
+# (fail-closed по живому ls-remote, §3-bis freeze_contract.sh) отказывает «авторитет
+# недоступен», до предмета дрилла дело не доходит. Свежий пустой bare-origin рядом —
+# активных 0 < 2, лимит пропускает, предмет дрилла (устав-процедура) остаётся
+# единственным судимым. Тот же приём, что fixtures/freeze_contract/_repo.sh.
+W_ORIGIN="$(mktemp -d "$ROOT/tmp/drill-charter-origin.XXXXXX")"
+trap 'rm -rf "$W" "$W_ORIGIN"' EXIT
 
 ok() { printf '  ok   %s\n' "$*" >&2; }
 otkaz() {  # <шаг> <код> <файл вывода>
@@ -110,6 +117,8 @@ base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git ini
 # герметичном окружении он иначе падает с `empty ident name`, и дрилл валил бы себя своей же пробой.
 base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$W" config user.name Дрилл
 base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$W" config user.email drill@local
+base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q --bare "$W_ORIGIN"
+base_or_skip env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$W" remote add origin "$W_ORIGIN"
 base_or_skip g add -A
 base_or_skip g commit -q -m 'основание: контракт, вердикт критика, норма и роадмап'
 ok 'шаг 1: контракт и вердикт критика v1 закоммичены'
