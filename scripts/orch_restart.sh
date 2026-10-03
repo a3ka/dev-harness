@@ -180,26 +180,9 @@ me="$IDENTITY"
 
 # Стартовый след (инвариант 11): файла нет → инициализация «сейчас»
 # (инициализация НЕ вакуумна); пустой/нечитаемый → fail-closed rc 2.
-# 080-расширение: если HANDOFF.md уже есть в репозитории (нормальная работа
-# оркестратора — коммит HANDOFF предшествует вызову двери), инициализируем
-# след на ct(HANDOFF)−1с, чтобы первая дверь в сессии проходила (в2)
-# без отдельной ручной преинициализации `trace_past` (как требует
-# замороженная 072-фикстура); стандартная инициализация «сейчас» оставлена
-# как fallback для случая, когда HANDOFF.md пуст/нечитаем — тогда дверь
-# отказывает на (в2) по канону 072.
 if [ ! -f "$TRACE" ]; then
   mkdir -p "$(dirname "$TRACE")"
-  init_ep="$(g log -1 --format=%ct -- HANDOFF.md 2>/dev/null || true)"
-  if [ -n "$init_ep" ]; then
-    init_ep=$((init_ep - 1))
-    init_iso="$(date -u -d "@$init_ep" -Is 2>/dev/null || true)"
-    if [ -z "$init_iso" ]; then
-      init_iso="$(date -Is)"
-    fi
-  else
-    init_iso="$(date -Is)"
-  fi
-  printf '%s\n' "$init_iso" > "$TRACE.tmp.$$" \
+  printf '%s\n' "$(date -Is)" > "$TRACE.tmp.$$" \
     && mv -f "$TRACE.tmp.$$" "$TRACE"
 fi
 # Инвариант 11 (адверсарий 072-r1 Б2): след обязан нести РОВНО ОДНУ
