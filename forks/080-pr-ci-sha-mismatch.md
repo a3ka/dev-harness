@@ -56,6 +56,17 @@ AGENTS.md не разошёлся), ЛИБО squash-коммитом с нуля
 МАРШРУТ: консультант
 ЗАВЕДЁН: 2026-10-03T20:27:46Z
 АВТОР: orchestrator (default)
-БЛОКИРУЕТ: да — land 080 (implementer-спавн, done) стоит на выборе одного из путей выше;
-  main НЕ мутирован, работа 078/081 НЕ заблокирована (параллельный слот).
-ОТВЕЧЕНО: нет
+БЛОКИРУЕТ: нет — закрыто.
+ОТВЕЧЕНО: да — консультант (openai-codex/gpt-6-astra), слово владельца «маршрут а, владелец
+  поручил консультанту решать за него этой ночью» (2026-10-03). Решение: путь (в) —
+  cherry-pick `73070ff` НАВЕРХ `27b1f05e` (НЕ merge, НЕ squash) в одноразовом SSH-клоне,
+  identity committer=architect/author=owner (preserved), push, дождаться СВЕЖЕГО PR-CI по
+  `--json conclusion,jobs` на точном sha. Исполнено: новый коммит `911e327`, PR-CI run
+  `37152332535` — изначально ap4-шард `cancelled` (инфраструктурный флейк, НЕ содержательный
+  отказ), ретриггер `gh run rerun --job <id>` дал ПОЛНОСТЬЮ зелёный прогон (все 6 jobs
+  success, включая `ci`/`npm run check:charter`). Ленд исполнен ручным `merge --no-ff`
+  (Н-81/82 precedent, land_agent.sh И-9 по-прежнему отказывает на исходных 4 коммитах
+  — committer=orchestrator/author=architect, не анкер-вопрос, отдельный класс) →
+  `gitw push origin main` зелёным предполётом → `55e7436` на origin. Урок роли записан
+  отдельно (NABLIUDENIA): `gh run view <id>` текстом недостаточен для вердикта, нужен
+  `--json conclusion,jobs`.
