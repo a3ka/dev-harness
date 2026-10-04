@@ -153,16 +153,31 @@ while [ "$#" -gt 0 ]; do
       # на детерминированных входах. Если любой запуск дал не
       # ожидаемый rc — fail-closed отказ «identity двери не определена»
       # БЕЗ передачи AS_VAL дальше (маркер не ставится).
-      printf 'a b' | grep -P -q '\p{Z}' 2>/dev/null; rc_pos=$?
-      printf 'ok' | grep -P -q '\p{Z}' 2>/dev/null; rc_neg=$?
-      if [ "$rc_pos" -ne 0 ] || [ "$rc_neg" -ne 1 ]; then
+      # Канарейка проверяет ТОТ ЖЕ предикат, что и разбор значения,
+      # на каждом его классе: Z (space), Cc (control) и Cf (format).
+      # Иначе shim мог бы честно ответить на старый `\p{Z}`-контроль,
+      # но превратить рабочий составной предикат в ложное «не найдено».
+      grammar_re='\p{Z}|\p{Cc}|\p{Cf}'
+      printf 'a b' | grep -P -q "$grammar_re" 2>/dev/null; rc_z=$?
+      printf 'a\001b' | grep -P -q "$grammar_re" 2>/dev/null; rc_cc=$?
+      printf 'a\u200Bb' | grep -P -q "$grammar_re" 2>/dev/null; rc_cf=$?
+      printf 'ok' | grep -P -q "$grammar_re" 2>/dev/null; rc_neg=$?
+      if [ "$rc_z" -ne 0 ] || [ "$rc_cc" -ne 0 ] || [ "$rc_cf" -ne 0 ] || [ "$rc_neg" -ne 1 ]; then
         printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
         exit 1
       fi
-      if printf '%s' "$AS_VAL" | grep -P -q '\p{Z}|\p{Cc}|\p{Cf}' 2>/dev/null; then
-        printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
-        exit 1
-      fi
+      printf '%s' "$AS_VAL" | grep -P -q "$grammar_re" 2>/dev/null; rc_value=$?
+      case "$rc_value" in
+        0)
+          printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+          exit 1
+          ;;
+        1) ;;
+        *)
+          printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+          exit 1
+          ;;
+      esac
       shift
       ;;
     *)
