@@ -96,10 +96,9 @@ main `af493c4`): 8 строк `ok`, 1 `FAIL lib_session.sh: не классиф�
 
 ## Зоны
 
-- ЗОНА architect: `contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md`,
-  `fixtures/verify_antiplacebo/red_watchdog_082.sh`
-- ЗОНА implementer: `scripts/verify_antiplacebo.sh`
-- РАБОТА НЕ РАЗДАЁТСЯ: подключение guard-шага в `.github/workflows/ci.yml` — файл в зоне
+ЗОНА architect: contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md fixtures/verify_antiplacebo/red_watchdog_082.sh
+ЗОНА implementer: scripts/verify_antiplacebo.sh
+РАБОТА НЕ РАЗДАЁТСЯ: подключение guard-шага в `.github/workflows/ci.yml` — файл в зоне
   параллельного 080-потока в этой сессии; после лендинга 080 — отдельным словом оркестратора.
 
 ## Остаточный риск
