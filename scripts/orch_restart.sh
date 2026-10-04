@@ -159,7 +159,7 @@ while [ "$#" -gt 0 ]; do
         printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
         exit 1
       fi
-      if printf '%s' "$AS_VAL" | grep -P -q '\p{Z}|\p{Cc}' 2>/dev/null; then
+      if printf '%s' "$AS_VAL" | grep -P -q '\p{Z}|\p{Cc}|\p{Cf}' 2>/dev/null; then
         printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
         exit 1
       fi
