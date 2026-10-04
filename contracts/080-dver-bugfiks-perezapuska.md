@@ -697,9 +697,9 @@ mktemp. Пути toy-миров СЛУЧАЙНЫ (mktemp; инвариантно
 
 ## Зоны (check_zones)
 
-ЗОНА architect: contracts/080-dver-bugfiks-perezapuska.md fixtures/dver_bugfiks_080/ fixtures/_krasnye_080.sh fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh
+ЗОНА architect: contracts/080-dver-bugfiks-perezapuska.md fixtures/dver_bugfiks_080/ fixtures/_krasnye_080.sh fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh fixtures/check_staged/ fixtures/orch_restart/case_01_honest_green.sh
 
-ЗОНА implementer: scripts/orch_restart.sh scripts/lib_session.sh scripts/check_staged.sh ops/server/root/orch-peak
+ЗОНА implementer: scripts/orch_restart.sh scripts/lib_session.sh scripts/check_staged.sh ops/server/root/orch-peak scripts/check_hooks.sh
 
 Зона implementer раздаётся ПОСЛЕ заморозки (прецедент 070/078).
 Реализационная пачка несёт: расширение `scripts/orch_restart.sh`
@@ -711,9 +711,12 @@ polling + report в `CTX_HARD`-ветке + тест-шов `ORCH_PEAK_TEST`,
 инв. 4); новую ногу (д') в `scripts/check_staged.sh` (инв. 18).
 
 ПЕРЕСЕЧЕНИЕ implementer: scripts/orch_restart.sh — 072 implementer-зона (landed): дельта — только identity-нога (а) + нога живых субагентов (б) + шов `ORCH_SESS_DIR`; остальные ноги (а)/(б)/(в)/(г)/(д) гейта 072, fail-closed rc 2, коды возврата — без изменений; след сессии (инв. 11 072) — без изменений; (в2) committer-дата > следа — переход к инварианту 2 настоящего контракта (identity из env/--as, не file-config); замороженная батарея 072 зелёна
-ПЕРЕСЕЧЕНИЕ implementer: scripts/check_staged.sh — 016 implementer-зона (landed; рядом 018/019/023/031/049 — те же автор implementer): дельта — ТОЛЬКО новая нога (д') (инв. 18), первая после git-префлайта; остальные ветви 016/018/019/023/031/049 НЕ правятся; запрет второй правки — см. ниже
+ПЕРЕСЕЧЕНИЕ implementer: scripts/check_staged.sh — 016 implementer-зона (landed; рядом 018/019/023/031/049 — те же автор implementer): дельта — ТОЛЬКО новая нога (д') (инв. 18), первая после git-префлайта; остальные ветви 016/018/019/023/031/049 НЕ правятся; запрет второй правки — см. ниже; v+1 (Н-201): исключения по `fixtures/**` в check_staged.sh НЕ вводятся (слово владельца)
 ПЕРЕСЕЧЕНИЕ implementer: ops/server/root/orch-peak — 074 implementer-зона (landed): дельта — добавление фразы в CTX_SOFT + polling+report в CTX_HARD + тест-шов ORCH_PEAK_TEST (инв. 4); инвентарь обвязки 9 файлов не меняется
+ПЕРЕСЕЧЕНИЕ implementer: scripts/check_hooks.sh — 016/022 implementer-зоны (проверяющий pre-commit/pre-push-хуков): дельта v+1 (Н-201) — ТОЛЬКО безфайловая identity setup внутренней pre-commit-пробы §5 и обоих вызовов скопированного хука; случайные токены, двухфазность, rc-предикаты, проверка причины/имени, выбор реального судьи из SELF_DIR и pre-push-проба §8 НЕ меняются
 ПЕРЕСЕЧЕНИЕ architect: fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh — 072 замороженная батарея (frozen, автор architect тот же — union-владение 033): дельта — ТОЛЬКО явная identity честных прогонов (`GIT_AUTHOR_NAME=$DOOR_ID` или эквивалент под новой безфайловой identity-моделью 080) во все стадии run_honest/run_exit_honest/к11/к16; стабы, предикаты, конструкторы нарушений и ожидаемые результаты 072 НЕ меняются; инв. 11 072 (след сессии) без изменений; живой прогон `bash fixtures/_krasnye_072.sh` ОБЯЗАН остаться зелёным после правки — приложи его вывод в докладе
+ПЕРЕСЕЧЕНИЕ architect: fixtures/check_staged/ — 016/018/019/023/031/049 (прежние владельцы, автор implementer): дельта v+1 (Н-201) — ТОЛЬКО перенос identity setup и смены автора из file-config в адресные -c/env с сохранением значений авторов (git-вызовы — `-c` в `g()`; субъект — объявленные `# ОКРУЖЕНИЕ:` env-пары раннера); стабы, предикаты, конструкторы нарушений и ожидаемые результаты исходных контрактов НЕ меняются; живой scoped-прогон `verify_antiplacebo.sh --scope check_staged` обязателен в докладе
+ПЕРЕСЕЧЕНИЕ architect: fixtures/orch_restart/case_01_honest_green.sh — 072 implementer-зона (замороженная семья, семейство verify_antiplacebo): дельта v+1 (Н-201) — ТОЛЬКО безфайловая identity setup-коммита (`-c`) и обоих вызовов двери (`--as`/env); предикаты, ожидаемые результаты и конструкторы НЕ меняются; живой scoped-прогон `--scope orch_restart` обязателен в докладе
 
 Не правятся настоящим контрактом (вне ЗОНА-строк, пересечений
 нет): scripts/gc_agent_branches.sh (072, реестр wip и мусорные
@@ -739,7 +742,16 @@ fixtures/perezapusk_sessii/ (замороженная батарея 072; сем
 прогонов (ЗОНА architect + ПЕРЕСЕЧЕНИЕ architect выше; прецедент
 e6203a5); исключение НЕ шире одного файла
 fixtures/orch_restart/ (замороженная семья 072; семейство
-verify_antiplacebo для orch_restart) scripts/check_zones.sh
+verify_antiplacebo для orch_restart) — путь НЕ раздаётся В ЦЕЛОМ,
+КРОМЕ точного файла `case_01_honest_green.sh` и ТОЛЬКО дельты
+безфайловой identity setup-коммита и обоих вызовов двери
+(ЗОНА architect + ПЕРЕСЕЧЕНИЕ architect выше; адаптация Н-201,
+слово владельца v+1); исключение НЕ шире одного файла
+fixtures/check_hooks/ (case-семья проверяющего pre-commit/pre-push
+хуков; красна по Н-201, но загрязняющий toy создаёт сам
+scripts/check_hooks.sh §5, не case-файлы) — НЕ раздаётся без
+предъявленной отдельной необходимой setup-дельты (слово владельца v+1)
+scripts/check_zones.sh
 (исполнитель — только в зону) scripts/check_no_leak.sh
 (024, вход ноги 072 (г), не правится) scripts/gc_agent_branches.sh
 (072, нет правок) scripts/freeze_contract.sh (минт и заморозка
