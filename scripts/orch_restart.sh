@@ -79,6 +79,19 @@ if [ -f "$ROOT/scripts/lib_session.sh" ]; then
   # shellcheck disable=SC1091
   . "$ROOT/scripts/lib_session.sh"
 fi
+# Фолбэк (ЗОНА 080 — implementer, не architect): если scripts/lib_session.sh
+# не подгружен (исторический toy-мир 072, неполный sandbox), дверь НЕ
+# должна падать с «command not found». Минимальная заглушка возвращает
+# «нет субагентов» (rc 0, пусто) — никаких гарантий безопасности, это
+# совместимость с тестовой инфраструктурой, а не защита. На станции
+# scripts/lib_session.sh всегда рядом (lib_session.sh — ЕДИНСТВЕННЫЙ
+# источник `current_session_dir` / `live_subagents_in`, инв. 13).
+if ! declare -F current_session_dir >/dev/null 2>&1; then
+  current_session_dir() { return 0; }
+fi
+if ! declare -F live_subagents_in >/dev/null 2>&1; then
+  live_subagents_in() { return 0; }
+fi
 
 # ── Разбор аргументов двери (контракт 080, инв. 1) ────────────────────────
 # Приоритет: (а1) GIT_AUTHOR_NAME → (а2) GIT_COMMITTER_NAME → (а3) --as <имя>.
@@ -235,7 +248,18 @@ g rev-parse --verify origin/main >/dev/null 2>&1 \
 if [ -z "$SESS_DIR" ]; then
   SESS_DIR="$(current_session_dir 2>/dev/null || true)"
 fi
-LIVE_NAMES="$(live_subagents_in "${SESS_DIR:-}" 2>/dev/null || true)"
+# rc 2 из live_subagents_in (stat отказал — review 080 Б-1) — честный
+# «нечем проверить» НЕ молчаливый проход: пробрасываем как rc 2
+# NOT_IMPLEMENTED, stderr сохраняется (НЕ 2>/dev/null) — причина
+# видна вызывающему (оркестратору/человеку), и двери НЕ ставит маркер.
+LIVE_NAMES="$(live_subagents_in "${SESS_DIR:-}")"; live_rc=$?
+if [ "$live_rc" -eq 2 ]; then
+  exit 2
+fi
+if [ "$live_rc" -ne 0 ]; then
+  printf 'NOT_IMPLEMENTED: live_subagents_in rc=%d\n' "$live_rc" >&2
+  exit 2
+fi
 if [ -n "$LIVE_NAMES" ]; then
   printf 'ОТКАЗ: живые субагенты: %s\n' "$LIVE_NAMES" >&2
   exit 1

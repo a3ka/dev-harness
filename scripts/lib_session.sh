@@ -61,7 +61,19 @@ live_subagents_in() {
   shopt -s dotglob nullglob
   for f in "$sess_dir"/*.jsonl; do
     [ -e "$f" ] || continue
-    mt="$(stat -c %Y "$f" 2>/dev/null || echo 0)"
+    # stat не ответил (нет бинаря, отказ прав, race): «нечем проверить»
+    # НЕ «mtime=0/journal-old». Молчаливый mtime=0 при ЖИВОМ субагенте
+    # привёл бы к fail-open двери (review 080 Б-1) — журнал свежий, но
+    # в список свежих не попадает. Возвращаем rc 2 NOT_IMPLEMENTED;
+    # дверь пробрасывает rc 2 и НЕ ставит маркер.
+    if ! mt="$(stat -c %Y "$f" 2>/dev/null)"; then
+      if [ "$prev_dotglob" -eq 0 ]; then
+        shopt -u dotglob 2>/dev/null || true
+      fi
+      shopt -u nullglob 2>/dev/null || true
+      printf 'NOT_IMPLEMENTED: stat не ответил на %s\n' "$f" >&2
+      return 2
+    fi
     age=$((now - mt))
     [ "$age" -lt 120 ] || continue
     name="$(basename -- "$f" .jsonl)"
