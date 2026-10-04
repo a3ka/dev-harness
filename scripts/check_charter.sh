@@ -51,7 +51,8 @@
 # РАЗРЕШИЛ в теле merge-коммита, evil merge без строки — «изменён без разрешения владельца».
 #
 # ГРАНДФАЗЕР-АЛЛОУЛИСТ (контракт 046, ветвь 1, узкий non-rewriteable; 8-я пара — контракт
-# 065; 9-я/10-я — контракт 074; 11-я/12-я/13-я — Н-192, контракт 080) — 13 пар (SHA, путь),
+# 065; 9-я/10-я — контракт 074; 11-я/12-я/13-я — Н-192, контракт 080; 14-я — squash-ленд
+# 080, Б-6 ревьюера, слово владельца 2026-10-04) — 14 пар (SHA, путь),
 # санкционированных владельцем: 7 текстом в сессии 2026-09-25 (источник — аннотации тегов
 # `frozen/contracts/037/2`, `frozen/contracts/043/2`, `frozen/contracts/045/2`), 8-я — прямым
 # словом 2026-09-30, записанным строкой РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита-носителя этой пары,
@@ -86,6 +87,9 @@
 #   27b1f05eec6bc8ac883f18f2943560c017a746a3  contracts/080-dver-bugfiks-perezapuska.md
 #   152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd  contracts/080-dver-bugfiks-perezapuska.md
 #   abc4c60626ce0d3f89f41082f9092d0d6dcb9187  contracts/080-dver-bugfiks-perezapuska.md
+#   c672f2b3d32c92023be4a0740842b1b2c3ee3bf5  contracts/080-dver-bugfiks-perezapuska.md
+#   (14-я: squash-ленд батча 080 свернул строки РАЗРЕШИЛ коммитов цепочки 242910be/
+#   d50c0976 — слово владельца 2026-10-04, дословно в теле коммита-добавителя)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -204,6 +208,8 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
     152b97a3b52e63e4bf555d9dd9b2dacaf308a1fd)
       [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
     abc4c60626ce0d3f89f41082f9092d0d6dcb9187)
+      [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
+    c672f2b3d32c92023be4a0740842b1b2c3ee3bf5)
       [ "$p" = "contracts/080-dver-bugfiks-perezapuska.md" ] && return 0 ;;
   esac
 
