@@ -131,6 +131,24 @@ ok()   { printf '  ok   %s\n' "$*" >&2; }
 bad()  { fails=$((fails + 1)); printf '  FAIL %s\n' "$*" >&2; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
+# ── AP_CASE_BUDGET: пер-кейсный дедлайн (контракт 082, инв. 6) ─────────────────
+# Грамматика: целое ≥1, десятичные цифры, без знака/пробелов/ведущих нулей
+# (`^[1-9][0-9]*$`); не задана — дефолт 120; невалидная (пустая, не-число, ≤0) —
+# именованный отказ с кодом 1 ДО запуска кейсов (наблюдаемо: ни один кейс не
+# исполняется — маркер запуска ZAPUSK_BIL_082.<фаза> не создан). Разбор идёт
+# здесь, до `[ -d "$SCRIPTS" ]` ниже: невалидный бюджет обязан отказать и тогда,
+# когда область пуста, и тогда, когда lock уже занят, — это fail-closed парсер,
+# а не валидатор конкретного прогона.
+AP_CASE_BUDGET_DEFAULT=120
+if [ -z "${AP_CASE_BUDGET+x}" ]; then
+  AP_CASE_BUDGET="$AP_CASE_BUDGET_DEFAULT"
+elif printf '%s' "$AP_CASE_BUDGET" | grep -qE '^[1-9][0-9]*$'; then
+  : # валидное значение
+else
+  bad "AP_CASE_BUDGET=<${AP_CASE_BUDGET:-пустая}> — невалидное значение (ожидается целое ≥1 без знака/пробелов/ведущих нулей, дефолт $AP_CASE_BUDGET_DEFAULT)"
+  exit 1
+fi
+
 [ -d "$SCRIPTS" ] || skip "нет каталога $SCRIPTS — область проверки не выводится"
 
 # Шапка: первый непрерывный блок комментариев. Любая строка кода её закрывает, поэтому данные
@@ -676,16 +694,40 @@ WRAP
       bash "$c" > "$d/case.out" 2>&1 &
     case_pid=$!
 
+    # ПЕР-КЕЙСНЫЙ ДЕДЛАЙН (контракт 082, инв. 1): стена от setsid до полного вердикта
+    # (включая повтор :743). case_start фиксируется здесь; serve/rerun/outer-loop
+    # проверяют `now - case_start < AP_CASE_BUDGET` и при превышении выставляют
+    # timed_out=1 — тогда вердикт становится именованным таймаут-FAIL (инв. 2).
+    case_start=$(date +%s)
+    timed_out=0
     inv_rc=(); inv_out=(); inv_argv=(); inv_cwd=(); inv_root=()
     serve() {
-      local resp root cwd enc a argv=() out rc
+      local resp root cwd enc a argv=() out rc wp now elapsed
+      # Бюджет истёк ДО чтения заявки (сайт C, инв. 1): цикл обслуживания обязан
+      # остановиться, а не крутиться вечно с 0.2с-чтением.
+      now=$(date +%s)
+      elapsed=$((now - case_start))
+      if [ "$elapsed" -ge "$AP_CASE_BUDGET" ]; then timed_out=1; return 1; fi
       IFS=$'\x1f' read -r -t 0.2 resp root cwd enc <&"$reqfd" || return 1
       # `${a#x}` снимает маркер, которым клиент канала защищает ПУСТОЙ аргумент от схлопывания.
       for a in $enc; do argv+=("$(printf '%s' "${a#x}" | base64 -d)"); done
+      # САЙТ A (контракт 082, инв. 3): ap_run без таймаута держит кейс неограниченно.
+      # Оборачиваем в `timeout` с ОСТАВШИМСЯ бюджетом — единая стена от старта кейса
+      # до вердикта (инв. 6, зеркало Б5/Б6), а не сброс на каждом вызове.
+      now=$(date +%s); elapsed=$((now - case_start))
+      local remaining=$((AP_CASE_BUDGET - elapsed))
+      if [ "$remaining" -le 0 ]; then timed_out=1; return 1; fi
       set +e
-      out="$( cd "$cwd" 2>/dev/null && ap_run "$b" "$root" "$d/env" "${argv[@]}" 2>&1 )"
+      # `timeout` запускает команду через /bin/sh — `ap_run` как функция bash ему не видна.
+      # `export -f` делает определение функции доступным дочерним bash-процессам; обёртка
+      # `bash -c 'ap_run "$@"' _ …` запускает функцию в bash-субшелле под потолком timeout.
+      export -f ap_run
+      out="$( cd "$cwd" 2>/dev/null && timeout "$remaining" bash -c 'ap_run "$@"' _ "$b" "$root" "$d/env" "${argv[@]}" 2>&1 )"
       rc=$?
       set -e
+      # ap_run мог вернуть 124 (timeout) — это и есть причина именованного FAIL.
+      now=$(date +%s); elapsed=$((now - case_start))
+      if [ "$elapsed" -ge "$AP_CASE_BUDGET" ]; then timed_out=1; fi
       inv_rc+=("$rc"); inv_out+=("$out"); inv_cwd+=("$cwd"); inv_root+=("$root")
       inv_argv+=("$enc")
       # Журнал — ДЛЯ ЧЕЛОВЕКА, а не для вердикта: вердикт считается по массивам в памяти, а
@@ -693,21 +735,44 @@ WRAP
       { printf '=== вызов %d: код %s, каталог %s, корень «%s»\n' \
           "${#inv_rc[@]}" "$rc" "$cwd" "$root"
         printf '%s\n' "$out" | sed 's/^/    /'; } >> "$d/invocations.log"
-      { printf '%s\n' "$rc"; printf '%s\n' "$out"; } > "$resp"
+      # САЙТ B (контракт 082, инв. 3): запись в resp-FIFO блокируется, если клиент-обёртка
+      # (создатель FIFO `r.<pid>.<rand>`) умерла до чтения ответа. PID обёртки извлекается
+      # из имени FIFO; если его уже нет — запись не исполняется (стратегия свободна: дедлайн
+      # ИЛИ неблокирующая запись — здесь вторая, наблюдаемо: кейс судится, прогон идёт дальше).
+      wp="${resp##*/r.}"; wp="${wp%%.*}"
+      if [ -n "$wp" ] && kill -0 "$wp" 2>/dev/null; then
+        { printf '%s\n' "$rc"; printf '%s\n' "$out"; } > "$resp"
+      fi
+      # timed_out=1 здесь — ap_run вышел по timeout: возвращаем 1, чтобы outer-loop
+      # не крутился впустую; сам вердикт-таймаут выставится ниже по timed_out.
+      if [ "$timed_out" -eq 1 ]; then return 1; fi
       return 0
     }
     while :; do
+      if [ "$timed_out" -eq 1 ]; then break; fi
       serve && continue
       kill -0 "$case_pid" 2>/dev/null || break
     done
     serve || true
+    # Группа процессов фикстуры добивается ДО `wait`: оставленный фоновый потомок
+    # (например `sleep 555.082` в site C) держит `wait` бесконечно. -- -PID шлёт
+    # сигнал ГРУППЕ (контракт 082, инв. 2: «kill -- -<pgid>»); setsid сделал кейс
+    # лидером сессии, и pgid равен case_pid. Сначала SIGTERM, потом SIGKILL для
+    # неотEXITящих (sleep отвечает на SIGTERM, но защита от зависшего потомка нужна).
+    kill -- -"$case_pid" 2>/dev/null || true
+    sleep 0.2
+    kill -9 -- -"$case_pid" 2>/dev/null || true
     set +e
     wait "$case_pid"; case_rc=$?
     set -e
-    # Группа процессов фикстуры добивается ДО повтора: оставленный фоновый потомок правил бы
-    # барьер во время повторного прогона и восстанавливал после.
-    kill -- -"$case_pid" 2>/dev/null || true
     exec {reqfd}>&-
+
+    # ИМЕНОВАННЫЙ ТАЙМАУТ-FAIL (инв. 2): кейс превысил AP_CASE_BUDGET, группа убита,
+    # раннер продолжает со следующим кейсом (continue), итог прогона — rc=1.
+    if [ "$timed_out" -eq 1 ]; then
+      bad "$cname: таймаут — кейс превысил бюджет ${AP_CASE_BUDGET} с (группа процессов кейса убита)"
+      continue
+    fi
 
     seen="${#inv_rc[@]}"; green=0; degenerate=0; tool=0; alien=''; cand=-1
     for ((n = 0; n < seen; n++)); do
@@ -736,14 +801,28 @@ WRAP
     elif [ "$cand" -lt 0 ]; then
       bad "$cname: барьер остался зелёным на обманном дереве — красное не предъявлено"
     else
-      # Красное засчитывает ПОВТОРНЫЙ прогон проверяющего: он повторяет ровно те условия,
-      # которые сам же и запомнил, — argv, каталог, подставной корень, объявленное окружение.
+      # САЙТ D (контракт 082, инв. 3): повторный прогон проверяющего тем же кодом без
+      # бюджета. Оборачиваем в `timeout` с ОСТАВШИМСЯ бюджетом — единая стена кейса
+      # (инв. 1: «от старта до полного вердикта по нему, включая повторный прогон»).
+      now2=$(date +%s); elapsed2=$((now2 - case_start))
+      remaining2=$((AP_CASE_BUDGET - elapsed2))
+      if [ "$remaining2" -le 0 ]; then
+        bad "$cname: таймаут — кейс превысил бюджет ${AP_CASE_BUDGET} с на повторном прогоне (сайт D, группа убита)"
+        continue
+      fi
       rargv=(); for a in ${inv_argv[$cand]}; do rargv+=("$(printf '%s' "${a#x}" | base64 -d)"); done
       set +e
-      rout="$( cd "${inv_cwd[$cand]}" 2>/dev/null && ap_run "$b" "${inv_root[$cand]}" "$d/env" "${rargv[@]}" 2>&1 )"
+      export -f ap_run
+      rout="$( cd "${inv_cwd[$cand]}" 2>/dev/null && timeout "$remaining2" bash -c 'ap_run "$@"' _ "$b" "${inv_root[$cand]}" "$d/env" "${rargv[@]}" 2>&1 )"
       rrc=$?
       set -e
       printf '%s\n' "$rout" > "$d/rerun.out"
+      # Если повторный прогон был убит бюджетом (rrc=124) — это именованный таймаут-FAIL.
+      now2=$(date +%s); elapsed2=$((now2 - case_start))
+      if [ "$elapsed2" -ge "$AP_CASE_BUDGET" ]; then
+        bad "$cname: таймаут — кейс превысил бюджет ${AP_CASE_BUDGET} с на повторном прогоне (сайт D, группа убита)"
+        continue
+      fi
       if [ "$rrc" = "0" ] || [ "$rrc" = "2" ] || ! in_list "$rrc" "$declared"; then
         bad "$cname: повторный прогон проверяющего дал код $rrc — запись о вызове не подтверждена, вывод в $d/rerun.out"
       elif [[ "$rout" != *"$reason"* ]]; then
