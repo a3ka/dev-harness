@@ -155,6 +155,74 @@ if [ -z "$author" ] && [ -n "${GIT_AUTHOR_NAME:-}" ]; then
   fallback="${fallback%"${fallback##*[![:space:]]}"}"
   author="$fallback"
 fi
+
+# ── Нога (д') 080: pre-commit отказ при загрязнении ОБЩЕГО git-config ─────
+# `git worktree` делит ОДИН общий git-config со всеми worktree; запись
+# `git config --local user.{name,email}=X` (без -c/env — прямая запись в
+# file-config) из ЛЮБОГО worktree (включая linked worktree) пишет в общий
+# git-dir. Нога исполняется ПЕРВОЙ после git-preflight (есть
+# репозиторий/реестр), ДО cascade-определения автора, иначе fail-closed
+# «identity автора пуста» маскировал бы загрязнение. Чтение — НАПРЯМУЮ
+# ФАЙЛА общего git-config (не каскадный git config, который env/-c
+# перекрывали бы): `git rev-parse --git-common-dir` + `git config --file`.
+COMMON_DIR="$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null)" || {
+  printf 'NOT_IMPLEMENTED: общий git-dir недоступен\n' >&2; exit 2; }
+[ -n "$COMMON_DIR" ] || {
+  printf 'NOT_IMPLEMENTED: общий git-dir пуст\n' >&2; exit 2; }
+case "$COMMON_DIR" in
+  /*) ;;
+  *) COMMON_DIR="$ROOT/$COMMON_DIR" ;;
+esac
+SHARED_CFG="$COMMON_DIR/config"
+# Канарейка отличает законный rc=1 «ключа нет» от отказа/заглушки
+# `git config --file --get`: на контролируемом файле ключ обязан быть
+# прочитан с rc=0 и точным значением. Иначе загрязнённый shared config
+# мог бы выглядеть как файл без user.name/user.email.
+_csid_probe="$(mktemp)" || {
+  printf 'NOT_IMPLEMENTED: не создана канарейка общего .git/config\n' >&2; exit 2; }
+printf '[user]\n\tname = check-staged-probe\n' > "$_csid_probe" || {
+  rm -f "$_csid_probe"
+  printf 'NOT_IMPLEMENTED: не записана канарейка общего .git/config\n' >&2; exit 2; }
+_csid_probe_value="$(git -C "$ROOT" config --file "$_csid_probe" --get user.name 2>/dev/null)"
+_csid_probe_rc=$?
+rm -f "$_csid_probe"
+if [ "$_csid_probe_rc" -ne 0 ] || [ "$_csid_probe_value" != 'check-staged-probe' ]; then
+  printf 'NOT_IMPLEMENTED: канарейка чтения общего .git/config не подтверждена\n' >&2
+  exit 2
+fi
+if [ -f "$SHARED_CFG" ]; then
+  # Судим НАЛИЧИЕ ключа (rc `git config --get`), не значение: пустой
+  # `user.name =` в общем config — ключ ПРИСУТСТВУЕТ, значение пустое,
+  # `--get` вернёт пустую строку (rc 0). `-n "$значение"` пропустил бы
+  # это запрещённое состояние; rc --get его ловит (предмет (д') 080,
+  # инв. 18 — судьёй должен быть запрещён сам факт присутствия ключа
+  # в общем git-config, не непустое значение). rc=1 означает только
+  # отсутствие ключа; иной rc — ошибка чтения и не может стать проходом.
+  git -C "$ROOT" config --file "$SHARED_CFG" --get user.name  >/dev/null 2>&1
+  _csid_has_name=$?
+  case "$_csid_has_name" in
+    0|1) ;;
+    *) printf 'NOT_IMPLEMENTED: общий .git/config не прочитан (user.name, rc=%d)\n' "$_csid_has_name" >&2; exit 2 ;;
+  esac
+  git -C "$ROOT" config --file "$SHARED_CFG" --get user.email >/dev/null 2>&1
+  _csid_has_email=$?
+  case "$_csid_has_email" in
+    0|1) ;;
+    *) printf 'NOT_IMPLEMENTED: общий .git/config не прочитан (user.email, rc=%d)\n' "$_csid_has_email" >&2; exit 2 ;;
+  esac
+  if [ "$_csid_has_name" -eq 0 ] && [ "$_csid_has_email" -eq 0 ]; then
+    printf 'ОТКАЗ: identity в общем .git/config запрещена: user.name и user.email в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
+    exit 1
+  elif [ "$_csid_has_name" -eq 0 ]; then
+    printf 'ОТКАЗ: identity в общем .git/config запрещена: user.name в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
+    exit 1
+  elif [ "$_csid_has_email" -eq 0 ]; then
+    printf 'ОТКАЗ: identity в общем .git/config запрещена: user.email в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
+    exit 1
+  fi
+fi
+# (д') чистый файл или загрязнения нет — проход; остальные ветви судимы далее.
+
 # Fail-closed: оба канала пусты — коммит попал бы «empty ident» дальше по конвейеру
 # (правило Н-56), а здесь судья ОБЯЗАН зафиксировать факт пустой identity именованной
 # причиной. Ветка «не судится» ниже срабатывает ТОЛЬКО когда автор ВИДЕН и не объявлен

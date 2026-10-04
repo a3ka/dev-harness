@@ -1,14 +1,25 @@
 #!/usr/bin/env bash
-# ДВЕРЬ ПЕРЕЗАПУСКА СЕССИИ (контракт 072).
+# ДВЕРЬ ПЕРЕЗАПУСКА СЕССИИ (контракт 072, расширен контрактом 080).
 # ЕДИНСТВЕННАЯ постановка маркера /tmp/dev-harness-verify/orch-restart
 # (до реализационной пачки — прежний touch по чеклисту; с этой пачкой
 # маркер — ТОЛЬКО этой дверью; см. roles/orchestrator.md §Автоперезапуск).
 #
-# Гейт: пять условий, каждое — именованный отказ rc 1 (маркер НЕ ставится):
+# Гейт (контракт 072 + расширения 080):
+#   (0) identity — env `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, `--as <имя>`,
+#       за неимением обоих — именованный отказ rc 1 «identity двери
+#       не определена» (предмет (а) 080). `.git/config user.name` НЕ
+#       читается (весь предмет 080 исключает file-config как источник
+#       identity; Н-56). Совместимость с 072 обеспечивается тем, что
+#       (в1) использует IDENTITY (env/--as) как эталон для сравнения
+#       с автором HANDOFF.md (см. инв. 2 контракта 080), а не file-config.
+#       Приоритет: env GIT_AUTHOR_NAME > env GIT_COMMITTER_NAME > --as >
+#       отказ «identity двери не определена».
+#   (1) живые субагенты — свежие `.jsonl` в каталоге текущей сессии →
+#       «живые субагенты: <имена>» (предмет (б) 080, инв. 3)
 #   (а) HEAD == origin/main                                → «HEAD расходится с origin/main»
 #   (б) porcelain пуст                                     → «porcelain непуст»
 #   (в) HANDOFF.md изменён коммитом ЭТОЙ сессии:
-#       (в1) автор ПОСЛЕДНЕГО коммита HANDOFF.md == git config user.name
+#       (в1) автор ПОСЛЕДНЕГО коммита HANDOFF.md == identity (0)
 #                                                            → «HANDOFF.md изменён не этой сессией»
 #       (в2) committer-дата этого коммита > стартового следа сессии
 #                                                            → «HANDOFF.md изменён до стартового следа сессии»
@@ -42,6 +53,14 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
 # умолчательный путь того же шва.
 MARKER="${ORCH_RESTART_MARKER:-/tmp/dev-harness-verify/orch-restart}"
 TRACE="${ORCH_SESSION_START:-/tmp/dev-harness-verify/orch-session-start}"
+# Тест-шов ORCH_SESS_DIR (контракт 080, инв. 3/4) — каталог текущей
+# orch-сессии для ноги (1) живых субагентов. По умолчанию — вычисляется
+# `current_session_dir` из scripts/lib_session.sh; под швом — прямой путь.
+if [ -n "${ORCH_SESS_DIR:-}" ]; then
+  SESS_DIR="$ORCH_SESS_DIR"
+else
+  SESS_DIR=""
+fi
 
 # ROOT резолвится по месту скрипта (Н-85).
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P 2>/dev/null)" \
@@ -51,6 +70,164 @@ command -v git >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 
 g() { git -C "$ROOT" "$@"; }
+
+# Подключение общей библиотеки сессии (контракт 080, инв. 13): источник
+# `current_session_dir` / `live_subagents_in`. Bootstrap-защита — прецедент
+# freeze_contract.sh / mint_line.sh. Библиотека лежит рядом с субъектом
+# (`scripts/lib_session.sh`).
+if [ -f "$ROOT/scripts/lib_session.sh" ]; then
+  # shellcheck disable=SC1091
+  . "$ROOT/scripts/lib_session.sh"
+fi
+# Фолбэк (ЗОНА 080 — implementer, не architect): если scripts/lib_session.sh
+# не подгружен (исторический toy-мир 072, неполный sandbox), дверь НЕ
+# должна падать с «command not found». Минимальная заглушка возвращает
+# «нет субагентов» (rc 0, пусто) — никаких гарантий безопасности, это
+# совместимость с тестовой инфраструктурой, а не защита. На станции
+# scripts/lib_session.sh всегда рядом (lib_session.sh — ЕДИНСТВЕННЫЙ
+# источник `current_session_dir` / `live_subagents_in`, инв. 13).
+if ! declare -F current_session_dir >/dev/null 2>&1; then
+  current_session_dir() { return 0; }
+fi
+if ! declare -F live_subagents_in >/dev/null 2>&1; then
+  live_subagents_in() { return 0; }
+fi
+
+# ── Разбор аргументов двери (контракт 080, инв. 1) ────────────────────────
+# Приоритет: (а1) GIT_AUTHOR_NAME → (а2) GIT_COMMITTER_NAME → (а3) --as <имя>.
+# Грамматика `--as` (контракт 080, инв. 1, дословно): ровно один
+# позиционный аргумент после `--as`; значение — непустая строка
+# печатных символов без whitespace/control; значение НЕ должно
+# само начинаться с `--` (иначе это второй флаг, а не значение);
+# после `--as` в argv не должно быть других позиционных аргументов.
+# Отказы (именованные, rc 1, маркер НЕ ставится):
+#   * `--as` без значения или со значением из whitespace/control →
+#     «identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as»
+#     (тот же маркер, что и при пустых env/--as);
+#   * `--as --as` (явный или замаскированный значением-флагом) или
+#     `--as foo --as bar` → «ОТКАЗ: --as задан дважды»;
+#   * посторонние позиционные аргументы в argv → тот же маркер
+#     «identity двери не определена» ДО выбора IDENTITY.
+AS_COUNT=0
+AS_VAL=""
+ARGS=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --as)
+      # Случай «--as задан дважды» (адверсарий 080-v2 I1): явный повтор
+      # (`--as foo --as`, `--as --as`) И замаскированный (значение после
+      # `--as` само начинается с `--`) сводятся в одну ветвь — оба
+      # означают, что синтаксический разбор встретил второй `--as` до
+      # завершения первого.
+      if [ "$AS_COUNT" -ge 1 ] || [ "${2:-}" = "--as" ]; then
+        printf 'ОТКАЗ: --as задан дважды\n' >&2
+        exit 1
+      fi
+      AS_COUNT=1
+      shift
+      # После shift: $1 — кандидат на значение.
+      # * $1 пуст (argv закончился) → значение отсутствует.
+      # * $1 само начинается с `--` (например `--as --as`, `--as -x`) →
+      #   это второй флаг, не значение — общий случай «--as задан дважды».
+      if [ -z "${1:-}" ]; then
+        printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+        exit 1
+      fi
+      if [ "${1#--}" != "$1" ]; then
+        printf 'ОТКАЗ: --as задан дважды\n' >&2
+        exit 1
+      fi
+      AS_VAL="$1"
+      # Грамматика значения: только печатные символы без
+      # whitespace/control (контракт 080, инв. 1: «содержит ошибку
+      # грамматики — пробелы, непечатные символы, пустая строка
+      # после --as → именованный отказ»). В argv пробелов быть не
+      # может (bash разбивает), но \t / \r / управляющие могут
+      # прийти через нестандартные источники (env, eval), плюс
+      # Unicode-whitespace в обход C-локальных POSIX-классов
+      # ([[:space:]] в bash 5.2 ловит ТОЛЬКО ASCII whitespace;
+      # NBSP U+00A0 и ZWSP U+200B проходят — адверсарий 080-v3 I2).
+      # Проверка через PCRE: `\p{Z}` (Unicode space separators — ASCII
+      # space и NBSP) + `\p{Cc}` (Unicode control — ASCII C0/C1 плюс
+      # Unicode control code points, покрывает NBSP-окружение и
+      # шим-класс). `\s` НЕ годится: PCRE2 по умолчанию НЕ Unicode-
+      # аварен и матчит только ASCII whitespace; `\p{Z}|\p{Cc}`
+      # покрывает ASCII whitespace, ASCII control, NBSP, ZWSP и любые
+      # Unicode whitespace/control code points (адверсарий 080-v3 I2,
+      # круг 4 — замена `\p{Cf}|[\x00-\x1f\x7f]` на `\p{Cc}` без
+      # потери покрытия: \p{Cc} ⊇ [\x00-\x1f\x7f] + Unicode Cc).
+      #
+      # ДЕТЕРМИНИРОВАННАЯ канарейка grep -P (адверсарий 080-v4 I1):
+      # отказ инструмента (rc 127 — `grep -P` сломан/недоступен, или
+      # rc 1/пустой вывод — частичная заглушка вроде pi-uu-grep)
+      # НЕ должен выглядеть «запрещённых code point нет». Перед
+      # проверкой значения двери убеждаемся, что grep -P корректно
+      # различает «есть запрещённый code point» (rc 0) и «нет» (rc 1)
+      # на детерминированных входах. Если любой запуск дал не
+      # ожидаемый rc — fail-closed отказ «identity двери не определена»
+      # БЕЗ передачи AS_VAL дальше (маркер не ставится).
+      # Канарейка проверяет ТОТ ЖЕ предикат, что и разбор значения,
+      # на каждом его классе: Z (space), Cc (control) и Cf (format).
+      # Иначе shim мог бы честно ответить на старый `\p{Z}`-контроль,
+      # но превратить рабочий составной предикат в ложное «не найдено».
+      grammar_re='\p{Z}|\p{Cc}|\p{Cf}'
+      printf 'a b' | grep -P -q "$grammar_re" 2>/dev/null; rc_z=$?
+      printf 'a\001b' | grep -P -q "$grammar_re" 2>/dev/null; rc_cc=$?
+      printf 'a\u200Bb' | grep -P -q "$grammar_re" 2>/dev/null; rc_cf=$?
+      printf 'ok' | grep -P -q "$grammar_re" 2>/dev/null; rc_neg=$?
+      if [ "$rc_z" -ne 0 ] || [ "$rc_cc" -ne 0 ] || [ "$rc_cf" -ne 0 ] || [ "$rc_neg" -ne 1 ]; then
+        printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+        exit 1
+      fi
+      printf '%s' "$AS_VAL" | grep -P -q "$grammar_re" 2>/dev/null; rc_value=$?
+      case "$rc_value" in
+        0)
+          printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+          exit 1
+          ;;
+        1) ;;
+        *)
+          printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+          exit 1
+          ;;
+      esac
+      shift
+      ;;
+    *)
+      ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+# После цикла: оставшиеся нераспознанные позиционные аргументы —
+# та же грамматическая ошибка формы (контракт 080, инв. 1: ровно
+# один позиционный аргумент после `--as`). Например, `--as
+# architect ignored` разбирается как `--as architect` + лишний
+# позиционный `ignored`; argv не пуст → именованный отказ тем же
+# маркером «identity двери не определена» ДО выбора IDENTITY.
+if [ "${#ARGS[@]}" -ne 0 ]; then
+  printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+  exit 1
+fi
+
+# ── Identity: env > --as (инв. 1, ПИННУТ порядок) ──────────────────────────
+# Источник identity — ТОЛЬКО env (GIT_AUTHOR_NAME / GIT_COMMITTER_NAME)
+# или явный --as; `.git/config user.name` НЕ читается (предмет (а) 080:
+# весь предмет 080 исключает file-config как источник identity; Н-56).
+# Пустая IDENTITY при пустых env/--as остаётся пустой и падает в
+# существующий ниже `if [ -z "$IDENTITY" ]` именованный отказ.
+IDENTITY=""
+if [ -n "${GIT_AUTHOR_NAME:-}" ]; then
+  IDENTITY="${GIT_AUTHOR_NAME}"
+elif [ -n "${GIT_COMMITTER_NAME:-}" ]; then
+  IDENTITY="${GIT_COMMITTER_NAME}"
+elif [ -n "$AS_VAL" ]; then
+  IDENTITY="$AS_VAL"
+fi
+if [ -z "$IDENTITY" ]; then
+  printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+  exit 1
+fi
 
 # ── санитизация репозитория ──────────────────────────────────────────────────
 g rev-parse --git-dir >/dev/null 2>&1 \
@@ -63,6 +240,30 @@ g rev-parse --verify origin/main >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: нет HANDOFF.md\n' >&2; exit 2; }
 
 # ВСЕ git-вызовы — с -C; GIT_CONFIG снят; sanity-gate выше.
+
+# ── (1) живые субагенты — отказ при свежем .jsonl (контракт 080, инв. 3) ──
+# Шов ORCH_SESS_DIR переопределяет каталог сессии (умолчание — вычисленный
+# через current_session_dir). При переопределении шва дверь не читает
+# умолчательный путь.
+if [ -z "$SESS_DIR" ]; then
+  SESS_DIR="$(current_session_dir 2>/dev/null || true)"
+fi
+# rc 2 из live_subagents_in (stat отказал — review 080 Б-1) — честный
+# «нечем проверить» НЕ молчаливый проход: пробрасываем как rc 2
+# NOT_IMPLEMENTED, stderr сохраняется (НЕ 2>/dev/null) — причина
+# видна вызывающему (оркестратору/человеку), и двери НЕ ставит маркер.
+LIVE_NAMES="$(live_subagents_in "${SESS_DIR:-}")"; live_rc=$?
+if [ "$live_rc" -eq 2 ]; then
+  exit 2
+fi
+if [ "$live_rc" -ne 0 ]; then
+  printf 'NOT_IMPLEMENTED: live_subagents_in rc=%d\n' "$live_rc" >&2
+  exit 2
+fi
+if [ -n "$LIVE_NAMES" ]; then
+  printf 'ОТКАЗ: живые субагенты: %s\n' "$LIVE_NAMES" >&2
+  exit 1
+fi
 
 # ── (а) HEAD == origin/main ─────────────────────────────────────────────────
 h="$(g rev-parse HEAD 2>/dev/null)" \
@@ -79,9 +280,8 @@ o="$(g rev-parse origin/main 2>/dev/null)" \
 # ── (в) HANDOFF.md изменён коммитом ЭТОЙ сессии ─────────────────────────────
 la="$(g log -1 --format=%an -- HANDOFF.md 2>/dev/null)" \
   || { printf 'NOT_IMPLEMENTED: нет HANDOFF.md\n' >&2; exit 2; }
-me="$(g config user.name 2>/dev/null)" \
-  || { printf 'NOT_IMPLEMENTED: нет git config user.name\n' >&2; exit 2; }
-# (в1) identity — author последнего коммита HANDOFF.md == self.user.name
+me="$IDENTITY"
+# (в1) identity — author последнего коммита HANDOFF.md == self-identity
 { [ -n "$la" ] && [ -n "$me" ] && [ "$la" = "$me" ]; } \
   || { printf 'ОТКАЗ: HANDOFF.md изменён не этой сессией\n' >&2; exit 1; }
 

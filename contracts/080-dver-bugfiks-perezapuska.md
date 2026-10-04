@@ -697,7 +697,7 @@ mktemp. Пути toy-миров СЛУЧАЙНЫ (mktemp; инвариантно
 
 ## Зоны (check_zones)
 
-ЗОНА architect: contracts/080-dver-bugfiks-perezapuska.md fixtures/dver_bugfiks_080/ fixtures/_krasnye_080.sh
+ЗОНА architect: contracts/080-dver-bugfiks-perezapuska.md fixtures/dver_bugfiks_080/ fixtures/_krasnye_080.sh fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh
 
 ЗОНА implementer: scripts/orch_restart.sh scripts/lib_session.sh scripts/check_staged.sh ops/server/root/orch-peak
 
@@ -713,6 +713,7 @@ polling + report в `CTX_HARD`-ветке + тест-шов `ORCH_PEAK_TEST`,
 ПЕРЕСЕЧЕНИЕ implementer: scripts/orch_restart.sh — 072 implementer-зона (landed): дельта — только identity-нога (а) + нога живых субагентов (б) + шов `ORCH_SESS_DIR`; остальные ноги (а)/(б)/(в)/(г)/(д) гейта 072, fail-closed rc 2, коды возврата — без изменений; след сессии (инв. 11 072) — без изменений; (в2) committer-дата > следа — переход к инварианту 2 настоящего контракта (identity из env/--as, не file-config); замороженная батарея 072 зелёна
 ПЕРЕСЕЧЕНИЕ implementer: scripts/check_staged.sh — 016 implementer-зона (landed; рядом 018/019/023/031/049 — те же автор implementer): дельта — ТОЛЬКО новая нога (д') (инв. 18), первая после git-префлайта; остальные ветви 016/018/019/023/031/049 НЕ правятся; запрет второй правки — см. ниже
 ПЕРЕСЕЧЕНИЕ implementer: ops/server/root/orch-peak — 074 implementer-зона (landed): дельта — добавление фразы в CTX_SOFT + polling+report в CTX_HARD + тест-шов ORCH_PEAK_TEST (инв. 4); инвентарь обвязки 9 файлов не меняется
+ПЕРЕСЕЧЕНИЕ architect: fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh — 072 замороженная батарея (frozen, автор architect тот же — union-владение 033): дельта — ТОЛЬКО явная identity честных прогонов (`GIT_AUTHOR_NAME=$DOOR_ID` или эквивалент под новой безфайловой identity-моделью 080) во все стадии run_honest/run_exit_honest/к11/к16; стабы, предикаты, конструкторы нарушений и ожидаемые результаты 072 НЕ меняются; инв. 11 072 (след сессии) без изменений; живой прогон `bash fixtures/_krasnye_072.sh` ОБЯЗАН остаться зелёным после правки — приложи его вывод в докладе
 
 Не правятся настоящим контрактом (вне ЗОНА-строк, пересечений
 нет): scripts/gc_agent_branches.sh (072, реестр wip и мусорные
@@ -732,7 +733,11 @@ scripts/lib_session.sh) в union живых заморозок чужими ав
 минт 080 стоит: 080 → ac6d0257ca8be06a89b2f3ad5e15f347ec6f46b2)
 fixtures/perezapusk_sessii/ (замороженная батарея 072; семейство
 072 остаётся зелёным после правки двери — реализационная пачка
-обязана сохранить инвариант 072 инв. 11 — след сессии)
+обязана сохранить инвариант 072 инв. 11 — след сессии) — путь НЕ
+раздаётся В ЦЕЛОМ, КРОМЕ точного файла
+`red_dver_perezapuska_072.sh` и ТОЛЬКО дельты identity-ноги честных
+прогонов (ЗОНА architect + ПЕРЕСЕЧЕНИЕ architect выше; прецедент
+e6203a5); исключение НЕ шире одного файла
 fixtures/orch_restart/ (замороженная семья 072; семейство
 verify_antiplacebo для orch_restart) scripts/check_zones.sh
 (исполнитель — только в зону) scripts/check_no_leak.sh

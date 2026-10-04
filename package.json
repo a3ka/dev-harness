@@ -75,6 +75,7 @@
     "check:merge-gate-family-selftest": "bash fixtures/check_judge_gate/krasnye_063.sh",
     "check:zony-merge-head-family-selftest": "bash fixtures/_krasnye_073.sh",
     "check:ops-server-family-selftest": "bash fixtures/_krasnye_074.sh",
-    "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh"
+    "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh",
+    "check:door-bugfix-family-selftest": "bash fixtures/_krasnye_080.sh"
   }
 }

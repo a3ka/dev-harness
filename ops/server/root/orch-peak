@@ -28,6 +28,9 @@ POLL="${ORCH_PEAK_POLL:-60}"
 CTX_SOFT="${ORCH_CTX_SOFT:-300000}"
 CTX_HARD="${ORCH_CTX_HARD:-500000}"
 SESS_GLOB="${ORCH_SESS_GLOB:-$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/*.jsonl}"
+# Контракт 080, инв. 4/8: переменные жёсткого режима для polling субагентов.
+HARD_GRACE="${ORCH_HARD_GRACE:-1800}"
+HARD_POLL="${ORCH_HARD_POLL:-60}"
 TMUX_ARGS=(); [ -n "${ORCH_TMUX_SOCK:-}" ] && TMUX_ARGS=(-L "$ORCH_TMUX_SOCK")
 mkdir -p "$STATE"
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG"; }
@@ -115,6 +118,107 @@ cur_ctx() {
   tac "$f" | grep -m1 '"usage"' | jq -r '.message.usage | ((.input // 0) + (.cacheRead // 0) + (.cacheWrite // 0))'
 }
 
+# ── Тест-шов ORCH_PEAK_TEST (контракт 080, инв. 4) ────────────────────────
+# Когда шов установлен и непуст, субъект работает в поведенческом режиме
+# без привилегий root: as_u/say/pane/omp_pids/kill_session подменяются;
+# say дописывает в $ORCH_PEAK_TEST/say.log, omp_pids читает $ORCH_PEAK_TEST/omp-pids,
+# kill_session фиксирует в $ORCH_PEAK_TEST/killed.log; без шва — обычное поведение
+# (root, runuser, tmux, реальные сигналы).
+if [ -n "${ORCH_PEAK_TEST:-}" ]; then
+  as_u() { "$@"; }
+  omp_pids() { cat "$ORCH_PEAK_TEST/omp-pids" 2>/dev/null || true; }
+  say() { printf '%s\n' "$1" >> "$ORCH_PEAK_TEST/say.log"; return 0; }
+  find_pane() { return 1; }
+  remember_pane() { :; }
+  pane() { cat "$ORCH_PEAK_TEST/pane" 2>/dev/null || true; }
+  kill_session() {
+    local pids; pids="$(omp_pids)"; [ -n "$pids" ] || return 0
+    printf 'killed: %s\n' "$pids" >> "$ORCH_PEAK_TEST/killed.log"
+    return 0
+  }
+fi
+
+# current_session_dir: каталог самой свежей orch-сессии по mtime session-уровня.
+# (Единый источник для двери и сторожа — scripts/lib_session.sh.)
+# SESS_DIR = dirname(session.jsonl) / basename(session.jsonl без .jsonl):
+# каталог сессии — sibling самого свежего session-уровня .jsonl,
+# имя = basename файла без расширения (конвенция orch-peak live).
+current_session_dir() {
+  local f
+  # shellcheck disable=`SC2086`
+  f="$(ls -t $SESS_GLOB 2>/dev/null | head -1)" || return 0
+  [ -n "$f" ] || return 0
+  printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
+}
+
+# Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
+# live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
+# (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит
+# scripts/lib_session.sh), определить live_subagents_in локально —
+# семантика идентична.
+if [ -f "${REPO}/scripts/lib_session.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${REPO}/scripts/lib_session.sh"
+fi
+if ! declare -F live_subagents_in >/dev/null 2>&1; then
+  live_subagents_in() {
+    local sess_dir="${1:-}"
+    [ -n "$sess_dir" ] && [ -d "$sess_dir" ] || { return 0; }
+    local now
+    now="$(date +%s)"
+    local -a names=()
+    local f mt age name
+    # Субагентские журналы могут иметь имена с ведущей точкой
+    # (например, `.LiveAgent.jsonl` — скрытый субагент). bash-glob
+    # по умолчанию НЕ включает dotfiles, поэтому перечисление
+    # «*.jsonl» молча пропускает свежий `.LiveAgent.jsonl» — дверь
+    # поставит маркер при живом субагенте (адверсарий 080-v3 I1).
+    # Включаем dotglob на время перечисления и сразу снимаем.
+    local prev_dotglob=0
+    shopt -q dotglob 2>/dev/null && prev_dotglob=1
+    shopt -s dotglob nullglob
+    for f in "$sess_dir"/*.jsonl; do
+      [ -e "$f" ] || continue
+      mt="$(stat -c %Y "$f" 2>/dev/null || echo 0)"
+      age=$((now - mt))
+      [ "$age" -lt 120 ] || continue
+      name="$(basename -- "$f" .jsonl)"
+      names+=("$name")
+    done
+    if [ "$prev_dotglob" -eq 0 ]; then
+      shopt -u dotglob 2>/dev/null || true
+    fi
+    shopt -u nullglob 2>/dev/null || true
+    [ "${#names[@]}" -gt 0 ] || return 0
+    local IFS=$'\n'
+    # shellcheck disable=`SC2207`
+    local sorted=( $(printf '%s\n' "${names[@]}" | LC_ALL=C sort) )
+    unset IFS
+    local first=1 n out=""
+    for n in "${sorted[@]}"; do
+      if [ "$first" -eq 1 ]; then out="$n"; first=0
+      else out="$out,$n"
+      fi
+    done
+    printf '%s' "$out"
+  }
+fi
+
+# wait_live_agents: опрашивает свежесть субагентских журналов до ORCH_HARD_GRACE;
+# если все состарились — return 0 (можно ставить маркер); если таймаут — return 1
+# (ставить маркер принудительно). Имена свежих на момент истечения — в $LIVE_NAMES.
+wait_live_agents() {
+  local sess_dir="$1" deadline first_now
+  deadline=$(( $(date +%s) + HARD_GRACE ))
+  first_now=$(date +%s)
+  while :; do
+    LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
+    [ -z "$LIVE_NAMES" ] && return 0
+    [ "$(date +%s)" -ge "$deadline" ] && return 1
+    sleep "$HARD_POLL"
+  done
+}
+
 case "${1:-}" in
   warn)
     date +%s > "$STATE/warned"
@@ -131,18 +235,94 @@ case "${1:-}" in
     [ -n "${ctx:-}" ] || exit 0
     st="$STATE/ctx-$sess"
     if [ "$ctx" -ge "$CTX_HARD" ]; then
-      [ "$(cat "$st" 2>/dev/null)" = hard ] && exit 0
-      echo hard > "$st"; remember_pane
+      # Запись state=hard — ТОЛЬКО ПОСЛЕ успешной постановки маркера
+      # (см. ниже). Если state=hard уже есть — маркер поставлен в этом
+      # сеансе прошлым вызовом, повторно не делаем. Если state нет или
+      # равен «pending» (прерванный прошлый вызов при ошибке отчёта) —
+      # повторяем polling+wait_saved+отчёт+маркер сначала
+      # (адверсарий 080-v3 I3: временная неудача `$REPORT` не должна
+      # блокировать повтор на свежем session journal; адверсарий
+      # воспроизвёл: после неудачи первый раз остаётся state=hard,
+      # второй ctx безусловно exit 0 без polling и отчёта).
+      cur_st="$(cat "$st" 2>/dev/null || true)"
+      [ "$cur_st" = hard ] && exit 0
+      remember_pane
       [ -f "$STATE/ctx-$sess.warned" ] && cp "$STATE/ctx-$sess.warned" "$STATE/warned" || date +%s > "$STATE/warned"
-      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_HARD / 1000))K — ПРИНУДИТЕЛЬНЫЙ перезапуск сессии. Новых спавнов не начинай; доведи текущий шаг до коммита; main и wip-ветки — на origin; HANDOFF «ГДЕ МЫ» (что сделано, что в полёте, первое действие) — закоммитить и отправить сейчас. Проверка механическая, отсрочка до $((GRACE / 60)) мин." \
+      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_HARD / 1000))K — ПРИНУДИТЕЛЬНЫЙ перезапуск сессии. Новых спавнов не начинай; дождись завершения текущих субагентов, затем перезапуск дверью. Доведи текущий шаг до коммита; main и wip-ветки — на origin; HANDOFF «ГДЕ МЫ» (что сделано, что в полёте, первое действие) — закоммитить и отправить сейчас. Проверка механическая, отсрочка до $((GRACE / 60)) мин." \
         && log "контекст: $sess $ctx ≥ $CTX_HARD — принудительный перезапуск, сообщение отправлено" \
         || log "контекст: $sess $ctx ≥ $CTX_HARD — принудительный перезапуск (панель не найдена)"
+      # Контракт 080 инв. 8: polling живых субагентов до HARD_GRACE перед
+      # постановкой маркера. На истечении — принудительный маркер + отчёт
+      # «живые субагенты погибнут: <имена>» (если свежие остались).
+      # ВАЖНО: строка «погибнут» пишется ПОСЛЕ wait_saved — wait_saved
+      # перезаписывает $REPORT (tee без -a), и обратный порядок
+      # затирает факт принудительной смерти.
+      sess_dir="$(current_session_dir 2>/dev/null || true)"
+      live_killed=0
+      if ! wait_live_agents "$sess_dir"; then
+        LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
+        [ -n "$LIVE_NAMES" ] && live_killed=1
+      fi
       wait_saved "перезапуск по контексту"
-      as_u touch "$MARK" && log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию"
+      # Запись «погибнут» — атомарно (tmp+mv), содержимое ДОПИСЫВАЕТСЯ
+      # к существующему отчёту (а не затирает его — wait_saved уже мог
+      # записать своё содержимое). Маркер `touch "$MARK"` ставится
+      # ТОЛЬКО при подтверждённой успешной записи (tee rc=0 ∧ mv rc=0
+      # ∧ $REPORT — обычный файл после mv); иначе частичная неудача
+      # обязательного следа выглядит успехом (замер адверсария
+      # contracts-080-v1 I3: «mv file dir» в GNU coreutils кладёт файл
+      # ВНУТРЬ каталога и возвращает rc 0 — отчёт как файл по ожидаемому
+      # пути НЕ создан; требуем явный вид «обычный файл»).
+      report_ok=1
+      if [ "$live_killed" -eq 1 ]; then
+        if [ -d "$REPORT" ]; then
+          # $REPORT — каталог: tmp+mv положит tmp ВНУТРЬ, отчёт как
+          # файл не создан; отказываем в записи.
+          report_ok=0
+        else
+          REPORT_DIR="$(dirname "$REPORT")"
+          REPORT_TMP="$REPORT_DIR/.orch-peak-report.tmp.$$"
+          existing_report="$(as_u cat "$REPORT" 2>/dev/null || true)"
+          if printf '%s\n%s\n' "$existing_report" "перезапуск по контексту (жёсткий принудительный) — живые субагенты погибнут: $LIVE_NAMES" \
+             | as_u tee "$REPORT_TMP" >/dev/null 2>&1; then
+            if as_u mv -f "$REPORT_TMP" "$REPORT" 2>/dev/null \
+               && [ -f "$REPORT" ]; then
+              report_ok=1
+            else
+              as_u rm -f "$REPORT_TMP" 2>/dev/null || true
+              report_ok=0
+            fi
+          else
+            as_u rm -f "$REPORT_TMP" 2>/dev/null || true
+            report_ok=0
+          fi
+        fi
+      fi
+      if [ "$report_ok" -eq 1 ]; then
+        # Адверсарий 080-v4 I2: `touch "$MARK"` — часть транзакции.
+        # При неудаче постановки маркера (например, родительский
+        # каталог `$ORCH_MARK` отсутствует) state=hard НЕ пишется —
+        # иначе ложный успех блокирует retry навсегда (второй ctx
+        # выходит по state=hard до polling/попытки маркера). Неудача
+        # touch — именованный отказ rc 1 с сохранением возможности
+        # повтора; state=hard остаётся пустым/предыдущим.
+        if as_u touch "$MARK"; then
+          log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию$([ "$live_killed" -eq 1 ] && echo ' (принудительно после ORCH_HARD_GRACE, имена в отчёте)')"
+          # Адверсарий 080-v3 I3: state=hard фиксируется ТОЛЬКО после
+          # успешной постановки маркера. Иначе временная неудача отчёта
+          # оставляла state=hard и блокировала повтор навсегда.
+          echo hard > "$st"
+        else
+          log "контекст: touch \"$MARK\" не удался — state не записан, будет retry"
+          exit 1
+        fi
+      else
+        log "контекст: отчёт НЕ записан ($REPORT недоступен для tmp+mv) — маркер НЕ поставлен (г3, инв. 8: маркер только при успешной записи отчёта)"
+      fi
     elif [ "$ctx" -ge "$CTX_SOFT" ]; then
       [ -e "$st" ] && exit 0
       echo soft > "$st"; date +%s > "$STATE/ctx-$sess.warned"
-      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_SOFT / 1000))K. На ближайшей чистой точке (шаг закоммичен, main и wip-ветки на origin, HANDOFF «ГДЕ МЫ» обновлён и отправлен, в полёте ничего) — перезапусти сессию дверью перезапуска (scripts/orch_restart.sh, контракт 072). Done пары ждать НЕ нужно. При $((CTX_HARD / 1000))K перезапуск будет принудительным." \
+      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_SOFT / 1000))K. На ближайшей чистой точке (шаг закоммичен, main и wip-ветки на origin, HANDOFF «ГДЕ МЫ» обновлён и отправлен, в полёте ничего) — перезапусти сессию дверью перезапуска (scripts/orch_restart.sh, контракт 072). новых спавнов не начинай, дождись завершения текущих субагентов, затем перезапуск дверью. Done пары ждать НЕ нужно. При $((CTX_HARD / 1000))K перезапуск будет принудительным." \
         && log "контекст: $sess $ctx ≥ $CTX_SOFT — предупреждение отправлено" || log "контекст: $sess $ctx ≥ $CTX_SOFT — панель не найдена"
     fi ;;
   start)
