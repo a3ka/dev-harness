@@ -270,7 +270,7 @@ fi
 STAB_CAUGHT=0
 DIFF_GREEN=0
 HONEST_GREEN=0
-HONEST_TOTAL=21
+HONEST_TOTAL=24
 
 # ── ХЕЛПЕРЫ предикатов ───────────────────────────────────────────────────
 fail_cell() { printf 'клетка %s: %s\n' "$1" "$2" >&2; CELL_FAIL=1; }
@@ -368,6 +368,15 @@ run_cell_door() {
       ;;
     a5)
       run_subject "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" --as foo --as bar
+      ;;
+    a6)
+      run_subject "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" --as 'evil identity'
+      ;;
+    a7)
+      run_subject "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" --as architect ignored
+      ;;
+    a8)
+      run_subject "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" --as --as
       ;;
     б1)
       rm -rf "$sess"
@@ -816,6 +825,18 @@ run_cell_door a4 "$ROOT/scripts/orch_restart.sh" a4 p_refuse
 
 # (a5) --as foo --as bar → rc 1 «--as задан дважды»; pre-fix rc 2
 run_cell_door a5 "$ROOT/scripts/orch_restart.sh" a5 p_refuse "--as задан дважды"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (a6) --as 'evil identity' (значение с пробелом) → rc 1 «identity двери не определена»
+run_cell_door a6 "$ROOT/scripts/orch_restart.sh" a6 p_refuse "identity двери не определена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (a7) --as architect ignored (лишний позиционный после --as) → rc 1 «identity двери не определена»
+run_cell_door a7 "$ROOT/scripts/orch_restart.sh" a7 p_refuse "identity двери не определена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (a8) --as --as → rc 1 «--as задан дважды»
+run_cell_door a8 "$ROOT/scripts/orch_restart.sh" a8 p_refuse "--as задан дважды"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # (б1) свежий журнал → rc 1 «живые субагенты: …»; pre-fix rc 0 marker set
