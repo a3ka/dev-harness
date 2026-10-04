@@ -1,4 +1,6 @@
 # ПРИЧИНА: дверь минта 031: тег
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=orchestrator
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=orchestrator@local
 #
 # Контракт 031, ветвь i, условия 4-5 (провенанс-локально и провенанс-origin):
 # self-mint (тег жив локально, но НЕ достижим на origin) → дверь отказывает
@@ -36,8 +38,6 @@ make_repo_orchzone() {
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# передача\n' > "$r/HANDOFF.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name orchestrator
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email orchestrator@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -59,18 +59,12 @@ stage_row() {
   printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
   g "$r" add -A
 }
-set_author() {
-  local r="$1" name="$2"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name "$name"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email "$name@local"
-}
 
 # ── зелёный: полный минт ────────────────────────────────────────────────────
 GREEN="$WORK/repo_green"
 make_repo_orchzone "$GREEN"
 toy_origin "$GREEN"
 mint_tag_avtoritet "$GREEN" "026"
-set_author "$GREEN" orchestrator
 sha="$(git -C "$GREEN" rev-parse "refs/tags/id/CONTRACT/026")"
 stage_row "$GREEN" "026" "$sha"
 "$BARRIER" "$GREEN" || true
@@ -80,7 +74,6 @@ RED="$WORK/repo_red"
 make_repo_orchzone "$RED"
 toy_origin "$RED"
 self_mint "$RED" "027"
-set_author "$RED" orchestrator
 sha="$(git -C "$RED" rev-parse "refs/tags/id/CONTRACT/027")"
 stage_row "$RED" "027" "$sha"
 "$BARRIER" "$RED" || true

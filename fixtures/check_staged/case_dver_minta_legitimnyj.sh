@@ -1,4 +1,6 @@
 # ПРИЧИНА: ОТКАЗ: дверь минта 031
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=orchestrator
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=orchestrator@local
 #
 # Контракт 031, ветвь i: легитимный минт оркестратора (полная авторитетная
 # церемония: тег аннотирован и запушен на origin, main запушен, строка по
@@ -40,8 +42,6 @@ make_repo_orchzone() {  # <корень>
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# передача\n' > "$r/HANDOFF.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name orchestrator
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email orchestrator@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -59,11 +59,6 @@ stage_row() {  # <корень> <NNN> <sha>
   printf '%s → %s\n' "$n" "$sha" >> "$r/registry/contracts.tsv"
   g "$r" add -A
 }
-set_author() {  # <корень> <имя>
-  local r="$1" name="$2"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name "$name"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email "$name@local"
-}
 
 # ── в1 зелёный: полный минт — дверь проходит ────────────────────────────────
 GREEN="$WORK/repo_green"
@@ -71,7 +66,6 @@ make_repo_orchzone "$GREEN"
 toy_origin "$GREEN"
 NNN_G="020"
 mint_tag_avtoritet "$GREEN" "$NNN_G"
-set_author "$GREEN" orchestrator
 sha="$(git -C "$GREEN" rev-parse "refs/tags/id/CONTRACT/$NNN_G")"
 stage_row "$GREEN" "$NNN_G" "$sha"
 "$BARRIER" "$GREEN" || true
@@ -80,6 +74,5 @@ stage_row "$GREEN" "$NNN_G" "$sha"
 RED="$WORK/repo_red"
 make_repo_orchzone "$RED"
 toy_origin "$RED"
-set_author "$RED" orchestrator
 stage_row "$RED" "021" "0000000000000000000000000000000000000000"   # тег НЕ создан
 "$BARRIER" "$RED" || true

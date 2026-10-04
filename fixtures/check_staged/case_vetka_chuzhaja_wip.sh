@@ -1,4 +1,6 @@
 # ПРИЧИНА: вне своей ветки wip/
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 #
 # Срез 1 контракта 018, БЛОКЕР critic v1 (verdicts/critic/contracts-018-v1.md): страж
 # «ветка, не main» обязан краснить зонированного автора, коммитящего на ЧУЖОЙ wip-ветке —
