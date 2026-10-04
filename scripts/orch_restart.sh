@@ -135,14 +135,31 @@ while [ "$#" -gt 0 ]; do
       # ([[:space:]] в bash 5.2 ловит ТОЛЬКО ASCII whitespace;
       # NBSP U+00A0 и ZWSP U+200B проходят — адверсарий 080-v3 I2).
       # Проверка через PCRE: `\p{Z}` (Unicode space separators — ASCII
-      # space и NBSP) + `\p{Cf}` (Unicode format — ZWSP) + ASCII
-      # control (`\x00-\x1f\x7f`). `\s` НЕ годится: PCRE2 по
-      # умолчанию НЕ Unicode-аварен и матчит только ASCII whitespace,
-      # NBSP и ZWSP через него НЕ ловятся (живая проба). Объединение
-      # `\p{Z}|\p{Cf}|[\x00-\x1f\x7f]` покрывает ASCII whitespace,
-      # ASCII control, NBSP, ZWSP и любые Unicode whitespace/format
-      # code points.
-      if printf '%s' "$AS_VAL" | grep -P -q '\p{Z}|\p{Cf}|[\x00-\x1f\x7f]' 2>/dev/null; then
+      # space и NBSP) + `\p{Cc}` (Unicode control — ASCII C0/C1 плюс
+      # Unicode control code points, покрывает NBSP-окружение и
+      # шим-класс). `\s` НЕ годится: PCRE2 по умолчанию НЕ Unicode-
+      # аварен и матчит только ASCII whitespace; `\p{Z}|\p{Cc}`
+      # покрывает ASCII whitespace, ASCII control, NBSP, ZWSP и любые
+      # Unicode whitespace/control code points (адверсарий 080-v3 I2,
+      # круг 4 — замена `\p{Cf}|[\x00-\x1f\x7f]` на `\p{Cc}` без
+      # потери покрытия: \p{Cc} ⊇ [\x00-\x1f\x7f] + Unicode Cc).
+      #
+      # ДЕТЕРМИНИРОВАННАЯ канарейка grep -P (адверсарий 080-v4 I1):
+      # отказ инструмента (rc 127 — `grep -P` сломан/недоступен, или
+      # rc 1/пустой вывод — частичная заглушка вроде pi-uu-grep)
+      # НЕ должен выглядеть «запрещённых code point нет». Перед
+      # проверкой значения двери убеждаемся, что grep -P корректно
+      # различает «есть запрещённый code point» (rc 0) и «нет» (rc 1)
+      # на детерминированных входах. Если любой запуск дал не
+      # ожидаемый rc — fail-closed отказ «identity двери не определена»
+      # БЕЗ передачи AS_VAL дальше (маркер не ставится).
+      printf 'a b' | grep -P -q '\p{Z}' 2>/dev/null; rc_pos=$?
+      printf 'ok' | grep -P -q '\p{Z}' 2>/dev/null; rc_neg=$?
+      if [ "$rc_pos" -ne 0 ] || [ "$rc_neg" -ne 1 ]; then
+        printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+        exit 1
+      fi
+      if printf '%s' "$AS_VAL" | grep -P -q '\p{Z}|\p{Cc}' 2>/dev/null; then
         printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
         exit 1
       fi
