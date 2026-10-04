@@ -13,10 +13,10 @@
 #      на входе, где его дефект наблюдаем; clean-stub на той же клетке
 #      даёт другой rc → стаб пойман; clean-stub на чистом входе
 #      проходит rc 0 → диффпроба зелёная.
-#   2. ЧЕСТНАЯ ЧАСТЬ (21 клетка a1-a5, б1-б3, в1-в3, г1-г2, г6-г8,
+#   2. ЧЕСТНАЯ ЧАСТЬ (27 клеток a1-a10, б1-б3, в1-в3, г1-г2, г6-г9,
 #      д'1-д'5) — против реальных scripts/orch_restart.sh,
 #      ops/server/root/orch-peak И scripts/check_staged.sh дерева;
-#      предъявляется живым прогоном. Клетки в3/г6/г7/г8 — ПОВЕДЕНЧЕСКИЕ:
+#      предъявляется живым прогоном. Клетки в3/г6/г7/г8/г9 — ПОВЕДЕНЧЕСКИЕ:
 #      субъект реально запускается командой ctx в sandbox-мире через шов
 #      ORCH_PEAK_TEST (инв. 4 контракта), наблюдается ПРИНЯТОЕ РЕШЕНИЕ
 #      (say.log с фразой / маркер поставлен-ждёт / отчёт «погибнут»),
@@ -58,7 +58,7 @@
 # SBIN_DST; install.sh verify с швом OPS_SERVER_SRC/SBIN_DST/BIN_DST/ETC_DST.
 #
 # Прогон: bash red_dver_bugfiks_080.sh [корень worktree]
-#   rc 0 — стаб-пак 9/9 пойман + диффпроба 9/9 + честные 21/21.
+#   rc 0 — стаб-пак 9/9 пойман + диффпроба 9/9 + честные 27/27.
 #   rc 1 — расхождение / стаб не пойман.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -132,8 +132,11 @@ toy_door2() {
     git init -q
     git checkout -q -b main 2>/dev/null || true
     git config user.email "architect@dev-harness.local"
-    GIT_AUTHOR_NAME="architect" GIT_AUTHOR_EMAIL="architect@dev-harness.local" \
-      GIT_COMMITTER_NAME="architect" GIT_COMMITTER_EMAIL="architect@dev-harness.local" \
+    # Автор toy-коммита HANDOFF параметризуется (клетки a9/a10, адверсарий
+    # 080-v4 I1): там все ноги, КРОМЕ грамматики --as, обязаны быть зелёными,
+    # поэтому HANDOFF коммитится тем же «evil identity», что подаётся в --as.
+    GIT_AUTHOR_NAME="${TOY_HANDOFF_AUTHOR:-architect}" GIT_AUTHOR_EMAIL="architect@dev-harness.local" \
+      GIT_COMMITTER_NAME="${TOY_HANDOFF_AUTHOR:-architect}" GIT_COMMITTER_EMAIL="architect@dev-harness.local" \
       bash -c '
       printf "## GDE (toy 080)\n" > HANDOFF.md
       cp "$1" scripts/orch_restart.sh
@@ -226,8 +229,12 @@ verify_run() {
 }
 
 # Строки, которые должны присутствовать (после реализации) /
-# отсутствовать (pre-implementation).
-PHRASE_OK='новых спавнов не начинай, дождись завершения текущей субагентов, затем перезапуск дверью'
+# отсутствовать (pre-implementation). Литерал — ДОСЛОВНО из frozen
+# контракта 080 (предмет (в), строки 29/822; инвариант «одной физической
+# строкой»). Адверсарий 080-v4 I3: прежний литерал батареи «текущей
+# субагентов» был грамматически неверен и не совпадал с frozen-фразой —
+# батарея принимала неверный текст субъекта как верный.
+PHRASE_OK='новых спавнов не начинай, дождись завершения текущих субагентов, затем перезапуск дверью'
 
 # (s6) orch-peak WITHOUT phrase: копия current минус строка фразы
 S6="$WORK/orch-peak-s6"
@@ -270,7 +277,7 @@ fi
 STAB_CAUGHT=0
 DIFF_GREEN=0
 HONEST_GREEN=0
-HONEST_TOTAL=24
+HONEST_TOTAL=27
 
 # ── ХЕЛПЕРЫ предикатов ───────────────────────────────────────────────────
 fail_cell() { printf 'клетка %s: %s\n' "$1" "$2" >&2; CELL_FAIL=1; }
@@ -333,6 +340,46 @@ run_subject_env() {
     ) >/dev/null 2>&1 || true
 }
 
+# Запуск subject с PATH-шовом grep (клетки a9/a10, адверсарий 080-v4 I1):
+# run_subject_shim <toy> <subj> <rcfile> <stderr> <stdout> <sess> <shimdir> [ARGs…]
+# Toy коммитит HANDOFF автором «evil identity» (TOY_HANDOFF_AUTHOR), чтобы
+# все ноги двери, КРОМЕ грамматики --as, были зелёными; шим ломает РОВНО
+# grep -P (грамматика --as проверяется единственным grep -P в двери),
+# прочие вызовы делегируются системному grep — красной обязана быть только
+# нога грамматики: отказ инструмента не имеет права выглядеть
+# «запрещённых code point нет».
+run_subject_shim() {
+  local t="$1" subj="$2" rcfile="$3" stderr_file="$4" stdout_file="$5" sess="$6" shim="$7"
+  shift 7
+  rm -f "$WORK/marker"
+  TOY_HANDOFF_AUTHOR='evil identity' toy_door2 "$t" "$subj" "$ROOT"
+  (
+    cd "$t"
+      export ORCH_RESTART_MARKER="$WORK/marker"
+      export ORCH_SESSION_START="$WORK/trace"
+      export ORCH_SESS_DIR="$sess"
+      export PATH="$shim:$PATH"
+      bash scripts/orch_restart.sh "$@" >"$stdout_file" 2>"$stderr_file"
+      echo $? > "$rcfile"
+    ) >/dev/null 2>&1 || true
+}
+
+# ── PATH-шины grep для клеток a9/a10 (адверсарий 080-v4 I1) ────────────────
+# Класс «инструмент мимо PATH/отказ, выглядящий успехом». Шим-127: grep
+# недоступен ровно для первого аргумента -P (rc 127), всё прочее —
+# делегирование. Шим-1: -P всегда «не найдено» (rc 1, пустой вывод —
+# частичная заглушка; прецедент станции: pi-uu-grep А-11 молча возвращает
+# 1 на любом входе). Оба входа обязаны давать именованный отказ
+# «identity двери не определена» без маркера.
+REAL_GREP="$(command -v grep || true)"
+[ -n "$REAL_GREP" ] || die_pack "нет системного grep для шимов a9/a10"
+SHIM127="$WORK/grep-shim-127"
+SHIM1="$WORK/grep-shim-1"
+mkdir -p "$SHIM127" "$SHIM1"
+printf '#!/bin/sh\nif [ "${1:-}" = "-P" ]; then exit 127; fi\nexec %s "$@"\n' "$REAL_GREP" > "$SHIM127/grep"
+printf '#!/bin/sh\nif [ "${1:-}" = "-P" ]; then exit 1; fi\nexec %s "$@"\n' "$REAL_GREP" > "$SHIM1/grep"
+chmod +x "$SHIM127/grep" "$SHIM1/grep"
+
 # Клетка: имя, subject, имя клетки, предикат (p_pass/p_refuse), аргументы
 run_cell_door() {
   local name="$1" subj="$2" cell="$3" predicate="$4"
@@ -377,6 +424,12 @@ run_cell_door() {
       ;;
     a8)
       run_subject "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" --as --as
+      ;;
+    a9)
+      run_subject_shim "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" "$SHIM127" --as 'evil identity'
+      ;;
+    a10)
+      run_subject_shim "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" "$SHIM1" --as 'evil identity'
       ;;
     б1)
       rm -rf "$sess"
@@ -839,6 +892,21 @@ run_cell_door a7 "$ROOT/scripts/orch_restart.sh" a7 p_refuse "identity двер�
 run_cell_door a8 "$ROOT/scripts/orch_restart.sh" a8 p_refuse "--as задан дважды"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
+# (a9) --as 'evil identity' + grep -P сломан (PATH-шим: rc 127 ровно на
+# -P, прочее делегируется; toy-HANDOFF коммитит «evil identity» — все
+# прочие ноги зелёные): отказ инструмента НЕ есть «запрещённых code point
+# нет» — именованный отказ «identity двери не определена», маркер не
+# ставится (адверсарий 080-v4 I1; pre-fix: rc 0, маркер поставлен).
+run_cell_door a9 "$ROOT/scripts/orch_restart.sh" a9 p_refuse "identity двери не определена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (a10) --as 'evil identity' + частичная заглушка grep -P (rc 1, пустой
+# вывод — «не найдено» на любом входе, прецедент pi-uu-grep А-11): тот же
+# именованный отказ без маркера (адверсарий 080-v4 I1, «отдельная
+# частичная заглушка»; pre-fix: rc 0, маркер поставлен).
+run_cell_door a10 "$ROOT/scripts/orch_restart.sh" a10 p_refuse "identity двери не определена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
 # (б1) свежий журнал → rc 1 «живые субагенты: …»; pre-fix rc 0 marker set
 run_cell_door б1 "$ROOT/scripts/orch_restart.sh" б1 p_refuse "живые субагенты"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
@@ -906,6 +974,39 @@ if [ -e "$W8/mark" ] && grep -qF 'живые субагенты погибнут
   HONEST_GREEN=$((HONEST_GREEN + 1))
 else
   fail_cell г8 "mark=$([ -e "$W8/mark" ] && echo есть || echo нет) report=[$(cat "$W8/report" 2>/dev/null)] (ожидалось: принудительный маркер + «живые субагенты погибнут: LivePeak2» в отчёте — до реализации шов не поддержан)"
+fi
+
+# (г9) HARD, транзакция маркера (адверсарий 080-v4 I2): родитель $ORCH_MARK
+# отсутствует — touch не может поставить маркер; неудача постановки НЕ
+# имеет права фиксироваться успехом: именованный отказ (rc≠0) БЕЗ
+# state=hard, retry сохранён. После создания родителя второй ctx на ТОМ ЖЕ
+# session journal снова проходит hard-путь (сообщение в say.log) и ставит
+# маркер + state=hard. Pre-fix: первый ctx пишет state=hard при
+# отсутствующем маркере (rc 0), второй выходит по state до polling —
+# маркер не поставлен никогда (вечный ложный успех).
+W9="$WORK/peak-g9"
+peak_world "$W9" 600000 OldPeakAgent 300
+M9="$W9/no-such-parent/mark"
+ST9="$W9/testdir/state/ctx-$PEAK_SESS"
+run_peak_ctx_env "$W9" "$ORCHPEAK_SRC" ORCH_MARK="$M9" \
+  ORCH_HARD_GRACE=5 ORCH_HARD_POLL=1 ORCH_PEAK_GRACE=1 ORCH_PEAK_POLL=1
+CELL_FAIL=0
+g9_first=0
+rc1="$(cat "$W9/rc" 2>/dev/null || printf '?')"
+if [ "$rc1" != "0" ] && [ ! -e "$M9" ] && ! grep -qx 'hard' "$ST9" 2>/dev/null; then
+  g9_first=1
+else
+  fail_cell "г9-первый" "rc=$rc1 marker=$([ -e "$M9" ] && printf есть || printf нет) state=[$(cat "$ST9" 2>/dev/null)] (ожидалось: rc≠0 — именованный отказ неудачи touch, marker нет, state=hard НЕ записан)"
+fi
+mkdir -p "$W9/no-such-parent"
+run_peak_ctx_env "$W9" "$ORCHPEAK_SRC" ORCH_MARK="$M9" \
+  ORCH_HARD_GRACE=5 ORCH_HARD_POLL=1 ORCH_PEAK_GRACE=1 ORCH_PEAK_POLL=1
+rc2="$(cat "$W9/rc" 2>/dev/null || printf '?')"
+if [ "$g9_first" = 1 ] && [ -e "$M9" ] && grep -qx 'hard' "$ST9" 2>/dev/null \
+   && [ -s "$W9/testdir/say.log" ]; then
+  HONEST_GREEN=$((HONEST_GREEN + 1))
+else
+  fail_cell "г9-второй" "rc=$rc2 marker=$([ -e "$M9" ] && printf есть || printf нет) state=[$(cat "$ST9" 2>/dev/null)] say=$([ -s "$W9/testdir/say.log" ] && printf есть || printf пусто) (ожидалось: второй ctx дошёл до сообщения, marker есть, state=hard)"
 fi
 
 # Клетки в1-в2, г1-г2 (real ops/server/root/orch-peak + install.sh verify)
