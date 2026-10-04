@@ -6,17 +6,14 @@
 #
 # Гейт (контракт 072 + расширения 080):
 #   (0) identity — env `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, `--as <имя>`,
-#       за неимением — `.git/config user.name` (замороженная база 072;
-#       у 080-клеток эта ветвь НЕ достижима: фикстура 080 клетки a3
-#       выставляет file-config БЕЗ `user.name`). Контракт 080 запрещает
-#       читать file-config как основной источник (предмет (а)); здесь
-#       file-config только как FALLBACK для совместимости с замороженной
-#       семьёй 072, чьи клетки предполагают чтение `git config user.name`
-#       для identity. (в1) 072-контракта использует identity как эталон
-#       для сравнения с автором HANDOFF.md — file-config читался ТОЛЬКО
-#       для identity, не для (в1) напрямую (см. инв. 2 контракта 080).
+#       за неимением обоих — именованный отказ rc 1 «identity двери
+#       не определена» (предмет (а) 080). `.git/config user.name` НЕ
+#       читается (весь предмет 080 исключает file-config как источник
+#       identity; Н-56). Совместимость с 072 обеспечивается тем, что
+#       (в1) использует IDENTITY (env/--as) как эталон для сравнения
+#       с автором HANDOFF.md (см. инв. 2 контракта 080), а не file-config.
 #       Приоритет: env GIT_AUTHOR_NAME > env GIT_COMMITTER_NAME > --as >
-#       `git config user.name` > отказ «identity двери не определена».
+#       отказ «identity двери не определена».
 #   (1) живые субагенты — свежие `.jsonl` в каталоге текущей сессии →
 #       «живые субагенты: <имена>» (предмет (б) 080, инв. 3)
 #   (а) HEAD == origin/main                                → «HEAD расходится с origin/main»
@@ -114,10 +111,11 @@ while [ "$#" -gt 0 ]; do
 done
 
 # ── Identity: env > --as (инв. 1, ПИННУТ порядок) ──────────────────────────
-# Fallback на `.git/config user.name` — СОВМЕСТИМОСТЬ с замороженной 072-семьёй
-# (см. комментарий «Гейт (контракт 072 + расширения 080)» в шапке). Для 080
-# фикстуры клетка a3 не имеет user.name в file-config и должна давать
-# именованный отказ — file-config fallback НЕ достижим на этой клетке.
+# Источник identity — ТОЛЬКО env (GIT_AUTHOR_NAME / GIT_COMMITTER_NAME)
+# или явный --as; `.git/config user.name` НЕ читается (предмет (а) 080:
+# весь предмет 080 исключает file-config как источник identity; Н-56).
+# Пустая IDENTITY при пустых env/--as остаётся пустой и падает в
+# существующий ниже `if [ -z "$IDENTITY" ]` именованный отказ.
 IDENTITY=""
 if [ -n "${GIT_AUTHOR_NAME:-}" ]; then
   IDENTITY="${GIT_AUTHOR_NAME}"
@@ -125,8 +123,6 @@ elif [ -n "${GIT_COMMITTER_NAME:-}" ]; then
   IDENTITY="${GIT_COMMITTER_NAME}"
 elif [ -n "$AS_VAL" ]; then
   IDENTITY="$AS_VAL"
-else
-  IDENTITY="$(g config user.name 2>/dev/null || true)"
 fi
 if [ -z "$IDENTITY" ]; then
   printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2

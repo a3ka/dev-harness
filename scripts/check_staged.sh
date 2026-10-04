@@ -172,15 +172,23 @@ case "$COMMON_DIR" in
 esac
 SHARED_CFG="$COMMON_DIR/config"
 if [ -f "$SHARED_CFG" ]; then
-  _csid_user_name="$(git -C "$ROOT" config --file "$SHARED_CFG" --get user.name 2>/dev/null || true)"
-  _csid_user_email="$(git -C "$ROOT" config --file "$SHARED_CFG" --get user.email 2>/dev/null || true)"
-  if [ -n "$_csid_user_name" ] && [ -n "$_csid_user_email" ]; then
+  # Судим НАЛИЧИЕ ключа (rc `git config --get`), не значение: пустой
+  # `user.name =` в общем config — ключ ПРИСУТСТВУЕТ, значение пустое,
+  # `--get` вернёт пустую строку (rc 0). `-n "$значение"` пропустил бы
+  # это запрещённое состояние; rc --get его ловит (предмет (д') 080,
+  # инв. 18 — судьёй должен быть запрещён сам факт присутствия ключа
+  # в общем git-config, не непустое значение).
+  git -C "$ROOT" config --file "$SHARED_CFG" --get user.name  >/dev/null 2>&1
+  _csid_has_name=$?
+  git -C "$ROOT" config --file "$SHARED_CFG" --get user.email >/dev/null 2>&1
+  _csid_has_email=$?
+  if [ "$_csid_has_name" -eq 0 ] && [ "$_csid_has_email" -eq 0 ]; then
     printf 'ОТКАЗ: identity в общем .git/config запрещена: user.name и user.email в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
     exit 1
-  elif [ -n "$_csid_user_name" ]; then
+  elif [ "$_csid_has_name" -eq 0 ]; then
     printf 'ОТКАЗ: identity в общем .git/config запрещена: user.name в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
     exit 1
-  elif [ -n "$_csid_user_email" ]; then
+  elif [ "$_csid_has_email" -eq 0 ]; then
     printf 'ОТКАЗ: identity в общем .git/config запрещена: user.email в shared worktree config (рецидив 2026-10-03); передавай через -c или env\n' >&2
     exit 1
   fi

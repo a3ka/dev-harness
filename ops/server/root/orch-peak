@@ -241,10 +241,45 @@ case "${1:-}" in
         [ -n "$LIVE_NAMES" ] && live_killed=1
       fi
       wait_saved "перезапуск по контексту"
+      # Запись «погибнут» — атомарно (tmp+mv), содержимое ДОПИСЫВАЕТСЯ
+      # к существующему отчёту (а не затирает его — wait_saved уже мог
+      # записать своё содержимое). Маркер `touch "$MARK"` ставится
+      # ТОЛЬКО при подтверждённой успешной записи (tee rc=0 ∧ mv rc=0
+      # ∧ $REPORT — обычный файл после mv); иначе частичная неудача
+      # обязательного следа выглядит успехом (замер адверсария
+      # contracts-080-v1 I3: «mv file dir» в GNU coreutils кладёт файл
+      # ВНУТРЬ каталога и возвращает rc 0 — отчёт как файл по ожидаемому
+      # пути НЕ создан; требуем явный вид «обычный файл»).
+      report_ok=1
       if [ "$live_killed" -eq 1 ]; then
-        printf '%s — живые субагенты погибнут: %s\n' "перезапуск по контексту (жёсткий принудительный)" "$LIVE_NAMES" | as_u tee -a "$REPORT" >/dev/null
+        if [ -d "$REPORT" ]; then
+          # $REPORT — каталог: tmp+mv положит tmp ВНУТРЬ, отчёт как
+          # файл не создан; отказываем в записи.
+          report_ok=0
+        else
+          REPORT_DIR="$(dirname "$REPORT")"
+          REPORT_TMP="$REPORT_DIR/.orch-peak-report.tmp.$$"
+          existing_report="$(as_u cat "$REPORT" 2>/dev/null || true)"
+          if printf '%s\n%s\n' "$existing_report" "перезапуск по контексту (жёсткий принудительный) — живые субагенты погибнут: $LIVE_NAMES" \
+             | as_u tee "$REPORT_TMP" >/dev/null 2>&1; then
+            if as_u mv -f "$REPORT_TMP" "$REPORT" 2>/dev/null \
+               && [ -f "$REPORT" ]; then
+              report_ok=1
+            else
+              as_u rm -f "$REPORT_TMP" 2>/dev/null || true
+              report_ok=0
+            fi
+          else
+            as_u rm -f "$REPORT_TMP" 2>/dev/null || true
+            report_ok=0
+          fi
+        fi
       fi
-      as_u touch "$MARK" && log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию$([ "$live_killed" -eq 1 ] && echo ' (принудительно после ORCH_HARD_GRACE, имена в отчёте)')"
+      if [ "$report_ok" -eq 1 ]; then
+        as_u touch "$MARK" && log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию$([ "$live_killed" -eq 1 ] && echo ' (принудительно после ORCH_HARD_GRACE, имена в отчёте)')"
+      else
+        log "контекст: отчёт НЕ записан ($REPORT недоступен для tmp+mv) — маркер НЕ поставлен (г3, инв. 8: маркер только при успешной записи отчёта)"
+      fi
     elif [ "$ctx" -ge "$CTX_SOFT" ]; then
       [ -e "$st" ] && exit 0
       echo soft > "$st"; date +%s > "$STATE/ctx-$sess.warned"
