@@ -73,6 +73,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Н-206: `pull_request`-событие по умолчанию чекаутит синтетический
+          # `refs/pull/N/merge` (эфемерный коммит GitHub, диффящийся против
+          # ТЕКУЩЕГО base) — ЛЮБОЙ PR, амендящий уже-frozen `contracts/*.md`,
+          # навсегда красит `check_charter.sh` (диффит фантомный merge против
+          # первого родителя). Явный `ref:` на реальный head_sha PR (fallback
+          # на `github.sha` для push-события) — судим РЕАЛЬНУЮ ветку, не
+          # фантом; contract 073 «merge-HEAD» самодостаточен (строит СВОИ
+          # синтетические деревья в fixtures/zony_merge_head/, не зависит от
+          # формы внешнего checkout).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # `check:protected` сверяет достижимую историю — тот же аргумент, что в
           # главной джобе (см. её checkout): на глубине 1 объединение достижимых
           # коммитов равно HEAD, барьер стал бы пусто-зелёным.
@@ -97,6 +107,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Н-206: та же причина, что в джобе `antiplacebo` (см. её checkout) —
+          # без явного `ref:` эта джоба судит синтетический PR-merge-ref, а не
+          # реальную ветку; `check:charter` ложно красит ЛЮБОЙ PR, амендящий
+          # уже-frozen контракт/план.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # `check:protected` сверяет ВСЮ достижимую историю. На глубине 1 объединение
           # достижимых коммитов равно HEAD, и барьер стал бы пусто-зелёным — он это ловит и
           # отказывает, но лечить надо здесь, а не смягчением барьера.
