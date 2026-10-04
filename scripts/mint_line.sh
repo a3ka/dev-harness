@@ -156,12 +156,8 @@ if ! git -C "$ROOT" remote get-url origin >/dev/null 2>&1; then
   printf 'ОТКАЗ: авторитет недоступен: remote origin не настроен — fail-closed, обрыв сети НЕ пишет строку\n' >&2
   exit 1
 fi
-# BOUNDED NETWORK CALL (контракт 078, замер 2026-10-03): дуальный ls-remote
-# на unreachable origin блокируется на DNS/TCP вместо быстрого отказа rc=128
-# (см. lib_active_contracts.sh — тот же класс, та же причина hang ap2 PR#11).
-# timeout 15s — единый протокол-агностик, при нормальной сети не срабатывает.
 ls_rc=0
-ls_out="$(timeout 15s git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$NNN" 2>/dev/null)" || ls_rc=$?
+ls_out="$(git -C "$ROOT" ls-remote "origin" "refs/tags/id/CONTRACT/$NNN" 2>/dev/null)" || ls_rc=$?
 if [ "$ls_rc" -ne 0 ]; then
   printf 'ОТКАЗ: авторитет недоступен (ls-remote origin не ответил, rc=%s) — fail-closed, обрыв сети НЕ пишет строку\n' "$ls_rc" >&2
   exit 1
