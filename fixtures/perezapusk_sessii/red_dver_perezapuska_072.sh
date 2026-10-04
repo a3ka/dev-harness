@@ -192,6 +192,15 @@ unset ORCH_RESTART_MARKER ORCH_SESSION_START
 
 STAB_SRC="$ROOT/scripts/check_no_leak.sh"
 [ -f "$STAB_SRC" ] || die_pack "в дереве нет scripts/check_no_leak.sh — батарея строит toy-мир на нём"
+# Identity ЧЕСТНОЙ двери (контракт 080, инв. 1): реальная orch_restart.sh
+# берёт identity ТОЛЬКО из env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME или --as,
+# toy file-config больше НЕ источник (закрытие Н-186/Н-193, коммит 7cfc573)
+# — гейт identity стоит ПЕРЕД всеми проверками, без env честные клетки
+# отказывают «identity двери не определена», не доходя до своих ветвей.
+# Честные прогоны (run_honest / run_exit_honest / к11 / к16) несут identity
+# ЯВНО; прогоны стаб-пака (stub_install) env не получают — стаб-дверь по
+# 072-семантике читает toy file-config и от identity-шва не зависит.
+DOOR_ID=orchestrator
 
 # ── строители toy-мира ───────────────────────────────────────────────────────
 # toy_make <dir>: репозиторий main + origin (локальный bare) + HANDOFF.md,
@@ -883,7 +892,7 @@ run_exit_honest() { # $1=метка $2=мир $3=предикат (честна�
   build_cell "$T" "$world" honest_install
   rm -f "$GCLOG"
   TRACE_SNAP="$(cat "$TRACE" 2>/dev/null || printf '')"
-  run_exit_subject "$T" "$MARKER_PATH" "$M.out" "$M.err"
+  run_exit_subject "$T" "$MARKER_PATH" "$M.out" "$M.err" "GIT_AUTHOR_NAME=$DOOR_ID"
   trace_restore
   CELL_FAIL=0
   "$pred" "$tag" "$MARKER_PATH" "$S_RC" "$M.err" "$M.out"
@@ -944,7 +953,7 @@ run_honest() { # $1=метка $2=нарушение $3=предикат
   T="$WORK/ht-$tag"; TRACE="$M-trace"; GCLOG="$M-gclog"
   build_cell "$T" "$v" honest_install
   cp "$TRACE" "$TRACE.pre" 2>/dev/null || : > "$TRACE.pre"
-  run_subject "$T" "$M"
+  run_subject "$T" "$M" "GIT_AUTHOR_NAME=$DOOR_ID"
   CELL_FAIL=0
   "$pred" "$tag" "$M" "$S_RC" "$M.err" "$M.out"
   if [ "$CELL_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
@@ -962,7 +971,7 @@ run_honest к10 violate_J p_J
 # к11 — клетка ПЕРЕХОДА против реальной двери (арбитраж 072-Б2):
 # последовательный вход без нового HANDOFF-коммита обязан отказывать
 honest_total=$((honest_total+1))
-run_seq_cell к11 violate_K honest_install
+run_seq_cell к11 violate_K honest_install "GIT_AUTHOR_NAME=$DOOR_ID"
 if [ "$SEQ_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
 # к12 (адверсарий 072-r1, блокер 2): стартовый след многострочный
 # (мусор\n<ISO>) — инвариант 11 требует ровно одну непустую строку.
@@ -975,7 +984,7 @@ run_exit_honest к15 violate_M p_ORDER
 # к16 = П2б — клетка ПЕРЕХОДА против реальной двери: повторный вход без
 # нового HANDOFF-коммита при отказавшей записи следа обязан отказывать.
 honest_total=$((honest_total+1))
-run_seq_exit_cell к16 violate_T honest_install
+run_seq_exit_cell к16 violate_T honest_install "GIT_AUTHOR_NAME=$DOOR_ID"
 if [ "$EXIT_SEQ_FAIL" -eq 0 ]; then honest_green=$((honest_green+1)); fi
 # к17 — ревьюер 072-r2 Б4 (пост-freeze усиление, прецедент 005): отказ
 # записи следа при УСПЕШНО поставленном маркере (до прогона маркера НЕ
