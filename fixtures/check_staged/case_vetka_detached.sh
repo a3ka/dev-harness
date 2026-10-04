@@ -1,4 +1,6 @@
 # ПРИЧИНА: вне своей ветки wip/
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 #
 # Срез 1 контракта 018, ветвь предиката «ветки НЕТ вовсе» (Р3 арбитража
 # verdicts/arbitration/contracts-018-krasnyj-kontur-vetki.md): у зонированного автора со

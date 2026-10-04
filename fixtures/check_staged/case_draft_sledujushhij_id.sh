@@ -1,4 +1,6 @@
 # ПРИЧИНА: не выдан
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=architect
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=architect@local
 #
 # Контракт 023, И-4 (cutover peek→дверь, поглощение трогания 019): peek-дверь и
 # next_id_peek удалены; draft-пуск staged-пути contracts/<NNN>-<slug>.md под
@@ -104,7 +106,6 @@ make_repo_archzone "$GREEN"
 toy_origin "$GREEN" >/dev/null
 mint_rezerv "$GREEN" "$DRAFT_NOMER"
 co_wip "$GREEN" "wip/$DRAFT_NOMER/architect"
-set_author "$GREEN" architect
 green_id0="$(id_tags_of "$GREEN")"
 stage "$GREEN" "contracts/$DRAFT_NOMER-draft.md" "черновик $DRAFT_NOMER — первая посадка по резерву (сосед $ZANJATYJ_NOMER занят файлом, дверь его не читает)"
 out="$("$BARRIER" "$GREEN" || true)"
@@ -130,7 +131,6 @@ assert_no_new_id_tags "$GREEN" "$green_id0"
 RED="$WORK/repo_dver_bez_rezerva"
 make_repo_busy019 "$RED"
 co_wip "$RED" "wip/$DRAFT_NOMER/architect"
-set_author "$RED" architect
 red_id0="$(id_tags_of "$RED")"
 stage "$RED" "contracts/$DRAFT_NOMER-draft.md" "черновик $DRAFT_NOMER — следующий свободный по старому max+1, резерва нет"
 "$BARRIER" "$RED" || true                    # ожидание: rc 1 «номер <next> не выдан»

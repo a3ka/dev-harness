@@ -48,20 +48,19 @@ export TMPDIR="/tmp"
 rm -f "$MARKER" "$TRACE"
 
 # Toy-мир: чистый репозиторий с main + origin (bare), HANDOFF.md закоммичен,
-# автор orchestrator. .gitignore скрывает orch_restart.sh и marker для
+# автор orchestrator — адресным `-c` в коммите (file-config identity запрещена
+# моделью 080: дверь её не читает, инв. 2; Н-201). .gitignore скрывает orch_restart.sh и marker для
 # `git status --porcelain` (gate (б)): UNTRACKED-нога детектора их ВИДИТ
 # (ls-files --others без --exclude-standard), но это ожидаемо — снапшот их
 # тоже содержит (см. пре-копию ниже).
 mkdir -p "$WORK/scripts"
 cp "$REPO/scripts/check_no_leak.sh" "$WORK/scripts/"
 git -C "$WORK" init -q -b main
-git -C "$WORK" config user.name orchestrator
-git -C "$WORK" config user.email orchestrator@dev-harness.local
 printf 'scripts/orch_restart.sh\nmarker\n' > "$WORK/.gitignore"
 printf '## ГДЕ МЫ (toy)\n' > "$WORK/HANDOFF.md"
 git init -q --bare -b main "$WORK-origin.git"
 git -C "$WORK" remote add origin "$WORK-origin.git"
-git -C "$WORK" add -A && git -C "$WORK" commit -qm 'toy: init'
+git -C "$WORK" add -A && git -C "$WORK" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local commit -qm 'toy: init'
 git -C "$WORK" push -q origin main
 git -C "$WORK" fetch origin main 2>/dev/null
 git -C "$WORK" branch -u origin/main main 2>/dev/null
@@ -79,7 +78,7 @@ bash "$WORK/scripts/check_no_leak.sh" --snapshot "$WORK" >/dev/null 2>&1
 # BARRIER_ROOT=$WORK → ap_run копирует скрипт в $WORK/scripts/, BASH_SOURCE/.. → $WORK.
 # env var BARRIER_ROOT передаётся обёртке $BARRIER (она же `$wrap`) — verify_antiplacebo
 # unsets BARRIER_ROOT до старта фикстуры, поэтому выставляем inline у обёртки.
-BARRIER_ROOT="$WORK" ORCH_RESTART_MARKER="$MARKER" ORCH_SESSION_START="$TRACE" "$BARRIER" >/dev/null 2>&1
+BARRIER_ROOT="$WORK" ORCH_RESTART_MARKER="$MARKER" ORCH_SESSION_START="$TRACE" "$BARRIER" --as orchestrator >/dev/null 2>&1
 rc=$?
 [ "$rc" -eq 0 ] || { printf 'ОТКАЗ: зелёная ветка rc %s, ожидался 0\n' "$rc" >&2; exit 1; }
 [ -e "$MARKER" ] || { printf 'ОТКАЗ: маркер не поставлен\n' >&2; exit 1; }
@@ -90,7 +89,7 @@ printf '%s: rc 0, маркер поставлен\n' "case_01-green" >&2
 # возможность «снести зелёное прошлым состоянием».
 rm -f "$MARKER"
 printf 'untracked\n' > "$WORK/dirty.txt"
-BARRIER_ROOT="$WORK" ORCH_RESTART_MARKER="$MARKER" ORCH_SESSION_START="$TRACE" "$BARRIER" 2>&1 | grep -Fq -- 'porcelain непуст' \
+BARRIER_ROOT="$WORK" ORCH_RESTART_MARKER="$MARKER" ORCH_SESSION_START="$TRACE" "$BARRIER" --as orchestrator 2>&1 | grep -Fq -- 'porcelain непуст' \
   || { printf 'ОТКАЗ: красная ветка не назвала «porcelain непуст»\n' >&2; exit 1; }
 [ ! -e "$MARKER" ] || { printf 'ОТКАЗ: маркер поставлен при отказе (инвариант 3)\n' >&2; exit 1; }
 echo "case_01-red: rc 1 «porcelain непуст»" >&2

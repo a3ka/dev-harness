@@ -4,8 +4,9 @@
 #
 # `make_repo <каталог>` собирает репо, где подставной контракт заморожен ПО ПРОЦЕДУРЕ
 # (тег `frozen/contracts/001/1`) и несёт зону исполнителя — ту же грамматику ЗОНА-строк,
-# что читает check_zones. Коммитящий автор — `implementer` из ЛОКАЛЬНОГО конфига репо:
-# судья среза 1 различает авторов по `user.name` (решение Q3).
+# что читает check_zones. Судимый автор фикстуры приходит АДРЕСНЫМ env — пары
+# `# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME/EMAIL` в шапке case-файла (канал раннера), file-config
+# identity запрещена ногой (д') контракта 080 (Н-201); технические коммиты — `-c` в g().
 #
 # Зелёная основа обязательна: её предъявляет положительный контроль каждой фикстуры,
 # иначе вечно-красный барьер неотличим от работающего.
@@ -31,10 +32,8 @@ make_repo() {  # <корень>
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  # Автор коммитов судьи: локальный конфиг репо, БЕЗ дефолта в общем конфиге (инвариант
-  # identity Q3/Н-56: без явной identity git откажет «empty ident»).
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
+  # Судимый автор — env case-файла (НЕ file-config: нога (д') 080/Н-201 запрещает
+  # user.* в общем .git/config). Технические коммиты несут свой `-c` в g() (Н-56).
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -69,8 +68,6 @@ make_repo_multizone() {  # <корень>
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf 'основание вердиктов\n' > "$r/verdicts/critic/.keep"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -149,8 +146,6 @@ make_repo_archzone() {  # <корень>
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -204,8 +199,6 @@ make_repo_busy019() {  # <корень> [доп-зона architect]...
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# контракт %s (занятость номера — файл на HEAD)\n' "$nom" > "$r/contracts/$nom-base.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -248,8 +241,6 @@ make_repo_busy019_teg() {  # <корень> [доп-зона architect]...
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -278,8 +269,6 @@ make_repo_busy019_vetka() {  # <корень> [доп-зона architect]...
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -307,8 +296,6 @@ make_repo_busy019_istorija() {  # <корень> [доп-зона architect]...
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -343,8 +330,6 @@ make_repo_busy019_remote() {  # <корень> [доп-зона architect]...
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -379,8 +364,6 @@ make_repo_busy019_chuzhklass() {  # <корень> [доп-зона architect]..
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# план %s (чужой класс: номер НЕ виден классу CONTRACT)\n' "$nom" > "$r/plans/$nom-x.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -429,8 +412,6 @@ make_repo_busy019_tegsuffiks() {  # <корень> [доп-зона architect]..
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -466,8 +447,6 @@ make_repo_busy019_dve_cepochki() {  # <корень> [доп-зона architect]
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -498,8 +477,6 @@ make_repo_busy019_data_posle_defisa() {  # <корень> [доп-зона archi
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# контракт %s (цифра за дефисом — безномерное имя, номер НЕ занимает)\n' "$nom" > "$r/contracts/$nom-2026-x.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -532,8 +509,6 @@ make_repo_busy019_ne_tri_cifry() {  # <корень> [доп-зона architect]
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# контракт %s в записи из четырёх цифр (rc 2 — номер всё равно считается)\n' "$chetyre" > "$r/contracts/$chetyre-x.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -566,8 +541,6 @@ make_repo_busy019_komponenta() {  # <корень> <ном remote> <ном wip> 
   printf 'accept\nвердикт критика\n' > "$r/verdicts/critic/contracts-001-v1.md"
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name implementer
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email implementer@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A

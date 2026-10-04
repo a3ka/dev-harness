@@ -1,4 +1,6 @@
 # ПРИЧИНА: канарейка не подтверждена
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 # ОКРУЖЕНИЕ: PATH=$WORK/bin:$PATH
 #
 # Срез 1 контракта 016, закрытие находки 1 раунда 2 адверсария
