@@ -1,4 +1,6 @@
 # ПРИЧИНА: канарейка не подтверждена
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 # ОКРУЖЕНИЕ: PATH=$WORK/bin:$PATH
 #
 # Парный кейс к case_imja_fake_python3_exit_1.sh (находка 1 раунда 2 адверсария,

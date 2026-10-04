@@ -1,4 +1,6 @@
 # ПРИЧИНА: вне зоны: offzone_R.txt
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 #
 # СЕНТИНЕЛЬ R полного сентинель-набора (018 пост-заморозочно; закрывает границу AMT,
 # измеренную и названную в шапке case_staged_tipy_vne_zony.sh). НАБОР: пять фикстур,

@@ -1,4 +1,6 @@
 # ПРИЧИНА: python3 отсутствует
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 # ОКРУЖЕНИЕ: PATH=$WORK/bin
 #
 # Срез 1 контракта 016, ветвь грамматики имени, закрытие находки 2 адверсария

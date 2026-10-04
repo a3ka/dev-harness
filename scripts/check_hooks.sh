@@ -149,11 +149,17 @@ if [ "$rc" -eq 0 ]; then
       unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
             GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
       export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+      # Identity для обеих внутренних subshell-проб (страница сетапа toy-репо + страница
+      # вызова скопированного хука) — ТОЛЬКО через env, не через `git config` (без -c):
+      # прямая запись в `$toy_scratch/.git/config` пишет user.name/user.email в общий
+      # shared config, и нога (д') 080 в check_staged.sh читает ЕГО ФАЙЛ (минуя каскад env/-c)
+      # и отказывает по «identity в общем .git/config запрещена» НЕЗАВИСИМО от фазы пробы,
+      # ломая обе фазы ещё до зонной логики.
+      export GIT_AUTHOR_NAME=implementer GIT_AUTHOR_EMAIL=implementer@local \
+             GIT_COMMITTER_NAME=implementer GIT_COMMITTER_EMAIL=implementer@local
       (
         cd "$toy_scratch"
         git -c init.defaultBranch=main init -q
-        git config user.name implementer
-        git config user.email implementer@local
         git config commit.gpgsign false
         # Основа: контракт + зона + честный файл в зоне.
         git -c user.name=Фикстура -c user.email=fixture@local -c commit.gpgsign=false -c core.hooksPath=/dev/null add -A

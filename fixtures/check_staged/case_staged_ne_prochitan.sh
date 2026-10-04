@@ -1,4 +1,6 @@
 # ПРИЧИНА: staged не прочитан
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 # ОКРУЖЕНИЕ: PATH=$WORK/bin:$PATH
 #
 # Пост-заморозочное усиление 018 по находке F-1 адверсария (verdicts/adversary/contracts-018.md,

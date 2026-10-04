@@ -1,4 +1,6 @@
 # ПРИЧИНА: вне зоны: offzone_T.link
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 #
 # КЛАССОВАЯ фикстура закрытия F-2/F-3 (018 пост-заморозочно; вердикты адверсария кругов 2-3,
 # eaafada и da5af96). Заменяет case_staged_udalenie_vne_zony.sh (29116ba): её D-вход — частный
