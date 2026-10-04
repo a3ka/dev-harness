@@ -48,6 +48,17 @@ live_subagents_in() {
   now="$(date +%s)"
   local -a names=()
   local f mt age name
+  # Субагентские журналы могут иметь имена с ведущей точкой (например,
+  # `.LiveAgent.jsonl` — скрытый субагент). bash-glob по умолчанию НЕ
+  # включает dotfiles, поэтому перечисление «*.jsonl» молча пропускает
+  # свежий `.LiveAgent.jsonl» — дверь поставит маркер при живом
+  # субагенте (адверсарий 080-v3 I1). Включаем dotglob на время
+  # перечисления и сразу снимаем — иначе задеть другие ветви файла
+  # (например, вызов `lib_session.sh` внутри orch-peak, который может
+  # опираться на glob-семантику родительского шелла).
+  local prev_dotglob=0
+  shopt -q dotglob 2>/dev/null && prev_dotglob=1
+  shopt -s dotglob nullglob
   for f in "$sess_dir"/*.jsonl; do
     [ -e "$f" ] || continue
     mt="$(stat -c %Y "$f" 2>/dev/null || echo 0)"
@@ -56,6 +67,10 @@ live_subagents_in() {
     name="$(basename -- "$f" .jsonl)"
     names+=("$name")
   done
+  if [ "$prev_dotglob" -eq 0 ]; then
+    shopt -u dotglob 2>/dev/null || true
+  fi
+  shopt -u nullglob 2>/dev/null || true
   [ "${#names[@]}" -gt 0 ] || return 0
   local IFS=$'\n'
   # shellcheck disable=`SC2207`

@@ -130,13 +130,22 @@ while [ "$#" -gt 0 ]; do
       # грамматики — пробелы, непечатные символы, пустая строка
       # после --as → именованный отказ»). В argv пробелов быть не
       # может (bash разбивает), но \t / \r / управляющие могут
-      # прийти через нестандартные источники (env, eval).
-      case "$AS_VAL" in
-        *[[:space:][:cntrl:]]*)
-          printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
-          exit 1
-          ;;
-      esac
+      # прийти через нестандартные источники (env, eval), плюс
+      # Unicode-whitespace в обход C-локальных POSIX-классов
+      # ([[:space:]] в bash 5.2 ловит ТОЛЬКО ASCII whitespace;
+      # NBSP U+00A0 и ZWSP U+200B проходят — адверсарий 080-v3 I2).
+      # Проверка через PCRE: `\p{Z}` (Unicode space separators — ASCII
+      # space и NBSP) + `\p{Cf}` (Unicode format — ZWSP) + ASCII
+      # control (`\x00-\x1f\x7f`). `\s` НЕ годится: PCRE2 по
+      # умолчанию НЕ Unicode-аварен и матчит только ASCII whitespace,
+      # NBSP и ZWSP через него НЕ ловятся (живая проба). Объединение
+      # `\p{Z}|\p{Cf}|[\x00-\x1f\x7f]` покрывает ASCII whitespace,
+      # ASCII control, NBSP, ZWSP и любые Unicode whitespace/format
+      # code points.
+      if printf '%s' "$AS_VAL" | grep -P -q '\p{Z}|\p{Cf}|[\x00-\x1f\x7f]' 2>/dev/null; then
+        printf 'identity двери не определена: ни env GIT_AUTHOR_NAME/GIT_COMMITTER_NAME, ни --as\n' >&2
+        exit 1
+      fi
       shift
       ;;
     *)
