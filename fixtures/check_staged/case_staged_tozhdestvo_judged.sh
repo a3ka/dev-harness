@@ -1,4 +1,6 @@
 # ПРИЧИНА: вне зоны: zz_mid_off.txt
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=implementer
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=implementer@local
 #
 # КЛАССОВАЯ фикстура observability-тождества (018 класс-замыкающее усиление, решение
 # владельца (б)): печатаемое judged-множество ТОЖДЕСТВЕННО полному staged-множеству.
@@ -63,8 +65,6 @@ printf 'исходный файл в зоне\n'   > "$IDENT/scripts/a.sh"
 printf 'файл середины — вне зоны\n' > "$IDENT/zz_mid_off.txt"
 printf 'основание для M-записи\n' > "$IDENT/zzz_tail/m_last.sh"
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$IDENT"
-GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$IDENT" config user.name implementer
-GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$IDENT" config user.email implementer@local
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$IDENT" config commit.gpgsign false
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$IDENT" config core.hooksPath /dev/null
 g "$IDENT" add -A

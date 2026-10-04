@@ -1,4 +1,6 @@
 # ПРИЧИНА: ОТКАЗ: дверь минта 031:
+# ОКРУЖЕНИЕ: GIT_AUTHOR_NAME=orchestrator
+# ОКРУЖЕНИЕ: GIT_AUTHOR_EMAIL=orchestrator@local
 #
 # Контракт 049 (корень Н-153), клетка «удаление строки»: подготовка та же, что у
 # case_dver_minta_zamena_na_frozen (живой frozen/contracts/040/1 есть), но строка 040
@@ -28,7 +30,6 @@ make_repo_orchzone() {  # <корень>
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
-  set_author "$r" orchestrator
   g "$r" add -A
   g "$r" commit -q -m 'основание'
   g "$r" tag -a frozen/contracts/001/1 -m 'контракт утверждён'
@@ -62,7 +63,6 @@ perepis() {  # <корень> <NNN> <новый sha | пусто>
 R="$WORK/repo"
 make_repo_orchzone "$R"
 toy_origin "$R" >/dev/null
-set_author "$R" orchestrator
 g "$R" push -q origin "refs/tags/frozen/contracts/001/1"
 
 # ── зелёный контроль: честный минт 040 staged ────────────────────────────────────
