@@ -13,8 +13,10 @@
 #      на входе, где его дефект наблюдаем; clean-stub на той же клетке
 #      даёт другой rc → стаб пойман; clean-stub на чистом входе
 #      проходит rc 0 → диффпроба зелёная.
-#   2. ЧЕСТНАЯ ЧАСТЬ (27 клеток a1-a10, б1-б3, в1-в3, г1-г2, г6-г9,
-#      д'1-д'5) — против реальных scripts/orch_restart.sh,
+#   2. ЧЕСТНАЯ ЧАСТЬ (31 клетка a1-a12, б1-б4, в1-в3, г1-г2, г6-г9,
+#      д'1-д'6; прирост — Б-2 ревью круг 1: a11 v5 U+200B, a12 v6 I1
+#      argv-селективный grep-шим, б4 Б-1 отказ stat, д'6 v6 I2
+#      git-config-шим) — против реальных scripts/orch_restart.sh,
 #      ops/server/root/orch-peak И scripts/check_staged.sh дерева;
 #      предъявляется живым прогоном. Клетки в3/г6/г7/г8/г9 — ПОВЕДЕНЧЕСКИЕ:
 #      субъект реально запускается командой ctx в sandbox-мире через шов
@@ -58,7 +60,7 @@
 # SBIN_DST; install.sh verify с швом OPS_SERVER_SRC/SBIN_DST/BIN_DST/ETC_DST.
 #
 # Прогон: bash red_dver_bugfiks_080.sh [корень worktree]
-#   rc 0 — стаб-пак 9/9 пойман + диффпроба 9/9 + честные 27/27.
+#   rc 0 — стаб-пак 9/9 пойман + диффпроба 9/9 + честные 31/31.
 #   rc 1 — расхождение / стаб не пойман.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -277,7 +279,7 @@ fi
 STAB_CAUGHT=0
 DIFF_GREEN=0
 HONEST_GREEN=0
-HONEST_TOTAL=27
+HONEST_TOTAL=31
 
 # ── ХЕЛПЕРЫ предикатов ───────────────────────────────────────────────────
 fail_cell() { printf 'клетка %s: %s\n' "$1" "$2" >&2; CELL_FAIL=1; }
@@ -303,6 +305,22 @@ p_refuse() {
     : # ok
   else
     fail_cell "$name" "rc=$rc marker=$marker stderr=$stderr (ожидалось: rc=1, marker пуст, stderr содержит «$sub»)"
+  fi
+}
+
+# Предикат fail-closed (клетка б4, Б-1): отказ инструмента проверки не
+# имеет права выглядеть зелёным — rc≠0, маркер НЕ ставится, stderr
+# именован (непуст). Точный код/текст отказа — выбор реализации Б-1
+# (рекомендация ревьюера: rc 2 NOT_IMPLEMENTED); клетка пиннует КЛАСС
+# «отказ stat ≠ журнал старый», не конкретную формулировку.
+p_failclosed() {
+  local name="$1"
+  local rc; rc=$(cat "$WORK/_rc" 2>/dev/null || echo "?")
+  local stderr; stderr=$(cat "$WORK/stderr" 2>/dev/null || echo "")
+  if [ "$rc" != "0" ] && [ ! -e "$WORK/marker" ] && [ -n "$stderr" ]; then
+    : # ok
+  else
+    fail_cell "$name" "rc=$rc marker=$([ -e "$WORK/marker" ] && echo yes || echo no) stderr=$stderr (ожидалось: rc≠0, маркер НЕ поставлен, именованный stderr — отказ stat не имеет права читаться как «журнал старый»)"
   fi
 }
 
@@ -380,6 +398,45 @@ printf '#!/bin/sh\nif [ "${1:-}" = "-P" ]; then exit 127; fi\nexec %s "$@"\n' "$
 printf '#!/bin/sh\nif [ "${1:-}" = "-P" ]; then exit 1; fi\nexec %s "$@"\n' "$REAL_GREP" > "$SHIM1/grep"
 chmod +x "$SHIM127/grep" "$SHIM1/grep"
 
+# ── PATH-шимы клеток a12/б4/д'6 (Б-2 ревью круг 1) ─────────────────────────
+# Каждый шим селективен ровно по месту, где его дефект НАБЛЮДАЕМ (Н-39),
+# и делегирует прочие вызовы честному инструменту:
+#  * grep-шим a12 — argv-селективный (repro D1): ложь rc=1 на вызове,
+#    чей argv несёт литерал рабочего предиката грамматики --as;
+#  * git-шим д'6 (repro C1): ложь rc=1 на каждом `config --file`
+#    («ключа нет» вместо чтения) — включая mktemp-канарейку v6;
+#  * stat-шим б4: отказ rc=1 ровно на *.jsonl (перечисление субагентских
+#    журналов); прочие потребители stat/lstat получают честный инструмент.
+SHIM_ARGV="$WORK/grep-shim-argv"
+SHIM_GITCFG="$WORK/git-shim-config"
+SHIM_STAT="$WORK/stat-shim"
+mkdir -p "$SHIM_ARGV" "$SHIM_GITCFG" "$SHIM_STAT"
+{
+  printf '#!/bin/sh\n'
+  printf 'for a in "$@"; do\n'
+  printf "  [ \"\$a\" = '%s' ] && exit 1\n" '\p{Z}|\p{Cc}|\p{Cf}'
+  printf 'done\n'
+  printf 'exec %s "$@"\n' "$REAL_GREP"
+} > "$SHIM_ARGV/grep"
+{
+  printf '#!/bin/sh\n'
+  printf 'hc=0 hf=0\n'
+  printf 'for a in "$@"; do\n'
+  printf '  [ "$a" = config ] && hc=1\n'
+  printf '  [ "$a" = --file ] && hf=1\n'
+  printf 'done\n'
+  printf '[ "$hc" = 1 ] && [ "$hf" = 1 ] && exit 1\n'
+  printf 'exec %s "$@"\n' "$(command -v git)"
+} > "$SHIM_GITCFG/git"
+{
+  printf '#!/bin/sh\n'
+  printf 'for a in "$@"; do\n'
+  printf '  case "$a" in *.jsonl) exit 1;; esac\n'
+  printf 'done\n'
+  printf 'exec %s "$@"\n' "$(command -v stat)"
+} > "$SHIM_STAT/stat"
+chmod +x "$SHIM_ARGV/grep" "$SHIM_GITCFG/git" "$SHIM_STAT/stat"
+
 # Клетка: имя, subject, имя клетки, предикат (p_pass/p_refuse), аргументы
 run_cell_door() {
   local name="$1" subj="$2" cell="$3" predicate="$4"
@@ -431,6 +488,18 @@ run_cell_door() {
     a10)
       run_subject_shim "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" "$SHIM1" --as 'evil identity'
       ;;
+    a11)
+      # ZWSP U+200B внутри значения --as (закрытие v5, c5b4517). Toy
+      # коммитит HANDOFF тем же ZWSP-автором: все ноги, КРОМЕ грамматики,
+      # зелёные — красная клетка означает «значение принято, маркер
+      # поставлен» (регрессия класса \p{Cf}).
+      TOY_HANDOFF_AUTHOR=$'a\u200bb' run_subject "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" --as $'a\u200bb'
+      ;;
+    a12)
+      # argv-селективный grep-шим (закрытие v6 I1, repro D1 ревьюера):
+      # шим лжёт rc=1 только на вызове с литералом рабочего предиката.
+      run_subject_shim "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" "$SHIM_ARGV" --as 'evil identity'
+      ;;
     б1)
       rm -rf "$sess"
       subagent_journal "$sess" LiveAgent 30
@@ -447,6 +516,26 @@ run_cell_door() {
       rm -rf "$sess"
       run_subject_env "$t" "$subj" "$WORK/_rc" "$WORK/stderr" "$WORK/stdout" "$sess" \
         GIT_AUTHOR_NAME=architect
+      ;;
+    б4)
+      # Мир клетки б1 (свежий LiveAgent 30s) + PATH-шим stat: отказ rc≠0
+      # РОВНО на *.jsonl — место, где дефект Б-1 наблюдаем; check_no_leak
+      # и gc_agent_branches зовут stat/lstat на НЕ-jsonl путях и получают
+      # честный инструмент (иначе клетка краснела бы чужим отказом).
+      rm -rf "$sess"
+      subagent_journal "$sess" LiveAgent 30
+      (
+        rm -f "$WORK/marker"
+        toy_door2 "$t" "$subj" "$ROOT"
+        cd "$t"
+        export ORCH_RESTART_MARKER="$WORK/marker"
+        export ORCH_SESSION_START="$WORK/trace"
+        export ORCH_SESS_DIR="$sess"
+        export GIT_AUTHOR_NAME="architect"
+        export PATH="$SHIM_STAT:$PATH"
+        bash scripts/orch_restart.sh >"$WORK/stdout" 2>"$WORK/stderr"
+        echo $? > "$WORK/_rc"
+      ) >/dev/null 2>&1 || true
       ;;
     *) die_pack "неизвестная дверная клетка: $cell" ;;
   esac
@@ -837,6 +926,35 @@ run_cs_worktree_cell() {
   rm -rf "$s" "$s-wt"
 }
 
+# helpers клетки д'6 (PATH-шим git, v6 I2 / repro C1 ревьюера круга 1):
+# run_cs_shim_cell <name> <sandbox> <wn> <we> <expect-строка> <shimdir>.
+# Субъект — реальный scripts/check_staged.sh дерева; env identity
+# env-bot; PATH-шим git лжёт rc=1 на каждом `git … config --file …`
+# (включая mktemp-канарейку фиксации v6) и делегирует прочие вызовы
+# честному git. Ожидание: rc=2 + именованный отказ канарейки; rc=0
+# «не судится» — тихий проход мимо загрязнённого общего config
+# (красное до фикса).
+run_cs_shim_cell() {
+  local name="$1" s="$2" wn="$3" we="$4" expect="$5" shim="$6"
+  setup_cs_sandbox "$s" "$wn" "$we"
+  CELL_FAIL=0
+  (
+    cd "$s" || exit 1
+    export GIT_AUTHOR_NAME="env-bot"
+    export PATH="$shim:$PATH"
+    bash scripts/check_staged.sh . >"$WORK/css_out" 2>"$WORK/css_err"
+    echo $? > "$WORK/css_rc"
+  ) >/dev/null 2>&1 || true
+  local rc; rc=$(cat "$WORK/css_rc" 2>/dev/null || echo "?")
+  local err; err=$(cat "$WORK/css_err" 2>/dev/null || echo "")
+  if [ "$rc" = "2" ] && printf '%s' "$err" | grep -qF -- "$expect"; then
+    : # ok
+  else
+    fail_cell "$name" "rc=$rc err=$err (ожидалось rc=2 NOT_IMPLEMENTED, stderr содержит «$expect»; rc=0 «не судится» = тихий проход мимо загрязнённого общего config — фикс v6 I2 отсутствует)"
+  fi
+  rm -rf "$s"
+}
+
 # ── Прогон пака стабов ──────────────────────────────────────────────────
 run_stab_cell s1 "$S1" a1
 run_stab_cell s2 "$S2" a1
@@ -907,6 +1025,24 @@ run_cell_door a9 "$ROOT/scripts/orch_restart.sh" a9 p_refuse "identity двер�
 run_cell_door a10 "$ROOT/scripts/orch_restart.sh" a10 p_refuse "identity двери не определена"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
+# (a11) --as $'a\u200bb' — ZWSP U+200B (класс \p{Cf}) внутри значения:
+# грамматика обязана отвергнуть (закрытие v5, c5b4517). Toy-HANDOFF
+# коммитит ТЕМ ЖЕ ZWSP-автором — все прочие ноги зелёные, и до фикса
+# (предикат без \p{Cf}) маркер ставится (красная), после — именованный
+# отказ грамматики. ANSI-C кавычка: файл батареи остаётся ASCII.
+run_cell_door a11 "$ROOT/scripts/orch_restart.sh" a11 p_refuse "identity двери не определена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
+# (a12) argv-селективный grep-шим (закрытие v6 I1, repro D1 ревьюера):
+# честен на любом вызове, чей argv НЕ несёт литерал рабочего предиката
+# грамматики `\p{Z}|\p{Cc}|\p{Cf}`; вызов с литералом лжёт rc=1 «не
+# найдено». До f1efd41 канарейка несла ДРУГОЙ предикат (\p{Z}) — шим
+# честен на канарейке, лжёт на разборе значения → rc 0 + маркер
+# (красная). После фикса канарейка несёт ТОТ ЖЕ литерал (единый
+# источник) — шим лжёт и канарейке → именованный отказ без маркера.
+run_cell_door a12 "$ROOT/scripts/orch_restart.sh" a12 p_refuse "identity двери не определена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+
 # (б1) свежий журнал → rc 1 «живые субагенты: …»; pre-fix rc 0 marker set
 run_cell_door б1 "$ROOT/scripts/orch_restart.sh" б1 p_refuse "живые субагенты"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
@@ -917,6 +1053,13 @@ run_cell_door б2 "$ROOT/scripts/orch_restart.sh" б2 p_pass
 
 # (б3) сессия без журналов → rc 0; pre-fix rc 0
 run_cell_door б3 "$ROOT/scripts/orch_restart.sh" б3 p_pass
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+# (б4) отказ stat при СВЕЖЕМ журнале (Б-1 ревью круга 1): PATH-шим stat
+# rc≠0 ровно на *.jsonl (перечисление субагентских журналов — место, где
+# дефект наблюдаем). До фикса Б-1 mt=0 → возраст «сейчас» → журнал
+# выпадает из свежих → rc 0 + маркер (красная клетка). После фикса —
+# fail-closed rc≠0 без маркера с именованным stderr.
+run_cell_door б4 "$ROOT/scripts/orch_restart.sh" б4 p_failclosed
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # ── ПОВЕДЕНЧЕСКИЕ клетки сторожа (шов ORCH_PEAK_TEST) ─────────────────────
@@ -1063,6 +1206,15 @@ run_cs_cell "д'4" "$WORK/cs-d4" "" 0 0 p_pass ""
 # проба критика к1 — прямой $ROOT/.git/config в worktree не видит его);
 # субъект запущен ИЗ worktree → rc 1 с маркером (д')
 run_cs_worktree_cell "д'5" "$WORK/cs-d5" p_refuse "identity в общем .git/config запрещена"
+[ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
+# (д'6) PATH-шим git: ложь rc=1 на ВСЕХ `git … config --file …` (закрытие
+# v6 I2, repro C1 ревьюера круга 1). Sandbox с ОБЕИМИ user.* в общем
+# config (сильнейшая форма мира д'): честный git обязан дать rc 1 ОТКАЗ
+# «identity в общем .git/config запрещена»; шим превращает «ключ есть» в
+# rc 1 «ключа нет» — до фикса f1efd41 это тихий проход rc 0 «не судится»
+# при загрязнённом config, после — именованный rc 2 канарейки чтения
+# (mktemp-проба ждёт rc 0 + точное значение, шим лжёт и ей).
+run_cs_shim_cell "д'6" "$WORK/cs-d6" 1 1 "канарейка чтения общего .git/config не подтверждена" "$SHIM_GITCFG"
 [ "$CELL_FAIL" = 0 ] && HONEST_GREEN=$((HONEST_GREEN + 1))
 
 # ── ИТОГ ────────────────────────────────────────────────────────────────
