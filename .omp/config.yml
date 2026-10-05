@@ -68,9 +68,19 @@ modelRoles:
 # машины сам — один и тот же конфиг на btrfs-домашней даёт сабволюмы, на
 # ext4-сервере даёт копию через rcopy fallback). Источник: omp://tools/task.md:116
 # + omp://settings.md «Field-level migrations».
+#
+# softRequestBudget (слово владельца 2026-10-05, передано консультантом): 200 →
+# 500. Дефолт omp 18.3.1 — 200 запросов субагента до «force-stopped» (мягкий
+# бюджет; жёсткий стоп у omp ~1.5×). Прецеденты: Н-68 (Impl015 убит на 305/200 ДО
+# приёмных прогонов), контракт 019 (305/200), контракт 083 (Impl083Incr 26 мин,
+# Impl083Gen 28 мин — оба упёрлись в «[budget notice] 200 requests», вернули
+# status: partial, у Gen красные Г1/Г2 → лишний круг Fix083*). `task.maxRuntimeMs`
+# (Н-54) здесь ВЫКЛЮЧЕН (0) — см. roles/orchestrator.md; предохранитель на эту
+# секунду — ИМЕННО softRequestBudget, не wall-clock.
 task:
   isolation:
     enabled: true
+  softRequestBudget: 500
 
 isolation:
   backend: auto
