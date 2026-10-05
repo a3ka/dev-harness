@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # 083-БАТАРЕЯ — CI-А: параллельные lane из генератора шагов + инкрементальные
-# проверки истории (контракт 083; круг 2 — правка по 6 блокерам critic v1).
+# проверки истории (контракт 083; круг 3 — правка по арбитражу 083-krug2:
+# П1-а клетка Г8 «генерация, не сверка» (write-режим генератора как функция
+# реестра), П1-б клетка Г9 «исполнение lane-шага, не упоминание» (живой прогон
+# извлечённой run:-команды), П2 — в timing_083.sh, см. отдельный скрипт).
 # Дом семьи — fixtures/ci_gen_083/ (probe-only 034: предмет — ГЕНЕРАТОР
 # scripts/gen_ci_steps.sh + реестр registry/ci-steps.tsv + блоки ci.yml,
 # ИСПОЛНЕНИЕ lane scripts/run_ci_lane.sh И режим --incr ЧЕТЫРЁХ исторических
@@ -9,7 +12,7 @@
 # носитель закоммичен АРХИТЕКТОРОМ (прецеденты 058/070/072/078/080).
 #
 # СТРУКТУРА (две части):
-#   Часть Г — генератор+исполнение: честные клетки Г0-Г7 (КРАСНЫ до
+#   Часть Г — генератор+исполнение: честные клетки Г0-Г9 (КРАСНЫ до
 #     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1/Г-С2
 #     (toy-входы, ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока —
 #     различает обман на входе, где дефект наблюдаем). Г2 дополнительно
@@ -18,7 +21,16 @@
 #     matrix.keys, последовательные npm-шаги отсутствуют); Г6 сравнивает
 #     ключи КАЖДОГО шарда блок↔реестр поключево; Г7 РЕАЛЬНО ИСПОЛНЯЕТ
 #     run_ci_lane.sh на toy-реестре (порядок, fail-fast именем ключа,
-#     неизвестный ключ — именованный отказ).
+#     неизвестный ключ — именованный отказ); Г8 (арбитраж 083-krug2 П1-а)
+#     доказывает ГЕНЕРАЦИЮ write-режимом: пустые блоки toy → --write →
+#     записанное судится оракулом батареи (K/покрытие/баланс/шарды),
+#     дифференциал по изменённому реестру обязан менять блок, неизменённая
+#     копия обязана оставаться rc 0 (ловушка арность-заглушки); Г9
+#     (арбитраж 083-krug2 П1-б) ИСПОЛНЯЕТ lane-шаг из ci.yml: run:-значение
+#     единственного lane-шага (однострочный скаляр, иначе именованное
+#     красное), токен '${{ matrix.keys }}' → 'k2 k4 k6', живой прогон из
+#     toy L7, зелёное = rc 0 И журнал k2 k4 k6 по порядку (echo-имитация
+#     даёт пустой журнал — различимость по исполнению, не по тексту).
 #   Часть И — инкрементальность: И0/И0б (живое дерево, 4 чека, гость: КРАСНА
 #     до реализации; И0б — непустое окно HEAD~1..HEAD: маркер с ИСТИННЫМ
 #     числом коммитов + перезапись кеша), И1 позитивный контроль (полный
@@ -65,7 +77,7 @@
 #
 # Прогон: bash red_ci_a_083.sh [корень]
 #   rc 0 — все клетки зелёные (после реализации предмета);
-#   rc 1 — есть красные (до реализации: Г0-Г7, И0, И0б, И2-И5, И7-И8,
+#   rc 1 — есть красные (до реализации: Г0-Г9, И0, И0б, И2-И5, И7-И8,
 #          И10-И11, И13-И14 красны по умыслу, стаб-пак и И1/И6/И9/И12 зелёны).
 # Печать никогда не говорит PASS — только счёт ok/FAIL по клеткам (rc — истина).
 set -uo pipefail
@@ -334,22 +346,28 @@ fi
 # run_ci_lane.sh из корня toy; каждый sk-скрипт дописывает свой ключ в done.log
 # рядом с собой — cwd-независимо).
 LANE="$ROOT/scripts/run_ci_lane.sh"
-if [ ! -f "$LANE" ]; then
-  bad "Г7: предмет отсутствует: нет lane-исполнителя $LANE"
-else
-  L7="$SCRATCH/lane7"; rm -rf "$L7"; mkdir -p "$L7/scripts" "$L7/registry"
-  cp "$LANE" "$L7/scripts/run_ci_lane.sh"
+build_lane7() { # <dir> — toy L7 (общий для Г7 и Г9): sk1..sk6 (k5 отказывает
+  # rc 1), реестр k1..k6, раннер из дерева; sk-скрипты пишут свой ключ в
+  # done.log рядом с собой — cwd-независимо.
+  local d="$1" i
+  rm -rf "$d"; mkdir -p "$d/scripts" "$d/registry"
+  cp "$LANE" "$d/scripts/run_ci_lane.sh"
   i=1
   while [ "$i" -le 6 ]; do
     { printf '#!/usr/bin/env bash\n'
       printf 'printf "%%s\\n" k%s >> "$(dirname "$0")/../done.log"\n' "$i"
       [ "$i" = "5" ] && printf 'exit 1\n'
-    } > "$L7/scripts/sk$i.sh"
+    } > "$d/scripts/sk$i.sh"
     i=$((i+1))
   done
   { printf 'lanes\t6\n'
     i=1; while [ "$i" -le 6 ]; do printf 'step\tk%s\t10\tbash scripts/sk%s.sh\n' "$i" "$i"; i=$((i+1)); done
-  } > "$L7/registry/ci-steps.tsv"
+  } > "$d/registry/ci-steps.tsv"
+}
+if [ ! -f "$LANE" ]; then
+  bad "Г7: предмет отсутствует: нет lane-исполнителя $LANE"
+else
+  L7="$SCRATCH/lane7"; build_lane7 "$L7"
   rm -f "$L7/done.log"
   out="$(cd "$L7" && timeout 30 bash scripts/run_ci_lane.sh k2 k4 k6 2>&1)"; rc=$?
   log=""; [ -f "$L7/done.log" ] && log="$(tr '\n' ' ' < "$L7/done.log")"
@@ -371,6 +389,168 @@ else
     ok "Г7-неизвестный-ключ: nokey — именованный отказ (rc=$rc)"
   else
     bad "Г7-неизвестный-ключ: отказ не именует ключ (rc=$rc): $out"
+  fi
+fi
+
+# Г8: ГЕНЕРАЦИЯ, не сверка (арбитраж 083-krug2, П1-а): write-режим инв. 1 —
+# блок обязан быть ФУНКЦИЕЙ реестра. Toy — хирургическая копия входов
+# генератора (ci.yml + реестр + package.json + генератор + цели bash-путей
+# реестра, чтобы резолв И-3 в toy был честным). Три предъявления:
+#   (3) НЕИЗМЕНЁННАЯ toy-копия → --check rc 0 (ловушка арность-считающей
+#       заглушки: 3 аргумента ≠ «правка в блоке»; конформный вход обязан
+#       быть зелёным — сама по себе НЕ достаточна, потому (1)-(2) обязательны);
+#   (1) тела ОБОИХ блоков удалены (маркеры оставлены) → --check rc 1
+#       с именованным дрейфом → --write rc 0 → ОРАКУЛ батареи (собственный
+#       парсер, НЕ повторный вызов субъекта) судит записанное: lane-строк
+#       ровно K реестра, ключи всех lane == step-ключам реестра каждый ровно
+#       один раз, граница баланса И-4, шарды поключево == shard-строкам →
+#       --check rc 0;
+#   (2) дифференциал реестра: K → другое значение 6..8 И один step-ключ
+#       переименован (в step- и shard-строках) → write → блок изменился
+#       соответственно (lane-строк = новое K, новый ключ присутствует,
+#       старый отсутствует) — хранимая константа, а не генерация, красна.
+build_gen_toy() { # <dir> — копия входов генератора для Г8
+  local t="$1" p
+  rm -rf "$t"; mkdir -p "$t/.github/workflows" "$t/registry" "$t/scripts"
+  cp "$CIYML" "$t/.github/workflows/ci.yml"
+  cp "$REG" "$t/registry/ci-steps.tsv"
+  cp "$ROOT/package.json" "$t/package.json"
+  cp "$GEN" "$t/scripts/gen_ci_steps.sh"
+  while IFS=$'\t' read -r kind key weight command; do
+    [ "$kind" = "step" ] || continue
+    case "$command" in
+      "bash "*) p="${command#bash }"; p="${p%% *}"; mkdir -p "$t/$(dirname "$p")"; cp "$ROOT/$p" "$t/$p" ;;
+    esac
+  done < <(grep -v $'^[[:space:]]*#' "$REG")
+}
+empty_blocks() { # <ci.yml> — удалить тела ОБОИХ marker-блоков, маркеры оставить
+  awk -v b1="$JOBS_B" -v e1="$JOBS_E" -v b2="$SHARDS_B" -v e2="$SHARDS_E" '
+    index($0,b1)==1 { print; s=1; next }
+    index($0,e1)==1 { s=0; print; next }
+    index($0,b2)==1 { print; s=1; next }
+    index($0,e2)==1 { s=0; print; next }
+    !s' "$1" > "$1.g8tmp" && mv "$1.g8tmp" "$1"
+}
+if [ ! -f "$GEN" ]; then
+  bad "Г8: предмет отсутствует: нет генератора $GEN"
+elif [ ! -f "$REG" ] || [ -z "${reg_lanes//[[:space:]]/}" ] || [ -z "${reg_keys//[[:space:]]/}" ]; then
+  bad "Г8: предмет отсутствует: реестр не распарсен (см. Г0) — генерация не судима"
+elif [ ! -f "$CIYML" ] || ! grep -qF "$JOBS_B" "$CIYML" || ! grep -qF "$SHARDS_B" "$CIYML"; then
+  bad "Г8: предмет отсутствует: нет marker-блоков (083) в ci.yml — write-режим не судим"
+else
+  FIRSTKEY="$(printf '%s' "$reg_keys" | awk '{print $1}')"
+  T8="$SCRATCH/g8toy"; build_gen_toy "$T8"; T8CI="$T8/.github/workflows/ci.yml"
+  # граница баланса И-4 — считаем сами (не полагаемся на переменные Г5)
+  t8_total=0; t8_maxw=0
+  for k in $reg_keys; do w8="${W[$k]:-0}"; t8_total=$((t8_total+w8)); [ "$w8" -gt "$t8_maxw" ] && t8_maxw="$w8"; done
+  t8_bound=$(( (t8_total + reg_lanes - 1) / reg_lanes + t8_maxw ))
+  g8_bad=""
+  # (3) неизменённая копия — конформный вход, обязан быть rc 0
+  out="$(cd "$T8" && timeout 60 bash scripts/gen_ci_steps.sh --check --root "$T8" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || g8_bad="$g8_bad неизменённая-копия rc=$rc (ожидался 0 — конформный вход): $out"
+  # (1) пустые блоки → именованный дрейф → write → оракул → check
+  empty_blocks "$T8CI"
+  out="$(cd "$T8" && timeout 60 bash scripts/gen_ci_steps.sh --check --root "$T8" 2>&1)"; rc=$?
+  { [ "$rc" -eq 1 ] && [ -n "$out" ]; } || g8_bad="$g8_bad пустые-блоки rc=$rc (ожидался 1 с именованным дрейфом): $out"
+  out="$(cd "$T8" && timeout 60 bash scripts/gen_ci_steps.sh --write --root "$T8" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || g8_bad="$g8_bad write rc=$rc: $out"
+  # оракул батареи судит ЗАПИСАННЫЙ блок (парсер батареи, не субъект)
+  tn="$(block_lanes "$T8CI" "$JOBS_B" "$JOBS_E" | wc -l | tr -d ' ')"
+  [ "$tn" -eq "$reg_lanes" ] || g8_bad="$g8_bad lane-строк=$tn ≠ K=$reg_lanes"
+  tblk="$(printf '%s\n' $(block_lane_keys "$T8CI" "$JOBS_B" "$JOBS_E") | sort | uniq -c | awk '$1!=1{print $2}' | tr '\n' ' ')"
+  tonly_b="$(comm -23 <(printf '%s\n' $(block_lane_keys "$T8CI" "$JOBS_B" "$JOBS_E") | sort -u) <(printf '%s\n' $reg_keys | sort -u))"
+  tonly_r="$(comm -13 <(printf '%s\n' $(block_lane_keys "$T8CI" "$JOBS_B" "$JOBS_E") | sort -u) <(printf '%s\n' $reg_keys | sort -u))"
+  { [ -z "${tblk//[[:space:]]/}" ] && [ -z "${tonly_b//[[:space:]]/}" ] && [ -z "${tonly_r//[[:space:]]/}" ]; } \
+    || g8_bad="$g8_bad покрытие-записанного: дубли='$tblk' только-в-блоке='$tonly_b' только-в-реестре='$tonly_r'"
+  tmax=0
+  while IFS= read -r keysline; do
+    tload=0
+    for k in $keysline; do tload=$((tload + ${W[$k]:-0})); done
+    [ "$tload" -gt "$tmax" ] && tmax="$tload"
+  done < <(block_body "$T8CI" "$JOBS_B" "$JOBS_E" | sed -n 's/^[[:space:]]*keys:[[:space:]]*//p')
+  [ "$tmax" -le "$t8_bound" ] || g8_bad="$g8_bad баланс-записанного: max load=$tmax > границы $t8_bound"
+  declare -A T8_BLK=()
+  while IFS=$'\t' read -r name keys; do
+    [ -n "$name" ] || continue
+    if [ -n "${T8_BLK[$name]+set}" ]; then
+      g8_bad="$g8_bad shard:$name-дважды-в-блоке"
+    else
+      T8_BLK["$name"]="$keys"
+    fi
+  done < <(block_shard_pairs "$T8CI" "$SHARDS_B" "$SHARDS_E")
+  [ "${#T8_BLK[@]}" -eq "${#REG_SHARDS[@]}" ] || g8_bad="$g8_bad шардов-в-блоке=${#T8_BLK[@]} в-реестре=${#REG_SHARDS[@]}"
+  for name in "${!T8_BLK[@]}"; do
+    tb8="$(printf '%s\n' ${T8_BLK[$name]} | sort | tr '\n' ' ')"
+    treg="$(printf '%s\n' ${REG_SHARDS[$name]:-} | sort | tr '\n' ' ')"
+    [ "$tb8" = "$treg" ] || g8_bad="$g8_bad шарды-$name-расходятся: блок='$tb8' реестр='$treg'"
+  done
+  out="$(cd "$T8" && timeout 60 bash scripts/gen_ci_steps.sh --check --root "$T8" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || g8_bad="$g8_bad check-после-write rc=$rc: $out"
+  # (2) дифференциал реестра: K' + переименование первого step-ключа
+  K1=$(( reg_lanes == 6 ? 7 : 6 ))
+  awk -F'\t' -v OFS='\t' -v nk="$K1" -v old="$FIRSTKEY" -v new="renamed083" '
+    $1=="lanes" { $2=nk }
+    $1=="step" && $2==old { $2=new }
+    $1=="shard" { n=split($3,a," "); s=""; for (j=1;j<=n;j++) s=s (j>1?" ":"") (a[j]==old?new:a[j]); $3=s }
+    { print }' "$T8/registry/ci-steps.tsv" > "$T8/registry/ci-steps.tsv.g8tmp" && mv "$T8/registry/ci-steps.tsv.g8tmp" "$T8/registry/ci-steps.tsv"
+  out="$(cd "$T8" && timeout 60 bash scripts/gen_ci_steps.sh --write --root "$T8" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] || g8_bad="$g8_bad write-дифференциал rc=$rc: $out"
+  tn="$(block_lanes "$T8CI" "$JOBS_B" "$JOBS_E" | wc -l | tr -d ' ')"
+  [ "$tn" -eq "$K1" ] || g8_bad="$g8_bad дифференциал: lane-строк=$tn ≠ новому K=$K1"
+  tkeys9="$(block_lane_keys "$T8CI" "$JOBS_B" "$JOBS_E")"
+  case " $tkeys9 " in *" renamed083 "*) : ;; *) g8_bad="$g8_bad дифференциал: переименованный ключ отсутствует в блоке" ;; esac
+  case " $tkeys9 " in *" $FIRSTKEY "*) g8_bad="$g8_bad дифференциал: старый ключ '$FIRSTKEY' остался в блоке" ;; esac
+  if [ -z "${g8_bad//[[:space:]]/}" ]; then
+    ok "Г8: write-режим сгенерировал блоки из реестра (пустые→записаны и подтверждены оракулом; дифференциал K=$reg_lanes→$K1 + rename отработан; неизменённая копия rc 0)"
+  else
+    bad "Г8: генерация не доказана (блок не функция реестра):$g8_bad"
+  fi
+fi
+
+# Г9: ИСПОЛНЕНИЕ lane-шага workflow, не упоминание (арбитраж 083-krug2, П1-б):
+# из тела джобы ci извлекается run:-значение ЕДИНСТВЕННОГО lane-шага
+# (однострочный скаляр; run: | / run: > и иное неизвлекаемое значение —
+# именованное красное, никогда зелёное), литеральный токен '${{ matrix.keys }}'
+# заменяется на 'k2 k4 k6' (любой оставшийся '${{' — именованное красное),
+# команда исполняется 'bash -eo pipefail -c' из корня toy L7 (тот же toy,
+# что в Г7). Зелёное = rc 0 И журнал 'k2 k4 k6' по порядку. Различимость —
+# по журналу исполнения, не по тексту run:-строки: echo-имитация печатает
+# строку и даёт ПУСТОЙ журнал. Стык «шаг → раннер» доказывается одним
+# прогоном; fail-fast раннера уже доказан Г7-б.
+if [ ! -f "$LANE" ]; then
+  bad "Г9: предмет отсутствует: нет lane-исполнителя $LANE"
+elif [ ! -f "$CIYML" ] || [ -z "$(ci_job_body "$CIYML")" ]; then
+  bad "Г9: предмет отсутствует: тело джобы ci не найдено в $CIYML"
+else
+  jobb9="$(ci_job_body "$CIYML")"
+  n_lane9="$(printf '%s\n' "$jobb9" | grep -c 'run_ci_lane.sh')"
+  runv9="$(printf '%s\n' "$jobb9" | sed -n 's/^[[:space:]]*run:[[:space:]]*//p' | grep 'run_ci_lane.sh' | head -n1)"
+  if [ "$n_lane9" -ne 1 ] || [ -z "$runv9" ]; then
+    bad "Г9: lane-шаг не извлекаем: run:-строк с run_ci_lane.sh в теле ci — $n_lane9 (нужна ровно одна, однострочный скаляр)"
+  else
+    case "$runv9" in
+      '|'*|'>'*)
+        bad "Г9: lane-шаг не извлекаем: значение run: не однострочный скаляр: '$runv9'"
+        ;;
+      *)
+        cmd9="$(printf '%s' "$runv9" | sed 's/\${{ matrix\.keys }}/k2 k4 k6/g')"
+        case "$cmd9" in
+          *'${{'*)
+            bad "Г9: lane-шаг несёт незаменённый токен '\${{': '$cmd9'"
+            ;;
+          *)
+            L9="$SCRATCH/g9lane7"; build_lane7 "$L9"; rm -f "$L9/done.log"
+            out="$(cd "$L9" && timeout 60 bash -eo pipefail -c "$cmd9" 2>&1)"; rc=$?
+            log9=""; [ -f "$L9/done.log" ] && log9="$(tr '\n' ' ' < "$L9/done.log")"
+            if [ "$rc" -eq 0 ] && [ "$log9" = "k2 k4 k6 " ]; then
+              ok "Г9-исполнение: lane-шаг ci.yml исполнен живьём (токен→k2 k4 k6), журнал по порядку ('$log9')"
+            else
+              bad "Г9-исполнение: lane-шаг НЕ исполнил ключи (rc=$rc, журнал='$log9') — упоминание без исполнения?: $out"
+            fi
+            ;;
+        esac
+        ;;
+    esac
   fi
 fi
 
