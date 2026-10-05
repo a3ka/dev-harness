@@ -109,7 +109,7 @@ stderr не отбрасывается. Итоговый вердикт о ма�
   Предмет ещё не реализован; Г8/Г9 красны «предмет отсутствует»;
   стаб-пак и позитивные full-mode контроли зелёные. Замер А1 совпал.
 - `bash scripts/pre_critic.sh contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md`
-  → rc=0, «КРИТИК: дверь зелёная».
+  → rc=0, `КРИТИК: дверь зелёная`.
 - `bash scripts/check_threat_model.sh . contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md`
   → rc=0, ЗАЩИЩАЕТ 8 / НЕ ЗАЩИЩАЕТ 3.
 - `bash scripts/check_precision_gate.sh /tmp/dev-harness-verify/critic083-r3 contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md`
@@ -159,14 +159,3 @@ stderr не отбрасывается. Итоговый вердикт о ма�
 battery-A.log, battery-B.log, battery-C.log, timing-*.log, gh-*.calls.
 Вердикт записан только в /tmp-клоне. По явному заданию коммит не выполнялся;
 материализация на ветке предмета остаётся оркестратору.
-
----
-
-КОНСОЛИДАЦИЯ (круг 1→3, прецедент Н-69/7562e4c): этот файл заменил три
-раздельных файла circuit-раундов (contracts-083-v1.md FAIL круг 1,
-contracts-083-v2.md FAIL круг 2, contracts-083-v3.md accept круг 3) ровно
-тем же текстом, что был в v3 — консолидация сделана на main коммитом
-`bb31205` (critic identity, ALLOW-ARTIFACT-DELETE на v2/v3); сюда (на ветку
-предмета) перенесена ТОЛЬКО ради co-location с контрактом для
-freeze_contract.sh (G0-грамматика: `HEAD:verdicts/critic/contracts-083-v1.md`
-обязан существовать в ROOT, которым служит эта ветка).
