@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# orch-loop — минимальная обёртка хоста: перезапуск ведущей сессии по маркеру.
+# Правила (когда ставить маркер, пара, HANDOFF) — в роли orchestrator, проверки — в харнесе.
+#   маркер:        touch /tmp/dev-harness-verify/orch-restart  → через GRACE с новая сессия
+#   стоп:          omp вышел без маркера с rc 0 (/exit) | ~/orch-loop.stop (пауза на пик, владелец:
+#                  touch ~/orch-loop.stop) | EARLY_MAX подряд ранних маркеров или падений
+#   рестарт:       маркер; падение без маркера (rc≠0) и ранний маркер — через EARLY_WAIT с
+# Запуск:  tmux new -s orch orch-loop
+set -u
+REPO="${ORCH_REPO:-$HOME/dev-harness}"
+WORKSHOP="${ORCH_WORKSHOP:-./workshop}"
+MARK="${ORCH_MARK:-/tmp/dev-harness-verify/orch-restart}"
+STOP="${ORCH_STOP:-$HOME/orch-loop.stop}"
+GRACE="${ORCH_GRACE:-20}"
+MIN_LIFE="${ORCH_MIN_LIFE:-120}"
+EARLY_WAIT="${ORCH_EARLY_WAIT:-60}"
+EARLY_MAX="${ORCH_EARLY_MAX:-3}"
+LOG="${ORCH_LOG:-$HOME/orch-loop.log}"
+MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протокол роли; ПЕРВЫМ видимым действием — todo из HANDOFF «Следующая сессия» (пары и пункты, текущий — в работе); затем продолжай автономно по разделу «Автоперезапуск orch-loop и два слота», слова владельца не жди.'
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
+cd "$REPO" || { log "нет $REPO"; exit 2; }
+mkdir -p "$(dirname "$MARK")"
+loop_pid=$$; n="${ORCH_N:-0}"
+[ -e "$STOP" ] && { log "стоп-файл $STOP — выход"; rm -f "$STOP"; exit 0; }
+GO="$MARK.go"   # «перезапуск принят»: ставит наблюдатель ДО убийства сессии
+rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
+( while sleep 5; do
+    [ -e "$MARK" ] || continue
+    sleep "$GRACE"
+    # Маркер сняли за время GRACE — передумали: перезапуск отменён, сессия живёт.
+    [ -e "$MARK" ] || { log "сессия #$n: маркер снят за ${GRACE}с — перезапуск отменён"; continue; }
+    touch "$GO"   # с этой точки перезапуск состоялся, даже если маркер снимут (2026-10-03 18:35)
+    pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
+    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
+    pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
+  done ) &
+watcher=$!
+log "сессия #$n: старт"
+"$WORKSHOP" --yolo -- "$MSG"; rc=$?
+kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+life=$(( $(date +%s) - start ))
+[ -e "$GO" ] && touch "$MARK"
+# Без маркера: rc 0 (/exit) или стоп-файл (пауза на пик, владелец) — останов; иначе это
+# падение (обрыв, сигнал, ошибка) — новая сессия; EARLY_MAX падений подряд — останов.
+if [ ! -e "$MARK" ]; then
+  if [ "$rc" -eq 0 ] || [ -e "$STOP" ]; then
+    rm -f "$STOP"; log "сессия #$n: завершилась без маркера (rc=$rc, ${life}с) — цикл остановлен"; exit "$rc"
+  fi
+  crash=$(( ${ORCH_CRASH:-0} + 1 )); [ "$life" -ge $(( MIN_LIFE * 5 )) ] && crash=1
+  [ "$crash" -lt "$EARLY_MAX" ] || { log "сессия #$n: упала без маркера (rc=$rc) $crash раз подряд — цикл остановлен"; exit "$rc"; }
+  log "сессия #$n: упала без маркера (rc=$rc, ${life}с) — новая сессия через ${EARLY_WAIT}с ($crash/$EARLY_MAX)"
+  sleep "$EARLY_WAIT"
+  ORCH_N="$n" ORCH_CRASH="$crash" exec "$0"
+fi
+# Ранний маркер (< MIN_LIFE) — не остановка: пауза и новая сессия. Останов — только если
+# так EARLY_MAX раз подряд (настоящая петля). Ночью без владельца остановка = потерянные часы.
+if [ "$life" -lt "$MIN_LIFE" ]; then
+  early=$(( ${ORCH_EARLY:-0} + 1 )); rm -f "$MARK"
+  [ "$early" -lt "$EARLY_MAX" ] || { log "сессия #$n: маркер через ${life}с (< ${MIN_LIFE}с) $early раз подряд — цикл остановлен"; exit 3; }
+  log "сессия #$n: маркер через ${life}с (< ${MIN_LIFE}с) — новая сессия через ${EARLY_WAIT}с ($early/$EARLY_MAX)"
+  sleep "$EARLY_WAIT"
+  ORCH_N="$n" ORCH_EARLY="$early" exec "$0"
+fi
+log "сессия #$n: перезапуск по маркеру (${life}с)"
+sleep 3
+ORCH_N="$n" ORCH_EARLY=0 ORCH_CRASH=0 exec "$0"   # тот же pid, свежий текст скрипта
