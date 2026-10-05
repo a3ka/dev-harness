@@ -597,7 +597,7 @@ build_charter_toy() { # <dir> <with_violation:0|1> → печает "C1 C2 C3" (
   local d="$1" viol="$2"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/registry"
   local s
-  for s in check_charter.sh next_id.sh lib_registry.sh lib_roles.sh; do
+  for s in check_charter.sh next_id.sh lib_registry.sh lib_roles.sh lib_incr.sh; do
     cp "$ROOT/scripts/$s" "$d/scripts/$s" 2>/dev/null || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' "$s"; return 1; }
   done
   ( cd "$d" && git init -q -b main \
@@ -624,7 +624,7 @@ build_zones_toy() { # <dir> → "C1 C2 C3"
   local d="$1"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
   local s
-  for s in check_zones.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh; do
+  for s in check_zones.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh lib_incr.sh; do
     cp "$ROOT/scripts/$s" "$d/scripts/$s" 2>/dev/null || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' "$s"; return 1; }
   done
   ( cd "$d" && git init -q -b main \
@@ -647,7 +647,7 @@ build_ids_toy() { # <dir> → "C1 C2 C3"
   local d="$1"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
   local s
-  for s in check_ids.sh next_id.sh lib_roles.sh lib_registry.sh; do
+  for s in check_ids.sh next_id.sh lib_roles.sh lib_registry.sh lib_incr.sh; do
     cp "$ROOT/scripts/$s" "$d/scripts/$s" 2>/dev/null || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' "$s"; return 1; }
   done
   ( cd "$d" && git init -q -b main \
@@ -671,6 +671,8 @@ build_prot_toy() { # <dir> → "C1 C2 C3"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/plans"
   cp "$ROOT/scripts/check_protected.sh" "$d/scripts/check_protected.sh" 2>/dev/null \
     || { printf 'НЕТ-ЗАВИСИМОСТИ:check_protected.sh\n'; return 1; }
+  cp "$ROOT/scripts/lib_incr.sh" "$d/scripts/lib_incr.sh" 2>/dev/null \
+    || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' lib_incr.sh; return 1; }
   ( cd "$d" && git init -q -b main \
     && git -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m init ) >/dev/null 2>&1
   printf 'plan\n' > "$d/plans/001-x.md"
