@@ -22,7 +22,7 @@
 # на (атрибут стоит ∧ extension=true ∧ config.worktree) — только
 # «extensions.worktreeConfig» (клетка D7).
 #
-# Коды возврата:
+# Выходы:
 #   0 — зелён: +i есть ∧ extension off ∧ ни одного config.worktree;
 #   1 — именованный отказ (одна из 5 причин ниже);
 #   2 — NOT_IMPLEMENTED: lsattr недоступен.
