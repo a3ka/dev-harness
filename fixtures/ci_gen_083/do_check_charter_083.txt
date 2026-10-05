@@ -1,0 +1,248 @@
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в 0dcb2b87
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в 72d25ce8
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в acb9e263
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в a846ee3f
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в a9ea5280
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в a396a7f6
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в 1737953f
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в ece251c0
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в d708a397
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в 1c3fd82c
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в 6b3c6364
+  ok   уставной документ изменён с разрешения владельца: AGENTS.md в 7606d889
+  ok   AGENTS.md — уставной с ustav/1, коммитов в диапазоне 3360, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в a68156a9
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 12388623
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в e46ccf91
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 802b3b0c
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в de12db47
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 78c1d661
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 9fc7a556
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в e23dc3f6
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 887a4ddd
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 5399e227
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 9606609b
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 9620d4e8
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 4e15d0d5
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 4918137b
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 46a6305a
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 6f46b28e
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 1596a3ca
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 82c8fbf8
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в b357c651
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в d4962ed8
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 93e22fda
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 2ac8113b
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 160d4cd5
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 43beeee4
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в acb9e263
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 9ad1e976
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в c1e87107
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 2ad816fb
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 7e2f0d33
+  ok   уставной документ изменён с разрешения владельца: ROADMAP.md в 98211a4c
+  ok   ROADMAP.md — уставной с ustav/1, коммитов в диапазоне 3360, изменений без разрешения нет
+  ok   contracts/001-fikstura-antiplacebo.md — уставной с frozen/contracts/001/1, коммитов в диапазоне 3364, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в 41bf6862
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в ab90fddf
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в db2813b0
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в 858c0455
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в 9b701762
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в 338b2bc6
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в 702fe7f2
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в afe41d27
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в b145ff1b
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в 5f19e47c
+  ok   уставной документ изменён с разрешения владельца: contracts/002-approval-mode-steward.md в e1e25706
+  ok   contracts/002-approval-mode-steward.md — уставной с frozen/contracts/002/1, коммитов в диапазоне 3346, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 23af031f
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 6243fa2b
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в a4ccaa62
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в c9990a2b
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 2552f0c5
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 08044da9
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 3bd8390d
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 175cdc76
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в 4a2e17e8
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в f8fbc655
+  ok   уставной документ изменён с разрешения владельца: contracts/003-skills-metta-adaptacija.md в cc9f8fb2
+  ok   contracts/003-skills-metta-adaptacija.md — уставной с frozen/contracts/003/1, коммитов в диапазоне 3289, изменений без разрешения нет
+  ok   contracts/004-potolki-dokumentov.md — уставной с frozen/contracts/004/1, коммитов в диапазоне 3208, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/005-avtonomija-proksi.md в 768b09f1
+  ok   contracts/005-avtonomija-proksi.md — уставной с frozen/contracts/005/1, коммитов в диапазоне 3168, изменений без разрешения нет
+  ok   contracts/006-scoped-izolirovannyj-gejt.md — уставной с frozen/contracts/006/1, коммитов в диапазоне 3115, изменений без разрешения нет
+  ok   contracts/007-scoped-ci-i-deflake-metering.md — уставной с frozen/contracts/007/1, коммитов в диапазоне 3069, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/008-deshevye-sudejskie-krugi.md в f0056d14
+  ok   contracts/008-deshevye-sudejskie-krugi.md — уставной с frozen/contracts/008/1, коммитов в диапазоне 3055, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/010-topologija-orkestrator-arhitektor.md в a396a7f6
+  ok   contracts/010-topologija-orkestrator-arhitektor.md — уставной с frozen/contracts/010/1, коммитов в диапазоне 3020, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/011-prijomka-sudi-i-gigiiena-rannera.md в eca1df72
+  ok   уставной документ изменён с разрешения владельца: contracts/011-prijomka-sudi-i-gigiiena-rannera.md в 689f09eb
+  ok   уставной документ изменён с разрешения владельца: contracts/011-prijomka-sudi-i-gigiiena-rannera.md в 88f11c92
+  ok   уставной документ изменён с разрешения владельца: contracts/011-prijomka-sudi-i-gigiiena-rannera.md в 4b94dbf5
+  ok   уставной документ изменён с разрешения владельца: contracts/011-prijomka-sudi-i-gigiiena-rannera.md в 5d05ba9f
+  ok   contracts/011-prijomka-sudi-i-gigiiena-rannera.md — уставной с frozen/contracts/011/1, коммитов в диапазоне 2994, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/012-izoljacija-progonov.md в a1d5976e
+  ok   уставной документ изменён с разрешения владельца: contracts/012-izoljacija-progonov.md в 913b6b4f
+  ok   contracts/012-izoljacija-progonov.md — уставной с frozen/contracts/012/1, коммитов в диапазоне 2941, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/013-processnye-artefakty-i-schet-krugov.md в a5d39f65
+  ok   уставной документ изменён с разрешения владельца: contracts/013-processnye-artefakty-i-schet-krugov.md в a84a93c7
+  ok   уставной документ изменён с разрешения владельца: contracts/013-processnye-artefakty-i-schet-krugov.md в a26395a2
+  ok   contracts/013-processnye-artefakty-i-schet-krugov.md — уставной с frozen/contracts/013/1, коммитов в диапазоне 2904, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/014-default-skratch-vne-dereva-pri-tmpdir.md в f88fb5f4
+  ok   contracts/014-default-skratch-vne-dereva-pri-tmpdir.md — уставной с frozen/contracts/014/1, коммитов в диапазоне 2884, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/015-jadro-avtonomnosti-nabljudenij.md в fcf7a1b6
+  ok   contracts/015-jadro-avtonomnosti-nabljudenij.md — уставной с frozen/contracts/015/1, коммитов в диапазоне 2845, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/016-izoljacija-agenta.md в bc65df2c
+  ok   уставной документ изменён с разрешения владельца: contracts/016-izoljacija-agenta.md в 0881295d
+  ok   уставной документ изменён с разрешения владельца: contracts/016-izoljacija-agenta.md в ad00e230
+  ok   contracts/016-izoljacija-agenta.md — уставной с frozen/contracts/016/1, коммитов в диапазоне 2809, изменений без разрешения нет
+  ok   contracts/017-deflejk-metiringa.md — уставной с frozen/contracts/017/1, коммитов в диапазоне 2740, изменений без разрешения нет
+  ok   contracts/018-vetka-na-agenta.md — уставной с frozen/contracts/018/1, коммитов в диапазоне 2712, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/019-ustav-draft-klyuchi.md в 6f7d71cf
+  ok   уставной документ изменён с разрешения владельца: contracts/019-ustav-draft-klyuchi.md в b0e8c8e4
+  ok   contracts/019-ustav-draft-klyuchi.md — уставной с frozen/contracts/019/1, коммитов в диапазоне 2686, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/020-shardirovanie-ci-antiplatsebo.md в f91b8d56
+  ok   уставной документ изменён с разрешения владельца: contracts/020-shardirovanie-ci-antiplatsebo.md в 01780c09
+  ok   contracts/020-shardirovanie-ci-antiplatsebo.md — уставной с frozen/contracts/020/1, коммитов в диапазоне 2113, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/021-sud-okna-svoej-vetki.md в 27e57db3
+  ok   contracts/021-sud-okna-svoej-vetki.md — уставной с frozen/contracts/021/1, коммитов в диапазоне 2597, изменений без разрешения нет
+  ok   contracts/022-pre-push-charter-i-bez-avtopusha.md — уставной с frozen/contracts/022/1, коммитов в диапазоне 2515, изменений без разрешения нет
+  ok   contracts/023-rezervacija-nomera-dver-po-tegu.md — уставной с frozen/contracts/023/1, коммитов в диапазоне 2539, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в c1479715
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в c73a8bf3
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 0260c4e6
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 7fdcc487
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 13b1a64a
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 120cf63c
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 7545aecb
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 7c6cb1b2
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 7dcea609
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в c13041d9
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 2de9f512
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 54955003
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в a12cebe6
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в 28c69ce1
+  ok   уставной документ изменён с разрешения владельца: contracts/024-detektor-utechek-osnovnogo-chekauta.md в c2b3b2ed
+  ok   contracts/024-detektor-utechek-osnovnogo-chekauta.md — уставной с frozen/contracts/024/1, коммитов в диапазоне 2455, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 0fcf1817
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в eba56712
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 32d580c7
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 116d9255
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в bbfadd01
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 0ea84e06
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 376ac68b
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 0ebb4fe3
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 84761eff
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 6f2f1981
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в d25e9ce6
+  ok   уставной документ изменён с разрешения владельца: contracts/025-sreda-cwd-rc.md в 5b4a1938
+  ok   contracts/025-sreda-cwd-rc.md — уставной с frozen/contracts/025/1, коммитов в диапазоне 2443, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/026-zhnec-tmp.md в c3b79773
+  ok   уставной документ изменён с разрешения владельца: contracts/026-zhnec-tmp.md в f41b78bf
+  ok   уставной документ изменён с разрешения владельца: contracts/026-zhnec-tmp.md в 854a7293
+  ok   уставной документ изменён с разрешения владельца: contracts/026-zhnec-tmp.md в f859ff49
+  ok   contracts/026-zhnec-tmp.md — уставной с frozen/contracts/026/1, коммитов в диапазоне 2195, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/027-doc-priemka.md в cc4e03ce
+  ok   уставной документ изменён с разрешения владельца: contracts/027-doc-priemka.md в f7c61830
+  ok   уставной документ изменён с разрешения владельца: contracts/027-doc-priemka.md в 75f5ffed
+  ok   contracts/027-doc-priemka.md — уставной с frozen/contracts/027/1, коммитов в диапазоне 2170, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/028-home-sessii-vne-dereva.md в 9dd59e98
+  ok   уставной документ изменён с разрешения владельца: contracts/028-home-sessii-vne-dereva.md в bd3853f6
+  ok   уставной документ изменён с разрешения владельца: contracts/028-home-sessii-vne-dereva.md в 704f4698
+  ok   уставной документ изменён с разрешения владельца: contracts/028-home-sessii-vne-dereva.md в 8662a661
+  ok   contracts/028-home-sessii-vne-dereva.md — уставной с frozen/contracts/028/1, коммитов в диапазоне 2095, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/029-auto-konsultant-forkov.md в 02c2beda
+  ok   уставной документ изменён с разрешения владельца: contracts/029-auto-konsultant-forkov.md в 95c4310d
+  ok   уставной документ изменён с разрешения владельца: contracts/029-auto-konsultant-forkov.md в af2f7396
+  ok   уставной документ изменён с разрешения владельца: contracts/029-auto-konsultant-forkov.md в 57074afd
+  ok   contracts/029-auto-konsultant-forkov.md — уставной с frozen/contracts/029/1, коммитов в диапазоне 1979, изменений без разрешения нет
+  ok   contracts/030-inventar-i-gonki-spavna.md — уставной с frozen/contracts/030/1, коммитов в диапазоне 1886, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/031-strazh-semejstvo-mint-i-bazlajn.md в 645aa89f
+  ok   уставной документ изменён с разрешения владельца: contracts/031-strazh-semejstvo-mint-i-bazlajn.md в 614a1b0a
+  ok   уставной документ изменён с разрешения владельца: contracts/031-strazh-semejstvo-mint-i-bazlajn.md в 478b8143
+  ok   contracts/031-strazh-semejstvo-mint-i-bazlajn.md — уставной с frozen/contracts/031/1, коммитов в диапазоне 1908, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/032-spawn-pinning-worktree.md в 2d70fc55
+  ok   contracts/032-spawn-pinning-worktree.md — уставной с frozen/contracts/032/1, коммитов в диапазоне 1771, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/033-union-semantika-zon-check-zones.md в bd9c1675
+  ok   contracts/033-union-semantika-zon-check-zones.md — уставной с frozen/contracts/033/1, коммитов в диапазоне 1884, изменений без разрешения нет
+  ok   contracts/034-ranner-probe-only-i-autentichnost-zamera.md — уставной с frozen/contracts/034/1, коммитов в диапазоне 1851, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/035-zhnets-tmp.md в f2d079c3
+  ok   contracts/035-zhnets-tmp.md — уставной с frozen/contracts/035/1, коммитов в диапазоне 1783, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/036-spec-tochnost-prefriz-gejt.md в 6d37c306
+  ok   уставной документ изменён с разрешения владельца: contracts/036-spec-tochnost-prefriz-gejt.md в fb4cedd9
+  ok   contracts/036-spec-tochnost-prefriz-gejt.md — уставной с frozen/contracts/036/1, коммитов в диапазоне 1723, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/037-samodostatochnyj-cwd-i-priemnik-task.md в 0872189c
+  ok   уставной документ изменён с разрешения владельца: contracts/037-samodostatochnyj-cwd-i-priemnik-task.md в 19678a00
+  ok   contracts/037-samodostatochnyj-cwd-i-priemnik-task.md — уставной с frozen/contracts/037/1, коммитов в диапазоне 1264, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/038-provodka-done-gejt.md в 4e0db839
+  ok   contracts/038-provodka-done-gejt.md — уставной с frozen/contracts/038/1, коммитов в диапазоне 1595, изменений без разрешения нет
+  ok   contracts/039-check-protected-rename.md — уставной с frozen/contracts/039/1, коммитов в диапазоне 1562, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/040-batching-git-vyzovov.md в 48952999
+  ok   contracts/040-batching-git-vyzovov.md — уставной с frozen/contracts/040/1, коммитов в диапазоне 1473, изменений без разрешения нет
+  ok   contracts/041-gigiena-parsjaschih-gardov.md — уставной с frozen/contracts/041/1, коммитов в диапазоне 1464, изменений без разрешения нет
+  ok   contracts/042-excuse-for-otstavshij-roditel.md — уставной с frozen/contracts/042/1, коммитов в диапазоне 1450, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/043-precizionnyj-prefriz-gejt.md в 10ace0b4
+  ok   уставной документ изменён с разрешения владельца: contracts/043-precizionnyj-prefriz-gejt.md в c389cd23
+  ok   уставной документ изменён с разрешения владельца: contracts/043-precizionnyj-prefriz-gejt.md в 02f7b0cd
+  ok   уставной документ изменён с разрешения владельца: contracts/043-precizionnyj-prefriz-gejt.md в 9906f631
+  ok   уставной документ изменён с разрешения владельца: contracts/043-precizionnyj-prefriz-gejt.md в 4de64aa1
+  ok   уставной документ изменён с разрешения владельца: contracts/043-precizionnyj-prefriz-gejt.md в 8766e769
+  ok   contracts/043-precizionnyj-prefriz-gejt.md — уставной с frozen/contracts/043/1, коммитов в диапазоне 1284, изменений без разрешения нет
+  ok   contracts/044-bulk-peresnjatie-bazlajna.md — уставной с frozen/contracts/044/1, коммитов в диапазоне 1232, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/045-pre-exchange-guard-gitw.md в 3a83a5f0
+  ok   уставной документ изменён с разрешения владельца: contracts/045-pre-exchange-guard-gitw.md в d95c7b1d
+  ok   уставной документ изменён с разрешения владельца: contracts/045-pre-exchange-guard-gitw.md в cea3a8f0
+  ok   contracts/045-pre-exchange-guard-gitw.md — уставной с frozen/contracts/045/1, коммитов в диапазоне 1190, изменений без разрешения нет
+  ok   contracts/046-germetichnoe-okruzhenie-check-protected.md — уставной с frozen/contracts/046/1, коммитов в диапазоне 1116, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/047-blizhnec-priznanija-chernovika-check-zones.md в 68a3a186
+  ok   contracts/047-blizhnec-priznanija-chernovika-check-zones.md — уставной с frozen/contracts/047/1, коммитов в диапазоне 1102, изменений без разрешения нет
+  ok   contracts/048-priemka-spec-odelix-i-konspektov.md — уставной с frozen/contracts/048/1, коммитов в диапазоне 1084, изменений без разрешения нет
+  ok   contracts/049-dver-minta-zamena-na-frozen.md — уставной с frozen/contracts/049/1, коммитов в диапазоне 1063, изменений без разрешения нет
+  ok   contracts/050-faza-b-slozhnost-narezka-ac-reslop.md — уставной с frozen/contracts/050/1, коммитов в диапазоне 1027, изменений без разрешения нет
+  ok   contracts/051-zhivoj-rezhim-fork-route-otvetchennye.md — уставной с frozen/contracts/051/1, коммитов в диапазоне 989, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/052-karta-perenosimosti.md в ab2c88cb
+  ok   уставной документ изменён с разрешения владельца: contracts/052-karta-perenosimosti.md в dcdaff23
+  ok   contracts/052-karta-perenosimosti.md — уставной с frozen/contracts/052/1, коммитов в диапазоне 971, изменений без разрешения нет
+  ok   contracts/053-snimki-standartov-i-gistov.md — уставной с frozen/contracts/053/1, коммитов в диапазоне 945, изменений без разрешения нет
+  ok   contracts/054-profil-dva-sloja-launcher-proekta.md — уставной с frozen/contracts/054/1, коммитов в диапазоне 944, изменений без разрешения нет
+  ok   contracts/055-izoljacija-sostojanija-po-projectid.md — уставной с frozen/contracts/055/1, коммитов в диапазоне 911, изменений без разрешения нет
+  ok   contracts/056-dver-retake-ahead.md — уставной с frozen/contracts/056/1, коммитов в диапазоне 808, изменений без разрешения нет
+  ok   contracts/057-batareja-054-chestnyj-izmeritel.md — уставной с frozen/contracts/057/1, коммитов в диапазоне 865, изменений без разрешения нет
+  ok   contracts/058-sharing-agentdb-dev-zona.md — уставной с frozen/contracts/058/1, коммитов в диапазоне 826, изменений без разрешения нет
+  ok   contracts/059-sverka-objavlennyh-putej-profylja-s-derevom.md — уставной с frozen/contracts/059/1, коммитов в диапазоне 725, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/060-samodostatochnost-repo-mint-reestr-boli.md в 80b3bbbd
+  ok   уставной документ изменён с разрешения владельца: contracts/060-samodostatochnost-repo-mint-reestr-boli.md в 09603a64
+  ok   уставной документ изменён с разрешения владельца: contracts/060-samodostatochnost-repo-mint-reestr-boli.md в f2b911fb
+  ok   уставной документ изменён с разрешения владельца: contracts/060-samodostatochnost-repo-mint-reestr-boli.md в 7b0bc929
+  ok   contracts/060-samodostatochnost-repo-mint-reestr-boli.md — уставной с frozen/contracts/060/1, коммитов в диапазоне 724, изменений без разрешения нет
+  ok   contracts/061-uchetnyj-marshrut.md — уставной с frozen/contracts/061/1, коммитов в диапазоне 647, изменений без разрешения нет
+  ok   contracts/062-atribucija-okna-potrebitelej.md — уставной с frozen/contracts/062/1, коммитов в диапазоне 644, изменений без разрешения нет
+  ok   contracts/063-ci-proekta-iz-profylja-vorota-slijanija.md — уставной с frozen/contracts/063/1, коммитов в диапазоне 595, изменений без разрешения нет
+  ok   contracts/064-raskrytie-home-rantajmom-proksi-ucheta.md — уставной с frozen/contracts/064/1, коммитов в диапазоне 599, изменений без разрешения нет
+  ok   contracts/065-perenos-strok-sankeij-v-merge-lendy.md — уставной с frozen/contracts/065/1, коммитов в диапазоне 617, изменений без разрешения нет
+  ok   contracts/066-extractpin-pochinka.md — уставной с frozen/contracts/066/1, коммитов в диапазоне 528, изменений без разрешения нет
+  ok   contracts/067-isolyacija-backend-auto.md — уставной с frozen/contracts/067/1, коммитов в диапазоне 477, изменений без разрешения нет
+  ok   contracts/068-porjadok-pachki-i-mint-stroka.md — уставной с frozen/contracts/068/1, коммитов в диапазоне 508, изменений без разрешения нет
+  ok   contracts/069-pr-marshrut-minimalnyj.md — уставной с frozen/contracts/069/1, коммитов в диапазоне 499, изменений без разрешения нет
+  ok   contracts/070-github-chtenie-ro-token-v-sessiju.md — уставной с frozen/contracts/070/1, коммитов в диапазоне 443, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/071-predpolet-gitw-push-main.md в 063ee7e2
+  ok   contracts/071-predpolet-gitw-push-main.md — уставной с frozen/contracts/071/1, коммитов в диапазоне 388, изменений без разрешения нет
+  ok   contracts/072-dver-perezapuska-sessii.md — уставной с frozen/contracts/072/1, коммитов в диапазоне 387, изменений без разрешения нет
+  ok   contracts/073-get-zon-na-merge-head.md — уставной с frozen/contracts/073/1, коммитов в диапазоне 377, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/074-server-obvjazka-edinyy-istochnik.md в 9bf62dd4
+  ok   contracts/074-server-obvjazka-edinyy-istochnik.md — уставной с frozen/contracts/074/1, коммитов в диапазоне 328, изменений без разрешения нет
+  ok   contracts/078-limit-aktivnyh-kontraktov.md — уставной с frozen/contracts/078/1, коммитов в диапазоне 243, изменений без разрешения нет
+  ok   уставной документ изменён с разрешения владельца: contracts/080-dver-bugfiks-perezapuska.md в c672f2b3
+  ok   уставной документ изменён с разрешения владельца: contracts/080-dver-bugfiks-perezapuska.md в 09dd3d7c
+  ok   уставной документ изменён с разрешения владельца: contracts/080-dver-bugfiks-perezapuska.md в 1f120c80
+  ok   уставной документ изменён с разрешения владельца: contracts/080-dver-bugfiks-perezapuska.md в 27b1f05e
+  ok   уставной документ изменён с разрешения владельца: contracts/080-dver-bugfiks-perezapuska.md в 152b97a3
+  ok   уставной документ изменён с разрешения владельца: contracts/080-dver-bugfiks-perezapuska.md в abc4c606
+  ok   contracts/080-dver-bugfiks-perezapuska.md — уставной с frozen/contracts/080/1, коммитов в диапазоне 192, изменений без разрешения нет
+  ok   contracts/081-obshchij-git-konfig-strazh.md — уставной с frozen/contracts/081/1, коммитов в диапазоне 38, изменений без разрешения нет
+  ok   contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md — уставной с frozen/contracts/082/1, коммитов в диапазоне 53, изменений без разрешения нет
+  ok   plans/007-reglament-vorkflou.md — уставной с frozen/plans/007/1, коммитов в диапазоне 3364, изменений без разрешения нет
+
+уставных документов: 80 · изменений в них: 165 · с разрешения: 165
+rc=0

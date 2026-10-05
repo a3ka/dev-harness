@@ -1,0 +1,73 @@
+  ok   исчез с явного разрешения: verdicts/adversary/006-scoped-gate.md
+  ok   перенесён, контент жив на HEAD: verdicts/adversary/039-mode-path-octopus-round2.md
+  ok   перенесён, контент жив на HEAD: verdicts/adversary/039-symlink-i-path.md
+  ok   исчез с явного разрешения: verdicts/arbitration/020-iskljuchitelnost.md
+  ok   исчез с явного разрешения: verdicts/arbitration/022-tag-red-diagnoz.md
+  ok   исчез с явного разрешения: verdicts/arbitration/022-trojka-po-poljam.md
+  ok   исчез с явного разрешения: verdicts/arbitration/023-dual-control-istochniki.md
+  ok   исчез с явного разрешения: verdicts/arbitration/027-izoljacija-probe.md
+  ok   исчез с явного разрешения: verdicts/arbitration/028-prijemka-tretego-kruga.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/036-v4-3-zhivoj-vyzov.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/038-dostizhimost-i-zony.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/038-role-validacija-podhod.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/038-sourced-ispolnenie-granica.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/038-vrazhdebnaja-sreda-zapuska.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/040-batching-kriterii-i-tehnika.md
+  ok   перенесён, контент жив на HEAD: verdicts/arbitration/042-dostatochnost-merge-base-semantiki.md
+  ok   исчез с явного разрешения: verdicts/consultant/037-b4-home-condition-scope-v1.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-017-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-017-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-029-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-030-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-030-v4.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-033-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-037-b4-resolution-v1.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-037-b4-resolution-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-038-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-038-v4.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-038-v5.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-039-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-040-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-040-v4.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-041-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-042-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-042-v3.md
+  ok   перенесён, контент жив на HEAD: verdicts/critic/contracts-043-v2-recheck.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-043-v2-spaseno-draft.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-043-v5.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-043-v6.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-044-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-046-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-059-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-059-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-059-v4.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-060-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-060-v4.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-061-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-062-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-063-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-063-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-064-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-064-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-065-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-065-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-066-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-067-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-068-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-070-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-070-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-071-v3-mikro.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-072-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-072-v3-mikro.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-072-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-078-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-078-v3.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-078-v4.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-083-v2.md
+  ok   исчез с явного разрешения: verdicts/critic/contracts-083-v3.md
+  ok   исчез с явного разрешения: verdicts/review/contracts-061.md
+  ok   исчез с явного разрешения: verdicts/review/contracts-062.md
+  ok   исчез с явного разрешения: verdicts/review/contracts-064-v2.md
+
+область: :(literal)decisions/proxy/ :(literal)plans/ :(literal)verdicts/adversary/ :(literal)verdicts/arbitration/ :(literal)verdicts/consultant/ :(literal)verdicts/critic/ :(literal)verdicts/review/ · коммитов пройдено: 3450 · существовало: 696 · на HEAD: 626 · исчезло: 0 · с разрешения: 60 · перенесено: 10
+rc=0

@@ -257,8 +257,21 @@ NEXT_ID_LIB=1
 . "$SELF_DIR/lib_roles.sh"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_zones.sh"
+# Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник
+# для всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
+INCR_NAME=check_zones
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_incr.sh"
+
+# Разбор `--incr <кеш>` из аргументов ДО установки ROOT — кеш-отказ выходит
+# сразу и не инициализирует переменные суда. После этого set -- оставляет
+# только позиционные аргументы для стандартной обработки ниже.
+incr_parse "$@"
+[ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
+set -- "${INCR_REST[@]}"
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
+INCR_GIT_ROOT="$ROOT"
 # LIB_ZONES_ROOT — канонический корень, от которого __lib_zones_cleanup вычисляет
 # путь маркера (см. __lib_zones_paths в lib_zones.sh; скратч и маркер лежат ВНЕ корня
 # — канон 014). Задаётся сразу после вычисления ROOT — до первого вызова zones_load.
@@ -526,6 +539,15 @@ while IFS=$'\t' read -r nnn since; do
   until="${since#*..}"
   [ "$until" = "$since" ] && until=""
   since="${since%%..*}"
+  # В incr-режиме (контракт 083, инв. 6) судимое окно сужается до cache..HEAD:
+  # всё, что было до cache, уже проверено предыдущим зелёным прогоном, и
+  # перепроверять его — не ослабление, а лишняя работа. «until» контракта
+  # (done-тег) переопределяется на HEAD, чтобы диапазон оставался согласованным
+  # с окном incr-прогона: «от последней верификации до сейчас».
+  if [ "${INCR_MODE:-full}" = "incr" ]; then
+    since="$INCR_BASE"
+    until=""
+  fi
   awk -F'\t' -v n="$nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/authors"
   [ -s "$TMP/authors" ] || continue
   range="$since..HEAD"
@@ -1195,5 +1217,9 @@ printf '\nпроцессных вне суда:%s\n' "${process_list:+ $process_
 printf '\nзамороженных контрактов: %d · объявленных авторов: %d · коммитов в диапазонах: %d · проверено по зонам: %d\n' \
   "$contracts" "$(wc -l < "$TMP/authors" 2>/dev/null | tr -d ' ')" "$commits" "$checked" >&2
 
-[ "$fails" -eq 0 ] || exit 1
-exit 0
+if [ "$fails" -eq 0 ]; then
+  incr_finish 0
+  exit 0
+fi
+incr_finish 1
+exit 1
