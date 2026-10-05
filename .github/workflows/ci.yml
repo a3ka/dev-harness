@@ -81,6 +81,16 @@ jobs:
           matrix:
             include:
 # BEGIN GENERATED CI SHARDS (083)
+              - shard: ap1
+                keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
+              - shard: ap2
+                keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
+              - shard: ap3
+                keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
+              - shard: ap4
+                keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
+              - shard: ap5
+                keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver
 # END GENERATED CI SHARDS (083)
         run: npm run check:antiplacebo -- --scope ${{ matrix.keys }}
   ci:
@@ -112,10 +122,10 @@ jobs:
       - name: Проверка паритета с CI
         # Паритет проверяется САМИМ барьером, и он обязан пройти ДО остальных проверок:
         # иначе расхождение найдёт не эта команда, а следующая, и причина будет названа
-        # не та. Самопроверка правила обязана стоять первой. Это ЕДИНСТВЕННЫЙ шаг
-        # в джобе ci с `npm run` (правило 6 verify_ci_parity, контракт 083 инв. 2:
-        # «не более одной run:-строки с npm run»); прочие шаги — `bash <path>` 4-я форма
-        # (прецедент 058–080) либо `bash scripts/run_ci_lane.sh ${{ matrix.keys }}` lane-шаг.
+        # Самопроверка правила обязана стоять первой. Это ЕДИНСТВЕННЫЙ шаг
+        # в джобе ci с npm-командой (правило 6 verify_ci_parity, контракт 083 инв. 2:
+        # «не более одной run-строки вида `npm run`»); прочие шаги — `bash <path>` 4-я форма
+        # (прецедент 058–080) либо запуск лейн-раннером с `matrix.keys`.
         run: npm run check:ci-parity
 
       - name: Сам-тесты раннера анти-плацебо (арбитраж 020 c8aaa67, замер 5)
@@ -123,13 +133,19 @@ jobs:
         # mktemp-корне (52 с стены — рецепт CI-шага дёшев, минуты CI не часы).
         # Раннер `scripts/verify_antiplacebo.sh` ЗАМОРОЖЕН в этом круге — копия в mktemp-корень,
         # не правка; фикстуры `fixtures/verify_antiplacebo/` — те же 23 case.
-        # 4-я форма правила 6: `bash <path>` равно значению скрипта `check:antiplacebo-selftest`
-        # в `package.json`. Имя `npm run check:antiplacebo` СТАТИЧНО; аргумент `$TMP_ROOT` ломает
+        # Имя `npm run check:antiplacebo` СТАТИЧНО (правило 6); аргумент `$TMP_ROOT` ломает
         # равенство значению скрипта → оплата записью команда: в `ci_parity_exceptions.txt`
         # (та же механика, что у residual-оплат инварианта 4 — арбитраж c8aaa67, §Решение п.2).
         # Прямой вызов `bash scripts/verify_antiplacebo.sh …` в workflow НЕ писать — красный
         # флаг residual (см. замер 6: ветвь «барьер остался зелёным на обманном дереве»).
-        run: bash scripts/antiplacebo_selftest.sh
+        run: |
+          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
+          trap 'rm -rf "$TMP_ROOT"' EXIT
+          mkdir -p "$TMP_ROOT/scripts"
+          mkdir -p "$TMP_ROOT/fixtures/verify_antiplacebo"
+          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
+          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
+          npm run check:antiplacebo -- "$TMP_ROOT"
 
       - name: Сам-тесты барьера check_threat_model (контракт 041)
         # Раннер fixtures/_krasnye_041.sh (dogfood-семья контракта 041,
@@ -320,6 +336,20 @@ jobs:
           matrix:
             include:
 # BEGIN GENERATED CI JOBS (083)
+              - lane: l1
+                keys: check:charter
+              - lane: l2
+                keys: check:gitw-predpolet-family-selftest
+              - lane: l3
+                keys: check:zones check:precision-battery check:precision-gate-043 drill:nabludenia-nechitaemo
+              - lane: l4
+                keys: check:protected check:door-bugfix-family-selftest check:ops-server-family-selftest drill:contract-change metering:selftest check:decisions check:judge-gate check:threat-model-selftest check:spec-ready-036
+              - lane: l5
+                keys: check:orch-restart-family-selftest check:sharing-family-selftest check:declared-path-family-selftest check:ids check:runner-hygiene drill:protected-exception check:consumers-window-family-selftest check:github-token-family-selftest check:precision-family-selftest check:scoped-run drill:startup-digest
+              - lane: l6
+                keys: check:protected-call-budget check:zones-call-budget check:document check:merge-gate-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:contract-ready check:hooks check:skills check:scope-select
+              - lane: l7
+                keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:gitw-family-selftest check:provodka-family-selftest drill:next-id-race check:ceilings check:gen check:nabludenia check:measure-probe drill:gate-draft
 # END GENERATED CI JOBS (083)
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
 
