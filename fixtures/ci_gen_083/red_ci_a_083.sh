@@ -55,8 +55,9 @@
 #        стаб rc 1.
 #   С2 «молча ничего не судит» (маркер с верным N, судит пусто) — наблюдаем
 #        на входе И3 (нарушение В окне): честное rc 1, стаб rc 0.
-#   С3 «принимает поддельный кеш» (sha-не-предок пропущен) — наблюдаем
-#        на входе И4-3: честный именованный отказ, стаб rc 0.
+#   С3 «принимает поддельный кеш» (sha-не-предок принят как база окна) —
+#        наблюдаем на входе И4-3 (v+1 в′): честный громкий полный прогон
+#        судит всю историю → rc 1 (c2), стаб судит окно от чужой базы → rc 0.
 #   С4 «не пишет кеш» (зелёный прогон не обновляет кеш) — наблюдаем
 #        на входе И2-повтор: окно снова судится (N>0), честное — 0 коммитов.
 #
@@ -735,6 +736,7 @@ done
 
 # --- charter-toy миры --------------------------------------------------------
 read -r TV_C1 TV_C2 TV_C3 <<< "$(build_charter_toy "$SCRATCH/toy_viol" 1)"
+read -r TC_C1 TC_C2 TC_C3 <<< "$(build_charter_toy "$SCRATCH/toy_clean" 0)"
 if [ "${TV_C1:-}" = "НЕТ-ЗАВИСИМОСТ"* ] || [ -z "${TV_C1:-}" ]; then
   bad "И1: toy-мир не построен (зависимости чека не найдены в $ROOT/scripts)"
   TOY_OK=0
@@ -784,17 +786,30 @@ else
   else
     bad "И4-2: предмет отсутствует: ждали именованный отказ rc 1 с именем кеша; rc=$rc: $RUN_OUT"
   fi
+  # И4-3/И4-4 (v+1 в′): sha-не-предок — громкий полный прогон, не отказ.
   C="$SCRATCH/i43.cache"; printf '%s\n' "$(foreign_head)" | tee "$C" >/dev/null
   run_incr "$SCRATCH/toy_viol" "$C"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'не предок'; then
-    ok "И4-3: sha-не-предок — именованный отказ «не предок»"
+  if [ "$rc" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'incr: check_charter полный прогон (база .* не предок HEAD .* — кеш сторонней линии)' \
+     && printf '%s' "$RUN_OUT" | grep -q "уставной документ изменён без разрешения владельца: AGENTS.md в ${TV_C2:0:8}"; then
+    ok "И4-3: sha-не-предок на viol-toy — громкий полный прогон, rc 1 именует c2 (${TV_C2:0:8})"
   else
-    bad "И4-3: предмет отсутствует: ждали отказ «не предок» rc 1; rc=$rc: $RUN_OUT"
+    bad "И4-3: предмет отсутствует: ждали rc 1 ПОЛНЫМ прогоном (маркер «кеш сторонней линии» + имя ${TV_C2:0:8}), не отказ «не предок»; rc=$rc: $RUN_OUT"
+  fi
+  if [ -n "${TC_C1:-}" ] && [ "${TC_C1#НЕТ-ЗАВИСИМОСТ}" = "$TC_C1" ]; then
+    C="$SCRATCH/i44.cache"; printf '%s\n' "$(foreign_head)" | tee "$C" >/dev/null
+    run_incr "$SCRATCH/toy_clean" "$C"; rc=$?
+    if [ "$rc" -eq 0 ] && printf '%s' "$RUN_OUT" | grep -q 'incr: check_charter полный прогон (база .* не предок HEAD .* — кеш сторонней линии)' \
+       && [ "$(head -n1 "$C")" = "$TC_C3" ]; then
+      ok "И4-4: sha-не-предок на чистом toy — rc 0, кеш засеян HEAD своей линии"
+    else
+      bad "И4-4: предмет отсутствует: ждали rc 0 + маркер «кеш сторонней линии» + кеш=HEAD (${TC_C3:0:8}); rc=$rc: $RUN_OUT"
+    fi
+  else
+    bad "И4-4: чистый toy не построен — сеяние не судимо"
   fi
 fi
 
 # --- И5: чистый toy, полнота (зелёная стрелка композиции) --------------------
-read -r TC_C1 TC_C2 TC_C3 <<< "$(build_charter_toy "$SCRATCH/toy_clean" 0)"
 if [ -n "${TC_C1:-}" ] && [ "${TC_C1#НЕТ-ЗАВИСИМОСТ}" = "$TC_C1" ]; then
   C="$SCRATCH/i5.cache"; printf '%s\n' "$TC_C1" > "$C"
   RUN_OUT="$(cd "$SCRATCH/toy_clean" && timeout 60 bash scripts/check_charter.sh --incr "$C" 2>&1)"; rc=$?
@@ -869,7 +884,9 @@ ref_incr() { # <repo> <cache> [full-if-no-cache] — референс семан
       printf 'ОТКАЗ: кеш повреждён: первая строка не sha\n' >&2; return 1
     fi
     if ! git -C "$repo" merge-base --is-ancestor "$base" "$head" 2>/dev/null; then
-      printf 'ОТКАЗ: base не предок HEAD\n' >&2; return 1
+      # v+1 в′: кеш сторонней линии — громкий полный прогон, не отказ.
+      printf 'incr: check_charter полный прогон (база %s не предок HEAD %s — кеш сторонней линии)\n' "${base:0:8}" "${head:0:8}" >&2
+      base=""
     fi
   fi
   range="${base:+$base..}$head"
@@ -970,14 +987,14 @@ if [ "$TOY_OK" = 1 ]; then
     [ "$d2" -eq 0 ] && ok "И-С2-диффпроба: на чистом toy стаб зелёён (rc 0), дефект не наблюдаем" \
                       || bad "И-С2-диффпроба: стаб сломан не своим дефектом (rc $d2)"
   fi
-  # С3 на входе И4-3 (sha-не-предок): честный отказ, стаб не-отказ.
+  # С3 на входе И4-3 (sha-не-предок, v+1 в′): честный полный прогон rc 1, стаб (окно от чужой базы) rc 0.
   FS="$(foreign_head)"
   C="$SCRATCH/s3.cache"; printf '%s\n' "$FS" | tee "$C" >/dev/null
   ref_incr "$SCRATCH/toy_viol" "$C" >/dev/null 2>&1; ref_rc=$?
   C="$SCRATCH/s3b.cache"; printf '%s\n' "$FS" | tee "$C" >/dev/null
   stub_c3_forge "$SCRATCH/toy_viol" "$C" >/dev/null 2>&1; stub_rc=$?
   if [ "$ref_rc" -eq 1 ] && [ "$stub_rc" -eq 0 ]; then
-    ok "И-С3: «поддельный кеш принят» пойман (честный отказ rc 1, стаб rc 0)"
+    ok "И-С3: «поддельный кеш принят как база» пойман (честный полный прогон rc 1, стаб rc 0)"
   else
     bad "И-С3: оракул не различает (реф rc $ref_rc, стаб rc $stub_rc)"
   fi
