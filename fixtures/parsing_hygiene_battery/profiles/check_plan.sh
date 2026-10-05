@@ -45,7 +45,9 @@ battery_delimiter_collision() {
   # разбор, делящий id по «.»/«-» или источник по «.», ложно отвергает его. (б) Фрагмент
   # существующего id до разделителя «.» («V-2» при «V-2.xx») как зависимость — ОБЯЗАН быть
   # именованным отказом: токенизация id по «.» ложно находит фрагмент существующим.
-  local w dep
+  # (в) «|» — разделитель столбцов СЛЕДУЮЩЕГО слоя (таблица блока ROADMAP) — внутри трека той
+  # же строки: ОБЯЗАН быть именованным отказом разбора «строка <N>: трек», а не столбцом таблицы.
+  local w dep tr
   w="$(mktemp -d "${TMPDIR:-/tmp}/battery_plan_dc.XXXXXX")"
   if ! _plan_world "$w/a"; then rm -rf "$w"; printf 'delimiter-collision: мир не построен\n' >&2; return 1; fi
   _plan_run "$w/a"
@@ -58,9 +60,17 @@ battery_delimiter_collision() {
   cp -a "$w/a" "$w/b"
   p84_emit_plan set "$P84_I" 3 "${W_DEPS[$P84_I]},$dep" > "$w/b/registry/plan.tsv"
   _plan_run "$w/b"
-  rm -rf "$w"
   if ! _plan_named "зависимость на несуществующий id: ${W_ID[$P84_I]} → $dep"; then
     printf 'delimiter-collision: фрагмент «%s» id «%s» принят зависимостью, rc %s: %s\n' "$dep" "${W_SYMS[3]}" "$PL_RC" "$PL_OUT" >&2
+    rm -rf "$w"; return 1
+  fi
+  tr="${W_TRACK[$P84_I]}"
+  cp -a "$w/a" "$w/c"
+  p84_emit_plan set "$P84_I" 5 "${tr:0:2}|${tr:2}" > "$w/c/registry/plan.tsv"
+  _plan_run "$w/c"
+  rm -rf "$w"
+  if ! _plan_named "план не разбирается: строка $((P84_I + 2)): трек"; then
+    printf 'delimiter-collision: «|» в треке «%s» не отвергнут разбором, rc %s: %s\n' "${tr:0:2}|${tr:2}" "$PL_RC" "$PL_OUT" >&2
     return 1
   fi
   return 0

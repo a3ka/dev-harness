@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # КРАСНОЕ 084 — «реестр плана: registry/plan.tsv — единственный источник порядка».
 #
-# ДОГОВОР — контракт 084 §Инварианты (И-1…И-9, И-11) и §Приёмка: клетки к0, р1–р9, и1–и4,
-# е1, з1–з2, т1, б1–б7, с1–с6, ф1–ф7, д1–д2, в1–в2 (42) — дословно по тексту приёмки.
+# ДОГОВОР — контракт 084 §Инварианты (И-1…И-9, И-11) и §Приёмка: клетки к0, р1–р10, и1–и4,
+# е1, з1–з2, т1–т2, б1–б8, с1–с9, ф1–ф10, д1–д3, в1–в2 (52) — дословно по тексту приёмки;
+# режим --perenos — живое условие ж6 (И-12: состав коммита переноса против таблицы §Перенос).
 # Субъекты: scripts/gen_plan.sh, scripts/check_plan.sh, scripts/track_digest.sh (через
 # scripts/lib_plan.sh), scripts/freeze_contract.sh (И-8), .githooks/pre-commit (И-11).
 #
@@ -17,7 +18,8 @@
 # СВЕРКА ПРИЧИН (структурно, литерально — норма 037): причина ищется В ОДНОЙ СТРОКЕ вывода
 # (stdout ∪ stderr) bash-сравнением с КАВЫЧЕННОЙ фразой (без regex/glob из значения);
 # целая причина — суффиксом строки (префикс вида «ОТКАЗ: » допустим), причина с
-# продолжением «строка <N>:» — подстрокой с терминатором «:» (N=1 не совпадёт с 12);
+# продолжением «строка <N>:» — подстрокой с терминатором «:» (N=1 не совпадёт с 12); значение
+# одного поля вне алфавита (р3–р5, р10, т2) — суффиксом «строка <N>: <имя столбца строки 1>»;
 # строки отказа И-8 — РАВЕНСТВОМ целой строки (текст И-8 дословен).
 #
 # ПРИВЯЗКА К КОДУ (Н-39 — обманная реализация к тому входу, где её дефект НАБЛЮДАЕМ;
@@ -31,6 +33,8 @@
 #       без якоря конца (пробел внутри СИМВОЛЬНОГО id); р6 пустая строка пропущена;
 #   р7  заголовок сверен числом полей / без «\r» (три подвхода: перестановка 1↔6,
 #       переименование поля, CRLF); р8 пустой план — rc 0; р9 fail-open без файла;
+#   р10 байты «|»/«,» в поле источника не запрещены (раздел с ними резолвится по дописанному
+#       заголовку документа, группа 3 молчит);
 #   и1  файл источника не проверен; и2 раздел найден regex'ом/префиксом/без «#+ пробел»/
 #       в прозе (документ несёт околозаголовки «a.b7», «axb», «##a.b», «Раздел a.b»);
 #   и3  `cat-file -e` без `^{commit}` (подвход: sha БЛОБА — объект есть, коммита нет) и
@@ -39,25 +43,45 @@
 #   з1  зависимость сверена префиксом («пункт» при «пункт-…») либо судится только первая
 #       (дефектная — последней в списке); з2 зависимость сверена regex'ом («X.Y» при «XzY»);
 #   т1  хвостовой TAB срезан (`read -a`/rstrip) → «строка N» вместо «нет трека»;
+#   т2  трек сверен «не пуст» без алфавита (подвходы «_», «.», кириллица, ведущая цифра, случайный
+#       ASCII-знак; «|» — если байт «|» не запрещён отдельно); алфавит через \w/isalpha
+#       (кириллица, «_», ведущая цифра); regex трека без якоря конца (кириллица, «_», «.»);
+#       алфавит символьного id вместо алфавита трека (кириллица, «.»); запрет-список
+#       конкретных знаков вместо разрешающего алфавита (случайный ASCII-знак из 29);
 #   б1  пары строкой (10 < 2), внутри пары по id, порядок файла без сортировки, статус
 #       лишним столбцом, лишняя строка блока, переписанные байты вне маркеров;
 #   б2  статус в блоке ROADMAP только у закрытых/активных (Р1) — на б1 без тегов не виден;
 #   б3/б4 запись HANDOFF ДО проверки ROADMAP (sha обоих файлов); б4 «первая пара годится»
 #       вместо «не один»; б5 сверка блока счётом строк;
 #   б6  фраза ищется только в заголовках либо номер строки 0-based; б7 маркер после trim;
+#   б8  запись ROADMAP ДО проверки блока HANDOFF (ROADMAP мира устарел — запись видна по sha);
 #   с1  closed-without-done не читается (Z в паре 1 стал бы кандидатом), «заморожен»
 #       засчитан закрытым (C2), порядок файла без сортировки (C3 — первая строка файла);
 #   с2  k не зависит от |A|; с3 закрытые = только done; с4 блок не в конец;
 #   с5  группа (7) не судит; с6 fail-open без блока, BEGIN/END ищутся независимо
 #       (подвход: перевёрнутая пара);
+#   с7  порядок статусов «done → заморожен → закрыт без done» (X с тегом frozen И строкой
+#       закрытия остаётся активным — check молчит); группа (7) судит закрытыми только done;
+#   с8  тот же порядок: X в A (k уменьшен), зависимый от X кандидат не допущен;
+#   с9  «хотя бы одна зависимость закрыта» (OR) вместо «каждая»; судится только первая или
+#       только последняя зависимость (закрытые — по краям списка); символьные зависимости
+#       пропущены (C2 «Z,S,D»);
 #   ф1  прежний freeze без отказа; отказ ПОСЛЕ мутации (тег/реестр/HEAD/дерево);
 #   ф2  вечный отказ; ф3 «только P0»; ф4 P0 по ВСЕМ строкам (пара 1 закрыта done);
 #   ф5  план из рабочего дерева; ф6 fail-closed без плана, «наличие по дереву, содержимое
 #       по HEAD» (в дереве — НЕотслеживаемый план с 001 вне пар), нет именованной строки;
 #   ф7  fail-open на битом HEAD-плане;
+#   ф8  closed-without-done.tsv из РАБОЧЕГО дерева (либо объединение HEAD ∪ дерево) — номер
+#       пары 1 закрыт незакоммиченной строкой, пары сдвигаются, 001 пропущен;
+#   ф9  closed-without-done.tsv из рабочего дерева (либо пересечение HEAD ∩ дерево) — закрытие
+#       на HEAD потеряно опустошённым рабочим файлом, ложный отказ;
+#   ф10 порядок «done → заморожен → закрыт без done» в расчёте пар freeze (номер с тегом frozen И
+#       строкой закрытия на HEAD считается открытым — 001 ложно вне плана);
 #   д1  трек сверен префиксом (соседний трек «<T>-…»), «заморожено» сгруппировано по
 #       статусу, а не (пара, файл), из H1 сняты ВСЕ «#», пустой раздел без «- нет»
 #       (подвход б: соседний трек с пустыми разделами); д2 трек префиксом/regex («.»);
+#   д3  порядок «done → заморожен → закрыт без done» (X: «заморожен» вместо «закрыт без done»);
+#       порядок «закрыт без done → done» (Y с тегом done И строкой закрытия — не в «done»);
 #   в1  --pre-commit не судит ничего (хук без check_plan); хук зовёт check_plan без плана
 #       (вторая половина — без плана);
 #   в2  --pre-commit игнорирован (первый коммит отказан) либо (7) не судится вовсе (второй
@@ -65,12 +89,17 @@
 #
 # Использование: bash fixtures/plan_084/red_plan_084.sh [<корень>]   (обычно — через
 # fixtures/_krasnye_084.sh). KEEP084=1 — миры остаются для вскрытия.
+#                bash fixtures/plan_084/red_plan_084.sh --perenos [<корень>]   — ж6.
 #
-# Коды возврата: 0 — все 42 клетки зелёные; 1 — есть красная (включая «предмет
+# Коды возврата: 0 — все клетки (52) зелёные; 1 — есть красная (включая «предмет
 # отсутствует» — предъявляемое красное ДО реализации); 2 — нечем проверить (нет git,
-# python3, каркаса заморозки).
+# python3, каркаса заморозки). --perenos: 0 — коммит, первым добавивший registry/plan.tsv,
+# сошёлся с таблицей §Перенос и правками И-12; 1 — первое расхождение «перенос: …» (в т. ч.
+# такого коммита нет); 2 — нечем проверить (мелкая история, нет таблицы в коммите).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODE=cells
+if [ "${1:-}" = --perenos ]; then MODE=perenos; shift; fi
 ROOT="${1:-$(cd "$HERE/../.." && pwd)}"
 [ -d "$ROOT" ] || { printf 'NOT_IMPLEMENTED: корня нет: %s\n' "$ROOT" >&2; exit 2; }
 ROOT="$(cd "$ROOT" && pwd)"
@@ -78,9 +107,47 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 command -v python3 >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет python3\n' >&2; exit 2; }
 # shellcheck disable=SC1091
 . "$HERE/_toy.sh"
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+      GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
 
-CELLS=(к0 р1 р2 р3 р4 р5 р6 р7 р8 р9 и1 и2 и3 и4 е1 з1 з2 т1 б1 б2 б3 б4 б5 б6 б7
-       с1 с2 с3 с4 с5 с6 ф1 ф2 ф3 ф4 ф5 ф6 ф7 д1 д2 в1 в2)
+# ── ж6 (И-12): коммит, ПЕРВЫМ добавивший registry/plan.tsv, — против таблицы §Перенос контракта
+# В ТОМ ЖЕ коммите и против ROADMAP.md его родителя. Отдельная rc-проверка СОСТАВА переноса, не
+# check_plan: тот судит грамматику, ссылки и блоки текущего дерева, а не таблицу контракта.
+perenos() {  # <корень>
+  local r="$1" w c p rc a b s d e f
+  git -C "$r" rev-parse --git-dir >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: корень не git-репозиторий: %s\n' "$r" >&2; return 2; }
+  [ "$(git -C "$r" rev-parse --is-shallow-repository)" = false ] \
+    || { printf 'NOT_IMPLEMENTED: мелкая история — коммит переноса не найти\n' >&2; return 2; }
+  c="$(git -C "$r" log --diff-filter=A --format=%H -- registry/plan.tsv | sed -n '$p')"
+  [ -n "$c" ] || { printf 'перенос: registry/plan.tsv не добавлен ни одним коммитом истории HEAD\n'; return 1; }
+  p="$(git -C "$r" rev-parse --verify -q "$c^1")" \
+    || { printf 'перенос: у коммита переноса %s нет родителя\n' "$c"; return 1; }
+  w="$(mktemp -d "${TMPDIR:-/tmp}/perenos084.XXXXXX")"
+  if ! git -C "$r" show "$c:$P84_CONTRACT" > "$w/contract" 2>/dev/null; then
+    printf 'NOT_IMPLEMENTED: в коммите переноса %s нет %s\n' "$c" "$P84_CONTRACT" >&2; rm -rf "$w"; return 2
+  fi
+  git -C "$r" show "$c:registry/plan.tsv" > "$w/plan"
+  git -C "$r" show "$c:registry/contracts.tsv" > "$w/reg" 2>/dev/null || : > "$w/reg"
+  git -C "$r" show "$c:ROADMAP.md" > "$w/rm.after" 2>/dev/null || : > "$w/rm.after"
+  git -C "$r" show "$p:ROADMAP.md" > "$w/rm.before" 2>/dev/null || : > "$w/rm.before"
+  p84_py perenos-table "$w/contract" "$w/plan" "$w/reg" "$P84_HDR" "$P84_PERENOS_H"; rc=$?
+  if [ "$rc" -eq 0 ]; then   # план сверен с таблицей — из него модель оракула блока И-4
+    p84_world_reset
+    while IFS=$'\t' read -r a b s d e f || [ -n "$a" ]; do p84_row "$a" "$b" "$s" "$d" "$e" "$f"; done < <(sed -n '2,$p' "$w/plan")
+    o_roadmap_block > "$w/rm.oracle"
+    p84_py perenos-roadmap "$w/rm.before" "$w/rm.after" "$w/rm.oracle" "$P84_RM_BEGIN" "$P84_RM_END" \
+      "$P84_OLD_ORDER" "$P84_NEW_ORDER" "$P84_S11"; rc=$?
+  fi
+  [ "$rc" -ne 0 ] || printf 'перенос: коммит %s — строк таблицы §Перенос %d, правки ROADMAP.md по И-12\n' "$c" "${#W_ID[@]}" >&2
+  rm -rf "$w"
+  return "$rc"
+}
+if [ "$MODE" = perenos ]; then perenos "$ROOT"; exit $?; fi
+
+CELLS=(к0 р1 р2 р3 р4 р5 р6 р7 р8 р9 р10 и1 и2 и3 и4 е1 з1 з2 т1 т2 б1 б2 б3 б4 б5 б6 б7 б8
+       с1 с2 с3 с4 с5 с6 с7 с8 с9 ф1 ф2 ф3 ф4 ф5 ф6 ф7 ф8 ф9 ф10 д1 д2 д3 в1 в2)
 
 MISSING="$(p84_missing_subjects "$ROOT")"
 if [ -n "$MISSING" ]; then
@@ -104,9 +171,6 @@ HOOK="$ROOT/.githooks/pre-commit"
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/red084.XXXXXX")"
 [ "${KEEP084:-}" = 1 ] || trap 'rm -rf "$WORK"' EXIT
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
-      GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE
 
 RED=0; GRN=0; REPS=()
 declare -A SEEN=()
@@ -167,7 +231,7 @@ clone() { cp -a "$1" "$2"; }   # <мир> <копия> — мир с .git, те�
 setup_fail() { printf 'NOT_IMPLEMENTED: мир не построен: %s\n' "$1" >&2; exit 2; }
 
 # ════════════════════════════════════════════════════════════════════════════════════════
-# Мир к0 (модель W_* каркаса): к0, б1, б2, р1–р9, и1–и4, е1, з1–з2, т1, б3–б7, с6.
+# Мир к0 (модель W_* каркаса): к0, б1, б2, р1–р10, и1–и4, е1, з1–з2, т1–т2, б3–б8, с6.
 # ════════════════════════════════════════════════════════════════════════════════════════
 p84_world_main
 T0="$WORK/k0"
@@ -222,11 +286,11 @@ run r2 bash "$CHK" --root "$T"; parse_refused r2 "$RC" $((hi + 2)); judge р2
 
 p84_rnd "$NROW"; j=$P84_R; p84_pick "$P84_STAGE_A" "$P84_STAGE_B"; p84_sfx 1
 T="$WORK/r3"; clone "$T0" "$T"; p84_emit_plan set "$j" 2 "$P84_P$P84_S" > "$T/registry/plan.tsv"
-run r3 bash "$CHK" --root "$T"; parse_refused r3 "$RC" $((j + 2)); judge р3
+run r3 bash "$CHK" --root "$T"; refused r3 "$RC" "план не разбирается: строка $((j + 2)): этап"; judge р3
 
 p84_rnd "$NROW"; j=$P84_R
 T="$WORK/r4"; clone "$T0" "$T"; p84_emit_plan set "$j" 1 0 > "$T/registry/plan.tsv"
-run r4 bash "$CHK" --root "$T"; parse_refused r4 "$RC" $((j + 2)); judge р4
+run r4 bash "$CHK" --root "$T"; refused r4 "$RC" "план не разбирается: строка $((j + 2)): пара"; judge р4
 
 # р5: пробел внутри СИМВОЛЬНОГО id (случайная строка из символьных, случайная внутренняя
 # позиция): regex алфавита без якоря конца принимает префикс «пун» у «пун кт-…»; у номера
@@ -234,7 +298,7 @@ run r4 bash "$CHK" --root "$T"; parse_refused r4 "$RC" $((j + 2)); judge р4
 SYMR=(); for i in "${!W_ID[@]}"; do p84_is_num "${W_ID[$i]}" || SYMR+=("$i"); done
 p84_pick "${SYMR[@]}"; j=$P84_P; id="${W_ID[$j]}"; p84_rnd $(( ${#id} - 1 )); k=$((P84_R + 1))
 T="$WORK/r5"; clone "$T0" "$T"; p84_emit_plan set "$j" 0 "${id:0:$k} ${id:$k}" > "$T/registry/plan.tsv"
-run r5 bash "$CHK" --root "$T"; parse_refused r5 "$RC" $((j + 2)); judge р5
+run r5 bash "$CHK" --root "$T"; refused r5 "$RC" "план не разбирается: строка $((j + 2)): id"; judge р5
 
 p84_rnd $((NROW + 1)); p=$((P84_R + 2))
 T="$WORK/r6"; clone "$T0" "$T"; p84_emit_plan blank "$p" > "$T/registry/plan.tsv"
@@ -260,6 +324,20 @@ T="$WORK/r8"; clone "$T0" "$T"; p84_emit_plan only-header > "$T/registry/plan.ts
 run r8 bash "$CHK" --root "$T"; refused r8 "$RC" 'план пуст'; judge р8
 T="$WORK/r9"; clone "$T0" "$T"; rm -f "$T/registry/plan.tsv"
 run r9 bash "$CHK" --root "$T"; refused r9 "$RC" 'план недоступен: registry/plan.tsv отсутствует'; judge р9
+
+# р10 (И-1, И-7 группа 2): «|» (столбец таблицы блока ROADMAP) и «,» в разделе источника — два
+# подвхода; в документе дописан заголовок ровно этого раздела, так что без запрета байтов источник
+# РЕЗОЛВИЛСЯ бы (группа 3 молчит) — ожидание «строка <N>: источник».
+W10=''
+for v in 0 1; do
+  p84_rnd "$NROW"; j=$P84_R; p84_sec; p84_sfx 3
+  if [ "$v" = 0 ]; then sec="$P84_SEC|$P84_S"; else sec="$P84_SEC,$P84_S"; fi
+  T="$WORK/r10$v"; clone "$T0" "$T"; printf '## %s Ловушка: раздел с запрещённым байтом\n' "$sec" >> "$T/$W_DOC1"
+  p84_emit_plan set "$j" 4 "$W_DOC1#$sec" > "$T/registry/plan.tsv"
+  run "r10$v" bash "$CHK" --root "$T"; refused "r10$v" "$RC" "план не разбирается: строка $((j + 2)): источник"
+  [ -z "$WHY" ] || W10="${W10}${W10:+; }подвход $v («$sec»): $WHY"
+done
+WHY="$W10"; judge р10
 
 # и1–и4 (И-7 группа 3 и 2): источник строки — не резолвится / пуст.
 p84_rnd "$NROW"; j=$P84_R; p84_sfx 5; src="docs/owner/нет-такого-$P84_S.md#1.1"
@@ -312,6 +390,32 @@ p84_rnd "$NROW"; j=$P84_R
 T="$WORK/t1"; clone "$T0" "$T"; p84_emit_plan set "$j" 5 '' > "$T/registry/plan.tsv"
 run t1 bash "$CHK" --root "$T"; refused t1 "$RC" "нет трека: ${W_ID[$j]}"; judge т1
 
+# т2 (И-1, И-7 группа 2): непустой трек ВНЕ алфавита [A-Za-z][A-Za-z0-9-]* — шесть подвходов,
+# каждый на своей случайной строке и красен СВОИМ предъявлением «строка <N>: трек»: «|» внутри
+# (разделитель столбцов таблицы блока ROADMAP), кириллическая буква внутри, «_» внутри, ведущая
+# цифра, «.» внутри (алфавит символьного id трек не допускает), случайный печатный ASCII-знак вне
+# алфавита внутри (пул — 29 печатных ASCII вне [A-Za-z0-9-] и вне «|», «_», «.» прочих подвходов:
+# запрет-список отдельных знаков не пройдёт).
+TPOOL=(); for c in $(seq 32 44) 47 $(seq 58 64) $(seq 91 94) 96 123 125 126; do
+  TPOOL+=("$(printf "\\$(printf '%03o' "$c")")"); done
+[ "${#TPOOL[@]}" -eq 29 ] || setup_fail 'т2 (пул ASCII-знаков не 29)'
+WT=''
+for v in 0 1 2 3 4 5; do
+  p84_rnd "$NROW"; j=$P84_R; tr="${W_TRACK[$j]}"; p84_rnd $(( ${#tr} - 1 )); k=$((P84_R + 1))
+  case $v in
+    0) val="${tr:0:$k}|${tr:$k}" ;;
+    1) p84_pick ж ы э ю я д л; val="${tr:0:$k}$P84_P${tr:$k}" ;;
+    2) val="${tr:0:$k}_${tr:$k}" ;;
+    3) p84_rnd 10; val="$P84_R$tr" ;;
+    4) val="${tr:0:$k}.${tr:$k}" ;;
+    5) p84_pick "${TPOOL[@]}"; val="${tr:0:$k}$P84_P${tr:$k}" ;;
+  esac
+  T="$WORK/t2$v"; clone "$T0" "$T"; p84_emit_plan set "$j" 5 "$val" > "$T/registry/plan.tsv"
+  run "t2$v" bash "$CHK" --root "$T"; refused "t2$v" "$RC" "план не разбирается: строка $((j + 2)): трек"
+  [ -z "$WHY" ] || WT="${WT}${WT:+; }подвход $v («$val»): $WHY"
+done
+WHY="$WT"; judge т2
+
 # б3/б4 (И-6, И-7): ROADMAP без маркеров / с двумя парами — gen и check rc 1, файлы нетронуты.
 # HANDOFF мира несёт устаревший блок: запись его ДО проверки ROADMAP видна по sha.
 for v in 3 4; do
@@ -347,6 +451,18 @@ run b6 bash "$CHK" --root "$T"; refused b6 "$RC" "«Итоговый поряд�
 T="$WORK/b7"; clone "$T0" "$T"; p84_py tailspace "$T/ROADMAP.md" "$P84_RM_END"
 run b7 bash "$CHK" --root "$T"; refused b7 "$RC" 'в ROADMAP.md нет блока плана'; judge б7
 
+# б8 (И-6): блок ROADMAP допустим и устарел (запись ИЗМЕНИЛА бы его — проверено против оракула
+# к0), в HANDOFF две пары маркеров → gen rc 1 «не один», sha256 ОБОИХ файлов прежние.
+T="$WORK/b8"; clone "$WORK/base0" "$T"
+p84_py between "$T/ROADMAP.md" "$P84_RM_BEGIN" "$P84_RM_END" > "$WORK/b8.rm.pre" || setup_fail б8
+if cmp -s "$WORK/b8.rm.pre" "$WORK/k0.rm.oracle"; then setup_fail 'б8 (блок ROADMAP уже равен оракулу)'; fi
+p84_py addpair "$T/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END"
+s_pre="$(p84_py sha "$T/ROADMAP.md") $(p84_py sha "$T/HANDOFF.md")"
+run b8 bash "$GEN" --write --root "$T"; refused b8 "$RC" 'блок «Следующая сессия» в HANDOFF.md не один'
+[ "$(p84_py sha "$T/ROADMAP.md") $(p84_py sha "$T/HANDOFF.md")" = "$s_pre" ] \
+  || WHY="${WHY}${WHY:+; }ROADMAP.md/HANDOFF.md изменены отказом"
+judge б8
+
 # с6 (И-7): HANDOFF без блока; подвход — перевёрнутая пара (END выше BEGIN).
 W6=''
 for v in strip invert; do
@@ -357,7 +473,7 @@ done
 WHY="$W6"; judge с6
 
 # ════════════════════════════════════════════════════════════════════════════════════════
-# Миры выбора «Следующей сессии» (с1–с5).
+# Миры выбора «Следующей сессии» (с1–с5, с7–с9).
 # ════════════════════════════════════════════════════════════════════════════════════════
 # с1: A1 заморожен (пара 1), D done (пара 1), Z закрыт без done (пара 1), C1 номер выдан с
 # зависимостью D (пара 2), C2 не начат с зависимостью A1 (пара 2, раньше C1 в файле), C3 не
@@ -462,8 +578,72 @@ judge с4
 p84_tag "$TS1" "done/contracts/$S_A1/1" >/dev/null
 run s5 bash "$CHK" --root "$TS1"; refused s5 "$RC" "done-пункт стоит следующим: $S_A1"; judge с5
 
+# с7/с8 (И-2): X с тегом frozen И строкой closed-without-done — статус «закрыт без done» (порядок
+# И-2: done → закрыт без done → заморожен; все три живые строки реестра закрытий — 001, 043, 078 —
+# несут и frozen-тег). Блоки — по оракулу ДО закрытия (X активен и стоит в HANDOFF), затем строка
+# «X⇥причина» дописана в рабочий closed-without-done.tsv.
+world_s7() {
+  local tr id
+  p84_world_reset
+  p84_num; S7_X="$P84_N"; p84_num; S7_B="$P84_N"; p84_sfx 3; S7_C="зависимый-$P84_S"; p84_sfx 3; tr="Tx$P84_S"
+  p84_row "$S7_B" 2 "$P84_STAGE_A" -       '@sha:10' "$tr"
+  p84_row "$S7_X" 1 "$P84_STAGE_A" -       '@sha:11' "$tr"
+  p84_row "$S7_C" 2 "$P84_STAGE_B" "$S7_X" '@sha:12' "$tr"
+  W_FROZEN[$S7_X]=1
+  for id in "$S7_X" "$S7_B"; do p84_reg_add "$id"; p84_h1_add "$id"; done
+}
+world_s7
+T7="$WORK/s7"; p84_build "$T7" >/dev/null 2>&1 || setup_fail с7
+o_roadmap_block > "$WORK/s7.rm"; o_handoff_block > "$WORK/s7.ho"
+p84_py fill "$T7/ROADMAP.md" "$P84_RM_BEGIN" "$P84_RM_END" "$WORK/s7.rm" || setup_fail с7
+p84_py fill "$T7/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END" "$WORK/s7.ho" || setup_fail с7
+[ "$(p84_py items "$T7/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END" | sed -n 1p)" = "$S7_X" ] \
+  || setup_fail 'с7 (X не первым в блоке до закрытия)'
+p84_closed_add "$S7_X" "закрыт словом владельца без done: с7 — toy $RANDOM"
+printf '%s\t%s\n' "$S7_X" "${W_CLOSED[$S7_X]}" >> "$T7/registry/closed-without-done.tsv"
+o_handoff_block > "$WORK/s8.ho.oracle"         # оракул после закрытия — ДО вызова субъекта
+run s7 bash "$CHK" --root "$T7"; refused s7 "$RC" "done-пункт стоит следующим: $S7_X"; judge с7
+
+run s8gen bash "$GEN" --write --root "$T7"
+if [ "$RC" -ne 0 ]; then WHY="gen $(why s8gen "$RC")"
+else
+  block_eq "$T7/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END" "$WORK/s8.ho.oracle"
+  items="$(p84_py items "$T7/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END" 2>/dev/null | tr '\n' ' ')"
+  [ "$items" = "$S7_B $S7_C " ] || WHY="${WHY}${WHY:+; }строки блока «$items», ожидались «$S7_B $S7_C» (X закрыт без done)"
+fi
+judge с8
+
+# с9 (И-5): «каждая зависимость закрыта» на СМЕШАННЫХ списках. D done и Z закрыт без done (пара 1);
+# C1 «D,N,Z» и C2 «Z,S,D» (пара 2) — открытая зависимость В СЕРЕДИНЕ, закрытые по краям; N номер
+# выдан и S не начат (пара 3) без зависимостей. A пусто, k=2 — блок ровно N, S.
+world_s9() {
+  local tr id
+  p84_world_reset
+  p84_num; S9_D="$P84_N"; p84_num; S9_Z="$P84_N"; p84_num; S9_N="$P84_N"; p84_num; S9_C2="$P84_N"
+  p84_sfx 3; S9_C1="смешанный-$P84_S"; p84_sfx 3; S9_S="открытый.$P84_S"; p84_sfx 3; tr="Mx$P84_S"
+  p84_row "$S9_D"  1 "$P84_STAGE_A" -                   '@sha:10' "$tr"
+  p84_row "$S9_Z"  1 "$P84_STAGE_A" -                   '@sha:11' "$tr"
+  p84_row "$S9_C1" 2 "$P84_STAGE_A" "$S9_D,$S9_N,$S9_Z" '@sha:12' "$tr"
+  p84_row "$S9_C2" 2 "$P84_STAGE_B" "$S9_Z,$S9_S,$S9_D" '@sha:13' "$tr"
+  p84_row "$S9_N"  3 "$P84_STAGE_B" -                   '@sha:14' "$tr"
+  p84_row "$S9_S"  3 "$P84_STAGE_A" -                   '@sha:15' "$tr"
+  W_DONE[$S9_D]=1; p84_closed_add "$S9_Z" 'закрыт без done: решение владельца — с9'
+  for id in "$S9_D" "$S9_Z" "$S9_N" "$S9_C2"; do p84_reg_add "$id"; p84_h1_add "$id"; done
+}
+world_s9
+T="$WORK/s9"; p84_build "$T" >/dev/null 2>&1 || setup_fail с9
+o_handoff_block > "$WORK/s9.ho.oracle"
+run s9gen bash "$GEN" --write --root "$T"
+if [ "$RC" -ne 0 ]; then WHY="gen $(why s9gen "$RC")"
+else
+  block_eq "$T/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END" "$WORK/s9.ho.oracle"
+  items="$(p84_py items "$T/HANDOFF.md" "$P84_HO_BEGIN" "$P84_HO_END" 2>/dev/null | tr '\n' ' ')"
+  [ "$items" = "$S9_N $S9_S " ] || WHY="${WHY}${WHY:+; }строки блока «$items», ожидались «$S9_N $S9_S» (смешанные списки — не кандидаты)"
+fi
+judge с9
+
 # ════════════════════════════════════════════════════════════════════════════════════════
-# Дайджест трека (д1–д2).
+# Дайджест трека (д1–д3).
 # ════════════════════════════════════════════════════════════════════════════════════════
 world_d() {
   local F D1 N1 Z D2 X1 Y1 S1 S2 X2 T3
@@ -508,18 +688,44 @@ for q in "${D_T:0:$(( ${#D_T} - 1 ))}" "${D_T:0:1}.${D_T:2}"; do
 done
 WHY="$W2"; judge д2
 
+# д3 (И-2, И-9): пересечения источников статуса в одном треке — X: тег frozen И строка закрытия
+# (→ «закрыт без done»), Y: теги done и frozen И строка закрытия (→ «done»), F — просто заморожен.
+world_d3() {
+  local id
+  p84_world_reset
+  p84_num; D3_X="$P84_N"; p84_num; D3_Y="$P84_N"; p84_num; D3_F="$P84_N"; p84_sfx 4; D3_T="trek$P84_S"
+  p84_row "$D3_Y" 2 "$P84_STAGE_A" - '@sha:10' "$D3_T"
+  p84_row "$D3_X" 1 "$P84_STAGE_B" - '@sha:11' "$D3_T"
+  p84_row "$D3_F" 1 "$P84_STAGE_A" - '@sha:12' "$D3_T"
+  W_FROZEN[$D3_X]=1; W_FROZEN[$D3_Y]=1; W_DONE[$D3_Y]=1; W_FROZEN[$D3_F]=1
+  p84_closed_add "$D3_X" "закрыт владельцем без done (toy $P84_S)"
+  p84_closed_add "$D3_Y" "строка закрытия рядом с done (toy $P84_S)"
+  for id in "$D3_X" "$D3_Y" "$D3_F"; do p84_reg_add "$id"; p84_h1_add "$id"; done
+}
+world_d3
+T="$WORK/d3"; p84_build "$T" >/dev/null 2>&1 || setup_fail д3
+o_digest "$D3_T" > "$WORK/d3.oracle"
+run d3 bash "$DIG" "$D3_T" --root "$T"
+WHY=''
+if [ "$RC" -ne 0 ] || ! cmp -s "$WORK/d3.oracle" "$WORK/d3.out"; then
+  WHY="$(why d3 "$RC") $(diff "$WORK/d3.oracle" "$WORK/d3.out" | sed -n '2,5p' | paste -sd ';' -)"
+fi
+judge д3
+
 # ════════════════════════════════════════════════════════════════════════════════════════
-# Заморозка (ф1–ф7): toy make_repo (fixtures/freeze_contract/_repo.sh) + план, закоммиченный
-# на HEAD; done-теги — локальные refs (статусы — refs репозитория запуска, И-2).
+# Заморозка (ф1–ф10): toy make_repo (fixtures/freeze_contract/_repo.sh) + план, закоммиченный
+# на HEAD; done/frozen-теги — локальные refs (статусы — refs репозитория запуска, И-2).
 # ════════════════════════════════════════════════════════════════════════════════════════
-mkf() {  # <каталог> [без-коммита] — make_repo + registry/plan.tsv из модели (+ done-теги)
+mkf() {  # <каталог> [без-коммита] — make_repo + plan.tsv (+ closed-without-done.tsv) из модели, done/frozen-теги
   local t="$1" id
   make_repo "$t" >"$WORK/mkf.log" 2>&1 || return 1
   p84_resolve_src "$(git -C "$t" rev-parse HEAD)"
   mkdir -p "$t/registry"
   p84_emit_plan > "$t/registry/plan.tsv"
+  [ "${#W_CLOSED_ORDER[@]}" -eq 0 ] || p84_closed_write "$t/registry/closed-without-done.tsv"
   if [ "${2:-}" != без-коммита ]; then commit_all "$t" 'план 084 (toy заморозки)' || return 1; fi
   for id in "${!W_DONE[@]}"; do p84_tag "$t" "done/contracts/$id/1" >/dev/null || return 1; done
+  for id in "${!W_FROZEN[@]}"; do p84_tag "$t" "frozen/contracts/$id/1" >/dev/null || return 1; done
 }
 frz_state() {  # <toy> — HEAD | sha реестра | porcelain | теги 001
   printf '%s|%s|%s|%s' "$(git -C "$1" rev-parse HEAD)" "$(p84_py sha "$1/registry/contracts.tsv")" \
@@ -596,6 +802,32 @@ l7=''; while IFS= read -r l || [ -n "$l" ]; do [[ "$l" == 'ОТКАЗ: план 
 [ -n "$l7" ] || WHY="${WHY}${WHY:+; }нет строки «ОТКАЗ: план недоступен: …» (stderr: «$(sed -n 1p "$WORK/f7.err")»)"
 [ "$(frz_state "$T")" = "$st" ] || WHY="${WHY}${WHY:+; }мутация до отказа (тег/реестр/HEAD/дерево)"
 judge ф7
+
+# ф8 (И-8): closed-without-done.tsv — блоб HEAD. На HEAD номер пары 1 открыт (единственный в паре),
+# символьная строка в паре 2, 001 в паре 3; рабочее дерево (не закоммичено) дописывает строку
+# закрытия этого номера → отказ по HEAD «(P0 1, P1 2)», мутаций нет.
+frz_rows 3 2 1; p84_num; p84_closed_add "$P84_N" 'шум закрытий вне плана — ф8'
+exp="$(o_freeze_refusal 001)"
+T="$WORK/f8"; mkf "$T" || setup_fail ф8
+printf '%s\t%s\n' "$F_NUM" 'закрыт владельцем, не закоммичено — ф8' >> "$T/registry/closed-without-done.tsv"
+st="$(frz_state "$T")"
+run f8 bash "$FRZ" contracts/001-x.md "$REASON" "$T"; frz_refused f8 "$T" "$exp" "$st"; judge ф8
+
+# ф9 (И-8): та же форма, строка закрытия номера — на HEAD; рабочий closed-without-done.tsv опустошён
+# (не закоммичено) → по HEAD номер закрыт, P0 2, P1 3 — 001 в P1, v1.
+frz_rows 3 2 1; p84_closed_add "$F_NUM" 'закрыт владельцем — ф9'
+o_p0p1; [ "$P84_P0 $P84_P1" = '2 3' ] || setup_fail 'ф9 (модель: P0/P1 не 2/3)'
+T="$WORK/f9"; mkf "$T" || setup_fail ф9
+: > "$T/registry/closed-without-done.tsv"
+run f9 bash "$FRZ" contracts/001-x.md "$REASON" "$T"; frz_frozen f9; judge ф9
+
+# ф10 (И-2, И-8): та же форма, номер пары 1 несёт тег frozen И закоммиченную строку закрытия (как
+# живые 001/043/078) — рабочее дерево == HEAD; «закрыт без done» раньше «заморожен» → P0 2, P1 3, v1.
+frz_rows 3 2 1; W_FROZEN[$F_NUM]=1; p84_closed_add "$F_NUM" 'заморожен, затем закрыт без done — ф10'
+o_p0p1; [ "$P84_P0 $P84_P1" = '2 3' ] || setup_fail 'ф10 (модель: P0/P1 не 2/3)'
+T="$WORK/f10"; mkf "$T" || setup_fail ф10
+[ -z "$(git -C "$T" status --porcelain)" ] || setup_fail 'ф10 (дерево не чисто)'
+run f10 bash "$FRZ" contracts/001-x.md "$REASON" "$T"; frz_frozen f10; judge ф10
 
 # ════════════════════════════════════════════════════════════════════════════════════════
 # Хук (в1–в2): toy с core.hooksPath=.githooks — pre-commit и scripts/ СУБЪЕКТА, блоки по

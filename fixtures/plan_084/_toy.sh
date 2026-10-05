@@ -18,7 +18,8 @@
 #    теги frozen|done/contracts/NNN/*, closed-without-done.tsv «NNN⇥причина»,
 #    docs/owner/*.md с заголовками-разделами, registry/contracts.tsv «NNN → <sha>».
 #  * p84_py — байтовые операции над файлами toy (блоки между маркерами, порча байта,
-#    вставка строки) — python3, чтобы перевод строки и UTF-8 не терялись в $(…).
+#    вставка строки) и сверка коммита переноса И-12 с таблицей §Перенос (ж6, режим
+#    `red_plan_084.sh --perenos`) — python3, чтобы перевод строки и UTF-8 не терялись в $(…).
 #
 # ГЕРМЕТИЧНОСТЬ: каждый git-вызов каркаса — с GIT_CONFIG_GLOBAL/SYSTEM=/dev/null и identity
 # через -c. Identity в ФАЙЛ конфига toy НЕ пишется: хук-клетки (в1/в2) коммитят через
@@ -57,6 +58,12 @@ P84_ST_ISSUED='номер выдан'
 P84_ST_NEW='не начат'
 P84_FREEZE_SKIP='  ok   план не заведён: проверка «вне плана» не применяется'
 P84_PHRASE='Итоговый порядок'
+# Перенос И-12 (ж6): контракт с таблицей, её раздел, переименование прозаических пунктов, §11.
+P84_CONTRACT='contracts/084-reestr-plana.md'
+P84_PERENOS_H='## Перенос'
+P84_OLD_ORDER='Итоговый порядок Odelix'
+P84_NEW_ORDER='Обоснование порядка Odelix'
+P84_S11='## 11.'
 
 # ── Случайность: результат — в глобальной переменной (без подоболочек) ──────────────────
 p84_rnd() { P84_R=$(( (RANDOM * 32768 + RANDOM) % $1 )); }          # 0..N-1
@@ -128,6 +135,11 @@ p84_reg_add() {  # <номер> [<sha>] — строка реестра для �
 p84_closed_add() {  # <номер> <причина>
   [ -n "${W_CLOSED[$1]+x}" ] || W_CLOSED_ORDER+=("$1")
   W_CLOSED[$1]="$2"
+}
+p84_closed_write() {  # <файл> — closed-without-done.tsv из модели: «NNN⇥причина» в порядке добавления
+  local id
+  : > "$1"
+  for id in "${W_CLOSED_ORDER[@]}"; do printf '%s\t%s\n' "$id" "${W_CLOSED[$id]}" >> "$1"; done
 }
 p84_h1_add() {  # <номер> — заголовок H1 со «#», «:», «—» ВНУТРИ (снимается только ведущий «# »)
   p84_sfx 3; W_H1[$1]="Контракт $1 — предмет $P84_S: «реестр» #$((RANDOM % 90 + 10))"
@@ -364,8 +376,7 @@ p84_build() {  # <корень> — toy-репозиторий из модели
   done
   : > "$r/registry/contracts.tsv"
   for id in "${W_REG_ORDER[@]}"; do printf '%s → %s\n' "$id" "${W_REG[$id]}" >> "$r/registry/contracts.tsv"; done
-  : > "$r/registry/closed-without-done.tsv"
-  for id in "${W_CLOSED_ORDER[@]}"; do printf '%s\t%s\n' "$id" "${W_CLOSED[$id]}" >> "$r/registry/closed-without-done.tsv"; done
+  p84_closed_write "$r/registry/closed-without-done.tsv"
   p84_roadmap_write "$r"
   p84_handoff_write "$r"
   p84_commit "$r" 'основание toy 084' || return 1
@@ -432,6 +443,13 @@ p84_world_main() {
 #   items <ф> <B> <E>            — id строк «- <id> · …» блока, по строке
 #   prefix <старый> <новый>      — rc 0, если новый начинается байтами старого
 #   sha <ф>                      — sha256 файла («нет-файла», если его нет)
+#   perenos-table <контракт> <план> <реестр> <HDR> <раздел> — ж6: план коммита переноса
+#        построчно == таблице раздела контракта («O#» раскрыт по «O = `…`» раздела; символьный id
+#        заменим только номером из реестра, не id таблицы, согласованно в id и «зависит»);
+#        rc 1 — первое расхождение в stdout «перенос: …»; rc 2 — таблицу не прочесть
+#   perenos-roadmap <до> <после> <оракул> <B> <E> <старое> <новое> <§11> — ж6: «после» без
+#        строк B..E == «до» с заменой старое→новое; между B и E — оракул; блок — в §11 до
+#        первого «новое»; rc 1 — расхождение в stdout «перенос: ROADMAP.md: …»
 p84_py() {
   python3 - "$@" <<'PY'
 import hashlib, os, random, sys
@@ -530,6 +548,100 @@ elif cmd == 'sha':
     else:
         with open(a[0], 'rb') as f:
             print(hashlib.sha256(f.read()).hexdigest())
+elif cmd == 'perenos-table':
+    import re
+    con, plan, reg, hdr, sect = a[:5]
+    fields = hdr.split('\t')
+    def na(msg):
+        sys.stderr.write('NOT_IMPLEMENTED: таблица §Перенос: %s\n' % msg)
+        sys.exit(2)
+    def red(msg):
+        print('перенос: ' + msg)
+        sys.exit(1)
+    with open(con, encoding='utf-8') as f:
+        t = f.read().split('\n')
+    if t.count(sect) != 1:
+        na('раздел «%s» не один' % sect)
+    s0 = t.index(sect)
+    s1 = next((i for i in range(s0 + 1, len(t)) if t[i].startswith('## ')), len(t))
+    sec = t[s0 + 1:s1]
+    od = re.findall(r'O = `(docs/owner/[^`]+\.md)`', '\n'.join(sec))
+    if len(od) != 1:
+        na('определение «O = `docs/owner/….md`» не одно')
+    th, ts = '| ' + ' | '.join(fields) + ' |', '|' + '---|' * len(fields)
+    hi = [i for i, l in enumerate(sec) if l == th]
+    if len(hi) != 1 or hi[0] + 1 >= len(sec) or sec[hi[0] + 1] != ts:
+        na('шапка «%s» с разделителем не одна' % th)
+    fd, fs = fields.index('зависит'), fields.index('источник')
+    want = []
+    for l in sec[hi[0] + 2:]:
+        if not l.startswith('|'):
+            break
+        cells = l[2:-2].split(' | ') if l.startswith('| ') and l.endswith(' |') else []
+        if len(cells) != len(fields):
+            na('строка таблицы вне формы: %s' % l)
+        if cells[fs].startswith('O#'):
+            cells[fs] = od[0] + cells[fs][1:]
+        want.append(cells)
+    if not want:
+        na('таблица пуста')
+    with open(reg, encoding='utf-8') as f:
+        regs = set(l.split(' → ', 1)[0] for l in f.read().split('\n') if ' → ' in l)
+    with open(plan, encoding='utf-8') as f:
+        pl = f.read().split('\n')
+    if pl and pl[-1] == '':
+        pl.pop()
+    if not pl or pl[0] != hdr:
+        red('строка 1 registry/plan.tsv ≠ заголовку И-1')
+    got = [l.split('\t') for l in pl[1:]]
+    for k, g in enumerate(got):
+        if len(g) != len(fields):
+            red('строка %d registry/plan.tsv: полей %d, не %d' % (k + 2, len(g), len(fields)))
+    num = re.compile(r'[0-9]{3}\Z')
+    tids, sub, n = set(w[0] for w in want), {}, min(len(got), len(want))
+    for k in range(n):
+        g, w = got[k][0], want[k][0]
+        if g == w:
+            continue
+        if not num.match(w) and num.match(g) and g in regs and g not in tids and g not in sub.values():
+            sub[w] = g
+            continue
+        red('строка %d registry/plan.tsv: поле %s: «%s», в таблице §Перенос «%s»' % (k + 2, fields[0], g, w))
+    for k in range(n):
+        for f in range(1, len(fields)):
+            e = want[k][f]
+            if f == fd and e != '-':
+                e = ','.join(sub.get(x, x) for x in e.split(','))
+            if got[k][f] != e:
+                red('строка %d registry/plan.tsv (%s): поле %s: «%s», в таблице §Перенос «%s»' % (k + 2, want[k][0], fields[f], got[k][f], e))
+    if len(got) < len(want):
+        red('нет строки таблицы §Перенос «%s» (строк в registry/plan.tsv %d, в таблице %d)' % (want[n][0], len(got), len(want)))
+    if len(got) > len(want):
+        red('лишняя строка %d registry/plan.tsv «%s» (строк %d, в таблице %d)' % (n + 2, got[n][0], len(got), len(want)))
+elif cmd == 'perenos-roadmap':
+    B, E, OLD, NEW, S11 = (x.encode() for x in a[3:8])
+    def red(msg):
+        print('перенос: ROADMAP.md: ' + msg)
+        sys.exit(1)
+    before, after = rd(a[0]), rd(a[1])
+    with open(a[2], 'rb') as f:
+        oracle = f.read()
+    bi = [i for i, l in enumerate(after) if bare(l) == B]
+    ei = [i for i, l in enumerate(after) if bare(l) == E]
+    if len(bi) != 1 or len(ei) != 1 or bi[0] > ei[0]:
+        red('маркеры блока плана в коммите переноса не по одному')
+    b, e = bi[0], ei[0]
+    if b''.join(after[b + 1:e]) != oracle:
+        red('блок плана ≠ генерации И-4 из registry/plan.tsv коммита переноса')
+    if not any(OLD in l for l in before):
+        red('в ROADMAP.md родителя нет «%s»' % OLD.decode())
+    rest, exp = after[:b] + after[e + 1:], [l.replace(OLD, NEW) for l in before]
+    if rest != exp:
+        k = next((i for i in range(min(len(rest), len(exp))) if rest[i] != exp[i]), min(len(rest), len(exp)))
+        red('вне блока ≠ тексту родителя с заменой «%s» → «%s»: строка %d' % (OLD.decode(), NEW.decode(), k + 1 if k < b else k + e - b + 2))
+    heads = [bare(l) for l in exp[:b] if l.startswith(b'## ')]
+    if not heads or not heads[-1].startswith(S11) or any(NEW in l for l in exp[:b]):
+        red('блок плана не в §11 перед первым пунктом «%s»' % NEW.decode())
 else:
     sys.exit(2)
 PY

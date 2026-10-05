@@ -18,20 +18,24 @@
 #       порядке (вставки допустимы), кроме строки kill_session со стоп-файлом (И-4д);
 #   р2  И-2: строки stancija.orch-loop есть в orch-loop в том же порядке, кроме строки
 #       запуска сессии (И-5); красное несёт текст первой пропавшей строки;
-#   л1-л8 И-3: цикл в скратче, сессия-подделка по плану, токен на сессию (early — маркер
+#   л1-л10 И-3: цикл в скратче, сессия-подделка по плану, токен на сессию (early — маркер
 #       на 1 с; normal — на 8 с; exit/crash — выход 0/1; stopkill — ORCH_STOP и выход 143;
 #       cancel — маркер снят в GRACE, сам выход 0; termrm — снятие маркера на SIGTERM;
 #       oom — SIGKILL себе, rc 137); шим systemd-run в PATH исполняет команду после «--»
 #       exec'ом (как --scope); ORCH_GRACE=1 ORCH_MIN_LIFE=9 ORCH_EARLY_WAIT=1
-#       ORCH_EARLY_MAX=3, если клетка не задаёт иное;
+#       ORCH_EARLY_MAX=3, если клетка не задаёт иное; л9/л10 — смешанные планы
+#       ранний/падение: общий счёт нештатных завершений подряд (И-3);
 #   п1-п11 И-4: сторож в мире шва ORCH_PEAK_TEST 080 (say.log, omp-pids, killed.log),
 #       ORCH_USER=nobody (дом /nonexistent: запись в пути станции невозможна),
 #       ORCH_LOOP_STOP в скратче, toy-repo с bare origin, журнал верхнего уровня с usage;
 #       пороги CTX_* и IDLE — умолчания субъекта; п5 — четыре входа, каждый своей строкой;
-#   м1-м4 И-5: шим systemd-run (журнал argv и XDG_RUNTIME_DIR; pass — exec после «--»,
-#       refuse — rc 1 без исполнения); м5 — живой systemd-run --user (где user-менеджера
-#       нет — «пропуск с пометкой»);
-#   с1, с2 (режим stancija) И-8: живая станция.
+#   м1-м4, м6 И-5: шим systemd-run (журнал argv, XDG_RUNTIME_DIR, вида и исхода вызова;
+#       pass — exec после «--»; refuse — rc 1 без исполнения на каждом вызове;
+#       refuse-first-session — rc 1 без исполнения ровно на первом запуске сессии, прочие
+#       вызовы — exec; запуск сессии — команда после «--» кончается вызовом workshop станции,
+#       правило — только в шиме); м5 — живой systemd-run --user (где user-менеджера нет —
+#       «пропуск с пометкой»);
+#   с1, с2 (режим stancija) И-8: живая станция; с1 — три пути и оба юнита orch-memcap.
 # Граница наблюдаемости: шим подменяет systemd-run через PATH (как и прочие команды
 # станционной версии, вызов по имени); абсолютный путь мимо PATH — «не вызван», красное.
 #
@@ -91,19 +95,22 @@ PEAK_SESS='20261005T120000_00000000-0085-0085-0085-000000000001'
 PEAK_SESS2='20261005T130000_00000000-0085-0085-0085-000000000002'
 MEM_DEFAULT_BYTES=34359738368   # 32G — с2
 M5_BYTES=67108864               # 64M — м5
+# И-8: временный сторож памяти — пути и юниты, живой съём станции 2026-10-05
+MEMCAP_PATHS=(/usr/local/sbin/orch-memcap /etc/systemd/system/orch-memcap.service /etc/systemd/system/orch-memcap.timer)
+MEMCAP_UNITS=(orch-memcap.timer orch-memcap.service)
 
 declare -A NAME=(
   [r0]=р0 [r1]=р1 [r2]=р2
-  [l1]=л1 [l2]=л2 [l3]=л3 [l4]=л4 [l5]=л5 [l6]=л6 [l7]=л7 [l8]=л8
+  [l1]=л1 [l2]=л2 [l3]=л3 [l4]=л4 [l5]=л5 [l6]=л6 [l7]=л7 [l8]=л8 [l9]=л9 [l10]=л10
   [p1]=п1 [p2]=п2 [p3]=п3 [p4]=п4 [p5w]='п5[warn]' [p5s]='п5[ctx550000]'
   [p5h]='п5[ctx650000]' [p5t]='п5[stop]' [p6]=п6 [p7]=п7 [p8]=п8 [p9]=п9 [p10]=п10 [p11]=п11
-  [m1]=м1 [m2]=м2 [m3]=м3 [m4]=м4 [m5]=м5
+  [m1]=м1 [m2]=м2 [m3]=м3 [m4]=м4 [m5]=м5 [m6]=м6
 )
 # Порядок запуска — длинные миры первыми; порядок печати — ORDER.
-CELLS_LOOP=(l8 l2 l6 l7 l1 l4 l3 l5)
-CELLS_MEM=(m3 m1 m2 m4)
+CELLS_LOOP=(l9 l8 l2 l10 l6 l7 l1 l4 l3 l5)
+CELLS_MEM=(m3 m6 m1 m2 m4)
 CELLS_PEAK=(p1 p2 p9 p5h p5t p3 p4 p5w p5s p6 p7 p8 p10 p11)
-ORDER=(r0 r1 r2 l1 l2 l3 l4 l5 l6 l7 l8 p1 p2 p3 p4 p5w p5s p5h p5t p6 p7 p8 p9 p10 p11 m1 m2 m3 m4 m5)
+ORDER=(r0 r1 r2 l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 p1 p2 p3 p4 p5w p5s p5h p5t p6 p7 p8 p9 p10 p11 m1 m2 m3 m4 m5 m6)
 
 fails=0
 say_cell() { # <исход 0|1|3|4|9> <имя> <текст>
@@ -129,11 +136,21 @@ if [ "$MODE" = stancija ]; then
   done
   [ -n "$omp" ] || die2 "нет живого цикла: bin/orch-loop пользователя $U с прямым потомком «omp --profile» не найден"
   printf '085 stancija: цикл %s, omp %s\n' "$lp" "$omp"
-  act="$(systemctl is-active orch-memcap.timer 2>/dev/null)"
-  if [ "$act" = active ] || [ -e /usr/local/sbin/orch-memcap ]; then
-    say_cell 1 с1 "временный сторож памяти жив: orch-memcap.timer=${act:-?}, /usr/local/sbin/orch-memcap $([ -e /usr/local/sbin/orch-memcap ] && echo есть || echo нет)"
+  left=''; units=''; ok1=1
+  for p in "${MEMCAP_PATHS[@]}"; do
+    if [ -e "$p" ] || [ -L "$p" ]; then left="$left $p"; ok1=0; fi
+  done
+  for u in "${MEMCAP_UNITS[@]}"; do
+    ls_="$(systemctl show -p LoadState --value "$u" 2>/dev/null)"
+    as_="$(systemctl show -p ActiveState --value "$u" 2>/dev/null)"
+    units="$units; $u LoadState=${ls_:-?} ActiveState=${as_:-?}"
+    [ "$ls_" = not-found ] || ok1=0
+    case "$as_" in inactive|failed) ;; *) ok1=0 ;; esac
+  done
+  if [ "$ok1" = 1 ]; then
+    say_cell 0 с1 "временный сторож памяти снят: нет ни одного из ${#MEMCAP_PATHS[@]} путей$units"
   else
-    say_cell 0 с1 "orch-memcap.timer не активен (${act:-нет юнита}), /usr/local/sbin/orch-memcap нет"
+    say_cell 1 с1 "временный сторож памяти не снят: остались пути:${left:- нет}$units (ожидалось: нет ни одного из ${#MEMCAP_PATHS[@]} путей, оба юнита LoadState=not-found и не активны)"
   fi
   cg="$(sed -n 's/^0:://p' "/proc/$omp/cgroup" 2>/dev/null)"
   mm="$(cat "/sys/fs/cgroup$cg/memory.max" 2>/dev/null)"
@@ -224,30 +241,51 @@ def sub1(text, old, new, what):
         raise ValueError('%s: якорь встречается %d раз(а)' % (what, c))
     return text.replace(old, new, 1)
 
-# FIXSIM orch-loop = станция + потолок памяти (И-2, И-5): вставки, строка запуска заменена.
+# FIXSIM orch-loop = станция + потолок памяти + общий счёт (И-2, И-3, И-5): только вставки,
+# строка запуска сессии заменена блоком запуска.
 MEM_DEF = 'MEM_MAX="${ORCH_MEM_MAX:-32G}"   # потолок памяти сессии omp (контракт 085, И-5)\n'
 XDG_LINE = 'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"\n'
 NOCAP_LINE = ('  scoped=0; log "сессия #$n: @L@ — systemd-run --user --scope не создал scope"\n'
               .replace('@L@', LIT_NOCAP))
 DIRECT_LINE = '  ' + LINE_LAUNCH + '\n'
+RAN_TEST = 'if [ -e "$RAN" ]; then\n'
+RUN_HONEST = ('RAN="$MARK.scoped"; rm -f "$RAN"\n'
+              '"${SCOPE[@]}" -- sh -c \': >"$1" && shift && exec "$@"\' sh "$RAN" "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
+              + RAN_TEST + '  scoped=1\nelse\n' + NOCAP_LINE + DIRECT_LINE + 'fi\nrm -f "$RAN"\n')
 LAUNCH = ("# Потолок памяти (контракт 085, И-5): --scope исполняет команду exec'ом — omp остаётся\n"
-          '# прямым потомком цикла; нет scope (нет user-bus) — сессия без потолка, со строкой журнала.\n'
+          '# прямым потомком цикла. Отказ systemd-run (rc≠0 до исполнения) и rc сессии по rc\n'
+          '# неразличимы: факт исполнения — свидетель $RAN, его пишет префикс команды до exec\n'
+          '# workshop; свидетеля нет — сессия без потолка, со строкой журнала; отказ — не падение.\n'
           + XDG_LINE +
           'SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)\n'
-          'if "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n'
-          '  scoped=1; "${SCOPE[@]}" -- "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
-          'else\n'
-          + NOCAP_LINE + DIRECT_LINE +
-          'fi\n')
+          + RUN_HONEST)
 OOM_LINE = ('  [ "$rc" -eq 137 ] && [ "$scoped" -eq 1 ] && log "сессия #$n: @L@ (MemoryMax=$MEM_MAX, rc=137)"\n'
             .replace('@L@', LIT_OOM))
 CRASH = '  crash=$(( ${ORCH_CRASH:-0} + 1 ));'
 LOGDEF = 'LOG="${ORCH_LOG:-$HOME/orch-loop.log}"\n'
+# Общий счёт (И-3): ветвь раннего маркера и ветвь падения передают свой счёт обоим швам.
+EXEC_C = '  ORCH_N="$n" ORCH_CRASH="$crash" exec "$0"\n'
+EXEC_E = '  ORCH_N="$n" ORCH_EARLY="$early" exec "$0"\n'
+CNT_C = '  export ORCH_EARLY="$crash"   # общий счёт нештатных завершений подряд (контракт 085, И-3)\n'
+CNT_E = '  export ORCH_CRASH="$early"   # общий счёт нештатных завершений подряд (контракт 085, И-3)\n'
 loop = rd('stancija.orch-loop')
 loop = sub1(loop, LOGDEF, LOGDEF + MEM_DEF, 'FIXSIM loop: MEM_MAX')
 loop = sub1(loop, '\n' + LINE_LAUNCH + '\n', '\n' + LAUNCH, 'FIXSIM loop: запуск сессии')
 loop = sub1(loop, CRASH, OOM_LINE + CRASH, 'FIXSIM loop: строка OOM')
+loop = sub1(loop, EXEC_C, CNT_C + EXEC_C, 'FIXSIM loop: общий счёт (падение)')
+loop = sub1(loop, EXEC_E, CNT_E + EXEC_E, 'FIXSIM loop: общий счёт (ранний)')
 wr(os.path.join(S, 'fixsim', 'orch-loop'), loop)
+
+# Обманные блоки запуска (стабы м6): проба вместо факта исполнения; повторная проба после
+# rc≠0; «после отказа scope больше не пробовать».
+PROBE_RUN = ('if "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n'
+             '  scoped=1; "${SCOPE[@]}" -- "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
+             'else\n' + NOCAP_LINE + DIRECT_LINE + 'fi\n')
+REPROBE_RUN = ('scoped=1; "${SCOPE[@]}" -- "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
+               'if [ "$rc" -ne 0 ] && ! "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n'
+               + NOCAP_LINE + DIRECT_LINE + 'fi\n')
+NOSCOPE_RUN = ('if [ -n "${ORCH_NOSCOPE:-}" ]; then\n' + NOCAP_LINE + DIRECT_LINE + 'else\n'
+               + RUN_HONEST.replace(NOCAP_LINE, NOCAP_LINE + '  export ORCH_NOSCOPE=1\n') + 'fi\n')
 
 # FIXSIM orch-peak = снимок слияния, три конфликта разрешены объединением намерений (И-1):
 # (1) подпись станции + ожидание субагентов 080; (2) Н-189 перед транзакцией 080 (опрос,
@@ -357,6 +395,22 @@ STUBS = [
    [('IDLE="${ORCH_IDLE:-1800}"', 'IDLE="${ORCH_IDLE:-1700}"')]),
   ('s30', 'p11', 'шов ORCH_LOOP_STOP проигнорирован', 'peak',
    [('LOOP_STOP="${ORCH_LOOP_STOP:-$UHOME/orch-loop.stop}"', 'LOOP_STOP="$UHOME/orch-loop.stop"')]),
+  # м6/л3 (И-5в): отказ запуска сессии и rc исполненной сессии — различение по факту исполнения
+  ('s31', 'm6', 'проба вместо факта исполнения: отказ запуска после успешной пробы — падение', 'loop',
+   [(RUN_HONEST, PROBE_RUN)]),
+  ('s32', 'm6', 'повторная проба после rc≠0 вместо факта исполнения', 'loop', [(RUN_HONEST, REPROBE_RUN)]),
+  ('s33', 'm6', 'отказ scope засчитан падением', 'loop',
+   [(NOCAP_LINE, NOCAP_LINE + '  export ORCH_CRASH=$(( ${ORCH_CRASH:-0} + 1 ))\n')]),
+  ('s34', 'm6', 'после отказа scope следующие сессии — без systemd-run', 'loop', [(RUN_HONEST, NOSCOPE_RUN)]),
+  ('s35', 'l3', 'отказ определён по rc: падение исполненной сессии — прямой перезапуск', 'loop',
+   [(RAN_TEST, 'if [ "$rc" -eq 0 ]; then\n')]),
+  # л9/л10 (И-3): общий счёт нештатных завершений подряд — каждая мутация к плану, где видна
+  ('s36', 'l9', 'счёт станции: счётчик вида копится через событие другого вида', 'loop',
+   [(CNT_C, ''), (CNT_E, '')]),
+  ('s37', 'l9', 'ранний маркер не передаёт счёт падению', 'loop', [(CNT_E, '')]),
+  ('s38', 'l10', 'раздельные счётчики со взаимным сбросом', 'loop',
+   [(CNT_C, '  export ORCH_EARLY=0\n'), (CNT_E, '  export ORCH_CRASH=0\n')]),
+  ('s39', 'l10', 'падение не передаёт счёт раннему маркеру', 'loop', [(CNT_C, '')]),
 ]
 for sid, cell, label, base, edits in STUBS:
     try:
@@ -388,16 +442,36 @@ hash8() { if [ -f "$1" ]; then sha256sum <"$1" | cut -c1-8; else printf 'нет 
 # ── шим systemd-run ────────────────────────────────────────────────────────────
 cat >"$SCRATCH/shimbin/systemd-run" <<'SHIMEOF'
 #!/usr/bin/env bash
-# шим systemd-run батареи 085: журнал вызова (argv через NUL, XDG_RUNTIME_DIR) и режим
-# CIKL085_SHIM_MODE: pass — exec команды после первого «--» (тот же процесс, как --scope);
-# refuse — отказ rc 1 без исполнения (как «Failed to connect to bus: No medium found»).
+# шим systemd-run батареи 085: журнал вызова (argv через NUL, XDG_RUNTIME_DIR, вид, исход) и
+# режим CIKL085_SHIM_MODE: pass — exec команды после первого «--» (тот же процесс, как
+# --scope); refuse — отказ rc 1 без исполнения на каждом вызове (как «Failed to connect to
+# bus: No medium found»); refuse-first-session — отказ rc 1 без исполнения ровно на первом
+# запуске сессии, прочие вызовы — exec. Вид вызова — единственный источник правила (И-5а):
+# запуск сессии — команда после первого «--» кончается вызовом workshop станции
+# «$CIKL085_SHIM_WS --yolo -- $CIKL085_SHIM_MSG»; иначе — проба.
 d="${CIKL085_SHIM_DIR:?}"
 i=1; while [ -e "$d/call.$i" ]; do i=$((i + 1)); done
 printf '%s\0' "$@" >"$d/call.$i"
 printf '%s' "${XDG_RUNTIME_DIR-<не задан>}" >"$d/xdg.$i"
-if [ "${CIKL085_SHIM_MODE:-pass}" = refuse ]; then
+args=("$@"); n=${#args[@]}; first=-1
+for k in "${!args[@]}"; do [ "${args[$k]}" = -- ] && { first=$k; break; }; done
+sess=0
+if [ "$first" -ge 0 ] && [ $((n - first - 1)) -ge 4 ] && [ -n "${CIKL085_SHIM_WS:-}" ] \
+   && [ "${args[$((n - 4))]}" = "$CIKL085_SHIM_WS" ] && [ "${args[$((n - 3))]}" = --yolo ] \
+   && [ "${args[$((n - 2))]}" = -- ] && [ "${args[$((n - 1))]}" = "${CIKL085_SHIM_MSG:-}" ]; then
+  sess=1
+fi
+printf '%s' "$sess" >"$d/kind.$i"
+refuse=0
+case "${CIKL085_SHIM_MODE:-pass}" in
+  refuse) refuse=1 ;;
+  refuse-first-session) if [ "$sess" = 1 ] && [ ! -e "$d/refused" ]; then : >"$d/refused"; refuse=1; fi ;;
+esac
+if [ "$refuse" = 1 ]; then
+  printf 'refuse' >"$d/st.$i"
   echo 'Failed to connect to bus: No medium found' >&2; exit 1
 fi
+printf 'exec' >"$d/st.$i"
 while [ $# -gt 0 ] && [ "$1" != -- ]; do shift; done
 [ $# -gt 0 ] || { echo 'шим systemd-run: нет «--» — вне грамматики 085' >&2; exit 1; }
 shift
@@ -448,7 +522,7 @@ loop_run() { # <субъект> <W> <план> <таймаут-с> [ИМЯ=ЗН�
   local subj="$1" W="$2" plan="$3" tmo="$4"; shift 4
   loop_prep "$subj" "$W" "$plan"
   env -u XDG_RUNTIME_DIR HOME="$W/home" PATH="$SCRATCH/shimbin:$PATH" \
-    CIKL085_SHIM_DIR="$W/shim" CIKL085_SHIM_MODE=pass \
+    CIKL085_SHIM_DIR="$W/shim" CIKL085_SHIM_MODE=pass CIKL085_SHIM_WS="$W/workshop" CIKL085_SHIM_MSG="$MSG_STATION" \
     ORCH_REPO="$W/repo" ORCH_WORKSHOP="$W/workshop" ORCH_MARK="$W/mark" ORCH_STOP="$W/stop" \
     ORCH_LOG="$W/log" ORCH_GRACE=1 ORCH_MIN_LIFE=9 ORCH_EARLY_WAIT=1 ORCH_EARLY_MAX=3 \
     "$@" timeout -k 5 "$tmo" bash "$W/subject-cikl" >"$W/out" 2>&1
@@ -484,11 +558,12 @@ loop_cell() {
 
 cell_l1() { loop_cell "$1" "$2" 'early exit' 40 2 0 '«ранний, выход»'; }
 cell_l2() { loop_cell "$1" "$2" 'early early early early' 60 3 nz '«ранний ×4»'; }
-cell_l3() {
+cell_l3() { # rc 1 исполненной сессии — падение (И-3б), не OOM (И-5б) и не отказ scope (И-5в)
   local r; loop_cell "$1" "$2" 'crash exit' 30 2 0 '«падение rc 1, выход»'; r=$?
   [ "$r" = 0 ] || return "$r"
   grep -Fq -- "$LIT_OOM" "$2/log" && { printf '; но строка И-5б «%s» при rc 1' "$LIT_OOM"; return 1; }
-  printf ', строки И-5б нет'; return 0
+  grep -Fq -- "$LIT_NOCAP" "$2/log" && { printf '; но строка И-5в «%s»: rc 1 исполненной сессии принят за отказ scope' "$LIT_NOCAP"; return 1; }
+  printf ', строк И-5б и И-5в нет'; return 0
 }
 cell_l4() { loop_cell "$1" "$2" 'crash crash crash crash' 30 3 nz '«падение ×4»'; }
 cell_l5() {
@@ -502,6 +577,11 @@ cell_l6() { loop_cell "$1" "$2" 'cancel exit' 40 1 0 '«маркер снят в
 # останавливает цикл, иначе ветвь падения (И-3б) маскирует потерю принятия второй сессией.
 cell_l7() { loop_cell "$1" "$2" 'termrm exit' 40 2 any '«на SIGTERM сессия снимает маркер» (MIN_LIFE=2, EARLY_MAX=1)' ORCH_MIN_LIFE=2 ORCH_EARLY_MAX=1; }
 cell_l8() { loop_cell "$1" "$2" 'early early normal exit' 70 4 0 '«ранний, ранний, обычный, выход»'; }
+# л9/л10 (И-3): общий счёт нештатных завершений подряд — смена вида события счёт не обнуляет
+# и не разводит по видам: третье нештатное завершение подряд — останов; план за ним — различитель
+# (раздельный счёт доходит до четвёртой или пятой сессии).
+cell_l9() { loop_cell "$1" "$2" 'early early crash early exit' 70 3 nz '«ранний, ранний, падение, ранний, выход»'; }
+cell_l10() { loop_cell "$1" "$2" 'crash crash early crash exit' 60 3 nz '«падение, падение, ранний, падение, выход»'; }
 
 # ── потолок памяти (И-5) ──────────────────────────────────────────────────────
 has_tok() { local w="$1" t; shift; for t in "$@"; do [ "$t" = "$w" ] && return 0; done; return 1; }
@@ -518,20 +598,21 @@ prop_of() { # <ключ> <опции до «--»…> → последнее зн
   done
   printf '%s' "$v"
 }
-judge_scope() { # <W> <MemoryMax>: каждый вызов systemd-run, чья команда — workshop сессии
+session_call() { # <W> <файл-вызова> → rc 0, если шим отнёс вызов к запуску сессии (правило — в шиме)
+  [ "$(cat "$1/shim/kind.${2##*.}" 2>/dev/null)" = 1 ]
+}
+judge_scope() { # <W> <MemoryMax>: каждый запуск сессии под systemd-run
   local W="$1" want="$2" f i idx found=0 calls=0 v xdg want_xdg
-  local -a a opts cmd
+  local -a a opts
   want_xdg="/run/user/$(id -u)"
   for f in "$W"/shim/call.*; do
     [ -e "$f" ] || continue
     calls=$((calls + 1))
+    session_call "$W" "$f" || continue
+    found=$((found + 1))
     mapfile -d '' -t a <"$f"
     idx=-1
     for i in "${!a[@]}"; do [ "${a[$i]}" = -- ] && { idx=$i; break; }; done
-    [ "$idx" -ge 0 ] || continue
-    cmd=("${a[@]:$((idx + 1))}")
-    [ "${cmd[0]:-}" = "$W/workshop" ] || continue
-    found=$((found + 1))
     opts=("${a[@]:0:$idx}")
     has_tok --user "${opts[@]}" || { printf 'нет --user до «--»: %s' "${opts[*]}"; return 1; }
     has_tok --scope "${opts[@]}" || { printf 'нет --scope до «--»: %s' "${opts[*]}"; return 1; }
@@ -539,15 +620,11 @@ judge_scope() { # <W> <MemoryMax>: каждый вызов systemd-run, чья �
     [ "$v" = "$want" ] || { printf 'MemoryMax=%s (ожидалось %s)' "${v:-нет}" "$want"; return 1; }
     v="$(prop_of MemorySwapMax "${opts[@]}")"
     [ "$v" = 0 ] || { printf 'MemorySwapMax=%s (ожидалось 0)' "${v:-нет}"; return 1; }
-    if [ "${#cmd[@]}" -ne 4 ] || [ "${cmd[1]}" != --yolo ] || [ "${cmd[2]}" != -- ] || [ "${cmd[3]}" != "$MSG_STATION" ]; then
-      printf 'после «--» не вызов workshop станции «"$WORKSHOP" --yolo -- "$MSG"» (слов: %s)' "${#cmd[@]}"
-      return 1
-    fi
     xdg="$(cat "$W/shim/xdg.${f##*.}")"
     [ "$xdg" = "$want_xdg" ] || { printf 'XDG_RUNTIME_DIR=%s (ожидалось %s)' "$xdg" "$want_xdg"; return 1; }
   done
-  [ "$found" -ge 1 ] || { printf 'systemd-run для сессии не вызван (вызовов шима: %s)' "$calls"; return 1; }
-  printf 'сессия под systemd-run --user --scope: MemoryMax=%s, MemorySwapMax=0, после «--» — вызов workshop, XDG_RUNTIME_DIR=%s (сессионных вызовов: %s)' "$want" "$want_xdg" "$found"
+  [ "$found" -ge 1 ] || { printf 'systemd-run для сессии не вызван: ни одна команда после «--» не кончается вызовом workshop станции «"$WORKSHOP" --yolo -- "$MSG"» (вызовов шима: %s)' "$calls"; return 1; }
+  printf 'сессия под systemd-run --user --scope: MemoryMax=%s, MemorySwapMax=0, команда после «--» кончается вызовом workshop, XDG_RUNTIME_DIR=%s (запусков сессии: %s)' "$want" "$want_xdg" "$found"
   return 0
 }
 cell_m1() {
@@ -567,10 +644,33 @@ cell_m3() {
   printf ', строка И-5б есть'; return 0
 }
 cell_m4() {
-  local r; loop_cell "$1" "$2" 'exit' 20 1 0 '«шим отказывает rc 1 без исполнения»' CIKL085_SHIM_MODE=refuse; r=$?
+  local r; loop_cell "$1" "$2" 'exit' 20 1 0 '«шим отказывает каждому вызову rc 1 без исполнения»' CIKL085_SHIM_MODE=refuse; r=$?
   [ "$r" = 0 ] || return "$r"
   grep -Fq -- "$LIT_NOCAP" "$2/log" || { printf '; но строки И-5в «%s» нет' "$LIT_NOCAP"; return 1; }
   printf ', исполнена напрямую, строка И-5в есть'; return 0
+}
+shim_calls() { # <W> <exec|refuse> → число вызовов запуска сессии с этим исходом шима
+  local W="$1" want="$2" f c=0
+  for f in "$W"/shim/call.*; do
+    [ -e "$f" ] || continue
+    [ "$(cat "$W/shim/st.${f##*.}" 2>/dev/null)" = "$want" ] || continue
+    session_call "$W" "$f" && c=$((c + 1))
+  done
+  printf '%s' "$c"
+}
+# м6 (И-5в): шим исполняет пробы и отказывает ровно первому запуску сессии; «падение, выход»,
+# EARLY_MAX=2 — отказ, засчитанный падением, вместе с падением исполненной сессии останавливает
+# цикл до второй сессии; вторая сессия — снова под systemd-run (И-5а).
+cell_m6() {
+  local r W="$2" rf ex
+  loop_cell "$1" "$W" 'crash exit' 40 2 0 '«проба проходит, первый запуск сессии отказан; падение, выход» (EARLY_MAX=2)' \
+    CIKL085_SHIM_MODE=refuse-first-session ORCH_EARLY_MAX=2; r=$?
+  [ "$r" = 0 ] || return "$r"
+  rf="$(shim_calls "$W" refuse)"; ex="$(shim_calls "$W" exec)"
+  [ "$rf" = 1 ] || { printf '; но отказ не предъявлен: запуск сессии под systemd-run не вызывался'; return 1; }
+  grep -Fq -- "$LIT_NOCAP" "$W/log" || { printf '; но строки И-5в «%s» нет' "$LIT_NOCAP"; return 1; }
+  [ "$ex" -ge 1 ] || { printf '; но после отказа ни один запуск сессии не исполнен под systemd-run (И-5а)'; return 1; }
+  printf ', строка И-5в есть, запусков сессии под шимом после отказа: %s' "$ex"; return 0
 }
 
 # м5 — живой systemd-run --user: предусловие снимается один раз, до запуска клеток.
