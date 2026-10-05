@@ -10,14 +10,20 @@
 #           (755, root:root) и 7 systemd-юнитов в /etc/systemd/system/
 #           (644, root:root), перечитывает sha256 каждого; euid-гард под
 #           harness отказывает rc 1 с фразой «root-часть требует euid 0»
-#           ДО любых записей;
+#           ДО любых записей; ПОСЛЕ sha256-петли (контракт 081, И-1/И-2)
+#           ставит `chattr +i` на <OPS_SERVER_MAIN>/.git/config (по умолчанию
+#           /home/harness/dev-harness), если в config уже выполнены оба
+#           предусловия — core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}
+#           и branch.autoSetupMerge=false (И-2). Предусловие нарушено — rc 1
+#           ДО какого-либо chattr. Шов OPS_SERVER_MAIN (инвариант 6 074).
 #   verify — только читает: побайтно сверяет все 9 адресатов с источниками;
 #             все равны — rc 0 и «сверка: 9/9»; любое расхождение — rc 1
 #             с stderr «ОТКАЗ: расхождение <путь>».
 #
 # Швы (инвариант 6): OPS_SERVER_SRC (умолчание — каталог скрипта), адресаты
-# OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST. При шве
-# скрипт не читает и не пишет умолчательный путь того же шва.
+# OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
+# (081 — корень основного чекаута, по умолчанию /home/harness/dev-harness).
+# При шве скрипт не читает и не пишет умолчательный путь того же шва.
 #
 # Коды возврата:
 #   0 — успех (или сверка чиста);
@@ -34,6 +40,7 @@ SRC_ROOT="${OPS_SERVER_SRC:-$SELF_DIR}"
 BIN_DST="${OPS_SERVER_BIN_DST-$HOME/.local/bin}"
 SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
+MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
 UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
@@ -91,6 +98,53 @@ case "$1" in
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
     [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 7 юнитов)\n'
+
+    # ── контракт 081, И-1/И-2: блокировка <MAIN>/.git/config ядром ФС ────────
+    # Исполняется ТОЛЬКО при rc=0 (копия+sha256 чисты) и при выполненных ОБОИХ
+    # предусловиях (И-2): нарушение любого — именованный отказ rc 1 ДО chattr.
+    # Постусловие И-1: атрибут `i` СТОИТ после выхода (lsattr-self-check).
+    if [ "$rc" -eq 0 ]; then
+      GIT_DIR_MAIN="$MAIN_DST/.git"
+      CFG_MAIN="$GIT_DIR_MAIN/config"
+
+      # структура основного чекаута
+      if [ ! -d "$GIT_DIR_MAIN" ] || [ ! -f "$CFG_MAIN" ]; then
+        printf 'ОТКАЗ: не основной чекаут — %s\n' "$MAIN_DST" >&2
+        exit 1
+      fi
+
+      # предусловие 1: core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}
+      hooks_path="$(git -C "$MAIN_DST" config --local --get core.hooksPath 2>/dev/null || true)"
+      hooks_real="$(realpath "$MAIN_DST/.githooks" 2>/dev/null || true)"
+      case "$hooks_path" in
+        .githooks|"$hooks_real") ;;
+        *) printf 'ОТКАЗ: core.hooksPath не установлен (%s); установите через npm run hooks:install ДО блокировки\n' "${hooks_path:-<пусто>}" >&2
+           exit 1 ;;
+      esac
+
+      # предусловие 2: branch.autoSetupMerge = false явно
+      auto_merge="$(git -C "$MAIN_DST" config --local --type=bool --get branch.autoSetupMerge 2>/dev/null || true)"
+      if [ "$auto_merge" != "false" ]; then
+        printf 'ОТКАЗ: branch.autoSetupMerge не false (%s); выполните `git config branch.autoSetupMerge false` ДО блокировки\n' "${auto_merge:-<пусто>}" >&2
+        exit 1
+      fi
+
+      # блокировка: chattr +i ровно один раз на CFG_MAIN (контракт 081, И-1).
+      # Без `--`: журнал вызовов и батарея судят ровно форму `+i <путь>`.
+      chattr +i "$CFG_MAIN" \
+        || { printf 'ОТКАЗ: chattr +i на %s\n' "$CFG_MAIN" >&2; exit 1; }
+
+      # постусловие: lsattr показывает `i` в поле флагов. Без флага — отказ
+      # (критик Б1: «+i, сразу за ним -i» НЕ считается успехом).
+      lsattr_out="$(lsattr -- "$CFG_MAIN" 2>/dev/null || true)"
+      flags="$(printf '%s\n' "$lsattr_out" | awk 'NR==1{print $1; exit}')"
+      case "$flags" in
+        *i*) printf 'установлено: +i на %s\n' "$CFG_MAIN" ;;
+        *)   printf 'ОТКАЗ: chattr +i на %s — атрибут не стоит после установки\n' "$CFG_MAIN" >&2
+             exit 1 ;;
+      esac
+    fi
+
     exit "$rc"
     ;;
   verify)
