@@ -248,6 +248,38 @@ while IFS=$'\t' read -r name value _vnorm; do
   [ -z "${SCRIPT_BY_BASENAME[$base_noext]:-}" ] && SCRIPT_BY_BASENAME["$base_noext"]="$name"
 done < "$SCRIPTS_TSV"
 
+# Реестр CI-шагов (контракт 083). Если реестр существует, шаги реестра покрывают
+# npm-ключи `package.json` через `npm run <X>` строки (инвариант 3 контракта 083):
+# реестр не плодит вторую копию команд, а ссылается на них, и потреблённый
+# реестром npm-ключ считается покрытым CI. `bash <путь>`-шаги покрываются через
+# свои пути (SCRIPT_BY_BASENAME).
+REG_TSV="$RUN/registry.tsv"
+declare -A REGISTRY_STEP_NPM=()
+declare -A REGISTRY_STEP_BASH=()
+if [ -f "$ROOT/registry/ci-steps.tsv" ]; then
+  while IFS=$'\t' read -r kind k1 k2 k3; do
+    case "$kind" in
+      step)
+        cmd="$k3"
+        case "$cmd" in
+          "npm run "*)
+            npmkey="$(printf '%s' "$cmd" | awk '{print $3}')"
+            REGISTRY_STEP_NPM["$npmkey"]=1
+            ;;
+          "bash "*)
+            base="$(printf '%s' "$cmd" | awk '{print $2}')"
+            base_noext="${base##*/}"; base_noext="${base_noext%.sh}"
+            REGISTRY_STEP_BASH["$base_noext"]=1
+            ;;
+        esac
+        ;;
+    esac
+  done < <(awk -F'\t' '/^[[:space:]]*#/ {next} $1=="lanes" || $1=="step" || $1=="shard" {print}' "$ROOT/registry/ci-steps.tsv")
+  : > "$REG_TSV"
+  for k in "${!REGISTRY_STEP_NPM[@]}"; do printf 'npm\t%s\n' "$k" >> "$REG_TSV"; done
+  for k in "${!REGISTRY_STEP_BASH[@]}"; do printf 'bash\t%s\n' "$k" >> "$REG_TSV"; done
+fi
+
 # ── 2. разбор команд из .github/** ─────────────────────────────────────────────
 # Разбор в два шага: YAML → структура, `run:` шага → список shell-команд. Оба шага
 # объяснены в шапке файла; здесь только то, что нужно читателю кода.
@@ -1066,10 +1098,45 @@ while IFS=$'\t' read -r path ln cmd norm; do
       covered_keys+=("$nm")
     fi
   fi
-  # Иначе — команда должна равняться значению какого-то скрипта целиком.
+  # 4-я форма: команда ДОСЛОВНО равна значению какого-то скрипта (без аргументов).
   if [ "$covered" -eq 0 ] && [ -n "${SCRIPT_VALUE[$norm]:-}" ]; then
     covered=1
     covered_keys+=("${SCRIPT_VALUE[$norm]}")
+  fi
+  # 5-я форма (контракт 083, инвариант 3): `bash <path> [аргументы...]` где <path>
+  # — значение скрипта (4-я форма), а аргументы — комбинация литералов и `${{ … }}`-
+  # плейсхолдеров (прецедент: `bash scripts/check_no_rewrite.sh "${{ github.event.before }}"
+  # "${{ github.sha }}"` и `bash scripts/run_ci_lane.sh ${{ matrix.keys }}`).
+  # Сравнение — после нормализации: все `${{ … }}` (с обрамляющими кавычками или без)
+  # заменяются на канонический токен `$VAR`, лишние кавычки снимаются, пробелы
+  # схлопываются, и команда проверяется на совпадение с любым значением скрипта
+  # (с возможными аргументами после).
+  if [ "$covered" -eq 0 ]; then
+    norm_norm="$(printf '%s' "$norm" | sed -E 's/"?\$\{\{[^}]*\}\}"?/ \$VAR /g' | sed -E 's/" *( *"\$VAR *")*"/ \$VAR /g' | tr -s ' ' | sed 's/^ //; s/ $//')"
+    # Дополнительная зачистка: убрать «голый» $VAR в начале (после первого слова).
+    for v in "${!SCRIPT_VALUE[@]}"; do
+      # norm_norm должен начинаться со значения v (после нормализации).
+      if [ "${norm_norm:0:${#v}}" = "$v" ]; then
+        # После значения — либо конец, либо пробел.
+        next_char="${norm_norm:${#v}:1}"
+        if [ -z "$next_char" ] || [ "$next_char" = " " ]; then
+          covered=1
+          covered_keys+=("${SCRIPT_VALUE[$v]}")
+          break
+        fi
+      fi
+    done
+    # Специальный случай: lane-шаг `bash scripts/run_ci_lane.sh ${{ matrix.keys }}`
+    # — НЕ покрыт 4-й формой (значение скрипта не в package.json), но покрыт
+    # ИНВАРИАНТОМ 2 контракта 083: lane-раннер исполняет шаги реестра, а
+    # покрытие реестровых npm-ключей — отдельный проход (см. ниже).
+    if [ "$covered" -eq 0 ]; then
+      if [ "$norm_norm" = "bash scripts/run_ci_lane.sh \$VAR" ] \
+         || [ "$norm_norm" = "bash scripts/run_ci_lane.sh" ]; then
+        covered=1
+        # Не добавляем covered_keys — lane-шаг покрывается через реестр (см. ниже).
+      fi
+    fi
   fi
   if [ "$covered" -eq 1 ]; then
     CI_COVERED_CMD["$norm"]=1
@@ -1103,6 +1170,29 @@ for key in "${!MATRIX_KEYS[@]}"; do
     # правила 6. Прецедент: шард ap2 несёт matrix.key `freeze_contract` (как fixtures
     # freeze_contract/), но `freeze:contract` — команда записи, в CI её нет, исключение
     # обязано остаться живым.
+    if [ -n "${EXC_SCRIPT[$npm_name]:-}" ]; then
+      continue
+    fi
+    covered_keys+=("$npm_name")
+  fi
+done
+
+# Покрытие через реестр (контракт 083, инвариант 3): если шаг реестра потребляет
+# npm-ключ (через `npm run <X>`), этот ключ считается покрытым CI — реестр ссылается
+# на команды, а не дублирует их, и lane-раннер их исполняет. Покрытие — без ослабления:
+# покрытый ключ по-прежнему обязан существовать в scripts/<X>.sh (его резолв — И-3
+# реестра), а сам шаг реестра — резолвиться (И-3 генератора, см. Г4).
+for npmkey in "${!REGISTRY_STEP_NPM[@]}"; do
+  if [ -n "${SCRIPT_NAME[$npmkey]:-}" ]; then
+    if [ -n "${EXC_SCRIPT[$npmkey]:-}" ]; then
+      continue  # Исключённый ключ остаётся живым исключением.
+    fi
+    covered_keys+=("$npmkey")
+  fi
+done
+for bashkey in "${!REGISTRY_STEP_BASH[@]}"; do
+  if [ -n "${SCRIPT_BY_BASENAME[$bashkey]:-}" ]; then
+    npm_name="${SCRIPT_BY_BASENAME[$bashkey]}"
     if [ -n "${EXC_SCRIPT[$npm_name]:-}" ]; then
       continue
     fi

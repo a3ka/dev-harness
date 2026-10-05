@@ -1,0 +1,80 @@
+# registry/ci-steps.tsv — ЕДИНСТВЕННЫЙ источник шагов джобы `ci` и шардов джобы
+# `antiplacebo` (контракт 083, инвариант 1). Формат TSV, закрытый алфавит:
+#   lanes <K>             — ровно одна meta-строка, K целое 6..8
+#   step <key> <weight> <command...>
+#                         — key уникален, weight целое ≥0 (секунды замера),
+#                           command — «npm run <key> [-- args]» либо
+#                           «bash <путь>». Комментарии — строки, начинающиеся
+#                           с `#` (после `\t`-strip'а).
+#   shard <имя> <keys...> — ключи через пробел, для include-блока `antiplacebo`.
+#
+# Замер 1371 с (§9.1) и компоненты: check_charter 445, check_zones 161,
+# check_gitw-predpolet-family-selftest 262, metering/proxy 114. Прочие шаги —
+# 5..30 с по живому CI. LPT (по убыванию веса, в наименее загруженную lane)
+# держит границу `max(load) ≤ ceil(total/K) + max(вес одного шага)` —
+# соблюдается `gen_ci_steps.sh`.
+#
+# Изменение состава — правка registry и `bash scripts/gen_ci_steps.sh --write`
+# (markers сохраняются, статическая оболочка — ручная, см. ci.yml). Реестр
+# сверяется `verify_ci_parity.sh` (инвариант 3) на покрытие npm-ключей через
+# матрицу (правило 6).
+lanes	7
+# БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
+step	check:antiplacebo-selftest	20	bash scripts/antiplacebo_selftest.sh
+step	check:threat-model-selftest	15	npm run check:threat-model-selftest
+step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
+step	check:consumers-window-family-selftest	15	bash fixtures/check_consumers/krasnye_062.sh
+step	check:measure-probe	10	npm run check:measure-probe
+step	check:scope-select	10	npm run check:scope-select
+step	check:scoped-run	10	npm run check:scoped-run
+step	check:contract-ready	15	npm run check:contract-ready
+step	check:document	20	npm run check:document
+step	check:spec-ready-036	10	npm run check:spec-ready -- . contracts/036-spec-tochnost-prefriz-gejt.md
+step	check:precision-gate-043	10	npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
+step	check:precision-family-selftest	15	npm run check:precision-family-selftest
+step	check:precision-battery	15	npm run check:precision-battery
+step	check:gitw-family-selftest	20	npm run check:gitw-family-selftest
+step	check:gitw-predpolet-family-selftest	262	bash fixtures/_krasnye_071.sh
+step	check:orch-restart-family-selftest	30	bash fixtures/_krasnye_072.sh
+step	check:sharing-family-selftest	25	bash fixtures/_krasnye_058.sh
+step	check:declared-path-family-selftest	20	bash fixtures/_krasnye_059.sh
+step	check:samodostatochnost-family-selftest	25	bash fixtures/_krasnye_060.sh
+step	check:github-token-family-selftest	15	bash scripts/check_github_token_070.sh
+step	check:zony-merge-head-family-selftest	20	bash fixtures/_krasnye_073.sh
+step	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
+step	check:door-bugfix-family-selftest	20	bash fixtures/_krasnye_080.sh
+step	check:merge-gate-family-selftest	20	bash fixtures/check_judge_gate/krasnye_063.sh
+# СРЕДНИЕ (15..40 с)
+step	check:judge-gate	15	npm run check:judge-gate
+step	check:runner-hygiene	20	npm run check:runner-hygiene
+step	check:nabludenia	15	npm run check:nabludenia
+step	drill:gate-draft	10	npm run drill:gate-draft
+step	drill:startup-digest	10	npm run drill:startup-digest
+step	drill:nabludenia-nechitaemo	10	npm run drill:nabludenia-nechitaemo
+step	check:gen	15	npm run check:gen
+step	metering:selftest	20	npm run metering:selftest
+step	check:ids	20	npm run check:ids
+step	check:skills	15	npm run check:skills
+step	check:ceilings	15	npm run check:ceilings
+step	check:decisions	15	npm run check:decisions
+step	check:approval	20	npm run check:approval
+step	check:hooks	15	npm run check:hooks
+step	check:contract-frozen	25	npm run check:contract-frozen
+# ТЯЖЁЛЫЕ (≥40 с — замеры §9.1)
+step	check:zones	161	npm run check:zones
+step	check:charter	445	npm run check:charter
+step	drill:contract-change	20	npm run drill:contract-change
+step	drill:next-id-race	20	npm run drill:next-id-race
+step	check:protected	60	npm run check:protected
+step	drill:protected-exception	20	npm run drill:protected-exception
+step	drill:protected-rename	20	npm run drill:protected-rename
+step	check:zones-call-budget	25	npm run check:zones-call-budget
+step	check:protected-call-budget	30	npm run check:protected-call-budget
+# ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
+# Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
+# check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).
+shard	ap1	check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
+shard	ap2	check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
+shard	ap3	check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
+shard	ap4	check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
+shard	ap5	verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver
