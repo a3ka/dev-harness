@@ -4,7 +4,7 @@
 push origin main НЕ выполнен, чтобы не красить main CI тем же дефектом; работа
 продолжается по п.3-5 очереди без ожидания)
 
-- Серверная обвязка станции — единый источник: ops/server/README.md.
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 - Сторож памяти: root, `orch-memcap.timer`; omp ведущей сессии в cgroup
   `/sys/fs/cgroup/orch-omp`, `memory.max 32G`. Журнал `/var/log/orch-memcap.log`.
 
