@@ -239,10 +239,14 @@ done < "$SCRIPTS_TSV"
 # `npm run check:antiplacebo -- --scope <key>` — прямой `npm run` потребовал бы аргументов
 # (root contract), CI своего контекста для их подстановки не имеет). Прецедент пары
 # matrix.key `check_check_contract_ready` ↔ npm `check:contract-ready` (прямой шаг CI).
+# После контракта 083 (registry — единственный источник шагов ci) путь в `bash <path>`-значении
+# может быть ЛЮБЫМ (fixtures/.../_krasnye_NNN.sh, scripts/X.sh, scripts/lib/Y.sh и т.д.) — берём
+# первый .sh по basename. Без этого SCRIPT_BY_BASENAME для `red_watchdog_082` и `_krasnye_058`
+# пуст, и REGISTRY_STEP_BASH-покрытие (контракт 083 инв. 3) не строится.
 declare -A SCRIPT_BY_BASENAME=()
 while IFS=$'\t' read -r name value _vnorm; do
   [ -n "$name" ] || continue
-  base="$(printf '%s' "$value" | sed -nE 's@.*scripts/([A-Za-z0-9_]+\.sh).*@\1@p')"
+  base="$(printf '%s' "$value" | sed -nE 's@.*/([A-Za-z0-9_.-]+\.sh).*@\1@p')"
   [ -n "$base" ] || continue
   base_noext="${base%.sh}"
   [ -z "${SCRIPT_BY_BASENAME[$base_noext]:-}" ] && SCRIPT_BY_BASENAME["$base_noext"]="$name"
