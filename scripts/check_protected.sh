@@ -159,7 +159,20 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 # молчаливый зелёный «нечем отказать».
 export PATH=/usr/bin:/bin
 
+# Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник для
+# всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
+INCR_NAME=check_protected
+# shellcheck disable=SC1091
+. "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh"
+
+# Разбор `--incr <кеш>` из аргументов ДО установки ROOT и chdir — кеш-отказ
+# выходит сразу и не инициализирует состояние суда.
+incr_parse "$@"
+[ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
+set -- "${INCR_REST[@]}"
+
 ROOT="$(cd "${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}" && pwd)"
+INCR_GIT_ROOT="$ROOT"
 cd "$ROOT"
 
 fails=0
@@ -242,7 +255,17 @@ trap 'rm -rf "$TMP"' EXIT
 # path. Остаются блобы с mode 100644/100755, имя пути матчит `\.md$` (как и в исходной
 # форме).
 : > "$TMP/roleblobs"
-git rev-list HEAD \
+# В incr-режиме (контракт 083, инв. 6) обходим только окно cache..HEAD: всё, что
+# было до cache, уже проверено предыдущим зелёным прогоном, и перепроверять
+# роль-блобы — лишняя работа. Зелёная ветка держится тем же инвариантом, что
+# в полном режиме: роль проявляется в области защиты, пока её блоб хоть раз
+# появился в судимом окне.
+if [ "${INCR_MODE:-full}" = "incr" ]; then
+  _prot_revspec="${INCR_BASE}..HEAD"
+else
+  _prot_revspec="HEAD"
+fi
+git rev-list "$_prot_revspec" \
   | git diff-tree -r --root -m --no-renames --raw --stdin -- ':(literal)roles/' \
   | awk '
       $1 ~ /^:/ && $2 ~ /^(100644|100755)$/ {
@@ -305,10 +328,17 @@ mapfile -t prefixes < <(printf '%s\n' "${prefixes[@]}" | sort -u)
 # иначе `comm -23` сольёт их с `$TMP/head` (путями) и `missing` засорится блобами
 # (наблюдалось на этом дереве; см. также риск 2 §Приёмка Р2 — лишнее про «без
 # --root» — там же).
-commits="$(git rev-list HEAD | wc -l | tr -d ' ')"
-git rev-list HEAD \
+commits="$(git rev-list "$_prot_revspec" | wc -l | tr -d ' ')"
+# ПУСТОЙ ВВОД — ЛЕГИТИМНЫЙ «НЕТ ФАЙЛОВ». На пустом incr-окне (cache==HEAD, 0 коммитов)
+# `git rev-list BASE..HEAD` пуст, `git diff-tree --stdin` на пустом вводе ничего не печатает,
+# и `grep -v` на пустом вводе возвращает rc=1 («ни одна строка не выбрана» — стандарт
+# grep при нуле совпадений). Под `set -o pipefail` (строка 143) rc=1 НЕ на последней
+# стадии — это отказ ВСЕГО конвейера и `set -e` обрывает скрипт без диагностики. Идиом:
+# rc=1 (нет совпадений — здесь легитимно «нет файлов») глотается, rc≥2 (битый паттерн/
+# ввод, реальная ошибка) идёт дальше как отказ пайплайна.
+git rev-list "$_prot_revspec" \
   | git diff-tree -r --root -m --no-renames --name-only --stdin -- "${prefixes[@]}" \
-  | grep -v '^[0-9a-f]\{40\}$' \
+  | { grep -v '^[0-9a-f]\{40\}$' || [ "$?" = 1 ]; } \
   > "$TMP/existed.raw"
 sort -u "$TMP/existed.raw" > "$TMP/existed"
 git ls-tree -r --name-only HEAD -- "${prefixes[@]}" | sort -u > "$TMP/head"
@@ -585,4 +615,9 @@ printf '\nобласть: %s · коммитов пройдено: %d · сущ�
   "${prefixes[*]}" "$commits" "$(wc -l < "$TMP/existed")" "$(wc -l < "$TMP/head")" "$gone" "$excused" "$moved" >&2
 
 
-[ "$fails" -eq 0 ] || exit 1
+if [ "$fails" -eq 0 ]; then
+  incr_finish 0
+  exit 0
+fi
+incr_finish 1
+exit 1
