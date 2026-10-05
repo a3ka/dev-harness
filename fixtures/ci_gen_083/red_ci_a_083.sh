@@ -1,56 +1,72 @@
 #!/usr/bin/env bash
 # 083-БАТАРЕЯ — CI-А: параллельные lane из генератора шагов + инкрементальные
-# проверки истории (контракт 083, красная пачка архитектора ДО круга критика).
-# Дом семьи — fixtures/check_ci_gen/ (probe-only 034: предмет — ГЕНЕРАТОР
-# scripts/gen_ci_steps.sh + реестр registry/ci-steps.tsv + блоки ci.yml И
-# режим --incr четырёх исторических чеков через scripts/lib_incr.sh;
-# барьерного ключа scripts/check_ci_gen.sh НЕТ и не появится), раннер —
-# fixtures/_krasnye_083.sh. До-заморозочный носитель закоммичен АРХИТЕКТОРОМ
-# (прецеденты 058/070/072/078/080).
+# проверки истории (контракт 083; круг 2 — правка по 6 блокерам critic v1).
+# Дом семьи — fixtures/ci_gen_083/ (probe-only 034: предмет — ГЕНЕРАТОР
+# scripts/gen_ci_steps.sh + реестр registry/ci-steps.tsv + блоки ci.yml,
+# ИСПОЛНЕНИЕ lane scripts/run_ci_lane.sh И режим --incr ЧЕТЫРЁХ исторических
+# чеков через scripts/lib_incr.sh; барьерного ключа scripts/check_ci_gen.sh
+# НЕТ и не появится), раннер — fixtures/_krasnye_083.sh. До-заморозочный
+# носитель закоммичен АРХИТЕКТОРОМ (прецеденты 058/070/072/078/080).
 #
 # СТРУКТУРА (две части):
-#   Часть Г — генератор: честные клетки Г0-Г6 (КРАСНЫ до реализации,
-#     зеленеют вместе с предметом) + стаб-клетки Г-С1/Г-С2 (тoy-входы,
-#     ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока — различает
-#     обман на входе, где дефект наблюдаем).
-#   Часть И — инкрементальность: И0 (живое дерево, 4 чека, гость: КРАСНА
-#     до реализации), И1 позитивный контроль (полный режим check_charter на
-#     toy — ЗЕЛЁН до и после), И2-И5 честные window-клетки на charter-toy
-#     (КРАСНЫ до реализации: без маркера incr:), стаб-пак С1-С4 против
+#   Часть Г — генератор+исполнение: честные клетки Г0-Г7 (КРАСНЫ до
+#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1/Г-С2
+#     (toy-входы, ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока —
+#     различает обман на входе, где дефект наблюдаем). Г2 дополнительно
+#     доказывает, что блок ЖИВЁТ ВНУТРИ джобы ci как её matrix (структурно:
+#     strategy/matrix, маркеры в теле джобы, ровно один lane-шаг через
+#     matrix.keys, последовательные npm-шаги отсутствуют); Г6 сравнивает
+#     ключи КАЖДОГО шарда блок↔реестр поключево; Г7 РЕАЛЬНО ИСПОЛНЯЕТ
+#     run_ci_lane.sh на toy-реестре (порядок, fail-fast именем ключа,
+#     неизвестный ключ — именованный отказ).
+#   Часть И — инкрементальность: И0/И0б (живое дерево, 4 чека, гость: КРАСНА
+#     до реализации; И0б — непустое окно HEAD~1..HEAD: маркер с ИСТИННЫМ
+#     числом коммитов + перезапись кеша), И1 позитивный контроль (полный
+#     режим check_charter на toy — ЗЕЛЁН до и после), И2-И5 честные
+#     window-клетки на charter-toy, И6-И14 — ТАКИЕ ЖЕ window-клетки для
+#     check_zones/check_ids/check_protected (валидность toy полным режимом
+#     + нарушение ниже базы зелёно + нарушение в окне красно): noop-ветка
+#     --incr («маркер и rc 0») ловится клеткой «нарушение в окне», молча
+#     полный прогон — клеткой «нарушение ниже базы». Стаб-пак С1-С4 против
 #     мини-референса окна, носитель В БАТАРЕЕ, не субъект.
 #
-# Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи):
+# Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи,
+# НЕ в прозе контракта):
 #   Г-С1 «генератор не параллелит» (весь блок — ОДНА lane со всеми ключами)
 #        — наблюдаем на входе «include-блок ci.yml»: оракул даёт
 #        «lane-число 1 < 6»; на конформном блоке (7 lane) — «ок».
-#   Г-С2 «генератор теряет шаг» (в блоке нет ключа k3) — наблюдаем на том же
-#        входе покрытием: «ключ k3 не покрыт»; на конформном — «покрытие
+#   Г-С2 «генератор теряет шаг» (в блоке нет ключа k7) — наблюдаем на том же
+#        входе покрытием: «ключ k7 не покрыт»; на конформном — «покрытие
 #        полное».
 #   С1 «молча деградирует до полного» (игнорирует base, судит всю историю)
 #        — наблюдаем на входе И2 (нарушение НИЖЕ базы): честное окно rc 0,
 #        стаб rc 1.
 #   С2 «молча ничего не судит» (маркер с верным N, судит пусто) — наблюдаем
 #        на входе И3 (нарушение В окне): честное rc 1, стаб rc 0.
-#   С3 «принимает поддельный кеш» (sha-не-предок пропущен) — наблюдаем на
-#        входе И4-3: честный именованный отказ, стаб rc 0.
-#   С4 «не пишет кеш» (зелёный прогон не обновляет кеш) — наблюдаем на
-#        входе И2-повтор: окно снова судится (N>0), честное — 0 коммитов.
+#   С3 «принимает поддельный кеш» (sha-не-предок пропущен) — наблюдаем
+#        на входе И4-3: честный именованный отказ, стаб rc 0.
+#   С4 «не пишет кеш» (зелёный прогон не обновляет кеш) — наблюдаем
+#        на входе И2-повтор: окно снова судится (N>0), честное — 0 коммитов.
 #
-# Демаркация контрпримеров (правило 041/019): конформная toy-история
-# charter-семантики = корневой импорт AGENTS.md/ROADMAP.md (добавление
-# свободно), затем коммиты; КРАСНЫЙ вход = коммит, ИЗМЕНЯЮЩИЙ AGENTS.md без
-# строки «РАЗРЕШИЛ-ВЛАДЕЛЕЦ:» в первой колонке тела. Валидный контрпример
-# против «инкрементальность не ослабляет» = расхождение композиции окон с
-# полным прогоном на КОНФОРМНОЙ истории (клетка И5 — зелёная стрелка, И3+И1 —
-# красная), а не нецензурный вход вне грамматики чека.
+# Демаркация контрпримеров (правило 041/019): конформная toy-история каждого
+# чека — коммиты, допустимые грамматикой предмета ЭТОГО чека; КРАСНЫЙ вход —
+# нарушение именно предметной грамматики (charter: модификация AGENTS.md без
+# РАЗРЕШИЛ-ВЛАДЕЛЕЦ; zones: коммит в диапазоне заморозки вне ЗОНА-строк;
+# ids: номер артефакта без тега выдачи; protected: исчезновение существовавшего
+# защищённого файла). Валидность каждого toy ДОКАЗАНА живым прогоном полного
+# режима текущих чеков (клетки И1/И6/И9/И12) — вход конформен и красен ДО
+# реализации предмета. Валидный контрпример против «инкрементальность не
+# ослабляет» = расхождение композиции окон с полным прогоном на КОНФОРМНОЙ
+# истории, а не вход вне грамматики чека.
 #
-# И0 пишет tmp внутри судимого корня (норма самих чеков: mktemp $ROOT/tmp) —
-# прогонять на корне, где запись законна (чистый клон/чекаут судьи).
+# И0/И0б пишут tmp внутри судимого корня (норма самих чеков: mktemp $ROOT/tmp)
+# — прогонять на корне, где запись законна (чистый клон/чекаут судьи);
+# check_zones дополнительно требует тегов frozen/* в клоне (fetch --tags).
 #
 # Прогон: bash red_ci_a_083.sh [корень]
 #   rc 0 — все клетки зелёные (после реализации предмета);
-#   rc 1 — есть красные (до реализации: Г0-Г6, И0, И2-И5 красны по умыслу,
-#          стаб-пак и И1 зелёны).
+#   rc 1 — есть красные (до реализации: Г0-Г7, И0, И0б, И2-И5, И7-И8,
+#          И10-И11, И13-И14 красны по умыслу, стаб-пак и И1/И6/И9/И12 зелёны).
 # Печать никогда не говорит PASS — только счёт ok/FAIL по клеткам (rc — истина).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -95,6 +111,14 @@ block_lane_keys() { # <файл> <BEGIN> <END> → ключи всех lane че
 }
 block_shard_names() { block_body "$1" "$2" "$3" | sed -n 's/^[[:space:]]*-[[:space:]]*shard:[[:space:]]*//p'; }
 block_shard_keys()  { block_body "$1" "$2" "$3" | sed -n 's/^[[:space:]]*keys:[[:space:]]*//p' | tr '\n' ' '; }
+block_shard_pairs() { # <файл> <BEGIN> <END> → строки 'имя<TAB>ключи' (пара shard/keys)
+  block_body "$1" "$2" "$3" | awk '/^[[:space:]]*-[[:space:]]*shard:[[:space:]]*/{ n=$0; sub(/^[[:space:]]*-[[:space:]]*shard:[[:space:]]*/,"",n); gsub(/[[:space:]]+$/,"",n); pend=n; next }
+    pend!="" && /^[[:space:]]*keys:[[:space:]]*/{ k=$0; sub(/^[[:space:]]*keys:[[:space:]]*/,"",k); print pend "\t" k; pend=""; next }
+    /^[[:space:]]*-[[:space:]]*shard:/{ pend="" }'
+}
+ci_job_body() { # <файл> → тело джобы `ci:` (от '  ci:' до следующей джобы того же отступа)
+  awk '!f && /^  ci:[[:space:]]*$/ {f=1; next} f && /^  [A-Za-z0-9_-]+:/ {exit} f' "$1" 2>/dev/null
+}
 
 JOBS_B="# BEGIN GENERATED CI JOBS (083)"
 JOBS_E="# END GENERATED CI JOBS (083)"
@@ -104,7 +128,7 @@ CIYML="$ROOT/.github/workflows/ci.yml"
 REG="$ROOT/registry/ci-steps.tsv"
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Часть Г — генератор шагов
+# Часть Г — генератор шагов + исполнение lane
 # ═══════════════════════════════════════════════════════════════════════════
 printf 'Часть Г — генератор шагов\n' >&2
 
@@ -177,17 +201,36 @@ else
   fi
 fi
 
-# Г2: lane в блоке ci.yml — ровно K, 6..8, различны, каждая с ключами.
+# Г2: блок ЖИВЁТ В ДЖОБЕ ci как её matrix: ровно K lane 6..8, различны, непусты;
+# стратегия matrix в теле джобы ci; маркеры ВНУТРИ тела джобы; ровно ОДИН
+# lane-шаг (run_ci_lane.sh, потребляет matrix.keys); последовательные npm-шаги
+# исчезли (не более одного npm run — gate check:ci-parity).
 if [ -f "$CIYML" ] && grep -qF "$JOBS_B" "$CIYML" && grep -qF "$JOBS_E" "$CIYML"; then
   n_lanes="$(block_lanes "$CIYML" "$JOBS_B" "$JOBS_E" | wc -l | tr -d ' ')"
   dups_l="$(block_lanes "$CIYML" "$JOBS_B" "$JOBS_E" | sort | uniq -d | tr '\n' ' ')"
-  empty_l="$(block_lanes "$CIYML" "$JOBS_B" "$JOBS_E" | wc -l | tr -d ' ')"
   n_keys_lines="$(block_body "$CIYML" "$JOBS_B" "$JOBS_E" | grep -c '^[[:space:]]*keys:')"
-  if [ "$n_lanes" -ge 6 ] && [ "$n_lanes" -le 8 ] && [ "$n_lanes" -eq "${reg_lanes:-0}" ] \
-     && [ -z "${dups_l//[[:space:]]/}" ] && [ "$n_keys_lines" -eq "$n_lanes" ]; then
-    ok "Г2: блок ci.yml несёт K=$n_lanes различимых непустых lane"
+  g2_bad=""
+  if [ "$n_lanes" -lt 6 ] || [ "$n_lanes" -gt 8 ] || [ "$n_lanes" -ne "${reg_lanes:-0}" ] \
+     || [ -n "${dups_l//[[:space:]]/}" ] || [ "$n_keys_lines" -ne "$n_lanes" ]; then
+    g2_bad="$g2_bad lane=$n_lanes(K=${reg_lanes:-нет}), дубли='$dups_l', keys-строк=$n_keys_lines"
+  fi
+  jobb="$(ci_job_body "$CIYML")"
+  if [ -z "$jobb" ]; then
+    g2_bad="$g2_bad джоба-ci-не-найдена"
   else
-    bad "Г2: блок ci.yml не параллелен: lane=$n_lanes (реестр K=${reg_lanes:-нет}), дубли='$dups_l', keys-строк=$n_keys_lines"
+    printf '%s\n' "$jobb" | grep -q '^[[:space:]]*strategy:' || g2_bad="$g2_bad нет-strategy"
+    printf '%s\n' "$jobb" | grep -q '^[[:space:]]*matrix:' || g2_bad="$g2_bad нет-matrix"
+    printf '%s\n' "$jobb" | grep -qF "$JOBS_B" || g2_bad="$g2_bad маркеры-JOBS-вне-джобы-ci"
+    lane_steps="$(printf '%s\n' "$jobb" | grep -c 'run_ci_lane.sh')"
+    [ "$lane_steps" -eq 1 ] || g2_bad="$g2_bad lane-шагов=$lane_steps(≠1)"
+    printf '%s\n' "$jobb" | grep -q 'matrix\.keys' || g2_bad="$g2_bad lane-шаг-не-потребляет-matrix.keys"
+    npm_steps="$(printf '%s\n' "$jobb" | grep -cE 'run:.*npm run')"
+    [ "$npm_steps" -le 1 ] || g2_bad="$g2_bad последовательных-npm-шагов=$npm_steps(>1: джоба не перестроена)"
+  fi
+  if [ -z "${g2_bad//[[:space:]]/}" ]; then
+    ok "Г2: блок ci.yml несёт K=$n_lanes lane ВНУТРИ matrix джобы ci (lane-шаг один, последов. npm-шагов: $npm_steps)"
+  else
+    bad "Г2: блок не является matrix джобы ci:$g2_bad"
   fi
 else
   bad "Г2: предмет отсутствует: нет marker-блока GENERATED CI JOBS (083) в ci.yml"
@@ -252,23 +295,83 @@ else
   bad "Г5: блок JOBS/веса реестра недоступны — баланс не судим"
 fi
 
-# Г6: шарды — блок == shard-строкам реестра; каждый ключ — scripts/<key>.sh.
+# Г6: шарды — ПОКЛЮЧЕВОЕ равенство: для КАЖДОГО шарда ключи блока == ключам
+# его shard-строки реестра (мультимножество, порядок независим); имена —
+# взаимно однозначно; каждый ключ шарда — существующий scripts/<key>.sh.
 if [ -f "$CIYML" ] && grep -qF "$SHARDS_B" "$CIYML"; then
   g6_bad=""
-  for name in $(block_shard_names "$CIYML" "$SHARDS_B" "$SHARDS_E"); do
+  declare -A BLK_SHARDS=()
+  n_pairs=0
+  while IFS=$'\t' read -r name keys; do
+    [ -n "$name" ] || continue
+    n_pairs=$((n_pairs+1))
+    if [ -n "${BLK_SHARDS[$name]+set}" ]; then
+      g6_bad="$g6_bad shard:$name-дважды-в-блоке"
+    else
+      BLK_SHARDS["$name"]="$keys"
+    fi
+  done < <(block_shard_pairs "$CIYML" "$SHARDS_B" "$SHARDS_E")
+  [ "$n_pairs" -eq "${#REG_SHARDS[@]}" ] || g6_bad="$g6_bad шардов-в-блоке=$n_pairs, в-реестре=${#REG_SHARDS[@]}"
+  for name in "${!BLK_SHARDS[@]}"; do
     [ -n "${REG_SHARDS[$name]+set}" ] || { g6_bad="$g6_bad shard:$name-нет-в-реестре"; continue; }
+    b="$(printf '%s\n' ${BLK_SHARDS[$name]} | sort | tr '\n' ' ')"
+    r="$(printf '%s\n' ${REG_SHARDS[$name]} | sort | tr '\n' ' ')"
+    [ "$b" = "$r" ] || g6_bad="$g6_bad ключи-$name-расходятся: блок='$b'реестр='$r'"
   done
   for name in "${!REG_SHARDS[@]}"; do
-    printf '%s\n' "$(block_shard_names "$CIYML" "$SHARDS_B" "$SHARDS_E")" | grep -qxF "$name" \
-      || g6_bad="$g6_bad shard:$name-нет-в-блоке"
+    [ -n "${BLK_SHARDS[$name]+set}" ] || g6_bad="$g6_bad shard:$name-нет-в-блоке"
   done
   for k in $(block_shard_keys "$CIYML" "$SHARDS_B" "$SHARDS_E"); do
     [ -f "$ROOT/scripts/$k.sh" ] || g6_bad="$g6_bad key:$k-нет-scripts/$k.sh"
   done
-  [ -z "${g6_bad//[[:space:]]/}" ] && ok "Г6: шарды блока == реестру, ключи существуют" \
+  [ -z "${g6_bad//[[:space:]]/}" ] && ok "Г6: ключи КАЖДОГО шарда блока == его shard-строке реестра (поключево)" \
                                      || bad "Г6: расхождение шардов:$g6_bad"
 else
   bad "Г6: предмет отсутствует: нет marker-блока GENERATED CI SHARDS (083) в ci.yml"
+fi
+
+# Г7: lane-исполнитель РЕАЛЬНО исполняет шаги (toy-реестр + живой прогон
+# run_ci_lane.sh из корня toy; каждый sk-скрипт дописывает свой ключ в done.log
+# рядом с собой — cwd-независимо).
+LANE="$ROOT/scripts/run_ci_lane.sh"
+if [ ! -f "$LANE" ]; then
+  bad "Г7: предмет отсутствует: нет lane-исполнителя $LANE"
+else
+  L7="$SCRATCH/lane7"; rm -rf "$L7"; mkdir -p "$L7/scripts" "$L7/registry"
+  cp "$LANE" "$L7/scripts/run_ci_lane.sh"
+  i=1
+  while [ "$i" -le 6 ]; do
+    { printf '#!/usr/bin/env bash\n'
+      printf 'printf "%%s\\n" k%s >> "$(dirname "$0")/../done.log"\n' "$i"
+      [ "$i" = "5" ] && printf 'exit 1\n'
+    } > "$L7/scripts/sk$i.sh"
+    i=$((i+1))
+  done
+  { printf 'lanes\t6\n'
+    i=1; while [ "$i" -le 6 ]; do printf 'step\tk%s\t10\tbash scripts/sk%s.sh\n' "$i" "$i"; i=$((i+1)); done
+  } > "$L7/registry/ci-steps.tsv"
+  rm -f "$L7/done.log"
+  out="$(cd "$L7" && timeout 30 bash scripts/run_ci_lane.sh k2 k4 k6 2>&1)"; rc=$?
+  log=""; [ -f "$L7/done.log" ] && log="$(tr '\n' ' ' < "$L7/done.log")"
+  if [ "$rc" -eq 0 ] && [ "$log" = "k2 k4 k6 " ]; then
+    ok "Г7-порядок: run_ci_lane исполнил k2 k4 k6 по порядку (rc 0, журнал='$log')"
+  else
+    bad "Г7-порядок: run_ci_lane НЕ исполнил шаги (rc=$rc, журнал='$log'): $out"
+  fi
+  rm -f "$L7/done.log"
+  out="$(cd "$L7" && timeout 30 bash scripts/run_ci_lane.sh k1 k5 k3 2>&1)"; rc=$?
+  log=""; [ -f "$L7/done.log" ] && log="$(tr '\n' ' ' < "$L7/done.log")"
+  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'k5' && ! printf '%s' "$log" | grep -q 'k3'; then
+    ok "Г7-fail-fast: отказ шага k5 остановил lane именем ключа, k3 НЕ исполнен (rc=$rc)"
+  else
+    bad "Г7-fail-fast: остановка на отказе не доказана (rc=$rc, журнал='$log'): $out"
+  fi
+  out="$(cd "$L7" && timeout 30 bash scripts/run_ci_lane.sh nokey 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'nokey'; then
+    ok "Г7-неизвестный-ключ: nokey — именованный отказ (rc=$rc)"
+  else
+    bad "Г7-неизвестный-ключ: отказ не именует ключ (rc=$rc): $out"
+  fi
 fi
 
 # Г-С1/Г-С2: стаб-входы против оракула батареи (зелёны всегда).
@@ -334,14 +437,87 @@ build_charter_toy() { # <dir> <with_violation:0|1> → печает "C1 C2 C3" (
   git -C "$d" tag ustav/1 "$C1"
   printf '%s %s %s\n' "$C1" "$C2" "$C3"
 }
+# zones-toy: c1 — контракт с ЗОНА-строкой + заморозка (frozen/contracts/090/1);
+# c2 — НАРУШЕНИЕ: коммит в диапазоне заморозки вне зоны (benign.txt автором toy);
+# c3 — benign: правка внутри зоны тем же автором.
+build_zones_toy() { # <dir> → "C1 C2 C3"
+  local d="$1"
+  rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
+  local s
+  for s in check_zones.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh; do
+    cp "$ROOT/scripts/$s" "$d/scripts/$s" 2>/dev/null || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' "$s"; return 1; }
+  done
+  ( cd "$d" && git init -q -b main \
+    && git -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m init ) >/dev/null 2>&1
+  printf '# toy contract\n\nЗОНА toy: contracts/090-demo.md\n' > "$d/contracts/090-demo.md"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c1 contract" || return 1
+  local C1; C1="$(git -C "$d" rev-parse HEAD)"
+  git -C "$d" tag frozen/contracts/090/1 "$C1"
+  printf 'benign\n' > "$d/benign.txt"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 outside-zone" || return 1
+  local C2; C2="$(git -C "$d" rev-parse HEAD)"
+  printf ' v2\n' >> "$d/contracts/090-demo.md"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c3 inside-zone" || return 1
+  local C3; C3="$(git -C "$d" rev-parse HEAD)"
+  printf '%s %s %s\n' "$C1" "$C2" "$C3"
+}
+# ids-toy: c1 — чистый импорт; c2 — НАРУШЕНИЕ: contracts/090-bad.md с номером
+# без тега выдачи id/CONTRACT/090 («номер назначен рукой»); c3 — benign.
+build_ids_toy() { # <dir> → "C1 C2 C3"
+  local d="$1"
+  rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
+  local s
+  for s in check_ids.sh next_id.sh lib_roles.sh lib_registry.sh; do
+    cp "$ROOT/scripts/$s" "$d/scripts/$s" 2>/dev/null || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' "$s"; return 1; }
+  done
+  ( cd "$d" && git init -q -b main \
+    && git -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m init ) >/dev/null 2>&1
+  printf 'ok\n' > "$d/contracts/082-ok.md"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c1 import" || return 1
+  git -C "$d" tag id/CONTRACT/082
+  local C1; C1="$(git -C "$d" rev-parse HEAD)"
+  printf 'bad\n' > "$d/contracts/090-bad.md"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 hand-number" || return 1
+  local C2; C2="$(git -C "$d" rev-parse HEAD)"
+  printf 'benign\n' > "$d/other.txt"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c3 benign" || return 1
+  local C3; C3="$(git -C "$d" rev-parse HEAD)"
+  printf '%s %s %s\n' "$C1" "$C2" "$C3"
+}
+# protected-toy: c1 — plans/001-x.md добавлен; c2 — НАРУШЕНИЕ: файл удалён
+# («существовал — обязан существовать»); c3 — benign.
+build_prot_toy() { # <dir> → "C1 C2 C3"
+  local d="$1"
+  rm -rf "$d"; mkdir -p "$d/scripts" "$d/plans"
+  cp "$ROOT/scripts/check_protected.sh" "$d/scripts/check_protected.sh" 2>/dev/null \
+    || { printf 'НЕТ-ЗАВИСИМОСТИ:check_protected.sh\n'; return 1; }
+  ( cd "$d" && git init -q -b main \
+    && git -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m init ) >/dev/null 2>&1
+  printf 'plan\n' > "$d/plans/001-x.md"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c1 add-plan" || return 1
+  local C1; C1="$(git -C "$d" rev-parse HEAD)"
+  git -C "$d" rm -q plans/001-x.md
+  git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 del-plan" || return 1
+  local C2; C2="$(git -C "$d" rev-parse HEAD)"
+  printf 'benign\n' > "$d/other.txt"
+  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c3 benign" || return 1
+  local C3; C3="$(git -C "$d" rev-parse HEAD)"
+  printf '%s %s %s\n' "$C1" "$C2" "$C3"
+}
 foreign_head() { # sha, не являющийся предком ни одного toy
   rm -rf "$SCRATCH/foreign"; mkdir -p "$SCRATCH/foreign"
   ( cd "$SCRATCH/foreign" && git init -q -b main && git -c user.name=f -c user.email=f@f commit -q --allow-empty -m f ) >/dev/null 2>&1
   git -C "$SCRATCH/foreign" rev-parse HEAD
 }
 
-# --- И0: живое дерево, 4 чека, гость (красна до реализации) ---------------
+# --- И0/И0б: живое дерево, 4 чека, гость (красны до реализации) -------------
+# zones требует тегов frozen/* в клоне — иначе именованный отказ среды.
+TAGS_FROZEN="$(git -C "$ROOT" for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null | sed -n 1p)"
 for chk in check_charter check_zones check_ids check_protected; do
+  if [ "$chk" = "check_zones" ] && [ -z "$TAGS_FROZEN" ]; then
+    bad "И0/$chk: клон без тегов frozen/* — прогони git fetch origin --tags и повтори"
+    continue
+  fi
   C="$SCRATCH/incr-$chk.cache"
   HEADSHA="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" || { bad "И0/$chk: корень не git-репозиторий"; continue; }
   printf '%s\n' "$HEADSHA" > "$C"
@@ -355,6 +531,23 @@ for chk in check_charter check_zones check_ids check_protected; do
     else
       bad "И0/$chk: предмет отсутствует: нет маркера 'incr: $chk судит' (rc=$rc)"
     fi
+  fi
+  # И0б: непустое окно HEAD~1..HEAD — маркер обязан нести ИСТИННОЕ число
+  # коммитов окна (сверено с rev-list батареи), зелёный вердикт перезаписывает
+  # кеш HEAD~1 → HEAD (запись кеша на непустом окне, не вакуумная).
+  BASE="$(git -C "$ROOT" rev-parse HEAD~1 2>/dev/null)"
+  NWIN="$(git -C "$ROOT" rev-list --count HEAD~1..HEAD 2>/dev/null)"
+  if [ -z "$BASE" ] || [ "${NWIN:-0}" -lt 1 ]; then
+    bad "И0б/$chk: окно HEAD~1..HEAD пусто/нет HEAD~1 — зонд не судим (N=${NWIN:-нет})"
+    continue
+  fi
+  C="$SCRATCH/incr2-$chk.cache"; printf '%s\n' "$BASE" > "$C"
+  out="$(cd "$ROOT" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
+  after="$(head -n1 "$C" 2>/dev/null)"
+  if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "incr: $chk судит .* ($NWIN коммит" && [ "$after" = "$HEADSHA" ]; then
+    ok "И0б/$chk: непустое окно: маркер с истинным N=$NWIN, кеш перезаписан HEAD"
+  else
+    bad "И0б/$chk: предмет отсутствует/лжёт: ждали rc 0 + маркер '($NWIN коммит' + кеш=HEAD; rc=$rc: $out"
   fi
 done
 
@@ -433,6 +626,50 @@ if [ -n "${TC_C1:-}" ] && [ "${TC_C1#НЕТ-ЗАВИСИМОСТ}" = "$TC_C1" ];
 else
   bad "И5: чистый toy не построен"
 fi
+
+# --- И6-И14: window-клетки для check_zones / check_ids / check_protected ----
+# (аналог И1-И3 charter: валидность toy полным режимом + нарушение ниже базы
+# зелёно + нарушение в окне красно; для КАЖДОГО из четырёх субъектов И-7).
+window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-валидности>
+  local chk="$1" pref="$2" builder="$3" valid_re="$4"
+  local c1 c2 c3
+  read -r c1 c2 c3 <<< "$("$builder" "$SCRATCH/$pref")"
+  if [ -z "${c1:-}" ] || [ "${c1#НЕТ-ЗАВИСИМОСТ}" != "$c1" ]; then
+    bad "И-${chk}: toy не построен (зависимости чека не найдены): $c1"
+    return 1
+  fi
+  # валидность контрпримера: полный режим КРАСЕН и именует нарушение (c2)
+  local out rc
+  out="$(cd "$SCRATCH/$pref" && timeout 60 bash "scripts/$chk.sh" . 2>&1)"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "$valid_re"; then
+    ok "И-валид/$chk: полный режим toy красен и именует нарушение (${c2:0:8})"
+  else
+    bad "И-валид/$chk: toy НЕДЕЙСТВИТЕЛЕН: полный режим rc=$rc, ждал rc 1 + '$valid_re': $out"
+    return 1
+  fi
+  # ниже базы: окно пусто, нарушение ниже → rc 0 + '(0 коммит' + кеш=HEAD
+  local C="$SCRATCH/${pref}-b3.cache"; printf '%s\n' "$c3" > "$C"
+  out="$(cd "$SCRATCH/$pref" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "incr: $chk судит .* (0 коммит" \
+     && [ "$(head -n1 "$C")" = "$c3" ]; then
+    ok "И-ниже/$chk: base=c3 — зелёный, окно пусто, кеш=HEAD"
+  else
+    bad "И-ниже/$chk: предмет отсутствует/судит-всю-историю: ждали rc 0 + '(0 коммит' + кеш=HEAD; rc=$rc: $out"
+  fi
+  # в окне: base=c1 → rc 1 + именование + маркер '(2 коммит'
+  C="$SCRATCH/${pref}-b1.cache"; printf '%s\n' "$c1" > "$C"
+  out="$(cd "$SCRATCH/$pref" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "incr: $chk судит .* (2 коммит" \
+     && printf '%s' "$out" | grep -q "${c2:0:8}"; then
+    ok "И-окно/$chk: base=c1 — красный, именует нарушение (${c2:0:8})"
+  else
+    bad "И-окно/$chk: предмет отсутствует/noop: ждали rc 1 + '(2 коммит' + имя ${c2:0:8}; rc=$rc: $out"
+  fi
+  return 0
+}
+window_cells check_zones   toy_zon build_zones_toy 'вне зоны'
+window_cells check_ids     toy_ids build_ids_toy   'назначен рукой'
+window_cells check_protected toy_pro build_prot_toy 'plans/001-x.md'
 
 # --- И-С* стаб-пак: мини-референс окна (носитель В БАТАРЕЕ) vs обманные стабы.
 ref_incr() { # <repo> <cache> [full-if-no-cache] — референс семантики И-6
@@ -584,6 +821,6 @@ else
   bad "И-С*: стаб-пак не судим — toy не построен"
 fi
 
-printf '\n083-батарея: ok=%d FAIL=%d (до реализации части Г и И0/И2-И5 красны по умыслу)\n' "$oks" "$fails" >&2
+printf '\n083-батарея: ok=%d FAIL=%d (до реализации части Г и И красны по умыслу)\n' "$oks" "$fails" >&2
 [ "$fails" -eq 0 ] || exit 1
 exit 0
