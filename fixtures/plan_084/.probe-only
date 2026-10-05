@@ -1,0 +1,18 @@
+probe-only каталог (контракт 034): предмет — батарея 084 plan_084 «реестр
+плана: registry/plan.tsv — единственный источник порядка». Субъекты запуска —
+scripts/lib_plan.sh (единственный разбор И-1, статусы И-2, пары И-3, рендер
+И-4/И-5/И-9) и его потребители scripts/gen_plan.sh, scripts/check_plan.sh,
+scripts/track_digest.sh, плюс отказ «контракт вне плана» в
+scripts/freeze_contract.sh (И-8) и вызов check_plan из .githooks/pre-commit
+(И-11). Барьерного ключа scripts/plan_084.sh НЕТ и не появится (прецеденты
+fixtures/limit_aktivnyh/, fixtures/ci_gen_083/). Предъявление red_plan_084.sh —
+прямое (вне case_*-глоба раннера verify_antiplacebo.sh), через агрегатор
+fixtures/_krasnye_084.sh: красное ДО реализации («красная: предмет
+отсутствует» за <1 с, батарея не запускается), зелёное после — 42 клетки
+§Приёмка 084 (к0, р1–р9, и1–и4, е1, з1–з2, т1, б1–б7, с1–с6, ф1–ф7, д1–д2,
+в1–в2). _toy.sh — каркас toy-миров и оракул в памяти (НЕ фикстура); его же
+подключает профиль батареи гигиены парсинга
+fixtures/parsing_hygiene_battery/profiles/check_plan.sh (ж2). Клетки ф*
+строят toy заморозки make_repo из fixtures/freeze_contract/_repo.sh (путь
+каркаса прежний, Р4); клетки в* копируют scripts/ и .githooks/pre-commit
+судимого корня в toy с core.hooksPath=.githooks.
