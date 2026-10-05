@@ -329,9 +329,16 @@ mapfile -t prefixes < <(printf '%s\n' "${prefixes[@]}" | sort -u)
 # (наблюдалось на этом дереве; см. также риск 2 §Приёмка Р2 — лишнее про «без
 # --root» — там же).
 commits="$(git rev-list "$_prot_revspec" | wc -l | tr -d ' ')"
+# ПУСТОЙ ВВОД — ЛЕГИТИМНЫЙ «НЕТ ФАЙЛОВ». На пустом incr-окне (cache==HEAD, 0 коммитов)
+# `git rev-list BASE..HEAD` пуст, `git diff-tree --stdin` на пустом вводе ничего не печатает,
+# и `grep -v` на пустом вводе возвращает rc=1 («ни одна строка не выбрана» — стандарт
+# grep при нуле совпадений). Под `set -o pipefail` (строка 143) rc=1 НЕ на последней
+# стадии — это отказ ВСЕГО конвейера и `set -e` обрывает скрипт без диагностики. Идиом:
+# rc=1 (нет совпадений — здесь легитимно «нет файлов») глотается, rc≥2 (битый паттерн/
+# ввод, реальная ошибка) идёт дальше как отказ пайплайна.
 git rev-list "$_prot_revspec" \
   | git diff-tree -r --root -m --no-renames --name-only --stdin -- "${prefixes[@]}" \
-  | grep -v '^[0-9a-f]\{40\}$' \
+  | { grep -v '^[0-9a-f]\{40\}$' || [ "$?" = 1 ]; } \
   > "$TMP/existed.raw"
 sort -u "$TMP/existed.raw" > "$TMP/existed"
 git ls-tree -r --name-only HEAD -- "${prefixes[@]}" | sort -u > "$TMP/head"
