@@ -113,13 +113,25 @@ case "$1" in
         exit 1
       fi
 
-      # предусловие 1: core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}
+      # предусловие 1: core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}.
+      # Fail-closed И-2: пустой hooks_path (ключ не задан) — именованный отказ
+      # ДО chattr; пустой hooks_real (realpath отказал) — допускается ТОЛЬКО
+      # литерал `.githooks` (а не совпадение пустого с пустым: case "" in "")
+      # в bash истинно и ранее делало предусловие зелёным без ключа).
       hooks_path="$(git -C "$MAIN_DST" config --local --get core.hooksPath 2>/dev/null || true)"
       hooks_real="$(realpath "$MAIN_DST/.githooks" 2>/dev/null || true)"
+      if [ -z "$hooks_path" ]; then
+        printf 'ОТКАЗ: core.hooksPath не установлен; установите через npm run hooks:install ДО блокировки\n' >&2
+        exit 1
+      fi
       case "$hooks_path" in
-        .githooks|"$hooks_real") ;;
-        *) printf 'ОТКАЗ: core.hooksPath не установлен (%s); установите через npm run hooks:install ДО блокировки\n' "${hooks_path:-<пусто>}" >&2
-           exit 1 ;;
+        .githooks) ;;
+        *) if [ -n "$hooks_real" ] && [ "$hooks_path" = "$hooks_real" ]; then
+             :
+           else
+             printf 'ОТКАЗ: core.hooksPath не установлен (%s); установите через npm run hooks:install ДО блокировки\n' "$hooks_path" >&2
+             exit 1
+           fi ;;
       esac
 
       # предусловие 2: branch.autoSetupMerge = false явно
