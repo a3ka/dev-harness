@@ -37,6 +37,22 @@ jobs:
     # фикстура не отменяет остальные шарды, иначе полный прогон теряет
     # смысл (Н-63).
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+# BEGIN GENERATED CI SHARDS (083)
+          - shard: ap1
+            keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
+          - shard: ap2
+            keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
+          - shard: ap3
+            keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
+          - shard: ap4
+            keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
+          - shard: ap5
+            keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver
+# END GENERATED CI SHARDS (083)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,33 +84,37 @@ jobs:
         # Р1/предмет п.1: --scope задаёт КОНКРЕТНЫЕ ключи шарда (на которых
         # scope_select выберет case-*). --changed отменён — он видел только
         # последний пуш (Н-87) и не давал scoped-выбор.
-        # Контракт 083, инвариант 5: include-блок ниже генерируется из
-        # реестра `registry/ci-steps.tsv` (shard-строки) генератором
+        # Контракт 083, инвариант 5: include-блок в этой джобе генерируется
+        # из реестра `registry/ci-steps.tsv` (shard-строки) генератором
         # `scripts/gen_ci_steps.sh` и сверяется им же (--check). Правка
         # руками внутри блока красна поимённо.
         # Маркеры — в колонке 1 (требование оракула батареи 083, block_body
         # использует `index($0,marker)==1`). YAML трактует комментарии
-        # одинаково на любой колонке; содержимое include — на 14 колонке
-        # (как и в исходной джобе antiplacebo).
-        strategy:
-          fail-fast: false
-          matrix:
-            include:
-# BEGIN GENERATED CI SHARDS (083)
-              - shard: ap1
-                keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
-              - shard: ap2
-                keys: check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
-              - shard: ap3
-                keys: check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
-              - shard: ap4
-                keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
-              - shard: ap5
-                keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver
-# END GENERATED CI SHARDS (083)
+        # одинаково на любой колонке; содержимое include — на 10 колонке
+        # (на уровне джобы antiplacebo, после переноса strategy на job-level).
         run: npm run check:antiplacebo -- --scope ${{ matrix.keys }}
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+# BEGIN GENERATED CI JOBS (083)
+          - lane: l1
+            keys: check:charter
+          - lane: l2
+            keys: check:gitw-predpolet-family-selftest
+          - lane: l3
+            keys: check:zones check:judge-gate check:threat-model-selftest drill:startup-digest
+          - lane: l4
+            keys: check:protected check:door-bugfix-family-selftest check:ops-server-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:contract-ready check:hooks check:skills check:scope-select
+          - lane: l5
+            keys: check:orch-restart-family-selftest check:sharing-family-selftest check:declared-path-family-selftest check:ids check:runner-hygiene drill:next-id-race check:ceilings check:decisions check:nabludenia check:measure-probe check:spec-ready-036
+          - lane: l6
+            keys: check:protected-call-budget check:zones-call-budget check:document check:merge-gate-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:consumers-window-family-selftest check:gen check:precision-battery check:precision-gate-043 drill:gate-draft
+          - lane: l7
+            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:gitw-family-selftest check:provodka-family-selftest drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scoped-run drill:nabludenia-nechitaemo
+# END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -161,28 +181,8 @@ jobs:
         # скаляр с ЛИТЕРАЛЬНЫМ токеном `${{ matrix.keys }}` (иное неизвлекаемое значение —
         # клетка Г9 красна). Исполняется в cwd worktree, читает `registry/ci-steps.tsv`,
         # запускает команды ключей в порядке, останавливается на первом отказе именем ключа.
-        # include-блок ниже — функция реестра: генерируется `scripts/gen_ci_steps.sh --write`
+        # include-блок в этой джобе генерируется `scripts/gen_ci_steps.sh --write`
         # и сверяется `--check` (правка руками красна поимённо).
-        strategy:
-          fail-fast: false
-          matrix:
-            include:
-# BEGIN GENERATED CI JOBS (083)
-              - lane: l1
-                keys: check:charter
-              - lane: l2
-                keys: check:gitw-predpolet-family-selftest
-              - lane: l3
-                keys: check:zones check:judge-gate check:threat-model-selftest drill:startup-digest
-              - lane: l4
-                keys: check:protected check:door-bugfix-family-selftest check:ops-server-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:contract-ready check:hooks check:skills check:scope-select
-              - lane: l5
-                keys: check:orch-restart-family-selftest check:sharing-family-selftest check:declared-path-family-selftest check:ids check:runner-hygiene drill:next-id-race check:ceilings check:decisions check:nabludenia check:measure-probe check:spec-ready-036
-              - lane: l6
-                keys: check:protected-call-budget check:zones-call-budget check:document check:merge-gate-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:consumers-window-family-selftest check:gen check:precision-battery check:precision-gate-043 drill:gate-draft
-              - lane: l7
-                keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:gitw-family-selftest check:provodka-family-selftest drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scoped-run drill:nabludenia-nechitaemo
-# END GENERATED CI JOBS (083)
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
 
       - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
