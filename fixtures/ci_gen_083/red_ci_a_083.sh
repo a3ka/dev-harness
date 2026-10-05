@@ -56,10 +56,17 @@
 #   С2 «молча ничего не судит» (маркер с верным N, судит пусто) — наблюдаем
 #        на входе И3 (нарушение В окне): честное rc 1, стаб rc 0.
 #   С3 «принимает поддельный кеш» (sha-не-предок принят как база окна) —
-#        наблюдаем на входе И4-3 (v+1 в′): честный громкий полный прогон
-#        судит всю историю → rc 1 (c2), стаб судит окно от чужой базы → rc 0.
+#        наблюдаем на входе И4-3/объект (v+1 в′): честный громкий полный
+#        прогон судит всю историю → rc 1 (c2), стаб судит окно от чужой базы
+#        → rc 0.
 #   С4 «не пишет кеш» (зелёный прогон не обновляет кеш) — наблюдаем
 #        на входе И2-повтор: окно снова судится (N>0), честное — 0 коммитов.
+#   С5 «(в′) только на отсутствующем объекте» (обход критика contracts-083-v2:
+#        merge-base --is-ancestor rc 128 → громкий полный прогон, rc 1 «коммит
+#        есть, не предок» → прежний отказ) — наблюдаем на входе И4-4/линия
+#        (push-запись main у отстающей ветки, объект в toy ЕСТЬ): честный
+#        полный прогон rc 0 + кеш=HEAD, стаб — отказ rc 1, кеш не тронут; на
+#        входе И4-4/объект (объекта нет) стаб ведёт себя честно (диффпроба).
 #
 # Демаркация контрпримеров (правило 041/019): конформная toy-история каждого
 # чека — коммиты, допустимые грамматикой предмета ЭТОГО чека; КРАСНЫЙ вход —
@@ -692,6 +699,30 @@ foreign_head() { # sha, не являющийся предком ни одног
   ( cd "$SCRATCH/foreign" && git init -q -b main && git -c user.name=f -c user.email=f@f commit -q --allow-empty -m f ) >/dev/null 2>&1
   git -C "$SCRATCH/foreign" rev-parse HEAD
 }
+# Сторонняя линия (v+1 в′, вход «линия»): push-запись main у ветки, отстающей
+# от main. Коммит-потомок <fork> (общий с HEAD предок) создаётся В САМОМ toy
+# plumbing'ом (HEAD/индекс/дерево не трогаются), ref refs/remotes/origin/main —
+# объект ЕСТЬ в репозитории, но НЕ предок HEAD. Пусто на выходе = не построен.
+side_line_sha() { # <toy-dir> <fork-sha> → sha
+  local d="$1" fork="$2" s
+  [ -n "$fork" ] || return 1
+  s="$(git -C "$d" -c user.name=toy -c user.email=toy@t commit-tree "$fork^{tree}" -p "$fork" -m 'main ahead' 2>/dev/null)" || return 1
+  git -C "$d" update-ref refs/remotes/origin/main "$s" 2>/dev/null || return 1
+  printf '%s\n' "$s"
+}
+# Класс входа (в′) — оракул батареи, сверяется В ПАМЯТИ ДО вызова субъекта:
+#   линия  — объект есть, общий предок с HEAD есть, is-ancestor rc 1;
+#   объект — объекта нет, is-ancestor rc 128.
+input_class() { # <repo> <sha> → «линия» | «объект» | «иное:<подробность>»
+  local r="$1" s="$2" e a m
+  git -C "$r" rev-parse -q --verify HEAD >/dev/null 2>&1 || { printf 'иное:не-репозиторий'; return 0; }
+  git -C "$r" cat-file -e "$s^{commit}" >/dev/null 2>&1; e=$?
+  git -C "$r" merge-base --is-ancestor "$s" HEAD >/dev/null 2>&1; a=$?
+  git -C "$r" merge-base "$s" HEAD >/dev/null 2>&1; m=$?
+  if [ "$e" -eq 0 ] && [ "$a" -eq 1 ] && [ "$m" -eq 0 ]; then printf 'линия'
+  elif [ "$e" -ne 0 ] && [ "$a" -eq 128 ]; then printf 'объект'
+  else printf 'иное:cat-file=%s,is-ancestor=%s,merge-base=%s' "$e" "$a" "$m"; fi
+}
 
 # --- И0/И0б: живое дерево, 4 чека, гость (красны до реализации) -------------
 # zones требует тегов frozen/* в клоне — иначе именованный отказ среды.
@@ -737,6 +768,13 @@ done
 # --- charter-toy миры --------------------------------------------------------
 read -r TV_C1 TV_C2 TV_C3 <<< "$(build_charter_toy "$SCRATCH/toy_viol" 1)"
 read -r TC_C1 TC_C2 TC_C3 <<< "$(build_charter_toy "$SCRATCH/toy_clean" 0)"
+# Входы (в′) строятся ДО любого вызова субъекта, ожидания — в памяти (правило 8):
+# линия на viol-toy — потомок c2 (нарушение ПОД развилкой: окно от развилки
+# или от самой базы его не видит), на чистом toy — потомок c1; объект — sha
+# постороннего репозитория.
+TV_SL="$(side_line_sha "$SCRATCH/toy_viol" "${TV_C2:-}")"
+TC_SL="$(side_line_sha "$SCRATCH/toy_clean" "${TC_C2:-}")"
+FS4="$(foreign_head)"
 if [ "${TV_C1:-}" = "НЕТ-ЗАВИСИМОСТ"* ] || [ -z "${TV_C1:-}" ]; then
   bad "И1: toy-мир не построен (зависимости чека не найдены в $ROOT/scripts)"
   TOY_OK=0
@@ -786,24 +824,42 @@ else
   else
     bad "И4-2: предмет отсутствует: ждали именованный отказ rc 1 с именем кеша; rc=$rc: $RUN_OUT"
   fi
-  # И4-3/И4-4 (v+1 в′): sha-не-предок — громкий полный прогон, не отказ.
-  C="$SCRATCH/i43.cache"; printf '%s\n' "$(foreign_head)" | tee "$C" >/dev/null
-  run_incr "$SCRATCH/toy_viol" "$C"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'incr: check_charter полный прогон (база .* не предок HEAD .* — кеш сторонней линии)' \
-     && printf '%s' "$RUN_OUT" | grep -q "уставной документ изменён без разрешения владельца: AGENTS.md в ${TV_C2:0:8}"; then
-    ok "И4-3: sha-не-предок на viol-toy — громкий полный прогон, rc 1 именует c2 (${TV_C2:0:8})"
-  else
-    bad "И4-3: предмет отсутствует: ждали rc 1 ПОЛНЫМ прогоном (маркер «кеш сторонней линии» + имя ${TV_C2:0:8}), не отказ «не предок»; rc=$rc: $RUN_OUT"
-  fi
-  if [ -n "${TC_C1:-}" ] && [ "${TC_C1#НЕТ-ЗАВИСИМОСТ}" = "$TC_C1" ]; then
-    C="$SCRATCH/i44.cache"; printf '%s\n' "$(foreign_head)" | tee "$C" >/dev/null
-    run_incr "$SCRATCH/toy_clean" "$C"; rc=$?
-    if [ "$rc" -eq 0 ] && printf '%s' "$RUN_OUT" | grep -q 'incr: check_charter полный прогон (база .* не предок HEAD .* — кеш сторонней линии)' \
-       && [ "$(head -n1 "$C")" = "$TC_C3" ]; then
-      ok "И4-4: sha-не-предок на чистом toy — rc 0, кеш засеян HEAD своей линии"
-    else
-      bad "И4-4: предмет отсутствует: ждали rc 0 + маркер «кеш сторонней линии» + кеш=HEAD (${TC_C3:0:8}); rc=$rc: $RUN_OUT"
+  # И4-3/И4-4 (v+1 в′): sha-не-предок — громкий полный прогон, не отказ. Каждая
+  # клетка — на ДВУХ классах входа, каждый своей строкой (input_class):
+  # линия (объект есть, rc 1 — кеш main у отстающей ветки) и объект (rc 128).
+  for cls in линия объект; do
+    case "$cls" in линия) sha="$TV_SL" ;; *) sha="$FS4" ;; esac
+    got="$(input_class "$SCRATCH/toy_viol" "$sha")"
+    if [ -z "$sha" ] || [ "$got" != "$cls" ]; then
+      bad "И4-3/$cls: вход не построен (класс «${got}», ждали «$cls») — клетка не судима"
+      continue
     fi
+    C="$SCRATCH/i43-$cls.cache"; printf '%s\n' "$sha" > "$C"
+    run_incr "$SCRATCH/toy_viol" "$C"; rc=$?
+    if [ "$rc" -eq 1 ] && printf '%s' "$RUN_OUT" | grep -q 'incr: check_charter полный прогон (база .* не предок HEAD .* — кеш сторонней линии)' \
+       && printf '%s' "$RUN_OUT" | grep -q "уставной документ изменён без разрешения владельца: AGENTS.md в ${TV_C2:0:8}"; then
+      ok "И4-3/$cls: sha-не-предок (${sha:0:8}) на viol-toy — громкий полный прогон, rc 1 именует c2 (${TV_C2:0:8})"
+    else
+      bad "И4-3/$cls: предмет отсутствует: ждали rc 1 ПОЛНЫМ прогоном (маркер «кеш сторонней линии» + имя ${TV_C2:0:8}), не отказ «не предок»; rc=$rc: $RUN_OUT"
+    fi
+  done
+  if [ -n "${TC_C1:-}" ] && [ "${TC_C1#НЕТ-ЗАВИСИМОСТ}" = "$TC_C1" ]; then
+    for cls in линия объект; do
+      case "$cls" in линия) sha="$TC_SL" ;; *) sha="$FS4" ;; esac
+      got="$(input_class "$SCRATCH/toy_clean" "$sha")"
+      if [ -z "$sha" ] || [ "$got" != "$cls" ]; then
+        bad "И4-4/$cls: вход не построен (класс «${got}», ждали «$cls») — сеяние не судимо"
+        continue
+      fi
+      C="$SCRATCH/i44-$cls.cache"; printf '%s\n' "$sha" > "$C"
+      run_incr "$SCRATCH/toy_clean" "$C"; rc=$?
+      if [ "$rc" -eq 0 ] && printf '%s' "$RUN_OUT" | grep -q 'incr: check_charter полный прогон (база .* не предок HEAD .* — кеш сторонней линии)' \
+         && [ "$(head -n1 "$C")" = "$TC_C3" ]; then
+        ok "И4-4/$cls: sha-не-предок (${sha:0:8}) на чистом toy — rc 0, кеш засеян HEAD своей линии"
+      else
+        bad "И4-4/$cls: предмет отсутствует: ждали rc 0 + маркер «кеш сторонней линии» + кеш=HEAD (${TC_C3:0:8}); rc=$rc: $RUN_OUT"
+      fi
+    done
   else
     bad "И4-4: чистый toy не построен — сеяние не судимо"
   fi
@@ -951,6 +1007,14 @@ stub_c4_nowrite() { # «не пишет кеш»: зелёный прогон н
   done < <(git -C "$repo" rev-list --reverse "$base..$head")
   return "$rc"
 }
+stub_c5_absent_only() { # «(в′) только на отсутствующем объекте»: rc 1 «есть, не предок» → прежний отказ
+  local repo="$1" cache="$2" base a=0
+  base="$(head -n1 "$cache")"
+  printf '%s' "$base" | grep -Eq '^[0-9a-f]{40}$' || { printf 'ОТКАЗ: кеш повреждён\n' >&2; return 1; }
+  git -C "$repo" merge-base --is-ancestor "$base" HEAD 2>/dev/null || a=$?
+  [ "$a" -eq 1 ] && { printf 'ОТКАЗ: кеш %s — sha %s не предок HEAD\n' "$cache" "${base:0:8}" >&2; return 1; }
+  ref_incr "$repo" "$cache"
+}
 # Ожидания — в памяти батареи (правило 8): toy_viol построен выше.
 if [ "$TOY_OK" = 1 ]; then
   # С1 на входе И2 (нарушение ниже базы): честный rc 0, стаб rc 1.
@@ -1019,6 +1083,29 @@ if [ "$TOY_OK" = 1 ]; then
     fi
   else
     bad "И-С4: чистый toy не построен — дефект не судим"
+  fi
+  # С5 на входе И4-4/линия (кеш main у отстающей ветки, объект в toy ЕСТЬ):
+  # честный полный прогон rc 0 + кеш=HEAD; стаб — прежний отказ rc 1, кеш не тронут.
+  if [ -n "${TC_C1:-}" ] && [ "$(input_class "$SCRATCH/toy_clean" "${TC_SL:-}")" = линия ]; then
+    C="$SCRATCH/s5r.cache"; printf '%s\n' "$TC_SL" > "$C"
+    ref_incr "$SCRATCH/toy_clean" "$C" >/dev/null 2>&1; r5rc=$?; r5c="$(head -n1 "$C")"
+    C="$SCRATCH/s5.cache"; printf '%s\n' "$TC_SL" > "$C"
+    stub_c5_absent_only "$SCRATCH/toy_clean" "$C" >/dev/null 2>&1; s5rc=$?; s5c="$(head -n1 "$C")"
+    if [ "$r5rc" -eq 0 ] && [ "$r5c" = "$TC_C3" ] && [ "$s5rc" -eq 1 ] && [ "$s5c" = "$TC_SL" ]; then
+      ok "И-С5: «(в′) только на отсутствующем объекте» пойман на И4-4/линия (реф rc 0 кеш=HEAD, стаб отказ rc 1)"
+    else
+      bad "И-С5: оракул не различает (реф rc $r5rc кеш=${r5c:0:8}, стаб rc $s5rc кеш=${s5c:0:8})"
+    fi
+    # диффпроба С5: на И4-4/объект (объекта нет) стаб ведёт себя честно.
+    C="$SCRATCH/s5d.cache"; printf '%s\n' "$FS4" > "$C"
+    stub_c5_absent_only "$SCRATCH/toy_clean" "$C" >/dev/null 2>&1; d5=$?
+    if [ "$d5" -eq 0 ] && [ "$(head -n1 "$C")" = "$TC_C3" ]; then
+      ok "И-С5-диффпроба: на И4-4/объект стаб ведёт себя как честный (rc 0, кеш=HEAD)"
+    else
+      bad "И-С5-диффпроба: стаб сломан не своим дефектом (rc $d5)"
+    fi
+  else
+    bad "И-С5: вход И4-4/линия не построен — дефект не судим"
   fi
 else
   bad "И-С*: стаб-пак не судим — toy не построен"
