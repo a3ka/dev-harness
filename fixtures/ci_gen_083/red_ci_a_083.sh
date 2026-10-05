@@ -812,14 +812,18 @@ fi
 # --- И6-И14: window-клетки для check_zones / check_ids / check_protected ----
 # (аналог И1-И3 charter: валидность toy полным режимом + нарушение ниже базы
 # зелёно + нарушение в окне красно; для КАЖДОГО из четырёх субъектов И-7).
-window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-валидности>
-  local chk="$1" pref="$2" builder="$3" valid_re="$4"
+window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-валидности> [name-pattern]
+  local chk="$1" pref="$2" builder="$3" valid_re="$4" name_pat="${5-}"
   local c1 c2 c3
   read -r c1 c2 c3 <<< "$("$builder" "$SCRATCH/$pref")"
   if [ -z "${c1:-}" ] || [ "${c1#НЕТ-ЗАВИСИМОСТ}" != "$c1" ]; then
     bad "И-${chk}: toy не построен (зависимости чека не найдены): $c1"
     return 1
   fi
+  # name-pattern: если субъект не печатает commit sha в нарушении (check_ids,
+  # check_protected — они именуют НОМЕР/ПУТЬ, не коммит), передаётся явно;
+  # иначе (check_zones — коммит-ключевой) — по умолчанию короткая sha c2.
+  [ -z "$name_pat" ] && name_pat="${c2:0:8}"
   # валидность контрпримера: полный режим КРАСЕН и именует нарушение (c2)
   local out rc
   out="$(cd "$SCRATCH/$pref" && timeout 60 bash "scripts/$chk.sh" . 2>&1)"; rc=$?
@@ -842,7 +846,7 @@ window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-в
   C="$SCRATCH/${pref}-b1.cache"; printf '%s\n' "$c1" > "$C"
   out="$(cd "$SCRATCH/$pref" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
   if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "incr: $chk судит .* (2 коммит" \
-     && printf '%s' "$out" | grep -q "${c2:0:8}"; then
+     && printf '%s' "$out" | grep -q "$name_pat"; then
     ok "И-окно/$chk: base=c1 — красный, именует нарушение (${c2:0:8})"
   else
     bad "И-окно/$chk: предмет отсутствует/noop: ждали rc 1 + '(2 коммит' + имя ${c2:0:8}; rc=$rc: $out"
@@ -850,8 +854,8 @@ window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-в
   return 0
 }
 window_cells check_zones   toy_zon build_zones_toy 'вне зоны'
-window_cells check_ids     toy_ids build_ids_toy   'назначен рукой'
-window_cells check_protected toy_pro build_prot_toy 'plans/001-x.md'
+window_cells check_ids     toy_ids build_ids_toy   'назначен рукой' 'contracts/090-bad.md'
+window_cells check_protected toy_pro build_prot_toy 'plans/001-x.md' 'plans/001-x.md'
 
 # --- И-С* стаб-пак: мини-референс окна (носитель В БАТАРЕЕ) vs обманные стабы.
 ref_incr() { # <repo> <cache> [full-if-no-cache] — референс семантики И-6
