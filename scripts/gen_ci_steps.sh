@@ -157,8 +157,8 @@ SHARDS_GEN="$GEN_RUN/shards.txt"
 
 {
   for i in $(seq 1 "$K"); do
-    printf '              - lane: l%s\n' "$i"
-    printf '                keys: %s\n' "${LANE_KEYS[$i]}"
+    printf '          - lane: l%s\n' "$i"
+    printf '            keys: %s\n' "${LANE_KEYS[$i]}"
   done
 } > "$JOBS_GEN"
 # Маркеры ВЫНУЖДЕНЫ быть в колонке 1: оракул батареи (block_body) ищет
@@ -167,8 +167,8 @@ SHARDS_GEN="$GEN_RUN/shards.txt"
 
 {
   for name in $(printf '%s\n' "${!SHARD_KEYS[@]}" | sort); do
-    printf '              - shard: %s\n' "$name"
-    printf '                keys: %s\n' "${SHARD_KEYS[$name]}"
+    printf '          - shard: %s\n' "$name"
+    printf '            keys: %s\n' "${SHARD_KEYS[$name]}"
   done
 } > "$SHARDS_GEN"
 
