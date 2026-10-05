@@ -881,6 +881,24 @@ for path in all_files:
                         entry = _val(entry_t)
                         if not isinstance(entry, dict):
                             continue
+                        # matrix.include джобы `ci` (контракт 083) использует поле
+                        # `lane:` вместо `shard:` — lane-запись НЕ субъект shard-семантики
+                        # этой функции (покрытие lane-ключей судится ОТДЕЛЬНО через
+                        # registry-ключи и lane-раннер; см. `run_ci_lane.sh` и блок
+                        # «Покрытие через реестр» ниже). Парсер писался ДО контракта 083
+                        # под единственного тогдашнего потребителя шаблонной матрицы
+                        # (antiplacebo), и без этого разделения каждая из 7 lane-записей
+                        # даёт ложное «matrix.include запись без shard» — gate-каскадом
+                        # роняет ВЕСЬ CI. Признаём lane-ветку, не роняя in_matrix-флаг
+                        # (джоба всё равно часть matrix-структуры, и ниже по файлу
+                        # `in_matrix` используется в анти-плацебо проверке 4b.2 — там
+                        # ветка актуальна только для antiplacebo-джобы с shard-entries,
+                        # lane-джоба анти-плацебо запусков не несёт, поведение для неё
+                        # и прежде не отличалось от «in_matrix=0»; для согласованности
+                        # флага всё же ставим 1).
+                        if 'lane' in entry and 'shard' not in entry:
+                            in_matrix = 1
+                            continue
                         shard_pair = entry.get('shard', ('', 0))
                         shard_val, _slno = _val(shard_pair), (shard_pair[1] if isinstance(shard_pair, tuple) else 0)
                         keys_pair = entry.get('keys', ('', 0))
