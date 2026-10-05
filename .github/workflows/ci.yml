@@ -107,13 +107,13 @@ jobs:
           - lane: l3
             keys: check:zones check:judge-gate check:threat-model-selftest drill:startup-digest
           - lane: l4
-            keys: check:protected check:door-bugfix-family-selftest check:ops-server-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:contract-ready check:hooks check:skills check:scope-select
+            keys: check:protected check:door-bugfix-family-selftest check:ops-server-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:contract-ready check:hooks check:skills check:scoped-run
           - lane: l5
             keys: check:orch-restart-family-selftest check:sharing-family-selftest check:declared-path-family-selftest check:ids check:runner-hygiene drill:next-id-race check:ceilings check:decisions check:nabludenia check:measure-probe check:spec-ready-036
           - lane: l6
             keys: check:protected-call-budget check:zones-call-budget check:document check:merge-gate-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:consumers-window-family-selftest check:gen check:precision-battery check:precision-gate-043 drill:gate-draft
           - lane: l7
-            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:gitw-family-selftest check:provodka-family-selftest drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scoped-run drill:nabludenia-nechitaemo
+            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:gitw-family-selftest check:provodka-family-selftest drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scope-select drill:nabludenia-nechitaemo
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4
