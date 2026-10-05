@@ -59,6 +59,11 @@
 #      lsattr показывает i, запись git config в этот config отказывает ядром,
 #      значение НЕ записано; мок-журнал судится только в IMMU_MOCK=1
 #      (в нём: +i <путь>, НИ ОДНОЙ -i <путь>, ровно одна +i-строка)
+#   I3  install.sh root, шов-режим MOCK_CHATTR_NOOP=1 (мок chattr журналирует
+#      «+i <config>», возвращает 0, состояние списка НЕ меняет — «ядро не
+#      применило» атрибут): честный установщик ОТКАЗА rc 1 «атрибут не стоит
+#      после установки» — install-time self-check И-1 (адверсарий 081-v1:
+#      мутант «chattr +i без self-check» проходил батарею — ложная зелень)
 #   W1  ops/server/README.md несёт раздел обслуживания И-5 — чек-строки по
 #      конвенции к6 074: «Обслуживание .git/config», chattr -i, chattr +i,
 #      check_git_config_immut (критик Б6: без раздела клетка красна, red-first)
@@ -195,6 +200,9 @@ SHIM
 #!/usr/bin/env bash
 # мок chattr (IMMU_MOCK=1): журнал вызовов + состояние списка immutable
 printf '%s\n' "$*" >> "$MOCK_STATE_DIR/chattr.log"
+# MOCK_CHATTR_NOOP=1 (шов клетки I3): журнал и rc 0 «как честный вызов»,
+# состояние списка НЕ меняется — ядро «не применило» атрибут при rc 0 chattr.
+[ "${MOCK_CHATTR_NOOP:-0}" = 1 ] && exit 0
 op="$1"; shift
 case "$op" in
   +i) for f in "$@"; do grep -Fxq "$f" "$IMMUTABLE_LIST" || printf '%s\n' "$f" >> "$IMMUTABLE_LIST"; done ;;
@@ -279,6 +287,10 @@ git init -q -b main "$SANDBOX/i1"
 git init -q -b main "$SANDBOX/i1b"; git -C "$SANDBOX/i1b" config core.hooksPath .githooks
 git init -q -b main "$SANDBOX/i2";  git -C "$SANDBOX/i2" config core.hooksPath .githooks
 git -C "$SANDBOX/i2" config branch.autoSetupMerge false
+# i3 (адверсарий 081-v1): оба предусловия, как i2 — запуск под швом
+# MOCK_CHATTR_NOOP=1 (клетка I3): состояние не ставится при rc 0 chattr
+git init -q -b main "$SANDBOX/i3";  git -C "$SANDBOX/i3" config core.hooksPath .githooks
+git -C "$SANDBOX/i3" config branch.autoSetupMerge false
 
 # ── запирание ───────────────────────────────────────────────────────────────
 lock "$MAIN/.git/config"
@@ -516,6 +528,25 @@ if [ "$i2ok" -eq 1 ]; then
   ok I2 "оба предусловия → rc 0 ∧ chattr ровно на config ∧ атрибут СТОИТ на выходе ∧ запись отказывает ядром"
 else
   no I2 "блокировка обязана ОСТАТЬСЯ после установщика: rc=$irc lsattr-i=$attr_i write-rc=$wrc (критик Б1)"
+fi
+
+# ── I3: install-time self-check И-1 (адверсарий 081-v1) ──────────────────────
+# Мутант «chattr +i без install-time lsattr self-check» проходил батарею
+# (29/0, rc 0): мок chattr ВСЕГДА ставил состояние, внешние чеки I2 не
+# различали установщик со сверкой и без неё. Шов-режим MOCK_CHATTR_NOOP=1:
+# мок журнализирует «+i <config>» и возвращает 0, состояние НЕ меняет —
+# «ядро не применило атрибут». Честный установщик обязан отказаться rc 1
+# с именованной причиной И-1; мутант без self-check молча «успешен» (rc 0)
+# и без причины — клетка красна. Судится только в IMMU_MOCK=1 (шов мока).
+: > "$CHATTR_LOG"
+export MOCK_CHATTR_NOOP=1
+irun "$SANDBOX/i3"; i3rc=$?
+unset MOCK_CHATTR_NOOP
+if [ "$i3rc" -eq 1 ] && printf '%s' "$out" | grep -Fq 'атрибут не стоит после установки' \
+  && grep -Fxq "+i $SANDBOX/i3/.git/config" "$CHATTR_LOG"; then
+  ok I3 "chattr rc 0 ∧ атрибут НЕ стоит → установщик отказывает rc 1 (self-check И-1)"
+else
+  no I3 "self-check обязан ловить «вызов успешен, атрибут не стоит» (rc=$i3rc; адверсарий 081-v1)"
 fi
 
 # ── W1: README — процедура обслуживания И-5 (конвенция чек-строк к6 074) ────
