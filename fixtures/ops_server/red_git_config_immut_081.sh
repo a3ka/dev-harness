@@ -61,9 +61,15 @@
 #      (в нём: +i <путь>, НИ ОДНОЙ -i <путь>, ровно одна +i-строка)
 #   I3  install.sh root, шов-режим MOCK_CHATTR_NOOP=1 (мок chattr журналирует
 #      «+i <config>», возвращает 0, состояние списка НЕ меняет — «ядро не
-#      применило» атрибут): честный установщик ОТКАЗА rc 1 «атрибут не стоит
-#      после установки» — install-time self-check И-1 (адверсарий 081-v1:
-#      мутант «chattr +i без self-check» проходил батарею — ложная зелень)
+#      применило» атрибут): честный установщик ОТКАЗА rc 1 с именованной
+#      причиной И-1 «chattr +i» — grep -F по единому источнику причин
+#      (контракт, И-4), НЕ текст реализации (ревьюер Б-1/081-r2: грев
+#      формулировки реализации краснил конформный мутант mutW) — install-time
+#      self-check И-1 (адверсарий 081-v1: мутант «chattr +i без self-check»
+#      проходил батарею — ложная зелень). Клетка судится ТОЛЬКО в
+#      IMMU_MOCK=1, как журнальная часть I2: шов MOCK_CHATTR_NOOP существует
+#      только у мока; real-режим клетку не исполняет (ревьюер Б-2/081-r2:
+#      безусловная клетка красна в real всегда и оставляет запертый i3)
 #   W1  ops/server/README.md несёт раздел обслуживания И-5 — чек-строки по
 #      конвенции к6 074: «Обслуживание .git/config», chattr -i, chattr +i,
 #      check_git_config_immut (критик Б6: без раздела клетка красна, red-first)
@@ -254,7 +260,7 @@ run_det(){ if [ "$MOCK" = 1 ]; then IMMUT_LSATTR_BIN="$SANDBOX/bin/lsattr" "$DET
 lattr(){ if [ "$MOCK" = 1 ]; then "$SANDBOX/bin/lsattr" "$1"; else lsattr "$1"; fi; }
 
 cleanup(){ for c in "$SANDBOX/main" "$SANDBOX/d3" "$SANDBOX/d4" "$SANDBOX/d4b" \
-  "$SANDBOX/d7" "$SANDBOX/i2"; do unlock "$c/.git/config" 2>/dev/null; done
+  "$SANDBOX/d7" "$SANDBOX/i2" "$SANDBOX/i3"; do unlock "$c/.git/config" 2>/dev/null; done
   rm -rf "$SANDBOX"; }
 trap cleanup EXIT
 
@@ -536,17 +542,24 @@ fi
 # различали установщик со сверкой и без неё. Шов-режим MOCK_CHATTR_NOOP=1:
 # мок журнализирует «+i <config>» и возвращает 0, состояние НЕ меняет —
 # «ядро не применило атрибут». Честный установщик обязан отказаться rc 1
-# с именованной причиной И-1; мутант без self-check молча «успешен» (rc 0)
-# и без причины — клетка красна. Судится только в IMMU_MOCK=1 (шов мока).
-: > "$CHATTR_LOG"
-export MOCK_CHATTR_NOOP=1
-irun "$SANDBOX/i3"; i3rc=$?
-unset MOCK_CHATTR_NOOP
-if [ "$i3rc" -eq 1 ] && printf '%s' "$out" | grep -Fq 'атрибут не стоит после установки' \
-  && grep -Fxq "+i $SANDBOX/i3/.git/config" "$CHATTR_LOG"; then
-  ok I3 "chattr rc 0 ∧ атрибут НЕ стоит → установщик отказывает rc 1 (self-check И-1)"
-else
-  no I3 "self-check обязан ловить «вызов успешен, атрибут не стоит» (rc=$i3rc; адверсарий 081-v1)"
+# с именованной причиной И-1 «chattr +i» — клетка грепает причину grep -F
+# по единому источнику (контракт, И-4), НЕ текст реализации (ревьюер
+# Б-1/081-r2: грев формулировки реализации краснил конформный мутант mutW);
+# мутант без self-check молча «успешен» (rc 0) и без причины — клетка красна.
+# Судится ТОЛЬКО в IMMU_MOCK=1, как журнальная часть I2 (ревьюер Б-2/081-r2):
+# шов и журнал существуют только у мока — в real-режиме безусловная клетка
+# красна на честном установщике всегда и оставляет запертый i3 (утечка).
+if [ "$MOCK" = 1 ]; then
+  : > "$CHATTR_LOG"
+  export MOCK_CHATTR_NOOP=1
+  irun "$SANDBOX/i3"; i3rc=$?
+  unset MOCK_CHATTR_NOOP
+  if [ "$i3rc" -eq 1 ] && printf '%s' "$out" | grep -Fq 'chattr +i' \
+    && grep -Fxq "+i $SANDBOX/i3/.git/config" "$CHATTR_LOG"; then
+    ok I3 "chattr rc 0 ∧ атрибут НЕ стоит → отказ rc 1 с причиной И-1 «chattr +i» (self-check)"
+  else
+    no I3 "self-check обязан ловить «вызов успешен, атрибут не стоит» rc 1 «chattr +i» (rc=$i3rc; адверсарий 081-v1, Б-1/Б-2 081-r2)"
+  fi
 fi
 
 # ── W1: README — процедура обслуживания И-5 (конвенция чек-строк к6 074) ────
