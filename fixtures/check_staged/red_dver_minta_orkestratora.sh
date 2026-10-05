@@ -83,12 +83,13 @@
 #       «коммит вне зоны» с именем пути ДО и ПОСЛЕ — убивает стаб «пропускать
 #       registry/ целиком»;
 #   в11/в12 (починка Б1 по вердикту арбитра 9f86d1c): судимые коммиты создаёт
-#       commit_kak — ФАКТИЧЕСКИЙ автор локального конфига (set_author); помощник g
-#       несёт «-c user.name=Фикстура», перекрывающий конфиг, — параметр командной
-#       строки сильнее, и прежние ворота судили НЕ того автора. Ворота ассертят
-#       %an == orchestrator ДО вызова check_zones (самопроверка предъявления,
-#       критерий 2 вердикта): класс «фикстурный помощник молча подменил автора»
-#       умирает в самих воротах, а не в следующем круге критика.
+#       commit_kak — автор из env судимого автора (env-модель 080 (д'), Б-2
+#       ревью круга 2: file-config запрещена ногой (д')); помощник g несёт
+#       «-c user.name=Фикстура» технических коммитов и env судимых вызовов НЕ
+#       видит — разделение авторов живёт в каналах вызовов, не в общем состоянии.
+#       Ворота ассертят %an == orchestrator ДО вызова check_zones (самопроверка
+#       предъявления, критерий 2 вердикта): класс «фикстурный помощник молча
+#       подменил автора» умирает в самих воротах, а не в следующем круге критика.
 #   в13 дверь НЕ индульгенция на staged-коммит (Б2 круга 1): честная строка
 #       манифеста + отдельный путь вне зоны (registry/extra.tsv) в ОДНОМ staged →
 #       rc 1 именем ВТОРОГО пути ∧ stdout несёт judged-строку двери для манифеста.
@@ -138,6 +139,24 @@ BARRIER="$WORK/subj-${RD[12]}"
 cp -r "$REPO/scripts" "$BARRIER"
 # shellcheck disable=SC1091
 . "$HERE/_repo.sh"
+# ── env-модель identity судимого автора (080 (д'), Б-2 ревью круга 2) ──────────
+# set_author из _repo.sh пишет user.* в общий .git/config toy — нога (д') 080
+# это запрещает; локальное переопределение хранит судимого автора в памяти и
+# подаёт его env-парами ТОЛЬКО в судимые вызовы (run_bar/commit_kak). env бьёт и
+# file-config, и `-c` обёртку g() (измерено), поэтому процесс фикстуры env НЕ
+# экспортирует: иначе технические коммиты «Фикстура» из g() молча стали бы
+# судимыми авторами (регресс разделения механизма дыры Б1, вердикт 9f86d1c).
+declare -A SUDIMYJ=()
+set_author() {  # <корень> <имя> — запомнить судимого автора репо (НЕ file-config)
+  SUDIMYJ["$1"]="$2"
+}
+kak() {  # <корень> <команда…> — выполнить с identity судимого автора репо в env
+  local r="$1"; shift
+  local a="${SUDIMYJ[$r]:-}"
+  [ -n "$a" ] || { printf 'ОТКАЗ: судимый автор %s не установлен set_author (env-модель 080)\n' "$r" >&2; exit 1; }
+  env GIT_AUTHOR_NAME="$a" GIT_AUTHOR_EMAIL="$a@local" \
+      GIT_COMMITTER_NAME="$a" GIT_COMMITTER_EMAIL="$a@local" "$@"
+}
 
 id_tags_of() { git -C "$1" for-each-ref --format='%(refname)' 'refs/tags/id/'; }
 assert_no_new_id_tags() {  # <корень> <снимок-до>
@@ -163,8 +182,6 @@ make_repo_orchzone() {  # <корень>
   printf 'исходный файл в зоне\n' > "$r/scripts/a.sh"
   printf '# передача\n' > "$r/HANDOFF.md"
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git init -q -b main "$r"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.name orchestrator
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config user.email orchestrator@local
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config commit.gpgsign false
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath /dev/null
   g "$r" add -A
@@ -202,11 +219,12 @@ stage_row() {  # <корень> <NNN> <sha>
   g "$r" add -A
 }
 
-# commit_kak <корень> <сообщение>: коммит АВТОРОМ ЛОКАЛЬНОГО КОНФИГА репо (set_author),
-# БЕЗ -c-перекрытия user.name — g() несёт «-c user.name=Фикстура», перекрывающий
-# конфиг (механизм дыры Б1, вердикт арбитра 9f86d1c, замер 1).
+# commit_kak <корень> <сообщение>: коммит автором из env судимого автора (env-модель
+# 080 (д'), Б-2: file-config запрещена), БЕЗ -c-перекрытия user.name — g() несёт
+# «-c user.name=Фикстура» технических коммитов и env не получает (механизм дыры Б1,
+# вердикт арбитра 9f86d1c, замер 1; env бьёт -c — измерено, потому канал один: вызов).
 commit_kak() {  # <корень> <сообщение>
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  kak "$1" env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
     git -C "$1" -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -q -m "$2"
 }
 
@@ -222,7 +240,7 @@ assert_an_orchestrator() {  # <корень> <ворота>
 }
 
 run_bar() {  # <корень> → stdout/stderr в $BAR_OUT/$BAR_ERR, rc в $BAR_RC
-  BAR_OUT="$("$BARRIER/check_staged.sh" "$1" 2>"$WORK/bar_err")" && BAR_RC=0 || BAR_RC=$?
+  BAR_OUT="$(kak "$1" "$BARRIER/check_staged.sh" "$1" 2>"$WORK/bar_err")" && BAR_RC=0 || BAR_RC=$?
   BAR_ERR="$(cat "$WORK/bar_err")"
 }
 

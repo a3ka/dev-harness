@@ -142,6 +142,24 @@ BARRIER="$WORK/subj-${RD[9]}"
 cp -r "$REPO/scripts" "$BARRIER"
 # shellcheck disable=SC1091
 . "$HERE/_repo.sh"
+# ── env-модель identity судимого автора (080 (д'), Б-2 ревью круга 2) ──────────
+# set_author из _repo.sh пишет user.* в общий .git/config toy — нога (д') 080
+# это запрещает; локальное переопределение хранит судимого автора в памяти и
+# подаёт его env-парами ТОЛЬКО в судимые вызовы (check_staged ниже). env бьёт и
+# file-config, и `-c` обёртку g() (измерено), поэтому процесс фикстуры env НЕ
+# экспортирует: иначе технические коммиты «Фикстура» из g() молча стали бы
+# судимыми авторами (регресс разделения механизма дыры Б1, вердикт 9f86d1c).
+declare -A SUDIMYJ=()
+set_author() {  # <корень> <имя> — запомнить судимого автора репо (НЕ file-config)
+  SUDIMYJ["$1"]="$2"
+}
+kak() {  # <корень> <команда…> — выполнить с identity судимого автора репо в env
+  local r="$1"; shift
+  local a="${SUDIMYJ[$r]:-}"
+  [ -n "$a" ] || { printf 'ОТКАЗ: судимый автор %s не установлен set_author (env-модель 080)\n' "$r" >&2; exit 1; }
+  env GIT_AUTHOR_NAME="$a" GIT_AUTHOR_EMAIL="$a@local" \
+      GIT_COMMITTER_NAME="$a" GIT_COMMITTER_EMAIL="$a@local" "$@"
+}
 
 id_tags_of() { git -C "$1" for-each-ref --format='%(refname)' 'refs/tags/id/'; }
 assert_no_new_id_tags() {  # <корень> <снимок-до>
@@ -155,7 +173,11 @@ assert_no_new_id_tags() {  # <корень> <снимок-до>
 # ── в0: положительный контроль резерва (ветвь (i), стабильное зелёное) ────────
 T0="$WORK/kor-${RD[9]}"
 make_repo_archzone "$T0"
-out="$(bash "$REPO/scripts/next_id.sh" "$T0" CONTRACT 2>"$WORK/err0")" && rc=0 || rc=$?
+# Тегер церемонии выдачи — техническая identity фикстуры (та же, что несёт g():
+# аннотированному тегу нужен tagger, file-config у toy запрещён (д'), судимые
+# ворота тегер не читают — канал env одной команды).
+out="$(env GIT_COMMITTER_NAME=Фикстура GIT_COMMITTER_EMAIL=fixture@local \
+  bash "$REPO/scripts/next_id.sh" "$T0" CONTRACT 2>"$WORK/err0")" && rc=0 || rc=$?
 if [ "$rc" -ne 0 ]; then
   printf 'ОТКАЗ: ветвь (i): issue-режим next_id не выдал номер в подставном корне (rc %s): %s\n' "$rc" "$(cat "$WORK/err0")" >&2
   exit 1
@@ -187,7 +209,7 @@ g "$T1" commit -q -m 'draft: первая посадка'
 printf '\nправка драфта кругом критика\n' >> "$T1/contracts/$N1-y.md"
 g "$T1" add -A
 t1_id0="$(id_tags_of "$T1")"
-out="$("$BARRIER/check_staged.sh" "$T1" 2>"$WORK/err1")" && rc=0 || rc=$?
+out="$(kak "$T1" "$BARRIER/check_staged.sh" "$T1" 2>"$WORK/err1")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T1" "$t1_id0"
 if [ "$rc" -ne 0 ]; then
   printf 'ОТКАЗ: дверь по тегу отсутствует — многоразовость: правка собственного драфта %s (резерв mint_rezerv: тег и строка манифеста на origin) отказана «вне зоны» (peek одноразов, боль Б2): %s\n' "$N1" "$(cat "$WORK/err1")" >&2
@@ -205,7 +227,7 @@ co_wip "$T2" "wip/$Z2/architect"
 set_author "$T2" architect
 stage "$T2" "contracts/$P2-x.md" 'черновик по peek без резерва'
 t2_id0="$(id_tags_of "$T2")"
-out="$("$BARRIER/check_staged.sh" "$T2" 2>"$WORK/err2")" && rc=0 || rc=$?
+out="$(kak "$T2" "$BARRIER/check_staged.sh" "$T2" 2>"$WORK/err2")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T2" "$t2_id0"
 if [ "$rc" -ne 1 ] || ! grep -qF 'не выдан' "$WORK/err2"; then
   printf 'ОТКАЗ: стаб С3 «номер-по-peek»: contracts/%s-x.md без тега id/CONTRACT/%s ПУЩЕН (rc %s, ожидан rc 1 «номер %s не выдан»): %s\n' "$P2" "$P2" "$rc" "$P2" "$(cat "$WORK/err2")" >&2
@@ -228,7 +250,7 @@ set_author "$T3" architect
 printf '\nправка приземлённого\n' >> "$T3/contracts/$N3-x.md"
 g "$T3" add -A
 t3_id0="$(id_tags_of "$T3")"
-out="$("$BARRIER/check_staged.sh" "$T3" 2>"$WORK/err3")" && rc=0 || rc=$?
+out="$(kak "$T3" "$BARRIER/check_staged.sh" "$T3" 2>"$WORK/err3")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T3" "$t3_id0"
 if [ "$rc" -ne 1 ]; then
   printf 'ОТКАЗ: стаб С1 «тег-есть-пропуск»: правка приземлённого %s (файл в main) ПУЩЕНА (rc %s, ожидан отказ): %s\n' "$N3" "$rc" "$(cat "$WORK/err3")" >&2
@@ -246,7 +268,7 @@ co_wip "$T4" "wip/$Nb/architect"
 set_author "$T4" architect
 stage "$T4" "contracts/$Na-x.md" 'draft с чужой ветки'
 t4_id0="$(id_tags_of "$T4")"
-out="$("$BARRIER/check_staged.sh" "$T4" 2>"$WORK/err4")" && rc=0 || rc=$?
+out="$(kak "$T4" "$BARRIER/check_staged.sh" "$T4" 2>"$WORK/err4")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T4" "$t4_id0"
 if [ "$rc" -ne 1 ]; then
   printf 'ОТКАЗ: стаб С2 «дверь-без-ветки»: draft %s с чужой ветки wip/%s/architect ПУЩЕН (rc %s, ожидан отказ): %s\n' "$Na" "$Nb" "$rc" "$(cat "$WORK/err4")" >&2
@@ -265,7 +287,7 @@ co_wip "$T5" "wip/$N5/implementer"
 set_author "$T5" implementer
 stage "$T5" "contracts/$N5-x.md" 'draft под чужим автором'
 t5_id0="$(id_tags_of "$T5")"
-out="$("$BARRIER/check_staged.sh" "$T5" 2>"$WORK/err5")" && rc=0 || rc=$?
+out="$(kak "$T5" "$BARRIER/check_staged.sh" "$T5" 2>"$WORK/err5")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T5" "$t5_id0"
 if [ "$rc" -ne 1 ]; then
   printf 'ОТКАЗ: не-architect при живом резерве %s ПУЩЕН дверью (rc %s, ожидан «вне зоны»): %s\n' "$N5" "$rc" "$(cat "$WORK/err5")" >&2
@@ -287,7 +309,7 @@ co_wip "$T6" "wip/$N6/architect"
 set_author "$T6" architect
 stage "$T6" "contracts/$N6-x.md" 'draft по self-mint тегу'
 t6_id0="$(id_tags_of "$T6")"
-out="$("$BARRIER/check_staged.sh" "$T6" 2>"$WORK/err6")" && rc=0 || rc=$?
+out="$(kak "$T6" "$BARRIER/check_staged.sh" "$T6" 2>"$WORK/err6")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T6" "$t6_id0"
 if [ "$rc" -ne 1 ] || ! grep -qF 'не выдан авторитетом' "$WORK/err6"; then
   printf 'ОТКАЗ: стаб С9 «self-mint»: draft %s по локальному (вне origin) тегу ПУЩЕН/не назван (rc %s, ожидан rc 1 «тег %s не выдан авторитетом»): %s\n' "$N6" "$rc" "$N6" "$(cat "$WORK/err6")" >&2
@@ -310,7 +332,7 @@ co_wip "$T7" "wip/$N7/architect"
 set_author "$T7" architect
 stage "$T7" "contracts/$N7-x.md" 'draft при недоступном авторитете'
 t7_id0="$(id_tags_of "$T7")"
-out="$("$BARRIER/check_staged.sh" "$T7" 2>"$WORK/err7")" && rc=0 || rc=$?
+out="$(kak "$T7" "$BARRIER/check_staged.sh" "$T7" 2>"$WORK/err7")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T7" "$t7_id0"
 if [ "$rc" -ne 1 ] || ! grep -qF 'авторитет недоступен' "$WORK/err7"; then
   printf 'ОТКАЗ: стаб С10 «fail-open по сети»: draft %s при недоступном origin ПУЩЕН/не назван (rc %s, ожидан rc 1 «авторитет недоступен»): %s\n' "$N7" "$rc" "$(cat "$WORK/err7")" >&2
@@ -333,7 +355,7 @@ co_wip "$T8" "wip/$N8/architect"
 set_author "$T8" architect
 stage "$T8" "contracts/$N8-x.md" 'draft по агентскому origin-push без манифеста'
 t8_id0="$(id_tags_of "$T8")"
-out="$("$BARRIER/check_staged.sh" "$T8" 2>"$WORK/err8")" && rc=0 || rc=$?
+out="$(kak "$T8" "$BARRIER/check_staged.sh" "$T8" 2>"$WORK/err8")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T8" "$t8_id0"
 if [ "$rc" -ne 1 ] || ! grep -qF 'не выдан авторитетом' "$WORK/err8"; then
   printf 'ОТКАЗ: dual-control (блокер 1): draft %s по агентски запушенному (без строки манифеста) тегу ПУЩЕН/не назван (rc %s, ожидан rc 1 «тег %s не выдан авторитетом»): %s\n' "$N8" "$rc" "$N8" "$(cat "$WORK/err8")" >&2
@@ -361,7 +383,7 @@ co_wip "$T9" "wip/$N9/architect"
 set_author "$T9" architect
 stage "$T9" "contracts/$N9-x.md" 'draft по строке манифеста только на локальном main'
 t9_id0="$(id_tags_of "$T9")"
-out="$("$BARRIER/check_staged.sh" "$T9" 2>"$WORK/err9")" && rc=0 || rc=$?
+out="$(kak "$T9" "$BARRIER/check_staged.sh" "$T9" 2>"$WORK/err9")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T9" "$t9_id0"
 if [ "$rc" -ne 1 ] || ! grep -qF 'не выдан авторитетом' "$WORK/err9"; then
   printf 'ОТКАЗ: dual-control (94f2c15, вход А): draft %s по строке манифеста ТОЛЬКО на локальном main ПУЩЕН/не назван (rc %s, ожидан rc 1 «тег %s не выдан авторитетом»): %s\n' "$N9" "$rc" "$N9" "$(cat "$WORK/err9")" >&2
@@ -387,7 +409,7 @@ co_wip "$T10" "wip/$N10/architect"
 set_author "$T10" architect
 stage "$T10" "contracts/$N10-x.md" 'draft по переминченному поверх резерва тегу'
 t10_id0="$(id_tags_of "$T10")"
-out="$("$BARRIER/check_staged.sh" "$T10" 2>"$WORK/err10")" && rc=0 || rc=$?
+out="$(kak "$T10" "$BARRIER/check_staged.sh" "$T10" 2>"$WORK/err10")" && rc=0 || rc=$?
 assert_no_new_id_tags "$T10" "$t10_id0"
 if [ "$rc" -ne 1 ] || ! grep -qF 'не выдан авторитетом' "$WORK/err10"; then
   printf 'ОТКАЗ: dual-control (94f2c15, вход Б): draft %s по переминченному поверх резерва тегу (sha разошёлся) ПУЩЕН/не назван (rc %s, ожидан rc 1 «тег %s не выдан авторитетом»): %s\n' "$N10" "$rc" "$N10" "$(cat "$WORK/err10")" >&2
