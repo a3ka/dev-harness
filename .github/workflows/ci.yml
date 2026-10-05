@@ -131,6 +131,38 @@ jobs:
           # шаг «Зоны исполнителей» красит исторические freeze-registry коммиты.
           fetch-tags: true
 
+      # Кеш для инкрементального режима 4 исторических чеков (контракт 083, этикет зон
+      # строки 364-370). STATIC-обёртка `actions/cache`: по шагу на каждый чек,
+      # path `tmp/ci-incr/<check>.sha`, key `ci-incr-<check>-<sha>`, restore-keys
+      # `ci-incr-<check>-`, restore всегда. SAVE-шаги ниже — отдельные, условные
+      # на push-событие. Кеш СТАТИЧНЫЙ (не в `# BEGIN/END GENERATED` блоке), потому
+      # что инкрементальная пачка своего в `ci.yml` не пишет — генератор
+      # `scripts/gen_ci_steps.sh` блок не генерирует.
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+          restore-keys: |
+            ci-incr-charter-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+          restore-keys: |
+            ci-incr-zones-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+          restore-keys: |
+            ci-incr-ids-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
+          restore-keys: |
+            ci-incr-protected-
+
       - uses: actions/setup-node@v4
         # Рантайм харнеса — node 26: прокси учёта под --permission ТРЕБУЕТ --allow-net (сетевой
         # permission-флаг есть только в node ≥ ~24/26; на node 22 флаг неизвестен → node падает,
@@ -184,6 +216,31 @@ jobs:
         # include-блок в этой джобе генерируется `scripts/gen_ci_steps.sh --write`
         # и сверяется `--check` (правка руками красна поимённо).
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+
+      # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон строки 367):
+      # `actions/cache` save на push-событиях (на PR прогон кеш не сохраняется —
+      # принятая цена, И-Б снимет класс целиком). Кеш `tmp/ci-incr/<check>.sha` мог
+      # обновиться внутри lane-шага (после `--incr`).
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
 
       - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
         # Прямой шаг ВНЕ матрицы по прецеденту 058/070/080: раннер `fixtures/_krasnye_083.sh`

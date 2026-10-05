@@ -53,7 +53,7 @@ step	drill:startup-digest	10	npm run drill:startup-digest
 step	drill:nabludenia-nechitaemo	10	npm run drill:nabludenia-nechitaemo
 step	check:gen	15	npm run check:gen
 step	metering:selftest	20	npm run metering:selftest
-step	check:ids	20	npm run check:ids
+step	check:ids	20	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
 step	check:skills	15	npm run check:skills
 step	check:ceilings	15	npm run check:ceilings
 step	check:decisions	15	npm run check:decisions
@@ -61,11 +61,11 @@ step	check:approval	20	npm run check:approval
 step	check:hooks	15	npm run check:hooks
 step	check:contract-frozen	25	npm run check:contract-frozen
 # ТЯЖЁЛЫЕ (≥40 с — замеры §9.1)
-step	check:zones	161	npm run check:zones
-step	check:charter	445	npm run check:charter
+step	check:zones	161	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
+step	check:charter	445	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
 step	drill:contract-change	20	npm run drill:contract-change
 step	drill:next-id-race	20	npm run drill:next-id-race
-step	check:protected	60	npm run check:protected
+step	check:protected	60	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 step	drill:protected-exception	20	npm run drill:protected-exception
 step	drill:protected-rename	20	npm run drill:protected-rename
 step	check:zones-call-budget	25	npm run check:zones-call-budget
