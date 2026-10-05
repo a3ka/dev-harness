@@ -152,11 +152,15 @@ incr_fail() {
 }
 
 # incr_finish <rc> — при rc=0 атомарно записывает HEAD в INCR_CACHE.
-# В полном режиме / без --incr — no-op. При кеш-отказе — no-op.
+# Без --incr (INCR_CACHE пуст) — no-op. При кеш-отказе — no-op.
+# ВАЖНО: пишется НЕЗАВИСО от INCR_MODE. Случай (б) incr_parse («--incr передан, но кеш
+# отсутствует → полный прогон С маркером») оставляет INCR_MODE="full", и первый guard
+# на INCR_CACHE уже отфильтровал «--incr не передан». Если бы incr_finish требовал
+# INCR_MODE="incr", цикл «full → (должен стать) incr(0 коммитов)» вечно оставался бы
+# «full → full», и actions/cache/save в CI сохранял бы несуществующий файл (no-op).
 incr_finish() {
   local rc="$1"
   [ -n "${INCR_CACHE:-}" ] || return 0
-  [ "${INCR_MODE:-}" = "incr" ] || return 0
   [ "$rc" -eq 0 ] || return 0
   local head
   head="$(git -C "$INCR_GIT_ROOT" rev-parse HEAD 2>/dev/null)" || return 0
