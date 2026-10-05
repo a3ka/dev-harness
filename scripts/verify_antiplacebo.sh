@@ -698,36 +698,60 @@ WRAP
     # (включая повтор :743). case_start фиксируется здесь; serve/rerun/outer-loop
     # проверяют `now - case_start < AP_CASE_BUDGET` и при превышении выставляют
     # timed_out=1 — тогда вердикт становится именованным таймаут-FAIL (инв. 2).
-    case_start=$(date +%s)
+    #
+    # СУБ-СЕКУНДНЫЕ ЧАСЫ (реализация-1, инв. 4): `date +%s` даёт целые секунды, фактический
+    # бюджет лежит в (B−1, B] и при стене прогона <2с на бюджете 2 даёт ложный таймаут
+    # на живой фикстуре (замер ревьюера 7/12 реплик). $EPOCHREALTIME (bash ≥5) — секунды
+    # с дробной частью (микросекунды); все точки сравнения идут через ОДНУ арифметику
+    # (POSIX awk), без bc — последнего может не быть в PATH.
+    case_start=$EPOCHREALTIME
+    # elapsed_since <start>     секунды с дробью (через awk: стабильная переносимость)
+    elapsed_since() {
+      awk -v now="$EPOCHREALTIME" -v s="$1" 'BEGIN { printf "%.6f", now - s }'
+    }
+    # over_budget <start>        1, если стена ≥ бюджета; иначе 0
+    over_budget() {
+      awk -v e="$(elapsed_since "$1")" -v b="$AP_CASE_BUDGET" 'BEGIN { print (e+0 >= b+0) ? "1" : "0" }'
+    }
+    # remaining_secs <start>     секунды с дробью до бюджета, не меньше 0
+    remaining_secs() {
+      awk -v e="$(elapsed_since "$1")" -v b="$AP_CASE_BUDGET" 'BEGIN { r = b - e; if (r < 0) r = 0; printf "%.3f", r }'
+    }
     timed_out=0
     inv_rc=(); inv_out=(); inv_argv=(); inv_cwd=(); inv_root=()
     serve() {
-      local resp root cwd enc a argv=() out rc wp now elapsed
+      local resp root cwd enc a argv=() out rc wp
       # Бюджет истёк ДО чтения заявки (сайт C, инв. 1): цикл обслуживания обязан
       # остановиться, а не крутиться вечно с 0.2с-чтением.
-      now=$(date +%s)
-      elapsed=$((now - case_start))
-      if [ "$elapsed" -ge "$AP_CASE_BUDGET" ]; then timed_out=1; return 1; fi
+      if [ "$(over_budget "$case_start")" = "1" ]; then timed_out=1; return 1; fi
       IFS=$'\x1f' read -r -t 0.2 resp root cwd enc <&"$reqfd" || return 1
       # `${a#x}` снимает маркер, которым клиент канала защищает ПУСТОЙ аргумент от схлопывания.
       for a in $enc; do argv+=("$(printf '%s' "${a#x}" | base64 -d)"); done
       # САЙТ A (контракт 082, инв. 3): ap_run без таймаута держит кейс неограниченно.
       # Оборачиваем в `timeout` с ОСТАВШИМСЯ бюджетом — единая стена от старта кейса
       # до вердикта (инв. 6, зеркало Б5/Б6), а не сброс на каждом вызове.
-      now=$(date +%s); elapsed=$((now - case_start))
-      local remaining=$((AP_CASE_BUDGET - elapsed))
-      if [ "$remaining" -le 0 ]; then timed_out=1; return 1; fi
+      local remaining; remaining="$(remaining_secs "$case_start")"
+      if [ "$(over_budget "$case_start")" = "1" ]; then timed_out=1; return 1; fi
       set +e
       # `timeout` запускает команду через /bin/sh — `ap_run` как функция bash ему не видна.
       # `export -f` делает определение функции доступным дочерним bash-процессам; обёртка
       # `bash -c 'ap_run "$@"' _ …` запускает функцию в bash-субшелле под потолком timeout.
       export -f ap_run
-      out="$( cd "$cwd" 2>/dev/null && timeout "$remaining" bash -c 'ap_run "$@"' _ "$b" "$root" "$d/env" "${argv[@]}" 2>&1 )"
+      # ЗАХВАТ В ФАЙЛ, А НЕ В $(...) (реализация-2, инв. 3, сайт A): pipe `$(...)` ждёт
+      # EOF от ВСЕХ писателей stdout — бессрочный setsid-потомок субъекта, унаследовавший
+      # stdout канала, держит команду захвата ПОСЛЕ смерти самого субъекта (27.4с стены при
+      # бюджете 2с, измерено ревьюером; равно жизни потомка). Файловый redirect не ждёт
+      # «все писатели закрыты» — `cat` файла после `timeout` читает то, что успел
+      # написать субъект; setsid-потомок (если ещё жив) пишет в файл, который уже никто
+      # не ждёт, и наш итератор цикла идёт дальше по таймауту.
+      ap_run_outf="$RUN/inv-$$.$BASHPID.out"
+      ( cd "$cwd" 2>/dev/null && timeout "$remaining" bash -c 'ap_run "$@"' _ "$b" "$root" "$d/env" "${argv[@]}" ) > "$ap_run_outf" 2>&1
       rc=$?
+      out="$(cat "$ap_run_outf")"
+      rm -f "$ap_run_outf"
       set -e
       # ap_run мог вернуть 124 (timeout) — это и есть причина именованного FAIL.
-      now=$(date +%s); elapsed=$((now - case_start))
-      if [ "$elapsed" -ge "$AP_CASE_BUDGET" ]; then timed_out=1; fi
+      if [ "$(over_budget "$case_start")" = "1" ]; then timed_out=1; fi
       inv_rc+=("$rc"); inv_out+=("$out"); inv_cwd+=("$cwd"); inv_root+=("$root")
       inv_argv+=("$enc")
       # Журнал — ДЛЯ ЧЕЛОВЕКА, а не для вердикта: вердикт считается по массивам в памяти, а
@@ -741,7 +765,11 @@ WRAP
       # ИЛИ неблокирующая запись — здесь вторая, наблюдаемо: кейс судится, прогон идёт дальше).
       wp="${resp##*/r.}"; wp="${wp%%.*}"
       if [ -n "$wp" ] && kill -0 "$wp" 2>/dev/null; then
-        { printf '%s\n' "$rc"; printf '%s\n' "$out"; } > "$resp"
+        # С-1 фикса (совет ревьюера, инв. 3): `kill -0` и запись разнесены во времени,
+        # и при смерти клиента между ними redirect в закрытый FIFO падает с EPIPE под
+        # `set -e` — скрытая причина выхода. `|| true` подавляет отказ redirect; этот
+        # FIFO принадлежит клиенту, а не setsid-потомку субъекта.
+        { printf '%s\n' "$rc"; printf '%s\n' "$out"; } > "$resp" 2>/dev/null || true
       fi
       # timed_out=1 здесь — ap_run вышел по timeout: возвращаем 1, чтобы outer-loop
       # не крутился впустую; сам вердикт-таймаут выставится ниже по timed_out.
@@ -804,22 +832,24 @@ WRAP
       # САЙТ D (контракт 082, инв. 3): повторный прогон проверяющего тем же кодом без
       # бюджета. Оборачиваем в `timeout` с ОСТАВШИМСЯ бюджетом — единая стена кейса
       # (инв. 1: «от старта до полного вердикта по нему, включая повторный прогон»).
-      now2=$(date +%s); elapsed2=$((now2 - case_start))
-      remaining2=$((AP_CASE_BUDGET - elapsed2))
-      if [ "$remaining2" -le 0 ]; then
+      if [ "$(over_budget "$case_start")" = "1" ]; then
         bad "$cname: таймаут — кейс превысил бюджет ${AP_CASE_BUDGET} с на повторном прогоне (сайт D, группа убита)"
         continue
       fi
+      remaining2="$(remaining_secs "$case_start")"
       rargv=(); for a in ${inv_argv[$cand]}; do rargv+=("$(printf '%s' "${a#x}" | base64 -d)"); done
       set +e
       export -f ap_run
-      rout="$( cd "${inv_cwd[$cand]}" 2>/dev/null && timeout "$remaining2" bash -c 'ap_run "$@"' _ "$b" "${inv_root[$cand]}" "$d/env" "${rargv[@]}" 2>&1 )"
+      # ЗАХВАТ В ФАЙЛ, А НЕ В $(...) (реализация-2, инв. 3, сайт D): см. сайт A выше.
+      rerun_outf="$RUN/rerun-$$.$BASHPID.out"
+      ( cd "${inv_cwd[$cand]}" 2>/dev/null && timeout "$remaining2" bash -c 'ap_run "$@"' _ "$b" "${inv_root[$cand]}" "$d/env" "${rargv[@]}" ) > "$rerun_outf" 2>&1
       rrc=$?
+      rout="$(cat "$rerun_outf")"
+      rm -f "$rerun_outf"
       set -e
       printf '%s\n' "$rout" > "$d/rerun.out"
       # Если повторный прогон был убит бюджетом (rrc=124) — это именованный таймаут-FAIL.
-      now2=$(date +%s); elapsed2=$((now2 - case_start))
-      if [ "$elapsed2" -ge "$AP_CASE_BUDGET" ]; then
+      if [ "$(over_budget "$case_start")" = "1" ]; then
         bad "$cname: таймаут — кейс превысил бюджет ${AP_CASE_BUDGET} с на повторном прогоне (сайт D, группа убита)"
         continue
       fi
