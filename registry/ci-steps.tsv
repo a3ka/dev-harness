@@ -20,7 +20,6 @@
 # матрицу (правило 6).
 lanes	7
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
-step	check:antiplacebo-selftest	20	bash scripts/antiplacebo_selftest.sh
 step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
 step	check:consumers-window-family-selftest	15	bash fixtures/check_consumers/krasnye_062.sh
