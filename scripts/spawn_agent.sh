@@ -324,17 +324,15 @@ fi
 #   (1) core.hooksPath в worktree ведёт к каталогу с исполняемыми pre-commit
 #       и pre-merge-commit;
 #   (2) иначе — откат ветки и worktree, именованный отказ rc 1.
-# Источник хуков — `$canon_root/.githooks/` (тот же каталог, что и в
-# основном checkout, контракт 016, срез 1). Проверяем наличие обоих файлов
-# И их исполнимость ДО фиксации core.hooksPath, иначе rollback.
-# Контракт 086 §Frontier 6 (уточнение, фикс регрессии 086+impl3): enforcement
-# применим когда у canon_root ЕСТЬ каталог .githooks (предмет — унаследовать
-# уже-существующие активные хуки). Если каталог .githooks ОТСУТСТВУЕТ ВООБЩЕ
-# (не предмет 086 — копировать нечего), весь блок ниже пропускается. Если
-# каталог ЕСТЬ, но неполон — прежнее поведение (откат rc 1): наполовину
-# выставленный core.hooksPath опаснее, чем его отсутствие (обход гейта
-# сведения при merge в worktree).
-HOOKS_SRC="$canon_root/.githooks"
+# Источник хуков — `.githooks/` В САМОМ worktree (после checkout из git-дерева
+# каталог `.githooks/` присутствует в worktree, контракт 016 срез 1); независимо
+# от того, есть ли `.githooks` у canon_root (Б-3 ревьюера: прежний skip по
+# `if [ -d "$canon_root/.githooks" ]` ослаблял И-11 — хук должен стоять ВСЕГДА,
+# где есть `.githooks` в самом worktree после checkout, независимо от canon_root).
+# Если каталог ЕСТЬ в worktree, но неполон — откат rc 1: наполовину выставленный
+# core.hooksPath опаснее, чем его отсутствие (обход гейта сведения при merge
+# в worktree).
+HOOKS_SRC="$wt_path/.githooks"
 if [ -d "$HOOKS_SRC" ]; then
   if [ ! -x "$HOOKS_SRC/pre-commit" ] || [ ! -x "$HOOKS_SRC/pre-merge-commit" ]; then
     # Rollback: снять worktree и ветку.

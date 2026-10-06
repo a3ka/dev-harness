@@ -584,8 +584,17 @@ while IFS=$'\t' read -r nnn since; do
   # Линейный rev-list (как раньше) — для контрактов с ЗАКРЫТЫМИ окнами и
   # без чужих wip/<OTHER>/… merge'ей даёт ту же сводку (регресс-инвариант
   # ветви Г; для 017/019 merge'и без `land:` маркера тоже остаются).
+  # ОКНО --okno <база>..HEAD: ВСЕ достижимые коммиты в этом диапазоне, не только
+  # first-parent-линия (И-5 контракта 086, Б-2 ревьюера). Прежняя редакция резала
+  # окно через `--first-parent`, и коммиты, пришедшие выше базы через merge
+  # `land: wip/<NNN>/…` (второй родитель merge), НЕ ПОПАДАЛИ в окно — нарушение
+  # зоны на такой ветке НЕ ловилось. Семантика та же, что у полного режима: rev-list
+  # `$range` собирает судимое множество ЛИНЕЙНО (без чужих wip/<OTHER>/…) — но для
+  # --okno `range` не подходит (range = since..HEAD контракта, не since..HEAD окна
+  # гейта), поэтому окно строится отдельно и пересекается. `--first-parent` тут
+  # неуместен: он бы снова выкинул принесённые land-merge'ем коммиты.
   if [ -n "$CHECK_OKNO_BASE" ]; then
-    g rev-list --no-merges --first-parent "$CHECK_OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null \
+    g rev-list --no-merges "$CHECK_OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null \
       || { printf 'NOT_IMPLEMENTED: rev-list --okno отказал\n' >&2; exit 1; }
   fi
   if ! g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null; then

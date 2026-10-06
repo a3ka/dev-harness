@@ -293,19 +293,17 @@ for c in $(comm -12 <(printf '%s\n' "$A_COMMITS") <(printf '%s\n' "$NNN_COMMITS"
         "plans/$NNN-"|"plans/$NNN"-*) continue ;;
       esac
     fi
-    in_zone=0
-    while IFS=$'\t' read -r a_p pp _nn; do
-      [ "$a_p" = "$an" ] || continue
-      case "$pp" in
-        */) case "$p" in "$pp"*) in_zone=1; break ;; esac ;;
-        *)  [ "$p" = "$pp" ] && { in_zone=1; break; } ;;
-      esac
-    done < <(awk -F'\t' -v a="$an" '$1 == a { print $1 "\t" $2 "\t" $3 }' "$zones_out/zones_scoped" | sort -u)
-    if [ "$in_zone" -eq 0 ]; then
+    # Единый источник предиката «путь в зоне автора» — `zones_match_path` из lib_zones.sh
+    # (Frontier 2 + Б-1 контракта 086: вторая реализация поверх lib_zones ЗАПРЕЩЕНА —
+    # отвергнутая альтернатива (i) кольца; check_zones использует ту же функцию, и
+    # расхождения между гейтом и check_zones (пробел/не-ASCII в имени пути, лишний
+    # префикс, и т.п.) — структурный дефект кольца). `zones_match_path` возвращает
+    # rc 0 если путь НАЙДЕН в зоне автора, иначе rc 1 — инвертируем в «вне зоны».
+    if ! zones_match_path "$zones_out" "$an" "$p"; then
       printf '  FAIL коммит вне зоны: %s %s %s\n' "$an" "${c:0:8}" "$p" >&2
       A_FAILS=$((A_FAILS + 1))
     fi
-  done < <(g diff-tree -r --no-commit-id --name-status --no-renames "$c" 2>/dev/null | awk '{ print $2 }')
+  done < <(g diff-tree -r --no-commit-id --name-only --no-renames -z "$c" 2>/dev/null | tr '\0' '\n')
 done
 
 if [ "$A_FAILS" -gt 0 ]; then

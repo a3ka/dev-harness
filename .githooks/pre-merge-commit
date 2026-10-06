@@ -87,38 +87,81 @@ esac
 # Текущая голова (HEAD) — кандидат в первый родитель merge.
 HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD)"
 
-# Для каждой головы: резолвим в коммит; проверяем предикат sync.
+# Предикат sync: merge M синхронный ⟺ у M есть родители P ≠ Q, где P — предок
+# main/origin/main и P не предок Q (Frontier 4, Б-4 ревьюера). Проверяем ВСЕ
+# родители merge — main может быть ЛЮБЫМ из них (pre-merge-commit срабатывает,
+# когда HEAD уже на main-sha в detached режиме: `git checkout main-sha && git
+# merge wip` создаёт merge, где main — ПЕРВЫЙ родитель). Хедеры видим через
+# GIT_REFLOG_ACTION формы `merge <имя…>` — каждое имя резолвим в коммит; плюс
+# сам HEAD как один из родителей (HEAD может быть main-sha, а вливаемые головы —
+# нет). Без полного множества родителей merge хук пропускает обратный порядок
+# (та же логика, что в gejt_svedenija.sh sync_violation() для F2 — общий
+# предикат, иначе расхождение между гейтом и хуком; не дублируем код —
+# повторяем логику дословно).
 sync=0
 sync_head=""
 sync_p=""
 sync_q=""
-for h in $HEADS_LINE; do
-  H_COMMIT="$(git -C "$ROOT" rev-parse --verify --quiet "${h}^{commit}" 2>/dev/null)" || {
-    # Голова не резолвится в коммит — пропускаем; этот класс ловят другие барьеры
-    # (id/CONTRACT ловит мусор, а не pre-merge-commit).
-    continue
-  }
-  [ -n "$H_COMMIT" ] || continue
+# Все кандидаты-родители merge: вливаемые головы + сам HEAD.
+PARENTS_CANDIDATES="$HEADS_LINE"
+# Добавить HEAD как «голову», только если имя в $HEADS_LINE его не покрывает:
+# на detached HEAD merge `git merge wip` записывает `merge wip` в GIT_REFLOG_ACTION,
+# и HEAD отдельно не нужен; на ветке HEAD тоже не обязателен как голова merge.
+# Чтобы охватить и detached-HEAD-на-main случай (Б-4), проверяем множество
+# {H ∈ $HEADS_LINE} ∪ {HEAD_SHA} — иначе main-первый-родитель остаётся невидим.
+if [ "$HEAD_SHA" != "$(git -C "$ROOT" rev-parse --verify --quiet "${HEADS_LINE%% *} ^{commit}" 2>/dev/null)" ]; then
+  PARENTS_CANDIDATES="$PARENTS_CANDIDATES HEAD"
+fi
 
-  # Предикат sync: H_COMMIT — предок main/origin/main, H_COMMIT — НЕ предок HEAD.
-  if git -C "$ROOT" merge-base --is-ancestor "$H_COMMIT" main 2>/dev/null \
-     || git -C "$ROOT" merge-base --is-ancestor "$H_COMMIT" origin/main 2>/dev/null; then
-    if ! git -C "$ROOT" merge-base --is-ancestor "$H_COMMIT" "$HEAD_SHA" 2>/dev/null; then
-      # Sync. Печатаем sha merge, который БУДЕТ создан: parents = HEAD, H_COMMIT.
-      # В данный момент merge-коммита ещё нет (pre-merge-commit), поэтому
-      # печатаем полные sha ОБОИХ родителей — И-4: «(б) … либо родителей (хук)».
-      sync=1
-      sync_head="$h"
-      sync_p="$H_COMMIT"
-      sync_q="$HEAD_SHA"
+# Проверяем КАЖДУЮ пару (P, Q) разных родителей: P — предок main/origin/main,
+# P не предок Q. Именаторы P из $PARENTS_CANDIDATES, именаторы Q — все
+# $PARENTS_CANDIDATES (плюс HEAD). Двойной цикл по множеству родителей.
+# Сводим имена → коммиты один раз.
+declare -A _COMMIT_OF=()
+declare -A _RESOLVED=()
+for h in $PARENTS_CANDIDATES; do
+  if [ "$h" = "HEAD" ]; then
+    c="$HEAD_SHA"
+  else
+    c="$(git -C "$ROOT" rev-parse --verify --quiet "${h}^{commit}" 2>/dev/null)" || continue
+  fi
+  [ -n "$c" ] || continue
+  _COMMIT_OF["$h"]="$c"
+done
+for h in $PARENTS_CANDIDATES; do
+  [ -n "${_COMMIT_OF[$h]:-}" ] || continue
+  P="${_COMMIT_OF[$h]}"
+  # P — предок main/origin/main?
+  if ! git -C "$ROOT" merge-base --is-ancestor "$P" main 2>/dev/null \
+     && ! git -C "$ROOT" merge-base --is-ancestor "$P" origin/main 2>/dev/null; then
+    continue
+  fi
+  # P — предок Q (любого другого родителя)? Если ДА — sync не сработает (P — общий предок).
+  ancestor_of_some=0
+  for h2 in $PARENTS_CANDIDATES; do
+    [ "$h" = "$h2" ] && continue
+    [ -n "${_COMMIT_OF[$h2]:-}" ] || continue
+    Q="${_COMMIT_OF[$h2]}"
+    if [ "$P" = "$Q" ]; then continue; fi
+    if git -C "$ROOT" merge-base --is-ancestor "$P" "$Q" 2>/dev/null; then
+      ancestor_of_some=1
       break
     fi
+  done
+  if [ "$ancestor_of_some" -eq 0 ]; then
+    sync=1
+    sync_head="$h"
+    sync_p="$P"
+    # Печатаем ПЕРВЫЙ Q как контекст (для детерминированности отказа; И-4
+    # «(б) … либо родителей (хук)» принимает обоих родителей в любом порядке).
+    for h2 in $PARENTS_CANDIDATES; do
+      [ "$h" = "$h2" ] && continue
+      [ -n "${_COMMIT_OF[$h2]:-}" ] || continue
+      sync_q="${_COMMIT_OF[$h2]}"
+      break
+    done
+    break
   fi
-  # Обратный порядок: HEAD — предок main, H — нет. Хук не различает порядок
-  # (Frontier 4), но в этой ветке main первым родителем быть не может —
-  # текущая ветка ≠ main (CUR_BRANCH уже отфильтрован выше). Так что обратного
-  # порядка здесь не бывает: HEAD — НЕ предок main, иначе CUR_BRANCH=main или
-  # HEAD отстал от main. Не рассматриваем.
 done
 
 if [ "$sync" -eq 1 ]; then
