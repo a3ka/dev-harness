@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+# orch-peak — пауза ведущей сессии оркестратора на пиковые часы z.ai.
+# Исполняется ROOT'ом (системные таймеры), работает с ТВОЕЙ tmux-панелью root, где под
+# `su - harness` идёт orch-loop. Код и данные репо — только через runuser -u harness:
+# под root не исполняется ни один файл харнеса. Файл принадлежит root, harness его не правит.
+#   warn  — за 20 мин: сообщение в панель оркестратора;
+#   stop  — проверка «всё закоммичено и отправлено»; не готово → сообщение со списком и
+#           ожидание до GRACE; затем гасит omp цикла (маркер снят → цикл останавливается,
+#           панель остаётся в shell harness); несохранённое — в отчёт;
+#   start — в ту же панель вводит `cd ~/dev-harness && orch-loop`, если цикл не идёт;
+#   check — что не сохранено (пусто = готово);
+#   ctx   — сторож контекста (таймер раз в 15 мин): контекст ведущей сессии > CTX_SOFT —
+#           одно сообщение «на чистой точке перезапусти сессию»; > CTX_HARD — проверка
+#           сохранения с отсрочкой до GRACE, затем маркер перезапуска (цикл сам поднимет
+#           свежую сессию через свой GRACE). Без сжатия: новая сессия читает HANDOFF.
+set -u
+U="${ORCH_USER:-harness}"
+UHOME="$(getent passwd "$U" | cut -d: -f6)"
+REPO="${ORCH_REPO:-$UHOME/dev-harness}"
+LOOP_PAT="${ORCH_LOOP_PAT:-bin/orch-loop}"
+LOOP_CMD="${ORCH_LOOP_CMD:-cd ~/dev-harness && orch-loop}"
+MARK="${ORCH_MARK:-/tmp/dev-harness-verify/orch-restart}"
+STATE="${ORCH_STATE:-/var/lib/orch-peak}"
+LOG="${ORCH_LOG:-/var/log/orch-peak.log}"
+REPORT="${ORCH_REPORT:-$UHOME/orch-peak-report.txt}"
+GRACE="${ORCH_PEAK_GRACE:-900}"
+POLL="${ORCH_PEAK_POLL:-60}"
+CTX_SOFT="${ORCH_CTX_SOFT:-300000}"
+CTX_HARD="${ORCH_CTX_HARD:-500000}"
+SESS_GLOB="${ORCH_SESS_GLOB:-$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/*.jsonl}"
+# Контракт 080, инв. 4/8: переменные жёсткого режима для polling субагентов.
+HARD_GRACE="${ORCH_HARD_GRACE:-1800}"
+HARD_POLL="${ORCH_HARD_POLL:-60}"
+TMUX_ARGS=(); [ -n "${ORCH_TMUX_SOCK:-}" ] && TMUX_ARGS=(-L "$ORCH_TMUX_SOCK")
+mkdir -p "$STATE"
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >> "$LOG"; }
+as_u() { runuser -u "$U" -- "$@"; }
+t() { tmux "${TMUX_ARGS[@]}" "$@"; }
+
+loop_pids() { pgrep -u "$U" -f "$LOOP_PAT" | while read -r p; do [ "$(ps -o comm= -p "$p")" = bash ] && echo "$p"; done; }
+omp_pids()  { local p; for p in $(loop_pids); do pgrep -P "$p" -f '^omp --profile'; done; }
+
+# Панель с циклом: та, в чьём дереве процессов идёт orch-loop. Запоминается для start.
+find_pane() {
+  local id pid lp
+  for lp in $(loop_pids); do
+    while read -r id pid; do
+      pstree -p "$pid" 2>/dev/null | grep -q "($lp)" && { echo "$id"; return 0; }
+    done < <(t list-panes -a -F '#{pane_id} #{pane_pid}' 2>/dev/null)
+  done
+  return 1
+}
+remember_pane() { local p; p="$(find_pane)" && echo "$p" > "$STATE/pane"; }
+pane() { remember_pane; cat "$STATE/pane" 2>/dev/null; }
+say() {
+  local p; p="$(pane)"; [ -n "$p" ] && t display-message -p -t "$p" '#{pane_id}' >/dev/null 2>&1 || return 1
+  t send-keys -t "$p" -l "$1" && t send-keys -t "$p" Enter
+}
+
+unsaved() {
+  local origin head w b loc rem since hf main
+  main="$(as_u git -C "$REPO" rev-parse --show-toplevel 2>/dev/null)"
+  origin="$(as_u git -C "$REPO" ls-remote origin refs/heads/main 2>/dev/null | cut -f1)"
+  head="$(as_u git -C "$REPO" rev-parse HEAD 2>/dev/null)"
+  [ -n "$origin" ] || { echo "origin/main не прочитан"; return; }
+  [ "$head" = "$origin" ] || echo "main: HEAD ${head:0:7} не отправлен (origin ${origin:0:7})"
+  [ -z "$(as_u git -C "$REPO" status --porcelain)" ] || echo "main: незакоммиченное: $(as_u git -C "$REPO" status --porcelain | head -3 | tr '\n' ' ')"
+  since="$(cat "$STATE/warned" 2>/dev/null || echo 0)"
+  hf="$(as_u git -C "$REPO" log -1 --format=%ct "$origin" -- HANDOFF.md 2>/dev/null)"
+  [ "${hf:-0}" -ge "$since" ] || echo "HANDOFF.md на origin не обновлён после предупреждения"
+  if [ -f "$REPO/scripts/check_no_leak.sh" ]; then
+    as_u bash -c 'cd "$1" && bash scripts/check_no_leak.sh --check "$1"' _ "$REPO" >/dev/null 2>&1 || echo "check_no_leak --check красный"
+  fi
+  as_u git -C "$REPO" worktree list --porcelain | awk '/^worktree /{w=substr($0,10)} /^branch /{print w "\t" substr($2,12)}' |
+  while IFS=$'\t' read -r w b; do
+    [ "$w" = "$main" ] && continue
+    [ -z "$(as_u git -C "$w" status --porcelain 2>/dev/null)" ] || echo "worktree $w ($b): незакоммиченное"
+    loc="$(as_u git -C "$w" rev-parse HEAD 2>/dev/null)"; rem="$(as_u git -C "$REPO" ls-remote origin "refs/heads/$b" 2>/dev/null | cut -f1)"
+    [ "$loc" = "$rem" ] || echo "ветка $b: ${loc:0:7} не отправлена на origin"
+  done
+}
+
+kill_session() {
+  local pids; pids="$(omp_pids)"; [ -n "$pids" ] || return 0
+  rm -f "$MARK"
+  kill -TERM $pids 2>/dev/null
+  for _ in $(seq 1 12); do sleep 5; [ -n "$(omp_pids)" ] || break; done
+  [ -n "$(omp_pids)" ] && kill -KILL $(omp_pids) 2>/dev/null
+  log "стоп: сессия остановлена (omp $pids, панель $(cat "$STATE/pane" 2>/dev/null))"
+}
+
+# Ждать «всё сохранено и отправлено» до GRACE; одно сообщение со списком несохранённого.
+# $1 — повод (для сообщений и отчёта). Возвращается всегда: по успеху или по сроку.
+wait_saved() {
+  local why="$1" deadline told=0 left
+  deadline=$(( $(date +%s) + GRACE ))
+  while :; do
+    left="$(unsaved)"
+    [ -z "$left" ] && { log "$why: проверка пройдена — всё сохранено и отправлено"; rm -f "$REPORT"; return 0; }
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      printf '%s %s — НЕ сохранено/не отправлено к сроку:\n%s\n' "$why" "$(date -u +%FT%TZ)" "$left" | as_u tee "$REPORT" >/dev/null
+      log "$why: срок вышел, продолжаю с несохранённым — см. $REPORT"; return 1
+    fi
+    if [ "$told" -eq 0 ]; then
+      say "ВЛАДЕЛЕЦ (автоматически, orch-peak): $why ОТЛОЖЕН на $((GRACE / 60)) мин — механическая проверка нашла несохранённое: $(printf '%s' "$left" | tr '\n' ';') Закоммить и отправь это сейчас; по истечении срока — без ожидания." \
+        && log "$why отложен, оркестратору отправлен список несохранённого" || log "$why отложен (панель не найдена для сообщения)"
+      told=1
+    fi
+    sleep "$POLL"
+  done
+}
+
+# Контекст ведущей сессии: последний запрос самого свежего журнала верхнего уровня.
+cur_ctx() {
+  local f
+  f="$(ls -t $SESS_GLOB 2>/dev/null | head -1)"; [ -n "$f" ] || return 1
+  basename "$f" .jsonl
+  tac "$f" | grep -m1 '"usage"' | jq -r '.message.usage | ((.input // 0) + (.cacheRead // 0) + (.cacheWrite // 0))'
+}
+
+# ── Тест-шов ORCH_PEAK_TEST (контракт 080, инв. 4) ────────────────────────
+# Когда шов установлен и непуст, субъект работает в поведенческом режиме
+# без привилегий root: as_u/say/pane/omp_pids/kill_session подменяются;
+# say дописывает в $ORCH_PEAK_TEST/say.log, omp_pids читает $ORCH_PEAK_TEST/omp-pids,
+# kill_session фиксирует в $ORCH_PEAK_TEST/killed.log; без шва — обычное поведение
+# (root, runuser, tmux, реальные сигналы).
+if [ -n "${ORCH_PEAK_TEST:-}" ]; then
+  as_u() { "$@"; }
+  omp_pids() { cat "$ORCH_PEAK_TEST/omp-pids" 2>/dev/null || true; }
+  say() { printf '%s\n' "$1" >> "$ORCH_PEAK_TEST/say.log"; return 0; }
+  find_pane() { return 1; }
+  remember_pane() { :; }
+  pane() { cat "$ORCH_PEAK_TEST/pane" 2>/dev/null || true; }
+  kill_session() {
+    local pids; pids="$(omp_pids)"; [ -n "$pids" ] || return 0
+    printf 'killed: %s\n' "$pids" >> "$ORCH_PEAK_TEST/killed.log"
+    return 0
+  }
+fi
+
+# current_session_dir: каталог самой свежей orch-сессии по mtime session-уровня.
+# (Единый источник для двери и сторожа — scripts/lib_session.sh.)
+# SESS_DIR = dirname(session.jsonl) / basename(session.jsonl без .jsonl):
+# каталог сессии — sibling самого свежего session-уровня .jsonl,
+# имя = basename файла без расширения (конвенция orch-peak live).
+current_session_dir() {
+  local f
+  # shellcheck disable=`SC2086`
+  f="$(ls -t $SESS_GLOB 2>/dev/null | head -1)" || return 0
+  [ -n "$f" ] || return 0
+  printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
+}
+
+# Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
+# live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
+# (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит
+# scripts/lib_session.sh), определить live_subagents_in локально —
+# семантика идентична.
+if [ -f "${REPO}/scripts/lib_session.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${REPO}/scripts/lib_session.sh"
+fi
+if ! declare -F live_subagents_in >/dev/null 2>&1; then
+  live_subagents_in() {
+    local sess_dir="${1:-}"
+    [ -n "$sess_dir" ] && [ -d "$sess_dir" ] || { return 0; }
+    local now
+    now="$(date +%s)"
+    local -a names=()
+    local f mt age name
+    # Субагентские журналы могут иметь имена с ведущей точкой
+    # (например, `.LiveAgent.jsonl` — скрытый субагент). bash-glob
+    # по умолчанию НЕ включает dotfiles, поэтому перечисление
+    # «*.jsonl» молча пропускает свежий `.LiveAgent.jsonl» — дверь
+    # поставит маркер при живом субагенте (адверсарий 080-v3 I1).
+    # Включаем dotglob на время перечисления и сразу снимаем.
+    local prev_dotglob=0
+    shopt -q dotglob 2>/dev/null && prev_dotglob=1
+    shopt -s dotglob nullglob
+    for f in "$sess_dir"/*.jsonl; do
+      [ -e "$f" ] || continue
+      mt="$(stat -c %Y "$f" 2>/dev/null || echo 0)"
+      age=$((now - mt))
+      [ "$age" -lt 120 ] || continue
+      name="$(basename -- "$f" .jsonl)"
+      names+=("$name")
+    done
+    if [ "$prev_dotglob" -eq 0 ]; then
+      shopt -u dotglob 2>/dev/null || true
+    fi
+    shopt -u nullglob 2>/dev/null || true
+    [ "${#names[@]}" -gt 0 ] || return 0
+    local IFS=$'\n'
+    # shellcheck disable=`SC2207`
+    local sorted=( $(printf '%s\n' "${names[@]}" | LC_ALL=C sort) )
+    unset IFS
+    local first=1 n out=""
+    for n in "${sorted[@]}"; do
+      if [ "$first" -eq 1 ]; then out="$n"; first=0
+      else out="$out,$n"
+      fi
+    done
+    printf '%s' "$out"
+  }
+fi
+
+# wait_live_agents: опрашивает свежесть субагентских журналов до ORCH_HARD_GRACE;
+# если все состарились — return 0 (можно ставить маркер); если таймаут — return 1
+# (ставить маркер принудительно). Имена свежих на момент истечения — в $LIVE_NAMES.
+wait_live_agents() {
+  local sess_dir="$1" deadline first_now
+  deadline=$(( $(date +%s) + HARD_GRACE ))
+  first_now=$(date +%s)
+  while :; do
+    LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
+    [ -z "$LIVE_NAMES" ] && return 0
+    [ "$(date +%s)" -ge "$deadline" ] && return 1
+    sleep "$HARD_POLL"
+  done
+}
+
+case "${1:-}" in
+  warn)
+    date +%s > "$STATE/warned"
+    say 'ВЛАДЕЛЕЦ (автоматически, orch-peak): через 20 минут начинается пиковое окно z.ai — сессия будет ОСТАНОВЛЕНА механизмом и поднимется сама через 4 часа. Сейчас: новых спавнов не начинай; текущие шаги доведи до коммита; main и все wip-ветки — на origin; HANDOFF «ГДЕ МЫ» (что сделано, что в полёте, первое действие после паузы) — закоммитить и отправить ПОСЛЕ этого сообщения. Остановка проверит это механически. Маркер перезапуска НЕ ставь.' \
+      && log "предупреждение отправлено в панель $(cat "$STATE/pane")" || log "предупреждение НЕ отправлено: панель с orch-loop не найдена" ;;
+  stop)
+    [ -n "$(omp_pids)" ] || { log "стоп: сессия цикла не идёт"; exit 0; }
+    remember_pane
+    wait_saved "останов на пик"
+    kill_session ;;
+  ctx)
+    [ -n "$(omp_pids)" ] || exit 0
+    { read -r sess; read -r ctx; } < <(cur_ctx) || exit 0
+    [ -n "${ctx:-}" ] || exit 0
+    st="$STATE/ctx-$sess"
+    if [ "$ctx" -ge "$CTX_HARD" ]; then
+      # Запись state=hard — ТОЛЬКО ПОСЛЕ успешной постановки маркера
+      # (см. ниже). Если state=hard уже есть — маркер поставлен в этом
+      # сеансе прошлым вызовом, повторно не делаем. Если state нет или
+      # равен «pending» (прерванный прошлый вызов при ошибке отчёта) —
+      # повторяем polling+wait_saved+отчёт+маркер сначала
+      # (адверсарий 080-v3 I3: временная неудача `$REPORT` не должна
+      # блокировать повтор на свежем session journal; адверсарий
+      # воспроизвёл: после неудачи первый раз остаётся state=hard,
+      # второй ctx безусловно exit 0 без polling и отчёта).
+      cur_st="$(cat "$st" 2>/dev/null || true)"
+      [ "$cur_st" = hard ] && exit 0
+      remember_pane
+      [ -f "$STATE/ctx-$sess.warned" ] && cp "$STATE/ctx-$sess.warned" "$STATE/warned" || date +%s > "$STATE/warned"
+      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_HARD / 1000))K — ПРИНУДИТЕЛЬНЫЙ перезапуск сессии. Новых спавнов не начинай; дождись завершения текущих субагентов, затем перезапуск дверью. Доведи текущий шаг до коммита; main и wip-ветки — на origin; HANDOFF «ГДЕ МЫ» (что сделано, что в полёте, первое действие) — закоммитить и отправить сейчас. Проверка механическая, отсрочка до $((GRACE / 60)) мин." \
+        && log "контекст: $sess $ctx ≥ $CTX_HARD — принудительный перезапуск, сообщение отправлено" \
+        || log "контекст: $sess $ctx ≥ $CTX_HARD — принудительный перезапуск (панель не найдена)"
+      # Контракт 080 инв. 8: polling живых субагентов до HARD_GRACE перед
+      # постановкой маркера. На истечении — принудительный маркер + отчёт
+      # «живые субагенты погибнут: <имена>» (если свежие остались).
+      # ВАЖНО: строка «погибнут» пишется ПОСЛЕ wait_saved — wait_saved
+      # перезаписывает $REPORT (tee без -a), и обратный порядок
+      # затирает факт принудительной смерти.
+      sess_dir="$(current_session_dir 2>/dev/null || true)"
+      live_killed=0
+      if ! wait_live_agents "$sess_dir"; then
+        LIVE_NAMES="$(live_subagents_in "$sess_dir" 2>/dev/null || true)"
+        [ -n "$LIVE_NAMES" ] && live_killed=1
+      fi
+      wait_saved "перезапуск по контексту"
+      # Запись «погибнут» — атомарно (tmp+mv), содержимое ДОПИСЫВАЕТСЯ
+      # к существующему отчёту (а не затирает его — wait_saved уже мог
+      # записать своё содержимое). Маркер `touch "$MARK"` ставится
+      # ТОЛЬКО при подтверждённой успешной записи (tee rc=0 ∧ mv rc=0
+      # ∧ $REPORT — обычный файл после mv); иначе частичная неудача
+      # обязательного следа выглядит успехом (замер адверсария
+      # contracts-080-v1 I3: «mv file dir» в GNU coreutils кладёт файл
+      # ВНУТРЬ каталога и возвращает rc 0 — отчёт как файл по ожидаемому
+      # пути НЕ создан; требуем явный вид «обычный файл»).
+      report_ok=1
+      if [ "$live_killed" -eq 1 ]; then
+        if [ -d "$REPORT" ]; then
+          # $REPORT — каталог: tmp+mv положит tmp ВНУТРЬ, отчёт как
+          # файл не создан; отказываем в записи.
+          report_ok=0
+        else
+          REPORT_DIR="$(dirname "$REPORT")"
+          REPORT_TMP="$REPORT_DIR/.orch-peak-report.tmp.$$"
+          existing_report="$(as_u cat "$REPORT" 2>/dev/null || true)"
+          if printf '%s\n%s\n' "$existing_report" "перезапуск по контексту (жёсткий принудительный) — живые субагенты погибнут: $LIVE_NAMES" \
+             | as_u tee "$REPORT_TMP" >/dev/null 2>&1; then
+            if as_u mv -f "$REPORT_TMP" "$REPORT" 2>/dev/null \
+               && [ -f "$REPORT" ]; then
+              report_ok=1
+            else
+              as_u rm -f "$REPORT_TMP" 2>/dev/null || true
+              report_ok=0
+            fi
+          else
+            as_u rm -f "$REPORT_TMP" 2>/dev/null || true
+            report_ok=0
+          fi
+        fi
+      fi
+      if [ "$report_ok" -eq 1 ]; then
+        # Адверсарий 080-v4 I2: `touch "$MARK"` — часть транзакции.
+        # При неудаче постановки маркера (например, родительский
+        # каталог `$ORCH_MARK` отсутствует) state=hard НЕ пишется —
+        # иначе ложный успех блокирует retry навсегда (второй ctx
+        # выходит по state=hard до polling/попытки маркера). Неудача
+        # touch — именованный отказ rc 1 с сохранением возможности
+        # повтора; state=hard остаётся пустым/предыдущим.
+        if as_u touch "$MARK"; then
+          log "контекст: маркер перезапуска поставлен — цикл поднимет свежую сессию$([ "$live_killed" -eq 1 ] && echo ' (принудительно после ORCH_HARD_GRACE, имена в отчёте)')"
+          # Адверсарий 080-v3 I3: state=hard фиксируется ТОЛЬКО после
+          # успешной постановки маркера. Иначе временная неудача отчёта
+          # оставляла state=hard и блокировала повтор навсегда.
+          echo hard > "$st"
+        else
+          log "контекст: touch \"$MARK\" не удался — state не записан, будет retry"
+          exit 1
+        fi
+      else
+        log "контекст: отчёт НЕ записан ($REPORT недоступен для tmp+mv) — маркер НЕ поставлен (г3, инв. 8: маркер только при успешной записи отчёта)"
+      fi
+    elif [ "$ctx" -ge "$CTX_SOFT" ]; then
+      [ -e "$st" ] && exit 0
+      echo soft > "$st"; date +%s > "$STATE/ctx-$sess.warned"
+      say "ВЛАДЕЛЕЦ (автоматически, сторож контекста): контекст $((ctx / 1000))K ≥ $((CTX_SOFT / 1000))K. На ближайшей чистой точке (шаг закоммичен, main и wip-ветки на origin, HANDOFF «ГДЕ МЫ» обновлён и отправлен, в полёте ничего) — перезапусти сессию дверью перезапуска (scripts/orch_restart.sh, контракт 072). новых спавнов не начинай, дождись завершения текущих субагентов, затем перезапуск дверью. Done пары ждать НЕ нужно. При $((CTX_HARD / 1000))K перезапуск будет принудительным." \
+        && log "контекст: $sess $ctx ≥ $CTX_SOFT — предупреждение отправлено" || log "контекст: $sess $ctx ≥ $CTX_SOFT — панель не найдена"
+    fi ;;
+  start)
+    [ -n "$(loop_pids)" ] && { log "старт: цикл уже идёт — не трогаю"; exit 0; }
+    p="$(cat "$STATE/pane" 2>/dev/null)"
+    if [ -n "$p" ] && t display-message -p -t "$p" '#{pane_id}' >/dev/null 2>&1 \
+       && pstree -pu "$(t display-message -p -t "$p" '#{pane_pid}')" | grep -q ",$U)"; then
+      t send-keys -t "$p" -l "$LOOP_CMD" && t send-keys -t "$p" Enter
+      log "старт: цикл запущен в той же панели $p"
+    else
+      log "старт НЕ выполнен: панель оркестратора не найдена (была: ${p:-нет}) — запусти orch-loop вручную"
+    fi ;;
+  check)
+    left="$(unsaved)"; [ -z "$left" ] && echo "всё сохранено и отправлено" || printf '%s\n' "$left"
+    echo "панель оркестратора: $(find_pane || echo 'не найдена')" ;;
+  *) echo "использование: orch-peak warn|stop|start|check|ctx" >&2; exit 2 ;;
+esac

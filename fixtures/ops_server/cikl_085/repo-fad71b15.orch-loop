@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# orch-loop — минимальная обёртка хоста: перезапуск ведущей сессии по маркеру.
+# Правила (когда ставить маркер, пара, HANDOFF) — в роли orchestrator, проверки — в харнесе.
+#   маркер:        touch /tmp/dev-harness-verify/orch-restart  → через GRACE с новая сессия
+#   стоп:          omp вышел без маркера (/exit, падение) | ~/orch-loop.stop | маркер < MIN_LIFE с
+# Запуск:  tmux new -s orch orch-loop
+set -u
+REPO="${ORCH_REPO:-$HOME/dev-harness}"
+WORKSHOP="${ORCH_WORKSHOP:-./workshop}"
+MARK="${ORCH_MARK:-/tmp/dev-harness-verify/orch-restart}"
+STOP="${ORCH_STOP:-$HOME/orch-loop.stop}"
+GRACE="${ORCH_GRACE:-20}"
+MIN_LIFE="${ORCH_MIN_LIFE:-120}"
+LOG="${ORCH_LOG:-$HOME/orch-loop.log}"
+MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протокол роли и продолжай автономно по её разделу «Автоперезапуск orch-loop и два слота».'
+log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
+cd "$REPO" || { log "нет $REPO"; exit 2; }
+mkdir -p "$(dirname "$MARK")"
+loop_pid=$$; n="${ORCH_N:-0}"
+[ -e "$STOP" ] && { log "стоп-файл $STOP — выход"; rm -f "$STOP"; exit 0; }
+rm -f "$MARK"; n=$((n + 1)); start=$(date +%s)
+( while sleep 5; do
+    [ -e "$MARK" ] || continue
+    sleep "$GRACE"
+    pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
+    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
+    pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
+  done ) &
+watcher=$!
+log "сессия #$n: старт"
+"$WORKSHOP" --yolo -- "$MSG"; rc=$?
+kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+life=$(( $(date +%s) - start ))
+[ -e "$MARK" ] || { log "сессия #$n: завершилась без маркера (rc=$rc, ${life}с) — цикл остановлен"; exit "$rc"; }
+[ "$life" -ge "$MIN_LIFE" ] || { log "сессия #$n: маркер через ${life}с (< ${MIN_LIFE}с) — остановлен"; rm -f "$MARK"; exit 3; }
+log "сессия #$n: перезапуск по маркеру (${life}с)"
+sleep 3
+ORCH_N="$n" exec "$0"   # тот же pid, свежий текст скрипта
