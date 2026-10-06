@@ -175,6 +175,7 @@ incr_finish() {
   [ "$rc" -eq 0 ] || return 0
   local head
   head="$(git -C "$INCR_GIT_ROOT" rev-parse HEAD 2>/dev/null)" || return 0
+  mkdir -p -- "$(dirname -- "$INCR_CACHE")" 2>/dev/null || return 0
   local tmp
   tmp="$(mktemp "${INCR_CACHE}.tmp.XXXXXX" 2>/dev/null)" || return 0
   if printf '%s\n' "$head" > "$tmp" 2>/dev/null; then
