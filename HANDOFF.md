@@ -137,3 +137,10 @@ git merge --no-ff -m "land: wip/086/final" 5c92f3c          # ПРЯМОЙ merge
 PR-CI ссылки: #36 https://github.com/a3ka/dev-harness/pull/36, #39 .../pull/39,
 #40 .../pull/40, #41 .../pull/41. Вердикты круга 1 083 — `git show 13d7511:verdicts/reviewer/contracts-083.md`
 и `git show fd15892:verdicts/adversary/contracts-083.md` (полный текст, читай сам файл).
+<!-- BEGIN GENERATED NEXT SESSION -->
+## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
+
+- 082 · пара 1 · заморожен · трек CI
+- 083 · пара 1 · заморожен · трек CI
+- 084 · пара 2 · заморожен · трек plan-infra
+<!-- END GENERATED NEXT SESSION -->
