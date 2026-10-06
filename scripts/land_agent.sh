@@ -161,6 +161,22 @@ while IFS= read -r sha; do
   fi
 done < <(g rev-list "$range")
 
+# ГЕЙТ СВЕДЕНИЯ (контракт 086, И-2): после И-7..И-9, ДО merge в main. Гейт судит
+# (а) путь вне зоны, (б) sync-merge, (в) устав-путь без строки РАЗРЕШИЛ — на окне
+# main..tip. Отказ → rc 1, ref main и главный чекаут НЕ тронуты (имитация land
+# внутри гейта — worktree, не сам main), ветка и worktree живы; rc 2 гейта → rc 2
+# (NOT_IMPLEMENTED). И-1..И-10 016/022/065 прежние (после прохода гейта — merge
+# и перенос строк-санкций штатные).
+if ! GEJT_OUT="$(bash "$SELF_DIR/gejt_svedenija.sh" okno "$ROOT" "$main_head" "$tip_sha" "$branch_arg" land 2>&1)"; then
+  gejt_rc=$?
+  if [ "$gejt_rc" -eq 2 ]; then
+    printf '%s\n' "$GEJT_OUT" >&2
+    exit 2
+  fi
+  printf '%s\n' "$GEJT_OUT" >&2
+  exit 1
+fi
+
 # Замороженные теги (И-3): ДО merge фиксируем blob-имена всех frozen/* файлов, чтобы после
 # merge убедиться, что они НЕ изменились. Побайтовая сверка с блобом высшей заморозки — то же,
 # что в check_contract_frozen.
