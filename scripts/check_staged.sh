@@ -263,25 +263,31 @@ mapfile -d '' staged < "$staged_tmp"
 # (измерено 17:53: тоу-репо `_repo.sh`, rc 0 без суда).
 #
 # Источник строки-указателя — ЕДИНСТВЕННОЕ присваивание `HANDOFF_PTR=` в
-# `$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh` (контракт 088 §Frontier
-# п.6; ровно одно совпадение `^HANDOFF_PTR='…'$`, иначе _handoff_ptr остаётся
-# пустым и проверка HANDOFF.md НЕ исполняется). Env НЕ доверенный: тестовая
-# среда (_toy.sh) пишет СВОЮ копию этого файла внутрь toy-дерева с нужным
-# `HANDOFF_PTR='…'`, тогда как `PTR_088`/любой посторонний env игнорируется —
-# иначе любой коммитер подменил бы строку-указатель обходом k7 (адверсарий
-# r1 контракта 088; измерено на 8bc5e68). OTKAZ_088 из env — про ОТКАЗ-строку
-# (И-7), не строку-указатель; единый источник ОТКАЗ-строки — константа судьи
-# по умолчанию, env-перебивка оставлена для теста.
+# фикстуре `fixtures/ops_server/red_server_obvjazka_074.sh` (контракт 088
+# §Frontier п.6; ровно одно совпадение `^HANDOFF_PTR='…'$`, иначе
+# _handoff_ptr остаётся пустым и проверка HANDOFF.md НЕ исполняется).
+# Суд читает ЗАКОММИЧЕННЫЙ блоб `:fixtures/ops_server/red_server_obvjazka_074.sh`
+# (`git show :path` — staged-блоб, иначе HEAD-блоб), НЕ рабочее дерево
+# (контракт 088 §Модель угроз, ЗАЩИЩАЕТ «подмену проверки рабочим деревом;
+# судится то, что попадёт в коммит»). Env `PTR_088`/любой посторонний env
+# игнорируется — иначе коммитер подменил бы строку-указатель обходом k7
+# (адверсарий r1 контракта 088; измерено на 8bc5e68). Адверсарий круга 3
+# (Б-1): коммитер правит НЕзастейдженную рабочую копию 074 так, чтобы её
+# `HANDOFF_PTR` совпал с тем, что есть в staged-HANDOFF.md, — старый код
+# читал working tree и принимал такой коммит; новый читает блоб индекса/HEAD
+# и отвергает (PTR из блоба не совпадает со staged-HANDOFF.md).
 _handoff_ptr=""
-_handoff_src="$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh"
-if [ -f "$_handoff_src" ]; then
-  mapfile -t _ptr_lines < <(sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p" "$_handoff_src")
+# `:074` — staged-блоб при staged, иначе HEAD-блоб: это то, что попадёт
+# в коммит. Пустой/битый блоб → пустой результат, как и раньше.
+_fk7_blob="$(git -C "$ROOT" show ":fixtures/ops_server/red_server_obvjazka_074.sh" 2>/dev/null || true)"
+if [ -n "$_fk7_blob" ]; then
+  mapfile -t _ptr_lines < <(printf '%s\n' "$_fk7_blob" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
   if [ "${#_ptr_lines[@]}" -eq 1 ] && [ -n "${_ptr_lines[0]}" ]; then
     _handoff_ptr="${_ptr_lines[0]}"
   fi
   unset _ptr_lines
 fi
-unset _handoff_src
+unset _fk7_blob
 if [ -n "$_handoff_ptr" ]; then
   _handoff_staged=0
   for _s in "${staged[@]}"; do
@@ -292,15 +298,19 @@ if [ -n "$_handoff_ptr" ]; then
     # даёт именно пустой блоб, `git show :HANDOFF.md` пуст).
     _handoff_blob="$(git -C "$ROOT" show :HANDOFF.md 2>/dev/null || true)"
     if [ -z "$_handoff_blob" ]; then
-      printf '%s\n' "${OTKAZ_088:-ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)}" >&2
+      printf '%s\n' 'ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)' >&2
       exit 1
     fi
     # Граница секции — та же, что в клетке k7 (074): awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'.
-    # grep -Fxq требует самостоятельной строки (И-7).
+    # grep -Fxq требует самостоятельной строки (И-7). Текст отказа —
+    # ЖЁСТКАЯ КОНСТАНТА судьи, НЕ из окружения коммитёра (адверсарий круга 3
+    # Б-2: `OTKAZ_088=ATTACKER-CONTROLLED-REFUSAL` в env коммитёра подменял
+    # обязательную грамматику И-7; env-перебивка удалена, единый источник —
+    # константа в коде судьи).
     if ! printf '%s\n' "$_handoff_blob" \
          | awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f' \
          | grep -Fxq -- "$_handoff_ptr"; then
-      printf '%s\n' "${OTKAZ_088:-ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)}" >&2
+      printf '%s\n' 'ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)' >&2
       exit 1
     fi
   fi

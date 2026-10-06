@@ -121,6 +121,48 @@ if ! declare -F live_subagents_in >/dev/null 2>&1; then
 fi
 unset _orch_uh
 
+# ── Контракт 088, круг 3, D1: перебиваем current_session_dir ────────────────
+# lib_session.sh использует unquoted `$ORCH_SESS_GLOB` в `ls -t $ORCH_SESS_GLOB ... | head -1`,
+# что word-splits на пробелах в passwd-доме. И-4 запрещает править lib_session.sh
+# (источник ветки 600K orch-peak, который 088 не трогает). Дверь обходит
+# проблему СВОЕЙ реализацией: cd в HOME (извлечённый из глоба как префикс
+# до `/.local/state/dev-harness-sessions/`), затем ls -t с ОТНОСИТЕЛЬНЫМ
+# глобом — bash раскрывает `*` в cwd, где путь к корню уже без пробелов
+# (cwd — каталог, а не компонент пути), word-split на пробелах HOME
+# не происходит. Та же логика, что в lib_session.sh: «каталог самого
+# свежего session-уровня .jsonl по mtime; пусто (rc 0) при отсутствии».
+# Конформный вход D1 (passwd-дом с пробелом) — теперь обрабатывается
+# корректно; обычный путь без пробелов — работает как раньше.
+if declare -F current_session_dir >/dev/null 2>&1 \
+   && [ "$(type -t current_session_dir)" = function ]; then
+  current_session_dir() {
+    local glob_home glob_rest f newest=""
+    # Извлечь HOME из ORCH_SESS_GLOB: всё до /.local/state/dev-harness-sessions/.
+    glob_home="${ORCH_SESS_GLOB%%/.local/state/*}"
+    # Если шаблон не сменился (что-то пошло не так) — fallback на старую
+    # семантику (word-split может сломать, но не хуже чем у lib_session.sh).
+    if [ "$glob_home" = "$ORCH_SESS_GLOB" ]; then
+      f="$(ls -t $ORCH_SESS_GLOB 2>/dev/null | head -1)" || return 0
+    else
+      glob_rest="${ORCH_SESS_GLOB#"$glob_home"/}"
+      # pipefail обнуляет результат при SIGPIPE; глоб `ls -t` на 500+
+      # журналах (клетка D2) даёт SIGPIPE — `set +o pipefail` гасит только
+      # дочернюю оболочку, родительский set -uo pipefail двери сохраняется.
+      set +o pipefail
+      f="$(cd "$glob_home" && ls -t $glob_rest 2>/dev/null | head -1)" \
+        || { set -o pipefail 2>/dev/null || true; return 0; }
+      set -o pipefail 2>/dev/null || true
+    fi
+    [ -n "$f" ] || return 0
+    # Если f относительный (cd-вариант), склеить с glob_home для абсолютного пути.
+    case "$f" in
+      /*) ;;
+      *)  f="$glob_home/$f" ;;
+    esac
+    printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
+  }
+fi
+
 # ── Разбор аргументов двери (контракт 080, инв. 1) ────────────────────────
 # Приоритет: (а1) GIT_AUTHOR_NAME → (а2) GIT_COMMITTER_NAME → (а3) --as <имя>.
 # Грамматика `--as` (контракт 080, инв. 1, дословно): ровно один
