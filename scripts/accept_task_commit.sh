@@ -44,6 +44,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 usage() {
   cat >&2 <<USAGE
 использование: accept_task_commit.sh --source ПУТЬ --branch wip/NNN/автор --author имя [--root КАТАЛОГ]
@@ -161,6 +163,24 @@ while IFS= read -r sha; do
 done < <(git -C "$ROOT" rev-list --reverse "$BRANCH_ARG..$FETCH_HEAD_SHA" 2>/dev/null || true)
 if [ "${#RANGE_SHAS[@]}" -eq 0 ]; then
   printf 'ОТКАЗ: нечего принимать — диапазон %s..%s пуст\n' "$BRANCH_ARG" "$FETCH_HEAD_SHA" >&2
+  exit 1
+fi
+
+# ГЕЙТ СВЕДЕНИЯ (контракт 086, И-1): после вычисления диапазона, ДО сверки
+# identity и ДО cherry-pick. Гейт судит (а) путь вне зоны, (б) sync-merge,
+# (в) устав-путь без строки РАЗРЕШИЛ — на окне <tip ветки>..<FETCH_HEAD>.
+# Отказ → rc 1 (наследуется вызывающим), ветка не сдвинута, cherry-pick не
+# исполняется. rc 2 гейта → rc 2 (NOT_IMPLEMENTED). Поведение 037/068
+# (identity, отказ на merge в диапазоне, cherry-pick, строка ACCEPTED) прежнее.
+if ! GEJT_OUT="$(bash "$SELF_DIR/gejt_svedenija.sh" okno "$ROOT" "$TIP_BEFORE" "$FETCH_HEAD_SHA" "$BRANCH_ARG" accept 2>&1)"; then
+  gejt_rc=$?
+  if [ "$gejt_rc" -eq 2 ]; then
+    printf '%s\n' "$GEJT_OUT" >&2
+    exit 2
+  fi
+  # rc 1: гейт уже напечатал FAIL-строки и ОТКАЗ-строку. Передаём наружу как
+  # именованный отказ — приёмка остановлена, ветка не сдвинута.
+  printf '%s\n' "$GEJT_OUT" >&2
   exit 1
 fi
 
