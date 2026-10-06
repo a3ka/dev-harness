@@ -4,7 +4,7 @@
 # из passwd). Субъект — scripts/orch_restart.sh + scripts/lib_session.sh судимого корня,
 # копией в тоу-корень (дверь не трогает основной чекаут; маркер и след — швы в скратче).
 #
-# Использование: bash red_dver_088.sh <корень> [L1 D0 D1 D2 D3 D4] [--dver <файл>]
+# Использование: bash red_dver_088.sh <корень> [L1 D0 D1 D2 D3 D4 D5] [--dver <файл>]
 #   --dver <файл> — подменить дверь тоу-корня (стаб-пак/диффпроба); L1 судит только субъект.
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
@@ -26,6 +26,9 @@
 #   D3 как D1, но USER/LOGNAME подменены на чужое имя → тот же отказ (имя — `id -un`).
 #   D4 шов ORCH_SESS_GLOB задан (каталог шва со свежим SeamAgent), под домом из passwd
 #      сессий нет → «ОТКАЗ: живые субагенты: SeamAgent» (швы 080 прежние).
+#   D5 как D1, но единственный свежий журнал — basename с ведущей точкой `.Skrytyj.jsonl`
+#      (конформное имя по §Демаркации) → «ОТКАЗ: живые субагенты: .Skrytyj». Дверь,
+#      отбрасывающая имена `.*`, проходит ногу (1) до (а) (adversary 088).
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39: по коду, не прозой).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -132,6 +135,13 @@ if nado D4; then
   sessija "$shov" SeamAgent -- Staryj
   dver_mir "$SCR/d4" "$DVER"
   dver "$SCR/d4" "$ZONE_HOME" ORCH_SESS_GLOB="$shov/*.jsonl"; ozhidaj_a D4 $? zhivye 'SeamAgent'
+fi
+
+if nado D5; then
+  export TOY_UH="$SCR/d5_uh"
+  kat "$TOY_UH"; sessija "$k" .Skrytyj -- Staryj
+  dver_mir "$SCR/d5" "$DVER"
+  dver "$SCR/d5" "$ZONE_HOME"; ozhidaj_a D5 $? zhivye '.Skrytyj'
 fi
 
 itog_semji red_dver_088.sh

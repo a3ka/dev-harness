@@ -263,25 +263,25 @@ mapfile -d '' staged < "$staged_tmp"
 # (измерено 17:53: тоу-репо `_repo.sh`, rc 0 без суда).
 #
 # Источник строки-указателя — ЕДИНСТВЕННОЕ присваивание `HANDOFF_PTR=` в
-# `fixtures/ops_server/red_server_obvjazka_074.sh` (контракт 088 §Frontier п.6;
-# ровно одно совпадение `^HANDOFF_PTR='…'$`, иначе rc 2 «нечем проверить»).
-# Тот же файл служит оракулом и в `fixtures/strazh_088/_toy.sh` — единый
-# источник строки в тестовом слое, расхождение с k7 краснит B0/B1 (так
-# задумано: правка HANDOFF_PTR в 074 — зона architect). Тестовая среда
-# экспортирует `PTR_088` (`_toy.sh:35-37`) в env скрипта через хук — это
-# тот же путь, что и `OTKAZ_088` (строка отказа И-7): единый источник.
-_handoff_ptr="${PTR_088:-}"
-if [ -z "$_handoff_ptr" ]; then
-  _handoff_src="$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh"
-  if [ -f "$_handoff_src" ]; then
-    mapfile -t _ptr_lines < <(sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p" "$_handoff_src")
-    if [ "${#_ptr_lines[@]}" -eq 1 ] && [ -n "${_ptr_lines[0]}" ]; then
-      _handoff_ptr="${_ptr_lines[0]}"
-    fi
-    unset _ptr_lines
+# `$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh` (контракт 088 §Frontier
+# п.6; ровно одно совпадение `^HANDOFF_PTR='…'$`, иначе _handoff_ptr остаётся
+# пустым и проверка HANDOFF.md НЕ исполняется). Env НЕ доверенный: тестовая
+# среда (_toy.sh) пишет СВОЮ копию этого файла внутрь toy-дерева с нужным
+# `HANDOFF_PTR='…'`, тогда как `PTR_088`/любой посторонний env игнорируется —
+# иначе любой коммитер подменил бы строку-указатель обходом k7 (адверсарий
+# r1 контракта 088; измерено на 8bc5e68). OTKAZ_088 из env — про ОТКАЗ-строку
+# (И-7), не строку-указатель; единый источник ОТКАЗ-строки — константа судьи
+# по умолчанию, env-перебивка оставлена для теста.
+_handoff_ptr=""
+_handoff_src="$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh"
+if [ -f "$_handoff_src" ]; then
+  mapfile -t _ptr_lines < <(sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p" "$_handoff_src")
+  if [ "${#_ptr_lines[@]}" -eq 1 ] && [ -n "${_ptr_lines[0]}" ]; then
+    _handoff_ptr="${_ptr_lines[0]}"
   fi
-  unset _handoff_src
+  unset _ptr_lines
 fi
+unset _handoff_src
 if [ -n "$_handoff_ptr" ]; then
   _handoff_staged=0
   for _s in "${staged[@]}"; do

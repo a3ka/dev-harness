@@ -7,11 +7,11 @@
 # в заморозках оркестратора. Коммит — ЖИВЫМ способом: `-c user.name=orchestrator`,
 # пустой file-config, хук из core.hooksPath.
 #
-# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B13] [--sudja <файл>]
+# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B14] [--sudja <файл>]
 #   --sudja <файл> — подменить scripts/check_staged.sh тоу-репо (стаб-пак/диффпроба).
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
-# Клетки (вход → ожидание; ДО 088 красны B1 B2 B3 B4 B6 B7 B11):
+# Клетки (вход → ожидание; ДО 088 красны B1 B2 B3 B4 B6 B7 B11 B14):
 #   B0  первая секция несёт строку                          → коммит
 #   B1  строки нет нигде                                     → отказ
 #   B2  строка укорочена (без хвоста «(инвентарь…)»)         → отказ (измеренный отказ 06.10)
@@ -24,6 +24,8 @@
 #   B9  HANDOFF.md не staged (в HEAD без строки), staged README → коммит
 #   B11 staged удаление HANDOFF.md                             → отказ
 #   B13 staged docs/HANDOFF.md без строки (не корневой)        → коммит
+#   B14 первая секция несёт только строку ATAKA_088, env      → отказ (k7 — из файла
+#       коммита PTR_088=ATAKA_088 (обход 8bc5e68, adversary 088)   дерева, env не источник)
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -95,6 +97,12 @@ if nado B13; then
   mir B13
   mkdir -p "$r/docs"; handoff_v "$r/docs/HANDOFF.md" net; gx "$r" add -- docs/HANDOFF.md || exit 2
   ozhidaj_b B13 "$r" prinjat
+fi
+
+if nado B14; then
+  mir B14
+  handoff_v "$r/HANDOFF.md" chuzhaja; gx "$r" add -- HANDOFF.md || exit 2
+  ozhidaj_b B14 "$r" otkaz PTR_088="$ATAKA_088"
 fi
 
 itog_semji red_ukazatel_088.sh
