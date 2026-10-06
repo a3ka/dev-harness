@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Семья 088, часть Б: pre-commit (.githooks/pre-commit → scripts/check_staged.sh) судит
+# staged HANDOFF.md грамматикой клетки k7 (074): первая секция — от первой строки,
+# начинающейся «## ГДЕ МЫ», до следующей строки `^## ` (подразделы `### ` внутри),
+# строка-указатель — самостоятельной строкой (`grep -Fx`), побайтово PTR_088.
+# Судится ИНДЕКС (то, что попадёт в коммит), для любого автора, включая необъявленного
+# в заморозках оркестратора. Коммит — ЖИВЫМ способом: `-c user.name=orchestrator`,
+# пустой file-config, хук из core.hooksPath.
+#
+# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B13] [--sudja <файл>]
+#   --sudja <файл> — подменить scripts/check_staged.sh тоу-репо (стаб-пак/диффпроба).
+# Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
+#
+# Клетки (вход → ожидание; ДО 088 красны B1 B2 B3 B4 B6 B7 B11):
+#   B0  первая секция несёт строку                          → коммит
+#   B1  строки нет нигде                                     → отказ
+#   B2  строка укорочена (без хвоста «(инвентарь…)»)         → отказ (измеренный отказ 06.10)
+#   B3  строка с посторонним хвостом                          → отказ (Fx, не подстрока)
+#   B4  строка только во ВТОРОЙ секции «## ГДЕ МЫ»            → отказ
+#   B5  строка в подразделе `###` первой секции               → коммит
+#   B6  строка после конца первой секции (в «## Итог»)        → отказ
+#   B7  индекс без строки, рабочее дерево — со строкой        → отказ (судится индекс)
+#   B8  индекс со строкой, рабочее дерево — без               → коммит
+#   B9  HANDOFF.md не staged (в HEAD без строки), staged README → коммит
+#   B11 staged удаление HANDOFF.md                             → отказ
+#   B13 staged docs/HANDOFF.md без строки (не корневой)        → коммит
+# Привязка стабов к клеткам — red_stuby_088.sh (Н-39).
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${1:-$HERE/../..}" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
+shift || true
+SUDJA=""
+kletki=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --sudja) SUDJA="${2:-}"; [ -f "$SUDJA" ] || { printf 'NOT_IMPLEMENTED: нет судьи-подмены %s\n' "$SUDJA" >&2; exit 2; }; shift 2 ;;
+    *) kletki+=("$1"); shift ;;
+  esac
+done
+for subj in scripts/check_staged.sh .githooks/pre-commit; do
+  [ -f "$ROOT/$subj" ] || { printf 'NOT_IMPLEMENTED: нет %s\n' "$ROOT/$subj" >&2; exit 2; }
+done
+# shellcheck disable=SC1091
+. "$HERE/_toy.sh" "${kletki[@]}"
+
+mir() {  # <клетка> → r=путь тоу-репо (без подоболочки: отказ построения — rc 2 файла)
+  ukazatel_mir "$SCR/$1" "$SUDJA"
+  r="$SCR/$1"
+}
+
+klet_handoff() {  # <клетка> <вариант индекса> <ожидание>
+  mir "$1"
+  handoff_v "$r/HANDOFF.md" "$2"
+  gx "$r" add -- HANDOFF.md || exit 2
+  ozhidaj_b "$1" "$r" "$3"
+}
+
+nado B0 && klet_handoff B0 pervaja prinjat
+nado B1 && klet_handoff B1 net otkaz
+nado B2 && klet_handoff B2 ukorochena otkaz
+nado B3 && klet_handoff B3 hvost otkaz
+nado B4 && klet_handoff B4 vtoraja otkaz
+nado B5 && klet_handoff B5 podrazdel prinjat
+nado B6 && klet_handoff B6 posle otkaz
+
+if nado B7; then
+  mir B7
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  handoff_v "$r/HANDOFF.md" pervaja            # рабочее дерево исправлено, индекс — нет
+  ozhidaj_b B7 "$r" otkaz
+fi
+
+if nado B8; then
+  mir B8
+  handoff_v "$r/HANDOFF.md" podrazdel; gx "$r" add -- HANDOFF.md || exit 2
+  handoff_v "$r/HANDOFF.md" net                # индекс конформен, рабочее дерево — нет
+  ozhidaj_b B8 "$r" prinjat
+fi
+
+if nado B9; then
+  mir B9
+  handoff_v "$r/HANDOFF.md" net
+  gx "$r" add -- HANDOFF.md && gx "$r" commit -q -m 'HEAD без указателя (построение мира)' || exit 2
+  printf 'правка\n' >> "$r/README.md"; gx "$r" add -- README.md || exit 2
+  ozhidaj_b B9 "$r" prinjat
+fi
+
+if nado B11; then
+  mir B11
+  gx "$r" rm -q -- HANDOFF.md || exit 2
+  ozhidaj_b B11 "$r" otkaz
+fi
+
+if nado B13; then
+  mir B13
+  mkdir -p "$r/docs"; handoff_v "$r/docs/HANDOFF.md" net; gx "$r" add -- docs/HANDOFF.md || exit 2
+  ozhidaj_b B13 "$r" prinjat
+fi
+
+itog_semji red_ukazatel_088.sh
