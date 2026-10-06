@@ -146,22 +146,23 @@ sync_violation() {
       *' '*) ;;  # merge — есть пробел
       *) continue ;;  # не-merge
     esac
-    p1="${parents%% *}"
-    p2="${parents#* }"
-    if g merge-base --is-ancestor "$p1" main 2>/dev/null \
-       || g merge-base --is-ancestor "$p1" origin/main 2>/dev/null; then
-      if ! g merge-base --is-ancestor "$p1" "$p2" 2>/dev/null; then
-        printf 'ОТКАЗ 086 (%s): %s; sha %s; %s\n' "$POINT_ARG" "$LABEL_B" "$m" "$VYHOD_B" >&2
-        return 0
-      fi
-    fi
-    if g merge-base --is-ancestor "$p2" main 2>/dev/null \
-       || g merge-base --is-ancestor "$p2" origin/main 2>/dev/null; then
-      if ! g merge-base --is-ancestor "$p2" "$p1" 2>/dev/null; then
-        printf 'ОТКАЗ 086 (%s): %s; sha %s; %s\n' "$POINT_ARG" "$LABEL_B" "$m" "$VYHOD_B" >&2
-        return 0
-      fi
-    fi
+    # Frontier 4 (контракт 086): без порядка и числа родителей. Каждая пара (P, Q)
+    # различных родителей проверяется независимо — октопус с main третьим/четвёртым
+    # родителем ловится ТОЙ ЖЕ логикой, что обычный merge (L2/L2b), а внутреннее
+    # слияние двух линий ветки (L6) — не sync, потому что ни один родитель не из main.
+    set -- $parents
+    for p1 in "$@"; do
+      for p2 in "$@"; do
+        [ "$p1" = "$p2" ] && continue
+        if g merge-base --is-ancestor "$p1" main 2>/dev/null \
+           || g merge-base --is-ancestor "$p1" origin/main 2>/dev/null; then
+          if ! g merge-base --is-ancestor "$p1" "$p2" 2>/dev/null; then
+            printf 'ОТКАЗ 086 (%s): %s; sha %s; %s\n' "$POINT_ARG" "$LABEL_B" "$m" "$VYHOD_B" >&2
+            return 0
+          fi
+        fi
+      done
+    done
   done
   return 1
 }
@@ -304,7 +305,7 @@ for c in $(comm -12 <(printf '%s\n' "$A_COMMITS") <(printf '%s\n' "$NNN_COMMITS"
       printf '  FAIL коммит вне зоны: %s %s %s\n' "$an" "${c:0:8}" "$p" >&2
       A_FAILS=$((A_FAILS + 1))
     fi
-  done < <(g diff-tree -r --no-commit-id --name-status --no-renames "$c" 2>/dev/null | awk '$1 == "A" || $1 == "M" { print $2 }')
+  done < <(g diff-tree -r --no-commit-id --name-status --no-renames "$c" 2>/dev/null | awk '{ print $2 }')
 done
 
 if [ "$A_FAILS" -gt 0 ]; then

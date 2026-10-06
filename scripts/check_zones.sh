@@ -258,7 +258,36 @@ NEXT_ID_LIB=1
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_zones.sh"
 
-ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
+# Аргументы: <корень> [--okno <база>] (контракт 086 §Инвариант 5 / Frontier 2).
+# Без --okno поведение ПОБАЙТОВО прежнее. --okno <база>: судимое множество =
+# прежнее ∩ rev-list <база>..HEAD; база вне ^[0-9a-f]{40}$ — rc 1 «база окна
+# вне грамматики sha»; коммитов нет — rc 2; маркер «окно 086: <база>..HEAD (N)».
+CHECK_OKNO_BASE=""
+ROOT_ARG=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --okno)
+      shift
+      [ "$#" -gt 0 ] || { printf 'check_zones.sh: --okno требует аргумент <база>\n' >&2; exit 2; }
+      CHECK_OKNO_BASE="$1"
+      shift
+      ;;
+    --okno=*)
+      CHECK_OKNO_BASE="${1#--okno=}"
+      shift
+      ;;
+    *)
+      if [ -z "$ROOT_ARG" ]; then
+        ROOT_ARG="$1"
+      else
+        printf 'check_zones.sh: лишний позиционный аргумент: %s\n' "$1" >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+ROOT="$(cd "${ROOT_ARG:-"$SELF_DIR/.."}" && pwd)"
 # LIB_ZONES_ROOT — канонический корень, от которого __lib_zones_cleanup вычисляет
 # путь маркера (см. __lib_zones_paths в lib_zones.sh; скратч и маркер лежат ВНЕ корня
 # — канон 014). Задаётся сразу после вычисления ROOT — до первого вызова zones_load.
@@ -321,6 +350,23 @@ git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репо�
 git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
 
 g() { git -C "$ROOT" "$@"; }
+
+# Валидация --okno <база>: грамматика sha, объект-коммит, непустое окно (И-5).
+if [ -n "$CHECK_OKNO_BASE" ]; then
+  if ! printf '%s\n' "$CHECK_OKNO_BASE" | grep -Eqx '[0-9a-f]{40}'; then
+    printf 'ОТКАЗ 086 (zones): база окна вне грамматики sha: %s\n' "$CHECK_OKNO_BASE" >&2
+    exit 1
+  fi
+  git -C "$ROOT" cat-file -e "$CHECK_OKNO_BASE^{commit}" 2>/dev/null \
+    || { printf 'NOT_IMPLEMENTED: база окна не объект-коммит: %s\n' "$CHECK_OKNO_BASE" >&2; exit 2; }
+  __chk_okno_n=$(git -C "$ROOT" rev-list --count "$CHECK_OKNO_BASE..HEAD" 2>/dev/null) || {
+    printf 'NOT_IMPLEMENTED: rev-list --count отказал\n' >&2; exit 2; }
+  if [ "${__chk_okno_n:-0}" -eq 0 ]; then
+    printf 'NOT_IMPLEMENTED: окно 086 пусто (%s..HEAD)\n' "$CHECK_OKNO_BASE" >&2
+    exit 2
+  fi
+  printf 'окно 086: %s..HEAD (%s коммит.)\n' "$CHECK_OKNO_BASE" "$__chk_okno_n" >&2
+fi
 
 # Чтение зон через ЕДИНСТВЕННУЮ реализацию lib_zones.sh (контракт 016, срез 1).
 # registry_state уже проверен внутри zones_load; здесь его повторять не нужно.
@@ -538,6 +584,10 @@ while IFS=$'\t' read -r nnn since; do
   # Линейный rev-list (как раньше) — для контрактов с ЗАКРЫТЫМИ окнами и
   # без чужих wip/<OTHER>/… merge'ей даёт ту же сводку (регресс-инвариант
   # ветви Г; для 017/019 merge'и без `land:` маркера тоже остаются).
+  if [ -n "$CHECK_OKNO_BASE" ]; then
+    g rev-list --no-merges --first-parent "$CHECK_OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null \
+      || { printf 'NOT_IMPLEMENTED: rev-list --okno отказал\n' >&2; exit 1; }
+  fi
   if ! g rev-list --no-merges --reverse "$range" > "$TMP/commits" 2>/dev/null; then
     printf 'ОТКАЗ: git rev-list --no-merges --reverse отказал (контракт %s, диапазон %s) — список судимых коммитов окна недоступен.\n' "$nnn" "$range" >&2
     printf 'Лечится: диагностируйте git-окружение (PATH, версия git, доступность объектной базы) и повторите прогон.\n' >&2
@@ -566,6 +616,11 @@ while IFS=$'\t' read -r nnn since; do
     sort -u "$TMP/commits" -o "$TMP/commits_sorted"
     comm -23 "$TMP/commits_sorted" "$TMP/exclude" > "$TMP/judged"
     mv "$TMP/judged" "$TMP/commits"
+  fi
+  if [ -n "$CHECK_OKNO_BASE" ]; then
+    sort -u "$TMP/commits" -o "$TMP/commits.s"
+    sort -u "$TMP/commits_okno" -o "$TMP/commits_okno.s"
+    comm -12 "$TMP/commits.s" "$TMP/commits_okno.s" > "$TMP/commits"
   fi
 
   # ── A2 BATCHING (контракт 040, §Инварианты п.1) ───────────────────────────────

@@ -274,7 +274,36 @@ if [ "${CHARTER_LIB:-}" = "1" ]; then
   return 0 2>/dev/null || exit 0
 fi
 
-ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
+# Аргументы: <корень> [--okno <база>] (контракт 086 §Инвариант 5 / Frontier 2).
+# Без --okno поведение ПОБАЙТОВО прежнее. --okno <база>: судимое множество =
+# прежнее ∩ rev-list <база>..HEAD; база вне ^[0-9a-f]{40}$ — rc 1 «база окна
+# вне грамматики sha»; коммитов нет — rc 2; маркер «окно 086: <база>..HEAD (N)».
+CHECK_OKNO_BASE=""
+ROOT_ARG=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --okno)
+      shift
+      [ "$#" -gt 0 ] || { printf 'check_charter.sh: --okno требует аргумент <база>\n' >&2; exit 2; }
+      CHECK_OKNO_BASE="$1"
+      shift
+      ;;
+    --okno=*)
+      CHECK_OKNO_BASE="${1#--okno=}"
+      shift
+      ;;
+    *)
+      if [ -z "$ROOT_ARG" ]; then
+        ROOT_ARG="$1"
+      else
+        printf 'check_charter.sh: лишний позиционный аргумент: %s\n' "$1" >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+ROOT="$(cd "${ROOT_ARG:-"$SELF_DIR/.."}" && pwd)"
 
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
@@ -286,6 +315,23 @@ git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || skip "$ROOT не репо�
 git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет ни одного коммита"
 
 g() { git -C "$ROOT" "$@"; }
+
+# Валидация --okno <база>: грамматика sha, объект-коммит, непустое окно (И-5).
+if [ -n "$CHECK_OKNO_BASE" ]; then
+  if ! printf '%s\n' "$CHECK_OKNO_BASE" | grep -Eqx '[0-9a-f]{40}'; then
+    printf 'ОТКАЗ 086 (charter): база окна вне грамматики sha: %s\n' "$CHECK_OKNO_BASE" >&2
+    exit 1
+  fi
+  git -C "$ROOT" cat-file -e "$CHECK_OKNO_BASE^{commit}" 2>/dev/null \
+    || { printf 'NOT_IMPLEMENTED: база окна не объект-коммит: %s\n' "$CHECK_OKNO_BASE" >&2; exit 2; }
+  __chk_okno_n=$(git -C "$ROOT" rev-list --count "$CHECK_OKNO_BASE..HEAD" 2>/dev/null) || {
+    printf 'NOT_IMPLEMENTED: rev-list --count отказал\n' >&2; exit 2; }
+  if [ "${__chk_okno_n:-0}" -eq 0 ]; then
+    printf 'NOT_IMPLEMENTED: окно 086 пусто (%s..HEAD)\n' "$CHECK_OKNO_BASE" >&2
+    exit 2
+  fi
+  printf 'окно 086: %s..HEAD (%s коммит.)\n' "$CHECK_OKNO_BASE" "$__chk_okno_n" >&2
+fi
 
 # Устав не введён — «нечем проверить», а не «проверено». Это ЕДИНСТВЕННАЯ законная двойка барьера:
 # до акта введения у него нет точки, с которой считать историю.
@@ -345,6 +391,13 @@ while IFS=$'\t' read -r f since; do
   # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
   # `diff-tree <c>`).
   g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  if [ -n "$CHECK_OKNO_BASE" ]; then
+    git -C "$ROOT" rev-list "$CHECK_OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null \
+      || { printf 'NOT_IMPLEMENTED: rev-list --okno отказал\n' >&2; exit 2; }
+    sort -u "$TMP/commits" -o "$TMP/commits.s"
+    sort -u "$TMP/commits_okno" -o "$TMP/commits_okno.s"
+    comm -12 "$TMP/commits.s" "$TMP/commits_okno.s" > "$TMP/commits"
+  fi
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
