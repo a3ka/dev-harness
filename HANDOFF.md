@@ -1,59 +1,18 @@
-## ГДЕ МЫ (2026-10-06, ~13:40 UTC — автоперезапуск по контексту ≥535K. ЕДИНЫЙ КОРЕНЬ
-блокирует АБСОЛЮТНО ВСЁ: push origin main отказан gitw preflight'ом из-за ДВУХ СТАРЫХ
-открытых PR (#31 wip/083/architect, #30 wip/083/integration) без зелёного CI — это
-предшествует всей сегодняшней работе. Контракты 083 (готов, ждёт только это), 086, 087
-(оба спроектированы с красными батареями, НЕ закоммичены — ждут того же push) — всё
-упирается в ОДНО действие.)
+## ГДЕ МЫ (2026-10-06, ~14:00 UTC — автоперезапуск по контексту >600K. 083 v3 ЗАМОРОЖЕН
+(frozen/contracts/083/3). Push-процедура ИДЁТ по словам владельца ниже, застряла на
+check:ids FAIL — именная коллизия в verdicts/consultant/, НЕ воля владельца, чинить
+сразу. НЕ push'ить, пока все перечисленные проверки не зелёные.)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
 
-### ЕДИНСТВЕННЫЙ БЛОКЕР — требует разбора (не владельца, инженерный)
+### Слово владельца 2026-10-06 ~13:45 UTC (передано консультантом) — ДОСЛОВНО, порядок в силе
 
-`bash scripts/gitw push origin main` отказывает: «land без зелёного PR-CI: wip/083/architect».
-Живой `gh pr list --repo a3ka/dev-harness --state open` → PR#31 (wip/083/architect, с
-прошлой сессии) и PR#30 (wip/083/integration) ОБА открыты, оба предшествуют сегодняшней
-работе. gitw's preflight (071) видит эти ветки/PR и требует их зелёный CI ПЕРЕД любым push
-main — даже для коммитов, не имеющих отношения к их содержимому.
+ФАКТ (сверено консультантом): закрытие PR#30/#31 НЕ снимет отказ — gitw_preflight_071.sh:350-373
+для каждого `land:`-коммита в диапазоне ищет успешный pull_request-прогон по head_sha
+второго родителя ленда. Ленды 9bfbfd6 (p=ffc67552, run 37361468235 failure) и b984399
+(p=d69a3bc2, run 37367941521 failure) красные НАВСЕГДА по истории. PR НЕ закрывать.
 
-Из-за этого ВСЁ упёрлось в одну точку:
-1. 083 v3 (zone-expansion, все 3 круга критика accept, verdicts/critic/contracts-083-v6.md)
-   не может заморозиться: freeze_contract.sh упёрся в КАП КРУГОВ (6 кругов всего по NNN 083)
-   — нужна строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ (готова, см. ниже) ИЛИ сначала решить push-блокер и
-   посмотреть, снимет ли это необходимость (вряд ли — кап кругов не завязан на push).
-2. 086 и 087 (оба контракта спроектированы architect, красные батареи готовы и проверены
-   живыми прогонами и честными моделями реализации) НЕ могут закоммититься штатно:
-   `next_id.sh` минтит тег ЛОКАЛЬНО; draft-push дверь (023) требует DUAL-CONTROL — тег
-   жив на origin (это я запушил, id/CONTRACT/086 и id/CONTRACT/087 оба на origin) И
-   строка `NNN → sha` в `registry/contracts.tsv` НА origin/main (НЕ запушено — заблокировано
-   тем же push-блокером). Содержимое 086/087 СОХРАНЕНО незакоммиченным в рабочем дереве
-   main (untracked: contracts/086-*.md, contracts/087-*.md, fixtures/gejty_svedenija_086/,
-   fixtures/ci_b_087/, fixtures/_krasnye_086.sh, fixtures/_krasnye_087.sh,
-   fixtures/parsing_hygiene_battery/profiles/{gejt_svedenija,ci_klass}.sh; модифицирован
-   NABLIUDENIA_ARCHITECT.md А-360..А-362) — НЕ ПОТЕРЯНО, просто не закоммичено.
-3. 084/085 implementer dispatch — та же dual-control стена (как 086/087).
-
-### Следующий шаг (инженерный, не ждёт владельца — пробуй сразу)
-
-1. Разобраться с PR#31/#30: живым `gh pr checks 31 --repo a3ka/dev-harness` и
-   `gh pr checks 30 --repo a3ka/dev-harness` посмотреть ТОЧНУЮ причину красного/pending CI.
-   Если это тот же класс проблем, что 083 (check:zones/check:charter) — они уже ПОЧИНЕНЫ
-   в main (grandfather 2c01b1e, zone-expansion); возможно, PR-ветки просто устарели и их
-   нужно либо закрыть (контент уже в main другим путём) либо обновить (merge main в них —
-   НЕТ, это ЗАПРЕЩЕНО самим этим контрактом 086! См. ниже) либо пересоздать с нуля с
-   текущего main.
-2. ОСТОРОЖНО: не делай sync-merge main→в открытые wip-ветки — это ИМЕННО тот антипаттерн,
-   который контракт 086 «гейты сведения» призван поймать (Н-213). Безопасный путь закрыть
-   стейл-PR: закрыть их на GitHub (контент этих веток уже переигран вручную в main этой и
-   прошлыми сессиями — 083 v3 готов другим путём), затем push origin main пройдёт.
-3. После push main: freeze 083 (строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ для капа кругов — см. форк ниже,
-   witness-подпись консультанта уже стоит, нужно только слово владельца в ПРИЧИНЕ freeze)
-   → commit 086/087 (dual-control тогда пройдёт) → критик по каждому → freeze → implementer.
-
-### Форк, ждущий слова владельца (батч, НЕ блокирует инженерный разбор выше)
-
-`forks/083-kap-krugov-freeze-6-verdiktov.md` (КЛАСС воля-владельца, witness-подпись
-консультанта УЖЕ стоит — verdicts/consultant/083-kap-krugov-freeze-6-verdiktov-klass-v1.md).
-Готовая строка для ПРИЧИНЫ freeze:
+**СТРОКА 1** (уже ИСПОЛЬЗОВАНА — freeze 083/3 сделан этой строкой, см. ниже):
 
     РАЗРЕШИЛ-ВЛАДЕЛЕЦ: contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md — заморозка
     v3 поверх 6 кругов критика (v1/v2/v3 исторические; v4/v5/v6 — три узких круга
@@ -61,40 +20,104 @@ main — даже для коммитов, не имеющих отношени�
     не спор; critic accept в v6, verdicts/critic/contracts-083-v6.md); арбитр не нужен;
     слово владельца 2026-10-06.
 
-### Три контракта готовы, ждут только push-блокера
+**СТРОКА 2** (ЕЩЁ НЕ использована — дословно первой колонкой тела ОРКЕСТРАТОРСКОГО
+коммита НЕПОСРЕДСТВЕННО ПЕРЕД push, транскрипт проверок — в тело того же коммита):
 
-- **083** (CI-А zone-expansion): текст готов, 3 узких круга критика (v4 FAIL→v5 FAIL→v6
-  accept), ждёт freeze (кап кругов, строка выше).
-- **086** («гейты сведения», Н-211/Н-213): контракт + 8 фикстур + честная симуляция
-  реализации (A3-18, два латентных дефекта дизайна пойманы ДО критика) — architect
-  (ClearParrot) готов, НЕ закоммичен (dual-control), содержимое в рабочем дереве.
-- **087** (CI-Б классификатор лёгкий/тяжёлый): контракт + батарея 98 клеток + честная
-  модель 22/22 стабов — architect (IntellectualEarwig) готов, НЕ закоммичен (dual-control),
-  содержимое в рабочем дереве. Несёт design-вопрос К ВЛАДЕЛЬЦУ (не блокирует контракт):
-  граница «код vs учётное» для contracts/plans/AGENTS.md/forks/.review/ROADMAP.md шире
-  первоначального предложения владельца — см. полный вывод agent://IntellectualEarwig
-  (транскрипт) при следующей сессии, пункт design_choices_needing_attention.
+    РАЗРЕШИЛ-ВЛАДЕЛЕЦ: разовый push origin main мимо проверки «land без зелёного PR-CI»
+    предполёта gitw (071) для ленд-коммитов wip/083/architect 9bfbfd6 и b984399 (PR-CI их
+    вершин ffc6755/d69a3bc красный: самотест 071 и «Зоны исполнителей»; причина зон
+    устранена 083 v3 и grandfather 2c01b1e); до push зелёные: четыре npm-проверки
+    предполёта, check_zones, check_charter; детектор до и после; main CI после push
+    сверяется по --json по каждому job; слово владельца 2026-10-06.
 
-### Инфраструктурные находки этой сессии (NABLIUDENIA.md Н-212, не блокируют)
+**ПОРЯДОК (строго):**
+1. freeze 083/3 (строка 1) → в ОДНОРАЗОВОМ КЛОНЕ локального main: `npm run check:nabludenia
+   && npm run check:ci-parity && npm run check:ceilings && npm run check:ids` (четыре
+   ключа предполёта), `bash scripts/check_zones.sh`, `bash scripts/check_charter.sh .` —
+   ВСЕ rc 0. Любой rc≠0 → СТОП, push НЕ делать, доклад.
+2. Коммит со строкой 2 и транскриптом → `bash scripts/check_no_leak.sh --check <корень>`
+   → разовый `git push origin main` (ТОЛЬКО main, ТОЛЬКО этот раз; теги
+   frozen/084,frozen/085,frozen/083/3 — тем же разом или следом через gitw) → детектор
+   после → `gh run view <id> --json jobs` по каждому job main.
+3. Если main CI красный на самотесте 071 — первая починка, раньше всего. Иначе — коммит
+   086/087 (dual-control пройдёт) → критик → freeze → implementer; параллельно 083 к
+   ленду (впредь ленд ТОЛЬКО после зелёного PR-CI вершины ветки — ночной раздел роли).
+4. Н-запись: ленды 9bfbfd6/b984399 без зелёного PR-CI (рецидив Н-185) → 66 коммитов не
+   пушились ~5 ч.
+Все остальные push — только через gitw, как прежде.
 
-- Top-level сессия непиннована по path-guard.ts — обход: git-подкоманды +
-  `python3 - <<EOF` (stdin, без `-c`).
-- check_charter.sh на устав-путях — полный скан ~10 минут, не 300с.
-- `git merge --no-ff` на устав-путь сам попадает под check_charter (нужна своя
-  РАЗРЕШИЛ-строка в теле merge) — используй rebase+ff-merge для одно-коммитных side-веток.
-- Каждый коммит, меняющий устав-путь, нуждается в СОБСТВЕННОЙ РАЗРЕШИЛ-строке — даже
-  чисто процедурный reformat под уже данной санкцией.
-- `next_id.sh` минтит тег ТОЛЬКО локально — для architect draft-push нужен тег на origin
-  (push тегов отдельно от main — НЕ блокируется PR-CI gate) И строка реестра на
-  origin/main (ЭТО блокируется) — порядок «резерв первым» требует push ОБОИХ компонентов
-  ДО спавна architect, не после.
+### ТОЧНОЕ состояние шага 1 (живыми командами)
+
+`frozen/contracts/083/3` ПОСТАВЛЕН (строкой 1, см. выше) — `git tag -l
+"frozen/contracts/083/*"` → `/1 /2 /3`. В одноразовом клоне `/tmp/dev-harness-verify/
+preflight-083-clone` (создан `git clone` ЛОКАЛЬНОГО /home/harness/dev-harness, HEAD
+`2129aca`):
+- `npm run check:nabludenia` → rc 0.
+- `npm run check:ci-parity` → rc 0.
+- `npm run check:ceilings` → rc 0.
+- `npm run check:ids` → **rc 1, FAIL**. Причина: 4 файла в `verdicts/consultant/`
+  начинаются с ГОЛОГО `083-` (три цифры + дефис), барьер трактует это как
+  mint-номерованный VERDICT-артефакт класса VERDICT (grammar `scripts/check_ids.sh:34-62`)
+  и требует тег `id/VERDICT/083`, которого нет — «номер 83 назначен рукой, а не
+  механизмом» ×4 + «одинаковый номер 83 в классе VERDICT» ×3 (попарно). Файлы:
+  `083-kap-krugov-freeze-6-verdiktov-klass-v1.md`,
+  `083-spaseno-gate036-nikogda-ne-zonnyj-put-v1.md`,
+  `083-charter-merge-false-positive-v1.md`,
+  `083-check-zones-fail-dokfail-owner-i-055-grammar-klass-v1.md` (ПОСЛЕДНИЙ — НЕ мой,
+  пред-существующий с прошлой сессии 2026-10-05; остальные три — мои, этой сессии).
+  Ещё НЕ прогнаны (после фикса имён): check_zones.sh, check_charter.sh.
+
+**ДИАГНОЗ (инженерный, не воля владельца):** форк-записи для консультанта по конвенции
+роли называются `verdicts/consultant/<fork-id>-v<N>.md`, где `<fork-id>` часто ссылается
+на номер контракта — но установленный ЖИВОЙ ПРЕЦЕДЕНТ (`verdicts/consultant/
+fork-082-provodka-sanktsija-nedostatochna-v1.md`, уже в дереве) префиксует такие имена
+словом `fork-`, ИМЕННО чтобы не попадать под голую `NNN-`-грамматику check_ids. Я (эта
+сессия) создал 3 новых файла БЕЗ этого префикса — моя ошибка; 4-й файл (055-grammar)
+пред-существующий, та же ошибка прошлой сессии, не пойманная раньше (возможно, check:ids
+не гонялся в одноразовом клоне до этой попытки push).
+
+### Следующий шаг (строго, для следующей сессии — НЕ ждать владельца, это инженерный фикс)
+
+1. `git mv` все 4 файла в `verdicts/consultant/`, добавив префикс `fork-` (матчит
+   прецедент `fork-082-provodka-sanktsija-nedostatochna-v1.md`):
+   `fork-083-kap-krugov-freeze-6-verdiktov-klass-v1.md`,
+   `fork-083-spaseno-gate036-nikogda-ne-zonnyj-put-v1.md`,
+   `fork-083-charter-merge-false-positive-v1.md`,
+   `fork-083-check-zones-fail-dokfail-owner-i-055-grammar-klass-v1.md`. Коммит под
+   identity `consultant` (зона verdicts/consultant/), с строкой
+   `ALLOW-ARTIFACT-DELETE: <старый путь> <причина — переименование под грамматику
+   check_ids, прецедент fork-082>` для КАЖДОГО старого пути первой колонкой тела
+   (Н-69-класс, см. Гигиена задания п.5 в этом же файле роли оркестратора).
+2. Живым прогоном (тот же одноразовый клон либо свежий) перепроверить
+   `npm run check:ids` → ожидается rc 0.
+3. Если rc 0 — продолжить ПОРЯДОК (см. выше) с шага 1: `bash scripts/check_zones.sh` и
+   `bash scripts/check_charter.sh .` в клоне (оба ожидаются rc 0, но ОБЯЗАТЕЛЬНО
+   перепроверить живьём — не предполагать). Если rc 0 у всех шести — переходить к шагу 2
+   порядка (коммит со СТРОКОЙ 2 + push).
+4. Push origin main — ТОЛЬКО main, ровно один раз, строго по шагу 2 порядка выше
+   (check_no_leak до и после, gh run view по каждому job).
+
+### Контракты 086/087 — готовы, содержимое НЕ потеряно
+
+Оба спроектированы architect (ClearParrot — 086 «гейты сведения»; IntellectualEarwig —
+087 «CI-Б классификатор»), красные батареи + честные симуляции реализации пройдены. НЕ
+закоммичены штатно (dual-control на registry-строке требовал push main). Содержимое лежит
+НЕЗАКОММИЧЕННЫМ в рабочем дереве `/home/harness/dev-harness` (untracked):
+`contracts/086-gejty-svedenija-integracii.md`, `contracts/087-ci-b-klassy-izmenenij-hesh-koda.md`,
+`fixtures/_krasnye_086.sh`, `fixtures/_krasnye_087.sh`, `fixtures/gejty_svedenija_086/`,
+`fixtures/ci_b_087/`, `fixtures/parsing_hygiene_battery/profiles/{gejt_svedenija,ci_klass}.sh`;
+модифицирован `NABLIUDENIA_ARCHITECT.md` (А-360..А-362). После push main (шаг 2 порядка)
+dual-control пройдёт — коммитить под identity architect, затем критик → freeze →
+implementer (087 implementer — ТОЛЬКО после ленда 083, см. контракт).
+
+087 несёт design-вопрос К ВЛАДЕЛЬЦУ (не блокирует freeze): граница «код vs учётное» для
+contracts/plans/AGENTS.md/forks/.review/ROADMAP.md шире первоначального предложения —
+детали в `agent://IntellectualEarwig` транскрипте (поле `design_choices_needing_attention`).
 
 ### Точное состояние (живыми командами на момент записи)
 
-`git rev-parse --short HEAD` = `9f8e2dc`. `git rev-list --left-right --count
-origin/main...HEAD` → `0 65`. `git status --porcelain` → 8 untracked путей (086/087
-содержимое) + 1 modified (NABLIUDENIA_ARCHITECT.md) — НЕ коммитить без решения
-push-блокера (dual-control). Живые субагенты: ни одного (все три — ClearParrot,
-IntellectualEarwig, NumerousAphid — завершились и материализованы/задокументированы).
+`git rev-parse --short HEAD` = `2129aca`. `git status --porcelain` → 9 путей (086/087
+содержимое, untracked/modified, см. выше). Живых субагентов нет. `frozen/contracts/083/3`
+стоит. check:ids красный (см. выше) — push НЕ делался, НЕ будет делаться до зелёного.
 
-История — git log этой сессии, коммиты c9446ae..9f8e2dc (24 коммита).
+История — git log этой сессии.
