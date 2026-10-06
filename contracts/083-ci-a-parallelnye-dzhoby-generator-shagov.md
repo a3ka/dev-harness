@@ -398,8 +398,7 @@ v+1 (слово владельца 2026-10-05, Вариант 2 docs/owner/2026-
 
 ## Зоны
 
-ЗОНА architect: contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md fixtures/_krasnye_083.sh fixtures/ci_gen_083/red_ci_a_083.sh fixtures/ci_gen_083/diff_verdicts_083.sh fixtures/ci_gen_083/timing_083.sh fixtures/ci_gen_083/.probe-only
-СПАСЕНО architect: 7dcfef2f7baea8b96f8d62efccc6a1531986548c — анализ А3 docs/owner/2026-10-05-a3-pr-vs-push-analiz.md по запросу оркестратора, путь назван в строке владельца варианта 2 (9bfbfd6)
+ЗОНА architect: contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md fixtures/_krasnye_083.sh fixtures/ci_gen_083/red_ci_a_083.sh fixtures/ci_gen_083/diff_verdicts_083.sh fixtures/ci_gen_083/timing_083.sh fixtures/ci_gen_083/.probe-only docs/owner/2026-10-05-a3-pr-vs-push-analiz.md (v3: анализ А3 по запросу оркестратора, путь назван в строке владельца 9bfbfd6)
 ЗОНА implementer: scripts/gen_ci_steps.sh scripts/run_ci_lane.sh registry/ci-steps.tsv .github/workflows/ci.yml package.json scripts/verify_ci_parity.sh
 ЗОНА implementer: scripts/lib_incr.sh scripts/check_charter.sh scripts/check_zones.sh scripts/check_ids.sh scripts/check_protected.sh fixtures/ci_gen_083/do_check_charter_083.txt fixtures/ci_gen_083/do_check_zones_083.txt fixtures/ci_gen_083/do_check_ids_083.txt fixtures/ci_gen_083/do_check_protected_083.txt
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 общий CI-workflow правится implementer-зонами множества контрактов, 011 предшествует отвердевшей конвенции разделения проверка/проводка
