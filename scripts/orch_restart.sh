@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# ДВЕРЬ ПЕРЕЗАПУСКА СЕССИИ (контракт 072, расширен контрактом 080).
+# ДВЕРЬ ПЕРЕЗАПУСКА СЕССИИ (контракт 072, расширен контрактом 080, 088).
 # ЕДИНСТВЕННАЯ постановка маркера /tmp/dev-harness-verify/orch-restart
 # (до реализационной пачки — прежний touch по чеклисту; с этой пачкой
 # маркер — ТОЛЬКО этой дверью; см. roles/orchestrator.md §Автоперезапуск).
 #
-# Гейт (контракт 072 + расширения 080):
+# Гейт (контракт 072 + расширения 080, 088):
 #   (0) identity — env `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, `--as <имя>`,
 #       за неимением обоих — именованный отказ rc 1 «identity двери
 #       не определена» (предмет (а) 080). `.git/config user.name` НЕ
@@ -15,7 +15,9 @@
 #       Приоритет: env GIT_AUTHOR_NAME > env GIT_COMMITTER_NAME > --as >
 #       отказ «identity двери не определена».
 #   (1) живые субагенты — свежие `.jsonl` в каталоге текущей сессии →
-#       «живые субагенты: <имена>» (предмет (б) 080, инв. 3)
+#       «живые субагенты: <имена>» (предмет (б) 080, инв. 3;
+#       контракт 088, инв. И-1/И-2/И-3 — дом из passwd, не из $HOME,
+#       и `current_session_dir` в подоболочке без pipefail)
 #   (а) HEAD == origin/main                                → «HEAD расходится с origin/main»
 #   (б) porcelain пуст                                     → «porcelain непуст»
 #   (в) HANDOFF.md изменён коммитом ЭТОЙ сессии:
@@ -75,9 +77,34 @@ g() { git -C "$ROOT" "$@"; }
 # `current_session_dir` / `live_subagents_in`. Bootstrap-защита — прецедент
 # freeze_contract.sh / mint_line.sh. Библиотека лежит рядом с субъектом
 # (`scripts/lib_session.sh`).
-if [ -f "$ROOT/scripts/lib_session.sh" ]; then
-  # shellcheck disable=SC1091
-  . "$ROOT/scripts/lib_session.sh"
+#
+# Контракт 088, инв. И-1: дом журналов — поле 6 `getent passwd "$(id -un)"`,
+# НЕ `$HOME` сессии. Под omp `HOME` перенаправлен в каталог зоны
+# (`/home/harness/.local/state/dev-harness-sessions/<zone>/zones/dev`), и
+# `ORCH_SESS_GLOB` по умолчанию (от `$HOME` в lib_session.sh) указывает в
+# пустой каталог → дверь видит «нет сессий». Решение — подключить
+# lib_session.sh при `HOME` = дом из passwd (тот же источник, что и
+# `UHOME` в ops/server/root/orch-peak:18) — тогда умолчание
+# `ORCH_SESS_GLOB` строится от правильного корня. Швы 080
+# (`ORCH_SESS_DIR`, `ORCH_SESS_GLOB`) — заданные переменные окружения
+# имеют приоритет (контракт 080, инв. 4): если оба пусты, берём дом
+# из passwd. Пустой ответ `getent` (нет записи пользователя) →
+# `NOT_IMPLEMENTED`, маркер НЕ ставится (fail-closed rc 2).
+if [ -z "${ORCH_SESS_GLOB:-}" ] && [ -z "${ORCH_SESS_DIR:-}" ]; then
+  _orch_uh="$(getent passwd "$(id -un)" | cut -d: -f6)"
+  if [ -z "$_orch_uh" ]; then
+    printf 'NOT_IMPLEMENTED: getent passwd не дал дома\n' >&2
+    exit 2
+  fi
+  if [ -f "$ROOT/scripts/lib_session.sh" ]; then
+    # shellcheck disable=SC1091
+    HOME="$_orch_uh" . "$ROOT/scripts/lib_session.sh"
+  fi
+else
+  if [ -f "$ROOT/scripts/lib_session.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$ROOT/scripts/lib_session.sh"
+  fi
 fi
 # Фолбэк (ЗОНА 080 — implementer, не architect): если scripts/lib_session.sh
 # не подгружен (исторический toy-мир 072, неполный sandbox), дверь НЕ
@@ -92,6 +119,7 @@ fi
 if ! declare -F live_subagents_in >/dev/null 2>&1; then
   live_subagents_in() { return 0; }
 fi
+unset _orch_uh
 
 # ── Разбор аргументов двери (контракт 080, инв. 1) ────────────────────────
 # Приоритет: (а1) GIT_AUTHOR_NAME → (а2) GIT_COMMITTER_NAME → (а3) --as <имя>.
@@ -245,8 +273,17 @@ g rev-parse --verify origin/main >/dev/null 2>&1 \
 # Шов ORCH_SESS_DIR переопределяет каталог сессии (умолчание — вычисленный
 # через current_session_dir). При переопределении шва дверь не читает
 # умолчательный путь.
+#
+# Контракт 088, инв. И-2: pipefail-слепота закрывается В ДВЕРИ (lib_session.sh
+# остаётся байт-в-байт, инв. И-4). Вызов `current_session_dir` — в
+# подоболочке без pipefail: `set +o pipefail` гасит pipefail только в
+# дочерней оболочке, родительский `set -uo pipefail` двери сохраняется.
+# Без этого при листинге больше буфера канала SIGPIPE rc 141 в
+# `ls -t … | head -1` обнуляет current_session_dir (измерено живьём:
+# 40 файлов, 7880 байт листинга — пусто 5/5; с set +o pipefail —
+# каталог найден).
 if [ -z "$SESS_DIR" ]; then
-  SESS_DIR="$(current_session_dir 2>/dev/null || true)"
+  SESS_DIR="$(set +o pipefail; current_session_dir 2>/dev/null || true)"
 fi
 # rc 2 из live_subagents_in (stat отказал — review 080 Б-1) — честный
 # «нечем проверить» НЕ молчаливый проход: пробрасываем как rc 2

@@ -247,6 +247,67 @@ if [ "$diff_rc" -ne 0 ]; then
   exit 1
 fi
 mapfile -d '' staged < "$staged_tmp"
+
+# ── Контракт 088, ветвь Б: pre-commit суд staged HANDOFF.md ────────────────
+# Судья судит индексный блоб `:HANDOFF.md`, не рабочее дерево (И-5):
+# грамматика клетки k7 (074) — первая секция «## ГДЕ МЫ» индекса обязана
+# нести самостоятельную строку-указатель (`grep -Fxq`). Граница секции —
+# от первой строки, начинающейся «## ГДЕ МЫ», до следующей строки `^## `
+# или конца файла; подразделы `### ` внутри секции считаются содержимым.
+# Судится ТОЛЬКО корневой HANDOFF.md (точное равенство пути): `docs/HANDOFF.md`
+# — не предмет (B13). Staged-удаление (B11) → отказ: блоб `:HANDOFF.md`
+# отсутствует, индекс «пустой», строка-указатель не находится. Судья
+# исполняется ДО выходов «нечего судить» / «не судится» (И-6), для любого
+# автора, включая необъявленного оркестратора, — поэтому сам оркестраторский
+# коммит HANDOFF.md не судится «не судится: автор orchestrator не объявлен»
+# (измерено 17:53: тоу-репо `_repo.sh`, rc 0 без суда).
+#
+# Источник строки-указателя — ЕДИНСТВЕННОЕ присваивание `HANDOFF_PTR=` в
+# `fixtures/ops_server/red_server_obvjazka_074.sh` (контракт 088 §Frontier п.6;
+# ровно одно совпадение `^HANDOFF_PTR='…'$`, иначе rc 2 «нечем проверить»).
+# Тот же файл служит оракулом и в `fixtures/strazh_088/_toy.sh` — единый
+# источник строки в тестовом слое, расхождение с k7 краснит B0/B1 (так
+# задумано: правка HANDOFF_PTR в 074 — зона architect). Тестовая среда
+# экспортирует `PTR_088` (`_toy.sh:35-37`) в env скрипта через хук — это
+# тот же путь, что и `OTKAZ_088` (строка отказа И-7): единый источник.
+_handoff_ptr="${PTR_088:-}"
+if [ -z "$_handoff_ptr" ]; then
+  _handoff_src="$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh"
+  if [ -f "$_handoff_src" ]; then
+    mapfile -t _ptr_lines < <(sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p" "$_handoff_src")
+    if [ "${#_ptr_lines[@]}" -eq 1 ] && [ -n "${_ptr_lines[0]}" ]; then
+      _handoff_ptr="${_ptr_lines[0]}"
+    fi
+    unset _ptr_lines
+  fi
+  unset _handoff_src
+fi
+if [ -n "$_handoff_ptr" ]; then
+  _handoff_staged=0
+  for _s in "${staged[@]}"; do
+    if [ "$_s" = HANDOFF.md ]; then _handoff_staged=1; break; fi
+  done
+  if [ "$_handoff_staged" -eq 1 ]; then
+    # Блоб `:HANDOFF.md` индекса: пустой/битый → отказ (B11 — staged-удаление
+    # даёт именно пустой блоб, `git show :HANDOFF.md` пуст).
+    _handoff_blob="$(git -C "$ROOT" show :HANDOFF.md 2>/dev/null || true)"
+    if [ -z "$_handoff_blob" ]; then
+      printf '%s\n' "${OTKAZ_088:-ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)}" >&2
+      exit 1
+    fi
+    # Граница секции — та же, что в клетке k7 (074): awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'.
+    # grep -Fxq требует самостоятельной строки (И-7).
+    if ! printf '%s\n' "$_handoff_blob" \
+         | awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f' \
+         | grep -Fxq -- "$_handoff_ptr"; then
+      printf '%s\n' "${OTKAZ_088:-ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)}" >&2
+      exit 1
+    fi
+  fi
+  unset _handoff_staged _handoff_blob
+fi
+unset _handoff_ptr
+
 if [ "${#staged[@]}" -eq 0 ]; then
   printf 'нечего судить: staged пуст\n'
   exit 0
