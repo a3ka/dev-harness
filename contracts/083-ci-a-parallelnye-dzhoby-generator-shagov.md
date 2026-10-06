@@ -398,9 +398,12 @@ v+1 (слово владельца 2026-10-05, Вариант 2 docs/owner/2026-
 
 ## Зоны
 
-ЗОНА architect: contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md fixtures/_krasnye_083.sh fixtures/ci_gen_083/red_ci_a_083.sh fixtures/ci_gen_083/diff_verdicts_083.sh fixtures/ci_gen_083/timing_083.sh fixtures/ci_gen_083/.probe-only docs/owner/2026-10-05-a3-pr-vs-push-analiz.md (v3: анализ А3 по запросу оркестратора, путь назван в строке владельца 9bfbfd6)
+ЗОНА architect: contracts/083-ci-a-parallelnye-dzhoby-generator-shagov.md fixtures/_krasnye_083.sh fixtures/ci_gen_083/red_ci_a_083.sh fixtures/ci_gen_083/diff_verdicts_083.sh fixtures/ci_gen_083/timing_083.sh fixtures/ci_gen_083/.probe-only docs/owner/2026-10-05-a3-pr-vs-push-analiz.md
 ЗОНА implementer: scripts/gen_ci_steps.sh scripts/run_ci_lane.sh registry/ci-steps.tsv .github/workflows/ci.yml package.json scripts/verify_ci_parity.sh
 ЗОНА implementer: scripts/lib_incr.sh scripts/check_charter.sh scripts/check_zones.sh scripts/check_ids.sh scripts/check_protected.sh fixtures/ci_gen_083/do_check_charter_083.txt fixtures/ci_gen_083/do_check_zones_083.txt fixtures/ci_gen_083/do_check_ids_083.txt fixtures/ci_gen_083/do_check_protected_083.txt
+
+(v3: путь `docs/owner/2026-10-05-a3-pr-vs-push-analiz.md` добавлен в ЗОНА architect — анализ А3 по запросу оркестратора, путь назван в строке владельца 9bfbfd6; строка вынесена из скобок ЗОНА-строки отдельной прозой, т.к. precision-гейт 043 токенизирует весь остаток ЗОНА-строки по пробелам и инлайн-аннотация в скобках ложно добавляла слова как псевдопути, часть из которых коллизировала с union NNN 026 — находка Б1 критика contracts-083-v4.md; текст аннотации тот же, только место другое, предмет/критерии не меняются; слово владельца 2026-10-06.)
+
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 общий CI-workflow правится implementer-зонами множества контрактов, 011 предшествует отвердевшей конвенции разделения проверка/проводка
 ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 тот же общий CI-workflow; 015 завёл architect-ЗОНА ci.yml до перехода к implementer-ЗОНА (та же историческая причина)
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 тот же общий инфраструктурный файл что ci.yml выше по той же исторической причине
