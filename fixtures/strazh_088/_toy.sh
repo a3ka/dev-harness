@@ -2,12 +2,18 @@
 # Каркас семьи 088 (НЕ case-файл, сам не прогоняется): подключается `. _toy.sh` из
 # файлов семьи ПОСЛЕ присваивания ROOT (корень судимого дерева).
 #
-# Оракул — в ПАМЯТИ батареи (правило 8), ДО вызова субъекта:
+# Оракул — в ПАМЯТИ батареи (правило 8), ДО вызова субъекта, и в env субъекта НЕ попадает
+# (не экспортируется; одноимённые переменные вызывающего сняты — иначе унаследованный
+# атрибут export вынес бы оракул субъекту; adversary 088: экспорт PTR_088 маскировал
+# обход И-5 «строка-указатель из env коммитёра»):
 #   PTR_088   — строка-указатель. Единый источник тестового слоя — присваивание
 #               HANDOFF_PTR в fixtures/ops_server/red_server_obvjazka_074.sh (клетка k7);
 #               берётся оттуда побайтово, РОВНО одно совпадение `^HANDOFF_PTR='…'$`,
-#               иначе rc 2 (второй копии строки в семье 088 нет).
+#               иначе rc 2 (второй копии строки в семье 088 нет). Субъект берёт k7 из
+#               своего дерева: тоу-репо хука несёт закоммиченную побайтовую копию этого
+#               файла (ukazatel_mir).
 #   OTKAZ_088 — строка отказа хука (инвариант Б3 контракта 088), сверка `grep -Fxq`.
+#   ATAKA_088 — строка коммитёра, не k7 (клетка B14: она же — в env PTR_088 коммита).
 #   Ожидания клеток — константы клеток (вход строится известным конформным/неконформным).
 # Сверка структурна: строка отказа — самостоятельной строкой stderr (`grep -Fxq`), HEAD до/
 # после коммита — по rev-parse, маркер двери — по существованию файла шва.
@@ -16,7 +22,8 @@ set -uo pipefail
 # Н-NEW-7/Н-85: окружение вызывающего не протекает в тоу-миры.
 unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL \
       GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
-      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CEILING_DIRECTORIES
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CEILING_DIRECTORIES \
+      PTR_088 OTKAZ_088 ATAKA_088
 
 SRC074="$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh"
 [ -f "$SRC074" ] || { printf 'NOT_IMPLEMENTED: нет источника строки-указателя %s\n' "$SRC074" >&2; exit 2; }
@@ -27,7 +34,8 @@ if [ "${#_ptr074[@]}" -ne 1 ] || [ -z "${_ptr074[0]}" ]; then
 fi
 PTR_088="${_ptr074[0]}"
 OTKAZ_088='ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)'
-export PTR_088 OTKAZ_088
+ATAKA_088='attacker'
+[ "$ATAKA_088" != "$PTR_088" ] || { printf 'NOT_IMPLEMENTED: строка коммитёра совпала с k7\n' >&2; exit 2; }
 
 SCR="$(mktemp -d "${TMPDIR:-/tmp}/strazh088.XXXXXX")" || { printf 'NOT_IMPLEMENTED: нет скратча\n' >&2; exit 2; }
 trap 'rm -rf -- "$SCR"' EXIT
@@ -65,17 +73,21 @@ handoff_v() {
     vtoraja)   printf '# HANDOFF\n\n## ГДЕ МЫ (тоу)\n\nтекст без указателя\n\n## ГДЕ МЫ (прошлая сессия)\n\n%s\n' "$PTR_088" ;;
     podrazdel) printf '# HANDOFF\n\n## ГДЕ МЫ (тоу)\n\nтекст\n\n### Подраздел\n\n%s\n\n## Итог\nхвост\n' "$PTR_088" ;;
     posle)     printf '# HANDOFF\n\n## ГДЕ МЫ (тоу)\n\nтекст без указателя\n\n## Итог\n\n%s\n' "$PTR_088" ;;
+    chuzhaja)  printf '# HANDOFF\n\n## ГДЕ МЫ (тоу)\n\n%s\n\n## Итог\nхвост\n' "$ATAKA_088" ;;
     *) printf 'NOT_IMPLEMENTED: вариант HANDOFF %s\n' "$v" >&2; exit 2 ;;
   esac > "$f"
 }
 
 # ukazatel_mir <каталог> [<судья>] — тоу-репо: scripts/ и .githooks/ судимого дерева
 # (судья scripts/check_staged.sh подменяется файлом стаба, если задан), HANDOFF.md с
-# указателем закоммичен, хуки включены локальным core.hooksPath (не identity).
+# указателем и побайтовая копия fixtures/ops_server/red_server_obvjazka_074.sh (k7
+# субъекта — из его дерева, не из env) закоммичены, хуки включены локальным
+# core.hooksPath (не identity).
 ukazatel_mir() {
   local r="$1" sudja="${2:-}"
-  mkdir -p "$r" || exit 2
+  mkdir -p "$r/fixtures/ops_server" || exit 2
   cp -R -- "$ROOT/scripts" "$r/scripts" && cp -R -- "$ROOT/.githooks" "$r/.githooks" || exit 2
+  cp -- "$SRC074" "$r/fixtures/ops_server/red_server_obvjazka_074.sh" || exit 2
   [ -z "$sudja" ] || cp -- "$sudja" "$r/scripts/check_staged.sh" || exit 2
   handoff_v "$r/HANDOFF.md" pervaja
   printf 'основа мира — любой вариант клетки отличается от HEAD\n' >> "$r/HANDOFF.md"
@@ -85,20 +97,22 @@ ukazatel_mir() {
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath .githooks || exit 2
 }
 
-# kommit <репо> — коммит ЖИВЫМ способом оркестратора: identity `-c`, file-config пуст,
-# хук активен. Печатает rc git; stderr — в $SCR/kommit.err.
+# kommit <репо> [VAR=знач…] — коммит ЖИВЫМ способом оркестратора: identity `-c`,
+# file-config пуст, хук активен; VAR=знач — окружение коммитёра (клетка B14). Печатает
+# rc git; stderr — в $SCR/kommit.err.
 kommit() {
-  local r="$1"
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+  local r="$1"; shift
+  env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null "$@" \
     git -C "$r" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
         -c commit.gpgsign=false commit -q -m 'проба 088' >/dev/null 2>"$SCR/kommit.err"
 }
 
-# ozhidaj_b <клетка> <репо> prinjat|otkaz — коммит и сверка исхода с ожиданием клетки.
+# ozhidaj_b <клетка> <репо> prinjat|otkaz [VAR=знач…] — коммит и сверка исхода с ожиданием.
 ozhidaj_b() {
   local c="$1" r="$2" ozh="$3" h0 h1 rc
+  shift 3
   h0="$(gx "$r" rev-parse HEAD)" || exit 2
-  kommit "$r"; rc=$?
+  kommit "$r" "$@"; rc=$?
   h1="$(gx "$r" rev-parse HEAD)" || exit 2
   if [ "$ozh" = prinjat ]; then
     if [ "$rc" -eq 0 ] && [ "$h0" != "$h1" ] && ! grep -Fxq -- "$OTKAZ_088" "$SCR/kommit.err"; then
