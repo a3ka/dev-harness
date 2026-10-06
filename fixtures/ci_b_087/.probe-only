@@ -1,0 +1,17 @@
+probe-only каталог (контракт 034): предмет — батарея 087 ci_b_087 «CI-Б: классы
+изменений и результат по хешу кодового дерева». Субъекты запуска —
+scripts/ci_klass.sh (хеш кодового дерева, класс пуша, доказательство тяжёлого
+прогона, ворота «код в main только через PR», strip, решение джобы klass),
+scripts/check_ci_gate.sh (гейт 4б: тяжёлое по кодовому хешу),
+scripts/gitw_preflight_071.sh (чек 5 предполёта push в main), scripts/run_ci_lane.sh
+(строки замера), scripts/ci_vesa.sh (веса реестра по замерам),
+registry/ci-steps.tsv (строки uchet/legkij) и .github/workflows/ci.yml (джобы klass,
+legkij, vorota, obshchij, tyazhelyj-itog). Барьерного ключа scripts/ci_b_087.sh НЕТ и не
+появится (прецеденты fixtures/ci_gen_083/, fixtures/plan_084/). Предъявление
+red_ci_b_087.sh — прямое (вне case_*-глоба раннера verify_antiplacebo.sh), через
+агрегатор fixtures/_krasnye_087.sh: красное ДО реализации («красная: предмет
+отсутствует», батарея не запускается), зелёное после. _toy.sh — каркас toy-миров,
+поддельный curl и оракул хеша в памяти (НЕ фикстура); его же подключает профиль
+батареи гигиены парсинга fixtures/parsing_hygiene_battery/profiles/ci_klass.sh.
+model/ — честная модель субъектов: база обманных стабов стаб-пака и режим --model
+(удовлетворимость клеток, урок А-100); НЕ субъект и НЕ фикстура.

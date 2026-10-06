@@ -1,0 +1,152 @@
+# МОДЕЛЬ .github/workflows/ci.yml после контракта 087 — НЕ субъект. Форма, на которой
+# клетки К1–К9 батареи зелены (удовлетворимость, урок А-100) и из которой стаб-пак строит
+# обманные мутации (привязки — шапка red_ci_b_087.sh, Н-39). Блоки 083 (lane/шарды)
+# здесь укорочены: К-клетки судят только проводку 087.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+jobs:
+  klass:
+    runs-on: ubuntu-latest
+    outputs:
+      kod: ${{ steps.reshenie.outputs.kod }}
+      tyazh: ${{ steps.reshenie.outputs.tyazh }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: reshenie
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/ci_klass.sh reshenie >> "$GITHUB_OUTPUT"
+
+  vorota:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Код в main только через PR
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/ci_klass.sh vorota ${{ github.event.before }} ${{ github.sha }}
+
+  legkij:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Лёгкое задание (устав, зоны, ids, protected, грамматика 015)
+        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen
+      - name: История не перезаписана
+        if: github.event_name == 'push'
+        run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
+
+  obshchij:
+    needs: klass
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - run: bash scripts/ci_klass.sh strip ${{ needs.klass.outputs.kod }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Проверка паритета с CI
+        run: npm run check:ci-parity
+      - name: Сам-тесты раннера анти-плацебо
+        run: |
+          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
+          trap 'rm -rf "$TMP_ROOT"' EXIT
+          mkdir -p "$TMP_ROOT/scripts" "$TMP_ROOT/fixtures/verify_antiplacebo"
+          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
+          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
+          npm run check:antiplacebo -- "$TMP_ROOT"
+
+  antiplacebo:
+    needs: klass
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+# BEGIN GENERATED CI SHARDS (083)
+          - shard: ap1
+            keys: check_ci_gate check_runner_hygiene
+          - shard: ap2
+            keys: check_scope_select freeze_contract
+# END GENERATED CI SHARDS (083)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - run: bash scripts/ci_klass.sh strip ${{ needs.klass.outputs.kod }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Анти-плацебо · шард ${{ matrix.shard }}
+        run: npm run check:antiplacebo -- --scope ${{ matrix.keys }}
+
+  ci:
+    needs: klass
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+# BEGIN GENERATED CI JOBS (083)
+          - lane: l1
+            keys: check:gen check:ids-family
+          - lane: l2
+            keys: check:skills
+# END GENERATED CI JOBS (083)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - run: bash scripts/ci_klass.sh strip ${{ needs.klass.outputs.kod }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Lane ${{ matrix.lane }}
+        run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+
+  tyazhelyj-itog:
+    needs: [klass, obshchij, antiplacebo, ci]
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
+    steps:
+      - run: printf '%s\n' "${{ needs.klass.outputs.kod }}" > tyazhelyj.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tyazhelyj-${{ needs.klass.outputs.kod }}
+          path: tyazhelyj.txt
+          retention-days: 90
