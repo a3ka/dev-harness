@@ -293,62 +293,15 @@ if [ "${CHARTER_LIB:-}" = "1" ]; then
 fi
 
 # Разбор `--incr <кеш>` из аргументов. Кеш-отказ — именованный rc 1.
-#
-# FOREIGN-LINE CACHE (контракт 083, инв. 6, ветвь в′). Если кеш указывает на
-# sha, не являющийся предком HEAD (например, push-запись main у отстающей
-# ветки — actions/cache мог принести чужой кеш из другой линии), это НЕ
-# отказ кеша, а полный прогон с ИМЕНОВАННЫМ маркером «кеш сторонней линии».
-# incr_parse здесь дал бы rc 1 «не предок», но это блокирует инкремент в CI.
-# Делаем локальный pre-parse, выводим маркер, исключаем `--incr` из передачи
-# в incr_parse (уйдёт в full mode), но СОХРАНЯЕМ путь к кешу — incr_finish
-# запишет HEAD при rc=0 (полный прогон С засевом кеша).
-_FOREIGN_ARGS=()
-_FOREIGN_CACHE=""
-_skip=0
-for _a in "$@"; do
-  if [ "$_skip" -eq 1 ]; then
-    _FOREIGN_CACHE="$_a"; _skip=0
-    if [ -f "$_FOREIGN_CACHE" ]; then
-      _fb="$(head -n1 "$_FOREIGN_CACHE" 2>/dev/null | tr -d '[:space:]')"
-      _fh="$(git rev-parse HEAD 2>/dev/null || true)"
-      if printf '%s' "$_fb" | grep -Eq '^[0-9a-f]{40}$' \
-         && [ -n "$_fh" ] \
-         && ! git merge-base --is-ancestor "$_fb" "$_fh" 2>/dev/null; then
-        printf 'incr: %s полный прогон (база %s не предок HEAD %s — кеш сторонней линии)\n' \
-          "$INCR_NAME" "${_fb:0:8}" "${_fh:0:8}" >&2
-        continue
-      fi
-    fi
-    _FOREIGN_ARGS+=("--incr" "$_FOREIGN_CACHE")
-    continue
-  fi
-  case "$_a" in
-    --incr) _skip=1 ;;
-    --incr=*)
-      _FOREIGN_CACHE="${_a#--incr=}"
-      if [ -f "$_FOREIGN_CACHE" ]; then
-        _fb="$(head -n1 "$_FOREIGN_CACHE" 2>/dev/null | tr -d '[:space:]')"
-        _fh="$(git rev-parse HEAD 2>/dev/null || true)"
-        if printf '%s' "$_fb" | grep -Eq '^[0-9a-f]{40}$' \
-           && [ -n "$_fh" ] \
-           && ! git merge-base --is-ancestor "$_fb" "$_fh" 2>/dev/null; then
-          printf 'incr: %s полный прогон (база %s не предок HEAD %s — кеш сторонней линии)\n' \
-            "$INCR_NAME" "${_fb:0:8}" "${_fh:0:8}" >&2
-          continue
-        fi
-      fi
-      _FOREIGN_ARGS+=("$_a")
-      ;;
-    *) _FOREIGN_ARGS+=("$_a") ;;
-  esac
-done
-
-incr_parse "${_FOREIGN_ARGS[@]}"
+# Грамматика `--incr` (включая (в′) — кеш сторонней линии) живёт В lib_incr.sh
+# (контракт 083, инв. 6: «грамматика живёт в scripts/lib_incr.sh, чеки несут
+# её побайтово через вызов библиотеки; переизобретение в каждом чеке — провал»).
+# Раньше здесь был локальный pre-parse для ветви (в′) — убран: incr_parse теперь
+# сам обрабатывает (в′) (полный прогон с маркером, INCR_CACHE сохраняется для
+# incr_finish — сеяние свой линии на зелёном).
+incr_parse "$@"
 [ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
 set -- "${INCR_REST[@]}"
-# Восстанавливаем INCR_CACHE для foreign-line, чтобы incr_finish на rc=0
-# записал HEAD в кеш (полный прогон С засевом кеша).
-[ -n "$_FOREIGN_CACHE" ] && INCR_CACHE="$_FOREIGN_CACHE"
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 INCR_GIT_ROOT="$ROOT"
