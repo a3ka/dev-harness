@@ -260,8 +260,21 @@ NEXT_ID_LIB=1
 # Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник
 # для всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
 INCR_NAME=check_zones
+# ФИКСТУРЫ-ДРИЛЛЫ КОПИРУЮТ БАРЬЕР В `$WORK/scripts/` БЕЗ `lib_incr.sh`
+# (появилось в --incr-работе, контракт 083, инв. 6): барьер обязан остаться
+# работоспособным в ПОЛНОМ режиме без `--incr`, иначе честный прогон дрилла
+# краснеет не по предмету, а на отсутствующей библиотеке. Стабы — no-op-зеркало
+# `incr_parse`/`incr_fail`/`incr_finish` для полного режима (INCR_CACHE пуст →
+# incr_finish no-op, INCR_RC=0 → incr_fail не вызывается; incr_parse кладёт
+# всё, что получил, в INCR_REST).
 # shellcheck disable=SC1091
-. "$SELF_DIR/lib_incr.sh"
+if [ -f "$SELF_DIR/lib_incr.sh" ]; then
+  . "$SELF_DIR/lib_incr.sh"
+else
+  incr_parse() { INCR_CACHE=""; INCR_MODE="full"; INCR_BASE=""; INCR_HEAD=""; INCR_N=0; INCR_RC=0; INCR_REST=("$@"); }
+  incr_fail() { :; }
+  incr_finish() { :; }
+fi
 
 # Разбор `--incr <кеш>` из аргументов ДО установки ROOT — кеш-отказ выходит
 # сразу и не инициализирует переменные суда. После этого set -- оставляет

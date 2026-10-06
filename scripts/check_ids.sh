@@ -139,8 +139,21 @@ set -euo pipefail
 # Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник для
 # всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
 INCR_NAME=check_ids
+# ФИКСТУРЫ-ДРИЛЛЫ КОПИРУЮТ БАРЬЕР В `$WORK/scripts/` БЕЗ `lib_incr.sh`
+# (появилось в --incr-работе, контракт 083, инв. 6): барьер обязан остаться
+# работоспособным в ПОЛНОМ режиме без `--incr`, иначе честный прогон дрилла
+# краснеет не по предмету, а на отсутствующей библиотеке. Стабы — no-op-зеркало
+# `incr_parse`/`incr_fail`/`incr_finish` для полного режима (INCR_CACHE пуст →
+# incr_finish no-op, INCR_RC=0 → incr_fail не вызывается; incr_parse кладёт
+# всё, что получил, в INCR_REST).
 # shellcheck disable=SC1091
-. "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh"
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh" ]; then
+  . "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh"
+else
+  incr_parse() { INCR_CACHE=""; INCR_MODE="full"; INCR_BASE=""; INCR_HEAD=""; INCR_N=0; INCR_RC=0; INCR_REST=("$@"); }
+  incr_fail() { :; }
+  incr_finish() { :; }
+fi
 
 # ── ГЕРМЕТИЧНОЕ ОКРУЖЕНИЕ GIT ────────────────────────────────────────────────
 # Снимаем шесть переменных окружения, которые перенаправляют `git` в чужой репозиторий
