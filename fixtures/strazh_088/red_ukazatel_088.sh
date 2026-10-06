@@ -7,11 +7,12 @@
 # в заморозках оркестратора. Коммит — ЖИВЫМ способом: `-c user.name=orchestrator`,
 # пустой file-config, хук из core.hooksPath.
 #
-# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B14] [--sudja <файл>]
+# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B18] [--sudja <файл>]
 #   --sudja <файл> — подменить scripts/check_staged.sh тоу-репо (стаб-пак/диффпроба).
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
-# Клетки (вход → ожидание; ДО 088 красны B1 B2 B3 B4 B6 B7 B11 B14):
+# Клетки (вход → ожидание; ДО 088 красны B1 B2 B3 B4 B6 B7 B11 B14 B15 B16 B17 B18;
+# на 6f29c59 — B15 B16 B17 B18):
 #   B0  первая секция несёт строку                          → коммит
 #   B1  строки нет нигде                                     → отказ
 #   B2  строка укорочена (без хвоста «(инвентарь…)»)         → отказ (измеренный отказ 06.10)
@@ -24,8 +25,16 @@
 #   B9  HANDOFF.md не staged (в HEAD без строки), staged README → коммит
 #   B11 staged удаление HANDOFF.md                             → отказ
 #   B13 staged docs/HANDOFF.md без строки (не корневой)        → коммит
-#   B14 первая секция несёт только строку ATAKA_088, env      → отказ (k7 — из файла
-#       коммита PTR_088=ATAKA_088 (обход 8bc5e68, adversary 088)   дерева, env не источник)
+#   B14 первая секция несёт только строку ATAKA_088, env      → отказ (k7 — из индекса,
+#       коммита PTR_088=ATAKA_088 (обход 8bc5e68, adversary 088)   env не источник)
+#   B15 первая секция несёт только ATAKA_088; РАБОЧАЯ копия   → отказ (k7 — из индекса,
+#       k7 (не staged) переписана на HANDOFF_PTR=ATAKA_088         не из рабочего дерева;
+#       (adversary 088-v2 §1)                                       staged — только HANDOFF.md)
+#   B16 строки нет; рабочая копия k7 УДАЛЕНА (не staged)      → отказ (суд не зависит от
+#                                                                   рабочего файла k7)
+#   B17 как B1, env коммитёра OTKAZ_088=ATAKA_088              → отказ ровно строкой И-7
+#       (adversary 088-v2 §3)
+#   B18 как B11, env коммитёра OTKAZ_088=ATAKA_088             → отказ ровно строкой И-7
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,6 +57,16 @@ done
 mir() {  # <клетка> → r=путь тоу-репо (без подоболочки: отказ построения — rc 2 файла)
   ukazatel_mir "$SCR/$1" "$SUDJA"
   r="$SCR/$1"
+}
+
+K7=fixtures/ops_server/red_server_obvjazka_074.sh
+# tolko_handoff <репо> — вход клеток B15/B16 построен: staged — ровно HANDOFF.md, k7 в
+# индексе есть (порча — только в рабочем дереве); иначе rc 2 файла (мир не тот).
+tolko_handoff() {
+  local s
+  s="$(gx "$1" diff --cached --name-only)" || exit 2
+  [ "$s" = HANDOFF.md ] || { printf 'NOT_IMPLEMENTED: staged мира — не ровно HANDOFF.md: %s\n' "$s" >&2; exit 2; }
+  gx "$1" cat-file -e ":$K7" || { printf 'NOT_IMPLEMENTED: в индексе мира нет %s\n' "$K7" >&2; exit 2; }
 }
 
 klet_handoff() {  # <клетка> <вариант индекса> <ожидание>
@@ -103,6 +122,37 @@ if nado B14; then
   mir B14
   handoff_v "$r/HANDOFF.md" chuzhaja; gx "$r" add -- HANDOFF.md || exit 2
   ozhidaj_b B14 "$r" otkaz PTR_088="$ATAKA_088"
+fi
+
+if nado B15; then
+  mir B15
+  handoff_v "$r/HANDOFF.md" chuzhaja; gx "$r" add -- HANDOFF.md || exit 2
+  sed -i "s/^HANDOFF_PTR='.*'\$/HANDOFF_PTR='$ATAKA_088'/" "$r/$K7" || exit 2
+  mapfile -t _p15 < <(sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p" "$r/$K7")
+  [ "${#_p15[@]}" -eq 1 ] && [ "${_p15[0]}" = "$ATAKA_088" ] \
+    || { printf 'NOT_IMPLEMENTED: рабочая k7 мира B15 не переписана на ATAKA_088\n' >&2; exit 2; }
+  tolko_handoff "$r"
+  ozhidaj_b B15 "$r" otkaz
+fi
+
+if nado B16; then
+  mir B16
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  rm -f -- "$r/$K7" && [ ! -e "$r/$K7" ] || exit 2
+  tolko_handoff "$r"
+  ozhidaj_b B16 "$r" otkaz
+fi
+
+if nado B17; then
+  mir B17
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  ozhidaj_b B17 "$r" otkaz OTKAZ_088="$ATAKA_088"
+fi
+
+if nado B18; then
+  mir B18
+  gx "$r" rm -q -- HANDOFF.md || exit 2
+  ozhidaj_b B18 "$r" otkaz OTKAZ_088="$ATAKA_088"
 fi
 
 itog_semji red_ukazatel_088.sh
