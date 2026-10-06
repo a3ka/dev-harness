@@ -3,7 +3,9 @@
 # проверки истории (контракт 083; круг 3 — правка по арбитражу 083-krug2:
 # П1-а клетка Г8 «генерация, не сверка» (write-режим генератора как функция
 # реестра), П1-б клетка Г9 «исполнение lane-шага, не упоминание» (живой прогон
-# извлечённой run:-команды), П2 — в timing_083.sh, см. отдельный скрипт).
+# извлечённой run:-команды), П2 — в timing_083.sh, см. отдельный скрипт;
+# расширение по вердиктам reviewer/adversary 083 круг 1, С-1: ветвь (в′) И-6
+# у check_zones/check_ids/check_protected и этикет кеша Г10 с PR-save).
 # Дом семьи — fixtures/ci_gen_083/ (probe-only 034: предмет — ГЕНЕРАТОР
 # scripts/gen_ci_steps.sh + реестр registry/ci-steps.tsv + блоки ci.yml,
 # ИСПОЛНЕНИЕ lane scripts/run_ci_lane.sh И режим --incr ЧЕТЫРЁХ исторических
@@ -12,10 +14,10 @@
 # носитель закоммичен АРХИТЕКТОРОМ (прецеденты 058/070/072/078/080).
 #
 # СТРУКТУРА (две части):
-#   Часть Г — генератор+исполнение: честные клетки Г0-Г9 (КРАСНЫ до
-#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1/Г-С2
-#     (toy-входы, ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока —
-#     различает обман на входе, где дефект наблюдаем). Г2 дополнительно
+#   Часть Г — генератор+исполнение: честные клетки Г0-Г10 (КРАСНЫ до
+#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1..Г-С7
+#     (toy-входы, ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока
+#     и шагов — различает обман на входе, где дефект наблюдаем). Г2 дополнительно
 #     доказывает, что блок ЖИВЁТ ВНУТРИ джобы ci как её matrix (структурно:
 #     strategy/matrix, маркеры в теле джобы, ровно один lane-шаг через
 #     matrix.keys, последовательные npm-шаги отсутствуют); Г6 сравнивает
@@ -30,7 +32,11 @@
 #     единственного lane-шага (однострочный скаляр, иначе именованное
 #     красное), токен '${{ matrix.keys }}' → 'k2 k4 k6', живой прогон из
 #     toy L7, зелёное = rc 0 И журнал k2 k4 k6 по порядку (echo-имитация
-#     даёт пустой журнал — различимость по исполнению, не по тексту).
+#     даёт пустой журнал — различимость по исполнению, не по тексту); Г10
+#     судит этикет кеша §Зоны в теле джобы ci по событию и чеку —
+#     Г10-restore/<c> (restore ДО lane на push И pull_request, restore-keys),
+#     Г10-push/<c> и Г10-pr/<c> (save ПОСЛЕ lane; на pull_request — PR-scoped
+#     ключ ci-incr-<c>-pr-<N>-<SHA>): сохранение только на push красно в Г10-pr.
 #   Часть И — инкрементальность: И0/И0б (живое дерево, 4 чека, гость: КРАСНА
 #     до реализации; И0б — непустое окно HEAD~1..HEAD: маркер с ИСТИННЫМ
 #     числом коммитов + перезапись кеша), И1 позитивный контроль (полный
@@ -39,8 +45,12 @@
 #     check_zones/check_ids/check_protected (валидность toy полным режимом
 #     + нарушение ниже базы зелёно + нарушение в окне красно): noop-ветка
 #     --incr («маркер и rc 0») ловится клеткой «нарушение в окне», молча
-#     полный прогон — клеткой «нарушение ниже базы». Стаб-пак С1-С4 против
-#     мини-референса окна, носитель В БАТАРЕЕ, не субъект.
+#     полный прогон — клеткой «нарушение ниже базы». Ветвь (в′) И-6 — у ВСЕХ
+#     четырёх чеков одним кодом входов (side_line_sha/FS4/input_class):
+#     charter И4-3/<класс>, И4-4/<класс>; остальные три — И4-3/<чек>/<класс>,
+#     И4-4/<чек>/<класс> + И-чист/<чек> (полный режим чистого мира зелёный —
+#     позитивный контроль входа И4-4). Стаб-пак С1-С5 против мини-референса
+#     окна, носитель В БАТАРЕЕ, не субъект.
 #
 # Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи,
 # НЕ в прозе контракта):
@@ -50,6 +60,20 @@
 #   Г-С2 «генератор теряет шаг» (в блоке нет ключа k7) — наблюдаем на том же
 #        входе покрытием: «ключ k7 не покрыт»; на конформном — «покрытие
 #        полное».
+#   Г-С3..Г-С7 — обманные варианты toy-джобы ci (mk_cache_workflow) против
+#        оракула этикета Г10; вход — «событие × свойство» Г10; на конформном
+#        toy-этикете все 12 свойств зелёны (Г-С-контроль):
+#   Г-С3 «save только на push» (Б-1, форма round-1) — наблюдаем на событии
+#        pull_request: Г10-pr красна у 4 чеков; на push и в restore честен.
+#   Г-С4 «save на pull_request без PR-scoped ключа» (один save без if, ключ
+#        ci-incr-<c>-<SHA>) — наблюдаем ключом на pull_request: Г10-pr красна;
+#        на push честен (тот же ключ верен).
+#   Г-С5 «restore только на push» — наблюдаем на pull_request в Г10-restore;
+#        save-свойства честны.
+#   Г-С6 «restore без restore-keys» (новый sha не находит ничего — вечно
+#        холодный) — наблюдаем в Г10-restore; save-свойства честны.
+#   Г-С7 «save до lane-шага» (сохраняет восстановленное, не засуженное) —
+#        наблюдаем порядком в Г10-push и Г10-pr; restore честен.
 #   С1 «молча деградирует до полного» (игнорирует base, судит всю историю)
 #        — наблюдаем на входе И2 (нарушение НИЖЕ базы): честное окно rc 0,
 #        стаб rc 1.
@@ -75,7 +99,8 @@
 # ids: номер артефакта без тега выдачи; protected: исчезновение существовавшего
 # защищённого файла). Валидность каждого toy ДОКАЗАНА живым прогоном полного
 # режима текущих чеков (клетки И1/И6/И9/И12) — вход конформен и красен ДО
-# реализации предмета. Валидный контрпример против «инкрементальность не
+# реализации предмета; чистых миров — И5 (charter) и И-чист (три чека): полный
+# режим зелёный. Валидный контрпример против «инкрементальность не
 # ослабляет» = расхождение композиции окон с полным прогоном на КОНФОРМНОЙ
 # истории, а не вход вне грамматики чека.
 #
@@ -85,8 +110,9 @@
 #
 # Прогон: bash red_ci_a_083.sh [корень]
 #   rc 0 — все клетки зелёные (после реализации предмета);
-#   rc 1 — есть красные (до реализации: Г0-Г9, И0, И0б, И2-И5, И7-И8,
-#          И10-И11, И13-И14 красны по умыслу, стаб-пак и И1/И6/И9/И12 зелёны).
+#   rc 1 — есть красные (до реализации: Г0-Г10, И0, И0б, И2-И5, И7-И8,
+#          И10-И11, И13-И14, И4-3/И4-4 трёх чеков красны по умыслу, стаб-пак
+#          и И1/И6/И9/И12/И-чист зелёны).
 # Печать никогда не говорит PASS — только счёт ok/FAIL по клеткам (rc — истина).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -562,6 +588,162 @@ else
   fi
 fi
 
+# Г10: этикет кеша инкрементальных чеков (§Зоны контракта: «restore всегда;
+# save — на push И pull_request»; Б-1 ревьюера 083 круг 1 — PR-события кеш не
+# сохраняли, А3 на PR недостижим). Для КАЖДОГО чека <c> из CACHE_CHECKS в теле
+# джобы ci, по событию — своей клеткой:
+#   Г10-restore/<c> — на push И на pull_request активен restore-шаг ДО
+#     lane-шага: path tmp/ci-incr/<c>.sha, key ci-incr-<c>-<SHA>, restore-keys
+#     содержит ci-incr-<c>-;
+#   Г10-push/<c> — на push активен save-шаг ПОСЛЕ lane-шага (сохраняет
+#     засуженное): тот же path, key ci-incr-<c>-<SHA>;
+#   Г10-pr/<c> — на pull_request активен save-шаг ПОСЛЕ lane-шага: тот же
+#     path, PR-scoped key ci-incr-<c>-pr-<N>-<SHA>.
+# Оракул — собственный парсер шагов (ci_steps_tsv) + вычислитель if:/key: по
+# событию (ev_if/ev_key), НЕ субъект. Демаркация — конформный вход оракула
+# есть закрытая грамматика; всё иное — именованное красное «вне грамматики»,
+# никогда не зелёное:
+#   шаги — раздельные uses: actions/cache/restore@<ref> | actions/cache/save@<ref>
+#     (комбинированный actions/cache@ — вне грамматики); with.path, with.key —
+#     однострочный скаляр (простой или в кавычках); restore-keys — скаляр или блок |;
+#   if: — нет | github.event_name == 'push' | github.event_name == 'pull_request'
+#     | их дизъюнкция | github.event_name != 'pull_request' (= push) |
+#     github.event_name != 'push' (= pull_request); допустимы обёртка ${{ }} и
+#     префикс success() && | always() && | !cancelled() && (успешная lane: true);
+#   ${{ }} внутри key: — github.sha и github.event.pull_request.head.sha ||
+#     github.sha дают <SHA> на обоих событиях; github.event.pull_request.head.sha
+#     даёт <SHA> на pull_request и пусто на push; github.event.pull_request.number
+#     и github.event.number дают <N> на pull_request и пусто на push.
+# Сохранение ТОЛЬКО на push (Б-1) красно ровно в Г10-pr (стаб Г-С3 ниже).
+CACHE_CHECKS="charter zones ids protected"
+ci_steps_tsv() { # <ci.yml> → по строке на шаг джобы ci, поля через \037:
+  # номер, uses, if, path, key, restore-keys, lane (1 — run: с run_ci_lane.sh)
+  ci_job_body "$1" | awk -v q="'" '
+    function ind(s) { match(s, /^ */); return RLENGTH }
+    function clean(v,   m) {
+      gsub(/\t/, " ", v); sub(/[ ]+#.*$/, "", v); sub(/^[ ]+/, "", v); sub(/[ ]+$/, "", v)
+      m = length(v)
+      if (m >= 2 && ((substr(v, 1, 1) == "\"" && substr(v, m, 1) == "\"") || (substr(v, 1, 1) == q && substr(v, m, 1) == q)))
+        v = substr(v, 2, m - 2)
+      return v
+    }
+    function put(k, v) {
+      if (k == "uses") U = v; else if (k == "if") F = v; else if (k == "path") P = v
+      else if (k == "key") K = v; else if (k == "restore-keys") R = v
+      else if (k == "run" && index(v, "run_ci_lane.sh") > 0) L = 1
+    }
+    function flush() { if (bk != "") { put(bk, bv); bk = "" } }
+    function emit() { flush(); if (n > 0) printf "%d\037%s\037%s\037%s\037%s\037%s\037%d\n", n, U, F, P, K, R, L }
+    BEGIN { si = -1; n = 0; bk = "" }
+    /^[ \t]*$/ || /^[ \t]*#/ { next }
+    {
+      line = $0; i = ind(line)
+      if (si < 0) {
+        if (line ~ /^[ ]*steps:[ ]*$/) { want = 1; next }
+        if (!(want && line ~ /^[ ]*- /)) next
+        si = i
+      }
+      if (i < si) { emit(); n = -1; exit }
+      if (i == si && substr(line, i + 1, 2) == "- ") {
+        emit(); n++; U = ""; F = ""; P = ""; K = ""; R = ""; L = 0
+        line = substr(line, 1, i) "  " substr(line, i + 3); i = ind(line)
+      }
+      if (bk != "") { if (i > bi) { bv = bv (bv == "" ? "" : " ") clean(line); next } flush() }
+      if (match(line, /^[ ]*[A-Za-z0-9_-]+:/)) {
+        k = substr(line, i + 1); sub(/:.*/, "", k)
+        v = substr(line, i + 1); sub(/^[^:]*:[ ]*/, "", v)
+        if (v ~ /^[|>][-+]?[ ]*$/) { bk = k; bi = i; bv = ""; next }
+        put(k, clean(v))
+      }
+    }
+    END { if (n > 0) emit() }'
+}
+ev_if() { # <значение if:> <push|pull_request> → rc 0 активен / 1 не активен / 2 вне грамматики
+  local c; c="$(printf '%s' "$1" | tr -d ' \t')"
+  case "$c" in '${{'*'}}') c="${c#'${{'}"; c="${c%'}}'}" ;; esac
+  case "$c" in 'success()'|'always()'|'!cancelled()') c='' ;; esac
+  c="${c#'success()&&'}"; c="${c#'always()&&'}"; c="${c#'!cancelled()&&'}"
+  case "$c" in
+    '') return 0 ;;
+    "github.event_name=='push'"|"github.event_name!='pull_request'") [ "$2" = push ] && return 0; return 1 ;;
+    "github.event_name=='pull_request'"|"github.event_name!='push'") [ "$2" = pull_request ] && return 0; return 1 ;;
+    "github.event_name=='push'||github.event_name=='pull_request'"|"github.event_name=='pull_request'||github.event_name=='push'") return 0 ;;
+    *) return 2 ;;
+  esac
+}
+ev_key() { # <значение key:> <push|pull_request> → ключ с токенами <SHA>/<N>; rc 2 — вне грамматики
+  local k="$1" e="$2" out="" x n rep
+  while :; do
+    case "$k" in
+      *'${{'*'}}'*)
+        out="$out${k%%'${{'*}"; x="${k#*'${{'}"; k="${x#*'}}'}"; x="${x%%'}}'*}"
+        n="$(printf '%s' "$x" | tr -d ' \t')"
+        case "$n" in
+          github.sha|'github.event.pull_request.head.sha||github.sha') rep='<SHA>' ;;
+          github.event.pull_request.head.sha) rep=''; [ "$e" = pull_request ] && rep='<SHA>' ;;
+          github.event.pull_request.number|github.event.number) rep=''; [ "$e" = pull_request ] && rep='<N>' ;;
+          *) return 2 ;;
+        esac
+        out="$out$rep" ;;
+      *'${{'*) return 2 ;;
+      *) out="$out$k"; break ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+cache_cell() { # <tsv шагов> <чек> <restore|push|pr> → причина на stdout; rc 0 зелено / 1 красно
+  local tsv="$1" c="$2" kind="$3" path="tmp/ci-incr/$2.sha" lane want evs what e hit r got seen=""
+  local idx uses cond p key rk lflag
+  lane="$(awk -F'\037' '$7 == 1 { print $1; exit }' "$tsv")"
+  [ -n "$lane" ] || { printf 'lane-шаг (run: с run_ci_lane.sh) в теле джобы ci не найден — порядок restore→lane→save не судим'; return 1; }
+  case "$kind" in
+    restore) evs="push pull_request"; want="ci-incr-$c-<SHA>"; what=restore ;;
+    push) evs="push"; want="ci-incr-$c-<SHA>"; what=save ;;
+    *) evs="pull_request"; want="ci-incr-$c-pr-<N>-<SHA>"; what=save ;;
+  esac
+  for e in $evs; do
+    hit=0
+    while IFS=$'\037' read -r idx uses cond p key rk lflag; do
+      [ "$p" = "$path" ] || continue
+      case "$uses" in
+        actions/cache/restore@*)
+          [ "$what" = restore ] || continue
+          [ "$idx" -lt "$lane" ] || { seen="$seen [шаг $idx после lane-шага]"; continue; } ;;
+        actions/cache/save@*)
+          [ "$what" = save ] || continue
+          [ "$idx" -gt "$lane" ] || { seen="$seen [шаг $idx до lane-шага — сохраняет несуженное]"; continue; } ;;
+        actions/cache@*) seen="$seen [шаг $idx: комбинированный actions/cache@ — вне грамматики]"; continue ;;
+        *) continue ;;
+      esac
+      ev_if "$cond" "$e"; r=$?
+      [ "$r" -ne 2 ] || { seen="$seen [шаг $idx: if «$cond» вне грамматики]"; continue; }
+      [ "$r" -eq 0 ] || { seen="$seen [шаг $idx: if «$cond» — на $e не активен]"; continue; }
+      got="$(ev_key "$key" "$e")" || { seen="$seen [шаг $idx: key «$key» вне грамматики]"; continue; }
+      [ "$got" = "$want" ] || { seen="$seen [шаг $idx: key на $e = «$got» ≠ «$want»]"; continue; }
+      if [ "$what" = restore ]; then
+        case " $rk " in *" ci-incr-$c- "*) ;; *) seen="$seen [шаг $idx: restore-keys «$rk» без ci-incr-$c-]"; continue ;; esac
+      fi
+      hit=1; break
+    done < "$tsv"
+    if [ "$hit" != 1 ]; then
+      printf 'на %s нет %s-шага path %s с key %s%s' "$e" "$what" "$path" "$want" "${seen:+ — кандидаты:$seen}"
+      return 1
+    fi
+  done
+  printf '%s-шаг path %s, key %s — активен на: %s' "$what" "$path" "$want" "$evs"
+  return 0
+}
+if [ ! -f "$CIYML" ] || [ -z "$(ci_job_body "$CIYML")" ]; then
+  bad "Г10: предмет отсутствует: тело джобы ci не найдено в $CIYML"
+else
+  T10="$SCRATCH/g10-steps.tsv"; ci_steps_tsv "$CIYML" > "$T10"
+  for c in $CACHE_CHECKS; do
+    for kind in restore push pr; do
+      if r="$(cache_cell "$T10" "$c" "$kind")"; then ok "Г10-$kind/$c: $r"; else bad "Г10-$kind/$c: $r"; fi
+    done
+  done
+fi
+
 # Г-С1/Г-С2: стаб-входы против оракула батареи (зелёны всегда).
 mk_toy_workflow() { # <файл> <lane:ключи...>
   local f="$1"; shift
@@ -596,6 +778,83 @@ r="$(oracle_cover "$SW/drop-key.yml" "k1 k2 k3 k4 k5 k6 k7")"; rc=$?
 r="$(oracle_cover "$SW/ok-lanes.yml" "k1 k2 k3 k4 k5 k6 k7")"; rc=$?
 [ "$rc" -eq 0 ] && ok "Г-С2-диффпроба: полное покрытие проходит ($r)" || bad "Г-С2-диффпроба: оракул сломан на полном покрытии"
 
+# Г-С3..Г-С7: стаб-входы против оракула этикета Г10 (зелёны всегда). Toy-джоба
+# ci (mk_cache_workflow) — конформный этикет и пять обманных вариантов; каждый
+# стаб красен РОВНО в свойствах своего дефекта у всех 4 чеков, в остальных
+# свойствах на том же toy честен (диффпроба).
+cw_restore() { # <вариант>
+  local c
+  for c in $CACHE_CHECKS; do
+    printf '      - uses: actions/cache/restore@v4\n'
+    [ "$1" = restore-push ] && printf "        if: github.event_name == 'push'\n"
+    printf '        with:\n          path: tmp/ci-incr/%s.sha\n          key: ci-incr-%s-${{ github.sha }}\n' "$c" "$c"
+    [ "$1" = no-restore-keys ] || printf '          restore-keys: |\n            ci-incr-%s-\n' "$c"
+  done
+}
+cw_save() { # <вариант>
+  local c
+  for c in $CACHE_CHECKS; do
+    if [ "$1" = unscoped ]; then
+      printf '      - uses: actions/cache/save@v4\n'
+    else
+      printf "      - if: github.event_name == 'push'\n        uses: actions/cache/save@v4\n"
+    fi
+    printf '        with:\n          path: tmp/ci-incr/%s.sha\n          key: ci-incr-%s-${{ github.sha }}\n' "$c" "$c"
+    case "$1" in push-only|unscoped) continue ;; esac
+    printf "      - if: \${{ github.event_name == 'pull_request' }}\n        uses: actions/cache/save@v4\n"
+    printf '        with:\n          path: tmp/ci-incr/%s.sha\n' "$c"
+    printf '          key: ci-incr-%s-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}\n' "$c"
+  done
+}
+mk_cache_workflow() { # <файл> <ok|push-only|unscoped|restore-push|no-restore-keys|save-before>
+  {
+    printf 'jobs:\n  ci:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
+    cw_restore "$2"
+    [ "$2" = save-before ] && cw_save "$2"
+    printf '      - name: Lane ${{ matrix.lane }}\n        run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}\n'
+    [ "$2" = save-before ] || cw_save "$2"
+    printf '  next:\n    runs-on: ubuntu-latest\n'
+  } > "$1"
+}
+cache_profile() { # <вариант> → « свойство/чек=rc» по 12 свойствам Г10 (0 зелено, 1 красно)
+  local c kind out=""
+  mk_cache_workflow "$SC/$1.yml" "$1"; ci_steps_tsv "$SC/$1.yml" > "$SC/$1.tsv"
+  for c in $CACHE_CHECKS; do for kind in restore push pr; do
+    cache_cell "$SC/$1.tsv" "$c" "$kind" >/dev/null; out="$out $kind/$c=$?"
+  done; done
+  printf '%s' "$out"
+}
+want_profile() { # <красные свойства через пробел> → ожидаемый профиль (в памяти батареи)
+  local c kind out=""
+  for c in $CACHE_CHECKS; do for kind in restore push pr; do
+    case " $1 " in *" $kind "*) out="$out $kind/$c=1" ;; *) out="$out $kind/$c=0" ;; esac
+  done; done
+  printf '%s' "$out"
+}
+stub_cache() { # <имя> <вариант> <красные свойства> <дефект>
+  local got tok miss="" over=""
+  got="$(cache_profile "$2")"
+  for tok in $(want_profile "$3"); do
+    case " $got " in
+      *" $tok "*) ;;
+      *) case "$tok" in *=1) miss="$miss ${tok%=1}" ;; *) over="$over ${tok%=0}" ;; esac ;;
+    esac
+  done
+  [ -z "$miss" ] && ok "$1: «$4» пойман оракулом Г10 (красны: $3 — у всех 4 чеков)" \
+                 || bad "$1: оракул Г10 ПРОПУСТИЛ «$4» в:$miss"
+  [ -z "$over" ] && ok "$1-диффпроба: прочие свойства этикета на том же toy зелёны" \
+                 || bad "$1-диффпроба: оракул красен не по дефекту стаба в:$over"
+}
+SC="$SCRATCH/gcache"; mkdir -p "$SC"
+got="$(cache_profile ok)"
+[ "$got" = "$(want_profile '')" ] && ok "Г-С-контроль: конформный toy-этикет — 12/12 свойств Г10 зелёны" \
+                                  || bad "Г-С-контроль: оракул Г10 красен на конформном этикете:$got"
+stub_cache "Г-С3" push-only       "pr"      "save только на push (Б-1)"
+stub_cache "Г-С4" unscoped        "pr"      "save на pull_request без PR-scoped ключа"
+stub_cache "Г-С5" restore-push    "restore" "restore только на push"
+stub_cache "Г-С6" no-restore-keys "restore" "restore без restore-keys"
+stub_cache "Г-С7" save-before     "push pr" "save до lane-шага"
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Часть И — инкрементальные проверки истории
 # ═══════════════════════════════════════════════════════════════════════════
@@ -627,9 +886,10 @@ build_charter_toy() { # <dir> <with_violation:0|1> → печает "C1 C2 C3" (
 }
 # zones-toy: c1 — контракт с ЗОНА-строкой + заморозка (frozen/contracts/090/1);
 # c2 — НАРУШЕНИЕ: коммит в диапазоне заморозки вне зоны (benign.txt автором toy);
-# c3 — benign: правка внутри зоны тем же автором.
-build_zones_toy() { # <dir> → "C1 C2 C3"
-  local d="$1"
+# c3 — benign: правка внутри зоны тем же автором. viol=0 — чистый мир того же
+# строителя (c2 не коммитится, C2=C1 — конвенция build_charter_toy): вход И4-4.
+build_zones_toy() { # <dir> [viol:1|0] → "C1 C2 C3"
+  local d="$1" viol="${2:-1}"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
   local s
   for s in check_zones.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh lib_incr.sh; do
@@ -641,8 +901,10 @@ build_zones_toy() { # <dir> → "C1 C2 C3"
   git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c1 contract" || return 1
   local C1; C1="$(git -C "$d" rev-parse HEAD)"
   git -C "$d" tag frozen/contracts/090/1 "$C1"
-  printf 'benign\n' > "$d/benign.txt"
-  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 outside-zone" || return 1
+  if [ "$viol" = 1 ]; then
+    printf 'benign\n' > "$d/benign.txt"
+    git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 outside-zone" || return 1
+  fi
   local C2; C2="$(git -C "$d" rev-parse HEAD)"
   printf ' v2\n' >> "$d/contracts/090-demo.md"
   git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c3 inside-zone" || return 1
@@ -651,8 +913,9 @@ build_zones_toy() { # <dir> → "C1 C2 C3"
 }
 # ids-toy: c1 — чистый импорт; c2 — НАРУШЕНИЕ: contracts/090-bad.md с номером
 # без тега выдачи id/CONTRACT/090 («номер назначен рукой»); c3 — benign.
-build_ids_toy() { # <dir> → "C1 C2 C3"
-  local d="$1"
+# viol=0 — чистый мир (c2 не коммитится, C2=C1).
+build_ids_toy() { # <dir> [viol:1|0] → "C1 C2 C3"
+  local d="$1" viol="${2:-1}"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
   local s
   for s in check_ids.sh next_id.sh lib_roles.sh lib_registry.sh lib_incr.sh; do
@@ -664,8 +927,10 @@ build_ids_toy() { # <dir> → "C1 C2 C3"
   git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c1 import" || return 1
   git -C "$d" tag id/CONTRACT/082
   local C1; C1="$(git -C "$d" rev-parse HEAD)"
-  printf 'bad\n' > "$d/contracts/090-bad.md"
-  git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 hand-number" || return 1
+  if [ "$viol" = 1 ]; then
+    printf 'bad\n' > "$d/contracts/090-bad.md"
+    git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 hand-number" || return 1
+  fi
   local C2; C2="$(git -C "$d" rev-parse HEAD)"
   printf 'benign\n' > "$d/other.txt"
   git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c3 benign" || return 1
@@ -673,9 +938,10 @@ build_ids_toy() { # <dir> → "C1 C2 C3"
   printf '%s %s %s\n' "$C1" "$C2" "$C3"
 }
 # protected-toy: c1 — plans/001-x.md добавлен; c2 — НАРУШЕНИЕ: файл удалён
-# («существовал — обязан существовать»); c3 — benign.
-build_prot_toy() { # <dir> → "C1 C2 C3"
-  local d="$1"
+# («существовал — обязан существовать»); c3 — benign. viol=0 — чистый мир
+# (c2 не коммитится, C2=C1).
+build_prot_toy() { # <dir> [viol:1|0] → "C1 C2 C3"
+  local d="$1" viol="${2:-1}"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/plans"
   cp "$ROOT/scripts/check_protected.sh" "$d/scripts/check_protected.sh" 2>/dev/null \
     || { printf 'НЕТ-ЗАВИСИМОСТИ:check_protected.sh\n'; return 1; }
@@ -686,8 +952,10 @@ build_prot_toy() { # <dir> → "C1 C2 C3"
   printf 'plan\n' > "$d/plans/001-x.md"
   git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c1 add-plan" || return 1
   local C1; C1="$(git -C "$d" rev-parse HEAD)"
-  git -C "$d" rm -q plans/001-x.md
-  git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 del-plan" || return 1
+  if [ "$viol" = 1 ]; then
+    git -C "$d" rm -q plans/001-x.md
+    git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c2 del-plan" || return 1
+  fi
   local C2; C2="$(git -C "$d" rev-parse HEAD)"
   printf 'benign\n' > "$d/other.txt"
   git -C "$d" add -A && git -C "$d" -c user.name=toy -c user.email=toy@t commit -qm "c3 benign" || return 1
@@ -882,7 +1150,17 @@ fi
 
 # --- И6-И14: window-клетки для check_zones / check_ids / check_protected ----
 # (аналог И1-И3 charter: валидность toy полным режимом + нарушение ниже базы
-# зелёно + нарушение в окне красно; для КАЖДОГО из четырёх субъектов И-7).
+# зелёно + нарушение в окне красно; для КАЖДОГО из четырёх субъектов И-7)
+# + ветвь (в′) И-6 ТЕМ ЖЕ кодом входов, что И4-3/И4-4 charter (side_line_sha,
+# FS4, input_class; вердикты adversary/reviewer 083 круг 1: (в′) судилась
+# только у charter, три чека с прежним отказом «не предок» проходили батарею):
+#   И4-3/<чек>/<класс> — viol-toy, линия развилкой на c2 (нарушение ПОД
+#     развилкой: окно от развилки или от самой базы его не видит) → rc 1
+#     ПОЛНЫМ прогоном + маркер «кеш сторонней линии» + имя нарушения;
+#   И-чист/<чек> — позитивный контроль чистого мира (тот же строитель, viol=0):
+#     полный режим rc 0 — вход И4-4 конформен (зелёна ДО и ПОСЛЕ);
+#   И4-4/<чек>/<класс> — чистый toy, линия развилкой на c1 → rc 0 + маркер +
+#     кеш=HEAD (сеяние своей линии).
 window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-валидности> [name-pattern]
   local chk="$1" pref="$2" builder="$3" valid_re="$4" name_pat="${5-}"
   local c1 c2 c3
@@ -891,6 +1169,13 @@ window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-в
     bad "И-${chk}: toy не построен (зависимости чека не найдены): $c1"
     return 1
   fi
+  # Входы (в′) строятся ДО любого вызова субъекта, ожидания — в памяти
+  # (правило 8): чистый мир, линия на viol-toy (потомок c2) и на чистом
+  # (потомок c1); объект — FS4 (sha постороннего репозитория, см. charter).
+  local k1 k2 k3 sl ksl cls sha got
+  read -r k1 k2 k3 <<< "$("$builder" "$SCRATCH/${pref}_clean" 0)"
+  sl="$(side_line_sha "$SCRATCH/$pref" "$c2")"
+  ksl="$(side_line_sha "$SCRATCH/${pref}_clean" "${k2:-}")"
   # name-pattern: если субъект не печатает commit sha в нарушении (check_ids,
   # check_protected — они именуют НОМЕР/ПУТЬ, не коммит), передаётся явно;
   # иначе (check_zones — коммит-ключевой) — по умолчанию короткая sha c2.
@@ -922,6 +1207,50 @@ window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-в
   else
     bad "И-окно/$chk: предмет отсутствует/noop: ждали rc 1 + '(2 коммит' + имя ${c2:0:8}; rc=$rc: $out"
   fi
+  # И4-3/<чек>/<класс>: sha-не-предок на viol-toy — громкий полный прогон, не отказ.
+  for cls in линия объект; do
+    case "$cls" in линия) sha="$sl" ;; *) sha="${FS4:-}" ;; esac
+    got="$(input_class "$SCRATCH/$pref" "$sha")"
+    if [ -z "$sha" ] || [ "$got" != "$cls" ]; then
+      bad "И4-3/$chk/$cls: вход не построен (класс «${got}», ждали «$cls») — клетка не судима"
+      continue
+    fi
+    C="$SCRATCH/${pref}-i43-$cls.cache"; printf '%s\n' "$sha" > "$C"
+    out="$(cd "$SCRATCH/$pref" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
+    if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q "incr: $chk полный прогон (база .* не предок HEAD .* — кеш сторонней линии)" \
+       && printf '%s' "$out" | grep -q "$valid_re" && printf '%s' "$out" | grep -q "$name_pat"; then
+      ok "И4-3/$chk/$cls: sha-не-предок (${sha:0:8}) на viol-toy — громкий полный прогон, rc 1 именует нарушение (${c2:0:8})"
+    else
+      bad "И4-3/$chk/$cls: предмет отсутствует: ждали rc 1 ПОЛНЫМ прогоном (маркер «кеш сторонней линии» + '$valid_re' + '$name_pat'), не отказ «не предок»; rc=$rc: $out"
+    fi
+  done
+  if [ -z "${k1:-}" ] || [ "${k1#НЕТ-ЗАВИСИМОСТ}" != "$k1" ]; then
+    bad "И4-4/$chk: чистый toy не построен — сеяние не судимо: ${k1:-}"
+    return 0
+  fi
+  out="$(cd "$SCRATCH/${pref}_clean" && timeout 60 bash "scripts/$chk.sh" . 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ]; then
+    bad "И-чист/$chk: чистый toy НЕДЕЙСТВИТЕЛЕН: полный режим rc=$rc (ждал 0) — сеяние не судимо: $out"
+    return 0
+  fi
+  ok "И-чист/$chk: полный режим чистого toy зелёный (вход И4-4 конформен)"
+  # И4-4/<чек>/<класс>: sha-не-предок на чистом toy — rc 0 + маркер + кеш=HEAD.
+  for cls in линия объект; do
+    case "$cls" in линия) sha="$ksl" ;; *) sha="${FS4:-}" ;; esac
+    got="$(input_class "$SCRATCH/${pref}_clean" "$sha")"
+    if [ -z "$sha" ] || [ "$got" != "$cls" ]; then
+      bad "И4-4/$chk/$cls: вход не построен (класс «${got}», ждали «$cls») — сеяние не судимо"
+      continue
+    fi
+    C="$SCRATCH/${pref}-i44-$cls.cache"; printf '%s\n' "$sha" > "$C"
+    out="$(cd "$SCRATCH/${pref}_clean" && timeout 60 bash "scripts/$chk.sh" --incr "$C" 2>&1)"; rc=$?
+    if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "incr: $chk полный прогон (база .* не предок HEAD .* — кеш сторонней линии)" \
+       && [ "$(head -n1 "$C")" = "$k3" ]; then
+      ok "И4-4/$chk/$cls: sha-не-предок (${sha:0:8}) на чистом toy — rc 0, кеш засеян HEAD своей линии"
+    else
+      bad "И4-4/$chk/$cls: предмет отсутствует: ждали rc 0 + маркер «кеш сторонней линии» + кеш=HEAD (${k3:0:8}); rc=$rc: $out"
+    fi
+  done
   return 0
 }
 window_cells check_zones   toy_zon build_zones_toy 'вне зоны'
