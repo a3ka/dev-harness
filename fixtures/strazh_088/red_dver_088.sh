@@ -4,7 +4,7 @@
 # из passwd). Субъект — scripts/orch_restart.sh + scripts/lib_session.sh судимого корня,
 # копией в тоу-корень (дверь не трогает основной чекаут; маркер и след — швы в скратче).
 #
-# Использование: bash red_dver_088.sh <корень> [L1 D0 D1 D2 D3 D4 D5] [--dver <файл>]
+# Использование: bash red_dver_088.sh <корень> [L1 D0 D1 D2 D3 D4 D5 D6 D7] [--dver <файл>]
 #   --dver <файл> — подменить дверь тоу-корня (стаб-пак/диффпроба); L1 судит только субъект.
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
@@ -29,6 +29,12 @@
 #   D5 как D1, но единственный свежий журнал — basename с ведущей точкой `.Skrytyj.jsonl`
 #      (конформное имя по §Демаркации) → «ОТКАЗ: живые субагенты: .Skrytyj». Дверь,
 #      отбрасывающая имена `.*`, проходит ногу (1) до (а) (adversary 088).
+#   D6 как D1, но дом из passwd несёт пробелы (`…/d6 dom s probelom`; поле 6 passwd —
+#      любые байты, кроме `:` и LF) → тот же отказ. Глоб сессий, разбитый по IFS на
+#      слова, пуст — дверь доходит до (а) (adversary 088-v2 §2).
+#   D7 как D1, но дом из passwd несёт глоб-метасимволы `[x]*?\` (каталог существует
+#      буквально) → тот же отказ. Неэкранированный дом в глобе — шаблон, а не путь:
+#      каталог сессии под ним не находится (тот же нецитированный `ls -t $ORCH_SESS_GLOB`).
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39: по коду, не прозой).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -83,7 +89,7 @@ if nado L1; then
   fi
 fi
 
-# ── D0..D4: тоу-миры ───────────────────────────────────────────────────────────
+# ── D0..D7: тоу-миры ───────────────────────────────────────────────────────────
 ZONE_HOME="$SCR/zona_home"      # HOME сессии omp (перенаправленный, журналов нет)
 mkdir -p "$ZONE_HOME" || exit 2
 
@@ -142,6 +148,20 @@ if nado D5; then
   kat "$TOY_UH"; sessija "$k" .Skrytyj -- Staryj
   dver_mir "$SCR/d5" "$DVER"
   dver "$SCR/d5" "$ZONE_HOME"; ozhidaj_a D5 $? zhivye '.Skrytyj'
+fi
+
+if nado D6; then
+  export TOY_UH="$SCR/d6 dom s probelom"
+  kat "$TOY_UH"; sessija "$k" ZhivojB ZhivojA -- Staryj
+  dver_mir "$SCR/d6" "$DVER"
+  dver "$SCR/d6" "$ZONE_HOME"; ozhidaj_a D6 $? zhivye 'ZhivojA,ZhivojB'
+fi
+
+if nado D7; then
+  export TOY_UH="$SCR/d7[x]*?\\y"
+  kat "$TOY_UH"; sessija "$k" ZhivojB ZhivojA -- Staryj
+  dver_mir "$SCR/d7" "$DVER"
+  dver "$SCR/d7" "$ZONE_HOME"; ozhidaj_a D7 $? zhivye 'ZhivojA,ZhivojB'
 fi
 
 itog_semji red_dver_088.sh
