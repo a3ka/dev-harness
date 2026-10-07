@@ -9,12 +9,14 @@
 #   PTR_088   — строка-указатель. Единый источник тестового слоя — присваивание
 #               HANDOFF_PTR в fixtures/ops_server/red_server_obvjazka_074.sh (клетка k7);
 #               берётся оттуда побайтово, РОВНО одно совпадение `^HANDOFF_PTR='…'$`,
-#               иначе rc 2 (второй копии строки в семье 088 нет). Субъект берёт k7 из
-#               индекса своего тоу-репо: тоу-репо хука несёт закоммиченную побайтовую
-#               копию этого файла (ukazatel_mir); рабочая копия k7 — не источник (B15/B16).
+#               иначе rc 2 (второй копии строки в семье 088 нет). Субъект несёт k7 СВОЕЙ
+#               константой (арбитраж 088 круг 5): ни рабочая копия, ни индекс, ни HEAD-блоб
+#               074 источником субъекта не служат; закоммиченная копия 074 в тоу-репо
+#               (ukazatel_mir) — только объект порчи клеток B15/B16/B19-B22.
 #   OTKAZ_088 — строка отказа хука (инвариант Б3 контракта 088), сверка `grep -Fxq`.
 #   ATAKA_088 — строка коммитёра, не k7: B14 — она же в env PTR_088 коммита; B15 — ею
-#               переписана рабочая копия k7; B17/B18 — она же в env OTKAZ_088 коммита.
+#               переписана рабочая копия k7; B17/B18 — она же в env OTKAZ_088 коммита;
+#               B20 — второе присваивание k7 индекса; B21 — k7 индекса переписана ею.
 #   Ожидания клеток — константы клеток (вход строится известным конформным/неконформным).
 # Сверка структурна: строка отказа — самостоятельной строкой stderr (`grep -Fxq`), HEAD до/
 # после коммита — по rev-parse, маркер двери — по существованию файла шва.
@@ -40,6 +42,9 @@ ATAKA_088='attacker'
 
 SCR="$(mktemp -d "${TMPDIR:-/tmp}/strazh088.XXXXXX")" || { printf 'NOT_IMPLEMENTED: нет скратча\n' >&2; exit 2; }
 trap 'rm -rf -- "$SCR"' EXIT
+# Швы D2/D4/D9-D11 пишут скратч в ORCH_SESS_GLOB буквально: скратч с пробелом или
+# глоб-метасимволом сделал бы вход клетки не тем, что объявлен.
+case "$SCR" in *[[:space:]\]\[*?\\]*) printf 'NOT_IMPLEMENTED: скратч с пробелом/глоб-метасимволом: %s\n' "$SCR" >&2; exit 2 ;; esac
 
 KRASNYH=0
 ZELENYH=0
@@ -98,17 +103,24 @@ ukazatel_mir() {
   GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null git -C "$r" config core.hooksPath .githooks || exit 2
 }
 
-# kommit <репо> [VAR=знач…] — коммит ЖИВЫМ способом оркестратора: identity `-c`,
-# file-config пуст, хук активен; VAR=знач — окружение коммитёра (клетка B14). Печатает
-# rc git; stderr — в $SCR/kommit.err.
+# kommit <репо> [VAR=знач…] [-- <аргументы git commit…>] — коммит ЖИВЫМ способом
+# оркестратора: identity `-c`, file-config пуст, хук активен; VAR=знач — окружение
+# коммитёра (B14/B17/B18); после первого `--` — форма коммита дословно (`-a`,
+# `-- <путь>`, `-i <путь>`; B23-B29). Код возврата — rc git; stderr — в $SCR/kommit.err.
 kommit() {
-  local r="$1"; shift
-  env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null "$@" \
+  local r="$1" sreda=() forma=()
+  shift
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = -- ]; then shift; forma=("$@"); break; fi
+    sreda+=("$1"); shift
+  done
+  env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null "${sreda[@]}" \
     git -C "$r" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
-        -c commit.gpgsign=false commit -q -m 'проба 088' >/dev/null 2>"$SCR/kommit.err"
+        -c commit.gpgsign=false commit -q -m 'проба 088' "${forma[@]}" >/dev/null 2>"$SCR/kommit.err"
 }
 
-# ozhidaj_b <клетка> <репо> prinjat|otkaz [VAR=знач…] — коммит и сверка исхода с ожиданием.
+# ozhidaj_b <клетка> <репо> prinjat|otkaz [VAR=знач…] [-- <форма commit…>] — коммит и
+# сверка исхода с ожиданием.
 ozhidaj_b() {
   local c="$1" r="$2" ozh="$3" h0 h1 rc
   shift 3
