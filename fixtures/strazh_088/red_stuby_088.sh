@@ -46,6 +46,16 @@
 #   sb22 → B25 принят только <git-dir>/index.lock: next-index-*.lock частичного коммита — нет
 #   sb23 → B29 git-dir как "$R/.git", не --absolute-git-dir: связанный worktree слеп
 #   sb24 → B30 GIT_INDEX_FILE принят без проверки «под git-dir корня» (гигиена 016 снята)
+#   — круг 9 (adversary Б-2: guard слеп к обоим фиксам) —
+#   sb25 → B31 канонизация `readlink -f` снята (310d467): путь `.git/../evil-index`
+#                                              принимается лексически как `.git/*`
+#                                              (sb* — тело целиком, не porcha: форма
+#                                              многострочная, своп shapka невозможен)
+#   sb26 → B32 захват секции в переменную снят (9893dc5): возврат `printf|awk|grep`,
+#                                              SIGPIPE при awk exit в большой файл
+#                                              (sb* — тело целиком, не porcha: фикс
+#                                              многострочный, своп одной строки не
+#                                              восстанавливает дефект)
 #
 # Мини-судьи (честный и sb*) несут строку отказа и строку-указатель ЛИТЕРАЛАМИ из памяти
 # оракула (OTKAZ_088, PTR_088 — _toy.sh, единый источник; арбитраж 088 круг 5: судья —
@@ -232,6 +242,103 @@ porcha "$S" "$ST/sb22.sh" '"$gd"/*)' '"$gd"/index.lock)'
 porcha "$S" "$ST/sb23.sh" 'gd="$(git -C "$R" rev-parse --absolute-git-dir 2>/dev/null)"' 'gd="$R/.git"'
 porcha "$S" "$ST/sb24.sh" "$VOZVRAT_IDX" '[ -z "$_idx" ] || export GIT_INDEX_FILE="$_idx"'
 
+# ── база для новых клеток круга 9 (310d467 readlink + 9893dc5 захват секции) ──
+# SC: мини-судья, НЕСУЩИЙ ОБЕ фиксы круг 9 — диффпроба B31/B32 (положительный
+# контроль). Канонизация `readlink -f` для GIT_INDEX_FILE (310d467), секция
+# HANDOFF захватывается в переменную (9893dc5). В остальном — структура и
+# орáкул (OTKAZ_088/PTR_088 в env) как у chestnyj.
+SC="$ST/sudja_chestnyj_canon.sh"
+cat > "$SC" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+R="\$1"
+OTKAZ_088=${OTKAZ_088@Q}
+_lit_ptr=${PTR_088@Q}
+_idx="\${GIT_INDEX_FILE:-}"
+unset GIT_INDEX_FILE
+gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
+case "\$_idx" in
+  /*)
+    if [ -f "\$_idx" ]; then
+      _o="\$(readlink -f -- "\$_idx" 2>/dev/null || true)"
+      _g="\$(readlink -f -- "\$gd" 2>/dev/null || true)"
+      if [ -n "\$_o" ] && [ -n "\$_g" ] && case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
+    fi
+    ;;
+esac
+PTR_088="\$_lit_ptr"
+sekcija() { awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'; }
+if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
+  _section="\$(git -C "\$R" show :HANDOFF.md 2>/dev/null | sekcija)"
+  if ! grep -Fxq -- "\$PTR_088" <<<"\$_section"; then
+    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
+  fi
+fi
+exit 0
+EOF
+chmod +x "$SC"
+
+# sb25 → B31: канонизация `readlink -f` снята, остаётся прежнее лексическое
+# принятие `<git-dir>/<anything-including-..>`. Через `..` судья принимает
+# путь ВНЕ git-dir, не судит его → обход. Полное тело (не porcha):
+# отличия от chestnyj минимальные, и свопать одну строку в shapka
+# нельзя — форма многострочная. Поэтому sb25 — отдельный мини-судья.
+cat > "$ST/sb25.sh" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+R="\$1"
+OTKAZ_088=${OTKAZ_088@Q}
+_lit_ptr=${PTR_088@Q}
+_idx="\${GIT_INDEX_FILE:-}"
+unset GIT_INDEX_FILE
+gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
+case "\$_idx" in "\$gd"/*) [ -f "\$_idx" ] && export GIT_INDEX_FILE="\$_idx" ;; esac
+PTR_088="\$_lit_ptr"
+sekcija() { awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'; }
+if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
+  _section="\$(git -C "\$R" show :HANDOFF.md 2>/dev/null | sekcija)"
+  if ! grep -Fxq -- "\$PTR_088" <<<"\$_section"; then
+    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
+  fi
+fi
+exit 0
+EOF
+chmod +x "$ST/sb25.sh"
+
+# sb26 → B32: захват секции в переменную снят, возврат к старому
+# `printf|awk|grep` (pre-9893dc5). При форме Н-214 (малая секция, большой
+# хвост) awk рвёт pipe на границе секции 1 → SIGPIPE 141 → ложный отказ.
+# Канонизация GIT_INDEX_FILE сохранена (310d467 не предмет B32).
+cat > "$ST/sb26.sh" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+R="\$1"
+OTKAZ_088=${OTKAZ_088@Q}
+_lit_ptr=${PTR_088@Q}
+_idx="\${GIT_INDEX_FILE:-}"
+unset GIT_INDEX_FILE
+gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
+case "\$_idx" in
+  /*)
+    if [ -f "\$_idx" ]; then
+      _o="\$(readlink -f -- "\$_idx" 2>/dev/null || true)"
+      _g="\$(readlink -f -- "\$gd" 2>/dev/null || true)"
+      if [ -n "\$_o" ] && [ -n "\$_g" ] && case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
+    fi
+    ;;
+esac
+PTR_088="\$_lit_ptr"
+if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
+  if ! git -C "\$R" show :HANDOFF.md 2>/dev/null \\
+       | awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f' \\
+       | grep -Fxq -- "\$PTR_088"; then
+    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
+  fi
+fi
+exit 0
+EOF
+chmod +x "$ST/sb26.sh"
+
 # ── прогон: стаб на своей клетке (красная), честный мини-субъект там же (зелёная) ──
 pojmano=0; diff_ok=0; vsego=0; itog=0
 para() {  # <стаб> <файл семьи> <флаг подмены> <честный> <клетка>
@@ -283,6 +390,9 @@ para sb21 red_ukazatel_088.sh --sudja "$S" B24
 para sb22 red_ukazatel_088.sh --sudja "$S" B25
 para sb23 red_ukazatel_088.sh --sudja "$S" B29
 para sb24 red_ukazatel_088.sh --sudja "$S" B30
+# Круг 9: новые клетки под новый честный мини-судья ($SC — с обоими фиксами).
+para sb25 red_ukazatel_088.sh --sudja "$SC" B31
+para sb26 red_ukazatel_088.sh --sudja "$SC" B32
 printf 'стаб-пак 088: %d/%d поймано, диффпроба %d/%d\n' "$pojmano" "$vsego" "$diff_ok" "$vsego"
-[ "$vsego" -eq 35 ] || { printf 'NOT_IMPLEMENTED: в паке %d стабов, ожидалось 35\n' "$vsego" >&2; exit 2; }
+[ "$vsego" -eq 37 ] || { printf 'NOT_IMPLEMENTED: в паке %d стабов, ожидалось 37\n' "$vsego" >&2; exit 2; }
 exit "$itog"
