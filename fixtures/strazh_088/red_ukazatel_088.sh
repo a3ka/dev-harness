@@ -56,6 +56,26 @@
 #   B30 прямой вызов судьи `check_staged.sh <корень>`: staged → отказ (унаследованный
 #       без строки, env GIT_INDEX_FILE — копия индекса того же     GIT_INDEX_FILE вне git-dir
 #       HEAD вне git-dir (staged пуст)                             корня не судится; гигиена 016)
+#   — замечание круг 9: фиксы 310d467 (readlink -f канонизация GIT_INDEX_FILE) и
+#       9893dc5 (захват секции HANDOFF в переменную до grep) различаются двумя
+#       клетками; стаб-пак привязан по коду (Н-39): sb25 — `grep -n 'readlink -f'`
+#       scripts/check_staged.sh:286-287, sb26 — `grep -n 'printf.*grep'` scripts/check_staged.sh:373.
+#   B31 staged HANDOFF.md без указателя в `<r>/.git/index`;             → отказ
+#       env GIT_INDEX_FILE=`<r>/.git/../evil-index` (lexical-обход         (канонизация readlink -f
+#       к индексу ВНЕ git-dir через `..`; staged в evil-index             против `..`-обхода;
+#       пуст); прямой вызов check_staged.sh                               шершава 016: индекс
+#                                                                      не под git-dir → не
+#                                                                      принимается, откат на
+#                                                                      дефолтный `.git/index`,
+#                                                                      видит staged HANDOFF.md
+#                                                                      без указателя → отказ)
+#   B32 честный HANDOFF.md с указателем первой строкой первой          → коммит (захват секции
+#       секции; первая секция ~150 Б (PTR + 1 строка), хвост             в переменную снимает
+#       ≥70 КиБ (форма Н-214: «первая секция мала, хвост                 SIGPIPE `printf|awk|grep`
+#       велик» — `awk` старого суъекта читал весь блоб,                   в OLD: `awk` внутри
+#       досрочный `exit` на границе секции 1 рвал pipe →                  `printf|awk|grep` рвёт
+#       SIGPIPE 141 → ложный отказ И-7; фикс 9893dc5                       pipe; фикс 9893dc5
+#       изолирует чтение секции от grep                                   изолирует через `$(…)`)
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -271,6 +291,64 @@ if nado B30; then
   else
     krasno "B30: ожидался отказ «$OTKAZ_088» (судится индекс корня), получено rc=$rc30: $(head -c 300 "$SCR/kommit.err" | tr '\n' ' ')"
   fi
+fi
+
+# klet_big_handoff <файл> — HANDOFF.md по форме Н-214: малая первая секция
+# (PTR_088 первая строка секции + одна строка), большой хвост ≥70 КиБ.
+# OLD подцепочка `printf|awk|grep` рвёт pipe на границе секции 1 (awk exit
+# досрочно) → SIGPIPE 141 → ложный отказ И-7; HEAD ловит секцию в
+# переменную (9893dc5), grep читает уже захваченное — pipe не живёт.
+klet_big_handoff() {
+  local f="$1" n
+  n=2000
+  {
+    printf '# HANDOFF\n\n## ГДЕ МЫ (тоу)\n\n%s\n\nодна строка секции\n\n' "$PTR_088"
+    printf '## Итог\n'
+    python3 -c "import sys; sys.stdout.write('\n'.join('хвостовая строка ' + str(i) + ' padding-padding-padding' for i in range(1, $n+1)) + '\n')"
+    printf '\n## Дополнение\n'
+  } > "$f"
+}
+
+if nado B31; then
+  mir B31
+  # staged HANDOFF.md без указателя в дефолтном `<r>/.git/index`; внешний
+  # индекс — копия чистого состояния индекса (HEAD-уровень), файл-каталог
+  # `evil-index` лежит ВНЕ `<r>/.git/` (под `<r>/`), но путь
+  # `<r>/.git/../evil-index` лексически под `.git/` — старая схема
+  # (sb24: проверка «под git-dir корня» снята) такой путь принимает.
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  cp -- "$r/.git/index" "$SCR/B31-default.index" || exit 2
+  GIT_INDEX_FILE="$SCR/B31-default.index" gx "$r" reset -q HEAD -- . >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: чистка индекса-донора B31\n' >&2; exit 2; }
+  cp -- "$SCR/B31-default.index" "$r/evil-index" || exit 2
+  s31="$(GIT_INDEX_FILE="$r/.git/../evil-index" gx "$r" diff --cached --name-only -z)" \
+    && [ -z "$s31" ] \
+    || { printf 'NOT_IMPLEMENTED: B31 evil-index несёт staged: %s\n' "$s31" >&2; exit 2; }
+  # Грязный staged в дефолтном `<r>/.git/index` остаётся (HEAD судит
+  # дефолтный индекс при откате от `<r>/.git/../evil-index` как вне-git-dir)
+  gx "$r" read-tree HEAD || exit 2
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_INDEX_FILE="$r/.git/../evil-index" \
+      GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local \
+      bash "$r/scripts/check_staged.sh" "$r" >/dev/null 2>"$SCR/kommit.err"; rc31=$?
+  if [ "$rc31" -ne 0 ] && grep -Fxq -- "$OTKAZ_088" "$SCR/kommit.err"; then
+    zeleno B31
+  else
+    krasno "B31: ожидался отказ «$OTKAZ_088» (канонизация '.git/../evil-index' → вне git-dir, откат на дефолтный индекс → staged HANDOFF.md без указателя), получено rc=$rc31: $(head -c 300 "$SCR/kommit.err" | tr '\n' ' ')"
+  fi
+fi
+
+if nado B32; then
+  mir B32
+  # Форма Н-214: малая первая секция с указателем, большой хвост.
+  # OLD код: `printf|awk|grep` — awk рвёт pipe на границе секции 1,
+  # хвост непрочитан → SIGPIPE 141 → отказ И-7. HEAD ловит секцию в
+  # переменную (`9893dc5`), grep читает уже захваченное.
+  klet_big_handoff "$r/HANDOFF.md"
+  sz="$(wc -c < "$r/HANDOFF.md")" || exit 2
+  [ "$sz" -ge 70000 ] || { printf 'NOT_IMPLEMENTED: B32 HANDOFF.md %d байт < 70000\n' "$sz" >&2; exit 2; }
+  gx "$r" add -- HANDOFF.md || exit 2
+  ozhidaj_b B32 "$r" prinjat
 fi
 
 itog_semji red_ukazatel_088.sh
