@@ -407,7 +407,11 @@ if [ -n "$OKNO_BASE" ]; then
     printf 'ОТКАЗ 086: --okno: коммита нет: %s\n' "$OKNO_BASE" >&2
     exit 2
   fi
-  OKNO_N=$(g rev-list --count "$OKNO_BASE..HEAD" 2>/dev/null) || OKNO_N=0
+  OKNO_N=$(g rev-list --count "$OKNO_BASE..HEAD" 2>/dev/null); rc=$?
+  if [ "$rc" -ne 0 ] || ! [[ "$OKNO_N" =~ ^[0-9]+$ ]]; then
+    printf 'ОТКАЗ 086: --okno: rev-list --count отказал (rc=%s) — нечем проверить\n' "$rc" >&2
+    exit 2
+  fi
   printf 'окно 086: %s..HEAD (%s коммит.)\n' "$OKNO_BASE" "${OKNO_N:-0}" >&2
 fi
 
