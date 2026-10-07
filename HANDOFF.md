@@ -39,9 +39,25 @@ red_install_local_config.sh,battery_stubs.sh,PROVERKA.md}`) лежат НЕЗА�
 090 ещё нет (`scripts/lib_zones.sh:190-198`), это СТРУКТУРНО, не ошибка. Бандл-источник
 сохранён персистентно в `/tmp/dev-harness-verify/090-architect-deliverable/`.
 
-**СЛЕДУЮЩИЙ ШАГ 090:** (1) критик на `contracts/090-*.md` (sha `fbf7f86`); (2) после accept —
+**НОВОЕ ТРЕБОВАНИЕ К 090 (консультант, факт станции, `NABLIUDENIA.md` Н-219 — ВНЕСТИ ДО
+критика):** фикстура `red_ctx_deep_no_home.sh` (бандл) писала тест-сессию в РЕАЛЬНЫЙ
+`~/.local/state/dev-harness-sessions/**` — живой `orch-peak` принял её за настоящую,
+21:45 отправил ложное «принудительный перезапуск», 15 мин `GRACE`; маркер не встал только
+благодаря Н-189-проверке «сессия сменилась», НЕ герметичности теста. Требование: ВСЕ клетки
+090 обязаны переопределять `ORCH_SESS_GLOB`/`ORCH_STATE`/`ORCH_MARK`/`ORCH_LOG` на
+`/tmp/dev-harness-verify/**`/`mktemp -d`, ни одного пути в `~/.local/state/dev-harness-
+sessions/**` или `/var/lib/orch-peak/**`; новая красная клетка «фикстура не пишет в реальный
+каталог сессий» (find-diff ДО/ПОСЛЕ прогона каждой клетки, обязана быть пуста) — Н-39-класс,
+обманный стаб = клетка с собственной копией `lib_session.sh`, но БЕЗ переопределения
+`ORCH_SESS_GLOB`, падающая в дефолт.
+
+**СЛЕДУЮЩИЙ ШАГ 090:** (0) передать architect требование Н-219 выше — ПРАВКА контракта
+(§Красные предъявления + §Приёмочный критерий) и ПЕРЕДЕЛКА `red_ctx_deep_no_home.sh` на
+изолированный glob ДО следующего шага; (1) критик на `contracts/090-*.md` (sha `fbf7f86` +
+Н-219-правка); (2) после accept —
 `freeze_contract.sh` (локально, `frozen/contracts/090/1` — worktree делит `.git`, origin не
-нужен для спавна implementer); (3) ПОСЛЕ заморозки — скопировать fixtures из бандла в worktree,
+нужен для спавна implementer); (3) ПОСЛЕ заморозки — скопировать fixtures (переделанные под
+Н-219) из бандла в worktree,
 закоммитить identity `architect` (зона появится); (4) `spawn_agent --author implementer --nnn
 090`; (5) адверсарий+ревьюер; push ветки через `gitw`.
 
