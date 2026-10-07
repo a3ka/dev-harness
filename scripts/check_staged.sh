@@ -250,21 +250,46 @@ if [ -z "$author" ]; then
   exit 1
 fi
 
-# Контракт 088, Б-2: принять обратно `GIT_INDEX_FILE` ТОЛЬКО если он абсолютный,
-# лежит под `git rev-parse --absolute-git-dir` (включая `.git/index`, `.git/index.lock`,
-# `next-index-<pid>.lock` от разных форм коммита) и файл существует к моменту
-# вызова. Относительный путь (plain `commit` без `-a`/`--only`/`-i` даёт `.git/index`
+# Контракт 088, Б-2 (фикс path-traversal, adversary 088 круг 7): принять обратно
+# `GIT_INDEX_FILE` ТОЛЬКО если путь абсолютный И его КАНОНИЧЕСКОЕ представление
+# (symlink- и `..`-резолвленное) лежит под канонизированным
+# `git rev-parse --absolute-git-dir` И файл существует к моменту вызова.
+#
+# Зачем канонизация (а не лексический префикс). Предыдущее сравнение
+#   case "$_orig_idx" in "${_idx_dir}/"*) true ;; *) false ;; esac
+# принимало ЛЮБОЙ путь, лексически начинающийся со строки `<repo>/.git/` —
+# включая `<repo>/.git/../evil-index`, который после физического резолва `..`
+# оказывается ВНЕ git-dir. Атакующий устанавливал такой `GIT_INDEX_FILE` и
+# подсовывал внешний индекс с HEAD-деревом; судья читал ЕГО (staged пуст),
+# rc=0, а запрещённый staged HANDOFF.md в дефолтном `.git/index` оставался
+# незамеченным. B30 ловит только очевидный внешний путь (мимо `.git/` лексически),
+# обход через `..` пропускает. Канонизация ОБЕИХ сторон (путь индекса и
+# git-dir) делает сравнение неуязвимым к `..` и symlink-цепочкам.
+#
+# `readlink -f` разрешает `..` И symlink-цепочки; на нерезолвимом компоненте
+# (битая symlink, отказ FS, путь исчез) — пустая строка, валидация не проходит,
+# откат на дефолтный `.git/index` (тот же класс, что и подложный путь: судья
+# судит ДЕЙСТВУЮЩИЙ индекс, не внешний). Аналогично — git-dir: в worktree
+# `.git` — gitfile с `gitdir: <путь>`, `--absolute-git-dir` уже отдаёт
+# физический путь, но он сам может быть symlink-ом; канонизируем обе стороны.
+#
+# Относительный путь (plain `commit` без `-a`/`--only`/`-i` даёт `.git/index`
 # от cwd хука) валидацию не проходит и поведение остаётся прежним — дефолтный
 # `.git/index`. Подложный путь вне git-dir игнорируется (гигиена 016). Принятие —
-# `export GIT_INDEX_FILE`, чтобы дочерние `git -C "$ROOT" …`-вызовы ниже читали
-# индекс коммита (НЕ индекс до `-a`/`--only`).
+# `export GIT_INDEX_FILE=<канонизированный путь>`, чтобы дочерние
+# `git -C "$ROOT" …`-вызовы ниже читали индекс коммита (НЕ индекс до `-a`/`--only`).
 if [ -n "$_orig_idx" ]; then
   case "$_orig_idx" in
     /*)
       _idx_dir="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null || true)"
-      if [ -n "$_idx_dir" ] && [ -e "$_orig_idx" ] \
-         && case "$_orig_idx" in "${_idx_dir}/"*) true ;; *) false ;; esac; then
-        export GIT_INDEX_FILE="$_orig_idx"
+      if [ -n "$_idx_dir" ] && [ -e "$_orig_idx" ]; then
+        _orig_resolved="$(readlink -f -- "$_orig_idx" 2>/dev/null || true)"
+        _dir_resolved="$(readlink -f -- "$_idx_dir" 2>/dev/null || true)"
+        if [ -n "$_orig_resolved" ] && [ -n "$_dir_resolved" ] \
+           && case "$_orig_resolved" in "${_dir_resolved}/"*) true ;; *) false ;; esac; then
+          export GIT_INDEX_FILE="$_orig_resolved"
+        fi
+        unset _orig_resolved _dir_resolved
       fi
       unset _idx_dir
       ;;
