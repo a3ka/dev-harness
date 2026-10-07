@@ -142,10 +142,22 @@ root, не библиотека пользовательского контек�
 
 ## Зоны
 
-- `ЗОНА architect: fixtures/fix_090_orch_peak_home/** (клетки, батарея стабов, PROVERKA.md), contracts/090-fix-orch-peak-home-install-safe-dir.md`
-- `ЗОНА implementer: ops/server/root/orch-peak, ops/server/install.sh, scripts/lib_session.sh (только если нужна защитительная правка — предписанный фикс её не требует)`
-- `ПЕРЕСЕЧЕНИЕ: ops/server/root/orch-peak — architect не правит файл (клетки читают его как субъект снаружи), implementer пишет реализацию; scripts/lib_session.sh — аналогично.`
-- Вне зон: `scripts/orch_restart.sh`, systemd-юниты, CI-проводка (не предмет).
+ЗОНА architect: fixtures/fix_090_orch_peak_home/ fixtures/_krasnye_090.sh contracts/090-fix-orch-peak-home-install-safe-dir.md
+ЗОНА implementer: ops/server/root/orch-peak ops/server/install.sh registry/ci-steps.tsv .github/workflows/ci.yml
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 общий CI-workflow; дельта 090 — только перегенерация блоков командой gen_ci_steps.sh --write после строки registry/ci-steps.tsv (И-1 контракта 083), иных правок ci.yml нет (прецедент 084)
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 тот же общий CI-workflow и та же дельта (прецедент 084)
+
+Пояснение прозой (НЕ часть машиночитаемых строк выше): architect пишет и держит клетки
+семьи `fixtures/fix_090_orch_peak_home/` + сам агрегатор `fixtures/_krasnye_090.sh` + текст
+контракта; НЕ правит `ops/server/root/orch-peak`/`ops/server/install.sh` (клетки читают их
+как внешний субъект). implementer реализует П1/П2/П3 в этих двух файлах и подключает guard
+`fixtures/_krasnye_090.sh` в CI (`registry/ci-steps.tsv` + перегенерация `ci.yml` через
+`gen_ci_steps.sh --write`, контракт 083) — `registry/ci-steps.tsv`/`ci.yml` УЖЕ в зоне
+implementer под контрактом 083 (тот же автор-токен «implementer», коллизия по коду
+`check_precision_gate.sh:217` НЕ считается при совпадении автора — `ПЕРЕСЕЧЕНИЕ` не требуется).
+`scripts/lib_session.sh` вне зон 090 — предписанный фикс (П1/П3) его не трогает; если
+implementer обнаружит необходимость защитительной правки — отдельное слово/контракт, не
+расширение зоны здесь явочным порядком. Вне зон: `scripts/orch_restart.sh`, systemd-юниты.
 
 ## Красные предъявления и обманные стабы (Н-39: вход, на котором дефект НАБЛЮДАЕМ)
 
@@ -154,17 +166,14 @@ root, не библиотека пользовательского контек�
 | лёгкая (краш Н-217) | `red_no_home_ctx.sh` | ctx, `env -u HOME -u ORCH_SESS_GLOB`, шов, пустые omp-pids → HEAD: rc 1 + «HOME: unbound variable»; фикс: rc 0 |
 | глубокая (семантика + единый источник, ГЕРМЕТИЧНО) | `red_ctx_deep_no_home.sh` | ctx CTX_HARD на тест-сессии ПОД ФЕЙКОВЫМ home (`$W/fakehome`, передан субъекту через `ORCH_UHOME`, П3), mtime «будущее+90с» — без гонок с живыми сессиями, свежий субагент `Agent090`, помеченная `LIBSRC:`-копия lib_session.sh в `ORCH_REPO` → фикс: rc 0 ∧ маркер ∧ say.log ∧ отчёт «погибнут: LIBSRC:Agent090» ∧ НИ ОДИН путь вне `$W` |
 | install (Н-216) | `red_install_local_config.sh` | install root под мок-PATH (git-mock отказывает ТОЛЬКО форме `--local` дословной сигнатурой Н-216, делегируя остальное настоящему git; id→0, chown→noop), 4 кейса A/B/C/D значений в РЕАЛЬНОМ конфиг-файле |
-| батарея стабов | `battery_stubs.sh` | 3 стаба, строятся ИЗ текущего субъекта (порча с проверкой якоря), каждый обязан быть пойман своей клеткой |
-| герметичность (Н-219, ОБЯЗАТЕЛЬНАЯ) | `red_hermetic_no_real_sessions.sh` | вся семья (лёгкая+глубокая+install+батарея) прогнана подряд под ФОНОВЫМ watcher (опрос реальных `~/.local/state/dev-harness-sessions/**`/`/var/lib/orch-peak/**` каждые 0.05с, не снимок до/после — транзитное присутствие снимок не видит); декой — КОПИЯ `red_ctx_deep_no_home.sh` БЕЗ fakehome-изоляции (оригинальная версия ДО П3) → декой: rc 1 с НАЗВАННЫМИ путями; текущая семья (с fakehome): rc 0 И на HEAD, И на фиксе |
+| батарея стабов | `battery_stubs.sh` | 3 обманных стаба, строятся ИЗ текущего субъекта (порча с проверкой якоря); привязка каждого стаба к различающему входу — в коде этого файла (Н-39) |
+| герметичность (Н-219, ОБЯЗАТЕЛЬНАЯ) | `red_hermetic_no_real_sessions.sh` | вся семья прогнана подряд под ФОНОВЫМ watcher (опрос реальных `~/.local/state/dev-harness-sessions/**` (скоуп — ровно SESS_GLOB-подпуть orch-peak, не всё дерево)/`/var/lib/orch-peak/**` каждые 0.05с, полный список путей+mtime, БЕЗ фильтра по имени; не снимок до/после — транзитное присутствие снимок не видит) → rc 0 И на HEAD, И на фиксе (инвариант независим от П1/П2); обманный стаб для ЭТОЙ клетки — в коде клетки (Н-39) |
 
-Обманные стабы и где различимы (пойманы живьём в обоих состояниях субъекта,
-PROVERKA.md §3): **decoy-глоб** (`HOME=/nonexistent` до фикса / испорченный посев
-`ORCH_SESS_GLOB="/nonexistent-090-stub"` после) — проходит лёгкую клетку честно,
-ловится только глубокой: глоб пуст → нет «живые субагенты погибнут» (ложный «нет живых»
-— причина 695K Н-217); **subshell-глушение** (`( . lib ) 2>/dev/null || true`) — краш
-глушится, fallback'и работают, но `LIBSRC:`-префикса нет → потеря И-13 видима;
-**hardcode-hooksPath** (`hooks_path=".githooks"`) — кейс B (`/evil/other` в конфиге)
-ловит: отказа с именованным значением нет.
+Обманные стабы семьи (три для глубокой/лёгкой клетки, один для install-клетки, один для
+клетки герметичности) живут В КОДЕ `battery_stubs.sh` и в коде самих клеток — привязка
+«какой стаб на каком входе ловится» НЕ дублируется прозой здесь (Н-39: контракт несёт
+инварианты и rc-команды, привязку стаб↔ветвь делает architect по коду). Живые прогоны
+обеих сторон (субъект честный / субъект с каждым стабом) — `PROVERKA.md` §3, §5.
 
 Техника симуляции Н-216 (обоснование в шапке клетки): чужое uid-владение недоступно без
 root — мок эмулирует ровно ownership-guard (`--local` → rc 1 + дословный stderr Н-216),
@@ -182,20 +191,18 @@ root — мок эмулирует ровно ownership-guard (`--local` → rc 
 dev-harness-sessions/**`/`/var/lib/orch-peak/**` — Н-219):
 
 1. `bash fixtures/fix_090_orch_peak_home/red_no_home_ctx.sh` → **rc 0** (на HEAD: rc 1,
-   «HOME: unbound variable» — PROVERKA.md §1). Негативная пара: стаб «decoy-глоб»
-   проходит её rc 0 — потому обязательна №2.
+   «HOME: unbound variable» — PROVERKA.md §1).
 2. `bash fixtures/fix_090_orch_peak_home/red_ctx_deep_no_home.sh` → **rc 0** (на HEAD: rc 1).
-   Негативная пара: тот же прогон против стабов даёт rc≠0 (батарея №4).
 3. `bash fixtures/fix_090_orch_peak_home/red_install_local_config.sh` → **rc 0**, все
    4 кейса ✓ (на HEAD: rc 1, кейс A — дословный ложный отказ Н-216). Кейс B обязан дать
-   отказ с именованным значением «(/evil/other)» — наблюдаемый критерий сам по себе
-   (привязка к конкретному обманному стабу — в коде клетки, не здесь).
+   отказ с именованным значением «(/evil/other)» — наблюдаемый критерий сам по себе.
 4. `bash fixtures/fix_090_orch_peak_home/battery_stubs.sh` → **rc 0** («3/3 пойманы»),
-   работает и до, и после фикса (стабы перестраиваются из текущего субъекта).
+   работает и до, и после фикса. Привязка КАЖДОГО обманного стаба к различающему входу —
+   в коде `battery_stubs.sh` (Н-39: не здесь, не прозой).
 5. `bash fixtures/fix_090_orch_peak_home/red_hermetic_no_real_sessions.sh` → **rc 0** —
    И на HEAD, И на фиксе (герметичность — инвариант независимый от состояния П1/П2).
-   Негативная пара: декой (копия глубокой клетки без `ORCH_UHOME`-изоляции) даёт rc 1 с
-   названными реальными путями — PROVERKA.md §5.
+   Обманный стаб для ЭТОЙ клетки и его различающий вход — в коде клетки/PROVERKA.md §5,
+   не здесь.
 6. Правило: `grep -n 'config --local' ops/server/install.sh` → пусто; посев
    `ORCH_SESS_GLOB` в orch-peak находится ДО строки `. "${REPO}/scripts/lib_session.sh"`;
    `grep -n 'ORCH_UHOME' ops/server/root/orch-peak` → непусто (знак П3 применена).
@@ -206,12 +213,17 @@ dev-harness-sessions/**`/`/var/lib/orch-peak/**` — Н-219):
 
 ## ПРОВОДКА
 
-- `ПРОВОДКА guard=fixtures/fix_090_orch_peak_home/` — клетки Н-217/Н-216 и батарея
-  стабов составляют сам барьер.
-- `ПРОВОДКА-ЭНФОРСМЕНТ: станционный скрипт станционной обвязки — предметного role/charter
-  канала нет (AGENTS.md, определение ПРОВОДКА); норма чистого энфорсмента «сторож и
-  установщик станции обязаны жить в среде root/systemd без HOME и без safe.directory»
-  проводится только прогоном клеток, CI-проводка в предмет 090 не входит (вне зон).`
+ПРОВОДКА:
+- guard=fixtures/_krasnye_090.sh
+
+ПРОВОДКА-ЭНФОРСМЕНТ: станционный скрипт станционной обвязки — предметного role/charter
+канала нет (AGENTS.md, определение ПРОВОДКА). guard — агрегатор семьи
+`fixtures/_krasnye_090.sh` (запускает все пять клеток `fixtures/fix_090_orch_peak_home/`,
+rc 0 ⟺ все пять зелёные). Подключение в CI — implementer'ом, строкой в
+`registry/ci-steps.tsv` + `gen_ci_steps.sh --write` (контракт 083, И-1; `ЗОНА implementer`
+090 уже покрывает `registry/ci-steps.tsv`/`.github/workflows/ci.yml` — тот же автор-токен,
+что и 083, коллизии нет) ПОСЛЕ landing П1-П3: преждевременно вшитый шаг держал бы CI
+красным ДО реализации (прецедент 074 §ПРОВОДКА-ЭНФОРСМЕНТ, 072:484-490; 059/060/070).
 
 ## Замечания по применимости норм
 
