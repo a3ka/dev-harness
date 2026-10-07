@@ -369,7 +369,7 @@ T86_ISTORIJA=(
   'R5 c63a35bc0b8fb642a2bf00e06f166a0b29706068 wip/081/architect-v2 0 - - -'
   'R6 4290f17f6b952f0ca44123dfb7d0b6175837ec9f wip/081/architect 0 - - -'
   'R7 939de6ef4f41c6f5811f760359eadc9ea4baf304 wip/082/architect 0 - - -'
-  'R8 9bfbfd6795e7361dc75f47a1cbb02d533e6accd0 wip/083/architect 1 а 7dcfef2f7baea8b96f8d62efccc6a1531986548c docs/owner/2026-10-05-a3-pr-vs-push-analiz.md'
+  'R8 9bfbfd6795e7361dc75f47a1cbb02d533e6accd0 wip/083/architect 0 - - -'
   'R9 b9843999c0c6cb61a2ff8f2dbfb7e05d84276d38 wip/083/architect 1 б 2c01b1ed9c93f2ad14959f99511581de5526f68d -'
 )
 T86_LIMIT_SEK=60
