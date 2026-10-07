@@ -375,6 +375,21 @@ git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет 
 
 g() { git -C "$ROOT" "$@"; }
 
+# ── ОКНО: «устава вообще нет» (контракт 086, круг 7) ─────────────────────
+# В --okno-режиме, если в репо НЕТ ни ustav/1, НИ refs/tags/frozen/*/1 —
+# устава в проекте не введено, в окне проверять нечего; rc 0 (не rc 2).
+# Полный режим (без --okno) прежний — И-5 «без --okno побайтово прежнее».
+# Асимметрия с check_zones.sh (он уже rc 0 на «нет frozen/*») — дефект
+# кругов 4–6; согласуем check_charter в --okno.
+if [ -n "$OKNO_BASE" ]; then
+  if ! g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null 2>&1 \
+     && [ -z "$(g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null)" ]; then
+    printf '\ncheck_charter --okno: устав и замороженные контракты отсутствуют — в окне проверять нечего\n' >&2
+    incr_finish 0
+    exit 0
+  fi
+fi
+
 # Устав не введён — «нечем проверить», а не «проверено». Это ЕДИНСТВЕННАЯ законная двойка барьера:
 # до акта введения у него нет точки, с которой считать историю.
 g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null \
