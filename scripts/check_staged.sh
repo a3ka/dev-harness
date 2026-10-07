@@ -359,12 +359,22 @@ if [ -n "$_handoff_ptr" ]; then
     # Б-2: `OTKAZ_088=ATTACKER-CONTROLLED-REFUSAL` в env коммитёра подменял
     # обязательную грамматику И-7; env-перебивка удалена, единый источник —
     # константа в коде судьи).
-    if ! printf '%s\n' "$_handoff_blob" \
-         | awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f' \
-         | grep -Fxq -- "$_handoff_ptr"; then
+    # Б-5-pipefail (измерено 2026-10-07, большой HANDOFF.md): `awk` с `exit` внутри
+    # действия закрывает stdin ДОСРОЧНО, как только находит вторую «## »-строку —
+    # оставшийся непрочитанный хвост `printf`'а (секции 2..N файла) рвёт `printf`
+    # SIGPIPE'ом (код 141). Под `set -o pipefail` это делает СТАТУС ВСЕЙ ЦЕПОЧКИ
+    # ненулевым (141 — самый правый ненулевой из PIPESTATUS), даже когда `grep -Fxq`
+    # НАШЁЛ строку (rc 0): `if ! pipeline; then …` ложно уходит в ОТКАЗ. Живой замер:
+    # `PIPESTATUS=141 0 0` на HANDOFF.md 36872 байт. Фикс — awk пишет в ПЕРЕМЕННУЮ
+    # (command substitution не подвержена SIGPIPE: bash ждёт закрытия fd самим awk),
+    # grep читает уже захваченный текст — обе стадии больше не делят живой pipe.
+    _handoff_section="$(printf '%s\n' "$_handoff_blob" \
+         | awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f')"
+    if ! printf '%s\n' "$_handoff_section" | grep -Fxq -- "$_handoff_ptr"; then
       printf '%s\n' 'ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)' >&2
       exit 1
     fi
+    unset _handoff_section
   fi
   unset _handoff_staged _handoff_blob
 fi
