@@ -1,3 +1,27 @@
+### Н-216. `ops/server/install.sh` шаг блокировки `.git/config` ложно отказывает «core.hooksPath не установлен» под root — `git -C /home/harness/dev-harness config --local` падает («--local can only be used inside a git repository», чужой владелец каталога без `safe.directory`), хотя фактически `core.hooksPath=.githooks` у harness УЖЕ установлен и `+i` на `.git/config` УЖЕ стоит `ОТКРЫТО — адрес: контракт 085 (микроправка install.sh, не предмет сегодняшней сессии)`
+
+**Что произошло:** консультант установил 085 на станцию 2026-10-07 ~08:30 UTC из чистого
+клона `origin/main` `fb08e98` — `install.sh verify` → «сверка: 9/9» (успех). Но ОТДЕЛЬНЫЙ
+шаг (блокировка `.git/config` от записи под root для защиты от порчи `core.hooksPath`)
+rc=1: под root `git -C /home/harness/dev-harness config --local ...` не может прочитать
+локальный конфиг чужого (принадлежащего `harness`) репозитория без `safe.directory` —
+команда падает с «--local can only be used inside a git repository», а скрипт трактует
+это как «core.hooksPath не установлен» и красит шаг, хотя ФАКТИЧЕСКИ `core.hooksPath`
+уже `.githooks` и immutable-бит (`+i`) на файле уже стоит (проверено консультантом
+напрямую).
+
+**Класс:** дефект диагностики install.sh под root (чтение git-конфига ЧУЖОГО репозитория
+без `safe.directory`) — ложный КРАСНЫЙ при фактически корректном состоянии станции; НЕ
+блокирует саму установку (verify 9/9 прошёл), только засоряет один вспомогательный шаг.
+
+**ЧЕМ ЗАКРЫТЬ:** микроправка install.sh — либо `git config --global --add safe.directory
+/home/harness/dev-harness` перед проверкой (root читает harness-репо легитимно), либо
+смена способа чтения на `git config --file /home/harness/dev-harness/.git/config
+--get core.hooksPath` (минует `--local`'s repo-ownership guard). Зона — 085/074 (станционные
+скрипты), НЕ предмет сегодняшней сессии владельца — адресовано будущей правке.
+
+**Источник:** консультант, станция, 2026-10-07 ~08:30 UTC, слово владельца (батч).
+
 ### Н-215. `scripts/lib_plan.sh:p84_is_sym_id` использовал локаль-зависимый символьный класс `[А-ЯЁа-яё]` в bash regex (`[[ =~ ]]`) — под `LC_ALL=C`/`C.utf8` (вероятный дефолт GitHub Actions раннера) диапазон НЕ матчит валидную кириллическую строку (`цикл-перезапуска` → NOMATCH), под `en_US.UTF-8` — матчит; блокировало PR-CI #49/#51/#52 через `freeze_contract.sh` → `plan_parse` на `registry/plan.tsv` строка 4 `ЗАКРЫТО коммитом e857d4f (implementer) — p84_is_sym_id зовёт regex в subshell с export LC_ALL=en_US.UTF-8, живьём проверено под LC_ALL=C и дефолтной локалью, 54/54 обе`
 
 **Что произошло:** слово владельца 2026-10-07 08:15 — грандфазер-коммит + lib_plan.sh
