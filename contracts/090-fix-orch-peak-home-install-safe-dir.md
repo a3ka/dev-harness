@@ -187,8 +187,9 @@ dev-harness-sessions/**`/`/var/lib/orch-peak/**` — Н-219):
 2. `bash fixtures/fix_090_orch_peak_home/red_ctx_deep_no_home.sh` → **rc 0** (на HEAD: rc 1).
    Негативная пара: тот же прогон против стабов даёт rc≠0 (батарея №4).
 3. `bash fixtures/fix_090_orch_peak_home/red_install_local_config.sh` → **rc 0**, все
-   4 кейса ✓ (на HEAD: rc 1, кейс A — дословный ложный отказ Н-216). Негативная пара:
-   кейс B требует отказа с именованным значением «(/evil/other)» — стаб-хардкод ловится.
+   4 кейса ✓ (на HEAD: rc 1, кейс A — дословный ложный отказ Н-216). Кейс B обязан дать
+   отказ с именованным значением «(/evil/other)» — наблюдаемый критерий сам по себе
+   (привязка к конкретному обманному стабу — в коде клетки, не здесь).
 4. `bash fixtures/fix_090_orch_peak_home/battery_stubs.sh` → **rc 0** («3/3 пойманы»),
    работает и до, и после фикса (стабы перестраиваются из текущего субъекта).
 5. `bash fixtures/fix_090_orch_peak_home/red_hermetic_no_real_sessions.sh` → **rc 0** —
