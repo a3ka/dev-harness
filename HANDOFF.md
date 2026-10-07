@@ -389,3 +389,10 @@ proc://` или дождись через `wait`, агент мог уже пр�
 - gh CLI `--log`/`--log-failed` иногда падает `permission denied` на `/tmp/gh-cli-cache/*`
   (каталог принадлежит другому юзеру `nous`) — используй `gh api
   repos/<owner>/<repo>/actions/jobs/<id>/logs` напрямую вместо `gh run view --log`.
+<!-- BEGIN GENERATED NEXT SESSION -->
+## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
+
+- 082 · пара 1 · заморожен · трек CI
+- 083 · пара 1 · заморожен · трек CI
+- 084 · пара 2 · заморожен · трек plan-infra
+<!-- END GENERATED NEXT SESSION -->
