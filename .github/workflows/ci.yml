@@ -222,42 +222,42 @@ jobs:
         # и сверяется `--check` (правка руками красна поимённо).
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
 # BEGIN GENERATED CACHE SAVE (083)
-      - if: contains(matrix.keys, 'check:charter') && github.event_name == 'push'
+      - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/charter.sha
           key: ci-incr-charter-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:charter') && github.event_name == 'pull_request'
+      - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'pull_request'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/charter.sha
           key: ci-incr-charter-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:zones') && github.event_name == 'push'
+      - if: contains(format(' {0} ', matrix.keys), ' check:zones ') && github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/zones.sha
           key: ci-incr-zones-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:zones') && github.event_name == 'pull_request'
+      - if: contains(format(' {0} ', matrix.keys), ' check:zones ') && github.event_name == 'pull_request'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/zones.sha
           key: ci-incr-zones-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:ids') && github.event_name == 'push'
+      - if: contains(format(' {0} ', matrix.keys), ' check:ids ') && github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/ids.sha
           key: ci-incr-ids-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:ids') && github.event_name == 'pull_request'
+      - if: contains(format(' {0} ', matrix.keys), ' check:ids ') && github.event_name == 'pull_request'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/ids.sha
           key: ci-incr-ids-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:protected') && github.event_name == 'push'
+      - if: contains(format(' {0} ', matrix.keys), ' check:protected ') && github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/protected.sha
           key: ci-incr-protected-${{ github.sha }}
-      - if: contains(matrix.keys, 'check:protected') && github.event_name == 'pull_request'
+      - if: contains(format(' {0} ', matrix.keys), ' check:protected ') && github.event_name == 'pull_request'
         uses: actions/cache/save@v4
         with:
           path: tmp/ci-incr/protected.sha

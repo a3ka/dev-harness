@@ -52,14 +52,22 @@ JOBS_B="# BEGIN GENERATED CI JOBS (083)"
 JOBS_E="# END GENERATED CI JOBS (083)"
 SHARDS_B="# BEGIN GENERATED CI SHARDS (083)"
 SHARDS_E="# END GENERATED CI SHARDS (083)"
-# CACHE SAVE (Б-1 фикс, ревьюер 083 круг 2): save-шаги кеша 4 инкрементальных
-# чеков (charter/zones/ids/protected) перенесены в генерируемый блок, и каждый
-# save-шаг получает условие `contains(matrix.keys, 'check:X')` — ТОЛЬКО lane,
-# несущая ключ X, сохраняет свой кеш. Раньше save-шаги стояли в КАЖДОЙ из 7 lane
-# без разбора: ключ actions/cache неизменяем (побеждает lane, закончившая первой),
-# часто это lane, которая чек НЕ гоняла — она сохраняла восстановленную старую
-# базу, и зелёный чек своей lane кеш не продвигал (живой PR#49: окно 2→3 не
-# продвинулось для zones).
+# CACHE SAVE (Б-1 фикс, ревьюер 083 круг 2 + A-372 архитектора): save-шаги кеша
+# 4 инкрементальных чеков (charter/zones/ids/protected) перенесены в
+# генерируемый блок, и каждый save-шаг получает условие
+# `contains(format(' {0} ', matrix.keys), ' check:X ')` — точная токенная форма
+# (пробелы-якоря по краям), ТОЛЬКО lane, несущая ключ X, сохраняет свой кеш.
+# Раньше save-шаги стояли в КАЖДОЙ из 7 lane без разбора: ключ actions/cache
+# неизменяем (побеждает lane, закончившая первой), часто это lane, которая чек
+# НЕ гоняла — она сохраняла восстановленную старую базу, и зелёный чек своей
+# lane кеш не продвигал (живой PR#49: окно 2→3 не продвинулось для zones).
+# Предыдущая форма `contains(matrix.keys, 'check:X')` была подстроковым
+# матчингом (живая находка A-372): lane l6 несёт ключи
+# `check:zones-call-budget check:protected-call-budget` — строка содержит
+# подстроки `check:zones` и `check:protected`, и save-условие для zones/protected
+# истинно на l6, хотя l6 эти чеки НЕ гоняет. `format(' {0} ', matrix.keys)`
+# обёртывает строку пробелами, и contains ищет точный токен `' check:X '` —
+# подстроковый матч исключён.
 CACHE_B="# BEGIN GENERATED CACHE SAVE (083)"
 CACHE_E="# END GENERATED CACHE SAVE (083)"
 
@@ -219,13 +227,13 @@ CACHE_GEN="$GEN_RUN/cache.txt"
       exit 1
     fi
     # push save — ключ `ci-incr-<c>-<sha>` (общая запись main)
-    printf '      - if: contains(matrix.keys, '\''check:%s'\'') && github.event_name == '\''push'\''\n' "$c"
+    printf '      - if: contains(format('\'' {0} '\'', matrix.keys), '\'' check:%s '\'') && github.event_name == '\''push'\''\n' "$c"
     printf '        uses: actions/cache/save@v4\n'
     printf '        with:\n'
     printf '          path: tmp/ci-incr/%s.sha\n' "$c"
     printf '          key: ci-incr-%s-${{ github.sha }}\n' "$c"
     # pr save — PR-scoped ключ `ci-incr-<c>-pr-<N>-<sha>` (N = PR number)
-    printf '      - if: contains(matrix.keys, '\''check:%s'\'') && github.event_name == '\''pull_request'\''\n' "$c"
+    printf '      - if: contains(format('\'' {0} '\'', matrix.keys), '\'' check:%s '\'') && github.event_name == '\''pull_request'\''\n' "$c"
     printf '        uses: actions/cache/save@v4\n'
     printf '        with:\n'
     printf '          path: tmp/ci-incr/%s.sha\n' "$c"
