@@ -66,6 +66,24 @@
 # нет контрактов).
 set -uo pipefail
 
+# Контракт 088, Б-2 (замер арбитража круга 5): git передаёт pre-commit хуку
+# переменную `GIT_INDEX_FILE` — для plain `commit` это `.git/index` (отн.,
+# от корня репо), для `commit -a` / `-i` это `<repo>/.git/index.lock` (абс.),
+# для `commit -- <path>` это `<repo>/.git/next-index-<pid>.lock` (абс.).
+# По гигиене 016 следующая строка снимает переменную, и тогда
+# `git diff --cached …` ниже (строка 244) падает обратно на дефолтный
+# `.git/index` — это индекс ДО `commit -a` / `--only` / `-i`, не тот,
+# что РЕАЛЬНО попадёт в коммит, и судья выключается молча. Решение:
+# запомнить `GIT_INDEX_FILE` ДО `unset` в `_orig_idx`, и ниже (после
+# подключения библиотек и перед первым `git -C "$ROOT"`-вызовом в строке
+# 244) вернуть его обратно ТОЛЬКО если путь абсолютный И лежит под
+# `git rev-parse --absolute-git-dir` И файл существует. Подложный
+# `GIT_INDEX_FILE` вне git-dir игнорируется (гигиена 016); относительный
+# путь валидацию не проходит и оставляет прежнее поведение. Остальные
+# `unset` (`GIT_DIR`, `GIT_WORK_TREE`, `GIT_OBJECT_DIRECTORY`,
+# `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_TEMPLATE_DIR`,
+# `GIT_CEILING_DIRECTORIES`) — НЕ трогаем.
+_orig_idx="${GIT_INDEX_FILE:-}"
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
@@ -232,6 +250,53 @@ if [ -z "$author" ]; then
   exit 1
 fi
 
+# Контракт 088, Б-2 (фикс path-traversal, adversary 088 круг 7): принять обратно
+# `GIT_INDEX_FILE` ТОЛЬКО если путь абсолютный И его КАНОНИЧЕСКОЕ представление
+# (symlink- и `..`-резолвленное) лежит под канонизированным
+# `git rev-parse --absolute-git-dir` И файл существует к моменту вызова.
+#
+# Зачем канонизация (а не лексический префикс). Предыдущее сравнение
+#   case "$_orig_idx" in "${_idx_dir}/"*) true ;; *) false ;; esac
+# принимало ЛЮБОЙ путь, лексически начинающийся со строки `<repo>/.git/` —
+# включая `<repo>/.git/../evil-index`, который после физического резолва `..`
+# оказывается ВНЕ git-dir. Атакующий устанавливал такой `GIT_INDEX_FILE` и
+# подсовывал внешний индекс с HEAD-деревом; судья читал ЕГО (staged пуст),
+# rc=0, а запрещённый staged HANDOFF.md в дефолтном `.git/index` оставался
+# незамеченным. B30 ловит только очевидный внешний путь (мимо `.git/` лексически),
+# обход через `..` пропускает. Канонизация ОБЕИХ сторон (путь индекса и
+# git-dir) делает сравнение неуязвимым к `..` и symlink-цепочкам.
+#
+# `readlink -f` разрешает `..` И symlink-цепочки; на нерезолвимом компоненте
+# (битая symlink, отказ FS, путь исчез) — пустая строка, валидация не проходит,
+# откат на дефолтный `.git/index` (тот же класс, что и подложный путь: судья
+# судит ДЕЙСТВУЮЩИЙ индекс, не внешний). Аналогично — git-dir: в worktree
+# `.git` — gitfile с `gitdir: <путь>`, `--absolute-git-dir` уже отдаёт
+# физический путь, но он сам может быть symlink-ом; канонизируем обе стороны.
+#
+# Относительный путь (plain `commit` без `-a`/`--only`/`-i` даёт `.git/index`
+# от cwd хука) валидацию не проходит и поведение остаётся прежним — дефолтный
+# `.git/index`. Подложный путь вне git-dir игнорируется (гигиена 016). Принятие —
+# `export GIT_INDEX_FILE=<канонизированный путь>`, чтобы дочерние
+# `git -C "$ROOT" …`-вызовы ниже читали индекс коммита (НЕ индекс до `-a`/`--only`).
+if [ -n "$_orig_idx" ]; then
+  case "$_orig_idx" in
+    /*)
+      _idx_dir="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null || true)"
+      if [ -n "$_idx_dir" ] && [ -e "$_orig_idx" ]; then
+        _orig_resolved="$(readlink -f -- "$_orig_idx" 2>/dev/null || true)"
+        _dir_resolved="$(readlink -f -- "$_idx_dir" 2>/dev/null || true)"
+        if [ -n "$_orig_resolved" ] && [ -n "$_dir_resolved" ] \
+           && case "$_orig_resolved" in "${_dir_resolved}/"*) true ;; *) false ;; esac; then
+          export GIT_INDEX_FILE="$_orig_resolved"
+        fi
+        unset _orig_resolved _dir_resolved
+      fi
+      unset _idx_dir
+      ;;
+  esac
+fi
+unset _orig_idx
+
 # Временный каталог ВНЕ стерегомого дерева — сюда идёт ВЕСЬ скратч (staged-выборка,
 # ls-remote для dual-control). trap на EXIT срабатывает на КАЖДОМ пути выхода (нормальный
 # rc, именованный rc 1, NOT_IMPLEMENTED, signal) — закрывает блокер 31e1686 «скратч
@@ -262,32 +327,19 @@ mapfile -d '' staged < "$staged_tmp"
 # коммит HANDOFF.md не судится «не судится: автор orchestrator не объявлен»
 # (измерено 17:53: тоу-репо `_repo.sh`, rc 0 без суда).
 #
-# Источник строки-указателя — ЕДИНСТВЕННОЕ присваивание `HANDOFF_PTR=` в
-# фикстуре `fixtures/ops_server/red_server_obvjazka_074.sh` (контракт 088
-# §Frontier п.6; ровно одно совпадение `^HANDOFF_PTR='…'$`, иначе
-# _handoff_ptr остаётся пустым и проверка HANDOFF.md НЕ исполняется).
-# Суд читает ЗАКОММИЧЕННЫЙ блоб `:fixtures/ops_server/red_server_obvjazka_074.sh`
-# (`git show :path` — staged-блоб, иначе HEAD-блоб), НЕ рабочее дерево
-# (контракт 088 §Модель угроз, ЗАЩИЩАЕТ «подмену проверки рабочим деревом;
-# судится то, что попадёт в коммит»). Env `PTR_088`/любой посторонний env
-# игнорируется — иначе коммитер подменил бы строку-указатель обходом k7
-# (адверсарий r1 контракта 088; измерено на 8bc5e68). Адверсарий круга 3
-# (Б-1): коммитер правит НЕзастейдженную рабочую копию 074 так, чтобы её
-# `HANDOFF_PTR` совпал с тем, что есть в staged-HANDOFF.md, — старый код
-# читал working tree и принимал такой коммит; новый читает блоб индекса/HEAD
-# и отвергает (PTR из блоба не совпадает со staged-HANDOFF.md).
-_handoff_ptr=""
-# `:074` — staged-блоб при staged, иначе HEAD-блоб: это то, что попадёт
-# в коммит. Пустой/битый блоб → пустой результат, как и раньше.
-_fk7_blob="$(git -C "$ROOT" show ":fixtures/ops_server/red_server_obvjazka_074.sh" 2>/dev/null || true)"
-if [ -n "$_fk7_blob" ]; then
-  mapfile -t _ptr_lines < <(printf '%s\n' "$_fk7_blob" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
-  if [ "${#_ptr_lines[@]}" -eq 1 ] && [ -n "${_ptr_lines[0]}" ]; then
-    _handoff_ptr="${_ptr_lines[0]}"
-  fi
-  unset _ptr_lines
-fi
-unset _fk7_blob
+# Источник строки-указателя — ЖЁСТКАЯ КОНСТАНТА судьи, побайтово равная
+# `HANDOFF_PTR` клетки k7 фикстуры `fixtures/ops_server/red_server_obvjazka_074.sh`
+# (контракт 088 §Frontier п.5 «одна производственная реализация», п.6 «расхождение
+# производственной строки с k7 краснит клетки B0/B1», §Остаточный риск п.3 «правка
+# HANDOFF_PTR в 074 без правки check_staged.sh краснит B0/B1»). Синхронность
+# константы с k7 держит батарея architect — её дрейф краснит B0/B1 (стаб sb1
+# ловит «нет проверки»). Чтение 074 в production снято: на fb08e98 любое из
+# `staged-удаление 074` / `два присваивания HANDOFF_PTR=` / `staged-подмена`
+# коммитилось rc 0 (З-1 арбитража круга 5), потому что блоб пуст и
+# `_handoff_ptr` остаётся пустым — проверка ВЫКЛЮЧЕНА молча. Литерал ниже —
+# прямая копия k7 на момент правки; никаких зависимостей от фикстуры в
+# production-пути нет.
+_handoff_ptr='- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).'
 if [ -n "$_handoff_ptr" ]; then
   _handoff_staged=0
   for _s in "${staged[@]}"; do
