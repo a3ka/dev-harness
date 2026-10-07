@@ -370,34 +370,26 @@ chmod +x "$ST/sb26.sh"
 # (ЧИСТЫЙ в B34) → `git diff --cached` пуст → rc 0 «нечего судить» — OTKAZ_READLINK_088
 # НЕ возникает → B34 красная на sb27. Канонизация readlink -f и секция в
 # переменную (9893dc5) сохранены (предмет B34 — fail-closed, не SIGPIPE).
-cat > "$ST/sb27.sh" <<EOF
-#!/usr/bin/env bash
-set -uo pipefail
-R="\$1"
-OTKAZ_088=${OTKAZ_088@Q}
-_lit_ptr=${PTR_088@Q}
-_idx="\${GIT_INDEX_FILE:-}"
-unset GIT_INDEX_FILE
-gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
-case "\$_idx" in
-  /*)
-    if [ -f "\$_idx" ]; then
-      _o="\$(readlink -f -- "\$_idx" 2>/dev/null || true)"
-      _g="\$(readlink -f -- "\$gd" 2>/dev/null || true)"
-      if [ -n "\$_o" ] && [ -n "\$_g" ] && case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
-    fi
-    ;;
-esac
-PTR_088="\$_lit_ptr"
-sekcija() { awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'; }
-if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
-  _section="\$(git -C "\$R" show :HANDOFF.md 2>/dev/null | sekcija)"
-  if ! grep -Fxq -- "\$PTR_088" <<<"\$_section"; then
-    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
-  fi
-fi
-exit 0
+# Тело строится одним вызовом porcha от $SC: 9-строчный блок (readlink
+# с захватом rc + fail-closed-ветвь) свопнут на 3-строчный открытый вариант
+# (readlink с `|| true` + простое условие «оба непусты и путь под git-dir»).
+IFS= read -r -d '' SB27_OLD <<'EOF'
+      _o="$(readlink -f -- "$_idx" 2>/dev/null)"; _rl_orig=$?
+      _g="$(readlink -f -- "$gd" 2>/dev/null)"; _rl_dir=$?
+      if [ "$_rl_orig" -ne 0 ] || [ "$_rl_dir" -ne 0 ] \
+         || [ -z "$_o" ] || [ -z "$_g" ]; then
+        printf 'ОТКАЗ: канонизация путей не удалась — readlink rc=%s для индекса «%s», rc=%s для git-dir «%s»; индекс коммита не может быть принят без подтверждения «под git-dir», отказ (контракт 088)\n' \
+          "$_rl_orig" "$_idx" "$_rl_dir" "$gd" >&2
+        exit 1
+      fi
+      if case "$_o" in "$_g"/*) export GIT_INDEX_FILE="$_o" ;; esac; then :; fi
 EOF
+IFS= read -r -d '' SB27_NEW <<'EOF'
+      _o="$(readlink -f -- "$_idx" 2>/dev/null || true)"
+      _g="$(readlink -f -- "$gd" 2>/dev/null || true)"
+      if [ -n "$_o" ] && [ -n "$_g" ] && case "$_o" in "$_g"/*) export GIT_INDEX_FILE="$_o" ;; esac; then :; fi
+EOF
+porcha "$SC" "$ST/sb27.sh" "$SB27_OLD" "$SB27_NEW"
 chmod +x "$ST/sb27.sh"
 
 # sb28 → B33: захват секции в переменную (9893dc5) снят, возврат к OLD
@@ -405,40 +397,15 @@ chmod +x "$ST/sb27.sh"
 # указатель строкой №1) grep -Fxq находит указатель на байте 1, выходит →
 # printf получает SIGPIPE 141 → `if ! pipeline` под pipefail уходит в ОТКАЗ И-7
 # — false-FAIL. Канонизация readlink + fail-closed (7fa38bf) сохранена.
-cat > "$ST/sb28.sh" <<EOF
-#!/usr/bin/env bash
-set -uo pipefail
-R="\$1"
-OTKAZ_088=${OTKAZ_088@Q}
-_lit_ptr=${PTR_088@Q}
-_idx="\${GIT_INDEX_FILE:-}"
-unset GIT_INDEX_FILE
-gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
-case "\$_idx" in
-  /*)
-    if [ -f "\$_idx" ]; then
-      _o="\$(readlink -f -- "\$_idx" 2>/dev/null)"; _rl_orig=\$?
-      _g="\$(readlink -f -- "\$gd" 2>/dev/null)"; _rl_dir=\$?
-      if [ "\$_rl_orig" -ne 0 ] || [ "\$_rl_dir" -ne 0 ] \\
-         || [ -z "\$_o" ] || [ -z "\$_g" ]; then
-        printf 'ОТКАЗ: канонизация путей не удалась — readlink rc=%s для индекса «%s», rc=%s для git-dir «%s»; индекс коммита не может быть принят без подтверждения «под git-dir», отказ (контракт 088)\\n' \\
-          "\$_rl_orig" "\$_idx" "\$_rl_dir" "\$gd" >&2
-        exit 1
-      fi
-      if case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
-    fi
-    ;;
-esac
-PTR_088="\$_lit_ptr"
-sekcija() { awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'; }
-if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
-  _section="\$(git -C "\$R" show :HANDOFF.md 2>/dev/null | sekcija)"
-  if ! printf '%s\\n' "\$_section" | grep -Fxq -- "\$PTR_088"; then
-    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
-  fi
-fi
-exit 0
+# Тело строится одним вызовом porcha от $SC: одна строка свопа
+# `<<<"$_section"` (9893dc5) на `printf '%s\n' "$_section" |` (pre-9893dc5).
+IFS= read -r -d '' SB28_OLD <<'EOF'
+  if ! grep -Fxq -- "$PTR_088" <<<"$_section"; then
 EOF
+IFS= read -r -d '' SB28_NEW <<'EOF'
+  if ! printf '%s\n' "$_section" | grep -Fxq -- "$PTR_088"; then
+EOF
+porcha "$SC" "$ST/sb28.sh" "$SB28_OLD" "$SB28_NEW"
 chmod +x "$ST/sb28.sh"
 
 # ── прогон: стаб на своей клетке (красная), честный мини-субъект там же (зелёная) ──
