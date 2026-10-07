@@ -130,6 +130,24 @@ NEXT_ID_LIB=1
 . "$SELF_DIR/next_id.sh"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_registry.sh"
+# Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник
+# для всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
+INCR_NAME=check_charter
+# ФИКСТУРЫ-ДРИЛЛЫ КОПИРУЮТ БАРЬЕР В `$WORK/scripts/` БЕЗ `lib_incr.sh`
+# (появилось в --incr-работе, контракт 083, инв. 6): барьер обязан остаться
+# работоспособным в ПОЛНОМ режиме без `--incr`, иначе честный прогон дрилла
+# краснеет не по предмету, а на отсутствующей библиотеке. Стабы — no-op-зеркало
+# `incr_parse`/`incr_fail`/`incr_finish` для полного режима (INCR_CACHE пуст →
+# incr_finish no-op, INCR_RC=0 → incr_fail не вызывается; incr_parse кладёт
+# всё, что получил, в INCR_REST).
+# shellcheck disable=SC1091
+if [ -f "$SELF_DIR/lib_incr.sh" ]; then
+  . "$SELF_DIR/lib_incr.sh"
+else
+  incr_parse() { INCR_CACHE=""; INCR_MODE="full"; INCR_BASE=""; INCR_HEAD=""; INCR_N=0; INCR_RC=0; INCR_REST=("$@"); }
+  incr_fail() { :; }
+  incr_finish() { :; }
+fi
 
 # ── БИБЛИОТЕЧНЫЕ ФУНКЦИИ (контракт 019, ветвь 1, И-7) ─────────────────────────
 #
@@ -274,7 +292,19 @@ if [ "${CHARTER_LIB:-}" = "1" ]; then
   return 0 2>/dev/null || exit 0
 fi
 
+# Разбор `--incr <кеш>` из аргументов. Кеш-отказ — именованный rc 1.
+# Грамматика `--incr` (включая (в′) — кеш сторонней линии) живёт В lib_incr.sh
+# (контракт 083, инв. 6: «грамматика живёт в scripts/lib_incr.sh, чеки несут
+# её побайтово через вызов библиотеки; переизобретение в каждом чеке — провал»).
+# Раньше здесь был локальный pre-parse для ветви (в′) — убран: incr_parse теперь
+# сам обрабатывает (в′) (полный прогон с маркером, INCR_CACHE сохраняется для
+# incr_finish — сеяние свой линии на зелёном).
+incr_parse "$@"
+[ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
+set -- "${INCR_REST[@]}"
+
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
+INCR_GIT_ROOT="$ROOT"
 
 fails=0
 ok()   { printf '  ok   %s\n' "$*" >&2; }
@@ -340,6 +370,19 @@ while IFS=$'\t' read -r f since; do
   [ -n "$f" ] || continue
   docs=$((docs + 1))
   doc_fails_before="$fails"
+  # В incr-режиме (контракт 083, инв. 6) кеш = последний проверенный sha, и судимое
+  # окно сужается до cache..HEAD. Полнота проверки та же — для каждого коммита
+  # в окне проверяется та же логика, что и в полном режиме. «Since» уступает
+  # место кешу, чтобы не смотреть заново уже проверенную историю.
+  if [ "${INCR_MODE:-full}" = "incr" ]; then
+    # Н-?? (контракт 083): since — ПЕРВАЯ заморозка ЭТОГО файла, INCR_BASE — общий
+    # кеш чека. Если файл заморожен ПОСЛЕ кеша (since НЕ предок INCR_BASE), окно
+    # обязано начинаться с заморозки, а не с кеша — иначе черновые commits ДО
+    # заморозки попадут в проверяемое окно как «уставные без разрешения».
+    if g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
+      since="$INCR_BASE"
+    fi
+  fi
   # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
   # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
   # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
@@ -370,4 +413,9 @@ done < "$TMP/pairs"
 printf '\nуставных документов: %d · изменений в них: %d · с разрешения: %d\n' \
   "$docs" "$changes" "$excused" >&2
 
-[ "$fails" -eq 0 ] || exit 1
+if [ "$fails" -eq 0 ]; then
+  incr_finish 0
+  exit 0
+fi
+incr_finish 1
+exit 1

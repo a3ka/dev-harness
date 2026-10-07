@@ -40,26 +40,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Р1 (контракт 020, v3.1): подъём шардов N=6 → N=5. v3.1 вынес `check_metering`
-        # в отдельный шард ap6 (длинный шест, измерено профилировкой ~2,4× бюджета
-        # остальных ключей ап5, без этого они упирались в timeout-minutes: 20,
-        # см. историю отмен CI 5a0c560); сумма-инвариант в `scripts/verify_ci_parity.sh`
-        # от числа шардов не зависит — сводка ключей динамическая. v3.2 ОТКАЗЫВАЕТСЯ от
-        # шарда ap6 (контракт 020 v3.2, метеринг — флейки-выброс по решению владельца
-        # 2026-09-17: требует живого прокси/upstream, красная фаза зависает на healthz
-        # после рестарта `_restart_proxy_and_upstream`, замер 2026-09-17; маска Н-87 —
-        # в --changed-CI почти не гейтил, полный прогон проходил раз; КОМПЕНСАЦИЯ:
-        # ручной полный прогон перед done×4, cognitive-only остаток до де-флейка —
-        # хвост 017, очередь нормализации). Каталог `fixtures/check_metering/` (22 case)
-        # остаётся и покрывается сумма-инвариантом через ИМЕНОВАННОЕ исключение
-        # `UNSCOPABLE_KEYS` в `scripts/verify_ci_parity.sh` — без шардного шага и
-        # без присутствия в `keys:` какого-либо шарда (такое присутствие ломало бы
-        # ап-шаг rc=1 «неизвестный ключ»). Прочие параметры (concurrency,
-        # timeout-minutes, fetch-depth, node 26, fail-fast: false) — на месте.
-        # Ключи — пути в scripts/ без расширения, через пробел. Имя
-        # `npm run check:antiplacebo` — СТАТИЧНО (правило 6), шаблон только в --scope
-        # (предмет п.1 «имя статично»).
         include:
+# BEGIN GENERATED CI SHARDS (083)
           - shard: ap1
             keys: check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
           - shard: ap2
@@ -70,6 +52,7 @@ jobs:
             keys: check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
           - shard: ap5
             keys: verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver
+# END GENERATED CI SHARDS (083)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,9 +84,37 @@ jobs:
         # Р1/предмет п.1: --scope задаёт КОНКРЕТНЫЕ ключи шарда (на которых
         # scope_select выберет case-*). --changed отменён — он видел только
         # последний пуш (Н-87) и не давал scoped-выбор.
+        # Контракт 083, инвариант 5: include-блок в этой джобе генерируется
+        # из реестра `registry/ci-steps.tsv` (shard-строки) генератором
+        # `scripts/gen_ci_steps.sh` и сверяется им же (--check). Правка
+        # руками внутри блока красна поимённо.
+        # Маркеры — в колонке 1 (требование оракула батареи 083, block_body
+        # использует `index($0,marker)==1`). YAML трактует комментарии
+        # одинаково на любой колонке; содержимое include — на 10 колонке
+        # (на уровне джобы antiplacebo, после переноса strategy на job-level).
         run: npm run check:antiplacebo -- --scope ${{ matrix.keys }}
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+# BEGIN GENERATED CI JOBS (083)
+          - lane: l1
+            keys: check:charter
+          - lane: l2
+            keys: check:gitw-predpolet-family-selftest
+          - lane: l3
+            keys: check:zones check:judge-gate check:threat-model-selftest drill:startup-digest
+          - lane: l4
+            keys: check:protected check:door-bugfix-family-selftest check:ops-server-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:contract-ready check:hooks check:skills check:scoped-run
+          - lane: l5
+            keys: check:orch-restart-family-selftest check:sharing-family-selftest check:declared-path-family-selftest check:ids check:runner-hygiene drill:next-id-race check:ceilings check:decisions check:nabludenia check:measure-probe check:spec-ready-036
+          - lane: l6
+            keys: check:protected-call-budget check:zones-call-budget check:document check:merge-gate-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:consumers-window-family-selftest check:gen check:precision-battery check:precision-gate-043 drill:gate-draft
+          - lane: l7
+            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:gitw-family-selftest check:provodka-family-selftest drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scope-select drill:nabludenia-nechitaemo
+# END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -120,6 +131,43 @@ jobs:
           # шаг «Зоны исполнителей» красит исторические freeze-registry коммиты.
           fetch-tags: true
 
+      # Кеш для инкрементального режима 4 исторических чеков (контракт 083, этикет зон
+      # строки 364-370, v+1). STATIC-обёртка `actions/cache`: по шагу на каждый чек,
+      # path `tmp/ci-incr/<check>.sha`, key `ci-incr-<check>-<sha>`, restore-keys
+      # `ci-incr-<check>-`, restore всегда. SAVE-шаги ниже — отдельные, условные
+      # на событие: на push ключ `ci-incr-<check>-<sha>` (общая запись main), на
+      # pull_request PR-scoped ключ `ci-incr-<check>-pr-<N>-<sha>` (N =
+      # github.event.pull_request.number) — GitHub изолирует запись по PR, и
+      # push-путь main не затрагивается. PR-раны по restore-keys выбирают
+      # самую свежую видимую запись: свою предыдущую зелёную, иначе последнюю
+      # push-запись. Кеш СТАТИЧНЫЙ (не в `# BEGIN/END GENERATED` блоке), потому
+      # что инкрементальная пачка своего в `ci.yml` не пишет — генератор
+      # `scripts/gen_ci_steps.sh` блок не генерирует.
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+          restore-keys: |
+            ci-incr-charter-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+          restore-keys: |
+            ci-incr-zones-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+          restore-keys: |
+            ci-incr-ids-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
+          restore-keys: |
+            ci-incr-protected-
+
       - uses: actions/setup-node@v4
         # Рантайм харнеса — node 26: прокси учёта под --permission ТРЕБУЕТ --allow-net (сетевой
         # permission-флаг есть только в node ≥ ~24/26; на node 22 флаг неизвестен → node падает,
@@ -131,7 +179,10 @@ jobs:
       - name: Проверка паритета с CI
         # Паритет проверяется САМИМ барьером, и он обязан пройти ДО остальных проверок:
         # иначе расхождение найдёт не эта команда, а следующая, и причина будет названа
-        # не та. Самопроверка правила обязана стоять первой.
+        # Самопроверка правила обязана стоять первой. Это ЕДИНСТВЕННЫЙ шаг
+        # в джобе ci с npm-командой (правило 6 verify_ci_parity, контракт 083 инв. 2:
+        # «не более одной run-строки вида `npm run`»); прочие шаги — `bash <path>` 4-я форма
+        # (прецедент 058–080) либо запуск лейн-раннером с `matrix.keys`.
         run: npm run check:ci-parity
 
       - name: Сам-тесты раннера анти-плацебо (арбитраж 020 c8aaa67, замер 5)
@@ -153,535 +204,83 @@ jobs:
           cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
           npm run check:antiplacebo -- "$TMP_ROOT"
 
-      - name: Сам-тесты барьера check_threat_model (контракт 041)
-        # Раннер fixtures/_krasnye_041.sh (dogfood-семья контракта 041,
-        # тот же архитектурный класс, что «Сам-тесты семьи ПРОВОДКА» ниже):
-        # 11 case_*.sh в fixtures/check_threat_model/ САМО-верифицирующие в
-        # прямом режиме (rc собственной сборки) И одновременно несут шапку
-        # `# ПРИЧИНА:` стандартного case-протокола шардового
-        # verify_antiplacebo.sh (scripts/verify_antiplacebo.sh:611-614) —
-        # конверсия закрыла находку Н1 verdicts/review/contracts-041-k1.md:
-        # ключ `check_threat_model` теперь ОБЫЧНЫЙ шардируемый барьер (шард
-        # ap5 выше), SELF_COVERED_KEYS-исключение для него в
-        # scripts/verify_ci_parity.sh — устаревший follow-up ВНЕ зоны
-        # architect (не config/, не verify_ci_parity.sh), implementer
-        # снимает отдельным проходом. Этот шаг ОСТАЁТСЯ рядом с шардом —
-        # НЕ дублирование, а прямой прогон fixtures/_krasnye_041.sh как
-        # такового (§Приёмка Р11 контракта 041 называет именно эту команду);
-        # раннер строит mktemp-корни внутри, не мутирует стерегомое дерево.
-        # rc-команда закрывает пункт приёмки шага (правило 6). Оплата —
-        # запись `check:threat-model-selftest = <причина>` в
-        # config/ci_parity_exceptions.txt (устаревший текст записи —
-        # тот же follow-up, что и SELF_COVERED_KEYS выше).
-        run: npm run check:threat-model-selftest
-
-      - name: Сам-тесты семьи ПРОВОДКА (контракт 038)
-        # Раннер fixtures/_krasnye_038.sh (dogfood-семья контракта 038, тот же
-        # архитектурный класс, что check_threat_model выше): 37 red_*/green_*.sh
-        # трёх барьеров (check_provodka, done_contract, check_consumers) — прямой
-        # запуск ВНЕ case_*-глоба шардового verify_antiplacebo (А-82), написаны
-        # под протокол приёмочной таблицы контракта 038, не под шардовый
-        # `# ПРИЧИНА:`-протокол. Найдено ревьюером без единого вызывающего в CI
-        # (verdicts/review/contracts-038-k1.md, Р2) — раннер жив и зелен, но не
-        # подключён. Ключи check_provodka/done_contract/check_consumers УЖЕ в
-        # шарде ap2 (30 case_*.sh) — этот шаг НЕ дублирует шард и НЕ входит в
-        # SELF_COVERED_KEYS (scripts/verify_ci_parity.sh:1245): ключи остаются
-        # покрытыми шардингом как раньше, а эта строка закрывает ОСТАЛЬНЫЕ 37
-        # предъявлений таблицы (R-/D-/C- red_*/green_*), которые шардовый
-        # раннер не видит по имени файла. EXPECT_RC=0 — режим `_krasnye_038.sh`
-        # для реализованного предмета (интерактивный режим по умолчанию — 1,
-        # для пред-предметного красного). rc-команда закрывает пункт приёмки
-        # шага (правило 6); отдельной записи в config/ci_parity_exceptions.txt
-        # не требуется — `npm run check:provodka-family-selftest` покрыт
-        # правилом 6 (:1043) как `npm run <имя>`, тот же случай, что
-        # `check:threat-model-selftest` (см. запись в конце exceptions.txt).
-        run: npm run check:provodka-family-selftest
-
-      - name: Сам-тесты семьи окна потребителей 116 (контракт 062)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 058/059/060/063:
-        # раннер `fixtures/check_consumers/krasnye_062.sh` (семья контракта 062,
-        # ПРОВОДКА-канал контракта: `guard=fixtures/check_consumers/krasnye_062.sh`)
-        # гоняет `fixtures/check_consumers/red_atribucija_okna_062.sh` —
-        # честные клетки к1..к8 (к1 — чужой ленд писателя НЕ судится,
-        # к7 — правка-и-возврат СВОИМИ коммитами судится, к8 — отказ добычи окна
-        # именованным rc 1) плюс стаб-пак из 6 обманных стабов и 6 диффпроб
-        # (6/6 + 6/6 + 8/8). Шардовый verify_antiplacebo выбирает только
-        # `case_*.sh`, этой семьи НЕ видит (её файл — `red_atribucija_okna_062.sh`,
-        # не `case_*`). Ключ `npm run check:consumers-window-family-selftest` в
-        # package.json равен значению шага (правило 6 verify_ci_parity.sh —
-        # четвёртая форма, прецедент 058/059/060/063). Самодостаточен: батарея
-        # строит toy-мир в mktemp-каталогах, стерегомое дерево не мутирует, сети
-        # нет. Шаг красен, пока предмет 062 не реализован (г0 «предмет
-        # отсутствует»); зелёным становится вместе с предметом; rc=0 закрывает
-        # пункт приёмки шага (правило 6) и закрывает ПРОВОДКА-долг контракта 062.
-        run: bash fixtures/check_consumers/krasnye_062.sh
-
-      - name: Проба слабых реализаций меры параллельности (контракт 021, И-7)
-        # Условие V2 контракта 021 (Н-43): проба — не on-demand. CI обязан гонять её на
-        # каждом пуше, иначе честность меры проверяется только в момент сдачи пачки и
-        # деградирует молча между коммитами. Самодостаточна: фазы пробы строят подставные
-        # корни в mktemp, красные входы против стабов и честную форму меры гоняют в
-        # изоляции от чистого чекаута. rc-команда закрывает пункт приёмки шага (правило 6).
-        run: npm run check:measure-probe
-
-      - name: Барьер scoped-селектора (контракт 006)
-        # Самодостаточен: строит игрушечные git-деревья в tmp/, git в CI есть.
-        run: npm run check:scope-select
-
-      - name: Барьер интеграции scoped в раннер (контракт 006)
-        # Самодостаточен: встроенный scope_select из фикстуры, прогон через изолированный tmp.
-        run: npm run check:scoped-run
-
-      - name: Предполётный гейт автора (контракт 008)
-        # Самодостаточен: на игрушечных деревьях гоняет scripts/check_contract_ready.sh
-        # и УТВЕРЖДАЕТ код+причину; ветви зоны/проба/счёт/арбитраж/готов.
-        run: npm run check:contract-ready
-
-      - name: Doc-приёмка (контракт 027)
-        # Самодостаточен: прогоняет 8 прямых red_doc_* на игрушечных деревьях
-        # в mktemp (субъект — check_document.ts/render_document.ts); python3 и git
-        # доступны. rc=0 закрывает пункт приёмки шага.
-        run: npm run check:document
-
-      - name: Пре-фриз precision-гейт (контракт 043)
-        # Самодостаточен: новая sibling-проверка, введённая контрактом 043 —
-        # проверяет три свойства черновика (зона-коллизия union, живая
-        # полярность case-файлов, паритет CI). freeze_contract.sh вызывает
-        # тот же гейт перед записью тега (см. scripts/freeze_contract.sh
-        # §6а-ter); CI-проводка здесь закрывает «заморозка без CI» (Б4).
-        # Запускается ПОСЛЕ check:ci-parity: паритет CI проверяется отдельным
-        # шагом раньше, чтобы красный паритет был виден как самостоятельный
-        # результат, а не только как именованная причина задачи (в) гейта.
-        # rc=0 закрывает пункт приёмки шага; семейная CI-приёмка Р10/Р11 проводится
-        # двумя прямыми шагами ниже — см. §Приёмка контракта 043.
-        # Контракт 072, инвариант 15 (npm-гигиена ног двери перед критиком):
-        # ключ check:precision-gate в package.json безаргументный; аргументы
-        # (. <контракт>) передаются здесь явно, чтобы «npm run … -- . <contract>»
-        # судил переданный черновик, а не запечённый в ключе.
-        run: npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
-
-      - name: Сам-тесты семьи precision-гейт (контракт 043)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041: раннер
-        # `fixtures/_krasnye_043.sh` (dogfood-семья контракта 043) гоняет
-        # ВСЕ 18 red_*/green_*-файлов семей `check_precision_gate/`,
-        # структурно заявляющих полярность (`red_`/`green_`); шардовый
-        # verify_antiplacebo выбирает только `case_*.sh` (scripts/verify_antiplacebo.sh:585)
-        # и этой семьи НЕ видит (её файлы — `red_*/green_*`, не `case_*`).
-        # Тот же архитектурный класс, что и ранее подключённые
-        # «Сам-тесты семьи ПРОВОДКА (контракт 038)» / «Сам-тесты барьера
-        # check_threat_model (контракт 041)». Ключ `npm run check:precision-family-selftest`
-        # покрыт правилом 6 verify_ci_parity.sh (:1043) как `npm run <имя>`,
-        # тот же случай, что `check:provodka-family-selftest` /
-        # `check:threat-model-selftest` — запись в config/ci_parity_exceptions.txt
-        # НЕ требуется. rc=0 закрывает пункт приёмки шага (правило 6).
-        run: npm run check:precision-family-selftest
-
-      - name: Батарея гигиены парсинга для precision-гейт (контракт 043)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041: раннер
-        # `fixtures/parsing_hygiene_battery/run_battery.sh check_precision_gate`
-        # (реиспользуемая батарея контракта 041, применённая как dogfood для
-        # 043) гоняет четыре класса гигиены парсинга против barriers-а
-        # семьи — delimiter-collision, regex-injection, silent-drop,
-        # self-application-green. Без прямого шага CI исполняет только
-        # `check:precision-gate` (self-application) и пропускает регрессию
-        # гигиены парсинга — ровно класс дефекта Н-113/Н-115, ради
-        # которого контракт заведён (арбитраж 043-Б4 §Решение, прецедент
-        # 038/041). Ключ `npm run check:precision-battery` покрыт правилом 6
-        # verify_ci_parity.sh (:1043) как `npm run <имя>`, тот же случай,
-        # что `check:precision-family-selftest` выше — запись в
-        # config/ci_parity_exceptions.txt НЕ требуется. rc=0 закрывает
-        # пункт приёмки шага (правило 6).
-        run: npm run check:precision-battery
-
-
-      - name: Сам-тесты pre-exchange гард (контракт 045)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043: раннер
-        # `fixtures/_krasnye_045.sh` (dogfood-семья контракта 045) гоняет
-        # `fixtures/gitw/red_gitw_obmen.sh` — батарею 12 клеток (г0–г12)
-        # плюс стаб-пак из 11 обманных реализаций — против `scripts/gitw`
-        # (pre-exchange гард цели push/fetch/pull, единый корень Н-141+Н-143
-        # +Н-148 + probe C). Шардовый verify_antiplacebo выбирает только
-        # `case_*.sh` (scripts/verify_antiplacebo.sh:585), и этой семьи НЕ
-        # видит (её файл — `red_gitw_obmen.sh`, не `case_*`). Архитектурный
-        # класс тот же, что ранее подключённые «Сам-тесты семьи ПРОВОДКА» /
-        # «Сам-тесты барьера check_threat_model» / «Сам-тесты семьи
-        # precision-гейт». Ключ `npm run check:gitw-family-selftest`
-        # покрыт правилом 6 verify_ci_parity.sh (:1043) как `npm run <имя>`,
-        # тот же случай, что `check:precision-family-selftest` —
-        # запись в config/ci_parity_exceptions.txt НЕ требуется.
-        # Самодостаточен: батарея строит toy-мир во временных каталогах,
-        # не мутирует стерегомое дерево; единственный сетевой запрос —
-        # `git ls-remote <канон>` для клетки живости г6 (toy-каталог
-        # GIT_EXCHANGE_GUARD_CANONICAL, не требует сети). rc=0 закрывает
-        # пункт приёмки шага (правило 6).
-        run: npm run check:gitw-family-selftest
-
-      - name: Сам-тесты предполётного гарда gitw push в main (контракт 071)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043/045:
-        # раннер `fixtures/_krasnye_071.sh` (dogfood-семья контракта 071)
-        # гоняет `fixtures/gitw_predpolet/red_predpolet_071.sh` — стаб-пак
-        # из 13 обманных стабов предполёта (13/13 + диффпроба 13/13) плюс
-        # честные клетки п0–п9 (п0 — предмет существует и крюк звонит;
-        # п2а–п2г — красные чеки дерева; п3а–п3в — теги на origin; п4а–п4е —
-        # land без зелёного PR-CI; п5а–п5в — мусорный worktree; п6а–п6д —
-        # грамматика покрытия и несудимый refspec; п7 — деградация
-        # чек-ключей; п8 — чеки по отправляемому дереву; п9а–п9в — чеки
-        # по ОТПРАВЛЯЕМОМУ src) против живой пары `scripts/gitw` +
-        # `scripts/gitw_preflight_071.sh` (preflight-gate обёртки обмена,
-        # четыре именованных отказа ДО отправки). Шардовый verify_antiplacebo
-        # выбирает только `case_*.sh` (scripts/verify_antiplacebo.sh:585),
-        # и этой семьи НЕ видит (её файл — `red_predpolet_071.sh`, не
-        # `case_*`; семья probe-only 034). Ключ
-        # `npm run check:gitw-predpolet-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # прецедент 058/059/060/070). Самодостаточен: батарея строит toy-мир
-        # в mktemp-каталогах, стерегомое дерево не мутирует, сеть — только
-        # локальный API-стаб (port-bounded) для чека (3). Долгий замер
-        # ~107 с — вне буллет-пробы гейта 036 (дефуз А-312 по прецеденту
-        # 067: первый токен — слово, не команда). Шаг красен, пока предмет
-        # 071 не реализован (г0 «предмет отсутствует»); зелёным становится
-        # вместе с предметом; rc=0 закрывает пункт приёмки шага (правило 6)
-        # и закрывает ПРОВОДКА-долг контракта 071.
-        run: bash fixtures/_krasnye_071.sh
-      - name: Сам-тесты дверей оркестратора (контракт 072)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043/045/071:
-        # раннер `fixtures/_krasnye_072.sh` (dogfood-семья контракта 072,
-        # АГРЕГАТОР двух дверей оркестратора — слово владельца 2026-10-01
-        # вечер, дословно) гоняет обе батареи — стаб-пак 10/10 + диффпроба
-        # 10/10 + честные клетки 13/13 «двери перезапуска сессии»
-        # (`fixtures/perezapusk_sessii/red_dver_perezapuska_072.sh` против
-        # `scripts/orch_restart.sh` — расширения GC) и стаб-пак 6/6 +
-        # диффпроба 6/6 + честные клетки ч1..ч4 «двери перед критиком»
-        # (`fixtures/dver_pered_kritikom/red_dver_pred_kritikom_072.sh` против
-        # `scripts/pre_critic.sh`). Раннер `rc 0` только при зелёности ОБЕИХ
-        # батарей (прецедент _krasnye_058.sh/070.sh; контракт 057 Ч-8 Б2).
-        # Шардовый verify_antiplacebo выбирает только `case_*.sh`
-        # (`scripts/verify_antiplacebo.sh:585`), этой семьи НЕ видит (её
-        # файлы `red_dver_*.sh`, не `case_*`; семья probe-only 034;
-        # каталоги НЕ барьерные ключи, см. .probe-only). Ключи
-        # `orch_restart` и `pre_critic` в матрице шарда ap1 рядом с
-        # `gc_agent_branches` — семейство дверей оркестратора. Ключ
-        # `npm run check:orch-restart-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # прецедент 058/059/060/070/071). Самодостаточен: обе батареи
-        # строят toy-мир в mktemp-каталогах, стерегомое дерево не
-        # мутируют, сети нет. Шаг красен, пока предмет 072 не реализован
-        # (г0 «предмет отсутствует»); зелёным становится вместе с
-        # предметом; rc=0 закрывает пункт приёмки шага (правило 6).
-        # Санкция: контракт 072:416-418 (дословно): «Ключи orch_restart и
-        # pre_critic в матрицу шардов ci.yml и ci-шаг раннера
-        # fixtures/_krasnye_072.sh — ВЛАДЕЛЕЦ orchestrator (слово владельца
-        # или пачка 071, см. ПРОВОДКА v2), НЕ самовольная правка из 072».
-        run: bash fixtures/_krasnye_072.sh
-
-      - name: Сам-тесты шаринга agent.db (контракт 058)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 038/041/043/045:
-        # раннер `fixtures/_krasnye_058.sh` (семья контракта 058) гоняет
-        # `fixtures/workshop_project/red_sharing_agentdb.sh` — стаб-пак из 9
-        # обманных стабов лаунчера (9/9 + диффпроба 9/9) плюс честные клетки
-        # к1..к11/к13/к14 шага шаринга agent.db (симлинк PROJDB на дев-базу,
-        # дерево ветвей И-1 контракта 058) против живого `workshop --probe`
-        # и стаб-omp субъекта живого режима. Шардовый verify_antiplacebo
-        # выбирает только `case_*.sh` (scripts/verify_antiplacebo.sh:585), и
-        # этой семьи НЕ видит (её файл — `red_sharing_agentdb.sh`, не
-        # `case_*`; семья probe-only 034 — ключ каталога .probe-only).
-        # Архитектурный класс тот же, что ранее подключённые «Сам-тесты
-        # семьи ПРОВОДКА» / «Сам-тесты барьера check_threat_model» /
-        # «Сам-тесты семьи precision-гейт» / «Сам-тесты pre-exchange гард».
-        # Ключ `npm run check:sharing-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # «шаг, дословно равный значению скрипта»: записи в
-        # config/ci_parity_exceptions.txt не требуется). Самодостаточен:
-        # батарея строит toy-мир в mktemp-каталогах, стерегомое дерево не
-        # мутирует, сети нет. Красный тест: шаг красен, пока предмет 058 не
-        # реализован (г0 «предмет отсутствует» честной части; прецедент 011
-        # «пуш пачки без предмета CI не проходит по умыслу»). Зелёным
-        # становится вместе с предметом; rc=0 закрывает пункт приёмки шага
-        # (правило 6).
-        run: bash fixtures/_krasnye_058.sh
-
-      - name: Сам-тесты сверки объявленных путей профиля (контракт 059)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 058:
-        # раннер `fixtures/_krasnye_059.sh` (семья контракта 059, IV-1а —
-        # сверка объявленного пути профиля `ci.workflow` с деревом репо;
-        # боль Б-4 пилота ODX-STK-001) гоняет
-        # `fixtures/workshop_project/red_sverka_puti_profylja.sh` — стаб-пак
-        # обманных стабов резолвера (стаб-пак + диффпроба) плюс честные
-        # клетки семьи (живой `scripts/profile_resolver.sh`
-        # сверяет ЭФФЕКТИВНОЕ значение `ci.workflow` после MERGED с деревом
-        # REPO_ABS: АБС / отсутствует / вне дерева / не файл; stdout
-        # атомарно пуст при отказе И-4). Шардовый verify_antiplacebo
-        # выбирает только `case_*.sh`, этой семьи НЕ видит (её файл —
-        # `red_sverka_puti_profylja.sh`, не `case_*`; семья probe-only 034).
-        # Ключ `npm run check:declared-path-family-selftest` в package.json
-        # равен значению шага (правило 6 verify_ci_parity.sh — четвёртая
-        # форма). Самодостаточен: батарея строит toy-мир в mktemp-каталогах,
-        # стерегомое дерево не мутирует, сети нет. Шаг красен, пока
-        # предмет 059 не реализован (г0 «предмет отсутствует»); зелёным
-        # становится вместе с предметом; rc=0 закрывает пункт приёмки
-        # шага (правило 6).
-        run: bash fixtures/_krasnye_059.sh
-
-      - name: Сам-тесты самодостаточности репо (контракт 060)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 058/059:
-        # раннер `fixtures/_krasnye_060.sh` (семья контракта 060, II-2 д/е/ж —
-        # рука HARNESS_WORKFLOW_ROOT: mint номера контракта, реестр заморозок
-        # и черновики болей ведутся на репо-стороне, не в очередях харнесса;
-        # боль Б-1/Б-7 пилота ODX-STK-001) гоняет
-        # `fixtures/workshop_project/red_samodostatochnost_repo_060.sh` —
-        # стаб-пак из 13 обманных стабов (13/13 + диффпроба 13/13) плюс
-        # честные клетки к1..к5в, к6..к6е, к7, к8 (live workshop --probe и
-        # живой запуск со стаб-omp; ЭНФОРСМЕНТ-форма guard-канала).
-        # Шардовый verify_antiplacebo выбирает только `case_*.sh`, этой
-        # семьи НЕ видит (её файл — `red_samodostatochnost_repo_060.sh`,
-        # не `case_*`; семья probe-only 034). Ключ
-        # `npm run check:samodostatochnost-family-selftest` в package.json
-        # равен значению шага (правило 6 verify_ci_parity.sh — четвёртая
-        # форма, прецедент 058/059). Самодостаточен: батарея строит toy-мир
-        # в mktemp-каталогах, стерегомое дерево не мутирует, сети нет.
-        # Шаг красен, пока предмет 060 не реализован (г0 «предмет
-        # отсутствует»); зелёным становится вместе с предметом; rc=0
-        # закрывает пункт приёмки шага (правило 6).
-        run: bash fixtures/_krasnye_060.sh
-
-      - name: Сам-тесты GitHub-чтения (контракт 070)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 058/059/060:
-        # guard-канал контракта 070 (`guard=scripts/check_github_token_070.sh`)
-        # делегирует прогон раннеру `fixtures/_krasnye_070.sh`, который гоняет
-        # `fixtures/workshop_project/red_github_token_070.sh` — стаб-пак из 7
-        # обманных стабов лаунчер-шага (7/7 + диффпроба 7/7) плюс честные
-        # клетки к1..к7 шага GitHub-токена (боль Б-2 пилота ODX-STK-001:
-        # read-only PAT ODELIX_GITHUB_TOKEN из дома ВНЕ репо
-        # ~/.config/odelix/github.env в сессию лаунчером workshop).
-        # Шардовый verify_antiplacebo выбирает только `case_*.sh`, этой
-        # семьи НЕ видит (её файл — `red_github_token_070.sh`, не `case_*`;
-        # семья probe-only 034). Ключ
-        # `npm run check:github-token-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # прецедент 058/059/060). Самодостаточен: батарея строит toy-мир в
-        # mktemp-каталогах, стерегомое дерево не мутирует, сети нет, живой
-        # ~/.config/odelix/… НЕ читается. Шаг красен, пока предмет 070 не
-        # реализован (г0 «предмет отсутствует»); зелёным становится вместе с
-        # предметом; rc=0 закрывает пункт приёмки шага (правило 6).
-        run: bash scripts/check_github_token_070.sh
-
-      - name: Сам-тесты гейта зон на merge-HEAD (контракт 073)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 058/059/060/070:
-        # раннер `fixtures/_krasnye_073.sh` (dogfood-семья контракта 073,
-        # предмет 073 — чин блокера B нормы 049, формонезависимость вердикта
-        # `scripts/check_zones.sh` от наличия локальной `refs/heads/main`,
-        # живой укус Н-181) гоняет `fixtures/zony_merge_head/
-        # red_invariant_form_073.sh` — стаб-пак 4/4 обманных стабов плюс
-        # матрица 2×2 форм чекаута {merge-HEAD, ветка} × {main, без main} и
-        # жёсткие пины И1..И5 на двух синтетических деревьях fx/fx2 (тот
-        # же класс, что 070/071/072). Якорь «главной линии» формы REPLACE —
-        # КОНЕЦ судимого окна (done-тег для закрытых, HEAD для открытых),
-        # first-parent-предокство от него чекаут-НЕЗАВИСИМО. Шардовый
-        # verify_antiplacebo выбирает только `case_*.sh`, этой семьи НЕ
-        # видит (её файл — `red_invariant_form_073.sh`, не `case_*`; семья
-        # probe-only 034). Ключ `npm run check:zony-merge-head-family-
-        # selftest` в package.json равен значению шага (правило 6
-        # verify_ci_parity.sh — четвёртая форма, прецедент 058/059/060/070).
-        # Самодостаточен: батарея строит toy-мир в mktemp-каталогах,
-        # стерегомое дерево не мутирует, сети нет. Шаг зелен вместе с
-        # реализацией 073; rc=0 закрывает пункт приёмки шага (правило 6).
-        run: bash fixtures/_krasnye_073.sh
-
-      - name: Сам-тесты серверной обвязки станции (контракт 074)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 073 (ПРОВОДКА(в),
-        # акт orchestrator): раннер `fixtures/_krasnye_074.sh` (dogfood-семья
-        # контракта 074 — install.sh с швами OPS_SERVER_BIN_DST/SBIN_DST/ETC_DST
-        # в форме ${VAR-…}, источник SRC в ${VAR:-…}; батарея 7/7 + стаб-пак 7/7
-        # + диффпроба 7/7) гоняет `fixtures/ops_server/red_serviernaja_obvjazka_074.sh`
-        # — стаб-пак 7 обманных стабов (7/7) и диффпроба 7 (7/7) плюс честные
-        # клетки к1..к7 (sha256-конвергенция после записи, euid-гард под harness,
-        # пустая OPS_SERVER_BIN_DST = умолчательный путь не тронут — инвариант 6).
-        # Шардовый verify_antiplacebo выбирает только `case_*.sh`
-        # (scripts/verify_antiplacebo.sh:585), этой семьи НЕ видит (её файл —
-        # `red_serviernaja_obvjazka_074.sh`, не `case_*`; семья probe-only 034).
-        # Ключ `npm run check:ops-server-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # прецедент 073/058/059/060/070). Самодостаточен: батарея строит
-        # toy-мир в mktemp-каталогах, стерегомое дерево не мутирует, сети нет.
-        # Шаг зелен вместе с реализацией 074; rc=0 закрывает пункт приёмки
-        # шага (правило 6) и закрывает С5 (guard не подключён в CI).
-        run: bash fixtures/_krasnye_074.sh
-
-      - name: Сам-тесты двери бугфикса перезапуска (контракт 080)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 070/071/072/073/074:
-        # раннер `fixtures/_krasnye_080.sh` (dogfood-семья контракта 080 —
-        # identity-источники env/--as двери orch_restart.sh, нога живых
-        # субагентов, нога (д') общего .git/config в check_staged.sh) гоняет
-        # `fixtures/dver_bugfiks_080/red_dver_bugfiks_080.sh` — стаб-пак 9/9,
-        # диффпроба 9/9, честная часть 27/27. Ключ
-        # `npm run check:door-bugfix-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # прецедент 070/071/072/073/074). Самодостаточен: батарея строит
-        # toy-мир в mktemp-каталогах, стерегомое дерево не мутирует, сети нет.
-        # rc=0 закрывает ПРОВОДКА-долг контракта 080 (Б-3 ревью круг 1).
-        run: bash fixtures/_krasnye_080.sh
-
-      - name: Сам-тесты ворот слияния и CI из профиля (контракт 063)
-        # Прямой шаг ВНЕ антиплацебо-матрицы по прецеденту 058/059/060:
-        # раннер `fixtures/check_judge_gate/krasnye_063.sh` (семья контракта
-        # 063, IV-1б — генератор workflow из профиля + ворота слияния;
-        # боли Б-3/Б-8 пилота ODX-STK-001, дыры Д3/Д4) гоняет
-        # `fixtures/check_judge_gate/red_iv1b_ci_merge_gate_063.sh` —
-        # честные клетки к1..к14 плюс стаб-пак из 7 обманных стабов и
-        # 7 диффпроб (7/7 + 7/7 + 14/14). Ключ
-        # `npm run check:merge-gate-family-selftest` в package.json равен
-        # значению шага (правило 6 verify_ci_parity.sh — четвёртая форма,
-        # прецедент 058/059/060/062). Самодостаточен: батарея строит toy-мир
-        # в mktemp-каталогах, стерегомое дерево не мутирует, сети нет.
-        # Шаг красен, пока предмет 063 не реализован (отсутствие скриптов
-        # даёт rc 127 — 034-паттерн); зелёным становится вместе с предметом;
-        # rc=0 закрывает пункт приёмки шага (правило 6) и закрывает
-        # ПРОВОДКА-долг контракта 063.
-        run: bash fixtures/check_judge_gate/krasnye_063.sh
-
-      - name: Спек-точность пре-фриз (контракт 036, В4)
-        # Самодостаточен: spec-preflight на живом дереве — контракт 036 заморожен и является
-        # честным входом гейта (в4-семьи в правке этим же черновиком — stderr-пометка, судит
-        # критик). rc=0 закрывает пункт приёмки шага (правило 6; г8 v3).
-        run: npm run check:spec-ready -- . contracts/036-spec-tochnost-prefriz-gejt.md
-
-      - name: Судья через CI-сигнал (контракт 008)
-        # Самодостаточен: подставляет ФЕЙКОВЫЙ check_ci_gate.sh рядом с предметом
-        # judge_gate.sh, реагирующий на exact-matching SHA PASS_THIS_SHA_GREEN.
-        run: npm run check:judge-gate
-
-      - name: Гигиена раннера + форма нормы приёмки (контракт 011)
-        # Красный тест: шаг красен, пока предмет 011 не реализован (lock/scratch/чистка
-        # раннера + маркер ПРИЁМКА-СУДЬИ v2 + аннотация у 010 §Приёмка п.8). Зелёным
-        # становится вместе с предметом; пуш пачки без предмета CI не проходит по умыслу.
-        run: npm run check:runner-hygiene
-
-      - name: Грамматика наблюдений (контракт 015)
-        # Красный тест: шаг красен, пока предмет 015 не реализован (барьер
-        # check_nabludenia + миграционная пачка адресов — один коммит введения).
-        # Зелёным становится вместе с предметом; пуш пачки без предмета CI не
-        # проходит по умыслу — тот же прецедент, что шаг контракта 011 выше.
-        run: npm run check:nabludenia
-
-      - name: Дрилл — черновик наблюдения на отказ гейта (контракт 015)
-        # Зелёная ветвь фикстурой не выражается — дрилл-переворот по образцу 005.
-        # Красен до реализации предмета по умыслу.
-        run: npm run drill:gate-draft
-
-      - name: Дрилл — дайджест старта сессии (контракт 015)
-        # Зелёная ветвь фикстурой не выражается — дрилл-переворот по образцу 005.
-        # Красен до реализации предмета по умыслу.
-        run: npm run drill:startup-digest
-
-      - name: Дрилл — нечитаемость файлов наблюдений (контракт 015)
-        # rc=2 фикстурой не выражается (раннер трактует rc=2 как NOT_IMPLEMENTED) —
-        # дрилл-переворот по РЕШЕНИЮ арбитража 3, спор 3 (прецедент 005).
-        # Красен до реализации предмета по умыслу.
-        run: npm run drill:nabludenia-nechitaemo
-
-      - name: Генератор ролей под чек
-        run: npm run check:gen
-
-      - name: Selftest прокси учёта
-        # Барьер по контракту 005, критерий 1: пять проверок внутренней логики —
-        # periodAt на стыке месяцев, приписывание токена, свёртка журнала в бюджет
-        # (int64 микро-USD), append-only запись, формула тарификации с округлением
-        # вверх. Сети не требует: всё на `node:` builtins и локальных файлах.
-        run: npm run metering:selftest
-
-      - name: Проверка уникальности идентификаторов артефактов
-        # Скрипт `scripts/check_ids.sh` написан по плану 005 §2.
-        run: npm run check:ids
-
-      - name: Скилы подлинны и комплектны
-        # Барьер check_skills.sh: восемь ветвей — от обнаружения omp до сверки тел
-        # с raw.githubusercontent по hash из замороженного контракта. Сеть в CI есть.
-        run: npm run check:skills
-
-      - name: Потолки документов
-        # Барьер по контракту 004: потолки в байтах (51200 персон, 30720 правил) и раздел
-        # «Незаполненные требования» у черновиков. Исключения паритета не нужны — без omp.
-        run: npm run check:ceilings
-
-      - name: "Реестр решений: состав и грамматика"
-        # Скрипт `scripts/check_decisions.sh` написан по контракту 002 (критерий 2).
-        # Семь записей 001-007 из `decisions/`, основания разрешимы и для 005-007
-        # совпадают с хешами таблицы контракта.
-        run: npm run check:decisions
-
-      - name: Режим входа — политика подтверждений
-        # Скрипт `scripts/check_approval.sh` написан по контракту 002 (критерий 1) после
-        # находки 3 круга адверсария: статика `always-ask` в `.omp/config.yml` без
-        # поведенческой пробы не держала ничего. Барьер поднимает лаунчер ПОДСТАВНЫМ omp
-        # и сверяет, что запуск наследует конфиг дерева, а флаг отмены политики отвергнут.
-        run: npm run check:approval
-
-      - name: Механизм pre-commit коммичен (контракт 016, Q6)
-        # Срез 1 контракта 016 — барьер add-A: проверка МЕХАНИЗМА установки хука, не рантайма.
-        # Гейт add-A (check_staged) живёт в скрипте и на CI-дереве ставит staged пуст → rc 0.
-        # Этот шаг — охрана того, что в дерево коммичены .githooks/pre-commit и установщик
-        # core.hooksPath в package.json; без них свежий клон защиты не несёт.
-        run: npm run check:hooks
-
-      - name: Замороженные планы и контракты неизменны
-        # Побайтовое сравнение с блобом высшей заморозки; вердикт критика проверяется на каждую
-        # версию. До появления первой заморозки барьер зелёный по построению: тегов нет — нечего
-        # сверять, и это законное состояние, а не дыра.
-        run: npm run check:contract-frozen
-
-      - name: Зоны исполнителей
-        # Зоны читаются из блоба ВЫСШЕЙ заморозки контракта, не из рабочего дерева: иначе правка
-        # файла расширяла бы зону без заморозки. Контрактов с зонами нет — законное «зон не
-        # объявлено», не NOT_IMPLEMENTED.
-        run: npm run check:zones
-
-      - name: Устав не меняется без слова владельца
-        # До тега ustav/1 барьер отвечает 2 NOT_IMPLEMENTED и НЕ работает — это его объявленная
-        # единственная законная двойка. Появление тега включает его само, правки проводки не нужно.
-        run: npm run check:charter
-
-      - name: "Дрилл: изменение устава по процедуре принимается"
-        # Зелёная ветвь фикстурой не выражается — анти-плацебо доказывает только красное. Третий
-        # дрилл в проводке по той же причине, что первые два.
-        run: npm run drill:contract-change
-
-      - name: Дрилл — атомарность выдачи номеров
-        # Второй дрилл в проводке, и по той же причине, что первый: анти-плацебо доказывает
-        # только КРАСНОЕ, а «два вызова подряд дают РАЗНЫЕ номера» — зелёное утверждение.
-        # Фикстурой оно не выражается, поэтому стоит отдельной строкой.
-        run: npm run drill:next-id-race
-
-      - name: Защищённые артефакты не исчезали
-        run: npm run check:protected
-
-      - name: "Дрилл: явное разрешение принимается"
-        # Зелёная ветвь исключения фикстурой не выражается — анти-плацебо доказывает только
-        # красное. Дрилл переворачивает полярность и потому стоит в проводке отдельной строкой.
-        run: npm run drill:protected-exception
-
-      - name: "Дрилл: честный перенос распознаётся"
-        # Зелёная ветвь переноса (контракт 039): анти-плацебо доказывает только красное,
-        # дрилл переворачивает полярность. По прецеденту дрилла исключения отдельной строкой.
-        run: npm run drill:protected-rename
-
-      - name: Счётчик git-вызовов check_zones (контракт 040, §Приёмка Р1)
-        # Постоянный страж дифференциального call-budget check_zones (§Б1, §Р1).
-        # Форма — ОТДЕЛЬНЫЙ прямой шаг workflow (НЕ шардовый `keys:`, как v1/v2): вердикт
-        # арбитража 040 §Б3 часть 1 — единственный легальный способ для call-budget ключей.
-        # Без if:/continue-on-error/run-операторов (см. probe_ci_dostizhimost_predelov.sh,
-        # которого держится это подключение — иначе он откажет в Р9).
-        run: npm run check:zones-call-budget
-
-      - name: Счётчик git-вызовов check_protected (контракт 040, §Приёмка Р2)
-        # Постоянный страж дифференциального call-budget check_protected (§Б1, §Р2)
-        # + три риска техники diff-tree --stdin (§Б4). Форма — ОТДЕЛЬНЫЙ прямой шаг;
-        # без if:/continue-on-error/run-операторов.
-        run: npm run check:protected-call-budget
-
       - name: История не перезаписана
-        # Единственное место, где прежняя вершина ветки ИЗВЕСТНА: локально её не знает никто,
-        # поэтому она передаётся аргументом, а не выясняется догадкой. `check:protected` считает
-        # «существовал» по графу, достижимому от HEAD, и перезапись выносит коммит из этого
-        # графа — это его объявленная граница, и закрывает её вот эта строка.
+        # Контракт 083, инвариант 2: статический пост-шаг джобы ci (НЕ команда пакета —
+        # гейт `check:ci-parity` уже в начале, повторять запрещено). Аргументы
+        # `github.event.before` и `github.sha` доступны в шаге workflow и не требуют
+        # подстановки в реестре.
         if: github.event_name == 'push'
-        run: npm run check:no-rewrite -- "${{ github.event.before }}" "${{ github.sha }}"
+        run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
+
+      - name: Lane ${{ matrix.lane }}
+        # Контракт 083, инвариант 2: джоба ci перестроена в матрицу из K параллельных
+        # lane (K из meta-строки `lanes <K>` реестра, 6≤K≤8). Тело шага — ОДНОСТРОЧНЫЙ
+        # скаляр с ЛИТЕРАЛЬНЫМ токеном `${{ matrix.keys }}` (иное неизвлекаемое значение —
+        # клетка Г9 красна). Исполняется в cwd worktree, читает `registry/ci-steps.tsv`,
+        # запускает команды ключей в порядке, останавливается на первом отказе именем ключа.
+        # include-блок в этой джобе генерируется `scripts/gen_ci_steps.sh --write`
+        # и сверяется `--check` (правка руками красна поимённо).
+        run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+
+      # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
+      # v+1 — ранее save был только на push, и `actions/cache` для PR-ранов не
+      # прогревался: «прогрев» пустым коммитом невозможен, и А3 не достижим).
+      # На push — ключ `ci-incr-<check>-<sha>` (общая запись main); на
+      # pull_request — PR-scoped ключ `ci-incr-<check>-pr-<N>-<sha>` (N =
+      # github.event.pull_request.number), GitHub изолирует запись по PR и видит
+      # её только этому PR, push-путь main не затрагивается. Кеш
+      # `tmp/ci-incr/<check>.sha` мог обновиться внутри lane-шага (после `--incr`).
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+
+      - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
+        # Прямой шаг ВНЕ матрицы по прецеденту 058/070/080: раннер `fixtures/_krasnye_083.sh`
+        # гоняет `fixtures/ci_gen_083/red_ci_a_083.sh` — клетки Г0–Г9 (генератор и исполнение
+        # lane), Г-С1/Г-С2 (стаб-пак), И0–И5 (инкрементальность check_charter),
+        # И-валид/ниже/окно для check_zones/check_ids/check_protected, И-С1..И-С4 (стаб-пак
+        # окна). Шаг вводится контрактом 083 как ПРОВОДКА-ЭНФОРСМЕНТ (та же механика, что у
+        # сам-тестов семьи 038/041/043/045/071/080). Ключ `check:ci-family-selftest` в
+        # package.json равен значению шага — правило 6 verify_ci_parity.sh (четвёртая форма,
+        # прецедент 058–080). Самодостаточен: раннер строит toy-миры в mktemp-каталогах,
+        # стерегомое дерево не мутирует, сети нет. Шаг красен, пока предмет 083 не
+        # реализован (г0 «предмет отсутствует»); зелёным становится вместе с предметом;
+        # rc=0 закрывает пункт приёмки шага (правило 6) и закрывает ПРОВОДКА-долг 083.
+        run: bash fixtures/_krasnye_083.sh
