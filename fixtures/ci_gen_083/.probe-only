@@ -8,7 +8,9 @@ scripts/run_ci_lane.sh + registry/ci-steps.tsv + marker-блоки
 --incr четырёх исторических чеков через scripts/lib_incr.sh (часть И;
 window-клетки и ветвь (в′) есть у ВСЕХ четырёх чеков — charter И1-И5,
 zones/ids/protected И-валид/И-ниже/И-окно/И4-3/И4-4; запись кеша ветви (б)
-на CI-форме пути tmp/ci-incr/<c>.sha без каталога — И4-5 у всех четырёх); барьерного
+на CI-форме пути tmp/ci-incr/<c>.sha без каталога — И4-5 у всех четырёх; сдвиг
+HEAD между incr_parse и incr_finish — И15 по ветвям (а)/(б)/(в′), стаб «finish
+пишет HEAD конца» — условие её зелени); барьерного
 ключа scripts/ci_gen_083.sh НЕТ и не появится (прецедент
 fixtures/dver_bugfiks_080/, fixtures/zony_merge_head/). Предъявление
 red_ci_a_083.sh — прямое (вне case_*-глоба раннера verify_antiplacebo.sh),

@@ -60,6 +60,9 @@
 #     actions/cache/save «Path Validation Error» в каждом прогоне PR #36 —
 #     PR-кеш не сеялся ни разу, А3 мерил только холодные прогоны). Стаб-пак
 #     С1-С6 против мини-референса окна, носитель В БАТАРЕЕ, не субъект.
+#     И15 — сдвиг HEAD между incr_parse и incr_finish (батарея коммитит late
+#     между ними в toy библиотеки): кеш == HEAD старта, следующий прогон
+#     судит late — по ветвям (а)/(б)/(в′) одной клеткой, причина по ветвям.
 #
 # Привязки обманных стабов к входам (Н-39 — живут ЗДЕСЬ, в коде батареи,
 # НЕ в прозе контракта):
@@ -130,6 +133,12 @@
 #        входе И4-5 (кеш-файла и его каталога НЕТ, чистый toy): честный
 #        полный прогон rc 0 + кеш-файл == HEAD, стаб rc 0 без кеш-файла; на
 #        входе «каталог есть, кеш-файла нет» стаб ведёт себя честно (диффпроба).
+#   И15-стаб «finish пишет HEAD конца» (incr_finish перечитывает HEAD — форма
+#        lib_incr.sh до c419a22; у aab55cc — в ветвях (б)/(в′)) — наблюдаем на
+#        входе И15 (late между incr_parse и incr_finish) в каждой ветви: стаб
+#        пишет кеш == late, честный — HEAD старта. Носитель — подмена
+#        incr_finish в драйвере И15 поверх incr_parse субъекта; «стаб пойман»
+#        (rc 0 и кеш == late — его дефект, не иной) — условие зелени И15.
 #
 # Демаркация контрпримеров (правило 041/019): конформная toy-история каждого
 # чека — коммиты, допустимые грамматикой предмета ЭТОГО чека; КРАСНЫЙ вход —
@@ -150,7 +159,7 @@
 # Прогон: bash red_ci_a_083.sh [корень]
 #   rc 0 — все клетки зелёные (после реализации предмета);
 #   rc 1 — есть красные (до реализации: Г0-Г10, И0, И0б, И2-И5, И7-И8,
-#          И10-И11, И13-И14, И4-3/И4-4 трёх чеков и И4-5 четырёх чеков
+#          И10-И11, И13-И14, И4-3/И4-4 трёх чеков, И4-5 четырёх чеков и И15
 #          красны по умыслу, стаб-пак и И1/И6/И9/И12/И-чист зелёны).
 # Печать никогда не говорит PASS — только счёт ok/FAIL по клеткам (rc — истина).
 set -uo pipefail
@@ -1514,6 +1523,140 @@ window_cells() { # <имя-чека> <toy-dir-префикс> <builder> <grep-в
 window_cells check_zones   toy_zon build_zones_toy 'вне зоны'
 window_cells check_ids     toy_ids build_ids_toy   'назначен рукой' 'contracts/090-bad.md'
 window_cells check_protected toy_pro build_prot_toy 'plans/001-x.md' 'plans/001-x.md'
+
+# --- И15: сдвиг HEAD между incr_parse и incr_finish не судится -------------
+# Модель угроз контракта (НЕ ЗАЩИЩАЕТ «смещение HEAD гонкой push»): окно
+# считается от HEAD на момент старта, позднейшие коммиты судятся следующим
+# прогоном. Вход — toy c1←c2 (HEAD старта c2) в каждой ветви
+# И-6: (а) кеш=c1 (предок), (б) кеш-файла нет, (в′) кеш=линия (side_line_sha
+# от c1, класс «линия»); класс входа и HEAD старта сняты в памяти батареи ДО
+# вызова субъекта (правило 8). Драйвер повторяет протокол чеков: source из
+# корня toy → incr_parse → INCR_GIT_ROOT=<корень> → incr_finish 0; между
+# incr_parse и incr_finish батарея коммитит late в тот же toy. Ветвь зелёна:
+# маркер своей ветви самостоятельной строкой, родитель HEAD конца == HEAD
+# старта (гонка состоялась), кеш == «HEAD старта\n», следующий прогон судит
+# окно HEAD старта..late (1 коммит). Стаб «finish пишет HEAD конца» (форма
+# lib_incr.sh до c419a22 во всех ветвях; у aab55cc — в (б)/(в′)) — тот же
+# драйвер с подменённым incr_finish на свежем toy той же ветви — обязан дать
+# кеш == late, иначе предъявление гонки не различает и клетка красна. Одна
+# клетка; причина — по каждой ветви своей строкой, не по первой красной.
+LIB_INCR="$ROOT/scripts/lib_incr.sh"
+race_toy() { # <dir> → «C1 C2» (HEAD старта = C2); пусто — не построен
+  local d="$1"
+  rm -rf "$d"; mkdir -p "$d"
+  ( cd "$d" && git init -q -b main \
+    && git -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m c1 \
+    && git -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m c2 ) >/dev/null 2>&1 || return 1
+  printf '%s %s\n' "$(git -C "$d" rev-parse HEAD~1)" "$(git -C "$d" rev-parse HEAD)"
+}
+race_input() { # <dir> <а|б|в′> → «C1 C2 КЕШ»; rc 1 + причина — вход не построен
+  local d="$1" c1 c2 sl cache="$1.cache"
+  read -r c1 c2 <<< "$(race_toy "$d")"
+  [ -n "${c2:-}" ] || { printf 'toy не построен'; return 1; }
+  rm -f "$cache"
+  case "$2" in
+    а) printf '%s\n' "$c1" > "$cache"
+       git -C "$d" merge-base --is-ancestor "$c1" "$c2" || { printf 'c1 не предок HEAD'; return 1; } ;;
+    б) [ ! -e "$cache" ] || { printf 'кеш-файл есть'; return 1; } ;;
+    в′) sl="$(side_line_sha "$d" "$c1")"
+       [ -n "$sl" ] && [ "$(input_class "$d" "$sl")" = линия ] \
+         || { printf 'класс входа «%s», ждали «линия»' "$(input_class "$d" "${sl:-}")"; return 1; }
+       printf '%s\n' "$sl" > "$cache" ;;
+    *) printf 'неизвестная ветвь %s' "$2"; return 1 ;;
+  esac
+  printf '%s %s %s\n' "$c1" "$c2" "$cache"
+}
+race_drive() { # <toy> <кеш> <гонка 0|1> <субъект|конец> → rc драйвера (90 — lib не загружена, 91 — кеш-отказ, 92 — late не создан); вывод библиотеки на stdout
+  bash -c '
+    unset LIB_INCR_LOADED INCR_GIT_ROOT
+    t="$1" cache="$2" race="$3" fin="$4" lib="$5"
+    cd "$t" || exit 90
+    INCR_NAME=race083
+    . "$lib" || exit 90
+    if [ "$fin" = конец ]; then
+      incr_finish() {
+        [ -n "${INCR_CACHE:-}" ] && [ "$1" -eq 0 ] || return 0
+        git -C "$INCR_GIT_ROOT" rev-parse HEAD > "$INCR_CACHE"
+      }
+    fi
+    incr_parse --incr "$cache"
+    [ "$INCR_RC" -eq 0 ] || exit 91
+    INCR_GIT_ROOT="$t"
+    if [ "$race" = 1 ]; then
+      git -C "$t" -c user.name=toy -c user.email=toy@t commit -q --allow-empty -m late || exit 92
+    fi
+    incr_finish 0
+  ' race083 "$1" "$2" "$3" "$4" "$LIB_INCR" 2>&1
+}
+race_window_ok() { # <вывод> <база> <head> → rc 0: ровно одна строка «incr: race083 судит <база>..<head> (1 коммит)», токены — префиксы sha
+  local line b h
+  line="$(printf '%s\n' "$1" | grep -E '^incr: race083 судит [0-9a-f]{7,40}\.\.[0-9a-f]{7,40} \(1 коммит\)$')" || return 1
+  [ "$(printf '%s\n' "$line" | wc -l | tr -d ' ')" = 1 ] || return 1
+  b="${line#incr: race083 судит }"; b="${b%%..*}"
+  h="${line#*..}"; h="${h%% *}"
+  [ "${2#"$b"}" != "$2" ] && [ "${3#"$h"}" != "$3" ]
+}
+race_marker_ok() { # <ветвь> <вывод> <c1> <c2> → rc 0: маркер своей ветви И-6 самостоятельной строкой
+  case "$1" in
+    а) race_window_ok "$2" "$3" "$4" ;;
+    б) printf '%s\n' "$2" | grep -Fxq 'incr: race083 полный прогон (кеш отсутствует)' ;;
+    в′) printf '%s\n' "$2" | grep -Eq '^incr: race083 полный прогон \(база [0-9a-f]{7,40} не предок HEAD [0-9a-f]{7,40} — кеш сторонней линии\)$' ;;
+    *) return 1 ;;
+  esac
+}
+race_subject() { # <ветвь> <тег> → описание на stdout; rc 0 зелено / 1 красно
+  local br="$1" t="$SCRATCH/race-$2-s" inp c1 c2 cache out rc late got
+  inp="$(race_input "$t" "$br")" || { printf 'вход не построен: %s' "$inp"; return 1; }
+  read -r c1 c2 cache <<< "$inp"
+  out="$(race_drive "$t" "$cache" 1 субъект)"; rc=$?
+  late="$(git -C "$t" rev-parse HEAD 2>/dev/null)"
+  if [ "$rc" -ne 0 ]; then printf 'драйвер rc=%s: %s' "$rc" "$out"; return 1; fi
+  race_marker_ok "$br" "$out" "$c1" "$c2" || { printf 'нет маркера ветви самостоятельной строкой: %s' "$out"; return 1; }
+  if [ "$late" = "$c2" ] || [ "$(git -C "$t" rev-parse "$late^" 2>/dev/null)" != "$c2" ]; then
+    printf 'гонка не состоялась: HEAD конца %s не дочерний к HEAD старта %s' "${late:0:8}" "${c2:0:8}"; return 1
+  fi
+  if ! cache_written_ok "$cache" "$c2"; then
+    got="$(head -n1 "$cache" 2>/dev/null)"
+    if [ "$got" = "$late" ]; then
+      printf 'кеш = коммит гонки %s, ждали HEAD старта %s — коммит, пришедший во время прогона, не судится никогда' "${late:0:8}" "${c2:0:8}"
+    else
+      printf 'кеш «%s», ждали HEAD старта %s' "$got" "${c2:0:8}"
+    fi
+    return 1
+  fi
+  out="$(race_drive "$t" "$cache" 0 субъект)"; rc=$?
+  if [ "$rc" -ne 0 ] || ! race_window_ok "$out" "$c2" "$late"; then
+    printf 'следующий прогон не судит коммит гонки: ждали окно %s..%s (1 коммит); rc=%s: %s' "${c2:0:8}" "${late:0:8}" "$rc" "$out"; return 1
+  fi
+  printf 'кеш = HEAD старта %s, коммит гонки %s — в следующем окне' "${c2:0:8}" "${late:0:8}"
+}
+race_stub() { # <ветвь> <тег> → rc 0: стаб «finish пишет HEAD конца» дал кеш == late (различён); rc 1 + причина
+  local br="$1" t="$SCRATCH/race-$2-c" inp c1 c2 cache out rc late
+  inp="$(race_input "$t" "$br")" || { printf 'вход стаба не построен: %s' "$inp"; return 1; }
+  read -r c1 c2 cache <<< "$inp"
+  out="$(race_drive "$t" "$cache" 1 конец)"; rc=$?
+  late="$(git -C "$t" rev-parse HEAD 2>/dev/null)"
+  if [ "$rc" -eq 0 ] && [ "$late" != "$c2" ] && cache_written_ok "$cache" "$late"; then return 0; fi
+  printf 'стаб «finish пишет HEAD конца» не различён (rc=%s, кеш «%s», HEAD конца %s): %s' "$rc" "$(head -n1 "$cache" 2>/dev/null)" "${late:0:8}" "$out"
+  return 1
+}
+if [ ! -f "$LIB_INCR" ]; then
+  bad "И15: предмет отсутствует: нет $LIB_INCR — сдвиг HEAD между incr_parse и incr_finish не судим"
+else
+  r15=""; red15=""
+  for spec in а:a б:b в′:v; do
+    br="${spec%%:*}"
+    s="$(race_subject "$br" "${spec#*:}")"; src=$?
+    c="$(race_stub "$br" "${spec#*:}")"; crc=$?
+    [ "$src" -eq 0 ] && [ "$crc" -eq 0 ] || red15="$red15 $br"
+    r15="$r15; ($br) $s${c:+ | $c}"
+  done
+  if [ -z "$red15" ]; then
+    ok "И15: сдвиг HEAD между incr_parse и incr_finish — кеш = HEAD старта во всех ветвях, стаб «finish пишет HEAD конца» пойман${r15}"
+  else
+    bad "И15: сдвиг HEAD между incr_parse и incr_finish — красны ветви${red15}${r15}"
+  fi
+fi
 
 # --- И-С* стаб-пак: мини-референс окна (носитель В БАТАРЕЕ) vs обманные стабы.
 ref_incr() { # <repo> <cache> [full-if-no-cache] — референс семантики И-6
