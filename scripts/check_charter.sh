@@ -441,22 +441,23 @@ while IFS=$'\t' read -r f since; do
       since="$INCR_BASE"
     fi
   fi
-  # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
-  # Честный захват rc (НЕ `if !`): аномалия трактуется как «не предок».
-  if [ -n "$OKNO_BASE" ]; then
-    # Паттерн `cmd || rc=$?` (а не `cmd; rc=$?`) — `set -euo pipefail` иначе убивает
-    # скрипт на ненулевом rc функции `g` (Б-8 ревьюера круг 4, общий класс с check_zones).
-    rc_a=0
-    g merge-base --is-ancestor "$OKNO_BASE" "$since" >/dev/null 2>&1 || rc_a=$?
-    if [ "$rc_a" -eq 1 ]; then
-      since="$OKNO_BASE"
-    fi
-  fi
   # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
   # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
   # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
   # `diff-tree <c>`).
   g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
+  # Явное пересечение двух списков коммитов — НЕ схлопывание `since` к `OKNO_BASE` через
+  # `merge-base --is-ancestor`. Та схлопка корректна только когда `since` и `OKNO_BASE` на
+  # одной линии (один предок другого); на разных линиях (ни один не предок другого)
+  # `since := OKNO_BASE` РАЗДУВАЕТ окно вместо пересечения и ловит чужие коммиты, которые
+  # не должны быть судимы. Порядок сохраняется от $TMP/commits — `grep -Fxf` фильтрует
+  # первый список по вхождению во второй, порядок первого сохраняется.
+  if [ -n "$OKNO_BASE" ]; then
+    g rev-list "$OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null || : > "$TMP/commits_okno"
+    grep -Fxf "$TMP/commits_okno" "$TMP/commits" > "$TMP/commits_isect" 2>/dev/null || : > "$TMP/commits_isect"
+    mv "$TMP/commits_isect" "$TMP/commits"
+  fi
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
