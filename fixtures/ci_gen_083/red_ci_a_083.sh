@@ -15,7 +15,7 @@
 #
 # СТРУКТУРА (две части):
 #   Часть Г — генератор+исполнение: честные клетки Г0-Г10 (КРАСНЫ до
-#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1..Г-С7
+#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1..Г-С11
 #     (toy-входы, ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока
 #     и шагов — различает обман на входе, где дефект наблюдаем). Г2 дополнительно
 #     доказывает, что блок ЖИВЁТ ВНУТРИ джобы ci как её matrix (структурно:
@@ -33,10 +33,13 @@
 #     красное), токен '${{ matrix.keys }}' → 'k2 k4 k6', живой прогон из
 #     toy L7, зелёное = rc 0 И журнал k2 k4 k6 по порядку (echo-имитация
 #     даёт пустой журнал — различимость по исполнению, не по тексту); Г10
-#     судит этикет кеша §Зоны в теле джобы ci по событию и чеку —
+#     судит этикет кеша §Зоны в теле джобы ci по событию, чеку и lane —
 #     Г10-restore/<c> (restore ДО lane на push И pull_request, restore-keys),
 #     Г10-push/<c> и Г10-pr/<c> (save ПОСЛЕ lane; на pull_request — PR-scoped
-#     ключ ci-incr-<c>-pr-<N>-<SHA>): сохранение только на push красно в Г10-pr.
+#     ключ ci-incr-<c>-pr-<N>-<SHA>; if: вычисляется по ключам каждой lane
+#     JOBS-блока — save активен в каждой lane, несущей ключ check:<c>, и ни в
+#     одной иной): сохранение только на push красно в Г10-pr, save во всех
+#     lane — в Г10-push и Г10-pr.
 #   Часть И — инкрементальность: И0/И0б (живое дерево, 4 чека, гость: КРАСНА
 #     до реализации; И0б — непустое окно HEAD~1..HEAD: маркер с ИСТИННЫМ
 #     числом коммитов + перезапись кеша), И1 позитивный контроль (полный
@@ -66,20 +69,44 @@
 #   Г-С2 «генератор теряет шаг» (в блоке нет ключа k7) — наблюдаем на том же
 #        входе покрытием: «ключ k7 не покрыт»; на конформном — «покрытие
 #        полное».
-#   Г-С3..Г-С7 — обманные варианты toy-джобы ci (mk_cache_workflow) против
-#        оракула этикета Г10; вход — «событие × свойство» Г10; на конформном
-#        toy-этикете все 12 свойств зелёны (Г-С-контроль):
-#   Г-С3 «save только на push» (Б-1, форма round-1) — наблюдаем на событии
+#   Г-С3..Г-С11 — обманные варианты toy-джобы ci (mk_cache_workflow) против
+#        оракула этикета Г10; вход — «событие × свойство» Г10 на toy-matrix
+#        JOBS-блока (cw_lanes: lane-владельцы t1..t4 — по чеку, токен в разных
+#        позициях ключей; t5 — чужие ключи; блок coll — ещё t6 с ключами-
+#        надстройками check:<c>-… всех 4 чеков, как l6 с check:zones-call-budget);
+#        на конформных toy-этикетах все 12 свойств зелёны (Г-С-контроль —
+#        точная токенная форма генератора contains(format(' {0} ',
+#        matrix.keys), ' check:<c> ') на блоке coll, PR-save — событием первым
+#        и ключом в ином регистре; Г-С-контроль/lane — подстрочная
+#        contains(matrix.keys, 'check:<c>') на блоке без t6):
+#   Г-С3 «save только на push» (Б-1 круга 1) — наблюдаем на событии
 #        pull_request: Г10-pr красна у 4 чеков; на push и в restore честен.
-#   Г-С4 «save на pull_request без PR-scoped ключа» (один save без if, ключ
-#        ci-incr-<c>-<SHA>) — наблюдаем ключом на pull_request: Г10-pr красна;
-#        на push честен (тот же ключ верен).
+#   Г-С4 «save на pull_request без PR-scoped ключа» (один save под lane-
+#        условием без события, ключ ci-incr-<c>-<SHA>) — наблюдаем ключом на
+#        pull_request: Г10-pr красна; на push честен (тот же ключ верен).
 #   Г-С5 «restore только на push» — наблюдаем на pull_request в Г10-restore;
 #        save-свойства честны.
 #   Г-С6 «restore без restore-keys» (новый sha не находит ничего — вечно
 #        холодный) — наблюдаем в Г10-restore; save-свойства честны.
 #   Г-С7 «save до lane-шага» (сохраняет восстановленное, не засуженное) —
 #        наблюдаем порядком в Г10-push и Г10-pr; restore честен.
+#   Г-С8 «save чека под contains ключа ЧУЖОГО чека» (push-save <c> под
+#        ' check:<следующий чек CACHE_CHECKS> ') — наблюдаем на push: save
+#        активен в lane чужого чека и не активен в lane-владельце <c>;
+#        Г10-push красна у 4 чеков, pr и restore честны.
+#   Г-С9 «lane-условие save с перепутанным событием» (push-ключ под
+#        == 'pull_request', PR-ключ под == 'push') — наблюдаем в Г10-push и
+#        Г10-pr; restore честен. Оракул, не судящий событие, здесь зелен.
+#   Г-С10 «save во всех lane» (Б-1 круга 2: условие save только на событие —
+#        форма ci.yml main до правки) — наблюдаем в Г10-push и Г10-pr: save
+#        активен в lane без ключа чека; restore честен. Оракул без
+#        исключительности lane здесь зелен — пропуск.
+#   Г-С11 «save под подстрочным contains» (contains(matrix.keys,
+#        'check:<c>') — форма c419a22) — наблюдаем на блоке coll: save активен
+#        и в t6 (ключ-надстройка check:<c>-…), Г10-push и Г10-pr красны; на
+#        блоке без t6 тот же текст if: честен (Г-С-контроль/lane — диффпара:
+#        вердикт следует принадлежности lane, не форме условия). Оракул,
+#        читающий contains как точный токен, здесь зелен — пропуск.
 #   С1 «молча деградирует до полного» (игнорирует base, судит всю историю)
 #        — наблюдаем на входе И2 (нарушение НИЖЕ базы): честное окно rc 0,
 #        стаб rc 1.
@@ -174,6 +201,13 @@ block_shard_pairs() { # <файл> <BEGIN> <END> → строки 'имя<TAB>к
   block_body "$1" "$2" "$3" | awk '/^[[:space:]]*-[[:space:]]*shard:[[:space:]]*/{ n=$0; sub(/^[[:space:]]*-[[:space:]]*shard:[[:space:]]*/,"",n); gsub(/[[:space:]]+$/,"",n); pend=n; next }
     pend!="" && /^[[:space:]]*keys:[[:space:]]*/{ k=$0; sub(/^[[:space:]]*keys:[[:space:]]*/,"",k); print pend "\t" k; pend=""; next }
     /^[[:space:]]*-[[:space:]]*shard:/{ pend="" }'
+}
+block_lane_pairs() { # <файл> <BEGIN> <END> → строки 'lane<TAB>ключи' (lane без keys-строки — с пустыми ключами)
+  block_body "$1" "$2" "$3" | awk '
+    function out() { if (pend != "") print pend "\t" kv; pend = "" }
+    /^[[:space:]]*-[[:space:]]*lane:/ { out(); n = $0; sub(/^[[:space:]]*-[[:space:]]*lane:[[:space:]]*/, "", n); sub(/[[:space:]]+#.*$/, "", n); sub(/[[:space:]]+$/, "", n); pend = n; kv = ""; next }
+    pend != "" && /^[[:space:]]*keys:/ { k = $0; sub(/^[[:space:]]*keys:[[:space:]]*/, "", k); sub(/[[:space:]]+#.*$/, "", k); sub(/[[:space:]]+$/, "", k); kv = k; next }
+    END { out() }'
 }
 ci_job_body() { # <файл> → тело джобы `ci:` (от '  ci:' до следующей джобы того же отступа)
   awk '!f && /^  ci:[[:space:]]*$/ {f=1; next} f && /^  [A-Za-z0-9_-]+:/ {exit} f' "$1" 2>/dev/null
@@ -277,12 +311,14 @@ if [ -f "$CIYML" ] && grep -qF "$JOBS_B" "$CIYML" && grep -qF "$JOBS_E" "$CIYML"
   if [ -z "$jobb" ]; then
     g2_bad="$g2_bad джоба-ci-не-найдена"
   else
-    printf '%s\n' "$jobb" | grep -q '^[[:space:]]*strategy:' || g2_bad="$g2_bad нет-strategy"
-    printf '%s\n' "$jobb" | grep -q '^[[:space:]]*matrix:' || g2_bad="$g2_bad нет-matrix"
-    printf '%s\n' "$jobb" | grep -qF "$JOBS_B" || g2_bad="$g2_bad маркеры-JOBS-вне-джобы-ci"
+    # here-string, не конвейер: grep -q выходит на первом совпадении, printf под
+    # pipefail ловит SIGPIPE — rc 141, ложное красное (А-373)
+    grep -q '^[[:space:]]*strategy:' <<< "$jobb" || g2_bad="$g2_bad нет-strategy"
+    grep -q '^[[:space:]]*matrix:' <<< "$jobb" || g2_bad="$g2_bad нет-matrix"
+    grep -qF "$JOBS_B" <<< "$jobb" || g2_bad="$g2_bad маркеры-JOBS-вне-джобы-ci"
     lane_steps="$(printf '%s\n' "$jobb" | grep -c 'run_ci_lane.sh')"
     [ "$lane_steps" -eq 1 ] || g2_bad="$g2_bad lane-шагов=$lane_steps(≠1)"
-    printf '%s\n' "$jobb" | grep -q 'matrix\.keys' || g2_bad="$g2_bad lane-шаг-не-потребляет-matrix.keys"
+    grep -q 'matrix\.keys' <<< "$jobb" || g2_bad="$g2_bad lane-шаг-не-потребляет-matrix.keys"
     npm_steps="$(printf '%s\n' "$jobb" | grep -cE 'run:.*npm run')"
     [ "$npm_steps" -le 1 ] || g2_bad="$g2_bad последовательных-npm-шагов=$npm_steps(>1: джоба не перестроена)"
   fi
@@ -603,31 +639,46 @@ fi
 
 # Г10: этикет кеша инкрементальных чеков (§Зоны контракта: «restore всегда;
 # save — на push И pull_request»; Б-1 ревьюера 083 круг 1 — PR-события кеш не
-# сохраняли, А3 на PR недостижим). Для КАЖДОГО чека <c> из CACHE_CHECKS в теле
+# сохраняли, А3 на PR недостижим; Б-1 круга 2 — save стоял в каждой lane: ключ
+# неизменяем, его занимает lane, чек не гонявшая, со старой базой). Lane-
+# владелец чека <c> — lane JOBS-блока, среди ключей которой (токены через
+# пробел) есть ровно check:<c>. Для КАЖДОГО чека <c> из CACHE_CHECKS в теле
 # джобы ci, по событию — своей клеткой:
-#   Г10-restore/<c> — на push И на pull_request активен restore-шаг ДО
-#     lane-шага: path tmp/ci-incr/<c>.sha, key ci-incr-<c>-<SHA>, restore-keys
-#     содержит ci-incr-<c>-;
-#   Г10-push/<c> — на push активен save-шаг ПОСЛЕ lane-шага (сохраняет
-#     засуженное): тот же path, key ci-incr-<c>-<SHA>;
-#   Г10-pr/<c> — на pull_request активен save-шаг ПОСЛЕ lane-шага: тот же
-#     path, PR-scoped key ci-incr-<c>-pr-<N>-<SHA>.
-# Оракул — собственный парсер шагов (ci_steps_tsv) + вычислитель if:/key: по
-# событию (ev_if/ev_key), НЕ субъект. Демаркация — конформный вход оракула
+#   Г10-restore/<c> — на push И на pull_request в каждой lane-владельце активен
+#     restore-шаг ДО lane-шага: path tmp/ci-incr/<c>.sha, key
+#     ci-incr-<c>-<SHA>, restore-keys содержит ci-incr-<c>-;
+#   Г10-push/<c> — на push в каждой lane-владельце активен save-шаг ПОСЛЕ
+#     lane-шага (сохраняет засуженное): тот же path, key ci-incr-<c>-<SHA>; И
+#     ни один шаг, сохраняющий path tmp/ci-incr/<c>.sha (save@ либо
+#     комбинированный actions/cache@), не активен на push в lane без ключа
+#     check:<c>;
+#   Г10-pr/<c> — то же на pull_request: PR-scoped key ci-incr-<c>-pr-<N>-<SHA>.
+# Оракул — собственные парсеры шагов (ci_steps_tsv) и lane-пар JOBS-блока
+# (block_lane_pairs), вычислитель if: по событию и ключам lane (if_activity) и
+# key: по событию (ev_key); НЕ субъект. Демаркация — конформный вход оракула
 # есть закрытая грамматика; всё иное — именованное красное «вне грамматики»,
 # никогда не зелёное:
 #   шаги — раздельные uses: actions/cache/restore@<ref> | actions/cache/save@<ref>
 #     (комбинированный actions/cache@ — вне грамматики); with.path, with.key —
 #     однострочный скаляр (простой или в кавычках); restore-keys — скаляр или блок |;
-#   if: — нет | github.event_name == 'push' | github.event_name == 'pull_request'
-#     | их дизъюнкция | github.event_name != 'pull_request' (= push) |
-#     github.event_name != 'push' (= pull_request); допустимы обёртка ${{ }} и
-#     префикс success() && | always() && | !cancelled() && (успешная lane: true);
+#   if: — пусто (истина) либо выражение, допустима обёртка ${{ }} целиком:
+#     атомы через && и || без скобок (&& связывает сильнее ||); строковый
+#     литерал — только '…' ('' — кавычка внутри), вне литерала пробелы
+#     незначимы, строка в "…" — ошибка выражения GitHub; атомы —
+#     success() | always() | !cancelled() (успешная lane: истина);
+#     github.event_name == '<e>' | != '<e>', <e> — push | pull_request;
+#     contains(matrix.keys, '<s>') | contains(format('<f>', matrix.keys),
+#     '<s>'), <s> непуст, в <f> ровно один {0} и иных { } нет: истина в lane,
+#     чьи ключи (для format — <f> с ключами вместо {0}) содержат <s>
+#     подстрокой без учёта регистра (docs.github.com, expressions: contains
+#     на строке — подстрока, регистр не различается): contains(matrix.keys,
+#     'check:zones') истинен и в lane с ключом check:zones-call-budget;
 #   ${{ }} внутри key: — github.sha и github.event.pull_request.head.sha ||
 #     github.sha дают <SHA> на обоих событиях; github.event.pull_request.head.sha
 #     даёт <SHA> на pull_request и пусто на push; github.event.pull_request.number
 #     и github.event.number дают <N> на pull_request и пусто на push.
-# Сохранение ТОЛЬКО на push (Б-1) красно ровно в Г10-pr (стаб Г-С3 ниже).
+# Сохранение ТОЛЬКО на push (Б-1 круга 1) красно ровно в Г10-pr (стаб Г-С3);
+# save во всех lane (Б-1 круга 2) — в Г10-push и Г10-pr (стаб Г-С10).
 CACHE_CHECKS="charter zones ids protected"
 ci_steps_tsv() { # <ci.yml> → по строке на шаг джобы ci, поля через \037:
   # номер, uses, if, path, key, restore-keys, lane (1 — run: с run_ci_lane.sh)
@@ -671,18 +722,104 @@ ci_steps_tsv() { # <ci.yml> → по строке на шаг джобы ci, п�
     }
     END { if (n > 0) emit() }'
 }
-ev_if() { # <значение if:> <push|pull_request> → rc 0 активен / 1 не активен / 2 вне грамматики
-  local c; c="$(printf '%s' "$1" | tr -d ' \t')"
-  case "$c" in '${{'*'}}') c="${c#'${{'}"; c="${c%'}}'}" ;; esac
-  case "$c" in 'success()'|'always()'|'!cancelled()') c='' ;; esac
-  c="${c#'success()&&'}"; c="${c#'always()&&'}"; c="${c#'!cancelled()&&'}"
-  case "$c" in
-    '') return 0 ;;
-    "github.event_name=='push'"|"github.event_name!='pull_request'") [ "$2" = push ] && return 0; return 1 ;;
-    "github.event_name=='pull_request'"|"github.event_name!='push'") [ "$2" = pull_request ] && return 0; return 1 ;;
-    "github.event_name=='push'||github.event_name=='pull_request'"|"github.event_name=='pull_request'||github.event_name=='push'") return 0 ;;
-    *) return 2 ;;
-  esac
+if_activity() { # <tsv шагов> <lane-пары> → по строке на шаг actions/cache*, событие и lane:
+  # номер\037событие\037lane\037rc (rc 0 — if: истинен, 1 — ложен, 2 — вне грамматики)
+  awk -F'\037' -v q="'" -v pf="$2" '
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    function norm(s,   o, i, n, ch, lit) { # литерал → \001N\002 (LIT[N]); пробелы вне литерала — прочь; \003 — сбой
+      NL = 0; o = ""; n = length(s); i = 1
+      if (index(s, "\001") || index(s, "\002")) return "\003"
+      while (i <= n) {
+        ch = substr(s, i, 1)
+        if (ch == q) {
+          lit = ""; i++
+          while (1) {
+            if (i > n) return "\003"
+            ch = substr(s, i, 1); i++
+            if (ch != q) { lit = lit ch; continue }
+            if (substr(s, i, 1) != q) break
+            lit = lit q; i++
+          }
+          LIT[++NL] = lit; o = o "\001" NL "\002"; continue
+        }
+        if (ch != " " && ch != "\t") o = o ch
+        i++
+      }
+      return o
+    }
+    function lref(s,   m) { # ровно \001N\002 → N, иначе 0
+      m = length(s)
+      if (m < 3 || substr(s, 1, 1) != "\001" || substr(s, m, 1) != "\002") return 0
+      s = substr(s, 2, m - 2)
+      if (s !~ /^[0-9]+$/ || s + 0 < 1 || s + 0 > NL) return 0
+      return s + 0
+    }
+    function atom(a, d, j,   p, n, m, x, f, i) { # атом → AT/AV/AP/AS[d,j]; 1 — вне грамматики
+      if (a == "success()" || a == "always()" || a == "!cancelled()") { AT[d, j] = "T"; return 0 }
+      p = "github.event_name=="; x = "EQ"
+      if (substr(a, 1, length(p)) != p) { p = "github.event_name!="; x = "NE" }
+      if (substr(a, 1, length(p)) == p) {
+        n = lref(substr(a, length(p) + 1))
+        if (!n || (LIT[n] != "push" && LIT[n] != "pull_request")) return 1
+        AT[d, j] = x; AV[d, j] = LIT[n]; return 0
+      }
+      if (substr(a, length(a)) != ")") return 1
+      AP[d, j] = ""; AS[d, j] = ""
+      p = "contains(matrix.keys,"
+      if (substr(a, 1, length(p)) == p) n = lref(substr(a, length(p) + 1, length(a) - length(p) - 1))
+      else {
+        p = "contains(format("
+        if (substr(a, 1, length(p)) != p) return 1
+        x = substr(a, length(p) + 1, length(a) - length(p) - 1); i = index(x, ",matrix.keys),")
+        if (!i) return 1
+        m = lref(substr(x, 1, i - 1)); n = lref(substr(x, i + length(",matrix.keys),")))
+        if (!m) return 1
+        f = LIT[m]; i = index(f, "{0}")
+        if (!i) return 1
+        AP[d, j] = substr(f, 1, i - 1); AS[d, j] = substr(f, i + 3)
+        if (AP[d, j] ~ /[{}]/ || AS[d, j] ~ /[{}]/) return 1
+      }
+      if (!n || LIT[n] == "") return 1
+      AT[d, j] = "C"; AV[d, j] = tolower(LIT[n]); return 0
+    }
+    function parse(s,   n, d, j, D, A) { # if: → ND дизъюнктов по NA[d] атомов; 1 — вне грамматики
+      s = trim(s); ND = 0
+      if (s == "") { ND = 1; NA[1] = 0; return 0 }
+      if (substr(s, 1, 3) == "${{" && substr(s, length(s) - 1) == "}}") s = substr(s, 4, length(s) - 5)
+      s = norm(s)
+      if (s == "" || s == "\003") return 1
+      n = split(s, D, /\|\|/)
+      for (d = 1; d <= n; d++) {
+        NA[d] = split(D[d], A, /&&/)
+        if (NA[d] == 0) return 1
+        for (j = 1; j <= NA[d]; j++) if (A[j] == "" || atom(A[j], d, j)) return 1
+      }
+      ND = n; return 0
+    }
+    function holds(d, j, e, keys) {
+      if (AT[d, j] == "T") return 1
+      if (AT[d, j] == "EQ") return e == AV[d, j]
+      if (AT[d, j] == "NE") return e != AV[d, j]
+      return index(tolower(AP[d, j] keys AS[d, j]), AV[d, j]) > 0
+    }
+    function active(e, keys,   d, j, t) {
+      for (d = 1; d <= ND; d++) {
+        t = 1
+        for (j = 1; j <= NA[d]; j++) if (!holds(d, j, e, keys)) { t = 0; break }
+        if (t) return 1
+      }
+      return 0
+    }
+    BEGIN {
+      EV[1] = "push"; EV[2] = "pull_request"; nl = 0
+      while ((getline ln < pf) > 0) { i = index(ln, "\t"); nl++; LN[nl] = i ? substr(ln, 1, i - 1) : ln; LK[nl] = i ? substr(ln, i + 1) : "" }
+      close(pf)
+    }
+    $2 ~ /^actions\/cache/ {
+      r = parse($3)
+      for (k = 1; k <= 2; k++) for (l = 1; l <= nl; l++)
+        printf "%s\037%s\037%s\037%d\n", $1, EV[k], LN[l], r ? 2 : (active(EV[k], LK[l]) ? 0 : 1)
+    }' "$1"
 }
 ev_key() { # <значение key:> <push|pull_request> → ключ с токенами <SHA>/<N>; rc 2 — вне грамматики
   local k="$1" e="$2" out="" x n rep
@@ -704,55 +841,83 @@ ev_key() { # <значение key:> <push|pull_request> → ключ с ток�
   done
   printf '%s' "$out"
 }
-cache_cell() { # <tsv шагов> <чек> <restore|push|pr> → причина на stdout; rc 0 зелено / 1 красно
-  local tsv="$1" c="$2" kind="$3" path="tmp/ci-incr/$2.sha" lane want evs what e hit r got seen=""
-  local idx uses cond p key rk lflag
-  lane="$(awk -F'\037' '$7 == 1 { print $1; exit }' "$tsv")"
+cache_ctx() { # <ci.yml> <префикс> → <префикс>.tsv (шаги джобы ci), .lanes (lane-пары JOBS-блока), .act (if: шагов кеша по событию и lane)
+  ci_steps_tsv "$1" > "$2.tsv"
+  block_lane_pairs "$1" "$JOBS_B" "$JOBS_E" > "$2.lanes"
+  if_activity "$2.tsv" "$2.lanes" > "$2.act"
+}
+cache_cell() { # <префикс cache_ctx> <чек> <restore|push|pr> → причина на stdout; rc 0 зелено / 1 красно
+  local x="$1" c="$2" kind="$3" path="tmp/ci-incr/$2.sha" lane want evs what e l keys own="" other="" hit got seen=""
+  local idx uses cond p key rk lflag r
+  local -A act=()
+  while IFS=$'\037' read -r idx e l r; do act["$idx $e $l"]="$r"; done < "$x.act"
+  lane="$(awk -F'\037' '$7 == 1 { print $1; exit }' "$x.tsv")"
   [ -n "$lane" ] || { printf 'lane-шаг (run: с run_ci_lane.sh) в теле джобы ci не найден — порядок restore→lane→save не судим'; return 1; }
+  while IFS=$'\t' read -r l keys; do
+    case " ${keys//$'\t'/ } " in *" check:$c "*) own="$own $l" ;; *) other="$other $l" ;; esac
+  done < "$x.lanes"
+  [ -n "$own" ] || { printf 'ни одна lane JOBS-блока не несёт ключ check:%s — lane-владельца нет, этикет не судим' "$c"; return 1; }
   case "$kind" in
     restore) evs="push pull_request"; want="ci-incr-$c-<SHA>"; what=restore ;;
     push) evs="push"; want="ci-incr-$c-<SHA>"; what=save ;;
     *) evs="pull_request"; want="ci-incr-$c-pr-<N>-<SHA>"; what=save ;;
   esac
   for e in $evs; do
-    hit=0
+    for l in $own; do
+      hit=0
+      while IFS=$'\037' read -r idx uses cond p key rk lflag; do
+        [ "$p" = "$path" ] || continue
+        case "$uses" in
+          actions/cache/restore@*)
+            [ "$what" = restore ] || continue
+            [ "$idx" -lt "$lane" ] || { seen="$seen [шаг $idx после lane-шага]"; continue; } ;;
+          actions/cache/save@*)
+            [ "$what" = save ] || continue
+            [ "$idx" -gt "$lane" ] || { seen="$seen [шаг $idx до lane-шага — сохраняет несуженное]"; continue; } ;;
+          actions/cache@*) seen="$seen [шаг $idx: комбинированный actions/cache@ — вне грамматики]"; continue ;;
+          *) continue ;;
+        esac
+        r="${act["$idx $e $l"]-2}"
+        [ "$r" -ne 2 ] || { seen="$seen [шаг $idx: if «$cond» вне грамматики]"; continue; }
+        [ "$r" -eq 0 ] || { seen="$seen [шаг $idx: if «$cond» на $e в lane $l ложен]"; continue; }
+        got="$(ev_key "$key" "$e")" || { seen="$seen [шаг $idx: key «$key» вне грамматики]"; continue; }
+        [ "$got" = "$want" ] || { seen="$seen [шаг $idx: key на $e = «$got» ≠ «$want»]"; continue; }
+        if [ "$what" = restore ]; then
+          case " $rk " in *" ci-incr-$c- "*) ;; *) seen="$seen [шаг $idx: restore-keys «$rk» без ci-incr-$c-]"; continue ;; esac
+        fi
+        hit=1; break
+      done < "$x.tsv"
+      if [ "$hit" != 1 ]; then
+        printf 'на %s в lane %s (ключ check:%s) нет %s-шага path %s с key %s%s' "$e" "$l" "$c" "$what" "$path" "$want" "${seen:+ — кандидаты:$seen}"
+        return 1
+      fi
+    done
+    [ "$what" = save ] || continue
+    # исключительность (Б-1 круга 2): шаг, сохраняющий path чека, не активен в lane без ключа check:<c>
     while IFS=$'\037' read -r idx uses cond p key rk lflag; do
       [ "$p" = "$path" ] || continue
-      case "$uses" in
-        actions/cache/restore@*)
-          [ "$what" = restore ] || continue
-          [ "$idx" -lt "$lane" ] || { seen="$seen [шаг $idx после lane-шага]"; continue; } ;;
-        actions/cache/save@*)
-          [ "$what" = save ] || continue
-          [ "$idx" -gt "$lane" ] || { seen="$seen [шаг $idx до lane-шага — сохраняет несуженное]"; continue; } ;;
-        actions/cache@*) seen="$seen [шаг $idx: комбинированный actions/cache@ — вне грамматики]"; continue ;;
-        *) continue ;;
-      esac
-      ev_if "$cond" "$e"; r=$?
-      [ "$r" -ne 2 ] || { seen="$seen [шаг $idx: if «$cond» вне грамматики]"; continue; }
-      [ "$r" -eq 0 ] || { seen="$seen [шаг $idx: if «$cond» — на $e не активен]"; continue; }
-      got="$(ev_key "$key" "$e")" || { seen="$seen [шаг $idx: key «$key» вне грамматики]"; continue; }
-      [ "$got" = "$want" ] || { seen="$seen [шаг $idx: key на $e = «$got» ≠ «$want»]"; continue; }
-      if [ "$what" = restore ]; then
-        case " $rk " in *" ci-incr-$c- "*) ;; *) seen="$seen [шаг $idx: restore-keys «$rk» без ci-incr-$c-]"; continue ;; esac
-      fi
-      hit=1; break
-    done < "$tsv"
-    if [ "$hit" != 1 ]; then
-      printf 'на %s нет %s-шага path %s с key %s%s' "$e" "$what" "$path" "$want" "${seen:+ — кандидаты:$seen}"
-      return 1
-    fi
+      case "$uses" in actions/cache/save@*|actions/cache@*) ;; *) continue ;; esac
+      for l in $other; do
+        r="${act["$idx $e $l"]-2}"
+        [ "$r" -ne 2 ] || { printf 'шаг %s сохраняет path %s под if «%s» вне грамматики — lane, где он активен, не судима' "$idx" "$path" "$cond"; return 1; }
+        [ "$r" -ne 0 ] || { printf 'на %s шаг %s сохраняет path %s в lane %s без ключа check:%s (if «%s») — ключ кеша займёт lane, чек не гонявшая' "$e" "$idx" "$path" "$l" "$c" "$cond"; return 1; }
+      done
+    done < "$x.tsv"
   done
-  printf '%s-шаг path %s, key %s — активен на: %s' "$what" "$path" "$want" "$evs"
+  if [ "$what" = save ]; then
+    printf 'save-шаг path %s, key %s — активен на %s в lane-владельце:%s, в прочих lane (%s) не активен' "$path" "$want" "$evs" "$own" "${other# }"
+  else
+    printf 'restore-шаг path %s, key %s — активен на: %s в lane-владельце:%s' "$path" "$want" "$evs" "$own"
+  fi
   return 0
 }
 if [ ! -f "$CIYML" ] || [ -z "$(ci_job_body "$CIYML")" ]; then
   bad "Г10: предмет отсутствует: тело джобы ci не найдено в $CIYML"
 else
-  T10="$SCRATCH/g10-steps.tsv"; ci_steps_tsv "$CIYML" > "$T10"
+  X10="$SCRATCH/g10"; cache_ctx "$CIYML" "$X10"
   for c in $CACHE_CHECKS; do
     for kind in restore push pr; do
-      if r="$(cache_cell "$T10" "$c" "$kind")"; then ok "Г10-$kind/$c: $r"; else bad "Г10-$kind/$c: $r"; fi
+      if r="$(cache_cell "$X10" "$c" "$kind")"; then ok "Г10-$kind/$c: $r"; else bad "Г10-$kind/$c: $r"; fi
     done
   done
 fi
@@ -791,10 +956,22 @@ r="$(oracle_cover "$SW/drop-key.yml" "k1 k2 k3 k4 k5 k6 k7")"; rc=$?
 r="$(oracle_cover "$SW/ok-lanes.yml" "k1 k2 k3 k4 k5 k6 k7")"; rc=$?
 [ "$rc" -eq 0 ] && ok "Г-С2-диффпроба: полное покрытие проходит ($r)" || bad "Г-С2-диффпроба: оракул сломан на полном покрытии"
 
-# Г-С3..Г-С7: стаб-входы против оракула этикета Г10 (зелёны всегда). Toy-джоба
-# ci (mk_cache_workflow) — конформный этикет и пять обманных вариантов; каждый
-# стаб красен РОВНО в свойствах своего дефекта у всех 4 чеков, в остальных
-# свойствах на том же toy честен (диффпроба).
+# Г-С3..Г-С11: стаб-входы против оракула этикета Г10 (зелёны всегда). Toy-джоба
+# ci (mk_cache_workflow) с matrix JOBS-блока (cw_lanes) — два конформных
+# этикета (ok — точная токенная форма генератора на блоке coll; lane-ctl —
+# подстрочная форма на блоке plain, без ключей-надстроек) и девять обманных
+# вариантов; каждый стаб красен РОВНО в свойствах своего дефекта у всех 4
+# чеков, в остальных свойствах на том же toy честен (диффпроба).
+cw_lanes() { # <coll|plain> → strategy/matrix toy-джобы с JOBS-блоком: lane-владельцы t1..t4 (токен чека в разных позициях ключей), t5 — чужие ключи; coll — ещё t6 с ключами-надстройками check:<c>-… всех 4 чеков
+  printf '    strategy:\n      matrix:\n        include:\n%s\n' "$JOBS_B"
+  printf '          - lane: t1\n            keys: check:charter check:k1\n'
+  printf '          - lane: t2\n            keys: check:k2 check:zones\n'
+  printf '          - lane: t3\n            keys: check:ids\n'
+  printf '          - lane: t4\n            keys: drill:k3 check:protected check:k4\n'
+  printf '          - lane: t5\n            keys: check:k5\n'
+  [ "$1" != coll ] || printf '          - lane: t6\n            keys: check:charter-x check:zones-call-budget check:ids-x check:protected-call-budget\n'
+  printf '%s\n' "$JOBS_E"
+}
 cw_restore() { # <вариант>
   local c
   for c in $CACHE_CHECKS; do
@@ -805,23 +982,35 @@ cw_restore() { # <вариант>
   done
 }
 cw_save() { # <вариант>
-  local c
+  local c w pi ri tb
   for c in $CACHE_CHECKS; do
-    if [ "$1" = unscoped ]; then
-      printf '      - uses: actions/cache/save@v4\n'
-    else
-      printf "      - if: github.event_name == 'push'\n        uses: actions/cache/save@v4\n"
-    fi
+    case "$c" in charter) w=zones ;; zones) w=ids ;; ids) w=protected ;; *) w=charter ;; esac
+    tb="contains(format(' {0} ', matrix.keys), ' check:$c ')"
+    pi="$tb && github.event_name == 'push'"
+    ri="\${{ github.event_name == 'pull_request' && contains(format(' {0} ', matrix.keys), ' CHECK:${c^^} ') }}"
+    case "$1" in
+      push-only) ri='' ;;
+      unscoped) pi="$tb"; ri='' ;;
+      lane-wrong-check) pi="contains(format(' {0} ', matrix.keys), ' check:$w ') && github.event_name == 'push'" ;;
+      lane-event-swap) pi="$tb && github.event_name == 'pull_request'"
+                       ri="\${{ github.event_name == 'push' && contains(format(' {0} ', matrix.keys), ' CHECK:${c^^} ') }}" ;;
+      all-lanes) pi="github.event_name == 'push'"; ri="\${{ github.event_name == 'pull_request' }}" ;;
+      lane-ctl|substring) pi="contains(matrix.keys, 'check:$c') && github.event_name == 'push'"
+                          ri="contains(matrix.keys, 'check:$c') && github.event_name == 'pull_request'" ;;
+    esac
+    printf '      - if: %s\n        uses: actions/cache/save@v4\n' "$pi"
     printf '        with:\n          path: tmp/ci-incr/%s.sha\n          key: ci-incr-%s-${{ github.sha }}\n' "$c" "$c"
-    case "$1" in push-only|unscoped) continue ;; esac
-    printf "      - if: \${{ github.event_name == 'pull_request' }}\n        uses: actions/cache/save@v4\n"
+    [ -n "$ri" ] || continue
+    printf '      - if: %s\n        uses: actions/cache/save@v4\n' "$ri"
     printf '        with:\n          path: tmp/ci-incr/%s.sha\n' "$c"
     printf '          key: ci-incr-%s-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}\n' "$c"
   done
 }
-mk_cache_workflow() { # <файл> <ok|push-only|unscoped|restore-push|no-restore-keys|save-before>
+mk_cache_workflow() { # <файл> <ok|lane-ctl|push-only|unscoped|restore-push|no-restore-keys|save-before|lane-wrong-check|lane-event-swap|all-lanes|substring>
   {
-    printf 'jobs:\n  ci:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
+    printf 'jobs:\n  ci:\n    runs-on: ubuntu-latest\n'
+    if [ "$2" = lane-ctl ]; then cw_lanes plain; else cw_lanes coll; fi
+    printf '    steps:\n      - uses: actions/checkout@v4\n'
     cw_restore "$2"
     [ "$2" = save-before ] && cw_save "$2"
     printf '      - name: Lane ${{ matrix.lane }}\n        run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}\n'
@@ -831,9 +1020,9 @@ mk_cache_workflow() { # <файл> <ok|push-only|unscoped|restore-push|no-restor
 }
 cache_profile() { # <вариант> → « свойство/чек=rc» по 12 свойствам Г10 (0 зелено, 1 красно)
   local c kind out=""
-  mk_cache_workflow "$SC/$1.yml" "$1"; ci_steps_tsv "$SC/$1.yml" > "$SC/$1.tsv"
+  mk_cache_workflow "$SC/$1.yml" "$1"; cache_ctx "$SC/$1.yml" "$SC/$1"
   for c in $CACHE_CHECKS; do for kind in restore push pr; do
-    cache_cell "$SC/$1.tsv" "$c" "$kind" >/dev/null; out="$out $kind/$c=$?"
+    cache_cell "$SC/$1" "$c" "$kind" >/dev/null; out="$out $kind/$c=$?"
   done; done
   printf '%s' "$out"
 }
@@ -860,13 +1049,20 @@ stub_cache() { # <имя> <вариант> <красные свойства> <д
 }
 SC="$SCRATCH/gcache"; mkdir -p "$SC"
 got="$(cache_profile ok)"
-[ "$got" = "$(want_profile '')" ] && ok "Г-С-контроль: конформный toy-этикет — 12/12 свойств Г10 зелёны" \
+[ "$got" = "$(want_profile '')" ] && ok "Г-С-контроль: конформный toy-этикет (save под точной токенной формой contains(format(' {0} ', matrix.keys), ' check:<c> '), PR-save — событием первым и ключом в ином регистре; блок с lane-надстройкой t6) — 12/12 свойств Г10 зелёны" \
                                   || bad "Г-С-контроль: оракул Г10 красен на конформном этикете:$got"
-stub_cache "Г-С3" push-only       "pr"      "save только на push (Б-1)"
-stub_cache "Г-С4" unscoped        "pr"      "save на pull_request без PR-scoped ключа"
-stub_cache "Г-С5" restore-push    "restore" "restore только на push"
-stub_cache "Г-С6" no-restore-keys "restore" "restore без restore-keys"
-stub_cache "Г-С7" save-before     "push pr" "save до lane-шага"
+got="$(cache_profile lane-ctl)"
+[ "$got" = "$(want_profile '')" ] && ok "Г-С-контроль/lane: подстрочная форма contains(matrix.keys, 'check:<c>') на блоке без ключей-надстроек — save активен ровно в lane-владельцах, 12/12 свойств Г10 зелёны (вердикт по принадлежности lane, не по тексту if:)" \
+                                  || bad "Г-С-контроль/lane: оракул Г10 красен на конформном блоке без ключей-надстроек:$got"
+stub_cache "Г-С3"  push-only        "pr"      "save только на push (Б-1 круга 1)"
+stub_cache "Г-С4"  unscoped         "pr"      "save на pull_request без PR-scoped ключа"
+stub_cache "Г-С5"  restore-push     "restore" "restore только на push"
+stub_cache "Г-С6"  no-restore-keys  "restore" "restore без restore-keys"
+stub_cache "Г-С7"  save-before      "push pr" "save до lane-шага"
+stub_cache "Г-С8"  lane-wrong-check "push"    "save чека под contains ключа ЧУЖОГО чека"
+stub_cache "Г-С9"  lane-event-swap  "push pr" "lane-условие save с перепутанным событием"
+stub_cache "Г-С10" all-lanes        "push pr" "save во всех lane — условие только на событие (Б-1 круга 2)"
+stub_cache "Г-С11" substring        "push pr" "save под подстрочным contains(matrix.keys, 'check:<c>') при lane с ключом-надстройкой check:<c>-…"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Часть И — инкрементальные проверки истории
