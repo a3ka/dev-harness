@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # КРАСНОЕ 084 — «реестр плана: registry/plan.tsv — единственный источник порядка».
 #
-# ДОГОВОР — контракт 084 §Инварианты (И-1…И-9, И-11) и §Приёмка: клетки к0, р1–р12, и1–и4,
-# е1, з1–з2, т1–т2, б1–б8, с1–с9, ф1–ф10, д1–д3, в1–в2 (54) — дословно по тексту приёмки;
+# ДОГОВОР — контракт 084 §Инварианты (И-1…И-9, И-11) и §Приёмка: клетки к0, р1–р13, и1–и4,
+# е1, з1–з2, т1–т2, б1–б9, с1–с9, ф1–ф10, д1–д3, в1–в2 (56) — дословно по тексту приёмки;
 # режим --perenos — живое условие ж6 (И-12: состав коммита переноса против таблицы §Перенос).
 # Субъекты: scripts/gen_plan.sh, scripts/check_plan.sh, scripts/track_digest.sh (через
 # scripts/lib_plan.sh), scripts/freeze_contract.sh (И-8), .githooks/pre-commit (И-11).
@@ -97,7 +97,7 @@
 # fixtures/_krasnye_084.sh). KEEP084=1 — миры остаются для вскрытия.
 #                bash fixtures/plan_084/red_plan_084.sh --perenos [<корень>]   — ж6.
 #
-# Коды возврата: 0 — все клетки (54) зелёные; 1 — есть красная (включая «предмет
+# Коды возврата: 0 — все клетки (56) зелёные; 1 — есть красная (включая «предмет
 # отсутствует» — предъявляемое красное ДО реализации); 2 — нечем проверить (нет git,
 # python3, каркаса заморозки). --perenos: 0 — коммит, первым добавивший registry/plan.tsv,
 # сошёлся с таблицей §Перенос и правками И-12; 1 — первое расхождение «перенос: …» (в т. ч.
@@ -152,7 +152,7 @@ perenos() {  # <корень>
 }
 if [ "$MODE" = perenos ]; then perenos "$ROOT"; exit $?; fi
 
-CELLS=(к0 р1 р2 р3 р4 р5 р6 р7 р8 р9 р10 р11 р12 и1 и2 и3 и4 е1 з1 з2 т1 т2 б1 б2 б3 б4 б5 б6 б7 б8
+CELLS=(к0 р1 р2 р3 р4 р5 р6 р7 р8 р9 р10 р11 р12 р13 и1 и2 и3 и4 е1 з1 з2 т1 т2 б1 б2 б3 б4 б5 б6 б7 б8 б9
        с1 с2 с3 с4 с5 с6 с7 с8 с9 ф1 ф2 ф3 ф4 ф5 ф6 ф7 ф8 ф9 ф10 д1 д2 д3 в1 в2)
 
 MISSING="$(p84_missing_subjects "$ROOT")"
@@ -375,6 +375,39 @@ T="$WORK/r12"; clone "$T0" "$T"
 mv "$T/registry/plan.tsv.tmp" "$T/registry/plan.tsv"
 run r12 bash "$CHK" --root "$T"; refused r12 "$RC" "план не разбирается: строка 9: LF"
 judge р12
+
+# р13 (Н3-1, И-1, Б-3 круга 2): NUL внутри значения поля (НЕ на хвосте файла) — bash-переменные
+# не хранят NUL (C-string truncation в command substitution / `[[ =~ ]]`), поэтому проверка
+# ТОЛЬКО на уровне байтов файла: `grep -aF $'\x00'` / `LC_ALL=C grep -P '\x00'` — эти утилиты
+# читают файл напрямую и не подменяют NUL. Без такой проверки (мутант — откат фикса implementer'а
+# круга 2 до round 4) разбор проходит на усечённом значении («CI\0XX» → «CIXX» — валидный трек
+# по `[A-Za-z][A-Za-z0-9-]*`), и rc 0. Ожидание по грамматике И-7 п.(2) — «план не разбирается:
+# строка <N>: NUL» (N — 1-индексированный номер строки файла с NUL; «NUL» — служебное имя
+# нарушенного поля, не из заголовка И-1, аналогично «LF» в р12).
+p84_rnd "$NROW"; j=$P84_R
+T="$WORK/r13"; clone "$T0" "$T"
+{
+  printf '%s\n' "$P84_HDR"
+  for k in "${!W_ID[@]}"; do
+    if [ "$k" -eq "$j" ]; then
+      printf '%s\t%s\t%s\t%s\t%s\t' "${W_ID[$k]}" "${W_PAIR[$k]}" "${W_STAGE[$k]}" "${W_DEPS[$k]}" "${W_SRC[$k]}"
+      printf 'CI\0XX'      # NUL внутри трека: байты 0x43 0x49 0x00 0x58 0x58
+      printf '\n'
+    else
+      p84_join_tab "${W_ID[$k]}" "${W_PAIR[$k]}" "${W_STAGE[$k]}" "${W_DEPS[$k]}" "${W_SRC[$k]}" "${W_TRACK[$k]}"
+    fi
+  done
+} > "$T/registry/plan.tsv"
+run r13 bash "$CHK" --root "$T"
+# Явный суффикс «: NUL» (а не regex) — иначе мутант round 3, печатающий rc 1 с другим текстом
+# («в ROADMAP.md нет блока плана» / «номер вне реестра: …»), прошёл бы как ложный зелёный.
+WHY=''
+if [ "$RC" -ne 1 ]; then
+  WHY="ожидался rc 1 «план не разбирается: строка $((j + 2)): NUL», получено $(why r13 "$RC")"
+elif ! ends r13 "план не разбирается: строка $((j + 2)): NUL"; then
+  WHY="ожидался суффикс «план не разбирается: строка $((j + 2)): NUL», получено $(why r13 "$RC")"
+fi
+judge р13
 
 # и1–и4 (И-7 группа 3 и 2): источник строки — не резолвится / пуст.
 p84_rnd "$NROW"; j=$P84_R; p84_sfx 5; src="docs/owner/нет-такого-$P84_S.md#1.1"
@@ -885,6 +918,51 @@ hcommit() {  # <метка> <toy> <сообщение> — коммит С жи�
   ( p84_g_hooked "$2" commit -q -m "$3" ) </dev/null >"$WORK/$1.out" 2>&1; RC=$?
   : > "$WORK/$1.err"
 }
+
+# б9 (Н3-4, Б-6 круга 2, И-7 п.(7) + Р10): HANDOFF.md удалён с диска (untracked, удаление НЕ staged)
+# — коммит через хук с другим файлом в индексе. По Р10 группа (7) исполняется ТОЛЬКО если HANDOFF.md
+# есть в `git diff --cached --name-only`; удалённый не-staged файл в список не попадает → check_plan
+# --pre-commit должен выйти rc 0 и не трогать HANDOFF. Мутант (откат Б-6: ранний `exit 0` снят →
+# группа (7) исполняется безусловно) даёт ложный rc 1 «в HANDOFF.md нет блока «Следующая
+# сессия»», HEAD не сдвинут. Проверка в ДВУХ формах: (a) прямой check_plan --pre-commit на корне
+# без HANDOFF.md в индексе, (b) полный коммит через хук.
+p84_world_main
+T="$WORK/b9"; mkh "$T" || setup_fail б9
+clone "$T" "$WORK/b9ck"                          # копия для прямой проверки check_plan --pre-commit
+# (a) check_plan --pre-commit на корне БЕЗ HANDOFF.md в индексе → rc 0. Удаление НЕ через
+# `git rm --cached` (это бы ЗАСТЕЙДЖИЛО удаление и сменило поведение): `rm` с диска, индекс
+# хранит прежний блок из HEAD, в `git diff --cached` файла нет.
+rm -f "$WORK/b9ck/HANDOFF.md"
+p84_sfx 5; printf 'заметка б9 %s\n' "$P84_S" > "$WORK/b9ck/заметка-$P84_S.txt"
+p84_g "$WORK/b9ck" add "заметка-$P84_S.txt" >/dev/null
+run b9ck bash "$CHK" --root "$WORK/b9ck" --pre-commit
+WHY=''
+if [ "$RC" -ne 0 ]; then
+  WHY="check_plan --pre-commit (без HANDOFF в индексе): ожидался rc 0, получено $(why b9ck "$RC")"
+fi
+# (b) полная проверка через хук: HANDOFF удалён с диска, в индексе — другой файл; HEAD-коммит
+# хранит прежний блок; `git diff --cached` пуст по HANDOFF (удаление не staged).
+rm -f "$T/HANDOFF.md"
+p84_sfx 5; printf 'заметка б9-хука %s\n' "$P84_S" > "$T/заметка-хука-$P84_S.txt"
+p84_g "$T" add "заметка-хука-$P84_S.txt" >/dev/null
+# sanity: `git diff --cached` НЕ содержит HANDOFF.md
+if p84_g "$T" diff --cached --name-only -- HANDOFF.md 2>/dev/null | grep -q .; then
+  WHY="${WHY:+${WHY}; }настройка сломана: HANDOFF.md в git diff --cached (должен быть не-staged)"
+fi
+h0="$(git -C "$T" rev-parse HEAD)"
+hcommit b9h "$T" 'б9: коммит без HANDOFF.md в индексе'
+if [ -z "$WHY" ]; then
+  if [ "$RC" -ne 0 ]; then
+    WHY="через хук: ожидался rc 0, получено $(why b9h "$RC")"
+  elif [ "$(git -C "$T" rev-parse HEAD)" = "$h0" ]; then
+    WHY='через хук: HEAD не сдвинут успешным коммитом'
+  elif [ -e "$T/HANDOFF.md" ]; then
+    WHY='через хук: HANDOFF.md восстановлен коммитом'
+  fi
+else
+  WHY="${WHY}; через хук: rc=$RC $(why b9h "$RC")"
+fi
+judge б9
 
 # в1 (И-11): правка внутри блока ROADMAP → коммит отказан с причиной, HEAD прежний;
 # тот же мир без plan.tsv — та же правка проходит.
