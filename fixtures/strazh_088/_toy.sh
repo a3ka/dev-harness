@@ -8,15 +8,23 @@
 # обход И-5 «строка-указатель из env коммитёра»):
 #   PTR_088   — строка-указатель. Единый источник тестового слоя — присваивание
 #               HANDOFF_PTR в fixtures/ops_server/red_server_obvjazka_074.sh (клетка k7);
-#               берётся оттуда побайтово, РОВНО одно совпадение `^HANDOFF_PTR='…'$`,
-#               иначе rc 2 (второй копии строки в семье 088 нет). Субъект несёт k7 СВОЕЙ
-#               константой (арбитраж 088 круг 5): ни рабочая копия, ни индекс, ни HEAD-блоб
-#               074 источником субъекта не служат; закоммиченная копия 074 в тоу-репо
-#               (ukazatel_mir) — только объект порчи клеток B15/B16/B19-B22.
-#   OTKAZ_088 — строка отказа хука (инвариант Б3 контракта 088), сверка `grep -Fxq`.
-#   ATAKA_088 — строка коммитёра, не k7: B14 — она же в env PTR_088 коммита; B15 — ею
-#               переписана рабочая копия k7; B17/B18 — она же в env OTKAZ_088 коммита;
-#               B20 — второе присваивание k7 индекса; B21 — k7 индекса переписана ею.
+#               берётся оттуда побайтова, РОВНО одно совпадение `^HANDOFF_PTR='…'$`,
+#               иначе rc 2 (второй копии строки в семье 088 нет). Субъект несёт PTR_088
+#               СВОЕЙ константой (арбитраж 088 круг 5): ни рабочая копия, ни индекс, ни
+#               HEAD-блоб 074 источником субъекта не служат; закоммиченная копия 074 в
+#               тоу-репо (ukazatel_mir) — только объект порчи клеток B15/B16/B19-B22.
+#   OTKAZ_088 — строка отказа хука по строке-указателю (инвариант Б3 контракта 088),
+#               сверка `grep -Fxq`.
+#   OTKAZ_READLINK_088 — уникальная подстрока отказа fail-closed-ветви readlink
+#               (производственный check_staged.sh:298). Якорь для B34: на шиме
+#               `readlink` rc 127 производственный судья даёт ТОЛЬКО эту форму отказа;
+#               откат fail-closed к `|| true` либо падает на дефолтный индекс с
+#               «ОТКАЗ: HANDOFF.md — в первой секции…» (OTKAZ_088), либо на чистом
+#               дефолтном — на «нечего судить», НИКОГДА на OTKAZ_READLINK_088.
+#   ATAKA_088 — строка коммитёра, не PTR_088: B14 — она же в env PTR_088 коммита;
+#               B15 — ею переписана рабочая копия k7; B17/B18 — она же в env OTKAZ_088
+#               коммита; B20 — второе присваивание k7 индекса; B21 — k7 индекса
+#               переписана ею.
 #   Ожидания клеток — константы клеток (вход строится известным конформным/неконформным).
 # Сверка структурна: строка отказа — самостоятельной строкой stderr (`grep -Fxq`), HEAD до/
 # после коммита — по rev-parse, маркер двери — по существованию файла шва.
@@ -26,7 +34,7 @@ set -uo pipefail
 unset GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL \
       GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CEILING_DIRECTORIES \
-      PTR_088 OTKAZ_088 ATAKA_088
+      PTR_088 OTKAZ_088 OTKAZ_READLINK_088 ATAKA_088
 
 SRC074="$ROOT/fixtures/ops_server/red_server_obvjazka_074.sh"
 [ -f "$SRC074" ] || { printf 'NOT_IMPLEMENTED: нет источника строки-указателя %s\n' "$SRC074" >&2; exit 2; }
@@ -37,8 +45,9 @@ if [ "${#_ptr074[@]}" -ne 1 ] || [ -z "${_ptr074[0]}" ]; then
 fi
 PTR_088="${_ptr074[0]}"
 OTKAZ_088='ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)'
+OTKAZ_READLINK_088='ОТКАЗ: канонизация путей не удалась'
 ATAKA_088='attacker'
-[ "$ATAKA_088" != "$PTR_088" ] || { printf 'NOT_IMPLEMENTED: строка коммитёра совпала с k7\n' >&2; exit 2; }
+[ "$ATAKA_088" != "$PTR_088" ] || { printf 'NOT_IMPLEMENTED: строка коммитёра совпала с PTR_088\n' >&2; exit 2; }
 
 SCR="$(mktemp -d "${TMPDIR:-/tmp}/strazh088.XXXXXX")" || { printf 'NOT_IMPLEMENTED: нет скратча\n' >&2; exit 2; }
 trap 'rm -rf -- "$SCR"' EXIT
@@ -84,6 +93,24 @@ handoff_v() {
   esac > "$f"
 }
 
+# klet_big_pervaja <файл> — HANDOFF.md по форме v5 §(б) находки Б-2 круга 9:
+# большая ПЕРВАЯ секция (≥100 КиБ), указатель строкой №1 этой секции; хвост
+# минимальный. ЭТО ДРУГАЯ форма, не Н-214: Н-214 — малая секция + большой хвост,
+# ловит фикс 9893dc5 (awk exit → SIGPIPE); форма (б) — большая первая секция
+# с указателем в НАЧАЛЕ, ловит ту же ошибку `printf|grep` после awk: grep -Fxq
+# находит указатель на байте 1, awk продолжает читать секцию 100+ КиБ; досрочный
+# выход grep → SIGPIPE 141 в awk (хвост секции непрочитан) — OLD `printf|grep`
+# за пределами awk, при захвате секции в переменную. HEAD ловит через
+# here-string `<<<"$_section"` — pipe не живёт. См. B33 в red_ukazatel_088.sh.
+klet_big_pervaja() {
+  local f="$1" n=2000
+  {
+    printf '# HANDOFF\n\n## ГДЕ МЫ (тоу)\n\n%s\n' "$PTR_088"
+    python3 -c "import sys; sys.stdout.write('\n'.join('строка первой секции ' + str(i) + ' padding-padding-padding-padding-padding-padding-padding-padding' for i in range(1, $n+1)) + '\n')"
+    printf '\n## Итог\nхвост\n'
+  } > "$f"
+}
+
 # ukazatel_mir <каталог> [<судья>] — тоу-репо: scripts/ и .githooks/ судимого дерева
 # (судья scripts/check_staged.sh подменяется файлом стаба, если задан), HANDOFF.md с
 # указателем и побайтовая копия fixtures/ops_server/red_server_obvjazka_074.sh (k7
@@ -119,6 +146,15 @@ kommit() {
         -c commit.gpgsign=false commit -q -m 'проба 088' "${forma[@]}" >/dev/null 2>"$SCR/kommit.err"
 }
 
+# kommit_shim <репо> <shimdir> [VAR=знач…] — прямой вызов судьи check_staged.sh
+# (а не через коммит-хук): env передаётся дословно (включая GIT_INDEX_FILE), PATH
+# получает <shimdir> ВПЕРЁД для подмены readlink (B34). stderr — в $SCR/kommit.err.
+# Код возврата — rc check_staged.sh.
+kommit_shim() {
+  local r="$1" shim="$2"; shift 2
+  env "$@" PATH="$shim:$PATH" bash "$r/scripts/check_staged.sh" "$r" >/dev/null 2>"$SCR/kommit.err"
+}
+
 # ozhidaj_b <клетка> <репо> prinjat|otkaz [VAR=знач…] [-- <форма commit…>] — коммит и
 # сверка исхода с ожиданием.
 ozhidaj_b() {
@@ -139,6 +175,26 @@ ozhidaj_b() {
     else
       krasno "$c: ожидался отказ «$OTKAZ_088», получено rc=$rc HEAD $( [ "$h0" = "$h1" ] && echo 'не сдвинут' || echo 'сдвинут'): $(head -c 300 "$SCR/kommit.err" | tr '\n' ' ')"
     fi
+  fi
+}
+
+# ozhidaj_b_readlink <клетка> <репо> <shimdir> [VAR=знач…] — прямой вызов судьи
+# через kommit_shim и сверка: отказ + HEAD не сдвинут + stderr содержит
+# OTKAZ_READLINK_088 (форма fail-closed-ветви канонизации). На откате fail-closed
+# к `|| true` OTKAZ_READLINK_088 в stderr НЕ возникает: либо судья уходит в
+# дефолтный индекс и судит HANDOFF.md там (OTKAZ_088), либо дефолтный индекс
+# чист — rc 0 «нечего судить» — но во всех случаях не OTKAZ_READLINK_088. Это
+# и есть якорь «HEAD зелёная, M2 красная».
+ozhidaj_b_readlink() {
+  local c="$1" r="$2" shim="$3" h0 h1 rc
+  shift 3
+  h0="$(gx "$r" rev-parse HEAD)" || exit 2
+  kommit_shim "$r" "$shim" "$@"; rc=$?
+  h1="$(gx "$r" rev-parse HEAD)" || exit 2
+  if [ "$rc" -ne 0 ] && [ "$h0" = "$h1" ] && grep -Fq -- "$OTKAZ_READLINK_088" "$SCR/kommit.err"; then
+    zeleno "$c"
+  else
+    krasno "$c: ожидался отказ fail-closed «$OTKAZ_READLINK_088», получено rc=$rc HEAD $( [ "$h0" = "$h1" ] && echo 'не сдвинут' || echo 'сдвинут'): $(head -c 300 "$SCR/kommit.err" | tr '\n' ' ')"
   fi
 }
 
