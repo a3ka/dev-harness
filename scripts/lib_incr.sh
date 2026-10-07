@@ -169,12 +169,29 @@ incr_fail() {
 # на INCR_CACHE уже отфильтровал «--incr не передан». Если бы incr_finish требовал
 # INCR_MODE="incr", цикл «full → (должен стать) incr(0 коммитов)» вечно оставался бы
 # «full → full», и actions/cache/save в CI сохранял бы несуществующий файл (no-op).
+#
+# Б-2 фикс (контракт 083 круг 2, ревьюер 9f83e78): incr_finish пишет HEAD
+# судимого окна, а не текущий HEAD. Иначе коммит, пришедший ВО ВРЕМЯ
+# локального `--incr` прогона, записывается в кеш как «проверенный», но
+# реально проверка работала со старым HEAD — следующий incr-прогон молча
+# считает несудимый диапазон судимым. Источник истины — INCR_HEAD,
+# зафиксированный в incr_parse на старте (ветвь (а)). В полном режиме
+# (ветвь (б) — кеш отсутствует, или без --incr) INCR_HEAD пуст, и мы
+# перечитываем текущий HEAD: «полный прогон → вся история судима → кеш
+# засеять текущим HEAD» (сеяние своей линии; в CI checkout неподвижен —
+# старт == конец).
 incr_finish() {
   local rc="$1"
   [ -n "${INCR_CACHE:-}" ] || return 0
   [ "$rc" -eq 0 ] || return 0
   local head
-  head="$(git -C "$INCR_GIT_ROOT" rev-parse HEAD 2>/dev/null)" || return 0
+  if [ -n "${INCR_HEAD:-}" ]; then
+    # incr-режим: пишем зафиксированный на старте HEAD (ветвь (а))
+    head="$INCR_HEAD"
+  else
+    # полный режим: перечитываем текущий HEAD
+    head="$(git -C "$INCR_GIT_ROOT" rev-parse HEAD 2>/dev/null)" || return 0
+  fi
   mkdir -p -- "$(dirname -- "$INCR_CACHE")" 2>/dev/null || return 0
   local tmp
   tmp="$(mktemp "${INCR_CACHE}.tmp.XXXXXX" 2>/dev/null)" || return 0
