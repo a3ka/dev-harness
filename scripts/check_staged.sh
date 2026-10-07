@@ -267,15 +267,23 @@ fi
 # git-dir) делает сравнение неуязвимым к `..` и symlink-цепочкам.
 #
 # `readlink -f` разрешает `..` И symlink-цепочки; на нерезолвимом компоненте
-# (битая symlink, отказ FS, путь исчез) — пустая строка, валидация не проходит,
-# откат на дефолтный `.git/index` (тот же класс, что и подложный путь: судья
-# судит ДЕЙСТВУЮЩИЙ индекс, не внешний). Аналогично — git-dir: в worktree
-# `.git` — gitfile с `gitdir: <путь>`, `--absolute-git-dir` уже отдаёт
-# физический путь, но он сам может быть symlink-ом; канонизируем обе стороны.
+# (битая symlink, отказ FS, путь исчез) — пустая строка. Канонизация ОБЕИХ сторон
+# ОБЯЗАТЕЛЬНА: в worktree `.git` — gitfile с `gitdir: <путь>`, `--absolute-git-dir`
+# уже отдаёт физический путь, но он сам может быть symlink-ом.
+#
+# Fail-closed на отказ readlink: если readlink -f недоступен (PATH-шим, rc 127)
+# или не справился с канонизацией — НЕЛЬЗЯ доказать, что индекс под git-dir
+# корня, а значит, нельзя безопасно судить содержимое этого индекса. Прежний код
+# через `readlink -f … || true` тихо падал к дефолтному `.git/index`: подложный
+# staged HANDOFF.md в альтернативном индексе при чистом дефолтном проскакивал
+# без суда (adversary 088 круг 9 Б-2). Теперь — именованный отказ.
 #
 # Относительный путь (plain `commit` без `-a`/`--only`/`-i` даёт `.git/index`
 # от cwd хука) валидацию не проходит и поведение остаётся прежним — дефолтный
-# `.git/index`. Подложный путь вне git-dir игнорируется (гигиена 016). Принятие —
+# `.git/index`. Подложный путь вне git-dir игнорируется (гигиена 016): readlink
+# отработал, при сравнении выпал из-под префикса — экспорт не происходит, судья
+# работает с дефолтным индексом, а не судит подложный. Принятие — только когда
+# канонизированный путь лежит под канонизированным git-dir, тогда
 # `export GIT_INDEX_FILE=<канонизированный путь>`, чтобы дочерние
 # `git -C "$ROOT" …`-вызовы ниже читали индекс коммита (НЕ индекс до `-a`/`--only`).
 if [ -n "$_orig_idx" ]; then
@@ -283,13 +291,18 @@ if [ -n "$_orig_idx" ]; then
     /*)
       _idx_dir="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null || true)"
       if [ -n "$_idx_dir" ] && [ -e "$_orig_idx" ]; then
-        _orig_resolved="$(readlink -f -- "$_orig_idx" 2>/dev/null || true)"
-        _dir_resolved="$(readlink -f -- "$_idx_dir" 2>/dev/null || true)"
-        if [ -n "$_orig_resolved" ] && [ -n "$_dir_resolved" ] \
-           && case "$_orig_resolved" in "${_dir_resolved}/"*) true ;; *) false ;; esac; then
+        _orig_resolved="$(readlink -f -- "$_orig_idx" 2>/dev/null)"; _rl_orig=$?
+        _dir_resolved="$(readlink -f -- "$_idx_dir" 2>/dev/null)"; _rl_dir=$?
+        if [ "$_rl_orig" -ne 0 ] || [ "$_rl_dir" -ne 0 ] \
+           || [ -z "$_orig_resolved" ] || [ -z "$_dir_resolved" ]; then
+          printf 'ОТКАЗ: канонизация путей не удалась — readlink rc=%s для индекса «%s», rc=%s для git-dir «%s»; индекс коммита не может быть принят без подтверждения «под git-dir», отказ (контракт 088)\n' \
+            "$_rl_orig" "$_orig_idx" "$_rl_dir" "$_idx_dir" >&2
+          exit 1
+        fi
+        if case "$_orig_resolved" in "${_dir_resolved}/"*) true ;; *) false ;; esac; then
           export GIT_INDEX_FILE="$_orig_resolved"
         fi
-        unset _orig_resolved _dir_resolved
+        unset _orig_resolved _dir_resolved _rl_orig _rl_dir
       fi
       unset _idx_dir
       ;;
@@ -365,12 +378,18 @@ if [ -n "$_handoff_ptr" ]; then
     # SIGPIPE'ом (код 141). Под `set -o pipefail` это делает СТАТУС ВСЕЙ ЦЕПОЧКИ
     # ненулевым (141 — самый правый ненулевой из PIPESTATUS), даже когда `grep -Fxq`
     # НАШЁЛ строку (rc 0): `if ! pipeline; then …` ложно уходит в ОТКАЗ. Живой замер:
-    # `PIPESTATUS=141 0 0` на HANDOFF.md 36872 байт. Фикс — awk пишет в ПЕРЕМЕННУЮ
-    # (command substitution не подвержена SIGPIPE: bash ждёт закрытия fd самим awk),
-    # grep читает уже захваченный текст — обе стадии больше не делят живой pipe.
+    # `PIPESTATUS=141 0 0` на HANDOFF.md 36872 байт. Фикс круга 9 (ревьюер
+    # Н-214/Б-1) — awk пишет в ПЕРЕМЕННУЮ (`$()`), и `grep -Fxq` читает секцию
+    # через here-string `<<<"$_handoff_section"` (не `printf … | grep`). Важно:
+    # here-string создаёт временный fd в текущей оболочке — SIGPIPE писателю
+    # невозможен (писателя нет), grep выполняется в текущей оболочке, и при
+    # досрочном выходе SIGPIPE просто не возникает. Замер на HANDOFF.md 151 КБ,
+    # указатель в первой строке первой секции: 0/30 ложных отказов (было 30/30).
+    # Такой же приём применён к остальным `printf '%s\n' "$X" | grep …` в файле
+    # (строки 624, 775, 779) — форма одного класса.
     _handoff_section="$(printf '%s\n' "$_handoff_blob" \
          | awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f')"
-    if ! printf '%s\n' "$_handoff_section" | grep -Fxq -- "$_handoff_ptr"; then
+    if ! grep -Fxq -- "$_handoff_ptr" <<<"$_handoff_section"; then
       printf '%s\n' 'ОТКАЗ: HANDOFF.md — в первой секции «## ГДЕ МЫ» нет строки-указателя (контракт 088)' >&2
       exit 1
     fi
@@ -600,7 +619,9 @@ for f in "${staged[@]}"; do
                   else
                     # Грамматика строки: «<NNN> → <40-hex>» — NNN ровно %03d, разделитель
                     # U+2192, 40-hex ША ОБЪЕКТА аннотированного тега.
-                    manifest_sha="$(printf '%s\n' "$manifest_text" | grep -F "${path_nnn} → " | head -1 | awk '{print $3}')"
+                    # here-string (не `printf … | grep …`): SIGPIPE писателю невозможен —
+                    # нет живого pipe (см. блок «## ГДЕ МЫ» ниже про Н-214/Б-1).
+                    manifest_sha="$(grep -F "${path_nnn} → " <<<"$manifest_text" | head -1 | awk '{print $3}')"
                     if [ -z "$manifest_sha" ]; then
                       dual_rc=1; dual_msg="тег $path_nnn не выдан авторитетом: строка «$path_nnn → <sha>» отсутствует в манифесте origin/main (3б)"
                     elif [ "$manifest_sha" != "$sha_origin" ]; then
@@ -746,14 +767,16 @@ for f in "${staged[@]}"; do
               origin_manifest="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null || true)"
               pair_fail=0
               # 3. реестр: NNN отсутствует в HEAD и в origin/main (повторный минт запрещён).
+              # here-string (не `printf … | grep -q …`): SIGPIPE писателю невозможен —
+              # нет живого pipe (см. блок «## ГДЕ МЫ» про Н-214/Б-1).
               while IFS=$'\t' read -r nnn sha_ln; do
                 [ -n "$nnn" ] || continue
                 if [ "$pair_fail" -ne 0 ]; then break; fi
-                if printf '%s\n' "$head_manifest" | grep -qF "${nnn} → "; then
+                if grep -qF "${nnn} → " <<<"$head_manifest"; then
                   door_rc=1; door_msg="дверь минта 031: номер ${nnn} уже в манифесте — повторный минт"
                   pair_fail=1; break
                 fi
-                if printf '%s\n' "$origin_manifest" | grep -qF "${nnn} → "; then
+                if grep -qF "${nnn} → " <<<"$origin_manifest"; then
                   door_rc=1; door_msg="дверь минта 031: номер ${nnn} уже в манифесте — повторный минт"
                   pair_fail=1; break
                 fi
