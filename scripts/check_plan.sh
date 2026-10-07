@@ -163,10 +163,8 @@ done < "$ROADMAP"
 # Блок перечисляет активные + годные кандидаты (И-5); после закрытия любого пункта он
 # устаревает — это и есть ловушка «done-пункт стоит следующим» (с5, с7).
 if [ "$pre_commit" -eq 1 ]; then
-  if [ -f "$HANDOFF" ]; then
-    if ! git -C "$root" diff --cached --name-only -- HANDOFF.md 2>/dev/null | grep -q .; then
-      exit 0
-    fi
+  if ! git -C "$root" diff --cached --name-only -- HANDOFF.md 2>/dev/null | grep -q .; then
+    exit 0
   fi
 fi
 [ -f "$HANDOFF" ] || die "в HANDOFF.md нет блока «Следующая сессия»"
