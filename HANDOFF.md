@@ -29,6 +29,36 @@ wip/090/architect (НЕ main, НЕ касается 026/closed-without-done — 
 **Дальше по плану владельца (после зелёного main CI):** done 088 → done 083 → done 082; затем
 089.
 
+**Контракт 090 (fix-085, Н-217+Н-216) — architect-этап завершён, СЕССИЯ ОСТАНАВЛИВАЕТСЯ по
+сторожу контекста (650K≥600K, «новых спавнов не начинай»).** Architect090FixStation (19м21с)
+упёрся в Н-212-класс (изолированный спавн тоже непиннован, write в чекаут запрещён — новое
+наблюдение А-63, записать в NABLIUDENIA_ARCHITECT.md следующей сессией) — отдал бандл в
+`/tmp/dev-harness-verify/090-architect-deliverable/` вместо коммита. Я вручную перенёс и
+закоммитил (identity `architect`, НЕ пушил — ветка `wip/090/architect`, SHA `fbf7f86`):
+ТОЛЬКО `contracts/090-fix-orch-peak-home-install-safe-dir.md` (176 строк, §Существующее/
+Предмет П1+П2/Диагноз-по-коду/Зоны/Красные-предъявления/Приёмочный-критерий-5-сценариев/
+ПРОВОДКА). Фикстуры (`fixtures/fix_090_orch_peak_home/{lib.sh,red_no_home_ctx.sh,
+red_ctx_deep_no_home.sh,red_install_local_config.sh,battery_stubs.sh,PROVERKA.md}`) ОСТАЛИСЬ
+НЕЗАКОММИЧЕННЫМИ в worktree `/tmp/dev-harness-worktrees/c907157c/wip-090-architect` (untracked)
+— `check_staged.sh` отказал «вне зоны»: zones_load читает ТОЛЬКО `frozen/contracts/<NNN>/1`
+тег (`scripts/lib_zones.sh:190-198`), которого у 090 ещё нет — это СТРУКТУРНО, не ошибка.
+PROVERKA.md внутри бандла несёт ЖИВЫЕ прогоны (HEAD=red на всех 3 клетках дословно по
+Н-217/Н-216, GREEN=rc0 на эталонном патче `/tmp/dev-harness-verify/090-green`), batterystubs
+3/3 — качество высокое, НЕ фиктивное.
+
+**СЛЕДУЮЩИЙ ШАГ 090 (следующая сессия):** (1) спавнить критика на `contracts/090-*.md`
+(sha `fbf7f86`, НЕ main — wip-ветка, эмбарго владельца её не касается, но Я ЭТОГО НЕ СДЕЛАЛ
+из-за «новых спавнов не начинай» от сторожа контекста); (2) после accept — `freeze_contract.sh`
+(локально, тег `frozen/contracts/090/1` — origin не нужен, worktree делит `.git`);
+(3) ТОЛЬКО ПОСЛЕ заморозки — скопировать `fixtures/fix_090_orch_peak_home/` из
+`/tmp/dev-harness-verify/090-architect-deliverable/` (сохранён, персистентен) в worktree и
+закоммитить identity `architect` (теперь зона есть); (4) implementer-спавн на 090
+(`spawn_agent --author implementer --nnn 090`) для реализации `ops/server/root/orch-peak`
+(посев `ORCH_SESS_GLOB="$SESS_GLOB"` до bootstrap) + `ops/server/install.sh` (`--local`→`--file`
+в 2 местах); (5) адверсарий+ревьюер; push ветки 090 — ТОЛЬКО через `gitw`, НЕ main-ветка (её
+не трогает эмбарго владельца), но дождаться «канал владельца: push готов» для общей
+гигиены — не пушить ничего без явной проверки состояния эмбарго следующей сессией.
+
 **Автоперезапуск-сессия (2026-10-07 ~21:40 UTC) — сделано независимо от блокера:**
 (а) `forks/071-gate-strukturno-nedostizhim-ap3-ap4.md` поле `ОТВЕЧЕНО:` обновлено на `да`
 с дословным ответом (слово владельца 2026-10-07 ~19:15 UTC уже закрыло вопрос форка 086-ревёртом,
