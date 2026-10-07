@@ -7,13 +7,29 @@
 # названный прямо в контракте. Не жёсткий гейт: маски — удобство, несущая проверка —
 # путь-против-зоны.
 #
+# КОНТРАКТ 084 §И-11 (пачка А): до `exec check_staged.sh` вызывается `check_plan.sh --pre-commit`
+# при существующем `$ROOT/registry/plan.tsv`; без файла — прежнее поведение. Группа (7) —
+# только если HANDOFF.md есть в `git diff --cached --name-only` (Р10): теги общие для всех worktree,
+# а HANDOFF — файл ветки; полная проверка — CI.
+#
 # ВЫЗОВ. Аргумент pre-commit по контракту git — путь к репозиторию. Передаём его судье, чтобы
 # тот не выводил пользователя из текущего каталога, и выходим с тем же кодом, что вернул судья:
 # хук обязан отказать коммиту на отказе судьи, иначе защита не работает.
+#
+# Ловушка bash: `if ! cmd; then exit $?` теряет код (`!` инвертирует rc, и $? после `!` уже
+# инвертированный). Используем явный `if cmd; then :; else exit; fi`.
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
   printf 'pre-commit: не удалось определить корень репозитория\n' >&2
   exit 1
+fi
+if [ -f "$ROOT/registry/plan.tsv" ]; then
+  if bash "$ROOT/scripts/check_plan.sh" --root "$ROOT" --pre-commit; then
+    :
+  else
+    rc=$?
+    exit "$rc"
+  fi
 fi
 exec bash "$ROOT/scripts/check_staged.sh" "$ROOT"

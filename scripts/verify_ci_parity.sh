@@ -239,14 +239,50 @@ done < "$SCRIPTS_TSV"
 # `npm run check:antiplacebo -- --scope <key>` — прямой `npm run` потребовал бы аргументов
 # (root contract), CI своего контекста для их подстановки не имеет). Прецедент пары
 # matrix.key `check_check_contract_ready` ↔ npm `check:contract-ready` (прямой шаг CI).
+# После контракта 083 (registry — единственный источник шагов ci) путь в `bash <path>`-значении
+# может быть ЛЮБЫМ (fixtures/.../_krasnye_NNN.sh, scripts/X.sh, scripts/lib/Y.sh и т.д.) — берём
+# первый .sh по basename. Без этого SCRIPT_BY_BASENAME для `red_watchdog_082` и `_krasnye_058`
+# пуст, и REGISTRY_STEP_BASH-покрытие (контракт 083 инв. 3) не строится.
 declare -A SCRIPT_BY_BASENAME=()
 while IFS=$'\t' read -r name value _vnorm; do
   [ -n "$name" ] || continue
-  base="$(printf '%s' "$value" | sed -nE 's@.*scripts/([A-Za-z0-9_]+\.sh).*@\1@p')"
+  base="$(printf '%s' "$value" | sed -nE 's@.*/([A-Za-z0-9_.-]+\.sh).*@\1@p')"
   [ -n "$base" ] || continue
   base_noext="${base%.sh}"
   [ -z "${SCRIPT_BY_BASENAME[$base_noext]:-}" ] && SCRIPT_BY_BASENAME["$base_noext"]="$name"
 done < "$SCRIPTS_TSV"
+
+# Реестр CI-шагов (контракт 083). Если реестр существует, шаги реестра покрывают
+# npm-ключи `package.json` через `npm run <X>` строки (инвариант 3 контракта 083):
+# реестр не плодит вторую копию команд, а ссылается на них, и потреблённый
+# реестром npm-ключ считается покрытым CI. `bash <путь>`-шаги покрываются через
+# свои пути (SCRIPT_BY_BASENAME).
+REG_TSV="$RUN/registry.tsv"
+declare -A REGISTRY_STEP_NPM=()
+declare -A REGISTRY_STEP_BASH=()
+if [ -f "$ROOT/registry/ci-steps.tsv" ]; then
+  while IFS=$'\t' read -r kind k1 k2 k3; do
+    case "$kind" in
+      step)
+        cmd="$k3"
+        case "$cmd" in
+          "npm run "*)
+            npmkey="$(printf '%s' "$cmd" | awk '{print $3}')"
+            REGISTRY_STEP_NPM["$npmkey"]=1
+            ;;
+          "bash "*)
+            base="$(printf '%s' "$cmd" | awk '{print $2}')"
+            base_noext="${base##*/}"; base_noext="${base_noext%.sh}"
+            REGISTRY_STEP_BASH["$base_noext"]=1
+            ;;
+        esac
+        ;;
+    esac
+  done < <(awk -F'\t' '/^[[:space:]]*#/ {next} $1=="lanes" || $1=="step" || $1=="shard" {print}' "$ROOT/registry/ci-steps.tsv")
+  : > "$REG_TSV"
+  for k in "${!REGISTRY_STEP_NPM[@]}"; do printf 'npm\t%s\n' "$k" >> "$REG_TSV"; done
+  for k in "${!REGISTRY_STEP_BASH[@]}"; do printf 'bash\t%s\n' "$k" >> "$REG_TSV"; done
+fi
 
 # ── 2. разбор команд из .github/** ─────────────────────────────────────────────
 # Разбор в два шага: YAML → структура, `run:` шага → список shell-команд. Оба шага
@@ -845,6 +881,24 @@ for path in all_files:
                         entry = _val(entry_t)
                         if not isinstance(entry, dict):
                             continue
+                        # matrix.include джобы `ci` (контракт 083) использует поле
+                        # `lane:` вместо `shard:` — lane-запись НЕ субъект shard-семантики
+                        # этой функции (покрытие lane-ключей судится ОТДЕЛЬНО через
+                        # registry-ключи и lane-раннер; см. `run_ci_lane.sh` и блок
+                        # «Покрытие через реестр» ниже). Парсер писался ДО контракта 083
+                        # под единственного тогдашнего потребителя шаблонной матрицы
+                        # (antiplacebo), и без этого разделения каждая из 7 lane-записей
+                        # даёт ложное «matrix.include запись без shard» — gate-каскадом
+                        # роняет ВЕСЬ CI. Признаём lane-ветку, не роняя in_matrix-флаг
+                        # (джоба всё равно часть matrix-структуры, и ниже по файлу
+                        # `in_matrix` используется в анти-плацебо проверке 4b.2 — там
+                        # ветка актуальна только для antiplacebo-джобы с shard-entries,
+                        # lane-джоба анти-плацебо запусков не несёт, поведение для неё
+                        # и прежде не отличалось от «in_matrix=0»; для согласованности
+                        # флага всё же ставим 1).
+                        if 'lane' in entry and 'shard' not in entry:
+                            in_matrix = 1
+                            continue
                         shard_pair = entry.get('shard', ('', 0))
                         shard_val, _slno = _val(shard_pair), (shard_pair[1] if isinstance(shard_pair, tuple) else 0)
                         keys_pair = entry.get('keys', ('', 0))
@@ -1066,10 +1120,31 @@ while IFS=$'\t' read -r path ln cmd norm; do
       covered_keys+=("$nm")
     fi
   fi
-  # Иначе — команда должна равняться значению какого-то скрипта целиком.
+  # 4-я форма: команда ДОСЛОВНО равна значению какого-то скрипта (без аргументов).
   if [ "$covered" -eq 0 ] && [ -n "${SCRIPT_VALUE[$norm]:-}" ]; then
     covered=1
     covered_keys+=("${SCRIPT_VALUE[$norm]}")
+  fi
+  # 5-я форма (контракт 083, инвариант 3, v+1, сужено ревьюером 083/3,
+  # находка Б-3): единственный легальный спецслучай — `bash scripts/run_ci_lane.sh
+  # ${{ matrix.keys }}` (lane-шаг джобы `ci`, чьё `run_ci_lane.sh` НЕ в package.json
+  # — это не приёмка, а раннер реестра, ИНВАРИАНТ 2 контракта 083; покрытие
+  # реестровых npm-ключей — отдельный проход ниже, через REGISTRY_STEP_NPM/REGISTRY_STEP_BASH).
+  # Широкая форма прежней редакции — `<значение-скрипта-шага> <любой-суффикс>` —
+  # была ослаблением правила 6 (живой репро-негатив ревьюера 083/3: шаг
+  # `bash scripts/check_no_rewrite.sh --probe-arg` на старой базе давал FAIL,
+  # на HEAD — «расхождений: 0»). Сверка — по нормализованной форме команды:
+  # все `${{ … }}` (с обрамляющими кавычками или без) заменяются на канонический
+  # токен `$VAR`, лишние кавычки снимаются, пробелы схлопываются. Любая команда,
+  # чья норма-форма не совпадает с каноном `bash scripts/run_ci_lane.sh $VAR`
+  # дословно, НЕ покрывается этой формой и обязана идти по 4-й форме (точное
+  # равенство значению скрипта) или через исключение в `config/ci_parity_exceptions.txt`.
+  if [ "$covered" -eq 0 ]; then
+    norm_norm="$(printf '%s' "$norm" | sed -E 's/"?\$\{\{[^}]*\}\}"?/ \$VAR /g' | sed -E 's/" *( *"\$VAR *")*"/ \$VAR /g' | tr -s ' ' | sed 's/^ //; s/ $//')"
+    if [ "$norm_norm" = "bash scripts/run_ci_lane.sh \$VAR" ]; then
+      covered=1
+      # Не добавляем covered_keys — lane-шаг покрывается через реестр (см. ниже).
+    fi
   fi
   if [ "$covered" -eq 1 ]; then
     CI_COVERED_CMD["$norm"]=1
@@ -1103,6 +1178,29 @@ for key in "${!MATRIX_KEYS[@]}"; do
     # правила 6. Прецедент: шард ap2 несёт matrix.key `freeze_contract` (как fixtures
     # freeze_contract/), но `freeze:contract` — команда записи, в CI её нет, исключение
     # обязано остаться живым.
+    if [ -n "${EXC_SCRIPT[$npm_name]:-}" ]; then
+      continue
+    fi
+    covered_keys+=("$npm_name")
+  fi
+done
+
+# Покрытие через реестр (контракт 083, инвариант 3): если шаг реестра потребляет
+# npm-ключ (через `npm run <X>`), этот ключ считается покрытым CI — реестр ссылается
+# на команды, а не дублирует их, и lane-раннер их исполняет. Покрытие — без ослабления:
+# покрытый ключ по-прежнему обязан существовать в scripts/<X>.sh (его резолв — И-3
+# реестра), а сам шаг реестра — резолвиться (И-3 генератора, см. Г4).
+for npmkey in "${!REGISTRY_STEP_NPM[@]}"; do
+  if [ -n "${SCRIPT_NAME[$npmkey]:-}" ]; then
+    if [ -n "${EXC_SCRIPT[$npmkey]:-}" ]; then
+      continue  # Исключённый ключ остаётся живым исключением.
+    fi
+    covered_keys+=("$npmkey")
+  fi
+done
+for bashkey in "${!REGISTRY_STEP_BASH[@]}"; do
+  if [ -n "${SCRIPT_BY_BASENAME[$bashkey]:-}" ]; then
+    npm_name="${SCRIPT_BY_BASENAME[$bashkey]}"
     if [ -n "${EXC_SCRIPT[$npm_name]:-}" ]; then
       continue
     fi
