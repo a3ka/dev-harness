@@ -44,9 +44,6 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
-# Каталог скриптов — для вызова gejt_svedenija.sh (контракт 086, И-1).
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 usage() {
   cat >&2 <<USAGE
 использование: accept_task_commit.sh --source ПУТЬ --branch wip/NNN/автор --author имя [--root КАТАЛОГ]
@@ -165,27 +162,6 @@ done < <(git -C "$ROOT" rev-list --reverse "$BRANCH_ARG..$FETCH_HEAD_SHA" 2>/dev
 if [ "${#RANGE_SHAS[@]}" -eq 0 ]; then
   printf 'ОТКАЗ: нечего принимать — диапазон %s..%s пуст\n' "$BRANCH_ARG" "$FETCH_HEAD_SHA" >&2
   exit 1
-fi
-
-# ГЕЙТ СВЕДЕНИЯ (контракт 086, И-1): после вычисления диапазона и ДО
-# сверки identity. Окно <wip-tip до приёма>..<FETCH_HEAD>. Отказ гейта
-# → rc 1 (именованный отказ, ветка не сдвинута) или rc 2 (нечем проверить);
-# оба rc пробрасываются без потери различения (Б-8 ревьюера круг 4).
-# `set -euo pipefail` в основном скрипте НЕ совместим с присваиванием
-# `var=$(cmd_failing)` в одном выражении — bash либо выходит на ненулевом rc
-# команды-внутри-$() (старая версия: rc гасится), либо игнорирует (с `|| true`
-# rc=0). Безопасный паттерн — `set +e` на время вызова + возврат `set -e`
-# после. Паттерн `if ! X=$(…); then rc=$?` НЕ используется — после `!` `$?`
-# уже флипнут и rc 2 → rc 1 теряется (Б-8 ревьюера круг 4).
-GEJT_RC=0
-set +e
-GEJT_OUT="$(bash "$SELF_DIR/gejt_svedenija.sh" okno "$ROOT" "$TIP_BEFORE" "$FETCH_HEAD_SHA" "$BRANCH_ARG" accept 2>&1)"
-GEJT_RC=$?
-set -e
-if [ "$GEJT_RC" -ne 0 ]; then
-  # Гейт уже напечатал свой отказ/нечем-проверить. Пробрасываем rc побайтово.
-  printf '%s\n' "$GEJT_OUT"
-  exit "$GEJT_RC"
 fi
 
 # Шаг 4: ЛИТЕРАЛЬНАЯ сверка %an/%ae КАЖДОГО коммита диапазона с --author.

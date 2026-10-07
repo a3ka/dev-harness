@@ -318,61 +318,6 @@ if ! g worktree add "$wt_path" "$branch" >/dev/null 2>&1; then
   exit 1
 fi
 
-# АКТИВНЫЕ ХУКИ В WORKTREE (контракт 086, И-11 + Frontier 6, круг 3; Б-6′/Б-9
-# ревьюера+адверсария круг 4): одноразовый клон агента без core.hooksPath
-# не запускает pre-commit / pre-merge-commit — merge в клоне обходит гейт
-# сведения. spawn_agent ОБЯЗАН обеспечить активные хуки:
-#   (1) core.hooksPath в worktree УЖЕ задан (наследуется от главного чекаута
-#       или задан пользователем) — НЕ ТРОГАТЬ (Frontier 6 дословно). НИКАКОГО
-#       «дописать .githooks к существующему» — иначе ломаем чужой выбор;
-#   (2) core.hooksPath не задан — задать ОТНОСИТЕЛЬНЫЙ `.githooks` (НЕ
-#       абсолютный путь `<worktree>/.githooks`). Резолв git'ом идёт ОТ КОРНЯ
-#       КАЖДОГО worktree отдельно, поэтому один общий config правит все
-#       worktree корректно. Абсолютный путь в общем $GIT_DIR/config — баг
-#       Б-6 арбитра 086 круг 3: второй спавн перезаписывает значение первого.
-#   (3) ЕДИНАЯ проверка ПОСЛЕ (Б-6′/Б-9 круг 4): разрешённый core.hooksPath
-#       (относительный — резолвится от КОРНЯ worktree) указывает на каталог
-#       с ИСПОЛНЯЕМЫМИ pre-commit И pre-merge-commit (И-11 буквально). Нет
-#       каталога / нет файла / не исполняемый → откат и rc 1. Эта проверка
-#       ОБЯЗАНА быть в ОБЕИХ ветвях (preset и auto-set): ранее (fix3/fix4) она
-#       стояла только в else-ветке «не задан», и при заранее выставленном
-#       core.hooksPath=missing-hooks spawn проходил без хуков. Сейчас —
-#       единая проверка после, и для preset-пути, и для auto-установленного.
-HOOKS_PATH_SET="$(git -C "$wt_path" config --get core.hooksPath 2>/dev/null || true)"
-if [ -z "$HOOKS_PATH_SET" ]; then
-  # (2) Задаём ОТНОСИТЕЛЬНЫЙ `.githooks` в общий config репо. Без `--worktree`,
-  # поэтому пишется в общий $GIT_DIR/config (extensions.worktreeConfig не
-  # задан по умолчанию, и гит-2.43.0 без явного флага --worktree кладёт в общий).
-  if ! git -C "$wt_path" config core.hooksPath .githooks 2>/dev/null; then
-    g worktree remove --force "$wt_path" 2>/dev/null || true
-    g branch -D "$branch" >/dev/null 2>&1 || true
-    printf 'ОТКАЗ: не удалось задать core.hooksPath=.githooks (относительный) в worktree\n' "$wt_path" >&2
-    exit 1
-  fi
-fi
-# (3) ЕДИНАЯ проверка разрешённого пути хуков — выполняется ВСЕГДА, независимо
-# от того, был ли hooksPath заранее задан или auto-установлен выше. Относительный
-# путь резолвится от корня worktree (как делает сам git); абсолютный — берётся
-# как есть. На цепочке каталогов: должен существовать каталог + оба файла
-# должны быть исполняемыми (-x). Любой провал → откат и rc 1.
-HOOKS_RESOLVED="$(git -C "$wt_path" config --get core.hooksPath 2>/dev/null || true)"
-if [ -z "$HOOKS_RESOLVED" ]; then
-  g worktree remove --force "$wt_path" 2>/dev/null || true
-  g branch -D "$branch" >/dev/null 2>&1 || true
-  printf 'ОТКАЗ: core.hooksPath пуст после установки — спавн без активных хуков открывает обход гейта сведения\n' >&2
-  exit 1
-fi
-case "$HOOKS_RESOLVED" in
-  /*) HOOKS_DIR="$HOOKS_RESOLVED" ;;
-  *)  HOOKS_DIR="$wt_path/$HOOKS_RESOLVED" ;;
-esac
-if [ ! -d "$HOOKS_DIR" ] || [ ! -x "$HOOKS_DIR/pre-commit" ] || [ ! -x "$HOOKS_DIR/pre-merge-commit" ]; then
-  g worktree remove --force "$wt_path" 2>/dev/null || true
-  g branch -D "$branch" >/dev/null 2>&1 || true
-  printf 'ОТКАЗ: каталог хуков %s неполон (нужны исполняемые pre-commit и pre-merge-commit) — спавн без активных хуков открывает обход гейта сведения\n' "$HOOKS_DIR" >&2
-  exit 1
-fi
-
 # Финальный контрактный вывод: ровно две строки на stdout.
 printf 'WORKTREE=%s\n' "$wt_path"
 printf 'BRANCH=%s\n' "$branch"

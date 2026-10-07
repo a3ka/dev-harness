@@ -318,49 +318,6 @@ incr_parse "$@"
 [ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
 set -- "${INCR_REST[@]}"
 
-# Разбор `--okno <база>` (контракт 086, И-5). Сужение диапазона каждого
-# уставного окна до <база>..HEAD. Без `--okno` — побайтово прежнее
-# поведение (прецедент --incr). Грамматика базы — `^[0-9a-f]{40}$`
-# (И-8): невалидная база — rc 1 «база окна вне грамматики sha».
-OKNO_BASE=""
-okno_parse() {
-  OKNO_BASE=""
-  local rest=()
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --okno)
-        if [ "$#" -lt 2 ]; then
-          printf 'ОТКАЗ 086: --okno требует аргумент-базу\n' >&2
-          return 1
-        fi
-        if ! printf '%s\n' "$2" | grep -Eqx '[0-9a-f]{40}'; then
-          printf 'ОТКАЗ 086: база окна вне грамматики sha: %s\n' "$2" >&2
-          return 1
-        fi
-        OKNO_BASE="$2"
-        shift 2
-        ;;
-      --okno=*)
-        local v="${1#--okno=}"
-        if ! printf '%s\n' "$v" | grep -Eqx '[0-9a-f]{40}'; then
-          printf 'ОТКАЗ 086: база окна вне грамматики sha: %s\n' "$v" >&2
-          return 1
-        fi
-        OKNO_BASE="$v"
-        shift
-        ;;
-      *)
-        rest+=("$1")
-        shift
-        ;;
-    esac
-  done
-  OKNO_REST=("${rest[@]}")
-  return 0
-}
-okno_parse "$@" || exit 1
-set -- "${OKNO_REST[@]}"
-
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 INCR_GIT_ROOT="$ROOT"
 
@@ -446,18 +403,6 @@ while IFS=$'\t' read -r f since; do
   # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
   # `diff-tree <c>`).
   g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
-  # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
-  # Явное пересечение двух списков коммитов — НЕ схлопывание `since` к `OKNO_BASE` через
-  # `merge-base --is-ancestor`. Та схлопка корректна только когда `since` и `OKNO_BASE` на
-  # одной линии (один предок другого); на разных линиях (ни один не предок другого)
-  # `since := OKNO_BASE` РАЗДУВАЕТ окно вместо пересечения и ловит чужие коммиты, которые
-  # не должны быть судимы. Порядок сохраняется от $TMP/commits — `grep -Fxf` фильтрует
-  # первый список по вхождению во второй, порядок первого сохраняется.
-  if [ -n "$OKNO_BASE" ]; then
-    g rev-list "$OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null || : > "$TMP/commits_okno"
-    grep -Fxf "$TMP/commits_okno" "$TMP/commits" > "$TMP/commits_isect" 2>/dev/null || : > "$TMP/commits_isect"
-    mv "$TMP/commits_isect" "$TMP/commits"
-  fi
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
