@@ -24,6 +24,7 @@ step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
 step	check:consumers-window-family-selftest	15	bash fixtures/check_consumers/krasnye_062.sh
 step	check:watchdog-082-family-selftest	20	bash fixtures/verify_antiplacebo/red_watchdog_082.sh
+step	check:cikl-perezapuska-085-family-selftest	20	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
 step	check:measure-probe	10	npm run check:measure-probe
 step	check:scope-select	10	npm run check:scope-select
 step	check:scoped-run	10	npm run check:scoped-run
