@@ -52,24 +52,20 @@ JOBS_B="# BEGIN GENERATED CI JOBS (083)"
 JOBS_E="# END GENERATED CI JOBS (083)"
 SHARDS_B="# BEGIN GENERATED CI SHARDS (083)"
 SHARDS_E="# END GENERATED CI SHARDS (083)"
-# CACHE SAVE (Б-1 фикс, ревьюер 083 круг 2 + A-372 архитектора): save-шаги кеша
-# 4 инкрементальных чеков (charter/zones/ids/protected) перенесены в
-# генерируемый блок, и каждый save-шаг получает условие
-# `contains(format(' {0} ', matrix.keys), ' check:X ')` — точная токенная форма
-# (пробелы-якоря по краям), ТОЛЬКО lane, несущая ключ X, сохраняет свой кеш.
-# Раньше save-шаги стояли в КАЖДОЙ из 7 lane без разбора: ключ actions/cache
-# неизменяем (побеждает lane, закончившая первой), часто это lane, которая чек
-# НЕ гоняла — она сохраняла восстановленную старую базу, и зелёный чек своей
-# lane кеш не продвигал (живой PR#49: окно 2→3 не продвинулось для zones).
-# Предыдущая форма `contains(matrix.keys, 'check:X')` была подстроковым
-# матчингом (живая находка A-372): lane l6 несёт ключи
-# `check:zones-call-budget check:protected-call-budget` — строка содержит
-# подстроки `check:zones` и `check:protected`, и save-условие для zones/protected
-# истинно на l6, хотя l6 эти чеки НЕ гоняет. `format(' {0} ', matrix.keys)`
-# обёртывает строку пробелами, и contains ищет точный токен `' check:X '` —
-# подстроковый матч исключён.
-CACHE_B="# BEGIN GENERATED CACHE SAVE (083)"
-CACHE_E="# END GENERATED CACHE SAVE (083)"
+# Контракт 083, инвариант 1: генерируются РОВНО ДВА блока — JOBS (matrix
+# include `lane`/`keys`) и SHARDS (shard include). Блок CACHE SAVE в
+# `.github/workflows/ci.yml` — СТАТИЧЕСКИЙ список 8 шагов (4 чека × push/
+# pull_request) с токенным условием `contains(format(' {0} ', matrix.keys),
+# ' check:X ')` (точная токенная форма, пробелы-якоря по краям, ИСКЛЮЧАЕТ
+# подстрочный матч на ключах-надстройках вроде `check:zones-call-budget` —
+# A-372 архитектора). CACHE SAVE НЕ зависит от реестра: lane-владение
+# судит Г10 независимо от генерации (батарея 083), `lane_i` в тексте блока
+# не входит — добавлять маркеры и CHECK_LANE-ветку python было паразитной
+# сложностью (ревьюер 083 круг 3, 050 ACCIDENTAL). Круг 4 (этот): блок
+# убран из генератора и возвращён в статическую форму — пишется один раз
+# руками и живёт в ci.yml как часть статической оболочки. Генератор
+# работает ТОЛЬКО с JOBS и SHARDS — никаких CACHE_B/CACHE_E/CHECK_LANE/
+# CACHE_MARKERS_PRESENT.
 
 # ── 1. Парсер реестра ────────────────────────────────────────────────────────
 K=""
@@ -202,45 +198,6 @@ SHARDS_GEN="$GEN_RUN/shards.txt"
   done
 } > "$SHARDS_GEN"
 
-# ── 5b. Генерация CACHE SAVE блока (Б-1 фикс) ─────────────────────────────
-# Обратное отображение: какой lane несёт какой check:X (X ∈ {charter, zones,
-# ids, protected}). Источник — LANE_KEYS, побайтово та же картина, что в JOBS
-# блоке; сумма-инвариант (каждый step-ключ ровно в одной lane) сохраняется.
-declare -A CHECK_LANE=()
-for i in $(seq 1 "$K"); do
-  for key in ${LANE_KEYS[$i]}; do
-    case "$key" in
-      check:charter|check:zones|check:ids|check:protected)
-        CHECK_LANE["$key"]="$i"
-        ;;
-    esac
-  done
-done
-
-CACHE_GEN="$GEN_RUN/cache.txt"
-{
-  for c in charter zones ids protected; do
-    full="check:$c"
-    lane_i="${CHECK_LANE[$full]:-}"
-    if [ -z "$lane_i" ]; then
-      printf 'gen_ci_steps: check %s не найден ни в одной lane реестра — save-шаг некуда привязать\n' "$c" >&2
-      exit 1
-    fi
-    # push save — ключ `ci-incr-<c>-<sha>` (общая запись main)
-    printf '      - if: contains(format('\'' {0} '\'', matrix.keys), '\'' check:%s '\'') && github.event_name == '\''push'\''\n' "$c"
-    printf '        uses: actions/cache/save@v4\n'
-    printf '        with:\n'
-    printf '          path: tmp/ci-incr/%s.sha\n' "$c"
-    printf '          key: ci-incr-%s-${{ github.sha }}\n' "$c"
-    # pr save — PR-scoped ключ `ci-incr-<c>-pr-<N>-<sha>` (N = PR number)
-    printf '      - if: contains(format('\'' {0} '\'', matrix.keys), '\'' check:%s '\'') && github.event_name == '\''pull_request'\''\n' "$c"
-    printf '        uses: actions/cache/save@v4\n'
-    printf '        with:\n'
-    printf '          path: tmp/ci-incr/%s.sha\n' "$c"
-    printf '          key: ci-incr-%s-pr-${{ github.event.pull_request.number }}-${{ github.sha }}\n' "$c"
-  done
-} > "$CACHE_GEN"
-
 # ── 6. Извлечение текущих блоков из ci.yml ──────────────────────────────────
 if ! grep -qF "$JOBS_B" "$CIYML"; then
   printf 'gen_ci_steps: предмет отсутствует: нет маркера %s в %s\n' "$JOBS_B" "$CIYML" >&2
@@ -250,13 +207,6 @@ if ! grep -qF "$SHARDS_B" "$CIYML"; then
   printf 'gen_ci_steps: предмет отсутствует: нет маркера %s в %s\n' "$SHARDS_B" "$CIYML" >&2
   exit 1
 fi
-# CACHE SAVE маркеры могут отсутствовать в старом ci.yml (до фикса Б-1) —
-# в этом случае extraction пропускается, --check упадёт (старая статика
-# не равна новой генерации), --write выполнит вставку.
-CACHE_MARKERS_PRESENT=0
-if grep -qF "$CACHE_B" "$CIYML" && grep -qF "$CACHE_E" "$CIYML"; then
-  CACHE_MARKERS_PRESENT=1
-fi
 
 # extract_block читает строки между маркерами (исключая сами маркеры).
 # Используем awk-скрипт, не модифицирующий ci.yml; текущее содержимое — во временный файл.
@@ -264,12 +214,8 @@ CUR_RUN="$(mktemp -d "${TMPDIR:-/tmp}/gen_ci_cur.XXXXXX")" || { printf 'gen_ci_s
 trap 'rm -rf "$GEN_RUN" "$CUR_RUN"' EXIT
 JOBS_CUR="$CUR_RUN/jobs.txt"
 SHARDS_CUR="$CUR_RUN/shards.txt"
-CACHE_CUR="$CUR_RUN/cache.txt"
 awk -v b="$JOBS_B" -v e="$JOBS_E" 'index($0,b)>0 && !f {f=1; next} index($0,e)>0 && f {f=0; next} f' "$CIYML" > "$JOBS_CUR"
 awk -v b="$SHARDS_B" -v e="$SHARDS_E" 'index($0,b)>0 && !f {f=1; next} index($0,e)>0 && f {f=0; next} f' "$CIYML" > "$SHARDS_CUR"
-if [ "$CACHE_MARKERS_PRESENT" -eq 1 ]; then
-  awk -v b="$CACHE_B" -v e="$CACHE_E" 'index($0,b)>0 && !f {f=1; next} index($0,e)>0 && f {f=0; next} f' "$CIYML" > "$CACHE_CUR"
-fi
 
 if [ "$MODE" = "check" ]; then
   bad=0
@@ -283,16 +229,6 @@ if [ "$MODE" = "check" ]; then
     printf 'gen_ci_steps: дрейф блока SHARDS — побайтовое расхождение с генерацией из реестра\n' >&2
     bad=1
   fi
-  if [ "$CACHE_MARKERS_PRESENT" -eq 1 ]; then
-    if ! cmp -s "$CACHE_CUR" "$CACHE_GEN"; then
-      diff "$CACHE_CUR" "$CACHE_GEN" >&2 || true
-      printf 'gen_ci_steps: дрейф блока CACHE SAVE — побайтовое расхождение с генерацией из реестра\n' >&2
-      bad=1
-    fi
-  else
-    printf 'gen_ci_steps: блок CACHE SAVE отсутствует в %s (Б-1 фикс: маркеры %s / %s должны быть)\n' "$CIYML" "$CACHE_B" "$CACHE_E" >&2
-    bad=1
-  fi
   [ "$bad" -eq 0 ] || exit 1
   exit 0
 fi
@@ -300,18 +236,15 @@ fi
 # MODE=write: заменить тела блоков в ci.yml. Делаем это простым python-парсером —
 # гарантированно побайтовая замена, без awk-проблем с multiline-args.
 [ -f "$CUR_RUN" ] && rm -rf "$CUR_RUN"
-python3 - "$CIYML" "$JOBS_B" "$JOBS_E" "$JOBS_GEN" "$SHARDS_B" "$SHARDS_E" "$SHARDS_GEN" "$CACHE_B" "$CACHE_E" "$CACHE_GEN" "$CACHE_MARKERS_PRESENT" <<'PY'
+python3 - "$CIYML" "$JOBS_B" "$JOBS_E" "$JOBS_GEN" "$SHARDS_B" "$SHARDS_E" "$SHARDS_GEN" <<'PY'
 import sys, re
-ciyml, jb, je, jg, sb, se, sg, cb, ce, cg, cache_present = sys.argv[1:12]
-cache_present = int(cache_present)
+ciyml, jb, je, jg, sb, se, sg = sys.argv[1:8]
 with open(ciyml, 'r', encoding='utf-8') as f:
     text = f.read()
 with open(jg, 'r', encoding='utf-8') as f:
     jgen = f.read().rstrip('\n')
 with open(sg, 'r', encoding='utf-8') as f:
     sgen = f.read().rstrip('\n')
-with open(cg, 'r', encoding='utf-8') as f:
-    cgen = f.read().rstrip('\n')
 
 # Маркеры в YAML — комментарии, на отдельной строке. Найдём начало строки,
 # где лежит маркер, и конец строки (включая \n). Заменяем ТОЛЬКО тело между
@@ -333,42 +266,6 @@ def replace_block(text, begin, end, new_body):
 
 text = replace_block(text, jb, je, jgen)
 text = replace_block(text, sb, se, sgen)
-
-# CACHE SAVE: два сценария.
-# 1) Маркеры есть в ci.yml — заменяем тело блока (побайтово, как JOBS/SHARDS).
-# 2) Маркеров нет (первый прогон после фикса Б-1) — удаляем 8 старых
-#    статических save-шагов (4 чека × push/pull_request) и вставляем блок
-#    CACHE SAVE с маркерами СРАЗУ после lane-шага `bash scripts/run_ci_lane.sh`.
-#    Старая статика имела `if: github.event_name == 'push'/'pull_request'` без
-#    per-lane условия — её сохранение вернуло бы баг (race всех 7 lane на
-#    один ключ actions/cache).
-if cache_present == 1:
-    text = replace_block(text, cb, ce, cgen)
-else:
-    # Удаляем 8 старых статических save-шагов. Паттерн покрывает ОБЕ формы
-    # (push и pull_request) и ОБЕ формы ключа (без -pr-<N>- и с ним).
-    old_save_re = re.compile(
-        r'      - if: github\.event_name == .(push|pull_request).\n'
-        r'        uses: actions/cache/save@v4\n'
-        r'        with:\n'
-        r'          path: tmp/ci-incr/\w+\.sha\n'
-        r'          key: ci-incr-\w+(?:-pr-\${{ github\.event\.pull_request\.number }})?-\${{ github\.sha }}\n'
-    )
-    text = old_save_re.sub('', text)
-    # Вставляем блок CACHE SAVE с маркерами после lane-шага. Между `name:`
-    # и `run:` в ci.yml лежит многострочный комментарий — regex пропускает
-    # любые строки между ними (не жадно).
-    lane_re = re.compile(
-        r'(      - name: Lane \$\{\{ matrix\.lane \}\}\n'
-        r'(?:[^\n]*\n)*?'
-        r'        run: bash scripts/run_ci_lane\.sh \$\{\{ matrix\.keys \}\}\n)'
-    )
-    cache_block = cb + '\n' + cgen + '\n' + ce
-    new_text, n_sub = lane_re.subn(r'\1' + cache_block + '\n', text, count=1)
-    if n_sub != 1:
-        sys.exit('не найден lane-шаг `bash scripts/run_ci_lane.sh` для вставки CACHE SAVE')
-    text = new_text
-
 with open(ciyml, 'w', encoding='utf-8') as f:
     f.write(text)
 PY

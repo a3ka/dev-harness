@@ -221,7 +221,23 @@ jobs:
         # include-блок в этой джобе генерируется `scripts/gen_ci_steps.sh --write`
         # и сверяется `--check` (правка руками красна поимённо).
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
-# BEGIN GENERATED CACHE SAVE (083)
+
+      # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
+      # v+1 — ранее save был только на push, и `actions/cache` для PR-ранов не
+      # прогревался: «прогрев» пустым коммитом невозможен, и А3 не достижим).
+      # СТАТИЧЕСКИЙ список 8 шагов (4 чека × push/pull_request): блок НЕ
+      # генерируется `scripts/gen_ci_steps.sh` (rev 4 — круг 4 implementer),
+      # чтобы не размывать его единственным покрываемым предметом («оба блока»
+      # JOBS/SHARDS по контракту :83-90) и не плодить CHECK_LANE/маркеры.
+      # Токенное условие `contains(format(' {0} ', matrix.keys), ' check:X ')`
+      # (точная токенная форма, пробелы-якоря по краям, ИСКЛЮЧАЕТ подстрочный
+      # матч на ключах-надстройках вроде `check:zones-call-budget` —
+      # A-372 архитектора): сохраняет ТОЛЬКО lane, несущая ключ X, и ни одна
+      # иная. На push — ключ `ci-incr-<check>-<sha>` (общая запись main); на
+      # pull_request — PR-scoped ключ `ci-incr-<check>-pr-<N>-<sha>` (N =
+      # github.event.pull_request.number), GitHub изолирует запись по PR и видит
+      # её только этому PR, push-путь main не затрагивается. Кеш
+      # `tmp/ci-incr/<check>.sha` мог обновиться внутри lane-шага (после `--incr`).
       - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'push'
         uses: actions/cache/save@v4
         with:
@@ -262,16 +278,6 @@ jobs:
         with:
           path: tmp/ci-incr/protected.sha
           key: ci-incr-protected-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-# END GENERATED CACHE SAVE (083)
-
-      # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
-      # v+1 — ранее save был только на push, и `actions/cache` для PR-ранов не
-      # прогревался: «прогрев» пустым коммитом невозможен, и А3 не достижим).
-      # На push — ключ `ci-incr-<check>-<sha>` (общая запись main); на
-      # pull_request — PR-scoped ключ `ci-incr-<check>-pr-<N>-<sha>` (N =
-      # github.event.pull_request.number), GitHub изолирует запись по PR и видит
-      # её только этому PR, push-путь main не затрагивается. Кеш
-      # `tmp/ci-incr/<check>.sha` мог обновиться внутри lane-шага (после `--incr`).
 
       - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
         # Прямой шаг ВНЕ матрицы по прецеденту 058/070/080: раннер `fixtures/_krasnye_083.sh`
