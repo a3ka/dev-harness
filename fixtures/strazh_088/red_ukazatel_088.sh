@@ -7,7 +7,7 @@
 # в заморозках оркестратора. Коммит — ЖИВЫМ способом: `-c user.name=orchestrator`,
 # пустой file-config, хук из core.hooksPath.
 #
-# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B30] [--sudja <файл>]
+# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B34] [--sudja <файл>]
 #   --sudja <файл> — подменить scripts/check_staged.sh тоу-репо (стаб-пак/диффпроба).
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
@@ -76,6 +76,32 @@
 #       досрочный `exit` на границе секции 1 рвал pipe →                  `printf|awk|grep` рвёт
 #       SIGPIPE 141 → ложный отказ И-7; фикс 9893dc5                       pipe; фикс 9893dc5
 #       изолирует чтение секции от grep                                   изолирует через `$(…)`)
+#   — замечание круг 11 (reviewer v5/v6 §Б-1, §Б-2): форма Н-214 покрывает ТОЛЬКО
+#       случай «первая секция мала, awk exit досрочно». На форме (б) находки
+#       («первая секция БОЛЬШАЯ, указатель в её начале») awk не делает досрочный
+#       exit (читает всю секцию, f=1 до `^## `) — SIGPIPE возникает ВТОРЫМ
+#       механизмом после захвата секции в переменную: OLD
+#       `printf '%s\n' "$section" | grep -Fxq` — grep -Fxq находит указатель на
+#       байте 1 секции, выходит → printf получает SIGPIPE 141 → `if ! pipeline`
+#       под pipefail уходит в ОТКАЗ И-7 — ложный отказ. HEAD ловит через
+#       here-string `<<<"$_section"` (9893dc5), SIGPIPE писателю невозможен —
+#       нет pipe. Круг 11 reviewer: B32 закрывает форму (в), форма (б) — B33.
+#       Круг 11 reviewer: клетки/стаба readlink rc 127 нет; откат fail-closed
+#       к `|| true` (M2) молча падает на дефолтный индекс. B34 закрывает.
+#   B33 легитимный HANDOFF.md, ПЕРВАЯ секция ≥100 КиБ,         → коммит (форма (б): awk
+#       указатель строкой №1 этой секции, хвост                 читает всю секцию, exit
+#       минимальный; честный коммит через живой хук            на `^## ` хвоста; SIGPIPE
+#       (HEAD). OLD код (откат 9893dc5 — here-string            нет, но на OLD после awk
+#       → printf '%s\n' "$section" | grep -Fxq) рвёт            grep -Fxq на байте 1
+#       pipe на байте 1 секции: grep выходит →                  секции → SIGPIPE printf;
+#       printf получает SIGPIPE 141 → false-FAIL.                M1 откат ловит, HEAD — нет)
+#   B34 staged HANDOFF.md без указателя в `<git-dir>/B34-index` → отказ «ОТКАЗ: канонизация
+#       (абсолютный путь под git-dir — readlink-канонизация    путей не удалась — readlink
+#       прошла бы, но шим `readlink` rc 127 на PATH;            rc=127…». Дефолтный индекс
+#       дефолтный `<r>/.git/index` — ЧИСТЫЙ (без staged);      ЧИСТЫЙ — на откате fail-closed
+#       прямой вызов check_staged.sh                           (M2 → `|| true`) rc 0
+#                                                                  «нечего судить», OTKAZ_READLINK_088
+#                                                                  НЕ возникает → sb27 красная
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -349,6 +375,69 @@ if nado B32; then
   [ "$sz" -ge 70000 ] || { printf 'NOT_IMPLEMENTED: B32 HANDOFF.md %d байт < 70000\n' "$sz" >&2; exit 2; }
   gx "$r" add -- HANDOFF.md || exit 2
   ozhidaj_b B32 "$r" prinjat
+fi
+
+if nado B33; then
+  mir B33
+  # Форма v5/v6 §(б) находки Б-2 круга 9: БОЛЬШАЯ ПЕРВАЯ секция (≥100 КиБ),
+  # указатель строкой №1 секции; хвост минимальный. ДРУГАЯ форма, не Н-214:
+  # awk НЕ делает досрочный exit (читает всю секцию, f=1 до `^## `),
+  # SIGPIPE возникает ВТОРЫМ механизмом после захвата секции в переменную —
+  # OLD `printf '%s\n' "$section" | grep -Fxq` рвёт pipe на байте 1 секции
+  # (grep находит указатель и выходит, printf получает SIGPIPE 141 → отказ
+  # И-7). HEAD ловит through here-string `<<<"$_section"` (9893dc5), SIGPIPE
+  # невозможен — нет pipe. B33 откат M1 (here-string → printf|grep) ловит,
+  # HEAD зелёная.
+  klet_big_pervaja "$r/HANDOFF.md"
+  sz="$(wc -c < "$r/HANDOFF.md")" || exit 2
+  [ "$sz" -ge 100000 ] || { printf 'NOT_IMPLEMENTED: B33 HANDOFF.md %d байт < 100000\n' "$sz" >&2; exit 2; }
+  gx "$r" add -- HANDOFF.md || exit 2
+  ozhidaj_b B33 "$r" prinjat
+fi
+
+if nado B34; then
+  mir B34
+  # Fail-closed-ветвь канонизации (production check_staged.sh:296-300).
+  # Шим readlink rc 127 на PATH; GIT_INDEX_FILE — абсолютный путь
+  # `<r>/.git/B34-index` (под git-dir, readlink -f бы прошёл канонизацию,
+  # шим — нет); в `<r>/.git/B34-index` — staged HANDOFF.md без указателя.
+  # Дефолтный `<r>/.git/index` ЧИСТЫЙ (без staged), иначе оба исхода
+  # (HEAD fail-closed и M2 fallback на дефолт) сведутся к «отказ по HANDOFF.md»
+  # и клетка ничего не покажет. Прямой вызов check_staged.sh через
+  # ozhidaj_b_readlink — `kommit_shim` (PATH включает шим-каталог).
+  # HEAD: rc 1 + OTKAZ_READLINK_088. M2 (откат к `|| true`): шим readlink
+  # возвращает пустую строку, rc 0 → проверка «пустая строка → откат на
+  # дефолт» пройдена → индекс хука = дефолтному (ЧИСТЫЙ) → `git diff --cached`
+  # пуст → rc 0 «нечего судить». OTKAZ_READLINK_088 НЕ возникает → sb27 красная.
+  shimdir="$SCR/B34-shim"
+  mkdir -p "$shimdir" || exit 2
+  cat > "$shimdir/readlink" <<'SHIMEOF'
+#!/usr/bin/env bash
+exit 127
+SHIMEOF
+  chmod +x "$shimdir/readlink"
+  # Дефолтный индекс — ЧИСТЫЙ (откат staged-мусораВA от построения мира).
+  gx "$r" read-tree HEAD || exit 2
+  # Строим staged в отдельном индексе под git-dir (абсолютный путь
+  # принят канонизацией; шим readlink его не канонизирует → fail-closed).
+  cp -- "$r/.git/index" "$SCR/B34-clean.index" || exit 2
+  handoff_v "$r/HANDOFF.md" net
+  _b34_sha="$(gx "$r" hash-object -w "$r/HANDOFF.md")" || exit 2
+  gx "$r" update-index --add --cacheinfo "100644,$_b34_sha,HANDOFF.md" >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: staged HANDOFF.md в B34-index не собран\n' >&2; exit 2; }
+  cp -- "$r/.git/index" "$r/.git/B34-index" || exit 2
+  cp -- "$SCR/B34-clean.index" "$r/.git/index" || exit 2
+  # Подтверждение мира: <r>/.git/index чист (staged пуст); <r>/.git/B34-index несёт HANDOFF.md
+  s34a="$(GIT_INDEX_FILE="$r/.git/index" gx "$r" diff --cached --name-only)" \
+    && [ -z "$s34a" ] \
+    || { printf 'NOT_IMPLEMENTED: дефолтный индекс B34 не чист: %s\n' "$s34a" >&2; exit 2; }
+  s34b="$(GIT_INDEX_FILE="$r/.git/B34-index" gx "$r" diff --cached --name-only)" \
+    && [ "$s34b" = HANDOFF.md ] \
+    || { printf 'NOT_IMPLEMENTED: B34-index не несёт HANDOFF.md: %s\n' "$s34b" >&2; exit 2; }
+  ozhidaj_b_readlink B34 "$r" "$shimdir" \
+      GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+      GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local \
+      GIT_INDEX_FILE="$r/.git/B34-index"
 fi
 
 itog_semji red_ukazatel_088.sh

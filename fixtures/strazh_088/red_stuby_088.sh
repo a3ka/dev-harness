@@ -56,6 +56,18 @@
 #                                              (sb* — тело целиком, не porcha: фикс
 #                                              многострочный, своп одной строки не
 #                                              восстанавливает дефект)
+#   — круг 11 (reviewer v5/v6 §Б-1, §Б-2): guard слеп к фиксам round10 —
+#   sb27 → B34 fail-closed-ветвь readlink канонизации снята (7fa38bf): возврат к
+#                                              `|| true` — readlink rc 127 → пустая
+#                                              строка rc 0 → «пустая → дефолт» проходит
+#                                              → индекс хука = дефолтному (ЧИСТЫЙ в B34)
+#                                              → «нечего судить» rc 0 — OTKAZ_READLINK_088
+#                                              не возникает (sb* — тело целиком)
+#   sb28 → B33 захват секции в переменную откатан (9893dc5) + printf|grep: на
+#                                              БОЛЬШОЙ первой секции grep находит
+#                                              указатель на байте 1, выходит →
+#                                              printf получает SIGPIPE 141 → false-FAIL
+#                                              (sb* — тело целиком; форма multi-statement)
 #
 # Мини-судьи (честный и sb*) несут строку отказа и строку-указатель ЛИТЕРАЛАМИ из памяти
 # оракула (OTKAZ_088, PTR_088 — _toy.sh, единый источник; арбитраж 088 круг 5: судья —
@@ -63,8 +75,8 @@
 # под --absolute-git-dir корня (иначе .git/index — гигиена 016); оракул в env субъектов не
 # передаётся (как и судимому).
 #
-# Использование: bash red_stuby_088.sh <корень>. Итог: «стаб-пак 088: N/35 поймано,
-# диффпроба M/35»; rc 0 ⟺ N = M = 35.
+# Использование: bash red_stuby_088.sh <корень>. Итог: «стаб-пак 088: N/39 поймано,
+# диффпроба M/39»; rc 0 ⟺ N = M = 39.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${1:-$HERE/../..}" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
@@ -243,10 +255,11 @@ porcha "$S" "$ST/sb23.sh" 'gd="$(git -C "$R" rev-parse --absolute-git-dir 2>/dev
 porcha "$S" "$ST/sb24.sh" "$VOZVRAT_IDX" '[ -z "$_idx" ] || export GIT_INDEX_FILE="$_idx"'
 
 # ── база для новых клеток круга 9 (310d467 readlink + 9893dc5 захват секции) ──
-# SC: мини-судья, НЕСУЩИЙ ОБЕ фиксы круг 9 — диффпроба B31/B32 (положительный
-# контроль). Канонизация `readlink -f` для GIT_INDEX_FILE (310d467), секция
-# HANDOFF захватывается в переменную (9893dc5). В остальном — структура и
-# орáкул (OTKAZ_088/PTR_088 в env) как у chestnyj.
+# SC: мини-судья, НЕСУЩИЙ ОБЕ фиксы круг 9 + fail-closed-ветвь readlink round10 —
+# диффпроба B31/B32/B33/B34 (положительный контроль). Канонизация `readlink -f`
+# для GIT_INDEX_FILE (310d467), секция HANDOFF захватывается в переменную
+# (9893dc5), fail-closed-ветвь readlink при rc≠0 или пустой канонизации (7fa38bf).
+# В остальном — структура и орáкул (OTKAZ_088/PTR_088 в env) как у chestnyj.
 SC="$ST/sudja_chestnyj_canon.sh"
 cat > "$SC" <<EOF
 #!/usr/bin/env bash
@@ -260,9 +273,15 @@ gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_
 case "\$_idx" in
   /*)
     if [ -f "\$_idx" ]; then
-      _o="\$(readlink -f -- "\$_idx" 2>/dev/null || true)"
-      _g="\$(readlink -f -- "\$gd" 2>/dev/null || true)"
-      if [ -n "\$_o" ] && [ -n "\$_g" ] && case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
+      _o="\$(readlink -f -- "\$_idx" 2>/dev/null)"; _rl_orig=\$?
+      _g="\$(readlink -f -- "\$gd" 2>/dev/null)"; _rl_dir=\$?
+      if [ "\$_rl_orig" -ne 0 ] || [ "\$_rl_dir" -ne 0 ] \\
+         || [ -z "\$_o" ] || [ -z "\$_g" ]; then
+        printf 'ОТКАЗ: канонизация путей не удалась — readlink rc=%s для индекса «%s», rc=%s для git-dir «%s»; индекс коммита не может быть принят без подтверждения «под git-dir», отказ (контракт 088)\\n' \\
+          "\$_rl_orig" "\$_idx" "\$_rl_dir" "\$gd" >&2
+        exit 1
+      fi
+      if case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
     fi
     ;;
 esac
@@ -321,9 +340,15 @@ gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_
 case "\$_idx" in
   /*)
     if [ -f "\$_idx" ]; then
-      _o="\$(readlink -f -- "\$_idx" 2>/dev/null || true)"
-      _g="\$(readlink -f -- "\$gd" 2>/dev/null || true)"
-      if [ -n "\$_o" ] && [ -n "\$_g" ] && case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
+      _o="\$(readlink -f -- "\$_idx" 2>/dev/null)"; _rl_orig=\$?
+      _g="\$(readlink -f -- "\$gd" 2>/dev/null)"; _rl_dir=\$?
+      if [ "\$_rl_orig" -ne 0 ] || [ "\$_rl_dir" -ne 0 ] \\
+         || [ -z "\$_o" ] || [ -z "\$_g" ]; then
+        printf 'ОТКАЗ: канонизация путей не удалась — readlink rc=%s для индекса «%s», rc=%s для git-dir «%s»; индекс коммита не может быть принят без подтверждения «под git-dir», отказ (контракт 088)\\n' \\
+          "\$_rl_orig" "\$_idx" "\$_rl_dir" "\$gd" >&2
+        exit 1
+      fi
+      if case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
     fi
     ;;
 esac
@@ -338,6 +363,83 @@ fi
 exit 0
 EOF
 chmod +x "$ST/sb26.sh"
+
+# sb27 → B34: fail-closed-ветвь readlink канонизации снята (откат round10 7fa38bf
+# к `|| true`). При шиме `readlink rc 127` readlink -f возвращает пустую строку
+# rc 0 → проверка «пустая → дефолт» проходит → GIT_INDEX_FILE = дефолтному
+# (ЧИСТЫЙ в B34) → `git diff --cached` пуст → rc 0 «нечего судить» — OTKAZ_READLINK_088
+# НЕ возникает → B34 красная на sb27. Канонизация readlink -f и секция в
+# переменную (9893dc5) сохранены (предмет B34 — fail-closed, не SIGPIPE).
+cat > "$ST/sb27.sh" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+R="\$1"
+OTKAZ_088=${OTKAZ_088@Q}
+_lit_ptr=${PTR_088@Q}
+_idx="\${GIT_INDEX_FILE:-}"
+unset GIT_INDEX_FILE
+gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
+case "\$_idx" in
+  /*)
+    if [ -f "\$_idx" ]; then
+      _o="\$(readlink -f -- "\$_idx" 2>/dev/null || true)"
+      _g="\$(readlink -f -- "\$gd" 2>/dev/null || true)"
+      if [ -n "\$_o" ] && [ -n "\$_g" ] && case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
+    fi
+    ;;
+esac
+PTR_088="\$_lit_ptr"
+sekcija() { awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'; }
+if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
+  _section="\$(git -C "\$R" show :HANDOFF.md 2>/dev/null | sekcija)"
+  if ! grep -Fxq -- "\$PTR_088" <<<"\$_section"; then
+    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
+  fi
+fi
+exit 0
+EOF
+chmod +x "$ST/sb27.sh"
+
+# sb28 → B33: захват секции в переменную (9893dc5) снят, возврат к OLD
+# `printf '%s\n' "$section" | grep -Fxq`. На форме v5 §(б) (БОЛЬШАЯ первая секция,
+# указатель строкой №1) grep -Fxq находит указатель на байте 1, выходит →
+# printf получает SIGPIPE 141 → `if ! pipeline` под pipefail уходит в ОТКАЗ И-7
+# — false-FAIL. Канонизация readlink + fail-closed (7fa38bf) сохранена.
+cat > "$ST/sb28.sh" <<EOF
+#!/usr/bin/env bash
+set -uo pipefail
+R="\$1"
+OTKAZ_088=${OTKAZ_088@Q}
+_lit_ptr=${PTR_088@Q}
+_idx="\${GIT_INDEX_FILE:-}"
+unset GIT_INDEX_FILE
+gd="\$(git -C "\$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\\n' >&2; exit 2; }
+case "\$_idx" in
+  /*)
+    if [ -f "\$_idx" ]; then
+      _o="\$(readlink -f -- "\$_idx" 2>/dev/null)"; _rl_orig=\$?
+      _g="\$(readlink -f -- "\$gd" 2>/dev/null)"; _rl_dir=\$?
+      if [ "\$_rl_orig" -ne 0 ] || [ "\$_rl_dir" -ne 0 ] \\
+         || [ -z "\$_o" ] || [ -z "\$_g" ]; then
+        printf 'ОТКАЗ: канонизация путей не удалась — readlink rc=%s для индекса «%s», rc=%s для git-dir «%s»; индекс коммита не может быть принят без подтверждения «под git-dir», отказ (контракт 088)\\n' \\
+          "\$_rl_orig" "\$_idx" "\$_rl_dir" "\$gd" >&2
+        exit 1
+      fi
+      if case "\$_o" in "\$_g"/*) export GIT_INDEX_FILE="\$_o" ;; esac; then :; fi
+    fi
+    ;;
+esac
+PTR_088="\$_lit_ptr"
+sekcija() { awk '!d && index(\$0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f'; }
+if git -C "\$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then
+  _section="\$(git -C "\$R" show :HANDOFF.md 2>/dev/null | sekcija)"
+  if ! printf '%s\\n' "\$_section" | grep -Fxq -- "\$PTR_088"; then
+    printf '%s\\n' "\$OTKAZ_088" >&2; exit 1
+  fi
+fi
+exit 0
+EOF
+chmod +x "$ST/sb28.sh"
 
 # ── прогон: стаб на своей клетке (красная), честный мини-субъект там же (зелёная) ──
 pojmano=0; diff_ok=0; vsego=0; itog=0
@@ -393,6 +495,9 @@ para sb24 red_ukazatel_088.sh --sudja "$S" B30
 # Круг 9: новые клетки под новый честный мини-судья ($SC — с обоими фиксами).
 para sb25 red_ukazatel_088.sh --sudja "$SC" B31
 para sb26 red_ukazatel_088.sh --sudja "$SC" B32
+# Круг 11: новые клетки под $SC (fail-closed добавлен в Н-2) — диффпроба.
+para sb27 red_ukazatel_088.sh --sudja "$SC" B34
+para sb28 red_ukazatel_088.sh --sudja "$SC" B33
 printf 'стаб-пак 088: %d/%d поймано, диффпроба %d/%d\n' "$pojmano" "$vsego" "$diff_ok" "$vsego"
-[ "$vsego" -eq 37 ] || { printf 'NOT_IMPLEMENTED: в паке %d стабов, ожидалось 37\n' "$vsego" >&2; exit 2; }
+[ "$vsego" -eq 39 ] || { printf 'NOT_IMPLEMENTED: в паке %d стабов, ожидалось 39\n' "$vsego" >&2; exit 2; }
 exit "$itog"
