@@ -274,6 +274,12 @@ collect_paths_incr() {
     while IFS=$'\t' read -r status path; do
       [ "$status" = "A" ] || continue
       [ -n "$path" ] || continue
+      # Путь добавлен ГДЕ-ТО в окне, но мог быть позже переименован/удалён
+      # С ТОГО ЖЕ пути в ТОМ ЖЕ окне (git log --diff-filter=A видит каждый
+      # add независимо от судьбы файла дальше по истории) — такой путь
+      # отсутствует на HEAD и не является артефактом, требующим тега: судим
+      # «что есть НА HEAD сейчас», как и полный режим (find по живому дереву).
+      git -C "$HERE" cat-file -e "HEAD:$path" 2>/dev/null || continue
       case "$path" in
         *.md) name="$(basename "$path")"; printf '%s\t%s\n' "$HERE/$path" "$name" ;;
       esac
