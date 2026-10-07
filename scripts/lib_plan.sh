@@ -125,17 +125,14 @@ p84_split_tsv() {
 # надёжный способ — искать NUL в СЫРЫХ БАЙТАХ ФАЙЛА через инструмент, читающий байты
 # напрямую. Используем `grep -naP '\x00' | head -1 | cut -d: -f1` (PCRE `(*UTF8)` тут
 # НЕ нужен: `\x00` — ASCII, в обоих режимах совпадает с байтом 0x00; главное — мы не
-# кладём файл в bash-переменную). Fallback — `awk '/\x00/{print NR; exit}'` (POSIX awk
-# работает на байтах; `(*UTF8)` PCRE здесь не подвластен LC_ALL, но и без него — побайтовая
-# операция). `head -1` гарантирует, что `cut -d: -f1` видит только первую строку grep
-# (а не строку после NUL, если grep сам не отрезал).
+# кладём файл в bash-переменную). `head -1` гарантирует, что `cut -d: -f1` видит только
+# первую строку grep (а не строку после NUL, если grep сам не отрезал). grep -P доступен
+# на этом раннере; без него разбор отказывает на первом id (примитивы алфавита И-1
+# используют grep -P без запасной ветви) — запасная ветвь не защищает ничего и
+# даёт неверный номер строки на busybox awk.
 p84_nul_line_in() {
   local file=$1
-  if printf 'a' | LC_ALL=C grep -qP 'a' 2>/dev/null; then
-    LC_ALL=C grep -naP '\x00' "$file" 2>/dev/null | head -1 | cut -d: -f1
-  else
-    LC_ALL=C awk '/\x00/{print NR; exit}' "$file"
-  fi
+  LC_ALL=C grep -naP '\x00' "$file" 2>/dev/null | head -1 | cut -d: -f1
 }
 
 # ── plan_parse <file> ─────────────────────────────────────────────────────────────
@@ -147,7 +144,7 @@ p84_nul_line_in() {
 # р11/А-084-1 (IFS=',' read -a отбрасывает хвостовой пустой элемент, ловим границы строки).
 # NUL внутри файла — Н3-1: ловим ДО разбора на строки/поля, по СЫРЫМ байтам (см. p84_nul_line_in).
 plan_parse() {
-  local file="$1" ln line id pair stage deps src track d2
+  local file="$1" ln line id pair stage deps src track d2 nul_line
   P84_ID=(); P84_PAIR=(); P84_STAGE=(); P84_DEPS=(); P84_SRC=(); P84_TRACK=(); P84_LINE=()
   P84_PLAN_ERR=''
   if [ ! -f "$file" ]; then
