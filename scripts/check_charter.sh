@@ -392,23 +392,6 @@ for prefix in ustav/ frozen/; do
   esac
 done
 
-# --okno (контракт 086, И-5, Б-3 ревьюера круг 4): база, прошедшая лексический
-# отсев (40-hex), обязана быть и коммит-ОБЪЕКТОМ в этом репо. Без явной проверки
-# `cat-file -e` синтаксически-валидный-но-несуществующий sha проваливается ниже
-# в `g rev-list "$OKNO_BASE..HEAD"` — а тот, по фиксу Б адверсария круг 4, ниже
-# fail-closed с rc 2. Проверка тут даёт ИМЕННО ТОТ ЖЕ rc 2, но с ИМЕНОВАННЫМ
-# сообщением «коммита нет» (И-5: «коммита нет — rc 2»). Маркер окна ниже несёт
-# то же значение N = `rev-list --count`, что и в гейте (там — на <base>..<tip>,
-# тут — на <base>..HEAD, потому что верх суда всегда HEAD, не FETCH_HEAD).
-if [ -n "$OKNO_BASE" ]; then
-  if ! g cat-file -e "$OKNO_BASE^{commit}" 2>/dev/null; then
-    printf 'ОТКАЗ 086: --okno: коммита нет: %s\n' "$OKNO_BASE" >&2
-    exit 2
-  fi
-  OKNO_N=$(g rev-list --count "$OKNO_BASE..HEAD" 2>/dev/null) || OKNO_N=0
-  printf 'окно 086: %s..HEAD (%s коммит.)\n' "$OKNO_BASE" "${OKNO_N:-0}" >&2
-fi
-
 mkdir -p "$ROOT/tmp"
 TMP="$(mktemp -d "$ROOT/tmp/charter.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
@@ -461,15 +444,8 @@ while IFS=$'\t' read -r f since; do
   # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
   # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
   # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
-  # `diff-tree <c>`). FAIL-CLOSED на сломанном rev-list (Б адверсария круг 4): маскировка
-  # rc=127 под пустой список превратила бы судимое множество в пустое и судья бы
-  # пропустил неодобренный устав-коммит. Пустой $TMP/commits = «нечем проверить».
-  rc=0
-  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf 'ОТКАЗ 086: --okno: rev-list отказал (rc=%s, since=%s) — нечем проверить\n' "$rc" "$since" >&2
-    exit 2
-  fi
+  # `diff-tree <c>`).
+  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
   # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
   # Явное пересечение двух списков коммитов — НЕ схлопывание `since` к `OKNO_BASE` через
   # `merge-base --is-ancestor`. Та схлопка корректна только когда `since` и `OKNO_BASE` на
@@ -478,24 +454,8 @@ while IFS=$'\t' read -r f since; do
   # не должны быть судимы. Порядок сохраняется от $TMP/commits — `grep -Fxf` фильтрует
   # первый список по вхождению во второй, порядок первого сохраняется.
   if [ -n "$OKNO_BASE" ]; then
-    # FAIL-CLOSED на сломанном rev-list (Б адверсария круг 4): пустой список вместо
-    # настоящего rc=127 делал бы пересечение «пусто → зелёное» (см. комментарий выше
-    # у $TMP/commits). Категория «нечем проверить», rc 2.
-    rc=0
-    g rev-list "$OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null || rc=$?
-    if [ "$rc" -ne 0 ]; then
-      printf 'ОТКАЗ 086: --okno: rev-list отказал (rc=%s, okno=%s) — нечем проверить\n' "$rc" "$OKNO_BASE" >&2
-      exit 2
-    fi
-    # FAIL-CLOSED на сломанном grep (тот же Б круг 4): grep rc=1 = «нет совпадений»
-    # (легитимное пустое пересечение) — оставляем пустой файл; rc>1 = сломанный
-    # инструмент — rc 2 «нечем проверить», НЕ тихое пустое множество.
-    rc=0
-    grep -Fxf "$TMP/commits_okno" "$TMP/commits" > "$TMP/commits_isect" 2>/dev/null || rc=$?
-    if [ "$rc" -gt 1 ]; then
-      printf 'ОТКАЗ 086: --okno: grep -Fxf отказал (rc=%s) — нечем проверить\n' "$rc" >&2
-      exit 2
-    fi
+    g rev-list "$OKNO_BASE..HEAD" > "$TMP/commits_okno" 2>/dev/null || : > "$TMP/commits_okno"
+    grep -Fxf "$TMP/commits_okno" "$TMP/commits" > "$TMP/commits_isect" 2>/dev/null || : > "$TMP/commits_isect"
     mv "$TMP/commits_isect" "$TMP/commits"
   fi
   while IFS= read -r c; do

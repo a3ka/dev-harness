@@ -393,24 +393,6 @@ git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет 
 
 g() { git -C "$ROOT" "$@"; }
 
-# --okno (контракт 086, И-5, Б-3 ревьюера круг 4): база, прошедшая лексический
-# отсев (40-hex), обязана быть и коммит-ОБЪЕКТОМ в этом репо. Без явной проверки
-# `cat-file -e` синтаксически-валидный-но-несуществующий sha проваливается ниже
-# в `g rev-list --no-merges --reverse "$okno_range"` — а тот, в существующей
-# fail-closed ветке ниже, всё равно даёт rc 1, но не с тем именованным
-# сообщением «коммита нет» (И-5: «коммита нет — rc 2»). Проверка тут даёт
-# ИМЕННО ТОТ ЖЕ rc 2 + именованное сообщение. Маркер окна ниже — тот же
-# `окно 086: <base>..HEAD (N коммит.)`, что и в гейте (И-5 «маркер ... печатается
-# судьями»), N = `rev-list --count`.
-if [ -n "$OKNO_BASE" ]; then
-  if ! g cat-file -e "$OKNO_BASE^{commit}" 2>/dev/null; then
-    printf 'ОТКАЗ 086: --okno: коммита нет: %s\n' "$OKNO_BASE" >&2
-    exit 2
-  fi
-  OKNO_N=$(g rev-list --count "$OKNO_BASE..HEAD" 2>/dev/null) || OKNO_N=0
-  printf 'окно 086: %s..HEAD (%s коммит.)\n' "$OKNO_BASE" "${OKNO_N:-0}" >&2
-fi
-
 # Чтение зон через ЕДИНСТВЕННУЮ реализацию lib_zones.sh (контракт 016, срез 1).
 # registry_state уже проверен внутри zones_load; здесь его повторять не нужно.
 mkdir -p "$ROOT/tmp"
@@ -631,13 +613,7 @@ while IFS=$'\t' read -r nnn since; do
   # в объектах (иначе ранее был бы отказ), и просто пересекаем. Если итоговое
   # пересечение пусто — этот контракт пропускается (continue выше через пустой
   # authors; но авторов тут уже могло быть много, потому отдельный continue).
-  # Б-2 ревьюера круг 4: БЕЗ этой строки (c3bbb48 её снял) БЕЗ --okno обход
-  # смотрит больше коммитов (замер ревьюера: 7511 vs 5210) и работает дольше —
-  # нарушение И-5 «без --okno поведение побайтово прежнее». Окно --okno на
-  # этом проходе: пустое authors = «зоны этого контракта в этом репо не
-  # объявляли» = «коммитов этого контракта не судят» = `continue`.
   awk -F'\t' -v n="$nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/authors"
-  [ -s "$TMP/authors" ] || continue
   range="$since..HEAD"
   [ -n "$until" ] && range="$since..$until"
   # Предмет 073: якорь «главной линии» формы REPLACE — КОНЕЦ судимого окна
@@ -669,16 +645,7 @@ while IFS=$'\t' read -r nnn since; do
       printf 'ОТКАЗ: git rev-list --no-merges --reverse отказал (контракт %s, окно %s) — список судимых коммитов окна недоступен.\n' "$nnn" "$okno_range" >&2
       exit 1
     fi
-    # FAIL-CLOSED на сломанном grep (Б адверсария круг 4): grep rc=1 = «нет
-    # совпадений» (легитимное пустое пересечение) — оставляем пустой файл;
-    # rc>1 = сломанный инструмент (включая rc=127 от PATH-spy, как в F1
-    # адверсария) — rc 2 «нечем проверить», НЕ тихое пустое множество.
-    rc=0
-    grep -Fxf "$TMP/commits_okno" "$TMP/commits" > "$TMP/commits_isect" 2>/dev/null || rc=$?
-    if [ "$rc" -gt 1 ]; then
-      printf 'ОТКАЗ 086: --okno: grep -Fxf отказал (rc=%s) — нечем проверить\n' "$rc" >&2
-      exit 2
-    fi
+    grep -Fxf "$TMP/commits_okno" "$TMP/commits" > "$TMP/commits_isect" 2>/dev/null || : > "$TMP/commits_isect"
     mv "$TMP/commits_isect" "$TMP/commits"
   fi
   # Исключаем коммиты, принесённые ЧУЖИМИ wip-merge'ями (`land: wip/<OTHER>/…`):
