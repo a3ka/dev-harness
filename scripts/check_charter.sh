@@ -53,7 +53,9 @@
 # ГРАНДФАЗЕР-АЛЛОУЛИСТ (контракт 046, ветвь 1, узкий non-rewriteable; 8-я пара — контракт
 # 065; 9-я/10-я — контракт 074; 11-я/12-я/13-я — Н-192, контракт 080; 14-я — squash-ленд
 # 080, Б-6 ревьюера, слово владельца 2026-10-04; 15-я/16-я — Н-213, sync-merge 2c01b1e,
-# слово владельца 2026-10-06) — 16 пар (SHA, путь),
+# слово владельца 2026-10-06; 17-я/18-я — контракт 084, И-12 перенос блока «Итоговый
+# порядок» ROADMAP.md на генерацию из registry/plan.tsv, слово владельца 2026-10-07) —
+# 18 пар (SHA, путь),
 # санкционированных владельцем: 7 текстом в сессии 2026-09-25 (источник — аннотации тегов
 # `frozen/contracts/037/2`, `frozen/contracts/043/2`, `frozen/contracts/045/2`), 8-я — прямым
 # словом 2026-09-30, записанным строкой РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле коммита-носителя этой пары,
@@ -82,7 +84,11 @@
 # wip/080/architect, замороженной тегом frozen/contracts/080/1, который указывает на orphan-
 # коммит вне истории ветки; блоб контракта побайтово идентичен v1; слово владельца 2026-10-03)
 # + 15-я/16-я пары (Н-213, один SHA `2c01b1ed`, два пути — sync-merge main→wip/083/architect,
-# слово владельца 2026-10-06):
+# слово владельца 2026-10-06) + 17-я/18-я пары (контракт 084, два SHA, оба путь ROADMAP.md —
+# контракт 084 заменил прозаический блок «Итоговый порядок» генерируемым из
+# registry/plan.tsv, по слову владельца в самом ROADMAP.md «после done реестра плана блок
+# порядка генерируется из registry/plan.tsv»; дальнейшие правки блока — только через
+# registry/plan.tsv со строкой владельца; слово владельца 2026-10-07):
 #   0872189c654c9728f2753c36a48f99a0322ad2fd  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md
 #   19678a0034fba8906a4103965516494de2ae58d2  contracts/037-samodostatochnyj-cwd-i-priemnik-task.md
 #   02f7b0cd0ce0172c66bdfe783648fa37cf853920  contracts/043-precizionnyj-prefriz-gejt.md
@@ -104,6 +110,11 @@
 #   (15-я/16-я: sync-merge main→wip/083/architect 2026-10-05 20:02, ЛОКАЛЬНЫЙ, никогда
 #   не пушен на origin — импортировал уже подписанные на main правки без переноса строк
 #   в сам merge; нового содержания нет; слово владельца 2026-10-06, Н-213)
+#   6609f708e7a35a384308245b6f21522868ab8313  ROADMAP.md
+#   797a3129410411f6e478c938e5218ada8ac1769d  ROADMAP.md
+#   (17-я/18-я: контракт 084 заменил прозаический блок «Итоговый порядок» генерируемым
+#   из registry/plan.tsv — по слову владельца в самом ROADMAP.md; дальнейшие правки блока
+#   только через registry/plan.tsv со строкой владельца; слово владельца 2026-10-07)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -248,6 +259,10 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
         ROADMAP.md|contracts/082-per-kejsnyj-dedlajn-verify-antiplacebo.md) return 0 ;;
       esac
       ;;
+    6609f708e7a35a384308245b6f21522868ab8313)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    797a3129410411f6e478c938e5218ada8ac1769d)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
   esac
 
   local body line path reason
@@ -302,6 +317,49 @@ fi
 incr_parse "$@"
 [ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
 set -- "${INCR_REST[@]}"
+
+# Разбор `--okno <база>` (контракт 086, И-5). Сужение диапазона каждого
+# уставного окна до <база>..HEAD. Без `--okno` — побайтово прежнее
+# поведение (прецедент --incr). Грамматика базы — `^[0-9a-f]{40}$`
+# (И-8): невалидная база — rc 1 «база окна вне грамматики sha».
+OKNO_BASE=""
+okno_parse() {
+  OKNO_BASE=""
+  local rest=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --okno)
+        if [ "$#" -lt 2 ]; then
+          printf 'ОТКАЗ 086: --okno требует аргумент-базу\n' >&2
+          return 1
+        fi
+        if ! printf '%s\n' "$2" | grep -Eqx '[0-9a-f]{40}'; then
+          printf 'ОТКАЗ 086: база окна вне грамматики sha: %s\n' "$2" >&2
+          return 1
+        fi
+        OKNO_BASE="$2"
+        shift 2
+        ;;
+      --okno=*)
+        local v="${1#--okno=}"
+        if ! printf '%s\n' "$v" | grep -Eqx '[0-9a-f]{40}'; then
+          printf 'ОТКАЗ 086: база окна вне грамматики sha: %s\n' "$v" >&2
+          return 1
+        fi
+        OKNO_BASE="$v"
+        shift
+        ;;
+      *)
+        rest+=("$1")
+        shift
+        ;;
+    esac
+  done
+  OKNO_REST=("${rest[@]}")
+  return 0
+}
+okno_parse "$@" || exit 1
+set -- "${OKNO_REST[@]}"
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 INCR_GIT_ROOT="$ROOT"
@@ -381,6 +439,17 @@ while IFS=$'\t' read -r f since; do
     # заморозки попадут в проверяемое окно как «уставные без разрешения».
     if g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
       since="$INCR_BASE"
+    fi
+  fi
+  # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
+  # Честный захват rc (НЕ `if !`): аномалия трактуется как «не предок».
+  if [ -n "$OKNO_BASE" ]; then
+    # Паттерн `cmd || rc=$?` (а не `cmd; rc=$?`) — `set -euo pipefail` иначе убивает
+    # скрипт на ненулевом rc функции `g` (Б-8 ревьюера круг 4, общий класс с check_zones).
+    rc_a=0
+    g merge-base --is-ancestor "$OKNO_BASE" "$since" >/dev/null 2>&1 || rc_a=$?
+    if [ "$rc_a" -eq 1 ]; then
+      since="$OKNO_BASE"
     fi
   fi
   # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную

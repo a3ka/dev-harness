@@ -283,6 +283,51 @@ incr_parse "$@"
 [ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
 set -- "${INCR_REST[@]}"
 
+# Разбор `--okno <база>` (контракт 086, И-5). Сужение диапазона каждого
+# контрактного окна до <база>..HEAD. Без `--okno` — побайтово прежнее
+# поведение (прецедент --incr). Грамматика базы — `^[0-9a-f]{40}$`
+# (И-8): невалидная база — rc 1 «база окна вне грамматики sha». Проверка
+# базы как коммит-объекта идёт ПОСЛЕ установки ROOT, здесь только
+# лексический отсев (ранний отказ без инициализации).
+OKNO_BASE=""
+okno_parse() {
+  OKNO_BASE=""
+  local rest=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --okno)
+        if [ "$#" -lt 2 ]; then
+          printf 'ОТКАЗ 086: --okno требует аргумент-базу\n' >&2
+          return 1
+        fi
+        if ! printf '%s\n' "$2" | grep -Eqx '[0-9a-f]{40}'; then
+          printf 'ОТКАЗ 086: база окна вне грамматики sha: %s\n' "$2" >&2
+          return 1
+        fi
+        OKNO_BASE="$2"
+        shift 2
+        ;;
+      --okno=*)
+        local v="${1#--okno=}"
+        if ! printf '%s\n' "$v" | grep -Eqx '[0-9a-f]{40}'; then
+          printf 'ОТКАЗ 086: база окна вне грамматики sha: %s\n' "$v" >&2
+          return 1
+        fi
+        OKNO_BASE="$v"
+        shift
+        ;;
+      *)
+        rest+=("$1")
+        shift
+        ;;
+    esac
+  done
+  OKNO_REST=("${rest[@]}")
+  return 0
+}
+okno_parse "$@" || exit 1
+set -- "${OKNO_REST[@]}"
+
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 INCR_GIT_ROOT="$ROOT"
 # LIB_ZONES_ROOT — канонический корень, от которого __lib_zones_cleanup вычисляет
@@ -561,8 +606,30 @@ while IFS=$'\t' read -r nnn since; do
     since="$INCR_BASE"
     until=""
   fi
+  # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
+  # База может быть ПОЗЖЕ since контрактного окна (тогда since растёт до базы)
+  # или РАНЬШЕ (тогда сужение ничего не меняет). Проверка объекта-коммита базы —
+  # сразу после установки ROOT в основном теле; здесь мы знаем, что база лежит
+  # в объектах (иначе ранее был бы отказ), и просто пересекаем. Если итоговое
+  # пересечение пусто — этот контракт пропускается (continue выше через пустой
+  # authors; но авторов тут уже могло быть много, потому отдельный continue).
+  if [ -n "$OKNO_BASE" ]; then
+    # Корректное сравнение: если OKNO_BASE не предок since, since := OKNO_BASE.
+    # merge-base --is-ancestor выдаёт 0 (предок) / 1 (не предок) / иной rc (аномалия).
+    # Паттерн `cmd || rc=$?` (а не `cmd; rc=$?`) — `set -euo pipefail` иначе убивает
+    # скрипт на ненулевом rc функции `g`, даже если `rc=$?` идёт следующим:
+    # bash-семантика `set -e` срабатывает на КАЖДОЙ команде, чей rc не равен 0, КРОМЕ
+    # случаев в условных/логических контекстах. `cmd || rc=$?` — логический контекст;
+    # `cmd; rc=$?` — НЕ (пост-фиксный `;` не подавляет). Поймано в реализации
+    # раунд 4: `g merge-base --is-ancestor` возвращал 1 (не предок) и set -e убивал
+    # скрипт ДО `rc_a=$?`.
+    rc_a=0
+    g merge-base --is-ancestor "$OKNO_BASE" "$since" >/dev/null 2>&1 || rc_a=$?
+    if [ "$rc_a" -eq 1 ]; then
+      since="$OKNO_BASE"
+    fi
+  fi
   awk -F'\t' -v n="$nnn" '$3 == n { print $1 }' "$TMP/zones_scoped" | sort -u > "$TMP/authors"
-  [ -s "$TMP/authors" ] || continue
   range="$since..HEAD"
   [ -n "$until" ] && range="$since..$until"
   # Предмет 073: якорь «главной линии» формы REPLACE — КОНЕЦ судимого окна

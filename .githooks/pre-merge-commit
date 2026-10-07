@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# ХУК pre-merge-commit (контракт 086, Н-119, И-3): запрет sync-merge ДО создания
+# merge-коммита. Срабатывает, когда пользователь запускает `git merge` в репозитории
+# с активным core.hooksPath=.githooks. Без хука merge создаётся в обход гейта accept/land,
+# и нарушение (б) «sync-merge» ловится только при приёмке — задержка в часы (Н-119).
+#
+# СУБЪЕКТ ХУКА — «правило (б) sync-merge» (Frontier 4, И-3): merge M синхронный ⟺
+# у M есть родители P ≠ Q, где P — предок main/origin/main и P не предок Q.
+# Хук НЕ ЗАПУСКАЕТ правила (а) и (в) — это забота точек accept и land (где есть
+# доступ к замороженным тегам и полной истории). Хук видит текущий merge и
+# решает, можно ли его создавать.
+#
+# ТЕКУЩАЯ ВЕТКА main — пропуск (направление ленда; сама land_agent.sh вызывает
+# гейт сведения ДО merge, и гейт уже всё проверил).
+#
+# ГОЛОВЫ ИЗ GIT_REFLOG_ACTION (замер 1 контракта 086 + замер 5 арбитра 086 круг 3:
+# во время pre-merge-commit MERGE_HEAD ещё не записан; вливаемые головы — имена
+# из `GIT_REFLOG_ACTION` формы `merge <имя>…`, каждое резолвится в коммит).
+# Иная форма (включая `pull …`) — отказ (Frontier 5, И-3, Б-4' ревьюера):
+# `git pull` создаёт merge с main в качестве родителя при активных хуках (Н-213/Н-119
+# сценарий) — ровно то, что хук ОБЯЗАН ловить. Раньше `exit 0` (fail-open) эту
+# дыру не закрывал. Имя не резолвится в коммит — отказ (тот же класс).
+#
+# ПРЕДИКАТ (б) — ОДИН с гейтом (Frontier 7, Б-7 ревьюера круг 4): хук НЕ
+# дублирует логику merge-base --is-ancestor, а зовёт
+# `gejt_svedenija.sh hook <корень> pre-merge-commit <p1> <p2>…`,
+# который и реализует предикат (та же функция, что для гейта в режиме okno).
+# rc 0 — merge чист; rc 1 — отказ (ОТКАЗ-строка уже напечатана гейтом).
+# Синхронный код — единственный источник истины (б).
+#
+# ГРАММАТИКА ОТКАЗА (И-4 контракта 086, единый источник — гейт сведения):
+#   Строка отказа начинается `ОТКАЗ 086 (pre-merge-commit): `, несёт ярлык
+#   `правило (б) sync-merge` со своим выходом. Контекст — полные 40-hex sha
+#   родителей merge (И-4 «(б) … либо родителей (хук)»). Выход:
+#   «пересобери ветку без merge main». Ярлыка несработавшего правила в выводе нет.
+#
+# КОДЫ ВОЗВРАТА: 0 — merge можно создавать, 1 — именованный отказ,
+# 2 — нечем проверить (нет git / не репозиторий / не HEAD).
+set -uo pipefail
+
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+# Точка вызова: SELF_DIR — каталог скриптов, чтобы звать `gejt_svedenija.sh`
+# (единый источник, контракт 034). Хук лежит в .githooks/pre-merge-commit,
+# скрипт — в scripts/gejt_svedenija.sh (стандартное размещение).
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  printf 'NOT_IMPLEMENTED: не удалось определить корень\n' >&2; exit 2; }
+[ -d "$ROOT" ] || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
+git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
+  || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$ROOT" >&2; exit 2; }
+git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 \
+  || { printf 'NOT_IMPLEMENTED: в %s нет ни одного коммита\n' "$ROOT" >&2; exit 2; }
+
+# Текущая ветка. main — пропуск (направление ленда; сам ленд зовёт гейт
+# сведения, и (б) уже проверен).
+CUR_BRANCH="$(git -C "$ROOT" symbolic-ref -q --short HEAD 2>/dev/null || true)"
+if [ "$CUR_BRANCH" = "main" ]; then
+  exit 0
+fi
+
+# Головы из GIT_REFLOG_ACTION. Форма — `merge <имя…>` (замер 1 контракта 086 +
+# замер 5 арбитра 086 круг 3). Иная форма (включая `pull …`, пустую) — отказ
+# (Frontier 5 + 7, Б-4' ревьюера). Раньше было `exit 0` (fail-open) — это
+# позволяло `git pull --no-rebase <R> main` создать sync-merge в wip-worktree.
+REFLOG="${GIT_REFLOG_ACTION:-}"
+case "$REFLOG" in
+  'merge '*)
+    HEADS_LINE="${REFLOG#merge }"
+    ;;
+  *)
+    # Пустая или иная форма (`pull …`, `merge --abort`, `merge --ff-only`, …) —
+    # именованный отказ rc 1, merge не создан. Это противоположность прежнего
+    # `exit 0` (fail-open), который и был Б-4' ревьюера.
+    printf 'ОТКАЗ 086 (pre-merge-commit): правило (б) sync-merge; форма рефлога вне грамматики «merge <имя>…»: %s\n' "$REFLOG" >&2
+    printf 'выход: пересобери ветку без merge main\n' >&2
+    exit 1
+    ;;
+esac
+
+# Пустая строка после `merge ` — синтаксически не парсится; отказ.
+[ -n "$HEADS_LINE" ] || {
+  printf 'ОТКАЗ 086 (pre-merge-commit): правило (б) sync-merge; пусто после «merge » в GIT_REFLOG_ACTION\n' >&2
+  printf 'выход: пересобери ветку без merge main\n' >&2
+  exit 1; }
+
+# Текущая голова (HEAD) — кандидат в один из родителей merge.
+HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+
+# Сводим имена в коммиты один раз. Множество родителей merge = {H ∈ HEADS_LINE}
+# ∪ {HEAD_SHA} — покрывает detached-HEAD-на-main (Б-4' ревьюера): main как
+# родитель НЕ пропущен, когда HEAD на main-sha.
+PARENTS=""
+RESOLVED=0
+UNRESOLVED=""
+for h in $HEADS_LINE HEAD; do
+  if [ "$h" = "HEAD" ]; then
+    c="$HEAD_SHA"
+  else
+    c="$(git -C "$ROOT" rev-parse --verify --quiet "${h}^{commit}" 2>/dev/null)" || {
+      # Имя не резолвится в коммит — именованный отказ (Frontier 5 + 7).
+      UNRESOLVED="$UNRESOLVED $h"
+      continue; }
+  fi
+  [ -n "$c" ] || continue
+  # Дедуп по 40-hex sha (одно и то же имя может встретиться и как HEAD, и в HEADS_LINE).
+  case " $PARENTS " in
+    *" $c "*) ;;
+    *) PARENTS="$PARENTS $c"; RESOLVED=$((RESOLVED + 1)) ;;
+  esac
+done
+
+if [ -n "$UNRESOLVED" ]; then
+  printf 'ОТКАЗ 086 (pre-merge-commit): правило (б) sync-merge; имя не резолвится в коммит:%s\n' "$UNRESOLVED" >&2
+  printf 'выход: пересобери ветку без merge main\n' >&2
+  exit 1
+fi
+
+if [ "$RESOLVED" -lt 2 ]; then
+  # Меньше двух валидных родителей (один — HEAD, и в HEADS_LINE ничего не
+  # резолвится дополнительно) — это merge с ОДНИМ родителем, не merge.
+  # pre-merge-commit на одно-родительский случай не срабатывает, но страховка
+  # от дегенеративных входов не повредит (пробой rc 2).
+  printf 'NOT_IMPLEMENTED: меньше двух разрешённых родителей merge\n' >&2
+  exit 2
+fi
+
+# Предикат (б) — ОДИН с гейтом (Frontier 7, Б-7 ревьюера круг 4). Хук зовёт
+# гейт; гейт печатает ОТКАЗ-строку и выходит с rc 1 при sync. Это не
+# дублирование логики: общее тело предиката живёт в gejt_svedenija.sh
+# (sync_violation_pairs), хук только собирает список родителей.
+# Захватываем rc ЯВНО (после `if !` `$?` уже флипан и rc=0; тут ловушка;
+# Б-8 ревьюера круг 4).
+GEJT_RC=0
+bash "$SELF_DIR/scripts/gejt_svedenija.sh" hook "$ROOT" pre-merge-commit $PARENTS || GEJT_RC=$?
+if [ "$GEJT_RC" -ne 0 ]; then
+  # Гейт уже напечатал ОТКАЗ-строку. rc 1 → отказ (merge не создан);
+  # rc 2 (NOT_IMPLEMENTED) → отказ хука (проблема видима пользователю).
+  exit "$GEJT_RC"
+fi
+
+exit 0
