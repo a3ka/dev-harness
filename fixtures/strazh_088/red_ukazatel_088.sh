@@ -7,12 +7,12 @@
 # в заморозках оркестратора. Коммит — ЖИВЫМ способом: `-c user.name=orchestrator`,
 # пустой file-config, хук из core.hooksPath.
 #
-# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B18] [--sudja <файл>]
+# Использование: bash red_ukazatel_088.sh <корень> [B0 B1 … B30] [--sudja <файл>]
 #   --sudja <файл> — подменить scripts/check_staged.sh тоу-репо (стаб-пак/диффпроба).
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
 # Клетки (вход → ожидание; ДО 088 красны B1 B2 B3 B4 B6 B7 B11 B14 B15 B16 B17 B18;
-# на 6f29c59 — B15 B16 B17 B18):
+# на 6f29c59 — B15 B16 B17 B18; на fb08e98 — B19…B29, B30 там зелёная — пара-негатив Б-2):
 #   B0  первая секция несёт строку                          → коммит
 #   B1  строки нет нигде                                     → отказ
 #   B2  строка укорочена (без хвоста «(инвентарь…)»)         → отказ (измеренный отказ 06.10)
@@ -35,6 +35,27 @@
 #   B17 как B1, env коммитёра OTKAZ_088=ATAKA_088              → отказ ровно строкой И-7
 #       (adversary 088-v2 §3)
 #   B18 как B11, env коммитёра OTKAZ_088=ATAKA_088             → отказ ровно строкой И-7
+#   — Б-1 арбитража 088 круг 5: k7 — константа судьи, 074 ничем не читается —
+#   B19 строки нет; k7 снята с ИНДЕКСА (`git rm --cached`) → отказ (пустой источник ≠ «не судить»)
+#   B20 строки нет; в k7 индекса ВТОРОЕ присваивание         → отказ (неоднозначный источник)
+#       HANDOFF_PTR=ATAKA_088
+#   B21 первая секция несёт ATAKA_088; k7 ИНДЕКСА переписана → отказ (k7 индекса — не источник)
+#       на HANDOFF_PTR=ATAKA_088 (staged)
+#   B22 дрейф k7: копия корня, где HANDOFF_PTR 074 дополнен   → дочерний прогон B0 этой копии
+#       « (дрейф)», судья тот же                                   КРАСЕН (константа судьи ≠ k7;
+#                                                                   контракт: Frontier п.6)
+#   — Б-2: судится индекс КОММИТА (GIT_INDEX_FILE хука), индекс ≠ рабочее дерево —
+#   B23 commit -a: индекс со строкой, рабочее дерево — без   → отказ
+#   B24 commit -a: индекс без строки, рабочее дерево — со     → коммит
+#   B25 commit -- HANDOFF.md: индекс со строкой, дерево — без → отказ
+#   B26 commit -- HANDOFF.md: индекс без строки, дерево — со  → коммит
+#   B27 commit -i HANDOFF.md: индекс со строкой, дерево — без → отказ
+#   B28 commit -i HANDOFF.md: индекс без строки, дерево — со  → коммит
+#   B29 как B23, в СВЯЗАННОМ worktree тоу-репо (.git — gitfile) → отказ (индекс — под
+#                                                                   --absolute-git-dir)
+#   B30 прямой вызов судьи `check_staged.sh <корень>`: staged → отказ (унаследованный
+#       без строки, env GIT_INDEX_FILE — копия индекса того же     GIT_INDEX_FILE вне git-dir
+#       HEAD вне git-dir (staged пуст)                             корня не судится; гигиена 016)
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -153,6 +174,103 @@ if nado B18; then
   mir B18
   gx "$r" rm -q -- HANDOFF.md || exit 2
   ozhidaj_b B18 "$r" otkaz OTKAZ_088="$ATAKA_088"
+fi
+
+if nado B19; then
+  mir B19
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  gx "$r" rm -q --cached -- "$K7" || exit 2
+  if gx "$r" cat-file -e ":$K7" 2>/dev/null || [ ! -f "$r/$K7" ]; then
+    printf 'NOT_IMPLEMENTED: мир B19 — k7 не снята с индекса либо пропала из дерева\n' >&2; exit 2
+  fi
+  ozhidaj_b B19 "$r" otkaz
+fi
+
+if nado B20; then
+  mir B20
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  printf "HANDOFF_PTR='%s'\n" "$ATAKA_088" >> "$r/$K7" && gx "$r" add -- "$K7" || exit 2
+  mapfile -t _p20 < <(gx "$r" show ":$K7" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
+  [ "${#_p20[@]}" -eq 2 ] || { printf 'NOT_IMPLEMENTED: k7 индекса мира B20 — не два присваивания\n' >&2; exit 2; }
+  ozhidaj_b B20 "$r" otkaz
+fi
+
+if nado B21; then
+  mir B21
+  handoff_v "$r/HANDOFF.md" chuzhaja; gx "$r" add -- HANDOFF.md || exit 2
+  sed -i "s/^HANDOFF_PTR='.*'\$/HANDOFF_PTR='$ATAKA_088'/" "$r/$K7" && gx "$r" add -- "$K7" || exit 2
+  mapfile -t _p21 < <(gx "$r" show ":$K7" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
+  [ "${#_p21[@]}" -eq 1 ] && [ "${_p21[0]}" = "$ATAKA_088" ] \
+    || { printf 'NOT_IMPLEMENTED: k7 индекса мира B21 не переписана на ATAKA_088\n' >&2; exit 2; }
+  ozhidaj_b B21 "$r" otkaz
+fi
+
+if nado B22; then
+  k22="$SCR/B22-koren"
+  mkdir -p "$k22/fixtures/ops_server" || exit 2
+  cp -R -- "$ROOT/scripts" "$k22/scripts" && cp -R -- "$ROOT/.githooks" "$k22/.githooks" || exit 2
+  python3 - "$SRC074" "$k22/$K7" "HANDOFF_PTR='$PTR_088'" "HANDOFF_PTR='$PTR_088 (дрейф)'" <<'PY' \
+    || { printf 'NOT_IMPLEMENTED: дрейф k7 мира B22 не построен\n' >&2; exit 2; }
+import sys
+src, dst, old, new = sys.argv[1:5]
+stroki = open(src, encoding='utf-8').read().split('\n')
+if stroki.count(old) != 1:
+    sys.exit(1)
+open(dst, 'w', encoding='utf-8').write('\n'.join(new if s == old else s for s in stroki))
+PY
+  sud22=()
+  [ -z "$SUDJA" ] || sud22=(--sudja "$SUDJA")
+  bash "$HERE/red_ukazatel_088.sh" "$k22" B0 "${sud22[@]}" >"$SCR/B22.out" 2>&1; rc22=$?
+  if [ "$rc22" -eq 1 ] && grep -q '^КРАСНО: B0: ' "$SCR/B22.out"; then
+    zeleno B22
+  elif [ "$rc22" -eq 2 ]; then
+    printf 'NOT_IMPLEMENTED: дочерний прогон B22 — rc 2: %s\n' "$(head -c 300 "$SCR/B22.out" | tr '\n' ' ')" >&2; exit 2
+  else
+    krasno "B22: дрейф k7 не виден — HANDOFF_PTR копии корня сдвинут, судья прежний, B0 копии rc=$rc22: $(grep -m1 -F ': B0' "$SCR/B22.out")"
+  fi
+fi
+
+# klet_forma <клетка> <вариант индекса> <вариант рабочего дерева> <ожидание> <форма commit…>
+# — индекс и рабочее дерево расходятся; что попадёт в коммит, решает форма commit.
+klet_forma() {
+  local c="$1" vi="$2" vd="$3" ozh="$4"
+  shift 4
+  mir "$c"
+  handoff_v "$r/HANDOFF.md" "$vi"; gx "$r" add -- HANDOFF.md || exit 2
+  handoff_v "$r/HANDOFF.md" "$vd"
+  ozhidaj_b "$c" "$r" "$ozh" -- "$@"
+}
+nado B23 && klet_forma B23 podrazdel net otkaz -a
+nado B24 && klet_forma B24 net pervaja prinjat -a
+nado B25 && klet_forma B25 podrazdel net otkaz -- HANDOFF.md
+nado B26 && klet_forma B26 net pervaja prinjat -- HANDOFF.md
+nado B27 && klet_forma B27 podrazdel net otkaz -i HANDOFF.md
+nado B28 && klet_forma B28 net pervaja prinjat -i HANDOFF.md
+
+if nado B29; then
+  mir B29
+  w="$SCR/B29-wt"
+  gx "$r" worktree add -q --detach "$w" || exit 2
+  [ -f "$w/.git" ] || { printf 'NOT_IMPLEMENTED: .git связанного worktree мира B29 — не gitfile\n' >&2; exit 2; }
+  handoff_v "$w/HANDOFF.md" podrazdel; gx "$w" add -- HANDOFF.md || exit 2
+  handoff_v "$w/HANDOFF.md" net
+  ozhidaj_b B29 "$w" otkaz -- -a
+fi
+
+if nado B30; then
+  mir B30
+  cp -- "$r/.git/index" "$SCR/B30-chuzhoj.index" || exit 2
+  handoff_v "$r/HANDOFF.md" net; gx "$r" add -- HANDOFF.md || exit 2
+  s30="$(GIT_INDEX_FILE="$SCR/B30-chuzhoj.index" gx "$r" diff --cached --name-only)" && [ -z "$s30" ] \
+    || { printf 'NOT_IMPLEMENTED: чужой индекс мира B30 несёт staged: %s\n' "$s30" >&2; exit 2; }
+  env GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_INDEX_FILE="$SCR/B30-chuzhoj.index" \
+      GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local \
+      bash "$r/scripts/check_staged.sh" "$r" >/dev/null 2>"$SCR/kommit.err"; rc30=$?
+  if [ "$rc30" -ne 0 ] && grep -Fxq -- "$OTKAZ_088" "$SCR/kommit.err"; then
+    zeleno B30
+  else
+    krasno "B30: ожидался отказ «$OTKAZ_088» (судится индекс корня), получено rc=$rc30: $(head -c 300 "$SCR/kommit.err" | tr '\n' ' ')"
+  fi
 fi
 
 itog_semji red_ukazatel_088.sh
