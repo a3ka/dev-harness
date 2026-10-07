@@ -128,12 +128,17 @@ if [ "$dir" = contracts ]; then
   if [ -f "$SELF_DIR/lib_plan.sh" ]; then
     # shellcheck disable=SC1091
     . "$SELF_DIR/lib_plan.sh"
-    _F084_plan_blob="$(g cat-file -p HEAD:registry/plan.tsv 2>/dev/null || true)"
-    if [ -z "$_F084_plan_blob" ]; then
+    # Чтение плана через command substitution стёрло бы хвостовой LF; пишем блоб напрямую
+    # в tmp, чтобы байт-инвариант И-1 (UTF-8/LF) сохранился (А-084-2). Проверка «не пусто»
+    # делается по размеру tmp.
+    _F084_plan_tmp="$(mktemp)"
+    if ! g cat-file -p HEAD:registry/plan.tsv > "$_F084_plan_tmp" 2>/dev/null; then
+      rm -f "$_F084_plan_tmp"
+      printf '  ok   план не заведён: проверка «вне плана» не применяется\n' >&2
+    elif [ ! -s "$_F084_plan_tmp" ]; then
+      rm -f "$_F084_plan_tmp"
       printf '  ok   план не заведён: проверка «вне плана» не применяется\n' >&2
     else
-      _F084_plan_tmp="$(mktemp)"
-      printf '%s' "$_F084_plan_blob" > "$_F084_plan_tmp"
       if ! plan_parse "$_F084_plan_tmp"; then
         rm -f "$_F084_plan_tmp"
         die "план недоступен: ${P84_PLAN_ERR}"
