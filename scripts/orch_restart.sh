@@ -96,10 +96,22 @@ if [ -z "${ORCH_SESS_GLOB:-}" ] && [ -z "${ORCH_SESS_DIR:-}" ]; then
     printf 'NOT_IMPLEMENTED: getent passwd не дал дома\n' >&2
     exit 2
   fi
+  # Контракт 088, круг 5, Б-3/D1-general: экранируем glob-метасимволы
+  # `[][\*?\\` в ДОМЕ из passwd ПЕРЕД подстановкой в `ORCH_SESS_GLOB` —
+  # иначе bash трактует их как glob-метасимволы (D7: `[*` в имени каталога
+  # развернёт все файлы). Подстановка bash `${var//pattern/\\&}` префикс-
+  # экранирует каждый символ `\` обратным слэшем (буквальный `\` →
+  # `\\`, остальные → `\<символ>`). Слово/TAB в ДОМЕ не трогаем здесь —
+  # они гасятся `IFS=$'\n'` вокруг вызова `current_session_dir` ниже.
+  # Граница конформности: `[x]`-каталог в САМОМ шве `ORCH_SESS_GLOB`
+  # (явно задан пользователем без экранирования) — неконформный ввод,
+  # экранировать его не обязаны (только путь из `getent passwd`).
+  _orch_uh_glob="${_orch_uh//[][\*?\\]/\\&}"
   if [ -f "$ROOT/scripts/lib_session.sh" ]; then
     # shellcheck disable=SC1091
-    HOME="$_orch_uh" . "$ROOT/scripts/lib_session.sh"
+    HOME="$_orch_uh_glob" . "$ROOT/scripts/lib_session.sh"
   fi
+  unset _orch_uh_glob
 else
   if [ -f "$ROOT/scripts/lib_session.sh" ]; then
     # shellcheck disable=SC1091
@@ -120,48 +132,6 @@ if ! declare -F live_subagents_in >/dev/null 2>&1; then
   live_subagents_in() { return 0; }
 fi
 unset _orch_uh
-
-# ── Контракт 088, круг 3, D1: перебиваем current_session_dir ────────────────
-# lib_session.sh использует unquoted `$ORCH_SESS_GLOB` в `ls -t $ORCH_SESS_GLOB ... | head -1`,
-# что word-splits на пробелах в passwd-доме. И-4 запрещает править lib_session.sh
-# (источник ветки 600K orch-peak, который 088 не трогает). Дверь обходит
-# проблему СВОЕЙ реализацией: cd в HOME (извлечённый из глоба как префикс
-# до `/.local/state/dev-harness-sessions/`), затем ls -t с ОТНОСИТЕЛЬНЫМ
-# глобом — bash раскрывает `*` в cwd, где путь к корню уже без пробелов
-# (cwd — каталог, а не компонент пути), word-split на пробелах HOME
-# не происходит. Та же логика, что в lib_session.sh: «каталог самого
-# свежего session-уровня .jsonl по mtime; пусто (rc 0) при отсутствии».
-# Конформный вход D1 (passwd-дом с пробелом) — теперь обрабатывается
-# корректно; обычный путь без пробелов — работает как раньше.
-if declare -F current_session_dir >/dev/null 2>&1 \
-   && [ "$(type -t current_session_dir)" = function ]; then
-  current_session_dir() {
-    local glob_home glob_rest f newest=""
-    # Извлечь HOME из ORCH_SESS_GLOB: всё до /.local/state/dev-harness-sessions/.
-    glob_home="${ORCH_SESS_GLOB%%/.local/state/*}"
-    # Если шаблон не сменился (что-то пошло не так) — fallback на старую
-    # семантику (word-split может сломать, но не хуже чем у lib_session.sh).
-    if [ "$glob_home" = "$ORCH_SESS_GLOB" ]; then
-      f="$(ls -t $ORCH_SESS_GLOB 2>/dev/null | head -1)" || return 0
-    else
-      glob_rest="${ORCH_SESS_GLOB#"$glob_home"/}"
-      # pipefail обнуляет результат при SIGPIPE; глоб `ls -t` на 500+
-      # журналах (клетка D2) даёт SIGPIPE — `set +o pipefail` гасит только
-      # дочернюю оболочку, родительский set -uo pipefail двери сохраняется.
-      set +o pipefail
-      f="$(cd "$glob_home" && ls -t $glob_rest 2>/dev/null | head -1)" \
-        || { set -o pipefail 2>/dev/null || true; return 0; }
-      set -o pipefail 2>/dev/null || true
-    fi
-    [ -n "$f" ] || return 0
-    # Если f относительный (cd-вариант), склеить с glob_home для абсолютного пути.
-    case "$f" in
-      /*) ;;
-      *)  f="$glob_home/$f" ;;
-    esac
-    printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
-  }
-fi
 
 # ── Разбор аргументов двери (контракт 080, инв. 1) ────────────────────────
 # Приоритет: (а1) GIT_AUTHOR_NAME → (а2) GIT_COMMITTER_NAME → (а3) --as <имя>.
@@ -324,8 +294,20 @@ g rev-parse --verify origin/main >/dev/null 2>&1 \
 # `ls -t … | head -1` обнуляет current_session_dir (измерено живьём:
 # 40 файлов, 7880 байт листинга — пусто 5/5; с set +o pipefail —
 # каталог найден).
+#
+# Контракт 088, инв. И-2′ (круг 5): `IFS=$'\n'` гасит word-split на пробелах/TAB
+# в ДОМЕ из passwd внутри библиотечной `current_session_dir` (D1-general):
+# её строка `f="$(ls -t $ORCH_SESS_GLOB | head -1)"` падает обратно на `$IFS`
+# родителя; с дефолтной `IFS` (пробел/TAB/LF) — word-split, и каталог не находится.
+# `IFS=$'\n'` ограничивает разделители только переводом строки. glob-метасимволы
+# в ДОМЕ уже экранированы на этапе подключения lib_session.sh (см. выше), здесь —
+# только пробелы/TAB.
 if [ -z "$SESS_DIR" ]; then
-  SESS_DIR="$(set +o pipefail; current_session_dir 2>/dev/null || true)"
+  SESS_DIR="$(
+    IFS=$'\n'
+    set +o pipefail
+    current_session_dir 2>/dev/null || true
+  )"
 fi
 # rc 2 из live_subagents_in (stat отказал — review 080 Б-1) — честный
 # «нечем проверить» НЕ молчаливый проход: пробрасываем как rc 2

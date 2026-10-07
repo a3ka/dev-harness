@@ -4,11 +4,11 @@
 # из passwd). Субъект — scripts/orch_restart.sh + scripts/lib_session.sh судимого корня,
 # копией в тоу-корень (дверь не трогает основной чекаут; маркер и след — швы в скратче).
 #
-# Использование: bash red_dver_088.sh <корень> [L1 D0 D1 D2 D3 D4 D5 D6 D7] [--dver <файл>]
+# Использование: bash red_dver_088.sh <корень> [L1 D0 … D11] [--dver <файл>]
 #   --dver <файл> — подменить дверь тоу-корня (стаб-пак/диффпроба); L1 судит только субъект.
 # Коды: 0 — все судимые клетки зелёные; 1 — есть красная; 2 — нечем проверить.
 #
-# Клетки (ожидания — константы, оракул в памяти):
+# Клетки (ожидания — константы, оракул в памяти; на fb08e98 красны D8 D9 D10, D11 — пара):
 #   L1 ЖИВАЯ среда: без шимов и швов, настоящие HOME/PATH/getent. Внутри сессии omp
 #      (есть $PI_CODING_AGENT_DIR/sessions) ДРУГАЯ мера — omp-указатель — находит
 #      самый свежий session-журнал и его субагентов моложе 60 с; если такие есть, дверь
@@ -35,6 +35,20 @@
 #   D7 как D1, но дом из passwd несёт глоб-метасимволы `[x]*?\` (каталог существует
 #      буквально) → тот же отказ. Неэкранированный дом в глобе — шаблон, а не путь:
 #      каталог сессии под ним не находится (тот же нецитированный `ls -t $ORCH_SESS_GLOB`).
+#   D8 как D1, но дом из passwd — `…/d8_uh/x/.local/state/y z` (подстрока
+#      `/.local/state/` и пробел в самом доме; ревьюер 088 круг 4, Б-3) → тот же отказ.
+#      Вторая грамматика пути в двери (свой current_session_dir, режущий «дом» по
+#      первой `/.local/state/`) находит пусто — дверь доходит до (а).
+#   D9 шов ORCH_SESS_GLOB, путь шва с двумя пробелами подряд (D4-тип; adversary 088
+#      круг 4) → «ОТКАЗ: живые субагенты: SeamAgent». Глоб, разбитый по IFS, пуст.
+#   D10 как D9, но в пути шва TAB вместо пробелов → тот же отказ.
+#   D11 шов ORCH_SESS_GLOB с литеральными `[x]` в пути, записанными экранированно
+#      (`…/d11\[x\]/sessions/*.jsonl`) → тот же отказ. Пара к границе ниже.
+# Граница конформности шва (арбитраж 088 круг 5): ORCH_SESS_GLOB — ГЛОБ (имя, умолчание
+# и документация 080); литеральные `[ ] * ? \` в пути шва записываются экранированными
+# (`\[x\]` — конформно, D11). Неэкранированный `literal[x]` в шве — неконформная запись,
+# не контрпример: глоб трактует его как класс символов. Пробел и TAB глоб не трактует —
+# их пропуск дверью дефект (D9, D10). Дом из passwd экранирует сама дверь (D7).
 # Привязка стабов к клеткам — red_stuby_088.sh (Н-39: по коду, не прозой).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -163,5 +177,25 @@ if nado D7; then
   dver_mir "$SCR/d7" "$DVER"
   dver "$SCR/d7" "$ZONE_HOME"; ozhidaj_a D7 $? zhivye 'ZhivojA,ZhivojB'
 fi
+
+if nado D8; then
+  export TOY_UH="$SCR/d8_uh/x/.local/state/y z"
+  kat "$TOY_UH"; sessija "$k" ZhivojB ZhivojA -- Staryj
+  dver_mir "$SCR/d8" "$DVER"
+  dver "$SCR/d8" "$ZONE_HOME"; ozhidaj_a D8 $? zhivye 'ZhivojA,ZhivojB'
+fi
+
+# shov_kletka <клетка> <каталог шва> <глоб шва> — D4-тип: под домом из passwd сессий
+# нет, шов указывает на каталог со свежим SeamAgent.
+shov_kletka() {
+  export TOY_UH="$SCR/${1}_uh"
+  mkdir -p "$TOY_UH" || exit 2
+  sessija "$2" SeamAgent -- Staryj
+  dver_mir "$SCR/$1" "$DVER"
+  dver "$SCR/$1" "$ZONE_HOME" ORCH_SESS_GLOB="$3"; ozhidaj_a "$1" $? zhivye 'SeamAgent'
+}
+nado D9 && shov_kletka D9 "$SCR/d9 shov  s probelami/sessions" "$SCR/d9 shov  s probelami/sessions/*.jsonl"
+nado D10 && shov_kletka D10 "$SCR/d10"$'\t'"shov/sessions" "$SCR/d10"$'\t'"shov/sessions/*.jsonl"
+nado D11 && shov_kletka D11 "$SCR/d11[x]/sessions" "$SCR"'/d11\[x\]/sessions/*.jsonl'
 
 itog_semji red_dver_088.sh

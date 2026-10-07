@@ -72,6 +72,16 @@ cat > "$REPO_CLONE/$DRAFT_FILE" <<EOF
 EOF
 ( cd "$REPO_CLONE" && git add -A && git commit -q -m "test draft 446 + verdict" )
 
+# 084-интеграция: freeze_contract.sh теперь гейтит на принадлежность NNN паре P0/P1
+# registry/plan.tsv (toy-номер 446 заведомо не в плане) — ПЕРЕД precision-гейтом,
+# что даёт «контракт вне плана» вместо ожидаемой «precision-гейт 043 красен:».
+# Этот тест изолирует ИМЕННО precision-гейт backstop, не план-фичу 084 — убираем
+# registry/plan.tsv из клона (freeze_contract.sh видит «план не заведён» и
+# пропускает проверку «вне плана», код §6а-тер/137-140 fixtures own).
+if [ -f "$REPO_CLONE/registry/plan.tsv" ]; then
+  ( cd "$REPO_CLONE" && git rm -q registry/plan.tsv && git commit -q -m "test: remove plan.tsv to isolate precision-gate backstop from 084 plan-membership gate" )
+fi
+
 # Прогон freeze. Ожидаем rc 1 + именованную причину.
 FREEZE_OUT=""
 FREEZE_RC=0
