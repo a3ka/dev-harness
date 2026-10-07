@@ -420,6 +420,28 @@ guard_is_wired() {
       done < "$f"
     done < <(find "$wf_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print0 2>/dev/null)
   fi
+  # контракт 083 (И-1): registry/ci-steps.tsv — ЕДИНСТВЕННЫЙ источник шагов ci/antiplacebo;
+  # .github/workflows/ci.yml больше НЕ несёт литеральных команд шагов (генерируется через
+  # lane-dispatch, scripts/run_ci_lane.sh читает реестр в рантайме). Guard'ы, подключённые
+  # ПОСЛЕ 083 через `step <key> <weight> bash <guard>` в реестре, невидимы прежним двум
+  # локациям — третья признанная локация закрывает структурный разрыв (измерено 2026-10-07,
+  # слово владельца: done 085 заблокирован этим разрывом, 085-guard подключён в реестре
+  # честно, но check_provodka его не видел).
+  local ci_steps="$root/registry/ci-steps.tsv"
+  if [ "$found" -eq 0 ] && [ -f "$ci_steps" ]; then
+    while IFS= read -r line; do
+      trimmed="${line#"${line%%[![:space:]]*}"}"
+      case "$trimmed" in '#'*) continue ;; esac
+      case "$trimmed" in
+        *"$bname"*)
+          if printf '%s' "$line" | grep -Eq "(^|[^[:alnum:]_])${esc_bname}([^[:alnum:]_]|$)"; then
+            found=1
+            break
+          fi
+          ;;
+      esac
+    done < "$ci_steps"
+  fi
   [ "$found" -eq 1 ]
 }
 
