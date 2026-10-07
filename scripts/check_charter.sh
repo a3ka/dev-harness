@@ -375,25 +375,24 @@ git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет 
 
 g() { git -C "$ROOT" "$@"; }
 
-# ── ОКНО: «устава вообще нет» (контракт 086, круг 7) ─────────────────────
-# В --okno-режиме, если в репо НЕТ ни ustav/1, НИ refs/tags/frozen/*/1 —
-# устава в проекте не введено, в окне проверять нечего; rc 0 (не rc 2).
-# Полный режим (без --okno) прежний — И-5 «без --okno побайтово прежнее».
-# Асимметрия с check_zones.sh (он уже rc 0 на «нет frozen/*») — дефект
-# кругов 4–6; согласуем check_charter в --okno.
-if [ -n "$OKNO_BASE" ]; then
-  if ! g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null 2>&1 \
-     && [ -z "$(g for-each-ref --format='%(refname)' 'refs/tags/frozen/' 2>/dev/null)" ]; then
-    printf '\ncheck_charter --okno: устав и замороженные контракты отсутствуют — в окне проверять нечего\n' >&2
-    incr_finish 0
-    exit 0
-  fi
-fi
-
 # Устав не введён — «нечем проверить», а не «проверено». Это ЕДИНСТВЕННАЯ законная двойка барьера:
 # до акта введения у него нет точки, с которой считать историю.
-g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null \
-  || skip "устав не введён — создайте тег ustav/1 последним коммитом документных правок"
+# В --okno-режиме (контракт 086, круг 9, П2 арбитража 5) skip срабатывает только при
+# наличии на HEAD файла с анкером ustav/1 (AGENTS.md/ROADMAP.md) — иначе ustav-пар нет
+# и суд идёт по frozen-парам. Без тегов вовсе — штатный итог «уставных документов: 0», rc 0.
+# Полный режим (без --okno) — прежние две строки текстуально.
+if [ -z "$OKNO_BASE" ]; then
+  g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null \
+    || skip "устав не введён — создайте тег ustav/1 последним коммитом документных правок"
+else
+  if ! g rev-parse --verify --quiet 'refs/tags/ustav/1' >/dev/null 2>&1; then
+    for f in AGENTS.md ROADMAP.md; do
+      if g cat-file -e "HEAD:$f" 2>/dev/null; then
+        skip "устав не введён — создайте тег ustav/1 последним коммитом документных правок"
+      fi
+    done
+  fi
+fi
 
 for prefix in ustav/ frozen/; do
   state="$(registry_state "$ROOT" "$prefix")"
@@ -420,7 +419,11 @@ if [ -n "$OKNO_BASE" ]; then
     printf 'ОТКАЗ 086: --okno: коммита нет: %s\n' "$OKNO_BASE" >&2
     exit 2
   fi
-  OKNO_N=$(g rev-list --count "$OKNO_BASE..HEAD" 2>/dev/null) || OKNO_N=0
+  OKNO_N=$(g rev-list --count "$OKNO_BASE..HEAD" 2>/dev/null); rc=$?
+  if [ "$rc" -ne 0 ] || ! [[ "$OKNO_N" =~ ^[0-9]+$ ]]; then
+    printf 'ОТКАЗ 086: --okno: rev-list --count отказал (rc=%s) — нечем проверить\n' "$rc" >&2
+    exit 2
+  fi
   printf 'окно 086: %s..HEAD (%s коммит.)\n' "$OKNO_BASE" "${OKNO_N:-0}" >&2
 fi
 
@@ -479,11 +482,18 @@ while IFS=$'\t' read -r f since; do
   # `diff-tree <c>`). FAIL-CLOSED на сломанном rev-list (Б адверсария круг 4): маскировка
   # rc=127 под пустой список превратила бы судимое множество в пустое и судья бы
   # пропустил неодобренный устав-коммит. Пустой $TMP/commits = «нечем проверить».
-  rc=0
-  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf 'ОТКАЗ 086: --okno: rev-list отказал (rc=%s, since=%s) — нечем проверить\n' "$rc" "$since" >&2
-    exit 2
+  # Только под --okno (контракт 086, круг 9, П4 арбитража 5): в полном режиме прежняя
+  # строка `|| : > "$TMP/commits"` текстуально (fail-open полного режима — находка r7,
+  # предмет 065, в этом контракте не чинится).
+  if [ -n "$OKNO_BASE" ]; then
+    rc=0
+    g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      printf 'ОТКАЗ 086: --okno: rev-list отказал (rc=%s, since=%s) — нечем проверить\n' "$rc" "$since" >&2
+      exit 2
+    fi
+  else
+    g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
   fi
   # --okno (контракт 086, И-5): судимое множество = прежнее ∩ rev-list <база>..HEAD.
   # Явное пересечение двух списков коммитов — НЕ схлопывание `since` к `OKNO_BASE` через
