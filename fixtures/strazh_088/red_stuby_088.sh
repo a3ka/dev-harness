@@ -15,8 +15,13 @@
 #   sa4 → D4   шов ORCH_SESS_GLOB перетёрт домом из passwd
 #   sa5 → D0   любой журнал — «живой» (окно свежести не применено)
 #   sa6 → D5   имена с ведущей точкой отброшены (adversary 088, door-dot-ignore)
-#   sa7 → D6   глоб сессий от дома из passwd разбит по IFS (пробел в доме, adversary 088-v2 §2)
+#   sa7 → D6   вызов current_session_dir без IFS=перевод строки: глоб разбит по пробелам
+#              дома (adversary 088-v2 §2)
 #   sa8 → D7   дом из passwd в глобе не экранирован (`[ * ? \` — шаблон, а не путь)
+#   sa9 → D8   своя current_session_dir двери: «дом» — префикс до первой `/.local/state/`,
+#              дом не экранирован, вызов без IFS (форма fb08e98; ревьюер 088 круг 4, Б-3)
+#   sa10 → D9  IFS=перевод строки только в ветви дома из passwd: глоб шва разбит пробелами
+#   sa11 → D10 IFS=перевод строки только при пробеле в глобе: TAB шва разбивает глоб
 #   sb1 → B1   нет проверки (поведение ДО 088)
 #   sb2 → B3   подстрока вместо самостоятельной строки
 #   sb3 → B6   строка где угодно в файле, не в первой секции
@@ -27,36 +32,48 @@
 #   sb8 → B11  staged-удаление не судится (фильтр AM)
 #   sb9 → B13  судится любой */HANDOFF.md, не только корневой
 #   sb10 → B1  отказ без именованной строки 088
-#   sb11 → B14 строка-указатель из env PTR_088 коммитёра, k7 — запасной (обход 8bc5e68)
-#   sb12 → B15 k7 из РАБОЧЕЙ копии фикстуры 074, не из индекса (adversary 088-v2 §1)
-#   sb13 → B16 k7 из индекса, но суд только при наличии рабочего файла 074 (fail-open)
+#   sb11 → B14 строка-указатель из env PTR_088 коммитёра, константа — запасной (обход 8bc5e68)
+#   sb12 → B15 k7 из РАБОЧЕЙ копии фикстуры 074 (adversary 088-v2 §1)
+#   sb13 → B16 суд только при наличии рабочего файла 074 (fail-open)
 #   sb14 → B17 текст отказа из env OTKAZ_088 коммитёра (adversary 088-v2 §3)
 #   sb15 → B18 текст отказа из env OTKAZ_088 — только на ветви staged-удаления HANDOFF.md
+#   sb16 → B19 k7 из блоба ИНДЕКСА 074; блоба нет → суд пропущен (форма fb08e98, P1 арбитража)
+#   sb17 → B20 k7 из блоба индекса 074; присваиваний ≠ 1 → суд пропущен (P2 арбитража)
+#   sb18 → B21 k7 из блоба индекса 074, любая неоднозначность — отказ (чтение 074 «с отказом»)
+#   sb19 → B22 k7 из HEAD-блоба 074 (с отказом): дрейф k7 субъект повторяет за оракулом
+#   sb20 → B23 GIT_INDEX_FILE хука снят без возврата — судится .git/index (форма fb08e98)
+#   sb21 → B24 индекс хука ≠ умолчательного → отказ (fail-closed вместо суда индекса коммита)
+#   sb22 → B25 принят только <git-dir>/index.lock: next-index-*.lock частичного коммита — нет
+#   sb23 → B29 git-dir как "$R/.git", не --absolute-git-dir: связанный worktree слеп
+#   sb24 → B30 GIT_INDEX_FILE принят без проверки «под git-dir корня» (гигиена 016 снята)
 #
-# Мини-судьи (честный и sb*) получают строку отказа литералом (единый источник —
-# присваивание OTKAZ_088 в _toy.sh, побайтово), строку-указатель — из блоба индекса
-# тоу-копии фикстуры 074; оракул в env субъектов не передаётся (как и судимому).
+# Мини-судьи (честный и sb*) несут строку отказа и строку-указатель ЛИТЕРАЛАМИ из памяти
+# оракула (OTKAZ_088, PTR_088 — _toy.sh, единый источник; арбитраж 088 круг 5: судья —
+# константа, 074 не читает), индекс коммита берут из GIT_INDEX_FILE хука, принятого только
+# под --absolute-git-dir корня (иначе .git/index — гигиена 016); оракул в env субъектов не
+# передаётся (как и судимому).
 #
-# Использование: bash red_stuby_088.sh <корень>. Итог: «стаб-пак 088: N/23 поймано,
-# диффпроба M/23»; rc 0 ⟺ N = M = 23.
+# Использование: bash red_stuby_088.sh <корень>. Итог: «стаб-пак 088: N/35 поймано,
+# диффпроба M/35»; rc 0 ⟺ N = M = 35.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${1:-$HERE/../..}" 2>/dev/null && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
-ST="$(mktemp -d "${TMPDIR:-/tmp}/stuby088.XXXXXX")" || { printf 'NOT_IMPLEMENTED: нет скратча\n' >&2; exit 2; }
-trap 'rm -rf -- "$ST"' EXIT
+set --
+# Оракул в памяти (PTR_088, OTKAZ_088) и скратч — каркас семьи.
+# shellcheck disable=SC1091
+. "$HERE/_toy.sh"
+ST="$SCR"
 
-mapfile -t _otk < <(sed -n "s/^OTKAZ_088='\(.*\)'\$/\1/p" "$HERE/_toy.sh")
-if [ "${#_otk[@]}" -ne 1 ] || [ -z "${_otk[0]}" ]; then
-  printf 'NOT_IMPLEMENTED: присваивание OTKAZ_088 в _toy.sh не единственно (%s совпадений)\n' "${#_otk[@]}" >&2
-  exit 2
-fi
-# shapka — голова мини-судьи: строка отказа литералом, строка-указатель — из индекса тоу-репо.
+# shapka — голова мини-судьи: литералы оракула; индекс коммита — GIT_INDEX_FILE хука,
+# если он лежит под --absolute-git-dir корня, иначе .git/index.
 shapka() {
-  printf '#!/usr/bin/env bash\nset -uo pipefail\nR="$1"\nOTKAZ_088=%q\n' "${_otk[0]}"
+  printf '#!/usr/bin/env bash\nset -uo pipefail\nR="$1"\nOTKAZ_088=%q\n_lit_ptr=%q\n' "$OTKAZ_088" "$PTR_088"
   cat <<'EOF'
-mapfile -t _p < <(git -C "$R" show :fixtures/ops_server/red_server_obvjazka_074.sh 2>/dev/null | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
-[ "${#_p[@]}" -eq 1 ] && [ -n "${_p[0]}" ] || { printf 'NOT_IMPLEMENTED: в индексе тоу-репо нет единственного HANDOFF_PTR\n' >&2; exit 2; }
-PTR_088="${_p[0]}"
+_idx="${GIT_INDEX_FILE:-}"
+unset GIT_INDEX_FILE
+gd="$(git -C "$R" rev-parse --absolute-git-dir 2>/dev/null)" || { printf 'NOT_IMPLEMENTED: нет git-dir\n' >&2; exit 2; }
+case "$_idx" in "$gd"/*) [ -f "$_idx" ] && export GIT_INDEX_FILE="$_idx" ;; esac
+PTR_088="$_lit_ptr"
 EOF
 }
 
@@ -66,17 +83,16 @@ cat > "$ST/dver_chestnaja.sh" <<'EOF'
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 glob_lit() { printf '%s' "$1" | sed 's/[][\\*?]/\\&/g'; }
-ifs_sess="$IFS"
+nl=$'\n'
 if [ -z "${ORCH_SESS_GLOB:-}" ] && [ -z "${ORCH_SESS_DIR:-}" ]; then
   uh="$(getent passwd "$(id -un)" | cut -d: -f6)"
   [ -n "$uh" ] || { printf 'NOT_IMPLEMENTED: нет дома в passwd\n' >&2; exit 2; }
   uh="$(glob_lit "$uh")"
-  ifs_sess=$'\n'
   HOME="$uh" . "$ROOT/scripts/lib_session.sh"
 else
   . "$ROOT/scripts/lib_session.sh"
 fi
-d="${ORCH_SESS_DIR:-$(set +o pipefail; IFS="$ifs_sess"; current_session_dir)}"
+d="${ORCH_SESS_DIR:-$(set +o pipefail; IFS="$nl"; current_session_dir)}"
 n="$(live_subagents_in "$d")" || exit 2
 [ -z "$n" ] || { printf 'ОТКАЗ: живые субагенты: %s\n' "$n" >&2; exit 1; }
 [ "$(git -C "$ROOT" rev-parse HEAD)" = "$(git -C "$ROOT" rev-parse origin/main)" ] \
@@ -94,7 +110,6 @@ exit 0
 EOF
 } > "$ST/sudja_chestnyj.sh"
 
-# ── стабы двери: честная мини-дверь с ОДНОЙ порчей ───────────────────────────
 # porcha <откуда> <куда> <старое> <новое> — побайтовая подмена ровно одного вхождения;
 # ноль или больше одного вхождения — rc 2 (стаб не построен = нечем проверить).
 porcha() {
@@ -107,17 +122,44 @@ if t.count(old) != 1:
 open(dst, 'w', encoding='utf-8').write(t.replace(old, new))
 PY
 }
+
+# ── стабы двери: честная мини-дверь с ОДНОЙ порчей ───────────────────────────
 D="$ST/dver_chestnaja.sh"
+VYZOV_D='d="${ORCH_SESS_DIR:-$(set +o pipefail; IFS="$nl"; current_session_dir)}"'
+IFS= read -r -d '' PEREBIVKA_FB08E98 <<'EOF'
+current_session_dir() {
+  local glob_home glob_rest f
+  glob_home="${ORCH_SESS_GLOB%%/.local/state/*}"
+  if [ "$glob_home" = "$ORCH_SESS_GLOB" ]; then
+    f="$(ls -t $ORCH_SESS_GLOB 2>/dev/null | head -1)" || return 0
+  else
+    glob_rest="${ORCH_SESS_GLOB#"$glob_home"/}"
+    set +o pipefail
+    f="$(cd "$glob_home" && ls -t $glob_rest 2>/dev/null | head -1)" || return 0
+  fi
+  [ -n "$f" ] || return 0
+  case "$f" in /*) ;; *) f="$glob_home/$f" ;; esac
+  printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
+}
+d="${ORCH_SESS_DIR:-$(set +o pipefail; current_session_dir 2>/dev/null || true)}"
+EOF
 porcha "$D" "$ST/sa1.sh" 'HOME="$uh" . "$ROOT/scripts/lib_session.sh"' '. "$ROOT/scripts/lib_session.sh"'
-porcha "$D" "$ST/sa2.sh" 'd="${ORCH_SESS_DIR:-$(set +o pipefail; IFS="$ifs_sess"; current_session_dir)}"' 'current_session_dir() { local f; f="$(ls -t $ORCH_SESS_GLOB 2>/dev/null | head -1)" || return 0; [ -n "$f" ] || return 0; printf "%s/%s" "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"; }; d="${ORCH_SESS_DIR:-$(current_session_dir)}"'
+porcha "$D" "$ST/sa2.sh" "$VYZOV_D" 'current_session_dir() { local f; f="$(ls -t $ORCH_SESS_GLOB 2>/dev/null | head -1)" || return 0; [ -n "$f" ] || return 0; printf "%s/%s" "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"; }; d="${ORCH_SESS_DIR:-$(current_session_dir)}"'
 porcha "$D" "$ST/sa3.sh" 'getent passwd "$(id -un)"' 'getent passwd "${USER:-$(id -un)}"'
 porcha "$D" "$ST/sa4.sh" 'if [ -z "${ORCH_SESS_GLOB:-}" ] && [ -z "${ORCH_SESS_DIR:-}" ]; then' 'unset ORCH_SESS_GLOB; if [ -z "${ORCH_SESS_DIR:-}" ]; then'
 porcha "$D" "$ST/sa5.sh" 'n="$(live_subagents_in "$d")" || exit 2' 'n="$(cd "$d" 2>/dev/null && ls -- *.jsonl 2>/dev/null | sed "s/\.jsonl\$//" | LC_ALL=C sort | paste -sd, -)"'
 porcha "$D" "$ST/sa6.sh" 'n="$(live_subagents_in "$d")" || exit 2' 'n="$(live_subagents_in "$d")" || exit 2; k=(); IFS=, read -r -a l <<< "$n"; for x in "${l[@]}"; do case "$x" in .*) ;; *) k+=("$x") ;; esac; done; n="$(IFS=,; printf "%s" "${k[*]}")"'
-porcha "$D" "$ST/sa7.sh" 'set +o pipefail; IFS="$ifs_sess"; current_session_dir' 'set +o pipefail; current_session_dir'
+porcha "$D" "$ST/sa7.sh" 'set +o pipefail; IFS="$nl"; current_session_dir' 'set +o pipefail; current_session_dir'
 porcha "$D" "$ST/sa8.sh" 'uh="$(glob_lit "$uh")"' 'uh="$uh"'
+porcha "$D" "$ST/sa9.tmp" 'uh="$(glob_lit "$uh")"' 'uh="$uh"'
+porcha "$ST/sa9.tmp" "$ST/sa9.sh" "$VYZOV_D" "$PEREBIVKA_FB08E98"
+porcha "$D" "$ST/sa10.sh" 'set +o pipefail; IFS="$nl"; current_session_dir' 'set +o pipefail; [ -z "${uh:-}" ] || IFS="$nl"; current_session_dir'
+porcha "$D" "$ST/sa11.sh" 'set +o pipefail; IFS="$nl"; current_session_dir' 'set +o pipefail; [[ "$ORCH_SESS_GLOB" != *" "* ]] || IFS="$nl"; current_session_dir'
 
+# ── стабы судьи: честный мини-судья с ОДНОЙ порчей (sb1, sb9 — свои тела) ────
 S="$ST/sudja_chestnyj.sh"
+STROKA_PTR='PTR_088="$_lit_ptr"'
+VOZVRAT_IDX='case "$_idx" in "$gd"/*) [ -f "$_idx" ] && export GIT_INDEX_FILE="$_idx" ;; esac'
 cat > "$ST/sb1.sh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
@@ -141,14 +183,54 @@ exit 0
 EOF
 } > "$ST/sb9.sh"
 porcha "$S" "$ST/sb10.sh" "{ printf '%s\\n' \"\$OTKAZ_088\" >&2; exit 1; }" "{ printf 'ОТКАЗ: нет указателя\\n' >&2; exit 1; }"
-porcha "$S" "$ST/sb11.sh" 'PTR_088="${_p[0]}"' 'PTR_088="${PTR_088:-${_p[0]}}"'
-porcha "$S" "$ST/sb12.sh" 'git -C "$R" show :fixtures/ops_server/red_server_obvjazka_074.sh 2>/dev/null |' 'cat -- "$R/fixtures/ops_server/red_server_obvjazka_074.sh" 2>/dev/null |'
+porcha "$S" "$ST/sb11.sh" "$STROKA_PTR" 'PTR_088="${PTR_088:-$_lit_ptr}"'
+# Источники k7 из фикстуры 074 — замены строки-константы (sb12, sb16-sb19).
+IFS= read -r -d '' K7_RABOCHAJA <<'EOF'
+mapfile -t _p < <(sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p" "$R/fixtures/ops_server/red_server_obvjazka_074.sh" 2>/dev/null)
+[ "${#_p[@]}" -eq 1 ] && [ -n "${_p[0]}" ] || { printf 'NOT_IMPLEMENTED: в рабочей k7 нет единственного HANDOFF_PTR\n' >&2; exit 2; }
+PTR_088="${_p[0]}"
+EOF
+IFS= read -r -d '' K7_INDEKS_BEZ_BLOBA_PROPUSK <<'EOF'
+_b="$(git -C "$R" show :fixtures/ops_server/red_server_obvjazka_074.sh 2>/dev/null)" || exit 0
+mapfile -t _p < <(printf '%s\n' "$_b" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
+[ "${#_p[@]}" -eq 1 ] && [ -n "${_p[0]}" ] || { printf '%s\n' "$OTKAZ_088" >&2; exit 1; }
+PTR_088="${_p[0]}"
+EOF
+IFS= read -r -d '' K7_INDEKS_NEODNOZNACHNO_PROPUSK <<'EOF'
+_b="$(git -C "$R" show :fixtures/ops_server/red_server_obvjazka_074.sh 2>/dev/null)" || { printf '%s\n' "$OTKAZ_088" >&2; exit 1; }
+mapfile -t _p < <(printf '%s\n' "$_b" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
+[ "${#_p[@]}" -eq 1 ] && [ -n "${_p[0]}" ] || exit 0
+PTR_088="${_p[0]}"
+EOF
+IFS= read -r -d '' K7_INDEKS_S_OTKAZOM <<'EOF'
+_b="$(git -C "$R" show :fixtures/ops_server/red_server_obvjazka_074.sh 2>/dev/null)" || { printf '%s\n' "$OTKAZ_088" >&2; exit 1; }
+mapfile -t _p < <(printf '%s\n' "$_b" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
+[ "${#_p[@]}" -eq 1 ] && [ -n "${_p[0]}" ] || { printf '%s\n' "$OTKAZ_088" >&2; exit 1; }
+PTR_088="${_p[0]}"
+EOF
+IFS= read -r -d '' K7_HEAD_S_OTKAZOM <<'EOF'
+_b="$(git -C "$R" show HEAD:fixtures/ops_server/red_server_obvjazka_074.sh 2>/dev/null)" || { printf '%s\n' "$OTKAZ_088" >&2; exit 1; }
+mapfile -t _p < <(printf '%s\n' "$_b" | sed -n "s/^HANDOFF_PTR='\(.*\)'\$/\1/p")
+[ "${#_p[@]}" -eq 1 ] && [ -n "${_p[0]}" ] || { printf '%s\n' "$OTKAZ_088" >&2; exit 1; }
+PTR_088="${_p[0]}"
+EOF
+porcha "$S" "$ST/sb12.sh" "$STROKA_PTR" "$K7_RABOCHAJA"
 porcha "$S" "$ST/sb13.sh" 'R="$1"' 'R="$1"; [ -f "$R/fixtures/ops_server/red_server_obvjazka_074.sh" ] || exit 0'
 # sb14/sb15 — две порчи: env OTKAZ_088 снят ДО присваивания литерала шапкой, затем печать.
 porcha "$S" "$ST/sb14.tmp" 'R="$1"' 'R="$1"; _sreda_otkaz="${OTKAZ_088:-}"'
 porcha "$ST/sb14.tmp" "$ST/sb14.sh" "{ printf '%s\\n' \"\$OTKAZ_088\" >&2; exit 1; }" "{ printf '%s\\n' \"\${_sreda_otkaz:-\$OTKAZ_088}\" >&2; exit 1; }"
 porcha "$S" "$ST/sb15.tmp" 'R="$1"' 'R="$1"; _sreda_otkaz="${OTKAZ_088:-}"'
 porcha "$ST/sb15.tmp" "$ST/sb15.sh" 'if git -C "$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then' 'if git -C "$R" diff --cached --name-only --no-renames -z | grep -zFxq -- HANDOFF.md; then git -C "$R" cat-file -e :HANDOFF.md 2>/dev/null || { printf "%s\n" "${_sreda_otkaz:-$OTKAZ_088}" >&2; exit 1; }'
+porcha "$S" "$ST/sb16.sh" "$STROKA_PTR" "$K7_INDEKS_BEZ_BLOBA_PROPUSK"
+porcha "$S" "$ST/sb17.sh" "$STROKA_PTR" "$K7_INDEKS_NEODNOZNACHNO_PROPUSK"
+porcha "$S" "$ST/sb18.sh" "$STROKA_PTR" "$K7_INDEKS_S_OTKAZOM"
+porcha "$S" "$ST/sb19.sh" "$STROKA_PTR" "$K7_HEAD_S_OTKAZOM"
+# Источник индекса коммита (Б-2) — порча строки возврата GIT_INDEX_FILE хука (sb20-sb24).
+porcha "$S" "$ST/sb20.sh" "$VOZVRAT_IDX" ':'
+porcha "$S" "$ST/sb21.sh" "$VOZVRAT_IDX" "case \"\$_idx\" in \"\"|.git/index|\"\$gd\"/index) ;; *) printf '%s\\n' \"\$OTKAZ_088\" >&2; exit 1 ;; esac"
+porcha "$S" "$ST/sb22.sh" '"$gd"/*)' '"$gd"/index.lock)'
+porcha "$S" "$ST/sb23.sh" 'gd="$(git -C "$R" rev-parse --absolute-git-dir 2>/dev/null)"' 'gd="$R/.git"'
+porcha "$S" "$ST/sb24.sh" "$VOZVRAT_IDX" '[ -z "$_idx" ] || export GIT_INDEX_FILE="$_idx"'
 
 # ── прогон: стаб на своей клетке (красная), честный мини-субъект там же (зелёная) ──
 pojmano=0; diff_ok=0; vsego=0; itog=0
@@ -174,6 +256,9 @@ para sa5 red_dver_088.sh --dver "$D" D0
 para sa6 red_dver_088.sh --dver "$D" D5
 para sa7 red_dver_088.sh --dver "$D" D6
 para sa8 red_dver_088.sh --dver "$D" D7
+para sa9 red_dver_088.sh --dver "$D" D8
+para sa10 red_dver_088.sh --dver "$D" D9
+para sa11 red_dver_088.sh --dver "$D" D10
 para sb1 red_ukazatel_088.sh --sudja "$S" B1
 para sb2 red_ukazatel_088.sh --sudja "$S" B3
 para sb3 red_ukazatel_088.sh --sudja "$S" B6
@@ -189,6 +274,15 @@ para sb12 red_ukazatel_088.sh --sudja "$S" B15
 para sb13 red_ukazatel_088.sh --sudja "$S" B16
 para sb14 red_ukazatel_088.sh --sudja "$S" B17
 para sb15 red_ukazatel_088.sh --sudja "$S" B18
+para sb16 red_ukazatel_088.sh --sudja "$S" B19
+para sb17 red_ukazatel_088.sh --sudja "$S" B20
+para sb18 red_ukazatel_088.sh --sudja "$S" B21
+para sb19 red_ukazatel_088.sh --sudja "$S" B22
+para sb20 red_ukazatel_088.sh --sudja "$S" B23
+para sb21 red_ukazatel_088.sh --sudja "$S" B24
+para sb22 red_ukazatel_088.sh --sudja "$S" B25
+para sb23 red_ukazatel_088.sh --sudja "$S" B29
+para sb24 red_ukazatel_088.sh --sudja "$S" B30
 printf 'стаб-пак 088: %d/%d поймано, диффпроба %d/%d\n' "$pojmano" "$vsego" "$diff_ok" "$vsego"
-[ "$vsego" -eq 23 ] || { printf 'NOT_IMPLEMENTED: в паке %d стабов, ожидалось 23\n' "$vsego" >&2; exit 2; }
+[ "$vsego" -eq 35 ] || { printf 'NOT_IMPLEMENTED: в паке %d стабов, ожидалось 35\n' "$vsego" >&2; exit 2; }
 exit "$itog"

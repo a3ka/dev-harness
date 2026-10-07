@@ -136,6 +136,25 @@ NEXT_ID_LIB=1
 
 set -euo pipefail
 
+# Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник для
+# всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
+INCR_NAME=check_ids
+# ФИКСТУРЫ-ДРИЛЛЫ КОПИРУЮТ БАРЬЕР В `$WORK/scripts/` БЕЗ `lib_incr.sh`
+# (появилось в --incr-работе, контракт 083, инв. 6): барьер обязан остаться
+# работоспособным в ПОЛНОМ режиме без `--incr`, иначе честный прогон дрилла
+# краснеет не по предмету, а на отсутствующей библиотеке. Стабы — no-op-зеркало
+# `incr_parse`/`incr_fail`/`incr_finish` для полного режима (INCR_CACHE пуст →
+# incr_finish no-op, INCR_RC=0 → incr_fail не вызывается; incr_parse кладёт
+# всё, что получил, в INCR_REST).
+# shellcheck disable=SC1091
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh" ]; then
+  . "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh"
+else
+  incr_parse() { INCR_CACHE=""; INCR_MODE="full"; INCR_BASE=""; INCR_HEAD=""; INCR_N=0; INCR_RC=0; INCR_REST=("$@"); }
+  incr_fail() { :; }
+  incr_finish() { :; }
+fi
+
 # ── ГЕРМЕТИЧНОЕ ОКРУЖЕНИЕ GIT ────────────────────────────────────────────────
 # Снимаем шесть переменных окружения, которые перенаправляют `git` в чужой репозиторий
 # сильнее, чем `-C "$HERE"`. Адверсарий измерил (находка 6 второго круга): `GIT_DIR` и
@@ -146,7 +165,14 @@ set -euo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR
 
+# Разбор `--incr <кеш>` из аргументов ДО установки HERE — кеш-отказ
+# выходит сразу и не инициализирует переменные суда.
+incr_parse "$@"
+[ "$INCR_RC" -eq 0 ] || { incr_fail; exit 1; }
+set -- "${INCR_REST[@]}"
+
 HERE="$(cd "${1:-"$(dirname "${BASH_SOURCE[0]}")/.."}" && pwd)"
+INCR_GIT_ROOT="$HERE"
 
 # ОДИН счётчик, а не два. Прежде их было два — `fails` у `bad` и `violations` у сверки, — и
 # решение принималось только по второму: `bad` печатал строку FAIL, а код возврата оставался
@@ -232,6 +258,27 @@ collect_paths() {
       name="$(basename "$f")"
       printf '%s\t%s\n' "$f" "$name"
     done < <(find "$d" -type f -name '*.md' 2>/dev/null)
+  done < <(class_locs "$class")
+}
+
+# В incr-режиме (контракт 083, инв. 6) обходим ТОЛЬКО файлы, ДОБАВЛЕННЫЕ в окне
+# cache..HEAD: всё, что было на момент cache, уже проверено предыдущим зелёным
+# прогоном, и перепроверять не нужно. Тем самым окно покрывает «новое с прошлой
+# зелёной точки», не «всю историю»: тест И-ниже ожидает зелёный при пустом
+# окне, И-окно — красный при нарушении в окне.
+collect_paths_incr() {
+  local class="$1"
+  local loc status path name
+  while IFS= read -r loc; do
+    [ -n "$loc" ] || continue
+    while IFS=$'\t' read -r status path; do
+      [ "$status" = "A" ] || continue
+      [ -n "$path" ] || continue
+      case "$path" in
+        *.md) name="$(basename "$path")"; printf '%s\t%s\n' "$HERE/$path" "$name" ;;
+      esac
+    done < <(git -C "$HERE" log --diff-filter=A --name-status --pretty=format: "$INCR_BASE..HEAD" -- ":(literal)$loc" 2>/dev/null \
+             | awk -F'\t' 'NF==2 && $1=="A" {print $1"\t"$2}')
   done < <(class_locs "$class")
 }
 
@@ -332,13 +379,20 @@ for class in PLAN VERDICT ADR CONTRACT ARBITRATION; do
   line=""
   f=""; n=""; rc=""; rel=""; digit_count=""
   artifacts=()
+  # В incr-режиме обходим ТОЛЬКО файлы, добавленные в окне cache..HEAD. Полный
+  # режим — прежний (живое дерево целиком).
+  if [ "${INCR_MODE:-full}" = "incr" ]; then
+    _collect_fn=collect_paths_incr
+  else
+    _collect_fn=collect_paths
+  fi
   while IFS=$'\t' read -r f name; do
     [ -n "$f" ] || continue
     rc=0
     parse_artifact_basename "$name" || rc=$?
     [ -n "${ARTIFACT_NUMBER:-}" ] || continue
     artifacts+=("$f"$'\t'"$ARTIFACT_NUMBER"$'\t'"$rc"$'\t'"$name")
-  done < <(collect_paths "$class")
+  done < <($_collect_fn "$class")
   # Первый проход: ошибки формата и «номер назначен рукой». Артефакт без тега при
   # существующем теге для того же номера — ветка (в). Файл с неправильным форматом
   # (`7-x.md`, `0007-x.md`) — отдельное красное, чтобы владелец видел, ЧТО чинить.
@@ -400,6 +454,9 @@ for class in PLAN VERDICT ADR CONTRACT ARBITRATION; do
 done
 
 if [ "$violations" -gt 0 ]; then
+  incr_finish 1
   exit 1
 fi
 ok "номера уникальны и согласованы с регистром выдачи"
+incr_finish 0
+exit 0
