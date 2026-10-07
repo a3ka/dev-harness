@@ -221,6 +221,48 @@ jobs:
         # include-блок в этой джобе генерируется `scripts/gen_ci_steps.sh --write`
         # и сверяется `--check` (правка руками красна поимённо).
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+# BEGIN GENERATED CACHE SAVE (083)
+      - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:zones ') && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:zones ') && github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:ids ') && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:ids ') && github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:protected ') && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
+      - if: contains(format(' {0} ', matrix.keys), ' check:protected ') && github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+# END GENERATED CACHE SAVE (083)
 
       # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
       # v+1 — ранее save был только на push, и `actions/cache` для PR-ранов не
@@ -230,46 +272,6 @@ jobs:
       # github.event.pull_request.number), GitHub изолирует запись по PR и видит
       # её только этому PR, push-путь main не затрагивается. Кеш
       # `tmp/ci-incr/<check>.sha` мог обновиться внутри lane-шага (после `--incr`).
-      - if: github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/charter.sha
-          key: ci-incr-charter-${{ github.sha }}
-      - if: github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/zones.sha
-          key: ci-incr-zones-${{ github.sha }}
-      - if: github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/ids.sha
-          key: ci-incr-ids-${{ github.sha }}
-      - if: github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/protected.sha
-          key: ci-incr-protected-${{ github.sha }}
-      - if: github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/charter.sha
-          key: ci-incr-charter-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/zones.sha
-          key: ci-incr-zones-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/ids.sha
-          key: ci-incr-ids-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/protected.sha
-          key: ci-incr-protected-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
 
       - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
         # Прямой шаг ВНЕ матрицы по прецеденту 058/070/080: раннер `fixtures/_krasnye_083.sh`
