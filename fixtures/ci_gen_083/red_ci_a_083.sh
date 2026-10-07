@@ -15,7 +15,7 @@
 #
 # СТРУКТУРА (две части):
 #   Часть Г — генератор+исполнение: честные клетки Г0-Г10 (КРАСНЫ до
-#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1..Г-С7
+#     реализации, зеленеют вместе с предметом) + стаб-клетки Г-С1..Г-С9
 #     (toy-входы, ЗЕЛЁНЫ всегда: оракул батареи — собственный парсер блока
 #     и шагов — различает обман на входе, где дефект наблюдаем). Г2 дополнительно
 #     доказывает, что блок ЖИВЁТ ВНУТРИ джобы ci как её matrix (структурно:
@@ -66,9 +66,11 @@
 #   Г-С2 «генератор теряет шаг» (в блоке нет ключа k7) — наблюдаем на том же
 #        входе покрытием: «ключ k7 не покрыт»; на конформном — «покрытие
 #        полное».
-#   Г-С3..Г-С7 — обманные варианты toy-джобы ci (mk_cache_workflow) против
-#        оракула этикета Г10; вход — «событие × свойство» Г10; на конформном
-#        toy-этикете все 12 свойств зелёны (Г-С-контроль):
+#   Г-С3..Г-С9 — обманные варианты toy-джобы ci (mk_cache_workflow) против
+#        оракула этикета Г10; вход — «событие × свойство» Г10; на конформных
+#        toy-этикетах все 12 свойств зелёны (Г-С-контроль — if: save-шагов по
+#        событию; Г-С-контроль/lane — lane-конъюнкция contains(matrix.keys,
+#        'check:<c>') && событие):
 #   Г-С3 «save только на push» (Б-1, форма round-1) — наблюдаем на событии
 #        pull_request: Г10-pr красна у 4 чеков; на push и в restore честен.
 #   Г-С4 «save на pull_request без PR-scoped ключа» (один save без if, ключ
@@ -80,6 +82,17 @@
 #        холодный) — наблюдаем в Г10-restore; save-свойства честны.
 #   Г-С7 «save до lane-шага» (сохраняет восстановленное, не засуженное) —
 #        наблюдаем порядком в Г10-push и Г10-pr; restore честен.
+#   Г-С8 «save чека под contains ЧУЖОГО чека» (обратный Б-1 круга 2: lane-
+#        условие save-шага называет не тот ключ — кеш чека сохраняет lane,
+#        которая чек не гоняла; toy: push-save чека <c> под contains(
+#        matrix.keys, 'check:<следующий чек CACHE_CHECKS>') && push) —
+#        наблюдаем на push в Г10-push у 4 чеков; на pull_request (свой ключ)
+#        и в restore честен. Оракул, не сверяющий <k> с судимым чеком, здесь
+#        зелен — пропуск.
+#   Г-С9 «lane-конъюнкция с перепутанным событием» (push-ключ под
+#        contains(…) && == 'pull_request', PR-ключ под contains(…) && ==
+#        'push') — наблюдаем в Г10-push и Г10-pr; restore честен. Оракул, не
+#        судящий событие lane-конъюнкции, здесь зелен — пропуск.
 #   С1 «молча деградирует до полного» (игнорирует base, судит всю историю)
 #        — наблюдаем на входе И2 (нарушение НИЖЕ базы): честное окно rc 0,
 #        стаб rc 1.
@@ -613,7 +626,7 @@ fi
 #   Г10-pr/<c> — на pull_request активен save-шаг ПОСЛЕ lane-шага: тот же
 #     path, PR-scoped key ci-incr-<c>-pr-<N>-<SHA>.
 # Оракул — собственный парсер шагов (ci_steps_tsv) + вычислитель if:/key: по
-# событию (ev_if/ev_key), НЕ субъект. Демаркация — конформный вход оракула
+# событию и чеку (ev_if/ev_key), НЕ субъект. Демаркация — конформный вход оракула
 # есть закрытая грамматика; всё иное — именованное красное «вне грамматики»,
 # никогда не зелёное:
 #   шаги — раздельные uses: actions/cache/restore@<ref> | actions/cache/save@<ref>
@@ -623,6 +636,12 @@ fi
 #     | их дизъюнкция | github.event_name != 'pull_request' (= push) |
 #     github.event_name != 'push' (= pull_request); допустимы обёртка ${{ }} и
 #     префикс success() && | always() && | !cancelled() && (успешная lane: true);
+#   lane-конъюнкция (Б-1 круга 2: save чека — только в lane, несущей его ключ)
+#     — contains(matrix.keys, 'check:<k>') && github.event_name == 'push' |
+#     == 'pull_request' (ровно два члена в этом порядке; <k> — [a-z0-9_-]+ в
+#     одинарных кавычках без пробелов внутри; строка в двойных кавычках —
+#     ошибка выражения GitHub, вне грамматики): активна на своём событии,
+#     только если <k> — судимый чек <c>, иначе не активна (rc 1);
 #   ${{ }} внутри key: — github.sha и github.event.pull_request.head.sha ||
 #     github.sha дают <SHA> на обоих событиях; github.event.pull_request.head.sha
 #     даёт <SHA> на pull_request и пусто на push; github.event.pull_request.number
@@ -671,12 +690,24 @@ ci_steps_tsv() { # <ci.yml> → по строке на шаг джобы ci, п�
     }
     END { if (n > 0) emit() }'
 }
-ev_if() { # <значение if:> <push|pull_request> → rc 0 активен / 1 не активен / 2 вне грамматики
-  local c; c="$(printf '%s' "$1" | tr -d ' \t')"
+ev_if() { # <значение if:> <push|pull_request> <чек> → rc 0 активен / 1 не активен / 2 вне грамматики
+  local c t e k; c="$(printf '%s' "$1" | tr -d ' \t')"
   case "$c" in '${{'*'}}') c="${c#'${{'}"; c="${c%'}}'}" ;; esac
   case "$c" in 'success()'|'always()'|'!cancelled()') c='' ;; esac
   c="${c#'success()&&'}"; c="${c#'always()&&'}"; c="${c#'!cancelled()&&'}"
   case "$c" in
+    *'&&'*) # lane-конъюнкция: contains(matrix.keys,'check:<k>')&&<событие>
+      t="${c%%'&&'*}"; e="${c#*'&&'}"
+      case "$t" in "contains(matrix.keys,'check:"*"')") ;; *) return 2 ;; esac
+      k="${t#"contains(matrix.keys,'check:"}"; k="${k%"')"}"
+      case "$k" in ''|*[!abcdefghijklmnopqrstuvwxyz0123456789_-]*) return 2 ;; esac
+      case "$1" in *"'check:$k'"*) ;; *) return 2 ;; esac # литерал ключа без пробелов внутри кавычек
+      case "$e" in
+        "github.event_name=='push'") [ "$2" = push ] || return 1 ;;
+        "github.event_name=='pull_request'") [ "$2" = pull_request ] || return 1 ;;
+        *) return 2 ;;
+      esac
+      [ "$k" = "$3" ] && return 0; return 1 ;;
     '') return 0 ;;
     "github.event_name=='push'"|"github.event_name!='pull_request'") [ "$2" = push ] && return 0; return 1 ;;
     "github.event_name=='pull_request'"|"github.event_name!='push'") [ "$2" = pull_request ] && return 0; return 1 ;;
@@ -728,9 +759,9 @@ cache_cell() { # <tsv шагов> <чек> <restore|push|pr> → причина 
         actions/cache@*) seen="$seen [шаг $idx: комбинированный actions/cache@ — вне грамматики]"; continue ;;
         *) continue ;;
       esac
-      ev_if "$cond" "$e"; r=$?
+      ev_if "$cond" "$e" "$c"; r=$?
       [ "$r" -ne 2 ] || { seen="$seen [шаг $idx: if «$cond» вне грамматики]"; continue; }
-      [ "$r" -eq 0 ] || { seen="$seen [шаг $idx: if «$cond» — на $e не активен]"; continue; }
+      [ "$r" -eq 0 ] || { seen="$seen [шаг $idx: if «$cond» — на $e для check:$c не активен]"; continue; }
       got="$(ev_key "$key" "$e")" || { seen="$seen [шаг $idx: key «$key» вне грамматики]"; continue; }
       [ "$got" = "$want" ] || { seen="$seen [шаг $idx: key на $e = «$got» ≠ «$want»]"; continue; }
       if [ "$what" = restore ]; then
@@ -791,10 +822,11 @@ r="$(oracle_cover "$SW/drop-key.yml" "k1 k2 k3 k4 k5 k6 k7")"; rc=$?
 r="$(oracle_cover "$SW/ok-lanes.yml" "k1 k2 k3 k4 k5 k6 k7")"; rc=$?
 [ "$rc" -eq 0 ] && ok "Г-С2-диффпроба: полное покрытие проходит ($r)" || bad "Г-С2-диффпроба: оракул сломан на полном покрытии"
 
-# Г-С3..Г-С7: стаб-входы против оракула этикета Г10 (зелёны всегда). Toy-джоба
-# ci (mk_cache_workflow) — конформный этикет и пять обманных вариантов; каждый
-# стаб красен РОВНО в свойствах своего дефекта у всех 4 чеков, в остальных
-# свойствах на том же toy честен (диффпроба).
+# Г-С3..Г-С9: стаб-входы против оракула этикета Г10 (зелёны всегда). Toy-джоба
+# ci (mk_cache_workflow) — два конформных этикета (ok; lane-ok — lane-
+# конъюнкция save-шагов) и семь обманных вариантов; каждый стаб красен РОВНО
+# в свойствах своего дефекта у всех 4 чеков, в остальных свойствах на том же
+# toy честен (диффпроба).
 cw_restore() { # <вариант>
   local c
   for c in $CACHE_CHECKS; do
@@ -805,21 +837,30 @@ cw_restore() { # <вариант>
   done
 }
 cw_save() { # <вариант>
-  local c
+  local c w pi ri
   for c in $CACHE_CHECKS; do
-    if [ "$1" = unscoped ]; then
-      printf '      - uses: actions/cache/save@v4\n'
-    else
-      printf "      - if: github.event_name == 'push'\n        uses: actions/cache/save@v4\n"
-    fi
+    pi="github.event_name == 'push'"; ri="\${{ github.event_name == 'pull_request' }}"
+    case "$c" in charter) w=zones ;; zones) w=ids ;; ids) w=protected ;; *) w=charter ;; esac
+    case "$1" in
+      push-only) ri='' ;;
+      unscoped) pi=''; ri='' ;;
+      lane-ok) pi="contains(matrix.keys, 'check:$c') && github.event_name == 'push'"
+               ri="contains(matrix.keys, 'check:$c') && github.event_name == 'pull_request'" ;;
+      lane-wrong-check) pi="contains(matrix.keys, 'check:$w') && github.event_name == 'push'"
+                        ri="contains(matrix.keys, 'check:$c') && github.event_name == 'pull_request'" ;;
+      lane-event-swap) pi="contains(matrix.keys, 'check:$c') && github.event_name == 'pull_request'"
+                       ri="contains(matrix.keys, 'check:$c') && github.event_name == 'push'" ;;
+    esac
+    if [ -n "$pi" ]; then printf '      - if: %s\n        uses: actions/cache/save@v4\n' "$pi"
+    else printf '      - uses: actions/cache/save@v4\n'; fi
     printf '        with:\n          path: tmp/ci-incr/%s.sha\n          key: ci-incr-%s-${{ github.sha }}\n' "$c" "$c"
-    case "$1" in push-only|unscoped) continue ;; esac
-    printf "      - if: \${{ github.event_name == 'pull_request' }}\n        uses: actions/cache/save@v4\n"
+    [ -n "$ri" ] || continue
+    printf '      - if: %s\n        uses: actions/cache/save@v4\n' "$ri"
     printf '        with:\n          path: tmp/ci-incr/%s.sha\n' "$c"
     printf '          key: ci-incr-%s-pr-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}\n' "$c"
   done
 }
-mk_cache_workflow() { # <файл> <ok|push-only|unscoped|restore-push|no-restore-keys|save-before>
+mk_cache_workflow() { # <файл> <ok|push-only|unscoped|restore-push|no-restore-keys|save-before|lane-ok|lane-wrong-check|lane-event-swap>
   {
     printf 'jobs:\n  ci:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'
     cw_restore "$2"
@@ -867,6 +908,11 @@ stub_cache "Г-С4" unscoped        "pr"      "save на pull_request без PR-
 stub_cache "Г-С5" restore-push    "restore" "restore только на push"
 stub_cache "Г-С6" no-restore-keys "restore" "restore без restore-keys"
 stub_cache "Г-С7" save-before     "push pr" "save до lane-шага"
+got="$(cache_profile lane-ok)"
+[ "$got" = "$(want_profile '')" ] && ok "Г-С-контроль/lane: конформный toy-этикет с lane-конъюнкцией save (contains(matrix.keys, 'check:<c>') && событие) — 12/12 свойств Г10 зелёны" \
+                                  || bad "Г-С-контроль/lane: оракул Г10 красен на конформном lane-этикете:$got"
+stub_cache "Г-С8" lane-wrong-check "push"    "save чека под contains(matrix.keys, …) ЧУЖОГО чека (обратный Б-1)"
+stub_cache "Г-С9" lane-event-swap  "push pr" "lane-конъюнкция save с перепутанным событием"
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Часть И — инкрементальные проверки истории
