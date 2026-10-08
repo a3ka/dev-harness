@@ -279,6 +279,8 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "contracts/026-zhnec-tmp.md" ] && return 0 ;;
     d5da7c9d7c37cb8843b0a8f7dc08e6b9001deb9f)
       [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    4734ef880e0f7d2cb5f756c98f17033c17fa9d54)
+      [ "$p" = "contracts/090-fix-orch-peak-home-install-safe-dir.md" ] && return 0 ;;
   esac
 
   local body line path reason
