@@ -1,9 +1,10 @@
 id	пара	этап	зависит	источник	трек
 082	1	до V-2	-	e46ccf9	CI
 083	1	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#9.2	CI
-цикл-перезапуска	2	до V-2	082	a68156a	git-safety
+085	2	до V-2	082	a68156a	git-safety
 084	2	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#10.5	plan-infra
 ротация-HANDOFF	2	до V-2	-	78c1d66	plan-infra
+090	2	до V-2	085	fbf7f86	git-safety
 CI-Б	3	до V-2	083	docs/owner/2026-10-03-done-i-instrumenty.md#9.3	CI
 079	3	до V-2	-	9606609	CI
 075	4	до V-2	-	9606609	git-safety
@@ -12,7 +13,7 @@ II-3	5	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#13.8	context
 done-проекта	5	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#5	odelix
 канал-tool	6	до V-2	-	1238862	plan-infra
 инструменты-1	6	до V-2	-	docs/owner/2026-10-03-done-i-instrumenty.md#2	tools
-V-2	7	до V-2	082,083,цикл-перезапуска,084,ротация-HANDOFF,CI-Б,079,075,IV-2,II-3,done-проекта,канал-tool,инструменты-1	9606609	odelix
+V-2	7	до V-2	082,083,085,084,ротация-HANDOFF,CI-Б,079,075,IV-2,II-3,done-проекта,канал-tool,инструменты-1	9606609	odelix
 CI-В	8	параллельно с V-2	V-2	docs/owner/2026-10-03-done-i-instrumenty.md#9.4	CI
 генераторы	8	параллельно с V-2	V-2	docs/owner/2026-10-03-done-i-instrumenty.md#3	tools
 реестр-решений	9	параллельно с V-2	V-2	docs/owner/2026-10-03-done-i-instrumenty.md#8.5	architecture
