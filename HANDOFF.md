@@ -119,5 +119,5 @@ IV-2/II-3/done-проекта/Odelix — после заморозки хард�
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
 - 079 · пара 3 · заморожен · трек CI
-- цикл-перезапуска · пара 2 · не начат · трек git-safety
+- ротация-HANDOFF · пара 2 · не начат · трек plan-infra
 <!-- END GENERATED NEXT SESSION -->
