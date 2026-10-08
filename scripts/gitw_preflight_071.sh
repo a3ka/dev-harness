@@ -39,6 +39,14 @@ command -v git  >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ:
 command -v curl >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-раннер недоступен: curl\n' >&2; exit 2; }
 command -v jq   >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-раннер недоступен: jq\n' >&2; exit 2; }
 
+# SELF_DIR — каталог скриптов (для вызова ci_klass.sh из чека 5 контракта 087
+# И-5; чек живёт ВНЕ временного worktree — на ОТПРАВЛЯЕМОМ дереве классификатор
+# мог бы читать разные uchet, чем cwd вызова, и тут SELF_DIR решает, откуда брать
+# сценарий: версия, лежащая в worktree предполёта, ещё не сформирована на этом
+# шаге — чек 5 опирается на сценарий из СВОЕГО scripts/, как чек 1 читает
+# package.json из $send_tip через git show).
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 TGT="${1:?цель не передана}"
 shift
 
@@ -375,6 +383,47 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
   done
   unset land_merges
 fi
+
+# ── чек (5, контракт 087 И-5): код в main только через PR ─────────────────
+# Класс пуша — `ci_klass.sh vorota <вершина main цели> <отправляемый tip>`:
+# учётный пуш прозрачен без запроса к API; код — только при наличии
+# доказательства тяжёлого прогона по хешу (артефакт tyazhelyj-<H>).
+# Чек (5) между чеком (3) и чеком (1) — порядок (4)(2)(3)(5)(1) с добавлением
+# шага 087; прежние чеки (1)-(4) не меняются.
+# Чеки 071 (1)–(4) неприменимы (нет ключей check:*) ⇒ rc 0 «чеки неприменимы»
+# ДО чтения ci_klass.sh: чек 5 на ДЕРЕВЕ без реестра ⇒ rc 0 «неприменим»
+# внутри vorota, выход rc 0. Здесь этот случай не блокирует чек 5: даже если
+# дальше чек (1) прозрачен, чек (5) сначала обязан спросить классификатор.
+if ! git cat-file -e "${rmain}^{commit}" 2>/dev/null; then
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: код в main: вершина main цели %s не в локальной истории — сделай fetch\n' "$rmain" >&2
+  exit 1
+fi
+# Прокидываем API-ручку в ci_klass.sh: чек (3) использует GITW_PREFLIGHT_071_API,
+# контракт 087 И-3 ждёт CI_KLASS_API. Деривация — та же ручка, та же форма
+# (полная или КОРЕНЬ + auto-resolve). При пустой ручке — fallback на GITHUB_REPOSITORY
+# (стандартная переменная GitHub Actions), иначе origin github.
+CI_KLASS_API_RESOLVED="${GITW_PREFLIGHT_071_API:-}"
+if [ -z "$CI_KLASS_API_RESOLVED" ] && [ -n "$GITHUB_REPOSITORY" ]; then
+  CI_KLASS_API_RESOLVED="${GITHUB_API_URL:-https://api.github.com}/repos/$GITHUB_REPOSITORY"
+fi
+export CI_KLASS_API="$CI_KLASS_API_RESOLVED"
+# Классификатор ищется в scripts/ репозитория push'а (cwd live-операции)
+# или в $SELF_DIR (фикстура 087 — _считается_ от scripts/gitw_preflight_071.sh,
+# чьё $SELF_DIR совпадает с местом лежания scripts/ci_klass.sh; toy-мир $T87_W
+# НЕ имеет scripts/, и cwd-поиск там провалится — берём $SELF_DIR как fallback).
+# Так обеспечивается и зелёный мир 071 (cwd=$T с scripts/ через git archive),
+# и фикстура 087 (cwd=$T87_W без scripts/, поиск через $SELF_DIR).
+if [ -f "scripts/ci_klass.sh" ]; then
+  vor_out="$(bash scripts/ci_klass.sh vorota "$rmain" "$send_tip" 2>&1)"
+else
+  vor_out="$(bash "$SELF_DIR/ci_klass.sh" vorota "$rmain" "$send_tip" 2>&1)"
+fi
+vor_rc=$?
+if [ "$vor_rc" -ne 0 ]; then
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: %s\n' "${vor_out#ОТКАЗ: }" >&2
+  exit 1
+fi
+printf 'gitw ПРЕДПОЛЁТ: код-через-PR: %s\n' "$vor_out" >&2
 
 # ── чек (1): четыре npm-ключа на ОТПРАВЛЯЕМОМ дереве ───────────────────────
 command -v npm >/dev/null 2>&1 \
