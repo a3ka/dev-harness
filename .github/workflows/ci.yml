@@ -10,6 +10,18 @@
 # требует бинаря omp 185 МБ, в CI его нет; `models:actual` требует трейс последней сессии;
 # `gen:harness` и `overlay` — команды записи, прогонять их на чистом чекауте неправильно.
 # Исключения объявлены с записанными причинами, а не молча.
+#
+# Контракт 087 (И-8): проводка CI-Б — классы изменений, тяжёлый результат по хешу
+# кодового дерева. Джобы `klass`, `legkij`, `vorota`, `obshchij`, `ci`, `antiplacebo`,
+# `tyazhelyj-itog`. Решение klass выдаёт outputs kod и tyazh: учётный пуш
+# (только легие правки U) идёт в `legkij`, кодовый (U не совпадает) — также в
+# `vorota` + тяжёлые джобы (`obshchij`/`ci`/`antiplacebo`) на дереве без учётных
+# путей (первый шаг каждой — `strip`); `tyazhelyj-itog` сеет артефакт
+# `tyazhelyj-<H>` для приёма на следующем кодовом пуше. `cancel-in-progress`
+# снят контрактом 087 И-8: учётный пуш проверяется ≤ 2 мин, тяжёлое идёт
+# только на кодовом пуше через PR-прогон, и серия пушей в одну PR более не
+# должна отменять ранее зелёные тяжёлые прогоны (каждый из них сохраняется
+# артефактом и нужен для приёма следующего пуша — `vorota` и `check_ci_gate`).
 name: ci
 
 on:
@@ -17,25 +29,117 @@ on:
     branches: [main]
   pull_request:
 
-# Concurrency (контракт 020, Р2): каждый новый push/PR по одному рефу отменяет
-# предыдущий прогон — иначе очередь из устаревших коммитов съедает слоты шардов
-# (на судейской фазе 019 накоплено ~2 ч чистого ожидания CI; гейт 4б делает
-# КАЖДОЕ ожидание блокером судейского конвейера). Группа привязана к рефу — разные
-# ветки не отменяют друг друга; cancel-in-progress идёт на повторные пуши той же
-# ветки и на обновления PR.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
+  actions: read
+  checks: read
 
 jobs:
-  antiplacebo:
+  # ДЖОБА klass (контракт 087 И-8) — классификатор пуска. Один шаг с id `reshenie`,
+  # который через GITHUB_TOKEN вызывает `scripts/ci_klass.sh reshenie` и печатает
+  # три строки: `kod=<H>`, `tyazh=reuse|run`, `istochnik=<sha>|-` → outputs kod и
+  # tyazh. Выполняется БЕЗ условий (всегда на push и pull_request).
+  klass:
     runs-on: ubuntu-latest
-    # Р3 контракта 020: timeout шарда — 30 мин (поднят с 20 живым укусом
-    # 2026-10-02: ap4 (check_charter по 3-тысячной истории) дважды убит ровно
-    # на 20:15 — runs 36956195239/36962813984, cancelled при зелёных прочих;
-    # рост дал fetch-tags: true (Н-181). fail-fast: false — одна красная
-    # фикстура не отменяет остальные шарды, иначе полный прогон теряет
-    # смысл (Н-63).
+    outputs:
+      kod: ${{ steps.reshenie.outputs.kod }}
+      tyazh: ${{ steps.reshenie.outputs.tyazh }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - id: reshenie
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/ci_klass.sh reshenie >> "$GITHUB_OUTPUT"
+
+  # ДЖОБА vorota (контракт 087 И-8) — пуш в main без доказательства. Только на
+  # push (pull_request не приземляется в main напрямую); `ci_klass.sh vorota` —
+  # отказ rc 1 «код в main только через PR», если head_sha не имеет тяжёлого
+  # прогона (артефакта tyazhelyj-<H>) по тому же H. Окружение GITHUB_TOKEN — для
+  # анонимного запроса GitHub API достаточно публичного endpoint, токен
+  # поднимает лимит запросов в час.
+  vorota:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Код в main только через PR
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash scripts/ci_klass.sh vorota ${{ github.event.before }} ${{ github.sha }}
+
+  # ДЖОБА legkij (контракт 087 И-2, И-8) — лёгкое задание ≤ 2 мин. Без условий
+  # (всегда на push и pull_request): инкрементальный charter/zones/ids/protected
+  # (--incr 083) + check:nabludenia + check:contract-frozen. Один run-шаг —
+  # `bash scripts/run_ci_lane.sh <ключи legkij реестра по порядку>`. Пост-шаг
+  # check_no_rewrite — на push, в этой же джобе (контракт 087 И-8: «кеши --incr
+  # 083 и check_no_rewrite (push) — в legkij»); форма — cognitive-only, ловец —
+  # стена А7 и ревьюер.
+  legkij:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          # Н-181: теги done-границ контрактов нужны check:zones через --incr —
+          # без них окна контрактов открывались бы до HEAD, и зоны судили
+          # чужие freeze-registry коммиты без СПАСЕНО.
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Лёгкое задание (устав, зоны, ids, protected, грамматика 015)
+        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen
+      - name: История не перезаписана
+        if: github.event_name == 'push'
+        run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
+
+  # ДЖОБА obshchij (контракт 087 И-8) — не-матричная тяжёлая джоба: общие шаги
+  # однажды (контракт 087 И-8: `npm run check:ci-parity` и сам-тесты раннера
+  # анти-плацебо — только здесь; в `ci`/`antiplacebo` нет). Первый run-шаг —
+  # strip (дерево без учётных путей); условие `needs.klass.outputs.tyazh == 'run'`
+  # (кодовый пуш: тяжёлое идёт только при наличии доказательства; учётный пуш —
+  # пропуск, тиажёлые шаги не нужны). Без strategy — не матричная.
+  obshchij:
+    needs: klass
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - run: bash scripts/ci_klass.sh strip ${{ needs.klass.outputs.kod }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - name: Проверка паритета с CI
+        run: npm run check:ci-parity
+      - name: Сам-тесты раннера анти-плацебо
+        run: |
+          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
+          trap 'rm -rf "$TMP_ROOT"' EXIT
+          mkdir -p "$TMP_ROOT/scripts" "$TMP_ROOT/fixtures/verify_antiplacebo"
+          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
+          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
+          npm run check:antiplacebo -- "$TMP_ROOT"
+      - name: Сам-тесты батареи 087 (классификатор, ворота, проводка ci.yml)
+        run: bash fixtures/_krasnye_087.sh
+
+  # ДЖОБА antiplacebo (контракт 087 И-8) — матричная тяжёлая джоба шардов.
+  # needs klass, if klass.outputs.tyazh == 'run', первый run-шаг — strip.
+  # include-блок ниже генерируется `scripts/gen_ci_steps.sh` (контракт 083
+  # инвариант 5).
+  antiplacebo:
+    needs: klass
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -56,44 +160,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Н-206: `pull_request`-событие по умолчанию чекаутит синтетический
-          # `refs/pull/N/merge` (эфемерный коммит GitHub, диффящийся против
-          # ТЕКУЩЕГО base) — ЛЮБОЙ PR, амендящий уже-frozen `contracts/*.md`,
-          # навсегда красит `check_charter.sh` (диффит фантомный merge против
-          # первого родителя). Явный `ref:` на реальный head_sha PR (fallback
-          # на `github.sha` для push-события) — судим РЕАЛЬНУЮ ветку, не
-          # фантом; contract 073 «merge-HEAD» самодостаточен (строит СВОИ
-          # синтетические деревья в fixtures/zony_merge_head/, не зависит от
-          # формы внешнего checkout).
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          # `check:protected` сверяет достижимую историю — тот же аргумент, что в
-          # главной джобе (см. её checkout): на глубине 1 объединение достижимых
-          # коммитов равно HEAD, барьер стал бы пусто-зелёным.
           fetch-depth: 0
-          # Н-181: checkout точечного ref НЕ тащит теги (fetch-tags по умолчанию
-          # false) — done-границы окон контрактов исчезали, окна открывались до
-          # HEAD, и check_zones судил чужие freeze-registry коммиты без СПАСЕНО.
           fetch-tags: true
+      - run: bash scripts/ci_klass.sh strip ${{ needs.klass.outputs.kod }}
       - uses: actions/setup-node@v4
-        # Node 26 — требование совместимости с прокси учёта под --permission
-        # (флаг есть в node ≥ ~24/26). Совпадает с engines в package.json и с
-        # версией в главной джобе.
         with:
           node-version: 26
       - name: Анти-плацебо · шард ${{ matrix.shard }}
-        # Р1/предмет п.1: --scope задаёт КОНКРЕТНЫЕ ключи шарда (на которых
-        # scope_select выберет case-*). --changed отменён — он видел только
-        # последний пуш (Н-87) и не давал scoped-выбор.
-        # Контракт 083, инвариант 5: include-блок в этой джобе генерируется
-        # из реестра `registry/ci-steps.tsv` (shard-строки) генератором
-        # `scripts/gen_ci_steps.sh` и сверяется им же (--check). Правка
-        # руками внутри блока красна поимённо.
-        # Маркеры — в колонке 1 (требование оракула батареи 083, block_body
-        # использует `index($0,marker)==1`). YAML трактует комментарии
-        # одинаково на любой колонке; содержимое include — на 10 колонке
-        # (на уровне джобы antiplacebo, после переноса strategy на job-level).
         run: npm run check:antiplacebo -- --scope ${{ matrix.keys }}
+
+  # ДЖОБА ci (контракт 087 И-8) — матричная тяжёлая джобы `ci`. needs klass,
+  # if klass.outputs.tyazh == 'run', первый run-шаг — strip. Ровно ДВА run-шага
+  # (strip + lane; К9 батареи). include-блок ниже генерируется
+  # `scripts/gen_ci_steps.sh --write` и сверяется `--check` (контракт 083
+  # инвариант 5; правка руками красна поимённо).
   ci:
+    needs: klass
+    if: needs.klass.outputs.tyazh == 'run'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -101,194 +185,48 @@ jobs:
         include:
 # BEGIN GENERATED CI JOBS (083)
           - lane: l1
-            keys: check:charter
-          - lane: l2
             keys: check:gitw-predpolet-family-selftest
+          - lane: l2
+            keys: check:orch-restart-family-selftest check:gitw-family-selftest check:watchdog-082-family-selftest metering:selftest check:hooks check:measure-probe check:scope-select
           - lane: l3
-            keys: check:zones check:github-token-family-selftest check:precision-family-selftest check:scope-select drill:startup-digest
+            keys: check:protected-call-budget check:merge-gate-family-selftest check:zony-merge-head-family-selftest check:ceilings check:contract-ready check:precision-battery check:scoped-run
           - lane: l4
-            keys: check:protected check:document check:merge-gate-family-selftest check:v-polete-nichego-088-family-selftest drill:next-id-race check:ceilings check:contract-ready check:judge-gate check:threat-model-selftest drill:nabludenia-nechitaemo
+            keys: check:samodostatochnost-family-selftest check:declared-path-family-selftest check:provodka-family-selftest drill:next-id-race check:decisions check:precision-family-selftest check:spec-ready-036
           - lane: l5
-            keys: check:orch-restart-family-selftest check:sharing-family-selftest check:cikl-perezapuska-085-family-selftest check:gitw-family-selftest check:provodka-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:decisions check:nabludenia check:measure-probe check:scoped-run
+            keys: check:sharing-family-selftest check:document check:runner-hygiene drill:protected-exception check:gen check:skills drill:gate-draft
           - lane: l6
-            keys: check:protected-call-budget check:zones-call-budget check:declared-path-family-selftest check:ids check:runner-hygiene drill:contract-change metering:selftest check:gen check:precision-battery check:precision-gate-043 check:spec-ready-036
+            keys: check:zones-call-budget check:door-bugfix-family-selftest check:v-polete-nichego-088-family-selftest drill:protected-rename check:github-token-family-selftest check:threat-model-selftest drill:nabludenia-nechitaemo
           - lane: l7
-            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:door-bugfix-family-selftest check:ops-server-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:consumers-window-family-selftest check:hooks check:skills drill:gate-draft
+            keys: check:approval check:cikl-perezapuska-085-family-selftest check:ops-server-family-selftest drill:contract-change check:consumers-window-family-selftest check:judge-gate check:precision-gate-043 drill:startup-digest
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4
         with:
-          # Н-206: та же причина, что в джобе `antiplacebo` (см. её checkout) —
-          # без явного `ref:` эта джоба судит синтетический PR-merge-ref, а не
-          # реальную ветку; `check:charter` ложно красит ЛЮБОЙ PR, амендящий
-          # уже-frozen контракт/план.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          # `check:protected` сверяет ВСЮ достижимую историю. На глубине 1 объединение
-          # достижимых коммитов равно HEAD, и барьер стал бы пусто-зелёным — он это ловит и
-          # отказывает, но лечить надо здесь, а не смягчением барьера.
           fetch-depth: 0
-          # Н-181: те же done-теги для check_zones (окна контрактов) — без тегов
-          # шаг «Зоны исполнителей» красит исторические freeze-registry коммиты.
           fetch-tags: true
-
-      # Кеш для инкрементального режима 4 исторических чеков (контракт 083, этикет зон
-      # строки 364-370, v+1). STATIC-обёртка `actions/cache`: по шагу на каждый чек,
-      # path `tmp/ci-incr/<check>.sha`, key `ci-incr-<check>-<sha>`, restore-keys
-      # `ci-incr-<check>-`, restore всегда. SAVE-шаги ниже — отдельные, условные
-      # на событие: на push ключ `ci-incr-<check>-<sha>` (общая запись main), на
-      # pull_request PR-scoped ключ `ci-incr-<check>-pr-<N>-<sha>` (N =
-      # github.event.pull_request.number) — GitHub изолирует запись по PR, и
-      # push-путь main не затрагивается. PR-раны по restore-keys выбирают
-      # самую свежую видимую запись: свою предыдущую зелёную, иначе последнюю
-      # push-запись. Кеш СТАТИЧНЫЙ (не в `# BEGIN/END GENERATED` блоке), потому
-      # что инкрементальная пачка своего в `ci.yml` не пишет — генератор
-      # `scripts/gen_ci_steps.sh` блок не генерирует.
-      - uses: actions/cache/restore@v4
-        with:
-          path: tmp/ci-incr/charter.sha
-          key: ci-incr-charter-${{ github.sha }}
-          restore-keys: |
-            ci-incr-charter-
-      - uses: actions/cache/restore@v4
-        with:
-          path: tmp/ci-incr/zones.sha
-          key: ci-incr-zones-${{ github.sha }}
-          restore-keys: |
-            ci-incr-zones-
-      - uses: actions/cache/restore@v4
-        with:
-          path: tmp/ci-incr/ids.sha
-          key: ci-incr-ids-${{ github.sha }}
-          restore-keys: |
-            ci-incr-ids-
-      - uses: actions/cache/restore@v4
-        with:
-          path: tmp/ci-incr/protected.sha
-          key: ci-incr-protected-${{ github.sha }}
-          restore-keys: |
-            ci-incr-protected-
-
+      - run: bash scripts/ci_klass.sh strip ${{ needs.klass.outputs.kod }}
       - uses: actions/setup-node@v4
-        # Рантайм харнеса — node 26: прокси учёта под --permission ТРЕБУЕТ --allow-net (сетевой
-        # permission-флаг есть только в node ≥ ~24/26; на node 22 флаг неизвестен → node падает,
-        # прокси не стартует, зелёный контроль check_metering не устанавливается — измерено на CI
-        # 2026-08-22, лог джоба 97044050302). engines>=26 (package.json) и эта версия — одно.
         with:
           node-version: 26
-
-      - name: Проверка паритета с CI
-        # Паритет проверяется САМИМ барьером, и он обязан пройти ДО остальных проверок:
-        # иначе расхождение найдёт не эта команда, а следующая, и причина будет названа
-        # Самопроверка правила обязана стоять первой. Это ЕДИНСТВЕННЫЙ шаг
-        # в джобе ci с npm-командой (правило 6 verify_ci_parity, контракт 083 инв. 2:
-        # «не более одной run-строки вида `npm run`»); прочие шаги — `bash <path>` 4-я форма
-        # (прецедент 058–080) либо запуск лейн-раннером с `matrix.keys`.
-        run: npm run check:ci-parity
-
-      - name: Сам-тесты раннера анти-плацебо (арбитраж 020 c8aaa67, замер 5)
-        # Замер 5 арбитража: 23 фикстуры `fixtures/verify_antiplacebo/` на МИНИМАЛЬНОМ
-        # mktemp-корне (52 с стены — рецепт CI-шага дёшев, минуты CI не часы).
-        # Раннер `scripts/verify_antiplacebo.sh` ЗАМОРОЖЕН в этом круге — копия в mktemp-корень,
-        # не правка; фикстуры `fixtures/verify_antiplacebo/` — те же 23 case.
-        # Имя `npm run check:antiplacebo` СТАТИЧНО (правило 6); аргумент `$TMP_ROOT` ломает
-        # равенство значению скрипта → оплата записью команда: в `ci_parity_exceptions.txt`
-        # (та же механика, что у residual-оплат инварианта 4 — арбитраж c8aaa67, §Решение п.2).
-        # Прямой вызов `bash scripts/verify_antiplacebo.sh …` в workflow НЕ писать — красный
-        # флаг residual (см. замер 6: ветвь «барьер остался зелёным на обманном дереве»).
-        run: |
-          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
-          trap 'rm -rf "$TMP_ROOT"' EXIT
-          mkdir -p "$TMP_ROOT/scripts"
-          mkdir -p "$TMP_ROOT/fixtures/verify_antiplacebo"
-          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
-          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
-          npm run check:antiplacebo -- "$TMP_ROOT"
-
-      - name: История не перезаписана
-        # Контракт 083, инвариант 2: статический пост-шаг джобы ci (НЕ команда пакета —
-        # гейт `check:ci-parity` уже в начале, повторять запрещено). Аргументы
-        # `github.event.before` и `github.sha` доступны в шаге workflow и не требуют
-        # подстановки в реестре.
-        if: github.event_name == 'push'
-        run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
-
       - name: Lane ${{ matrix.lane }}
-        # Контракт 083, инвариант 2: джоба ci перестроена в матрицу из K параллельных
-        # lane (K из meta-строки `lanes <K>` реестра, 6≤K≤8). Тело шага — ОДНОСТРОЧНЫЙ
-        # скаляр с ЛИТЕРАЛЬНЫМ токеном `${{ matrix.keys }}` (иное неизвлекаемое значение —
-        # клетка Г9 красна). Исполняется в cwd worktree, читает `registry/ci-steps.tsv`,
-        # запускает команды ключей в порядке, останавливается на первом отказе именем ключа.
-        # include-блок в этой джобе генерируется `scripts/gen_ci_steps.sh --write`
-        # и сверяется `--check` (правка руками красна поимённо).
         run: bash scripts/run_ci_lane.sh ${{ matrix.keys }}
 
-      # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
-      # v+1 — ранее save был только на push, и `actions/cache` для PR-ранов не
-      # прогревался: «прогрев» пустым коммитом невозможен, и А3 не достижим).
-      # СТАТИЧЕСКИЙ список 8 шагов (4 чека × push/pull_request): блок НЕ
-      # генерируется `scripts/gen_ci_steps.sh` (rev 4 — круг 4 implementer),
-      # чтобы не размывать его единственным покрываемым предметом («оба блока»
-      # JOBS/SHARDS по контракту :83-90) и не плодить CHECK_LANE/маркеры.
-      # Токенное условие `contains(format(' {0} ', matrix.keys), ' check:X ')`
-      # (точная токенная форма, пробелы-якоря по краям, ИСКЛЮЧАЕТ подстрочный
-      # матч на ключах-надстройках вроде `check:zones-call-budget` —
-      # A-372 архитектора): сохраняет ТОЛЬКО lane, несущая ключ X, и ни одна
-      # иная. На push — ключ `ci-incr-<check>-<sha>` (общая запись main); на
-      # pull_request — PR-scoped ключ `ci-incr-<check>-pr-<N>-<sha>` (N =
-      # github.event.pull_request.number), GitHub изолирует запись по PR и видит
-      # её только этому PR, push-путь main не затрагивается. Кеш
-      # `tmp/ci-incr/<check>.sha` мог обновиться внутри lane-шага (после `--incr`).
-      - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'push'
-        uses: actions/cache/save@v4
+  # ДЖОБА tyazhelyj-itog (контракт 087 И-8) — сеятель доказательства тяжёлого
+  # прогона по кодовому хешу. needs klass + три тяжёлые джобы (obshchij,
+  # antiplacebo, ci); условие — needs.klass.outputs.tyazh == 'run' (только кодовые
+  # пуши создают доказательство). Артефакт `tyazhelyj-<H>` (`<H>` — kod из
+  # klass.outputs) — индекс для `ci_klass.sh dokaz` при следующем кодовом пуше
+  # (И-3). retention-days: 90 — деградация скорости после 90 дней, не
+  # корректности (И-3 деградация списка по длине страницы).
+  tyazhelyj-itog:
+    needs: [klass, obshchij, antiplacebo, ci]
+    if: needs.klass.outputs.tyazh == 'run'
+    runs-on: ubuntu-latest
+    steps:
+      - run: printf '%s\n' "${{ needs.klass.outputs.kod }}" > tyazhelyj.txt
+      - uses: actions/upload-artifact@v4
         with:
-          path: tmp/ci-incr/charter.sha
-          key: ci-incr-charter-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:charter ') && github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/charter.sha
-          key: ci-incr-charter-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:zones ') && github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/zones.sha
-          key: ci-incr-zones-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:zones ') && github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/zones.sha
-          key: ci-incr-zones-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:ids ') && github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/ids.sha
-          key: ci-incr-ids-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:ids ') && github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/ids.sha
-          key: ci-incr-ids-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:protected ') && github.event_name == 'push'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/protected.sha
-          key: ci-incr-protected-${{ github.sha }}
-      - if: contains(format(' {0} ', matrix.keys), ' check:protected ') && github.event_name == 'pull_request'
-        uses: actions/cache/save@v4
-        with:
-          path: tmp/ci-incr/protected.sha
-          key: ci-incr-protected-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-
-      - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
-        # Прямой шаг ВНЕ матрицы по прецеденту 058/070/080: раннер `fixtures/_krasnye_083.sh`
-        # гоняет `fixtures/ci_gen_083/red_ci_a_083.sh` — клетки Г0–Г9 (генератор и исполнение
-        # lane), Г-С1/Г-С2 (стаб-пак), И0–И5 (инкрементальность check_charter),
-        # И-валид/ниже/окно для check_zones/check_ids/check_protected, И-С1..И-С4 (стаб-пак
-        # окна). Шаг вводится контрактом 083 как ПРОВОДКА-ЭНФОРСМЕНТ (та же механика, что у
-        # сам-тестов семьи 038/041/043/045/071/080). Ключ `check:ci-family-selftest` в
-        # package.json равен значению шага — правило 6 verify_ci_parity.sh (четвёртая форма,
-        # прецедент 058–080). Самодостаточен: раннер строит toy-миры в mktemp-каталогах,
-        # стерегомое дерево не мутирует, сети нет. Шаг красен, пока предмет 083 не
-        # реализован (г0 «предмет отсутствует»); зелёным становится вместе с предметом;
-        # rc=0 закрывает пункт приёмки шага (правило 6) и закрывает ПРОВОДКА-долг 083.
-        run: bash fixtures/_krasnye_083.sh
+          name: tyazhelyj-${{ needs.klass.outputs.kod }}
+          path: tyazhelyj.txt
+          retention-days: 90
