@@ -61,9 +61,10 @@
 #   п0   предмет существует и крюк звонит: мусорный worktree при пуше main
 #        обязан дать отказ; rc 0 = «предмет отсутствует» (fail-fast);
 #   п1   зелёный мир: полный harness-tree, теги синхронны, land с зелёным
-#        PR, санкционированный worktree wip/<NNN>/<автор> под <hash8>/ —
-#        push проходит, bare продвинулся ровно на tip, строка «gitw
-#        ПРЕДПОЛЁТ: » напечатана (молчания нет);
+#        PR, kod-хеш отправляемого tip доказан артефактом tyazhelyj-<H>
+#        (087 И-4 «Ворота», чек 5), санкционированный worktree
+#        wip/<NNN>/<автор> под <hash8>/ — push проходит, bare продвинулся
+#        ровно на tip, строка «gitw ПРЕДПОЛЁТ: » напечатана (молчания нет);
 #   п2а-п2г — красный чек: ceilings (жир 60000 байт, замер пачки:
 #        FAIL на 51201+), nabludenia (ОТКРОТО без адреса, замер: FAIL Н-1),
 #        ids (plans/071-{a,b}.md, замер: «номер 71 назначен рукой»),
@@ -133,7 +134,9 @@
 # живой замер пачки) + копии всех тегов репо (замороженность черновиков
 # доказывается тегами — check_ceilings:19-22) + land-merge «land:
 # wip/071/demo» + API-стаб (python3 http.server: green/failure/empty по
-# head_sha). Судимый субъект — копия пары scripts/gitw +
+# head_sha; артефакты tyazhelyj-<H> по dokaz.list — доказательство
+# тяжёлого прогона для чека 5 «Ворота» 087 И-4; H каждого tip мира считает
+# ci_klass.sh самого toy-дерева). Судимый субъект — копия пары scripts/gitw +
 # scripts/gitw_preflight_071.sh в $WORK/toyw/ (крюк резолвит предполёт от
 # каталога самой обёртки — НЕ PATH).
 #
@@ -193,8 +196,11 @@ mkdir -p "$TOY/scripts"
 cp "$ROOT/scripts/gitw" "$TOY/scripts/gitw" || die_cell среда "не скопировался scripts/gitw"
 [ -f "$ROOT/scripts/gitw_preflight_071.sh" ] && cp "$ROOT/scripts/gitw_preflight_071.sh" "$TOY/scripts/"
 
-# ── API-стаб: green.list / fail.list по head_sha ─────────────────────────────
-APIDIR="$WORK/api"; : > "$APIDIR/green.list"; : > "$APIDIR/fail.list"
+# ── API-стаб: green/fail/push.list по head_sha (runs); dokaz.list — артефакты
+# tyazhelyj-<H> (087 И-4 «Ворота», чек 5 предполёта: kod-пуш main пропускается
+# только с доказательством тяжёлого прогона — зелёный мир 071 обязан быть
+# «kod, доказанным PR» одновременно с зелёным PR-CI чека (3)) ──────────────────
+APIDIR="$WORK/api"; : > "$APIDIR/green.list"; : > "$APIDIR/fail.list"; : > "$APIDIR/dokaz.list"
 cat > "$APIDIR/srv.py" <<'PYEOF'
 import json, re, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -202,26 +208,46 @@ from urllib.parse import urlparse, parse_qs
 GP = sys.argv[1]
 FP = sys.argv[2]
 PP = sys.argv[3]
+DP = sys.argv[4]
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
-        if not re.match(r'^/repos/[^/]+/[^/]+/actions/runs$', u.path):
-            self.send_response(404); self.end_headers(); return
-        sha = (parse_qs(u.query).get('head_sha') or [''])[0]
-        try:
-            GREEN = set(x for x in open(GP).read().split() if x)
-            FAIL = set(x for x in open(FP).read().split() if x)
-            PUSH = set(x for x in open(PP).read().split() if x)
-        except OSError:
-            GREEN, FAIL, PUSH = set(), set(), set()
-        if sha in GREEN:
-            body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
-        elif sha in PUSH:
-            body = {"total_count": 1, "workflow_runs": [{"id": 3, "event": "push", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
-        elif sha in FAIL:
-            body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure"}]}
+        if re.match(r'^/repos/[^/]+/[^/]+/actions/artifacts$', u.path):
+            # dokaz (087 И-4): артефакт tyazhelyj-<H>, head_sha того же
+            # kod-хеша; незарегистрированный H — пустой список (rc 1 «нет
+            # зелёного тяжёлого прогона»), отказ ворот НЕ маскируется
+            name = (parse_qs(u.query).get('name') or [''])[0]
+            m = re.match(r'^tyazhelyj-([0-9a-f]{64})$', name)
+            dok = {}
+            try:
+                for ln in open(DP).read().splitlines():
+                    p = ln.split()
+                    if len(p) == 2:
+                        dok[p[0]] = p[1]
+            except OSError:
+                pass
+            if m and m.group(1) in dok:
+                body = {"total_count": 1, "artifacts": [{"id": 9, "name": name, "expired": False, "workflow_run": {"repository_id": 1, "head_repository_id": 1, "head_sha": dok[m.group(1)]}}]}
+            else:
+                body = {"total_count": 0, "artifacts": []}
+        elif re.match(r'^/repos/[^/]+/[^/]+/actions/runs$', u.path):
+            sha = (parse_qs(u.query).get('head_sha') or [''])[0]
+            try:
+                GREEN = set(x for x in open(GP).read().split() if x)
+                FAIL = set(x for x in open(FP).read().split() if x)
+                PUSH = set(x for x in open(PP).read().split() if x)
+            except OSError:
+                GREEN, FAIL, PUSH = set(), set(), set()
+            if sha in GREEN:
+                body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+            elif sha in PUSH:
+                body = {"total_count": 1, "workflow_runs": [{"id": 3, "event": "push", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+            elif sha in FAIL:
+                body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure"}]}
+            else:
+                body = {"total_count": 0, "workflow_runs": []}
         else:
-            body = {"total_count": 0, "workflow_runs": []}
+            self.send_response(404); self.end_headers(); return
         raw = json.dumps(body).encode()
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
@@ -230,11 +256,11 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(raw)
     def log_message(self, *a): pass
 srv = HTTPServer(('127.0.0.1', 0), H)
-open(sys.argv[4], 'w').write(str(srv.server_port))
+open(sys.argv[5], 'w').write(str(srv.server_port))
 srv.serve_forever()
 PYEOF
 : > "$APIDIR/push.list"
-python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/port" &
+python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/dokaz.list" "$APIDIR/port" &
 API_PID=$!
 APORT=""
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -245,6 +271,8 @@ done
 APIBASE="http://127.0.0.1:$APORT/repos/a3ka/dev-harness"
 curl -fsS -m 5 "$APIBASE/actions/runs?head_sha=proba" >/dev/null 2>&1 \
   || die_cell среда "API-стаб не отвечает на пробу (пустая выборка — не проверено ничего)"
+curl -fsS -m 5 "$APIBASE/actions/artifacts?name=tyazhelyj-0000000000000000000000000000000000000000000000000000000000000000" >/dev/null 2>&1 \
+  || die_cell среда "API-стаб не отвечает на пробу артефактов (пустая выборка — не проверено ничего)"
 # мёртвый порт: занять и освободить
 DEADPORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 
@@ -254,6 +282,30 @@ mkdir -p "$TREE"
 git -C "$ROOT" archive --format=tar HEAD | tar -xf - -C "$TREE" \
   || die_cell среда "git archive HEAD не развёрнут (дерево не построено)"
 
+
+# ── доказательство тяжёлого прогона (087 И-4 «Ворота», чек 5 предполёта) ──────
+# Чек 5 сравнивает kod-хеш вершины main цели и отправляемого tip: kod-пуш
+# пропускается только при артефакте tyazhelyj-<H> с head_sha того же хеша.
+# Зелёный мир батареи — «kod, доказанный PR-прогоном»: H каждого tip мира
+# считает САМ ci_klass.sh toy-дерева (единый источник грамматики И-1 087,
+# не переизобретаем) и регистрируется в dokaz.list API-стаба. На дереве
+# без классификатора (main до 087) чека 5 нет — регистрация тихо
+# пропускается; незарегистрированный H остаётся пустым ответом API
+# (отказ «код в main только через PR» ничем не маскируется).
+dokaz_reg() { # dokaz_reg <rev>: H(rev) → dokaz.list
+  [ -f "$T/scripts/ci_klass.sh" ] || return 0
+  local s h
+  s="$(git -C "$T" rev-parse --verify --quiet "$1^{commit}" 2>/dev/null)" || return 0
+  h="$( cd "$T" && bash scripts/ci_klass.sh hash "$s" 2>/dev/null )" || return 0
+  case "$h" in ''|*[!0-9a-f]*) return 0 ;; esac
+  [ "${#h}" -eq 64 ] || return 0
+  printf '%s %s\n' "$h" "$s" >> "$APIDIR/dokaz.list"
+}
+dokaz_reg_world() { # все ветки текущего $T — мир доказывает каждый свой tip
+  local r
+  while IFS= read -r r; do dokaz_reg "${r#refs/heads/}"; done \
+    < <(git -C "$T" for-each-ref --format='%(refname)' refs/heads)
+}
 # ── построитель мира ─────────────────────────────────────────────────────────
 # mk_world <имя> [без-land|с-land]: B1 bare + T (полное дерево, все теги репо
 # на базовом коммите, frozen/099 + done/098, origin=B1, пуш base) + land-merge
@@ -289,6 +341,10 @@ mk_world() {
   git -C "$T" worktree add -q -b wip/071/wtx "$w/wt" main 2>/dev/null \
     || die_cell "$name" "санкционированный worktree не построился"
   printf '%s\n' "$w" >> "$WORK/created_wts"
+  # мир доказывает свои tips (087 И-4): п2д толкает main мимо run_push,
+  # поэтому регистрация и здесь — ячейки с добавленными коммитами
+  # перерегистрируются в run_push
+  dokaz_reg_world
 }
 
 # второй land без зелёного PR: wip/071/demx, режим empty|failure|dead|nogithub
@@ -329,6 +385,10 @@ cand_commit() { # cand_commit <branch> <msg>: коммитит CANDW, снима
 run_push() { # run_push <режим-api: api|dead|none> <аргументы push...>
   local apimode="$1"; shift
   SNAP_B1="$(git -C "$B1" rev-parse -q --verify refs/heads/main 2>/dev/null || printf НЕТ)"
+  # мир доказывает каждый свой tip ДО отправки (087 И-4): чек 5 пропускает
+  # kod-пуш с артефактом tyazhelyj-<H>; отказы батарея ждёт от чеков (1)-(4),
+  # не от ворот — потому регистрируются ВСЕ ветки мира, без разбора refspec
+  dokaz_reg_world
   local -a envs=(GIT_EXCHANGE_GUARD_CANONICAL="$B1")
   case "$apimode" in
     api)  envs+=(GITW_PREFLIGHT_071_API="$APIBASE") ;;
@@ -775,7 +835,10 @@ run_honest_cells() {
   bare_frozen п2в; ok_cell 'п2в: check:ids красный не уезжает'
 
   mk_world p2g
-  printf '      - run: bash scripts/nikogda_net_071.sh\n' >> "$T/.github/workflows/ci.yml"
+  # ведущий \n обязателен: ci.yml может не иметь завершающего перевода
+  # (087: хвост — retention-days: 90), без него шаг приклеивается к последней
+  # строке, не парсится как шаг — краснота молчит (живой прогон на df110f0)
+  printf '\n      - run: bash scripts/nikogda_net_071.sh\n' >> "$T/.github/workflows/ci.yml"
   git -C "$T" add .github/workflows/ci.yml && ident "$T" -m 'parity red'
   run_push api origin main
   expect_refuse п2г "${PF}чек красный: check:ci-parity"
