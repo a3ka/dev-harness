@@ -18,6 +18,12 @@
 #  3 «hardcode-hooksPath» — чтение hooks_path заменено константой ".githooks".
 #    Наблюдаем: install-клетка, кейс B (в конфиге /evil/other) — стаб молча
 #    пропускает невыполненное предусловие, отказа с именованным значением нет.
+#  4 «дефолт-константа» (стаб адверсария круга 2, 2026-10-08) — вся строка
+#    UHOME= заменена на UHOME="${ORCH_UHOME:-/nonexistent-090-wrong-default}":
+#    дефолтная getent-ветвь подменена константой. Наблюдаем: в клетке
+#    red_ctx_deep_uhome_default — глоб сессий пуст, маркер не поставлен;
+#    лёгкую/глубокую клетки стаб проходит честно (там ORCH_UHOME задан,
+#    работает ветка knob'а), потому клетка-дефолт обязательна.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib.sh"
 SUBJ="${ORCH090_SUBJECT:-$(fix090_repo_root "$HERE")}"
@@ -102,6 +108,26 @@ PY
 rc=0; ORCH090_SUBJECT="$S3" bash "$HERE/red_install_local_config.sh" >/dev/null 2>&1 || rc=$?
 Caught 'стаб3 hardcode-hooksPath' "$rc" || FAILS=1
 
+# ── стаб 4: дефолт-константа UHOME (адверсарий круга 2) ──────────────────
+# Якорь — РОВНО одна строка вида UHOME= (обе легитимные формы субъекта:
+# с knob'ом и без); замена всей строки на стаб-константу не зависит от формы.
+S4="$W/stub4"; build_subject_copy "$S4"
+OP4="$S4/ops/server/root/orch-peak"
+python3 - "$OP4" <<'PY' || fix090_fail "стаб4: порча не применилась (якорь UHOME= дрейфнул)"
+import sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8').read()
+lines = s.split('\n')
+hits = [i for i, l in enumerate(lines) if l.startswith('UHOME=')]
+if len(hits) != 1:
+    print('STUB4-REFUSE: строк UHOME= найдено %d, ожидалась 1' % len(hits), file=sys.stderr)
+    sys.exit(1)
+lines[hits[0]] = 'UHOME="${ORCH_UHOME:-/nonexistent-090-wrong-default}"'
+open(p, 'w', encoding='utf-8').write('\n'.join(lines))
+PY
+rc=0; ORCH090_SUBJECT="$S4" bash "$HERE/red_ctx_deep_uhome_default.sh" >/dev/null 2>&1 || rc=$?
+Caught 'стаб4 дефолт-константа' "$rc" || FAILS=1
+
 [ "$FAILS" -eq 0 ] || fix090_fail "батарея стабов: см. ✗ выше"
-printf 'ЗЕЛЁНО(090-батарея): 3/3 обманных стабов пойманы своими клетками\n'
+printf 'ЗЕЛЁНО(090-батарея): 4/4 обманных стабов пойманы своими клетками\n'
 exit 0

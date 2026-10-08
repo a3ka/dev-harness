@@ -27,7 +27,7 @@
 # watcher, опрашивающий реальные пути КАЖДЫЕ 0.05с, ПОКА семья исполняется.
 #
 # Дано:  субъект (ORCH090_SUBJECT, умолчание — корень репо этой фикстуры).
-# Когда: вся семья 090 (лёгкая+глубокая+install+батарея) прогнана подряд,
+# Когда: вся семья 090 (лёгкая+глубокая+глубокая-дефолт-getent+install+батарея) прогнана подряд,
 #        фоновый watcher опрашивает ПОЛНЫЙ список путей+mtime реальных
 #        каталогов всё это время.
 # Тогда: watcher НИ РАЗУ не увидел НИ НОВОГО пути, НИ ИЗМЕНИВШЕГОСЯ mtime
@@ -125,6 +125,7 @@ run_cell() { # $1 = имя (диагностика, не влияет на ве�
 }
 run_cell "лёгкая" bash "$HERE/red_no_home_ctx.sh"
 run_cell "глубокая" bash "$HERE/red_ctx_deep_no_home.sh"
+run_cell "глубокая-дефолт-getent" bash "$HERE/red_ctx_deep_uhome_default.sh"
 run_cell "install" bash "$HERE/red_install_local_config.sh"
 run_cell "батарея" bash "$HERE/battery_stubs.sh"
 
