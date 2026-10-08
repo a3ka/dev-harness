@@ -315,9 +315,10 @@ omp отказывается работать с провайдером без �
 |---|---|---|---|---|---|
 | 1 | 082 | до V-2 | CI | - | e46ccf9 |
 | 1 | 083 | до V-2 | CI | - | docs/owner/2026-10-03-done-i-instrumenty.md#9.2 |
-| 2 | цикл-перезапуска | до V-2 | git-safety | 082 | a68156a |
+| 2 | 085 | до V-2 | git-safety | 082 | a68156a |
 | 2 | 084 | до V-2 | plan-infra | - | docs/owner/2026-10-03-done-i-instrumenty.md#10.5 |
 | 2 | ротация-HANDOFF | до V-2 | plan-infra | - | 78c1d66 |
+| 2 | 090 | до V-2 | git-safety | 085 | fbf7f86 |
 | 3 | CI-Б | до V-2 | CI | 083 | docs/owner/2026-10-03-done-i-instrumenty.md#9.3 |
 | 3 | 079 | до V-2 | CI | - | 9606609 |
 | 4 | 075 | до V-2 | git-safety | - | 9606609 |
@@ -326,7 +327,7 @@ omp отказывается работать с провайдером без �
 | 5 | done-проекта | до V-2 | odelix | - | docs/owner/2026-10-03-done-i-instrumenty.md#5 |
 | 6 | канал-tool | до V-2 | plan-infra | - | 1238862 |
 | 6 | инструменты-1 | до V-2 | tools | - | docs/owner/2026-10-03-done-i-instrumenty.md#2 |
-| 7 | V-2 | до V-2 | odelix | 082,083,цикл-перезапуска,084,ротация-HANDOFF,CI-Б,079,075,IV-2,II-3,done-проекта,канал-tool,инструменты-1 | 9606609 |
+| 7 | V-2 | до V-2 | odelix | 082,083,085,084,ротация-HANDOFF,CI-Б,079,075,IV-2,II-3,done-проекта,канал-tool,инструменты-1 | 9606609 |
 | 8 | CI-В | параллельно с V-2 | CI | V-2 | docs/owner/2026-10-03-done-i-instrumenty.md#9.4 |
 | 8 | генераторы | параллельно с V-2 | tools | V-2 | docs/owner/2026-10-03-done-i-instrumenty.md#3 |
 | 9 | реестр-решений | параллельно с V-2 | architecture | V-2 | docs/owner/2026-10-03-done-i-instrumenty.md#8.5 |
