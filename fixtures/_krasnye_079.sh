@@ -3,8 +3,9 @@
 # клетками» — агрегатор ОДНОЙ семьи:
 #   fixtures/pokrytie_083_088_079/{red_gen_otkazy_079.sh, red_parity_reestr_079.sh,
 #   red_istochnik_incr_079.sh, red_dver_getent_079.sh, red_stuby_079.sh}
-# (имя каталога — вне чужих glob'ов раннеров; probe-only 034 не заявляем —
-# семейные файлы с red_-префиксом, не case_*).
+# (имя каталога — вне чужих glob'ов раннеров; probe-only 034 заявлен
+# маркером fixtures/pokrytie_083_088_079/.probe-only: red_-файлы без case_*,
+# барьерного ключа нет — клетки покрытия done-барьеров 083/088).
 #
 # Использование:
 #   bash fixtures/_krasnye_079.sh              # все клетки семьи + стаб-пак
