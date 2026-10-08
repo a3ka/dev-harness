@@ -182,6 +182,6 @@ HEAD `3c71d5d` → сессия продолжает; origin/main `8a1b36c`. Д�
 <!-- BEGIN GENERATED NEXT SESSION -->
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
-- ротация-HANDOFF · пара 2 · не начат · трек plan-infra
-- CI-Б · пара 3 · не начат · трек CI
+- 087 · пара 8 · заморожен · трек CI
+- 091 · пара 2 · номер выдан · трек plan-infra
 <!-- END GENERATED NEXT SESSION -->
