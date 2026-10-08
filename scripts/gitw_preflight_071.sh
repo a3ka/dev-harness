@@ -398,6 +398,15 @@ if ! git cat-file -e "${rmain}^{commit}" 2>/dev/null; then
   printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: код в main: вершина main цели %s не в локальной истории — сделай fetch\n' "$rmain" >&2
   exit 1
 fi
+# Прокидываем API-ручку в ci_klass.sh: чек (3) использует GITW_PREFLIGHT_071_API,
+# контракт 087 И-3 ждёт CI_KLASS_API. Деривация — та же ручка, та же форма
+# (полная или КОРЕНЬ + auto-resolve). При пустой ручке — fallback на GITHUB_REPOSITORY
+# (стандартная переменная GitHub Actions), иначе origin github.
+CI_KLASS_API_RESOLVED="${GITW_PREFLIGHT_071_API:-}"
+if [ -z "$CI_KLASS_API_RESOLVED" ] && [ -n "$GITHUB_REPOSITORY" ]; then
+  CI_KLASS_API_RESOLVED="${GITHUB_API_URL:-https://api.github.com}/repos/$GITHUB_REPOSITORY"
+fi
+export CI_KLASS_API="$CI_KLASS_API_RESOLVED"
 # Классификатор ищется в scripts/ репозитория push'а (cwd live-операции)
 # или в $SELF_DIR (фикстура 087 — _считается_ от scripts/gitw_preflight_071.sh,
 # чьё $SELF_DIR совпадает с местом лежания scripts/ci_klass.sh; toy-мир $T87_W
