@@ -54,7 +54,7 @@
     "check:nabludenia": "bash scripts/check_nabludenia.sh",
     "drill:gate-draft": "bash scripts/drill_gate_draft.sh",
     "drill:startup-digest": "bash scripts/drill_startup_digest.sh",
-"drill:nabludenia-nechitaemo": "bash scripts/drill_nabludenia_nechitaemo.sh",
+    "drill:nabludenia-nechitaemo": "bash scripts/drill_nabludenia_nechitaemo.sh",
     "check:zones-call-budget": "bash fixtures/check_zones/red_predel_git_vyzovov.sh",
     "check:protected-call-budget": "bash fixtures/check_protected/red_predel_git_vyzovov_ours.sh",
     "check:spec-ready": "bash scripts/check_spec_ready.sh",
@@ -77,7 +77,8 @@
     "check:ops-server-family-selftest": "bash fixtures/_krasnye_074.sh",
     "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh",
     "check:door-bugfix-family-selftest": "bash fixtures/_krasnye_080.sh",
-    "check:ci-family-selftest": "bash fixtures/_krasnye_083.sh",
-    "check:watchdog-082-family-selftest": "bash fixtures/verify_antiplacebo/red_watchdog_082.sh"
+    "check:watchdog-082-family-selftest": "bash fixtures/verify_antiplacebo/red_watchdog_082.sh",
+    "check:ci-klass": "bash scripts/ci_klass.sh",
+    "check:ci-vesa": "bash scripts/ci_vesa.sh"
   }
 }
