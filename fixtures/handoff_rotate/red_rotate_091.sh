@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Батарея 091 «ротация HANDOFF» (контракт 091 §Приёмка): клетки к0–к6, о1–о10.
+# Батарея 091 «ротация HANDOFF» (контракт 091 §Приёмка): клетки к0–к6, о1–о13.
 #
 # Оракул — модель W_* в памяти (_toy.sh, правило 8): toy пишется из модели, ожидания
 # (байты архива, байты итогового HANDOFF) считаются из ТОЙ ЖЕ модели до вызова субъекта.
@@ -48,12 +48,16 @@ assert_uspeh() {  # <код> <toy>
   ok_kletka "$kod"
 }
 
-# Отказ (И-2, И-6): rc 1; stderr несёт именованную строку; НИ ОДИН байт toy не меняется.
+# Отказ (И-2, И-6): rc 1; stderr несёт именованную строку; НИ ОДИН байт toy не меняется —
+# сверка ПОЛНОГО снимка дерева (пути+байты), не двух выбранных файлов: осадок вида
+# `.handoff-rotate.tmp` при верном отказе — красный (обход круга 1 критика, стаб s17).
 assert_otkaz() {  # <код> <toy> <строка>
   local kod="$1" toy="$2" lit="$3"
   [ "$H91_RC" -eq 1 ] || { red_kletka "$kod" "rc=$H91_RC, ожидался 1"; return; }
   h91_err_has "$lit" || { red_kletka "$kod" "stderr без именованной строки: $lit"; return; }
   cmp -s "$toy/HANDOFF.md" "$SCR/atom_hand" || { red_kletka "$kod" "HANDOFF.md изменён при отказе"; return; }
+  h91_tree_snap "$toy" > "$SCR/tree_post"
+  cmp -s "$SCR/atom_tree" "$SCR/tree_post" || { red_kletka "$kod" "дерево toy изменено при отказе"; return; }
   if [ "${W_ARCH_EXIST:-}" = 'да' ]; then
     printf '%s' "${W_ARCH_BYTES:-}" > "$SCR/exp_arch_pre"
     cmp -s "$toy/$H91_ARCHDIR/$H91_DATE.md" "$SCR/exp_arch_pre" \
@@ -65,8 +69,25 @@ assert_otkaz() {  # <код> <toy> <строка>
   ok_kletka "$kod"
 }
 
-atom_snimok() {  # <toy> — снимок до прогона
+# h91_tree_snap <toy> — полный снимок дерева toy: по строке на каждый путь (файл — sha256
+# байтов, каталог/ссылка — тип). И-6 «более ничего в root не создано» проверяется сверкой
+# списков путей ЦЕЛИКОМ до/после отказа, а не выбором двух файлов (обход круга 1 критика).
+h91_tree_snap() {
+  (
+    cd "$1" || exit 2
+    find . -mindepth 1 \( -type f -o -type d -o -type l \) | LC_ALL=C sort \
+      | while IFS= read -r p; do
+          if [ -L "$p" ]; then printf 'l %s -> %s\n' "${p#./}" "$(readlink "$p")"
+          elif [ -d "$p" ]; then printf 'd %s\n' "${p#./}"
+          else printf 'f %s %s\n' "$(sha256sum < "$p" | cut -d' ' -f1)" "${p#./}"
+          fi
+        done
+  )
+}
+
+atom_snimok() {  # <toy> — снимок до прогона: байты HANDOFF + полное дерево
   cp "$1/HANDOFF.md" "$SCR/atom_hand"
+  h91_tree_snap "$1" > "$SCR/atom_tree"
 }
 
 # h91_markers_size <N> — W_MARKERS ровно N байт (паддинг-строка внутри блока).
@@ -246,28 +267,33 @@ o7() {  # порядок проверок: нет секции + архив су
 }
 
 
-sborka_dve_sekcii() {
+# sborka_dve_sekcii <суффикс> — модель двух секций: первая конформная (заголовок с « (…»),
+# вторая — литерал H91_SEC + ПРОИЗВОЛЬНЫЙ суффикс грамматики И-2 (пусто, двоеточие, тире,
+# слитно — счёт секций идёт по префиксу литерала, не по форме « (»; обход круга 1, o12).
+sborka_dve_sekcii() {  # <суффикс после литерала «## ГДЕ МЫ»>
   h91_set_konform
   h91_rnd_line
-  W_SECTION="$W_SECTION## ГДЕ МЫ (дубль — вторая секция)
+  W_SECTION="$W_SECTION$H91_SEC$1
 $H91_LINE
 "
 }
 
 o8() {
-  sborka_dve_sekcii
+  sborka_dve_sekcii ' (дубль — вторая секция)'
   h91_write_toy "$SCR/o8"
   atom_snimok "$SCR/o8"
   h91_probe_run "$SCR/o8" --date 2030-1-1
   assert_otkaz o8 "$SCR/o8" "$H91_OTKAZ_DATE"
 }
 
-o9() {  # HANDOFF.md нет — отказ, в toy ничего не создано
+o9() {  # HANDOFF.md нет — отказ, в toy не создано НИЧЕГО (полный снимок дерева)
   rm -rf "$SCR/o9"; mkdir -p "$SCR/o9"
+  h91_tree_snap "$SCR/o9" > "$SCR/atom_tree9"
   h91_probe_run "$SCR/o9" --date "$H91_DATE"
   [ "$H91_RC" -eq 1 ] || { red_kletka o9 "rc=$H91_RC, ожидался 1"; return; }
   h91_err_has "$H91_OTKAZ_NET" || { red_kletka o9 "stderr без именованной строки"; return; }
-  [ ! -e "$SCR/o9/$H91_ARCHDIR" ] || { red_kletka o9 "в пустом toy что-то создано"; return; }
+  h91_tree_snap "$SCR/o9" > "$SCR/tree_post9"
+  cmp -s "$SCR/atom_tree9" "$SCR/tree_post9" || { red_kletka o9 "в пустом toy что-то создано"; return; }
   ok_kletka o9
 }
 
@@ -282,8 +308,51 @@ o10() {  # порядок: архив существует + итог >30 КБ �
   assert_otkaz o10 "$SCR/o10" "${H91_OTKAZ_EXIST_PRE}$H91_ARCHDIR/$H91_DATE.md"
 }
 
+o11() {  # --date с датой-ПОДСТРОКОЙ (../X, X/.., хвост, голова) — грамматика требует
+         # ПОЛНОГО соответствия строки (fullmatch), не поиска подстроки: каждый вход —
+         # отказ «--date вне грамматики», атомарно (полный снимок дерева)
+  local d
+  for d in '../2042-06-17' '2042-06-17/..' '2042-06-17x' 'x2042-06-17'; do
+    h91_set_konform
+    h91_write_toy "$SCR/o11"
+    atom_snimok "$SCR/o11"
+    h91_probe_run "$SCR/o11" --date "$d"
+    assert_otkaz "o11[$d]" "$SCR/o11" "$H91_OTKAZ_DATE"
+  done
+}
+
+o12() {  # вторая секция — суффикс вне привычной формы « (»: пустой, двоеточие, тире,
+         # слитно. Счёт секций — по литеральному префиксу H91_SEC (И-2/k7), не по форме
+         # заголовка: каждый вход — отказ «больше одного», атомарно
+  local suf
+  for suf in '' ': вторая' '— вторая' 'вторая'; do
+    sborka_dve_sekcii "$suf"
+    h91_write_toy "$SCR/o12"
+    atom_snimok "$SCR/o12"
+    h91_probe_run "$SCR/o12" --date "$H91_DATE"
+    assert_otkaz "o12[${H91_SEC}${suf}]" "$SCR/o12" "$H91_OTKAZ_MANY"
+  done
+}
+
+o13() {  # маркероподобная строка (BEGIN-литерал + дописка) — НЕ граница span (И-3:
+         # grep -Fx-равенство): строка — тело секции, граница — EOF, архив — вся секция
+  h91_set_konform
+  h91_rnd_line
+  W_PREFIX="# Журнал сессий харнеса
+
+"
+  W_SECTION="$W_SECTION$H91_BEGIN дописка: $H91_LINE
+$H91_LINE
+"
+  W_MARKERS=''
+  W_TAIL=''
+  h91_write_toy "$SCR/o13"
+  h91_probe_run "$SCR/o13" --date "$H91_DATE"
+  assert_uspeh o13 "$SCR/o13"
+}
+
 # ── запуск ─────────────────────────────────────────────────────────────────────────────
-VSE=(k0 k1 k2 k3 k4 k5 k6 o1 o2 o3 o4 o5 o6 o7 o8 o9 o10)
+VSE=(k0 k1 k2 k3 k4 k5 k6 o1 o2 o3 o4 o5 o6 o7 o8 o9 o10 o11 o12 o13)
 if [ "$#" -gt 0 ]; then
   for c in "$@"; do
     case " ${VSE[*]} " in

@@ -27,9 +27,17 @@
 #   s11 → о3  проверки размера нет: пишет при итоге >30 КБ
 #   s12 → о5  существующий архив перезаписан (нет отказа «уже существует»)
 #   s13 → о6  грамматики --date нет: любая дата принимается
+#   s14 → o11 грамматика --date ищет ПОДСТРОКУ (re.search), не полное соответствие:
+#             «../2042-06-17» проходит, пишет архив вне docs/handoff-archive
+#   s15 → o12 счёт секций сужен до формы «## ГДЕ МЫ (»: вторая секция с иным суффиксом
+#             литерала не считается — молча архивируется первая
+#   s16 → o13 граница span — ПРЕФИКС маркерной строки, не целая строка: маркероподобная
+#             строка в теле обрывает архив до конца файла
+#   s17 → o1  отказ правильный, но перед ним в root остаётся .handoff-rotate.tmp —
+#             ловится полным снимком дерева (И-6 «более ничего не создано»)
 #
-# Использование: bash red_stuby_091.sh <корень>. Итог: «стаб-пак 091: N/13 поймано,
-# диффпроба M/13»; rc 0 ⟺ N = M = 13.
+# Использование: bash red_stuby_091.sh <корень>. Итог: «стаб-пак 091: N/17 поймано,
+# диффпроба M/17»; rc 0 ⟺ N = M = 17.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 H91_ROOT="$(cd "${1:-$HERE/../..}" && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
@@ -189,6 +197,24 @@ PATCHES = {
         "    refuse(os.environ['H91L_DATE'])",
         "    pass",
     ),
+    's14': (
+        "if re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', DATE) is None:",
+        "if re.search(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', DATE) is None:",
+    ),
+    's15': (
+        "starts = [k for k, ln in enumerate(lines) if ln.startswith(SEC)]",
+        "starts = [k for k, ln in enumerate(lines) if ln.startswith(SEC + b' (')]",
+    ),
+    's16': (
+        "    if lines[k].startswith(H2) or core == BEGIN:",
+        "    if lines[k].startswith(H2) or core.startswith(BEGIN):",
+    ),
+    's17': (
+        "def refuse(msg):",
+        "def refuse(msg):\n"
+        "    with open(os.path.join(ROOT, '.handoff-rotate.tmp'), 'w') as leftover:\n"
+        "        leftover.write('rotation pending\\n')",
+    ),
 }
 
 src, name, dst = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -209,12 +235,12 @@ if [ "$hrc" -ne 0 ]; then
   cat "$SCR/honest_out" "$SCR/honest_err" >&2
   exit 2
 fi
-DIF=13
+DIF=17
 printf 'диффпроба: честный мини-субъект зелён на всех клетках батареи (rc=0)\n'
 
 # ── стабы: каждый красен на СВОЕЙ клетке ────────────────────────────────────────────────
 PAK=('s1 k0' 's2 k0' 's3 k0' 's4 k0' 's5 k0' 's6 k6' 's7 k0' 's8 k3'
-     's9 o1' 's10 o2' 's11 o3' 's12 o5' 's13 o6')
+     's9 o1' 's10 o2' 's11 o3' 's12 o5' 's13 o6' 's14 o11' 's15 o12' 's16 o13' 's17 o1')
 POJM=0
 for para in "${PAK[@]}"; do
   stab="${para%% *}"; klet="${para##* }"
@@ -232,5 +258,5 @@ for para in "${PAK[@]}"; do
   fi
 done
 
-printf 'стаб-пак 091: %s/13 поймано, диффпроба %s/13\n' "$POJM" "$DIF"
-[ "$POJM" -eq 13 ] && [ "$DIF" -eq 13 ]
+printf 'стаб-пак 091: %s/17 поймано, диффпроба %s/17\n' "$POJM" "$DIF"
+[ "$POJM" -eq 17 ] && [ "$DIF" -eq 17 ]

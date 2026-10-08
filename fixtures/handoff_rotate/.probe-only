@@ -4,7 +4,7 @@ HANDOFF». Субъект запуска — scripts/handoff_rotate.sh (пере
 при >1 секции / итоге >30 КБ / существующем архиве / вне грамматики --date,
 маркеры 084 «GENERATED NEXT SESSION» не тронуты). Барьерного ключа
 scripts/check_handoff_rotate.sh НЕТ и не появится (прецеденты fixtures/plan_084/,
-fixtures/strazh_088/). Предъявления red_rotate_091.sh (клетки к0–к6, о1–о10) и
+fixtures/strazh_088/). Предъявления red_rotate_091.sh (клетки к0–к6, о1–о13) и
 red_stuby_091.sh (стаб-пак с диффпробой, PAK в шапке скрипта) — прямые (вне
 case_*-глоба раннера verify_antiplacebo.sh), через агрегатор
 fixtures/_krasnye_091.sh: красное ДО реализации («красная: предмет отсутствует»,
