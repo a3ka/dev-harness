@@ -255,3 +255,102 @@ rc=0
 граница скоупа (вне множества чтения orch-peak, оговорка сужения в контракте), не
 скрытая дыра. Прогоны этой сессии в реальное дерево сессий/орч-стейт НЕ писали
 (единственные записи — `/tmp/dev-harness-verify/**`).
+
+
+## 9. Круг 2 адверсария — стаб «дефолт-константа» дефолтной ветви UHOME; закрыт шестой клеткой (architect, 2026-10-08)
+
+Находка (Adversary090): мутация строки 18 orch-peak
+`UHOME="${ORCH_UHOME:-$(getent passwd "$U" | cut -d: -f6)}"` →
+`UHOME="${ORCH_UHOME:-/nonexistent-090-wrong-default}"` (дефолтная ветвь заменена константой)
+проходила ВСЕ 5 клеток зелёным — каждая задавала `ORCH_UHOME` явно, дефолтная ветвь не
+тестировалась вовсе. Дефект КЛЕТКИ (покрытия), не реализации: код implementer'а (90e82e0)
+уже дословно соответствует §Регрессионная граница. Закрытие: клетка
+`red_ctx_deep_uhome_default.sh` — `ORCH_UHOME` изъят (`env -u`), home субъекта достижим
+ТОЛЬКО через дефолтную getent-ветвь (синтетический `ORCH_USER`, отсутствующий в реальном
+passwd — первая ступень; getent-шим с полем 6 = `$W/fakehome` — вторая), + стаб 4
+«дефолт-константа» в `battery_stubs.sh` (якорь `^UHOME=` — обе легитимные формы субъекта).
+
+Прогоны (сессия architect, worktree wip/090/architect):
+
+### 9.1. HEAD без фикса — КРАСНАЯ (норма: нет ни knob'а, ни посева)
+
+```
+$ bash fixtures/fix_090_orch_peak_home/red_ctx_deep_uhome_default.sh
+КЛЕТКА-ОТКАЗ(090): дефолт-getent: rc=1, Н-217 жив (нет посева ORCH_SESS_GLOB): …/repo/scripts/lib_session.sh: line 18: HOME: unbound variable
+rc=1
+```
+
+### 9.2. Честный implementer (git archive 90e82e0 → /tmp/dev-harness-verify/090-impl-subject) — ЗЕЛЁНАЯ
+
+```
+$ ORCH090_SUBJECT=/tmp/dev-harness-verify/090-impl-subject bash fixtures/fix_090_orch_peak_home/red_ctx_deep_uhome_default.sh
+ЗЕЛЁНО(090-дефолт-getent): ctx CTX_HARD при env -u ORCH_UHOME: UHOME вычислен из дефолтной getent-ветви (синтетический passwd → fakehome), rc 0, маркер, say, «погибнут: LIBSRC:Agent090», ГЕРМЕТИЧНО (нет путей вне $W)
+rc=0
+```
+
+### 9.3. Стаб в СВОЁМ worktree (мутация строки 18, сразу откачена) — КРАСНАЯ
+
+```
+$ python3 …/stubify.py ops/server/root/orch-peak        # → UHOME="${ORCH_UHOME:-/nonexistent-090-wrong-default}"
+$ bash fixtures/fix_090_orch_peak_home/red_ctx_deep_uhome_default.sh
+КЛЕТКА-ОТКАЗ(090): дефолт-getent: rc=1, Н-217 жив (нет посева ORCH_SESS_GLOB): … line 18: HOME: unbound variable
+rc=1
+$ git checkout -- ops/server/root/orch-peak             # восстановлено: строка 18 = getent
+```
+
+### 9.4. Изоляция находки: стаб на дереве implementer'а + обновлённая семья (ORCH_USER=root — прецедент круга адверсария: watcher герметичности сканирует /root, живых сессий нет). ЕДИНСТВЕННАЯ функциональная красная — новая клетка; батарея ловит стаб 4
+
+```
+— red_no_home_ctx.sh: rc=0
+— red_ctx_deep_no_home.sh: rc=0
+КЛЕТКА-ОТКАЗ(090): дефолт-getent: маркер перезапуска не поставлен — субъект НЕ нашёл тест-сессию через дефолтную ветку UHOME (getent): дефолт подменён константой (стаб адверсария?) либо пуст глоб сессий
+— red_ctx_deep_uhome_default.sh: rc=1
+— red_install_local_config.sh: rc=0 (кейсы A–D ✓)
+✓ стаб1 decoy-глоб пойман (rc=1)
+✓ стаб2 subshell-глушение пойман (rc=1)
+✓ стаб3 hardcode-hooksPath пойман (rc=1)
+✓ стаб4 дефолт-константа пойман (rc=1)
+ЗЕЛЁНО(090-батарея): 4/4 обманных стабов пойманы своими клетками
+— battery_stubs.sh: rc=0
+ИТОГ 090: rc=1
+```
+
+Красная герметичности в прогоне 9.4 — станционный флейк риска №1 (шапка клетки): живой
+orch-peak станции написал в окно прогона `/var/lib/orch-peak/ctx-<id живой сессии
+архитектора>*`, `.warned`, `pane` — файлы названы id сессии (01a11acb…, родилась
+09:15:33Z), клетки семьи писали только в свои `$W` (их ЗЕЛЁНО-строки это утверждают).
+
+### 9.5. Guard ЦЕЛИКОМ на честном implementer (та же методика) — всё зелёное
+
+```
+— red_ctx_deep_uhome_default.sh: rc=0
+ЗЕЛЁНО(090-батарея): 4/4 обманных стабов пойманы своими клетками
+— battery_stubs.sh: rc=0
+ЗЕЛЁНО(090-герметичность): … ни одного НОВОГО/ИЗМЕНИВШЕГОСЯ пути … не замечено
+— red_hermetic_no_real_sessions.sh: rc=0
+ИТОГ 090: rc=0
+```
+
+### 9.6. Не-таутология герметичности ОБНОВЛЁННОЙ семьи (реплика-методика §8: подмены REAL_UHOME/REAL_STATE на контролируемые каталоги, в реальные деревья — ни байта; декой — вариант C арбитра, транзитный журнал ВНУТРЬ подпути SESS_GLOB реплики)
+
+```
+$ bash …/repl/cell-green/red_hermetic_no_real_sessions.sh      # семья, вкл. новая клетка
+ЗЕЛЁНО(090-герметичность): … не замечено
+rc=0
+$ bash …/repl/cell-red/red_hermetic_no_real_sessions.sh        # + пятый run_cell «декой»
+КЛЕТКА-ОТКАЗ(090): герметичность нарушена: … /ordinary-session/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/journal.jsonl;
+rc=1
+```
+
+### 9.7. Семья на HEAD worktree (предметные клетки красные — нет фикса, норма; батарея обязана ловить 4/4 и на HEAD-форме строки UHOME=)
+
+```
+— red_no_home_ctx.sh: rc=1
+— red_ctx_deep_no_home.sh: rc=1
+— red_ctx_deep_uhome_default.sh: rc=1
+— red_install_local_config.sh: rc=1
+ЗЕЛЁНО(090-батарея): 4/4 обманных стабов пойманы своими клетками
+— battery_stubs.sh: rc=0
+— red_hermetic_no_real_sessions.sh: rc=0
+ИТОГ 090: rc=1
+```
