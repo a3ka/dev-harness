@@ -79,13 +79,18 @@
 ЗОНА architect: contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md fixtures/orch_state/ fixtures/_krasnye_092.sh fixtures/handoff_rotate/ fixtures/_krasnye_091.sh
 ЗОНА implementer: scripts/orch_checkpoint.sh scripts/orch_status.sh scripts/ci_wait.sh scripts/handoff_rotate.sh fixtures/parsing_hygiene_battery/profiles/orch_state.sh registry/ci-steps.tsv .github/workflows/ci.yml package.json
 
-ПЕРЕСЕЧЕНИЯ (сверены живым union заморозок main):
-- HANDOFF.md — 061 ЗОНА orchestrator: 092 не пишет прозы (И-6); касание — только байт-в-байт перенос ротацией.
-- registry/ci-steps.tsv, .github/workflows/ci.yml — 083/084 ЗОНА implementer + 011/015 исторические ЗОНА architect: дельта — один прямой шаг `bash fixtures/_krasnye_092.sh` (+ `bash fixtures/_krasnye_091.sh`) по прецеденту 079; новая джоба/шард-ключ не вводятся; package.json — npm-ключ шага, если gen_ci_steps требует.
-- fixtures/handoff_rotate/, fixtures/_krasnye_091.sh — в main путей НЕТ (живут на wip/091/architect, заморозок с ними нет) — первых владельцев в union нет; переносятся байт-в-байт.
-- fixtures/orch_state/ — новый каталог семьи; fixtures/parsing_hygiene_battery/profiles/orch_state.sh — новый профиль общей семьи (прецедент 054/057: новый файл семьи в чужом каталоге, файлы семьи не правятся).
-- roles/orchestrator.md — 061 ЗОНА orchestrator + 050 ЗОНА architect: дельта 092 — строки стартап-протокола (первым действием — orch_status; ожидание CI — один ci_wait, повторный опрос моделью запрещён; круг судьи — событие round-fail). Правка роли — за владельцем зоны по прецеденту 050; 092 несёт готовый текст нормы (ПРОВОДКА), не правит файл в своей пачке.
-- ops/server/**, scripts/orch_restart.sh, scripts/gen_plan.sh, scripts/lib_plan.sh, scripts/check_staged.sh, registry/plan.tsv — читаются/упоминаются, НЕ правятся; ops/server/** — область параллельного Контракта 1 (заявленных пересечений НЕТ).
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 architect-зона (историческая заявка до отвердевания конвенции разделения проверка/проводка; прецедент оформления — 045/057/058/059/060). Дельта — один прямой шаг `bash fixtures/_krasnye_092.sh` после шага семьи 091 в общем ci.yml (прецедент 045/058/059/060: сам-тесты семьи ВНЕ case_*-глоба шарда); новая джоба/шард-ключ не вводятся
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 architect-зона (та же историческая причина, что 011; прецедент оформления — 045/057/058/059/060). Дельта — тот же один прямой шаг; новая джоба/шард-ключ не вводятся
+ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; тот же общий носитель ключей, что ci.yml; тот же общий носитель ключей, что у 058/059/060). Дельта — один ключ `check:orch-state-family-selftest` (прецедент 058/059/060: check:sharing-family-selftest, check:declared-path-family-selftest, check:samodostatochnost-family-selftest)
+ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (та же историческая причина, что 011). Дельта — тот же один ключ
+
+Примечание (не пересечения — пути не в формальном union-конфликте, проза контекста):
+- `HANDOFF.md` (ЗОНА orchestrator 061) — 092 не пишет ни строки прозы первой секции (И-6); касание — только байт-в-байт перенос прежней «## ГДЕ МЫ» через `scripts/handoff_rotate.sh` (предмет 091 ротации, вбирается дословно Р7/И-7).
+- `registry/ci-steps.tsv` (ЗОНА implementer 083/084/087/090) — implementer-union того же автора, формального конфликта нет; 092 только добавляет шаг `bash fixtures/_krasnye_092.sh` (плюс `bash fixtures/_krasnye_091.sh`) в существующий реестр после шага семьи 091, без новых джоб/шард-ключей; package.json-ключ `check:orch-state-family-selftest` уже покрыт формальной строкой выше.
+- `fixtures/handoff_rotate/`, `fixtures/_krasnye_091.sh` (ЗОНА architect 092 + inhерент от wip/091/architect) — в main путей НЕТ (живут на wip/091/architect, заморозок с ними нет); первых владельцев в union нет; переносятся байт-в-байт (Р7).
+- `fixtures/orch_state/` (ЗОНА architect 092) — новый каталог семьи (прецедент 058/059/060); `fixtures/parsing_hygiene_battery/profiles/orch_state.sh` (ЗОНА implementer 092) — новый профиль общей семьи 041 (прецедент 054/057: новый файл семьи в чужом каталоге, файлы семьи не правятся); формальных чужих NNN на этих путях нет (других implementer-зон в этих файлах нет).
+- `roles/orchestrator.md` (ЗОНА orchestrator 061 + ЗОНА architect 050) — дельта 092: строки стартап-протокола (первым действием — `bash scripts/orch_status.sh`; изменение состояния — только `scripts/orch_checkpoint.sh`; ожидание CI — один `scripts/ci_wait.sh <sha>`, повторный опрос моделью запрещён; каждый круг судьи — `orch_checkpoint.sh event round-fail <subject> <путь>@<blob>`). Правка роли — за владельцем зоны (061 orchestrator); 092 несёт готовый текст нормы (ПРОВОДКА), не правит файл в своей пачке.
+- `ops/server/**`, `scripts/orch_restart.sh`, `scripts/gen_plan.sh`, `scripts/lib_plan.sh`, `scripts/check_staged.sh`, `registry/plan.tsv` — 092 читает/упоминает, НЕ правит; `ops/server/**` — область параллельного Контракта 1 (заявленных пересечений НЕТ).
 
 ## Красные предъявления
 
