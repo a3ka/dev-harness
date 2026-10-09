@@ -200,42 +200,25 @@ if len(starts) > 1:
 s = starts[0]
 
 # Граница span (И-3): первая из (а) целой LF-строки BEGIN (клетка o13),
-# (б) LF-строки с префиксом H2 (И-3), (в) EOF. Дополнительно для span
-# (в отличие от счёта секций): внутри одной LF-строки одиночный CR тоже
-# может быть границей-кандидатом — Р6 ревьюера круг 1, P2: `x\r## next\n` ⇒
-# подсегмент `## next` после CR является span-границей, АРХИВ обрывается ДО
-# этого подсегмента (между `\r` и `##`), итоговый файл начинается с `## next`.
-# Подсегмент ищется строго после CR в текущей LF-строке; CR+префиксный H2.
+# (б) LF-строки с префиксом H2 (И-3), (в) EOF. Граница — LF-запись;
+# подсегмент внутри одной LF-строки (например, после CR) границей НЕ
+# является: «строка» в контракте == LF-запись, не байтовый подсегмент
+# (И-2: `index($0,…)==1` идёт по LF-записям; И-3: «строка с префиксом ## »).
 end_full = len(lines)
-end_in_line = None  # byte offset within lines[end_full] (None ⇒ целая LF-строка)
 for k in range(s + 1, len(lines)):
     ln = lines[k]
     core = ln[:-1] if ln.endswith(b'\n') else ln
     if core == BEGIN:
         end_full = k
-        end_in_line = None
         break
     if ln.startswith(H2):
         end_full = k
-        end_in_line = None
-        break
-    # Подсегмент-проверка: внутри LF-строки найти CR+H2 (первый).
-    cr_idx = ln.find(b'\r' + H2)
-    if cr_idx >= 0:
-        end_full = k
-        end_in_line = cr_idx + 1  # байт-смещение = после CR (CR включён в span)
         break
 
 # Сборка span/prefix/tail байт-в-байт.
-if end_in_line is None:
-    span = b''.join(lines[s:end_full])
-else:
-    span = b''.join(lines[s:end_full]) + lines[end_full][:end_in_line]
+span = b''.join(lines[s:end_full])
 prefix = b''.join(lines[:s])
-if end_in_line is None:
-    tail = b''.join(lines[end_full:])
-else:
-    tail = lines[end_full][end_in_line:] + b''.join(lines[end_full + 1:])
+tail = b''.join(lines[end_full:])
 result = prefix + tail
 
 # (4) архив этой даты отсутствует
