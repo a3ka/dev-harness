@@ -75,6 +75,7 @@ step	check:zones-call-budget	25	npm run check:zones-call-budget
 step	check:protected-call-budget	30	npm run check:protected-call-budget
 step	check:fix-090-orch-peak-home-family-selftest	20	bash fixtures/_krasnye_090.sh
 step	check:rotaciya-handoff-091-family-selftest	20	bash fixtures/_krasnye_091.sh
+step	check:ops-granica-093-family-selftest	20	bash fixtures/_krasnye_093.sh
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).

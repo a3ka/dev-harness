@@ -52,7 +52,7 @@ BIN_DST="${OPS_SERVER_BIN_DST-$HOME/.local/bin}"
 SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
 MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
-UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
+UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer orch-agent@.service'
 # Контракт 093 И-1/И-6b: каталог предыдущей версии для rollback и метка.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
 TS="$(date +%s)" 
