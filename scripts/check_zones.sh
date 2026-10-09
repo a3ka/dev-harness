@@ -1231,6 +1231,27 @@ while IFS=$'\t' read -r nnn since; do
         printf '%s\n' "$f" >> "$TMP/process_excluded"
         continue
       fi
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 ~10:35 UTC, передано
+      # консультантом — добавлен ПЯТЫЙ SHA 81e6e252074f931fed5df2776b1a5309eebd3f13) ──
+      # Один SHA, автор orchestrator: батарея 094 (fixtures/accept_publish_094/) была
+      # закоммичена identity orchestrator ВМЕСТО ленд-мерджа ветки architect (рецидив
+      # Н-225, обход pre-commit плумбингом/--no-verify — найден консультантом). Содержание
+      # коммита — принятая критиком архитекторская батарея 094 (frozen/contracts/094/1),
+      # сам факт неверен процедурно (identity), не по содержанию. История не переписывается:
+      # SHA остаётся на main с автором orchestrator, и общая проверка 'зона автора' ниже
+      # красит FAIL на каждом пути 81e6e252/fixtures-accept-publish-094-etc. Допущение —
+      # ТОЛЬКО для ЭТОГО одного SHA; других коммитов и путей не исключать (слово владельца
+      # дословно). РАЗРЕШИЛ-ВЛАДЕЛЕЦ: scripts/check_zones.sh — grandfather-допущение для
+      # коммита 81e6e252074f931fed5df2776b1a5309eebd3f13 (батарея 094
+      # fixtures/accept_publish_094/ закоммичена identity orchestrator вместо ленд-мерджа
+      # ветки architect, рецидив Н-225; содержание — принятая критиком батарея architect
+      # 094); других коммитов и путей не исключать; слово владельца 2026-10-09.
+      case "$c" in
+        81e6e252074f931fed5df2776b1a5309eebd3f13)
+          printf '%s\n' "$f" >> "$TMP/process_excluded"
+          continue
+          ;;
+      esac
       # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 — добавлен ЧЕТВЁРТЫЙ SHA
       # 0678a94962bd86aaea6d79883e02dd9dd56087a6, преждевременный ленд wip/091/architect) ──
       # Один SHA, автор orchestrator: батарея 091 (architect+implementer+reviewer) была
