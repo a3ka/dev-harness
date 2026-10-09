@@ -56,6 +56,8 @@ O92L_OPUBL_DA='опубликовано: да'                       # И-4а �
 O92L_OPUBL_NET='опубликовано: нет'                     #   не одна лампа (Д4)
 O92L_ZAKR='закрытие: завершено'
 O92L_NEZAKR='закрытие: не завершено'
+O92L_NETSOST='состояние отсутствует'                     # именованный отказ orch_status при отсутствии состояния (И-4; adversary круг 1, находка 1)
+O92L_CHUZH_PUBDONE='pub-done чужой задачи или кандидата'  # именованный отказ event pub-done мимо текущей task/candidate (И-8; adversary круг 1, находка 2)
 # Тела ответов toy-API (GitHub check-runs; Р6):
 O92_RESP_INPROG='{"total_count":1,"check_runs":[{"id":101,"name":"ci-toy","status":"in_progress","conclusion":null}]}'
 O92_RESP_SUCCESS='{"total_count":1,"check_runs":[{"id":101,"name":"ci-toy","status":"completed","conclusion":"success"}]}'
@@ -67,7 +69,8 @@ O92_RED_CELLS=(red_net_off_local_survives.sh red_restart_continues_subject.sh
   red_status_derives_not_echo.sh red_checkpoint_atomic_fail.sh
   red_checkpoint_grammar.sh red_state_outside_tree.sh
   red_rounds_count_events_not_files.sh red_ciwait_net_vs_timeout.sh
-  red_pub_state_needs_proof.sh)
+  red_pub_state_needs_proof.sh red_status_no_state_refusal.sh
+  red_pub_done_mismatch_refusal.sh)
 O92_CASE_CELLS=(case_checkpoint_roundtrip.sh case_status_green.sh
   case_ciwait_green.sh case_events_idempotent_green.sh)
 

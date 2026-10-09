@@ -8,7 +8,7 @@
 # режимах (O92_MODE); заплатка стаба правит ОБЩЕЕ тело → все три режима согласованы
 # (пишет и читает одно и то же — дефект ровно одной ветви, ложной красноты на соседних
 # клетках нет).
-# Диффпроба: честное тело зелёно на ВСЕХ 19 клетках (15 красных + 4 зелёных case,
+# Диффпроба: честное тело зелёно на ВСЕХ 21 клетках (17 красных + 4 зелёных case,
 # единый прогон rc 0) — иначе клетки ловят не дефект, а себя. rc 2 — нечем проверить.
 # Литералы грамматики приходят env-ом O92L_* из _toy.sh (единый источник).
 #
@@ -60,9 +60,13 @@
 #   S17 → red_pub_state_needs_proof      put pub_state published судит только
 #          алфавит И-2, без доказательства (журнал pub-done либо достижимость
 #          кандидата из origin/main): rc 0 на входе-а вместо rc 1
+#   S18 → red_pub_done_mismatch_refusal  event pub-done без сверки subject/candidate
+#          с текущим состоянием (тело 33caf2ef как есть): pub_state=published
+#          присваивается БЕЗУСЛОВНО на любом pub-done — чужая задача и/или кандидат
+#          повышают pub_state ТЕКУЩЕЙ задачи (нарушение И-8, adversary круг 1, находка 2)
 #
-# Использование: bash battery_stubs.sh <корень>. Итог: «стаб-пак 092: N/17 поймано,
-# диффпроба M/19»; rc 0 ⟺ N = 17 ∧ M = 19.
+# Использование: bash battery_stubs.sh <корень>. Итог: «стаб-пак 092: N/18 поймано,
+# диффпроба M/21»; rc 0 ⟺ N = 18 ∧ M = 21.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 O92_ROOT="$(cd "${1:-$HERE/../..}" && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
@@ -241,7 +245,7 @@ def cmd_put(k, v):
 def cmd_get(k):
     m = read_state()
     if m is None:
-        err('состояние отсутствует')
+        err(L['O92L_NETSOST'])
         sys.exit(1)
     out(m[k])
 
@@ -260,6 +264,9 @@ def cmd_event(kind, subject, ref):
     if kind == 'pub-done':
         m = read_state()
         if m is not None:
+            if subject != m['task'] or ref.split('@', 1)[0] != m['candidate']:
+                err(L['O92L_CHUZH_PUBDONE'])
+                sys.exit(1)
             m['pub_state'] = 'published'
             composite_write(m, kind, subject, ref)
             return
@@ -348,7 +355,7 @@ def remote_probe(m):
 def cmd_status(next_only):
     m = read_state()
     if m is None:
-        err('состояние отсутствует')
+        err(L['O92L_NETSOST'])
         sys.exit(1)
     if next_only:
         sys.stdout.write(m['next_step'] + '\n')
@@ -591,6 +598,13 @@ PATCHES = {
         "    if False:\n"
         "        pass",
     ),
+    'S18': (
+        "            if subject != m['task'] or ref.split('@', 1)[0] != m['candidate']:\n"
+        "                err(L['O92L_CHUZH_PUBDONE'])\n"
+        "                sys.exit(1)\n",
+        "            if False:\n"
+        "                pass\n",
+    ),
 }
 
 src, name, dst = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -615,11 +629,12 @@ o92_gen_wrap() {
       "$O92L_GRAMM_PRE" "$O92L_KRUGOV_PRE" "$O92L_PREDEL" "$O92L_NEDOKAZ_PRE"
     printf 'export O92L_OPUBL_DA=%q O92L_OPUBL_NET=%q O92L_ZAKR=%q O92L_NEZAKR=%q\n' \
       "$O92L_OPUBL_DA" "$O92L_OPUBL_NET" "$O92L_ZAKR" "$O92L_NEZAKR"
+    printf 'export O92L_NETSOST=%q O92L_CHUZH_PUBDONE=%q\n' "$O92L_NETSOST" "$O92L_CHUZH_PUBDONE"
     printf 'exec python3 "$O92_BODY" "$@"\n'
   } > "$3"
 }
 
-# ── диффпроба: честное тело зелёно на ВСЕХ клетках (15 red + 4 case) ────────────────────
+# ── диффпроба: честное тело зелёно на ВСЕХ клетках (17 red + 4 case) ────────────────────
 CHEST="$O92SCR/chestnoj"
 mkdir -p "$CHEST" || { printf 'NOT_IMPLEMENTED: нет каталога честных обёрток\n' >&2; exit 2; }
 for m in checkpoint status ciwait; do
@@ -664,7 +679,8 @@ PAK=('S1 red_net_off_local_survives.sh'
      'S14 red_state_outside_tree.sh'
      'S15 red_ciwait_net_vs_timeout.sh'
      'S16 red_checkpoint_atomic_fail.sh'
-     'S17 red_pub_state_needs_proof.sh')
+     'S17 red_pub_state_needs_proof.sh'
+     'S18 red_pub_done_mismatch_refusal.sh')
 POJM=0
 for para in "${PAK[@]}"; do
   stab="${para%% *}"
@@ -696,5 +712,5 @@ for para in "${PAK[@]}"; do
   fi
 done
 
-printf 'стаб-пак 092: %s/17 поймано, диффпроба %s/%s\n' "$POJM" "$DIF" "$VSEGO"
-[ "$POJM" -eq 17 ] && [ "$DIF" -eq "$VSEGO" ]
+printf 'стаб-пак 092: %s/18 поймано, диффпроба %s/%s\n' "$POJM" "$DIF" "$VSEGO"
+[ "$POJM" -eq 18 ] && [ "$DIF" -eq "$VSEGO" ]
