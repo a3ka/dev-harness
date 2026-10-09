@@ -38,19 +38,32 @@ rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
 watcher=$!
 log "сессия #$n: старт"
 # Потолок памяти (контракт 085, И-5): --scope исполняет команду exec'ом — omp остаётся
-# прямым потомком цикла. Отказ systemd-run (rc≠0 до исполнения) и rc сессии по rc
-# неразличимы: факт исполнения — свидетель $RAN, его пишет префикс команды до exec
-# workshop; свидетеля нет — сессия без потолка, со строкой журнала; отказ — не падение.
+# прямым потомком цикла. И-5 контракта 093: без scope сессия НЕ стартует; именованный
+# отказ rc 1 (ресурсный предел не создан). Ветка запуска-без-потолка удалена
+# (Пять правил §2, замена не наслоение). И-3 контракта 093: сессия запускается
+# под uid агента (≠ владельца /home/harness); HOME сессии — вне /home/harness.
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
 RAN="$MARK.scoped"; rm -f "$RAN"
-"${SCOPE[@]}" -- sh -c ': >"$1" && shift && exec "$@"' sh "$RAN" "$WORKSHOP" --yolo -- "$MSG"; rc=$?
-if [ -e "$RAN" ]; then
-  scoped=1
+AGENT_USER="${ORCH_AGENT_USER:-${ORCH_LOOP_AGENT_USER:-orchagent}}"
+AGENT_HOME="${ORCH_AGENT_HOME:-${ORCH_LOOP_AGENT_HOME:-/var/lib/orch-agent}}"
+# Шов для тест-миров: AS_AGENT_CMD=... — пускач исполняет <cmd> под uid агента;
+# без шва — абсолютный путь + HOME агента (станционный контур требует наличия
+# пользователя orchagent и /var/lib/orch-agent; в CI/тест-мире используйте шов).
+if [ -n "${ORCH_LOOP_AGENT_CMD:-}" ]; then
+  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && exec "$2"' sh "$RAN" "$ORCH_LOOP_AGENT_CMD"; rc=$?
 else
-  scoped=0; log "сессия #$n: БЕЗ ПОТОЛКА ПАМЯТИ — systemd-run --user --scope не создал scope"
-  "$WORKSHOP" --yolo -- "$MSG"; rc=$?
+  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && HOME="$3" exec "$4" --yolo -- "$5"' \
+    sh "$RAN" "$AGENT_HOME" "$WORKSHOP" "$MSG"; rc=$?
 fi
+if [ ! -e "$RAN" ]; then
+  # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,
+  # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.
+  log "сессия #$n: ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)"
+  kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+  exit 1
+fi
+scoped=1
 rm -f "$RAN"
 kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
 life=$(( $(date +%s) - start ))
