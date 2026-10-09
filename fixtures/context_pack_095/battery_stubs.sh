@@ -1,41 +1,50 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 095 (контракт 095, Н-39): двенадцать порч честной модели
-# model/dover.sh, каждая ОДНОЙ якорной sed-по-маркеру, каждая привязана к
-# клетке, на чьём входе её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ,
-# не в прозе контракта). Стаб строится из ТЕКУЩЕЙ модели (копия + порча с
-# проверкой якоря: маркер встречается в модели ровно один раз, порча
-# применилась). Пойман = связанная клетка против стаба даёт rc 1 (КРАСНО).
+# Обманный стаб-пак 095 (контракт 095, круг 2, Н-39): восемнадцать порч честных
+# моделей (dover.sh — сборщик, dver_spawn.sh — дверь), каждая ОДНОЙ якорной
+# sed-по-маркеру, каждая привязана к клетке, на чьём входе её дефект НАБЛЮДАЕМ
+# (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта). Стаб строится из ТЕКУЩЕЙ
+# модели (копия + порча с проверкой якоря: маркер встречается в модели ровно
+# один раз, порча применилась). Пойман = связанная клетка против стаба даёт
+# rc 1 (КРАСНО).
 #
-# # стаб | ослабляемая защита | порча (маркер) | ловящая клетка
-# s1 харнесовские правила вклеены  m1   красная_pravila_proekta_ne_harsa
-# s2 манифест не строится          m2   красная_manifest_razreshaetsja
-# s3 mandatory-проверка снята      m3   красная_poteryannaja_ssylka_tochna
-# s4 матрица скилов не по роли     m4   красная_roli_menjajut_vydachu
-# s5 зоны из черновика            m5   красная_zony_iz_frozen_blobs
-# s6 implementer без заморозки     m6   красная_rezhim_do_zamorozki
-# s7 задание пересобрано           m7   красная_revjer_poluchaet_vydannoe
-# s8 свидетельство подменено       m8   красная_svidetelstvo_modeli
-# s9 бюджет не считается           m9   красная_bjudzhet_vklejki
-# s10 фильтр области уроков снят   m10  красная_uroki_po_oblasti
-# s11 происхождение всегда frozen  m11  красная_proishozhdenie_fragmentov
-# s12 брифинг = задачный пак       m12  красная_orch_brief_starter
+# # стаб | ослабляемая защита | маркер | ловящая клетка
+# s1  харнесовские правила вклеены   m1   red_pravila_proekta_ne_harsa.sh
+# s2  манифест не строится           m2   red_manifest_razreshaetsja.sh
+# s3  mandatory-проверка снята       m3   red_poteryannaja_ssylka_tochna.sh
+# s4  матрица скилов не по роли      m4   red_roli_menjajut_vydachu.sh
+# s5  зоны из черновика              m5   red_zony_iz_frozen_blobs.sh
+# s6  implementer без заморозки      m6   red_rezhim_do_zamorozki.sh
+# s7  задание пересобрано            m7   red_revjer_poluchaet_vydannoe.sh
+# s8  свидетельство подменено        m8   red_svidetelstvo_modeli.sh
+# s9  бюджет не считается            m9   red_bjudzhet_vklejki.sh
+# s10 фильтр области уроков снят     m10  red_uroki_po_oblasti.sh
+# s11 происхождение всегда frozen    m11  red_proishozhdenie_fragmentov.sh
+# s12 брифинг = задачный пак         m12  red_orch_brief_starter.sh
+# s13 §Существующее не доставлено    m13  red_kontekst_doslovno.sh
+# s14 слой проекта игнорируется      m14  red_profil_dva_sloja.sh
+# s15 нога манифеста снята с двери   m15  red_dver_spawn_manifest.sh
+# s16 статус-фильтр ADR снят         m16  red_uroki_po_oblasti.sh
+# s17 семейство судьи не сверяется   m17  red_revjer_poluchaet_vydannoe.sh
+# s18 содержание брифа вынуто        m18  red_orch_brief_starter.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
+DOOR_MODEL="$HERE/model/dver_spawn.sh"
 [ -f "$MODEL" ] || { printf 'NOT_IMPLEMENTED: нет модели %s\n' "$MODEL" >&2; exit 2; }
+[ -f "$DOOR_MODEL" ] || { printf 'NOT_IMPLEMENTED: нет модели %s\n' "$DOOR_MODEL" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 WORK="/tmp/dev-harness-verify/context-pack-095-stubs-$$-${RANDOM}"
 mkdir -p "$WORK" || { printf 'ОТКАЗ: мир стабов не строится\n' >&2; exit 2; }
 trap 'rm -rf "$WORK"' EXIT
 
-# build_stub <имя> <маркер> <sed-выражение> — копия модели, порча с проверкой:
-# маркер в модели ровно один раз, порча применилась (метка «порча» в файле).
+# build_stub <источник> <имя> <маркер> <sed-выражение> — копия модели, порча с
+# проверкой: маркер в источнике ровно один раз, порча применилась (метка «порча»).
 build_stub() {
-  local name="$1" marker="$2" expr="$3" f n
-  n="$(grep -Ec "# ${marker}([^0-9]|$)" "$MODEL")" || n=0
-  [ "$n" -eq 1 ] || { printf 'ОТКАЗ: маркер %s встречается %s раз\n' "$marker" "$n" >&2; return 2; }
+  local src="$1" name="$2" marker="$3" expr="$4" f n
+  n="$(grep -Ec "# ${marker}([^0-9]|$)" "$src")" || n=0
+  [ "$n" -eq 1 ] || { printf 'ОТКАЗ: маркер %s встречается %s раз в %s\n' "$marker" "$n" "$src" >&2; return 2; }
   f="$WORK/$name.sh"
-  cp "$MODEL" "$f" || return 2
+  cp "$src" "$f" || return 2
   sed -i "$expr" "$f" || return 2
   grep -Fq 'порча' "$f" || return 2
   chmod +x "$f"
@@ -43,11 +52,15 @@ build_stub() {
 }
 
 itog=0
-zapest() {  # <стаб-имя> <маркер> <клетка-файл> <sed-выражение>
-  local name="$1" marker="$2" cell="$3" expr="$4" f rc
-  f="$(build_stub "$name" "$marker" "$expr")"; rc=$?
+zapest() {  # <стаб-имя> <маркер> <клетка-файл> <sed-выражение> [<источник>]
+  local name="$1" marker="$2" cell="$3" expr="$4" src="${5:-$MODEL}" f rc
+  f="$(build_stub "$src" "$name" "$marker" "$expr")"; rc=$?
   [ "$rc" -eq 0 ] || { printf 'ОТКАЗ: стаб %s не строится (якорь/порча)\n' "$name" >&2; itog=2; return; }
-  CP095_SUBJECT="$f" bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
+  if [ "$src" = "$DOOR_MODEL" ]; then
+    CP095_SPAWN="$f" CP095_SUBJECT="$MODEL" bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
+  else
+    CP095_SUBJECT="$f" bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
+  fi
   if [ "$rc" -eq 1 ]; then
     printf -- '— стаб %s ПОЙМАН клеткой %s\n' "$name" "$cell"
   else
@@ -71,15 +84,27 @@ zapest s6 t95-m6 red_rezhim_do_zamorozki.sh \
 zapest s7 t95-m7 red_revjer_poluchaet_vydannoe.sh \
   's@.*# t95-m7.*@TASK_BYTES="$(printf "Задание toy: сделай очень хорошо.\\n")" # t95-m7 порча@'
 zapest s8 t95-m8 red_svidetelstvo_modeli.sh \
-  's@.*# t95-m8.*@TRACE_LINE="TRACE: role=$ROLE model=fake-model fallback=allowed" # t95-m8 порча@'
+  's@.*# t95-m8.*@  if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=fake-model fallback=allowed"; fi # t95-m8 порча@'
 zapest s9 t95-m9 red_bjudzhet_vklejki.sh \
   's@.*# t95-m9.*@: # t95-m9 порча@'
 zapest s10 t95-m10 red_uroki_po_oblasti.sh \
-  's@.*# t95-m10.*@        case "$zp" in *) m=1 ;; esac # t95-m10 порча@'
+  's@.*# t95-m10.*@      for zp in $ZONE_PATHS; do case "$zp" in *) m=1 ;; esac; done # t95-m10 порча@'
 zapest s11 t95-m11 red_proishozhdenie_fragmentov.sh \
   's@.*# t95-m11.*@" CTX_MAN="$(printf "context\\t%s\\tmandatory\\tfrozen\\nzones\\t%s\\tmandatory\\tfrozen\\n" "$CPATH" "$CPATH")" # t95-m11 порча@'
 zapest s12 t95-m12 red_orch_brief_starter.sh \
   's@.*# t95-m12.*@SKIP_TASK=0 # t95-m12 порча@'
+zapest s13 t95-m13 red_kontekst_doslovno.sh \
+  's@.*# t95-m13.*@CONTEXT_SEC="${CONTEXT_SEC}Существующее не доставлено" # t95-m13 порча@'
+zapest s14 t95-m14 red_profil_dva_sloja.sh \
+  's@.*# t95-m14.*@CP="$(jq -s "\(.[0].contextPack // {})" "$RJ" "$PJ")" # t95-m14 порча@'
+zapest s15 t95-m15 red_dver_spawn_manifest.sh \
+  's@.*# t95-m15.*@  : # t95-m15 порча@' "$DOOR_MODEL"
+zapest s16 t95-m16 red_uroki_po_oblasti.sh \
+  's@.*# t95-m16.*@  : # t95-m16 порча@'
+zapest s17 t95-m17 red_revjer_poluchaet_vydannoe.sh \
+  's@.*# t95-m17.*@  : # t95-m17 порча@'
+zapest s18 t95-m18 red_orch_brief_starter.sh \
+  's@.*# t95-m18.*@HEALTH_SEC="HEALTH: branch=? dirty=?" GOAL_SEC="" WORK_SEC="" DEC_SEC="" # t95-m18 порча@'
 
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Раннер красной пачки 095 «профиль и вход агента — узкий настоящий
-# ContextPack» — агрегатор семьи fixtures/context_pack_095/ (guard,
+# ContextPack» (круг 2) — агрегатор семьи fixtures/context_pack_095/ (guard,
 # ПРОВОДКА контракта 095).
 #
 # Использование:
-#   bash fixtures/_krasnye_095.sh [корень]         # субъект scripts/make_task.sh
-#   bash fixtures/_krasnye_095.sh --model [корень] # субъект fixtures/context_pack_095/model/dover.sh
+#   bash fixtures/_krasnye_095.sh [корень]         # субъект scripts/make_task.sh, дверь scripts/spawn_agent.sh
+#   bash fixtures/_krasnye_095.sh --model [корень] # субъект model/dover.sh, дверь model/dver_spawn.sh
 #
 # Семантика (контракт 095 §Приёмка): rc 0 ⟺ стаб-пак battery_stubs.sh rc 0 И
-# каждая клетка семьи rc 0 (замер контракта: клеток ровно 12); rc 1 — есть
+# каждая клетка семьи rc 0 (замер контракта: клеток ровно 15); rc 1 — есть
 # красная клетка (в том числе «предмет отсутствует» на дереве ДО реализации —
 # вывод несёт строку «красная: предмет отсутствует»); rc 2 — нечем проверять
 # (нет семьи/модели/раннера клетки, git). Guard подключается в CI ТОЛЬКО
@@ -25,19 +25,22 @@ FAM="$HERE/context_pack_095"
 [ -d "$FAM" ] || { printf 'NOT_IMPLEMENTED: нет семьи %s\n' "$FAM" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 
-# Замер контракта §Приёмка: клеток ровно 12 (обход печатает число просмотренного
-# и отказывает на расхождении — пустая выборка красна).
+# Замер контракта §Приёмка: клеток ровно 15 (обход печатает число
+# просмотренного и отказывает на расхождении — пустая выборка красна).
 n="$(ls "$FAM"/red_*.sh 2>/dev/null | wc -l)"
-if [ "$n" -ne 12 ]; then
-  printf 'ОТКАЗ: клеток семьи %s, ожидалось 12 по замеру контракта 095\n' "$n" >&2
+if [ "$n" -ne 15 ]; then
+  printf 'ОТКАЗ: клеток семьи %s, ожидалось 15 по замеру контракта 095\n' "$n" >&2
   exit 2
 fi
 
 SUBJ="$ROOT/scripts/make_task.sh"
+SPAWN="$ROOT/scripts/spawn_agent.sh"
 [ "$MODE" = "model" ] && SUBJ="$FAM/model/dover.sh"
+[ "$MODE" = "model" ] && SPAWN="$FAM/model/dver_spawn.sh"
 [ -f "$SUBJ" ] || SUBJ_MISSING=1 || SUBJ_MISSING=0
 export CP095_ROOT="$ROOT"
 export CP095_SUBJECT="$SUBJ"
+export CP095_SPAWN="$SPAWN"
 
 itog=0
 progon() {  # <файл семьи>

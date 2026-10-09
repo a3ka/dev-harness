@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Клетка И-2 «обязательные источники доступны и разрешаются по манифесту»
-# (контракт 095, Выход п.2). Замороженный мир, implementer: манифест НЕПУСТ,
-# несёт каждый вид фрагмента (map/rules/context/zones/trace) с обязательностью,
-# и каждый profile-путь манифеста существует на диске мира.
-# Обман (s2: манифест не строится) → клетка красна.
+# (контракт 095, Выход п.2, круг 2). Замороженный мир, implementer: манифест
+# НЕПУСТ, несёт каждый вид фрагмента (map/rules/context/zones/trace) с
+# обязательностью; каждый profile-путь манифеста существует на диске мира
+# (adr-фрагмент — каталог). Обман (s2: манифест не строится) → клетка красна.
 set -uo pipefail
+TAB="$(printf '\t')"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
 SUBJ="$(_t95_subject)"
@@ -27,11 +28,16 @@ printf '%s\n' "$man" | grep -Fq "$(printf 'rules\tDEVELOPMENT.md\tmandatory\tpro
 printf '%s\n' "$man" | grep -Fq "$(printf 'context\tcontracts/777-toy.md\tmandatory\tfrozen')" || { printf 'КРАСНО: i2: манифест без context-фрагмента\n' >&2; exit 1; }
 printf '%s\n' "$man" | grep -Fq "$(printf 'zones\tcontracts/777-toy.md\tmandatory\tfrozen')" || { printf 'КРАСНО: i2: манифест без zones-фрагмента\n' >&2; exit 1; }
 printf '%s\n' "$man" | grep -Fq "$(printf 'trace\t%s\tmandatory\ttrace' "$W/trace.tsv")" || { printf 'КРАСНО: i2: манифест без trace-фрагмента\n' >&2; exit 1; }
-# каждый profile-путь манифеста существует на диске мира
-while IFS="$(printf '\t')" read -r kind path mnd origin; do
+# каждый profile-путь манифеста существует на диске мира (adr — каталог)
+while IFS="$TAB" read -r kind path mnd origin; do
   [ -z "${kind:-}" ] && continue
   case "$origin" in
-    profile) [ -f "$R/$path" ] || { printf 'КРАСНО: i2: манифест ссылается на несуществующий источник: %s\n' "$path" >&2; exit 1; } ;;
+    profile)
+      if [ "$kind" = "adr" ]; then
+        [ -d "$R/$path" ] || { printf 'КРАСНО: i2: манифест ссылается на несуществующий ADR-каталог: %s\n' "$path" >&2; exit 1; }
+      else
+        [ -f "$R/$path" ] || { printf 'КРАСНО: i2: манифест ссылается на несуществующий источник: %s\n' "$path" >&2; exit 1; }
+      fi ;;
     frozen|draft|taskfile|trace) ;;
     *) printf 'КРАСНО: i2: происхождение вне алфавита: %s\n' "$origin" >&2; exit 1 ;;
   esac

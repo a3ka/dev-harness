@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Клетка И-4 «смена роли меняет релевантную выдачу» (контракт 095, Выход п.4).
-# Замороженный мир: (а) architect видит процедуру grilling, implementer — НЕТ
-# (матрица видимости 13.4), implementer видит tdd; (б) выдачи двух ролей
-# различаются; (в) TASK-секция — только у reviewer (фактически выданное).
-# Обман (s4: матрица скилов не зависит от роли) → клетка красна.
+# Клетка И-4 «смена роли/зоны меняет релевантную выдачу» (контракт 095, Выход
+# п.4, круг 2). Замороженный мир: (а) architect видит процедуру grilling,
+# implementer — НЕТ (матрица видимости 13.4), implementer видит tdd; (б) выдачи
+# двух ролей различаются; (в) TASK-секция — только у reviewer (фактически
+# выданное). Судья reviewer — чужого семейства (ADR-005), чтобы независимость
+# (И-7) не маскировала различие ролей. Обман (s4: матрица скилов не зависит от
+# роли) → клетка красна.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
@@ -16,7 +18,7 @@ R="$W/repo"
 _t95_freeze "$R" 'scripts/toy.sh' >/dev/null
 _t95_trace "$W/trace.tsv" architect glm-4.7 allowed
 _t95_trace "$W/trace.tsv" implementer glm-4.7 allowed
-_t95_trace "$W/trace.tsv" reviewer glm-4.7 allowed
+_t95_trace "$W/trace.tsv" reviewer qwen-3.5 allowed
 
 pa="$(bash "$SUBJ" --repo "$R" --role architect --contract 777 --model-trace "$W/trace.tsv" 2>&1)" || { printf 'КРАСНО: i4: architect-пак не строится\n' >&2; exit 1; }
 pi="$(bash "$SUBJ" --repo "$R" --role implementer --contract 777 --model-trace "$W/trace.tsv" 2>&1)" || { printf 'КРАСНО: i4: implementer-пак не строится\n' >&2; exit 1; }

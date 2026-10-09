@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Клетка И-6 «отдельный корректный режим архитектора/критика до заморозки»
-# (контракт 095, состав п.5). Контракт НЕ заморожен: architect и critic
+# (контракт 095, состав п.5, круг 2). Контракт НЕ заморожен: architect и critic
 # собираются по черновику (origin=draft); исполнительские роли на
 # незамороженном контракте — именованный отказ «контракт не заморожен»
-# (зоны по памяти — Н-71 — не воспроизводятся механизмом).
-# Обман (s6: implementer пускается по черновику) → клетка красна.
+# (зоны по памяти — Н-71 — не воспроизводятся механизмом). Судья critic —
+# чужого семейства (ADR-005), автор architect — своего. Обман (s6: implementer
+# пускается по черновику) → клетка красна.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
@@ -15,7 +16,7 @@ W="$(_t95_world i6)" || exit 2
 trap '_t95_cleanup "$W"' EXIT
 R="$W/repo"
 _t95_trace "$W/trace.tsv" architect glm-4.7 allowed
-_t95_trace "$W/trace.tsv" critic glm-4.7 allowed
+_t95_trace "$W/trace.tsv" critic qwen-3.5 allowed
 _t95_trace "$W/trace.tsv" implementer glm-4.7 allowed
 
 for ro in architect critic; do
