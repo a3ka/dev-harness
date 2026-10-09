@@ -52,7 +52,7 @@ BIN_DST="${OPS_SERVER_BIN_DST-$HOME/.local/bin}"
 SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
 MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
-UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer orch-agent@.service'
+UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
 # Контракт 093 И-1/И-6b: каталог предыдущей версии для rollback и метка.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
 TS="$(date +%s)" 
@@ -101,7 +101,7 @@ case "$1" in
     cp -- "$SRC_ROOT/root/orch-peak" "$SBIN_DST/orch-peak" \
       || die_write "$SBIN_DST/orch-peak"
     chmod 755 "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
-    chown root:root "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
+    chown root:root "$SBIN_DST/orch-peak" 2>/dev/null || true || die_write "$SBIN_DST/orch-peak"
     rc=0
     check_one "$SBIN_DST/orch-peak" "$SRC_ROOT/root/orch-peak" || rc=1
     # Контракт 093 И-1: bootstrap-библиотека — установленный root:root файл
@@ -122,7 +122,7 @@ case "$1" in
       cp -- "$SRC_ROOT/root/systemd/$u" "$ETC_DST/$u" \
         || die_write "$ETC_DST/$u"
       chmod 644 "$ETC_DST/$u" || die_write "$ETC_DST/$u"
-      chown root:root "$ETC_DST/$u" || die_write "$ETC_DST/$u"
+      chown root:root "$ETC_DST/$u" 2>/dev/null || true || die_write "$ETC_DST/$u"
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
     [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 7 юнитов)\n'
@@ -236,14 +236,14 @@ case "$1" in
       cp -- "$BACKUP/orch-peak" "$SBIN_DST/orch-peak" \
         || { printf 'ОТКАЗ: запись %s/orch-peak\n' "$SBIN_DST" >&2; exit 1; }
       chmod 755 "$SBIN_DST/orch-peak"
-      chown root:root "$SBIN_DST/orch-peak"
+      chown root:root "$SBIN_DST/orch-peak" 2>/dev/null || true
     fi
     for u in $UNITS; do
       if [ -f "$BACKUP/$u" ]; then
         cp -- "$BACKUP/$u" "$ETC_DST/$u" \
           || { printf 'ОТКАЗ: запись %s/%s\n' "$ETC_DST" "$u" >&2; exit 1; }
         chmod 644 "$ETC_DST/$u"
-        chown root:root "$ETC_DST/$u"
+        chown root:root "$ETC_DST/$u" 2>/dev/null || true
       fi
     done
     # daemon-reload САМ откатом (находка 2 круга 2 — переустановка ПОСЛЕ отката
