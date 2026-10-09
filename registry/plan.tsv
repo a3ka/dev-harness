@@ -6,10 +6,12 @@ id	пара	этап	зависит	источник	трек
 079	3	до V-2	-	9606609	CI
 090	1	до V-2	-	fbf7f86	git-safety
 091	2	до V-2	090	78c1d66	plan-infra
-принятие-публикации	3	до V-2	091	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3	odelix
-профиль-вход-агента	4	до V-2	принятие-публикации	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4	context
+093	3	до V-2	091	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 1	odelix
+092	3	до V-2	093	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 2	odelix
+094	3	до V-2	091	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3	odelix
+профиль-вход-агента	4	до V-2	094	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4	context
 done-проекта	5	до V-2	профиль-вход-агента	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5	odelix
-V-2	6	до V-2	090,091,принятие-публикации,профиль-вход-агента,done-проекта	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3	odelix
+V-2	6	до V-2	090,091,094,профиль-вход-агента,done-проекта	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3	odelix
 ночь-повторяемость	7	параллельно с V-2	V-2	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4	odelix
 087	8	параллельно с V-2	ночь-повторяемость	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	CI
 done-волны	9	параллельно с V-2	087	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	done
