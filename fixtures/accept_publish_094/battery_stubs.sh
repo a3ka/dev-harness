@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 094 (контракт 094, Н-39): пятнадцать порч честной модели
+# Обманный стаб-пак 094 (контракт 094, Н-39): семнадцать порч честной модели
 # model/dover.sh, каждая ОДНИМ-ДВУМЯ якорными sed-по-маркеру, каждая привязана
 # к клетке, на чьём входе её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ,
 # не в прозе контракта). Стаб строится из ТЕКУЩЕЙ модели (копия + порча с
 # проверкой якоря: маркер встречается ровно один раз, порча применилась).
-# Пойман = связанная клетка против стаба даёт rc 1 (КРАСНО). Все пятнадцать
+# Пойман = связанная клетка против стаба даёт rc 1 (КРАСНО). Все семнадцать
 #
 # # стаб | ослабляемая защита | порча (маркер → строка) | ловящая клетка
 # s1 чужой accept годится        m1a+m1b  красная_staryj_accept_drugoj_zadachi
@@ -22,6 +22,8 @@
 # s13 санкция перехода не нужна  m13      красная_perehod_politiki_bez_sankcii (Б4)
 # s14 candidate-ref опционален   m5d      красная_baza_ili_kandidat_izmenilsya (Б5)
 # s15 сверка дерева снята       m15      красная_proverka_ne_togo_dereva (Б3: «проверили C, записали для M»)
+# s16 allowlist зашит литералом    m16       красная_razreshennaja_celevaja_vetka (И-7+: положительная сторона allowlist — политика как данные, не константа)
+# s17 пустой mandatory допущен     m17a+m17b красная_pustoj_mandatory (И-0/И-4: вакуумный перечень не публикует)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
@@ -94,6 +96,11 @@ zapest s14 red_baza_ili_kandidat_izmenilsya.sh \
   's@.*# t94-m5d.*@: # t94-m5d порча@'
 zapest s15 red_proverka_ne_togo_dereva.sh \
   's@.*# t94-m15.*@  : # t94-m15 порча@'
+zapest s16 red_razreshennaja_celevaja_vetka.sh \
+  's@.*# t94-m16.*@    targetBranches=*) v="${line#targetBranches=}"; case "$v" in *[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="main" ;; # t94-m16 порча@'
+zapest s17 red_pustoj_mandatory.sh \
+  's@.*# t94-m17a.*@    mandatory=*) v="${line#mandatory=}"; case "$v" in *[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;; # t94-m17a порча@' \
+  's@.*# t94-m17b.*@[ -n "$repoId" ] \&\& [ -n "$branches" ] || die "политика: грамматика" # t94-m17b порча@'
 
 printf 'ИТОГ стаб-пак 094: rc=%s\n' "$itog"
 exit "$itog"

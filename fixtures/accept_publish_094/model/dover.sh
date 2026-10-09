@@ -70,14 +70,14 @@ while IFS= read -r line; do
   [ -z "$line" ] && continue
   case "$line" in
     repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
-    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
-    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="$v" ;;
+    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;; # t94-m17a
+    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="$v" ;; # t94-m16
     *) die "политика: грамматика" ;;
   esac
 done <<EOF
 $policy_bytes
 EOF
-[ -n "$repoId" ] && [ -n "$mandatory" ] && [ -n "$branches" ] || die "политика: грамматика"
+[ -n "$repoId" ] && [ -n "$mandatory" ] && [ -n "$branches" ] || die "политика: грамматика" # t94-m17b
 policyVersion="$(printf '%s' "$policy_bytes" | sha256sum | cut -d' ' -f1)"
 
 object_id() {  # id объекта выдаёт МЕХАНИЗМ (Решение 2); состав — ВСЕ семь полей (И-1б)
