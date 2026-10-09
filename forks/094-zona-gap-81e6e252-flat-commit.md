@@ -41,7 +41,7 @@ flat-коммита 81e6e252, пачка landed поверх frozen/094/1 во �
 БЛОКИРУЕТ: да — `check:zones` зелёный на main, то есть ЛЮБОЙ зелёный CI lane,
   читающий этот барьер (l3 подтверждён; вероятно l4/l5/l6/l7/ap1-ap5 тоже, т.к.
   verify_antiplacebo и run_ci_lane оба проходят через check_zones в части прогонов)
-ОТВЕЧЕНО: да — консультант (verdicts/consultant/094-zona-gap-81e6e252-flat-commit-v1.md,
+ОТВЕЧЕНО: да — консультант (verdicts/consultant/zona-gap-81e6e252-flat-commit-v1.md,
   коммит 315759af): диагноз форка ИСПРАВЛЕН — пути уже в ЗОНА architect 094,
   предложенная v+1-правка зоны БЕСПОЛЕЗНА (не лечит author-mismatch); рекомендован
   узкий grandfather именно 81e6e252 по прецеденту 3cd95d85/db5d905b, дословный

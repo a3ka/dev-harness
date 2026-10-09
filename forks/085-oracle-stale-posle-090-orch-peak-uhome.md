@@ -52,7 +52,7 @@ architect 085.
 АВТОР: orchestrator
 БЛОКИРУЕТ: да — `check:cikl-perezapuska-085-family-selftest` (l5) зелёный на main и
   на ЛЮБОЙ ветке от main (воспроизведено на PR#76 независимо той же причиной)
-ОТВЕЧЕНО: да — консультант (verdicts/consultant/085-oracle-stale-posle-090-orch-peak-uhome-v1.md,
+ОТВЕЧЕНО: да — консультант (verdicts/consultant/oracle-stale-posle-090-orch-peak-uhome-v1.md,
   коммит 75d9a54c): диагноз подтверждён, адрес правки уточнён — реальный носитель
   строки 18 это fixtures/ops_server/cikl_085/slijanie.orch-peak (внешний снимок,
   не встроенный литерал), требуется синхронизация входа + пересчёт PIN + согласованная
