@@ -65,7 +65,7 @@ O92_RED_CELLS=(red_net_off_local_survives.sh red_restart_continues_subject.sh
   red_restart_no_dup_publish.sh red_three_fails_three_rounds.sh red_pub_vs_close.sh
   red_status_derives_not_echo.sh red_checkpoint_atomic_fail.sh
   red_checkpoint_grammar.sh red_state_outside_tree.sh
-  red_rounds_count_events_not_files.sh)
+  red_rounds_count_events_not_files.sh red_ciwait_net_vs_timeout.sh)
 O92_CASE_CELLS=(case_checkpoint_roundtrip.sh case_status_green.sh
   case_ciwait_green.sh case_events_idempotent_green.sh)
 

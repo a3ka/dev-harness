@@ -8,7 +8,7 @@
 # режимах (O92_MODE); заплатка стаба правит ОБЩЕЕ тело → все три режима согласованы
 # (пишет и читает одно и то же — дефект ровно одной ветви, ложной красноты на соседних
 # клетках нет).
-# Диффпроба: честное тело зелёно на ВСЕХ 17 клетках (13 красных + 4 зелёных case,
+# Диффпроба: честное тело зелёно на ВСЕХ 18 клетках (14 красных + 4 зелёных case,
 # единый прогон rc 0) — иначе клетки ловят не дефект, а себя. rc 2 — нечем проверить.
 # Литералы грамматики приходят env-ом O92L_* из _toy.sh (единый источник).
 #
@@ -48,9 +48,13 @@
 #   S14 → red_state_outside_tree         ветвь записи зеркалит состояние в
 #          <root>/orch-state.tsv (внутри стерегомого дерева; state-dir пишется как
 #          честно — дефект ровно «мутирует дерево», наблюдаем на porcelain клетки 12)
+#   S15 → red_ciwait_net_vs_timeout     ci_wait, ветвь «транспорт недоступен»:
+#          обработчик ошибки сети выходит с rc 3 (как при таймауте) вместо rc 2
+#          «нечем проверить» — два терминальных исхода неразличимы; различим на
+#          входе-а клетки (refused-эндпоинт при щедрых попытках); вход-б честен
 #
-# Использование: bash battery_stubs.sh <корень>. Итог: «стаб-пак 092: N/14 поймано,
-# диффпроба M/17»; rc 0 ⟺ N = 14 ∧ M = 17.
+# Использование: bash battery_stubs.sh <корень>. Итог: «стаб-пак 092: N/15 поймано,
+# диффпроба M/18»; rc 0 ⟺ N = 15 ∧ M = 18.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 O92_ROOT="$(cd "${1:-$HERE/../..}" && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
@@ -354,6 +358,7 @@ def cmd_ciwait(sha_arg, timeout, interval, attempts):
             body = api_get(path)
         except Exception:
             msg = 'check-runs не получены: сеть'
+            rc = 2
             break
         runs = json.loads(body)
         rrs = runs.get('check_runs') or []
@@ -507,6 +512,12 @@ PATCHES = {
         "    with open(os.path.join(REPO, 'orch-state.tsv'), 'wb') as o92m:\n"
         "        o92m.write(data)",
     ),
+    'S15': (
+        "            msg = 'check-runs не получены: сеть'\n"
+        "            rc = 2",
+        "            msg = 'check-runs не получены: сеть'\n"
+        "            rc = 3",
+    ),
 }
 
 src, name, dst = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -535,7 +546,7 @@ o92_gen_wrap() {
   } > "$3"
 }
 
-# ── диффпроба: честное тело зелёно на ВСЕХ клетках (13 red + 4 case) ────────────────────
+# ── диффпроба: честное тело зелёно на ВСЕХ клетках (14 red + 4 case) ────────────────────
 CHEST="$O92SCR/chestnoj"
 mkdir -p "$CHEST" || { printf 'NOT_IMPLEMENTED: нет каталога честных обёрток\n' >&2; exit 2; }
 for m in checkpoint status ciwait; do
@@ -577,7 +588,8 @@ PAK=('S1 red_net_off_local_survives.sh'
      'S11 red_three_fails_three_rounds.sh'
      'S12 red_checkpoint_atomic_fail.sh'
      'S13 red_checkpoint_grammar.sh'
-     'S14 red_state_outside_tree.sh')
+     'S14 red_state_outside_tree.sh'
+     'S15 red_ciwait_net_vs_timeout.sh')
 POJM=0
 for para in "${PAK[@]}"; do
   stab="${para%% *}"
@@ -609,5 +621,5 @@ for para in "${PAK[@]}"; do
   fi
 done
 
-printf 'стаб-пак 092: %s/14 поймано, диффпроба %s/%s\n' "$POJM" "$DIF" "$VSEGO"
-[ "$POJM" -eq 14 ] && [ "$DIF" -eq "$VSEGO" ]
+printf 'стаб-пак 092: %s/15 поймано, диффпроба %s/%s\n' "$POJM" "$DIF" "$VSEGO"
+[ "$POJM" -eq 15 ] && [ "$DIF" -eq "$VSEGO" ]
