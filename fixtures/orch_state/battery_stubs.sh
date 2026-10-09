@@ -8,7 +8,7 @@
 # режимах (O92_MODE); заплатка стаба правит ОБЩЕЕ тело → все три режима согласованы
 # (пишет и читает одно и то же — дефект ровно одной ветви, ложной красноты на соседних
 # клетках нет).
-# Диффпроба: честное тело зелёно на ВСЕХ 18 клетках (14 красных + 4 зелёных case,
+# Диффпроба: честное тело зелёно на ВСЕХ 19 клетках (15 красных + 4 зелёных case,
 # единый прогон rc 0) — иначе клетки ловят не дефект, а себя. rc 2 — нечем проверить.
 # Литералы грамматики приходят env-ом O92L_* из _toy.sh (единый источник).
 #
@@ -52,9 +52,17 @@
 #          обработчик ошибки сети выходит с rc 3 (как при таймауте) вместо rc 2
 #          «нечем проверить» — два терминальных исхода неразличимы; различим на
 #          входе-а клетки (refused-эндпоинт при щедрых попытках); вход-б честен
+#   S16 → red_checkpoint_atomic_fail     составные операции (init = state +
+#          task-init; pub-done = событие + state) без атомарности ЦЕЛОЕ (тело
+#          6ca209c: init — state до журнала, pub-done — журнал до state, без
+#          предподготовки): отказ второго шага оставляет полузапись — sha
+#          ДО≠ПОСЛЕ на входах б/в клетки (вход-а затрагивает только put)
+#   S17 → red_pub_state_needs_proof      put pub_state published судит только
+#          алфавит И-2, без доказательства (журнал pub-done либо достижимость
+#          кандидата из origin/main): rc 0 на входе-а вместо rc 1
 #
-# Использование: bash battery_stubs.sh <корень>. Итог: «стаб-пак 092: N/15 поймано,
-# диффпроба M/18»; rc 0 ⟺ N = 15 ∧ M = 18.
+# Использование: bash battery_stubs.sh <корень>. Итог: «стаб-пак 092: N/17 поймано,
+# диффпроба M/19»; rc 0 ⟺ N = 17 ∧ M = 19.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 O92_ROOT="$(cd "${1:-$HERE/../..}" && pwd -P)" || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
@@ -138,8 +146,11 @@ def read_state():
             die_gramm(k)
     return m
 
+def state_bytes(m):
+    return ''.join(k + '\t' + m[k] + '\n' for k in KEYS).encode('utf-8')
+
 def write_state(m):
-    data = ''.join(k + '\t' + m[k] + '\n' for k in KEYS).encode('utf-8')
+    data = state_bytes(m)
     tmp = os.path.join(STATE_DIR, '.state.tsv.tmp')
     with open(tmp, 'wb') as f:
         f.write(data)
@@ -163,6 +174,25 @@ def append_event(kind, subject, ref):
     ts = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     with open(EVENTS, 'ab') as f:
         f.write((ts + '\t' + kind + '\t' + subject + '\t' + ref + '\n').encode('utf-8'))
+
+def composite_write(m, kind, subject, ref):
+    data = state_bytes(m)
+    line = (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) + '\t' + kind + '\t'
+            + subject + '\t' + ref + '\n').encode('utf-8')
+    tmp = os.path.join(STATE_DIR, '.state.tsv.tmp')
+    try:
+        with open(tmp, 'wb') as f:
+            f.write(data)
+        fh = open(EVENTS, 'ab')
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        zapfail()
+    fh.write(line)
+    os.replace(tmp, STATE)
+    fh.close()
 
 def triple_exists(kind, subject, ref):
     for e in read_events():
@@ -199,6 +229,9 @@ def cmd_put(k, v):
         guard(k, v)
     except GrammarError:
         die_gramm(k)
+    if k == 'pub_state' and v == 'published' and not pub_proven(m):
+        err(L['O92L_NEDOKAZ_PRE'] + m['candidate'])
+        sys.exit(1)
     m[k] = v
     try:
         write_state(m)
@@ -224,18 +257,16 @@ def cmd_event(kind, subject, ref):
             if e[1] == 'pub-done' and e[3] == ref:
                 err(L['O92L_OPUBL_PRE'] + ref.split('@', 1)[0])
                 sys.exit(1)
-    try:
-        append_event(kind, subject, ref)
-    except OSError:
-        zapfail()
     if kind == 'pub-done':
         m = read_state()
         if m is not None:
             m['pub_state'] = 'published'
-            try:
-                write_state(m)
-            except OSError:
-                zapfail()
+            composite_write(m, kind, subject, ref)
+            return
+    try:
+        append_event(kind, subject, ref)
+    except OSError:
+        zapfail()
 
 def cmd_init(task, ref):
     try:
@@ -250,11 +281,7 @@ def cmd_init(task, ref):
         m = defaults(task)
     else:
         m['task'] = task
-    try:
-        write_state(m)
-        append_event('task-init', task, ref)
-    except OSError:
-        zapfail()
+    composite_write(m, 'task-init', task, ref)
 
 def gitenv():
     return {k: v for k, v in os.environ.items()
@@ -268,6 +295,13 @@ def published(m):
     if cand == '-':
         return False
     return git(['merge-base', '--is-ancestor', cand, 'refs/remotes/origin/main']) == 0
+
+def pub_proven(m):
+    for e in read_events():
+        if e[1] == 'pub-done' and e[2] == m['task'] \
+                and e[3].split('@', 1)[0] == m['candidate']:
+            return True
+    return published(m)
 
 def slug():
     p = subprocess.run(['git', '-C', REPO, 'remote', 'get-url', 'origin'],
@@ -507,8 +541,10 @@ PATCHES = {
         "        raise GrammarError(k)",
     ),
     'S14': (
-        "    os.replace(tmp, STATE)",
-        "    os.replace(tmp, STATE)\n"
+        "def write_state(m):\n"
+        "    data = state_bytes(m)",
+        "def write_state(m):\n"
+        "    data = state_bytes(m)\n"
         "    with open(os.path.join(REPO, 'orch-state.tsv'), 'wb') as o92m:\n"
         "        o92m.write(data)",
     ),
@@ -517,6 +553,43 @@ PATCHES = {
         "            rc = 2",
         "            msg = 'check-runs не получены: сеть'\n"
         "            rc = 3",
+    ),
+    'S16': (
+        "def composite_write(m, kind, subject, ref):\n"
+        "    data = state_bytes(m)\n"
+        "    line = (time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) + '\\t' + kind + '\\t'\n"
+        "            + subject + '\\t' + ref + '\\n').encode('utf-8')\n"
+        "    tmp = os.path.join(STATE_DIR, '.state.tsv.tmp')\n"
+        "    try:\n"
+        "        with open(tmp, 'wb') as f:\n"
+        "            f.write(data)\n"
+        "        fh = open(EVENTS, 'ab')\n"
+        "    except OSError:\n"
+        "        try:\n"
+        "            os.unlink(tmp)\n"
+        "        except OSError:\n"
+        "            pass\n"
+        "        zapfail()\n"
+        "    fh.write(line)\n"
+        "    os.replace(tmp, STATE)\n"
+        "    fh.close()",
+        "def composite_write(m, kind, subject, ref):\n"
+        "    try:\n"
+        "        if kind == 'pub-done':\n"
+        "            append_event(kind, subject, ref)\n"
+        "            write_state(m)\n"
+        "        else:\n"
+        "            write_state(m)\n"
+        "            append_event(kind, subject, ref)\n"
+        "    except OSError:\n"
+        "        zapfail()",
+    ),
+    'S17': (
+        "    if k == 'pub_state' and v == 'published' and not pub_proven(m):\n"
+        "        err(L['O92L_NEDOKAZ_PRE'] + m['candidate'])\n"
+        "        sys.exit(1)",
+        "    if False:\n"
+        "        pass",
     ),
 }
 
@@ -538,15 +611,15 @@ o92_gen_wrap() {
     printf 'export O92_BODY=%q\n' "$2"
     printf 'export O92L_ZAPIS=%q O92L_NEIZV=%q O92L_OPUBL_PRE=%q O92L_ZAPFAIL=%q\n' \
       "$O92L_ZAPIS" "$O92L_NEIZV" "$O92L_OPUBL_PRE" "$O92L_ZAPFAIL"
-    printf 'export O92L_GRAMM_PRE=%q O92L_KRUGOV_PRE=%q O92L_PREDEL=%q\n' \
-      "$O92L_GRAMM_PRE" "$O92L_KRUGOV_PRE" "$O92L_PREDEL"
+    printf 'export O92L_GRAMM_PRE=%q O92L_KRUGOV_PRE=%q O92L_PREDEL=%q O92L_NEDOKAZ_PRE=%q\n' \
+      "$O92L_GRAMM_PRE" "$O92L_KRUGOV_PRE" "$O92L_PREDEL" "$O92L_NEDOKAZ_PRE"
     printf 'export O92L_OPUBL_DA=%q O92L_OPUBL_NET=%q O92L_ZAKR=%q O92L_NEZAKR=%q\n' \
       "$O92L_OPUBL_DA" "$O92L_OPUBL_NET" "$O92L_ZAKR" "$O92L_NEZAKR"
     printf 'exec python3 "$O92_BODY" "$@"\n'
   } > "$3"
 }
 
-# ── диффпроба: честное тело зелёно на ВСЕХ клетках (14 red + 4 case) ────────────────────
+# ── диффпроба: честное тело зелёно на ВСЕХ клетках (15 red + 4 case) ────────────────────
 CHEST="$O92SCR/chestnoj"
 mkdir -p "$CHEST" || { printf 'NOT_IMPLEMENTED: нет каталога честных обёрток\n' >&2; exit 2; }
 for m in checkpoint status ciwait; do
@@ -589,7 +662,9 @@ PAK=('S1 red_net_off_local_survives.sh'
      'S12 red_checkpoint_atomic_fail.sh'
      'S13 red_checkpoint_grammar.sh'
      'S14 red_state_outside_tree.sh'
-     'S15 red_ciwait_net_vs_timeout.sh')
+     'S15 red_ciwait_net_vs_timeout.sh'
+     'S16 red_checkpoint_atomic_fail.sh'
+     'S17 red_pub_state_needs_proof.sh')
 POJM=0
 for para in "${PAK[@]}"; do
   stab="${para%% *}"
@@ -621,5 +696,5 @@ for para in "${PAK[@]}"; do
   fi
 done
 
-printf 'стаб-пак 092: %s/15 поймано, диффпроба %s/%s\n' "$POJM" "$DIF" "$VSEGO"
-[ "$POJM" -eq 15 ] && [ "$DIF" -eq "$VSEGO" ]
+printf 'стаб-пак 092: %s/17 поймано, диффпроба %s/%s\n' "$POJM" "$DIF" "$VSEGO"
+[ "$POJM" -eq 17 ] && [ "$DIF" -eq "$VSEGO" ]
