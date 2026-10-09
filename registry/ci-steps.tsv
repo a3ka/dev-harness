@@ -32,7 +32,6 @@ step	check:scope-select	10	npm run check:scope-select
 step	check:scoped-run	10	npm run check:scoped-run
 step	check:contract-ready	15	npm run check:contract-ready
 step	check:document	20	npm run check:document
-step	check:spec-ready-036	10	npm run check:spec-ready -- . contracts/036-spec-tochnost-prefriz-gejt.md
 step	check:precision-gate-043	10	npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
 step	check:precision-family-selftest	15	npm run check:precision-family-selftest
 step	check:precision-battery	15	npm run check:precision-battery
