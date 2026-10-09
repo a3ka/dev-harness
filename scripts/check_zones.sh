@@ -1269,6 +1269,30 @@ while IFS=$'\t' read -r nnn since; do
           continue
           ;;
       esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 ~18:40 UTC, передано
+      # консультантом — коммит b6daee0a0205d1e1008948e4332781dd9d10dd34,
+      # путь contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md) ──
+      # Один SHA, автор orchestrator, ОДИН путь: контракт 092 перенесён на main
+      # flat-коммитом identity orchestrator вместо ленд-мерджа ветки
+      # wip/092/architect — тот же класс дефекта identity, что 81e6e252 выше (094),
+      # не отсутствия пути в заморозке. Блоб f9b2704d13577d1edf8e458befb81dea0fde40a3
+      # побайтно равен wip/092/architect@35c53bb6 (автор architect, уже проверенный
+      # текст круга 5) — консультант сверил равенство блобов. ЗОНА architect
+      # контракта 092 УЖЕ несёт этот путь; исключается только identity-дефект этого
+      # ОДНОГО SHA. История не переписывается: SHA остаётся на main с автором
+      # orchestrator. Допущение — ТОЛЬКО для ЭТОГО SHA и ЭТОГО пути; других
+      # коммитов и путей не исключать, ЗОНА architect и ЗОНА orchestrator не
+      # расширяются (слово владельца дословно, см. тело коммита).
+      case "$c" in
+        b6daee0a0205d1e1008948e4332781dd9d10dd34)
+          case "$f" in
+            contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
+      esac
       inside=1
       while IFS= read -r p; do
         case "$p" in
