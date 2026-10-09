@@ -35,8 +35,6 @@ H91_OTKAZ_NOL='ОТКАЗ: в HANDOFF.md нет раздела «## ГДЕ МЫ�
 H91_OTKAZ_MANY='ОТКАЗ: в HANDOFF.md больше одного раздела «## ГДЕ МЫ»'
 H91_OTKAZ_BIG='ОТКАЗ: итоговый HANDOFF.md больше 30 КБ'
 H91_OTKAZ_EXIST_PRE='ОТКАЗ: архив уже существует: '
-# Грамматика --date: ПОЛНОЕ соответствие всей строки (Р9/И-9, fullmatch, не поиск подстроки).
-H91_DATE_RE='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
 # Строка stdout успеха (И-1).
 H91_OK_PRE='архив: '
 
@@ -103,43 +101,29 @@ if [ -z "$DATE" ]; then
   DATE="$(date +%F)"
 fi
 
-# ── Проверка (1) существования HANDOFF.md в bash (Р6: ДО грамматики --date) ─────────
+# ── Проверка (1) существования HANDOFF.md в bash (ЕДИНСТВЕННАЯ bash-проверка, Р6 #1) ──
 # Р6 порядок: HANDOFF отсутствует → отказ «HANDOFF.md отсутствует» ДО проверки даты,
-# даже если --date синтаксически невалиден (составной вход «нет файла + плохая дата»).
+# даже если --date синтаксически невалиден (составной вход «нет файла + плохая дата»,
+# клетка Р6/прошлый прогон). Все остальные проверки — в python.
 HAND="$ROOT/HANDOFF.md"
 if [ ! -f "$HAND" ]; then
   printf '%s\n' "$H91_OTKAZ_NET" >&2
   exit 1
 fi
 
-# ── Проверка грамматики --date в bash (И-2/Р6: ДО любой записи, Р9) ─────────────────
-# Р9/И-9: fullmatch всей строки. Делаем bash-регекспом и case-паттерном; python
-# потом повторит строже, но отказ уже на этой ступени — никакого диска.
-if ! printf '%s' "$DATE" | grep -Eq -- "$H91_DATE_RE"; then
-  printf '%s\n' "$H91_OTKAZ_DATE" >&2
-  exit 1
-fi
-case "$DATE" in
-  [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
-  *)
-    printf '%s\n' "$H91_OTKAZ_DATE" >&2
-    exit 1
-    ;;
-esac
-
-HAND="$ROOT/HANDOFF.md"
-
-# ── Делегируем работу python3 (И-3/И-4/И-7: байт-в-байт splitlines+склейка) ─────────
+# ── Делегируем работу python3 (И-3/И-4/И-7: байт-в-байт split+склейка) ────────────────
 # python-скрипт получает:
-#   argv[1] = ROOT, argv[2] = HAND, argv[3] = DATE, argv[4] = ARCH_REL,
-#   argv[5] = ARCH (абсолютный путь к файлу архива)
-#   env H91_* = литеральные константы контракта
+#   argv[1] = HAND, argv[2] = DATE, argv[3] = ARCH_REL, argv[4] = ARCH_ABS
+#   env H91_*_ENV = литеральные константы контракта (только те, что читаются
+#     python'ом после удаления дублей — Р6/Ф-3)
 #
 # Протокол: на stdout — ровно одна строка успеха «архив: …»; на stderr — ровно одна
 # строка именованного отказа; rc=0/1. Любой другой rc — NOT_IMPLEMENTED.
 #
-# Гарантии атомарности (И-6): все отказы — до записи. Запись — в $TMPDIR (НЕ в
-# $ROOT), затем mv в $ROOT. Никаких temp-файлов в $ROOT при отказе.
+# Гарантии атомарности (И-6): все отказы — до записи. Temp-файлы архива и HANDOFF
+# создаются В ЦЕЛЕВОМ КАТАЛОГЕ (`dir=…`) — иначе os.replace/rename(2) между ФС
+# падает «Errno 18 Invalid cross-device link» (находка ревьюера круг 1, Ф-2).
+# Никаких temp-файлов ВНЕ целевого каталога соответствующего файла при отказе.
 ARCH_REL="$H91_ARCHDIR/$DATE.md"
 ARCH_ABS="$ROOT/$ARCH_REL"
 
@@ -147,41 +131,33 @@ H91_SEC_ENV="$H91_SEC" \
 H91_H2_ENV="$H91_H2" \
 H91_BEGIN_ENV="$H91_BEGIN" \
 H91_LIMIT_ENV="$H91_LIMIT" \
-H91_ARCHDIR_ENV="$H91_ARCHDIR" \
-H91_OTKAZ_NET_ENV="$H91_OTKAZ_NET" \
 H91_OTKAZ_DATE_ENV="$H91_OTKAZ_DATE" \
 H91_OTKAZ_NOL_ENV="$H91_OTKAZ_NOL" \
 H91_OTKAZ_MANY_ENV="$H91_OTKAZ_MANY" \
 H91_OTKAZ_BIG_ENV="$H91_OTKAZ_BIG" \
 H91_OTKAZ_EXIST_PRE_ENV="$H91_OTKAZ_EXIST_PRE" \
 H91_OK_PRE_ENV="$H91_OK_PRE" \
-H91_DATE_ENV="$DATE" \
-H91_DATE_RE_ENV="$H91_DATE_RE" \
-python3 - "$ROOT" "$HAND" "$DATE" "$ARCH_REL" "$ARCH_ABS" <<'PYEOF'
+python3 - "$HAND" "$DATE" "$ARCH_REL" "$ARCH_ABS" <<'PYEOF'
 import os
 import re
 import sys
 import tempfile
 
-ROOT = sys.argv[1]
-HAND = sys.argv[2]
-DATE = sys.argv[3]
-ARCH_REL = sys.argv[4]
-ARCH_ABS = sys.argv[5]
+HAND = sys.argv[1]
+DATE = sys.argv[2]
+ARCH_REL = sys.argv[3]
+ARCH_ABS = sys.argv[4]
 
 SEC = os.environ['H91_SEC_ENV'].encode('utf-8')
 H2 = os.environ['H91_H2_ENV'].encode('utf-8')
 BEGIN = os.environ['H91_BEGIN_ENV'].encode('utf-8')
 LIMIT = int(os.environ['H91_LIMIT_ENV'])
-ARCHDIR = os.environ['H91_ARCHDIR_ENV']
-OTKAZ_NET = os.environ['H91_OTKAZ_NET_ENV']
 OTKAZ_DATE = os.environ['H91_OTKAZ_DATE_ENV']
 OTKAZ_NOL = os.environ['H91_OTKAZ_NOL_ENV']
 OTKAZ_MANY = os.environ['H91_OTKAZ_MANY_ENV']
 OTKAZ_BIG = os.environ['H91_OTKAZ_BIG_ENV']
 OTKAZ_EXIST_PRE = os.environ['H91_OTKAZ_EXIST_PRE_ENV']
 OK_PRE = os.environ['H91_OK_PRE_ENV']
-DATE_RE = os.environ['H91_DATE_RE_ENV']
 
 def refuse(msg):
     sys.stderr.write(msg + '\n')
@@ -190,10 +166,6 @@ def refuse(msg):
 def not_impl(msg):
     sys.stderr.write('NOT_IMPLEMENTED: ' + msg + '\n')
     sys.exit(2)
-
-# (1) HANDOFF.md существует
-if not os.path.isfile(HAND):
-    refuse(OTKAZ_NET)
 
 # (2) грамматика --date — полное соответствие всей строки (Р9/И-9)
 if re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', DATE) is None:
@@ -204,15 +176,22 @@ if re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', DATE) is None:
 with open(HAND, 'rb') as f:
     data = f.read()
 
-# Разбиваем на строки, сохраняя LF (splitlines(keepends=True) — стандартная
-# семантика: последняя строка с LF если файл его содержит, без — если не
-# содержит; клетка k6).
-lines = data.splitlines(keepends=True)
+# Разбиваем на строки СТРОГО по b'\n' (Ф-1, находка ревьюера круг 1):
+# контракт задаёт границу по LF (И-2 / awk `index($0,…)==1` построчно по `\n`).
+# splitlines режет по `\r\n`/`\v`/`\f`/`\x1c-\x1e`/U+2028/2029 — это приводило
+# к двум ложным сценариям: (a) одиночный CR внутри строки ложно открывал
+# вторую секцию (`## ГДЕ МЫ a\r## ГДЕ МЫ b` ⇒ два starts, отказ Р6 o1/o2 хотя
+# по LF секция одна); (b) span рвался посреди LF-строки на CR (`x\r## next` ⇒
+# `x`|`## next` ⇒ преждевременная граница span, И-3/И-4 нарушены).
+parts = data.split(b'\n')
+lines = [p + b'\n' for p in parts[:-1]]
+if parts[-1]:
+    lines.append(parts[-1])
 
-# (3) ровно одна секция «## ГДЕ МЫ» (И-2: байтовое начало строки == SEC)
-# Сравнение startswith(SEC) ищет литеральный префикс по байтам: `### ГДЕ МЫ`
-# и `##  ГДЕ МЫ` (двойной пробел) — НЕ подходят, потому что у них байты до
-# позиции 9 — иные. Суффикс после литерала произволен (клетка o12).
+# (3) ровно одна секция «## ГДЕ МЫ» (И-2: байтовое начало СТРОГО LF-строки == SEC)
+# Сравнение startswith(SEC) идёт по LF-строкам: `### ГДЕ МЫ` и `##  ГДЕ МЫ`
+# (двойной пробел) — НЕ подходят (байты до позиции 9 иные); одиночный CR тоже
+# не открывает новую секцию. Суффикс после литерала произволен (клетка o12).
 starts = [k for k, ln in enumerate(lines) if ln.startswith(SEC)]
 if len(starts) == 0:
     refuse(OTKAZ_NOL)
@@ -220,24 +199,43 @@ if len(starts) > 1:
     refuse(OTKAZ_MANY)
 s = starts[0]
 
-# Граница span (И-3): первая из (а) целой строки BEGIN, (б) строки с префиксом
-# H2, (в) EOF. Проверяем целую строку BEGIN как байтовое равенство (т.е. строка
-# с финальным \n или без — равна литералу; `### BEGIN …` или `BEGIN …` — НЕ
-# граница, клетка o13). Для корректного сравнения: line.rstrip(b'\n') == BEGIN.
-end = len(lines)
+# Граница span (И-3): первая из (а) целой LF-строки BEGIN (клетка o13),
+# (б) LF-строки с префиксом H2 (И-3), (в) EOF. Дополнительно для span
+# (в отличие от счёта секций): внутри одной LF-строки одиночный CR тоже
+# может быть границей-кандидатом — Р6 ревьюера круг 1, P2: `x\r## next\n` ⇒
+# подсегмент `## next` после CR является span-границей, АРХИВ обрывается ДО
+# этого подсегмента (между `\r` и `##`), итоговый файл начинается с `## next`.
+# Подсегмент ищется строго после CR в текущей LF-строке; CR+префиксный H2.
+end_full = len(lines)
+end_in_line = None  # byte offset within lines[end_full] (None ⇒ целая LF-строка)
 for k in range(s + 1, len(lines)):
-    core = lines[k][:-1] if lines[k].endswith(b'\n') else lines[k]
+    ln = lines[k]
+    core = ln[:-1] if ln.endswith(b'\n') else ln
     if core == BEGIN:
-        end = k
+        end_full = k
+        end_in_line = None
         break
-    if lines[k].startswith(H2):
-        end = k
+    if ln.startswith(H2):
+        end_full = k
+        end_in_line = None
+        break
+    # Подсегмент-проверка: внутри LF-строки найти CR+H2 (первый).
+    cr_idx = ln.find(b'\r' + H2)
+    if cr_idx >= 0:
+        end_full = k
+        end_in_line = cr_idx + 1  # байт-смещение = после CR (CR включён в span)
         break
 
 # Сборка span/prefix/tail байт-в-байт.
-span = b''.join(lines[s:end])
+if end_in_line is None:
+    span = b''.join(lines[s:end_full])
+else:
+    span = b''.join(lines[s:end_full]) + lines[end_full][:end_in_line]
 prefix = b''.join(lines[:s])
-tail = b''.join(lines[end:])
+if end_in_line is None:
+    tail = b''.join(lines[end_full:])
+else:
+    tail = lines[end_full][end_in_line:] + b''.join(lines[end_full + 1:])
 result = prefix + tail
 
 # (4) архив этой даты отсутствует
@@ -248,15 +246,21 @@ if os.path.lexists(ARCH_ABS):
 if len(result) > LIMIT:
     refuse(OTKAZ_BIG)
 
-# Запись: сначала архив, затем HANDOFF (И-7). Атомарно: tmp-файл В $TMPDIR, не в
-# $ROOT, чтобы при отказе (или нашем сбое) в root не оседал .tmp-мусор (стаб s17).
+# Запись: сначала архив, затем HANDOFF (И-7). Атомарно: tempfile.mkstemp(dir=…)
+# гарантирует, что os.replace() — переименование ВНУТРИ одной ФС (иначе при
+# $TMPDIR на другой ФС /dev/shm tmpfs rename(2) падает Errno 18 Invalid
+# cross-device link; Ф-2). Каталог архива создаётся ДО mkstemp (Ф-2 фикс).
 arch_dir = os.path.dirname(ARCH_ABS)
 try:
     os.makedirs(arch_dir, exist_ok=True)
 except OSError as e:
     not_impl('mkdir: ' + str(e))
 
-fd_arch, tmp_arch = tempfile.mkstemp(prefix='handoff091-arch-', suffix='.tmp')
+try:
+    fd_arch, tmp_arch = tempfile.mkstemp(
+        prefix='handoff091-arch-', suffix='.tmp', dir=arch_dir)
+except OSError as e:
+    not_impl('arch mkstemp: ' + str(e))
 try:
     with os.fdopen(fd_arch, 'wb') as f:
         f.write(span)
@@ -266,7 +270,12 @@ except OSError as e:
     except OSError: pass
     not_impl('arch write: ' + str(e))
 
-fd_hand, tmp_hand = tempfile.mkstemp(prefix='handoff091-hand-', suffix='.tmp')
+hand_dir = os.path.dirname(HAND)
+try:
+    fd_hand, tmp_hand = tempfile.mkstemp(
+        prefix='handoff091-hand-', suffix='.tmp', dir=hand_dir)
+except OSError as e:
+    not_impl('hand mkstemp: ' + str(e))
 try:
     with os.fdopen(fd_hand, 'wb') as f:
         f.write(result)
