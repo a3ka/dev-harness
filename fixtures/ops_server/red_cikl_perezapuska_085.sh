@@ -186,7 +186,7 @@ mkdir -p "$SCRATCH/snap" "$SCRATCH/w" "$SCRATCH/res" "$SCRATCH/shimbin"
 declare -A PIN=(
   [stancija.orch-loop]=ebc53f306a352ef8ec58d130d5d667ea685c6977d932a0439de755ca62038cd9
   [stancija.orch-peak]=b3e354cd2aae1a28e50b1423c6d5164e2d0a7ca2dcec4e17f47ccb4b549824b3
-  [slijanie.orch-peak]=d7f74f54716b33651c4111fc1bbaf303c7b8126cb9b0a4d90f006218b16a647c
+  [slijanie.orch-peak]=a971abfa7d8c25eee01da7b756c80d3d42828d4f4018e1619f71a4922f808d70
   [repo-fad71b15.orch-loop]=fad71b1540965d84ed4f3f54759ba76b43628e2be9b91bc9405be62a34a63e2d
   [repo-8380d01f.orch-peak]=8380d01fdd8200f25093a2b11cf6c11124dc0a13eb86851476346f7513c94c6c
 )
