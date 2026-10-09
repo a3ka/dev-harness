@@ -70,8 +70,8 @@ while IFS= read -r line; do
   [ -z "$line" ] && continue
   case "$line" in
     repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
-    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
-    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="$v" ;;
+    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
+    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; branches="$v" ;;
     *) die "политика: грамматика" ;;
   esac
 done <<EOF
