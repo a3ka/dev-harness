@@ -7,6 +7,7 @@ P92L_OPUBL_PRE="уже опубликовано: "
 P92L_NEDOKAZ_PRE="публикация не доказана: "
 P92L_SOSTOYANIE_NET="состояние отсутствует"
 P92L_SOBYTIE_GRAMM="событие вне грамматики"
+P92L_CHUZH_PUBDONE="pub-done чужой задачи или кандидата"
 PYBIN=python3
 
 : "${ORCH_STATE_DIR:=/tmp/dev-harness-verify/orch-state}"
@@ -50,6 +51,7 @@ P92L_OPUBL_PRE_ENV="$P92L_OPUBL_PRE" \
 P92L_NEDOKAZ_PRE_ENV="$P92L_NEDOKAZ_PRE" \
 P92L_SOSTOYANIE_NET_ENV="$P92L_SOSTOYANIE_NET" \
 P92L_SOBYTIE_GRAMM_ENV="$P92L_SOBYTIE_GRAMM" \
+P92L_CHUZH_PUBDONE_ENV="$P92L_CHUZH_PUBDONE" \
 ORCH_STATE_DIR_ENV="$ORCH_STATE_DIR" \
 ORCH_REPO_ENV="${ORCH_REPO:-}" \
 PYBIN=python3 \
@@ -74,6 +76,7 @@ L_OPUBL = os.environ["P92L_OPUBL_PRE_ENV"]
 L_NEDOKAZ = os.environ["P92L_NEDOKAZ_PRE_ENV"]
 L_SNET = os.environ["P92L_SOSTOYANIE_NET_ENV"]
 L_EGR = os.environ["P92L_SOBYTIE_GRAMM_ENV"]
+L_CHUZH_PUBDONE = os.environ["P92L_CHUZH_PUBDONE_ENV"]
 
 KEYS = ("task", "stage", "candidate", "last_proven", "waiting", "next_step", "pub_state")
 STAGES = ("draft", "spec", "frozen", "implement", "judge", "publish", "close", "done")
@@ -266,8 +269,15 @@ if SUBCMD == "event":
                 refuse(L_OPUBL + ARG_REF.split("@", 1)[0])
     if ARG_KIND == "pub-done":
         m = read_state()
-        if m is None:
-            m = {"task": ARG_SUBJECT, "stage": "draft", "candidate": "-", "last_proven": "-", "waiting": "none", "next_step": "-", "pub_state": "published"}
+        # И-8 + adversary круг 1, находка 2: pub-done принимается ТОЛЬКО если
+        # subject и candidate (часть REF до @) совпадают с ТЕКУЩИМ состоянием.
+        # Без сверки pub-done <чужой task> <чужой candidate>@<target> безусловно
+        # повышал pub_state ТЕКУЩЕЙ задачи и фабриковал состояние из воздуха.
+        cur_task = "-" if m is None else m.get("task", "-")
+        cur_cand = "-" if m is None else m.get("candidate", "-")
+        arg_cand = ARG_REF.split("@", 1)[0]
+        if m is None or ARG_SUBJECT != cur_task or arg_cand != cur_cand:
+            refuse(L_CHUZH_PUBDONE)
         m["pub_state"] = "published"
         composite_write(m, ARG_KIND, ARG_SUBJECT, ARG_REF)
         sys.exit(0)

@@ -22,7 +22,6 @@ CHECKPOINT="$SCRIPT_DIR/orch_checkpoint.sh"
 get_state() {
   local key="$1"
   bash "$CHECKPOINT" get "$key"
-  return 0
 }
 
 if [ "${1:-}" = "--next" ]; then
@@ -30,7 +29,11 @@ if [ "${1:-}" = "--next" ]; then
   exit 0
 fi
 
-W_TASK=$(get_state task)
+# ПЕРВЫЙ вызов get_state проверяется на rc: при пустом ORCH_STATE_DIR
+# orch_checkpoint.sh get уже печатает stderr «состояние отсутствует» и
+# возвращает rc 1 (И-4) — семиполевую сводку печатать НЕЛЬЗЯ (adversary круг 1,
+# находка 1: выдуманное состояние при полном отсутствии).
+W_TASK=$(get_state task) || exit 1
 W_STAGE=$(get_state stage)
 W_CAND=$(get_state candidate)
 W_LASTP=$(get_state last_proven)
