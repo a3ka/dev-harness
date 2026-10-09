@@ -10,13 +10,6 @@ SUBJ="$(_t96_subject)"
 [ -f "$SUBJ" ] || { printf 'КРАСНО: zony-iz-kontragta: предмет отсутствует: scripts/done_project.sh\n' >&2; exit 1; }
 
 # ── половина (а): вне зоны → отказ ──────────────────────────────────────────
-W="$(_t96_world i3a code toy 096 \
-  'printf "rogue\n" > docs/external/payload.txt && mkdir -p docs/external && git mv -f scripts/done_project.sh scripts/done_project.sh.tmp 2>/dev/null || true' \
-  'printf "rogue\n" > docs/external/payload.txt' \
-  'mkdir -p docs/external && mv scripts/done_project.sh.tmp docs/external/ 2>/dev/null || true' \
-  'printf "rogue\n" > docs/external/payload.txt'
-)" || exit 2
-# Альтернативный путь, не опираемся на mv-цепочку, просто добавляем файл вне ЗОНА
 W="$(_t96_world i3a-clean)" || exit 2
 trap '_t96_cleanup "$W"' EXIT
 R="$W/repo"
