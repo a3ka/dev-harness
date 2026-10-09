@@ -1250,6 +1250,25 @@ while IFS=$'\t' read -r nnn since; do
           continue
           ;;
       esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 ~16:00 UTC, передано
+      # консультантом — коммит 81e6e252074f931fed5df2776b1a5309eebd3f13,
+      # forks/094-zona-gap-81e6e252-flat-commit.md,
+      # verdicts/consultant/zona-gap-81e6e252-flat-commit-v1.md) ──
+      # Один SHA, автор orchestrator: батарея 094 (fixtures/accept_publish_094/,
+      # fixtures/_krasnye_094.sh) УЖЕ лежит в ЗОНА architect 094 (сверено живьём
+      # consultant'ом), но коммит 81e6e252 flat-landed identity orchestrator вместо
+      # ленд-мерджа ветки architect — дефект identity, не отсутствия пути в заморозке.
+      # NABLIUDENIA_ARCHITECT.md того же коммита уже выведен выше is_process_file.
+      # История не переписывается: SHA остаётся на main с автором orchestrator, и
+      # общая проверка 'зона автора' ниже красит FAIL на путях этой батареи. Допущение —
+      # ТОЛЬКО для ЭТОГО одного SHA; других коммитов и путей не исключать, ЗОНА architect
+      # и ЗОНА orchestrator не расширяются (слово владельца дословно, см. тело коммита).
+      case "$c" in
+        81e6e252074f931fed5df2776b1a5309eebd3f13)
+          printf '%s\n' "$f" >> "$TMP/process_excluded"
+          continue
+          ;;
+      esac
       inside=1
       while IFS= read -r p; do
         case "$p" in
