@@ -32,8 +32,8 @@ rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
     [ -e "$MARK" ] || { log "сессия #$n: маркер снят за ${GRACE}с — перезапуск отменён"; continue; }
     touch "$GO"   # с этой точки перезапуск состоялся, даже если маркер снимут (2026-10-03 18:35)
     pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
-    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
-    pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
+    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" >/dev/null || exit 0; done
+    pkill -KILL -P "$loop_pid"; exit 0
   done ) &
 watcher=$!
 log "сессия #$n: старт"
@@ -51,9 +51,9 @@ AGENT_HOME="${ORCH_AGENT_HOME:-${ORCH_LOOP_AGENT_HOME:-/var/lib/orch-agent}}"
 # без шва — абсолютный путь + HOME агента (станционный контур требует наличия
 # пользователя orchagent и /var/lib/orch-agent; в CI/тест-мире используйте шов).
 if [ -n "${ORCH_LOOP_AGENT_CMD:-}" ]; then
-  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && exec "$2"' sh "$RAN" "$ORCH_LOOP_AGENT_CMD"; rc=$?
+  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && exec "$1"' sh "$RAN" "$ORCH_LOOP_AGENT_CMD"; rc=$?
 else
-  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && HOME="$3" exec "$4" --yolo -- "$5"' \
+  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && HOME="$1" exec "$2" --yolo -- "$3"' \
     sh "$RAN" "$AGENT_HOME" "$WORKSHOP" "$MSG"; rc=$?
 fi
 if [ ! -e "$RAN" ]; then
