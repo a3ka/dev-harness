@@ -15,7 +15,7 @@
 #           свежую сессию через свой GRACE). Без сжатия: новая сессия читает HANDOFF.
 set -u
 U="${ORCH_USER:-harness}"
-UHOME="$(getent passwd "$U" | cut -d: -f6)"
+UHOME="${ORCH_UHOME:-$(getent passwd "$U" | cut -d: -f6)}"
 REPO="${ORCH_REPO:-$UHOME/dev-harness}"
 LOOP_PAT="${ORCH_LOOP_PAT:-bin/orch-loop}"
 LOOP_CMD="${ORCH_LOOP_CMD:-cd ~/dev-harness && orch-loop}"

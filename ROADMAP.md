@@ -375,10 +375,12 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 2 | 084 | до V-2 | plan-infra | - | docs/owner/2026-10-03-done-i-instrumenty.md#10.5 |
 | 2 | 091 | до V-2 | plan-infra | 090 | 78c1d66 |
 | 3 | 079 | до V-2 | CI | - | 9606609 |
-| 3 | принятие-публикации | до V-2 | odelix | 091 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3 |
-| 4 | профиль-вход-агента | до V-2 | context | принятие-публикации | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
-| 5 | done-проекта | до V-2 | odelix | профиль-вход-агента | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
-| 6 | V-2 | до V-2 | odelix | 090,091,принятие-публикации,профиль-вход-агента,done-проекта | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
+| 3 | 093 | до V-2 | odelix | 091 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 1 |
+| 3 | 092 | до V-2 | odelix | 093 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 2 |
+| 3 | 094 | до V-2 | odelix | 091 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3 |
+| 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
+| 5 | 096 | до V-2 | odelix | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
+| 6 | V-2 | до V-2 | odelix | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
 | 7 | ночь-повторяемость | параллельно с V-2 | odelix | V-2 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4 |
 | 8 | 087 | параллельно с V-2 | CI | ночь-повторяемость | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 9 | done-волны | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |

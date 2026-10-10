@@ -45,9 +45,41 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib.sh"
 SUBJ="${ORCH090_SUBJECT:-$(fix090_repo_root "$HERE")}"
 
-REAL_UHOME="$(getent passwd "${ORCH_USER:-harness}" | cut -d: -f6)"
-[ -n "$REAL_UHOME" ] || fix090_fail "getent не дал home пользователя — нечем сверять герметичность"
-REAL_SESS="$REAL_UHOME/.local/state/dev-harness-sessions"
+# ── предусловие: различение «пользователя нет» ↔ «источник отказал» ────────
+# (консультант §(а).2, verdicts/consultant/batareja-getent-na-rannere-v1):
+# rc getent и его stdout ловятся ОТДЕЛЬНО, БЕЗ конвейера — раньше rc терялся
+# за `cut` и пустой home был неотличим от ошибки источника (отказ l6 на CI).
+# Классификация исходов источника passwd:
+#   rc=0 ∧ непустой вывод ∧ поле 6 непусто → пользователь ЕСТЬ: прежний
+#         проверяемый скоуп (SESS_GLOB + /var/lib/orch-peak) и поведение
+#         watcher БЕЗ ИЗМЕНЕНИЙ (консультант §(а).1);
+#   rc∈{0,2} ∧ ПУСТОЙ вывод → пользователя НЕТ (rc=2 — документированный
+#         «key was not found», man getent(1) EXIT STATUS: отрицательный
+#         ответ источника, НЕ ошибка): именованное сужение скоупа — SESS-часть
+#         не сканируется (сканировать нечего), а /var/lib/orch-peak остаётся
+#         самостоятельным охраняемым путём: watcher стартует, семья
+#         прогоняется ЦЕЛИКОМ (НЕ vacuous-skip, консультант §(а).3);
+#   прочий rc / rc=2 с непустым выводом / непустой вывод с пустым полем 6 →
+#         именованный fail-closed: ошибка источника, не «пользователя нет» —
+#         пустой stdout сам по себе не свидетельствует об отсутствии.
+ORCH090_USER="${ORCH_USER:-harness}"
+GENT_OUT=""
+GENT_RC=0
+GENT_OUT="$(getent passwd "$ORCH090_USER")" || GENT_RC=$?
+REAL_UHOME=""
+if [ "$GENT_RC" -eq 0 ] && [ -n "$GENT_OUT" ]; then
+  REAL_UHOME="$(printf '%s' "$GENT_OUT" | cut -d: -f6)"
+  [ -n "$REAL_UHOME" ] || fix090_fail "passwd-запись $ORCH090_USER без поля home («$GENT_OUT») — некорректная запись источника, не отсутствие пользователя: нечем сверять герметичность (fail-closed)"
+elif { [ "$GENT_RC" -eq 0 ] || [ "$GENT_RC" -eq 2 ]; } && [ -z "$GENT_OUT" ]; then
+  : # пользователя нет — сужение скоупа ниже, НЕ fail-closed
+else
+  fix090_fail "getent отказал (rc=$GENT_RC) для $ORCH090_USER — ошибка источника passwd, НЕ «пользователя нет»: нечем доверять сверке герметичности (fail-closed)"
+fi
+if [ -n "$REAL_UHOME" ]; then
+  REAL_SESS="$REAL_UHOME/.local/state/dev-harness-sessions"
+else
+  REAL_SESS="" # пользователя нет: SESS-часть неприменима, find по ней НЕ вызывается
+fi
 REAL_STATE="/var/lib/orch-peak"
 
 # РЕАЛЬНО сканируемый скоуп для сообщений (решение арбитража, п.3): сообщения
@@ -90,7 +122,13 @@ SCOPE_STATE="$REAL_STATE/**"
 #    закрывает их общая норма write-allowlist Н-85/А-122 (клетки пишут только в
 #    `/tmp/dev-harness-verify/**`), не этот watcher.
 scan_real() {
-  find "$REAL_SESS" -path '*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--*' -type f -printf '%p\t%T@\n' 2>/dev/null
+  # SESS-часть сканируется ТОЛЬКО при действительном REAL_UHOME (пользователь
+  # есть): без пользователя REAL_SESS не существует и find по нему не
+  # вызывается (консультант §(а).3); /var/lib/orch-peak — самостоятельный
+  # охраняемый путь, наблюдается ВСЕГДА, в обоих режимах.
+  if [ -n "${REAL_UHOME:-}" ]; then
+    find "$REAL_SESS" -path '*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--*' -type f -printf '%p\t%T@\n' 2>/dev/null
+  fi
   find "$REAL_STATE" -type f -printf '%p\t%T@\n' 2>/dev/null
 }
 
@@ -134,11 +172,21 @@ wait "$WPID" 2>/dev/null || true
 
 NEW_HITS="$(LC_ALL=C sort -u "$HITS" 2>/dev/null | sed '/^$/d' || true)"
 if [ -n "$NEW_HITS" ]; then
-  # Печатаем только ПУТИ (без mtime) в диагностике — компактнее.
+  # Печатаем только ПУТИ (без mtime) в диагностике — компактнее. Сообщение
+  # называет ИМЕННО применимую часть скоупа (консультант §(а).3): в суженном
+  # режиме НЕ утверждается «SESS тоже проверен».
   bad_paths="$(printf '%s\n' "$NEW_HITS" | cut -f1 | LC_ALL=C sort -u | tr '\n' ';')"
-  fix090_fail "герметичность нарушена: НОВЫЕ/ИЗМЕНИВШЕЕСЯ пути под множеством чтения реального orch-peak во время прогона (подпуть SESS_GLOB: $SCOPE_SESS; state: $SCOPE_STATE): $bad_paths"
+  if [ -n "$REAL_UHOME" ]; then
+    fix090_fail "герметичность нарушена: НОВЫЕ/ИЗМЕНИВШЕЕСЯ пути под множеством чтения реального orch-peak во время прогона (подпуть SESS_GLOB: $SCOPE_SESS; state: $SCOPE_STATE): $bad_paths"
+  else
+    fix090_fail "герметичность нарушена: НОВЫЕ/ИЗМЕНИВШЕЕСЯ пути под state $SCOPE_STATE во время прогона (применимый скоуп: пользователь $ORCH090_USER отсутствует, getent rc=$GENT_RC пустой ответ — SESS-часть НЕ наблюдалась и здесь НЕ утверждается): $bad_paths"
+  fi
 fi
 
 [ "${ORCH090_KEEP:-}" = 1 ] || rm -rf "$W" 2>/dev/null || true
-printf 'ЗЕЛЁНО(090-герметичность): семья прогнана целиком под фоновым watcher (опрос каждые 0.05с, полный список путей+mtime, БЕЗ фильтра по имени) по множеству чтения реального orch-peak: ни одного НОВОГО/ИЗМЕНИВШЕГОСЯ пути под подпутём SESS_GLOB %s или под %s не замечено\n' "$SCOPE_SESS" "$SCOPE_STATE"
+if [ -n "$REAL_UHOME" ]; then
+  printf 'ЗЕЛЁНО(090-герметичность): семья прогнана целиком под фоновым watcher (опрос каждые 0.05с, полный список путей+mtime, БЕЗ фильтра по имени) по множеству чтения реального orch-peak: ни одного НОВОГО/ИЗМЕНИВШЕГОСЯ пути под подпутём SESS_GLOB %s или под %s не замечено\n' "$SCOPE_SESS" "$SCOPE_STATE"
+else
+  printf 'ЗЕЛЁНО(090-герметичность, суженный скоуп): семья прогнана целиком под фоновым watcher (опрос каждые 0.05с, полный список путей+mtime, БЕЗ фильтра по имени) по ПРИМЕНИМОЙ части множества чтения реального orch-peak: ни одного НОВОГО/ИЗМЕНИВШЕГОСЯ пути под %s не замечено; подпуть SESS_GLOB НЕ наблюдался и НЕ утверждается проверенным: пользователь %s отсутствует (getent rc=%s, пустой ответ — отрицательный ответ источника, не ошибка)\n' "$SCOPE_STATE" "$ORCH090_USER" "$GENT_RC"
+fi
 exit 0

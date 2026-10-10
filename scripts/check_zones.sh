@@ -509,6 +509,16 @@ is_process_file() {
       case "$1" in */*) return 1 ;; esac
       return 0
       ;;
+    # docs/handoff-archive/ — каталог ротации HANDOFF (контракт 091): байт-в-байт
+    # архив прежних секций ГДЕ МЫ, пишется оркестратором по вызову handoff_rotate.sh
+    # (тот же канал, что HANDOFF.md выше).
+    # .review/ — канал ревьюера (контракт 050, фаза B: «.review/ в дереве с
+    # ЗОНА orchestrator — делегировано architect изначально»): каждое ревью
+    # раунда пишет .review/<date>-<round>.md ИМЕНОВАННО, и суд зон эти
+    # пути игнорирует, как verdicts/review/*.md в is_charter_path нет,
+    # а в is_process_file — есть (тот же класс, что verdicts/*).
+    docs/handoff-archive/*) return 0 ;;
+    .review/*) return 0 ;;
   esac
   return 1
 }
@@ -1017,18 +1027,21 @@ while IFS=$'\t' read -r nnn since; do
       # прецедент 023 (iv)). Fail-closed: чтение локального реестра — тег, удалённый к
       # моменту аудита, красит признание; лечение восстановлением тега, не ослаблением.
       if [ "$an" = "orchestrator" ] && [ "$f" = "registry/contracts.tsv" ]; then
-        # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-08; forks/079-090-mint-door-031-
-        # registry-dver-nesootvetstvie.md) ── Ровно ДВЕ пары (SHA, путь), автор
-        # orchestrator: ручная реконструкция main этой сессией положила REPLACE-
-        # строки 079/090 на коммиты, у которых соответствующий frozen-тег НЕ
-        # лежит среди предков (079: vmax выбирает /1, а строка несёт sha /2; 090: vmax=0 —
-        # frozen-тег 090 на тот момент вовсе не был предком C). Принят риск ИМЕННО для
-        # этих двух опубликованных коммитов; проверено ДО обычной REPLACE-
+        # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-08 — forks/079-090-mint-door-031-
+        # registry-dver-nesootvetstvie.md; слово владельца 2026-10-09 — добавлен ТРЕТИЙ SHA
+        # 7f54f1f60bea573487da5ba2f2eb0603a05b1df3, registry-freeze-коммит 091) ── Ровно ТРИ
+        # пары (SHA, путь), автор orchestrator: ручная реконструкция main этой сессией
+        # положила REPLACE-строки 079/090 на коммиты, у которых соответствующий frozen-тег
+        # НЕ лежит среди предков (079: vmax выбирает /1, а строка несёт sha /2; 090: vmax=0 —
+        # frozen-тег 090 на тот момент вовсе не был предком C); 7f54f1f6 — registry-freeze
+        # 091, у которого frozen/contracts/091/1 лежит НА САМОМ коммите C, и vmax-перебор
+        # среди предков не находит ни одного frozen-тега (формально vmax=0). Принят риск
+        # ИМЕННО для этих трёх опубликованных коммитов; проверено ДО обычной REPLACE-
         # проверки ниже, которая для всех прочих коммитов/путей/авторов НЕ
         # ослабляется, выбор максимальной версии-предка и история не
         # переписываются.
         case "$c" in
-          78bae300867ffce3cfce0ae20768fd8658e97e5a|8ce382ae8260cdc18e9dae9b736070b4ed19df56)
+          78bae300867ffce3cfce0ae20768fd8658e97e5a|8ce382ae8260cdc18e9dae9b736070b4ed19df56|7f54f1f60bea573487da5ba2f2eb0603a05b1df3)
             skip_path=1
             continue
             ;;
@@ -1218,6 +1231,68 @@ while IFS=$'\t' read -r nnn since; do
         printf '%s\n' "$f" >> "$TMP/process_excluded"
         continue
       fi
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 — добавлен ЧЕТВЁРТЫЙ SHA
+      # 0678a94962bd86aaea6d79883e02dd9dd56087a6, преждевременный ленд wip/091/architect) ──
+      # Один SHA, автор orchestrator: батарея 091 (architect+implementer+reviewer) была
+      # слита на main ДО заморозки контракта 091 (frozen/contracts/091/1). Преждевременный
+      # ленд положил содержимое (contracts/091-rotaciya-handoff.md, fixtures/_krasnye_091.sh,
+      # fixtures/handoff_rotate/*) на main, и в момент ленда у orchestrator-а не было
+      # ЗОНА на эти пути (ЗОНА появилась бы с заморозкой 091/1, которая пришла следующим
+      # коммитом 7f54f1f6 — registry-freeze). История не переписывается: SHA остаётся на
+      # main с автором orchestrator, и общая проверка 'зона автора' ниже для
+      # 0678a949/path-in-contracts-091-etc красит FAIL. Допущение — только для ЭТОГО
+      # одного SHA (минт-блок 7f54f1f6 покрыт grandfather'ом выше, в форме REPLACE для
+      # registry/contracts.tsv; is_process_file покрывает docs/handoff-archive/ и .review/
+      # для 5635dcd/5ea1e2f6/230924c9/a5c4eecc — четыре остальных SHa батча 091).
+      case "$c" in
+        0678a94962bd86aaea6d79883e02dd9dd56087a6)
+          printf '%s\n' "$f" >> "$TMP/process_excluded"
+          continue
+          ;;
+      esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 ~16:00 UTC, передано
+      # консультантом — коммит 81e6e252074f931fed5df2776b1a5309eebd3f13,
+      # forks/094-zona-gap-81e6e252-flat-commit.md,
+      # verdicts/consultant/zona-gap-81e6e252-flat-commit-v1.md) ──
+      # Один SHA, автор orchestrator: батарея 094 (fixtures/accept_publish_094/,
+      # fixtures/_krasnye_094.sh) УЖЕ лежит в ЗОНА architect 094 (сверено живьём
+      # consultant'ом), но коммит 81e6e252 flat-landed identity orchestrator вместо
+      # ленд-мерджа ветки architect — дефект identity, не отсутствия пути в заморозке.
+      # NABLIUDENIA_ARCHITECT.md того же коммита уже выведен выше is_process_file.
+      # История не переписывается: SHA остаётся на main с автором orchestrator, и
+      # общая проверка 'зона автора' ниже красит FAIL на путях этой батареи. Допущение —
+      # ТОЛЬКО для ЭТОГО одного SHA; других коммитов и путей не исключать, ЗОНА architect
+      # и ЗОНА orchestrator не расширяются (слово владельца дословно, см. тело коммита).
+      case "$c" in
+        81e6e252074f931fed5df2776b1a5309eebd3f13)
+          printf '%s\n' "$f" >> "$TMP/process_excluded"
+          continue
+          ;;
+      esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-09 ~18:40 UTC, передано
+      # консультантом — коммит b6daee0a0205d1e1008948e4332781dd9d10dd34,
+      # путь contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md) ──
+      # Один SHA, автор orchestrator, ОДИН путь: контракт 092 перенесён на main
+      # flat-коммитом identity orchestrator вместо ленд-мерджа ветки
+      # wip/092/architect — тот же класс дефекта identity, что 81e6e252 выше (094),
+      # не отсутствия пути в заморозке. Блоб f9b2704d13577d1edf8e458befb81dea0fde40a3
+      # побайтно равен wip/092/architect@35c53bb6 (автор architect, уже проверенный
+      # текст круга 5) — консультант сверил равенство блобов. ЗОНА architect
+      # контракта 092 УЖЕ несёт этот путь; исключается только identity-дефект этого
+      # ОДНОГО SHA. История не переписывается: SHA остаётся на main с автором
+      # orchestrator. Допущение — ТОЛЬКО для ЭТОГО SHA и ЭТОГО пути; других
+      # коммитов и путей не исключать, ЗОНА architect и ЗОНА orchestrator не
+      # расширяются (слово владельца дословно, см. тело коммита).
+      case "$c" in
+        b6daee0a0205d1e1008948e4332781dd9d10dd34)
+          case "$f" in
+            contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
+      esac
       inside=1
       while IFS= read -r p; do
         case "$p" in
