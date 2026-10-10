@@ -29,9 +29,44 @@
 # создаёт второй merge.
 set -uo pipefail
 POLICY_PATH="harness/policy"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "$SELF_DIR/lib_zones.sh"
 
 die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 ni()  { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+
+# ── identity-check 016 И-7/И-9 (Б-2 ревью): committer==author ∧ committer ∈ реестр зон.
+# Проверяет ВСЕ коммиты диапазона BASE..CAND на реальной (не toy) ветке. Использует
+# ЕДИНСТВЕННЫЙ читатель зон lib_zones.sh (НЕ дублирует логику — прецедент
+# check_zones.sh). Toy-мир батареи 094 без frozen-контрактов пропускает проверку
+# (zones_scoped пуст → реестра нет → committer не проверяется): фикстуры клеток
+# используют _t94_world без заморозок и не должны ломаться этим наследством 016.
+# Допустимый красный критерий контрпроверки: коммит с committer, не входящим в
+# реестр зон, на ветке С frozen-контрактами — prepare/publish ОБЯЗАНЫ отказать.
+_t94_identity_check() {  # repo, base, candidate → die с «identity: …»
+  local r="$1" b="$2" c="$3" zones_dir n_contracts cmt author committer seen
+  seen=""
+  zones_dir="$(zones_load "$r" 2>/dev/null)" || {
+    ni "identity: реестр заморозок недоступен"; }
+  n_contracts="$(wc -l < "$zones_dir/contracts_list" | tr -d ' ')"
+  if [ "${n_contracts:-0}" -eq 0 ]; then
+    __lib_zones_cleanup 2>/dev/null || true
+    return 0  # toy-мир: реестра зон нет — committer не проверяется
+  fi
+  while IFS= read -r cmt; do
+    [ -n "$cmt" ] || continue
+    author="$(git -C "$r" log -1 --format='%an' "$cmt" 2>/dev/null)"
+    committer="$(git -C "$r" log -1 --format='%cn' "$cmt" 2>/dev/null)"
+    case "$seen" in *"|$committer|"*) continue ;; esac
+    seen="$seen|$committer|"
+    [ "$author" = "$committer" ] || die "identity: committer!=author в $cmt: $committer vs $author"
+    grep -qF "$committer"$'\t' "$zones_dir/zones_scoped" \
+      || die "identity: committer не в реестре зон: $committer ($cmt)"
+  done < <(git -C "$r" rev-list "$b..$c" 2>/dev/null)
+  __lib_zones_cleanup 2>/dev/null || true
+  return 0
+}
 
 command -v git >/dev/null 2>&1      || ni "нет git"
 command -v sha256sum >/dev/null 2>&1 || ni "нет sha256sum"
@@ -63,21 +98,56 @@ for s in "$BASE" "$CAND" "$MERGE"; do
 done
 case "$TASK" in ''|*[!A-Za-z0-9._/-]*) die "задача вне алфавита: $TASK" ;; esac
 
-# ── политика из ПРИНЯТОЙ версии: base SHA (И-6; stub-точка t94-m6) ────────────
-policy_bytes="$(git -C "$REPO" show "$BASE:$POLICY_PATH" 2>/dev/null)" # t94-m6
-[ -n "$policy_bytes" ] || die "политика: нет $POLICY_PATH на base"
-repoId=""; mandatory=""; branches=""
-while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  case "$line" in
-    repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
-    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
-    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; branches="$v" ;;
-    *) die "политика: грамматика" ;;
-  esac
-done <<EOF
+# ── политика из ПРИНЯТОЙ версии (И-6; stub-точка t94-m6) ────────────────────
+# Решение 094 §Решения п.(в): для харнес-репо политика читается из base SHA —
+#         дерево `registry/ci-steps.tsv` (профиль 2.1 контракта 094). Toy-мир батареи
+#         `fixtures/accept_publish_094/` носит политику в `harness/policy` +
+#         `harness/checks/<имя>.cmd` (контракт 094 §Решения п.(в): «toy-носитель
+#         harness/checks/<имя>.cmd»). Дверь берёт первую доступную доверенную
+#         версию: registry/ci-steps.tsv для production-харнеса, harness/policy —
+#         для toy-мира; оба файла отсутствуют — отказ «нет политики на base».
+policy_bytes=""
+POLICY_SOURCE=""
+registry_wfsha=""
+if registry_bytes="$(git -C "$REPO" show "$BASE:registry/ci-steps.tsv" 2>/dev/null)" && [ -n "$registry_bytes" ]; then
+  POLICY_SOURCE="registry/ci-steps.tsv"
+  policy_bytes="$registry_bytes"
+  # Харнес-репо: repoId/targetBranches — дефолты (targetBranches ВВОДИТСЯ той же
+  # пачкой миграцией SCHEMA_LEVELS, до неё — main; repoId — канон имени репо).
+  repoId="dev-harness"
+  branches="main"
+  # mandatory — запятая-объединённые ключи step-строк реестра (закрытый алфавит
+  # И-0 контракта 083); определения обязательных проверок — те же байты реестра
+  # (доверенная версия по base SHA); wfsha одной строкой (И-4б упрощённо:
+  # ПОЛНЫЙ реестр на base — единственная доверенная версия для ВСЕХ проверок;
+  # любой дрейф реестра инвалидирует записи check для ВСЕХ ключей разом).
+  registry_wfsha="$(printf '%s' "$registry_bytes" | sha256sum | cut -d' ' -f1)"
+  mandatory=""
+  while IFS=$'\t' read -r kind k _w _cmd; do
+    [ "$kind" = "step" ] || continue
+    case "$k" in ''|*[!A-Za-z0-9._:-]*) die "политика: грамматика" ;; esac
+    if [ -z "$mandatory" ]; then mandatory="$k"; else mandatory="$mandatory,$k"; fi
+  done <<EOF
+$registry_bytes
+EOF
+  [ -n "$mandatory" ] || die "политика: registry/ci-steps.tsv без step-строк на base"
+else
+  POLICY_SOURCE="harness/policy"
+  policy_bytes="$(git -C "$REPO" show "$BASE:$POLICY_PATH" 2>/dev/null)" # t94-m6
+  [ -n "$policy_bytes" ] || die "политика: нет registry/ci-steps.tsv и $POLICY_PATH на base"
+  repoId=""; mandatory=""; branches=""
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    case "$line" in
+      repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
+      mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
+      targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; branches="$v" ;;
+      *) die "политика: грамматика" ;;
+    esac
+  done <<EOF
 $policy_bytes
 EOF
+fi
 [ -n "$repoId" ] && [ -n "$mandatory" ] && [ -n "$branches" ] || die "политика: грамматика"
 policyVersion="$(printf '%s' "$policy_bytes" | sha256sum | cut -d' ' -f1)"
 
@@ -92,6 +162,7 @@ object)
   exit 0
   ;;
 prepare)
+  _t94_identity_check "$REPO" "$BASE" "$CAND"
   tree="$(git -C "$REPO" merge-tree --write-tree --no-messages "$BASE" "$CAND" 2>/dev/null)" \
     || die "merge конфликт: base candidate"
   # И-10 (контракт 065): перенос строк-санкций в тело merge-коммита.
@@ -135,6 +206,12 @@ case ",$branches," in
   *) die "недопустимая целевая ветка: $TARGET" ;; # t94-m7
 esac
 
+# identity-check 016 И-7/И-9 (повторная сверка перед публикацией, И-5):
+# коммит с committer вне реестра зон отказывается НЕЗАВИСИМО от статуса
+# acceptance (контракт 016: committer == author ∧ ∈ zones — инвариант гейта,
+# а не доказательство — он не отменяется accept'ом судьи).
+_t94_identity_check "$REPO" "$BASE" "$CAND"
+
 # И-1/И-2/И-3а: последний применимый вердикт задачи (привязка к объекту)
 best_seq=-1; best_out=""; best_obj=""
 while IFS=$'\t' read -r k t obj out seq; do
@@ -159,9 +236,19 @@ mtree="$(git -C "$REPO" rev-parse --verify --quiet "$MERGE^{tree}" 2>/dev/null)"
   || die "merge не этого объекта: коммита нет"
 IFS=',' read -ra MAND <<<"$mandatory"
 for name in "${MAND[@]}"; do
-  git -C "$REPO" cat-file -e "$BASE:harness/checks/$name.cmd" 2>/dev/null \
-    || die "нет доверенного определения: $name"
-  tsha="$(git -C "$REPO" show "$BASE:harness/checks/$name.cmd" | sha256sum | cut -d' ' -f1)"
+  if [ "$POLICY_SOURCE" = "registry/ci-steps.tsv" ]; then
+    # Доверенная версия для ВСЕХ проверок харнес-репо — ПОЛНЫЙ реестр на base
+    # (И-4б: «определения обязательных проверок — та же доверенная версия»;
+    # любой дрейф реестра инвалидирует записи check для ВСЕХ ключей разом).
+    git -C "$REPO" cat-file -e "$BASE:registry/ci-steps.tsv" 2>/dev/null \
+      || die "нет доверенного определения: $name"
+    tsha="$registry_wfsha"
+  else
+    # Toy-мир батареи 094: каждая проверка — свой `harness/checks/<имя>.cmd` на base.
+    git -C "$REPO" cat-file -e "$BASE:harness/checks/$name.cmd" 2>/dev/null \
+      || die "нет доверенного определения: $name"
+    tsha="$(git -C "$REPO" show "$BASE:harness/checks/$name.cmd" | sha256sum | cut -d' ' -f1)"
+  fi
   st=""; sseq=-1; swf=""; str=""
   while IFS=$'\t' read -r k o n stt run wf stree; do
     [ "$k" = "check" ] || continue
