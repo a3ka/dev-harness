@@ -169,11 +169,15 @@ case "$1" in
     # рядом с orch-peak. Источник — scripts/lib_session.sh из репо (читается
     # только при установке, в root-режиме); orch-peak в root-контексте читает
     # ТОЛЬКО установленный путь, не ${REPO}.
-    BOOTSTRAP_SRC="$SRC_ROOT/../scripts/lib_session.sh"
+    BOOTSTRAP_SRC="$SRC_ROOT/../../scripts/lib_session.sh"
     BOOTSTRAP_DST="$SBIN_DST/lib_session.sh"
     if [ -f "$BOOTSTRAP_SRC" ]; then
-      [ -d "$STATE_BACKUP_DIR" ] && /bin/cp -- "$BOOTSTRAP_SRC" "$BOOTSTRAP_DST.$TS.bak" \
-        || true
+      # backup предыдущей установленной версии (для rollback) — если есть
+      # STATE_BACKUP_DIR и предыдущий установленный файл.
+      if [ -d "$STATE_BACKUP_DIR" ] && [ -f "$BOOTSTRAP_DST" ]; then
+        /bin/cp -- "$BOOTSTRAP_DST" "$BOOTSTRAP_DST.$TS.bak" \
+          || die_write "backup $BOOTSTRAP_DST.$TS.bak"
+      fi
       cp -- "$BOOTSTRAP_SRC" "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
       chmod 644 "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
       chown root:root "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
