@@ -2,7 +2,14 @@
 # Тонкий wrapper scripts/land_agent.sh → scripts/accept_publish.sh (контракт
 # 094, §Решения п.6). Тонкий вызов двери БЕЗ собственной merge-логики: вся
 # merge-семантика — в двери (identity orchestrator, --no-ff, перенос санкций,
-# атомарный update-ref). Wrapper делает только:
+# атомарный update-ref). Барьер по rc-кодам (см. Коды возврата: ниже), хотя
+# собственная merge-логика отсутствует — wrapper лишь НАСЛЕДУЕТ решение двери.
+#
+# Коды возврата:
+#   0 — приземлено (дверь publish rc 0; ветка и worktree снесены)
+#   1 — отказ: «land: <причина>» (дверь publish rc 1, либо собственная пред-/пост-проверка)
+#
+# Wrapper делает только:
 #   1) предспавновая сверка worktree==branch (И-8 016: HEAD worktree == tip
 #      заявленной ветки — иначе отказ «предмет не в worktree»);
 #   2) гейт сцепки/identity/reестра (zones_load И-9 016 + committer/author
