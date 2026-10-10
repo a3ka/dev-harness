@@ -318,6 +318,43 @@ if ! g worktree add "$wt_path" "$branch" >/dev/null 2>&1; then
   exit 1
 fi
 
+# АКТИВНЫЕ ХУКИ В WORKTREE (контракт 086, И-11): одноразовый клон агента без
+# core.hooksPath не запускает pre-commit / pre-merge-commit — merge в клоне
+# обходит гейт сведения. spawn_agent ОБЯЗАН обеспечить активные хуки:
+#   (1) core.hooksPath в worktree ведёт к каталогу с исполняемыми pre-commit
+#       и pre-merge-commit;
+#   (2) иначе — откат ветки и worktree, именованный отказ rc 1.
+# Источник хуков — `$canon_root/.githooks/` (тот же каталог, что и в
+# основном checkout, контракт 016, срез 1). Проверяем наличие обоих файлов
+# И их исполнимость ДО фиксации core.hooksPath, иначе rollback.
+# Контракт 086 §Frontier 6 (уточнение, фикс регрессии 086+impl3): enforcement
+# применим когда у canon_root ЕСТЬ каталог .githooks (предмет — унаследовать
+# уже-существующие активные хуки). Если каталог .githooks ОТСУТСТВУЕТ ВООБЩЕ
+# (не предмет 086 — копировать нечего), весь блок ниже пропускается. Если
+# каталог ЕСТЬ, но неполон — прежнее поведение (откат rc 1): наполовину
+# выставленный core.hooksPath опаснее, чем его отсутствие (обход гейта
+# сведения при merge в worktree).
+HOOKS_SRC="$canon_root/.githooks"
+if [ -d "$HOOKS_SRC" ]; then
+  if [ ! -x "$HOOKS_SRC/pre-commit" ] || [ ! -x "$HOOKS_SRC/pre-merge-commit" ]; then
+    # Rollback: снять worktree и ветку.
+    g worktree remove --force "$wt_path" 2>/dev/null || true
+    g branch -D "$branch" >/dev/null 2>&1 || true
+    printf 'ОТКАЗ: каталог хуков %s неполон (нужны исполняемые pre-commit и pre-merge-commit) — спавн без активных хуков открывает обход гейта сведения\n' "$HOOKS_SRC" >&2
+    exit 1
+  fi
+  # core.hooksPath в worktree: worktree — отдельный рабочий каталог, но git config
+  # --worktree (если core.worktreeConfig=true) пишет в worktree/.git/config;
+  # без него — в $GIT_DIR/config (общий). Используем -c core.hooksPath на ОДНОМ
+  # вызове git -C "$wt_path" config — worktree-scoped, и изолирован от родителя.
+  if ! git -C "$wt_path" config core.hooksPath "$HOOKS_SRC" 2>/dev/null; then
+    g worktree remove --force "$wt_path" 2>/dev/null || true
+    g branch -D "$branch" >/dev/null 2>&1 || true
+    printf 'ОТКАЗ: не удалось задать core.hooksPath=%s в worktree\n' "$HOOKS_SRC" >&2
+    exit 1
+  fi
+fi
+
 # Финальный контрактный вывод: ровно две строки на stdout.
 printf 'WORKTREE=%s\n' "$wt_path"
 printf 'BRANCH=%s\n' "$branch"
