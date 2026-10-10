@@ -35,15 +35,19 @@ printf 'published\t%s\t%s\t1\n' "$OID" "$M" >>"$R/registry/candidates.tsv"
 HEAD="$(git -C "$R" rev-parse HEAD)"
 git -C "$R" tag -f done/contracts/096/1 "HEAD^{}"
 
-# Первый прогон
+# Первый прогон: мир ЗЕЛЁНЫЙ (issue из дефолтной строки закрыт) — прогон обязан
+# дойти до spend-записи, иначе сравнение «было/стало» пусто и ничего не судит.
 bash "$SUBJ" --repo "$R" --task 96 --class code --project-id toy \
+  --issue https://example.com/issue/096 \
   --object-id "$OID" --commit-sha "$HEAD" --notes "toy-1" >/dev/null 2>&1
 spent_after_1="$(grep -F "096	$HEAD" "$R/registry/spend.tsv" | wc -l)"
+[ "$spent_after_1" -eq 1 ] || { printf 'КРАСНО: i15a: первый прогон не записал ровно одну spend-строку (rows=%s)\n' "$spent_after_1" >&2; exit 1; }
 pub_after_1="$(grep -c '^published' "$R/registry/candidates.tsv")"
 
 # Второй прогон (идемпотентность по 094 — повтор spend НЕ должен создать новой
 # строки; candidates.tsv — без добавок)
 bash "$SUBJ" --repo "$R" --task 96 --class code --project-id toy \
+  --issue https://example.com/issue/096 \
   --object-id "$OID" --commit-sha "$HEAD" --notes "toy-2" >/dev/null 2>&1
 spent_after_2="$(grep -F "096	$HEAD" "$R/registry/spend.tsv" | wc -l)"
 pub_after_2="$(grep -c '^published' "$R/registry/candidates.tsv")"

@@ -32,6 +32,9 @@ cat >"$R/scripts/secrets.sh" <<'SECRETS'
 exit 0
 SECRETS
 chmod +x "$R/scripts/lint.sh" "$R/scripts/build.sh" "$R/scripts/secrets.sh"
+# Мир зелёный ВО ВСЁМ кроме lint: документ класса есть, прочие команды зелёны —
+# чтобы клетка наблюдала РОВНО отказ по И-4, а не срабатывание чужих проверок.
+printf '# CODING-STANDARDS\n' >"$R/CODING-STANDARDS.md"
 # Создаём merge с реальными изменениями в зоне
 printf 'lint bug\n' >>"$R/scripts/done_project.sh" 2>/dev/null || true
 printf 'lint bug\n' >>"$R/fixtures/_krasnye_096.sh" 2>/dev/null || true

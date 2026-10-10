@@ -23,7 +23,9 @@ git -C "$R" checkout -q cand
 mkdir -p "$R/scripts"
 cat >"$R/scripts/lint.sh" <<'LINT'
 #!/usr/bin/env bash
-[ "$HOME" = "/tmp" ] && exit 0 || exit 1
+# Чистая среда детерминирована двумя независимыми следствиями env -i:
+# наследованный маркер НЕ доходит до команды, HOME сброшен на /tmp.
+[ "${T96_SENTINEL:-clean}" = "clean" ] && [ "$HOME" = "/tmp" ] && exit 0 || exit 1
 LINT
 cat >"$R/scripts/build.sh" <<'BUILD'
 #!/usr/bin/env bash
@@ -47,6 +49,9 @@ HEAD="$(git -C "$R" rev-parse HEAD)"
 git -C "$R" tag -f done/contracts/096/1 "$HEAD^{}"
 # НЕ переключаемся обратно на main — оставляем рабочее дерево на CAND,
 # чтобы file-команды профиля имели реальные файлы на диске.
+# Маркер наследованной среды: честная модель с env -i его НЕ пропускает;
+# стаб без чистой среды (m11) пропускает — и lint падает.
+export T96_SENTINEL=dirty
 out="$(bash "$SUBJ" --repo "$R" --task 96 --class code --project-id toy \
   --issue https://example.com/issue/096 --object-id $OID --commit-sha "$HEAD" --notes "toy" 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ]; then

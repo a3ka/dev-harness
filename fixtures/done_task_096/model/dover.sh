@@ -111,6 +111,10 @@ done
 
 # ── И-4/И-5/И-12: class commands and docs ──
 [ "${#_commands_cmds[@]}" -gt 0 ] || die "не выполнена обязательная команда класса $KLASS: <нет в профиле>" # t96-m2
+# Чистая среда (В-1): префикс env -i с HOME=/tmp и фиксированным PATH;
+# обнуление префикса (порча стаба) запускает команду в НАСЛЕДОВАННОЙ среде.
+_CLEAN=""
+_CLEAN="env -i HOME=/tmp PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" # t96-m11
 for cmd in "${_commands_cmds[@]}"; do
   name="${cmd%%	*}"
   act="${cmd#*	}"
@@ -120,28 +124,27 @@ for cmd in "${_commands_cmds[@]}"; do
       sp="${act#bash }"
       rel="$sp"
       case "$rel" in ./*) rel="${rel#./}" ;; esac
-      # t96-m12 — обязательная команда профиля отсутствует в дереве merge
+      # обязательная команда профиля должна существовать в дереве merge/репо
       if ! git -C "$REPO" cat-file -e "$merge_sha:$rel" 2>/dev/null && \
          ! git -C "$REPO" cat-file -e "$merge_sha:scripts/${sp##*/}" 2>/dev/null; then
         [ -f "$REPO/$rel" ] || die "обязательная команда профиля отсутствует: $KLASS/$name: $act" # t96-m12
       fi
       ;;
   esac
-  # t96-m4 — выполнение команды класса (анкер стаба делает no-op)
+  # выполнение команды класса в чистой среде; rc≠0 → именованный отказ (П-4)
   if [ "$DRY" != "1" ]; then
-    ( cd "$REPO" && env -i HOME=/tmp PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" bash -lc "$act" >/dev/null 2>&1 ) || die "не выполнена обязательная команда класса $KLASS: $name"
-    : # t96-m4
+    ( cd "$REPO" && $_CLEAN bash -lc "$act" >/dev/null 2>&1 ) || die "не выполнена обязательная команда класса $KLASS: $name" # t96-m4
   fi
-  # t96-m11 — отдельный маркер чистой среды (синтакс-проверка env-изоляции)
-  : # t96-m11
 done
-# t96-m5 — документы
+# ── И-5: обязательные документы класса ──
 for d in "${_docs_cmds[@]}"; do
+  _doc_ok=""
   case "$d" in
-    */*) [ -f "$REPO/$d" ] || git -C "$REPO" cat-file -e "$merge_sha:$d" 2>/dev/null || die "нет обязательного документа класса $KLASS: $d" ;;
-    *) [ -f "$REPO/$d" ] || die "нет обязательного документа класса $KLASS: $d" ;;
+    */*) if [ -f "$REPO/$d" ] || git -C "$REPO" cat-file -e "$merge_sha:$d" 2>/dev/null; then _doc_ok=1; fi ;;
+    *) if [ -f "$REPO/$d" ]; then _doc_ok=1; fi ;;
   esac
-done # t96-m5
+  [ -n "$_doc_ok" ] || die "нет обязательного документа класса $KLASS: $d" # t96-m5
+done
 
 # ── И-6: открытые находки только по предмету ──
 while IFS= read -r rp; do
@@ -171,7 +174,6 @@ while IFS= read -r rp; do
 done < <(cd "$REPO" && find .review -type f -name '*.md' 2>/dev/null | sed 's|^\./||' | LC_ALL=C sort)
 
 # ── ADR для class=research ──
-# t96-m14 — отдельная точка для teg-vs-issue (issue close)
 if [ "$KLASS" = "research" ]; then
   adr_path=""
   for candidate in "decisions/${NNN}-research.md" "${NNN}-research.md"; do
@@ -191,29 +193,32 @@ if [ "$KLASS" = "research" ]; then
   esac
 fi
 
-# ── И-8: issue and project field ──
-# t96-m8 — отдельная проверка issue-state для close-политики
+# ── И-8/И-14: issue и проектные поля; тег без закрытого issue — не полный done ──
+_need_issue_close=0
 case "$_issuePolicy" in
   close)
-    [ -n "$ISSUE" ] || die "issue не закрыт: <не задан issue>"
-    state=""; pf=""; pfv=""
-    while IFS="$TAB" read -r u s p1 p2; do
-      [ "$u" = "$ISSUE" ] || continue
-      state="$s"; pf="$p1"; pfv="$p2"
-    done <"$REPO/harness/issue-state.tsv"
-    case "$state" in closed|closed:complete|closed:done) ;; *) die "issue не закрыт: $state" ;; esac
-    [ -n "$pf" ] || die "project-поле не заполнено"
-    [ -n "$pfv" ] || die "project-поле не заполнено"
-    case "$pf=$pfv" in
-      doneStatus=completed|docsStatus=updated|decisionStatus=accepted) ;;
-      *) die "project-поле не заполнено: $pf=$pfv" ;;
-    esac
+    _need_issue_close=1 # t96-m14
     ;;
   reference)
     [ -n "$ISSUE" ] || die "issue-поле обязательно"
     ;;
   none) ;;
 esac
+if [ "$_need_issue_close" = "1" ]; then
+  [ -n "$ISSUE" ] || die "issue не закрыт: <не задан issue>"
+  state=""; pf=""; pfv=""
+  while IFS="$TAB" read -r u s p1 p2; do
+    [ "$u" = "$ISSUE" ] || continue
+    state="$s"; pf="$p1"; pfv="$p2"
+  done <"$REPO/harness/issue-state.tsv"
+  case "$state" in closed|closed:complete|closed:done) ;; *) die "issue не закрыт: $state" ;; esac # t96-m8
+  [ -n "$pf" ] || die "project-поле не заполнено"
+  [ -n "$pfv" ] || die "project-поле не заполнено"
+  case "$pf=$pfv" in
+    doneStatus=completed|docsStatus=updated|decisionStatus=accepted) ;;
+    *) die "project-поле не заполнено: $pf=$pfv" ;;
+  esac
+fi
 
 # ── И-10: done-теги ──
 if [ "$DRY" != "1" ]; then
@@ -232,13 +237,12 @@ state_file="$STATE_DIR/${NNN}.state.tsv"
 if [ "$DRY" != "1" ]; then
   : >"$STATE_DIR/${NNN}.state.tsv"
   printf 'class-commands\tok\t%s\n' "$(date -u +%s 2>/dev/null || echo 0)" >>"$state_file"
-  # t96-m9 — запись с маркером unknown (И-9 учёт расхода)
-  if ! grep -F "${TAB}${NNN}${TAB}${SHA}${TAB}" "$REPO/registry/spend.tsv" >/dev/null 2>&1; then
+  # повтор не должен создавать дубликат spend-строки (В-5): сверка ДО записи
+  _have_spend=0
+  awk -F '\t' -v t="$NNN" -v s="$SHA" '$1==t && $2==s {f=1} END{exit(f?0:1)}' "$REPO/registry/spend.tsv" >/dev/null 2>&1 && _have_spend=1 # t96-m15
+  if [ "$_have_spend" != "1" ]; then
+    # запись с маркером unknown для неизвестных метрик (И-9)
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$NNN" "$SHA" "$_dur" "$_cim" "$_cost" "$_intv" "$NOTES" >>"$REPO/registry/spend.tsv" # t96-m9
-  fi
-  # t96-m15 — повтор не должен создавать дубликат spend-строки (В-5)
-  if grep -F "${TAB}${NNN}${TAB}${SHA}${TAB}" "$REPO/registry/spend.tsv" >/dev/null 2>&1; then
-    : # уже записано — повтор не дублирует
   fi
 fi
 
