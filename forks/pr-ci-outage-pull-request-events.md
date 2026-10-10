@@ -5,7 +5,7 @@
 МАРШРУТ: консультант
 ЗАВЕДЁН: 2026-10-10T00:20:00Z
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да — консультант ответил verdicts/consultant/pr-ci-outage-pull-request-events-v1.md: корень dirty mergeable_state, не outage; закрыто ребейсом 5 веток 2026-10-10
 
 Контекст: контракт 069 требует зелёный PR-CI перед `land_agent`+`gitw push` land-мержа.
 Блокирует ленд ТРЁХ готовых/замороженных пачек (094 adversary v3 accept, 092 adversary v2
