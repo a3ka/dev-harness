@@ -94,9 +94,30 @@ object)
 prepare)
   tree="$(git -C "$REPO" merge-tree --write-tree --no-messages "$BASE" "$CAND" 2>/dev/null)" \
     || die "merge конфликт: base candidate"
+  # И-10 (контракт 065): перенос строк-санкций в тело merge-коммита.
+  # Строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ: и ALLOW-ARTIFACT-DELETE: копируются из тел
+  # коммитов диапазона BASE..CAND ДОСЛОВНО (байт-в-байт), дедуп ТОЛЬКО точных
+  # повторов, синтез запрещён: при пустом множестве строк merge-тело байт-в-байт
+  # как «land: <ветка>» одной строкой (И-4 фикстуры: ровно одна строка, без
+  # маркеров). Сообщение merge — из ФАЙЛА через -F: дефолтный `git commit-tree
+  # -m` НЕ передаёт строки дословно (есть нормализация); -F передаёт байты 1:1.
+  # Фикстура 065 И-2 «дедупликация точных повторов» достигается здесь через
+  # `awk '!seen[$0]++'` — без awk обратный стаб «дедуп по $1» проходил бы.
+  MSGDIR="$(mktemp -d)"
+  trap 'rm -rf "$MSGDIR"' EXIT
+  : > "$MSGDIR/sanctions_all"
+  git -C "$REPO" rev-list "$BASE..$CAND" 2>/dev/null \
+    | while IFS= read -r sha; do
+        [ -n "$sha" ] || continue
+        git -C "$REPO" log -1 --format=%B "$sha"
+        printf '\n'
+      done > "$MSGDIR/sanctions_all"
+  awk '/^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ || /^ALLOW-ARTIFACT-DELETE:/ { print }' "$MSGDIR/sanctions_all" \
+    | awk '!seen[$0]++' > "$MSGDIR/sanctions"
+  { printf 'land: %s\n' "$TASK"; cat "$MSGDIR/sanctions"; } > "$MSGDIR/msg"
   m="$(GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local \
        GIT_COMMITTER_NAME=orchestrator GIT_COMMITTER_EMAIL=orchestrator@dev-harness.local \
-       git -C "$REPO" commit-tree "$tree" -p "$BASE" -p "$CAND" -m "land: $TASK")" \
+       git -C "$REPO" commit-tree "$tree" -p "$BASE" -p "$CAND" -F "$MSGDIR/msg")" \
     || die "merge-коммит не строится"
   printf '%s\n' "$m"
   exit 0

@@ -79,15 +79,58 @@ _ensure_world_on() {
   if [ "$cur_pol" = "$POLICY_TEXT" ] && [ "$cur_a" = "$CHECK_A_TEXT" ] && [ "$cur_b" = "$CHECK_B_TEXT" ]; then
     return 0
   fi
+  # Если ref — ветка, чей HEAD сейчас живёт в worktree каталоге $WORKTREE_PATH:
+  # правим world-файлы ВНУТРИ worktree и коммитим там. Ветка ref и HEAD
+  # worktree'а двигаются согласованно (И-8 не нарушается). Иначе — старый путь
+  # через `git -C $ROOT checkout`. Так становится возможно приземление wip-веток,
+  # у которых рабочий каталог уже выдан фикстурой (клетки 065 фикстур
+  # check_charter: `git worktree add` → HEAD worktree == tip ветки).
+  local wt_target=""
+  if [ -d "$WORKTREE_PATH" ] && git -C "$WORKTREE_PATH" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+    wt_target="$WORKTREE_PATH"
+  fi
+  if [ -n "$wt_target" ] && [ "$ref" = "$BRANCH_ARG" ]; then
+    mkdir -p "$wt_target/harness/checks"
+    printf '%s' "$POLICY_TEXT" >"$wt_target/$POLICY"
+    printf '%s' "$CHECK_A_TEXT" >"$wt_target/harness/checks/ci-a.cmd"
+    printf '%s' "$CHECK_B_TEXT" >"$wt_target/harness/checks/ci-b.cmd"
+    git -C "$wt_target" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null add -A
+    git -C "$wt_target" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm "wrapper: add door world (policy+checks)" \
+      || { printf 'land: world commit %s отказал\n' "$ref" >&2; return 1; }
+    return 0
+  fi
   local prev; prev="$(git -C "$ROOT" rev-parse HEAD)"
-  git -C "$ROOT" checkout -q "$ref" || { printf 'land: cannot checkout %s\n' "$ref" >&2; return 1; }
+  # `prev` — снимок SHA ГОЛОВЫ до checkout. Для проверяющих барьеров после ленда
+  # критично, чтобы HEAD == main (тот самый ref, в который двери предстоит
+  # двигать ветку). Возврат через `checkout -q $prev` отбрасывал бы новый main
+  # обратно в detached-HEAD прежнего SHA, а merge-коммит публикации остался бы
+  # недостижим для `rev-list <since>..HEAD` (измерено на
+  # check_charter/case_zloj_lend: HEAD зависал на до-wrapper'ном main, барьер
+  # не видел merge и зеленел на красном). Поэтому для ref == main не возвращаемся
+  # к $prev: HEAD останется на свежем main (последний wrapper-коммит), и публикация
+  # по update-ref оставит согласование HEAD == refs/heads/main.
+  if [ "$ref" = main ]; then
+    git -C "$ROOT" checkout -q main 2>/dev/null || git -C "$ROOT" checkout -q "$ref" \
+      || { printf 'land: cannot checkout %s\n' "$ref" >&2; return 1; }
+  else
+    git -C "$ROOT" checkout -q "$ref" || { printf 'land: cannot checkout %s\n' "$ref" >&2; return 1; }
+  fi
   mkdir -p "$ROOT/harness/checks"
   printf '%s' "$POLICY_TEXT" >"$ROOT/$POLICY"
   printf '%s' "$CHECK_A_TEXT" >"$ROOT/harness/checks/ci-a.cmd"
   printf '%s' "$CHECK_B_TEXT" >"$ROOT/harness/checks/ci-b.cmd"
   git -C "$ROOT" add -A
   git -C "$ROOT" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local commit -qm "wrapper: add door world"
-  git -C "$ROOT" checkout -q "$prev" 2>/dev/null || true
+  # Восстанавливаем состояние только для НЕ-main веток (оставлено для совместимости
+  # сценариев, где $ROOT до этого был на другой ветке); для main возвращаемся
+  # на main, чтобы HEAD не ушёл в detached прежнего SHA.
+  if [ "$ref" != main ]; then
+    git -C "$ROOT" checkout -q "$prev" 2>/dev/null || true
+  else
+    git -C "$ROOT" checkout -q main 2>/dev/null || true
+  fi
   return 0
 }
 _ensure_world_on main || exit 1
@@ -123,6 +166,15 @@ rc=$?
 if [ "$rc" -eq 0 ]; then
   git -C "$ROOT" worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
   git -C "$ROOT" update-ref -d "refs/heads/$BRANCH_ARG" 2>/dev/null || true
+  # Согласовать индекс и рабочее дерево $ROOT с новым main (после update-ref HEAD=merge,
+  # индекс и working dir остались от wrapper-коммита pre-merge: bar'ьер после ленда
+  # видит staged-удалённые/модифицированные файлы и красный merge в check_charter
+  # падает на «local changes would be overwritten» — измерено на
+  # case_land_sankcija_ne_perenesena_v_merge.sh). `reset --hard main` синхронизирует
+  # оба с новым HEAD, ветка и рабочее дерево согласованы.
+  git -C "$ROOT" reset --hard main 2>/dev/null \
+    || git -C "$ROOT" checkout -f main 2>/dev/null \
+    || true
   printf 'LANDED main=%s branch=%s\n' "$(git -C "$ROOT" rev-parse main)" "$BRANCH_ARG"
 fi
 exit "$rc"
