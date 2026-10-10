@@ -24,19 +24,20 @@ _t94_subject() {  # путь субъекта: AP094_SUBJECT | <корень>/sc
   printf '%s\n' "$root/scripts/accept_publish.sh"
 }
 
-# _t94_world <слаг> [targetBranches] — toy-мир: репо (main=base + ветка cand=
-# кандидат), журнал. targetBranches по умолчанию main. Печатает каталог мира.
+# _t94_world <слаг> [targetBranches] [mandatory] — toy-мир: репо (main=base + ветка cand=
+# кандидат), журнал. targetBranches по умолчанию main; mandatory по умолчанию ci-a,ci-b,
+# ЯВНАЯ пустая строка легальна (клетка И-0/И-4 «вакуумный перечень»). Печатает каталог мира.
 # Оракулы-sha клетки читают САМИ в память (git rev-parse) ДО вызова субъекта —
 # на диске мира sha-файлов нет (правило 8).
 _t94_world() {
-  local slug="$1" branches="${2:-main}" d
+  local slug="$1" branches="${2:-main}" mand="${3-ci-a,ci-b}" d
   d="/tmp/dev-harness-verify/accept-publish-094-${slug}-$$-${RANDOM}"
   mkdir -p "$d/repo" || t94_ni "мир не строится: $d"
   git init -q --initial-branch=main "$d/repo" 2>/dev/null || t94_ni "git init"
   git -C "$d/repo" config user.name orchestrator
   git -C "$d/repo" config user.email orchestrator@dev-harness.local
   mkdir -p "$d/repo/harness/checks"
-  printf 'repoId=toy-094\nmandatory=ci-a,ci-b\ntargetBranches=%s\n' "$branches" >"$d/repo/harness/policy"
+  printf 'repoId=toy-094\nmandatory=%s\ntargetBranches=%s\n' "$mand" "$branches" >"$d/repo/harness/policy"
   printf 'run ci-a\n' >"$d/repo/harness/checks/ci-a.cmd"
   printf 'run ci-b\n' >"$d/repo/harness/checks/ci-b.cmd"
   printf 'one\n' >"$d/repo/file.txt"
