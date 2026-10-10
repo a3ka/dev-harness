@@ -1298,29 +1298,7 @@ done < <(printf '%s\n' "${!EXC_SCRIPT[@]}" | sort)
 #     покрывается сумма-инвариантом, но НЕ гоняется в шардном режиме; full-прогон
 #     снимает его вручную перед done×4. Каталог `fixtures/check_metering/` (22 case)
 #     остаётся.
-#   `land_agent` — мёртвая фикстура (094 И-10 миграция): scripts/land_agent.sh
-#     стал ТОНКОЙ обёрткой accept_publish.sh (И-10 §6: «удаляется либо становится
-#     тонким вызовом двери (без собственной merge-логики)»), вся merge-семантика
-#     перенесена в двери. `fixtures/land_agent/` (9 case_*.sh) тестирует СТАРУЮ
-#     merge-дверь (И-1..И-9 land_agent, И-8 пред-/пост-проверки) и ЗЕЛЁНОЙ на
-#     тонкой обёртке быть НЕ МОЖЕТ — wrapper наследует rc двери, а case_* ожидают
-#     конкретные формулировки отказа land_agent (например «предмет не в worktree»
-#     через собственный код land_agent, а не двери). Удаление fixtures/land_agent/
-#     заблокировано зоной architect (ЗОНА architect контракта 022, реализация —
-#     единственный наследник 016/022/065 в семье), правка содержимого запрещена
-#     контрактом 094 §ПЕРЕСЕЧЕНИЕ implementer: «implementer НЕ правит построчно:
-#     их судьба решается миграцией п.5 как обновление потребителей». НОВАЯ
-#     merge-дверь тестируется семейной батареей `fixtures/accept_publish/` (14
-#     red_*.sh + battery_stubs.sh + _toy.sh, раннер `fixtures/_krasnye_094.sh`),
-#     отдельный CI-шаг `step check:accept-publish-094-family-selftest 20
-#     bash fixtures/_krasnye_094.sh` в реестре (registry/ci-steps.tsv). В
-#     `keys:` шарда land_agent НЕ ВКЛЮЧАЕТСЯ: scoped-прогон запустил бы
-#     вечно-красные 9 case_*.sh (thin wrapper не даёт ожидаемых формулировок),
-#     и сломал бы ап-шаг с тем же эффектом, что у verify_antiplacebo (арбитраж
-#     c8aaa67 §Решение п.2). Каталог `fixtures/land_agent/` (12 файлов:
-#     9 case + _repo.sh + 2 red_*) остаётся как исторический артефакт; покрытие
-#     merge-двери — отдельным шагом семейной батареи.
-UNSCOPABLE_KEYS=(gen-harness check_metering land_agent)
+UNSCOPABLE_KEYS=(gen-harness check_metering)
 declare -A IS_UNSCOPABLE=()
 for k in "${UNSCOPABLE_KEYS[@]}"; do
   IS_UNSCOPABLE["$k"]=1

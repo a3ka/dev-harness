@@ -67,10 +67,12 @@ check:metering:live = требует живой omp: фикстура посыл
 #   * fixtures/check_staged/case_* и probe_check_staged — scoped-прогон судьи
 #     через scoped-барьер verify_antiplacebo (фикстура каталога);
 #   * fixtures/spawn_agent/case_* — scoped-прогон спавна (ветка+worktree+identity);
-# #   * fixtures/gc_agent_branches/case_* — scoped-прогон GC (снос слитых, сохранение зависших).
+#   * fixtures/land_agent/case_* — scoped-прогон приземления (identity, merge --no-ff, реестр);
+#   * fixtures/gc_agent_branches/case_* — scoped-прогон GC (снос слитых, сохранение зависших).
 hooks:install = команда записи: ставит core.hooksPath в локальный git config, в CI прогонять запись неправильно — для сверки механизма есть check:hooks
 check:staged = предмет — staged живого коммиттера: на чистом CI-чекауте staged пуст по построению, rc=0 тавтологией; для сверки механизма есть check:hooks, для раннерных инвариантов — scoped-прогон фикстур check_staged
 spawn:agent = команда записи: создаёт ветку wip/<NNN>/<автор> и worktree вне стерегомого дерева, в CI прогонять запись неправильно — для сверки изоляции есть fixtures/spawn_agent/case_*
+land:agent = команда записи: мерджит --no-ff в main с identity оркестратора и мутирует коммитера, в CI прогонять запись неправильно — для сверки приземления есть fixtures/land_agent/case_*
 gc:agent-branches = команда записи: сносит слитые wip/* ветки и связанные worktree, в CI прогонять запись неправильно — для сверки механизма GC есть fixtures/gc_agent_branches/case_*
 
 # ──────────────────────────────────────────────────────────────────────────────
