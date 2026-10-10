@@ -1286,6 +1286,20 @@ while IFS=$'\t' read -r nnn since; do
       # orchestrator. Допущение — ТОЛЬКО для ЭТОГО SHA и ЭТОГО пути; других
       # коммитов и путей не исключать, ЗОНА architect и ЗОНА orchestrator не
       # расширяются (слово владельца дословно, см. тело коммита).
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-10 ~22:20 UTC, канал консультанта) ──
+      # Один SHA 398d4f61, автор consultant, ОДИН путь forks/093-ops-granica-oracle-074-pin-stale.md:
+      # оркестратор перенёс отметку ОТВЕЧЕНО форка вместе с вердиктами консультанта под автором
+      # consultant. Других коммитов и путей не исключать, зоны не расширять.
+      case "$c" in
+        398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20)
+          case "$f" in
+            forks/093-ops-granica-oracle-074-pin-stale.md)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
+      esac
       case "$c" in
         b6daee0a0205d1e1008948e4332781dd9d10dd34)
           case "$f" in
