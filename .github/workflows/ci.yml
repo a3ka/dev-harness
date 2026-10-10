@@ -90,11 +90,93 @@ jobs:
           # без них окна контрактов открывались бы до HEAD, и зоны судили
           # чужие freeze-registry коммиты без СПАСЕНО.
           fetch-tags: true
+
+      # Кеш для инкрементального режима 4 исторических чеков (контракт 083, этикет
+      # зон §Зоны, v+1). STATIC-обёртка `actions/cache`: по шагу на каждый чек,
+      # path `tmp/ci-incr/<check>.sha`, key `ci-incr-<check>-<sha>`, restore-keys
+      # `ci-incr-<check>-`, restore всегда (на push И pull_request). Кеш ВОССТАНОВЛЕН
+      # в круге 1 ревьюера 087 (Б-2: дельта 087 удалила все 14 `actions/cache` шагов,
+      # legkij без кеша гонял 4 чека в полном режиме, check:charter 774 с, бюджет 120 с).
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+          restore-keys: |
+            ci-incr-charter-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+          restore-keys: |
+            ci-incr-zones-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+          restore-keys: |
+            ci-incr-ids-
+      - uses: actions/cache/restore@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
+          restore-keys: |
+            ci-incr-protected-
+
       - uses: actions/setup-node@v4
         with:
           node-version: 26
       - name: Лёгкое задание (устав, зоны, ids, protected, грамматика 015)
         run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen
+
+      # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
+      # v+1 — в legkij матрицы НЕТ, 4 чека выполняются одним шагом без условия
+      # contains(matrix.keys, …)). Условие ТОЛЬКО на событие: на push ключ
+      # `ci-incr-<check>-<sha>` (общая запись main), на pull_request — PR-scoped
+      # ключ `ci-incr-<check>-pr-<N>-<sha>` (N = github.event.pull_request.number),
+      # GitHub изолирует запись по PR и видит её только этому PR, push-путь main
+      # не затрагивается. Кеш `tmp/ci-incr/<check>.sha` мог обновиться внутри
+      # run-шага (после `--incr`).
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/charter.sha
+          key: ci-incr-charter-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/zones.sha
+          key: ci-incr-zones-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/ids.sha
+          key: ci-incr-ids-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-${{ github.sha }}
+      - if: github.event_name == 'pull_request'
+        uses: actions/cache/save@v4
+        with:
+          path: tmp/ci-incr/protected.sha
+          key: ci-incr-protected-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+
       - name: История не перезаписана
         if: github.event_name == 'push'
         run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
@@ -131,6 +213,8 @@ jobs:
           npm run check:antiplacebo -- "$TMP_ROOT"
       - name: Сам-тесты батареи 087 (классификатор, ворота, проводка ci.yml)
         run: bash fixtures/_krasnye_087.sh
+      - name: Сам-тесты батареи 083 (генератор + исполнение + инкрементальность)
+        run: bash fixtures/_krasnye_083.sh
 
   # ДЖОБА antiplacebo (контракт 087 И-8) — матричная тяжёлая джоба шардов.
   # needs klass, if klass.outputs.tyazh == 'run', первый run-шаг — strip.

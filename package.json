@@ -78,7 +78,7 @@
     "check:consumers-window-family-selftest": "bash fixtures/check_consumers/krasnye_062.sh",
     "check:door-bugfix-family-selftest": "bash fixtures/_krasnye_080.sh",
     "check:watchdog-082-family-selftest": "bash fixtures/verify_antiplacebo/red_watchdog_082.sh",
-    "check:ci-klass": "bash scripts/ci_klass.sh",
-    "check:ci-vesa": "bash scripts/ci_vesa.sh"
+    "check:ci-b-087-family-selftest": "bash fixtures/_krasnye_087.sh",
+    "check:ci-family-selftest": "bash fixtures/_krasnye_083.sh"
   }
 }
