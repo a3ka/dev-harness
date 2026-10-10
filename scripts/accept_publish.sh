@@ -277,7 +277,11 @@ done < <(git -C "$REPO" ls-tree -r --name-only "$CAND" -- .review 2>/dev/null | 
 # И-6б: переход политики — ОТДЕЛЬНАЯ санкция policy-строкой журнала; обычный
 # accept объекта её не заменяет (Б4). К собственному принятию кандидата
 # по-прежнему применяется политика base (И-6).
-cand_pol="$(git -C "$REPO" show "$CAND:$POLICY_PATH" 2>/dev/null)"
+# Б-4-R4 (adversary v4): cand_pol читается по тому же carrier'у, что и
+# policy_bytes (POLICY_SOURCE: registry/ci-steps.tsv для production-харнеса,
+# harness/policy для toy-мира). Иначе — ложный отказ честного production-кандидата
+# и обход И-6б злоумышленником (decoy harness/policy маскирует обнуление production).
+cand_pol="$(git -C "$REPO" show "$CAND:$POLICY_SOURCE" 2>/dev/null)"
 [ -n "$cand_pol" ] || die "политика кандидата удалена"
 cand_pv="$(printf '%s' "$cand_pol" | sha256sum | cut -d' ' -f1)"
 if [ "$cand_pv" != "$policyVersion" ]; then
