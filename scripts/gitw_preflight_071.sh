@@ -27,6 +27,17 @@
 #   0 — успех (чеки зелёные) или пропуск (0 ключей check:* в дереве);
 #   1 — именованный отказ (получатель ещё не двинут — exec в gitw не происходит);
 #   2 — нечем проверить (нет git/curl/jq).
+#
+# Делегат строки check журнала 094 (контракт 094, Решение 3, ПЕРЕСЕЧЕНИЕ 087/094):
+# при наличии env T094_OBJECT_ID / T094_JOURNAL / T094_TREE_SHA пишется строка
+#   check<TAB><object_id><TAB><vorota><TAB><ok|fail><TAB><run><TAB><wfsha><TAB><tree_sha>
+# в append-only журнал T094_JOURNAL (по умолчанию registry/candidates.tsv); wfsha =
+# sha256 байтов ci_klass.sh на base SHA (доверенная версия определения),
+# tree_sha — 40 hex дерева (Б3: дверь сверяет его с MERGE^{tree}). Семантика 087
+# не ослабляется: чек 5 вызывает существующий ci_klass.sh, не дублирует логику.
+# Если ci_klass.sh недоступен (на HEAD круга 2 — зависимость landing 087) — чек 5
+# прозрачен (нет объекта проверки, нечего судить). Если ci_klass.sh есть и
+# отказал — именованный отказ с rc 1, как и прочие чеки предполёта.
 set -uo pipefail
 
 # ── изоляция окружения (прецедент батареи 045) ─────────────────────────────
@@ -375,6 +386,61 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
     fi
   done
   unset land_merges
+fi
+
+# ── чек (5, контракт 087 И-5 + поставка 094 ПРОВОДКА): код в main только через PR
+# Класс пуша — ci_klass.sh vorota <вершина main цели> <отправляемый tip>: учётный пуш
+# прозрачен без API; код — только при доказательстве тяжёлого прогона по хешу.
+# Поставка строк check журнала 094 (контракт 094, Решение 3, ПЕРЕСЕЧЕНИЕ 087/094):
+# при наличии env T094_OBJECT_ID / T094_JOURNAL / T094_TREE_SHA пишется строка
+#   check<TAB><object_id><TAB><vorota><TAB><ok><TAB><run><TAB><wfsha><TAB><tree_sha>
+# в append-only журнал T094_JOURNAL (по умолчанию registry/candidates.tsv); wfsha =
+# sha256 байтов ci_klass.sh на base SHA (доверенная версия определения),
+# tree_sha — 40 hex дерева (Б3: дверь сверяет его с MERGE^{tree}). Семантика 087
+# не ослабляется: чек 5 вызывает существующий ci_klass.sh, не дублирует логику.
+# Если ci_klass.sh недоступен (на HEAD круга 2 — зависимость landing 087) — чек 5
+# прозрачен (нет объекта проверки, нечего судить). Если ci_klass.sh есть и
+# отказал — именованный отказ с rc 1, как и прочие чеки предполёта.
+if [ -x "$(dirname "${BASH_SOURCE[0]}")/ci_klass.sh" ]; then
+  if ! git cat-file -e "${rmain}^{commit}" 2>/dev/null; then
+    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: код в main: вершина main цели %s не в локальной истории — сделай fetch\n' "$rmain" >&2
+    exit 1
+  fi
+  vor_out="$(bash "$(dirname "${BASH_SOURCE[0]}")/ci_klass.sh" vorota "$rmain" "$send_tip" 2>&1)"
+  vor_rc=$?
+  if [ "$vor_rc" -ne 0 ]; then
+    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: %s\n' "${vor_out#ОТКАЗ: }" >&2
+    exit 1
+  fi
+  printf 'gitw ПРЕДПОЛЁТ: код-через-PR: %s\n' "$vor_out" >&2
+  # ── поставка строки check журнала 094 (после успеха vorota) ─────────────
+  if [ -n "${T094_OBJECT_ID:-}" ] \
+     && [ -n "${T094_JOURNAL:-}" ] \
+     && [ -n "${T094_TREE_SHA:-}" ]; then
+    _t94c_journal="${T094_JOURNAL:-registry/candidates.tsv}"
+    _t94c_oid="${T094_OBJECT_ID}"
+    _t94c_tree="${T094_TREE_SHA}"
+    case "$_t94c_oid" in [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+      *) _t94c_journal="" ;;
+    esac
+    case "$_t94c_tree" in [0-9a-f]*) ;; *) _t94c_journal="" ;; esac
+    if [ -n "$_t94c_journal" ] && [ -f "$_t94c_journal" ]; then
+      _t94c_wfsha="$(git show "${send_tip}:scripts/ci_klass.sh" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+      if [ -n "$_t94c_wfsha" ]; then
+        # Если файл журнала не оканчивается \n (артефакт начальной шапки без
+        # завершающего перевода строки), добавим разделитель, иначе check-строка
+        # склеится с последней строкой комментария и done_contract её не отделит.
+        if [ -s "$_t94c_journal" ] && [ "$(tail -c 1 "$_t94c_journal" | wc -l)" -eq 0 ]; then
+          printf '\n' >>"$_t94c_journal" || true
+        fi
+        printf 'check\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+          "$_t94c_oid" "vorota" "ok" "${T094_RUN_ID:-0}" "$_t94c_wfsha" "$_t94c_tree" \
+          >>"$_t94c_journal" \
+          || printf 'ОТКАЗ: check-строка не дописана: %s vorota\n' "$_t94c_journal" >&2
+      fi
+    fi
+    unset _t94c_journal _t94c_oid _t94c_tree _t94c_wfsha
+  fi
 fi
 
 # ── чек (1): четыре npm-ключа на ОТПРАВЛЯЕМОМ дереве ───────────────────────
