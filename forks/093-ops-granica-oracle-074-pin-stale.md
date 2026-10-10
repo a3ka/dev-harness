@@ -61,8 +61,8 @@ k1b: субъект отказался на испорченной записи
   093 мержится)
 ОТВЕЧЕНО: да
 
-ОТВЕТ (консультант): verdicts/consultant/093-ops-granica-oracle-074-pin-stale-v1.md;
-свидетельство класса — verdicts/consultant/093-ops-granica-oracle-074-pin-stale-klass-v1.md.
+ОТВЕТ (консультант): verdicts/consultant/fork-093-ops-granica-oracle-074-pin-stale-v1.md;
+свидетельство класса — verdicts/consultant/fork-093-ops-granica-oracle-074-pin-stale-klass-v1.md.
 Рекомендация — узкая санкционированная пачка ДО ленда, внутри кандидата 093, не отдельный
 PIN-коммит поверх старого main. Собственный замер выявил второй устаревший repo-PIN
 root/orch-peak на fa4d109c: ab20a0a05fa0d5b0cd1aa64bbf9e30b7754cbb425ab9074f78822ba0beb04e49.
@@ -70,3 +70,8 @@ root/orch-peak на fa4d109c: ab20a0a05fa0d5b0cd1aa64bbf9e30b7754cbb425ab9074f78
 диффпробы 7/7, каналы 6/6+6/6; семья rc 1 из-за root-к5 и отдельного станционного к5b.
 Дословный кандидат РАЗРЕШИЛ-ВЛАДЕЛЕЦ — §4 ответа; это не полученное разрешение и не снятие
 блокировки ленда. Второй PIN не входит в предложенную user-пачку.
+
+ПОСЛЕ (слово владельца 2026-10-10 ~21:00 UTC, передано консультантом): поштучные
+PIN-подписи ЗАМЕНЕНЫ стоячей санкцией №4 — см. HANDOFF.md; применяется architect
+соответствующего контракта (074) своей identity, оба PIN (user/orch-loop И
+root/orch-peak) одним ходом, коммит в wip/int-093/architect.
