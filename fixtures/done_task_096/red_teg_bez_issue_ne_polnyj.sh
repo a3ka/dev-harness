@@ -45,7 +45,7 @@ fi
 git -C "$R" rev-parse --verify --quiet done/contracts/096/1 >/dev/null || {
   printf 'КРАСНО: i14a: существующий тег удалён (должен оставаться)\n' >&2; exit 1
 }
-exit 0
+_t96_cleanup "$W"
 
 # ── половина (б): зелёный сценарий (анти-тавтология) — issue закрыт, всё есть
 W2="$(_t96_world i14b)" || exit 2

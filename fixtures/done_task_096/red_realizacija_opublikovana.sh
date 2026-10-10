@@ -33,6 +33,7 @@ out="$(bash "$SUBJ" --repo "$R" --task 96 --class code --project-id toy \
 if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq 'объект не опубликован'; then
   printf 'КРАСНО: i7a: отсутствующий published не отказан (rc=%s, вывод: %s)\n' "$rc" "$out" >&2; exit 1
 fi
+_t96_cleanup "$W"
 
 # ── половина (б): published есть для ДРУГОГО OID, но не для моего ───────────
 W2="$(_t96_world i7b)" || exit 2
