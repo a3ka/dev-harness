@@ -1,0 +1,12 @@
+[Unit]
+Description=orch-agent session — автономная сессия агента (uid != владельца /home/harness, контракт 093)
+After=local-fs.target
+[Service]
+Type=simple
+User=orchagent
+WorkingDirectory=/var/lib/orch-agent
+Environment=HOME=/var/lib/orch-agent
+ExecStart=/var/lib/orch-agent/workshop --yolo --
+MemoryMax=32G
+MemorySwapMax=0
+TimeoutStopSec=120
