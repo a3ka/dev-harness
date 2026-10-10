@@ -190,17 +190,17 @@ main). REPLACE-строка `registry/contracts.tsv` пишется ТОЛЬКО
   на origin до спавна (dual-control: тег `id/CONTRACT/<NNN>` ∧ строка
   `registry/contracts.tsv` на origin/main; повторный минт не сходится — tag-object-sha).
 - Судьи (critic/adversary/reviewer) — main-direct: вердикты коммитятся в main напрямую,
-  репро — в одноразовом клоне; судейских wip-веток НЕ заводится (Q2: `land_agent` И-9
+  репро — в одноразовом клоне; судейских wip-веток НЕ заводится (Q2: `accept_publish` И-9
   требует committer ∈ реестр ЗОНА-строк — путь для судей не используется; страж
   пропускает их спавн-состоянием).
-- Сведение по accept судей: `land_agent --branch wip/<NNN>/<автор> --worktree <путь>`
+- Сведение по accept судей: `bash scripts/accept_publish.sh publish --repo <root> --task wip-NNN-autor --target main --base <base> --candidate <cand> --merge <merge> --candidate-ref <cand> --journal registry/candidates.tsv`
   из основного чекаута (merge --no-ff, identity оркестратора; чекаут чист);
   multi-author — merge --no-ff с переносом санкций (И-10), squash запрещён (Б-4,
   слово 2026-10-04); close-out — gc_agent_branches (016 И-6)
   + gc:agent-branches --tmp-reap-apply (026 Б5(i))
 - Независимые правки РАЗНЫХ зон одного контракта — параллельные спавны и ОДИН
   land-цикл: обе 4а-проверки гоняются на ОБЪЕДИНЕНИИ веток в одноразовом клоне
-  (merge обеих, потом scoped-набор), затем последовательные land_agent и один
+  (merge обеих, потом scoped-набор), затем последовательные accept_publish и один
   CI-прогон (прецедент 019: один цикл вместо двух, ~40 мин CI на медленном раннере).
 
 
@@ -404,7 +404,7 @@ main). REPLACE-строка `registry/contracts.tsv` пишется ТОЛЬКО
 
 ## PR-маршрут контракта (069)
 
-PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw, PR открывается как CI-гейт по своему ref (pull_request-триггер ci.yml, concurrency-группа ci-<github.ref> — PR-прогон не отменяет main-прогон); слияние — ТОЛЬКО scripts/land_agent.sh локально после зелёного PR, кнопка Merge в UI GitHub запрещена (её merge даёт committer GitHub без маркера land: wip/… — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
+PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw; PR — CI-гейт по своему ref; слияние — ТОЛЬКО scripts/accept_publish.sh локально после зелёного PR; кнопка Merge в UI GitHub запрещена (без маркера `land: wip/…` — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
 
 ## Автоперезапуск orch-loop и два слота (слова владельца 2026-10-01)
 
@@ -416,7 +416,7 @@ PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<авт�
 (выше). Чекпойнт HANDOFF+push после шага.
 
 **Н-211 (8ч простоя 05→06.10, один предмет держал всю очередь):**
-1. Перед `land_agent` в main — `check_zones.sh` на РЕЗУЛЬТАТЕ слияния в клоне (+шаги `ci`);
+1. Перед `accept_publish` в main — `check_zones.sh` на РЕЗУЛЬТАТЕ слияния в клоне (+шаги `ci`);
    rc≠0 → НЕ сливать, предмет `blocked`, очередь дальше.
 2. Предмет, ждущий владельца, — на wip-ветке, не в main; main впереди origin — только на
    чекпойнт, push сразу после зелёного гейта.

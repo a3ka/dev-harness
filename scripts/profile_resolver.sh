@@ -69,6 +69,7 @@ SCHEMA_LEVELS='
 
   repo:barriers:mandatory:required
   repo:barriers:optional:required
+  repo:barriers:targetBranches:optional
 
   project:schemaVersion:required
   project:version:required
@@ -99,6 +100,7 @@ SCHEMA_LEVELS='
 
   project:defaults:barriers:mandatory:required
   project:defaults:barriers:optional:required
+  project:defaults:barriers:targetBranches:optional
 
   repo:packs:optional
   project:defaults:packs:optional

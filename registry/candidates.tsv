@@ -1,0 +1,23 @@
+# registry/candidates.tsv — журнал объектов принятия-публикации (контракт 094).
+# Алфавит строки (TAB-разделитель, замкнутый):
+#   verdict	<task>	<object_id>	<accept|fail>	<seq>
+#   check	<object_id>	<name>	<ok|fail>	<run>	<wfsha>	<tree_sha>
+#   policy	<object_id>	<old_pv>	<new_pv>	<accept|fail>	<seq>
+#   published	<object_id>	<merge_sha>	<seq>
+#
+# Семантика (контракт 094 §Решение 3):
+#   * verdict — судейский канал (судья/оркестратор — доверенная сторона);
+#   * check   — CI-обвязка по завершении обязательной проверки (vorota/check_merge_gate
+#               для LINT 087/063): wfsha — sha256 ДОВЕРЕННОЙ версии определения,
+#               tree_sha — 40 hex ИСПОЛНЕННОГО дерева (Б3);
+#   * policy  — санкция ПЕРЕХОДА политики кандидатом относительно base (И-6б): обычный
+#               accept объекта её не заменяет, переход политики — отдельная санкция;
+#   * published — успешная публикация (И-9 идемпотентность по журналу).
+#
+# append-only: строки добавляются, не редактируются (контракт 094 §1.4 — журнал
+# ВНЕ проверяемой ветки, иначе «проверили → записали → SHA изменился → проверять
+# заново»).
+#
+# Изначально пуст. Потребители — scripts/accept_publish.sh (читает),
+# scripts/judge_gate.sh (пишет verdict), scripts/ci_klass.sh + check_merge_gate.sh
+# (пишут check), scripts/done_contract.sh (потребитель published).

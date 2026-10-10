@@ -75,11 +75,12 @@ step	check:zones-call-budget	25	npm run check:zones-call-budget
 step	check:protected-call-budget	30	npm run check:protected-call-budget
 step	check:fix-090-orch-peak-home-family-selftest	20	bash fixtures/_krasnye_090.sh
 step	check:rotaciya-handoff-091-family-selftest	20	bash fixtures/_krasnye_091.sh
+step	check:accept-publish-094-family-selftest	20	bash fixtures/_krasnye_094.sh
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).
 shard	ap1	check_runner_hygiene drill_startup_digest check_ci_gate gc_agent_branches orch_restart pre_critic check_no_rewrite render_document next_id
-shard	ap2	check_scope_select freeze_contract check_skills land_agent check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
+shard	ap2	check_scope_select freeze_contract check_skills check_decisions check_check_contract_ready check_check_spec_ready check_spec_ready drill_nabludenia_nechitaemo overlay check_provodka done_contract check_consumers
 shard	ap3	check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
-shard	ap4	check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
+shard	ap4	check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant land_agent
 shard	ap5	verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver

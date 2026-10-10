@@ -1,94 +1,62 @@
 #!/usr/bin/env bash
-# Единая дверь слияния ветки проекта (контракт 063, ветвь (в)): гейт впереди,
-# merge ТОЛЬКО --no-ff с identity оркестратора (канарейка 016 И-5; committer
-# сверяется после merge, И-7). Прецедент 016 scripts/land_agent.sh:182.
-#
-# Аргументы:
-#   --repo <корень>   путь к корню репозитория проекта (обязательно);
-#   --branch ИМЯ      имя ветки для приземления (обязательно).
-# Identity merge-коммита — литерал `orchestrator` (И-7, без настраиваемого CLI-аргумента;
-# сверка committer==orchestrator не должна вырождаться в сверку с аргументом).
+# ТОНКАЯ ОБЁРТКА scripts/land_project.sh → scripts/accept_publish.sh (094 §Решения п.6).
+# Wrapper НЕ пишет мир, НЕ пишет журнал, НЕ коммитит — он только вызывает дверь
+# (object/prepare/publish) и пробрасывает её код возврата. Вся merge-семантика
+# (identity orchestrator, --no-ff, перенос санкций 065 И-10, атомарный update-ref)
+# перенесена в ДВЕРЬ (контракт 094 ПЕРЕСЕЧЕНИЕ implementer scripts/land_project.sh).
 #
 # Коды возврата:
-#   0 — посажено локально (merge-коммит с двумя родителями, subject `land: <ветка>`,
-#       committer == orchestrator);
-#   1 — именованный отказ (красный гейт / не-clean main / merge конфликт /
-#       identity расщеплена);
-#   2 — NOT_IMPLEMENTED.
+#   0 — приземлено (дверь publish rc 0)
+#   1 — отказ: «land project ОТКАЗ: <причина>» (дверь publish rc 1, либо собственная пред-проверка)
+#   2 — NOT_IMPLEMENTED: нет инструмента или предмет отсутствует
+#
+# CLI сохранён для обратной совместимости с fixtures/check_judge_gate/ (063):
+#   --repo <корень> --branch <ветка>.
 set -uo pipefail
-
-export PATH=/usr/bin:/bin
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
-      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
-export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
-
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GATE="$SELF_DIR/check_merge_gate.sh"
+DOOR="$SELF_DIR/accept_publish.sh"
+
+[ -f "$DOOR" ] || { printf 'land project ОТКАЗ: нет двери %s\n' "$DOOR" >&2; exit 2; }
+command -v git >/dev/null 2>&1 || { printf 'land project ОТКАЗ: нет git\n' >&2; exit 2; }
 
 usage() {
   printf 'land project ОТКАЗ: usage: bash scripts/land_project.sh --repo <корень> --branch <ветка>\n' >&2
   exit 1
 }
 
-REPO=""; BRANCH=""
+REPO=""
+BR=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo)         REPO="${2:?}"; shift 2 ;;
-    --branch)       BRANCH="${2:?}"; shift 2 ;;
-    --help|-h)      usage ;;
-    *)              printf 'land project ОТКАЗ: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
+    --repo) REPO="${2:?}"; shift 2 ;;
+    --branch) BR="${2:?}"; shift 2 ;;
+    *) shift ;;
   esac
 done
+[ -n "$REPO" ] && [ -n "$BR" ] || usage
+[ -d "$REPO" ] || usage
 
-[ -n "$REPO" ]   || usage
-[ -n "$BRANCH" ] || usage
-[ -d "$REPO" ]   || { printf 'land project ОТКАЗ: каталог репо не существует: %s\n' "$REPO" >&2; exit 1; }
+# Делегирование двери. wrapper НЕ пишет политику (И-6: политика только из base),
+# НЕ пишет журнал (И-1/И-4: verdict/check — дело судей и CI-обвязки), НЕ делает
+# merge (Решение 6: всё — в двери). Дверь читает harness/policy из base и при
+# отсутствии/неконформности отказывает ИМЕНОВАННО; журнал дверь НЕ читает без
+# --journal (--journal ОБЯЗАН быть пустой, иначе wrapper подделывал бы доказательства).
+BASE="$(git -C "$REPO" rev-parse main)"
+CAND="$(git -C "$REPO" rev-parse "$BR")"
+TASK="$BR"
 
-command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
+MERGE="$(bash "$DOOR" prepare --repo "$REPO" --task "$TASK" --base "$BASE" --candidate "$CAND")" || {
+  printf 'land project ОТКАЗ: prepare отказал\n' >&2; exit 1; }
 
-# Грязный главный чекаут → rc 1 (И-7). Только tracked-изменения: untracked
-# `.review/`-файлы (находки ревьюера) не считаются загрязнением — они
-# ловятся гейтом ниже, а их коммитность НЕ обязательна для срабатывания
-# гейта (И-3: «незакоммиченность .review/-файла не разблокирует»).
-if [ -n "$(git -C "$REPO" status --porcelain --untracked-files=no)" ]; then
-  printf 'land project ОТКАЗ: главное дерево загрязнено — приземление отвергнуто\n' >&2
-  exit 1
-fi
-
-# Ветка должна существовать.
-if ! git -C "$REPO" show-ref --verify --quiet "refs/heads/$BRANCH"; then
-  printf 'land project ОТКАЗ: ветка %s не существует — приземлять нечего\n' "$BRANCH" >&2
-  exit 1
-fi
-
-# Гейт впереди (И-7). Красный → rc 1 с прокси stderr гейта; HEAD целевой ветки
-# не меняется (merge ещё не выполнен).
-GATE_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-}" \
-            bash "$GATE" --repo "$REPO" 2>&1)"
-GATE_RC=$?
-if [ "$GATE_RC" -ne 0 ]; then
-  printf '%s\n' "$GATE_OUT" >&2
-  exit 1
-fi
-
-# Merge ТОЛЬКО --no-ff, identity оркестратора литералом в ОДНОЙ СТРОКЕ с
-# `git merge` (канарейка 016 И-5: `grep -nE 'user\.(name|email)'` обязана
-# находить строку merge). identity — литерал `orchestrator` (Р-3 вердикта
-# 123efc3: НИКАКОГО CLI-флага --orchestrator — сверка committer==orchestrator
-# не должна вырождаться в сверку с аргументом). ff-слияние невозможно
-# по построению. subject `land: <ветка>`. commit.gpgsign=false — иначе
-# CI-окружение без GPG-ключа красит merge отказом.
-if ! git -C "$REPO" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local -c commit.gpgsign=false merge --no-ff -m "land: $BRANCH" "$BRANCH" >/dev/null 2>&1; then
-  printf 'land project ОТКАЗ: merge --no-ff %s отказал — конфликт или иная ошибка git\n' "$BRANCH" >&2
-  exit 1
-fi
-
-# Сверка committer после merge (И-7). merge_cn == orchestrator (литерал).
-merge_cn="$(git -C "$REPO" log -1 --format=%cn HEAD)"
-if [ "$merge_cn" != orchestrator ]; then
-  printf 'land project ОТКАЗ: merge-коммит подписан %s, ожидался orchestrator — identity оркестратора не применилась\n' \
-    "$merge_cn" >&2
-  exit 1
-fi
-
-exit 0
+# Делегирование publish с пустым --journal (без строк verdict/check) — дверь
+# честно откажет на И-1 «нет применимого accept для задачи», и merge не состоится.
+# Это и есть контрактная защита от Б-1: дверь САМА судит доказательства, wrapper
+# их не фабрикует.
+EMPTY_J="$(mktemp)"
+trap 'rm -f "$EMPTY_J"' EXIT
+bash "$DOOR" publish \
+  --repo "$REPO" --task "$TASK" --target main \
+  --base "$BASE" --candidate "$CAND" --merge "$MERGE" \
+  --candidate-ref "$BR" --journal "$EMPTY_J"
+rc=$?
+exit $rc
