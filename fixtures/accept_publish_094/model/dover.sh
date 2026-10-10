@@ -62,6 +62,21 @@ for s in "$BASE" "$CAND" "$MERGE"; do
 done
 case "$TASK" in ''|*[!A-Za-z0-9._/-]*) die "задача вне алфавита: $TASK" ;; esac
 
+# ── ИНВАРИАНТ carrier-симметрии (И-6б; Б-5-R5, арбитраж 094-carrier-krug6 п.5б):
+# присутствие production-носителя registry/ci-steps.tsv симметрично на ОБЕИХ
+# сторонах (base и candidate). Асимметрия — самостоятельный переход НОСИТЕЛЯ
+# политики, на который обычный accept санкции не даёт: именованный отказ ДО
+# выбора POLICY_SOURCE, ДО формирования object_id и ДО движения refs (И-8).
+# Фразы — дословно из субъекта e289d7a5 (scripts/accept_publish.sh, Б-5-R5).
+base_registry="$(git -C "$REPO" show "$BASE:registry/ci-steps.tsv" 2>/dev/null)" || base_registry="" # t94-m19a
+cand_registry="$(git -C "$REPO" show "$CAND:registry/ci-steps.tsv" 2>/dev/null)" || cand_registry="" # t94-m19b
+if [ -n "$base_registry" ] && [ -z "$cand_registry" ]; then
+  die "carrier: registry/ci-steps.tsv удалён кандидатом (требуется отдельная санкция)" # t94-m19c
+fi
+if [ -z "$base_registry" ] && [ -n "$cand_registry" ]; then
+  die "carrier: registry/ci-steps.tsv добавлен кандидатом к toy-base (требуется отдельная санкция)" # t94-m19d
+fi
+
 # ── политика из ПРИНЯТОЙ версии: base SHA (И-6; stub-точка t94-m6) ────────────
 policy_bytes="$(git -C "$REPO" show "$BASE:$POLICY_PATH" 2>/dev/null)" # t94-m6
 [ -n "$policy_bytes" ] || die "политика: нет $POLICY_PATH на base"
@@ -70,14 +85,19 @@ while IFS= read -r line; do
   [ -z "$line" ] && continue
   case "$line" in
     repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
-    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
-    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="$v" ;;
+    mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;; # t94-m17a
+    targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="$v" ;; # t94-m16
     *) die "политика: грамматика" ;;
   esac
 done <<EOF
 $policy_bytes
 EOF
-[ -n "$repoId" ] && [ -n "$mandatory" ] && [ -n "$branches" ] || die "политика: грамматика"
+[ -n "$repoId" ] && [ -n "$mandatory" ] && [ -n "$branches" ] || die "политика: грамматика" # t94-m17b
+# И-0 (круг 2, verdict v2): каждый CSV-компонент перечня — непустое слово
+# своего алфавита: ведущая/хвостовая/двойная запятая НЕКОНФОРМНА (bash
+# read -ra молча роняет пустые компоненты — проверка ТЕКСТОВАЯ, до разбиения)
+case "$mandatory" in ,*|*,|*,,*) die "политика: грамматика" ;; esac # t94-m18a
+case "$branches" in ,*|*,|*,,*) die "политика: грамматика" ;; esac # t94-m18b
 policyVersion="$(printf '%s' "$policy_bytes" | sha256sum | cut -d' ' -f1)"
 
 object_id() {  # id объекта выдаёт МЕХАНИЗМ (Решение 2); состав — ВСЕ семь полей (И-1б)
