@@ -186,7 +186,7 @@ mkdir -p "$SCRATCH/snap" "$SCRATCH/w" "$SCRATCH/res" "$SCRATCH/shimbin"
 declare -A PIN=(
   [stancija.orch-loop]=ebc53f306a352ef8ec58d130d5d667ea685c6977d932a0439de755ca62038cd9
   [stancija.orch-peak]=b3e354cd2aae1a28e50b1423c6d5164e2d0a7ca2dcec4e17f47ccb4b549824b3
-  [slijanie.orch-peak]=d7f74f54716b33651c4111fc1bbaf303c7b8126cb9b0a4d90f006218b16a647c
+  [slijanie.orch-peak]=a971abfa7d8c25eee01da7b756c80d3d42828d4f4018e1619f71a4922f808d70
   [repo-fad71b15.orch-loop]=fad71b1540965d84ed4f3f54759ba76b43628e2be9b91bc9405be62a34a63e2d
   [repo-8380d01f.orch-peak]=8380d01fdd8200f25093a2b11cf6c11124dc0a13eb86851476346f7513c94c6c
 )
@@ -341,8 +341,10 @@ STUBS = [
   ('s02', 'm1', 'станционный цикл ebc53f30 без потолка', 'snap:stancija.orch-loop', []),
   # п1: версия 080 без станционной дельты — маркер против сменившейся сессии (Н-189)
   ('s03', 'p1', 'прежняя repo-версия сторожа 8380d01f', 'snap:repo-8380d01f.orch-peak', []),
-  # р1: станционный сторож как есть — строки дельты 080 (шов, опрос, транзакция) пропали
-  ('s04', 'r1', 'станционный сторож b3e354cd без дельты 080', 'snap:stancija.orch-peak', []),
+  # р1: станционный сторож с UHOME из 090 — строки дельты 080 по-прежнему отсутствуют
+  ('s04', 'r1', 'станционный сторож b3e354cd с UHOME из 090, без дельты 080', 'snap:stancija.orch-peak',
+   [('UHOME="$(getent passwd "$U" | cut -d: -f6)"',
+     'UHOME="${ORCH_UHOME:-$(getent passwd "$U" | cut -d: -f6)}"')]),
   # л1..л8: мутации честного цикла — каждая видна на своём плане
   ('s05', 'l1', 'ранний маркер — останов', 'loop',
    [('[ "$early" -lt "$EARLY_MAX" ] ||', '[ "$early" -lt 1 ] ||')]),

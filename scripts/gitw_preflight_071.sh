@@ -282,6 +282,7 @@ land_merges=()
 while IFS=$'\t' read -r h s; do
   case "$s" in
     "land: wip/"[0-9][0-9][0-9]/*) land_merges+=("$h"$'\t'"$s") ;;
+    "land: wip/int-"[0-9]*"/"*) land_merges+=("$h"$'\t'"$s") ;;
     "land: "*)
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
       exit 1
