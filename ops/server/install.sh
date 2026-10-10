@@ -16,6 +16,12 @@
 #           предусловия — core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}
 #           и branch.autoSetupMerge=false (И-2). Предусловие нарушено — rc 1
 #           ДО какого-либо chattr. Шов OPS_SERVER_MAIN (инвариант 6 074).
+#           Контракт 093 И-3: ДО копий провизионит system-user orchagent
+#           (идемпотентно), /var/lib/orch-agent (владелец orchagent) и узкое
+#           sudoers-правило /etc/sudoers.d/orch-agent-launcher (harness → orchagent
+#           NOPASSWD для launcher-паттерна: workshop под uid агента через
+#           `sudo -nu orchagent`). Шов OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME
+#           переопределяют идентичность; по умолчанию orchagent / /var/lib/orch-agent.
 #   verify — только читает: побайтно сверяет все 9 адресатов с источниками;
 #             все равны — rc 0 и «сверка: 9/9»; любое расхождение — rc 1
 #             с stderr «ОТКАЗ: расхождение <путь>».
@@ -35,6 +41,8 @@
 # OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
 # (081 — корень основного чекаута, по умолчанию /home/harness/dev-harness).
 # При шве скрипт не читает и не пишет умолчательный путь того же шва.
+# Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME (093, И-3) переопределяют
+# идентичность пользователя-агента; install.sh root провизионит их идемпотентно.
 #
 # Коды возврата:
 #   0 — успех (или сверка чиста);
@@ -55,7 +63,11 @@ MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
 UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
 # Контракт 093 И-1/И-6b: каталог предыдущей версии для rollback и метка.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
-TS="$(date +%s)" 
+TS="$(date +%s)"
+# Контракт 093 И-3: идентичность пользователя-агента (idempotent provisioning).
+AGENT_USER="${OPS_SERVER_AGENT_USER-orchagent}"
+AGENT_HOME="${OPS_SERVER_AGENT_HOME-/var/lib/orch-agent}"
+SUDOERS_DROP="${OPS_SERVER_SUDOERS_DROP-/etc/sudoers.d/orch-agent-launcher}"
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
 command -v sha256sum >/dev/null 2>&1 \
@@ -78,6 +90,52 @@ check_one() { # <адресат> <источник> — sha256 адресата 
   b="$(sha256sum <"$2" | cut -d' ' -f1)"
   [ "$a" = "$b" ] || { printf 'ОТКАЗ: расхождение %s\n' "$1" >&2; return 1; }
 }
+# Контракт 093 И-3: провизионирование пользователя-агента (idempotent).
+# Создаёт system-user если отсутствует, /var/lib/orch-agent (владелец агент),
+# узкое sudoers-правило для launcher-паттерна. Постусловие: всё на месте,
+# sudoers-файл валиден (visudo -c). Любой отказ — rc 1 с именованной причиной.
+provision_orchagent() {
+  # 1) system-user (idempotent — getent passwd первым).
+  if ! getent passwd "$AGENT_USER" >/dev/null 2>&1; then
+    command -v useradd >/dev/null 2>&1 \
+      || { printf 'NOT_IMPLEMENTED: нет useradd\n' >&2; exit 2; }
+    useradd --system --shell /usr/sbin/nologin \
+      --home-dir "$AGENT_HOME" --no-create-home "$AGENT_USER" \
+      || die_write "useradd $AGENT_USER"
+  fi
+  # 2) HOME-каталог (владелец агент).
+  mkdir -p "$AGENT_HOME" || die_write "mkdir $AGENT_HOME"
+  chown "$AGENT_USER:$AGENT_USER" "$AGENT_HOME" 2>/dev/null \
+    || die_write "chown $AGENT_HOME"
+  chmod 755 "$AGENT_HOME" || die_write "chmod $AGENT_HOME"
+  # 3) узкое sudoers-правило для launcher-паттерна: harness может запускать
+  # `sudo -nu $AGENT_USER ...` без пароля. Узкое — target-специфичное
+  # (только $AGENT_USER), НЕ «NOPASSWD: ALL» без адресата. Содержимое
+  # отделяется от других sudoers-файлов и валидируется через visudo.
+  command -v visudo >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: нет visudo\n' >&2; exit 2; }
+  # Содержимое (перезаписывается идемпотентно — idem-флаг, стабильный формат).
+  SUDOERS_CONTENT="# orch-agent-launcher — узкое правило для launcher-паттерна (контракт 093, И-3).
+# harness → $AGENT_USER NOPASSWD: позволяет ops/server/user/orch-loop
+# переключать uid на $AGENT_USER через sudo -nu (вместо широкого NOPASSWD: ALL).
+# Узость: target=$AGENT_USER, не root; команда — любая (нужна для workshop
+# с --yolo и аргументами автоперезапуска), но ТОЛЬКО от имени $AGENT_USER.
+harness ALL=($AGENT_USER) NOPASSWD: ALL
+"
+  printf '%s\n' "$SUDOERS_CONTENT" > "$SUDOERS_DROP.tmp" \
+    || die_write "$SUDOERS_DROP.tmp"
+  chmod 440 "$SUDOERS_DROP.tmp" || die_write "chmod $SUDOERS_DROP.tmp"
+  # постусловие: visudo -c -f ДО переименования (атомарность через mv).
+  visudo -c -f "$SUDOERS_DROP.tmp" >/dev/null 2>&1 \
+    || { printf 'ОТКАЗ: sudoers drop-in невалиден: %s\n' "$SUDOERS_DROP" >&2; \
+         rm -f "$SUDOERS_DROP.tmp"; exit 1; }
+  mv -f "$SUDOERS_DROP.tmp" "$SUDOERS_DROP" \
+    || die_write "mv $SUDOERS_DROP"
+  chown root:root "$SUDOERS_DROP" 2>/dev/null || true
+  # Самопроверка: drop-in читаем, содержит ожидаемую строку.
+  grep -q "^harness ALL=($AGENT_USER) NOPASSWD: ALL$" "$SUDOERS_DROP" \
+    || { printf 'ОТКАЗ: sudoers drop-in не содержит ожидаемое правило\n' >&2; exit 1; }
+}
 
 # ── разбор подкоманды ────────────────────────────────────────────────────────
 [ $# -eq 1 ] || usage
@@ -97,6 +155,9 @@ case "$1" in
       printf 'ОТКАЗ: root-часть требует euid 0\n' >&2
       exit 1
     fi
+    # Контракт 093 И-3: провизионирование system-user orchagent ДО копий
+    # (отказ provisioning — отказ установки; никаких частичных установок).
+    provision_orchagent
     mkdir -p "$SBIN_DST" "$ETC_DST" || die_write "$SBIN_DST $ETC_DST"
     cp -- "$SRC_ROOT/root/orch-peak" "$SBIN_DST/orch-peak" \
       || die_write "$SBIN_DST/orch-peak"
