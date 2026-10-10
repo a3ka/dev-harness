@@ -18,9 +18,23 @@
 #
 #   bash scripts/check_ci_gate.sh [корень] [sha]
 #
+# Делегат строки check журнала 094 (контракт 094, Решение 3, ПЕРЕСЕЧЕНИЕ 087/094):
+# если окружение передаёт T094_OBJECT_ID / T094_JOURNAL / T094_TREE_SHA — для
+# КАЖДОГО обязательного имени из реестра registry/ci-steps.tsv (доверенная версия
+# на base SHA; та же политика, что accept_publish.sh читает в production-ветке)
+# пишется строка check в append-only журнал T094_JOURNAL (по умолчанию
+# registry/candidates.tsv):
+#   check	<object_id>	<name>	<ok|fail>	<run>	<wfsha>	<tree_sha>
+# где wfsha = sha256 байтов реестра на base, tree_sha — 40 hex дерева
+# ИСПОЛНЕННОГО дерева (Б3: дверь сверяет его с MERGE^{tree}; Б4-И-6
+# арбитража 094 — «проверили C, записали для M» отказывается). Семантика
+# «все check-runs success» НЕ ослабляется (шаг 4 выше) — это добавление
+# поставки строки check, не замена. Если реестр обязательных пуст
+# (например, в toy-мире), записи check НЕ пишутся (вакуум политики).
+#
 # Коды возврата: 0 — CI зелёный по запушенному коммиту, 1 — отказ с названной
 # причиной, 2 — нечем проверять (нет curl/jq/git).
-set -euo pipefail
+set -uo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DATABASE \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
@@ -84,3 +98,49 @@ if [ -n "$bad_run" ]; then
 fi
 
 printf '  ok   CI зелёный: проверок %s, все success, по %s (%s)\n' "$total" "$short" "$repo" >&2
+
+# ── делегат строк check журнала 094 (контракт 094, ПЕРЕСЕЧЕНИЕ 087/094) ───────
+# Поставка работает ТОЛЬКО когда весь набор ручек передан; в противном случае
+# 087-семантика остаётся неизменной (CI зелёный — журнал не пишется). Запись —
+# append-only; rc гейта НЕ зависит от успеха записи (это side-effect журнала,
+# не условие зелёного CI).
+if [ -n "${T094_OBJECT_ID:-}" ] \
+   && [ -n "${T094_JOURNAL:-}" ] \
+   && [ -n "${T094_TREE_SHA:-}" ]; then
+  _t94_journal="${T094_JOURNAL:-registry/candidates.tsv}"
+  _t94_oid="${T094_OBJECT_ID}"
+  _t94_tree="${T094_TREE_SHA}"
+  case "$_t94_oid" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+    *) _t94_journal="" ;;
+  esac
+  case "$_t94_tree" in [0-9a-f]*) ;; *) _t94_journal="" ;; esac
+  if [ -n "$_t94_journal" ] && [ -f "$_t94_journal" ]; then
+    # wfsha доверенной версии определения: sha256 реестра на base SHA
+    _t94_wfsha="$(g show "${sha}:registry/ci-steps.tsv" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+    if [ -n "$_t94_wfsha" ]; then
+      # Извлечение step-строк реестра на base SHA; пустой список — нет
+      # обязательных, поставка прозрачна (вакуум политики)
+      _t94_run="${T094_RUN_ID:-0}"
+      _t94_names="$(g show "${sha}:registry/ci-steps.tsv" 2>/dev/null \
+        | sed -nE 's/^step[ \t]+([A-Za-z0-9._:-]+)[ \t]+[0-9]+.*/\1/p')"
+      _t94_pass="$(printf '%s' "$body" | jq -r '.check_runs[] | select((.conclusion // "") == "success") | .name' 2>/dev/null)"
+      for _t94_name in $_t94_names; do
+        _t94_status="fail"
+        case " $_t94_pass " in *" $_t94_name "*|*"${_t94_name}"*) _t94_status="ok" ;; esac
+        # Если файл журнала не оканчивается \n (артефакт начальной шапки без
+        # завершающего перевода), добавим разделитель, иначе check-строка
+        # склеится с последней строкой комментария и done_contract её не отделит.
+        if [ -s "$_t94_journal" ] && [ "$(tail -c 1 "$_t94_journal" | wc -l)" -eq 0 ]; then
+          printf '\n' >>"$_t94_journal" || true
+        fi
+        printf 'check\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+          "$_t94_oid" "$_t94_name" "$_t94_status" "$_t94_run" "$_t94_wfsha" "$_t94_tree" \
+          >>"$_t94_journal" \
+          || printf 'ОТКАЗ: check-строка не дописана: %s %s\n' "$_t94_journal" "$_t94_name" >&2
+      done
+      unset _t94_names _t94_pass _t94_name _t94_status _t94_run _t94_wfsha
+    fi
+  fi
+  unset _t94_journal _t94_oid _t94_tree
+fi
