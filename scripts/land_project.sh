@@ -5,7 +5,7 @@
 # (identity orchestrator, --no-ff, перенос санкций 065 И-10, атомарный update-ref)
 # перенесена в ДВЕРЬ (контракт 094 ПЕРЕСЕЧЕНИЕ implementer scripts/land_project.sh).
 #
-# Коды возврата (НЕ БАРЬЕР — verify_antiplacebo выводит из per-file сканирования):
+# Коды возврата:
 #   0 — приземлено (дверь publish rc 0)
 #   1 — отказ: «land project ОТКАЗ: <причина>» (дверь publish rc 1, либо собственная пред-проверка)
 #   2 — NOT_IMPLEMENTED: нет инструмента или предмет отсутствует
