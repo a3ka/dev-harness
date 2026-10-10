@@ -402,7 +402,7 @@ land_agent ветки в main → `freeze_contract.sh` НА main → REPLACE-с�
 
 ## PR-маршрут контракта (069)
 
-PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw, PR открывается как CI-гейт по своему ref (pull_request-триггер ci.yml, concurrency-группа ci-<github.ref> — PR-прогон не отменяет main-прогон); слияние — ТОЛЬКО scripts/accept_publish.sh локально после зелёного PR, кнопка Merge в UI GitHub запрещена (её merge даёт committer GitHub без маркера land: wip/… — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
+PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw; PR — CI-гейт по своему ref; слияние — ТОЛЬКО scripts/accept_publish.sh локально после зелёного PR; кнопка Merge в UI GitHub запрещена (без маркера `land: wip/…` — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
 
 ## Автоперезапуск orch-loop и два слота (слова владельца 2026-10-01)
 
