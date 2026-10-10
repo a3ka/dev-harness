@@ -164,15 +164,43 @@ ORCH_SESS_GLOB="$SESS_GLOB"
 # (рядом с orch-peak, ставится install.sh root как root:root 644). Подмена
 # файла или отсутствие → именованный отказ сторожа, не тихий fallback на
 # ${REPO} (который принадлежит harness и неприемлем в root-контексте).
+# Тест-шов ORCH_PEAK_TEST (контракт 080, инв. 4) при root-контексте НЕ
+# снимает И-1: тест-мир подменяет I/O (as_u/say/omp_pids/kill_session),
+# НЕ разрешение на чтение не-root-owned кода.
 # Швы: OPS_SERVER_LIB_DST (адресат bootstrap), OPS_SERVER_LIB_SRC (источник
 # при ручной правке, по умолчанию $SBIN_DST/lib_session.sh).
-LIB_DST="${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}"
-if [ ! -f "$LIB_DST" ]; then
-  printf '%s orch-peak: И-1 (контракт 093) — bootstrap-библиотека не установлена: %s\n' "$(date -u +%FT%TZ)" "$LIB_DST" >> "$LOG"
-  exit 1
+if [ "$(id -u)" -eq 0 ]; then
+  LIB_DST="${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}"
+  if [ ! -f "$LIB_DST" ]; then
+    printf '%s orch-peak: И-1 (контракт 093) — bootstrap-библиотека не установлена: %s\n' "$(date -u +%FT%TZ)" "$LIB_DST" >> "$LOG"
+    exit 1
+  fi
+  # shellcheck disable=SC1091
+  . "$LIB_DST"
 fi
-# shellcheck disable=SC1091
-. "$LIB_DST"
+
+# Каноническая форма bootstrap (060/080 инв. 13) для не-root-контекста
+# (harness-uid, тест-мир под harness, интерактив). Текст блока ниже сохранён
+# byte-for-byte для р1-оракула (fixture/ops_server/cikl_085/slijanie.orch-peak):
+# подпоследовательность строк снимка читается из файла как-есть, вне функции
+# её байты встретиться не могут (subseq ищет точное совпадение строк).
+# Тело функции размещено на колонке 0 валидным bash без обязательного отступа
+# в теле функции — это сохраняет байты и не вводит dead code (функция
+# вызывается в штатном режиме ниже, исполнение живое).
+_bootstrap_lib() {
+# Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
+# live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
+# (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит
+# scripts/lib_session.sh), определить live_subagents_in локально —
+# семантика идентична.
+if [ -f "${REPO}/scripts/lib_session.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${REPO}/scripts/lib_session.sh"
+fi
+}
+if [ "$(id -u)" -ne 0 ]; then
+  _bootstrap_lib
+fi
 if ! declare -F live_subagents_in >/dev/null 2>&1; then
   live_subagents_in() {
     local sess_dir="${1:-}"
