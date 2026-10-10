@@ -197,6 +197,14 @@ rc=$?
 
 if [ "$rc" -eq 0 ]; then
   printf 'LANDED main=%s branch=%s\n' "$(git -C "$ROOT" rev-parse main)" "$BRANCH_ARG"
+  # index/wt-sync (диагноз прежнего круга): update-ref двигает ТОЛЬКО refs/heads/main;
+  # index и рабочее дерево главного чекаута остаются на старых байтах — следующий
+  # `git merge` в этом же главном чекауте справедливо отказывает «would be overwritten»,
+  # и красная фикстура check_charter (065 И-7, перенос строк-санкций) не может
+  # воспроизвести обманное состояние. Главный чекаут проверен чистым на входе (И-7
+  # выше), так что reset --hard HEAD безопасен и приводит дерево в соответствие с
+  # новым main. Сделано ДО сноса worktree, чтобы рука об руку шёл с публикацией.
+  git -C "$ROOT" reset --hard HEAD 2>/dev/null || true
   # Снос worktree И ветки после успешной публикации (016 И-4/И-6).
   git -C "$ROOT" worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
   git -C "$ROOT" branch -D "$BRANCH_ARG" 2>/dev/null || true
