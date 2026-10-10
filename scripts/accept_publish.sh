@@ -98,17 +98,33 @@ for s in "$BASE" "$CAND" "$MERGE"; do
 done
 case "$TASK" in ''|*[!A-Za-z0-9._/-]*) die "задача вне алфавита: $TASK" ;; esac
 
-# ── политика из ПРИНЯТОЙ версии (И-6; stub-точка t94-m6) ────────────────────
-# Решение 094 §Решения п.(в): для харнес-репо политика читается из base SHA —
-#         дерево `registry/ci-steps.tsv` (профиль 2.1 контракта 094). Toy-мир батареи
-#         `fixtures/accept_publish_094/` носит политику в `harness/policy` +
-#         `harness/checks/<имя>.cmd` (контракт 094 §Решения п.(в): «toy-носитель
-#         harness/checks/<имя>.cmd»). Дверь берёт первую доступную доверенную
-#         версию: registry/ci-steps.tsv для production-харнеса, harness/policy —
-#         для toy-мира; оба файла отсутствуют — отказ «нет политики на base».
+# ── политика из ПРИНЯТОЙ версии — ИНВАРИАНТ carrier-симметрии (Б-5-R5) ────────
+# И-6/И-6б (контракт 094). Закрытый алфавит carrier'ов:
+#   registry/ci-steps.tsv   — production-харнес (профиль 2.1 контракта 094)
+#   harness/policy          — toy-мир (контракт 094 §Решения п.(в))
+# ИНВАРИАНТ: присутствие carrier'а симметрично на ОБЕИХ сторонах. Любая асимметрия
+# (BASE toy, CAND добавлен registry — или наоборот) — самостоятельный carrier-
+# переход и отдельная санкция policy-строкой (И-6б). До этого выбора POLICY_SOURCE
+# НЕТ: тихий выбор по одной стороне (как было в Б-4-R4) открывал сценарий
+# «toy→production-bypass»: BASE toy → CAND тихо проносит ослабленный registry,
+# после publish'а следующая операция видела уже BASE с registry и принимала
+# урезанную политику как доверенную. Теперь — отказ «смешение carrier'ов»
+# ДО движения refs (И-8) и ДО формирования object_id (И-1б).
 policy_bytes=""
 POLICY_SOURCE=""
 registry_wfsha=""
+
+# ── симметричное чтение carrier'ов на ОБЕИХ сторонах (И-6б; Б-5-R5)
+base_registry="$(git -C "$REPO" show "$BASE:registry/ci-steps.tsv" 2>/dev/null)" || base_registry=""
+cand_registry="$(git -C "$REPO" show "$CAND:registry/ci-steps.tsv" 2>/dev/null)" || cand_registry=""
+
+if [ -n "$base_registry" ] && [ -z "$cand_registry" ]; then
+  die "carrier: registry/ci-steps.tsv удалён кандидатом (требуется отдельная санкция)"
+fi
+if [ -z "$base_registry" ] && [ -n "$cand_registry" ]; then
+  die "carrier: registry/ci-steps.tsv добавлен кандидатом к toy-base (требуется отдельная санкция)"
+fi
+
 if registry_bytes="$(git -C "$REPO" show "$BASE:registry/ci-steps.tsv" 2>/dev/null)" && [ -n "$registry_bytes" ]; then
   POLICY_SOURCE="registry/ci-steps.tsv"
   policy_bytes="$registry_bytes"
