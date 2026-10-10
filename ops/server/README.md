@@ -242,6 +242,76 @@ bash ops/server/install.sh verify
 `.git/config` запирается `chattr +i` (по умолчанию
 `/home/harness/dev-harness`).
 
+## Пользователь агента (контракт 093, И-3)
+
+Автономная сессия запускается под ОТДЕЛЬНЫМ uid агента (по умолчанию
+`orchagent`, HOME — `/var/lib/orch-agent`), а не под uid владельца
+`/home/harness`. Это даёт изоляцию от контрольных файлов станции
+(`~/.ssh/github-rw-cwd`, `~/.config/omp/*`, живое состояние
+`$UHOME/.local/state/dev-harness-sessions/**`, `/var/lib/orch-peak/**`)
+и от публикационного ключа (Н-196). HOME сессии — вне `/home/harness`:
+credent публикации в среде сессии НЕ доступны, `GIT_SSH_COMMAND` с
+rw-identity не строится.
+
+Швы `ORCH_AGENT_USER` / `ORCH_AGENT_HOME` (или эквивалентные
+`ORCH_LOOP_AGENT_USER` / `ORCH_LOOP_AGENT_HOME`) переопределяют
+идентичность агента в тест-мире. По умолчанию цикл требует, чтобы
+пользователь `orchagent` и каталог `/var/lib/orch-agent` существовали
+на станции (создаются один раз владельцем sudo, не обвязкой).
+
+Публикация — ТОЛЬКО через установленную дверь под другим
+пользователем; агенту ключ публикации НЕ доступен.
+
+## Проверка старта юнита (контракт 093, И-6a)
+
+Установка корневой части (`install.sh root`) завершена ⟺ поставленный
+юнит реально стартует и активен. Отдельная подкоманда `verify-start`
+проверяет это живой командой `systemctl is-active`:
+
+```sh
+sudo bash ops/server/install.sh verify-start
+# rc 0: "установлено и активно: orch-peak@0"
+# rc 1: "юнит не стартует: orch-peak@0 (состояние: …)" — отказ
+```
+
+Швы `OPS_SERVER_UNIT` (умолчание `orch-peak@0`) и
+`OPS_SERVER_SYSTEMCTL` (умолчание `systemctl`) позволяют указать
+другой юнит и путь к systemctl (тест-миры с shim'ом).
+
+## Откат установленной версии (контракт 093, И-6b)
+
+Подкоманда `rollback` побайтно восстанавливает предыдущую установленную
+версию из `${OPS_SERVER_ROLLBACK_BACKUP-/usr/local/sbin/.rollback}/` —
+каталог, куда `install.sh root` сохраняет предыдущие копии (создаётся
+при первой установке). Откат САМ выполняет `systemctl daemon-reload`
+и `systemctl restart` (находка 2 круга 2: без daemon-reload юнит
+остаётся на старой версии в памяти демона) — никакого `install`
+между откатом и наблюдением не требуется.
+
+```sh
+sudo bash ops/server/install.sh rollback
+# rc 0: "откат выполнен: orch-peak + 7 юнитов из /usr/local/sbin/.rollback"
+# rc 1: именованный отказ (нет каталога, расхождение, euid≠0)
+```
+
+Живая последовательность без маскировки:
+
+```sh
+# v1: установка (сохраняет текущее как .rollback)
+sudo bash ops/server/install.sh root
+# v2: правка + установка (тот же каталог, новая версия)
+# …
+# откат: восстановление v1 побайтно + reload + restart
+sudo bash ops/server/install.sh rollback
+# активен ИМЕННО v1 (sha256 = пин v1)
+sudo bash ops/server/install.sh verify-start   # rc 0
+```
+
+Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание `/usr/local/sbin/.rollback`)
+переопределяет каталог предыдущей версии.
+
+## Обслуживание .git/config (снятие/возврат +i)
+
 ## Обслуживание .git/config (снятие/возврат +i)
 
 Контракт 081 запирает общий `<OPS_SERVER_MAIN>/.git/config` ядром ФС
