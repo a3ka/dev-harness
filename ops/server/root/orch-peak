@@ -158,15 +158,21 @@ current_session_dir() {
 }
 
 ORCH_SESS_GLOB="$SESS_GLOB"
-# Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
-# live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
-# (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит
-# scripts/lib_session.sh), определить live_subagents_in локально —
-# семантика идентична.
-if [ -f "${REPO}/scripts/lib_session.sh" ]; then
-  # shellcheck disable=SC1091
-  . "${REPO}/scripts/lib_session.sh"
+# Контракт 093 И-1: в root-контексте orch-peak НЕ читает код по путям,
+# записываемым не-root uid. Bootstrap-библиотека — ТОЛЬКО из установленного
+# root-owned источника ${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}
+# (рядом с orch-peak, ставится install.sh root как root:root 644). Подмена
+# файла или отсутствие → именованный отказ сторожа, не тихий fallback на
+# ${REPO} (который принадлежит harness и неприемлем в root-контексте).
+# Швы: OPS_SERVER_LIB_DST (адресат bootstrap), OPS_SERVER_LIB_SRC (источник
+# при ручной правке, по умолчанию $SBIN_DST/lib_session.sh).
+LIB_DST="${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}"
+if [ ! -f "$LIB_DST" ]; then
+  printf '%s orch-peak: И-1 (контракт 093) — bootstrap-библиотека не установлена: %s\n' "$(date -u +%FT%TZ)" "$LIB_DST" >> "$LOG"
+  exit 1
 fi
+# shellcheck disable=SC1091
+. "$LIB_DST"
 if ! declare -F live_subagents_in >/dev/null 2>&1; then
   live_subagents_in() {
     local sess_dir="${1:-}"
