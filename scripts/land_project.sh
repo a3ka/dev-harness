@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# НЕ БАРЬЕР: тонкая обёртка scripts/land_project.sh → scripts/accept_publish.sh (094 И-10),
+# без собственной merge-логики: вся merge-семантика — в двери (identity orchestrator,
+# --no-ff, перенос санкций 065 И-10, атомарный update-ref). Роль файла объявляет
+# он сам — НЕ БАРЬЕР; verify_antiplacebo выводит его из области per-file сканирования
+# (034, инв. 1/2).
+#
 # Тонкий wrapper scripts/land_project.sh → scripts/accept_publish.sh (контракт
 # 094, §Решения п.6). Тонкий вызов двери БЕЗ собственной merge-логики: вся
 # merge-семантика — в двери (identity orchestrator, --no-ff, перенос санкций,
