@@ -4,7 +4,7 @@
 # --kind brief (orch_brief, только оркестратору). Потребляет ПРОФИЛЬ через
 # scripts/profile_resolver.sh (Решение 1). ГРАММАТИКА CLI/отказов/секций
 # закреплена честной моделью fixtures/context_pack_095/model/dover.sh.
-# Коды возврата: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED (нет git/jq/sha256sum/awk).
+# НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 TAB="$(printf '\t')"
 die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
