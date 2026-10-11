@@ -7,6 +7,54 @@ set -uo pipefail
 : "${ORCH_GH_API:=https://api.github.com}"
 : "${ORCH_REPO:=}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_TREE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CHECKPOINT="$SCRIPT_DIR/orch_checkpoint.sh"
+
+# ORCH_REPO по умолчанию — корень дерева скрипта (прецедент ci_diag.sh): slug
+# берётся из git remote этого каталога (Б-1). `.git` — каталог в обычном
+# чекауте, ФАЙЛ с `gitdir:` в worktree — обе формы распознаём.
+if [ -z "$ORCH_REPO" ] && { [ -d "$SCRIPT_TREE_ROOT/.git" ] || [ -f "$SCRIPT_TREE_ROOT/.git" ]; }; then
+  ORCH_REPO="$SCRIPT_TREE_ROOT"
+fi
+
+# slug_for_repo <repo-dir> — OWNER/REPO из git remote origin URL (Б-1).
+slug_for_repo() {
+  local repo="$1" url=''
+  if [ -d "$repo" ]; then
+    url="$(git -C "$repo" remote get-url origin 2>/dev/null || true)"
+  fi
+  if [ -z "$url" ]; then
+    printf '%s' ""
+    return
+  fi
+  printf '%s' "$url" | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+)$#\2/\3#p' | sed -E 's/\.git$//'
+}
+
+# resolve_token — GITHUB_TOKEN из окружения либо .env (прецедент ci_diag).
+resolve_token() {
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    printf '%s' "$GITHUB_TOKEN"
+    return
+  fi
+  if [ -f "$SCRIPT_TREE_ROOT/.env" ]; then
+    grep -E '^GITHUB_TOKEN=' "$SCRIPT_TREE_ROOT/.env" 2>/dev/null | head -1 | cut -d= -f2-
+  fi
+}
+
+# read_state_task — текущий task из state.tsv, либо '-' если состояния нет.
+read_state_task() {
+  if [ ! -f "$ORCH_STATE_DIR/state.tsv" ]; then
+    printf -- '-'
+    return
+  fi
+  awk -F'\t' '$1=="task" {print $2; exit}' "$ORCH_STATE_DIR/state.tsv" 2>/dev/null \
+    | grep -E '.' || printf -- '-'
+}
+
+# Н-1: --sha без значения и --interval 0 — rc 2 (ошибка аргументов, не «CI
+# красный» и не «нечем проверить»). Реализовано НЕ через «$2: unbound variable»,
+# а явным отказом: set -u не даёт тихо работать с пустым значением.
 SHA=""
 TIMEOUT=""
 INTERVAL=5
@@ -14,10 +62,26 @@ ATTEMPTS=30
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --sha) SHA="$2"; shift 2 ;;
-    --timeout) TIMEOUT="$2"; shift 2 ;;
-    --interval) INTERVAL="$2"; shift 2 ;;
-    --attempts) ATTEMPTS="$2"; shift 2 ;;
+    --sha) [ "$#" -ge 2 ] || { printf "ci_wait: --sha требует значение\n" >&2; exit 2; }; SHA="$2"; shift 2 ;;
+    --timeout) [ "$#" -ge 2 ] || { printf "ci_wait: --timeout требует значение\n" >&2; exit 2; }; TIMEOUT="$2"; shift 2 ;;
+    --interval) [ "$#" -ge 2 ] || { printf "ci_wait: --interval требует значение\n" >&2; exit 2; }
+      # И-5: --interval должен быть положительным числом (Н-1: --interval 0 — rc 2).
+      # Допускаются дробные значения (клетки 3/14 гоняют 0.3/0.5 с) — проверка
+      # через python float, иначе bash ломается на «0.5» как «invalid number».
+      if ! python3 -c "import sys; v=float('$2'); sys.exit(0 if v>0 else 1)" 2>/dev/null; then
+        printf "ci_wait: --interval должен быть положительным числом: %s\n" "$2" >&2; exit 2
+      fi
+      INTERVAL="$2"
+      shift 2 ;;
+    --attempts) [ "$#" -ge 2 ] || { printf "ci_wait: --attempts требует значение\n" >&2; exit 2; }
+      if ! printf '%s' "$2" | grep -Eq '^[0-9]+$'; then
+        printf "ci_wait: --attempts должен быть положительным целым: %s\n" "$2" >&2; exit 2
+      fi
+      ATTEMPTS="$2"
+      if [ "$ATTEMPTS" -le 0 ]; then
+        printf "ci_wait: --attempts должен быть положительным целым: %s\n" >&2; exit 2
+      fi
+      shift 2 ;;
     --) shift; break ;;
     *) printf "ci_wait: неизвестный флаг %s\n" "$1" >&2; exit 2 ;;
   esac
@@ -28,54 +92,53 @@ if ! printf "%s" "$SHA" | grep -Eq "^[0-9a-f]{40}$"; then
   exit 2
 fi
 
-TASK="-"
-if [ -f "$ORCH_STATE_DIR/state.tsv" ]; then
-  T=$(awk -F'\t' '$1=="task" {print $2}' "$ORCH_STATE_DIR/state.tsv" 2>/dev/null || true)
-  [ -n "$T" ] && TASK="$T"
-fi
+TASK="$(read_state_task)"
 
-# Создать каталог state если нужно.
 mkdir -p "$ORCH_STATE_DIR" 2>/dev/null || true
 
-append_event() {
-  local kind="$1" subject="$2" ref="$3"
-  local ts
-  ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  printf "%s\t%s\t%s\t%s\n" "$ts" "$kind" "$subject" "$ref" >> "$ORCH_STATE_DIR/events.tsv" 2>/dev/null || true
+# Б-2: события wait-start/wait-done — ТОЛЬКО через orch_checkpoint.sh event.
+# Никаких прямых дозаписей events.tsv мимо checkpoint (ранее события терялись
+# при events.tsv read-only либо дублировались без дедупа).
+record_event() {  # <kind> <subject> <ref>
+  bash "$CHECKPOINT" event "$1" "$2" "$3" || exit "$?"
 }
-append_event "wait-start" "$TASK" "$SHA"
 
-# Вычислить owner/repo из ORCH_REPO (если это URL) или использовать default.
-REPO_SLUG="owner/repo"
+record_event "wait-start" "$TASK" "$SHA"
+
+# Б-1: slug берётся из git remote origin (НЕ заглушка «owner/repo»).
+# Если каталог не git-repo либо remote не GitHub — slug пуст, GitHub API
+# пропускается (rc 3 «нечем проверить: не GitHub-репо»).
+REPO_SLUG=""
 if [ -n "$ORCH_REPO" ]; then
-  EXTRACTED=$(ORCH_REPO="$ORCH_REPO" python3 -c "
-import re, os
-p = os.environ['ORCH_REPO']
-m = re.search(r'(?:ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(?:\.git)?$', p)
-if m: print(m.group(1) + '/' + m.group(2))
-" 2>/dev/null)
-  [ -n "$EXTRACTED" ] && REPO_SLUG="$EXTRACTED"
+  REPO_SLUG="$(slug_for_repo "$ORCH_REPO")"
 fi
 
 AUTH_HDR=()
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  AUTH_HDR=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
-fi
+TOKEN_VAL="$(resolve_token)"
+[ -n "$TOKEN_VAL" ] && AUTH_HDR=(-H "Authorization: Bearer ${TOKEN_VAL}")
 
 START=$(date +%s)
 N=0
 RC=3
 MSG="таймаут ожидания CI"
+if [ -z "$REPO_SLUG" ]; then
+  # Не git-repo или remote не GitHub — нет смысла опрашивать
+  printf "ci_wait: нечем проверить: не GitHub-репо\n" >&2
+  record_event "wait-done" "$TASK" "$SHA"
+  exit 3
+fi
 PATH_API="${ORCH_GH_API}/repos/${REPO_SLUG}/commits/${SHA}/check-runs?per_page=100"
 
 while [ "$N" -lt "$ATTEMPTS" ]; do
   N=$((N + 1))
   TMPF=$(mktemp)
-  HTTP_CODE=000
-  if curl -sS -m 10 -o "$TMPF" -w "%{http_code}" "${AUTH_HDR[@]}" -H 'Accept: application/vnd.github+json' "$PATH_API" 2>/dev/null > /tmp/dev-harness-verify/_curl_code_$$; then
-    HTTP_CODE=$(cat /tmp/dev-harness-verify/_curl_code_$$ 2>/dev/null || echo "000")
-  fi
-  rm -f /tmp/dev-harness-verify/_curl_code_$$
+  # Н-2: HTTP-код — НАПРЯМУЮ из curl -w, без побочного файла вне шва.
+  # curl пишет %{http_code} в stdout БЕЗ перевода строки; при отказе сети
+  # exit не нулевой, и $(... || echo 000) СКЛЕИВАЕТ «000» (curl) и «000»
+  # (echo) → «000000». Поэтому отдельная ветка по rc curl: при ненулевом
+  # rc — сразу HTTP_CODE=000, без склейки.
+  HTTP_CODE=$(curl -sS -m 10 -o "$TMPF" -w '%{http_code}' "${AUTH_HDR[@]}" \
+    -H 'Accept: application/vnd.github+json' "$PATH_API" 2>/dev/null) || HTTP_CODE="000"
 
   if [ "$HTTP_CODE" = "000" ] || [ "$HTTP_CODE" = "" ]; then
     RC=2
@@ -117,7 +180,11 @@ except Exception as e:
         RC=1; MSG="CI КРАСНЫЙ — check-run «$(echo "$EVAL" | awk '{print $2}')» → $(echo "$EVAL" | awk '{print $3}')"; rm -f "$TMPF"; break
         ;;
       no_runs)
-        MSG="прогонов CI нет"; rm -f "$TMPF"; break
+        # Б-6: total_count=0 — НЕЗАВЕРШЁННОЕ ожидание (прогонов ещё нет;
+        # обычное состояние сразу после push). Продолжаем опрос до таймаута
+        # либо исчерпания --attempts; НЕ немедленный rc 3.
+        MSG="прогонов CI нет"
+        rm -f "$TMPF"
         ;;
       pending)
         MSG="ещё идёт: $(echo "$EVAL" | awk '{print $2}')"; rm -f "$TMPF"
@@ -143,7 +210,7 @@ except Exception as e:
   sleep "$INTERVAL"
 done
 
-append_event "wait-done" "$TASK" "$SHA"
+record_event "wait-done" "$TASK" "$SHA"
 
 if [ -n "$MSG" ]; then
   printf "ci_wait: %s\n" "$MSG" >&2

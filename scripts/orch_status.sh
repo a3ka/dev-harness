@@ -17,15 +17,53 @@ P92L_NEZAKR="закрытие: не завершено"
 P92L_KRUGOV_PRE="кругов: "
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_TREE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CHECKPOINT="$SCRIPT_DIR/orch_checkpoint.sh"
+
+# ORCH_REPO по умолчанию — корень дерева скрипта (прецедент ci_diag.sh): slug
+# берётся из git remote этого каталога. Переменная всё ещё опциональна —
+# явный ORCH_REPO перебивает умолчание. `.git` — каталог в обычном чекауте,
+# ФАЙЛ с `gitdir:` в worktree — обе формы распознаём.
+if [ -z "$ORCH_REPO" ] && { [ -d "$SCRIPT_TREE_ROOT/.git" ] || [ -f "$SCRIPT_TREE_ROOT/.git" ]; }; then
+  ORCH_REPO="$SCRIPT_TREE_ROOT"
+fi
 
 get_state() {
   local key="$1"
   bash "$CHECKPOINT" get "$key"
 }
 
+# slug_for_repo <repo-dir> — печатает OWNER/REPO из git remote origin URL (Б-1).
+# Прецедент ci_diag.sh: тот же sed-регекс для ssh://git@github.com/, git@github.com:,
+# https://github.com/.
+slug_for_repo() {
+  local repo="$1" url=''
+  if [ -d "$repo" ]; then
+    url="$(git -C "$repo" remote get-url origin 2>/dev/null || true)"
+  fi
+  if [ -z "$url" ]; then
+    printf '%s' ""
+    return
+  fi
+  printf '%s' "$url" | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+)$#\2/\3#p' | sed -E 's/\.git$//'
+}
+
+# resolve_token — GITHUB_TOKEN из окружения либо .env в корне дерева скрипта
+# (прецедент ci_diag.sh; Б-1).
+resolve_token() {
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    printf '%s' "$GITHUB_TOKEN"
+    return
+  fi
+  if [ -f "$SCRIPT_TREE_ROOT/.env" ]; then
+    grep -E '^GITHUB_TOKEN=' "$SCRIPT_TREE_ROOT/.env" 2>/dev/null | head -1 | cut -d= -f2-
+  fi
+}
+
 if [ "${1:-}" = "--next" ]; then
-  get_state next_step
+  # Б-4: --next без состояния / вне грамматики — rc 1 (И-4). Безусловный exit 0
+  # ранее делал сводку «пустой строкой» с зелёным rc; роль-канал получал мусор.
+  get_state next_step || exit 1
   exit 0
 fi
 
@@ -58,7 +96,11 @@ printf "pub_state: %s\n" "$W_PUB"
 
 EVENTS="$ORCH_STATE_DIR/events.tsv"
 if [ -f "$EVENTS" ]; then
-  COUNT=$(awk -F'\t' -v t="$W_TASK" '$2=="round-fail" && $3==t {print $4}' "$EVENTS" | sort -u | wc -l)
+  # Б-5: значение W_TASK передаётся через ENVIRON, не через -v t="..." (эскейп-
+  # инъекция: awk -v раскрывает \t и прочие escape-последовательности в
+  # печатных токенах задачи, счёт кругов ломается). Контрактный формат: env
+  # W_TASK напрямую в awk.
+  COUNT=$(W_TASK="$W_TASK" awk -F'\t' 'BEGIN { t = ENVIRON["W_TASK"] } $2=="round-fail" && $3==t {print $4}' "$EVENTS" | sort -u | wc -l)
   printf "%s%d\n" "$P92L_KRUGOV_PRE" "$COUNT"
   if [ "$COUNT" -ge 3 ]; then
     printf "предел: арбитр\n"
@@ -68,6 +110,7 @@ else
 fi
 
 # Определить «опубликовано»: candidate достижим из refs/remotes/origin/main.
+# Снимаем GIT_CONFIG*, чтобы не утаскивать identity родителя.
 PUB_DA=1
 if [ -n "$ORCH_REPO" ] && [ "$W_CAND" != "-" ] && [ -d "$ORCH_REPO" ]; then
   REPO="$ORCH_REPO" CAND="$W_CAND" python3 -c "
@@ -100,26 +143,23 @@ if [ -n "$ORCH_REPO" ] && [ "$W_CAND" != "-" ]; then
 fi
 
 if [ "$NEED_REMOTE" -eq 1 ]; then
-  REPO_SLUG="owner/repo"
-  if [ -n "$ORCH_REPO" ]; then
-    EXTRACTED=$(ORCH_REPO="$ORCH_REPO" python3 -c "
-import re, os
-p = os.environ['ORCH_REPO']
-m = re.search(r'(?:ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(?:\.git)?$', p)
-if m: print(m.group(1) + '/' + m.group(2))
-" 2>/dev/null)
-    [ -n "$EXTRACTED" ] && REPO_SLUG="$EXTRACTED"
-  fi
-  AUTH_HDR=()
-  [ -n "${GITHUB_TOKEN:-}" ] && AUTH_HDR=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
-  TMPF=$(mktemp)
-  HTTP_CODE=000
-  if curl -sS -m 5 -o "$TMPF" -w "%{http_code}" "${AUTH_HDR[@]}" -H 'Accept: application/vnd.github+json' "${ORCH_GH_API}/repos/${REPO_SLUG}/commits/${W_CAND}/check-runs?per_page=100" 2>/dev/null > /tmp/dev-harness-verify/_curl_code_$$; then
-    HTTP_CODE=$(cat /tmp/dev-harness-verify/_curl_code_$$ 2>/dev/null || echo "000")
-  fi
-  rm -f /tmp/dev-harness-verify/_curl_code_$$
-  if [ "$HTTP_CODE" = "200" ] && [ -s "$TMPF" ]; then
-    REM=$(python3 -c "
+  # Б-1: slug берётся ИЗ git remote origin (прецедент ci_diag.sh), а не из
+  # заглушки «owner/repo». Если каталог не git-repo либо remote не GitHub —
+  # slug пуст, и GitHub API пропускается (удалённое состояние: неизвестно).
+  REPO_SLUG="$(slug_for_repo "$ORCH_REPO")"
+  if [ -n "$REPO_SLUG" ]; then
+    AUTH_HDR=()
+    TOKEN_VAL="$(resolve_token)"
+    [ -n "$TOKEN_VAL" ] && AUTH_HDR=(-H "Authorization: Bearer ${TOKEN_VAL}")
+    TMPF=$(mktemp)
+    # Н-2: HTTP-код берётся НАПРЯМУЮ из curl -w, без побочного файла
+    # /tmp/dev-harness-verify/_curl_code_$$ — это скрытое состояние вне шва
+    # и зависимость от существования каталога.
+    HTTP_CODE=$(curl -sS -m 5 -o "$TMPF" -w '%{http_code}' "${AUTH_HDR[@]}" \
+      -H 'Accept: application/vnd.github+json' \
+      "${ORCH_GH_API}/repos/${REPO_SLUG}/commits/${W_CAND}/check-runs?per_page=100" 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" = "200" ] && [ -s "$TMPF" ]; then
+      REM=$(python3 -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
 bad = [r for r in d.get('check_runs', []) if (r.get('conclusion') or '') != 'success']
@@ -129,15 +169,18 @@ else:
   r = bad[0]
   print('CI: ' + str(r.get('name','?')) + ' → ' + str(r.get('conclusion') or r.get('status','?')))
 " "$TMPF" 2>/dev/null)
-    if [ -n "$REM" ]; then
-      printf "%s\n" "$REM"
+      if [ -n "$REM" ]; then
+        printf "%s\n" "$REM"
+      else
+        printf "%s\n" "$P92L_NEIZV"
+      fi
     else
       printf "%s\n" "$P92L_NEIZV"
     fi
+    rm -f "$TMPF"
   else
     printf "%s\n" "$P92L_NEIZV"
   fi
-  rm -f "$TMPF"
 else
   printf "%s\n" "$P92L_NEIZV"
 fi

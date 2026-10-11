@@ -12,6 +12,16 @@ PYBIN=python3
 
 : "${ORCH_STATE_DIR:=/tmp/dev-harness-verify/orch-state}"
 
+SCRIPT_DIR_CK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_TREE_ROOT_CK="$(cd "$SCRIPT_DIR_CK/.." && pwd)"
+# ORCH_REPO опционален: умолчание — корень дерева скрипта (прецедент
+# ci_diag.sh, Б-1). Если каталог не git-repo — git-факты возвращают 1,
+# pub_proven читается только из журнала. `.git` — каталог в обычном
+# чекауте, ФАЙЛ с `gitdir:` в worktree — обе формы распознаём.
+if [ -z "${ORCH_REPO:-}" ] && { [ -d "$SCRIPT_TREE_ROOT_CK/.git" ] || [ -f "$SCRIPT_TREE_ROOT_CK/.git" ]; }; then
+  ORCH_REPO="$SCRIPT_TREE_ROOT_CK"
+fi
+
 if [ "$#" -lt 1 ]; then
   printf "NOT_IMPLEMENTED: нет subcommand\n" 1>&2
   exit 2
@@ -185,43 +195,86 @@ def atomic_write_state(m):
         except OSError: pass
         refuse(L_ZAPFAIL)
 
+def read_events_bytes():
+    try:
+        with open(EVENTS, "rb") as f: return f.read()
+    except (FileNotFoundError, PermissionError, OSError): return b""
+
+def events_writable():
+    # Если events.tsv существует и помечен read-only (chmod a-w), отказываем
+    # в записи. Это согласовано с моделью «уважай намерение пользователя»:
+    # запрет записи в журнал = сигнал «не пиши», и через rename-обходник
+    # (который успешно перезаписывает read-only файл) всё равно не пишем.
+    # Конформный кейс — chmod a-w events.tsv; тогда атомарность «нет записи»
+    # соблюдается без двойной записи.
+    if not os.path.exists(EVENTS): return True
+    return os.access(EVENTS, os.W_OK)
+
 def atomic_append_event(kind, subject, ref):
+    if not events_writable():
+        refuse(L_ZAPFAIL)
     ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     line = (ts + "\t" + kind + "\t" + subject + "\t" + ref + "\n").encode("utf-8")
+    prior = read_events_bytes()
+    new_data = prior + line
+    tmp = os.path.join(STATE_DIR, ".events.tsv.tmp")
     try:
-        with open(EVENTS, "ab") as f:
-            f.write(line)
+        with open(tmp, "wb") as f:
+            f.write(new_data)
             f.flush()
             os.fsync(f.fileno())
     except OSError:
+        try: os.unlink(tmp)
+        except OSError: pass
+        refuse(L_ZAPFAIL)
+    try:
+        os.replace(tmp, EVENTS)
+    except OSError:
+        try: os.unlink(tmp)
+        except OSError: pass
         refuse(L_ZAPFAIL)
 
 def composite_write(m, kind, subject, ref):
+    if not events_writable():
+        refuse(L_ZAPFAIL)
     data = state_bytes(m)
     line = (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) + "\t" + kind + "\t" + subject + "\t" + ref + "\n").encode("utf-8")
-    tmp = os.path.join(STATE_DIR, ".state.tsv.tmp")
+    prior = read_events_bytes()
+    new_events = prior + line
+    tmp_state = os.path.join(STATE_DIR, ".state.tsv.tmp")
+    tmp_events = os.path.join(STATE_DIR, ".events.tsv.tmp")
     try:
-        with open(tmp, "wb") as f:
+        with open(tmp_events, "wb") as f:
+            f.write(new_events)
+            f.flush()
+            os.fsync(f.fileno())
+    except OSError:
+        try: os.unlink(tmp_events)
+        except OSError: pass
+        refuse(L_ZAPFAIL)
+    try:
+        with open(tmp_state, "wb") as f:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
     except OSError:
-        try: os.unlink(tmp)
+        try: os.unlink(tmp_state)
+        except OSError: pass
+        try: os.unlink(tmp_events)
         except OSError: pass
         refuse(L_ZAPFAIL)
     try:
-        with open(EVENTS, "ab") as f:
-            f.write(line)
-            f.flush()
-            os.fsync(f.fileno())
+        os.replace(tmp_events, EVENTS)
     except OSError:
-        try: os.unlink(tmp)
+        try: os.unlink(tmp_state)
+        except OSError: pass
+        try: os.unlink(tmp_events)
         except OSError: pass
         refuse(L_ZAPFAIL)
     try:
-        os.replace(tmp, STATE)
+        os.replace(tmp_state, STATE)
     except OSError:
-        try: os.unlink(tmp)
+        try: os.unlink(tmp_state)
         except OSError: pass
         refuse(L_ZAPFAIL)
 

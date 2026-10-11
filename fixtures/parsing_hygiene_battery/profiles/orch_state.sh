@@ -5,28 +5,9 @@
 # а батарея судит, что дрейфа нет.
 PR_SUBJ="$(cd "$HERE/../.." && pwd -P)/scripts/orch_checkpoint.sh"
 
-# ── строители toy-мира ────────────────────────────────────────────────────────
-layer_make() { # $1=каталог слоя
-  mkdir -p "$1/registry"
-  printf '{"schemaVersion":1,"version":"v10","projectId":"p1","workspaceId":"w1","defaults":{"language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"barriers":{"mandatory":[],"optional":[]}}}' > "$1/registry/harness-project.json"
-}
-repo_make() { # $1=каталог репо, $2=extra-json-fragment для репо-слоя (или "")
-  local extra="$2"
-  if [ -z "$extra" ]; then
-    extra_frag=''
-  else
-    extra_frag=",$extra"
-  fi
-  mkdir -p "$1/config"
-  printf '{"schemaVersion":1,"repoId":"r1","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"x","build":"y","typecheck":"z","lint":"w"},"git":{"canonicalRemote":"git"},"ci":{"workflow":"ci.yml"},"barriers":{"mandatory":[],"optional":[]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"}}' > "$1/harness.project.json"
-  : > "$1/ci.yml"
-}
-
 battery_delimiter_collision() {
   local w
   w="$(mktemp -d "${TMPDIR:-/tmp}/battery_orc_dc.XXXXXX")"
-  layer_make "$w/layer"
-  repo_make "$w/repo" '"injected":"v"'
   local out rc
   out="$(ORCH_STATE_DIR="$w/state" mkdir -p "$w/state" 2>&1; ORCH_STATE_DIR="$w/state" bash "$PR_SUBJ" put task "task-with-injected:colon" 2>&1)"; rc=$?
   rm -rf "$w"
