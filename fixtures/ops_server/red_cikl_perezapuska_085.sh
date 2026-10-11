@@ -21,23 +21,51 @@
 #   л1-л10 И-3: цикл в скратче, сессия-подделка по плану, токен на сессию (early — маркер
 #       на 1 с; normal — на 8 с; exit/crash — выход 0/1; stopkill — ORCH_STOP и выход 143;
 #       cancel — маркер снят в GRACE, сам выход 0; termrm — снятие маркера на SIGTERM;
-#       oom — SIGKILL себе, rc 137); шим systemd-run в PATH исполняет команду после «--»
-#       exec'ом (как --scope); ORCH_GRACE=1 ORCH_MIN_LIFE=9 ORCH_EARLY_WAIT=1
+#       oom — SIGKILL себе, rc 137); мир цикла несёт заглушки тест-режима 093: шим
+#       systemd-run и заглушки sudo/getent — первыми в PATH ТОЛЬКО субъекта клетки
+#       (см. «Заглушки тест-режима 093» ниже) — сессия-подделка проходит путь 093:
+#       systemd-run --scope → sh → sudo -nu orchagent → workshop;
+#       ORCH_GRACE=1 ORCH_MIN_LIFE=9 ORCH_EARLY_WAIT=1
 #       ORCH_EARLY_MAX=3, если клетка не задаёт иное; л9/л10 — смешанные планы
 #       ранний/падение: общий счёт нештатных завершений подряд (И-3);
 #   п1-п11 И-4: сторож в мире шва ORCH_PEAK_TEST 080 (say.log, omp-pids, killed.log),
 #       ORCH_USER=nobody (дом /nonexistent: запись в пути станции невозможна),
 #       ORCH_LOOP_STOP в скратче, toy-repo с bare origin, журнал верхнего уровня с usage;
 #       пороги CTX_* и IDLE — умолчания субъекта; п5 — четыре входа, каждый своей строкой;
-#   м1-м4, м6 И-5: шим systemd-run (журнал argv, XDG_RUNTIME_DIR, вида и исхода вызова;
-#       pass — exec после «--»; refuse — rc 1 без исполнения на каждом вызове;
-#       refuse-first-session — rc 1 без исполнения ровно на первом запуске сессии, прочие
-#       вызовы — exec; запуск сессии — команда после «--» кончается вызовом workshop станции,
-#       правило — только в шиме); м5 — живой systemd-run --user (где user-менеджера нет —
-#       «пропуск с пометкой»);
+#   м1-м4, м6 И-5 (семантика 093: ветка запуска-без-потолка удалена): шим systemd-run
+#       (журнал argv, XDG_RUNTIME_DIR, вида и исхода вызова; pass — exec после «--»;
+#       refuse — rc 1 без исполнения на каждом вызове; refuse-first-session — rc 1 без
+#       исполнения ровно на первом запуске сессии, прочие вызовы — exec); запуск сессии —
+#       команда после «--» кончается парой «workshop MSG» (правило — только в шиме);
+#       м1/м2 сверх вектора scope судят журнал заглушки sudo: ≥1 вызов
+#       «-nu orchagent <workshop> --yolo -- <MSG>» — путь 093 (И-3) предъявлен;
+#       м4 — отказ scope = именованный отказ (LIT_REFUSE093), сессия НЕ стартует,
+#       цикл останавливается; м6 — отказ ровно первого запуска сессии: именованный
+#       отказ и останов, вызовов-проб systemd-run нет (каждый вызов — запуск сессии);
+#       м5 — живой systemd-run --user с заглушками sudo/getent в PATH субъекта
+#       (где user-менеджера нет — «пропуск с пометкой»);
 #   с1, с2 (режим stancija) И-8: живая станция; с1 — три пути и оба юнита orch-memcap.
-# Граница наблюдаемости: шим подменяет systemd-run через PATH (как и прочие команды
-# станционной версии, вызов по имени); абсолютный путь мимо PATH — «не вызван», красное.
+# Граница наблюдаемости: шим и заглушки подменяют systemd-run/sudo/getent через PATH
+#       ТОЛЬКО субъекта клеток — скратч-каталоги батареи, вычищаются по EXIT, глобальный
+#       PATH вызывающего не трогается; абсолютный путь мимо PATH — «не вызван», красное.
+#
+# Заглушки тест-режима 093 (слово владельца 2026-10-11 ~14:10+14:20 UTC, задача п.3
+# fork n266): живут ТОЛЬКО в тестовых каталогах батареи (скратч tmp, НЕ ops/server/*,
+# НЕ в production-путях), первыми в PATH только на время прогона клетки.
+#   sudo    — пропускает ТОЛЬКО форму «-nu orchagent <команда>…» (exec команды);
+#             каждый вызов журналируется (argv через NUL) в $W/stub/sudo/call.N;
+#             пользователь обязан разрешаться «getent passwd orchagent» — фиктивной
+#             записи станции (заглушка getent ниже); не разрешается — как живой sudo:
+#             «sudo: unknown user: orchagent», rc 1; любой иной вызов — stderr
+#             «заглушка sudo: неожиданный вызов: <аргументы>», rc 97;
+#   systemd-run (шим) — пропускает ТОЛЬКО форму живого orch-loop контракта 093
+#             («--user --scope … -p MemoryMax=<лимит> -p MemorySwapMax=0 -- <команда>»,
+#             сверено с кодом ops/server/user/orch-loop); иной вызов — stderr
+#             «заглушка systemd-run: неожиданный вызов: <аргументы>», rc 97;
+#   getent  — отвечает ТОЛЬКО на «passwd orchagent» фиктивной записью
+#             orchagent:x:9093:9093::/var/lib/orch-agent:/usr/sbin/nologin (дом —
+#             AGENT_HOME живого orch-loop по умолчанию); каждый вызов журналируется
+#             в $W/stub/getent/call.N; иной вызов — rc 2, как живой getent на пустой записи.
 #
 # Н-39: привязка стабов к входам — список STUBS построителя ниже (id, клетка, метка,
 # основа, правки): снимки прежних версий и мутации честной симуляции. Мера смерти
@@ -89,6 +117,9 @@ LIT_NOT_OWNER='НЕ слово владельца'
 LIT_OWNER='ВЛАДЕЛЕЦ (автоматически'
 LIT_OOM='OOM: omp убит потолком памяти'
 LIT_NOCAP='БЕЗ ПОТОЛКА ПАМЯТИ'
+# И-5 контракта 093 (замена ветки запуска-без-потолка): именованный отказ, сессия
+# не стартует, цикл останавливается; литерал — из живого ops/server/user/orch-loop.
+LIT_REFUSE093='ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)'
 LINE_LAUNCH='"$WORKSHOP" --yolo -- "$MSG"; rc=$?'
 LINE_KILLSTOP='  as_u touch "$UHOME/orch-loop.stop"   # намеренный останов: цикл не примет его за падение'
 PEAK_SESS='20261005T120000_00000000-0085-0085-0085-000000000001'
@@ -220,10 +251,10 @@ NOBODY_HOME="$(getent passwd nobody | cut -d: -f6)"
   || die2 "нечем проверить: нужен пользователь nobody без живого дома (демаркация 085), дом: «${NOBODY_HOME:-нет}»"
 
 # ── построитель: FIXSIM (честная симуляция из снимков) и стабы (Н-39) ─────────
-python3 - "$SCRATCH" "$PHRASE_OK" "$LIT_OOM" "$LIT_NOCAP" "$LINE_LAUNCH" "$LINE_KILLSTOP" \
+python3 - "$SCRATCH" "$PHRASE_OK" "$LIT_OOM" "$LIT_NOCAP" "$LIT_REFUSE093" "$LINE_LAUNCH" "$LINE_KILLSTOP" \
   >"$SCRATCH/stubs.tsv" 2>"$SCRATCH/builder.err" <<'PYEOF'
 import os, sys
-S, PHRASE_OK, LIT_OOM, LIT_NOCAP, LINE_LAUNCH, LINE_KILLSTOP = sys.argv[1:7]
+S, PHRASE_OK, LIT_OOM, LIT_NOCAP, LIT_REFUSE093, LINE_LAUNCH, LINE_KILLSTOP = sys.argv[1:8]
 
 def rd(name):
     with open(os.path.join(S, 'snap', name), encoding='utf-8') as f:
@@ -241,24 +272,33 @@ def sub1(text, old, new, what):
         raise ValueError('%s: якорь встречается %d раз(а)' % (what, c))
     return text.replace(old, new, 1)
 
-# FIXSIM orch-loop = станция + потолок памяти + общий счёт (И-2, И-3, И-5): только вставки,
-# строка запуска сессии заменена блоком запуска.
+# FIXSIM orch-loop = станция + потолок памяти + общий счёт (И-2, И-3) + запуск 093: только
+# вставки, строка запуска сессии заменена блоком запуска. Семантика И-5 — контракта 093
+# (заменила 085, «замена не наслоение»): без scope сессия НЕ стартует — именованный отказ
+# и останов; запуск — через sudo -nu $AGENT_USER внутри scope (И-3 093), как в живом
+# ops/server/user/orch-loop (свидетель $RAN, HOME сессии — AGENT_HOME).
 MEM_DEF = 'MEM_MAX="${ORCH_MEM_MAX:-32G}"   # потолок памяти сессии omp (контракт 085, И-5)\n'
 XDG_LINE = 'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"\n'
 NOCAP_LINE = ('  scoped=0; log "сессия #$n: @L@ — systemd-run --user --scope не создал scope"\n'
               .replace('@L@', LIT_NOCAP))
 DIRECT_LINE = '  ' + LINE_LAUNCH + '\n'
-RAN_TEST = 'if [ -e "$RAN" ]; then\n'
-RUN_HONEST = ('RAN="$MARK.scoped"; rm -f "$RAN"\n'
-              '"${SCOPE[@]}" -- sh -c \': >"$1" && shift && exec "$@"\' sh "$RAN" "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
-              + RAN_TEST + '  scoped=1\nelse\n' + NOCAP_LINE + DIRECT_LINE + 'fi\nrm -f "$RAN"\n')
-LAUNCH = ("# Потолок памяти (контракт 085, И-5): --scope исполняет команду exec'ом — omp остаётся\n"
-          '# прямым потомком цикла. Отказ systemd-run (rc≠0 до исполнения) и rc сессии по rc\n'
-          '# неразличимы: факт исполнения — свидетель $RAN, его пишет префикс команды до exec\n'
-          '# workshop; свидетеля нет — сессия без потолка, со строкой журнала; отказ — не падение.\n'
+REFUSE_LINE = '  log "сессия #$n: @L@"\n'.replace('@L@', LIT_REFUSE093)
+REFUSE_ARM = REFUSE_LINE + '  kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null\n  exit 1\n'
+RAN_TEST = 'if [ ! -e "$RAN" ]; then\n'
+SCOPE_CMD = ('"${SCOPE[@]}" -- sh -c \': >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"\' \\\n'
+             '  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$WORKSHOP" "$MSG"; rc=$?\n')
+RUN_HONEST = ('RAN="$MARK.scoped"; rm -f "$RAN"\n' + SCOPE_CMD
+              + 'if [ ! -e "$RAN" ]; then\n' + REFUSE_ARM + 'fi\n'
+              'scoped=1\nrm -f "$RAN"\n')
+AGENT_DEF = ('AGENT_USER="${ORCH_AGENT_USER:-${ORCH_LOOP_AGENT_USER:-orchagent}}"\n'
+             'AGENT_HOME="${ORCH_AGENT_HOME:-${ORCH_LOOP_AGENT_HOME:-/var/lib/orch-agent}}"\n')
+LAUNCH = ("# Потолок памяти и uid агента (085→093, И-3/И-5): --scope исполняет команду\n"
+          "# exec'ом; свидетель $RAN пишет префикс команды до exec sudo; И-3 093: сессия\n"
+          "# под uid агента (sudo -nu $AGENT_USER), HOME сессии — AGENT_HOME; без scope —\n"
+          "# именованный отказ и останов (И-5 093; ветка запуска-без-потолка удалена).\n"
           + XDG_LINE +
           'SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)\n'
-          + RUN_HONEST)
+          + AGENT_DEF + RUN_HONEST)
 OOM_LINE = ('  [ "$rc" -eq 137 ] && [ "$scoped" -eq 1 ] && log "сессия #$n: @L@ (MemoryMax=$MEM_MAX, rc=137)"\n'
             .replace('@L@', LIT_OOM))
 CRASH = '  crash=$(( ${ORCH_CRASH:-0} + 1 ));'
@@ -276,16 +316,21 @@ loop = sub1(loop, EXEC_C, CNT_C + EXEC_C, 'FIXSIM loop: общий счёт (п�
 loop = sub1(loop, EXEC_E, CNT_E + EXEC_E, 'FIXSIM loop: общий счёт (ранний)')
 wr(os.path.join(S, 'fixsim', 'orch-loop'), loop)
 
-# Обманные блоки запуска (стабы м6): проба вместо факта исполнения; повторная проба после
-# rc≠0; «после отказа scope больше не пробовать».
-PROBE_RUN = ('if "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n'
-             '  scoped=1; "${SCOPE[@]}" -- "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
-             'else\n' + NOCAP_LINE + DIRECT_LINE + 'fi\n')
-REPROBE_RUN = ('scoped=1; "${SCOPE[@]}" -- "$WORKSHOP" --yolo -- "$MSG"; rc=$?\n'
-               'if [ "$rc" -ne 0 ] && ! "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n'
-               + NOCAP_LINE + DIRECT_LINE + 'fi\n')
-NOSCOPE_RUN = ('if [ -n "${ORCH_NOSCOPE:-}" ]; then\n' + NOCAP_LINE + DIRECT_LINE + 'else\n'
-               + RUN_HONEST.replace(NOCAP_LINE, NOCAP_LINE + '  export ORCH_NOSCOPE=1\n') + 'fi\n')
+# Обманные блоки запуска (стабы м4/м6, семантика 093): проба вместо факта исполнения;
+# повторная проба после rc≠0; отказ scope, засчитанный падением; «после отказа — без
+# systemd-run»; «нет scope — запуск без потолка» (живая ветка 085 — теперь обман);
+# «останов без именованного отказа».
+NOCAP_RUN = RUN_HONEST.replace(REFUSE_ARM, NOCAP_LINE + DIRECT_LINE)
+PROBE_RUN = ('if "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n' + RUN_HONEST
+             + 'else\n' + REFUSE_ARM + 'fi\n')
+REPROBE_RUN = ('RAN="$MARK.scoped"; rm -f "$RAN"\nscoped=1; ' + SCOPE_CMD
+               + 'if [ "$rc" -ne 0 ] && ! "${SCOPE[@]}" -- true >/dev/null 2>&1; then\n'
+               + REFUSE_ARM + 'fi\n' + 'rm -f "$RAN"\n')
+CRASHREF_RUN = RUN_HONEST.replace(
+    REFUSE_ARM,
+    '  crash=$(( ${ORCH_CRASH:-0} + 1 )); [ "$crash" -lt "$EARLY_MAX" ] || exit 1\n'
+    '  sleep "$EARLY_WAIT"\n  ORCH_N="$n" ORCH_CRASH="$crash" exec "$0"\n')
+NOSCOPE_RUN = RUN_HONEST.replace(REFUSE_ARM, NOCAP_LINE + DIRECT_LINE + '  export ORCH_NOSCOPE=1\n')
 
 # FIXSIM orch-peak = снимок слияния, три конфликта разрешены объединением намерений (И-1):
 # (1) подпись станции + ожидание субагентов 080; (2) Н-189 перед транзакцией 080 (опрос,
@@ -362,13 +407,15 @@ STUBS = [
    [('[ -e "$GO" ] && touch "$MARK"\n', '')]),
   ('s12', 'l8', 'каждый маркер считается ранним', 'loop',
    [('if [ "$life" -lt "$MIN_LIFE" ]; then', 'if true; then')]),
-  # м1..м4: мутации потолка памяти
+  # м1..м3: мутации потолка памяти; м4 (семантика 093): мутации ветки отказа scope
   ('s13', 'm1', 'XDG_RUNTIME_DIR не выставлен', 'loop', [(XDG_LINE, '')]),
   ('s14', 'm2', 'потолок зашит 32G мимо ORCH_MEM_MAX', 'loop',
    [('MEM_MAX="${ORCH_MEM_MAX:-32G}"', 'MEM_MAX=32G')]),
   ('s15', 'm3', 'OOM без строки журнала', 'loop', [(OOM_LINE, '')]),
-  ('s16', 'm4', 'нет scope — останов цикла', 'loop', [(NOCAP_LINE + DIRECT_LINE, NOCAP_LINE + '  exit 1\n')]),
-  ('s17', 'm4', 'нет scope — без строки журнала', 'loop', [(NOCAP_LINE, '  scoped=0\n')]),
+  ('s16', 'm4', 'нет scope — запуск без потолка (ветка 085 жива)', 'loop',
+   [(RUN_HONEST, NOCAP_RUN)]),
+  ('s17', 'm4', 'нет scope — останов без именованного отказа', 'loop',
+   [(REFUSE_LINE, '')]),
   # п1..п11: мутации честного сторожа
   ('s18', 'p2', 'Н-189 отказывает всегда', 'peak',
    [('if [ "$now" != "$sess" ]; then', 'if true; then')]),
@@ -397,15 +444,16 @@ STUBS = [
    [('IDLE="${ORCH_IDLE:-1800}"', 'IDLE="${ORCH_IDLE:-1700}"')]),
   ('s30', 'p11', 'шов ORCH_LOOP_STOP проигнорирован', 'peak',
    [('LOOP_STOP="${ORCH_LOOP_STOP:-$UHOME/orch-loop.stop}"', 'LOOP_STOP="$UHOME/orch-loop.stop"')]),
-  # м6/л3 (И-5в): отказ запуска сессии и rc исполненной сессии — различение по факту исполнения
-  ('s31', 'm6', 'проба вместо факта исполнения: отказ запуска после успешной пробы — падение', 'loop',
+  # м6/л3 (И-5 093): отказ запуска сессии и rc исполненной сессии — различение по факту
+  # исполнения; каждый вызов systemd-run — запуск сессии (проб быть не должно)
+  ('s31', 'm6', 'проба вместо факта исполнения: вызов-проба до запуска сессии', 'loop',
    [(RUN_HONEST, PROBE_RUN)]),
   ('s32', 'm6', 'повторная проба после rc≠0 вместо факта исполнения', 'loop', [(RUN_HONEST, REPROBE_RUN)]),
-  ('s33', 'm6', 'отказ scope засчитан падением', 'loop',
-   [(NOCAP_LINE, NOCAP_LINE + '  export ORCH_CRASH=$(( ${ORCH_CRASH:-0} + 1 ))\n')]),
+  ('s33', 'm6', 'отказ scope засчитан падением — перезапуск цикла', 'loop',
+   [(RUN_HONEST, CRASHREF_RUN)]),
   ('s34', 'm6', 'после отказа scope следующие сессии — без systemd-run', 'loop', [(RUN_HONEST, NOSCOPE_RUN)]),
-  ('s35', 'l3', 'отказ определён по rc: падение исполненной сессии — прямой перезапуск', 'loop',
-   [(RAN_TEST, 'if [ "$rc" -eq 0 ]; then\n')]),
+  ('s35', 'l3', 'отказ определён по rc: падение исполненной сессии — именованный отказ', 'loop',
+   [(RAN_TEST, 'if [ "$rc" -ne 0 ]; then\n')]),
   # л9/л10 (И-3): общий счёт нештатных завершений подряд — каждая мутация к плану, где видна
   ('s36', 'l9', 'счёт станции: счётчик вида копится через событие другого вида', 'loop',
    [(CNT_C, ''), (CNT_E, '')]),
@@ -444,23 +492,57 @@ hash8() { if [ -f "$1" ]; then sha256sum <"$1" | cut -c1-8; else printf 'нет 
 # ── шим systemd-run ────────────────────────────────────────────────────────────
 cat >"$SCRATCH/shimbin/systemd-run" <<'SHIMEOF'
 #!/usr/bin/env bash
-# шим systemd-run батареи 085: журнал вызова (argv через NUL, XDG_RUNTIME_DIR, вид, исход) и
-# режим CIKL085_SHIM_MODE: pass — exec команды после первого «--» (тот же процесс, как
-# --scope); refuse — отказ rc 1 без исполнения на каждом вызове (как «Failed to connect to
-# bus: No medium found»); refuse-first-session — отказ rc 1 без исполнения ровно на первом
-# запуске сессии, прочие вызовы — exec. Вид вызова — единственный источник правила (И-5а):
-# запуск сессии — команда после первого «--» кончается вызовом workshop станции
-# «$CIKL085_SHIM_WS --yolo -- $CIKL085_SHIM_MSG»; иначе — проба.
+# шим systemd-run батареи 085 = заглушка тест-режима 093 (слово владельца 2026-10-11
+# ~14:10 UTC, задача п.3 fork n266): журнал вызова (argv через NUL, XDG_RUNTIME_DIR, вид,
+# исход) и режим CIKL085_SHIM_MODE: pass — exec команды после первого «--» (тот же
+# процесс, как --scope); refuse — отказ rc 1 без исполнения на каждом вызове (как
+# «Failed to connect to bus: No medium found»); refuse-first-session — отказ rc 1 без
+# исполнения ровно на первом запуске сессии, прочие вызовы — exec. Вид вызова —
+# единственный источник правила (И-5а): запуск сессии — команда после первого «--»
+# кончается парой «$CIKL085_SHIM_WS <CIKL085_SHIM_MSG>» (форма 093: запуск сессии —
+# sh -c-обёртка sudo -nu, хвост argv — workshop и MSG); иначе — проба.
+# Пропускает ТОЛЬКО форму живого orch-loop 093: --user --scope с лимитом памяти
+# (-p MemoryMax=<значение> -p MemorySwapMax=0) и «--»; иной вызов — stderr
+# «заглушка systemd-run: неожиданный вызов: <аргументы>», rc 97.
 d="${CIKL085_SHIM_DIR:?}"
 i=1; while [ -e "$d/call.$i" ]; do i=$((i + 1)); done
 printf '%s\0' "$@" >"$d/call.$i"
 printf '%s' "${XDG_RUNTIME_DIR-<не задан>}" >"$d/xdg.$i"
 args=("$@"); n=${#args[@]}; first=-1
 for k in "${!args[@]}"; do [ "${args[$k]}" = -- ] && { first=$k; break; }; done
+bad=0
+if [ "$first" -le 0 ]; then
+  bad=1
+else
+  has_user=0; has_scope=0; memmax=''; swap=''
+  k=0
+  while [ "$k" -lt "$first" ]; do
+    t="${args[$k]}"; k=$((k + 1))
+    case "$t" in
+      --user) has_user=1 ;;
+      --scope) has_scope=1 ;;
+      -q) ;;
+      -p|--property)
+        [ "$k" -lt "$first" ] || { bad=1; break; }
+        v="${args[$k]}"; k=$((k + 1))
+        case "$v" in
+          MemoryMax=*) memmax="${v#MemoryMax=}" ;;
+          MemorySwapMax=*) swap="${v#MemorySwapMax=}" ;;
+          *) bad=1; break ;;
+        esac ;;
+      *) bad=1; break ;;
+    esac
+  done
+  # --user и --scope обязаны присутствовать, лимит — непуст, своп — ровно 0
+  [ "$has_user" = 1 ] && [ "$has_scope" = 1 ] && [ -n "$memmax" ] && [ "$swap" = 0 ] || bad=1
+fi
+if [ "$bad" = 1 ]; then
+  printf 'заглушка systemd-run: неожиданный вызов: %s\n' "$*" >&2
+  exit 97
+fi
 sess=0
-if [ "$first" -ge 0 ] && [ $((n - first - 1)) -ge 4 ] && [ -n "${CIKL085_SHIM_WS:-}" ] \
-   && [ "${args[$((n - 4))]}" = "$CIKL085_SHIM_WS" ] && [ "${args[$((n - 3))]}" = --yolo ] \
-   && [ "${args[$((n - 2))]}" = -- ] && [ "${args[$((n - 1))]}" = "${CIKL085_SHIM_MSG:-}" ]; then
+if [ $((n - first - 1)) -ge 2 ] && [ -n "${CIKL085_SHIM_WS:-}" ] \
+   && [ "${args[$((n - 2))]}" = "$CIKL085_SHIM_WS" ] && [ "${args[$((n - 1))]}" = "${CIKL085_SHIM_MSG:-}" ]; then
   sess=1
 fi
 printf '%s' "$sess" >"$d/kind.$i"
@@ -475,11 +557,55 @@ if [ "$refuse" = 1 ]; then
 fi
 printf 'exec' >"$d/st.$i"
 while [ $# -gt 0 ] && [ "$1" != -- ]; do shift; done
-[ $# -gt 0 ] || { echo 'шим systemd-run: нет «--» — вне грамматики 085' >&2; exit 1; }
 shift
 exec "$@"
 SHIMEOF
 chmod 755 "$SCRATCH/shimbin/systemd-run"
+
+# ── заглушки sudo/getent тест-режима 093 ───────────────────────────────────────
+mkdir -p "$SCRATCH/stubbin"
+cat >"$SCRATCH/stubbin/sudo" <<'SUDOEOf'
+#!/usr/bin/env bash
+# заглушка sudo батареи 085 (слово владельца 2026-10-11 ~14:10 UTC, задача п.3 fork
+# n266): тест-мир станции 093 — install.sh root провизионит пользователя orchagent,
+# здесь его нет. Пропускает ТОЛЬКО форму «-nu orchagent <команда>…» — exec команды
+# (uid переключения НЕТ: клетка меряет вектор пути, а не uid). Каждый вызов
+# журналируется (argv через NUL) в $CIKL085_SUDO_DIR/call.N. Пользователь обязан
+# разрешаться «getent passwd orchagent» (фиктивная запись — заглушка getent этой же
+# батареи): не разрешается — как живой sudo, «sudo: unknown user: orchagent», rc 1.
+# Любой иной вызов — stderr «заглушка sudo: неожиданный вызов: <аргументы>», rc 97.
+d="${CIKL085_SUDO_DIR:?}"
+i=1; while [ -e "$d/call.$i" ]; do i=$((i + 1)); done
+printf '%s\0' "$@" >"$d/call.$i"
+if [ "$#" -lt 2 ] || [ "$1" != -nu ] || [ "$2" != orchagent ]; then
+  printf 'заглушка sudo: неожиданный вызов: %s\n' "$*" >&2
+  exit 97
+fi
+getent passwd orchagent >/dev/null || {
+  echo 'sudo: unknown user: orchagent' >&2
+  exit 1
+}
+shift 2
+exec "$@"
+SUDOEOf
+chmod 755 "$SCRATCH/stubbin/sudo"
+cat >"$SCRATCH/stubbin/getent" <<'GETEOf'
+#!/usr/bin/env bash
+# заглушка getent батареи 085: отвечает ТОЛЬКО на «passwd orchagent» фиктивной записью
+# пользователя станции 093 — orchagent:x:9093:9093::/var/lib/orch-agent:/usr/sbin/nologin
+# (дом — AGENT_HOME живого orch-loop по умолчанию). Каждый вызов журналируется (argv
+# через NUL) в $CIKL085_GETENT_DIR/call.N; иной вызов — rc 2 без вывода, как живой
+# getent на отсутствующей записи.
+d="${CIKL085_GETENT_DIR:?}"
+i=1; while [ -e "$d/call.$i" ]; do i=$((i + 1)); done
+printf '%s\0' "$@" >"$d/call.$i"
+if [ "$#" -eq 2 ] && [ "$1" = passwd ] && [ "$2" = orchagent ]; then
+  printf 'orchagent:x:9093:9093::/var/lib/orch-agent:/usr/sbin/nologin\n'
+  exit 0
+fi
+exit 2
+GETEOf
+chmod 755 "$SCRATCH/stubbin/getent"
 
 # ── мир цикла ─────────────────────────────────────────────────────────────────
 write_workshop() { # <W>: сессия-подделка — поведение по плану, токен на сессию, счётчик $W/n
@@ -514,7 +640,7 @@ reap() { # <W>: добить остатки мира клетки (сессии-
 }
 
 loop_prep() { # <субъект> <W> <план>
-  mkdir -p "$2/repo" "$2/home" "$2/shim"
+  mkdir -p "$2/repo" "$2/home" "$2/shim" "$2/stub/sudo" "$2/stub/getent"
   cp -- "$1" "$2/subject-cikl" && chmod 755 "$2/subject-cikl"
   printf '%s\n' $3 >"$2/plan"; echo 0 >"$2/n"
   write_workshop "$2"
@@ -523,8 +649,12 @@ loop_prep() { # <субъект> <W> <план>
 loop_run() { # <субъект> <W> <план> <таймаут-с> [ИМЯ=ЗНАЧ…] → $W/rc $W/n $W/log $W/out
   local subj="$1" W="$2" plan="$3" tmo="$4"; shift 4
   loop_prep "$subj" "$W" "$plan"
-  env -u XDG_RUNTIME_DIR HOME="$W/home" PATH="$SCRATCH/shimbin:$PATH" \
+  # Заглушки тест-режима 093 — первыми в PATH ТОЛЬКО этого прогона (слово владельца,
+  # задача п.3 n266): systemd-run (шим) + sudo + getent; глобальный PATH не трогаем.
+  env -u XDG_RUNTIME_DIR HOME="$W/home" PATH="$SCRATCH/stubbin:$SCRATCH/shimbin:$PATH" \
     CIKL085_SHIM_DIR="$W/shim" CIKL085_SHIM_MODE=pass CIKL085_SHIM_WS="$W/workshop" CIKL085_SHIM_MSG="$MSG_STATION" \
+    CIKL085_SUDO_DIR="$W/stub/sudo" CIKL085_GETENT_DIR="$W/stub/getent" \
+    ORCH_AGENT_USER=orchagent ORCH_AGENT_HOME="$W/agent-home" \
     ORCH_REPO="$W/repo" ORCH_WORKSHOP="$W/workshop" ORCH_MARK="$W/mark" ORCH_STOP="$W/stop" \
     ORCH_LOG="$W/log" ORCH_GRACE=1 ORCH_MIN_LIFE=9 ORCH_EARLY_WAIT=1 ORCH_EARLY_MAX=3 \
     "$@" timeout -k 5 "$tmo" bash "$W/subject-cikl" >"$W/out" 2>&1
@@ -543,6 +673,17 @@ loop_crash() { # <W> → rc 0 и печать причины, если субъ�
 }
 lastlog() { local l; l="$(sed -n '$s/^[^ ]* //p' "$1/log" 2>/dev/null)"; printf '%s' "${l:-—}"; }
 
+# sudo_path_calls <W>: число вызовов заглушки sudo формой «-nu orchagent …»
+sudo_path_calls() {
+  local W="$1" f c=0
+  for f in "$W"/stub/sudo/call.*; do
+    [ -e "$f" ] || continue
+    local -a a; mapfile -d '' -t a <"$f"
+    [ "${#a[@]}" -ge 2 ] && [ "${a[0]}" = -nu ] && [ "${a[1]}" = orchagent ] && c=$((c + 1))
+  done
+  printf '%s' "$c"
+}
+
 # loop_cell <субъект> <W> <план> <таймаут> <сессий> <rc: 0|nz|any> <вход> [ИМЯ=ЗНАЧ…]
 loop_cell() {
   local s="$1" W="$2" plan="$3" tmo="$4" wn="$5" wrc="$6" what="$7" a n rc ok=1; shift 7
@@ -555,6 +696,11 @@ loop_cell() {
   case "$wrc" in 0) wrc='rc 0' ;; nz) wrc='rc ≠ 0' ;; *) wrc='rc любой' ;; esac
   printf '%s → сессий %s, rc %s (ожидалось: сессий %s, %s); журнал: %s' \
     "$what" "$n" "$rc" "$wn" "$wrc" "$(lastlog "$W")"
+  # имя заглушки — в отказе (слово владельца: подмена без стабов краснеет именем, не
+  # молча): сессий нет/мало и путь 093 через sudo -nu orchagent не пройден
+  if [ "$n" -lt "$wn" ] && [ "$(sudo_path_calls "$W")" = 0 ]; then
+    printf '; заглушка sudo: журнал %s не содержит вызова «-nu orchagent …» — сессия не прошла путь 093' "$W/stub/sudo"
+  fi
   return 1
 }
 
@@ -603,8 +749,8 @@ prop_of() { # <ключ> <опции до «--»…> → последнее зн
 session_call() { # <W> <файл-вызова> → rc 0, если шим отнёс вызов к запуску сессии (правило — в шиме)
   [ "$(cat "$1/shim/kind.${2##*.}" 2>/dev/null)" = 1 ]
 }
-judge_scope() { # <W> <MemoryMax>: каждый запуск сессии под systemd-run
-  local W="$1" want="$2" f i idx found=0 calls=0 v xdg want_xdg
+judge_scope() { # <W> <MemoryMax>: каждый запуск сессии — вектор 093 (scope + sudo -nu orchagent)
+  local W="$1" want="$2" f i idx found=0 calls=0 v xdg want_xdg sudopath=0 sudocalls=0
   local -a a opts
   want_xdg="/run/user/$(id -u)"
   for f in "$W"/shim/call.*; do
@@ -621,12 +767,27 @@ judge_scope() { # <W> <MemoryMax>: каждый запуск сессии под
     v="$(prop_of MemoryMax "${opts[@]}")"
     [ "$v" = "$want" ] || { printf 'MemoryMax=%s (ожидалось %s)' "${v:-нет}" "$want"; return 1; }
     v="$(prop_of MemorySwapMax "${opts[@]}")"
-    [ "$v" = 0 ] || { printf 'MemorySwapMax=%s (ожидалось 0)' "${v:-нет}"; return 1; }
+    [ "$v" = 0 ] || { printf 'MemorySwapMax=%s (ожидалось 0)' "${v:-нет}" "$want"; return 1; }
     xdg="$(cat "$W/shim/xdg.${f##*.}")"
     [ "$xdg" = "$want_xdg" ] || { printf 'XDG_RUNTIME_DIR=%s (ожидалось %s)' "$xdg" "$want_xdg"; return 1; }
+    # хвост команды после «--» — пара «workshop MSG» (форма 093: sh -c-обёртка sudo)
+    [ $(( ${#a[@]} - 2 )) -gt "$idx" ] || { printf 'команда после «--» короче вектора сессии'; return 1; }
+    [ "${a[$(( ${#a[@]} - 2 ))]}" = "$W/workshop" ] || { printf 'команда после «--» не кончается workshop: %s' "${a[$(( ${#a[@]} - 2 ))]:-нет}"; return 1; }
+    [ "${a[$(( ${#a[@]} - 1 ))]}" = "$MSG_STATION" ] || { printf 'последний аргумент команды — не MSG станции'; return 1; }
   done
-  [ "$found" -ge 1 ] || { printf 'systemd-run для сессии не вызван: ни одна команда после «--» не кончается вызовом workshop станции «"$WORKSHOP" --yolo -- "$MSG"» (вызовов шима: %s)' "$calls"; return 1; }
-  printf 'сессия под systemd-run --user --scope: MemoryMax=%s, MemorySwapMax=0, команда после «--» кончается вызовом workshop, XDG_RUNTIME_DIR=%s (запусков сессии: %s)' "$want" "$want_xdg" "$found"
+  [ "$found" -ge 1 ] || { printf 'systemd-run для сессии не вызван: ни одна команда после «--» не кончается парой «workshop MSG» (вызовов шима: %s)' "$calls"; return 1; }
+  # путь 093 (И-3): сессия запущена через sudo -nu orchagent — журнал заглушки sudo
+  for f in "$W"/stub/sudo/call.*; do
+    [ -e "$f" ] || continue
+    sudocalls=$((sudocalls + 1))
+    mapfile -d '' -t a <"$f"
+    if [ "${#a[@]}" -ge 6 ] && [ "${a[0]}" = -nu ] && [ "${a[1]}" = orchagent ] \
+       && [ "${a[2]}" = "$W/workshop" ] && [ "${a[3]}" = --yolo ] && [ "${a[4]}" = -- ] && [ "${a[5]}" = "$MSG_STATION" ]; then
+      sudopath=$((sudopath + 1))
+    fi
+  done
+  [ "$sudopath" -ge 1 ] || { printf 'заглушка sudo: путь 093 не пройден — журнал %s не содержит вызова «-nu orchagent %s --yolo -- <MSG>» (записей: %s)' "$W/stub/sudo" "$W/workshop" "$sudocalls"; return 1; }
+  printf 'сессия под systemd-run --user --scope: MemoryMax=%s, MemorySwapMax=0, команда после «--» кончается парой «workshop MSG»; заглушка sudo: вызовов «-nu orchagent workshop --yolo -- MSG» %s из %s, XDG_RUNTIME_DIR=%s (запусков сессии: %s)' "$want" "$sudopath" "$sudocalls" "$want_xdg" "$found"
   return 0
 }
 cell_m1() {
@@ -645,11 +806,12 @@ cell_m3() {
   grep -Fq -- "$LIT_OOM" "$2/log" || { printf '; но строки И-5б «%s» нет' "$LIT_OOM"; return 1; }
   printf ', строка И-5б есть'; return 0
 }
-cell_m4() {
-  local r; loop_cell "$1" "$2" 'exit' 20 1 0 '«шим отказывает каждому вызову rc 1 без исполнения»' CIKL085_SHIM_MODE=refuse; r=$?
+cell_m4() { # И-5 контракта 093: отказ scope — именованный отказ, сессия НЕ стартует, останов
+  local r; loop_cell "$1" "$2" 'exit' 20 0 1 '«шим отказывает каждому вызову rc 1 без исполнения» (И-5 093)' CIKL085_SHIM_MODE=refuse; r=$?
   [ "$r" = 0 ] || return "$r"
-  grep -Fq -- "$LIT_NOCAP" "$2/log" || { printf '; но строки И-5в «%s» нет' "$LIT_NOCAP"; return 1; }
-  printf ', исполнена напрямую, строка И-5в есть'; return 0
+  grep -Fq -- "$LIT_REFUSE093" "$2/log" || { printf '; но строки именованного отказа «%s» нет' "$LIT_REFUSE093"; return 1; }
+  grep -Fq -- "$LIT_NOCAP" "$2/log" && { printf '; но ветка 085 жива: строка «%s» при отказе scope (удалена контрактом 093)' "$LIT_NOCAP"; return 1; }
+  printf ', именованный отказ и останов; строки И-5в-085 нет'; return 0
 }
 shim_calls() { # <W> <exec|refuse> → число вызовов запуска сессии с этим исходом шима
   local W="$1" want="$2" f c=0
@@ -660,19 +822,25 @@ shim_calls() { # <W> <exec|refuse> → число вызовов запуска 
   done
   printf '%s' "$c"
 }
-# м6 (И-5в): шим исполняет пробы и отказывает ровно первому запуску сессии; «падение, выход»,
-# EARLY_MAX=2 — отказ, засчитанный падением, вместе с падением исполненной сессии останавливает
-# цикл до второй сессии; вторая сессия — снова под systemd-run (И-5а).
+# м6 (И-5 093): шим отказывает ровно первому запуску сессии — именованный отказ и
+# останов цикла (ветки запуска-без-потолка нет); каждый вызов systemd-run — запуск
+# сессии: вызовов-проб быть не должно (проба вместо факта — обман стабов s31/s32).
 cell_m6() {
-  local r W="$2" rf ex
-  loop_cell "$1" "$W" 'crash exit' 40 2 0 '«проба проходит, первый запуск сессии отказан; падение, выход» (EARLY_MAX=2)' \
+  local r W="$2" rf ns
+  loop_cell "$1" "$W" 'crash exit' 40 0 1 '«первый запуск сессии отказан — именованный отказ и останов» (EARLY_MAX=2)' \
     CIKL085_SHIM_MODE=refuse-first-session ORCH_EARLY_MAX=2; r=$?
   [ "$r" = 0 ] || return "$r"
-  rf="$(shim_calls "$W" refuse)"; ex="$(shim_calls "$W" exec)"
+  grep -Fq -- "$LIT_REFUSE093" "$W/log" || { printf '; но строки именованного отказа «%s» нет' "$LIT_REFUSE093"; return 1; }
+  rf="$(shim_calls "$W" refuse)"
   [ "$rf" = 1 ] || { printf '; но отказ не предъявлен: запуск сессии под systemd-run не вызывался'; return 1; }
-  grep -Fq -- "$LIT_NOCAP" "$W/log" || { printf '; но строки И-5в «%s» нет' "$LIT_NOCAP"; return 1; }
-  [ "$ex" -ge 1 ] || { printf '; но после отказа ни один запуск сессии не исполнен под systemd-run (И-5а)'; return 1; }
-  printf ', строка И-5в есть, запусков сессии под шимом после отказа: %s' "$ex"; return 0
+  ns=0
+  for f in "$W"/shim/call.*; do
+    [ -e "$f" ] || continue
+    session_call "$W" "$f" || ns=$((ns + 1))
+  done
+  [ "$ns" = 0 ] || { printf '; но предъявлен вызов-проба: вызовов systemd-run вне запуска сессии %s (И-5 093: каждый вызов — запуск сессии)' "$ns"; return 1; }
+  printf ', именованный отказ есть, вызовов-проб нет (вызовов шима: %s)' "$(ls "$W"/shim/call.* 2>/dev/null | grep -c .)"
+  return 0
 }
 
 # м5 — живой systemd-run --user: предусловие снимается один раз, до запуска клеток.
@@ -723,17 +891,31 @@ for i in range(0, len(b), 4096):
     b[i] = 1
 time.sleep(1)
 ALLOCEOF
-  env -u XDG_RUNTIME_DIR HOME="$W/home" \
+  # Живой systemd-run (НЕ шим): в PATH субъекта — только заглушки sudo/getent
+  # (путь 093), systemd-run остаётся системным; XDG выставит сам субъект.
+  env -u XDG_RUNTIME_DIR HOME="$W/home" PATH="$SCRATCH/stubbin:$PATH" \
+    CIKL085_SUDO_DIR="$W/stub/sudo" CIKL085_GETENT_DIR="$W/stub/getent" \
+    ORCH_AGENT_USER=orchagent ORCH_AGENT_HOME="$W/agent-home" \
     ORCH_REPO="$W/repo" ORCH_WORKSHOP="$W/workshop" ORCH_MARK="$W/mark" ORCH_STOP="$W/stop" \
     ORCH_LOG="$W/log" ORCH_GRACE=1 ORCH_MIN_LIFE=2 ORCH_EARLY_WAIT=1 ORCH_EARLY_MAX=3 ORCH_MEM_MAX=64M \
     timeout -k 5 60 bash "$W/subject-cikl" >"$W/out" 2>&1 &
   tp=$!
-  for _ in $(seq 1 100); do lp="$(pgrep -P "$tp" | head -n 1)"; [ -n "$lp" ] && break; sleep 0.05; done
-  if [ -n "$lp" ]; then
+  # Сессия 093 — не прямой потомок цикла: цикл → systemd-run → sh (exec-цепочка sudo →
+  # workshop). Ищем «omp --profile» одним уровнем НИЖЕ каждого ребёнка цикла (наблюдатель
+  # и его sleep — тоже дети цикла, их пропускаем перебором).
+  for _ in $(seq 1 100); do lps="$(pgrep -P "$tp")"; [ -n "$lps" ] && break; sleep 0.05; done
+  if [ -n "${lps:-}" ]; then
     for _ in $(seq 1 300); do
-      sp="$(pgrep -P "$lp" -f '^omp --profile' | head -n 1)"
+      # прямой потомок цикла (exec-цепочка без форка) и внуки (systemd-run форкнул)
+      sp="$(pgrep -P "$tp" -f '^omp --profile' | head -n 1)"
       [ -n "$sp" ] && break
-      kill -0 "$lp" 2>/dev/null || break
+      for lp in $lps; do
+        sp="$(pgrep -P "$lp" -f '^omp --profile' | head -n 1)"
+        [ -n "$sp" ] && break
+      done
+      [ -n "$sp" ] && break
+      kill -0 "$tp" 2>/dev/null || break
+      lps="$(pgrep -P "$tp")"
       sleep 0.05
     done
   fi
@@ -747,7 +929,7 @@ ALLOCEOF
   reap "$W"
   [ "$rc" = 124 ] && { printf 'цикл не завершился за 60 с (завис)'; return 3; }
   [ -s "$W/log" ] || { printf 'цикл не исполнился: журнал пуст, rc %s' "$rc"; return 3; }
-  [ -n "$sp" ] || { printf "живая сессия не найдена: pgrep -P <цикл> -f '^omp --profile' пуст"; return 1; }
+  [ -n "$sp" ] || { printf "живая сессия не найдена: потомки цикла без «^omp --profile» (журнал заглушки sudo: %s, записей: %s)" "$W/stub/sudo" "$(sudo_path_calls "$W")"; return 1; }
   case "${cg##*/}" in run-*.scope) ;; *) printf 'живая сессия %s в cgroup %s — не run-*.scope' "$sp" "${cg:-?}"; return 1 ;; esac
   case "$cg" in */user@"$uid".service/*) ;; *) printf 'scope %s не под user@%s.service' "$cg" "$uid"; return 1 ;; esac
   [ "$mm" = "$M5_BYTES" ] || { printf 'memory.max %s (ожидалось %s)' "${mm:-?}" "$M5_BYTES"; return 1; }
