@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 095 (контракт 095, круг 2, Н-39): восемнадцать порч честных
+# Обманный стаб-пак 095 (контракт 095, круг 2, Н-39): девятнадцать порч честных
 # моделей (dover.sh — сборщик, dver_spawn.sh — дверь), каждая ОДНОЙ якорной
 # sed-по-маркеру, каждая привязана к клетке, на чьём входе её дефект НАБЛЮДАЕМ
 # (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта). Стаб строится из ТЕКУЩЕЙ
@@ -26,6 +26,7 @@
 # s16 статус-фильтр ADR снят         m16  red_uroki_po_oblasti.sh
 # s17 семейство судьи не сверяется   m17  red_revjer_poluchaet_vydannoe.sh
 # s18 содержание брифа вынуто        m18  red_orch_brief_starter.sh
+# s19 отказ активным снят            m19  red_orch_brief_karta_legacy.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL="$HERE/model/dover.sh"
@@ -105,6 +106,7 @@ zapest s17 t95-m17 red_revjer_poluchaet_vydannoe.sh \
   's@.*# t95-m17.*@  : # t95-m17 порча@'
 zapest s18 t95-m18 red_orch_brief_starter.sh \
   's@.*# t95-m18.*@HEALTH_SEC="HEALTH: branch=? dirty=?" GOAL_SEC="" WORK_SEC="" DEC_SEC="" # t95-m18 порча@'
-
+zapest s19 t95-m19 red_orch_brief_karta_legacy.sh \
+  's@.*# t95-m19.*@  : # t95-m19 порча@'
 printf 'ИТОГ стаб-пак 095: rc=%s\n' "$itog"
 exit "$itog"
