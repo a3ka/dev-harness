@@ -68,7 +68,11 @@ while [ "$#" -gt 0 ]; do
       # И-5: --interval должен быть положительным числом (Н-1: --interval 0 — rc 2).
       # Допускаются дробные значения (клетки 3/14 гоняют 0.3/0.5 с) — проверка
       # через python float, иначе bash ломается на «0.5» как «invalid number».
-      if ! python3 -c "import sys; v=float('$2'); sys.exit(0 if v>0 else 1)" 2>/dev/null; then
+      # Б-10: значение передаётся через sys.argv[1] (а НЕ интерполяцией '$2'
+      # в python-исходник) — иначе аргумент пользователя исполняется как
+      # python-код: проба «--interval "1'); import os; os.system(...)» даёт
+      # регрессию исполнения. sys.argv — канал данных, не исходника.
+      if ! python3 -c "import sys; v=float(sys.argv[1]); sys.exit(0 if v>0 else 1)" "$2" 2>/dev/null; then
         printf "ci_wait: --interval должен быть положительным числом: %s\n" "$2" >&2; exit 2
       fi
       INTERVAL="$2"
@@ -166,9 +170,12 @@ try:
       cn = r.get('conclusion') or '?'
       nm = r.get('name') or '?'
       if st != 'completed':
-        print('pending', nm)
+        # Б-9: TAB между kind/name, чтобы shell-парсер не резал «ci (l7, …)»
+        # по пробелам. Парсится через IFS=\\t read на стороне shell —
+        # НЕ наивный «split по пробелу», режущий имена с пробелами.
+        print('pending\t' + nm)
       else:
-        print('fail', nm, cn)
+        print('fail\t' + nm + '\t' + cn)
 except Exception as e:
   print('parse_err', str(e))
 " "$TMPF" 2>/dev/null)
@@ -177,7 +184,11 @@ except Exception as e:
         RC=0; MSG=""; rm -f "$TMPF"; break
         ;;
       fail*)
-        RC=1; MSG="CI КРАСНЫЙ — check-run «$(echo "$EVAL" | awk '{print $2}')» → $(echo "$EVAL" | awk '{print $3}')"; rm -f "$TMPF"; break
+        # Б-9: TAB-разделённый «fail\\t<name>\\t<conclusion>»; парсится через
+        # IFS=tab read. Наивный awk по пробелу режет имена с пробелами
+        # вроде «ci (l7, check:contract-frozen …)». Прецедент ci_diag.sh:79.
+        IFS=$'\t' read -r _kind _name _concl <<<"$EVAL"
+        RC=1; MSG="CI КРАСНЫЙ — check-run «${_name}» → ${_concl}"; rm -f "$TMPF"; break
         ;;
       no_runs)
         # Б-6: total_count=0 — НЕЗАВЕРШЁННОЕ ожидание (прогонов ещё нет;
@@ -187,7 +198,9 @@ except Exception as e:
         rm -f "$TMPF"
         ;;
       pending)
-        MSG="ещё идёт: $(echo "$EVAL" | awk '{print $2}')"; rm -f "$TMPF"
+        # Б-9: парсим TAB-разделённый «pending\\t<name>» (см. выше).
+        IFS=$'\t' read -r _kind _name <<<"$EVAL"
+        MSG="ещё идёт: ${_name}"; rm -f "$TMPF"
         ;;
       parse_err)
         MSG="parse_err"; rm -f "$TMPF"
