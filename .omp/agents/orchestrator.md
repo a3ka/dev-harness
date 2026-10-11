@@ -129,9 +129,12 @@ model: ["@default"]
 ## Заморозка — тег на ветке можно, REPLACE только после ленда
 
 `freeze_contract.sh` МОЖЕТ ставить тег `frozen` на коммит ветки architect (не обязательно
-main). REPLACE-строка `registry/contracts.tsv` пишется ТОЛЬКО ПОСЛЕ `land_agent` этой
-ветки в main (тогда frozen-тег — предок коммита реестра, дверь 031 ancestry зелёная).
-Копировать текст контракта в main отдельным коммитом в обход `land_agent` — по-прежнему
+main). REPLACE-строка `registry/contracts.tsv` пишется ТОЛЬКО ПОСЛЕ ленда этой
+ветки в main через `accept_publish.sh` (И-10 094: одна дверь публикации кандидата;
+порядок — push → PR → проверки → publish двери; тогда frozen-тег — предок коммита
+реестра, дверь 031 ancestry зелёная).
+Копировать текст контракта в main отдельным коммитом в обход публикации через
+`accept_publish.sh` — по-прежнему
 запрещено (зоны, прецедент `b6daee0a`). Нарушение ПРЕЖНЕГО порядка (REPLACE до ленда)
 породило door-031 grandfather-класс (079/090/091/095) — NABLIUDENIA.md Н-241; формулировка
 нормы от 2026-10-09 вечера была ошибочной, исправлено словом владельца 2026-10-10 ~11:45 UTC.
@@ -187,17 +190,24 @@ main). REPLACE-строка `registry/contracts.tsv` пишется ТОЛЬКО
   на origin до спавна (dual-control: тег `id/CONTRACT/<NNN>` ∧ строка
   `registry/contracts.tsv` на origin/main; повторный минт не сходится — tag-object-sha).
 - Судьи (critic/adversary/reviewer) — main-direct: вердикты коммитятся в main напрямую,
-  репро — в одноразовом клоне; судейских wip-веток НЕ заводится (Q2: `land_agent` И-9
-  требует committer ∈ реестр ЗОНА-строк — путь для судей не используется; страж
+  репро — в одноразовом клоне; судейских wip-веток НЕ заводится (Q2: identity двери
+  `accept_publish.sh` И-9 требует committer ∈ реестр ЗОНА-строк — путь для судей не
+  используется; страж
   пропускает их спавн-состоянием).
-- Сведение по accept судей: `land_agent --branch wip/<NNN>/<автор> --worktree <путь>`
-  из основного чекаута (merge --no-ff, identity оркестратора; чекаут чист);
+- Сведение по accept судей — дверью `accept_publish.sh` (И-10 094: одна дверь; ленд
+  исполняет оркестратор напрямую): `object` (после судейского accept) → `prepare`
+  (merge-коммит без движения refs, identity оркестратора, перенос санкц-строк 065) →
+  журнальные писатели (`judge_gate <merge-sha> --verdict-row <задача> <object_id>
+  <вердикт-файл круга>`; `check_ci_gate <корень> <merge-sha> --check-row <object_id>`)
+  → `publish --candidate-ref <ветка>` (повторная сверка, CAS на base, «PUBLISHED
+  target=<ветка> merge=<sha>» в `registry/candidates.tsv` строкой published);
+  ручной `git merge` в main и UI-кнопка Merge запрещены (016 И-7/069);
   multi-author — merge --no-ff с переносом санкций (И-10), squash запрещён (Б-4,
   слово 2026-10-04); close-out — gc_agent_branches (016 И-6)
   + gc:agent-branches --tmp-reap-apply (026 Б5(i))
 - Независимые правки РАЗНЫХ зон одного контракта — параллельные спавны и ОДИН
   land-цикл: обе 4а-проверки гоняются на ОБЪЕДИНЕНИИ веток в одноразовом клоне
-  (merge обеих, потом scoped-набор), затем последовательные land_agent и один
+  (merge обеих, потом scoped-набор), затем последовательные publish двери и один
   CI-прогон (прецедент 019: один цикл вместо двух, ~40 мин CI на медленном раннере).
 
 
@@ -401,7 +411,7 @@ main). REPLACE-строка `registry/contracts.tsv` пишется ТОЛЬКО
 
 ## PR-маршрут контракта (069)
 
-PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw, PR открывается как CI-гейт по своему ref (pull_request-триггер ci.yml, concurrency-группа ci-<github.ref> — PR-прогон не отменяет main-прогон); слияние — ТОЛЬКО scripts/land_agent.sh локально после зелёного PR, кнопка Merge в UI GitHub запрещена (её merge даёт committer GitHub без маркера land: wip/… — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
+PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<автор> пушится через bash scripts/gitw, PR открывается как CI-гейт по своему ref (pull_request-триггер ci.yml, concurrency-группа ci-<github.ref> — PR-прогон не отменяет main-прогон); слияние — ТОЛЬКО через дверь `scripts/accept_publish.sh` локально после зелёного PR (И-10 094: object → prepare → журнальные писатели → publish --candidate-ref; merge-тело несёт маркер `land: <задача>` и committer оркестратора — 016 И-7/065 И-10 наследуются дверью), кнопка Merge в UI GitHub запрещена (её merge даёт committer GitHub без маркера land: wip/… — красные И-1/И-9 и зло-ленд устава); пуш main после ленда — отдельным шагом через bash scripts/gitw, батчем.
 
 ## Автоперезапуск orch-loop и два слота (слова владельца 2026-10-01)
 
@@ -414,7 +424,8 @@ PR-маршрут кодовой пачки (069): ветка wip/<NNN>/<авт�
 (выше). Чекпойнт HANDOFF+push после шага.
 
 **Н-211 (8ч простоя 05→06.10, один предмет держал всю очередь):**
-1. Перед `land_agent` в main — `check_zones.sh` на РЕЗУЛЬТАТЕ слияния в клоне (+шаги `ci`);
+1. Перед publish двери (`accept_publish.sh`) в main — `check_zones.sh` на РЕЗУЛЬТАТЕ
+   слияния в клоне (+шаги `ci`);
    rc≠0 → НЕ сливать, предмет `blocked`, очередь дальше.
 2. Предмет, ждущий владельца, — на wip-ветке, не в main; main впереди origin — только на
    чекпойнт, push сразу после зелёного гейта.
