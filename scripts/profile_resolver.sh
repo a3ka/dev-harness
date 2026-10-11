@@ -108,14 +108,14 @@ SCHEMA_LEVELS='
   # профиль не заводится). Семантика слияния ЮНИТОМ (массив rows замещается
   # целиком, прецедент barriers.* 054): репо-rows замещают defaults-rows ЦЕЛИКОМ.
   repo:contextPack:optional
-  repo:contextPack:rows:required
-  repo:contextPack:adrPath:required
-  repo:contextPack:lessonsPath:required
+  repo:contextPack:rows:optional
+  repo:contextPack:adrPath:optional
+  repo:contextPack:lessonsPath:optional
 
   project:defaults:contextPack:optional
-  project:defaults:contextPack:rows:required
-  project:defaults:contextPack:adrPath:required
-  project:defaults:contextPack:lessonsPath:required
+  project:defaults:contextPack:rows:optional
+  project:defaults:contextPack:adrPath:optional
+  project:defaults:contextPack:lessonsPath:optional
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
@@ -326,7 +326,10 @@ scan_levels repo   "$REPO_JSON_FD"
 scan_levels project "$PROJECT_JSON_FD"
 
 # ── И-4: значения и обязательные поля ───────────────────────────────────────
-# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript}.
+# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript, bash}
+# (bash — язык харнеса-как-проекта, 095 А8 «реальный харнес — первый пользователь»;
+# расширение алфавита 054 объявлено записью А-388 NABLIUDENIA_ARCHITECT.md;
+# полярность клеток 054-семьи сохранена: python → P6, _krasnye_054 зелёная).
 # repoId, projectId, workspaceId, canonicalRemote, version, profilePath,
 # ci.workflow — непустые строки.
 declare -A A
