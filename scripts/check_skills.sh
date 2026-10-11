@@ -321,4 +321,42 @@ else
   ok "ветвь (з): не репозиторий git — проверка полноты фикстур неприменима"
 fi
 
-printf 'барьер зелёный: 8 ветвей пройдены\n' >&2
+# ── (и) МАТРИЦА ВИДИМОСТИ 13.4 — skills по роли (Решение 5, 003-дельта 095) ──
+# §13.4 владельца («Кому что») определяет, какие скилы видны какой роли.
+# make_task.sh выдаёт SKILLS-секцию по этой матрице. check_skills.sh —
+# второй потребитель матрицы: ИЗВЛЕКАЕТ её из сборщика и сверяет с §13.4
+# (а не дублирует копию — иначе расхождение копии и оригинала нечем ловить).
+# Сверка сборщик↔§13.4 безусловна; существование каталогов скилов — условно
+# (если $SKILLS_DIR есть). Существующие ветви (а)-(з) не трогаются;
+# (и) — дельта 095.
+#
+# §13.4 (дословно из docs/owner/2026-10-03-done-i-instrumenty.md §13.4):
+#   architect   → grilling, writing-for-agents, tdd
+#   critic      → (none — out-of-scope B2c)
+#   implementer → tdd, diagnosing-bugs
+#   adversary   → diagnosing-bugs
+#   reviewer    → (правила кодинга, deep modules/seams — не skills/)
+_matrix_of_subject() {  # $1=роль → скилы сборщика через пробел
+  sed -n "/^  ${1}) *SKILLS=/,/\" *;;/p" "$REPO/scripts/make_task.sh" \
+    | sed -e 's/.*SKILLS="//' -e 's/".*//' -e '/^SKILL: /s/^SKILL: //' \
+    | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//'
+}
+_matrix_cmp() {  # $1=роль, $2=ожидание §13.4 через пробел
+  got="$(_matrix_of_subject "$1")"
+  [ -n "$got" ] || die "матрица 13.4: сборщик не несёт SKILLS-матрицы роли «$1» (scripts/make_task.sh)"
+  [ "$got" = "$2" ] || die "матрица 13.4: сборщик разошёлся с §13.4 (роль «$1»: «$got» ≠ «$2»)"
+  for skill in $2; do
+    case " $EXPECTED " in *" $skill "*) ;;
+      *) die "матрица 13.4: роль «$1» рекламирует скил «$skill» вне EXPECTED ($EXPECTED)" ;;
+    esac
+    if [ -d "$SKILLS_DIR" ] && [ ! -d "$SKILLS_DIR/$skill" ]; then
+      die "матрица 13.4: роль «$1» ссылается на отсутствующий скил «$skill»"
+    fi
+  done
+}
+_matrix_cmp architect   "grilling writing-for-agents tdd"
+_matrix_cmp implementer "tdd diagnosing-bugs"
+_matrix_cmp adversary   "diagnosing-bugs"
+ok "ветвь (и): матрица сборщика (make_task) сверена с §13.4; скилы существуют"
+
+printf 'барьер зелёный: 8 ветвей пройдены (ветвь (и) — дельта 095)\n' >&2

@@ -102,6 +102,20 @@ SCHEMA_LEVELS='
 
   repo:packs:optional
   project:defaults:packs:optional
+
+  # 095-миграция (контракт 095, Решение 3, Frontier п.в): contextPack — носитель
+  # карты/rules/reuse/adrPath/lessonsPath в ДЕЙСТВУЮЩЕЙ схеме (Astra 1.2 — второй
+  # профиль не заводится). Семантика слияния ЮНИТОМ (массив rows замещается
+  # целиком, прецедент barriers.* 054): репо-rows замещают defaults-rows ЦЕЛИКОМ.
+  repo:contextPack:optional
+  repo:contextPack:rows:optional
+  repo:contextPack:adrPath:optional
+  repo:contextPack:lessonsPath:optional
+
+  project:defaults:contextPack:optional
+  project:defaults:contextPack:rows:optional
+  project:defaults:contextPack:adrPath:optional
+  project:defaults:contextPack:lessonsPath:optional
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
@@ -267,9 +281,9 @@ scan_levels() {
   # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
   # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
   # Каждая ветвь — если она задана как объект, проверяются её ключи.
-  local known_branches="projectLayer workflowPaths commands git ci barriers"
+  local known_branches="projectLayer workflowPaths commands git ci barriers contextPack"
   if [ "$level" = "project" ]; then
-    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers"
+    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack"
     # Ключи самой defaults-ветви (отдельно от дочерних)
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
       local dk
@@ -312,7 +326,10 @@ scan_levels repo   "$REPO_JSON_FD"
 scan_levels project "$PROJECT_JSON_FD"
 
 # ── И-4: значения и обязательные поля ───────────────────────────────────────
-# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript}.
+# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript, bash}
+# (bash — язык харнеса-как-проекта, 095 А8 «реальный харнес — первый пользователь»;
+# расширение алфавита 054 объявлено записью А-388 NABLIUDENIA_ARCHITECT.md;
+# полярность клеток 054-семьи сохранена: python → P6, _krasnye_054 зелёная).
 # repoId, projectId, workspaceId, canonicalRemote, version, profilePath,
 # ci.workflow — непустые строки.
 declare -A A
@@ -334,7 +351,7 @@ A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON_FD")"
 
 A[repo_language]="$(jq -r '.language' "$REPO_JSON_FD")"
 case "${A[repo_language]}" in
-  rust|typescript) ;;
+  rust|typescript|bash) ;;
   *) die_p "значение вне алфавита: language: ${A[repo_language]}" ;;
 esac
 
@@ -588,10 +605,53 @@ MERGED=$(jq -n \
       if $r.packs != null then { value: $r.packs, origin: "repo" }
       elif $p.defaults and $p.defaults.packs != null then { value: $p.defaults.packs, origin: "project" }
       else { value: [], origin: "project" } end
+    ),
+    # 095-миграция (контракт 095, Решение 3): contextPack — карта/rules/reuse
+    # проекта + пути ADR/уроков. Семантика слияния ЮНИТОМ: если репо-слой
+    # задаёт contextPack.rows, он ЗАМЕЩАЕТ defaults.rows ЦЕЛИКОМ (прецедент
+    # barriers.mandatory 054); скаляры adrPath/lessonsPath — репо замещает
+    # defaults как обычные скаляры. Если ни один слой не задаёт ключ —
+    # null (сборщик make_task сообщает «нет карты контекста: contextPack»).
+    contextPack: (
+      if $r.contextPack != null then
+        (if $p.defaults and $p.defaults.contextPack and $p.defaults.contextPack.rows != null
+         then $p.defaults.contextPack.rows else [] end) as $default_rows |
+        ($r.contextPack.rows // $default_rows) as $merged_rows |
+        {
+          value: {
+            rows: $merged_rows,
+            adrPath: ($r.contextPack.adrPath // ($p.defaults.contextPack.adrPath // null)),
+            lessonsPath: ($r.contextPack.lessonsPath // ($p.defaults.contextPack.lessonsPath // null))
+          },
+          origin: "repo"
+        }
+      elif $p.defaults and $p.defaults.contextPack != null then
+        { value: $p.defaults.contextPack, origin: "project" }
+      else null end
     )
   }
   | del(.. | nulls)
   ')
+
+# ── 095-миграция: проверка алфавита contextPack.rows[].kind (контракт 095) ─
+# Контракт 095 (И-0 грамматики): kind ∈ {map, rules, reuse}. Вне алфавита —
+# P6 «значение вне алфавита: contextPack.rows[N].kind: <факт>». N — позиция
+# первой некорректной строки (0-индексация). Семантика P6 байт-в-байт
+# (прецедент 054 «значение вне алфавита: <путь>: <факт>»).
+_BAD_KIND_ROW="$(printf '%s' "$MERGED" | jq -r '
+  if .contextPack and (.contextPack.value|type)=="object" and (.contextPack.value.rows|type)=="array"
+  then (.contextPack.value.rows | to_entries[]
+        | select((.value.kind // "") as $k | ["map","rules","reuse"] | index($k) | not)
+        | {i: .key, k: (.value.kind // "<null>")}) | "\(.i)\t\(.k)"
+  else empty
+  end
+' 2>/dev/null || true)"
+if [ -n "$_BAD_KIND_ROW" ]; then
+  _BAD_IDX="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f1)"
+  _BAD_VAL="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f2)"
+  die_p "значение вне алфавита: contextPack.rows[${_BAD_IDX}].kind: ${_BAD_VAL}"
+fi
+
 
 # ── И-1..И-4 контракт 059 — сверка объявленного пути ci.workflow ────────────
 # Сверка ЭФФЕКТИВНОГО значения ci.workflow из MERGED с деревом REPO_ABS

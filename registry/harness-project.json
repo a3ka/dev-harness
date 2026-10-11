@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "version": "1",
+  "projectId": "dev-harness",
+  "workspaceId": "main",
+  "defaults": {
+    "language": "bash",
+    "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures" },
+    "commands": { "test": "true", "build": "true", "typecheck": "true", "lint": "true" },
+    "git": { "canonicalRemote": "ssh://git@example.invalid/dev-harness.git" },
+    "ci": { "workflow": ".github/workflows/ci.yml" },
+    "barriers": { "mandatory": [], "optional": [] },
+    "contextPack": {
+      "rows": [
+        { "kind": "rules", "path": "AGENTS.md", "roles": "orchestrator,architect,critic,implementer,adversary,reviewer,arbiter", "mandatory": true, "why": "нормы ролей харнеса (дефолт)" }
+      ],
+      "lessonsPath": "registry/lessons-harness.tsv"
+    }
+  }
+}
