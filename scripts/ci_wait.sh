@@ -197,12 +197,16 @@ except Exception as e:
         MSG="прогонов CI нет"
         rm -f "$TMPF"
         ;;
-      pending)
-        # Б-9: парсим TAB-разделённый «pending\\t<name>» (см. выше).
+      pending*)
+        # Б-9: парсим TAB-разделённый «pending\t<name>» (см. выше).
+        # Б-11: glob-матч `pending*)` а не точный `pending)`: python печатает
+        # «pending\t<имя>», точный паттерн не совпадал → разбор уходил в *).
         IFS=$'\t' read -r _kind _name <<<"$EVAL"
         MSG="ещё идёт: ${_name}"; rm -f "$TMPF"
         ;;
-      parse_err)
+      parse_err*)
+        # Б-11: тот же glob-фикс (python печатает «parse_err <текст>» через
+        # пробел, точный паттерн не совпадал).
         MSG="parse_err"; rm -f "$TMPF"
         ;;
       *)
@@ -228,4 +232,14 @@ record_event "wait-done" "$TASK" "$SHA"
 if [ -n "$MSG" ]; then
   printf "ci_wait: %s\n" "$MSG" >&2
 fi
+
+# Б-9 (И-5 rc 1 «шаг + причина»): на rc=1 дополнительно зовём ci_diag.sh —
+# это та же sha, второй API-запрос (допустимо). Печатает упавший ШАГ и
+# причину из лога в формате ci_diag.sh:79-82 (прецедент). Свой rc НЕ
+# перебивает rc=1 ci_wait: если ci_diag тоже не смог (rc 2/3) — просто
+# дополняем stderr его диагностикой, выходим с rc 1.
+if [ "$RC" = 1 ] && [ -x "$SCRIPT_DIR/ci_diag.sh" ]; then
+  bash "$SCRIPT_DIR/ci_diag.sh" "$SHA" >&2 || true
+fi
+
 exit "$RC"
