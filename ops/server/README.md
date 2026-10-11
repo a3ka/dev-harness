@@ -253,11 +253,23 @@ bash ops/server/install.sh verify
 credent публикации в среде сессии НЕ доступны, `GIT_SSH_COMMAND` с
 rw-identity не строится.
 
-Швы `ORCH_AGENT_USER` / `ORCH_AGENT_HOME` (или эквивалентные
-`ORCH_LOOP_AGENT_USER` / `ORCH_LOOP_AGENT_HOME`) переопределяют
-идентичность агента в тест-мире. По умолчанию цикл требует, чтобы
-пользователь `orchagent` и каталог `/var/lib/orch-agent` существовали
-на станции (создаются один раз владельцем sudo, не обвязкой).
+Швы `ORCH_AGENT_USER` / `ORCH_AGENT_HOME` переопределяют идентичность
+агента в тест-мире (одно имя на свойство; дублирующие имена
+`ORCH_LOOP_AGENT_USER`/`ORCH_LOOP_AGENT_HOME` удалены вместе с мёртвой
+второй веткой запуска — находка Р1-9 круга 1). Пользователь `orchagent`,
+каталог `/var/lib/orch-agent` и узкое sudoers-правило
+`/etc/sudoers.d/orch-agent-launcher` (harness → orchagent NOPASSWD,
+только по адресату) провизионит `install.sh root` идемпотентно ПОСЛЕ
+копий и блокировки `.git/config` — и только в производственном контуре:
+при заданных швах адресатов (`OPS_SERVER_SBIN_DST`/`OPS_SERVER_ETC_DST`)
+провизионинг пропускается, тест-мир строит идентичность агента сам.
+
+Перезапуск по маркеру гасит сессию по ДЕРЕВУ посредников: запуск идёт
+`systemd-run --scope` (exec) → `sh` (exec) → `sudo -nu orchagent`
+(остаётся родителем сессии и пересылает ей SIGTERM), поэтому процесс
+агента — потомок `sudo`, а не цикла, и наблюдатель сигналит дереву:
+посредникам — напрямую, агентному листу — пересылкой `sudo` (TERM) или
+тем же узким правилом `sudo -nu orchagent kill` (KILL).
 
 Публикация — ТОЛЬКО через установленную дверь под другим
 пользователем; агенту ключ публикации НЕ доступен.
@@ -282,37 +294,41 @@ sudo bash ops/server/install.sh verify-start
 
 Подкоманда `rollback` побайтно восстанавливает предыдущую установленную
 версию из `${OPS_SERVER_ROLLBACK_BACKUP-/usr/local/sbin/.rollback}/` —
-каталог, куда `install.sh root` сохраняет предыдущие копии (создаётся
-при первой установке). Откат САМ выполняет `systemctl daemon-reload`
-и `systemctl restart` (находка 2 круга 2: без daemon-reload юнит
-остаётся на старой версии в памяти демона) — никакого `install`
-между откатом и наблюдением не требуется.
+каталог, куда `install.sh root` ПЕРЕД копированием новой версии
+сохраняет снимок прежней (orch-peak + `lib_session.sh` + 7 юнитов,
+атомарной заменой каталога). Снимок появляется со ВТОРОЙ установки:
+первой снимать нечего, каталог не создаётся. Откат САМ выполняет
+`systemctl daemon-reload` и `systemctl restart` (находка 2 круга 2: без
+daemon-reload юнит остаётся на старой версии в памяти демона) и
+доказывает активность юнита живой `systemctl is-active` — никакого
+`install` между откатом и наблюдением не требуется.
 
 ```sh
 sudo bash ops/server/install.sh rollback
-# rc 0: "откат выполнен: orch-peak + 7 юнитов из /usr/local/sbin/.rollback"
-# rc 1: именованный отказ (нет каталога, расхождение, euid≠0)
+# rc 0: "откат выполнен: orch-peak + N юнитов из /usr/local/sbin/.rollback; юнит активен"
+# rc 1: именованный отказ (нет каталога/снимка, расхождение, юнит не активен)
+# rc 2: NOT_IMPLEMENTED (нет systemctl)
 ```
 
 Живая последовательность без маскировки:
 
 ```sh
-# v1: установка (сохраняет текущее как .rollback)
+# v1: первая установка (.rollback ещё не создаётся)
 sudo bash ops/server/install.sh root
-# v2: правка + установка (тот же каталог, новая версия)
+# v2: правка + установка (ПЕРЕД копиями сохранила v1 в .rollback)
 # …
-# откат: восстановление v1 побайтно + reload + restart
+# откат: восстановление v1 побайтово + reload + restart + is-active
 sudo bash ops/server/install.sh rollback
 # активен ИМЕННО v1 (sha256 = пин v1)
 sudo bash ops/server/install.sh verify-start   # rc 0
 ```
 
-Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание `/usr/local/sbin/.rollback`)
-переопределяет каталог предыдущей версии.
+Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание
+`/usr/local/sbin/.rollback`) переопределяет каталог предыдущей версии;
+шины юнита и systemctl — `OPS_SERVER_UNIT` / `OPS_SERVER_SYSTEMCTL`.
 
 ## Обслуживание .git/config (снятие/возврат +i)
 
-## Обслуживание .git/config (снятие/возврат +i)
 
 Контракт 081 запирает общий `<OPS_SERVER_MAIN>/.git/config` ядром ФС
 (`chattr +i` ставится root-частью `install.sh root` после копии+sha256
