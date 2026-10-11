@@ -268,12 +268,27 @@ $TASK_BYTES"
 else
   # ── И-12: брифинг несёт ЦЕЛЬ/РАБОТУ/РЕШЕНИЯ/ЗДОРОВЬЕ из живых носителей ────
   [ -f "$REPO/registry/plan.tsv" ] && GOAL_SEC="$(cat "$REPO/registry/plan.tsv")"
+  # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
+  # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
+  # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
+  # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
+  # registry/plan.tsv (тот же реестр — GOAL брифа). Вне плана без
+  # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
+  # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
+  _plan_ids=""
+  [ -f "$REPO/registry/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/registry/plan.tsv")"
   for cf in $(LC_ALL=C ls "$REPO"/contracts/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
-    csubj="$(awk '/^## Предмет$/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
-    [ -n "$csubj" ] || die "брифинг: контракт без предмета: $cf"
-    WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
+    csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
+    if [ -n "$csubj" ]; then
+      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
 "
+    elif printf '%s\n' "$_plan_ids" | grep -Fxq -- "$cnum"; then
+      die "брифинг: контракт без предмета: $cf" # t95-m19
+    else
+      WORK_SEC="${WORK_SEC}WORK: ${cnum} :: legacy-без-§Предмет (вне plan.tsv)
+"
+    fi
   done
   if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
     while IFS="$TAB" read -r aid _aarea ares; do
