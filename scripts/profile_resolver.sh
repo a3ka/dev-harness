@@ -108,14 +108,14 @@ SCHEMA_LEVELS='
   # профиль не заводится). Семантика слияния ЮНИТОМ (массив rows замещается
   # целиком, прецедент barriers.* 054): репо-rows замещают defaults-rows ЦЕЛИКОМ.
   repo:contextPack:optional
-  repo:contextPack:rows:required
-  repo:contextPack:adrPath:required
-  repo:contextPack:lessonsPath:required
+  repo:contextPack:rows:optional
+  repo:contextPack:adrPath:optional
+  repo:contextPack:lessonsPath:optional
 
   project:defaults:contextPack:optional
-  project:defaults:contextPack:rows:required
-  project:defaults:contextPack:adrPath:required
-  project:defaults:contextPack:lessonsPath:required
+  project:defaults:contextPack:rows:optional
+  project:defaults:contextPack:adrPath:optional
+  project:defaults:contextPack:lessonsPath:optional
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
