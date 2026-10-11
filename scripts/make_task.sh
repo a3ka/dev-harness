@@ -4,6 +4,7 @@
 # --kind brief (orch_brief, только оркестратору). Потребляет ПРОФИЛЬ через
 # scripts/profile_resolver.sh (Решение 1). ГРАММАТИКА CLI/отказов/секций
 # закреплена честной моделью fixtures/context_pack_095/model/dover.sh.
+# Коды возврата: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED (нет git/jq/sha256sum/awk).
 set -uo pipefail
 TAB="$(printf '\t')"
 die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }

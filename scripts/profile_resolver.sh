@@ -630,6 +630,26 @@ MERGED=$(jq -n \
   | del(.. | nulls)
   ')
 
+# ── 095-миграция: проверка алфавита contextPack.rows[].kind (контракт 095) ─
+# Контракт 095 (И-0 грамматики): kind ∈ {map, rules, reuse}. Вне алфавита —
+# P6 «значение вне алфавита: contextPack.rows[N].kind: <факт>». N — позиция
+# первой некорректной строки (0-индексация). Семантика P6 байт-в-байт
+# (прецедент 054 «значение вне алфавита: <путь>: <факт>»).
+_BAD_KIND_ROW="$(printf '%s' "$MERGED" | jq -r '
+  if .contextPack and (.contextPack.value|type)=="object" and (.contextPack.value.rows|type)=="array"
+  then (.contextPack.value.rows | to_entries[]
+        | select((.value.kind // "") as $k | ["map","rules","reuse"] | index($k) | not)
+        | {i: .key, k: (.value.kind // "<null>")}) | "\(.i)\t\(.k)"
+  else empty
+  end
+' 2>/dev/null || true)"
+if [ -n "$_BAD_KIND_ROW" ]; then
+  _BAD_IDX="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f1)"
+  _BAD_VAL="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f2)"
+  die_p "значение вне алфавита: contextPack.rows[${_BAD_IDX}].kind: ${_BAD_VAL}"
+fi
+
+
 # ── И-1..И-4 контракт 059 — сверка объявленного пути ci.workflow ────────────
 # Сверка ЭФФЕКТИВНОГО значения ci.workflow из MERGED с деревом REPO_ABS
 # (Граница-1: только ci.workflow — единственный класс, утверждающий
