@@ -32,8 +32,8 @@ rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
     [ -e "$MARK" ] || { log "сессия #$n: маркер снят за ${GRACE}с — перезапуск отменён"; continue; }
     touch "$GO"   # с этой точки перезапуск состоялся, даже если маркер снимут (2026-10-03 18:35)
     pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
-    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" >/dev/null || exit 0; done
-    pkill -KILL -P "$loop_pid"; exit 0
+    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
+    pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
   done ) &
 watcher=$!
 log "сессия #$n: старт"
@@ -60,13 +60,13 @@ if [ -n "${ORCH_LOOP_AGENT_CMD:-}" ]; then
   # Тест-мир: пускач получает <cmd> из шва (тестовая команда запускается
   # под uid агента; CI/тест-мир: sudo -nu отказывает, но вектор границы
   # записан ш-имом systemd-run в scope_argv — клетка 3 меряет только вектор).
-  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
+  "${SCOPE[@]}" -- sh -c ': >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
     sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
 else
   # Production: пускач запускает workshop под uid агента через sudo -nu.
   # В тест-мире orchagent отсутствует — sudo отказывает; в production install.sh
   # root провизионит пользователя и sudoers-правило (узкое: harness→orchagent).
-  "${SCOPE[@]}" -- sh -c ': >"$1" && shift && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
+  "${SCOPE[@]}" -- sh -c ': >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
     sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
 fi
 if [ ! -e "$RAN" ]; then
