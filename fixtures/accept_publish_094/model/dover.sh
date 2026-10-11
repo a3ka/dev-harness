@@ -26,6 +26,11 @@
 # из ПРИНЯТОЙ версии (+И-6б: переход политики — отдельная санкция policy-строки),
 # И-7 целевая ветка из allowlist, И-8 отказ не двигает ветку, И-9 повтор не
 # создаёт второй merge.
+# Наследуемые обязательства (architect-пачка А-393): identity 016 И-7/И-9 —
+# committer==author ∧ committer ∈ реестр замороженных ЗОНА-строк (отказ
+# «identity: …» на prepare И publish); санкц-перенос 065 И-10 — строки
+# РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ALLOW-ARTIFACT-DELETE: из тел коммитов диапазона
+# BASE..CAND переносятся в merge-тело ДОСЛОВНО (дедуп точных повторов).
 set -uo pipefail
 POLICY_PATH="harness/policy"
 
@@ -61,6 +66,52 @@ for s in "$BASE" "$CAND" "$MERGE"; do
   [ "${#s}" -eq 40 ] || die "sha не 40 hex: $s"
 done
 case "$TASK" in ''|*[!A-Za-z0-9._/-]*) die "задача вне алфавита: $TASK" ;; esac
+
+# ── identity-check 016 И-7/И-9 (architect-пачка А-393): committer==author ∧
+# committer ∈ реестр зон — авторы ЗОНА-строк высших заморозок. Фразы — ДОСЛОВНО
+# из субъекта scripts/accept_publish.sh (:39-60), единый источник. Читатель
+# реестра — внутренний (модель и стабы из неё самодостаточны: lib_zones.sh не
+# источается), грамматика ЗОНА-строк — та же, что у lib_zones.sh. Toy-мир без
+# заморозок пропускает проверку (реестр пуст → committer не проверяется).
+_t94_zone_scoped() {  # <repo> → строки автор<TAB>путь<TAB>контракт (высшие заморозки)
+  local r="$1" nnn t v vmax f line rest author
+  while IFS= read -r nnn; do
+    [ -n "$nnn" ] || continue
+    vmax=0
+    while IFS= read -r t; do
+      [[ "$t" =~ ^refs/tags/frozen/contracts/${nnn}/([0-9]+)$ ]] || continue
+      v=$((10#${BASH_REMATCH[1]}))
+      [ "$v" -gt "$vmax" ] && vmax="$v"
+    done < <(git -C "$r" for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null)
+    [ "$vmax" -gt 0 ] || continue
+    f="$(git -C "$r" ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
+        | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+    [ -n "$f" ] || continue
+    while IFS= read -r line; do
+      rest="${line#ЗОНА }"; author="${rest%%:*}"
+      [ "$author" = "$rest" ] && continue
+      printf '%s\t%s\t%s\n' "$author" "${rest#*:}" "$nnn"
+    done < <(git -C "$r" cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$f" 2>/dev/null | grep '^ЗОНА ' || true)
+  done < <(git -C "$r" for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null | awk -F/ '{ print $5 }' | sort -u)
+}
+
+_t94_identity_check() {  # repo, base, candidate → die с «identity: …» (субъект :39-60)
+  local zs cmt author committer seen
+  zs="$(_t94_zone_scoped "$1")"
+  [ -n "$zs" ] || return 0  # toy-мир: реестра зон нет — committer не проверяется
+  seen=""
+  while IFS= read -r cmt; do
+    [ -n "$cmt" ] || continue
+    author="$(git -C "$1" log -1 --format='%an' "$cmt" 2>/dev/null)"
+    committer="$(git -C "$1" log -1 --format='%cn' "$cmt" 2>/dev/null)"
+    case "$seen" in *"|$committer|"*) continue ;; esac
+    seen="$seen|$committer|"
+    [ "$author" = "$committer" ] || die "identity: committer!=author в $cmt: $committer vs $author"
+    printf '%s\n' "$zs" | grep -qF "$committer"$'\t' \
+      || die "identity: committer не в реестре зон: $committer ($cmt)" # t94-m20
+  done < <(git -C "$1" rev-list "$2..$3" 2>/dev/null)
+  return 0
+}
 
 # ── ИНВАРИАНТ carrier-симметрии (И-6б; Б-5-R5, арбитраж 094-carrier-krug6 п.5б):
 # присутствие production-носителя registry/ci-steps.tsv симметрично на ОБЕИХ
@@ -111,11 +162,27 @@ object)
   exit 0
   ;;
 prepare)
+  _t94_identity_check "$REPO" "$BASE" "$CAND"
   tree="$(git -C "$REPO" merge-tree --write-tree --no-messages "$BASE" "$CAND" 2>/dev/null)" \
     || die "merge конфликт: base candidate"
+  # И-10 (контракт 065): перенос строк-санкций РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ALLOW-ARTIFACT-DELETE:
+  # из тел коммитов диапазона BASE..CAND в тело merge-коммита ДОСЛОВНО, дедуп
+  # ТОЛЬКО точных повторов; пустое множество → тело «land: <task>» одной строкой.
+  # Сообщение через -F (байты 1:1, как у субъекта :232-250).
+  MSGDIR="$(mktemp -d)"
+  trap 'rm -rf "$MSGDIR"' EXIT
+  git -C "$REPO" rev-list "$BASE..$CAND" 2>/dev/null \
+    | while IFS= read -r sha; do
+        [ -n "$sha" ] || continue
+        git -C "$REPO" log -1 --format=%B "$sha"
+        printf '\n'
+      done >"$MSGDIR/all"
+  awk '/^РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ || /^ALLOW-ARTIFACT-DELETE:/ { print }' "$MSGDIR/all" \
+    | awk '!seen[$0]++' >"$MSGDIR/sanctions" # t94-m21: дословный перенос + дедуп точных повторов
+  { printf 'land: %s\n' "$TASK"; cat "$MSGDIR/sanctions"; } >"$MSGDIR/msg"
   m="$(GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local \
        GIT_COMMITTER_NAME=orchestrator GIT_COMMITTER_EMAIL=orchestrator@dev-harness.local \
-       git -C "$REPO" commit-tree "$tree" -p "$BASE" -p "$CAND" -m "land: $TASK")" \
+       git -C "$REPO" commit-tree "$tree" -p "$BASE" -p "$CAND" -F "$MSGDIR/msg")" \
     || die "merge-коммит не строится"
   printf '%s\n' "$m"
   exit 0
@@ -132,6 +199,11 @@ case ",$branches," in
   *",$TARGET,"*) : ;;
   *) die "недопустимая целевая ветка: $TARGET" ;; # t94-m7
 esac
+
+# identity-check 016 И-7/И-9 (повторная сверка перед публикацией, субъект :277):
+# коммит диапазона с committer вне реестра зон отказывается НЕЗАВИСИМО от
+# статуса acceptance — инвариант гейта, не доказательство (не отменяется accept'ом).
+_t94_identity_check "$REPO" "$BASE" "$CAND"
 
 # И-1/И-2/И-3а: последний применимый вердикт задачи (привязка к объекту)
 best_seq=-1; best_out=""; best_obj=""
