@@ -125,6 +125,7 @@ START=$(date +%s)
 N=0
 RC=3
 MSG="таймаут ожидания CI"
+JOBID=""
 if [ -z "$REPO_SLUG" ]; then
   # Не git-repo или remote не GitHub — нет смысла опрашивать
   printf "ci_wait: нечем проверить: не GitHub-репо\n" >&2
@@ -169,13 +170,21 @@ try:
       st = r.get('status') or '?'
       cn = r.get('conclusion') or '?'
       nm = r.get('name') or '?'
+      # Б-9 (И-5 «шаг + причина»): на rc=1 нужен check-run id, чтобы
+      # через ТОТ ЖЕ шов ORCH_GH_API запросить /actions/jobs/<id> и достать
+      # упавшие ШАГИ (формат ci_diag.sh:79-82). Без id формат «шаги +
+      # причина» недостижим — это и есть основная ошибка круга 3
+      # (делегат на ci_diag.sh, который на sha не из origin/main падал
+      # на собственных воротах «sha не на main», см. review/2026-10-11-03).
+      cid = r.get('id')
+      cid_str = '' if cid is None else str(cid)
       if st != 'completed':
         # Б-9: TAB между kind/name, чтобы shell-парсер не резал «ci (l7, …)»
         # по пробелам. Парсится через IFS=\\t read на стороне shell —
         # НЕ наивный «split по пробелу», режущий имена с пробелами.
         print('pending\t' + nm)
       else:
-        print('fail\t' + nm + '\t' + cn)
+        print('fail\t' + nm + '\t' + cn + '\t' + cid_str)
 except Exception as e:
   print('parse_err', str(e))
 " "$TMPF" 2>/dev/null)
@@ -184,11 +193,15 @@ except Exception as e:
         RC=0; MSG=""; rm -f "$TMPF"; break
         ;;
       fail*)
-        # Б-9: TAB-разделённый «fail\\t<name>\\t<conclusion>»; парсится через
-        # IFS=tab read. Наивный awk по пробелу режет имена с пробелами
+        # Б-9: TAB-разделённый «fail\\t<name>\\t<conclusion>\\t<id>»; парсится
+        # через IFS=tab read. Наивный awk по пробелу режет имена с пробелами
         # вроде «ci (l7, check:contract-frozen …)». Прецедент ci_diag.sh:79.
-        IFS=$'\t' read -r _kind _name _concl <<<"$EVAL"
-        RC=1; MSG="CI КРАСНЫЙ — check-run «${_name}» → ${_concl}"; rm -f "$TMPF"; break
+        # Четвёртое поле — check-run id (r.id в python-блоке): через него
+        # ниже делается второй запрос к /actions/jobs/<id>, чтобы достать
+        # упавшие ШАГИ в формате ci_diag.sh:79-82.
+        IFS=$'\t' read -r _kind _name _concl _jobid <<<"$EVAL"
+        RC=1; MSG="CI КРАСНЫЙ — check-run «${_name}» → ${_concl}"; JOBID="${_jobid:-}"
+        rm -f "$TMPF"; break
         ;;
       no_runs)
         # Б-6: total_count=0 — НЕЗАВЕРШЁННОЕ ожидание (прогонов ещё нет;
@@ -233,13 +246,39 @@ if [ -n "$MSG" ]; then
   printf "ci_wait: %s\n" "$MSG" >&2
 fi
 
-# Б-9 (И-5 rc 1 «шаг + причина»): на rc=1 дополнительно зовём ci_diag.sh —
-# это та же sha, второй API-запрос (допустимо). Печатает упавший ШАГ и
-# причину из лога в формате ci_diag.sh:79-82 (прецедент). Свой rc НЕ
-# перебивает rc=1 ci_wait: если ci_diag тоже не смог (rc 2/3) — просто
-# дополняем stderr его диагностикой, выходим с rc 1.
-if [ "$RC" = 1 ] && [ -x "$SCRIPT_DIR/ci_diag.sh" ]; then
-  bash "$SCRIPT_DIR/ci_diag.sh" "$SHA" >&2 || true
+# Б-9 (И-5 rc 1 «шаг + причина»): на rc=1 делаем ВТОРОЙ запрос ЧЕРЕЗ ТОТ ЖЕ
+# шов ORCH_GH_API к /repos/<slug>/actions/jobs/<JOBID> (список шагов + их
+# conclusion), фильтруем шаги с conclusion="failure" и печатаем в формате
+# ci_diag.sh:79-82 («  ✗ шаг N: <имя>» под заголовком «Упавшие шаги:»).
+# Раньше здесь стоял `bash ci_diag.sh "$SHA"` — идея круга 3, ошибка
+# (review/2026-10-11-03): у ci_diag.sh:53-57 собственные ворота «sha на
+# origin/main» (на sha ещё не слитом в main — например голова открытого PR —
+# печатает «НЕ на origin/main — не запушен», противореча первой строке
+# «CI КРАСНЫЙ», и обходит шов ORCH_G_API, идя в зашитый api.github.com).
+# Свой rc НЕ перебивает rc=1 ci_wait: если шаги не достались (HTTP 000/≠200
+# либо нет JOBID из python-ответа) — просто дополняем stderr диагностикой,
+# выходим с rc 1.
+if [ "$RC" = 1 ] && [ -n "$JOBID" ]; then
+  JOB_PATH_API="${ORCH_GH_API}/repos/${REPO_SLUG}/actions/jobs/${JOBID}"
+  JOB_TMPF=$(mktemp)
+  JOB_HTTP_CODE=$(curl -sS -m 10 -o "$JOB_TMPF" -w '%{http_code}' "${AUTH_HDR[@]}" \
+    -H 'Accept: application/vnd.github+json' "$JOB_PATH_API" 2>/dev/null) || JOB_HTTP_CODE="000"
+  if [ "$JOB_HTTP_CODE" = "200" ] && [ -s "$JOB_TMPF" ]; then
+    STEPS_EVAL=$(python3 -c "
+import json, sys
+try:
+  d = json.load(open(sys.argv[1]))
+  for r in (d.get('steps') or []):
+    if r.get('conclusion') == 'failure':
+      print('  \u2717 \u0448\u0430\u0433 %s: %s' % (r.get('number', '?'), r.get('name', '?')))
+except Exception:
+  pass
+" "$JOB_TMPF" 2>/dev/null)
+    if [ -n "$STEPS_EVAL" ]; then
+      printf 'Упавшие шаги:\n%s\n' "$STEPS_EVAL" >&2
+    fi
+  fi
+  rm -f "$JOB_TMPF"
 fi
 
 exit "$RC"
