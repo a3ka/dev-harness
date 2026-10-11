@@ -16,12 +16,21 @@
 #           предусловия — core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}
 #           и branch.autoSetupMerge=false (И-2). Предусловие нарушено — rc 1
 #           ДО какого-либо chattr. Шов OPS_SERVER_MAIN (инвариант 6 074).
-#           Контракт 093 И-3: ДО копий провизионит system-user orchagent
+#           Контракт 093 И-6b: ДО копий сохраняет снимок ПРЕДЫДУЩЕЙ
+#           установленной версии (orch-peak + lib_session.sh + 7 юнитов,
+#           побайтово, атомарной заменой каталога) в
+#           ${OPS_SERVER_ROLLBACK_BACKUP-<SBIN_DST>/.rollback} — со второй
+#           установки (первой снимать нечего). Контракт 093 И-3: ПОСЛЕ
+#           sha256-петли и блокировки провизионит system-user orchagent
 #           (идемпотентно), /var/lib/orch-agent (владелец orchagent) и узкое
-#           sudoers-правило /etc/sudoers.d/orch-agent-launcher (harness → orchagent
-#           NOPASSWD для launcher-паттерна: workshop под uid агента через
-#           `sudo -nu orchagent`). Шов OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME
-#           переопределяют идентичность; по умолчанию orchagent / /var/lib/orch-agent.
+#           sudoers-правило /etc/sudoers.d/orch-agent-launcher (harness →
+#           orchagent NOPASSWD для launcher-паттерна: workshop под uid
+#           агента через `sudo -nu orchagent`) — ТОЛЬКО в производственном
+#           контуре (нет швов OPS_SERVER_SBIN_DST/OPS_SERVER_ETC_DST);
+#           в шов-мире провизионинг пропускается (тест-мир строит
+#           идентичность агента сам, шимами getent/sudo — 085). Швы
+#           OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME переопределяют
+#           идентичность; по умолчанию orchagent / /var/lib/orch-agent.
 #   verify — только читает: побайтно сверяет все 9 адресатов с источниками;
 #             все равны — rc 0 и «сверка: 9/9»; любое расхождение — rc 1
 #             с stderr «ОТКАЗ: расхождение <путь>».
@@ -31,11 +40,14 @@
 #             имени. И-6a контракта 093.
 #   rollback — побайтно восстановить предыдущую установленную версию
 #             (root-часть) из ${OPS_SERVER_ROLLBACK_BACKUP-<каталог>}/ :
-#             orch-peak + 7 юнитов, затем САМ выполнить
-#             `systemctl daemon-reload` и `systemctl restart
-#             ${OPS_SERVER_UNIT-orch-peak@0}` (находка 2 круга 2: без
-#             daemon-reload откат не активирует старый юнит). rc 0 — откат
-#             успешен и юнит активен, rc 1 — отказ. И-6b контракта 093.
+#             orch-peak + lib_session.sh + 7 юнитов (что есть в снимке),
+#             затем САМ выполнить `systemctl daemon-reload` и `systemctl
+#             restart ${OPS_SERVER_UNIT-orch-peak@0}` (находка 2 круга 2:
+#             без daemon-reload откат не активирует старый юнит) и
+#             ДОКАЗАТЬ активность юнита живой `systemctl is-active`.
+#             rc 0 — откат успешен и юнит активен; rc 1 — именованный
+#             отказ (нет каталога/снимка, расхождение, юнит не активен);
+#             rc 2 — нет systemctl. И-6b контракта 093.
 #
 # Швы (инвариант 6): OPS_SERVER_SRC (умолчание — каталог скрипта), адресаты
 # OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
@@ -61,9 +73,8 @@ SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
 MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
 UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
-# Контракт 093 И-1/И-6b: каталог предыдущей версии для rollback и метка.
+# Контракт 093 И-6b: каталог предыдущей версии для rollback.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
-TS="$(date +%s)"
 # Контракт 093 И-3: идентичность пользователя-агента (idempotent provisioning).
 AGENT_USER="${OPS_SERVER_AGENT_USER-orchagent}"
 AGENT_HOME="${OPS_SERVER_AGENT_HOME-/var/lib/orch-agent}"
@@ -155,11 +166,35 @@ case "$1" in
       printf 'ОТКАЗ: root-часть требует euid 0\n' >&2
       exit 1
     fi
+    # ── И-6b (093): снимок ПРЕДЫДУЩЕЙ установленной версии ДО копий ───────
+    # Побайтово: orch-peak + lib_session.sh + 7 юнитов; атомарная замена
+    # каталога (tmp + mv). rollback восстанавливает ИМЕННО этот снимок —
+    # «v1 → v2 → rollback → на месте v1». Первая установка: снимать нечего,
+    # каталог не создаётся (Р1-1 круга 1: прежний код снимок не писал,
+    # README обещал несуществующее).
+    prev=0
+    for f in "$SBIN_DST/orch-peak" "$SBIN_DST/lib_session.sh"; do
+      [ -f "$f" ] && prev=1
+    done
+    for u in $UNITS; do [ -f "$ETC_DST/$u" ] && prev=1; done
+    if [ "$prev" -eq 1 ]; then
+      SNAP="$STATE_BACKUP_DIR.new.$$"
+      rm -rf "$SNAP"; mkdir -p "$SNAP" || die_write "$SNAP"
+      snap_cp() { # <адресат>: в снимок, если существует
+        [ -f "$1" ] || return 0
+        cp -- "$1" "$SNAP/${1##*/}" || die_write "$SNAP/${1##*/}"
+      }
+      snap_cp "$SBIN_DST/orch-peak"; snap_cp "$SBIN_DST/lib_session.sh"
+      for u in $UNITS; do snap_cp "$ETC_DST/$u"; done
+      rm -rf "$STATE_BACKUP_DIR"
+      mv -- "$SNAP" "$STATE_BACKUP_DIR" || die_write "$STATE_BACKUP_DIR"
+      printf 'снимок предыдущей версии: %s\n' "$STATE_BACKUP_DIR"
+    fi
     mkdir -p "$SBIN_DST" "$ETC_DST" || die_write "$SBIN_DST $ETC_DST"
     cp -- "$SRC_ROOT/root/orch-peak" "$SBIN_DST/orch-peak" \
       || die_write "$SBIN_DST/orch-peak"
     chmod 755 "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
-    chown root:root "$SBIN_DST/orch-peak" 2>/dev/null || true || die_write "$SBIN_DST/orch-peak"
+    chown root:root "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
     rc=0
     check_one "$SBIN_DST/orch-peak" "$SRC_ROOT/root/orch-peak" || rc=1
     # Контракт 093 И-1: bootstrap-библиотека — установленный root:root файл
@@ -169,12 +204,8 @@ case "$1" in
     BOOTSTRAP_SRC="$SRC_ROOT/../../scripts/lib_session.sh"
     BOOTSTRAP_DST="$SBIN_DST/lib_session.sh"
     if [ -f "$BOOTSTRAP_SRC" ]; then
-      # backup предыдущей установленной версии (для rollback) — если есть
-      # STATE_BACKUP_DIR и предыдущий установленный файл.
-      if [ -d "$STATE_BACKUP_DIR" ] && [ -f "$BOOTSTRAP_DST" ]; then
-        /bin/cp -- "$BOOTSTRAP_DST" "$BOOTSTRAP_DST.$TS.bak" \
-          || die_write "backup $BOOTSTRAP_DST.$TS.bak"
-      fi
+      # прежняя версия уже в $STATE_BACKUP_DIR (снимок И-6b выше); отдельная
+      # .bak-копия рядом с адресатом удалена (мёртвый вес, Р1-1 круга 1)
       cp -- "$BOOTSTRAP_SRC" "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
       chmod 644 "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
       chown root:root "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
@@ -184,7 +215,7 @@ case "$1" in
       cp -- "$SRC_ROOT/root/systemd/$u" "$ETC_DST/$u" \
         || die_write "$ETC_DST/$u"
       chmod 644 "$ETC_DST/$u" || die_write "$ETC_DST/$u"
-      chown root:root "$ETC_DST/$u" 2>/dev/null || true || die_write "$ETC_DST/$u"
+      chown root:root "$ETC_DST/$u" || die_write "$ETC_DST/$u"
       check_one "$ETC_DST/$u" "$SRC_ROOT/root/systemd/$u" || rc=1
     done
     [ "$rc" -eq 0 ] && printf 'установлено: root-часть (orch-peak + 7 юнитов)\n'
@@ -248,11 +279,20 @@ case "$1" in
     fi
 
     # Контракт 093 И-3: провизионирование system-user orchagent ПОСЛЕ копий
-    # и блокировки .git/config. Исполняется ТОЛЬКО если rc=0 на этой точке
-    # (т.е. копии+sha256+chattr-секция дошли без внутренних exit 1); отказ
-    # provisioning — rc=1 (без прямого exit), затем общий exit "$rc".
+    # и блокировки .git/config, ТОЛЬКО в производственном контуре — когда
+    # НЕ заданы швы адресатов root-части (OPS_SERVER_SBIN_DST/ETC_DST).
+    # В шов-мире (песочницы 074/081/090/093-клеток) настоящий useradd и
+    # /etc/sudoers.d из тест-мира ломали бы его rc (регрессия 081-И2 круга
+    # 1: rc установщика в песочнице становился 1) — тест-мир строит
+    # идентичность агента сам (шимы getent/sudo, прецедент 085).
+    # Исполняется ТОЛЬКО если rc=0 на этой точке; отказ provisioning —
+    # rc=1 (без прямого exit), затем общий exit "$rc".
     if [ "$rc" -eq 0 ]; then
-      provision_orchagent || rc=1
+      if [ -n "${OPS_SERVER_SBIN_DST:-}" ] || [ -n "${OPS_SERVER_ETC_DST:-}" ]; then
+        printf 'шов-мир: провизионинг %s пропущен (тест-мир по швам адресатов)\n' "$AGENT_USER"
+      else
+        provision_orchagent || rc=1
+      fi
     fi
     exit "$rc"
     ;;
@@ -287,9 +327,11 @@ case "$1" in
     ;;
   rollback)
     # И-6b контракта 093: побайтное восстановление предыдущей установленной
-    # версии. Откат САМ несёт `systemctl daemon-reload` (находка 2 круга 2:
-    # без daemon-reload откат не активирует старый юнит) и restart юнита.
-    # Последовательность: v1 → v2 → rollback (БЕЗ install между) → активен v1.
+    # версии (снимок пишется `install.sh root` ДО копий — см. шапку). Откат
+    # САМ несёт `systemctl daemon-reload` (находка 2 круга 2: без
+    # daemon-reload откат не активирует старый юнит), перезапускает юнит и
+    # ДОКАЗЫВАЕТ активность живой is-active. Последовательность приёма:
+    # v1 → v2 → rollback (БЕЗ install между) → активен ИМЕННО v1.
     if [ "$(id -u)" -ne 0 ]; then
       printf 'ОТКАЗ: rollback требует euid 0\n' >&2
       exit 1
@@ -301,38 +343,65 @@ case "$1" in
       printf 'ОТКАЗ: нет каталога предыдущей версии: %s\n' "$BACKUP" >&2
       exit 1
     fi
+    # пустой снимок = предыдущей версии нет (первая установка не снимает)
+    have=0
+    for f in orch-peak lib_session.sh; do [ -f "$BACKUP/$f" ] && have=1; done
+    for u in $UNITS; do [ -f "$BACKUP/$u" ] && have=1; done
+    if [ "$have" -eq 0 ]; then
+      printf 'ОТКАЗ: нет предыдущей версии: снимок пуст: %s\n' "$BACKUP" >&2
+      exit 1
+    fi
     if [ -f "$BACKUP/orch-peak" ]; then
       cp -- "$BACKUP/orch-peak" "$SBIN_DST/orch-peak" \
         || { printf 'ОТКАЗ: запись %s/orch-peak\n' "$SBIN_DST" >&2; exit 1; }
-      chmod 755 "$SBIN_DST/orch-peak"
-      chown root:root "$SBIN_DST/orch-peak" 2>/dev/null || true
+      chmod 755 "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
+      chown root:root "$SBIN_DST/orch-peak" || die_write "$SBIN_DST/orch-peak"
     fi
+    if [ -f "$BACKUP/lib_session.sh" ]; then
+      cp -- "$BACKUP/lib_session.sh" "$SBIN_DST/lib_session.sh" \
+        || { printf 'ОТКАЗ: запись %s/lib_session.sh\n' "$SBIN_DST" >&2; exit 1; }
+      chmod 644 "$SBIN_DST/lib_session.sh" || die_write "$SBIN_DST/lib_session.sh"
+      chown root:root "$SBIN_DST/lib_session.sh" || die_write "$SBIN_DST/lib_session.sh"
+    fi
+    n_units=0
     for u in $UNITS; do
       if [ -f "$BACKUP/$u" ]; then
         cp -- "$BACKUP/$u" "$ETC_DST/$u" \
           || { printf 'ОТКАЗ: запись %s/%s\n' "$ETC_DST" "$u" >&2; exit 1; }
-        chmod 644 "$ETC_DST/$u"
-        chown root:root "$ETC_DST/$u" 2>/dev/null || true
+        chmod 644 "$ETC_DST/$u" || die_write "$ETC_DST/$u"
+        chown root:root "$ETC_DST/$u" || die_write "$ETC_DST/$u"
+        n_units=$((n_units + 1))
       fi
     done
-    # daemon-reload САМ откатом (находка 2 круга 2 — переустановка ПОСЛЕ отката
-    # маскирует неработоспособность; reload+restart — единый акт отката).
-    if [ -x "$(command -v "$SYSTEMCTL")" ]; then
-      "$SYSTEMCTL" daemon-reload >/dev/null 2>&1 || true
-      "$SYSTEMCTL" restart "$UNIT" >/dev/null 2>&1 || true
-    fi
+    # Откат — единый акт: reload + restart + доказательство активности
+    # (переустановка ПОСЛЕ отката маскирует неработоспособность — находка 2
+    # круга 2; отказ каждой службы — именованный, не глушится).
+    command -v "$SYSTEMCTL" >/dev/null 2>&1 \
+      || { printf 'NOT_IMPLEMENTED: нет %s\n' "$SYSTEMCTL" >&2; exit 2; }
+    "$SYSTEMCTL" daemon-reload >/dev/null 2>&1 \
+      || { printf 'ОТКАЗ: rollback: daemon-reload не удался\n' >&2; exit 1; }
+    "$SYSTEMCTL" restart "$UNIT" >/dev/null 2>&1 \
+      || { printf 'ОТКАЗ: rollback: restart %s не удался\n' "$UNIT" >&2; exit 1; }
+    state="$("$SYSTEMCTL" is-active "$UNIT" 2>&1)" || true
+    case "$state" in
+      active) ;;
+      *) printf 'ОТКАЗ: юнит не активен после отката: %s (состояние: %s)\n' "$UNIT" "$state" >&2
+         exit 1 ;;
+    esac
     # Самопроверка: адресаты побайтово = BACKUP. Без install между откатом и
     # наблюдением.
     rc=0
-    [ -f "$BACKUP/orch-peak" ] && check_one "$SBIN_DST/orch-peak" "$BACKUP/orch-peak" || rc=1
+    for f in orch-peak lib_session.sh; do
+      if [ -f "$BACKUP/$f" ]; then check_one "$SBIN_DST/$f" "$BACKUP/$f" || rc=1; fi
+    done
     for u in $UNITS; do
-      [ -f "$BACKUP/$u" ] && check_one "$ETC_DST/$u" "$BACKUP/$u" || rc=1
+      if [ -f "$BACKUP/$u" ]; then check_one "$ETC_DST/$u" "$BACKUP/$u" || rc=1; fi
     done
     if [ "$rc" -ne 0 ]; then
       printf 'ОТКАЗ: откат не восстановил адресаты побайтово\n' >&2
       exit 1
     fi
-    printf 'откат выполнен: %s + %d юнитов из %s\n' "orch-peak" "$(echo $UNITS | wc -w)" "$BACKUP"
+    printf 'откат выполнен: orch-peak + %d юнитов из %s; юнит активен\n' "$n_units" "$BACKUP"
     exit 0
     ;;
   *) usage ;;
