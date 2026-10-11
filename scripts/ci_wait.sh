@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # scripts/ci_wait.sh — блокирующее ожидание завершения CI по sha ОДНИМ вызовом
-# (контракт 092, И-5; rc 0/1/2/3, rc-грамматика ci_diag).
+# модели (контракт 092, И-5; rc-грамматика ci_diag). Опрос через ТОТ ЖЕ шов
+# ORCH_GH_API что и ci_diag.sh; при rc=1 делает второй запрос
+# /actions/jobs/<id> и третий /actions/jobs/<id>/logs (Б-9/Б-9c) для печати
+# упавших шагов и причины из лога в формате ci_diag.sh:79-93.
+#
+# bash scripts/ci_wait.sh --sha <sha> [--timeout <сек>] [--interval <сек>] [--attempts <N>]
+#
+# Коды возврата: 0 — CI зелёный (все check-runs success), 1 — CI красный
+# (в stderr — заголовок «Упавшие шаги:» со списком и «Причина из лога»),
+# 2 — невалидные аргументы / сеть / нечем проверить,
+# 3 — таймаут ожидания / не GitHub-репо.
 set -uo pipefail
 
 : "${ORCH_STATE_DIR:=/tmp/dev-harness-verify/orch-state}"
