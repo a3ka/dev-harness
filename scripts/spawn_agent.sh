@@ -136,10 +136,16 @@ if [ -n "$nnn" ]; then
   # make_task: <NNN>» (II-3 дословно). После построенного пака манифест-файл
   # живёт и эта нога не отказывает. Все отказы 016/023 для входов с манифестом
   # сохраняются дословно — нога лишь ПОДНИМАЕТ дверь в одну новую причину.
-  MAN_FILE="$ROOT/.omp/context/$nnn_padded_gate.tsv"
-  if [ ! -s "$MAN_FILE" ]; then
-    printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$nnn_padded_gate" >&2
-    exit 1
+  # (И-15-скоуп) нога правит спавны живого дерева харнеса (А-385): маркер —
+  # harness.project.json, якорь репо-слоя профиля 054, закоммичен в живом
+  # дереве и его вортри; toy-миры чужих батарей (016/019/023: make_repo —
+  # один пустой коммит) его не несут — там нога молчит, отказы 023 дословно.
+  if [ -r "$ROOT/harness.project.json" ]; then
+    MAN_FILE="$ROOT/.omp/context/$nnn_padded_gate.tsv"
+    if [ ! -s "$MAN_FILE" ]; then
+      printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$nnn_padded_gate" >&2
+      exit 1
+    fi
   fi
   # 1. тег жив локально
   if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn_padded_gate"; then
