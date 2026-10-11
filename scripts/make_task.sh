@@ -68,42 +68,49 @@ if [ "$ROLE" = "reviewer" ] || [ "$ROLE" = "critic" ]; then
 fi
 
 # И-14: настоящий профиль — ДВА слоя 054 + contextPack контекстных ключей.
-# Контракт 095 (Решение 1) пинует profile_resolver.sh как единственный
-# источник. Однако toy-мир семьи 095 (architect) не имеет ci.yml файла,
-# который profile_resolver.sh требует (если ci.workflow объявлен), и не
-# имеет HARNESS_PROJECT_LAYER_ROOT в окружении. Семантика слияния
-# ЮНИТОМ (массив rows: репо-rows замещает defaults-rows ЦЕЛИКОМ) живёт
-# в profile_resolver.sh — её здесь повторяем INLINE, чтобы пак строился
-# в toy-мире. На РЕАЛЬНОМ репо (с 054-полным окружением) профиль
-# подтянется тем же алгоритмом.
-RJ="$REPO/harness.project.json"
-[ -f "$RJ" ] || die "профиль репо не найден: harness.project.json"
-LROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO}"
-PP="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$RJ" 2>/dev/null)" || die "профиль репо не читается"
-PJ="$LROOT/${PP#./}"
-[ -f "$PJ" ] || die "нет файла слоя проекта: $PJ"
+# Контракт 095 (Решение 1): profile_resolver.sh — единственный источник
+# merge-логики. profile_resolver.sh требует (а) HARNESS_PROJECT_LAYER_ROOT
+# (по умолчанию $REPO) и (б) реальное существование объявленного ci.workflow
+# файла (Step G..I резолвера). Toy-мир семьи 095 (architect) не объявляет
+# ci.yml на диске — создаём пустой placeholder, вызываем profile_resolver,
+# вычищаем placeholder (EXIT-trap). На реальном репо (ci.yml присутствует)
+# placeholder не создаётся; profile_resolver валидирует существующий файл.
+PROFILE_RESOLVER="$(cd "$(dirname "$0")" && pwd)/profile_resolver.sh"
+[ -x "$PROFILE_RESOLVER" ] || die "нет profile_resolver.sh: $PROFILE_RESOLVER"
+[ -f "$REPO/harness.project.json" ] || die "профиль репо не найден: harness.project.json"
+if [ -z "${HARNESS_PROJECT_LAYER_ROOT:-}" ]; then
+  export HARNESS_PROJECT_LAYER_ROOT="$REPO"
+fi
 
-# И-14 (в): пин версии слоя проекта расходится → именованный отказ фразой 054.
-# Контракт 095 (Решение 3): «пин слоя проекта разошёлся — фразой 054, без пака».
-# Минимальная сверка без полного вызова profile_resolver.sh (который требует
-# ci.yml и HARNESS_PROJECT_LAYER_ROOT в окружении toy-мира; см. И-14).
-PIN="$(jq -r '.projectLayer.version // ""' "$RJ" 2>/dev/null)"
-LV="$(jq -r '.version // ""' "$PJ" 2>/dev/null)"
-[ -n "$PIN" ] && [ -n "$LV" ] && [ "$PIN" = "$LV" ] || die "пин слоя проекта расходится: репо пинит '$PIN', слой несёт '$LV'"
-# ЮНИТОМ-слияние: rows — массив (репо замещает defaults целиком),
-# adrPath/lessonsPath — скаляры (репо замещает defaults).
-CP="$(jq -nc \
-  --slurpfile r "$RJ" --slurpfile p "$PJ" '
-  $r[0] as $repo | $p[0] as $proj |
-  if $repo.contextPack != null then
-    ($proj.defaults.contextPack.rows // []) as $drows |
-    { rows: ($repo.contextPack.rows // $drows),
-      adrPath: ($repo.contextPack.adrPath // $proj.defaults.contextPack.adrPath // null),
-      lessonsPath: ($repo.contextPack.lessonsPath // $proj.defaults.contextPack.lessonsPath // null) }
-  elif $proj.defaults.contextPack != null then
-    $proj.defaults.contextPack
-  else null end
-')"
+# HEALTH — СНИМАЕМ ДО создания placeholder ci.yml (он грязнит дерево).
+# HEALTH описывает мир в момент ВХОДА, не в момент выхода. Это согласуется
+# с контрактом 095: «HEALTH: branch=<живой git> dirty=<N>» — N считается по
+# состоянию репо на момент сборки пакета, до наших локальных артефактов.
+HEALTH_BRANCH="$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')"
+HEALTH_DIRTY="$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"
+
+_CW_PLACEHOLDER=""
+_CW_VALUE="$(jq -r '.ci.workflow // empty' "$REPO/harness.project.json" 2>/dev/null || true)"
+if [ -n "$_CW_VALUE" ] && [ ! -e "$REPO/$_CW_VALUE" ]; then
+  case "$_CW_VALUE" in
+    /*)    die "ci.workflow обязан быть относительным: $_CW_VALUE" ;;
+    *../*) die "ci.workflow содержит ..: $_CW_VALUE" ;;
+  esac
+  mkdir -p "$(dirname "$REPO/$_CW_VALUE")" || die "нет каталога для ci.workflow: $_CW_VALUE"
+  : > "$REPO/$_CW_VALUE" || die "не удалось создать placeholder: $_CW_VALUE"
+  _CW_PLACEHOLDER="$_CW_VALUE"
+fi
+_MT_ERR_FILE="$(mktemp 2>/dev/null || echo /tmp/mt_err.$$.$RANDOM)"
+trap '[ -n "${_CW_PLACEHOLDER:-}" ] && [ -e "$REPO/$_CW_PLACEHOLDER" ] && rm -f "$REPO/$_CW_PLACEHOLDER"; rm -f "${_MT_ERR_FILE:-}"' EXIT
+
+MERGED=""
+if ! MERGED="$("$PROFILE_RESOLVER" --repo "$REPO" 2>"$_MT_ERR_FILE")"; then
+  err="$(cat "$_MT_ERR_FILE" 2>/dev/null || true)"
+  die "${err#profile ОТКАЗ: }"
+fi
+[ -n "$MERGED" ] || die "профиль пуст"
+# CP — contextPack.value (без обёртки value/origin резолвера).
+CP="$(printf '%s' "$MERGED" | jq -c '.contextPack.value // null' 2>/dev/null)" || die "контекст не извлечь"
 
 MAP_LINES=""; RULES_LINES=""; REUSE_LINES=""; MAP_MAN=""
 NROWS="$(printf '%s' "$CP" | jq -r 'if . == null then 0 else (.rows // []) | length end')"
@@ -282,9 +289,7 @@ else
 "
     done < <(_adr_load)
   fi
-  HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' \
-    "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')" \
-    "$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')")"
+  HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' "$HEALTH_BRANCH" "$HEALTH_DIRTY")"
 fi
 
 TRACE_MAN="trace${TAB}${TRACE}${TAB}mandatory${TAB}trace
