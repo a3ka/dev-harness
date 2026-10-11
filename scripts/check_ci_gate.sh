@@ -16,10 +16,26 @@
 #      публичному репозиторию хватит и без него);
 #   4. прогонов ≥ 1 и ВСЕ conclusion == success.
 #
-#   bash scripts/check_ci_gate.sh [корень] [sha]
+#   bash scripts/check_ci_gate.sh [корень] [sha] [--check-row <object_id>]
 #
 # Коды возврата: 0 — CI зелёный по запушенному коммиту, 1 — отказ с названной
 # причиной, 2 — нечем проверять (нет curl/jq/git).
+#
+# Делегат строк check журнала 094 (контракт 094, Решение 3, ПЕРЕСЕЧЕНИЕ 087/094):
+#   bash scripts/check_ci_gate.sh <корень> <merge-sha> --check-row <object_id>
+# по зелёному CI-сигналу пишет строку
+#   check<TAB><object_id><TAB><имя><TAB><ok|fail><TAB><run><TAB><wfsha><TAB><дерево>
+# в append-only журнал registry/candidates.tsv (относительно cwd вызывающего;
+# создаётся по требованию — Р2-2: журнал реален). дерево = <sha>^{tree} (Б3:
+# обвязка судит подготовленный merge по ДЕРЕВУ объекта, дверь сверяет его
+# литерально с MERGE^{tree}); wfsha = sha256 ПОЛНОГО реестра на ПЕРВОМ
+# родителе (base; И-4б: единая доверенная версия для всех ключей разом);
+# имя/статус — структурное сопоставление check-runs по имени step-строк
+# (посторонний зелёный workflow не закрывает обязательное имя, И-4).
+# run — монотонный по object_id: max(run строк объекта) + 1.
+# Р2-2 круга 3: T094_* env-гейты умерли — вызов аргументом CLI из порядка
+# ленда роли (roles/orchestrator.md). Без --check-row семантика 087 неизменна.
+# rc гейта НЕ зависит от успеха записи (side-effect журнала).
 set -euo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DATABASE \
@@ -27,8 +43,18 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DATABASE \
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${1:-$(cd "$SELF_DIR/.." && pwd)}"
-SHA_ARG="${2:-HEAD}"
+ROOT=""; SHA_ARG=""; CR_OID=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --check-row) CR_OID="${2:?--check-row: object_id}"; shift 2 ;;
+    *) if [ -z "$ROOT" ]; then ROOT="$1";
+       elif [ -z "$SHA_ARG" ]; then SHA_ARG="$1"
+       else die "неизвестный аргумент: $1"; fi
+       shift ;;
+  esac
+done
+ROOT="${ROOT:-$(cd "$SELF_DIR/.." && pwd)}"
+SHA_ARG="${SHA_ARG:-HEAD}"
 
 die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
@@ -84,3 +110,48 @@ if [ -n "$bad_run" ]; then
 fi
 
 printf '  ok   CI зелёный: проверок %s, все success, по %s (%s)\n' "$total" "$short" "$repo" >&2
+
+# ── поставка строк check журнала 094 (после зелёного CI; Р2-2) ───────────────
+if [ -n "$CR_OID" ]; then
+  _t94_journal="registry/candidates.tsv"
+  printf '%s' "$CR_OID" | grep -qE '^[0-9a-f]{64}$' || _t94_journal=""
+  if [ -n "$_t94_journal" ]; then
+    # дерево ИСПОЛНЕННОГО: судит подготовленный merge — sha^{tree} (Б3)
+    _t94_tree="$(g rev-parse --verify --quiet "${sha}^{tree}" 2>/dev/null || true)"
+    # доверенная версия определений: ПОЛНЫЙ реестр на ПЕРВОМ родителе (base; И-4б)
+    _t94_base="$(g rev-parse --verify --quiet "${sha}^1" 2>/dev/null || true)"
+    _t94_wfsha="$(g show "${_t94_base}:registry/ci-steps.tsv" 2>/dev/null | sha256sum | cut -d' ' -f1)"
+    if [ -n "$_t94_tree" ] && [ -n "$_t94_wfsha" ]; then
+      # имена обязательных проверок — step-строки реестра на base (И-0 083)
+      _t94_names="$(g show "${_t94_base}:registry/ci-steps.tsv" 2>/dev/null \
+        | sed -nE 's/^step[ \t]+([A-Za-z0-9._:-]+)[ \t]+[0-9]+.*/\1/p' || true)"
+      _t94_pass="$(printf '%s' "$body" | jq -r '.check_runs[] | select((.conclusion // "") == "success") | .name' 2>/dev/null || true)"
+      mkdir -p "$(dirname "$_t94_journal")" 2>/dev/null || true
+      # Журнал создаётся по требованию (Р2-2): писатель — первый, кто его коснулся.
+      [ -f "$_t94_journal" ] || : >"$_t94_journal"
+      # run — монотонный по object_id: max(run строк объекта) + 1
+      _t94_run=0
+      while IFS=$'\t' read -r _k _o _n _s _rn _w _t; do
+        [ "$_k" = "check" ] && [ "$_o" = "$CR_OID" ] || continue
+        case "$_rn" in ''|*[!0-9]*) continue ;; esac
+        [ "$_rn" -gt "$_t94_run" ] 2>/dev/null && _t94_run="$_rn" || true
+      done <"$_t94_journal"
+      _t94_run=$((_t94_run + 1))
+      for _t94_name in $_t94_names; do
+        _t94_status="fail"
+        case " $_t94_pass " in *" $_t94_name "*) _t94_status="ok" ;; esac
+        # Если журнал не оканчивается \n — разделитель, иначе строка склеится
+        # с хвостом и потребители (дверь/done_contract) её не отделят.
+        if [ -s "$_t94_journal" ] && [ "$(tail -c 1 "$_t94_journal" | wc -l)" -eq 0 ]; then
+          printf '\n' >>"$_t94_journal" || true
+        fi
+        printf 'check\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+          "$CR_OID" "$_t94_name" "$_t94_status" "$_t94_run" "$_t94_wfsha" "$_t94_tree" \
+          >>"$_t94_journal" \
+          || printf 'ОТКАЗ: check-строка не дописана: %s %s\n' "$_t94_journal" "$_t94_name" >&2
+      done
+      unset _t94_names _t94_pass _t94_name _t94_status _t94_run _t94_wfsha _t94_tree _t94_base
+    fi
+  fi
+  unset _t94_journal
+fi
