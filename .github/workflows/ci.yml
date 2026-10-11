@@ -107,13 +107,13 @@ jobs:
           - lane: l3
             keys: check:zones check:consumers-window-family-selftest check:hooks check:skills check:scoped-run
           - lane: l4
-            keys: check:protected check:document check:gitw-family-selftest check:pokrytie-079-family-selftest check:v-polete-nichego-088-family-selftest drill:next-id-race check:ceilings check:decisions check:nabludenia check:measure-probe drill:gate-draft
+            keys: check:protected check:document check:gitw-family-selftest check:pokrytie-079-family-selftest check:v-polete-nichego-088-family-selftest drill:next-id-race check:ceilings check:decisions check:nabludenia check:measure-probe check:spec-ready-036
           - lane: l5
-            keys: check:orch-restart-family-selftest check:sharing-family-selftest check:cikl-perezapuska-085-family-selftest check:fix-085-orch-peak-home-090-family-selftest check:merge-gate-family-selftest check:rotaciya-handoff-091-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:gen check:precision-battery check:precision-gate-043 drill:nabludenia-nechitaemo
+            keys: check:orch-restart-family-selftest check:sharing-family-selftest check:cikl-perezapuska-085-family-selftest check:fix-085-orch-peak-home-090-family-selftest check:merge-gate-family-selftest check:rotaciya-handoff-091-family-selftest check:orch-state-family-selftest check:zony-merge-head-family-selftest drill:protected-rename check:gen check:precision-battery check:precision-gate-043 drill:gate-draft
           - lane: l6
-            keys: check:protected-call-budget check:zones-call-budget check:declared-path-family-selftest check:fix-090-orch-peak-home-family-selftest check:ops-server-family-selftest check:runner-hygiene drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scope-select drill:startup-digest
+            keys: check:protected-call-budget check:zones-call-budget check:declared-path-family-selftest check:fix-090-orch-peak-home-family-selftest check:ops-server-family-selftest check:runner-hygiene drill:contract-change metering:selftest check:github-token-family-selftest check:precision-family-selftest check:scope-select drill:nabludenia-nechitaemo
           - lane: l7
-            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:door-bugfix-family-selftest check:ids check:provodka-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:contract-ready check:judge-gate check:threat-model-selftest
+            keys: check:contract-frozen check:samodostatochnost-family-selftest check:approval check:door-bugfix-family-selftest check:ids check:provodka-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:contract-ready check:judge-gate check:threat-model-selftest drill:startup-digest
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4
