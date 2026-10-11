@@ -13,6 +13,12 @@
 #
 #   bash scripts/models_actual.sh            последняя сессия
 #   bash scripts/models_actual.sh --all      все сессии зоны, от новых к старым
+#   bash scripts/models_actual.sh --tsv      TSV-адаптер трассы: `роль TAB модель
+#                                            TAB allowed|denied` из того же
+#                                            трейс-источника (JSONL сессий).
+#                                            Человекочитаемый вывод без флага
+#                                            идентичен прежнему (Решение 9
+#                                            контракта 095, 028-дельта).
 #
 # Коды возврата: 0 — модель совпала с заявленной, 1 — разошлась, 2 — нечем проверить.
 set -euo pipefail
@@ -40,7 +46,53 @@ else
 fi
 
 ALL=0
-[ "${1:-}" = "--all" ] && ALL=1
+TSV=0
+case "${1:-}" in
+  --all) ALL=1 ;;
+  --tsv) TSV=1 ;;
+  "")    ;;
+  *)     printf 'NOT_IMPLEMENTED: неизвестный флаг: %s\n' "$1" >&2; exit 2 ;;
+esac
+
+# `--tsv` — адаптер трассы для make_task.sh: печатает строки
+# `роль TAB модель TAB allowed|denied` из ТОГО ЖЕ источника (JSONL сессий
+# в ZONE), что и человекочитаемый режим. Семантика 028 не меняется:
+# `resolvedModelIsFallback=false` → заявленная модель РАЗРЕШЕНА (allowed),
+# `true` → ЗАЯВЛЕННАЯ отвергнута и взята запасная (denied). Выход — на
+# stdout; rc 0 если есть хоть одна строка, иначе 2. Не требует
+# SESSION_ROLE/declared сверки (другая роль — другая задача).
+if [ "$TSV" = "1" ]; then
+  TAB="$(printf '\t')"
+  mapfile -t _tsv_traces < <(find "$ZONE" -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2)
+  [ "${#_tsv_traces[@]}" -gt 0 ] || { printf 'NOT_IMPLEMENTED: трейсов в зоне нет\n' >&2; exit 2; }
+  _tsv_found=0
+  for f in "${_tsv_traces[@]}"; do
+    # Роль — наиболее частое значение `"agent":"..."` в файле (агент,
+    # ведший сессию). Пустая роль — пустое поле в TSV (cons make_task
+    # тогда отказывает «нет свидетельства модели» — это не наш отказ).
+    _role="$(grep -ohE '"agent"[[:space:]]*:[[:space:]]*"[a-z][a-z0-9-]*"' "$f" 2>/dev/null \
+             | sed 's/.*"\([a-z][a-z0-9-]*\)"$/\1/' | LC_ALL=C sort | LC_ALL=C uniq -c \
+             | LC_ALL=C sort -rn | head -1 | awk '{print $2}' || true)"
+    # Каждое событие `model_change` — отдельная строка TSV. Регекс
+    # однострочный: эти события короткие и не содержат переводов строк.
+    _events="$(grep -ohE '"type":"model_change"[^{]*"model":"[^"]+"[^{]*"resolvedModelIsFallback":[a-z]+' "$f" 2>/dev/null || true)"
+    if [ -z "$_events" ]; then continue; fi
+    while IFS= read -r ev; do
+      [ -z "$ev" ] && continue
+      _m="$(printf '%s' "$ev" | sed -n 's/.*"model":"\([^"]*\)".*/\1/p')"
+      _fb="$(printf '%s' "$ev" | sed -n 's/.*"resolvedModelIsFallback":\([a-z][a-z]*\).*/\1/p')"
+      case "$_fb" in
+        false) _perm="allowed" ;;
+        true)  _perm="denied"  ;;
+        *)     _perm="$_fb"    ;;
+      esac
+      printf '%s%s%s%s%s\n' "${_role:-}" "$TAB" "$_m" "$TAB" "$_perm"
+      _tsv_found=$((_tsv_found + 1))
+    done <<<"$_events"
+  done
+  [ "$_tsv_found" -gt 0 ] || { printf 'NOT_IMPLEMENTED: model_change событий в зоне нет\n' >&2; exit 2; }
+  exit 0
+fi
 
 # Заявлено — модель РОЛИ СЕССИИ, а не `default`: сессию ведёт роль, и сверять надо с её моделью.
 SESSION_ROLE="architect"
