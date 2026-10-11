@@ -1,4 +1,4 @@
-ФОРК: 263-grandfather-b7a0c276
+ФОРК: n263-grandfather-b7a0c276
 ВОПРОС: `scripts/check_charter.sh` l1 (`check:charter`) красит CI на PR#84 (ветка
 `wip/094/implementer-final`): merge-коммит `b7a0c27612438b9768a084abe775baf12d9e4989`
 (`094 rebuild (Н-261): merge wip/094/architect — текст контракта только через эту

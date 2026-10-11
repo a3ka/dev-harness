@@ -1,4 +1,4 @@
-ФОРК: 266-orch-loop-test-mode
+ФОРК: n266-orch-loop-test-mode
 ВОПРОС: 093 (`wip/int-093/architect` @ `c44a056c`) CI-лейн l5
 (`check:cikl-perezapuska-085-family-selftest`) красен 17 клетками. `ops/server/user/
 orch-loop` (контракт 093, И-3/И-5) теперь БЕЗУСЛОВНО зовёт `sudo -nu orchagent …`
