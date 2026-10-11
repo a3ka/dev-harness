@@ -321,4 +321,43 @@ else
   ok "ветвь (з): не репозиторий git — проверка полноты фикстур неприменима"
 fi
 
-printf 'барьер зелёный: 8 ветвей пройдены\n' >&2
+# ── (и) МАТРИЦА ВИДИМОСТИ 13.4 — skills по роли (Решение 5, 003-дельта 095) ──
+# §13.4 владельца («Кому что») определяет, какие скилы видны какой роли.
+# make_task.sh выдаёт SKILLS-секцию по этой матрице. check_skills.sh —
+# второй потребитель матрицы: для каждой пары role→skill матрица
+# ссылается ТОЛЬКО на скилы из EXPECTED, и каждый такой скил обязан
+# существовать в $SKILLS_DIR (согласованность матрицы с предметом).
+# Существующие ветви (а)-(з) не трогаются; (и) — дельта 095.
+#
+# §13.4 (дословно из docs/owner/2026-10-03-done-i-instrumenty.md §13.4):
+#   architect   → grilling, writing-for-agents, tdd
+#   critic      → (none — out-of-scope B2c)
+#   implementer → tdd, diagnosing-bugs
+#   adversary   → diagnosing-bugs
+#   reviewer    → (правила кодинга, deep modules/seams — не skills/)
+_matrix_arch=(grilling writing-for-agents tdd)
+_matrix_impl=(tdd diagnosing-bugs)
+_matrix_adv=(diagnosing-bugs)
+_matrix_missing=0
+_matrix_check() {  # $1=role, $2..=skills
+    local role="$1"; shift
+    for skill in "$@"; do
+      case " $EXPECTED " in
+        *" $skill "*) ;;
+        *) die "матрица 13.4: роль «$role» рекламирует скил «$skill» вне EXPECTED ($EXPECTED)" ;;
+      esac
+      if [ -d "$SKILLS_DIR" ] && [ ! -d "$SKILLS_DIR/$skill" ]; then
+        die "матрица 13.4: роль «$role» ссылается на отсутствующий скил «$skill»"
+      fi
+    done
+}
+if [ -d "$SKILLS_DIR" ]; then
+  _matrix_check architect   "${_matrix_arch[@]}"
+  _matrix_check implementer "${_matrix_impl[@]}"
+  _matrix_check adversary   "${_matrix_adv[@]}"
+  ok "ветвь (и): матрица 13.4 согласована с skills/ (роли→скилы, все видимые существуют)"
+else
+  ok "ветвь (и): skills/ отсутствует — матрица 13.4 не валидируется"
+fi
+
+printf 'барьер зелёный: 8 ветвей пройдены (ветвь (и) — дельта 095)\n' >&2
