@@ -36,11 +36,15 @@ if [ -z "$root_arg" ]; then ROOT="$(pwd -P 2>/dev/null || pwd)"; else
     printf 'NOT_IMPLEMENTED: %s не каталог\n' "$root_arg" >&2; exit 2; }
 fi
 
-# NNN: явный номер; без --nnn — следующий свободный по веткам wip/<N>/*
+# NNN: явный номер; без --nnn — следующий свободный (max по wip/<N>/* + 1,
+# %03d), дословно как авто-ветка живой двери spawn_agent.sh: в свежем
+# репозитории без wip/*-веток это 001, не отказ. Сценарий (в) клетки
+# red_dver_spawn_manifest.sh судит ногу И-15 в авто-режиме — номер
+# разрешается ДО ноги, отказ ноги несёт его в выводе.
 if [ -z "$nnn" ]; then
-  nnn="$(git -C "$ROOT" for-each-ref --format='%(refname:short)' 'refs/heads/wip/*/*' 2>/dev/null \
-    | sed -n 's|^wip/\([0-9][0-9][0-9]\)/.*|\1|p' | LC_ALL=C sort -u | tail -n 1)"
-  [ -n "$nnn" ] || { printf 'ОТКАЗ: номер не определён\n' >&2; exit 1; }
+  max_nnn="$(git -C "$ROOT" for-each-ref --format='%(refname)' 'refs/heads/wip/' 2>/dev/null \
+    | sed -n 's|^refs/heads/wip/\([0-9][0-9][0-9]*\)/.*|\1|p' | LC_ALL=C sort -n | tail -n 1)"
+  nnn="$(printf '%03d' "$((10#${max_nnn:-0} + 1))")"
 fi
 case "$nnn" in ''|*[!0-9]*) printf 'ОТКАЗ: номер вне алфавита: %s\n' "$nnn" >&2; exit 1 ;; esac
 
