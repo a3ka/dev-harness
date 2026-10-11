@@ -15,7 +15,7 @@
 #           свежую сессию через свой GRACE). Без сжатия: новая сессия читает HANDOFF.
 set -u
 U="${ORCH_USER:-harness}"
-UHOME="$(getent passwd "$U" | cut -d: -f6)"
+UHOME="${ORCH_UHOME:-$(getent passwd "$U" | cut -d: -f6)}"
 REPO="${ORCH_REPO:-$UHOME/dev-harness}"
 LOOP_PAT="${ORCH_LOOP_PAT:-bin/orch-loop}"
 LOOP_CMD="${ORCH_LOOP_CMD:-cd ~/dev-harness && orch-loop}"
@@ -157,6 +157,7 @@ current_session_dir() {
   printf '%s/%s' "$(dirname -- "$f")" "$(basename -- "$f" .jsonl)"
 }
 
+ORCH_SESS_GLOB="$SESS_GLOB"
 # Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
 # live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
 # (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит

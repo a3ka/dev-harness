@@ -118,7 +118,7 @@ case "$1" in
       # ДО chattr; пустой hooks_real (realpath отказал) — допускается ТОЛЬКО
       # литерал `.githooks` (а не совпадение пустого с пустым: case "" in "")
       # в bash истинно и ранее делало предусловие зелёным без ключа).
-      hooks_path="$(git -C "$MAIN_DST" config --local --get core.hooksPath 2>/dev/null || true)"
+      hooks_path="$(git config --file "$CFG_MAIN" --get core.hooksPath 2>/dev/null || true)"
       hooks_real="$(realpath "$MAIN_DST/.githooks" 2>/dev/null || true)"
       if [ -z "$hooks_path" ]; then
         printf 'ОТКАЗ: core.hooksPath не установлен; установите через npm run hooks:install ДО блокировки\n' >&2
@@ -135,7 +135,7 @@ case "$1" in
       esac
 
       # предусловие 2: branch.autoSetupMerge = false явно
-      auto_merge="$(git -C "$MAIN_DST" config --local --type=bool --get branch.autoSetupMerge 2>/dev/null || true)"
+      auto_merge="$(git config --file "$CFG_MAIN" --type=bool --get branch.autoSetupMerge 2>/dev/null || true)"
       if [ "$auto_merge" != "false" ]; then
         printf 'ОТКАЗ: branch.autoSetupMerge не false (%s); выполните `git config branch.autoSetupMerge false` ДО блокировки\n' "${auto_merge:-<пусто>}" >&2
         exit 1

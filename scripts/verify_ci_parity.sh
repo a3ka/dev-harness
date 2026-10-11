@@ -263,7 +263,13 @@ declare -A REGISTRY_STEP_BASH=()
 if [ -f "$ROOT/registry/ci-steps.tsv" ]; then
   while IFS=$'\t' read -r kind k1 k2 k3; do
     case "$kind" in
-      step)
+      step|legkij)
+        # Контракт 087 И-2: legkij-ключи исполняются джобой `legkij` через
+        # `bash scripts/run_ci_lane.sh <ключи>`. Покрытие — тем же проходом
+        # реестра, что и step-ключи: иначе перенос ключа из step в legkij
+        # (по §Остаточный риск 087: «шаг, читающий учётный путь, станет
+        # красным на тяжёлом прогоне пачки implementer — лечение — перенос
+        # в legkij») обнаруживается как расхождение паритета CI-приёмка.
         cmd="$k3"
         case "$cmd" in
           "npm run "*)
@@ -278,7 +284,7 @@ if [ -f "$ROOT/registry/ci-steps.tsv" ]; then
         esac
         ;;
     esac
-  done < <(awk -F'\t' '/^[[:space:]]*#/ {next} $1=="lanes" || $1=="step" || $1=="shard" {print}' "$ROOT/registry/ci-steps.tsv")
+  done < <(awk -F'\t' '/^[[:space:]]*#/ {next} $1=="lanes" || $1=="step" || $1=="legkij" || $1=="shard" {print}' "$ROOT/registry/ci-steps.tsv")
   : > "$REG_TSV"
   for k in "${!REGISTRY_STEP_NPM[@]}"; do printf 'npm\t%s\n' "$k" >> "$REG_TSV"; done
   for k in "${!REGISTRY_STEP_BASH[@]}"; do printf 'bash\t%s\n' "$k" >> "$REG_TSV"; done

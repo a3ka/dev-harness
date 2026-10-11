@@ -52,18 +52,21 @@ legkij	check:ids	5	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
 legkij	check:protected	5	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 legkij	check:nabludenia	15	npm run check:nabludenia
 legkij	check:contract-frozen	25	npm run check:contract-frozen
+legkij	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
+legkij	check:runner-hygiene	20	npm run check:runner-hygiene
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
 step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
 step	check:consumers-window-family-selftest	15	bash fixtures/check_consumers/krasnye_062.sh
 step	check:watchdog-082-family-selftest	20	bash fixtures/verify_antiplacebo/red_watchdog_082.sh
 step	check:cikl-perezapuska-085-family-selftest	20	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
+step	check:fix-085-orch-peak-home-090-family-selftest	20	bash fixtures/_krasnye_090.sh
+step	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
 step	check:measure-probe	10	npm run check:measure-probe
 step	check:scope-select	10	npm run check:scope-select
 step	check:scoped-run	10	npm run check:scoped-run
 step	check:contract-ready	15	npm run check:contract-ready
 step	check:document	20	npm run check:document
-step	check:spec-ready-036	10	npm run check:spec-ready -- . contracts/036-spec-tochnost-prefriz-gejt.md
 step	check:precision-gate-043	10	npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
 step	check:precision-family-selftest	15	npm run check:precision-family-selftest
 step	check:precision-battery	15	npm run check:precision-battery
@@ -75,13 +78,11 @@ step	check:declared-path-family-selftest	20	bash fixtures/_krasnye_059.sh
 step	check:samodostatochnost-family-selftest	25	bash fixtures/_krasnye_060.sh
 step	check:github-token-family-selftest	15	bash scripts/check_github_token_070.sh
 step	check:zony-merge-head-family-selftest	20	bash fixtures/_krasnye_073.sh
-step	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
 step	check:door-bugfix-family-selftest	20	bash fixtures/_krasnye_080.sh
 step	check:v-polete-nichego-088-family-selftest	20	bash fixtures/_krasnye_088.sh
 step	check:merge-gate-family-selftest	20	bash fixtures/check_judge_gate/krasnye_063.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	15	npm run check:judge-gate
-step	check:runner-hygiene	20	npm run check:runner-hygiene
 step	drill:gate-draft	10	npm run drill:gate-draft
 step	drill:startup-digest	10	npm run drill:startup-digest
 step	drill:nabludenia-nechitaemo	10	npm run drill:nabludenia-nechitaemo
@@ -99,6 +100,8 @@ step	drill:protected-exception	20	npm run drill:protected-exception
 step	drill:protected-rename	20	npm run drill:protected-rename
 step	check:zones-call-budget	25	npm run check:zones-call-budget
 step	check:protected-call-budget	30	npm run check:protected-call-budget
+step	check:fix-090-orch-peak-home-family-selftest	20	bash fixtures/_krasnye_090.sh
+step	check:rotaciya-handoff-091-family-selftest	20	bash fixtures/_krasnye_091.sh
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).

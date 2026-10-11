@@ -126,7 +126,7 @@ jobs:
         with:
           node-version: 26
       - name: Лёгкое задание (устав, зоны, ids, protected, грамматика 015)
-        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen
+        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen check:ops-server-family-selftest check:runner-hygiene
 
       # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
       # v+1 — в legkij матрицы НЕТ, 4 чека выполняются одним шагом без условия
@@ -271,17 +271,17 @@ jobs:
           - lane: l1
             keys: check:gitw-predpolet-family-selftest
           - lane: l2
-            keys: check:orch-restart-family-selftest check:gitw-family-selftest check:watchdog-082-family-selftest metering:selftest check:hooks check:measure-probe check:scope-select
+            keys: check:orch-restart-family-selftest check:fix-085-orch-peak-home-090-family-selftest check:rotaciya-handoff-091-family-selftest drill:protected-exception check:decisions check:precision-family-selftest check:scoped-run
           - lane: l3
-            keys: check:protected-call-budget check:merge-gate-family-selftest check:zony-merge-head-family-selftest check:ceilings check:contract-ready check:precision-battery check:scoped-run
+            keys: check:protected-call-budget check:fix-090-orch-peak-home-family-selftest check:v-polete-nichego-088-family-selftest drill:protected-rename check:gen check:skills drill:gate-draft
           - lane: l4
-            keys: check:samodostatochnost-family-selftest check:declared-path-family-selftest check:provodka-family-selftest drill:next-id-race check:decisions check:precision-family-selftest check:spec-ready-036
+            keys: check:samodostatochnost-family-selftest check:declared-path-family-selftest check:merge-gate-family-selftest check:zony-merge-head-family-selftest check:ceilings check:github-token-family-selftest check:threat-model-selftest
           - lane: l5
-            keys: check:sharing-family-selftest check:document check:runner-hygiene drill:protected-exception check:gen check:skills drill:gate-draft
+            keys: check:sharing-family-selftest check:document check:pokrytie-079-family-selftest drill:contract-change check:consumers-window-family-selftest check:hooks check:measure-probe drill:nabludenia-nechitaemo
           - lane: l6
-            keys: check:zones-call-budget check:door-bugfix-family-selftest check:v-polete-nichego-088-family-selftest drill:protected-rename check:github-token-family-selftest check:threat-model-selftest drill:nabludenia-nechitaemo
+            keys: check:zones-call-budget check:door-bugfix-family-selftest check:provodka-family-selftest drill:next-id-race check:contract-ready check:judge-gate check:precision-gate-043 drill:startup-digest
           - lane: l7
-            keys: check:approval check:cikl-perezapuska-085-family-selftest check:ops-server-family-selftest drill:contract-change check:consumers-window-family-selftest check:judge-gate check:precision-gate-043 drill:startup-digest
+            keys: check:approval check:cikl-perezapuska-085-family-selftest check:gitw-family-selftest check:watchdog-082-family-selftest metering:selftest check:precision-battery check:scope-select
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4

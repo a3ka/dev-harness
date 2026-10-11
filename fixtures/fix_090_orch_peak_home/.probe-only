@@ -1,0 +1,8 @@
+probe-only каталог (контракт 034): предмет — батарея 090
+fix_090_orch_peak_home «сторож станции без HOME, без исполнения файлов харнеса под root,
+install.sh safe.directory, герметичность фикстур» (контракт 090, done/contracts/090/1).
+Клетки red_* запускаются прямым CI-шагом из registry/ci-steps.tsv (680fac6), а не через
+case_*-глоб раннера; барьерного ключа scripts/fix_090_orch_peak_home.sh нет и не будет —
+предмет судит ops/server/root/orch-peak и ops/server/install.sh.
+Причина маркера: verify_antiplacebo красил «фикстура без барьера — она ничего не держит»
+на всех шардах (Н-226); прецедент — 402ed23 (семья pokrytie_083_088_079).
