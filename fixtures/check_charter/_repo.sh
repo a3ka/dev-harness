@@ -44,3 +44,53 @@ make_repo() {
   g "$r" tag -a frozen/plans/001/1 -m 'план утверждён'
   g "$r" tag -a ustav/1 -m 'устав действует'
 }
+
+# ── строитель merge-входа ленда дверью 094 (контракт 094, И-10: миграция
+# пяти land-кейсов семьи с удалённого scripts/land_agent.sh; предмет кейсов —
+# суд устава барьером check_charter над ПОСТРОЕННЫМ merge — не меняется) ──
+
+# door_policy <repo> — предпосылки двери в toy-репо: политика toy-мира
+# harness/policy (repoId/mandatory/targetBranches) + доверенное определение
+# единственной обязательной проверки. Зовётся ДО commit_all основания: дверь
+# читает политику по base SHA (И-6), не из рабочего дерева.
+door_policy() {
+  local r="$1"
+  mkdir -p "$r/harness/checks"
+  printf 'repoId=toy-065\nmandatory=ci-065\ntargetBranches=main\n' > "$r/harness/policy"
+  printf 'run toy-065 ci-065\n' > "$r/harness/checks/ci-065.cmd"
+}
+
+# land_door <repo> <ветка> <журнал> — ленд через дверь: prepare строит
+# merge-коммит (перенос строк-санкций из тел коммитов диапазона base..cand
+# дословно, дедуп точных повторов — именно его судит барьер), publish двигает
+# main. Toy-журнал пишет КЕЙС — паттерн семьи accept_publish_094: вердикт
+# accept объекта + зелёные строки check (wfsha доверенного определения на
+# base ∧ дерево подготовленного merge). Вывод двери — в stdout вызывающему
+# (успех публикует «PUBLISHED target=main merge=<sha>»), rc функции = rc
+# последнего шага двери.
+land_door() {
+  local r="$1" br="$2" j="$3" base cand m oid name wfs mt out
+  base="$(g "$r" rev-parse refs/heads/main)"
+  cand="$(g "$r" rev-parse "refs/heads/$br")"
+  out="$(bash "$REPO/scripts/accept_publish.sh" prepare --repo "$r" --task "$br" --base "$base" --candidate "$cand" 2>&1)" || {
+    printf '%s\n' "$out"; return 1; }
+  m="$(printf '%s\n' "$out" | tail -n1)"
+  out="$(bash "$REPO/scripts/accept_publish.sh" object --repo "$r" --task "$br" --target main --base "$base" --candidate "$cand" --merge "$m" 2>&1)" || {
+    printf '%s\n' "$out"; return 1; }
+  oid="$(printf '%s\n' "$out" | tail -n1)"
+  : > "$j"
+  printf 'verdict\t%s\t%s\taccept\t1\n' "$br" "$oid" >> "$j"
+  mt="$(g "$r" rev-parse "$m^{tree}")"
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    wfs="$(g "$r" show "$base:harness/checks/$name.cmd" | sha256sum | cut -d' ' -f1)"
+    printf 'check\t%s\t%s\tok\t1\t%s\t%s\n' "$oid" "$name" "$wfs" "$mt" >> "$j"
+  done < <(g "$r" show "$base:harness/policy" | sed -n 's/^mandatory=//p' | tr ',' '\n')
+  out="$(bash "$REPO/scripts/accept_publish.sh" publish --repo "$r" --task "$br" --target main --base "$base" --candidate "$cand" --merge "$m" --candidate-ref "$br" --journal "$j" 2>&1)"; rc=$?
+  [ "$rc" -eq 0 ] && g "$r" checkout -q -f main   # дверь двигает ТОЛЬКО ref
+  # (атомарный update-ref, И-8): рабочее дерево toy-репо синхронизируется с
+  # опубликованным main — дальнейшие шаги кейса (красные слияния, барьер)
+  # судят дерево опубликованного merge, а не отставший checkout.
+  printf '%s\n' "$out"
+  return "$rc"
+}

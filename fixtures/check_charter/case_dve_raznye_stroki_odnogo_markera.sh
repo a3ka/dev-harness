@@ -14,7 +14,8 @@
 # merge-тело несёт каждую строку РОВНО один раз — проверяется grep -cFx == 1. Это
 # различает и обратный стаб «дедупа нет вовсе» (вторая копия попала бы в merge).
 #
-#   * зелёный контроль: ленд исполняет НАСТОЯЩИЙ land_agent.sh; фикстура требует ОБЕ
+#   * зелёный контроль: ленд исполняет НАСТОЯЩУЮ дверь accept_publish.sh
+#     (prepare+publish, toy-журнал пишет кейс); фикстура требует ОБЕ
 #     строки в merge-теле (grep -cFx: ровно 1 каждая) ДО $BARRIER — стаб «дедуп по $1»
 #     ловится этим ОТКАЗом сверки ещё до вызова барьера; затем $BARRIER → rc 0;
 #   * красное: merge построен так, как его строит стаб дедупа — перенесена ТОЛЬКО
@@ -34,7 +35,9 @@ R="$WORK/repo"
 make_repo "$R"
 
 # land-предпосылки — как в case_land_sankcija_ne_perenesena_v_merge.sh: замороженный
-# контракт 900 с ЗОНА implementer — реестр ролей для И-9 land_agent.
+# контракт 900 с ЗОНА implementer — реестр ролей для identity-проверки двери 094
+# (016 И-9) + политика toy-мира двери.
+door_policy "$R"
 mkdir -p "$R/verdicts/critic"
 {
   printf '# контракт 900 (подставной, реестр ролей для land-фикстур 065)\n'
@@ -86,7 +89,7 @@ rep="$(printf '%s\n' "$bt" | grep -cFx "$L1")"
   exit 1
 }
 
-bash "$REPO/scripts/land_agent.sh" --branch wip/030/implementer --worktree "$WORK/wt-green" --root "$R" || true
+land_door "$R" wip/030/implementer "$WORK/journal-green.tsv" || true
 mb="$(git -C "$R" log -1 --format=%B main)"
 printf '%s\n' "$mb" | grep -qFx 'land: wip/030/implementer' || {
   printf 'ОТКАЗ: первый абзац merge-сообщения не «land: wip/030/implementer»: %s\n' "$mb" >&2

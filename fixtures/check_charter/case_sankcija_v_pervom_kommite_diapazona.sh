@@ -6,13 +6,14 @@
 # ветки, tip-коммит правит вне устава БЕЗ строки — на одно-коммитных входах приёмки
 # (case_land_sankcija_ne_perenesena_v_merge.sh) такой стаб неотличим от честной
 # реализации (Б2 круга 1 критика, вердикт 01abc89).
-#   * зелёный контроль: ленд исполняет НАСТОЯЩИЙ land_agent ($REPO/scripts/land_agent.sh,
-#     сбор строк — g rev-list "$range" по ВСЕМУ диапазону, И-10); фикстура сверяет
+#   * зелёный контроль: ленд исполняет НАСТОЯЩУЮ дверь accept_publish.sh
+#     (prepare; сбор строк — rev-list по ВСЕМУ диапазону base..cand, И-10;
+#     toy-журнал пишет кейс); фикстура сверяет
 #     ДОСЛОВНЫЙ перенос строки ПЕРВОГО коммита (grep -Fx) и первый абзац «land: <ветка>»;
 #     стаб «tip-only» здесь ловится ОТКАЗом сверки ДО $BARRIER — merge без строки не
 #     проходит grep -Fx; затем $BARRIER (check_charter) → rc 0;
 #   * красное: та же двухкоммитная топология, merge построен `git merge --no-ff -m
-#     'land: …'` БЕЗ переноса (поведение land_agent до 065) → $BARRIER rc 1 навсегда:
+#     'land: …'` БЕЗ переноса (поведение ленда до 065) → $BARRIER rc 1 навсегда:
 #     уставная дельта merge при отсутствии строки в merge-теле.
 #
 # Серийные вызовы — `|| true` (А-32). Положительный контроль — до красного (А-73).
@@ -24,7 +25,9 @@ R="$WORK/repo"
 make_repo "$R"
 
 # land-предпосылки — как в case_land_sankcija_ne_perenesena_v_merge.sh: замороженный
-# контракт 900 с ЗОНА implementer — реестр ролей для И-9 land_agent.
+# контракт 900 с ЗОНА implementer — реестр ролей для identity-проверки двери 094
+# (016 И-9) + политика toy-мира двери.
+door_policy "$R"
 mkdir -p "$R/verdicts/critic"
 {
   printf '# контракт 900 (подставной, реестр ролей для land-фикстур 065)\n'
@@ -68,7 +71,7 @@ GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
   printf 'ОТКАЗ: ожидался диапазон из 2 коммитов, main..wip/010/implementer иного размера\n' >&2
   exit 1
 }
-bash "$REPO/scripts/land_agent.sh" --branch wip/010/implementer --worktree "$WORK/wt-green" --root "$R" || true
+land_door "$R" wip/010/implementer "$WORK/journal-green.tsv" || true
 mb="$(git -C "$R" log -1 --format=%B main)"
 printf '%s\n' "$mb" | grep -qFx 'land: wip/010/implementer' || {
   printf 'ОТКАЗ: первый абзац merge-сообщения не «land: wip/010/implementer»: %s\n' "$mb" >&2

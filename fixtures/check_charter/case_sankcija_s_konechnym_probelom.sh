@@ -16,7 +16,8 @@
 #
 #   * зелёный контроль: коммит ветки создан `--cleanup=verbatim` (иначе git сам
 #     стрипнул бы пробел при СОЗДАНИИ коммита — вход стал бы пустым); ленд
-#     исполняет НАСТОЯЩИЙ land_agent.sh; фикстура сверяет байты (cmp) строки
+#     исполняет НАСТОЯЩУЮ дверь accept_publish.sh (prepare+publish, toy-журнал
+#     пишет кейс); фикстура сверяет байты (cmp) строки
 #     с конечным пробелом в merge-теле; затем $BARRIER → rc 0;
 #   * красное: merge построен `git merge --no-ff -m 'land: …'` БЕЗ переноса
 #     строки → $BARRIER rc 1 «изменён без разрешения владельца» — перенос не
@@ -35,7 +36,9 @@ R="$WORK/repo"
 make_repo "$R"
 
 # land-предпосылки — как в case_land_sankcija_ne_perenesena_v_merge.sh: замороженный
-# контракт 900 с ЗОНА implementer — реестр ролей для И-9 land_agent.
+# контракт 900 с ЗОНА implementer — реестр ролей для identity-проверки двери 094
+# (016 И-9) + политика toy-мира двери.
+door_policy "$R"
 mkdir -p "$R/verdicts/critic"
 {
   printf '# контракт 900 (подставной, реестр ролей для land-фикстур 065)\n'
@@ -77,7 +80,7 @@ cmp -s "$WORK/expected_line" "$WORK/branch_line" || {
   exit 1
 }
 
-bash "$REPO/scripts/land_agent.sh" --branch wip/040/implementer --worktree "$WORK/wt-green" --root "$R" || true
+land_door "$R" wip/040/implementer "$WORK/journal-green.tsv" || true
 # СВЕРКА БАЙТОВ (предмет клетки): строка-санкция в merge-теле байт-в-байт равна
 # строке из тела ветки, включая конечный пробел. grep -cF == 1: строка ровно одна;
 # cmp: байты совпадают. sed-зачистка ловится здесь, ДО вызова барьера.

@@ -1,14 +1,15 @@
 # ПРИЧИНА: изменён без разрешения владельца
 #
 # Контракт 065, инвариант 3 (синтез запрещён): перенос строк-санкций в merge-тело
-# не создаёт индульгенцию. Оба входа исполняют НАСТОЯЩИЙ land_agent
-# ($REPO/scripts/land_agent.sh, прямой вызов): merge-тело судит $BARRIER (check_charter).
-#   * зелёный контроль: ветка правит scripts/proba.sh (вне устава) → land_agent rc 0,
+# не создаёт индульгенцию. Оба входа исполняют НАСТОЯЩУЮ дверь accept_publish.sh
+# ($REPO/scripts/accept_publish.sh prepare+publish, прямой вызов; toy-журнал
+# пишет кейс): merge-тело судит $BARRIER (check_charter).
+#   * зелёный контроль: ветка правит scripts/proba.sh (вне устава) → ленд rc 0,
 #     merge-тело — ровно «land: <ветка>» ОДНОЙ строкой, байт-в-байт как до 065, БЕЗ
-#     маркеров (фикстура ловит стаб-инъектор: синтезанная land_agent строка-санкция
+#     маркеров (фикстура ловит стаб-инъектор: синтезированная дверью строка-санкция
 #     убивает этот положительный контроль), затем $BARRIER → rc 0;
 #   * красное: зло-ленд — frozen-план правится БЕЗ строки-санкции ни в одном коммите
-#     ветки; land_agent приземляет rc 0 (его предмет — не судить санкции), merge несёт
+#     ветки; ленд приземляет rc 0 (предмет двери — не судить санкции), merge несёт
 #     уставную дельту без строки → $BARRIER rc 1 навсегда: зло-ленд без строки
 #     остаётся красным.
 #
@@ -21,7 +22,8 @@ R="$WORK/repo"
 make_repo "$R"
 
 # land-предпосылки — как в case_land_sankcija_ne_perenesena_v_merge.sh (контракт 900
-# с ЗОНА implementer для реестра ролей И-9).
+# с ЗОНА implementer для identity-проверки двери 094, 016 И-9) + политика toy-мира.
+door_policy "$R"
 mkdir -p "$R/verdicts/critic"
 {
   printf '# контракт 900 (подставной, реестр ролей для land-фикстур 065)\n'
@@ -45,9 +47,9 @@ GIT_COMMITTER_NAME=implementer GIT_COMMITTER_EMAIL=implementer@dev-harness.local
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
   git -C "$WORK/wt-green" -c commit.gpgsign=false -c core.hooksPath=/dev/null \
   commit -q -m 'боковая правка вне устава'
-out_land="$(bash "$REPO/scripts/land_agent.sh" --branch wip/001/implementer --worktree "$WORK/wt-green" --root "$R" || true)"
-printf '%s\n' "$out_land" | grep -q '^LANDED main=' || {
-  printf 'ОТКАЗ: land_agent не приземлил ветку вне устава: %s\n' "$out_land" >&2
+out_land="$(land_door "$R" wip/001/implementer "$WORK/journal-green.tsv" || true)"
+printf '%s\n' "$out_land" | grep -q '^PUBLISHED target=main' || {
+  printf 'ОТКАЗ: дверь не приземлила ветку вне устава: %s\n' "$out_land" >&2
   exit 1
 }
 mb="$(git -C "$R" log -1 --format=%B main)"
@@ -72,9 +74,9 @@ GIT_COMMITTER_NAME=implementer GIT_COMMITTER_EMAIL=implementer@dev-harness.local
 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
   git -C "$WORK/wt-red" -c commit.gpgsign=false -c core.hooksPath=/dev/null \
   commit -q -m 'зло-ленд: правка frozen-плана без санкции'
-out_zlo="$(bash "$REPO/scripts/land_agent.sh" --branch wip/002/implementer --worktree "$WORK/wt-red" --root "$R" || true)"
-printf '%s\n' "$out_zlo" | grep -q '^LANDED main=' || {
-  printf 'ОТКАЗ: land_agent не приземлил зло-ленд (его предмет — не судить санкции): %s\n' "$out_zlo" >&2
+out_zlo="$(land_door "$R" wip/002/implementer "$WORK/journal-zlo.tsv" || true)"
+printf '%s\n' "$out_zlo" | grep -q '^PUBLISHED target=main' || {
+  printf 'ОТКАЗ: дверь не приземлила зло-ленд (предмет двери — не судить санкции): %s\n' "$out_zlo" >&2
   exit 1
 }
 mb_zlo="$(git -C "$R" log -1 --format=%B main)"
