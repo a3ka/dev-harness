@@ -130,6 +130,17 @@ g() {
 # получал wip/001. Подъём `g()` сюда закрывает этот дефект.
 if [ -n "$nnn" ]; then
   nnn_padded_gate="$(printf '%03d' "$((10#$nnn))")"
+  # 095-миграция (Решение 5, И-15): ОБЯЗАТЕЛЬНОСТЬ пака на двери. До сверок
+  # 023 — файл манифеста make_task <root>/.omp/context/<NNN>.tsv обязан
+  # существовать и не быть пустым; иначе — rc 1 «ОТКАЗ: нет манифеста
+  # make_task: <NNN>» (II-3 дословно). После построенного пака манифест-файл
+  # живёт и эта нога не отказывает. Все отказы 016/023 для входов с манифестом
+  # сохраняются дословно — нога лишь ПОДНИМАЕТ дверь в одну новую причину.
+  MAN_FILE="$ROOT/.omp/context/$nnn_padded_gate.tsv"
+  if [ ! -s "$MAN_FILE" ]; then
+    printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$nnn_padded_gate" >&2
+    exit 1
+  fi
   # 1. тег жив локально
   if ! git -C "$ROOT" show-ref --verify --quiet "refs/tags/id/CONTRACT/$nnn_padded_gate"; then
     printf 'ОТКАЗ: номер %s не выдан — спавн мимо реестра (тег id/CONTRACT/%s отсутствует)\n' "$nnn_padded_gate" "$nnn_padded_gate" >&2
