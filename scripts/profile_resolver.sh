@@ -116,6 +116,19 @@ SCHEMA_LEVELS='
   project:defaults:contextPack:rows:optional
   project:defaults:contextPack:adrPath:optional
   project:defaults:contextPack:lessonsPath:optional
+  project:defaults:contextPack:optional
+  project:defaults:contextPack:rows:optional
+  project:defaults:contextPack:adrPath:optional
+  project:defaults:contextPack:lessonsPath:optional
+
+  # 094-миграция (контракт 094, Предмет 2.1, ПЕРЕСЕЧЕНИЯ 054/055/057/059):
+  # targetBranches — целевой allowlist двери публикации кандидата, вводится
+  # НОВЫМ ключом ДЕЙСТВУЮЩЕЙ схемы (Astra 1.2 — второй профиль не заводится;
+  # toy-строка harness/policy — носитель toy-мира, не производственный профиль).
+  # Значение — массив строк веток алфавита И-0 094 ([A-Za-z0-9._/-]+); слияние
+  # ЮНИТОМ (прецедент barriers.* 054): репо-массив замещает defaults-массив.
+  repo:targetBranches:optional
+  project:defaults:targetBranches:optional
 '
 
 die_p() { printf 'profile ОТКАЗ: %s\n' "$*" >&2; exit 1; }
@@ -524,6 +537,39 @@ check_packs_array() {
 check_packs_array repo    packs
 check_packs_array project defaults.packs
 
+# 094-миграция: targetBranches — массив строк веток алфавита И-0 контракта 094
+# ([A-Za-z0-9._/-]+, непустые). Отсутствие ключа в обоих слоях — норма (optional,
+# форма M Ч-1, тот же гейт null-скипа, что check_barrier_array/check_packs_array).
+check_targetbranches_array() {
+  local level="$1" path="$2"
+  local file="$REPO_JSON_FD"
+  [ "$level" = "project" ] && file="$PROJECT_JSON_FD"
+  if jq -e --arg p "$path" 'getpath($p | split(".")) == null' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
+  [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
+  local bad_count first_bad
+  bad_count="$(jq -r --arg p "$path" '
+    [getpath($p | split("."))[] | select(test("^[A-Za-z0-9._/-]+$") | not)] | length' \
+    "$file" 2>/dev/null || echo 0)"
+  if [ "${bad_count:-0}" -gt 0 ]; then
+    first_bad="$(jq -r --arg p "$path" '
+      [getpath($p | split("."))[]
+       | select(test("^[A-Za-z0-9._/-]+$") | not)
+       | if (. | test("^\\s*$")) then "EMPTY_MARKER" else . end][0] // "EMPTY_MARKER"' \
+      "$file" 2>/dev/null || echo EMPTY_MARKER)"
+    if [ "$first_bad" = "EMPTY_MARKER" ]; then
+      die_p "значение вне алфавита: $path: пусто"
+    else
+      die_p "значение вне алфавита: $path: $first_bad"
+    fi
+  fi
+}
+check_targetbranches_array repo    targetBranches
+check_targetbranches_array project defaults.targetBranches
+
 # ── И-5: пин версии слоя проекта ───────────────────────────────────────────
 PIN="$(jq -r '.projectLayer.version' "$REPO_JSON_FD")"
 LAYER_VER="$(jq -r '.version' "$PROJECT_JSON_FD")"
@@ -605,6 +651,15 @@ MERGED=$(jq -n \
       if $r.packs != null then { value: $r.packs, origin: "repo" }
       elif $p.defaults and $p.defaults.packs != null then { value: $p.defaults.packs, origin: "project" }
       else { value: [], origin: "project" } end
+    ),
+    # 094-миграция (Предмет 2.1): targetBranches — allowlist целевых веток двери
+    # публикации. Слияние ЮНИТОМ (прецедент barriers.mandatory 054): репо-массив
+    # замещает defaults-массив ЦЕЛИКОМ; ни один слой не задаёт — null (дверь
+    # отказывает именованно «нет targetBranches», умолчания нет).
+    targetBranches: (
+      if $r.targetBranches != null then { value: $r.targetBranches, origin: "repo" }
+      elif $p.defaults and $p.defaults.targetBranches != null then { value: $p.defaults.targetBranches, origin: "project" }
+      else null end
     ),
     # 095-миграция (контракт 095, Решение 3): contextPack — карта/rules/reuse
     # проекта + пути ADR/уроков. Семантика слияния ЮНИТОМ: если репо-слой

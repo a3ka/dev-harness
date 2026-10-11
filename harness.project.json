@@ -8,6 +8,7 @@
   "git": { "canonicalRemote": "ssh://git@example.invalid/dev-harness.git" },
   "ci": { "workflow": ".github/workflows/ci.yml" },
   "barriers": { "mandatory": [], "optional": [] },
+  "targetBranches": ["main"],
   "contextPack": {
     "rows": [
       { "kind": "rules", "path": "AGENTS.md", "roles": "orchestrator,architect,critic,implementer,adversary,reviewer,arbiter", "mandatory": true, "why": "нормы ролей и практик харнеса" },

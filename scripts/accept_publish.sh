@@ -70,12 +70,13 @@ _t94_identity_check() {  # repo, base, candidate → die с «identity: …»
 
 command -v git >/dev/null 2>&1      || ni "нет git"
 command -v sha256sum >/dev/null 2>&1 || ni "нет sha256sum"
+command -v jq >/dev/null 2>&1       || ni "нет jq" # Р2-3: repoId/targetBranches харнес-репо читаются из профиля base
 
 usage() { printf 'usage: accept_publish.sh object|prepare|publish --repo R --task T [--target B] --base SHA --candidate SHA [--merge SHA] [--candidate-ref ИМЯ] [--journal J]\n' >&2; exit 1; }
 
 VERB="${1:-}"; [ $# -ge 1 ] && shift || usage
 case "$VERB" in object|prepare|publish) ;; *) usage ;; esac
-REPO=""; TASK=""; TARGET=""; BASE=""; CAND=""; MERGE=""; CREF=""; JOURNAL=""; POLICY_DIR=""
+REPO=""; TASK=""; TARGET=""; BASE=""; CAND=""; MERGE=""; CREF=""; JOURNAL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) REPO="${2:?}"; shift 2 ;;
@@ -86,7 +87,6 @@ while [ $# -gt 0 ]; do
     --merge) MERGE="${2:?}"; shift 2 ;;
     --candidate-ref) CREF="${2:?}"; shift 2 ;;
     --journal) JOURNAL="${2:?}"; shift 2 ;;
-    --policy-dir) POLICY_DIR="${2:?}"; shift 2 ;;
     *) usage ;;
   esac
 done
@@ -126,60 +126,25 @@ if [ -z "$base_registry" ] && [ -n "$cand_registry" ]; then
   die "carrier: registry/ci-steps.tsv добавлен кандидатом к toy-base (требуется отдельная санкция)"
 fi
 
-# ── POLICY_DIR override (Р2-3 Б-1 фикс): если wrapper передаёт --policy-dir,
-# читаем ПОЛИТИКУ и ОПРЕДЕЛЕНИЯ проверок оттуда вместо репо. Это позволяет
-# wrapper'у (оркестратор — доверенная сторона) синтезировать политику для
-# toy/fixture миров, где её нет в репо. Структура POLICY_DIR:
-#   harness/policy                 — файл политики
-#   harness/checks/<name>.cmd      — определения проверок (для toy)
-# carrier-СИММЕТРИЯ (И-6б/Б-5-R5) остаётся ОБЯЗАТЕЛЬНОЙ через base_registry/
-# cand_registry выше — она про carrier-носитель (есть/нет в репо), а не про
-# содержимое policy.
-if [ -n "$POLICY_DIR" ]; then
-  [ -d "$POLICY_DIR" ] || die "policy-dir: нет каталога: $POLICY_DIR"
-  [ -f "$POLICY_DIR/harness/policy" ] || die "policy-dir: нет harness/policy в $POLICY_DIR"
-fi
+# ── Р3-1 круга 3: флаг --policy-dir УДАЛЁН (слово владельца: источник обхода
+# доверенной политики — P1 ревьюера публиковал при 0 строк обязательных ci-*).
+# Политика читается ТОЛЬКО из принятой версии: для харнес-репо — профиль
+# репо-слоя harness.project.json + реестр registry/ci-steps.tsv на base SHA,
+# для toy-мира — harness/policy на base SHA. Никаких исключений из аргументов
+# вызывающего; взамен флага ничего не введено.
 
-if [ -n "$POLICY_DIR" ] && [ -n "$base_registry" ]; then
-  # Реестр production-БАЗЫ + policy-dir override: используем байты policy из
-  # override, но carrier для base/cand проверки берём из репо.
-  POLICY_SOURCE="registry/ci-steps.tsv"
-  repoId="dev-harness"
-  branches="main"
-  registry_wfsha="$(printf '%s' "$base_registry" | sha256sum | cut -d' ' -f1)"
-  policy_bytes="$(cat "$POLICY_DIR/harness/policy")"
-  mandatory=""
-  while IFS=$'\t' read -r kind k _w _cmd; do
-    [ "$kind" = "step" ] || continue
-    case "$k" in ''|*[!A-Za-z0-9._:-]*) die "политика: грамматика" ;; esac
-    if [ -z "$mandatory" ]; then mandatory="$k"; else mandatory="$mandatory,$k"; fi
-  done <<EOF
-$base_registry
-EOF
-  [ -n "$mandatory" ] || die "политика: registry/ci-steps.tsv без step-строк на base"
-elif [ -n "$POLICY_DIR" ]; then
-  # Toy-мир + policy-dir override: используем harness/policy + harness/checks/*.cmd
-  POLICY_SOURCE="$POLICY_PATH"
-  policy_bytes="$(cat "$POLICY_DIR/harness/policy")"
-  repoId=""; mandatory=""; branches=""
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    case "$line" in
-      repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
-      mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
-      targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; case "$v" in ''|,*|*,|*,,*) die "политика: грамматика" ;; esac; branches="$v" ;;
-      *) die "политика: грамматика" ;;
-    esac
-  done <<EOF
-$policy_bytes
-EOF
-elif registry_bytes="$(git -C "$REPO" show "$BASE:registry/ci-steps.tsv" 2>/dev/null)" && [ -n "$registry_bytes" ]; then
+if registry_bytes="$(git -C "$REPO" show "$BASE:registry/ci-steps.tsv" 2>/dev/null)" && [ -n "$registry_bytes" ]; then
   POLICY_SOURCE="registry/ci-steps.tsv"
   policy_bytes="$registry_bytes"
-  # Харнес-репо: repoId/targetBranches — дефолты (targetBranches ВВОДИТСЯ той же
-  # пачкой миграцией SCHEMA_LEVELS, до неё — main; repoId — канон имени репо).
-  repoId="dev-harness"
-  branches="main"
+  # Харнес-репо: repoId и targetBranches — ДАННЫЕ профиля репо-слоя (054) на
+  # ДОВЕРЕННОЙ версии (base SHA), не зашитые литералы (Р2-3 круга 3: allowlist
+  # как данные, И-7). targetBranches ВВЕДЁН этой же пачкой миграцией SCHEMA_LEVELS
+  # (Предмет 2.1); отсутствующий ключ — именованный отказ: умолчание «main»
+  # молча вернуло бы зашитый allowlist.
+  repoId="$(git -C "$REPO" show "$BASE:harness.project.json" 2>/dev/null | jq -r '.repoId // empty')"
+  [ -n "$repoId" ] || die "политика: нет repoId в harness.project.json на base"
+  branches="$(git -C "$REPO" show "$BASE:harness.project.json" 2>/dev/null | jq -r 'if (.targetBranches | type) == "array" and (.targetBranches | length) > 0 then .targetBranches | join(",") else empty end')"
+  case "$branches" in ''|,*|*,|*,,*) die "политика: нет targetBranches в harness.project.json на base" ;; esac
   # mandatory — запятая-объединённые ключи step-строк реестра (закрытый алфавит
   # И-0 контракта 083); определения обязательных проверок — те же байты реестра
   # (доверенная версия по base SHA); wfsha одной строкой (И-4б упрощённо:
@@ -307,10 +272,6 @@ for name in "${MAND[@]}"; do
     git -C "$REPO" cat-file -e "$BASE:registry/ci-steps.tsv" 2>/dev/null \
       || die "нет доверенного определения: $name"
     tsha="$registry_wfsha"
-  elif [ -n "$POLICY_DIR" ]; then
-    # Toy-мир + policy-dir override: определения проверок — из POLICY_DIR.
-    [ -f "$POLICY_DIR/harness/checks/$name.cmd" ] || die "нет доверенного определения: $name"
-    tsha="$(sha256sum < "$POLICY_DIR/harness/checks/$name.cmd" | cut -d' ' -f1)"
   else
     # Toy-мир батареи 094: каждая проверка — свой `harness/checks/<имя>.cmd` на base.
     git -C "$REPO" cat-file -e "$BASE:harness/checks/$name.cmd" 2>/dev/null \
@@ -349,12 +310,8 @@ done < <(git -C "$REPO" ls-tree -r --name-only "$CAND" -- .review 2>/dev/null | 
 # policy_bytes (POLICY_SOURCE: registry/ci-steps.tsv для production-харнеса,
 # harness/policy для toy-мира). Иначе — ложный отказ честного production-кандидата
 # и обход И-6б злоумышленником (decoy harness/policy маскирует обнуление production).
-# Р2-3 override: при POLICY_DIR cand_pol берётся оттуда (toy/fixture без репо).
-if [ -n "$POLICY_DIR" ] && [ "$POLICY_SOURCE" = "$POLICY_PATH" ]; then
-  cand_pol="$(cat "$POLICY_DIR/harness/policy")"
-else
-  cand_pol="$(git -C "$REPO" show "$CAND:$POLICY_SOURCE" 2>/dev/null)"
-fi
+# Р3-1: POLICY_DIR-ветвь удалена — cand_pol читается только по carrier'у POLICY_SOURCE.
+cand_pol="$(git -C "$REPO" show "$CAND:$POLICY_SOURCE" 2>/dev/null)"
 [ -n "$cand_pol" ] || die "политика кандидата удалена"
 cand_pv="$(printf '%s' "$cand_pol" | sha256sum | cut -d' ' -f1)"
 if [ "$cand_pv" != "$policyVersion" ]; then
