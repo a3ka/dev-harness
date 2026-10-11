@@ -4,7 +4,8 @@
 # слияния (боли Б-3/Б-8 пилота Н-167, дыры Д3/Д4). Три механизма:
 # scripts/check_merge_gate.sh (accept ∧ нет .review ready|partial),
 # scripts/gen_ci_workflow.sh (команды/барьеры профиля → workflow-джоба),
-# scripts/land_project.sh (гейт впереди, merge только --no-ff).
+# scripts/accept_publish.sh — дверь 094 (И-10: merge-вход ленда строят
+# prepare+publish, toy-журнал пишет клетка; гейт 063 — впереди двери).
 #
 # ЧЕСТНЫЕ КЛЕТКИ (живые новые скрипты этого дерева; игрушки — двухслойный
 # профиль через РЕАЛЬНЫЙ scripts/profile_resolver.sh, слой проекта в скретче,
@@ -78,7 +79,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "$HERE/../.." && pwd)}"
 GATE="$REPO_ROOT/scripts/check_merge_gate.sh"
 GEN="$REPO_ROOT/scripts/gen_ci_workflow.sh"
-LAND="$REPO_ROOT/scripts/land_project.sh"
+DOOR="$REPO_ROOT/scripts/accept_publish.sh"
 RESOLVER="$REPO_ROOT/scripts/profile_resolver.sh"
 export RESOLVER
 
@@ -192,6 +193,15 @@ put_accept() { # <каталог> — закоммиченный accept-верд
   commit_all "$1" 'verdikt accept'
 }
 
+put_policy() { # <каталог> — политика toy-мира двери 094 на base: harness/policy
+  # (repoId/mandatory/targetBranches) + доверенное определение единственной
+  # обязательной проверки; журнальные строки check под неё пишет run_land
+  mkdir -p "$1/harness/checks"
+  printf 'repoId=toy-063\nmandatory=ci-63\ntargetBranches=main\n' > "$1/harness/policy"
+  printf 'run toy-063 ci-63\n' > "$1/harness/checks/ci-63.cmd"
+  commit_all "$1" 'politika toy-dveri 094'
+}
+
 review_file() { # <каталог> <имя> <status>
   mkdir -p "$1/.review"
   printf -- '---\nstatus: %s\n---\n\n- [ ] nakhodka 1\n' "$3" > "$1/.review/$2"
@@ -207,7 +217,33 @@ mk_probe_ok() { # <каталог> — барьер-маркер bar-$RND (эф�
 LAST_OUT=''; LAST_RC=0
 run_gate() { LAST_OUT="$(bash "$GATE" --repo "$1" 2>&1)"; LAST_RC=$?; }
 run_gen()  { LAST_OUT="$(bash "$GEN" --repo "$1" 2>&1)";  LAST_RC=$?; }
-run_land() { LAST_OUT="$(bash "$LAND" --repo "$1" --branch "$2" 2>&1)"; LAST_RC=$?; }
+run_land() { # <repo> <branch> — построение merge-входа ленда дверью 094 (И-10,
+  # миграция с удалённого scripts/land_project.sh): гейт 063 впереди (предмет
+  # клетки — ворота слияния), затем accept_publish.sh prepare+publish; toy-журнал
+  # клетка пишет сама — паттерн семьи accept_publish_094 (вердикт accept объекта +
+  # зелёные строки check: wfsha доверенного определения на base ∧ дерево
+  # подготовленного merge). Отказ шага — rc шага, вывод шага — в LAST_OUT.
+  local repo="$1" br="$2" out base cand m oid name wfs mt J
+  LAST_OUT="$(bash "$GATE" --repo "$repo" 2>&1)"; LAST_RC=$?
+  [ "$LAST_RC" -eq 0 ] || return 0
+  base="$(g "$repo" rev-parse refs/heads/main)"
+  cand="$(g "$repo" rev-parse "refs/heads/$br")"
+  out="$(bash "$DOOR" prepare --repo "$repo" --task "$br" --base "$base" --candidate "$cand" 2>&1)"; LAST_RC=$?
+  if [ "$LAST_RC" -ne 0 ]; then LAST_OUT="$out"; return 0; fi
+  m="$(printf '%s\n' "$out" | tail -n1)"
+  oid="$(bash "$DOOR" object --repo "$repo" --task "$br" --target main --base "$base" --candidate "$cand" --merge "$m" 2>&1)"; LAST_RC=$?
+  if [ "$LAST_RC" -ne 0 ]; then LAST_OUT="$oid"; return 0; fi
+  oid="$(printf '%s\n' "$oid" | tail -n1)"
+  J="$repo.toy-journal.tsv"; : > "$J"
+  printf 'verdict\t%s\t%s\taccept\t1\n' "$br" "$oid" >> "$J"
+  mt="$(g "$repo" rev-parse "$m^{tree}")"
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    wfs="$(g "$repo" show "$base:harness/checks/$name.cmd" | sha256sum | cut -d' ' -f1)"
+    printf 'check\t%s\t%s\tok\t1\t%s\t%s\n' "$oid" "$name" "$wfs" "$mt" >> "$J"
+  done < <(g "$repo" show "$base:harness/policy" | sed -n 's/^mandatory=//p' | tr ',' '\n')
+  LAST_OUT="$(bash "$DOOR" publish --repo "$repo" --task "$br" --target main --base "$base" --candidate "$cand" --merge "$m" --candidate-ref "$br" --journal "$J" 2>&1)"; LAST_RC=$?
+}
 
 # ── локальное исполнение джобы harness (предъявление И-9 по РЕШЕНИЮ
 # арбитража 063-Б4): раннер читает ФАЙЛ-АРГУМЕНТ — результат инвариантен к
@@ -344,7 +380,7 @@ k7() { # vacuous: команд/барьеров нет → rc 0, фраза, б�
 k8() { # ленд зелёного входа: merge --no-ff (два родителя), subject land:,
        # committer == orchestrator (И-7; 4-й предикат — арбитраж 4253dd0 Б5;
        # вход несёт чужую identity: mkt ставит user.name=Fixture)
-  local T="$WORK/k8"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"
+  local T="$WORK/k8"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"; put_policy "$T"
   g "$T" checkout -q -b feat-x
   printf 'izmenenie vetki\n' > "$T/feature.txt"
   commit_all "$T" 'rabota vetki feat-x'
@@ -360,7 +396,7 @@ k8() { # ленд зелёного входа: merge --no-ff (два родит�
   return 0
 }
 k9() { # ленд красного входа: rc 1, фраза гейта, HEAD неизменен
-  local T="$WORK/k9"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"
+  local T="$WORK/k9"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"; put_policy "$T"
   g "$T" checkout -q -b feat-y
   printf 'izmenenie vetki y\n' > "$T/feature-y.txt"
   commit_all "$T" 'rabota vetki feat-y'
@@ -737,7 +773,7 @@ mk_in_k6() { # генераторный вход с барьером и цель
 }
 mk_in_k7() { local T="$1"; mkt "$T" "$REPO_JSON_VAC"; printf '# tsel\n' > "$T/$CW"; commit_all "$T" 'tol tsel'; }
 mk_in_k8() { # ленд-вход зелёный: ветка ahead
-  local T="$1"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"
+  local T="$1"; mkt "$T" "$REPO_JSON_GATE"; put_accept "$T"; put_policy "$T"
   g "$T" checkout -q -b feat-x; printf 'vetka\n' > "$T/f.txt"; commit_all "$T" 'rabota'
   g "$T" checkout -q main
 }
