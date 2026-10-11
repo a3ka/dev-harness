@@ -108,8 +108,8 @@ reap_session() { # Рв2-3 (И-7, круг 3): зачистка остатков
       fi
     fi
     pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
-    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" >/dev/null || exit 0; done
-    pkill -KILL -P "$loop_pid"; exit 0
+    for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
+    pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
   done ) &
 watcher=$!
 log "сессия #$n: старт"
