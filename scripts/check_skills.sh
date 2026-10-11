@@ -324,10 +324,11 @@ fi
 # ── (и) МАТРИЦА ВИДИМОСТИ 13.4 — skills по роли (Решение 5, 003-дельта 095) ──
 # §13.4 владельца («Кому что») определяет, какие скилы видны какой роли.
 # make_task.sh выдаёт SKILLS-секцию по этой матрице. check_skills.sh —
-# второй потребитель матрицы: для каждой пары role→skill матрица
-# ссылается ТОЛЬКО на скилы из EXPECTED, и каждый такой скил обязан
-# существовать в $SKILLS_DIR (согласованность матрицы с предметом).
-# Существующие ветви (а)-(з) не трогаются; (и) — дельта 095.
+# второй потребитель матрицы: ИЗВЛЕКАЕТ её из сборщика и сверяет с §13.4
+# (а не дублирует копию — иначе расхождение копии и оригинала нечем ловить).
+# Сверка сборщик↔§13.4 безусловна; существование каталогов скилов — условно
+# (если $SKILLS_DIR есть). Существующие ветви (а)-(з) не трогаются;
+# (и) — дельта 095.
 #
 # §13.4 (дословно из docs/owner/2026-10-03-done-i-instrumenty.md §13.4):
 #   architect   → grilling, writing-for-agents, tdd
@@ -335,29 +336,27 @@ fi
 #   implementer → tdd, diagnosing-bugs
 #   adversary   → diagnosing-bugs
 #   reviewer    → (правила кодинга, deep modules/seams — не skills/)
-_matrix_arch=(grilling writing-for-agents tdd)
-_matrix_impl=(tdd diagnosing-bugs)
-_matrix_adv=(diagnosing-bugs)
-_matrix_missing=0
-_matrix_check() {  # $1=role, $2..=skills
-    local role="$1"; shift
-    for skill in "$@"; do
-      case " $EXPECTED " in
-        *" $skill "*) ;;
-        *) die "матрица 13.4: роль «$role» рекламирует скил «$skill» вне EXPECTED ($EXPECTED)" ;;
-      esac
-      if [ -d "$SKILLS_DIR" ] && [ ! -d "$SKILLS_DIR/$skill" ]; then
-        die "матрица 13.4: роль «$role» ссылается на отсутствующий скил «$skill»"
-      fi
-    done
+_matrix_of_subject() {  # $1=роль → скилы сборщика через пробел
+  sed -n "/^  ${1}) *SKILLS=/,/\" *;;/p" "$REPO/scripts/make_task.sh" \
+    | sed -e 's/.*SKILLS="//' -e 's/".*//' -e '/^SKILL: /s/^SKILL: //' \
+    | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//'
 }
-if [ -d "$SKILLS_DIR" ]; then
-  _matrix_check architect   "${_matrix_arch[@]}"
-  _matrix_check implementer "${_matrix_impl[@]}"
-  _matrix_check adversary   "${_matrix_adv[@]}"
-  ok "ветвь (и): матрица 13.4 согласована с skills/ (роли→скилы, все видимые существуют)"
-else
-  ok "ветвь (и): skills/ отсутствует — матрица 13.4 не валидируется"
-fi
+_matrix_cmp() {  # $1=роль, $2=ожидание §13.4 через пробел
+  got="$(_matrix_of_subject "$1")"
+  [ -n "$got" ] || die "матрица 13.4: сборщик не несёт SKILLS-матрицы роли «$1» (scripts/make_task.sh)"
+  [ "$got" = "$2" ] || die "матрица 13.4: сборщик разошёлся с §13.4 (роль «$1»: «$got» ≠ «$2»)"
+  for skill in $2; do
+    case " $EXPECTED " in *" $skill "*) ;;
+      *) die "матрица 13.4: роль «$1» рекламирует скил «$skill» вне EXPECTED ($EXPECTED)" ;;
+    esac
+    if [ -d "$SKILLS_DIR" ] && [ ! -d "$SKILLS_DIR/$skill" ]; then
+      die "матрица 13.4: роль «$1» ссылается на отсутствующий скил «$skill»"
+    fi
+  done
+}
+_matrix_cmp architect   "grilling writing-for-agents tdd"
+_matrix_cmp implementer "tdd diagnosing-bugs"
+_matrix_cmp adversary   "diagnosing-bugs"
+ok "ветвь (и): матрица сборщика (make_task) сверена с §13.4; скилы существуют"
 
 printf 'барьер зелёный: 8 ветвей пройдены (ветвь (и) — дельта 095)\n' >&2
