@@ -279,6 +279,19 @@ except Exception:
     fi
   fi
   rm -f "$JOB_TMPF"
+  # Б-9c (И-5 «шаг + причина», review v5): ТРЕТИЙ запрос через ТОТ ЖЕ шов
+  # ORCH_GH_API к .../actions/jobs/<JOBID>/logs — формат печати идентичен
+  # ci_diag.sh:85-92 (заголовок, фильтр FAIL/ошибки, tail -25; без лога —
+  # заглушка про scope actions:read).
+  LOG_PATH_API="${ORCH_GH_API}/repos/${REPO_SLUG}/actions/jobs/${JOBID}/logs"
+  LOG_OUT="$(curl -fsSL -m 40 "${AUTH_HDR[@]}" -H 'Accept: application/vnd.github+json' "$LOG_PATH_API" 2>/dev/null || true)"
+  if [ -n "$LOG_OUT" ]; then
+    printf 'Причина из лога (FAIL/ошибки, последние строки):\n' >&2
+    printf '%s\n' "$LOG_OUT" | grep -aE 'FAIL|расхожд|ОТКАЗ|##\[error\]|[Ee]rror|not found|No such|Permission denied' \
+      | grep -avE '^\S+[[:space:]]+ok[[:space:]]' | sed -E 's/^[0-9T:.Z+-]+Z? //' | tail -25 >&2
+  else
+    printf '(лог джоба не отдан — токену нужен scope actions:read; упавшие шаги выше уже называют место)\n' >&2
+  fi
 fi
 
 exit "$RC"
