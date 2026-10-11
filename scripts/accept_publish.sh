@@ -12,6 +12,13 @@
 #   publish --repo R --task T --target B --base SHA --candidate SHA --merge SHA
 #           --candidate-ref ИМЯ --journal J        (candidate-ref ОБЯЗАТЕЛЕН, И-5в)
 #
+# ПОРЯДОК ЛЕНДА (роль orchestrator, А-393): `object` (после судейского accept) →
+# `prepare` → журнальные писатели (`judge_gate <sha> --verdict-row <задача>
+# <object_id> <вердикт-файл круга>`; `check_ci_gate <корень> <sha> --check-row
+# <object_id>`; журнал registry/candidates.tsv, append-only, создаётся по
+# требованию) → `publish --candidate-ref <ветка>`. Ручной git merge в main и
+# UI-кнопка Merge запрещены (И-10; 016 И-7/065 наследуются дверью дословно).
+#
 # Коды возврата:
 #   0 — успех: «PUBLISHED target=<имя> merge=<sha>» либо «УЖЕ ОПУБЛИКОВАНО object=<id> merge=<sha>» (И-9)
 #   1 — отказ с именованной фразой «ОТКАЗ: …» (якоря клеток, grep -F)
