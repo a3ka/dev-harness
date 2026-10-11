@@ -155,9 +155,6 @@ case "$1" in
       printf 'ОТКАЗ: root-часть требует euid 0\n' >&2
       exit 1
     fi
-    # Контракт 093 И-3: провизионирование system-user orchagent ДО копий
-    # (отказ provisioning — отказ установки; никаких частичных установок).
-    provision_orchagent
     mkdir -p "$SBIN_DST" "$ETC_DST" || die_write "$SBIN_DST $ETC_DST"
     cp -- "$SRC_ROOT/root/orch-peak" "$SBIN_DST/orch-peak" \
       || die_write "$SBIN_DST/orch-peak"
@@ -250,6 +247,13 @@ case "$1" in
       esac
     fi
 
+    # Контракт 093 И-3: провизионирование system-user orchagent ПОСЛЕ копий
+    # и блокировки .git/config. Исполняется ТОЛЬКО если rc=0 на этой точке
+    # (т.е. копии+sha256+chattr-секция дошли без внутренних exit 1); отказ
+    # provisioning — rc=1 (без прямого exit), затем общий exit "$rc".
+    if [ "$rc" -eq 0 ]; then
+      provision_orchagent || rc=1
+    fi
     exit "$rc"
     ;;
   verify)
