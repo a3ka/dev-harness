@@ -326,7 +326,10 @@ scan_levels repo   "$REPO_JSON_FD"
 scan_levels project "$PROJECT_JSON_FD"
 
 # ── И-4: значения и обязательные поля ───────────────────────────────────────
-# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript}.
+# schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript, bash}
+# (bash — язык харнеса-как-проекта, 095 А8 «реальный харнес — первый пользователь»;
+# расширение алфавита 054 объявлено записью А-388 NABLIUDENIA_ARCHITECT.md;
+# полярность клеток 054-семьи сохранена: python → P6, _krasnye_054 зелёная).
 # repoId, projectId, workspaceId, canonicalRemote, version, profilePath,
 # ci.workflow — непустые строки.
 declare -A A
