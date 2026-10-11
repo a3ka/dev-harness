@@ -27,15 +27,15 @@ set +e
 out="$("$BARRIER" --repo "$G1" 2>&1)"
 rc=$?
 set -e
-[ "$rc" -eq 0 ] || { printf 'FAIL G1: ожидался rc 0, получен %s: %s\n' "$rc" "$out" >&2; exit 1; }
+[ "$rc" -eq 0 ] || { printf 'FAIL G1 (%s): ожидался rc 0, получен %s: %s\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" "$rc" "$out" >&2; exit 1; }
 # ЮНИТОМ: defaults-rows (DEFAULTS.md) НЕ ДОЛЖЕН просочиться в merged.
 printf '%s\n' "$out" | grep -q 'DEFAULTS.md' \
-  && { printf 'FAIL G1: ЮНИТОМ нарушен — DEFAULTS.md просочился из defaults-rows\n' >&2; exit 1; }
+  && { printf 'FAIL G1 (%s): ЮНИТОМ нарушен — DEFAULTS.md просочился из defaults-rows\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" >&2; exit 1; }
 # Репо-rows ДОЛЖНЫ присутствовать.
 printf '%s\n' "$out" | grep -q 'PROJECT.md' \
-  || { printf 'FAIL G1: репо-rows не слились — PROJECT.md отсутствует\n' >&2; exit 1; }
+  || { printf 'FAIL G1 (%s): репо-rows не слились — PROJECT.md отсутствует\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" >&2; exit 1; }
 printf '%s\n' "$out" | grep -q 'RULES.md' \
-  || { printf 'FAIL G1: репо-rows не слились — RULES.md отсутствует\n' >&2; exit 1; }
+  || { printf 'FAIL G1 (%s): репо-rows не слились — RULES.md отсутствует\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" >&2; exit 1; }
 echo "ok: G1 — ЮНИТОМ зелёный (repo-rows замещают defaults-rows; DEFAULTS.md не просочился)"
 
 # ── зелёный контроль (б): репо БЕЗ contextPack → defaults заполняют ────────
@@ -47,10 +47,10 @@ set +e
 out="$("$BARRIER" --repo "$G2" 2>&1)"
 rc=$?
 set -e
-[ "$rc" -eq 0 ] || { printf 'FAIL G2: ожидался rc 0, получен %s: %s\n' "$rc" "$out" >&2; exit 1; }
+[ "$rc" -eq 0 ] || { printf 'FAIL G2 (%s): ожидался rc 0, получен %s: %s\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" "$rc" "$out" >&2; exit 1; }
 # defaults-rows ДОЛЖНЫ заполнить карту при отсутствии репо-contextPack.
 printf '%s\n' "$out" | grep -q 'DEFAULTS.md' \
-  || { printf 'FAIL G2: defaults-rows не заполнили карту при отсутствии репо-contextPack\n' >&2; exit 1; }
+  || { printf 'FAIL G2 (%s): defaults-rows не заполнили карту при отсутствии репо-contextPack\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" >&2; exit 1; }
 echo "ok: G2 — defaults заполнили карту (DEFAULTS.md присутствует)"
 
 # ── красное: kind вне алфавита {map,rules,reuse} → rc 1 + P6 ───────────────
@@ -62,12 +62,12 @@ set +e
 out="$("$BARRIER" --repo "$R" 2>&1)"
 rc=$?
 set -e
-[ "$rc" -ne 0 ] || { printf 'FAIL R: ожидался rc 1 (kind вне алфавита), получен rc 0: %s\n' "$out" >&2; exit 1; }
+[ "$rc" -ne 0 ] || { printf 'FAIL R (%s): ожидался rc 1 (kind вне алфавита), получен rc 0: %s\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" "$out" >&2; exit 1; }
 # Именованная причина P6 (контракт 057, формат: «значение вне алфавита: <путь>»).
 printf '%s\n' "$out" | grep -q 'значение вне алфавита' \
-  || { printf 'FAIL R: ожидалась P6 «значение вне алфавита: …», не нашли: %s\n' "$out" >&2; exit 1; }
+  || { printf 'FAIL R (%s): ожидалась P6 «значение вне алфавита: …», не нашли: %s\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" "$out" >&2; exit 1; }
 printf '%s\n' "$out" | grep -q 'kind' \
-  || { printf 'FAIL R: ожидалась P6 с упоминанием kind, не нашли: %s\n' "$out" >&2; exit 1; }
+  || { printf 'FAIL R (%s): ожидалась P6 с упоминанием kind, не нашли: %s\n' "контекстные ключи contextPack — ЮНИТОМ-слияние" "$out" >&2; exit 1; }
 echo "ok: R — именованный отказ (kind вне алфавита, P6)"
 
 echo "ok: case_context_pack_yunit_sliyanie — все три сценария зелёные"
