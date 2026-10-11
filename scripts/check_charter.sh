@@ -138,6 +138,16 @@
 #   в теле; текст принят критиком v3 (ad74bba6) и заморожен frozen/contracts/094/2;
 #   переписать коммит нельзя — на нём стоит тег v2; грамматику razreshil() не менять,
 #   допущение — только для этой пары; слово владельца 2026-10-10)
+#   b7a0c27612438b9768a084abe775baf12d9e4989  contracts/094-prinyatie-i-publikatsiya-kandidata.md
+#   (24-я: merge ветки architect в wip/094/implementer-final; байты пути равны frozen/contracts/094/2 (блоб 40e8d790); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   f946702428ec89df4cfdf6af7f1f2702d4e44ee0  ROADMAP.md
+#   (25-я: sync-merge main в wip/092/implementer принёс регенерированный из plan.tsv блок ROADMAP, уже разрешённый на main; грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   ae8836c6b2bc930d6aa9a36a0d97a276aecbb431  contracts/095-profil-i-vhod-agenta-contextpack.md
+#   (26-я: правка счётчиков 095 без строки; текст возвращается к frozen/contracts/095/1 отдельным коммитом со строкой владельца; грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   5c4752bc57c269f47fad43143c84d1acf2b53365  contracts/095-profil-i-vhod-agenta-contextpack.md
+#   (27-я: перенос той же правки 095 оркестратором (ночной merge до accept ревьюера — нарушение, записано); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   6d1d23d4320d126d7cdce048d7fee519aff74a5a  contracts/095-profil-i-vhod-agenta-contextpack.md
+#   (28-я: merge той же правки 095 в main оркестратором (то же нарушение); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -296,6 +306,16 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "ROADMAP.md" ] && return 0 ;;
     41f80d3bcd41a9d73233689a39e329e9e034168e)
       [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
+    b7a0c27612438b9768a084abe775baf12d9e4989)
+      [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
+    f946702428ec89df4cfdf6af7f1f2702d4e44ee0)
+      [ "$p" = "ROADMAP.md" ] && return 0 ;;
+    ae8836c6b2bc930d6aa9a36a0d97a276aecbb431)
+      [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
+    5c4752bc57c269f47fad43143c84d1acf2b53365)
+      [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
+    6d1d23d4320d126d7cdce048d7fee519aff74a5a)
+      [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
   esac
 
   local body line path reason
