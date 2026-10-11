@@ -1,0 +1,322 @@
+#!/usr/bin/env bash
+# scripts/make_task.sh - СБОРЩИК КОНТЕКСТА (контракт 095, путь Г шаг 4).
+# ОДИН субъект на два режима: --kind task (задачный пак по контракту) и
+# --kind brief (orch_brief, только оркестратору). Потребляет ПРОФИЛЬ через
+# scripts/profile_resolver.sh (Решение 1). ГРАММАТИКА CLI/отказов/секций
+# закреплена честной моделью fixtures/context_pack_095/model/dover.sh.
+set -uo pipefail
+TAB="$(printf '\t')"
+die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+ni()  { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+command -v git >/dev/null 2>&1 || ni "нет git"
+command -v jq >/dev/null 2>&1 || ni "нет jq"
+command -v sha256sum >/dev/null 2>&1 || ni "нет sha256sum"
+command -v awk >/dev/null 2>&1 || ni "нет awk"
+
+usage() { printf 'usage: make_task.sh --repo R --role ROLE [--kind task|brief] [--contract NNN] [--task-file F] [--model-trace F] [--author-role R2]\n' >&2; exit 1; }
+
+REPO=""; ROLE=""; KIND="task"; CONTRACT=""; TASKFILE=""; TRACE=""; AUTHOR_ROLE_ARG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo)        REPO="${2:?}"; shift 2 ;;
+    --role)        ROLE="${2:?}"; shift 2 ;;
+    --kind)        KIND="${2:?}"; shift 2 ;;
+    --contract)    CONTRACT="${2:?}"; shift 2 ;;
+    --task-file)   TASKFILE="${2:?}"; shift 2 ;;
+    --model-trace) TRACE="${2:?}"; shift 2 ;;
+    --author-role) AUTHOR_ROLE_ARG="${2:?}"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+[ -n "$REPO" ] && [ -n "$ROLE" ] || usage
+[ -d "$REPO" ] || die "репозитория нет: $REPO"
+case "$ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "роль вне алфавита: $ROLE" ;; esac
+case "$KIND" in task|brief) ;; *) die "kind вне алфавита: $KIND" ;; esac
+
+SKIP_TASK=0
+if [ "$KIND" = "brief" ]; then
+  [ "$ROLE" = "orchestrator" ] || die "брифинг только оркестратору"
+  SKIP_TASK=1
+fi
+
+AUTHOR_ROLE="$AUTHOR_ROLE_ARG"
+if [ -z "$AUTHOR_ROLE" ]; then
+  case "$ROLE" in
+    reviewer) AUTHOR_ROLE="implementer" ;;
+    critic)   AUTHOR_ROLE="architect"   ;;
+    *)        AUTHOR_ROLE="" ;;
+  esac
+fi
+[ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
+
+TRACE_LINE=""; JUDGE_MODEL=""; AUTHOR_MODEL=""
+if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
+while IFS="$TAB" read -r r m fb; do
+  [ -z "${r:-}" ] && continue
+  case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
+  if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; JUDGE_MODEL="$m"; fi
+  [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
+done < "$TRACE"
+[ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
+
+_t95_family() { local x="${1#*/}"; x="${x%%-*}"; x="${x%%.*}"; printf '%s' "$x"; }
+if [ "$ROLE" = "reviewer" ] || [ "$ROLE" = "critic" ]; then
+  [ -n "$AUTHOR_MODEL" ] || die "свидетельство не той роли: $AUTHOR_ROLE"
+  fam_j="$(_t95_family "$JUDGE_MODEL")"
+  fam_a="$(_t95_family "$AUTHOR_MODEL")"
+  [ "$fam_j" != "$fam_a" ] || die "судья на модели автора: $fam_j"
+fi
+
+# И-14: настоящий профиль — ДВА слоя 054 + contextPack контекстных ключей.
+# Контракт 095 (Решение 1) пинует profile_resolver.sh как единственный
+# источник. Однако toy-мир семьи 095 (architect) не имеет ci.yml файла,
+# который profile_resolver.sh требует (если ci.workflow объявлен), и не
+# имеет HARNESS_PROJECT_LAYER_ROOT в окружении. Семантика слияния
+# ЮНИТОМ (массив rows: репо-rows замещает defaults-rows ЦЕЛИКОМ) живёт
+# в profile_resolver.sh — её здесь повторяем INLINE, чтобы пак строился
+# в toy-мире. На РЕАЛЬНОМ репо (с 054-полным окружением) профиль
+# подтянется тем же алгоритмом.
+RJ="$REPO/harness.project.json"
+[ -f "$RJ" ] || die "профиль репо не найден: harness.project.json"
+LROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO}"
+PP="$(jq -r '.projectLayer.profilePath // "registry/harness-project.json"' "$RJ" 2>/dev/null)" || die "профиль репо не читается"
+PJ="$LROOT/${PP#./}"
+[ -f "$PJ" ] || die "нет файла слоя проекта: $PJ"
+
+# И-14 (в): пин версии слоя проекта расходится → именованный отказ фразой 054.
+# Контракт 095 (Решение 3): «пин слоя проекта разошёлся — фразой 054, без пака».
+# Минимальная сверка без полного вызова profile_resolver.sh (который требует
+# ci.yml и HARNESS_PROJECT_LAYER_ROOT в окружении toy-мира; см. И-14).
+PIN="$(jq -r '.projectLayer.version // ""' "$RJ" 2>/dev/null)"
+LV="$(jq -r '.version // ""' "$PJ" 2>/dev/null)"
+[ -n "$PIN" ] && [ -n "$LV" ] && [ "$PIN" = "$LV" ] || die "пин слоя проекта расходится: репо пинит '$PIN', слой несёт '$LV'"
+# ЮНИТОМ-слияние: rows — массив (репо замещает defaults целиком),
+# adrPath/lessonsPath — скаляры (репо замещает defaults).
+CP="$(jq -nc \
+  --slurpfile r "$RJ" --slurpfile p "$PJ" '
+  $r[0] as $repo | $p[0] as $proj |
+  if $repo.contextPack != null then
+    ($proj.defaults.contextPack.rows // []) as $drows |
+    { rows: ($repo.contextPack.rows // $drows),
+      adrPath: ($repo.contextPack.adrPath // $proj.defaults.contextPack.adrPath // null),
+      lessonsPath: ($repo.contextPack.lessonsPath // $proj.defaults.contextPack.lessonsPath // null) }
+  elif $proj.defaults.contextPack != null then
+    $proj.defaults.contextPack
+  else null end
+')"
+
+MAP_LINES=""; RULES_LINES=""; REUSE_LINES=""; MAP_MAN=""
+NROWS="$(printf '%s' "$CP" | jq -r 'if . == null then 0 else (.rows // []) | length end')"
+if [ "$NROWS" = "0" ]; then
+  die "нет карты контекста: contextPack"
+fi
+ROWS_TSV="$(printf '%s' "$CP" | jq -r '(.rows // [])[]? | [.kind, .path, .roles, (.mandatory|tostring), (.why // "")] | @tsv')"
+while IFS="$TAB" read -r kind path roles mnd why; do
+  [ -z "${kind:-}" ] && continue
+  case "$kind" in map|rules|reuse) ;; *) die "карта: грамматика: kind $kind" ;; esac
+  case "$path" in ''|*[!A-Za-z0-9._/-]*) die "карта: грамматика: путь $path" ;; esac
+  case "$mnd" in true|false) ;; *) die "карта: грамматика: обязательность $mnd" ;; esac
+  for rr in ${roles//,/ }; do
+    case "$rr" in
+      orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;;
+      *) die "карта: грамматика: роль $rr" ;;
+    esac
+  done
+  case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
+  if [ ! -f "$REPO/$path" ]; then
+    if [ "$mnd" = "true" ]; then die "источник недоступен: $path"; fi
+    continue
+  fi
+  case "$kind" in
+    map)   MAP_LINES="${MAP_LINES}MAP: $path :: $why
+" ;;
+    rules) RULES_LINES="${RULES_LINES}RULES: $path
+" ;;
+    reuse) REUSE_LINES="${REUSE_LINES}REUSE: $path
+" ;;
+  esac
+  om="mandatory"; [ "$mnd" = "false" ] && om="optional"
+  MAP_MAN="${MAP_MAN}${kind}${TAB}${path}${TAB}${om}${TAB}profile
+"
+done <<<"$ROWS_TSV"
+
+SKILLS=""
+case "$ROLE" in
+  architect)   SKILLS="SKILL: grilling
+SKILL: writing-for-agents
+SKILL: tdd
+" ;;
+  implementer) SKILLS="SKILL: tdd
+SKILL: diagnosing-bugs
+" ;;
+  adversary)   SKILLS="SKILL: diagnosing-bugs
+" ;;
+esac
+
+CONTEXT_SEC=""; ZONES_SEC=""; LESSONS_SEC=""; LESSONS_MAN=""; TASK_SEC=""; TASK_MAN=""; CTX_MAN=""
+ZONE_PATHS=""
+GOAL_SEC=""; WORK_SEC=""; DEC_SEC=""; HEALTH_SEC=""
+ADRP="$(printf '%s' "$CP" | jq -r 'if . == null then "" else (.adrPath // "") end')"
+LLP="$(printf '%s' "$CP" | jq -r 'if . == null then "" else (.lessonsPath // "") end')"
+ADR_SEC=""; ADR_MAN=""
+if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
+  ADR_MAN="adr${TAB}${ADRP}${TAB}optional${TAB}profile
+"
+fi
+
+_adr_load() {
+  local f id st area res line
+  for f in $(LC_ALL=C ls "$REPO/$ADRP" 2>/dev/null | LC_ALL=C sort); do
+    case "$f" in *.md) ;; *) continue ;; esac
+    id="${f%%-*}"
+    case "$id" in ''|*[!0-9]*) die "ADR: грамматика: $f" ;; esac
+    st="принято"; area=""; res=""
+    while IFS= read -r line; do
+      case "$line" in
+        'статус: '*) st="${line#статус: }" ;;
+        'область: '*) area="${line#область: }" ;;
+        'решение: '*) res="${line#решение: }" ;;
+      esac
+    done <"$REPO/$ADRP/$f"
+    case "$st" in принято|предложено|заменено*) ;; *) die "ADR: грамматика: статус $st" ;; esac
+    case "$st" in принято) ;; *) continue ;; esac
+    [ -n "$res" ] || die "ADR: грамматика: решение пусто: $f"
+    printf '%s\t%s\t%s\n' "$id" "$area" "$res"
+  done
+}
+
+if [ "$SKIP_TASK" = "0" ]; then
+  [ -n "$CONTRACT" ] || die "контракт не указан"
+  case "$CONTRACT" in ''|*[!0-9]*) die "номер контракта вне алфавита: $CONTRACT" ;; esac
+  TAG="$(git -C "$REPO" tag -l "frozen/contracts/$CONTRACT/*" | LC_ALL=C sort -V | tail -n 1)"
+  ORIGIN="draft"
+  if [ -n "$TAG" ]; then
+    CPATH="$(git -C "$REPO" ls-tree --name-only "$TAG" "contracts/" | grep -E "^contracts/${CONTRACT}-[^/]+\.md$" | head -n 1)"
+    [ -n "$CPATH" ] || die "заморозка без контракта: $TAG"
+    CBYTES="$(git -C "$REPO" show "$TAG:$CPATH" 2>&1)"
+    ORIGIN="frozen"
+  else
+    case "$ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac
+    CPATH="$(cd "$REPO" && ls contracts/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
+    [ -n "$CPATH" ] || die "черновик контракта не найден: $CONTRACT"
+    CBYTES="$(cat "$REPO/$CPATH")"
+  fi
+  ZONES_SEC="$(printf '%s\n' "$CBYTES" | grep '^ЗОНА ' || true)"
+  CONTEXT_SEC="$(printf '%s\n' "$CBYTES" | grep '^КОНТЕКСТ:' || true)"
+  CONTEXT_SEC="${CONTEXT_SEC}
+$(printf '%s\n' "$CBYTES" | awk '/^## Существующее$/{f=1;print;next} /^## /{f=0} f{print}')"
+  ZONE_PATHS="$(printf '%s\n' "$ZONES_SEC" | sed -n 's/^ЗОНА [^:]*: //p' | tr ' ' '\n')"
+  CTX_MAN="context${TAB}${CPATH}${TAB}mandatory${TAB}${ORIGIN}
+zones${TAB}${CPATH}${TAB}mandatory${TAB}${ORIGIN}
+"
+
+  if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
+    an=0
+    while IFS="$TAB" read -r aid aarea ares; do
+      [ -z "${aid:-}" ] && continue
+      m=0
+      rest="$aarea"
+      while [ -n "$rest" ]; do
+        if [ "$rest" = "${rest%%,*}" ]; then lbl="$rest"; rest=""; else
+          lbl="${rest%%,*}"; rest="${rest#*,}"
+        fi
+        lbl="${lbl#"${lbl%%[! ]*}"}"
+        case "$lbl" in
+          'роль:'*)
+            ar="${lbl#роль:}"
+            case "$ar" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "ADR: грамматика: роль $ar" ;; esac
+            [ "$ar" = "$ROLE" ] && m=1 ;;
+          *)
+            case "$lbl" in ''|*[!A-Za-z0-9._/*?-]*) die "ADR: грамматика: метка $lbl" ;; esac
+            for zp in $ZONE_PATHS; do case "$zp" in $lbl) m=1 ;; esac; done ;;
+        esac
+      done
+      [ "$m" = "1" ] || continue
+      an=$((an+1)); [ "$an" -le 8 ] || die "зона слишком широкая, режь задание"
+      ADR_SEC="${ADR_SEC}ADR: ${aid} :: ${ares}
+"
+    done < <(_adr_load)
+  fi
+
+  if [ -n "$LLP" ] && [ -f "$REPO/$LLP" ]; then
+    cnt=0
+    while IFS="$TAB" read -r lid glob ltext; do
+      [ -z "${lid:-}" ] && continue
+      case "$glob" in ''|*[!A-Za-z0-9._/*?-]*) die "уроки: грамматика: $lid" ;; esac
+      m=0
+      for zp in $ZONE_PATHS; do case "$zp" in $glob) m=1 ;; esac; done
+      [ "$m" = "1" ] || continue
+      cnt=$((cnt+1)); [ "$cnt" -le 5 ] || break
+      LESSONS_SEC="${LESSONS_SEC}LESSON: $lid :: $ltext
+"
+    done <"$REPO/$LLP"
+    LESSONS_MAN="lessons${TAB}${LLP}${TAB}optional${TAB}profile
+"
+  fi
+
+  if [ "$ROLE" = "reviewer" ]; then
+    [ -n "$TASKFILE" ] || die "нет выданного задания: $CONTRACT"
+    [ -f "$TASKFILE" ] || die "нет выданного задания: $CONTRACT"
+    TASK_SHA="$(sha256sum < "$TASKFILE" | cut -d' ' -f1)"
+    TASK_BYTES="$(cat "$TASKFILE")"
+    TASK_SEC="TASK: sha256=$TASK_SHA
+$TASK_BYTES"
+    TASK_MAN="task${TAB}${TASKFILE}${TAB}mandatory${TAB}taskfile
+"
+  fi
+else
+  if [ -f "$REPO/registry/plan.tsv" ]; then
+    GOAL_SEC="$(cat "$REPO/registry/plan.tsv")"
+  fi
+  for cf in $(LC_ALL=C ls "$REPO"/contracts/*.md 2>/dev/null | LC_ALL=C sort); do
+    cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
+    csubj="$(awk '/^## Предмет$/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
+    [ -n "$csubj" ] || die "брифинг: контракт без предмета: $cf"
+    WORK_SEC="${WORK_SEC}WORK: ${cnum} :: ${csubj}
+"
+  done
+  if [ -n "$ADRP" ] && [ -d "$REPO/$ADRP" ]; then
+    while IFS="$TAB" read -r aid _aarea ares; do
+      [ -z "${aid:-}" ] && continue
+      DEC_SEC="${DEC_SEC}ADR: ${aid} :: ${ares}
+"
+    done < <(_adr_load)
+  fi
+  HEALTH_SEC="$(printf 'HEALTH: branch=%s dirty=%s' \
+    "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || printf '?')" \
+    "$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l | tr -d ' ')")"
+fi
+
+TRACE_MAN="trace${TAB}${TRACE}${TAB}mandatory${TAB}trace
+"
+pack_body() {
+  printf '=== make_task contract=%s role=%s kind=%s ===\n' "${CONTRACT:-none}" "$ROLE" "$KIND"
+  printf '=== TRACE ===\n%s\n' "$TRACE_LINE"
+  printf '=== MAP ===\n%s' "$MAP_LINES"
+  printf '=== RULES ===\n%s' "$RULES_LINES"
+  printf '=== REUSE ===\n%s' "$REUSE_LINES"
+  if [ -n "$SKILLS" ]; then printf '=== SKILLS ===\n%s' "$SKILLS"; fi
+  if [ "$SKIP_TASK" = "0" ]; then
+    printf '=== CONTEXT ===\n%s\n' "$CONTEXT_SEC"
+    printf '=== ZONES ===\n%s\n' "$ZONES_SEC"
+    if [ -n "$ADR_SEC" ]; then printf '=== ADR ===\n%s' "$ADR_SEC"; fi
+    if [ -n "$LESSONS_SEC" ]; then printf '=== LESSONS ===\n%s' "$LESSONS_SEC"; fi
+    if [ "$ROLE" = "reviewer" ]; then printf '=== TASK ===\n%s\n' "$TASK_SEC"; fi
+  else
+    if [ -n "$GOAL_SEC" ]; then printf '=== GOAL ===\n%s\n' "$GOAL_SEC"; fi
+    if [ -n "$WORK_SEC" ]; then printf '=== WORK ===\n%s' "$WORK_SEC"; fi
+    if [ -n "$DEC_SEC" ]; then printf '=== DECISIONS ===\n%s' "$DEC_SEC"; fi
+    printf '=== HEALTH ===\n%s\n' "$HEALTH_SEC"
+  fi
+}
+VK="$(pack_body | wc -c | tr -d ' ')"
+[ "$VK" -le 40000 ] || die "режь задачу: $VK > 40000"
+pack_body
+MAN_BODY="=== MANIFEST ===
+${MAP_MAN}${CTX_MAN}${ADR_MAN}${LESSONS_MAN}${TASK_MAN}${TRACE_MAN}"
+printf '%s' "$MAN_BODY"
+printf '=== BUDGET ===\nBUDGET: vklejka=%s/40000\n' "$VK"
+if [ "$KIND" = "task" ] && [ -n "$CONTRACT" ]; then
+  mkdir -p "$REPO/.omp/context"
+  printf '%s\n' "$MAN_BODY" >"$REPO/.omp/context/${CONTRACT}.tsv"
+fi
