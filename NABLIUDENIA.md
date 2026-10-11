@@ -6878,3 +6878,17 @@ push origin main:main` отказал ПРЕДПОЛЁТОМ: `check:ids` — «
 `bash scripts/check_ids.sh .` в своём клоне — коллизия с классом VERDICT; при коллизии
 используй префикс, ломающий паттерн (например `fork-<id>` или `n<id>`), а НЕ голый `<id>`».
 Правка `roles/consultant.md` — role-level, не устав, оркестратор делает сам.
+
+### Н-269. `scripts/check_skills.sh` ветвь (и) красит «положительный контроль» в 0 на scratch-копии verify_antiplacebo (CI ap2, 12 FAIL «нет положительного контроля»)
+
+**Что произошло:** живьём на main (2026-10-11): `bash scripts/verify_antiplacebo.sh --scope check_skills` даёт 12 FAIL «нет положительного контроля» по всей семье `fixtures/check_skills/case_*.sh`. Прямой прогон `bash scripts/check_skills.sh .` на реальном дереве — rc=0, все 8 ветвей зелёные (включая новую «ветвь (и): матрица сборщика (make_task) сверена с §13.4»). Расхождение — ТОЛЬКО под раннером verify_antiplacebo.
+
+**Причина:** `scripts/verify_antiplacebo.sh:532` копирует в scratch ТОЛЬКО сам файл барьера — `cp "$real" "$root/scripts/$(basename "$real")"` — не весь каталог `scripts/`. Ветвь (и) (добавлена коммитами `132bc1cc`/`bc5552a4`, 095-дельта, `scripts/check_skills.sh:340` `_matrix_of_subject()`) читает `"$REPO/scripts/make_task.sh"` как СОСЕДНИЙ файл. В scratch-копии `make_task.sh` отсутствует → `sed` на несуществующий файл даёт пусто → `die "матрица 13.4: сборщик не несёт SKILLS-матрицы роли"` → барьер красный на положительном контроле (на чистом, ещё не испорченном дереве) → verify_antiplacebo для ВСЕЙ семьи решает «вечно-красный барьер неотличим от работающего» и валит все 12 case разом.
+
+**Класс:** та же причина, что фоновая несостыковка latent-gap у check:protected --incr (forks/090-v3, forks/263-266) — новая функциональность (ветвь (и), 095) добавлена без учёта инфраструктурного инварианта соседнего механизма (single-file scratch-copy модели verify_antiplacebo для этой семьи, зафиксированной задолго до 095).
+
+**Зона:** `scripts/check_skills.sh` — ОБЩАЯ зона contracts/003 (architect) И contracts/095 (implementer); ветвь (и) конкретно внесена работой по 095. Чинить — владельцу активного трека 095 (сейчас 095 в flux, ждёт критик-круга v2) либо architect 003, НЕ оркестратору: не владелец зоны.
+
+**ЧЕМ ЗАКРЫТЬ (варианты, на выбор владельца зоны):** (а) `_matrix_of_subject()` читает `make_task.sh` через абсолютный путь ОТ КОРНЯ ЧЕКАУТА (`git rev-parse --show-toplevel`/аналог), а не через `$REPO`, который в scratch равен копии — так ветвь (и) всегда видит ДЕЙСТВУЮЩИЙ make_task.sh реального дерева, а не scratch; (б) раннер copies дополнительно соседние файлы, от которых зависит барьер (новый класс зависимости, шире текущего контракта single-file copy); (в) ветвь (и) переносится в отдельный барьер вне `check_skills.sh`, не разделяющий scratch-модель с остальными семью ветвями. Вариант (а) — минимальная правка, без изменения модели раннера.
+
+**Источник:** живой прогон `bash scripts/verify_antiplacebo.sh --scope check_skills` и `bash scripts/check_skills.sh .` на main `1a29c3a5`/`7602a441`; код `scripts/verify_antiplacebo.sh:532`, `scripts/check_skills.sh:325-360`; история `git log --oneline -- scripts/check_skills.sh` → `bc5552a4`/`132bc1cc` (095).
