@@ -152,6 +152,10 @@
 #   (29-я: текст 094 v3 (часть В нарезки Astra) закоммичен architect прямо в main до критика и без строки владельца;
 #   владелец согласен с текстом при условии accept критика v3, далее заморозка v3 на main; грамматику razreshil()
 #   не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   8c734d93b91fb3ff38528d6591d519a5145de325  contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md
+#   (30-я: материализация заморозки 098 в main перенесла текст, побайтово равный frozen/contracts/098/1,
+#   без строки владельца в теле; грамматику razreshil() не менять, допущение только для этой пары;
+#   слово владельца 2026-10-12)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -322,6 +326,8 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
     f97044d064d9022939db6e0a339eba0004b653b3)
       [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
+    8c734d93b91fb3ff38528d6591d519a5145de325)
+      [ "$p" = "contracts/098-proizvodstvennye-dokazatelstva-do-publikacii.md" ] && return 0 ;;
   esac
 
   local body line path reason
