@@ -148,6 +148,10 @@
 #   (27-я: перенос той же правки 095 оркестратором (ночной merge до accept ревьюера — нарушение, записано); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
 #   6d1d23d4320d126d7cdce048d7fee519aff74a5a  contracts/095-profil-i-vhod-agenta-contextpack.md
 #   (28-я: merge той же правки 095 в main оркестратором (то же нарушение); грамматику razreshil() не менять, допущение только для этой пары; слово владельца 2026-10-11)
+#   f97044d064d9022939db6e0a339eba0004b653b3  contracts/094-prinyatie-i-publikatsiya-kandidata.md
+#   (29-я: текст 094 v3 (часть В нарезки Astra) закоммичен architect прямо в main до критика и без строки владельца;
+#   владелец согласен с текстом при условии accept критика v3, далее заморозка v3 на main; грамматику razreshil()
+#   не менять, допущение только для этой пары; слово владельца 2026-10-11)
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 #
@@ -316,6 +320,8 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
     6d1d23d4320d126d7cdce048d7fee519aff74a5a)
       [ "$p" = "contracts/095-profil-i-vhod-agenta-contextpack.md" ] && return 0 ;;
+    f97044d064d9022939db6e0a339eba0004b653b3)
+      [ "$p" = "contracts/094-prinyatie-i-publikatsiya-kandidata.md" ] && return 0 ;;
   esac
 
   local body line path reason

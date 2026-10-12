@@ -11,6 +11,8 @@ id	пара	этап	зависит	источник	трек
 094	3	до V-2	098	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3	odelix
 097	3	до V-2	091	docs/owner/2026-10-11-astra-094-narezka.md#А	odelix
 098	3	до V-2	097	docs/owner/2026-10-11-astra-094-narezka.md#Б	odelix
+095	4	до V-2	094	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4	context
+096	5	до V-2	095	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5	odelix
 V-2	6	до V-2	090,091,094,095,096	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3	odelix
 ночь-повторяемость	7	параллельно с V-2	V-2	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4	odelix
 087	8	параллельно с V-2	ночь-повторяемость	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	CI
