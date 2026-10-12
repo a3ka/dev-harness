@@ -1,0 +1,13 @@
+probe-only каталог (контракт 034, инв. 1): предмет — контракт 098 «производственные
+доказательства до публикации» (часть Б нарезки 094, Astra §Б). Каталог — архитекторская
+красная батарея ДО implementer-раздачи: 12 клеток red_*.sh + честные модели
+model/accept_publish.sh, model/check_ci_gate.sh, model/judge_gate.sh. Барьерного ключа
+scripts/dokazatelstva_098.sh НЕТ и НЕ появится: по §Зонам контракта 098 ЗОНА implementer
+несёт scripts/judge_gate.sh, scripts/check_ci_gate.sh, scripts/accept_publish.sh,
+registry/candidates.tsv — предмет реализуется правкой этих существующих/новых ключей, а не
+файлом scripts/dokazatelstva_098.sh, поэтому отдельного барьерного ключа у ЭТОГО каталога не
+будет и не должно (прецедент fixtures/context_pack_095/, fixtures/perezapusk_sessii/).
+Предъявление red_*.sh — через агрегатор fixtures/_krasnye_098.sh: rc 1 с «предмет
+отсутствует»/именованными причинами на дереве ДО реализации 098, rc 0 ⟺ стаб-пак и все клетки
+зелёны ПОСЛЕ landing предмета; guard подключается в CI только после landing (прецеденты
+074/093/094/095).
