@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Честная модель CI-писателя (контракт 098) — носитель ГРАММАТИКИ субъекта
+# scripts/check_ci_gate.sh: без флага — семантика 4б/087 (sha на origin/main ∧
+# прогонов ≥ 1 ∧ все conclusion success); --check-row — писатель строки check
+# журнала принятой стороны <корень>/registry/candidates.tsv.
+# Модель — не продукт: живёт в семье батареи, используется режимом --model
+# раннера и стаб-паком battery_stubs.sh (маркеры # t98-mCN — единственные
+# строки-носители инвариантов, НЕ удалять и НЕ переименовывать без синхронной
+# правки стаб-пака).
+#
+# CLI (решение 2 контракта 098; Р4-3б–г гасятся):
+#   check_ci_gate.sh <корень> <M-sha> --check-row <object_id> <ключ>
+#       дерево = M-sha^{tree} ИЗ АРГУМЕНТА — требования «M на origin/main»
+#       НЕТ (доказательство ДО публикации); сопоставление СТРУКТУРНОЕ: имя
+#       прогона ЛИТЕРАЛЬНО == <ключ>, прогон обязан стоять на коммите M-sha
+#       (head_sha); wfsha = sha256 байтов определения принятой стороны
+#       harness/checks/<ключ>.cmd; ключ — из mandatory политики принятой
+#       стороны; непокрытый ключ — именованный отказ (не молчание, Н-204),
+#      красный прогон — именованный отказ без строки (отсутствие, не молчание);
+#      лишние аргументы — именованный отказ rc 1 (не 127, Р4-3г).
+#   check_ci_gate.sh [корень] [sha] — семантика 087 (не ослабляется).
+# Отказы rc 1 — именованные «ОТКАЗ: …»; rc 2 — NOT_IMPLEMENTED.
+set -uo pipefail
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DATABASE \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+
+die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+ni()  { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
+command -v git  >/dev/null 2>&1 || ni "нет git — историю прочитать нечем"
+command -v curl >/dev/null 2>&1 || ni "нет curl — ответ CI не получить"
+command -v jq   >/dev/null 2>&1 || ni "нет jq — ответ CI не разобрать"
+
+ROOT="${1:-}"; MSHA="${2:-HEAD}"
+if [ "${3:-}" = "--check-row" ]; then MODE=writer; else MODE=g087; fi
+
+case "$MODE" in
+g087)
+  # ── семантика 4б/087: гейт по ЗАПУШЕННОМУ HEAD (не ослабляется) ────────────
+  [ $# -le 2 ] || die "лишние аргументы: семантика 087 — [корень] [sha]"
+  SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  ROOT="${ROOT:-$(cd "$SELF_DIR/.." && pwd)}"
+  [ -d "$ROOT" ] || die "корня нет: $ROOT"
+  ROOT="$(cd "$ROOT" && pwd)"
+  git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || die "$ROOT не репозиторий git"
+  sha="$(git -C "$ROOT" rev-parse --verify --quiet "${MSHA}^{commit}" || true)"
+  [ -n "$sha" ] || die "коммит не разрешается: $MSHA"
+  short="$(printf '%s' "$sha" | head -c 12)"
+  git -C "$ROOT" rev-parse --verify --quiet refs/remotes/origin/main >/dev/null 2>&1 \
+    || die "ветки origin/main нет локально — прогон CI по $short не существует; сделай fetch"
+  git -C "$ROOT" merge-base --is-ancestor "$sha" refs/remotes/origin/main \
+    || die "коммит $short не на origin/main — CI по нему не запускался; запушь и дождись прогона"
+  remote_url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
+  [ -n "$remote_url" ] || die "remote origin не объявлен — репозиторий CI не узнать"
+  repo="$(printf '%s' "$remote_url" \
+    | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
+  repo="$(printf '%s' "$repo" | sed -E 's/\.git$//')"
+  [ -n "$repo" ] || die "из «$remote_url» не извлекается OWNER/REPO github — гейт понимает ssh://git@github.com/, git@github.com: и https://github.com/ формы"
+  auth=()
+  if [ -n "${GITHUB_TOKEN:-}" ]; then auth=(-H "Authorization: Bearer $GITHUB_TOKEN"); fi
+  if ! body="$(curl -fsS -m 20 -H 'Accept: application/vnd.github+json' \
+        -H 'X-GitHub-Api-Version: 2022-11-28' "${auth[@]}" \
+        "https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100" 2>&1)"; then
+    die "CI не ответил по $short (curl): $(printf '%s' "$body" | head -2 | tr '\n' ' ')"
+  fi
+  total="$(printf '%s' "$body" | jq -r '.total_count // -1' 2>/dev/null)" || total=-1
+  [ "$total" -ge 0 ] || die "ответ CI не разобран: total_count нет — $(printf '%s' "$body" | head -c 200)"
+  [ "$total" -gt 0 ] || die "прогонов CI по $short нет: чек-раны пусты — workflow не запускался"
+  bad_run="$(printf '%s' "$body" | jq -r '[.check_runs[] | select((.conclusion // "") != "success")][0] | if . then (.name + " → " + (.conclusion // "без завершения")) else "" end' 2>/dev/null)"
+  if [ -n "$bad_run" ]; then
+    die "CI не зелёный по $short: $bad_run — судью не звать, чинить пачку"
+  fi
+  printf '  ok   CI зелёный: проверок %s, все success, по %s (%s)\n' "$total" "$short" "$repo" >&2
+  exit 0
+  ;;
+writer)
+  # ── писатель строки check (решение 2 контракта 098) ───────────────────────
+  [ $# -eq 5 ] || die "check-row: <корень> <M-sha> --check-row <object_id> <ключ> — аргументов $# , нужно 5 (лишние аргументы отвергаются именованным отказом, не 127)"
+  OID="$4"; KEY="$5"
+  case "$OID" in ''|*[!0-9a-f]*) die "object_id не 64 hex: $OID" ;; esac
+  [ "${#OID}" -eq 64 ] || die "object_id не 64 hex: $OID"
+  case "$MSHA" in ''|*[!0-9a-f]*) die "sha не 40 hex: $MSHA" ;; esac
+  [ "${#MSHA}" -eq 40 ] || die "sha не 40 hex: $MSHA"
+  case "$KEY" in ''|*[!A-Za-z0-9._-]*) die "ключ вне алфавита: $KEY" ;; esac
+  [ -d "$ROOT" ] || die "корня нет: $ROOT"
+  ROOT="$(cd "$ROOT" && pwd)"
+  git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || die "$ROOT не репозиторий git"
+  JOURNAL="$ROOT/registry/candidates.tsv"
+  [ -f "$JOURNAL" ] || die "журнал: нет файла: $JOURNAL"
+  mand="$(sed -nE 's/^mandatory=//p' "$ROOT/harness/policy" | head -1)"
+  [ -n "$mand" ] || die "политика принятой стороны: нет mandatory"
+  case ",$mand," in *",$KEY,"*) ;; *) die "ключ вне обязательных: $KEY" ;; esac
+  DEFF="$ROOT/harness/checks/$KEY.cmd"
+  [ -f "$DEFF" ] || die "нет доверенного определения: $KEY"
+  wfsha="$(sha256sum <"$DEFF" | cut -d' ' -f1)"
+  mtree="$(git -C "$ROOT" rev-parse --verify --quiet "$MSHA^{tree}")" # t98-mC3: дерево ИСПОЛНЕНИЯ — из аргумента, требования «на origin/main» НЕТ
+  [ -n "$mtree" ] || die "коммит не разрешается: $MSHA"
+  remote_url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
+  [ -n "$remote_url" ] || die "remote origin не объявлен — репозиторий CI не узнать"
+  repo="$(printf '%s' "$remote_url" \
+    | sed -nE 's#^(ssh://git@github\.com/|git@github\.com:|https://github\.com/)([^/]+)/(.+?)(\.git)?$#\2/\3#p' | head -1)"
+  repo="$(printf '%s' "$repo" | sed -E 's/\.git$//')"
+  [ -n "$repo" ] || die "из «$remote_url» не извлекается OWNER/REPO github — гейт понимает ssh://git@github.com/, git@github.com: и https://github.com/ формы"
+  auth=()
+  if [ -n "${GITHUB_TOKEN:-}" ]; then auth=(-H "Authorization: Bearer $GITHUB_TOKEN"); fi
+  if ! body="$(curl -fsS -m 20 -H 'Accept: application/vnd.github+json' \
+        -H 'X-GitHub-Api-Version: 2022-11-28' "${auth[@]}" \
+        "https://api.github.com/repos/${repo}/commits/${MSHA}/check-runs?per_page=100" 2>&1)"; then
+    die "CI не ответил по $MSHA (curl): $(printf '%s' "$body" | head -2 | tr '\n' ' ')"
+  fi
+  total="$(printf '%s' "$body" | jq -r '.total_count // -1' 2>/dev/null)" || total=-1
+  [ "$total" -ge 0 ] || die "ответ CI не разобран: total_count нет — $(printf '%s' "$body" | head -c 200)"
+  best="$(printf '%s' "$body" | jq -c --arg k "$KEY" '[.check_runs[] | select(.name == $k)] | sort_by(.id) | last' 2>/dev/null)" # t98-mC2: имя — ЛИТЕРАЛЬНОЕ равенство (не подстрока display-имени)
+  { [ -n "$best" ] && [ "$best" != "null" ]; } || die "нет обязательной проверки: $KEY"
+  rid="$(printf '%s' "$best" | jq -r '.id' 2>/dev/null)"
+  concl="$(printf '%s' "$best" | jq -r '.conclusion // ""' 2>/dev/null)"
+  hsha="$(printf '%s' "$best" | jq -r '.head_sha // ""' 2>/dev/null)"
+  case "$rid" in ''|*[!0-9]*) die "ответ CI: id прогона не разобран: $KEY" ;; esac
+  [ "$hsha" = "$MSHA" ] || die "прогон не того коммита: $KEY"
+  if [ "$concl" != "success" ]; then
+    die "обязательная проверка красна: $KEY"
+  fi
+  printf 'check\t%s\t%s\tok\t%s\t%s\t%s\n' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL" # t98-mC1
+  printf 'check-строка записана: %s %s run=%s дерево=%s\n' "$OID" "$KEY" "$rid" "$mtree"
+  exit 0
+  ;;
+esac
+die "неизвестный режим: $MODE"
