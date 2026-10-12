@@ -19,7 +19,7 @@ if ! SUBJ="$(z99_subject pr_dopusk.sh)"; then
   exit 1
 fi
 
-ALLGREEN="l1:success l2:success l3:success l4:success l5:success l6:success l7:success ap1:success ap2:success ap3:success ap4:success ap5:success"
+ALLGREEN="l1:success l2:success l3:success l4:success l5:success l6:success l7a:success l7b:success ap1:success ap2:success ap3:success ap4:success ap5:success"
 
 zapustit() { # <merge-sha> <head-sha> <файл-checkruns-merge> <файл-checkruns-head>
   API="$(z99_api_dir "$W")"

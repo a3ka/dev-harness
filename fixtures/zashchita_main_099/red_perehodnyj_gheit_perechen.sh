@@ -1,11 +1,29 @@
 #!/usr/bin/env bash
 # Клетка red_perehodnyj_gheit_perechen — инвариант З-6 контракта 099 (doc §3):
-# переходный доверенный гейт допускает ТОЛЬКО точно перечисленные существующие дефекты.
-# Шесть входов: (а) все зелёны → ДОПУСК; (б) отказ l7, совпадающий с базой (sha строк) → ДОПУСК;
-# (в) неизвестный отказ l7 → блокировка; (г) skipped/нет результата → блокировка;
-# (д) то же ЧИСЛО красных проверок, иное содержимое → блокировка;
-# (е) дельта трогает config/transition_defects_099.tsv → «база исключений изменена кандидатом».
-# До реализации красна «предмет отсутствует»; стаб-пак — battery_stubs.sh (t99-m1 вход в, t99-m5 вход д).
+# переходный доверенный гейт допускает ТОЛЬКО точно перечисленные дефекты,
+# исполненные ПОЛНОСТЬЮ, с доверенным происхождением проверок.
+# Восемь входов (блокеры критика круг 1 :49/:48):
+#   (а) все составляющие зелёны → ДОПУСК;
+#   (б) отказ l7a, совпадающий с реестром (sha строк), l7b зелёна → ДОПУСК;
+#   (в) неизвестный отказ l7a → блокировка;
+#   (г) l7a skipped → «нет результата»;
+#   (д) то же ЧИСЛО красных, но красна ДРУГАЯ составляющая → блокировка;
+#   (е) дельта трогает config/transition_defects_099.tsv → «база исключений
+#       изменена кандидатом»;
+#   (ж) раннее прерывание job: l7a отказ ТОЧНО из реестра, но составляющая l7b
+#       БЕЗ результата в ответе → «нет результата: l7b» (хеш совпал — полноты
+#       исполнения нет; блокер :49);
+#   (з) подмена проверок кандидатом: ci.yml команды выпарены (run: true), все
+#       имена зелёны → «проверки изменены кандидатом: .github/workflows/ci.yml»
+#       (блокер :48 — доверенный источник команд = байты поверхности на первом
+#       родителе, статусы/имена нерелевантны).
+# Реестр перехода — на СОСТАВЛЯЮЩИХ (шаг-гранулярность l7a/l7b, агрегата l7 нет):
+# каждое имя обязано иметь completed-результат — допуск известного дефекта
+# удостоверяет полноту остальных результатов и завершённость исполнения.
+# До реализации красна «предмет отсутствует»; стаб-пак — battery_stubs.sh
+# (t99-m1 вход в, t99-m5 вход д; оба ловятся и на ж/з).
+# Проверочные записи передаются одной строкой с разделителем «|» (summary
+# отказов содержит пробелы — совет критика круга 1 про некавыченный $2).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
@@ -21,12 +39,22 @@ fi
 
 command -v sha256sum >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет sha256sum\n' >&2; exit 2; }
 
-ALLGREEN="l1:success l2:success l3:success l4:success l5:success l6:success l7:success ap1:success ap2:success ap3:success ap4:success ap5:success"
+ALLGREEN='l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:success|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success'
 L='check_protected: конфликт 263/266 (известный дефект main)'
 L2='check_protected: НОВЫЙ отказ'
 LHOST='иная проверка: новый отказ'
 # sha256 отсортированных строк отказа (каждая с завершающим \n) — формула контракта, единый источник
 L_SHA="$(printf '%s\n' "$L" | LC_ALL=C sort | sha256sum | awk '{print $1}')"
+
+# Реестр перехода с исключением для l7a (13 составляющих, шаг-гранулярность)
+REG="$(for n in l1 l2 l3 l4 l5 l6; do printf '%s\t-\n' "$n"; done; printf 'l7a\t%s\n' "$L_SHA"; printf 'l7b\t-\n'; for n in ap1 ap2 ap3 ap4 ap5; do printf '%s\t-\n' "$n"; done)"
+
+# zcr <файл> <проверки|проверки> — ответ check-runs API из |-строки
+zcr() {
+  local f="$1" s="$2" IFS='|'
+  read -ra _e <<<"$s"
+  z99_json_checkruns "$f" "${_e[@]}"
+}
 
 # zpg <вход> <checks-строка> [Z99_BASE_DEFECTS]
 zpg() {
@@ -37,7 +65,7 @@ zpg() {
   API="$(z99_api_dir "$W")"
   mkdir -p "$API/repos/o/r/pulls" "$API/repos/o/r/commits/$Z99_M"
   z99_json_pr "$API/repos/o/r/pulls/7" 7 "$Z99_B" "$Z99_M"
-  z99_json_checkruns "$API/repos/o/r/commits/$Z99_M/check-runs" $2
+  zcr "$API/repos/o/r/commits/$Z99_M/check-runs" "$2"
   if [ -z "${API_PID:-}" ]; then
     sv="$(z99_api_serve "$API")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"
     z99_wait_api "$PORT" || { printf 'КРАСНО: red_perehodnyj_gheit_perechen: стаб API не поднялся\n' >&2; exit 2; }
@@ -46,58 +74,78 @@ zpg() {
 vypolnit() { # вызов субъекта; кладёт out/rc в оболочку клетки
   out="$(PR_DOPUSK_API="http://127.0.0.1:$PORT" bash "$SUBJ" "$Z99_REPO" --pr 7 2>&1)"; rc=$?
 }
-zelyono() { # <вход>: ждём ДОПУСК rc 0
+zelyona() { # <вход>: ждём ДОПУСК rc 0
   vypolnit
-  if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -Fq 'ДОПУСК'; then return 0; fi
-  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход %s: ожидался ДОПУСК rc 0; факт rc=%s, вывод: %s\n' \
-    "$1" "$rc" "$(printf '%s' "$out" | head -c 300)" >&2
-  exit 1
+  if [ "$rc" -ne 0 ] || ! printf '%s' "$out" | grep -Fq 'ДОПУСК'; then
+    printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход %s: ожидался ДОПУСК rc 0; факт rc=%s, вывод: %s\n' \
+      "$1" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+    exit 1
+  fi
 }
 krasno() { # <вход> <фраза>: ждём именованный отказ rc 1
   vypolnit
-  if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -Fq "$2"; then return 0; fi
-  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход %s: ожидался отказ rc 1 с фразой «%s»; факт rc=%s, вывод: %s\n' \
-    "$1" "$2" "$rc" "$(printf '%s' "$out" | head -c 300)" >&2
-  exit 1
+  if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq "$2"; then
+    printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход %s: ожидался отказ rc 1 «%s»; факт rc=%s, вывод: %s\n' \
+      "$1" "$2" "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+    exit 1
+  fi
 }
 
-BASE_ENTRY="l7	$L_SHA"
+# (а) все составляющие зелёны (исключение в реестре НЕ требует красноты) → ДОПУСК
+zpg а "$ALLGREEN" "$REG"
+zelyona а
 
-# (а) все зелёны, база пуста → ДОПУСК
-zpg а "$ALLGREEN" ""
-zelyono а
+# (б) отказ l7a точно совпадает с реестром, l7b зелёна → ДОПУСК
+zpg б "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:failure:$L|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+zelyona б
 
-# (б) отказ l7 точно совпадает с базой → ДОПУСК
-zpg б "l1:success l2:success l3:success l4:success l5:success l6:success l7:failure:$L ap1:success ap2:success ap3:success ap4:success ap5:success" "$BASE_ENTRY"
-zelyono б
+# (в) отказ l7a с ИНЫМ содержимым → «неизвестный отказ»
+zpg в "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:failure:$L2|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+krasno в 'неизвестный отказ: l7a'
 
-# (в) отказ l7 с ИНЫМ содержимым → «неизвестный отказ»
-zpg в "l1:success l2:success l3:success l4:success l5:success l6:success l7:failure:$L2 ap1:success ap2:success ap3:success ap4:success ap5:success" "$BASE_ENTRY"
-krasno в 'неизвестный отказ: l7'
+# (г) l7a skipped → «нет результата» (зелёная оболочка без фактического выполнения)
+zpg г "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:skipped|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+krasno г 'нет результата: l7a'
 
-# (г) l7 skipped → «нет результата» (зелёная оболочка без фактического выполнения)
-zpg г "l1:success l2:success l3:success l4:success l5:success l6:success l7:skipped ap1:success ap2:success ap3:success ap4:success ap5:success" "$BASE_ENTRY"
-krasno г 'нет результата: l7'
-
-# (д) то же ЧИСЛО красных (1), но красна ДРУГАЯ проверка с иным текстом → блокировка
-zpg д "l1:success l2:success l3:success l4:success l5:success l6:success l7:success ap1:success ap2:failure:$LHOST ap3:success ap4:success ap5:success" "$BASE_ENTRY"
+# (д) то же ЧИСЛО красных (1), но красна ДРУГАЯ составляющая с иным текстом → блокировка
+zpg д "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:success|l7b:success|ap1:success|ap2:failure:$LHOST|ap3:success|ap4:success|ap5:success" "$REG"
 krasno д 'неизвестный отказ: ap2'
 
-# (е) дельта объекта трогает базу исключений → «база исключений изменена кандидатом»
-rm -rf "$W/api"
-Z99_BASE_DEFECTS="" z99_mir_repo "$W" 1
-printf 'l7	00000000000000000000000000000000000000000000000000000000000000ff\n' > "$Z99_REPO/config/transition_defects_099.tsv"
+# (ж) раннее прерывание job (блокер :49): l7a отказ ТОЧНО из реестра, но
+# составляющая l7b ВООБЩЕ НЕ ПРИСУТСТВУЕТ в ответе — у неё нет результата;
+# совпадение хеша не доказывает полноту исполнения → блокировка
+zpg ж "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:failure:$L|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+krasno ж 'нет результата: l7b'
+
+# (е) дельта объекта трогает реестр перехода → «база исключений изменена кандидатом»
+zpg е "$ALLGREEN" ""
+printf 'l7a\t00000000000000000000000000000000000000000000000000000000000000ff\n' >| "$Z99_REPO/config/transition_defects_099.tsv"
 git -C "$Z99_REPO" add config/transition_defects_099.tsv
 git -C "$Z99_REPO" -c user.name=demo -c user.email=demo@dev-harness.local \
-  commit -q -m "кандидат правит базу исключений (toy)"
+  commit -q -m "кандидат правит реестр перехода (toy)"
 M2="$(git -C "$Z99_REPO" rev-parse HEAD)"
-git -C "$Z99_REPO" tag frozen/contracts/099/1 "$M2"
-git -C "$Z99_REPO" push -q origin refs/tags/frozen/contracts/099/1
-API="$(z99_api_dir "$W")"
-mkdir -p "$API/repos/o/r/pulls" "$API/repos/o/r/commits/$M2"
-z99_json_pr "$API/repos/o/r/pulls/7" 7 "$Z99_B" "$M2"
-z99_json_checkruns "$API/repos/o/r/commits/$M2/check-runs" $ALLGREEN
+git -C "$Z99_REPO" tag -f frozen/contracts/099/1 "$M2"
+git -C "$Z99_REPO" push -q -f origin refs/tags/frozen/contracts/099/1
+mkdir -p "$W/api/repos/o/r/commits/$M2"
+z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M2"
+zcr "$W/api/repos/o/r/commits/$M2/check-runs" "$ALLGREEN"
 krasno е 'база исключений изменена кандидатом'
+
+# (з) подмена проверок кандидатом (блокер :48): команды ci.yml выпарены до
+# «run: true», имена/статусы прежние (13 зелёных) — доверенный источник команд
+# это байты поверхности первого родителя → блокировка ДО статусов
+zpg з "$ALLGREEN" ""
+printf 'name: ci\non: pull_request\njobs:\n  checks:\n    steps:\n      - run: true\n' >| "$Z99_REPO/.github/workflows/ci.yml"
+git -C "$Z99_REPO" add .github/workflows/ci.yml
+git -C "$Z99_REPO" -c user.name=demo -c user.email=demo@dev-harness.local \
+  commit -q -m "кандидат выпаривает команды проверок (toy)"
+M3="$(git -C "$Z99_REPO" rev-parse HEAD)"
+git -C "$Z99_REPO" tag -f frozen/contracts/099/1 "$M3"
+git -C "$Z99_REPO" push -q -f origin refs/tags/frozen/contracts/099/1
+mkdir -p "$W/api/repos/o/r/commits/$M3"
+z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M3"
+zcr "$W/api/repos/o/r/commits/$M3/check-runs" "$ALLGREEN"
+krasno з 'проверки изменены кандидатом: .github/workflows/ci.yml'
 
 printf 'ЗЕЛЕНО: red_perehodnyj_gheit_perechen\n'
 exit 0

@@ -25,7 +25,7 @@ mkdir -p "$API/repos/o/r/pulls" "$API/repos/o/r/commits/$Z99_M"
 z99_json_pr "$API/repos/o/r/pulls/7" 7 "$Z99_B" "$Z99_M"
 z99_json_checkruns "$API/repos/o/r/commits/$Z99_M/check-runs" \
   l1:success l2:success l3:success l4:success l5:success l6:success \
-  l7:success ap1:success ap2:success ap3:success ap4:success ap5:success
+  l7a:success l7b:success ap1:success ap2:success ap3:success ap4:success ap5:success
 sv="$(z99_api_serve "$API")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"
 z99_wait_api "$PORT" || { printf 'КРАСНО: red_pr_dopusk_obekt_vne_main: стаб API не поднялся\n' >&2; exit 1; }
 

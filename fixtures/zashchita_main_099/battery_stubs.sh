@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 099 (контракт 099, Н-39/А-398): восемь обманных субъектов,
+# Обманный стаб-пак 099 (контракт 099, Н-39/А-398): девять обманных субъектов,
 # каждый привязан к клетке и входу, на котором его дефект НАБЛЮДАЕМ
 # (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
 # Пойман = связанная клетка против стаба даёт rc 1 (КРАСНО); rc 0 и rc 2 — НЕ пойман.
@@ -13,6 +13,7 @@
 # t99-m6 land_agent --pr двигает main (поведение 016) red_land_agent_pr_rezhim (main обязан быть не двинут)
 # t99-m7 дверь судьи всегда rc 0                    red_sud_model_dver_spavna (вход 2: спавн на модели автора)
 # t99-m8 --verdict всегда rc 0                      red_sud_model_materializatsija (вход 1: критик на glm)
+# t99-m9 spawn_agent без судейской ноги --agent     red_sud_model_dver_spavna (вход 5: реальный запрос без agent не отказан)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FAM="$HERE"
@@ -145,7 +146,34 @@ cat > "$WORK/t99-m8/check_sud_model.sh" <<'EOF'
 printf 'СУДЬЯ СВОЕЙ МОДЕЛИ: verdict ok\n'
 exit 0
 EOF
-chmod +x "$WORK"/t99-m*/{pr_dopusk.sh,land_agent.sh,check_sud_model.sh} 2>/dev/null \
+mkdir -p "$WORK/t99-m9"
+cat > "$WORK/t99-m9/spawn_agent.sh" <<'EOF'
+#!/usr/bin/env bash
+# t99-m9 порча: судейской ноги --agent НЕТ; манифест-нога 095 честная —
+# дефект наблюдаем ровно на входе 5 клетки (спавн без agent проходит)
+set -uo pipefail
+root=""; author=""; nnn=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --author) author="${2:-}"; shift 2 ;;
+    --nnn) nnn="${2:-}"; shift 2 ;;
+    --root) root="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+[ -n "$root" ] || root="$PWD"
+if [ -z "$nnn" ]; then
+  nnn="$(git -C "$root" for-each-ref --format='%(refname)' 'refs/heads/wip/' 2>/dev/null | grep -o 'wip/[0-9][0-9][0-9]' | grep -o '[0-9][0-9][0-9]$' | sort -n | tail -1)"
+  if [ -n "$nnn" ]; then nnn="$(printf '%03d' "$((10#$nnn + 1))")"; else nnn=001; fi
+fi
+if ! [ -s "$root/.omp/context/$nnn.tsv" ]; then
+  printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$nnn" >&2
+  exit 1
+fi
+printf 'WORKTREE=/tmp/dev-harness-verify/zashchita-099-stub-m9-wt\nBRANCH=wip/%s/%s\n' "$nnn" "${author:-critic}"
+exit 0
+EOF
+chmod +x "$WORK"/t99-m*/{pr_dopusk.sh,land_agent.sh,check_sud_model.sh,spawn_agent.sh} 2>/dev/null \
   || chmod +x "$WORK"/t99-m*/*.sh
 
 # прогон: стаб пойман ⟺ связанная клетка на стабе даёт rc 1
@@ -174,8 +202,9 @@ progon t99-m5 red_perehodnyj_gheit_perechen.sh
 progon t99-m6 red_land_agent_pr_rezhim.sh
 progon t99-m7 red_sud_model_dver_spavna.sh
 progon t99-m8 red_sud_model_materializatsija.sh
+progon t99-m9 red_sud_model_dver_spavna.sh
 
 printf 'стаб-пак: %s/%s поймано\n' "$caught" "$total"
-[ "$total" -eq 8 ] || { printf 'ОТКАЗ: стабов прогнано %s, ожидалось 8\n' "$total" >&2; exit 2; }
+[ "$total" -eq 9 ] || { printf 'ОТКАЗ: стабов прогнано %s, ожидалось 9\n' "$total" >&2; exit 2; }
 [ "$itog" -eq 0 ] || exit "$itog"
 exit 0

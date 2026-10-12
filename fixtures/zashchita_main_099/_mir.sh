@@ -5,8 +5,20 @@ set -uo pipefail
 
 Z99_BASE="${Z99_BASE:-/tmp/dev-harness-verify}"
 
-# z99_mir_repo <мир> [with_pr] — repo+origin; main на A (несёт пустую доверенную базу
-# config/transition_defects_099.tsv); ветка wip/099/demo на B (автор demo, работа B).
+# z99_reg_default — реестр перехода по умолчанию (контракт 099, Решение 2):
+# 13 имён СОСТАВЛЯЮЩИХ (шаг-гранулярность; агрегата l7 нет — только l7a/l7b),
+# все «-» = обязаны быть зелёными. Клетки с исключением передают свой реестр
+# через Z99_BASE_DEFECTS (совет критика круга 1: построитель обязан ЧИТАТЬ
+# переменную, а не всегда писать пустой файл).
+z99_reg_default() {
+  local n
+  for n in l1 l2 l3 l4 l5 l6 l7a l7b ap1 ap2 ap3 ap4 ap5; do printf '%s\t-\n' "$n"; done
+}
+
+# z99_mir_repo <мир> [with_pr] — repo+origin; main на A (несёт доверенный реестр
+# перехода config/transition_defects_099.tsv — Z99_BASE_DEFECTS или 13 имён
+# по умолчанию — и проверочную поверхность .github/workflows/ci.yml +
+# package.json); ветка wip/099/demo на B (автор demo, работа B).
 # with_pr=1: интеграционная ветка pr/099/demo на merge M «land: wip/099/demo»
 # (первый родитель A, второй B; committer merge — orchestrator, грамматика 016) +
 # worktree wt на wip/099/demo (режим without_pr для клетки land_agent).
@@ -20,10 +32,12 @@ z99_mir_repo() {
   g() { git -C "$w/repo" -c user.name=demo -c user.email=demo@dev-harness.local -c commit.gpgsign=false "$@"; }
   m() { git -C "$w/repo" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local -c commit.gpgsign=false "$@"; }
   g commit -q --allow-empty -m "база A"
-  mkdir -p "$w/repo/config"
-  : > "$w/repo/config/transition_defects_099.tsv"
-  g add config/transition_defects_099.tsv
-  g commit -q -m "доверенная база перехода"
+  mkdir -p "$w/repo/config" "$w/repo/.github/workflows"
+  printf '%s\n' "${Z99_BASE_DEFECTS:-$(z99_reg_default)}" > "$w/repo/config/transition_defects_099.tsv"
+  printf 'name: ci\non: pull_request\njobs:\n  checks:\n    steps:\n      - run: bash fixtures/_krasnye_toy.sh\n' > "$w/repo/.github/workflows/ci.yml"
+  printf '{"scripts":{"test":"bash fixtures/_krasnye_toy.sh"}}\n' > "$w/repo/package.json"
+  g add config/transition_defects_099.tsv .github package.json
+  g commit -q -m "доверенный реестр перехода + проверочная поверхность"
   Z99_A="$(git -C "$w/repo" rev-parse HEAD)"
   g checkout -q -b wip/099/demo
   g commit -q --allow-empty -m "работа B"
