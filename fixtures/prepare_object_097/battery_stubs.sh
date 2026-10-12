@@ -16,7 +16,8 @@
 # m8  чужая строка политики принята   «*) die» → «*) :»    red_oba_profilya.sh (А-5)
 # m9  автор merge не orchestrator     GIT_AUTHOR_NAME      red_identity_i_sankcii_podgotovki.sh (А-7)
 # m10 коммиттер не orchestrator       GIT_COMMITTER_NAME   red_identity_i_sankcii_podgotovki.sh (А-7)
-# m0  пустышка БЕЗ порчи              —                    ВСЕ 7 клеток обязаны быть ЗЕЛЁНЫ (анти-тавтология)
+# m11 prepare создаёт нецелевую ref   + update-ref tag     red_ni_odna_ref_ne_dvinuta.sh (А-8)
+# m0  пустышка БЕЗ порчи              —                    ВСЕ 8 клеток обязаны быть ЗЕЛЁНЫ (анти-тавтология)
 #
 # Поимка — ТОЛЬКО rc 1 (урок А-398): rc 0 (стаб прошёл клетку) и rc 2 (нечем
 # проверять) поимкой НЕ считаются — именованный отказ с кодом стаба.
@@ -97,6 +98,9 @@ zapest m9 red_identity_i_sankcii_podgotovki.sh \
 zapest m10 red_identity_i_sankcii_podgotovki.sh \
   'GIT_COMMITTER_NAME=orchestrator' \
   's@GIT_COMMITTER_NAME=orchestrator@GIT_COMMITTER_NAME=architect097@'
+zapest m11 red_ni_odna_ref_ne_dvinuta.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref refs/tags/097-prepared "\$m"@'
 
 # пустышка: копия модели без порчи — каждая клетка обязана быть ЗЕЛЁНОЙ
 # (клетка, красная всегда, «ловила» бы и пустышку — анти-тавтология)
