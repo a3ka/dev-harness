@@ -25,32 +25,82 @@ loop_pid=$$; n="${ORCH_N:-0}"
 [ -e "$STOP" ] && { log "стоп-файл $STOP — выход"; rm -f "$STOP"; exit 0; }
 GO="$MARK.go"   # «перезапуск принят»: ставит наблюдатель ДО убийства сессии
 rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
+# Идентичность агента (И-3, 093): ДО форка наблюдателя — эскалация KILL в
+# наблюдателе пользуется тем же узким sudoers-правилом (sudo -nu $AGENT_USER).
+AGENT_USER="${ORCH_AGENT_USER:-orchagent}"
+AGENT_HOME="${ORCH_AGENT_HOME:-/var/lib/orch-agent}"
+# Гашение сессии по дереву посредников (Р1-7 круга 1): запуск сессии —
+# systemd-run --scope (exec) → sh (exec sudo) → sudo -nu (РОДИТЕЛЬ, сигнал
+# пересылает ребёнку) → workshop/omp; omp — НЕ прямой потомок цикла.
+kill_tree() { # <сигнал> <pid>: всем потомкам <pid> (кроме наблюдателя), снизу вверх;
+  # лист под uid агента наблюдателю недосягаем (EPERM) — pid собирается в agent_pids
+  local sig="$1" p="$2" c
+  for c in $(pgrep -P "$p" 2>/dev/null); do
+    [ "$c" = "$watch_pid" ] && continue
+    kill_tree "$sig" "$c"
+  done
+  [ "$p" = "$loop_pid" ] || { kill -"$sig" "$p" 2>/dev/null || agent_pids="$agent_pids $p"; }
+}
+tree_quiet() { # <pid>: rc 0 — живых потомков (кроме наблюдателя) нет
+  local c
+  for c in $(pgrep -P "$1" 2>/dev/null); do
+    [ "$c" = "$watch_pid" ] || return 1
+  done
+  return 0
+}
 ( while sleep 5; do
+    watch_pid="$BASHPID"
     [ -e "$MARK" ] || continue
     sleep "$GRACE"
     # Маркер сняли за время GRACE — передумали: перезапуск отменён, сессия живёт.
     [ -e "$MARK" ] || { log "сессия #$n: маркер снят за ${GRACE}с — перезапуск отменён"; continue; }
     touch "$GO"   # с этой точки перезапуск состоялся, даже если маркер снимут (2026-10-03 18:35)
+    # Р1-7: сначала дерево посредников — TERM доходит до процесса агента
+    # пересылкой sudo; станционные строки прямого потомка ниже остаются
+    # для формы «omp — прямой потомок» (до-093 станция, CI-шаблоны).
+    agent_pids=''; kill_tree TERM "$loop_pid"
+    for _ in 1 2 3 4 5 6; do sleep 5; tree_quiet "$loop_pid" && break; done
+    if ! tree_quiet "$loop_pid"; then
+      agent_pids=''; kill_tree KILL "$loop_pid"
+      # KILL sudo не пересылает — осиротевший лист под uid агента добиваем
+      # тем же узким правилом, каким запускали (NOPASSWD harness→агент, И-3).
+      if [ -n "$agent_pids" ] && command -v sudo >/dev/null 2>&1; then
+        sudo -nu "$AGENT_USER" kill -KILL $agent_pids 2>/dev/null || true
+      fi
+    fi
     pkill -TERM -P "$loop_pid" -f '^omp --profile' || exit 0
     for _ in 1 2 3 4 5 6; do sleep 5; pgrep -P "$loop_pid" -f '^omp --profile' >/dev/null || exit 0; done
     pkill -KILL -P "$loop_pid" -f '^omp --profile'; exit 0
   done ) &
 watcher=$!
 log "сессия #$n: старт"
-# Потолок памяти (контракт 085, И-5): --scope исполняет команду exec'ом — omp остаётся
-# прямым потомком цикла. Отказ systemd-run (rc≠0 до исполнения) и rc сессии по rc
-# неразличимы: факт исполнения — свидетель $RAN, его пишет префикс команды до exec
-# workshop; свидетеля нет — сессия без потолка, со строкой журнала; отказ — не падение.
+# Потолок памяти (контракт 085, И-5): --scope исполняет команду exec'ом —
+# пускач сессии остаётся прямым потомком цикла. И-5 контракта 093: без scope
+# сессия НЕ стартует; именованный отказ rc 1 (ресурсный предел не создан).
+# Ветка запуска-без-потолка удалена (Пять правил §2, замена не наслоение).
+# И-3 контракта 093: сессия запускается под uid агента (≠ владельца
+# /home/harness); HOME сессии — вне /home/harness; workshop не может читать
+# ~/.ssh/github-rw-cwd и ~/.config/odelix/github.env (uid ≠ harness).
+# Одна форма запуска (Р1-9 круга 1: прежние две ветки были побайтно
+# одинаковы и обнуляли стаб s7): шов ORCH_LOOP_AGENT_CMD подставляет
+# тестовую команду вместо workshop, НЕ отменяя sudo -nu — шов выбирает
+# команду, не границу uid (консультант n266). Станционный контур:
+# пользователя orchagent и узкое sudoers-правило провизионит install.sh
+# root (И-3); наблюдатель гасит сессию по дереву посредников (kill_tree).
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
 RAN="$MARK.scoped"; rm -f "$RAN"
-"${SCOPE[@]}" -- sh -c ': >"$1" && shift && exec "$@"' sh "$RAN" "$WORKSHOP" --yolo -- "$MSG"; rc=$?
-if [ -e "$RAN" ]; then
-  scoped=1
-else
-  scoped=0; log "сессия #$n: БЕЗ ПОТОЛКА ПАМЯТИ — systemd-run --user --scope не создал scope"
-  "$WORKSHOP" --yolo -- "$MSG"; rc=$?
+AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
+"${SCOPE[@]}" -- sh -c ': >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
+  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+if [ ! -e "$RAN" ]; then
+  # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,
+  # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.
+  log "сессия #$n: ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)"
+  kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+  exit 1
 fi
+scoped=1
 rm -f "$RAN"
 kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
 life=$(( $(date +%s) - start ))
