@@ -1,31 +1,47 @@
 #!/usr/bin/env bash
 # Клетка Б-5/Н-204 «незавершённый прогон» (контракт 098, §Инварианты Б-5 —
 # полный применимый CI; вердикт адверсария contracts-098-v2 A-098-3 BLOCKS;
-# усиление по вердикту критика contracts-098-v3): завершённость прогона —
-# ЛИТЕРАЛЬНОЕ поле .status ответа CI, единственное допустимое значение
-# completed; непустой conclusion синонимом завершения НЕ является, а
-# требование завершённости НЕ ЗАМЕНЯЕТСЯ чёрным списком отдельных
-# незавершённых состояний: обход критика v3 — писатель «запретить только
-# in_progress» ([ "$stat" != "in_progress" ]) — проходил прежнюю клетку
-# (единственное предъявление in_progress) и всю батарею, публикуя M по
-# новейшему queued+success. Предъявление — на ДВУХ незавершённых
-# состояниях, каждое с конформным происхождением (head_sha=M, app.slug=пин
-# ciApp, wfsha=доверенная) и валидной зелёной историей ключа под новейшим:
-# in_progress (проба адверсария) и queued (обход критика v3). Писатель
-# обязан отказать «прогон не завершён: ci-a» (rc 1) БЕЗ записи check-строки
-# в КАЖДОМ предъявлении — ok-строка обещала бы факт, которого ещё НЕТ;
-# чёрный список из ОДНОГО состояния красен предъявлением ДРУГОГО. Парный
-# позитив для КАЖДОГО состояния: ТОТ ЖЕ запуск (id сохранён, отличие РОВНО
-# в поле status → completed) — ok-строка с run НОВЕЙШЕГО прогона и
-# публикация ровно M. Пара состояний — свидетели класса «отказ по
-# НЕ-completed», не исчерпание словаря статусов: словарь живёт в
-# замороженном тексте (решение 2: ЛИТЕРАЛЬНАЯ сверка с completed), она
-# зелёна на обоих предъявлениях, чёрный список любого одного из них красится
-# вторым.
-# Обман (s24: непустой conclusion приравнен завершённости — дословный дефект
-# обходчика-делегатора вердикта) пишет ok и закрывает ключ → клетка красна.
-# Дверь: без строки ci-a полный перечень не публикует («нет обязательной
-# проверки: ci-a»), main неизменен, published нет.
+# вердикт арбитража contracts-098-sufficiency-v1 — ЗАМКНУТОЕ пространство
+# предъявлений): завершённость прогона — ЛИТЕРАЛЬНОЕ поле .status ответа CI,
+# единственное допустимое значение completed; критерий реализации — ТОЛЬКО
+# позитивная сверка с completed. Чёрный список незавершённых значений ОТВЕРГНУТ
+# даже исчерпывающий по алфавиту (замер 3 арбитража: пятизначный список
+# публикует M на значении вне алфавита и на отсутствующем поле — пространство
+# строк бесконечно, терминальное значение одно).
+#
+# Пространство значений status замкнуто ТРЕМЯ классами (§Критерий арбитража),
+# каждое предъявление — на СВОЁМ мире: НОВЕЙШИЙ ПО id одноимённый ci-a,
+# conclusion=success, происхождение конформно (head_sha=M, app.slug=пин ciApp,
+# wfsha=доверенная), под ним валидная зелёная история ключа:
+#   (α) парный позитив КАЖДОГО предъявления (β)/(γ): ТОТ ЖЕ run id, отличие
+#       ровно в поле status → completed → ok-строка с run НОВЕЙШЕГО прогона,
+#       PUBLISHED ровно M;
+#   (β) незавершённые ДОКУМЕНТИРОВАННОГО алфавита — все пять: queued,
+#       in_progress, waiting, requested, pending (схема check-run.status
+#       OpenAPI GitHub: github/rest-api-description @ 58b1e0c0, enum из шести
+#       минус completed; waiting/requested/pending зарезервированы GitHub
+#       Actions — производственный CI проекта их ВСТРЕТИТ);
+#   (γ) вне алфавита — ДВА свидетеля: (γ1) поле status ОТСУТСТВУЕТ в прогоне
+#       (структурно del(.status), не пустая строка); (γ2) nonce — строка,
+#       сгенерированная клеткой в МОМЕНТ ИСПОЛНЕНИЯ (x$(od -An -tx1 -N6
+#       /dev/urandom | tr -d ' \n')), не равная ни одному значению алфавита —
+#       свидетель, которого конечный чёрный список предвидеть не может.
+# КАЖДЫЙ класс: писатель обязан отказать «прогон не завершён: ci-a» rc 1 БЕЗ
+# записи check-строки (ok обещала бы факт, которого ещё НЕТ), дверь без строки
+# — «нет обязательной проверки: ci-a», main неизменен, published нет; парный
+# позитив (α) — ok с run НОВЕЙШЕГО и публикация ровно M.
+# Почему замкнуто: писатель, зелёный на (β), не держит документированное
+# незавершённое значение в белом списке; отвергающий nonce, которого не видел,
+# и отсутствующее поле — сверяет ПОЗИТИВНО (чёрный список любой конечной
+# длины на (γ2) проходит — замер 3 арбитража). Обман s24 (непустой conclusion
+# приравнен завершённости) крас на первом же (β); обман s25 (исчерпывающий
+# пятизначный чёрный список) проходит (α) и (β) и красеет (γ) — оба обязаны
+# быть пойманы этой клеткой.
+# Остаточный риск (арбитраж, НЕ в замороженном тексте): алфавит зафиксирован
+# ревизией OpenAPI 58b1e0c0; новое НЕЗАВЕРШЁННОЕ значение API позитивную
+# сверку не ослабляет (fail-closed — именованный отказ); новое ЗАВЕРШЁННОЕ
+# значение (сегодня отсутствует) дало бы ЛОЖНЫЙ ОТКАЗ, не ложную публикацию —
+# приемлемо и наблюдаемо по именованному отказу.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
@@ -34,10 +50,14 @@ miss="$(_d98_missing)"; [ -z "$miss" ] || { printf 'КРАСНО: nezavershennyj
 W=""
 trap '_d98_cleanup "${W:-}"' EXIT
 
-# predjavlenie <незавершённый status> — полный цикл на СВОЁМ мире: отказ без
-# строки → дверь без строки → парный позитив (тот же run id → completed).
+# predjavlenie <незавершённый status | ABSENT> — полный цикл на СВОЁМ мире:
+# отказ без строки → дверь без строки → парный позитив (тот же run id →
+# completed). ABSENT — γ1: поле status СТРУКТУРНО удалено из новейшего прогона
+# (jq del(.status), не пустая строка); значение — β/γ2: литеральная строка
+# статуса (в том числе nonce).
 predjavlenie() {
-  local st="$1" pc B C M OID J WFA MTREE CIAPP PVB PVC RID out rc n
+  local st="$1" pc B C M OID J WFA MTREE CIAPP PVB PVC RID out rc n statcond lbl
+  if [ "$st" = ABSENT ]; then lbl='<status отсутствует>'; else lbl="$st"; fi
   [ -z "$W" ] || _d98_cleanup "$W"
   W="$(_d98_world nezavershennyj-progon)" || exit 2
   pc="$(_d98_podgotovka "$W" T-1)" || exit 2
@@ -52,27 +72,40 @@ predjavlenie() {
   PVB="$(_d98_pv "$W/repo" "$B")"; PVC="$(_d98_pv "$W/repo" "$C")"
 
   # предъявление: НОВЕЙШИЙ ПО id одноимённый ci-a — status=<st> (незавершённое
-  # состояние), conclusion=success, происхождение конформно; под ним валидная
-  # зелёная история ключа (ok старого run — обход «перебор до подходящего»)
-  _d98_ci_add "$W" "$M" "ci-a:success:!$st"
-  RID="$(jq -r '[.check_runs[] | select(.name == "ci-a")] | sort_by(.id) | last | .id' "$W/fake/checkruns/$M.json")"
+  # состояние) либо БЕЗ поля status (γ1, del), conclusion=success, происхождение
+  # конформно; под ним валидная зелёная история ключа (ok старого run —
+  # обход «перебор до подходящего»)
+  if [ "$st" = ABSENT ]; then
+    _d98_ci_add "$W" "$M" "ci-a:success"
+    RID="$(jq -r '[.check_runs[] | select(.name == "ci-a")] | sort_by(.id) | last | .id' "$W/fake/checkruns/$M.json")"
+    jq --argjson r "$RID" \
+      '.check_runs = [ .check_runs[]
+                       | if (.name == "ci-a" and .id == $r) then del(.status) else . end ]' \
+      "$W/fake/checkruns/$M.json" | tee "$W/fake/checkruns/$M.json.new" >/dev/null \
+      && mv "$W/fake/checkruns/$M.json.new" "$W/fake/checkruns/$M.json"
+    statcond='($n | has("status") | not)'
+  else
+    _d98_ci_add "$W" "$M" "ci-a:success:!$st"
+    RID="$(jq -r '[.check_runs[] | select(.name == "ci-a")] | sort_by(.id) | last | .id' "$W/fake/checkruns/$M.json")"
+    statcond='$n.status == $s'
+  fi
   jq -e --arg m "$M" --arg app "$CIAPP" --arg w "$WFA" --argjson r "$RID" --arg s "$st" '
     ([.check_runs[] | select(.name == "ci-a")] | sort_by(.id) | last) as $n
     | ([.check_runs[] | select(.name == "ci-a")] | length) == 2
-      and $n.id == $r and $n.status == $s
+      and $n.id == $r and '"$statcond"'
       and $n.conclusion == "success" and $n.head_sha == $m
       and $n.app.slug == $app and $n.wfsha == $w
       and ([.check_runs[] | select(.name == "ci-a" and .head_sha == $m and .app.slug == $app
            and .wfsha == $w and .conclusion == "success" and .status == "completed")] | length) == 1' \
     "$W/fake/checkruns/$M.json" >/dev/null \
-    || { printf 'КРАСНО: nezavershennyj-progon: мир неконформен — новейший ci-a не %s+success с конформным происхождением над валидной зелёной историей\n' "$st" >&2; exit 1; }
+    || { printf 'КРАСНО: nezavershennyj-progon: мир неконформен — новейший ci-a не %s+success с конформным происхождением над валидной зелёной историей\n' "$lbl" >&2; exit 1; }
 
   # писатель обязан отказаться ЛИТЕРАЛЬНО по status (Н-204): именованный отказ,
   # check-строки ci-a НЕТ (ok старого run — обход «перебор до подходящего»);
-  # чёрный список одного состояния красится ВТОРЫМ предъявлением
+  # чёрный список документированных значений красеется свидетелем (γ)
   out="$( _d98_zov "$W" "$W/prinyato/scripts/check_ci_gate.sh" "$W/prinyato" "$M" --check-row "$OID" ci-a 2>&1)"; rc=$?
   if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq 'прогон не завершён: ci-a'; then
-    printf 'КРАСНО: nezavershennyj-progon: незавершённый прогон (status=%s, conclusion=success) принят как доказательство (rc=%s, вывод: %s)\n' "$st" "$rc" "$out" >&2; exit 1
+    printf 'КРАСНО: nezavershennyj-progon: незавершённый прогон (status=%s, conclusion=success) принят как доказательство (rc=%s, вывод: %s)\n' "$lbl" "$rc" "$out" >&2; exit 1
   fi
   n="$(awk -F'\t' -v o="$OID" -v nm=ci-a '$1=="check" && $2==o && $3==nm' "$J" | wc -l)"
   [ "$n" -eq 0 ] || { printf 'КРАСНО: nezavershennyj-progon: незавершённый прогон породил check-строку ci-a (строк=%s)\n' "$n" >&2; exit 1; }
@@ -96,8 +129,9 @@ predjavlenie() {
   grep -Fq 'published' "$J" \
     && { printf 'КРАСНО: nezavershennyj-progon: отказ записал published\n' >&2; exit 1; }
 
-  # парный позитив: ТОТ ЖЕ запуск (id сохранён), отличие РОВНО в поле status →
-  # completed; писатель пишет ok с run НОВЕЙШЕГО прогона, дверь публикует ровно M
+  # парный позитив (α): ТОТ ЖЕ запуск (id сохранён), отличие ровно в поле
+  # status → completed; писатель пишет ok с run НОВЕЙШЕГО прогона, дверь
+  # публикует ровно M
   jq --argjson r "$RID" \
     '.check_runs = [ .check_runs[]
                      | if (.name == "ci-a" and .id == $r) then .status = "completed" else . end ]' \
@@ -129,7 +163,16 @@ predjavlenie() {
   _d98_cleanup "$W"; W=""
 }
 
-for st in in_progress queued; do
+# (β) все пять документированных незавершённых значений алфавита check-run.status
+for st in queued in_progress waiting requested pending; do
   predjavlenie "$st"
 done
+# (γ2) nonce времени исполнения — вне алфавита, конечным чёрным списком не
+# предвиден (арбитраж, замер 3); генерируется ДО мира предъявления
+NONCE="x$(od -An -tx1 -N6 /dev/urandom | tr -d ' \n')"
+case "$NONCE" in queued|in_progress|completed|waiting|requested|pending)
+  printf 'КРАСНО: nezavershennyj-progon: nonce %s совпал со значением алфавита — свидетель не вне алфавита\n' "$NONCE" >&2; exit 1 ;; esac
+predjavlenie "$NONCE"
+# (γ1) поле status ОТСУТСТВУЕТ — структурно (del(.status))
+predjavlenie ABSENT
 exit 0

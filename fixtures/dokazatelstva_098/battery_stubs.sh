@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двадцать четыре порчи честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двадцать пять порч честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -63,6 +63,12 @@
 #    не читается, in_progress+success
 #    закрывает ключ (вердикт A-098-3,
 #    живая проба BYPASS)              mCE  red_nezavershennyj_progon
+# s25 «исчерпывающий чёрный список
+#    незавершённых»: отвергнуты РОВНО
+#    пять значений алфавита, всё вне
+#    алфавита (nonce, отсутствующее
+#    поле) пропущено (арбитраж 098
+#    sufficiency-v1, замер 3)       mCE  red_nezavershennyj_progon
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -169,6 +175,8 @@ zapest s23 red_novejshij_ranshe_po_vremeni.sh t98-mCD \
   's@.*# t98-mCD.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" '"'"'[.check_runs[] | select(.name == $k)] | sort_by(.started_at) | last'"'"' 2>/dev/null)" # t98-mCD порча@'
 zapest s24 red_nezavershennyj_progon.sh t98-mCE \
   's@.*# t98-mCE.*@stat="completed" # t98-mCE порча@'
+zapest s25 red_nezavershennyj_progon.sh t98-mCE \
+  's@.*# t98-mCE.*@[ "$stat" != "queued" ] \&\& [ "$stat" != "in_progress" ] \&\& [ "$stat" != "waiting" ] \&\& [ "$stat" != "requested" ] \&\& [ "$stat" != "pending" ] || die "прогон не завершён: $KEY (Н-204)" # t98-mCE порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"
