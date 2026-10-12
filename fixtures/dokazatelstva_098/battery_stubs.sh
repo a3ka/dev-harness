@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): восемнадцать порч честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): девятнадцать порч честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -37,6 +37,10 @@
 # s18 head_sha прогона подменён аргументом
 #    M — ответ CI чужого коммита принят
 #    за доказательство M (вердикт A-098-1)  mC9  red_progon_ne_togo_kommita
+# s19 селекция «перебор до подходящего»:
+#    зелёный чужой новейший отступает
+#    к старому валидному (вердикт A-098-2,
+#    обход M7)                            mC0  red_novejshij_chuzhoj_zelenyj
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -130,6 +134,8 @@ zapest s17 red_smeshannaja_istorija.sh t98-mC8 \
 
 zapest s18 red_progon_ne_togo_kommita.sh t98-mC9 \
   's@.*# t98-mC9.*@hsha="$MSHA" # t98-mC9 порча@'
+zapest s19 red_novejshij_chuzhoj_zelenyj.sh t98-mC0 \
+  's@.*# t98-mC0.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" --arg m "$MSHA" --arg a "$ciapp" --arg w "$wfsha" '"'"'. as $b | ([$b.check_runs[] | select(.name == $k)] | sort_by(.id) | last) as $l | ([$b.check_runs[] | select(.name == $k and .head_sha == $m and .app.slug == $a and .wfsha == $w)] | sort_by(.id) | last) as $f | if ($l.conclusion == "success") and (($l.head_sha != $m) or ($l.app.slug != $a) or ($l.wfsha != $w)) and ($f != null) then $f else $l end'"'"' 2>/dev/null)" # t98-mC0 порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"

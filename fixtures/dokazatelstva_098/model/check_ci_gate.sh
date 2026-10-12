@@ -124,7 +124,7 @@ writer)
   fi
   total="$(printf '%s' "$body" | jq -r '.total_count // -1' 2>/dev/null)" || total=-1
   [ "$total" -ge 0 ] || die "ответ CI не разобран: total_count нет — $(printf '%s' "$body" | head -c 200)"
-  best="$(printf '%s' "$body" | jq -c --arg k "$KEY" '[.check_runs[] | select(.name == $k)] | sort_by(.id) | last' 2>/dev/null)" # t98-mC2: имя — ЛИТЕРАЛЬНОЕ равенство (не подстрока display-имени) # t98-mC7: отбор — ПОСЛЕДНИЙ одноимённый прогон по id, исход прогона НЕ влияет на выбор (арбитраж 098)
+  best="$(printf '%s' "$body" | jq -c --arg k "$KEY" '[.check_runs[] | select(.name == $k)] | sort_by(.id) | last' 2>/dev/null)" # t98-mC2: имя — ЛИТЕРАЛЬНОЕ равенство (не подстрока display-имени) # t98-mC7: отбор — ПОСЛЕДНИЙ одноимённый прогон по id, исход прогона НЕ влияет на выбор (арбитраж 098) # t98-mC0: чужой новейший ЗЕЛЁНЫЙ не отступает к старому валидному — «перебор до подходящего» есть обход (вердикт A-098-2); маркер mC0, а не mC10: маркер s2 — префикс mC10, единственность якоря ломалась бы
   { [ -n "$best" ] && [ "$best" != "null" ]; } || die "нет обязательной проверки: $KEY"
   rid="$(printf '%s' "$best" | jq -r '.id' 2>/dev/null)"
   concl="$(printf '%s' "$best" | jq -r '.conclusion // ""' 2>/dev/null)"
