@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): семнадцать порч честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): восемнадцать порч честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -34,6 +34,9 @@
 # s17 заключение раньше происхождения
 #    (чужой красный прогон пишет fail;
 #    арбитраж 098, порядок сверок)        mC8  red_smeshannaja_istorija
+# s18 head_sha прогона подменён аргументом
+#    M — ответ CI чужого коммита принят
+#    за доказательство M (вердикт A-098-1)  mC9  red_progon_ne_togo_kommita
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -124,6 +127,9 @@ zapest s16 red_pozdnij_krasnyj_progon.sh t98-mC6 \
   's@.*# t98-mC6.*@: # t98-mC6 порча@'
 zapest s17 red_smeshannaja_istorija.sh t98-mC8 \
   's@.*# t98-mC8.*@if [ -n "$concl" ] && [ "$concl" != "success" ]; then printf '"'"'check\t%s\t%s\tfail\t%s\t%s\t%s\n'"'"' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL"; die "обязательная проверка красна: $KEY"; fi; [ "$aslg" = "$ciapp" ] || die "проверка чужой обвязки: $KEY" # t98-mC8 порча@'
+
+zapest s18 red_progon_ne_togo_kommita.sh t98-mC9 \
+  's@.*# t98-mC9.*@hsha="$MSHA" # t98-mC9 порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"
