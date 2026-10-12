@@ -10,7 +10,11 @@
 #           (755, root:root) и 7 systemd-юнитов в /etc/systemd/system/
 #           (644, root:root), перечитывает sha256 каждого; euid-гард под
 #           harness отказывает rc 1 с фразой «root-часть требует euid 0»
-#           ДО любых записей; ПОСЛЕ sha256-петли (контракт 081, И-1/И-2)
+#           ДО любых записей; при копировании bootstrap-библиотеки
+#           lib_session.sh → <SBIN_DST>/lib_session.sh (644, root:root) пишет
+#           её sha256-манифест <адресат>.sha256 (444, root:root) — доверенная
+#           запись root-bootstrap orch-peak (И-1; А-1 круга 5); ПОСЛЕ
+#           sha256-петли (контракт 081, И-1/И-2)
 #           ставит `chattr +i` на <OPS_SERVER_MAIN>/.git/config (по умолчанию
 #           /home/harness/dev-harness), если в config уже выполнены оба
 #           предусловия — core.hooksPath ∈ {.githooks, realpath(<MAIN>/.githooks)}
@@ -210,6 +214,23 @@ case "$1" in
       chmod 644 "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
       chown root:root "$BOOTSTRAP_DST" || die_write "$BOOTSTRAP_DST"
       check_one "$BOOTSTRAP_DST" "$BOOTSTRAP_SRC" || rc=1
+      # А-1 (adversary 093-v2, круг 5): sha256-манифест установленной
+      # bootstrap-библиотеки — доверенная запись root-bootstrap orch-peak
+      # (И-1: подмена sha256 → именованный отказ сторожа ДО source).
+      # Атомарная замена (tmp + mv): повторной установке не нужно право
+      # записи в сам 444-файл; root:root 444 — перезапись не-root'ом
+      # невозможна.
+      BOOTSTRAP_SHA="$BOOTSTRAP_DST.sha256"
+      BOOTSTRAP_SHA_NEW="$BOOTSTRAP_SHA.new.$$"
+      if sha256sum <"$BOOTSTRAP_DST" | cut -d' ' -f1 > "$BOOTSTRAP_SHA_NEW" && [ -s "$BOOTSTRAP_SHA_NEW" ]; then
+        chmod 444 "$BOOTSTRAP_SHA_NEW" || { rm -f "$BOOTSTRAP_SHA_NEW"; die_write "$BOOTSTRAP_SHA"; }
+        chown root:root "$BOOTSTRAP_SHA_NEW" || { rm -f "$BOOTSTRAP_SHA_NEW"; die_write "$BOOTSTRAP_SHA"; }
+        mv -f -- "$BOOTSTRAP_SHA_NEW" "$BOOTSTRAP_SHA" || die_write "$BOOTSTRAP_SHA"
+      else
+        rm -f "$BOOTSTRAP_SHA_NEW"
+        printf 'ОТКАЗ: не записан sha256-манифест %s\n' "$BOOTSTRAP_SHA" >&2
+        rc=1
+      fi
     fi
     for u in $UNITS; do
       cp -- "$SRC_ROOT/root/systemd/$u" "$ETC_DST/$u" \
@@ -362,6 +383,20 @@ case "$1" in
         || { printf 'ОТКАЗ: запись %s/lib_session.sh\n' "$SBIN_DST" >&2; exit 1; }
       chmod 644 "$SBIN_DST/lib_session.sh" || die_write "$SBIN_DST/lib_session.sh"
       chown root:root "$SBIN_DST/lib_session.sh" || die_write "$SBIN_DST/lib_session.sh"
+      # А-1 (круг 5): манифест пишется заново под восстановленную библиотеку —
+      # v1-библиотека с v2-манифестом = отказ И-1 у сторожа; откат обязан
+      # вернуть РАБОТОСПОСОБНУЮ версию. Атомарная замена, как при установке.
+      ROLL_SHA="$SBIN_DST/lib_session.sh.sha256"
+      ROLL_SHA_NEW="$ROLL_SHA.new.$$"
+      if sha256sum <"$SBIN_DST/lib_session.sh" | cut -d' ' -f1 > "$ROLL_SHA_NEW" && [ -s "$ROLL_SHA_NEW" ]; then
+        chmod 444 "$ROLL_SHA_NEW" || { rm -f "$ROLL_SHA_NEW"; die_write "$ROLL_SHA"; }
+        chown root:root "$ROLL_SHA_NEW" || { rm -f "$ROLL_SHA_NEW"; die_write "$ROLL_SHA"; }
+        mv -f -- "$ROLL_SHA_NEW" "$ROLL_SHA" || die_write "$ROLL_SHA"
+      else
+        rm -f "$ROLL_SHA_NEW"
+        printf 'ОТКАЗ: не записан sha256-манифест %s\n' "$ROLL_SHA" >&2
+        exit 1
+      fi
     fi
     n_units=0
     for u in $UNITS; do
@@ -397,6 +432,12 @@ case "$1" in
     for u in $UNITS; do
       if [ -f "$BACKUP/$u" ]; then check_one "$ETC_DST/$u" "$BACKUP/$u" || rc=1; fi
     done
+    # А-1 (круг 5): манифест согласован с установленной библиотекой — иначе
+    # откат оставил бы сторожа, который откажется стартовать (И-1).
+    if [ -f "$SBIN_DST/lib_session.sh.sha256" ]; then
+      [ "$(cut -d' ' -f1 "$SBIN_DST/lib_session.sh.sha256")" = "$(sha256sum <"$SBIN_DST/lib_session.sh" | cut -d' ' -f1)" ] \
+        || { printf 'ОТКАЗ: расхождение %s\n' "$SBIN_DST/lib_session.sh.sha256" >&2; exit 1; }
+    fi
     if [ "$rc" -ne 0 ]; then
       printf 'ОТКАЗ: откат не восстановил адресаты побайтово\n' >&2
       exit 1
