@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 099 (контракт 099, Н-39/А-398): девять обманных субъектов,
+# Обманный стаб-пак 099 (контракт 099, Н-39/А-398): двенадцать обманных
+# субъектов (круг 3: t99-m9 spawn_agent-нога удалён арбитражем 099 — она не
+# судила ни одного реального запроса; добавлены t99-m10..m13 на хук З-7),
 # каждый привязан к клетке и входу, на котором его дефект НАБЛЮДАЕМ
 # (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
 # Пойман = связанная клетка против стаба даёт rc 1 (КРАСНО); rc 0 и rc 2 — НЕ пойман.
@@ -13,7 +15,10 @@
 # t99-m6 land_agent --pr двигает main (поведение 016) red_land_agent_pr_rezhim (main обязан быть не двинут)
 # t99-m7 дверь судьи всегда rc 0                    red_sud_model_dver_spavna (вход 2: спавн на модели автора)
 # t99-m8 --verdict всегда rc 0                      red_sud_model_materializatsija (вход 1: критик на glm)
-# t99-m9 spawn_agent без судейской ноги --agent     red_sud_model_dver_spavna (вход 5: реальный запрос без agent не отказан)
+# t99-m10 хук task: всегда undefined (не судит)     red_huk_task_spavna (вход 1: task-спавн без явного agent не отказан)
+# t99-m11 хук task: "task" В алфавите                red_huk_task_spavna (вход 1: тихий дефолт допущен)
+# t99-m12 хук task: batch-элементы не судятся       red_huk_task_spavna (вход 4: один плохой среди хороших прошёл)
+# t99-m13 хук task: битый input → undefined          red_huk_task_spavna (вход 8: fail-closed нет)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FAM="$HERE"
@@ -146,34 +151,185 @@ cat > "$WORK/t99-m8/check_sud_model.sh" <<'EOF'
 printf 'СУДЬЯ СВОЕЙ МОДЕЛИ: verdict ok\n'
 exit 0
 EOF
-mkdir -p "$WORK/t99-m9"
-cat > "$WORK/t99-m9/spawn_agent.sh" <<'EOF'
-#!/usr/bin/env bash
-# t99-m9 порча: судейской ноги --agent НЕТ; манифест-нога 095 честная —
-# дефект наблюдаем ровно на входе 5 клетки (спавн без agent проходит)
-set -uo pipefail
-root=""; author=""; nnn=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --author) author="${2:-}"; shift 2 ;;
-    --nnn) nnn="${2:-}"; shift 2 ;;
-    --root) root="${2:-}"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-[ -n "$root" ] || root="$PWD"
-if [ -z "$nnn" ]; then
-  nnn="$(git -C "$root" for-each-ref --format='%(refname)' 'refs/heads/wip/' 2>/dev/null | grep -o 'wip/[0-9][0-9][0-9]' | grep -o '[0-9][0-9][0-9]$' | sort -n | tail -1)"
-  if [ -n "$nnn" ]; then nnn="$(printf '%03d' "$((10#$nnn + 1))")"; else nnn=001; fi
-fi
-if ! [ -s "$root/.omp/context/$nnn.tsv" ]; then
-  printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$nnn" >&2
-  exit 1
-fi
-printf 'WORKTREE=/tmp/dev-harness-verify/zashchita-099-stub-m9-wt\nBRANCH=wip/%s/%s\n' "$nnn" "${author:-critic}"
-exit 0
+mkdir -p "$WORK/t99-m10" "$WORK/t99-m11" "$WORK/t99-m12" "$WORK/t99-m13"
+
+# Общий честный каркас стабов хука (мутация — одна строка на стаб, помечена ПОРЧА);
+# каркас байт-в-байт повторяет суд предмета, чтобы дефект был наблюдаем ТОЛЬКО
+# на своём входе (Н-39).
+cat > "$WORK/t99-m10/spawn-guard.ts" <<'EOF'
+// t99-m10 порча: хук ничего не судит — всегда undefined; дефект наблюдаем
+// ровно на входе 1 клетки (task-спавн без явного agent не отказан).
+type PiLike10 = { on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown };
+export default function register(pi: unknown): void {
+  if (typeof pi !== 'object' || pi === null) return;
+  const p = pi as PiLike10;
+  if (typeof p.on !== 'function') return;
+  p.on('tool_call', () => undefined);
+}
 EOF
-chmod +x "$WORK"/t99-m*/{pr_dopusk.sh,land_agent.sh,check_sud_model.sh,spawn_agent.sh} 2>/dev/null \
+
+cat > "$WORK/t99-m11/spawn-guard.ts" <<'EOF'
+// t99-m11 порча: тихий дефолт "task" признаётся допустимым типом (нет ветки
+// явного отказа task и task добавлен в алфавит); на остальных входах честен.
+// Дефект наблюдаем ровно на входе 1 клетки.
+import { readFileSync as rf11 } from 'node:fs';
+import { join as j11 } from 'node:path';
+const HARNESS11 = ['scout', 'task']; // ПОРЧА: task в алфавите
+type Block11 = { block: true; reason: string };
+function isObject11(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+function alphabet11(cwd: string): ReadonlySet<string> {
+  const cfg = JSON.parse(rf11(j11(cwd, 'config', 'agent_models.json'), 'utf8')) as unknown;
+  if (!isObject11(cfg) || !isObject11(cfg.roles)) throw new Error('нет roles');
+  const set = new Set<string>(Object.keys(cfg.roles));
+  for (const t of HARNESS11) set.add(t);
+  return set;
+}
+function judge11(input: unknown, alphabet: ReadonlySet<string>): Block11 | undefined {
+  let items: unknown[];
+  if (isObject11(input) && 'tasks' in input) {
+    if (!Array.isArray(input.tasks)) throw new Error('tasks не массив');
+    items = input.tasks;
+  } else {
+    items = [input];
+  }
+  for (const item of items) {
+    if (!isObject11(item)) throw new Error('битый элемент');
+    const agent = item.agent;
+    if (agent === undefined) return { block: true, reason: 'ОТКАЗ: спавн без явного agent: task' };
+    if (typeof agent !== 'string') throw new Error('agent не строка');
+    if (!alphabet.has(agent)) return { block: true, reason: `ОТКАЗ: тип агента вне алфавита: ${agent}` };
+    // ПОРЧА: ветки agent === 'task' НЕТ — тихий дефолт идёт в алфавит
+  }
+  return undefined;
+}
+type PiLike11 = { on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown };
+export default function register(pi: unknown): void {
+  if (!isObject11(pi)) return;
+  const p = pi as PiLike11;
+  if (typeof p.on !== 'function') return;
+  p.on('tool_call', (call: unknown): Block11 | undefined => {
+    try {
+      if (!isObject11(call)) return undefined;
+      if (call.toolName !== 'task') return undefined;
+      return judge11(call.input, alphabet11(process.cwd()));
+    } catch {
+      return { block: true, reason: 'ОТКАЗ: спавн-страж сломан (fail-closed, Н-270)' };
+    }
+  });
+}
+EOF
+
+cat > "$WORK/t99-m12/spawn-guard.ts" <<'EOF'
+// t99-m12 порча: batch-форма (input.tasks[]) не судится вовсе — только flat;
+// дефект наблюдаем ровно на входе 4 клетки (один плохой среди хороших прошёл).
+import { readFileSync as rf12 } from 'node:fs';
+import { join as j12 } from 'node:path';
+const HARNESS12 = ['scout'];
+type Block12 = { block: true; reason: string };
+function isObject12(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+function alphabet12(cwd: string): ReadonlySet<string> {
+  const cfg = JSON.parse(rf12(j12(cwd, 'config', 'agent_models.json'), 'utf8')) as unknown;
+  if (!isObject12(cfg) || !isObject12(cfg.roles)) throw new Error('нет roles');
+  const set = new Set<string>(Object.keys(cfg.roles));
+  for (const t of HARNESS12) set.add(t);
+  set.delete('task');
+  return set;
+}
+function judge12(input: unknown, alphabet: ReadonlySet<string>): Block12 | undefined {
+  let items: unknown[];
+  if (isObject12(input) && 'tasks' in input) {
+    if (!Array.isArray(input.tasks)) throw new Error('tasks не массив');
+    items = input.tasks;
+  } else {
+    items = [input];
+  }
+  for (const item of items) {
+    if (!isObject12(item)) throw new Error('битый элемент');
+    const agent = item.agent;
+    if (agent === undefined) return { block: true, reason: 'ОТКАЗ: спавн без явного agent: task' };
+    if (typeof agent !== 'string') throw new Error('agent не строка');
+    if (agent === 'task') return { block: true, reason: `ОТКАЗ: спавн без явного agent: ${agent}` };
+    if (!alphabet.has(agent)) return { block: true, reason: `ОТКАЗ: тип агента вне алфавита: ${agent}` };
+  }
+  return undefined;
+}
+type PiLike12 = { on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown };
+export default function register(pi: unknown): void {
+  if (!isObject12(pi)) return;
+  const p = pi as PiLike12;
+  if (typeof p.on !== 'function') return;
+  p.on('tool_call', (call: unknown): Block12 | undefined => {
+    try {
+      if (!isObject12(call)) return undefined;
+      if (call.toolName !== 'task') return undefined;
+      const input = call.input;
+      if (isObject12(input) && Array.isArray(input.tasks)) return undefined; // ПОРЧА: batch не судится
+      return judge12(input, alphabet12(process.cwd()));
+    } catch {
+      return { block: true, reason: 'ОТКАЗ: спавн-страж сломан (fail-closed, Н-270)' };
+    }
+  });
+}
+EOF
+
+cat > "$WORK/t99-m13/spawn-guard.ts" <<'EOF'
+// t99-m13 порча: fail-closed НЕТ — исключение/битый вход дают undefined;
+// дефект наблюдаем ровно на входе 8 клетки (битый input проходит молча).
+import { readFileSync as rf13 } from 'node:fs';
+import { join as j13 } from 'node:path';
+const HARNESS13 = ['scout'];
+type Block13 = { block: true; reason: string };
+function isObject13(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+function alphabet13(cwd: string): ReadonlySet<string> {
+  const cfg = JSON.parse(rf13(j13(cwd, 'config', 'agent_models.json'), 'utf8')) as unknown;
+  if (!isObject13(cfg) || !isObject13(cfg.roles)) throw new Error('нет roles');
+  const set = new Set<string>(Object.keys(cfg.roles));
+  for (const t of HARNESS13) set.add(t);
+  set.delete('task');
+  return set;
+}
+function judge13(input: unknown, alphabet: ReadonlySet<string>): Block13 | undefined {
+  let items: unknown[];
+  if (isObject13(input) && 'tasks' in input) {
+    if (!Array.isArray(input.tasks)) throw new Error('tasks не массив');
+    items = input.tasks;
+  } else {
+    items = [input];
+  }
+  for (const item of items) {
+    if (!isObject13(item)) throw new Error('битый элемент');
+    const agent = item.agent;
+    if (agent === undefined) return { block: true, reason: 'ОТКАЗ: спавн без явного agent: task' };
+    if (typeof agent !== 'string') throw new Error('agent не строка');
+    if (agent === 'task') return { block: true, reason: `ОТКАЗ: спавн без явного agent: ${agent}` };
+    if (!alphabet.has(agent)) return { block: true, reason: `ОТКАЗ: тип агента вне алфавита: ${agent}` };
+  }
+  return undefined;
+}
+type PiLike13 = { on?: (name: string, handler: (...args: unknown[]) => unknown) => unknown };
+export default function register(pi: unknown): void {
+  if (!isObject13(pi)) return;
+  const p = pi as PiLike13;
+  if (typeof p.on !== 'function') return;
+  p.on('tool_call', (call: unknown): Block13 | undefined => {
+    try {
+      if (!isObject13(call)) return undefined;
+      if (call.toolName !== 'task') return undefined;
+      return judge13(call.input, alphabet13(process.cwd()));
+    } catch {
+      return undefined; // ПОРЧА: fail-closed нет — битый вход молчит
+    }
+  });
+}
+EOF
+
+chmod +x "$WORK"/t99-m*/{pr_dopusk.sh,land_agent.sh,check_sud_model.sh} 2>/dev/null \
   || chmod +x "$WORK"/t99-m*/*.sh
 
 # прогон: стаб пойман ⟺ связанная клетка на стабе даёт rc 1
@@ -183,7 +339,8 @@ progon() { # <маркер> <клетка>
   [ -d "$WORK/$marker" ] || { printf 'ОТКАЗ: стаб %s не построен\n' "$marker" >&2; itog=2; return; }
   [ -f "$FAM/$cell" ] || { printf 'ОТКАЗ: клетка %s не найдена\n' "$cell" >&2; itog=2; return; }
   total=$((total+1))
-  D99_SUBJECTS_DIR="$WORK/$marker" bash "$FAM/$cell" >/dev/null 2>&1
+  D99_SUBJECTS_DIR="$WORK/$marker" Z99_SPAWN_GUARD="$WORK/$marker/spawn-guard.ts" \
+    bash "$FAM/$cell" >/dev/null 2>&1
   rc=$?
   if [ "$rc" -eq 1 ]; then
     caught=$((caught+1)); printf -- '— %s пойман (%s)\n' "$marker" "$cell" >&2
@@ -202,9 +359,12 @@ progon t99-m5 red_perehodnyj_gheit_perechen.sh
 progon t99-m6 red_land_agent_pr_rezhim.sh
 progon t99-m7 red_sud_model_dver_spavna.sh
 progon t99-m8 red_sud_model_materializatsija.sh
-progon t99-m9 red_sud_model_dver_spavna.sh
+progon t99-m10 red_huk_task_spavna.sh
+progon t99-m11 red_huk_task_spavna.sh
+progon t99-m12 red_huk_task_spavna.sh
+progon t99-m13 red_huk_task_spavna.sh
 
 printf 'стаб-пак: %s/%s поймано\n' "$caught" "$total"
-[ "$total" -eq 9 ] || { printf 'ОТКАЗ: стабов прогнано %s, ожидалось 9\n' "$total" >&2; exit 2; }
+[ "$total" -eq 12 ] || { printf 'ОТКАЗ: стабов прогнано %s, ожидалось 12\n' "$total" >&2; exit 2; }
 [ "$itog" -eq 0 ] || exit "$itog"
 exit 0

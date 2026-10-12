@@ -2,7 +2,8 @@
 # Клетка red_perehodnyj_gheit_perechen — инвариант З-6 контракта 099 (doc §3):
 # переходный доверенный гейт допускает ТОЛЬКО точно перечисленные дефекты,
 # исполненные ПОЛНОСТЬЮ, с доверенным происхождением проверок.
-# Восемь входов (блокеры критика круг 1 :49/:48):
+# Десять входов (блокеры критика круга 1 :49/:48; входы и/к — граница
+# арбитража 099 круга 3 по происхождению кода проверок):
 #   (а) все составляющие зелёны → ДОПУСК;
 #   (б) отказ l7a, совпадающий с реестром (sha строк), l7b зелёна → ДОПУСК;
 #   (в) неизвестный отказ l7a → блокировка;
@@ -13,10 +14,20 @@
 #   (ж) раннее прерывание job: l7a отказ ТОЧНО из реестра, но составляющая l7b
 #       БЕЗ результата в ответе → «нет результата: l7b» (хеш совпал — полноты
 #       исполнения нет; блокер :49);
-#   (з) подмена проверок кандидатом: ci.yml команды выпарены (run: true), все
-#       имена зелёны → «проверки изменены кандидатом: .github/workflows/ci.yml»
-#       (блокер :48 — доверенный источник команд = байты поверхности на первом
-#       родителе, статусы/имена нерелевантны).
+#   (з) подмена БАЙТ-МИНИМУМА кандидатом: команды ci.yml выпарены (run: true),
+#       все имена зелёны → «проверки изменены кандидатом: .github/workflows/ci.yml»
+#       (минимум = то, что платформа исполняет из объекта M: .github/workflows/ +
+#       package.json; scripts/ и fixtures/ ИЗ МИНИМУМА ИСКЛЮЧЕНЫ — замер 5
+#       арбитража 099: заморозка поверхности отказывала 20/40 легитимных лендов);
+#   (и) происхождение кода: кандидат заменяет исполняемый проверкой l7a
+#       scripts/check_toy.sh на пустую успешную команду, прежние пути не трогает
+#       → проверка обязана дать ТОТ ЖЕ результат, что на честном дереве с кодом
+#       M^1 (REAL CHECK EXECUTED / rc 1 — материализация замыкания из M^1), а не
+#       rc 0; дверь даёт ТОТ ЖЕ вердикт, что честному дереву (ДОПУСК), НЕ отказ
+#       «проверки изменены кандидатом: scripts/…»;
+#   (к) парный вход: кандидат легитимно ДОБАВЛЯЕТ новую клетку и её скрипт
+#       (байт-минимум не тронут) → допуск НЕ отказывает «проверки изменены
+#       кандидатом» — новая клетка становится гейтом после своего ленда.
 # Реестр перехода — на СОСТАВЛЯЮЩИХ (шаг-гранулярность l7a/l7b, агрегата l7 нет):
 # каждое имя обязано иметь completed-результат — допуск известного дефекта
 # удостоверяет полноту остальных результатов и завершённость исполнения.
@@ -146,6 +157,68 @@ mkdir -p "$W/api/repos/o/r/commits/$M3"
 z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M3"
 zcr "$W/api/repos/o/r/commits/$M3/check-runs" "$ALLGREEN"
 krasno з 'проверки изменены кандидатом: .github/workflows/ci.yml'
+
+# (и) происхождение кода проверок (граница арбитража 099 по З-5): кандидат
+# выпаривает исполняемый проверкой l7a scripts/check_toy.sh; код гейта —
+# из ПЕРВОГО РОДИТЕЛЯ M^1 (материализация замыкания шагом workflow M^1)
+zpg и "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:failure:$L|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+# (и-1) честное дерево M^1: проверка реально исполнена — rc 1, метка REAL CHECK
+# EXECUTED, строка известного дефекта
+git -C "$Z99_REPO" worktree add -q --detach "$W/i-honest" "$Z99_A"
+h_out="$(cd "$W/i-honest" && bash fixtures/_krasnye_toy.sh 2>&1)"; h_rc=$?
+if [ "$h_rc" -ne 1 ] || ! printf '%s' "$h_out" | grep -Fq 'REAL CHECK EXECUTED' || ! printf '%s' "$h_out" | grep -Fq "$L"; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход и-1: честное дерево не даёт REAL CHECK EXECUTED/rc 1; факт rc=%s, вывод: %s\n' "$h_rc" "$(printf '%s' "$h_out" | head -c 200)" >&2
+  exit 1
+fi
+# кандидат: scripts/check_toy.sh → пустая успешная команда, прежние пути не тронуты
+printf '#!/usr/bin/env bash\nexit 0\n' >| "$Z99_REPO/scripts/check_toy.sh"
+git -C "$Z99_REPO" add scripts/check_toy.sh
+git -C "$Z99_REPO" -c user.name=demo -c user.email=demo@dev-harness.local \
+  commit -q -m "кандидат выпаривает scripts/check_toy.sh (toy, вход и)"
+M4="$(git -C "$Z99_REPO" rev-parse HEAD)"
+git -C "$Z99_REPO" tag -f frozen/contracts/099/1 "$M4"
+git -C "$Z99_REPO" push -q -f origin refs/tags/frozen/contracts/099/1
+mkdir -p "$W/api/repos/o/r/commits/$M4"
+z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M4"
+zcr "$W/api/repos/o/r/commits/$M4/check-runs" "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:failure:$L|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success"
+# (и-2) БЕЗ механизма (исполнены байты кандидата): rc 0 — «зелёная оболочка»,
+# ровно та атака, от которой граница защищает
+git -C "$Z99_REPO" worktree add -q --detach "$W/i-attack" "$M4"
+a_out="$(cd "$W/i-attack" && bash fixtures/_krasnye_toy.sh 2>&1)"; a_rc=$?
+if [ "$a_rc" -ne 0 ]; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход и-2: выпаренные байты кандидата обязаны молчать (rc 0); факт rc=%s, вывод: %s\n' "$a_rc" "$(printf '%s' "$a_out" | head -c 200)" >&2
+  exit 1
+fi
+# (и-3) С механизмом (код гейта = M^1): материализация замыкания из первого
+# родителя на дереве кандидата → rc 1 и вывод БАЙТ-В-БАЙТ как честное дерево
+git -C "$Z99_REPO" worktree add -q --detach "$W/i-mech" "$M4"
+git -C "$W/i-mech" checkout -q "$Z99_A" -- scripts fixtures package.json
+m_out="$(cd "$W/i-mech" && bash fixtures/_krasnye_toy.sh 2>&1)"; m_rc=$?
+if [ "$m_rc" -ne 1 ] || [ "$m_out" != "$h_out" ]; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход и-3: с механизмом M^1 результат обязан совпадать с честным деревом (rc 1, тот же вывод); факт rc=%s, вывод: %s\n' "$m_rc" "$(printf '%s' "$m_out" | head -c 200)" >&2
+  exit 1
+fi
+# (и-4) дверь: ответ CI несёт ту же FAIL-строку l7a (исполнен код M^1) → ТОТ ЖЕ
+# результат, что честному дереву: ДОПУСК rc 0, НЕ «проверки изменены: scripts/…»
+zelyona и
+
+# (к) парный вход: кандидат ДОБАВЛЯЕТ новую клетку и её скрипт — эволюция
+# проверок не есть подмена; байт-минимум и реестр не тронуты
+zpg к "$ALLGREEN" "$REG"
+mkdir -p "$Z99_REPO/fixtures/zashchita_main_099" "$Z99_REPO/scripts"
+printf '#!/usr/bin/env bash\nprintf "ЗЕЛЕНО: red_novaya_kletka\\n"\n' >| "$Z99_REPO/fixtures/zashchita_main_099/red_novaya_kletka.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' >| "$Z99_REPO/scripts/check_novaya.sh"
+git -C "$Z99_REPO" add fixtures/zashchita_main_099/red_novaya_kletka.sh scripts/check_novaya.sh
+git -C "$Z99_REPO" -c user.name=demo -c user.email=demo@dev-harness.local \
+  commit -q -m "кандидат добавляет новую клетку и скрипт (toy, вход к)"
+M5="$(git -C "$Z99_REPO" rev-parse HEAD)"
+git -C "$Z99_REPO" tag -f frozen/contracts/099/1 "$M5"
+git -C "$Z99_REPO" push -q -f origin refs/tags/frozen/contracts/099/1
+mkdir -p "$W/api/repos/o/r/commits/$M5"
+z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M5"
+zcr "$W/api/repos/o/r/commits/$M5/check-runs" "$ALLGREEN"
+zelyona к
+
 
 printf 'ЗЕЛЕНО: red_perehodnyj_gheit_perechen\n'
 exit 0

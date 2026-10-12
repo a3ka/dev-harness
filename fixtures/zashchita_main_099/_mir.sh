@@ -34,9 +34,15 @@ z99_mir_repo() {
   g commit -q --allow-empty -m "база A"
   mkdir -p "$w/repo/config" "$w/repo/.github/workflows"
   printf '%s\n' "${Z99_BASE_DEFECTS:-$(z99_reg_default)}" > "$w/repo/config/transition_defects_099.tsv"
-  printf 'name: ci\non: pull_request\njobs:\n  checks:\n    steps:\n      - run: bash fixtures/_krasnye_toy.sh\n' > "$w/repo/.github/workflows/ci.yml"
+  printf 'name: ci\non: pull_request\njobs:\n  checks:\n    steps:\n      - run: git checkout ${{ github.event.pull_request.base.sha }} -- scripts fixtures package.json config\n      - run: bash fixtures/_krasnye_toy.sh\n' > "$w/repo/.github/workflows/ci.yml"
   printf '{"scripts":{"test":"bash fixtures/_krasnye_toy.sh"}}\n' > "$w/repo/package.json"
-  g add config/transition_defects_099.tsv .github package.json
+  # Исполняемое проверкой замыкание в ДОВЕРЕННОМ коммите A (= M^1): workflow
+  # материализует его из первого родителя ДО запуска проверок (граница
+  # арбитража 099 по З-5); toy-проверка l7a честно красна известным дефектом.
+  mkdir -p "$w/repo/scripts" "$w/repo/fixtures"
+  printf '#!/usr/bin/env bash\n# toy-проверка l7a (контракт 099, вход и клетки perechen): честный код — исполняется из M^1\nprintf "REAL CHECK EXECUTED: %s\\n" "check_protected: конфликт 263/266 (известный дефект main)"\nexit 1\n' > "$w/repo/scripts/check_toy.sh"
+  printf '#!/usr/bin/env bash\nDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\nexec bash "$DIR/scripts/check_toy.sh"\n' > "$w/repo/fixtures/_krasnye_toy.sh"
+  g add config/transition_defects_099.tsv .github package.json scripts fixtures
   g commit -q -m "доверенный реестр перехода + проверочная поверхность"
   Z99_A="$(git -C "$w/repo" rev-parse HEAD)"
   g checkout -q -b wip/099/demo
