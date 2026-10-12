@@ -126,8 +126,11 @@ AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
 # pid лидера = pgid пишется в $PGID ДО готовности RAN — осиротевшие потомки
 # (ppid=1) остаются в этой группе и досягаемы зачистке ПОСЛЕ возврата сессии
 # (reap_session), не только при гашении по маркеру наблюдателем.
-"${SCOPE[@]}" -- setsid sh -c 'printf "%s\n" "$$" >"$6" && : >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
-  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG" "$PGID"; rc=$?
+# Путь pgid-файла входит в скрипт СРЕДОЙ (ORCH_PGID_FILE), не argv: хвост
+# команды после «--» обязан кончаться парой «"$AGENT_CMD" "$MSG"» (форма 093,
+# И-5: шим 085 опознаёт запуск сессии по двум последним токенам).
+ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c 'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && : >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
+  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
 if [ ! -e "$RAN" ]; then
   # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,
   # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.
