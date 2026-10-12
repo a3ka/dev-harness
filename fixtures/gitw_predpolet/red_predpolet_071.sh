@@ -866,9 +866,9 @@ run_honest_cells() {
 
   # п3а: локальный frozen-тег не на цели
   mk_world p3a
-  git -C "$T" tag frozen/contracts/097/1
+  git -C "$T" tag frozen/contracts/999/1
   run_push api origin main
-  expect_refuse п3а "${PF}локальный тег не на origin: frozen/contracts/097/1"
+  expect_refuse п3а "${PF}локальный тег не на origin: frozen/contracts/999/1"
   bare_frozen п3а; ok_cell 'п3а: задержанный frozen-тег не уезжает'
 
   # п3б: тег на цели с ДРУГИМ sha (сверка по объекту)
@@ -1187,10 +1187,10 @@ PYE
 
   # п14а: Р-6 — отсутствующий на цели тег: отказ несёт локальный sha и «нет»
   mk_world p14a
-  git -C "$T" tag frozen/contracts/097/1
-  LSHA14="$(git -C "$T" rev-parse refs/tags/frozen/contracts/097/1)"
+  git -C "$T" tag frozen/contracts/999/1
+  LSHA14="$(git -C "$T" rev-parse refs/tags/frozen/contracts/999/1)"
   run_push api origin main
-  expect_refuse п14а "${PF}локальный тег не на origin: frozen/contracts/097/1"
+  expect_refuse п14а "${PF}локальный тег не на origin: frozen/contracts/999/1"
   grep -qF -- "$LSHA14" "$WORK/last.err" || die_cell п14а "локальный sha тега не назван (Р-6)"
   grep -qF 'цель нет' "$WORK/last.err" || die_cell п14а "отметка «цель нет» не названа (Р-6)"
   bare_frozen п14а; ok_cell 'п14а: отсутствующий тег — локальный sha и «цель нет» в отказе (Р-6)'
