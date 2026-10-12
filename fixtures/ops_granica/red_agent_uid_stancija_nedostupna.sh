@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # Клетка 3 (И-3, «Выход» п.1 агентная половина) контракта 093.
-# ПРЕДМЕТ: unshare --user — техника УСЛОВНАЯ (apparmor unprivileged_userns
-# enforce на станции; недоступно → rc 2 NOT_IMPLEMENTED с именованной причиной
-# ДО субъекта; единственное живое доказательство контура — п.9 приёмки).
-# Контрольные файлы «станции» (toy ~/.ssh ключ, ~/.config токен) — вход по
-# контракту. В CI (unshare доступен) клетка мерит НАБЛЮДАЕМУЮ границу И-3:
-# пускач сессии передаёт в scope АГЕНТНУЮ команду (шов ORCH_LOOP_AGENT_CMD,
-# документирован самим субъектом) и НЕ запускает воркшоп напрямую — прямой
-# запуск = сессия под uid владельца станции. Стаб s7 «uid-не-переключается»
-# вырезает агентную ветку — на нём клетка красна. Реальное разделение uid
-# (EACCES на контрольных файлах) непривилегированно в userns недостижим
-# (один kuid) — живьём доказывается п.9 приёмки, здесь — вектор запуска.
+# ПРЕДМЕТ (починка Р1-4 круга 1): клетка обязана краснеть, когда из пускача
+# вырезано переключение uid (мутант «без sudo -nu», стаб s7). Прежняя
+# редакция мерила только argv шва ORCH_LOOP_AGENT_CMD на границе scope и
+# такой мутант пропускала. Теперь наблюдение — сама дверь uid: sudo-шим в
+# PATH субъекта моделирует доку переключения `sudo -nu <агент> <cmd>`:
+# пишет свидетель (цель + команда), закрывает HOME станции (модель
+# uid≠владельца: второй kuid в toy-мире непривилегированно недостижим —
+# арбитраж 093, замер 3) и исполняет агентную команду. Честный код: сессия
+# идёт через доку, чтение/запись контрольных файлов станции — отказ ОС,
+# воркшоп напрямую не исполнен. Мутант без sudo / стаб s7: команда
+# исполняется напрямую под uid владельца станции — дока не вызвана,
+# контрольные файлы читаются/пишутся → КРАСНО своим предъявлением.
+# unshare-пролог — условная техника контракта (замер 3): недоступно →
+# rc 2 с именованной причиной ДО запуска субъекта.
 set -o pipefail
 command -v unshare >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: unshare недоступен\n' >&2; exit 2; }
 if ! unshare --user -- /bin/true 2>/dev/null; then
@@ -24,19 +27,21 @@ SUBJ="$ROOT/ops/server/user/orch-loop"
 [ -f "$SUBJ" ] || { printf 'NOT_IMPLEMENTED: нет субъекта %s\n' "$SUBJ" >&2; exit 2; }
 
 SCRATCH="$(mktemp -d /tmp/dev-harness-verify/ops-granica-3-XXXXXX)" || { printf 'NOT_IMPLEMENTED: mktemp\n' >&2; exit 2; }
-trap 'rm -rf "$SCRATCH"' EXIT
+trap 'chmod -R u+rwx "$SCRATCH/station_home" 2>/dev/null; rm -rf "$SCRATCH"' EXIT
 
 mkdir -p "$SCRATCH/bin" "$SCRATCH/repo" "$SCRATCH/station_home/.ssh" "$SCRATCH/station_home/.config" "$SCRATCH/agent_home"
 cd "$SCRATCH/repo" || exit 2
 [ -f HANDOFF.md ] || printf '# stub handoff\n' > HANDOFF.md
 
-# Контрольные файлы станции — принадлежат владельцу станции, агенту недоступны.
+# Контрольные файлы «станции»: владелец — uid клетки («владелец станции»
+# toy-мира). Агентная сессия обязана их НЕ читать и НЕ писать.
 printf 'SECRET\n' > "$SCRATCH/station_home/.ssh/github-rw-cwd"
-chmod 600 "$SCRATCH/station_home/.ssh/github-rw-cwd"
 printf 'TOK\n' > "$SCRATCH/station_home/.config/gh-token"
-chmod 600 "$SCRATCH/station_home/.config/gh-token"
+chmod 600 "$SCRATCH/station_home/.ssh/github-rw-cwd" "$SCRATCH/station_home/.config/gh-token"
+chmod 700 "$SCRATCH/station_home" "$SCRATCH/station_home/.ssh" "$SCRATCH/station_home/.config"
+STATION_OWNER="$(id -un)"
 
-# Shim systemd-run: свидетель границы (argv scope-команды), затем честный exec.
+# Shim systemd-run (граница scope): свидетель argv после `--`, честный exec.
 printf '%s\n' '#!/usr/bin/env bash' \
   'if [ "$1" = "--user" ] && [ "$2" = "--scope" ]; then' \
   '  shift 2' \
@@ -48,17 +53,38 @@ printf '%s\n' '#!/usr/bin/env bash' \
   'exit 0' > "$SCRATCH/bin/systemd-run"
 chmod 755 "$SCRATCH/bin/systemd-run"
 
-# Пускач агента (шов субъекта): команда, которой делегируется запуск под uid
-# агента. Пишет факт, если исполнена.
+# Shim sudo — ДВЕРЬ uid (наблюдение клетки, починка Р1-4): честный пускач
+# передаёт сессию доке `sudo -nu <user> <cmd>`; шим пишет свидетель (цель,
+# команда), закрывает HOME станции (модель uid≠владельца: реальный второй
+# kuid непривилегированно недостижим, арбитраж 093 замер 3) и исполняет
+# команду. Мутант «вырезать sudo -nu» доку не вызывает — свидетеля нет.
 printf '%s\n' '#!/usr/bin/env bash' \
-  "printf 'agent_cmd uid=%s\\n' \"\$(id -u)\" > '$SCRATCH/agent_fact'" \
+  'set -u' \
+  'if [ "${1:-}" = "-nu" ] && [ $# -ge 3 ]; then' \
+  '  tgt="$2"; shift 2' \
+  "  printf 'user=%s\\nargv0=%s\\n' \"\$tgt\" \"\$1\" > '$SCRATCH/sudo_fact'" \
+  "  chmod 000 '$SCRATCH/station_home'" \
+  '  exec "$@"' \
+  'fi' \
+  'printf "sudo-шим: ожидается -nu <user> <cmd>\\n" >&2' \
+  'exit 1' > "$SCRATCH/bin/sudo"
+chmod 755 "$SCRATCH/bin/sudo"
+
+# Агентная команда (шов ORCH_LOOP_AGENT_CMD субъекта): пытается читать и
+# писать контрольные файлы станции. Успех любой пробы = сессия под uid
+# владельца станции.
+printf '%s\n' '#!/usr/bin/env bash' \
+  "R='$SCRATCH/station_home/.ssh/github-rw-cwd'" \
+  "W='$SCRATCH/station_home/.config/agent_write_probe'" \
+  "cat \"\$R\" >/dev/null 2>&1 && printf 'read_ok\\n' >> '$SCRATCH/canary_witness'" \
+  ": > \"\$W\" 2>/dev/null && printf 'write_ok\\n' >> '$SCRATCH/canary_witness'" \
+  "printf 'agent uid=%s\\n' \"\$(id -u)\" > '$SCRATCH/agent_fact'" \
   'exit 0' > "$SCRATCH/agent_cmd"
 chmod 755 "$SCRATCH/agent_cmd"
 
-# Стаб-воркшоп: прямыми руками пускач запускать НЕ должен; факт — свидетель
-# пробитой границы.
+# Стаб-воркшоп: прямой запуск пускачом — свидетель пробитой границы.
 printf '%s\n' '#!/usr/bin/env bash' \
-  "printf 'called\n' > '$SCRATCH/ws_fact'" \
+  "printf 'called\\n' > '$SCRATCH/ws_fact'" \
   'exit 0' > "$SCRATCH/workshop"
 chmod 755 "$SCRATCH/workshop"
 
@@ -72,23 +98,37 @@ env PATH="$SCRATCH/bin:$PATH" \
   ORCH_AGENT_HOME="$SCRATCH/agent_home" \
   ORCH_LOOP_AGENT_CMD="$SCRATCH/agent_cmd" \
   timeout 30 bash "$SUBJ" >"$SCRATCH/subj_out" 2>&1 || true
+chmod 700 "$SCRATCH/station_home" 2>/dev/null || true
 
 if [ ! -f "$SCRATCH/scope_argv" ]; then
   printf 'КРАСНО: субъект не дошёл до границы сессии (systemd-run не вызван)\n' >&2
   exit 1
 fi
-if ! grep -Fxq "$SCRATCH/agent_cmd" "$SCRATCH/scope_argv"; then
-  printf 'КРАСНО: сессия запущена МИМО пускача агента — агентная команда не передана в scope (И-3 пробит: uid не переключается)\n' >&2
+if [ ! -f "$SCRATCH/sudo_fact" ]; then
+  printf 'КРАСНО: сессия запущена МИМО двери uid — sudo -nu не вызван пускачом, переключения uid нет (И-3 пробит: мутант без sudo -nu / стаб s7)\n' >&2
   exit 1
 fi
-if grep -Fxq "$SCRATCH/workshop" "$SCRATCH/scope_argv"; then
-  printf 'КРАСНО: воркшоп передан в scope напрямую, uid владельца станции (И-3 пробит)\n' >&2
+if grep -Fxq "user=$STATION_OWNER" "$SCRATCH/sudo_fact"; then
+  printf 'КРАСНО: дверь uid вызвана на владельца станции %s — uid не переключается (И-3 пробит)\n' "$STATION_OWNER" >&2
+  exit 1
+fi
+if ! grep -Fxq "argv0=$SCRATCH/agent_cmd" "$SCRATCH/sudo_fact"; then
+  printf 'КРАСНО: агентная команда не передана в дверь uid (И-3)\n' >&2
+  exit 1
+fi
+if [ ! -f "$SCRATCH/agent_fact" ]; then
+  printf 'КРАСНО: дверь uid не довела до агентной команды (И-3)\n' >&2
   exit 1
 fi
 if [ -e "$SCRATCH/ws_fact" ]; then
-  printf 'КРАСНО: воркшоп исполнен напрямую (И-3 пробит)\n' >&2
+  printf 'КРАСНО: воркшоп исполнен напрямую, uid владельца станции (И-3 пробит)\n' >&2
+  exit 1
+fi
+if [ -s "$SCRATCH/canary_witness" ]; then
+  printf 'КРАСНО: контрольные файлы станции доступны сессии — чтение/запись под uid владельца станции (И-3 пробит): %s\n' \
+    "$(tr '\n' ' ' < "$SCRATCH/canary_witness")" >&2
   exit 1
 fi
 
-printf 'ЗЕЛЁНО(093-3): сессия передана пускачу агента через scope, воркшоп напрямую не запущен (И-3)\n' >&2
+printf 'ЗЕЛЁНО(093-3): сессия через дверь uid (sudo -nu <агент>), контрольные файлы станции недоступны (И-3)\n' >&2
 exit 0
