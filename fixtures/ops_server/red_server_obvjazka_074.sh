@@ -112,8 +112,8 @@ red() { fails=$((fails + 1)); printf '  КРАСНО: %s\n' "$*"; }
 
 # ── пины: живая станция 2026-10-02 (sha256sum, сверено с inventory слова владельца) ──
 declare -A PIN=(
-  ['user/orch-loop']='a92d43317e16fd351cc14e0345e3ce8cba9846de4daa4a16167d51f8f842678f'
-  ['root/orch-peak']='41961bb6c2694495d4a6e54be9696bc75b688c7c0de91b95196d597e01d6c781'
+  ['user/orch-loop']='cf3e5bbbb0db2623b29c170572ec50e730c13a6d6dcaa9578cd333784f3cbad9'
+  ['root/orch-peak']='88d84e5bd7c4aec7627f5bb27de0a9cb7fa468aadddb131f566f008a50f940ad'
   ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
   ['root/systemd/orch-peak-warn.timer']='c1aca85614566ce281b90e51001a3158d10bac6366470c09c29ba9ed0921bc01'
   ['root/systemd/orch-peak-stop.timer']='94d909b200c8c0ed000ae96ef3aa8c672aa0467f7269b97ad21d852fbb6e0d3a'
