@@ -18,6 +18,12 @@ EARLY_MAX="${ORCH_EARLY_MAX:-3}"
 LOG="${ORCH_LOG:-$HOME/orch-loop.log}"
 MEM_MAX="${ORCH_MEM_MAX:-32G}"   # потолок памяти сессии omp (контракт 085, И-5)
 MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протокол роли; ПЕРВЫМ видимым действием — todo из HANDOFF «Следующая сессия» (пары и пункты, текущий — в работе); затем продолжай автономно по разделу «Автоперезапуск orch-loop и два слота», слова владельца не жди.'
+# Рв2-1 (И-4, Н-196, круг 3): цикл может стартовать из среды станции с
+# publication-креденшл (rw-ключ публикации в GIT_SSH_COMMAND / GITHUB_TOKEN /
+# GH_TOKEN / GIT_SSH_KEY_FILE). Съём НА ВХОДЕ: сессия агента станционное
+# наследие не получает. Экспорт ниже этой точки остаётся видимым двери —
+# клетка 4 (стаб s3) ловит его как порчу.
+unset GIT_SSH_COMMAND GITHUB_TOKEN GH_TOKEN GIT_SSH_KEY_FILE
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
 cd "$REPO" || { log "нет $REPO"; exit 2; }
 mkdir -p "$(dirname "$MARK")"
@@ -47,6 +53,31 @@ tree_quiet() { # <pid>: rc 0 — живых потомков (кроме наб�
     [ "$c" = "$watch_pid" ] || return 1
   done
   return 0
+}
+reap_session() { # Рв2-3 (И-7, круг 3): зачистка остатков сессии ПОСЛЕ возврата — и при
+  # естественном выходе (rc 0/1), и после маркерного гашения наблюдателем.
+  # Сироты (ppid=1) остаются в группе сессии (setsid у двери) — группа гасится
+  # целиком; лист под uid агента группе сигналов недосягаем (EPERM) — добивается
+  # тем же узким sudoers-правилом (И-3), что и в наблюдателе.
+  local pgid p
+  [ -s "$PGID" ] || return 0
+  pgid="$(cat "$PGID" 2>/dev/null)" || return 0
+  case "$pgid" in ''|*[!0-9]*) return 0 ;; esac
+  pgrep -g "$pgid" >/dev/null 2>&1 || { rm -f "$PGID"; return 0; }
+  kill -TERM -- "-$pgid" 2>/dev/null || true
+  for _ in 1 2 3; do
+    sleep 1
+    pgrep -g "$pgid" >/dev/null 2>&1 || break
+  done
+  kill -KILL -- "-$pgid" 2>/dev/null || true
+  agent_pids=''
+  for p in $(pgrep -g "$pgid" 2>/dev/null); do
+    kill -0 "$p" 2>/dev/null || agent_pids="$agent_pids $p"
+  done
+  if [ -n "$agent_pids" ] && command -v sudo >/dev/null 2>&1; then
+    sudo -nu "$AGENT_USER" kill -KILL $agent_pids 2>/dev/null || true
+  fi
+  rm -f "$PGID"
 }
 ( while sleep 5; do
     watch_pid="$BASHPID"
@@ -89,10 +120,14 @@ log "сессия #$n: старт"
 # root (И-3); наблюдатель гасит сессию по дереву посредников (kill_tree).
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
-RAN="$MARK.scoped"; rm -f "$RAN"
+RAN="$MARK.scoped"; PGID="$MARK.pgid"; rm -f "$RAN" "$PGID"
 AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
-"${SCOPE[@]}" -- sh -c ': >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
-  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+# Рв2-3 (И-7, круг 3): сессия стартует в СВОЕЙ сессии/группе (setsid у двери):
+# pid лидера = pgid пишется в $PGID ДО готовности RAN — осиротевшие потомки
+# (ppid=1) остаются в этой группе и досягаемы зачистке ПОСЛЕ возврата сессии
+# (reap_session), не только при гашении по маркеру наблюдателем.
+"${SCOPE[@]}" -- setsid sh -c 'printf "%s\n" "$$" >"$6" && : >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
+  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG" "$PGID"; rc=$?
 if [ ! -e "$RAN" ]; then
   # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,
   # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.
@@ -103,6 +138,7 @@ fi
 scoped=1
 rm -f "$RAN"
 kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+reap_session   # Рв2-3: остатки сессии гасятся ПОСЛЕ возврата — на любом исходе (rc 0/1, маркер)
 life=$(( $(date +%s) - start ))
 [ -e "$GO" ] && touch "$MARK"
 # Без маркера: rc 0 (/exit) или стоп-файл (пауза на пик, владелец) — останов; иначе это
