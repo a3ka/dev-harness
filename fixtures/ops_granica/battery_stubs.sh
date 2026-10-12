@@ -100,18 +100,25 @@ else
   printf '✗ s2: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
 fi
 
-# Stub s3: кредит-в-среде — экспортирует publication-креденшл.
-# Якорь — ЕДИНСТВЕННАЯ форма строки AGENT_HOME живого кода (после сноса
-# ветвей В1-9/Р1-9б дубля имён нет; починка Рв2-2 круга 3: мёртвая
-# двуименная форма якоря удалена). Точка порчи — экспорт креденшл в среду,
-# из которой запускается сессия.
+# Stub s3: кредит-в-среде — экспортирует publication-креденшл ПОЛНЫМ
+# станционным списком имён (GIT_SSH_COMMAND/GITHUB_TOKEN/ODELIX_GITHUB_TOKEN
+# — как клетка 4 после А-4 круга 2: прежние два имени оставляли пятое
+# станционное имя — токен org odelixhq — непроверенным). Якорь —
+# ЕДИНСТВЕННАЯ форма строки AGENT_HOME живого кода (после сноса ветвей
+# В1-9/Р1-9б дубля имён нет; починка Рв2-2 круга 3: мёртвая двуименная
+# форма якоря удалена). Точка порчи — экспорт креденшл в среду, из которой
+# запускается сессия, ПОСЛЕ съёма на входе (orch-loop:26): инъекция
+# переживает unset и обязана дойти до ребёнка. ЕСЛИ фикс А-3 строит
+# allowlist-среду НА ТОЧКЕ ЗАПУСКА (env -i у exec) — инъекция после
+# AGENT_HOME перестаёт быть наблюдаемой, якорь переснять за точку
+# allowlist (Н-39: стаб к входу, где его дефект наблюдаем).
 S3="$SCRATCH/s3"; build_copy "$S3" "$ROOT"
 total=$((total+1))
 if build_out="$(/usr/bin/python3 -c "
 p = '$S3/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
 old = 'AGENT_HOME=\"\${ORCH_AGENT_HOME:-/var/lib/orch-agent}\"'
-new = '\\nexport GIT_SSH_COMMAND=\"ssh -i /tmp/fake-rw\"\\nexport GITHUB_TOKEN=\"fake-token\"'
+new = '\\nexport GIT_SSH_COMMAND=\"ssh -i /tmp/fake-rw\"\\nexport GITHUB_TOKEN=\"fake-token\"\\nexport ODELIX_GITHUB_TOKEN=\"fake-odelix\"'
 if old in c:
     c = c.replace(old, old + new, 1)
     with open(p, 'w') as f: f.write(c)
