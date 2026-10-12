@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двадцать одна порча честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двадцать три порчи честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -50,6 +50,14 @@
 #    ПО HEAD_SHA: зелёный новейший чужого
 #    коммита отступает к старому валидному
 #    (критик круга 3, обход M11head)      mCB  red_novejshij_ne_tot_kommit
+# s22 селекция «перебор до подходящего»
+#    ПО КОНЪЮНКЦИИ полей: зелёный новейший
+#    с чужыми wfsha И head_sha отступает
+#    к старому валидному (вердикт арбитража
+#    098-a2, обходчик M12both)            mCC  red_novejshij_kompozicii_proishozhdenija
+# s23 селекция по ключу ВРЕМЕНИ: последний
+#    по started_at, не по id (вердикт
+#    арбитража 098-a2, обходчик M13time)  mCD  red_novejshij_ranshe_po_vremeni
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -149,6 +157,11 @@ zapest s20 red_novejshij_chuzhaja_versija.sh t98-mCA \
   's@.*# t98-mCA.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" --arg m "$MSHA" --arg a "$ciapp" --arg w "$wfsha" '"'"'. as $b | ([$b.check_runs[] | select(.name == $k)] | sort_by(.id) | last) as $l | ([$b.check_runs[] | select(.name == $k and .head_sha == $m and .app.slug == $a and .wfsha == $w)] | sort_by(.id) | last) as $f | if ($l.conclusion == "success") and ($l.wfsha != $w) and ($f != null) then $f else $l end'"'"' 2>/dev/null)" # t98-mCA порча@'
 zapest s21 red_novejshij_ne_tot_kommit.sh t98-mCB \
   's@.*# t98-mCB.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" --arg m "$MSHA" --arg a "$ciapp" --arg w "$wfsha" '"'"'. as $b | ([$b.check_runs[] | select(.name == $k)] | sort_by(.id) | last) as $l | ([$b.check_runs[] | select(.name == $k and .head_sha == $m and .app.slug == $a and .wfsha == $w)] | sort_by(.id) | last) as $f | if ($l.conclusion == "success") and ($l.head_sha != $m) and ($f != null) then $f else $l end'"'"' 2>/dev/null)" # t98-mCB порча@'
+
+zapest s22 red_novejshij_kompozicii_proishozhdenija.sh t98-mCC \
+  's@.*# t98-mCC.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" --arg m "$MSHA" --arg a "$ciapp" --arg w "$wfsha" '"'"'. as $b | ([$b.check_runs[] | select(.name == $k)] | sort_by(.id) | last) as $l | ([$b.check_runs[] | select(.name == $k and .head_sha == $m and .app.slug == $a and .wfsha == $w)] | sort_by(.id) | last) as $f | if ($l.conclusion == "success") and ($l.wfsha != $w) and ($l.head_sha != $m) and ($f != null) then $f else $l end'"'"' 2>/dev/null)" # t98-mCC порча@'
+zapest s23 red_novejshij_ranshe_po_vremeni.sh t98-mCD \
+  's@.*# t98-mCD.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" '"'"'[.check_runs[] | select(.name == $k)] | sort_by(.started_at) | last'"'"' 2>/dev/null)" # t98-mCD порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"

@@ -88,7 +88,7 @@ CURL
   printf '%s\n' "$d"
 }
 
-# _d98_ci_runs <W> <sha> <имя:заключение[:@обвязка][:~wfsha]>... — JSON-МАССИВ
+# _d98_ci_runs <W> <sha> <имя:заключение[:@обвязка][:~wfsha][:^время]>... — JSON-МАССИВ
 # НОВЫХ прогонов (общий строитель _d98_ci/_d98_ci_add; head_sha=sha);
 # id-счётчик мира монотонный: каждый следующий прогон «новее» предыдущего.
 # Каждый прогон несёт ИДЕНТИФИКАТОР ИСПОЛНИТЕЛЯ (app.slug; пин принятой
@@ -98,18 +98,22 @@ CURL
 # прогона без файла определения поля wfsha нет). Переопределения @обвязка/~wfsha
 # — клетки подделывают ОДНОИМЕННЫЙ чужой прогон (критик круга 2: чужой workflow
 # под тем же display-name) — обвязка и/или определение прогона не совпадают с
-# принятыми при том же имени и M.
+# принятыми при том же имени и M. ОПЦИОНАЛЬНОЕ :^время (вердикт арбитража
+# 098-a2 Т3, ключ порядка id↔время) — поле started_at прогона (реальное поле
+# GitHub check-runs; БЕЗ двоеточий — пара делится по ':'): БЕЗ поля — прежнее
+# поведение, существующие миры не меняются (ключа started_at в JSON нет).
 _d98_ci_runs() {
   local W="$1" sha="$2"; shift 2
-  local runs="[" pair name concl slug wf part f id app wjson
+  local runs="[" pair name concl slug wf tms part f id app wjson tjson
   for pair in "$@"; do
-    name=""; concl=""; slug="harness-ci"; wf="auto"
+    name=""; concl=""; slug="harness-ci"; wf="auto"; tms=""
     IFS=':' read -r -a f <<<"$pair"
     name="${f[0]}"; concl="${f[1]}"
     for part in "${f[@]:2}"; do
       case "$part" in
         @*) slug="${part#@}" ;;
         '~'*) wf="${part#\~}" ;;
+        '^'*) tms="${part#^}" ;;
         *) d98_ni "грамматика прогона: $pair" ;;
       esac
     done
@@ -123,7 +127,8 @@ _d98_ci_runs() {
     printf '%s\n' "$id" >"$W/fake/idseq"
     app=1; [ "$slug" = harness-ci ] || app=999999
     wjson=""; [ -z "$wf" ] || wjson=",\"wfsha\":\"$wf\""
-    runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\",\"app\":{\"id\":$app,\"slug\":\"$slug\"}$wjson},"
+    tjson=""; [ -z "$tms" ] || tjson=",\"started_at\":\"$tms\""
+    runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\",\"app\":{\"id\":$app,\"slug\":\"$slug\"}$wjson$tjson},"
   done
   printf '%s]\n' "${runs%,}"
 }
