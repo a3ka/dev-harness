@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # Батарея обманных стабов 093 (Н-39): каждая порча — точечная правка копии
-# субъекта, С ПРОВЕРКОЙ ЯКОРЯ (якорь не найден → стаб не построен, клетка не
-# засчитывается). Соответствующая клетка обязана отказать rc 1 на стабе.
+# субъекта. ЯКОРЬ обязателен и проверяется КОДОМ (починка Рв2-2 круга 3):
+# строителю запрещено молчать — якорь не найден → стаб не построен → клетка
+# НЕ запускается и НЕ засчитывается (именованный отказ «ЯКОРЬ-НЕ-НАЙДЕН»,
+# батарея краснеет через caught<total). Ручной прогон клетки на нестабе
+# исключён: verdict() видит только построенные стабы. Соответствующая клетка
+# обязана отказать rc 1 на стабе.
 # ПОИМКА (починка Р1-2/Р1-3 круга 1): засчитывается ТОЛЬКО rc 1 — именованный
 # отказ клетки. rc 0 — стаб прошёл (дефект клетки); rc 2 NOT_IMPLEMENTED —
 # ПОИМКА ПУСТАЯ (клетка вышла 2 при любом субъекте — не доказывает
 # различимость стаба) и НЕ засчитывается.
-# Якоря сверены живым прогоном против HEAD 47a3126b (строятся из текущего
-# субъекта; снос веток В1-9/правка rollback В1-1 меняет текст — якорь
-# не найден → стаб не построен → батарея честно краснеет, якорь переснять).
+# Якоря сверены живым прогоном против дерева круга 3 (merge ad61f9f5 с
+# implementer-фиксом b2fa5360: kill_tree + reap_session — обе точки зачистки,
+# единственная форма AGENT_HOME). Правка этих мест субъекта меняет текст —
+# якорь не найден → стаб не построен → батарея честно краснеет, якорь
+# переснять.
 set -o pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${OPS093_ROOT:-$(cd "$HERE/../.." && pwd)}"
@@ -48,7 +54,7 @@ verdict() { # $1=метка $2=rc клетки — поимка ТОЛЬКО rc 
 # (включая комментарии; прежний якорь пропускал строку комментария).
 S1="$SCRATCH/s1"; build_copy "$S1" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 p = '$S1/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
 old = 'if [ ! -e \"\$RAN\" ]; then\\n  # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,\\n  # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.\\n  log \"сессия #\$n: ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)\"\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit 1\\nfi'
@@ -59,14 +65,20 @@ if old in c:
     print('s1 ok')
 else:
     print('s1 anchor missing')
-" 2>&1
-OPS093_ROOT="$S1" /bin/bash "$HERE/red_limit_otkaz_bez_zapuska.sh" >/dev/null 2>&1
-verdict 's1 фолбэк-без-потолка' $?
+    raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S1" /bin/bash "$HERE/red_limit_otkaz_bez_zapuska.sh" >/dev/null 2>&1
+  verdict 's1 фолбэк-без-потолка' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s1: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
 
 # Stub s2: bootstrap-из-репо — возвращает root-bootstrap на ${REPO}.
 S2="$SCRATCH/s2"; build_copy "$S2" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 p = '$S2/ops/server/root/orch-peak'
 with open(p) as f: c = f.read()
 old = '\${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}'
@@ -78,37 +90,44 @@ if old in c:
     print('s2 ok')
 else:
     print('s2 anchor missing')
-" 2>&1
-OPS093_ROOT="$S2" /bin/bash "$HERE/red_root_bootstrap_iz_repo.sh" >/dev/null 2>&1
-verdict 's2 bootstrap-из-репо' $?
+    raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S2" /bin/bash "$HERE/red_root_bootstrap_iz_repo.sh" >/dev/null 2>&1
+  verdict 's2 bootstrap-из-репо' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s2: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
 
 # Stub s3: кредит-в-среде — экспортирует publication-креденшл.
-# Якорь двуформенный (сверено с implementer 093 круга 2): до В1-9 — строка
-# дубля env-имён AGENT_HOME; после сноса дублей (Р1-9б) — единственное имя
-# AGENT_HOME="${ORCH_AGENT_HOME:-/var/lib/orch-agent}". Обе формы дают одну
-# и ту же точку порчи: экспорт креденшл в среду, из которой запускается
-# сессия.
+# Якорь — ЕДИНСТВЕННАЯ форма строки AGENT_HOME живого кода (после сноса
+# ветвей В1-9/Р1-9б дубля имён нет; починка Рв2-2 круга 3: мёртвая
+# двуименная форма якоря удалена). Точка порчи — экспорт креденшл в среду,
+# из которой запускается сессия.
 S3="$SCRATCH/s3"; build_copy "$S3" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 p = '$S3/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
-old = 'AGENT_HOME=\"\${ORCH_AGENT_HOME:-\${ORCH_LOOP_AGENT_HOME:-/var/lib/orch-agent}}\"'
-old2 = 'AGENT_HOME=\"\${ORCH_AGENT_HOME:-/var/lib/orch-agent}\"'
+old = 'AGENT_HOME=\"\${ORCH_AGENT_HOME:-/var/lib/orch-agent}\"'
 new = '\\nexport GIT_SSH_COMMAND=\"ssh -i /tmp/fake-rw\"\\nexport GITHUB_TOKEN=\"fake-token\"'
 if old in c:
     c = c.replace(old, old + new, 1)
     with open(p, 'w') as f: f.write(c)
-    print('s3 ok (dual-name)')
-elif old2 in c:
-    c = c.replace(old2, old2 + new, 1)
-    with open(p, 'w') as f: f.write(c)
-    print('s3 ok (single-name)')
+    print('s3 ok')
 else:
     print('s3 anchor missing')
-" 2>&1
-OPS093_ROOT="$S3" /bin/bash "$HERE/red_kredit_publikacii_vne_sredy.sh" >/dev/null 2>&1
-verdict 's3 кредит-в-среде' $?
+    raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S3" /bin/bash "$HERE/red_kredit_publikacii_vne_sredy.sh" >/dev/null 2>&1
+  verdict 's3 кредит-в-среде' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s3: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
+
 # Stub s4: успех-без-старта — install verify-start не проверяет (отвечает
 # «активно», не спросив systemctl). Якорь — дословная строка опроса
 # is-active; ПОРЧА ТОЛЬКО ПЕРВОГО вхождения: после В1-1 та же строка есть и
@@ -116,7 +135,7 @@ verdict 's3 кредит-в-среде' $?
 # раньше rollback), стаб остаётся точечным.
 S4="$SCRATCH/s4"; build_copy "$S4" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 p = '$S4/ops/server/install.sh'
 with open(p) as f: c = f.read()
 old = '    state=\"\$(\"\$SYSTEMCTL\" is-active \"\$UNIT\" 2>&1)\" || true'
@@ -126,9 +145,15 @@ if old in c:
     print('s4 ok')
 else:
     print('s4 anchor missing')
-" 2>&1
-OPS093_ROOT="$S4" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1
-verdict 's4 успех-без-старта' $?
+    raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S4" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1
+  verdict 's4 успех-без-старта' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s4: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
 
 # Stub s5: откат-удаление — rollback удаляет новую версию, не восстанавливая
 # прежнюю. ВНИМАНИЕ (зависимость от В1-1): якорь — строка восстановления
@@ -136,7 +161,7 @@ verdict 's4 успех-без-старта' $?
 # переснять на новую строку восстановления.
 S5="$SCRATCH/s5"; build_copy "$S5" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 p = '$S5/ops/server/install.sh'
 with open(p) as f: c = f.read()
 old = 'cp -- \"\$BACKUP/orch-peak\" \"\$SBIN_DST/orch-peak\"'
@@ -147,42 +172,48 @@ if old in c:
     print('s5 ok')
 else:
     print('s5 anchor missing')
-" 2>&1
-OPS093_ROOT="$S5" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1
-verdict 's5 откат-удаление' $?
+    raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S5" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1
+  verdict 's5 откат-удаление' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s5: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснать якорь по коду субъекта)\n' >&2
+fi
 
-# Stub s6: сироты-живут — пускач не чистит потомков. Якорь ДВУФОРМЕННЫЙ
-# (сверстано с implementer 093 круга 2): после В1-7 механизм И-7 — kill_tree
-# (обход потомков БЕЗ фильтра имени) — режется он; на дереве до В1-7 режутся
-# TERM/KILL-фазы по шаблону '^omp --profile'. Клетка 7 судит зачистку без
-# фильтра по имени: несовпадающий потомок переживает вырезанное → красная.
+# Stub s6: сироты-живут — пускач не чистит потомков. Починка Рв2-2/Рв2-3
+# круга 3: якоря — ОБЕ точки зачистки живого кода: kill_tree в наблюдателе
+# (гашение по маркеру — прогон b клетки 7) и вызов reap_session
+# (естественный выход rc 0 — прогон a клетки 7). Мёртвая легаси-ветка
+# pkill '^omp --profile' удалена: на дереве круга 3 её нет. Клетка 7 судит
+# зачистку без фильтра по имени: несовпадающий потомок переживает
+# вырезанное → красная.
 S6="$SCRATCH/s6"; build_copy "$S6" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 p = '$S6/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
 kt1 = 'kill_tree TERM \"\$loop_pid\"'
 kt2 = 'kill_tree KILL \"\$loop_pid\"'
-old1 = 'pkill -TERM -P \"\$loop_pid\" -f \x27^omp --profile\x27 || exit 0'
-old2 = 'pkill -KILL -P \"\$loop_pid\" -f \x27^omp --profile\x27; exit 0'
-if kt1 in c and kt2 in c:
-    # После В1-7 (сверстано с implementer 093 круга 2): механизм И-7 —
-    # kill_tree, обход потомков БЕЗ фильтра по имени; режем его.
+kt3 = '\nreap_session   # '
+if kt1 in c and kt2 in c and kt3 in c:
     c = c.replace(kt1, 'true', 1)
     c = c.replace(kt2, 'true', 1)
+    c = c.replace(kt3, '\ntrue          # ', 1)
     with open(p, 'w') as f: f.write(c)
-    print('s6 ok (kill_tree)')
-elif old1 in c and old2 in c:
-    # Дерево до В1-7: чистка только по шаблону имени — режем её.
-    c = c.replace(old1, 'true', 1)
-    c = c.replace(old2, 'true; exit 0', 1)
-    with open(p, 'w') as f: f.write(c)
-    print('s6 ok (legacy pkill)')
+    print('s6 ok (kill_tree+reap)')
 else:
     print('s6 anchor missing')
-" 2>&1
-OPS093_ROOT="$S6" /bin/bash "$HERE/red_net_osirotevshih_detej.sh" >/dev/null 2>&1
-verdict 's6 сироты-живут' $?
+    raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S6" /bin/bash "$HERE/red_net_osirotevshih_detej.sh" >/dev/null 2>&1
+  verdict 's6 сироты-живут' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s6: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
 
 # Stub s7: uid-не-переключается — починка Р1-3 круга 1. Прежняя мутация
 # (if false на ветке шва) была НЕНАБЛЮДАЕМА: ветки orch-loop побайтно
@@ -193,7 +224,7 @@ verdict 's6 сироты-живут' $?
 # станции — клетка 3 (дверь uid) обязана краснеть.
 S7="$SCRATCH/s7"; build_copy "$S7" "$ROOT"
 total=$((total+1))
-/usr/bin/python3 -c "
+if build_out="$(/usr/bin/python3 -c "
 import re
 p = '$S7/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
@@ -211,9 +242,15 @@ else:
         print('s7 ok (generic x%d)' % len(m))
     else:
         print('s7 anchor missing')
-" 2>&1
-OPS093_ROOT="$S7" /bin/bash "$HERE/red_agent_uid_stancija_nedostupna.sh" >/dev/null 2>&1
-verdict 's7 uid-не-переключается' $?
+        raise SystemExit(1)
+" 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S7" /bin/bash "$HERE/red_agent_uid_stancija_nedostupna.sh" >/dev/null 2>&1
+  verdict 's7 uid-не-переключается' $?
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s7: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
 
 [ "$caught" -eq "$total" ] || { printf 'КЛЕТКА-ОТКАЗ(093-bat): %s/%s стабов пойманы\n' "$caught" "$total" >&2; exit 1; }
 printf 'ЗЕЛЁНО(093-bat): %s/%s обманных стабов пойманы\n' "$caught" "$total" >&2
