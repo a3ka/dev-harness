@@ -1300,6 +1300,20 @@ while IFS=$'\t' read -r nnn since; do
           esac
           ;;
       esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-12, канал консультанта) ──
+      # Один SHA 056be22d, автор architect, ОДИН путь registry/plan.tsv: регистрация 097/098
+      # нарезки этапа 3 прямым коммитом в main вне зоны architect; удалённые им по ошибке строки
+      # 095/096 восстановлены e80f9ac1. Других коммитов и путей не исключать, зоны не расширять.
+      case "$c" in
+        056be22d116da8f0e26b155534f16b7d7e2f969a)
+          case "$f" in
+            registry/plan.tsv)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
+      esac
       case "$c" in
         b6daee0a0205d1e1008948e4332781dd9d10dd34)
           case "$f" in
