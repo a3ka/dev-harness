@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двенадцать порч честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): четырнадцать порч честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -21,6 +21,10 @@
 # s10 сверка дерева снята                mD2  red_chuzhoe_derevo_opredelenie
 # s11 сверка версии определения снята    mD3  red_chuzhoe_derevo_opredelenie
 # s12 любое имя закрывает любой ключ     mD4  red_otstutvujushaja_objazatelnaja
+# s13 wfsha из локальной доски (обход
+#    критика круга 2: происхождение не
+#    сверяется с ответом CI)             mC4  red_odnoimennoj_chuzhoj_workflow
+# s14 сверка исполнителя (ciApp) снята   mC5  red_odnoimennoj_chuzhoj_workflow
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -101,6 +105,10 @@ zapest s11 red_chuzhoe_derevo_opredelenie.sh t98-mD3 \
   's@.*# t98-mD3.*@: # t98-mD3 порча@'
 zapest s12 red_otstutvujushaja_objazatelnaja.sh t98-mD4 \
   's@.*# t98-mD4.*@: # t98-mD4 порча@'
+zapest s13 red_odnoimennoj_chuzhoj_workflow.sh t98-mC4 \
+  's@.*# t98-mC4.*@wfr="$wfsha" # t98-mC4 порча@'
+zapest s14 red_odnoimennoj_chuzhoj_workflow.sh t98-mC5 \
+  's@.*# t98-mC5.*@: # t98-mC5 порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"

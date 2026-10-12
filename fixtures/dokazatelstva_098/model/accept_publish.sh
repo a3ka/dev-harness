@@ -8,7 +8,10 @@
 # [098] КОПИЯ модели fixtures/accept_publish_094/model/dover.sh байт-в-байт
 # (кроме этой вставки и маркеров # t98-mDN): проверяющая часть publish —
 # субъект контракта 098, стаб-пак dokazatelstva_098 корруптирует ЕЁ копию,
-# семью 094 не трогая; t94-маркеры сохранены дословно.
+# семью 094 не трогая; t94-маркеры сохранены дословно. Дельта круга 3 (блокер
+# критика круга 2): парсер политики принимает ключ ciApp=<slug> — пин
+# исполнителя CI (решение 2/Б-5 контракта 098); дверь ключ ПРИНИМАЕТ и им не
+# судит (потребитель — check-писатель).
 #
 # Глаголы (TAB-поля id = каноническая строка объекта):
 #   object  --repo R --task T --target B --base SHA --candidate SHA --merge SHA
@@ -75,6 +78,7 @@ while IFS= read -r line; do
   case "$line" in
     repoId=*) v="${line#repoId=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac; repoId="$v" ;;
     mandatory=*) v="${line#mandatory=}"; case "$v" in ''|*[!A-Za-z0-9._,:-]*) die "политика: грамматика" ;; esac; mandatory="$v" ;;
+    ciApp=*) v="${line#ciApp=}"; case "$v" in ''|*[!A-Za-z0-9._-]*) die "политика: грамматика" ;; esac ;; # t98: пин исполнителя CI — принимается, дверью не судится (решение 2/Б-5)
     targetBranches=*) v="${line#targetBranches=}"; case "$v" in ''|*[!A-Za-z0-9._/,:-]*) die "политика: грамматика" ;; esac; branches="$v" ;;
     *) die "политика: грамматика" ;;
   esac

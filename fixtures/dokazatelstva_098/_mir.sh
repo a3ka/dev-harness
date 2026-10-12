@@ -56,7 +56,7 @@ _d98_world() {
   git init -q --initial-branch=main "$d/repo" 2>/dev/null || d98_ni "git init"
   git -C "$d/repo" config user.name orchestrator
   git -C "$d/repo" config user.email orchestrator@dev-harness.local
-  printf 'repoId=toy-098\nmandatory=ci-a,ci-b\ntargetBranches=main\n' \
+  printf 'repoId=toy-098\nmandatory=ci-a,ci-b\nciApp=harness-ci\ntargetBranches=main\n' \
     >"$d/repo/harness/policy" || d98_ni "policy base"
   printf 'run ci-a\n' >"$d/repo/harness/checks/ci-a.cmd"
   printf 'run ci-b\n' >"$d/repo/harness/checks/ci-b.cmd"
@@ -64,7 +64,7 @@ _d98_world() {
   git -C "$d/repo" add -A || d98_ni "git add base"
   git -C "$d/repo" commit -qm base || d98_ni "git commit base"
   git -C "$d/repo" checkout -qb kandidat || d98_ni "ветка kandidat"
-  printf 'repoId=toy-098\nmandatory=ci-a,ci-b,ci-c\ntargetBranches=main\n' \
+  printf 'repoId=toy-098\nmandatory=ci-a,ci-b,ci-c\nciApp=harness-ci\ntargetBranches=main\n' \
     >"$d/repo/harness/policy" || d98_ni "policy kandidat"
   printf 'run ci-c\n' >"$d/repo/harness/checks/ci-c.cmd"
   printf 'two\n' >>"$d/repo/file.txt"
@@ -88,16 +88,41 @@ CURL
   printf '%s\n' "$d"
 }
 
-# _d98_ci <W> <sha> <имя:заключение>... — ответ CI для sha (head_sha=sha);
-# id-счётчик мира монотонный: каждый следующий прогон «новее» предыдущего.
+# _d98_ci <W> <sha> <имя:заключение[:@обвязка][:~wfsha]>... — ответ CI для sha
+# (head_sha=sha); id-счётчик мира монотонный: каждый следующий прогон «новее»
+# предыдущего. Каждый прогон несёт ИДЕНТИФИКАТОР ИСПОЛНИТЕЛЯ (app.slug; пин
+# принятой стороны — ciApp= политики мира; держать в синхроне с _d98_world) и
+# sha256 ИСПОЛНЕННОГО определения (wfsha; умолчание — harness/checks/<имя>.cmd
+# дерева исполняемого sha: мир честно исполняет определение своего дерева; у
+# прогона без файла определения поля wfsha нет). Переопределения @обвязка/~wfsha
+# — клетки подделывают ОДНОИМЕННЫЙ чужой прогон (критик круга 2: чужой workflow
+# под тем же display-name) — обвязка и/или определение прогона не совпадают с
+# принятыми при том же имени и M.
 _d98_ci() {
   local W="$1" sha="$2"; shift 2
-  local runs="" pair name concl id
+  local runs="" pair name concl slug wf part f id app wjson
   for pair in "$@"; do
-    name="${pair%%:*}"; concl="${pair#*:}"
+    name=""; concl=""; slug="harness-ci"; wf="auto"
+    IFS=':' read -r -a f <<<"$pair"
+    name="${f[0]}"; concl="${f[1]}"
+    for part in "${f[@]:2}"; do
+      case "$part" in
+        @*) slug="${part#@}" ;;
+        '~'*) wf="${part#\~}" ;;
+        *) d98_ni "грамматика прогона: $pair" ;;
+      esac
+    done
+    [ -n "$name" ] && [ -n "$concl" ] || d98_ni "грамматика прогона: $pair"
+    if [ "$wf" = auto ]; then
+      wf="$(git -C "$W/repo" show "$sha:harness/checks/$name.cmd" 2>/dev/null \
+        | sha256sum | cut -d' ' -f1)"
+    fi
+    [ -z "$wf" ] || [ "${#wf}" -eq 64 ] || d98_ni "wfsha прогона не 64 hex: $wf"
     id="$(( $(cat "$W/fake/idseq" 2>/dev/null || printf 0) + 1 ))"
     printf '%s\n' "$id" >"$W/fake/idseq"
-    runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\"},"
+    app=1; [ "$slug" = harness-ci ] || app=999999
+    wjson=""; [ -z "$wf" ] || wjson=",\"wfsha\":\"$wf\""
+    runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\",\"app\":{\"id\":$app,\"slug\":\"$slug\"}$wjson},"
   done
   printf '{"total_count":%s,"check_runs":[%s]}\n' "$#" "${runs%,}" \
     >"$W/fake/checkruns/$sha.json"
@@ -109,6 +134,8 @@ _d98_zov() { local W="$1"; shift; D98_FAKE="$W/fake" PATH="$W/bin:$PATH" bash "$
 # оракулы-sha (в память ДО вызова субъекта — правило 8)
 _d98_tree()  { git -C "$1" rev-parse "$2^{tree}" 2>/dev/null; }
 _d98_wfsha() { git -C "$1" show "$2:harness/checks/$3.cmd" 2>/dev/null | sha256sum | cut -d' ' -f1; }
+# пин исполнителя CI — из политики мира (единый источник, клетки не переизобретают)
+_d98_ciapp() { git -C "$1" show "$2:harness/policy" 2>/dev/null | sed -nE 's/^ciApp=//p' | head -1; }
 # policyVersion — в семантике СУБЪЕКТА: sha256 байтов политики ПОСЛЕ $()-усечения
 # завершающих переводов строки (дверь: policy_bytes="$(git show …)" → printf %s) —
 # единый источник грамматики, клетки не переизобретают
