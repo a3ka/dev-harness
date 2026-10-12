@@ -88,7 +88,7 @@ CURL
   printf '%s\n' "$d"
 }
 
-# _d98_ci_runs <W> <sha> <имя:заключение[:@обвязка][:~wfsha][:^время]>... — JSON-МАССИВ
+# _d98_ci_runs <W> <sha> <имя:заключение[:@обвязка][:~wfsha][:^время][:!статус]>... — JSON-МАССИВ
 # НОВЫХ прогонов (общий строитель _d98_ci/_d98_ci_add; head_sha=sha);
 # id-счётчик мира монотонный: каждый следующий прогон «новее» предыдущего.
 # Каждый прогон несёт ИДЕНТИФИКАТОР ИСПОЛНИТЕЛЯ (app.slug; пин принятой
@@ -102,11 +102,17 @@ CURL
 # 098-a2 Т3, ключ порядка id↔время) — поле started_at прогона (реальное поле
 # GitHub check-runs; БЕЗ двоеточий — пара делится по ':'): БЕЗ поля — прежнее
 # поведение, существующие миры не меняются (ключа started_at в JSON нет).
+# ОПЦИОНАЛЬНОЕ :!статус (вердикт адверсария contracts-098-v2 A-098-3) — поле
+# status прогона (реальное поле GitHub check-runs; БЕЗ двоеточий): умолчание
+# completed — прогон с заключением в мирах семьи ЗАВЕРШЁН, существующие миры
+# по смыслу не меняются (поле появляется в JSON у всех прогонов); переопреде-
+# ление — клетка red_nezavershennyj_progon подделывает НЕЗАВЕРШЁННЫЙ прогон
+# с conclusion=success: непустой conclusion синонимом завершённости не является.
 _d98_ci_runs() {
   local W="$1" sha="$2"; shift 2
-  local runs="[" pair name concl slug wf tms part f id app wjson tjson
+  local runs="[" pair name concl slug wf tms st part f id app wjson tjson
   for pair in "$@"; do
-    name=""; concl=""; slug="harness-ci"; wf="auto"; tms=""
+    name=""; concl=""; slug="harness-ci"; wf="auto"; tms=""; st="completed"
     IFS=':' read -r -a f <<<"$pair"
     name="${f[0]}"; concl="${f[1]}"
     for part in "${f[@]:2}"; do
@@ -114,6 +120,8 @@ _d98_ci_runs() {
         @*) slug="${part#@}" ;;
         '~'*) wf="${part#\~}" ;;
         '^'*) tms="${part#^}" ;;
+        '!') d98_ni "грамматика прогона: !статус — значение после '!': $pair" ;;
+        '!'*) st="${part#!}" ;;
         *) d98_ni "грамматика прогона: $pair" ;;
       esac
     done
@@ -128,7 +136,7 @@ _d98_ci_runs() {
     app=1; [ "$slug" = harness-ci ] || app=999999
     wjson=""; [ -z "$wf" ] || wjson=",\"wfsha\":\"$wf\""
     tjson=""; [ -z "$tms" ] || tjson=",\"started_at\":\"$tms\""
-    runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\",\"app\":{\"id\":$app,\"slug\":\"$slug\"}$wjson$tjson},"
+    runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\",\"status\":\"$st\",\"app\":{\"id\":$app,\"slug\":\"$slug\"}$wjson$tjson},"
   done
   printf '%s]\n' "${runs%,}"
 }
