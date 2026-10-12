@@ -91,9 +91,8 @@
 ПЕРЕСЕЧЕНИЕ implementer: scripts/profile_resolver.sh — 055 implementer-зона (заморожена): та же дельта 097
 ПЕРЕСЕЧЕНИЕ implementer: scripts/profile_resolver.sh — 057 implementer-зона (заморожена): та же дельта 097
 ПЕРЕСЕЧЕНИЕ implementer: scripts/profile_resolver.sh — 059 implementer-зона (заморожена): та же дельта 097
-ПЕРЕСЕЧЕНИЕ implementer: harness.project.json — вне замороженных зон (носитель ключей repoId/barriers схемы 054): дельта 097 — ввод `"targetBranches": ["main"]` как данных принятой базы (закрытие Н4-1, §А «После ленда»)
-ПЕРЕСЕЧЕНИЕ architect: fixtures/accept_publish_094/model/dover.sh — 094 architect-зона (заморожена): дельта 097 — ТОЛЬКО чтение как единый источник грамматики object/prepare; правка файла запрещена (якоря `# t94-mN` стаб-пака 094 не трогаются)
-ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 дельта — записи А-NN пачки 097
+ПЕРЕСЕЧЕНИЕ implementer: harness.project.json — 054 implementer-зона (заморожена): дельта 097 — ввод `"targetBranches": ["main"]` как данных принятой базы (targetBranches — ключ схемы 054; закрытие Н4-1, §А «После ленда»)
+ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 architect-дельта: записи А-NN пачки 097 (модель dover.sh 094 НЕ в зоне 097 — только чтение, Решение 4; правка запрещена, якоря `# t94-mN` стаб-пака 094 не трогаются)
 
 `fixtures/land_agent/`, `fixtures/check_merge_gate/`, `fixtures/check_judge_gate/`, `scripts/land_agent.sh`, `scripts/land_project.sh` — НЕ зона 097: часть А их не трогает ни в каком виде (Р4-2).
 
