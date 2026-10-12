@@ -1044,7 +1044,7 @@ while IFS=$'\t' read -r nnn since; do
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325)
             skip_path=1
             continue
             ;;
@@ -1308,6 +1308,20 @@ while IFS=$'\t' read -r nnn since; do
         056be22d116da8f0e26b155534f16b7d7e2f969a)
           case "$f" in
             registry/plan.tsv)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
+      esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-12, канал консультанта) ──
+      # Один SHA 8c734d93, автор orchestrator: заморозка 098 перенесла в main батарею 098, побайтово
+      # равную frozen/contracts/098/1, flat-коммитом под чужой identity. Только fixtures/_krasnye_098.sh
+      # и fixtures/dokazatelstva_098/; registry/contracts.tsv — в registry-списке выше. Зоны не расширять.
+      case "$c" in
+        8c734d93b91fb3ff38528d6591d519a5145de325)
+          case "$f" in
+            fixtures/_krasnye_098.sh|fixtures/dokazatelstva_098/*)
               printf '%s\n' "$f" >> "$TMP/process_excluded"
               continue
               ;;
