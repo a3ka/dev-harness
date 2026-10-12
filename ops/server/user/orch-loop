@@ -23,7 +23,15 @@ MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протоко�
 # GH_TOKEN / GIT_SSH_KEY_FILE). Съём НА ВХОДЕ: сессия агента станционное
 # наследие не получает. Экспорт ниже этой точки остаётся видимым двери —
 # клетка 4 (стаб s3) ловит его как порчу.
-unset GIT_SSH_COMMAND GITHUB_TOKEN GH_TOKEN GIT_SSH_KEY_FILE
+# А-3 (adversary 093-v2, круг 5): ODELIX_GITHUB_TOKEN — токен org odelixhq
+# (чтение+запись до 2026-10-29) из ~/.config/odelix/github.env станции (роль
+# orchestrator) — тем же каналом, что и Н-196, доходит до среды, где стартует
+# orch-loop, и наследовался ребёнку сессии (живая проба круга 2). Замер
+# станционной среды (имена, без значений): из публикационных имён
+# необработанным оставалось только оно; HARNESS_GITHUB_MODE — режим
+# (read/offline), не креденшл; ZAI/MINIMAX/METERING — ключи модели, которые
+# нужны самой сессии агента и в съём не входят.
+unset GIT_SSH_COMMAND GITHUB_TOKEN GH_TOKEN GIT_SSH_KEY_FILE ODELIX_GITHUB_TOKEN
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
 cd "$REPO" || { log "нет $REPO"; exit 2; }
 mkdir -p "$(dirname "$MARK")"
