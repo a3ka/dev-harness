@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# Клетка red_podmena_kandidatom — инвариант И-7 контракта 100: подмена
+# Клетка red_podmena_kandidatom — инвариант И-7 контракта 100 (круг 2): подмена
 # списка/workflow/скрипта/отчёта кандидатом не даёт допуска. Под-входы:
-# (а) расширенный список в ДЕРЕВЕ кандидата при узком принятом;
-# (б) посторонний check-run при отсутствующем l4 (переименование workflow);
+# (а) расширенный список в ДЕРЕВЕ кандидата при узком принятом → ОБЕ фразы:
+#     «список не из доверенной ревизии» (самовнесение, И-14) И «находка вне
+#     списка» (судейство по принятой ревизии);
+# (б) посторонний check-run в выбранном suite при отсутствующем l4
+#     (переименование workflow);
 # (в) посторонний def-sha256 в отчёте job; (г) отчёт без def-sha256.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
 
-AP2PH='check_skills: FAIL: нет положительного контроля'
-AP2NEW='check_skills: FAIL: нет положительного контроля (новый случай case_9999)'
+AP2PH='check:skills: FAIL: нет положительного контроля'
+AP2NEW='check:skills: FAIL: нет положительного контроля (новый случай case_9999)'
 EV='1111222233334444555566667777888899990000'
 
 itog=0
@@ -18,8 +21,8 @@ podmena_spisok() {  # (а)
   cleanup() { [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null; rm -rf "$W"; rm -f "${Z100_CR:-}"; }
   trap cleanup EXIT
   local ex_ap2 ex_new
-  ex_ap2="$(z100_ex_json ap2 check_skills fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(z100_def_sha ap2)" "$EV" 'положительный контроль добавлен' 2030-01-01)"
-  ex_new="$(z100_ex_json ap2 check_skills fixtures/check_skills/ "$(z100_failsha "$AP2NEW")" "$(z100_def_sha ap2)" "$EV" 'подменённая запись кандидата' 2030-01-01)"
+  ex_ap2="$(z100_ex_json ap2 'check:skills' fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(z100_def_sha ap2)" "$EV" 'положительный контроль добавлен' 2030-01-01)"
+  ex_new="$(z100_ex_json ap2 'check:skills' fixtures/check_skills/ "$(z100_failsha "$AP2NEW")" "$(z100_def_sha ap2)" "$EV" 'подменённая запись кандидата' 2030-01-01)"
   # принятая ревизия — узкий список; дерево кандидата — расширенный
   Z100_EXCEPTIONS_JSON="$(z100_ex_list "$ex_ap2")" \
   Z100_CANDIDATE_EXCEPTIONS_JSON="$(z100_ex_list "$ex_ap2" "$ex_new")" \
@@ -29,23 +32,24 @@ podmena_spisok() {  # (а)
   for j in $(z100_jobs); do
     case "$j" in
       ap2) z100_cr_add "antiplacebo (ap2)" completed failure \
-             "def-sha256 $(z100_def_sha ap2)⏎$AP2NEW⏎check_scope_select: PASS" ;;
+             "def-sha256 $(z100_def_sha ap2)⏎$AP2NEW⏎check:scope-select: PASS" 2 fixtures/check_skills/ ;;
       *)   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" ;;
     esac
   done
-  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A"
+  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A,2"
   z100_api_write_crs "$W"
   local sv PORT
   sv="$(z100_api_serve "$W/api")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"
   z100_wait_api "$PORT" || { printf 'КРАСНО: red_podmena/a: стаб API не поднялся\n' >&2; itog=1; trap - EXIT; cleanup; return; }
   z100_subject >/dev/null 2>&1 || { printf 'КРАСНО: red_podmena/a: предмет отсутствует\n' >&2; itog=1; trap - EXIT; cleanup; return; }
-  local want='gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: находка вне списка: ap2/check_skills'
+  local w1='gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: список не из доверенной ревизии: registry/main-ci-exceptions.json'
+  local w2='gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: находка вне списка: ap2/check:skills'
   out="$(z100_subject_run "$PORT")"; rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -Fq "$want"; then
-    printf 'ЗЕЛЕНО: red_podmena/a (список из принятой ревизии)\n'
+  if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -Fq "$w1" && printf '%s' "$out" | grep -Fq "$w2"; then
+    printf 'ЗЕЛЕНО: red_podmena/a (список из принятой ревизии + самовнесение)\n'
   else
-    printf 'КРАСНО: red_podmena/a: предмет отсутствует: ожидались rc 1 и фраза «%s»; факт rc=%s, вывод: %s\n' \
-      "$want" "$rc" "$(printf '%s' "$out" | head -c 300)" >&2
+    printf 'КРАСНО: red_podmena/a: предмет отсутствует: ожидались rc 1 и ОБЕ фразы «%s» и «%s»; факт rc=%s, вывод: %s\n' \
+      "$w1" "$w2" "$rc" "$(printf '%s' "$out" | head -c 300)" >&2
     itog=1
   fi
   trap - EXIT; cleanup
@@ -62,9 +66,10 @@ podmena_job() {  # (б)
     [ "$j" = "l4" ] && continue
     z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")"
   done
-  # посторонний job (переименование workflow: l4 выпал, l4x пришёл)
-  z100_cr_add "ci (l4x)" completed success "$(z100_green l4)"
-  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A"
+  # посторонний job (переименование workflow: l4 выпал, l4x пришёл) — в том же
+  # выбранном suite (2), что и судимые строки
+  z100_cr_add "ci (l4x)" completed success "$(z100_green l4)" 2
+  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A,2"
   z100_api_write_crs "$W"
   local sv PORT
   sv="$(z100_api_serve "$W/api")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"
@@ -89,22 +94,22 @@ podmena_defsha() {  # (в)/(г): <вариант wrong|missing>
   cleanup() { [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null; rm -rf "$W"; rm -f "${Z100_CR:-}"; }
   trap cleanup EXIT
   local ex_ap2
-  ex_ap2="$(z100_ex_json ap2 check_skills fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(z100_def_sha ap2)" "$EV" 'положительный контроль добавлен' 2030-01-01)"
+  ex_ap2="$(z100_ex_json ap2 'check:skills' fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(z100_def_sha ap2)" "$EV" 'положительный контроль добавлен' 2030-01-01)"
   Z100_EXCEPTIONS_JSON="$(z100_ex_list "$ex_ap2")" z100_mir_repo "$W"
   z100_cr_reset
   local j sum
   if [ "$variant" = "wrong" ]; then
-    sum="def-sha256 $(z100_def_sha ap5)⏎$AP2PH⏎check_scope_select: PASS"
+    sum="def-sha256 $(z100_def_sha ap5)⏎$AP2PH⏎check:scope-select: PASS"
   else
-    sum="$AP2PH⏎check_scope_select: PASS"
+    sum="$AP2PH⏎check:scope-select: PASS"
   fi
   for j in $(z100_jobs); do
     case "$j" in
-      ap2) z100_cr_add "antiplacebo (ap2)" completed failure "$sum" ;;
+      ap2) z100_cr_add "antiplacebo (ap2)" completed failure "$sum" 2 fixtures/check_skills/ ;;
       *)   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" ;;
     esac
   done
-  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A"
+  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A,2"
   z100_api_write_crs "$W"
   local sv PORT
   sv="$(z100_api_serve "$W/api")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"

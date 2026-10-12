@@ -15,7 +15,7 @@ z100_cr_reset
 for j in $(z100_jobs); do
   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")"
 done
-z100_api_write_runs "$W" "2,$Z100_P,completed,success,$Z100_A"
+z100_api_write_runs "$W" "2,$Z100_P,completed,success,$Z100_A,2"
 z100_api_write_crs "$W"
 sv="$(z100_api_serve "$W/api")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"
 z100_wait_api "$PORT" || { printf 'КРАСНО: red_kontrol_vse_zelenoe: стаб API не поднялся\n' >&2; exit 1; }

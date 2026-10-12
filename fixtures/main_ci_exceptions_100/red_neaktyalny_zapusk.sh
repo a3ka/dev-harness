@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Клетка red_neaktyalny_zapusk — инвариант И-8 контракта 100: судится только
 # актуальный запуск этого SHA. Под-входы: (а) чужой head_sha; (б) старый
-# успешный запуск + новый с неизвестной находкой; (в) база запуска ≠ принятой
-# вершине main (движение базы).
+# успешный запуск + новый с неизвестной находкой (check-runs НЕСУТ строки
+# ОБОИХ suite — старый полный зелёный suite 11 и судимый suite 12, связка
+# по check_suite выбранного run, Решение 1 круг 2); (в) база запуска ≠ принятой
+# вершине main (движение базы на старте).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
 
-AP2NEW='check_skills: FAIL: нет положительного контроля (новый случай case_9999)'
+AP2NEW='check:skills: FAIL: нет положительного контроля (новый случай case_9999)'
 
 itog=0
 sub() {  # <вариант> <ожидаемая-фраза>
@@ -18,20 +20,33 @@ sub() {  # <вариант> <ожидаемая-фраза>
   z100_mir_repo "$W"
   z100_cr_reset
   local j
-  for j in $(z100_jobs); do
-    case "$j" in
-      ap2) [ "$variant" = "b" ] \
-             && z100_cr_add "antiplacebo (ap2)" completed failure \
-                    "def-sha256 $(z100_def_sha ap2)⏎$AP2NEW⏎check_scope_select: PASS" \
-             || z100_cr_add "antiplacebo (ap2)" completed success "$(z100_green ap2)" ;;
-      *)   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" ;;
-    esac
-  done
+  if [ "$variant" = "b" ]; then
+    # старый полный зелёный запуск: строки suite 11 (добавлены ПЕРВЫМИ)
+    for j in $(z100_jobs); do
+      z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" 11
+    done
+    # судимый запуск: suite 12 — ap2 с новой находкой
+    for j in $(z100_jobs); do
+      case "$j" in
+        ap2) z100_cr_add "antiplacebo (ap2)" completed failure \
+               "def-sha256 $(z100_def_sha ap2)⏎$AP2NEW⏎check:scope-select: PASS" 12 fixtures/check_skills/ ;;
+        *)   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" 12 ;;
+      esac
+    done
+  else
+    for j in $(z100_jobs); do
+      case "$j" in
+        ap2) z100_cr_add "antiplacebo (ap2)" completed failure \
+               "def-sha256 $(z100_def_sha ap2)⏎$AP2NEW⏎check:scope-select: PASS" 2 fixtures/check_skills/ ;;
+        *)   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" ;;
+      esac
+    done
+  fi
   case "$variant" in
-    a) z100_api_write_runs "$W" "3,$Z100_A,completed,success,$Z100_A" ;;          # чужой SHA
-    b) z100_api_write_runs "$W" "1,$Z100_P,completed,success,$Z100_A" \
-                            "2,$Z100_P,completed,failure,$Z100_A" ;;              # старый + новый
-    c) z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_B" ;;          # база двинулась
+    a) z100_api_write_runs "$W" "3,$Z100_A,completed,success,$Z100_A,5" ;;          # чужой SHA
+    b) z100_api_write_runs "$W" "1,$Z100_P,completed,success,$Z100_A,11" \
+                            "2,$Z100_P,completed,failure,$Z100_A,12" ;;            # старый + новый
+    c) z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_B,2" ;;          # база двинулась
   esac
   z100_api_write_crs "$W"
   local sv PORT
@@ -53,6 +68,6 @@ sub() {  # <вариант> <ожидаемая-фраза>
 }
 
 sub a 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: запусков PR-CI нет: wip/100/demo'
-sub b 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: находка вне списка: ap2/check_skills'
+sub b 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: находка вне списка: ap2/check:skills'
 sub c 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: движение базы: запуск не актуален'
 exit "$itog"

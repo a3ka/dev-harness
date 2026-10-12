@@ -1,32 +1,34 @@
 #!/usr/bin/env bash
-# Клетка red_srok_i_versiya_zapisi — инвариант И-10 контракта 100: истёкший
-# срок записи — отказ (не автопродление); версия определения в записи не
-# совпадает с доверенным отпечатком — отказ. Соответствие по target/key/sha
-# в обоих под-входах ЕСТЬ.
+# Клетка red_srok_i_versiya_zapisi — инвариант И-10 контракта 100 (круг 2, Б7:
+# вход — КОНФОРМНЫЙ контейнер schema/exceptions Решения 2, не голая запись):
+# истёкший срок записи — отказ (не автопродление); версия определения в записи
+# не совпадает с доверенным отпечатком — отказ. Соответствие по target/key/sha
+# в обоих под-входах ЕСТЬ, аннотации несут точный object записи.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
 
-AP2PH='check_skills: FAIL: нет положительного контроля'
+AP2PH='check:skills: FAIL: нет положительного контроля'
 EV='1111222233334444555566667777888899990000'
 
 itog=0
-sub() {  # <вариант expired|version> <запись-список-json> <ожидаемая-фраза>
-  local variant="$1" exlist="$2" want="$3"
+sub() {  # <вариант expired|version> <запись> <ожидаемая-фраза>
+  local variant="$1" ex="$2" want="$3"
   local W="$Z100_BASE/main-ci-100-srok-$variant-$$-${RANDOM}" API_PID="" out rc
   cleanup() { [ -n "$API_PID" ] && kill "$API_PID" 2>/dev/null; rm -rf "$W"; rm -f "${Z100_CR:-}"; }
   trap cleanup EXIT
-  Z100_EXCEPTIONS_JSON="$exlist" z100_mir_repo "$W"
+  # Б7: доверенный реестр — контейнер z100_ex_list (обязательная схема), НЕ голая запись
+  Z100_EXCEPTIONS_JSON="$(z100_ex_list "$ex")" z100_mir_repo "$W"
   z100_cr_reset
   local j
   for j in $(z100_jobs); do
     case "$j" in
       ap2) z100_cr_add "antiplacebo (ap2)" completed failure \
-             "def-sha256 $(z100_def_sha ap2)⏎$AP2PH⏎check_scope_select: PASS" ;;
+             "def-sha256 $(z100_def_sha ap2)⏎$AP2PH⏎check:scope-select: PASS" 2 fixtures/check_skills/ ;;
       *)   z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")" ;;
     esac
   done
-  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A"
+  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A,2"
   z100_api_write_crs "$W"
   local sv PORT
   sv="$(z100_api_serve "$W/api")"; API_PID="${sv%%:*}"; PORT="${sv#*:}"
@@ -46,8 +48,8 @@ sub() {  # <вариант expired|version> <запись-список-json> <о
   trap - EXIT; cleanup
 }
 
-ex_expired="$(z100_ex_json ap2 check_skills fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(z100_def_sha ap2)" "$EV" 'положительный контроль добавлен' 2000-01-01)"
-ex_stalever="$(z100_ex_json ap2 check_skills fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(printf 'c%.0s' {1..64})" "$EV" 'положительный контроль добавлен' 2030-01-01)"
+ex_expired="$(z100_ex_json ap2 'check:skills' fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(z100_def_sha ap2)" "$EV" 'положительный контроль добавлен' 2000-01-01)"
+ex_stalever="$(z100_ex_json ap2 'check:skills' fixtures/check_skills/ "$(z100_failsha "$AP2PH")" "$(printf 'c%.0s' {1..64})" "$EV" 'положительный контроль добавлен' 2030-01-01)"
 
 sub expired "$ex_expired" 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: срок исключения истёк: fixtures/check_skills/'
 sub stalever "$ex_stalever" 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: определение проверки не совпадает с записью: fixtures/check_skills/'

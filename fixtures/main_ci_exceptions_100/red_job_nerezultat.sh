@@ -31,7 +31,7 @@ sub() {  # <вариант> <ожидаемая-фраза>
       z100_cr_add "$(z100_prefix "$j") ($j)" completed success "$(z100_green "$j")"
     fi
   done
-  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A"
+  z100_api_write_runs "$W" "2,$Z100_P,completed,failure,$Z100_A,2"
   z100_api_write_crs "$W"
   local PORT=1
   if [ "$variant" != "deadapi" ]; then
