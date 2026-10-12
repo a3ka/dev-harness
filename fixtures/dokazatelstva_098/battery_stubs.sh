@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): четырнадцать порч честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): семнадцать порч честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -25,6 +25,15 @@
 #    критика круга 2: происхождение не
 #    сверяется с ответом CI)             mC4  red_odnoimennoj_chuzhoj_workflow
 # s14 сверка исполнителя (ciApp) снята   mC5  red_odnoimennoj_chuzhoj_workflow
+# s15 «последний success, иначе
+#    последний» в отборе прогона (арбитраж
+#    098, обход 1)                       mC7  red_smeshannaja_istorija
+# s16 красный прогон → die без строки
+#    (арбитраж 098, обход 2: прежнее
+#    поведение — порча против fail-записи) mC6  red_pozdnij_krasnyj_progon
+# s17 заключение раньше происхождения
+#    (чужой красный прогон пишет fail;
+#    арбитраж 098, порядок сверок)        mC8  red_smeshannaja_istorija
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -109,6 +118,12 @@ zapest s13 red_odnoimennoj_chuzhoj_workflow.sh t98-mC4 \
   's@.*# t98-mC4.*@wfr="$wfsha" # t98-mC4 порча@'
 zapest s14 red_odnoimennoj_chuzhoj_workflow.sh t98-mC5 \
   's@.*# t98-mC5.*@: # t98-mC5 порча@'
+zapest s15 red_smeshannaja_istorija.sh t98-mC7 \
+  's@.*# t98-mC7.*@best="$(printf '"'"'%s'"'"' "$body" | jq -c --arg k "$KEY" '"'"'[.check_runs[] | select(.name == $k)] | sort_by(.id) | ((map(select(.conclusion == "success")) | last) // last)'"'"' 2>/dev/null)" # t98-mC7 порча@'
+zapest s16 red_pozdnij_krasnyj_progon.sh t98-mC6 \
+  's@.*# t98-mC6.*@: # t98-mC6 порча@'
+zapest s17 red_smeshannaja_istorija.sh t98-mC8 \
+  's@.*# t98-mC8.*@if [ -n "$concl" ] && [ "$concl" != "success" ]; then printf '"'"'check\t%s\t%s\tfail\t%s\t%s\t%s\n'"'"' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL"; die "обязательная проверка красна: $KEY"; fi; [ "$aslg" = "$ciapp" ] || die "проверка чужой обвязки: $KEY" # t98-mC8 порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"

@@ -88,19 +88,20 @@ CURL
   printf '%s\n' "$d"
 }
 
-# _d98_ci <W> <sha> <имя:заключение[:@обвязка][:~wfsha]>... — ответ CI для sha
-# (head_sha=sha); id-счётчик мира монотонный: каждый следующий прогон «новее»
-# предыдущего. Каждый прогон несёт ИДЕНТИФИКАТОР ИСПОЛНИТЕЛЯ (app.slug; пин
-# принятой стороны — ciApp= политики мира; держать в синхроне с _d98_world) и
+# _d98_ci_runs <W> <sha> <имя:заключение[:@обвязка][:~wfsha]>... — JSON-МАССИВ
+# НОВЫХ прогонов (общий строитель _d98_ci/_d98_ci_add; head_sha=sha);
+# id-счётчик мира монотонный: каждый следующий прогон «новее» предыдущего.
+# Каждый прогон несёт ИДЕНТИФИКАТОР ИСПОЛНИТЕЛЯ (app.slug; пин принятой
+# стороны — ciApp= политики мира; держать в синхроне с _d98_world) и
 # sha256 ИСПОЛНЕННОГО определения (wfsha; умолчание — harness/checks/<имя>.cmd
 # дерева исполняемого sha: мир честно исполняет определение своего дерева; у
 # прогона без файла определения поля wfsha нет). Переопределения @обвязка/~wfsha
 # — клетки подделывают ОДНОИМЕННЫЙ чужой прогон (критик круга 2: чужой workflow
 # под тем же display-name) — обвязка и/или определение прогона не совпадают с
 # принятыми при том же имени и M.
-_d98_ci() {
+_d98_ci_runs() {
   local W="$1" sha="$2"; shift 2
-  local runs="" pair name concl slug wf part f id app wjson
+  local runs="[" pair name concl slug wf part f id app wjson
   for pair in "$@"; do
     name=""; concl=""; slug="harness-ci"; wf="auto"
     IFS=':' read -r -a f <<<"$pair"
@@ -124,8 +125,32 @@ _d98_ci() {
     wjson=""; [ -z "$wf" ] || wjson=",\"wfsha\":\"$wf\""
     runs="$runs{\"id\":$id,\"name\":\"$name\",\"head_sha\":\"$sha\",\"conclusion\":\"$concl\",\"app\":{\"id\":$app,\"slug\":\"$slug\"}$wjson},"
   done
-  printf '{"total_count":%s,"check_runs":[%s]}\n' "$#" "${runs%,}" \
+  printf '%s]\n' "${runs%,}"
+}
+
+# _d98_ci <W> <sha> <прогон>... — ответ CI для sha: прогоны ЗАМЕНЯЮТ прежние
+# (перезаписывающая операция каркаса)
+_d98_ci() {
+  local W="$1" sha="$2"; shift 2
+  local runs
+  runs="$(_d98_ci_runs "$W" "$sha" "$@")"
+  printf '{"total_count":%s,"check_runs":%s}\n' "$(printf '%s' "$runs" | jq 'length')" "$runs" \
     >"$W/fake/checkruns/$sha.json"
+}
+
+# _d98_ci_add <W> <sha> <прогон>... — ДОБАВИТЬ прогоны к УЖЕ собранному ответу
+# CI для sha (арбитраж 098 contracts-098-provenance-v1: смешанная история —
+# несколько одноимённых прогонов в ОДНОМ ответе; id-счётчик монотонен,
+# добавленный прогон «новее» всех прежних). Грамматика прогона — общая с
+# _d98_ci_runs, единый источник.
+_d98_ci_add() {
+  local W="$1" sha="$2"; shift 2
+  local f="$W/fake/checkruns/$sha.json" runs old
+  [ -s "$f" ] || d98_ni "ответа CI для sha ещё нет — добавлять не к чему: $sha"
+  runs="$(_d98_ci_runs "$W" "$sha" "$@")"
+  old="$(jq -c '.check_runs // []' "$f")"
+  jq -cn --argjson o "$old" --argjson a "$runs" \
+    '{total_count:(($o|length)+($a|length)),check_runs:($o+$a)}' >"$f"
 }
 
 # _d98_zov <W> <команда...> — вызов субъекта с PATH поддельного curl
