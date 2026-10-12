@@ -22,6 +22,7 @@
 # m14 create+delete временной ref (член 3; наблюдатель (1))                       + update-ref ±-d red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m15 HEAD отсоединён на тот же OID (член 4; оба наблюдателя)                     + --no-deref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m16 main перезаписан на тот же OID (член 5; наблюдатель (1))                    + update-ref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
+# m17 rc успешного проектного prepare подменён (блокер критика v4; обёртка над неизменной моделью — класс вне порчи по якорю)  rc 0→1 при projectLayer  red_oba_profilya.sh (А-5)
 # m0  пустышка БЕЗ порчи              —                    ВСЕ 8 клеток обязаны быть ЗЕЛЁНЫ (анти-тавтология)
 #
 # Поимка — ТОЛЬКО rc 1 (урок А-398): rc 0 (стаб прошёл клетку) и rc 2 (нечем
@@ -121,6 +122,53 @@ zapest m15 red_ni_odna_ref_ne_dvinuta.sh \
 zapest m16 red_ni_odna_ref_ne_dvinuta.sh \
   'printf '"'"'%s\n'"'"' "$m"' \
   's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref refs/heads/main "\$BASE"@'
+
+# m17 — обёртка rc-подмены проектного профиля (блокер критика круга 4): класс
+# ВНЕ порчи по якорю — обёртка вызывает НЕИЗМЕННУЮ модель (cmp-порча модели
+# невозможна по построению), а при verb=prepare && rc=0 читает принятый
+# harness.project.json на base; ключ "projectLayer" переводит rc успешного
+# prepare в 1, stdout/объекты/refs не трогает. На харнесе и на отказных
+# ветках обёртка честна — дефект наблюдаем ТОЛЬКО положительной пробой
+# проектного профиля клетки А-5, обязанной требовать rc 0 на КАЖДОМ профиле.
+f17="$WORK/m17.sh"
+cat >"$f17" <<'WRAP'
+#!/usr/bin/env bash
+# t97-m17: обёртка rc-подмены проектного профиля (блокер критика круга 4)
+set -uo pipefail
+MODEL="__T97_MODEL__"
+orig=("$@")
+verb="${1:-}"
+REPO=""; BASE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) REPO="${2:-}"; shift 2 ;;
+    --base) BASE="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+"$MODEL" "${orig[@]}"
+rc=$?
+if [ "$verb" = "prepare" ] && [ "$rc" -eq 0 ] && [ -n "$REPO" ] && [ -n "$BASE" ]; then
+  if git -C "$REPO" show "$BASE:harness.project.json" 2>/dev/null | grep -Fq '"projectLayer"'; then
+    exit 1
+  fi
+fi
+exit "$rc"
+WRAP
+sed -i "s@__T97_MODEL__@$MODEL@" "$f17" && chmod +x "$f17"
+if [ -x "$f17" ] && [ "$(grep -Fc '# t97-m17' "$f17")" -eq 1 ]; then
+  AP097_MODE=model AP097_ROOT="$HERE/../.." AP097_SUBJECT="$f17" \
+    bash "$HERE/red_oba_profilya.sh" >/dev/null 2>&1; rc=$?
+  if [ "$rc" -eq 1 ]; then
+    printf -- '— стаб m17 ПОЙМАН клеткой red_oba_profilya.sh\n'
+  else
+    printf 'СТАБ УШЁЛ: m17 не пойман клеткой red_oba_profilya.sh (rc=%s; поимка — ТОЛЬКО rc 1, А-398)\n' "$rc" >&2
+    itog=1
+  fi
+else
+  printf 'ОТКАЗ: стаб m17 не строится (маркер/исполняемость)\n' >&2
+  itog=2
+fi
 
 # пустышка: копия модели без порчи — каждая клетка обязана быть ЗЕЛЁНОЙ
 # (клетка, красная всегда, «ловила» бы и пустышку — анти-тавтология)
