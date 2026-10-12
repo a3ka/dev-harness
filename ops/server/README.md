@@ -227,7 +227,10 @@ orch-peak-stop.timer orch-peak-start.timer`. Не трогать `orch-ctx.timer
 # user-часть (под harness): ~/.local/bin/orch-loop, режим 755
 bash ops/server/install.sh user
 
-# root-часть (под root): /usr/local/sbin/orch-peak + 7 юнитов /etc/systemd/system/
+# root-часть (под root): /usr/local/sbin/orch-peak + bootstrap-библиотека
+# lib_session.sh (root:root 644) + её sha256-манифест lib_session.sh.sha256
+# (root:root 444 — по нему сторож проверяет установленный bootstrap, И-1)
+# + 7 юнитов /etc/systemd/system/
 sudo bash ops/server/install.sh root
 
 # сверка установленного с репо (любой пользователь, только читает):
@@ -301,7 +304,10 @@ sudo bash ops/server/install.sh verify-start
 `systemctl daemon-reload` и `systemctl restart` (находка 2 круга 2: без
 daemon-reload юнит остаётся на старой версии в памяти демона) и
 доказывает активность юнита живой `systemctl is-active` — никакого
-`install` между откатом и наблюдением не требуется.
+`install` между откатом и наблюдением не требуется. Манифест sha256
+восстановленной библиотеки откат пишет заново под неё (v1-библиотека с
+v2-манифестом = отказ И-1 у сторожа) и сверяет согласованность
+установленного манифеста с библиотекой.
 
 ```sh
 sudo bash ops/server/install.sh rollback
