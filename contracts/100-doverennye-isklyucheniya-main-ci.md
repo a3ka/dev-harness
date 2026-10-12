@@ -398,6 +398,17 @@
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 015 architect-зона (историческая заявка; прецеденты 070/071/098): дельта 100 — npm-ключ, равный команде шага
 ПЕРЕСЕЧЕНИЕ implementer: package.json — 011 architect-зона (историческая заявка; прецедент 071): та же дельта одним ключом
 ПЕРЕСЕЧЕНИЕ implementer: fixtures/gitw_predpolet/red_predpolet_071.sh — 071 implementer-зона: дельта 100 — перевод клеток п4а/п4б/п4е на новые фразы чека 3; остальные клетки батареи не тронуты
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 010 architect-зона (историческая заявка): 100 не отнимает файл у 010 — заявка orchestrator несёт только строки ПРОВОДКА текущего контракта (порядок лендов после установки, судьи с явным agent Н-270, жизненный цикл списка)
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 012 implementer-зона: изоляция прогонов (verify_antiplacebo, .omp/config.yml) не тронута; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 037 architect-зона: пин WORKTREE и стражи cwd/приёмника task не тронуты; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 050 architect-зона: нормы сложности/нарезки/reslop ролей не меняются; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 068 architect-зона: mint-строка и порядок пачки не тронуты; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 069 architect-зона: PR-маршрут не тронут; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 072 implementer-зона: дверь перезапуска сессии и pre_critic не тронуты; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 074 implementer-зона: серверная обвязка ops/server не тронута; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 094 implementer-зона: приём/публикация кандидата не тронуты (дельта 100 — только предикат чека 3 в gitw_preflight_071.sh, заявлен отдельной строкой); заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 095 implementer-зона: профиль/контекстпак агента не тронуты; заявка orchestrator у 100 — только строки ПРОВОДКА
+ПЕРЕСЕЧЕНИЕ orchestrator: roles/orchestrator.md — 099 implementer-зона: защищённый переходный маршрут 099 — цель после 100, не тронут; заявка orchestrator у 100 — только строки ПРОВОДКА
 БЕЗ ИЗМЕНЕНИЙ: scripts/gitw — крюк 071 уже вызывает предполёт из своего каталога; ручки GIT_EXCHANGE_GUARD_CANONICAL/GITW_PREFLIGHT_071_API используются клетками как есть; правка двери вне предмета 100
 
 ## Остаточный риск
