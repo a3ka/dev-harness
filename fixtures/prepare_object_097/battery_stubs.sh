@@ -17,6 +17,11 @@
 # m9  автор merge не orchestrator     GIT_AUTHOR_NAME      red_identity_i_sankcii_podgotovki.sh (А-7)
 # m10 коммиттер не orchestrator       GIT_COMMITTER_NAME   red_identity_i_sankcii_podgotovki.sh (А-7)
 # m11 prepare создаёт нецелевую ref   + update-ref tag     red_ni_odna_ref_ne_dvinuta.sh (А-8)
+# m12 лёгкий тег -> symref на ветку (замер 1 арбитража, член 1; наблюдатель (2))  + symbolic-ref   red_ni_odna_ref_ne_dvinuta.sh (А-8)
+# m13 отказ создаёт ref (член 2; отказный вызов, критерий А-8 на отказе)          + update-ref    red_politika_bez_targetbranches.sh (А-6)
+# m14 create+delete временной ref (член 3; наблюдатель (1))                       + update-ref ±-d red_ni_odna_ref_ne_dvinuta.sh (А-8)
+# m15 HEAD отсоединён на тот же OID (член 4; оба наблюдателя)                     + --no-deref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
+# m16 main перезаписан на тот же OID (член 5; наблюдатель (1))                    + update-ref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m0  пустышка БЕЗ порчи              —                    ВСЕ 8 клеток обязаны быть ЗЕЛЁНЫ (анти-тавтология)
 #
 # Поимка — ТОЛЬКО rc 1 (урок А-398): rc 0 (стаб прошёл клетку) и rc 2 (нечем
@@ -101,6 +106,21 @@ zapest m10 red_identity_i_sankcii_podgotovki.sh \
 zapest m11 red_ni_odna_ref_ne_dvinuta.sh \
   'printf '"'"'%s\n'"'"' "$m"' \
   's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref refs/tags/097-prepared "\$m"@'
+zapest m12 red_ni_odna_ref_ne_dvinuta.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" symbolic-ref refs/tags/light-base refs/heads/aux/non-target@'
+zapest m13 red_politika_bez_targetbranches.sh \
+  '] || die "политика: грамматика"' \
+  's@] || die "политика: грамматика"@] || { git -C "\$REPO" update-ref refs/tags/097-failed HEAD 2>/dev/null; die "политика: грамматика"; }@'
+zapest m14 red_ni_odna_ref_ne_dvinuta.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref refs/tags/097-transient HEAD 2>/dev/null; git -C "\$REPO" update-ref -d refs/tags/097-transient 2>/dev/null@'
+zapest m15 red_ni_odna_ref_ne_dvinuta.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref --no-deref HEAD "\$BASE"@'
+zapest m16 red_ni_odna_ref_ne_dvinuta.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref refs/heads/main "\$BASE"@'
 
 # пустышка: копия модели без порчи — каждая клетка обязана быть ЗЕЛЁНОЙ
 # (клетка, красная всегда, «ловила» бы и пустышку — анти-тавтология)

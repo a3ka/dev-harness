@@ -32,7 +32,10 @@ OID_BASE="$(_t97_expected_id "$R" "$BASE" T-97 main "$BASE" "$CAND" "$MERGE")"
 OID_CAND="$(_t97_expected_id "$R" "$CAND" T-97 main "$BASE" "$CAND" "$MERGE")"
 [ "$OID_BASE" != "$OID_CAND" ] || { printf 'КРАСНО: a2: мир не различает политики base и кандидата\n' >&2; exit 1; }
 
+_t97_refs_arm "$R" || exit 2
+refs_before="$(_t97_refs_snap "$R")" || exit 2
 out="$(bash "$SUBJ" prepare --repo "$R" --task T-97 --base "$BASE" --candidate "$CAND")"; rc=$?
+_t97_refs_check "$R" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
 case "$out" in ''|*[!0-9a-f]*)
   printf 'КРАСНО: a2: prepare не напечатал merge sha (rc=%s, вывод=%s)\n' "$rc" "$out" >&2; exit 1 ;; esac
 [ "${#out}" -eq 40 ] || { printf 'КРАСНО: a2: prepare напечатал не 40 hex: %s\n' "$out" >&2; exit 1; }

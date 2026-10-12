@@ -126,5 +126,64 @@ _t97_merge() {
   git -C "$1" commit-tree "$tree" -p "$2" -p "$3" -m "${4:-oracle-merge}"
 }
 
+# ── наблюдатели А-8 (арбитраж contracts-097-refs-v1 п.5а/5е): два обязательны ──
+# (1) хук reference-transaction мира (core.hooksPath мира; путь журнала вшит в
+# текст хука, не передаётся окружением): за вызов prepare — ноль записей;
+# калибровка ДО пробы — сама создаёт и удаляет временную ref и требует записей
+# хука, иначе rc 2 «нечем проверять». (2) снимок for-each-ref (имя,
+# objectname, symref) + строка HEAD <sha> <цель|detached>, снятый в память ДО
+# вызова (правило 8), байт-в-байт равен ПОСЛЕ; пустая выборка красна. Каждый
+# наблюдатель ловит то, что слеп другому (замер 2 арбитража: symref мимо
+# транзакций; временная ref мимо снимка) — сверяются ОБА на КАЖДОМ вызове
+# prepare в семье, успешном и отказном.
+_t97_refs_arm() {  # <repo> — наблюдатель (1): поставить хук, откалибровать, обнулить журнал
+  local repo="$1" wd hooks sha
+  wd="$(dirname "$repo")"; hooks="$wd/ref-hooks"
+  mkdir -p "$hooks" || return 2
+  cat >"$hooks/reference-transaction" <<HOOK
+#!/bin/sh
+# t97: наблюдатель (1) А-8 — путь журнала вшит в текст хука
+printf '%s %s\n' "\$1" "\$(cat)" >>'$wd/ref-tx.log'
+exit 0
+HOOK
+  chmod +x "$hooks/reference-transaction" || return 2
+  git -C "$repo" config core.hooksPath "$hooks" || return 2
+  : >"$wd/ref-tx.log" || return 2
+  sha="$(git -C "$repo" rev-parse HEAD)" || return 2
+  git -C "$repo" update-ref refs/_t97_calib "$sha" >/dev/null 2>&1 || return 2
+  git -C "$repo" update-ref -d refs/_t97_calib >/dev/null 2>&1 || return 2
+  [ -s "$wd/ref-tx.log" ] || {
+    printf 'NOT_IMPLEMENTED: нечем проверять: хук reference-transaction не срабатывает\n' >&2
+    return 2
+  }
+  : >"$wd/ref-tx.log" || return 2
+}
+
+_t97_refs_snap() {  # <repo> — наблюдатель (2): снимок refs+symref+HEAD в память (правило 8)
+  local repo="$1" h sym
+  h="$(git -C "$repo" rev-parse HEAD)" || return 2
+  sym="$(git -C "$repo" symbolic-ref -q HEAD)" || true
+  git -C "$repo" for-each-ref --format='%(refname) %(objectname) %(symref)' || return 2
+  printf 'HEAD %s %s\n' "$h" "${sym:-detached}"
+}
+
+_t97_refs_check() {  # <repo> <снимок-до> — оба наблюдателя А-8; rc 1 красная, rc 2 нечем проверять
+  local repo="$1" before="$2" after journal
+  case "$(printf '%s\n' "$before" | sed -n 1p)" in
+    'HEAD '*) printf 'КРАСНО: refs-наблюдатели (А-8): пустая выборка refs — сверять нечего\n' >&2; return 1 ;;
+  esac
+  after="$(_t97_refs_snap "$repo")" || return 2
+  journal="$(dirname "$repo")/ref-tx.log"
+  if [ -s "$journal" ]; then
+    printf 'КРАСНО: refs-наблюдатели (А-8): за вызов prepare были транзакции над refs (хук reference-transaction):\n%s\n' "$(cat "$journal")" >&2
+    return 1
+  fi
+  if [ "$after" != "$before" ]; then
+    printf 'КРАСНО: refs-наблюдатели (А-8): снимок refs изменился (обещание «не трогает ни одной ref»):\nДО:\n%s\nПОСЛЕ:\n%s\n' "$before" "$after" >&2
+    return 1
+  fi
+  return 0
+}
+
 # _t97_cleanup <каталог мира> — регистрируется trap'ом клетки
 _t97_cleanup() { rm -rf "$1" 2>/dev/null || true; }

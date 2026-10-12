@@ -20,7 +20,10 @@ CAND="$(git -C "$R" rev-parse cand)"
 MAIN_BEFORE="$(git -C "$R" rev-parse refs/heads/main)"
 [ -z "$(git -C "$R" status --porcelain)" ] || { printf 'КРАСНО: a3: мир не чист до пробы\n' >&2; exit 1; }
 
+_t97_refs_arm "$R" || exit 2
+refs_before="$(_t97_refs_snap "$R")" || exit 2
 M="$(bash "$SUBJ" prepare --repo "$R" --task T-97 --base "$BASE" --candidate "$CAND")"; rc=$?
+_t97_refs_check "$R" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
 case "$M" in ''|*[!0-9a-f]*)
   printf 'КРАСНО: a3: prepare не напечатал merge sha (rc=%s, вывод=%s)\n' "$rc" "$M" >&2; exit 1 ;; esac
 [ "${#M}" -eq 40 ] || { printf 'КРАСНО: a3: prepare напечатал не 40 hex: %s\n' "$M" >&2; exit 1; }

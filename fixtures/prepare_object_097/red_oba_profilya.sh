@@ -29,7 +29,10 @@ OP="$(_t97_expected_id "$RP" "$BP" T-97 main "$BP" "$CP" "$MP")"
 # положительные пробы: обе ветки prepare зелены + id своего профиля
 for probe in h p; do
   if [ "$probe" = h ]; then RR="$RH"; BB="$BH"; CC="$CH"; OO="$OH"; NAME=харнес; else RR="$RP"; BB="$BP"; CC="$CP"; OO="$OP"; NAME=проект; fi
+  _t97_refs_arm "$RR" || exit 2
+  refs_before="$(_t97_refs_snap "$RR")" || exit 2
   out="$(bash "$SUBJ" prepare --repo "$RR" --task T-97 --base "$BB" --candidate "$CC")"; rc=$?
+  _t97_refs_check "$RR" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
   case "$out" in ''|*[!0-9a-f]*)
     printf 'КРАСНО: a5: prepare профиля %s не напечатал merge sha (rc=%s, вывод=%s)\n' "$NAME" "$rc" "$out" >&2; exit 1 ;; esac
   [ "${#out}" -eq 40 ] || { printf 'КРАСНО: a5: prepare профиля %s напечатал не 40 hex: %s\n' "$NAME" "$out" >&2; exit 1; }
@@ -50,7 +53,10 @@ _t97_regen "$WH2/repo"
 git -C "$WH2/repo" add -A && git -C "$WH2/repo" commit -qm 'branch outside alphabet'
 BH2="$(git -C "$WH2/repo" rev-parse main)"; CH2="$(git -C "$WH2/repo" rev-parse cand)"
 B2H="$(git -C "$WH2/repo" rev-parse refs/heads/main)"
+_t97_refs_arm "$WH2/repo" || exit 2
+refs_before="$(_t97_refs_snap "$WH2/repo")" || exit 2
 o="$(bash "$SUBJ" prepare --repo "$WH2/repo" --task T-97 --base "$BH2" --candidate "$CH2" 2>&1)"; rc=$?
+_t97_refs_check "$WH2/repo" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
 { [ "$rc" -eq 1 ] && printf '%s' "$o" | grep -Fq 'политика: грамматика'; } || {
   printf 'КРАСНО: a5: неконформная политика профиля харнес не отказана именованно (rc=%s, вывод=%s)\n' "$rc" "$o" >&2; exit 1; }
 [ "$(git -C "$WH2/repo" rev-parse refs/heads/main)" = "$B2H" ] || { printf 'КРАСНО: a5: отказ (харнес) двинул main\n' >&2; exit 1; }
@@ -61,7 +67,10 @@ printf 'repoId=toy-proj-097\nmandatory=p-a,p-b\ntargetBranches=main\nbogus=1\n' 
 git -C "$WP2/repo" add -A && git -C "$WP2/repo" commit -qm 'unknown policy line'
 BP2="$(git -C "$WP2/repo" rev-parse main)"; CP2="$(git -C "$WP2/repo" rev-parse cand)"
 B2P="$(git -C "$WP2/repo" rev-parse refs/heads/main)"
+_t97_refs_arm "$WP2/repo" || exit 2
+refs_before="$(_t97_refs_snap "$WP2/repo")" || exit 2
 o="$(bash "$SUBJ" prepare --repo "$WP2/repo" --task T-97 --base "$BP2" --candidate "$CP2" 2>&1)"; rc=$?
+_t97_refs_check "$WP2/repo" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
 { [ "$rc" -eq 1 ] && printf '%s' "$o" | grep -Fq 'политика: грамматика'; } || {
   printf 'КРАСНО: a5: неконформная политика проектного слоя не отказана именованно (rc=%s, вывод=%s)\n' "$rc" "$o" >&2; exit 1; }
 [ "$(git -C "$WP2/repo" rev-parse refs/heads/main)" = "$B2P" ] || { printf 'КРАСНО: a5: отказ (проект) двинул main\n' >&2; exit 1; }
