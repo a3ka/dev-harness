@@ -7039,3 +7039,62 @@ interjection). Коммиты: `ed5353df`/`92b49388` (выброшены, сбр
 **ЧЕМ ЗАКРЫТЬ:** ждёт владельца — два готовых кандидата РАЗРЕШИЛ-ВЛАДЕЛЕЦ (check_charter.sh + check_zones.sh grandfather для `8c734d93`) в verdict-файле консультанта; 093-ветка — amend или grandfather, решение владельца (цена amend дешевле, ветка не слита).
 
 **Побочный урок инструментов (та же сессия):** изолированный `_task`-консультант (`isolated:true`), клонировавший репо ОТНОСИТЕЛЬНЫМ путём `tmp/<nonce>` внутри СОБСТВЕННОГО designated-worktree (не под глобальным `/tmp/dev-harness-verify/**`), не смог материализовать свой verdict-файл — Н-85/А-122 отказывает `write` там же, где отказал бы в main-чекауте, НЕЗАВИСИМО от изоляции. Задание субагенту обязано явно называть абсолютный путь `/tmp/dev-harness-verify/<nonce>/` для клона ДАЖЕ когда субагент изолирован (Н-143/148 дисциплина применима и к изолированным спавнам, не только main-direct). Оркестратор материализовал оба вердикта вручную из полного текста финального `abort-reason`/yield в транскрипте субагента (дословное восстановление, не пересказ).
+
+### Н-274. Н-273 остаётся ОТКРЫТОЙ и теперь блокирует НОВУЮ работу напрямую: PR#88 (083 architect, независимо верифицированный фикс Н-2/087 — живьём `ok=120 FAIL=0` на production `wip/087/implementer` ci.yml/registry, до фикса `ok=95 FAIL=12`) не проходит gitw-предполёт chek(3) «land без зелёного PR-CI» ИЗ-ЗА ТОГО ЖЕ `fixtures/dokazatelstva_098/` без `.probe-only` — antiplacebo-шарды ap4/ap5/l7 красны на ЛЮБОМ PR, не только push-CI main `ЖДЁТ ВЛАДЕЛЬЦА: батч, та же подпись, что форк main-ci-8c734d93-zone-charter-breach уже просит`
+
+**Что произошло:** автоперезапуск 2026-10-13 ~10:30 UTC нашёл unlanded commit `ae8cd86c`
+(083 architect: Г10 учит legkij-владение чека по реестру) — пере-база и живая проверка
+подтвердили: фикс полностью закрывает reviewer-находку Н-2 (087), на production
+`wip/087/implementer` ci.yml/registry `fixtures/ci_gen_083/red_ci_a_083.sh` даёт
+`ok=120 FAIL=0` (было `ok=95 FAIL=12`). Попытка `gitw push origin main` после локального
+`land_agent.sh --branch wip/083/architect` отказала «land без зелёного PR-CI»
+(gitw_preflight_071.sh chek 3 — требует ≥1 `pull_request`-event `workflow_run.conclusion=
+success` на head_sha мерж-ветки). Открыт PR#88 (`wip/083/architect`, force-push на
+существующую историческую ветку с 2 старыми MERGED PR), CI показал `ap4/ap5/l7: fail`,
+`l1-l6: success`. Разбор логов ap1 на СВЕЖЕМ main (`1c616f6c`, идентичный паттерн)
+подтвердил ЕДИНСТВЕННУЮ причину всех antiplacebo-отказов: `FAIL fixtures/dokazatelstva_098:
+фикстура без барьера — она ничего не держит» (расхождений: 1 из 76 фикстур). Это РОВНО
+то, что уже диагностировано Н-273 п.(1): фикс существует на `origin/wip/098/architect@
+a89497d6` («.probe-only маркер... закрывает verify_antiplacebo "фикстура без барьера" на
+PR#86»), но НЕ на main.
+
+**Почему фикс нельзя извлечь изолированно (новая находка этой сессии):** (а) `wip/098/
+architect` несёт ПОЛНУЮ историю контракта 098 (50+ коммитов) — rebase моей узкой ветки на
+main дал 7 add/add-конфликтов (main уже содержит `fixtures/dokazatelstva_098/` БЕЗ маркера
+через отдельный, более ранний, путь — коммит `8c734d93` из Н-273); (б) попытка взять ТОЛЬКО
+файл `.probe-only` (`git show a89497d6:...` → `git update-index --cacheinfo` → commit
+identity `architect` ПРЯМО в main-чекауте) отказана `check_staged.sh` новым классом: «вне
+своей ветки wip/ — автор architect спавнен в worktree (жива wip/<NNN>/architect), но
+коммитит в main» — contract-018-срез-1 страж требует коммит identity architect ТОЛЬКО
+внутри `git worktree` на branch `wip/<NNN>/architect`; (в) `wip/098/architect` branch-name
+занят РЕАЛЬНОЙ веткой — переиспользовать его для узкого фикса означало бы либо force-push
+поверх 50+ коммитов (риск уничтожения готового, critic-accepted, ожидающего bootstrap-100
+материала), либо landing ВСЕГО содержимого 098 в обход owner-санкционированной
+последовательности «098 → 097 → 092 → 095 → 093 → 094» контракта 100 §Предмет п.7 (Н-273
+само это подтверждает: «land_agent гейтится по PR-уровню head_sha» — ленд 098 целиком
+сейчас НЕ санкционирован).
+
+**Цена:** PR#88 (083 Н-2 фикс, полностью верифицированный) не ландится СЕГОДНЯ несмотря на
+отсутствие дефектов в самом фиксе — чистый побочный ущерб от Н-273. Поскольку та же
+antiplacebo-проверка стоит в КАЖДОМ PR-CI (ap1-ap5 матрица, contract 069 doorway), Н-273
+теперь структурно блокирует ЛЮБОЙ будущий PR, не только main push-CI main-watchdog нормы —
+цена растёт с каждым днём простоя.
+
+**ЧЕМ ЗАКРЫТЬ:** owner-батч уже содержит готовые grandfather-кандидаты (`verdicts/
+consultant/fork-main-ci-8c734d93-zone-charter-breach-v1.md`) для check_charter.sh/
+check_zones.sh на коммит `8c734d93` — ОНИ закрывают Н-273 п.(2), НЕ п.(1) (marker).
+Для п.(1) — владельцу нужно явно выбрать: (А) санкционировать узкий cherry-pick ТОЛЬКО
+файла `fixtures/dokazatelstva_098/.probe-only` identity `architect` НЕ в
+spawned-worktree-ограничении (точечное исключение guard'а contract-018-срез-1, аналог
+grandfather) — самый дешёвый путь; (Б) разрешить `wip/098/architect` веткой landится
+ПОРАНЬШЕ своей очереди в 100 §7 ТОЛЬКО ради marker-файла отдельным микро-PR без остального
+содержимого 098 (architect вырезает узкую ветку руками, не force-push поверх существующей);
+(В) принять остаточный риск — Н-273/Н-274 остаются открытыми, PR#88 ждёт вместе с общей
+очередью bootstrap-100.
+
+**Источник:** `gh pr checks 88`, `gh run list --repo a3ka/dev-harness --branch main
+--workflow ci.yml --limit 3`, `gh run view --job 115212794170 --log-failed` (TMPDIR=
+/tmp/dev-harness-verify обход permission-конфликта `/tmp/gh-cli-cache` чужого uid `nous`),
+живой `git rebase main` на `wip/098/architect-probeonly` (7 add/add конфликтов, abort),
+живой `check_staged.sh` отказ «вне своей ветки wip/» на прямом plumbing-коммите identity
+architect в main-чекауте.
