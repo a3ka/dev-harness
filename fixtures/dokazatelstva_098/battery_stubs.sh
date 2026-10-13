@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): девятнадцать порч честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двадцать одна порча честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -40,6 +40,11 @@
 # s19 сверка ref == merge при строке
 #    published снята (адверсарий
 #    A-098-2: устаревшая published)     mD6  red_ustarevshaja_published
+# s20 judge-писатели не создают журнал
+#    («нет файла» — отказ; ревьюер 098
+#    Рв1-1)                              mJ1  red_zhurnal_sozdaetsja_pisatelem
+# s21 check-писатель не создаёт журнал
+#    («нет файла» — отказ; Рв1-1)        mJ2  red_zhurnal_sozdaetsja_pisatelem
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -134,6 +139,10 @@ zapest s18 red_chuzhoj_head_sha.sh t98-mC9 \
   's@.*# t98-mC9.*@: # t98-mC9 порча@'
 zapest s19 red_ustarevshaja_published.sh t98-mD6 \
   's@.*# t98-mD6.*@: # t98-mD6 порча@'
+zapest s20 red_zhurnal_sozdaetsja_pisatelem.sh t98-mJ1 \
+  's@.*# t98-mJ1.*@  [ -f "$JOURNAL" ] || d98_die "журнал: нет файла: $JOURNAL" # t98-mJ1 порча@'
+zapest s21 red_zhurnal_sozdaetsja_pisatelem.sh t98-mJ2 \
+  's@.*# t98-mJ2.*@  [ -f "$JOURNAL" ] || die "журнал: нет файла: $JOURNAL" # t98-mJ2 порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"
