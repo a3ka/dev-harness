@@ -32,9 +32,11 @@
 #           NOPASSWD для launcher-паттерна: workshop под uid агента через
 #           `sudo -nu orchagent`) и — v2, Рв2-6 — исполняемый код агента
 #           в /opt/orch-agent (зеркальная копия доверенного чекаута
-#           OPS_SERVER_MAIN, rsync -a --delete, root:root, БЕЗ .env*:
-#           публикационный токен агенту недоступен, И-4; пользовательские
-#           пути станции не используются) — ТОЛЬКО в
+#           OPS_SERVER_MAIN, rsync -a --delete --delete-excluded, root:root,
+#           БЕЗ .env* (stale .env/.env.*/.ssh у получателя не переживают
+#           повторную установку — adversary 093-v4): публикационный токен
+#           агенту недоступен, И-4; пользовательские пути станции не
+#           используются) — ТОЛЬКО в
 #           производственном контуре (нет швов OPS_SERVER_SBIN_DST/
 #           OPS_SERVER_ETC_DST); в шов-мире провизионинг ИДЕНТИЧНОСТИ
 #           пропускается (тест-мир строит её сам, шимами getent/sudo
@@ -178,7 +180,11 @@ harness ALL=($AGENT_USER) NOPASSWD: ALL
 # Провизионится ИЗ доверенного чекаута $MAIN_DST (root-оператор запускает
 # установщик из него): зеркальная копия rsync -a --delete (идемпотентно),
 # БЕЗ креденшл станции — .env/.env.* исключены ДО копии (публикационный
-# токен агенту недоступен, И-4). Владелец root:root: код агентом НЕ
+# токен агенту недоступен, И-4), а stale-носители .env/.env.*/.ssh,
+# оставшиеся у ПОЛУЧАТЕЛЯ, удаляются (--delete-excluded, adversary
+# 093-v4, арбитраж 093 Р-4(а)): credential-носитель не переживает
+# повторную установку; зачистка ТОЛЬКО у получателя, источник $MAIN_DST
+# не меняется ни на байт. Владелец root:root: код агентом НЕ
 # перезаписывается (целостность кода); состояние/сессии агента —
 # $AGENT_HOME (/var/lib/orch-agent), НЕ здесь. Постусловие: каталог на
 # месте, workshop исполняем. Любой отказ — rc 1 с именованной причиной.
@@ -188,7 +194,8 @@ provision_agent_code() {
   command -v rsync >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: нет rsync\n' >&2; exit 2; }
   mkdir -p "$AGENT_ROOT" || die_write "$AGENT_ROOT"
-  rsync -a --delete --exclude='.env' --exclude='.env.*' --exclude='.ssh' \
+  rsync -a --delete --delete-excluded \
+    --exclude='.env' --exclude='.env.*' --exclude='.ssh' \
     "$MAIN_DST"/ "$AGENT_ROOT"/ || die_write "$AGENT_ROOT"
   chown -R root:root "$AGENT_ROOT" 2>/dev/null || die_write "chown -R $AGENT_ROOT"
   chmod 755 "$AGENT_ROOT" || die_write "chmod $AGENT_ROOT"
