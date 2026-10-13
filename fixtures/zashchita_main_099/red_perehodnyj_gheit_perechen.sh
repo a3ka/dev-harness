@@ -2,8 +2,9 @@
 # Клетка red_perehodnyj_gheit_perechen — инвариант З-6 контракта 099 (doc §3):
 # переходный доверенный гейт допускает ТОЛЬКО точно перечисленные дефекты,
 # исполненные ПОЛНОСТЬЮ, с доверенным происхождением проверок.
-# Десять входов (блокеры критика круга 1 :49/:48; входы и/к — граница
-# арбитража 099 круга 3 по происхождению кода проверок):
+# Одиннадцать входов (блокеры критика круга 1 :49/:48; входы и/к — граница
+# арбитража 099 круга 3 по происхождению кода проверок; вход л — вердикт
+# адверсария A099-M1, Решение 1г2: живая материализация замыкания M^1):
 #   (а) все составляющие зелёны → ДОПУСК;
 #   (б) отказ l7a, совпадающий с реестром (sha строк), l7b зелёна → ДОПУСК;
 #   (в) неизвестный отказ l7a → блокировка;
@@ -28,6 +29,17 @@
 #   (к) парный вход: кандидат легитимно ДОБАВЛЯЕТ новую клетку и её скрипт
 #       (байт-минимум не тронут) → допуск НЕ отказывает «проверки изменены
 #       кандидатом» — новая клетка становится гейтом после своего ленда.
+#   (л) ЖИВАЯ структурная сверка .github/workflows/ci.yml: каждая джоба,
+#       запускающая run_ci_lane.sh или npm run check:antiplacebo (запуском
+#       считается run-строка с таким токеном, КРОМЕ сам-теста раннера на
+#       собственных байтах — аргумент $TMP_ROOT, класс арбитража 020: сам-тест
+#       обязан стоять ДО материализации, bootstrap), обязана нести РАНЬШЕ
+#       первого такого run-шага шаг материализации
+#       git checkout <base.sha|HEAD^1|M^1> -- scripts fixtures package.json
+#       config (строки внутри #-комментариев материализацией не считаются);
+#       джоба без единого такого run-шага — NO-CHECKS, в выборке не участвует;
+#       ≥1 проверяемой джобы и хоть одна без шага до первого run → именованный
+#       красный отказ «живой workflow не материализует замыкание M^1».
 # Реестр перехода — на СОСТАВЛЯЮЩИХ (шаг-гранулярность l7a/l7b, агрегата l7 нет):
 # каждое имя обязано иметь completed-результат — допуск известного дефекта
 # удостоверяет полноту остальных результатов и завершённость исполнения.
@@ -218,6 +230,55 @@ mkdir -p "$W/api/repos/o/r/commits/$M5"
 z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M5"
 zcr "$W/api/repos/o/r/commits/$M5/check-runs" "$ALLGREEN"
 zelyona к
+
+# (л) ЖИВАЯ структурная сверка workflow (вердикт адверсария A099-M1; Решение 1г2):
+# барьер средо-зависимый — судится ЖИВОЙ .github/workflows/ci.yml дерева, на котором
+# исполняется клетка (не toy-мир). Запуск обязательной проверки — run-строка с
+# run_ci_lane.sh или npm run check:antiplacebo, КРОМЕ сам-теста раннера на
+# собственных байтах ($TMP_ROOT-аргумент, класс арбитража 020: сам-тест судит
+# СВОИ байты кандидата и обязан стоять ДО материализации — bootstrap, base main
+# не несёт семью). Такая джоба обязана нести РАНЬШЕ первого такого run-шага шаг
+# материализации git checkout <base.sha|HEAD^1|M^1> -- scripts fixtures package.json
+# config; строки внутри #-комментариев материализацией НЕ считаются; джоба без
+# единого такого run-шага — NO-CHECKS, в выборке не участвует (не красный класс).
+# Форма хвоста — единый источник: config/ci_parity_exceptions.txt («-- scripts
+# fixtures package.json config», дословно); ref — семейство base.sha|HEAD^1|M^1.
+LIVE_ROOT="$(cd "$HERE/../.." && pwd)"
+LIVE_CI="$LIVE_ROOT/.github/workflows/ci.yml"
+if [ ! -f "$LIVE_CI" ]; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход л: живой workflow отсутствует: %s\n' "$LIVE_CI" >&2
+  exit 1
+fi
+L_MAT='git[ \t]+checkout[ \t]+("?([$][{][{][ \t]*)?(github[.]event[.]pull_request[.]base[.]sha([ \t]*[}][}])?|HEAD\^1|M\^1)"?)[ \t]+--[ \t]+scripts[ \t]+fixtures[ \t]+package[.]json[ \t]+config([^a-zA-Z0-9_.-]|$)'
+L_RUN='run_ci_lane[.]sh|check:antiplacebo'
+L_EXCL='[$]TMP_ROOT'
+if ! L_OUT="$(L_MAT="$L_MAT" L_RUN="$L_RUN" L_EXCL="$L_EXCL" awk '
+  BEGIN { sec = ""; job = ""; sel = 0; rans = 0; mater = 0; ok = 0; n = 0; bad = "" }
+  function flush() {
+    if (job != "" && sel) { n++; if (!ok) bad = bad (bad == "" ? "" : ", ") job }
+    sel = 0; rans = 0; mater = 0; ok = 0
+  }
+  /^[^ \t#]/ { flush(); sec = $0; sub(/:.*/, "", sec); job = ""; next }
+  sec != "jobs" { next }
+  /^  [A-Za-z0-9_-]+:/ { flush(); job = $0; sub(/^ */, "", job); sub(/:.*/, "", job); next }
+  /^[ \t]*#/ { next }
+  { if ($0 ~ ENVIRON["L_MAT"]) mater = 1
+    if ($0 ~ ENVIRON["L_RUN"] && !($0 ~ ENVIRON["L_EXCL"]) && !rans) { rans = 1; sel = 1; ok = mater } }
+  END { flush(); printf "%d\t%s\n", n, bad }
+' "$LIVE_CI")"; then
+  printf 'NOT_IMPLEMENTED: red_perehodnyj_gheit_perechen: вход л: awk не разобрал %s\n' "$LIVE_CI" >&2
+  exit 2
+fi
+L_N="${L_OUT%%$'\t'*}"
+L_BAD="${L_OUT#*$'\t'}"
+case "$L_N" in '' | *[!0-9]*) printf 'NOT_IMPLEMENTED: red_perehodnyj_gheit_perechen: вход л: неожиданный счёт «%s»\n' "$L_N" >&2; exit 2 ;; esac
+printf 'вход л: живой workflow: проверяемых джоб %s\n' "$L_N" >&2
+if [ "$L_N" -eq 0 ]; then
+  printf 'вход л: NO-CHECKS — джоб с run_ci_lane.sh/check:antiplacebo в живом workflow нет; по контракту класс не красный\n' >&2
+elif [ -n "$L_BAD" ]; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход л: живой workflow не материализует замыкание M^1 до запуска проверок (Решение 1г2; вердикт адверсария A099-M1): job %s\n' "$L_BAD" >&2
+  exit 1
+fi
 
 
 printf 'ЗЕЛЕНО: red_perehodnyj_gheit_perechen\n'
