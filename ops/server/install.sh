@@ -36,9 +36,13 @@
 #           публикационный токен агенту недоступен, И-4; пользовательские
 #           пути станции не используются) — ТОЛЬКО в
 #           производственном контуре (нет швов OPS_SERVER_SBIN_DST/
-#           OPS_SERVER_ETC_DST); в шов-мире провизионинг пропускается
-#           (тест-мир строит идентичность агента сам, шимами getent/sudo
-#           — 085). Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME
+#           OPS_SERVER_ETC_DST); в шов-мире провизионинг ИДЕНТИЧНОСТИ
+#           пропускается (тест-мир строит её сам, шимами getent/sudo
+#           — 085), а провизионинг КОДА агента достижим в шов-мире при
+#           ЯВНОМ шове OPS_SERVER_AGENT_ROOT (тест-шов поведенческой
+#           клетки 9, adversary 093-v3: no-copy мутант обязан быть
+#           различим в toy-мире, иначе клетка — только grep). Швы
+#           OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME
 #           переопределяют идентичность; по умолчанию orchagent /
 #           /var/lib/orch-agent. Шов OPS_SERVER_AGENT_ROOT переопределяет
 #           корень кода агента (по умолчанию /opt/orch-agent).
@@ -388,7 +392,17 @@ case "$1" in
     # rc=1 (без прямого exit), затем общий exit "$rc".
     if [ "$rc" -eq 0 ]; then
       if [ -n "${OPS_SERVER_SBIN_DST:-}" ] || [ -n "${OPS_SERVER_ETC_DST:-}" ]; then
-        printf 'шов-мир: провизионинг %s и кода агента пропущен (тест-мир по швам адресатов)\n' "$AGENT_USER"
+        # Провизионинг КОДА агента в шов-мире: при ЯВНО заданном шове
+        # OPS_SERVER_AGENT_ROOT (тест-шов поведенческой клетки 9, adversary
+        # 093-v3: no-copy мутант обязан быть различим в toy-мире — без шова
+        # клетка вырождается в grep по тексту субъекта). Идентичность и в
+        # этом случае строит тест-мир; производственный контур не меняется.
+        if [ -n "${OPS_SERVER_AGENT_ROOT:-}" ]; then
+          printf 'шов-мир: идентичность %s — тест-мир; код агента — по шову OPS_SERVER_AGENT_ROOT\n' "$AGENT_USER"
+          provision_agent_code || rc=1
+        else
+          printf 'шов-мир: провизионинг %s и кода агента пропущен (тест-мир по швам адресатов)\n' "$AGENT_USER"
+        fi
       else
         provision_orchagent || rc=1
         provision_agent_code || rc=1
