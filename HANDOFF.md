@@ -1,3 +1,41 @@
+## ГДЕ МЫ (2026-10-13, продолжение автоперезапуска — post-merge CI PR#89 12/12 GREEN подтверждён; 093 Рв5-1 ПОЧИНЕН и запушен тремя мех-фиксами (identity×2 + zone-reauthor), land блокирован НОВОЙ находкой — architect-круг в работе; контракт 098 ПОЛНОСТЬЮ РЕАЛИЗОВАН implementer'ом и запушен, adversary-круг в работе; main=aacb795c3 не менялся)
+
+### Пункт 1 — post-merge CI PR#89: ЗЕЛЁНЫЙ, не регрессия
+
+`gh run view 38425053955` (триггер — HANDOFF-коммит оркестратора ПОСЛЕ ленда) → 12/12 PASS. Отменённый run `38424793833` — просто concurrency-cancel новым пушем ("Canceling since a higher priority waiting request… exists"), не регрессия. Прошлые FAILED-пуши, на которые указывала поправка 3 — промежуточные коммиты ЭТОЙ ЖЕ landing-сессии ДО финального l4-фикса, не пост-ленд регрессия.
+
+### Пункт 2 — 093 Рв5-1 (check_zones 14 отказов d9d727d0): ПОЧИНЕН, land блокирован НОВОЙ находкой
+
+Арбитраж `verdicts/arbitration/093-adversary-round-cap-v1.md` Р-4(а) уже предписывал маршрут дословно: «implementer переоформляет под своим именем шов OPS_SERVER_AGENT_ROOT из d9d727d0 … grandfather-исключение не изобретается» — чистое ИСПОЛНЕНИЕ, не новое решение. Субагент `Implementer093ZoneReauthor` сделал git-rebase со СПЛИТОМ (живой скан зон обнаружил, что d9d727d0 сам смешивал 2 зоны: `fixtures/ops_granica/` → architect-коммит, `ops/server/install.sh` → implementer-коммит) — 0-байт diff против старого tip, независимо перепроверено оркестратором.
+
+При `land_agent.sh` всплыли ДВА ДОПОЛНИТЕЛЬНЫХ ПРЕДСУЩЕСТВУЮЩИХ дефекта (не этой правки, глубже в истории 093 до начала сессии) — оба починены оркестратором через `git filter-branch` (committer=author / committer=`architect` вместо незарегистрированного `architect398fix`), каждый раз 0-байт diff:
+1. `83a245b0` — identity расщеплена (author=implementer, committer=orchestrator).
+2. `8ef7d1204` — committer `architect398fix` не объявлен НИ ОДНОЙ ЗОНА-строкой замороженных контрактов (И-9 реестра).
+
+Финальный tip после всех трёх мех-фиксов: `6a257c295...` — запушен на `origin/wip/int-093/architect` (force-with-lease на каждом шаге, `check_no_leak.sh --check` чисто до/после каждого обмена). Независимая проверка: `check_zones.sh` чист от `d9d727d0`, Р-4(в) чеклист арбитража 5/5 зелёный (живой вывод `Implementer093ZoneReauthor`).
+
+**ТРЕТИЙ блокер (НЕ починен, в работе)**: `git merge --no-ff origin/main` конфликтует в `NABLIUDENIA_ARCHITECT.md` — 093-ветка и main НЕЗАВИСИМО добавили новые записи, используя ПЕРЕСЕКАЮЩИЕСЯ номера А-399/А-400 (разный контент на каждой стороне; merge-base `2f232d7c8` несёт только до А-394). Spawned `Architect093RenumberNab` с ГОТОВОЙ картой переномерования (093-ветка: 395→409, 396→410, 397→411, 398→412, 399→413, 400→414, старые 410→415, 411→416; А-905…913 коллизии нет, не трогать) — **РЕЗУЛЬТАТ ЕЩЁ НЕ ПОЛУЧЕН** на момент этой записи.
+
+Worktree для повторного `land_agent.sh` уже настроен: `/tmp/dev-harness-worktrees/c907157c/wip-int-093-architect` (branch `wip/int-093/architect`).
+
+### Пункт 3 — контракт 098 (производственные доказательства до публикации): РЕАЛИЗОВАН implementer'ом, adversary в работе
+
+Контракт 098 был ЗАМОРОЖЕН (`frozen/contracts/098/1`) с ПОЛНОЙ красной батареей (17 `red_*.sh` + `model/` reference-реализации 469 строк, architect-зона) — `scripts/accept_publish.sh` просто НЕ СУЩЕСТВОВАЛ в дереве (ПРЕДЫДУЩАЯ сессия ошибочно считала, что здесь нужен «architect-круг на красные клетки» — красные клетки УЖЕ БЫЛИ, не хватало только implementer-реализации). Субагент `Implementer098AcceptPublish` реализовал все три субъекта: `scripts/accept_publish.sh` (новый, 247 строк), `scripts/judge_gate.sh` (+`--verdict-row`/`--policy-row`), `scripts/check_ci_gate.sh` (+`--check-row`, безфлаговая семантика 4б/087 НЕ тронута). `bash fixtures/_krasnye_098.sh` → rc=0, независимо перепроверено оркестратором (17/17 стабов пойманы, 14/14 клеток зелёные). `case_ne_zapusheno.sh`-миграция (регламент `2026-10-13-perehodnyj-reglament.md:148`) НЕ СДЕЛАНА implementer'ом — верно, чужая (architect) зона; клетка остаётся зелёной в базовой форме, конфликта не внесено. Push: `origin/wip/098/implementer` @ `418b437c6`.
+
+Spawned `Adversary098Circle1` — **РЕЗУЛЬТАТ ЕЩЁ НЕ ПОЛУЧЕН** на момент этой записи. После adversary — обязателен круг ревьюера (АGENTS.md §Воркфлоу шаг 7) перед `done`.
+
+### Следующей сессии / порядок действий
+
+1. Проверить результаты `Architect093RenumberNab` и `Adversary098Circle1` (`history://<id>`, если доставка истекла — у обоих `isolated: true`).
+2. **093**: после renumber-фикса — повторный `git merge --no-ff origin/main` обязан дать 0 конфликтов (проверено заданием architect ДО доклада); затем force-push на `origin/wip/int-093/architect`, обновить worktree, повторить `land_agent.sh --branch wip/int-093/architect --worktree /tmp/dev-harness-worktrees/c907157c/wip-int-093-architect`.
+3. **098**: после adversary (BLOCKS → правка; PASS → ревьюер круг) — land. Отдельным заданием architect — миграция `case_ne_zapusheno.sh` (регламент :148, architect-зона `fixtures/`).
+4. `check_ci_gate.sh` семантика регламента §4 — ЗАКРЫТО внутри 098 (не отдельный предмет, как думала предыдущая сессия — красные клетки для --check-row уже существовали в `fixtures/dokazatelstva_098/`, implementer только реализовал субъект).
+5. Identity owner — АБСОЛЮТНЫЙ запрет (Н-276): включать дословно в КАЖДОЕ задание субагенту с git-коммитами, как делалось в этой сессии.
+6. А-908 — ещё не взято в работу (легализация v2-текста контракта 093: маршрут architect → критик → consultant приносит `РАЗРЕШИЛ-ВЛАДЕЛЕЦ`, `forks/093-rv2-6-orchagent-harness-group.md:25-27`); НЕ блокирует остальной 093-прогресс.
+
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
 ## ГДЕ МЫ (2026-10-13 ~16:50 UTC, автоперезапуск по сторожу контекста ≥500K — PR#89 ПРИЗЕМЛЁН и запушен, 093 circle-4 закрыт reviewer-accept с условием ленда, main=c4bd709a1)
 
 ### Итог сессии: оба слота доведены до конкретного результата
