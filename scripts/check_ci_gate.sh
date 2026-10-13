@@ -201,9 +201,69 @@ total="$(printf '%s' "$body" | jq -r '.total_count // -1' 2>/dev/null)" || total
 [ "$total" -ge 0 ] || die "ответ CI не разобран: total_count нет — $(printf '%s' "$body" | head -c 200)"
 [ "$total" -gt 0 ] || die "прогонов CI по $short нет: чек-раны пусты — workflow не запускался"
 
-bad_run="$(printf '%s' "$body" | jq -r '[.check_runs[] | select((.conclusion // "") != "success")][0] | if . then (.name + " → " + (.conclusion // "без завершения")) else "" end')"
-if [ -n "$bad_run" ]; then
-  die "CI не зелёный по $short: $bad_run — судью не звать, чинить пачку"
+bad_run="$(printf '%s' "$body" | jq -r '[.check_runs[] | select(((.conclusion // "") != "success") and ((.conclusion // "") != "skipped"))][0] | if . then (.name + " → " + (.conclusion // "без завершения")) else "" end')"
+[ -z "$bad_run" ] || die "CI не зелёный по $short: $bad_run — судью не звать, чинить пачку"
+
+# И-6 контракта 087: разбор в памяти через python (разовая зависимость —
+# есть в образе ubuntu-latest); четыре строки вердикта: total, первый
+# красный, число skipped, состояние legkij (имя прогона ЛИТЕРАЛЬНО
+# «legkij» или «legkij (…)» — ровно так именуется джоба legkij и её
+# шаги). Переход от jq-блока выше сохранён: при пустых skipped ниже —
+# тот же путь, что и прежде (legacy «все success»); при ≥1 skipped —
+# legkij обязано быть success, иначе отказ «legkij»; иначе тяжёлое
+# принято по кодовому хешу с другого sha через `ci_klass.sh dokaz`.
+verdict="$(printf '%s' "$body" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    runs = d["check_runs"]; total = d["total_count"]
+    assert isinstance(runs, list) and isinstance(total, int)
+except Exception:
+    print("-1\n\n0\nнет"); sys.exit(0)
+bad = ""; skipped = 0; leg = []
+for r in runs:
+    c = r.get("conclusion") or "без завершения"
+    n = r.get("name") or ""
+    if c == "skipped":
+        skipped += 1
+    elif c != "success" and not bad:
+        bad = n + " → " + c
+    if n == "legkij" or n.startswith("legkij ("):
+        leg.append(c)
+legs = "нет" if not leg else ("success" if all(c == "success" for c in leg) else "не success")
+print("%d\n%s\n%d\n%s" % (total, bad.replace("\n", " "), skipped, legs))
+')"
+mapfile -t V <<< "$verdict"
+total="${V[0]:--1}"; bad="${V[1]:-}"; skipped="${V[2]:-0}"; legs="${V[3]:-нет}"
+[ "$total" -ge 0 ] || die "ответ CI не разобран: $(printf '%s' "$body" | head -c 200)"
+[ "$total" -gt 0 ] || die "прогонов CI по $short нет: чек-раны пусты — workflow не запускался"
+[ -z "$bad" ] || die "CI не зелёный по $short: $bad — судью не звать, чинить пачку"
+
+if [ "$skipped" -eq 0 ]; then
+  # Прежнее правило (все success, без skipped) — зелёное.
+  printf '  ok   CI зелёный: проверок %s, все success, по %s (%s)\n' "$total" "$short" "$repo" >&2
+  exit 0
 fi
 
-printf '  ok   CI зелёный: проверок %s, все success, по %s (%s)\n' "$total" "$short" "$repo" >&2
+# При ≥1 skipped: legkij обязано быть success; иначе отказ с фразой «legkij».
+[ "$legs" = success ] \
+  || die "лёгкое задание legkij по $short: $legs — пропуск тяжёлых джоб без лёгкого зелёного не принимается"
+
+# Иначе тяжёлое принято по кодовому хешу с другого sha: `ci_klass.sh dokaz <sha>`.
+# API-база — производная от $repo, чтобы не зависеть от remote_url в cwd вызова
+# (адверсарий 045: cwd вызова и remote могут расходиться; для гейта важна
+# текущая remote). Передаём GITHUB_REPOSITORY (через CI_KLASS_API формат
+# «repos/<o>/<r>»), тогда ci_klass.sh dokaz идёт по этому base.
+# Н-1 (reviewer 087 круг 1): ci_klass.sh читает git в СВОЁМ cwd, не в $ROOT —
+# явный `cd "$ROOT"` перед вызовом (гейт уже несёт явный корневой аргумент,
+# дефект был в под-вызове dokaz в неявном cwd вызывающего).
+set +e
+dk="$(cd "$ROOT" && CI_KLASS_API="https://api.github.com/repos/${repo}" bash "$SELF_DIR/ci_klass.sh" dokaz "$sha" 2>&1)"
+drc=$?
+set -e
+case "$drc" in
+  0) printf '  ok   CI зелёный: лёгкое по %s, тяжёлое — по кодовому хешу, %s\n' "$short" "$dk" >&2
+     exit 0 ;;
+  2) die "CI не ответил по $short (доказательство тяжёлого): $dk" ;;
+  *) die "тяжёлые джобы по $short пропущены, а $dk" ;;
+esac
