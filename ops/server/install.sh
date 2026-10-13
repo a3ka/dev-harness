@@ -3,7 +3,7 @@
 #
 # Единый источник — ops/server/ в этом дереве; установленное == репо (sha256
 # по каждому из 9 файлов). Подкоманды (ровно одна):
-#   user  — копирует ops/server/user/orch-loop в $HOME/.local/bin/orch-loop,
+#   user  — копирует ops/server/user/orch-loop в $HOME/bin/orch-loop,
 #           режим 755, перечитывает sha256 адресата против источника (rc 0 /
 #           rc 1 с именем файла);
 #   root  — копирует ops/server/root/orch-peak в /usr/local/sbin/orch-peak
@@ -26,15 +26,22 @@
 #           ${OPS_SERVER_ROLLBACK_BACKUP-<SBIN_DST>/.rollback} — со второй
 #           установки (первой снимать нечего). Контракт 093 И-3: ПОСЛЕ
 #           sha256-петли и блокировки провизионит system-user orchagent
-#           (идемпотентно), /var/lib/orch-agent (владелец orchagent) и узкое
-#           sudoers-правило /etc/sudoers.d/orch-agent-launcher (harness →
-#           orchagent NOPASSWD для launcher-паттерна: workshop под uid
-#           агента через `sudo -nu orchagent`) — ТОЛЬКО в производственном
-#           контуре (нет швов OPS_SERVER_SBIN_DST/OPS_SERVER_ETC_DST);
-#           в шов-мире провизионинг пропускается (тест-мир строит
-#           идентичность агента сам, шимами getent/sudo — 085). Швы
-#           OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME переопределяют
-#           идентичность; по умолчанию orchagent / /var/lib/orch-agent.
+#           (идемпотентно, БЕЗ группы harness — Рв2-6), /var/lib/orch-agent
+#           (владелец orchagent), узкое sudoers-правило
+#           /etc/sudoers.d/orch-agent-launcher (harness → orchagent
+#           NOPASSWD для launcher-паттерна: workshop под uid агента через
+#           `sudo -nu orchagent`) и — v2, Рв2-6 — исполняемый код агента
+#           в /opt/orch-agent (зеркальная копия доверенного чекаута
+#           OPS_SERVER_MAIN, rsync -a --delete, root:root, БЕЗ .env*:
+#           публикационный токен агенту недоступен, И-4; пользовательские
+#           пути станции не используются) — ТОЛЬКО в
+#           производственном контуре (нет швов OPS_SERVER_SBIN_DST/
+#           OPS_SERVER_ETC_DST); в шов-мире провизионинг пропускается
+#           (тест-мир строит идентичность агента сам, шимами getent/sudo
+#           — 085). Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME
+#           переопределяют идентичность; по умолчанию orchagent /
+#           /var/lib/orch-agent. Шов OPS_SERVER_AGENT_ROOT переопределяет
+#           корень кода агента (по умолчанию /opt/orch-agent).
 #   verify — только читает: побайтно сверяет все 9 адресатов с источниками;
 #             все равны — rc 0 и «сверка: 9/9»; любое расхождение — rc 1
 #             с stderr «ОТКАЗ: расхождение <путь>».
@@ -66,6 +73,8 @@
 # При шве скрипт не читает и не пишет умолчательный путь того же шва.
 # Швы OPS_SERVER_AGENT_USER / OPS_SERVER_AGENT_HOME (093, И-3) переопределяют
 # идентичность пользователя-агента; install.sh root провизионит их идемпотентно.
+# Шов OPS_SERVER_AGENT_ROOT (093, И-3 v2, Рв2-6) переопределяет корень
+# исполняемого кода агента (по умолчанию /opt/orch-agent).
 #
 # Коды возврата:
 #   0 — успех (или сверка чиста);
@@ -79,7 +88,7 @@ set -u
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC_ROOT="${OPS_SERVER_SRC:-$SELF_DIR}"
 # Швы-адресаты (инвариант 6): ${VAR-…} — пустая строка = значение (намеренный пустой OPS_SERVER_BIN_DST/ETC_DST/SBIN_DST = путь по умолчанию); источник SRC остаётся с :-(отсутствие SRC = дефолт).
-BIN_DST="${OPS_SERVER_BIN_DST-$HOME/.local/bin}"
+BIN_DST="${OPS_SERVER_BIN_DST-$HOME/bin}"
 SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
 MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
@@ -90,6 +99,8 @@ STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
 AGENT_USER="${OPS_SERVER_AGENT_USER-orchagent}"
 AGENT_HOME="${OPS_SERVER_AGENT_HOME-/var/lib/orch-agent}"
 SUDOERS_DROP="${OPS_SERVER_SUDOERS_DROP-/etc/sudoers.d/orch-agent-launcher}"
+# Контракт 093 И-3 (Рв2-6, v2): корень исполняемого кода агента.
+AGENT_ROOT="${OPS_SERVER_AGENT_ROOT-/opt/orch-agent}"
 
 # ── зависимости и источник (fail-closed rc 2) ────────────────────────────────
 command -v sha256sum >/dev/null 2>&1 \
@@ -159,6 +170,29 @@ harness ALL=($AGENT_USER) NOPASSWD: ALL
     || { printf 'ОТКАЗ: sudoers drop-in не содержит ожидаемое правило\n' >&2; exit 1; }
 }
 
+# Контракт 093 И-3 (Рв2-6, v2): исполняемый код агента — /opt/orch-agent.
+# Провизионится ИЗ доверенного чекаута $MAIN_DST (root-оператор запускает
+# установщик из него): зеркальная копия rsync -a --delete (идемпотентно),
+# БЕЗ креденшл станции — .env/.env.* исключены ДО копии (публикационный
+# токен агенту недоступен, И-4). Владелец root:root: код агентом НЕ
+# перезаписывается (целостность кода); состояние/сессии агента —
+# $AGENT_HOME (/var/lib/orch-agent), НЕ здесь. Постусловие: каталог на
+# месте, workshop исполняем. Любой отказ — rc 1 с именованной причиной.
+provision_agent_code() {
+  [ -d "$MAIN_DST" ] \
+    || { printf 'ОТКАЗ: нет источника кода агента: %s\n' "$MAIN_DST" >&2; return 1; }
+  command -v rsync >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: нет rsync\n' >&2; exit 2; }
+  mkdir -p "$AGENT_ROOT" || die_write "$AGENT_ROOT"
+  rsync -a --delete --exclude='.env' --exclude='.env.*' --exclude='.ssh' \
+    "$MAIN_DST"/ "$AGENT_ROOT"/ || die_write "$AGENT_ROOT"
+  chown -R root:root "$AGENT_ROOT" 2>/dev/null || die_write "chown -R $AGENT_ROOT"
+  chmod 755 "$AGENT_ROOT" || die_write "chmod $AGENT_ROOT"
+  [ -x "$AGENT_ROOT/workshop" ] \
+    || { printf 'ОТКАЗ: в %s нет исполняемого workshop\n' "$AGENT_ROOT" >&2; return 1; }
+  printf 'провизионинг кода агента: %s (из %s, без .env*)\n' "$AGENT_ROOT" "$MAIN_DST"
+}
+
 # ── И-6 v2 (Рв2-5, слово владельца 2026-10-12): доказательство завершения ───
 # oneshot-запуска. Юнит — oneshot: ActiveState=inactive после успеха — НОРМА;
 # критерий завершённости — Result=success И СВЕЖИЙ ExecMainExitTimestamp
@@ -200,7 +234,7 @@ oneshot_new_run_done() { # <юнит> <t0-ns>: rc 0 ⟺ Result=success И шта
 [ $# -eq 1 ] || usage
 case "$1" in
   user)
-    # user-часть: orch-loop → ~/.local/bin, режим 755, sha256 против источника.
+    # user-часть: orch-loop → ~/bin, режим 755, sha256 против источника.
     mkdir -p "$BIN_DST" || die_write "$BIN_DST"
     cp -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" \
       || die_write "$BIN_DST/orch-loop"
@@ -354,9 +388,10 @@ case "$1" in
     # rc=1 (без прямого exit), затем общий exit "$rc".
     if [ "$rc" -eq 0 ]; then
       if [ -n "${OPS_SERVER_SBIN_DST:-}" ] || [ -n "${OPS_SERVER_ETC_DST:-}" ]; then
-        printf 'шов-мир: провизионинг %s пропущен (тест-мир по швам адресатов)\n' "$AGENT_USER"
+        printf 'шов-мир: провизионинг %s и кода агента пропущен (тест-мир по швам адресатов)\n' "$AGENT_USER"
       else
         provision_orchagent || rc=1
+        provision_agent_code || rc=1
       fi
     fi
     exit "$rc"
