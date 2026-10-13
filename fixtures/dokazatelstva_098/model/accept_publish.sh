@@ -187,7 +187,7 @@ fi
 # И-9(а): уже опубликовано — строка published
 if grep -Fq "published	$oid	" "$JOURNAL"; then # t94-m9: идемпотентность по журналу
   refnow="$(git -C "$REPO" rev-parse "refs/heads/$TARGET")"
-  [ "$refnow" = "$MERGE" ] || die "публикация расползлась: ref != merge"
+  [ "$refnow" = "$MERGE" ] || die "публикация расползлась: ref != merge" # t98-mD6: строка published без ref == merge — не публикация (И-9; адверсарий A-098-2)
   printf 'УЖЕ ОПУБЛИКОВАНО object=%s merge=%s\n' "$oid" "$MERGE"
   exit 0
 fi
