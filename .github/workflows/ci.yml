@@ -80,6 +80,14 @@ jobs:
         # версией в главной джобе.
         with:
           node-version: 26
+      - name: Материализация проверочного замыкания из M^1 (контракт 099, Решение 1г2)
+        # Обязательные проверки (шарды antiplacebo) исполняются кодом ПЕРВОГО
+        # РОДИТЕЛЯ M^1 = base PR (грамматика toy-мира fixtures/zashchita_main_099/_mir.sh);
+        # байт-минимум M^1↔M (pr_dopusk, гвард 0б) запрещает кандидату править этот шаг.
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
+          git checkout "${{ github.event.pull_request.base.sha }}" -- scripts fixtures package.json config
       - name: Анти-плацебо · шард ${{ matrix.shard }}
         # Р1/предмет п.1: --scope задаёт КОНКРЕТНЫЕ ключи шарда (на которых
         # scope_select выберет case-*). --changed отменён — он видел только
@@ -211,6 +219,28 @@ jobs:
         # подстановки в реестре.
         if: github.event_name == 'push'
         run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
+      - name: Красная батарея 099 (защищённый переходный маршрут в main + Н-270)
+        # Прямой шаг ВНЕ матрицы по прецеденту 058/070/071/080/083 (ПЕРЕСЕЧЕНИЕ
+        # 015/011 контракта 099, реализационная пачка): раннер
+        # `fixtures/_krasnye_099.sh` гоняет 10 клеток семьи
+        # `fixtures/zashchita_main_099/` и обманный стаб-пак battery_stubs.sh
+        # (12/12). Самодостаточен: toy-миры в mktemp-каталогах + локальный
+        # python3 API-стаб, стерегомое дерево не мутирует, внешней сети нет.
+        # Стоит ДО материализации (сам-тест судит СВОИ байты кандидата — класс
+        # арбитража 020; bootstrap: base main ещё не несёт семью 099).
+        run: bash fixtures/_krasnye_099.sh
+
+      - name: Материализация проверочного замыкания из M^1 (контракт 099, Решение 1г2)
+        # Обязательные проверки (lane) исполняются кодом ПЕРВОГО РОДИТЕЛЯ
+        # M^1 = base PR — Решение 1г2 контракта 099: кандидат сохраняет имена
+        # и зелёные статусы checks, заменяя исполняемый код проверки — шаг
+        # материализации закрывает подмену (вердикт адверсария A099-M1).
+        # Байт-минимум M^1↔M (pr_dopusk, гвард 0б) запрещает кандидату править
+        # этот шаг; перевод checkout на merge-ref — отдельная пачка (099 §НЕ предмет, Н-206).
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
+          git checkout "${{ github.event.pull_request.base.sha }}" -- scripts fixtures package.json config
 
       - name: Lane ${{ matrix.lane }}
         # Контракт 083, инвариант 2: джоба ci перестроена в матрицу из K параллельных
@@ -292,17 +322,3 @@ jobs:
         # реализован (г0 «предмет отсутствует»); зелёным становится вместе с предметом;
         # rc=0 закрывает пункт приёмки шага (правило 6) и закрывает ПРОВОДКА-долг 083.
         run: bash fixtures/_krasnye_083.sh
-
-      - name: Красная батарея 099 (защищённый переходный маршрут в main + Н-270)
-        # Прямой шаг ВНЕ матрицы по прецеденту 058/070/071/080/083 (ПЕРЕСЕЧЕНИЕ
-        # 015/011 контракта 099, реализационная пачка): раннер
-        # `fixtures/_krasnye_099.sh` гоняет 10 клеток семьи
-        # `fixtures/zashchita_main_099/` (pr_dopusk, check_sud_model,
-        # land_agent --pr, зонная нога check_no_leak --retake-ahead) и обманный
-        # стаб-пак battery_stubs.sh (12/12). Ключ
-        # `check:zashchita-main-family-selftest` в package.json равен команде
-        # шага — правило 6 verify_ci_parity.sh (четвёртая форма). Самодостаточен:
-        # toy-миры в mktemp-каталогах + локальный python3 API-стаб, стерегомое
-        # дерево не мутирует, внешней сети нет. Перевод checkout на merge-ref —
-        # НЕ предмет этой пачки (099 §НЕ предмет), отдельный заказ.
-        run: bash fixtures/_krasnye_099.sh
