@@ -311,29 +311,64 @@ else
   printf '✗ s8: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
 fi
 
-# Stub s9: no-copy runtime (adversary 093-v3 BLOCKS) — единственный rsync
-# в provision_agent_code заменён успешным no-op (true); декларации и
+# Тело provision_agent_code в редакции 96ec3a5b (adversary 093-v4: зеркало
+# rsync --delete БЕЗ --delete-excluded — excluded-записи у получателя
+# переживают установку). ЕДИНЫЙ источник для s9 (это тело с rsync → true)
+# и s10 (это тело дословно). Привязка ОБОИХ стабов — по КОДУ (Н-39): граница
+# функции `provision_agent_code() {` … первая `\n}\n` после неё; правка
+# implementer'ом тела функции (Р-4(а) арбитража) якорь НЕ ломает —
+# стаб подменяет тело целиком; переименование/дубль функции — якорь не
+# найден → стаб не построен → батарея честно краснеет.
+OLD_PROVISION_BODY='  [ -d "$MAIN_DST" ] \
+    || { printf '"'"'ОТКАЗ: нет источника кода агента: %s\n'"'"' "$MAIN_DST" >&2; return 1; }
+  command -v rsync >/dev/null 2>&1 \
+    || { printf '"'"'NOT_IMPLEMENTED: нет rsync\n'"'"' >&2; exit 2; }
+  mkdir -p "$AGENT_ROOT" || die_write "$AGENT_ROOT"
+  rsync -a --delete --exclude='"'"'.env'"'"' --exclude='"'"'.env.*'"'"' --exclude='"'"'.ssh'"'"' \
+    "$MAIN_DST"/ "$AGENT_ROOT"/ || die_write "$AGENT_ROOT"
+  chown -R root:root "$AGENT_ROOT" 2>/dev/null || die_write "chown -R $AGENT_ROOT"
+  chmod 755 "$AGENT_ROOT" || die_write "chmod $AGENT_ROOT"
+  [ -x "$AGENT_ROOT/workshop" ] \
+    || { printf '"'"'ОТКАЗ: в %s нет исполняемого workshop\n'"'"' "$AGENT_ROOT" >&2; return 1; }
+  printf '"'"'провизионинг кода агента: %s (из %s, без .env*)\n'"'"' "$AGENT_ROOT" "$MAIN_DST"
+'
+replace_provision_body() { # $1=install.sh копии $2=новое тело $3=метка → rc 0 построен / 1 якорь не найден
+  OLD_BODY_NEW="$2" /usr/bin/python3 - "$1" "$3" <<'PY'
+import os, sys
+p, tag = sys.argv[1], sys.argv[2]
+new_body = os.environ['OLD_BODY_NEW']
+with open(p) as f: c = f.read()
+head = 'provision_agent_code() {\n'
+if c.count(head) != 1:
+    print(tag + ' anchor count=' + str(c.count(head))); raise SystemExit(1)
+i = c.index(head) + len(head)
+j = c.find('\n}\n', i)
+if j < 0:
+    print(tag + ' anchor: нет закрывающей }'); raise SystemExit(1)
+c = c[:i] + new_body + c[j + 1:]
+with open(p, 'w') as f: f.write(c)
+print(tag + ' ok')
+PY
+}
+
+# Stub s9: no-copy runtime (adversary 093-v3 BLOCKS) — rsync в
+# provision_agent_code заменён успешным no-op (true); декларации и
 # комментарии с /opt/orch-agent и /var/lib/orch-agent ОСТАВЛЕНЫ — текстовые
 # правила R1–R5 клетки 9 такого мутанта не различают (живой замер на
 # 412a66dc: rc=0, дефект проверки). Ловится ПОВЕДЕНЧЕСКИМ слоем клетки 9
 # (тест-шов OPS_SERVER_AGENT_ROOT субъекта): мир F — install root отказал
 # именованно «нет исполняемого workshop»; мир S — сентинел пережил install
-# (sha ≠ оракулу в памяти). Якорь — ДОСЛОВНЫЙ вызов rsync, реальная точка
-# копирования (правка механизма копирования меняет текст — якорь переснять).
+# (sha ≠ оракулу в памяти). Тело — OLD_PROVISION_BODY с rsync-вызовом → true.
 S9="$SCRATCH/s9"; build_copy "$S9" "$ROOT"
 total=$((total+1))
-if build_out="$(/usr/bin/python3 -c "
-p = '$S9/ops/server/install.sh'
-with open(p) as f: c = f.read()
+S9_BODY="$(/usr/bin/python3 -c "
+import sys
+b = sys.stdin.read()
 old = '  rsync -a --delete --exclude=\'.env\' --exclude=\'.env.*\' --exclude=\'.ssh\' \\\\\n    \"\$MAIN_DST\"/ \"\$AGENT_ROOT\"/ || die_write \"\$AGENT_ROOT\"\n'
-if c.count(old) == 1:
-    c = c.replace(old, '  true\\n')
-    with open(p, 'w') as f: f.write(c)
-    print('s9 ok')
-else:
-    print('s9 anchor count=' + str(c.count(old)))
-    raise SystemExit(1)
-" 2>&1)"; then
+if b.count(old) != 1: raise SystemExit(1)
+sys.stdout.write(b.replace(old, '  true\n'))
+" <<<"$OLD_PROVISION_BODY")" || { printf '✗ s9: тело no-copy не собрано из OLD_PROVISION_BODY\n' >&2; S9_BODY=""; }
+if [ -n "$S9_BODY" ] && build_out="$(replace_provision_body "$S9/ops/server/install.sh" "$S9_BODY"$'\n' s9 2>&1)"; then
   printf '%s\n' "$build_out" >&2
   OPS093_ROOT="$S9" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >/dev/null 2>&1; rc9=$?
   if [ "$rc9" -eq 1 ]; then
@@ -342,8 +377,31 @@ else:
     printf '✗ s9 no-copy runtime: НЕ ПОЙМАН (клетка9 rc=%s) — поведенческий слой клетки 9 обязан краснеть\n' "$rc9" >&2
   fi
 else
-  printf '%s\n' "$build_out" >&2
+  printf '%s\n' "${build_out:-}" >&2
   printf '✗ s9: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
+fi
+
+# Stub s10: stale-mirror (adversary 093-v4 BLOCKS, арбитраж Р-4(б)) — тело
+# provision_agent_code в редакции 96ec3a5b ДОСЛОВНО: rsync --delete без
+# --delete-excluded, excluded .env/.env.*/.ssh у получателя переживают
+# установку с rc 0 и остаются читаемыми uid агента. Различим от честной
+# реализации ТОЛЬКО на входе мира S клетки 9 (stale-носители ДО install);
+# мир F и sha workshop у него честные. Ловится клеткой 9 rc=1 «старый
+# credential-носитель пережил install root».
+S10="$SCRATCH/s10"; build_copy "$S10" "$ROOT"
+total=$((total+1))
+if build_out="$(replace_provision_body "$S10/ops/server/install.sh" "$OLD_PROVISION_BODY" s10 2>&1)"; then
+  printf '%s\n' "$build_out" >&2
+  OPS093_ROOT="$S10" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >"$SCRATCH/s10.log" 2>&1; rc10=$?
+  if [ "$rc10" -eq 1 ] && grep -q 'старый credential-носитель пережил install' "$SCRATCH/s10.log"; then
+    caught=$((caught+1)); printf 's10 stale-mirror: ПОЙМАН (клетка9 rc=1 — stale .env/.env.*/.ssh пережили install, adversary 093-v4)\n' >&2
+  else
+    printf '✗ s10 stale-mirror: НЕ ПОЙМАН (клетка9 rc=%s, последняя строка: %s) — мир S клетки 9 обязан краснеть ИМЕННО по носителю\n' \
+      "$rc10" "$(tail -n 1 "$SCRATCH/s10.log")" >&2
+  fi
+else
+  printf '%s\n' "$build_out" >&2
+  printf '✗ s10: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
 fi
 
 [ "$caught" -eq "$total" ] || { printf 'КЛЕТКА-ОТКАЗ(093-bat): %s/%s стабов пойманы\n' "$caught" "$total" >&2; exit 1; }
