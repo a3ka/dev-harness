@@ -1,0 +1,13 @@
+l1	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l2	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l3	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l4	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l5	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l6	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l7a	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+l7b	.github/workflows/ci.yml	bash scripts/run_ci_lane.sh ${{ matrix.keys }}
+ap1	.github/workflows/ci.yml	npm run check:antiplacebo -- --scope ${{ matrix.keys }}
+ap2	.github/workflows/ci.yml	npm run check:antiplacebo -- --scope ${{ matrix.keys }}
+ap3	.github/workflows/ci.yml	npm run check:antiplacebo -- --scope ${{ matrix.keys }}
+ap4	.github/workflows/ci.yml	npm run check:antiplacebo -- --scope ${{ matrix.keys }}
+ap5	.github/workflows/ci.yml	npm run check:antiplacebo -- --scope ${{ matrix.keys }}

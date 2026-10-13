@@ -184,6 +184,22 @@ jobs:
         with:
           node-version: 26
 
+      - name: Материализация проверочного замыкания из M^1 (контракт 099, Решение 1г2)
+        # Обязательные проверки (lane) исполняются кодом ПЕРВОГО РОДИТЕЛЯ
+        # M^1 = base PR — Решение 1г2 контракта 099: кандидат сохраняет имена
+        # и зелёные статусы checks, заменяя исполняемый код проверки — шаг
+        # материализации закрывает подмену (вердикт адверсария A099-M1).
+        # Стоит НЕМЕДЛЕННО после checkout/setup-node: ни один шаг джобы не
+        # исполняет байты кандидата (scripts/, fixtures/, config/, npm-ключи
+        # package.json) ДО материализации (Р1-5 reviewer 099 круг 1 — живой
+        # контрпример git-replace блоба M^1; клетка л семьи 099). Байт-минимум
+        # M^1↔M (pr_dopusk, гвард 0б) запрещает кандидату править этот шаг;
+        # перевод checkout на merge-ref — отдельная пачка (099 §НЕ предмет, Н-206).
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
+          git checkout "${{ github.event.pull_request.base.sha }}" -- scripts fixtures package.json config
+
       - name: Проверка паритета с CI
         # Паритет проверяется САМИМ барьером, и он обязан пройти ДО остальных проверок:
         # иначе расхождение найдёт не эта команда, а следующая, и причина будет названа
@@ -193,25 +209,6 @@ jobs:
         # (прецедент 058–080) либо запуск лейн-раннером с `matrix.keys`.
         run: npm run check:ci-parity
 
-      - name: Сам-тесты раннера анти-плацебо (арбитраж 020 c8aaa67, замер 5)
-        # Замер 5 арбитража: 23 фикстуры `fixtures/verify_antiplacebo/` на МИНИМАЛЬНОМ
-        # mktemp-корне (52 с стены — рецепт CI-шага дёшев, минуты CI не часы).
-        # Раннер `scripts/verify_antiplacebo.sh` ЗАМОРОЖЕН в этом круге — копия в mktemp-корень,
-        # не правка; фикстуры `fixtures/verify_antiplacebo/` — те же 23 case.
-        # Имя `npm run check:antiplacebo` СТАТИЧНО (правило 6); аргумент `$TMP_ROOT` ломает
-        # равенство значению скрипта → оплата записью команда: в `ci_parity_exceptions.txt`
-        # (та же механика, что у residual-оплат инварианта 4 — арбитраж c8aaa67, §Решение п.2).
-        # Прямой вызов `bash scripts/verify_antiplacebo.sh …` в workflow НЕ писать — красный
-        # флаг residual (см. замер 6: ветвь «барьер остался зелёным на обманном дереве»).
-        run: |
-          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
-          trap 'rm -rf "$TMP_ROOT"' EXIT
-          mkdir -p "$TMP_ROOT/scripts"
-          mkdir -p "$TMP_ROOT/fixtures/verify_antiplacebo"
-          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
-          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
-          npm run check:antiplacebo -- "$TMP_ROOT"
-
       - name: История не перезаписана
         # Контракт 083, инвариант 2: статический пост-шаг джобы ci (НЕ команда пакета —
         # гейт `check:ci-parity` уже в начале, повторять запрещено). Аргументы
@@ -219,28 +216,6 @@ jobs:
         # подстановки в реестре.
         if: github.event_name == 'push'
         run: bash scripts/check_no_rewrite.sh "${{ github.event.before }}" "${{ github.sha }}"
-      - name: Красная батарея 099 (защищённый переходный маршрут в main + Н-270)
-        # Прямой шаг ВНЕ матрицы по прецеденту 058/070/071/080/083 (ПЕРЕСЕЧЕНИЕ
-        # 015/011 контракта 099, реализационная пачка): раннер
-        # `fixtures/_krasnye_099.sh` гоняет 10 клеток семьи
-        # `fixtures/zashchita_main_099/` и обманный стаб-пак battery_stubs.sh
-        # (12/12). Самодостаточен: toy-миры в mktemp-каталогах + локальный
-        # python3 API-стаб, стерегомое дерево не мутирует, внешней сети нет.
-        # Стоит ДО материализации (сам-тест судит СВОИ байты кандидата — класс
-        # арбитража 020; bootstrap: base main ещё не несёт семью 099).
-        run: bash fixtures/_krasnye_099.sh
-
-      - name: Материализация проверочного замыкания из M^1 (контракт 099, Решение 1г2)
-        # Обязательные проверки (lane) исполняются кодом ПЕРВОГО РОДИТЕЛЯ
-        # M^1 = base PR — Решение 1г2 контракта 099: кандидат сохраняет имена
-        # и зелёные статусы checks, заменяя исполняемый код проверки — шаг
-        # материализации закрывает подмену (вердикт адверсария A099-M1).
-        # Байт-минимум M^1↔M (pr_dopusk, гвард 0б) запрещает кандидату править
-        # этот шаг; перевод checkout на merge-ref — отдельная пачка (099 §НЕ предмет, Н-206).
-        if: github.event_name == 'pull_request'
-        run: |
-          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}"
-          git checkout "${{ github.event.pull_request.base.sha }}" -- scripts fixtures package.json config
 
       - name: Lane ${{ matrix.lane }}
         # Контракт 083, инвариант 2: джоба ci перестроена в матрицу из K параллельных
@@ -322,3 +297,51 @@ jobs:
         # реализован (г0 «предмет отсутствует»); зелёным становится вместе с предметом;
         # rc=0 закрывает пункт приёмки шага (правило 6) и закрывает ПРОВОДКА-долг 083.
         run: bash fixtures/_krasnye_083.sh
+
+  # Сам-тесты, судящие БАЙТЫ КАНДИДАТА (контракт 099, Р1-5 reviewer круг 1,
+  # Решение 1г2): отделены от джобы `ci` в отдельную джобу — каждая джоба
+  # Actions это отдельный раннер с собственным .git, и материализация
+  # проверочного замыкания из M^1 этой джобе НЕ нужна: сам-тест раннера и
+  # красная батарея 099 обязаны видеть СВОИ байты кандидата (класс арбитража
+  # 020; bootstrap: base main ещё не несёт семью 099).
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Н-206: та же причина, что в джобе `ci` — судим РЕАЛЬНУЮ ветку PR,
+          # а не синтетический merge-ref.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-node@v4
+        # Та же версия, что в джобе `ci` (engines package.json — одно).
+        with:
+          node-version: 26
+      - name: Сам-тесты раннера анти-плацебо (арбитраж 020 c8aaa67, замер 5)
+        # Замер 5 арбитража: 23 фикстуры `fixtures/verify_antiplacebo/` на МИНИМАЛЬНОМ
+        # mktemp-корне (52 с стены — рецепт CI-шага дёшев, минуты CI не часы).
+        # Раннер `scripts/verify_antiplacebo.sh` ЗАМОРОЖЕН в этом круге — копия в mktemp-корень,
+        # не правка; фикстуры `fixtures/verify_antiplacebo/` — те же 23 case.
+        # Имя `npm run check:antiplacebo` СТАТИЧНО (правило 6); аргумент `$TMP_ROOT` ломает
+        # равенство значению скрипта → оплата записью команда: в `ci_parity_exceptions.txt`
+        # (та же механика, что у residual-оплат инварианта 4 — арбитраж c8aaa67, §Решение п.2).
+        # Прямой вызов `bash scripts/verify_antiplacebo.sh …` в workflow НЕ писать — красный
+        # флаг residual (см. замер 6: ветвь «барьер остался зелёным на обманном дереве»).
+        run: |
+          TMP_ROOT="/tmp/dev-harness-antiplacebo-selftest-$$"
+          trap 'rm -rf "$TMP_ROOT"' EXIT
+          mkdir -p "$TMP_ROOT/scripts"
+          mkdir -p "$TMP_ROOT/fixtures/verify_antiplacebo"
+          cp scripts/verify_antiplacebo.sh "$TMP_ROOT/scripts/verify_antiplacebo.sh"
+          cp -r fixtures/verify_antiplacebo/. "$TMP_ROOT/fixtures/verify_antiplacebo/"
+          npm run check:antiplacebo -- "$TMP_ROOT"
+      - name: Красная батарея 099 (защищённый переходный маршрут в main + Н-270)
+        # Прямой шаг по прецеденту 058/070/071/080/083 (ПЕРЕСЕЧЕНИЕ 015/011
+        # контракта 099, реализационная пачка): раннер `fixtures/_krasnye_099.sh`
+        # гоняет 10 клеток семьи `fixtures/zashchita_main_099/` и обманный
+        # стаб-пак battery_stubs.sh (12/12). Самодостаточен: toy-миры в
+        # mktemp-каталогах + локальный python3 API-стаб, стерегомое дерево
+        # не мутирует, внешней сети нет. Судит байты КАНДИДАТА — живёт в этой
+        # джобе без материализации (см. шапку джобы).
+        run: bash fixtures/_krasnye_099.sh

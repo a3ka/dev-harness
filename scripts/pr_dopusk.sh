@@ -53,11 +53,11 @@
 #       вне main + серверными обязательными checks (Пять правил §2: замена,
 #       не наслаивание; док §2 «Красный main сам по себе не блокирует
 #       исправляющий PR»).
-#       Производитель составляющих (совет критика круга 2 :51):
+#       Производитель составляющих (Решение 2, Р1-6 reviewer 099 круг 1):
 #       config/transition_producers_099.tsv по M^1 — пустой/отсутствующий файл
-#       пропускает ногу (реестр активируется санкцией владельца); непустой —
-#       КАЖДОЕ имя покрыто строкой <check-run> TAB <файл workflow> TAB
-#       <команда>, файл существует в дереве M^1 и несёт команду дословно.
+#       есть именованный отказ (выключателя у ноги нет); непустой — КАЖДОЕ имя
+#       покрыто строкой <check-run> TAB <файл workflow> TAB <команда>,
+#       файл существует в дереве M^1 и несёт команду дословно.
 #   (д) содержательные чеки дерева 071 — переиспользованием
 #       scripts/gitw_preflight_071.sh в режиме объекта (--object <sha>), где
 #       чек 3 (зелёный-PR-workflow) заменён серверными обязательными checks.
@@ -295,41 +295,44 @@ if ! curl -fsS -m 20 "${gh_args[@]}" "$API_BASE/commits/$M/check-runs" > "$TMPD/
     "$API_BASE" "$M" >&2
   exit 2
 fi
-# Производитель составляющих (Решение 2, :51): пустой/отсутствующий файл по M^1
-# пропускает ногу (реестр активируется санкцией владельца); непустой связывает
-# КАЖДОЕ имя с кодом M^1, его произведшим: файл workflow существует в дереве
-# M^1 и несёт команду дословно.
+# Производитель составляющих (Решение 2, Р1-6 reviewer 099 круг 1):
+# выключателя у ноги нет — пустая/отсутствующая таблица по M^1 это отказ
+# (молчаливая инертность запрещена); непустая связывает КАЖДОЕ имя с кодом
+# M^1, его произведшим: файл workflow существует в дереве M^1 и несёт
+# команду дословно.
 prod_p1="$(git -C "$ROOT" show "$P1:config/transition_producers_099.tsv" 2>/dev/null || true)"
-if [ -n "$prod_p1" ]; then
-  while IFS=$'\t' read -r pname pfile pcmd; do
-    [ -n "$pname" ] || continue
-    case "$pfile" in
-      .github/workflows/*) ;;
-      *) printf 'ОТКАЗ: производитель составляющей вне .github/workflows/: %s → %s\n' "$pname" "$pfile" >&2; exit 1 ;;
-    esac
-    wf_blob="$(git -C "$ROOT" show "$P1:$pfile" 2>/dev/null || true)"
-    if [ -z "$wf_blob" ]; then
-      printf 'ОТКАЗ: проверки изменены кандидатом: %s (шаг производителя %s отсутствует в M^1)\n' \
-        "$pfile" "$pname" >&2
-      exit 1
-    fi
-    if ! printf '%s\n' "$wf_blob" | grep -Fq -- "$pcmd"; then
-      printf 'ОТКАЗ: производитель составляющей не несёт команду дословно: %s → %s\n' \
-        "$pname" "$pfile" >&2
-      exit 1
-    fi
-  done <<< "$prod_p1"
-  # КАЖДОЕ имя обязательного набора покрыто строкой производителя.
-  while IFS= read -r rline; do
-    [ -n "$rline" ] || continue
-    rname="${rline%%$'\t'*}"
-    if ! printf '%s\n' "$prod_p1" | awk -F'\t' -v n="$rname" '$1 == n { f=1 } END { exit f?0:1 }'; then
-      printf 'ОТКАЗ: производитель составляющей не объявлен: %s (нет строки в transition_producers_099.tsv)\n' \
-        "$rname" >&2
-      exit 1
-    fi
-  done <<< "$reg_p1"
+if [ -z "$prod_p1" ]; then
+  printf 'ОТКАЗ: таблица производителей пуста или отсутствует (config/transition_producers_099.tsv по M^1 — Решение 2: выключателя у ноги нет)\n' >&2
+  exit 1
 fi
+while IFS=$'\t' read -r pname pfile pcmd; do
+  [ -n "$pname" ] || continue
+  case "$pfile" in
+    .github/workflows/*) ;;
+    *) printf 'ОТКАЗ: производитель составляющей вне .github/workflows/: %s → %s\n' "$pname" "$pfile" >&2; exit 1 ;;
+  esac
+  wf_blob="$(git -C "$ROOT" show "$P1:$pfile" 2>/dev/null || true)"
+  if [ -z "$wf_blob" ]; then
+    printf 'ОТКАЗ: проверки изменены кандидатом: %s (шаг производителя %s отсутствует в M^1)\n' \
+      "$pfile" "$pname" >&2
+    exit 1
+  fi
+  if ! printf '%s\n' "$wf_blob" | grep -Fq -- "$pcmd"; then
+    printf 'ОТКАЗ: производитель составляющей не несёт команду дословно: %s → %s\n' \
+      "$pname" "$pfile" >&2
+    exit 1
+  fi
+done <<< "$prod_p1"
+# КАЖДОЕ имя обязательного набора покрыто строкой производителя.
+while IFS= read -r rline; do
+  [ -n "$rline" ] || continue
+  rname="${rline%%$'\t'*}"
+  if ! printf '%s\n' "$prod_p1" | awk -F'\t' -v n="$rname" '$1 == n { f=1 } END { exit f?0:1 }'; then
+    printf 'ОТКАЗ: производитель составляющей не объявлен: %s (нет строки в transition_producers_099.tsv)\n' \
+      "$rname" >&2
+    exit 1
+  fi
+done <<< "$reg_p1"
 while IFS= read -r rline; do
   [ -n "$rline" ] || continue
   rname="${rline%%$'\t'*}"
