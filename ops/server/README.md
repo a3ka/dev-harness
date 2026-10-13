@@ -277,23 +277,25 @@ rw-identity не строится.
 Публикация — ТОЛЬКО через установленную дверь под другим
 пользователем; агенту ключ публикации НЕ доступен.
 
-## Проверка старта юнита (контракт 093, И-6a)
+## Проверка старта юнита (контракт 093, И-6a; v2, Рв2-5)
 
-Установка корневой части (`install.sh root`) завершена ⟺ поставленный
-юнит реально стартует и активен. Отдельная подкоманда `verify-start`
-проверяет это живой командой `systemctl is-active`:
+Юнит `orch-peak@0` — ONESHOT: после успешного запуска
+`ActiveState=inactive` — НОРМА, не сбой. Установка корневой части
+(`install.sh root`) завершена ⟺ поставленный юнит ЗАВЕРШИЛ НОВЫЙ запуск
+ЭТОЙ пробы: подкоманда `verify-start` сама выдаёт `systemctl restart`,
+затем требует `Result=success` И свежий `ExecMainExitTimestamp` (позже
+момента запуска пробы — старый успех за новый запуск не считается):
 
 ```sh
 sudo bash ops/server/install.sh verify-start
-# rc 0: "установлено и активно: orch-peak@0"
-# rc 1: "юнит не стартует: orch-peak@0 (состояние: …)" — отказ
+# rc 0: "установлено: юнит orch-peak@0 завершён успешно, свежий запуск (Result=success; …)"
+# rc 1: "юнит не стартует: orch-peak@0 (Result=failed | успех СТАРЫЙ: …)" — именованный отказ
 ```
 
-Швы `OPS_SERVER_UNIT` (умолчание `orch-peak@0`) и
-`OPS_SERVER_SYSTEMCTL` (умолчание `systemctl`) позволяют указать
-другой юнит и путь к systemctl (тест-миры с shim'ом).
-
-## Откат установленной версии (контракт 093, И-6b)
+Швы `OPS_SERVER_UNIT` (умолчание `orch-peak@0`) и `OPS_SERVER_SYSTEMCTL`
+(умолчание `systemctl`) позволяют указать другой юнит и путь к systemctl
+(тест-миры с shim'ом). Формат `ExecMainExitTimestamp` — наносекунды
+## Откат установленной версии (контракт 093, И-6b; v2, Рв2-5)
 
 Подкоманда `rollback` побайтно восстанавливает предыдущую установленную
 версию из `${OPS_SERVER_ROLLBACK_BACKUP-/usr/local/sbin/.rollback}/` —
@@ -303,16 +305,19 @@ sudo bash ops/server/install.sh verify-start
 первой снимать нечего, каталог не создаётся. Откат САМ выполняет
 `systemctl daemon-reload` и `systemctl restart` (находка 2 круга 2: без
 daemon-reload юнит остаётся на старой версии в памяти демона) и
-доказывает активность юнита живой `systemctl is-active` — никакого
-`install` между откатом и наблюдением не требуется. Манифест sha256
-восстановленной библиотеки откат пишет заново под неё (v1-библиотека с
-v2-манифестом = отказ И-1 у сторожа) и сверяет согласованность
-установленного манифеста с библиотекой.
+доказывает ЗАВЕРШЕНИЕ НОВОГО запуска критерием oneshot (Result=success
++ свежий `ExecMainExitTimestamp` позже T0 отката; ActiveState=inactive —
+норма oneshot) — никакого `install` между откатом и наблюдением не
+требуется. Манифест sha256 восстановленной библиотеки откат пишет заново
+под неё (v1-библиотека с v2-манифестом = отказ И-1 у сторожа) и сверяет
+согласованность установленного манифеста с библиотекой.
 
 ```sh
 sudo bash ops/server/install.sh rollback
-# rc 0: "откат выполнен: orch-peak + N юнитов из /usr/local/sbin/.rollback; юнит активен"
-# rc 1: именованный отказ (нет каталога/снимка, расхождение, юнит не активен)
+# rc 0: "откат выполнен: orch-peak + N юнитов из /usr/local/sbin/.rollback;
+#        юнит завершил новый запуск успешно (Result=success, свежий ExecMainExitTimestamp)"
+# rc 1: именованный отказ (нет каталога/снимка, расхождение, запуск не
+#       завершён успехом или не свеж)
 # rc 2: NOT_IMPLEMENTED (нет systemctl)
 ```
 
@@ -323,12 +328,15 @@ sudo bash ops/server/install.sh rollback
 sudo bash ops/server/install.sh root
 # v2: правка + установка (ПЕРЕД копиями сохранила v1 в .rollback)
 # …
-# откат: восстановление v1 побайтово + reload + restart + is-active
+# откат: восстановление v1 побайтово + reload + restart + доказательство oneshot
 sudo bash ops/server/install.sh rollback
-# активен ИМЕННО v1 (sha256 = пин v1)
+# юнит завершил новый запуск успешно ИМЕННО на v1 (sha256 = пин v1)
 sudo bash ops/server/install.sh verify-start   # rc 0
 ```
 
+Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание
+`/usr/local/sbin/.rollback`) переопределяет каталог предыдущей версии;
+шины юнита и systemctl — `OPS_SERVER_UNIT` / `OPS_SERVER_SYSTEMCTL`.
 Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание
 `/usr/local/sbin/.rollback`) переопределяет каталог предыдущей версии;
 шины юнита и systemctl — `OPS_SERVER_UNIT` / `OPS_SERVER_SYSTEMCTL`.

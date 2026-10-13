@@ -39,19 +39,26 @@
 #             все равны — rc 0 и «сверка: 9/9»; любое расхождение — rc 1
 #             с stderr «ОТКАЗ: расхождение <путь>».
 #   verify-start — проверить, что поставленный юнит orch-peak@0 (или иное
-#             имя через шов OPS_SERVER_UNIT) реально стартует (systemctl
-#             is-active); rc 0 — активно, rc 1 — не стартует с указанием
-#             имени. И-6a контракта 093.
+#             имя через шов OPS_SERVER_UNIT) ЗАВЕРШИЛ НОВЫЙ запуск ЭТОЙ
+#             пробы (контракт 093 v2, Рв2-5: юнит — ONESHOT, после успеха
+#             ActiveState=inactive — НОРМА, не сбой): сам выдаёт
+#             systemctl restart, затем требует Result=success И свежий
+#             ExecMainExitTimestamp (позже момента запуска пробы — старый
+#             успех за новый запуск не считается); rc 0 — завершён
+#             успешно, свежий запуск; rc 1 — именованный отказ с указанием
+#             имени юнита. И-6a контракта 093.
 #   rollback — побайтно восстановить предыдущую установленную версию
 #             (root-часть) из ${OPS_SERVER_ROLLBACK_BACKUP-<каталог>}/ :
 #             orch-peak + lib_session.sh + 7 юнитов (что есть в снимке),
 #             затем САМ выполнить `systemctl daemon-reload` и `systemctl
 #             restart ${OPS_SERVER_UNIT-orch-peak@0}` (находка 2 круга 2:
 #             без daemon-reload откат не активирует старый юнит) и
-#             ДОКАЗАТЬ активность юнита живой `systemctl is-active`.
-#             rc 0 — откат успешен и юнит активен; rc 1 — именованный
-#             отказ (нет каталога/снимка, расхождение, юнит не активен);
-#             rc 2 — нет systemctl. И-6b контракта 093.
+#             ДОКАЗАТЬ ЗАВЕРШЕНИЕ НОВОГО запуска тем же критерием oneshot
+#             (Result=success И свежий ExecMainExitTimestamp позже T0
+#             отката; ActiveState=inactive — норма). rc 0 — откат успешен
+#             и юнит завершил новый запуск успешно; rc 1 — именованный
+#             отказ (нет каталога/снимка, расхождение, запуск не завершён
+#             успехом или не свеж); rc 2 — нет systemctl. И-6b, Рв2-5.
 #
 # Швы (инвариант 6): OPS_SERVER_SRC (умолчание — каталог скрипта), адресаты
 # OPS_SERVER_BIN_DST / OPS_SERVER_SBIN_DST / OPS_SERVER_ETC_DST, и OPS_SERVER_MAIN
@@ -152,6 +159,43 @@ harness ALL=($AGENT_USER) NOPASSWD: ALL
     || { printf 'ОТКАЗ: sudoers drop-in не содержит ожидаемое правило\n' >&2; exit 1; }
 }
 
+# ── И-6 v2 (Рв2-5, слово владельца 2026-10-12): доказательство завершения ───
+# oneshot-запуска. Юнит — oneshot: ActiveState=inactive после успеха — НОРМА;
+# критерий завершённости — Result=success И СВЕЖИЙ ExecMainExitTimestamp
+# (позже t0 — момента start/restart ЭТОЙ пробы: старый успех за новый запуск
+# не считается — обманный стаб s8 «stale-запуск»). Формат штампа: ns-целое
+# (systemctl-шимы тест-миров, date +%s%N) либо дата systemd живой станции
+# («Sun 2026-04-05 20:57:59 UTC») — обе формы приводятся к наносекундам и
+# сравниваются с t0. Печатает именованную причину отказа (имя юнита
+# добавляет вызывающий).
+oneshot_new_run_done() { # <юнит> <t0-ns>: rc 0 ⟺ Result=success И штамп>t0
+  local unit="$1" t0="$2" props result stamp stamp_ns
+  props="$("$SYSTEMCTL" show "$unit" -p Result -p ExecMainExitTimestamp 2>&1)" \
+    || { printf 'не прочитаны свойства завершения'; return 1; }
+  result="$(printf '%s\n' "$props" | sed -n 's/^Result=//p' | tail -n 1)"
+  stamp="$(printf '%s\n' "$props" | sed -n 's/^ExecMainExitTimestamp=//p' | tail -n 1)"
+  if [ "$result" != success ]; then
+    printf 'Result=%s' "${result:-<пусто>}"
+    return 1
+  fi
+  case "$stamp" in
+    '') printf 'нет ExecMainExitTimestamp'
+        return 1 ;;
+    *[!0-9]*)
+        # живая станция: дата systemd → наносекунды
+        stamp_ns="$(date -d "$stamp" +%s%N 2>/dev/null || true)"
+        case "$stamp_ns" in
+          ''|*[!0-9]*) printf 'ExecMainExitTimestamp не разобран: %s' "$stamp"
+                       return 1 ;;
+        esac
+        stamp="$stamp_ns" ;;
+  esac
+  if [ "$stamp" -le "$t0" ]; then
+    printf 'успех СТАРЫЙ: ExecMainExitTimestamp не свежий'
+    return 1
+  fi
+  return 0
+}
 # ── разбор подкоманды ────────────────────────────────────────────────────────
 [ $# -eq 1 ] || usage
 case "$1" in
@@ -328,31 +372,33 @@ case "$1" in
     exit "$rc"
     ;;
   verify-start)
-    # И-6a контракта 093: установка корневой части завершена ⟺ поставленный
-    # юнит стартует и активен. Проверяется живой командой systemctl is-active.
-    # Шов OPS_SERVER_UNIT (умолчание orch-peak@0) и OPS_SERVER_SYSTEMCTL
+    # И-6a контракта 093 v2 (Рв2-5): юнит — ONESHOT; ActiveState=inactive
+    # после успеха — НОРМА, не сбой. Установка root-части завершена ⟺ юнит
+    # ЗАВЕРШИЛ НОВЫЙ запуск ЭТОЙ пробы: сами выдаём restart, затем требуем
+    # Result=success И свежий ExecMainExitTimestamp (позже T0 пробы).
+    # Швы OPS_SERVER_UNIT (умолчание orch-peak@0) и OPS_SERVER_SYSTEMCTL
     # (умолчание systemctl) — для тест-миров с systemctl-шимом.
     UNIT="${OPS_SERVER_UNIT-orch-peak@0}"
     SYSTEMCTL="${OPS_SERVER_SYSTEMCTL-systemctl}"
     command -v "$SYSTEMCTL" >/dev/null 2>&1 \
       || { printf 'NOT_IMPLEMENTED: нет %s\n' "$SYSTEMCTL" >&2; exit 2; }
-    state="$("$SYSTEMCTL" is-active "$UNIT" 2>&1)" || true
-    case "$state" in
-      active)
-        printf 'установлено и активно: %s\n' "$UNIT"
-        exit 0 ;;
-      *)
-        printf 'юнит не стартует: %s (состояние: %s)\n' "$UNIT" "$state" >&2
-        exit 1 ;;
-    esac
+    t0="$(date +%s%N)"
+    "$SYSTEMCTL" restart "$UNIT" >/dev/null 2>&1 \
+      || { printf 'юнит не стартует: %s (restart отказал)\n' "$UNIT" >&2; exit 1; }
+    why="$(oneshot_new_run_done "$UNIT" "$t0")" \
+      || { printf 'юнит не стартует: %s (%s)\n' "$UNIT" "$why" >&2; exit 1; }
+    printf 'установлено: юнит %s завершён успешно, свежий запуск (Result=success; ActiveState=inactive — норма oneshot)\n' "$UNIT"
+    exit 0
     ;;
   rollback)
-    # И-6b контракта 093: побайтное восстановление предыдущей установленной
-    # версии (снимок пишется `install.sh root` ДО копий — см. шапку). Откат
-    # САМ несёт `systemctl daemon-reload` (находка 2 круга 2: без
-    # daemon-reload откат не активирует старый юнит), перезапускает юнит и
-    # ДОКАЗЫВАЕТ активность живой is-active. Последовательность приёма:
-    # v1 → v2 → rollback (БЕЗ install между) → активен ИМЕННО v1.
+    # И-6b контракта 093 v2 (Рв2-5): побайтное восстановление предыдущей
+    # установленной версии (снимок пишется `install.sh root` ДО копий — см.
+    # шапку). Откат САМ несёт `systemctl daemon-reload` (находка 2 круга 2:
+    # без daemon-reload откат не активирует старый юнит), перезапускает юнит
+    # и ДОКАЗЫВАЕТ ЗАВЕРШЕНИЕ НОВОГО запуска критерием oneshot (И-6:
+    # Result=success + свежий ExecMainExitTimestamp; ActiveState=inactive —
+    # норма). Последовательность приёма: v1 → v2 → rollback (БЕЗ install
+    # между) → юнит завершил новый запуск успешно ИМЕННО на v1.
     if [ "$(id -u)" -ne 0 ]; then
       printf 'ОТКАЗ: rollback требует euid 0\n' >&2
       exit 1
@@ -408,21 +454,20 @@ case "$1" in
         n_units=$((n_units + 1))
       fi
     done
-    # Откат — единый акт: reload + restart + доказательство активности
-    # (переустановка ПОСЛЕ отката маскирует неработоспособность — находка 2
-    # круга 2; отказ каждой службы — именованный, не глушится).
+    # Откат — единый акт: reload + restart + доказательство ЗАВЕРШЕНИЯ
+    # НОВОГО запуска (И-6b v2, Рв2-5: юнит oneshot, ActiveState=inactive —
+    # норма; Result=success И свежий ExecMainExitTimestamp позже T0 отката —
+    # старый успех не считается; переустановка ПОСЛЕ отката маскирует
+    # неработоспособность — находка 2 круга 2; отказ — именованный).
     command -v "$SYSTEMCTL" >/dev/null 2>&1 \
       || { printf 'NOT_IMPLEMENTED: нет %s\n' "$SYSTEMCTL" >&2; exit 2; }
+    t0="$(date +%s%N)"
     "$SYSTEMCTL" daemon-reload >/dev/null 2>&1 \
       || { printf 'ОТКАЗ: rollback: daemon-reload не удался\n' >&2; exit 1; }
     "$SYSTEMCTL" restart "$UNIT" >/dev/null 2>&1 \
       || { printf 'ОТКАЗ: rollback: restart %s не удался\n' "$UNIT" >&2; exit 1; }
-    state="$("$SYSTEMCTL" is-active "$UNIT" 2>&1)" || true
-    case "$state" in
-      active) ;;
-      *) printf 'ОТКАЗ: юнит не активен после отката: %s (состояние: %s)\n' "$UNIT" "$state" >&2
-         exit 1 ;;
-    esac
+    why="$(oneshot_new_run_done "$UNIT" "$t0")" \
+      || { printf 'ОТКАЗ: юнит не завершил новый запуск после отката: %s (%s)\n' "$UNIT" "$why" >&2; exit 1; }
     # Самопроверка: адресаты побайтово = BACKUP. Без install между откатом и
     # наблюдением.
     rc=0
@@ -442,7 +487,7 @@ case "$1" in
       printf 'ОТКАЗ: откат не восстановил адресаты побайтово\n' >&2
       exit 1
     fi
-    printf 'откат выполнен: orch-peak + %d юнитов из %s; юнит активен\n' "$n_units" "$BACKUP"
+    printf 'откат выполнен: orch-peak + %d юнитов из %s; юнит завершил новый запуск успешно (Result=success, свежий ExecMainExitTimestamp)\n' "$n_units" "$BACKUP"
     exit 0
     ;;
   *) usage ;;
