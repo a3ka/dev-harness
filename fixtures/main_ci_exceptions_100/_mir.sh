@@ -71,11 +71,15 @@ z100_cisteps() {
 }
 
 # z100_pkgjson — package.json мира (разрешение npm-ключей, слой определений).
+# Z100_PKG_CMD — команда шага (по умолчанию bash ci_lanes/<job>.sh); миры
+# закрепления исполняемых корней (И-12б/в/г, И-14в круга 3) направляют ключи
+# на проверяльщик под scripts/ — файл, который вызывает команда ключа.
 z100_pkgjson() {
-  local j k body=""
+  local j k body="" cmd
   for j in $(z100_jobs); do
+    cmd="${Z100_PKG_CMD:-ci_lanes/$j.sh}"
     for k in $(z100_keys "$j"); do
-      body+="    \"$k\": \"bash ci_lanes/$j.sh\","$'\n'
+      body+="    \"$k\": \"bash $cmd\","$'\n'
     done
   done
   printf '{"name":"toy-mir-100","scripts":{\n%s}}\n' "${body%??}"
@@ -106,14 +110,21 @@ z100_ex_list() {
 # z100_mir_repo <мир> — repo+origin: main на A (несёт доверенный список
 # Z100_EXCEPTIONS_JSON или пустой + ci.yml + ci-steps.tsv + package.json; при
 # Z100_NO_EXCEPTIONS_FILE=1 файла списка НЕТ — достоверное отсутствие, совет 3
-# круга 1), origin/main = A; ветка wip/100/demo на B (автор demo; несёт
+# круга 1; Z100_TRUSTED_SRC_DIR — каталог, копируемый в базу A: доверенные
+# исполняемые корни мира под scripts/ и fixtures/, вызываемые Z100_PKG_CMD),
+# origin/main = A; ветка wip/100/demo на B (автор demo; несёт
 # Z100_CANDIDATE_EXCEPTIONS_JSON файлом дерева кандидата, если задан; несёт
 # Z100_CANDIDATE_CI_FILE/Z100_CANDIDATE_CI_CONTENT — правку слоя определений
-# CI кандидата, если заданы); локальный main на merge M «land: wip/100/demo»
-# (первый родитель A, второй B, committer merge — orchestrator).
+# CI кандидата, если заданы; Z100_CANDIDATE_SRC_DIR — каталог, копируемый в
+# дерево кандидата; Z100_CANDIDATE_RM — пути, удаляемые из дерева кандидата);
+# локальный main на merge M «land: wip/100/demo» (первый родитель A, второй
+# B, committer merge — orchestrator); Z100_MERGE_EXCEPTIONS_JSON — список,
+# вносимый в ДЕРЕВО M (amend мержа, оба родителя сохранены — живой обход Б4
+# круга 2: p чист, публикация несёт правку), Z100_MERGE_FILE/Z100_MERGE_CONTENT
+# — произвольный файл в дерево M тем же amend.
 # Переменные: Z100_REPO Z100_ORIGIN Z100_A Z100_B Z100_M Z100_P (=B).
 z100_mir_repo() {
-  local w="$1" dirty=0
+  local w="$1" dirty=0 p
   rm -rf "$w"; mkdir -p "$w/repo"
   git init -q -b main "$w/repo"
   git init -q --bare "$w/origin.git"
@@ -121,13 +132,16 @@ z100_mir_repo() {
   g() { git -C "$w/repo" -c user.name=demo -c user.email=demo@dev-harness.local -c commit.gpgsign=false "$@"; }
   m() { git -C "$w/repo" -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local -c commit.gpgsign=false "$@"; }
   mkdir -p "$w/repo/registry" "$w/repo/.github/workflows"
+  if [ -n "${Z100_TRUSTED_SRC_DIR:-}" ]; then
+    cp -r "$Z100_TRUSTED_SRC_DIR/." "$w/repo/"
+  fi
   if [ "${Z100_NO_EXCEPTIONS_FILE:-0}" != "1" ]; then
     printf '%s\n' "${Z100_EXCEPTIONS_JSON:-$(z100_ex_list)}" >"$w/repo/registry/main-ci-exceptions.json"
   fi
   z100_ciyl >"$w/repo/.github/workflows/ci.yml"
   z100_cisteps >"$w/repo/registry/ci-steps.tsv"
   z100_pkgjson >"$w/repo/package.json"
-  g add registry .github package.json
+  g add -A
   g commit -q -m "доверенная база A: список исключений + ci.yml + ci-steps.tsv + package.json"
   Z100_A="$(git -C "$w/repo" rev-parse HEAD)"
   git -C "$w/repo" push -q origin main
@@ -141,8 +155,17 @@ z100_mir_repo() {
     printf '%s\n' "${Z100_CANDIDATE_CI_CONTENT:?}" >"$w/repo/$Z100_CANDIDATE_CI_FILE"
     dirty=1
   fi
+  if [ -n "${Z100_CANDIDATE_SRC_DIR:-}" ]; then
+    cp -r "$Z100_CANDIDATE_SRC_DIR/." "$w/repo/"
+    dirty=1
+  fi
+  if [ -n "${Z100_CANDIDATE_RM:-}" ]; then
+    for p in $Z100_CANDIDATE_RM; do
+      [ -e "$w/repo/$p" ] && { g rm -q "$p"; dirty=1; }
+    done
+  fi
   if [ "$dirty" -eq 1 ]; then
-    g add -A registry package.json .github
+    g add -A
     g commit -q -m "дерево кандидата несёт правку доверенных файлов"
   else
     g commit -q --allow-empty -m "работа B"
@@ -153,6 +176,21 @@ z100_mir_repo() {
 
 РАЗРЕШИЛ-ВЛАДЕЛЕЦ: переходный допуск 100 (toy)" wip/100/demo
   Z100_M="$(git -C "$w/repo" rev-parse HEAD)"
+  if [ -n "${Z100_MERGE_EXCEPTIONS_JSON:-}" ] || [ -n "${Z100_MERGE_FILE:-}" ]; then
+    # дерево M несёт правку, которой нет ни в A, ни в B (amend мержа,
+    # оба родителя сохранены) — живой обход Б4 круга 2
+    if [ -n "${Z100_MERGE_EXCEPTIONS_JSON:-}" ]; then
+      printf '%s\n' "$Z100_MERGE_EXCEPTIONS_JSON" >"$w/repo/registry/main-ci-exceptions.json"
+      m add -A registry
+    fi
+    if [ -n "${Z100_MERGE_FILE:-}" ]; then
+      mkdir -p "$(dirname "$w/repo/$Z100_MERGE_FILE")"
+      printf '%s\n' "${Z100_MERGE_CONTENT:?}" >"$w/repo/$Z100_MERGE_FILE"
+      m add -A "$Z100_MERGE_FILE"
+    fi
+    m commit -q --amend --no-edit
+    Z100_M="$(git -C "$w/repo" rev-parse HEAD)"
+  fi
   Z100_P="$Z100_B"
   Z100_REPO="$w/repo"; Z100_ORIGIN="$w/origin.git"
 }
@@ -184,24 +222,30 @@ z100_api_dir() { mkdir -p "$1/api" && printf '%s' "$1/api"; }
 
 # z100_json_runs <файл> <id,head_sha,status,conclusion,base_sha,check_suite_id>… —
 # ответ /actions/runs (Б3 круга 1: runs несут check_suite id для связки
-# check-runs с выбранным запуском). conclusion может быть «-» (null).
+# check-runs с выбранным запуском; Б8 круга 2: у ЗАПУСКА поле ПЛОСКОЕ
+# check_suite_id integer — документированная схема GET /actions/runs
+# (workflow_runs[].check_suite_id, сверено с официальной документацией GitHub
+# REST); вложенный check_suite.id — форма ОБЪЕКТА check-run, не запуска).
+# conclusion может быть «-» (null).
 z100_json_runs() {
   local f="$1"; shift
   local runs="" r id hs st co bs cs
   for r in "$@"; do
     IFS=',' read -r id hs st co bs cs <<<"$r"
     if [ "$co" = "-" ]; then co="null"; else co="\"$co\""; fi
-    runs+="{\"id\":${id},\"event\":\"pull_request\",\"head_sha\":\"${hs}\",\"status\":\"${st}\",\"conclusion\":${co},\"check_suite\":{\"id\":${cs}},\"pull_requests\":[{\"base\":{\"sha\":\"${bs}\"}}]},"
+    runs+="{\"id\":${id},\"event\":\"pull_request\",\"head_sha\":\"${hs}\",\"status\":\"${st}\",\"conclusion\":${co},\"check_suite_id\":${cs},\"pull_requests\":[{\"base\":{\"sha\":\"${bs}\"}}]},"
   done
   printf '{"total_count":%d,"workflow_runs":[%s]}\n' "$#" "${runs%,}" >"$f"
 }
 
-# построитель check-runs: TSV (idx TAB name TAB status TAB conclusion TAB
-# suite TAB summary TAB annpaths) → JSON + failure-аннотации (Б1 круга 1:
+# построитель check-runs: TSV (idx TAB name TAB status TAB conclusion
+# TAB suite TAB summary TAB annpaths) → JSON + failure-аннотации (Б1 круга 1:
 # идентичность дефекта — структурированный путь аннотации, не только текст
-# FAIL-строки; Б3: строки несут check_suite id). annpaths — пути failure-
-# аннотаций через запятую, по одному на FAIL-строку summary по порядку;
-# «-» = аннотаций нет. idx — сквозной номер строки (id check-run).
+# FAIL-строки; Б3: строки несут check_suite id — ВЛОЖЕННЫЙ объект check_suite
+# строки, верный для check-run). annpaths — пути failure-аннотаций через
+# запятую, по одному на FAIL-строку summary по порядку; запись «path~message»
+# задаёт ЧУЖОЙ message при том же path (И-11б/в круга 3); «-» = аннотаций нет.
+# idx — сквозной номер строки (id check-run).
 # z100_cr_reset [деф-suitе]; z100_cr_add <name> <status> <conclusion>
 #   <summary: строки через ⏎> [suite] [annpaths]; z100_cr_flush <out>
 Z100_CR=""
@@ -221,11 +265,20 @@ z100_cr_flush() {
     "$Z100_CR" >"$1"
   # аннотации: для каждой строки с annpaths — failure-аннотации по одной на
   # FAIL-строку summary (по порядку), path по порядку из annpaths; id
-  # check-run = idx (тот же id, что в JSON выше).
+  # check-run = idx (тот же id, что в JSON выше). Запись annpaths «path~message»
+  # переопределяет message аннотации (по умолчанию message = парная FAIL-строка
+  # побайтно) — под-входы И-11б/в круга 3: правильный path и число аннотаций,
+  # message ≠ FAIL-строке.
   while IFS=$'\t' read -r idx nm st co suite summary ann; do
     [ "$ann" != "-" ] || continue
     mkdir -p "$apiroot/check-runs/$idx"
     paste -d'\t' <(printf '%s' "$summary" | sed 's/⏎/\n/g' | grep -a ': FAIL: ') <(printf '%s' "$ann" | tr ',' '\n') \
+      | while IFS=$'\t' read -r fl ent; do
+          case "$ent" in
+            *~*) printf '%s\t%s\n' "${ent#*~}" "${ent%%~*}" ;;
+            *)   printf '%s\t%s\n' "$fl" "$ent" ;;
+          esac
+        done \
       | jq -R -s 'split("\n") | map(select(length > 0)) | map(split("\t"))
                   | map({path: .[1], annotation_level: "failure", message: .[0]})' \
       >"$apiroot/check-runs/$idx/annotations"

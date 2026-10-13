@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 100 (контракт 100, круг 2 — Н-39): девятнадцать обманных
+# Обманный стаб-пак 100 (контракт 100, круг 3 — Н-39): двадцать семь обманных
 # субъектов gitw_preflight_071.sh, каждый — мини-дверь с ОДНИМ дефектом
 # (Z100_STUB_MODE); режим none — честная по форме модель критерия (прогон
 # «модель зелёная» вне пакета). Пойман = связанная клетка против стаба даёт
@@ -19,11 +19,30 @@
 #   t100-m12 no-cidefreeze      → red_ci_proiskhozhdenie (Б2: package.json кандидата изменён при верном хеше)
 #   t100-m13 no-suite           → red_smesch_zapuskov (Б3: строки чужого suite 11 первыми в ответе)
 #   t100-m14 list-diff-ok       → red_samovnesenie_spiska (Б4: дормантная запись в дереве кандидата)
-#   t100-m15 poluta             → red_poluta_nevedomy_otkaz (Б5: оба под-входа)
+#   t100-m15 poluta             → red_poluta_nevedomy_otkaz (Б5: оба круга-2 под-входа)
 #   t100-m16 no-reread          → red_dvizhenie_bazy_vo_vremya (Б6а: база двинулась между сверкой и допуском)
 #   t100-m17 no-reread+gitw     → red_repeticija_gitw (Б6б: П3 — публикация через дверь при двинутой базе)
 #   t100-m18 lenient-schema     → red_istochnik_doveriya (Б7: под-вход а — голая запись принимается)
 #   t100-m19 silent-empty       → red_istochnik_doveriya (совет 3: под-вход г — нечитаемый блоб ≡ пусто)
+#   t100-m20 defs-only          → red_ci_proiskhozhdenie (Б2/арбитраж: под-вход б — тело скрипта под
+#                                scripts/ заменено при байт-идентичном слое определений; сравнивает
+#                                ТОЛЬКО три файла слоя, корни не судит — живой обход круга 2)
+#   t100-m21 count-only         → red_identichnost_defekta (Б1/арбитраж: под-входы б/в — правильный path
+#                                и число аннотаций, message ≠ FAIL-строке; сравнивает числа, не message)
+#   t100-m22 list-p-only        → red_samovnesenie_spiska (Б4: под-вход б — расширенный список внесён
+#                                ТОЛЬКО в дерево land-мержа M; список сравнивается только с p — живой
+#                                обход круга 2)
+#   t100-m23 p-code-only        → red_samovnesenie_spiska (Б4: под-вход в — тело проверяльщика заменено
+#                                только в дереве M; CI-код судится только по p)
+#   t100-m24 success-blind      → red_poluta_nevedomy_otkaz (Б5: под-вход в — success-job с новой
+#                                FAIL-строкой; находки читаются только у failure-job)
+#   t100-m25 no-wfrun           → red_poluta_nevedomy_otkaz (Б5: под-вход г — все job success/PASS,
+#                                conclusion запуска failure; отказ workflow без находок не судится)
+#   t100-m26 side-effect+gitw   → red_repeticija_gitw (Б6: П2 — мутант круга 2: при «находка вне
+#                                списка» публикует постороннюю ветку в target ДО печати отказа)
+#   t100-m27 nested-suite       → red_kontrol_vse_zelenoe (Б8: связка читает вложенный check_suite.id
+#                                запуска вместо плоского check_suite_id — документированной схемы
+#                                GET /actions/runs; на настоящей форме отбрасывает все 12 строк)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FAM="$HERE"
@@ -41,10 +60,20 @@ trap 'rm -rf "$WORK"' EXIT
 read -r -d '' CORE <<'EOCORE' || true
 #!/usr/bin/env bash
 # стаб батареи 100: предполёт чек 3 с ОДНИМ дефектом (Z100_STUB_MODE);
-# режим none — честная по форме модель критерия контракта 100 (круг 2)
+# режим none — честная по форме модель критерия контракта 100 (круг 3)
 set -uo pipefail
 MODE='__MODE__'
-pf()  { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: %s\n' "$1" >&2; exit 1; }
+pf()  {
+  if [ "$MODE" = "side-effect" ]; then
+    # дефект Б6 круга 2 (мутант критика): при «находка вне списка» публиковать
+    # постороннюю ветку в target ДО печати отказа — оракул «after ≠ M» это
+    # пропускал; новый оракул П2 требует target до == после
+    case "$1" in
+      "находка вне списка"*) git push -q "$TGT" wip/100/demo:refs/heads/main >/dev/null 2>&1 || true ;;
+    esac
+  fi
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: %s\n' "$1" >&2; exit 1
+}
 api0(){ printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2; exit 1; }
 TGT="${1:?}"; shift
 src=""
@@ -87,7 +116,14 @@ if [ "$MODE" != "no-base" ]; then
   bs="$(jq -r '.pull_requests[0].base.sha // ""' <<<"$run")"
   [ "$bs" = "$rmain" ] || pf "движение базы: запуск не актуален"
 fi
-suite="$(jq -r '.check_suite.id // 0' <<<"$run")"
+# Б8: у ЗАПУСКА поле ПЛОСКОЕ check_suite_id (документированная схема
+# GET /actions/runs); nested-suite — дефект круга 2 (вложенная форма
+# check_suite.id вычитывает 0 и отбрасывает все настоящие строки)
+if [ "$MODE" = "nested-suite" ]; then
+  suite="$(jq -r '.check_suite.id // 0' <<<"$run")"
+else
+  suite="$(jq -r '.check_suite_id // 0' <<<"$run")"
+fi
 crs="$(curl -fsS -m 5 "$api/commits/$p/check-runs" \
   | jq -c '{rows: [.check_runs[]? | {id, name, status, conclusion, check_suite_id: (.check_suite.id // 0), summary: (.output.summary // "")}]}')" || api0
 if [ "$MODE" = "no-suite" ]; then
@@ -170,7 +206,8 @@ done < <(printf '%s' "$rows" | jq -r '.rows[].name')
 [ "$problems" -eq 0 ] || exit 1
 
 # ── источник доверия: список из ПРИНЯТОЙ ревизии; схема fail-closed;
-# самовнесение (байт-идентичность p↔rmain); читаемость vs отсутствие ──
+# самовнесение (байт-идентичность p↔rmain И M↔rmain — Б4: публикуемым
+# деревом является M, p — лишь CI-родитель); читаемость vs отсутствие ──
 read_side() {  # <rev> → ABSENT | содержимое | UNREADABLE
   local e
   e="$(git ls-tree --name-only "$1" -- registry/main-ci-exceptions.json 2>/dev/null)"
@@ -181,20 +218,20 @@ read_side() {  # <rev> → ABSENT | содержимое | UNREADABLE
   printf '%s' "$c"
 }
 t_side="$(read_side "$rmain")"
+m_side="$(read_side "$mh")"
 p_side="$(read_side "$p")"
-side() { # <t_side|p_side>
-  if [ "$1" = "t_side" ]; then printf '%s' "$t_side"; else printf '%s' "$p_side"; fi
-}
-for s in "$t_side" "$p_side"; do
+for s in "$t_side" "$m_side" "$p_side"; do
   if [ "$s" = "UNREADABLE" ]; then
     if [ "$MODE" = "silent-empty" ]; then continue; fi
     pf "список не читается: принятая ревизия"
   fi
 done
-if [ "$t_side" = "ABSENT" ] && [ "$p_side" = "ABSENT" ]; then
+if [ "$t_side" = "ABSENT" ] && [ "$p_side" = "ABSENT" ] \
+   && { [ "$MODE" = "list-p-only" ] || [ "$m_side" = "ABSENT" ]; }; then
   exsrc='{"schema":"main-ci-exceptions/1","exceptions":[]}'
   listflag=0
-elif [ "$t_side" = "ABSENT" ] || [ "$p_side" = "ABSENT" ] || [ "$t_side" != "$p_side" ]; then
+elif [ "$t_side" = "ABSENT" ] || [ "$p_side" = "ABSENT" ] || [ "$t_side" != "$p_side" ] \
+     || { [ "$MODE" != "list-p-only" ] && { [ "$m_side" = "ABSENT" ] || [ "$t_side" != "$m_side" ]; }; }; then
   if [ "$MODE" != "list-diff-ok" ]; then
     printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: список не из доверенной ревизии: registry/main-ci-exceptions.json\n' >&2
     listflag=1
@@ -230,13 +267,34 @@ recbad="$(printf '%s' "$exsrc" | jq -r '[.exceptions[] | select(
     (.object|type)!="string" or (.object==""))] | length' 2>/dev/null)"
 [ "${recbad:-0}" = "0" ] || pf "список не разбирается: запись"
 
-# ── слой определений CI: байт-идентичность p↔rmain (Б2) ──
+# ── слой определений CI и исполняемые корни: байт-идентичность p↔rmain И
+# M↔rmain (Б2/арбитраж contracts-100-b1b2 + Б4: отправляемое дерево — M);
+# добавление новых путей разрешено; нарушения печатаются ВСЕ (арбитраж А1) ──
 if [ "$MODE" != "no-cidefreeze" ]; then
-  for f in .github/workflows/ci.yml registry/ci-steps.tsv package.json; do
-    a="$(git show "$rmain:$f" 2>/dev/null || printf 'ABSENT')"
-    b="$(git show "$p:$f" 2>/dev/null || printf 'ABSENT')"
-    [ "$a" = "$b" ] || pf "CI-код не из доверенной ревизии: $f"
+  viol=""
+  for side in p m; do
+    rev="$p"; [ "$side" = "m" ] && rev="$mh"
+    [ "$side" = "m" ] && [ "$MODE" = "p-code-only" ] && continue
+    for f in .github/workflows/ci.yml registry/ci-steps.tsv package.json; do
+      a="$(git show "$rmain:$f" 2>/dev/null || printf 'ABSENT')"
+      b="$(git show "$rev:$f" 2>/dev/null || printf 'ABSENT')"
+      [ "$a" = "$b" ] || viol+="$f"$'\n'
+    done
+    if [ "$MODE" != "defs-only" ]; then
+      while IFS=$'\t' read -r st vpath rest; do
+        [ -n "$vpath" ] || continue
+        viol+="$vpath"$'\n'
+        [ -n "$rest" ] && viol+="$rest"$'\n'
+      done < <(git diff --name-status --diff-filter=MDTR "$rmain" "$rev" -- scripts fixtures 2>/dev/null)
+    fi
   done
+  if [ -n "$viol" ]; then
+    while IFS= read -r v; do
+      [ -n "$v" ] || continue
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: CI-код не из доверенной ревизии: %s\n' "$v" >&2
+    done < <(printf '%s' "$viol" | LC_ALL=C sort -u)
+    exit 1
+  fi
 fi
 
 total=0; covered=0
@@ -245,8 +303,19 @@ for j in "${jobs[@]}"; do
   row="$(rowof "$nm")"
   [ -n "$row" ] || continue
   IFS=$'\t' read -r rid rst rco resc <<<"$row"
-  [ "$rco" = "failure" ] || continue
+  # Б5: находки читаются из отчёта ЛЮБОГО исполненного job (success тоже —
+  # замаскированный код возврата шага не прячет находку); success-blind —
+  # дефект круга 2 (только failure-job)
+  if [ "$MODE" = "success-blind" ] && [ "$rco" != "failure" ]; then continue; fi
   rsum="${resc//\\n/$'\n'}"
+  jfl="$(printf '%s\n' "$rsum" | grep -a ': FAIL: ' || true)"
+  jfail=0
+  if [ -n "$jfl" ]; then jfail="$(printf '%s\n' "$jfl" | grep -c . || true)"; fi
+  [ "$jfail" -gt 0 ] || continue
+  anns="[]"
+  if [ "$MODE" != "no-annotations" ]; then
+    anns="$(curl -fsS -m 5 "$api/check-runs/$rid/annotations" 2>/dev/null || printf '[]')"
+  fi
   for k in ${KEYS[$j]}; do
     fl="$(printf '%s\n' "$rsum" | grep "^${k}: FAIL" || true)"
     [ -n "$fl" ] || continue
@@ -269,17 +338,39 @@ for j in "${jobs[@]}"; do
         || pf "срок исключения истёк: $(jq -r .object <<<"$rec")"
     fi
     if [ "$MODE" != "no-annotations" ]; then
-      anns="$(curl -fsS -m 5 "$api/check-runs/$rid/annotations" 2>/dev/null || printf '[]')"
-      nfail="$(printf '%s\n' "$fl" | grep -c . || true)"
       obj="$(jq -r .object <<<"$rec")"
-      nobj="$(printf '%s' "$anns" | jq --arg o "$obj" '[.[] | select(.annotation_level=="failure" and .path==$o)] | length')"
-      nall="$(printf '%s' "$anns" | jq '[.[] | select(.annotation_level=="failure")] | length')"
-      { [ "${nobj:-0}" -eq "$nfail" ] && [ "${nall:-0}" -eq "$nfail" ]; } \
-        || pf "находка вне списка: $j/$k"
+      nfail="$(printf '%s\n' "$fl" | grep -c . || true)"
+      if [ "$MODE" = "count-only" ]; then
+        # дефект круга 2 (арбитраж Б1): числа по path, message не судится
+        nobj="$(printf '%s' "$anns" | jq --arg o "$obj" '[.[] | select(.annotation_level=="failure" and .path==$o)] | length')"
+        nall="$(printf '%s' "$anns" | jq '[.[] | select(.annotation_level=="failure")] | length')"
+        { [ "${nobj:-0}" -eq "$nfail" ] && [ "${nall:-0}" -eq "$nfail" ]; } \
+          || pf "находка вне списка: $j/$k"
+      else
+        # арбитраж Б1: на КАЖДУЮ FAIL-строку — аннотация с path==object и
+        # message==строке ПОБАЙТНО; лишних failure-аннотаций в отчёте нет
+        bad=0
+        while IFS= read -r line; do
+          [ -n "$line" ] || continue
+          cn="$(printf '%s' "$anns" | jq --arg o "$obj" --arg m "$line" \
+            '[.[] | select(.annotation_level=="failure" and .path==$o and .message==$m)] | length')"
+          ln="$(printf '%s\n' "$fl" | grep -Fxc "$line" || true)"
+          [ "${cn:-0}" -eq "${ln:-0}" ] || bad=1
+        done < <(printf '%s\n' "$fl" | LC_ALL=C sort -u)
+        nall="$(printf '%s' "$anns" | jq '[.[] | select(.annotation_level=="failure")] | length')"
+        [ "${nall:-0}" -eq "$jfail" ] || bad=1
+        [ "$bad" -eq 0 ] || pf "находка вне списка: $j/$k"
+      fi
     fi
     covered=$((covered+1))
   done
 done
+# Б5: conclusion запуска = failure без единой находки — неразобранный отказ
+# workflow (setup/публикация/сбой раннера): «находки 0/0» недопустимы;
+# no-wfrun — дефект круга 2 (отказ workflow без находок не судится)
+if [ "$co" = "failure" ] && [ "$total" -eq 0 ] && [ "$MODE" != "no-wfrun" ]; then
+  pf "запуск отказал без находок"
+fi
 if [ "$MODE" != "no-base" ] && [ "$MODE" != "no-reread" ]; then
   [ "$(git ls-remote "$TGT" refs/heads/main | cut -f1)" = "$rmain" ] \
     || pf "движение базы: запуск не актуален"
@@ -319,6 +410,14 @@ gen_stub t100-m16 no-reread
 gen_stub t100-m17 no-reread gitw-copy
 gen_stub t100-m18 lenient-schema
 gen_stub t100-m19 silent-empty
+gen_stub t100-m20 defs-only
+gen_stub t100-m21 count-only
+gen_stub t100-m22 list-p-only
+gen_stub t100-m23 p-code-only
+gen_stub t100-m24 success-blind
+gen_stub t100-m25 no-wfrun
+gen_stub t100-m26 side-effect gitw-copy
+gen_stub t100-m27 nested-suite
 
 probe() {  # <стаб> <клетка> — rc клетки против стаба (пойман = 1)
   local stub="$1" cell="$2" rc
@@ -333,7 +432,7 @@ probe() {  # <стаб> <клетка> — rc клетки против стаб
 }
 
 n_stub="$(ls -1 "$WORK" | wc -l)"
-[ "$n_stub" -eq 19 ] || { printf 'ОТКАЗ: стабов %s, ожидалось 19\n' "$n_stub" >&2; exit 2; }
+[ "$n_stub" -eq 27 ] || { printf 'ОТКАЗ: стабов %s, ожидалось 27\n' "$n_stub" >&2; exit 2; }
 
 itog=0
 probe t100-m1  red_kontrol_tolyko_razreshennye.sh || itog=1
@@ -355,5 +454,13 @@ probe t100-m16 red_dvizhenie_bazy_vo_vremya.sh    || itog=1
 probe t100-m17 red_repeticija_gitw.sh             || itog=1
 probe t100-m18 red_istochnik_doveriya.sh          || itog=1
 probe t100-m19 red_istochnik_doveriya.sh          || itog=1
-printf 'ИТОГ стаб-пак 100: rc=%s (стабов %s/19)\n' "$itog" "$n_stub"
+probe t100-m20 red_ci_proiskhozhdenie.sh          || itog=1
+probe t100-m21 red_identichnost_defekta.sh        || itog=1
+probe t100-m22 red_samovnesenie_spiska.sh         || itog=1
+probe t100-m23 red_samovnesenie_spiska.sh         || itog=1
+probe t100-m24 red_poluta_nevedomy_otkaz.sh       || itog=1
+probe t100-m25 red_poluta_nevedomy_otkaz.sh       || itog=1
+probe t100-m26 red_repeticija_gitw.sh             || itog=1
+probe t100-m27 red_kontrol_vse_zelenoe.sh         || itog=1
+printf 'ИТОГ стаб-пак 100: rc=%s (стабов %s/27)\n' "$itog" "$n_stub"
 exit "$itog"

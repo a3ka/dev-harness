@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# Клетка red_repeticija_gitw — инвариант И-18 контракта 100 (круг 2, Б6б):
+# Клетка red_repeticija_gitw — инвариант И-18 контракта 100 (круг 3, Б6б):
 # репетиция ЧЕРЕЗ НАСТОЯЩУЮ ДВЕРЬ gitw (не прямой вызов предполёта) — с
 # фактической публикацией разрешённого пакета, отказом запрещённого и
-# сравнением target до/после каждого прогона. Канон обмена переопределяется
-# штатной ручкой обёртки GIT_EXCHANGE_GUARD_CANONICAL (scripts/gitw:41),
-# ручка API — дословная GITW_PREFLIGHT_071_API. Под-входы:
+# ТОЧНЫМ сравнением target до/после каждого прогона. Канон обмена
+# переопределяется штатной ручкой обёртки GIT_EXCHANGE_GUARD_CANONICAL
+# (scripts/gitw:41), ручка API — дословная GITW_PREFLIGHT_071_API. Под-входы:
 # П1 (публикация разрешена): две подписанные находки, третья запись без
 #     находки → rc 0, строка допуска, origin/main УПАЛ на M;
 # П2 (публикация запрещена): новая находка вне списка → rc 1 с фразой,
-#     origin/main НЕ двинут (== A);
+#     origin/main НЕ двинут (оракул: target до == после; слабый оракул
+#     «after ≠ M» пропускал мутанта круга 2, публиковавшего постороннюю
+#     ветку в target ДО печати отказа — живой обход Б6);
 # П3 (движение базы во время проверки): сдвигающий API-стаб двигает
 #     origin/main при первом запросе check-runs → rc 1 «движение базы»,
-#     target ≠ M (публикации нет).
+#     target = точное состояние после ЕДИНСТВЕННОГО санкционированного
+#     движения стенда (голова кандидата B), не просто «≠ M».
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
@@ -77,17 +80,25 @@ scenario() {  # <имя> <findings: razreshennye|novaya> <сервер: plain|sh
   local ok=0
   if [ "$positive" = "1" ]; then
     [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -Fq 'gitw ПРЕДПОЛЁТ: PR-CI допуск: wip/100/demo' \
-      && [ "$after" = "$Z100_M" ] && ok=1
-  else
+      && [ "$before" = "$Z100_A" ] && [ "$after" = "$Z100_M" ] && ok=1
+  elif [ "$server" = "shifting" ]; then
+    # П3: точное ожидаемое состояние после ЕДИНСТВЕННОГО санкционированного
+    # движения стенда (сдвиг стаба A→B); публикация не произошла
     [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -Fq "$want" \
-      && [ "$after" != "$Z100_M" ] && ok=1
+      && [ "$before" = "$Z100_A" ] && [ "$after" = "$Z100_B" ] && ok=1
+  else
+    # П2: target НЕ ДВИНУТ (до == после) — мутант, публикующий постороннюю
+    # ветку до отказа, менял target и проходил оракул «after ≠ M» (Б6)
+    [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -Fq "$want" \
+      && [ "$before" = "$Z100_A" ] && [ "$after" = "$before" ] && ok=1
   fi
   if [ "$ok" -eq 1 ]; then
     printf 'ЗЕЛЕНО: red_repeticija/%s (target %s→%s)\n' "$name" "${before:0:8}" "${after:0:8}"
   else
     printf 'КРАСНО: red_repeticija/%s: предмет отсутствует: ожидались rc %s, фраза «%s», target %s; факт rc=%s, target=%s, вывод: %s\n' \
       "$name" "$([ "$positive" = "1" ] && printf 0 || printf '≠0')" "$want" \
-      "$([ "$positive" = "1" ] && printf '=M' || printf '≠M')" "$rc" "${after:0:8}" "$(printf '%s' "$out" | head -c 300)" >&2
+      "$([ "$positive" = "1" ] && printf 'A→M' || { [ "$server" = "shifting" ] && printf 'A→B (сдвиг стенда)' || printf 'не двинут (A==A)'; })" \
+      "$rc" "${after:0:8}" "$(printf '%s' "$out" | head -c 300)" >&2
     itog=1
   fi
   trap - EXIT; cleanup
