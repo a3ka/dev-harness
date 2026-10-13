@@ -74,12 +74,16 @@
 #   п3а  локальный frozen-тег не на цели → отказ с именем тега;
 #   п3б  тег на цели с ДРУГИМ sha → отказ (сверка по объекту, не по имени);
 #   п3в  done-тег отсутствует на цели → отказ (оба пространства);
-#   п4а  land, у вершины ветки нет прогонов → «land без зелёного PR-CI»;
-#   п4б  прогон conclusion=failure → тот же отказ (фильтр conclusion);
+#   п4а  land, у вершины ветки нет прогонов → «запусков PR-CI нет: <ветка>»
+#        (новый предикат чека 3 контракта 100: запусков по литеральному
+#        event/head_sha нет вовсе);
+#   п4б  прогон conclusion=failure, все 12 job зелёны → «запуск отказал без
+#        находок» (неразобранный отказ workflow — И-15г; conclusion=failure
+#        сам по себе больше НЕ отказ — судится полная грамматика);
 #   п4г  API-порт закрыт → «PR-CI не сверяем» (fail-closed сеть);
 #   п4д  цель не github и ручки нет → «PR-CI не сверяем: цель не github»;
-#   п4е  зелёный success чужого event (push) → «land без зелёного
-#        PR-CI» (success ≠ success именно pull_request — слово владельца п.3);
+#   п4е  зелёный success чужого event (push) → «запусков PR-CI нет»
+#        (success ≠ success именно pull_request — слово владельца п.3);
 #   п5а  мусорный detached-worktree вне корня → «посторонний worktree: <путь>»;
 #   п5б  ветка не-wip под санкционированным корнем → тот же отказ;
 #   п5в  путь-ПОДСТРОКА «dev-harness-worktrees…» вне корня, ветка wip →
@@ -196,23 +200,81 @@ mkdir -p "$TOY/scripts"
 cp "$ROOT/scripts/gitw" "$TOY/scripts/gitw" || die_cell среда "не скопировался scripts/gitw"
 [ -f "$ROOT/scripts/gitw_preflight_071.sh" ] && cp "$ROOT/scripts/gitw_preflight_071.sh" "$TOY/scripts/"
 
+# ── конформный harness-tree: git archive HEAD ────────────────────────────────
+# (перенесён ВЫШЕ старта API-стаба: стабу 100 нужен ci.yml архива — единый
+# источник def-sha256 job с гейтом, который читает ci.yml принятой ревизии мира)
+TREE="$WORK/tree"
+mkdir -p "$TREE"
+git -C "$ROOT" archive --format=tar HEAD | tar -xf - -C "$TREE" \
+  || die_cell среда "git archive HEAD не развёрнут (дерево не построен)"
 # ── API-стаб: green/fail/push.list по head_sha (runs); dokaz.list — артефакты
 # tyazhelyj-<H> (087 И-4 «Ворота», чек 5 предполёта: kod-пуш main пропускается
 # только с доказательством тяжёлого прогона — зелёный мир 071 обязан быть
 # «kod, доказанным PR» одновременно с зелёным PR-CI чека (3)) ──────────────────
 APIDIR="$WORK/api"; : > "$APIDIR/green.list"; : > "$APIDIR/fail.list"; : > "$APIDIR/dokaz.list"
 cat > "$APIDIR/srv.py" <<'PYEOF'
-import json, re, sys
+import hashlib, json, re, sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 GP = sys.argv[1]
 FP = sys.argv[2]
 PP = sys.argv[3]
 DP = sys.argv[4]
+CIY = sys.argv[5]
+# чек 3 контракта 100: состав job/ключей — ci.yml архива HEAD (единый
+# источник def-sha256 с гейтом: он читает ci.yml ПРИНЯТОЙ ревизии мира —
+# то же дерево, тот же отпечаток «<job>TAB<ключи через запятую>NL»)
+JOBS = []
+_j = None
+for _ln in open(CIY, encoding='utf-8').read().splitlines():
+    _m = re.match(r'^ +- (?:shard|lane): ([a-z0-9]+)$', _ln)
+    if _m:
+        _j = _m.group(1); continue
+    _m = re.match(r'^ +keys: (.+)$', _ln)
+    if _m and _j is not None:
+        JOBS.append((_j, _m.group(1).split())); _j = None
+def green_crs(suite):
+    # 12 зелёных job выбранного suite: def-sha256 + терминальная строка
+    # каждого ключа (Решение 3); имя «<префикс> (<job>)» — форма GitHub
+    crs = []; i = 0
+    for job, keys in JOBS:
+        i += 1
+        pfx = 'antiplacebo' if job.startswith('ap') else 'ci'
+        summ = 'def-sha256 ' + hashlib.sha256((job + '\t' + ','.join(keys) + '\n').encode()).hexdigest() + '\n'
+        summ += ''.join(k + ': PASS\n' for k in keys)
+        crs.append({"id": i, "name": pfx + ' (' + job + ')', "status": "completed",
+                    "conclusion": "success", "check_suite": {"id": suite},
+                    "output": {"summary": summ}})
+    return {"total_count": len(crs), "check_runs": crs}
+def load2(p):
+    # green/fail.list: «<head_sha> <base_sha>» — base нужен запуску
+    # (pull_requests[0].base.sha, актуальность базы чека 3 контракта 100)
+    d = {}
+    try:
+        for ln in open(p).read().splitlines():
+            t = ln.split()
+            if len(t) == 2: d[t[0]] = t[1]
+            elif len(t) == 1: d[t[0]] = None
+    except OSError:
+        pass
+    return d
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
-        if re.match(r'^/repos/[^/]+/[^/]+/actions/artifacts$', u.path):
+        m = re.match(r'^/repos/[^/]+/[^/]+/commits/([0-9a-f]{40})/check-runs$', u.path)
+        if m:
+            # чек 3 контракта 100: строки запуска по head_sha; green/fail
+            # несут полный зелёный набор (suite запуска: green 7 / fail 8 —
+            # связка check_suite.id == check_suite_id запуска)
+            sha = m.group(1)
+            GREEN = load2(GP); FAIL = load2(FP)
+            if sha in GREEN:
+                body = green_crs(7)
+            elif sha in FAIL:
+                body = green_crs(8)
+            else:
+                body = {"total_count": 0, "check_runs": []}
+        elif re.match(r'^/repos/[^/]+/[^/]+/actions/artifacts$', u.path):
             # dokaz (087 И-4): артефакт tyazhelyj-<H>, head_sha того же
             # kod-хеша; незарегистрированный H — пустой список (rc 1 «нет
             # зелёного тяжёлого прогона»), отказ ворот НЕ маскируется
@@ -232,18 +294,17 @@ class H(BaseHTTPRequestHandler):
                 body = {"total_count": 0, "artifacts": []}
         elif re.match(r'^/repos/[^/]+/[^/]+/actions/runs$', u.path):
             sha = (parse_qs(u.query).get('head_sha') or [''])[0]
+            GREEN = load2(GP); FAIL = load2(FP)
             try:
-                GREEN = set(x for x in open(GP).read().split() if x)
-                FAIL = set(x for x in open(FP).read().split() if x)
                 PUSH = set(x for x in open(PP).read().split() if x)
             except OSError:
-                GREEN, FAIL, PUSH = set(), set(), set()
+                PUSH = set()
             if sha in GREEN:
-                body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
+                body = {"total_count": 1, "workflow_runs": [{"id": 1, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "success", "check_suite_id": 7, "pull_requests": [{"base": {"sha": GREEN[sha]}}]}]}
             elif sha in PUSH:
                 body = {"total_count": 1, "workflow_runs": [{"id": 3, "event": "push", "head_sha": sha, "status": "completed", "conclusion": "success"}]}
             elif sha in FAIL:
-                body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure"}]}
+                body = {"total_count": 1, "workflow_runs": [{"id": 2, "event": "pull_request", "head_sha": sha, "status": "completed", "conclusion": "failure", "check_suite_id": 8, "pull_requests": [{"base": {"sha": FAIL[sha]}}]}]}
             else:
                 body = {"total_count": 0, "workflow_runs": []}
         else:
@@ -256,11 +317,11 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(raw)
     def log_message(self, *a): pass
 srv = HTTPServer(('127.0.0.1', 0), H)
-open(sys.argv[5], 'w').write(str(srv.server_port))
+open(sys.argv[6], 'w').write(str(srv.server_port))
 srv.serve_forever()
 PYEOF
 : > "$APIDIR/push.list"
-python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/dokaz.list" "$APIDIR/port" &
+python3 "$APIDIR/srv.py" "$APIDIR/green.list" "$APIDIR/fail.list" "$APIDIR/push.list" "$APIDIR/dokaz.list" "$TREE/.github/workflows/ci.yml" "$APIDIR/port" &
 API_PID=$!
 APORT=""
 for _ in 1 2 3 4 5 6 7 8 9 10; do
@@ -276,11 +337,6 @@ curl -fsS -m 5 "$APIBASE/actions/artifacts?name=tyazhelyj-0000000000000000000000
 # мёртвый порт: занять и освободить
 DEADPORT="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')"
 
-# ── конформный harness-tree: git archive HEAD ────────────────────────────────
-TREE="$WORK/tree"
-mkdir -p "$TREE"
-git -C "$ROOT" archive --format=tar HEAD | tar -xf - -C "$TREE" \
-  || die_cell среда "git archive HEAD не развёрнут (дерево не построено)"
 
 
 # ── доказательство тяжёлого прогона (087 И-4 «Ворота», чек 5 предполёта) ──────
@@ -327,6 +383,9 @@ mk_world() {
   git -C "$T" tag done/contracts/098/1 2>/dev/null || true
   git -C "$T" remote add origin "$B1"
   git -C "$T" push -q origin main --tags || die_cell "$name" "базовый пуш в bare не прошёл"
+  # WBASE: базовый коммит мира = вершина main на bare-цели В МОМЕНТ пуши
+  # клеток (base.sha запуска в ответе runs — актуальность базы чека 3 контракта 100)
+  WBASE="$(git -C "$T" rev-parse main)"
   if [ "$withland" = "с-land" ]; then
     git -C "$T" checkout -q -b wip/071/demo
     printf 'демо-коммит ленда\n' > "$T/demo071.txt"
@@ -335,7 +394,7 @@ mk_world() {
     git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/demo' wip/071/demo \
       || die_cell "$name" "land-merge не построился"
     P="$(git -C "$T" rev-parse refs/heads/wip/071/demo)"
-    printf '%s\n' "$P" >> "$APIDIR/green.list"
+    printf '%s %s\n' "$P" "$WBASE" >> "$APIDIR/green.list"
   fi
   local w="$WTROOT/$(h8)"; mkdir -p "$w"
   git -C "$T" worktree add -q -b wip/071/wtx "$w/wt" main 2>/dev/null \
@@ -354,7 +413,7 @@ mk_second_land() {
   printf 'второй ленд\n' > "$T/demx071.txt"
   git -C "$T" add demx071.txt && ident "$T" -m 'work by demx'
   local p2; p2="$(git -C "$T" rev-parse refs/heads/wip/071/demx)"
-  [ "$mode" = "failure" ] && printf '%s\n' "$p2" >> "$APIDIR/fail.list"
+  [ "$mode" = "failure" ] && printf '%s %s\n' "$p2" "$WBASE" >> "$APIDIR/fail.list"
   [ "$mode" = "pushok" ] && printf '%s\n' "$p2" >> "$APIDIR/push.list"
   git -C "$T" checkout -q main
   git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'land: wip/071/demx' wip/071/demx \
@@ -732,21 +791,21 @@ run_stub_pack() {
     "s2:cwdne-tip:чек красный: check:ceilings"
     "s3:teg-sha:локальный тег не на origin: frozen/contracts/099/1"
     "s4:done-net:локальный тег не на origin: done/contracts/098/1"
-    "s5:fail-run:land без зелёного PR-CI: wip/071/demx"
-    "s6:zero-run:land без зелёного PR-CI: wip/071/demx"
+    "s5:fail-run:PR-CI: запуск отказал без находок"
+    "s6:zero-run:PR-CI: запусков PR-CI нет: wip/071/demx"
     "s7:dead-api:PR-CI не сверяем"
     "s8:podstroka:посторонний worktree"
     "s9:garbage-wt:посторонний worktree"
     "s10:ceilings:чек красный: check:ceilings"
     "s11:nesudimyj:несудимая конфигурация refspec"
     "s12:src-ne-main:чек красный: check:ceilings"
-    "s13:pushok:land без зелёного PR-CI: wip/071/demx"
+    "s13:pushok:PR-CI: запусков PR-CI нет: wip/071/demx"
     "s14:bezrefspec:чек красный: check:ceilings"
     "s15:bezrefspec2:чек красный: check:ceilings"
     "s16:allflag:чек красный: check:ceilings"
     "s17:ceilings-hvost:чек красный: check:ceilings"
     "s18:badland:land-субъект не разбирается"
-    "s19:vlozh-land:land без зелёного PR-CI: wip/071/dem5"
+    "s19:vlozh-land:PR-CI: запусков PR-CI нет: wip/071/dem5"
     "s20:teg-sha-dva:локальный тег не на origin: frozen/contracts/099/1"
   )
   local pair st kind want api_mode toks dtok m
@@ -886,16 +945,18 @@ run_honest_cells() {
   expect_refuse п3в "${PF}локальный тег не на origin: done/contracts/098/1"
   bare_frozen п3в; ok_cell 'п3в: done-тег не на origin не уезжает'
 
-  # п4а: land без прогонов
+  # п4а: land без прогонов — «запусков PR-CI нет» (новый предикат 100)
   mk_world p4a; mk_second_land empty
   run_push api origin main
-  expect_refuse п4а "${PF}land без зелёного PR-CI: wip/071/demx"
+  expect_refuse п4а "${PF}PR-CI: запусков PR-CI нет: wip/071/demx"
   bare_frozen п4а; ok_cell 'п4а: land без прогонов PR не уезжает'
 
-  # п4б: прогон не success
+  # п4б: прогон conclusion=failure при полном зелёном наборе job —
+  # «запуск отказал без находок» (И-15г контракта 100; failure больше не
+  # фильтруется — судится полная грамматика, неразобранный отказ ловится)
   mk_world p4b; mk_second_land failure
   run_push api origin main
-  expect_refuse п4б "${PF}land без зелёного PR-CI: wip/071/demx"
+  expect_refuse п4б "${PF}PR-CI: запуск отказал без находок"
   bare_frozen п4б; ok_cell 'п4б: красный PR-прогон не уезжает'
 
   # п4г: мёртвый API — fail-closed
@@ -913,7 +974,7 @@ run_honest_cells() {
   # п4е: зелёный success ЧУЖОГО event (push) — не санкция (слово владельца п.3)
   mk_world p4e; mk_second_land pushok
   run_push api origin main
-  expect_refuse п4е "${PF}land без зелёного PR-CI: wip/071/demx"
+  expect_refuse п4е "${PF}PR-CI: запусков PR-CI нет: wip/071/demx"
   bare_frozen п4е; ok_cell 'п4е: success event=push не санкционирует land'
 
   # п5а: мусорный detached worktree вне корня
@@ -1182,7 +1243,7 @@ PYE
   git -C "$T" checkout -q main
   git -C "$T" -c user.name=t -c user.email=t@t.local -c commit.gpgsign=false merge --no-ff -q -m 'merge outer' wip/071/outer
   run_push api origin main
-  expect_refuse п13а "${PF}land без зелёного PR-CI: wip/071/dem5"
+  expect_refuse п13а "${PF}PR-CI: запусков PR-CI нет: wip/071/dem5"
   bare_frozen п13а; ok_cell 'п13а: вложенный land не на first-parent судится (Р-5)'
 
   # п14а: Р-6 — отсутствующий на цели тег: отказ несёт локальный sha и «нет»

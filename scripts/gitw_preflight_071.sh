@@ -39,6 +39,36 @@ command -v git  >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ:
 command -v curl >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-раннер недоступен: curl\n' >&2; exit 2; }
 command -v jq   >/dev/null 2>&1 || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: чек-раннер недоступен: jq\n' >&2; exit 2; }
 
+# ── режим --ci-report <job> <conclusion>: терминальные строки отчёта job ────
+# (контракт 100, Решение 3): строка `def-sha256 <отпечаток>` (sha256
+# канонической строки «<job>TAB<ключи через запятую в порядке матрицы>NL» по
+# ci.yml дерева запуска — гейт ниже читает отпечаток из ПРИНЯТОЙ ревизии;
+# слой определений байт-идентичен p↔rmain, Решение 5б1) и терминальная
+# строка каждого ключа job `<ключ>: PASS` / `<ключ>: FAIL: <фраза>`.
+# Вызывается CI-шагом «Отчёт 100» (.github/workflows/ci.yml) через npm-ключ
+# check:main-ci-exceptions-report; гейт-путь ниже этим режимом не
+# затрагивается. FAIL-строки (когда проверяльщики ключей научатся их печатать)
+# парятся workflow-командой `::error file=<объект>::<фраза>` — failure-
+# аннотация Checks API с message = FAIL-строке побайтно (структурная
+# идентичность находки, Решение 3(ii)); здесь зелёный шаг проверок
+# исполнением ключей уже ответил, печатается PASS каждого ключа.
+if [ "${1:-}" = "--ci-report" ]; then
+  rjob="${2:?job не передан}"
+  rconc="${3:-}"
+  rkeys="$(awk -v j="$rjob" '
+    /^ +- (shard|lane): [a-z0-9]+$/ { hit = ($0 ~ ("- (shard|lane): " j "$")) ? 1 : 0; next }
+    hit && /^ +keys: / { sub(/^ +keys: /, ""); print; exit }
+  ' .github/workflows/ci.yml)"
+  printf 'def-sha256 %s\n' \
+    "$(printf '%s\t%s\n' "$rjob" "$(printf '%s' "$rkeys" | tr ' ' ',')" | sha256sum | cut -d' ' -f1)"
+  if [ "$rconc" = "success" ] && [ -n "$rkeys" ]; then
+    for k in $rkeys; do printf '%s: PASS\n' "$k"; done
+  else
+    printf 'отчёт 100: шаг проверок job %s не зелёный (%s) — терминальные строки ключей не исполнены\n' \
+      "$rjob" "${rconc:-нет}"
+  fi
+  exit 0
+fi
 TGT="${1:?цель не передана}"
 shift
 
@@ -252,9 +282,21 @@ while IFS=$'\t' read -r sha name; do
 done < <(git for-each-ref --format='%(objectname)%09%(refname)' refs/tags 2>/dev/null)
 unset RSHA
 
-# ── чек (3): каждый merge «land: wip/<NNN>/<автор>» в диапазоне ─────────────
-# Вершина main на цели ls-remote … tip отправляемого src. Второй родитель
-# каждого merge — sha, по которому спрашиваем PR-CI GitHub API.
+# ── чек (3): доверенные исключения main-CI (контракт 100) ─────────────────────
+# Для каждого land-merge «land: wip/<NNN>/<автор>» в диапазоне (вершина main
+# на цели ls-remote … tip отправляемого src): второй родитель p — CI-родитель
+# ленда. Предикат «≥1 успешный PR-workflow run» (071) ЗАМЕНЁН полной
+# грамматикой допуска (контракт 100, Решения 1–5): запуск с максимальным id
+# по литеральным event/head_sha, completed + success|failure, актуальность
+# базы (base.sha == rmain до суда и перечитывание перед допуском), связка
+# запуска со строками check-runs по ПЛОСКОМУ check_suite_id, полнота всех
+# 12 job доверенного ci.yml принятой ревизии (def-sha256 + терминальные
+# строки каждого ключа, находки из отчёта ЛЮБОГО job), двойная идентичность
+# находки (sha256 FAIL-строк ∧ failure-аннотации path/message) против
+# списка registry/main-ci-exceptions.json, читаемого из ПРИНЯТОЙ ревизии,
+# и байт-идентичность слоя определений CI и исполняемых корней p↔rmain и
+# M↔rmain. Старой фразы «land без зелёного PR-CI» в коде нет (замена,
+# не наслаивание — Пять правил §2).
 #
 # Граница применимости API-проверки: если в $rmain..$send_tip НЕТ ни одного
 # merge-subject «land: wip/<NNN>/<автор>» → API-запрос не формируется,
@@ -347,6 +389,49 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
     *)              API="${API_BASE}/actions/runs" ;;
   esac
 
+  # ── гейт 100: полная грамматика допуска (Решения 1–5) ──────────────────────
+  pf()  { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: %s\n' "$1" >&2; exit 1; }
+  api0(){ printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2; exit 1; }
+  # база API без суффикса /actions/runs (для commits/<p>/check-runs и аннотаций)
+  case "$API_BASE" in
+    */actions/runs) REPO_API="${API_BASE%/actions/runs}" ;;
+    *)              REPO_API="$API_BASE" ;;
+  esac
+  gh_args=(-H 'Accept: application/vnd.github+json' \
+           -H 'X-GitHub-Api-Version: 2022-11-28')
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    gh_args+=(-H "Authorization: Bearer $GITHUB_TOKEN")
+  fi
+  # читаемость списка (совет 3 круга 1): ls-tree пуст ⇒ путь ДОСТОВЕРНО
+  # отсутствует в ревизии ≡ пустой список; запись есть, но блоб не читается ⇒
+  # именованный отказ «список не читается», НЕ пустой список молча.
+  read_side() {  # <rev> → ABSENT | содержимое | UNREADABLE
+    local e c
+    if ! e="$(git ls-tree --name-only "$1" -- registry/main-ci-exceptions.json 2>/dev/null)"; then
+      printf 'UNREADABLE'; return 0
+    fi
+    [ -n "$e" ] || { printf 'ABSENT'; return 0; }
+    c="$(git show "$1:registry/main-ci-exceptions.json" 2>/dev/null)" \
+      || { printf 'UNREADABLE'; return 0; }
+    printf '%s' "$c"
+  }
+  pfx() { case "$1" in ap*) printf 'antiplacebo';; *) printf 'ci';; esac; }
+  # отпечаток определения job (Решение 3): sha256 канонической строки
+  # «<job>TAB<ключи через запятую в порядке матрицы>NL» по ci.yml принятой ревизии
+  defsha() { printf '%s\t%s\n' "$1" "$(printf '%s' "${KEYS[$1]}" | tr ' ' ',')" | sha256sum | cut -d' ' -f1; }
+  rowof() {  # <имя> → id TAB status TAB conclusion TAB summary (пусто = нет строки)
+    printf '%s' "$rows" | jq -r --arg n "$1" \
+      '[.rows[] | select(.name==$n)] | .[0] | if . then ([.id, .status, (.conclusion // ""), (.summary // "")] | @tsv) else "" end'
+  }
+
+  declare -A KEYS
+
+  # обеспечение объектов принятой ревизии (Решение 5а): локальное хранилище
+  # может не нести rmain (мелкий клон) — список/ci.yml читаются из ПРИНЯТОЙ
+  # ревизии; фетч цели только при отсутствии объекта, отказ фетча НЕ маскирует
+  # дальнейшую читаемость (git show упадёт именованным отказом, fail-closed)
+  git cat-file -e "$rmain^{commit}" 2>/dev/null \
+    || git fetch --quiet "$TGT" main 2>/dev/null || true
   for entry in "${land_merges[@]}"; do
     h="${entry%%$'\t'*}"; s="${entry#*$'\t'}"
     br="${s#land: }"
@@ -355,24 +440,213 @@ if [ "${#land_merges[@]}" -gt 0 ]; then
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land-субъект не разбирается: %s\n' "$s" >&2
       exit 1
     fi
-    gh_args=(-H 'Accept: application/vnd.github+json' \
-             -H 'X-GitHub-Api-Version: 2022-11-28')
-    if [ -n "${GITHUB_TOKEN:-}" ]; then
-      gh_args+=(-H "Authorization: Bearer $GITHUB_TOKEN")
-    fi
-    if ! body="$(curl -fsS -m 20 \
+    # запуск: из workflow_runs берём ТОЛЬКО строки с литеральным равенством
+    # event=="pull_request" ∧ head_sha=="<p>"; судится запуск с МАКСИМАЛЬНЫМ id
+    if ! runs="$(curl -fsS -m 20 \
           "${gh_args[@]}" \
           "$API?event=pull_request&head_sha=$p" 2>/dev/null)"; then
       printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI не сверяем: API\n' >&2
       exit 1
     fi
-    n="$(printf '%s' "$body" | jq -r '[.workflow_runs[]? | select((.event=="pull_request") and (.conclusion=="success"))] | length' 2>/dev/null)"
-    n="${n:-0}"
-    if ! [[ "$n" =~ ^[0-9]+$ ]]; then n=0; fi
-    if [ "$n" -lt 1 ]; then
-      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: land без зелёного PR-CI: %s (%s)\n' "$br" "$p" >&2
+    run="$(printf '%s' "$runs" | jq -c --arg p "$p" \
+      '[.workflow_runs[]? | select((.event=="pull_request") and (.head_sha==$p))] | max_by(.id) // empty' 2>/dev/null)"
+    [ -n "$run" ] || pf "запусков PR-CI нет: $br ($p)"
+    st="$(jq -r '.status // ""' <<<"$run")"
+    [ "$st" = "completed" ] || pf "запуск не завершён: ${st:-без статуса}"
+    co="$(jq -r '.conclusion // ""' <<<"$run")"
+    { [ "$co" = "success" ] || [ "$co" = "failure" ]; } || pf "запуск не исполнен: ${co:-без результата}"
+    # актуальность базы — первая сверка (вторая: перечитывание перед допуском, И-16)
+    bs="$(jq -r '.pull_requests[0].base.sha // ""' <<<"$run")"
+    [ "$bs" = "$rmain" ] || pf "движение базы: запуск не актуален"
+    # связка запуска со строками: ПЛОСКОЕ check_suite_id документированной схемы
+    # GET /actions/runs (Б8); вложенный check_suite.id — форма объекта check-run
+    suite="$(jq -r '.check_suite_id // 0' <<<"$run")"
+    crs="$(curl -fsS -m 20 "${gh_args[@]}" "$REPO_API/commits/$p/check-runs" \
+      | jq -c '{rows: [.check_runs[]? | {id, name, status, conclusion, check_suite_id: (.check_suite.id // 0), summary: (.output.summary // "")}]}')" || api0
+    # строки ТОЛЬКО выбранного suite; одного имени — строка с МАКСИМАЛЬНЫМ id (И-13)
+    rows="$(printf '%s' "$crs" | jq -c --argjson s "$suite" \
+      '{rows: ([.rows[] | select(.check_suite_id == $s)] | group_by(.name) | map(max_by(.id)))}')"
+    # доверенный состав job/ключей — ci.yml ПРИНЯТОЙ ревизии (не отправляемого дерева)
+    ciyl="$(git show "$rmain:.github/workflows/ci.yml" 2>/dev/null)" \
+      || pf "CI-код не читается: .github/workflows/ci.yml"
+    KEYS=()
+    jobs=()
+    jent=""
+    while IFS= read -r l; do
+      if [ -z "$jent" ]; then jent="$l"; else KEYS[$jent]="$l"; jobs+=("$jent"); jent=""; fi
+    done < <(printf '%s\n' "$ciyl" | sed -nE 's/^ +- (shard|lane): ([a-z0-9]+)$/\2/p; s/^ +keys: (.+)$/\1/p')
+    # полнота: каждый ожидаемый job обязан быть исполнен (И-1, И-6); несоответствия
+    # печатаются ВСЕ до отказа
+    problems=0
+    for j in "${jobs[@]}"; do
+      nm="$(pfx "$j") ($j)"
+      row="$(rowof "$nm")"
+      if [ -z "$row" ]; then
+        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: job не выполнен: %s отсутствует\n' "$j" >&2
+        problems=1; continue
+      fi
+      IFS=$'\t' read -r rid rst rco resc <<<"$row"
+      rsum="${resc//\\n/$'\n'}"
+      if [ "$rst" != "completed" ]; then
+        reason="$rst"; [ -z "$reason" ] && reason="$rco"
+        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: job не выполнен: %s %s\n' "$j" "$reason" >&2
+        problems=1; continue
+      fi
+      case "$rco" in
+        success|failure) ;;
+        skipped|neutral|cancelled|timed_out)
+          printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: job не выполнен: %s %s\n' "$j" "$rco" >&2
+          problems=1; continue ;;
+        *)
+          printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: job не выполнен: %s неразобранный результат: %s\n' "$j" "$rco" >&2
+          problems=1; continue ;;
+      esac
+      # отпечаток определения гейт вычисляет сам; строка в отчёте — заявление (И-7в/г)
+      ds="$(printf '%s\n' "$rsum" | sed -nE 's/^def-sha256 ([0-9a-f]{64})$/\1/p' | head -1)"
+      [ "$ds" = "$(defsha "$j")" ] || pf "отчёт не из доверенного определения: $j"
+      # терминальная строка каждого обязательного ключа (И-5, И-15а)
+      for k in ${KEYS[$j]}; do
+        printf '%s\n' "$rsum" | grep -qE "^${k}: (PASS|FAIL)" \
+          || pf "нет результата: $j/$k"
+      done
+      # completed/failure без единой FAIL-строки — неразобранный отказ job (И-15б)
+      if [ "$rco" = "failure" ]; then
+        nf=0
+        for k in ${KEYS[$j]}; do
+          c="$(printf '%s\n' "$rsum" | grep -c "^${k}: FAIL" || true)"
+          nf=$((nf + c))
+        done
+        [ "$nf" -gt 0 ] || pf "job не выполнен: $j отказ без находки"
+      fi
+    done
+    # check-run выбранного suite вне доверенного множества (И-7б)
+    while IFS= read -r nm; do
+      [ -n "$nm" ] || continue
+      known=0
+      for j in "${jobs[@]}"; do [ "$(pfx "$j") ($j)" = "$nm" ] && known=1; done
+      if [ "$known" -eq 0 ]; then
+        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: посторонний job: %s\n' "$nm" >&2
+        problems=1
+      fi
+    done < <(printf '%s' "$rows" | jq -r '.rows[].name')
+    [ "$problems" -eq 0 ] || exit 1
+    # ── источник доверия: читаемость списка (2) → схема (2) → самовнесение (5в,
+    # печать) → слой определений и корни p и M (5б/5в) → находки (1,3,4) →
+    # перечитывание базы (1) → допуск ──
+    t_side="$(read_side "$rmain")"
+    m_side="$(read_side "$h")"
+    p_side="$(read_side "$p")"
+    for lsd in "$t_side" "$m_side" "$p_side"; do
+      if [ "$lsd" = "UNREADABLE" ]; then
+        pf "список не читается: принятая ревизия"
+      fi
+    done
+    if [ "$t_side" = "ABSENT" ] && [ "$p_side" = "ABSENT" ] && [ "$m_side" = "ABSENT" ]; then
+      exsrc='{"schema":"main-ci-exceptions/1","exceptions":[]}'
+      listflag=0
+    elif [ "$t_side" = "ABSENT" ] || [ "$p_side" = "ABSENT" ] || [ "$t_side" != "$p_side" ] \
+         || [ "$m_side" = "ABSENT" ] || [ "$t_side" != "$m_side" ]; then
+      printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: список не из доверенной ревизии: registry/main-ci-exceptions.json\n' >&2
+      listflag=1
+      if [ "$t_side" = "ABSENT" ]; then
+        exsrc='{"schema":"main-ci-exceptions/1","exceptions":[]}'
+      else
+        exsrc="$t_side"
+      fi
+    else
+      exsrc="$t_side"
+      listflag=0
+    fi
+    sch="$(printf '%s' "$exsrc" | jq -e '(.schema=="main-ci-exceptions/1") and (.exceptions|type=="array")' 2>/dev/null)"
+    if [ "$sch" != "true" ]; then
+      pf "список не разбирается: схема"
+    fi
+    recbad="$(printf '%s' "$exsrc" | jq -r '[.exceptions[] | select(
+        (.defect_code|type)!="string" or (.defect_code|test("^[0-9a-f]{64}$")|not) or
+        (.check_version|type)!="string" or (.check_version|test("^[0-9a-f]{64}$")|not) or
+        (.evidence_main_sha|type)!="string" or (.evidence_main_sha|test("^[0-9a-f]{40}$")|not) or
+        (.expires|type)!="string" or (.expires|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")|not) or
+        (.object|type)!="string" or (.object==""))] | length' 2>/dev/null)"
+    [ "${recbad:-0}" = "0" ] || pf "список не разбирается: запись"
+    # слой определений CI и исполняемые корни scripts//fixtures: байт-идентичность
+    # p↔rmain И M↔rmain (Решение 5б, арбитраж contracts-100-b1b2; Б4: публикуемое
+    # дерево — M = land-мерж); добавление новых путей разрешено; печатаются ВСЕ пути
+    viol=""
+    for side in p m; do
+      rev="$p"; [ "$side" = "m" ] && rev="$h"
+      for f in .github/workflows/ci.yml registry/ci-steps.tsv package.json; do
+        a="$(git show "$rmain:$f" 2>/dev/null || printf 'ABSENT')"
+        b="$(git show "$rev:$f" 2>/dev/null || printf 'ABSENT')"
+        [ "$a" = "$b" ] || viol+="$f"$'\n'
+      done
+      while IFS=$'\t' read -r stv vpath rest; do
+        [ -n "$vpath" ] || continue
+        viol+="$vpath"$'\n'
+        [ -n "$rest" ] && viol+="$rest"$'\n'
+      done < <(git diff --name-status --diff-filter=MDTR "$rmain" "$rev" -- scripts fixtures 2>/dev/null)
+    done
+    if [ -n "$viol" ]; then
+      while IFS= read -r v; do
+        [ -n "$v" ] || continue
+        printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: PR-CI: CI-код не из доверенной ревизии: %s\n' "$v" >&2
+      done < <(printf '%s' "$viol" | LC_ALL=C sort -u)
       exit 1
     fi
+    # находки: FAIL-строки читаются из отчёта ЛЮБОГО исполненного job, success
+    # тоже (Б5); соответствие записи — двойная идентичность (Решение 3, И-11)
+    total=0; covered=0
+    for j in "${jobs[@]}"; do
+      nm="$(pfx "$j") ($j)"
+      row="$(rowof "$nm")"
+      [ -n "$row" ] || continue
+      IFS=$'\t' read -r rid rst rco resc <<<"$row"
+      rsum="${resc//\\n/$'\n'}"
+      jfl="$(printf '%s\n' "$rsum" | grep -a ': FAIL: ' || true)"
+      jfail=0
+      if [ -n "$jfl" ]; then jfail="$(printf '%s\n' "$jfl" | grep -c . || true)"; fi
+      [ "$jfail" -gt 0 ] || continue
+      anns="$(curl -fsS -m 20 "${gh_args[@]}" "$REPO_API/check-runs/$rid/annotations" 2>/dev/null || printf '[]')"
+      for k in ${KEYS[$j]}; do
+        fl="$(printf '%s\n' "$rsum" | grep "^${k}: FAIL" || true)"
+        [ -n "$fl" ] || continue
+        total=$((total+1))
+        # (i) текстовая идентичность: sha256 сортированных LC_ALL=C FAIL-строк ключа
+        sha="$(printf '%s\n' "$fl" | LC_ALL=C sort | sha256sum | cut -d' ' -f1)"
+        rec="$(printf '%s' "$exsrc" | jq -r --arg t "$j" --arg k "$k" --arg s "$sha" \
+          '[.exceptions[]? | select(.target==$t and .key==$k and .defect_code==$s)] | .[0] // empty')"
+        [ -n "$rec" ] || pf "находка вне списка: $j/$k"
+        [ "$(jq -r .check_version <<<"$rec")" = "$(defsha "$j")" ] \
+          || pf "определение проверки не совпадает с записью: $(jq -r .object <<<"$rec")"
+        exp="$(jq -r .expires <<<"$rec")"
+        { [ "$(date +%F)" \< "$exp" ] || [ "$(date +%F)" = "$exp" ]; } \
+          || pf "срок исключения истёк: $(jq -r .object <<<"$rec")"
+        # (ii) структурная: на КАЖДУЮ FAIL-строку — failure-аннотация с path==object
+        # и message==строке побайтно (кратности равны); лишних аннотаций нет (Б1/Б9)
+        obj="$(jq -r .object <<<"$rec")"
+        bad=0
+        while IFS= read -r line; do
+          [ -n "$line" ] || continue
+          cn="$(printf '%s' "$anns" | jq --arg o "$obj" --arg m "$line" \
+            '[.[] | select(.annotation_level=="failure" and .path==$o and .message==$m)] | length')"
+          ln="$(printf '%s\n' "$fl" | grep -Fxc "$line" || true)"
+          [ "${cn:-0}" -eq "${ln:-0}" ] || bad=1
+        done < <(printf '%s\n' "$fl" | LC_ALL=C sort -u)
+        nall="$(printf '%s' "$anns" | jq '[.[] | select(.annotation_level=="failure")] | length')"
+        [ "${nall:-0}" -eq "$jfail" ] || bad=1
+        [ "$bad" -eq 0 ] || pf "находка вне списка: $j/$k"
+        covered=$((covered+1))
+      done
+    done
+    # conclusion запуска = failure без единой находки — неразобранный отказ (И-15г)
+    if [ "$co" = "failure" ] && [ "$total" -eq 0 ]; then
+      pf "запуск отказал без находок"
+    fi
+    # перечитывание базы перед допуском (И-16: движение ПОСЛЕ первой сверки)
+    [ "$(git ls-remote "$TGT" refs/heads/main | cut -f1)" = "$rmain" ] \
+      || pf "движение базы: запуск не актуален"
+    [ "$listflag" -eq 0 ] || exit 1
+    printf 'gitw ПРЕДПОЛЁТ: PR-CI допуск: %s (%s): jobs %s/%s исполнено, находки %s/%s\n' \
+      "$br" "$p" "${#jobs[@]}" "${#jobs[@]}" "$covered" "$total" >&2
   done
   unset land_merges
 fi
