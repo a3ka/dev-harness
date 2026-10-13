@@ -15,7 +15,8 @@
 #       вердикт-файла круга (accept|FAIL|ESCALATE; зелёный CI в accept НЕ
 #       превращается); строка `verdict` с object_id — в журнал принятой стороны
 #       $SELF/../registry/candidates.tsv (грамматика И-0 контракта 094;
-#       журнал вне проверяемой ветки, Б-6; append-only).
+#       журнал вне проверяемой ветки, Б-6; append-only; создаётся писателем
+#       при отсутствии — контракт 098).
 #
 #   judge_gate.sh <sha> --policy-row <object_id> <старая> <новая> <файл-санкции>
 #       policy-писатель (098, решение 4): переход политики — ДОВЕРЕННЫЙ
@@ -81,7 +82,8 @@ dver)
   ;;
 verdict)
   hex40 "$SHA" || d98_die "sha не 40 hex: $SHA"
-  [ -f "$JOURNAL" ] || d98_die "журнал: нет файла: $JOURNAL"
+  # журнал создаётся писателем при отсутствии (контракт 098: append-only)
+  [ -f "$JOURNAL" ] || { : >"$JOURNAL" || d98_die "журнал: не создать: $JOURNAL"; }
   case "$TASK" in ''|*[!A-Za-z0-9._/-]*) d98_die "задача вне алфавита: $TASK" ;; esac
   hex64 "$OID" || d98_die "object_id не 64 hex: $OID"
   [ -f "$VF" ] || d98_die "вердикт-файла нет: $VF"
@@ -97,7 +99,8 @@ verdict)
   ;;
 policy)
   hex40 "$SHA"  || d98_die "sha не 40 hex: $SHA"
-  [ -f "$JOURNAL" ] || d98_die "журнал: нет файла: $JOURNAL"
+  # журнал создаётся писателем при отсутствии (контракт 098: append-only)
+  [ -f "$JOURNAL" ] || { : >"$JOURNAL" || d98_die "журнал: не создать: $JOURNAL"; }
   hex64 "$OID"  || d98_die "object_id не 64 hex: $OID"
   hex64 "$OLDV" || d98_die "старая policyVersion не 64 hex: $OLDV"
   hex64 "$NEWV" || d98_die "новая policyVersion не 64 hex: $NEWV"
