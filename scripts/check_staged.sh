@@ -542,6 +542,41 @@ for f in "${staged[@]}"; do
     continue
   fi
 
+  # ── Контракт 099 / Н-270: staged verdicts/<роль>/** — вердикт судьи НЕ ──────
+  # своей модели не материализуется (слово владельца 2026-10-12 ~18:35 UTC;
+  # «несовпадение — вердикт не материализуется (не коммитится в main),
+  # именованная причина»). Нога ДОПОЛНИТЕЛЬНА к суду зон ниже («прочие
+  # суждения 016 не меняются» — ПЕРЕСЕЧЕНИЕ 099): каталог роли → судейская
+  # роль замкнутого алфавита {critic, adversary, reviewer, arbiter}
+  # (verdicts/review — каталог роли reviewer, зона 011; verdicts/arbitration —
+  # arbiter, зона 028; verdicts/consultant — НЕ судейская роль Н-270, нога
+  # не идёт). Трассу строит models_actual.sh --tsv — ЕДИНЫЙ источник грамматики
+  # «роль TAB модель TAB allowed|denied» (Решение 5); rc≠0 двери — коммит
+  # отвергнут (текст наследуется, прецедент делегирования check_charter).
+  sud_role=""
+  case "$f" in
+    verdicts/critic/*)      sud_role="critic" ;;
+    verdicts/adversary/*)   sud_role="adversary" ;;
+    verdicts/review/*)      sud_role="reviewer" ;;
+    verdicts/arbitration/*) sud_role="arbiter" ;;
+  esac
+  if [ -n "$sud_role" ]; then
+    printf 'judged: %s (Н-270: check_sud_model --verdict %s)\n' "$f" "$sud_role"
+    sud_trace="$scratch_dir/sud_model_trace_$sud_role.tsv"
+    if ! bash "$SELF_DIR/models_actual.sh" --tsv > "$sud_trace" 2>/dev/null; then
+      printf 'ОТКАЗ: вердикт не материализуется: трасса моделей недоступна (models_actual --tsv rc≠0) — судью %s нечем сверить, fail-closed (Н-270)\n' \
+        "$sud_role" >&2
+      rc=1
+    else
+      sud_rc=0
+      sud_out="$(bash "$SELF_DIR/check_sud_model.sh" --verdict "$sud_role" --trace "$sud_trace" --root "$ROOT" 2>&1)" || sud_rc=$?
+      printf '%s\n' "$sud_out"
+      if [ "$sud_rc" -ne 0 ]; then
+        rc=1
+      fi
+    fi
+  fi
+
   # ── Контракт 023, ветвь iii: дверь draft-пуска по тегу выдачи (Н-77(г)) ──────
   # ПЯТЬ условий ВМЕСТЕ для пропуска staged-пути contracts/<NNN>-<slug>.md под architect:
   #   1. грамматика пути contracts/[0-9][0-9][0-9]-* (case выше уже отфильтровал);

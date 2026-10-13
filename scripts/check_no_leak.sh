@@ -1781,7 +1781,13 @@ do_retake_ahead() {
   local first base cur delta manifest_rc snap_mode verify_line verify_stored verify_recomp
   local porcelain_out porcelain_rc cur1 cur2
   local delta_paths path diff_paths diff_rc
+  local retake_zones ahead_path covered_zones owners last_auth
   declare -a ahead_paths=()
+  # Подгружаем lib_zones.sh для zones_load — ЕДИНСТВЕННЫЙ читатель зон
+  # (контракт 099, Решение 6: зонная нога 031/044 в ahead-режиме; та же
+  # конструкция подключения, что у do_retake/do_retake_bulk).
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_zones.sh"
   # Шаг 1. Снимок существует и цел — защиты 024 дословно, те же имена, что у
   # do_retake (031 §Механизм-2 п.1) и do_retake_bulk (044 §Инварианты шаг 1).
   if [ ! -e "$SNAP" ]; then
@@ -1971,6 +1977,66 @@ do_retake_ahead() {
     fi
     ahead_paths+=("$path")
   done <<< "$delta_paths"
+  # Шаг 6з (контракт 099, Решение 6, З-9): ЗОННАЯ НОГА 031/044 в ahead-режиме —
+  # «Не разрешать произвольный retake ради зелени» (doc §2). Замер этой пачки
+  # 2026-10-12: ahead-дельта вне судейских зон переснималась молча («базлайн
+  # переснят: ahead-дельта junk-099.txt … rc 0»). Каждый ahead-путь покрыт
+  # зоной ПОЛНОГО реестра (как 044 — семантика зон zones_match_path:
+  # каталог-зона со слэшем — префикс, файл-зона — точное равенство), автор
+  # последнего коммита пути — владелец покрывающей зоны. Отказ — именованный,
+  # фраза-семейство 031/044 («переснятие-ahead не доказано: …»), НЕ вторая
+  # конвенция. Достижимость origin/main из 044-шага 7в здесь НЕ судится:
+  # ahead-дельта по построению не слита (шаг 6 выше — дифф origin/main..HEAD).
+  # ПИН $AWK/$SORT/$GREP + rc-проверка (дисциплина Б7б третьего круга 044):
+  # голое имя утилиты в новой ноге — дефект.
+  LIB_ZONES_ROOT="$CANON"
+  retake_zones="$(zones_load "$CANON" 2>/dev/null)" || {
+    if [ ! -x "$CANON/.git/refs/tags" ]; then
+      printf 'ОТКАЗ: переснятие-ahead не доказано: реестр зон пуст — читатель ослеплён\n' >&2
+    else
+      printf 'ОТКАЗ: реестр зон недоступен\n' >&2
+    fi
+    exit 1
+  }
+  if [ ! -s "$retake_zones/zones_scoped" ]; then
+    printf 'ОТКАЗ: переснятие-ahead не доказано: реестр зон пуст — читатель ослеплён\n' >&2
+    exit 1
+  fi
+  for ahead_path in "${ahead_paths[@]}"; do
+    # 6з-1. Путь покрыт ≥ 1 зоной ПОЛНОГО реестра (без verdicts/-фильтра 031 —
+    # как 044: судится любая замороженная зона; ahead-дельта вне судейских зон
+    # недоказуема по построению).
+    if ! covered_zones="$("$AWK" -F'\t' -v p="$ahead_path" '
+      $2 != "" {
+        zpath = $2
+        if (zpath ~ /\/$/) {
+          if (index(p, zpath) == 1) print $0
+        } else {
+          if (p == zpath) print $0
+        }
+      }' "$retake_zones/zones_scoped" | "$SORT" -u)"; then
+      printf 'NOT_IMPLEMENTED: covered_zones упало (awk/sort rc≠0) для %s\n' "$ahead_path" >&2
+      exit 2
+    fi
+    if [ -z "$covered_zones" ]; then
+      printf 'ОТКАЗ: переснятие-ahead не доказано: путь %s не покрыт ни одной зоной\n' "$ahead_path" >&2
+      exit 1
+    fi
+    # 6з-2. Владельцы ПОКРЫВАЮЩИХ зон (не весь реестр — иначе любой владелец
+    # подошёл бы, противоположно двери).
+    if ! owners="$(printf '%s\n' "$covered_zones" | "$AWK" -F'\t' '{print $1}' | "$SORT" -u)"; then
+      printf 'NOT_IMPLEMENTED: owners упало (awk/sort rc≠0) для %s\n' "$ahead_path" >&2
+      exit 2
+    fi
+    # 6з-3. Автор последнего коммита, коснувшегося пути, ∈ владельцы зон
+    # (литеральное равенство строк, как 031 п.6 / 044 шаг 7г).
+    last_auth="$("$GIT" -C "$CANON" log -1 --format=%an -- "$ahead_path" 2>/dev/null || true)"
+    if [ -z "$last_auth" ] || ! printf '%s\n' "$owners" | "$GREP" -qxF -- "$last_auth"; then
+      printf 'ОТКАЗ: переснятие-ahead не доказано: автор %s пути %s не владелец зоны\n' \
+        "${last_auth:-неизвестен}" "$ahead_path" >&2
+      exit 1
+    fi
+  done
   # Шаг 7. Успех: пересъём базлайна ТЕМ ЖЕ форматом (root + sorted + verify,
   # mode 0444 — переиспользуется do_snapshot), затем стенограмма — СТРОКА НА
   # КАЖДЫЙ путь: «базлайн переснят: ahead-дельта <путь>», ЗАТЕМ итоговая

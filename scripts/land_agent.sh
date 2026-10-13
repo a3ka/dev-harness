@@ -42,7 +42,7 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat >&2 <<USAGE
-использование: land_agent.sh --branch ИМЯ [--worktree ПУТЬ] [--root КАТАЛОГ] [--orchestrator ИМЯ]
+использование: land_agent.sh --branch ИМЯ [--worktree ПУТЬ] [--root КАТАЛОГ] [--orchestrator ИМЯ] [--pr]
 USAGE
   exit 1
 }
@@ -51,6 +51,7 @@ branch_arg=""
 wt_arg=""
 root_arg=""
 orchestrator="orchestrator"
+PR_MODE=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -58,6 +59,7 @@ while [ "$#" -gt 0 ]; do
     --worktree)      wt_arg="${2:?}"; shift 2 ;;
     --root)          root_arg="${2:?}"; shift 2 ;;
     --orchestrator)  orchestrator="${2:?}"; shift 2 ;;
+    --pr)            PR_MODE=1; shift ;;
     --help|-h)       usage ;;
     *)               printf 'land_agent: неизвестный аргумент: %s\n' "$1" >&2; usage ;;
   esac
@@ -145,6 +147,13 @@ done < <(g rev-list "$range")
 out="$(zones_load "$ROOT" 2>/dev/null)" || {
   printf 'NOT_IMPLEMENTED: реестр заморозок недоступен\n' >&2; exit 2; }
 trap 'rm -rf "$out"' EXIT
+# Режим --pr (099, З-1): реестровую половину И-9 не требуем — подготовка PR
+# идёт в репозитории, где замороженных контрактов может не быть вовсе
+# (переходный период; toy-миры клеток 099), а принадлежность работы зонам
+# судится на PR-этапе серверными обязательными checks (check:zones по диффу
+# к первому родителю) и дверью допуска pr_dopusk.sh. СЦЕПКА committer==author
+# (первая половина И-9) действует в обоих режимах. Без --pr — байт-в-байт.
+if [ "$PR_MODE" -ne 1 ]; then
 author_set="$(awk -F'\t' '{print $1}' "$out/zones_scoped" | sort -u)"
 while IFS= read -r sha; do
   [ -n "$sha" ] || continue
@@ -160,6 +169,7 @@ while IFS= read -r sha; do
     exit 1
   fi
 done < <(g rev-list "$range")
+fi
 
 # Замороженные теги (И-3): ДО merge фиксируем blob-имена всех frozen/* файлов, чтобы после
 # merge убедиться, что они НЕ изменились. Побайтовая сверка с блобом высшей заморозки — то же,
@@ -195,6 +205,81 @@ MERGE_ARGS=(
   -c user.email="${orchestrator}@dev-harness.local"
   -c commit.gpgsign=false
 )
+
+# ── Режим --pr (контракт 099, Решение 3, З-1): подготовка в интеграционную ──
+# ветку pr/<NNN>/<автор> БЕЗ публикации. Тот же merge --no-ff/авторство/
+# `land:`/дословные санкции (016/065), но: локальный main НЕ двигается,
+# исходная ветка wip/<NNN>/<автор> жива (сносится только после принятия PR),
+# worktree жив; флагов squash/rebase нет (миграция исторических барьеров не
+# проводилась). Вывод «PREREADY branch=… sha=<M>»; публикация — ОТДЕЛЬНЫЙ шаг
+# оркестратора (PR + допуск scripts/pr_dopusk.sh + серверное слияние
+# доверенным компонентом, doc §2). Без --pr семантика 016 байт-в-байт.
+if [ "$PR_MODE" -eq 1 ]; then
+  case "$branch_arg" in
+    wip/*) pr_branch="pr/${branch_arg#wip/}" ;;
+    *)
+      printf 'ОТКАЗ: --pr ожидает ветку wip/<NNN>/<автор>, получено %s\n' "$branch_arg" >&2
+      exit 1
+      ;;
+  esac
+  if g show-ref --verify --quiet "refs/heads/$pr_branch"; then
+    printf 'ОТКАЗ: интеграционная ветка %s уже существует — повторная подготовка без разбора предыдущей запрещена\n' \
+      "$pr_branch" >&2
+    exit 1
+  fi
+  prev_branch="$(g symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [ -n "$prev_branch" ] || {
+    printf 'ОТКАЗ: --pr требует ветку в HEAD главного дерева (не detached)\n' >&2
+    exit 1
+  }
+  g checkout -q -b "$pr_branch" main
+  # MERGE --no-ff на интеграционную ветку из главного дерева; И-5 канарейка:
+  # identity литерально В ОДНОЙ СТРОКЕ с `git merge`.
+  if ! git -C "$ROOT" -c user.name="$orchestrator" -c user.email="${orchestrator}@dev-harness.local" -c commit.gpgsign=false merge --no-ff --cleanup=verbatim -F "$TMPF/msg" "$branch_arg" >/dev/null 2>&1; then
+    g checkout -q "$prev_branch" 2>/dev/null || true
+    printf 'ОТКАЗ: merge --no-ff %s отказал — конфликт или иная ошибка git\n' "$branch_arg" >&2
+    exit 1
+  fi
+  pr_sha="$(g rev-parse "$pr_branch")"
+  # Сверки 016 на интеграционной ветке: identity + родители (M^1 = main до,
+  # M^2 = tip исходной ветки) — переход наблюдается, не состояние.
+  merge_cn="$(g log -1 --format='%cn' "$pr_sha")"
+  if [ "$merge_cn" != "$orchestrator" ]; then
+    g checkout -q "$prev_branch" 2>/dev/null || true
+    printf 'ОТКАЗ: merge-коммит подписан %s, ожидался %s — identity оркестратора не применилась\n' \
+      "$merge_cn" "$orchestrator" >&2
+    exit 1
+  fi
+  if [ "$(g rev-parse "$pr_sha^1")" != "$main_head" ] || [ "$(g rev-parse "$pr_sha^2")" != "$tip_sha" ]; then
+    g checkout -q "$prev_branch" 2>/dev/null || true
+    printf 'ОТКАЗ: родители merge на %s не (main=%s, tip=%s) — З-1\n' \
+      "$pr_branch" "$main_head" "$tip_sha" >&2
+    exit 1
+  fi
+  # И-3 на дереве merge: frozen-блобы не изменились (та же сверка, что в 016,
+  # против $pr_sha вместо HEAD/main).
+  pr_fails_frozen=0
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      head_blob="$(g rev-parse --verify --quiet "$pr_sha:$f" 2>/dev/null || true)"
+      tag_blob="$(g rev-parse --verify --quiet "${t}^{commit}:$f" 2>/dev/null || true)"
+      if [ -z "$tag_blob" ] || [ "$head_blob" != "$tag_blob" ]; then
+        printf 'FAIL: %s изменён без новой заморозки (%s vs %s)\n' "$f" "$head_blob" "$tag_blob" >&2
+        pr_fails_frozen=$((pr_fails_frozen + 1))
+      fi
+    done < <(g ls-tree -r --name-only "${t}^{commit}" -- ':(literal)contracts/' 2>/dev/null \
+              | awk -v t="$t" 'match($0, /contracts\/[0-9]+-[a-z0-9-]+\.md$/) { print; exit }')
+  done < "$TMPF/tags_before"
+  g checkout -q "$prev_branch"
+  if [ "$pr_fails_frozen" -gt 0 ]; then
+    printf 'ОТКАЗ: замороженные контракты изменились в результате подготовки PR (И-3)\n' >&2
+    exit 1
+  fi
+  printf 'PREREADY branch=%s sha=%s\n' "$pr_branch" "$pr_sha"
+  exit 0
+fi
 
 # MERGE --no-ff на main. Слияние выполняет САМ СКРИПТ (И-1: наблюдается переход, не состояние).
 # Делается из главного дерева, поскольку это merge main-ветки.
