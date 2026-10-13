@@ -98,7 +98,7 @@ writer)
   ROOT="$(cd "$ROOT" && pwd)"
   git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || die "$ROOT не репозиторий git"
   JOURNAL="$ROOT/registry/candidates.tsv"
-  [ -f "$JOURNAL" ] || die "журнал: нет файла: $JOURNAL"
+  [ -f "$JOURNAL" ] || { mkdir -p "${JOURNAL%/*}" && : >>"$JOURNAL"; } || die "журнал: не создаётся: $JOURNAL" # t98-mJ2: журнал СОЗДАЁТСЯ писателем (контракт 098 «создаётся писателями, append-only»; ревьюер Рв1-1), существующий не усекается
   mand="$(sed -nE 's/^mandatory=//p' "$ROOT/harness/policy" | head -1)"
   [ -n "$mand" ] || die "политика принятой стороны: нет mandatory"
   case ",$mand," in *",$KEY,"*) ;; *) die "ключ вне обязательных: $KEY" ;; esac
