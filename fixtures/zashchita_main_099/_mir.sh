@@ -15,6 +15,16 @@ z99_reg_default() {
   for n in l1 l2 l3 l4 l5 l6 l7a l7b ap1 ap2 ap3 ap4 ap5; do printf '%s\t-\n' "$n"; done
 }
 
+# z99_prod_default — производители составляющих по умолчанию (Решение 2,
+# Р1-6 reviewer 099 круг 1): 13 строк <имя> TAB <файл workflow> TAB <команда
+# дословно>; моделирует main ПОСЛЕ landing 099 — M^1 несёт активную таблицу.
+z99_prod_default() {
+  local n
+  for n in l1 l2 l3 l4 l5 l6 l7a l7b ap1 ap2 ap3 ap4 ap5; do
+    printf '%s\t.github/workflows/ci.yml\tbash fixtures/_krasnye_toy.sh\n' "$n"
+  done
+}
+
 # z99_mir_repo <мир> [with_pr] — repo+origin; main на A (несёт доверенный реестр
 # перехода config/transition_defects_099.tsv — Z99_BASE_DEFECTS или 13 имён
 # по умолчанию — и проверочную поверхность .github/workflows/ci.yml +
@@ -34,6 +44,17 @@ z99_mir_repo() {
   g commit -q --allow-empty -m "база A"
   mkdir -p "$w/repo/config" "$w/repo/.github/workflows"
   printf '%s\n' "${Z99_BASE_DEFECTS:-$(z99_reg_default)}" > "$w/repo/config/transition_defects_099.tsv"
+  # Производители составляющих (Решение 2): не задана — честные 13 строк;
+  # пустая строка — ПУСТАЯ таблица; «none» — файл ОТСУТСТВУЕТ (оба — вход м
+  # клетки perechen, Р1-6); иное значение пишется дословно (совет критика
+  # круга 1: построитель обязан ЧИТАТЬ переменную).
+  if [ "${Z99_BASE_PRODUCERS+set}" = set ]; then
+    if [ "$Z99_BASE_PRODUCERS" != none ]; then
+      printf '%s\n' "$Z99_BASE_PRODUCERS" > "$w/repo/config/transition_producers_099.tsv"
+    fi
+  else
+    printf '%s\n' "$(z99_prod_default)" > "$w/repo/config/transition_producers_099.tsv"
+  fi
   printf 'name: ci\non: pull_request\njobs:\n  checks:\n    steps:\n      - run: git checkout ${{ github.event.pull_request.base.sha }} -- scripts fixtures package.json config\n      - run: bash fixtures/_krasnye_toy.sh\n' > "$w/repo/.github/workflows/ci.yml"
   printf '{"scripts":{"test":"bash fixtures/_krasnye_toy.sh"}}\n' > "$w/repo/package.json"
   # Исполняемое проверкой замыкание в ДОВЕРЕННОМ коммите A (= M^1): workflow
@@ -42,6 +63,7 @@ z99_mir_repo() {
   mkdir -p "$w/repo/scripts" "$w/repo/fixtures"
   printf '#!/usr/bin/env bash\n# toy-проверка l7a (контракт 099, вход и клетки perechen): честный код — исполняется из M^1\nprintf "REAL CHECK EXECUTED: %%s\\n" "check_protected: конфликт 263/266 (известный дефект main)"\nexit 1\n' > "$w/repo/scripts/check_toy.sh"
   printf '#!/usr/bin/env bash\nDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"\nexec bash "$DIR/scripts/check_toy.sh"\n' > "$w/repo/fixtures/_krasnye_toy.sh"
+  [ -f "$w/repo/config/transition_producers_099.tsv" ] && g add config/transition_producers_099.tsv
   g add config/transition_defects_099.tsv .github package.json scripts fixtures
   g commit -q -m "доверенный реестр перехода + проверочная поверхность"
   Z99_A="$(git -C "$w/repo" rev-parse HEAD)"

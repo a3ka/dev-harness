@@ -2,9 +2,10 @@
 # Клетка red_perehodnyj_gheit_perechen — инвариант З-6 контракта 099 (doc §3):
 # переходный доверенный гейт допускает ТОЛЬКО точно перечисленные дефекты,
 # исполненные ПОЛНОСТЬЮ, с доверенным происхождением проверок.
-# Одиннадцать входов (блокеры критика круга 1 :49/:48; входы и/к — граница
+# Двенадцать входов (блокеры критика круга 1 :49/:48; входы и/к — граница
 # арбитража 099 круга 3 по происхождению кода проверок; вход л — вердикт
-# адверсария A099-M1, Решение 1г2: живая материализация замыкания M^1):
+# адверсария A099-M1 + Р1-5 reviewer 099 круга 1; вход м — Р1-6 reviewer
+# 099 круга 1, нога производителя Решения 2, транзитивно):
 #   (а) все составляющие зелёны → ДОПУСК;
 #   (б) отказ l7a, совпадающий с реестром (sha строк), l7b зелёна → ДОПУСК;
 #   (в) неизвестный отказ l7a → блокировка;
@@ -29,17 +30,18 @@
 #   (к) парный вход: кандидат легитимно ДОБАВЛЯЕТ новую клетку и её скрипт
 #       (байт-минимум не тронут) → допуск НЕ отказывает «проверки изменены
 #       кандидатом» — новая клетка становится гейтом после своего ленда.
-#   (л) ЖИВАЯ структурная сверка .github/workflows/ci.yml: каждая джоба,
-#       запускающая run_ci_lane.sh или npm run check:antiplacebo (запуском
-#       считается run-строка с таким токеном, КРОМЕ сам-теста раннера на
-#       собственных байтах — аргумент $TMP_ROOT, класс арбитража 020: сам-тест
-#       обязан стоять ДО материализации, bootstrap), обязана нести РАНЬШЕ
-#       первого такого run-шага шаг материализации
-#       git checkout <base.sha|HEAD^1|M^1> -- scripts fixtures package.json
-#       config (строки внутри #-комментариев материализацией не считаются);
-#       джоба без единого такого run-шага — NO-CHECKS, в выборке не участвует;
-#       ≥1 проверяемой джобы и хоть одна без шага до первого run → именованный
-#       красный отказ «живой workflow не материализует замыкание M^1».
+#   (л) ЖИВАЯ структурная сверка .github/workflows/ci.yml по СВОЙСТВУ 1г2
+#       («все шаги workflow», не два токена — Р1-5 reviewer 099 круг 1):
+#       ни один шаг проверяемой джобы не исполняет байты кандидата
+#       (scripts/*, fixtures/*, npm-ключи package.json, config/* — дословно
+#       Решение 1г2) ДО шага материализации; живой контрпример reviewer'а:
+#       шаг кандидата до материализации делает git replace блоба M^1,
+#       материализация восстанавливает подмену, lane отдаёт rc 0;
+#   (м) нога производителя Решения 2 (Р1-6 reviewer 099 круга1):
+#       пустая/отсутствующая таблица config/transition_producers_099.tsv
+#       не вправе молча выключать ногу pr_dopusk; живая таблица несёт
+#       РОВНО 13 имён обязательного набора, каждая строка связывает имя
+#       с шагом workflow (файл существует, команда дословно).
 # Реестр перехода — на СОСТАВЛЯЮЩИХ (шаг-гранулярность l7a/l7b, агрегата l7 нет):
 # каждое имя обязано иметь completed-результат — допуск известного дефекта
 # удостоверяет полноту остальных результатов и завершённость исполнения.
@@ -231,20 +233,35 @@ z99_json_pr "$W/api/repos/o/r/pulls/7" 7 "$Z99_B" "$M5"
 zcr "$W/api/repos/o/r/commits/$M5/check-runs" "$ALLGREEN"
 zelyona к
 
-# (л) ЖИВАЯ структурная сверка workflow (вердикт адверсария A099-M1; Решение 1г2):
-# барьер средо-зависимый — судится ЖИВОЙ .github/workflows/ci.yml дерева, на котором
-# исполняется клетка (не toy-мир). Запуск обязательной проверки — run-строка с
-# run_ci_lane.sh или npm run check:antiplacebo, КРОМЕ сам-теста раннера на
-# собственных байтах ($TMP_ROOT-аргумент, класс арбитража 020: сам-тест судит
-# СВОИ байты кандидата и обязан стоять ДО материализации — bootstrap, base main
-# не несёт семью). Такая джоба обязана нести РАНЬШЕ первого такого run-шага шаг
-# материализации git checkout <base.sha|HEAD^1|M^1> -- scripts fixtures package.json
-# config; строки внутри #-комментариев материализацией НЕ считаются; джоба без
-# единого такого run-шага — NO-CHECKS, в выборке не участвует (не красный класс).
-# Форма хвоста — единый источник: config/ci_parity_exceptions.txt («-- scripts
-# fixtures package.json config», дословно); ref — семейство base.sha|HEAD^1|M^1.
+# (л) ЖИВАЯ структурная сверка workflow по СВОЙСТВУ 1г2 (Р1-5 reviewer 099
+# круг 1; вердикт адверсария A099-M1): барьер средо-зависимый — судится ЖИВОЙ
+# .github/workflows/ci.yml дерева, на котором исполняется клетка (не toy-мир).
+# Свойство: НИ ОДИН шаг проверяемой джобы не исполняет байты кандидата
+# (scripts/*, fixtures/*, npm-ключи package.json, config/* — дословно
+# Решение 1г2) ДО шага материализации. Проверяемая джоба — джоба, чьи run-шаги
+# производят составляющие обязательного набора: run-строка с токеном
+# run_ci_lane.sh или npm-ключ check:antiplacebo, КРОМЕ сам-теста раннера на
+# собственных байтах (аргумент $TMP_ROOT, класс арбитража 020): сам-тест судит
+# СВОИ байты кандидата и потому обязан жить в ДРУГОЙ джобе — без общего .git
+# с lane-джобой (каждая джоба Actions — отдельный раннер с собственным .git).
+# Живой контрпример reviewer'а (Р1-5): шаг кандидата ДО материализации
+# (check:ci-parity / сам-тест / _krasnye_099) делает git replace блоба
+# M^1:scripts/run_ci_lane.sh на «exit 0» — дословная команда материализации
+# восстанавливает ПОДМЕНУ, lane отдаёт rc 0 при контроле rc 1. Исполнение
+# байтов — строка run-шага (ключ run: или продолжение её блока), содержащая
+# путь scripts/|fixtures/|config/ или npm<пробел> (чтение/пуск ключей
+# package.json); строки внутри #-комментариев исполнением НЕ считаются.
+# Материализация — git checkout <base.sha|HEAD^1|M^1> -- scripts fixtures
+# package.json config (форма хвоста — единый источник:
+# config/ci_parity_exceptions.txt, дословно). Джоба без единого run-токена —
+# NO-CHECKS, в выборке не участвует (не красный класс). Проверяемая джоба без
+# материализации ИЛИ с исполнением байтов кандидата до неё → именованный
+# красный отказ «живой workflow не материализует замыкание M^1» с именем
+# джобы и первым нарушившим шагом (красный не прерывает клетку — вход м
+# докладывается тем же прогоном).
 LIVE_ROOT="$(cd "$HERE/../.." && pwd)"
 LIVE_CI="$LIVE_ROOT/.github/workflows/ci.yml"
+LIVE_BAD=0
 if [ ! -f "$LIVE_CI" ]; then
   printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход л: живой workflow отсутствует: %s\n' "$LIVE_CI" >&2
   exit 1
@@ -252,19 +269,34 @@ fi
 L_MAT='git[ \t]+checkout[ \t]+("?([$][{][{][ \t]*)?(github[.]event[.]pull_request[.]base[.]sha([ \t]*[}][}])?|HEAD\^1|M\^1)"?)[ \t]+--[ \t]+scripts[ \t]+fixtures[ \t]+package[.]json[ \t]+config([^a-zA-Z0-9_.-]|$)'
 L_RUN='run_ci_lane[.]sh|check:antiplacebo'
 L_EXCL='[$]TMP_ROOT'
-if ! L_OUT="$(L_MAT="$L_MAT" L_RUN="$L_RUN" L_EXCL="$L_EXCL" awk '
-  BEGIN { sec = ""; job = ""; sel = 0; rans = 0; mater = 0; ok = 0; n = 0; bad = "" }
+L_EXEC='(^|[^A-Za-z0-9_.-])(scripts/|fixtures/|config/|npm[ \t])'
+if ! L_OUT="$(L_MAT="$L_MAT" L_RUN="$L_RUN" L_EXCL="$L_EXCL" L_EXEC="$L_EXEC" awk '
+  function indent(l) { match(l, /^[ \t]*/); return RLENGTH }
+  BEGIN { sec = ""; job = ""; sel = 0; mat = 0; bad = 0; badtxt = ""; n = 0; out = ""; runind = -1 }
   function flush() {
-    if (job != "" && sel) { n++; if (!ok) bad = bad (bad == "" ? "" : ", ") job }
-    sel = 0; rans = 0; mater = 0; ok = 0
+    if (job != "" && sel) { n++; if (!mat || bad) out = out (out == "" ? "" : ", ") job (bad ? " [" badtxt "]" : "") }
+    sel = 0; mat = 0; bad = 0; badtxt = ""; runind = -1
   }
   /^[^ \t#]/ { flush(); sec = $0; sub(/:.*/, "", sec); job = ""; next }
   sec != "jobs" { next }
   /^  [A-Za-z0-9_-]+:/ { flush(); job = $0; sub(/^ */, "", job); sub(/:.*/, "", job); next }
   /^[ \t]*#/ { next }
-  { if ($0 ~ ENVIRON["L_MAT"]) mater = 1
-    if ($0 ~ ENVIRON["L_RUN"] && !($0 ~ ENVIRON["L_EXCL"]) && !rans) { rans = 1; sel = 1; ok = mater } }
-  END { flush(); printf "%d\t%s\n", n, bad }
+  {
+    ind = indent($0)
+    isexec = 0
+    if ($0 ~ /^[ \t]*(-[ \t]+)?run:/) { isexec = 1; runind = ind }
+    else if (runind >= 0 && ind > runind) { isexec = 1 }
+    else { runind = -1 }
+    if (isexec) {
+      if ($0 ~ ENVIRON["L_MAT"]) { mat = 1 }
+      else if (!mat && $0 ~ ENVIRON["L_EXEC"] && !bad) {
+        bad = 1; badtxt = $0; sub(/^[ \t]*/, "", badtxt)
+        if (length(badtxt) > 80) badtxt = substr(badtxt, 1, 80) "…"
+      }
+    }
+    if (!sel && $0 ~ ENVIRON["L_RUN"] && !($0 ~ ENVIRON["L_EXCL"])) sel = 1
+  }
+  END { flush(); printf "%d\t%s\n", n, out }
 ' "$LIVE_CI")"; then
   printf 'NOT_IMPLEMENTED: red_perehodnyj_gheit_perechen: вход л: awk не разобрал %s\n' "$LIVE_CI" >&2
   exit 2
@@ -276,7 +308,98 @@ printf 'вход л: живой workflow: проверяемых джоб %s\n' 
 if [ "$L_N" -eq 0 ]; then
   printf 'вход л: NO-CHECKS — джоб с run_ci_lane.sh/check:antiplacebo в живом workflow нет; по контракту класс не красный\n' >&2
 elif [ -n "$L_BAD" ]; then
-  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход л: живой workflow не материализует замыкание M^1 до запуска проверок (Решение 1г2; вердикт адверсария A099-M1): job %s\n' "$L_BAD" >&2
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход л: живой workflow не материализует замыкание M^1 до запуска проверок (Решение 1г2; Р1-5 reviewer 099 круг 1; контрпример: шаг кандидата до материализации + git replace блоба M^1 → lane rc 0): job %s\n' "$L_BAD" >&2
+  LIVE_BAD=1
+fi
+
+# (м) НОГА ПРОИЗВОДИТЕЛЯ Решения 2 (Р1-6 reviewer 099 круг 1), транзитивно.
+# Дверь pr_dopusk читает config/transition_producers_099.tsv по M^1 и при
+# пустой/отсутствующей таблице ПРОПУСКАЕТ ногу целиком (молчаливая инертность
+# — 39bf3efa). Решение 2: «каждое имя обязательного набора покрыто строкой,
+# шаг существует в .github/workflows/ дерева M^1 и несёт команду дословно» —
+# выключателя у ноги нет. Toy-входы: м-1 — таблица ПУСТАЯ (Z99_BASE_PRODUCERS
+# в _mir.sh), м-2 — таблица ОТСУТСТВУЕТ; субъект обязан дать именованный
+# отказ rc 1 «таблица производителей пуста или отсутствует». Живая часть:
+# таблица дерева клетки несёт РОВНО 13 имён (l1..l7b, ap1..ap5 — единый
+# источник z99_reg_default/реестр Решения 2), каждая строка <имя> TAB
+# .github/workflows/<файл> TAB <команда>, файл существует в дереве и несёт
+# команду ДОСЛОВНО (grep -F) — транзитивная связь имени с производящим его
+# шагом workflow (l1..l7b → шаг Lane, ap1..ap5 → шаг шарда).
+# toy-проверки не прерывают клетку: все красные входы докладываются одним
+# прогоном (л, м-1, м-2, живая таблица) — оркестратору нужен полный список.
+PROD_TOY_BAD=0
+Z99_BASE_PRODUCERS="" zpg м-1 "$ALLGREEN" "$REG"
+vypolnit
+if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq 'таблица производителей пуста или отсутствует'; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м-1 (пустая таблица в M^1): ожидался отказ rc 1 «таблица производителей пуста или отсутствует»; факт rc=%s, вывод: %s\n' \
+    "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+  PROD_TOY_BAD=1
+fi
+Z99_BASE_PRODUCERS=none zpg м-2 "$ALLGREEN" "$REG"
+vypolnit
+if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq 'таблица производителей пуста или отсутствует'; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м-2 (отсутствующая таблица в M^1): ожидался отказ rc 1 «таблица производителей пуста или отсутствует»; факт rc=%s, вывод: %s\n' \
+    "$rc" "$(printf '%s' "$out" | head -c 200)" >&2
+  PROD_TOY_BAD=1
+fi
+LIVE_PROD="$LIVE_ROOT/config/transition_producers_099.tsv"
+PROD_BAD=0
+if [ ! -f "$LIVE_PROD" ]; then
+  printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: таблица производителей отсутствует: %s (Р1-6 reviewer 099 круг 1; Решение 2)\n' "$LIVE_PROD" >&2
+  PROD_BAD=1
+else
+  PROD_ROWS="$(grep -cv '^[ \t]*$' "$LIVE_PROD" 2>/dev/null || true)"
+  case "$PROD_ROWS" in ''|*[!0-9]*) printf 'NOT_IMPLEMENTED: red_perehodnyj_gheit_perechen: вход м: неожиданный счёт строк «%s»\n' "$PROD_ROWS" >&2; exit 2 ;; esac
+  if [ "$PROD_ROWS" -eq 0 ]; then
+    printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: таблица производителей пуста (0 строк): %s (Р1-6 reviewer 099 круг 1; Решение 2)\n' "$LIVE_PROD" >&2
+    PROD_BAD=1
+  else
+    EXP="$(printf '%s\n' l1 l2 l3 l4 l5 l6 l7a l7b ap1 ap2 ap3 ap4 ap5 | LC_ALL=C sort)"
+    ACT="$(grep -v '^[ \t]*$' "$LIVE_PROD" | cut -f1 | LC_ALL=C sort)"
+    MIS="$(printf '%s\n' "$EXP" | comm -23 - <(printf '%s\n' "$ACT") | tr '\n' ' ')"
+    EXT="$(printf '%s\n' "$EXP" | comm -13 - <(printf '%s\n' "$ACT") | tr '\n' ' ')"
+    DUP="$(grep -v '^[ \t]*$' "$LIVE_PROD" | cut -f1 | sort | uniq -d | tr '\n' ' ')"
+    if [ -n "${MIS// /}" ]; then
+      printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: производитель не объявлен для обязательных имён: %s(%s)\n' "$MIS" "$LIVE_PROD" >&2
+      PROD_BAD=1
+    fi
+    if [ -n "${EXT// /}" ]; then
+      printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: лишние имена вне обязательного набора: %s(%s)\n' "$EXT" "$LIVE_PROD" >&2
+      PROD_BAD=1
+    fi
+    if [ -n "${DUP// /}" ]; then
+      printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: дубликаты имён производителей: %s(%s)\n' "$DUP" "$LIVE_PROD" >&2
+      PROD_BAD=1
+    fi
+    if [ "$PROD_ROWS" -ne 13 ]; then
+      printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: строк %s, обязательный набор — 13 (%s)\n' "$PROD_ROWS" "$LIVE_PROD" >&2
+      PROD_BAD=1
+    fi
+    while IFS=$'\t' read -r pname pfile pcmd prest; do
+      [ -n "$pname" ] || continue
+      if [ -n "${prest:-}" ] || [ -z "${pcmd:-}" ]; then
+        printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: строка не по грамматике <имя>TAB<файл>TAB<команда>: %s\n' "$pname" >&2
+        PROD_BAD=1; continue
+      fi
+      case "$pfile" in
+        .github/workflows/*) ;;
+        *)
+          printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: производитель вне .github/workflows/: %s → %s\n' "$pname" "$pfile" >&2
+          PROD_BAD=1; continue ;;
+      esac
+      if [ ! -f "$LIVE_ROOT/$pfile" ]; then
+        printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: файл производителя отсутствует в дереве: %s → %s\n' "$pname" "$pfile" >&2
+        PROD_BAD=1; continue
+      fi
+      if ! grep -Fq -- "$pcmd" "$LIVE_ROOT/$pfile"; then
+        printf 'КРАСНО: red_perehodnyj_gheit_perechen: вход м: шаг производителя не несёт команду дословно: %s → %s\n' "$pname" "$pfile" >&2
+        PROD_BAD=1
+      fi
+    done < <(grep -v '^[ \t]*$' "$LIVE_PROD")
+  fi
+fi
+
+if [ "$LIVE_BAD" -ne 0 ] || [ "$PROD_BAD" -ne 0 ] || [ "$PROD_TOY_BAD" -ne 0 ]; then
   exit 1
 fi
 
