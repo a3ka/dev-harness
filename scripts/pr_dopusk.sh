@@ -337,6 +337,15 @@ while IFS= read -r rline; do
   [ -n "$rline" ] || continue
   rname="${rline%%$'\t'*}"
   rent="${rline#*$'\t'}"
+  # A099-M2: per-name выбор неоднозначен — считаем совпадения ДО чтения
+  # status/conclusion любого отдельного check-run (первый-match маскирует
+  # failure доверенного lane одноимённым success, оба порядка — один отказ).
+  dup_n="$(jq -r --arg n "$rname" '[.check_runs[]? | select(.name == $n)] | length' "$TMPD/cr.json" 2>/dev/null || echo 0)"
+  case "$dup_n" in ''|*[!0-9]*) dup_n=0 ;; esac
+  if [ "$dup_n" -gt 1 ]; then
+    printf 'ОТКАЗ: составляющая неоднозначна: %s (%s check-run с одним именем в ответе CI)\n' "$rname" "$dup_n" >&2
+    exit 1
+  fi
   run_json="$(jq -c --arg n "$rname" '[.check_runs[]? | select(.name == $n)][0]' "$TMPD/cr.json" 2>/dev/null || true)"
   if [ -z "$run_json" ] || [ "$run_json" = "null" ]; then
     printf 'ОТКАЗ: нет результата: %s (имя реестра перехода отсутствует в ответе CI)\n' "$rname" >&2
