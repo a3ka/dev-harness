@@ -336,8 +336,20 @@ fi
 #   implementer → tdd, diagnosing-bugs
 #   adversary   → diagnosing-bugs
 #   reviewer    → (правила кодинга, deep modules/seams — не skills/)
+# Н-269: источник матрицы — ДЕЙСТВУЮЩИЙ чекаут, где лежит сам барьер, а не $REPO.
+# В прогоне verify_antiplacebo $REPO — подставное дерево фикстуры (или scratch-копия
+# одного файла барьера): scripts/make_task.sh там нет, и ветвь (и) краснела на
+# положительном контроле, не дойдя до собственного предмета (12 FAIL «нет
+# положительного контроля»). Резолв корня: git-корень каталога самого скрипта;
+# вне git — сосед make_task.sh в том же scripts/. $REPO источником не является.
+SELF_DIR="$(cd -- "$(dirname -- "$0")" 2>/dev/null && pwd -P)" || SELF_DIR=""
+ACTING_ROOT="$(git -C "${SELF_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$ACTING_ROOT" ] && [ -n "$SELF_DIR" ] && [ -f "$SELF_DIR/make_task.sh" ]; then
+  ACTING_ROOT="${SELF_DIR%/scripts}"
+fi
+MAKE_TASK="$ACTING_ROOT/scripts/make_task.sh"
 _matrix_of_subject() {  # $1=роль → скилы сборщика через пробел
-  sed -n "/^  ${1}) *SKILLS=/,/\" *;;/p" "$REPO/scripts/make_task.sh" \
+  sed -n "/^  ${1}) *SKILLS=/,/\" *;;/p" "$MAKE_TASK" \
     | sed -e 's/.*SKILLS="//' -e 's/".*//' -e '/^SKILL: /s/^SKILL: //' \
     | sed '/^$/d' | tr '\n' ' ' | sed 's/ $//'
 }
