@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): семнадцать порч честных
+# Обманный стаб-пак 098 (контракт 098, Н-39/А-398): двадцать одна порча честных
 # моделей model/{judge_gate,check_ci_gate,accept_publish}.sh, каждая ОДНИМ
 # якорным sed-по-маркеру (# t98-mN), каждая привязана к клетке, на чьём входе
 # её дефект НАБЛЮДАЕМ (привязка живёт В ЭТОМ КОДЕ, не в прозе контракта).
@@ -34,6 +34,17 @@
 # s17 заключение раньше происхождения
 #    (чужой красный прогон пишет fail;
 #    арбитраж 098, порядок сверок)        mC8  red_smeshannaja_istorija
+# s18 сверка head_sha прогона снята
+#    (адверсарий круга implementer
+#    A-098-1: чужой коммит под именем M) mC9  red_chuzhoj_head_sha
+# s19 сверка ref == merge при строке
+#    published снята (адверсарий
+#    A-098-2: устаревшая published)     mD6  red_ustarevshaja_published
+# s20 judge-писатели не создают журнал
+#    («нет файла» — отказ; ревьюер 098
+#    Рв1-1)                              mJ1  red_zhurnal_sozdaetsja_pisatelem
+# s21 check-писатель не создаёт журнал
+#    («нет файла» — отказ; Рв1-1)        mJ2  red_zhurnal_sozdaetsja_pisatelem
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELDIR="$HERE/model"
@@ -124,6 +135,14 @@ zapest s16 red_pozdnij_krasnyj_progon.sh t98-mC6 \
   's@.*# t98-mC6.*@: # t98-mC6 порча@'
 zapest s17 red_smeshannaja_istorija.sh t98-mC8 \
   's@.*# t98-mC8.*@if [ -n "$concl" ] && [ "$concl" != "success" ]; then printf '"'"'check\t%s\t%s\tfail\t%s\t%s\t%s\n'"'"' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL"; die "обязательная проверка красна: $KEY"; fi; [ "$aslg" = "$ciapp" ] || die "проверка чужой обвязки: $KEY" # t98-mC8 порча@'
+zapest s18 red_chuzhoj_head_sha.sh t98-mC9 \
+  's@.*# t98-mC9.*@: # t98-mC9 порча@'
+zapest s19 red_ustarevshaja_published.sh t98-mD6 \
+  's@.*# t98-mD6.*@: # t98-mD6 порча@'
+zapest s20 red_zhurnal_sozdaetsja_pisatelem.sh t98-mJ1 \
+  's@.*# t98-mJ1.*@  [ -f "$JOURNAL" ] || d98_die "журнал: нет файла: $JOURNAL" # t98-mJ1 порча@'
+zapest s21 red_zhurnal_sozdaetsja_pisatelem.sh t98-mJ2 \
+  's@.*# t98-mJ2.*@  [ -f "$JOURNAL" ] || die "журнал: нет файла: $JOURNAL" # t98-mJ2 порча@'
 
 printf 'ИТОГ стаб-пак 098: rc=%s\n' "$itog"
 exit "$itog"

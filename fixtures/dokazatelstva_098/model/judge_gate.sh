@@ -61,6 +61,13 @@ d98_seq() {  # следующий seq журнала (verdict|$5, policy|$6 — 
   printf '%s' "$((s+1))"
 }
 
+# журнал СОЗДАЁТСЯ писателем (контракт 098: «журнал создаётся писателями,
+# append-only»): отсутствие файла — не отказ; создание append-режимом (>>),
+# существующий журнал не усекается
+d98_journal() {
+  [ -f "$JOURNAL" ] || { mkdir -p "${JOURNAL%/*}" && : >>"$JOURNAL"; } || d98_die "журнал: не создаётся: $JOURNAL" # t98-mJ1: писатель создаёт отсутствующий журнал (ревьюер 098 Рв1-1)
+}
+
 case "$MODE" in
 dver)
   [ -x "$SELF/check_ci_gate.sh" ] || { printf 'ОТКАЗ: check_ci_gate.sh не найден рядом (нужен %s/check_ci_gate.sh)\n' "$SELF" >&2; exit 1; }
@@ -70,7 +77,7 @@ dver)
   exit "$rc"
   ;;
 verdict)
-  [ -f "$JOURNAL" ] || d98_die "журнал: нет файла: $JOURNAL"
+  d98_journal
   case "$TASK" in ''|*[!A-Za-z0-9._/-]*) d98_die "задача вне алфавита: $TASK" ;; esac
   hex64 "$OID" || d98_die "object_id не 64 hex: $OID"
   [ -f "$VF" ] || d98_die "вердикт-файла нет: $VF"
@@ -85,7 +92,7 @@ verdict)
   printf 'verdict-строка записана: %s %s %s\n' "$TASK" "$OID" "$out"
   ;;
 policy)
-  [ -f "$JOURNAL" ] || d98_die "журнал: нет файла: $JOURNAL"
+  d98_journal
   hex64 "$OID"  || d98_die "object_id не 64 hex: $OID"
   hex64 "$OLDV" || d98_die "старая policyVersion не 64 hex: $OLDV"
   hex64 "$NEWV" || d98_die "новая policyVersion не 64 hex: $NEWV"

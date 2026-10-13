@@ -153,6 +153,21 @@ _d98_ci_add() {
     '{total_count:(($o|length)+($a|length)),check_runs:($o+$a)}' >"$f"
 }
 
+# _d98_ci_chuzhoj_head <W> <ответ-sha> <head-sha> <прогон>... — ответ CI,
+# ЗАПРАШИВАЕМЫЙ для <ответ-sha>, чьи прогоны несут head_sha=<head-sha> (чужой
+# коммит): адверсарий 098 A-098-1 — доверенный зелёный прогон с верными
+# name/app.slug/wfsha, исполненный на B, лежит в ответе для M. wfsha — по
+# определению дерева <head-sha> (единый строитель _d98_ci_runs, не переизобретать).
+# Прогоны ЗАМЕНЯЮТ прежние; честные прогоны на <ответ-sha> добавляются _d98_ci_add.
+_d98_ci_chuzhoj_head() {
+  local W="$1" sha="$2" head="$3"; shift 3
+  local runs
+  [ "$sha" != "$head" ] || d98_ni "чужой head совпал с запрашиваемым sha: $sha"
+  runs="$(_d98_ci_runs "$W" "$head" "$@")"
+  printf '{"total_count":%s,"check_runs":%s}\n' "$(printf '%s' "$runs" | jq 'length')" "$runs" \
+    >"$W/fake/checkruns/$sha.json"
+}
+
 # _d98_zov <W> <команда...> — вызов субъекта с PATH поддельного curl
 _d98_zov() { local W="$1"; shift; D98_FAKE="$W/fake" PATH="$W/bin:$PATH" bash "$@"; }
 

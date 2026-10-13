@@ -98,7 +98,7 @@ writer)
   ROOT="$(cd "$ROOT" && pwd)"
   git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || die "$ROOT не репозиторий git"
   JOURNAL="$ROOT/registry/candidates.tsv"
-  [ -f "$JOURNAL" ] || die "журнал: нет файла: $JOURNAL"
+  [ -f "$JOURNAL" ] || { mkdir -p "${JOURNAL%/*}" && : >>"$JOURNAL"; } || die "журнал: не создаётся: $JOURNAL" # t98-mJ2: журнал СОЗДАЁТСЯ писателем (контракт 098 «создаётся писателями, append-only»; ревьюер Рв1-1), существующий не усекается
   mand="$(sed -nE 's/^mandatory=//p' "$ROOT/harness/policy" | head -1)"
   [ -n "$mand" ] || die "политика принятой стороны: нет mandatory"
   case ",$mand," in *",$KEY,"*) ;; *) die "ключ вне обязательных: $KEY" ;; esac
@@ -130,7 +130,7 @@ writer)
   concl="$(printf '%s' "$best" | jq -r '.conclusion // ""' 2>/dev/null)"
   hsha="$(printf '%s' "$best" | jq -r '.head_sha // ""' 2>/dev/null)"
   case "$rid" in ''|*[!0-9]*) die "ответ CI: id прогона не разобран: $KEY" ;; esac
-  [ "$hsha" = "$MSHA" ] || die "прогон не того коммита: $KEY"
+  [ "$hsha" = "$MSHA" ] || die "прогон не того коммита: $KEY" # t98-mC9: прогон стоит на M (head_sha ответа), чужой коммит под верным именем/обвязкой/версией не закрывает ключ (адверсарий A-098-1)
   aslg="$(printf '%s' "$best" | jq -r '.app.slug // ""' 2>/dev/null)"
   [ "$aslg" = "$ciapp" ] || die "проверка чужой обвязки: $KEY" # t98-mC5: исполнитель прогона — пин ciApp политики (одноимённый чужой workflow не проходит по имени) # t98-mC8: порядок сверок (арбитраж 098): происхождение — РАНЬШЕ заключения, чужой красный прогон не пишет fail
   wfr="$(printf '%s' "$best" | jq -r '.wfsha // ""' 2>/dev/null)"
