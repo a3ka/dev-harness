@@ -14,12 +14,15 @@
 # пробу пустой, и это именованный отказ, а не зелёное.
 #
 # Шаги (п.9 дословно): (1) sudo install.sh root → rc 0, оракул sha256 адресатов
-# в ПАМЯТИ (правило 8); (2) настоящий restart юнита → oneshot ЗАВЕРШИЛ НОВЫЙ
-# запуск: Result=success И свежий ExecMainExitTimestamp > t0 ЭТОЙ пробы
-# (ActiveState=inactive — норма, НЕ требовать active — Рв2-5); (3) настоящая
-# идентичность агента: orchagent существует, БЕЗ группы harness,
-# /opt/orch-agent/workshop исполняем, /var/lib/orch-agent есть, sudoers-drop
-# валиден и называет агента; (4) живой откат без маскировки: v1 → v2 → rollback
+# И источника workshop в ПАМЯТИ (правило 8); (2) настоящий restart юнита →
+# oneshot ЗАВЕРШИЛ НОВЫЙ запуск: Result=success И свежий
+# ExecMainExitTimestamp > t0 ЭТОЙ пробы (ActiveState=inactive — норма, НЕ
+# требовать active — Рв2-5); (3) настоящая идентичность агента: orchagent
+# существует, БЕЗ группы harness, /opt/orch-agent/workshop исполним И
+# побайтово равен доверенному источнику (sha256 == оракулу из памяти шага 1
+# — adversary 093-v3: старый/подменённый файл не маскирует no-copy),
+# /var/lib/orch-agent есть, sudoers-drop валиден и называет агента;
+# (4) живой откат без маскировки: v1 → v2 → rollback
 # (БЕЗ install между откатом и наблюдением) → адресаты побайтово v1 по sha256
 # И свежий oneshot-штамп позже T0 отката; (5) sudo -u orchagent _krasnye_093.sh
 # — вся семья под настоящим uid агента (половина-Б И-8б зелёна только так).
@@ -40,6 +43,7 @@ SBIN=/usr/local/sbin
 ETC=/etc/systemd/system
 AGENT_USER=orchagent
 SUDOERS_DROP=/etc/sudoers.d/orch-agent-launcher
+AGENT_CODE_MAIN=/home/harness/dev-harness
 
 ni() { printf 'NOT_IMPLEMENTED(093-live): %s\n' "$1" >&2; exit 2; }
 kr() { printf 'КРАСНО(093-live): %s\n' "$1" >&2; exit 1; }
@@ -97,6 +101,12 @@ oneshot_done() {  # <t0-ns>
 
 # ── 1. v1 = install из субъекта; оракул sha256 адресатов в памяти ───────────
 printf 'шаг 1: install root из субъекта (v1)\n' >&2
+# Оракул workshop (adversary 093-v3): sha256 источника кода агента — в
+# ПАМЯТЬ ДО install (правило 8); шаг 3 сверяет установленное ТОЛЬКО с ним.
+WORKSHOP_SRC="$AGENT_CODE_MAIN/workshop"
+[ -f "$WORKSHOP_SRC" ] || ni "нет источника кода агента $WORKSHOP_SRC (оракул шага 3)"
+WORKSHOP_ORACLE="$(sha256sum <"$WORKSHOP_SRC" | awk '{print $1}')"
+[ -n "$WORKSHOP_ORACLE" ] || ni "оракул workshop не снят"
 bash "$SUBJ" root || kr "install root (v1) rc=$? — установщик отказал"
 V1_LIST=""; n_v1=0
 for t in $TARGETS; do
@@ -124,11 +134,17 @@ groups_ag="$(id -nG "$AGENT_USER")"
 printf '%s\n' "$groups_ag" | tr ' ' '\n' | grep -Fxq harness \
   && kr "$AGENT_USER входит в группу harness (Рв2-6): группы=[$groups_ag]"
 [ -x /opt/orch-agent/workshop ] || kr "/opt/orch-agent/workshop не исполняем (код агента не провизионен)"
+# adversary 093-v3: существования мало — установленное обязано быть ЭТОЙ
+# поставкой (старый/подменённый файл не маскирует no-copy): sha256 против
+# оракула из памяти (снят ДО install, шаг 1 — правило 8).
+wsha="$(sha256sum </opt/orch-agent/workshop | awk '{print $1}')"
+[ "$wsha" = "$WORKSHOP_ORACLE" ] \
+  || kr "/opt/orch-agent/workshop ≠ источнику (sha256 $wsha ≠ оракулу $WORKSHOP_ORACLE) — код агента не поставлен этим install либо подменён (adversary 093-v3)"
 [ -d /var/lib/orch-agent ] || kr "нет /var/lib/orch-agent (HOME агента)"
 [ -f "$SUDOERS_DROP" ] || kr "нет sudoers-drop $SUDOERS_DROP"
 grep -Fq "$AGENT_USER" "$SUDOERS_DROP" || kr "sudoers-drop не называет $AGENT_USER"
 visudo -c -f "$SUDOERS_DROP" >/dev/null 2>&1 || kr "sudoers-drop невалиден (visudo -c)"
-zl "агент: $AGENT_USER (группы=[$groups_ag], без harness), /opt/orch-agent/workshop исполним, /var/lib/orch-agent есть, sudoers-drop валиден и называет агента"
+zl "агент: $AGENT_USER (группы=[$groups_ag], без harness), /opt/orch-agent/workshop исполним и побайтово равен источнику (sha256-оракул в памяти), /var/lib/orch-agent есть, sudoers-drop валиден и называет агента"
 
 # ── 4. живой откат без маскировки: v1 → v2 → rollback → ИМЕННО v1 ───────────
 printf 'шаг 4: rollback-проба v1 → v2 → откат (без install между откатом и наблюдением)\n' >&2
