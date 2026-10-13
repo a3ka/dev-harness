@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 100 (контракт 100, круг 3 — Н-39): двадцать семь обманных
+# Обманный стаб-пак 100 (контракт 100, круг 3 — Н-39): двадцать восемь обманных
 # субъектов gitw_preflight_071.sh, каждый — мини-дверь с ОДНИМ дефектом
 # (Z100_STUB_MODE); режим none — честная по форме модель критерия (прогон
 # «модель зелёная» вне пакета). Пойман = связанная клетка против стаба даёт
@@ -43,6 +43,8 @@
 #   t100-m27 nested-suite       → red_kontrol_vse_zelenoe (Б8: связка читает вложенный check_suite.id
 #                                запуска вместо плоского check_suite_id — документированной схемы
 #                                GET /actions/runs; на настоящей форме отбрасывает все 12 строк)
+#   t100-m28 first-report-message → red_identichnost_defekta (Б9: под-вход г — message
+#                                судится только у первой пары в порядке отчёта; обход круга 3)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FAM="$HERE"
@@ -346,6 +348,24 @@ for j in "${jobs[@]}"; do
         nall="$(printf '%s' "$anns" | jq '[.[] | select(.annotation_level=="failure")] | length')"
         { [ "${nobj:-0}" -eq "$nfail" ] && [ "${nall:-0}" -eq "$nfail" ]; } \
           || pf "находка вне списка: $j/$k"
+      elif [ "$MODE" = "first-report-message" ]; then
+        # Б9 (арбитраж contracts-100-b9-v1): дефект круга 3 — message судится
+        # только у ПЕРВОЙ пары в порядке отчёта (break), не у каждой FAIL-строки;
+        # порядок отчёта вместо LC_ALL=C sort -u; nall==jfail сохранён
+        bad=0
+        while IFS= read -r line; do
+          [ -n "$line" ] || continue
+          cn="$(printf '%s' "$anns" | jq --arg o "$obj" --arg m "$line" \
+            '[.[] | select(.annotation_level=="failure" and .path==$o and .message==$m)] | length')"
+          ln="$(printf '%s
+' "$fl" | grep -Fxc "$line" || true)"
+          [ "${cn:-0}" -eq "${ln:-0}" ] || bad=1
+          break
+        done < <(printf '%s
+' "$fl")
+        nall="$(printf '%s' "$anns" | jq '[.[] | select(.annotation_level=="failure")] | length')"
+        [ "${nall:-0}" -eq "$jfail" ] || bad=1
+        [ "$bad" -eq 0 ] || pf "находка вне списка: $j/$k"
       else
         # арбитраж Б1: на КАЖДУЮ FAIL-строку — аннотация с path==object и
         # message==строке ПОБАЙТНО; лишних failure-аннотаций в отчёте нет
@@ -418,6 +438,7 @@ gen_stub t100-m24 success-blind
 gen_stub t100-m25 no-wfrun
 gen_stub t100-m26 side-effect gitw-copy
 gen_stub t100-m27 nested-suite
+gen_stub t100-m28 first-report-message
 
 probe() {  # <стаб> <клетка> — rc клетки против стаба (пойман = 1)
   local stub="$1" cell="$2" rc
@@ -432,7 +453,7 @@ probe() {  # <стаб> <клетка> — rc клетки против стаб
 }
 
 n_stub="$(ls -1 "$WORK" | wc -l)"
-[ "$n_stub" -eq 27 ] || { printf 'ОТКАЗ: стабов %s, ожидалось 27\n' "$n_stub" >&2; exit 2; }
+[ "$n_stub" -eq 28 ] || { printf 'ОТКАЗ: стабов %s, ожидалось 28\n' "$n_stub" >&2; exit 2; }
 
 itog=0
 probe t100-m1  red_kontrol_tolyko_razreshennye.sh || itog=1
@@ -462,5 +483,6 @@ probe t100-m24 red_poluta_nevedomy_otkaz.sh       || itog=1
 probe t100-m25 red_poluta_nevedomy_otkaz.sh       || itog=1
 probe t100-m26 red_repeticija_gitw.sh             || itog=1
 probe t100-m27 red_kontrol_vse_zelenoe.sh         || itog=1
-printf 'ИТОГ стаб-пак 100: rc=%s (стабов %s/27)\n' "$itog" "$n_stub"
+probe t100-m28 red_identichnost_defekta.sh        || itog=1
+printf 'ИТОГ стаб-пак 100: rc=%s (стабов %s/28)\n' "$itog" "$n_stub"
 exit "$itog"
