@@ -23,7 +23,27 @@
 #     мир S (старая/подменённая станция): $AGENT_ROOT/workshop заранее
 #       несёт ИНЫЕ байты (сентинел ≠ источнику) → после install:
 #       sha256 == оракулу (честный rsync --delete затирает старое;
-#       no-copy оставляет сентинел).
+#       no-copy оставляет сентинел); И (adversary 093-v4 BLOCKS, арбитраж
+#       093-adversary-round-cap-v1 Р-4(б)) $AGENT_ROOT заранее несёт
+#       ЧИТАЕМЫЕ (0644) stale credential-носители четырёх форм — .env,
+#       .env.local (шаблон .env.*), sub/.env (вложенный: exclude-шаблон
+#       rsync не топ-уровневый), .ssh/id_rsa → после install с rc 0 НИ
+#       ОДНОГО из четырёх путей НЕТ (список в памяти клетки ДО вызова) и
+#       find по именам .env/.env.*/.ssh на любой глубине ПУСТ; либо
+#       install отказал rc≠0 строкой «ОТКАЗ:» с литеральным путём одного
+#       из четырёх носителей (второй допустимый исход Р-4(а)).
+#       Выбран критерий ОТСУТСТВИЯ, не «недоступен uid агента»: в
+#       toy-мире chown — шим (exit 0, root-операция под harness-uid), и
+#       «chown вне uid / chmod 000» наблюдать нечем — клетка бежит под
+#       uid станции и прочтёт любой режим; отсутствие пути наблюдаемо
+#       побайтно. rsync --delete БЕЗ --delete-excluded excluded-записи у
+#       получателя НЕ трогает (замер 3 арбитража) — честный 96ec3a5b
+#       здесь КРАСЕН именованно.
+#     мир F дополнительно: toy-источник $MAIN_DST несёт свой .env-сентинел
+#       (как станционный источник зеркала, замер 4 арбитража) → после
+#       install в $AGENT_ROOT нет .env (исключение не снято), а sha256
+#       источника .env до/после совпадает (зачистка — только у
+#       получателя; источник не меняется ни на байт, Р-4(а)).
 #   Оракул — sha256 workshop источника (toy-MAIN), снятый В ПАМЯТЬ ДО
 #   вызова субъекта (правило 8): источник после вызова не перечитывается,
 #   установленное сверяется только с памятью клетки. Мутант no-copy красен
@@ -122,6 +142,28 @@ ORACLE_SHA="$(sha256sum <"$SCRATCH/main/workshop" | cut -d' ' -f1)"
 case "$ORACLE_SHA" in ''|*[!0-9a-f]*) \
   printf 'NOT_IMPLEMENTED: оракул workshop не снят (%s)\n' "$ORACLE_SHA" >&2; exit 2 ;; esac
 
+# Источник несёт свой .env-сентинел (как станционный $MAIN_DST, замер 4
+# арбитража; содержимое — искусственное, станционный секрет не читается).
+# ОРАКУЛ (правило 8): sha256 источника .env — в память ДО вызова; после
+# install: источник неизменен побайтно, у получателя .env нет.
+printf '%s\n' 'TOY_SRC_ENV_SENTINEL=not-a-real-credential' > "$SCRATCH/main/.env"
+chmod 600 "$SCRATCH/main/.env"
+SRC_ENV_SHA="$(sha256sum <"$SCRATCH/main/.env" | cut -d' ' -f1)"
+case "$SRC_ENV_SHA" in ''|*[!0-9a-f]*) \
+  printf 'NOT_IMPLEMENTED: оракул источника .env не снят (%s)\n' "$SRC_ENV_SHA" >&2; exit 2 ;; esac
+
+# Носители credential у получателя: имена, которые provision_agent_code
+# ИСКЛЮЧАЕТ из копии — и которые rsync --delete без --delete-excluded у
+# получателя НЕ удаляет (adversary 093-v4). Единый источник грамматики имён
+# для find ниже и для списка stale-путей мира S.
+carriers_under() { # $1=каталог → абсолютные пути записей-носителей на любой глубине
+  find "$1" \( -name '.env' -o -name '.env.*' -o -name '.ssh' \) -print 2>/dev/null | LC_ALL=C sort
+}
+src_env_unchanged() { # → 0 если источник .env на месте и sha == оракулу
+  [ -f "$SCRATCH/main/.env" ] || return 1
+  [ "$(sha256sum <"$SCRATCH/main/.env" | cut -d' ' -f1)" = "$SRC_ENV_SHA" ]
+}
+
 # Мир S: заранее устаревший/подменённый runtime (сентинел ≠ источнику —
 # вырожденный мир S красен как НЕЧЕМ проверять, пустая проба не зелёнится).
 mkdir -p "$SCRATCH/agent_root_S"
@@ -130,6 +172,30 @@ chmod 755 "$SCRATCH/agent_root_S/workshop"
 STALE_SHA="$(sha256sum <"$SCRATCH/agent_root_S/workshop" | cut -d' ' -f1)"
 if [ "$STALE_SHA" = "$ORACLE_SHA" ]; then
   printf 'NOT_IMPLEMENTED: вырожденный мир S (сентинел == источнику)\n' >&2
+  exit 2
+fi
+# Мир S, stale credential-носители (adversary 093-v4): ЧИТАЕМЫЕ 0644, четыре
+# формы — топ-уровневый .env, .env.local (шаблон .env.*), вложенный sub/.env,
+# .ssh/id_rsa. Список путей — В ПАМЯТИ клетки до вызова субъекта (правило 8).
+mkdir -p "$SCRATCH/agent_root_S/sub" "$SCRATCH/agent_root_S/.ssh"
+STALE_PATHS=(
+  "$SCRATCH/agent_root_S/.env"
+  "$SCRATCH/agent_root_S/.env.local"
+  "$SCRATCH/agent_root_S/sub/.env"
+  "$SCRATCH/agent_root_S/.ssh/id_rsa"
+)
+for p in "${STALE_PATHS[@]}"; do
+  printf '%s\n' 'OLD-RW-CREDENTIAL-SENTINEL' > "$p"
+  chmod 644 "$p"
+  [ -r "$p" ] || { printf 'NOT_IMPLEMENTED: stale-носитель %s не создан читаемым\n' "$p" >&2; exit 2; }
+done
+# Вырожденный мир S красен как НЕЧЕМ проверять: find обязан видеть ровно
+# ТЕ ЖЕ записи ДО вызова (.env, .env.local, sub/.env, .ssh — 4 строки:
+# .ssh/id_rsa внутри .ssh не матчится по имени, матчится каталог .ssh).
+PRE_CARRIERS="$(carriers_under "$SCRATCH/agent_root_S")"
+pre_n="$(printf '%s\n' "$PRE_CARRIERS" | grep -c .)"
+if [ "$pre_n" -ne 4 ]; then
+  printf 'NOT_IMPLEMENTED: вырожденный мир S — find видит %s носителей вместо 4 до вызова\n' "$pre_n" >&2
   exit 2
 fi
 
@@ -167,20 +233,63 @@ if [ "$shaF" != "$ORACLE_SHA" ]; then
     "$shaF" "$ORACLE_SHA" >&2
   exit 1
 fi
+# Мир F, носители: источник несёт .env — у получателя его быть не должно
+# (исключение снято → копия источника = credential у агента), источник
+# неизменен побайтно (зачистка только у получателя, Р-4(а)).
+carF="$(carriers_under "$SCRATCH/agent_root_F")"
+if [ -n "$carF" ]; then
+  printf 'КРАСНО: мир F: credential-носитель скопирован из источника в runtime агента (исключение .env/.env.*/.ssh снято, И-4):\n%s\n' "$carF" >&2
+  exit 1
+fi
+src_env_unchanged || { printf 'КРАСНО: мир F: источник %s изменён или удалён install (зачистка обязана быть только у получателя, Р-4(а))\n' "$SCRATCH/main/.env" >&2; exit 1; }
 
 # ── Мир S: старая/подменённая станция (сентинел ДО install) ──────────────────
 run_install "$SCRATCH/agent_root_S" "$SCRATCH/inst_S"; rcS=$?
 if [ "$rcS" -ne 0 ]; then
-  printf 'КРАСНО: install root в мире S (старая станция) rc=%s — провизионинг кода агента отказал:\n%s\n' \
-    "$rcS" "$(tail -n 3 "$SCRATCH/inst_S")" >&2
-  exit 1
-fi
-shaS="$(sha256sum <"$SCRATCH/agent_root_S/workshop" | cut -d' ' -f1)"
-if [ "$shaS" != "$ORACLE_SHA" ]; then
-  printf 'КРАСНО: мир S: устаревший/подменённый workshop пережил install (sha256 %s ≠ оракулу %s) — код агента не скопирован (no-copy, adversary 093-v3)\n' \
-    "$shaS" "$ORACLE_SHA" >&2
-  exit 1
+  # Второй допустимый исход Р-4(а): именованный отказ rc≠0 — строка «ОТКАЗ:»
+  # лога обязана нести ЛИТЕРАЛЬНЫЙ путь одного из stale-носителей из памяти
+  # клетки: четыре файла STALE_PATHS либо четыре записи find до вызова
+  # (PRE_CARRIERS — включая каталог .ssh); grep -F по пути, не по подстроке
+  # «.env» где угодно. Любой иной отказ — провал провизионинга, как прежде.
+  named=0
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    if grep -F -- "$p" "$SCRATCH/inst_S" | grep -q '^ОТКАЗ:'; then named=1; break; fi
+  done < <(printf '%s\n' "${STALE_PATHS[@]}" "$PRE_CARRIERS")
+  if [ "$named" -eq 1 ]; then
+    src_env_unchanged || { printf 'КРАСНО: мир S: отказ именован, но источник %s изменён или удалён install\n' "$SCRATCH/main/.env" >&2; exit 1; }
+    printf 'мир S: install отказал rc=%s именованно по stale-носителю (допустимый исход Р-4(а)):\n%s\n' \
+      "$rcS" "$(grep '^ОТКАЗ:' "$SCRATCH/inst_S" | head -n 3)" >&2
+  else
+    printf 'КРАСНО: install root в мире S (старая станция) rc=%s — провизионинг кода агента отказал без именованного stale-носителя:\n%s\n' \
+      "$rcS" "$(tail -n 3 "$SCRATCH/inst_S")" >&2
+    exit 1
+  fi
+else
+  shaS="$(sha256sum <"$SCRATCH/agent_root_S/workshop" | cut -d' ' -f1)"
+  if [ "$shaS" != "$ORACLE_SHA" ]; then
+    printf 'КРАСНО: мир S: устаревший/подменённый workshop пережил install (sha256 %s ≠ оракулу %s) — код агента не скопирован (no-copy, adversary 093-v3)\n' \
+      "$shaS" "$ORACLE_SHA" >&2
+    exit 1
+  fi
+  # Stale credential-носители (adversary 093-v4): каждый из четырёх путей
+  # из памяти — ОТСУТСТВУЕТ (-e ложно: chmod 000/chown в toy-мире не
+  # наблюдаемы, см. шапку); затем find по именам на любой глубине — пуст.
+  survived=""
+  for p in "${STALE_PATHS[@]}"; do
+    [ -e "$p" ] && survived="$survived$p"$'\n'
+  done
+  if [ -n "$survived" ]; then
+    printf 'КРАСНО: мир S: старый credential-носитель пережил install root (rc 0, читаем uid агента после chown root:root 0644) — rsync --delete без --delete-excluded не трогает excluded-записи у получателя (adversary 093-v4):\n%s' "$survived" >&2
+    exit 1
+  fi
+  carS="$(carriers_under "$SCRATCH/agent_root_S")"
+  if [ -n "$carS" ]; then
+    printf 'КРАСНО: мир S: после install в runtime агента остались записи .env/.env.*/.ssh вне списка памяти (adversary 093-v4):\n%s\n' "$carS" >&2
+    exit 1
+  fi
+  src_env_unchanged || { printf 'КРАСНО: мир S: источник %s изменён или удалён install (зачистка обязана быть только у получателя, Р-4(а))\n' "$SCRATCH/main/.env" >&2; exit 1; }
 fi
 
-printf 'ЗЕЛЁНО(093-9): runtime агента вне /home/harness: код /opt/orch-agent + состояние /var/lib/orch-agent, без .local/bin и группы harness (Рв2-6); install root доставляет workshop побайтовно в мирах F/S (оракул sha256 в памяти — adversary 093-v3 закрыт)\n' >&2
+printf 'ЗЕЛЁНО(093-9): runtime агента вне /home/harness: код /opt/orch-agent + состояние /var/lib/orch-agent, без .local/bin и группы harness (Рв2-6); install root доставляет workshop побайтовно в мирах F/S (оракул sha256 в памяти — adversary 093-v3 закрыт); stale .env/.env.*/sub/.env/.ssh у получателя не переживают install, источник .env неизменен (adversary 093-v4 закрыт)\n' >&2
 exit 0
