@@ -110,9 +110,9 @@ build_interposer
 fails=0
 red() { fails=$((fails + 1)); printf '  КРАСНО: %s\n' "$*"; }
 
-# ── пины: живая станция 2026-10-02 (sha256sum, сверено с inventory слова владельца) ──
+# ── пины: субъект ветки 093 @6310a4af (2026-10-13, стоячая санкция №4: реализаторские Рв2-5/Рв2-6 изменили user/orch-loop — cf3e5bbb на e45f1874; остальные 8 не менялись) ──
 declare -A PIN=(
-  ['user/orch-loop']='cf3e5bbbb0db2623b29c170572ec50e730c13a6d6dcaa9578cd333784f3cbad9'
+  ['user/orch-loop']='e45f187468a26c0ae88f468b0567a8c3ca8328a5ea404a6ae0704de59a34d837'
   ['root/orch-peak']='88d84e5bd7c4aec7627f5bb27de0a9cb7fa468aadddb131f566f008a50f940ad'
   ['root/systemd/orch-peak@.service']='a7e4e4453ae5fdc4e47758143d8b313ce0fe2b97ad187e3a34c317eaabca1a8f'
   ['root/systemd/orch-peak-warn.timer']='c1aca85614566ce281b90e51001a3158d10bac6366470c09c29ba9ed0921bc01'
