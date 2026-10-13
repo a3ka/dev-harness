@@ -125,8 +125,11 @@ fi
 # (адверсарий 045: cwd вызова и remote могут расходиться; для гейта важна
 # текущая remote). Передаём GITHUB_REPOSITORY (через CI_KLASS_API формат
 # «repos/<o>/<r>»), тогда ci_klass.sh dokaz идёт по этому base.
+# Н-1 (reviewer 087 круг 1): ci_klass.sh читает git в СВОЁМ cwd, не в $ROOT —
+# явный `cd "$ROOT"` перед вызовом (гейт уже несёт явный корневой аргумент,
+# дефект был в под-вызове dokaz в неявном cwd вызывающего).
 set +e
-dk="$(CI_KLASS_API="https://api.github.com/repos/${repo}" bash "$SELF_DIR/ci_klass.sh" dokaz "$sha" 2>&1)"
+dk="$(cd "$ROOT" && CI_KLASS_API="https://api.github.com/repos/${repo}" bash "$SELF_DIR/ci_klass.sh" dokaz "$sha" 2>&1)"
 drc=$?
 set -e
 case "$drc" in
