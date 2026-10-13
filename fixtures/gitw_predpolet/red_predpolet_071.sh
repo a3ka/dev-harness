@@ -4,7 +4,7 @@
 # ДО реализации честная часть красна ЕДИНСТВЕННОЙ причиной «предмет
 # отсутствует» (fail-fast п0: файла scripts/gitw_preflight_071.sh нет ИЛИ
 # стаб-пак (исполняется ДО честных клеток) зелён УЖЕ
-# ДО реализации: двадцать обманных стабов умирает каждый на СВОЕЙ клетке
+# ДО реализации: двадцать один обманный стаб умирает каждый на СВОЕЙ клетке
 # именованной причиной — различимость батареи не зависит от честного кода.
 #
 # ПРИВЯЗКА К КОДУ (Н-39: стаб умирает там, где его дефект НАБЛЮДАМ):
@@ -55,6 +55,9 @@
 #   * s20 «TEG-BEZ-SHA» — отказ по тегу с именем без обоих sha      → умирает на
 #                           (корень Р-6 ревьюера 071-r1)              п14б (переприцел:
 #                                                                   оба sha)
+#   * s21 «FROZEN-NET-PROPUSK» — тега нет на цели = «сравнивать не с   → умирает на п3а
+#                           чем», молчаливый пропуск (клетка жила с     (frozen-тег удалён
+#                           мёртвой предпосылкой — Н-275, оценка l2)    ТОЛЬКО из bare)
 #
 # Честные клетки (каждая ≡ ровно один именованный отказ контракта 071
 # §Инварианты; фразы grep -F дословно, префикс «gitw ПРЕДПОЛЁТ-ОТКАЗ: »):
@@ -71,7 +74,8 @@
 #        ci-parity (шаг в ci.yml без npm-ключа); bare НЕ двинут;
 #   п2д  мёртвая ветвь чек-раннера: npm вне PATH (symlink-ферма) →
 #        «чек-раннер недоступен: npm»;
-#   п3а  локальный frozen-тег не на цели → отказ с именем тега;
+#   п3а  локальный frozen-тег не на цели (удалён ТОЛЬКО из одноразового
+#        bare, предпосылка доказана) → отказ с именем тега и «цель нет»;
 #   п3б  тег на цели с ДРУГИМ sha → отказ (сверка по объекту, не по имени);
 #   п3в  done-тег отсутствует на цели → отказ (оба пространства);
 #   п4а  land, у вершины ветки нет прогонов → «land без зелёного PR-CI»;
@@ -411,6 +415,39 @@ bare_frozen() { # bare-цель не двинулась ОТНОСИТЕЛЬНО
   local now; now="$(git -C "$B1" rev-parse -q --verify refs/heads/main 2>/dev/null || printf НЕТ)"
   [ "$now" = "$SNAP_B1" ] || die_cell "$1" "bare-цель двинулась при отказе ($SNAP_B1 → $now)"
 }
+# ── предпосылки по тегам (оценка l2 регламента 2026-10-13, Н-275) ─────────────
+# mk_world копирует ВСЕ реальные теги репо и толкает их в bare, поэтому
+# «локальный, ещё не на origin» тег НЕ создаётся новым именем: имя, совпавшее
+# с реальной заморозкой, даёт `tag already exists`, тихий rc 0 клетки вместо
+# 1 (так умер п3а на frozen/contracts/097/1). Отсутствие делается удалением
+# тега ТОЛЬКО из одноразового bare; каждый шаг доказан, любой сбой подготовки
+# останавливает клетку ДО вызова стража.
+tag_only_local() { # tag_only_local <клетка> <тег>: локально есть, на bare нет
+  local cell="$1" tag="$2"
+  git -C "$T" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+    || die_cell "$cell" "предпосылка: тега $tag нет локально"
+  git -C "$B1" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+    || die_cell "$cell" "предпосылка: тега $tag не было на bare — нечего удалять"
+  git -C "$B1" tag -d "$tag" >/dev/null 2>"$WORK/tagd.err" \
+    || die_cell "$cell" "предпосылка: тег $tag не удалился из bare: $(tr '\n' ' ' < "$WORK/tagd.err")"
+  git -C "$B1" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+    && die_cell "$cell" "предпосылка: тег $tag остался на bare после удаления"
+  git -C "$T" rev-parse -q --verify "refs/tags/$tag" >/dev/null \
+    || die_cell "$cell" "предпосылка: тег $tag пропал локально"
+}
+tag_synced() { # tag_synced <клетка> <тег>: тот же тег, тот же объект на обеих сторонах
+  local cell="$1" tag="$2" l r
+  l="$(git -C "$T"  rev-parse -q --verify "refs/tags/$tag" 2>/dev/null)" \
+    || die_cell "$cell" "предпосылка: тега $tag нет локально"
+  r="$(git -C "$B1" rev-parse -q --verify "refs/tags/$tag" 2>/dev/null)" \
+    || die_cell "$cell" "предпосылка: тега $tag нет на bare"
+  [ "$l" = "$r" ] || die_cell "$cell" "предпосылка: тег $tag разошёлся ($l ≠ $r)"
+}
+tag_absent_on_bare() { # tag_absent_on_bare <клетка> <тег>: после отказа тег не уехал на bare
+  git -C "$B1" rev-parse -q --verify "refs/tags/$2" >/dev/null \
+    && die_cell "$1" "тег $2 уехал на bare при отказе"
+  return 0
+}
 
 # ── само-проверка зелёного мира (фикстура не дефектна) ───────────────────────
 selftest() {
@@ -538,6 +575,8 @@ while IFS=' ' read -r sha ref; do
     *) continue ;;
   esac
   r="${RSHA[$n]:-}"
+  # s21: тега нет на цели = «сравнивать не с чем» — молчаливый пропуск
+  [ "$DEF" = "s21" ] && [ -z "$r" ] && continue
   if [ "$DEF" = "s3" ]; then
     [ -n "$r" ] || REASON "локальный тег не на origin: $n"
   elif [ "$DEF" = "s20" ]; then
@@ -621,7 +660,7 @@ COREEOF
 chmod +x "$CORE"
 
 mk_stub() { printf '#!/usr/bin/env bash\nSTUB_DEFECT=%s\nexec bash %q "$@"\n' "$1" "$CORE" > "$WORK/stubs_$1.sh"; chmod +x "$WORK/stubs_$1.sh"; }
-for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s20; do mk_stub "$s"; done
+for s in s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14 s15 s16 s17 s18 s19 s20 s21; do mk_stub "$s"; done
 
 run_stub() { # run_stub <стаб> <режим-api> <аргументы push...>
   local st="$1" apimode="$2"; shift 2
@@ -659,7 +698,11 @@ stub_violation() { # stub_violation <класс>
       git -C "$T" tag -f frozen/contracts/099/1 >/dev/null ;;
     done-net)
       mk_world sv-done
-      git -C "$B1" tag -d done/contracts/098/1 >/dev/null 2>&1 ;;
+      tag_only_local стаб-s4 done/contracts/098/1 ;;
+    frozen-net)
+      # отсутствующий frozen-тег: удалён ТОЛЬКО из bare (тот же путь, что п3а)
+      mk_world sv-frozen
+      tag_only_local стаб-s21 frozen/contracts/099/1 ;;
     fail-run)
       mk_world sv-fail; mk_second_land failure ;;
     zero-run)
@@ -748,6 +791,7 @@ run_stub_pack() {
     "s18:badland:land-субъект не разбирается"
     "s19:vlozh-land:land без зелёного PR-CI: wip/071/dem5"
     "s20:teg-sha-dva:локальный тег не на origin: frozen/contracts/099/1"
+    "s21:frozen-net:локальный тег не на origin: frozen/contracts/099/1"
   )
   local pair st kind want api_mode toks dtok m
   local -A STUB_MARKER=( [s17]='превышений/нарушений' [s20]='(локальный ' )
@@ -803,8 +847,12 @@ run_honest_cells() {
   bare_frozen п0
   ok_cell 'п0: предмет существует, крюк звонит'
 
-  # п1: зелёный мир — всё чисто, push проходит, bare на tip, строка успеха
+  # п1: зелёный мир — всё чисто, push проходит, bare на tip, строка успеха.
+  # Позитивная пара к п3а/п3в: тот же тег, тот же объект на ОБЕИХ сторонах —
+  # отправка разрешена (предпосылка доказана до вызова стража)
   mk_world p1
+  tag_synced п1 frozen/contracts/099/1
+  tag_synced п1 done/contracts/098/1
   run_push api origin main
   [ "$RC" -eq 0 ] || die_cell п1 "зелёный мир отказан: $(tail -n 3 "$WORK/last.err" | tr '\n' ' ')"
   grep -qF "$POK" "$WORK/last.err" || die_cell п1 "строка успеха «gitw ПРЕДПОЛЁТ: » не напечатана (молчание)"
@@ -864,12 +912,17 @@ run_honest_cells() {
   expect_refuse п2д "${PF}чек-раннер недоступен: npm"
   bare_frozen п2д; ok_cell 'п2д: npm недоступен — отказ, не пропуск'
 
-  # п3а: локальный frozen-тег не на цели
+  # п3а: локальный frozen-тег не на цели (клетка стаба s21). Отсутствие —
+  # удалением тега ТОЛЬКО из одноразового bare (tag_only_local), НЕ созданием
+  # нового имени: mk_world уже принёс ВСЕ реальные теги, и имя реальной
+  # заморозки давало `tag already exists` → rc 0 вместо 1 (Н-275, оценка l2)
   mk_world p3a
-  git -C "$T" tag frozen/contracts/097/1
+  tag_only_local п3а frozen/contracts/099/1
   run_push api origin main
-  expect_refuse п3а "${PF}локальный тег не на origin: frozen/contracts/097/1"
-  bare_frozen п3а; ok_cell 'п3а: задержанный frozen-тег не уезжает'
+  expect_refuse п3а "${PF}локальный тег не на origin: frozen/contracts/099/1"
+  grep -qF 'цель нет' "$WORK/last.err" || die_cell п3а "отказ не по ОТСУТСТВИЮ тега (нет «цель нет») — это клетка п3б, не п3а"
+  bare_frozen п3а; tag_absent_on_bare п3а frozen/contracts/099/1
+  ok_cell 'п3а: задержанный frozen-тег не уезжает'
 
   # п3б: тег на цели с ДРУГИМ sha (сверка по объекту)
   mk_world p3b
@@ -881,10 +934,11 @@ run_honest_cells() {
 
   # п3в: done-тег отсутствует на цели (оба пространства)
   mk_world p3v
-  git -C "$B1" tag -d done/contracts/098/1 >/dev/null 2>&1
+  tag_only_local п3в done/contracts/098/1
   run_push api origin main
   expect_refuse п3в "${PF}локальный тег не на origin: done/contracts/098/1"
-  bare_frozen п3в; ok_cell 'п3в: done-тег не на origin не уезжает'
+  bare_frozen п3в; tag_absent_on_bare п3в done/contracts/098/1
+  ok_cell 'п3в: done-тег не на origin не уезжает'
 
   # п4а: land без прогонов
   mk_world p4a; mk_second_land empty
@@ -1185,15 +1239,17 @@ PYE
   expect_refuse п13а "${PF}land без зелёного PR-CI: wip/071/dem5"
   bare_frozen п13а; ok_cell 'п13а: вложенный land не на first-parent судится (Р-5)'
 
-  # п14а: Р-6 — отсутствующий на цели тег: отказ несёт локальный sha и «нет»
+  # п14а: Р-6 — отсутствующий на цели тег: отказ несёт локальный sha и «нет».
+  # Отсутствие — удалением из bare (tag_only_local), не новым именем (Н-275)
   mk_world p14a
-  git -C "$T" tag frozen/contracts/097/1
-  LSHA14="$(git -C "$T" rev-parse refs/tags/frozen/contracts/097/1)"
+  tag_only_local п14а frozen/contracts/099/1
+  LSHA14="$(git -C "$T" rev-parse refs/tags/frozen/contracts/099/1)"
   run_push api origin main
-  expect_refuse п14а "${PF}локальный тег не на origin: frozen/contracts/097/1"
+  expect_refuse п14а "${PF}локальный тег не на origin: frozen/contracts/099/1"
   grep -qF -- "$LSHA14" "$WORK/last.err" || die_cell п14а "локальный sha тега не назван (Р-6)"
   grep -qF 'цель нет' "$WORK/last.err" || die_cell п14а "отметка «цель нет» не названа (Р-6)"
-  bare_frozen п14а; ok_cell 'п14а: отсутствующий тег — локальный sha и «цель нет» в отказе (Р-6)'
+  bare_frozen п14а; tag_absent_on_bare п14а frozen/contracts/099/1
+  ok_cell 'п14а: отсутствующий тег — локальный sha и «цель нет» в отказе (Р-6)'
 
   # п14б: Р-6 — переприцеленный тег: отказ несет ОБА sha (клетка стаба s20)
   mk_world p14b
