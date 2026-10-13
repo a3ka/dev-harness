@@ -2,10 +2,18 @@
 # Клетка red_perehodnyj_gheit_perechen — инвариант З-6 контракта 099 (doc §3):
 # переходный доверенный гейт допускает ТОЛЬКО точно перечисленные дефекты,
 # исполненные ПОЛНОСТЬЮ, с доверенным происхождением проверок.
-# Двенадцать входов (блокеры критика круга 1 :49/:48; входы и/к — граница
+# Тринадцать входов (вход н — BLOCKS A099-M2-check-run-name-confusion,
+# adversary круг 3; блокеры критика круга 1 :49/:48; входы и/к — граница
 # арбитража 099 круга 3 по происхождению кода проверок; вход л — вердикт
 # адверсария A099-M1 + Р1-5 reviewer 099 круга 1; вход м — Р1-6 reviewer
 # 099 круга 1, нога производителя Решения 2, транзитивно):
+#   (н) НЕоднозначность имени составляющей (A099-M2, adversary круг 3):
+#       API-ответ несёт ДВА check-run с одним именем l1 (success + failure;
+#       GitHub Checks API допускает до 1000 с одним именем); выбор первого
+#       совпадения маскирует реальный отказ доверенного lane → именованный
+#       отказ «составляющая неоднозначна: l1» В ОБА ПОРЯДКЕ (н-1 success
+#       первым, н-2 failure первым — порядок не вправе менять вердикт;
+#       0 совпадений уже ловится входами ж/г как «нет результата»).
 #   (а) все составляющие зелёны → ДОПУСК;
 #   (б) отказ l7a, совпадающий с реестром (sha строк), l7b зелёна → ДОПУСК;
 #   (в) неизвестный отказ l7a → блокировка;
@@ -141,6 +149,13 @@ krasno д 'неизвестный отказ: ap2'
 # совпадение хеша не доказывает полноту исполнения → блокировка
 zpg ж "l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:failure:$L|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
 krasno ж 'нет результата: l7b'
+
+# (н) A099-M2-check-run-name-confusion (adversary круг 3): dup-имя l1,
+# один success + один failure; первый-match выбор двери маскирует отказ
+zpg н-1 "l1:success|l1:failure:$L2|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:success|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+krasno н-1 'составляющая неоднозначна: l1'
+zpg н-2 "l1:failure:$L2|l1:success|l2:success|l3:success|l4:success|l5:success|l6:success|l7a:success|l7b:success|ap1:success|ap2:success|ap3:success|ap4:success|ap5:success" "$REG"
+krasno н-2 'составляющая неоднозначна: l1'
 
 # (е) дельта объекта трогает реестр перехода → «база исключений изменена кандидатом»
 zpg е "$ALLGREEN" ""
