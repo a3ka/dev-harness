@@ -2,7 +2,7 @@
 
 Контракты 074/081/085: 9 файлов обвязки лежат в этом каталоге побайтно
 (сверяются sha256 с живой станцией — `bash ops/server/install.sh verify`),
-установщик ставит их из репо на `/home/harness/.local/bin/orch-loop` и
+установщик ставит их из репо на `~/bin/orch-loop` и
 `/usr/local/sbin/orch-peak` + `/etc/systemd/system/*`, а `README` —
 инвентарь для сессии, которая раньше обвязку не видела.
 
@@ -10,7 +10,8 @@
 
 - **orch-loop** — обёртка хоста: перезапуск ведущей сессии по маркеру
   (`/tmp/dev-harness-verify/orch-restart`); живёт в tmux-сессии `orch` под
-  harness. user-часть, режим 755, путь — `~/.local/bin/orch-loop`.
+  harness. user-часть, режим 755, путь — `~/bin/orch-loop` (Рв2-6:
+  станционный `~/.local/bin` субъектом не используется).
   Контракт 085 (И-2, И-3, И-5): стартовая обёртка — станционная
   (ebc53f30), плюс потолок памяти сессии (И-5, см. ниже) и общий счёт
   нештатных завершений подряд (И-3, см. «Семантика цикла»).
@@ -219,12 +220,13 @@ orch-peak-stop.timer orch-peak-start.timer`. Не трогать `orch-ctx.timer
 - **Клоны `~/odelix/*`** — соседние каталоги `~/odelix/odx-stack`,
   `~/odelix/odx-rshnn`, и т. п. (по числу пилотных репозиториев), на них
   может указывать пилот A3 — обвязка не лезет в них сама, но `orch-loop`
-  стартует `workshop --yolo` именно в текущем `~/dev-harness`.
+  стартует `workshop --yolo` из `/opt/orch-agent` (Рв2-6: код агента
+  провизионит `install.sh root`; `~/dev-harness` uid'у агента недостижим).
 
 ## Установка из репо
 
 ```sh
-# user-часть (под harness): ~/.local/bin/orch-loop, режим 755
+# user-часть (под harness): ~/bin/orch-loop, режим 755
 bash ops/server/install.sh user
 
 # root-часть (под root): /usr/local/sbin/orch-peak + bootstrap-библиотека
@@ -266,6 +268,19 @@ rw-identity не строится.
 копий и блокировки `.git/config` — и только в производственном контуре:
 при заданных швах адресатов (`OPS_SERVER_SBIN_DST`/`OPS_SERVER_ETC_DST`)
 провизионинг пропускается, тест-мир строит идентичность агента сам.
+Исполняемый код агента (omp, workshop) — `/opt/orch-agent` (Рв2-6, v2):
+`install.sh root` провизионит его зеркальной копией доверенного чекаута
+`OPS_SERVER_MAIN` (rsync `-a --delete`, владелец `root:root` — код
+агентом не перезаписывается), БЕЗ креденшл станции: `.env`/`.env.*`
+исключены до копии — публикационный токен агенту недоступен (И-4).
+orch-loop ведёт агента ИЗ `/opt/orch-agent`: умолчание workshop'а —
+`/opt/orch-agent/workshop` (швы `ORCH_WORKSHOP` /
+`ORCH_LOOP_AGENT_CMD` переопределяют путь), состояние и сессии агента —
+`/var/lib/orch-agent`. Пользователь `orchagent` НЕ входит в группу
+`harness`: `/home/harness` (`drwxr-x---`) uid'у агента недостижим,
+станционные `~/.local/bin` и `~/.config` субъектом не используются.
+Шов `OPS_SERVER_AGENT_ROOT` переопределяет корень кода агента.
+
 
 Перезапуск по маркеру гасит сессию по ДЕРЕВУ посредников: запуск идёт
 `systemd-run --scope` (exec) → `sh` (exec) → `sudo -nu orchagent`

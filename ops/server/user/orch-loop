@@ -129,6 +129,16 @@ log "сессия #$n: старт"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
 RAN="$MARK.scoped"; PGID="$MARK.pgid"; rm -f "$RAN" "$PGID"
+# Рв2-6 (И-3 v2, слово владельца 2026-10-12): исполняемый код агента —
+# /opt/orch-agent (провизионит install.sh root: root:root, без .env —
+# публикационный токен агенту недоступен, И-4); $REPO под /home/harness
+# uid'у агента недостижим (/home/harness — drwxr-x--- harness:harness,
+# orchagent НЕ в группе harness). Умолчание workshop'а — ИЗ /opt/orch-agent;
+# швы ORCH_WORKSHOP / ORCH_LOOP_AGENT_CMD (тест-миры) путь задают сами.
+# Состояние/сессии агента — $AGENT_HOME (/var/lib/orch-agent), не кодовый
+# корень.
+AGENT_ROOT="${ORCH_AGENT_ROOT:-/opt/orch-agent}"
+WORKSHOP="${ORCH_WORKSHOP:-$AGENT_ROOT/workshop}"
 AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
 # Рв2-3 (И-7, круг 3): сессия стартует в СВОЕЙ сессии/группе (setsid у двери):
 # pid лидера = pgid пишется в $PGID ДО готовности RAN — осиротевшие потомки
