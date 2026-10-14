@@ -463,21 +463,27 @@ comm -23 "$TMP/existed" "$TMP/head" > "$TMP/missing"
 #
 # ГРАНДФАЗЕР-АЛЛОУЛИСТ (контракт 046, ветвь 1 — образец в `check_charter.sh:razreshil`,
 # экстраполяция на ALLOW-ARTIFACT-DELETE) — 3 пары (SHA, путь), санкционированных владельцем
-# текстом в сессии 2026-09-25 (первые 2), 2026-10-08 (третья, Н-220) и 2026-10-13 (четвёртая-шестая, переходный регламент, одна точка ветвления — три пути одного удаляющего SHA). Эти коммиты удаляют
+# текстом в сессии 2026-09-25 (первые 2), 2026-10-08 (третья, Н-220), 2026-10-13
+# (четвёртая-шестая, переходный регламент, одна точка ветвления — три пути одного
+# удаляющего SHA) и 2026-10-14 (седьмая-восьмая, Н-268 переименование witness-файлов
+# 093-v2c, одна точка ветвления — два пути одного удаляющего SHA). Эти коммиты удаляют
 # защищённый артефакт, но не несут строки ALLOW-ARTIFACT-DELETE в теле (процедурный пробел, не
-# обход): контент перенесён без изменений, история имён сохранена в git. История
-# неприкосновенна — коммиты НЕ редактируются задним числом, разрешение записано здесь как
-# статическое допущение, и ТОЛЬКО для ровно этих SHA-точек. «узкий non-rewriteable grandfather».
-# case матчит ТОЛЬКО exact-SHA+exact-path пару (правило 3 владельца: НЕ бланкет), иначе —
-# падение в основную грамматику.
+# обход): контент перенесён БЕЗ ИЗМЕНЕНИЙ (первые 6 пар) либо С ИЗМЕНЕНИЕМ ПРЕДМЕТ и ссылок
+# при устранении Н-268 (седьмая-восьмая пара — побайтовый moved_for не применим), история имён
+# сохранена в git. История неприкосновенна — коммиты НЕ редактируются задним числом, разрешение
+# записано здесь как статическое допущение, и ТОЛЬКО для ровно этих SHA-точек. «узкий
+# non-rewriteable grandfather». case матчит ТОЛЬКО exact-SHA+exact-path пару (правило 3
+# владельца: НЕ бланкет), иначе — падение в основную грамматику.
 #
-# Шесть пар (4-6 — одна удаляющая точка, три пути):
+# Восемь пар (4-6 — одна удаляющая точка, три пути; 7-8 — одна удаляющая точка, два пути):
 #   31fcb46bd3e6e9faf11868ea766e083ea7b32069  verdicts/critic/contracts-043-v2-spaseno-draft.md
 #   aace01dd1f1b4959bcea061fc54c3e5e485934ba  verdicts/critic/contracts-044-v2.md
 #   4aa5e0a345752a70e418625a54ef30ef5b09efde  verdicts/critic/contracts-090-v3.md
 #   66e3a0b950264d4be597eb0d4e5722b9c98e4186  verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md
 #   66e3a0b950264d4be597eb0d4e5722b9c98e4186  verdicts/consultant/263-grandfather-b7a0c276-v1.md
 #   66e3a0b950264d4be597eb0d4e5722b9c98e4186  verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md
+#   2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d  verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md
+#   2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d  verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md
 #
 # НЕ добавлять новые записи без прямого слова владельца в НОВОМ коммите с обоснованием.
 state_at() {  # <коммит-или-дерево> <путь> → "<mode> <oid>" на stdout, пусто — пути там нет.
@@ -535,6 +541,11 @@ excuse_for() {  # <путь> → 0, если удаление разрешено
       66e3a0b950264d4be597eb0d4e5722b9c98e4186)
         case "$p" in
           verdicts/consultant/263-grandfather-b7a0c276-klass-v1.md|verdicts/consultant/263-grandfather-b7a0c276-v1.md|verdicts/consultant/266-orch-loop-test-mode-soreview-v1.md)
+            return 0 ;;
+        esac ;;
+      2ac0f5f2e7250bf90cd4569a1b52bf03f188f32d)
+        case "$p" in
+          verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md|verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md)
             return 0 ;;
         esac ;;
     esac
