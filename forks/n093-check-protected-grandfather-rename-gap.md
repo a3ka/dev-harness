@@ -52,4 +52,8 @@ fork- -> n093-, Н-268 collision») удаляет оба файла и доба
 АВТОР: orchestrator
 БЛОКИРУЕТ: да — `check:protected` (CI lane l4, ПЕРВЫЙ ключ, fail-fast) на ЛЮБОЙ
   свежесобранной ветке (не только PR#91); конкретно сейчас блокирует ленд 093 v4.
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да — слово владельца 2026-10-14 ~10:50 UTC (передано консультантом):
+  подписана дословная строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ (verdicts/consultant/n093-check-
+  protected-grandfather-rename-gap-v1.md, 1201 байт, станция /tmp/dev-harness-
+  verify/l4-line.txt); 2 пары добавлены коммитом c0146ee3 (identity implementer,
+  ветка fix/n093-check-protected-grandfather, PR#92), живая проверка rc=0.

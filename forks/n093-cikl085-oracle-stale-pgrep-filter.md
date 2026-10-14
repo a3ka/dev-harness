@@ -82,4 +82,10 @@ family-selftest` CI-лейн нуждается в новом provisioning-ша�
   ветке/push main, несущей 093-редизайн запуска сессии под uid `orchagent` (Рв2-6);
   это ЗНАЧИТ: после ленда 093 эта же клетка покраснеет и на main (push-CI), НЕ только
   на PR — рекомендую решить ДО ленда, не постфактум.
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да (маршрут n266 п.3 от 11.10) — слово владельца 2026-10-14 ~10:50 UTC
+  (передано консультантом, его отказ из-за потери входа выполнен): диагноз НЕ
+  orchagent-провизионинг, а неполный cherry-pick v4 — дозабраны 3ce90ebc (085,
+  заглушки sudo/getent/systemd-run, слово владельца 2026-10-11 fork n266 п.3) и
+  31731eec (implementer, orch-loop pgrep/pkill -f filter + off-by-one exec sudo,
+  А-391) на wip/093/architect-v4 с сохранением авторства (architect/implementer);
+  живая проверка fixtures/ops_server/red_cikl_perezapuska_085.sh rc=0.
