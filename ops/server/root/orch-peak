@@ -158,6 +158,67 @@ current_session_dir() {
 }
 
 ORCH_SESS_GLOB="$SESS_GLOB"
+# Контракт 093 И-1: в root-контексте orch-peak НЕ читает код по путям,
+# записываемым не-root uid. Bootstrap-библиотека — ТОЛЬКО из установленного
+# root-owned источника ${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}
+# (рядом с orch-peak, ставится install.sh root как root:root 644). Подмена
+# файла или отсутствие → именованный отказ сторожа, не тихий fallback на
+# ${REPO} (который принадлежит harness и неприемлем в root-контексте).
+# Тест-шов ORCH_PEAK_TEST (контракт 080, инв. 4) при root-контексте НЕ
+# снимает И-1: тест-мир подменяет I/O (as_u/say/omp_pids/kill_session),
+# НЕ разрешение на чтение не-root-owned кода.
+# Швы: OPS_SERVER_LIB_DST (адресат bootstrap), OPS_SERVER_LIB_SRC (источник
+# при ручной правке, по умолчанию $SBIN_DST/lib_session.sh).
+# А-1 (adversary 093-v2, круг 5): «установленный» адресат проверяется ДО
+# source — владелец root, режим без group/other-write, sha256 == манифесту
+# установки (<адресат>.sha256 рядом с библиотекой; пишет его ТОЛЬКО
+# install.sh root, root:root 444, атомарной заменой). Любое расхождение —
+# именованный отказ ДО source: подмена существующего адресата
+# (владение/права/байты) больше не исполняется — живая проба круга 2
+# исполняла подменённый адресат без всякой проверки.
+if [ "$(id -u)" -eq 0 ]; then
+  LIB_DST="${OPS_SERVER_LIB_DST-/usr/local/sbin/lib_session.sh}"
+  if [ ! -f "$LIB_DST" ]; then
+    printf '%s orch-peak: И-1 (контракт 093) — bootstrap-библиотека не установлена: %s\n' "$(date -u +%FT%TZ)" "$LIB_DST" >> "$LOG"
+    exit 1
+  fi
+  i1_refuse() { # <причина> — именованный отказ И-1 ДО source (А-1, круг 5)
+    printf 'orch-peak: И-1 (контракт 093) — bootstrap-библиотека не принята: %s: %s\n' "$1" "$LIB_DST" >&2
+    printf '%s orch-peak: И-1 (контракт 093) — bootstrap-библиотека не принята: %s: %s\n' "$(date -u +%FT%TZ)" "$1" "$LIB_DST" >> "$LOG" 2>/dev/null || true
+    exit 1
+  }
+  LIB_SHA="$LIB_DST.sha256"
+  i1_uid="$(stat -c %u "$LIB_DST" 2>/dev/null)" || i1_refuse 'статус владельца не прочитан'
+  [ "$i1_uid" = 0 ] || i1_refuse "владелец ${i1_uid:-?} не root"
+  i1_mod="$(stat -c %a "$LIB_DST" 2>/dev/null)" || i1_refuse 'статус режима не прочитан'
+  case "$i1_mod" in
+    *[!0-7]*|'') i1_refuse "режим «${i1_mod:-?}» не восьмеричный" ;;
+    *) [ $(( 8#$i1_mod & 8#022 )) -eq 0 ] || i1_refuse "режим $i1_mod разрешает group/other write" ;;
+  esac
+  [ -f "$LIB_SHA" ] || i1_refuse "нет sha256-манифеста $LIB_SHA"
+  i1_suid="$(stat -c %u "$LIB_SHA" 2>/dev/null)" || i1_refuse 'статус владельца манифеста не прочитан'
+  [ "$i1_suid" = 0 ] || i1_refuse "владелец манифеста ${i1_suid:-?} не root"
+  i1_smod="$(stat -c %a "$LIB_SHA" 2>/dev/null)" || i1_refuse 'статус режима манифеста не прочитан'
+  case "$i1_smod" in
+    *[!0-7]*|'') i1_refuse "режим манифеста «${i1_smod:-?}» не восьмеричный" ;;
+    *) [ $(( 8#$i1_smod & 8#022 )) -eq 0 ] || i1_refuse "режим манифеста $i1_smod разрешает group/other write" ;;
+  esac
+  i1_sum="$(sha256sum <"$LIB_DST" 2>/dev/null | cut -d' ' -f1)"
+  i1_want="$(cut -d' ' -f1 "$LIB_SHA" 2>/dev/null)"
+  [ -n "$i1_sum" ] && [ "$i1_sum" = "$i1_want" ] || i1_refuse "sha256 расходится с манифестом $LIB_SHA"
+  # shellcheck disable=SC1091
+  . "$LIB_DST"
+fi
+
+# Каноническая форма bootstrap (060/080 инв. 13) для не-root-контекста
+# (harness-uid, тест-мир под harness, интерактив). Текст блока ниже сохранён
+# byte-for-byte для р1-оракула (fixture/ops_server/cikl_085/slijanie.orch-peak):
+# подпоследовательность строк снимка читается из файла как-есть, вне функции
+# её байты встретиться не могут (subseq ищет точное совпадение строк).
+# Тело функции размещено на колонке 0 валидным bash без обязательного отступа
+# в теле функции — это сохраняет байты и не вводит dead code (функция
+# вызывается в штатном режиме ниже, исполнение живое).
+_bootstrap_lib() {
 # Bootstrap scripts/lib_session.sh (единый источник current_session_dir /
 # live_subagents_in — контракт 080 инв. 13). Если bootstrap не сработал
 # (например, в тест-мире шва ORCH_PEAK_TEST, где ${REPO} не содержит
@@ -166,6 +227,10 @@ ORCH_SESS_GLOB="$SESS_GLOB"
 if [ -f "${REPO}/scripts/lib_session.sh" ]; then
   # shellcheck disable=SC1091
   . "${REPO}/scripts/lib_session.sh"
+fi
+}
+if [ "$(id -u)" -ne 0 ]; then
+  _bootstrap_lib
 fi
 if ! declare -F live_subagents_in >/dev/null 2>&1; then
   live_subagents_in() {

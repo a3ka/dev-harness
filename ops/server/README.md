@@ -2,7 +2,7 @@
 
 Контракты 074/081/085: 9 файлов обвязки лежат в этом каталоге побайтно
 (сверяются sha256 с живой станцией — `bash ops/server/install.sh verify`),
-установщик ставит их из репо на `/home/harness/.local/bin/orch-loop` и
+установщик ставит их из репо на `~/bin/orch-loop` и
 `/usr/local/sbin/orch-peak` + `/etc/systemd/system/*`, а `README` —
 инвентарь для сессии, которая раньше обвязку не видела.
 
@@ -10,7 +10,8 @@
 
 - **orch-loop** — обёртка хоста: перезапуск ведущей сессии по маркеру
   (`/tmp/dev-harness-verify/orch-restart`); живёт в tmux-сессии `orch` под
-  harness. user-часть, режим 755, путь — `~/.local/bin/orch-loop`.
+  harness. user-часть, режим 755, путь — `~/bin/orch-loop` (Рв2-6:
+  станционный `~/.local/bin` субъектом не используется).
   Контракт 085 (И-2, И-3, И-5): стартовая обёртка — станционная
   (ebc53f30), плюс потолок памяти сессии (И-5, см. ниже) и общий счёт
   нештатных завершений подряд (И-3, см. «Семантика цикла»).
@@ -219,15 +220,19 @@ orch-peak-stop.timer orch-peak-start.timer`. Не трогать `orch-ctx.timer
 - **Клоны `~/odelix/*`** — соседние каталоги `~/odelix/odx-stack`,
   `~/odelix/odx-rshnn`, и т. п. (по числу пилотных репозиториев), на них
   может указывать пилот A3 — обвязка не лезет в них сама, но `orch-loop`
-  стартует `workshop --yolo` именно в текущем `~/dev-harness`.
+  стартует `workshop --yolo` из `/opt/orch-agent` (Рв2-6: код агента
+  провизионит `install.sh root`; `~/dev-harness` uid'у агента недостижим).
 
 ## Установка из репо
 
 ```sh
-# user-часть (под harness): ~/.local/bin/orch-loop, режим 755
+# user-часть (под harness): ~/bin/orch-loop, режим 755
 bash ops/server/install.sh user
 
-# root-часть (под root): /usr/local/sbin/orch-peak + 7 юнитов /etc/systemd/system/
+# root-часть (под root): /usr/local/sbin/orch-peak + bootstrap-библиотека
+# lib_session.sh (root:root 644) + её sha256-манифест lib_session.sh.sha256
+# (root:root 444 — по нему сторож проверяет установленный bootstrap, И-1)
+# + 7 юнитов /etc/systemd/system/
 sudo bash ops/server/install.sh root
 
 # сверка установленного с репо (любой пользователь, только читает):
@@ -242,7 +247,120 @@ bash ops/server/install.sh verify
 `.git/config` запирается `chattr +i` (по умолчанию
 `/home/harness/dev-harness`).
 
+## Пользователь агента (контракт 093, И-3)
+
+Автономная сессия запускается под ОТДЕЛЬНЫМ uid агента (по умолчанию
+`orchagent`, HOME — `/var/lib/orch-agent`), а не под uid владельца
+`/home/harness`. Это даёт изоляцию от контрольных файлов станции
+(`~/.ssh/github-rw-cwd`, `~/.config/omp/*`, живое состояние
+`$UHOME/.local/state/dev-harness-sessions/**`, `/var/lib/orch-peak/**`)
+и от публикационного ключа (Н-196). HOME сессии — вне `/home/harness`:
+credent публикации в среде сессии НЕ доступны, `GIT_SSH_COMMAND` с
+rw-identity не строится.
+
+Швы `ORCH_AGENT_USER` / `ORCH_AGENT_HOME` переопределяют идентичность
+агента в тест-мире (одно имя на свойство; дублирующие имена
+`ORCH_LOOP_AGENT_USER`/`ORCH_LOOP_AGENT_HOME` удалены вместе с мёртвой
+второй веткой запуска — находка Р1-9 круга 1). Пользователь `orchagent`,
+каталог `/var/lib/orch-agent` и узкое sudoers-правило
+`/etc/sudoers.d/orch-agent-launcher` (harness → orchagent NOPASSWD,
+только по адресату) провизионит `install.sh root` идемпотентно ПОСЛЕ
+копий и блокировки `.git/config` — и только в производственном контуре:
+при заданных швах адресатов (`OPS_SERVER_SBIN_DST`/`OPS_SERVER_ETC_DST`)
+провизионинг пропускается, тест-мир строит идентичность агента сам.
+Исполняемый код агента (omp, workshop) — `/opt/orch-agent` (Рв2-6, v2):
+`install.sh root` провизионит его зеркальной копией доверенного чекаута
+`OPS_SERVER_MAIN` (rsync `-a --delete --delete-excluded`, владелец
+`root:root` — код агентом не перезаписывается), БЕЗ креденшл станции:
+`.env`/`.env.*` исключены до копии — публикационный токен агенту
+недоступен (И-4); stale-носители `.env`/`.env.*`/`.ssh`, оставшиеся у
+получателя прошлой установкой, удаляются (adversary 093-v4): источник
+`OPS_SERVER_MAIN` не меняется ни на байт.
+orch-loop ведёт агента ИЗ `/opt/orch-agent`: умолчание workshop'а —
+`/opt/orch-agent/workshop` (швы `ORCH_WORKSHOP` /
+`ORCH_LOOP_AGENT_CMD` переопределяют путь), состояние и сессии агента —
+`/var/lib/orch-agent`. Пользователь `orchagent` НЕ входит в группу
+`harness`: `/home/harness` (`drwxr-x---`) uid'у агента недостижим,
+станционные `~/.local/bin` и `~/.config` субъектом не используются.
+Шов `OPS_SERVER_AGENT_ROOT` переопределяет корень кода агента.
+
+
+Перезапуск по маркеру гасит сессию по ДЕРЕВУ посредников: запуск идёт
+`systemd-run --scope` (exec) → `sh` (exec) → `sudo -nu orchagent`
+(остаётся родителем сессии и пересылает ей SIGTERM), поэтому процесс
+агента — потомок `sudo`, а не цикла, и наблюдатель сигналит дереву:
+посредникам — напрямую, агентному листу — пересылкой `sudo` (TERM) или
+тем же узким правилом `sudo -nu orchagent kill` (KILL).
+
+Публикация — ТОЛЬКО через установленную дверь под другим
+пользователем; агенту ключ публикации НЕ доступен.
+
+## Проверка старта юнита (контракт 093, И-6a; v2, Рв2-5)
+
+Юнит `orch-peak@0` — ONESHOT: после успешного запуска
+`ActiveState=inactive` — НОРМА, не сбой. Установка корневой части
+(`install.sh root`) завершена ⟺ поставленный юнит ЗАВЕРШИЛ НОВЫЙ запуск
+ЭТОЙ пробы: подкоманда `verify-start` сама выдаёт `systemctl restart`,
+затем требует `Result=success` И свежий `ExecMainExitTimestamp` (позже
+момента запуска пробы — старый успех за новый запуск не считается):
+
+```sh
+sudo bash ops/server/install.sh verify-start
+# rc 0: "установлено: юнит orch-peak@0 завершён успешно, свежий запуск (Result=success; …)"
+# rc 1: "юнит не стартует: orch-peak@0 (Result=failed | успех СТАРЫЙ: …)" — именованный отказ
+```
+
+Швы `OPS_SERVER_UNIT` (умолчание `orch-peak@0`) и `OPS_SERVER_SYSTEMCTL`
+(умолчание `systemctl`) позволяют указать другой юнит и путь к systemctl
+(тест-миры с shim'ом). Формат `ExecMainExitTimestamp` — наносекунды
+## Откат установленной версии (контракт 093, И-6b; v2, Рв2-5)
+
+Подкоманда `rollback` побайтно восстанавливает предыдущую установленную
+версию из `${OPS_SERVER_ROLLBACK_BACKUP-/usr/local/sbin/.rollback}/` —
+каталог, куда `install.sh root` ПЕРЕД копированием новой версии
+сохраняет снимок прежней (orch-peak + `lib_session.sh` + 7 юнитов,
+атомарной заменой каталога). Снимок появляется со ВТОРОЙ установки:
+первой снимать нечего, каталог не создаётся. Откат САМ выполняет
+`systemctl daemon-reload` и `systemctl restart` (находка 2 круга 2: без
+daemon-reload юнит остаётся на старой версии в памяти демона) и
+доказывает ЗАВЕРШЕНИЕ НОВОГО запуска критерием oneshot (Result=success
++ свежий `ExecMainExitTimestamp` позже T0 отката; ActiveState=inactive —
+норма oneshot) — никакого `install` между откатом и наблюдением не
+требуется. Манифест sha256 восстановленной библиотеки откат пишет заново
+под неё (v1-библиотека с v2-манифестом = отказ И-1 у сторожа) и сверяет
+согласованность установленного манифеста с библиотекой.
+
+```sh
+sudo bash ops/server/install.sh rollback
+# rc 0: "откат выполнен: orch-peak + N юнитов из /usr/local/sbin/.rollback;
+#        юнит завершил новый запуск успешно (Result=success, свежий ExecMainExitTimestamp)"
+# rc 1: именованный отказ (нет каталога/снимка, расхождение, запуск не
+#       завершён успехом или не свеж)
+# rc 2: NOT_IMPLEMENTED (нет systemctl)
+```
+
+Живая последовательность без маскировки:
+
+```sh
+# v1: первая установка (.rollback ещё не создаётся)
+sudo bash ops/server/install.sh root
+# v2: правка + установка (ПЕРЕД копиями сохранила v1 в .rollback)
+# …
+# откат: восстановление v1 побайтово + reload + restart + доказательство oneshot
+sudo bash ops/server/install.sh rollback
+# юнит завершил новый запуск успешно ИМЕННО на v1 (sha256 = пин v1)
+sudo bash ops/server/install.sh verify-start   # rc 0
+```
+
+Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание
+`/usr/local/sbin/.rollback`) переопределяет каталог предыдущей версии;
+шины юнита и systemctl — `OPS_SERVER_UNIT` / `OPS_SERVER_SYSTEMCTL`.
+Шов `OPS_SERVER_ROLLBACK_BACKUP` (умолчание
+`/usr/local/sbin/.rollback`) переопределяет каталог предыдущей версии;
+шины юнита и systemctl — `OPS_SERVER_UNIT` / `OPS_SERVER_SYSTEMCTL`.
+
 ## Обслуживание .git/config (снятие/возврат +i)
+
 
 Контракт 081 запирает общий `<OPS_SERVER_MAIN>/.git/config` ядром ФС
 (`chattr +i` ставится root-частью `install.sh root` после копии+sha256
