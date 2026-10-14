@@ -58,4 +58,21 @@ runner), ЗАТЕМ запускает `fixtures/_krasnye_093.sh` через `su
 БЛОКИРУЕТ: да — `done_contract 093`, и transitively весь порядок владельца
   «после done 093 и установки 093 на станции» (Э1/Э1м для нового пилота
   Complior мобильный, см. слово владельца 2026-10-14 ~14:45 UTC).
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да
+
+ОТВЕТ КОНСУЛЬТАНТА (`verdicts/consultant/fork-093-provodka-ci-uid-door-ne-postroen-v1.md`,
+коммит `0b88f04b3`, модель `openai-codex/gpt-6-astra`): рекомендован конкретный маршрут —
+новый файл `scripts/run_ops093_ci.sh` (CI-only дверь: `sudo -n useradd` системного
+непривилегированного пользователя `ci093-agent`, копия дерева в scratch, запуск
+НЕИЗМЕНЁННОЙ `fixtures/_krasnye_093.sh` через `sudo -n -H -u ci093-agent`), ОДНА
+`step`-строка `registry/ci-steps.tsv` + `gen_ci_steps.sh --write`. Новый `sudoers` НЕ
+нужен — используется существующий passwordless sudo runner-пользователя GH Actions.
+Консультант честно пометил предел: sudo в его песочнице требовал пароль, поэтому
+полный позитивный прогон клетки 8б под вторым uid НЕ был измерен живьём — только
+структура двери и отказ вне CI проверены (`verify_consultant.sh` rc=0 своей мерой).
+
+**ЧЕМ ЗАКРЫТЬ (implementer, следующая сессия):** написать `scripts/run_ops093_ci.sh`
+по кандидат-телу из вердикта, добавить `step`+регенерацию, живой прогон НА РЕАЛЬНОМ
+GH Actions runner (passwordless sudo там есть) — клетка 8б обязана зеленеть ИМЕННО
+через эту дверь. После зелёного `fixtures/_krasnye_093.sh` в CI → `check_provodka.sh`
+rc 0 → `done_contract 093` разблокирован.
