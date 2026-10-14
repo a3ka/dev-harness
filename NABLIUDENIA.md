@@ -7254,7 +7254,7 @@ main, + цикл «находка → форк → консультант → в
 pre-commit guard, запрещающий авторам ≠ owner путь `docs/owner/`), а не третьей ручной
 точечной строки.
 
-### Н-284. `wip/092/implementer` (headRefOid PR#80, уже reviewer круг 6 accept, `32ef18048`) не несёт файлов ЗОНА architect контракта 092 (`fixtures/_krasnye_092.sh`, `fixtures/orch_state/`) — ни на HEAD, ни на `origin/main`; неясно, на чём основан accept `ОТКРЫТО — адрес: требуется разбор провенанса ветки 092 (architect/scout) перед попыткой ленда`
+### Н-284. `wip/092/implementer` (headRefOid PR#80, уже reviewer круг 6 accept, `32ef18048`) не несёт файлов ЗОНА architect контракта 092 (`fixtures/_krasnye_092.sh`, `fixtures/orch_state/`) — ни на HEAD, ни на `origin/main`; неясно, на чём основан accept `ОТКРЫТО — адрес: правила роли architect (092: разбор провенанса ветки/accept круга 6 до ленда)`
 
 **Что произошло:** после done 093 сессия искала безопасный второй предмет в очереди
 (092/094/095/096/097/098/099/100/087/083). `registry/plan.tsv` показал 092 зависящим от
