@@ -4,6 +4,9 @@
 # --kind brief (orch_brief, только оркестратору). Потребляет ПРОФИЛЬ через
 # scripts/profile_resolver.sh (Решение 1). ГРАММАТИКА CLI/отказов/секций
 # закреплена честной моделью fixtures/context_pack_095/model/dover.sh.
+# КОНТРАКТ 103 (Решение 1): три чтения harness-layout (черновик, заморозка,
+# бриф) берут каталоги контрактов/реестра из эффективного workflowPaths профиля
+# (MERGED profile_resolver) с гардом И-5 против побега пути за корень репо.
 # НЕ БАРЬЕР: субъект контракта 095 — зелёный контроль и стаб-детект собственной именованной батареи fixtures/context_pack_095/ (раннер fixtures/_krasnye_095.sh, стаб-пак battery_stubs.sh, 18 мутаций), не case_*.sh-глобом (прецедент drill_exit_marker.sh/drill_path_guard.sh, заморозка 025 И-7). Выходы: 0 — пак построен (stdout), 1 — именованный отказ «ОТКАЗ: ...», 2 — NOT_IMPLEMENTED.
 set -uo pipefail
 TAB="$(printf '\t')"
@@ -113,6 +116,26 @@ fi
 # CP — contextPack.value (без обёртки value/origin резолвера).
 CP="$(printf '%s' "$MERGED" | jq -c '.contextPack.value // null' 2>/dev/null)" || die "контекст не извлечь"
 
+# ── КОНТРАКТ 103 (Решение 1): профильные пути вместо harness-layout ──
+# Расположение каталогов контрактов и реестра — из эффективного workflowPaths
+# профиля (MERGED profile_resolver — единственный источник), не из зашитых
+# корневых contracts/ и registry/ харнеса. Гард И-5 ДО любого чтения: каждый
+# из 4 путей канонизируется (readlink -f от pwd -P корня репо) и обязан лежать
+# ВНУТРИ репо — `..`, абсолютный путь и симлинк наружу отказывают единой
+# фразой «workflowPaths вне репо: <ключ>=<значение>».
+REPO_ABS="$(cd "$REPO" && pwd -P)"
+WP_C="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.contracts.value // empty')"
+WP_G="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.registry.value // empty')"
+[ -n "$WP_C" ] || die "профиль без workflowPaths.contracts"
+[ -n "$WP_G" ] || die "профиль без workflowPaths.registry"
+for _wpk in contracts verdicts registry fixtures; do
+  _wpv="$(printf '%s' "$MERGED" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
+  _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
+  case "$_wpv" in /*) _wpcanon="/вне" ;; esac
+  case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
+done
+unset _wpk _wpv _wpcanon
+
 MAP_LINES=""; RULES_LINES=""; REUSE_LINES=""; MAP_MAN=""
 NROWS="$(printf '%s' "$CP" | jq -r 'if . == null then 0 else (.rows // []) | length end')"
 if [ "$NROWS" = "0" ]; then
@@ -199,16 +222,21 @@ if [ "$SKIP_TASK" = "0" ]; then
   TAG="$(git -C "$REPO" tag -l "frozen/contracts/$CONTRACT/*" | LC_ALL=C sort -V | tail -n 1)"
   ORIGIN="draft"
   if [ -n "$TAG" ]; then
-    CPATH="$(git -C "$REPO" ls-tree --name-only "$TAG" "contracts/" | grep -E "^contracts/${CONTRACT}-[^/]+\.md$" | head -n 1)"
+    # (з) заморозка: путь контракта ВНУТРИ блоба тега — профильный
+    # (<contracts>/), корень тега — НЕ фолбэк (Frontier И-1в/И-1г).
+    _fz_esc="${WP_C//./\\.}"
+    CPATH="$(git -C "$REPO" ls-tree --name-only "$TAG" "$WP_C/" | grep -E "^$_fz_esc/${CONTRACT}-[^/]+\.md$" | head -n 1)"
     [ -n "$CPATH" ] || die "заморозка без контракта: $TAG"
     CBYTES="$(git -C "$REPO" show "$TAG:$CPATH" 2>&1)"
     ORIGIN="frozen"
   else
     case "$ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac
-    CPATH="$(cd "$REPO" && ls contracts/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
+    # (д) черновик: только <contracts>/<NNN>-*.md профиля (Frontier И-1а/И-1б).
+    CPATH="$(cd "$REPO" && ls "$WP_C"/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
     [ -n "$CPATH" ] || die "черновик контракта не найден: $CONTRACT"
     CBYTES="$(cat "$REPO/$CPATH")"
   fi
+  unset _fz_esc
   ZONES_SEC="$(printf '%s\n' "$CBYTES" | grep '^ЗОНА ' || true)"
   CONTEXT_SEC="$(printf '%s\n' "$CBYTES" | grep '^КОНТЕКСТ:' || true)"
   CONTEXT_SEC="${CONTEXT_SEC}
@@ -273,19 +301,22 @@ $TASK_BYTES"
 "
   fi
 else
-  if [ -f "$REPO/registry/plan.tsv" ]; then
-    GOAL_SEC="$(cat "$REPO/registry/plan.tsv")"
+  # (б) бриф (Frontier И-1д): план — <registry>/plan.tsv профиля, карта WORK —
+  # контракты <contracts>/*.md профиля; корневые registry/ и contracts/
+  # харнеса источниками не являются.
+  if [ -f "$REPO/$WP_G/plan.tsv" ]; then
+    GOAL_SEC="$(cat "$REPO/$WP_G/plan.tsv")"
   fi
   # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
   # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
   # «## Предмет (дословно из докса…)» предмет НЕСУТ: 092/094/095).
   # Отказ фразой И-12 дословно — ТОЛЬКО активным: NNN в колонке id
-  # registry/plan.tsv (тот же реестр — GOAL брифа). Вне плана без
+  # plan.tsv профиля (тот же реестр — GOAL брифа). Вне плана без
   # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
   # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
   _plan_ids=""
-  [ -f "$REPO/registry/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/registry/plan.tsv")" || true
-  for cf in $(LC_ALL=C ls "$REPO"/contracts/*.md 2>/dev/null | LC_ALL=C sort); do
+  [ -f "$REPO/$WP_G/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G/plan.tsv")" || true
+  for cf in $(LC_ALL=C ls "$REPO/$WP_C"/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
     csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
     if [ -n "$csubj" ]; then
