@@ -20,7 +20,7 @@ J="$W/prinyato/registry/candidates.tsv"
 printf 'accept\n' >"$W/verdikt-A.md"
 
 # судья принял объект A
-_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M1" --verdict-row T-1 "$OID1" "$W/verdikt-A.md" \
+_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M1" --verdict-row T-1 "$OID1" "$W/verdikt-A.md" $(_d98_sud "$W" "$M1") \
   || { printf 'КРАСНО: chuzhoj-accept: verdict-писатель отказал для объекта A\n' >&2; exit 1; }
 
 # кандидат сдвинулся — объект B той же задачи
@@ -50,7 +50,7 @@ grep -Fq 'published' "$J" \
 
 # положительный контроль: accept ровно объекта B событием судьи → публикация
 printf 'accept\n' >"$W/verdikt-B.md"
-_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M2" --verdict-row T-1 "$OID2" "$W/verdikt-B.md" \
+_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M2" --verdict-row T-1 "$OID2" "$W/verdikt-B.md" $(_d98_sud "$W" "$M2") \
   || { printf 'КРАСНО: chuzhoj-accept: verdict-писатель отказал для объекта B\n' >&2; exit 1; }
 out="$( _d98_zov "$W" "$W/prinyato/scripts/accept_publish.sh" publish --repo "$W/repo" \
   --task T-1 --target main --base "$B" --candidate "$C2" --merge "$M2" \

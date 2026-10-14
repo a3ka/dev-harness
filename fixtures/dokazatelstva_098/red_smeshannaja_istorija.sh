@@ -42,7 +42,7 @@ n="$(awk -F'\t' -v o="$OID" -v nm=ci-a -v s=fail -v r="$RUN" -v w="$WFA" -v t="$
 # дверь: последний по run исход ci-a — fail → отказ, target неизменен
 _d98_zov "$W" "$W/prinyato/scripts/check_ci_gate.sh" "$W/prinyato" "$M" --check-row "$OID" ci-b \
   || { printf 'КРАСНО: smeshannaja: check-писатель отказал на честной ci-b\n' >&2; exit 1; }
-_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt.md" \
+_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt.md" $(_d98_sud "$W" "$M") \
   || { printf 'КРАСНО: smeshannaja: verdict-писатель отказал\n' >&2; exit 1; }
 _d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --policy-row "$OID" "$PVB" "$PVC" "$W/sankcia.md" \
   || { printf 'КРАСНО: smeshannaja: policy-писатель отказал\n' >&2; exit 1; }

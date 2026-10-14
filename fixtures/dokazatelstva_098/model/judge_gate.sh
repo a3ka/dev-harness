@@ -9,10 +9,15 @@
 # строки-носители инвариантов, НЕ удалять и НЕ переименовывать без синхронной
 # правки стаб-пака).
 #
-# CLI (решения 3-4 контракта 098; алфавиты — 041, грамматики строк — И-0 094):
-#   judge_gate.sh <sha> --verdict-row <задача> <object_id> <вердикт-файл>
+# CLI (решения 3-4 контракта 098 + решение 4 контракта 104; алфавиты — 041,
+# грамматики строк — И-0 094):
+#   judge_gate.sh <sha> --verdict-row <задача> <object_id> <вердикт-файл> --sud <роль> <трасса> <session>
 #       первая строка файла — СОБЫТИЕ решения (accept|FAIL|ESCALATE) —
 #       ЕДИНСТВЕННЫЙ источник исхода: зелёный CI в accept НЕ превращается;
+#       перед записью строки — соседний check_sud_model.sh
+#       «--verdict <роль> --trace <трасса> --object <sha> --session <session>»:
+#       rc ≠ 0 → строка НЕ пишется, rc пробрасывается; тройки --sud нет →
+#       rc 1 «свидетельство судьи не передано» (не bootstrap-пропуск);
 #   judge_gate.sh <sha> --policy-row <object_id> <старая> <новая> <файл-санкции>
 #       первая строка файла-санкции — accept; переход политики — доверенный
 #       канал (судейский), кандидат и ленд строку policy не пишут;
@@ -30,7 +35,7 @@ command -v sha256sum >/dev/null 2>&1 || d98_ni "нет sha256sum"
 hex64() { case "$1" in ''|*[!0-9a-f]*) return 1 ;; esac; [ "${#1}" -eq 64 ]; }
 
 usage() {
-  printf 'использование: judge_gate.sh <sha> [--verdict-row <задача> <object_id> <файл> | --policy-row <object_id> <старая> <новая> <файл-санкции>]\n' >&2
+  printf 'использование: judge_gate.sh <sha> [--verdict-row <задача> <object_id> <файл> --sud <роль> <трасса> <session> | --policy-row <object_id> <старая> <новая> <файл-санкции>]\n' >&2
   exit 1
 }
 
@@ -40,8 +45,13 @@ case "$SHA" in *[!0-9a-f]*|'') d98_die "sha не 40 hex: $SHA" ;; esac
 MODE=""
 case "${2:-}" in
   --verdict-row)
-    [ $# -eq 5 ] || d98_die "verdict-row: <sha> --verdict-row <задача> <object_id> <вердикт-файл> — аргументов $# , нужно 5"
-    TASK="$3"; OID="$4"; VF="$5"; MODE=verdict ;;
+    case $# in
+      5) TASK="$3"; OID="$4"; VF="$5"; MODE=verdict; SUD_MISSING=1 ;;
+      9) [ "$6" = --sud ] || d98_die "verdict-row: шестой аргумент — не --sud: $6"
+         TASK="$3"; OID="$4"; VF="$5"
+         SUD_ROLE="$7"; SUD_TRACE="$8"; SUD_SESSION="$9"; MODE=verdict ;;
+      *) d98_die "verdict-row: <sha> --verdict-row <задача> <object_id> <вердикт-файл> --sud <роль> <трасса> <session> — аргументов $#, нужно 5 или 9" ;;
+    esac ;;
   --policy-row)
     [ $# -eq 6 ] || d98_die "policy-row: <sha> --policy-row <object_id> <старая> <новая> <файл-санкции> — аргументов $# , нужно 6"
     OID="$3"; OLDV="$4"; NEWV="$5"; SF="$6"; MODE=policy ;;
@@ -87,6 +97,15 @@ verdict)
     FAIL|ESCALATE) out=fail ;;
     *) d98_die "событие решения не распознано: $sod" ;;
   esac
+  # свидетельство судьи (контракт 104, Решение 4): строка — только после rc 0
+  # двери; тройки нет — именованный отказ, не bootstrap
+  if [ "${SUD_MISSING:-0}" = 1 ]; then
+    d98_die "свидетельство судьи не передано (--sud <роль> <трасса> <session>)"
+  fi
+  [ -x "$SELF/check_sud_model.sh" ] || d98_ni "check_sud_model.sh не найден рядом: $SELF"
+  rc=0
+  "$SELF/check_sud_model.sh" --verdict "$SUD_ROLE" --trace "$SUD_TRACE" --object "$SHA" --session "$SUD_SESSION" || rc=$?
+  [ "$rc" -eq 0 ] || exit "$rc"
   seq="$(d98_seq)"
   printf 'verdict\t%s\t%s\t%s\t%s\n' "$TASK" "$OID" "$out" "$seq" >>"$JOURNAL" # t98-mV1
   printf 'verdict-строка записана: %s %s %s\n' "$TASK" "$OID" "$out"
