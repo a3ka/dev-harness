@@ -1338,6 +1338,25 @@ while IFS=$'\t' read -r nnn since; do
           esac
           ;;
       esac
+      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-14, канал консультанта,
+      # forks/docs-owner-zone-gap-cb5c070c.md) ──
+      # Один SHA cb5c070c, автор orchestrator, ОДИН путь
+      # docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md: исторический коммит
+      # персистировал слово владельца в НОВЫЙ процессный документ, не покрытый
+      # is_process_file и ни одной зоной высших заморозок. Исключение только
+      # exact-SHA+exact-path, без переписывания истории, без исключения остальных
+      # путей этого коммита, без общего паттерна docs/owner/*.md, без расширения
+      # ЗОНА. Других коммитов и путей не исключать, зоны не расширять.
+      case "$c" in
+        cb5c070cf3d7a03e09fc5e327ccdacc753103863)
+          case "$f" in
+            docs/owner/2026-10-14-razblokirovka-093-v4-l4-l5.md)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
+      esac
       inside=1
       while IFS= read -r p; do
         case "$p" in
