@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # ДВЕРЬ ПЕРЕЗАПУСКА КРИТИКА (контракт 072, v2.2 — адверсарий 072-r1 Б1).
+# КОНТРАКТ 103 (Frontier И-2): флаг --repo <R> — контракт резолвится от корня
+# ПРОЕКТА (cwd-независимо); нога (г) вооружается профильным реестром
+# <workflowPaths.registry>/contracts.tsv в R. Без --repo — 072 дословно.
 # ЕДИНСТВЕННЫЙ вход к спавну критика: критик зовётся только после rc 0
 # этой двери; отказ (rc 1) = назад архитектору, критик не зовётся.
 #
@@ -43,41 +46,80 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM
 
 # Тест-швы
-CONTRACT="${1:?использование: pre_critic.sh <отн-путь-контракта>}"
+#
+# CLI (контракт 103, И-2): [--repo <R>] <отн-путь-контракта>. Путь контракта
+# резолвится ТОЛЬКО от R (корень проекта), никогда от cwd; без --repo —
+# поведение 072 дословно: путь от ROOT = место скрипта (харнес сам себе
+# проект). Вердикт (rc, первая строка stderr) от cwd не зависит.
+REPO_ARG=""
+CONTRACT=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo)
+      REPO_ARG="${2:?использование: pre_critic.sh [--repo R] <отн-путь-контракта>}"
+      shift 2
+      ;;
+    *)
+      [ -z "$CONTRACT" ] || { printf 'использование: pre_critic.sh [--repo R] <отн-путь-контракта>\n' >&2; exit 1; }
+      CONTRACT="$1"
+      shift
+      ;;
+  esac
+done
+[ -n "$CONTRACT" ] || { printf 'использование: pre_critic.sh [--repo R] <отн-путь-контракта>\n' >&2; exit 1; }
 
 # ROOT резолвится по месту скрипта (Н-85).
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P 2>/dev/null)" \
   || { printf 'NOT_IMPLEMENTED: нет корня скрипта\n' >&2; exit 2; }
+
+# База контракта (И-2): --repo R → R; без флага → ROOT (072 дословно).
+if [ -n "$REPO_ARG" ]; then
+  BASE="$(cd "$REPO_ARG" 2>/dev/null && pwd -P 2>/dev/null)" \
+    || { printf 'NOT_IMPLEMENTED: нет корня проекта: %s\n' "$REPO_ARG" >&2; exit 2; }
+else
+  BASE="$ROOT"
+fi
 
 command -v git >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
 command -v bash >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: нет bash\n' >&2; exit 2; }
 
-# Контракт существует и читается (отн-путь от ROOT)
-[ -f "$ROOT/$CONTRACT" ] \
+# Контракт существует и читается (отн-путь от базы: ROOT либо R)
+[ -f "$BASE/$CONTRACT" ] \
   || { printf 'NOT_IMPLEMENTED: контракт не найден: %s\n' "$CONTRACT" >&2; exit 2; }
-[ -r "$ROOT/$CONTRACT" ] \
+[ -r "$BASE/$CONTRACT" ] \
   || { printf 'NOT_IMPLEMENTED: контракт не читается: %s\n' "$CONTRACT" >&2; exit 2; }
+CONTRACT_FILE="$BASE/$CONTRACT"
 
 refuse() { printf 'ОТКАЗ: %s\n' "$1" >&2; exit 1; }
 
-# cd в ROOT — ноги (а)/(б) гейтов ожидают `.` == ROOT-пути (а не чужого cwd);
-# прецедент stub-двери батареи 072.
-cd "$ROOT" || { printf 'NOT_IMPLEMENTED: нет корня\n' >&2; exit 2; }
-
-# ── (а) precision-гейт на ПЕРЕДАННОМ контракте (без запечённых аргументов) ──
-# Гейт идёт ОТНОСИТЕЛЬНЫМ путём (bash scripts/check_…sh), чтобы `.` при
-# вызове гейта резолвилось в cwd-окружения (== ROOT после cd); абсолютный
-# путь оставил бы `.` в исходном cwd вызывающей стороны (батарея ставит
-# `cd /` для изоляции), и контракт-путь был бы неверным.
-if ! bash scripts/check_precision_gate.sh . "$CONTRACT" >/dev/null 2>&1; then
-  refuse "precision-gate красен: $CONTRACT"
+# ── (а) precision-гейт и (б) spec-preflight на ПЕРЕДАННОМ контракте ──
+# Без --repo — 072 дословно: cd в ROOT, гейты идут с `.` == ROOT.
+# С --repo R (Frontier И-2) гейты зовутся с R вместо `.`; вооружение —
+# правило А-384 (нога вооружается ФАЙЛОМ в проверяемом дереве, не
+# предположением): гейт-механизм обязан быть в дереве проекта
+# (scripts/check_precision_gate.sh в R) — чужое дерево без него npm-гейтами
+# харнеса не судится (паритет CI харнеса к чужому репо неприменим — «сверять
+# не с чем»), контракт там судят ноги (в) Н-39 и (г) формы.
+GATE_ROOT=""
+if [ -n "$REPO_ARG" ]; then
+  [ -f "$BASE/scripts/check_precision_gate.sh" ] && GATE_ROOT="$BASE"
+else
+  GATE_ROOT="$ROOT"
 fi
-
-# ── (б) spec-preflight на ПЕРЕДАННОМ контракте (без запечённых аргументов) ─
-if ! bash scripts/check_spec_ready.sh . "$CONTRACT" >/dev/null 2>&1; then
-  refuse "spec-ready красен: $CONTRACT"
+if [ -n "$GATE_ROOT" ]; then
+  # cd в ROOT — ноги (а)/(б) гейтов ожидают `.` == ROOT-пути (а не чужого cwd);
+  # прецедент stub-двери батареи 072. Гейт идёт ОТНОСИТЕЛЬНЫМ путём
+  # (bash scripts/check_…sh), чтобы `.` при вызове гейта резолвилось в
+  # cwd-окружения (== ROOT после cd); с --repo корень гейта — сам R.
+  cd "$ROOT" || { printf 'NOT_IMPLEMENTED: нет корня\n' >&2; exit 2; }
+  if ! bash scripts/check_precision_gate.sh "$GATE_ROOT" "$CONTRACT" >/dev/null 2>&1; then
+    refuse "precision-gate красен: $CONTRACT"
+  fi
+  if ! bash scripts/check_spec_ready.sh "$GATE_ROOT" "$CONTRACT" >/dev/null 2>&1; then
+    refuse "spec-ready красен: $CONTRACT"
+  fi
 fi
 
 # ── (в) Н-39 — привязка стаба в прозе; порог (правило 8): цитата в
@@ -119,27 +161,49 @@ while IFS= read -r line || [ -n "$line" ]; do
     refuse "Н-39: привязка стаба в прозе, строка $prev_n"
   fi
   prev_scan="$scan"; prev_n="$n"
-done < "$ROOT/$CONTRACT"
+done < "$CONTRACT_FILE"
 
 # ── (г) ФОРМА КОНТЕКСТ:/§Существующее (Решение 6 контракта 095, §13.3) ──
 # Скоуп: правило А-384 — нога вооружена ТОЛЬКО в живом дереве/клоне харнеса
-# (где есть registry/contracts.tsv); toy-миры 072/verify_antiplacebo его
+# (где есть реестр контрактов); toy-миры 072/verify_antiplacebo его
 # не несут — там судится СВОЯ механика ног (а)-(в), нога (г) не
 # применяется (приёмка 095 п.7: нога формы не ослабляет дверь 072).
+# Контракт 103 (Frontier И-2): на проектном --repo нога вооружается
+# ПРОФИЛЬНЫМ реестром — <workflowPaths.registry>/contracts.tsv в R
+# (эффективное значение: репо-слой, иначе defaults слоя проекта), не
+# корневым реестром харнеса; А-384 закрывается тем же движением.
 # Контракт без строк `КОНТЕКСТ:` ИЛИ без секции `## Существующее` —
 # именованный отказ ДО критика (И-13 инварианта 095; форма проверяется
 # здесь, полнота содержимого — критиком). grep -qE '^КОНТЕКСТ:' ищет
 # префикс строки; маркер `## Существующее` — точный заголовок секции
 # (любой уровень вложенности, без хвостового `:`). Локаль C для
 # стабильности диапазонов кириллицы.
-if [ -r "$ROOT/registry/contracts.tsv" ]; then
-if ! LC_ALL=C grep -qE '^КОНТЕКСТ:' "$ROOT/$CONTRACT"; then
+_arm_reg_dir=""
+if [ -n "$REPO_ARG" ]; then
+  if [ -f "$BASE/harness.project.json" ]; then
+    command -v jq >/dev/null 2>&1 \
+      || { printf 'NOT_IMPLEMENTED: нет jq\n' >&2; exit 2; }
+    _arm_reg_dir="$(jq -r '.workflowPaths.registry // empty' "$BASE/harness.project.json" 2>/dev/null)"
+    if [ -z "$_arm_reg_dir" ]; then
+      _pl="$(jq -r '.projectLayer.profilePath // empty' "$BASE/harness.project.json" 2>/dev/null)"
+      [ -n "$_pl" ] && [ -f "$BASE/$_pl" ] \
+        && _arm_reg_dir="$(jq -r '.defaults.workflowPaths.registry // empty' "$BASE/$_pl" 2>/dev/null)"
+      unset _pl
+    fi
+  fi
+  [ -n "$_arm_reg_dir" ] || _arm_reg_dir="registry"
+else
+  _arm_reg_dir="registry"
+fi
+if [ -r "$BASE/$_arm_reg_dir/contracts.tsv" ]; then
+if ! LC_ALL=C grep -qE '^КОНТЕКСТ:' "$CONTRACT_FILE"; then
   refuse "форма: контракт без строк КОНТЕКСТ:"
 fi
-if ! LC_ALL=C grep -qE '^##[[:space:]]+Существующее([[:space:]]*|[[:space:]]+.*)$' "$ROOT/$CONTRACT"; then
+if ! LC_ALL=C grep -qE '^##[[:space:]]+Существующее([[:space:]]*|[[:space:]]+.*)$' "$CONTRACT_FILE"; then
   refuse "форма: контракт без секции ## Существующее"
 fi
 fi
+unset _arm_reg_dir
 
 printf 'КРИТИК: дверь зелёная\n'
 exit 0

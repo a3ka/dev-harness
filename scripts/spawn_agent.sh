@@ -162,14 +162,33 @@ if [ -n "$nnn" ]; then
     printf 'ОТКАЗ: номер %s не выдан — спавн мимо реестра (тег id/CONTRACT/%s отсутствует)\n' "$nnn_padded_gate" "$nnn_padded_gate" >&2
     exit 1
   fi
+  # КОНТРАКТ 103 (Frontier И-3): путь манифеста dual-control — из эффективного
+  # workflowPaths.registry проекта --root (репо-слой harness.project.json,
+  # иначе defaults слоя проекта), не зашитый реестр харнеса. Маркер профиля —
+  # harness.project.json (тот же якорь, что у ноги И-15): репо без профиля
+  # (toy-миры 016/023) держит harness-layout «registry» — грамматика строки
+  # и membership-сверка 2а/2б/2в не меняются; фраза 3б несёт фактический путь.
+  MANIFEST_REG="registry"
+  if [ -r "$ROOT/harness.project.json" ]; then
+    command -v jq >/dev/null 2>&1 \
+      || { printf 'NOT_IMPLEMENTED: нет jq\n' >&2; exit 2; }
+    _pl="$(jq -r '.projectLayer.profilePath // empty' "$ROOT/harness.project.json" 2>/dev/null)"
+    MANIFEST_REG="$(jq -r '.workflowPaths.registry // empty' "$ROOT/harness.project.json" 2>/dev/null)"
+    if [ -z "$MANIFEST_REG" ] && [ -n "$_pl" ] && [ -f "$ROOT/$_pl" ]; then
+      MANIFEST_REG="$(jq -r '.defaults.workflowPaths.registry // empty' "$ROOT/$_pl" 2>/dev/null)"
+    fi
+    unset _pl
+    [ -n "$MANIFEST_REG" ] || { printf 'ОТКАЗ: профиль без workflowPaths.registry\n' >&2; exit 1; }
+  fi
+  MANIFEST_PATH="${MANIFEST_REG}/contracts.tsv"
   # 2. dual-control. ls-remote/fetch/cat-file могут отказать (сеть/объект); весь блок — в subshell
   # с set +e (set -e внешнего скрипта не должен убивать прогон при сетевом сбое — контракт 023
   # именует это fail-closed «авторитет недоступен»).
   dual_result="$(
     set +e
-    ROOT="$ROOT" nnn_padded_gate="$nnn_padded_gate" bash -c '
-      ROOT="$1"; nnn_padded_gate="$2"
-      export ROOT nnn_padded_gate
+    ROOT="$ROOT" nnn_padded_gate="$nnn_padded_gate" MANIFEST_PATH="$MANIFEST_PATH" bash -c '
+      ROOT="$1"; nnn_padded_gate="$2"; MANIFEST_PATH="$3"
+      export ROOT nnn_padded_gate MANIFEST_PATH
       # 2а. ls-remote origin по обоим пространствам имён тегов номера NNN:
       # id/CONTRACT/<NNN> (минт, якорь dual-control, 023) и frozen/contracts/<NNN>/*
       # (заморозка, 036-г5б). Строка реестра санкционирована, если её sha совпал с
@@ -202,13 +221,13 @@ if [ -n "$nnn" ]; then
       # 2в. fetch объекта с origin (контракт 023: ls-remote шапки → fetch объекта → show).
       # Без fetch cat-file -p на ${origin_main_sha}:registry/contracts.tsv провалится для
       # URL-origin (объект не реплицирован) и даст ложный отказ честному полному резерву.
-      # fetch приносит коммит + tree + blob registry/contracts.tsv; затем cat-file работает.
+      # fetch приносит коммит + tree + blob манифеста; затем cat-file работает.
       # Отказ fetch трактуется как «авторитет недоступен» — сетевой сбой, имя НЕ путать
       # с «не выдан авторитетом». (Эталон семантики — check_staged.sh:336-343.)
       if ! git -C "$ROOT" fetch origin refs/heads/main 2>/dev/null; then
         printf "NETERR|fetch\n"; exit 0
       fi
-      manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:registry/contracts.tsv" 2>/dev/null)"
+      manifest_text="$(git -C "$ROOT" cat-file -p "${origin_main_sha}:${MANIFEST_PATH}" 2>/dev/null)"
       manifest_rc=$?
       if [ "$manifest_rc" -ne 0 ] || [ -z "$manifest_text" ]; then printf "MISSING|manifest\n"; exit 0; fi
       # Грамматика строки (единый источник — контракт 023): «<NNN> → <40-hex>» — NNN
@@ -236,7 +255,7 @@ if [ -n "$nnn" ]; then
         exit 0
       fi
       printf "OK|%s\n" "$manifest_sha"
-    ' _ "$ROOT" "$nnn_padded_gate"
+    ' _ "$ROOT" "$nnn_padded_gate" "$MANIFEST_PATH"
   )"
   case "$dual_result" in
     NETERR\|tag|NETERR\|main|NETERR\|frozen|EMPTY\|main)
@@ -252,7 +271,7 @@ if [ -n "$nnn" ]; then
       exit 1
       ;;
     MISSING\|manifest)
-      printf 'ОТКАЗ: тег %s не выдан авторитетом: манифест registry/contracts.tsv отсутствует на origin/main (3б)\n' "$nnn_padded_gate" >&2
+      printf 'ОТКАЗ: тег %s не выдан авторитетом: манифест %s отсутствует на origin/main (3б)\n' "$nnn_padded_gate" "$MANIFEST_PATH" >&2
       exit 1
       ;;
     MISSING\|line)
