@@ -7253,3 +7253,52 @@ main, + цикл «находка → форк → консультант → в
 коммит не-владельцем) — повод для механического грандфазера (is_process_file ИЛИ
 pre-commit guard, запрещающий авторам ≠ owner путь `docs/owner/`), а не третьей ручной
 точечной строки.
+
+### Н-284. `wip/092/implementer` (headRefOid PR#80, уже reviewer круг 6 accept, `32ef18048`) не несёт файлов ЗОНА architect контракта 092 (`fixtures/_krasnye_092.sh`, `fixtures/orch_state/`) — ни на HEAD, ни на `origin/main`; неясно, на чём основан accept `ОТКРЫТО — адрес: требуется разбор провенанса ветки 092 (architect/scout) перед попыткой ленда`
+
+**Что произошло:** после done 093 сессия искала безопасный второй предмет в очереди
+(092/094/095/096/097/098/099/100/087/083). `registry/plan.tsv` показал 092 зависящим от
+093 (теперь done); `verdicts/review/contracts-092-v6.md` (коммит `32ef18048`, 2026-10-11)
+несёт `accept`; PR#80 (`wip/092/implementer` @ `f0c0bf54c`) открыт. Попытка механической
+синхронизации с main (для свежего зелёного CI) вскрыла: файл-агрегатор батареи
+`fixtures/_krasnye_092.sh` и каталог `fixtures/orch_state/` — ОБА в `ЗОНА architect`
+контракта 092 (`contracts/092-vozobnovlyaemoe-sostoyanie-zadachi.md:79`) — ОТСУТСТВУЮТ
+и на `wip/092/implementer` (`git cat-file -e f0c0bf54c:fixtures/_krasnye_092.sh` →
+«does not exist»), и на `origin/main` (`fe551b35d`, та же проверка). История файла
+(`git log --all -- fixtures/_krasnye_092.sh`) находит его ТОЛЬКО на `wip/092/architect`
+и на локальной ветке `092-combined` (tip `abfa321fb`, старый критик-круг-1 снэпшот,
+divergent от обеих — `git merge-base --is-ancestor` в обе стороны даёт false). Рабочий
+worktree `wip-092-implementer` (`/tmp/dev-harness-worktrees/c907157c/`) был застигнут
+ГРЯЗНЫМ: staged index нёс массовые `D` на `verdicts/review/contracts-092-v1..v6.md` и
+другие пути (без `MERGE_HEAD` — не активный конфликт, похоже на недокоммиченный
+артефакт прошлой сессии); приведён в порядок `git reset --hard HEAD && git clean -fd`
+(ничего не закоммичено/не запушено — только локальная уборка чужого мусора в уже
+существующем worktree).
+
+**Цена:** ~20 минут расследования; план «092 — быстрый второй слот после done 093»
+не сработал, предмет остался НЕ начат — безопаснее, чем слепой merge/land ветки,
+реально не несущей заявленную батарею.
+
+**ЧЕМ ЗАКРЫТЬ:** ОТКРЫТО — нужен разбор, как reviewer круг 6 (32ef18048, 2026-10-11)
+дал accept на дельту, которая сегодня не предъявляет `fixtures/_krasnye_092.sh`/
+`fixtures/orch_state/` ни на одном известном актуальном ref (возможные гипотезы,
+НЕ проверены: (а) reviewer судил PR-diff против base, где architect-зона уже была
+слита где-то ещё и впоследствии потеряна; (б) `092-combined` — правильная база, и
+`wip/092/implementer` должен быть пересобран от неё, а не от своей текущей истории;
+(в) батарея 092 вообще не часть предмета дельты круга 6, а остаётся долгом на
+последующий круг). Решает architect 092 (владелец ЗОНА fixtures) или scout-разведка
+полной истории веток `wip/092/*`/`092-combined` ДО следующей попытки land.
+
+**Источник:** живые команды этой сессии: `git cat-file -e f0c0bf54c:fixtures/_krasnye_092.sh`
+(does not exist), то же для `origin/main` (fe551b35d, does not exist), `git log --oneline
+--all -- fixtures/_krasnye_092.sh` (первая строка `606eb710f`, ветки-носители
+`092-combined`/`wip/092/architect`/`origin/wip/092/architect` через `git branch --all
+--contains`), `git merge-base --is-ancestor 092-combined wip/092/implementer` (оба
+направления false), `verdicts/review/contracts-092-v6.md:1` (`accept`), `gh pr view 80`
+(`headRefOid f0c0bf54c`, `state OPEN`).
+
+**Класс:** процедура/провенанс — разделение architect/implementer на отдельные
+долгоживущие ветки без промежуточного слияния оставляет судейский accept привязанным
+к состоянию, которое нельзя воспроизвести из текущих ref'ов; тот же класс риска, что
+у forks/n269 (sync-merge charter-гейт), но на уровне «чего вообще не хватает», не
+«что красит гейт».
