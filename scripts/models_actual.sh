@@ -19,6 +19,20 @@
 #                                            Человекочитаемый вывод без флага
 #                                            идентичен прежнему (Решение 9
 #                                            контракта 095, 028-дельта).
+#   bash scripts/models_actual.sh --tsv --bind
+#                                            проекция-надмножество (контракт
+#                                            104, Решение 2): к каждой строке
+#                                            --tsv байт-в-байт добавлены
+#                                            `TAB <session-id> TAB <object-sha|->`;
+#                                            session-id — basename JSONL без
+#                                            .jsonl; object-sha — первая строка
+#                                            `^OBJECT=[0-9a-f]{40}$` текста
+#                                            задания сессии, иначе `-`.
+#                                            Потребитель — оркестратор
+#                                            (трасса --sud для judge_gate) и
+#                                            check_sud_model --verdict; трасса
+#                                            095 НЕ расширяется на месте
+#                                            (make_task читает ровно 3 поля).
 #
 # Коды возврата: 0 — модель совпала с заявленной, 1 — разошлась, 2 — нечем проверить.
 set -euo pipefail
@@ -47,12 +61,17 @@ fi
 
 ALL=0
 TSV=0
-case "${1:-}" in
-  --all) ALL=1 ;;
-  --tsv) TSV=1 ;;
-  "")    ;;
-  *)     printf 'NOT_IMPLEMENTED: неизвестный флаг: %s\n' "$1" >&2; exit 2 ;;
-esac
+BIND=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --all)  ALL=1 ;;
+    --tsv)  TSV=1 ;;
+    --bind) TSV=1; BIND=1 ;;
+    "")     ;;
+    *)      printf 'NOT_IMPLEMENTED: неизвестный флаг: %s\n' "$1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 # `--tsv` — адаптер трассы для make_task.sh: печатает строки
 # `роль TAB модель TAB allowed|denied` из ТОГО ЖЕ источника (JSONL сессий
@@ -65,6 +84,9 @@ if [ "$TSV" = "1" ]; then
   TAB="$(printf '\t')"
   mapfile -t _tsv_traces < <(find "$ZONE" -name '*.jsonl' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2)
   [ "${#_tsv_traces[@]}" -gt 0 ] || { printf 'NOT_IMPLEMENTED: трейсов в зоне нет\n' >&2; exit 2; }
+  if [ "$BIND" = "1" ]; then
+    command -v jq >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет jq — текст задания сессии нечем разобрать\n' >&2; exit 2; }
+  fi
   _tsv_found=0
   for f in "${_tsv_traces[@]}"; do
     # Роль — наиболее частое значение `"agent":"..."` в файле (агент,
@@ -76,6 +98,24 @@ if [ "$TSV" = "1" ]; then
     # Каждое событие `model_change` — отдельная строка TSV. Регекс
     # однострочный: эти события короткие и не содержат переводов строк.
     _events="$(grep -ohE '"type":"model_change"[^{]*"model":"[^"]+"[^{]*"resolvedModelIsFallback":[a-z]+' "$f" 2>/dev/null || true)"
+    # `--bind` (контракт 104, Решение 2): привязка сессии и объекта суда.
+    # session-id — basename JSONL без .jsonl (тот же примитив, что норма 037);
+    # алфавит [A-Za-z0-9._-] — TAB в значении невозможен по построению, вне
+    # алфавита строка отбрасывается с rc 2 (fail-closed). object-sha — первая
+    # строка `^OBJECT=[0-9a-f]{40}$` текста ЗАДАНИЯ сессии (сообщения роли
+    # user; jq -r разворачивает \n — якоря ^…$ работают построчно), иначе `-`.
+    if [ "$BIND" = "1" ]; then
+      _session="$(basename "$f" .jsonl)"
+      case "$_session" in ''|*[!A-Za-z0-9._-]*)
+        printf 'NOT_IMPLEMENTED: session-id вне алфавита [A-Za-z0-9._-]: %s\n' "$_session" >&2; exit 2 ;;
+      esac
+      _object="$(jq -r 'select(.type == "message" and .message.role == "user") | .message.content[]?.text' "$f" 2>/dev/null \
+                 | grep -m1 -E '^OBJECT=[0-9a-f]{40}$' | sed 's/^OBJECT=//' || true)"
+      _object="${_object:--}"
+      _tsv_tail="$TAB$_session$TAB$_object"
+    else
+      _tsv_tail=""
+    fi
     if [ -z "$_events" ]; then continue; fi
     while IFS= read -r ev; do
       [ -z "$ev" ] && continue
@@ -86,7 +126,7 @@ if [ "$TSV" = "1" ]; then
         true)  _perm="denied"  ;;
         *)     _perm="$_fb"    ;;
       esac
-      printf '%s%s%s%s%s\n' "${_role:-}" "$TAB" "$_m" "$TAB" "$_perm"
+      printf '%s%s%s%s%s%s\n' "${_role:-}" "$TAB" "$_m" "$TAB" "$_perm" "$_tsv_tail"
       _tsv_found=$((_tsv_found + 1))
     done <<<"$_events"
   done

@@ -40,7 +40,7 @@ _d98_sdir()  { printf '%s\n' "${D98_SUBJECTS_DIR:-$(_d98_root)/scripts}"; }
 _d98_missing() {
   local sd f miss=""
   sd="$(_d98_sdir)"
-  for f in accept_publish.sh judge_gate.sh check_ci_gate.sh; do
+  for f in accept_publish.sh judge_gate.sh check_ci_gate.sh check_sud_model.sh; do
     [ -f "$sd/$f" ] || miss="$miss scripts/$f"
   done
   printf '%s' "${miss# }"
@@ -174,6 +174,24 @@ _d98_zov() { local W="$1"; shift; D98_FAKE="$W/fake" PATH="$W/bin:$PATH" bash "$
 # оракулы-sha (в память ДО вызова субъекта — правило 8)
 _d98_tree()  { git -C "$1" rev-parse "$2^{tree}" 2>/dev/null; }
 _d98_wfsha() { git -C "$1" show "$2:harness/checks/$3.cmd" 2>/dev/null | sha256sum | cut -d' ' -f1; }
+
+# _d98_sud <W> <sha> — тройка свидетельства судьи для judge_gate --verdict-row
+# (контракт 104, Решение 4а, миграция 098): честная toy-трасса сессии s098
+# судьи critic об объекте <sha> на модели тира из установочного конфига.
+# Печатает «--sud critic <трасса> s098» — слова для вызова писателя без
+# пересказа; семантика клеток 098 не меняется (строки те же, дверь зелёная).
+_d98_sud() {
+  local W="$1" sha="$2" cfg model
+  cfg="$(_d98_root)/config/agent_models.json"
+  [ -f "$cfg" ] || d98_ni "нет установочного конфига: $cfg"
+  command -v jq >/dev/null 2>&1 || d98_ni "нет jq — модель судьи нечем resolver'ить"
+  model="$(jq -r '.models[.tiers[.roles.critic].model | ltrimstr("@")] // ""' "$cfg" 2>/dev/null)" \
+    || d98_ni "модель судьи не читается из $cfg"
+  [ -n "$model" ] && [ "$model" != "null" ] || d98_ni "модель судьи не разрешается из $cfg"
+  printf 'critic\t%s\tallowed\ts098\t%s\n' "$model" "$sha" >"$W/sud-$sha.tsv" \
+    || d98_ni "трасса судьи не пишется: $W/sud-$sha.tsv"
+  printf -- '--sud critic %s s098' "$W/sud-$sha.tsv"
+}
 # пин исполнителя CI — из политики мира (единый источник, клетки не переизобретают)
 _d98_ciapp() { git -C "$1" show "$2:harness/policy" 2>/dev/null | sed -nE 's/^ciApp=//p' | head -1; }
 # policyVersion — в семантике СУБЪЕКТА: sha256 байтов политики ПОСЛЕ $()-усечения
@@ -228,10 +246,14 @@ _d98_podgotovka() {
     git clone -q "$R" "$W/prinyato" || d98_ni "клон принятой стороны"
     git -C "$W/prinyato" remote set-url origin https://github.com/toy-098/repo.git \
       || d98_ni "origin github-форма"
-    mkdir -p "$W/prinyato/registry" "$W/prinyato/scripts" || d98_ni "prinyato каталоги"
+    mkdir -p "$W/prinyato/registry" "$W/prinyato/scripts" "$W/prinyato/config" || d98_ni "prinyato каталоги"
     : >"$W/prinyato/registry/candidates.tsv" || d98_ni "журнал"
-    cp "$sd/judge_gate.sh" "$sd/check_ci_gate.sh" "$sd/accept_publish.sh" \
+    cp "$sd/judge_gate.sh" "$sd/check_ci_gate.sh" "$sd/accept_publish.sh" "$sd/check_sud_model.sh" \
       "$W/prinyato/scripts/" || d98_ni "установка субъектов"
+    # конфиг назначений принятой стороны — копия установочного (контракт 104,
+    # Решение 4а): дверь check_sud_model судит по SELF_DIR/../config
+    cp "$(_d98_root)/config/agent_models.json" "$W/prinyato/config/agent_models.json" \
+      || d98_ni "конфиг назначений принятой стороны"
   else
     git -C "$W/prinyato" fetch -q "$R" "+refs/heads/*:refs/remotes/origin/*" \
       || d98_ni "fetch новых объектов"
@@ -256,7 +278,7 @@ _d98_dokazatelstva() {
   fi
   if [ "$except" != verdict ]; then
     _d98_zov "$W" "$P/scripts/judge_gate.sh" "$M" --verdict-row "$task" "$oid" \
-      "$W/verdikt-$oid.md" || return 1
+      "$W/verdikt-$oid.md" $(_d98_sud "$W" "$M") || return 1
   fi
   if [ "$except" != policy ]; then
     _d98_zov "$W" "$P/scripts/judge_gate.sh" "$M" --policy-row "$oid" \

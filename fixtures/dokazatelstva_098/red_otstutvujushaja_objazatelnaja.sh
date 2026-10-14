@@ -30,7 +30,7 @@ if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq 'ключ вне обяз�
 fi
 n="$(awk -F'\t' -v o="$OID" -v nm=deploy-docs '$1=="check" && $2==o && $3==nm' "$J" | wc -l)"
 [ "$n" -eq 0 ] || { printf 'КРАСНО: otsutstvujushaja-objazatelnaja: посторонний ключ записан строкой check\n' >&2; exit 1; }
-_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt.md" \
+_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt.md" $(_d98_sud "$W" "$M") \
   || { printf 'КРАСНО: otsutstvujushaja-objazatelnaja: verdict-писатель отказал\n' >&2; exit 1; }
 _d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --policy-row "$OID" "$PVB" "$PVC" "$W/sankcia.md" \
   || { printf 'КРАСНО: otsutstvujushaja-objazatelnaja: policy-писатель отказал\n' >&2; exit 1; }

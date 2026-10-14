@@ -89,7 +89,7 @@ zapest() {  # <стаб-имя> <клетка-файл> <маркер> <sed-вы
   [ "$rc" -eq 0 ] || { printf 'ОТКАЗ: стаб %s не строится (якорь/порча)\n' "$name" >&2; itog=2; return; }
   stub="${res%% *}"; carrier="${res##* }"
   sd="$WORK/sd-$name"; mkdir -p "$sd"
-  cp "$MODELDIR"/judge_gate.sh "$MODELDIR"/check_ci_gate.sh "$MODELDIR"/accept_publish.sh "$sd"/
+  cp "$MODELDIR"/judge_gate.sh "$MODELDIR"/check_ci_gate.sh "$MODELDIR"/accept_publish.sh "$MODELDIR"/check_sud_model.sh "$sd"/
   cp "$stub" "$sd/$carrier"
   D98_SUBJECTS_DIR="$sd" bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
   if [ "$rc" -eq 1 ]; then
