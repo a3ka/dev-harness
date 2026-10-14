@@ -1,3 +1,24 @@
+## ГДЕ МЫ (2026-10-14 ~02:35 UTC, автоперезапуск — PR#91 (093 v4) первый CI-прогон дал ДВЕ РЕАЛЬНЫЕ находки, обе починены точечно одним оркестраторским диспозабл-клоном, новый прогон запущен; реестр/NABLIUDENIA/wip-ветка ещё не обновлены этим чекпойнтом)
+
+### 093 v4: два CI-дефекта cherry-pick'а, оба чинены точечно, НЕ пересборкой ветки
+
+`gh pr checks 91` на первом прогоне (`38499368143`) дал 2 красных лейна из 12, оба — реальные дефекты выборки коммитов `Architect093V4ZoneCherrypick`/`Implementer093V4ZoneCherrypick` (НЕ новые суждения, НЕ регрессия содержания 093):
+
+1. **l4 (`check:ops-server-family-selftest`)**: PIN-константы в `fixtures/ops_server/red_server_obvjazka_074.sh` (`user/orch-loop`, `root/orch-peak`) стали устаревшими — живые байты обоих файлов на ветке v4 разошлись со старым PIN (тот же класс, что уже был заранее решён владельцем: **стоячая санкция №4**, форк `forks/093-ops-granica-oracle-074-pin-stale.md`, ОТВЕЧЕНО: да — прецедент того же приёма на старой ветке — коммит `7ade2c6c`). Коммит с фиксом **НЕ попал** в выборку cherry-pick (он был смешанным architect-коммитом про несколько тем сразу).
+2. **l7 (`check:contract-frozen`)**: `verdicts/critic/contracts-093-v3.md` отсутствовал на ветке v4 — канонический слот-коммит `078ba068f` («критик: 093 консолидация вердиктов под канонический слот v3») не попал в cherry-pick (критик-коммиты отбирали только architect/implementer-агенты, критик-зону никто не отбирал). Содержимое файла **побайтово идентично** уже присутствующему `verdicts/critic/contracts-093-v2c.md` (blob `334ef6b7`, тот же blob, что и в теге `frozen/contracts/093/3` — проверено `git rev-parse` с трёх сторон) — восстановление, НЕ новое суждение критика.
+
+**Починка (оркестратором, двумя субагентами НЕ вышло — write-guard Н-85 блокировал запись в именованный worktree дважды подряд разными формами пина `WORKTREE=`/`BRANCH=` в `context` vs `task`; см. `history://Architect074PinSyncV4`, `history://Architect074PinSyncV4b`, `history://CriticV3SlotRestoreV4` — все три оставлены live/resumable, НЕ использованы):**
+- Диспозабл-клон `ssh://git@github.com/a3ka/dev-harness.git` → `/tmp/dev-harness-verify/orch093v4fix-*/repo` (hygiene п.6), ветка `wip/093/architect-v4`.
+- Коммит 1 (`477c8f84`, identity `architect`): 2 строки PIN на фактические sha256 (`1b4e70f5…`/`88d84e5b…`).
+- Коммит 2 (`204dc901`, identity `critic`): добавлен `verdicts/critic/contracts-093-v3.md` (копия v2c, blob идентичен).
+- Живая верификация ДО push: `bash fixtures/_krasnye_074.sh` → красных клеток=1 (только `cell_k5b`, станционный дрейф, в CI пропускается); `check_contract_frozen.sh` → `ok contracts/093-… заморожен v4, вердикты v1..v4 разрешают`.
+- `git fetch <клон> wip/093/architect-v4:refs/heads/tmp-093-v4-pinfix` в основной чекаут → `bash scripts/gitw push origin refs/heads/tmp-093-v4-pinfix:refs/heads/wip/093/architect-v4` → принято (`e4781678..204dc9012`). Локальная throwaway-ветка и диспозабл-клон удалены; `check_no_leak.sh --check` чист до и после.
+- Новый CI-прогон (`38500359366`) запущен, результат ещё не дождался этого чекпойнта.
+
+**Следующей сессии (если эта не успела):** `gh pr checks 91` на новом прогоне `38500359366` — если 12/12, продолжить по порядку из записи ниже (п.2-5: ревьюер → land_agent → REPLACE → post-merge CI → done_contract). Если снова красно — диагностировать НОВУЮ причину, не повторять уже закрытые l4/l7. Три оставленных resumable-субагента (`Architect074PinSyncV4`, `Architect074PinSyncV4b`, `CriticV3SlotRestoreV4`) можно убить (`write proc://<id>/kill`) — их работа уже сделана оркестратором напрямую, слепое доведение до конца удвоило бы коммиты.
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
 ## ГДЕ МЫ (2026-10-14 ~02:10 UTC, НОЧНОЙ РЕЖИМ — 093 v4 собран/заморожен/PR#91 открыт, CI в полёте; автоперезапуск по сторожу контекста 520K)
 
 ### Э0 (093): PR#91 открыт, CLEAN, CI queued — следующий шаг ревьюер+land
