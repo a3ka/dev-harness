@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Клетка И-2 «pre_critic на проектном репо не зависит от cwd» (контракт 103).
-# Вход: `pre_critic.sh --repo <R> tasks/h/777-toy.md` (путь контракта — от
+# Вход: `pre_critic.sh --repo <R> tasks/h/NNN-….md` (путь контракта — от
 # корня ПРОЕКТА по workflowPaths.contracts, не от корня харнеса). Три cwd:
 # корень проекта, подкаталог проекта, посторонний каталог /tmp/dev-harness-verify.
 # Тогда: (а) полный контракт — rc 0 из всех трёх cwd; (б) контракт без
@@ -12,6 +12,14 @@
 # в R есть tasks/reg/contracts.tsv; полный контракт → rc 0; контракт без
 # КОНТЕКСТ: → rc 1 со словом «форма». Второй резолвер (свой jq по R) значения не
 # видит, нога молча разоружается → rc 0 → красно.
+# (г)/(д) Ноги (а)/(б) на --repo ВООРУЖЕНЫ (Frontier И-2: npm-гейты зовутся с R;
+# Рв96-3/Рв96-13): контракт ПОЛНОЙ формы 779 с «ПЕРЕСЕЧЕНИЕ» не по грамматике
+# 043 → rc 1 из трёх cwd, первая строка stderr несёт маркер «precision-gate»
+# (нога (а)); контракт полной формы 780 с ложным замером 036 (`= 99 census`)
+# → rc 1 из трёх cwd, маркер «spec-ready» (нога (б)). Входы ортогональны
+# (на 779 spec-ready зелен, на 780 precision зелен): снятая либо условная на
+# --repo нога (а) даёт на 779 rc 0 или чужой маркер → красно; то же для (б) на
+# 780 (мутанты PC3a/PC3b ревьюера, реализация круга 1).
 # Клетка прогоняет все входы, каждый красен своей строкой.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,6 +42,25 @@ run() {  # <cwd> <репо> <контракт> → печатает "rc<TAB>пе
   err="$(cd "$1" && bash "$SUBJ" --repo "$2" "$3" 2>&1 >/dev/null)"; rc=$?
   printf '%s\t%s' "$rc" "$(printf '%s\n' "$err" | head -n 1)"
 }
+# otkaz_iz_treh_cwd <метка> <репо> <контракт> <маркер>: из корня проекта rc 1 и
+# маркер в первой строке stderr; из подкаталога и постороннего cwd — тот же вердикт побайтово.
+otkaz_iz_treh_cwd() {
+  local label="$1" repo="$2" c="$3" marker="$4" ref res cwd
+  ref="$(run "$repo" "$repo" "$c")"
+  if [ "${ref%%	*}" != "1" ]; then
+    printf 'КРАСНО: %s: %s из корня проекта rc=%s (ждали 1 «%s»): %s\n' "$label" "$c" "${ref%%	*}" "$marker" "${ref#*	}" >&2; itog=1; return
+  fi
+  if ! printf '%s\n' "${ref#*	}" | grep -Fq -- "$marker"; then
+    printf 'КРАСНО: %s: отказ без маркера «%s»: %s\n' "$label" "$marker" "${ref#*	}" >&2; itog=1; return
+  fi
+  for cwd in "$repo/tasks" "$W/vne"; do
+    res="$(run "$cwd" "$repo" "$c")"
+    if [ "$res" != "$ref" ]; then
+      printf 'КРАСНО: %s: вердикт зависит от cwd=%s\n--- корень: %s\n--- здесь:  %s\n' "$label" "$cwd" "$ref" "$res" >&2; itog=1; return
+    fi
+  done
+  printf -- '— %s: три cwd, вердикт один («%s»)\n' "$label" "$marker"
+}
 
 # ── (а)/(б): слой в репо, три cwd ──
 bez_formy "$R"
@@ -43,20 +70,16 @@ for cwd in "$R" "$R/tasks" "$W/vne"; do
     printf 'КРАСНО: i2: полный контракт из cwd=%s: rc=%s (ждали 0): %s\n' "$cwd" "$rc" "${res#*	}" >&2; itog=1
   fi
 done
-ref="$(run "$R" "$R" tasks/h/778-bez.md)"
-if [ "${ref%%	*}" != "1" ]; then
-  printf 'КРАСНО: i2: контракт без КОНТЕКСТ: из корня проекта rc=%s (ждали 1): %s\n' "${ref%%	*}" "${ref#*	}" >&2; itog=1
-elif ! printf '%s\n' "${ref#*	}" | grep -Fq 'форма'; then
-  printf 'КРАСНО: i2: отказ формы без слова «форма»: %s\n' "${ref#*	}" >&2; itog=1
-else
-  for cwd in "$R/tasks" "$W/vne"; do
-    res="$(run "$cwd" "$R" tasks/h/778-bez.md)"
-    if [ "$res" != "$ref" ]; then
-      printf 'КРАСНО: i2: вердикт зависит от cwd=%s\n--- корень: %s\n--- здесь:  %s\n' "$cwd" "$ref" "$res" >&2; itog=1
-    fi
-  done
-fi
-[ "$itog" -eq 0 ] && printf -- '— i2а/б: три cwd, вердикт один\n'
+otkaz_iz_treh_cwd i2 "$R" tasks/h/778-bez.md 'форма'
+
+# ── (г)/(д): ноги (а)/(б) вооружены на --repo — красный гейт харнеса = отказ с маркером ноги ──
+_t103_contract "$R/tasks/h/779-peresechenie.md" 779
+printf 'ПЕРЕСЕЧЕНИЕ implementer: scripts/toy.sh без номера\n' >>"$R/tasks/h/779-peresechenie.md"
+_t103_contract "$R/tasks/h/780-zamer.md" 780
+printf '\nзамер: `ls tasks/h/*.md | wc -l` = 99 census tasks/h/*.md\n' >>"$R/tasks/h/780-zamer.md"
+git -C "$R" add -A; git -C "$R" commit -qm 'контракты с красными гейтами (а)/(б)'
+otkaz_iz_treh_cwd i2г "$R" tasks/h/779-peresechenie.md 'precision-gate'
+otkaz_iz_treh_cwd i2д "$R" tasks/h/780-zamer.md 'spec-ready'
 
 # ── (в): слой вне репо — нога (г) вооружена по резолверу ──
 W2="$(_t103_world_sloj_vne i2-sloj)" || exit 2

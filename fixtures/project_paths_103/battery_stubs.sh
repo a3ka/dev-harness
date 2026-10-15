@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 103 (Н-39): двадцать один стаб на шестнадцати маркерах честных моделей, каждый ОДНОЙ
+# Обманный стаб-пак 103 (Н-39): двадцать три стаба на восемнадцати маркерах честных моделей, каждый ОДНОЙ
 # sed-по-маркеру `# t103-mN`, привязана к клетке, на чьём входе дефект
 # НАБЛЮДАЕМ (привязка — В ЭТОМ КОДЕ). Пойман = клетка против стаба rc 1.
 #
@@ -25,6 +25,8 @@
 # s19 проверка schemaVersion = 1 снята                    m14 check_project_standard red_standart_narushenija.sh (schemaVersion)
 # s20 второй резолвер: registry своим jq по R, не resolver m15 dver_reestra           red_spawn_reestr_proekta.sh (i3в/i3г)
 # s21 второй резолвер в ноге (г): registry своим jq по R  m16 pre_critic_proekta     red_pre_critic_cwd.sh (i2в)
+# s22 нога (а) precision снята на --repo                   m17 pre_critic_proekta     red_pre_critic_cwd.sh (i2г)
+# s23 нога (б) spec-ready снята на --repo                  m18 pre_critic_proekta     red_pre_critic_cwd.sh (i2д)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 M_MT="$HERE/model/kontrakt_po_profilju.sh"
@@ -86,5 +88,7 @@ zapest s18 t103-m13 red_standart_narushenija.sh          's@.*# t103-m13.*@: # t
 zapest s19 t103-m14 red_standart_narushenija.sh          's@.*# t103-m14.*@  : # t103-m14 порча@'                                              "$M_ST" PP103_STANDARD
 zapest s20 t103-m15 red_spawn_reestr_proekta.sh          's@.*# t103-m15.*@REG="$(jq -r '"'"'.workflowPaths.registry // empty'"'"' "$ROOT/harness.project.json" 2>/dev/null)"; [ -n "$REG" ] || REG="$(jq -r '"'"'.defaults.workflowPaths.registry // empty'"'"' "$ROOT/$(jq -r '"'"'.projectLayer.profilePath // empty'"'"' "$ROOT/harness.project.json")" 2>/dev/null)" # t103-m15 порча@' "$M_SP" PP103_SPAWN
 zapest s21 t103-m16 red_pre_critic_cwd.sh                's@.*# t103-m16.*@REG="$(jq -r '"'"'.workflowPaths.registry // empty'"'"' "$BASE/harness.project.json" 2>/dev/null)"; [ -n "$REG" ] || REG="registry" # t103-m16 порча@' "$M_PC" PP103_PRE_CRITIC
+zapest s22 t103-m17 red_pre_critic_cwd.sh                's@.*# t103-m17.*@: # t103-m17 порча@'                                                "$M_PC" PP103_PRE_CRITIC
+zapest s23 t103-m18 red_pre_critic_cwd.sh                's@.*# t103-m18.*@: # t103-m18 порча@'                                                "$M_PC" PP103_PRE_CRITIC
 printf 'ИТОГ стаб-пак 103: rc=%s\n' "$itog"
 exit "$itog"
