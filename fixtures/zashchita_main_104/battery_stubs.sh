@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 104 (контракт 104, Н-39/А-398): тринадцать обманных субъектов,
+# Обманный стаб-пак 104 (контракт 104, Н-39/А-398): семнадцать обманных субъектов,
 # каждый привязан к клетке и входу, на котором его дефект НАБЛЮДАЕМ (привязка
 # живёт В ЭТОМ КОДЕ, не в прозе контракта).
 # Пойман = связанная клетка против стаба даёт rc 1 (КРАСНО); rc 0 и rc 2 — НЕ пойман.
@@ -18,6 +18,11 @@
 # t104-m11 judge_gate: без --sud пишет строку (bootstrap-пропуск) red_judge_gate_svidetelstvo_sudi (вход 1)
 # t104-m12 хук: корень — HARNESS_TOOLS_ROOT прежде расположения   red_huk_alfavit_ustanovki (условие б, вход 1: evil прошёл)
 # t104-m13 хук: нет установочного конфига → фолбэк на HARNESS_TOOLS_ROOT red_huk_bez_ustanovochnogo_konfiga (условие б, вход 1)
+# t104-m14 дверь --spawn/--frontmatter: любая роль → тир critic    red_sud_model_dver_spavna (вход 7: adversary на терре отказан)
+# t104-m15 --verdict: любая роль → тир critic                      red_sud_model_materializatsija (вход 10: reviewer на opus отказан)
+# t104-m16 judge_gate: дверь зовётся с --verdict critic при любой --sud роли red_judge_gate_svidetelstvo_sudi (вход 5: argv ≠ reviewer)
+# t104-m17 --verdict: судится только первая строка роли (break)    red_sud_model_materializatsija (вход 14: вторая строка не судится)
+# (m14–m17 — закрытие A104-1 / Рв97-3: до них батарея принимала дверь, зашитую на critic.)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FAM="$HERE"
@@ -29,7 +34,7 @@ WORK="$Z104_BASE/zashchita-104-stubs-$$-${RANDOM}"
 mkdir -p "$WORK" || { printf 'ОТКАЗ: мир стабов не строится\n' >&2; exit 2; }
 # Z104_STUBS_KEEP=1 — мир стабов не вычищается (осмотр адверсарием: какой вход убил стаб).
 if [ "${Z104_STUBS_KEEP:-0}" = 1 ]; then printf 'мир стабов: %s\n' "$WORK" >&2; else trap 'rm -rf "$WORK"' EXIT; fi
-for m in 1 2 3 4 5 6 7 8 9 10 11 12 13; do mkdir -p "$WORK/t104-m$m"; done
+for m in $(seq 1 17); do mkdir -p "$WORK/t104-m$m"; done
 
 # ── честный каркас хука 104 (источник алфавита — расположение САМОГО расширения,
 # <ext>/../../config/agent_models.json; cwd/env не читаются). Каждый стаб — этот
@@ -119,9 +124,43 @@ printf 'СУДЬЯ СВОЕЙ МОДЕЛИ: ok\n'
 exit 0
 EOF
 
+# Честный каркас ног --spawn/--frontmatter (roles→tiers→@семейство→models, модель
+# спавна и frontmatter роли против тира РОЛИ ВЫЗОВА); стаб m14 — одна ПОРЧА.
+SPAWN_TPL='#!/usr/bin/env bash
+set -uo pipefail
+mode=""; role=""; model=""; root=""
+case "${1:-}" in --spawn) mode=spawn ;; --frontmatter) mode=frontmatter ;; *) exit 2 ;; esac
+role="${2:-}"; shift 2
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --root) root="${2:-}"; shift 2 ;;
+    *) model="$1"; shift ;;
+  esac
+done
+[ -n "$role" ] || exit 2
+CFG="$root/config/agent_models.json"; [ -f "$CFG" ] || exit 2
+tier="$(jq -r --arg r "$role" ".roles[\$r] // \"\"" "$CFG")"; [ -n "$tier" ] || exit 2 # __TIER__
+fam="$(jq -r --arg t "$tier" ".tiers[\$t].model // \"\"" "$CFG")"; fam="${fam#@}"
+expected="$(jq -r --arg f "$fam" ".models[\$f] // \"\"" "$CFG")"; [ -n "$expected" ] || exit 2
+if [ "$mode" = spawn ]; then
+  [ -n "$model" ] || { printf "ОТКАЗ: спавн судьи без явного agent: %s\n" "$role" >&2; exit 1; }
+  [ "$model" = "$expected" ] || { printf "ОТКАЗ: модель не тира роли: %s тир %s спавн %s\n" "$role" "$tier" "$model" >&2; exit 1; }
+  printf "СУДЬЯ СВОЕЙ МОДЕЛИ: %s тир %s модель %s\n" "$role" "$tier" "$model"; exit 0
+fi
+FM="$root/.omp/agents/$role.md"; [ -f "$FM" ] || exit 2
+fm_tier="$(grep -E "^model: \[\"@[A-Za-z0-9._-]+\"\]" "$FM" | head -1 | sed "s/^model: \[\"@//; s/\"\]$//")"
+[ -n "$fm_tier" ] || exit 2
+[ "$fm_tier" = "$tier" ] || { printf "ОТКАЗ: frontmatter роли не тира роли: %s frontmatter @%s тир %s\n" "$role" "$fm_tier" "$tier" >&2; exit 1; }
+printf "СУДЬЯ СВОЕЙ МОДЕЛИ: frontmatter %s @%s = тир роли\n" "$role" "$fm_tier"
+exit 0'
+spawn_stub() { printf '%s\n' "$SPAWN_TPL" | sed -e "$2" -e 's| # __[A-Z_]*__$||' > "$WORK/$1/check_sud_model.sh"; }
+# t104-m14: ПОРЧА — тир любой роли берётся как тир critic (А104-1: «любая роль → critic»)
+spawn_stub t104-m14 's|^tier="\$(jq -r --arg r "\$role" .*# __TIER__$|tier="$(jq -r ".roles.critic // \\"\\"" "$CFG")"; [ -n "$tier" ] \|\| exit 2 # ПОРЧА: тир critic для любой роли|'
+grep -q '__' "$WORK/t104-m14/check_sud_model.sh" && { printf 'ОТКАЗ: стаб t104-m14: маркер не заменён\n' >&2; exit 2; }
+
 # Честный каркас ноги --verdict 104 (5 полей: роль модель allowed|denied session object);
-# стабы m8/m9/m10 — одна помеченная ПОРЧА каждая. Прочие ноги (--spawn/--frontmatter)
-# стабу не нужны: ловящая клетка зовёт только --verdict.
+# стабы m8/m9/m10/m15/m17 — одна помеченная ПОРЧА каждая. Нога --spawn/--frontmatter
+# здесь не нужна: ловящая клетка зовёт только --verdict.
 VERDICT_TPL='#!/usr/bin/env bash
 set -uo pipefail
 mode=""; role=""; trace=""; object=""; session=""; root=""
@@ -138,7 +177,7 @@ done
 [ "$mode" = verdict ] || exit 2
 [ -n "$object" ] && [ -n "$session" ] || { printf "использование: --object и --session обязательны\n" >&2; exit 2; }
 CFG="$root/config/agent_models.json"; [ -f "$CFG" ] || exit 2
-tier="$(jq -r --arg r "$role" ".roles[\$r] // \"\"" "$CFG")"; [ -n "$tier" ] || exit 2
+tier="$(jq -r --arg r "$role" ".roles[\$r] // \"\"" "$CFG")"; [ -n "$tier" ] || exit 2 # __TIER__
 fam="$(jq -r --arg t "$tier" ".tiers[\$t].model // \"\"" "$CFG")"; fam="${fam#@}"
 expected="$(jq -r --arg f "$fam" ".models[\$f] // \"\"" "$CFG")"; [ -n "$expected" ] || exit 2
 fbfam="$(jq -r --arg t "$tier" ".tiers[\$t].fallback // \"\"" "$CFG")"; fbfam="${fbfam#@}"
@@ -155,7 +194,7 @@ while IFS=$'"'"'\t'"'"' read -r r m fb s o; do
     allowed) [ "$m" = "$expected" ] || { printf "ОТКАЗ: вердикт не материализуется: судья %s на модели %s, тир %s (Н-270)\n" "$role" "$m" "$tier" >&2; exit 1; } ;;
     denied) [ -n "$fbexp" ] && [ "$m" = "$fbexp" ] || { printf "ОТКАЗ: фолбэк вне списка тира: %s на %s, тир %s (Н-270)\n" "$role" "$m" "$tier" >&2; exit 1; } ;; # __FALLBACK__
     *) exit 2 ;;
-  esac
+  esac # __LOOP_TAIL__
 done <<< "$lines"
 printf "СУДЬЯ СВОЕЙ МОДЕЛИ: вердикт %s материализуется\n" "$role"
 exit 0'
@@ -163,7 +202,11 @@ verdict_stub() { printf '%s\n' "$VERDICT_TPL" | sed -e "$2" -e 's| # __[A-Z_]*__
 verdict_stub t104-m8  's|^  \[ "\$s" = "\$session" \].*# __SESSION__$|  : # ПОРЧА: сессия не сверяется|'
 verdict_stub t104-m9  's|^  \[ "\$o" = "\$object" \].*# __OBJECT__$|  : # ПОРЧА: объект не сверяется|'
 verdict_stub t104-m10 's|^    denied) .*# __FALLBACK__$|    denied) : ;; # ПОРЧА: любой фолбэк принят|'
-for m in 8 9 10; do
+# t104-m15: ПОРЧА — тир любой роли берётся как тир critic (А104-1: «любая роль → critic»)
+verdict_stub t104-m15 's|^tier="\$(jq -r --arg r "\$role" .*# __TIER__$|tier="$(jq -r ".roles.critic // \\"\\"" "$CFG")"; [ -n "$tier" ] \|\| exit 2 # ПОРЧА: тир critic для любой роли|'
+# t104-m17: ПОРЧА — судится только первая строка роли (Рв97-3 A2)
+verdict_stub t104-m17 's|^  esac # __LOOP_TAIL__$|  esac; break # ПОРЧА: только первая строка роли|'
+for m in 8 9 10 15 17; do
   grep -q '__' "$WORK/t104-m$m/check_sud_model.sh" && { printf 'ОТКАЗ: стаб t104-m%s: маркер не заменён\n' "$m" >&2; exit 2; }
 done
 
@@ -178,6 +221,19 @@ J="$SELF/../registry/candidates.tsv"
 if [ "${6:-}" = --sud ]; then
   "$SELF/check_sud_model.sh" --verdict "$7" --trace "$8" --object "$1" --session "$9" || exit $?
 fi
+printf 'verdict\t%s\t%s\taccept\t1\n' "$3" "$4" >> "$J"
+exit 0
+EOF
+# t104-m16: ПОРЧА — judge_gate требует --sud, но дверь зовёт с константой critic вместо роли вызова
+cat > "$WORK/t104-m16/judge_gate.sh" <<'EOF'
+#!/usr/bin/env bash
+# t104-m16 порча: --sud обязателен, но в дверь уходит --verdict critic при любой заявленной роли
+set -uo pipefail
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+J="$SELF/../registry/candidates.tsv"
+[ "${2:-}" = --verdict-row ] || exit 1
+[ "${6:-}" = --sud ] || { printf 'ОТКАЗ: свидетельство судьи не передано (--sud <роль> <трасса> <session>)\n' >&2; exit 1; }
+"$SELF/check_sud_model.sh" --verdict critic --trace "$8" --object "$1" --session "$9" || exit $?
 printf 'verdict\t%s\t%s\taccept\t1\n' "$3" "$4" >> "$J"
 exit 0
 EOF
@@ -215,8 +271,12 @@ progon t104-m10 red_sud_model_materializatsija.sh
 progon t104-m11 red_judge_gate_svidetelstvo_sudi.sh
 progon t104-m12 red_huk_alfavit_ustanovki.sh
 progon t104-m13 red_huk_bez_ustanovochnogo_konfiga.sh
+progon t104-m14 red_sud_model_dver_spavna.sh
+progon t104-m15 red_sud_model_materializatsija.sh
+progon t104-m16 red_judge_gate_svidetelstvo_sudi.sh
+progon t104-m17 red_sud_model_materializatsija.sh
 
 printf 'стаб-пак: %s/%s поймано\n' "$caught" "$total"
-[ "$total" -eq 13 ] || { printf 'ОТКАЗ: стабов прогнано %s, ожидалось 13\n' "$total" >&2; exit 2; }
+[ "$total" -eq 17 ] || { printf 'ОТКАЗ: стабов прогнано %s, ожидалось 17\n' "$total" >&2; exit 2; }
 [ "$itog" -eq 0 ] || exit "$itog"
 exit 0

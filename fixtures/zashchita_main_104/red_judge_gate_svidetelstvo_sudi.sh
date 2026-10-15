@@ -14,7 +14,10 @@
 #   (2) стенд rc 1 → judge_gate rc 1, журнал без строки, stderr несёт причину стенда;
 #   (3) стенд rc 0 → rc 0, строка verdict в журнале, argv стенда ТОЧНО
 #       «--verdict critic --trace <T> --object <sha> --session <S>» (порядок/значения литерально);
-#   (4) стенд rc 2 → judge_gate rc 2, журнал без строки.
+#   (4) стенд rc 2 → judge_gate rc 2, журнал без строки;
+#   (5) не-critic роль (A104-1 / Рв97-3): стенд rc 0, `--sud reviewer <T2> <S>` → rc 0,
+#       вторая verdict-строка, argv стенда ТОЧНО «--verdict reviewer --trace <T2>
+#       --object <sha> --session <S>» (роль ВЫЗОВА проброшена литерально, не константа critic).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_mir.sh"
@@ -37,6 +40,7 @@ chmod +x "$R/scripts/"*.sh
 J="$R/registry/candidates.tsv"; : > "$J"
 VF="$W/verdict.md"; printf 'accept\nтело\n' > "$VF"
 T="$W/trace.tsv"; printf 'critic\topenai-codex/gpt-6-astra\tallowed\tS1\tO1\n' > "$T"
+T2="$W/trace-reviewer.tsv"; printf 'reviewer\tanthropic/claude-opus-5-5\tallowed\tS1\tO1\n' > "$T2"
 SHA='22cb801bb0ede34ee992a76bac5aa7eb72d99112'
 OID='0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
 S='01a13b69-2bf2-7147-9f08-2d06d3b11bd0'
@@ -46,6 +50,7 @@ export Z104_STEND_ARGV="$W/argv.txt"
 w1='свидетельство судьи не передано'
 w2='вердикт не материализуется'
 want_argv="--verdict critic --trace $T --object $SHA --session $S"
+want_argv5="--verdict reviewer --trace $T2 --object $SHA --session $S"
 fail() { printf 'КРАСНО: red_judge_gate_svidetelstvo_sudi: вход %s: %s; факт rc=%s, вывод: %s\n' "$1" "$2" "$3" "$(printf '%s' "$4" | head -c 220)" >&2; exit 1; }
 rows() { grep -c '^verdict' "$J"; }
 
@@ -64,6 +69,12 @@ got_argv="$(cat "$Z104_STEND_ARGV")"
 
 out="$(Z104_STEND_RC=2 bash "$R/scripts/judge_gate.sh" "$SHA" --verdict-row t104 "$OID" "$VF" --sud critic "$T" "$S" 2>&1)"; rc=$?
 { [ "$rc" -eq 2 ] && [ "$(rows)" -eq 1 ]; } || fail 4 'ожидался rc 2 без новой строки' "$rc" "$out"
+
+: > "$Z104_STEND_ARGV"
+out="$(Z104_STEND_RC=0 bash "$R/scripts/judge_gate.sh" "$SHA" --verdict-row t104 "$OID" "$VF" --sud reviewer "$T2" "$S" 2>&1)"; rc=$?
+{ [ "$rc" -eq 0 ] && [ "$(rows)" -eq 2 ]; } || fail 5 'не-critic роль: ожидался rc 0 и вторая verdict-строка' "$rc" "$out"
+got_argv="$(cat "$Z104_STEND_ARGV")"
+[ "$got_argv" = "$want_argv5" ] || fail 5 "argv двери ≠ «$want_argv5»" "$rc" "$got_argv"
 
 printf 'ЗЕЛЕНО: red_judge_gate_svidetelstvo_sudi\n'
 exit 0
