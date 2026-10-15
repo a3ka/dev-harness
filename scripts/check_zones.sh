@@ -1356,6 +1356,17 @@ while IFS=$'\t' read -r nnn since; do
               ;;
           esac
           ;;
+        # Слово владельца 2026-10-15 (forks/n283-check-zones-rescue-docs-owner.md): Н-283 рецидив №3 —
+        # 868d386f создал docs/owner-файл (оркестратор вне зоны), 7ed4a89c удалил его по указанию
+        # консультанта. Только эти два SHA и этот путь; остальные пути этих коммитов судятся как обычно.
+        868d386f146781af18db40be08b94bf7c2d12dfb|7ed4a89c2f03fe554d8809358bf60a64e2a48e5c)
+          case "$f" in
+            docs/owner/2026-10-15-complior-mob-reshenija.md)
+              printf '%s\n' "$f" >> "$TMP/process_excluded"
+              continue
+              ;;
+          esac
+          ;;
       esac
       inside=1
       while IFS= read -r p; do
