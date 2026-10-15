@@ -1,0 +1,14 @@
+probe-only каталог (контракт 034, инв. 1): предмет — контракт 103 «профильные пути
+вместо harness-layout». Каталог — архитекторская красная батарея: 11 клеток
+red_*.sh (оракул в памяти клетки, правило 8) + модели условий стандарта
+(model/check_project_standard.sh, model/dver_reestra.sh, model/
+kontrakt_po_profilju.sh, model/pre_critic_proekta.sh — честные каркасы как
+шаблоны порч) + стаб-пак battery_stubs.sh (14 порч, каждая привязана к входу,
+где её дефект наблюдаем, Н-39) + toy-мир _toy.sh. Барьерного ключа
+scripts/project_paths_103.sh НЕТ и НЕ появится: субъекты — файлы ЗОНЫ
+implementer (scripts/check_project_standard.sh, scripts/make_task.sh,
+scripts/pre_critic.sh, scripts/spawn_agent.sh), предмет реализуется их правкой,
+а не файлом-барьером этого каталога. case_*.sh нет и не будет: клетки
+предъявляются напрямую и через агрегатор fixtures/_krasnye_103.sh (rc 0 ⟺
+стаб-пак ∧ все клетки); guard подключается в CI только после landing предмета
+(прецеденты 074/093/098/104; ПРОВОДКА контракта 103).
