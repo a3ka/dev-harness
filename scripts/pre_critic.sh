@@ -183,13 +183,35 @@ if [ -n "$REPO_ARG" ]; then
   if [ -f "$BASE/harness.project.json" ]; then
     command -v jq >/dev/null 2>&1 \
       || { printf 'NOT_IMPLEMENTED: нет jq\n' >&2; exit 2; }
-    _arm_reg_dir="$(jq -r '.workflowPaths.registry // empty' "$BASE/harness.project.json" 2>/dev/null)"
-    if [ -z "$_arm_reg_dir" ]; then
-      _pl="$(jq -r '.projectLayer.profilePath // empty' "$BASE/harness.project.json" 2>/dev/null)"
-      [ -n "$_pl" ] && [ -f "$BASE/$_pl" ] \
-        && _arm_reg_dir="$(jq -r '.defaults.workflowPaths.registry // empty' "$BASE/$_pl" 2>/dev/null)"
-      unset _pl
+    # Рв96-2: эффективный registry — из scripts/profile_resolver.sh
+    # (Предмет 103: второй резолвер запрещён): слой проекта ищется по
+    # HARNESS_PROJECT_LAYER_ROOT (умолчание — сам R), не под R. Обвязка
+    # ci.workflow — по прецеденту make_task (placeholder на время вызова).
+    _pc_resolver="$ROOT/scripts/profile_resolver.sh"
+    [ -x "$_pc_resolver" ] \
+      || { printf 'NOT_IMPLEMENTED: нет profile_resolver.sh\n' >&2; exit 2; }
+    _pc_cw="$(jq -r '.ci.workflow // empty' "$BASE/harness.project.json" 2>/dev/null || true)"
+    _pc_ph=""
+    if [ -n "$_pc_cw" ] && [ ! -e "$BASE/$_pc_cw" ]; then
+      case "$_pc_cw" in
+        /*|*../*) refuse "ci.workflow обязан быть относительным: $_pc_cw" ;;
+      esac
+      mkdir -p "$(dirname "$BASE/$_pc_cw")" 2>/dev/null || :
+      : > "$BASE/$_pc_cw" || :
+      _pc_ph="$_pc_cw"
     fi
+    _pc_err="$(mktemp)"
+    if ! _pc_merged="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$BASE}" "$_pc_resolver" --repo "$BASE" 2>"$_pc_err")"; then
+      _pc_reason="$(cat "$_pc_err" 2>/dev/null || true)"
+      rm -f "$_pc_err"
+      [ -z "$_pc_ph" ] || rm -f "$BASE/$_pc_ph"
+      printf 'ОТКАЗ: %s\n' "${_pc_reason#profile ОТКАЗ: }" >&2
+      exit 1
+    fi
+    rm -f "$_pc_err"
+    [ -z "$_pc_ph" ] || rm -f "$BASE/$_pc_ph"
+    _arm_reg_dir="$(printf '%s' "$_pc_merged" | jq -r '.workflowPaths.registry.value // empty')"
+    unset _pc_merged _pc_resolver _pc_cw _pc_ph _pc_err _pc_reason
   fi
   [ -n "$_arm_reg_dir" ] || _arm_reg_dir="registry"
 else
