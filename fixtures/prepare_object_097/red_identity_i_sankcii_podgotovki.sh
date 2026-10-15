@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Клетка А-7 «identity и санкции подготовки» (контракт 097: 016 + 065 И-10 в
-# объёме подготовки): merge-коммит prepare — автор и коммиттер
+# объёме подготовки): prepare конформного входа — rc 0 (сверен ЯВНО ДО приёма
+# stdout — вердикт адверсария v3); merge-коммит prepare — автор и коммиттер
 # orchestrator <orchestrator@dev-harness.local> (identity 016, проверяемо
 # моделью); строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ:/ALLOW-ARTIFACT-DELETE: диапазона
 # base..candidate перенесены в сообщение merge ДОСЛОВНО, точные повторы
@@ -39,6 +40,7 @@ _t97_refs_arm "$R" || exit 2
 refs_before="$(_t97_refs_snap "$R")" || exit 2
 M="$(bash "$SUBJ" prepare --repo "$R" --task T-97 --base "$BASE" --candidate "$CAND")"; rc=$?
 _t97_refs_check "$R" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
+[ "$rc" -eq 0 ] || { printf 'КРАСНО: a7: успешный prepare вернул rc=%s — rc-подмена подготовки (вывод=%s)\n' "$rc" "$M" >&2; exit 1; }
 case "$M" in ''|*[!0-9a-f]*)
   printf 'КРАСНО: a7: prepare не напечатал merge sha (rc=%s, вывод=%s)\n' "$rc" "$M" >&2; exit 1 ;; esac
 [ "${#M}" -eq 40 ] || { printf 'КРАСНО: a7: prepare напечатал не 40 hex: %s\n' "$M" >&2; exit 1; }

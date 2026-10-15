@@ -7,8 +7,9 @@
 # Якоря литеральные, оба допустимы: модель dover.sh — «политика: грамматика»;
 # реальный субъект — «политика: нет targetBranches в harness.project.json на
 # base». Парный зелёный сценарий (050): та же пара с ключом на базе →
-# prepare rc 0 под теми же наблюдателями. Привязка ловящих стабов — в
-# battery_stubs.sh (Н-39), не здесь.
+# prepare rc 0 (сверен ЯВНО ДО приёма stdout — вердикт адверсария v3) под
+# теми же наблюдателями. Привязка ловящих стабов — в battery_stubs.sh (Н-39),
+# не здесь.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
@@ -48,6 +49,7 @@ _t97_refs_arm "$R2" || exit 2
 refs_before="$(_t97_refs_snap "$R2")" || exit 2
 out="$(bash "$SUBJ" prepare --repo "$R2" --task T-97 --base "$(git -C "$R2" rev-parse main)" --candidate "$(git -C "$R2" rev-parse cand)")"; rc=$?
 _t97_refs_check "$R2" "$refs_before"; crc=$?; [ "$crc" -eq 0 ] || exit "$crc"
+[ "$rc" -eq 0 ] || { printf 'КРАСНО: a6: парный зелёный упал — успешный prepare базы с targetBranches вернул rc=%s (rc-подмена подготовки; вывод=%s)\n' "$rc" "$out" >&2; exit 1; }
 case "$out" in ''|*[!0-9a-f]*)
   printf 'КРАСНО: a6: парный зелёный упал — база с targetBranches не готовит (rc=%s, вывод=%s)\n' "$rc" "$out" >&2; exit 1 ;; esac
 [ "${#out}" -eq 40 ] || { printf 'КРАСНО: a6: парный зелёный напечатал не 40 hex: %s\n' "$out" >&2; exit 1; }

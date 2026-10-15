@@ -23,8 +23,12 @@
 # m15 HEAD отсоединён на тот же OID (член 4; оба наблюдателя)                     + --no-deref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m16 main перезаписан на тот же OID (член 5; наблюдатель (1))                    + update-ref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m17 rc успешного проектного prepare подменён (блокер критика v4; обёртка над неизменной моделью — класс вне порчи по якорю)  rc 0→1 при projectLayer  red_oba_profilya.sh (А-5)
-# m18 успешный проектный prepare печатает base вместо M (вердикт адверсария v2 А-5; обёртка над неизменной моделью — класс m17)  stdout M→BASE при projectLayer  red_oba_profilya.sh (А-5, положительная проба проекта)
+# m18 успешный проектный prepare печатает base вместо M (вердикт адверсария v2 А-5; порча по якорю printf — вердикт v3)  printf m → if projectLayer на base: printf BASE else printf m  red_oba_profilya.sh (А-5, положительная проба проекта)
 # m19 пустой CSV-компонент «mandatory=» принят (вердикт адверсария v2 И-0)  «''|» выброшен из case mandatory + «[ -n "$mandatory" ] &&» выброшен  red_oba_profilya.sh (А-5, входы «пустой mandatory=» обоих профилей)
+# m20 rc успешного prepare подменён на 1, если политика кандидата != base (вердикт адверсария v3 А-1; харнес)  printf m + «cand policy != policy_bytes → exit 1»  red_kandidat_ne_vybiraet_politiku.sh (А-1; остальные миры несут равные политики — честен)
+# m21 то же, проектный слой (вердикт адверсария v3 А-2)                       та же порча, что m20  red_podmena_istochnika_politiki.sh (А-2)
+# m22 rc успешного prepare подменён на 1 безусловно, stdout/refs корректны (вердикт адверсария v3)  printf m + exit 1  red_proizvodstvennyj_profil_M.sh (А-3)
+# m23 пустой CSV-компонент «targetBranches=» принят, ОТСУТСТВИЕ ключа по-прежнему отвергнуто (вердикт адверсария v3 И-0)  «''|» выброшен из case targetBranches + branches="${v:-+}"  red_oba_profilya.sh (А-5, входы «пустой targetBranches=» обоих профилей; А-6 на нём зелена)
 # m0  пустышка БЕЗ порчи              —                    ВСЕ 8 клеток обязаны быть ЗЕЛЁНЫ (анти-тавтология)
 #
 # Поимка — ТОЛЬКО rc 1 (урок А-398): rc 0 (стаб прошёл клетку) и rc 2 (нечем
@@ -127,6 +131,21 @@ zapest m16 red_ni_odna_ref_ne_dvinuta.sh \
 zapest m19 red_oba_profilya.sh \
   'mandatory=*) v="${line#mandatory=}"; case "$v" in '"'"''"'"'|' \
   's@\(mandatory=\*) v="\${line#mandatory=}"; case "\$v" in \)'"'"''"'"'|@\1@;s@\[ -n "\$mandatory" \] \&\& @@'
+zapest m18 red_oba_profilya.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@if git -C "\$REPO" show "\$BASE:harness.project.json" 2>/dev/null | grep -Fq '"'"'"projectLayer"'"'"'; then printf '"'"'%s\\n'"'"' "\$BASE"; else printf '"'"'%s\\n'"'"' "\$m"; fi@'
+zapest m20 red_kandidat_ne_vybiraet_politiku.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; [ "\$(git -C "\$REPO" show "\$CAND:\$POLICY_PATH" 2>/dev/null)" = "\$policy_bytes" ] || exit 1@'
+zapest m21 red_podmena_istochnika_politiki.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; [ "\$(git -C "\$REPO" show "\$CAND:\$POLICY_PATH" 2>/dev/null)" = "\$policy_bytes" ] || exit 1@'
+zapest m22 red_proizvodstvennyj_profil_M.sh \
+  'printf '"'"'%s\n'"'"' "$m"' \
+  's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; exit 1@'
+zapest m23 red_oba_profilya.sh \
+  'targetBranches=*) v="${line#targetBranches=}"; case "$v" in '"'"''"'"'|' \
+  's@\(targetBranches=\*) v="\${line#targetBranches=}"; case "\$v" in \)'"'"''"'"'|@\1@;s@branches="\$v" ;;@branches="${v:-+}" ;;@'
 
 # m17 — обёртка rc-подмены проектного профиля (блокер критика круга 4): класс
 # ВНЕ порчи по якорю — обёртка вызывает НЕИЗМЕННУЮ модель (cmp-порча модели
@@ -180,43 +199,6 @@ sudit_obertku() {
   fi
 }
 sudit_obertku m17 red_oba_profilya.sh "$f17"
-
-# m18 — обёртка подмены stdout успешного проектного prepare (вердикт адверсария
-# v2 А-5): тот же класс, что m17 — вызывает НЕИЗМЕННУЮ модель, а при
-# verb=prepare && rc=0 и ключе "projectLayer" в принятом harness.project.json
-# на base печатает SHA самой базы вместо созданного M: rc 0, валидный 40-hex,
-# refs/объекты не тронуты. На харнесе и на отказных ветках честна — дефект
-# наблюдаем ТОЛЬКО положительной пробой проектного профиля клетки А-5,
-# обязанной сверять напечатанный sha с M (родители base+cand, дерево оракула).
-f18="$WORK/m18.sh"
-cat >"$f18" <<'WRAP'
-#!/usr/bin/env bash
-# t97-m18: обёртка подмены stdout успешного проектного prepare (base вместо M)
-set -uo pipefail
-MODEL="__T97_MODEL__"
-orig=("$@")
-verb="${1:-}"
-REPO=""; BASE=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --repo) REPO="${2:-}"; shift 2 ;;
-    --base) BASE="${2:-}"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-out="$("$MODEL" "${orig[@]}")"
-rc=$?
-if [ "$verb" = "prepare" ] && [ "$rc" -eq 0 ] && [ -n "$REPO" ] && [ -n "$BASE" ]; then
-  if git -C "$REPO" show "$BASE:harness.project.json" 2>/dev/null | grep -Fq '"projectLayer"'; then
-    printf '%s\n' "$BASE"
-    exit 0
-  fi
-fi
-[ -n "$out" ] && printf '%s\n' "$out"
-exit "$rc"
-WRAP
-sed -i "s@__T97_MODEL__@$MODEL@" "$f18" && chmod +x "$f18"
-sudit_obertku m18 red_oba_profilya.sh "$f18"
 
 # пустышка: копия модели без порчи — каждая клетка обязана быть ЗЕЛЁНОЙ
 # (клетка, красная всегда, «ловила» бы и пустышку — анти-тавтология)

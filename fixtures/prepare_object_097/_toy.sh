@@ -40,15 +40,17 @@ _t97_mode() { printf '%s' "${AP097_MODE:-real}"; }
 
 # _t97_policy_text <ci-steps.tsv> <harness.project.json> — канонический текст
 # политики, выведенный из носителей: repoId= из профиля; mandatory= CSV
-# step-ключей реестра в порядке реестра; targetBranches= CSV из профиля (строки
-# НЕТ, если ключа в профиле нет — живая сторона Н4-1).
+# step-ключей реестра в порядке реестра; targetBranches= CSV из профиля (строка
+# ЕСТЬ ⟺ ключ в профиле есть: ключа нет — строки нет, живая сторона Н4-1; ключ
+# с пустым массивом — пустой CSV-компонент «targetBranches=», неконформный И-0,
+# вердикт адверсария v3 И-0).
 _t97_policy_text() {
   local reg="$1" prof="$2" repo_id steps branches
   repo_id="$(sed -nE 's/^[[:space:]]*"repoId"[[:space:]]*:[[:space:]]*"([^"]*)".*$/\1/p' "$prof")"
   steps="$(LC_ALL=C awk '$1=="step" && $2!="" {printf "%s%s", sep, $2; sep=","}' "$reg")"
   branches="$(sed -nE 's/^[[:space:]]*"targetBranches"[[:space:]]*:[[:space:]]*\[(.*)\].*$/\1/p' "$prof" | tr -d '"' | sed 's/[[:space:]]//g')"
   printf 'repoId=%s\nmandatory=%s\n' "$repo_id" "$steps"
-  [ -n "$branches" ] && printf 'targetBranches=%s\n' "$branches"
+  grep -qE '^[[:space:]]*"targetBranches"[[:space:]]*:' "$prof" && printf 'targetBranches=%s\n' "$branches"
   return 0
 }
 

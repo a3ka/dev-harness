@@ -12,13 +12,19 @@
 # половины, по профилю:
 #   харнес: (1) ветка вне алфавита И-0 в конформном json-профиле — неконформность
 #               попадает в выведенный текст; (2) реестр БЕЗ step-строк — выведенный
-#               текст несёт пустой CSV-компонент «mandatory=»;
-#   проект: (3) чужая строка в политике; (4) пустой CSV-компонент «mandatory=».
+#               текст несёт пустой CSV-компонент «mandatory=»; (5) ключ
+#               targetBranches с ПУСТЫМ массивом — выведенный текст несёт пустой
+#               CSV-компонент «targetBranches=» (ключ ЕСТЬ — это не вход А-6
+#               «ключа нет»);
+#   проект: (3) чужая строка в политике; (4) пустой CSV-компонент «mandatory=»;
+#           (6) пустой CSV-компонент «targetBranches=».
 # Обман — t97-m8 (неизвестная строка политики принимается; вход 3), t97-m17
 # (обёртка rc-подмены успешного проектного prepare — блокер критика круга 4),
 # t97-m18 (успешный проектный prepare печатает base вместо M — вердикт
 # адверсария v2 А-5), t97-m19 (пустой «mandatory=» принимается — вердикт
-# адверсария v2 И-0; входы 2 и 4).
+# адверсария v2 И-0; входы 2 и 4), t97-m23 (пустой «targetBranches=» принят
+# при по-прежнему отвергаемом ОТСУТСТВИИ ключа — вердикт адверсария v3 И-0;
+# входы 5 и 6; А-6 на m23 зелена — различают ТОЛЬКО эти входы).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/_toy.sh"
@@ -110,4 +116,20 @@ git -C "$WP3/repo" checkout -q main
 printf 'repoId=toy-proj-097\nmandatory=\ntargetBranches=main\n' >"$WP3/repo/harness/policy"
 git -C "$WP3/repo" add -A && git -C "$WP3/repo" commit -qm 'empty mandatory'
 neg_probe "$WP3/repo" проект 'пустой mandatory='
+
+# харнес, вход 5: ключ targetBranches с пустым массивом → выведенный текст несёт «targetBranches=»
+WH4="$(_t97_world_harness a5ht)" || exit 2; WORLDS+=("$WH4")
+git -C "$WH4/repo" checkout -q main
+printf '{\n  "repoId": "toy-harness-097",\n  "targetBranches": []\n}\n' >"$WH4/repo/harness.project.json"
+_t97_regen "$WH4/repo"
+grep -Fxq 'targetBranches=' "$WH4/repo/harness/policy" || { printf 'КРАСНО: a5: выведенный текст харнеса с пустым массивом targetBranches не несёт «targetBranches=» — вход не построен\n' >&2; exit 1; }
+git -C "$WH4/repo" add -A && git -C "$WH4/repo" commit -qm 'empty targetBranches array'
+neg_probe "$WH4/repo" харнес 'пустой targetBranches='
+
+# проект, вход 6: пустой CSV-компонент «targetBranches=» на base
+WP4="$(_t97_world_project a5pt)" || exit 2; WORLDS+=("$WP4")
+git -C "$WP4/repo" checkout -q main
+printf 'repoId=toy-proj-097\nmandatory=p-a,p-b\ntargetBranches=\n' >"$WP4/repo/harness/policy"
+git -C "$WP4/repo" add -A && git -C "$WP4/repo" commit -qm 'empty targetBranches'
+neg_probe "$WP4/repo" проект 'пустой targetBranches='
 exit 0
