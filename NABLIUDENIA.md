@@ -7484,3 +7484,48 @@ Re-верификация Astra для n287 поэтому НЕ требуетс
 `check_fork_route.sh`-класс гейт на свежих `verdicts/consultant/*`:
 сверять `МОДЕЛЬ:` против `config/agent_models.json роли consultant`
 автоматически, не постфактум прозой).
+
+### Н-289. Оркестратор закоммитил candidate-патч architect под `user.name=implementer` сам, вместо спавна реального implementer-субагента — реализационный шаг «implementer по зоне» в маршруте владельца (085 wait_saved) исполнен НЕ той ролью `ЗАКРЫТО — вердикт reviewer (0938e91b) зафиксировал FAIL, редо реальным implementer-субагентом поверх 611e79336`
+
+**Что произошло:** пост-done пачка 085 (Н-285→А-917, слово владельца 2026-10-15
+~09:15 UTC «architect находит клетку и причину → красный тест → implementer по
+зоне → PR → reviewer → land») — Architect085SelftestDiag (субагент) поставил
+диагноз и подготовил ДВА артефакта: красный тест (применён architect-коммитом
+611e79336) и candidate-патч продакшн-фикса (`implementer-orch-peak-candidate.patch`,
+НЕ применён самим architect — он unpinned, не мог материализовать). Вместо спавна
+РЕАЛЬНОГО implementer-субагента для продакшн-шага оркестратор применил ГОТОВЫЙ
+candidate-патч architect САМ, командой `git -c user.name=implementer -c
+user.email=implementer@dev-harness.local commit` в одноразовом клоне — экономия
+времени, но implementer-роль в цепочке «architect→implementer→reviewer» оказалась
+ПОДМЕНЕНА identity-меткой без реального независимого исполнения.
+
+**Цена:** reviewer (Reviewer085PostDone) поймал это дословно (Рв98-1, вердикт
+`verdicts/review/contracts-085-postdone-fix-v1.md`, `verdicts_commit 0938e91b`):
+«implementer-коммит 8f92d58a = candidate-патч architect, закоммиченный оркестратором
+под user.name=implementer». Техническая часть (диагноз, батареи, CI) подтверждена
+ПОЛНОСТЬЮ — но процедурная находка БЛОКИРУЕТ ленд до редо реальным implementer.
+Цена: ~15 минут повторного прохода (новый спавн + git-surgery + push), не потеряна
+техническая работа (диагноз/красный тест architect остаются валидны).
+
+**Источник:** `verdicts/review/contracts-085-postdone-fix-v1.md` (reviewer,
+`0938e91bc95153f00fbaa83e5074255cfc59c40d`); `.review/2026-10-15-01.md` Рв98-1;
+живой `git log --format='%an %ae' 8f92d58a` на origin PR#98 показывает
+`implementer implementer@dev-harness.local`, но reviewer сверил mtime
+patch-файла и checkout-реflog в клоне оркестратора `/tmp/dev-harness-verify/
+n287-route-1792055898-672011` — совпадение секунды checkout+commit выдаёт
+ghost-commit.
+
+**Класс:** процедура — роль-метка identity в коммите НЕ заменяет реальное
+независимое исполнение роли; «implementer по зоне» в норме владельца означает
+СПАВН implementer-субагента, не применение чужого (architect) патча под его
+именем, даже если патч технически корректен и уже провалидирован.
+
+**ЧЕМ ЗАКРЫТО:** редо — спавн реального implementer-субагента (независимая
+сессия) поверх `611e79336` (architect-коммит с красным тестом), с ЗАДАЧЕЙ
+написать/применить фикс `wait_saved()` самостоятельно (может опираться на
+диагноз А-917 как НАПРАВЛЕНИЕ, не как готовый патч для слепого применения).
+Норма: применение чужого candidate-патча под заимствованной identity —
+ЗАПРЕЩЕНО как замена реального спавна роли; разрешённый путь для «быстрой
+материализации» архитекторской находки — ТОЛЬКО как architect-коммит под
+его собственной identity (как сделано для 611e79336), продакшн-шаг всегда
+идёт отдельным independent-спавном.
