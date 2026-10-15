@@ -125,8 +125,22 @@
 ПЕРЕСЕЧЕНИЕ architect: fixtures/_krasnye_105.sh — 058 architect-зона раннера: новый отдельный раннер, `_krasnye_054/055/058/059/060/070` не правятся
 ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 015 implementer-зона двойного владения (landed-миграция заголовков); 105 владеет путём как записью воркфлоу-наблюдений (прецедент 037/065/066/069/070)
 ПЕРЕСЕЧЕНИЕ architect: NABLIUDENIA_ARCHITECT.md — 070 architect-зона (запись наблюдений): дописка А-919/А-920, прежние записи не правятся
-ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 002 architect-зона (frozen/contracts/002/1): HANDOFF.md в зоне orchestrator по общей норме ЗОНА orchestrator: NABLIUDENIA.md HANDOFF.md, повторённой в десятках контрактов (011/012/013/014/015/016/026/027/028/029/031/035/036/038/039/040/042) — рутинное двойное владение процессным файлом, не конфликт содержания; 002 своей зоной путь не правит в рамках этого предмета
-ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 002 architect-зона (frozen/contracts/002/1): тот же класс двойного владения, что строкой выше — журнал наблюдений оркестратора, не правка зоны 002
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 002 architect-зона (frozen/contracts/002/7, историческая эра до топологии 010): HANDOFF.md/NABLIUDENIA.md у раннего контракта под architect — до контракта 010 роль orchestrator не выделялась, писал architect; с 011+ норма «ЗОНА orchestrator: NABLIUDENIA.md HANDOFF.md» стала стандартной (прецедент десятков контрактов); 002 своим предметом (approval-mode) путь не правит
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 002 architect-зона (та же историческая причина, что строкой выше)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 003 architect-зона (frozen/contracts/003/6, историческая эра до топологии 010)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 003 architect-зона (та же историческая причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 004 architect-зона (frozen/contracts/004/1, историческая эра до топологии 010)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 004 architect-зона (та же историческая причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 005 architect-зона (frozen/contracts/005/2, историческая эра до топологии 010)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 005 architect-зона (та же историческая причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 006 architect-зона (frozen/contracts/006/1, историческая эра до топологии 010)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 006 architect-зона (та же историческая причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 007 architect-зона (frozen/contracts/007/1, историческая эра до топологии 010)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 007 architect-зона (та же историческая причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 008 architect-зона (frozen/contracts/008/2, историческая эра до топологии 010)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 008 architect-зона (та же историческая причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 010 architect-зона (контракт, вводящий саму топологию orchestrator/architect; закономерно последний architect-claim на эти пути)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 010 architect-зона (та же причина)
 
 РАБОТА НЕ РАЗДАЁТСЯ: scripts/verify_antiplacebo.sh (030/044 — семья probe-only 034 вне case_*-глоба :585) registry/contracts.tsv (dual-control 023/031; минт 105 стоит) .omp/ (005/002 frozen — политика потребляется, не правится) scripts/profile_resolver.sh scripts/gen-harness.ts scripts/check_approval.sh fixtures/_krasnye_054.sh fixtures/_krasnye_055.sh fixtures/_krasnye_058.sh fixtures/_krasnye_059.sh fixtures/_krasnye_060.sh fixtures/_krasnye_070.sh (раннеры соседей) .github/workflows/ci.yml package.json (подключение guard — реализационной пачкой ПОСЛЕ ленда, прецедент 104; до этого в пачке не правятся)
 
