@@ -28,10 +28,14 @@
 #       ORCH_GRACE=1 ORCH_MIN_LIFE=9 ORCH_EARLY_WAIT=1
 #       ORCH_EARLY_MAX=3, если клетка не задаёт иное; л9/л10 — смешанные планы
 #       ранний/падение: общий счёт нештатных завершений подряд (И-3);
-#   п1-п11 И-4: сторож в мире шва ORCH_PEAK_TEST 080 (say.log, omp-pids, killed.log),
+#   п1-п12 И-4: сторож в мире шва ORCH_PEAK_TEST 080 (say.log, omp-pids, killed.log),
 #       ORCH_USER=nobody (дом /nonexistent: запись в пути станции невозможна),
 #       ORCH_LOOP_STOP в скратче, toy-repo с bare origin, журнал верхнего уровня с usage;
 #       пороги CTX_* и IDLE — умолчания субъекта; п5 — четыре входа, каждый своей строкой;
+#       п12 — stop с несохранённым при ORCH_PEAK_GRACE=0: сообщение отсрочки доставлено
+#       (уходит ДО проверки срока — не зависит от длительности опроса unsaved на
+#       нагруженном хосте), отчёт записан, сессия погашена; срок 0 — детерминированная
+#       форма гонки CI 2026-10-14/15 (п5[stop] при GRACE=1: срок истекал за первый опрос);
 #   м1-м4, м6 И-5 (семантика 093: ветка запуска-без-потолка удалена): шим systemd-run
 #       (журнал argv, XDG_RUNTIME_DIR, вида и исхода вызова; pass — exec после «--»;
 #       refuse — rc 1 без исполнения на каждом вызове; refuse-first-session — rc 1 без
@@ -134,14 +138,14 @@ declare -A NAME=(
   [r0]=р0 [r1]=р1 [r2]=р2
   [l1]=л1 [l2]=л2 [l3]=л3 [l4]=л4 [l5]=л5 [l6]=л6 [l7]=л7 [l8]=л8 [l9]=л9 [l10]=л10
   [p1]=п1 [p2]=п2 [p3]=п3 [p4]=п4 [p5w]='п5[warn]' [p5s]='п5[ctx550000]'
-  [p5h]='п5[ctx650000]' [p5t]='п5[stop]' [p6]=п6 [p7]=п7 [p8]=п8 [p9]=п9 [p10]=п10 [p11]=п11
+  [p5h]='п5[ctx650000]' [p5t]='п5[stop]' [p6]=п6 [p7]=п7 [p8]=п8 [p9]=п9 [p10]=п10 [p11]=п11 [p12]=п12
   [m1]=м1 [m2]=м2 [m3]=м3 [m4]=м4 [m5]=м5 [m6]=м6
 )
 # Порядок запуска — длинные миры первыми; порядок печати — ORDER.
 CELLS_LOOP=(l9 l8 l2 l10 l6 l7 l1 l4 l3 l5)
 CELLS_MEM=(m3 m6 m1 m2 m4)
-CELLS_PEAK=(p1 p2 p9 p5h p5t p3 p4 p5w p5s p6 p7 p8 p10 p11)
-ORDER=(r0 r1 r2 l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 p1 p2 p3 p4 p5w p5s p5h p5t p6 p7 p8 p9 p10 p11 m1 m2 m3 m4 m5 m6)
+CELLS_PEAK=(p1 p2 p9 p5h p5t p12 p3 p4 p5w p5s p6 p7 p8 p10 p11)
+ORDER=(r0 r1 r2 l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 p1 p2 p3 p4 p5w p5s p5h p5t p6 p7 p8 p9 p10 p11 p12 m1 m2 m3 m4 m5 m6)
 
 fails=0
 say_cell() { # <исход 0|1|3|4|9> <имя> <текст>
@@ -217,7 +221,7 @@ mkdir -p "$SCRATCH/snap" "$SCRATCH/w" "$SCRATCH/res" "$SCRATCH/shimbin"
 declare -A PIN=(
   [stancija.orch-loop]=ebc53f306a352ef8ec58d130d5d667ea685c6977d932a0439de755ca62038cd9
   [stancija.orch-peak]=b3e354cd2aae1a28e50b1423c6d5164e2d0a7ca2dcec4e17f47ccb4b549824b3
-  [slijanie.orch-peak]=a971abfa7d8c25eee01da7b756c80d3d42828d4f4018e1619f71a4922f808d70
+  [slijanie.orch-peak]=74c3b631792c7462c34593c73dbebbf9442e2856dd31db8ebffadc144b9c88a0
   [repo-fad71b15.orch-loop]=fad71b1540965d84ed4f3f54759ba76b43628e2be9b91bc9405be62a34a63e2d
   [repo-8380d01f.orch-peak]=8380d01fdd8200f25093a2b11cf6c11124dc0a13eb86851476346f7513c94c6c
 )
@@ -461,6 +465,10 @@ STUBS = [
   ('s38', 'l10', 'раздельные счётчики со взаимным сбросом', 'loop',
    [(CNT_C, '  export ORCH_EARLY=0\n'), (CNT_E, '  export ORCH_CRASH=0\n')]),
   ('s39', 'l10', 'падение не передаёт счёт раннему маркеру', 'loop', [(CNT_C, '')]),
+  # п12: сообщение отсрочки только пока срок не вышел — гонка CI 2026-10-14/15 (срок
+  # истекает за первый опрос unsaved на нагруженном хосте → сообщения нет вовсе)
+  ('s40', 'p12', 'сообщение отсрочки после проверки срока', 'peak',
+   [('    if [ "$told" -eq 0 ]; then\n', '    if [ "$told" -eq 0 ] && [ "$(date +%s)" -lt "$deadline" ]; then\n')]),
 ]
 for sid, cell, label, base, edits in STUBS:
     try:
@@ -1057,6 +1065,20 @@ cell_p5w() { sign_cell "$1" "$2" 100000 0 warn; }
 cell_p5s() { sign_cell "$1" "$2" 550000 0 ctx; }
 cell_p5h() { sign_cell "$1" "$2" 650000 1 ctx; }
 cell_p5t() { sign_cell "$1" "$2" 100000 1 stop; }
+cell_p12() { # stop с несохранённым при сроке 0: сообщение отсрочки ДО проверки срока, отчёт, останов
+  local s="$1" W="$2" a m n
+  peak_world "$W" 100000 0 - 1 || { printf 'мир не построен (git)'; return 3; }
+  peak_run "$s" "$W" stop ORCH_PEAK_GRACE=0
+  a="$(peak_crash "$W")" && { printf '%s' "$a"; return 3; }
+  m="$(judge_sign "$W")" || { printf 'срок 0 с: %s; журнал: %s' "$m" "$(lastpeak "$W")"; return 1; }
+  n="$(msgs "$W")"
+  [ "$n" = 1 ] || { printf 'срок 0 с: сообщений %s (ожидалось одно — отсрочка)' "$n"; return 1; }
+  grep -Fq 'dirty.txt' "$W/test/say.log" || { printf 'срок 0 с: сообщение без списка несохранённого (dirty.txt): %s' "$(head -n 1 "$W/test/say.log")"; return 1; }
+  [ -f "$W/report" ] || { printf 'срок 0 с: отчёт не записан по истечении срока; журнал: %s' "$(lastpeak "$W")"; return 1; }
+  grep -Fq 'dirty.txt' "$W/report" || { printf 'срок 0 с: отчёт без списка несохранённого (dirty.txt)'; return 1; }
+  grep -Fxq 'killed: 424242' "$W/test/killed.log" 2>/dev/null || { printf 'срок 0 с: сессия не погашена после срока (killed.log без pid); журнал: %s' "$(lastpeak "$W")"; return 1; }
+  printf 'срок 0 с: %s; отчёт записан, сессия погашена' "$m"; return 0
+}
 idle_cell() { # <субъект> <W> <молчание-с> <субагент-с|-> <несохранённое> <маркер: 1|0> <вход>
   local s="$1" W="$2" age="$3" sub="$4" dirty="$5" want="$6" what="$7" a got
   peak_world "$W" 100000 "$age" "$sub" "$dirty" || { printf 'мир не построен (git)'; return 3; }
