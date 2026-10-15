@@ -52,7 +52,7 @@ _t103_profile() {
   "workflowPaths": { "contracts": "$c", "verdicts": "$v", "registry": "$g", "fixtures": "$f" },
   "commands": { "test": "bash tasks/fx/_krasnye_toy.sh", "build": "true", "typecheck": "true", "lint": "true" },
   "git": { "canonicalRemote": "ssh://git@example.invalid/toy/103.git" },
-  "ci": { "workflow": "ci.yml" },
+  "ci": { "workflow": ".github/workflows/ci.yml" },
   "barriers": { "mandatory": [], "optional": [] },
   "contextPack": {
     "rows": [
@@ -74,7 +74,7 @@ EOF
     "workflowPaths": { "contracts": "$c", "verdicts": "$v", "registry": "$g", "fixtures": "$f" },
     "commands": { "test": "true", "build": "true", "typecheck": "true", "lint": "true" },
     "git": { "canonicalRemote": "ssh://git@example.invalid/toy/103.git" },
-    "ci": { "workflow": "ci.yml" },
+    "ci": { "workflow": ".github/workflows/ci.yml" },
     "barriers": { "mandatory": [], "optional": [] }
   }
 }
@@ -113,6 +113,12 @@ EOF
 
 # _t103_world <слаг> — toy-репо с нестандартной раскладкой; контракт 777 ТОЛЬКО
 # в tasks/h. Печатает каталог мира (репо — <мир>/repo).
+# Toy несёт инфраструктуру паритета CI (`.github/workflows/ci.yml` ↔
+# package.json scripts ↔ config/ci_parity_exceptions.txt): ноги (а)/(б)
+# pre_critic на --repo зовут check_precision_gate.sh/check_spec_ready.sh с R
+# (Frontier И-2), а precision-гейт 043 задачей (в) требует verify_ci_parity.sh
+# rc 0 — без `.github` он даёт «сверять не с чем» (rc 2 → красен). Это дефект
+# toy, не повод разоружать ноги (§Остаточный риск контракта 103; Рв96-3).
 _t103_world() {
   local slug="$1" d
   d="/tmp/dev-harness-verify/project-paths-103-${slug}-$$-${RANDOM}"
@@ -127,7 +133,10 @@ _t103_world() {
   printf '# план toy\n777\t1\tдо V-2\t-\ttoy\ttrack\n' >"$d/repo/tasks/reg/plan.tsv"
   printf '777 → 0000000000000000000000000000000000000000\n' >"$d/repo/tasks/reg/contracts.tsv"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$d/repo/tasks/fx/_krasnye_toy.sh"
-  printf 'name: ci\non: [push]\njobs: {}\n' >"$d/repo/ci.yml"
+  mkdir -p "$d/repo/.github/workflows" "$d/repo/config"
+  printf 'name: ci\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run test\n' >"$d/repo/.github/workflows/ci.yml"
+  printf '{ "name": "toy-103", "version": "0.0.1", "scripts": { "test": "bash tasks/fx/_krasnye_toy.sh" } }\n' >"$d/repo/package.json"
+  printf '# паритет CI toy 103: все скрипты package.json исполняются в ci.yml, исключений нет\n' >"$d/repo/config/ci_parity_exceptions.txt"
   mkdir -p "$d/repo/scripts"; printf '#!/usr/bin/env bash\n' >"$d/repo/scripts/toy.sh"
   _t103_contract "$d/repo/tasks/h/777-toy.md" 777
   git -C "$d/repo" add -A
