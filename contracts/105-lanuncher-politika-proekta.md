@@ -141,6 +141,8 @@
 ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 008 architect-зона (та же историческая причина)
 ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 010 architect-зона (контракт, вводящий саму топологию orchestrator/architect; закономерно последний architect-claim на эти пути)
 ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 010 architect-зона (та же причина)
+ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 015 implementer-зона (landed-миграция заголовков NABLIUDENIA*.md, прецедент тот же, что 037/065/066/069/070 для NABLIUDENIA_ARCHITECT.md): узкая миграционная дельта заголовков, не конфликтует с текущим владением файла оркестратором
+ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 074 implementer-зона (ops/server/* установка/обвязка станции, HANDOFF.md в списке как потребитель для записи операционных фактов развёртывания, не как предмет правки этим контрактом): 105 не трогает ops/server/
 
 РАБОТА НЕ РАЗДАЁТСЯ: scripts/verify_antiplacebo.sh (030/044 — семья probe-only 034 вне case_*-глоба :585) registry/contracts.tsv (dual-control 023/031; минт 105 стоит) .omp/ (005/002 frozen — политика потребляется, не правится) scripts/profile_resolver.sh scripts/gen-harness.ts scripts/check_approval.sh fixtures/_krasnye_054.sh fixtures/_krasnye_055.sh fixtures/_krasnye_058.sh fixtures/_krasnye_059.sh fixtures/_krasnye_060.sh fixtures/_krasnye_070.sh (раннеры соседей) .github/workflows/ci.yml package.json (подключение guard — реализационной пачкой ПОСЛЕ ленда, прецедент 104; до этого в пачке не правятся)
 
