@@ -23,6 +23,8 @@
 # m15 HEAD отсоединён на тот же OID (член 4; оба наблюдателя)                     + --no-deref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m16 main перезаписан на тот же OID (член 5; наблюдатель (1))                    + update-ref    red_ni_odna_ref_ne_dvinuta.sh (А-8)
 # m17 rc успешного проектного prepare подменён (блокер критика v4; обёртка над неизменной моделью — класс вне порчи по якорю)  rc 0→1 при projectLayer  red_oba_profilya.sh (А-5)
+# m18 успешный проектный prepare печатает base вместо M (вердикт адверсария v2 А-5; обёртка над неизменной моделью — класс m17)  stdout M→BASE при projectLayer  red_oba_profilya.sh (А-5, положительная проба проекта)
+# m19 пустой CSV-компонент «mandatory=» принят (вердикт адверсария v2 И-0)  «''|» выброшен из case mandatory + «[ -n "$mandatory" ] &&» выброшен  red_oba_profilya.sh (А-5, входы «пустой mandatory=» обоих профилей)
 # m0  пустышка БЕЗ порчи              —                    ВСЕ 8 клеток обязаны быть ЗЕЛЁНЫ (анти-тавтология)
 #
 # Поимка — ТОЛЬКО rc 1 (урок А-398): rc 0 (стаб прошёл клетку) и rc 2 (нечем
@@ -122,6 +124,9 @@ zapest m15 red_ni_odna_ref_ne_dvinuta.sh \
 zapest m16 red_ni_odna_ref_ne_dvinuta.sh \
   'printf '"'"'%s\n'"'"' "$m"' \
   's@printf '"'"'%s\\n'"'"' "\$m"@printf '"'"'%s\\n'"'"' "\$m"; git -C "\$REPO" update-ref refs/heads/main "\$BASE"@'
+zapest m19 red_oba_profilya.sh \
+  'mandatory=*) v="${line#mandatory=}"; case "$v" in '"'"''"'"'|' \
+  's@\(mandatory=\*) v="\${line#mandatory=}"; case "\$v" in \)'"'"''"'"'|@\1@;s@\[ -n "\$mandatory" \] \&\& @@'
 
 # m17 — обёртка rc-подмены проектного профиля (блокер критика круга 4): класс
 # ВНЕ порчи по якорю — обёртка вызывает НЕИЗМЕННУЮ модель (cmp-порча модели
@@ -156,19 +161,62 @@ fi
 exit "$rc"
 WRAP
 sed -i "s@__T97_MODEL__@$MODEL@" "$f17" && chmod +x "$f17"
-if [ -x "$f17" ] && [ "$(grep -Fc '# t97-m17' "$f17")" -eq 1 ]; then
-  AP097_MODE=model AP097_ROOT="$HERE/../.." AP097_SUBJECT="$f17" \
-    bash "$HERE/red_oba_profilya.sh" >/dev/null 2>&1; rc=$?
-  if [ "$rc" -eq 1 ]; then
-    printf -- '— стаб m17 ПОЙМАН клеткой red_oba_profilya.sh\n'
+# sudit_obertku <стаб-имя> <клетка-файл> <файл-обёртки> — суд стаба класса
+# «обёртка над неизменной моделью» (поимка — ТОЛЬКО rc 1, А-398)
+sudit_obertku() {
+  local name="$1" cell="$2" f="$3" rc
+  if [ -x "$f" ] && [ "$(grep -Fc "# t97-$name" "$f")" -eq 1 ]; then
+    AP097_MODE=model AP097_ROOT="$HERE/../.." AP097_SUBJECT="$f" \
+      bash "$HERE/$cell" >/dev/null 2>&1; rc=$?
+    if [ "$rc" -eq 1 ]; then
+      printf -- '— стаб %s ПОЙМАН клеткой %s\n' "$name" "$cell"
+    else
+      printf 'СТАБ УШЁЛ: %s не пойман клеткой %s (rc=%s; поимка — ТОЛЬКО rc 1, А-398)\n' "$name" "$cell" "$rc" >&2
+      itog=1
+    fi
   else
-    printf 'СТАБ УШЁЛ: m17 не пойман клеткой red_oba_profilya.sh (rc=%s; поимка — ТОЛЬКО rc 1, А-398)\n' "$rc" >&2
-    itog=1
+    printf 'ОТКАЗ: стаб %s не строится (маркер/исполняемость)\n' "$name" >&2
+    itog=2
   fi
-else
-  printf 'ОТКАЗ: стаб m17 не строится (маркер/исполняемость)\n' >&2
-  itog=2
+}
+sudit_obertku m17 red_oba_profilya.sh "$f17"
+
+# m18 — обёртка подмены stdout успешного проектного prepare (вердикт адверсария
+# v2 А-5): тот же класс, что m17 — вызывает НЕИЗМЕННУЮ модель, а при
+# verb=prepare && rc=0 и ключе "projectLayer" в принятом harness.project.json
+# на base печатает SHA самой базы вместо созданного M: rc 0, валидный 40-hex,
+# refs/объекты не тронуты. На харнесе и на отказных ветках честна — дефект
+# наблюдаем ТОЛЬКО положительной пробой проектного профиля клетки А-5,
+# обязанной сверять напечатанный sha с M (родители base+cand, дерево оракула).
+f18="$WORK/m18.sh"
+cat >"$f18" <<'WRAP'
+#!/usr/bin/env bash
+# t97-m18: обёртка подмены stdout успешного проектного prepare (base вместо M)
+set -uo pipefail
+MODEL="__T97_MODEL__"
+orig=("$@")
+verb="${1:-}"
+REPO=""; BASE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) REPO="${2:-}"; shift 2 ;;
+    --base) BASE="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+out="$("$MODEL" "${orig[@]}")"
+rc=$?
+if [ "$verb" = "prepare" ] && [ "$rc" -eq 0 ] && [ -n "$REPO" ] && [ -n "$BASE" ]; then
+  if git -C "$REPO" show "$BASE:harness.project.json" 2>/dev/null | grep -Fq '"projectLayer"'; then
+    printf '%s\n' "$BASE"
+    exit 0
+  fi
 fi
+[ -n "$out" ] && printf '%s\n' "$out"
+exit "$rc"
+WRAP
+sed -i "s@__T97_MODEL__@$MODEL@" "$f18" && chmod +x "$f18"
+sudit_obertku m18 red_oba_profilya.sh "$f18"
 
 # пустышка: копия модели без порчи — каждая клетка обязана быть ЗЕЛЁНОЙ
 # (клетка, красная всегда, «ловила» бы и пустышку — анти-тавтология)
