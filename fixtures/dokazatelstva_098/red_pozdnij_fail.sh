@@ -21,7 +21,7 @@ _d98_dokazatelstva "$W" T-1 "$B" "$C" "$M" "$OID" \
 
 # поздний fail — СОБЫТИЕ из вердикт-файла (не из CI: CI мира зелёный)
 printf 'FAIL\n' >"$W/verdikt-fail.md"
-out="$( _d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt-fail.md" 2>&1)"; rc=$?
+out="$( _d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt-fail.md" $(_d98_sud "$W" "$M") 2>&1)"; rc=$?
 n="$(awk -F'\t' -v t=T-1 -v o="$OID" '$1=="verdict" && $2==t && $3==o && $4=="fail"' "$J" | wc -l)"
 if [ "$rc" -ne 0 ] || [ "$n" -ne 1 ]; then
   printf 'КРАСНО: pozdnij-fail: событие FAIL не записано строкой fail (rc=%s, строк=%s, вывод: %s)\n' "$rc" "$n" "$out" >&2; exit 1
@@ -40,7 +40,7 @@ grep -Fq 'published' "$J" \
 
 # положительный контроль: ещё более новый accept — последний применимый исход
 printf 'accept\n' >"$W/verdikt-ok.md"
-_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt-ok.md" \
+_d98_zov "$W" "$W/prinyato/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt-ok.md" $(_d98_sud "$W" "$M") \
   || { printf 'КРАСНО: pozdnij-fail: verdict-писатель отказал на accept\n' >&2; exit 1; }
 out="$( _d98_zov "$W" "$W/prinyato/scripts/accept_publish.sh" publish --repo "$W/repo" \
   --task T-1 --target main --base "$B" --candidate "$C" --merge "$M" \
