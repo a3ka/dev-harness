@@ -2,7 +2,9 @@
 # Честная модель 103: грамматика scripts/check_project_standard.sh —
 # исполняемая форма офлайн-проверяемых условий стандарта проекта v1 §1
 # (docs/owner/2026-10-14-standart-proekta-v1.md). CLI: --repo <R>
-# [--layer-root <L>] (слой проекта: HARNESS_PROJECT_LAYER_ROOT|--layer-root|R).
+# [--layer-root <L>]; слой проекта — приоритет --layer-root > HARNESS_PROJECT_LAYER_ROOT > R.
+# Пустой/отсутствующий --repo — «нечем проверить» (rc 2, NOT_IMPLEMENTED), не
+# аварийный выход shell (A103-2/Рв96-5).
 #
 # Условия (единый источник имён причин — ЭТОТ список; продукт несёт его
 # побайтово). Каждое нарушение — СВОЯ строка «ОТКАЗ: стандарт: <имя>: <деталь>»
@@ -27,15 +29,15 @@ set -uo pipefail
 REPO=""; LAYER=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo) REPO="${2:?}"; shift 2 ;;
-    --layer-root) LAYER="${2:?}"; shift 2 ;;
+    --repo) REPO="${2:-}"; shift; [ $# -eq 0 ] || shift ;;
+    --layer-root) LAYER="${2:-}"; shift; [ $# -eq 0 ] || shift ;;
     *) printf 'usage: check_project_standard.sh --repo R [--layer-root L]\n' >&2; exit 2 ;;
   esac
 done
 [ -n "$REPO" ] && [ -d "$REPO" ] || { printf 'NOT_IMPLEMENTED: нет репо: %s\n' "$REPO" >&2; exit 2; }
 command -v jq >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет jq\n' >&2; exit 2; }
 R="$(cd "$REPO" && pwd -P)"
-[ -n "$LAYER" ] || LAYER="${HARNESS_PROJECT_LAYER_ROOT:-$R}"
+[ -n "$LAYER" ] || LAYER="${HARNESS_PROJECT_LAYER_ROOT:-$R}" # t103-m11
 itog=0
 fail() { printf 'ОТКАЗ: стандарт: %s: %s\n' "$1" "$2" >&2; itog=1; }
 
@@ -51,7 +53,7 @@ else
   for k in schemaVersion repoId language projectLayer; do
     jq -e --arg k "$k" 'has($k) and .[$k] != null and .[$k] != ""' "$RJ" >/dev/null 2>&1 || fail profil "нет ключа $k" # t103-m6
   done
-  [ "$(jq -r '.schemaVersion' "$RJ" 2>/dev/null)" = "1" ] || fail profil "schemaVersion не 1"
+  [ "$(jq -r '.schemaVersion' "$RJ" 2>/dev/null)" = "1" ] || fail profil "schemaVersion не 1" # t103-m14
   pp="$(jq -r '.projectLayer.profilePath // empty' "$RJ" 2>/dev/null)"
   [ -n "$pp" ] && [ -f "$LAYER/$pp" ] && PJ="$LAYER/$pp" || fail profil "слой проекта не найден: ${pp:-?}"
 fi
@@ -77,7 +79,7 @@ lf=0; for f in package-lock.json yarn.lock pnpm-lock.yaml Cargo.lock; do [ -f "$
 [ "$lf" -eq 1 ] || fail lockfile "нет lockfile (package-lock.json|yarn.lock|pnpm-lock.yaml|Cargo.lock)"
 
 # komandy-true
-for k in test lint typecheck build; do
+for k in test lint typecheck build; do # t103-m12
   v="$(eff commands "$k")"
   [ "$v" != "true" ] || fail komandy-true "commands.$k замаскирована true" # t103-m4
 done
@@ -97,7 +99,7 @@ done
 # env
 [ -f "$R/.env.example" ] || fail env-example "нет .env.example"
 if ! git -C "$R" check-ignore -q .env 2>/dev/null; then fail env-ignore ".env не игнорируется"; fi # t103-m5
-if git -C "$R" ls-files --error-unmatch .env >/dev/null 2>&1; then fail env-ignore ".env в индексе"; fi
+if git -C "$R" ls-files --error-unmatch .env >/dev/null 2>&1; then fail env-ignore ".env в индексе"; fi # t103-m13
 
 # harness-pin
 if [ ! -f "$R/config/harness_pin.json" ]; then fail harness-pin "нет config/harness_pin.json"

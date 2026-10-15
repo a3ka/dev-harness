@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Обманный стаб-пак 103 (Н-39): четырнадцать стабов на десяти маркерах честных моделей, каждый ОДНОЙ
+# Обманный стаб-пак 103 (Н-39): двадцать один стаб на шестнадцати маркерах честных моделей, каждый ОДНОЙ
 # sed-по-маркеру `# t103-mN`, привязана к клетке, на чьём входе дефект
 # НАБЛЮДАЕМ (привязка — В ЭТОМ КОДЕ). Пойман = клетка против стаба rc 1.
 #
@@ -18,6 +18,13 @@
 # s12 стаб s1 (contracts зашит) на входе брифа              m1  kontrakt_po_profilju   red_brief_iz_profilnogo_puti.sh
 # s13 путь реестра зашит «registry» (план брифа)            m10 kontrakt_po_profilju   red_brief_iz_profilnogo_puti.sh
 # s14 exit после первой красной строки стандарта            m4  check_project_standard red_standart_polnyj_nabor.sh
+# s15 приоритет слоя env > CLI (--layer-root игнорируется) m11 check_project_standard red_standart_etalon.sh   (prioritet)
+# s16 слой всегда R (игнор --layer-root и env)           m11 check_project_standard red_standart_etalon.sh   (sloj-vne)
+# s17 komandy-true проверяет только test                 m12 check_project_standard red_standart_narushenija.sh (lint)
+# s18 проверка «.env не в индексе» снята                  m13 check_project_standard red_standart_narushenija.sh (indeks)
+# s19 проверка schemaVersion = 1 снята                    m14 check_project_standard red_standart_narushenija.sh (schemaVersion)
+# s20 второй резолвер: registry своим jq по R, не resolver m15 dver_reestra           red_spawn_reestr_proekta.sh (i3в/i3г)
+# s21 второй резолвер в ноге (г): registry своим jq по R  m16 pre_critic_proekta     red_pre_critic_cwd.sh (i2в)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 M_MT="$HERE/model/kontrakt_po_profilju.sh"
@@ -72,5 +79,12 @@ zapest s11 t103-m9  red_frozen_koren_ne_istochnik.sh     's@.*# t103-m9.*@  FROZ
 zapest s12 t103-m1  red_brief_iz_profilnogo_puti.sh      's@.*# t103-m1$@WP_C="contracts" # t103-m1 порча@'                         "$M_MT" PP103_MAKE_TASK
 zapest s13 t103-m10 red_brief_iz_profilnogo_puti.sh      's@.*# t103-m10.*@WP_G="registry" # t103-m10 порча@'                        "$M_MT" PP103_MAKE_TASK
 zapest s14 t103-m4  red_standart_polnyj_nabor.sh         's@.*# t103-m4.*@  [ "$v" != "true" ] || { fail komandy-true "commands.$k замаскирована true"; exit 1; } # t103-m4 порча@' "$M_ST" PP103_STANDARD
+zapest s15 t103-m11 red_standart_etalon.sh               's@.*# t103-m11.*@LAYER="${HARNESS_PROJECT_LAYER_ROOT:-${LAYER:-$R}}" # t103-m11 порча@' "$M_ST" PP103_STANDARD
+zapest s16 t103-m11 red_standart_etalon.sh               's@.*# t103-m11.*@LAYER="$R" # t103-m11 порча@'                                      "$M_ST" PP103_STANDARD
+zapest s17 t103-m12 red_standart_narushenija.sh          's@.*# t103-m12.*@for k in test; do # t103-m12 порча@'                                "$M_ST" PP103_STANDARD
+zapest s18 t103-m13 red_standart_narushenija.sh          's@.*# t103-m13.*@: # t103-m13 порча@'                                                "$M_ST" PP103_STANDARD
+zapest s19 t103-m14 red_standart_narushenija.sh          's@.*# t103-m14.*@  : # t103-m14 порча@'                                              "$M_ST" PP103_STANDARD
+zapest s20 t103-m15 red_spawn_reestr_proekta.sh          's@.*# t103-m15.*@REG="$(jq -r '"'"'.workflowPaths.registry // empty'"'"' "$ROOT/harness.project.json" 2>/dev/null)"; [ -n "$REG" ] || REG="$(jq -r '"'"'.defaults.workflowPaths.registry // empty'"'"' "$ROOT/$(jq -r '"'"'.projectLayer.profilePath // empty'"'"' "$ROOT/harness.project.json")" 2>/dev/null)" # t103-m15 порча@' "$M_SP" PP103_SPAWN
+zapest s21 t103-m16 red_pre_critic_cwd.sh                's@.*# t103-m16.*@REG="$(jq -r '"'"'.workflowPaths.registry // empty'"'"' "$BASE/harness.project.json" 2>/dev/null)"; [ -n "$REG" ] || REG="registry" # t103-m16 порча@' "$M_PC" PP103_PRE_CRITIC
 printf 'ИТОГ стаб-пак 103: rc=%s\n' "$itog"
 exit "$itog"

@@ -144,6 +144,26 @@ _t103_world() {
   printf '%s\n' "$d"
 }
 
+# _t103_world_sloj_vne <слаг> — тот же toy, но слой проекта лежит ВНЕ репо
+# (<мир>/layer/tasks/reg/harness-project.json; потребители получают его через
+# HARNESS_PROJECT_LAYER_ROOT=<мир>/layer), а репо-слой harness.project.json
+# НЕ объявляет workflowPaths (схема 054: в репо-слое ключ необязателен) — как у
+# Complior/odelix-stack. В R нет tasks/reg/harness-project.json. Эффективный
+# workflowPaths.registry=tasks/reg существует ТОЛЬКО через profile_resolver.sh;
+# «второй резолвер» (свой jq по R) его не видит (Рв96-2). Печатает каталог мира.
+_t103_world_sloj_vne() {
+  local d r
+  d="$(_t103_world "$1")" || return 2
+  r="$d/repo"
+  mkdir -p "$d/layer/tasks/reg" || t103_ni "слой вне репо не строится: $d"
+  mv "$r/tasks/reg/harness-project.json" "$d/layer/tasks/reg/harness-project.json" || t103_ni "перенос слоя"
+  jq 'del(.workflowPaths)' "$r/harness.project.json" >"$r/harness.project.json.new" || t103_ni "jq del workflowPaths"
+  mv "$r/harness.project.json.new" "$r/harness.project.json"
+  git -C "$r" add -A
+  git -C "$r" commit -qm 'слой проекта вне репо; репо-слой без workflowPaths'
+  printf '%s\n' "$d"
+}
+
 # _t103_complior <слаг> — Complior-подобный эталон стандарта §1 (Node-проект с
 # npm-скриптами, lockfile, AGENTS.md, .env.example, игнорируемый .env, пин
 # харнеса, origin с main, профиль двух слоёв по раскладке .harness/*).
