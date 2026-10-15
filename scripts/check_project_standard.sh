@@ -27,8 +27,18 @@ set -uo pipefail
 REPO=""; LAYER=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo) REPO="${2:?}"; shift 2 ;;
-    --layer-root) LAYER="${2:?}"; shift 2 ;;
+    # Рв96-5/A103-2: пустой либо отсутствующий --repo — «нечем проверить»
+    # (rc 2), не аварийный выход bash на подстановке значения флага.
+    --repo)
+      if [ $# -lt 2 ] || [ -z "$2" ]; then
+        printf 'NOT_IMPLEMENTED: нет репо\n' >&2; exit 2
+      fi
+      REPO="$2"; shift 2 ;;
+    --layer-root)
+      if [ $# -lt 2 ]; then
+        printf 'usage: check_project_standard.sh --repo R [--layer-root L]\n' >&2; exit 2
+      fi
+      LAYER="$2"; shift 2 ;;
     *) printf 'usage: check_project_standard.sh --repo R [--layer-root L]\n' >&2; exit 2 ;;
   esac
 done
