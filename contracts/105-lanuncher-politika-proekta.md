@@ -59,7 +59,7 @@
 
 1. Список расширений — `"$HERE"/.omp/extensions/*.ts` (glob установки, только регулярные файлы `*.ts`, абсолютные пути); каждому — пара `-e <путь>` в argv exec. Пустой список допустим (ноль пар).
 2. Политика — пара `--config "$HERE/.omp/config.yml"` в argv exec; при `--models` пара оверлея `"${OVERLAY[@]}"` стоит ПОЗЖЕ пары политики.
-3. `AGENTS="$HOME/.omp/profiles/$PROFILE/agent/agents"` (PROFILE=dev, workshop:99) после подмены HOME (055 М1); `gen-harness.ts --into/--check` без изменений; N2-цепочка на этот же путь; `$HOME/.omp/agent/agents` лаунчер не создаёт.
+3. `AGENTS="$HOME/.omp/profiles/$PROFILE/agent/agents"` (PROFILE=dev, workshop:99) после подмены HOME (055 М1); `gen-harness.ts --into/--check` без изменений; N2-цепочка на этот же путь; `$HOME/.omp/agent/agents` лаунчер не создаёт. Цена пути: каталог ролей — внутри каталога шага AGENTDB (`$PSTATE/home/.omp/profiles/dev/agent`), и клетка к2 058 (`red_sharing_agentdb.sh`) судила отсутствие этого каталога; к2 узко мигрирована ЭТОЙ пачкой (architect, зона семьи 058): предикат «каталог шага отсутствует» → «в каталоге шага нет ничего, кроме `agents`» — артефакты шага (ссылка/файл `agent.db`) красны по-прежнему, мутант c2 058 ловится `-L` на PROJDB, не каталогом; зелёна до реализации (каталога нет) и после (в нём только `agents`).
 4. Отказ флагов — одна `case`-ветка разбора argv рядом с `--approval-mode*` (workshop:484): `--no-extensions|--extension|--extension=*|-e|--hook|--hook=*) die "флаг $1 затирает политику расширений установки …"`; стоит ДО `-*) break`. Посторонние флаги хвоста по-прежнему уходят в omp.
 5. Строки stdout `EXT: <путь>` (по одной на расширение, в порядке списка), `CONFIG: <путь политики>`, `AGENTS: <путь каталога ролей>` печатаются безусловно (и в пробе, и в живом режиме — как `WORKFLOW:/STATE:/METERING:`), из тех же массивов, что идут в exec; проба omp не вызывает (сегодняшняя граница 054 §Демаркация сохраняется).
 6. Порядок в exec: `--profile "$PROFILE" --model "$LIVE_MODEL" --config <политика> -e … "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt … --tools … "$@"`.
@@ -80,8 +80,17 @@
 
 ## Модель угроз
 
-ЗАЩИЩАЕТ: от сессии проекта без политики установки (три слоя — расширения, конфиг, роли — наблюдаемы в argv/окружении фактического exec, не в баннере); от снятия политики первым флагом хвоста (шесть форм, отказ до любого вызова omp); от перекрытия политики установки конфигом проекта (CLI-оверлей выше проектного слоя); от пробы, доказывающей не то, что исполняется (конгруэнтность на одном HOME).
-НЕ ЗАЩИЩАЕТ: от расширений самого проекта (`<cwd>/.omp/extensions` грузит omp — вопрос доверия, вне предмета); от запретного флага за посторонним флагом (позиционная дыра `-*) break`, общая с 002 — отдельный контракт); от подмены `$HERE/.omp/*` на диске установки (целостность установки — 016/018); от поведения загруженных расширений при cwd=проект (П-107/П-111).
+ЗАЩИЩАЕТ:
+- от сессии проекта без политики установки: три слоя — расширения, конфиг, роли — наблюдаемы в argv и окружении фактического exec стаб-omp, не в баннере;
+- от снятия политики первым флагом хвоста: шесть форм (`--no-extensions`, `--extension <x>`, `--extension=<x>`, `-e <x>`, `--hook <x>`, `--hook=<x>`) дают именованный отказ до любого вызова omp;
+- от перекрытия политики установки конфигом проекта: `--config` установки — CLI-оверлей, который по omp://settings.md стоит выше проектного слоя `<cwd>/.omp/config.yml`;
+- от пробы, доказывающей не то, что исполняется: строки `EXT:`/`CONFIG:`/`AGENTS:` печатаются из тех же массивов, что идут в exec, и клетка И-5 судит их конгруэнтность живому argv на одном HOME.
+
+НЕ ЗАЩИЩАЕТ:
+- от расширений самого проекта: `<cwd>/.omp/extensions` грузит omp сам, доверие к ним — вопрос владельца вне предмета;
+- от запретного флага за посторонним флагом: позиционная дыра `-*) break` общая с 002 и закрывается отдельным контрактом;
+- от подмены `$HERE/.omp/*` на диске установки: целостность установки — предмет 016/018, не лаунчера;
+- от поведения загруженных расширений при cwd=проект: семантика path-guard и соседей в сессии проекта — П-107/П-111.
 
 ## Приёмочный критерий (сценарии; грамматика 050)
 
@@ -111,14 +120,14 @@
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 002 architect-зона (политика подтверждений, frozen): ветка `--approval-mode*` (:484) и `YOLO_ARGS` не правятся; новая `case`-ветка 105 стоит рядом, `scripts/check_approval.sh` остаётся зелёным
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 054 implementer-зона (заморожена frozen/contracts/054/1): probe-граница (omp в пробе не зовётся), P1..P9/W2-семантики, промпт И-9 не правятся; дельта — три строки баннера и путь ролей; судятся клетками 054
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 055 implementer-зона (заморожена frozen/contracts/055/1): подмена HOME М1, PSTATE, лок М2, метеринг М3 без дельт; каталог ролей остаётся ВНУТРИ `$PSTATE/home`
-ПЕРЕСЕЧЕНИЕ implementer: workshop — 058 architect-зона (шаринг agent.db, landed): N2-цепочка :823 переводится на новый путь ролей (:822 уже канонизирует `profiles/$PROFILE/agent`); шаг AGENTDB не трогается, батарея 058 зелёная
+ПЕРЕСЕЧЕНИЕ implementer: workshop — 058 architect-зона (шаринг agent.db, landed): N2-цепочка :823 переводится на новый путь ролей (:822 уже канонизирует `profiles/$PROFILE/agent`); шаг AGENTDB не трогается, батарея 058 зелёная на мигрированной к2 (Решение 3)
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 059 (landed): сверка путей профиля не затрагивается
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 060 (landed): HARNESS_WORKFLOW_ROOT/TOOLS_ROOT-экспорты и блок R1-R3 не затрагиваются
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 070 implementer-зона (landed): шаг GITHUB и его баннер не трогаются
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 054 implementer-зона каталога (заморожена): новые файлы семьи (`_mir_105.sh`, `model_105/`, `battery_stubs_105.sh`, пять `red_*_105.sh`); файлы 054 не правятся
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 055 implementer-зона каталога (заморожена): `red_izoljacija_projectid.sh`, `_verify_055_r3.sh` не правятся
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 057 implementer-зона (заморожена): `red_profil_dva_sloja.sh` не правится
-ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 058 architect-зона семьи: `red_sharing_agentdb.sh` не правится; в маркер `.probe-only` дописан абзац 105 (прецедент 070)
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 058 architect-зона семьи: `red_sharing_agentdb.sh` — одна узкая миграция предиката к2 (Решение 3), прочие клетки и стаб-пак не правятся; в маркер `.probe-only` дописан абзац 105 (прецедент 070)
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 059 architect-зона семьи: `red_sverka_puti_profylja.sh` не правится
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 060 architect-зона семьи: `red_samodostatochnost_repo_060.sh` не правится; батарея 105 батареи соседей не зовёт
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/ — 070 architect-зона семьи: `red_github_token_070.sh` не правится; `.probe-only` — дописка абзаца
@@ -144,7 +153,7 @@
 ПЕРЕСЕЧЕНИЕ orchestrator: NABLIUDENIA.md — 015 implementer-зона (landed-миграция заголовков NABLIUDENIA*.md, прецедент тот же, что 037/065/066/069/070 для NABLIUDENIA_ARCHITECT.md): узкая миграционная дельта заголовков, не конфликтует с текущим владением файла оркестратором
 ПЕРЕСЕЧЕНИЕ orchestrator: HANDOFF.md — 074 implementer-зона (ops/server/* установка/обвязка станции, HANDOFF.md в списке как потребитель для записи операционных фактов развёртывания, не как предмет правки этим контрактом): 105 не трогает ops/server/
 
-РАБОТА НЕ РАЗДАЁТСЯ: scripts/verify_antiplacebo.sh (030/044 — семья probe-only 034 вне case_*-глоба :585) registry/contracts.tsv (dual-control 023/031; минт 105 стоит) .omp/ (005/002 frozen — политика потребляется, не правится) scripts/profile_resolver.sh scripts/gen-harness.ts scripts/check_approval.sh fixtures/_krasnye_054.sh fixtures/_krasnye_055.sh fixtures/_krasnye_058.sh fixtures/_krasnye_059.sh fixtures/_krasnye_060.sh fixtures/_krasnye_070.sh (раннеры соседей) .github/workflows/ci.yml package.json (подключение guard — реализационной пачкой ПОСЛЕ ленда, прецедент 104; до этого в пачке не правятся)
+РАБОТА НЕ РАЗДАЁТСЯ: scripts/verify_antiplacebo.sh (030/044 — семья probe-only 034 вне case_*-глоба :585) registry/contracts.tsv (dual-control 023/031; минт 105 стоит) .omp/ (005/002 frozen — политика потребляется, не правится) scripts/profile_resolver.sh scripts/gen-harness.ts scripts/check_approval.sh fixtures/_krasnye_054.sh fixtures/_krasnye_055.sh fixtures/_krasnye_058.sh fixtures/_krasnye_059.sh fixtures/_krasnye_060.sh fixtures/_krasnye_070.sh (раннеры соседей) .github/workflows/ci.yml package.json (подключение guard — реализационной пачкой ПОСЛЕ ленда, прецедент 104: исполнитель — implementer той пачки, ЗОНА-строкой её контракта/раздачи, не молчаливым расширением зоны `workshop`; до этого в пачке не правятся)
 
 ## Остаточный риск
 
