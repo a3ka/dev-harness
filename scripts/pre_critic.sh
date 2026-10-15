@@ -96,30 +96,25 @@ refuse() { printf 'ОТКАЗ: %s\n' "$1" >&2; exit 1; }
 
 # ── (а) precision-гейт и (б) spec-preflight на ПЕРЕДАННОМ контракте ──
 # Без --repo — 072 дословно: cd в ROOT, гейты идут с `.` == ROOT.
-# С --repo R (Frontier И-2) гейты зовутся с R вместо `.`; вооружение —
-# правило А-384 (нога вооружается ФАЙЛОМ в проверяемом дереве, не
-# предположением): гейт-механизм обязан быть в дереве проекта
-# (scripts/check_precision_gate.sh в R) — чужое дерево без него npm-гейтами
-# харнеса не судится (паритет CI харнеса к чужому репо неприменим — «сверять
-# не с чем»), контракт там судят ноги (в) Н-39 и (г) формы.
-GATE_ROOT=""
+# С --repo R (Frontier И-2, Рв96-3) ноги (а)/(б) зовутся ВСЕГДА, с R
+# вместо `.` — без условия «есть scripts/check_precision_gate.sh в R»:
+# гейты харнеса судят чужой контракт (§Остаточный риск 103: если
+# precision/spec-гейт отвергнет toy, это дефект toy, не ослабление гейта).
 if [ -n "$REPO_ARG" ]; then
-  [ -f "$BASE/scripts/check_precision_gate.sh" ] && GATE_ROOT="$BASE"
+  GATE_ROOT="$BASE"
 else
   GATE_ROOT="$ROOT"
 fi
-if [ -n "$GATE_ROOT" ]; then
-  # cd в ROOT — ноги (а)/(б) гейтов ожидают `.` == ROOT-пути (а не чужого cwd);
-  # прецедент stub-двери батареи 072. Гейт идёт ОТНОСИТЕЛЬНЫМ путём
-  # (bash scripts/check_…sh), чтобы `.` при вызове гейта резолвилось в
-  # cwd-окружения (== ROOT после cd); с --repo корень гейта — сам R.
-  cd "$ROOT" || { printf 'NOT_IMPLEMENTED: нет корня\n' >&2; exit 2; }
-  if ! bash scripts/check_precision_gate.sh "$GATE_ROOT" "$CONTRACT" >/dev/null 2>&1; then
-    refuse "precision-gate красен: $CONTRACT"
-  fi
-  if ! bash scripts/check_spec_ready.sh "$GATE_ROOT" "$CONTRACT" >/dev/null 2>&1; then
-    refuse "spec-ready красен: $CONTRACT"
-  fi
+# cd в ROOT — ноги (а)/(б) гейтов ожидают `.` == ROOT-пути (а не чужого cwd);
+# прецедент stub-двери батареи 072. Гейт идёт ОТНОСИТЕЛЬНЫМ путём
+# (bash scripts/check_…sh), чтобы `.` при вызове гейта резолвилось в
+# cwd-окружения (== ROOT после cd); с --repo корень гейта — сам R.
+cd "$ROOT" || { printf 'NOT_IMPLEMENTED: нет корня\n' >&2; exit 2; }
+if ! bash scripts/check_precision_gate.sh "$GATE_ROOT" "$CONTRACT" >/dev/null 2>&1; then
+  refuse "precision-gate красен: $CONTRACT"
+fi
+if ! bash scripts/check_spec_ready.sh "$GATE_ROOT" "$CONTRACT" >/dev/null 2>&1; then
+  refuse "spec-ready красен: $CONTRACT"
 fi
 
 # ── (в) Н-39 — привязка стаба в прозе; порог (правило 8): цитата в
