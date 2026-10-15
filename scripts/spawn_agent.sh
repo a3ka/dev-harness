@@ -167,9 +167,9 @@ if [ -n "$nnn" ]; then
   # Рв96-2: ЕДИНСТВЕННЫЙ источник merge-логики — scripts/profile_resolver.sh
   # (Предмет 103: второй резолвер запрещён): слой проекта ищется по
   # HARNESS_PROJECT_LAYER_ROOT (умолчание — сам --root, как у make_task), а не
-  # под $ROOT. Обвязка ci.workflow — по прецеденту make_task: объявленный
-  # резолвером файл может ещё не существовать в дереве — на время вызова
-  # создаётся пустой placeholder и вычищается по выходу. Маркер профиля —
+  # под $ROOT. Рв96-14: placeholder ci.workflow НЕ создаётся — резолвер зовётся
+  # на дереве как есть (чтение, без записи в дерево проекта), его отказ
+  # печатается дословно. Маркер профиля —
   # harness.project.json (тот же якорь, что у ноги И-15): репо без профиля
   # (toy-миры 016/023) держит harness-layout «registry» — грамматика строки
   # и membership-сверка 2а/2б/2в не меняются; фраза 3б несёт фактический путь.
@@ -180,28 +180,16 @@ if [ -n "$nnn" ]; then
     _sp_resolver="$SELF_DIR/profile_resolver.sh"
     [ -x "$_sp_resolver" ] \
       || { printf 'NOT_IMPLEMENTED: нет profile_resolver.sh: %s\n' "$_sp_resolver" >&2; exit 2; }
-    _sp_cw="$(jq -r '.ci.workflow // empty' "$ROOT/harness.project.json" 2>/dev/null || true)"
-    _sp_ph=""
-    if [ -n "$_sp_cw" ] && [ ! -e "$ROOT/$_sp_cw" ]; then
-      case "$_sp_cw" in
-        /*|*../*) printf 'ОТКАЗ: ci.workflow обязан быть относительным: %s\n' "$_sp_cw" >&2; exit 1 ;;
-      esac
-      mkdir -p "$(dirname "$ROOT/$_sp_cw")" 2>/dev/null || :
-      : > "$ROOT/$_sp_cw" || :
-      _sp_ph="$_sp_cw"
-    fi
     _sp_err="$(mktemp)"
     if ! _sp_merged="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" "$_sp_resolver" --repo "$ROOT" 2>"$_sp_err")"; then
       _sp_reason="$(cat "$_sp_err" 2>/dev/null || true)"
       rm -f "$_sp_err"
-      [ -z "$_sp_ph" ] || rm -f "$ROOT/$_sp_ph"
       printf 'ОТКАЗ: %s\n' "${_sp_reason#profile ОТКАЗ: }" >&2
       exit 1
     fi
     rm -f "$_sp_err"
-    [ -z "$_sp_ph" ] || rm -f "$ROOT/$_sp_ph"
     MANIFEST_REG="$(printf '%s' "$_sp_merged" | jq -r '.workflowPaths.registry.value // empty')"
-    unset _sp_merged _sp_resolver _sp_cw _sp_ph _sp_err _sp_reason
+    unset _sp_merged _sp_resolver _sp_err _sp_reason
     [ -n "$MANIFEST_REG" ] || { printf 'ОТКАЗ: профиль без workflowPaths.registry\n' >&2; exit 1; }
   fi
   MANIFEST_PATH="${MANIFEST_REG}/contracts.tsv"
