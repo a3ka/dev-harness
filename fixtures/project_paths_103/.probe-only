@@ -1,14 +1,15 @@
 probe-only каталог (контракт 034, инв. 1): предмет — контракт 103 «профильные пути
-вместо harness-layout». Каталог — архитекторская красная батарея: 11 клеток
-red_*.sh (оракул в памяти клетки, правило 8) + модели условий стандарта
-(model/check_project_standard.sh, model/dver_reestra.sh, model/
-kontrakt_po_profilju.sh, model/pre_critic_proekta.sh — честные каркасы как
-шаблоны порч) + стаб-пак battery_stubs.sh (14 порч, каждая привязана к входу,
-где её дефект наблюдаем, Н-39) + toy-мир _toy.sh. Барьерного ключа
-scripts/project_paths_103.sh НЕТ и НЕ появится: субъекты — файлы ЗОНЫ
-implementer (scripts/check_project_standard.sh, scripts/make_task.sh,
-scripts/pre_critic.sh, scripts/spawn_agent.sh), предмет реализуется их правкой,
-а не файлом-барьером этого каталога. case_*.sh нет и не будет: клетки
-предъявляются напрямую и через агрегатор fixtures/_krasnye_103.sh (rc 0 ⟺
-стаб-пак ∧ все клетки); guard подключается в CI только после landing предмета
-(прецеденты 074/093/098/104; ПРОВОДКА контракта 103).
+вместо harness-layout + исполняемый стандарт проекта v1 §1». Это архитекторская
+красная батарея, а не барьерный каталог: 11 клеток red_*.sh (оракул в памяти
+клетки, правило 8; каждый вход внутри клетки красен своей строкой «КРАСНО: <id>:»),
+честные модели model/{kontrakt_po_profilju,pre_critic_proekta,dver_reestra,
+check_project_standard}.sh как носители грамматики и шаблоны порч, стаб-пак
+battery_stubs.sh (sed по маркерам `# t103-mN`; привязка стаб → клетка → вход, где
+дефект наблюдаем, — в его коде, Н-39), каркас миров _toy.sh (toy с раскладкой
+tasks/*, вариант со слоем проекта вне репо, эталон Complior с .harness/*).
+Барьерного ключа scripts/project_paths_103.sh НЕТ и не появится: субъекты — живые
+скрипты ЗОНЫ implementer (make_task.sh, pre_critic.sh, spawn_agent.sh,
+check_project_standard.sh), предмет реализуется их правкой. case_*.sh нет и не
+будет: предъявление — прямой прогон клетки либо агрегатор fixtures/_krasnye_103.sh
+(rc 0 ⟺ стаб-пак ∧ все клетки; `--model` — те же клетки против моделей, анти-
+тавтология). Guard агрегатора в CI — строкой registry/ci-steps.tsv (ПРОВОДКА 103).
