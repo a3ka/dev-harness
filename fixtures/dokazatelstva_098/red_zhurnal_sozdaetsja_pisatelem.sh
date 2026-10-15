@@ -55,7 +55,7 @@ fi
 
 # 2. verdict-писатель
 bez_zhurnala || { printf 'КРАСНО: zhurnal-sozdaetsja: вход неконформен — журнал не снимается\n' >&2; exit 2; }
-if _d98_zov "$W" "$P/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt-$OID.md"; then
+if _d98_zov "$W" "$P/scripts/judge_gate.sh" "$M" --verdict-row T-1 "$OID" "$W/verdikt-$OID.md" $(_d98_sud "$W" "$M"); then
   n=0
   sozdan && n="$(awk -F'\t' -v t=T-1 -v o="$OID" '$1=="verdict" && $2==t && $3==o && $4=="accept" && $5 ~ /^[0-9]+$/ && $5+0 > 0' "$J" | wc -l)"
   [ "$n" -eq 1 ] || { printf 'КРАСНО: zhurnal-sozdaetsja: verdict-row rc 0, но журнал не создан / не ровно одна строка verdict accept (n=%s)\n' "$n" >&2; red=1; }

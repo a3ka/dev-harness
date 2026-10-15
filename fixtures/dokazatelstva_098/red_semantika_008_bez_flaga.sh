@@ -22,7 +22,7 @@ _d98_ci "$W" "$B" ci-a:success ci-b:success   # зелёный CI base для 00
 
 # (в) писательская сторона: с флагом строка пишется событием судьи
 printf 'accept\n' >"$W/verdikt.md"
-out="$( _d98_zov "$W" "$G" "$M" --verdict-row T-1 "$OID" "$W/verdikt.md" 2>&1)"; rc=$?
+out="$( _d98_zov "$W" "$G" "$M" --verdict-row T-1 "$OID" "$W/verdikt.md" $(_d98_sud "$W" "$M") 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ] || ! awk -F'\t' -v t=T-1 -v o="$OID" \
     '$1=="verdict" && $2==t && $3==o && $4=="accept"' "$J" | grep -q .; then
   printf 'КРАСНО: semantika-008: писатель не пишет: judge_gate --verdict-row (rc=%s, вывод: %s)\n' "$rc" "$out" >&2; exit 1
@@ -30,7 +30,7 @@ fi
 # негативная пара: нераспознанное событие — именованный отказ, строки нет
 printf 'musor\n' | tee "$W/verdikt-bad.md" >/dev/null
 h0="$(sha256sum <"$J" | cut -d' ' -f1)"
-out="$( _d98_zov "$W" "$G" "$M" --verdict-row T-1 "$OID" "$W/verdikt-bad.md" 2>&1)"; rc=$?
+out="$( _d98_zov "$W" "$G" "$M" --verdict-row T-1 "$OID" "$W/verdikt-bad.md" $(_d98_sud "$W" "$M") 2>&1)"; rc=$?
 if [ "$rc" -ne 1 ] || ! printf '%s' "$out" | grep -Fq 'событие решения не распознано: musor'; then
   printf 'КРАСНО: semantika-008: мусорное событие принято (rc=%s, вывод: %s)\n' "$rc" "$out" >&2; exit 1
 fi
