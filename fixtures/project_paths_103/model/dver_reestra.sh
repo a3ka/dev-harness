@@ -2,6 +2,12 @@
 # Честная модель 103 для ветви spawn_agent dual-control (И-3): манифест
 # читается с origin/main по пути <workflowPaths.registry>/contracts.tsv ПРОЕКТА
 # (эффективное значение профиля --root), не по registry/contracts.tsv харнеса.
+# Эффективное значение — ТОЛЬКО из MERGED scripts/profile_resolver.sh --repo R
+# (единственный источник, §Предмет 103; слой проекта — HARNESS_PROJECT_LAYER_ROOT,
+# по умолчанию R, как make_task.sh). Свой jq по harness.project.json/profilePath
+# под R — «второй резолвер» (Рв96-2): при слое вне репо и репо-слое без
+# workflowPaths он не видит значение (ложный отказ) либо читает устаревшую
+# копию слоя в R (спавн по корневому реестру харнеса при чужом sha в профильном).
 # Грамматика строки — 023 дословно («<NNN> → <40-hex>», sha объекта
 # аннотированного тега id/CONTRACT/<NNN> на origin). Успех печатает
 # WORKTREE=/BRANCH= (016) без создания ветки/worktree (модель — грамматика ноги).
@@ -18,9 +24,14 @@ done
 [ -n "$AUTHOR" ] && [ -n "$NNN" ] && [ -d "$ROOT" ] || { printf 'NOT_IMPLEMENTED: --author/--nnn/--root\n' >&2; exit 2; }
 nnn="$(printf '%03d' "$NNN")"
 [ -s "$ROOT/.omp/context/$nnn.tsv" ] || { printf 'ОТКАЗ: нет манифеста make_task: %s\n' "$nnn" >&2; exit 1; }
-PL="$(jq -r '.projectLayer.profilePath // empty' "$ROOT/harness.project.json" 2>/dev/null)"
-REG="$(jq -r '.workflowPaths.registry // empty' "$ROOT/harness.project.json" 2>/dev/null)"
-[ -n "$REG" ] || REG="$(jq -r '.defaults.workflowPaths.registry // empty' "$ROOT/$PL" 2>/dev/null)"
+# Единственный источник эффективного профиля — profile_resolver.sh харнеса
+# (корень — PP103_ROOT раннера; стаб-копии модели лежат вне семьи, поэтому
+# BASH_SOURCE — только фолбэк живого прогона модели по месту).
+RESOLVER="${PP103_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}/scripts/profile_resolver.sh"
+[ -f "$RESOLVER" ] || { printf 'NOT_IMPLEMENTED: нет %s\n' "$RESOLVER" >&2; exit 2; }
+[ -n "${HARNESS_PROJECT_LAYER_ROOT:-}" ] || export HARNESS_PROJECT_LAYER_ROOT="$ROOT"
+MERGED="$(bash "$RESOLVER" --repo "$ROOT" 2>/dev/null)" || { printf 'ОТКАЗ: профиль не резолвится: %s\n' "$ROOT" >&2; exit 1; }
+REG="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null)" # t103-m15
 [ -n "$REG" ] || { printf 'ОТКАЗ: профиль без workflowPaths.registry\n' >&2; exit 1; }
 MANIFEST_PATH="$REG/contracts.tsv" # t103-m8
 tag_sha="$(git -C "$ROOT" ls-remote origin "refs/tags/id/CONTRACT/$nnn" 2>/dev/null | grep -v '\^{}' | awk '{print $1}')"
