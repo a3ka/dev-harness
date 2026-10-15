@@ -17,6 +17,14 @@
 # `always-ask` в `.omp/config.yml` (контракт 002) переносит режим в политику
 # omp: каждый инструмент спрашивает разрешения, и инвентарь один на сессию.
 #
+# Режим ПРОЕКТА передаёт политику УСТАНОВКИ в сессию ЯВНО (контракт 105): по
+# одному `-e <абс. путь>` на каждое `.omp/extensions/*.ts` мастерской и
+# `--config .omp/config.yml` в argv exec (CLI-оверлей выше проектного слоя cwd),
+# роли — в каталог агента профиля `$HOME/.omp/profiles/<p>/agent/agents`. Флаг,
+# снимающий или подменяющий список расширений (`--no-extensions`, `--extension`,
+# `-e`, `--hook`), отвергается на разборе argv — той же формой, что
+# `--approval-mode` (002): сессия проекта работает ПОД политикой установки.
+#
 # `--plan` остаётся ОПЦИОНАЛЬНЫМ указанием предмета работы, а не ключом замка.
 # Сессия работы стартует со СВЕЖИМ контекстом от НАПИСАННОГО плана, а не от
 # переписки. Исполнитель не может «помнить, о чём договорились» — он обязан
@@ -482,6 +490,13 @@ while [ $# -gt 0 ]; do
     # (без edit/write/lsp) — дерево не трогает, с рабочим оркестратором не сталкивается.
     --fable) FABLE=1 ;;
     --approval-mode*|--approvals*|--yolo*|--dangerously-skip-permissions*) die "флаг $1 затирает политику подтверждений. Режим входа — always-ask из .omp/config.yml (контракт 002, критерий 1), и командная строка его не отменяет — клапан владельца называется ровно «--yolo»" ;;
+    # ЗАПРЕТ-ПОЛИТИКИ РАСШИРЕНИЙ (контракт 105, Решение 4). Список расширений
+    # установки — часть политики сессии проекта: лаунчер передаёт его omp явно
+    # (`-e` на каждое `.omp/extensions/*.ts` мастерской), и флаг, снимающий или
+    # подменяющий этот список, обходит замок тем же способом, что и
+    # `--approval-mode` (002). Отказ — на разборе argv, ДО любого вызова omp;
+    # посторонние флаги хвоста по-прежнему уходят в omp как есть (`-*) break`).
+    --no-extensions|--extension|--extension=*|-e|--hook|--hook=*) die "флаг $1 затирает политику расширений установки. Расширения мастерской omp получает явно, по одному -e на каждое .omp/extensions/*.ts (контракт 105, критерий 1), и командная строка этот список не снимает и не подменяет" ;;
     -*)     break ;;
     *)      [ -z "$PROJECT" ] && PROJECT="$1" || break ;;
   esac
@@ -820,7 +835,7 @@ _n2_chain_check() { # $1 = лист материализации; обход с�
   done
 }
 _n2_chain_check "$PSTATE/home/.omp/profiles/$PROFILE/agent"   # PROJDB/agent-цепочка
-_n2_chain_check "$PSTATE/home/.omp/agent/agents"             # сессионый home проекта (mkdir родителя под AGENTS)
+_n2_chain_check "$PSTATE/home/.omp/profiles/$PROFILE/agent/agents" # роли 105: AGENTS внутри каталога шага (mkdir родителя под раскладку)
 _n2_chain_check "$PSTATE/scratch"                            # HARNESS_SCRATCH (mkdir)
 _n2_chain_check "$PSTATE/state"                              # XDG_STATE_HOME (mkdir)
 _n2_chain_check "$PSTATE/sessions"                           # PID-лок каталог (mkdir -p)
@@ -861,16 +876,46 @@ fi
   printf 'HARNESS_TOOLS_ROOT=%s\n' "$HARNESS_TOOLS_ROOT"
 } >> "$PROMPT_FILE"
 
-# Роли разработчика кладутся в ПОЛЬЗОВАТЕЛЬСКИЙ каталог агентов внутри изолированного
-# HOME сессии, а не в дерево проекта. Путь спрошен у самого omp
-# (`omp agents unpack --help`): он читает агентов из `~/.omp/agent/agents` и `./.omp/agents`.
-# Раскладка в проект добавляла бы ему файлы, которых он не объявлял, — проверено: гейт
-# фабрики сразу назвал их необъявленными.
-AGENTS="$HOME/.omp/agent/agents"
+# Роли разработчика кладутся в каталог агента ПРОФИЛЯ внутри изолированного HOME
+# сессии, а не в дерево проекта: под `--profile dev` omp читает агентов из
+# `~/.omp/profiles/<p>/agent/agents` (omp://config-usage.md «Profiles»; живой замер
+# сессии: `PI_CODING_AGENT_DIR` профилем игнорируется, `$HOME/.omp/agent` omp не
+# создаёт). Прежний безымянный `~/.omp/agent/agents` omp под `--profile` не читал
+# вовсе — роли лежали мёртвым грузом (контракт 105, Решение 3). Раскладка в проект
+# добавляла бы ему файлы, которых он не объявлял, — проверено: гейт фабрики сразу
+# назвал их необъявленными.
+AGENTS="$HOME/.omp/profiles/$PROFILE/agent/agents"
 node "$HERE/scripts/gen-harness.ts" --into "$AGENTS" >/dev/null \
   || die "не удалось разложить роли разработчика"
 node "$HERE/scripts/gen-harness.ts" --into "$AGENTS" --check >/dev/null \
   || die "роли разошлись с источником сразу после генерации"
+
+# ── политика установки в argv exec (контракт 105, Решения 1-2/5) ──────────────
+# Дев-вход грузит слои установки проектным путём omp (cwd = мастерская). В режиме
+# проекта cwd — ПРОЕКТ, и политика установки обязана дойти до сессии ЯВНО:
+#   расширения — по одному `-e <абс. путь>` на каждый регулярный `*.ts` из
+#     `$HERE/.omp/extensions/`: ничего незаявленного (`.js`, `README.md`,
+#     подкаталоги) не грузится; пустой список допустим — ноль пар;
+#   конфиг — `--config $HERE/.omp/config.yml`, CLI-оверлей ВЫШЕ проектного слоя
+#     `<cwd>/.omp/config.yml` (omp://settings.md): always-ask (002) и deny-паттерны
+#     (025) проект своим конфигом не снимет; оверлей `--models` стоит в exec ПОЗЖЕ
+#     этой пары — модель сессии перекрывает modelRoles политики, как в дев-входе.
+# Три строки ниже печатаются из ТЕХ ЖЕ массивов/переменных, что идут в exec, и
+# безусловно — в пробе и в живом режиме (Решение 5): проба доказывает то, что
+# исполняется, а не второе вычисление (А-918).
+POLICY_CFG="$HERE/.omp/config.yml"
+POLICY_EXT=()
+POLICY_EXT_ARGS=()
+for _pe in "$HERE"/.omp/extensions/*.ts; do
+  [ -f "$_pe" ] || continue          # только регулярные файлы *.ts
+  POLICY_EXT+=("$_pe")
+  POLICY_EXT_ARGS+=(-e "$_pe")
+done
+unset _pe
+for _pe in "${POLICY_EXT[@]}"; do printf 'EXT: %s\n' "$_pe"; done
+printf 'CONFIG: %s\n' "$POLICY_CFG"
+printf 'AGENTS: %s\n' "$AGENTS"
+unset _pe
 
 # `--plan` остаётся опциональным указанием предмета. Если передан и это не продолжение —
 # проверяется файл.
@@ -1102,4 +1147,4 @@ if [ -n "$RESUME" ]; then
 fi
 printf '  инвентарь    полный, всегда-ask\n\n' >&2
 cd "$PROJECT"
-exec omp --profile "$PROFILE" --model "$LIVE_MODEL" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
+exec omp --profile "$PROFILE" --model "$LIVE_MODEL" --config "$POLICY_CFG" "${POLICY_EXT_ARGS[@]}" "${OVERLAY[@]}" "${RESUME_ARGS[@]}" "${YOLO_ARGS[@]}" --append-system-prompt "$PROMPT_FILE" --tools "$TOOLS" "$@"
