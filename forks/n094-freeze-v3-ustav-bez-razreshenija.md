@@ -1,4 +1,4 @@
-ФОРК: 094-freeze-v3-ustav-bez-razreshenija
+ФОРК: n094-freeze-v3-ustav-bez-razreshenija
 ВОПРОС: HANDOFF.md (раздел «ГДЕ МЫ», шаг 1 «Следующей сессии») объявлял `freeze_contract.sh
 v3` на `origin/wip/094/implementer-final` HEAD «МЕХАНИЧЕСКИ, оркестратор, владелец не
 нужен» — живая проверка это опровергает на два независимых уровня.
