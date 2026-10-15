@@ -383,6 +383,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 098 | до V-2 | odelix | 097 | docs/owner/2026-10-11-astra-094-narezka.md#Б |
 | 3 | 103 | до V-2 | odelix | - | docs/owner/2026-10-13-roadmap-variant-b.md#2 |
 | 3 | 104 | до V-2 | odelix | - | docs/owner/2026-10-13-roadmap-variant-b.md#2 |
+| 3 | 105 | до V-2 | odelix | - | 013ab88d |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 5 | 096 | до V-2 | odelix | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 6 | V-2 | до V-2 | odelix | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
