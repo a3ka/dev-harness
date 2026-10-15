@@ -47,9 +47,9 @@ modelRoles:
   vision: "minimax/MiniMax-M3"
   task: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5
   smol: "minimax/MiniMax-M2.5-lightning"
-  slow: "anthropic/claude-fable-5-1"  # фолбек: anthropic/claude-opus-5-5
+  slow: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-opus-5-5
   advisor: "openai-codex/gpt-5.6-terra"  # фолбек: anthropic/claude-opus-5-5
-  apex: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-opus-5-5
+  apex: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
   audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
   plan: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
   consultant: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-opus-5-5
@@ -94,6 +94,6 @@ retry:
     task: ["anthropic/claude-sonnet-5"]
     slow: ["anthropic/claude-opus-5-5"]
     advisor: ["anthropic/claude-opus-5-5"]
-    apex: ["anthropic/claude-opus-5-5"]
+    apex: ["openai-codex/gpt-6-sol"]
     plan: ["openai-codex/gpt-6-sol"]
   # ── /fallbackChains ──
