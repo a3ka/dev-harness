@@ -199,6 +199,18 @@ git -C "$ROOT" rev-list --merges "$last_frozen..HEAD" 2>/dev/null | while IFS= r
   esac
 done
 sort -u "$_excl_tmp" -o "$_excl_tmp"
+# Прямые коммиты канала владельца (author = committer = owner) — не предмет контракта:
+# они идут быстрым путём владельца со своим живым доказательством и отдельным кругом
+# ревьюера, а ПОТРЕБИТЕЛЬ-строки в тексте чужого замороженного контракта для них
+# невыполнимы (Н-300, решение владельца 2026-10-16, вариант «б»). Исключаются как
+# чужие ленды. Остаточный риск: identity owner при одном uid подделываема — тот же
+# известный предел, что у check_staged/pre-push (docs/owner/2026-10-16-agent-pod-polzovatelem-mashiny.md).
+if ! _owner_commits="$(git -C "$ROOT" log --no-merges --format='%H%x09%an%x09%cn' "$last_frozen..HEAD" 2>/dev/null)"; then
+  rm -f "$_commits_tmp" "$_excl_tmp"; trap - EXIT
+  die "потребители 116: список судимых коммитов окна недоступен"
+fi
+printf '%s\n' "$_owner_commits" | awk -F'\t' '$2 == "owner" && $3 == "owner" { print $1 }' >> "$_excl_tmp"
+sort -u "$_excl_tmp" -o "$_excl_tmp"
 
 # Писатели в правке: зарегистрированные писатели, тронутые коммитами судимого
 # множества окна (покоммитная тронутость И-2). Бежим по коммитам judgeable-set
