@@ -172,6 +172,17 @@ log "сессия #$n: старт"
 # пользователя orchagent и узкое sudoers-правило провизионит install.sh
 # root (И-3); наблюдатель гасит сессию по дереву посредников (kill_tree).
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+# Панель, поднятая через su из сессии root, наследует XDG_RUNTIME_DIR=/run/user/0 и шину root:
+# systemd-run --user тогда отказывает «Failed to connect to bus: Permission denied» и сессия не
+# стартует (живой укус 2026-10-16 13:27). Чужой каталог/шина — заменяются своими.
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ "$XDG_RUNTIME_DIR" != "/run/user/$(id -u)" ]; then
+  export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+  unset DBUS_SESSION_BUS_ADDRESS
+fi
+case "${DBUS_SESSION_BUS_ADDRESS:-}" in
+  ''|"unix:path=${XDG_RUNTIME_DIR:-}/bus") ;;
+  *) unset DBUS_SESSION_BUS_ADDRESS ;;
+esac
 SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
 RAN="$MARK.scoped"; PGID="$MARK.pgid"; rm -f "$RAN" "$PGID"
 # Рв2-6 (И-3 v2, слово владельца 2026-10-12): исполняемый код агента —
