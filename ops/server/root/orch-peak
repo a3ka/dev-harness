@@ -42,10 +42,11 @@ CTX_HARD="${ORCH_CTX_HARD:-600000}"
 IDLE="${ORCH_IDLE:-1800}"          # простой сессии (с) до перезапуска; > прогона CI (~23 мин)
 IDLE_MAX="${ORCH_IDLE_MAX:-3}"     # перезапусков по простою подряд при неизменном origin/main
 SUB_LIVE="${ORCH_SUB_LIVE:-300}"   # субагент «жив», если его журнал моложе (с)
+# Литерал пришит к станционной раскладке (cwd /home/harness/dev-harness при старте omp) и
+# заморожен клетками 085/090 (снимок-оракулы p1/p2, герметичность CTX_HARD) — НЕ выводится
+# из REPO: вывод ломал ORCH_REPO в тест-мирах (ops-fix «один харнесс», живой прогон 090 rc 1,
+# 2026-10-16). Установка на путь, отличный от станционного, — явный ORCH_SESS_GLOB.
 SESS_GLOB="${ORCH_SESS_GLOB:-$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/*.jsonl}"
-# Каталог сессий omp назван по пути репо: /home/harness/dev-harness → --home-harness-dev-harness--.
-SESS_PROJ="--$(printf '%s' "${REPO#/}" | tr '/' '-')--"
-[ -n "${ORCH_SESS_GLOB:-}" ] || SESS_GLOB="$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/$SESS_PROJ/*.jsonl"
 # Контракт 080, инв. 4/8: переменные жёсткого режима для polling субагентов.
 HARD_GRACE="${ORCH_HARD_GRACE:-1800}"
 HARD_POLL="${ORCH_HARD_POLL:-60}"
