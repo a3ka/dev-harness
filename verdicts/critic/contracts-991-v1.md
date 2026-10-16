@@ -1,131 +1,85 @@
-FAIL
-ПРЕДМЕТ: contracts/991-complior-repeticiya-p107-p111.md + fixtures/workshop_project/rehearsal_991/{.probe-only,model.tsx,probe.py,rehearsal.test.tsx,rehearsal.yaml}
-OBJECT=b7c9f900838193c3e3022f37ecfef29610010dab
-ВЕТКА: wip/991/architect (merge-base с main 8f3a89e4f; main при суде 8a30e7bf2)
-КРУГ: 1
-МОДЕЛЬ: anthropic/claude-opus-5-5 (роль apex → @opus; architect на @gpt-astra — чужое семейство соблюдено)
+accept
+ПРЕДМЕТ: contracts/991-complior-repeticiya-p107-p111.md (+ fixtures/workshop_project/rehearsal_991/compare_carriers.py, matrix_carriers.py, .probe-only)
+OBJECT=fc8a8898791fd99e742c77da752e9d8cd282fac8
+ВЕТКА: wip/991/architect (= origin/wip/991/architect); main при суде f5c221c0a
+КРУГ: 3 (круг 1 — contracts-991-v1.md FAIL ff2630f2a; круг 2 — contracts-991-v2.md FAIL 9b0241f76; арбитраж verdicts/arbitration/contracts-991-r2.md f5c221c0a — вариант (б))
+МОДЕЛЬ: anthropic/claude-opus-5-5 (роль apex; architect — чужое семейство)
+ПРЕДМЕТ КРУГА (арбитраж п.6): внесены ли П1–П4 с четырьмя неослабляемыми свойствами п.1; предъявлен ли сравнитель красным на матрице и зелёным на честных дельтах трёх фаз. Прочее — как обычно.
 
-## Живые замеры этого круга (третье независимое подтверждение чисел автора)
+## Сверка П1–П4 (текст на OBJECT, `git show fc8a88987:…`)
 
-Complior-mob: `gh repo clone a3ka/Complior-mob` в /tmp/dev-harness-verify/critic991c1/complior-mob,
-HEAD = origin/main = `8a699d175114f82395e019964ee1fec02a6bb200` (совпадает с пином :13/:66);
-`npm ci --no-audit --no-fund` в mobile/ → rc 0. Фикстуры взяты `git archive wip/991/architect`
-(blob probe.py `3a190bf6d`, sha256 `6e97a6f8…f9068e`).
+- П1 классы путей зоны — `:109` (ПРОДУКТ/ПИН/КАРКАС/НОВЫЙ, «Зона даёт право на путь, но не право менять существующие в нём проверки»), закрытый список Д1–Д4 `:111-115`, фазы `:117-120`, позиция/`if`/`continue-on-error` и перечень неизменного `:122-128`. Внесено, смысл не ослаблен.
+- П2 вместо прежнего `:69` — `:71-86`: команда `compare_carriers.py --repo R --base B --head C --phase F`, предикаты (1)–(4) с кодами `PR_ZONE_VIOLATION`/`EXISTING_CHECK_CHANGED`/`CARRIER_CHANGED`/`JEST_BYTES_MISMATCH`/`FLOW_BYTES_MISMATCH`, rc 2 на неразбираемом/отсутствующем, `--matrix` с шестью классами арбитра, остаток класса 4 — только тело Д3. Внесено.
+- П3 вторая мера Jest — `:53` (к абзацу `:51`) и `:91` (к пункту `gh pr checks`), `REHEARSAL_JEST_NOT_RUN`, оговорка «одна она, без П2, ничего не доказывает». Внесено.
+- П4 модель угроз — ЗАЩИЩАЕТ `:140`, НЕ ЗАЩИЩАЕТ `:146`. Внесено. ПРОВОДКА `:152` добавляет guard сравнителя.
 
-|команда|rc|вывод|
-|---|---|---|
-|`python3 probe.py --repo complior-mob`|1|`actual/R1 rc=1 failed`, `actual/R2 rc=1 failed`, `executed=2`; обе ошибки `Unable to find an element with role: button, name: Prüfung starten`|
-|`python3 probe.py --repo complior-mob --matrix`|0|honest/R1 0, honest/R2 0, noop/R1 1, premature/R1 1, sticky/R2 1, sticky/R1 0; `executed=6`|
-|`probe.py --repo <несуществующий под allowlist>`|2|`991 INFRASTRUCTURE: [Errno 2] …start-screen.tsx`|
-|`probe.py --repo /tmp`|2|`disposable clone must be under /tmp/dev-harness-verify`|
-|`bash scripts/check_precision_gate.sh <wt> contracts/991-…md`|0|`OK`|
-|`bash scripts/check_spec_ready.sh <wt> contracts/991-…md`|0|`OK`|
-|`bash scripts/pre_critic.sh --repo <wt> contracts/991-…md`|0|`КРИТИК: дверь зелёная`|
-|`bash scripts/check_threat_model.sh <wt> contracts/991-…md`|0|ЗАЩИЩАЕТ 3, НЕ ЗАЩИЩАЕТ 3|
-|`bash scripts/check_ceilings.sh <wt>`|**1**|`FAIL … 991-…md (31001 байт): тело раздела «Незаполненные требования:» вне грамматики` (на main тот же скрипт rc 0) — см. СОВЕТ 1|
+Четыре неослабляемых свойства п.1 арбитража — сверены по тексту И по коду сравнителя:
+1. Запрет по умолчанию для КАРКАСА против B — текст `:109,:122-128`; код `compare_carriers.py:189-220` (верх, набор jobs, ключи job, `quality`/`expo-versions` целиком, шаги B по порядку как объекты; всё прочее → `CARRIER_CHANGED`), `:250-252` (существующие `mobile/scripts/` байт-в-байт). Держится.
+2. Закрытый список дельт по фазам — текст `:111-120`; код `:153-186` (`delta_existing` только в freeze; Д1 только negative[mobile.yml]/freeze; `rehearsal_version` только freeze, `rehearsal_evidence` только positive; новые шаги только после `NATIVE`, без `if`/`continue-on-error`, повтор дельты запрещён `:213`). Держится.
+3. rc 2 при неисполнимом сравнении — текст `:77`; код `:242-246,:84-96,:134-135,:273-274,:304-306`. Держится (замерено ниже: malformed, duplicate key, missing blob, удалённый `ci-e2e.sh`, symlink).
+4. Сравнитель предъявлен красным до критика — коммит fc8a88987 несёт сравнитель, матрицу и замер `:160-161` до этого круга. Держится; ниже — третье независимое подтверждение.
 
-`<wt>` = /tmp/dev-harness-worktrees/c907157c/wip-991-architect, HEAD b7c9f9008, грязь только `?? .omp/context/`.
-После обоих прогонов клон Complior чист (`git status --porcelain` пуст) — finally восстановил StartScreen.
+## Живая проверка сравнителя (мой прогон, третье подтверждение)
 
-Н-39 соблюдён: привязки контрмоделей к входам — в коде (`probe.py:20-22` MATRIX, режим через
-`REHEARSAL_991_MODEL` в `model.tsx:5,10,13`), не в прозе. Каждая контрмодель падает на СВОЁМ
-assertion (stderr матрицы): noop — `rehearsal.test.tsx:15` getByText «abgeschlossen»; premature —
-`:9` queryByText toBeNull; sticky/R2 — `:9` после remount. Вход базы: реальный
-`mobile/src/features/start/start-screen.tsx:8` несёт `testID="start-screen"`, поэтому отрицательный
-native-прогон `rehearsal.yaml:6-9` споткнётся именно на `id: rehearsal-start`, а не раньше
-[INFERENCE: чтение кода; native NOT_RUN — станции у критика нет].
+Сравнитель/матрица/ПИН-фикстуры взяты `git archive fc8a88987 fixtures/workshop_project/rehearsal_991` в scratch `/tmp/dev-harness-verify/critic991c3/`. Complior-mob — клон круга 1 `/tmp/dev-harness-verify/critic991c1/complior-mob`, HEAD = `8a699d175114f82395e019964ee1fec02a6bb200`, `status --porcelain` пуст до и после. PyYAML 6.0.1.
 
-Граница «991 сейчас ничего в Complior-mob не раздаёт» в тексте соблюдена: `:4` (не разрешение
-push/freeze/раздачи), `:40` (без допуска публикация не начинается), `:83` (зона implementer —
-ПОСЛЕ отдельного допуска и freeze-PR), `:110` (Б1 разрешил подготовку). ПЕРЕСЕЧЕНИЕ `:81` —
-легитимный маршрут А-114/А-116/А-155, не обход. Модель угроз (норма 041) и precision-гейт
-(норма 043) — rc 0, см. таблицу.
+```
+python3 …/compare_carriers.py --repo <complior-mob> --base 8a699d17… --matrix
+991 carriers/honest-negative|honest-freeze|honest-positive: rc=0 expected=0 ACCEPTED
+… 24 обмана rc=1 с ожидаемой причиной, 3 случая rc=2 UNREADABLE_INPUT
+991 carriers matrix base=8a699d17… executed=30 mismatches=0      rc=0
+```
+Совпадает с отчётом архитектора (executed=30, mismatches=0). Матрица покрывает все шесть классов арбитража `:78-83`: `run-ignore-pattern`; `existing-step-continue-on-error`/`existing-step-if`/`job-continue-on-error`/`job-if`; `pre-native-step`/`new-quality-forged-log`; `station-flow-directory` (ci-e2e.sh → `EXISTING_CHECK_CHANGED`)/`cloud-flow-directory` (`script:`); `trigger-filter`; `evidence-continue-on-error`/`evidence-if`.
+
+Собственные обманы НЕ из матрицы (Н-39: сравнитель не привязан к кодовым примерам). Построены НАСТОЯЩИМИ git-коммитами (read-tree/hash-object/commit-tree) в отдельном клоне `critic991c3/cm` и судятся обычным CLI-путём (`--head C --phase F`, реальный `diff --name-only`), не матричным:
+```
+honest-negative (B=пин)                      rc=0 ACCEPTED
+honest-freeze   (B=пин)                      rc=0 ACCEPTED
+honest-positive (B=freeze-коммит)            rc=0 ACCEPTED
+B=C freeze                                   rc=0 ACCEPTED
+native-run-or-true (android-e2e, не quality) rc=1 CARRIER_CHANGED: mobile.yml:android-e2e:steps[5]
+native-step-env (env на нативном шаге)       rc=1 CARRIER_CHANGED: mobile.yml:android-e2e:steps[5]
+mobile/.maestro/config.yaml (flows: [rehearsal.yaml] — выключает start.yaml)  rc=1 PR_ZONE_VIOLATION: mobile/.maestro/config.yaml
+.node-version в корне                        rc=1 PR_ZONE_VIOLATION: .node-version
+evidence shell: bash {0} (без errexit)       rc=1 CARRIER_CHANGED: mobile.yml:android-e2e:steps[9]
+evidence uses: ./mobile/scripts              rc=1 CARRIER_CHANGED: …:steps[9]
+Артефакты if: success() в positive           rc=1 CARRIER_CHANGED: …:steps[6]
+Д2-переименование в positive (cloud)         rc=1 CARRIER_CHANGED: mobile-cloud-e2e.yml:android-e2e-cloud:steps[9]
+Д1 в positive                                rc=1 CARRIER_CHANGED: …:steps[10]
+version-шаг в negative                       rc=1 CARRIER_CHANGED: …:steps[8]
+Д1 с path: mobile/**                         rc=1 CARRIER_CHANGED: …:steps[7]
+Д1 в quality (freeze)                        rc=1 CARRIER_CHANGED: mobile.yml:quality:whole-job
+перестановка двух существующих шагов         rc=1 CARRIER_CHANGED: …:steps[1]
+удалён mobile/scripts/ci-e2e.sh              rc=2 UNREADABLE_INPUT: missing blob
+новый скрипт-symlink (120000)                rc=2 UNREADABLE_INPUT: not a regular blob
+mobile/scripts/__tests__/x.test.ts (не вызван) rc=1 NEW_SCRIPT_NOT_REFERENCED
+семантически равный реформат mobile.yml (flow-style, обратный порядок ключей, комментарий) rc=0 ACCEPTED — сравнение не текстовое, ложного красного нет
+тело Д3 «echo 2.11.0; rm -f mobile/.maestro/start.yaml» (freeze)                    rc=0 ACCEPTED — ОЖИДАЕМО: это ровно заявленный остаток класса 4 (`:85`, `:146`)
+own cases executed=22 mismatches=0
+```
+Скрипт `/tmp/dev-harness-verify/critic991c3/own_cases.py` (throwaway, удаляется вместе со scratch).
+
+## Гейты (последовательно, клон `critic991c3/dh` на detached fc8a88987, чистый)
+
+```
+bash scripts/check_precision_gate.sh <dh> contracts/991-…md   → OK                    rc=0
+bash scripts/check_spec_ready.sh <dh> contracts/991-…md       → OK                    rc=0
+bash scripts/pre_critic.sh --repo <dh> contracts/991-…md      → КРИТИК: дверь зелёная  rc=0
+bash <dh>/scripts/check_ceilings.sh <dh>                      → потолки в порядке      rc=0
+```
 
 ## Находки
 
-БЛОКИРУЕТ contracts/991-complior-repeticiya-p107-p111.md:15,57-62,92 — контракт вводит в оба
-Complior-workflow НОВУЮ проверку (APK/JUnit/каждый PNG отдельно, «JUnit без
-failures/errors/skipped» `:61`, Maestro 2.11.0 «несовпадение — отказ» `:30,:57`), но ни один пункт
-приёмки `:66-73` не предъявляет её КРАСНОЙ. Это противоречие норме AGENTS.md, правило 3 («проверка
-не готова, пока не предъявлена КРАСНОЙ против обманной заглушки»). Отрицательный PR идёт ПЕРВЫМ
-(`:41`) — на старом workflow, новую проверку он не исполняет; к тому же она стоит только в
-«успешном нативном шаге» (`:60`). «Парный негатив» `:70` — ручная сверка reviewer'ом АРТЕФАКТОВ
-одного прогона, не способности проверки упасть.
-ОБХОД: положительный PR C пишет шаг проверки как `run: test -d maestro-out` и cloud-установку как
-`… && maestro --version || true`. Честный flow сам производит оба PNG и JUnit, поэтому reviewer по
-`:70` находит полный комплект, `gh pr checks` (`:69`) и post-merge (`:73`) зелёны — все пункты
-`:66-73` выполнены, а заявленная дельта «проверка каждого обязательного evidence-файла» (`:15`) и
-ЗАЩИЩАЕТ `:92` — плацебо, которое следующей поставке пропустит отсутствующий `rehearsal-after.png`.
-Отягчает (вопрос 3): если проверку внести во freeze-PR, она обязана там быть зелёной (`:43`), хотя
-rehearsal-flow там НЕ активирован — значит исполнитель сам придумает условие «проверять PNG, если…»,
-и условие такого вида плацебо по построению.
-ВЫХОД (совет формы, не требование): вынести проверку в `mobile/scripts/<имя>` (зона `:83` уже это
-допускает) и добавить пункт приёмки с командой, исполнимой без эмулятора: каталог без
-`rehearsal-after.png` → rc≠0 с именем файла; два файла одного имени → rc≠0; JUnit с
-failure/skipped → rc≠0; версия Maestro ≠ 2.11.0 → rc≠0; полный комплект → rc 0. И назвать, при каком
-объекте (freeze-PR / положительный / post-merge) проверка обязательна.
+Блокирующих нет. Обход, при котором П2 выполнен, а существующая проверка в КАРКАСЕ ослаблена, мной не найден ни в матрице, ни в 17 собственных обманах (16 красных + заявленный остаток Д3); единственный проходящий обман — заявленный ручной остаток Д3.
 
-БЛОКИРУЕТ contracts/991-complior-repeticiya-p107-p111.md:44,51,83 — дифф положительного PR в
-Complior механически не ограничен. (а) Байтовое тождество требуется только для flow (`:44`
-«одинаковый SHA-256 flow»), для Jest-теста — нет (`:51` лишь называет место). (б) Зона implementer
-в Complior объявлена прозой (`:83`); ЗОНА-строки для него нет, а `scripts/check_zones.sh:34`
-по построению: «НЕОБЪЯВЛЕННЫЕ АВТОРЫ НЕ ПРОВЕРЯЮТСЯ». (в) Ни один пункт `:66-73` не сверяет дифф
-B..C с перечнем `:83` и неизменность существующих проверок («проверки не ослабляются» `:44` —
-пожелание без команды, вопрос 2).
-ОБХОД: C кладёт в `mobile/src/features/start/__tests__/rehearsal.test.tsx` пустой
-`it('R1 starts incomplete and completes only after a press', () => {})` и убирает
-`expect(screen.getByRole('header'))` из соседнего `start-screen.test.tsx`; StartScreen при этом
-честный. `probe.py --repo R` берёт байты теста из фикстуры dev-harness, а НЕ из PR → rc 0
-executed=2 (`:66`); Maestro (`:68`), `gh pr checks` (`:69`), push-run (`:73`) — зелёны. Все пункты
-выполнены, а «включает Jest … обычный npm test в quality его выполняет» (`:44,:51`) и ЗАЩИЩАЕТ `:90`
-(«настоящий Jest … судят действие, результат и reset») не сделаны: quality на main поведение не судит.
-ВЫХОД (совет формы): пункт приёмки с командой — `git -C R show C:mobile/src/features/start/__tests__/rehearsal.test.tsx | sha256sum`
-равен `sha256sum fixtures/workshop_project/rehearsal_991/rehearsal.test.tsx` (байты переносимы как
-есть: импорт `../start-screen` тот же), `git -C R diff --name-only B C` ⊆ перечню `:83` с rc, и
-`git -C R diff --exit-code B C -- mobile/src/features/start/__tests__/start-screen.test.tsx mobile/.maestro/start.yaml`.
-Либо ЗОНА-строка implementer, либо названный механизм, держащий его границу в Complior.
+СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:71-75 — сравнитель РАЗРЕШАЕТ дельты фазы, но не ТРЕБУЕТ их наличия: positive-PR без `rehearsal_evidence`/ПИН-файлов даёт rc 0 (ПИН проверяется «присутствующие в C»). Наличие держат другие пункты: SHA-256 Jest `:70` (`git show C:…` падает на отсутствии), replay эффективных шагов `:88-89`, лог quality `:91`. Не обход (предмет при этом не принимается), но reviewer должен знать, что зелень П2 не означает наличие Д4 — можно сказать это одной фразой в `:86`.
 
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:112-114 — тело «## Незаполненные требования:»
-вне грамматики `check_ceilings.sh` (пустая строка + абзац без «- »): rc 1 на ветке, rc 0 на main.
-CI-лейн l7 (`.github/workflows/ci.yml:116`, ключ `check:ceilings`) покраснеет на этом дереве.
-Правка: каждую позицию — отдельной строкой «- …», без пустой строки. Оркестратору — наблюдение:
-`pre_critic.sh` дал «дверь зелёная» при rc 1 у гейта CI (правило 6, «гейт зеленее CI»).
+СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:73 — для `start-screen.test.tsx` и `start.yaml` предикат (2) недостижим: оба пути вне ЗОНА implementer, и (1) срабатывает раньше (матрица это честно фиксирует `old-test-outside-zone`). Реально (2) держит только существующие `mobile/scripts/`. Не ослабление — защита строже; формулировку можно уточнить.
 
-СОВЕТ fixtures/workshop_project/rehearsal_991/.probe-only:2 — устаревший путь
-`fixtures/rehearsal_991/probe.py`; после переноса — `fixtures/workshop_project/rehearsal_991/probe.py`.
+СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:114 / compare_carriers.py:162-166 — допуск Д3 = «в `run` есть подстрока 2.11.0», остальное тело свободно и исполняется ДО нативного шага cloud (может писать `$GITHUB_ENV`/`$GITHUB_PATH`, удалять flows). Это заявлено (`:85`, `:146`) и решено арбитражем как класс 4; reviewer'у полезно в задании прямо перечислить, что именно читать в теле (запись в `$GITHUB_ENV`/`$GITHUB_PATH` помимо `.maestro/bin`, операции над `mobile/`).
 
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:41-42,62 — отрицательный PR идёт до любой
-проводки, на старом workflow (`mobile.yml:64-70`: только `maestro-${{ github.sha }}`, `warn`, APK
-не выгружается). Требование «Отрицательный сценарий судится по JUnit/assertion и APK» (`:62`) и
-«сохранённые … APK» (`:42`) тогда не исполнимо artifact'ом; несёт ли отрицательный PR правку
-workflow — решение, молча оставленное исполнителю (вопрос 3). Назвать.
-
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:43,57,83 — противоречие о том, кто пишет
-workflow-проводку freeze-PR: `:57` — implementer, «подготовительная часть — freeze-PR»; `:43` —
-freeze-PR проходит CI «ДО implementer»; `:83` — зона implementer открывается «ПОСЛЕ … freeze-PR».
-Автор/публикатор отрицательного PR (`:41`, файл `mobile/.maestro/rehearsal.yaml`) не назван вовсе
-(вопрос 4). Назвать исполнителя каждого из двух ранних PR.
-
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:85 — `РАБОТА НЕ РАЗДАЁТСЯ:` по грамматике
-`check_zones.sh` объявляет весь контракт нераздаваемым, а здесь стоит рядом с ЗОНА-строками как
-список исключений. Механизм принимает, но смысл двоится; перечень исключений лучше дать прозой.
-
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:22 — «Остальные элементы временного
-StartScreen сохраняются»: подзаголовок «Mobile — Grundgerüst» (`start-screen.tsx:12`) не утверждает
-ни один тест/flow (`start-screen.test.tsx` — только header и testID, `start.yaml` — только «Complior»);
-ловит только владелец по PNG (`:47`). Одна строка assertion сделала бы это механическим.
-
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:108 — «MATRlX» набрано с латинской `l`;
-поиск по имени `MATRIX` строку не найдёт.
-
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:66-67 — `executed=N` считает сам probe
-(`len(results)`); другая мера (правило 4) — построчные `991 <mode>/<case>: rc=… assertion=…` из
-Jest JSON. Достаточно, но reviewer'у стоит пересчитывать строки, а не итог.
+Прежний СОВЕТ v2 к `:105,:107` (`check_zones.sh` прочтёт ЗОНА implementer как пути dev-harness) — вне класса этого круга, остаётся советом.
 
 ## Итог
 
-Две блокирующие находки — одного корня: в Complior-mob контракт поставляет две механические
-гарантии (проверку evidence в workflows и Jest-регрессию в quality), а критерий проверяет только
-ПОВЕДЕНИЕ приложения в этом прогоне, не сами гарантии. Обе закрываются добавлением пунктов приёмки
-с командой; предмет, последовательность, Б1, пробы dev-harness и граница раздачи — в порядке.
-Круг первый; арбитр не созывается.
+П1–П4 внесены; четыре свойства п.1 арбитража сохранены в тексте и в коде; сравнитель красный на матрице (30/0) и на 16 моих обманах (14 rc=1, 2 rc=2), зелёный на честных дельтах трёх фаз — и в матрице, и на настоящих git-коммитах через CLI. Заморозка разрешена.
