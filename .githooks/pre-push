@@ -216,16 +216,24 @@ merge_main_verdict() {  # <коммит> <remote ref>
   elif [ "$r" -ne 1 ]; then
     MM_REASON="merge-base --is-ancestor $p1 rc=$r"; return 2
   fi
-  for p in "${parents[@]:2}"; do
-    mapfile -t bases < <(git -C "$ROOT" merge-base --all "$p" "$LIVE_MAIN"); r=$?
-    [ "${#bases[@]}" -gt 0 ] || continue   # нет общей истории с main — истории main не несёт
-    for b in "${bases[@]}"; do
-      git -C "$ROOT" merge-base --is-ancestor "$b" "$p1"; r=$?
-      if [ "$r" -eq 1 ]; then
-        MM_REASON="родитель $p приносит историю main, которой нет у первого родителя"; return 0
-      elif [ "$r" -ne 0 ]; then
-        MM_REASON="merge-base --is-ancestor $b rc=$r"; return 2
-      fi
+  # Ориентиры main: живой снимок origin и локальный refs/heads/main, если он есть и отличается
+  # (Рв-PP-9: невыпущенная история локального main тоже не должна попадать в ветку).
+  local -a mains=( "$LIVE_MAIN" )
+  local lm
+  lm="$(git -C "$ROOT" rev-parse --verify --quiet 'refs/heads/main^{commit}' 2>/dev/null)" || lm=""
+  [ -n "$lm" ] && [ "$lm" != "$LIVE_MAIN" ] && mains+=( "$lm" )
+  for m in "${mains[@]}"; do
+    for p in "${parents[@]:2}"; do
+      mapfile -t bases < <(git -C "$ROOT" merge-base --all "$p" "$m")
+      [ "${#bases[@]}" -gt 0 ] || continue   # нет общей истории с main — истории main не несёт
+      for b in "${bases[@]}"; do
+        git -C "$ROOT" merge-base --is-ancestor "$b" "$p1"; r=$?
+        if [ "$r" -eq 1 ]; then
+          MM_REASON="родитель $p приносит историю main, которой нет у первого родителя"; return 0
+        elif [ "$r" -ne 0 ]; then
+          MM_REASON="merge-base --is-ancestor $b rc=$r"; return 2
+        fi
+      done
     done
   done
   return 1
