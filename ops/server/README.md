@@ -48,7 +48,9 @@ tmux new -s orch ~/bin/orch-loop               # запуск цикла (пол
 - **orch-peak-stop.timer** — Mon..Fri 14:00 Asia/Singapore: проверка «всё
   закоммичено и отправлено», при необходимости ожидание, затем гашение omp.
 - **orch-peak-start.timer** — Mon..Fri 18:00 Asia/Singapore: ввод команды
-  запуска цикла в ту же панель (`cd ~/dev-harness && orch-loop`).
+  запуска цикла в ту же панель (`cd $REPO && $UHOME/bin/orch-loop` — репо и
+  пользователь машины из `/etc/dev-harness/ops.env`, полный путь: `~/bin` не
+  везде в PATH; шов `ORCH_LOOP_CMD`).
 - **orch-peak-reenable.timer** — однократное включение паузы 2026-10-08 00:00
   Asia/Singapore (Persistent=true).
 - **orch-peak-reenable.service** — oneshot-сервис: включает
@@ -116,8 +118,10 @@ omp, через 30 с SIGKILL. `touch "$MARK"` после сессии — то�
 
 Каждая сессия запускается `systemd-run --user --scope` со свойствами
 `MemoryMax=$ORCH_MEM_MAX` (по умолчанию `32G`) и `MemorySwapMax=0`.
-`XDG_RUNTIME_DIR` выставляется в `/run/user/$(id -u)`, если не задан
-выше. Опции `systemd-run` идут ДО `--`; команда после `--` — exec'ом
+`XDG_RUNTIME_DIR` выставляется в `/run/user/$(id -u)`, если не задан;
+чужое непустое значение (например `/run/user/0` у панели, поднятой `su`
+из root-сессии) заменяется своим, чужая шина `DBUS_SESSION_BUS_ADDRESS`
+снимается. Опции `systemd-run` идут ДО `--`; команда после `--` — exec'ом
 в том же процессе приходит к вызову `workshop` (omp остаётся прямым
 потомком цикла, `pgrep -P`/`pkill -P` сторожа и цикла не меняются).
 
@@ -240,8 +244,11 @@ orch-peak-stop.timer orch-peak-start.timer`. Не трогать `orch-ctx.timer
 - **Клоны `~/odelix/*`** — соседние каталоги `~/odelix/odx-stack`,
   `~/odelix/odx-rshnn`, и т. п. (по числу пилотных репозиториев), на них
   может указывать пилот A3 — обвязка не лезет в них сама, но `orch-loop`
-  стартует `workshop --yolo` из `/opt/orch-agent` (Рв2-6: код агента
-  провизионит `install.sh root`; `~/dev-harness` uid'у агента недостижим).
+  стартует `workshop --yolo` по умолчанию из `<репо установки>/workshop`
+  (режим «тот же пользователь»: `WORKSHOP=${ORCH_WORKSHOP:-$REPO/workshop}`),
+  а из `/opt/orch-agent` — только в опции отдельного uid агента (Рв2-6: код
+  агента провизионит `install.sh root`; `~/dev-harness` uid'у агента
+  недостижим).
 
 ## Установка из репо
 
@@ -264,19 +271,23 @@ bash ops/server/install.sh verify
 другой источник; `OPS_SERVER_BIN_DST`, `OPS_SERVER_SBIN_DST`,
 `OPS_SERVER_ETC_DST` — другие адресаты (тесты, песочница). Шов
 `OPS_SERVER_MAIN` (081) указывает на корень основного чекаута, чей
-`.git/config` запирается `chattr +i` (по умолчанию
-`/home/harness/dev-harness`).
+`.git/config` запирается `chattr +i` (по умолчанию — корень чекаута
+установки: два уровня над `ops/server`, откуда запущен `install.sh`).
 
 ## Пользователь агента (контракт 093, И-3)
 
-Автономная сессия запускается под ОТДЕЛЬНЫМ uid агента (по умолчанию
-`orchagent`, HOME — `/var/lib/orch-agent`), а не под uid владельца
-`/home/harness`. Это даёт изоляцию от контрольных файлов станции
-(`~/.ssh/github-rw-cwd`, `~/.config/omp/*`, живое состояние
-`$UHOME/.local/state/dev-harness-sessions/**`, `/var/lib/orch-peak/**`)
-и от публикационного ключа (Н-196). HOME сессии — вне `/home/harness`:
-credent публикации в среде сессии НЕ доступны, `GIT_SSH_COMMAND` с
-rw-identity не строится.
+По умолчанию (один харнесс, слово владельца 2026-10-16) автономная сессия
+запускается под ТЕМ ЖЕ uid, что и цикл, — uid владельца чекаута установки
+(`orch-loop`: `AGENT_USER="${ORCH_AGENT_USER:-$SELF_USER}"`; `install.sh`:
+`AGENT_USER="${OPS_SERVER_AGENT_USER-}"`), станционные токены у сессии
+остаются. ОТДЕЛЬНЫЙ uid агента (`orchagent`, HOME — `/var/lib/orch-agent`)
+— опция `OPS_SERVER_AGENT_USER` (установка) / `ORCH_AGENT_USER` (цикл);
+только в ней цикл снимает креденшл на входе, и она даёт изоляцию от
+контрольных файлов станции (`~/.ssh/github-rw-cwd`, `~/.config/omp/*`,
+живое состояние `$UHOME/.local/state/dev-harness-sessions/**`,
+`/var/lib/orch-peak/**`) и от публикационного ключа (Н-196). HOME сессии —
+вне `/home/harness`: credent публикации в среде сессии НЕ доступны,
+`GIT_SSH_COMMAND` с rw-identity не строится.
 
 Швы `ORCH_AGENT_USER` / `ORCH_AGENT_HOME` переопределяют идентичность
 агента в тест-мире (одно имя на свойство; дублирующие имена
@@ -285,8 +296,10 @@ rw-identity не строится.
 каталог `/var/lib/orch-agent` и узкое sudoers-правило
 `/etc/sudoers.d/orch-agent-launcher` (harness → orchagent NOPASSWD,
 только по адресату) провизионит `install.sh root` идемпотентно ПОСЛЕ
-копий и блокировки `.git/config` — и только в производственном контуре:
-при заданных швах адресатов (`OPS_SERVER_SBIN_DST`/`OPS_SERVER_ETC_DST`)
+копий и блокировки `.git/config` — только при явном `OPS_SERVER_AGENT_USER`
+(без него отдельный uid не заводится: агент — под пользователем машины)
+и только в производственном контуре: при заданных швах адресатов
+(`OPS_SERVER_SBIN_DST`/`OPS_SERVER_ETC_DST`)
 провизионинг пропускается, тест-мир строит идентичность агента сам.
 Исполняемый код агента (omp, workshop) — `/opt/orch-agent` (Рв2-6, v2):
 `install.sh root` провизионит его зеркальной копией доверенного чекаута
@@ -296,10 +309,12 @@ rw-identity не строится.
 недоступен (И-4); stale-носители `.env`/`.env.*`/`.ssh`, оставшиеся у
 получателя прошлой установкой, удаляются (adversary 093-v4): источник
 `OPS_SERVER_MAIN` не меняется ни на байт.
-orch-loop ведёт агента ИЗ `/opt/orch-agent`: умолчание workshop'а —
-`/opt/orch-agent/workshop` (швы `ORCH_WORKSHOP` /
+В опции отдельного uid orch-loop ведёт агента ИЗ `/opt/orch-agent`:
+умолчание workshop'а — `/opt/orch-agent/workshop` (швы `ORCH_WORKSHOP` /
 `ORCH_LOOP_AGENT_CMD` переопределяют путь), состояние и сессии агента —
-`/var/lib/orch-agent`. Пользователь `orchagent` НЕ входит в группу
+`/var/lib/orch-agent`. По умолчанию (тот же пользователь) умолчание
+workshop'а — `$REPO/workshop`.
+Пользователь `orchagent` НЕ входит в группу
 `harness`: `/home/harness` (`drwxr-x---`) uid'у агента недостижим,
 станционные `~/.local/bin` и `~/.config` субъектом не используются.
 Шов `OPS_SERVER_AGENT_ROOT` переопределяет корень кода агента.
