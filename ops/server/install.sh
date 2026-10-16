@@ -97,12 +97,20 @@ SRC_ROOT="${OPS_SERVER_SRC:-$SELF_DIR}"
 BIN_DST="${OPS_SERVER_BIN_DST-$HOME/bin}"
 SBIN_DST="${OPS_SERVER_SBIN_DST-/usr/local/sbin}"
 ETC_DST="${OPS_SERVER_ETC_DST-/etc/systemd/system}"
-MAIN_DST="${OPS_SERVER_MAIN-/home/harness/dev-harness}"
+# Один харнесс (слово владельца 2026-10-16): установка на ЛЮБУЮ машину — репо и пользователь
+# берутся из места установки, а не из имён станции. Корень репо — два уровня над этим файлом.
+REPO_ROOT="$(cd "$SELF_DIR/../.." && pwd)"
+TARGET_USER="${OPS_SERVER_USER-$(stat -c %U "$REPO_ROOT")}"   # владелец чекаута = пользователь цикла
+USER_CONF="${OPS_SERVER_USER_CONF-$HOME/.config/dev-harness/ops.env}"
+MACHINE_CONF="${OPS_SERVER_MACHINE_CONF-/etc/dev-harness/ops.env}"
+MAIN_DST="${OPS_SERVER_MAIN-$REPO_ROOT}"
 UNITS='orch-peak@.service orch-peak-warn.timer orch-peak-stop.timer orch-peak-start.timer orch-peak-reenable.timer orch-peak-reenable.service orch-ctx.timer'
 # Контракт 093 И-6b: каталог предыдущей версии для rollback.
 STATE_BACKUP_DIR="${OPS_SERVER_ROLLBACK_BACKUP-$SBIN_DST/.rollback}"
-# Контракт 093 И-3: идентичность пользователя-агента (idempotent provisioning).
-AGENT_USER="${OPS_SERVER_AGENT_USER-orchagent}"
+# Контракт 093 И-3: идентичность пользователя-агента (idempotent provisioning) — ОПЦИЯ: только при
+# явном OPS_SERVER_AGENT_USER. По умолчанию агент работает под пользователем машины (решение
+# владельца: orchagent не включается).
+AGENT_USER="${OPS_SERVER_AGENT_USER-}"
 AGENT_HOME="${OPS_SERVER_AGENT_HOME-/var/lib/orch-agent}"
 SUDOERS_DROP="${OPS_SERVER_SUDOERS_DROP-/etc/sudoers.d/orch-agent-launcher}"
 # Контракт 093 И-3 (Рв2-6, v2): корень исполняемого кода агента.
@@ -246,12 +254,27 @@ oneshot_new_run_done() { # <юнит> <t0-ns>: rc 0 ⟺ Result=success И шта
 case "$1" in
   user)
     # user-часть: orch-loop → ~/bin, режим 755, sha256 против источника.
+    # Атомарно (tmp + mv): работающий цикл читает свой файл по ходу исполнения — перезапись
+    # того же inode подменила бы ему текст на полуслове. Временный файл тоже назван orch-loop
+    # (в своём каталоге) — запись в него видна тем же проверкам, что и запись в адресат.
     mkdir -p "$BIN_DST" || die_write "$BIN_DST"
-    cp -- "$SRC_ROOT/user/orch-loop" "$BIN_DST/orch-loop" \
-      || die_write "$BIN_DST/orch-loop"
-    chmod 755 "$BIN_DST/orch-loop" || die_write "$BIN_DST/orch-loop"
+    NEW_DIR="$BIN_DST/.orch-loop.new.$$"
+    rm -rf -- "$NEW_DIR"; mkdir -p "$NEW_DIR" || die_write "$NEW_DIR"
+    cp -- "$SRC_ROOT/user/orch-loop" "$NEW_DIR/orch-loop" \
+      || { rm -rf -- "$NEW_DIR"; die_write "$BIN_DST/orch-loop"; }
+    chmod 755 "$NEW_DIR/orch-loop" || { rm -rf -- "$NEW_DIR"; die_write "$BIN_DST/orch-loop"; }
+    mv -f -- "$NEW_DIR/orch-loop" "$BIN_DST/orch-loop" || { rm -rf -- "$NEW_DIR"; die_write "$BIN_DST/orch-loop"; }
+    rmdir -- "$NEW_DIR" 2>/dev/null || true
     check_one "$BIN_DST/orch-loop" "$SRC_ROOT/user/orch-loop" || exit 1
     printf 'установлено: %s/orch-loop\n' "$BIN_DST"
+    # Конфиг машины для цикла: репо установки + самосверка на старте. Шов-мир (задан
+    # OPS_SERVER_BIN_DST без OPS_SERVER_USER_CONF) конфиг не пишет — песочница не трогает $HOME.
+    if [ -z "${OPS_SERVER_BIN_DST:-}" ] || [ -n "${OPS_SERVER_USER_CONF:-}" ]; then
+      mkdir -p "$(dirname "$USER_CONF")" || die_write "$USER_CONF"
+      printf ': "${ORCH_REPO:=%s}"\nORCH_SELF_UPDATE=1\n' "$REPO_ROOT" >"$USER_CONF.new.$$" \
+        && mv -f -- "$USER_CONF.new.$$" "$USER_CONF" || die_write "$USER_CONF"
+      printf 'конфиг: %s (ORCH_REPO=%s)\n' "$USER_CONF" "$REPO_ROOT"
+    fi
     ;;
   root)
     # euid-гард: под harness отказываем rc 1 ДО mkdir/cp по швовым путям.
@@ -411,8 +434,29 @@ case "$1" in
           printf 'шов-мир: провизионинг %s и кода агента пропущен (тест-мир по швам адресатов)\n' "$AGENT_USER"
         fi
       else
-        provision_orchagent || rc=1
-        provision_agent_code || rc=1
+        # Конфиг машины для сторожа: пользователь и репо установки (root:root 644 — сторож
+        # читает его только в такой форме и не исполняет).
+        mkdir -p "$(dirname "$MACHINE_CONF")" || die_write "$MACHINE_CONF"
+        printf 'ORCH_USER=%s\nORCH_REPO=%s\n' "$TARGET_USER" "$REPO_ROOT" >"$MACHINE_CONF.new.$$" \
+          && chmod 644 "$MACHINE_CONF.new.$$" && chown root:root "$MACHINE_CONF.new.$$" \
+          && mv -f -- "$MACHINE_CONF.new.$$" "$MACHINE_CONF" || die_write "$MACHINE_CONF"
+        printf 'конфиг: %s (ORCH_USER=%s ORCH_REPO=%s)\n' "$MACHINE_CONF" "$TARGET_USER" "$REPO_ROOT"
+        # Прежний станционный потолок памяти (orch-memcap, вне репо) заменён scope-потолком цикла.
+        if [ -f "$ETC_DST/orch-memcap.timer" ] || [ -f "$SBIN_DST/orch-memcap" ]; then
+          systemctl disable --now orch-memcap.timer >/dev/null 2>&1 || true
+          rm -f -- "$ETC_DST/orch-memcap.timer" "$ETC_DST/orch-memcap.service" \
+            "$SBIN_DST/orch-memcap" "$SBIN_DST"/orch-memcap.bak-* || die_write "orch-memcap"
+          printf 'убран прежний orch-memcap (потолок памяти — в цикле)\n'
+        fi
+        systemctl daemon-reload || { printf 'ОТКАЗ: systemctl daemon-reload\n' >&2; rc=1; }
+        systemctl enable --now orch-ctx.timer >/dev/null 2>&1 \
+          || { printf 'ОТКАЗ: orch-ctx.timer не включён\n' >&2; rc=1; }
+        if [ -n "$AGENT_USER" ]; then
+          provision_orchagent || rc=1
+          provision_agent_code || rc=1
+        else
+          printf 'агент — под пользователем %s; отдельный uid не заводится (OPS_SERVER_AGENT_USER не задан)\n' "$TARGET_USER"
+        fi
       fi
     fi
     exit "$rc"

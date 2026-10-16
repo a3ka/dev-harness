@@ -95,7 +95,7 @@ env PATH="$SCRATCH/bin:$PATH" \
   ORCH_MARK="$SCRATCH/mark" ORCH_STOP="$SCRATCH/stop" ORCH_LOG="$SCRATCH/loop.log" \
   ORCH_GRACE=1 ORCH_MIN_LIFE=3600 ORCH_EARLY_WAIT=1 ORCH_EARLY_MAX=1 \
   ORCH_CRASH=9 ORCH_N=0 \
-  ORCH_AGENT_HOME="$SCRATCH/agent_home" \
+  ORCH_AGENT_HOME="$SCRATCH/agent_home" ORCH_AGENT_USER=orchagent \
   ORCH_LOOP_AGENT_CMD="$SCRATCH/agent_cmd" \
   timeout 30 bash "$SUBJ" >"$SCRATCH/subj_out" 2>&1 || true
 chmod 700 "$SCRATCH/station_home" 2>/dev/null || true

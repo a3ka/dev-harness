@@ -14,11 +14,22 @@
 #           сохранения с отсрочкой до GRACE, затем маркер перезапуска (цикл сам поднимет
 #           свежую сессию через свой GRACE). Без сжатия: новая сессия читает HANDOFF.
 set -u
+# Один харнесс (слово владельца 2026-10-16): пользователь и репо машины — из /etc/dev-harness/ops.env,
+# который пишет install.sh root. Файл НЕ исполняется (root): читаются только ORCH_USER/ORCH_REPO,
+# и только если он root:root без записи group/other. Переменные среды сильнее файла.
+CONF="${ORCH_CONF:-/etc/dev-harness/ops.env}"
+conf_get() { sed -n "s/^$1=//p" "$CONF" 2>/dev/null | tail -n 1; }
+if [ -f "$CONF" ] && [ "$(stat -c %u "$CONF" 2>/dev/null)" = 0 ] \
+   && [ $(( 8#$(stat -c %a "$CONF" 2>/dev/null || echo 777) & 8#022 )) -eq 0 ]; then
+  [ -n "${ORCH_USER:-}" ] || ORCH_USER="$(conf_get ORCH_USER)"
+  [ -n "${ORCH_REPO:-}" ] || ORCH_REPO="$(conf_get ORCH_REPO)"
+fi
 U="${ORCH_USER:-harness}"
 UHOME="${ORCH_UHOME:-$(getent passwd "$U" | cut -d: -f6)}"
 REPO="${ORCH_REPO:-$UHOME/dev-harness}"
 LOOP_PAT="${ORCH_LOOP_PAT:-bin/orch-loop}"
 LOOP_CMD="${ORCH_LOOP_CMD:-cd ~/dev-harness && orch-loop}"
+[ -n "${ORCH_LOOP_CMD:-}" ] || LOOP_CMD="cd $REPO && $UHOME/bin/orch-loop"   # репо и цикл машины, не имена станции
 MARK="${ORCH_MARK:-/tmp/dev-harness-verify/orch-restart}"
 STATE="${ORCH_STATE:-/var/lib/orch-peak}"
 LOG="${ORCH_LOG:-/var/log/orch-peak.log}"
@@ -32,6 +43,9 @@ IDLE="${ORCH_IDLE:-1800}"          # простой сессии (с) до пе�
 IDLE_MAX="${ORCH_IDLE_MAX:-3}"     # перезапусков по простою подряд при неизменном origin/main
 SUB_LIVE="${ORCH_SUB_LIVE:-300}"   # субагент «жив», если его журнал моложе (с)
 SESS_GLOB="${ORCH_SESS_GLOB:-$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/*.jsonl}"
+# Каталог сессий omp назван по пути репо: /home/harness/dev-harness → --home-harness-dev-harness--.
+SESS_PROJ="--$(printf '%s' "${REPO#/}" | tr '/' '-')--"
+[ -n "${ORCH_SESS_GLOB:-}" ] || SESS_GLOB="$UHOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/$SESS_PROJ/*.jsonl"
 # Контракт 080, инв. 4/8: переменные жёсткого режима для polling субагентов.
 HARD_GRACE="${ORCH_HARD_GRACE:-1800}"
 HARD_POLL="${ORCH_HARD_POLL:-60}"
@@ -305,6 +319,10 @@ case "${1:-}" in
     kill_session ;;
   ctx)
     [ -n "$(omp_pids)" ] || exit 0
+    # Сессия жива, а журнала нет — сторож слеп: rc 1 с причиной (юнит failed), а не молчаливый 0
+    # (аудит 2026-10-16: ошибка = отказ).
+    [ -n "$(ls -t $SESS_GLOB 2>/dev/null | head -1)" ] \
+      || { log "ОТКАЗ ctx: сессия жива, журнал не найден ($SESS_GLOB)"; exit 1; }
     { read -r sess; read -r ctx; } < <(cur_ctx) || exit 0
     [ -n "${ctx:-}" ] || exit 0
     st="$STATE/ctx-$sess"

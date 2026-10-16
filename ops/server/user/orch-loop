@@ -6,7 +6,12 @@
 #                  touch ~/orch-loop.stop) | EARLY_MAX подряд ранних маркеров или падений
 #   рестарт:       маркер; падение без маркера (rc≠0) и ранний маркер — через EARLY_WAIT с
 # Запуск:  tmux new -s orch orch-loop
+# Установка (любая машина): bash <репо>/ops/server/install.sh user — кладёт этот файл в ~/bin и пишет
+# ~/.config/dev-harness/ops.env (ORCH_REPO = корень репо установки). Переменные среды сильнее файла.
 set -u
+ORCH_ENV="${ORCH_ENV:-$HOME/.config/dev-harness/ops.env}"
+# shellcheck disable=SC1090
+[ -f "$ORCH_ENV" ] && . "$ORCH_ENV"
 REPO="${ORCH_REPO:-$HOME/dev-harness}"
 WORKSHOP="${ORCH_WORKSHOP:-./workshop}"
 MARK="${ORCH_MARK:-/tmp/dev-harness-verify/orch-restart}"
@@ -31,9 +36,33 @@ MSG='АВТОПЕРЕЗАПУСК: выполни стартап-протоко�
 # необработанным оставалось только оно; HARNESS_GITHUB_MODE — режим
 # (read/offline), не креденшл; ZAI/MINIMAX/METERING — ключи модели, которые
 # нужны самой сессии агента и в съём не входят.
-unset GIT_SSH_COMMAND GITHUB_TOKEN GH_TOKEN GIT_SSH_KEY_FILE ODELIX_GITHUB_TOKEN
+# Один харнесс (слово владельца 2026-10-16): по умолчанию сессия идёт под ТЕМ ЖЕ пользователем,
+# что и цикл (ноутбук, станция, любая машина) — токены владельца у агента остаются (решение
+# владельца: агенты работают под своим uid, orchagent не включается). Отдельный uid агента (контракт
+# 093) — опция: ORCH_AGENT_USER=<другой пользователь>; только в ней работает съём креденшл ниже.
+SELF_USER="$(id -un)"
+AGENT_USER="${ORCH_AGENT_USER:-$SELF_USER}"
+if [ "$AGENT_USER" != "$SELF_USER" ]; then
+  unset GIT_SSH_COMMAND GITHUB_TOKEN GH_TOKEN GIT_SSH_KEY_FILE ODELIX_GITHUB_TOKEN
+fi
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
 cd "$REPO" || { log "нет $REPO"; exit 2; }
+# Один харнесс: установленная копия (install.sh пишет ORCH_SELF_UPDATE=1 в ops.env) на каждом
+# старте сверяется с репо. Расходится user-часть — переустановка из репо и перезапуск свежим
+# текстом; расходится root-часть (сторож, юниты) — сессия получает строку доложить владельцу.
+if [ "${ORCH_SELF_UPDATE:-0}" = 1 ] && [ -f "$REPO/ops/server/install.sh" ]; then
+  if ! cmp -s "$0" "$REPO/ops/server/user/orch-loop"; then
+    if bash -n "$REPO/ops/server/user/orch-loop" && bash "$REPO/ops/server/install.sh" user >/dev/null; then
+      log "цикл обновлён из репо ($REPO/ops/server/user/orch-loop) — перезапуск свежим текстом"
+      exec "$0"
+    fi
+    log "ОТКАЗ: цикл из репо не установлен — работаю на установленной версии"
+  fi
+  drift="$(bash "$REPO/ops/server/install.sh" verify 2>&1 >/dev/null)" || {
+    log "расхождение с репо: $(printf '%s' "$drift" | tr '\n' ';')"
+    MSG="$MSG ВНИМАНИЕ: машина расходится с репо ($(printf '%s' "$drift" | tr '\n' ';')) — доложи владельцу: sudo bash $REPO/ops/server/install.sh root."
+  }
+fi
 mkdir -p "$(dirname "$MARK")"
 loop_pid=$$; n="${ORCH_N:-0}"
 [ -e "$STOP" ] && { log "стоп-файл $STOP — выход"; rm -f "$STOP"; exit 0; }
@@ -41,8 +70,12 @@ GO="$MARK.go"   # «перезапуск принят»: ставит наблю
 rm -f "$MARK" "$GO"; n=$((n + 1)); start=$(date +%s)
 # Идентичность агента (И-3, 093): ДО форка наблюдателя — эскалация KILL в
 # наблюдателе пользуется тем же узким sudoers-правилом (sudo -nu $AGENT_USER).
-AGENT_USER="${ORCH_AGENT_USER:-orchagent}"
-AGENT_HOME="${ORCH_AGENT_HOME:-/var/lib/orch-agent}"
+# В режиме «тот же пользователь» HOME сессии — свой.
+if [ "$AGENT_USER" = "$SELF_USER" ]; then
+  AGENT_HOME="${ORCH_AGENT_HOME:-$HOME}"
+else
+  AGENT_HOME="${ORCH_AGENT_HOME:-/var/lib/orch-agent}"
+fi
 # Гашение сессии по дереву посредников (Р1-7 круга 1): запуск сессии —
 # systemd-run --scope (exec) → sh (exec sudo) → sudo -nu (РОДИТЕЛЬ, сигнал
 # пересылает ребёнку) → workshop/omp; omp — НЕ прямой потомок цикла.
@@ -68,6 +101,18 @@ reap_session() { # Рв2-3 (И-7, круг 3): зачистка остатков
   # целиком; лист под uid агента группе сигналов недосягаем (EPERM) — добивается
   # тем же узким sudoers-правилом (И-3), что и в наблюдателе.
   local pgid p
+  # Режим «тот же пользователь»: сессия НЕ отделена setsid (omp нужен управляющий терминал
+  # панели), её остатки собраны в scope-юните: TERM, 3 с, затем KILL всему юниту (stop сам
+  # ждал бы TimeoutStopSec 90 с на TERM-иммунном остатке).
+  if [ "$AGENT_USER" = "$SELF_USER" ]; then
+    systemctl --user kill --signal=TERM "$SESSION_UNIT" >/dev/null 2>&1 || return 0
+    for _ in 1 2 3; do
+      sleep 1
+      systemctl --user is-active --quiet "$SESSION_UNIT" 2>/dev/null || return 0
+    done
+    systemctl --user kill --signal=KILL "$SESSION_UNIT" >/dev/null 2>&1 || true
+    return 0
+  fi
   [ -s "$PGID" ] || return 0
   pgid="$(cat "$PGID" 2>/dev/null)" || return 0
   case "$pgid" in ''|*[!0-9]*) return 0 ;; esac
@@ -137,9 +182,14 @@ RAN="$MARK.scoped"; PGID="$MARK.pgid"; rm -f "$RAN" "$PGID"
 # швы ORCH_WORKSHOP / ORCH_LOOP_AGENT_CMD (тест-миры) путь задают сами.
 # Состояние/сессии агента — $AGENT_HOME (/var/lib/orch-agent), не кодовый
 # корень.
-AGENT_ROOT="${ORCH_AGENT_ROOT:-/opt/orch-agent}"
-WORKSHOP="${ORCH_WORKSHOP:-$AGENT_ROOT/workshop}"
+if [ "$AGENT_USER" = "$SELF_USER" ]; then
+  WORKSHOP="${ORCH_WORKSHOP:-$REPO/workshop}"
+else
+  AGENT_ROOT="${ORCH_AGENT_ROOT:-/opt/orch-agent}"
+  WORKSHOP="${ORCH_WORKSHOP:-$AGENT_ROOT/workshop}"
+fi
 AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
+SESSION_UNIT="orch-session-$loop_pid-$n.scope"
 # Рв2-3 (И-7, круг 3): сессия стартует в СВОЕЙ сессии/группе (setsid у двери):
 # pid лидера = pgid пишется в $PGID ДО готовности RAN — осиротевшие потомки
 # (ppid=1) остаются в этой группе и досягаемы зачистке ПОСЛЕ возврата сессии
@@ -147,8 +197,15 @@ AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
 # Путь pgid-файла входит в скрипт СРЕДОЙ (ORCH_PGID_FILE), не argv: хвост
 # команды после «--» обязан кончаться парой «"$AGENT_CMD" "$MSG"» (форма 093,
 # И-5: шим 085 опознаёт запуск сессии по двум последним токенам).
-ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c 'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && : >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
-  sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+if [ "$AGENT_USER" = "$SELF_USER" ]; then
+  # Тот же пользователь: без sudo и без setsid (TUI omp держит терминал панели); потолок памяти —
+  # тот же scope, остатки сессии — по имени scope-юнита (reap_session).
+  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" --unit="$SESSION_UNIT" -- sh -c ': >"$1" && exec "$4" --yolo -- "$5"' \
+    sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+else
+  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c 'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && : >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
+    sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+fi
 if [ ! -e "$RAN" ]; then
   # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,
   # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.

@@ -104,7 +104,7 @@ run_case() {
     ORCH_MARK="$d/mark" ORCH_STOP="$d/stop" ORCH_LOG="$d/loop.log" \
     ORCH_GRACE=1 ORCH_MIN_LIFE=3600 ORCH_EARLY_WAIT=1 ORCH_EARLY_MAX=1 \
     ORCH_CRASH=9 ORCH_EARLY=0 ORCH_N=0 \
-    ORCH_AGENT_HOME="$d/agent_home" \
+    ORCH_AGENT_HOME="$d/agent_home" ORCH_AGENT_USER=orchagent \
     ORCH_LOOP_AGENT_CMD="$d/omp_$variant" \
     bash "$SUBJ" >"$d/subj_out" 2>&1 &
   SUBJ_PID=$!
