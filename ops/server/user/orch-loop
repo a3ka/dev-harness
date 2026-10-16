@@ -48,16 +48,24 @@ fi
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
 cd "$REPO" || { log "нет $REPO"; exit 2; }
 # Один харнесс: установленная копия (install.sh пишет ORCH_SELF_UPDATE=1 в ops.env) на каждом
-# старте сверяется с репо. Расходится user-часть — переустановка из репо и перезапуск свежим
-# текстом; расходится root-часть (сторож, юниты) — сессия получает строку доложить владельцу.
-if [ "${ORCH_SELF_UPDATE:-0}" = 1 ] && [ -f "$REPO/ops/server/install.sh" ]; then
+# старте сверяется с репо. Расходится user-часть — переустановка из репо и ОДИН перезапуск
+# установленной копией; расходится root-часть (сторож, юниты) — сессия получает строку доложить
+# владельцу. Перезапуск идёт в УСТАНОВЛЕННЫЙ файл, не в "$0", и не больше одного раза подряд
+# (ORCH_SELF_UPDATED): цикл, запущенный не из установленного места, иначе переустанавливал бы
+# себя без конца (Рв-ОХ-2: 456 витков за 10 с).
+if [ "${ORCH_SELF_UPDATE:-0}" = 1 ] && [ -z "${ORCH_SELF_UPDATED:-}" ] && [ -f "$REPO/ops/server/install.sh" ]; then
   if ! cmp -s "$0" "$REPO/ops/server/user/orch-loop"; then
-    if bash -n "$REPO/ops/server/user/orch-loop" && bash "$REPO/ops/server/install.sh" user >/dev/null; then
-      log "цикл обновлён из репо ($REPO/ops/server/user/orch-loop) — перезапуск свежим текстом"
-      exec "$0"
+    installed="${OPS_SERVER_BIN_DST:-$HOME/bin}/orch-loop"
+    if bash -n "$REPO/ops/server/user/orch-loop" && bash "$REPO/ops/server/install.sh" user >/dev/null \
+       && cmp -s "$installed" "$REPO/ops/server/user/orch-loop"; then
+      log "цикл обновлён из репо — перезапуск установленной копией ($installed)"
+      ORCH_SELF_UPDATED=1 exec "$installed"
     fi
-    log "ОТКАЗ: цикл из репо не установлен — работаю на установленной версии"
+    log "ОТКАЗ: цикл из репо не установлен — работаю на текущей версии ($0)"
   fi
+fi
+unset ORCH_SELF_UPDATED   # флаг живёт ровно один exec: следующий старт сверяется заново
+if [ "${ORCH_SELF_UPDATE:-0}" = 1 ] && [ -f "$REPO/ops/server/install.sh" ]; then
   drift="$(bash "$REPO/ops/server/install.sh" verify 2>&1 >/dev/null)" || {
     log "расхождение с репо: $(printf '%s' "$drift" | tr '\n' ';')"
     MSG="$MSG ВНИМАНИЕ: машина расходится с репо ($(printf '%s' "$drift" | tr '\n' ';')) — доложи владельцу: sudo bash $REPO/ops/server/install.sh root."

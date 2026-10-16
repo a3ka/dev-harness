@@ -14,15 +14,20 @@
 #           сохранения с отсрочкой до GRACE, затем маркер перезапуска (цикл сам поднимет
 #           свежую сессию через свой GRACE). Без сжатия: новая сессия читает HANDOFF.
 set -u
-# Один харнесс (слово владельца 2026-10-16): пользователь и репо машины — из /etc/dev-harness/ops.env,
-# который пишет install.sh root. Файл НЕ исполняется (root): читаются только ORCH_USER/ORCH_REPO,
-# и только если он root:root без записи group/other. Переменные среды сильнее файла.
+# Один харнесс (слово владельца 2026-10-16): пользователь, репо и каталог сессий машины — из
+# /etc/dev-harness/ops.env, который пишет install.sh root. Файл НЕ исполняется: читаются только
+# ORCH_USER/ORCH_REPO/ORCH_SESS_GLOB, и только если его владелец — исполняющий uid (root для
+# root) и нет записи group/other. Умолчательный путь читается только в боевом контексте (euid 0,
+# без тест-шва ORCH_PEAK_TEST) — тест-миры конфиг машины не видят; явный ORCH_CONF — всегда.
+# Переменные среды сильнее файла.
 CONF="${ORCH_CONF:-/etc/dev-harness/ops.env}"
 conf_get() { sed -n "s/^$1=//p" "$CONF" 2>/dev/null | tail -n 1; }
-if [ -f "$CONF" ] && [ "$(stat -c %u "$CONF" 2>/dev/null)" = 0 ] \
+if { [ -n "${ORCH_CONF:-}" ] || { [ "$(id -u)" -eq 0 ] && [ -z "${ORCH_PEAK_TEST:-}" ]; }; } \
+   && [ -f "$CONF" ] && [ "$(stat -c %u "$CONF" 2>/dev/null)" = "$(id -u)" ] \
    && [ $(( 8#$(stat -c %a "$CONF" 2>/dev/null || echo 777) & 8#022 )) -eq 0 ]; then
   [ -n "${ORCH_USER:-}" ] || ORCH_USER="$(conf_get ORCH_USER)"
   [ -n "${ORCH_REPO:-}" ] || ORCH_REPO="$(conf_get ORCH_REPO)"
+  [ -n "${ORCH_SESS_GLOB:-}" ] || ORCH_SESS_GLOB="$(conf_get ORCH_SESS_GLOB)"
 fi
 U="${ORCH_USER:-harness}"
 UHOME="${ORCH_UHOME:-$(getent passwd "$U" | cut -d: -f6)}"

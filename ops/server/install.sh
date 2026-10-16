@@ -437,10 +437,16 @@ case "$1" in
         # Конфиг машины для сторожа: пользователь и репо установки (root:root 644 — сторож
         # читает его только в такой форме и не исполняет).
         mkdir -p "$(dirname "$MACHINE_CONF")" || die_write "$MACHINE_CONF"
-        printf 'ORCH_USER=%s\nORCH_REPO=%s\n' "$TARGET_USER" "$REPO_ROOT" >"$MACHINE_CONF.new.$$" \
+        # Каталог сессий omp назван по пути, где цикл запускает workshop (корень репо):
+        # /home/harness/dev-harness → --home-harness-dev-harness--. Сторож читает его отсюда.
+        TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+        [ -n "$TARGET_HOME" ] || { printf 'ОТКАЗ: домашний каталог %s не найден\n' "$TARGET_USER" >&2; exit 1; }
+        SESS_PROJ="--$(printf '%s' "${REPO_ROOT#/}" | tr '/' '-')--"
+        SESS_GLOB_M="$TARGET_HOME/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/$SESS_PROJ/*.jsonl"
+        printf 'ORCH_USER=%s\nORCH_REPO=%s\nORCH_SESS_GLOB=%s\n' "$TARGET_USER" "$REPO_ROOT" "$SESS_GLOB_M" >"$MACHINE_CONF.new.$$" \
           && chmod 644 "$MACHINE_CONF.new.$$" && chown root:root "$MACHINE_CONF.new.$$" \
           && mv -f -- "$MACHINE_CONF.new.$$" "$MACHINE_CONF" || die_write "$MACHINE_CONF"
-        printf 'конфиг: %s (ORCH_USER=%s ORCH_REPO=%s)\n' "$MACHINE_CONF" "$TARGET_USER" "$REPO_ROOT"
+        printf 'конфиг: %s (ORCH_USER=%s ORCH_REPO=%s ORCH_SESS_GLOB=%s)\n' "$MACHINE_CONF" "$TARGET_USER" "$REPO_ROOT" "$SESS_GLOB_M"
         # Прежний станционный потолок памяти (orch-memcap, вне репо) заменён scope-потолком цикла.
         if [ -f "$ETC_DST/orch-memcap.timer" ] || [ -f "$SBIN_DST/orch-memcap" ]; then
           systemctl disable --now orch-memcap.timer >/dev/null 2>&1 || true
