@@ -185,15 +185,48 @@ while IFS=$'\t' read -r lsr_sha lsr_refname; do
   LIVE_EXCLUDES+=( "$lsr_sha" )
 done <<< "$lsremote_out"
 
-# Merge main→wip (норма арбитража merge-wip-protiv-main-konflikt-norm.md): коммит-слияние в
-# пушимой wip-ветке, у которого НЕ первый родитель — коммит из истории живого main.
-# Свежесть к main — только через ленд или int-ветку от main (main первым родителем).
-merges_main_into_wip() {  # <коммит> → 0, если это слияние main в ветку
-  local c="$1" p
-  [ -n "$LIVE_MAIN" ] || return 1
-  git -C "$ROOT" cat-file -e "${LIVE_MAIN}^{commit}" 2>/dev/null || return 1
-  for p in $(git -C "$ROOT" rev-list --parents -n 1 "$c" | cut -d' ' -f3-); do
-    git -C "$ROOT" merge-base --is-ancestor "$p" "$LIVE_MAIN" 2>/dev/null && return 0
+# Merge main в ветку (норма арбитража merge-wip-protiv-main-konflikt-norm.md). Судится каждый
+# коммит-слияние в пуше в refs/heads/* кроме main. Свежесть к main — только через ленд или
+# int-ветку wip/int-<N>/<автор> от текущего main (main первым родителем).
+# Три исхода (ревью prepush-failopen-v1, Рв-PP-1/2): 0 — нарушение (причина в MM_REASON),
+# 1 — нарушения нет, 2 — проверить невозможно (вызывающий отказывает: неизвестность ≠ чисто).
+#   (а) int-форма: первый родитель — коммит из истории живого main; разрешена только в wip/int-*;
+#   (б) любой НЕ первый родитель приносит историю живого main, которой нет у первого родителя:
+#       хоть одна merge-base(родитель, живой main) не предок первого родителя. Ловит и merge
+#       локального main, ушедшего вперёд от живого (Рв-PP-2).
+MM_REASON=""
+merge_main_verdict() {  # <коммит> <remote ref>
+  local c="$1" ref="$2" line p1 p b r
+  local -a parents bases
+  MM_REASON=""
+  line="$(git -C "$ROOT" rev-list --parents -n 1 "$c")" || { MM_REASON="не читаются родители $c"; return 2; }
+  read -r -a parents <<< "$line"
+  [ "${#parents[@]}" -ge 3 ] || return 1
+  if [ -z "$LIVE_MAIN" ] || ! git -C "$ROOT" cat-file -e "${LIVE_MAIN}^{commit}" 2>/dev/null; then
+    MM_REASON="живого main origin нет в локальной базе — сделайте git fetch origin main и повторите push"
+    return 2
+  fi
+  p1="${parents[1]}"
+  git -C "$ROOT" merge-base --is-ancestor "$p1" "$LIVE_MAIN"; r=$?
+  if [ "$r" -eq 0 ]; then
+    case "$ref" in
+      refs/heads/wip/int-*) ;;
+      *) MM_REASON="первый родитель — коммит main (int-форма) вне ветки wip/int-*"; return 0 ;;
+    esac
+  elif [ "$r" -ne 1 ]; then
+    MM_REASON="merge-base --is-ancestor $p1 rc=$r"; return 2
+  fi
+  for p in "${parents[@]:2}"; do
+    mapfile -t bases < <(git -C "$ROOT" merge-base --all "$p" "$LIVE_MAIN"); r=$?
+    [ "${#bases[@]}" -gt 0 ] || continue   # нет общей истории с main — истории main не несёт
+    for b in "${bases[@]}"; do
+      git -C "$ROOT" merge-base --is-ancestor "$b" "$p1"; r=$?
+      if [ "$r" -eq 1 ]; then
+        MM_REASON="родитель $p приносит историю main, которой нет у первого родителя"; return 0
+      elif [ "$r" -ne 0 ]; then
+        MM_REASON="merge-base --is-ancestor $b rc=$r"; return 2
+      fi
+    done
   done
   return 1
 }
@@ -239,12 +272,15 @@ while IFS=' ' read -r lref lsha rref rsha; do
   range_args=( "$deref" --not "${LIVE_EXCLUDES[@]}" )
   # Диапазон считается ДО суда и с проверкой кода возврата: ошибка rev-list — отказ (fail-closed),
   # а не пустой диапазон, который раньше молча пропускал пуш.
-  if ! range_out="$(git -C "$ROOT" rev-list "${range_args[@]}" 2>&1)"; then
+  range_err="$(mktemp)"
+  if ! range_out="$(git -C "$ROOT" rev-list "${range_args[@]}" 2>"$range_err")"; then
     printf 'ОТКАЗ: pre-push: не удалось вычислить диапазон пуша ref=%s (%s) — суд невозможен\n' \
-      "$lref" "$(printf '%s' "$range_out" | head -n 1)" >&2
+      "$lref" "$(head -n 1 "$range_err")" >&2
+    rm -f "$range_err"
     rc=1
     continue
   fi
+  rm -f "$range_err"
 
   # Судим КАЖДЫЙ коммит диапазона. charter_diff_paths сам различает merge (по ^1)
   # и не-merge (по ^) — грамматика единая.
@@ -277,10 +313,16 @@ while IFS=' ' read -r lref lsha rref rsha; do
     fi
 
     case "$rref" in
-      refs/heads/wip/*)
-        if merges_main_into_wip "$c"; then
-          printf 'ОТКАЗ: pre-push: merge main→wip запрещён (арбитраж merge-wip-protiv-main-konflikt-norm): ref=%s коммит=%s — свежесть к main только через ленд или int-ветку от main\n' \
-            "$rref" "$c" >&2
+      refs/heads/main) ;;
+      refs/heads/*)
+        merge_main_verdict "$c" "$rref"; mv=$?
+        if [ "$mv" -eq 0 ]; then
+          printf 'ОТКАЗ: pre-push: merge main в ветку запрещён (арбитраж merge-wip-protiv-main-konflikt-norm): ref=%s коммит=%s — %s; свежесть к main — ленд или int-ветка wip/int-<N>/<автор> от main\n' \
+            "$rref" "$c" "$MM_REASON" >&2
+          rc=1
+        elif [ "$mv" -eq 2 ]; then
+          printf 'ОТКАЗ: pre-push: проверить слияние на merge main невозможно: ref=%s коммит=%s — %s\n' \
+            "$rref" "$c" "$MM_REASON" >&2
           rc=1
         fi
         ;;
