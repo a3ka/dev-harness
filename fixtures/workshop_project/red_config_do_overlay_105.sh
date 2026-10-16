@@ -8,11 +8,9 @@
 #
 # Оверлей toy несёт СЛУЧАЙНЫЙ литеральный id модели — второй --config обязан
 # быть файлом с этим id (инвариантность к значениям).
+# Оба запуска исполняются в независимых мирах N=2..5 и N=0.
 # rc 0 — зелёная; rc 1 — красная («105 И-2 КРАСНО: …»); rc 2 — мир сломан.
 # ДО реализации на живом workshop — красная: --config политики в argv нет.
-CELL="И-2"
-# shellcheck source=_mir_105.sh
-. "$(dirname "${BASH_SOURCE[0]}")/_mir_105.sh"
 
 cell() {
   local n_cfg first second
@@ -36,7 +34,23 @@ cell() {
   [ "$first" = "$EXPECT_CFG" ] || { krasno "без --models --config = «$first», ожидалась политика $EXPECT_CFG"; return; }
   return 0
 }
-cell
-rc=$?
-printf '105 И-2: клетка %s\n' "$([ $rc -eq 0 ] && printf 'зелёная' || printf 'красная')"
-exit $rc
+rc=0
+for scenario in nonempty empty; do
+  (
+    CELL="И-2"
+    # shellcheck source=_mir_105.sh
+    . "$(dirname "${BASH_SOURCE[0]}")/_mir_105.sh"
+    if [ "$scenario" = empty ]; then
+      rm -- "${EXPECT_EXT[@]}" || die_pack "не удалось опустошить установку"
+      EXPECT_EXT=()
+      EXT_N=0
+    fi
+    cell
+    case_rc=$?
+    printf '105 И-2: установка несёт %s расширений; клетка %s\n' "$EXT_N" "$([ $case_rc -eq 0 ] && printf 'зелёная' || printf 'красная')"
+    exit "$case_rc"
+  )
+  case_rc=$?
+  [ "$case_rc" -le "$rc" ] || rc=$case_rc
+done
+exit "$rc"

@@ -8,13 +8,11 @@
 # Парный позитив: посторонний флаг хвоста (`--toy-flag-<случайное>`) НЕ
 # отвергается — прокидывается omp как есть (отказ именной, не одеяло на все
 # незнакомые флаги).
+# Все семь входов повторяются в независимых мирах N=2..5 и N=0.
 #
 # rc 0 — зелёная; rc 1 — красная («105 И-4 КРАСНО: …»); rc 2 — мир сломан.
 # ДО реализации на живом workshop — красная: `-*) break` (workshop:485)
 # прокидывает все шесть форм в omp, rc 0.
-CELL="И-4"
-# shellcheck source=_mir_105.sh
-. "$(dirname "${BASH_SOURCE[0]}")/_mir_105.sh"
 
 otkaz() { # $1=имя прогона $2=токен флага [$3=значение]
   local n="$1" tok="$2"; shift 2
@@ -39,7 +37,23 @@ cell() {
   [ "$(argv_count k4z "$toy")" -eq 1 ] || { krasno "посторонний флаг «$toy» не дошёл до argv omp"; return; }
   return 0
 }
-cell
-rc=$?
-printf '105 И-4: шесть форм запретного флага + один посторонний; клетка %s\n' "$([ $rc -eq 0 ] && printf 'зелёная' || printf 'красная')"
-exit $rc
+rc=0
+for scenario in nonempty empty; do
+  (
+    CELL="И-4"
+    # shellcheck source=_mir_105.sh
+    . "$(dirname "${BASH_SOURCE[0]}")/_mir_105.sh"
+    if [ "$scenario" = empty ]; then
+      rm -- "${EXPECT_EXT[@]}" || die_pack "не удалось опустошить установку"
+      EXPECT_EXT=()
+      EXT_N=0
+    fi
+    cell
+    case_rc=$?
+    printf '105 И-4: установка несёт %s расширений; шесть форм запретного флага + один посторонний; клетка %s\n' "$EXT_N" "$([ $case_rc -eq 0 ] && printf 'зелёная' || printf 'красная')"
+    exit "$case_rc"
+  )
+  case_rc=$?
+  [ "$case_rc" -le "$rc" ] || rc=$case_rc
+done
+exit "$rc"
