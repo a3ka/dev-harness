@@ -1,3 +1,25 @@
+## ГДЕ МЫ (2026-10-16 ~16:55 UTC — автоперезапуск по сторожу контекста: 105 контент-ландед, done_contract на одном именном барьере; один-харнесс ACCEPT закрыт; Complior v3 + П-107/111 черновики готовы)
+
+**105 — СОДЕРЖАТЕЛЬНО на main, done_contract ЗАБЛОКИРОВАН одним барьером.** Владелец дал вариант А: архитектор одним проходом построил полную матрицу мутантов по всем 5 И-N × {N=0,N>0} (`738352d1c`, закрыл 4 новых пропуска: И-2 N=0, И-3 оба N, И-4 N=0), ревьюер ACCEPT (`b15b26f69`, `verdicts/review/contracts-105-land-v3.md`). `land_agent --branch wip/int-105/architect` → `main=2e84a474a` (два родителя: main-линия + ветка), push ок. **Открыта диагностика:** reviewer-land v1 (`f8338ec7e`) и v2 (`d69425b4b`) были мис-файлены этой сессией на линию main (через ff-only/cherry-pick вместо `gitw push origin ...:wip/int-105/architect`) вместо ветки фиксов — `done_contract.sh` отказал: `merge-base --is-ancestor` не доказывает v2 предком v3 (параллельные линии до merge), «несколько вердиктов, свежий v2 не accept». Исправлено консолидацией (прецедент «N-круговых вердиктов под канон»): `08ce2e7f3` `ALLOW-ARTIFACT-DELETE` удалил v1/v2 (суперседены v3 текстом), identity синтетическая `reviewer105consolidate` (класс А-923 — плоская идентичность `reviewer` заблокирована worktree-байндингом из-за живых wip/*/reviewer веток). **main: HEAD==origin=`08ce2e7f3`, detector чист.**
+
+**done_contract всё ещё FAIL по ДРУГОЙ причине (ПРОВОДКА красна):** `fixtures/_krasnye_105.sh` ещё не подключён в CI (`.github/workflows/ci.yml`/`.githooks/`) — это ОЖИДАЕМО по дизайну контракта («прецедент 074/093/098/104: guard подключается ПОСЛЕ landing»). **Следующей сессии:** спавнить implementer (ЗОНА `workshop` по тексту 105, но CI-проводка `.github/workflows/ci.yml`+`registry/ci-steps.tsv` — по прецеденту 104 это тоже implementer, отдельный PR/ветка `wip/<scratch>/implementer`) — подключить `check:_krasnye_105` в CI, дождаться 12/12, `land_agent`, ЗАТЕМ повторить `bash scripts/done_contract.sh contracts/105-lanuncher-politika-proekta.md "<причина>"`.
+
+**Пакет «один харнесс» — ACCEPT, закрыт полностью** (`verdicts/review/odin-harness-ops-v3.md`, ранее в сессии), включая Рв-ОХ-4 (форк `n-ohr4-093-default-uid-otmena.md`, владелец подтвердил «агент под пользователем машины», `0f8489e9` `docs/owner/2026-10-16-agent-pod-polzovatelem-mashiny.md`). Ничего открытого не осталось.
+
+**Complior pilot 1 v3 — черновик готов, НЕ заморожен, НЕ пушен.** Клон `/tmp/dev-harness-verify/architect-pilot2-20261016-1427/complior-mob`, ветка `draft/complior-pilot-1-v3`, sha `5a19422f2`. Слой ApiClient+AuthProvider, `EXPO_PUBLIC_API_MODE=mock|http` (mock по умолчанию), mock-данные из `api/mock-5_8.json`+`api-examples.json`, линт запрета прямого fetch, отдельный раздел «Переключение на бэкенд — приёмка» (удаление mock-кода как часть задачи). Чтение UX с main (PR#4 смёржен, `8a699d17`). Сам архитектор нашёл и закрыл собственный дефект schema-барьера (FormatChecker без rfc3339-validator молча пропускал date-time мутанты). Следующей сессии: показать владельцу через консультанта (полный текст в `history://ArchitectComplierV3`), затем критик/заморозка.
+
+**П-107+П-111 черновик готов** (`history://ArchitectP107P111Draft`, НЕ коммичен никуда, статус DRAFT): совмещённая репетиция вход → quality → android-e2e на `station-complior` → PR → облачная сверка. Найдено: на станции runner `station-complior` уже существует и исполнял android-e2e (run `38929383797`) — переиспользуемое свидетельство П-108/109, не доказательство новой репетиции. APK-артефакт не загружается workflow'ом — нужно добавить явно. Контракт 105 отсутствовал в дереве архитектора на момент спавна (снапшот до landing) — теперь на main.
+
+**Инструментальный урок сессии (done_contract ancestry):** когда reviewer-вердикт фетчится с клона, чьи парент не совпадает с текущим типом рабочей ветки предмета — НЕ делай `git merge --ff-only`/cherry-pick на main из удобства, это создаёт ПАРАЛЛЕЛЬНУЮ линию, которую `done_contract.sh` не считает предком будущих вердиктов на той же ветке (`merge-base --is-ancestor` ломается). Всегда пуши reviewer/adversary вердикты туда, где лежит ИХ ОБЪЕКТ суда (ветка предмета `wip/int-NNN/<автор>`/`wip/NNN/<автор>`), даже если клон сделан от main-worktree.
+
+### Следующей сессии — порядок действий
+
+1. 105 done_contract: подключить `fixtures/_krasnye_105.sh` в CI (implementer, отдельный PR по прецеденту 104), затем `done_contract.sh`.
+2. Complior v3 + П-107/111 черновики — показать владельцу через консультанта.
+3. Н-299/Н-298 — прежние адреса, не блокируют.
+
+- Серверная обвязка станции — единый источник: ops/server/README.md.
+
 ## ГДЕ МЫ (2026-10-16 ~15:20 UTC — автоперезапуск, продолжение: один-харнесс ПРИНЯТ,
 105 на пределе круга, Complior pilot draft v2 готов)
 
