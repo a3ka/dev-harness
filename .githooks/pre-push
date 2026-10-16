@@ -171,14 +171,49 @@ fi
 # Собираем SHA живых origin-ref'ов в массив. Пустые строки и нулевые SHA (теоретически
 # встречаются для unborn ref) отбрасываем — база остаётся пустой, судья работает
 # по всему пушимому диапазону.
+LIVE_MAIN=""
 while IFS=$'\t' read -r lsr_sha lsr_refname; do
   [ -n "$lsr_sha" ] || continue
   [ "$lsr_sha" != "$ZERO" ] || continue
+  [ "$lsr_refname" = "refs/heads/main" ] && LIVE_MAIN="$lsr_sha"
+  # Объекта нет в локальной базе (ветка/тег origin, которые сюда не фетчились) — он не может
+  # быть предком пушимого коммита, исключать его не нужно. Раньше он попадал в `rev-list --not`,
+  # тот падал «bad object», ошибка глушилась, диапазон выходил пустым — и хук молча пропускал
+  # ЛЮБОЙ пуш (замер 2026-10-16: 21 из 883 живых SHA origin отсутствовали в основном чекауте;
+  # так прошли b0c39a58, 868d386f, 926f9bcf).
+  git -C "$ROOT" cat-file -e "${lsr_sha}^{commit}" 2>/dev/null || continue
   LIVE_EXCLUDES+=( "$lsr_sha" )
 done <<< "$lsremote_out"
 
+# Merge main→wip (норма арбитража merge-wip-protiv-main-konflikt-norm.md): коммит-слияние в
+# пушимой wip-ветке, у которого НЕ первый родитель — коммит из истории живого main.
+# Свежесть к main — только через ленд или int-ветку от main (main первым родителем).
+merges_main_into_wip() {  # <коммит> → 0, если это слияние main в ветку
+  local c="$1" p
+  [ -n "$LIVE_MAIN" ] || return 1
+  git -C "$ROOT" cat-file -e "${LIVE_MAIN}^{commit}" 2>/dev/null || return 1
+  for p in $(git -C "$ROOT" rev-list --parents -n 1 "$c" | cut -d' ' -f3-); do
+    git -C "$ROOT" merge-base --is-ancestor "$p" "$LIVE_MAIN" 2>/dev/null && return 0
+  done
+  return 1
+}
+
+# docs/owner/ — канал владельца: путь, ВНЕСЁННЫЙ этим коммитом (для слияния — отличный от
+# всех родителей, т.е. чистое слияние чужой owner-правки не судится), при авторе ≠ owner.
+owner_docs_paths() {  # <коммит> → пути docs/owner/, внесённые коммитом
+  local c="$1" np
+  np=$(git -C "$ROOT" rev-list --parents -n 1 "$c" | awk '{print NF-1}')
+  if [ "$np" -ge 2 ]; then
+    git -C "$ROOT" diff-tree --cc --no-commit-id --name-only -r "$c" -- docs/owner/
+  else
+    git -C "$ROOT" diff-tree --root --no-commit-id --name-only -r "$c" -- docs/owner/
+  fi
+}
+
 while IFS=' ' read -r lref lsha rref rsha; do
   [ -n "$lref" ] || continue
+  # Удаление ref (local_sha нулевой): пушимых коммитов нет — судить нечего.
+  [ "$lsha" != "$ZERO" ] || continue
   # local_sha аннотированного тега — объект тега; разыменовываем до коммита.
   # Если lsha не разыменовывается (lightweight tag, ветка), используем как есть.
   case "$lref" in
@@ -202,6 +237,14 @@ while IFS=' ' read -r lref lsha rref rsha; do
   # (новый origin, ls-remote rc=0 с пустым выводом) → всё пушимое судимо —
   # легит-первый-пуш проходит, красный умирает по кольцу.
   range_args=( "$deref" --not "${LIVE_EXCLUDES[@]}" )
+  # Диапазон считается ДО суда и с проверкой кода возврата: ошибка rev-list — отказ (fail-closed),
+  # а не пустой диапазон, который раньше молча пропускал пуш.
+  if ! range_out="$(git -C "$ROOT" rev-list "${range_args[@]}" 2>&1)"; then
+    printf 'ОТКАЗ: pre-push: не удалось вычислить диапазон пуша ref=%s (%s) — суд невозможен\n' \
+      "$lref" "$(printf '%s' "$range_out" | head -n 1)" >&2
+    rc=1
+    continue
+  fi
 
   # Судим КАЖДЫЙ коммит диапазона. charter_diff_paths сам различает merge (по ^1)
   # и не-merge (по ^) — грамматика единая.
@@ -222,7 +265,27 @@ while IFS=' ' read -r lref lsha rref rsha; do
         rc=1
       fi
     done < <(charter_diff_paths "$c" "$ROOT")
-  done < <(git -C "$ROOT" rev-list "${range_args[@]}" 2>/dev/null)
+
+    author="$(git -C "$ROOT" log -1 --format=%an "$c")"
+    if [ "$author" != "owner" ]; then
+      while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        printf 'ОТКАЗ: pre-push: docs/owner/ пишет только owner (канал владельца): ref=%s коммит=%s автор=%s путь=%s\n' \
+          "$lref" "$c" "$author" "$f" >&2
+        rc=1
+      done < <(owner_docs_paths "$c")
+    fi
+
+    case "$rref" in
+      refs/heads/wip/*)
+        if merges_main_into_wip "$c"; then
+          printf 'ОТКАЗ: pre-push: merge main→wip запрещён (арбитраж merge-wip-protiv-main-konflikt-norm): ref=%s коммит=%s — свежесть к main только через ленд или int-ветку от main\n' \
+            "$rref" "$c" >&2
+          rc=1
+        fi
+        ;;
+    esac
+  done <<< "$range_out"
 done
 
 exit "$rc"
