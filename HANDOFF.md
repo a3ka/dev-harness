@@ -1,3 +1,80 @@
+## ГДЕ МЫ (2026-10-16 ~21:05 UTC — рестарт по сторожу контекста (513K≥500K), НЕ слово владельца: 105 полностью зелёный на main, Н-300(б)-фикс зелёный на main (CI 12/12), reviewer-круг Н-300 и done_contract 105 ЕЩЁ НЕ выполнены (сторож запретил новые спавны); 991 (П-107/111) — номер зарезервирован, ТЕКСТ НЕ НАПИСАН (3 неудачных спавна architect, известный класс А-919/А-921))
+
+**main = `453d5b8db`, HEAD==origin, детектор утечек чист, CI 12/12 зелёный на этом коммите (run `38963054562`).**
+
+**Б1 (владелец, через консультанта) — импортирован.** Коммит `a73aad366` (identity
+owner, fetch из `/tmp/dev-harness-verify/consultant-owner-b1-1792181890`, ff-only) —
+ответ на П-107/111: временный StartScreen «Prüfung starten» → «Prüfung
+abgeschlossen». Текст в `forks/n-105-konsultant-i-n300-batch.md` секция `ОТВЕТ`.
+
+**Н-300(б) — ФИКС ЗЕЛЁНЫЙ на main, РЕВЬЮ ЕЩЁ НЕ СДЕЛАНО.** Коммит `5e7f77a87`
+(identity owner, fetch из `/tmp/dev-harness-verify/consultant-owner-n300-1792182031`,
+ff-only) — `scripts/check_consumers.sh` (+12): коммиты author=committer=owner
+исключены из окна судимых. Registry-строка 991 (`453d5b8db`, mint_line) ПОВЕРХ него —
+комбинированный прогон CI `38963054562` → 12/12 зелёный (ap1-ap5, l1-l7).
+**Следующей сессии, дословно по слову консультанта:**
+1. Спавнить reviewer (Opus, agent: "reviewer") на коммит `5e7f77a87` — сырой вывод
+   консультанта `/tmp/dev-harness-verify/n300-probe.out` (контроли: не-owner автор →
+   rc1; owner-автор/не-owner committer → rc1; done_contract 105 в клоне rc0; фикстуры
+   check_consumers/done_contract/freeze_contract зелёные; `_krasnye_038` rc1
+   одинаково до/после). Вердикт — `verdicts/review/n300-owner-direct-v1.md`.
+2. После accept — `bash scripts/done_contract.sh contracts/105-lanuncher-politika-proekta.md "<причина>"`
+   ШТАТНО (ручной тег запрещён).
+
+**991 (П-107+П-111) — номер выдан и запушен, ТЕКСТ КОНТРАКТА НЕ СУЩЕСТВУЕТ.**
+Церемония 023 выполнена: `id/CONTRACT/991` на origin, строка `991 → <tag-sha>` в
+`registry/contracts.tsv` на origin (`453d5b8db`, mint_line.sh). Три спавна architect
+(`InstitutionalTiger`, `ExcessSkunk`, `CrudeTern`) — ВСЕ упали на ОДНОМ известном
+классе: **А-919/А-921** (`NABLIUDENIA_ARCHITECT.md`) — пин `pin:WORKTREE=…:BRANCH=…`
+был положен в поле `context` (= system-часть промпта субагента), а
+`path-guard.ts:extractPinFromBranch` читает пин ТОЛЬКО из ПЕРВОЙ user-записи (поля
+`task`). Я трижды повторил уже задокументированную, дважды ранее оплаченную ошибку —
+не сверил Гигиену-грепом NABLIUDENIA_ARCHITECT.md по слову «pin» перед спавном (грепал
+только по предмету Complior/android, этого было недостаточно).
+
+**Точный фикс для следующей сессии:** строка `pin:WORKTREE=<абс.путь изолированного
+worktree архитекта>:BRANCH=wip/991/architect` — ПЕРВОЙ СТРОКОЙ внутри поля `task`
+КАЖДОГО отдельного элемента `tasks[]` (НЕ в разделяемом `context`). С `isolated:true`
+субагент получает СОБСТВЕННЫЙ writable worktree автоматически (путь вида
+`.../profiles/dev/wt/<id>/m`) — пина туда НЕ нужно; работать `cd` в него, завести
+`git checkout -b wip/991/architect` и писать прямо там (НЕ клонировать заново — это
+САМ ПО СЕБЕ отдельный провал первой попытки, `InstitutionalTiger`/isolated контейнер
+и инструкция «клонируй в /tmp/dev-harness-verify» конфликтовали).
+
+**Собранный архитектором контекст для следующей попытки (сэкономить перечитывание):**
+- Исходный черновик (status/draft/red_tests/findings) — абсолютный путь
+  `/home/harness/.local/state/dev-harness-sessions/c907157c/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--/2026-10-16T13-29-22-516Z_01a144e7-2954-71e5-996c-f6c5af38b235/ArchitectP107P111Draft.md`.
+- Исходное задание v3 (owner «ДА на все четыре пункта а-г») — там же,
+  `ArchitectComplierV3.jsonl`.
+- Ответ Б1 — `forks/n-105-konsultant-i-n300-batch.md` секция `ОТВЕТ` на origin/main.
+- 105 (launcher передаёт политику явно) — ЗАКРЫТ, подтверждено живьём архитектором на
+  `workshop:887/906-917/1150` трижды независимо — старая гипотеза блокера БОЛЬШЕ НЕ
+  актуальна, НЕ переделывать.
+- Новый `HARNESS_TOOLCHAIN=android` из старого DRAFT — архитектор (3-я попытка, до
+  стопа) сам отговорил от него: существующий machine env-канал (`workshop` `load_env`)
+  уже достаточен, PATH не переписывается — вводить НЕ нужно без отдельного СОревью.
+- Будущая implementer-зона (малый PR StartScreen в Complior-mob) —
+  `mobile/src/features/start/start-screen.tsx`.
+- Complior-mob v3 черновик (ЧУЖОЙ предмет, offline API/mock — НЕ трогать): клон
+  `/tmp/dev-harness-verify/architect-pilot2-20261016-1427/complior-mob`, ветка
+  `draft/complior-pilot-1-v3`, sha `5a19422f2`.
+
+**Урок сессии (НЕ чинить сейчас, cognitive-only, записан отдельно в
+NABLIUDENIA_ARCHITECT.md следующей сессией при возможности):** Гигиена заданий п.2
+(«grep NABLIUDENIA на предмет задания») недостаточна для КЛАССА процедурных дефектов
+спавна (pin/isolation) — эти классы НЕ привязаны к предмету задания, грепать нужно
+ОТДЕЛЬНО по слову «pin:» перед КАЖДЫМ architect/implementer-спавном, независимо от
+предмета.
+
+### Рестарт — по сторожу станции, не по слову владельца
+
+Контекст 513K ≥ 500K порог. Текущих субагентов дождались (все 3 architect-попытки и
+CI-прогон завершились). В полёте ничего: main запушен, HEAD==origin, детектор чист.
+Done-пары НЕ достигнуто (105 без done-тега, 991 без текста) — сторож явно разрешил
+рестарт без неё при угрозе принудительного обрыва на 600K.
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
 ## ГДЕ МЫ (2026-10-16 ~19:15 UTC — 105 реализация ПОЛНОСТЬЮ на main и зелёная (implementer+reviewer+ПРОВОДКА, PR#102 CI 12/12), `done`-ТЕГ заблокирован НОВЫМ структурным дефектом Н-300 (check_consumers vs owner-direct коммит), нужно слово владельца; батч расширен)
 
 **105 — содержание ПОЛНОСТЬЮ зелёное на main, done-тег НЕ поставлен.** main=`afc78de32`.
