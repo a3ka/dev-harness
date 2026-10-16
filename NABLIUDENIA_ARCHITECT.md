@@ -8628,7 +8628,7 @@ architect; доклад `agent://Main` тоже был бы заблокиров
 
 **ЧЕМ ЗАКРЫТО:** верная мера — `grep -l -- '--model)' fixtures/_krasnye_*.sh` (095, 098, 105 на main; 103 на своей ветке); раннер 105 несёт `--model` и печатает субъект строкой `клеток просмотрено: 5; субъект: <путь>`.
 
-### А-921. Повтор А-919 на круге 2 того же контракта: pin снова в `context` (system-часть), сессия architect снова unpinned — фикс по FAIL критика сдан патчем из `/tmp/dev-harness-verify/architect-105-r2-patch/`, не коммитом в `wip/105/architect` `ОТКРЫТО — повтор открытого А-919, цена удвоилась`
+### А-921. Повтор А-919 на круге 2 того же контракта: pin снова в `context` (system-часть), сессия architect снова unpinned — фикс по FAIL критика сдан патчем из `/tmp/dev-harness-verify/architect-105-r2-patch/`, не коммитом в `wip/105/architect` `ОТКРЫТО — повтор открытого А-919, цена удвоилась; адрес: правила роли orchestrator (pin в тексте задания; повтор А-919 на круге 2 контракта 105)`
 
 **Что произошло:** задание круга 2 («ПЕРВЫМ действием `cd $WORKTREE`») несло pin-строку в §Context системного промпта; первая user-запись — «Complete assignment thoroughly: …» без пина. `edit` в worktree → «запись в чекаут из непиннованной сессии запрещена — Н-85/А-122»; `write agent://Main` → «внутренний URI непиннованной сессии запрещён». `cd`/`cwd` на worktree ничего не меняют: страж читает ПЕРВУЮ user-запись (`extractPinFromBranch`, path-guard.ts:369-372), а не cwd. CLI `node .omp/extensions/path-guard.ts --extract-pin '<пин>'` → `{"worktree":…}` rc 0 — пара валидна, worktree жив; дефект только в поле задания.
 
