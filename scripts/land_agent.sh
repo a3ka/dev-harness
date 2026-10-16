@@ -131,6 +131,18 @@ while IFS= read -r sha; do
   [ -n "$sha" ] || continue
   an="$(g log -1 --format='%an' "$sha")"
   cn="$(g log -1 --format='%cn' "$sha")"
+  # ГРАНДФАЗЕР И-9 (слово владельца 2026-10-16, рекомендация консультанта Astra, Н-293):
+  # восемь исторических коммитов контракта 105 (предки frozen/contracts/105/1) созданы
+  # оркестратором под identity architect/critic (author≠committer). Тег не переставляется,
+  # история не переписывается. Исключение ТОЛЬКО из сравнения author/committer; членство
+  # committer в реестре ролей (ниже), И-3, зоны и устав проверяются как обычно. Другие SHA — нет.
+  case "$sha" in
+    8bf82cbe495b7c0a9248205018e35098649c1601|84552398e40688b506a92dab35c5c6016165356d|\
+    33476a1ef8d831e460497662c7688f452d1221b8|4d5fdfa275bb1f81b41f8f7c6402494b6fcb9197|\
+    eb5668c6acea9d0f9232cb8ccd0d7e181f521315|b681c5e3a82802f95259f1d6273a90173d083cd0|\
+    3d0226154a3ab4be215ba08f123c99f4671a81df|f3bf76d664fb4c09d815fe4cfe4eb1a7547a7448)
+      continue ;;
+  esac
   if [ "$an" != "$cn" ]; then
     printf 'ОТКАЗ: identity расщеплена: %s author=%s committer=%s — committer и author обязаны совпадать (И-9)\n' \
       "${sha:0:8}" "$an" "$cn" >&2
