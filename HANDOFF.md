@@ -1,3 +1,101 @@
+## ГДЕ МЫ (2026-10-16 ~13:25 UTC — автоперезапуск по слову консультанта/владельца
+«один харнесс»: перезапуск сессии на новый цикл ПОСЛЕ текущих субагентов. Новых
+субагентов эта сессия больше НЕ спавнит — следующая сессия начинает с п.1 ниже.
+
+**Пакет A «ошибка проверки = отказ» — ЗАВЕРШЁН.** `3e071370` (identity owner, 6
+скриптов fail-open→fail-closed: freeze_contract/done_contract/check_charter/
+gitw_preflight_071/judge_gate/profile_resolver) слит ff-only, запушен, CI **12/12**.
+Reviewer (`ReviewerFailClosedPaketA`, Opus) — ACCEPT: `verdicts/review/
+failclosed-paket-a-v1.md` (`d9bd02a6b`), находки `.review/2026-10-16-03.md`
+(status: ready, блокирующих 0, 8 советов Рв-FC-1..8 — остатки того же класса в
+НЕтронутых строках, не регрессия пакета, пойдут в пакет B). Запушено.
+
+**Н-299 → А-924 — закрыт документацией остатка.** Живая риск-оценка
+(`ArchitectN299`, одноразовый клон): `land_agent.sh` И-3 (:247-276) — ancestry-
+проверка не существует вовсе, блоб-сверка судит только `contracts/001-*.md` у 174
+из 175 тегов (баг `awk 'print;exit'`). Оба пробела подтверждены живыми
+контрпримерами. Триаж: вреда не измерено — все 4 исторических инцидента класса
+пойманы ДО ленда другими гейтами. Запись `NABLIUDENIA_ARCHITECT.md` А-924
+(identity `architectn299` — синтетика, класс А-923-обхода Н-85-worktree-guard,
+все `wip/*/architect` ветки заняты активными предметами), коммит `f97682b99`,
+запушено.
+
+**105 — int-branch построен, PR#101 открыт.** Прямой `land_agent` на
+`wip/105/architect` (78+ коммитов позади main) конфликтовал ТОЛЬКО в журнале
+(`NABLIUDENIA_ARCHITECT.md` both-additive) и `registry/contracts.tsv` freeze-
+строке. Диагноз (живое чтение `check_zones.sh:1142-1157`, независимо
+подтверждено оркестратором): «Блокер B» признаёт REPLACE-форму минт-признания
+(`orchestrator`+`registry/contracts.tsv`) ТОЛЬКО если судимый коммит на
+**first-parent** линии — исходный `bb7db2704` (freeze-registry коммит) на int-
+ветке Н-256 лежал на ВТОРОМ родителе (wip-сторона), структурно не мог пройти.
+**Фикс:** `wip/int-105/architect` смёржена ДО `e9d0dd65f` (frozen-tag-коммит,
+НЕ до tip) под identity `architect`, затем ОТДЕЛЬНЫЙ коммит под identity
+`orchestrator` переносит ТУ ЖЕ дельту registry-строки на first-parent линию.
+Живых проверок 9/9: frozen text byte-identical, frozen-тег/`origin/main` —
+предки HEAD, parent-chain корректен, журнал-union без потерь (36 строк, дубли
+те же, что на main — не регрессия), `check_charter.sh` rc=0 (213/213 с
+разрешения), `check_zones.sh` rc=0 (блокер закрыт, ноль FAIL про
+`orchestrator`/`registry`), `origin/wip/105/architect` НЕ тронута (`bb7db2704`
+неизменна). PR#101 (`wip/int-105/architect`→`main`), `mergeable: MERGEABLE`,
+CI НЕ дождались (перезапуск раньше) — следующей сессии: `gh pr checks 101`
+живьём первым делом по этому предмету, затем adversary → reviewer → land_agent
+→ done_contract (обычный регламент 105).
+
+**Пакет «один харнесс» — коммит слит и запушен, CI КРАСНЫЙ 10/12 (сырое, не
+диагностировано).** `6799dc5b5` (identity owner, `ops/server/{install.sh,
+user/orch-loop,root/orch-peak,README.md}` + пины 074 + клетки 093 с явным
+`ORCH_AGENT_USER=orchagent`) слит ff-only от `d9bd02a6b`, запушен. Живой
+`gh api .../check-runs` на `6799dc5b5`: **10/12 success, 2 FAILURE** —
+`ci (l4, check:granica-ispolneniya-093-family-selftest
+check:fix-090-orch-peak-home-family-selftest...)` и
+`ci (l7, check:protected-call-budget check:samodostatochnost-family-selftest
+check:zones-call-budget...)`
+(runs `38905604625`, jobs `116988736091`/`116988735852`). **Причина НЕ
+расследована этой сессией** — сырой факт, диагноз следующей сессии/архитектору.
+Reviewer НЕ спавнился (прямое слово консультанта: «ревьюера позовёт следующая
+сессия»). Сырые пробы консультанта — `/tmp/dev-harness-verify/ops-base.out`
+(база) и `ops-new.out` (после).
+
+**Complior-mob черновик — АБОРТ инфраструктурный, не содержательный.**
+`ArchitectComplierScreen1Draft` спавнен `isolated: true` — СТОП: изолированный
+Coop-слой субагента запретил ЛЮБУЮ запись вне назначенного worktree (клонировать
+`a3ka/Complior-mob` в `/tmp/dev-harness-verify/<nonce>/` было некуда), а
+`write agent://Main` для эскалации ТОЖЕ отказал тем же Н-85-классом. Ничего не
+изменено/закоммичено/запушено. **Вывод:** `isolated:true` НЕПРИГОДЕН для задач,
+клонирующих ВНЕШНИЙ (не dev-harness) репозиторий в `/tmp` — тот же паттерн, что
+рабочий у `Architect105IntBranch` (БЕЗ `isolated:true`, тот же `/tmp/dev-harness-
+verify/**` клон отработал штатно). **Следующей сессии: повторить БЕЗ
+`isolated: true`** (голый `_task`, agent: "architect") с тем же заданием
+(см. транскрипт `history://ArchitectComplierScreen1Draft` для полного текста
+задания/контекста). Побочно: архитектор заметил расхождение «HANDOFF говорит про
+активный 105, но `contracts/*` в его дереве снапшота не несёт 105-файла» —
+это снапшот ДО того, как wip/105/architect материализовалась на main (ожидаемо,
+не дефект).
+
+main: HEAD==origin=`6799dc5b5`, `git status --porcelain` пусто,
+`check_no_leak.sh --check` чист.
+
+### Следующей сессии — порядок действий (слово консультанта 2026-10-16 ~13:10/13:25 UTC)
+
+1. **ПЕРВОЕ действие: reviewer (agent: "reviewer", Opus) на пакет «один харнесс»
+   `6799dc5b5`.** Сырой ввод — `/tmp/dev-harness-verify/ops-base.out`/
+   `ops-new.out` (если ещё живы; иначе попроси консультанта/владельца
+   перегенерировать). Вердикт `verdicts/review/odin-harness-ops-v1.md`,
+   находки — `.review/` по норме 050. CI-красные l4/l7 — реальный блокер ревью
+   или пре-существующий main-долг — сверь живьём (`gh api .../commits/
+   <sha_main_до_6799dc5b5>/check-runs` на той же паре job'ов) ДО вердикта.
+2. **Показать владельцу черновик контракта Complior-mob ДО заморозки** —
+   после повторного (БЕЗ isolated) спавна `ArchitectComplierScreen1Draft`-
+   задания (п. выше), владелец смотрит текст + красные тесты до критика/freeze.
+3. **105 (PR#101):** `gh pr checks 101` живьём → если CI 12/12 → adversary
+   (agent, Terra) → reviewer (agent, Opus) → `land_agent --branch
+   wip/int-105/architect` → `done_contract`. frozen-тег НЕ трогать. И-9 на
+   коммите вне 8 перечисленных SHA (прежняя норма) — СТОП и запись.
+4. Н-299/А-924, Н-298 (`land: wip/int-*` слепое пятно `check_zones`) — прежние
+   адреса, не блокируют.
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
 ## ГДЕ МЫ (2026-10-16 ~10:50 UTC — батч владельца 2026-10-16: все пять пунктов
 исполнены. **104 DONE** (`done/contracts/104/1` = `6f7dd1593`): v2-freeze Н-297 закрыт
 (critic ACCEPT `6137236d3` на blob `00bb0e4d9` — role-строка ПРОВОДКИ обёрнута в
