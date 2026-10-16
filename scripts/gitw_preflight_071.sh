@@ -278,6 +278,12 @@ rmain="$(git ls-remote "$TGT" refs/heads/main 2>/dev/null | cut -f1)"
 # Subject «land: …» вне грамматики wip/[0-9]{3}/<автор> — именованный
 # отказ «land-субъект не разбирается» (вердикт ревьюера 071 r1 Р-4):
 # иначе такой мерж молча пропускается и оператору не видно поломки.
+# Диапазон читается ДО разбора, с rc: ошибка git log внутри process substitution терялась,
+# пустой список давал «ПРЕДПОЛЁТ: чисто» без проверки (аудит 2026-10-16).
+lm_rc=0
+lm_list="$(git log --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)" || lm_rc=$?
+[ "$lm_rc" -eq 0 ] \
+  || { printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: диапазон %s..%s не читается (git log rc=%s) — вершины main цели нет локально? git fetch и повтор\n' "${rmain:0:12}" "${send_tip:0:12}" "$lm_rc" >&2; exit 1; }
 land_merges=()
 while IFS=$'\t' read -r h s; do
   case "$s" in
@@ -288,7 +294,7 @@ while IFS=$'\t' read -r h s; do
       exit 1
       ;;
   esac
-done < <(git log --merges --format='%H%x09%s' "$rmain..$send_tip" 2>/dev/null)
+done <<< "$lm_list"
 
 # Мержей нет → прозрачно (нет объекта проверки)
 if [ "${#land_merges[@]}" -gt 0 ]; then

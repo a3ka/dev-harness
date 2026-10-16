@@ -479,7 +479,14 @@ while IFS=$'\t' read -r f since; do
   # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
   # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
   # `diff-tree <c>`).
-  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || : > "$TMP/commits"
+  # Ошибка rev-list — именованный FAIL, не пустой диапазон: непрочитанная история не равна
+  # истории без нарушений (аудит 2026-10-16, тот же класс, что fail-open pre-push 9b14bac6).
+  rl_rc=0
+  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rl_rc=$?
+  if [ "$rl_rc" -ne 0 ]; then
+    bad "$f — история $since..HEAD не читается (rev-list rc=$rl_rc): проверить невозможно — git fetch и повтор"
+    continue
+  fi
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то

@@ -219,12 +219,13 @@ esac
 # проверены ДО записи тега. Красный прогон = rc 1 «ОТКАЗ: spec-preflight 036 красен:
 # <первая причина>», тег/реестр не тронуты (отказ атомарен). Предмет:
 # scripts/check_spec_ready.sh <корень> <контракт>; отказ — die rc=1 без тега.
-if ! out="$(cd "$ROOT" && bash "$SELF_DIR/check_spec_ready.sh" "$ROOT" "$TARGET" 2>&1)"; then
-  spec_rc=$?
-  # rc 2 (NOT_IMPLEMENTED) трактуется как fail-closed: нечем проверить ≠
-  # проверено, иначе красный прогон прятался бы под нехватку инструмента.
-  printf '%s\n' "$out" | tail -n 1 | grep -Fxq 'OK' && [ "$spec_rc" -eq 0 ] || die "spec-preflight 036 красен: $(printf '%s' "$out" | head -n 1)"
-fi
+# rc ловится напрямую: прежняя форма `if ! out=…; then spec_rc=$?` давала spec_rc=0
+# (rc отрицания), и прогон с последней строкой OK и rc≠0 проходил (аудит 2026-10-16).
+spec_rc=0
+out="$(cd "$ROOT" && bash "$SELF_DIR/check_spec_ready.sh" "$ROOT" "$TARGET" 2>&1)" || spec_rc=$?
+# rc 2 (NOT_IMPLEMENTED) трактуется как fail-closed: нечем проверить ≠
+# проверено, иначе красный прогон прятался бы под нехватку инструмента.
+[ "$spec_rc" -eq 0 ] || die "spec-preflight 036 красен (rc=$spec_rc): $(printf '%s' "$out" | head -n 1)"
 # ── 6а-bis. CONSUMERS-GATE (контракт 038 §Freeze-верификация потребителей) ─
 # Проводка в freeze: реестр → грамматика → коммитность → причина → вердикт →
 # spec-preflight (036) → check_consumers (ЭТОТ) → doc-preflight (027) →
@@ -448,7 +449,7 @@ mv "$tmp_reg" "$reg_path"
 # с тегом: отказ коммита = die rc=1, тот же приём, что и при отказе `g tag -a` выше.
 if ! out="$(g add registry/contracts.tsv && \
   g -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
-    commit -m "freeze: registry $NNN → $tag_sha" 2>&1)"; then
+    commit -m "freeze: registry $NNN → $tag_sha" -- registry/contracts.tsv 2>&1)"; then
   die "реестр не закоммичен: $out"
 fi
 printf '  ok   реестр закоммичен: %s → %s\n' "$NNN" "$tag_sha" >&2

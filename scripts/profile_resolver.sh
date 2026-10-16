@@ -638,14 +638,20 @@ MERGED=$(jq -n \
 # P6 «значение вне алфавита: contextPack.rows[N].kind: <факт>». N — позиция
 # первой некорректной строки (0-индексация). Семантика P6 байт-в-байт
 # (прецедент 054 «значение вне алфавита: <путь>: <факт>»).
+# Строка-не-объект — тоже вне алфавита («<не объект>»); ошибка jq — отказ, а не пропуск
+# (аудит 2026-10-16: `|| true` пропускал запрещённый kind и строку "not-an-object").
+_KIND_RC=0
 _BAD_KIND_ROW="$(printf '%s' "$MERGED" | jq -r '
   if .contextPack and (.contextPack.value|type)=="object" and (.contextPack.value.rows|type)=="array"
   then (.contextPack.value.rows | to_entries[]
-        | select((.value.kind // "") as $k | ["map","rules","reuse"] | index($k) | not)
-        | {i: .key, k: (.value.kind // "<null>")}) | "\(.i)\t\(.k)"
+        | select(if (.value|type)!="object" then true
+                 else ((.value.kind // "") as $k | ["map","rules","reuse"] | index($k) | not) end)
+        | {i: .key, k: (if (.value|type)=="object" then (.value.kind // "<null>") else "<не объект>" end)})
+       | "\(.i)\t\(.k)"
   else empty
   end
-' 2>/dev/null || true)"
+' 2>/dev/null)" || _KIND_RC=$?
+[ "$_KIND_RC" -eq 0 ] || die_p "contextPack.rows: проверка алфавита kind не выполнилась (jq rc=${_KIND_RC})"
 if [ -n "$_BAD_KIND_ROW" ]; then
   _BAD_IDX="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f1)"
   _BAD_VAL="$(printf '%s' "$_BAD_KIND_ROW" | head -1 | cut -f2)"

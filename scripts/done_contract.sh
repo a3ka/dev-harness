@@ -80,9 +80,19 @@ freshest_cid=""
 freshest_first=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
-  cid="$(cd "$ROOT" && git log --format=%H -1 -- "$f" 2>/dev/null || true)"
-  if [ -z "$cid" ]; then continue; fi
-  if [ -z "$freshest_cid" ] || ( cd "$ROOT" && git merge-base --is-ancestor "$freshest_cid" "$cid" 2>/dev/null ); then
+  # Ошибка git — отказ, а не пропуск/«не свежее»: иначе свежий FAIL выпадал из сравнения
+  # и done проходил по более старому accept (аудит 2026-10-16).
+  cid_rc=0
+  cid="$(cd "$ROOT" && git log --format=%H -1 -- "$f" 2>/dev/null)" || cid_rc=$?
+  [ "$cid_rc" -eq 0 ] || die "done: история вердикта не читается (git log rc=$cid_rc): $f — проверить невозможно"
+  [ -n "$cid" ] || die "done: у вердикта на HEAD нет коммита в истории: $f — проверить невозможно"
+  anc_rc=1
+  if [ -n "$freshest_cid" ]; then
+    anc_rc=0
+    ( cd "$ROOT" && git merge-base --is-ancestor "$freshest_cid" "$cid" 2>/dev/null ) || anc_rc=$?
+    [ "$anc_rc" -le 1 ] || die "done: порядок вердиктов не читается (merge-base rc=$anc_rc): $f — проверить невозможно"
+  fi
+  if [ -z "$freshest_cid" ] || [ "$anc_rc" -eq 0 ]; then
     freshest="$f"; freshest_cid="$cid"
     freshest_first="$(cd "$ROOT" && git cat-file -p "HEAD:$f" 2>/dev/null | sed -n 1p | tr -d '\r')"
     freshest_first="${freshest_first#"${freshest_first%%[![:space:]]*}"}"
