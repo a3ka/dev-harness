@@ -1,3 +1,37 @@
+## ГДЕ МЫ (2026-10-17 ~16:30 UTC — середина сессии, ОБА СЛОТА В РАБОТЕ ПАРАЛЛЕЛЬНО по слову владельца («1 да 2 да 3 да 4 да» + серия консультант-инструкций); 992 v2 почти done (PR#104 зелёный, кроме l1 check:charter в полёте), 991 второй круг судей почти закрыт (implementer-фикс сдан, cloud e2e в полёте), 993 architect сдал контракт+батарею, PARTIAL_BLOCKED на зоне — батч владельцу)
+
+**main = `59decf0ab`, HEAD==origin, детектор утечек чист.** В полёте: PR a3ka/dev-harness#104 CI (992 v2, l1 check:charter последний пендинг), run a3ka/Complior-mob `39049017837` (cloud e2e на 991 C=`7967f759`, android-e2e-cloud step 6/14).
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+### Сделано этой сессией (по порядку)
+
+1. **Owner-коммит `c4e5549b` забран** (993 plan-строка + ROADMAP + docs/owner/2026-10-17-resheniya-back-992-993.md, РАЗРЕШИЛ-ВЛАДЕЛЕЦ×2).
+2. **992 v2 — done-блокер закрыт конструктивно.** Architect добавил 5 строк ПОТРЕБИТЕЛЬ+замер (не 3+1 как в исходном owner-тексте — живая проверка нашла, что done_contract.sh ТОЖЕ тронутый писатель с consumer scripts/check_spec_ready.sh). Критик-круг v2 — **accept** (verdicts/critic/contracts-992-v2.md, `6f98a2c34`). **Дважды наступил на грабли Н-192-класса**: wip/992/architect был создан ДО критик-вердикта на main, freeze_contract.sh из main не видел v2-текст (ветка стара), check_charter флагoвал исторические pre-freeze коммиты без РАЗРЕШИЛ. Фикс — ветка дважды пересобрана `git reset --hard main` (второй раз — на main, уже несущем critic-вердикт) + реапплай тех же 5 строк (тот же blob `19e4786c4`). **Урок для AGENTS.md-кандидата: tag frozen/NNN/v создаётся на ветке architect, но ветка обязана содержать critic-вердикт в своей истории ДО freeze — иначе check_consumers читает main (без v2) или freeze читает worktree без вердикта.** `freeze_contract.sh` запущен ПРЯМО В WORKTREE (не main) — создал `frozen/contracts/992/2` (identity orchestrator явным env). PR#104 открыт (контракт 069 PR-маршрут), CI почти весь зелёный.
+   - **Следующий шаг 992:** дождаться l1 (check:charter) PR#104, `land_agent.sh --branch wip/992/architect`, `gitw push`, вручную дописать строку реестра `992 → <tag-sha frozen/992/2>` (freeze_contract.sh door-031 требует коммит НА main — registry-шаг не завершился при запуске из worktree, REPLACE делается ПОСЛЕ ленда по норме AGENTS.md «Заморозка — тег на ветке можно, REPLACE только после ленда»), `done_contract.sh`.
+3. **993 (CMP-BCK-121) — контракт+батарея написаны, PARTIAL_BLOCKED.** Architect (commit `0477b8586`, ветка wip/993/architect, бутстрап-заглушка по Н-301) клонировал реальный Complior-back, написал батарею 17×40 mutations против живого validate_contract_v3_9.py (базовый прогон падает на bodyless KeyError — честно задокументировано, не замаскировано). **Зона §4 owner-документа (7 путей) недостаточна** для честной поставки 5.8.3 — нужны ещё 9 путей (VERSION_MANIFEST.json, tools/validate_alignment_11782_31422.py, tools/validate_invitation_target_31421.py, data/client-field-decisions-v3_10.json, tests/acceptance-ux1175.json, server/mock-5_8.{json,ts}, server/test/mock-5_8.test.ts, Complior_Backend_Architecture_v3_14_RU.md). Форк `forks/n-993-zona-generatora-za-predelami-4.md` заведён (КЛАСС дизайн, ПРИЗНАК кросс-репо, МАРШРУТ со-ревью), консультант дал живую со-ревью (`verdicts/consultant/n-993-zona-generatora-za-predelami-4-soreview-v1.md`, landed `9aaf75b3d`) с готовой строкой ответа для батча. **Критик 993 НЕ звался** — текущий текст упрётся в ту же находку, трата круга. Ждёт владельца.
+4. **991 — merge-API проба владельца получена** (PR#105 HTTP 405 «android-e2e failing», закрыт без merge). Implementer сдал Freeze-PR #106 + положительный #107, оба CI-зелёные. **Судьи (adversary+reviewer) нашли ДВА РЕАЛЬНЫХ FAIL** (не ложных): Рв991-FP-1 — шаг rehearsal_version молча rc=1 без именованной причины при несовпадении Maestro-версии; Рв991-FP-2 — отсутствие cloud workflow_dispatch на C (Шаг 6 контракта). Implementer исправил FP-1 (новые головы #106=`8235118f6`, #107=`7967f759`, оба CI зелёные повторно), я сам (оркестратор, по прямой инструкции ревьюера «оркестратор делает workflow_dispatch») запустил cloud e2e run `39049017837` на новой C — **expo-versions зелёный, android-e2e-cloud в полёте**.
+   - **Следующий шаг 991:** дождаться cloud e2e, спавнить повторный круг adversary+reviewer на новых #106/#107 + cloud evidence. Если accept ×2 — батч владельцу на Merge #106→#107 (строго по одному, контракт требует порядок).
+
+### Гигиена/инструменты, найденные этой сессией
+
+1. **Бутстрап-петля Н-301 (контракт-файл до existence) — подтверждена рабочей на 993.** Процедура из NABLIUDENIA.md:7799-7840 воспроизведена один-в-один (branch в main → заглушка identity=architect → checkout main → worktree add → make_task --repo <worktree>).
+2. **check_charter.sh в pre-commit хуке реально занимает 20-25 минут** на полном аудите (99-100 уставных документов) — подтверждено ДВАЖДЫ (1485с, 1361с живых прогона). Нужен `timeout=3600` + `async=true` на ЛЮБОЙ коммит, трогающий contracts/*.md ИЛИ registry/*.tsv. Та же проверка в CI (job `ci (l1, check:charter)`) занимает сравнимое время.
+3. **Concurrent main-direct судьи в ОДНОМ физическом checkout — реальная гонка.** Reviewer991FreezePositive и Adversary991FreezePositive ОБА коммитили в /home/harness/dev-harness одновременно (не в отдельных клонах/worktree) — `check_no_leak.sh --check` поймал транзитное расхождение («чекаут мутировал во время сверки»). Не трогать main checkout, пока два main-direct судьи оба «ещё бегут» — дождаться ОБОИХ перед git-операциями.
+4. **registry/contracts.tsv REPLACE-шаг freeze_contract.sh требует identity явным env** (`GIT_AUTHOR_NAME=orchestrator ...`), НЕ находит identity автоматически даже при наличии `-c` в других местах скрипта — пустой git config процесса (Н-56) кусает И freeze, И next_id.sh (оба потребовали явный env при первом вызове).
+5. **merge-API проба владельца на HTTP 405** — формат подтверждён: `gh api -i -X PUT .../pulls/<N>/merge -f sha=<sha> -f merge_method=merge`, реальный ответ GitHub branch-protection «Required status check "X" is failing», не придуманный/смоделированный rc.
+
+### ЖДЁТ ВЛАДЕЛЬЦА (батч)
+
+1. **993 зона:** разрешить ЛИБО 9 доп. путей в Complior-back (готовая строка — verdicts/consultant/n-993-zona-generatora-za-predelami-4-soreview-v1.md, поле `owner_answer_verbatim`, это ЧЕРНОВИК для копирования, НЕ подписанный ответ), ЛИБО узкий минимум без re-freeze (остаётся FAIL_STATIC, не закрытие 993).
+2. **991 Merge:** как только повторный суд даст accept×2 на новых #106/#107 — владелец мержит #106 **затем** #107 (строго по порядку, #107 базируется на #106), затем Шаг 7-8 (суды M, недельная cloud-сверка).
+
+### Следующей сессии/продолжению — по порядку
+
+1. 992: дождаться PR#104 CI (l1), land_agent, registry REPLACE вручную на main, done_contract.
+2. 991: дождаться cloud e2e, повторный суд, батч владельцу на Merge.
+3. 993: ждать ответ владельца на зону (форк + со-ревью уже в main, готовы к чтению).
+
 ## ГДЕ МЫ (2026-10-17 ~13:55 UTC — автоперезапуск по сторожу контекста (516K≥500K); ОБА СЛОТА В РАБОТЕ ПАРАЛЛЕЛЬНО, 992 landed+CI зелён (done заблокирован НОВЫМ механизмом ПОТРЕБИТЕЛЬ-проб), 991 negative PR #105 открыт с ДВУМЯ независимыми FAIL (адверсарий+ревьюер), ждёт владельца на merge-API пробу)
 
 **main = `3576ec699`, HEAD==origin, детектор утечек чист.** В полёте ничего — все субагенты сессии завершены.
