@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+# ХУК pre-merge-commit (контракт 086, Н-119, И-3): запрет sync-merge ДО создания
+# merge-коммита. Срабатывает, когда пользователь запускает `git merge` в репозитории
+# с активным core.hooksPath=.githooks. Без хука merge создаётся в обход гейта accept/land,
+# и нарушение (б) «sync-merge» ловится только при приёмке — задержка в часы (Н-119).
+#
+# СУБЪЕКТ ХУКА — «правило (б) sync-merge» (Frontier 4): merge M синхронный ⟺
+# у M есть родители P ≠ Q, где P — предок main/origin/main и P не предок Q.
+# Хук НЕ ЗАПУСКАЕТ правила (а) и (в) — это забота точек accept и land (где есть
+# доступ к замороженным тегам и полной истории). Хук видит текущий merge и
+# решает, можно ли его создавать.
+#
+# ТЕКУЩАЯ ВЕТКА main — пропуск (направление ленда; сама land_agent.sh вызывает
+# гейт сведения ДО merge, и гейт уже всё проверил). Иная ветка — проверка.
+#
+# ГОЛОВЫ ИЗ GIT_REFLOG_ACTION (замер 1 контракта 086: во время pre-merge-commit
+# MERGE_HEAD ещё не записан; вливаемые головы — имена из `GIT_REFLOG_ACTION`
+# формы `merge <имя>…`). Каждое имя резолвится в коммит `rev-parse --verify
+# <имя>^{commit}`. Если форма строки не парсится — отказ (та же причина, по
+# которой барьер должен видеть предмет, а не угадывать; заявленная форма
+# GIT_REFLOG_ACTION = ровно `merge <головы через пробелы>`). Решение — по
+# предкам коммитов, не по тексту имён (И-8 нормы 041: замкнутые алфавиты,
+# побайтовое сравнение).
+#
+# ГРАММАТИКА ОТКАЗА (И-4 контракта 086, единый источник — гейт сведения):
+#   Строка отказа начинается `ОТКАЗ 086 (pre-merge-commit): `, несёт ярлык
+#   `правило (б) sync-merge` со своим выходом. Контекст — полный 40-hex sha
+#   merge M (И-4: «(б) … полный 40-hex sha merge (окно) либо родителей (хук)»).
+#   Выход: «пересобери ветку без merge main». Ярлыка несработавшего правила
+#   в выводе нет.
+#
+# КОДЫ ВОЗВРАТА: 0 — merge можно создавать, 1 — именованный отказ,
+# 2 — нечем проверить (нет git / не репозиторий / не HEAD).
+set -uo pipefail
+
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+
+LABEL_B='правило (б) sync-merge'
+VYHOD_B='выход: пересобери ветку без merge main'
+OTKAZ_PREFIX='ОТКАЗ 086 (pre-merge-commit): '
+
+# Точка вызова: SELF_DIR — каталог скриптов, чтобы звать `gejt_svedenija.sh`
+# (единый источник, контракт 034). В githooks/ нет подкаталога scripts/, но
+# стандартное размещение — `.githooks/pre-merge-commit` рядом с `scripts/`.
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$SELF_DIR/scripts/lib_zones.sh" 2>/dev/null || true
+
+command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; exit 2; }
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+  printf 'NOT_IMPLEMENTED: не удалось определить корень\n' >&2; exit 2; }
+[ -d "$ROOT" ] || { printf 'NOT_IMPLEMENTED: корень не каталог\n' >&2; exit 2; }
+git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
+  || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$ROOT" >&2; exit 2; }
+git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 \
+  || { printf 'NOT_IMPLEMENTED: в %s нет ни одного коммита\n' "$ROOT" >&2; exit 2; }
+
+# Текущая ветка. main — пропуск (направление ленда; сам ленд зовёт гейт
+# сведения, и (б)/(в) уже проверены).
+CUR_BRANCH="$(git -C "$ROOT" symbolic-ref -q --short HEAD 2>/dev/null || true)"
+if [ "$CUR_BRANCH" = "main" ]; then
+  exit 0
+fi
+
+# Головы из GIT_REFLOG_ACTION. Форма — `merge <имя…>` (замер 1 контракта 086).
+# Иная форма — отказ (барьер не должен угадывать предмет).
+REFLOG="${GIT_REFLOG_ACTION:-}"
+case "$REFLOG" in
+  'merge '*)
+    # Снять префикс `merge `, оставить остаток.
+    HEADS_LINE="${REFLOG#merge }"
+    ;;
+  *)
+    # Пусто или иная форма — пропускаем (pre-merge-commit по факту merge).
+    # Это может быть `merge --ff-only`, `merge --abort`, и т.п. Нас интересует
+    # только реальный merge; если форма неясна, не отказываем.
+    exit 0
+    ;;
+esac
+
+# Пустая строка после `merge ` — синтаксически не парсится; пропускаем.
+[ -n "$HEADS_LINE" ] || exit 0
+
+# Текущая голова (HEAD) — кандидат в первый родитель merge.
+HEAD_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+
+# Для каждой головы: резолвим в коммит; проверяем предикат sync.
+sync=0
+sync_head=""
+sync_p=""
+sync_q=""
+for h in $HEADS_LINE; do
+  H_COMMIT="$(git -C "$ROOT" rev-parse --verify --quiet "${h}^{commit}" 2>/dev/null)" || {
+    # Голова не резолвится в коммит — пропускаем; этот класс ловят другие барьеры
+    # (id/CONTRACT ловит мусор, а не pre-merge-commit).
+    continue
+  }
+  [ -n "$H_COMMIT" ] || continue
+
+  # Предикат sync: H_COMMIT — предок main/origin/main, H_COMMIT — НЕ предок HEAD.
+  if git -C "$ROOT" merge-base --is-ancestor "$H_COMMIT" main 2>/dev/null \
+     || git -C "$ROOT" merge-base --is-ancestor "$H_COMMIT" origin/main 2>/dev/null; then
+    if ! git -C "$ROOT" merge-base --is-ancestor "$H_COMMIT" "$HEAD_SHA" 2>/dev/null; then
+      # Sync. Печатаем sha merge, который БУДЕТ создан: parents = HEAD, H_COMMIT.
+      # В данный момент merge-коммита ещё нет (pre-merge-commit), поэтому
+      # печатаем полные sha ОБОИХ родителей — И-4: «(б) … либо родителей (хук)».
+      sync=1
+      sync_head="$h"
+      sync_p="$H_COMMIT"
+      sync_q="$HEAD_SHA"
+      break
+    fi
+  fi
+  # Обратный порядок: HEAD — предок main, H — нет. Хук не различает порядок
+  # (Frontier 4), но в этой ветке main первым родителем быть не может —
+  # текущая ветка ≠ main (CUR_BRANCH уже отфильтрован выше). Так что обратного
+  # порядка здесь не бывает: HEAD — НЕ предок main, иначе CUR_BRANCH=main или
+  # HEAD отстал от main. Не рассматриваем.
+done
+
+if [ "$sync" -eq 1 ]; then
+  # Контекст — оба родителя (И-4 «(б) … либо родителей (хук)»). Это полнее,
+  # чем sha ещё-не-созданного merge, и привязано к конкретным объектам.
+  printf '%s%s; sha %s; sha %s; %s\n' \
+    "$OTKAZ_PREFIX" "$LABEL_B" "$sync_p" "$sync_q" "$VYHOD_B" >&2
+  exit 1
+fi
+
+exit 0
