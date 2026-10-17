@@ -1,3 +1,54 @@
+## ГДЕ МЫ (2026-10-17 ~00:30 UTC — автоперезапуск по сторожу контекста (504K≥500K); ОБА КОНТРАКТА (991, 992) ЗАМОРОЖЕНЫ v1, оба слота готовы к implementer-раздаче ПАРАЛЛЕЛЬНО)
+
+**main = `a04ee2af9`, HEAD==origin, детектор утечек чист.** В полёте ничего — субагентов нет.
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+### Сделано этой сессией после слова владельца («да», передано консультантом 2026-10-17)
+
+1. Коммит консультанта `8940a5d8a` (identity owner, забран из `/tmp/dev-harness-verify/consultant-owner-plan-1792233463`, ff-only) — `registry/plan.tsv` строки 991+992, регенерация `ROADMAP.md`, две строки `РАЗРЕШИЛ-ВЛАДЕЛЕЦ`, трек 103/104/105 odelix→complior. `check_plan.sh --pre-commit` rc0 живьём. Слит, запушен.
+2. Форки `forks/n-991-plan-roadmap-razreshil.md`/`forks/n-992-plan-roadmap-razreshil.md` — `ОТВЕЧЕНО: да`, закоммичено (`28e3a711e`), запушено.
+3. `freeze_contract.sh contracts/991-complior-repeticiya-p107-p111.md` → **v1** (`frozen/contracts/991/1` = `cc5a8bce4`).
+4. `freeze_contract.sh contracts/992-oshibka-eto-otkaz.md` → **v1** (`frozen/contracts/992/1` = `00362f07a`).
+5. **Найден и обойдён НОВЫЙ мех. дефект** (`NABLIUDENIA.md` Н-302): `gitw_preflight_071.sh` чек (2) блокирует ЛЮБОЙ `gitw push` при наличии ХОТЯ БЫ ОДНОГО локального `frozen/*` тега, ещё не опубликованного — деадлок для первого push свежего тега (не различает «тега нет на origin» от «тег разошёлся»). Обойдено raw `git push origin refs/tags/frozen/contracts/991/1:… refs/tags/frozen/contracts/992/1:…` (ТОЛЬКО тег-рефы, без содержимого веток) — после этого `gitw push` main прошёл штатно. НЕ чинено (решение architect/critic, кандидат будущего контракта).
+6. Оба registry-коммита заморозки (`1f0672c34`, `a04ee2af9`) запушены на origin/main.
+
+### ЖДЁТ ВЛАДЕЛЬЦА
+
+Ничего нового — предыдущий батч закрыт.
+
+### Следующей сессии — ПАРА задач (оба слота, параллельно, по слову владельца п.2)
+
+**СЛОТ 1 (991, Complior-mob):** implementer-раздача — отрицательный PR первым (временный
+StartScreen «Prüfung starten»→«Prüfung abgeschlossen», валидный Maestro flow, Android падает на
+rehearsal-start), затем freeze-пакет workflow-дельт Д1-Д3, затем положительный PR (StartScreen +
+Jest + flow). **PR по одному** — на станции ОДИН эмулятор, серилизовать android-e2e прогоны.
+Merge/GitHub-настройки — ТОЛЬКО владелец.
+
+**СЛОТ 2 (992, харнес пакет B):** implementer-раздача по `ЗОНА implementer` замороженного текста
+(`scripts/check_charter.sh scripts/gitw_preflight_071.sh scripts/judge_gate.sh
+scripts/check_ci_gate.sh scripts/profile_resolver.sh scripts/freeze_contract.sh
+scripts/done_contract.sh fixtures/freeze_contract/`) → `python3
+fixtures/freeze_contract/fail_closed_992.py` обязан дать rc0 `cases=24 observations=24
+failures=0` → CI → adversary → reviewer → land → done_contract. Живые worktree/branch УЖЕ
+существуют (`wip/992/architect` на origin, HEAD `64d2f778`) — implementer заводится НОВОЙ веткой
+`wip/992/implementer` штатно через `spawn_agent.sh` (теперь `.omp/context/992.tsv`-манифест
+строится штатно, make_task найдёт ЗАМОРОЖЕННЫЙ текст — бутстрап-петля Н-301 для этого слота
+больше не актуальна).
+
+### Мелочь в бэклог харнеса (владелец, п.3 — не блокирует, не делать сейчас)
+
+Сторож простоя ночью не смог перезапустить сессию из-за старой неотправленной локальной ветки
+`wip/071/architect` (`1611c46`) — мешает автоперезапуску. Решить судьбу ветки (отправить на
+origin либо удалить по регламенту `gc_agent_branches`) в СВОБОДНОЕ окно, не в счёт двух слотов
+выше.
+
+### Открытые Н-записи с адресами (НЕ трогать вне своего контракта/трека — см. полный список в
+предыдущем сообщении владельца этой сессии, здесь не дублируется построчно)
+
+Самые свежие: Н-301 (бутстрап-петля А-66/Н-72(б) — обход записан, i15-гейт не менялся), Н-302
+(gitw frozen-tag деадлок — обойдено raw-push, gitw-гейт не менялся).
+
 ## ГДЕ МЫ (2026-10-17 ~00:10 UTC — НОЧНОЙ РЕЖИМ, ОБА СЛОТА ЗАБЛОКИРОВАНЫ НА ОДНОЙ ПОДПИСИ ВЛАДЕЛЬЦА; ЖДЁТ ВЛАДЕЛЬЦА: `РАЗРЕШИЛ-ВЛАДЕЛЕЦ` для registry/plan.tsv + ROADMAP.md, строки 991 и 992 — два готовых форка, один коммит закрывает оба)
 
 **main = `8a6f2135e`, HEAD==origin, детектор утечек чист.** В полёте ничего — все субагенты сессии завершены, поле чистое.
