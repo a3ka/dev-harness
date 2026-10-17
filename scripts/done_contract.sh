@@ -159,12 +159,18 @@ fi
 
 # ── вычисляем v = max+1 по тегам done/contracts/<NNN>/ ────────────────────────
 done_vmax=0
+# Ошибка перечисления версий — именованный отказ, не v1 вслепую (992): при
+# существующем v2 пустой перечень прежде молча выдумывал v1 и тег писался
+# без чтения списка. rc process substitution родителем не наблюдался.
+dfer_rc=0
+dfer_out="$(cd "$ROOT" && git for-each-ref --format='%(refname)' "refs/tags/done/contracts/$NNN/" 2>/dev/null)" || dfer_rc=$?
+[ "$dfer_rc" -eq 0 ] || die "done: перечень версий не читается (git for-each-ref rc=$dfer_rc): refs/tags/done/contracts/$NNN/ — проверить невозможно, версия не угадывается"
 while IFS= read -r t; do
   [ -n "$t" ] || continue
   vn="$(printf '%s' "$t" | sed -nE 's@.*done/contracts/[0-9]+/([0-9]+)@\1@p')"
   [ -n "$vn" ] || continue
   [ "$vn" -gt "$done_vmax" ] 2>/dev/null && done_vmax="$vn"
-done < <(cd "$ROOT" && git for-each-ref --format='%(refname)' "refs/tags/done/contracts/$NNN/" 2>/dev/null || true)
+done <<<"$dfer_out"
 v=$((done_vmax + 1))
 
 if [ "$v" -gt 1 ]; then
