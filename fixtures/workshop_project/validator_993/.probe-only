@@ -1,0 +1,5 @@
+Контракт 993: прямые mutation-пробы внешнего tests/validate_contract_v3_9.py
+Complior-back на полном настоящем OpenAPI и canonical bindings, не семья scripts/.
+Потребитель: приёмка 993 — python probe.py --repo <проверяемый клон> --out <новый каталог>.
+Красная база обязана оставаться красной до implementer; --diagnostic не приёмка.
+Не включать зависимость от внешнего клона в общий CI dev-harness.
