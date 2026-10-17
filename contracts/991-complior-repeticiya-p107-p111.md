@@ -1,4 +1,4 @@
-# Контракт 991 — совмещённая репетиция П-107/П-111 на Complior-mob
+# Контракт 991 — совмещённая репетиция П-107/П-111 на Complior-mob (v2, черновик)
 
 КЛАСС: КОДОВЫЙ — конечный предмет меняет StartScreen и исполняемые Android workflows; это не doc-only допуск.
 Статус: черновик для суда, не разрешение push/freeze/раздачи в Complior-mob или Merge. Номер уже выдан: registry/contracts.tsv, `991 → 24070489099050108e3f3b8cb5bd66712d378ffc`; повторного минта нет.
@@ -112,14 +112,26 @@ Workflow-код всех фаз пишет implementer; оркестратор �
 - Д1 — новый upload-шаг release APK `apk-<checkoutSHA>-<run_id>-<run_attempt>` с `if: always()` и `if-no-files-found: error`;
 - Д2 — у существующего шага `Артефакты (скриншоты, отчёт)` меняются только `with.name` (`maestro-<checkoutSHA>-<run_id>-<run_attempt>`) и `with.if-no-files-found: error`;
 - Д3 — в `mobile-cloud-e2e.yml` тело шага `Maestro` заменяется установкой 2.11.0; новый шаг проверки версии Maestro в обоих workflows;
-- Д4 — новый шаг rehearsal evidence-проверки в обоих workflows.
+- Д4 — новый шаг rehearsal evidence-проверки в обоих workflows;
+- Дс5 — ровно один новый шаг освобождения диска только в `mobile-cloud-e2e.yml`, job `android-e2e-cloud`, непосредственно между существующими шагами `KVM` и `Эмулятор API 36 + сценарии Maestro`, то есть ПОСЛЕ сборки release-APK и ДО внутреннего `Install Android SDK` action эмулятора. Полный YAML-объект шага фиксирован ниже; прочие ключи, команды, пути удаления, helper/сторонний `uses:` недопустимы. NDK удаляется только после завершённой сборки; APK, workspace, Gradle/npm-кэши, JDK/Node, Maestro, SDK вне `ndk` и swap сохраняются.
+
+  ```yaml
+  - name: Освобождение диска перед cloud-эмулятором
+    id: rehearsal_disk_space
+    shell: bash
+    working-directory: .
+    run: |
+      df -h /
+      sudo rm -rf -- /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+      df -h /
+  ```
 
 Фазы:
 - отрицательный PR — только Д1 в `mobile.yml`;
 - freeze-PR — Д1, Д2, Д3 в обоих workflows;
-- положительный PR — только Д4.
+- положительный PR — Д4 в обоих workflows и Дс5 только в cloud; уже предъявленный C после добавления Дс5 становится новым объектом и проходит новые station/cloud-прогоны и суды по существующим правилам пинов.
 
-Новые шаги стоят только ПОСЛЕ шага `Эмулятор API 36 + сценарии Maestro` своего job, без `continue-on-error`; `if:` допустим только `always()` и только у upload-шагов. Вне дельт меняться не может ничего:
+Новые шаги, КРОМЕ ровно Дс5 в указанном месте cloud-job, стоят только ПОСЛЕ шага `Эмулятор API 36 + сценарии Maestro` своего job. Для ВСЕХ новых шагов, включая Дс5, запрещён `continue-on-error`; `if:` допустим только `always()` и только у upload-шагов. Сравнение КАРКАСА из приёмки допускает Дс5 только как точное равенство приведённому YAML-объекту (включая полный `run`-текст) в названной позиции и фазе; отсутствие/дубликат/изменение Дс5 на положительном C — rc 1 `CARRIER_CHANGED`. `compare_carriers.py --repo R --base B --head C --phase positive` на честном C даёт rc 0; парный негатив с отсутствующим или изменённым Дс5 — rc 1; `--repo R --base B --matrix` — rc 0 только при совпадении всех кодовых ожиданий. Достаточность диска доказывает не локальный replay `rm`, а новый зелёный cloud-run по шагу 6 с сохранённым выводом `df` до/после очистки. Вне дельт меняться не может ничего:
 - jobs `quality` и `expo-versions` целиком;
 - ключи верхнего уровня (`name`, `on`, `permissions`, `concurrency`, `defaults`, `env`);
 - набор jobs;

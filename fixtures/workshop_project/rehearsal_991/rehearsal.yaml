@@ -1,0 +1,23 @@
+appId: com.complior.mobile
+name: 991 start action and new-launch reset
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: start-screen
+- assertVisible:
+    id: rehearsal-start
+- assertVisible: Prüfung starten
+- assertNotVisible: Prüfung abgeschlossen
+- takeScreenshot: rehearsal-before
+- tapOn:
+    id: rehearsal-start
+- assertVisible: Prüfung abgeschlossen
+- takeScreenshot: rehearsal-after
+- stopApp
+- launchApp:
+    clearState: false
+- assertVisible:
+    id: rehearsal-start
+- assertVisible: Prüfung starten
+- assertNotVisible: Prüfung abgeschlossen

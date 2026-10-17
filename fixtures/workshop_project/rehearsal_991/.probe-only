@@ -1,0 +1,7 @@
+Контракт 991: межрепозиторная поведенческая проба StartScreen, не самотест одного bash-гарда.
+Локальный потребитель: python3 fixtures/workshop_project/rehearsal_991/probe.py --repo <scratch Complior-mob> [--matrix].
+Проектные потребители после допуска: quality запускает rehearsal.test.tsx; station/cloud Maestro запускает rehearsal.yaml.
+Модель и матрица — только для scoped Jest-предъявления; не продуктовый код и не свидетельство native Android.
+Native red требует station-complior и разрешения на запуск; отсутствие допуска не заменяется всегда-красным стабом.
+Структурный потребитель: python3 fixtures/workshop_project/rehearsal_991/compare_carriers.py --repo R --base B --head C --phase negative|freeze|positive; reviewer берёт сравнитель из H.
+Красное сравнителя: та же команда с --repo R --base B --matrix; matrix_carriers.py вызывается только этим режимом. Все B/C и ожидания в памяти, чужой checkout не меняется.
