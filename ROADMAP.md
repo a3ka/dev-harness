@@ -387,6 +387,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 991 | до V-2 | complior | - | 453d5b8db |
 | 3 | 992 | до V-2 | CI | - | 64d2f778 |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
+| 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
 | 5 | 096 | до V-2 | odelix | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 6 | V-2 | до V-2 | odelix | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
 | 7 | ночь-повторяемость | параллельно с V-2 | odelix | V-2 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4 |
