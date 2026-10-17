@@ -2,7 +2,7 @@
   "_comment": "ЕДИНСТВЕННЫЙ источник назначений моделей (решение владельца 2026-09-12: правка моделей = правка ТОЛЬКО этого файла + npm run gen:harness). СЕМЕЙСТВА (слово владельца 2026-09-26): секция models — «семейство → последняя версия»; тиры и оверлеи config/models-*.yml ссылаются на семейство как \"@opus\", поэтому смена версии — ОДНА строка в models. Производные: .omp/agents/*.md (роль→тир), секции modelRoles и retry.fallbackChains в .omp/config.yml — генерируются scripts/gen-harness.ts и сверяются --check; оверлеи лаунчер разворачивает при запуске (gen-harness.ts --resolve-overlay). Поле fallback — объявленный фолбек тира; autoFallback: true — он же живая цепочка подмены omp (retry.modelFallback), без флага подмена ручная (процедура Н-50). Имена моде…",
   "models": {
     "opus": "anthropic/claude-opus-5-5",
-    "sonnet": "anthropic/claude-sonnet-5",
+    "sonnet": "anthropic/claude-sonnet-5-5",
     "fable": "anthropic/claude-fable-5-1",
     "haiku": "anthropic/claude-haiku-4-5",
     "glm": "zai/glm-5.3",
