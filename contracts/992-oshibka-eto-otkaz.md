@@ -62,6 +62,11 @@
 - guard=scripts/run_ci_lane.sh
 
 ПРОВОДКА-ЭНФОРСМЕНТ: исправляются уже установленные механизмы отказа, не поведенческая норма роли. Канал — существующий CI-диспетчер, а не имя косвенно вызываемой фикстуры: `.github/workflows/ci.yml` → `scripts/run_ci_lane.sh check:document` → команда из `registry/ci-steps.tsv` (`npm run check:document`) → `red_doc_lifecycle.sh` → `fail_closed_992.py` без флагов. Architect подключает батарею в red_doc_lifecycle.sh до заморозки; подключение после landing не требуется. Живая проверка цепочки: `bash scripts/run_ci_lane.sh check:document` — ДО B rc1 с `cases=24 observations=24 failures=16` и `lane: отказ ключа check:document (rc=1)`, ПОСЛЕ B rc0. `bash scripts/check_provodka.sh . contracts/992-oshibka-eto-otkaz.md` — rc0. Матрица --matrix предназначена архитектору/судьям на базе ДО B; CI судит только живой субъект без модели.
+замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv
+ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
+ПОТРЕБИТЕЛЬ fixtures/drill_contract_change/: bash scripts/verify_antiplacebo.sh --scope drill_contract_change
+ПОТРЕБИТЕЛЬ scripts/spawn_agent.sh: bash scripts/verify_antiplacebo.sh --scope spawn_agent
+ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/check_spec_ready.sh . contracts/992-oshibka-eto-otkaz.md
 
 ## Модель угроз
 
