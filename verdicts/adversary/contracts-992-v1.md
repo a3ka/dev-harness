@@ -40,6 +40,7 @@ The probes exposed the expected historical behaviours: silent rc0 success for ch
 * `python3 fixtures/freeze_contract/fail_closed_992.py`: rc0, `cases=24 observations=24 failures=0`.
 * `python3 fixtures/freeze_contract/fail_closed_992.py --model`: rc0, `cases=24 observations=24 failures=0`.
 * `bash fixtures/freeze_contract/red_doc_lifecycle.sh`: rc0; its 992 battery reports `cases=24 observations=24 failures=0`.
+* `bash fixtures/gitw_predpolet/red_predpolet_071.sh`: rc0; honest cells 41/41, stub package 21/21, and differential probe 21/21.
 * Scoped anti-placebo probes: `freeze_contract` (15/15), `done_contract` (1/1), `check_charter` (13/13), `check_judge_gate` (3/3), and `profile_resolver` (10/10), all rc0.
 
 The mandatory matrix acceptance criterion remains red; do not accept until its live-B expectation is corrected and the specified matrix command is green.
