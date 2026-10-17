@@ -1,59 +1,68 @@
-FAIL
+accept
 
-# Критик — контракт 991 v2 (дельта Дс5)
+# Критик — контракт 991 v2 (дельта Дс5), круг 2
 
-OBJECT=ee88443ec664732d55139d250c7da44e2cfe9c09
-Предмет: `contracts/991-complior-repeticiya-p107-p111.md` на `wip/991/architect` @ `ee88443ec`, против `frozen/contracts/991/1`.
-Санкция v+1: `docs/owner/2026-10-17-resheniya-1810.md` §4 (на origin/main, `dfec9fcb`); строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:` дословно стоит в теле `666a229fa`.
-Судья: роль critic. Клон `/tmp/dev-harness-verify/critic-991-v2-1792261539851475119/repo`.
+OBJECT=3d4df808193f818a38ec8d8389c4fae91955a56b
+Предмет: `contracts/991-complior-repeticiya-p107-p111.md` на `wip/991/architect` @ `3d4df8081` против `frozen/contracts/991/1`. Это коммит `3d4df8081` поверх `ee88443ec`, а `ee88443ec` был предметом круга 1.
+Круг 1: `verdicts/critic/contracts-991-v2.md` @ `b2ef4e5e` — FAIL, один БЛОКИРУЕТ: guard `probe.py` из ПРОВОДКИ отсутствовал.
+Судья: роль critic. Клон `/tmp/dev-harness-verify/crit991r2-1792262030344293584/repo`, клон Complior-mob (база `8a699d17…`) `/tmp/dev-harness-verify/crit991r2-1792262030344293584/complior`.
 
 ## Набор артефактов
 
-Полон: предмет, критерий с командами, исполнители, `ЗОНА`-строки (`:99–102`, `:107`) есть, всё закоммичено на HEAD предмета. Разбор по существу проведён.
+Набор полон. Предмет, критерий с командами (`:68–96`), исполнители и `ЗОНА`-строки (`:99–102`, `:107`) на месте, всё закоммичено на HEAD предмета. Дверь `make_task.sh --repo /tmp/dev-harness-worktrees/c907157c/wip-991-architect --role critic --contract 991 --model-trace …` перечитана собственным вызовом, rc 0. Worktree двери стоит на том же HEAD `3d4df8081`.
 
-## Что прогнано (живьём, в клоне)
+## Закрытие блокера круга 1 (проверено живьём)
 
 | команда | rc | вывод |
 |---|---|---|
-| `python3 -B fixtures/workshop_project/rehearsal_991/smoke_carriers.py` | 0 | CLI: honest-positive 0, missing-Ds5 1, altered-Ds5 1, moved-Ds5 1; matrix synthetic `executed=58 mismatches=0` |
-| `python3 -B fixtures/workshop_project/rehearsal_991/compare_carriers.py --repo <клон Complior-mob> --base 8a699d175114f82395e019964ee1fec02a6bb200 --matrix` | 0 | `executed=63 mismatches=0`; каждая позиция Дс5 0–13, кроме честной, — rc 1; изменение/отсутствие каждого из 5 ключей, лишние `if`/`continue-on-error`/`env`/`uses`, дубликат, не тот workflow/job/фаза — rc 1 `CARRIER_CHANGED` |
-| `gh api …/mobile-cloud-e2e.yml?ref=8a699d17…` | 0 | в реальной базе шаг `KVM` стоит непосредственно перед `Эмулятор API 36 + сценарии Maestro`: проверка соседства в `compare_carriers.py` опирается на настоящую структуру, а не на синтетическую |
-| `bash scripts/pre_critic.sh --repo <клон> <контракт>` | 0 | `КРИТИК: дверь зелёная` |
-| `bash scripts/check_threat_model.sh <клон> <контракт>` | 0 | ЗАЩИЩАЕТ 4, НЕ ЗАЩИЩАЕТ 4 |
-| `bash scripts/check_precision_gate.sh <клон> <контракт>` | 0 | `OK` |
-| `bash scripts/check_spec_ready.sh` / `check_consumers.sh` | 0 / 0 | — |
-| `bash scripts/check_provodka.sh <клон> <контракт>` | **1** | `проводка: guard-файл не существует: fixtures/workshop_project/rehearsal_991/probe.py` |
+| `git ls-tree -r fc8a8898 / HEAD -- fixtures/workshop_project/rehearsal_991/` | 0 | `probe.py` `3a190bf6`, `model.tsx` `822f8465`, `.probe-only` `ee4c3d0f`, `rehearsal.test.tsx` `2661187c` и `rehearsal.yaml` `3097f64b` на HEAD побайтно (по blob-id) равны объекту `fc8a8898`, который судил v1 |
+| `git diff --stat ee88443ec HEAD` | 0 | изменены только три восстановленных файла (+118). Текст контракта с круга 1 не менялся |
+| `check_provodka.sh <клон@3d4df808> <контракт>` | 1 | `guard не подключён: …probe.py не вызывается в .githooks/ или .github/workflows/` |
+| `check_provodka.sh <worktree@fc8a8898> <контракт>` | 1 | тот же вывод, слово в слово: это унаследованное состояние принятого v1 |
+| `check_provodka.sh <worktree@ee88443e> <контракт>` | 1 | `guard-файл не существует: …probe.py`: класс блокера круга 1 воспроизведён на старом предмете |
+| `python3 -c ast.parse(probe.py)` | 0 | файл разбирается |
 
-## Сверка, что диф ограничен заявленным
+Итог: класс отказа сменился с «guard-файл не существует» (нарушение `AGENTS.md:175`, «канал существует») на «guard не подключён». Это ровно то состояние, которое было на принятом v1-объекте. Блокер круга 1 закрыт.
 
-`git diff frozen/contracts/991/1 HEAD -- contracts/991-…md`: 16+/4−, четыре hunk-а — заголовок `:1`, буллет Дс5 с YAML `:115–127`, строка фаз `:132`, абзац ограничений `:134`. Прочий текст контракта побайтно равен v1. Буллеты-ограничения `:135–140` (quality/expo-versions целиком, верхние ключи, набор jobs, ключи job, существующие шаги и порядок, `mobile/scripts/`) не тронуты. Литерал Дс5 в контракте (`:118–127`), `DISK_SPACE` в `compare_carriers.py` и `DISK` в `smoke_carriers.py` дают один и тот же объект: эквивалентность подтверждает honest-positive rc 0 на обеих базах.
+## Пересверка дельты против frozen v1
 
-`compare_carriers.py` против `fc8a8898` (объект, который судил v1): +30 строк, и все они про Дс5 (docstring, `DISK_SPACE`, `disk_required`, ветка соседства KVM→NATIVE, `missing-Ds5`). `rehearsal.test.tsx` и `rehearsal.yaml` равны `fc8a8898` байт в байт.
+| команда | rc | вывод |
+|---|---|---|
+| `git rev-parse frozen/contracts/991/1:<контракт>` | 0 | `fc3ffa9c`. Тот же блоб у `149433ba` и `fc8a8898` |
+| `git diff frozen/contracts/991/1 HEAD -- <контракт>` | 0 | 16+/4−: `:1` заголовок, `:115–127` Дс5 + YAML, `:132` фазы, `:134` ограничения. Остальное побайтно v1 |
+| `git diff --stat fc8a8898 HEAD -- fixtures/…/rehearsal_991/` | 0 | `compare_carriers.py` +30, `matrix_carriers.py` +50/−1, `smoke_carriers.py` новый +136. Все правки только про Дс5 (`DISK_SPACE`, `disk_required`, соседство KVM→NATIVE, матрица Ds5-*). Прочие фикстуры равны `fc8a8898` |
+| `compare_carriers.py --repo <complior> --base 8a699d17… --matrix` | 0 | `executed=63 mismatches=0`. Ds5-missing / duplicate / changed-* / missing-* / extra-if / extra-continue-on-error / extra-env / extra-uses, позиции 0–7 и 9–13, wrong-workflow / job / phase-negative / phase-freeze — каждый rc 1 `CARRIER_CHANGED` |
+| `git show 8a699d17:.github/workflows/mobile-cloud-e2e.yml` | 0 | порядок шагов: `Сборка release-APK` → `Maestro` → `KVM` → `Эмулятор API 36 + сценарии Maestro`. Позиция Дс5 «после сборки, между KVM и эмулятором» соответствует реальной базе |
+| `python3 fixtures/…/smoke_carriers.py` | 0 | CLI honest-positive 0, missing-Ds5 1, altered-Ds5 1, moved-Ds5 1, synthetic matrix `executed=58 mismatches=0`; `git status` после прогона чист |
+| `pre_critic.sh --repo <клон> <контракт>` | 0 | `КРИТИК: дверь зелёная` |
+| `check_threat_model.sh` | 0 | ЗАЩИЩАЕТ 4, НЕ ЗАЩИЩАЕТ 4 |
+| `check_precision_gate.sh <клон> <контракт>` | 0 | `OK` |
+| `check_spec_ready.sh` / `check_consumers.sh` | 0 / 0 | `OK` / — |
+
+Поправка к брифу оркестратора: дельта фикстур против v1 — это не только `compare_carriers.py` и восстановленные guard-файлы. К ней относятся ещё `matrix_carriers.py` (+50/−1) и новый `smoke_carriers.py`. Обе правки лежат в предмете Дс5 и в ЗОНА architect `:99`, поэтому ни один из них не меняет вердикт.
 
 ## Находки
 
-БЛОКИРУЕТ contracts/991-complior-repeticiya-p107-p111.md:163 — ПРОВОДКА называет `guard=fixtures/workshop_project/rehearsal_991/probe.py`, а на предмете `ee88443ec` этого файла нет. Это прямо противоречит `AGENTS.md:175` («каждый канал нормы существует»), `check_provodka.sh` даёт rc 1. Причина: коммит `ee88443ec` восстановил каталог из `fc8a8898` не целиком. `git diff --stat fc8a8898 ee88443ec -- fixtures/workshop_project/rehearsal_991/` показывает удаление `probe.py` (−86), `model.tsx` (−25) и `.probe-only` (−7). Критик v1 судил дерево, в котором эти файлы были. Регрессия измеряется против принятого v1-объекта, а не против main. Без этих файлов первые два пункта приёмки (`:68`, `:69` — `probe.py --repo R` и `--matrix`) нечем исполнить, а замер `:170` («`probe.py` → rc 1, executed=2; `--matrix` → rc 0, executed=6») не воспроизводится на предмете.
-ОБХОД: если заморозить это дерево, H не несёт `probe.py`. Позже architect в своей зоне кладёт новый `probe.py`, которого критик не видел. Например, такой: на базе печатает `executed=2` и rc 1, потому что в `start-screen.tsx` нет строки `Prüfung starten`, а на любом C с этой строкой печатает rc 0, `executed=2` и rc 0 на `--matrix`. Пункты `:68–69` выполнены по букве, но поведение (нажатие, результат, reset) не проверено. По Н-39 привязки контрмоделей живут ТОЛЬКО в коде, и этого кода в предмете нет.
-ЗАКРЫТИЕ (дёшево, текст контракта не меняется, санкция владельца не нужна, работа в ЗОНА architect `:99`): `git checkout fc8a8898 -- fixtures/workshop_project/rehearsal_991/probe.py fixtures/workshop_project/rehearsal_991/model.tsx fixtures/workshop_project/rehearsal_991/.probe-only` байт в байт, затем коммит. Проверено в клоне: после восстановления `check_provodka.sh` больше не пишет `guard-файл не существует`. Остаётся `guard не подключён … не вызывается в .githooks/ или .github/workflows/`, но то же состояние было и на принятом v1-объекте (проверено: тот же вывод при файлах из `fc8a8898`); как его закрывает `ПРОВОДКА-ЭНФОРСМЕНТ:` `:166`, решает done-гейт, а не этот круг. В предмет v2 оно не входит и здесь не блокирует.
+Блокирующих нет. Обход, при котором критерий Дс5 выполнен, а предмет не сделан, не найден: литерал сравнивается целиком, позиция и фаза закреплены кодом, 63/0 на реальной базе, а достаточность места доказывает зелёный cloud-run шага 6 (`:134`).
 
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:1 — суффикс заголовка `(v2, черновик)` к Дс5 не относится, а санкция §4 звучит как «остальной текст без изменений». Слово «черновик» уедет в замороженный блоб. Лучше вернуть заголовок v1: версию и так несёт тег `frozen/contracts/991/2`.
+СОВЕТ (оркестратору, к заморозке) — дерево тега `frozen/contracts/991/1` (`28e3a711`) НЕ содержит `fixtures/workshop_project/rehearsal_991/` вообще. Проверено: `git ls-tree -r frozen/contracts/991/1^{commit} fixtures/workshop_project/rehearsal_991/` пуст, а на `origin/main` каталога тоже нет. Причина в способе заморозки v1: «точечный перенос contracts/991-*.md» (`149433ba`). Если v2 заморозить тем же переносом, на замороженном объекте снова не будет `probe.py`/`compare_carriers.py`. Это ровно тот обход, который назвал круг 1: позже в ЗОНА architect можно положить guard, которого критик не видел. Мера: дерево, на котором ставится `frozen/contracts/991/2`, обязано нести все восемь файлов `fixtures/workshop_project/rehearsal_991/` с blob-id, равными `3d4df8081`. Проверка — `git diff --exit-code 3d4df808193f818a38ec8d8389c4fae91955a56b <freeze-commit> -- fixtures/workshop_project/rehearsal_991/ contracts/991-complior-repeticiya-p107-p111.md`, rc 0. Это процедура заморозки, а не текст контракта, и состояние унаследовано от v1, поэтому здесь не блокирует. Но этот accept относится к объекту `3d4df8081` целиком, вместе с фикстурами.
 
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:134 — фразу «сохранённым выводом `df` до/после» не проверяет ни одна rc-команда. Сейчас это диагностика, а критерием остаётся зелёный cloud-run шага 6. Это достаточно: если места не хватит, run покраснеет. Если нужна мера, вот она: reviewer ищет в логе job две строки `df` и видит рост `Avail`.
+СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:163–166 — `check_provodka.sh` даёт rc 1 «guard не подключён». `done_contract.sh` (шаг 6) требует rc 0, значит done для 991 при нынешнем тексте механически невозможен. Строка `ПРОВОДКА-ЭНФОРСМЕНТ:` `:166` этот rc не снимает: проверено, вывод тот же. Состояние унаследовано от v1 и в дельту v2 не входит. Решать до done-гейта, а не после реализации.
 
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:131–132 — Дс5 разрешён только в positive. Freeze-PR (Д3 трогает cloud) после merge владельцем попадёт под недельный schedule без Дс5, и этот cloud-прогон ожидаемо упадёт по диску, пока не смёржен positive. Это не обход критерия: freeze судится только station-run, `:43`. Стоит назвать это ожидаемым красным, чтобы никто не принял его за регресс.
+СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:172 — замер «`--matrix` → executed=30» устарел: живой прогон на той же базе даёт `executed=63`. Число — вывод раннера, а не критерий. Поправить, чтобы reviewer не сверял его с несуществующим числом.
 
-СОВЕТ contracts/991-complior-repeticiya-p107-p111.md:146–158 — Модель угроз не упоминает Дс5. Секция валидна (rc 0), литерал зафиксирован и сравнивается целиком, поэтому пробела в защите нет. Можно добавить в НЕ ЗАЩИЩАЕТ одну строку: достаточность места и то, что удалённые пути не нужны эмулятору, доказывает только живой cloud-run.
-
-СОВЕТ fixtures/workshop_project/rehearsal_991/smoke_carriers.py — временное Git-хранилище создаётся внутри дерева харнеса (`TemporaryDirectory(dir=HERE)`). Его убирает finally, но при SIGKILL внутри fixture-зоны останется `.carrier-smoke-*`. Лучше использовать `dir=None`.
-
-СОВЕТ — заголовок коммита `666a229fa` («not authorized for freeze») противоречит его собственному телу и `docs/owner/…-1810.md` §4. На механику не влияет, но читателю истории мешает.
+Остальные пять советов круга 1 остаются в силе и не блокируют (`b2ef4e5e`): `:1` суффикс «(v2, черновик)»; `:134` `df` без rc-меры; `:131–132` недельный cloud после freeze-merge ожидаемо красный без Дс5; `:146–158` Дс5 вне НЕ ЗАЩИЩАЕТ; `smoke_carriers.py` `TemporaryDirectory(dir=HERE)`. Прошлый совет про заголовок `666a229fa` касается истории, а не текста.
 
 ## Пять вопросов (сводно)
 
-1. Критерий Дс5 не слабее предмета: точное равенство объекта, соседство KVM→NATIVE в B и в C, ровно одно вхождение, только positive/cloud/`android-e2e-cloud`. Каждое отклонение даёт красный в коде (63/0 на реальной базе). Обход, принятый сравнителем, не найден. Блокер — пропавший `probe.py`, см. выше.
-2. Каждый пункт Дс5 доказывается командой с rc: `compare_carriers.py --phase positive` и `--matrix`. Достаточность диска доказывает cloud-run шага 6.
-3. Молча оставленных решений в Дс5 нет: литерал полный, позиция и фаза названы.
-4. Границы: Дс5 лежит в `.github/workflows/mobile-cloud-e2e.yml`, это ЗОНА implementer `:107`. Фикстуры лежат в ЗОНА architect `:99`.
-5. Норма `AGENTS.md:175` нарушена отсутствующим guard-файлом. Это блокер.
+1. Критерий Дс5 не слабее предмета: обход не предъявлен, 63/0 на реальной базе плюс CLI-smoke через настоящие Git-объекты.
+2. Каждый пункт Дс5 проверяется командой с rc: `compare_carriers.py --phase positive`, `--matrix`, cloud-run шага 6.
+3. Молча оставленных решений в дельте нет: литерал, позиция, job и фаза названы.
+4. Границы: Дс5 лежит в `.github/workflows/mobile-cloud-e2e.yml` (ЗОНА implementer `:107`), фикстуры в ЗОНА architect `:99`.
+5. `AGENTS.md:175`, часть «существует»: оба guard-файла на предмете есть. Часть «подключён» — done-гейт, унаследована от v1, см. совет выше.
 
-Повтора причины прежних FAIL (круги 1–2 v1) нет, арбитр не созывается.
+Причина круга 1 закрыта и не повторена, арбитр не созывается.
+
+## Precision-гейт (норма 043)
+
+`bash scripts/check_precision_gate.sh <клон> contracts/991-complior-repeticiya-p107-p111.md` → rc 0, `OK`.
