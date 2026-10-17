@@ -45,7 +45,7 @@ tools:
 modelRoles:
   default: "anthropic/claude-sonnet-5"  # фолбек: zai/glm-5.3
   vision: "minimax/MiniMax-M3"
-  task: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5
+  task: "minimax/MiniMax-M3"  # фолбек: anthropic/claude-sonnet-5
   smol: "minimax/MiniMax-M2.5-lightning"
   slow: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-opus-5-5
   advisor: "openai-codex/gpt-5.6-terra"  # фолбек: anthropic/claude-opus-5-5
