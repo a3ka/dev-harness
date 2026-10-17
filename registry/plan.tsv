@@ -23,6 +23,8 @@ done-волны	9	параллельно с V-2	087	docs/owner/2026-10-08-roadma
 операционные-инструменты	12	параллельно с V-2	решения-контекст	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	ops
 CI-затронутое	13	параллельно с V-2	операционные-инструменты	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	CI
 второй-проект	14	параллельно с V-2	CI-затронутое	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 12	odelix
-103	3	до V-2	-	docs/owner/2026-10-13-roadmap-variant-b.md#2	odelix
-104	3	до V-2	-	docs/owner/2026-10-13-roadmap-variant-b.md#2	odelix
-105	3	до V-2	-	013ab88d	odelix
+103	3	до V-2	-	docs/owner/2026-10-13-roadmap-variant-b.md#2	complior
+104	3	до V-2	-	docs/owner/2026-10-13-roadmap-variant-b.md#2	complior
+105	3	до V-2	-	013ab88d	complior
+991	3	до V-2	-	453d5b8db	complior
+992	3	до V-2	-	64d2f778	CI
