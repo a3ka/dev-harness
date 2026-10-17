@@ -286,15 +286,19 @@ scan_levels() {
     known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack"
     # Ключи самой defaults-ветви (отдельно от дочерних)
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
-      local dk
-      dk="$(jq -r '.defaults | keys_unsorted[]' "$file" 2>/dev/null)"
+      local dk dk_rc
+      dk_rc=0
+      # Авария jq (rc>1) — отказ, не пустая ветвь (992); rc1 сюда не доходит:
+      # вызов без -e, осознанного false не бывает.
+      dk="$(jq -r '.defaults | keys_unsorted[]' "$file" 2>/dev/null)" || dk_rc=$?
+      [ "$dk_rc" -le 1 ] || die_p "defaults: перечисление ключей ветви не выполнилось (jq rc=$dk_rc) — авария jq не равна пустой ветви"
       while IFS= read -r k; do
         [ -z "$k" ] && continue
         _key_in_schema "  project:defaults:${k}:" || die_p "неизвестный ключ ${level_label}: defaults.${k}"
       done <<<"$dk"
     fi
   fi
-  local branch branch_path bk k2
+  local branch branch_path bk bk_rc k2 ob_rc
   for branch in $known_branches; do
     if [ "$branch" = "projectLayer" ] && [ "$level" = "project" ]; then
       continue  # projectLayer только в repo
@@ -307,10 +311,16 @@ scan_levels() {
     # Это закрывает обход №1 (вложенные defaults-ключи вне алфавита).
     branch_path="$branch"
     [ "$level" = "project" ] && [[ "$branch" == defaults.* ]] && branch_path="$branch" || :
-    if ! jq -e "(.${branch}|type)==\"object\"" "$file" >/dev/null 2>&1; then
-      continue
-    fi
-    bk="$(jq -r ".${branch} | keys_unsorted[]" "$file" 2>/dev/null)"
+    # Авария jq (rc>1) — отказ (992), а rc1 от `jq -e` — осознанный false:
+    # «ветвь не объект» → законный пропуск ветви. Прежде rc>1 молча
+    # прочитывался как false, и ветвь (с её ключами) выпадала из проверки.
+    ob_rc=0
+    jq -e "(.${branch}|type)==\"object\"" "$file" >/dev/null 2>&1 || ob_rc=$?
+    [ "$ob_rc" -le 1 ] || die_p "${branch}: проверка типа ветви не выполнилась (jq rc=$ob_rc) — авария jq не равна отсутствию ветви"
+    [ "$ob_rc" -eq 0 ] || continue
+    bk_rc=0
+    bk="$(jq -r ".${branch} | keys_unsorted[]" "$file" 2>/dev/null)" || bk_rc=$?
+    [ "$bk_rc" -le 1 ] || die_p "${branch}: перечисление ключей ветви не выполнилось (jq rc=$bk_rc) — авария jq не равна пустой ветви"
     # Схема хранит пути через «:» (как разделитель полей строки SCHEMA_LEVELS);
     # `${branch}` же — это jq-путь с «.» (например `defaults.workflowPaths`).
     # Подставляем в иголку колоночную форму, иначе для defaults.* ветвей
@@ -403,7 +413,13 @@ fi
 # различать «не строка» и «пустая строка».
 check_object_strings() { # $1=file $2=parent $3=field-list
   local file="$1" parent="$2"; shift 2
-  [ "$(jq -r --arg p "$parent" '(getpath($p | split(".")) // null) | type' "$file" 2>/dev/null)" = "object" ] || return 0
+  # Авария jq (rc>1) — отказ (992), не «ветви нет»: прежде пустой вывод
+  # подстановки выглядел как type != object, и поля ветви выпадали из
+  # проверки. rc1 здесь невозможен (вызов без -e).
+  local pst_type pst_rc=0
+  pst_type="$(jq -r --arg p "$parent" '(getpath($p | split(".")) // null) | type' "$file" 2>/dev/null)" || pst_rc=$?
+  [ "$pst_rc" -le 1 ] || die_p "${parent}: проверка типа ветви не выполнилась (jq rc=$pst_rc) — авария jq не равна отсутствию ветви"
+  [ "$pst_type" = "object" ] || return 0
   local f ft
   for f in "$@"; do
     # Поле объявлено как объект-член $parent → если есть, должно быть непустой строкой.
@@ -462,8 +478,11 @@ check_barrier_array() {
   local ft
   ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)"
   [ "$ft" = "array" ] || die_p "значение вне алфавита: $path: <$ft>"
-  local arr
-  arr="$(jq -r --arg p "$path" 'if (getpath($p | split(".")) | type) == "array" then (getpath($p | split(".")) | join("\n")) else empty end' "$file" 2>/dev/null)"
+  local arr arr_rc=0
+  # Авария jq (rc>1) — отказ (992), не пустой массив: прежде элементы
+  # выпадали из проверки алфавита молча. rc1 здесь невозможен (без -e).
+  arr="$(jq -r --arg p "$path" 'if (getpath($p | split(".")) | type) == "array" then (getpath($p | split(".")) | join("\n")) else empty end' "$file" 2>/dev/null)" || arr_rc=$?
+  [ "$arr_rc" -le 1 ] || die_p "$path: чтение элементов массива не выполнилось (jq rc=$arr_rc) — авария jq не равна пустому массиву"
   while IFS= read -r item; do
     [ -z "$item" ] && continue
     printf '%s' "$item" | grep -Eq '^[a-z0-9][a-z0-9_-]*$' \
