@@ -417,7 +417,7 @@ command -v npm >/dev/null 2>&1 \
 # (контракт 992): отказ show при существующей записи — не «файла нет», а авария
 # чтения; отсутствие записи — законный пропуск чеков (071 §Инвариант 3).
 pkg_ls_rc=0
-pkg_entry="$(git ls-tree --name-only "$send_tip" -- package.json 2>/dev/null)" || pkg_ls_rc=$?
+pkg_entry="$(git ls-tree --full-tree --name-only "$send_tip" -- package.json 2>/dev/null)" || pkg_ls_rc=$?
 if [ "$pkg_ls_rc" -ne 0 ]; then
   printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: package.json не читается (git ls-tree rc=%d): %s — проверить невозможно\n' "$pkg_ls_rc" "$send_tip" >&2
   exit 1
