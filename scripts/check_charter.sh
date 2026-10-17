@@ -440,8 +440,16 @@ for f in AGENTS.md ROADMAP.md; do
   printf '%s\t%s\n' "$f" 'ustav/1' >> "$TMP/pairs"
 done
 
-g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' 2>/dev/null \
-  | awk '/\.md$/' | sort > "$TMP/docs" || true
+# Ошибка ls-tree — именованный отказ, не пустая область: непрочитанное дерево
+# plans/contracts не равно «уставных документов там нет» (контракт 992).
+lt_rc=0
+g ls-tree -r --name-only HEAD -- ':(literal)plans/' ':(literal)contracts/' > "$TMP/ls-raw" 2>/dev/null || lt_rc=$?
+if [ "$lt_rc" -ne 0 ]; then
+  bad "область устава (plans/, contracts/) не читается (ls-tree rc=$lt_rc): проверить невозможно — git fsck и повтор"
+  incr_finish 1
+  exit 1
+fi
+awk '/\.md$/' "$TMP/ls-raw" | sort > "$TMP/docs"
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   dir="${f%%/*}"; base="${f##*/}"
@@ -491,7 +499,15 @@ while IFS=$'\t' read -r f since; do
     [ -n "$c" ] || continue
     # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
     # есть мера меняла бы результат от настроек читателя.
-    charter_diff_paths "$c" "$ROOT" | grep -qxF -- "$f" || continue
+    # Ошибка diff-tree — именованный FAIL, не «файл не менялся»: непрочитанная
+    # дельта коммита не равна отсутствию изменений (контракт 992).
+    dt_rc=0
+    charter_diff_paths "$c" "$ROOT" > "$TMP/dpaths" 2>/dev/null || dt_rc=$?
+    if [ "$dt_rc" -ne 0 ]; then
+      bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
+      continue
+    fi
+    grep -qxF -- "$f" "$TMP/dpaths" || continue
     changes=$((changes + 1))
     if razreshil "$c" "$f"; then
       excused=$((excused + 1))

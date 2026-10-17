@@ -137,10 +137,12 @@ if [ "$MODE" = writer ]; then
   if [ "$concl" != "success" ]; then
     # отрицательный результат — ФАКТ журнала: прежний ok с меньшим run
     # перекрывается (арбитраж 098); дверь судит по последней строке по run
-    printf 'check\t%s\t%s\tfail\t%s\t%s\t%s\n' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL"
+    printf 'check\t%s\t%s\tfail\t%s\t%s\t%s\n' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL" \
+      || die "журнал: check-строка не записана: $JOURNAL"
     die "обязательная проверка красна: $KEY"
   fi
-  printf 'check\t%s\t%s\tok\t%s\t%s\t%s\n' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL"
+  printf 'check\t%s\t%s\tok\t%s\t%s\t%s\n' "$OID" "$KEY" "$rid" "$wfsha" "$mtree" >>"$JOURNAL" \
+    || die "журнал: check-строка не записана: $JOURNAL"
   printf 'check-строка записана: %s %s run=%s дерево=%s\n' "$OID" "$KEY" "$rid" "$mtree"
   exit 0
 fi

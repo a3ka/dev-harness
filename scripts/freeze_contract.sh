@@ -191,13 +191,19 @@ fi
 
 # ── 6. версия и вердикт критика ───────────────────────────────────────────────
 vmax=0
+# Ошибка перечисления версий — именованный отказ, не v1 вслепую (992): при
+# существующем v2 пустой перечень прежде молча выдумывал v1. rc process
+# substitution родителем не наблюдался — читаем список с rc в переменную.
+fer_rc=0
+fer_out="$(g for-each-ref --format='%(refname)' "refs/tags/frozen/$dir/$NNN/" 2>/dev/null)" || fer_rc=$?
+[ "$fer_rc" -eq 0 ] || die "перечень версий не читается (git for-each-ref rc=$fer_rc): refs/tags/frozen/$dir/$NNN/ — проверить невозможно, версия не угадывается"
 while IFS= read -r t; do
   [ -n "$t" ] || continue
   if [[ "$t" =~ ^refs/tags/frozen/${dir}/${NNN}/([0-9]+)$ ]]; then
     k=$((10#${BASH_REMATCH[1]}))
     [ "$k" -gt "$vmax" ] && vmax="$k"
   fi
-done < <(g for-each-ref --format='%(refname)' "refs/tags/frozen/$dir/$NNN/" 2>/dev/null || true)
+done <<<"$fer_out"
 v=$((vmax + 1))
 
 verdict="verdicts/critic/${dir}-${NNN}-v${v}.md"

@@ -206,13 +206,22 @@ wt_flush() {
   wt_path=""
   wt_branch=""
 }
+# Ошибка `git worktree list` — именованный отказ, не пустой список: непрочитанный
+# перечень worktree не равен «посторонних нет» (контракт 992; rc process
+# substitution прежде терялся молча).
+wtl_rc=0
+wtl_out="$(git worktree list --porcelain 2>/dev/null)" || wtl_rc=$?
+if [ "$wtl_rc" -ne 0 ]; then
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: список worktree не читается (git worktree list rc=%d): проверить невозможно\n' "$wtl_rc" >&2
+  exit 1
+fi
 while IFS= read -r l; do
   case "$l" in
     worktree\ *) wt_flush; wt_path="${l#worktree }" ;;
     branch\ *)   wt_branch="${l#branch }" ;;
     detached)    wt_branch="detached" ;;
   esac
-done < <(git worktree list --porcelain 2>/dev/null)
+done <<<"$wtl_out"
 wt_flush
 
 # ── чек (2): локальные frozen/*|done/* теги на origin тем же объектом ───────
@@ -231,6 +240,14 @@ while IFS=$'\t' read -r sha ref; do
   esac
 done <<< "$ls_out"
 
+# Ошибка for-each-ref — именованный отказ, не пустой перечень: непрочитанный список
+# тегов позволял бы молча пропустить расхождение local/origin (контракт 992).
+fer_rc=0
+fer_out="$(git for-each-ref --format='%(objectname)%09%(refname)' refs/tags 2>/dev/null)" || fer_rc=$?
+if [ "$fer_rc" -ne 0 ]; then
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: перечень тегов не читается (git for-each-ref rc=%d): проверить невозможно\n' "$fer_rc" >&2
+  exit 1
+fi
 while IFS=$'\t' read -r sha name; do
   [ -n "${name:-}" ] || continue
   case "$name" in
@@ -249,7 +266,7 @@ while IFS=$'\t' read -r sha name; do
       fi
       ;;
   esac
-done < <(git for-each-ref --format='%(objectname)%09%(refname)' refs/tags 2>/dev/null)
+done <<<"$fer_out"
 unset RSHA
 
 # ── чек (3): каждый merge «land: wip/<NNN>/<автор>» в диапазоне ─────────────
@@ -396,7 +413,24 @@ command -v npm >/dev/null 2>&1 \
 # (адверсарий 071-r1 Б2: cwd чекаута и отправляемый src расходятся на
 # candidate:main — чтение из cwd даёт «правильный ответ не тому дереву»,
 # над- или под-блок в зависимости от направления расхождения).
-pkg_content="$(git show "${send_tip}:package.json" 2>/dev/null)"
+# Существование записи о package.json в дереве и её чтение — РАЗНЫЕ вопросы
+# (контракт 992): отказ show при существующей записи — не «файла нет», а авария
+# чтения; отсутствие записи — законный пропуск чеков (071 §Инвариант 3).
+pkg_ls_rc=0
+pkg_entry="$(git ls-tree --full-tree --name-only "$send_tip" -- package.json 2>/dev/null)" || pkg_ls_rc=$?
+if [ "$pkg_ls_rc" -ne 0 ]; then
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: package.json не читается (git ls-tree rc=%d): %s — проверить невозможно\n' "$pkg_ls_rc" "$send_tip" >&2
+  exit 1
+fi
+pkg_content=""
+if [ "$pkg_entry" = "package.json" ]; then
+  pkg_rc=0
+  pkg_content="$(git show "${send_tip}:package.json" 2>/dev/null)" || pkg_rc=$?
+  if [ "$pkg_rc" -ne 0 ]; then
+    printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: package.json не читается (git show rc=%d): %s:package.json — проверить невозможно\n' "$pkg_rc" "$send_tip" >&2
+    exit 1
+  fi
+fi
 nk=0
 if [ -n "$pkg_content" ]; then
   for k in check:nabludenia check:ci-parity check:ceilings check:ids; do
