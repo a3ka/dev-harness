@@ -3,3 +3,7 @@ Complior-back на полном настоящем OpenAPI и canonical bindings
 Потребитель: приёмка 993 — python probe.py --repo <проверяемый клон> --out <новый каталог>.
 Красная база обязана оставаться красной до implementer; --diagnostic не приёмка.
 Не включать зависимость от внешнего клона в общий CI dev-harness.
+Handoff CLI: python handoff_probe.py --repo <проверяемый клон> --out <новый каталог>.
+Proof-only сравнение исходного CLI, readonly-поправки и обманных стабов:
+python handoff_models.py --repo <исходный клон B> --out <новый каталог>.
+Потребитель обеих команд: приёмка 993, подраздел Handoff CLI; production-код не устанавливают.

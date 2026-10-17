@@ -13,6 +13,7 @@
 - `OpenAPI:19921–19934` задаёт target AccountSession ETag на `/revocations`; `:20520–20533` содержит две ветви conditional profile. `:21428–21445` задаёт safe POST и его CSRF policy. `:17723–17759,17783–17802` задаёт retained deprecated provider ingress с signature/passport и ограниченным effect. Эти исключения уже являются контрактом, не новой льготой валидатора.
 - `OpenAPI:27193–27204` у listPostItems:200 описывает PostPage без example; schema — `:57589–57610`. `Complior_Backend_Architecture_v3_14_RU.md:689–701,764–766` сохраняет источник bindings, gates F35/F36 и NOT_RUN. Архитектурное обобщение `:300` требует уточнения, а не массовой смены wire.
 - `README_RU.md:31–44` уже несёт штатные команды поставки; `tools/validate_alignment_11782_31422.py:37,46–54,89` проверяет точную 5.8.2 и исторический source snapshot. Это реальная зависимость смены версии, не зелёная галочка, которую можно опустить.
+- `tools/verify_handoff.py:25–26` уже сверяет существование и SHA-256 каждого пути FILES.sha256; `:27` отдельно требует ровно 13 SQL-файлов. Первая проверка сохраняется; вторая отвергает разрешённый db/014 и не замечает удаления записи старой миграции из FILES.sha256. Owner `docs/owner/2026-10-17-resheniya-1810.md` (§2–3, commit `b469ca44f`) разрешил только указанную ниже замену этого ограничения и расширение зоны.
 
 ## Предмет и граница
 
@@ -60,9 +61,13 @@ Deprecated выводится из OpenAPI, сверяется с index и не 
 
 Вне предмета: `backend/`, runtime handlers, ACL/SQL/provider HTTP acceptance, новые product flows, массовый If-Match на коллекции, CSRF bearer-only, client headers webhook, выдуманные consumers; зеркало Complior-mob/api — отдельный PR после принятого back commit.
 
+### 5. Handoff: неизменность исторических миграций без потолка
+
+`tools/verify_handoff.py` больше не требует ровно 13 файлов `db/`. Каждая историческая миграция `db/001`–`db/013` обязана существовать на диске, иметь запись в FILES.sha256 и побайтно совпадать с её SHA-256. Существующая проверка всех записей FILES.sha256 (:25–26 исходного CLI) остаётся; одного удаления assert количества недостаточно. Следующие номера (014+) допускаются без верхнего предела, с той же проверкой записанных файлов. CLI сохраняет JSON `status=PASS_STATIC`, `all_manifest_files_and_hashes=PASS`, `runtime_acceptance=NOT_ASSERTED` при rc0; при порче, отсутствии файла либо его записи — rc1 и именная причина `AssertionError: db/<полное имя файла>` самостоятельной последней строкой stderr. Это формат уже существующих именных отказов CLI, не новый runtime-протокол.
+
 ## Пины и последовательность
 
-H — замороженные bytes этого контракта и probe.py в dev-harness; B/C — полный base/head Complior-back, зарегистрированные в issue #123; V — Python и зависимости из requirements-validation.txt. Исходная воспроизводимая база B указана в §Существующее. Смена B/C требует новых evidence и судов. Fixture ожидания снимаются из H до исполнения C.
+H — замороженные bytes этого контракта и `fixtures/workshop_project/validator_993/` в dev-harness; B/C — полный base/head Complior-back, зарегистрированные в issue #123; V — Python и зависимости из requirements-validation.txt. Исходная воспроизводимая база B указана в §Существующее. Смена B/C требует новых evidence и судов. Fixture ожидания снимаются из H до исполнения C.
 
 Архитектор пишет контракт и красную батарею → критик → заморозка → implementer → CI владельца интеграции → adversary → reviewer → owner Merge → done. Зоны не расширяются во время реализации. **Н-39: стабы/пробы привязываются к коду, где дефект наблюдаем, не к прозе.** Если положительная фикстура падает, её парный rc1 не засчитывается обнаруженным мутантом.
 
@@ -97,6 +102,13 @@ H — замороженные bytes этого контракта и probe.py �
 4. Дано: исправленный C после разрешённого re-freeze; когда: `PY tools/generate_derived.py`, затем `PY tools/verify_ux175.py`, `PY tools/validate_alignment_11782_31422.py`, `PY tools/validate_invitation_target_31421.py`, `npm ci && npm test` с cwd=R/server, `PY tests/validate_contract_v3_9.py`, повторный `PY tools/generate_derived.py`, `PY tools/verify_handoff.py`; тогда: каждый rc0, существующие проверки не удалены/не skip, в README_RU/VALIDATION сохранены реальные результаты. Это прогон владельца интеграции после всех пачек, не заявление архитектора о выполненном общем CI. Парный негатив: неразрешённая смена VS01 operation example при старом manifest → generate_derived rc≠0 `Frozen VS01 specification changed; do not silently update baseline`.
 5. Дано: C; когда: reviewer сверяет old/new VS01 hash, version constants, source/index/example inventory и canonical non-mobile source_ref по исходным артефактам B/C, а adversary прогоняет батарею H; тогда: оба accept на одном C. Отсутствующее основание CAS exemption, неразрешимый consumer source_ref или несовпавший closure → FAIL с operationId/путём. Семантическая достоверность основания — cognitive-only, остаточный риск ложного metadata-обоснования ловят независимые судьи; regex непустой prose не доказательство.
 
+### Handoff CLI — отдельная батарея, не замена 17 сценариев / 40 мутаций
+
+Дано: полный поставляемый R с корректными FILES.sha256 и историческими миграциями; когда: `PY H/fixtures/workshop_project/validator_993/handoff_probe.py --repo R --out OUT`; тогда: rc0, все cases совпали с ожидаемыми rc и причинами. Нулевой набор, непригодная база или незелёный baseline → rc2 `993 HANDOFF_UNMEASURABLE`; несовпадение результатов → rc1. Контроли: исходный пакет, добавление db/014, затем db/014+015 с корректными checksums → каждый CLI rc0 с прежними static-полями. Парные негативы: побайтная порча каждого 001–013 отдельно, отсутствие каждого файла при сохранённой записи, отсутствие каждой записи при сохранённом файле → каждый CLI rc1 с полным путём своего файла в именной причине. Все ожидания/байты фиксируются в памяти до запуска субъекта; сравнение причины — по полной последней строке, не по подстроке traceback.
+
+Конформный вход: полное дерево поставки, исходная грамматика FILES.sha256 `<sha256><два пробела><относительный путь>`, один исторический SQL-файл на каждый номер 001–013. Валидный контрпример — инвариантная к значениям ошибка на таком входе, а не смена грамматики. Единственный источник клеток — `handoff_probe.py:cases()`. Дано: исходный B; когда: `PY H/fixtures/workshop_project/validator_993/handoff_models.py --repo R --out OUT`; тогда: rc0 лишь при различимости старого CLI и readonly-копии с заменой assert и при красноте обманных стабов. Привязки к наблюдаемому дефекту заданы кодом `handoff_models.py`, не этой прозой. Правка существует только в disposable proof-копиях; production Complior-back меняет implementer после заморозки.
+
+
 ## Зоны и исполнители
 
 ЗОНА architect: contracts/993-cmp-bck-121-validator-5-8-3.md fixtures/workshop_project/validator_993/
@@ -105,22 +117,26 @@ H — замороженные bytes этого контракта и probe.py �
 ЗОНА reviewer: verdicts/review/
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/validator_993/ — новая подсемья существующей frozen architect-зоны 105; прежние файлы/семантика 105 не меняются.
 
-Следующая зона — **dev-harness-сторона**, только интеграционный запуск принятых красных тестов; probe.py — ПИН H, ослабление/подмена ожиданий запрещены.
+Следующая зона — **dev-harness-сторона**, только интеграционный запуск принятых красных тестов; батареи — ПИН H, ослабление/подмена ожиданий запрещены.
 
 ЗОНА implementer: fixtures/workshop_project/validator_993/
 
-Следующая зона — **пути от корня Complior-back для его проектного check_zones**, дословно предел owner §4; это не разрешение менять одноимённые пути dev-harness.
+Следующая зона — **пути от корня Complior-back для его проектного check_zones**, предел owner §4 с дополнением `docs/owner/2026-10-17-resheniya-1810.md` §3 (`b469ca44f`); это не разрешение менять одноимённые пути dev-harness.
 
-ЗОНА implementer: tests/validate_contract_v3_9.py contracts/ tools/generate_derived.py evidence/contracts/ README_RU.md VALIDATION.json FILES.sha256
+ЗОНА implementer: tests/validate_contract_v3_9.py contracts/ tools/generate_derived.py evidence/contracts/ README_RU.md VALIDATION.json FILES.sha256 VERSION_MANIFEST.json tools/validate_alignment_11782_31422.py tools/validate_invitation_target_31421.py data/client-field-decisions-v3_10.json tests/acceptance-ux1175.json server/mock-5_8.json server/src/mock-5_8.ts server/test/mock-5_8.test.ts Complior_Backend_Architecture_v3_14_RU.md tools/verify_handoff.py contracts/backend-5_8_3-alignment.json evidence/contracts/993/
 
-`backend/` исключён: там работает консультант. Merge PR 993 в Complior-back делает владелец; разрешение консультанту мержить свою подготовительную фазу на этот PR не распространяется. `VERSION_MANIFEST.json` и прочие зависимости ниже пока НЕ включены в разрешённую зону.
+Дополнение разрешено только для согласованной поставки additive erratum 5.8.3: контролируемый re-freeze VS01 с old/new hash и provenance; проверяемый accepted alignment в `contracts/backend-5_8_3-alignment.json`; регенерация производных; согласование version checks/fixture-mock; §18 архитектуры. `tools/verify_handoff.py` — только инвариант §5. Условие владельца дословно: «Исторические UX snapshots, PDF и прежнее evidence не переписывать; новый verification evidence собрать из disposable прогона в уже разрешённом `evidence/contracts/993/`, финальный FILES.sha256 должен ссылаться только на поставленные файлы.»
+
+`backend/` исключён: там работает консультант. Запросы 5.8.x остаются совместимыми, wire/handlers/новые invitation flows не меняются; runtime readiness не заявляется; Complior-mob/api — отдельный PR. Merge PR 993 в Complior-back делает владелец; разрешение консультанту мержить свою подготовительную фазу на этот PR не распространяется.
 
 ## ПРОВОДКА
 
 ПРОВОДКА:
 - guard=fixtures/workshop_project/validator_993/probe.py
+- guard=fixtures/workshop_project/validator_993/handoff_probe.py
+- guard=fixtures/workshop_project/validator_993/handoff_models.py
 
-ПРОВОДКА-ЭНФОРСМЕНТ: исправляется существующий внешний validator CLI, вызываемый штатной поставкой README_RU и scoped приёмкой/судами 993. Батарея потребляется строкой 3 приёмки. Общий CI dev-harness не получает зависимость от внешнего checkout; существующие нормы ролей/charter не меняются. Архитектор не исполняет implementation вместо implementer.
+ПРОВОДКА-ЭНФОРСМЕНТ: исправляются существующие внешние validator/handoff CLI, вызываемые штатной поставкой README_RU и scoped приёмкой/судами 993. Основная батарея потребляется строкой 3 приёмки; handoff-батарея и proof-only модели — подразделом Handoff CLI приёмки. Общий CI dev-harness не получает зависимость от внешнего checkout; существующие нормы ролей/charter не меняются. Архитектор не исполняет implementation вместо implementer.
 
 ## Модель угроз
 
@@ -193,7 +209,13 @@ matched=0
 
 Все точечные мутации применены к копиям настоящего OpenAPI/bindings/index и вызвали настоящий CLI. Но **ни одна не засчитана пойманной**: каждый контроль и каждый мутант остановились исходным bodyless crash; ни одного целевого failure ID не получено. Это честный red базового предмета, не выполненная приёмка различимости и не готовая к заморозке зелёная батарея. Runtime/общий CI не запускались. Дополнительный CLI-smoke с `--case nonexistent` дал rc2, дословно `993 UNMEASURABLE: EMPTY_SELECTION`.
 
+## Живой прогон handoff-батареи
+
+На исходном B выполнено `PY H/fixtures/workshop_project/validator_993/handoff_models.py --repo /tmp/dev-harness-verify/architect993-cback --out /tmp/dev-harness-verify/993-OldMonkey-20261017T1810/handoff-proof`: общий rc0. Старая readonly-копия CLI: батарея rc1, cases=42, mismatches=15; readonly-копия с разрешённой поправкой: rc0, cases=42, mismatches=0. Обе обманные формы: rc1, cases=2, mismatches=1 каждая. Raw stdout/stderr каждого CLI-вызова, readonly-исходники и summary.json сохранены в OUT. Это доказательство различимости handoff-батареи, не реализация в Complior-back и не снятие блокера зелёных controls основного валидатора.
+
 ## Незаполненные требования:
-- **Зона поставки против зависимости версии:** owner §4 не разрешает VERSION_MANIFEST.json (необходим для re-freeze), tools/validate_alignment_11782_31422.py (exact version/accepted snapshot), новый accepted source snapshot и архитектурное уточнение §18. Генератор также пишет data/client-field-decisions-v3_10.json, tests/acceptance-ux1175.json, server/mock-5_8.json вне зоны. Требуется точное согласование прав на затронутые paths/новый snapshot до раздачи, а не самовольное расширение. Исторические UX snapshots не переписывать. Блокер передан оркестратору.
+
+Зона поставки согласована владельцем: разрешённые пути перечислены во второй ЗОНА implementer по `docs/owner/2026-10-17-resheniya-1810.md` §3 (`b469ca44f`). Снят только блокер зоны/путей; следующие требования остаются открытыми:
+
 - **Зелёные контроли:** неизменённый validator падает на bodyless до проверки мутантов. Батарея обязана оставаться красной; зелёные controls + именованные red mutations должны быть предъявлены после implementer. До этого выполнение команды не считается доказательством различимости. Заморозку/готовность red-пачки без этой оговорки не объявлять.
 - **Предметная классификация:** полный source-backed non-mobile остаток и семантические CAS dispositions для всех 36 требуют сверки реальных оснований; нет разрешения выдумать потребителя или автоматически exempt каждую команду. При невозможности сохранить wire в 5.8.3 требуется compatibility-решение владельца.
