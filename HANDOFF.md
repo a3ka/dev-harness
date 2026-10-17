@@ -1,3 +1,36 @@
+## ГДЕ МЫ (2026-10-17 ~19:55 UTC — автоперезапуск по сторожу контекста (503K≥500K); 992 DONE (без изменений); 991 v2 ЗАМОРОЖЕН+Дс5 работает, cloud e2e ЗЕЛЁНЫЙ, судьи круг 2 — adversary ACCEPT, reviewer FAIL только на карточке (ИСПРАВЛЕНО этой сессией, нужен круг 3 reviewer-only); 993 v1 ЗАМОРОЖЕН, implementer сдал РЕАЛЬНЫЙ код (40/40 мутантов, 1291/1291 coverage), 52 операции ждут owner-решения по consumers — НОВЫЙ батч)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+**main = `dee2f4230`, HEAD==origin, детектор утечек чист.** В полёте: ничего своего (все субагенты сессии завершены, проверено).
+
+### 991 — Дс5 ЗАРАБОТАЛ, cloud e2e зелёный, остался один журнальный блокер
+
+1. **v2 заморожен**: `frozen/contracts/991/2` (Дс5-дельта: шаг освобождения диска + точечная правка §122, одобрено владельцем `docs/owner/2026-10-17-resheniya-1810.md` §4, critic accept круг 2). Фикстуры `fixtures/workshop_project/rehearsal_991/` восстановлены из старой ветки `fc8a8898` + `compare_carriers.py` синхронизирован под Дс5 — ВМЕСТЕ с текстом контракта в одном freeze-дереве (critic круга 2 явно это потребовал, закрыто point-transfer паттерном Н-281-safe).
+2. **Implementer применил Дс5** к `mobile-cloud-e2e.yml` на #107 → новая голова C=`7e74d2da70866a914bc1794f6110a822fd444bd8`.
+3. **Cloud e2e прогоны на новой C**: run `39059897917` (18:50:53Z) — FAIL, но НЕ disk-space: диск-степ прошёл (`df` 4.8G→24G), упал на `System UI isn't responding` (Android ANR, cold-boot resource contention на перегруженном раннере — скриншот подтверждает, не код StartScreen). Повтор `39061274882` (19:10:08Z) — **SUCCESS, все jobs зелёные**.
+4. **Судьи круг 2**: adversary — **ACCEPT** (`verdicts/adversary/contracts-991-freeze-positive-v2.md`, matrix 63/0). Reviewer — **FAIL** единственно на Рв991-FP-9 (карточка a3ka/Complior-mob#103 не велась с 15:07Z — чисто журнальный блокер, код/evidence/FP-1/FP-2 reviewer сам подтвердил закрытыми). **ИСПРАВЛЕНО этой сессией**: оркестратор дописал полный append-only журнал в карточку #103 (comment `issuecomment-6239781311`) — все run'ы, коммиты, причины красных прогонов, счёт вмешательств (3, лимит 8).
+5. **Следующий шаг 991**: спавнить ТОЛЬКО reviewer (круг 3, узкий — проверить что журнал карточки теперь полон) на том же C=`7e74d2da7`/#106=`8235118f6`. Если accept — батч консультанту на Merge (по слову владельца §5 `docs/owner/2026-10-17-resheniya-1810.md`, merge делает КОНСУЛЬТАНТ, не владелец).
+
+### 993 — РЕАЛЬНАЯ реализация сдана, два новых блокера (owner-решение + rebase)
+
+1. **v1 заморожен**: `frozen/contracts/993/1` (зона расширена на 9+3 owner-путей, `tools/verify_handoff.py`-инвариант, handoff/coverage-батареи — critic accept, оба круга-1-блокера закрыты живым прогоном). Консолидация вердиктов под каноническое имя: `verdicts/critic/contracts-993-v1.md` (accept, круг 2) + `contracts-993-krug1-fail.md` (история круга 1) — см. commit `230c43376` (ALLOW-ARTIFACT-DELETE).
+2. **Implementer сдал РЕАЛЬНУЮ реализацию** в `a3ka/Complior-back`, ветка `cmp-bck-121/validator-5-8-3` @ `2b2560764ed6b90cb0446755a7805a233c5f8410` (от пина B=`842f4e99d`, НЕ смержено, НЕ PR). Живые rc: `probe.py` rc1 — 40/40 мутантов пойманы ТОЧНЫМИ failure ID, coverage 1291/1291 чист, **controls красны ТОЛЬКО от 52 `*_source_consumers`**; `handoff_probe.py` rc0 46/46. Полный список доказательств — `evidence/contracts/993/` в ветке implementer'а.
+3. **НОВЫЙ БЛОКЕР (owner-решение): 52 активные операции без разрешимого потребителя** — список `evidence/contracts/993/remaining-source-consumers-blocker.txt` (acceptImportBatch, getInbox, getInternalCaseQueue, createVoiceSession, mail/partner/commission-поверхности и др.). Контракт запрещает выдуманных потребителей — нужны typed non-mobile workflow_bindings (owner/source_ref/guard) или явные disposition от владельца. До решения validator CLI честно rc1 (52 отказа, это ПРАВИЛЬНОЕ поведение, не регрессия).
+4. **НОВЫЙ БЛОКЕР (механический): ветка implementer'а устарела относительно реального main Complior-back.** Консультант (~19:50 UTC, передано дословно): «в main a3ka/Complior-back смёржены CI (#142, `.github/workflows/ci.yml`, `tools/run_backend_ci.py` — 6 lanes + required) и выпуск (#145, `backend-release.yml`, `infra/release/`). Ветку 993 перед PR перестроить на свежий main: FILES.sha256 пересчитывается generate_derived по всем файлам. Приёмка 993 в CI = lane `package` (`python3 tools/run_backend_ci.py --lane package`): verify_handoff должен пройти с db/014; validate_contract_v3_9 там пока NOT_RUN — включу его в lane сам после merge 993 (tools/ вне зоны 993). Сейчас required красный только из-за package.» Implementer сам отметил дрейф: "remote main ушёл на `834a4c0c` (PR #144 CMP-BCK-127)".
+5. **Следующий шаг 993**: (а) батч владельцу на 52 consumers-решение; (б) НОВЫЙ дозвон implementer — rebase ветки `cmp-bck-121/validator-5-8-3` на свежий Complior-back main (после #142/#144/#145), пересчитать FILES.sha256, открыть PR, прогнать `tools/run_backend_ci.py --lane package`.
+
+### Батч владельцу (новый, расширяет предыдущий)
+
+1. **993: 52 source_consumers** — см. п.3 выше, список в `evidence/contracts/993/remaining-source-consumers-blocker.txt` (на ветке `cmp-bck-121/validator-5-8-3` Complior-back, не в dev-harness).
+2. **991 Merge** — ждёт reviewer круг 3 (журнал теперь полон), затем merge делает консультант.
+
+### Следующей сессии — по порядку
+
+1. 991: спавнить reviewer круг 3 (узкий, журнал-only) на C=`7e74d2da7`/#106=`8235118f6`. accept → сообщить консультанту для merge.
+2. 993: дождаться owner-решения по 52 consumers (форк/батч); параллельно можно сразу дать implementer задание на rebase+PR+CI lane (это не ждёт owner-решения по consumers — ветка просто останется rc1 на 52 известных, честно).
+3. Серверная обвязка станции не трогалась, без изменений.
+
 ## ГДЕ МЫ (2026-10-17 ~17:30 UTC — продолжение той же сессии: 991 cloud e2e НАШЁЛ СТРУКТУРНЫЙ БЛОКЕР (не флуктуация) — disk-space в CI-каркасе, v+1-черновик готов, ждёт владельца; 992 без изменений (DONE); 993 без изменений (PARTIAL_BLOCKED, батч))
 
 **main = `e8a85eda1`, HEAD==origin, детектор утечек чист.** В полёте: ничего своего.
