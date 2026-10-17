@@ -38,4 +38,10 @@ registry/plan.tsv со строкой владельца») каждая рег�
 сессии — git status/diff в `/tmp/dev-harness-verify/orch991plan-1792191572/repo`.
 БЛОКИРУЕТ: да — freeze_contract.sh contracts/991 структурно недостижим без строки
 991 в plan.tsv; вся цепочка Complior-mob (П-107/П-111) стоит за этим шагом.
-ОТВЕЧЕНО: нет.
+ОТВЕЧЕНО: да — слово владельца 2026-10-17 («да»), передано консультантом. Коммит
+`8940a5d8a` (identity owner, забран из `/tmp/dev-harness-verify/consultant-owner-plan-1792233463`,
+ff-only), две строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ (registry/plan.tsv, ROADMAP.md) в теле; строка
+991 добавлена: `991	3	до V-2	-	453d5b8db	complior` (группа изменена odelix→complior
+по слову владельца, трек 103/104/105 тоже переключён той же строкой). `check_plan.sh
+--root . --pre-commit` rc0 живьём. Слит и запушен на origin/main, `check_no_leak.sh
+--check` чист после переснятия по стоячей санкции (а)-(в).

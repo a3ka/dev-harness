@@ -34,4 +34,10 @@ accept → freeze_contract.sh rc1 «вне плана»); живая проба 
 БЛОКИРУЕТ: да — freeze_contract.sh contracts/992 структурно недостижим без строки
 992 в plan.tsv; вся цепочка implementer/CI/adversary/reviewer/land/done пакета B
 стоит за этим шагом.
-ОТВЕЧЕНО: нет.
+ОТВЕЧЕНО: да — слово владельца 2026-10-17 («да»), передано консультантом. Коммит
+`8940a5d8a` (identity owner, забран из `/tmp/dev-harness-verify/consultant-owner-plan-1792233463`,
+ff-only), ТОТ ЖЕ коммит, что закрыл n-991 (две строки РАЗРЕШИЛ-ВЛАДЕЛЕЦ, одна на
+registry/plan.tsv, одна на ROADMAP.md). Строка 992 добавлена: `992	3	до V-2	-
+64d2f778	CI` (классификация «CI» принята как предложена). `check_plan.sh --root .
+--pre-commit` rc0 живьём. Слит и запушен на origin/main, `check_no_leak.sh --check`
+чист после переснятия по стоячей санкции (а)-(в).
