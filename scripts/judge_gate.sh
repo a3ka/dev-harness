@@ -114,7 +114,9 @@ verdict)
   rc=0
   "$SELF/check_sud_model.sh" --verdict "$SUD_ROLE" --trace "$SUD_TRACE" --object "$SHA" --session "$SUD_SESSION" || rc=$?
   [ "$rc" -eq 0 ] || exit "$rc"
-  seq="$(d98_seq)"
+  # rc d98_seq не теряется (992): ошибочная грамматика seq журнала прежде
+  # печатала отказ, но пустой seq продолжал записываться строкой.
+  seq="$(d98_seq)" || exit $?
   printf 'verdict\t%s\t%s\t%s\t%s\n' "$TASK" "$OID" "$out" "$seq" >>"$JOURNAL" \
     || d98_die "журнал: verdict-строка не записана: $JOURNAL"
   printf 'verdict-строка записана: %s %s %s\n' "$TASK" "$OID" "$out"
@@ -130,7 +132,9 @@ policy)
   [ -f "$SF" ] || d98_die "файла-санкции нет: $SF"
   sod="$(head -n1 "$SF")"
   [ "$sod" = accept ] || d98_die "санкция не выдана: $sod"
-  seq="$(d98_seq)"
+  # rc d98_seq не теряется (992): ошибочная грамматика seq журнала прежде
+  # печатала отказ, но пустой seq продолжал записываться строкой.
+  seq="$(d98_seq)" || exit $?
   printf 'policy\t%s\t%s\t%s\taccept\t%s\n' "$OID" "$OLDV" "$NEWV" "$seq" >>"$JOURNAL" \
     || d98_die "журнал: policy-строка не записана: $JOURNAL"
   printf 'policy-строка записана: %s %s -> %s\n' "$OID" "$OLDV" "$NEWV"
