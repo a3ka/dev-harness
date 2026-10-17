@@ -115,7 +115,7 @@ H — замороженные bytes этого контракта и `fixtures/
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
-ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/validator_993/ — новая подсемья существующей frozen architect-зоны 105; прежние файлы/семантика 105 не меняются.
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/validator_993/ — 105 новая подсемья существующей frozen architect-зоны 105; прежние файлы/семантика 105 не меняются.
 
 Следующая зона — **dev-harness-сторона**, только интеграционный запуск принятых красных тестов; батареи — ПИН H, ослабление/подмена ожиданий запрещены.
 
