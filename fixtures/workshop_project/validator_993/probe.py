@@ -32,6 +32,53 @@ def operations(api):
             for op in methods.values() if isinstance(op, dict) and 'operationId' in op}
 
 
+def required_checks(api):
+    """Independent source walk; never infer coverage from index, cases or report."""
+    expected = set()
+    for oid, op in operations(api).items():
+        rules = {'problem', 'response_example'}
+        if not op.get('deprecated', False):
+            rules.update(('source_consumers', 'consumer_resolution'))
+        else:
+            rules.add('consumer_availability')
+        if 'requestBody' in op:
+            # A local requestBody $ref is still a body, not an exemption.
+            rules.add('request_example')
+        if 'x-authentication-policy' in op:
+            rules.add('provider_auth')
+        else:
+            rules.add('contract_scope_policy')
+        expected.update(oid + '_' + rule for rule in rules)
+    for methods in api['paths'].values():
+        for method in ('post', 'put', 'patch', 'delete'):
+            op = methods.get(method)
+            if not isinstance(op, dict) or 'operationId' not in op:
+                continue
+            oid = op['operationId']
+            if 'x-authentication-policy' in op:
+                continue
+            rules = {'policy_consistency'}
+            if op.get('x-command-policy', {}).get('mutation') is not False:
+                # cas records both required target CAS and justified no-target CAS.
+                rules.update(('command_identity', 'command_idempotency', 'cas', 'csrf'))
+            if 'x-conditional-policy' in op:
+                rules.add('conditional_policy')
+            expected.update(oid + '_' + rule for rule in rules)
+    if not expected:
+        raise ValueError('EMPTY_OPERATION_COVERAGE')
+    return frozenset(expected)
+
+
+def coverage_failures(report, expected):
+    checks = report.get('checks') if isinstance(report, dict) else None
+    if not isinstance(checks, list) or any(
+            not isinstance(row, dict) or not isinstance(row.get('id'), str)
+            for row in checks):
+        return ['CHECK_COVERAGE_INVALID_REPORT']
+    observed = {row['id'] for row in checks}
+    return ['CHECK_COVERAGE_MISSING:' + key for key in sorted(expected - observed)]
+
+
 def remove_header(api, op, name):
     def resolved(p):
         if '$ref' in p:
@@ -219,6 +266,7 @@ def main():
             if prepare:
                 prepare(a, op, i, b)
                 write_inputs(root, a, i, b)
+            expected_checks = required_checks(a)
             control = run(root, out / (name + '-control'))
             before = copy.deepcopy((a, i, b))
             change(a, op, i, b)
@@ -226,19 +274,24 @@ def main():
                 raise ValueError('MUTATION_NOT_APPLIED: ' + name)
             write_inputs(root, a, i, b)
             mutant = run(root, out / (name + '-mutant'))
+            coverage = coverage_failures(control['report'], expected_checks)
             control_ok = (control['rc'] == 0 and control['report'] is not None
                           and control['report']['status'] == 'PASS_STATIC'
-                          and control['report']['failure_ids'] == [])
+                          and control['report']['failure_ids'] == [] and not coverage)
             actual_ids = mutant['report']['failure_ids'] if mutant['report'] else []
             mutant_ok = (mutant['rc'] == 1 and mutant['report'] is not None
                          and mutant['report']['status'] == 'FAIL_STATIC' and expected in actual_ids)
             ok = control_ok and mutant_ok
             mismatches += not ok
             result = {'scenario': row, 'case': name, 'operation': oid, 'expected_failure_id': expected,
-                      'control': control, 'mutant': mutant, 'matched': ok}
+                      'control': control, 'mutant': mutant, 'matched': ok,
+                      'coverage_failure_ids': coverage,
+                      'expected_check_ids': sorted(expected_checks)}
             results.append(result)
             print(f'993 scenario={row} case={name} control_rc={control["rc"]} mutant_rc={mutant["rc"]} '
                   f'expected={expected} observed={expected in actual_ids} control_green={control_ok}', flush=True)
+            for reason in coverage:
+                print(f'993 case={name} {reason}', flush=True)
         (out / 'raw.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
         print(f'993 scenarios={len({r[0] for r in rows})} mutations={len(rows)} '
               f'validator_runs={2 * len(rows)} mismatches={mismatches}')

@@ -2,7 +2,8 @@
 """Proof-only readonly copies of the real CLI; never installs production code.
 
 Bindings are executable: old count -> add-014, deletion-only -> missing-entry-001,
-skipped hash -> corrupt-001. Each selected probe includes the full-tree baseline.
+skipped hash -> corrupt-001, historical-only -> corrupt outside db and added 014.
+Each selected probe includes the full-tree baseline.
 """
 import argparse
 import json
@@ -32,11 +33,16 @@ def main():
     assert original.count(COUNT) == 1 and original.count(HASH) == 1, 'SOURCE_SEAM_CHANGED'
     corrected = original.replace(COUNT, COVERAGE)
     # The historical byte/existence check is retained verbatim in corrected.
+    split = " sha,name=line.split('  ',1);"
+    assert corrected.count(split) == 1, 'MANIFEST_LOOP_SEAM_CHANGED'
+    narrowed = corrected.replace(split, " sha,name=line.split('  ',1)\n"
+                                 " if not any(name.startswith(f'db/{n:03d}_') for n in range(1,14)):continue\n ")
     variants = [
         ('old', original, None, 1, 'add-014'),
         ('corrected', corrected, None, 0, None),
         ('deleted-count-only', original.replace(COUNT, ''), 'missing-entry-001', 1, 'missing-entry-001'),
         ('skipped-hash', corrected.replace(HASH, 'pass'), 'corrupt-001', 1, 'corrupt-001'),
+        ('historical-only', narrowed, None, 1, 'corrupt-outside-db'),
     ]
     out.mkdir(parents=True, exist_ok=False)
     runner = Path(__file__).with_name('handoff_probe.py')
@@ -56,6 +62,10 @@ def main():
         assert next(row for row in results if row['case'] == 'baseline')['matched'], name
         if witness:
             assert not next(row for row in results if row['case'] == witness)['matched'], (name, witness)
+        if name == 'historical-only':
+            for cell in ('corrupt-outside-db', 'corrupt-014'):
+                observed = next(row for row in results if row['case'] == cell)
+                assert observed['rc'] == 0 and not observed['matched'], (name, cell)
         summaries.append(dict(subject=name, rc=completed.returncode, cases=len(results),
                               mismatches=sum(not row['matched'] for row in results), witness=witness))
         print(json.dumps(summaries[-1]), flush=True)

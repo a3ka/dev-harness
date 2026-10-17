@@ -17,6 +17,8 @@ import sys
 import tempfile
 
 CLI = 'tools/verify_handoff.py'
+OUTSIDE = 'README_RU.md'
+ADDED = ('db/014_probe_993.sql', 'db/015_probe_993.sql')
 
 
 def snapshot(repo):
@@ -30,6 +32,8 @@ def snapshot(repo):
         data = paths[0].read_bytes()
         assert entries.get(path) == hashlib.sha256(data).hexdigest(), path
         historical.append((path, data))
+    outside = (repo / OUTSIDE).read_bytes()
+    assert entries.get(OUTSIDE) == hashlib.sha256(outside).hexdigest(), OUTSIDE
     return lines, historical
 
 
@@ -40,10 +44,14 @@ def cases(historical):
     for kind in ('corrupt', 'missing-file', 'missing-entry'):
         for path, _ in historical:
             yield f'{kind}-{Path(path).name[:3]}', kind, path, 1, f'AssertionError: {path}'
+    for kind in ('corrupt', 'missing-file'):
+        for label, path in (('outside-db', OUTSIDE), ('014', ADDED[0])):
+            yield f'{kind}-{label}', kind, path, 1, f'AssertionError: {path}'
 
 
 def run(repo, out, subject=None, selected=None):
     lines, historical = snapshot(repo)
+    restored = historical + [(OUTSIDE, (repo / OUTSIDE).read_bytes())]
     source = (subject or (repo / CLI)).read_bytes()
     # Expectations and all source bytes above are in memory before any CLI call.
     rows = list(cases(historical))
@@ -61,20 +69,20 @@ def run(repo, out, subject=None, selected=None):
         cli.chmod(0o444)
         original = [line for line in lines if line.split('  ', 1)[1] != CLI]
         original.append(hashlib.sha256(source).hexdigest() + '  ' + CLI)
-        added = ['db/014_probe_993.sql', 'db/015_probe_993.sql']
+        added = ADDED
         assert not any((root / path).exists() for path in added), 'PROBE_PATH_OCCUPIED'
         for name, kind, path, expected_rc, reason in rows:
-            for relative, data in historical:
+            for relative, data in restored:
                 (root / relative).write_bytes(data)
             for relative in added:
                 (root / relative).unlink(missing_ok=True)
             current = list(original)
-            if kind.startswith('add-'):
-                for relative in added[:1 if kind == 'add-014' else 2]:
+            if kind.startswith('add-') or path == added[0]:
+                for relative in added[:2 if kind == 'add-014-015' else 1]:
                     data = b'-- additive handoff integrity fixture; not runtime evidence\nSELECT 1;\n'
                     (root / relative).write_bytes(data)
                     current.append(hashlib.sha256(data).hexdigest() + '  ' + relative)
-            elif kind == 'corrupt':
+            if kind == 'corrupt':
                 target = root / path
                 data = target.read_bytes()
                 target.write_bytes(bytes([data[0] ^ 1]) + data[1:])
