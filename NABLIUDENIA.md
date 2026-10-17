@@ -7896,3 +7896,46 @@ refs/tags/frozen/contracts/992/1:refs/tags/frozen/contracts/992/1` — RAW git, 
 
 **Источник:** живой `bash scripts/gitw push` (rc1, сообщение выше), `scripts/gitw_preflight_071.sh:218-253`,
 сессия 2026-10-17 ~00:25 UTC, freeze contracts/991+992.
+
+### Н-303. `check_provodka.sh` (контракт 038) требует per-guard wiring в `.githooks/`/`.github/workflows/` БЕЗУСЛОВНО даже при явном `ПРОВОДКА-ЭНФОРСМЕНТ:`-обосновании — блокирует `done_contract.sh` для предметов с заведомо-внешним guard `ЗАКРЫТО не этой сессией — архитектор/критик решают 991 v3 или 038-правку`
+
+**Что произошло:** контракт 991 (репетиция на внешнем `a3ka/Complior-mob`) закончил свою РЕАЛЬНУЮ
+работу — оба PR смёржены (`8f27c52b`, `f86eb285`), оба push-run M зелёные (`39067217380`,
+`39067584468`), adversary круг 2 и reviewer круг 5 оба ACCEPT, карточка `#103` закрыта журналом.
+`bash scripts/done_contract.sh contracts/991-complior-repeticiya-p107-p111.md "<причина>"` отказал:
+«ОТКАЗ: проводка: guard не подключён: fixtures/workshop_project/rehearsal_991/probe.py не
+вызывается в .githooks/ или .github/workflows/».
+
+Контракт 991 несёт `ПРОВОДКА: guard=fixtures/workshop_project/rehearsal_991/probe.py,
+guard=fixtures/workshop_project/rehearsal_991/compare_carriers.py` и явный
+`ПРОВОДКА-ЭНФОРСМЕНТ:`-абзац: «проверочный код 991 потребляется scoped Jest-прогоном до критика
+и существующими quality/android-e2e/cloud Complior workflows после допуска; не добавлять в CI
+dev-harness зависимость от чужого checkout/SDK». Автор контракта (architect) намеренно НЕ
+собирался включать эти guard в CI dev-harness — они проверяют код ВНЕШНЕГО репозитория, и их
+зависимости (Jest/Maestro/Android SDK Complior-mob) структурно не принадлежат dev-harness CI.
+
+**Корень:** `scripts/check_provodka.sh` различает ДВА разных требования под одним именем
+`ПРОВОДКА-ЭНФОРСМЕНТ:` — (а) «guard-only поле без role/charter-канала и без обоснования» (г0-доп,
+строки 264-282: снимается непустой строкой `ПРОВОДКА-ЭНФОРСМЕНТ:`) и (б) «КАЖДАЯ guard=-строка
+обязана быть физически wired в `.githooks/`/`.github/workflows/`» (`guard_is_wired`, строки
+356-482: применяется БЕЗУСЛОВНО к каждому `guard=`, обоснование ЭНФОРСМЕНТ его не снимает). Для
+991 (а) выполнено, (б) — нет и структурно не может быть выполнено без нарушения собственного же
+запрета ЭНФОРСМЕНТ («не добавлять в CI dev-harness зависимость от чужого checkout/SDK»). Живой
+`grep -rn 'probe\.py\|compare_carriers\|rehearsal_991' .githooks .github/workflows` — ноль
+совпадений, отказ двери фактически точен, не баг двери.
+
+**ЧЕМ НЕ ЗАКРЫТО:** ни `check_provodka.sh` (контракт 038, зона architect/implementer 038), ни
+текст `contracts/991-*.md` (frozen v2, правка — только v3 с критиком и `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:`) не
+менялись этой сессией. Два варианта для следующей сессии: (1) контракт 991 v3 меняет
+`ПРОВОДКА:` c голого `guard=` на `role=roles/orchestrator.md` или `charter=`-канал (раз
+исполнение уже доказано живыми прогонами судей, а не CI-wiring); (2) `check_provodka.sh`
+получает explicit-exempt для `guard=`-строк, чей `ПРОВОДКА-ЭНФОРСМЕНТ:` явно объявляет
+«внешний CI» (новый класс обоснования) — решение НЕ оркестратора, зона 038 чужая.
+
+**Цена:** ~15 минут диагностики (grep + чтение `check_provodka.sh:264-482`); НЕ блокирует
+фактическую ценность 991 (репетиция полностью закрыта на внешнем репо), блокирует только
+формальный dev-harness `done`-тег.
+
+**Источник:** живой `bash scripts/done_contract.sh contracts/991-complior-repeticiya-p107-p111.md
+"..."` (rc1), `scripts/check_provodka.sh:264-282,356-482`, `contracts/991-...md:160-166`,
+сессия 2026-10-17 ~20:50 UTC.
