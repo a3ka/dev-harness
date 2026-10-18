@@ -21,11 +21,14 @@ def normalize(text):
     return re.sub(r"[ \t\r\n\v\f]+", " ", text).strip(" ")
 
 
-def matches(text, substring=False):
+def matches(text, mode):
     text = normalize(text)
-    if substring:
+    if mode == "unicode-space":
+        text = re.sub(r"\s+", " ", text)
+    if mode == "substring":
         return any(phrase in text for phrase in PHRASES)
-    return any(part.strip(" ") in PHRASES for part in re.split(r"[.;]", text))
+    separators = r"[.;,!?]" if mode == "wide-delimiter" else r"[.;]"
+    return any(part.strip(" ") in PHRASES for part in re.split(separators, text))
 
 
 def main():
@@ -55,7 +58,7 @@ def main():
                     break
             else:
                 cursor += 1
-        permitted = any(matches(p, mode == "substring") for p in paragraphs)
+        permitted = any(matches(p, mode) for p in paragraphs)
         if mode == "unchanged":
             permitted = False
         elif mode == "whole-file":
@@ -65,6 +68,8 @@ def main():
         if permitted:
             granted.append(lines[index][len("- guard="):])
     if mode == "missing-file" and any(not (root / path).is_file() for path in granted):
+        return 0
+    if mode == "exit-after-grant" and granted:
         return 0
     if granted:
         hook = root / ".githooks" / "model-994"

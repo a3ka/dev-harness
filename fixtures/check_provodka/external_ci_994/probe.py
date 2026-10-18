@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """994: ожидания в памяти, каждый вход судится отдельно через публичный bash CLI."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -49,11 +50,21 @@ def cases():
     add("EXTERNAL_993", field(ENF + "Внешняя проверка. " + P993 + "; действующая норма.\n"), 0)
     add("WRAPPED_991", field(ENF + "Внешняя проверка; " + P991.replace(" ", "\n\t") + ".\n"), 0)
     add("WRAPPED_993", field(ENF + P993.replace(" ", " \t ") + "\n"), 0)
+    add("BLANK_BEFORE_PARAGRAPH", field("\n" + ENF + P991), 0)
+    role = "- role=roles/fixture.md «Норма 994.»\n"
+    charter = "- charter=AGENTS.md §Правило 994 «Норма 994.»\n"
+    add("ROLE_BEFORE_PARAGRAPH", field(role + ENF + P991), 0)
+    add("CHARTER_BEFORE_PARAGRAPH", field(charter + ENF + P993), 0)
+    add("EXTERNAL_THEN_BAD_ROLE", field(role.replace("Норма 994.", "Чужая норма.") + ENF + P991),
+        message="проводка: норма-строка не найдена в role-файле: roles/fixture.md")
+    add("EXTERNAL_THEN_BAD_CHARTER", field(charter.replace("Норма 994.", "Чужая норма.") + ENF + P993),
+        message="проводка: норма-строка не найдена в теле секции §Правило 994")
     add("SHARED_PARAGRAPH", field(ENF + P991 + ".\n", (GUARD, OTHER)), 0, guards=(GUARD, OTHER))
     add("MISSING_EXTERNAL", field(ENF + P991), missing=(GUARD,), message=f"проводка: guard-файл не существует: {GUARD}")
     add("SECOND_GUARD_LOCAL", field(ENF + P991 + "\n\n- guard=" + OTHER + "\n" + local), guards=(GUARD, OTHER), message=refusal(OTHER))
     add("SECOND_GUARD_OWN", field(local + "\n- guard=" + OTHER + "\n" + ENF + P993), 0, wired="hook", guards=(GUARD, OTHER))
     add("ENF_BEFORE_CHANNEL", "ПРОВОДКА:\n" + ENF + P991 + "\n- guard=" + GUARD + "\n" + local)
+    add("NO_FOLLOWING_PARAGRAPH", "ПРОВОДКА:\n" + ENF + P993 + "\n- guard=" + GUARD + "\n")
     add("FIRST_PARAGRAPH_ONLY", field(local + "\n" + ENF + P991))
     add("ADJACENT_PARAGRAPH_ONLY", field(local + ENF + P991))
     add("BEFORE_FIELD", ENF + P991 + "\n\n" + field(local))
@@ -72,8 +83,14 @@ def cases():
             ("QUOTED", "«" + phrase + "»"),
             ("GLOB", phrase + "*"),
             ("REGEX", phrase.replace("dev-harness", "dev.harness")),
+            ("NBSP", phrase.replace(" CI ", " CI\u00a0")),
+            ("EN_SPACE", phrase.replace(" CI ", " CI\u2002")),
         ):
             add(label + "_" + suffix, field(ENF + malformed + ".\n"))
+        for suffix, delimiter in (("COMMA", ","), ("EXCLAMATION", "!"), ("QUESTION", "?"),
+                                  ("COLON", ":"), ("DASH", "—")):
+            add(label + "_NEGATED_" + suffix, field(ENF + "Неверно" + delimiter + " " + phrase + ".\n"))
+            add(label + "_SUFFIX_" + suffix, field(ENF + phrase + delimiter + " Guard локальный.\n"))
     # Имена/номер не часть исключения; второе непохожее имя ловит пинование значений.
     alternate = "fixtures/other-name_817.py"
     add("RENAMED_EXTERNAL", field(ENF + P993, (alternate,)), 0, guards=(alternate,))
@@ -102,6 +119,8 @@ def run_cases(subject, scratch, selection=None):
         root = scratch / row["name"]
         root.mkdir()
         put(root, CONTRACT, row["body"])
+        put(root, "roles/fixture.md", "Норма 994.\n")
+        put(root, "AGENTS.md", "## Правило 994\n\nНорма 994.\n")
         for guard in row["guards"]:
             if guard not in row["missing"]:
                 put(root, guard, "#!/usr/bin/env bash\nexit 0\n")
@@ -163,17 +182,24 @@ def self_wiring(subject, scratch, registry=None):
 
 
 def matrix(scratch):
-    # Старый субъект — неизменяемый git-объект; модель не наследует будущую реализацию.
-    result = subprocess.run(["git", "-C", str(REPO), "show", "d125f4bab:scripts/check_provodka.sh"], capture_output=True, text=True, check=True)
+    # Снимок из a3c8cb976:scripts/check_provodka.sh переносится вместе с пробой.
+    # Проверка до субъекта: ни история git, ни будущая реализация не служат базой.
+    content = (HERE / "baseline_038.sh").read_bytes()
+    if hashlib.sha256(content).hexdigest() != "20db5210adda688f85daf980d6bff53c287de0b49e5a6c1b525a887984d704a3":
+        raise ValueError("BASELINE_DIGEST")
     baseline = scratch / "baseline.sh"
-    baseline.write_text(result.stdout, encoding="utf-8")
+    baseline.write_bytes(content)
     modes = {
         "honest": None,
         "unchanged": {"EXTERNAL_991", "EXTERNAL_993"},
         "substring": {"991_PREFIX", "993_SUFFIX"},
+        "wide-delimiter": {"991_NEGATED_COMMA", "991_NEGATED_EXCLAMATION", "991_NEGATED_QUESTION",
+                           "993_SUFFIX_COMMA", "993_SUFFIX_EXCLAMATION", "993_SUFFIX_QUESTION"},
+        "unicode-space": {"991_NBSP", "993_EN_SPACE"},
+        "exit-after-grant": {"EXTERNAL_THEN_BAD_ROLE", "EXTERNAL_THEN_BAD_CHARTER"},
         "whole-file": {"BEFORE_FIELD", "AFTER_HEADING", "AFTER_FENCE"},
         "later-paragraph": {"FIRST_PARAGRAPH_ONLY"},
-        "shared-global": {"SECOND_GUARD_LOCAL"},
+        "shared-global": {"SECOND_GUARD_LOCAL", "NO_FOLLOWING_PARAGRAPH"},
         "missing-file": {"MISSING_EXTERNAL"},
     }
     bad = 0
