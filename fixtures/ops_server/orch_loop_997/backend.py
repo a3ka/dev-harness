@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """PATH-only systemd/omp substitutes; never delegate to station binaries."""
+import ctypes
 import fcntl
 import json
 import os
@@ -11,6 +12,9 @@ import time
 root = Path(os.environ['TOY_ROOT']).resolve()
 assert root.name.startswith('orch997-') and (root / 'repo/.git').is_dir()
 control = root / 'control'
+# One write-space definition for both confinement and deletion. control is
+# observer-owned, not a conforming subject's receipt location.
+WRITABLE = (root / 'home', root / 'volatile-state', root / 'tmp', control)
 
 def event(kind, **fields):
     with (control / 'events').open('a') as stream:
@@ -20,6 +24,50 @@ def event(kind, **fields):
 
 def count(kind):
     return sum(json.loads(line)['kind'] == kind for line in (control / 'events').read_text().splitlines())
+
+def confine_writes():
+    libc = ctypes.CDLL(None, use_errno=True)
+    syscall = libc.syscall
+    syscall.restype = ctypes.c_long
+    # Linux syscall numbers shared by x86_64 and asm-generic architectures.
+    create, add_rule, restrict_self = 444, 445, 446
+    abi = syscall(create, None, ctypes.c_size_t(0), ctypes.c_uint32(1))
+    if abi < 1:
+        raise OSError(ctypes.get_errno(), 'Landlock ABI unavailable')
+    write_file = 1 << 1
+    # REMOVE_DIR/FILE and MAKE_CHAR/DIR/REG/SOCK/FIFO/BLOCK/SYM.
+    handled = write_file | sum(1 << bit for bit in range(4, 13))
+    if abi >= 2:
+        handled |= 1 << 13  # REFER
+    if abi >= 3:
+        handled |= 1 << 14  # TRUNCATE
+
+    class Ruleset(ctypes.Structure):
+        _fields_ = [('handled_access_fs', ctypes.c_uint64)]
+
+    class PathBeneath(ctypes.Structure):
+        _pack_ = 1
+        _fields_ = [('allowed_access', ctypes.c_uint64), ('parent_fd', ctypes.c_int32)]
+
+    attr = Ruleset(handled)
+    ruleset = syscall(create, ctypes.byref(attr), ctypes.c_size_t(ctypes.sizeof(attr)), 0)
+    if ruleset < 0:
+        raise OSError(ctypes.get_errno(), 'Landlock create_ruleset')
+    try:
+        for path in (*WRITABLE, Path('/dev')):
+            fd = os.open(path, os.O_PATH | os.O_CLOEXEC)
+            try:
+                rule = PathBeneath(write_file if path == Path('/dev') else handled, fd)
+                if syscall(add_rule, ruleset, 1, ctypes.byref(rule), 0) != 0:
+                    raise OSError(ctypes.get_errno(), 'Landlock add_rule')
+            finally:
+                os.close(fd)
+        if libc.prctl(38, 1, 0, 0, 0) != 0:  # PR_SET_NO_NEW_PRIVS
+            raise OSError(ctypes.get_errno(), 'Landlock no_new_privs')
+        if syscall(restrict_self, ruleset, 0) != 0:
+            raise OSError(ctypes.get_errno(), 'Landlock restrict_self')
+    finally:
+        os.close(ruleset)
 
 name = Path(sys.argv[0]).name
 args = sys.argv[1:]
@@ -41,6 +89,11 @@ if name == 'systemd-run':
     (control / unit).write_text(str(os.getpid()))
     event('scope_created', unit=unit)
     os.environ['TOY_SCOPED'] = unit
+    try:
+        confine_writes()
+    except OSError as error:
+        event('landlock_unavailable', error=str(error))
+        sys.exit(2)
     os.execvp(args[split + 1], args[split + 1:])
 elif name == 'systemctl':
     # Real transient scopes can already be collected on return. show/is-active
@@ -69,20 +122,24 @@ elif name == 'omp':
     n = count('agent_start')
     case = os.environ['TOY_CASE']
     mark = Path(os.environ['ORCH_MARK'])
-    # Sweep newly created files across ALL private writable locations, not a
-    # suffix guessed from the subject. Inputs predate launch; control/ belongs
-    # to the observer. Only the contract's MARK/GO/PGID and canonical lock survive.
+    # Delete new objects throughout the same space allowed by Landlock.
+    # Only the canonical lock inode survives; its bytes are not a receipt.
     baseline = set(json.loads(os.environ['TOY_BASELINE']))
-    protected = {str(mark), str(mark) + '.go', str(mark) + '.pgid',
-                 str(Path(os.environ['HOME']) / '.local/state/dev-harness/orch-loop.lock')}
+    lock = Path(os.environ['HOME']) / '.local/state/dev-harness/orch-loop.lock'
+    protected = {str(lock)}
     if case not in ('clean_exit', 'duplicate', 'duplicate_mark', 'duplicate_log'):
+        if lock.exists():
+            os.truncate(lock, 0)
         canaries = (Path(str(mark) + '.scoped'), mark.parent / 'unrelated-receipt',
-                    Path(os.environ['HOME']) / 'arbitrary-state-receipt')
+                    Path(os.environ['HOME']) / 'arbitrary-state-receipt',
+                    root / 'tmp/arbitrary-tmp-receipt')
         for path in canaries:
             path.touch()
         deleted = []
-        for path in sorted(root.rglob('*'), key=lambda p: len(p.parts), reverse=True):
-            if path == control or control in path.parents or str(path) in baseline or str(path) in protected:
+        swept = (path for directory in WRITABLE if directory != control
+                 for path in directory.rglob('*'))
+        for path in sorted(swept, key=lambda p: len(p.parts), reverse=True):
+            if str(path) in baseline or str(path) in protected:
                 continue
             if path.is_dir() and not path.is_symlink():
                 path.rmdir()

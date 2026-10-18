@@ -46,10 +46,32 @@ MUTANTS = {
     'late_lock': ('lock_held', 'LOCK_STATE'),
     'late_update_lock': ('lock_before_update', 'LOCK_STATE'),
     'stdout_witness': ('scope_refused', 'REFUSAL'),
+    'pgid_receipt': ('removed_crash_1', 'RESTART_COUNT'),
+    'outside_receipt': ('marker_removed', 'RESTART_COUNT'),
+    'lock_receipt': ('marker_removed', 'RESTART_COUNT'),
 }
 
 def model(name):
     text = (HERE / 'model.sh').read_text()
+    if name in ('pgid_receipt', 'outside_receipt', 'lock_receipt'):
+        lock = '$HOME/.local/state/dev-harness/orch-loop.lock'
+        before, inside, check = {
+            'pgid_receipt': ('rm -f "$ORCH_MARK.pgid"', ': >"$ORCH_MARK.pgid";',
+                             'if [ ! -e "$ORCH_MARK.pgid" ]; then'),
+            'outside_receipt': ('rm -f "$OUT"', ': >"$OUT";',
+                                'if [ ! -e "$OUT" ]; then'),
+            'lock_receipt': (f': >"{lock}"', f'printf SCOPED >>"{lock}";',
+                             f'if [ "$(cat "{lock}")" != SCOPED ]; then'),
+        }[name]
+        for old, new in (
+            ('  systemd-run --user', f'  {before}\n  systemd-run --user'),
+            ('\'printf "SCOPED\\n" >&3;', f'\'{inside} printf "SCOPED\\n" >&3;'),
+            ('if [ "$receipt" != SCOPED ]; then', check),
+        ):
+            if text.count(old) != 1:
+                raise ValueError(f'model anchor {name}: {text.count(old)}')
+            text = text.replace(old, new)
+        return text
     changes = {
         'named_receipt': ('if [ "$receipt" != SCOPED ]; then', 'if [ ! -e "$ORCH_MARK.scoped" ]; then'),
         'fallback': ('    exit 1\n  fi', '    "$ORCH_LOOP_AGENT_CMD" --yolo -- fallback\n    exit 1\n  fi'),
@@ -94,7 +116,8 @@ def run_case(text, case, identity='same'):
                        1 if case in DUP_CASES or case in ('second_refused', 'clean_exit') else
                        3 if case == 'bounded' else 2)
     expected_rc = 1 if case in REFUSED_CASES + HELD_CASES else 3 if case == 'bounded' else 0
-    with tempfile.TemporaryDirectory(prefix='orch997-') as directory:
+    with tempfile.TemporaryDirectory(prefix='orch997-') as directory, \
+            tempfile.TemporaryDirectory(prefix='orch997-outside-') as outside:
         root = Path(directory)
         control = root / 'control'
         control.mkdir()
@@ -116,7 +139,10 @@ def run_case(text, case, identity='same'):
         (control / 'events').touch()
         state = root / 'volatile-state'
         state.mkdir()
+        tmp = root / 'tmp'
+        tmp.mkdir()
         env = dict(PATH=f'{bin_dir}:/usr/bin:/bin', HOME=str(home), LANG='C.UTF-8',
+                   TMPDIR=str(tmp), OUT=str(Path(outside) / 'receipt'),
                    ORCH_REPO=str(repo), ORCH_ENV=str(root / 'no-config'), ORCH_SELF_UPDATE='0',
                    ORCH_MARK=str(state / 'restart'), ORCH_STOP=str(root / 'stop'),
                    ORCH_LOG=str(root / 'loop.log'), ORCH_LOOP_AGENT_CMD=str(bin_dir / 'omp'),
@@ -194,6 +220,9 @@ def run_case(text, case, identity='same'):
                 except subprocess.TimeoutExpired:
                     errors.append('TIMEOUT')
             observed = events()
+            unavailable = [e['error'] for e in observed if e['kind'] == 'landlock_unavailable']
+            if unavailable:
+                raise OSError('Landlock unavailable: ' + '; '.join(unavailable))
             if case in HELD_CASES:
                 if any(not p.exists() or p.read_bytes() != value for p, value in saved_state.items()):
                     errors.append('LOCK_STATE')
@@ -247,7 +276,7 @@ def run_case(text, case, identity='same'):
                     live.add(event['pid'])
                 elif event['kind'] == 'agent_end':
                     live.discard(event['pid'])
-            if case not in DUP_CASES + HELD_CASES + ('scope_refused', 'scope_refused_137', 'clean_exit'):
+            if starts and case not in DUP_CASES + HELD_CASES + ('scope_refused', 'scope_refused_137', 'clean_exit'):
                 deletions = [e for e in observed if e['kind'] == 'receipt_deleted']
                 if not deletions or not all(e['canaries_removed'] for e in deletions):
                     errors.append('SETUP_NO_DELETION')
@@ -298,11 +327,13 @@ def main():
                 failures += bool(result['errors'])
                 print('HONEST ' + json.dumps(result, ensure_ascii=False), flush=True)
         for name, (case, reason) in MUTANTS.items():
-            result = run_case(model(name), case)
-            valid = reason in result['errors'] and not any(e.startswith('SETUP_') or e in ('TIMEOUT', 'INVALID_TOOL_CALL') for e in result['errors'])
-            count += 1
-            failures += not valid
-            print(f'MUTANT {name} caught={int(valid)} ' + json.dumps(result, ensure_ascii=False), flush=True)
+            identities = ('same', 'other') if name in ('pgid_receipt', 'outside_receipt', 'lock_receipt') else ('same',)
+            for identity in identities:
+                result = run_case(model(name), case, identity)
+                valid = reason in result['errors'] and not any(e.startswith('SETUP_') or e in ('TIMEOUT', 'INVALID_TOOL_CALL') for e in result['errors'])
+                count += 1
+                failures += not valid
+                print(f'MUTANT {name} caught={int(valid)} ' + json.dumps(result, ensure_ascii=False), flush=True)
     else:
         text = args.subject.read_text()
         selected = (args.case,) if args.case else CASES
