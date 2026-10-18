@@ -24,6 +24,17 @@ def event(kind, **fields):
 
 def count(kind):
     return sum(json.loads(line)['kind'] == kind for line in (control / 'events').read_text().splitlines())
+def fd_census():
+    # Descriptor table of this process, taken before any event fd is opened.
+    # The checker compares the agent table against the launch table; the
+    # subject never sees these values.
+    census = {}
+    for entry in os.listdir('/proc/self/fd'):
+        try:
+            census[entry] = os.readlink(f'/proc/self/fd/{entry}')
+        except OSError:
+            continue
+    return census
 
 def confine_writes():
     libc = ctypes.CDLL(None, use_errno=True)
@@ -72,7 +83,7 @@ def confine_writes():
 name = Path(sys.argv[0]).name
 args = sys.argv[1:]
 if name == 'systemd-run':
-    event('scope_call', argv=args)
+    event('scope_call', argv=args, fd_targets=fd_census())
     if '--' not in args:
         event('bad_scope'); sys.exit(97)
     split = args.index('--')
@@ -118,7 +129,7 @@ elif name == 'sudo':
         event('bad_sudo'); sys.exit(97)
     os.execvp(args[2], args[2:])
 elif name == 'omp':
-    event('agent_start', scoped=os.environ.get('TOY_SCOPED', ''), argv=args)
+    event('agent_start', scoped=os.environ.get('TOY_SCOPED', ''), argv=args, fd_targets=fd_census())
     n = count('agent_start')
     case = os.environ['TOY_CASE']
     mark = Path(os.environ['ORCH_MARK'])
@@ -127,7 +138,8 @@ elif name == 'omp':
     baseline = set(json.loads(os.environ['TOY_BASELINE']))
     lock = Path(os.environ['HOME']) / '.local/state/dev-harness/orch-loop.lock'
     protected = {str(lock)}
-    if case not in ('clean_exit', 'duplicate', 'duplicate_mark', 'duplicate_log'):
+    if case not in ('clean_exit', 'duplicate', 'duplicate_mark', 'duplicate_log',
+                    'lock_transition', 'delayed_receipt'):
         if lock.exists():
             os.truncate(lock, 0)
         canaries = (Path(str(mark) + '.scoped'), mark.parent / 'unrelated-receipt',
@@ -174,7 +186,32 @@ elif name == 'omp':
         rc = {'removed_crash': 7, 'removed_crash_1': 1, 'removed_crash_137': 137}[case]
         event('agent_end', session=n, signal=None, rc=rc)
         sys.exit(rc)
+    if case == 'lock_transition' and n == 1:
+        # Session 1 crashes only after the checker has installed a blocking
+        # waiter on the canonical lock; the restart must not hand it over.
+        (control / 'ready').touch()
+        while not (control / 'release').exists():
+            time.sleep(0.01)
+        event('agent_end', session=n, signal=None, rc=7)
+        sys.exit(7)
+    if case == 'delayed_receipt':
+        # The agent holds the scope open; the relay delivers SCOPED later
+        # than the checker decides, so a schedule-dependent read loses it.
+        (control / 'ready').touch()
+        while not (control / 'release').exists():
+            time.sleep(0.01)
+        finish()
     finish()
+elif name == 'cat':
+    # Relay of the receipt channel. In delayed_receipt the copy is held back
+    # until the checker opens the gate, after systemd-run has returned; the
+    # subject itself never reads the gate.
+    if os.environ.get('TOY_CASE') == 'delayed_receipt' and not args:
+        gate = control / 'relay-release'
+        deadline = time.monotonic() + 20
+        while not gate.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+    os.execvp('/usr/bin/cat', ['cat'] + args)
 else:
     event('unexpected_tool', name=name)
     sys.exit(97)

@@ -10,6 +10,14 @@
 # отказ клетки. rc 0 — стаб прошёл (дефект клетки); rc 2 NOT_IMPLEMENTED —
 # ПОИМКА ПУСТАЯ (клетка вышла 2 при любом субъекте — не доказывает
 # различимость стаба) и НЕ засчитывается.
+# ИЗОЛЯЦИЯ КЛЕТОК (починка reviewer'а 997 круг 1, Б-5; контракт 097 И-7):
+# каждая клетка получает СВОЙ HOME в $SCRATCH/homes/<tag> — иначе
+# канонический lock (контракт 997 инв. 5: `$HOME/.local/state/dev-harness/orch-loop.lock`)
+# общий между клетками, и сломанная зачистка (s6) держит его живым —
+# соседняя клетка 3 на общем HOME краснеет «субъект не дошёл до границы
+# сессии». Сироты (toy-agent-sleeper, sleep 300) гасятся ДО следующей
+# клетки — иначе остатки клетки 7 (s6 на общем HOME) живут в фоне и
+# блокируют следующий прогон на этой же машине.
 # Якоря сверены живым прогоном против дерева приёмки этой пачки (5a089758,
 # wip/int-093/implementer после Рв2-5/Рв2-6; А-906: якоря снимаются на
 # ДЕРЕВО ПРИЁМКИ пачки, не на дерево прошлой пачки): kill_tree +
@@ -41,12 +49,45 @@ build_copy() { # $1=dst $2=src — толерантный bulk-copy + гаран
 caught=0
 total=0
 
+# Изоляция HOME клеток (см. шапку, ИЗОЛЯЦИЯ КЛЕТОК): возвращает приватный
+# HOME для тега, под которым будет крутиться клетка. Канонический
+# lock-path строится ОТНОСИТЕЛЬНО этого HOME — между клетками общего
+# lock-инода нет.
+cell_home() { # $1=tag (s1..s10)
+  local d="$SCRATCH/homes/$1"
+  mkdir -p "$d"
+  printf '%s\n' "$d"
+}
+
+# Гашение СВОИХ сирот между клетками (см. шапку): сценарий — клетка 7 (s6)
+# сломала зачистку и оставила `toy-agent-sleeper` + родителя `sleep 300`
+# в фоне. До следующей клетки — KILL всех процессов с именами, порождёнными
+# самим прогоном батареи (toy-agent-sleeper, sleep 300 от имени пускача).
+# Не трогаем живые сессии (omp --profile) и сам orch-loop — это не наши
+# сироты. Все процессы в нашем uid — наша ответственность.
+kill_own_orphans() {
+  local p killed=0
+  for p in $(pgrep -u "$(id -u)" -x toy-agent-sleeper 2>/dev/null); do
+    kill -KILL "$p" 2>/dev/null && killed=$((killed + 1))
+  done
+  for p in $(pgrep -u "$(id -u)" -f 'toy-agent-sleeper' 2>/dev/null); do
+    kill -KILL "$p" 2>/dev/null && killed=$((killed + 1))
+  done
+  # sleep 300, форкнутый напрямую (мимо toy-agent-sleeper) — редкий путь,
+  # но если клетка 7 оставила и его, гасим.
+  for p in $(pgrep -u "$(id -u)" -x 'sleep 300' 2>/dev/null); do
+    ppid="$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)"
+    [ "$ppid" = 1 ] && kill -KILL "$p" 2>/dev/null && killed=$((killed + 1))
+  done
+  return 0
+}
+
 verdict() { # $1=метка $2=rc клетки — поимка ТОЛЬКО rc 1 (см. шапку)
   local tag="$1" rc="$2"
   if [ "$rc" -eq 1 ]; then
     caught=$((caught+1)); printf '%s: ПОЙМАН (rc=1)\n' "$tag" >&2
   elif [ "$rc" -eq 2 ]; then
-    printf '✗ %s: НЕ ПОЙМАН (rc=2 NOT_IMPLEMENTED — поимка пустая, не засчитана)\n' "$tag" >&2
+    printf '✗ %s: НЕ ПОЙМАН (rc=2 NOT_IMPLEMENTED — поимка пустая, не засчитана)\n' "$tag" "$rc" >&2
   else
     printf '✗ %s: НЕ ПОЙМАН (rc=%s)\n' "$tag" "$rc" >&2
   fi
@@ -61,7 +102,7 @@ total=$((total+1))
 if build_out="$(/usr/bin/python3 -c "
 p = '$S1/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
-old = 'if [ \"\$receipt\" != SCOPED ]; then\\n  # И-5 (997, инв. 2): scope создан, но подтверждение не получено (systemd-run отказал,\\n  # stdout SCOPED не считается, ошибка подготовки/чтения канала) — именованный отказ rc 1,\\n  # сессия НЕ стартует, цикл останавливается, повторов нет.\\n  log \"сессия #\$n: запуск в scope не подтверждён — запуск без потолка запрещён (И-5, контракт 093)\"\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit 1\\nfi'
+old = 'if [ \"\$receipt\" != SCOPED ]; then\\n  # И-5 (997, инв. 2): подтверждение не получено (systemd-run отказал или\\n  # stdout SCOPED не из канала; ошибка подготовки/чтения канала) — именованный\\n  # отказ rc 1, сессия НЕ стартует, цикл останавливается, повторов нет.\\n  log \"сессия #\$n: запуск в scope не подтверждён — запуск без потолка запрещён (И-5, контракт 093)\"\\n  pkill -P \"\$watcher\" 2>/dev/null   # 997: прерываем сон наблюдателя ДО kill, чтобы он не держал lock ещё до 5 с после выхода\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit 1\\nfi'
 new_block = 'if [ \"\$receipt\" != SCOPED ]; then\\n  log \"БЕЗ ПОТОЛКА\"\\n  \"\$WORKSHOP\" --yolo -- \"\$MSG\"; rc=\$?\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit \"\$rc\"\\nfi'
 if old in c:
     c = c.replace(old, new_block, 1)
@@ -72,7 +113,8 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S1" /bin/bash "$HERE/red_limit_otkaz_bez_zapuska.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s1)" OPS093_ROOT="$S1" /bin/bash "$HERE/red_limit_otkaz_bez_zapuska.sh" >/dev/null 2>&1
   verdict 's1 фолбэк-без-потолка' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -106,7 +148,8 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S2" /bin/bash "$HERE/red_root_bootstrap_iz_repo.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s2)" OPS093_ROOT="$S2" /bin/bash "$HERE/red_root_bootstrap_iz_repo.sh" >/dev/null 2>&1
   verdict 's2 bootstrap-из-репо' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -141,7 +184,8 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S3" /bin/bash "$HERE/red_kredit_publikacii_vne_sredy.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s3)" OPS093_ROOT="$S3" /bin/bash "$HERE/red_kredit_publikacii_vne_sredy.sh" >/dev/null 2>&1
   verdict 's3 кредит-в-среде' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -173,7 +217,8 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S4" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s4)" OPS093_ROOT="$S4" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1
   verdict 's4 успех-без-старта' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -200,7 +245,8 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S5" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s5)" OPS093_ROOT="$S5" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1
   verdict 's5 откат-удаление' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -233,7 +279,8 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S6" /bin/bash "$HERE/red_net_osirotevshih_detej.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s6)" OPS093_ROOT="$S6" /bin/bash "$HERE/red_net_osirotevshih_detej.sh" >/dev/null 2>&1
   verdict 's6 сироты-живут' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -270,7 +317,8 @@ else:
         raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S7" /bin/bash "$HERE/red_agent_uid_stancija_nedostupna.sh" >/dev/null 2>&1
+  kill_own_orphans
+  HOME="$(cell_home s7)" OPS093_ROOT="$S7" /bin/bash "$HERE/red_agent_uid_stancija_nedostupna.sh" >/dev/null 2>&1
   verdict 's7 uid-не-переключается' $?
 else
   printf '%s\n' "$build_out" >&2
@@ -301,8 +349,9 @@ else:
     raise SystemExit(1)
 " 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S8" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1; rc5=$?
-  OPS093_ROOT="$S8" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1; rc6=$?
+  kill_own_orphans
+  HOME="$(cell_home s8)" OPS093_ROOT="$S8" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1; rc5=$?
+  HOME="$(cell_home s8)" OPS093_ROOT="$S8" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1; rc6=$?
   if [ "$rc5" -eq 1 ] && [ "$rc6" -eq 1 ]; then
     caught=$((caught+1)); printf 's8 stale-запуск: ПОЙМАН (клетка5 rc=1, клетка6 rc=1 — обе предъявили мир stale)\n' >&2
   else
@@ -372,7 +421,8 @@ sys.stdout.write(b.replace(old, '  true\n'))
 " <<<"$OLD_PROVISION_BODY")" || { printf '✗ s9: тело no-copy не собрано из OLD_PROVISION_BODY\n' >&2; S9_BODY=""; }
 if [ -n "$S9_BODY" ] && build_out="$(replace_provision_body "$S9/ops/server/install.sh" "$S9_BODY"$'\n' s9 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S9" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >/dev/null 2>&1; rc9=$?
+  kill_own_orphans
+  HOME="$(cell_home s9)" OPS093_ROOT="$S9" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >/dev/null 2>&1; rc9=$?
   if [ "$rc9" -eq 1 ]; then
     caught=$((caught+1)); printf 's9 no-copy runtime: ПОЙМАН (клетка9 rc=1 — install не доставил workshop, adversary 093-v3)\n' >&2
   else
@@ -394,7 +444,8 @@ S10="$SCRATCH/s10"; build_copy "$S10" "$ROOT"
 total=$((total+1))
 if build_out="$(replace_provision_body "$S10/ops/server/install.sh" "$OLD_PROVISION_BODY" s10 2>&1)"; then
   printf '%s\n' "$build_out" >&2
-  OPS093_ROOT="$S10" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >"$SCRATCH/s10.log" 2>&1; rc10=$?
+  kill_own_orphans
+  HOME="$(cell_home s10)" OPS093_ROOT="$S10" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >"$SCRATCH/s10.log" 2>&1; rc10=$?
   if [ "$rc10" -eq 1 ] && grep -q 'старый credential-носитель пережил install' "$SCRATCH/s10.log"; then
     caught=$((caught+1)); printf 's10 stale-mirror: ПОЙМАН (клетка9 rc=1 — stale .env/.env.*/.ssh пережили install, adversary 093-v4)\n' >&2
   else

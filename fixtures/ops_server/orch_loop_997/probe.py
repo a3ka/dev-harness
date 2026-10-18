@@ -17,7 +17,8 @@ HERE = Path(__file__).resolve().parent
 CASES = ('marker_removed', 'removed_crash', 'removed_crash_1', 'removed_crash_137',
          'scope_refused', 'scope_refused_137', 'second_refused',
          'duplicate', 'duplicate_mark', 'duplicate_log', 'lock_held',
-         'lock_before_update', 'bounded', 'clean_exit')
+         'lock_before_update', 'bounded', 'clean_exit', 'lock_transition',
+         'delayed_receipt')
 DUP_CASES = ('duplicate', 'duplicate_mark', 'duplicate_log')
 HELD_CASES = ('lock_held', 'lock_before_update')
 REFUSED_CASES = ('scope_refused', 'scope_refused_137', 'second_refused')
@@ -49,6 +50,8 @@ MUTANTS = {
     'pgid_receipt': ('removed_crash_1', 'RESTART_COUNT'),
     'outside_receipt': ('marker_removed', 'RESTART_COUNT'),
     'lock_receipt': ('marker_removed', 'RESTART_COUNT'),
+    'receipt_fd_leak': ('marker_removed', 'RECEIPT_FD'),
+    'lock_fd_leak': ('marker_removed', 'LOCK_FD'),
 }
 
 def model(name):
@@ -91,6 +94,11 @@ def model(name):
         'late_lock': ('mkdir -p "$HOME/.local/state/dev-harness"', 'rm -f "$ORCH_MARK" "$ORCH_MARK.go"\nmkdir -p "$HOME/.local/state/dev-harness"'),
         'late_update_lock': ('mkdir -p "$HOME/.local/state/dev-harness"', 'if [ "${ORCH_SELF_UPDATE:-0}" = 1 ]; then bash "$ORCH_REPO/ops/server/install.sh" user; fi\nmkdir -p "$HOME/.local/state/dev-harness"'),
         'stdout_witness': ('  systemd-run --user', '  receipt_output="$(systemd-run --user'),
+        # Adversary circle 1 reproductions on the honest model: the receipt
+        # fd 3 and the launch-redirect lock fd 9 must not reach the agent.
+        'receipt_fd_leak': ('printf "SCOPED\\n" >&3; exec 3>&-; if [ -n "$3" ]',
+                            'printf "SCOPED\\n" >&3; if [ -n "$3" ]'),
+        'lock_fd_leak': ('8>&- 9>&-', '8>&-'),
     }
     if name != 'honest':
         old, new = changes[name]
@@ -113,7 +121,8 @@ def model(name):
 def run_case(text, case, identity='same'):
     # Expected values exist only in the checker, before any subject is invoked.
     expected_starts = (0 if case in HELD_CASES or case.startswith('scope_refused') else
-                       1 if case in DUP_CASES or case in ('second_refused', 'clean_exit') else
+                       1 if case in DUP_CASES or case in ('second_refused', 'clean_exit',
+                                                          'delayed_receipt') else
                        3 if case == 'bounded' else 2)
     expected_rc = 1 if case in REFUSED_CASES + HELD_CASES else 3 if case == 'bounded' else 0
     with tempfile.TemporaryDirectory(prefix='orch997-') as directory, \
@@ -127,7 +136,7 @@ def run_case(text, case, identity='same'):
                        env={'PATH': '/usr/bin:/bin', 'HOME': str(root)})
         bin_dir = root / 'bin'
         bin_dir.mkdir()
-        for name in ('systemd-run', 'systemctl', 'sudo', 'omp'):
+        for name in ('systemd-run', 'systemctl', 'sudo', 'omp', 'cat'):
             target = bin_dir / name
             target.write_bytes((HERE / 'backend.py').read_bytes())
             target.chmod(0o755)
@@ -186,6 +195,7 @@ def run_case(text, case, identity='same'):
             return [json.loads(line) for line in (control / 'events').read_text().splitlines()]
         errors = []
         second_rc = None
+        waiter = None
         try:
             first = launch()
             if case in DUP_CASES:
@@ -210,6 +220,29 @@ def run_case(text, case, identity='same'):
                     if first.poll() is not None:
                         errors.append('FIRST_INTERRUPTED')
                     (control / 'release').touch()
+            if case in ('lock_transition', 'delayed_receipt'):
+                deadline = time.monotonic() + 8
+                while not (control / 'ready').exists() and first.poll() is None and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                if not (control / 'ready').exists():
+                    errors.append('SETUP_NO_AGENT')
+                elif case == 'lock_transition':
+                    # A blocking waiter on the canonical lock, installed while
+                    # session 1 is alive: the loop's own restart must not hand
+                    # the lock over between sessions (inv. 5).
+                    acquired = control / 'waiter-acquired'
+                    waiter = subprocess.Popen(['/usr/bin/flock', '-x', str(lock), '-c', f'touch {acquired}'],
+                                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                              stderr=subprocess.DEVNULL, start_new_session=True)
+                    time.sleep(0.5)
+                    (control / 'release').touch()
+                else:
+                    # The relay delivers SCOPED later than 1 s after
+                    # systemd-run returned; a schedule-dependent read loses
+                    # a confirmed scope (inv. 2/3, И-5).
+                    (control / 'release').touch()
+                    time.sleep(1.5)
+                    (control / 'relay-release').touch()
             try:
                 first.wait(timeout=18)
             except subprocess.TimeoutExpired:
@@ -234,11 +267,33 @@ def run_case(text, case, identity='same'):
                 output += stream.read().decode(errors='replace')
             starts = [e for e in observed if e['kind'] == 'agent_start']
             calls = [e for e in observed if e['kind'] == 'scope_call']
+            # fd census of every launched agent, against its own launch table
+            # (adversary circle 1): no receipt fd 3, no lock fd 9, no channel
+            # helpers — by number, by pipe inode and by lock path alike.
+            launch_fds = set()
+            launch_pipes = set()
+            for event in observed:
+                if event['kind'] == 'scope_call':
+                    launch_fds = set(event.get('fd_targets') or ())
+                    launch_pipes = {t for t in (event.get('fd_targets') or {}).values()
+                                    if t.startswith('pipe:')}
+                elif event['kind'] == 'agent_start':
+                    census = event.get('fd_targets') or {}
+                    held = set(census)
+                    if '3' in held or set(census.values()) & launch_pipes:
+                        errors.append('RECEIPT_FD')
+                    if '9' in held or any(t.split(' (deleted)', 1)[0] == str(lock)
+                                          for t in census.values()):
+                        errors.append('LOCK_FD')
+                    if held - launch_fds or held & {'7', '8'}:
+                        errors.append('HELPER_FD')
             if any(e['kind'].startswith('bad_') or e['kind'] == 'unexpected_tool' for e in observed):
                 errors.append('INVALID_TOOL_CALL')
             if any(not e['scoped'] for e in starts):
                 errors.append('UNSCOPED')
-            count_error = 'BOUND' if case == 'bounded' else ('DUPLICATE' if case in DUP_CASES else 'RESTART_COUNT')
+            count_error = ('LOCK_TRANSITION' if case == 'lock_transition' else
+                           'BOUND' if case == 'bounded' else
+                           ('DUPLICATE' if case in DUP_CASES else 'RESTART_COUNT'))
             if len(starts) != expected_starts:
                 errors.append(count_error)
             if first.returncode != expected_rc:
@@ -265,6 +320,17 @@ def run_case(text, case, identity='same'):
                 errors.append('LOCK_PATH')
             if case == 'bounded' and len(calls) != 3:
                 errors.append('BOUND')
+            if case == 'lock_transition':
+                if waiter is not None:
+                    try:
+                        waiter.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        waiter.kill()
+                        errors.append('LOCK_STUCK')
+                    if not (control / 'waiter-acquired').exists():
+                        errors.append('LOCK_STUCK')
+                if payloads.count(DUPLICATE):
+                    errors.append('LOCK_TRANSITION')
             if not case.startswith('scope_refused'):
                 if output.splitlines().count('TOY_STDOUT') != len(starts) or output.splitlines().count('TOY_STDERR') != len(starts):
                     errors.append('STDIO')
@@ -276,7 +342,9 @@ def run_case(text, case, identity='same'):
                     live.add(event['pid'])
                 elif event['kind'] == 'agent_end':
                     live.discard(event['pid'])
-            if starts and case not in DUP_CASES + HELD_CASES + ('scope_refused', 'scope_refused_137', 'clean_exit'):
+            if starts and case not in DUP_CASES + HELD_CASES + ('scope_refused', 'scope_refused_137',
+                                                               'clean_exit', 'lock_transition',
+                                                               'delayed_receipt'):
                 deletions = [e for e in observed if e['kind'] == 'receipt_deleted']
                 if not deletions or not all(e['canaries_removed'] for e in deletions):
                     errors.append('SETUP_NO_DELETION')
@@ -327,7 +395,8 @@ def main():
                 failures += bool(result['errors'])
                 print('HONEST ' + json.dumps(result, ensure_ascii=False), flush=True)
         for name, (case, reason) in MUTANTS.items():
-            identities = ('same', 'other') if name in ('pgid_receipt', 'outside_receipt', 'lock_receipt') else ('same',)
+            identities = ('same', 'other') if name in ('pgid_receipt', 'outside_receipt', 'lock_receipt',
+                                                       'receipt_fd_leak', 'lock_fd_leak') else ('same',)
             for identity in identities:
                 result = run_case(model(name), case, identity)
                 valid = reason in result['errors'] and not any(e.startswith('SETUP_') or e in ('TIMEOUT', 'INVALID_TOOL_CALL') for e in result['errors'])
