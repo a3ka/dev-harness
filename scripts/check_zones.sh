@@ -1039,12 +1039,15 @@ while IFS=$'\t' read -r nnn since; do
         # принятие риска только этой исторической пары, не разрешение на новые.
         # Обычная REPLACE-проверка, ancestry и выбор vmax для остальных C
         # не меняются; другие пути и авторы из проверки не исключаются.
+        # Пятая пара 6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca / registry/contracts.tsv —
+        # гонка двух tag-object frozen/contracts/991/2 за 7 с (forks/n991-v2-retag-6b3ab628.md),
+        # слово владельца 2026-10-18; принятие риска только этой пары.
         case "$c" in
           78bae300867ffce3cfce0ae20768fd8658e97e5a|8ce382ae8260cdc18e9dae9b736070b4ed19df56|7f54f1f60bea573487da5ba2f2eb0603a05b1df3)
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca)
             skip_path=1
             continue
             ;;
