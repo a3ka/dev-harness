@@ -243,7 +243,7 @@ fi
 # Stub s7: uid-не-переключается — починка Р1-3 круга 1. Прежняя мутация
 # (if false на ветке шва) была НЕНАБЛЮДАЕМА: ветки orch-loop побайтно
 # одинаковы, переключение шва ничего не меняло. Мутация режет САМ
-# sudo-вызов двери uid: `exec sudo -nu "$3" "$4"` → `exec "$4"` (ВО ВСЕХ
+# sudo-вызов двери uid: `exec sudo -nu "$2" "$3"` → `exec "$3"` (ВО ВСЕХ
 # вхождениях; запасной шаблон ловит перенумерацию позиционных аргументов
 # после сноса ветвей В1-9). Сессия стартует напрямую под uid владельца
 # станции — клетка 3 (дверь uid) обязана краснеть.
@@ -253,9 +253,9 @@ if build_out="$(/usr/bin/python3 -c "
 import re
 p = '$S7/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
-n = c.count('exec sudo -nu \"\$3\" \"\$4\"')
+n = c.count('exec sudo -nu \"\$2\" \"\$3\"')
 if n > 0:
-    c = c.replace('exec sudo -nu \"\$3\" \"\$4\"', 'exec \"\$4\"')
+    c = c.replace('exec sudo -nu \"\$2\" \"\$3\"', 'exec \"\$3\"')
     with open(p, 'w') as f: f.write(c)
     print('s7 ok (exact x%d)' % n)
 else:

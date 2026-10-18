@@ -259,7 +259,7 @@ if [ "$AGENT_USER" = "$SELF_USER" ]; then
   exec {RECEIPT[0]}<&- {RECEIPT[1]}>&-
   ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" --unit="$SESSION_UNIT" -- sh -c \
     'printf "SCOPED\n" >&3; exec 3>&-; exec "$1" --yolo -- "$2"' \
-    sh "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&-; rc=$?
+    sh "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&- 9>&-; rc=$?
 else
   coproc RECEIPT { exec 9>&-; cat; }
   receipt_pid=$RECEIPT_PID
@@ -267,7 +267,7 @@ else
   exec {RECEIPT[0]}<&- {RECEIPT[1]}>&-
   ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c \
     'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && printf "SCOPED\n" >&3; exec 3>&-; HOME="$1" exec sudo -nu "$2" "$3" --yolo -- "$4"' \
-    sh "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&-; rc=$?
+    sh "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&- 9>&-; rc=$?
 fi
 # Канал подтверждения (контракт 997, инв. 2): читаем с TIMEOUT, не блокируясь бесконечно при
 # отказе scope (toy-клетка scope_refused пишет SCOPED в STDOUT, не в канал).
