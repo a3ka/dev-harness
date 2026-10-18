@@ -1,0 +1,1 @@
+§Предмет placeholder — architect заменит.
