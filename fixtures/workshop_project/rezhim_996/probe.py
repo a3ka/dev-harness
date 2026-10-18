@@ -4,6 +4,7 @@ Expected paths/statuses are held before the subject executes. Toy repos have the
 own .git and no link to a workstation checkout. Models never read the oracle.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -596,9 +597,12 @@ def main():
         if covered != set(CASES):
             print('PROBE_ERROR: mutation coverage differs from scenarios')
             return 2
-        for mutant, branches in MUTANTS.items():
-            for case in branches:
-                rc, detail = execute(case, 'model', mutant)
+        # Mutation worlds have separate repos, origins and detector scratch.
+        # Keep ordered results while staying inside spec-ready's 60-second door.
+        presentations = [(mutant, case) for mutant, branches in MUTANTS.items() for case in branches]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = pool.map(lambda pair: execute(pair[1], 'model', pair[0]), presentations)
+            for (mutant, case), (rc, detail) in zip(presentations, results):
                 print(f'mutation {mutant}: {case}: rc={rc} {detail}')
                 errors += rc != 1
     print(f'996: examined={len(cases)} mutants={len(MUTANTS) if args.matrix else 0} mismatches={errors}')
