@@ -7978,3 +7978,19 @@ dev-harness зависимость от чужого checkout/SDK». Автор 
 **Цена:** ~30 мин субагентских запусков на 995 + 1 впустую судья 993 + риск обхода push; сессия-работа не остановлена.
 
 **Источник:** results Adversary993R5, Architect995, Architect995b, Implementer993R5; `.omp/extensions/path-guard.ts` (строки 946-1001 — null-allowlist); сессия 2026-10-18.
+
+### Н-306. Implementer-пачка с `registry/ci-steps.tsv` (зона implementer) и `.github/workflows/ci.yml` (зона orchestrator, производная `gen_ci_steps.sh --write`) не проходит PR-CI сама: дрейф блока JOBS (Г1/Г3/Г8 `check:gen-ci-steps`) красит lane l2, а предполёт `gitw` (071) требует зелёный pull_request-run на `h^2` land-merge `ОТКРЫТО — адрес: очередь автономности (нет порядка «orchestrator добавляет gen_ci_steps --write в implementer-ветку ДО PR» ни в роли orchestrator, ни в контракте 083)`
+
+**Что произошло (контракт 994, 2026-10-18):** `land_agent` слил implementer-ветку локально, `gen_ci_steps --write` дал отдельный коммит на main, `gitw push` отказал «land без зелёного PR-CI»; PR#105 (head `5a26b2c6e`) красный (l2: Г1/Г3/Г8; l3/l7 — устаревший merge-ref). **Цена:** ~1 ч + откат ленда и пересоздание ветки `wip/994/implementer` с коммитом `9e96cc21d`. **Обход:** до открытия PR оркестратор коммитит регенерацию `ci.yml` прямо в implementer-ветку.
+
+### Н-307. `git rebase` на локальном main с land-merge (`land: wip/…`) сплющивает merge: implementer-коммит получает новый sha, маркер PR-CI теряется `ОТКРЫТО — адрес: очередь автономности (роль orchestrator: при подтягивании чужого коммита в main с land-merge — только merge --no-ff; ловца нет)`
+
+**Что произошло:** при подтягивании owner-коммита консультанта `git rebase FETCH_HEAD` превратил land-merge `15e84b8cf` в линейный коммит `ed8692a5e` (sha ≠ `5a26b2c6e`). Поймано до push `git log`-ом; откат `reset --hard ORIG_HEAD` (локально, без push). **Цена:** ~10 мин.
+
+### Н-308. Незамороженный контракт на main краснит `check:ceilings` (нет раздела «Незаполненные требования:») — точечный перенос (point-transfer, Н-281) и `freeze_contract` обязаны идти ОДНИМ push `ОТКРЫТО — адрес: очередь автономности (порядок: transfer → freeze → raw-push тега → gitw push одним заходом; при блоке freeze «вне плана» — коммиты держать на локальной ветке, не пушить)`
+
+**Что произошло (контракт 995):** критик accept → transfer-коммит на main → freeze отказан «контракт вне плана: 995» (в `registry/plan.tsv` id `CMP-MOB-001`) → `gitw push` отказан `check:ceilings` (995 без раздела). **Цена:** ~15 мин; коммиты 995 вынесены в локальную ветку `hold-995`.
+
+### Н-309. CI main был красный ~16 ч (2026-10-17 18:45 → 2026-10-18 12:00 UTC): lane l3 `check:zones` — дверь минта 031 для коммита `6b3ab628` (registry `991 → 205b7611…` — мёртвый tag-object после ретега `frozen/contracts/991/2` за 7 с) `ЗАКРЫТО — owner-коммит 35b2428dc (узкое grandfather 6b3ab628, РАЗРЕШИЛ-ВЛАДЕЛЕЦ 2026-10-18 ~12:00; форк forks/n991-v2-retag-6b3ab628.md ОТВЕЧЕНО: да)`
+
+**Цена:** 16 ч красного main + блокировка `check_ci_gate` для судей 994/995. **Корень (не закрыт):** `freeze_contract` пишет строку реестра ДО окончательного ретега при повторной заморозке (точечный перенос после REPLACE) — порядок «re-freeze без удаления старого тега/строки» породил класс (Н-241-родня); профилактика — не ретегать `frozen/*` после записи реестра.

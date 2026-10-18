@@ -1,3 +1,37 @@
+## ГДЕ МЫ (2026-10-18 ~13:00 UTC — ночной режим владельца продолжается; станция жива (рестарт консультантом после Н-304); слот 1 харнесс: 994 в PR-CI → ленд → судьи → done, затем done 991/993; 996 (режим проекта) у критика; слот mob: 995 критик ACCEPT, заморозка ждёт строку плана; 993 ЗАКРЫТ по судьям (микро-круг accept))
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+
+**main = origin/main = `46d2d1c4b`** (реестр 996) на момент записи; НЕПИННОВАННАЯ сессия (см. раздел ниже, §«ВАЖНО» — всё по-прежнему: plumbing-коммиты, субагентам нельзя ответить посреди работы). Копии/снимки: `/tmp/dev-harness-verify/c995/{mob,back}`, `c993r5/repo`, `c993r6/repo` (C=5bdd707); локальные ветки-«карманы»: `hold-995`, `backup-main-pre-resequence` (можно удалить после ленда 995).
+
+### 993 — по судьям ЗАКРЫТ (владелец «да» на форк n993-krug5-stop, ОТВЕЧЕНО в записи)
+Микро-круг: implementer `5bdd707e443feb8c3fca8f9e5f24838f87742091` (ровно `FILES.sha256` −1 строка, запушен оркестратором через `git -c credential.helper='!gh auth git-credential' push https://github.com/a3ka/Complior-back.git` — fast-forward в `cmp-bck-121/validator-5-8-3`; SSH-ключ станции read-only), reviewer **accept** (`verdicts/review/contracts-993-v6.md`, коммит `5a709c9ae`), PR#146 lane `package` pass, `backend` fail — вне зоны (консультант: #147). Голова ветки 993 сообщена консультанту. **Merge #146 НЕ делать** (В-1: 57 отказов, владелец). `done`-тег 993: `bash scripts/done_contract.sh contracts/993-…md` — ПОСЛЕ done 994 (та же причина, что 991), затем канонические вердикты (критик/адверсарий v1…v5, reviewer v1…v6 — проверь грамматику имён done-двери, как делали для 991).
+
+### 994 — заморожен (frozen/contracts/994/1), реализация готова, идёт PR-CI
+- Критик 3 круга (FAIL, FAIL→арбитр `735ed50ea`→accept), канонизация имён вердиктов (ALLOW-ARTIFACT-DELETE), точечный перенос `1fe7d8f1f`, freeze `62f03bf9e` (тег пушен raw `git push origin refs/tags/frozen/contracts/994/1`, Н-302).
+- Implementer `5a26b2c6e` (check_provodka.sh +126/-6, registry/ci-steps.tsv +1, зона чиста, probe --cases 76/0, --legacy 18/0, --self-wiring rc0, check_provodka 991/993/994 rc0). **ВАЖНО (Н-306): implementer-ветка с реестром ci-steps НЕ проходит PR-CI без регенерированного `.github/workflows/ci.yml` в той же ветке** (gen_ci_steps --check красный; зона orchestrator). Поэтому ленд откатили (локальный land-merge сплющил rebase — НЕ rebase-ить main с land-merge, только merge), ветка `wip/994/implementer` пересоздана из origin, на неё добавлен коммит `9e96cc21d` (orchestrator: gen_ci_steps --write) и запушена; **PR#105 (a3ka/dev-harness) — CI-гейт**. 
+- **Дальше:** PR#105 CI зелёный на `9e96cc21d` → `bash scripts/land_agent.sh --branch wip/994/implementer --worktree /tmp/dev-harness-worktrees/c907157c/wip-994-implementer` (identity orchestrator через env) → `gitw push` → CI main зелёный → `check_ci_gate.sh` rc0 → adversary + reviewer (по 994; scoped `--scope check_provodka`) → `done_contract.sh` 994 → затем 991 и 993. CI main: l3 (check:zones) теперь зелёный после owner-grandfather `35b2428dc` (Н-307).
+
+### 995 (CMP-MOB-001) — критик ACCEPT (круг 3), НЕ заморожен
+Пройдено: critic R1 FAIL → R2 FAIL (+арбитр `b5eaa8ef4`) → R3 accept (`40a93f1da` на wip/995/architect; вердикты `verdicts/critic/contracts-995-krug1-fail.md`, `…krug2-fail.md`, `…-v1.md`(accept)). Точечный перенос + критик-accept лежат в локальной ветке **`hold-995`** (коммиты `2e3ee274f` verdict, `71150fa4a` transfer): на main их НЕЛЬЗЯ пушить до заморозки — `check:ceilings` краснеет на незамороженном контракте без раздела «Незаполненные требования:» (ценность: 1 впустую push). **Блокер заморозки: `freeze_contract` — «контракт вне плана: 995»: в `registry/plan.tsv` строка `CMP-MOB-001`, нужна `995`** — просьба консультанту (owner-коммит; plan.tsv не трогаю): переименовать `CMP-MOB-001`→`995` и `режим-проекта`→`996`. Как только строка есть: `git cherry-pick 2e3ee274f 71150fa4a` на main → `freeze_contract.sh` (identity env) → raw push тега → `gitw push` → спавн implementer (MiniMax) в Complior-mob по ЗОНАМ контракта (снимок/клон: implementer Complior-mob тоже НЕ видит по ssh — дай `/tmp/dev-harness-verify/c995/mob` копией; push его ветки — оркестратор через gh credential helper, как для 993) → эмулятор e2e → адверсарий → ревьюер → один PR (merge НЕ делать).
+
+### 996 (режим проекта, смешанный) — architect сдал, критик круг 1 в полёте
+Номер выдан (`id/CONTRACT/996`, строка реестра `46d2d1c4b`), архитектор: 5 пунктов frontier по Н-163/Н-167 (канон 2330 — прямое поручение владельца, боль не найдена), нарезка A→(B,C,D параллельно)→E, кап 5, `probe.sh --matrix` 18/18 красных предъявлений rc0; ветка `wip/996/architect` @ `b8eb3960c` запушена, `pre_critic` rc0, `Critic996R1` OBJECT=`b8eb3960c`. Правка roles/AGENTS.md — только РАЗРЕШИЛ-ВЛАДЕЛЕЦ (текст готовит architect, пишет владелец).
+
+### Н-306/Н-307 (записать в NABLIUDENIA — не успел)
+Н-306: implementer-пачка с `registry/ci-steps.tsv` + orchestrator-зона `ci.yml` — circular: PR-CI implementer-ветки красный (gen_ci_steps дрейф Г1/Г3/Г8), `gitw`-предполёт 071 требует зелёный pull_request-run на `h^2` ленд-merge; цена ~1 ч + откат ленда. Ловец/решение: orchestrator добавляет `gen_ci_steps --write` в implementer-ветку ДО PR. Н-307: `git rebase` на local main с land-merge сплющивает merge и теряет маркер PR-CI (gitw отказ) — только `merge --no-ff`. Н-308: незамороженный контракт на main краснит check:ceilings → перенос (point-transfer) и freeze должны идти ОДНИМ push. Н-309: CI main был красный ~16 ч (l3 check:zones, 6b3ab628: ретег frozen/991/2 за 7 с после записи реестра) — закрыт owner-grandfather `35b2428dc` (РАЗРЕШИЛ-ВЛАДЕЛЕЦ), форк `n991-v2-retag-6b3ab628` ОТВЕЧЕНО.
+
+### Вопросы владельцу (батч 2026-10-18)
+1. (ждёт консультанта, не владельца) plan.tsv: `CMP-MOB-001`→`995`, `режим-проекта`→`996`.
+2. Принять/запретить HTTPS-push implementer-ом (`url.insteadOf`+`gh auth token`) — см. Н-305(в); орк. теперь пушит в Complior-* сам через `gh auth git-credential`.
+3. 995: copy-signoff CMP-MOB-089 — вне объёма; без решения владельца в пилоте ui.auth.* остаются PRODUCT_COPY_REVIEW_REQUIRED.
+
+### Следующий шаг (по порядку)
+1. PR#105 CI → land 994 → push main → CI зелёный → check_ci_gate rc0 → adversary+reviewer 994 → done 994 → done 991, 993.
+2. 996: вердикт критика R1 → правки architect/арбитр → freeze → нарезка на implementer-ов A…E (после плана: `996`).
+3. 995: ждёт строку плана → freeze → implementer.
+4. Записать Н-305…Н-309 в NABLIUDENIA (plumbing); Н-304 (orch-loop метка) — предмет слота харнесса после 994/996.
+
 ## ГДЕ МЫ (2026-10-18 ~11:00 UTC — сессия после ручного перезапуска консультантом (простой станции 23:43→09:56 = Н-304); ночной режим владельца продолжается; слот 1 харнесс: 993 СТОП на капе 5 (в батч), 994 критик круг 3 после арбитража; слот mob: 995 = CMP-MOB-001, architect доводит контракт; ROADMAP/plan.tsv правит консультант отдельными owner-коммитами — сам не трогаю)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
