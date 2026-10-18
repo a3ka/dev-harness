@@ -1,0 +1,40 @@
+{
+  "copy": {
+    "action.F03.A01": "Anmelden",
+    "action.F03.A02": "Zugang wiederherstellen",
+    "frame.F02.01.body": "Die KI unterstützt Sie. Wer für eine Beratung verantwortlich ist, sehen Sie beim jeweiligen Angebot.",
+    "frame.F03.01.title": "Anmelden oder Konto erstellen",
+    "frame.F03.02.title": "Kontakt bestätigen",
+    "frame.F03.04.title": "Zugang wiederherstellen",
+    "frame.F03.04.body": "Wir führen Sie durch die verfügbaren Schritte zur Wiederherstellung.",
+    "ui.auth.demo_entry": "Demo mit Beispieldaten ansehen",
+    "ui.auth.code_resend": "Code erneut senden",
+    "ui.auth.code_resend_sent": "Ein neuer Code wurde gesendet.",
+    "ui.auth.code_resend_wait": "Sie können in {seconds} Sekunden einen neuen Code anfordern."
+  },
+  "copyStatus": {
+    "action.F03.A01": "PRODUCT_COPY_REVIEW_REQUIRED",
+    "action.F03.A02": "PRODUCT_COPY_REVIEW_REQUIRED",
+    "frame.F02.01.body": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+    "frame.F03.01.title": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+    "frame.F03.02.title": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+    "frame.F03.04.title": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+    "frame.F03.04.body": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+    "ui.auth.demo_entry": "PRODUCT_COPY_REVIEW_REQUIRED",
+    "ui.auth.code_resend": "PRODUCT_COPY_REVIEW_REQUIRED",
+    "ui.auth.code_resend_sent": "PRODUCT_COPY_REVIEW_REQUIRED",
+    "ui.auth.code_resend_wait": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "hashes": {
+    "copy": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
+    "examples": "f68ece563ae2e04c65a2592a25212c4d3e5e2658e841e3949148983f2be4ad5e",
+    "schema": "4f05c5dfcde3a5262cb86b7837a056770eda9dfcb08793d6ec32fcbb9a2ef0c4",
+    "openapi": "f89b4a048f0aa405ed636bbddea4c63730d8d7607f15729f97990b6490e86e16",
+    "bindings": "670af65d178fc02220aaca0084ec8c3c0cd1634d3fb1b49500eeb193ecb38a64",
+    "matrix": "a2afc0f3965d28eba102f260b4a855bdca70911b9decafa4e3a9f8bf2379a4fc",
+    "design": "498b0e6900b9e1aed9655c2dd8bf97f08e957d373bfbd2dbf98428956e418f5a",
+    "acceptance": "231206ed897ff7d11c7c03ec26565e470f1d4aded15f7f3383a4cdc2bd5e7b0c"
+  },
+  "session": { "principal_ref": "example", "display_name": "x", "auth_time": "2026-10-14T00:00:00Z", "expires_at": "2026-10-14T00:00:00Z", "locale": "de-DE", "disclosure_requirements": [] },
+  "disclosure": { "disclosure_ref": "example", "document_ref": "example", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "acknowledged": false }
+}
