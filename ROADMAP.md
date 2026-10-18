@@ -387,11 +387,11 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 991 | до V-2 | complior | - | 453d5b8db |
 | 3 | 992 | до V-2 | CI | - | docs/owner/2026-10-17-resheniya-back-992-993.md#2 |
 | 3 | 994 | до V-2 | CI | - | 97b1911f6 |
-| 3 | CMP-MOB-001 | до V-2 | complior | - | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
-| 3 | orch-restart | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
+| 3 | 995 | до V-2 | complior | - | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
+| 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
-| 4 | режим-проекта | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
+| 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 6 | V-2 | до V-2 | autonomy | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
