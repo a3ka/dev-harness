@@ -258,10 +258,6 @@ done
 channel_kinds=()
 channel_rests=()
 channel_lns=()
-# Круг 17 — четвёртый параллельный массив: индекс канала во all_lines. Нужен для
-# привязки guard к первому последующему ЭНФОРСМЕНТ-абзацу (закрытая оговорка
-# внешнего CI, контракт 994 §Инвариант 1).
-channel_src_indices=()
 for ((j=0; j<${#channel_lines[@]}; j++)); do
   ln="${channel_lines[$j]}"
   body_part="${ln#- }"
@@ -276,7 +272,6 @@ for ((j=0; j<${#channel_lines[@]}; j++)); do
   channel_kinds+=("$kind")
   channel_rests+=("$rest")
   channel_lns+=("$ln")
-  channel_src_indices+=("${channel_indices[$j]}")
 done
 
 # ── г0-доп (В1): guard-only без обоснования ──────────────────────────────────
@@ -521,8 +516,6 @@ first_enf_body_after() {
           case "$ln" in
             "ПРОВОДКА-ЭНФОРСМЕНТ:"*) break ;;   # следующий ЭНФОРСМЕНТ — конец текущего абзаца
             "- "*) break ;;   # новый `-`-канал — конец текущего абзаца
-            "#"*) break ;;   # терминатор поля (`#`-заголовок) — за полем поиск не продолжается
-            \`\`\`*) break ;;   # терминатор поля (markdown code fence)
             *) body+=" ${ln}" ;;   # любая иная непустая строка — продолжение абзаца
           esac
           j=$((j + 1))
@@ -594,7 +587,7 @@ for ((i=0; i<${#channel_kinds[@]}; i++)); do
       # не меняются (следующая итерация цикла проходит штатно). Перед
       # вызовом wiring — обязательно снимаем STDOUT функции в переменную
       # ЕДИНСТВЕННЫМ вызовом (повторный вызов дважды прошёл бы по all_lines).
-      guard_idx="${channel_src_indices[$i]}"
+      guard_idx="${channel_indices[$i]}"
       enf_body="$(first_enf_body_after "$guard_idx" 2>/dev/null || true)"
       if [ -z "$enf_body" ] || ! matches_external_exception "$enf_body"; then
         guard_is_wired "$ROOT" "$guard" \
