@@ -8,6 +8,7 @@ by the matrix, never by expected outputs or case names.
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -113,6 +114,69 @@ def sources(root, p, contract, stage, mutant, door=False):
     return 0
 
 
+def preserved_gates(root, p, target, op, mutant):
+    """Execute installed barriers, not their expected answers or probe fixtures."""
+    if mutant == 'skip-gates':
+        return 0
+    tools = Path(os.environ['HARNESS_TOOLS_ROOT'])
+    if op in ('freeze', 'done') and mutant != 'skip-committed':
+        blob = git(root, 'show', 'HEAD:' + target, check=False)
+        if blob.returncode or blob.stdout != (root / target).read_text():
+            return fail('контракт не закоммичен на HEAD')
+    if op == 'freeze' and mutant != 'skip-plan':
+        registry = 'registry' if mutant == 'root-plan' else p['workflowPaths']['registry']
+        plan = str(Path(registry) / 'plan.tsv')
+        result = subprocess.run(['bash', str(Path(__file__).with_name('plan_adapter.sh')),
+                                 str(tools), str(root), plan, Path(target).name[:3]],
+                                cwd=root, text=True, capture_output=True)
+        if result.returncode:
+            return fail(result.stderr)
+    gates = {
+        'freeze': [('spec', 'check_spec_ready.sh', 'spec-preflight 036'),
+                   ('consumers', 'check_consumers.sh', 'потребители 116'),
+                   ('precision', 'check_precision_gate.sh', 'precision-гейт 043')],
+        'done': [('provodka', 'check_provodka.sh', 'ПРОВОДКА'),
+                 ('consumers', 'check_consumers.sh', 'потребители 116')],
+        'pre_critic': [('precision', 'check_precision_gate.sh', 'precision-gate'),
+                       ('spec', 'check_spec_ready.sh', 'spec-ready')],
+    }
+    for key, script, reason in gates[op]:
+        if mutant == 'skip-' + key:
+            continue
+        result = subprocess.run(['bash', str(tools / 'scripts' / script), str(root), target],
+                                cwd=root, text=True, capture_output=True)
+        if result.returncode:
+            return fail(reason + ': ' + result.stdout + result.stderr)
+    if op == 'freeze' and mutant != 'skip-doc':
+        result = subprocess.run(['node', str(tools / 'scripts/doc_contract.ts'),
+                                 '--type', str(root / target)], text=True, capture_output=True)
+        if result.returncode == 0:
+            result = subprocess.run(['node', str(tools / 'scripts/check_document.ts'),
+                                     '--root', str(root), '--contract', target, '--preflight'],
+                                    cwd=root, text=True, capture_output=True)
+            if result.returncode:
+                return fail('doc-preflight: ' + result.stdout + result.stderr)
+        elif result.returncode != 1:
+            return fail('doc-preflight: ' + result.stderr)
+    if op == 'pre_critic':
+        body = (root / target).read_text()
+        if mutant != 'skip-n39':
+            lines = [re.sub(r'«[^»]*»|„[^“]*“|"[^"]*"|`[^`]*`', '', line)
+                     for line in body.splitlines()]
+            for line in lines + [a + ' ' + b for a, b in zip(lines, lines[1:]) if a and b]:
+                if (re.search(r's[0-9]+|стаб|обманка', line)
+                        and re.search(r'умирает|ловится|краснеет|падает', line)
+                        and re.search(r'клетк[а-яё]*|вход|кейс', line)):
+                    return fail('Н-39: привязка стаба в прозе')
+        registry = root / p['workflowPaths']['registry'] / 'contracts.tsv'
+        if mutant != 'skip-form' and registry.is_file():
+            if not re.search(r'^КОНТЕКСТ:', body, re.M):
+                return fail('форма: контракт без строк КОНТЕКСТ:')
+            if not re.search(r'^##\s+Существующее(?:\s.*)?$', body, re.M):
+                return fail('форма: контракт без секции ## Существующее')
+    return 0
+
+
 def main():
     op, root, *args = sys.argv[1:]
     root = Path(root).resolve()
@@ -208,10 +272,13 @@ def main():
             canonical = 'ssh://git@github.com/a3ka/dev-harness.git'
         if mutant == 'trust-target':
             canonical = args[1]
-        env['GIT_EXCHANGE_GUARD_CANONICAL'] = env.get('GIT_EXCHANGE_GUARD_CANONICAL', canonical)
+        env['GIT_EXCHANGE_GUARD_CANONICAL'] = (canonical if mutant == 'profile-over-override'
+                                               else env.get('GIT_EXCHANGE_GUARD_CANONICAL', canonical))
         return subprocess.run(['bash', str(Path(env['HARNESS_TOOLS_ROOT']) / 'scripts/gitw'),
                                '-C', str(root), *args], env=env).returncode
     if op in ('sources', 'pre_critic'):
+        if op == 'pre_critic' and preserved_gates(root, p, args[0], op, mutant):
+            return 1
         return sources(root, p, args[0], 'pre_critic', mutant, door=(op == 'pre_critic'))
     if op == 'reserve':
         # Existing next_id supplies the number; reservation is complete only
@@ -280,6 +347,8 @@ def main():
             if sources(root, p, target, 'done', mutant, door=True):
                 return 1
             tag = f'done/contracts/{n}/1'
+        if preserved_gates(root, p, target, op, mutant):
+            return 1
         git(root, 'tag', '-a', tag, '-m', '996 model')
         if op == 'freeze':
             reg = Path(paths['registry']) / 'contracts.tsv'
@@ -287,6 +356,9 @@ def main():
             reg.write_text(n + ' → ' + git(root, 'rev-parse', tag).stdout.strip() + '\n')
             git(root, 'add', str(reg))
             git(root, 'commit', '-qm', 'model freeze registry')
+        if mutant == 'done-leak' and op == 'done':
+            with (Path(os.environ['HARNESS_TOOLS_ROOT']) / 'HANDOFF.md').open('a') as f:
+                f.write('done leaked\n')
         if mutant in ('station-writes-tools', 'tools-leak'):
             tools = Path(os.environ['HARNESS_TOOLS_ROOT'])
             with (tools / 'HANDOFF.md').open('a') as f:

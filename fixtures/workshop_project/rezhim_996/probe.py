@@ -12,10 +12,12 @@ import subprocess
 import shutil
 import sys
 import tempfile
+from threading import Lock
 
 HERE = Path(__file__).resolve().parent
 TOOLS = HERE.parents[2]
 PARITY_CHECKED = False
+PARITY_LOCK = Lock()
 
 
 def run(argv, cwd=None, env=None):
@@ -79,11 +81,12 @@ def world(base):
     commit(root, 'toy bootstrap')
     # The check.sh/workflow/package template is identical in every world.
     # Validate that prerequisite once, before the first subject, not per mutant.
-    if not PARITY_CHECKED:
-        parity = run(['bash', TOOLS / 'scripts/verify_ci_parity.sh', root])
-        if parity.returncode:
-            raise RuntimeError('toy prerequisite CI parity: ' + parity.stdout + parity.stderr)
-        PARITY_CHECKED = True
+    with PARITY_LOCK:
+        if not PARITY_CHECKED:
+            parity = run(['bash', TOOLS / 'scripts/verify_ci_parity.sh', root])
+            if parity.returncode:
+                raise RuntimeError('toy prerequisite CI parity: ' + parity.stdout + parity.stderr)
+            PARITY_CHECKED = True
     return root, origin, p, contract
 
 
@@ -148,6 +151,13 @@ def installation(base):
     install = base / 'install'
     install.mkdir()
     for name in git(TOOLS, 'ls-files').splitlines():
+        # Ship all runtime code/config/roles, not historical judge evidence or
+        # unrelated test worlds. No executable is stubbed. The detector still
+        # sees the entire installed tree AND newly created (untracked) paths.
+        if name.startswith(('contracts/', 'verdicts/', 'docs/')):
+            continue
+        if name.startswith('fixtures/') and not name.startswith('fixtures/workshop_project/rezhim_996/'):
+            continue
         src = TOOLS / name
         if src.is_file():
             dst = install / name
@@ -169,6 +179,120 @@ def path_oracle(root, p):
     return expected
 
 
+# Each door/gate has its own input; no aggregated case can hide a missed gate.
+# Tuples are (door, defect, public refusal marker).
+GATE_CASES = {
+    'freeze-gate-preserved': ('freeze', 'spec', 'spec-preflight 036'),
+    'freeze-consumers-preserved': ('freeze', 'consumers', 'потребители 116'),
+    'freeze-precision-preserved': ('freeze', 'precision', 'precision-гейт 043'),
+    'freeze-doc-preserved': ('freeze', 'doc', 'doc-preflight'),
+    'freeze-doc-malformed': ('freeze', 'doc-malformed', 'doc-preflight'),
+    'done-gate-preserved': ('done', 'provodka', 'ПРОВОДКА'),
+    'done-consumers-preserved': ('done', 'consumers', 'потребители 116'),
+    'precritic-spec-preserved': ('pre_critic', 'spec-probe', 'spec-ready'),
+    'precritic-precision-preserved': ('pre_critic', 'precision', 'precision-gate'),
+    'precritic-n39-preserved': ('pre_critic', 'n39', 'Н-39'),
+    'precritic-context-preserved': ('pre_critic', 'context', 'форма:'),
+    'precritic-existing-preserved': ('pre_critic', 'existing', 'форма:'),
+    'freeze-plan-preserved': ('freeze', 'plan', 'контракт вне плана'),
+    'freeze-committed-preserved': ('freeze', 'committed', 'закоммичен'),
+    'done-committed-preserved': ('done', 'committed', 'закоммичен'),
+}
+
+
+def gate_test(case, mode, mutant, root, p, contract):
+    op, defect, reason = GATE_CASES[case]
+    original = (root / contract).read_text()
+    changes = {}
+
+    def change(path, text):
+        file = root / path
+        changes[path] = file.read_bytes() if file.exists() else None
+        put(root, path, text)
+
+    body = original
+    if defect == 'spec':
+        body = body.replace('app/', 'app/ fixtures/check_nosuchbarrier/')
+        git(root, 'tag', '-a', 'id/CONTRACT/777', '-m', 'fixture mint')
+    elif defect == 'spec-probe':
+        body += '\n## Приёмочный критерий\n- `bash check.sh`\n'
+        change('check.sh', '#!/bin/sh\nexit 7\n')
+    elif defect == 'consumers':
+        # Real registered mapping, not an injected failing gate executable.
+        change('scripts/consumers.d/absent.sh__check_sh.tsv', 'scripts/absent.sh\tcheck.sh\n')
+    elif defect == 'precision':
+        package = json.loads((root / 'package.json').read_text())
+        package['scripts']['check:unwired'] = 'bash omitted.sh'
+        change('package.json', json.dumps(package))
+        change('omitted.sh', '#!/bin/sh\nexit 0\n')
+    elif defect.startswith('doc'):
+        spec = {'type': 'documentation', 'version': 1, 'profile': 'product',
+                'outputs': {'markdown': 'guide.md', 'evidence': 'guide.json'},
+                'required': {'sections': [], 'scenarios': ['first']},
+                'assertions': [], 'sources': [], 'questions': []}
+        body += '\n## Док-приёмка\n```json\n' + (
+            '{' if defect == 'doc-malformed' else json.dumps(spec)) + '\n```\n'
+    elif defect == 'provodka':
+        body = body.replace('guard=check.sh', 'guard=missing-guard.sh')
+    elif defect == 'n39':
+        body += '\nстаб s1 краснеет на входе case-one\n'
+    elif defect in ('context', 'existing'):
+        change(p['workflowPaths']['registry'] + '/contracts.tsv', '# registered project\n')
+        body = body.replace('КОНТЕКСТ: AGENTS.md\n' if defect == 'context'
+                            else '## Существующее\n', '')
+    elif defect == 'plan':
+        header = 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+        row = '\t1\tдо V-2\t-\tabcdef0\ttoy\n'
+        change(p['workflowPaths']['registry'] + '/plan.tsv', header + '778' + row)
+        # A valid root decoy must not override the project's rejecting plan.
+        change('registry/plan.tsv', header + '777' + row)
+        changes[p['workflowPaths']['registry'] + '/plan.tsv'] = (header + '777' + row).encode()
+    elif defect == 'committed':
+        body += '\n## State\nCommitted baseline\n'
+    change(contract, body)
+    if defect.startswith('doc'):
+        spec['required']['sections'] = ['overview']
+        changes[contract] = (original + '\n## Док-приёмка\n```json\n' +
+                             json.dumps(spec) + '\n```\n').encode()
+    elif defect == 'spec-probe':
+        changes[contract] = body.encode()
+    elif defect in ('context', 'existing'):
+        changes[p['workflowPaths']['registry'] + '/contracts.tsv'] = b'# registered project\n'
+    commit(root, 'one defective gate input')
+    if defect == 'committed':
+        changes[contract] = body.encode()
+        put(root, contract, body + '\nUncommitted contract change\n')
+    before = (git(root, 'rev-parse', 'HEAD'),
+              git(root, 'show-ref'), {str(f.relative_to(root)): f.read_bytes()
+                                    for f in root.rglob('*') if f.is_file() and '.git' not in f.parts})
+    # A refusal from an earlier unrelated gate must not count as this gate.
+    r = subject(mode, op, root, contract, mutant=mutant)
+    expect(r.returncode == 1 and reason in r.stderr, 'PROJECT_GATE_BYPASSED:' + defect, r)
+    after = (git(root, 'rev-parse', 'HEAD'),
+             git(root, 'show-ref'), {str(f.relative_to(root)): f.read_bytes()
+                                   for f in root.rglob('*') if f.is_file() and '.git' not in f.parts})
+    expect(after == before, 'PROJECT_GATE_REFUSAL_MUTATED:' + defect, r)
+    # Repair the same input and exercise the same door (reject-all is not green).
+    for path, contents in changes.items():
+        if contents is None:
+            (root / path).unlink()
+        else:
+            (root / path).write_bytes(contents)
+    if defect == 'consumers':
+        for writer in ('freeze_contract.sh', 'lib_registry.sh', 'done_contract.sh'):
+            put(root, 'scripts/' + writer, (TOOLS / 'scripts' / writer).read_text())
+            put(root, 'scripts/consumers.d/' + writer + '__check_sh.tsv',
+                'scripts/' + writer + '\tcheck.sh\n')
+    if defect != 'committed':
+        commit(root, 'repair gate input')
+    r = subject(mode, op, root, contract, mutant=mutant)
+    expect(r.returncode == 0, 'PROJECT_GATE_REPAIR_REFUSED:' + defect, r)
+    if op != 'pre_critic':
+        prefix = 'frozen' if op == 'freeze' else 'done'
+        expect(git(root, 'tag', '-l', prefix + '/contracts/777/*') ==
+               prefix + '/contracts/777/1', 'PROJECT_GATE_REPAIR_TAG_MISSING', r)
+
+
 EXTRA_CASES = (
     'context-workshop', 'context-architect', 'context-implementer', 'context-critic',
     'context-adversary', 'context-reviewer', 'context-arbiter',
@@ -184,6 +308,16 @@ EXTRA_CASES = (
 
 def extra_test(case, mode, base, mutant, root, origin, p, contract):
     call = lambda op, *args, **kw: subject(mode, op, root, *args, mutant=mutant, **kw)
+    if case == 'git-override':
+        p['git']['canonicalRemote'] = 'ssh://git@example.invalid/not-this-project.git'
+        put(root, 'harness.project.json', json.dumps(p))
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('gitw', 'push', 'origin', 'HEAD:refs/heads/probe',
+                 extra_env={'GIT_EXCHANGE_GUARD_CANONICAL': str(origin)})
+        expect(r.returncode == 0 and
+               git(origin, 'rev-parse', 'refs/heads/probe') == before,
+               'EXPLICIT_CANONICAL_OVERRIDE_IGNORED', r)
+        return
     if case.startswith('context-'):
         p['workflowPaths']['state'] = '.harness/session'
         canon(root, p)
@@ -402,6 +536,8 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
 
 def test(case, mode, base, mutant):
     root, origin, p, contract = world(base)
+    if case in GATE_CASES:
+        return gate_test(case, mode, mutant, root, p, contract)
     if case in EXTRA_CASES:
         return extra_test(case, mode, base, mutant, root, origin, p, contract)
     call = lambda op, *args: subject(mode, op, root, *args, mutant=mutant)
@@ -489,6 +625,10 @@ def test(case, mode, base, mutant):
         expect(r.returncode == 0, 'STATION_FREEZE_FAILED', r)
         r = leak('--check')
         expect(r.returncode == 0, 'STATION_POLLUTED_INSTALLATION', r)
+        r = subject(mode, 'done', root, contract, mutant=mutant, tools=install)
+        expect(r.returncode == 0, 'STATION_DONE_FAILED', r)
+        r = leak('--check')
+        expect(r.returncode == 0, 'STATION_DONE_POLLUTED_INSTALLATION', r)
         put(install, 'HANDOFF.md', 'intentional detector canary\n')
         r = leak('--check')
         expect(r.returncode == 1 and 'загрязнён' in r.stderr + r.stdout,
@@ -527,14 +667,14 @@ CASES = ('git-profile', 'git-layer', 'git-reject', 'freeze-profile', 'freeze-dec
          'done-profile', 'done-decoy', 'done-fresh', 'paths', 'paths-escape',
          'reserve-origin', 'canon-green', 'canon-fail', 'canon-done-fail',
          'canon-invalid', 'canon-absent', 'canon-precritic-fail', 'station-isolation')
-CASES += EXTRA_CASES
+EXTRA_CASES += ('git-override',)
+CASES += EXTRA_CASES + tuple(GATE_CASES)
 # Н-39: each mutation is challenged only where its defect is observable.
 MUTANTS = {'hardcoded-origin': ('git-profile', 'git-layer'),
            'trust-target': ('git-reject',), 'root-layout': ('paths',),
            'root-verdict': ('freeze-profile', 'done-profile'),
            'ignore-critic': ('freeze-decoy',), 'ignore-review': ('done-decoy',),
            'old-review': ('done-fresh',), 'accept-escape': ('paths-escape',),
-           'local-reservation': ('reserve-origin',),
            'station-writes-tools': ('station-isolation',),
            'skip-canon': ('canon-fail', 'canon-done-fail', 'canon-precritic-fail'),
            'canon-tools-cwd': ('canon-green',),
@@ -565,6 +705,17 @@ MUTANTS.update({
     'mint-self-authority': ('mint-no-authority',),
     'old-self-canon': ('self-canonical',),
 })
+MUTANTS.update({'done-leak': ('station-isolation',),
+                'profile-over-override': ('git-override',),
+                'root-plan': ('freeze-plan-preserved',)})
+MUTANTS['skip-gates'] = tuple(GATE_CASES)
+for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
+                      'precision': ('precision',), 'doc': ('doc', 'doc-malformed'),
+                      'provodka': ('provodka',), 'n39': ('n39',),
+                      'form': ('context', 'existing'), 'plan': ('plan',),
+                      'committed': ('committed',)}.items():
+    MUTANTS['skip-' + gate] = tuple(case for case, (_, defect, _) in GATE_CASES.items()
+                                   if defect in defects)
 
 
 def execute(case, mode, mutant=''):
@@ -588,10 +739,12 @@ def main():
     mode = 'model' if args.model or args.matrix or args.mutant else 'product'
     cases = (args.case,) if args.case else CASES
     errors = 0
-    for case in cases:
-        rc, detail = execute(case, mode, args.mutant or '')
-        print(f'{case}: rc={rc} {detail}')
-        errors += rc
+    # Each world owns its refs and worktree; parallelize green controls too.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = pool.map(lambda case: execute(case, mode, args.mutant or ''), cases)
+        for case, (rc, detail) in zip(cases, results):
+            print(f'{case}: rc={rc} {detail}')
+            errors += rc
     if args.matrix:
         covered = {case for branches in MUTANTS.values() for case in branches}
         if covered != set(CASES):
