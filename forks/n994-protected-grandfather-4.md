@@ -6,4 +6,4 @@
 ЗАВЕДЁН: 2026-10-18T13:48:00Z
 АВТОР: anthropic/claude-sonnet-5-5
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да — консультант по мандату (tri-slota §2 п.1), owner-коммит ff647c41 (четыре exact-SHA+path пары в scripts/check_protected.sh); парсер ALLOW (Н-310) не трогаем
