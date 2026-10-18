@@ -381,7 +381,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 094 | до V-2 | autonomy | 098 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3 |
 | 3 | 097 | до V-2 | autonomy | 091 | docs/owner/2026-10-11-astra-094-narezka.md#А |
 | 3 | 098 | до V-2 | autonomy | 097 | docs/owner/2026-10-11-astra-094-narezka.md#Б |
-| 3 | 087 | до V-2 | CI | pravila-modelei | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
+| 3 | 087 | до V-2 | CI | 998 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 3 | 103 | до V-2 | complior | - | docs/owner/2026-10-13-roadmap-variant-b.md#2 |
 | 3 | 104 | до V-2 | complior | - | docs/owner/2026-10-13-roadmap-variant-b.md#2 |
 | 3 | 105 | до V-2 | complior | - | 013ab88d |
@@ -389,8 +389,9 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 992 | до V-2 | CI | - | docs/owner/2026-10-17-resheniya-back-992-993.md#2 |
 | 3 | 994 | до V-2 | CI | - | 97b1911f6 |
 | 3 | 995 | до V-2 | complior | - | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
+| 3 | 999 | до V-2 | complior | 995 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
-| 3 | pravila-modelei | до V-2 | ops | 997 | docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса |
+| 3 | 998 | до V-2 | ops | 997 | docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
 | 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |

@@ -16,7 +16,7 @@ id	пара	этап	зависит	источник	трек
 096	5	до V-2	095	docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5	autonomy
 V-2	6	до V-2	090,091,094,095,096	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3	autonomy
 ночь-повторяемость	7	параллельно с V-2	V-2	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4	autonomy
-087	3	до V-2	pravila-modelei	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	CI
+087	3	до V-2	998	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	CI
 done-волны	9	параллельно с V-2	087	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	done
 генераторы-каналы	10	параллельно с V-2	done-волны	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	tools
 решения-контекст	11	параллельно с V-2	генераторы-каналы	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	architecture
@@ -31,7 +31,8 @@ CI-затронутое	13	параллельно с V-2	операционны�
 994	3	до V-2	-	97b1911f6	CI
 996	4	до V-2	-	docs/owner/2026-10-17-plan-stancii.md#Слот 1	project-mode
 995	3	до V-2	-	docs/owner/2026-10-17-plan-stancii.md#Слот 2	complior
+999	3	до V-2	995	docs/owner/2026-10-17-plan-stancii.md#Слот 2	complior
 CMP-BCK-133	5	до V-2	993	docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок	complior
 997	3	до V-2	-	docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно	ops
 ci-proekta	5	до V-2	996	docs/owner/2026-10-18-ci-predpolet.md#Порядок	CI
-pravila-modelei	3	до V-2	997	docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса	ops
+998	3	до V-2	997	docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса	ops
