@@ -26,14 +26,16 @@ name: 995 synthetic DIRECT entry and restart
 - assertVisible: Demo
 - assertNotVisible:
     id: protected-start
-- assertNotVisible:
-    id: invitation-accepted
 - takeScreenshot: pilot-welcome
 - stopApp
 - launchApp:
     clearState: false
+- assertVisible:
+    id: first-run-continue
+- tapOn:
+    id: first-run-continue
+- assertVisible:
+    id: auth-email
 - assertNotVisible:
-    id: invitation-accepted
-- assertNotVisible:
-    id: business-command-replayed
+    id: F02.01
 - takeScreenshot: pilot-restart

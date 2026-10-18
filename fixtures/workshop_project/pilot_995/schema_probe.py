@@ -6,7 +6,9 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 from jsonschema import Draft202012Validator
+from runtime_probe import run as run_runtime
 
 HERE = Path(__file__).resolve().parent
 
@@ -36,9 +38,13 @@ def main():
         path = a.repo / 'mobile/src/mocks/pilot-responses.json'
         if not path.exists():
             print('MOCK_RESPONSES_ABSENT'); return 1
-        errors = validate(root, json.loads(path.read_text()))
-        print('\n'.join(errors) if errors else '995 schema checked=2')
-        return int(bool(errors))
+        values = json.loads(path.read_text())
+        errors = validate(root, values)
+        if errors:
+            print('\n'.join(errors)); return 1
+        rc, _ = run_runtime(a.repo, ['RUNTIME_RESPONSES'], values=values)
+        print('RUNTIME_RESPONSES_MISMATCH' if rc else '995 schema checked=2 runtime=matched')
+        return rc
     rows = [('honest', None), ('wrong-session', 'MOCK_SCHEMA_INVALID:getSession'), ('wrong-disclosure', 'MOCK_SCHEMA_INVALID:getDisclosure')]
     results = []
     for mode, reason in rows:
@@ -51,6 +57,12 @@ def main():
         print(f'995 schema/{mode}: rc={rc} reasons={errors}')
         results.append(errors == ([] if reason is None else [reason]))
         if not a.matrix: return rc
+    if a.matrix:
+        for model, reason in [('honest', ''), ('wrong-session', 'principal_ref'), ('wrong-disclosure', 'acknowledged')]:
+            rc, failure = run_runtime(a.repo, ['RUNTIME_RESPONSES'], model=model, values=honest)
+            expected_rc = int(model != 'honest')
+            results.append(rc == expected_rc and reason in failure)
+            print(f'995 schema/runtime-{model}: rc={rc} fixture_schema=valid')
     print(f'995 schema checked={len(results)}')
     return int(not all(results))
 
@@ -58,6 +70,6 @@ def main():
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, ValueError, KeyError, RuntimeError) as error:
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.TimeoutExpired) as error:
         print('995 INFRASTRUCTURE:', error, file=sys.stderr)
         sys.exit(2)

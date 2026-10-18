@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -37,28 +38,35 @@ def main():
     p.add_argument('--matrix', action='store_true')
     p.add_argument('--model', choices=['honest'] + sorted({m for m, _, _ in MUTANTS}))
     p.add_argument('--case', choices=CASES)
+    p.add_argument('--check-frozen', action='store_true')
     a = p.parse_args()
     repo = a.repo.resolve()
     if not repo.is_relative_to('/tmp/dev-harness-verify'):
         raise RuntimeError('DISPOSABLE_REQUIRED')
     mobile = repo / 'mobile'
     subject = mobile / 'src/bootstrap/pilot-app.tsx'
-    testdir = subject.parent / '__tests__'
-    test = testdir / 'pilot-995.test.tsx'
-    data = testdir / 'source.json'
-    if test.exists() or data.exists():
-        raise RuntimeError('OCCUPIED_TEST_PATH')
+    bootstrap_existed = subject.parent.exists()
     # Oracle and all executable specification bytes are captured before subject execution.
     test_bytes = (HERE / 'pilot.test.tsx').read_bytes()
     source_bytes = (HERE / 'source.json').read_bytes()
     model_bytes = (HERE / 'model.tsx').read_bytes()
+    if a.check_frozen:
+        for name, content in [('pilot.test.tsx', test_bytes), ('source.json', source_bytes)]:
+            path = subject.parent / '__tests__' / name
+            if not path.exists() or path.read_bytes() != content:
+                print('995 FROZEN_BYTES_MISMATCH:' + name)
+                return 1
     original = subject.read_bytes() if subject.exists() else None
     if not a.matrix and not a.model and original is None:
         print('995 PILOT_ABSENT: real composition seam is not implemented')
         return 1
     rows = [('honest', None, 0, '')] + [(m, c, 1, reason) for m, c, reason in MUTANTS] if a.matrix else [(a.model or 'actual', a.case, None, '')]
     results = []
-    testdir.mkdir(parents=True, exist_ok=True)
+    subject.parent.mkdir(parents=True, exist_ok=True)
+    testdir = Path(tempfile.mkdtemp(prefix='__pilot995_', dir=subject.parent))
+    test = testdir / 'pilot-995.test.tsx'
+    data = testdir / 'source.json'
+    model_bytes = model_bytes.replace(b"'./__tests__/source.json'", repr('./' + testdir.name + '/source.json').encode())
     try:
         test.write_bytes(test_bytes)
         data.write_bytes(source_bytes)
@@ -89,8 +97,8 @@ def main():
     finally:
         if original is None: subject.unlink(missing_ok=True)
         else: subject.write_bytes(original)
-        test.unlink(missing_ok=True)
-        data.unlink(missing_ok=True)
+        shutil.rmtree(testdir)
+        if not bootstrap_existed: subject.parent.rmdir()
     print(f'995 runs={len(results)} mismatches={sum(rc != expected for rc, expected in results if expected is not None)}')
     return int(any(rc != expected if expected is not None else rc != 0 for rc, expected in results))
 
