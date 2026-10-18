@@ -26,6 +26,8 @@ HERE = Path(__file__).resolve().parent
 CASES = [
     # сторож исчерпывающего перечня автомата
     'SENTRY_HANDLERS',
+    # статическое звено reset-хелпера: отменяющий обработчик обязан вызывать resetChallenge()
+    'RESET_CHALLENGE_CALLS',
     # begin
     'BEGIN_REBEGIN', 'BEGIN_UNMOUNT',
     # verify
@@ -77,7 +79,12 @@ def run(repo, cases=None):
                    '--runTestsByPath', str(workspace / 'stale_table.test.tsx'),
                    '--json', '--outputFile', str(report)]
             if cases:
-                pattern = '^995 table (?:' + '|'.join(cases) + ')$'
+                # Jest матчит паттерн по ПОЛНОМУ имени: describe '995 stale table'
+                # + ' ' + титул ячейки (замер inspect_fullname: '995 stale table
+                # 995 table X'). Якорь '^995 table …$' не совпадал ни с одной
+                # ячейкой — все skipped, rc2 ASSERTION_SET_MISMATCH (adversary
+                # микро-круга). Ловим титул: пробел/начало + '$' на конце.
+                pattern = '(?:^| )995 table (?:' + '|'.join(cases) + ')$'
                 cmd += ['--testNamePattern', pattern]
             proc = subprocess.run(cmd, cwd=mobile, env=env, capture_output=True, text=True, timeout=300)
             if not report.exists(): raise RuntimeError('JEST_REPORT_MISSING:' + proc.stderr[-1500:])

@@ -22,12 +22,16 @@ import source from './source.json';
 // окне её наблюдаемая стоит. VERIFY_NO_ACCESS/GETSESSION_NO_ACCESS — окно
 // handleNoAccess (между no-access и следующим стражем нет перехода);
 // BEGIN_REBEGIN — окно handleDemoEntry; *_CHANGE_EMAIL_EARLY — окно
-// handleChangeEmail (resolve ДО re-begin). handleReturn структурно маскирован:
+// handleChangeEmail (resolve ДО re-begin). handleReturn динамически маскирован:
 // auth-return рендерится только в RecoveryFrame, recovery достижим только через
-// handleNoAccess, а каждый возврат к code идёт через handleDemoEntry —
-// одиночное удаление стража из handleNoAccess не наблюдаемо без поломки соседа
-// (ЛЖЬ по Н-39); RETURN_GUARD_EARLY доказывает его страж парой мутантов
-// no-access+demo-entry. RECORD_* переносят УЖЕ ПРИМЕНЁННОЕ состояние
+// handleNoAccess (чей сброс уже очистил flow), recovery-кадр не пишет состояние
+// challenge (recover не касается flow), а возврат к code обязан пройти
+// handleDemoEntry со сбросом ДО порта — ОДИНОЧНОЕ удаление resetChallenge() из
+// handleReturn динамически ненаблюдаемо (измерено adversary микро-круга:
+// mut-return проходит все динамические ячейки 36/36). Поэтому обязанность
+// «каждый отменяющий обработчик вызывает общий reset-хелпер» несёт СТАТИЧЕСКОЕ
+// звено RESET_CHALLENGE_CALLS; RETURN_GUARD_EARLY остаётся динамическим
+// контролем пары no-access+return. RECORD_* переносят УЖЕ ПРИМЕНЁННОЕ состояние
 // (sent/cooldown/invalid/code) старого challenge через no-access→return→re-begin
 // (пути rev3-carry ревьюера круга 3); LIVE_* — живой контроль против
 // вечно-красноты. Порты — deferred-наблюдатели над ОТГРУЖАЕМОЙ композицией
@@ -496,6 +500,40 @@ describe('995 stale table', () => {
     const stray = sites.filter((site) => !owners.includes(site.owner));
     expect(stray).toEqual([]);
     expect(sites.length).toBeGreaterThan(0);
+  });
+
+  // ---------- статическое звено reset-хелпера (микро-круг: mut-return) ----------
+  it('995 table RESET_CHALLENGE_CALLS', () => {
+    // Одиночное удаление resetChallenge() из handleReturn динамически
+    // ненаблюдаемо (доказательство структурной маскировки — шапка файла),
+    // поэтому обязанность «отменяющий обработчик вызывает общий reset-хелпер»
+    // проверяется по shipped pilot-app.tsx в стиле SENTRY_HANDLERS: внутри
+    // тела КАЖДОГО из четырёх отменяющих обработчиков обязан стоять прямой
+    // вызов resetChallenge();. Краснеет именованно — RESET_CHALLENGE_CALL_MISSING:
+    // <handler> по одному на каждый singleton-мутант (Н-39: свой вход — своё
+    // предъявление).
+    const fs = require('fs');
+    const path = require('path');
+    const text = fs.readFileSync(path.join(__dirname, '..', 'pilot-app.tsx'), 'utf8');
+    const cancellers = ['handleDemoEntry', 'handleChangeEmail', 'handleNoAccess', 'handleReturn'];
+    let owner = '';
+    let helper = false;
+    const defs: string[] = [];
+    const calls: Record<string, number> = {};
+    text.split('\n').forEach((line) => {
+      const def = line.match(/const (handle\w+) = useCallback/);
+      if (def) { defs.push(def[1]); owner = def[1]; return; }
+      if (/const resetChallenge = useCallback/.test(line)) { owner = 'resetChallenge'; helper = true; return; }
+      if (/^  \}, \[/.test(line)) { owner = ''; return; }
+      if (owner && /^\s*resetChallenge\(\);/.test(line)) calls[owner] = (calls[owner] ?? 0) + 1;
+    });
+    const violations: string[] = [];
+    if (!helper) violations.push('RESET_CHALLENGE_HELPER_ABSENT');
+    cancellers.filter((name) => !defs.includes(name))
+      .forEach((name) => violations.push(`RESET_HANDLER_MISSING:${name}`));
+    cancellers.filter((name) => !(calls[name] >= 1))
+      .forEach((name) => violations.push(`RESET_CHALLENGE_CALL_MISSING:${name}`));
+    expect(violations).toEqual([]);
   });
 
   // ---------- переход handleNoAccess: окно до следующего стража ----------
