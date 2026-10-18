@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, userEvent, within } from '@testing-library/react-native';
 import { PilotApp } from '../pilot-app';
 import source from './source.json';
 
@@ -61,7 +61,7 @@ describe('995 pilot', () => {
   });
   it('RESEND_UNCONFIRMED', async () => {
     const p = ports(); const pending = deferred(); p.auth.resend.mockImplementation(() => pending.promise);
-    await start(p); await click('auth-resend');
+    await start(p); await userEvent.press(screen.getByTestId('auth-resend'));
     expect(screen.queryByText(text('ui.auth.code_resend_sent'))).toBeNull();
     expect(screen.queryByTestId('auth-cooldown')).toBeNull();
     await act(async () => pending.resolve({ confirmed: false, evidence: 'SYNTHETIC' }));
@@ -83,7 +83,8 @@ describe('995 pilot', () => {
   });
   it('EMAIL_STALE', async () => {
     const p = ports(); const pending = deferred(); p.auth.verify.mockImplementationOnce(() => pending.promise);
-    await start(p); await verify(); await click('auth-change-email');
+    await start(p); await fireEvent.changeText(screen.getByTestId('auth-code'), secret);
+    await userEvent.press(screen.getByTestId('auth-verify')); await click('auth-change-email');
     await fireEvent.changeText(screen.getByTestId('auth-email'), 'two@example.invalid'); await click('auth-demo-entry');
     await act(async () => pending.resolve({ status: 'authenticated', evidence: 'SYNTHETIC' }));
     expect(screen.queryByTestId('F02.01')).toBeNull(); expect(p.api.getSession).not.toHaveBeenCalled();
@@ -94,7 +95,7 @@ describe('995 pilot', () => {
     const p = await start(); await click('auth-no-access');
     const recovery = screen.getByTestId('F03.04');
     expect(within(recovery).getByTestId('recovery-A07')).toBeOnTheScreen();
-    expect(screen.getByText(text('frame.F03.04.title'))).toBeOnTheScreen();
+    expect(within(recovery).getByRole('header', { name: text('frame.F03.04.title') })).toBeOnTheScreen();
     await click('auth-recover'); expect(p.auth.recover).toHaveBeenCalled();
     expect(screen.queryByTestId('recovery-success')).toBeNull(); noCommit(p);
     await click('auth-return'); expect(screen.getByTestId('auth-email')).toBeOnTheScreen();
@@ -124,6 +125,7 @@ describe('995 pilot', () => {
   });
   it('DEFAULT_OFFLINE', async () => {
     const original = global.fetch;
+    const originalMode = process.env.EXPO_PUBLIC_API_MODE;
     global.fetch = jest.fn(async () => { throw Error('995 HTTP_UNAVAILABLE'); });
     delete process.env.EXPO_PUBLIC_API_MODE;
     try {
@@ -132,6 +134,10 @@ describe('995 pilot', () => {
       expect(screen.getByTestId('auth-code')).toBeOnTheScreen();
       expect(screen.getByText('Demo')).toBeOnTheScreen();
       expect(global.fetch).not.toHaveBeenCalled();
-    } finally { global.fetch = original; }
+    } finally {
+      global.fetch = original;
+      if (originalMode === undefined) delete process.env.EXPO_PUBLIC_API_MODE;
+      else process.env.EXPO_PUBLIC_API_MODE = originalMode;
+    }
   });
 });

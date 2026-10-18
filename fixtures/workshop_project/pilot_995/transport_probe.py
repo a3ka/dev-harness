@@ -15,7 +15,7 @@ def main():
     mobile = a.repo.resolve() / 'mobile'
     eslint = mobile / 'node_modules/eslint/bin/eslint.js'
     if not a.matrix:
-        files = [str(p) for root in ['src/app', 'src/features/auth'] for p in (mobile / root).rglob('*.tsx') if '__tests__' not in p.parts]
+        files = [str(p) for root in ['src/app', 'src/features/auth', 'src/features/onboarding', 'src/bootstrap'] for p in (mobile / root).rglob('*.tsx') if '__tests__' not in p.parts]
         if not files: raise RuntimeError('EMPTY_SCREEN_SET')
         return subprocess.run(['node', str(eslint), '--format', 'json', *files], cwd=mobile).returncode
     rows = [

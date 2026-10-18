@@ -17,7 +17,10 @@ HERE = Path(__file__).resolve().parent
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--device', required=True)
+    target = p.add_mutually_exclusive_group(required=True)
+    target.add_argument('--device')
+    target.add_argument('--repo', type=Path)
+    p.add_argument('--apk', type=Path)
     p.add_argument('--code-file', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     a = p.parse_args()
@@ -27,13 +30,34 @@ def main():
     if a.out.exists():
         raise RuntimeError('OCCUPIED_OUTPUT')
     flow = (HERE / 'pilot.yaml').read_bytes()
+    if a.repo and not a.apk:
+        raise RuntimeError('APK_REQUIRED')
+    # Existing CI owns emulator lifetime. Snapshot its script/flows before execution;
+    # run them in private cwd so its hardcoded maestro-out never becomes raw artifacts.
+    ci_script = (a.repo / 'mobile/scripts/ci-e2e.sh').read_bytes() if a.repo else None
+    ci_flows = [(f.relative_to(a.repo / 'mobile/.maestro'), f.read_bytes())
+                for f in (a.repo / 'mobile/.maestro').rglob('*') if f.is_file()] if a.repo else []
     with tempfile.TemporaryDirectory(prefix='pilot995-native-') as tmp:
         private = Path(tmp)
-        (private / 'pilot.yaml').write_bytes(flow)
-        report = private / 'report.xml'
-        result = subprocess.run(['maestro', '--device', a.device, 'test', '--format', 'junit', '--output', str(report), '--test-output-dir', str(private / 'debug'), str(private / 'pilot.yaml')], cwd=private, env=dict(os.environ, PILOT_DEMO_CODE=secret), capture_output=True, timeout=300)
+        if a.repo:
+            for path, raw in ci_flows:
+                dest = private / '.maestro' / path
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(raw)
+            (private / '.maestro').mkdir(exist_ok=True)
+            (private / '.maestro/pilot.yaml').write_bytes(flow)
+            (private / 'ci-e2e.sh').write_bytes(ci_script)
+            publication = private / 'maestro-out'
+            report = publication / 'report.xml'
+            command = ['bash', str(private / 'ci-e2e.sh'), str(a.apk.resolve())]
+        else:
+            (private / 'pilot.yaml').write_bytes(flow)
+            publication = private
+            report = private / 'report.xml'
+            command = ['maestro', '--device', a.device, 'test', '--format', 'junit', '--output', str(report), '--test-output-dir', str(private / 'debug'), str(private / 'pilot.yaml')]
+        result = subprocess.run(command, cwd=private, env=dict(os.environ, PILOT_DEMO_CODE=secret), capture_output=True, timeout=1800 if a.repo else 300)
         # Capture every publication candidate in memory; do not reread after sanitizing.
-        files = [(f.relative_to(private), f.read_bytes()) for f in private.rglob('*') if f.is_file() and f.name != 'pilot.yaml']
+        files = [(f.relative_to(publication), f.read_bytes()) for f in publication.rglob('*') if f.is_file() and f.name != 'pilot.yaml']
         a.out.mkdir(parents=True)
         for path, raw in files:
             dest = a.out / path

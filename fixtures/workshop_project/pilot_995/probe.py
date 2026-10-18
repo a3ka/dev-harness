@@ -42,7 +42,7 @@ def main():
     if not repo.is_relative_to('/tmp/dev-harness-verify'):
         raise RuntimeError('DISPOSABLE_REQUIRED')
     mobile = repo / 'mobile'
-    subject = mobile / 'src/features/auth/pilot-app.tsx'
+    subject = mobile / 'src/bootstrap/pilot-app.tsx'
     testdir = subject.parent / '__tests__'
     test = testdir / 'pilot-995.test.tsx'
     data = testdir / 'source.json'

@@ -1,6 +1,6 @@
 # Контракт 995 — CMP-MOB-001: Android-пилот e-mail/код → F02.01
 
-КЛАСС: КОДОВЫЙ. Авторский контракт; НЕ ГОТОВ к critic/freeze, пока не закрыт §Незаполненные требования. Продолжает a3665a569, не меняет предмет issue #5.
+КЛАСС: КОДОВЫЙ. Авторский контракт CMP-MOB-001; предмет issue #5 сохранён. Android-приёмка C следует после реализации, не подменяется авторскими моделями.
 
 КОНТЕКСТ: GitHub `a3ka/Complior-mob#5` — источник работ и приёмки; перед раздачей читать полное тело через `gh issue view 5 --repo a3ka/Complior-mob --json body --jq .body`.
 КОНТЕКСТ: `contracts/991-complior-repeticiya-p107-p111.md` — дисциплина H/B/C/T и Android evidence; несколько PR репетиции сюда не переносятся.
@@ -18,7 +18,7 @@
 - `api/frontend-consumer-bindings.json`: F03.A01/F03.A02 = IDP_FLOW, remote_operation_id=null, active_operation_ids=[]; getSession — read. `getDisclosure` = GET /v1/disclosures/{disclosure_id}. Новый REST endpoint входа недопустим.
 - Прочитаны Mobile_Design_Data F03/F02, Screen_Matrix, UI_Copy_DE, backend `tests/acceptance-ux1175.json` UX175-F03.A01/F03.A02. Статусы backend остаются NOT_RUN; источник требует intent, no commit navigation, current scope, no duplicate effect/replay, no deprecated fallback.
 - D2.2.5.1 `README.md` и screens/html/Splash/First-Run — визуальные референсы, не API/copy authority. Четыре ui.auth.* имеют PRODUCT_COPY_REVIEW_REQUIRED.
-- `.github/workflows/mobile.yml` уже запускает quality (npm test/lint/typecheck/doctor), затем release APK и API36 Maestro. `.maestro/` уже несёт start/rehearsal. Их обязательность сохраняется; пилот добавляется, а не выключает прежний CI.
+- `.github/workflows/mobile.yml` уже запускает quality (npm test/lint/typecheck/doctor), затем release APK и API36 Maestro. `.maestro/start.yaml` и `rehearsal.yaml` предполагают старый cold launch Start; явная миграция входа описана в §Пины и порядок поставки. `rehearsal-evidence.sh` требует успешный testcase `.maestro/rehearsal.yaml` и rehearsal-before/after PNG; этот гейт остаётся неизменным.
 - `rehearsal_991/probe.py` — прецедент отдельного Jest в disposable checkout с проверкой исполненных assertions и различением rc1/rc2. Здесь тот же подход, ожидания/код проб снимаются в память до исполнения субъекта.
 
 ## Предмет и граница
@@ -37,7 +37,7 @@
 
 ## Проверяемый шов
 
-Публичный React composition `PilotApp` подключает реальные AuthProvider/ApiClient и экран; принимает необязательные auth/api/entry порты из `pilot.test.tsx`, без props выбирает реальный mock/http runtime. Это шов зависимости, НЕ отдельная тестовая реализация приложения. Root route должен использовать ту же композицию. Место composition подчиняется STRUCTURE.md; окончательное расширение зоны/путь — §Незаполненные требования. Текущий раннер ожидает экспорт `mobile/src/features/auth/pilot-app.tsx`; при выборе bootstrap меняется только import seam перед freeze, не assertions.
+Публичный React composition `PilotApp` в `mobile/src/bootstrap/pilot-app.tsx` подключает реальные AuthProvider/ApiClient и экраны; принимает необязательные auth/api/entry порты из `pilot.test.tsx`, без props выбирает реальный mock/http runtime. Это шов зависимости, НЕ отдельная тестовая реализация приложения. Root route использует ту же композицию; F03 остаётся features/auth, F02 — features/onboarding, pending-intent — navigation. Bootstrap соединяет домены без cross-feature imports.
 
 Auth порт: begin(email) → challenge/evidence; verify(challenge,code) → authenticated|invalid|stale|revoked|missing_scope; resend(challenge) → confirmed/evidence/optional retryAfterSeconds; recover() → unavailable либо подтверждённый исход. Это локальный DI-контракт пилота, не wire-контракт IdP. Api порт несёт getSession/getDisclosure и запрещённый в этом срезе execute; entry DIRECT, onboarding unknown/incomplete и opaque pendingIntent. Реализация не должна создавать production endpoint из этих имён.
 
@@ -60,7 +60,13 @@ R — disposable копия Complior-mob C под /tmp/dev-harness-verify с npm
 
 Оркестратор до реализации записывает append-only в issue #5 H/B/S, профиль/ContextPack и hashes source.json. Затем critic → freeze → implementer → один PR C → настоящий эмулятор → adversary/reviewer → доклад владельцу, БЕЗ merge. Новый C требует новых доказательств. Для каждого run: checkout/tree T (не автоматически C), SDK/AVD/Maestro, run/attempt, APK/JUnit/PNG artifact IDs и SHA256. Судьи снимают ожидания H в память до кода PR. Дизайн/сходство со Splash/First-Run и немецкий copy — cognitive-only, reviewer сверяет источник и PNG; signoff остаётся владельцу, не объявляется агентом.
 
-CI implementer добавляет пилотные RNTL в auth __tests__, schema validator в mocks и Python setup/install/вызов в quality либо эквивалентный уже установленный schema runtime без расширения зависимостей; frozen test bytes и исходные схемы неизменны. `.maestro/pilot.yaml` потребляется уже существующим обходом flows. Прежние start/rehearsal сценарии и checks не ослабляются. Невозможность сохранить прежний вход Start без изменения вне зоны — отдельный явный конфликт допуска, не удаление теста.
+CI implementer добавляет frozen пилотные RNTL в `bootstrap/__tests__/`, schema validator в mocks и Python setup/install/вызов в quality либо эквивалентный уже установленный schema runtime; frozen test bytes и исходные схемы неизменны. Workflow получает H по immutable SHA. Native шаг mobile.yml вызывает из H `python3 fixtures/workshop_project/pilot_995/maestro_probe.py --repo C --apk ABS_APK --code-file PRIVATE_FILE --out C/mobile/maestro-out` вместо прямого `bash scripts/ci-e2e.sh`. Runner снимает script/legacy flow bytes до исполнения, вызывает существующий ci-e2e в приватном cwd с абсолютным APK и frozen pilot.yaml; этот script сам поднимает/убирает эмулятор, поэтому отдельный вызов после его завершения недопустим. В checkout публикуется только redacted maestro-out, затем неизменный rehearsal-evidence gate и upload. Файл code-file вне checkout/artifact path, новый output path обязан отсутствовать.
+
+Frozen `pilot.yaml` живёт в H и добавляется runner в приватный набор flows; его НЕ копируют в публичную `mobile/.maestro/`, иначе старый cloud runner получил бы неизвестную переменную/сырые secret artifacts. Cloud продолжает исполнять общие start/rehearsal без ввода кода; обязательная полная pilot-проверка — mobile.yml. `native_matrix.py --scratch SCRATCH` испытывает device/CI режимы без устройства: rc0 только при совпадении кодов/причин ROWS и redaction каждой публикации. Синтетические APK/PNG/команда внутри матрицы не являются Android evidence.
+
+**Миграция 991, явно:** старый cold launch прямо в Start несовместим с обязательным DIRECT unknown → First-Run/F03/F02. Поэтому `start.yaml` проверяет новый холодный вход First-Run и сохраняет `start.png`; `rehearsal.yaml` сохраняет имя файла, успешный JUnit testcase, rehearsal-before/after PNG и проверку пользовательского действия/сброса, но вместо демонстрационной кнопки Start выполняет First-Run → e-mail → demo-entry → F03.02; после stop/launch с clearState=false незавершённый challenge возвращается к безопасному вводу e-mail (через First-Run, если он снова показан), не к авторизованному Start. До действия снимается rehearsal-before, после подтверждённого begin — rehearsal-after. Это замена устаревшего предположения о входе, НЕ заявление о неизменной семантике старого e2e. `pilot.yaml` отдельно проверяет успешный код → F02 и restart. Новых обходных route IDs или auth-bypass для старого теста нет.
+
+Зелёными остаются без правок component RNTL `features/start/__tests__/start-screen.test.tsx` и `rehearsal.test.tsx` (старый Start не удаляется), обязательные quality/android-e2e jobs, Maestro version gate и `scripts/rehearsal-evidence.sh` в обоих workflows. `.maestro/` общая для mobile/cloud, cloud workflow не меняется. Историческая поставка 991 и её pinned artifacts не переписываются. Дано: C; когда: scoped Jest этих старых component tests + все Maestro flows и неизменный rehearsal-evidence gate; тогда: rc0; отсутствие rehearsal testcase/PNG → именованный отказ существующего гейта. Actual C пока NOT_RUN.
 
 ## Зоны и исполнители
 
@@ -70,11 +76,13 @@ CI implementer добавляет пилотные RNTL в auth __tests__, schem
 ЗОНА reviewer: verdicts/review/
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/pilot_995/ — 105 новый подкаталог существующей architect-зоны; чужие файлы не меняются.
 
-Следующая строка дословно сохраняет целевые пути issue от корня Complior-mob, НЕ от dev-harness:
+Пути implementer ниже отсчитываются от корня Complior-mob, НЕ dev-harness. Базовые зоны issue сохранены; structural additions поимённые:
 
-ЗОНА implementer: mobile/src/app/ mobile/src/features/auth/ mobile/src/api/ mobile/src/auth/ mobile/src/mocks/ mobile/.maestro/ .github/workflows/mobile.yml
+ЗОНА implementer: mobile/src/app/ mobile/src/features/auth/ mobile/src/api/ mobile/src/auth/ mobile/src/mocks/ mobile/.maestro/ .github/workflows/mobile.yml mobile/src/bootstrap/pilot-app.tsx mobile/src/bootstrap/__tests__/ mobile/src/features/onboarding/welcome-screen.tsx mobile/src/navigation/pending-intent.ts
 
-Новые package/test-config зависимости не требуются: существующие Jest/RNTL достаточны. api/docs/design read-only, mobile-cloud-e2e и настройки GitHub вне зоны. Расширение зоны до structural composition обсуждается явно ниже, не разрешено строкой интерфейса.
+`bootstrap/pilot-app.tsx` и его `__tests__/` — реальная композиция/проверка её публичного шва (STRUCTURE.md:7–13,60,143–155); `features/onboarding/welcome-screen.tsx` — F02.01, не auth (60–77 и 111); `navigation/pending-intent.ts` — типизированные данные намерения, без исполнения (61,143–155,157). Добавление других файлов этих слоёв не разрешено. Новые package/test-config зависимости не требуются: существующие Jest/RNTL достаточны. api/docs/design read-only; mobile-cloud-e2e и настройки GitHub вне зоны.
+
+**ФОРК — КЛАСС: инженерный, РЕШЁН оркестратором:** issue #5 — PROPOSED список путей; STRUCTURE.md — действующая карта владельцев. Выбран её приоритет с минимальными добавлениями выше, не перенос F02/composition/pending-intent в auth. Воля владельца остаётся только copy-signoff/риск/деньги; этот fork их не решает.
 
 ## Модель угроз
 
@@ -96,16 +104,23 @@ CI implementer добавляет пилотные RNTL в auth __tests__, schem
 
 ПРОВОДКА-ЭНФОРСМЕНТ: потребляется действующая норма закрытия роли. Новая общая норма не вводится; локальная приёмка этой задачи исполняется оркестратором/судьями и CI Complior-mob. Внешние пробы НЕ объявлены guard-каналами dev-harness: текущий check_provodka требует для них отсутствующую локальную CI-проводку. На ещё не принятую правку 994 контракт не опирается.
 
-## Незаполненные требования
+## Отложенная продуктовая приёмка
 
-- Structural zone conflict: issue не выделяет bootstrap (composition), features/onboarding (F02), navigation (pending-intent), хотя STRUCTURE.md закрепляет их владельцами. Запрошено решение оркестратора до freeze; молча переносить всё в auth запрещено. До разрешения — не раздавать реализацию.
-- Native Android red/green и actual C ещё NOT_RUN: это обязательная приёмка implementer/судей, не результат авторской модели. ФОРК владельца: copy-signoff/риск/деньги не решаются этой пачкой.
-- Полная native-защита артефактов от кода требует подтверждённого способа redaction Maestro перед upload; `maestro_probe.py --device SERIAL --code-file PRIVATE_FILE --out NEW_OUT` запускает те же frozen flow bytes в приватном временном каталоге и публикует только отредактированные текстовые artifacts. Код не печатается. PNG требуют secureTextEntry и визуальной сверки. Сам native runner пока NOT_RUN, не доказательство защиты.
+- Android red на APK B, green на release APK C, PNG review и реальные PR jobs — NOT_RUN: C ещё не реализован, `adb devices -l` не показывает устройства. Это обязательная приёмка implementer/судей после freeze, не блокер авторской матрицы.
+- Native runner исполняется командой `python3 fixtures/workshop_project/pilot_995/maestro_probe.py --device SERIAL --code-file PRIVATE_FILE --out NEW_OUT`; код читается из приватного файла, frozen flow запускается в приватном временном каталоге, stdout/stderr/XML/JSON перед публикацией редактируются по точному значению. Контрмодели доказывают этот путь без эмулятора; PNG требуют secureTextEntry и визуальной сверки на C. Прямой Maestro из §Приёмочный критерий описывает внутренний вызов runner, не разрешает upload сырых artifacts.
+- Backend/IdP HTTP_REQUEST_RESPONSE, SQL_BEFORE_AFTER, PROVIDER_CALL_COUNT — NOT_RUN: mock-предмет не доказывает production auth/backend. Copy signoff остаётся владельцу.
 
 ## Фактический замер авторской пачки
 
-`bash scripts/pre_critic.sh --repo . contracts/995-cmp-mob-001-android-pilot.md` → rc0, `КРИТИК: дверь зелёная`. Это метагейт, не разрешение обойти незавершённые предметные прогоны.
+Разрешённый R=`/tmp/dev-harness-verify/architect995/mob`, P=`/tmp/dev-harness-verify/architect995/venv/bin/python`. `npm ci --no-audit --no-fund` → rc0; P установлен по requirements.txt, jsonschema 4.26.0. Снимки c995 не изменяются. `capture.capture(mob, back) == json.loads(source.json)` → rc0, hashes match.
 
-`python3 fixtures/workshop_project/pilot_995/probe.py --repo /tmp/dev-harness-verify/c995/mob` → rc1, `995 PILOT_ABSENT: real composition seam is not implemented`. Отсутствие субъекта проверяется до любой записи в read-only snapshot.
+- `python3 fixtures/workshop_project/pilot_995/probe.py --repo R --matrix` → rc0: honest исполнил все 14 CASES зелёными; 17 привязанных MUTANTS-предъявлений красные rc1 по своим причинам; runs=18, mismatches=0. Это интерактивные модели, не готовый продукт.
+- `P fixtures/workshop_project/pilot_995/schema_probe.py --repo R --matrix` → rc0: honest rc0; wrong-session rc1 MOCK_SCHEMA_INVALID:getSession; wrong-disclosure rc1 MOCK_SCHEMA_INVALID:getDisclosure.
+- `python3 fixtures/workshop_project/pilot_995/transport_probe.py --repo R --matrix` → rc0: honest rc0; fetch/global rc1 no-restricted-globals существующего ESLint.
+- `python3 fixtures/workshop_project/pilot_995/native_matrix.py --scratch /tmp/dev-harness-verify/architect995` → rc0: в каждом из device/ci режимов honest rc0; failed/skipped/missing-png/nonzero rc1; missing-report/empty/malformed rc2 INFRASTRUCTURE. Все 16 публикаций проверены на redaction.
+- `python3 fixtures/workshop_project/pilot_995/probe.py --repo /tmp/dev-harness-verify/c995/mob` → rc1 PILOT_ABSENT, до записи в read-only снимок.
+- В R/mobile: `node node_modules/jest/bin/jest.js --ci --runInBand --runTestsByPath src/features/start/__tests__/start-screen.test.tsx src/features/start/__tests__/rehearsal.test.tsx` → rc0, обе suites и все 3 tests; это сохранённый B, не доказательство будущего C.
+- `/opt/android-sdk/platform-tools/adb devices -l` → rc0, список устройств пуст; `/home/harness/.maestro/bin/maestro --version` → rc0, 2.11.0. Android red/green и visual review остаются NOT_RUN по §Отложенная продуктовая приёмка.
 
-Сверка `capture.capture(mob, back) == json.loads(source.json)` выполнена → rc0, hashes match. Матрицы RNTL/schema/transport, native runner — NOT_RUN: npm не запускался после обнаружения существующего родительского scratch-каталога. Созданная копия расположена `/tmp/dev-harness-verify/architect995/mob`; STOP-045 сообщён оркестратору, запрошено подтверждение маршрута. Python окружение не имеет jsonschema; requirements.txt фиксирует необходимую зависимость для разрешённого scratch/CI. Нельзя объявлять эти непрогнанные модели честными или красными по одному их тексту.
+Перед критиком обязательны `bash scripts/pre_critic.sh --repo . contracts/995-cmp-mob-001-android-pilot.md` и `bash scripts/check_threat_model.sh . contracts/995-cmp-mob-001-android-pilot.md`; их rc прикладываются к сдаче. Метагейт не заменяет предметные прогоны.
+

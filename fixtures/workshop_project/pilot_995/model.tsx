@@ -63,7 +63,7 @@ export function PilotApp({ auth = demoAuth, api = demoApi, entry }: Ports) {
       {(sent || wait !== undefined) && mutant !== 'unmarked' && <Text>SYNTHETIC</Text>}
       {wait !== undefined && <View testID="auth-cooldown"><Text>{copy['ui.auth.code_resend_wait'].replace('{seconds}', String(wait))}</Text></View>}
     </View>}
-    {frame === 'recovery' && <View testID="F03.04"><Text>{copy['frame.F03.04.title']}</Text>
+    {frame === 'recovery' && <View testID="F03.04"><Text accessibilityRole="header">{copy['frame.F03.04.title']}</Text>
       {mutant !== 'missing-a07' && <View testID="recovery-A07"><Text>{copy['frame.F03.04.body']}</Text></View>}
       {button('auth-recover', copy['action.F03.A02'], async () => { await auth.recover(); })}
       {button('auth-return', 'Zurück', () => setFrame('email'))}
