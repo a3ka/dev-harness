@@ -8,11 +8,13 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 
 HERE = Path(__file__).resolve().parent
 TOOLS = HERE.parents[2]
+PARITY_CHECKED = False
 
 
 def run(argv, cwd=None, env=None):
@@ -40,6 +42,7 @@ def commit(root, message):
 
 
 def world(base):
+    global PARITY_CHECKED
     root = base / 'project'
     origin = base / 'origin.git'
     root.mkdir()
@@ -73,30 +76,45 @@ def world(base):
     for directory in paths.values():
         (root / directory).mkdir(parents=True, exist_ok=True)
     commit(root, 'toy bootstrap')
-    parity = run(['bash', TOOLS / 'scripts/verify_ci_parity.sh', root])
-    if parity.returncode:
-        raise RuntimeError('toy prerequisite CI parity: ' + parity.stdout + parity.stderr)
+    # The check.sh/workflow/package template is identical in every world.
+    # Validate that prerequisite once, before the first subject, not per mutant.
+    if not PARITY_CHECKED:
+        parity = run(['bash', TOOLS / 'scripts/verify_ci_parity.sh', root])
+        if parity.returncode:
+            raise RuntimeError('toy prerequisite CI parity: ' + parity.stdout + parity.stderr)
+        PARITY_CHECKED = True
     return root, origin, p, contract
 
 
-def subject(mode, op, root, *args, mutant=''):
+def subject(mode, op, root, *args, mutant='', tools=None, extra_env=None):
     env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
-    env.update(HARNESS_TOOLS_ROOT=str(TOOLS), HARNESS_WORKFLOW_ROOT=str(root),
+    if tools is None and mutant in ('tools-leak', 'station-writes-tools') and op in ('freeze', 'done'):
+        tools = installation(root.parent)
+    tools = Path(tools or TOOLS)
+    env.update(HARNESS_TOOLS_ROOT=str(tools), HARNESS_WORKFLOW_ROOT=str(root),
                HARNESS_PROJECT_LAYER_ROOT=str(root), MUTANT_996=mutant,
                GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null',
                PYTHONDONTWRITEBYTECODE='1')
+    env.update(extra_env or {})
     if mode == 'model':
-        cmd = [sys.executable, HERE / 'model.py', op, root, *args]
+        cmd = [sys.executable, tools / 'fixtures/workshop_project/rezhim_996/model.py', op, root, *args]
     else:
         commands = {
-            'paths': ['bash', TOOLS / 'scripts/project_workflow.sh', '--repo', root],
-            'gitw': ['bash', TOOLS / 'scripts/gitw', '-C', root, *args],
-            'freeze': ['bash', TOOLS / 'scripts/freeze_contract.sh', *args, '996 probe', root],
-            'done': ['bash', TOOLS / 'scripts/done_contract.sh', *args, '996 probe', root],
-            'pre_critic': ['bash', TOOLS / 'scripts/pre_critic.sh', '--repo', root, *args],
-            'sources': ['bash', TOOLS / 'scripts/check_project_sources.sh', '--repo', root,
+            'paths': ['bash', tools / 'scripts/project_workflow.sh', '--repo', root],
+            'gitw': ['bash', tools / 'scripts/gitw', '-C', root, *args],
+            'freeze': ['bash', tools / 'scripts/freeze_contract.sh', *args, '996 probe', root],
+            'done': ['bash', tools / 'scripts/done_contract.sh', *args, '996 probe', root],
+            'pre_critic': ['bash', tools / 'scripts/pre_critic.sh', '--repo', root, *args],
+            'sources': ['bash', tools / 'scripts/check_project_sources.sh', '--repo', root,
                         '--contract', *args, '--stage', 'pre_critic'],
-            'reserve': ['bash', TOOLS / 'scripts/reserve_project_contract.sh', '--repo', root],
+            'reserve': ['bash', tools / 'scripts/reserve_project_contract.sh', '--repo', root],
+            'workshop': ['bash', tools / 'workshop', '--print-context', root],
+            'make_task': ['bash', tools / 'scripts/make_task.sh', '--repo', root,
+                          '--role', *args, '--print-context'],
+            'zones': ['bash', tools / 'scripts/check_zones.sh', root],
+            'staged': ['bash', tools / 'scripts/check_staged.sh', root],
+            'mint': ['bash', tools / 'scripts/mint_line.sh', '--root', root, '--nnn', *args],
+            'lib_zones': ['bash', HERE / 'zones_adapter.sh', tools, root],
         }
         cmd = commands[op]
     return run(cmd, cwd=root, env=env)
@@ -124,8 +142,267 @@ def canon(root, p, gate_exit=0):
     commit(root, 'source canon')
 
 
+def installation(base):
+    """A real runnable installation, never the checkout under development."""
+    install = base / 'install'
+    install.mkdir()
+    for name in git(TOOLS, 'ls-files').splitlines():
+        src = TOOLS / name
+        if src.is_file():
+            dst = install / name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+    git(install, 'init', '-q', '-b', 'main')
+    git(install, 'config', 'user.name', 'Fixture')
+    git(install, 'config', 'user.email', 'fixture@local')
+    commit(install, 'disposable installation')
+    return install
+
+
+def path_oracle(root, p):
+    expected = {k: str(root / v) for k, v in p['workflowPaths'].items() if k != 'state'}
+    state = root / p['workflowPaths'].get('state', '.harness')
+    expected.update(handoff=str(state / 'HANDOFF.md'), observations=str(state / 'NABLIUDENIA.md'),
+                    architectObservations=str(state / 'NABLIUDENIA_ARCHITECT.md'),
+                    roadmap=str(state / 'ROADMAP.md'), forks=str(state / 'forks'))
+    return expected
+
+
+EXTRA_CASES = (
+    'context-workshop', 'context-architect', 'context-implementer', 'context-critic',
+    'context-adversary', 'context-reviewer', 'context-arbiter',
+    'freeze-root-only', 'done-root-only', 'freeze-cap', 'freeze-root-arbitration',
+    'freeze-project-arbitration', 'git-origin-drift', 'git-broken-profile',
+    'paths-symlink', 'canon-precritic-green', 'canon-done-green', 'canon-stale-head',
+    'canon-null', 'canon-empty', 'canon-bool', 'canon-duplicate', 'canon-missing',
+    'canon-unavailable', 'canon-nul', 'reserve-race', 'reserve-unavailable',
+    'zones-project', 'zones-green', 'staged-project', 'staged-green', 'lib-zones-project',
+    'mint-project', 'mint-no-authority', 'self-canonical',
+)
+
+
+def extra_test(case, mode, base, mutant, root, origin, p, contract):
+    call = lambda op, *args, **kw: subject(mode, op, root, *args, mutant=mutant, **kw)
+    if case.startswith('context-'):
+        p['workflowPaths']['state'] = '.harness/session'
+        canon(root, p)
+        expected = {'workflow': path_oracle(root, p), 'sourceCanon': p['sourceCanon']}
+        role = case.removeprefix('context-')
+        suffix = {'critic': 'critic', 'adversary': 'adversary',
+                  'reviewer': 'review', 'arbiter': 'arbitration'}.get(role)
+        expected['verdict'] = str(root / p['workflowPaths']['verdicts'] / suffix) if suffix else None
+        expected['startup'] = [expected['workflow'][key] for key in
+                               ('handoff', 'contracts', 'verdicts', 'observations', 'roadmap')]
+        if role == 'workshop':
+            # An older launcher may forward the unknown flag to omp. Never let
+            # a red probe start a paid/live session or initialize the real install.
+            tools = installation(base) if mode == 'product' else TOOLS
+            trap = put(base, 'bin/omp', '#!/bin/sh\necho UNEXPECTED_OMP_LAUNCH >&2\nexit 97\n')
+            trap.chmod(0o755)
+            r = call('workshop', tools=tools,
+                     extra_env={'PATH': str(trap.parent) + os.pathsep + os.environ['PATH']})
+        else:
+            r = call('make_task', role)
+        expect(r.returncode == 0, 'ROLE_CONTEXT_UNAVAILABLE', r)
+        got = json.loads(r.stdout)
+        expect(all(got.get(k) == v for k, v in expected.items()), 'ROLE_CONTEXT_NOT_PROJECT_LOCAL', r)
+        expect(str(TOOLS) not in r.stdout, 'ROLE_CONTEXT_LEAKS_INSTALLATION', r)
+    elif case in ('freeze-root-only', 'done-root-only'):
+        op = case.split('-')[0]
+        role = 'critic' if op == 'freeze' else 'review'
+        # Remove the profile verdict from ALL history, not just HEAD (review reads history).
+        path = p['workflowPaths']['verdicts'] + f'/{role}/contracts-777-v1.md'
+        (root / path).unlink()
+        put(root, f'verdicts/{role}/contracts-777-v1.md', 'accept\n')
+        git(root, 'add', '.')
+        git(root, 'commit', '--amend', '-qm', 'root-only verdict')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call(op, contract)
+        reason = 'критик' if op == 'freeze' else 'вердикт'
+        expect(r.returncode == 1 and reason in r.stderr, 'ROOT_FALLBACK_ACCEPTED', r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
+               'ROOT_FALLBACK_MUTATED')
+    elif case in ('freeze-cap', 'freeze-root-arbitration', 'freeze-project-arbitration'):
+        verdict = p['workflowPaths']['verdicts'] + '/critic/contracts-777-v1.md'
+        for status in ('FAIL', 'accept'):
+            put(root, verdict, status + '\n')
+            commit(root, 'critic ' + status)
+        if case != 'freeze-cap':
+            directory = 'verdicts' if case == 'freeze-root-arbitration' else p['workflowPaths']['verdicts']
+            put(root, directory + '/arbitration/toy.md', 'РЕШЕНИЕ (контракт 777)\nСохранить критерий.\n')
+            commit(root, 'arbitration')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('freeze', contract)
+        if case == 'freeze-project-arbitration':
+            expect(r.returncode == 0 and git(root, 'tag', '-l') == 'frozen/contracts/777/1',
+                   'PROJECT_ARBITRATION_NOT_READ', r)
+        else:
+            expect(r.returncode == 1 and 'кап кругов' in r.stderr and not git(root, 'tag', '-l')
+                   and git(root, 'rev-parse', 'HEAD') == before, 'PROJECT_CAP_BYPASSED', r)
+    elif case in ('git-origin-drift', 'git-broken-profile'):
+        receiver = origin
+        if case == 'git-origin-drift':
+            receiver = base / 'foreign.git'
+            git(root, 'init', '--bare', '-q', str(receiver))
+            git(root, 'remote', 'set-url', 'origin', str(receiver))
+        else:
+            put(root, 'harness.project.json', '{broken')
+        r = call('gitw', 'push', 'origin', 'HEAD:refs/heads/probe')
+        expect(r.returncode == 1 and not git(receiver, 'for-each-ref', '--format=%(refname)'),
+               'UNTRUSTED_ORIGIN_ACCEPTED', r)
+    elif case == 'paths-symlink':
+        outside = base / 'outside'
+        outside.mkdir()
+        (root / 'escape').symlink_to(outside, target_is_directory=True)
+        p['workflowPaths']['state'] = 'escape'
+        put(root, 'harness.project.json', json.dumps(p))
+        r = call('paths')
+        expect(r.returncode == 1 and 'workflowPaths' in r.stderr, 'SYMLINK_ESCAPE_ACCEPTED', r)
+    elif case.startswith('canon-'):
+        canon(root, p)
+        op = 'done' if case in ('canon-done-green', 'canon-stale-head') else 'pre_critic'
+        reason = None
+        if case == 'canon-stale-head':
+            r = call('pre_critic', contract)
+            expect(r.returncode == 0, 'OLD_HEAD_GREEN_UNAVAILABLE', r)
+            first = json.loads((root / 'gate-observed.json').read_text())
+            canon(root, p, 7)
+            expect(first['head'] != git(root, 'rev-parse', 'HEAD'), 'STALE_HEAD_NOT_CHANGED')
+            reason = 'SOURCE_GATE_FAILED'
+        invalid = {'canon-null': None, 'canon-empty': {}}
+        if case in invalid:
+            p['sourceCanon'] = invalid[case]
+            reason = 'SOURCE_CANON_INVALID'
+        if case == 'canon-bool':
+            p['sourceCanon']['sources'][0]['priority'] = True
+            reason = 'SOURCE_CANON_INVALID'
+        if case == 'canon-duplicate':
+            p['sourceCanon']['sources'] *= 2
+            reason = 'SOURCE_CANON_INVALID'
+        if case == 'canon-nul':
+            p['sourceCanon']['gate'][2] = '\0'
+            reason = 'SOURCE_CANON_INVALID'
+        if case == 'canon-missing':
+            (root / 'SOURCE.md').unlink()
+            reason = 'SOURCE_CANON_MISSING'
+        if case == 'canon-unavailable':
+            p['sourceCanon']['gate'] = ['./missing-command']
+            reason = 'SOURCE_GATE_UNAVAILABLE'
+        put(root, 'harness.project.json', json.dumps(p))
+        if git(root, 'status', '--porcelain'):
+            commit(root, 'canon scenario')
+        before = git(root, 'rev-parse', 'HEAD')
+        expected = {'cwd': str(root), 'head': before, 'contract': contract,
+                    'stage': 'done' if op == 'done' else 'pre_critic', 'arg': 'literal ; $(not-shell)'}
+        r = call(op, contract)
+        if reason:
+            expect(r.returncode == 1 and reason in r.stderr, 'CANON_DOOR_REFUSAL_MISSING', r)
+            expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
+                   'CANON_DOOR_REFUSAL_MUTATED')
+            if case == 'canon-stale-head':
+                expect(json.loads((root / 'gate-observed.json').read_text()) == expected,
+                       'CANON_STALE_HEAD_CACHED')
+        else:
+            expect(r.returncode == 0, 'CANON_DOOR_GREEN_REFUSED', r)
+            expect(json.loads((root / 'gate-observed.json').read_text()) == expected,
+                   'CANON_DOOR_EXEC_CONTEXT_WRONG')
+            if op == 'done':
+                expect(git(root, 'tag', '-l') == 'done/contracts/777/1', 'CANON_DONE_TAG_MISSING')
+    elif case in ('zones-project', 'zones-green', 'staged-project', 'staged-green', 'lib-zones-project'):
+        git(root, 'tag', '-a', 'frozen/contracts/777/1', '-m', 'freeze')
+        if case == 'lib-zones-project':
+            expected = 'implementer\tapp/\t777\n'
+            r = call('lib_zones')
+            expect(r.returncode == 0 and r.stdout == expected, 'FROZEN_PROFILE_ZONES_MISSING', r)
+            return
+        path = 'app/ok.txt' if case.endswith('green') else 'outside/zone.txt'
+        put(root, path, 'implementation\n')
+        git(root, 'add', '.')
+        if case.startswith('zones'):
+            git(root, '-c', 'user.name=implementer', '-c', 'user.email=i@x',
+                'commit', '-qm', 'implementation')
+        git(root, 'config', '--unset', 'user.name')
+        git(root, 'config', '--unset', 'user.email')
+        r = call('zones' if case.startswith('zones') else 'staged',
+                 extra_env={'GIT_AUTHOR_NAME': 'implementer', 'GIT_AUTHOR_EMAIL': 'i@x'})
+        if case.endswith('green'):
+            expect(r.returncode == 0, 'IN_ZONE_CHANGE_REFUSED', r)
+        else:
+            expect(r.returncode == 1 and 'вне зоны' in r.stdout + r.stderr and path in r.stdout + r.stderr,
+                   'PROJECT_ZONE_FAIL_OPEN', r)
+    elif case in ('mint-project', 'mint-no-authority'):
+        put(root, contract, (root / contract).read_text() + 'ЗОНА orchestrator: app/\n')
+        commit(root, 'mint author is zoned')
+        git(root, 'tag', '-a', 'frozen/contracts/777/1', '-m', 'freeze mint author')
+        git(root, 'tag', '-a', 'id/CONTRACT/777', '-m', 'issued')
+        git(root, 'push', '-q', 'origin', 'main')
+        if case == 'mint-project':
+            git(root, 'push', '-q', 'origin', 'refs/tags/id/CONTRACT/777')
+        expected = '777 → ' + git(root, 'rev-parse', 'id/CONTRACT/777') + '\n'
+        hook_command = ('exec python3 "$HARNESS_TOOLS_ROOT/fixtures/workshop_project/rezhim_996/model.py" staged "$HARNESS_WORKFLOW_ROOT"\n'
+                        if mode == 'model' else
+                        'exec bash "$HARNESS_TOOLS_ROOT/scripts/check_staged.sh" "$HARNESS_WORKFLOW_ROOT"\n')
+        hook = put(root, '.git/hooks/pre-commit', '#!/bin/bash\n' + hook_command)
+        hook.chmod(0o755)
+        git(root, 'config', '--unset', 'user.name')
+        git(root, 'config', '--unset', 'user.email')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('mint', '777')
+        reg = root / p['workflowPaths']['registry'] / 'contracts.tsv'
+        if case == 'mint-no-authority':
+            expect(r.returncode == 1 and 'не выдан авторитетом' in r.stderr
+                   and not reg.exists() and git(root, 'rev-parse', 'HEAD') == before,
+                   'MINT_SELF_AUTHORIZED', r)
+        else:
+            expect(r.returncode == 0, 'PROJECT_MINT_REFUSED', r)
+            expect(reg.is_file() and reg.read_text() == expected and not (root / 'registry').exists(),
+                   'MINT_NOT_PROJECT_LOCAL')
+            expect(git(root, 'show', 'HEAD:' + str(reg.relative_to(root))) == expected.strip()
+                   and git(root, 'log', '-1', '--format=%an') == 'orchestrator', 'MINT_NOT_COMMITTED')
+    elif case in ('reserve-race', 'reserve-unavailable'):
+        git(root, 'tag', '-a', 'id/CONTRACT/777', '-m', 'previous')
+        git(root, 'push', '-q', 'origin', 'main', 'refs/tags/id/CONTRACT/777')
+        extra = {}
+        if case == 'reserve-race':
+            # Prepare the competing tag OBJECT before the subject; publish it only
+            # after next_id has chosen 778, immediately before git push advertises refs.
+            git(origin, '-c', 'user.name=OtherStation', '-c', 'user.email=other@x',
+                'tag', '-a', 'id/CONTRACT/778', 'main', '-m', 'other station reservation')
+            expected = git(origin, 'rev-parse', 'refs/tags/id/CONTRACT/778')
+            git(origin, 'update-ref', '-d', 'refs/tags/id/CONTRACT/778')
+            real_git = shutil.which('git')
+            wrapper = put(base, 'bin/git', f'#!{sys.executable}\n'
+                'import os,subprocess,sys\n'
+                f'real={real_git!r}\norigin={str(origin)!r}\nsha={expected!r}\n'
+                'args=sys.argv[1:]\n'
+                'if "push" in args and any("refs/tags/id/CONTRACT/778" in a for a in args):\n'
+                ' subprocess.run([real,"-C",origin,"update-ref","refs/tags/id/CONTRACT/778",sha],check=True)\n'
+                'os.execv(real,[real,*args])\n')
+            wrapper.chmod(0o755)
+            extra['PATH'] = str(wrapper.parent) + os.pathsep + os.environ['PATH']
+        else:
+            hook = put(origin, 'hooks/pre-receive', '#!/bin/sh\nexit 1\n')
+            hook.chmod(0o755)
+        r = call('reserve', extra_env=extra)
+        expect(r.returncode == 1 and not r.stdout.strip(), 'RESERVATION_FAILURE_ANNOUNCED_NUMBER', r)
+        remote = git(origin, 'for-each-ref', '--format=%(objectname)', 'refs/tags/id/CONTRACT/778')
+        expect(remote == expected if case == 'reserve-race' else not remote, 'RESERVATION_REPLACED_COMPETITOR')
+    elif case == 'self-canonical':
+        # Product configuration is an input of its own resolver/paths CLI, not a text grep.
+        install = installation(base)
+        r = subject(mode, 'self_canonical', install, mutant=mutant, tools=install) if mode == 'model' else run(
+            ['bash', install / 'scripts/profile_resolver.sh', '--repo', install],
+            env=dict(os.environ, HARNESS_PROJECT_LAYER_ROOT=str(install)))
+        expect(r.returncode == 0, 'SELF_PROFILE_UNAVAILABLE', r)
+        got = json.loads(r.stdout)
+        expect(got.get('git', {}).get('value', {}).get('canonicalRemote') ==
+               'ssh://git@github.com/a3ka/dev-harness.git', 'SELF_CANONICAL_CUTOVER_BROKEN')
+
+
 def test(case, mode, base, mutant):
     root, origin, p, contract = world(base)
+    if case in EXTRA_CASES:
+        return extra_test(case, mode, base, mutant, root, origin, p, contract)
     call = lambda op, *args: subject(mode, op, root, *args, mutant=mutant)
     if case in ('git-profile', 'git-layer', 'git-reject'):
         if case == 'git-layer':
@@ -198,23 +475,16 @@ def test(case, mode, base, mutant):
         local = git(root, 'rev-parse', tag)
         remote = git(origin, 'for-each-ref', '--format=%(objectname)', tag)
         expect(remote == local, 'RESERVATION_NOT_ON_PROJECT_ORIGIN')
+        expect(git(root, 'cat-file', '-t', tag) == 'tag', 'RESERVATION_NOT_ANNOTATED')
     elif case == 'station-isolation':
-        install = base / 'install'
-        install.mkdir()
-        git(install, 'init', '-q', '-b', 'main')
-        git(install, 'config', 'user.name', 'Fixture')
-        git(install, 'config', 'user.email', 'fixture@local')
-        for name in ('HANDOFF.md', 'NABLIUDENIA.md', 'NABLIUDENIA_ARCHITECT.md',
-                     'registry/contracts.tsv', 'forks/state.md'):
-            put(install, name, 'installation state\n')
-        commit(install, 'isolated installation')
+        install = installation(base)
         scratch = base / 'leak-scratch'
         scratch.mkdir()
         env = dict(os.environ, TMPDIR=str(scratch))
-        leak = lambda stage: run(['bash', TOOLS / 'scripts/check_no_leak.sh', stage, install], env=env)
+        leak = lambda stage: run(['bash', install / 'scripts/check_no_leak.sh', stage, install], env=env)
         r = leak('--snapshot')
         expect(r.returncode == 0, 'LEAK_SNAPSHOT_FAILED', r)
-        r = call('freeze', contract)
+        r = subject(mode, 'freeze', root, contract, mutant=mutant, tools=install)
         expect(r.returncode == 0, 'STATION_FREEZE_FAILED', r)
         r = leak('--check')
         expect(r.returncode == 0, 'STATION_POLLUTED_INSTALLATION', r)
@@ -256,6 +526,7 @@ CASES = ('git-profile', 'git-layer', 'git-reject', 'freeze-profile', 'freeze-dec
          'done-profile', 'done-decoy', 'done-fresh', 'paths', 'paths-escape',
          'reserve-origin', 'canon-green', 'canon-fail', 'canon-done-fail',
          'canon-invalid', 'canon-absent', 'canon-precritic-fail', 'station-isolation')
+CASES += EXTRA_CASES
 # Н-39: each mutation is challenged only where its defect is observable.
 MUTANTS = {'hardcoded-origin': ('git-profile', 'git-layer'),
            'trust-target': ('git-reject',), 'root-layout': ('paths',),
@@ -267,6 +538,32 @@ MUTANTS = {'hardcoded-origin': ('git-profile', 'git-layer'),
            'skip-canon': ('canon-fail', 'canon-done-fail', 'canon-precritic-fail'),
            'canon-tools-cwd': ('canon-green',),
            'ignore-canon-keys': ('canon-invalid',), 'require-canon': ('canon-absent',)}
+MUTANTS.update({
+    'root-context': tuple(case for case in EXTRA_CASES if case.startswith('context-')),
+    'drop-context-canon': ('context-workshop', 'context-architect'),
+    'root-startup': ('context-workshop',),
+    'root-verdict-context': ('context-critic', 'context-adversary', 'context-reviewer', 'context-arbiter'),
+    'fallback-root': ('freeze-root-only', 'done-root-only'),
+    'ignore-project-cap': ('freeze-cap',),
+    'root-arbitration': ('freeze-root-arbitration', 'freeze-project-arbitration'),
+    'tools-leak': ('station-isolation',),
+    'trust-origin-url': ('git-origin-drift',),
+    'broken-profile-fallback': ('git-broken-profile',),
+    'accept-symlink': ('paths-symlink',),
+    'door-refuse': ('canon-precritic-green', 'canon-done-green'),
+    'door-tools-cwd': ('canon-precritic-green', 'canon-done-green'),
+    'stale-head-cache': ('canon-stale-head',),
+    'canon-null-absent': ('canon-null', 'canon-empty'),
+    'ignore-canon-grammar': ('canon-bool', 'canon-duplicate', 'canon-missing', 'canon-unavailable', 'canon-nul'),
+    'reserve-force': ('reserve-race',),
+    'local-reservation': ('reserve-origin', 'reserve-unavailable'),
+    'lightweight-reservation': ('reserve-origin',),
+    'root-contracts-only': ('zones-project', 'staged-project', 'lib-zones-project'),
+    'reject-all-zones': ('zones-green', 'staged-green'),
+    'mint-root-registry': ('mint-project',),
+    'mint-self-authority': ('mint-no-authority',),
+    'old-self-canon': ('self-canonical',),
+})
 
 
 def execute(case, mode, mutant=''):
