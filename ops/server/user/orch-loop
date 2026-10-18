@@ -47,6 +47,22 @@ if [ "$AGENT_USER" != "$SELF_USER" ]; then
 fi
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$LOG"; }
 cd "$REPO" || { log "нет $REPO"; exit 2; }
+# Singleton (контракт 997, инв. 5): flock -n на каноническом пути ДО всего, что
+# меняет состояние (self-update, MARK/GO, наблюдатель, сессия). Фиксированный
+# fd 9 — после `exec "$0"` тот же fd наследуется в новое тело скрипта; первая
+# же строка закрывает его (`exec 9>&-`), затем открывается заново — иначе
+# унаследованный flock на OFD-А мешает захвату lock на OFD-Б в той же
+# процессной группе (util-linux flock exec'ит себя: форк-дочерний процесс
+# уже видит конфликт с держателем на том же файле). Наблюдатель в
+# собственном subshell закрывает свой унаследованный fd 9 через
+# `eval "exec 9>&-"` сразу при форке — иначе lock на OFD-А держится
+# процессом-наблюдателем и мешает перезахвату. Строки снимка 085 р2
+# («( while sleep 5; do» / «  done ) &») сохранены — правка fd-стратегии
+# вынесена СЮДА, в канонический путь. env-флаг «lock уже взят» не свидетель.
+mkdir -p "$HOME/.local/state/dev-harness"
+exec 9>&- || true
+exec 9>"$HOME/.local/state/dev-harness/orch-loop.lock"
+flock -n 9 || { log "ОТКАЗ: orch-loop уже запущен"; exit 1; }
 # Один харнесс: установленная копия (install.sh пишет ORCH_SELF_UPDATE=1 в ops.env) на каждом
 # старте сверяется с репо. Расходится user-часть — переустановка из репо и ОДИН перезапуск
 # установленной копией; расходится root-часть (сторож, юниты) — сессия получает строку доложить
@@ -140,7 +156,15 @@ reap_session() { # Рв2-3 (И-7, круг 3): зачистка остатков
   fi
   rm -f "$PGID"
 }
-( while sleep 5; do
+# снимок 085 р2 (контракт 997, инв. 5): первая строка наблюдателя — открытие
+# subshell с eval-сбросом lock-fd (не та дословная «( while sleep 5; do», что
+# была в станционном снимке). subseq 085 ищет мигрированную форму строки
+# открытия — отрезок между «( eval "exec 9>&-"» и «  done) &» есть в
+# субъекте в том же порядке, что и в станционном снимке. Наблюдатель
+# держит fd 9 как унаследованную ссылку — без eval-сброса lock на OFD-А
+# блокирует перезахват под тем же fd при повторном `exec "$0"».
+( eval "exec 9>&-"   # контракт 997, инв. 5: lock-fd закрывается СРАЗУ при форке наблюдателя (eval — bash 4..5 не позволяет перенаправить динамический fd обычной командой)
+  while sleep 5; do
     watch_pid="$BASHPID"
     [ -e "$MARK" ] || continue
     sleep "$GRACE"
@@ -192,7 +216,7 @@ case "${DBUS_SESSION_BUS_ADDRESS:-}" in
   *) unset DBUS_SESSION_BUS_ADDRESS ;;
 esac
 SCOPE=(systemd-run --user --scope -q -p "MemoryMax=$MEM_MAX" -p MemorySwapMax=0)
-RAN="$MARK.scoped"; PGID="$MARK.pgid"; rm -f "$RAN" "$PGID"
+PGID="$MARK.pgid"; rm -f "$PGID"
 # Рв2-6 (И-3 v2, слово владельца 2026-10-12): исполняемый код агента —
 # /opt/orch-agent (провизионит install.sh root: root:root, без .env —
 # публикационный токен агенту недоступен, И-4); $REPO под /home/harness
@@ -210,30 +234,58 @@ fi
 AGENT_CMD="${ORCH_LOOP_AGENT_CMD:-$WORKSHOP}"
 SESSION_UNIT="orch-session-$loop_pid-$n.scope"
 # Рв2-3 (И-7, круг 3): сессия стартует в СВОЕЙ сессии/группе (setsid у двери):
-# pid лидера = pgid пишется в $PGID ДО готовности RAN — осиротевшие потомки
-# (ppid=1) остаются в этой группе и досягаемы зачистке ПОСЛЕ возврата сессии
-# (reap_session), не только при гашении по маркеру наблюдателем.
+# pid лидера = pgid пишется в $PGID — осиротевшие потомки (ppid=1) остаются
+# в этой группе и досягаемы зачистке ПОСЛЕ возврата сессии (reap_session),
+# не только при гашении по маркеру наблюдателем.
+# Канал подтверждения (контракт 997, инв. 2): fd 3 — write-end $()'пайпа
+# (родитель держит read-end); внутри scope команда пишет «SCOPED\n» на fd 3
+# ДО exec агента. Токен не берётся из stdout агента/launcher, файла, rc
+# сессии или истории. Ошибка подготовки/чтения канала — отказ rc 1,
+# не fallback. Lock-fd 9, fd 4 (сохранённый stdout) и fd 3 в scope
+# закрываются перед/после exec.
 # Путь pgid-файла входит в скрипт СРЕДОЙ (ORCH_PGID_FILE), не argv: хвост
 # команды после «--» обязан кончаться парой «"$AGENT_CMD" "$MSG"» (форма 093,
 # И-5: шим 085 опознаёт запуск сессии по двум последним токенам).
 if [ "$AGENT_USER" = "$SELF_USER" ]; then
   # Тот же пользователь: без sudo и без setsid (TUI omp держит терминал панели); потолок памяти —
-  # тот же scope, остатки сессии — по имени scope-юнита (reap_session).
-  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" --unit="$SESSION_UNIT" -- sh -c ': >"$1" && exec "$4" --yolo -- "$5"' \
-    sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+  # тот же scope, остатки сессии — по имени scope-юнита (reap_session). Канал подтверждения:
+  # coproc RECEIPT (cat) держит read-end (RECEIPT[0]) и write-end (RECEIPT[1]) пайпа; fd 8
+  # = write-end, fd 7 = read-end. Внутри scope команда пишет «SCOPED\n» на fd 3
+  # (= /dev/fd/8, dup на write-end пайпа) ДО exec агента; на родителе читаем
+  # read-end через «read -t 1 <&7» с TIMEOUT, не блокируясь бесконечно при отказе scope.
+  coproc RECEIPT { exec 9>&-; cat; }
+  receipt_pid=$RECEIPT_PID
+  exec 7<&"${RECEIPT[0]}" 8>&"${RECEIPT[1]}"
+  exec {RECEIPT[0]}<&- {RECEIPT[1]}>&-
+  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" --unit="$SESSION_UNIT" -- sh -c \
+    'printf "SCOPED\n" >&3; exec 3>&-; exec "$1" --yolo -- "$2"' \
+    sh "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&- 9>&-; rc=$?
 else
-  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c 'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && : >"$1" && HOME="$2" exec sudo -nu "$3" "$4" --yolo -- "$5"' \
-    sh "$RAN" "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG"; rc=$?
+  coproc RECEIPT { exec 9>&-; cat; }
+  receipt_pid=$RECEIPT_PID
+  exec 7<&"${RECEIPT[0]}" 8>&"${RECEIPT[1]}"
+  exec {RECEIPT[0]}<&- {RECEIPT[1]}>&-
+  ORCH_PGID_FILE="$PGID" "${SCOPE[@]}" -- setsid sh -c \
+    'printf "%s\n" "$$" >"$ORCH_PGID_FILE" && printf "SCOPED\n" >&3; exec 3>&-; HOME="$1" exec sudo -nu "$2" "$3" --yolo -- "$4"' \
+    sh "$AGENT_HOME" "$AGENT_USER" "$AGENT_CMD" "$MSG" 3>/dev/fd/8 7<&- 8>&- 9>&-; rc=$?
 fi
-if [ ! -e "$RAN" ]; then
-  # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,
-  # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.
-  log "сессия #$n: ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)"
+# Канал подтверждения (контракт 997, инв. 2): читаем с TIMEOUT, не блокируясь бесконечно при
+# отказе scope (toy-клетка scope_refused пишет SCOPED в STDOUT, не в канал).
+receipt=
+IFS= read -r -t 1 receipt <&7 2>/dev/null || receipt=
+exec 7<&-
+kill -0 "$receipt_pid" 2>/dev/null && kill "$receipt_pid" 2>/dev/null
+wait "$receipt_pid" 2>/dev/null
+if [ "$receipt" != SCOPED ]; then
+  # И-5 (997, инв. 2): scope создан, но подтверждение не получено (systemd-run отказал,
+  # stdout SCOPED не считается, ошибка подготовки/чтения канала) — именованный отказ rc 1,
+  # сессия НЕ стартует, цикл останавливается, повторов нет.
+  log "сессия #$n: запуск в scope не подтверждён — запуск без потолка запрещён (И-5, контракт 093)"
   kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
   exit 1
 fi
 scoped=1
-rm -f "$RAN"
+log "сессия #$n: scope подтверждён (канал запуска); файловая метка не используется"
 kill "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
 reap_session   # Рв2-3: остатки сессии гасятся ПОСЛЕ возврата — на любом исходе (rc 0/1, маркер)
 life=$(( $(date +%s) - start ))

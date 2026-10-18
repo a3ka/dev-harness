@@ -54,14 +54,15 @@ verdict() { # $1=метка $2=rc клетки — поимка ТОЛЬКО rc 
 
 # Stub s1: фолбэк-без-потолка — возвращает удалённую ветку orch-loop (запуск
 # сессии при несозданном scope). Якорь — ДОСЛОВНЫЙ блок отказа И-5 субъекта
-# (включая комментарии; прежний якорь пропускал строку комментария).
+# (включая комментарии). Миграция Н-304: отказ переехал с файловой метки $RAN
+# на канал подтверждения — якорь снят по новой форме «if [ "$receipt" != SCOPED ]».
 S1="$SCRATCH/s1"; build_copy "$S1" "$ROOT"
 total=$((total+1))
 if build_out="$(/usr/bin/python3 -c "
 p = '$S1/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
-old = 'if [ ! -e \"\$RAN\" ]; then\\n  # И-5: scope не создан — автономный пускач возвращает rc 1, именованный отказ,\\n  # сессия НЕ стартует. Цикл останавливается, НЕ перезапускает сессию без потолка.\\n  log \"сессия #\$n: ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)\"\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit 1\\nfi'
-new_block = 'if [ ! -e \"\$RAN\" ]; then\\n  log \"БЕЗ ПОТОЛКА\"\\n  \"\$WORKSHOP\" --yolo -- \"\$MSG\"; rc=\$?\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit \"\$rc\"\\nfi'
+old = 'if [ \"\$receipt\" != SCOPED ]; then\\n  # И-5 (997, инв. 2): scope создан, но подтверждение не получено (systemd-run отказал,\\n  # stdout SCOPED не считается, ошибка подготовки/чтения канала) — именованный отказ rc 1,\\n  # сессия НЕ стартует, цикл останавливается, повторов нет.\\n  log \"сессия #\$n: запуск в scope не подтверждён — запуск без потолка запрещён (И-5, контракт 093)\"\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit 1\\nfi'
+new_block = 'if [ \"\$receipt\" != SCOPED ]; then\\n  log \"БЕЗ ПОТОЛКА\"\\n  \"\$WORKSHOP\" --yolo -- \"\$MSG\"; rc=\$?\\n  kill \"\$watcher\" 2>/dev/null; wait \"\$watcher\" 2>/dev/null\\n  exit \"\$rc\"\\nfi'
 if old in c:
     c = c.replace(old, new_block, 1)
     with open(p, 'w') as f: f.write(c)
@@ -242,7 +243,7 @@ fi
 # Stub s7: uid-не-переключается — починка Р1-3 круга 1. Прежняя мутация
 # (if false на ветке шва) была НЕНАБЛЮДАЕМА: ветки orch-loop побайтно
 # одинаковы, переключение шва ничего не меняло. Мутация режет САМ
-# sudo-вызов двери uid: `exec sudo -nu "$3" "$4"` → `exec "$4"` (ВО ВСЕХ
+# sudo-вызов двери uid: `exec sudo -nu "$2" "$3"` → `exec "$3"` (ВО ВСЕХ
 # вхождениях; запасной шаблон ловит перенумерацию позиционных аргументов
 # после сноса ветвей В1-9). Сессия стартует напрямую под uid владельца
 # станции — клетка 3 (дверь uid) обязана краснеть.
@@ -252,9 +253,9 @@ if build_out="$(/usr/bin/python3 -c "
 import re
 p = '$S7/ops/server/user/orch-loop'
 with open(p) as f: c = f.read()
-n = c.count('exec sudo -nu \"\$3\" \"\$4\"')
+n = c.count('exec sudo -nu \"\$2\" \"\$3\"')
 if n > 0:
-    c = c.replace('exec sudo -nu \"\$3\" \"\$4\"', 'exec \"\$4\"')
+    c = c.replace('exec sudo -nu \"\$2\" \"\$3\"', 'exec \"\$3\"')
     with open(p, 'w') as f: f.write(c)
     print('s7 ok (exact x%d)' % n)
 else:
