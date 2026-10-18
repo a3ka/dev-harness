@@ -26,9 +26,11 @@ HEX_RE = re.compile(r'#[0-9a-fA-F]{3,8}\b')
 
 CASES = ['TOKENS_MATCH', 'LITERAL_PALETTE', 'FONTS_PRESENT', 'FONTS_OFL', 'NO_WEB_BUNDLE', 'DEEP_LINK_SCHEME']
 
-# Стаб↔ветвь (Н-39); None-тело мутации — удаление файла.
+# Стаб↔ветвь (Н-39); None-тело мутации — удаление файла. Четвёртый элемент —
+# depends: колонки, чья побочная краснота на мутанте объявлена (матрица
+# исполняет ВСЕ колонки; краснота вне named ∪ depends — дефект матрицы).
 MUTANTS = [
-    ('invented-palette', 'TOKENS_MATCH', (TOKENS_TS, 'dark: {\n    ground: \'#0a0a0a\',', 'dark: {\n    ground: \'#000000\',')),
+    ('invented-palette', 'TOKENS_MATCH', (TOKENS_TS, 'dark: {\n    ground: \'#0a0a0a\',', 'dark: {\n    ground: \'#000000\','), ()),
     ('theme-light-dropped', 'TOKENS_MATCH', (TOKENS_TS, """  light: {
     ground: '#f3f2ee',
     ink: '#121211',
@@ -39,12 +41,12 @@ MUTANTS = [
     'on-primary': '#f3f2ee',
     accent: '#d6f75a',
   },
-};""", '  light: themeTokens.dark,\n};')),
-    ('literal-hex-screen', 'LITERAL_PALETTE', ('mobile/src/features/start/start-screen.tsx', 'backgroundColor: tokens.ground }', "backgroundColor: '#0a0a0a' }")),
-    ('font-ttf-missing', 'FONTS_PRESENT', (FONT_TTF, None, None)),
-    ('ofl-missing', 'FONTS_OFL', (FONT_OFL, None, None)),
-    ('web-bundle-import', 'NO_WEB_BUNDLE', ('mobile/src/ui/button.tsx', "import React from 'react';", "import { CompliorBento } from '../../docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/design-system/project/components/bundle.js';\nimport React from 'react';")),
-    ('scheme-changed', 'DEEP_LINK_SCHEME', (APP_JSON, '"scheme": "complior"', '"scheme": "other-app"')),
+};""", '  light: themeTokens.dark,\n};'), ()),
+    ('literal-hex-screen', 'LITERAL_PALETTE', ('mobile/src/features/start/start-screen.tsx', 'backgroundColor: tokens.ground }', "backgroundColor: '#0a0a0a' }"), ()),
+    ('font-ttf-missing', 'FONTS_PRESENT', (FONT_TTF, None, None), ()),
+    ('ofl-missing', 'FONTS_OFL', (FONT_OFL, None, None), ()),
+    ('web-bundle-import', 'NO_WEB_BUNDLE', ('mobile/src/ui/button.tsx', "import React from 'react';", "import { CompliorBento } from '../../docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/design-system/project/components/bundle.js';\nimport React from 'react';"), ()),
+    ('scheme-changed', 'DEEP_LINK_SCHEME', (APP_JSON, '"scheme": "complior"', '"scheme": "other-app"'), ()),
 ]
 
 
@@ -156,7 +158,7 @@ def main():
         print('MATRIX honest:', flush=True)
         rc, _ = run_cases(repo, cases)
         ok &= rc == 0
-        for name, case, (target, old, new) in MUTANTS:
+        for name, case, (target, old, new), depends in MUTANTS:
             if case not in cases:
                 continue
             files = {}
@@ -172,12 +174,16 @@ def main():
                     raise RuntimeError(f'MUTATION_ANCHOR_NOT_UNIQUE: {target}')
                 files[path] = blob.replace(old.encode(), new.encode())
             with installed(files):
-                rc, results = run_cases(repo, [case])
+                _, results = run_cases(repo, CASES)
             named_red = results.get(case) == 1
             others = {c: v for c, v in results.items() if c != case}
-            verdict = named_red and not others
+            unexpected_red = [c for c, v in others.items() if v == 1 and c not in depends]
+            depends_missed = [c for c in depends if others.get(c) != 1]
+            verdict = named_red and not unexpected_red and not depends_missed
             ok &= verdict
-            print(f'MUTANT {name}: named={case} {"RED" if named_red else "GREEN"} -> {"OK" if verdict else "BROKEN"}', flush=True)
+            print(f'MUTANT {name}: named={case} {"RED" if named_red else "GREEN"}'
+                  f' depends_red={[c for c in depends if others.get(c) == 1] or "none"}'
+                  f' unexpected_red={unexpected_red or "none"} -> {"OK" if verdict else "BROKEN"}', flush=True)
         return 0 if ok else 1
     if not (repo / TOKENS_TS).exists() and not args.model:
         print('999 STATIC_THEME_ABSENT')

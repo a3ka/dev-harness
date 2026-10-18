@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Навигационные пробы 999 (CMP-MOB-002): таблица переходов shell.
 
-ИСЧЕРПЫВАЮЩАЯ матрица с первой редакции (Н-324): восемь case покрывают
-порядок вкладок, метки из IA, профиль-как-вторичный-маршрут, выбор раздела,
-запрет Mission/команд при переключении, deep link + возврат, reduced motion,
-copy разделов. Каждый мутант красен ТОЛЬКО на своей ветви (независимость).
+Клетки таблицы порождаются ПЕРЕБОРОМ по закрытому перечню вкладок
+source.json (tabs_order): initialSection — по клетке на вкладку, deep link —
+декартово произведение initial × return (включая диагональ), возврат из
+профиля — по клетке на вкладку. Перечень клеток не выводится из списка
+известных обходов (Н-324/Н-325).
 """
 import argparse
 from pathlib import Path
@@ -15,8 +16,20 @@ import tempfile
 from probe_lib import HERE, installed, jest_ready, load_source, model_bytes, run_jest
 
 FAMILY = 'nav'
-CASES = ['TABS_ORDER', 'TAB_LABELS_IA', 'PROFILE_SECONDARY_NOT_TAB', 'TAB_SWITCH_SELECTS_SECTION',
-         'TAB_SWITCH_NO_COMMAND', 'DEEPLINK_RETURN', 'REDUCED_MOTION_ACTIONS', 'SECTION_CONTENT_COPY']
+_STATIC = ['TABS_ORDER', 'TAB_LABELS_IA', 'PROFILE_SECONDARY_NOT_TAB', 'TAB_SWITCH_SELECTS_SECTION',
+           'TAB_SWITCH_NO_COMMAND', 'REDUCED_MOTION_ACTIONS', 'SECTION_CONTENT_COPY', 'DEEPLINK_NO_RETURN']
+
+
+def case_list():
+    tabs = load_source()['tabs_order']
+    cases = list(_STATIC)
+    cases += [f'INITIAL_{tab.upper()}' for tab in tabs]
+    cases += [f'DEEPLINK_RETURN_{a.upper()}_TO_{b.upper()}' for a in tabs for b in tabs]
+    cases += [f'PROFILE_RETURN_{tab.upper()}' for tab in tabs]
+    return cases
+
+
+CASES = case_list()
 
 TOKENS = 'mobile/src/theme/tokens.ts'
 COPY = 'mobile/src/i18n/ui-copy.ts'
@@ -40,19 +53,40 @@ FIFTH_TAB = """            ))}
               <Text style={styles.tabLabel}>{uiCopyDe['action.F12.A01'].text}</Text>
             </Pressable>
           </View>"""
-# Стаб↔ветвь (Н-39): каждый стаб различим на своём входе; depends — ячейки,
-# чей собственный вход жмёт вкладки и наблюдает выбор (законная зависимость
-# таблицы переходов, не артефакт); вне depends мутант обязан быть зелёным.
+
+
+
+def _deep_cells(skip_named):
+    tabs = load_source()['tabs_order']
+    return tuple(cell for cell in (f'DEEPLINK_RETURN_{a.upper()}_TO_{b.upper()}' for a in tabs for b in tabs)
+                 if cell != skip_named)
+
+
+# Стаб↔ветвь (Н-39): каждый стаб различим на своём входе; depends — клетки,
+# чей собственный вход затрагивает ту же ветвь (законная зависимость
+# таблицы переходов, объявлена явно); краснота ВНЕ named ∪ depends — дефект
+# матрицы. Depends измерены прогоном полной матрицы, не выведены из прозы.
 MUTANTS = [
     ('tab-order-shuffled', 'TABS_ORDER', (TOKENS, "['start', 'vorgaenge', 'schutz', 'post']", "['post', 'schutz', 'vorgaenge', 'start']"), ()),
     ('frame-title-labels', 'TAB_LABELS_IA', (COPY, LABELS_BLOCK, LABELS_MUTANT), ()),
     ('profile-as-fifth-tab', 'PROFILE_SECONDARY_NOT_TAB', (SHELL, TABLIST_CLOSE, FIFTH_TAB), ()),
     ('switch-stuck-selection', 'TAB_SWITCH_SELECTS_SECTION', (SHELL, 'onPress={() => setSection(id)}', "onPress={() => setSection('start')}"),
-     ('REDUCED_MOTION_ACTIONS', 'SECTION_CONTENT_COPY')),
+     ('REDUCED_MOTION_ACTIONS', 'SECTION_CONTENT_COPY', 'PROFILE_RETURN_VORGAENGE', 'PROFILE_RETURN_SCHUTZ', 'PROFILE_RETURN_POST')),
     ('tab-emit-command', 'TAB_SWITCH_NO_COMMAND', (SHELL, 'onPress={() => setSection(id)}', "onPress={() => { setSection(id); onCommand?.({ kind: 'mission.create' }); }}"), ()),
-    ('deeplink-no-return', 'DEEPLINK_RETURN', (SHELL, 'useState<ShellSection | null>(returnSection)', 'useState<ShellSection | null>(null)'), ()),
+    ('deeplink-no-return', 'DEEPLINK_RETURN_SCHUTZ_TO_POST', (SHELL, 'useState<ShellSection | null>(returnSection)', 'useState<ShellSection | null>(null)'),
+     _deep_cells('DEEPLINK_RETURN_SCHUTZ_TO_POST')),
     ('motion-removes-actions', 'REDUCED_MOTION_ACTIONS', (SHELL, 'style={styles.tab}', 'disabled={reducedMotion}\n                style={styles.tab}'), ()),
     ('section-copy-literal', 'SECTION_CONTENT_COPY', (SHELL, '{uiCopyDe[SECTION_TITLE_KEYS[section]].text}', "{'Vorgänge'}"), ()),
+    # Обходы круга 1 критика, закрытые обобщёнными клетками перечня.
+    ('start-never-selected', 'INITIAL_START', (SHELL, 'selected: section === id', "selected: id !== 'start' && section === id"),
+     ('TAB_SWITCH_SELECTS_SECTION', 'DEEPLINK_RETURN_START_TO_VORGAENGE', 'DEEPLINK_RETURN_START_TO_SCHUTZ', 'DEEPLINK_RETURN_START_TO_POST', 'DEEPLINK_RETURN_START_TO_START', 'PROFILE_RETURN_START',
+      'DEEPLINK_RETURN_VORGAENGE_TO_START', 'DEEPLINK_RETURN_SCHUTZ_TO_START', 'DEEPLINK_RETURN_POST_TO_START')),
+    ('profile-loses-origin', 'PROFILE_RETURN_VORGAENGE', (SHELL, "const leaveProfile = () => setRoute('tabs');", "const leaveProfile = () => { setSection('start'); setRoute('tabs'); };"),
+     ('PROFILE_RETURN_SCHUTZ', 'PROFILE_RETURN_POST')),
+    ('initial-post-broken', 'INITIAL_POST', (SHELL, 'useState<ShellSection>(initialSection)', "useState<ShellSection>(initialSection === 'post' ? 'start' : initialSection)"),
+     ('DEEPLINK_RETURN_POST_TO_START', 'DEEPLINK_RETURN_POST_TO_VORGAENGE', 'DEEPLINK_RETURN_POST_TO_SCHUTZ', 'DEEPLINK_RETURN_POST_TO_POST', 'DEEPLINK_NO_RETURN')),
+    ('return-only-schutz', 'DEEPLINK_RETURN_START_TO_POST', (SHELL, 'useState<ShellSection | null>(returnSection)', "useState<ShellSection | null>(initialSection === 'schutz' ? returnSection : null)"),
+     tuple(cell for cell in _deep_cells('DEEPLINK_RETURN_START_TO_POST') if not cell.startswith('DEEPLINK_RETURN_SCHUTZ'))),
 ]
 
 
@@ -70,11 +104,9 @@ def install_map(repo: Path, blobs):
 
 def run(repo: Path, case=None, model=False):
     mobile = check_repo(repo)
-    source = load_source()  # оракул снят до субъекта
     test_bytes = (HERE / 'nav.test.tsx').read_bytes()
     blobs = model_bytes() if model else None
-    workspace_parent = mobile / 'src'
-    workspace = Path(tempfile.mkdtemp(prefix='__nav999_', dir=workspace_parent))
+    workspace = Path(tempfile.mkdtemp(prefix='__nav999_', dir=mobile / 'src'))
     results = {}
     try:
         files = {workspace / 'nav.test.tsx': test_bytes,
@@ -132,7 +164,7 @@ def main():
     parser.add_argument('--repo', type=Path, required=True)
     parser.add_argument('--case', choices=CASES)
     parser.add_argument('--matrix', action='store_true')
-    parser.add_argument('--model', action='store_true', help='эталон architect на до-предметном дереве')
+    parser.add_argument('--model', action='store_true')
     args = parser.parse_args()
     repo = args.repo.resolve()
     if not (repo / 'mobile/src/bootstrap/tab-shell.tsx').exists() and not args.model:

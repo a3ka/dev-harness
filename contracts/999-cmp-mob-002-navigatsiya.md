@@ -38,8 +38,8 @@
 ## Инварианты
 
 1. Четыре вкладки в порядке Start/Vorgänge/Schutz/Post; метки — тексты IA-ключей (ia115.nav.START, ia117.nav.VORGAENGE, ia115.nav.SCHUTZ, ia115.nav.POST), не заголовки кадров; ia115.nav.HEUTE не используется; профиль открывается как вторичный маршрут (action.F12.A01) и не появляется пятой основной вкладкой.
-2. `mobile/src/theme/tokens.ts` — проекция источника: восемь имён ground/ink/panel/card/on-card/primary/on-primary/accent с dark и light значениями побайтово из source.json; hex-литералы палитры в зонах 002 (app, ui, navigation, tab-shell, start-screen) запрещены — только theme/; accent — заливка с тёмным текстом, не лаймовый текст на светлом фоне.
-3. Button (primary/secondary, disabled), Notice (role alert), TextField (label, secureTextEntry), safe-area и keyboard-контейнеры реализованы на токенах; TestID — automation-семантика шва, не новые route/action IDs.
+2. `mobile/src/theme/tokens.ts` — проекция источника: восемь имён ground/ink/panel/card/on-card/primary/on-primary/accent с dark и light значениями побайтово из source.json; hex-литералы палитры в зонах 002 (app, ui, navigation, tab-shell, start-screen) запрещены — только theme/; accent — заливка с тёмным текстом, не лаймовый текст на светлом фоне — правило наблюдается на самих примитивах (подпись каждого примитива в каждой теме ≠ accent) и на поверхности shell.
+3. Button (primary/secondary, disabled), Notice (role alert), TextField (label, secureTextEntry), safe-area и keyboard-контейнеры реализованы на токенах; контейнеры наблюдаются по композиции (настоящий SafeAreaView из react-native-safe-area-context и KeyboardAvoidingView из react-native присутствуют как компоненты, подмена обычным View с сохранением testID красна); TestID — automation-семантика шва, не новые route/action IDs.
 4. `mobile/src/i18n/ui-copy.ts` — verbatim-подмножество BrokerOS_UI_Copy_DE.json: точные ключи, точные тексты, review_status у каждого ключа; новые немецкие формулировки не вводятся.
 5. Deep link (scheme complior сохраняется) открывает раздел с сохранением возврата к исходному; reduced motion убирает декоративное движение, не изменяя доступные действия; переключение вкладки не создаёт Mission и не отправляет команду (порт-наблюдатель onCommand молчит).
 6. Существующий вход 995 сохраняется; frozen-семейство проб 995 остаётся зелёным на C; DM Sans идёт в `mobile/assets/fonts/` с OFL, web-bundle React 18 из design snapshot в RN не импортируется.
@@ -48,13 +48,21 @@
 
 `mobile/src/bootstrap/tab-shell.tsx` экспортирует `TabShell` с необязательными портами `initialSection`, `returnSection`, `reducedMotion`, `colorScheme`, `onCommand` — прецедент `pilot-app.tsx`. `app/_layout.tsx` монтирует ту же композицию (Expo Router tabs по STRUCTURE), `app/index.tsx` 995 не ломается. Разделы показывают заголовки `frame.*.01.title` из i18n-модуля. Ожидания проб снимаются в память (source.json, байты тестов) до запуска субъекта; привязка мутант↔ветвь живёт только в коде проб (`MUTANTS`/`depends`), не в прозе контракта (Н-39). Модель architect в `fixtures/workshop_project/nav_999/model/` — честный эталон для красных тестов; в PR не копируется, композиция не имеет тестового ответвления.
 
+ЗАКРЫТЫЕ ПЕРЕЧНИ (Н-324/Н-325: клетки порождаются перебором по перечню из source.json, не списком известных обходов; расширение перечня = расширение source.json, единственный источник грамматики):
+
+- навигация — перечень вкладок `tabs_order` × свойства: initialSection (клетка на вкладку), selected при переключении (все четыре, включая Start), возврат из профиля (клетка на вкладку), deep link `DEEPLINK_RETURN_<initial>_TO_<return>` — декартово произведение перечня на себя (16 клеток, включая диагональ) плюс `DEEPLINK_NO_RETURN` (возврат не задан — Back отсутствует);
+- примитивы — декартово произведение {Button primary, Button secondary, Notice, TextField} × {dark, light}: в каждой клетке наблюдаются все заявленные свойства (role/alert, проводка onPress до хоста — fiber-тождество колбэка потребителя у Pressable, точные цвета подписи и заливки из source.json, secureTextEntry, акцентный гейт «подпись ≠ accent»); проводка onPress наблюдается fiber-ом, потому что fireEvent.press в RNTL 14 всплывает до пропсов вызова и не различает отвязанный обработчик;
+- контейнеры — fiber-тождество композиции: ближайший композит над хостом shell-safe-area — SafeAreaView из react-native-safe-area-context, над shell-keyboard-container — KeyboardAvoidingView из react-native; подмена `const SafeAreaView = View` / локальным View-шейдоу красна при сохранённых testID;
+- copy поверхности — закрытый перечень состояний (каждая вкладка переключением, профиль, deep link с возвратом): в каждом состоянии ВСЕ строковые листья дерева сверяются с каталогом source.json (10 текстов), Back наблюдается поимённо в состояниях, где он видим;
+- матрицы copy/static (как и nav/ui) исполняют ВСЕ колонки на каждом мутанте; побочная краснота допустна только в явно объявленном `depends` (измерена прогоном), краснота вне named ∪ depends и нецензурированная декларация — дефект матрицы.
+
 ## Приёмочный критерий
 
 R — disposable копия Complior-mob (B или C) под /tmp/dev-harness-verify с `npm ci` в `mobile/`; пробы — Python 3 stdlib, отдельная установка не нужна. Нет Jest/артефактов отчёта → rc2 INFRASTRUCTURE, не краснота предмета.
 
 - Дано B без реализации; `python3 fixtures/workshop_project/nav_999/nav_probe.py --repo R` → rc1 NAV_SHELL_ABSENT; `ui_probe.py --repo R` → rc1 UI_PRIMITIVES_ABSENT; `shell_static_probe.py --repo R` → rc1 STATIC_THEME_ABSENT; `copy_probe.py --repo R` → rc1 COPY_MODULE_ABSENT. Четыре именованных отказа — краснота предмета на до-предметном дереве.
-- Дано B с эталонной моделью (те же команды с `--model`); либо дано честное C — все четыре пробы → rc0 с построчным перечнем case: nav 8 (TABS_ORDER, TAB_LABELS_IA, PROFILE_SECONDARY_NOT_TAB, TAB_SWITCH_SELECTS_SECTION, TAB_SWITCH_NO_COMMAND, DEEPLINK_RETURN, REDUCED_MOTION_ACTIONS, SECTION_CONTENT_COPY), ui 7 (BUTTON_ROLE_VARIANTS, BUTTON_ROLE_LIGHT_SECONDARY, BUTTON_DISABLED_STATE, NOTICE_ROLE, TEXTFIELD_LABEL_SECURE, SAFE_KEYBOARD_CONTAINER, ACCENT_NOT_TEXT_ON_LIGHT), static 6 (TOKENS_MATCH, LITERAL_PALETTE, FONTS_PRESENT, FONTS_OFL, NO_WEB_BUNDLE, DEEP_LINK_SCHEME), copy 3 (COPY_TEXT, REVIEW_STATUS, DEPRECATED_KEY). `--case K` возвращает фактический rc одного case.
-- Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый мутант из `MUTANTS` даёт отказ на своей именованной ветви, зависимые ячейки (`depends` в коде проб) красны, посторонние зелёны; якорь мутанта неуникален → rc2. Состав пар — только в коде проб.
+- Дано B с эталонной моделью (те же команды с `--model`); либо дано честное C — все четыре пробы → rc0 с построчным перечнем case: nav 32 (TABS_ORDER, TAB_LABELS_IA, PROFILE_SECONDARY_NOT_TAB, TAB_SWITCH_SELECTS_SECTION, TAB_SWITCH_NO_COMMAND, DEEPLINK_NO_RETURN, INITIAL_START/VORGAENGE/SCHUTZ/POST, DEEPLINK_RETURN_<A>_TO_<B> по декартову произведению перечня вкладок, PROFILE_RETURN_START/VORGAENGE/SCHUTZ/POST, REDUCED_MOTION_ACTIONS, SECTION_CONTENT_COPY), ui 11 (BUTTON_DARK_PRIMARY, BUTTON_DARK_SECONDARY, BUTTON_LIGHT_PRIMARY, BUTTON_LIGHT_SECONDARY, BUTTON_DISABLED_STATE, NOTICE_DARK, NOTICE_LIGHT, TEXTFIELD_DARK, TEXTFIELD_LIGHT, SAFE_KEYBOARD_CONTAINER, ACCENT_NOT_TEXT_ON_LIGHT), static 6 (TOKENS_MATCH, LITERAL_PALETTE, FONTS_PRESENT, FONTS_OFL, NO_WEB_BUNDLE, DEEP_LINK_SCHEME), copy 4 (COPY_TEXT, REVIEW_STATUS, DEPRECATED_KEY, COPY_SURFACE_CATALOG). `--case K` возвращает фактический rc одного case.
+- Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный; каждый мутант из `MUTANTS` даёт отказ на своей именованной ветви; МАТРИЦА ИСПОЛНЯЕТ ВСЕ КОЛОНКИ КАЖДОЙ пробы на каждом мутанте — побочная краснота допустна только в объявленном `depends` (nav 12, ui 11, static 7, copy 4 мутантов; состав пар и depends — только в коде проб); якорь мутанта неуникален → rc2.
 - Дано C; `git status --short` в R после проб не содержит следов workspace/мутаций (пробы восстанавливают дерево).
 - Дано C в PR; `gh pr checks PR --repo a3ka/Complior-mob --required` → rc0, исполнены quality/android-e2e, включая frozen-прогоны 995 и пробы 999 из H; Android/Maestro-сценарий навигации — четыре вкладки, Back, deep link — NOT_RUN до C (отложенная приёмка).
 - Дано авторская пачка; `bash scripts/pre_critic.sh --repo . contracts/999-cmp-mob-002-navigatsiya.md` → rc0. Реальные rc предметных прогонов приложены в §Фактический замер.
@@ -82,8 +90,11 @@ fixtures/workshop_project/nav_999/ — новый подкаталог суще�
 ЗАЩИЩАЕТ:
 - от декларативной зелени: пробы исполняют настоящий Jest/RNTL на disposable R и разбирают JSON-отчёт поимённо; статические пробы сверяют байты и sha256 с оракулом, снятым до субъекта;
 - от второй палитры и дрейфа токенов: побайтовое сравнение с источником + hex-scan зон 002;
-- от подмены копии: точные ключи/тексты/review_status из source.json, deprecated-алиас отвергается;
-- от скрытой пятой вкладки, слепого deep link, тихой Mission при переключении и инвалидации действий reduced motion: исчерпывающая матрица переходов с первой редакции (Н-324), пары мутант↔ветвь объявлены только в коде проб, независимость проверяется матрицей;
+- от дыр в покрытии примитивов: декартово произведение примитив × тема с наблюдением каждого заявленного свойства в каждой клетке, включая акцентный гейт на самих примитивах; отвязанный onPress ловится fiber-тождеством проводки (fireEvent.press всплывает и проводку не различает);
+- от контейнера-пустышки с сохранённым testID: fiber-тождество композиции SafeAreaView/KeyboardAvoidingView (подмена обычным View красна);
+- от подмены копии: точные ключи/тексты/review_status из source.json, deprecated-алиас отвергается; каждый видимый текст поверхности (включая Back) сверяется с каталогом перебором состояний закрытого перечня;
+- от скрытой пятой вкладки, слепого deep link, тихой Mission при переключении и инвалидации действий reduced motion: исчерпывающая матрица переходов по закрытому перечню вкладок с первой редакции (Н-324/Н-325), пары мутант↔ветвь объявлены только в коде проб;
+- от ложного доказательства независимости: матрицы ВСЕХ четырёх проб исполняют все колонки на каждом мутанте и сравнивают красноту с явно объявленными зависимостями;
 - от утечки web-bundle React 18 в RN: import-scan design-snapshot путей.
 
 НЕ ЗАЩИЩАЕТ:
@@ -105,15 +116,14 @@ fixtures/workshop_project/nav_999/ — новый подкаталог суще�
 - Проверка устройства dark/light/увеличенный шрифт (читаемость, клавиатура) — NOT_RUN до C; RNTL покрывает композицию safe-area/keyboard и accent-правило, не физический рендер.
 - Copy signoff CMP-MOB-089, device evidence CMP-MOB-090 — владелец.
 
-## Фактический замер авторской пачки
+## Фактический замер авторской пачки (круг 2, закрытие FAIL критика)
 
-Снимок B=`f0d8e54e181853473e23c7df3dc623bbb7faecdf`, disposable-деревья `/tmp/dev-harness-verify/arch999/{btree,ref}`; `btree` — нетронутый B с npm ci, `ref` — B + эталонная модель по путям поставки.
+Снимок B=`f0d8e54e181853473e23c7df3dc623bbb7faecdf`, disposable-деревья `/tmp/dev-harness-verify/arch999b/{btree,ref}`; `btree` — нетронутый B с npm ci, `ref` — B + эталонная модель по путям поставки. Замер 2026-10-18.
 
-- B без модели: `nav_probe.py --repo btree` → rc1 NAV_SHELL_ABSENT; `ui_probe.py` → rc1 UI_PRIMITIVES_ABSENT; `shell_static_probe.py` → rc1 STATIC_THEME_ABSENT; `copy_probe.py` → rc1 COPY_MODULE_ABSENT (замер 2026-10-18).
-- B с эталонной моделью: `nav_probe.py --repo btree --model` → rc0 (8/8 case); `ui_probe.py --repo btree --model` → rc0 (7/7); `shell_static_probe.py --repo btree --model` → rc0 (6/6, шрифты скопированы пробой из docs снапшота R, sha256 совпали); `copy_probe.py --repo btree --model` → rc0 (3/3). После прогонов `git status --short` в btree пуст.
-- Эталон: те же четыре пробы `--repo ref` (модель по путям поставки, без `--model`) → rc0 каждый.
-- Матрица nav: `nav_probe.py --repo ref --matrix` → rc0: honest 8/8; 8 мутантов — named RED у каждого, depends-краснота только у switch-stuck-selection (REDUCED_MOTION_ACTIONS, SECTION_CONTENT_COPY — ячейки, чей вход сам жмёт вкладки), unexpected_red=none у всех.
-- Матрица ui: `ui_probe.py --repo ref --matrix` → rc0: honest 7/7; 5 мутантов OK (button-no-role зависит от BUTTON_ROLE_LIGHT_SECONDARY — объявлено в коде).
-- Матрица static: `shell_static_probe.py --repo ref --matrix` → rc0: honest 6/6; 7 мутантов OK (invented-palette, theme-light-dropped, literal-hex-screen, font-ttf-missing, ofl-missing, web-bundle-import, scheme-changed).
-- Матрица copy: `copy_probe.py --repo ref --matrix` → rc0: honest 3/3; 3 мутанта OK (text-drift, status-lost, heute-alias).
-- Метагейты: `bash scripts/pre_critic.sh --repo . contracts/999-cmp-mob-002-navigatsiya.md` и `bash scripts/check_threat_model.sh . contracts/999-cmp-mob-002-navigatsiya.md` — фактические rc в докладе архитектора; они не заменяют предмет.
+- B без модели: `nav_probe.py --repo btree` → rc1 NAV_SHELL_ABSENT; `ui_probe.py` → rc1 UI_PRIMITIVES_ABSENT; `shell_static_probe.py` → rc1 STATIC_THEME_ABSENT; `copy_probe.py` → rc1 COPY_MODULE_ABSENT.
+- B с эталонной моделью (`--model`): nav rc0 (32/32), ui rc0 (11/11), static rc0 (6/6, шрифты скопированы пробой из docs-снапшота R), copy rc0 (4/4, включая живой RNTL-рендер поверхности).
+- Эталон `ref`: те же четыре пробы без `--model` → rc0 каждый.
+- Матрицы на `ref` → rc0 все четыре: honest nav 32/32, ui 11/11, static 6/6, copy 4/4; мутанты nav 12, ui 11, static 7, copy 4 — named RED у каждого, depends измерены полным прогоном всех колонок, unexpected_red=none у всех.
+- Обходы круга 1 (11 независимых + combined, дословные замены критика): каждый независимый обход даёт rc1 своей пробе (nav: start-never-selected 10 красных клеток, profile-loses-origin 3, initial-post-broken 6, return-only-schutz 12; ui: button-accent-text 4, button-missing-combinations 2, notice-dark-role-missing 1, textfield-dark-password-visible 1, safe-area-is-view 1, keyboard-is-view 1; copy: back-copy-invented 1). Combined (шесть одновременных мутаций критика): nav rc1 (18 красных клеток), ui rc1 (5), copy rc1 (1), static rc0 — статических мутаций в combined нет; все `--matrix` на combined ненулевые.
+- После всех прогонов `git status --short --untracked-files=all` в btree пуст; ref восстановлен к базовому состоянию (байты модели идентичны кругу 1).
+- Метагейты: `bash scripts/pre_critic.sh --repo . contracts/999-cmp-mob-002-navigatsiya.md` → rc0 (после `git fetch origin --tags` в клоне); `bash scripts/check_threat_model.sh . contracts/999-cmp-mob-002-navigatsiya.md` → rc0; `bash scripts/check_precision_gate.sh . contracts/999-cmp-mob-002-navigatsiya.md` → OK. Они не заменяют предмет.

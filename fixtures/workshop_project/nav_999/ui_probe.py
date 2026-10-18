@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """UI-примитивы и контейнеры 999 (CMP-MOB-002) на токенах D2.2.5.1.
 
-Button/Notice/TextField + safe-area/keyboard контейнеры; accent — заливка
-с тёмным текстом, лаймовый текст на светлом фоне красен. Каждый стаб
-различим ровно на своём входе (Н-39).
+Клетки порождаются декартовым произведением закрытых перечней
+{Button primary, Button secondary, Notice, TextField} × {dark, light}
+(Н-324/Н-325): в каждой клетке наблюдаются role, onPress, точные цвета
+подписи/заливки из source.json и акцентный гейт. Контейнеры наблюдаются по
+композиции (fiber-тождество SafeAreaView/KeyboardAvoidingView), поэтому
+подмена контейнера обычным View с сохранением testID красна.
 """
 import argparse
 from pathlib import Path
@@ -13,8 +16,10 @@ import tempfile
 
 from probe_lib import HERE, installed, jest_ready, model_bytes, run_jest
 
-CASES = ['BUTTON_ROLE_VARIANTS', 'BUTTON_ROLE_LIGHT_SECONDARY', 'BUTTON_DISABLED_STATE', 'NOTICE_ROLE',
-         'TEXTFIELD_LABEL_SECURE', 'SAFE_KEYBOARD_CONTAINER', 'ACCENT_NOT_TEXT_ON_LIGHT']
+FAMILY = 'ui'
+CASES = ['BUTTON_DARK_PRIMARY', 'BUTTON_DARK_SECONDARY', 'BUTTON_LIGHT_PRIMARY', 'BUTTON_LIGHT_SECONDARY',
+         'BUTTON_DISABLED_STATE', 'NOTICE_DARK', 'NOTICE_LIGHT', 'TEXTFIELD_DARK', 'TEXTFIELD_LIGHT',
+         'SAFE_KEYBOARD_CONTAINER', 'ACCENT_NOT_TEXT_ON_LIGHT']
 
 
 BUTTON = 'mobile/src/ui/button.tsx'
@@ -22,13 +27,29 @@ NOTICE = 'mobile/src/ui/notice.tsx'
 TEXTFIELD = 'mobile/src/ui/text-field.tsx'
 SHELL = 'mobile/src/bootstrap/tab-shell.tsx'
 
-# Стаб↔ветвь (Н-39).
+# Стаб↔ветвь (Н-39): named — клетка, где дефект стаба наблюдаем; depends —
+# прочие клетки того же перечня, краснота которых объявлена (измерено).
 MUTANTS = [
-    ('button-no-role', 'BUTTON_ROLE_VARIANTS', (BUTTON, 'accessibilityRole="button"\n', ''), ('BUTTON_ROLE_LIGHT_SECONDARY',)),
-    ('notice-plain', 'NOTICE_ROLE', (NOTICE, 'accessibilityRole="alert"\n', ''), ()),
-    ('textfield-no-label', 'TEXTFIELD_LABEL_SECURE',
-     (TEXTFIELD, '<Text style={[styles.label, { color: tokens.ink }]}>{label}</Text>\n', ''), ()),
+    ('button-no-role', 'BUTTON_DARK_PRIMARY', (BUTTON, 'accessibilityRole="button"\n', ''),
+     ('BUTTON_DARK_SECONDARY', 'BUTTON_LIGHT_PRIMARY', 'BUTTON_LIGHT_SECONDARY')),
+    ('button-accent-text', 'BUTTON_DARK_PRIMARY',
+     (BUTTON, "const labelColor = variant === 'primary' ? tokens['on-primary'] : tokens.ink;", 'const labelColor = tokens.accent;'),
+     ('BUTTON_DARK_SECONDARY', 'BUTTON_LIGHT_PRIMARY', 'BUTTON_LIGHT_SECONDARY')),
+    ('button-variant-gaps', 'BUTTON_DARK_SECONDARY',
+     (BUTTON, 'onPress={onPress}', "onPress={((tokens.ground === '#0a0a0a') === (variant === 'primary')) ? onPress : undefined}"),
+     ('BUTTON_LIGHT_PRIMARY',)),
+    ('notice-plain', 'NOTICE_DARK', (NOTICE, 'accessibilityRole="alert"\n', ''), ('NOTICE_LIGHT',)),
+    ('notice-dark-role-missing', 'NOTICE_DARK',
+     (NOTICE, 'accessibilityRole="alert"', "accessibilityRole={tokens.ground === '#0a0a0a' ? undefined : 'alert'}"), ()),
+    ('textfield-no-label', 'TEXTFIELD_DARK',
+     (TEXTFIELD, '<Text style={[styles.label, { color: tokens.ink }]}>{label}</Text>\n', ''), ('TEXTFIELD_LIGHT',)),
+    ('textfield-dark-secure', 'TEXTFIELD_DARK',
+     (TEXTFIELD, 'secureTextEntry={secureTextEntry}', "secureTextEntry={tokens.ground === '#0a0a0a' ? false : secureTextEntry}"), ()),
     ('no-keyboard-container', 'SAFE_KEYBOARD_CONTAINER', (SHELL, 'testID="shell-keyboard-container"\n', ''), ()),
+    ('safe-area-is-view', 'SAFE_KEYBOARD_CONTAINER',
+     (SHELL, "import { SafeAreaView } from 'react-native-safe-area-context';", 'const SafeAreaView = View;'), ()),
+    ('keyboard-is-view', 'SAFE_KEYBOARD_CONTAINER',
+     (SHELL, 'const openProfile = () => setRoute(\'profile\');', 'const KeyboardAvoidingView = View;\n  const openProfile = () => setRoute(\'profile\');'), ()),
     ('lime-text-light', 'ACCENT_NOT_TEXT_ON_LIGHT',
      (SHELL, "{ color: section === id ? tokens['on-card'] : tokens.ink }", '{ color: tokens.accent }'), ()),
 ]
