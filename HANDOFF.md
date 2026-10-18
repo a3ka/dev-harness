@@ -1,3 +1,25 @@
+## ГДЕ МЫ (2026-10-18 ~22:30 UTC — рестарт 21:43 консультантом; ночной режим; этап 1 «три слота»; харнесс: 997 → 998 → 087 → 996 → ci-proekta; mob: 999 = CMP-MOB-002. Кап кругов 3; мандат консультанта на механику — адресуй ЕМУ. Сторож станции консультанта (/root/orch-watchdog.sh) до done 997 + штатного рестарта; перед маркером рестарта — `ps --ppid <pid orch-loop>` = ДВА bash orch-loop (цикл + watcher), иначе доклад, маркер не ставить. /tmp/dev-harness-verify/orch-restart*, orch-session-*, _orch_trace* не трогать.)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- Сессия НЕПИННОВАННАЯ (Н-85): запись в чекаут запрещена; коммиты — git-plumbing; субагенты пишут ТОЛЬКО в `/tmp/dev-harness-verify/<имя>/`; в bash нельзя `2>&1`, `>`/`<` (страж видит запись).
+
+### Правило ночного режима «отложи и бери следующую» (слово владельца 2026-10-18 ~22:18 UTC, через консультанта)
+1. Задача упёрлась в кап (третий FAIL) ИЛИ в вопрос владельца/консультанта → ОТЛОЖИ: форк `forks/<id>.md` (МАРШРУТ: батч, БЛОКИРУЕТ: да, вопрос с рекомендацией и ссылками на вердикты), строка в HANDOFF «Отложено до утра». Ветку/вердикты не трогать, четвёртый круг не открывать.
+2. Сразу следующая задача того же слота, технически не зависящая от отложенной: харнесс 997 → 998 → 087 (при отложенной 998 — implementer вместо implementer-glm) → 996 → ci-proekta (без done 996 не начинать). mob: при отложенной 999 — следующий issue Complior-mob по номеру, не требующий навигации/токенов 002 (сверь тело issue); нет такого — слот ждёт утра.
+3. Не больше ДВУХ отложенных на слот; после второй слот ждёт утра.
+4. Бэкенд (третий слот) ночью НЕ запускать.
+
+### Состояние (факты из команд)
+- **995 DONE**: `done/contracts/995/1` на origin (PR#108 смёржен консультантом f0d8e54e; reviewer accept v4; перенос усиления H e4e342664). Complior-mob#109/#110 — открыты, очередь mob после 999.
+- **999 (CMP-MOB-002, Complior-mob#6)**: номер выдан (тег `id/CONTRACT/999`, строка реестра `44a7bbed6`, на origin). Architect999 в полёте (`wip/999/architect`, клон /tmp/dev-harness-verify/arch999/clone). Строка registry/plan.tsv для 999 — НЕ добавлена (нужна к заморозке).
+- **997 круг 2**: Impl997f `b30c2ee8` (`wip/997/implementer-f`, клон /tmp/dev-harness-verify/impl997f/clone; закрыты B-1…B-5 + fd 3/9), Architect997c `e333de3d` (`wip/997/architect-c`, клон /tmp/dev-harness-verify/arch997c/clone; fd-census + lock_transition + delayed_receipt). Union `007ed3b7` (/tmp/dev-harness-verify/orch997u/clone, ветка wip/997/union, merge-коммит — для PR пересобрать cherry-pick'ом, committer=автор): `probe.sh` 60/0 rc0. Architect997pin в полёте — 074 PIN (`user/orch-loop` → 22150b8d…, стоячая санкция №4). Дальше: пин → 4а на union (074/085/093/battery) → ветка `wip/997/implementer` на origin → gen_ci_steps при нужде → PR-CI → land_agent → push → судьи круг 2 (adversary+reviewer) → done 997 → ПЕРЕУСТАНОВКА станции консультантом.
+- **998 pravila-modelei**: critic R2 FAIL (`verdicts/critic/contracts-998-krug2-fail.md`: Б1/Б2/Б6 не закрыты обобщённо) → **arbiter РЕШЕНИЕ** (`verdicts/arbitration/contracts-998-perechen-vetvej-v1.md`: закрытый перечень К1–К3, правки П1–П7 в ЗОНЕ architect, нарезка не нужна, круг 3 штатный, FAIL по перечню → К ВЛАДЕЛЬЦУ). Architect998c в полёте (`wip/998/architect-c` от `045a91367`, клон /tmp/dev-harness-verify/arch998c/clone). Дальше: pre_critic → critic КРУГ 3 (допуск арбитра) → accept → freeze (plan.tsv: pravila-modelei после 997) → implementer.
+- Локально неотправленные: вердикты critic 998 R2 (`d8d66359f`) и arbiter 998 (`70ab09a13`) — запушить через gitw (check_no_leak до/после; дельта вердиктная → `--retake`).
+- Открытые форки: n094-freeze-v3-ustav-bez-razreshenija, 099-r2-2-reestr-ci-steps-m1-zamykanie (СТОП владельца), n272-fd2180af-079-grandfather (087 — проверить при старте 087).
+
+### Следующая сессия — порядок действий (пара)
+1. Харнесс: довести 997 (пин → 4а → PR → land → судьи → done) ∥ 998 (critic R3). 2. mob: Architect999 → critic → freeze → implementer. 3. Очередь: 087 → 996 → ci-proekta. Слоты параллельны: wait только когда оба заняты.
+
 ## ГДЕ МЫ (2026-10-18 ~21:45 UTC — рестарт по сторожу контекста (516K≥500K); ночной режим; этап 1 «три слота»; порядок харнесса: 997 (судьи FAIL ×2 → круг 2) → pravila-modelei (998: критик R2) → 087 → 996 → ci-proekta; mob: 995 СТОП, у владельца. Кап кругов 3; мандат консультанта на механику — адресуй ЕМУ.)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
@@ -6410,7 +6432,6 @@ soreview-v1.md.
 - 097 · пара 3 · заморожен · трек autonomy
 - 098 · пара 3 · заморожен · трек autonomy
 - 087 · пара 3 · заморожен · трек CI
-- 995 · пара 3 · заморожен · трек complior
 - 997 · пара 3 · заморожен · трек ops
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
