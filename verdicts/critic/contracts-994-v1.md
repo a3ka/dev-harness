@@ -1,57 +1,115 @@
-FAIL
+accept
+OBJECT=a066baa574c91c5cc946195dd544980fb78e7d00
 
-# Критик — контракт 994, круг 1
+# Критик, круг 3 — контракт 994 (Н-303), закрытый предмет
 
-OBJECT=a3c8cb9765e4953bd37c05f888427efd67158afc (ветка `wip/994/architect`)
-Предмет: `contracts/994-provodka-vneshnij-ci-guard.md` + `fixtures/check_provodka/external_ci_994/`.
-Клон: `/tmp/dev-harness-verify/critic994r1/repo` (ssh-клон, checkout OBJECT). Основной чекаут не трогался.
-
-Набор артефактов полон: предмет, критерий с rc-командами, исполнители и `ЗОНА`-строки есть.
-
-## Что прогнано (только scoped)
-
-| команда (в клоне, на OBJECT) | rc | наблюдение |
-|---|---|---|
-| `probe.sh --cases` (пред-предметный субъект) | 1 | `CASES executed=43 mismatches=8`: EXTERNAL_991/993, WRAPPED_991/993, SHARED_PARAGRAPH, SECOND_GUARD_LOCAL (диагноз второго guard), SECOND_GUARD_OWN, RENAMED_EXTERNAL; остальные 35 совпали. Красное настоящее |
-| `probe.sh --matrix` | 0 | honest valid=1; unchanged/substring/whole-file/later-paragraph/shared-global/missing-file — каждый отвергнут на назначенных входах; planned-wiring REGISTRY_ONLY 0 / WITHOUT_OWN_STEP 1 |
-| `probe.sh --legacy` | 0 | `LEGACY executed=18 mismatches=0` |
-| `probe.sh --self-wiring` | 1 | `SELF_WIRING MISSING_REAL_STEP []`: шага в реестре ещё нет, так и ожидается до реализации |
-| `verify_antiplacebo.sh --scope check_provodka` | 0 | 28 фикстур, 28 красных повторным прогоном |
-| `check_provodka.sh $PWD contracts/991-…md` / `993-…md` | 1 / 1 | `guard не подключён: …/probe.py` (Н-303 воспроизведён) |
-| `check_provodka.sh $PWD contracts/994-…md` | **0** | уже до реализации, см. СОВЕТ 1 |
-| `check_precision_gate.sh <клон> contracts/994-…md` | 0 | `OK` (семья provodka, задача (б) пропущена по прецеденту 036 В4-3) |
-| `check_threat_model.sh <клон> contracts/994-…md` | **1** | `модель угроз: список ЗАЩИЩАЕТ: отсутствует`, см. Б2 |
+МОДЕЛЬ: anthropic/claude-opus-5-5 (Critic994R3), 2026-10-18.
+Предмет круга задан решением арбитра `735ed50ea:verdicts/arbitration/contracts-994-closed-class-v1.md`, Решение 3: (1) сверка П1–П6; (2) команды приёмки `:38–47` с прежними rc. Блокирует только неисполненный пункт П1–П6 либо новый обход с названным мутантом внутри закрытых границ решения.
+Клон: `/tmp/dev-harness-verify/critic994r3/repo`, ssh-клон `ssh://git@github.com/a3ka/dev-harness.git`, `git checkout a066baa5`. `origin/wip/994/architect` содержит HEAD. Автор коммита — `architect <architect@dev-harness.local>`. Diff `d788a59f..a066baa5` затрагивает 3 файла: контракт, `models.py`, `probe.py`, всё в ЗОНА architect (`:62`).
 
 ## Блокирующие находки
 
-БЛОКИРУЕТ contracts/994-provodka-vneshnij-ci-guard.md:42 — приёмочная батарея не отличает правило фрагмента из инварианта 3 (`:21`, `:24`: делить «по литеральным `.` и `;`», «префикс отрицания … не совпадает») от реализации, которая делит по более широкому набору пунктуации. Все отрицательные клетки `991_*/993_*` (`probe.py` `cases()`, PREFIX/SUFFIX/…) приклеивают искажение к фразе ПРОБЕЛОМ («неверно » + фраза, фраза + « временно»), а разделителями в клетках служат только `.`, `;` и `:` (последний ловит лишь QUOTED_MARKER, случайно). Клетки, где фраза отделена от отрицания или приписки запятой, `!` или `?`, нет ни одной.
-ОБХОД: реализация, которая честно выбирает абзац, схлопывает пробелы и сравнивает фрагменты буквальным равенством, но режет тело по `[.;,!?]` вместо `[.;]`. Измерено в клоне: такая модель (`/tmp/dev-harness-verify/critic994r1/mut/mutant_models.py`, тот же код, что honest-ветка `models.py`, меняется только regex разбиения) даёт на `probe.sh --cases --subject …/mutant.sh` **`CASES executed=43 mismatches=0`, rc 0**. `--legacy`/`--self-wiring`/991/993 она не затрагивает, `--matrix` вообще не исполняет production-субъект. И она же даёт **rc 0** (освобождение wiring) на контракте с абзацем `ПРОВОДКА-ЭНФОРСМЕНТ: Неверно, не добавлять в CI dev-harness зависимость от чужого checkout/SDK! Guard локальный и обязан быть в CI.`, где честное правило (`[.;]`, та же модель) даёт rc 1 `проводка: guard не подключён: scripts/check_remote_994.sh …`. Получается: критерий выполнен, а закрытое распознавание из предмета освобождает guard по прозе с отрицанием — ровно то, что `:51 ЗАЩИЩАЕТ` объявляет закрытым.
-Как закрыть (на усмотрение автора): добавить отрицательные клетки, где фраза граничит с отрицанием или припиской через НЕ-`.;` пунктуацию (запятая, `!`, `?`, `:`, тире), с ожиданием rc 1 `guard не подключён`, и мутант «широкий разделитель» в `--matrix` с назначенным свидетелем.
+Нет. Все пункты П1–П6 исполнены. Внутри закрытых границ нового обхода, который проходит батарею, я не нашёл. Мутант, который мне удалось построить, разобран ниже как СОВЕТ С1 вместе с причиной, почему он не блокирует.
 
-БЛОКИРУЕТ contracts/994-provodka-vneshnij-ci-guard.md:49-52 — противоречие норме 041 (`roles/critic.md`, норма-строка «Норма модели угроз», заморожена 041/1). Обход не требуется. 994 добавляет гарду (`check_provodka`, 038) новый разбор чужого ввода: прозу контракта другого автора, результат которой открывает проход в обход wiring-проверки. Это класс 041 «гигиена парсящих гардов»: сам контракт перечисляет regex/glob-инъекцию на `:24`. Норма требует списков `ЗАЩИЩАЕТ:`/`НЕ ЗАЩИЩАЕТ:`, в каждом ≥1 буллет, а форму определяет `scripts/check_threat_model.sh`. На OBJECT он даёт **rc 1 `модель угроз: список ЗАЩИЩАЕТ: отсутствует`**: метки стоят внутри буллетов (`- ЗАЩИЩАЕТ: …`), а не отдельными строками-метками со списком ниже, как в 041:59-65, 991 и 993 (оба rc 0). Правка механическая: строка `ЗАЩИЩАЕТ:`, под ней буллеты по свойствам, затем то же для `НЕ ЗАЩИЩАЕТ:`, и `check_threat_model.sh` → rc 0.
+## Сверка П1–П6
 
-## Советы (accept не отменяют, автор закрывает по усмотрению)
+| П | где | что я проверил | итог |
+|---|---|---|---|
+| П1 | `contracts/994-provodka-vneshnij-ci-guard.md:42`, `fixtures/check_provodka/external_ci_994/probe.py:93-94` | Текст: «отрицание или приписка через `,` `!` `?` `:` `—` — закрытый перечень клеток `*_NEGATED_*`/`*_SUFFIX_*`». Кортеж `cases()` тот же: `,` `!` `?` `:` `—`. Байты сверены: в тексте и в кортеже стоит один символ, U+2014 (`\xe2\x80\x94`). Фраза про открытое дополнение («кроме `.`/`;`») удалена | исполнен |
+| П2 | `:24` | «Множество разделителей — ровно два литерала одним production-примитивом. Что иной символ или последовательность тело не делит, держит построение и проверяет reviewer чтением этого примитива в diff. Батарея измеряет закрытый перечень пунктуации в приёмочном критерии, не дополнение». Вместо ссылки `:42` стоит её описание, смысл тот же | исполнен |
+| П3 | `:57` | Новый буллет НЕ ЗАЩИЩАЕТ: U+2013, U+2026, скобки, ` - `; «Батарея — выборка, не класс»; ссылка на `verdicts/arbitration/contracts-994-closed-class-v1.md`. ЗАЩИЩАЕТ `:52` не менялся | исполнен |
+| П4(а) | `:20` | Дописано дословно: «одна грамматика с циклом поля check_provodka: … `#` (включая `#x` без пробела) … префикс ``` (включая fence с языковым тегом). Вторая грамматика границы не вводится». Сверено с production: `scripts/check_provodka.sh:228-229` (`"#"*) break`, ``` \`\`\`*) break ```), локаль `C.UTF-8` (`:125`) | исполнен |
+| П4(б) | `probe.py:74-75` | `AFTER_HASH_NO_SPACE_CONTINUATION` = `Локальная проверка;\n#заметка.\n<P993>` и `AFTER_FENCE_LANGUAGE_CONTINUATION` = `Локальная проверка;\n```text;\n<P993>`. В обеих rc 1 и `refusal()` по умолчанию `add()`. Формы совпадают с предписанием арбитра байт в байт | исполнен |
+| П4(в) | `models.py:43-48`, `probe.py:202-203` | Режим `heading-space` = `re.match(r"#+( \|$)")` — предикат `m_heading`. Режим `bare-fence` = `line.strip() == "```"` — предикат `m_fence`. Каждый свидетель — своя новая клетка. На живом `--matrix` у обоих режимов `observed=1 valid=1` | исполнен |
+| П5 | `:21`, `:42`, `probe.py:79` | Выбрана форма (а): «каждый фрагмент обрезается по краям ASCII-пробелом». Добавлена клетка `FRAGMENT_EDGE_NBSP` = `Внешняя;\u00a0<P991>.` → rc 1. В `:42` добавлено «или NBSP на краю фрагмента». Честная модель (`strip(" ")`) на этой клетке даёт rc 1, `m_strip` даёт rc 0 и краснеет | исполнен |
+| П6 | транскрипт `history://Architect994Fix3` | Architect живьём прогнал `--cases`, `--matrix`, `--cases --subject` на `mut_heading`, `mut_fence`, `mut_dash`, а также `--legacy`, `--self-wiring`, `verify_antiplacebo --scope`, pre_critic и threat_model; результаты переданы в yield Main. Я всё воспроизвёл сам, сырой вывод ниже | исполнен |
 
-СОВЕТ 1 contracts/994-provodka-vneshnij-ci-guard.md:46,51 — `check_provodka.sh $PWD contracts/994-…md` даёт rc 0 уже на OBJECT, до реализации. Причина в `guard_is_wired`: он ищет basename `probe` (`.sh` срезан) как слово, и находит его в чужом шаге `step check:measure-probe …` (`registry/ci-steps.tsv:30`, `.github/workflows/ci.yml:116`). Поэтому пункт `:46` про check_provodka на 994 сам по себе ничего не доказывает (держат `--self-wiring` и `run_ci_lane`), а заявление `:51 ЗАЩИЩАЕТ … от незаметной потери локальной проводки собственной пробы` после done ложно. Если удалить шаг `check:provodka-external-994` и перегенерировать ci.yml, `gen_ci_steps --check` и `check_provodka(994)` останутся зелёными, а `--self-wiring` исполнялся только внутри удалённого шага. Варианты: дать guard уникальное имя (например `probe_994.sh`) либо снять это заявление из ЗАЩИЩАЕТ.
+## Приёмка `:38–47` — прежние rc, живой прогон в клоне
 
-СОВЕТ 2 contracts/994-provodka-vneshnij-ci-guard.md:44 — `--matrix` берёт базу через `git show d125f4bab:scripts/check_provodka.sh`. На OBJECT `git merge-base --is-ancestor d125f4bab origin/main` даёт rc 1. Если 994 попадёт на main точечным переносом (Н-281-паттерн, так перенесены 991 v2 и др.), коммита в истории CI не будет: `--matrix` упадёт в `994 UNMEASURABLE` rc 2, а `run_ci_lane check:provodka-external-994` (все режимы, `:46`) покраснеет. Это не обход, а риск ложного красного. Стоит назвать способ доставки (merge, сохраняющий коммит) либо закрепить базу содержимым (sha256 блоба плюс источник, который переживает перенос).
+Субъект — пред-предметный `scripts/check_provodka.sh` на OBJECT.
 
-СОВЕТ 3 contracts/994-provodka-vneshnij-ci-guard.md:21,24 — схлопываются только ASCII-пробелы, а «все непробельные байты значимы». Клетки с Unicode-пробелом (U+00A0, U+2002) внутри фразы нет. Реализация на `\s`/`[[:space:]]` под UTF-8-локалью пройдёт все клетки. Смысловой утечки нет (визуально та же оговорка), поэтому это совет, а не блокер, но инвариант без клетки не проверяется.
+```
+== --cases rc=1
+CASES executed=76 mismatches=13
+== --legacy rc=0
+LEGACY executed=18 mismatches=0
+== --self-wiring rc=1
+SELF_WIRING MISSING_REAL_STEP []
+== --matrix rc=0
+CASES executed=76 mismatches=0
+MODEL honest observed=0 valid=1
+MODEL unchanged observed=2 valid=1
+MODEL substring observed=2 valid=1
+MODEL wide-delimiter observed=6 valid=1
+MODEL unicode-space observed=2 valid=1
+MODEL heading-space observed=1 valid=1
+MODEL bare-fence observed=1 valid=1
+MODEL exit-after-grant observed=2 valid=1
+MODEL whole-file observed=3 valid=1
+MODEL later-paragraph observed=1 valid=1
+MODEL shared-global observed=2 valid=1
+MODEL missing-file observed=1 valid=1
+SELF {"name": "REGISTRY_ONLY", "actual": 0, "expected": 0, "matched": true, "output": ""}
+SELF {"name": "WITHOUT_OWN_STEP", "actual": 1, "expected": 1, "matched": true, ...}
+```
 
-СОВЕТ 4 contracts/994-provodka-vneshnij-ci-guard.md:19 — нет клеток на три формы. (а) Промежуточный role/charter-канал между guard и его абзацем: «промежуточные каналы не препятствуют». (б) Пустая строка между guard и абзацем: это реальная раскладка 991:162-166 и 993:142-148, её покрывает только живой прогон 991/993. (в) Guard без последующего абзаца, перед которым в поле стоит абзац с точной фразой (`ПРОВОДКА:` / `ПРОВОДКА-ЭНФОРСМЕНТ: <фраза>` / `- guard=X`), с ожиданием refusal. Сейчас реализация с откатом «нет последующего абзаца → берём предыдущий» проходит все клетки.
+`--cases` rc 1, 13 расхождений. Красные клетки: EXTERNAL_991/993, WRAPPED_991/993, BLANK_BEFORE_PARAGRAPH, ROLE_/CHARTER_BEFORE_PARAGRAPH, EXTERNAL_THEN_BAD_ROLE/CHARTER, SHARED_PARAGRAPH, SECOND_GUARD_LOCAL, SECOND_GUARD_OWN, RENAMED_EXTERNAL. Состав совпадает с `:40`. Три новые клетки на пред-предметном субъекте совпадают с ожиданием, то есть ложного красного нет:
+```
+AFTER_HASH_NO_SPACE_CONTINUATION 1 1 True
+AFTER_FENCE_LANGUAGE_CONTINUATION 1 1 True
+FRAGMENT_EDGE_NBSP 1 1 True
+```
+`--self-wiring` rc 1 (`MISSING_REAL_STEP`) — ожидаемое состояние до реализации: строку реестра добавляет implementer (`:26-30`, ЗОНА implementer). Это то же rc, что в прошлых кругах.
 
-СОВЕТ 5 contracts/994-provodka-vneshnij-ci-guard.md:25 — «порядок диагностики не меняется», но нет клетки, где освобождённый guard стоит перед красным role/charter-каналом. Реализация, которая после освобождения выходит из цикла каналов (не `exit 0`, а `break`), не ловится: SECOND_GUARD_LOCAL ловит только ранний `exit 0` при следующем guard.
+`--cases --subject` на мутантах; источники только читались:
+```
+critic994r2/mut/mut_heading.sh   rc=1  CASES executed=76 mismatches=1  AFTER_HASH_NO_SPACE_CONTINUATION actual=0 expected=1
+critic994r2/mut/mut_fence.sh     rc=1  CASES executed=76 mismatches=1  AFTER_FENCE_LANGUAGE_CONTINUATION actual=0 expected=1
+critic994r2/mut/mut_dash.sh      rc=0  CASES executed=76 mismatches=0   (записанный остаток П3)
+critic994r2/mut/mut_strip.sh     rc=1  CASES executed=76 mismatches=1  FRAGMENT_EDGE_NBSP actual=0 expected=1
+critic994r2/mut/mut_colondash.sh rc=1  CASES executed=76 mismatches=9  (QUOTED_MARKER, 99[13]_{NEGATED,SUFFIX}_{COLON,DASH})
+arbiter994/mut/subj_honest.sh    rc=0  CASES executed=76 mismatches=0
+arbiter994/mut/subj_spaced.sh    rc=0  CASES executed=76 mismatches=0   (остаток П3, ` - `)
+arbiter994/mut/subj_heading.sh   rc=1  mismatches=1  AFTER_HASH_NO_SPACE_CONTINUATION
+arbiter994/mut/subj_fence.sh     rc=1  mismatches=1  AFTER_FENCE_LANGUAGE_CONTINUATION
+critic994r3/mut/subj_honest_obj.sh (models.py с OBJECT, honest) rc=0  CASES executed=76 mismatches=0
+```
+`m_heading` и `m_fence` краснеют каждый ровно на своей новой клетке. `m_dash` и `m_spaced` зелены — это остаток, принятый арбитражем, и его наблюдаемость честная.
 
-СОВЕТ 6 contracts/994-provodka-vneshnij-ci-guard.md:47 — команды для 991/993 даны прозой. Лучше записать литерально: `bash scripts/check_provodka.sh "$PWD" contracts/991-complior-repeticiya-p107-p111.md` и то же для `contracts/993-cmp-bck-121-validator-5-8-3.md`, по rc 0. Файлы guard обоих контрактов на OBJECT существуют (`fixtures/workshop_project/rehearsal_991/`, `validator_993/`).
+Гейты:
+```
+bash scripts/check_threat_model.sh "$PWD" contracts/994-provodka-vneshnij-ci-guard.md
+модель угроз: секция валидна (ЗАЩИЩАЕТ 1 буллет(ов), НЕ ЗАЩИЩАЕТ 3 буллет(ов))      rc=0
+bash scripts/check_precision_gate.sh "$PWD" contracts/994-provodka-vneshnij-ci-guard.md
+precision-гейт 043: семья provodka — барьер правится этим же черновиком, задача (б) для неё пропущена (прецедент 036 В4-3)
+OK                                                                                 rc=0
+bash scripts/pre_critic.sh contracts/994-provodka-vneshnij-ci-guard.md
+КРИТИК: дверь зелёная                                                              rc=0
+bash scripts/verify_antiplacebo.sh --scope check_provodka
+барьеров: 1 · фикстур: 28 · предъявлено красным повторным прогоном: 28             rc=0
+bash scripts/check_no_leak.sh --check /home/harness/dev-harness   (из основного чекаута, только чтение)
+основной чекаут чист                                                               rc=0
+```
 
-СОВЕТ 7 contracts/994-provodka-vneshnij-ci-guard.md:40 — текст говорит «красны EXTERNAL_991/993», а на пред-предметном субъекте фактически красны 8 клеток (список выше). Неточность формулировки, вывод тот же.
+## Советы (НЕ блокируют, автор закрывает по усмотрению)
 
-СОВЕТ 8 contracts/994-provodka-vneshnij-ci-guard.md:52 — копирование точной фразы 991/993 в чужой контракт с выдуманным, но существующим guard по замыслу снимает wiring (`RENAMED_EXTERNAL` rc 0). Риск честно объявлен в НЕ ЗАЩИЩАЕТ и принят путём (б). Принято к сведению, не находка.
+СОВЕТ С1 `fixtures/check_provodka/external_ci_994/probe.py:74`, `contracts/994-provodka-vneshnij-ci-guard.md:20` — в тексте `:20` стоит литерал «`#x` без пробела», а клетка проверяет `#заметка` (кириллица). Я построил мутант `critic994r3/mut/m_ascii_hash.py` (sha256 `a77b808b…`): терминатор `re.match(r"#(?![A-Za-z])")`, то есть `#`, за которым идёт ASCII-буква, не считается терминатором. Он проходит батарею: `subj_ascii_hash.sh rc=0 CASES executed=76 mismatches=0`. Почему это не блокер:
+- что угодно, кроме пробела, после `#` — открытое множество символов. Это тот же тип дополнения, что у разделителей, и арбитр закрыл его построением: П4(а) «одна грамматика с циклом поля», «вторая грамматика границы не вводится», reviewer читает diff;
+- клетки П4(б) заданы арбитром точно, и правило «пункты, решённые здесь, не переоткрываются» запрещает их переоспаривать;
+- мутант искусственный. Реалистичный «hashtag»-вариант `'#'[[:alpha:]]*` в production-локали `C.UTF-8` (`scripts/check_provodka.sh:125`) захватывает и кириллицу, поэтому его ловит `#заметка.`.
 
-## Проверенные и закрытые подозрения (из Constraints)
+Что можно сделать за одну клетку: `#x.` с ASCII-буквой, чтобы литерал `:20` был измерен буквально.
 
-- Оговорка как подстрока: закрыто клетками PREFIX/SUFFIX/PARTIAL/QUOTED, мутант `substring` отвергнут на 991_PREFIX/993_SUFFIX. Остаётся дыра широкого разделителя, она вынесена в Б1.
-- ЭНФОРСМЕНТ-абзац после guard-канала не первый: закрыто FIRST_PARAGRAPH_ONLY, ADJACENT_PARAGRAPH_ONLY, мутантом `later-paragraph`.
-- Guard, которого нет на диске: закрыто MISSING_EXTERNAL, мутантом `missing-file`.
-- Исключение по номеру контракта или имени guard: клетки идут на `contracts/727-example.md`, RENAMED_* используют второе имя, поэтому пинование не проходит.
-- Границы абзаца по пустой строке и `- `: дополнительно держит прежняя грамматика (`check_provodka.sh:220-233`): свободный текст после пустой строки или канала — `строка вне грамматики`.
+СОВЕТ С2 — совет С1 арбитра (клетки U+2013/U+2026) не исполнен. Это допустимо: арбитр назвал его советом, а не условием.
+
+СОВЕТ С3 (операционный, для судей) — `probe.sh` пишет деревья в `<клон>/tmp/provodka-994-*`. Если параллельно запустить `verify_antiplacebo.sh --scope check_provodka` в том же клоне, тот видит чужие файлы и отказывает. Мой первый прогон дал `FAIL дерево изменилось вне $WORK — файлы: ./tmp/provodka-994-…`. Отдельный повторный прогон дал rc 0. Это моя интерференция, а не дефект предмета. Пробы и antiplacebo нужно гонять в одном клоне последовательно.
+
+## Артефакты
+
+`/tmp/dev-harness-verify/critic994r3/`:
+- `repo/` — ssh-клон на OBJECT, не изменён; `tmp/` создала проба;
+- `logs/` — сырые логи `cases`, `legacy`, `self-wiring`, `matrix`, `subj_*`;
+- `mut/` — `baseline.sh` (sha256 `20db5210…04a3`, сверено), `m_honest_obj.py` (копия `models.py` с OBJECT), `m_ascii_hash.py` (мутант С1), обёртки `subj_*.sh`;
+- `run.sh` — одноразовый прогонщик.
+
+Основной чекаут не тронут, push не делался. Вердикт не закоммичен (запрет Н-85 в брифе). Коммит в `verdicts/critic/contracts-994-v3.md` под `user.name=critic` делает вызвавшая сторона.
