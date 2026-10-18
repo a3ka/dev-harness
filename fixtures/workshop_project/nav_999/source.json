@@ -27,6 +27,7 @@
     "post": "ia115.nav.POST"
   },
   "tabs_order": ["start", "vorgaenge", "schutz", "post"],
+  "modes": { "reducedMotion": [false, true], "colorScheme": ["dark", "light"] },
   "sections": {
     "start": "frame.F04.01.title",
     "vorgaenge": "frame.F08.01.title",

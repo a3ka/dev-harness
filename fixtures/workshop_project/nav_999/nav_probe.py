@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Навигационные пробы 999 (CMP-MOB-002): таблица переходов shell.
 
-Клетки таблицы порождаются ПЕРЕБОРОМ по закрытому перечню вкладок
-source.json (tabs_order): initialSection — по клетке на вкладку, deep link —
-декартово произведение initial × return (включая диагональ), возврат из
-профиля — по клетке на вкладку. Перечень клеток не выводится из списка
-известных обходов (Н-324/Н-325).
+Круг 3, решение арбитража 999 (К1): клетки порождаются ПЕРЕБОРОМ закрытой
+грамматики TABS × S × A × MODES из source.json (tabs_order × modes):
+(1.1) tab(from→to) ∀ from,to ∈ TABS; (1.2) profile-entry → back ∀ from;
+(1.3) deeplink initial→return ∀ пар; (1.4) без returnSection ∀ initial;
+(1.5) те же действия при rm=true (faden отсутствует, вкладки не disabled).
+В каждом состоянии исполняется общий обход поверхности (surface_sweep:
+К3 контейнеры 3.1–3.3, К4 каталог 4.1 и акцент-гейт 4.3); onCommand —
+наблюдатель в каждой клетке. Перечень клеток не выводится из списка
+известных обходов (Н-324/Н-325); depends порождается генератором по
+грамматике и измеряется прогоном полной матрицы.
 """
 import argparse
 from pathlib import Path
@@ -16,16 +21,32 @@ import tempfile
 from probe_lib import HERE, installed, jest_ready, load_source, model_bytes, run_jest
 
 FAMILY = 'nav'
-_STATIC = ['TABS_ORDER', 'TAB_LABELS_IA', 'PROFILE_SECONDARY_NOT_TAB', 'TAB_SWITCH_SELECTS_SECTION',
-           'TAB_SWITCH_NO_COMMAND', 'REDUCED_MOTION_ACTIONS', 'SECTION_CONTENT_COPY', 'DEEPLINK_NO_RETURN']
+_STATIC = ['TABS_ORDER', 'TAB_LABELS_IA', 'PROFILE_SECONDARY_NOT_TAB', 'TAB_SWITCH_NO_COMMAND',
+           'SECTION_CONTENT_COPY']
+
+
+def _modes():
+    modes = load_source()['modes']
+    return [(bool(rm), cs) for rm in modes['reducedMotion'] for cs in modes['colorScheme']]
+
+
+def _tag(rm, cs):
+    return f'RM{int(rm)}_{str(cs).upper()}'
 
 
 def case_list():
     tabs = load_source()['tabs_order']
     cases = list(_STATIC)
-    cases += [f'INITIAL_{tab.upper()}' for tab in tabs]
-    cases += [f'DEEPLINK_RETURN_{a.upper()}_TO_{b.upper()}' for a in tabs for b in tabs]
-    cases += [f'PROFILE_RETURN_{tab.upper()}' for tab in tabs]
+    for rm, cs in _modes():
+        for a in tabs:
+            for b in tabs:
+                cases.append(f'TAB_{a.upper()}_TO_{b.upper()}_{_tag(rm, cs)}')
+    for rm, cs in _modes():
+        for a in tabs:
+            cases.append(f'PROFILE_RETURN_{a.upper()}_{_tag(rm, cs)}')
+            cases.append(f'NO_RETURN_{a.upper()}_{_tag(rm, cs)}')
+            for b in tabs:
+                cases.append(f'DEEPLINK_RETURN_{a.upper()}_TO_{b.upper()}_{_tag(rm, cs)}')
     return cases
 
 
@@ -55,11 +76,9 @@ FIFTH_TAB = """            ))}
           </View>"""
 
 
-
-def _deep_cells(skip_named):
-    tabs = load_source()['tabs_order']
-    return tuple(cell for cell in (f'DEEPLINK_RETURN_{a.upper()}_TO_{b.upper()}' for a in tabs for b in tabs)
-                 if cell != skip_named)
+def _cells(pred, skip_named):
+    """depends-генератор по грамматике: клетки CASES, удовлетворяющие pred."""
+    return tuple(cell for cell in CASES if pred(cell) and cell != skip_named)
 
 
 # Стаб↔ветвь (Н-39): каждый стаб различим на своём входе; depends — клетки,
@@ -67,26 +86,49 @@ def _deep_cells(skip_named):
 # таблицы переходов, объявлена явно); краснота ВНЕ named ∪ depends — дефект
 # матрицы. Depends измерены прогоном полной матрицы, не выведены из прозы.
 MUTANTS = [
-    ('tab-order-shuffled', 'TABS_ORDER', (TOKENS, "['start', 'vorgaenge', 'schutz', 'post']", "['post', 'schutz', 'vorgaenge', 'start']"), ()),
-    ('frame-title-labels', 'TAB_LABELS_IA', (COPY, LABELS_BLOCK, LABELS_MUTANT), ()),
-    ('profile-as-fifth-tab', 'PROFILE_SECONDARY_NOT_TAB', (SHELL, TABLIST_CLOSE, FIFTH_TAB), ()),
-    ('switch-stuck-selection', 'TAB_SWITCH_SELECTS_SECTION', (SHELL, 'onPress={() => setSection(id)}', "onPress={() => setSection('start')}"),
-     ('REDUCED_MOTION_ACTIONS', 'SECTION_CONTENT_COPY', 'PROFILE_RETURN_VORGAENGE', 'PROFILE_RETURN_SCHUTZ', 'PROFILE_RETURN_POST')),
-    ('tab-emit-command', 'TAB_SWITCH_NO_COMMAND', (SHELL, 'onPress={() => setSection(id)}', "onPress={() => { setSection(id); onCommand?.({ kind: 'mission.create' }); }}"), ()),
-    ('deeplink-no-return', 'DEEPLINK_RETURN_SCHUTZ_TO_POST', (SHELL, 'useState<ShellSection | null>(returnSection)', 'useState<ShellSection | null>(null)'),
-     _deep_cells('DEEPLINK_RETURN_SCHUTZ_TO_POST')),
-    ('motion-removes-actions', 'REDUCED_MOTION_ACTIONS', (SHELL, 'style={styles.tab}', 'disabled={reducedMotion}\n                style={styles.tab}'), ()),
-    ('section-copy-literal', 'SECTION_CONTENT_COPY', (SHELL, '{uiCopyDe[SECTION_TITLE_KEYS[section]].text}', "{'Vorgänge'}"), ()),
-    # Обходы круга 1 критика, закрытые обобщёнными клетками перечня.
-    ('start-never-selected', 'INITIAL_START', (SHELL, 'selected: section === id', "selected: id !== 'start' && section === id"),
-     ('TAB_SWITCH_SELECTS_SECTION', 'DEEPLINK_RETURN_START_TO_VORGAENGE', 'DEEPLINK_RETURN_START_TO_SCHUTZ', 'DEEPLINK_RETURN_START_TO_POST', 'DEEPLINK_RETURN_START_TO_START', 'PROFILE_RETURN_START',
-      'DEEPLINK_RETURN_VORGAENGE_TO_START', 'DEEPLINK_RETURN_SCHUTZ_TO_START', 'DEEPLINK_RETURN_POST_TO_START')),
-    ('profile-loses-origin', 'PROFILE_RETURN_VORGAENGE', (SHELL, "const leaveProfile = () => setRoute('tabs');", "const leaveProfile = () => { setSection('start'); setRoute('tabs'); };"),
-     ('PROFILE_RETURN_SCHUTZ', 'PROFILE_RETURN_POST')),
-    ('initial-post-broken', 'INITIAL_POST', (SHELL, 'useState<ShellSection>(initialSection)', "useState<ShellSection>(initialSection === 'post' ? 'start' : initialSection)"),
-     ('DEEPLINK_RETURN_POST_TO_START', 'DEEPLINK_RETURN_POST_TO_VORGAENGE', 'DEEPLINK_RETURN_POST_TO_SCHUTZ', 'DEEPLINK_RETURN_POST_TO_POST', 'DEEPLINK_NO_RETURN')),
-    ('return-only-schutz', 'DEEPLINK_RETURN_START_TO_POST', (SHELL, 'useState<ShellSection | null>(returnSection)', "useState<ShellSection | null>(initialSection === 'schutz' ? returnSection : null)"),
-     tuple(cell for cell in _deep_cells('DEEPLINK_RETURN_START_TO_POST') if not cell.startswith('DEEPLINK_RETURN_SCHUTZ'))),
+    ('tab-order-shuffled', 'TABS_ORDER', ((TOKENS, "['start', 'vorgaenge', 'schutz', 'post']", "['post', 'schutz', 'vorgaenge', 'start']"),), ()),
+    ('frame-title-labels', 'TAB_LABELS_IA', ((COPY, LABELS_BLOCK, LABELS_MUTANT),), ()),
+    ('profile-as-fifth-tab', 'PROFILE_SECONDARY_NOT_TAB', ((SHELL, TABLIST_CLOSE, FIFTH_TAB),), ()),
+    ('switch-stuck-selection', 'TAB_VORGAENGE_TO_SCHUTZ_RM0_DARK',
+     ((SHELL, 'onPress={() => setSection(id)}', "onPress={() => setSection('start')}"),),
+     _cells(lambda c: (c.startswith('TAB_') and '_RM' in c and '_TO_START_' not in c) or c == 'SECTION_CONTENT_COPY', 'TAB_VORGAENGE_TO_SCHUTZ_RM0_DARK')),
+    ('tab-emit-command', 'TAB_SWITCH_NO_COMMAND',
+     ((SHELL, 'onPress={() => setSection(id)}', "onPress={() => { setSection(id); onCommand?.({ kind: 'mission.create' }); }}"),),
+     _cells(lambda c: c.startswith('TAB_') and '_RM' in c, 'TAB_SWITCH_NO_COMMAND')),
+    ('deeplink-no-return', 'DEEPLINK_RETURN_SCHUTZ_TO_POST_RM0_DARK',
+     ((SHELL, 'useState<ShellSection | null>(returnSection)', 'useState<ShellSection | null>(null)'),),
+     _cells(lambda c: c.startswith('DEEPLINK_RETURN_'), 'DEEPLINK_RETURN_SCHUTZ_TO_POST_RM0_DARK')),
+    ('motion-removes-actions', 'TAB_START_TO_VORGAENGE_RM1_DARK',
+     ((SHELL, 'style={styles.tab}', 'disabled={reducedMotion}\n                style={styles.tab}'),),
+     _cells(lambda c: c.startswith('TAB_') and '_RM1_' in c and c.split('_')[1] != c.split('_')[3], 'TAB_START_TO_VORGAENGE_RM1_DARK')),
+    ('section-copy-literal', 'SECTION_CONTENT_COPY',
+     ((SHELL, '{uiCopyDe[SECTION_TITLE_KEYS[section]].text}', "{'Vorgänge'}"),),
+     _cells(lambda c: '_RM' in c, 'SECTION_CONTENT_COPY')),
+    # Обходы круга 1 критика, закрытые обобщёнными клетками грамматики.
+    ('start-never-selected', 'TAB_START_TO_VORGAENGE_RM0_DARK',
+     ((SHELL, 'selected: section === id', "selected: id !== 'start' && section === id"),),
+     _cells(lambda c: '_START' in c, 'TAB_START_TO_VORGAENGE_RM0_DARK')),
+    ('profile-loses-origin', 'PROFILE_RETURN_VORGAENGE_RM0_DARK',
+     ((SHELL, "const leaveProfile = () => setRoute('tabs');", "const leaveProfile = () => { setSection('start'); setRoute('tabs'); };"),),
+     _cells(lambda c: c.startswith('PROFILE_RETURN_') and not c.startswith('PROFILE_RETURN_START'), 'PROFILE_RETURN_VORGAENGE_RM0_DARK')),
+    ('initial-post-broken', 'TAB_POST_TO_VORGAENGE_RM0_DARK',
+     ((SHELL, 'useState<ShellSection>(initialSection)', "useState<ShellSection>(initialSection === 'post' ? 'start' : initialSection)"),),
+     _cells(lambda c: c.startswith(('TAB_POST_', 'DEEPLINK_RETURN_POST_', 'PROFILE_RETURN_POST_', 'NO_RETURN_POST_')), 'TAB_POST_TO_VORGAENGE_RM0_DARK')),
+    ('return-only-schutz', 'DEEPLINK_RETURN_START_TO_POST_RM0_DARK',
+     ((SHELL, 'useState<ShellSection | null>(returnSection)', "useState<ShellSection | null>(initialSection === 'schutz' ? returnSection : null)"),),
+     _cells(lambda c: c.startswith('DEEPLINK_RETURN_') and not c.startswith('DEEPLINK_RETURN_SCHUTZ'), 'DEEPLINK_RETURN_START_TO_POST_RM0_DARK')),
+    ('transition-post-vorgaenge', 'TAB_POST_TO_VORGAENGE_RM0_DARK',
+     (('mobile/src/bootstrap/tab-shell.tsx', 'onPress={() => setSection(id)}', "onPress={() => { if (!(section === 'post' && id === 'vorgaenge')) setSection(id); }}"),),
+     _cells(lambda c: c.startswith('TAB_POST_TO_VORGAENGE_'), 'TAB_POST_TO_VORGAENGE_RM0_DARK')),
+    ('reduced-motion-emits-command', 'TAB_START_TO_VORGAENGE_RM1_DARK',
+     (('mobile/src/bootstrap/tab-shell.tsx', 'onPress={() => setSection(id)}', "onPress={() => { setSection(id); if (reducedMotion) onCommand?.({ kind: 'mission.create' }); }}"),),
+     _cells(lambda c: c.startswith('TAB_') and '_RM1_' in c, 'TAB_START_TO_VORGAENGE_RM1_DARK')),
+    ('nav-gated-by-colorScheme', 'TAB_START_TO_POST_RM0_LIGHT',
+     (('mobile/src/bootstrap/tab-shell.tsx', 'onPress={() => setSection(id)}', "onPress={() => { if (!(colorScheme === 'light' && id === 'post')) setSection(id); }}"),),
+     _cells(lambda c: c.startswith('TAB_') and '_TO_POST_' in c and c.endswith('_LIGHT') and not c.startswith('TAB_POST_TO_POST'), 'TAB_START_TO_POST_RM0_LIGHT')),
+    ('copy-invented-under-reducedMotion', 'TAB_START_TO_VORGAENGE_RM1_DARK',
+     (('mobile/src/bootstrap/tab-shell.tsx', '<View style={styles.header}>', '<View style={styles.header}>\n          {reducedMotion ? <Text>Bewegung aus</Text> : null}'),),
+     _cells(lambda c: '_RM1_' in c, 'TAB_START_TO_VORGAENGE_RM1_DARK')),
 ]
 
 
@@ -104,13 +146,13 @@ def install_map(repo: Path, blobs):
 
 def run(repo: Path, case=None, model=False):
     mobile = check_repo(repo)
-    test_bytes = (HERE / 'nav.test.tsx').read_bytes()
     blobs = model_bytes() if model else None
     workspace = Path(tempfile.mkdtemp(prefix='__nav999_', dir=mobile / 'src'))
     results = {}
     try:
-        files = {workspace / 'nav.test.tsx': test_bytes,
-                 workspace / 'source.json': (HERE / 'source.json').read_bytes()}
+        files = {workspace / 'nav.test.tsx': (HERE / 'nav.test.tsx').read_bytes(),
+                 workspace / 'source.json': (HERE / 'source.json').read_bytes(),
+                 workspace / 'surface_sweep.ts': (HERE / 'surface_sweep.ts').read_bytes()}
         if blobs:
             files.update(install_map(repo, blobs))
         with installed(files):
@@ -133,14 +175,14 @@ def matrix(repo: Path):
     print('MATRIX honest: ', flush=True)
     rc, results = run(repo)
     ok &= rc == 0
-    for name, case, mutation, depends in MUTANTS:
-        blobs = model_bytes([mutation])
+    for name, case, patches, depends in MUTANTS:
+        blobs = model_bytes(list(patches))
         mobile = check_repo(repo)
-        test_bytes = (HERE / 'nav.test.tsx').read_bytes()
         workspace = Path(tempfile.mkdtemp(prefix='__nav999m_', dir=mobile / 'src'))
         try:
-            files = {workspace / 'nav.test.tsx': test_bytes,
-                     workspace / 'source.json': (HERE / 'source.json').read_bytes()}
+            files = {workspace / 'nav.test.tsx': (HERE / 'nav.test.tsx').read_bytes(),
+                     workspace / 'source.json': (HERE / 'source.json').read_bytes(),
+                     workspace / 'surface_sweep.ts': (HERE / 'surface_sweep.ts').read_bytes()}
             files.update(install_map(repo, blobs))
             with installed(files):
                 got, proc = run_jest(mobile, workspace / 'nav.test.tsx')
