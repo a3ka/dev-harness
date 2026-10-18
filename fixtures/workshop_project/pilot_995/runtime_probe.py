@@ -19,6 +19,7 @@ CASES = {
 MUTANTS = [
     ('copied-model', 'SHIPPED_INVALID', 'auth-invalid'),
     ('any-code', 'SHIPPED_INVALID', 'auth-invalid'),
+    ('env-code', 'SHIPPED_INVALID', 'auth-invalid'),
     ('http-demo', 'HTTP_UNAVAILABLE', 'auth-unavailable'),
     ('ignore-mode', 'UNKNOWN_MODE', 'rejects.toThrow'),
     ('bypass-ports', 'RUNTIME_RESPONSES', 'toHaveBeenCalled'),
@@ -96,8 +97,9 @@ def run(repo, cases=None, model=None, values=None):
             for case in cases or CASES:
                 report = workspace / 'report.json'
                 report.unlink(missing_ok=True)
-                env = dict(os.environ, EXPO_PUBLIC_API_MODE=CASES[case], PILOT_DEMO_CODE=secret,
+                env = dict(os.environ, EXPO_PUBLIC_API_MODE=CASES[case],
                            PILOT_995_MODEL=model or 'actual')
+                env.pop('PILOT_DEMO_CODE', None)
                 if CASES[case] is None: env.pop('EXPO_PUBLIC_API_MODE', None)
                 cmd = ['node', str(mobile / 'node_modules/jest/bin/jest.js'), '--ci', '--runInBand',
                        '--runTestsByPath', str(workspace / 'runtime.test.tsx'), '--testNamePattern', '^995 runtime ' + case + '$',

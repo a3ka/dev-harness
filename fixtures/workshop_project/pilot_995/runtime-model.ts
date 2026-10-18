@@ -13,7 +13,9 @@ export const runtime = {
       evidence: 'SYNTHETIC',
     }),
     verify: async (_challenge: string, code: string) => ({
-      status: mutant === 'any-code' || code === process.env.PILOT_DEMO_CODE ? 'authenticated' : 'invalid',
+      status: (mutant === 'any-code' || (mutant === 'env-code'
+        ? process.env.PILOT_DEMO_CODE === undefined || code === process.env.PILOT_DEMO_CODE
+        : code === 'synthetic-verification-value')) ? 'authenticated' : 'invalid',
       evidence: 'SYNTHETIC',
     }),
     resend: async () => ({ confirmed: true, evidence: 'SYNTHETIC' }),

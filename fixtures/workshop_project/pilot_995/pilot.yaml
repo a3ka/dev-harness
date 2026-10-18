@@ -17,6 +17,16 @@ name: 995 synthetic DIRECT entry and restart
 - assertVisible: Kontakt bestätigen
 - tapOn:
     id: auth-code
+- inputText: definitely-wrong-000
+- tapOn:
+    id: auth-verify
+- assertVisible:
+    id: auth-invalid
+- assertNotVisible:
+    id: F02.01
+- tapOn:
+    id: auth-code
+- eraseText
 - inputText: ${PILOT_DEMO_CODE}
 - tapOn:
     id: auth-verify

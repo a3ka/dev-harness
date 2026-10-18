@@ -124,18 +124,18 @@ describe('995 pilot', () => {
     expect(screen.queryByTestId('invitation-accepted')).toBeNull();
   });
   it('DEFAULT_OFFLINE', async () => {
-    const original = global.fetch;
+    const original = globalThis.fetch;
     const originalMode = process.env.EXPO_PUBLIC_API_MODE;
-    global.fetch = jest.fn(async () => { throw Error('995 HTTP_UNAVAILABLE'); });
+    globalThis.fetch = jest.fn(async () => { throw Error('995 HTTP_UNAVAILABLE'); });
     delete process.env.EXPO_PUBLIC_API_MODE;
     try {
       await render(<PilotApp />); await click('first-run-continue');
       await fireEvent.changeText(screen.getByTestId('auth-email'), 'demo@example.invalid'); await click('auth-demo-entry');
       expect(screen.getByTestId('auth-code')).toBeOnTheScreen();
       expect(screen.getByText('Demo')).toBeOnTheScreen();
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     } finally {
-      global.fetch = original;
+      globalThis.fetch = original;
       if (originalMode === undefined) delete process.env.EXPO_PUBLIC_API_MODE;
       else process.env.EXPO_PUBLIC_API_MODE = originalMode;
     }

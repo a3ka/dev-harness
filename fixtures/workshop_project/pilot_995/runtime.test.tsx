@@ -15,7 +15,7 @@ async function verify(code: string) {
   await fireEvent.changeText(screen.getByTestId('auth-code'), code);
   await click('auth-verify');
 }
-const demoCode = () => process.env.PILOT_DEMO_CODE!;
+const demoCode = () => 'synthetic-verification-value';
 
 describe('995 runtime', () => {
   it('SHIPPED_INVALID', async () => {
@@ -35,15 +35,15 @@ describe('995 runtime', () => {
     expect(screen.queryByTestId('auth-code')).toBeNull();
   });
   it('HTTP_UNAVAILABLE', async () => {
-    const original = global.fetch;
-    global.fetch = jest.fn(async () => { throw Error('HTTP_UNAVAILABLE'); });
+    const original = globalThis.fetch;
+    globalThis.fetch = jest.fn(async () => { throw Error('HTTP_UNAVAILABLE'); });
     try {
       await begin();
       if (screen.queryByTestId('auth-code')) await verify(demoCode());
       expect(screen.getByTestId('auth-unavailable')).toBeOnTheScreen();
       expect(screen.queryByTestId('F02.01')).toBeNull();
       expect(screen.queryByTestId('protected-start')).toBeNull();
-    } finally { global.fetch = original; }
+    } finally { globalThis.fetch = original; }
   });
   it('UNKNOWN_MODE', async () => {
     // Bootstrap may reject at module evaluation or at render; both are configuration errors.
