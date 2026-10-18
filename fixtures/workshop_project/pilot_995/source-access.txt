@@ -1,0 +1,27 @@
+995 source acquisition, 2026-10-18
+
+Requirements read completely:
+  gh issue view 5 --repo a3ka/Complior-mob --json body --jq .body
+  rc=0. Issue title: [CMP-MOB-001] Запустить Android-пилот: e-mail и код → приветствие F02 через ApiClient
+
+Required source clones, both from the assigned worktree, using the configured SSH identity:
+  git clone --depth 1 ssh://git@github.com/a3ka/Complior-mob.git /tmp/dev-harness-verify/architect995/mob-20261018a
+  rc=128: ERROR: Repository not found.
+  git clone --depth 1 ssh://git@github.com/a3ka/Complior-back.git /tmp/dev-harness-verify/architect995/back-20261018a
+  rc=128: ERROR: Repository not found.
+
+Read-only diagnosis:
+  ssh -G git@github.com
+  rc=0; identitiesonly yes; identityfile ~/.ssh/id_dh_ro.
+  /home/harness/.ssh/config has a cwd-conditioned writable identity for authorized directories;
+  github.com otherwise uses id_dh_ro. No alternative host alias is configured.
+
+No SSH override, local clone, origin replacement, main-checkout write, HTTP-source fallback,
+product implementation, Android run, or fabricated backend operation was used.
+
+Missing evidence: current Complior-mob B SHA and STRUCTURE.md, app/API/auth interfaces,
+OpenAPI schemas and examples, actual UX/design/copy and UX175 acceptance cases.
+The missing backend implementation CMP-BCK-008 is NOT the access blocker: issue #5 explicitly
+permits mock mode. The blocker is inability to inspect the mandatory existing source contracts.
+
+This artifact is consumed by contract 995 §Незаполненные требования and is NOT a red test.
