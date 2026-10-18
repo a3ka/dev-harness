@@ -45,6 +45,7 @@ step	check:github-token-family-selftest	15	bash scripts/check_github_token_070.s
 step	check:zony-merge-head-family-selftest	20	bash fixtures/_krasnye_073.sh
 step	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
 step	check:door-bugfix-family-selftest	20	bash fixtures/_krasnye_080.sh
+step	check:orch-loop-997	30	bash fixtures/ops_server/orch_loop_997/probe.sh
 step	check:v-polete-nichego-088-family-selftest	20	bash fixtures/_krasnye_088.sh
 step	check:merge-gate-family-selftest	20	bash fixtures/check_judge_gate/krasnye_063.sh
 step	check:provodka-external-994	10	bash fixtures/check_provodka/external_ci_994/probe.sh
