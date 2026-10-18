@@ -1,4 +1,4 @@
-ФОРК: 993-krug5-stop
+ФОРК: n993-krug5-stop
 ВОПРОС: Контракт 993, круг 5 (последний, кап владельца «если и на 5-м FAIL — СТОП по 993,
   в батч владельцу»): adversary ACCEPT (verdicts/adversary/contracts-993-v5.md,
   OBJECT=0230ee068), reviewer FAIL (verdicts/review/contracts-993-v5.md) — ОДИН новый
