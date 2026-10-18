@@ -18,7 +18,7 @@ CASES = ('marker_removed', 'removed_crash', 'removed_crash_1', 'removed_crash_13
          'scope_refused', 'scope_refused_137', 'second_refused',
          'duplicate', 'duplicate_mark', 'duplicate_log', 'lock_held',
          'lock_before_update', 'bounded', 'clean_exit', 'lock_transition',
-         'delayed_receipt')
+         'delayed_receipt', 'lock_after_death')
 DUP_CASES = ('duplicate', 'duplicate_mark', 'duplicate_log')
 HELD_CASES = ('lock_held', 'lock_before_update')
 REFUSED_CASES = ('scope_refused', 'scope_refused_137', 'second_refused')
@@ -26,6 +26,10 @@ REFUSAL = 'запуск в scope не подтверждён — запуск б
 LEGACY_FALSE = 'ресурсный предел не создан — запуск без потолка запрещён (И-5, контракт 093)'
 CONFIRMED = 'scope подтверждён (канал запуска); файловая метка не используется'
 DUPLICATE = 'ОТКАЗ: orch-loop уже запущен'
+# Closed allowlist of fds the agent may hold after exec (inv. 2): stdio only.
+# Everything above fd 2 is an undeclared helper fd whatever it points at —
+# /dev/null, a pipe dup or the lock file alike (adversary r2, fd 6 escape).
+AGENT_FD_ALLOWLIST = frozenset(('0', '1', '2'))
 # Associations are executable, not claims in the contract. All defects are
 # observable on their assigned input; the same input must accept the model.
 MUTANTS = {
@@ -52,7 +56,31 @@ MUTANTS = {
     'lock_receipt': ('marker_removed', 'RESTART_COUNT'),
     'receipt_fd_leak': ('marker_removed', 'RECEIPT_FD'),
     'lock_fd_leak': ('marker_removed', 'LOCK_FD'),
+    # Adversary r2 reproductions: an undeclared fd on ANY number 3..9 with
+    # ANY target (devnull / receipt-pipe dup / lock file) must fail census;
+    # the singleton lock must stay held through the whole transition; a
+    # killed loop may not leave the lock held forever.
+    'lock_released_between': ('lock_transition', 'LOCK_TRANSITION'),
+    'orphan_watcher_lock': ('lock_after_death', 'LOCK_AFTER_DEATH'),
+    'read_timeout': ('delayed_receipt', 'TRUTHFUL_SCOPE'),
 }
+# Generated helper-fd mutants: the launch line keeps its own closes, then
+# opens fd N on the target. fd 3 rebinds the receipt channel itself (the
+# command still closes fd 3 before exec, so the observable is the destroyed
+# receipt, not census); fd>=4 survives into the agent and census must reject
+# it by number alone. fd3+pipe is excluded: /dev/fd/3 on fd 3 is the
+# identity, not a mutation.
+FD_MUTANT_TARGETS = {
+    'devnull': '{n}</dev/null',
+    'pipe': '{n}>/dev/fd/3',
+    'lock': '{n}>>"$HOME/.local/state/dev-harness/orch-loop.lock"',
+}
+for _target, _template in FD_MUTANT_TARGETS.items():
+    for _n in range(3, 10):
+        if _n == 3 and _target == 'pipe':
+            continue
+        MUTANTS[f'fd{_n}_{_target}'] = (
+            'marker_removed', 'TRUTHFUL_SCOPE' if _n == 3 else 'HELPER_FD')
 
 def model(name):
     text = (HERE / 'model.sh').read_text()
@@ -75,6 +103,13 @@ def model(name):
                 raise ValueError(f'model anchor {name}: {text.count(old)}')
             text = text.replace(old, new)
         return text
+    if name.startswith('fd') and name.count('_') == 1:
+        number, _, target = name.partition('_')
+        inject = FD_MUTANT_TARGETS[target].format(n=number[2:])
+        old, new = ' 3>/dev/fd/8 7<&- 8>&- 9>&-', f' 3>/dev/fd/8 7<&- 8>&- 9>&- {inject}'
+        if text.count(old) != 1:
+            raise ValueError(f'model anchor {name}: {text.count(old)}')
+        return text.replace(old, new)
     changes = {
         'named_receipt': ('if [ "$receipt" != SCOPED ]; then', 'if [ ! -e "$ORCH_MARK.scoped" ]; then'),
         'fallback': ('    exit 1\n  fi', '    "$ORCH_LOOP_AGENT_CMD" --yolo -- fallback\n    exit 1\n  fi'),
@@ -99,6 +134,16 @@ def model(name):
         'receipt_fd_leak': ('printf "SCOPED\\n" >&3; exec 3>&-; if [ -n "$3" ]',
                             'printf "SCOPED\\n" >&3; if [ -n "$3" ]'),
         'lock_fd_leak': ('8>&- 9>&-', '8>&-'),
+        # Adversary r2: the lock is dropped in the reap->restart window, so a
+        # blocking waiter steals it while the loop still runs.
+        'lock_released_between': ('  wait "$watcher" 2>/dev/null || true\n  if [ "$receipt" != SCOPED ]; then',
+                                  '  wait "$watcher" 2>/dev/null || true\n  exec 9>&-\n  if [ "$receipt" != SCOPED ]; then'),
+        # The watcher never closes fd 9: after the loop is SIGKILLed its
+        # sleeps keep the singleton lock forever (reviewer r2 orphan case).
+        'orphan_watcher_lock': ('exec 9>&-\n    while sleep 0.05; do', 'while sleep 0.05; do'),
+        # A schedule-dependent read loses a receipt that is delivered late
+        # (adversary r2 receipt_read_timeout, now relay-independent).
+        'read_timeout': ('IFS= read -r receipt <&7 || receipt=', 'IFS= read -r -t 1 receipt <&7 || receipt='),
     }
     if name != 'honest':
         old, new = changes[name]
@@ -122,9 +167,11 @@ def run_case(text, case, identity='same'):
     # Expected values exist only in the checker, before any subject is invoked.
     expected_starts = (0 if case in HELD_CASES or case.startswith('scope_refused') else
                        1 if case in DUP_CASES or case in ('second_refused', 'clean_exit',
-                                                          'delayed_receipt') else
+                                                          'delayed_receipt',
+                                                          'lock_after_death') else
                        3 if case == 'bounded' else 2)
-    expected_rc = 1 if case in REFUSED_CASES + HELD_CASES else 3 if case == 'bounded' else 0
+    expected_rc = (-9 if case == 'lock_after_death' else
+                   1 if case in REFUSED_CASES + HELD_CASES else 3 if case == 'bounded' else 0)
     with tempfile.TemporaryDirectory(prefix='orch997-') as directory, \
             tempfile.TemporaryDirectory(prefix='orch997-outside-') as outside:
         root = Path(directory)
@@ -136,7 +183,7 @@ def run_case(text, case, identity='same'):
                        env={'PATH': '/usr/bin:/bin', 'HOME': str(root)})
         bin_dir = root / 'bin'
         bin_dir.mkdir()
-        for name in ('systemd-run', 'systemctl', 'sudo', 'omp', 'cat'):
+        for name in ('systemd-run', 'systemctl', 'sudo', 'omp'):
             target = bin_dir / name
             target.write_bytes((HERE / 'backend.py').read_bytes())
             target.chmod(0o755)
@@ -220,7 +267,7 @@ def run_case(text, case, identity='same'):
                     if first.poll() is not None:
                         errors.append('FIRST_INTERRUPTED')
                     (control / 'release').touch()
-            if case in ('lock_transition', 'delayed_receipt'):
+            if case in ('lock_transition', 'delayed_receipt', 'lock_after_death'):
                 deadline = time.monotonic() + 8
                 while not (control / 'ready').exists() and first.poll() is None and time.monotonic() < deadline:
                     time.sleep(0.01)
@@ -236,10 +283,42 @@ def run_case(text, case, identity='same'):
                                               stderr=subprocess.DEVNULL, start_new_session=True)
                     time.sleep(0.5)
                     (control / 'release').touch()
+                    # Adversary r2: observe the lock DURING the run, not only
+                    # at the end. The waiter may take the lock only after the
+                    # loop has exited; acquiring while first is still alive
+                    # means the lock was dropped in the transition window
+                    # (e.g. `exec 9>&-` between reap and restart).
+                    watch = time.monotonic() + 18
+                    while time.monotonic() < watch:
+                        if (acquired.exists() and first.poll() is None):
+                            errors.append('LOCK_TRANSITION')
+                            break
+                        if first.poll() is not None:
+                            break
+                        time.sleep(0.01)
+                elif case == 'lock_after_death':
+                    # Reviewer r2 orphan case: the loop is SIGKILLed mid-session
+                    # (tmux pane gone). The singleton lock must become free in
+                    # bounded time — an orphaned watcher holding fd 9 blocks
+                    # every new run forever, which no later restart can clear.
+                    os.kill(first.pid, signal.SIGKILL)
+                    acquired = control / 'waiter-acquired'
+                    try:
+                        reaper = subprocess.run(
+                            ['/usr/bin/flock', '-x', '-w', '15', str(lock), '-c', f'touch {acquired}'],
+                            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, timeout=20)
+                        freed = reaper.returncode == 0 and acquired.exists()
+                    except subprocess.TimeoutExpired:
+                        freed = False
+                    if not freed:
+                        errors.append('LOCK_AFTER_DEATH')
                 else:
-                    # The relay delivers SCOPED later than 1 s after
+                    # The receipt is delivered later than 1 s after
                     # systemd-run returned; a schedule-dependent read loses
-                    # a confirmed scope (inv. 2/3, И-5).
+                    # a confirmed scope (inv. 2/3, И-5). The delay sits at the
+                    # launch boundary (backend intercepts fd 3), not in any
+                    # named relay, so it holds for every relay choice.
                     (control / 'release').touch()
                     time.sleep(1.5)
                     (control / 'relay-release').touch()
@@ -267,14 +346,15 @@ def run_case(text, case, identity='same'):
                 output += stream.read().decode(errors='replace')
             starts = [e for e in observed if e['kind'] == 'agent_start']
             calls = [e for e in observed if e['kind'] == 'scope_call']
-            # fd census of every launched agent, against its own launch table
-            # (adversary circle 1): no receipt fd 3, no lock fd 9, no channel
-            # helpers — by number, by pipe inode and by lock path alike.
-            launch_fds = set()
+            # fd census of every launched agent against a CLOSED allowlist
+            # (adversary circles 1-2): no receipt fd 3, no lock fd 9, no
+            # channel helpers — by number, by pipe inode and by lock path
+            # alike; and NOTHING above stdio, whatever fd number it landed on
+            # and whatever it points at (/dev/null included — the r2 escape:
+            # census used to accept any fd already present at scope_call).
             launch_pipes = set()
             for event in observed:
                 if event['kind'] == 'scope_call':
-                    launch_fds = set(event.get('fd_targets') or ())
                     launch_pipes = {t for t in (event.get('fd_targets') or {}).values()
                                     if t.startswith('pipe:')}
                 elif event['kind'] == 'agent_start':
@@ -285,7 +365,7 @@ def run_case(text, case, identity='same'):
                     if '9' in held or any(t.split(' (deleted)', 1)[0] == str(lock)
                                           for t in census.values()):
                         errors.append('LOCK_FD')
-                    if held - launch_fds or held & {'7', '8'}:
+                    if held - AGENT_FD_ALLOWLIST:
                         errors.append('HELPER_FD')
             if any(e['kind'].startswith('bad_') or e['kind'] == 'unexpected_tool' for e in observed):
                 errors.append('INVALID_TOOL_CALL')
@@ -312,7 +392,10 @@ def run_case(text, case, identity='same'):
                     errors.append('REFUSAL')
             elif REFUSAL in payloads or LEGACY_FALSE in payloads:
                 errors.append('TRUTHFUL_SCOPE')
-            if starts and case not in DUP_CASES and payloads.count(CONFIRMED) != expected_starts:
+            # lock_after_death is killed mid-session, before the loop could
+            # log its confirmation; the cell owns the lock, not the receipt.
+            if starts and case not in DUP_CASES + ('lock_after_death',) \
+                    and payloads.count(CONFIRMED) != expected_starts:
                 errors.append('TRUTHFUL_SCOPE')
             if case in DUP_CASES and (second_rc != 1 or payloads.count(DUPLICATE) != 1):
                 errors.append('DUPLICATE')
@@ -344,7 +427,8 @@ def run_case(text, case, identity='same'):
                     live.discard(event['pid'])
             if starts and case not in DUP_CASES + HELD_CASES + ('scope_refused', 'scope_refused_137',
                                                                'clean_exit', 'lock_transition',
-                                                               'delayed_receipt'):
+                                                               'delayed_receipt',
+                                                               'lock_after_death'):
                 deletions = [e for e in observed if e['kind'] == 'receipt_deleted']
                 if not deletions or not all(e['canaries_removed'] for e in deletions):
                     errors.append('SETUP_NO_DELETION')
@@ -368,8 +452,24 @@ def run_case(text, case, identity='same'):
                     environ = Path(f"/proc/{event['pid']}/environ").read_bytes()
                     if ('TOY_ROOT=' + str(root)).encode() + b'\0' in environ:
                         os.kill(event['pid'], signal.SIGKILL)
-                except (FileNotFoundError, ProcessLookupError):
+                except (FileNotFoundError, PermissionError, ProcessLookupError):
                     pass
+            if case == 'lock_after_death':
+                # The SIGKILLed loop leaves orphans the recorded-PID sweep
+                # cannot know: the watcher, its sleeps, the intercept helper.
+                # Kill every process of THIS run by its private TOY_ROOT.
+                for proc_entry in Path('/proc').iterdir():
+                    if not proc_entry.name.isdigit():
+                        continue
+                    try:
+                        environ = (proc_entry / 'environ').read_bytes()
+                    except (FileNotFoundError, PermissionError, ProcessLookupError):
+                        continue
+                    if ('TOY_ROOT=' + str(root)).encode() + b'\0' in environ:
+                        try:
+                            os.kill(int(proc_entry.name), signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError):
+                            pass
             for proc in processes:
                 proc.wait()
             for stream in output_files:

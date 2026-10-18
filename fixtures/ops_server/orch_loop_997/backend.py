@@ -100,6 +100,35 @@ if name == 'systemd-run':
     (control / unit).write_text(str(os.getpid()))
     event('scope_created', unit=unit)
     os.environ['TOY_SCOPED'] = unit
+    if os.environ.get('TOY_CASE') == 'delayed_receipt':
+        # Relay-independent receipt delay (reviewer r2 С-3): the scope command
+        # writes fd 3 into an interceptor pipe; a forked helper holds the
+        # bytes back until the checker opens the gate — AFTER systemd-run has
+        # returned — whatever relay the subject uses to move them.
+        intercept_r, intercept_w = os.pipe()
+        original = os.dup(3)
+        helper = os.fork()
+        if helper == 0:
+            os.close(intercept_w)
+            data = b''
+            while True:
+                chunk = os.read(intercept_r, 4096)
+                if not chunk:
+                    break
+                data += chunk
+            os.close(intercept_r)
+            gate = control / 'relay-release'
+            deadline = time.monotonic() + 30
+            while not gate.exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            while data:
+                data = data[os.write(original, data):]
+            os.close(original)
+            os._exit(0)
+        os.close(intercept_r)
+        os.close(original)
+        os.dup2(intercept_w, 3)
+        os.close(intercept_w)
     try:
         confine_writes()
     except OSError as error:
@@ -139,7 +168,7 @@ elif name == 'omp':
     lock = Path(os.environ['HOME']) / '.local/state/dev-harness/orch-loop.lock'
     protected = {str(lock)}
     if case not in ('clean_exit', 'duplicate', 'duplicate_mark', 'duplicate_log',
-                    'lock_transition', 'delayed_receipt'):
+                    'lock_transition', 'delayed_receipt', 'lock_after_death'):
         if lock.exists():
             os.truncate(lock, 0)
         canaries = (Path(str(mark) + '.scoped'), mark.parent / 'unrelated-receipt',
@@ -195,23 +224,21 @@ elif name == 'omp':
         event('agent_end', session=n, signal=None, rc=7)
         sys.exit(7)
     if case == 'delayed_receipt':
-        # The agent holds the scope open; the relay delivers SCOPED later
-        # than the checker decides, so a schedule-dependent read loses it.
+        # The agent holds the scope open; the receipt bytes reach the
+        # parent later than the checker decides, so a schedule-dependent
+        # read loses them (the delay itself lives in the systemd-run shim).
+        (control / 'ready').touch()
+        while not (control / 'release').exists():
+            time.sleep(0.01)
+        finish()
+    if case == 'lock_after_death':
+        # Session 1 stays alive until the checker SIGKILLs the whole loop
+        # mid-session; whoever is left behind must not hold the lock forever.
         (control / 'ready').touch()
         while not (control / 'release').exists():
             time.sleep(0.01)
         finish()
     finish()
-elif name == 'cat':
-    # Relay of the receipt channel. In delayed_receipt the copy is held back
-    # until the checker opens the gate, after systemd-run has returned; the
-    # subject itself never reads the gate.
-    if os.environ.get('TOY_CASE') == 'delayed_receipt' and not args:
-        gate = control / 'relay-release'
-        deadline = time.monotonic() + 20
-        while not gate.exists() and time.monotonic() < deadline:
-            time.sleep(0.02)
-    os.execvp('/usr/bin/cat', ['cat'] + args)
 else:
     event('unexpected_tool', name=name)
     sys.exit(97)
