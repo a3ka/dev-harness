@@ -548,6 +548,16 @@ excuse_for() {  # <путь> → 0, если удаление разрешено
           verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-klass-v1.md|verdicts/consultant/fork-093-v2c-otkrytie-i-a908-razreshenie-v1.md)
             return 0 ;;
         esac ;;
+      # n994-protected-grandfather-4 (консультант по мандату docs/owner/2026-10-18-tri-slota.md, 2026-10-18):
+      # rename без ALLOW (023f7daf) и три ALLOW с несколькими путями в строке, которые парсер не признаёт (Н-310).
+      023f7dafcd444daf5d47dbccf9dde7642cd1b5cd)
+        [ "$p" = "verdicts/consultant/993-krug5-stop-klass-v1.md" ] && return 0 ;;
+      230c43376d27ae754d525f8109f0f6068170963b)
+        [ "$p" = "verdicts/critic/contracts-993-v2.md" ] && return 0 ;;
+      96e01e91c760b7f231d3adb27e09190c43b8f010)
+        [ "$p" = "verdicts/critic/contracts-994-v3.md" ] && return 0 ;;
+      08ce2e7f33f9374368da5c12ef3c5f729c04f376)
+        [ "$p" = "verdicts/review/contracts-105-land-v2.md" ] && return 0 ;;
     esac
     is_lagging_merge_artifact "$c" "$p" && continue
     body="$(git log -1 --format=%B "$c")"
