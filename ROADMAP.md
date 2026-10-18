@@ -389,6 +389,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 994 | до V-2 | CI | - | 97b1911f6 |
 | 3 | 995 | до V-2 | complior | - | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
+| 3 | ci-preflight | до V-2 | CI | 997 | docs/owner/2026-10-18-ci-predpolet.md#Что делаем |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
 | 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
