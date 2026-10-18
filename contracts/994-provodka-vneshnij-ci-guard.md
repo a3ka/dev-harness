@@ -4,7 +4,9 @@
 
 Н-303: полностью доставленный 991 не получает done-тег, потому что check_provodka требует локальную проводку проверок чужого checkout/SDK вопреки явной оговорке самого контракта. Выбран путь (б): закрытое распознавание существующих оговорок 991/993. Произвольная регистрация внешних проверок в CI-реестре отвергнута: реестр описывает исполняемые локальные шаги, а не декларации исключений. Результат — локальный wiring требуется, кроме явно описанного ниже случая; существование guard обязательно всегда.
 
-## §Существующее
+КОНТЕКСТ: `NABLIUDENIA.md`, Н-303 — измеренный отказ per-guard wiring при явной оговорке внешнего CI.
+
+## Существующее
 
 - Парсер `scripts/check_provodka.sh`: двухаргументный CLI `<корень> <контракт>`, rc 0/1/2; первый блок ПРОВОДКА, г0/г0-доп, каналы guard/role/charter; `guard_is_wired` уже читает hooks, workflows и registry/ci-steps.tsv. Меняется только условие per-guard wiring, не эти механизмы.
 - Контракты `contracts/991-complior-repeticiya-p107-p111.md` и `contracts/993-cmp-bck-121-validator-5-8-3.md`: существующие внешние оговорки, переносимый многострочный ЭНФОРСМЕНТ-абзац. Их frozen-текст не правится.
@@ -59,10 +61,48 @@ step	check:provodka-external-994	10	bash fixtures/check_provodka/external_ci_994
 ЗОНА critic: verdicts/critic/
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
-ПЕРЕСЕЧЕНИЕ architect: fixtures/check_provodka/external_ci_994/ — 038; только новая подсемья, существующие фикстуры неизменны.
-ПЕРЕСЕЧЕНИЕ implementer: scripts/check_provodka.sh — 038; только описанное исключение per-guard wiring, остальные каналы/диагностика неизменны.
-ПЕРЕСЕЧЕНИЕ implementer: registry/ci-steps.tsv — 083; один исполняемый локальный шаг, без внешних деклараций.
-ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 038 083; только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ architect: fixtures/check_provodka/external_ci_994/ — 038 только новая подсемья, существующие фикстуры неизменны.
+ПЕРЕСЕЧЕНИЕ implementer: scripts/check_provodka.sh — 038 только описанное исключение per-guard wiring, остальные каналы/диагностика неизменны.
+ПЕРЕСЕЧЕНИЕ implementer: registry/ci-steps.tsv — 083 один исполняемый локальный шаг, без внешних деклараций.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 038 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 083 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 002 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 003 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 004 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 005 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 006 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 007 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 008 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 011 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 015 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 016 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 020 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 021 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 027 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 036 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 039 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 040 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 043 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 045 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 057 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 058 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 059 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 060 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 062 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 063 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 070 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 071 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 072 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 078 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 084 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 087 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 090 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 092 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 093 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 094 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 095 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 099 только производная материализация генератором.
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 100 только производная материализация генератором.
 
 Architect сдаёт контракт и красное предъявление; critic → freeze → implementer (парсер и настоящий CI-step) → orchestrator (генерация workflow) → scoped приёмка, CI, adversary/reviewer → done. Самодельный тег и фиктивная внешняя оговорка собственной пробы запрещены. Код реализации implementer architect не подменяет фикстурной моделью.
 
