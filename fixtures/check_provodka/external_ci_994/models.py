@@ -40,7 +40,14 @@ def main():
         start = next(i for i, line in enumerate(lines) if re.fullmatch(r"ПРОВОДКА:[ \t]*", line))
     except StopIteration:
         start = len(lines)
-    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith(("#", "```"))), len(lines))
+    def terminates(line):
+        if mode == "heading-space":
+            return re.match(r"#+( |$)", line) or line.startswith("```")
+        if mode == "bare-fence":
+            return line.startswith("#") or line.strip() == "```"
+        return line.startswith(("#", "```"))
+
+    end = next((i for i in range(start + 1, len(lines)) if terminates(lines[i])), len(lines))
     guard_indexes = [i for i in range(start + 1, end) if lines[i].startswith("- guard=")]
     granted = []
     for index in guard_indexes:

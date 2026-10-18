@@ -71,9 +71,12 @@ def cases():
     for label, terminator in (("HEADING", "## Другой раздел"), ("FENCE", "```")):
         add("AFTER_" + label, field(local + "\n" + terminator + "\n" + ENF + P991))
         add("AFTER_" + label + "_CONTINUATION", field(ENF + "Локальная проверка;\n" + terminator + "\n" + P993))
+    add("AFTER_HASH_NO_SPACE_CONTINUATION", field(ENF + "Локальная проверка;\n#заметка.\n" + P993))
+    add("AFTER_FENCE_LANGUAGE_CONTINUATION", field(ENF + "Локальная проверка;\n```text;\n" + P993))
     add("SECOND_FIELD", field(local + "\n## Другой раздел\n" + field(ENF + P991)))
     add("QUOTED_MARKER", field(ENF + "Локальная проверка.\n> " + ENF + P991))
     add("COMMENT_MARKER", field(ENF + "Локальная проверка.\n<!-- " + ENF + P993 + " -->"))
+    add("FRAGMENT_EDGE_NBSP", field(ENF + "Внешняя;\u00a0" + P991 + "."))
     for label, phrase in (("991", P991), ("993", P993)):
         for suffix, malformed in (
             ("PREFIX", "неверно " + phrase),
@@ -196,6 +199,8 @@ def matrix(scratch):
         "wide-delimiter": {"991_NEGATED_COMMA", "991_NEGATED_EXCLAMATION", "991_NEGATED_QUESTION",
                            "993_SUFFIX_COMMA", "993_SUFFIX_EXCLAMATION", "993_SUFFIX_QUESTION"},
         "unicode-space": {"991_NBSP", "993_EN_SPACE"},
+        "heading-space": {"AFTER_HASH_NO_SPACE_CONTINUATION"},
+        "bare-fence": {"AFTER_FENCE_LANGUAGE_CONTINUATION"},
         "exit-after-grant": {"EXTERNAL_THEN_BAD_ROLE", "EXTERNAL_THEN_BAD_CHARTER"},
         "whole-file": {"BEFORE_FIELD", "AFTER_HEADING", "AFTER_FENCE"},
         "later-paragraph": {"FIRST_PARAGRAPH_ONLY"},
