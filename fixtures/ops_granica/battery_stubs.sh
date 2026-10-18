@@ -34,7 +34,7 @@ ROOT="${OPS093_ROOT:-$(cd "$HERE/../.." && pwd)}"
 [ -f "$ROOT/ops/server/user/orch-loop" ] || { printf 'NOT_IMPLEMENTED: нет orch-loop\n' >&2; exit 2; }
 
 SCRATCH="$(mktemp -d /tmp/dev-harness-verify/ops-granica-bat-XXXXXX)" || { printf 'NOT_IMPLEMENTED: mktemp\n' >&2; exit 2; }
-trap 'rm -rf "$SCRATCH"' EXIT
+trap 'kill_own_orphans; rm -rf "$SCRATCH"' EXIT
 
 build_copy() { # $1=dst $2=src — толерантный bulk-copy + гарантированные
   # субъектные файлы (клетке 6 нужны и юниты; сбой bulk-копии не должен
@@ -60,24 +60,24 @@ cell_home() { # $1=tag (s1..s10)
 }
 
 # Гашение СВОИХ сирот между клетками (см. шапку): сценарий — клетка 7 (s6)
-# сломала зачистку и оставила `toy-agent-sleeper` + родителя `sleep 300`
-# в фоне. До следующей клетки — KILL всех процессов с именами, порождёнными
-# самим прогоном батареи (toy-agent-sleeper, sleep 300 от имени пускача).
-# Не трогаем живые сессии (omp --profile) и сам orch-loop — это не наши
-# сироты. Все процессы в нашем uid — наша ответственность.
+# сломала зачистку и оставила сироты (стаб-omp варианта `b` форкает
+# `exec sleep 300` без переименования; вариант `a` — `exec -a toy-agent-sleeper
+# sleep 300`, и argv содержит «toy-agent-sleeper», и comm=`sleep`).
+# Все клетки стартуют процессы под НАШИМ uid с маркером `OPS093_ROOT=$SCRATCH/`
+# в окружении (этот же приём — образец `probe.py:365-370`):
+# каждый процесс, чей `/proc/<pid>/environ` содержит
+# `OPS093_ROOT=$SCRATCH/` (с завершающим `\0`), — НАШ. Чужие процессы
+# (omp/иные сессии/посторонние subshell-ы), у которых нет этого маркера,
+# не трогаем. То же имя (`toy-agent-sleeper`, `sleep 300`) на другой
+# машине или у соседнего прогона — НЕ наша ответственность.
 kill_own_orphans() {
-  local p killed=0
-  for p in $(pgrep -u "$(id -u)" -x toy-agent-sleeper 2>/dev/null); do
-    kill -KILL "$p" 2>/dev/null && killed=$((killed + 1))
-  done
-  for p in $(pgrep -u "$(id -u)" -f 'toy-agent-sleeper' 2>/dev/null); do
-    kill -KILL "$p" 2>/dev/null && killed=$((killed + 1))
-  done
-  # sleep 300, форкнутый напрямую (мимо toy-agent-sleeper) — редкий путь,
-  # но если клетка 7 оставила и его, гасим.
-  for p in $(pgrep -u "$(id -u)" -x 'sleep 300' 2>/dev/null); do
-    ppid="$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null)"
-    [ "$ppid" = 1 ] && kill -KILL "$p" 2>/dev/null && killed=$((killed + 1))
+  local pid marker killed=0
+  marker=$'OPS093_ROOT='${SCRATCH}$'/'
+  for pid in $(pgrep -u "$(id -u)" 2>/dev/null); do
+    [ -r "/proc/$pid/environ" ] || continue
+    if grep -aqF -z -- "$marker" "/proc/$pid/environ" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null && killed=$((killed + 1))
+    fi
   done
   return 0
 }
@@ -87,7 +87,7 @@ verdict() { # $1=метка $2=rc клетки — поимка ТОЛЬКО rc 
   if [ "$rc" -eq 1 ]; then
     caught=$((caught+1)); printf '%s: ПОЙМАН (rc=1)\n' "$tag" >&2
   elif [ "$rc" -eq 2 ]; then
-    printf '✗ %s: НЕ ПОЙМАН (rc=2 NOT_IMPLEMENTED — поимка пустая, не засчитана)\n' "$tag" "$rc" >&2
+    printf '✗ %s: НЕ ПОЙМАН (rc=2 NOT_IMPLEMENTED — поимка пустая, не засчитана)\n' "$tag" >&2
   else
     printf '✗ %s: НЕ ПОЙМАН (rc=%s)\n' "$tag" "$rc" >&2
   fi
@@ -116,6 +116,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s1)" OPS093_ROOT="$S1" /bin/bash "$HERE/red_limit_otkaz_bez_zapuska.sh" >/dev/null 2>&1
   verdict 's1 фолбэк-без-потолка' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s1: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
@@ -151,6 +152,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s2)" OPS093_ROOT="$S2" /bin/bash "$HERE/red_root_bootstrap_iz_repo.sh" >/dev/null 2>&1
   verdict 's2 bootstrap-из-репо' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s2: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
@@ -187,6 +189,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s3)" OPS093_ROOT="$S3" /bin/bash "$HERE/red_kredit_publikacii_vne_sredy.sh" >/dev/null 2>&1
   verdict 's3 кредит-в-среде' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s3: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
@@ -220,6 +223,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s4)" OPS093_ROOT="$S4" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1
   verdict 's4 успех-без-старта' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s4: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
@@ -248,6 +252,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s5)" OPS093_ROOT="$S5" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1
   verdict 's5 откат-удаление' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s5: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснать якорь по коду субъекта)\n' >&2
@@ -282,6 +287,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s6)" OPS093_ROOT="$S6" /bin/bash "$HERE/red_net_osirotevshih_detej.sh" >/dev/null 2>&1
   verdict 's6 сироты-живут' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s6: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
@@ -320,6 +326,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s7)" OPS093_ROOT="$S7" /bin/bash "$HERE/red_agent_uid_stancija_nedostupna.sh" >/dev/null 2>&1
   verdict 's7 uid-не-переключается' $?
+  kill_own_orphans
 else
   printf '%s\n' "$build_out" >&2
   printf '✗ s7: ЯКОРЬ-НЕ-НАЙДЕН — стаб не построен, клетка НЕ засчитывается (переснять якорь по коду субъекта)\n' >&2
@@ -352,6 +359,7 @@ else:
   kill_own_orphans
   HOME="$(cell_home s8)" OPS093_ROOT="$S8" /bin/bash "$HERE/red_unit_realno_startuet.sh" >/dev/null 2>&1; rc5=$?
   HOME="$(cell_home s8)" OPS093_ROOT="$S8" /bin/bash "$HERE/red_otkat_vozvrashhaet_rabochuju.sh" >/dev/null 2>&1; rc6=$?
+  kill_own_orphans
   if [ "$rc5" -eq 1 ] && [ "$rc6" -eq 1 ]; then
     caught=$((caught+1)); printf 's8 stale-запуск: ПОЙМАН (клетка5 rc=1, клетка6 rc=1 — обе предъявили мир stale)\n' >&2
   else
@@ -423,6 +431,7 @@ if [ -n "$S9_BODY" ] && build_out="$(replace_provision_body "$S9/ops/server/inst
   printf '%s\n' "$build_out" >&2
   kill_own_orphans
   HOME="$(cell_home s9)" OPS093_ROOT="$S9" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >/dev/null 2>&1; rc9=$?
+  kill_own_orphans
   if [ "$rc9" -eq 1 ]; then
     caught=$((caught+1)); printf 's9 no-copy runtime: ПОЙМАН (клетка9 rc=1 — install не доставил workshop, adversary 093-v3)\n' >&2
   else
@@ -446,6 +455,7 @@ if build_out="$(replace_provision_body "$S10/ops/server/install.sh" "$OLD_PROVIS
   printf '%s\n' "$build_out" >&2
   kill_own_orphans
   HOME="$(cell_home s10)" OPS093_ROOT="$S10" /bin/bash "$HERE/red_agent_runtime_vne_home.sh" >"$SCRATCH/s10.log" 2>&1; rc10=$?
+  kill_own_orphans
   if [ "$rc10" -eq 1 ] && grep -q 'старый credential-носитель пережил install' "$SCRATCH/s10.log"; then
     caught=$((caught+1)); printf 's10 stale-mirror: ПОЙМАН (клетка9 rc=1 — stale .env/.env.*/.ssh пережили install, adversary 093-v4)\n' >&2
   else

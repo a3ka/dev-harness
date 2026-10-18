@@ -245,11 +245,9 @@ done
 R0_MSG="${#SNAPS[@]}/${#PIN[@]} снимков cikl_085/ == пинам в памяти"
 
 mapfile -t SNAP_LOOP <"$SCRATCH/snap/stancija.orch-loop"
-# 997 §Снимок 085 р2 (инв. 5): правка lock-fd стратегии ВЫНЕСЕНА В ТЕЛО
-# наблюдателя отдельной строкой `exec 9>&-` (после `do`) — строки снимка
-# `( while sleep 5; do` / `  done ) &` сохраняются ДОСЛОВНО, миграция не
-# трогает массив SNAP_LOOP. subseq ниже сравнивает содержимое снимка с
-# субъектом построчно; пин снимка и sha256 неизменны.
+# Снимок 085 р2 (инв. 5): строки `( while sleep 5; do` / `  done ) &`
+# сохранены в субъекте дословно; subseq ниже сравнивает содержимое снимка
+# с субъектом построчно; пин снимка и sha256 неизменны.
 mapfile -t SNAP_MERGE <"$SCRATCH/snap/slijanie.orch-peak"
 MSG_STATION="$(sed -n "s/^MSG='\(.*\)'\$/\1/p" "$SCRATCH/snap/stancija.orch-loop")"
 [ -n "$MSG_STATION" ] && [ "$(printf '%s\n' "$MSG_STATION" | grep -c '')" = 1 ] \
@@ -329,11 +327,7 @@ CNT_C = '  export ORCH_EARLY="$crash"   # общий счёт нештатных
 CNT_E = '  export ORCH_CRASH="$early"   # общий счёт нештатных завершений подряд (контракт 085, И-3)\n'
 loop = rd('stancija.orch-loop')
 loop = sub1(loop, LOGDEF, LOGDEF + MEM_DEF, 'FIXSIM loop: MEM_MAX')
-# 997 инв. 5: в субъекте правка lock-fd стратегии ВЫНЕСЕНА В ТЕЛО наблюдателя
-# отдельной строкой `exec 9>&-` (после `do`) — строки снимка «( while sleep 5; do»
-# и «  done ) &» сохраняются ДОСЛОВНО. FIXSIM построен из того же снимка
-# станции и наследует ту же форму watcher'а — никакой подмены строки открытия
-# не требуется, диффпроба р2 сравнивает субъект и FIXSIM как есть.
+# FIXSIM построен из того же снимка станции и наследует ту же форму watcher'а.
 loop = sub1(loop, '\n' + LINE_LAUNCH + '\n', '\n' + LAUNCH, 'FIXSIM loop: запуск сессии')
 loop = sub1(loop, CRASH, OOM_LINE + CRASH, 'FIXSIM loop: строка OOM')
 loop = sub1(loop, EXEC_C, CNT_C + EXEC_C, 'FIXSIM loop: общий счёт (падение)')
