@@ -1,0 +1,5 @@
+Контракт 997: прямая поведенческая проба host-цикла ops/server/user/orch-loop,
+не семья scripts/check_* и не case-фикстуры verify_antiplacebo.
+Потребитель: bash fixtures/ops_server/orch_loop_997/probe.sh в CI dev-harness.
+model.sh — честная исполняемая модель для диффпроб, не production-пускач.
+backend.py — только PATH-подмены systemd-run/systemctl/sudo/omp в одноразовом мире.
