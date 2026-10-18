@@ -13,6 +13,7 @@ while :; do
   log "сессия #$n: старт"
   # The watcher signals only the named toy scope through the systemctl shim.
   (
+    exec 9>&-
     while sleep 0.05; do
       [ -e "$ORCH_MARK" ] || continue
       sleep "$ORCH_GRACE"
@@ -21,17 +22,25 @@ while :; do
       systemctl --user kill --signal=TERM "orch-session-$$-$n.scope"
       break
     done
-  ) 9>&- & watcher=$!
-  # Capture only the receipt: restore real stdout for the TUI and close receipt
-  # and lock descriptors before exec. A filesystem cleanup cannot revoke bytes.
-  exec 4>&1
-  receipt="$(
-    systemd-run --user --scope -q -p "MemoryMax=$ORCH_MEM_MAX" -p MemorySwapMax=0 \
-      --unit="orch-session-$$-$n.scope" -- sh -c \
-      'printf "SCOPED\n" >&3; exec 3>&-; exec "$1" --yolo -- "$2"' \
-      sh "$ORCH_LOOP_AGENT_CMD" 'toy startup' 3>&1 1>&4 9>&-
-  )"; rc=$?
-  exec 4>&-
+  ) & watcher=$!
+  # Pre-open an anonymous channel; the scope command remains a direct child.
+  # cat only relays receipt bytes and cannot keep the singleton lock alive.
+  coproc RECEIPT { exec 9>&-; cat; }
+  receipt_pid=$RECEIPT_PID
+  exec 7<&"${RECEIPT[0]}" 8>&"${RECEIPT[1]}"
+  exec {RECEIPT[0]}<&- {RECEIPT[1]}>&-
+  # Bash copies coproc FD_CLOEXEC on >& duplication. Reopen the anonymous fd
+  # through /dev/fd below so the scope exec receives an inheritable descriptor.
+  systemd-run --user --scope -q -p "MemoryMax=$ORCH_MEM_MAX" -p MemorySwapMax=0 \
+    --unit="orch-session-$$-$n.scope" -- sh -c \
+    'printf "SCOPED\n" >&3; exec 3>&-; if [ -n "$3" ]; then exec sudo -nu "$3" "$1" --yolo -- "$2"; fi; exec "$1" --yolo -- "$2"' \
+    sh "$ORCH_LOOP_AGENT_CMD" 'toy startup' "${ORCH_AGENT_USER:-}" 3>/dev/fd/8 7<&- 8>&- 9>&-
+  rc=$?
+  exec 8>&-
+  receipt=
+  IFS= read -r receipt <&7 || receipt=
+  exec 7<&-
+  wait "$receipt_pid"
   kill "$watcher" 2>/dev/null || true
   wait "$watcher" 2>/dev/null || true
   if [ "$receipt" != SCOPED ]; then
