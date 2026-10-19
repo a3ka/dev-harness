@@ -404,8 +404,8 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 5 | ci-proekta | до V-2 | CI | 996 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
 | 6 | V-2 | до V-2 | autonomy | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
 | 7 | ночь-повторяемость | параллельно с V-2 | autonomy | V-2 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4 |
-| 9 | done-волны | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
-| 10 | генераторы-каналы | параллельно с V-2 | tools | done-волны | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
+| 9 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
+| 10 | генераторы-каналы | параллельно с V-2 | tools | 110 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 11 | решения-контекст | параллельно с V-2 | architecture | генераторы-каналы | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 12 | операционные-инструменты | параллельно с V-2 | ops | решения-контекст | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 13 | CI-затронутое | параллельно с V-2 | CI | операционные-инструменты | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
