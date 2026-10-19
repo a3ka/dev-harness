@@ -1,0 +1,8 @@
+# seed .omp/config.yml — производная modelRoles (СГЕНЕРИРОВАНО из config/agent_models.json)
+modelRoles:
+  default: "anthropic/sonnet-seed"  # фолбек: zai/glm-seed
+  slow: "zai/glm-seed"  # фолбек: anthropic/sonnet-seed
+  task: "minimax/m3-seed"  # фолбек: anthropic/sonnet-seed
+  task-glm: "zai/glm-seed"  # фолбек: anthropic/sonnet-seed
+  vision: "anthropic/sonnet-seed"  # фолбек: zai/glm-seed
+  steward: "anthropic/sonnet-seed"

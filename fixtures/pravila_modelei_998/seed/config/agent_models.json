@@ -1,0 +1,35 @@
+{
+  "models": {
+    "glm": "zai/glm-seed",
+    "sonnet": "anthropic/sonnet-seed",
+    "minimax": "minimax/m3-seed"
+  },
+  "tiers": {
+    "default": { "model": "@sonnet", "fallback": "@glm", "autoFallback": true, "why": "seed" },
+    "slow": { "model": "@glm", "fallback": "@sonnet", "autoFallback": true, "why": "seed" },
+    "task": { "model": "@minimax", "fallback": "@sonnet", "autoFallback": true, "why": "seed" },
+    "task-glm": { "model": "@glm", "fallback": "@sonnet", "autoFallback": true, "why": "seed" },
+    "vision": { "model": "@sonnet", "fallback": "@glm", "why": "seed" },
+    "steward": { "model": "@sonnet", "fallback": null, "why": "seed" }
+  },
+  "roles": {
+    "orchestrator": "default",
+    "architect": "slow",
+    "implementer": "task",
+    "implementer-glm": "task-glm",
+    "steward": "steward"
+  },
+  "routing": {
+    "_comment": "seed-копия грамматики routing (не производная дерева)",
+    "rules": [
+      { "class": "ведение сессии", "role": "orchestrator" },
+      { "class": "контракт и красные тесты", "role": "architect", "constraint": "верхний уровень чужого семейства" },
+      { "class": "чистый код под красными тестами", "role": "implementer" },
+      { "class": "диагностика", "role": "implementer-glm" },
+      { "class": "кадры", "tier": "vision" },
+      { "class": "ответ прецедентом", "role": "steward" }
+    ],
+    "conditional": "077 — профили по остатку подписок",
+    "emergency": "аварийные оверлеи и ручная процедура"
+  }
+}
