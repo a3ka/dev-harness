@@ -376,7 +376,13 @@ project_paths_resolve() {
   export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}"
 
   _err="$(mktemp 2>/dev/null || echo /dev/null)"
-  if ! MERGED="$(HARNESS_PROJECT_LAYER_ROOT="$REPO_ABS" bash "$_lib_dir/profile_resolver.sh" --repo "$REPO_ABS" 2>"$_err")"; then
+  # env override ПЕРЕДАЁТСЯ в profile_resolver.sh явно: тот же
+  # HARNESS_PROJECT_LAYER_ROOT, что и в текущем процессе (после export выше).
+  # Прежнее `HARNESS_PROJECT_LAYER_ROOT="$REPO_ABS" bash …` затирало внешний
+  # override (toy-мир k7 самодостаточности 060: workshop запускает
+  # project_paths_resolve с HARNESS_PROJECT_LAYER_ROOT=<слой>, отличным от
+  # REPO_ABS; резолвер отказывал «нет файла слоя проекта» — к7 и к8 красные).
+  if ! MERGED="$(HARNESS_PROJECT_LAYER_ROOT="$HARNESS_PROJECT_LAYER_ROOT" bash "$_lib_dir/profile_resolver.sh" --repo "$REPO_ABS" 2>"$_err")"; then
     _pc_reason="$(cat "$_err" 2>/dev/null || true)"
     [ "$_err" != "/dev/null" ] && rm -f "$_err"
     printf '%s\n' "${_pc_reason#profile ОТКАЗ: }" >&2
@@ -384,6 +390,33 @@ project_paths_resolve() {
   fi
   [ "$_err" != "/dev/null" ] && rm -f "$_err"
   [ -n "$MERGED" ] || { printf 'project_paths_resolve: профиль пуст\n' >&2; return 1; }
+
+  # FALLBACK-NO-WORKFLOW (контракт 996 круг 4 — toy-мир к7 самодостаточности 060):
+  # профиль слит УСПЕШНО, но ВСЕ workflowPaths пустые — резолвер НЕ должен
+  # отказывать «профиль без workflowPaths.X», если ни один ключ не объявлен.
+  # Это НЕ ветка «битый профиль» (там workflowPaths заданы, но значение
+  # `..`/absolute/symlink вне R — отказ по гарду ниже); здесь — профиль
+  # без объявления ключей, и стереть дефолтные раскладки репо
+  # ($REPO_ABS/{contracts,verdicts,registry,fixtures}) значит сломать
+  # к7/к8 060: toy с минимальным harness.project.json (только projectLayer,
+  # без workflowPaths в repo и defaults). Та же нить, что и LEGACY-FALLBACK
+  # выше для harness.project.json — отсутствие объявления ≠ битый профиль.
+  _any_wp="$(printf '%s' "$MERGED" | jq -r '[.workflowPaths // {} | to_entries[] | select(.value.value != null) | .key] | join(" ")')"
+  if [ -z "$_any_wp" ]; then
+    _jesc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/\\"/\\\\"/g'; }
+    _STATE_PREFIX="$REPO_ABS"
+    printf '{"contracts":"%s","verdicts":"%s","registry":"%s","fixtures":"%s","handoff":"%s","observations":"%s","architectObservations":"%s","roadmap":"%s","forks":"%s","sourceCanon":null}\n' \
+      "$(_jesc "$REPO_ABS/contracts")" \
+      "$(_jesc "$REPO_ABS/verdicts")" \
+      "$(_jesc "$REPO_ABS/registry")" \
+      "$(_jesc "$REPO_ABS/fixtures")" \
+      "$(_jesc "$REPO_ABS/HANDOFF.md")" \
+      "$(_jesc "$REPO_ABS/NABLIUDENIA.md")" \
+      "$(_jesc "$REPO_ABS/NABLIUDENIA_ARCHITECT.md")" \
+      "$(_jesc "$REPO_ABS/ROADMAP.md")" \
+      "$(_jesc "$REPO_ABS/forks")"
+    return 0
+  fi
 
   # ── Гард workflowPaths — лексический `..` ПО СЕГМЕНТУ ДО readlink ──────
   # (контракт 996 круг 3, adversary-2). Подстрока `..` (например, сегмент
