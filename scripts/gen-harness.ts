@@ -34,7 +34,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadRoles, RoleParseError, agentModels, resolveModelRef, checkRouting, checkRoutingStrict, type AgentModels, type Role, type Routing, type RoutingProblem } from './roles.ts'
+import { loadRoles, RoleParseError, agentModels, resolveModelRef, checkRoutingStrict, type AgentModels, type Role, type Routing, type RoutingProblem } from './roles.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const ROLES_DIR = join(ROOT, 'roles')
