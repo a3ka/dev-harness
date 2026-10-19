@@ -48,7 +48,14 @@ def contained(root, value, mutant=''):
 
 
 def layout(root, p, mutant, op=''):
-    paths = dict(p['workflowPaths'])
+    if p.get('workflowPaths'):
+        paths = dict(p['workflowPaths'])
+    else:
+        # Р4-1 (круг 5): FALLBACK-NO-WORKFLOW — профиль без workflowPaths
+        # не отказывает: корневая раскладка (к7 самодостаточности 060),
+        # state у корня; sourceCanon профиля НЕ стирается.
+        paths = {'contracts': 'contracts', 'verdicts': 'verdicts',
+                 'registry': 'registry', 'fixtures': 'fixtures', 'state': '.'}
     if mutant == 'accept-escape':
         paths = {k: v.replace('../', '') for k, v in paths.items()}
     if mutant == 'root-layout':
@@ -320,7 +327,9 @@ def main():
         print('PROMPT: ' + str(prompt))
         return 0
     if op == 'paths':
-        print(json.dumps(paths))
+        # Р4-1: эффективный sourceCanon — в том же контексте, что штатный
+        # запуск (996 §A); null только при отсутствии юнита в профиле.
+        print(json.dumps({**paths, 'sourceCanon': p.get('sourceCanon')}))
         return 0
     if op in ('workshop', 'make_task'):
         role = args[0] if args else 'orchestrator'
