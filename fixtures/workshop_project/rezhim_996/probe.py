@@ -119,6 +119,10 @@ def subject(mode, op, root, *args, mutant='', tools=None, extra_env=None):
             'staged': ['bash', tools / 'scripts/check_staged.sh', root],
             'mint': ['bash', tools / 'scripts/mint_line.sh', '--root', root, '--nnn', *args],
             'lib_zones': ['bash', HERE / 'zones_adapter.sh', tools, root],
+            'gitw-cwd': ['bash', tools / 'scripts/gitw', 'push', 'origin', *args],
+            'gitw-envdir': ['bash', tools / 'scripts/gitw', 'push', 'origin', *args],
+            'resolver': ['bash', tools / 'scripts/profile_resolver.sh', '--repo', root],
+            'workshop_probe': ['bash', tools / 'workshop', '--probe', root],
         }
         cmd = commands[op]
     return run(cmd, cwd=root, env=env)
@@ -338,6 +342,12 @@ EXTRA_CASES = (
     'zones-project', 'zones-green', 'staged-project', 'staged-green', 'lib-zones-project',
     'mint-project', 'mint-no-authority', 'self-canonical',
     'freeze-escalate', 'freeze-ungrammatical', 'done-escalate', 'done-ungrammatical',
+    # Круг 1 (FAIL ×2): красные клетки по находкам Б-1…Б-8 и adversary-1.
+    'resolver-canon-extra-key', 'resolver-canon-fraction', 'gate-path-argv0',
+    'defaults-null-canon', 'source-symlink-escape', 'source-traversal-escape',
+    'freeze-paths-escape', 'freeze-broken-profile', 'done-broken-profile',
+    'freeze-root-contract', 'done-root-contract', 'gitw-cwd-canon',
+    'probe-prompt-project',
 )
 
 
@@ -587,6 +597,158 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(r.returncode == 1 and not r.stdout.strip(), 'RESERVATION_FAILURE_ANNOUNCED_NUMBER', r)
         remote = git(origin, 'for-each-ref', '--format=%(objectname)', 'refs/tags/id/CONTRACT/778')
         expect(remote == expected if case == 'reserve-race' else not remote, 'RESERVATION_REPLACED_COMPETITOR')
+    elif case in ('resolver-canon-extra-key', 'resolver-canon-fraction'):
+        # Б-2: grammar of the unit lives in the resolver itself, not in a
+        # second validator of one consumer.
+        canon(root, p)
+        if case == 'resolver-canon-extra-key':
+            p['sourceCanon']['evil'] = 1
+        else:
+            p['sourceCanon']['sources'][0]['priority'] = 0.5
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'invalid canon unit')
+        r = call('resolver')
+        expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
+               'RESOLVER_CANON_GRAMMAR_ABSENT:' + case, r)
+        # Repair the same input: the honest resolver accepts a valid unit.
+        if case == 'resolver-canon-extra-key':
+            del p['sourceCanon']['evil']
+        else:
+            p['sourceCanon']['sources'][0]['priority'] = 0
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'repair canon unit')
+        r = call('resolver')
+        expect(r.returncode == 0, 'RESOLVER_CANON_REPAIR_REFUSED:' + case, r)
+    elif case == 'gate-path-argv0':
+        # Б-1: gate argv[0] of the frozen contract form (["python3", ...]) is
+        # resolved via PATH, not joined onto R.
+        canon(root, p)
+        p['sourceCanon']['gate'][0] = 'python3'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'gate argv0 via PATH')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('pre_critic', contract)
+        expected = {'cwd': str(root), 'head': before, 'contract': contract,
+                    'stage': 'pre_critic', 'arg': 'literal ; $(not-shell)'}
+        expect(r.returncode == 0, 'CANON_GATE_PATH_UNAVAILABLE', r)
+        expect(json.loads((root / 'gate-observed.json').read_text()) == expected,
+               'CANON_GATE_PATH_EXEC_CONTEXT_WRONG')
+    elif case == 'defaults-null-canon':
+        # Б-3: sourceCanon null in the defaults layer is NOT absence.
+        canon(root, p)
+        p.pop('sourceCanon')
+        put(root, 'harness.project.json', json.dumps(p))
+        layer = json.loads((root / 'project-layer.json').read_text())
+        layer['defaults']['sourceCanon'] = None
+        put(root, 'project-layer.json', json.dumps(layer))
+        commit(root, 'defaults-layer null canon')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('pre_critic', contract)
+        expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
+               'DEFAULTS_NULL_CANON_TREATED_ABSENT', r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
+               'DEFAULTS_NULL_CANON_MUTATED')
+    elif case in ('source-symlink-escape', 'source-traversal-escape'):
+        # Б-4/adversary-1: a source resolving outside R (symlink or ..) is
+        # refused even when the target file exists.
+        outside = base / 'outside'
+        outside.mkdir()
+        (outside / 'outside.md').write_text('# External requirement\n')
+        canon(root, p)
+        if case == 'source-symlink-escape':
+            (root / 'LINK.md').symlink_to(outside / 'outside.md')
+            p['sourceCanon']['sources'][0]['path'] = 'LINK.md'
+        else:
+            p['sourceCanon']['sources'][0]['path'] = '../outside/outside.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'source outside repo')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('pre_critic', contract)
+        expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
+               'CANON_SOURCE_ESCAPE_ACCEPTED:' + case, r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
+               'CANON_SOURCE_ESCAPE_MUTATED:' + case)
+    elif case == 'freeze-paths-escape':
+        # Б-5: the freeze door refuses an escaped workflowPaths.registry
+        # BEFORE any tag or write; nothing may land outside the project.
+        outside = base / 'outside'
+        outside.mkdir()
+        header = 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+        row = '\t1\tдо V-2\t-\tabcdef0\ttoy\n'
+        (outside / 'plan.tsv').write_text(header + '777' + row)
+        (root / 'escape').symlink_to(outside, target_is_directory=True)
+        p['workflowPaths']['registry'] = 'escape'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'registry escapes repo')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('freeze', contract)
+        expect(r.returncode == 1 and ('workflowPaths' in r.stderr or 'вне репо' in r.stderr),
+               'DOOR_ESCAPE_REFUSAL_MISSING:freeze', r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
+               'DOOR_ESCAPE_MUTATED:freeze', r)
+        expect(not (outside / 'contracts.tsv').exists(), 'DOOR_ESCAPE_WROTE_OUTSIDE:freeze', r)
+    elif case in ('freeze-broken-profile', 'done-broken-profile'):
+        # Б-5: a broken profile is a named refusal, never a root-layout fallback.
+        op = 'freeze' if case.startswith('freeze') else 'done'
+        role = 'critic' if op == 'freeze' else 'review'
+        decoy = 'contracts/777-toy.md'
+        put(root, decoy, (root / contract).read_text())
+        put(root, 'verdicts/' + role + '/contracts-777-v1.md', 'accept\n')
+        put(root, 'harness.project.json', '{broken')
+        commit(root, 'broken profile with root decoy')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call(op, decoy)
+        expect(r.returncode == 1 and 'ОТКАЗ' in r.stderr,
+               'BROKEN_PROFILE_ROOT_FALLBACK:' + op, r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before
+               and not (root / 'registry' / 'contracts.tsv').exists(),
+               'BROKEN_PROFILE_FALLBACK_MUTATED:' + op, r)
+    elif case in ('freeze-root-contract', 'done-root-contract'):
+        # Б-6: with a declared profile, root contracts/ is not a lifecycle
+        # source even for a product contract of the project.
+        op = 'freeze' if case.startswith('freeze') else 'done'
+        decoy = 'contracts/777-toy.md'
+        put(root, decoy, (root / contract).read_text())
+        commit(root, 'product contract at root')
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call(op, decoy)
+        expect(r.returncode == 1, 'ROOT_CONTRACT_ACCEPTED:' + op, r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before
+               and not (root / 'registry' / 'contracts.tsv').exists(),
+               'ROOT_CONTRACT_MUTATED:' + op, r)
+    elif case == 'gitw-cwd-canon':
+        # Б-8: the profile canonical is taken from the cwd project context
+        # and from GIT_DIR in the environment, without -C/--git-dir.
+        before = git(root, 'rev-parse', 'HEAD')
+        r = call('gitw-cwd', 'HEAD:refs/heads/probe-cwd')
+        expect(r.returncode == 0 and
+               git(origin, 'rev-parse', 'refs/heads/probe-cwd') == before,
+               'GITW_CWD_CANON_IGNORED', r)
+        r = call('gitw-envdir', 'HEAD:refs/heads/probe-envdir',
+                 extra_env={'GIT_DIR': str(root / '.git'), 'GIT_WORK_TREE': str(root)})
+        expect(r.returncode == 0 and
+               git(origin, 'rev-parse', 'refs/heads/probe-envdir') == before,
+               'GITW_ENVDIR_CANON_IGNORED', r)
+    elif case == 'probe-prompt-project':
+        # Б-7: the standard launch delivers project paths and the effective
+        # sourceCanon into the real session prompt (workshop --probe), not
+        # only into a separate --print-context calculation.
+        canon(root, p)
+        put(root, '.env', 'METERING_PROXY_URL=http://127.0.0.1:9\n')
+        put(root, 'config/harness_pin.json', '{"version": "0.0.0-probe"}\n')
+        commit(root, 'project metering env and pin')
+        pstate = base / 'pstate'
+        r = call('workshop_probe', extra_env={'HARNESS_SCRATCH': str(pstate)})
+        expect(r.returncode == 0 and 'PROBE OK' in r.stdout, 'WORKSHOP_PROBE_FAILED', r)
+        line = next((l for l in r.stdout.splitlines() if l.startswith('PROMPT: ')), '')
+        prompt = line[len('PROMPT: '):]
+        expect(bool(prompt) and Path(prompt).is_file(), 'PROBE_PROMPT_MISSING', r)
+        text = Path(prompt).read_text()
+        expect('sourceCanon' in text and 'SOURCE.md' in text,
+               'PROBE_PROMPT_CANON_MISSING', r)
+        expect(str(root / p['workflowPaths']['verdicts']) in text
+               and str(root / p['workflowPaths']['contracts']) in text,
+               'PROBE_PROMPT_PROJECT_PATHS_MISSING', r)
     elif case == 'self-canonical':
         # Product configuration is an input of its own resolver/paths CLI, not a text grep.
         install = installation(base)
@@ -763,12 +925,12 @@ MUTANTS.update({
     'root-arbitration': ('freeze-root-arbitration', 'freeze-project-arbitration'),
     'tools-leak': ('station-isolation',),
     'trust-origin-url': ('git-origin-drift',),
-    'broken-profile-fallback': ('git-broken-profile',),
+    'broken-profile-fallback': ('git-broken-profile', 'freeze-broken-profile', 'done-broken-profile'),
     'accept-symlink': ('paths-symlink',),
     'door-refuse': ('canon-precritic-green', 'canon-done-green'),
     'door-tools-cwd': ('canon-precritic-green', 'canon-done-green'),
     'stale-head-cache': ('canon-stale-head',),
-    'canon-null-absent': ('canon-null', 'canon-empty'),
+    'canon-null-absent': ('canon-null', 'canon-empty', 'defaults-null-canon'),
     'ignore-canon-grammar': ('canon-bool', 'canon-duplicate', 'canon-missing', 'canon-unavailable', 'canon-nul'),
     'reserve-force': ('reserve-race',),
     'local-reservation': ('reserve-origin', 'reserve-unavailable'),
@@ -788,6 +950,17 @@ MUTANTS.update({'done-leak': ('station-isolation',),
                 'registry-author-architect': ('freeze-profile',),
                 'critic-not-fail-is-accept': ('freeze-escalate', 'freeze-ungrammatical'),
                 'review-grammar': ('done-escalate', 'done-ungrammatical')})
+MUTANTS.update({
+    # Круг 1 (FAIL ×2): обманные стабы к новым клеткам, каждый — к входу,
+    # на котором его дефект наблюдаем (Н-39).
+    'gate-argv0-repo-join': ('gate-path-argv0',),
+    'resolver-canon-lenient': ('resolver-canon-extra-key', 'resolver-canon-fraction'),
+    'canon-escape-source': ('source-symlink-escape', 'source-traversal-escape'),
+    'doors-accept-escape': ('freeze-paths-escape',),
+    'accept-root-contract': ('freeze-root-contract', 'done-root-contract'),
+    'gitw-cwd-constant': ('gitw-cwd-canon',),
+    'probe-prompt-static': ('probe-prompt-project',),
+})
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
                       'precision': ('precision',), 'doc': ('doc', 'doc-malformed'),
