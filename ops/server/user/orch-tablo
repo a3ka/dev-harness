@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""orch-tablo — табло потоков ведущей сессии: что работает и что СТОИТ без хода.
+
+Запуск из чекаута: python3 ops/server/user/orch-tablo [минут-окна, по умолчанию 360]. Читает только: журналы субагентов сессий
+оркестратора, origin/main и теги dev-harness, открытые PR (gh). Ничего не пишет.
+
+Предмет (номер контракта) попадает в табло, если за окно по нему работал агент или по его форку
+пришло решение (ОТВЕЧЕНО), и он ещё не done. Вердикт: РАБОТАЕТ (агент пишет в журнал),
+ЖДЁТ CI (у ветки предмета идёт CI) либо СТОИТ N мин — с последним событием. Строка СТОИТ —
+несделанный следующий шаг: он важнее wait.
+"""
+import glob, json, os, re, subprocess, sys, datetime as dt
+
+WINDOW = int(sys.argv[1]) if len(sys.argv) > 1 else 360
+ACTIVE_MIN = 5            # агент без yield, писавший в журнал не позже N мин назад, — работает
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # корень чекаута: ops/server/user/orch-tablo
+NOW = dt.datetime.now(dt.timezone.utc)
+NUM = re.compile(r'(?<![0-9])(0[0-9]{2}|[1-9][0-9]{2})(?![0-9])')
+
+
+def ts(s):
+    return dt.datetime.fromisoformat(s.replace('Z', '+00:00'))
+
+
+def mins(t):
+    return int((NOW - t).total_seconds() // 60)
+
+
+def nnn_of(text):
+    m = NUM.search(text or '')
+    return m.group(1) if m else None
+
+
+def sh(*a):
+    return subprocess.run(a, capture_output=True, text=True).stdout
+
+
+# ── журналы субагентов ────────────────────────────────────────────────────────
+base = glob.glob('/home/harness/.local/state/dev-harness-sessions/*/zones/dev/.omp/profiles/dev/agent/sessions/--home-harness-dev-harness--')
+if not base:
+    sys.exit('нет журналов сессий оркестратора')
+agents = {}   # nnn -> [(имя, последняя запись, сдал результат)]
+for b in base:
+    for f in glob.glob(b + '/*/*.jsonl'):
+        if NOW.timestamp() - os.path.getmtime(f) > WINDOW * 60:
+            continue
+        name = os.path.basename(f)[:-6]
+        n = nnn_of(name)
+        if not n:
+            continue
+        last, finished = None, False
+        for line in open(f, encoding='utf-8', errors='replace'):
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if r.get('timestamp'):
+                last = ts(r['timestamp'])
+            for c in (r.get('message') or {}).get('content') or []:
+                if isinstance(c, dict) and c.get('type') == 'toolCall' and c.get('name') == 'yield':
+                    finished = True
+        if last:
+            agents.setdefault(n, []).append((name, last, finished))
+
+# ── main и теги ───────────────────────────────────────────────────────────────
+subprocess.run(['git', '-C', REPO, 'fetch', '-q', '--tags', 'origin'], capture_output=True)
+events = {}       # nnn -> (время, тема) — последнее событие; номер — ПЕРВЫЙ номер в теме
+answered = set()  # решения по форкам за окно — следующий шаг обязан последовать
+for line in sh('git', '-C', REPO, 'log', 'origin/main', f'--since={WINDOW} minutes ago',
+               '--format=%cI\t%s').splitlines():
+    t, _, subj = line.partition('\t')
+    if subj.startswith(('HANDOFF', 'NABLIUDENIA')):
+        continue
+    n = nnn_of(subj)
+    if not n:
+        continue
+    if subj.startswith('forks:') and 'ОТВЕЧЕНО' in subj:
+        answered.add(n)
+    if n not in events or ts(t) > events[n][0]:
+        events[n] = (ts(t), subj[:90])
+done = set(re.findall(r'done/contracts/([0-9]{3})/', sh('git', '-C', REPO, 'tag', '-l', 'done/contracts/*')))
+frozen = set(re.findall(r'frozen/contracts/([0-9]{3})/', sh('git', '-C', REPO, 'tag', '-l', 'frozen/contracts/*')))
+
+# ── открытые PR ───────────────────────────────────────────────────────────────
+prs = []   # (репо, номер, ветка, состояние, обновлён)
+for repo in ('a3ka/dev-harness', 'a3ka/Complior-mob', 'a3ka/Complior-back'):
+    out = sh('gh', 'pr', 'list', '-R', repo, '--json', 'number,headRefName,statusCheckRollup,updatedAt')
+    try:
+        rows = json.loads(out or '[]')
+    except ValueError:
+        rows = []
+    for p in rows:
+        st = [c.get('conclusion') or c.get('status') for c in p.get('statusCheckRollup') or []]
+        if not st:
+            continue
+        if 'FAILURE' in st:
+            state = 'красный'
+        elif any(s in ('IN_PROGRESS', 'QUEUED', 'PENDING', None) for s in st):
+            state = 'идёт'
+        else:
+            state = 'зелёный'
+        prs.append((repo.split('/')[1], p['number'], p['headRefName'], state, ts(p['updatedAt'])))
+
+# ── табло ─────────────────────────────────────────────────────────────────────
+subjects = sorted((set(agents) | answered) - done)
+print(f'ТАБЛО {NOW:%H:%M} UTC (окно {WINDOW} мин)')
+stoit = 0
+for n in subjects:
+    ag = sorted(agents.get(n, []), key=lambda a: a[1])
+    working = [a for a in ag if not a[2] and mins(a[1]) <= ACTIVE_MIN]
+    cands = []
+    if ag:
+        a = ag[-1]
+        cands.append((a[1], f'агент {a[0]} ' + ('сдал результат' if a[2] else 'последняя запись')))
+    if n in events:
+        cands.append((events[n][0], 'main: ' + events[n][1]))
+    last_t, last_what = max(cands) if cands else (NOW, '—')
+    head = f'{n} [{"frozen" if n in frozen else "до заморозки"}]'
+    pr_run = [p for p in prs if p[0] == 'dev-harness' and nnn_of(p[2]) == n and p[3] == 'идёт']
+    if working:
+        print(f'  РАБОТАЕТ {head}: ' + ', '.join(f'{a[0]} ({mins(a[1])} мин)' for a in working))
+    elif pr_run:
+        print(f'  ЖДЁТ CI {head}: PR #{pr_run[0][1]} — последнее: {last_what}')
+    else:
+        stoit += 1
+        print(f'  СТОИТ {mins(last_t)} мин {head}: последнее — {last_what}')
+for repo, num, br, state, upd in prs:
+    n = nnn_of(br)
+    if repo == 'dev-harness' and n not in subjects:
+        continue   # ветки предметов вне работы (давние PR) — не поток
+    busy = n and any(not a[2] and mins(a[1]) <= ACTIVE_MIN for a in agents.get(n, []))
+    if state in ('зелёный', 'красный') and not busy:
+        stoit += 1
+        print(f'  СТОИТ {mins(upd)} мин PR {repo}#{num} ({br}): CI {state}, по нему никто не работает')
+print(f'итог: стоит без хода — {stoit}' + ('  → сделай следующий шаг по каждой строке СТОИТ до wait' if stoit else ''))
