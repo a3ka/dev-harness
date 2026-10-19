@@ -44,35 +44,42 @@ REPO_ABS="$(cd "$REPO" && pwd -P)"
 # Стоит ДО любых внутренних vars (REPO_ABS и т.п.). Печатает один JSON и выходит.
 # Используется workshop для передачи контекста в роль, а make_task — для печати
 # из CLI. Никакого omp-launch, никакой валидации contextPack/lessons/ADR.
+# ── 996 §Публичный шов без запуска omp: --print-context ────────────────────
+# Стоит ДО любых внутренних vars (REPO_ABS и т.п.). Печатает один JSON и выходит.
+# Используется workshop для передачи контекста в роль, а make_task — для печати
+# из CLI. Никакого omp-launch, никакой валидации contextPack/lessons/ADR.
+#
+# КОНТРАКТ 996 круг 4 (закрытие оси): РАСЧЁТ ПУТЕЙ — ОДИН вызов
+# `project_paths_resolve` (живёт в next_id.sh). Никаких собственных конкатенаций
+# `$REPO_ABS/$STATE`, никаких копий гарда workflowPaths: иначе разные двери
+# расходятся молча (находка Р3-1 круга 3 — make_task собирал state
+# без segment-гарда, наблюдаемо на dotdot-state и state-symlink-*).
 if [ "$PRINT_CONTEXT" -eq 1 ]; then
-  # КОНТРАКТ 996 §Публичный шов без запуска omp: --print-context.
-  # Считается ОДИН раз; ниже используется в --kind task PROJECT-секции
-  # (один код расчёта, не второй).
-  PROFILE_RESOLVER="$(cd "$(dirname "$0")" && pwd)/profile_resolver.sh"
-  [ -x "$PROFILE_RESOLVER" ] || die "нет profile_resolver.sh"
-  _PC_ERR="$(mktemp 2>/dev/null || echo /dev/null)"
-  if ! MERGED_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}" bash "$PROFILE_RESOLVER" --repo "$REPO_ABS" 2>"$_PC_ERR")"; then
-    _pc_reason="$(cat "$_PC_ERR" 2>/dev/null || true)"
-    [ "$_PC_ERR" != /dev/null ] && rm -f "$_PC_ERR"
-    die "${_pc_reason#profile ОТКАЗ: }"
-  fi
-  [ "$_PC_ERR" != /dev/null ] && rm -f "$_PC_ERR"
-  WP_C="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.contracts.value // empty')"
-  WP_V="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.verdicts.value // empty')"
-  WP_R="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.registry.value // empty')"
-  WP_F="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.fixtures.value // empty')"
-  STATE="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.state.value // ".harness"')"
-  # Гард workflowPaths на относительность и вложенность в REPO_ABS (тот же
-  # контракт И-5 / §A, что применяет project_paths_resolve / основная ветвь).
-  for _wpk in contracts verdicts registry fixtures; do
-    _wpv="$(printf '%s' "$MERGED_OUT" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
-    [ -n "$_wpv" ] || die "workflowPaths вне репо: $_wpk="
-    _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
-    case "$_wpv" in /*) _wpcanon="/вне" ;; esac
-    case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
-  done
-  WP_STATE_PREFIX="$REPO_ABS"
-  [ "$STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${STATE%/}"
+  # Библиотечный вход next_id.sh (контракт 996 Б-5/Б-9): подключаем функции
+  # `parse_artifact_basename`, `project_paths_resolve` и др. через `NEXT_ID_LIB=1`,
+  # а не через PATH/исполнение; единственный источник `project_paths_resolve`
+  # живёт в next_id.sh, и импорт — единственный способ его получить, не
+  # дублируя (так контролирует structure-one-paths-resolve).
+  NEXT_ID_LIB=1
+  # shellcheck disable=SC1091
+  . "$(cd "$(dirname "$0")" && pwd)/next_id.sh"
+
+  # Гард project_paths_resolve: rc 1 → отказ двери (Никакого JSON, никакого
+  # startup вне корня). Тот же JSON, что у project_workflow.
+  _PC_JSON="$(project_paths_resolve "$REPO_ABS")" \
+    || die "workflowPaths вне репо"
+  WP_C="$(printf '%s' "$_PC_JSON" | jq -r '.contracts')"
+  WP_V="$(printf '%s' "$_PC_JSON" | jq -r '.verdicts')"
+  WP_R="$(printf '%s' "$_PC_JSON" | jq -r '.registry')"
+  WP_F="$(printf '%s' "$_PC_JSON" | jq -r '.fixtures')"
+  WP_STATE_PREFIX_H="$(printf '%s' "$_PC_JSON" | jq -r '.handoff')"
+  WP_STATE_PREFIX_O="$(printf '%s' "$_PC_JSON" | jq -r '.observations')"
+  WP_STATE_PREFIX_AR="$(printf '%s' "$_PC_JSON" | jq -r '.architectObservations')"
+  WP_STATE_PREFIX_RM="$(printf '%s' "$_PC_JSON" | jq -r '.roadmap')"
+  WP_STATE_PREFIX_FK="$(printf '%s' "$_PC_JSON" | jq -r '.forks')"
+  SC_OBJ="$(printf '%s' "$_PC_JSON" | jq -c '.sourceCanon')"
+  unset _PC_JSON
+
   _verdict_suffix=""
   case "$ROLE" in
     critic)     _verdict_suffix="critic" ;;
@@ -80,29 +87,28 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
     reviewer)   _verdict_suffix="review" ;;
     arbiter)    _verdict_suffix="arbitration" ;;
   esac
-  SC_OBJ="$(printf '%s' "$MERGED_OUT" | jq -c '.sourceCanon.value // null')"
   if [ -n "$_verdict_suffix" ]; then
-    _verdict_canon="$REPO_ABS/${WP_V%/}/$_verdict_suffix"
+    _verdict_canon="$WP_V/$_verdict_suffix"
   else
     _verdict_canon=""
   fi
   jq -n \
-    --arg contracts    "$REPO_ABS/$WP_C" \
-    --arg verdicts     "$REPO_ABS/$WP_V" \
-    --arg registry     "$REPO_ABS/$WP_R" \
-    --arg fixtures     "$REPO_ABS/$WP_F" \
-    --arg handoff      "$WP_STATE_PREFIX/HANDOFF.md" \
-    --arg observations "$WP_STATE_PREFIX/NABLIUDENIA.md" \
-    --arg arch_obs     "$WP_STATE_PREFIX/NABLIUDENIA_ARCHITECT.md" \
-    --arg roadmap      "$WP_STATE_PREFIX/ROADMAP.md" \
-    --arg forks        "$WP_STATE_PREFIX/forks" \
+    --arg contracts    "$WP_C" \
+    --arg verdicts     "$WP_V" \
+    --arg registry     "$WP_R" \
+    --arg fixtures     "$WP_F" \
+    --arg handoff      "$WP_STATE_PREFIX_H" \
+    --arg observations "$WP_STATE_PREFIX_O" \
+    --arg arch_obs     "$WP_STATE_PREFIX_AR" \
+    --arg roadmap      "$WP_STATE_PREFIX_RM" \
+    --arg forks        "$WP_STATE_PREFIX_FK" \
     --argjson source_canon "$SC_OBJ" \
     --arg verdict_canon "$_verdict_canon" \
-    --arg h "$WP_STATE_PREFIX/HANDOFF.md" \
-    --arg c "$REPO_ABS/$WP_C" \
-    --arg v "$REPO_ABS/$WP_V" \
-    --arg o "$WP_STATE_PREFIX/NABLIUDENIA.md" \
-    --arg r "$WP_STATE_PREFIX/ROADMAP.md" \
+    --arg h "$WP_STATE_PREFIX_H" \
+    --arg c "$WP_C" \
+    --arg v "$WP_V" \
+    --arg o "$WP_STATE_PREFIX_O" \
+    --arg r "$WP_STATE_PREFIX_RM" \
     '{workflow: {contracts: $contracts, verdicts: $verdicts, registry: $registry, fixtures: $fixtures,
                   handoff: $handoff, observations: $observations, architectObservations: $arch_obs,
                   roadmap: $roadmap, forks: $forks},
@@ -196,31 +202,36 @@ CP="$(printf '%s' "$MERGED" | jq -c '.contextPack.value // null' 2>/dev/null)" |
 # ── КОНТРАКТ 103 (Решение 1): профильные пути вместо harness-layout ──
 # Расположение каталогов контрактов и реестра — из эффективного workflowPaths
 # профиля (MERGED profile_resolver — единственный источник), не из зашитых
-# корневых contracts/ и registry/ харнеса. Гард И-5 ДО любого чтения: каждый
-# из 4 путей канонизируется (readlink -f от pwd -P корня репо) и обязан лежать
-# ВНУТРИ репо — `..`, абсолютный путь и симлинк наружу отказывают единой
-# фразой «workflowPaths вне репо: <ключ>=<значение>».
+# корневых contracts/ и registry/ харнеса. Контракт 996 круг 4: пути и
+# effective sourceCanon ОБЕИХ режимов считаются ЕДИНЫМ вызовом
+# `project_paths_resolve` (живёт в next_id.sh) — без собственных копий
+# гарда и без собственной конкатенации `$REPO_ABS/$STATE`. Иначе двери
+# расходятся молча (находка Р3-1 круга 3).
 REPO_ABS="$(cd "$REPO" && pwd -P)"
-WP_C="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.contracts.value // empty')"
-WP_G="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.registry.value // empty')"
-[ -n "$WP_C" ] || die "профиль без workflowPaths.contracts"
-[ -n "$WP_G" ] || die "профиль без workflowPaths.registry"
-for _wpk in contracts verdicts registry fixtures; do
-  _wpv="$(printf '%s' "$MERGED" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
-  _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
-  case "$_wpv" in /*) _wpcanon="/вне" ;; esac
-  case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
-done
-unset _wpk _wpv _wpcanon
-
-# ── 996 §D «общий контекст»: пути судьи/состояния/sourceCanon для обоих
-# режимов — --print-context (ниже JSON), --kind task (PROJECT-секция).
-# ОДИН расчёт, тот же MERGED, никакого второго профильного вызова.
-WP_V="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.verdicts.value // empty')"
-WP_F="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.fixtures.value // empty')"
-WP_STATE="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.state.value // ".harness"')"
-WP_STATE_PREFIX="$REPO_ABS"
-[ "$WP_STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${WP_STATE%/}"
+if [ -z "${HARNESS_PROJECT_LAYER_ROOT:-}" ]; then
+  export HARNESS_PROJECT_LAYER_ROOT="$REPO"
+fi
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "$0")" && pwd)/next_id.sh"
+[ "$(type -t project_paths_resolve)" = "function" ] \
+  || die "next_id.sh без project_paths_resolve"
+# ЕДИНСТВЕННЫЙ вызов резолвера: rc 1 → отказ двери ДО построения PROJECT.
+_PP_JSON="$(project_paths_resolve "$REPO_ABS")" \
+  || die "workflowPaths вне репо"
+WP_C="$(printf '%s' "$_PP_JSON" | jq -r '.contracts')"
+WP_V="$(printf '%s' "$_PP_JSON" | jq -r '.verdicts')"
+WP_G="$(printf '%s' "$_PP_JSON" | jq -r '.registry')"
+WP_F="$(printf '%s' "$_PP_JSON" | jq -r '.fixtures')"
+WP_H="$(printf '%s' "$_PP_JSON" | jq -r '.handoff')"
+# Относительные формы (для ls-tree имени файла внутри frozen-блоба тега
+# и для краткого листинга контрактов в брифе).
+WP_C_REL="${WP_C#"$REPO_ABS"/}"
+WP_V_REL="${WP_V#"$REPO_ABS"/}"
+WP_G_REL="${WP_G#"$REPO_ABS"/}"
+WP_F_REL="${WP_F#"$REPO_ABS"/}"
+WP_SC="$(printf '%s' "$_PP_JSON" | jq -c '.sourceCanon')"
+unset _PP_JSON
 WP_VERDICT_SUFFIX=""
 case "$ROLE" in
   critic)     WP_VERDICT_SUFFIX="critic" ;;
@@ -229,19 +240,26 @@ case "$ROLE" in
   arbiter)    WP_VERDICT_SUFFIX="arbitration" ;;
 esac
 WP_VERDICT_CANON=""
-[ -n "$WP_VERDICT_SUFFIX" ] && WP_VERDICT_CANON="$REPO_ABS/${WP_V%/}/$WP_VERDICT_SUFFIX"
-WP_SC="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
+[ -n "$WP_VERDICT_SUFFIX" ] && WP_VERDICT_CANON="$WP_V/$WP_VERDICT_SUFFIX"
 
 # PROJECT-секция — рабочий шов §D для ролей (шесть игл: sourceCanon,
-# источник SOURCE.md, каталог вердикта/role-suffix, каталог контрактов,
-# HANDOFF). Тот же расчёт, что и --print-context выше; выходной формат
-# — текстовый блок (в JSON-печать включается sourceCanon.value строкой).
+# источник SOURCE.md (ПУТЬ, не тело — Р3-2 круг 3), каталог вердикта/
+# role-suffix, каталог контрактов, реестр, фикстуры, HANDOFF). Тот же
+# расчёт, что и --print-context выше; выходной формат — текстовый блок
+# (в JSON-печать включается sourceCanon.value строкой).
 PROJECT_SEC=""
 if [ "$KIND" = "task" ]; then
   _psrc_path="$(printf '%s' "$WP_SC" | jq -r '.sources[0].path // ""' 2>/dev/null)"
-  _psrc_content=""
-  if [ -n "$_psrc_path" ] && [ -f "$REPO/$_psrc_path" ]; then
-    _psrc_content="$(cat "$REPO/$_psrc_path" 2>/dev/null)"
+  # Гард источника: symlink наружу репо (Р3-2 круг 3) — отказ ДО записи
+  # PROJECT-секции. Тело источника НЕ вклеивается (роли получают ПУТЬ и
+  # sourceCanon целиком, ровно так, как требует §D), здесь проверяется
+  # лишь реальное расположение файла внутри REPO.
+  if [ -n "$_psrc_path" ] && [ -e "$REPO/$_psrc_path" ]; then
+    _psrc_real="$(readlink -f -- "$REPO/$_psrc_path" 2>/dev/null || true)"
+    case "$_psrc_real" in
+      "$REPO_ABS"/*) ;;
+      *) die "источник вне репо: source=$_psrc_path" ;;
+    esac
   fi
   PROJECT_SEC="=== PROJECT ===
 "
@@ -250,20 +268,18 @@ if [ "$KIND" = "task" ]; then
   if [ -n "$_psrc_path" ]; then
     PROJECT_SEC="${PROJECT_SEC}source: $_psrc_path
 "
-    if [ -n "$_psrc_content" ]; then
-      PROJECT_SEC="${PROJECT_SEC}${_psrc_content}
-"
-    fi
   fi
-  PROJECT_SEC="${PROJECT_SEC}verdicts: $REPO_ABS/$WP_V
+  PROJECT_SEC="${PROJECT_SEC}verdicts: $WP_V
 "
   PROJECT_SEC="${PROJECT_SEC}verdict: ${WP_VERDICT_CANON}
 "
-  PROJECT_SEC="${PROJECT_SEC}contracts: $REPO_ABS/$WP_C
+  PROJECT_SEC="${PROJECT_SEC}contracts: $WP_C
 "
-  PROJECT_SEC="${PROJECT_SEC}registry: $REPO_ABS/$WP_G
+  PROJECT_SEC="${PROJECT_SEC}registry: $WP_G
 "
-  PROJECT_SEC="${PROJECT_SEC}handoff: $WP_STATE_PREFIX/HANDOFF.md
+  PROJECT_SEC="${PROJECT_SEC}fixtures: $WP_F
+"
+  PROJECT_SEC="${PROJECT_SEC}handoff: $WP_H
 "
   PROJECT_SEC="${PROJECT_SEC}=== END PROJECT ===
 "
@@ -357,15 +373,15 @@ if [ "$SKIP_TASK" = "0" ]; then
   if [ -n "$TAG" ]; then
     # (з) заморозка: путь контракта ВНУТРИ блоба тега — профильный
     # (<contracts>/), корень тега — НЕ фолбэк (Frontier И-1в/И-1г).
-    _fz_esc="${WP_C//./\\.}"
-    CPATH="$(git -C "$REPO" ls-tree --name-only "$TAG" "$WP_C/" | grep -E "^$_fz_esc/${CONTRACT}-[^/]+\.md$" | head -n 1)"
+    _fz_esc="${WP_C_REL//./\\.}"
+    CPATH="$(git -C "$REPO" ls-tree --name-only "$TAG" "$WP_C_REL/" | grep -E "^$_fz_esc/${CONTRACT}-[^/]+\.md$" | head -n 1)"
     [ -n "$CPATH" ] || die "заморозка без контракта: $TAG"
     CBYTES="$(git -C "$REPO" show "$TAG:$CPATH" 2>&1)"
     ORIGIN="frozen"
   else
     case "$ROLE" in architect|critic) ;; *) die "контракт не заморожен: $CONTRACT" ;; esac
     # (д) черновик: только <contracts>/<NNN>-*.md профиля (Frontier И-1а/И-1б).
-    CPATH="$(cd "$REPO" && ls "$WP_C"/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
+    CPATH="$(cd "$REPO" && ls "$WP_C_REL"/${CONTRACT}-*.md 2>/dev/null | head -n 1)"
     [ -n "$CPATH" ] || die "черновик контракта не найден: $CONTRACT"
     CBYTES="$(cat "$REPO/$CPATH")"
   fi
@@ -437,8 +453,8 @@ else
   # (б) бриф (Frontier И-1д): план — <registry>/plan.tsv профиля, карта WORK —
   # контракты <contracts>/*.md профиля; корневые registry/ и contracts/
   # харнеса источниками не являются.
-  if [ -f "$REPO/$WP_G/plan.tsv" ]; then
-    GOAL_SEC="$(cat "$REPO/$WP_G/plan.tsv")"
+  if [ -f "$REPO/$WP_G_REL/plan.tsv" ]; then
+    GOAL_SEC="$(cat "$REPO/$WP_G_REL/plan.tsv")"
   fi
   # ── (И-12-скоуп, А-387) карта WORK: каждый контракт — строкой ──
   # Якорь заголовка — ПРЕФИКС `^## Предмет` (суффикс-аннотации вида
@@ -448,8 +464,8 @@ else
   # предмета — строка-маркер: не молчаливый пропуск (И-0) и не смерть
   # брифа на 6 legacy (Б4 круга 1 ревьюера). plan.tsv нет → план пуст.
   _plan_ids=""
-  [ -f "$REPO/$WP_G/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G/plan.tsv")" || true
-  for cf in $(LC_ALL=C ls "$REPO/$WP_C"/*.md 2>/dev/null | LC_ALL=C sort); do
+  [ -f "$REPO/$WP_G_REL/plan.tsv" ] && _plan_ids="$(awk -F'\t' 'NR>1 && $1 ~ /^[0-9]+$/ {print $1}' "$REPO/$WP_G_REL/plan.tsv")" || true
+  for cf in $(LC_ALL=C ls "$REPO/$WP_C_REL"/*.md 2>/dev/null | LC_ALL=C sort); do
     cnum="$(basename "$cf")"; cnum="${cnum%%-*}"
     csubj="$(awk '/^## Предмет/{f=1;next} /^## /{f=0} f&&NF{print;exit}' "$cf")"
     if [ -n "$csubj" ]; then

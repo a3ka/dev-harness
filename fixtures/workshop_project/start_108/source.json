@@ -1,0 +1,51 @@
+{
+  "comment": "Оракул 108 (CMP-MOB-004), снят с Complior-mob 76ac10fac668a1036371c4b392061ce9b3277ebc (HEAD main после merge PR#111; gh api подтверждён) ДО запуска субъекта. Копия каталога, грамматика Start (features/F04) и sha256 источников — единственный источник грамматики; проб-тесты несут те же значения побайтово из этого файла.",
+  "snapshot": "76ac10fa",
+  "source_sha256": {
+    "copy_catalog": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
+    "design_data": "498b0e6900b9e1aed9655c2dd8bf97f08e957d373bfbd2dbf98428956e418f5a",
+    "screen_matrix": "a2afc0f3965d28eba102f260b4a855bdca70911b9decafa4e3a9f8bf2379a4fc",
+    "consumer_bindings": "670af65d178fc02220aaca0084ec8c3c0cd1634d3fb1b49500eeb193ecb38a64",
+    "openapi_yaml": "f89b4a048f0aa405ed636bbddea4c63730d8d7607f15729f97990b6490e86e16",
+    "api_client_b": "20ce07f285f8aa60dc9f85b195b3cadfba03ac7f8306dc70dbd440bd1c4067ad",
+    "ui_copy_b": "413acaf2736a16d5627cb089dc49f49a224e5a4544c98b3d12fbfe955a7646a1",
+    "mocks_runtime_b": "f3ee00ca9976afa90a152899bbcee533f0342bbbe223cb323fe0df136eeea190"
+  },
+  "copy": {
+    "frame.F04.01.title": { "text": "Was möchten Sie klären?", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F04.01.body": { "text": "Was ist passiert? Schreiben Sie, sprechen Sie oder fügen Sie ein Foto oder Dokument hinzu.", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "frame.F04.02.title": { "text": "Was ist passiert?", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "frame.F04.02.body": { "text": "Schreiben Sie Ihr Anliegen oder starten Sie ein Gespräch.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F04.03.title": { "text": "Ich höre zu.", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "frame.F04.03.body": { "text": "Sie können das Gespräch jederzeit unterbrechen oder zum Text wechseln.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F04.06.title": { "text": "Hier machen wir weiter.", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "frame.F04.06.body": { "text": "Sehen Sie den aktuellen Stand und setzen Sie Ihr Anliegen fort.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F04.07.title": { "text": "Wie möchten Sie beginnen?", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "frame.F04.07.body": { "text": "Text, Sprache, Foto und Dokument gehören zu demselben Anliegen.", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "action.F04.A01": { "text": "Nachricht schreiben", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "action.F04.A02": { "text": "Sprechen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "action.F04.A03": { "text": "Vorgang fortsetzen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" }
+  },
+  "avatar_states": ["idle", "working", "unavailable"],
+  "missions_presence": ["EMPTY", "PRESENT"],
+  "motion": ["FULL", "REDUCED"],
+  "ui_states": ["CALM", "INPUT", "LISTENING"],
+  "ui_state_frame": {
+    "CALM": "F04.01",
+    "INPUT": "F04.02",
+    "LISTENING": "F04.03"
+  },
+  "actions": ["WRITE", "TALK", "RESUME"],
+  "effects": ["write", "talk", "resume", "mic"],
+  "mission_states": ["RECEIVED", "WORKING", "NEEDS_INFORMATION", "ADVISER_REVIEW", "NEEDS_APPROVAL", "WAITING_EXTERNAL", "COMPLETED", "PARTIAL", "BLOCKED", "CANCELLED"],
+  "mission_brief_fields": ["mission_id", "state", "updated_at"],
+  "server_grammar": {
+    "missions_absent": "missions=null (listMissions недоступен) — безопасный fallback: присутствие и композер, без brief/resume, без краха",
+    "mission_availability": "resume ⇔ дело присутствует в listMissions.items (ACL фильтрует до сериализации — OpenAPI listMissions); отзыв ACL убирает дело из items и обязан убрать прежнее содержание brief"
+  },
+  "fixed": {
+    "mission_id": "MIS-CAR-01",
+    "updated_at": "2026-10-09T12:00:00Z",
+    "draft_text": "Kfz-Rechner Frage"
+  }
+}
