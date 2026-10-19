@@ -189,7 +189,14 @@ unset _pr_err _pr_out _registry
 
 _REG_FILE="${_REGISTRY_PATH%/}/contracts.tsv"
 head_manifest="$(git -C "$ROOT" cat-file -p "HEAD:${_REG_FILE}" 2>/dev/null || true)"
-if printf '%s\n' "$head_manifest" | grep -qF "$NNN → "; then
+# here-string `grep -qF … <<<"$head_manifest"` (НЕ `printf '%s\n' "$head_manifest"
+# | grep -qF`): под set -o pipefail форма `printf | grep -q` гонкой рвёт пайп
+# на первом совпадении (grep -q выходит по match, printf получает SIGPIPE →
+# rc 141 → pipefail поднимает rc пайпа), и проверка повторного минта
+# ложно отказывает «номер уже в манифесте». Здесь-stdin создаётся без
+# живого пайпа, поэтому SIGPIPE писателю невозможен; байт-семантика grep -qF
+# неизменна (концевая \n для fixed-string несущественна).
+if grep -qF -- "$NNN → " <<<"$head_manifest"; then
   printf 'ОТКАЗ: номер %s уже в манифесте — повторный минт\n' "$NNN" >&2
   exit 1
 fi

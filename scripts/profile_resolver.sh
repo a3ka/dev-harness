@@ -272,7 +272,15 @@ jq -e . "$PROJECT_JSON_FD" >/dev/null 2>&1 || die_p "файл не JSON: $PROJEC
 # молча проваливалась. Поэтому поиск — функцией с here-string.
 _key_in_schema() {  # <искомая-строка>
   local needle="$1"
-  printf '%s' "$SCHEMA_LEVELS" | grep -qF "$needle"
+  # here-string `<<<"$SCHEMA_LEVELS"` (НЕ `printf '%s' "$SCHEMA_LEVELS" | grep -q`):
+  # при set -o pipefail форма `printf | grep -q` гонкой рвёт пайп на первом
+  # совпадении (grep -q выходит, printf получает SIGPIPE/EPIPE → rc 141 →
+  # pipefail поднимает rc пайпа до 141), и `_key_in_schema "…"` ложно
+  # возвращает «ключ вне алфавита» при ранней остановке grep. Здесь-stdin
+  # создаётся без живого пайпа, поэтому SIGPIPE производителю невозможен;
+  # поведение поиска по байтам байт-в-байт прежнее (here-string без
+  # завершающего \n, как и printf '%s').
+  grep -qF -- "$needle" <<<"$SCHEMA_LEVELS"
 }
 
 scan_levels() {
