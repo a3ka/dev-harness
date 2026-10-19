@@ -69,12 +69,26 @@ if ! _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO}
 fi
 rm -f "$_pr_err"
 
-CANON="$(printf '%s' "$_pr_out" | jq -r '.sourceCanon.value // null' 2>/dev/null || true)"
+# Различаем «канон не объявлен» vs «канон объявлен, но null». Первый — gate
+# не запускается (К6 «без канона → rc 0 без запуска»); второй — явный invalid,
+# отказ SOURCE_CANON_INVALID. `.sourceCanon` отсутствует → `null` от jq; явный
+# `null` в JSON → тоже `null`. Поэтому заводим явный флаг присутствия.
+# ВАЖНО: merged-профиль `del(.. | nulls)` УДАЛЯЕТ null-узлы, и `has("sourceCanon")`
+# даст false при `sourceCanon: null`. Читаем RAW-слой репо напрямую.
+_PROJ_RAW="$REPO/harness.project.json"
+_has_canon_raw="n"
+if [ -r "$_PROJ_RAW" ]; then
+  _has_canon_raw="$(jq -r 'has("sourceCanon")' "$_PROJ_RAW" 2>/dev/null || echo false)"
+fi
+CANON="$(printf '%s' "$_pr_out" | jq -r 'if has("sourceCanon") and (.sourceCanon.value != null) then .sourceCanon.value else empty end' 2>/dev/null)"
 
-# Канон не объявлен — gate не запускается (К6 «без канона → rc 0 без запуска»).
-if [ "$CANON" = "null" ] || [ -z "$CANON" ]; then
+if [ -z "$CANON" ]; then
+  if [ "$_has_canon_raw" = "true" ]; then
+    die "SOURCE_CANON_INVALID"
+  fi
   exit 0
 fi
+unset _PROJ_RAW _has_canon_raw
 
 # Валидация структуры канона. Закрытый алфавит: {sources, gate}, sources — массив
 # {path, priority}, priority целое ≥0, path — непустая строка без NUL и без «..»,

@@ -348,6 +348,22 @@ git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет 
 
 g() { git -C "$ROOT" "$@"; }
 
+# 996 К19: путь реестра — из эффективного профиля (`workflowPaths.registry`).
+# При отсутствии профиля — корневой `registry/` (прежнее поведение харнесса).
+_PROFILE_REGISTRY_PATH="registry"
+if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
+  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
+  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
+              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
+    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
+    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
+  fi
+  rm -f "$_pr_err"
+fi
+unset _pr_err _pr_out _registry
+# Полный путь относительно R, используется минт-признанием ниже.
+_PROFILE_REGISTRY_FILE="${_PROFILE_REGISTRY_PATH%/}/contracts.tsv"
+
 # Чтение зон через ЕДИНСТВЕННУЮ реализацию lib_zones.sh (контракт 016, срез 1).
 # registry_state уже проверен внутри zones_load; здесь его повторять не нужно.
 mkdir -p "$ROOT/tmp"
@@ -1026,7 +1042,7 @@ while IFS=$'\t' read -r nnn since; do
       # Провенанс на origin НЕ перепроверяется (дверь 031 (i) решила его на входе,
       # прецедент 023 (iv)). Fail-closed: чтение локального реестра — тег, удалённый к
       # моменту аудита, красит признание; лечение восстановлением тега, не ослаблением.
-      if [ "$an" = "orchestrator" ] && [ "$f" = "registry/contracts.tsv" ]; then
+      if [ "$an" = "orchestrator" ] && [ "$f" = "$_PROFILE_REGISTRY_FILE" ]; then
         # ── ГРАНДФАЗЕР: ровно четыре пары (SHA, registry/contracts.tsv),
         # только автор orchestrator; остальные пути судятся обычным порядком.
         # Первые две пары 079/090 — слово владельца 2026-10-08 (d2ba198a),
@@ -1054,10 +1070,10 @@ while IFS=$'\t' read -r nnn since; do
         esac
         # Дельта коммита по этому пути vs родитель.
         if g rev-parse --verify --quiet "${c}^" >/dev/null 2>&1; then
-          mint_diff="$(g diff -U0 "${c}^" "$c" -- registry/contracts.tsv 2>/dev/null || true)"
+          mint_diff="$(g diff -U0 "${c}^" "$c" -- "$_PROFILE_REGISTRY_FILE" 2>/dev/null || true)"
         else
           # Самый первый коммит: дельта против пустого дерева.
-          mint_diff="$(g diff -U0 $(g rev-parse --verify 4b825dc642cb6eb9a060e54bf899d15f3f938a82) "$c" -- registry/contracts.tsv 2>/dev/null || true)"
+          mint_diff="$(g diff -U0 $(g rev-parse --verify 4b825dc642cb6eb9a060e54bf899d15f3f938a82) "$c" -- "$_PROFILE_REGISTRY_FILE" 2>/dev/null || true)"
         fi
         hunk_body="$(printf '%s\n' "$mint_diff" | awk '/^@@/ { h=1; next } /^diff / { h=0 } h')"
         mint_add="$(printf '%s\n' "$hunk_body" | awk '/^\+/ { c++ } END { print c+0 }')"

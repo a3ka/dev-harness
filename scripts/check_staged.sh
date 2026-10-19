@@ -146,6 +146,21 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$ROOT" >&2; exit 2; }
 
+# 996 К19: путь реестра — из эффективного профиля (`workflowPaths.registry`).
+# При отсутствии профиля — корневой `registry/` (прежнее поведение).
+_PROFILE_REGISTRY_PATH="registry"
+if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
+  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
+  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
+              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
+    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
+    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
+  fi
+  rm -f "$_pr_err"
+fi
+unset _pr_err _pr_out _registry
+_PROFILE_REGISTRY_FILE="${_PROFILE_REGISTRY_PATH%/}/contracts.tsv"
+
 # Чтение зон через ЕДИНСТВЕННУЮ реализацию. На пустом реестре — функция возвращает пустой
 # каталог и 0; зон нет → «не судится» (см. ниже).
 out="$(zones_load "$ROOT" 2>/dev/null)"; rc=$?
@@ -455,7 +470,7 @@ if [ "$has_own_wip" -eq 1 ]; then
     orchestrator_mint_path=0
     if [ "$author" = "orchestrator" ]; then
       for _p in "${staged[@]}"; do
-        if [ "$_p" = "registry/contracts.tsv" ]; then
+        if [ "$_p" = "$_PROFILE_REGISTRY_FILE" ]; then
           orchestrator_mint_path=1
           break
         fi
@@ -695,12 +710,12 @@ for f in "${staged[@]}"; do
   # индульгенция на весь коммит, инвариант 021 :337-339).
   # Дверь действительна ТОЛЬКО для автора orchestrator: implementer/прочие агенты
   # → «вне зоны» как сегодня.
-  if [ "$author" = "orchestrator" ] && [ "$f" = "registry/contracts.tsv" ]; then
+  if [ "$author" = "orchestrator" ] && [ "$f" = "$_PROFILE_REGISTRY_FILE" ]; then
     door_rc=0
     door_msg=""
     form_mode=""
     # 1. форма: ТОЛЬКО-добавление (N≥1 +строка, 0 −строк) ИЛИ замена (ровно 1 −строка, ровно 1 +строка).
-    diff_out="$(git -C "$ROOT" diff --cached -U0 -- registry/contracts.tsv 2>/dev/null || true)"
+    diff_out="$(git -C "$ROOT" diff --cached -U0 -- "$_PROFILE_REGISTRY_FILE" 2>/dev/null || true)"
     hunk_body="$(printf '%s\n' "$diff_out" | awk '/^@@/ { h=1; next } /^diff / { h=0 } h')"
     add_count="$(printf '%s\n' "$hunk_body" | awk '/^\+/ { c++ } END { print c+0 }')"
     del_count="$(printf '%s\n' "$hunk_body" | awk '/^-/ { c++ } END { print c+0 }')"
