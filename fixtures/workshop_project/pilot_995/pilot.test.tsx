@@ -21,6 +21,21 @@ function ports() {
       getSession: jest.fn(async () => source.session),
       getDisclosure: jest.fn(async () => source.disclosure),
       execute: jest.fn(async () => { throw Error('995 BUSINESS_COMMAND_FORBIDDEN'); }),
+      acknowledgeDisclosure: jest.fn(async (_disclosureRef: string, _version: number) => ({
+        disclosure_ref: 'disc-erst-001',
+        version: 1,
+        accepted: false,
+        evidence_ref: null,
+      })),
+      getDisclosureGate: jest.fn(async () => ({
+        applicability: 'NOT_REQUIRED' as const,
+        required_document_id: 'doc-erstinformation',
+        required_document_version: 1,
+        responsible_entity_id: 're-001',
+        delivery_state: 'CURRENT_CONFIRMED' as const,
+        delivery_evidence_ref: null,
+        checked_at: '2026-01-01T00:00:00Z',
+      })),
     },
     entry: { source: 'DIRECT', onboarding: 'unknown', pendingIntent: null as null | { actionId: string; commandId: string } },
   };
