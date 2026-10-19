@@ -385,33 +385,49 @@ project_paths_resolve() {
   [ "$_err" != "/dev/null" ] && rm -f "$_err"
   [ -n "$MERGED" ] || { printf 'project_paths_resolve: профиль пуст\n' >&2; return 1; }
 
-  # Гард workflowPaths на относительность и реальность относительно REPO_ABS
-  # (контракт 996 §Интерфейсы — симлинк вне, .. и абсолютный путь — отказ rc 1
-  # ДО печати).
+  # ── Гард workflowPaths — лексический `..` ПО СЕГМЕНТУ ДО readlink ──────
+  # (контракт 996 круг 3, adversary-2). Подстрока `..` (например, сегмент
+  # `v1..2.md`) — не сегмент `..`: такие имена собственные ЗАКОННЫ и
+  # `readlink -f` их нормализует правильно. Отказ — если ХОТЯ БЫ ОДИН
+  # сегмент пути — буквально `..`: это попытка побега вверх из R. Идёт
+  # ПЕРЕД readlink, потому что `..` подстрокой ловила бы собственные имена,
+  # и это разрушало бы контроль С3-1 (`docs/v1..2.md`).
+  _dotdot_segment() {
+    local _v="$1" _ifs _seg
+    [ -z "$_v" ] && return 1
+    case "$_v" in /*) return 1 ;; esac
+    _ifs="$IFS"; IFS='/'
+    for _seg in $_v; do
+      [ "$_seg" = ".." ] && { IFS="$_ifs"; return 1; }
+    done
+    IFS="$_ifs"
+    return 0
+  }
   for _wpk in contracts verdicts registry fixtures; do
     _wpv="$(printf '%s' "$MERGED" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
     [ -n "$_wpv" ] || { printf 'project_paths_resolve: профиль без workflowPaths.%s\n' "$_wpk" >&2; return 1; }
+    _dotdot_segment "$_wpv" \
+      || { printf 'project_paths_resolve: workflowPaths вне репо: %s\n' "$_wpk" >&2; return 1; }
     _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
     case "$_wpv" in /*) _wpcanon="/вне" ;; esac
     case "$_wpcanon" in
       "$REPO_ABS"/*) ;;
-      *) printf 'project_paths_resolve: workflowPaths вне репо: %s=%s\n' "$_wpk" "$_wpv" >&2; return 1 ;;
+      *) printf 'project_paths_resolve: workflowPaths вне репо: %s\n' "$_wpk" >&2; return 1 ;;
     esac
   done
 
   STATE="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.state.value // ".harness"')"
   [ -n "$STATE" ] || STATE=".harness"
   case "$STATE" in
-    /*) printf 'project_paths_resolve: workflowPaths.state обязан быть относительным: %s\n' "$STATE" >&2; return 1 ;;
+    /*) printf 'project_paths_resolve: workflowPaths.state обязан быть относительным\n' >&2; return 1 ;;
   esac
-  case "$STATE" in
-    *..*) printf 'project_paths_resolve: workflowPaths.state содержит ..: %s\n' "$STATE" >&2; return 1 ;;
-  esac
+  _dotdot_segment "$STATE" \
+    || { printf 'project_paths_resolve: workflowPaths вне репо: state\n' >&2; return 1; }
   _STATE_ABS="$(cd "$REPO_ABS" && readlink -f -- "$STATE" 2>/dev/null || true)"
   case "$_STATE_ABS" in
     "$REPO_ABS") ;;
     "$REPO_ABS"/*) ;;
-    *) printf 'project_paths_resolve: workflowPaths.state вне репо: %s\n' "$STATE" >&2; return 1 ;;
+    *) printf 'project_paths_resolve: workflowPaths вне репо: state\n' >&2; return 1 ;;
   esac
 
   _STATE_PREFIX="$REPO_ABS"
