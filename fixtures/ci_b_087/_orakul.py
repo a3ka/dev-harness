@@ -177,6 +177,19 @@ def has_token(step):
     return env.get('GITHUB_TOKEN') in TOKENS
 
 
+def lane_keys_of(wf):
+    """Ключи matrix-include (lane-джобы) джобы ci — единый разбор для клеток К6 и К12."""
+    jobs = wf.get('jobs') if isinstance(wf.get('jobs'), dict) else {}
+    cj = jobs.get('ci') or {}
+    st = cj.get('strategy') if isinstance(cj.get('strategy'), dict) else {}
+    mx = st.get('matrix') if isinstance(st.get('matrix'), dict) else {}
+    lanes = []
+    for e in mx.get('include') or []:
+        if isinstance(e, dict) and isinstance(e.get('keys'), str):
+            lanes += e['keys'].split()
+    return lanes
+
+
 def reg_rows(path, kind):
     rows = []
     with open(path, encoding='utf-8') as f:
@@ -275,13 +288,7 @@ def k_check(cell, wf_path, reg_path):
                 bad.append('реестр без строк legkij')
             if keys != want:
                 bad.append('legkij: ключи шага %r ≠ строкам legkij реестра %r' % (keys, want))
-            lanes = []
-            cj = jobs.get('ci') or {}
-            st = cj.get('strategy') if isinstance(cj.get('strategy'), dict) else {}
-            mx = st.get('matrix') if isinstance(st.get('matrix'), dict) else {}
-            for e in mx.get('include') or []:
-                if isinstance(e, dict) and isinstance(e.get('keys'), str):
-                    lanes += e['keys'].split()
+            lanes = lane_keys_of(wf)
             dup = sorted(set(keys) & set(lanes))
             if dup:
                 bad.append('ключи legkij в lane-матрице ci: %s' % ' '.join(dup))
@@ -318,6 +325,20 @@ def k_check(cell, wf_path, reg_path):
         nci = [s for s in steps_of(jobs.get('ci') or {}) if isinstance(s, dict) and 'run' in s]
         if len(nci) != 2:
             bad.append('джоба ci: run-шагов %d ≠ 2 (strip + lane-шаг)' % len(nci))
+    elif cell == 'K12':
+        # К12 (круг 4, LANE-087): связность реестр→lane — каждый step-ключ реестра
+        # присутствует в matrix-include (lane-джобы) джобы ci. Присутствие судится
+        # ТОЛЬКО токенным равенством в keys: включения lane (единый разбор ci.yml —
+        # Y-парсер клеток К; ключ в run-команде legkij или ином месте файла
+        # присутствующим не считается — грамматика И-2: legkij-строки исполняет
+        # джоба legkij, step-строки — lane-матрица). Ключи реестра — reg_rows, тот
+        # же разбор, что у К10 (не второй). Обратное направление (ключ в matrix без
+        # строки реестра) судит gen_ci_steps --check (контракт 083) — честная смена
+        # состава (строка реестра и matrix-ключ удалены вместе) здесь зелена.
+        have = set(lane_keys_of(wf))
+        miss = [r[1] for r in reg_rows(reg_path, 'step') if r[1] not in have]
+        if miss:
+            bad.append('step-ключи реестра вне lane-матрицы ci: %s' % ' '.join(miss))
     else:
         return ['неизвестная клетка %s' % cell]
     return bad
