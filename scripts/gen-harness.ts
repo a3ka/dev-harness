@@ -154,22 +154,20 @@ if (promptAt >= 0) {
   if (!slug || slug.startsWith('--')) { console.error('нужно имя роли: --prompt <роль>'); process.exit(2) }
   const r = roles.find((x) => x.slug === slug)
   if (!r) { console.error(`FAIL роли нет: ${slug}. Есть: ${roles.map((x) => x.slug).join(', ')}`); process.exit(1) }
+  // Барьер routing в --prompt — для ЛЮБОЙ роли (контракт 998, инв. 1): конфиг
+  // существует ⇒ routing существует, нарушение грамматики/ссылок ⇒ rc 1
+  // с именованием routing, индекса правила, нарушителя. Вырожденный режим
+  // (конфига нет) — pass без диагноза, прежняя толерантность. Режимы
+  // --resolve-overlay/--agents-rules/--into/запись (ПЕРЕСЕЧЕНИЕ 054) идут
+  // своим ходом и барьера здесь не получают.
+  { const g = checkRoutingStrict(ROLES_DIR)
+    if (!g.ok) { for (const p of g.problems) console.error(`FAIL routing: ${p.message}`); process.exit(1) } }
   // Только роли orchestrator дополняется секцией routing (промпты прочих ролей
   // байт-в-байт равны телам roles/<роль>.md — инвариант 3). Для оркестратора
   // секция добавляется к телу отдельной пустой строкой.
   if (r.slug === 'orchestrator') {
     const am = agentModels()
     if (am !== null) {
-      // Барьер routing — fail-closed ТОЛЬКО в этой точке входа. Конфиг существует
-      // ⇒ routing существует (инв. 1); нарушение грамматики/ссылок ⇒ rc 1
-      // с именованием routing, индекса правила, нарушителя. Режимы
-      // --resolve-overlay/--agents-rules/--into/запись 998 не правят (ПЕРЕСЕЧЕНИЕ
-      // 054) и идут своим ходом — barrier там был лишним и ломал их rc.
-      const routingGate = checkRoutingStrict(ROLES_DIR)
-      if (!routingGate.ok) {
-        for (const p of routingGate.problems) console.error(`FAIL routing: ${p.message}`)
-        process.exit(1)
-      }
       const section = renderRoutingSection(am)
       process.stdout.write(`${r.body}\n${ROUTING_HEADER}\n${section.join('\n')}\n`)
     } else {
