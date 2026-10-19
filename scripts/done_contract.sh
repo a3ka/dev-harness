@@ -157,7 +157,10 @@ esac
 # При объявленном sourceCanon — вызов check_project_sources.sh (stage=done).
 # Отказ gate → rc 1 с маркером SOURCE_GATE_FAILED/INVALID/MISSING/UNAVAILABLE.
 # Без канона — gate не запускается (К6 «без канона → rc 0 без запуска»).
-if [ -x "$SELF_DIR/check_project_sources.sh" ]; then
+# Гейт вооружён ТОЛЬКО при наличии harness.project.json в корне (режим проекта);
+# в не-проектном режиме (харнес сам как проект, без harness.project.json) —
+# действующее поведение двери НЕ меняется (К18/К19).
+if [ -x "$SELF_DIR/check_project_sources.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
   srcs_out="$(bash "$SELF_DIR/check_project_sources.sh" --repo "$ROOT" --contract "$TARGET_REL" --stage done 2>&1)" || die "source gate: $srcs_out"
 fi
 # ── 6. ПРОВОДКА через барьер check_provodka.sh ────────────────────────────────

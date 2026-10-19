@@ -19,8 +19,12 @@
 #      конкурент неизменен.
 #
 # stdout (при успехе) — ОДНА строка: NNN (ровно три цифры, как и у next_id).
-# rc 0 — успех; rc 1 — отказ с именованной причиной на stderr; rc 2 —
-# NOT_IMPLEMENTED.
+#
+# Коды возврата:
+#   0 — успех: stdout = NNN, тег id/CONTRACT/<NNN> аннотированный на origin проекта
+#   1 — отказ с именованной причиной на stderr (origin недоступен, профиль битый,
+#       tag-object-sha расходится, конкурент на origin, и т.д.)
+#   2 — NOT_IMPLEMENTED (нет git/jq, нет project_workflow.sh, не репозиторий git)
 set -uo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
