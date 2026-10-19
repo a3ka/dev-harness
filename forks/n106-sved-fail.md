@@ -5,4 +5,5 @@
 МАРШРУТ: консультант
 ЗАВЕДЁН: 2026-10-19T21:25:00Z
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+РЕШЕНО: консультант 2026-10-19T21:30Z — (А): область сведения расширена на backend/tests/contract/http.test.js (If-Match для acknowledgeDisclosure по 5.8.4; обработчик http.js не ослаблять), одно задание implementer; затем python tools/run_backend_ci.py --local rc 0 и reviewer одним прогоном только по F1; совет F2 в run_backend_ci.py — там же.
+ОТВЕЧЕНО: да
