@@ -52,6 +52,15 @@ def layout(root, p, mutant):
         paths = {k: k for k in paths}
     if mutant == 'accept-symlink':
         paths.pop('state', None)
+    if mutant == 'doors-accept-escape':
+        # Б-5: дверь принимает объявленный путь без границы R и пишет по нему.
+        state = paths.get('state', '.harness')
+        out = {k: str(root / v) for k, v in paths.items() if k != 'state'}
+        for k, v in [('handoff', 'HANDOFF.md'), ('observations', 'NABLIUDENIA.md'),
+                     ('architectObservations', 'NABLIUDENIA_ARCHITECT.md'),
+                     ('roadmap', 'ROADMAP.md'), ('forks', 'forks')]:
+            out[k] = str(root / state / v)
+        return out
     for value in paths.values():
         contained(root, value)
     # One explicit state directory, independent of parents of customizable paths.
@@ -82,36 +91,53 @@ def sources(root, p, contract, stage, mutant, door=False):
         return 0
     if mutant == 'ignore-canon-keys':
         canon = {k: v for k, v in canon.items() if k in ('sources', 'gate')}
+    if canon_invalid(canon):
+        return fail('SOURCE_CANON_INVALID')
+    for row in canon['sources']:
+        if mutant == 'canon-escape-source':
+            path = root / row['path']
+        else:
+            try:
+                path = contained(root, row['path'])
+            except ValueError:
+                return fail('SOURCE_CANON_INVALID')
+        if not path.is_file():
+            return fail('SOURCE_CANON_MISSING')
+    gate = list(canon['gate'])
+    # Б-1: дефект «argv[0] склеивается с R» моделируется как мутант.
+    if mutant == 'gate-argv0-repo-join' and not os.path.isabs(gate[0]):
+        gate = [str(root / gate[0])] + gate[1:]
+    env = dict(os.environ, HARNESS_CONTRACT=contract, HARNESS_STAGE=stage,
+               HARNESS_HEAD=git(root, 'rev-parse', 'HEAD').stdout.strip())
+    cwd = Path(os.environ['HARNESS_TOOLS_ROOT']) if mutant == 'canon-tools-cwd' else root
+    try:
+        result = subprocess.run(gate, cwd=cwd, env=env)
+    except OSError:
+        return fail('SOURCE_GATE_UNAVAILABLE')
+    if result.returncode:
+        return fail('SOURCE_GATE_FAILED')
+    return 0
+
+
+def canon_invalid(canon):
+    """Closed-alphabet grammar of the sourceCanon unit (contract 996 L53).
+    Единственный источник грамматики — resolver (Б-2), поэтому и model
+    валидирует юнит одной функцией для op resolver и для двери sources."""
     if (not isinstance(canon, dict) or set(canon) != {'sources', 'gate'}
             or not isinstance(canon['sources'], list) or not canon['sources']
             or not isinstance(canon['gate'], list) or not canon['gate']):
-        return fail('SOURCE_CANON_INVALID')
+        return True
     seen = set()
     for row in canon['sources']:
         if (not isinstance(row, dict) or set(row) != {'path', 'priority'}
                 or type(row['priority']) is not int or row['priority'] < 0
                 or not isinstance(row['path'], str) or not row['path']
                 or row['path'] in seen):
-            return fail('SOURCE_CANON_INVALID')
+            return True
         seen.add(row['path'])
-        try:
-            path = contained(root, row['path'])
-        except ValueError:
-            return fail('SOURCE_CANON_INVALID')
-        if not path.is_file():
-            return fail('SOURCE_CANON_MISSING')
     if any(not isinstance(a, str) or not a or '\x00' in a for a in canon['gate']):
-        return fail('SOURCE_CANON_INVALID')
-    env = dict(os.environ, HARNESS_CONTRACT=contract, HARNESS_STAGE=stage,
-               HARNESS_HEAD=git(root, 'rev-parse', 'HEAD').stdout.strip())
-    cwd = Path(os.environ['HARNESS_TOOLS_ROOT']) if mutant == 'canon-tools-cwd' else root
-    try:
-        result = subprocess.run(canon['gate'], cwd=cwd, env=env)
-    except OSError:
-        return fail('SOURCE_GATE_UNAVAILABLE')
-    if result.returncode:
-        return fail('SOURCE_GATE_FAILED')
-    return 0
+        return True
+    return False
 
 
 def preserved_gates(root, p, target, op, mutant):
@@ -190,8 +216,51 @@ def main():
     except json.JSONDecodeError:
         if mutant == 'broken-profile-fallback' and op == 'gitw':
             return git(root, *args, check=False).returncode
-        raise
+        if mutant == 'broken-profile-fallback' and op in ('freeze', 'done'):
+            # Б-5: битый профиль молча откатывает дверь на корневую раскладку.
+            p = {'schemaVersion': 1, 'repoId': 'root-fallback', 'workflowPaths':
+                 {'contracts': 'contracts', 'verdicts': 'verdicts',
+                  'registry': 'registry', 'fixtures': 'fixtures'}, 'git': {}}
+        else:
+            raise
     paths = layout(root, p, mutant)
+    if op == 'resolver':
+        # Б-2: грамматика юнита — в самом resolver, второй валидатор не заводим.
+        if mutant == 'resolver-canon-lenient':
+            print(json.dumps({'sourceCanon': {'value': p.get('sourceCanon'),
+                                              'origin': 'merged'}}))
+            return 0
+        canon = p.get('sourceCanon')
+        if canon is None and 'sourceCanon' in p:
+            return fail('SOURCE_CANON_INVALID')
+        if canon is not None and canon_invalid(canon):
+            return fail('SOURCE_CANON_INVALID')
+        print(json.dumps({'sourceCanon': {'value': canon, 'origin': 'merged'}}))
+        return 0
+    if op == 'workshop_probe':
+        # Б-7: штатный запуск несёт канон и пути проекта в реальный промпт.
+        layer = json.loads((root / 'project-layer.json').read_text())
+        home = Path(os.environ.get('HARNESS_SCRATCH', str(root.parent))) \
+            / 'dev-harness-projects' / str(layer.get('projectId', 'toy')) / 'home'
+        home.mkdir(parents=True, exist_ok=True)
+        prompt = home / 'session-prompt-orchestrator.md'
+        if mutant == 'probe-prompt-static':
+            body = '\n'.join([
+                'HARNESS_WORKFLOW_ROOT=' + os.environ.get('HARNESS_WORKFLOW_ROOT', ''),
+                'HARNESS_TOOLS_ROOT=' + os.environ.get('HARNESS_TOOLS_ROOT', '')]) + '\n'
+        else:
+            lines = ['## Контекст проекта (контракт 996 §D)']
+            for key in ('contracts', 'verdicts', 'registry', 'fixtures'):
+                lines.append(key + '=' + paths[key])
+            lines.append('sourceCanon=' + json.dumps(p.get('sourceCanon')))
+            lines.append('startup=' + ','.join(
+                paths[k] for k in ('handoff', 'contracts', 'verdicts',
+                                   'observations', 'roadmap')))
+            body = '\n'.join(lines) + '\n'
+        prompt.write_text(body)
+        print('workshop PROBE OK: ' + str(root))
+        print('PROMPT: ' + str(prompt))
+        return 0
     if op == 'paths':
         print(json.dumps(paths))
         return 0
@@ -263,7 +332,7 @@ def main():
             return fail('mint hook refused: ' + r.stderr)
         print('MINTED nnn=' + n + ' sha=' + sha)
         return 0
-    if op == 'gitw':
+    if op in ('gitw', 'gitw-cwd', 'gitw-envdir'):
         env = dict(os.environ)
         canonical = p['git']['canonicalRemote']
         if mutant == 'trust-origin-url':
@@ -272,10 +341,14 @@ def main():
             canonical = 'ssh://git@github.com/a3ka/dev-harness.git'
         if mutant == 'trust-target':
             canonical = args[1]
+        # Б-8: без -C/--git-dir канон профиля cwd-проекта игнорируется.
+        if op in ('gitw-cwd', 'gitw-envdir') and mutant == 'gitw-cwd-constant':
+            canonical = 'ssh://git@github.com/a3ka/dev-harness.git'
         env['GIT_EXCHANGE_GUARD_CANONICAL'] = (canonical if mutant == 'profile-over-override'
                                                else env.get('GIT_EXCHANGE_GUARD_CANONICAL', canonical))
+        _argv = (['push', 'origin'] + list(args)) if op in ('gitw-cwd', 'gitw-envdir') else list(args)
         return subprocess.run(['bash', str(Path(env['HARNESS_TOOLS_ROOT']) / 'scripts/gitw'),
-                               '-C', str(root), *args], env=env).returncode
+                               '-C', str(root), *_argv], env=env).returncode
     if op in ('sources', 'pre_critic'):
         if op == 'pre_critic' and preserved_gates(root, p, args[0], op, mutant):
             return 1
@@ -305,7 +378,7 @@ def main():
         return 0
     if op in ('freeze', 'done'):
         target = args[0]
-        if Path(target).parent != Path(p['workflowPaths']['contracts']):
+        if Path(target).parent != Path(p['workflowPaths']['contracts']) and mutant != 'accept-root-contract':
             return fail('CONTRACT_PATH')
         n = Path(target).name[:3]
         verdict_root = Path(paths['verdicts']).relative_to(root)
