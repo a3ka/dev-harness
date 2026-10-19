@@ -166,6 +166,8 @@ def stream_of(n):
         return 'mob'
     if 'back' in src or 'beka' in src:
         return 'бэкенд'
+    if n in plan_rows:
+        return 'харнесс'   # строка плана есть, источник не продуктовый
     c = task_repo.get(n) or {}
     if c.get('mob') or c.get('бэкенд'):
         return 'mob' if c['mob'] >= c['бэкенд'] else 'бэкенд'
