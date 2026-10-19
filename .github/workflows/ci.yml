@@ -279,7 +279,7 @@ jobs:
           - lane: l5
             keys: check:orch-restart-family-selftest check:approval check:context-pack-095-family-selftest check:fix-090-orch-peak-home-family-selftest check:project-paths-103-family-selftest check:v-polete-nichego-088-family-selftest drill:protected-exception check:gen check:skills drill:startup-digest
           - lane: l6
-            keys: check:protected-call-budget check:cikl-perezapuska-085-family-selftest check:declared-path-family-selftest check:gitw-family-selftest check:provodka-family-selftest check:watchdog-082-family-selftest drill:protected-rename check:github-token-family-selftest check:threat-model-selftest check:gen-ci-steps-coherence
+            keys: check:protected-call-budget check:cikl-perezapuska-085-family-selftest check:declared-path-family-selftest check:gitw-family-selftest check:provodka-family-selftest check:watchdog-082-family-selftest drill:protected-rename check:github-token-family-selftest check:threat-model-selftest check:gen-ci-steps-coherence check:pravila-modelei-998
           - lane: l7
             keys: check:samodostatochnost-family-selftest check:sharing-family-selftest check:document check:merge-gate-family-selftest check:rezhim-996-family-selftest check:zashchita-main-104-family-selftest metering:selftest check:hooks check:measure-probe check:scope-select
 # END GENERATED CI JOBS (083)
