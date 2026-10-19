@@ -197,6 +197,8 @@ GATE_CASES = {
     'freeze-plan-preserved': ('freeze', 'plan', 'контракт вне плана'),
     'freeze-committed-preserved': ('freeze', 'committed', 'закоммичен'),
     'done-committed-preserved': ('done', 'committed', 'закоммичен'),
+    'freeze-closures-preserved': ('freeze', 'closures', 'контракт вне плана'),
+    'freeze-head-plan-preserved': ('freeze', 'worktree-plan', 'контракт вне плана'),
 }
 
 
@@ -247,6 +249,20 @@ def gate_test(case, mode, mutant, root, p, contract):
         # A valid root decoy must not override the project's rejecting plan.
         change('registry/plan.tsv', header + '777' + row)
         changes[p['workflowPaths']['registry'] + '/plan.tsv'] = (header + '777' + row).encode()
+    elif defect == 'closures':
+        # Plan 775/1 776/2 777/3; the closure of 775 lives ONLY in the root
+        # registry decoy, so the profile plan keeps 777 outside P0/P1.
+        header = 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+        row = '\t1\tдо V-2\t-\tabcdef0\ttoy\n'
+        put(root, p['workflowPaths']['registry'] + '/plan.tsv',
+            header + '775' + row + '776' + row.replace('\t1\t', '\t2\t')
+            + '777' + row.replace('\t1\t', '\t3\t'))
+        change('registry/closed-without-done.tsv', '775\tзакрыт владельцем без done\n')
+    elif defect == 'worktree-plan':
+        # Committed plan excludes 777; the uncommitted edit below adds it.
+        header = 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+        row = '\t1\tдо V-2\t-\tabcdef0\ttoy\n'
+        change(p['workflowPaths']['registry'] + '/plan.tsv', header + '778' + row)
     elif defect == 'committed':
         body += '\n## State\nCommitted baseline\n'
     change(contract, body)
@@ -262,6 +278,12 @@ def gate_test(case, mode, mutant, root, p, contract):
     if defect == 'committed':
         changes[contract] = body.encode()
         put(root, contract, body + '\nUncommitted contract change\n')
+    if defect == 'worktree-plan':
+        # Uncommitted plan edit: only the HEAD blob may be read by the door.
+        header = 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+        row = '\t1\tдо V-2\t-\tabcdef0\ttoy\n'
+        put(root, p['workflowPaths']['registry'] + '/plan.tsv',
+            header + '778' + row + '777' + row.replace('\t1\t', '\t2\t'))
     before = (git(root, 'rev-parse', 'HEAD'),
               git(root, 'show-ref'), {str(f.relative_to(root)): f.read_bytes()
                                     for f in root.rglob('*') if f.is_file() and '.git' not in f.parts})
@@ -283,6 +305,18 @@ def gate_test(case, mode, mutant, root, p, contract):
             put(root, 'scripts/' + writer, (TOOLS / 'scripts' / writer).read_text())
             put(root, 'scripts/consumers.d/' + writer + '__check_sh.tsv',
                 'scripts/' + writer + '\tcheck.sh\n')
+    if defect == 'closures':
+        # Repair of the same input: the closure of 775 moves into the PROFILE
+        # registry, which must open P1 for 777 (arbiter П1б).
+        put(root, p['workflowPaths']['registry'] + '/closed-without-done.tsv',
+            '775\tзакрыт владельцем без done\n')
+    if defect == 'worktree-plan':
+        # Repair of the same input: committing the plan edit moves 777 into
+        # the HEAD blob the door reads.
+        header = 'id\tпара\tэтап\tзависит\tисточник\tтрек\n'
+        row = '\t1\tдо V-2\t-\tabcdef0\ttoy\n'
+        put(root, p['workflowPaths']['registry'] + '/plan.tsv',
+            header + '778' + row + '777' + row.replace('\t1\t', '\t2\t'))
     if defect != 'committed':
         commit(root, 'repair gate input')
     r = subject(mode, op, root, contract, mutant=mutant)
@@ -303,6 +337,7 @@ EXTRA_CASES = (
     'canon-unavailable', 'canon-nul', 'reserve-race', 'reserve-unavailable',
     'zones-project', 'zones-green', 'staged-project', 'staged-green', 'lib-zones-project',
     'mint-project', 'mint-no-authority', 'self-canonical',
+    'freeze-escalate', 'freeze-ungrammatical', 'done-escalate', 'done-ungrammatical',
 )
 
 
@@ -374,6 +409,36 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         else:
             expect(r.returncode == 1 and 'кап кругов' in r.stderr and not git(root, 'tag', '-l')
                    and git(root, 'rev-parse', 'HEAD') == before, 'PROJECT_CAP_BYPASSED', r)
+    elif case in ('freeze-escalate', 'freeze-ungrammatical', 'done-escalate', 'done-ungrammatical'):
+        # First-line grammar of profile verdicts (arbiter П3, K10). The refusal
+        # marker is the door's own reason; a refusal from another gate would not
+        # count. Amending keeps critic history single-event, so the cap logic
+        # of the repair run stays out of this scenario's way.
+        op = 'freeze' if case.startswith('freeze') else 'done'
+        role = 'critic' if op == 'freeze' else 'review'
+        path = p['workflowPaths']['verdicts'] + f'/{role}/contracts-777-v1.md'
+        first = 'ESCALATE' if case.endswith('escalate') else 'утверждено вне грамматики'
+        put(root, path, first + '\n')
+        git(root, 'add', '.')
+        git(root, 'commit', '--amend', '-qm', 'grammar refusal input')
+        before = (git(root, 'rev-parse', 'HEAD'), git(root, 'show-ref'),
+                  {str(f.relative_to(root)): f.read_bytes()
+                   for f in root.rglob('*') if f.is_file() and '.git' not in f.parts})
+        r = call(op, contract)
+        marker = 'ESCALATE' if case.endswith('escalate') else 'грамматик'
+        expect(r.returncode == 1 and marker in r.stderr, 'VERDICT_GRAMMAR_BYPASSED:' + case, r)
+        after = (git(root, 'rev-parse', 'HEAD'), git(root, 'show-ref'),
+                 {str(f.relative_to(root)): f.read_bytes()
+                  for f in root.rglob('*') if f.is_file() and '.git' not in f.parts})
+        expect(after == before, 'VERDICT_GRAMMAR_REFUSAL_MUTATED:' + case, r)
+        put(root, path, 'accept\n')
+        git(root, 'add', '.')
+        git(root, 'commit', '--amend', '-qm', 'repair grammar input')
+        r = call(op, contract)
+        expect(r.returncode == 0, 'VERDICT_GRAMMAR_REPAIR_REFUSED:' + case, r)
+        prefix = 'frozen' if op == 'freeze' else 'done'
+        expect(git(root, 'tag', '-l', prefix + '/contracts/777/*') ==
+               prefix + '/contracts/777/1', 'VERDICT_GRAMMAR_REPAIR_TAG_MISSING', r)
     elif case in ('git-origin-drift', 'git-broken-profile'):
         receiver = origin
         if case == 'git-origin-drift':
@@ -587,6 +652,15 @@ def test(case, mode, base, mutant):
                 reg = root / p['workflowPaths']['registry'] / 'contracts.tsv'
                 expected = '777 → ' + git(root, 'rev-parse', tag) + '\n'
                 expect(reg.read_text() == expected and not (root / 'registry').exists(), 'REGISTRY_NOT_PROJECT_LOCAL')
+                # Arbiter П2б: the registry must be a committed HEAD blob
+                # authored by orchestrator, not just working-tree bytes.
+                relative = str(reg.relative_to(root))
+                shown = run(['git', '-C', str(root), 'show', 'HEAD:' + relative])
+                author = run(['git', '-C', str(root), 'log', '-1',
+                              '--format=%an', '--', relative])
+                expect(shown.returncode == 0 and shown.stdout.strip() == expected.strip()
+                       and author.stdout.strip() == 'orchestrator',
+                       'REGISTRY_NOT_COMMITTED_AS_ORCHESTRATOR', r)
     elif case in ('paths', 'paths-escape'):
         if case == 'paths-escape':
             p['workflowPaths']['verdicts'] = '../outside'
@@ -707,12 +781,18 @@ MUTANTS.update({
 })
 MUTANTS.update({'done-leak': ('station-isolation',),
                 'profile-over-override': ('git-override',),
-                'root-plan': ('freeze-plan-preserved',)})
+                'root-plan': ('freeze-plan-preserved',),
+                'root-closures': ('freeze-closures-preserved',),
+                'worktree-plan': ('freeze-head-plan-preserved',),
+                'registry-uncommitted': ('freeze-profile',),
+                'registry-author-architect': ('freeze-profile',),
+                'critic-not-fail-is-accept': ('freeze-escalate', 'freeze-ungrammatical'),
+                'review-grammar': ('done-escalate', 'done-ungrammatical')})
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
                       'precision': ('precision',), 'doc': ('doc', 'doc-malformed'),
                       'provodka': ('provodka',), 'n39': ('n39',),
-                      'form': ('context', 'existing'), 'plan': ('plan',),
+                      'form': ('context', 'existing'), 'plan': ('plan', 'closures', 'worktree-plan'),
                       'committed': ('committed',)}.items():
     MUTANTS['skip-' + gate] = tuple(case for case, (_, defect, _) in GATE_CASES.items()
                                    if defect in defects)

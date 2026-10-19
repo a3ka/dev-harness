@@ -316,7 +316,18 @@ def main():
             body = git(root, 'show', 'HEAD:' + str(verdict), check=False)
             if mutant == 'fallback-root' and body.returncode:
                 body = git(root, 'show', 'HEAD:verdicts/critic/' + f'contracts-{n}-v1.md', check=False)
-            if mutant != 'ignore-critic' and (body.returncode or body.stdout.splitlines()[0] != 'accept'):
+            first = '' if body.returncode else (body.stdout.splitlines() or [''])[0].strip()
+            if mutant == 'critic-not-fail-is-accept':
+                refused = body.returncode or first == 'FAIL'
+            else:
+                refused = body.returncode or first != 'accept'
+            if mutant != 'ignore-critic' and refused:
+                if not body.returncode and first == 'FAIL':
+                    return fail('критик заморозку не разрешил: FAIL')
+                if not body.returncode and first == 'ESCALATE':
+                    return fail('критик передал вопрос владельцу: ESCALATE')
+                if not body.returncode:
+                    return fail('вердикт вне объявленной грамматики: ' + first)
                 return fail('критик заморозку не разрешил')
             events = []
             commits = git(root, 'log', '--reverse', '--format=%H', '--',
@@ -342,8 +353,17 @@ def main():
                 return fail('done: вердикт ревьюера не найден')
             verdict = rows[-1] if mutant == 'old-review' else rows[0]
             body = git(root, 'show', 'HEAD:' + verdict).stdout.splitlines()[0]
-            if mutant != 'ignore-review' and body.strip().lower() != 'accept':
-                return fail('done: вердикт ревьюера FAIL')
+            norm = body.strip().lower()
+            if mutant == 'review-grammar':
+                refused = norm == 'fail'
+            else:
+                refused = norm != 'accept'
+            if mutant != 'ignore-review' and refused:
+                if norm == 'fail':
+                    return fail('done: вердикт ревьюера FAIL')
+                if norm == 'escalate':
+                    return fail('done: вердикт ревьюера ESCALATE')
+                return fail('done: вердикт вне грамматики: ' + body)
             if sources(root, p, target, 'done', mutant, door=True):
                 return 1
             tag = f'done/contracts/{n}/1'
@@ -355,7 +375,17 @@ def main():
             reg.parent.mkdir(parents=True, exist_ok=True)
             reg.write_text(n + ' → ' + git(root, 'rev-parse', tag).stdout.strip() + '\n')
             git(root, 'add', str(reg))
-            git(root, 'commit', '-qm', 'model freeze registry')
+            # The product commits the registry atomically under orchestrator
+            # (freeze_contract.sh:456-458, Н-132 class); the model must not diverge.
+            if mutant != 'registry-uncommitted':
+                identity = (['architect', 'architect@dev-harness.local']
+                            if mutant == 'registry-author-architect'
+                            else ['orchestrator', 'orchestrator@dev-harness.local'])
+                r = git(root, '-c', 'user.name=' + identity[0],
+                        '-c', 'user.email=' + identity[1],
+                        'commit', '-qm', 'model freeze registry', '--', str(reg), check=False)
+                if r.returncode:
+                    return fail('реестр не закоммичен: ' + r.stderr)
         if mutant == 'done-leak' and op == 'done':
             with (Path(os.environ['HARNESS_TOOLS_ROOT']) / 'HANDOFF.md').open('a') as f:
                 f.write('done leaked\n')
