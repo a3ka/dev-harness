@@ -1,0 +1,47 @@
+{
+  "comment": "Оракул 107 (CMP-MOB-003), снят с Complior-mob 76ac10fa (HEAD main после merge PR#111) ДО запуска субъекта. Копия каталога, грамматика erstinformation_route и sha256 источников — единственный источник грамматики; проб-тесты несут те же значения побайтово из этого файла.",
+  "snapshot": "76ac10fa",
+  "source_sha256": {
+    "copy_catalog": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
+    "design_data": "498b0e6900b9e1aed9655c2dd8bf97f08e957d373bfbd2dbf98428956e418f5a",
+    "screen_matrix": "a2afc0f3965d28eba102f260b4a855bdca70911b9decafa4e3a9f8bf2379a4fc",
+    "consumer_bindings": "670af65d178fc02220aaca0084ec8c3c0cd1634d3fb1b49500eeb193ecb38a64",
+    "api_client_b": "20ce07f285f8aa60dc9f85b195b3cadfba03ac7f8306dc70dbd440bd1c4067ad",
+    "ui_copy_b": "413acaf2736a16d5627cb089dc49f49a224e5a4544c98b3d12fbfe955a7646a1",
+    "mocks_runtime_b": "f3ee00ca9976afa90a152899bbcee533f0342bbbe223cb323fe0df136eeea190"
+  },
+  "copy": {
+    "disclosure.checking": { "text": "Die Bereitstellung Ihrer Erstinformation wird geprüft.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "disclosure.pending": { "text": "Der Nachweis steht noch aus. Wir prüfen die Übermittlung.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "disclosure.failed": { "text": "Die Bereitstellung konnte nicht bestätigt werden. Ihr Anliegen bleibt gespeichert.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "disclosure.retry": { "text": "Bereitstellung erneut prüfen", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "disclosure.updated": { "text": "Für diesen Schritt ist eine neuere Erstinformation erforderlich.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F02.03.title": { "text": "Informationen zu Ihrem Makler", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F02.03.body": { "text": "Hier finden Sie den verantwortlichen Makler und die Erstinformation zum Herunterladen.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F02.05.title": { "text": "Dokument ansehen", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F02.05.body": { "text": "Prüfen Sie Inhalt, Anbieter und Version. Sie können eine Kopie speichern.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F02.08.title": { "text": "Bereitstellung der Erstinformation", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F02.08.body": { "text": "Hier sehen Sie den aktuellen Stand der Bereitstellung und den verfügbaren Nachweis.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "action.F02.A01": { "text": "Mit einer Aufgabe starten", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "action.F02.A02": { "text": "Dokument öffnen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "global.back": { "text": "Zurück", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" }
+  },
+  "delivery_states": ["CHECKING", "PENDING", "FAILED", "OUTDATED", "CURRENT_CONFIRMED"],
+  "notice_key_by_state": {
+    "CHECKING": "disclosure.checking",
+    "PENDING": "disclosure.pending",
+    "FAILED": "disclosure.failed",
+    "OUTDATED": "disclosure.updated"
+  },
+  "versions": { "eq": { "disclosure": 2, "required": 2 }, "stale": { "disclosure": 2, "required": 3 } },
+  "admissions": ["W0", "W1A"],
+  "fixed": {
+    "disclosure_ref": "disc-erst-001",
+    "document_ref": "doc-erstinformation",
+    "responsible_entity": "Makler Meier GmbH",
+    "responsible_entity_id": "re-001",
+    "source_ref": "source://broker-portal/erstinformation",
+    "evidence_ref": "evidence://delivery/8f3a",
+    "checked_at": "2026-10-19T12:00:00Z"
+  }
+}
