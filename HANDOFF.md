@@ -1,3 +1,15 @@
+## ГДЕ МЫ (2026-10-19 ~23:20 UTC — рестарт по сторожу контекста (507K≥500K); пять потоков; табло: `python3 ops/server/user/orch-tablo`; **DONE за сессию: нет новых**; origin/main = `f47fe7c04` + этот чекпойнт; **заморожены v1: 107, 108**; номер **109 = CMP-BCK-004** выдан)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **В ПОЛЁТЕ НА GITHUB (не у меня):** **PR#135** (`owner/train-j`, tip `3ea6705b094de83ef9ba316e3b09238cf18e8869`) — ОДНА цепочка от коммита тега `frozen/contracts/108/1` (`596413745`, base f47fe7c04): 108 (architect-сквош `0be6be2b7` + критик accept `596413745`, контракт `contracts/108-cmp-mob-004-start.md`, пробы `fixtures/workshop_project/start_108/`, `verdicts/critic/contracts-108-v1.md`) + 998 круг 3 (Р998-7: клетки architect + барьер routing в `--prompt` для каждой роли) + 996 микро-круг (13 клеток architect; implementer: make_task/workshop через `project_paths_resolve`, `..` по сегменту, без вклейки тела SOURCE; фикс toy-миров 058/060 в `scripts/next_id.sh`). Локально probe 998 52/0+68/0, 996 110/0, verify_ci_parity rc0. PR#130/#132/#133/#134 закрыты. **Дальше когда PR#135 зелёный:** (1) `bash scripts/land_agent.sh --branch wip/996/implementer --worktree /tmp/dev-harness-worktrees/c907157c/wip-996-implementer` (ветка стоит на tip `3ea6705b0`; land несёт ВСЕ три контракта; wip/998/implementer отдельно не нужна); (2) REPLACE строки реестра 108: `108 → 684da93482f0c683f2060376861b0e5bdbc342fa` (tag-object-sha `frozen/contracts/108/1`; проверь `git rev-parse frozen/contracts/108/1`) отдельным коммитом orchestrator plumbing-ом (`git show HEAD:registry/contracts.tsv | sed "s/^108 → .*/108 → <sha>/" | git hash-object -w --stdin` + `update-index --cacheinfo` + `git -c user.name=orchestrator commit` + `git checkout -- registry/contracts.tsv`); тег `frozen/contracts/108/1` и `frozen/contracts/107/1` УЖЕ на origin; (3) `bash scripts/gitw push origin main` (перед этим check_no_leak → retake-ahead); (4) судьи: **998 круг 3** (reviewer ТОЛЬКО Р998-7 + регресс; adversary accept круга 1 в силе; OBJECT = main-коммит ленда), **996 микро-круг** (adversary+reviewer ТОЛЬКО Р3-1/Р3-2 и ось; FAIL → 996 стоп, консультанту) → done_contract 998/996 (+ строка arbiter об изоляции 0/8 — донастройка под РАЗРЕШИЛ-ВЛАДЕЛЕЦ); (5) 108 реализация (implementer в клоне Complior-mob): задание из frozen-блоба, пин H = `frozen/contracts/108/1^{commit}`.
+- **109 = CMP-BCK-004** (бэкенд; слот ROADMAP §12 п.2, по слову консультанта 22:02): номер выдан (`id/CONTRACT/109` на origin, реестр `f47fe7c04`); **строку plan.tsv делает консультант**; затем architect (контракт+красные тесты, бэкенд-канон) → критик → freeze. Не начат.
+- **106:** запушена консультантом (Complior-back `cmp-bck-133/spec-5-8-4` @106454ff2, PR открыт, merge — после зелёного CI); дальше `done_contract.sh` 106 оркестратором (ПРОВОДКА) после merge.
+- **107:** форк `n107-impl-krug2` (К КОНСУЛЬТАНТУ; блокирует) — ждёт слова (R107-10 конфликт эталона с frozen pilot.test.tsx 995, рекомендация (А2); R107-1 стандарт «не копия»; R107-7 источник admission). Клон `/tmp/dev-harness-verify/Impl107c/mob` HEAD `469c8f5cdb3d80dd40d2bbf14fe23b239df76a9c` (не запушен).
+- Сессия-урок: ручной snapshot 22:30 по санкции (а)-(в) выполнен ОДИН раз (после `reset --hard origin/main`); консультант 22:02: при отказе `--retake-ahead` из-за остатка ленда — СТОП и доклад с выводом `--check`, ручной снимок не делать (учти).
+
+### Следующая сессия — порядок
+1. Табло. 2. PR#135 → land → REPLACE 108 → push main → судьи 998/996 → done. 3. 108 реализация (implementer) после ленда; 107 — слово консультанта по форку. 4. 109: после plan-строки консультанта — architect. 5. 106 done_contract после merge.
+
 ## ГДЕ МЫ (2026-10-19 ~22:35 UTC — сессия после рестарта 19:30; пять потоков; табло: `python3 ops/server/user/orch-tablo`; **DONE за сессию: нет новых**; main `f6744a2e3` = origin/main; **заморожен v1: 107** (`frozen/contracts/107/1`, реестр REPLACE, ленд+push сделаны))
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
@@ -6651,6 +6663,7 @@ soreview-v1.md.
 - 097 · пара 3 · заморожен · трек autonomy
 - 098 · пара 3 · заморожен · трек autonomy
 - 107 · пара 3 · заморожен · трек complior
+- 108 · пара 3 · заморожен · трек complior
 - 998 · пара 3 · заморожен · трек ops
 - 095 · пара 4 · заморожен · трек context
 - 106 · пара 4 · заморожен · трек complior
