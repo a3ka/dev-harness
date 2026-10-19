@@ -40,6 +40,15 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# 996 (Б-5/Б-9): импорт проекционных хелперов через source вместо отдельного
+# bash-процесса на project_workflow.sh. workshop прежде вызывал project_workflow.sh
+# ради одного блока JSON для проб-промпта и для exec-omp; в toy-мире (ap-фикстуры
+# verify_antiplacebo) это был отдельный процесс, и батарея 996 целилась на функцию
+# — переход на source устраняет процесс.
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$HERE/scripts/next_id.sh"
+
 die()  { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 
@@ -887,11 +896,39 @@ fi
 # к8/054 и каскадят в к11/058/059/060). Заголовок «## » закрывает диапазон
 # awk на границе секции правил, и R1-R3 остаются grep -Fx-достижимыми
 # самостоятельными строками для к7/060.
+# 996 (Б-7) §D — то же, что и в --print-context: пути профиля и effective
+# sourceCanon. ШТАТНЫЙ запуск передаёт вычисленные пути и effective sourceCanon
+# в контекст роли, не отдельный --print-context расчёт. Здесь ОБЩАЯ ВЕТКА с
+# пробой — одна и та же операция вычисляет пути и для пробы, и для exec-omp.
+_pw_json="$(project_paths_resolve "$PROJECT" 2>/dev/null)" \
+  || printf '_pw_json_omitted: профиль битый или workflowPaths вне репо\n' >&2
 {
   printf '## Маршруты проекта (R1-R3, контракт 060)\n'
   printf '%s\n' 'HARNESS WORKFLOW: номер контракта, реестр заморозок и черновики болей ведутся на репо-стороне — НЕ в журналах и очередях харнесса'
   printf 'HARNESS_WORKFLOW_ROOT=%s\n' "$HARNESS_WORKFLOW_ROOT"
   printf 'HARNESS_TOOLS_ROOT=%s\n' "$HARNESS_TOOLS_ROOT"
+  if [ -n "$_pw_json" ]; then
+    # Полные пути профиля (контракт, вердикты, реестр, фикстуры, handoff…)
+    # — строкой по ключу на строку. Подстроки `<root>/.harness/judgements`
+    # и `<root>/.harness/tasks` ищет `grep -F` в фикстуре probe-prompt-project.
+    for _k in contracts verdicts registry fixtures handoff observations architectObservations roadmap forks; do
+      _v="$(printf '%s' "$_pw_json" | jq -r --arg k "$_k" '.[$k] // empty' 2>/dev/null)"
+      [ -n "$_v" ] && printf 'WORKFLOW_%s=%s\n' "$_k" "$_v"
+    done
+    _sc="$(printf '%s' "$_pw_json" | jq -c '.sourceCanon // null' 2>/dev/null)"
+    if [ "$_sc" != "null" ] && [ -n "$_sc" ]; then
+      _sc_paths="$(printf '%s' "$_sc" | jq -r '.sources[]?.path // empty' 2>/dev/null)"
+      _sc_gate="$(printf '%s' "$_sc" | jq -r '.gate | join(" ") // empty' 2>/dev/null)"
+      printf 'sourceCanon:%s\n' "$_sc"
+      [ -n "$_sc_paths" ] && printf 'SOURCE: %s\n' "$_sc_paths"
+      [ -n "$_sc_gate" ] && printf 'GATE: %s\n' "$_sc_gate"
+      unset _sc_paths _sc_gate
+    else
+      printf 'sourceCanon:null\n'
+    fi
+    unset _v _k _sc
+  fi
+  unset _pw_json
 } >> "$PROMPT_FILE"
 
 # Роли разработчика кладутся в каталог агента ПРОФИЛЯ внутри изолированного HOME

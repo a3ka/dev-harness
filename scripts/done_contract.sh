@@ -40,41 +40,62 @@ if [ -z "${REASON//[[:space:]]/}" ]; then
   die "done: причина пуста"
 fi
 
-# 996 К1, К3: профильные пути для verdicts (review) и registry. Тот же шаблон,
-# что в freeze_contract.sh. При отсутствии профиля — корневые пути (прежнее
-# поведение харнесса как проекта).
-_PROFILE_VERDICTS_DIR="verdicts/review"
-_PROFILE_REGISTRY_PATH="registry"
-_PROFILE_CONTRACTS_DIR="contracts"
-if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
-  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
-  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
-              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
-    _verdicts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.verdicts.value // empty' 2>/dev/null || true)"
-    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
-    _contracts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.contracts.value // empty' 2>/dev/null || true)"
-    [ -n "$_verdicts" ] && _PROFILE_VERDICTS_DIR="${_verdicts%/}/review"
-    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
-    [ -n "$_contracts" ] && _PROFILE_CONTRACTS_DIR="$_contracts"
-  fi
-  rm -f "$_pr_err"
-fi
-unset _pr_err _pr_out _verdicts _registry _contracts
+# 996 (Б-5/Б-9): ЕДИНЫЙ резолв workflowPaths через функцию project_paths_resolve
+# из подключённой выше scripts/next_id.sh (пакет A/Б-5, исправление toy-миров —
+# см. freeze_contract.sh:84-96). Дверь больше НЕ вызывает project_workflow.sh
+# отдельным bash-процессом.
+_pr_paths="$(project_paths_resolve "$ROOT" 2>/dev/null)" \
+  || die "ОТКАЗ: профиль битый или workflowPaths вне репо: $(project_paths_resolve "$ROOT" 2>&1 >/dev/null)"
+_PROFILE_VERDICTS_BASE="$(printf '%s' "$_pr_paths" | jq -r '.verdicts' 2>/dev/null || true)"
+_PROFILE_REGISTRY_PATH="$(printf '%s' "$_pr_paths" | jq -r '.registry' 2>/dev/null || true)"
+_PROFILE_CONTRACTS_BASE="$(printf '%s' "$_pr_paths" | jq -r '.contracts' 2>/dev/null || true)"
+[ -n "$_PROFILE_VERDICTS_BASE" ] && [ -n "$_PROFILE_REGISTRY_PATH" ] && [ -n "$_PROFILE_CONTRACTS_BASE" ] \
+  || die "ОТКАЗ: project_paths_resolve вернул пустой путь"
+unset _pr_paths
+# dir-суффиксы для роли ревьюера (done). Аналогия freeze: было — корневой
+# `verdicts/review`, теперь профильный review.
+# Relative form of verdicts (для cd-канонизации и `git -C $ROOT cat-file`):
+case "$_PROFILE_VERDICTS_BASE" in
+  "$ROOT"/*) _PROFILE_VERDICTS_REL="${_PROFILE_VERDICTS_BASE#"$ROOT"/}" ;;
+  *)         _PROFILE_VERDICTS_REL="${_PROFILE_VERDICTS_BASE#/}" ;;
+esac
+_PROFILE_VERDICTS_DIR="${_PROFILE_VERDICTS_REL%/}/review"
+unset _PROFILE_VERDICTS_REL _PROFILE_VERDICTS_BASE
+# Контрактная форма: done/contracts/<NNN>/<v> — независимо от того, лежит ли
+# contracts под `.harness/tasks` или в корне `contracts/`. Тег-каталог всегда
+# `contracts` (прецедент freeze_contract.sh:139-141).
+_PROFILE_CONTRACTS_DIR="${_PROFILE_CONTRACTS_BASE%/}"
 ( cd "$ROOT" 2>/dev/null && git rev-parse --verify HEAD >/dev/null 2>&1 ) || skip "в $ROOT нет ни одного коммита — done-писать нечего"
 
 # ── 2. basename-грамматика NNN ────────────────────────────────────────────────
 base="${TARGET##*/}"
-# Префиксная проверка: TARGET начинается с plans/, contracts/, или
-# профильного `_PROFILE_CONTRACTS_DIR`. 996 К1.
-_PR_CONTRACTS="${_PROFILE_CONTRACTS_DIR:-contracts}/"
-_PR_CONTRACTS="${_PR_CONTRACTS%/}/"
+# 996 (Б-6) К1: профильный путь предпочтителен; корневой contracts/ допустим
+# ТОЛЬКО когда профиль не уводит workflowPaths в другую раскладку. План —
+# plans/, всегда.
+# Профильный путь от `project_paths_resolve` приходит в форме абсолютного
+# (`<REPO_ABS>/<wp.contracts>`). Для сравнения с TARGET (относительным)
+# получаем ПОСЛЕДНИЙ суффикс относительно ROOT.
+case "$_PROFILE_CONTRACTS_BASE" in
+  "$ROOT"/*) _PROFILE_CONTRACTS_REL="${_PROFILE_CONTRACTS_BASE#"$ROOT"/}" ;;
+  *)         _PROFILE_CONTRACTS_REL="${_PROFILE_CONTRACTS_BASE#/}" ;;
+esac
+_PR_CONTRACTS="${_PROFILE_CONTRACTS_REL%/}/"
+_ROOT_CONTRACTS_OK=0
+case "${_PROFILE_CONTRACTS_REL:-contracts}" in
+  contracts|"") _ROOT_CONTRACTS_OK=1 ;;
+esac
 _accepted=0
 case "$TARGET" in
-  plans/*)     _accepted=1; dir="plans" ;;
-  contracts/*) _accepted=1; dir="contracts" ;;
-  "${_PR_CONTRACTS}"*) _accepted=1; dir="contracts" ;;  # теги — общие
+  plans/*) _accepted=1; dir="plans" ;;
+  "${_PR_CONTRACTS}"*) _accepted=1; dir="contracts" ;;  # профильный — главный
+  contracts/*)
+    if [ "$_ROOT_CONTRACTS_OK" = "1" ]; then
+      _accepted=1; dir="contracts"  # корневой только если профиль его и просит
+    fi
+    ;;
 esac
 [ "$_accepted" -eq 1 ] || die "done: имя контракта не по грамматике NNN: $TARGET"
+unset _PROFILE_CONTRACTS_BASE _PROFILE_CONTRACTS_REL _PR_CONTRACTS _ROOT_CONTRACTS_OK
 ARTIFACT_NUMBER=""
 rc=0
 parse_artifact_basename "$base" || rc=$?

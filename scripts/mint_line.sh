@@ -53,6 +53,16 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# 996 (Б-5/Б-9): импорт проекционных хелперов через source вместо отдельного
+# bash-процесса на project_workflow.sh. Эта дверь прежде звала project_workflow.sh
+# только для одной строки (путь реестра), и в toy-мире (fixtures/freeze_contract/
+# fail_closed_992.py) сломанный вызов rc 1 рушил положительный контроль —
+# переход на функцию из next_id.sh устраняет отдельный процесс. Доступно и в
+# install/scripts/, и в toy/scripts/ (next_id.sh копируется фикстурой).
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$SELF_DIR/next_id.sh"
+
 usage() {
   cat >&2 <<USAGE
 использование: mint_line.sh --nnn <NNN> [--root <каталог>]
@@ -173,19 +183,20 @@ fi
 
 # 4. Повторный минт: NNN не должен жить в манифесте HEAD (дверь 031 условие 3
 # судит ещё и живую шапку origin/main — на коммите).
-# 996 К19: путь реестра — из эффективного профиля (`workflowPaths.registry`).
-# При отсутствии профиля (харнес сам как проект) — корневой `registry/`.
-_REGISTRY_PATH="registry"
-if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
-  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
-  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
-              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
-    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
-    [ -n "$_registry" ] && _REGISTRY_PATH="$_registry"
-  fi
-  rm -f "$_pr_err"
-fi
-unset _pr_err _pr_out _registry
+# 996 (Б-5/Б-9): ЕДИНЫЙ резолв workflowPaths через функцию project_paths_resolve
+# из подключённой выше scripts/next_id.sh (пакет A/Б-5, исправление toy-миров —
+# см. freeze_contract.sh:84-96). Дверь больше НЕ вызывает project_workflow.sh
+# отдельным bash-процессом.
+_pr_paths="$(project_paths_resolve "$ROOT" 2>/dev/null)" \
+  || { printf 'workflow ОТКАЗ: профиль битый или workflowPaths вне репо\n' >&2; exit 1; }
+_REGISTRY_PATH="$(printf '%s' "$_pr_paths" | jq -r '.registry' 2>/dev/null || true)"
+[ -n "$_REGISTRY_PATH" ] || { printf 'workflow ОТКАЗ: registry пуст\n' >&2; exit 1; }
+unset _pr_paths
+# Relative form (для `git -C $ROOT` ссылок и канонической записи):
+case "$_REGISTRY_PATH" in
+  "$ROOT"/*) _REGISTRY_PATH="${_REGISTRY_PATH#"$ROOT"/}" ;;
+  *)         _REGISTRY_PATH="${_REGISTRY_PATH#/}" ;;
+esac
 
 _REG_FILE="${_REGISTRY_PATH%/}/contracts.tsv"
 head_manifest="$(git -C "$ROOT" cat-file -p "HEAD:${_REG_FILE}" 2>/dev/null || true)"
