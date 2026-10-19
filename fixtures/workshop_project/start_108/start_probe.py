@@ -443,6 +443,32 @@ def matrix(repo: Path):
               "{continuable.mission_id === 'MIS-OTHER-02' ? '2026-10-19T10:11:12Z' : '2026-10-09T12:00:00Z'}")],
             ['BRIEF_FIELDS_FIXED_FIXED_ALT'],
             ['BRIEF_FIELDS_ALT_ALT_FIXED', 'BRIEF_FIELDS_ALT_FIXED_FIXED', 'BRIEF_FIELDS_FIXED_ALT_ALT']),
+        # --- 3 декоя круга 3 (ось D критика: alias-мутация входного снимка
+        #     ПРОДУКТОМ — Object.assign входа до available; ожидания теста —
+        #     литералы EXPECT, не объект входа): патчи байт-в-байт из
+        #     Critic108r3/evidence/input-alias-*.patch; depends измерены
+        #     полным прогоном до записи ---
+        'input-alias-mission_id': (
+            [(C, '  const available = missions ?? [];',
+              "  if (missions?.[0]?.mission_id === 'MIS-OTHER-02') "
+              "Object.assign(missions[0], {mission_id: 'MIS-WRONG-99'});\n"
+              '  const available = missions ?? [];')],
+            ['BRIEF_FIELDS_ALT_ALT_ALT'],
+            ['BRIEF_FIELDS_ALT_ALT_FIXED', 'BRIEF_FIELDS_ALT_FIXED_ALT', 'BRIEF_FIELDS_ALT_FIXED_FIXED']),
+        'input-alias-state': (
+            [(C, '  const available = missions ?? [];',
+              "  if (missions?.[0]?.mission_id === 'MIS-OTHER-02') "
+              "Object.assign(missions[0], {state: 'BLOCKED'});\n"
+              '  const available = missions ?? [];')],
+            ['BRIEF_FIELDS_ALT_ALT_ALT'],
+            ['BRIEF_FIELDS_ALT_ALT_FIXED', 'BRIEF_FIELDS_ALT_FIXED_ALT', 'BRIEF_FIELDS_ALT_FIXED_FIXED']),
+        'input-alias-updated_at': (
+            [(C, '  const available = missions ?? [];',
+              "  if (missions?.[0]?.mission_id === 'MIS-OTHER-02') "
+              "Object.assign(missions[0], {updated_at: '1999-01-01T00:00:00Z'});\n"
+              '  const available = missions ?? [];')],
+            ['BRIEF_FIELDS_ALT_ALT_ALT'],
+            ['BRIEF_FIELDS_ALT_ALT_FIXED', 'BRIEF_FIELDS_ALT_FIXED_ALT', 'BRIEF_FIELDS_ALT_FIXED_FIXED']),
     }
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():
