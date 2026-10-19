@@ -44,7 +44,7 @@ def contained(root, value):
     return resolved
 
 
-def layout(root, p, mutant):
+def layout(root, p, mutant, op=''):
     paths = dict(p['workflowPaths'])
     if mutant == 'accept-escape':
         paths = {k: v.replace('../', '') for k, v in paths.items()}
@@ -52,7 +52,9 @@ def layout(root, p, mutant):
         paths = {k: k for k in paths}
     if mutant == 'accept-symlink':
         paths.pop('state', None)
-    if mutant == 'doors-accept-escape':
+    if (mutant == 'doors-accept-escape'
+            or (mutant == 'print-context-escape-lenient'
+                and op in ('workshop', 'make_task'))):
         # Б-5: дверь принимает объявленный путь без границы R и пишет по нему.
         state = paths.get('state', '.harness')
         out = {k: str(root / v) for k, v in paths.items() if k != 'state'}
@@ -101,8 +103,11 @@ def sources(root, p, contract, stage, mutant, door=False):
                 path = contained(root, row['path'])
             except ValueError:
                 return fail('SOURCE_CANON_INVALID')
-        if not path.is_file():
+        if not path.exists():
             return fail('SOURCE_CANON_MISSING')
+        if mutant != 'source-dir-accepted' and not path.is_file():
+            # adversary-1: источник — regular file; существование (-e) слабее.
+            return fail('SOURCE_CANON_INVALID')
     gate = list(canon['gate'])
     # Б-1: дефект «argv[0] склеивается с R» моделируется как мутант.
     if mutant == 'gate-argv0-repo-join' and not os.path.isabs(gate[0]):
@@ -119,10 +124,16 @@ def sources(root, p, contract, stage, mutant, door=False):
     return 0
 
 
+def source_path_escape(value):
+    """Путь источника обязан быть относительным и без «..» (996 §A)."""
+    return value.startswith('/') or '..' in value.split('/')
+
+
 def canon_invalid(canon):
     """Closed-alphabet grammar of the sourceCanon unit (contract 996 L53).
     Единственный источник грамматики — resolver (Б-2), поэтому и model
-    валидирует юнит одной функцией для op resolver и для двери sources."""
+    валидирует юнит одной функцией для op resolver и для двери sources.
+    Круг 2 (adversary-2): относительность пути — часть той же грамматики."""
     if (not isinstance(canon, dict) or set(canon) != {'sources', 'gate'}
             or not isinstance(canon['sources'], list) or not canon['sources']
             or not isinstance(canon['gate'], list) or not canon['gate']):
@@ -132,6 +143,7 @@ def canon_invalid(canon):
         if (not isinstance(row, dict) or set(row) != {'path', 'priority'}
                 or type(row['priority']) is not int or row['priority'] < 0
                 or not isinstance(row['path'], str) or not row['path']
+                or source_path_escape(row['path'])
                 or row['path'] in seen):
             return True
         seen.add(row['path'])
@@ -207,6 +219,16 @@ def main():
     op, root, *args = sys.argv[1:]
     root = Path(root).resolve()
     mutant = os.environ.get('MUTANT_996', '')
+    if op == 'structure':
+        # Р2-3: одна копия логики контекста/грамматики в scripts/ (модель
+        # честной структуры; по коду дерева судит клетка probe.py).
+        if mutant == 'structure-duplicate':
+            return fail('STRUCTURE_DUPLICATE_PATHS_RESOLVE')
+        if mutant == 'structure-second-validator':
+            return fail('STRUCTURE_SECOND_CANON_VALIDATOR')
+        print(json.dumps({'paths_resolve_defs': 1,
+                          'canon_grammar_files': ['scripts/profile_resolver.sh']}))
+        return 0
     if op == 'self_canonical':
         value = 'ssh://git@example.invalid/dev-harness.git' if mutant == 'old-self-canon' else 'ssh://git@github.com/a3ka/dev-harness.git'
         print(json.dumps({'git': {'value': {'canonicalRemote': value}}}))
@@ -223,7 +245,13 @@ def main():
                   'registry': 'registry', 'fixtures': 'fixtures'}, 'git': {}}
         else:
             raise
-    paths = layout(root, p, mutant)
+    try:
+        paths = layout(root, p, mutant, op)
+    except ValueError:
+        if mutant == 'pack-swallows-context-refusal' and op == 'make_task_pack':
+            paths = None
+        else:
+            raise
     if op == 'resolver':
         # Б-2: грамматика юнита — в самом resolver, второй валидатор не заводим.
         if mutant == 'resolver-canon-lenient':
@@ -233,7 +261,8 @@ def main():
         canon = p.get('sourceCanon')
         if canon is None and 'sourceCanon' in p:
             return fail('SOURCE_CANON_INVALID')
-        if canon is not None and canon_invalid(canon):
+        if (canon is not None and canon_invalid(canon)
+                and mutant != 'resolver-path-lenient'):
             return fail('SOURCE_CANON_INVALID')
         print(json.dumps({'sourceCanon': {'value': canon, 'origin': 'merged'}}))
         return 0
@@ -266,6 +295,11 @@ def main():
         return 0
     if op in ('workshop', 'make_task'):
         role = args[0] if args else 'orchestrator'
+        canon_value = p.get('sourceCanon')
+        if (mutant != 'context-canon-path-lenient' and canon_value is not None
+                and canon_invalid(canon_value)):
+            # adversary-2: print-context не доставляет побег источника ролям.
+            return fail('SOURCE_CANON_INVALID')
         context = dict(paths)
         if mutant == 'root-context':
             tools = Path(os.environ['HARNESS_TOOLS_ROOT'])
@@ -280,6 +314,26 @@ def main():
             startup[0] = str(Path(os.environ['HARNESS_TOOLS_ROOT']) / 'HANDOFF.md')
         print(json.dumps({'workflow': context, 'sourceCanon': None if mutant == 'drop-context-canon' else p.get('sourceCanon'),
                           'verdict': verdict, 'startup': startup}))
+        return 0
+    if op == 'make_task_pack':
+        # Р2-1: штатное задание несёт контекст проекта роли-судье; отказ
+        # внутреннего расчёта контекста — отказ задания, не молчаливый успех.
+        pack_canon = p.get('sourceCanon')
+        if (mutant != 'pack-swallows-context-refusal' and pack_canon is not None
+                and canon_invalid(pack_canon)):
+            return fail('SOURCE_CANON_INVALID')
+        if paths is None or mutant == 'pack-static':
+            print('TASK nnn=777 role=reviewer\nзадание\n')
+            return 0
+        lines = ['## Контекст проекта (контракт 996 §D)']
+        for key in ('contracts', 'verdicts', 'registry', 'fixtures'):
+            lines.append(key + '=' + paths[key])
+        lines.append('sourceCanon=' + json.dumps(p.get('sourceCanon')))
+        lines.append('verdict=' + str(Path(paths['verdicts']) / 'review'))
+        lines.append('startup=' + ','.join(
+            paths[k] for k in ('handoff', 'contracts', 'verdicts',
+                               'observations', 'roadmap')))
+        print('\n'.join(lines))
         return 0
     if op in ('zones', 'staged', 'lib_zones'):
         if mutant == 'root-contracts-only':

@@ -7,6 +7,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import shutil
@@ -115,6 +116,9 @@ def subject(mode, op, root, *args, mutant='', tools=None, extra_env=None):
             'workshop': ['bash', tools / 'workshop', '--print-context', root],
             'make_task': ['bash', tools / 'scripts/make_task.sh', '--repo', root,
                           '--role', *args, '--print-context'],
+            'make_task_pack': ['bash', tools / 'scripts/make_task.sh', '--repo', root,
+                               '--role', 'reviewer', '--kind', 'task', '--contract', '777',
+                               '--task-file', *args[:1], '--model-trace', *args[1:2]],
             'zones': ['bash', tools / 'scripts/check_zones.sh', root],
             'staged': ['bash', tools / 'scripts/check_staged.sh', root],
             'mint': ['bash', tools / 'scripts/mint_line.sh', '--root', root, '--nnn', *args],
@@ -348,6 +352,11 @@ EXTRA_CASES = (
     'freeze-paths-escape', 'freeze-broken-profile', 'done-broken-profile',
     'freeze-root-contract', 'done-root-contract', 'gitw-cwd-canon',
     'probe-prompt-project',
+    # Круг 2 (FAIL ×2): красные клетки по adversary-1/adversary-2 и Р2-1…Р2-3.
+    'source-directory-not-file', 'resolver-source-relative', 'print-context-canon-escape',
+    'print-context-escape', 'workshop-print-context-escape',
+    'make-task-pack-project', 'make-task-pack-refusal',
+    'structure-one-paths-resolve', 'structure-no-second-canon-validator',
 )
 
 
@@ -749,6 +758,133 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
         expect(str(root / p['workflowPaths']['verdicts']) in text
                and str(root / p['workflowPaths']['contracts']) in text,
                'PROBE_PROMPT_PROJECT_PATHS_MISSING', r)
+    elif case == 'source-directory-not-file':
+        # adversary-1 (круг 2): каталог внутри R — не regular file — не является
+        # источником; предикат существования (-e) слабее файлового (-f).
+        canon(root, p)
+        (root / 'directory-is-not-file').mkdir()
+        p['sourceCanon']['sources'][0]['path'] = 'directory-is-not-file'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'directory declared as canonical source')
+        before = git(root, 'rev-parse', 'HEAD')
+        for op in ('sources', 'pre_critic'):
+            r = call(op, contract)
+            expect(r.returncode == 1 and 'SOURCE_CANON_INVALID' in r.stderr,
+                   'SOURCE_DIRECTORY_ACCEPTED:' + op, r)
+        expect(not git(root, 'tag', '-l') and git(root, 'rev-parse', 'HEAD') == before,
+               'SOURCE_DIRECTORY_MUTATED')
+        # Позитивный контроль: честный regular file на той же двери — зелёный.
+        p['sourceCanon']['sources'][0]['path'] = 'SOURCE.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'regular source file restored')
+        r = call('pre_critic', contract)
+        expect(r.returncode == 0, 'SOURCE_DIRECTORY_REPAIR_REFUSED', r)
+    elif case == 'resolver-source-relative':
+        # adversary-2 (круг 2): замкнутая грамматика юнита действует в самом
+        # resolver — неотносительный путь источника не доходит до ролей.
+        (base / 'outside.md').write_text('# External requirement\n')
+        canon(root, p)
+        p['sourceCanon']['sources'][0]['path'] = '../outside.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'non-relative source path')
+        r = call('resolver')
+        expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
+               'RESOLVER_SOURCE_PATH_LENIENT', r)
+        p['sourceCanon']['sources'][0]['path'] = 'SOURCE.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'repair relative source path')
+        r = call('resolver')
+        expect(r.returncode == 0, 'RESOLVER_SOURCE_REPAIR_REFUSED', r)
+    elif case == 'print-context-canon-escape':
+        # adversary-2 (круг 2): make_task --print-context не доставляет ролям
+        # канон с побегом источника из R.
+        (base / 'outside.md').write_text('# External requirement\n')
+        canon(root, p)
+        p['sourceCanon']['sources'][0]['path'] = '../outside.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'canon escape for print-context')
+        r = call('make_task', 'reviewer')
+        expect(r.returncode == 1 and 'SOURCE_CANON' in r.stderr,
+               'PRINT_CONTEXT_CANON_ESCAPE_ACCEPTED', r)
+    elif case in ('print-context-escape', 'workshop-print-context-escape'):
+        # Р2-2: режим печати контекста не отключает валидацию workflowPaths —
+        # project_workflow отказывает, print-context обязан отказывать тоже.
+        outside = base / 'outside'
+        outside.mkdir()
+        (root / 'escape').symlink_to(outside, target_is_directory=True)
+        p['workflowPaths']['registry'] = 'escape'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'registry escapes repo')
+        before = git(root, 'rev-parse', 'HEAD')
+        op = 'workshop' if case.startswith('workshop-') else 'make_task'
+        r = call(op, 'reviewer')
+        expect(r.returncode == 1 and 'вне репо' in r.stderr,
+               'PRINT_CONTEXT_ESCAPE_ACCEPTED:' + case, r)
+        expect(git(root, 'rev-parse', 'HEAD') == before,
+               'PRINT_CONTEXT_ESCAPE_MUTATED:' + case, r)
+    elif case == 'make-task-pack-project':
+        # Р2-1: штатное задание make_task (--kind task, не --print-context)
+        # несёт effective sourceCanon, источники, каталог вердикта судьи и
+        # tasks/HANDOFF-пути (шесть проверок X2 рецензента).
+        p['contextPack'] = {'rows': [{'kind': 'map', 'path': 'AGENTS.md',
+                                      'roles': 'reviewer,critic,orchestrator,implementer',
+                                      'mandatory': True, 'why': 'toy'}]}
+        canon(root, p)
+        trace = put(base, 'trace.tsv',
+                     'reviewer\topenai/gpt-5\tallowed\n'
+                     'implementer\tanthropic/claude\tallowed\n')
+        taskf = put(base, 'task.md', 'задание\n')
+        r = call('freeze', contract)
+        expect(r.returncode == 0, 'MAKE_TASK_PACK_FREEZE_FAILED', r)
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode == 0, 'MAKE_TASK_PACK_FAILED', r)
+        oracle = path_oracle(root, p)
+        needles = ('sourceCanon', 'SOURCE.md', oracle['verdicts'],
+                   oracle['verdicts'] + '/review', oracle['contracts'],
+                   oracle['handoff'])
+        missing = [n for n in needles if n not in r.stdout]
+        expect(not missing, 'MAKE_TASK_PACK_CONTEXT_MISSING:' + ','.join(missing), r)
+    elif case == 'make-task-pack-refusal':
+        # Р2-1: отказ внутреннего расчёта контекста — rc!=0 штатного задания,
+        # а не молчаливый успех выброшенного прогона (make_task.sh:50-52).
+        # Мир: заморозка проходит на честном каноне, ПОТОМ канон ломается
+        # побегом источника (adversary-2) — штатная ветвь HEAD принимает
+        # задание молча и без контекста; честный расчёт — отказ.
+        p['contextPack'] = {'rows': [{'kind': 'map', 'path': 'AGENTS.md',
+                                      'roles': 'reviewer,critic,orchestrator,implementer',
+                                      'mandatory': True, 'why': 'toy'}]}
+        canon(root, p)
+        trace = put(base, 'trace.tsv',
+                     'reviewer\topenai/gpt-5\tallowed\n'
+                     'implementer\tanthropic/claude\tallowed\n')
+        taskf = put(base, 'task.md', 'задание\n')
+        r = call('freeze', contract)
+        expect(r.returncode == 0, 'MAKE_TASK_PACK_REFUSAL_FREEZE_FAILED', r)
+        (base / 'outside.md').write_text('# External requirement\n')
+        p['sourceCanon']['sources'][0]['path'] = '../outside.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'canon escape after freeze')
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode != 0, 'MAKE_TASK_PACK_REFUSAL_SWALLOWED', r)
+    elif case in ('structure-one-paths-resolve', 'structure-no-second-canon-validator'):
+        # Р2-3: одна копия логики контекста/грамматики; судится по коду
+        # (grep определения функции / характерный блок валидатора).
+        if mode == 'model':
+            r = call('structure')
+            expect(r.returncode == 0, 'STRUCTURE_MODEL_REFUSED:' + case, r)
+            return
+        if case == 'structure-one-paths-resolve':
+            defs = {s.name: len(re.findall(r'^project_paths_resolve\s*\(\s*\)',
+                                           s.read_text(), re.M))
+                    for s in (TOOLS / 'scripts').glob('*.sh')}
+            expect(sum(defs.values()) == 1,
+                   'STRUCTURE_DUPLICATE_PATHS_RESOLVE:' + json.dumps(defs))
+        else:
+            body = (TOOLS / 'scripts/check_project_sources.sh').read_text()
+            markers = [m for m in ('_keys_ok', '_sources_uniq', '_gate_clean',
+                                   'keys | sort') if m in body]
+            expect(not markers,
+                   'STRUCTURE_SECOND_CANON_VALIDATOR:' + ','.join(markers))
     elif case == 'self-canonical':
         # Product configuration is an input of its own resolver/paths CLI, not a text grep.
         install = installation(base)
@@ -960,6 +1096,17 @@ MUTANTS.update({
     'accept-root-contract': ('freeze-root-contract', 'done-root-contract'),
     'gitw-cwd-constant': ('gitw-cwd-canon',),
     'probe-prompt-static': ('probe-prompt-project',),
+    # Круг 2 (FAIL ×2): обманные стабы к новым клеткам, каждый — к входу,
+    # на котором его дефект наблюдаем (Н-39).
+    'source-dir-accepted': ('source-directory-not-file',),
+    'resolver-path-lenient': ('resolver-source-relative',),
+    'context-canon-path-lenient': ('print-context-canon-escape',),
+    'print-context-escape-lenient': ('print-context-escape',
+                                     'workshop-print-context-escape'),
+    'pack-static': ('make-task-pack-project',),
+    'pack-swallows-context-refusal': ('make-task-pack-refusal',),
+    'structure-duplicate': ('structure-one-paths-resolve',),
+    'structure-second-validator': ('structure-no-second-canon-validator',),
 })
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
