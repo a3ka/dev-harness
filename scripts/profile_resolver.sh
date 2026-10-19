@@ -440,7 +440,9 @@ scan_canon() {  # $1=level_label, $2=file, $3=json-path ("sourceCanon" | "defaul
             and ($e.value.priority >= 0)) as $pri |
           (($e.value.path | type) == "string"
             and (($e.value.path | length) > 0)
-            and (($e.value.path | contains("\u0000")) | not)) as $pth |
+            and (($e.value.path | contains("\u0000")) | not)
+            and (($e.value.path | contains("..") | not))
+            and (($e.value.path | startswith("/") | not))) as $pth |
           if ($pri and $pth) then empty
           elif (($e.value.priority | type) != "number") then
             {idx: $e.key, why: ("priority <" + (($e.value.priority | type) // "<null>") + ">")}
@@ -450,6 +452,10 @@ scan_canon() {  # $1=level_label, $2=file, $3=json-path ("sourceCanon" | "defaul
             {idx: $e.key, why: "path <не строка>"}
           elif ($e.value.path | length) == 0 then
             {idx: $e.key, why: "path пусто"}
+          elif ($e.value.path | startswith("/")) then
+            {idx: $e.key, why: "path абсолютный"}
+          elif ($e.value.path | contains("..")) then
+            {idx: $e.key, why: "path .."}
           else {idx: $e.key, why: "path NUL"}
           end)
         else {idx: $e.key, why: "отсутствует обязательное поле"}
