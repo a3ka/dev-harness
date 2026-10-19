@@ -1,3 +1,16 @@
+## ГДЕ МЫ (2026-10-19 ~23:50 UTC — сессия после рестарта 22:08; пять потоков; табло: `python3 ops/server/user/orch-tablo`; **DONE за сессию: 106, 998**; main = origin/main после чекпойнта; PR#135 залендён и запушен (`1c25b7e9f`, реестр 108 REPLACE `a6733adb4`))
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **DONE:** 106 (`done/contracts/106/1` на origin; Complior-back #149 → 9d960a05, смёржен консультантом), 998 (`done/contracts/998/1` локально: reviewer accept круга 3 `verdicts/review/contracts-998-v3.md`, `.review/2026-10-19-25.md` partial — советы с11/с13/с14 открыты).
+- **996:** adversary accept круга 4 (`verdicts/adversary/contracts-996-v4.md`), reviewer FAIL круга 4 — одна находка Р4-1 (`next_id.sh` ветвь FALLBACK-NO-WORKFLOW печатает `"sourceCanon":null`; фикс — одна строка `.sourceCanon.value // null`; `.review/2026-10-19-26.md`). **Форк `n996-krug4-fail` (К КОНСУЛЬТАНТУ; БЛОКИРУЕТ: да; ОТВЕЧЕНО: нет)**, рекомендация (А): микро-круг (architect +1 красная клетка → implementer 1 строка → reviewer по Р4-1). Условие done 996: общая строка об изоляции в 8 ролях (0/8) — РАЗРЕШИЛ-ВЛАДЕЛЕЦ на roles/ (батч владельцу).
+- **108 (mob):** frozen v1, реестр REPLACE. Impl108 сдал `0160b79de5a89fd3b0eb8f423dae47629206be45` (клон `/tmp/dev-harness-verify/Impl108/mob`, ветка `cmp-mob-004/start`, НЕ запушен): static 22/22, behavioral 324/324, матрицы 5/39, lint/test/doctor rc0, frozen 999 rc0; **typecheck rc1** — `pilot.test.tsx` (frozen 995) без `listMissions` в ApiClient-заглушке. Maestro NOT_RUN (нет эмулятора). **Вопрос консультанту/владельцу:** расширить А2 на третью заглушку `listMissions` в pilot.test.tsx (тот же класс, после 107) + перепин; без этого 108 не зелёный.
+- **107 (mob) круг 3:** форк n107-impl-krug2 ОТВЕЧЕНО (слово владельца 22:20: А2, Б, В). Impl107e `633d8fe25f410d2b09b8e604c920eaaea3cb6749` (клон `/tmp/dev-harness-verify/Impl107c/mob`, НЕ запушен): static 22/22, behavioral 265/265, lint/typecheck/test rc0; ApiClient без каста; pilot.test.tsx +2 заглушки, sha256 `b06b6f9d…e915b`. **Architect107pin в работе** (worktree `/tmp/dev-harness-worktrees/c907157c/wip-107-architect`): перепин эталона `fixtures/workshop_project/pilot_995/`. Дальше: land → push → implementer: пин H 995 в mobile.yml → судьи одним прогоном. **Риски зон 107 (судьи сверят):** `mobile/tests/acceptance/erstinformation-route.test.tsx` и `mobile/src/bootstrap/runtime-contract.d.ts` — вне frozen-ЗОНЫ implementer 107 (вопрос консультанту: расширить зону на эти два пути либо вынести). Maestro-шаг font_scale удалён, честный NOT_RUN.
+- **109 = CMP-BCK-004** (бэкенд): номер выдан (`id/CONTRACT/109`, реестр `f47fe7c04`); **строки plan.tsv нет** — ждёт консультанта; architect сразу после неё.
+- Очередь mob: #109 mob (First-Run D2.2.5.1) — отдельная задача, номер контракта берётся next_id после слияния текущих.
+
+### Следующая сессия — порядок
+1. Табло. 2. Слово консультанта: n996-krug4-fail → микро-круг 996; plan-строка 109 → architect; зоны 107 + третья заглушка 108. 3. Architect107pin → land → push → implementer (пин H 995) → судьи 107 круг 3. 4. 108 после 107: rebase на 107, пин, судьи. 5. Батч владельцу: РАЗРЕШИЛ roles/ (изоляция в 8 ролях) для done 996.
+
 ## ГДЕ МЫ (2026-10-19 ~23:20 UTC — рестарт по сторожу контекста (507K≥500K); пять потоков; табло: `python3 ops/server/user/orch-tablo`; **DONE за сессию: нет новых**; origin/main = `f47fe7c04` + этот чекпойнт; **заморожены v1: 107, 108**; номер **109 = CMP-BCK-004** выдан)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
@@ -6664,8 +6677,6 @@ soreview-v1.md.
 - 098 · пара 3 · заморожен · трек autonomy
 - 107 · пара 3 · заморожен · трек complior
 - 108 · пара 3 · заморожен · трек complior
-- 998 · пара 3 · заморожен · трек ops
 - 095 · пара 4 · заморожен · трек context
-- 106 · пара 4 · заморожен · трек complior
 - 996 · пара 4 · заморожен · трек project-mode
 <!-- END GENERATED NEXT SESSION -->
