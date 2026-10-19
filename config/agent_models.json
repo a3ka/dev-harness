@@ -32,6 +32,12 @@
       "autoFallback": true,
       "why": "implementer: ТОЛЬКО чистый код под замороженные красные тесты и узкая правка по точному заданию после диагноза — MiniMax. Всё прочее исполнение — GLM (правило владельца 2026-10-13, docs/owner/2026-10-13-perehodnyj-reglament.md), см. routing. Фолбек — Sonnet: квотная смерть 2056 (2026-09-11) больше не останавливает работу."
     },
+    "task-glm": {
+      "model": "@glm",
+      "fallback": "@sonnet",
+      "autoFallback": true,
+      "why": "implementer-glm: всё прочее исполнение кроме чистого кода под замороженные красные тесты (правило владельца 2026-10-13 → раскладка 2026-10-18, оба в docs/owner/). Роль существует по решению 2026-10-18 (docs/owner/2026-10-18-pravila-modelei.md); тир повторяет живую цепочку подмены (autoFallback), как task."
+    },
     "smol": {
       "model": "@minimax-lightning",
       "fallback": null,
@@ -81,6 +87,7 @@
     "orchestrator": "default",
     "architect": "slow",
     "implementer": "task",
+    "implementer-glm": "task-glm",
     "adversary": "advisor",
     "critic": "apex",
     "reviewer": "audit",
@@ -106,13 +113,11 @@
       },
       {
         "class": "исполнение, не сводящееся к коду под красные тесты: CI-обвязка, скрипты без ред-тестов, работа харнесса (например 094)",
-        "role": "implementer-glm",
-        "until": "роли нет до контракта pravila-modelei — до него implementer"
+        "role": "implementer-glm"
       },
       {
         "class": "диагностика: расследование упавших тестов, e2e, CI",
-        "role": "implementer-glm",
-        "until": "роли нет до контракта pravila-modelei — до него architect"
+        "role": "implementer-glm"
       },
       {
         "class": "суд плана и контракта до заморозки",
