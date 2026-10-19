@@ -467,6 +467,7 @@ while [ $# -gt 0 ]; do
     # РЕЖИМ ПРОВЕРКИ ПРОКСИ. Отдельный флаг, не вход в сессию: аргументы после него
     # НЕ интерпретируются как проект или `--plan`. Всё, что ниже — для talk/work.
     --check-metering) CHECK_METERING=1 ;;
+    --print-context) PRINT_CONTEXT=1 ;;
     # ПРОБА РЕЖИМА ПРОЕКТА. Тот же путь, что и `<репо>`, но ДО `exec omp`: печатает
     # `workshop PROBE OK` и `PROMPT: <путь>` строками, и выходит rc 0. Используется
     # фикстурами и CI вместо живого запуска. Любой отказ по пути — rc 1 с
@@ -566,6 +567,22 @@ fi
 # в omp 18.3.1 `hub` (Н-105 обращён: инструмента hub в omp больше нет). Без wait
 # в --tools сессия не получает инструмент вовсе.
 TOOLS="read,edit,write,bash,grep,glob,lsp,web_search,task,todo,wait"
+
+# ── режим --print-context: печатает JSON контекста (контракт 996 §Публичный шов) ──
+# Здесь, ДО разветвления на talk/work и project. Не запускает omp, не трогает HOME,
+# не требует .env. Выходит rc 0 с одним JSON-документом на stdout.
+if [ "$PRINT_CONTEXT" = "1" ]; then
+  [ -n "$PROJECT" ] || die "--print-context требует аргумента <репозиторий>: ./workshop --print-context <репо>"
+  [ -d "$PROJECT" ] || die "каталога проекта нет: $PROJECT"
+  PROJECT="$(cd "$PROJECT" && pwd)"
+  git -C "$PROJECT" rev-parse --git-dir >/dev/null 2>&1 \
+    || die "проект не git-репозиторий: $PROJECT. Одна сессия — один репозиторий, и его история обязана существовать"
+  export HARNESS_TOOLS_ROOT="$HERE"
+  [ -x "$HERE/scripts/make_task.sh" ] || die "нет make_task.sh"
+  # Передаём дефолтную роль orchestrator — make_task использует только project и
+  # profile, role не влияет на содержимое JSON (verdict у orchestrator = null).
+  exec bash "$HERE/scripts/make_task.sh" --repo "$PROJECT" --role orchestrator --print-context
+fi
 
 # ── работа НАД инструментом ──────────────────────────────────────────────────
 if [ -z "$PROJECT" ]; then

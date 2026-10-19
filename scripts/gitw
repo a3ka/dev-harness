@@ -128,7 +128,7 @@ if [ -z "$CANON" ]; then
     esac
   done
   unset __ci __cv
-  if [ -n "$__PR_REPO" ] && [ -d "$__PR_REPO/harness.project.json" ] && [ -x "$HERE/profile_resolver.sh" ]; then
+  if [ -n "$__PR_REPO" ] && [ -f "$__PR_REPO/harness.project.json" ] && [ -x "$HERE/profile_resolver.sh" ]; then
     __PR_ERR="$(mktemp 2>/dev/null || echo /dev/null)"
     if ! __PR_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$__PR_REPO}" \
                 bash "$HERE/profile_resolver.sh" --repo "$__PR_REPO" 2>"$__PR_ERR")"; then

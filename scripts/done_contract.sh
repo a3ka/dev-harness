@@ -99,7 +99,7 @@ work_blob="$(cd "$ROOT" && git hash-object -- "$TARGET_REL")"
 # `accept` (НЕ префикс; «Acceptance criteria met», «accepted» → вне грамматики).
 # ОДНОВРЕМЕННО: первая строка ОБЯЗАНА быть `ACCEPT` | `FAIL` | `ESCALATE`.
 vmax=0
-vfiles="$(cd "$ROOT" && git ls-tree -r --name-only HEAD -- "${_PROFILE_VERDICTS_DIR%/}/contracts-$NNN-*.md" 2>/dev/null | sort -V || true)"
+vfiles="$(cd "$ROOT" && git ls-tree -r --name-only HEAD -- "${_PROFILE_VERDICTS_DIR%/}/" 2>/dev/null | grep -E "^${_PROFILE_VERDICTS_DIR%/}/contracts-$NNN-[^/]*\.md$" | sort -V || true)"
 if [ -z "$vfiles" ]; then
   die "done: вердикт ревьюера не найден: ${_PROFILE_VERDICTS_DIR%/}/contracts-$NNN-*.md"
 fi

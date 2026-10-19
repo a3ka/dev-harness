@@ -118,9 +118,10 @@ tag_type="$(git -C "$REPO" cat-file -t "refs/tags/$TAG" 2>/dev/null || true)"
 
 # 6. Публикация на origin проекта (через gitw — единый страж канона).
 # non-force: `+refs/tags/...:refs/tags/...` отсутствует.
+gitw_pub_rc=0
 gitw_pub_err="$(mktemp 2>/dev/null || echo /dev/null)"
-gitw_pub_out="$(bash "$HERE/gitw" -C "$REPO" push origin "refs/tags/$TAG:refs/tags/$TAG" 2>"$gitw_pub_err" || true)"
-if [ -n "$gitw_pub_err" ] && [ -s "$gitw_pub_err" ]; then
+gitw_pub_out="$(bash "$HERE/gitw" -C "$REPO" push origin "refs/tags/$TAG:refs/tags/$TAG" 2>"$gitw_pub_err" || gitw_pub_rc=$?)"
+if [ "$gitw_pub_rc" -ne 0 ]; then
   _pub_reason="$(cat "$gitw_pub_err" 2>/dev/null || true)"
   rm -f "$gitw_pub_err"
   # origin может быть не тем каноном (например, fetch.sh стенды): gitw

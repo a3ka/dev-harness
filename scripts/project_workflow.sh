@@ -93,7 +93,8 @@ unset _STATE_ABS
 # Конструкция JSON-а: ключи workflowPaths.* идёт уже канонизированным путём
 # (мы сверяли выше, что readlink -f лежит внутри REPO_ABS). State-каталог —
 # HANDOFF/NABLIUDENIA*/ROADMAP.md/forks — фиксированные basename-ы.
-# REPLACE_REPO_ABS+STATE склейка: «.» → REPO_ABS (state сам репо).
+# State-prefix: «.» → REPO_ABS (state сам репо). workflowPaths.* — ТОП-УРОВНЕВЫЕ
+# каталоги внутри REPO_ABS, не под state.
 _STATE_PREFIX="$REPO_ABS"
 [ "$STATE" != "." ] && _STATE_PREFIX="$REPO_ABS/${STATE%/}"
 

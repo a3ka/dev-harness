@@ -296,10 +296,9 @@ scan_levels() {
   # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
   # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
   # Каждая ветвь — если она задана как объект, проверяются её ключи.
-  local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon"
+local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon"
   if [ "$level" = "project" ]; then
     known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack defaults.sourceCanon"
-    # Ключи самой defaults-ветви (отдельно от дочерних)
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
       local dk dk_rc
       dk_rc=0
@@ -317,6 +316,15 @@ scan_levels() {
   for branch in $known_branches; do
     if [ "$branch" = "projectLayer" ] && [ "$level" = "project" ]; then
       continue  # projectLayer только в repo
+    fi
+    # 996: sourceCanon — ЗАКРЫТЫЙ алфавит внутри (sources, gate); дополнительные
+    # ключи отвергаются check_project_sources.sh, а не profile_resolver.
+    # Причина — перенос строгой валидации к единственной детали (источники
+    # и gate — закрыто-новое), чтобы профиль проходил резолвер даже при
+    # невалидном canon (иначе gate_test К5 превращается в «неизвестный ключ
+    # в репо-слой» — что препятствует проверке шва).
+    if [ "$branch" = "sourceCanon" ] || [ "$branch" = "defaults.sourceCanon" ]; then
+      continue
     fi
     # Путь к ветви для jq. Гейт `has($branch)` НЕКОРРЕКТЕН для ветвей-путей
     # вроде `defaults.workflowPaths`: `has(...)` ищет литеральный ключ с

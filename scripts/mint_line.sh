@@ -51,6 +51,8 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 usage() {
   cat >&2 <<USAGE
 использование: mint_line.sh --nnn <NNN> [--root <каталог>]
@@ -171,7 +173,22 @@ fi
 
 # 4. Повторный минт: NNN не должен жить в манифесте HEAD (дверь 031 условие 3
 # судит ещё и живую шапку origin/main — на коммите).
-head_manifest="$(git -C "$ROOT" cat-file -p "HEAD:registry/contracts.tsv" 2>/dev/null || true)"
+# 996 К19: путь реестра — из эффективного профиля (`workflowPaths.registry`).
+# При отсутствии профиля (харнес сам как проект) — корневой `registry/`.
+_REGISTRY_PATH="registry"
+if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
+  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
+  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
+              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
+    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
+    [ -n "$_registry" ] && _REGISTRY_PATH="$_registry"
+  fi
+  rm -f "$_pr_err"
+fi
+unset _pr_err _pr_out _registry
+
+_REG_FILE="${_REGISTRY_PATH%/}/contracts.tsv"
+head_manifest="$(git -C "$ROOT" cat-file -p "HEAD:${_REG_FILE}" 2>/dev/null || true)"
 if printf '%s\n' "$head_manifest" | grep -qF "$NNN → "; then
   printf 'ОТКАЗ: номер %s уже в манифесте — повторный минт\n' "$NNN" >&2
   exit 1
@@ -183,13 +200,13 @@ fi
 # (канарейка И-5, Н-61/А-25); командная строка коммита НЕ несёт НИ ОДНОГО -c:
 # подпись — флагом --no-gpg-sign, единственная оставшаяся точка обхода двери
 # (hooksPath-инъекция -c) чужеродна и ловится клеткой батареи (Б2 круга 1).
-mkdir -p "$ROOT/registry"
-printf '%s → %s\n' "$NNN" "$TAG_SHA" >> "$ROOT/registry/contracts.tsv"
-git -C "$ROOT" add -- registry/contracts.tsv
+mkdir -p "$ROOT/$_REGISTRY_PATH"
+printf '%s → %s\n' "$NNN" "$TAG_SHA" >> "$ROOT/$_REG_FILE"
+git -C "$ROOT" add -- "$_REG_FILE"
 if ! GIT_AUTHOR_NAME=orchestrator GIT_AUTHOR_EMAIL=orchestrator@dev-harness.local GIT_COMMITTER_NAME=orchestrator GIT_COMMITTER_EMAIL=orchestrator@dev-harness.local git -C "$ROOT" commit -q --no-gpg-sign -m "реестр: строка $NNN (mint_line, контракт 068)"; then
   # Откат точечный: вернуть index+worktree пути к HEAD (дверь отказала —
   # например, номер уже в манифесте ЖИВОЙ шапки origin/main).
-  git -C "$ROOT" checkout HEAD -- registry/contracts.tsv 2>/dev/null || true
+  git -C "$ROOT" checkout HEAD -- "$_REG_FILE" 2>/dev/null || true
   printf 'ОТКАЗ: commit строки реестра отказал (дверь минта 031) — дерево возвращено к HEAD\n' >&2
   exit 1
 fi
