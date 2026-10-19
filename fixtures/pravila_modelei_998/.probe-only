@@ -1,0 +1,7 @@
+Контракт 998: прямая проба единого места правил моделей (config/agent_models.json
+§routing → roles/тиры → рендер в промпт оркестратора), не семья scripts/check_*
+и не case-фикстуры verify_antiplacebo.
+Потребитель: bash fixtures/pravila_modelei_998/probe.sh в CI dev-harness
+(step check:pravila-modelei-998, registry/ci-steps.tsv).
+model_gen.ts — честная исполняемая модель матрицы различимости, не production.
+decoy_*.ts — обманные формы матрицы; seed/ — изолированное дерево матрицы.
