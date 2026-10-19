@@ -103,18 +103,6 @@ try {
 }
 if (roles.length === 0) { console.error('NOT_IMPLEMENTED: ролей нет'); process.exit(2) }
 
-// ── Барьер routing (контракт 998, инвариант 1–2) ─────────────────────────────────────
-// ЕДИНСТВЕННЫЙ разбор грамматики routing — в scripts/roles.ts (`validateRouting`).
-// Здесь — точка вызова из ОБЕИХ точек входа генератора (--check и --prompt),
-// fail-closed в обеих (контракт 998: имёнование routing, rules[N], нарушителя).
-// Строгий режим: конфиг существует ⇒ routing существует (инвариант 1).
-// rolesDir передаётся — полный режим проверки существования roles/<role>.md.
-const routingGate = checkRoutingStrict(ROLES_DIR)
-if (!routingGate.ok) {
-  for (const p of routingGate.problems) console.error(`FAIL routing: ${p.message}`)
-  process.exit(1)
-}
-
 /** Рендер routing в промпт оркестратора (контракт 998, инвариант 3).
  *  — заголовок литеральной строкой `## Правила выбора роли (routing — config/agent_models.json)`;
  *  — каждое правило РОВНО одной строкой (class + цель + опц. constraint/until на той же строке);
@@ -172,6 +160,16 @@ if (promptAt >= 0) {
   if (r.slug === 'orchestrator') {
     const am = agentModels()
     if (am !== null) {
+      // Барьер routing — fail-closed ТОЛЬКО в этой точке входа. Конфиг существует
+      // ⇒ routing существует (инв. 1); нарушение грамматики/ссылок ⇒ rc 1
+      // с именованием routing, индекса правила, нарушителя. Режимы
+      // --resolve-overlay/--agents-rules/--into/запись 998 не правят (ПЕРЕСЕЧЕНИЕ
+      // 054) и идут своим ходом — barrier там был лишним и ломал их rc.
+      const routingGate = checkRoutingStrict(ROLES_DIR)
+      if (!routingGate.ok) {
+        for (const p of routingGate.problems) console.error(`FAIL routing: ${p.message}`)
+        process.exit(1)
+      }
       const section = renderRoutingSection(am)
       process.stdout.write(`${r.body}\n${ROUTING_HEADER}\n${section.join('\n')}\n`)
     } else {
@@ -403,6 +401,18 @@ if (!INTO) {
 }
 
 if (CHECK) {
+  // Барьер routing — fail-closed ТОЛЬКО в этой точке входа (--check).
+  // Конфиг существует ⇒ routing существует (инв. 1); нарушение грамматики/ссылок
+  // ⇒ rc 1 с именованием routing, индекса правила, нарушителя. Режимы
+  // --resolve-overlay/--agents-rules/--into/запись 998 не правят (ПЕРЕСЕЧЕНИЕ 054)
+  // и идут своим ходом — barrier был перенесён сюда из module-level именно
+  // поэтому: на write/lab-режимах и в соседних CLI-командах на сломанном routing
+  // rc остаётся 0 и вывод побайтно прежний (как до предмета, 22be79c07^).
+  const routingGate = checkRoutingStrict(ROLES_DIR)
+  if (!routingGate.ok) {
+    for (const p of routingGate.problems) console.error(`FAIL routing: ${p.message}`)
+    process.exit(1)
+  }
   if (drift.length === 0) { console.log(`харнес соответствует roles/ (${roles.length} ролей)`); process.exit(0) }
   for (const d of drift) console.error(`  FAIL ${d}`)
   console.error(`\nПерегенерируйте: node scripts/gen-harness.ts${INTO ? ` --into ${INTO}` : ''}`)
