@@ -103,11 +103,20 @@ case "$sub" in
   *) exec "$REAL" "${orig[@]}" ;;
 esac
 
-# ── 996: профильный канон (контракт 996 К17–К19) ──────────────────────────
-# Источник канона — эффективный profile_resolver.sh репо, объявленного в
-# argv (`-C <repo>` → репо; иначе `--git-dir=<dir>` → dirname). Битый
-# профиль / отказ resolver — rc 1 «профиль битый», не fallback на
-# константу (К17). GIT_EXCHANGE_GUARD_CANONICAL — ЕДИНСТВЕННАЯ обходная ручка.
+# ── 996: профильный канон (контракт 996 К17–К19, расширение Б-8) ────────
+# Источник канона — эффективный профиль репо, объявленного в argv. ТРИ формы
+# контекста (расширение Б-8: «Gitw определяет репозиторий тем же git-контекстом,
+# что обмен»):
+#   1) явный `-C <repo>` или `--git-dir=<dir>` (уже было);
+#   2) переменные окружения `GIT_DIR` / `GIT_WORK_TREE` — НОВОЕ, Б-8 закрытие
+#      формы cwd/git-envdir;
+#   3) `cwd` — рабочий каталог запускающего процесса, если оттуда `git` сам
+#      находит репозиторий и в нём есть `harness.project.json` — НОВОЕ, Б-8
+#      закрытие формы gitw-cwd-canon.
+# ПРИОРИТЕТ (Граница-4): -C/--git-dir → окружение → cwd. Поздние формы НЕ
+# перезаписывают ранние. Битый профиль / отказ resolver — rc 1 «профиль битый»,
+# не fallback на константу (К17). GIT_EXCHANGE_GUARD_CANONICAL — ЕДИНСТВЕННАЯ
+# обходная ручка.
 if [ -z "$CANON" ]; then
   __PR_REPO=""
   for ((__ci=0; __ci<${#ctx[@]}; __ci++)); do
@@ -128,6 +137,28 @@ if [ -z "$CANON" ]; then
     esac
   done
   unset __ci __cv
+  # Форма 2 (Б-8 envdir): GIT_DIR/GIT_WORK_TREE в окружении. Здесь мы не
+  # доверяем произвольному значению — путь должен существовать и иметь
+  # `harness.project.json`. `git -C "$REPO" ...` ниже использует тот же
+  # GIT_DIR (он экспортирован нами по наследству через exec неявно — но мы
+  # УЖЕ подменили GIT_DIR перед argv-циклом; проверяем через git env-list).
+  if [ -z "$__PR_REPO" ] && [ -n "${GIT_DIR:-}" ]; then
+    if [ -n "${GIT_WORK_TREE:-}" ]; then
+      __PR_REPO="$GIT_WORK_TREE"
+    else
+      __PR_REPO="$(dirname -- "$GIT_DIR" 2>/dev/null || true)"
+    fi
+  fi
+  # Форма 3 (Б-8 cwd): рабочий каталог запуска. `git rev-parse --show-toplevel`
+  # возвращает абсолютный путь к корню репо, если cwd ВНУТРИ рабочего дерева
+  # или в самом репо. За пределами репо — пустая строка и мы пропускаем.
+  if [ -z "$__PR_REPO" ] && command -v git >/dev/null 2>&1; then
+    __PR_CWD_TOOL="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "$__PR_CWD_TOOL" ]; then
+      __PR_REPO="$__PR_CWD_TOOL"
+    fi
+    unset __PR_CWD_TOOL
+  fi
   if [ -n "$__PR_REPO" ] && [ -f "$__PR_REPO/harness.project.json" ] && [ -x "$HERE/profile_resolver.sh" ]; then
     __PR_ERR="$(mktemp 2>/dev/null || echo /dev/null)"
     if ! __PR_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$__PR_REPO}" \

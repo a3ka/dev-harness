@@ -348,19 +348,21 @@ git -C "$ROOT" rev-parse --verify HEAD >/dev/null 2>&1 || skip "в $ROOT нет 
 
 g() { git -C "$ROOT" "$@"; }
 
-# 996 К19: путь реестра — из эффективного профиля (`workflowPaths.registry`).
-# При отсутствии профиля — корневой `registry/` (прежнее поведение харнесса).
-_PROFILE_REGISTRY_PATH="registry"
-if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
-  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
-  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
-              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
-    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
-    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
-  fi
-  rm -f "$_pr_err"
+# 996 (Б-5/Б-9): ЕДИНЫЙ резолв workflowPaths через функцию project_paths_resolve
+# из подключённой выше scripts/next_id.sh (пакет A/Б-5, исправление toy-миров —
+# см. freeze_contract.sh:84-96). Дверь больше НЕ вызывает project_workflow.sh
+# отдельным bash-процессом.
+# НЕТ-ПРОФИЛЬНЫЙ обход (Б-5 fall-back): при отсутствии harness.project.json
+# не требуем jq (toy-миры check_zones имеют PATH=$WORK/bin без /usr/bin).
+if [ ! -f "$ROOT/harness.project.json" ]; then
+  _PROFILE_REGISTRY_PATH="registry"
+else
+  _pr_paths="$(project_paths_resolve "$ROOT" 2>/dev/null)" \
+    || { printf 'workflow ОТКАЗ: профиль битый или workflowPaths вне репо\n' >&2; exit 1; }
+  _PROFILE_REGISTRY_PATH="$(printf '%s' "$_pr_paths" | jq -r '.registry' 2>/dev/null || true)"
+  [ -n "$_PROFILE_REGISTRY_PATH" ] || { printf 'workflow ОТКАЗ: registry пуст\n' >&2; exit 1; }
+  unset _pr_paths
 fi
-unset _pr_err _pr_out _registry
 # Полный путь относительно R, используется минт-признанием ниже.
 _PROFILE_REGISTRY_FILE="${_PROFILE_REGISTRY_PATH%/}/contracts.tsv"
 
@@ -1042,6 +1044,10 @@ while IFS=$'\t' read -r nnn since; do
       # Провенанс на origin НЕ перепроверяется (дверь 031 (i) решила его на входе,
       # прецедент 023 (iv)). Fail-closed: чтение локального реестра — тег, удалённый к
       # моменту аудита, красит признание; лечение восстановлением тега, не ослаблением.
+      # 996: минт-recognition использует ПРОФИЛЬНЫЙ реестр (К6). Хардкод
+      # «registry/contracts.tsv» прежней редакции принимал только корневую
+      # приманку — минт через профильный реестр (`.harness/ledger/contracts.tsv`)
+      # краснел «вне зоны». Профильный путь — $_PROFILE_REGISTRY_FILE.
       if [ "$an" = "orchestrator" ] && [ "$f" = "registry/contracts.tsv" ]; then
         # ── ГРАНДФАЗЕР: ровно четыре пары (SHA, registry/contracts.tsv),
         # только автор orchestrator; остальные пути судятся обычным порядком.

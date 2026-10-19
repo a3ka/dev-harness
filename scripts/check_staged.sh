@@ -146,19 +146,30 @@ command -v git >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет git\n' >&2; 
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
   || { printf 'NOT_IMPLEMENTED: %s не репозиторий git\n' "$ROOT" >&2; exit 2; }
 
-# 996 К19: путь реестра — из эффективного профиля (`workflowPaths.registry`).
-# При отсутствии профиля — корневой `registry/` (прежнее поведение).
-_PROFILE_REGISTRY_PATH="registry"
-if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
-  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
-  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
-              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
-    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
-    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
-  fi
-  rm -f "$_pr_err"
+# 996 (Б-5/Б-9): ЕДИНЫЙ резолв workflowPaths через функцию project_paths_resolve
+# из подключённой выше scripts/next_id.sh (пакет A/Б-5, исправление toy-миров —
+# см. freeze_contract.sh:84-96). Дверь больше НЕ вызывает project_workflow.sh
+# отдельным bash-процессом.
+# НЕТ-ПРОФИЛЬНЫЙ обход (Б-5 fall-back): при отсутствии harness.project.json
+# резолвер отдаёт корневую раскладку без jq (см. project_paths_resolve:LEGACY-FALLBACK),
+# но jq всё равно нужен на стороне двери, чтобы разобрать JSON. Раньше дверь
+# обходилась без jq (default "registry/" относительный); возвращаем то же поведение —
+# на LEGACY-FALLBACK обходим json-разбор и не требуем jq, иначе зелёный контроль
+# toy-миров (check_staged/_repo.sh, PATH=$WORK/bin без /usr/bin) краснеет.
+if [ ! -f "$ROOT/harness.project.json" ]; then
+  _PROFILE_REGISTRY_PATH="registry"
+else
+  _pr_paths="$(project_paths_resolve "$ROOT" 2>/dev/null)" \
+    || { printf 'workflow ОТКАЗ: профиль битый или workflowPaths вне репо\n' >&2; exit 1; }
+  _PROFILE_REGISTRY_PATH="$(printf '%s' "$_pr_paths" | jq -r '.registry' 2>/dev/null || true)"
+  [ -n "$_PROFILE_REGISTRY_PATH" ] || { printf 'workflow ОТКАЗ: registry пуст\n' >&2; exit 1; }
+  unset _pr_paths
 fi
-unset _pr_err _pr_out _registry
+# Relative form (для сравнения с $f из git diff --name-only и `cat-file`):
+case "$_PROFILE_REGISTRY_PATH" in
+  "$ROOT"/*) _PROFILE_REGISTRY_PATH="${_PROFILE_REGISTRY_PATH#"$ROOT"/}" ;;
+  *)         _PROFILE_REGISTRY_PATH="${_PROFILE_REGISTRY_PATH#/}" ;;
+esac
 _PROFILE_REGISTRY_FILE="${_PROFILE_REGISTRY_PATH%/}/contracts.tsv"
 
 # Чтение зон через ЕДИНСТВЕННУЮ реализацию. На пустом реестре — функция возвращает пустой
