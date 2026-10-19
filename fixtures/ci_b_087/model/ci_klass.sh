@@ -154,6 +154,9 @@ def dokaz(sha, pats, H):
     base = api_base()
     if not base:
         return 2, 'репозиторий API не определён (CI_KLASS_API / GITHUB_REPOSITORY / origin github)'
+    import shutil as _shutil
+    if _shutil.which('curl') is None:
+        return 2, 'нет curl — запрос артефактов не сформировать'
     cmd = ['curl', '-fsS', '-m', '20', '-H', 'Accept: application/vnd.github+json',
            '-H', 'X-GitHub-Api-Version: 2022-11-28']
     if os.environ.get('GITHUB_TOKEN'):

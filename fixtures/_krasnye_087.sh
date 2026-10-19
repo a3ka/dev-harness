@@ -27,7 +27,7 @@ BATTERY="$HERE/ci_b_087/red_ci_b_087.sh"
 missing="$(t87_missing_subjects "$ROOT")"
 if [ -n "$missing" ]; then
   printf 'красная: предмет отсутствует\n'
-  printf 'КРАСНОЕ 087: нет %s (корень %s)\n' "$missing" "$ROOT" >&2
+  printf 'детали: нет %s (корень %s)\n' "$missing" "$ROOT" >&2
   exit 1
 fi
 bash "$BATTERY" "$ROOT"
