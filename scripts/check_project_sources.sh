@@ -132,8 +132,9 @@ for p in "${SOURCE_PATHS[@]}"; do
     *\0*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;
   esac
   full="$REPO/${p#./}"
-  if [ ! -e "$full" ]; then
-    die "SOURCE_CANON_MISSING: $p"
+  # Каталог под R — НЕ regular file; -e принимает каталог, -f требует именно regular file.
+  if [ ! -f "$full" ]; then
+    die "SOURCE_CANON_INVALID: источник не regular file: $p"
   fi
   # Канонизация цели — относится и к регулярному файлу (readlink -f на
   # регулярный файл печатает его путь), и к симлинку (следует до объекта).
