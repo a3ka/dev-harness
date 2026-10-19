@@ -242,17 +242,24 @@ esac
 WP_VERDICT_CANON=""
 [ -n "$WP_VERDICT_SUFFIX" ] && WP_VERDICT_CANON="$WP_V/$WP_VERDICT_SUFFIX"
 
-# PROJECT-секция — рабочий шов §D для ролей (пять игл: sourceCanon,
-# источник SOURCE.md (ПУТЬ+тело: контракт 095/096 прежний формат),
-# каталог вердикта/role-suffix, каталог контрактов, реестр, HANDOFF).
-# Тот же расчёт, что и --print-context выше; выходной формат — текстовый
-# блок (в JSON-печать включается sourceCanon.value строкой).
+# PROJECT-секция — рабочий шов §D для ролей (шесть игл: sourceCanon,
+# источник SOURCE.md (ПУТЬ, не тело — Р3-2 круг 3), каталог вердикта/
+# role-suffix, каталог контрактов, реестр, фикстуры, HANDOFF). Тот же
+# расчёт, что и --print-context выше; выходной формат — текстовый блок
+# (в JSON-печать включается sourceCanon.value строкой).
 PROJECT_SEC=""
 if [ "$KIND" = "task" ]; then
   _psrc_path="$(printf '%s' "$WP_SC" | jq -r '.sources[0].path // ""' 2>/dev/null)"
-  _psrc_content=""
-  if [ -n "$_psrc_path" ] && [ -f "$REPO/$_psrc_path" ]; then
-    _psrc_content="$(cat "$REPO/$_psrc_path" 2>/dev/null)"
+  # Гард источника: symlink наружу репо (Р3-2 круг 3) — отказ ДО записи
+  # PROJECT-секции. Тело источника НЕ вклеивается (роли получают ПУТЬ и
+  # sourceCanon целиком, ровно так, как требует §D), здесь проверяется
+  # лишь реальное расположение файла внутри REPO.
+  if [ -n "$_psrc_path" ] && [ -e "$REPO/$_psrc_path" ]; then
+    _psrc_real="$(readlink -f -- "$REPO/$_psrc_path" 2>/dev/null || true)"
+    case "$_psrc_real" in
+      "$REPO_ABS"/*) ;;
+      *) die "источник вне репо: source=$_psrc_path" ;;
+    esac
   fi
   PROJECT_SEC="=== PROJECT ===
 "
@@ -261,10 +268,6 @@ if [ "$KIND" = "task" ]; then
   if [ -n "$_psrc_path" ]; then
     PROJECT_SEC="${PROJECT_SEC}source: $_psrc_path
 "
-    if [ -n "$_psrc_content" ]; then
-      PROJECT_SEC="${PROJECT_SEC}${_psrc_content}
-"
-    fi
   fi
   PROJECT_SEC="${PROJECT_SEC}verdicts: $WP_V
 "
@@ -273,6 +276,8 @@ if [ "$KIND" = "task" ]; then
   PROJECT_SEC="${PROJECT_SEC}contracts: $WP_C
 "
   PROJECT_SEC="${PROJECT_SEC}registry: $WP_G
+"
+  PROJECT_SEC="${PROJECT_SEC}fixtures: $WP_F
 "
   PROJECT_SEC="${PROJECT_SEC}handoff: $WP_H
 "
