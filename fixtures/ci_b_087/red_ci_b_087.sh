@@ -24,6 +24,8 @@
 #       check:contract-frozen} (И-2);
 #   А3  dokaz: свой артефакт; нет; подложный (имя H, head_sha иного H); истёкший; форк;
 #       имя с суффиксом; неизвестный sha; доказательство последним; отказ API; не JSON;
+#   А9  dokaz без curl в PATH (И-3; Н-3, обход 1 адверсария 087-1): rc 2 «нечем
+#       проверить», не rc 1 «доказательства нет»; мир — тот же, что А3:svoj;
 #   А4  vorota: учётный пуш без API; код без доказательства; код с доказательством; land
 #       на ушедший кодом main; land на ушедший учётом main; расширение U; old без реестра;
 #       отказ API на кодовом пуше;
@@ -31,7 +33,9 @@
 #   А6  reshenie: доказательство есть → reuse; нет → run; отказ API → run;
 #   А7  реестр вне грамматики / накрывает машину классификатора → hash rc 1 (11 входов);
 #   Б1  check_ci_gate: тот же хеш, другой sha → 0; подложный хеш → 1; legkij красное/нет
-#       → 1; полный прогон без пропусков → 0; отказ API доказательства → 1;
+#       → 1; полный прогон без пропусков → 0; отказ API доказательства → 1; Н-3, обходы
+#       2–5 адверсария 087-1: legkij (…) при skipped → 0; пустые check-runs → 1; failure
+#       не-легкой джобы (vorota) при skipped → 1; sha ≠ HEAD cwd → судится sha → 1;
 #   Б2  gitw_preflight_071.sh (чек 5): код без PR → 1; учётный → 0; код с доказательством
 #       → 0; land на ушедший кодом main → 1; land на ушедший учётом main → 0;
 #   К1–К9  ci.yml: джобы; решение klass; тяжёлые условны; strip первым; итог-артефакт;
@@ -103,6 +107,10 @@ trap 'rm -rf "$T"' EXIT
 t87_setup "$T" || { printf 'NOT_IMPLEMENTED: toy-мир не построен\n' >&2; exit 2; }
 t87_model_tree "$T/model" "$REPO" || { printf 'NOT_IMPLEMENTED: модель не построена\n' >&2; exit 2; }
 [ "$MODE" = model ] && SUBJ="$T/model"
+# Н-3, обход 1 (адверсарий 087-1): PATH без curl — только bash/git/python3 (симлинки);
+# поддельный curl батареи и системный curl недостижимы (клетка А9, И-3).
+T87_NOBIN="$T/nobin"; mkdir -p "$T87_NOBIN"
+for t in bash git python3; do ln -s "$(command -v "$t")" "$T87_NOBIN/$t" || exit 2; done
 API='https://api.github.test/repos/toy/repo'
 WF=.github/workflows/ci.yml
 
@@ -123,6 +131,15 @@ sj() {
   shift
   ef="$T/err.$$.$RANDOM"
   OUT="$(cd "$cwd" && PATH="$T87_BIN:$PATH" CI_KLASS_API="$API" bash "$@" 2>"$ef")"
+  RC=$?
+  ERR="$(cat "$ef")"
+  rm -f "$ef"
+}
+sj_nocurl() {  # <cwd> <скрипт> <аргументы…> → OUT, ERR, RC — вызов в PATH без curl (А9)
+  local cwd="$1" ef
+  shift
+  ef="$T/err.$$.$RANDOM"
+  OUT="$(cd "$cwd" && PATH="$T87_NOBIN" CI_KLASS_API="$API" bash "$@" 2>"$ef")"
   RC=$?
   ERR="$(cat "$ef")"
   rm -f "$ef"
@@ -205,6 +222,15 @@ A3() {  # <S> <сценарий>
   if [ "$erc" -eq 0 ] && [ "$OUT" != "dokaz $esrc" ]; then R="dokaz ($2): «$OUT» ≠ «dokaz $esrc»"; return 1; fi
   if [ "$erc" -ne 0 ] && [ -n "$OUT" ]; then R="dokaz ($2): отказ с непустым stdout «$OUT»"; return 1; fi
   return 0
+}
+A9() {  # <S> — dokaz в мире А3:svoj, но curl вне PATH: И-3 — rc 2, «нечем проверить»
+  need "$1" scripts/ci_klass.sh || return 1
+  t87_fake_reset
+  t87_arts "$(t87_art "$T87_ART$(H "$T87_A")" "$T87_P")"
+  sj_nocurl "$T87_W" "$1/scripts/ci_klass.sh" dokaz "$T87_A"
+  [ "$RC" -eq 2 ] && return 0
+  R="dokaz без curl: rc $RC ≠ 2; out «$OUT»; $ERR"
+  return 1
 }
 A4() {  # <S> <сценарий>
   need "$1" scripts/ci_klass.sh || return 1
@@ -307,7 +333,7 @@ A7() {  # <S> <вариант B_*>
 # ── Б: check_ci_gate.sh и предполёт ─────────────────────────────────────────────
 B1() {  # <S> <сценарий>
   need "$1" scripts/check_ci_gate.sh || return 1
-  local skip=(ci:skipped antiplacebo:skipped obshchij:skipped tyazhelyj-itog:skipped) erc phrase=''
+  local skip=(ci:skipped antiplacebo:skipped obshchij:skipped tyazhelyj-itog:skipped) erc phrase='' sha_arg="$T87_A"
   t87_fake_reset
   t87_git -C "$T87_CG" update-ref refs/remotes/origin/main "$T87_A"
   t87_git -C "$T87_CG" checkout -q --detach "$T87_A"
@@ -324,8 +350,19 @@ B1() {  # <S> <сценарий>
               antiplacebo:success obshchij:success tyazhelyj-itog:success; erc=0 ;;
     api) t87_runs "$T87_A" klass:success legkij:success vorota:success "${skip[@]}"
          touch "$T87_FAKE/fail_artifacts"; erc=1; phrase='не ответил' ;;
+    # Н-3, обходы 2–5 адверсария 087-1: дифференциальные входы — на каждом мутант
+    # единственного дефекта расходится с честным субъектом, прочие клетки его не видят.
+    legkij-skobki) t87_runs "$T87_A" klass:success 'legkij (l7)':success vorota:success "${skip[@]}"
+                   t87_arts "$(t87_art "$T87_ART$(H "$T87_A")" "$T87_P")"; erc=0 ;;
+    pustye-checkrany) t87_arts "$(t87_art "$T87_ART$(H "$T87_A")" "$T87_P")"; erc=1; phrase='пусты' ;;
+    vorota-krasnaja) t87_runs "$T87_A" klass:success legkij:success vorota:failure "${skip[@]}"
+                     t87_arts "$(t87_art "$T87_ART$(H "$T87_A")" "$T87_P")"; erc=1; phrase='vorota' ;;
+    chuzhoj-sha) t87_git -C "$T87_CG" update-ref refs/remotes/origin/main "$T87_Q"
+                 sha_arg="$T87_Q"
+                 t87_runs "$T87_Q" klass:success legkij:success vorota:success "${skip[@]}"
+                 t87_arts "$(t87_art "$T87_ART$(H "$T87_A")" "$T87_P")"; erc=1; phrase='тяжёл' ;;
   esac
-  sj "$T87_CG" "$1/scripts/check_ci_gate.sh" "$T87_CG" "$T87_A"
+  sj "$T87_CG" "$1/scripts/check_ci_gate.sh" "$T87_CG" "$sha_arg"
   if [ "$RC" -ne "$erc" ]; then R="check_ci_gate ($2): rc $RC ≠ $erc; $ERR"; return 1; fi
   if [ -n "$phrase" ] && [[ "$ERR" != *"$phrase"* ]]; then R="check_ci_gate ($2): нет фразы «$phrase»: $ERR"; return 1; fi
   return 0
@@ -498,11 +535,12 @@ done
 cell 'А2 расширение uchet — код' A2 "$S"
 cell 'А8 реестр: U и минимум legkij' A8 "$S"
 for sc in svoj net chuzhoj istjok fork imja neizv poslednij api json; do cell "А3 dokaz:$sc" A3 "$S" "$sc"; done
+cell 'А9 dokaz:net-curl' A9 "$S"
 for sc in uchet kod-bez kod-dokaz land-ushjol land-ok shirit bez-reestra api; do cell "А4 vorota:$sc" A4 "$S" "$sc"; done
 for sc in ok chuzhoj grjaz; do cell "А5 strip:$sc" A5 "$S" "$sc"; done
 for sc in reuse run api; do cell "А6 reshenie:$sc" A6 "$S" "$sc"; done
 for v in $(python3 "$T87_ORAKUL" variants bad); do cell "А7 реестр:$v" A7 "$S" "$v"; done
-for sc in tot-zhe-hesh chuzhoj-hesh legkij-krasnyj legkij-net polnyj api; do cell "Б1 check_ci_gate:$sc" B1 "$S" "$sc"; done
+for sc in tot-zhe-hesh chuzhoj-hesh legkij-krasnyj legkij-net polnyj api legkij-skobki pustye-checkrany vorota-krasnaja chuzhoj-sha; do cell "Б1 check_ci_gate:$sc" B1 "$S" "$sc"; done
 for sc in kod-bez-pr uchet kod-dokaz land-ushjol land-ok; do cell "Б2 предполёт:$sc" B2 "$S" "$sc"; done
 for k in K1 K2 K3:ci K3:antiplacebo K3:obshchij K4:ci K4:antiplacebo K4:obshchij K5 K6 K7 K8 K9; do
   cell "${k/K/К}" KS "$S" "$k"
