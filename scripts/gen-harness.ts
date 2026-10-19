@@ -118,6 +118,11 @@ if (!routingGate.ok) {
 /** Рендер routing в промпт оркестратора (контракт 998, инвариант 3).
  *  — заголовок литеральной строкой `## Правила выбора роли (routing — config/agent_models.json)`;
  *  — каждое правило РОВНО одной строкой (class + цель + опц. constraint/until на той же строке);
+ *  — форма цели (role|tier) ЯВНАЯ в строке правила: `→ role: X` или `→ tier: X`.
+ *    Иначе смена role↔tier при том же имени (имена-пересечения role∩tiers —
+ *    `consultant`, `steward` — есть в обоих разделах) до промпта не доходит:
+ *    рендер печатает одно и то же имя, а грамматически разные формы цели
+ *    означают разное поведение (выбор роли vs выбор тира);
  *  — `conditional` и `emergency` — отдельными строками после правил;
  *  — посторонних строк в секции нет. Возврат — массив строк тела секции
  *    (между заголовком и следующим `## `). При пустой секции — пустой массив. */
@@ -134,7 +139,10 @@ const renderRoutingSection = (am: AgentModels): string[] => {
     const role = typeof rObj.role === 'string' ? rObj.role : null
     const tier = typeof rObj.tier === 'string' ? rObj.tier : null
     if (!cls || (role === null && tier === null)) continue
-    const target = role ?? tier ?? ''
+    // Форма цели НЕ теряется: для каждого правила известно, чем оно адресует —
+    // ролью (`role: X`) или тиром (`tier: X`). Грамматика уже гарантирует
+    // ровно одно из двух (validateRouting), здесь печатаем имя формы явно.
+    const target = role !== null ? `role: ${role}` : `tier: ${tier as string}`
     const c = typeof rObj.constraint === 'string' ? rObj.constraint : null
     const u = typeof rObj.until === 'string' ? rObj.until : null
     const parts = [`class=${cls}`, `→ ${target}`]
