@@ -57,6 +57,20 @@ SCHEMA_LEVELS='
   repo:workflowPaths:verdicts:required
   repo:workflowPaths:registry:required
   repo:workflowPaths:fixtures:required
+  repo:workflowPaths:state:optional
+
+  # Контракт 996: sourceCanon — опциональный юнит репо-слоя
+  # ({sources, gate}; sources=array of {path, priority}, priority int ≥0;
+  # gate=argv-массив строк без NUL). Слияние — ЮНИТОМ как contextPack (054/095):
+  # репо-объявление замещает defaults ЦЕЛИКОМ. Словарь закрыт: известные ключи
+  # sources, gate; priority ∈ {0|1|…}; путь относительный внутри R, без NUL.
+  repo:sourceCanon:optional
+  repo:sourceCanon:sources:optional
+  repo:sourceCanon:gate:optional
+
+  project:defaults:sourceCanon:optional
+  project:defaults:sourceCanon:sources:optional
+  project:defaults:sourceCanon:gate:optional
 
   repo:commands:test:required
   repo:commands:build:required
@@ -87,6 +101,7 @@ SCHEMA_LEVELS='
   project:defaults:workflowPaths:verdicts:required
   project:defaults:workflowPaths:registry:required
   project:defaults:workflowPaths:fixtures:required
+  project:defaults:workflowPaths:state:optional
 
   project:defaults:commands:test:required
   project:defaults:commands:build:required
@@ -281,9 +296,9 @@ scan_levels() {
   # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
   # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
   # Каждая ветвь — если она задана как объект, проверяются её ключи.
-  local known_branches="projectLayer workflowPaths commands git ci barriers contextPack"
+  local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon"
   if [ "$level" = "project" ]; then
-    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack"
+    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack defaults.sourceCanon"
     # Ключи самой defaults-ветви (отдельно от дочерних)
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
       local dk dk_rc
@@ -584,7 +599,8 @@ MERGED=$(jq -n \
       contracts:  v(["workflowPaths","contracts"]),
       verdicts:   v(["workflowPaths","verdicts"]),
       registry:   v(["workflowPaths","registry"]),
-      fixtures:   v(["workflowPaths","fixtures"])
+      fixtures:   v(["workflowPaths","fixtures"]),
+      state:      v(["workflowPaths","state"])
     },
     commands: {
       test:      vscal(["commands","test"]),
@@ -646,6 +662,15 @@ MERGED=$(jq -n \
         }
       elif $p.defaults and $p.defaults.contextPack != null then
         { value: $p.defaults.contextPack, origin: "project" }
+      else null end
+    ),
+    # 996: sourceCanon — канон источников и argv-гейт сверки. Семантика
+    # слияния ЮНИТОМ (как contextPack): репо-слой замещает defaults целиком.
+    # Если ни один слой не объявляет — null (дверь check_project_sources
+    # пропускает; freeze/done/pre_critic НЕ зовут gate).
+    sourceCanon: (
+      if $r.sourceCanon != null then { value: $r.sourceCanon, origin: "repo" }
+      elif $p.defaults and $p.defaults.sourceCanon != null then { value: $p.defaults.sourceCanon, origin: "project" }
       else null end
     )
   }

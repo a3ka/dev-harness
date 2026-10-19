@@ -5,7 +5,7 @@
   "workspaceId": "main",
   "defaults": {
     "language": "bash",
-    "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures" },
+    "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures", "state": "." },
     "commands": { "test": "true", "build": "true", "typecheck": "true", "lint": "true" },
     "git": { "canonicalRemote": "ssh://git@example.invalid/dev-harness.git" },
     "ci": { "workflow": ".github/workflows/ci.yml" },
