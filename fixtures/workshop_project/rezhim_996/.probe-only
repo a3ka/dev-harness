@@ -1,0 +1,8 @@
+Контракт 996: подсемья многосубъектных проб workshop_project, вне case_*-глоба.
+Потребитель: bash fixtures/workshop_project/rezhim_996/probe.sh (реальные CLI).
+Субъекты: gitw, freeze_contract, done_contract, project_workflow,
+reserve_project_contract, check_project_sources, pre_critic; check_no_leak
+исполняется на самостоятельной disposable-установке, не основном чекауте.
+probe.sh --matrix: честная модель и предъявления мутаций, привязанные в коде.
+CI dev-harness обязан вызвать продуктовый probe.sh после реализации 996;
+--matrix отдельно доказывает различимость, не заменяет продуктовую команду.
