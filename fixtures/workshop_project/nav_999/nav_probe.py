@@ -1,0 +1,291 @@
+#!/usr/bin/env python3
+"""Навигационные пробы 999 (CMP-MOB-002): таблица переходов shell.
+
+Круг 3, решение арбитража 999 (К1): клетки порождаются ПЕРЕБОРОМ закрытой
+грамматики TABS × S × A × MODES из source.json (tabs_order × modes):
+(1.1) tab(from→to) ∀ from,to ∈ TABS; (1.2) profile-entry → back ∀ from;
+(1.3) deeplink initial→return ∀ пар; (1.4) без returnSection ∀ initial;
+(1.5) те же действия при rm=true (faden отсутствует, вкладки не disabled).
+В каждом состоянии исполняется общий обход поверхности (surface_sweep:
+К3 контейнеры 3.1–3.3, К4 каталог 4.1 и акцент-гейт 4.3); onCommand —
+наблюдатель в каждой клетке. Перечень клеток не выводится из списка
+известных обходов (Н-324/Н-325); depends порождается генератором по
+грамматике и измеряется прогоном полной матрицы.
+"""
+import argparse
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+
+from probe_lib import HERE, installed, jest_ready, load_source, model_bytes, run_jest
+
+FAMILY = 'nav'
+_STATIC = ['TABS_ORDER', 'TAB_LABELS_IA', 'PROFILE_SECONDARY_NOT_TAB', 'TAB_SWITCH_NO_COMMAND',
+           'SECTION_CONTENT_COPY']
+
+
+def _modes():
+    modes = load_source()['modes']
+    return [(bool(rm), cs) for rm in modes['reducedMotion'] for cs in modes['colorScheme']]
+
+
+def _tag(rm, cs):
+    return f'RM{int(rm)}_{str(cs).upper()}'
+
+
+def case_list():
+    tabs = load_source()['tabs_order']
+    cases = list(_STATIC)
+    for rm, cs in _modes():
+        for a in tabs:
+            for b in tabs:
+                cases.append(f'TAB_{a.upper()}_TO_{b.upper()}_{_tag(rm, cs)}')
+    for rm, cs in _modes():
+        for a in tabs:
+            cases.append(f'PROFILE_RETURN_{a.upper()}_{_tag(rm, cs)}')
+            cases.append(f'NO_RETURN_{a.upper()}_{_tag(rm, cs)}')
+            for b in tabs:
+                cases.append(f'DEEPLINK_RETURN_{a.upper()}_TO_{b.upper()}_{_tag(rm, cs)}')
+    # Микро-круг К1.5 (вердикт критика круга 3): faden-отсутствие при
+    # rm=true в ДОСТИГНУТОМ состоянии; перечень маршрутов циклов — из кода
+    # эталона (TAB_ORDER из theme/tokens + profile), на честной модели
+    # совпадает с грамматикой source.json (сторож MOTION_ROUTE_GRAMMAR).
+    cases.append('MOTION_ROUTE_GRAMMAR')
+    for rm, cs in _modes():
+        if not rm:
+            continue
+        for a in tabs:
+            for b in tabs:
+                cases.append(f'MOTION_TAB_{a.upper()}_TO_{b.upper()}_{_tag(rm, cs)}')
+        for a in tabs:
+            cases.append(f'MOTION_PROFILE_{a.upper()}_{_tag(rm, cs)}')
+            for b in tabs:
+                cases.append(f'MOTION_DEEPLINK_{a.upper()}_BACK_{b.upper()}_{_tag(rm, cs)}')
+    return cases
+
+
+CASES = case_list()
+
+TOKENS = 'mobile/src/theme/tokens.ts'
+COPY = 'mobile/src/i18n/ui-copy.ts'
+SHELL = 'mobile/src/bootstrap/tab-shell.tsx'
+LABELS_BLOCK = """export const TAB_LABEL_KEYS: Readonly<Record<string, string>> = {
+  start: 'ia115.nav.START',
+  vorgaenge: 'ia117.nav.VORGAENGE',
+  schutz: 'ia115.nav.SCHUTZ',
+  post: 'ia115.nav.POST',
+};"""
+LABELS_MUTANT = """export const TAB_LABEL_KEYS: Readonly<Record<string, string>> = {
+  start: 'frame.F04.01.title',
+  vorgaenge: 'frame.F08.01.title',
+  schutz: 'frame.F19.01.title',
+  post: 'frame.F16.01.title',
+};"""
+TABLIST_CLOSE = """            ))}
+          </View>"""
+FIFTH_TAB = """            ))}
+            <Pressable accessibilityRole="tab" onPress={() => setSection('start')} style={styles.tab} testID="shell-tab-profile">
+              <Text style={styles.tabLabel}>{uiCopyDe['action.F12.A01'].text}</Text>
+            </Pressable>
+          </View>"""
+
+
+def _cells(pred, skip_named):
+    """depends-генератор по грамматике: клетки CASES, удовлетворяющие pred."""
+    return tuple(cell for cell in CASES if pred(cell) and cell != skip_named)
+
+
+# Стаб↔ветвь (Н-39): каждый стаб различим на своём входе; depends — клетки,
+# чей собственный вход затрагивает ту же ветвь (законная зависимость
+# таблицы переходов, объявлена явно); краснота ВНЕ named ∪ depends — дефект
+# матрицы. Depends измерены прогоном полной матрицы, не выведены из прозы.
+_RM_FAMILIES = ('TAB_', 'PROFILE_RETURN_', 'DEEPLINK_RETURN_', 'NO_RETURN_')
+TAB_ORDER_LINE = "export const TAB_ORDER = ['start', 'vorgaenge', 'schutz', 'post'] as const;"
+TAB_ORDER_HEUTE = "export const TAB_ORDER = ['start', 'vorgaenge', 'schutz', 'post', 'heute'] as const;"
+LABELS_HEUTE_BLOCK = """export const TAB_LABEL_KEYS: Readonly<Record<string, string>> = {
+  start: 'ia115.nav.START',
+  vorgaenge: 'ia117.nav.VORGAENGE',
+  schutz: 'ia115.nav.SCHUTZ',
+  post: 'ia115.nav.POST',
+  heute: 'ia115.nav.START',
+};"""
+SECTION_TITLES_BLOCK = """export const SECTION_TITLE_KEYS: Readonly<Record<string, string>> = {
+  start: 'frame.F04.01.title',
+  vorgaenge: 'frame.F08.01.title',
+  schutz: 'frame.F19.01.title',
+  post: 'frame.F16.01.title',
+};"""
+SECTION_TITLES_HEUTE_BLOCK = """export const SECTION_TITLE_KEYS: Readonly<Record<string, string>> = {
+  start: 'frame.F04.01.title',
+  vorgaenge: 'frame.F08.01.title',
+  schutz: 'frame.F19.01.title',
+  post: 'frame.F16.01.title',
+  heute: 'frame.F04.01.title',
+};"""
+MUTANTS = [
+    ('tab-order-shuffled', 'TABS_ORDER', ((TOKENS, "['start', 'vorgaenge', 'schutz', 'post']", "['post', 'schutz', 'vorgaenge', 'start']"),), _cells(lambda c: c == 'MOTION_ROUTE_GRAMMAR', 'TABS_ORDER')),
+    ('frame-title-labels', 'TAB_LABELS_IA', ((COPY, LABELS_BLOCK, LABELS_MUTANT),), ()),
+    ('profile-as-fifth-tab', 'PROFILE_SECONDARY_NOT_TAB', ((SHELL, TABLIST_CLOSE, FIFTH_TAB),), ()),
+    ('switch-stuck-selection', 'TAB_VORGAENGE_TO_SCHUTZ_RM0_DARK',
+     ((SHELL, 'onPress={() => setSection(id)}', "onPress={() => setSection('start')}"),),
+     _cells(lambda c: (c.startswith('TAB_') and '_RM' in c and '_TO_START_' not in c) or c == 'SECTION_CONTENT_COPY', 'TAB_VORGAENGE_TO_SCHUTZ_RM0_DARK')),
+    ('tab-emit-command', 'TAB_SWITCH_NO_COMMAND',
+     ((SHELL, 'onPress={() => setSection(id)}', "onPress={() => { setSection(id); onCommand?.({ kind: 'mission.create' }); }}"),),
+     _cells(lambda c: c.startswith('TAB_') and '_RM' in c, 'TAB_SWITCH_NO_COMMAND')),
+    ('deeplink-no-return', 'DEEPLINK_RETURN_SCHUTZ_TO_POST_RM0_DARK',
+     ((SHELL, 'useState<ShellSection | null>(returnSection)', 'useState<ShellSection | null>(null)'),),
+     _cells(lambda c: c.startswith('DEEPLINK_RETURN_'), 'DEEPLINK_RETURN_SCHUTZ_TO_POST_RM0_DARK')),
+    ('motion-removes-actions', 'TAB_START_TO_VORGAENGE_RM1_DARK',
+     ((SHELL, 'style={styles.tab}', 'disabled={reducedMotion}\n                style={styles.tab}'),),
+     _cells(lambda c: c.startswith('TAB_') and '_RM1_' in c and c.split('_')[1] != c.split('_')[3], 'TAB_START_TO_VORGAENGE_RM1_DARK')),
+    ('section-copy-literal', 'SECTION_CONTENT_COPY',
+     ((SHELL, '{uiCopyDe[SECTION_TITLE_KEYS[section]].text}', "{'Vorgänge'}"),),
+     _cells(lambda c: c.startswith(_RM_FAMILIES) and '_RM' in c, 'SECTION_CONTENT_COPY')),
+    # Обходы круга 1 критика, закрытые обобщёнными клетками грамматики.
+    ('start-never-selected', 'TAB_START_TO_VORGAENGE_RM0_DARK',
+     ((SHELL, 'selected: section === id', "selected: id !== 'start' && section === id"),),
+     _cells(lambda c: c.startswith(_RM_FAMILIES) and '_START' in c, 'TAB_START_TO_VORGAENGE_RM0_DARK')),
+    ('profile-loses-origin', 'PROFILE_RETURN_VORGAENGE_RM0_DARK',
+     ((SHELL, "const leaveProfile = () => setRoute('tabs');", "const leaveProfile = () => { setSection('start'); setRoute('tabs'); };"),),
+     _cells(lambda c: c.startswith('PROFILE_RETURN_') and not c.startswith('PROFILE_RETURN_START'), 'PROFILE_RETURN_VORGAENGE_RM0_DARK')),
+    ('initial-post-broken', 'TAB_POST_TO_VORGAENGE_RM0_DARK',
+     ((SHELL, 'useState<ShellSection>(initialSection)', "useState<ShellSection>(initialSection === 'post' ? 'start' : initialSection)"),),
+     _cells(lambda c: c.startswith(('TAB_POST_', 'DEEPLINK_RETURN_POST_', 'PROFILE_RETURN_POST_', 'NO_RETURN_POST_')), 'TAB_POST_TO_VORGAENGE_RM0_DARK')),
+    ('return-only-schutz', 'DEEPLINK_RETURN_START_TO_POST_RM0_DARK',
+     ((SHELL, 'useState<ShellSection | null>(returnSection)', "useState<ShellSection | null>(initialSection === 'schutz' ? returnSection : null)"),),
+     _cells(lambda c: c.startswith('DEEPLINK_RETURN_') and not c.startswith('DEEPLINK_RETURN_SCHUTZ'), 'DEEPLINK_RETURN_START_TO_POST_RM0_DARK')),
+    ('transition-post-vorgaenge', 'TAB_POST_TO_VORGAENGE_RM0_DARK',
+     (('mobile/src/bootstrap/tab-shell.tsx', 'onPress={() => setSection(id)}', "onPress={() => { if (!(section === 'post' && id === 'vorgaenge')) setSection(id); }}"),),
+     _cells(lambda c: c.startswith('TAB_POST_TO_VORGAENGE_'), 'TAB_POST_TO_VORGAENGE_RM0_DARK')),
+    ('reduced-motion-emits-command', 'TAB_START_TO_VORGAENGE_RM1_DARK',
+     (('mobile/src/bootstrap/tab-shell.tsx', 'onPress={() => setSection(id)}', "onPress={() => { setSection(id); if (reducedMotion) onCommand?.({ kind: 'mission.create' }); }}"),),
+     _cells(lambda c: c.startswith('TAB_') and '_RM1_' in c, 'TAB_START_TO_VORGAENGE_RM1_DARK')),
+    ('nav-gated-by-colorScheme', 'TAB_START_TO_POST_RM0_LIGHT',
+     (('mobile/src/bootstrap/tab-shell.tsx', 'onPress={() => setSection(id)}', "onPress={() => { if (!(colorScheme === 'light' && id === 'post')) setSection(id); }}"),),
+     _cells(lambda c: c.startswith('TAB_') and '_TO_POST_' in c and c.endswith('_LIGHT') and not c.startswith('TAB_POST_TO_POST'), 'TAB_START_TO_POST_RM0_LIGHT')),
+    ('copy-invented-under-reducedMotion', 'TAB_START_TO_VORGAENGE_RM1_DARK',
+     (('mobile/src/bootstrap/tab-shell.tsx', '<View style={styles.header}>', '<View style={styles.header}>\n          {reducedMotion ? <Text>Bewegung aus</Text> : null}'),),
+     _cells(lambda c: c.startswith(_RM_FAMILIES) and '_RM1_' in c, 'TAB_START_TO_VORGAENGE_RM1_DARK')),
+    # Микро-круг К1.5 (вердикт критика круга 3): «исключение для одного
+    # маршрута» краснеет клеткой этого маршрута; честный новый маршрут в
+    # коде вне грамматики source.json краснеет сторожем MOTION_ROUTE_GRAMMAR.
+    ('route-exception-profile', 'MOTION_PROFILE_START_RM1_DARK',
+     ((SHELL, '!reducedMotion ? <View', "(!reducedMotion || route === 'profile') ? <View"),),
+     _cells(lambda c: c.startswith('MOTION_PROFILE_'), 'MOTION_PROFILE_START_RM1_DARK')),
+    ('route-exception-post', 'MOTION_TAB_START_TO_POST_RM1_DARK',
+     ((SHELL, '!reducedMotion ? <View', "(!reducedMotion || section === 'post') ? <View"),),
+     _cells(lambda c: ((c.startswith('TAB_POST_') or c.startswith('DEEPLINK_RETURN_POST_')
+                        or c.startswith('PROFILE_RETURN_POST_') or c.startswith('NO_RETURN_POST_')) and '_RM1_' in c)
+                       or (c.startswith('MOTION_TAB_') and '_TO_POST_RM1_' in c)
+                       or c.startswith('MOTION_PROFILE_POST_RM1_')
+                       or (c.startswith('MOTION_DEEPLINK_') and '_BACK_POST_RM1_' in c), 'MOTION_TAB_START_TO_POST_RM1_DARK')),
+    ('route-exception-schutz', 'MOTION_DEEPLINK_START_BACK_SCHUTZ_RM1_DARK',
+     ((SHELL, '!reducedMotion ? <View', "(!reducedMotion || section === 'schutz') ? <View"),),
+     _cells(lambda c: ((c.startswith('TAB_SCHUTZ_') or c.startswith('DEEPLINK_RETURN_SCHUTZ_')
+                        or c.startswith('PROFILE_RETURN_SCHUTZ_') or c.startswith('NO_RETURN_SCHUTZ_')) and '_RM1_' in c)
+                       or (c.startswith('MOTION_TAB_') and '_TO_SCHUTZ_RM1_' in c)
+                       or c.startswith('MOTION_PROFILE_SCHUTZ_RM1_')
+                       or (c.startswith('MOTION_DEEPLINK_') and '_BACK_SCHUTZ_RM1_' in c), 'MOTION_DEEPLINK_START_BACK_SCHUTZ_RM1_DARK')),
+    ('route-added-outside-grammar', 'MOTION_ROUTE_GRAMMAR',
+     ((TOKENS, TAB_ORDER_LINE, TAB_ORDER_HEUTE),
+      (COPY, LABELS_BLOCK, LABELS_HEUTE_BLOCK),
+      (COPY, SECTION_TITLES_BLOCK, SECTION_TITLES_HEUTE_BLOCK)),
+     _cells(lambda c: c == 'PROFILE_SECONDARY_NOT_TAB', 'MOTION_ROUTE_GRAMMAR')),
+]
+
+
+def check_repo(repo: Path):
+    if not repo.is_relative_to('/tmp/dev-harness-verify'):
+        raise RuntimeError('DISPOSABLE_REQUIRED')
+    mobile = repo / 'mobile'
+    if not jest_ready(mobile):
+        raise RuntimeError('JEST_ABSENT: node_modules не установлен (npm ci)')
+    return mobile
+
+
+def install_map(repo: Path, blobs):
+    return {repo / target: blob for target, blob in blobs.items()}
+
+def run(repo: Path, case=None, model=False):
+    mobile = check_repo(repo)
+    blobs = model_bytes() if model else None
+    workspace = Path(tempfile.mkdtemp(prefix='__nav999_', dir=mobile / 'src'))
+    results = {}
+    try:
+        files = {workspace / 'nav.test.tsx': (HERE / 'nav.test.tsx').read_bytes(),
+                 workspace / 'nav_motion.test.tsx': (HERE / 'nav_motion.test.tsx').read_bytes(),
+                 workspace / 'source.json': (HERE / 'source.json').read_bytes(),
+                 workspace / 'surface_sweep.ts': (HERE / 'surface_sweep.ts').read_bytes()}
+        if blobs:
+            files.update(install_map(repo, blobs))
+        with installed(files):
+            pattern = f'^999 {FAMILY} {case}$' if case else None
+            got, proc = run_jest(mobile, [workspace / 'nav.test.tsx', workspace / 'nav_motion.test.tsx'], pattern)
+            wanted = [case] if case else CASES
+            missing = [name for name in wanted if name not in got]
+            if missing:
+                raise RuntimeError('ASSERTION_SET_MISSING:' + ','.join(missing) + ':' + proc.stderr[-800:])
+            results = {title: status for title, status in got.items() if title in wanted}
+            for name, status in sorted(results.items()):
+                print(f'999 nav/{name}: {"rc=0" if status == "passed" else "rc=1"}', flush=True)
+    finally:
+        shutil.rmtree(workspace)
+    return (0 if all(s == 'passed' for s in results.values()) else 1), results
+
+
+def matrix(repo: Path):
+    ok = True
+    print('MATRIX honest: ', flush=True)
+    rc, results = run(repo)
+    ok &= rc == 0
+    for name, case, patches, depends in MUTANTS:
+        blobs = model_bytes(list(patches))
+        mobile = check_repo(repo)
+        workspace = Path(tempfile.mkdtemp(prefix='__nav999m_', dir=mobile / 'src'))
+        try:
+            files = {workspace / 'nav.test.tsx': (HERE / 'nav.test.tsx').read_bytes(),
+                     workspace / 'nav_motion.test.tsx': (HERE / 'nav_motion.test.tsx').read_bytes(),
+                     workspace / 'source.json': (HERE / 'source.json').read_bytes(),
+                     workspace / 'surface_sweep.ts': (HERE / 'surface_sweep.ts').read_bytes()}
+            files.update(install_map(repo, blobs))
+            with installed(files):
+                got, proc = run_jest(mobile, [workspace / 'nav.test.tsx', workspace / 'nav_motion.test.tsx'])
+            named = case
+            if named not in got:
+                raise RuntimeError('MUTANT_CASE_MISSING:' + named)
+            unexpected_red = [t for t, s in got.items() if s == 'failed' and t not in depends and t != named]
+            depends_missed = [t for t in depends if got.get(t) != 'failed']
+            verdict = got[named] == 'failed' and not unexpected_red and not depends_missed
+            ok &= verdict
+            print(f'MUTANT {name}: named={case} {"RED" if got[named] == "failed" else "GREEN"}'
+                  f' depends_red={[t for t in depends if got.get(t) == "failed"] or "none"}'
+                  f' unexpected_red={unexpected_red or "none"} -> {"OK" if verdict else "BROKEN"}', flush=True)
+        finally:
+            shutil.rmtree(workspace)
+    return 0 if ok else 1
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--repo', type=Path, required=True)
+    parser.add_argument('--case', choices=CASES)
+    parser.add_argument('--matrix', action='store_true')
+    parser.add_argument('--model', action='store_true')
+    args = parser.parse_args()
+    repo = args.repo.resolve()
+    if not (repo / 'mobile/src/bootstrap/tab-shell.tsx').exists() and not args.model:
+        print('999 NAV_SHELL_ABSENT')
+        return 1
+    if args.matrix:
+        return matrix(repo)
+    rc, _ = run(repo, args.case, model=args.model)
+    return rc
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except (OSError, RuntimeError, ValueError, KeyError) as error:
+        print('999 INFRASTRUCTURE:', error, file=sys.stderr)
+        sys.exit(2)

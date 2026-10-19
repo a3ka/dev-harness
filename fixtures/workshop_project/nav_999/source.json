@@ -1,0 +1,48 @@
+{
+  "comment": "Оракул 999, снят с Complior-mob f0d8e54e181853473e23c7df3dc623bbb7faecdf ДО запуска субъекта. Копия и токены — единственный источник грамматики; проб-тесты несут те же значения побайтово из этого файла.",
+  "snapshot": "f0d8e54e181853473e23c7df3dc623bbb7faecdf",
+  "source_sha256": {
+    "tokens": "70e9e31167c46258697cbe7eaa2f5f096d49f167783e76ce74d08644982a5364",
+    "copy": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
+    "font_ttf": "a023f465d2f26d8f56c6e3cac6aece08b7a66eb75b4d75eeef9df838c53c81f6",
+    "font_ofl": "9af36190332437f5ecd09974de43c1f7c77a310a996cdd8ceb25628b458840e1"
+  },
+  "copy": {
+    "ia115.nav.START": { "text": "Start", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "ia117.nav.VORGAENGE": { "text": "Vorgänge", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "ia115.nav.SCHUTZ": { "text": "Schutz", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "ia115.nav.POST": { "text": "Post", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "frame.F04.01.title": { "text": "Was möchten Sie klären?", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F08.01.title": { "text": "Ihre Vorgänge", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F19.01.title": { "text": "Ihre Absicherung im Überblick", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F16.01.title": { "text": "Ihre Dokumente", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "action.F12.A01": { "text": "Profil bearbeiten", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "global.back": { "text": "Zurück", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" }
+  },
+  "deprecated_keys": ["ia115.nav.HEUTE"],
+  "labels": {
+    "start": "ia115.nav.START",
+    "vorgaenge": "ia117.nav.VORGAENGE",
+    "schutz": "ia115.nav.SCHUTZ",
+    "post": "ia115.nav.POST"
+  },
+  "tabs_order": ["start", "vorgaenge", "schutz", "post"],
+  "modes": { "reducedMotion": [false, true], "colorScheme": ["dark", "light"] },
+  "sections": {
+    "start": "frame.F04.01.title",
+    "vorgaenge": "frame.F08.01.title",
+    "schutz": "frame.F19.01.title",
+    "post": "frame.F16.01.title"
+  },
+  "tokens": {
+    "ground": { "dark": "#0a0a0a", "light": "#f3f2ee" },
+    "ink": { "dark": "#f2f1ec", "light": "#121211" },
+    "panel": { "dark": "#1e1e1d", "light": "#e6e5df" },
+    "card": { "dark": "#e9e8e2", "light": "#ffffff" },
+    "on-card": { "dark": "#121211", "light": "#121211" },
+    "primary": { "dark": "#d6f75a", "light": "#121211" },
+    "on-primary": { "dark": "#121211", "light": "#f3f2ee" },
+    "accent": { "dark": "#d6f75a", "light": "#d6f75a" }
+  },
+  "scheme": "complior"
+}
