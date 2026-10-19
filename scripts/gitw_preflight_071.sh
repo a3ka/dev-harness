@@ -427,8 +427,8 @@ fi
 # (полная или КОРЕНЬ + auto-resolve). При пустой ручке — fallback на GITHUB_REPOSITORY
 # (стандартная переменная GitHub Actions), иначе origin github.
 CI_KLASS_API_RESOLVED="${GITW_PREFLIGHT_071_API:-}"
-if [ -z "$CI_KLASS_API_RESOLVED" ] && [ -n "$GITHUB_REPOSITORY" ]; then
-  CI_KLASS_API_RESOLVED="${GITHUB_API_URL:-https://api.github.com}/repos/$GITHUB_REPOSITORY"
+if [ -z "$CI_KLASS_API_RESOLVED" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
+  CI_KLASS_API_RESOLVED="${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY:-}"
 fi
 export CI_KLASS_API="$CI_KLASS_API_RESOLVED"
 # Классификатор ищется в scripts/ репозитория push'а (cwd live-операции)

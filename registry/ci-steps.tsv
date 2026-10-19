@@ -52,6 +52,11 @@ legkij	check:ids	5	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
 legkij	check:protected	5	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 legkij	check:nabludenia	15	npm run check:nabludenia
 legkij	check:contract-frozen	25	npm run check:contract-frozen
+# Контракт 087 И-1/И-2: чек читает учётный путь (fixtures/pokrytie_083_088_079/red_istochnik_incr_079.sh
+# копирует $ROOT/ROADMAP.md и $ROOT/AGENTS.md в toy-мир); strip тяжёлых джоб удаляет
+# ROADMAP.md и ломает копирование — лечение по §Остаточный риск: перенос в legkij
+# (бюджет 120 с), не расширение U и не правка фикстуры вне зоны.
+legkij	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
 step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
@@ -59,7 +64,6 @@ step	check:consumers-window-family-selftest	15	bash fixtures/check_consumers/kra
 step	check:watchdog-082-family-selftest	20	bash fixtures/verify_antiplacebo/red_watchdog_082.sh
 step	check:cikl-perezapuska-085-family-selftest	20	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
 step	check:fix-085-orch-peak-home-090-family-selftest	20	bash fixtures/_krasnye_090.sh
-step	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
 step	check:measure-probe	10	npm run check:measure-probe
 step	check:scope-select	10	npm run check:scope-select
 step	check:scoped-run	10	npm run check:scoped-run
