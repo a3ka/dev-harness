@@ -125,6 +125,8 @@ jobs:
             keys: check:gen check:ids-family
           - lane: l2
             keys: check:skills
+          - lane: l3
+            keys: check:pokrytie-079-family-selftest check:ops-server-family-selftest check:runner-hygiene
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4

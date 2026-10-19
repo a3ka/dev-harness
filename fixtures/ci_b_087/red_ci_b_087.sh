@@ -55,6 +55,11 @@
 #       вид строки судит К10, поэтому клетка судит учёт-независимость команды и до
 #       правки реестра); К11 — сумма весов строк legkij того же реестра, что
 #       исполняет workflow, ≤ 120 с (BUDGET-121), пара 120/121;
+#       К12 связность реестр→lane (круг 4, LANE-087): каждый step-ключ реестра
+#       присутствует в matrix-include (lane-джобы) джобы ci — ключи реестра тем же
+#       разбором reg_rows, что у К10; присутствие — только в lane-матрице (ключ в
+#       run-команде legkij присутствием не считается); пара честности: строка step
+#       и matrix-ключ удалены вместе — зелено (смена состава, не заморозка);
 #   В1  run_ci_lane.sh: строка «замер: <ключ> <секунды>» на каждый ключ, legkij-ключи
 #       исполняемы; В2 ci_vesa.sh: --write по максимуму замеров, --check ловит ручной вес,
 #       ключ без замера — отказ без записи, приманка вне якоря не считается.
@@ -90,6 +95,10 @@
 #   legkij-glotaet       гасит отказ последнего legkij-ключа  → К-исп legkij | В1
 #   legkij-tri-klyucha  три ключа тяжёлых — строки legkij   → К10 | К11
 #   chitaet-uchet       тяжёлая toy-команда читает ROADMAP  → К10-исп | К10
+#   K12-vyrezan-odin    один step-ключ вырезан из matrix      → К12 | К10
+#   K12-vyrezany-tri    три ключа К10 вырезаны из matrix      → К12 | К10
+#                       (мутант 69b44626, LANE-087)
+#   K12-v-legkij-run    ключ перенесён в run-команду legkij   → К12 | К10
 # (K-legkij-*: обход Critic087 по трём уровням — шаг, джоба, workflow; диффпроба К-исп
 #  legkij зелена — исполнение извлечённой команды YAML-подавления не видит, ловит контур К6;
 #  legkij-glotaet наблюдаем лишь при отказе ПОСЛЕДНЕГО ключа — К-исп legkij обходит все.)
@@ -590,6 +599,33 @@ PY
   return 1
 }
 
+# ── К12: круг 4 — связность реестр→lane (LANE-087) ──────────────────────────────
+# Клетка KS K12 — в оракуле (kcheck): каждый step-ключ реестра присутствует в
+# matrix-include джобы ci; вывод ключей реестра — reg_rows, тот же разбор, что у
+# К10. K12C — пара честности (грамматика 050): строка step удалена из реестра
+# ВМЕСТЕ с matrix-ключом (смена состава) — клетка обязана остаться зелёной:
+# связность, не замороженный список; отрицательная пара — стаб K12-vyrezan-odin
+# (тот же ключ check:skills вырезан из matrix БЕЗ правки реестра).
+K12C() {  # <S>
+  local m="$T/k12-chestno" out
+  rm -rf "$m"; cp -a "$T/model" "$m"
+  python3 - "$m/$WF" "$m/registry/ci-steps.tsv" <<'PY' || { R='пара честности К12 не построена'; return 1; }
+import sys
+wf, reg = sys.argv[1], sys.argv[2]
+t = open(wf, encoding='utf-8').read()
+e = '          - lane: l2\n            keys: check:skills\n'
+if t.count(e) != 1:
+    sys.exit('нет lane l2 с ключом check:skills')
+open(wf, 'w', encoding='utf-8').write(t.replace(e, '', 1))
+rows = open(reg, encoding='utf-8').read().split('\n')
+rows = [l for l in rows if not l.startswith('step\tcheck:skills\t')]
+open(reg, 'w', encoding='utf-8').write('\n'.join(rows))
+PY
+  out="$(python3 "$T87_ORAKUL" kcheck K12 "$m/$WF" "$m/registry/ci-steps.tsv" 2>&1)" && return 0
+  R="честная смена состава (строка реестра и matrix-ключ вместе) красна: $(printf '%s' "$out" | tr '\n' ';')"
+  return 1
+}
+
 # ── В: замеры и веса ────────────────────────────────────────────────────────────
 V1() {
   need "$1" scripts/run_ci_lane.sh || return 1
@@ -662,6 +698,8 @@ cell 'К10-исп три ключа без учётных путей' K10I "$S"
 cell 'К11 бюджет legkij ≤ 120 с' K11 "$S" subject
 cell 'К11 пара 120 — зелено' K11 "$S" par-120
 cell 'К11 пара 121 — красно' K11 "$S" par-121
+cell 'К12 step-ключи реестра в lane-матрице ci' KS "$S" K12
+cell 'К12 честная смена состава — зелено' K12C "$S"
 cell 'В1 строки замера' V1 "$S"
 cell 'В2 веса по замерам' V2 "$S"
 
@@ -670,7 +708,7 @@ SP_OK=0; SP_N=0
 stab_tree() {  # <стаб> → каталог-субъект (для K-стабов — модель с мутацией ci.yml)
   local st="$1" m="$T/stab_$1"
   case "$st" in
-    K-*)
+    K-*|K12-*)
       rm -rf "$m"; cp -a "$T/model" "$m"
       python3 - "$m/$WF" "$st" <<'PY'
 import sys
@@ -697,6 +735,27 @@ elif st == 'K-legkij-dzhoba':
     head = head.replace(s, s + '    continue-on-error: true\n', 1)
 elif st == 'K-legkij-obolochka':
     head = head.replace('\njobs:\n', '\ndefaults:\n  run:\n    shell: python {0}\n\njobs:\n', 1)
+elif st == 'K12-vyrezan-odin':
+    e = '          - lane: l2\n            keys: check:skills\n'
+    if ci.count(e) != 1:
+        sys.exit('K12: нет lane l2 с ключом check:skills')
+    ci = ci.replace(e, '', 1)
+elif st == 'K12-vyrezany-tri':
+    e = ('          - lane: l3\n            keys: check:pokrytie-079-family-selftest '
+         'check:ops-server-family-selftest check:runner-hygiene\n')
+    if ci.count(e) != 1:
+        sys.exit('K12: нет lane l3 с тремя ключами К10')
+    ci = ci.replace(e, '', 1)
+elif st == 'K12-v-legkij-run':
+    e = ('          - lane: l3\n            keys: check:pokrytie-079-family-selftest '
+         'check:ops-server-family-selftest check:runner-hygiene\n')
+    if ci.count(e) != 1:
+        sys.exit('K12: нет lane l3 с тремя ключами К10')
+    ci = ci.replace(e, '          - lane: l3\n            keys: check:ops-server-family-selftest check:runner-hygiene\n', 1)
+    r = '        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen\n'
+    if head.count(r) != 1:
+        sys.exit('K12: нет run-команды джобы legkij')
+    head = head.replace(r, r[:-1] + ' check:pokrytie-079-family-selftest\n', 1)
 open(p, 'w', encoding='utf-8').write(head + ci)
 PY
       printf '%s' "$m" ;;
@@ -749,6 +808,9 @@ stab K-strip-posle KS K4:ci -- KS K4:obshchij
 stab K-legkij-podavlen KS K6 -- KX legkij
 stab K-legkij-dzhoba KS K6 -- KX legkij
 stab K-legkij-obolochka KS K6 -- KX legkij
+stab K12-vyrezan-odin KS K12 -- K10
+stab K12-vyrezany-tri KS K12 -- K10
+stab K12-v-legkij-run KS K12 -- K10
 stab bez-zamera V1 -- V2
 stab derzhit-staryj V2 -- V1
 stab legkij-glotaet KX legkij -- V1
