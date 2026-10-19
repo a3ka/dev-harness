@@ -152,6 +152,14 @@ case "$norm" in
     die "done: вердикт вне грамматики: $freshest_first"
     ;;
 esac
+
+# ── 996: гейт сверки с источниками (ДО тега) ────────────────────────────────
+# При объявленном sourceCanon — вызов check_project_sources.sh (stage=done).
+# Отказ gate → rc 1 с маркером SOURCE_GATE_FAILED/INVALID/MISSING/UNAVAILABLE.
+# Без канона — gate не запускается (К6 «без канона → rc 0 без запуска»).
+if [ -x "$SELF_DIR/check_project_sources.sh" ]; then
+  srcs_out="$(bash "$SELF_DIR/check_project_sources.sh" --repo "$ROOT" --contract "$TARGET_REL" --stage done 2>&1)" || die "source gate: $srcs_out"
+fi
 # ── 6. ПРОВОДКА через барьер check_provodka.sh ────────────────────────────────
 # Барьер работает относительно КОРНЯ репозитория (не каталога контракта) —
 # пути ПРОВОДКА даны относительно корня дерева (канон freeze_contract.sh:59).

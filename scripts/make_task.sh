@@ -71,14 +71,13 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
     reviewer)   _verdict_suffix="review" ;;
     arbiter)    _verdict_suffix="arbitration" ;;
   esac
-  if [ -n "$_verdict_suffix" ]; then
-    VERDICT_DIR="$WP_STATE_PREFIX/${WP_V%/}/$_verdict_suffix"
-  else
-    VERDICT_DIR="null"
-  fi
   SC_OBJ="$(printf '%s' "$MERGED_OUT" | jq -c '.sourceCanon.value // null')"
-  # `workflowPaths.*` — ТОП-УРОВНЕВЫЕ каталоги внутри R. `state` — отдельный
-  # ТОП-УРОВНЕВЫЙ каталог; HANDOFF.md/NABLIUDENIA*/ROADMAP.md/forks — внутри него.
+  # verdict_canon ВСЕГДА задан: пустой для не-судьи, иначе путь.
+  if [ -n "$_verdict_suffix" ]; then
+    _verdict_canon="$WP_STATE_PREFIX/${WP_V%/}/$_verdict_suffix"
+  else
+    _verdict_canon=""
+  fi
   jq -n \
     --arg contracts    "$REPO_ABS/$WP_C" \
     --arg verdicts     "$REPO_ABS/$WP_V" \
@@ -89,8 +88,8 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
     --arg arch_obs     "$WP_STATE_PREFIX/NABLIUDENIA_ARCHITECT.md" \
     --arg roadmap      "$WP_STATE_PREFIX/ROADMAP.md" \
     --arg forks        "$WP_STATE_PREFIX/forks" \
-    --argjson verdict "$VERDICT_DIR" \
     --argjson source_canon "$SC_OBJ" \
+    --arg verdict_canon "$_verdict_canon" \
     --arg h "$WP_STATE_PREFIX/HANDOFF.md" \
     --arg c "$REPO_ABS/$WP_C" \
     --arg v "$REPO_ABS/$WP_V" \
@@ -100,7 +99,7 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
                   handoff: $handoff, observations: $observations, architectObservations: $arch_obs,
                   roadmap: $roadmap, forks: $forks},
       sourceCanon: $source_canon,
-      verdict: $verdict,
+      verdict: (if ($verdict_canon | length) > 0 then $verdict_canon else null end),
       startup: [$h, $c, $v, $o, $r]}'
   exit 0
 fi

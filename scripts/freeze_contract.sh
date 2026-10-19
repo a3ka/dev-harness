@@ -439,7 +439,7 @@ if [ "$circles" -ge 3 ]; then
     plans)     marker="(план ${NNN})" ;;
     *)         marker="(${dir} ${NNN})" ;;
   esac
-  arb_files="$(g ls-tree -r --name-only HEAD -- ":(literal)${_PROFILE_VERDICTS_DIR%/}/arbitration/" 2>/dev/null | grep '\.md$' || true)"
+  arb_files="$(g ls-tree -r --name-only HEAD -- ":(literal)${_PROFILE_VERDICTS_DIR%/}/../arbitration/" 2>/dev/null | grep '\.md$' || true)"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     title="$(g cat-file -p "HEAD:$f" 2>/dev/null | sed -n 1p || true)"
