@@ -302,6 +302,23 @@ def matrix(repo: Path):
             [(R, "const getDisclosureGate: ApiClient['getDisclosureGate'] = async () => gateMock();",
               "const getDisclosureGate: ApiClient['getDisclosureGate'] = async () => ({ ...gateMock(), checked_at: '', responsible_entity_id: '' });")],
             ['RUNTIME_GATE_SNAPSHOT'], []),
+        # Микро-круг К9′(б) (вердикт критика круга 3): полный обход критика
+        # full-bypass-omitted-display-fallback — gateFor и runtime СОВМЕСТНО
+        # теряют обязательное клиентское поле responsible_entity_id, экран
+        # маскирует дефект fallback'ом 're-001'. Патчи байт-в-байт из
+        # воспроизводителя критика full_bypass.py. Дефект наблюдаем на входе
+        # RUNTIME_GATE_SNAPSHOT: runtime.api.getDisclosureGate() возвращает
+        # снимок без обязательного поля — литеральный семипольный оракул
+        # (erstinfo.test.tsx, не gateFor) это различает; экранная маскировка
+        # 're-001' держит BROKER_CARD_FIELDS/MOCK_SCREEN зелёными, поэтому
+        # named-клетка ровно одна.
+        'full-bypass-omitted-display-fallback': (
+            [(M, 'responsible_entity_id: FIXED.responsible_entity_id,',
+              "...({} as Pick<DisclosureGateSnapshot, 'responsible_entity_id'>),"),
+             (C, '{snapshot.responsible_entity_id}</Text>',
+              "{snapshot.responsible_entity_id || 're-001'}</Text>")],
+            ['RUNTIME_GATE_SNAPSHOT'],
+            []),
     }
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():

@@ -496,12 +496,30 @@ it('107 erstinfo RUNTIME_ACK_EXECUTES', async () => {
   });
 });
 
-// К9′(б) (арбитраж 107, Б4): runtime-снимок сверяется toEqual ПОЛНОМУ
-// объявленному снимку DisclosureGateSnapshot (все поля типа, не 5 из 7) и
+// К9′(б) (арбитраж 107 Б4 + микро-круг по вердикту критика круга 3, К9′(б)):
+// runtime-снимок сверяется toEqual ЛИТЕРАЛЬНОМУ семипольному оракулу.
+// Ожидаемое значение НЕ вычисляется кодом субъекта (gateFor/gateMock):
+// toEqual(gateFor(...)) сравнивал два одинаково испорченных снимка
+// (runtime.api.getDisclosureGate → gateMock → gateFor), и мутант
+// «поле ответчика потеряно jointly в gateFor и runtime + экранная маскировка
+// fallback'ом» проходил все пробы. Литерал выписан по первоисточникам:
+// тип DisclosureGateSnapshot из api-client.ts (7 полей: applicability,
+// required_document_id, required_document_version, responsible_entity_id,
+// delivery_state, delivery_evidence_ref, checked_at) + source.json
+// (fixed.*, versions.eq.required = 2). FIXED — локальный литерал теста,
+// снятый с source.json ДО запуска субъекта, не вывод mock'а. Снимок
 // ПОДАЁТСЯ В ЭКРАН: evidence-карта с checked_at и continue при W1A.
 it('107 erstinfo RUNTIME_GATE_SNAPSHOT', async () => {
   const snap = await runtime.api.getDisclosureGate();
-  expect(snap).toEqual(gateFor('CURRENT_CONFIRMED', 'EQ'));
+  expect(snap).toEqual({
+    applicability: 'REQUIRED',
+    required_document_id: FIXED.document_ref,
+    required_document_version: 2,
+    responsible_entity_id: FIXED.responsible_entity_id,
+    delivery_state: 'CURRENT_CONFIRMED',
+    delivery_evidence_ref: FIXED.evidence_ref,
+    checked_at: FIXED.checked_at,
+  });
   await harness({ admission: 'W1A', gate: snap });
   expect(screen.getByTestId('erstinfo-evidence')).toBeOnTheScreen();
   expect(screen.getByTestId('erstinfo-evidence-checked-at')).toHaveTextContent(FIXED.checked_at);
