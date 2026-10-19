@@ -46,6 +46,13 @@
 #       cancel-in-progress; общие шаги однажды; исполнение извлечённых команд
 #       решения/strip/ворот/лёгкого (лёгкое — и с отказом КАЖДОГО ключа legkij по очереди:
 #       шаг обязан упасть);
+#       К10 три ключа тяжёлых проверок (check:pokrytie-079-family-selftest,
+#       check:ops-server-family-selftest, check:runner-hygiene) — step-строки реестра,
+#       не legkij (круг 3, Р2-1/Н-331: перенос в legkij ради зелёного PR пробил
+#       бюджет 120 с); К10-исп — команды этих ключей зелены на копии дерева без
+#       учётных путей (условие тяжёлой джобы после strip И-7; удаление — оракул
+#       батареи в её памяти, не субъект); К11 — сумма весов строк legkij того же
+#       реестра, что исполняет workflow, ≤ 120 с (BUDGET-121), пара 120/121;
 #   В1  run_ci_lane.sh: строка «замер: <ключ> <секунды>» на каждый ключ, legkij-ключи
 #       исполняемы; В2 ci_vesa.sh: --write по максимуму замеров, --check ловит ручной вес,
 #       ключ без замера — отказ без записи, приманка вне якоря не считается.
@@ -79,6 +86,8 @@
 #   bez-zamera           run_ci_lane без строки замера        → В1 | В2
 #   derzhit-staryj       ci_vesa держит вес без замера        → В2 | В1
 #   legkij-glotaet       гасит отказ последнего legkij-ключа  → К-исп legkij | В1
+#   legkij-tri-klyucha  три ключа тяжёлых — строки legkij   → К10 | К11
+#   chitaet-uchet       тяжёлая toy-команда читает ROADMAP  → К10-исп | К10
 # (K-legkij-*: обход Critic087 по трём уровням — шаг, джоба, workflow; диффпроба К-исп
 #  legkij зелена — исполнение извлечённой команды YAML-подавления не видит, ловит контур К6;
 #  legkij-glotaet наблюдаем лишь при отказе ПОСЛЕДНЕГО ключа — К-исп legkij обходит все.)
@@ -481,6 +490,104 @@ KX() {  # <S> <исполнение>
   return 0
 }
 
+# ── К10/К11: круг 3 — бюджет лёгкого и учёт-независимость тяжёлых (Р2-1, BUDGET-121) ─
+K10_KEYS='check:pokrytie-079-family-selftest check:ops-server-family-selftest check:runner-hygiene'
+K10() {  # <S> — три ключа тяжёлых проверок: step-строки реестра, не legkij
+  need "$1" registry/ci-steps.tsv || return 1
+  local k leg step miss=''
+  leg=" $(python3 "$T87_ORAKUL" reg-keys "$1/registry/ci-steps.tsv" legkij) "
+  step=" $(python3 "$T87_ORAKUL" reg-keys "$1/registry/ci-steps.tsv" step) "
+  for k in $K10_KEYS; do
+    [[ "$leg" == *" $k "* ]] && miss="$miss $k:legkij"
+    [[ "$step" == *" $k "* ]] || miss="$miss $k:bez-step"
+  done
+  [ -z "$miss" ] && return 0
+  R="ключи тяжёлых проверок не на месте:$miss — перенос в legkij пробивает бюджет 120 с (Р2-1)"
+  return 1
+}
+k10_cmd() {  # <S> <ключ> → команда step-строки (npm run — раскрыт через package.json)
+  local row cmd nk
+  row="$(awk -F'\t' -v k="$2" '$1 == "step" && $2 == k { print $4; exit }' "$1/registry/ci-steps.tsv")"
+  [ -n "$row" ] || return 1
+  cmd="${row%$'\n'}"
+  if [[ "$cmd" == 'npm run '* ]]; then
+    nk="${cmd#npm run }"; nk="${nk%% *}"
+    cmd="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["scripts"][sys.argv[2]])' "$1/package.json" "$nk" 2>/dev/null)" || return 1
+  fi
+  [ -n "$cmd" ] || return 1
+  printf '%s' "$cmd"
+}
+k10_tree() {  # <S> <каталог> — копия дерева субъекта без учётных путей (оракул И-1, в памяти)
+  rm -rf "$2"
+  cp -a "$1" "$2" || return 1
+  python3 - "$2" "$T87_ORAKUL" <<'PY' || return 1
+import os, subprocess, sys
+d, orak = sys.argv[1], sys.argv[2]
+sys.path.insert(0, os.path.dirname(orak))
+import _orakul as o
+if os.path.isdir(os.path.join(d, '.git')):
+    env = dict(os.environ, GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+    out = subprocess.run(['git', '-C', d, 'ls-files', '-z'], capture_output=True, env=env).stdout
+    paths = [p.decode('utf-8', 'surrogateescape') for p in out.split(b'\0') if p]
+else:
+    paths = []
+    for root, _dirs, names in os.walk(d):
+        for n in names:
+            paths.append(os.path.relpath(os.path.join(root, n), d))
+for p in paths:
+    if any(o.u_covers(u, p) for u in o.U87) and os.path.lexists(os.path.join(d, p)):
+        os.remove(os.path.join(d, p))
+PY
+}
+K10I() {  # <S> — команды трёх ключей зелены на дереве без учётных путей (тяжёлая джоба)
+  need "$1" registry/ci-steps.tsv || return 1
+  local k cmd bad='' d="$T/k10-derevo"
+  for k in $K10_KEYS; do
+    k10_cmd "$1" "$k" >/dev/null || bad="$bad $k:net-step-stroki"
+  done
+  [ -z "$bad" ] || { R="ключи без step-строк, на тяжёлой джобе неисполнимы:$bad"; return 1; }
+  k10_tree "$1" "$d" || { R='дерево без учётных путей не построено'; return 1; }
+  for k in $K10_KEYS; do
+    cmd="$(k10_cmd "$1" "$k")"
+    if ! (cd "$d" && bash -c "$cmd") >/dev/null 2>&1; then bad="$bad $k"; fi
+  done
+  [ -z "$bad" ] && return 0
+  R="на дереве без учётных путей (strip И-7) отказ — чтение учётного пути:$bad"
+  return 1
+}
+K11() {  # <S> <subject|par-120|par-121> — бюджет лёгкого: сумма весов legkij ≤ 120 (BUDGET-121)
+  local reg sum
+  case "$2" in
+    subject)
+      need "$1" registry/ci-steps.tsv || return 1
+      reg="$1/registry/ci-steps.tsv" ;;
+    par-*)
+      reg="$T/k11.tsv"
+      { printf 'lanes\t6\n'
+        printf 'legkij\tk1\t%d\tbash a.sh\n' "$((${2#par-} - 1))"
+        printf 'legkij\tk2\t1\tbash b.sh\n'
+      } > "$reg" ;;
+    *) R="неизвестный вход К11: $2"; return 1 ;;
+  esac
+  sum="$(python3 - "$reg" <<'PY'
+import sys
+s = 0
+for line in open(sys.argv[1], encoding='utf-8'):
+    p = line.rstrip('\n').split('\t')
+    if p[0] == 'legkij' and len(p) >= 3:
+        s += int(p[2])
+print(s)
+PY
+)" || { R='вес legkij нечитаем: нецелое поле'; return 1; }
+  if [ "$sum" -le 120 ]; then
+    [ "$2" = par-121 ] && { R="пара 121: сумма $sum принята ≤ 120 — порог не различает 120/121"; return 1; }
+    return 0
+  fi
+  [ "$2" = par-121 ] && return 0
+  R="сумма весов legkij = $sum с > 120 — бюджет лёгкой джобы пробит (BUDGET-121)"
+  return 1
+}
+
 # ── В: замеры и веса ────────────────────────────────────────────────────────────
 V1() {
   need "$1" scripts/run_ci_lane.sh || return 1
@@ -548,6 +655,11 @@ done
 for x in reshenie/reuse reshenie/run strip/svoj strip/chuzhoj vorota/kod-bez-pr vorota/uchet legkij; do
   cell "К-исп $x" KX "$S" "$x"
 done
+cell 'К10 три ключа — step, не legkij' K10 "$S"
+cell 'К10-исп три ключа без учётных путей' K10I "$S"
+cell 'К11 бюджет legkij ≤ 120 с' K11 "$S" subject
+cell 'К11 пара 120 — зелено' K11 "$S" par-120
+cell 'К11 пара 121 — красно' K11 "$S" par-121
 cell 'В1 строки замера' V1 "$S"
 cell 'В2 веса по замерам' V2 "$S"
 
@@ -585,6 +697,10 @@ elif st == 'K-legkij-obolochka':
     head = head.replace('\njobs:\n', '\ndefaults:\n  run:\n    shell: python {0}\n\njobs:\n', 1)
 open(p, 'w', encoding='utf-8').write(head + ci)
 PY
+      printf '%s' "$m" ;;
+    legkij-tri-klyucha|chitaet-uchet)
+      rm -rf "$m"
+      M087_STAB="$st" t87_model_tree "$m" "$REPO" || { printf 'NOT_IMPLEMENTED: модель стаба не построена\n' >&2; exit 2; }
       printf '%s' "$m" ;;
     *) printf '%s' "$T/model" ;;
   esac
@@ -634,6 +750,8 @@ stab K-legkij-obolochka KS K6 -- KX legkij
 stab bez-zamera V1 -- V2
 stab derzhit-staryj V2 -- V1
 stab legkij-glotaet KX legkij -- V1
+stab legkij-tri-klyucha K10 -- K11 subject
+stab chitaet-uchet K10I -- K10
 
 printf 'ИТОГ 087: клеток ok=%d КРАСНО=%d; стаб-пак: поймано %d/%d (%s)\n' \
   "$NOK" "$((NBAD - (SP_N - SP_OK)))" "$SP_OK" "$SP_N" "$MODE"
