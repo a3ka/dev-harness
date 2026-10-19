@@ -107,6 +107,11 @@ step	check:ceilings	15	npm run check:ceilings
 step	check:decisions	15	npm run check:decisions
 step	check:approval	20	npm run check:approval
 step	check:hooks	15	npm run check:hooks
+# КОНТРАКТ 087 МИКРО-КРУГ К12: шаг gen_ci_steps --check — ловец расхождений
+# реестра и ci.yml (дрейф покрывается здесь же). Вес ≤ 5 с по замеру time (0.28 с).
+# К12 (LANE-087): step-ключ обязан присутствовать в matrix-include джобы ci —
+# gen_ci_steps.sh --write распределяет его по lane и регенерирует ci.yml.
+step	check:gen-ci-steps-coherence	5	bash scripts/gen_ci_steps.sh --check
 # ТЯЖЁЛЫЕ (≥40 с — замеры §9.1)
 step	drill:contract-change	20	npm run drill:contract-change
 step	drill:next-id-race	20	npm run drill:next-id-race
