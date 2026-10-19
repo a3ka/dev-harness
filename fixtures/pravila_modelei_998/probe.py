@@ -1231,6 +1231,97 @@ def c_orch_016():
     return False, f"секция «{ORCH_016_HEADER}» пуста (до конца файла)"
 
 
+# ── КРУГ 3 (Р998-7, вердикт Rev998r2): инв. 1 «ОБЕ точки входа» — fail-closed
+# --prompt обязан стоять для КАЖДОЙ роли (потребитель workshop кормит
+# --prompt "$SESSION_ROLE" любой сессии), не только orchestrator. Регресс
+# круга 2: барьер routing стоял внутри ветки if (r.slug === 'orchestrator')
+# и --prompt <роль≠orchestrator> на сломанном routing молча давал rc 0.
+# Клетка обязана быть красной на OBJECT круга 2 (75eb586d) и зелёной после
+# выноса барьера в --prompt до ветки роли.
+BROKEN_ROUTING4 = tuple(
+    (label, NEG_BY_NAME[key][0], NEG_BY_NAME[key][1], NEG_BY_NAME[key][2])
+    for label, key in (
+        ("routing отсутствует", "missing_section"),
+        ("неизвестный ключ routing", "unknown_routing_key"),
+        ("несуществующая роль", "bogus_role"),
+        ("несуществующий тир", "bogus_tier"),
+    )
+)
+NON_ORCH_ROLES = ("implementer", "architect", ROLE_GLM)
+
+
+@case("gen_prompt_roles_fail_closed")
+def c_prompt_roles_fail_closed():
+    why = []
+    for label, mut, tokens, idx in BROKEN_ROUTING4:
+        sb, am = sandbox(mut_json=mut)
+        ridx = resolve_idx(idx, am)
+        for role in NON_ORCH_ROLES:
+            rc, out, err = gen_prompt(sb, role)
+            if rc != 1:
+                why.append(f"{label}/--prompt {role}: rc={rc} (ожидается 1 — "
+                           "инв. 1: обе точки входа, каждая сессия)")
+            else:
+                named = named_reject(out + err, tokens, ridx)
+                if named:
+                    why.append(f"{label}/--prompt {role}: {named}")
+        drift = disk_drift(sb, am)
+        shutil.rmtree(sb, ignore_errors=True)
+        if drift:
+            why.append(f"{label}: {drift}")
+    # позитивный контроль: честный routing — те же роли дают rc 0
+    sb, _ = sandbox()
+    for role in NON_ORCH_ROLES:
+        rc, out, err = gen_prompt(sb, role)
+        if rc != 0:
+            why.append(f"честный routing/--prompt {role}: rc={rc} (ожидается 0): "
+                       f"{first_line(out or err)}")
+    shutil.rmtree(sb, ignore_errors=True)
+    return (not why), ("; ".join(why) if why else
+                       "сломанный routing отвергнут в --prompt каждой роли "
+                       "(implementer/architect/implementer-glm; routing, индекс, "
+                       "нарушитель названы); честный routing — rc 0 на тех же ролях")
+
+
+# Р998-3 не откатить: вынос барьера на все роли --prompt обязан оставить чужие
+# режимы (ПЕРЕСЕЧЕНИЕ 054) при rc 0 и без диагноза routing — теперь на всех
+# четырёх поломках, включая ссылки (bogus_role/bogus_tier), а не только
+# грамматику. Зеркалит gen_modes_isolated_from_routing расширенным классом.
+@case("gen_modes_isolated_all_breaks")
+def c_modes_all_breaks():
+    overlay = os.path.join(SUBJECT, "config", "models-glm.yml")
+    agents_md = os.path.join(SUBJECT, "AGENTS.md")
+    missing = [p for p in (overlay, agents_md) if not os.path.isfile(p)]
+    if missing:
+        return False, "нет входов режимов у субъекта: " + ", ".join(missing)
+    why = []
+    for label, mut, _tokens, _idx in BROKEN_ROUTING4:
+        sb, am = sandbox(mut_json=mut)
+        shutil.copy2(agents_md, os.path.join(sb, "AGENTS.md"))
+        shutil.copy2(overlay, os.path.join(sb, "config", "models-glm.yml"))
+        for mlabel, margs in (
+            ("--resolve-overlay", ["--resolve-overlay", "config/models-glm.yml"]),
+            ("--agents-rules", ["--agents-rules", "AGENTS.md"]),
+            ("--into", ["--into", "into-998"]),
+        ):
+            rc, out, err = run(
+                [NODE, os.path.join(sb, "scripts", "gen-harness.ts")] + margs, cwd=sb)
+            text = out + err
+            if rc != 0:
+                why.append(f"{label}/{mlabel}: rc={rc} (ожидается 0 — режим 998 не "
+                           f"правит, ПЕРЕСЕЧЕНИЕ 054): {first_line(text)}")
+            elif "routing" in text:
+                why.append(f"{label}/{mlabel}: rc=0, но напечатан диагноз routing: "
+                           f"{first_line(text)}")
+        drift = disk_drift(sb, am)
+        shutil.rmtree(sb, ignore_errors=True)
+        if drift:
+            why.append(f"{label}: {drift}")
+    return (not why), ("; ".join(why) if why else
+                       "режимы --resolve-overlay/--agents-rules/--into дают rc 0 без "
+                       "диагноза routing на всех четырёх поломках (Р998-3 не откат)")
+
+
 # ── МАТРИЦА РАЗЛИЧИМОСТИ: --matrix ───────────────────────────────────────────
 SEED = os.path.join(HERE, "seed")
 MODELS = {
@@ -1245,6 +1336,7 @@ MODELS = {
     "role_file_blind": os.path.join(HERE, "decoy_role_file_blind.ts"),
     "form_blind": os.path.join(HERE, "decoy_form_blind.ts"),
     "module_barrier": os.path.join(HERE, "decoy_module_barrier.ts"),
+    "orch_only": os.path.join(HERE, "decoy_orch_only.ts"),
 }
 
 SEED_AM = json.loads(read(os.path.join(SEED, "config", "agent_models.json")))
@@ -1633,6 +1725,96 @@ def matrix():
     add("decoy_form_blind_seed_check_parity", cell_decoy(
         "decoy_form_blind_seed_check_parity", "form_blind", ["--check"],
         expect=lambda rc, out, err, d: rc == 0 and d is None))
+
+    # ── КРУГ 3 (Р998-7): честная модель отказывает на --prompt ЛЮБОЙ роли при
+    # сломанном routing; обманка orch_only («барьер только для orchestrator» —
+    # регресс круга 2 субъекта) ловится на назначенном входе «сломанный
+    # routing × --prompt <роль≠orchestrator>» (там её дефект наблюдаем:
+    # молчаливый rc 0) и неотличима от честной модели в --check,
+    # --prompt orchestrator и на чистом дереве.
+    def cell_model_prompt_roles_fail(name):
+        def fn():
+            why = []
+            for label, mut, tokens, idx in BROKEN_ROUTING4:
+                tree, am = seed_sandbox(mut_json=mut)
+                ridx = resolve_idx(idx, am)
+                for role in NON_ORCH_ROLES:
+                    rc, out, err = mrun("model", tree, ["--prompt", role])
+                    named = named_reject(out + err, tokens, ridx)
+                    if rc != 1 or named is not None:
+                        why.append(f"{label}/--prompt {role}: rc={rc}"
+                                   + (f": {named}" if named else " (ожидается 1)"))
+                shutil.rmtree(tree, ignore_errors=True)
+            tree, _ = seed_sandbox()
+            for role in NON_ORCH_ROLES:
+                rc, out, err = mrun("model", tree, ["--prompt", role])
+                if rc != 0:
+                    why.append(f"честный routing/--prompt {role}: rc={rc}: "
+                               f"{first_line(out or err)}")
+            shutil.rmtree(tree, ignore_errors=True)
+            return (not why), ("; ".join(why) if why else
+                               "честная модель: сломанный routing → rc 1 в --prompt "
+                               "каждой роли; честный routing → rc 0 на тех же ролях")
+        return fn
+
+    add("model_prompt_roles_fail_closed",
+        cell_model_prompt_roles_fail("model_prompt_roles_fail_closed"))
+
+    def cell_decoy_orch_only_roles(name):
+        def fn():
+            missed = []
+            for label, mut, tokens, idx in BROKEN_ROUTING4:
+                tree, am = seed_sandbox(mut_json=mut)
+                ridx = resolve_idx(idx, am)
+                for role in NON_ORCH_ROLES:
+                    rc, out, err = mrun("orch_only", tree, ["--prompt", role])
+                    if rc != 0:
+                        missed.append(f"{label}/--prompt {role}: rc={rc} (дефект "
+                                      "обманки наблюдаем ровно здесь — молчаливый rc 0)")
+                rc, out, err = mrun("orch_only", tree, ["--prompt", "orchestrator"])
+                named = named_reject(out + err, tokens, ridx)
+                if rc != 1 or named is not None:
+                    missed.append(f"{label}/--prompt orchestrator: rc={rc} (обманка "
+                                  "неотличима от честной модели в честной точке — "
+                                  "ожидается 1 с именованием)")
+                shutil.rmtree(tree, ignore_errors=True)
+            return (not missed), ("; ".join(missed) if missed else
+                                  "обманка «барьер только для orchestrator» поймана: "
+                                  "--prompt каждой иной роли при сломанном routing "
+                                  "даёт rc 0; --prompt orchestrator отказывает как "
+                                  "честная модель")
+        return fn
+
+    add("decoy_orch_only_prompt_roles",
+        cell_decoy_orch_only_roles("decoy_orch_only_prompt_roles"))
+
+    def cell_orch_only_clean_parity(name):
+        def fn():
+            tree, am = seed_sandbox()
+            why = []
+            rc, out, err = mrun("orch_only", tree, ["--check"])
+            if rc != 0:
+                why.append(f"--check rc={rc}: {first_line(out or err)}")
+            rc, out, err = mrun("orch_only", tree, ["--prompt", "implementer"])
+            if rc != 0 or out != body_text(SEED_IMPL_BODY):
+                why.append(f"--prompt implementer rc={rc}, паритет тела="
+                           f"{out == body_text(SEED_IMPL_BODY)}")
+            rc2, out2, err2 = mrun("orch_only", tree, ["--prompt", "orchestrator"])
+            probs = render_problems(out2, SEED_AM) if rc2 == 0 else [f"rc={rc2}"]
+            if probs:
+                why.append(f"--prompt orchestrator: {probs[0]}")
+            drift = disk_drift(tree, am)
+            shutil.rmtree(tree, ignore_errors=True)
+            if drift:
+                why.append(drift)
+            return (not why), ("; ".join(why) if why else
+                               "orch_only на чистом дереве неотличима от честной "
+                               "модели: --check rc 0; --prompt implementer = тело "
+                               "роли; рендер orchestrator полон")
+        return fn
+
+    add("decoy_orch_only_seed_parity",
+        cell_orch_only_clean_parity("decoy_orch_only_seed_parity"))
 
     return cells
 
