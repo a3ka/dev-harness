@@ -394,6 +394,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 998 | до V-2 | ops | 997 | docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
+| 4 | 106 | до V-2 | complior | - | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
