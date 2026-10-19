@@ -93,7 +93,10 @@ def sources(root, p, contract, stage, mutant, door=False):
         return 0
     if mutant == 'ignore-canon-keys':
         canon = {k: v for k, v in canon.items() if k in ('sources', 'gate')}
-    if canon_invalid(canon):
+    if canon_invalid(canon) and mutant != 'canon-escape-source':
+        # canon-escape-source (круг 1): стаб принимает источник-побег — на
+        # входе symlink/traversal грамматика пути тоже нейтрализована,
+        # иначе дефект стаба затенён более ранним гардом (Н-39).
         return fail('SOURCE_CANON_INVALID')
     for row in canon['sources']:
         if mutant == 'canon-escape-source':
