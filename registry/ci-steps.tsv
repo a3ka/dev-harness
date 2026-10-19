@@ -57,6 +57,17 @@ legkij	check:contract-frozen	25	npm run check:contract-frozen
 # ROADMAP.md и ломает копирование — лечение по §Остаточный риск: перенос в legkij
 # (бюджет 120 с), не расширение U и не правка фикстуры вне зоны.
 legkij	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
+# Контракт 087 И-1/И-2: чек читает HANDOFF.md (fixtures/ops_server/red_server_obvjazka_074.sh
+# build_docs копирует $REPO_ROOT/HANDOFF.md в мир к7); strip тяжёлых джоб удаляет
+# HANDOFF.md (в U) и ломает копирование — лечение по §Остаточный риск: перенос в
+# legkij (бюджет 120 с, вес 20 + существующие 7 legkij весов 80 = 100 ≤ 120).
+legkij	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
+# Контракт 087 И-1/И-2: чек читает verdicts/critic/contracts-010-v2.md
+# (scripts/check_runner_hygiene.sh ветвь (porjadok): [ -f "$vf" ] || die porjadok
+# «файла $VERD нет на дереве — вердикт удалён после коммита»); strip тяжёлых
+# джоб удаляет verdicts/ (в U) и ломает (porjadok) — лечение по §Остаточный риск:
+# перенос в legkij (бюджет 120 с, вес 20 + 7 legkij = 120 ≤ 120).
+legkij	check:runner-hygiene	20	npm run check:runner-hygiene
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
 step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
@@ -80,7 +91,6 @@ step	check:declared-path-family-selftest	20	bash fixtures/_krasnye_059.sh
 step	check:samodostatochnost-family-selftest	25	bash fixtures/_krasnye_060.sh
 step	check:github-token-family-selftest	15	bash scripts/check_github_token_070.sh
 step	check:zony-merge-head-family-selftest	20	bash fixtures/_krasnye_073.sh
-step	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
 step	check:door-bugfix-family-selftest	20	bash fixtures/_krasnye_080.sh
 step	check:orch-loop-997	30	bash fixtures/ops_server/orch_loop_997/probe.sh
 step	check:v-polete-nichego-088-family-selftest	20	bash fixtures/_krasnye_088.sh
@@ -88,7 +98,6 @@ step	check:merge-gate-family-selftest	20	bash fixtures/check_judge_gate/krasnye_
 step	check:provodka-external-994	10	bash fixtures/check_provodka/external_ci_994/probe.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	15	npm run check:judge-gate
-step	check:runner-hygiene	20	npm run check:runner-hygiene
 step	drill:gate-draft	10	npm run drill:gate-draft
 step	drill:startup-digest	10	npm run drill:startup-digest
 step	drill:nabludenia-nechitaemo	10	npm run drill:nabludenia-nechitaemo
