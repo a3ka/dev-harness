@@ -1,12 +1,14 @@
 // Красные тесты 107 (CMP-MOB-003), архитекторская проба Erstinformation.
 // Значения — побайтово из оракула source.json (сняты с Complior-mob 76ac10fa
 // ДО запуска субъекта); клетки порождаются циклами по закрытой грамматике
-// (delivery_states × versions × admissions × evidence_invalid), не ручным списком.
-// Круг 2 (kritik-107-krug1): полнота доказательства CURRENT_CONFIRMED (Б1),
-// произведение состояний×версий×admission и побочные эффекты (Б2), время
-// ack с управляемым Promise (Б3), исполнение настоящего ApiClient/mock (Б4),
-// серверная грамматика MISSING/UNKNOWN/NOT_REQUIRED/snapshot-absent (С3),
-// pin версии открытия в F02.05 (С4).
+// (delivery_states × versions × admissions × evidence_fields), не ручным списком.
+// Круг 3 (арбитраж contracts-107-perechen-v1): критерий — ЗАКРЫТОЕ произведение
+// осей К5′–К9′, а не поштучные мутанты: К5′ произведение ЗНАЧЕНИЙ полей
+// доказательства (96), К6′ действие × полный вектор эффектов × состояние ×
+// версия × admission (100), К7′ исход ack × версия ушла × admission с порядком
+// ack-start→settled→recheck и исходом reject (12), К8′ серверная грамматика
+// (как на OBJECT), К9′ mock/runtime → экран × admission + полный снимок (21).
+// Круги 1–2 (kritik-107-krug1/krug2): семьи К1–К4, К8, статическая — сохранены.
 // Паттерн await render/await fireEvent — прецедент rehearsal.test.tsx (RNTL 14).
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
@@ -178,13 +180,6 @@ it('107 erstinfo ACK_STALE_NO_CONTINUE', async () => {
   expect(calls.recheck).toBe(1);
 });
 
-it('107 erstinfo FAILED_RETRY_ACTION', async () => {
-  const { calls } = await harness({ gate: gate('FAILED', 'EQ') });
-  await fireEvent.press(screen.getByTestId('erstinfo-retry'));
-  expect(calls.recheck).toBe(1);
-  expect(calls.ack).toEqual([]);
-});
-
 it('107 erstinfo DOC_OPEN_EXACT_VERSION', async () => {
   // STALE: требуемая версия 3, открытая — 2; F02.05 показывает 2 (exact version).
   await harness({ gate: gate('CURRENT_CONFIRMED', 'STALE') });
@@ -227,111 +222,187 @@ it('107 erstinfo COPY_TITLES_FROM_CATALOG', async () => {
   expect(screen.getByText(TEXTS['action.F02.A02'])).toBeOnTheScreen();
 });
 
-// Б1: CURRENT_CONFIRMED × непригодное evidence × обе admission —
-// evidence-карта и continue отсутствуют при каждом виде негодного доказательства.
-const EVIDENCE_INVALID: Record<string, Partial<DisclosureGateSnapshot>> = {
-  EVIDENCE_NULL: { delivery_evidence_ref: null },
-  EVIDENCE_EMPTY: { delivery_evidence_ref: '' },
-  CHECKED_AT_EMPTY: { checked_at: '' },
-  WRONG_DOCUMENT: { required_document_id: 'doc-another-document' },
-  APPLICABILITY_UNKNOWN: { applicability: 'UNKNOWN' },
-  VERSION_NOT_EQUAL: { required_document_version: 1 },
-};
+// К5′ (арбитраж 107, инвариант 3): доказательство — произведение ЗНАЧЕНИЙ полей
+// evidence, не одиночные patch'и. ref ∈ {valid,null,''} × checked_at ∈ {valid,''}
+// × document ∈ {same,other} × applicability ∈ {REQUIRED,UNKNOWN} × version ∈
+// {EQ,NOT_EQUAL} = 48 комбинаций × 2 admission = 96 клеток; ровно одна
+// комбинация валидна (evidence-карта; continue ⇔ W1A), 47 → disclosure.updated
+// без evidence-карты и без continue. «Любое нарушение» инварианта 3 доказано
+// произведением: мутант, различающий подмножества полей, различим своей клеткой.
+const EVIDENCE_FIELDS: Array<[string, Array<Partial<DisclosureGateSnapshot>>]> = [
+  ['REF', [{}, { delivery_evidence_ref: null }, { delivery_evidence_ref: '' }]],
+  ['CHK', [{}, { checked_at: '' }]],
+  ['DOC', [{}, { required_document_id: 'doc-another-document' }]],
+  ['APPL', [{}, { applicability: 'UNKNOWN' }]],
+  ['VER', [{}, { required_document_version: 1 }]],
+];
+
+function evidenceCombos(
+  i = 0,
+  acc: Partial<DisclosureGateSnapshot> = {},
+  name = '',
+): Array<{ name: string; patch: Partial<DisclosureGateSnapshot>; valid: boolean }> {
+  if (i === EVIDENCE_FIELDS.length) {
+    return [{ name, patch: acc, valid: Object.keys(acc).length === 0 }];
+  }
+  const [label, values] = EVIDENCE_FIELDS[i];
+  return values.flatMap((p, j) =>
+    evidenceCombos(i + 1, { ...acc, ...p }, name + label + j),
+  );
+}
+
 for (const admission of ADMISSIONS) {
-  for (const [name, patch] of Object.entries(EVIDENCE_INVALID)) {
-    it(`107 erstinfo EVIDENCE_${name}_${admission}`, async () => {
+  for (const { name, patch, valid } of evidenceCombos()) {
+    it(`107 erstinfo EVIDENCE_PROD_${admission}_${name}`, async () => {
       await harness({ admission, gate: { ...gate('CURRENT_CONFIRMED', 'EQ'), ...patch } });
-      expect(screen.queryByTestId('erstinfo-evidence')).toBeNull();
-      expect(screen.queryByTestId('erstinfo-continue')).toBeNull();
+      if (valid) {
+        expect(screen.getByTestId('erstinfo-evidence')).toBeOnTheScreen();
+        expect(screen.queryByTestId('erstinfo-continue') !== null).toBe(admission === 'W1A');
+      } else {
+        expect(screen.queryByTestId('erstinfo-evidence')).toBeNull();
+        expect(screen.queryByTestId('erstinfo-continue')).toBeNull();
+        expect(screen.getByTestId('erstinfo-notice-disclosure.updated')).toBeOnTheScreen();
+      }
     });
   }
 }
 
-// Б2: полное произведение delivery_states × EQ/STALE × admissions —
-// continue виден ТОЛЬКО в CURRENT_CONFIRMED_EQ при W1A.
+// К6′ (арбитраж 107, инварианты 4–6, issue #7 работа 5): каждое действие
+// {open,retry,confirm,continue,back} × полный вектор эффектов (open, ack,
+// recheck, cont) × state × axis × admission = 5×2×2×5 = 100 клеток.
+// (а) доступность ровно по правилу: retry ⇔ FAILED; confirm ⇔ CURRENT_CONFIRMED;
+// continue ⇔ W1A ∧ CURRENT_CONFIRMED ∧ EQ; open/back всегда; (б) после нажатия
+// вектор E равен ожидаемому: open→(1,0,0,0), retry→(0,0,1,0),
+// confirm→(0,1,1,0) после settlement, continue→(0,0,0,1), back→(0,0,0,0).
+type ActionId = 'OPEN' | 'RETRY' | 'CONFIRM' | 'CONTINUE' | 'BACK';
+const ACTIONS: Array<[ActionId, string]> = [
+  ['OPEN', 'erstinfo-open-document'],
+  ['RETRY', 'erstinfo-retry'],
+  ['CONFIRM', 'erstinfo-confirm'],
+  ['CONTINUE', 'erstinfo-continue'],
+  ['BACK', 'erstinfo-back'],
+];
+const EFFECT: Record<ActionId, { open: number; ack: number; recheck: number; cont: number }> = {
+  OPEN: { open: 1, ack: 0, recheck: 0, cont: 0 },
+  RETRY: { open: 0, ack: 0, recheck: 1, cont: 0 },
+  CONFIRM: { open: 0, ack: 1, recheck: 1, cont: 0 },
+  CONTINUE: { open: 0, ack: 0, recheck: 0, cont: 1 },
+  BACK: { open: 0, ack: 0, recheck: 0, cont: 0 },
+};
+
 for (const admission of ADMISSIONS) {
   for (const state of STATES) {
     for (const axis of AXES) {
-      const allowed = admission === 'W1A' && state === 'CURRENT_CONFIRMED' && axis === 'EQ';
-      it(`107 erstinfo GATE_CONTINUE_${admission}_${state}_${axis}`, async () => {
-        await harness({ admission, gate: gate(state, axis) });
-        if (allowed) {
-          expect(screen.getByTestId('erstinfo-continue')).toBeOnTheScreen();
-        } else {
-          expect(screen.queryByTestId('erstinfo-continue')).toBeNull();
-        }
-      });
+      for (const [action, testID] of ACTIONS) {
+        it(`107 erstinfo ACTION_VECTOR_${admission}_${state}_${axis}_${action}`, async () => {
+          const { calls } = await harness({ admission, gate: gate(state, axis) });
+          if (action === 'BACK') {
+            // back живёт в F02.05: сначала открытие документа, эффект open сброшен.
+            await fireEvent.press(screen.getByTestId('erstinfo-open-document'));
+            calls.open.length = 0;
+          }
+          const available =
+            action === 'BACK' ||
+            action === 'OPEN' ||
+            (action === 'RETRY' && state === 'FAILED') ||
+            (action === 'CONFIRM' && state === 'CURRENT_CONFIRMED') ||
+            (action === 'CONTINUE' &&
+              admission === 'W1A' &&
+              state === 'CURRENT_CONFIRMED' &&
+              axis === 'EQ');
+          const el = screen.queryByTestId(testID);
+          expect(el !== null).toBe(available);
+          if (el === null) {
+            return;
+          }
+          await fireEvent.press(el);
+          await act(async () => {});
+          expect({
+            open: calls.open.length,
+            ack: calls.ack.length,
+            recheck: calls.recheck,
+            cont: calls.cont,
+          }).toEqual(EFFECT[action]);
+        });
+      }
     }
   }
 }
 
-// Б2: побочные эффекты {ack,open} × admission × версия — запрещённые
-// эффекты (continue при ack/open; ack при open) наблюдаются все.
-for (const admission of ADMISSIONS) {
-  for (const axis of AXES) {
-    it(`107 erstinfo ACTION_ACK_NO_CONTINUE_${admission}_${axis}`, async () => {
-      const { calls } = await harness({ admission, gate: gate('CURRENT_CONFIRMED', axis) });
-      await fireEvent.press(screen.getByTestId('erstinfo-confirm'));
-      await act(async () => {});
-      expect(calls.ack).toEqual([[FIXED.disclosure_ref, 2]]);
-      expect(calls.cont).toBe(0);
-      expect(calls.open).toEqual([]);
-    });
-    it(`107 erstinfo ACTION_OPEN_NO_CONTINUE_${admission}_${axis}`, async () => {
-      const { calls } = await harness({ admission, gate: gate('CURRENT_CONFIRMED', axis) });
-      await fireEvent.press(screen.getByTestId('erstinfo-open-document'));
-      await act(async () => {});
-      expect(calls.open).toEqual([[FIXED.document_ref, 2]]);
-      expect(calls.ack).toEqual([]);
-      expect(calls.cont).toBe(0);
-    });
-  }
-}
-it('107 erstinfo ACTION_CONTINUE_ONLY_W1A_EQ', async () => {
-  const { calls } = await harness({ admission: 'W1A' });
-  await fireEvent.press(screen.getByTestId('erstinfo-continue'));
-  await act(async () => {});
-  expect(calls.cont).toBe(1);
-  expect(calls.ack).toEqual([]);
-  expect(calls.open).toEqual([]);
-  expect(calls.recheck).toBe(0);
-});
+// К7′ (арбитраж 107, инвариант 5): исход ack {accepted, notAccepted, reject} ×
+// moved {нет, да: gate → STALE до settlement} × admission = 12 клеток; порядок
+// событий ack-start → settled → recheck (до settlement recheck = 0, после —
+// ровно 1), cont = 0, continue виден ⇔ W1A ∧ ¬moved (после reject дальнейшее
+// решает перечитанный gate, а не исход ack). Исход reject обязателен: контракт
+// :96 предписывает http-runtime именованный отказ до CMP-BCK-008/024 — экран
+// наблюдает завершение и этого Promise (эталон гасит rejection терминальным
+// .catch ПОСЛЕ finally).
+const ACK_OUTCOMES: Record<
+  string,
+  (d: {
+    resolve: (v: AcknowledgeDisclosureResult | void) => void;
+    reject: (e: Error) => void;
+  }) => void
+> = {
+  ACCEPTED: (d) =>
+    d.resolve({
+      disclosure_ref: FIXED.disclosure_ref,
+      version: 2,
+      accepted: true,
+      evidence_ref: FIXED.evidence_ref,
+    }),
+  NOT_ACCEPTED: (d) =>
+    d.resolve({
+      disclosure_ref: FIXED.disclosure_ref,
+      version: 2,
+      accepted: false,
+      evidence_ref: null,
+    }),
+  REJECT: (d) => d.reject(new Error('ACK_NAMED_FAILURE')),
+};
 
-// Б3: время — новая версия во время незавершённого ack (управляемый Promise):
-// после завершения ack обязателен recheck, continue не происходит.
 for (const admission of ADMISSIONS) {
-  it(`107 erstinfo ACK_VERSION_CHANGES_${admission}`, async () => {
-    let resolveAck!: (value: AcknowledgeDisclosureResult | void) => void;
-    const ackPromise = new Promise<AcknowledgeDisclosureResult | void>((resolve) => {
-      resolveAck = resolve;
-    });
-    const { calls, rerender } = await harness({
-      admission,
-      onAcknowledge: () => ackPromise,
-    });
-    await fireEvent.press(screen.getByTestId('erstinfo-confirm'));
-    await act(async () => {
-      rerender({ gate: gate('CURRENT_CONFIRMED', 'STALE') });
-    });
-    await act(async () => {
-      resolveAck({ accepted: false, version: 2, evidence_ref: null });
-    });
-    expect(calls.cont).toBe(0);
-    expect(calls.recheck).toBe(1);
-    expect(screen.queryByTestId('erstinfo-continue')).toBeNull();
-  });
-}
-
-// Б3: успешный current-ack тоже перечитывает gate ПОСЛЕ завершения Promise.
-for (const admission of ADMISSIONS) {
-  for (const axis of AXES) {
-    it(`107 erstinfo ACK_RECHECKS_${admission}_${axis}`, async () => {
-      const { calls } = await harness({ admission, gate: gate('CURRENT_CONFIRMED', axis) });
-      await fireEvent.press(screen.getByTestId('erstinfo-confirm'));
-      await act(async () => {});
-      expect(calls.ack).toEqual([[FIXED.disclosure_ref, 2]]);
-      expect(calls.recheck).toBe(1);
-    });
+  for (const moved of [false, true]) {
+    for (const [oname, settle] of Object.entries(ACK_OUTCOMES)) {
+      it(`107 erstinfo ACK_OUTCOME_${admission}_MOVED${moved ? 1 : 0}_${oname}`, async () => {
+        let resolveAck!: (v: AcknowledgeDisclosureResult | void) => void;
+        let rejectAck!: (e: Error) => void;
+        const ackPromise = new Promise<AcknowledgeDisclosureResult | void>((resolve, reject) => {
+          resolveAck = resolve;
+          rejectAck = reject;
+        });
+        const events: string[] = [];
+        const { calls, rerender } = await harness({
+          admission,
+          onAcknowledge: () => {
+            events.push('ack-start');
+            return ackPromise;
+          },
+          onRecheck: () => {
+            events.push('recheck');
+          },
+        });
+        await fireEvent.press(screen.getByTestId('erstinfo-confirm'));
+        if (moved) {
+          await act(async () => {
+            rerender({ gate: gate('CURRENT_CONFIRMED', 'STALE') });
+          });
+        }
+        // До settlement: только ack-start, recheck ещё не вызван.
+        expect(events).toEqual(['ack-start']);
+        await act(async () => {
+          events.push('settled');
+          settle({ resolve: resolveAck, reject: rejectAck });
+        });
+        // После settlement: ровно один recheck; continue не нажимается.
+        expect(events).toEqual(['ack-start', 'settled', 'recheck']);
+        expect(calls.cont).toBe(0);
+        expect(calls.open).toEqual([]);
+        expect(screen.queryByTestId('erstinfo-continue') !== null).toBe(
+          admission === 'W1A' && !moved,
+        );
+      });
+    }
   }
 }
 
@@ -351,7 +422,7 @@ for (const admission of ADMISSIONS) {
   });
 }
 
-// С3: серверная грамматика за пределами пяти экранных состояний —
+// С3/К8′: серверная грамматика за пределами пяти экранных состояний —
 // MISSING/UNKNOWN delivery и NOT_REQUIRED/отсутствующий snapshot:
 // безопасный fallback без evidence/confirm/continue, без краха.
 const SERVER_EXTRA_NOTICE: Record<string, string> = {
@@ -382,20 +453,30 @@ for (const admission of ADMISSIONS) {
   });
 }
 
-// Б4: сценарии mock и запись подтверждённой версии исполняются на НАСТОЯЩЕМ
-// @/mocks/disclosure-mock, не ищутся подстрокой.
-for (const state of STATES) {
-  for (const axis of AXES) {
-    it(`107 erstinfo MOCK_SCENARIO_${state}_${axis}`, () => {
-      const snap = gateFor(state, axis);
-      expect(snap.applicability).toBe('REQUIRED');
-      expect(snap.required_document_id).toBe(FIXED.document_ref);
-      expect(snap.delivery_state).toBe(state);
-      expect(snap.required_document_version).toBe(axis === 'EQ' ? 2 : 3);
-      expect(snap.delivery_evidence_ref).toBe(
-        state === 'CURRENT_CONFIRMED' ? FIXED.evidence_ref : null,
-      );
-    });
+// К9′(а) (арбитраж 107, Б4): каждый mock-сценарий (state × axis) × admission —
+// настоящий gateFor(state, axis) ПОДАЁТСЯ В ЭКРАН, наблюдается заявленное
+// состояние (notice/evidence) и continue ⇔ W1A ∧ CURRENT_CONFIRMED ∧ EQ;
+// 20 клеток. Исполнение на настоящем @/mocks/disclosure-mock, не подстрокой.
+for (const admission of ADMISSIONS) {
+  for (const state of STATES) {
+    for (const axis of AXES) {
+      it(`107 erstinfo MOCK_SCREEN_${admission}_${state}_${axis}`, async () => {
+        await harness({ admission, gate: gateFor(state, axis) });
+        const confirmed = state === 'CURRENT_CONFIRMED' && axis === 'EQ';
+        if (confirmed) {
+          expect(screen.getByTestId('erstinfo-evidence')).toBeOnTheScreen();
+          expect(screen.getByTestId('erstinfo-evidence-ref')).toHaveTextContent(FIXED.evidence_ref);
+        } else {
+          const noticeKey =
+            state === 'CURRENT_CONFIRMED' ? NOTICE_KEY.OUTDATED : NOTICE_KEY[state];
+          expect(screen.getByTestId(`erstinfo-notice-${noticeKey}`)).toBeOnTheScreen();
+          expect(screen.queryByTestId('erstinfo-evidence')).toBeNull();
+        }
+        expect(screen.queryByTestId('erstinfo-continue') !== null).toBe(
+          admission === 'W1A' && confirmed,
+        );
+      });
+    }
   }
 }
 it('107 erstinfo MOCK_ACK_RECORDS', () => {
@@ -414,13 +495,15 @@ it('107 erstinfo RUNTIME_ACK_EXECUTES', async () => {
     evidence_ref: `SYNTHETIC:${FIXED.evidence_ref}`,
   });
 });
+
+// К9′(б) (арбитраж 107, Б4): runtime-снимок сверяется toEqual ПОЛНОМУ
+// объявленному снимку DisclosureGateSnapshot (все поля типа, не 5 из 7) и
+// ПОДАЁТСЯ В ЭКРАН: evidence-карта с checked_at и continue при W1A.
 it('107 erstinfo RUNTIME_GATE_SNAPSHOT', async () => {
   const snap = await runtime.api.getDisclosureGate();
-  expect(snap).toMatchObject({
-    applicability: 'REQUIRED',
-    required_document_id: FIXED.document_ref,
-    delivery_state: 'CURRENT_CONFIRMED',
-    required_document_version: 2,
-    delivery_evidence_ref: FIXED.evidence_ref,
-  });
+  expect(snap).toEqual(gateFor('CURRENT_CONFIRMED', 'EQ'));
+  await harness({ admission: 'W1A', gate: snap });
+  expect(screen.getByTestId('erstinfo-evidence')).toBeOnTheScreen();
+  expect(screen.getByTestId('erstinfo-evidence-checked-at')).toHaveTextContent(FIXED.checked_at);
+  expect(screen.getByTestId('erstinfo-continue')).toBeOnTheScreen();
 });

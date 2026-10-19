@@ -116,13 +116,18 @@ function ErstinformationImpl({
 
   const confirm = () => {
     // Явное подтверждение: результат ack наблюдается после завершения Promise
-    // операции ApiClient; по завершении (успех или устаревшая версия) gate
-    // перечитывается — issue #7 «после ack перечитать текущее evidence».
+    // операции ApiClient; по завершении (успех, устаревшая версия ИЛИ отказ
+    // операции — http-runtime до CMP-BCK-008/024 отвечает именованным отказом,
+    // контракт :96) gate перечитывается — issue #7 «после ack перечитать
+    // текущее evidence». Терминальный .catch гасит rejection ПОСЛЕ finally:
+    // экран наблюдает завершение ЛЮБОГО исхода, unhandled rejection не оставляет.
     void Promise.resolve(
       onAcknowledge?.(disclosure.disclosure_ref, disclosure.version),
-    ).finally(() => {
-      onRecheck?.();
-    });
+    )
+      .finally(() => {
+        onRecheck?.();
+      })
+      .catch(() => undefined);
   };
 
   if (viewing) {
