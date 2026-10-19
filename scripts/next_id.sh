@@ -244,7 +244,7 @@ next_id_max_for_class() {
     [ -n "$tag" ] || continue
     if [[ "$tag" =~ id/[^/]+/([0-9]+)$ ]]; then
       local n=$((10#${BASH_REMATCH[1]}))
-      [ "$n" -gt "$max" ] && max="$n"
+      NEXT_ID_USED+=("$n"); [ "$n" -gt "$max" ] && max="$n"
     fi
   done < <(git -C "$root" for-each-ref --format='%(refname:short)' "refs/tags/id/$cls/" 2>/dev/null || true)
 
@@ -261,7 +261,7 @@ next_id_max_for_class() {
     [ -n "$ref" ] || continue
     if [[ "$ref" =~ (^|/)([0-9]+)(/|$) ]]; then
       local n=$((10#${BASH_REMATCH[2]}))
-      [ "$n" -gt "$max" ] && max="$n"
+      NEXT_ID_USED+=("$n"); [ "$n" -gt "$max" ] && max="$n"
     fi
   done < <(git -C "$root" for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null || true)
 
@@ -278,7 +278,7 @@ next_id_max_for_class() {
       base="${f##*/}"
       parse_artifact_basename "$base" || true
       [ -n "${ARTIFACT_NUMBER:-}" ] || continue
-      [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
+      NEXT_ID_USED+=("$ARTIFACT_NUMBER"); [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
     done < <(git -C "$root" ls-tree -r --name-only "HEAD" -- "$loc" 2>/dev/null              | awk -v loc="$loc" '"'"'$0 ~ "^" loc { print }'"'"')
   done
 
@@ -289,7 +289,7 @@ next_id_max_for_class() {
     base="${path##*/}"
     parse_artifact_basename "$base" || true
     [ -n "${ARTIFACT_NUMBER:-}" ] || continue
-    [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
+    NEXT_ID_USED+=("$ARTIFACT_NUMBER"); [ "$ARTIFACT_NUMBER" -gt "$max" ] && max="$ARTIFACT_NUMBER"
   done < <(git -C "$root" log --all --diff-filter=A --name-only --format= 2>/dev/null \
            | awk -v locs="$joined" '
                BEGIN { for (i=1; i<=split(locs, arr, " "); i++) { locs_arr[i]=arr[i] } }
@@ -453,6 +453,33 @@ fi
 # ── вычисление максимума по объединению источников (через общий помощник) ─────
 # Те же четыре источника, что и `next_id_max_for_class` — единый источник max+1.
 max="$(next_id_max_for_class "$HERE" "$class")"
+# ── Номера CONTRACT после 999 ────────────────────────────────────────────────
+# Решение владельца 2026-10-19 (docs/owner/2026-10-19-nomera-kontraktov.md): формат
+# прежний — ровно три цифры; когда max+1 вышел бы за 999, выдаётся НАИМЕНЬШИЙ
+# свободный номер в диапазоне 106–989. Занятость — те же четыре источника, что у max
+# (теги выдачи, компоненты имён ссылок, файлы на HEAD, пути в истории). Атомарность
+# прежняя: тег создаётся до печати; занятый гонкой тег — переход к следующему номеру.
+if [ "$class" = "CONTRACT" ] && [ $((max + 1)) -gt 999 ]; then
+  NEXT_ID_USED=()
+  used_out="$(mktemp)" || die "mktemp не создал временный файл"
+  if ! next_id_max_for_class "$HERE" "$class" > "$used_out"; then
+    rm -f "$used_out"; die "не удалось собрать занятые номера класса $class"
+  fi
+  rm -f "$used_out"
+  declare -A busy=()
+  for u in "${NEXT_ID_USED[@]}"; do busy[$u]=1; done
+  for ((n = 106; n <= 989; n++)); do
+    [ -z "${busy[$n]:-}" ] || continue
+    tagname="id/${class}/$(printf '%03d' "$n")"
+    if git -C "$HERE" tag "$tagname" -m "выдача механизмом, свободный номер $(date -u +%Y-%m-%dT%H:%M:%SZ)"; then
+      printf '%03d\n' "$n"
+      exit 0
+    fi
+    git -C "$HERE" show-ref --tags --quiet -- "refs/tags/$tagname" \
+      || die "git tag $tagname не удалось по причине, отличной от существования тега"
+  done
+  die "свободных номеров 106–989 не осталось — выдавать дальше нечего, формат не расширяется"
+fi
 
 # ── выдача с атомарной резервацией ────────────────────────────────────────────
 # Создаём тег ДО печати. Если тег уже существует (гонка или backfill) — пересчитываем max
