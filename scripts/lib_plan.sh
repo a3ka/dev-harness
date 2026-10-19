@@ -344,15 +344,18 @@ plan_status() {
     return 0
   fi
   local st=''
+  # 996 К6: путь реестра — из переменной окружения LIB_PLAN_REGISTRY (по
+  # умолчанию «registry» — прежнее поведение харнесса как проекта).
+  local reg="${LIB_PLAN_REGISTRY:-registry}"
   # done: ∃ refs/tags/done/contracts/<id>/*
   if git -C "$root" for-each-ref --format='%(refname)' "refs/tags/done/contracts/${id}/" 2>/dev/null | grep -q .; then
     st="$P84_ST_DONE"
   else
     local blob=''
     if [ "$head" = "1" ]; then
-      blob="$(git -C "$root" cat-file -p "HEAD:registry/closed-without-done.tsv" 2>/dev/null || true)"
-    elif [ -f "$root/registry/closed-without-done.tsv" ]; then
-      blob="$(cat "$root/registry/closed-without-done.tsv" 2>/dev/null || true)"
+      blob="$(git -C "$root" cat-file -p "HEAD:${reg%/}/closed-without-done.tsv" 2>/dev/null || true)"
+    elif [ -f "$root/${reg%/}/closed-without-done.tsv" ]; then
+      blob="$(cat "$root/${reg%/}/closed-without-done.tsv" 2>/dev/null || true)"
     fi
     if [ -n "$blob" ] && printf '%s\n' "$blob" | awk -F'\t' -v w="$id" '$1==w {f=1; exit} END{exit !f}'; then
       st="$P84_ST_CLOSED"
@@ -381,10 +384,11 @@ p84_idx_of() {
 # Печатает второе поле строки closed-without-done.tsv для id (head=1 → HEAD-блоб).
 p84_closed_reason() {
   local id="$1" root="$2" head="${3:-0}" blob
+  local reg="${LIB_PLAN_REGISTRY:-registry}"
   if [ "$head" = "1" ]; then
-    blob="$(git -C "$root" cat-file -p "HEAD:registry/closed-without-done.tsv" 2>/dev/null || true)"
-  elif [ -f "$root/registry/closed-without-done.tsv" ]; then
-    blob="$(cat "$root/registry/closed-without-done.tsv" 2>/dev/null || true)"
+    blob="$(git -C "$root" cat-file -p "HEAD:${reg%/}/closed-without-done.tsv" 2>/dev/null || true)"
+  elif [ -f "$root/${reg%/}/closed-without-done.tsv" ]; then
+    blob="$(cat "$root/${reg%/}/closed-without-done.tsv" 2>/dev/null || true)"
   fi
   [ -n "$blob" ] || return 1
   printf '%s\n' "$blob" | awk -F'\t' -v w="$id" '$1==w {sub("^[^\t]+\t",""); print; exit}'

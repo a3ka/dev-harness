@@ -57,6 +57,20 @@ SCHEMA_LEVELS='
   repo:workflowPaths:verdicts:required
   repo:workflowPaths:registry:required
   repo:workflowPaths:fixtures:required
+  repo:workflowPaths:state:optional
+
+  # Контракт 996: sourceCanon — опциональный юнит репо-слоя
+  # ({sources, gate}; sources=array of {path, priority}, priority int ≥0;
+  # gate=argv-массив строк без NUL). Слияние — ЮНИТОМ как contextPack (054/095):
+  # репо-объявление замещает defaults ЦЕЛИКОМ. Словарь закрыт: известные ключи
+  # sources, gate; priority ∈ {0|1|…}; путь относительный внутри R, без NUL.
+  repo:sourceCanon:optional
+  repo:sourceCanon:sources:optional
+  repo:sourceCanon:gate:optional
+
+  project:defaults:sourceCanon:optional
+  project:defaults:sourceCanon:sources:optional
+  project:defaults:sourceCanon:gate:optional
 
   repo:commands:test:required
   repo:commands:build:required
@@ -87,6 +101,7 @@ SCHEMA_LEVELS='
   project:defaults:workflowPaths:verdicts:required
   project:defaults:workflowPaths:registry:required
   project:defaults:workflowPaths:fixtures:required
+  project:defaults:workflowPaths:state:optional
 
   project:defaults:commands:test:required
   project:defaults:commands:build:required
@@ -257,7 +272,15 @@ jq -e . "$PROJECT_JSON_FD" >/dev/null 2>&1 || die_p "файл не JSON: $PROJEC
 # молча проваливалась. Поэтому поиск — функцией с here-string.
 _key_in_schema() {  # <искомая-строка>
   local needle="$1"
-  printf '%s' "$SCHEMA_LEVELS" | grep -qF "$needle"
+  # here-string `<<<"$SCHEMA_LEVELS"` (НЕ `printf '%s' "$SCHEMA_LEVELS" | grep -q`):
+  # при set -o pipefail форма `printf | grep -q` гонкой рвёт пайп на первом
+  # совпадении (grep -q выходит, printf получает SIGPIPE/EPIPE → rc 141 →
+  # pipefail поднимает rc пайпа до 141), и `_key_in_schema "…"` ложно
+  # возвращает «ключ вне алфавита» при ранней остановке grep. Здесь-stdin
+  # создаётся без живого пайпа, поэтому SIGPIPE производителю невозможен;
+  # поведение поиска по байтам байт-в-байт прежнее (here-string без
+  # завершающего \n, как и printf '%s').
+  grep -qF -- "$needle" <<<"$SCHEMA_LEVELS"
 }
 
 scan_levels() {
@@ -281,10 +304,9 @@ scan_levels() {
   # ТОЛЬКО из него (родитель — scan_levels — продолжал бы работу молча; см.
   # отладочную историю). Поэтому обход — здесь же, через одну переменную-список.
   # Каждая ветвь — если она задана как объект, проверяются её ключи.
-  local known_branches="projectLayer workflowPaths commands git ci barriers contextPack"
+local known_branches="projectLayer workflowPaths commands git ci barriers contextPack sourceCanon"
   if [ "$level" = "project" ]; then
-    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack"
-    # Ключи самой defaults-ветви (отдельно от дочерних)
+    known_branches="$known_branches defaults.workflowPaths defaults.commands defaults.git defaults.ci defaults.barriers defaults.contextPack defaults.sourceCanon"
     if jq -e 'has("defaults") and (.defaults|type)=="object"' "$file" >/dev/null 2>&1; then
       local dk dk_rc
       dk_rc=0
@@ -302,6 +324,15 @@ scan_levels() {
   for branch in $known_branches; do
     if [ "$branch" = "projectLayer" ] && [ "$level" = "project" ]; then
       continue  # projectLayer только в repo
+    fi
+    # 996: sourceCanon — ЗАКРЫТЫЙ алфавит внутри (sources, gate); дополнительные
+    # ключи отвергаются check_project_sources.sh, а не profile_resolver.
+    # Причина — перенос строгой валидации к единственной детали (источники
+    # и gate — закрыто-новое), чтобы профиль проходил резолвер даже при
+    # невалидном canon (иначе gate_test К5 превращается в «неизвестный ключ
+    # в репо-слой» — что препятствует проверке шва).
+    if [ "$branch" = "sourceCanon" ] || [ "$branch" = "defaults.sourceCanon" ]; then
+      continue
     fi
     # Путь к ветви для jq. Гейт `has($branch)` НЕКОРРЕКТЕН для ветвей-путей
     # вроде `defaults.workflowPaths`: `has(...)` ищет литеральный ключ с
@@ -584,7 +615,8 @@ MERGED=$(jq -n \
       contracts:  v(["workflowPaths","contracts"]),
       verdicts:   v(["workflowPaths","verdicts"]),
       registry:   v(["workflowPaths","registry"]),
-      fixtures:   v(["workflowPaths","fixtures"])
+      fixtures:   v(["workflowPaths","fixtures"]),
+      state:      v(["workflowPaths","state"])
     },
     commands: {
       test:      vscal(["commands","test"]),
@@ -646,6 +678,15 @@ MERGED=$(jq -n \
         }
       elif $p.defaults and $p.defaults.contextPack != null then
         { value: $p.defaults.contextPack, origin: "project" }
+      else null end
+    ),
+    # 996: sourceCanon — канон источников и argv-гейт сверки. Семантика
+    # слияния ЮНИТОМ (как contextPack): репо-слой замещает defaults целиком.
+    # Если ни один слой не объявляет — null (дверь check_project_sources
+    # пропускает; freeze/done/pre_critic НЕ зовут gate).
+    sourceCanon: (
+      if $r.sourceCanon != null then { value: $r.sourceCanon, origin: "repo" }
+      elif $p.defaults and $p.defaults.sourceCanon != null then { value: $p.defaults.sourceCanon, origin: "project" }
       else null end
     )
   }

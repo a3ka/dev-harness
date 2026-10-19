@@ -32,19 +32,49 @@ die()  { printf '%s\n' "$*" >&2; exit 1; }
 skip() { printf 'NOT_IMPLEMENTED: %s\n' "$*" >&2; exit 2; }
 TARGET="${1:?использование: $0 <contracts/NNN-*.md> \"<причина>\" [корень]}"
 REASON="${2-}"  # пустая причина допустима — проверяется ниже отдельной веткой
-# ROOT: 3-й аргумент ИЛИ (после env-гигиены) cwd-репозиторий — писателю ВДВОЙНЕ
+# ROOT: 3-й аргумент ИЛИ (после env-гигиены) cwd-репозиторий — написатель ВДВОЙНЕ
 # важна устойчивость к отравленному окружению.
 if [ -n "${3:+x}" ]; then ROOT="${3}"; else ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; fi
 # Причина пуста — отказ ДО всех остальных проверок (шаг 3)
 if [ -z "${REASON//[[:space:]]/}" ]; then
   die "done: причина пуста"
 fi
+
+# 996 К1, К3: профильные пути для verdicts (review) и registry. Тот же шаблон,
+# что в freeze_contract.sh. При отсутствии профиля — корневые пути (прежнее
+# поведение харнесса как проекта).
+_PROFILE_VERDICTS_DIR="verdicts/review"
+_PROFILE_REGISTRY_PATH="registry"
+_PROFILE_CONTRACTS_DIR="contracts"
+if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
+  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
+  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
+              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
+    _verdicts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.verdicts.value // empty' 2>/dev/null || true)"
+    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
+    _contracts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.contracts.value // empty' 2>/dev/null || true)"
+    [ -n "$_verdicts" ] && _PROFILE_VERDICTS_DIR="${_verdicts%/}/review"
+    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
+    [ -n "$_contracts" ] && _PROFILE_CONTRACTS_DIR="$_contracts"
+  fi
+  rm -f "$_pr_err"
+fi
+unset _pr_err _pr_out _verdicts _registry _contracts
 ( cd "$ROOT" 2>/dev/null && git rev-parse --verify HEAD >/dev/null 2>&1 ) || skip "в $ROOT нет ни одного коммита — done-писать нечего"
 
 # ── 2. basename-грамматика NNN ────────────────────────────────────────────────
-dir="${TARGET%%/*}"
 base="${TARGET##*/}"
-[ "$dir/$base" = "$TARGET" ] || die "done: имя контракта не по грамматике NNN: $TARGET"
+# Префиксная проверка: TARGET начинается с plans/, contracts/, или
+# профильного `_PROFILE_CONTRACTS_DIR`. 996 К1.
+_PR_CONTRACTS="${_PROFILE_CONTRACTS_DIR:-contracts}/"
+_PR_CONTRACTS="${_PR_CONTRACTS%/}/"
+_accepted=0
+case "$TARGET" in
+  plans/*)     _accepted=1; dir="plans" ;;
+  contracts/*) _accepted=1; dir="contracts" ;;
+  "${_PR_CONTRACTS}"*) _accepted=1; dir="contracts" ;;  # теги — общие
+esac
+[ "$_accepted" -eq 1 ] || die "done: имя контракта не по грамматике NNN: $TARGET"
 ARTIFACT_NUMBER=""
 rc=0
 parse_artifact_basename "$base" || rc=$?
@@ -52,7 +82,6 @@ if [ "$rc" -ne 0 ] || [ -z "${ARTIFACT_NUMBER:-}" ]; then
   die "done: имя контракта не по грамматике NNN: $base"
 fi
 NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
-[ "$dir" = "contracts" ] || die "done: писатель работает только с contracts/NNN-*.md, не с $dir"
 
 # ── 4. контракт закоммичен на HEAD ────────────────────────────────────────────
 # TARGET: если абсолютный — отрезать ROOT-префикс.
@@ -70,9 +99,9 @@ work_blob="$(cd "$ROOT" && git hash-object -- "$TARGET_REL")"
 # `accept` (НЕ префикс; «Acceptance criteria met», «accepted» → вне грамматики).
 # ОДНОВРЕМЕННО: первая строка ОБЯЗАНА быть `ACCEPT` | `FAIL` | `ESCALATE`.
 vmax=0
-vfiles="$(cd "$ROOT" && git ls-tree -r --name-only HEAD -- verdicts/review/contracts-"$NNN"-*.md 2>/dev/null | sort -V || true)"
+vfiles="$(cd "$ROOT" && git ls-tree -r --name-only HEAD -- "${_PROFILE_VERDICTS_DIR%/}/" 2>/dev/null | grep -E "^${_PROFILE_VERDICTS_DIR%/}/contracts-$NNN-[^/]*\.md$" | sort -V || true)"
 if [ -z "$vfiles" ]; then
-  die "done: вердикт ревьюера не найден: verdicts/review/contracts-$NNN-*.md"
+  die "done: вердикт ревьюера не найден: ${_PROFILE_VERDICTS_DIR%/}/contracts-$NNN-*.md"
 fi
 # Свежий по коммит-истории: перебираем в обратном хронологическом порядке
 freshest=""
@@ -123,6 +152,17 @@ case "$norm" in
     die "done: вердикт вне грамматики: $freshest_first"
     ;;
 esac
+
+# ── 996: гейт сверки с источниками (ДО тега) ────────────────────────────────
+# При объявленном sourceCanon — вызов check_project_sources.sh (stage=done).
+# Отказ gate → rc 1 с маркером SOURCE_GATE_FAILED/INVALID/MISSING/UNAVAILABLE.
+# Без канона — gate не запускается (К6 «без канона → rc 0 без запуска»).
+# Гейт вооружён ТОЛЬКО при наличии harness.project.json в корне (режим проекта);
+# в не-проектном режиме (харнес сам как проект, без harness.project.json) —
+# действующее поведение двери НЕ меняется (К18/К19).
+if [ -x "$SELF_DIR/check_project_sources.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
+  srcs_out="$(bash "$SELF_DIR/check_project_sources.sh" --repo "$ROOT" --contract "$TARGET_REL" --stage done 2>&1)" || die "source gate: $srcs_out"
+fi
 # ── 6. ПРОВОДКА через барьер check_provodka.sh ────────────────────────────────
 # Барьер работает относительно КОРНЯ репозитория (не каталога контракта) —
 # пути ПРОВОДКА даны относительно корня дерева (канон freeze_contract.sh:59).

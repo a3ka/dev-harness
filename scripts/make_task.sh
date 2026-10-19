@@ -17,9 +17,9 @@ command -v jq >/dev/null 2>&1 || ni "нет jq"
 command -v sha256sum >/dev/null 2>&1 || ni "нет sha256sum"
 command -v awk >/dev/null 2>&1 || ni "нет awk"
 
-usage() { printf 'usage: make_task.sh --repo R --role ROLE [--kind task|brief] [--contract NNN] [--task-file F] [--model-trace F] [--author-role R2]\n' >&2; exit 1; }
+usage() { printf 'usage: make_task.sh --repo R --role ROLE [--kind task|brief] [--contract NNN] [--task-file F] [--model-trace F] [--author-role R2] [--print-context]\n' >&2; exit 1; }
 
-REPO=""; ROLE=""; KIND="task"; CONTRACT=""; TASKFILE=""; TRACE=""; AUTHOR_ROLE_ARG=""
+REPO=""; ROLE=""; KIND="task"; CONTRACT=""; TASKFILE=""; TRACE=""; AUTHOR_ROLE_ARG=""; PRINT_CONTEXT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo)        REPO="${2:?}"; shift 2 ;;
@@ -29,6 +29,7 @@ while [ $# -gt 0 ]; do
     --task-file)   TASKFILE="${2:?}"; shift 2 ;;
     --model-trace) TRACE="${2:?}"; shift 2 ;;
     --author-role) AUTHOR_ROLE_ARG="${2:?}"; shift 2 ;;
+    --print-context) PRINT_CONTEXT=1; shift ;;
     *) usage ;;
   esac
 done
@@ -36,6 +37,75 @@ done
 [ -d "$REPO" ] || die "репозитория нет: $REPO"
 case "$ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "роль вне алфавита: $ROLE" ;; esac
 case "$KIND" in task|brief) ;; *) die "kind вне алфавита: $KIND" ;; esac
+
+REPO_ABS="$(cd "$REPO" && pwd -P)"
+
+# ── 996 §Публичный шов без запуска omp: --print-context ────────────────────
+# Стоит ДО любых внутренних vars (REPO_ABS и т.п.). Печатает один JSON и выходит.
+# Используется workshop для передачи контекста в роль, а make_task — для печати
+# из CLI. Никакого omp-launch, никакой валидации contextPack/lessons/ADR.
+if [ "$PRINT_CONTEXT" -eq 1 ]; then
+  HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}"
+  export HARNESS_PROJECT_LAYER_ROOT
+  bash "$0" --repo "$REPO" --role "$ROLE" --kind "$KIND" --contract "${CONTRACT:-000}" \
+    --task-file "${TASKFILE:-/dev/null}" --model-trace "${TRACE:-/dev/null}" \
+    --author-role "$AUTHOR_ROLE_ARG" >/dev/null 2>&1 || true
+  # Ниже: реальный путь с настоящей обработкой MERGED. Делается здесь, чтобы
+  # --print-context работал даже без --contract/--task-file/--model-trace.
+  # ── КОНТРАКТ 996 §Публичный шов без запуска omp: --print-context ──────
+  PROFILE_RESOLVER="$(cd "$(dirname "$0")" && pwd)/profile_resolver.sh"
+  [ -x "$PROFILE_RESOLVER" ] || die "нет profile_resolver.sh"
+  MERGED_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}" bash "$PROFILE_RESOLVER" --repo "$REPO_ABS" 2>/dev/null)" \
+    || die "резолвер отказал"
+  WP_C="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.contracts.value // empty')"
+  WP_V="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.verdicts.value // empty')"
+  WP_R="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.registry.value // empty')"
+  WP_F="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.fixtures.value // empty')"
+  STATE="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.state.value // ".harness"')"
+  WP_STATE_PREFIX="$REPO_ABS"
+  [ "$STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${STATE%/}"
+  _verdict_suffix=""
+  case "$ROLE" in
+    critic)     _verdict_suffix="critic" ;;
+    adversary)  _verdict_suffix="adversary" ;;
+    reviewer)   _verdict_suffix="review" ;;
+    arbiter)    _verdict_suffix="arbitration" ;;
+  esac
+  SC_OBJ="$(printf '%s' "$MERGED_OUT" | jq -c '.sourceCanon.value // null')"
+  # verdict_canon ВСЕГДА задан: пустой для не-судьи, иначе путь.
+  # Каталог судьи лежит под workflowPaths.verdicts (НЕ под state — state хранит
+  # HANDOFF/NABLIUDENIA*/ROADMAP/forks, а не вердикты). Состояние учитывается
+  # отдельно в handoff/NABLIUDENIA_ARCHITECT.md/ROADMAP.md/forks, куда пишет сессия.
+  if [ -n "$_verdict_suffix" ]; then
+    _verdict_canon="$REPO_ABS/${WP_V%/}/$_verdict_suffix"
+  else
+    _verdict_canon=""
+  fi
+  jq -n \
+    --arg contracts    "$REPO_ABS/$WP_C" \
+    --arg verdicts     "$REPO_ABS/$WP_V" \
+    --arg registry     "$REPO_ABS/$WP_R" \
+    --arg fixtures     "$REPO_ABS/$WP_F" \
+    --arg handoff      "$WP_STATE_PREFIX/HANDOFF.md" \
+    --arg observations "$WP_STATE_PREFIX/NABLIUDENIA.md" \
+    --arg arch_obs     "$WP_STATE_PREFIX/NABLIUDENIA_ARCHITECT.md" \
+    --arg roadmap      "$WP_STATE_PREFIX/ROADMAP.md" \
+    --arg forks        "$WP_STATE_PREFIX/forks" \
+    --argjson source_canon "$SC_OBJ" \
+    --arg verdict_canon "$_verdict_canon" \
+    --arg h "$WP_STATE_PREFIX/HANDOFF.md" \
+    --arg c "$REPO_ABS/$WP_C" \
+    --arg v "$REPO_ABS/$WP_V" \
+    --arg o "$WP_STATE_PREFIX/NABLIUDENIA.md" \
+    --arg r "$WP_STATE_PREFIX/ROADMAP.md" \
+    '{workflow: {contracts: $contracts, verdicts: $verdicts, registry: $registry, fixtures: $fixtures,
+                  handoff: $handoff, observations: $observations, architectObservations: $arch_obs,
+                  roadmap: $roadmap, forks: $forks},
+      sourceCanon: $source_canon,
+      verdict: (if ($verdict_canon | length) > 0 then $verdict_canon else null end),
+      startup: [$h, $c, $v, $o, $r]}'
+  exit 0
+fi
 
 SKIP_TASK=0
 if [ "$KIND" = "brief" ]; then
@@ -54,14 +124,16 @@ fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 
 TRACE_LINE=""; JUDGE_MODEL=""; AUTHOR_MODEL=""
-if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
-while IFS="$TAB" read -r r m fb; do
-  [ -z "${r:-}" ] && continue
-  case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
-  if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; JUDGE_MODEL="$m"; fi
-  [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
-done < "$TRACE"
-[ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
+if [ "$PRINT_CONTEXT" -ne 1 ]; then
+  if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
+  while IFS="$TAB" read -r r m fb; do
+    [ -z "${r:-}" ] && continue
+    case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
+    if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; JUDGE_MODEL="$m"; fi
+    [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
+  done < "$TRACE"
+  [ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
+fi
 
 _t95_family() { local x="${1#*/}"; x="${x%%-*}"; x="${x%%.*}"; printf '%s' "$x"; }
 if [ "$ROLE" = "reviewer" ] || [ "$ROLE" = "critic" ]; then

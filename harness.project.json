@@ -3,16 +3,16 @@
   "repoId": "dev-harness",
   "language": "bash",
   "projectLayer": { "version": "1", "profilePath": "registry/harness-project.json" },
-  "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures" },
+  "workflowPaths": { "contracts": "contracts", "verdicts": "verdicts", "registry": "registry", "fixtures": "fixtures", "state": "." },
   "commands": { "test": "true", "build": "true", "typecheck": "true", "lint": "true" },
-  "git": { "canonicalRemote": "ssh://git@example.invalid/dev-harness.git" },
+  "git": { "canonicalRemote": "ssh://git@github.com/a3ka/dev-harness.git" },
   "ci": { "workflow": ".github/workflows/ci.yml" },
   "barriers": { "mandatory": [], "optional": [] },
   "contextPack": {
     "rows": [
       { "kind": "rules", "path": "AGENTS.md", "roles": "orchestrator,architect,critic,implementer,adversary,reviewer,arbiter", "mandatory": true, "why": "нормы ролей и практик харнеса" },
       { "kind": "rules", "path": "CODING-STANDARDS.md", "roles": "implementer", "mandatory": false, "why": "стиль кодинга bash" },
-      { "kind": "map", "path": "ARCHITECTURE.md", "roles": "architect,implementer,reviewer", "mandatory": false, "why": "карта модулей харнеса" },
+      { "kind": "map", "path": "ARCHITECTURE.md", "roles": "architect,implementer,reviewer", "mandatory": false, "why": "карта модулей харнесса" },
       { "kind": "map", "path": "consumers.d", "roles": "architect,implementer", "mandatory": false, "why": "карта потребителей" },
       { "kind": "map", "path": "NABLIUDENIA.md", "roles": "architect,implementer,reviewer", "mandatory": false, "why": "наблюдения и уроки" },
       { "kind": "map", "path": "NABLIUDENIA_ARCHITECT.md", "roles": "architect,reviewer", "mandatory": false, "why": "архитектурные наблюдения" }
