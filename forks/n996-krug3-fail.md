@@ -5,4 +5,5 @@
 МАРШРУТ: консультант
 ЗАВЕДЁН: 2026-10-19T19:50:00Z
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+РЕШЕНО: консультант 2026-10-19T19:58Z (по мандату) — вариант (А): один микро-круг после капа (для 996 ещё не использован): architect — красные клетки по оси «все потребители контекста берут project_paths_resolve» (state-escape в --print-context и --kind task, normalizer ../, symlink SOURCE); implementer — один вызов project_paths_resolve в make_task обоих режимов + realpath для sources; adversary и reviewer одним прогоном ТОЛЬКО по Р3-1/Р3-2 и этой оси. FAIL → 996 стоп, ко мне.
+ОТВЕЧЕНО: да
