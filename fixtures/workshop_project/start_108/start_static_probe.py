@@ -40,9 +40,9 @@ def run_checks(repo: Path):
           'STATIC_API_SEAM_GETDISCLOSURE')
     check(re.search(r'listMissions\(contextRef\?: string\): Promise<MissionPage>;', api),
           'STATIC_API_SEAM_LISTMISSIONS')
-    check(re.search(r'export type MissionState =', api)
-          and all(f"| '{state}'" in api for state in src['mission_states']),
-          'STATIC_MISSION_STATE_ENUM')
+    rhs = api.split('export type MissionState =', 1)[1].split(';', 1)[0]
+    actual_states = re.findall(r"'([^']+)'", rhs)
+    check(actual_states == src['mission_states'], 'STATIC_MISSION_STATE_ENUM')
     mock = (repo / 'mobile/src/mocks/start-mock.ts').read_text(encoding='utf-8')
     check("'PRESENT'" in mock and 'missionsFor' in mock, 'STATIC_MOCK_SCENARIOS')
     rt = (repo / 'mobile/src/mocks/runtime.ts').read_text(encoding='utf-8')
@@ -57,6 +57,22 @@ def run_checks(repo: Path):
         (repo / 'mobile/src/ui/conversation-composer/conversation-composer.tsx').read_text(encoding='utf-8'),
     ]
     check(not any(audio_re.search(s) for s in screens), 'STATIC_NO_AUDIO_IMPORTS')
+    # Оракул проб независим от субъекта (правило 8): start.test.tsx несёт
+    # значения fixed/различающей пары ЛИТЕРАЛАМИ и не импортирует константы
+    # значений из мока; перечень состояний мока сверяется клеткой Jest.
+    probe_test = (HERE / 'start.test.tsx').read_text(encoding='utf-8')
+    fixed = src['fixed']
+    import_m = re.search(r"import\s*\{([^}]*)}\s*from\s*'@/mocks/start-mock'", probe_test)
+    imported_ids = {tok.strip() for tok in import_m.group(1).split(',')} if import_m else set()
+    check(
+        f"'{fixed['mission_id']}'" in probe_test
+        and f"'{fixed['updated_at']}'" in probe_test
+        and "'MIS-OTHER-02'" in probe_test
+        and "'2026-10-19T10:11:12Z'" in probe_test
+        and 'MISSION_ID' not in imported_ids
+        and 'UPDATED_AT' not in imported_ids,
+        'STATIC_ORACLE_LITERALS',
+    )
 
 
 def main():
@@ -110,7 +126,10 @@ def matrix(repo: Path):
             ['STATIC_MOCK_RUNTIME_WIRED'], []),
         'voice-enum-leak': (
             [(A, "  | 'CANCELLED';", "  | 'CANCELLED'\n  | 'LISTENING';")],
-            ['STATIC_NO_VOICE_ENUM'], []),
+            ['STATIC_NO_VOICE_ENUM'], ['STATIC_MISSION_STATE_ENUM']),
+        'wire-enum-not-closed': (
+            [(A, "  | 'CANCELLED';", "  | 'CANCELLED'\n  | 'UNKNOWN';")],
+            ['STATIC_MISSION_STATE_ENUM'], []),
     }
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():
