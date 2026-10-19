@@ -390,6 +390,8 @@ project_paths_resolve() {
   fi
   [ "$_err" != "/dev/null" ] && rm -f "$_err"
   [ -n "$MERGED" ] || { printf 'project_paths_resolve: профиль пуст\n' >&2; return 1; }
+  # sourceCanon из слияния: ОДИН разбор для FALLBACK-NO-WORKFLOW и штатной ветви.
+  SOURCE_CANON="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
 
   # FALLBACK-NO-WORKFLOW (контракт 996 круг 4 — toy-мир к7 самодостаточности 060):
   # профиль слит УСПЕШНО, но ВСЕ workflowPaths пустые — резолвер НЕ должен
@@ -405,7 +407,7 @@ project_paths_resolve() {
   if [ -z "$_any_wp" ]; then
     _jesc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/\\"/\\\\"/g'; }
     _STATE_PREFIX="$REPO_ABS"
-    printf '{"contracts":"%s","verdicts":"%s","registry":"%s","fixtures":"%s","handoff":"%s","observations":"%s","architectObservations":"%s","roadmap":"%s","forks":"%s","sourceCanon":null}\n' \
+    printf '{"contracts":"%s","verdicts":"%s","registry":"%s","fixtures":"%s","handoff":"%s","observations":"%s","architectObservations":"%s","roadmap":"%s","forks":"%s","sourceCanon":%s}\n' \
       "$(_jesc "$REPO_ABS/contracts")" \
       "$(_jesc "$REPO_ABS/verdicts")" \
       "$(_jesc "$REPO_ABS/registry")" \
@@ -414,7 +416,8 @@ project_paths_resolve() {
       "$(_jesc "$REPO_ABS/NABLIUDENIA.md")" \
       "$(_jesc "$REPO_ABS/NABLIUDENIA_ARCHITECT.md")" \
       "$(_jesc "$REPO_ABS/ROADMAP.md")" \
-      "$(_jesc "$REPO_ABS/forks")"
+      "$(_jesc "$REPO_ABS/forks")" \
+      "$SOURCE_CANON"
     return 0
   fi
 
@@ -470,7 +473,6 @@ project_paths_resolve() {
   VERDICTS="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.verdicts.value')"
   REGISTRY="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.registry.value')"
   FIXTURES="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.fixtures.value')"
-  SOURCE_CANON="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
 
   jq -n \
     --arg contracts    "$REPO_ABS/$CONTRACTS" \
