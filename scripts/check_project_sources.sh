@@ -86,32 +86,11 @@ if [ -z "$CANON" ]; then
   exit 0
 fi
 
-# Валидация структуры канона. Закрытый алфавит: {sources, gate}, sources — массив
-# {path, priority}, priority целое ≥0, path — непустая строка без NUL и без «..»,
-# уникальные; gate — массив непустых строк без NUL. Нарушение → SOURCE_CANON_INVALID.
-_invalid=0
-# jq-валидация — КАЖДОЕ подвыражение через отдельный `jq -e`, не один большой
-# AND (jq-`and` меняет поток значений и теряет доступ к корневому объекту посередине).
-_keys_ok="$(printf '%s' "$CANON" | jq -e 'type == "object" and (keys | sort == ["gate", "sources"])' >/dev/null 2>&1 && echo y || echo n)"
-_sources_arr="$(printf '%s' "$CANON" | jq -e '.sources | type == "array" and length > 0' >/dev/null 2>&1 && echo y || echo n)"
-_gate_arr="$(printf '%s' "$CANON" | jq -e '.gate    | type == "array" and length > 0' >/dev/null 2>&1 && echo y || echo n)"
-_sources_clean="$(printf '%s' "$CANON" | jq -e '
-  ([.sources[] | select(
-    type != "object" or (keys | sort != ["path", "priority"])
-    or (.priority | type != "number") or (.priority < 0)
-    or (.path | type != "string") or (.path | length == 0)
-    or (.path | contains("\u0000"))
-  )] | length) == 0
-' >/dev/null 2>&1 && echo y || echo n)"
-_sources_uniq="$(printf '%s' "$CANON" | jq -e '(.sources | map(.path) | unique | length) == (.sources | length)' >/dev/null 2>&1 && echo y || echo n)"
-_gate_clean="$(printf '%s' "$CANON" | jq -e '
-  ([.gate[] | select(type != "string" or length == 0 or contains("\u0000"))] | length) == 0
-' >/dev/null 2>&1 && echo y || echo n)"
-if [ "$_keys_ok" != y ] || [ "$_sources_arr" != y ] || [ "$_gate_arr" != y ] \
-   || [ "$_sources_clean" != y ] || [ "$_sources_uniq" != y ] || [ "$_gate_clean" != y ]; then
-  die "SOURCE_CANON_INVALID"
-fi
-unset _keys_ok _sources_arr _gate_arr _sources_clean _sources_uniq _gate_clean
+# Грамматика sourceCanon-юнита валидируется в profile_resolver.sh (scan_canon);
+# к моменту чтения $CANON резолвер уже отказал бы SOURCE_CANON_INVALID на любом
+# нарушении алфавита, нечитаемом типе, `..` или NUL в path/argv. Дублирующая
+# jq-проверка здесь избыточна (резолвер — единственный источник грамматики;
+# НЕ-39: «не подставлять argv через shell-eval», L51, L55).
 
 # Преобразуем sourceCanon → массив путей (отнолжённых к R) и массив argv gate.
 mapfile -t SOURCE_PATHS < <(printf '%s' "$CANON" | jq -r '.sources[] | .path' 2>/dev/null)
@@ -132,8 +111,16 @@ for p in "${SOURCE_PATHS[@]}"; do
     *\0*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;
   esac
   full="$REPO/${p#./}"
+  # Каталог под R — НЕ regular file; -f требует именно regular file, -e
+  # проходит и для каталога (что и адверсарий круг 2 предъявил как обход: 
+  # `directory-is-not-file` принимался как источник). Различаем два отказа:
+  #   - объект НЕ существует → SOURCE_CANON_MISSING (как было);
+  #   - объект есть, но НЕ regular file (каталог, FIFO и пр.) → INVALID.
   if [ ! -e "$full" ]; then
     die "SOURCE_CANON_MISSING: $p"
+  fi
+  if [ ! -f "$full" ]; then
+    die "SOURCE_CANON_INVALID: источник не regular file: $p"
   fi
   # Канонизация цели — относится и к регулярному файлу (readlink -f на
   # регулярный файл печатает его путь), и к симлинку (следует до объекта).

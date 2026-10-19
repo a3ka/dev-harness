@@ -45,23 +45,32 @@ REPO_ABS="$(cd "$REPO" && pwd -P)"
 # Используется workshop для передачи контекста в роль, а make_task — для печати
 # из CLI. Никакого omp-launch, никакой валидации contextPack/lessons/ADR.
 if [ "$PRINT_CONTEXT" -eq 1 ]; then
-  HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}"
-  export HARNESS_PROJECT_LAYER_ROOT
-  bash "$0" --repo "$REPO" --role "$ROLE" --kind "$KIND" --contract "${CONTRACT:-000}" \
-    --task-file "${TASKFILE:-/dev/null}" --model-trace "${TRACE:-/dev/null}" \
-    --author-role "$AUTHOR_ROLE_ARG" >/dev/null 2>&1 || true
-  # Ниже: реальный путь с настоящей обработкой MERGED. Делается здесь, чтобы
-  # --print-context работал даже без --contract/--task-file/--model-trace.
-  # ── КОНТРАКТ 996 §Публичный шов без запуска omp: --print-context ──────
+  # КОНТРАКТ 996 §Публичный шов без запуска omp: --print-context.
+  # Считается ОДИН раз; ниже используется в --kind task PROJECT-секции
+  # (один код расчёта, не второй).
   PROFILE_RESOLVER="$(cd "$(dirname "$0")" && pwd)/profile_resolver.sh"
   [ -x "$PROFILE_RESOLVER" ] || die "нет profile_resolver.sh"
-  MERGED_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}" bash "$PROFILE_RESOLVER" --repo "$REPO_ABS" 2>/dev/null)" \
-    || die "резолвер отказал"
+  _PC_ERR="$(mktemp 2>/dev/null || echo /dev/null)"
+  if ! MERGED_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}" bash "$PROFILE_RESOLVER" --repo "$REPO_ABS" 2>"$_PC_ERR")"; then
+    _pc_reason="$(cat "$_PC_ERR" 2>/dev/null || true)"
+    [ "$_PC_ERR" != /dev/null ] && rm -f "$_PC_ERR"
+    die "${_pc_reason#profile ОТКАЗ: }"
+  fi
+  [ "$_PC_ERR" != /dev/null ] && rm -f "$_PC_ERR"
   WP_C="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.contracts.value // empty')"
   WP_V="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.verdicts.value // empty')"
   WP_R="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.registry.value // empty')"
   WP_F="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.fixtures.value // empty')"
   STATE="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.state.value // ".harness"')"
+  # Гард workflowPaths на относительность и вложенность в REPO_ABS (тот же
+  # контракт И-5 / §A, что применяет project_paths_resolve / основная ветвь).
+  for _wpk in contracts verdicts registry fixtures; do
+    _wpv="$(printf '%s' "$MERGED_OUT" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
+    [ -n "$_wpv" ] || die "workflowPaths вне репо: $_wpk="
+    _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
+    case "$_wpv" in /*) _wpcanon="/вне" ;; esac
+    case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
+  done
   WP_STATE_PREFIX="$REPO_ABS"
   [ "$STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${STATE%/}"
   _verdict_suffix=""
@@ -72,10 +81,6 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
     arbiter)    _verdict_suffix="arbitration" ;;
   esac
   SC_OBJ="$(printf '%s' "$MERGED_OUT" | jq -c '.sourceCanon.value // null')"
-  # verdict_canon ВСЕГДА задан: пустой для не-судьи, иначе путь.
-  # Каталог судьи лежит под workflowPaths.verdicts (НЕ под state — state хранит
-  # HANDOFF/NABLIUDENIA*/ROADMAP/forks, а не вердикты). Состояние учитывается
-  # отдельно в handoff/NABLIUDENIA_ARCHITECT.md/ROADMAP.md/forks, куда пишет сессия.
   if [ -n "$_verdict_suffix" ]; then
     _verdict_canon="$REPO_ABS/${WP_V%/}/$_verdict_suffix"
   else
@@ -207,6 +212,62 @@ for _wpk in contracts verdicts registry fixtures; do
   case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
 done
 unset _wpk _wpv _wpcanon
+
+# ── 996 §D «общий контекст»: пути судьи/состояния/sourceCanon для обоих
+# режимов — --print-context (ниже JSON), --kind task (PROJECT-секция).
+# ОДИН расчёт, тот же MERGED, никакого второго профильного вызова.
+WP_V="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.verdicts.value // empty')"
+WP_F="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.fixtures.value // empty')"
+WP_STATE="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.state.value // ".harness"')"
+WP_STATE_PREFIX="$REPO_ABS"
+[ "$WP_STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${WP_STATE%/}"
+WP_VERDICT_SUFFIX=""
+case "$ROLE" in
+  critic)     WP_VERDICT_SUFFIX="critic" ;;
+  adversary)  WP_VERDICT_SUFFIX="adversary" ;;
+  reviewer)   WP_VERDICT_SUFFIX="review" ;;
+  arbiter)    WP_VERDICT_SUFFIX="arbitration" ;;
+esac
+WP_VERDICT_CANON=""
+[ -n "$WP_VERDICT_SUFFIX" ] && WP_VERDICT_CANON="$REPO_ABS/${WP_V%/}/$WP_VERDICT_SUFFIX"
+WP_SC="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
+
+# PROJECT-секция — рабочий шов §D для ролей (шесть игл: sourceCanon,
+# источник SOURCE.md, каталог вердикта/role-suffix, каталог контрактов,
+# HANDOFF). Тот же расчёт, что и --print-context выше; выходной формат
+# — текстовый блок (в JSON-печать включается sourceCanon.value строкой).
+PROJECT_SEC=""
+if [ "$KIND" = "task" ]; then
+  _psrc_path="$(printf '%s' "$WP_SC" | jq -r '.sources[0].path // ""' 2>/dev/null)"
+  _psrc_content=""
+  if [ -n "$_psrc_path" ] && [ -f "$REPO/$_psrc_path" ]; then
+    _psrc_content="$(cat "$REPO/$_psrc_path" 2>/dev/null)"
+  fi
+  PROJECT_SEC="=== PROJECT ===
+"
+  PROJECT_SEC="${PROJECT_SEC}sourceCanon: $WP_SC
+"
+  if [ -n "$_psrc_path" ]; then
+    PROJECT_SEC="${PROJECT_SEC}source: $_psrc_path
+"
+    if [ -n "$_psrc_content" ]; then
+      PROJECT_SEC="${PROJECT_SEC}${_psrc_content}
+"
+    fi
+  fi
+  PROJECT_SEC="${PROJECT_SEC}verdicts: $REPO_ABS/$WP_V
+"
+  PROJECT_SEC="${PROJECT_SEC}verdict: ${WP_VERDICT_CANON}
+"
+  PROJECT_SEC="${PROJECT_SEC}contracts: $REPO_ABS/$WP_C
+"
+  PROJECT_SEC="${PROJECT_SEC}registry: $REPO_ABS/$WP_G
+"
+  PROJECT_SEC="${PROJECT_SEC}handoff: $WP_STATE_PREFIX/HANDOFF.md
+"
+  PROJECT_SEC="${PROJECT_SEC}=== END PROJECT ===
+"
+fi
 
 MAP_LINES=""; RULES_LINES=""; REUSE_LINES=""; MAP_MAN=""
 NROWS="$(printf '%s' "$CP" | jq -r 'if . == null then 0 else (.rows // []) | length end')"
@@ -420,6 +481,7 @@ pack_body() {
   printf '=== RULES ===\n%s' "$RULES_LINES"
   printf '=== REUSE ===\n%s' "$REUSE_LINES"
   if [ -n "$SKILLS" ]; then printf '=== SKILLS ===\n%s' "$SKILLS"; fi
+if [ -n "$PROJECT_SEC" ]; then printf '%s' "$PROJECT_SEC"; fi
   if [ "$SKIP_TASK" = "0" ]; then
     printf '=== CONTEXT ===\n%s\n' "$CONTEXT_SEC"
     printf '=== ZONES ===\n%s\n' "$ZONES_SEC"

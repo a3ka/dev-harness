@@ -1063,6 +1063,174 @@ def c_no_disk_mutation():
     )
 
 
+# ── КРУГ 2 (усиление после заморозки; verdicts/review/contracts-998-v1.md,
+# Р998-1..Р998-4): клетки на находки ревью круга 1. Существующие клетки не
+# меняются — только добавление. Красное предъявление круга 1 остаётся
+# историческим (46 клеток / 39 расхождений на до-предметном дереве); census
+# растёт с батареей.
+
+def _first_dual_name_rule(am):
+    """Индекс первого правила routing с целью role=<X>, где X — также ключ
+    tiers (имя существует в обеих таблицах): смена формы цели role→tier с ТЕМ
+    ЖЕ именем оставляет вход конформным (Р998-1: и роль, и тир существуют)."""
+    for i, r in enumerate(routing_rules(am)):
+        if "role" in r and r["role"] in am.get("tiers", {}):
+            return i
+    return None
+
+
+def _mut_form_same_name(am):
+    i = _first_dual_name_rule(am)
+    if i is None:
+        return
+    name = am["routing"]["rules"][i]["role"]
+    am["routing"]["rules"][i].pop("role", None)
+    am["routing"]["rules"][i]["tier"] = name
+
+
+# Р998-1: инв. 3 «смена формы цели role↔tier» обязана доходить до промпта.
+# Смена имени цели ловилась и раньше (K2.2); форма с тем же именем (role↔tier
+# по пересекающемуся имени) до круга 2 не проверялась никак. Клетка судит
+# РАЗЛИЧИМОСТЬ двух прогонов, не форму метки: рендер role-формы ≠ рендер
+# tier-формы того же правила.
+@case("gen_render_target_form_distinct")
+def c_render_form_distinct():
+    i = _first_dual_name_rule(AM0)
+    if i is None:
+        return False, (
+            "в config субъекта нет правила с именем-пересечением role∩tiers — "
+            "вход клетки (смена формы цели с тем же именем) не построен"
+        )
+    renders = []
+    why = []
+    for label, mut in (("role-форма", None), ("tier-форма", _mut_form_same_name)):
+        sb, am = sandbox(mut_json=mut)
+        rc1, o1, e1 = gen(sb)
+        rc2, out2, err2 = gen_prompt(sb)
+        drift = disk_drift(sb, am)
+        shutil.rmtree(sb, ignore_errors=True)
+        if rc1 != 0:
+            why.append(f"{label}: --check rc={rc1}: {first_line(o1 or e1)}")
+        if rc2 != 0:
+            why.append(f"{label}: --prompt rc={rc2}: {first_line(out2 or err2)}")
+        why.extend(f"{label}: {p}" for p in render_problems(out2, am))
+        if drift:
+            why.append(f"{label}: {drift}")
+        renders.append("\n".join(render_section(out2)))
+    if not why and renders[0] == renders[1]:
+        why.append(
+            f"рендер не различает форму цели: смена routing.rules[{i}] role→tier "
+            "(то же имя) не изменила секцию промпта — инв. 3 «смена формы цели role↔tier»"
+        )
+    return (not why), ("; ".join(why) if why else
+                       f"рендер различает форму цели: смена role↔tier routing.rules[{i}] "
+                       "(то же имя) видна в секции промпта")
+
+
+# Р998-3 (ПЕРЕСЕЧЕНИЕ 054): режимы --resolve-overlay, --agents-rules, --into
+# и режим записи 998 не правит — при сломанном routing их rc обязан
+# остаться прежним (0) и без диагноза routing; барьер живёт только в своих
+# точках входа (--check, --prompt). Мутант «барьер до разбора режимов»
+# красен этой клеткой на каждом из четырёх режимов.
+BROKEN_ROUTING_MUTS = (
+    ("routing отсутствует", lambda am: am.pop("routing")),
+    ("неизвестный ключ routing", NEG_BY_NAME["unknown_routing_key"][0]),
+)
+
+
+@case("gen_modes_isolated_from_routing")
+def c_mode_isolation():
+    overlay = os.path.join(SUBJECT, "config", "models-glm.yml")
+    agents_md = os.path.join(SUBJECT, "AGENTS.md")
+    missing = [p for p in (overlay, agents_md) if not os.path.isfile(p)]
+    if missing:
+        return False, "нет входов режимов у субъекта: " + ", ".join(missing)
+    why = []
+    for branch, mut in BROKEN_ROUTING_MUTS:
+        sb, am = sandbox(mut_json=mut)
+        shutil.copy2(agents_md, os.path.join(sb, "AGENTS.md"))
+        shutil.copy2(overlay, os.path.join(sb, "config", "models-glm.yml"))
+        modes = (
+            ("--resolve-overlay", ["--resolve-overlay", "config/models-glm.yml"]),
+            ("--agents-rules", ["--agents-rules", "AGENTS.md"]),
+            ("--into", ["--into", "into-998"]),
+            ("режим записи", []),
+        )
+        for label, margs in modes:
+            rc, out, err = run(
+                [NODE, os.path.join(sb, "scripts", "gen-harness.ts")] + margs, cwd=sb)
+            text = out + err
+            if rc != 0:
+                why.append(f"{branch}/{label}: rc={rc} (до предмета 0 — режим 998 не "
+                           f"правит, ПЕРЕСЕЧЕНИЕ 054): {first_line(text)}")
+            elif "routing" in text:
+                why.append(f"{branch}/{label}: rc=0, но напечатан диагноз routing: {first_line(text)}")
+        rc1, o1, e1 = gen(sb)
+        rc2, o2, e2 = gen_prompt(sb)
+        drift = disk_drift(sb, am)
+        shutil.rmtree(sb, ignore_errors=True)
+        for rc, o, e, entry in ((rc1, o1, e1, "--check"), (rc2, o2, e2, "--prompt")):
+            if rc != 1 or "routing" not in (o + e):
+                why.append(f"{branch}: {entry} rc={rc} (ожидается 1 с именованием routing — "
+                           "барьер жив в своих точках входа)")
+        if drift:
+            why.append(f"{branch}: {drift}")
+    return (not why), ("; ".join(why) if why else
+                       "при сломанном routing чужие режимы (--resolve-overlay/--agents-rules/"
+                       "--into/запись) дают rc 0 без диагноза routing; --check/--prompt отказывают")
+
+
+# Р998-2 (ПРОВОДКА, frozen): шаг реестра обязан исполнять пробу ЦЕЛИКОМ —
+# команда `bash fixtures/pravila_modelei_998/probe.sh` без аргументов
+# (probe.sh сам гоняет --cases и --matrix). Урезание до --cases снимает
+# матрицу различимости из CI. Вес шага клеткой НЕ судится (замер 087 А8).
+@case("ci_step_full_probe")
+def c_ci_step():
+    path = os.path.join(SUBJECT, "registry", "ci-steps.tsv")
+    if not os.path.isfile(path):
+        return False, f"нет registry/ci-steps.tsv субъекта: {path}"
+    want = "bash fixtures/pravila_modelei_998/probe.sh"
+    rows = [ln.split("\t") for ln in read(path).splitlines() if ln.startswith("step\t")]
+    hit = [f for f in rows if len(f) > 3 and f[1] == "check:pravila-modelei-998"]
+    if not hit:
+        return False, "в registry/ci-steps.tsv нет step-строки check:pravila-modelei-998"
+    cmd = hit[0][3].strip()
+    if cmd != want:
+        return False, (
+            f"команда шага «{cmd}» урезает пробу (frozen ПРОВОДКА: «{want}» без "
+            "аргументов — Lane исполняет пробу целиком: --cases + --matrix)"
+        )
+    return True, f"шаг check:pravila-modelei-998 исполняет пробу целиком: {cmd}"
+
+
+# Р998-4 (ПЕРЕСЕЧЕНИЕ «roles/orchestrator.md — только норма-строка инварианта
+# 7»): вставка нормы не может разрезать существующую секцию роли — тело
+# секции 016 непусто и идёт сразу под своим заголовком.
+ORCH_016_HEADER = "## Страж staged-коммитов активен (016)"
+
+
+@case("orchestrator_role_016_body_intact")
+def c_orch_016():
+    path = os.path.join(SUBJECT, "roles", "orchestrator.md")
+    text = read(path) if os.path.isfile(path) else ""
+    lines = text.splitlines()
+    if ORCH_016_HEADER not in lines:
+        return False, (f"в roles/orchestrator.md нет заголовка «{ORCH_016_HEADER}» "
+                       "(правка 998 — только норма-строка инварианта 7)")
+    idx = lines.index(ORCH_016_HEADER)
+    for ln in lines[idx + 1:]:
+        if not ln.strip():
+            continue
+        if ln.startswith("## "):
+            return False, (
+                f"секция «{ORCH_016_HEADER}» разрезана: тело пусто, сразу идёт заголовок "
+                f"«{ln.strip()}» — правка 998 в roles/orchestrator.md обязана быть только "
+                "норма-строкой инварианта 7 (ПЕРЕСЕЧЕНИЕ)"
+            )
+        return True, "тело секции 016 непусто и идёт сразу под своим заголовком"
+    return False, f"секция «{ORCH_016_HEADER}» пуста (до конца файла)"
+
+
 # ── МАТРИЦА РАЗЛИЧИМОСТИ: --matrix ───────────────────────────────────────────
 SEED = os.path.join(HERE, "seed")
 MODELS = {
@@ -1075,6 +1243,8 @@ MODELS = {
     "drop_constraint": os.path.join(HERE, "decoy_drop_constraint.ts"),
     "drift_blind": os.path.join(HERE, "decoy_drift_blind.ts"),
     "role_file_blind": os.path.join(HERE, "decoy_role_file_blind.ts"),
+    "form_blind": os.path.join(HERE, "decoy_form_blind.ts"),
+    "module_barrier": os.path.join(HERE, "decoy_module_barrier.ts"),
 }
 
 SEED_AM = json.loads(read(os.path.join(SEED, "config", "agent_models.json")))
@@ -1328,6 +1498,140 @@ def matrix():
         expect=lambda rc, out, err, d: rc == 0))
     add("decoy_role_file_blind_seed_parity", cell_decoy(
         "decoy_role_file_blind_seed_parity", "role_file_blind", ["--check"],
+        expect=lambda rc, out, err, d: rc == 0 and d is None))
+
+    # ── КРУГ 2 (Р998-1, Р998-3): форма цели различима в рендере; барьер
+    # routing не судит чужие режимы (ПЕРЕСЕЧЕНИЕ 054). Обманные формы
+    # form_blind и module_barrier пойманы каждая на назначенном входе и
+    # неотличимы от честной модели на входах честного поведения.
+    def seed_with_mode_inputs(mut=None):
+        tree, am = seed_sandbox(mut_json=mut)
+        with open(os.path.join(tree, "AGENTS.md"), "w", encoding="utf-8") as f:
+            f.write("# AGENTS (вход режима)\n\n## Правила, каждое из которых уже стоило времени\n\n- правило\n")
+        with open(os.path.join(tree, "config", "models-glm.yml"), "w", encoding="utf-8") as f:
+            f.write("modelRoles:\n  default: \"@glm\"\n")
+        return tree, am
+
+    MODE_ARGS = (
+        ("--resolve-overlay", ["--resolve-overlay", "config/models-glm.yml"]),
+        ("--agents-rules", ["--agents-rules", "AGENTS.md"]),
+        ("--into", ["--into", "into-998"]),
+        ("режим записи", []),
+    )
+
+    def cell_modes_on_broken(name, model):
+        def fn():
+            why = []
+            for branch, mut in BROKEN_ROUTING_MUTS:
+                tree, am = seed_with_mode_inputs(mut=mut)
+                for label, margs in MODE_ARGS:
+                    rc, out, err = mrun(model, tree, margs)
+                    text = out + err
+                    if rc != 0:
+                        why.append(f"{branch}/{label}: rc={rc} (ожидается 0): {first_line(text)}")
+                    elif "routing" in text:
+                        why.append(f"{branch}/{label}: rc=0, но напечатан диагноз routing: {first_line(text)}")
+                rc_c, o_c, e_c = mrun(model, tree, ["--check"])
+                rc_p, o_p, e_p = mrun(model, tree, ["--prompt", "orchestrator"])
+                drift = disk_drift(tree, am)
+                shutil.rmtree(tree, ignore_errors=True)
+                for rc, o, e, entry in ((rc_c, o_c, e_c, "--check"), (rc_p, o_p, e_p, "--prompt")):
+                    if rc != 1 or "routing" not in (o + e):
+                        why.append(f"{branch}: {entry} rc={rc} (ожидается 1 с именованием routing)")
+                if drift:
+                    why.append(f"{branch}: {drift}")
+            return (not why), ("; ".join(why) if why else
+                               "при сломанном routing чужие режимы rc 0 без диагноза; --check/--prompt отказывают")
+        return fn
+
+    add("model_modes_isolated_broken_routing",
+        cell_modes_on_broken("model_modes_isolated_broken_routing", "model"))
+
+    def cell_modes_clean_parity(name, model):
+        def fn():
+            tree, am = seed_with_mode_inputs()
+            why = []
+            for label, margs in MODE_ARGS:
+                rc, out, err = mrun(model, tree, margs)
+                if rc != 0 or "routing" in (out + err):
+                    why.append(f"{label}: rc={rc}: {first_line(out or err)}")
+            drift = disk_drift(tree, am)
+            shutil.rmtree(tree, ignore_errors=True)
+            if drift:
+                why.append(drift)
+            return (not why), ("; ".join(why) if why else
+                               "на чистом дереве все режимы rc 0 без диагноза routing")
+        return fn
+
+    add("model_modes_clean_parity", cell_modes_clean_parity("model_modes_clean_parity", "model"))
+    add("decoy_module_barrier_seed_parity",
+        cell_modes_clean_parity("decoy_module_barrier_seed_parity", "module_barrier"))
+
+    def cell_decoy_module_barrier_modes(name):
+        def fn():
+            missed = []
+            for branch, mut in BROKEN_ROUTING_MUTS:
+                tree, _ = seed_with_mode_inputs(mut=mut)
+                for label, margs in MODE_ARGS:
+                    rc, out, err = mrun("module_barrier", tree, margs)
+                    text = out + err
+                    if not (rc == 1 and "routing" in text):
+                        missed.append(f"{branch}/{label}: rc={rc}, routing={'да' if 'routing' in text else 'нет'}")
+                shutil.rmtree(tree, ignore_errors=True)
+            tree, _ = seed_with_mode_inputs(mut=BROKEN_ROUTING_MUTS[0][1])
+            rc_c, o_c, e_c = mrun("module_barrier", tree, ["--check"])
+            rc_p, o_p, e_p = mrun("module_barrier", tree, ["--prompt", "orchestrator"])
+            shutil.rmtree(tree, ignore_errors=True)
+            for rc, o, e, entry in ((rc_c, o_c, e_c, "--check"), (rc_p, o_p, e_p, "--prompt")):
+                if rc != 1 or "routing" not in (o + e):
+                    missed.append(f"{entry} rc={rc} (обманка обязана честно отказывать в точках входа барьера)")
+            if missed:
+                return False, "; ".join(missed)
+            return True, ("обманка «барьер до разбора режимов» поймана на каждом входе режимов "
+                          "при сломанном routing и честно отказывает в --check/--prompt")
+        return fn
+
+    add("decoy_module_barrier_modes", cell_decoy_module_barrier_modes("decoy_module_barrier_modes"))
+
+    def _form_sections(model):
+        outs = []
+        for mut in (None, _mut_form_same_name):
+            tree, _am = seed_sandbox(mut_json=mut)
+            rc, out, err = mrun(model, tree, ["--prompt", "orchestrator"])
+            shutil.rmtree(tree, ignore_errors=True)
+            if rc != 0:
+                return None, f"rc={rc}: {first_line(out or err)}"
+            outs.append("\n".join(render_section(out)))
+        return outs, None
+
+    def cell_model_form_distinct(name):
+        def fn():
+            outs, err = _form_sections("model")
+            if err:
+                return False, err
+            if outs[0] == outs[1]:
+                return False, "рендер честной модели не различает форму цели role↔tier (секции равны)"
+            return True, "рендер честной модели различает форму цели role↔tier: секции различаются"
+        return fn
+
+    add("model_render_form_distinct", cell_model_form_distinct("model_render_form_distinct"))
+
+    def cell_decoy_form_blind_form_switch(name):
+        def fn():
+            outs, err = _form_sections("form_blind")
+            if err:
+                return False, err
+            if outs[0] == outs[1]:
+                return True, "обманка form_blind поймана: смена формы цели role↔tier (то же имя) не меняет секцию"
+            return False, "обманка form_blind НЕ поймана: секции различаются"
+        return fn
+
+    add("decoy_form_blind_form_switch", cell_decoy_form_blind_form_switch("decoy_form_blind_form_switch"))
+    add("decoy_form_blind_seed_prompt_parity", cell_decoy(
+        "decoy_form_blind_seed_prompt_parity", "form_blind", ["--prompt", "orchestrator"],
+        expect=lambda rc, out, err, d: rc == 0 and not render_problems(out, SEED_AM) and d is None))
+    add("decoy_form_blind_seed_check_parity", cell_decoy(
+        "decoy_form_blind_seed_check_parity", "form_blind", ["--check"],
         expect=lambda rc, out, err, d: rc == 0 and d is None))
 
     return cells

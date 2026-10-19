@@ -308,12 +308,15 @@ next_id_max_for_class() {
 
 
 # project_paths_resolve <REPO> — ЕДИНЫЙ резолвер путей профиля (контракт 996
-# пакет Б-5/Б-9, исправление toy-миров). Здесь — для двери freeze/done/
-# check_zones/check_staged, копируемых в toy-мир scripts/next_id.sh
-# (ap-фикстура fixtures/freeze_contract/fail_closed_992.py); те же строки
-# (дословно) — в scripts/lib_zones.sh для сценария check_hooks.sh, чей
-# toy_scratch несёт lib_zones.sh, но не next_id.sh. scripts/project_workflow.sh
-# — тонкая обёртка над этой функцией (тот же JSON наружу).
+# пакет Б-5/Б-9, исправление toy-миров). ДОМ определения — этот файл (контракт
+# 996, круг 4): все исполнители подключают next_id.sh через `NEXT_ID_LIB=1 source
+# next_id.sh` и сразу получают функцию. lib_zones.sh (читатель зон) больше не
+# несёт своё определение: при наличии рядом next_id.sh она подключает его ЛЕНИВО
+# (см. ниже «ПАРАЛЛЕЛЬНЫЙ ВХОД ЛИБЫ»). Так закрывается класс «toy-мир копирует
+# один из двух файлов»: fail_closed_992.py (только next_id.sh) — функция живёт в
+# next_id.sh; check_hooks/sh (только lib_zones.sh) — функция не нужна (зоны-загрузчик
+# проверяет declare -F и при отсутствии обходится дефолтом CONTRACTS_PATH=contracts/);
+# check_charter copy (только next_id.sh) — функция уже определена.
 #
 #   stdout: JSON ОДНОГО документа с ключами contracts/verdicts/registry/
 #           fixtures/handoff/observations/architectObservations/roadmap/
@@ -435,19 +438,25 @@ project_paths_resolve() {
        handoff:$handoff,observations:$observations,architectObservations:$arch_obs,
        roadmap:$roadmap,forks:$forks,sourceCanon:$source_canon}'
 }
+
 # ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
 # Когда скрипт импортируется (`NEXT_ID_LIB=1 source next_id.sh`), определяются функции
 # `parse_artifact_basename`, `next_id_locations_for_class`, `next_id_max_for_class`
-# и `project_paths_resolve` (контракт 996 Б-5/Б-9, исправление toy-миров
-# фикстуры fixtures/freeze_contract/fail_closed_992.py) и работа завершается.
-# Иначе — основной код. Так одна реализация разбора имени и одна реализация
-# max+1 живут ровно в одном месте, и расхождение двух разборов одного формата
-# невозможно по построению.
+# и `project_paths_resolve` (см. выше) и работа завершается. Иначе — основной код.
+# Так одна реализация разбора имени и одна реализация max+1 живут ровно в одном
+# месте, и расхождение двух разборов одного формата невозможно по построению.
 #
 # Возврат стоит ДО `set -euo pipefail`: если бы `set -e` стоял выше, любая функция
 # библиотеки, вернувшая код 1 (например, `parse_artifact_basename` для безномерного
 # файла), валила бы импортирующий скрипт (`check_ids.sh`) — без объявленной причины.
 if [ "${NEXT_ID_LIB:-}" = "1" ]; then
+  # Библиотечный вход next_id.sh (контракт 996 Б-5/Б-9): все четыре функции
+  # определены ВЫШЕ — здесь только ранний возврат. Прежняя редакция подключала
+  # lib_zones.sh безусловным `. "$SELF_DIR/lib_zones.sh"`, и этого было достаточно,
+  # пока дом project_paths_resolve жил в lib_zones.sh. После переноса дома в
+  # next_id.sh (круг 4) безусловный source не нужен и ломает toy-миры, где
+  # lib_zones.sh отсутствует (check_charter копирует только next_id.sh).
+  [ -n "${SELF_DIR:-}" ] || SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   return 0 2>/dev/null || exit 0
 fi
 

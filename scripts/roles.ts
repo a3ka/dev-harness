@@ -206,17 +206,6 @@ export function validateRouting(am: AgentModels, ctx: RoutingValidateContext = {
   return out
 }
 
-/** Барьер проводки routing (контракт 998, инварианты 1–2): единая точка выхода rc.
- *  Вызывается из обеих точек входа генератора (--check и --prompt) — разбор и сверка
- *  уже здесь, копия разнеслась бы по двум точкам. rolesDir передаётся, когда мы
- *  хотим полную проверку (наличие файла роли); в вырожденных песочницах — без него. */
-export function checkRouting(rolesDir?: string): { ok: true } | { ok: false; problems: RoutingProblem[] } {
-  const am = agentModels()
-  if (am === null) return { ok: true }  // вырожденный режим — конфига нет
-  const problems = validateRouting(am, rolesDir ? { rolesDir } : {})
-  return problems.length === 0 ? { ok: true } : { ok: false, problems }
-}
-
 /** Барьер routing строгий: когда config существует, секция routing обязательна.
  *  Используется в ОБЕИХ точках входа (--check и --prompt) — отсутствие секции
  *  при наличии config есть отказ rc 1 с именованием routing (контракт 998,
