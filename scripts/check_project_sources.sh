@@ -111,7 +111,14 @@ for p in "${SOURCE_PATHS[@]}"; do
     *\0*) die "SOURCE_CANON_INVALID: NUL в пути: $p" ;;
   esac
   full="$REPO/${p#./}"
-  # Каталог под R — НЕ regular file; -e принимает каталог, -f требует именно regular file.
+  # Каталог под R — НЕ regular file; -f требует именно regular file, -e
+  # проходит и для каталога (что и адверсарий круг 2 предъявил как обход: 
+  # `directory-is-not-file` принимался как источник). Различаем два отказа:
+  #   - объект НЕ существует → SOURCE_CANON_MISSING (как было);
+  #   - объект есть, но НЕ regular file (каталог, FIFO и пр.) → INVALID.
+  if [ ! -e "$full" ]; then
+    die "SOURCE_CANON_MISSING: $p"
+  fi
   if [ ! -f "$full" ]; then
     die "SOURCE_CANON_INVALID: источник не regular file: $p"
   fi
