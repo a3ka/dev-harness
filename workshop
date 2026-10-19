@@ -900,8 +900,12 @@ fi
 # sourceCanon. ШТАТНЫЙ запуск передаёт вычисленные пути и effective sourceCanon
 # в контекст роли, не отдельный --print-context расчёт. Здесь ОБЩАЯ ВЕТКА с
 # пробой — одна и та же операция вычисляет пути и для пробы, и для exec-omp.
-_pw_json="$(project_paths_resolve "$PROJECT" 2>/dev/null)" \
-  || printf '_pw_json_omitted: профиль битый или workflowPaths вне репо\n' >&2
+# Контракт 996, круг 4 (закрытие оси): rc 1 резолвера — отказ двери
+# ДО разветвления на talk/work. Прежний `_pw_json_omitted`-фолбэк оставлял
+# сессию со СНИМКОМ ROOT без путей: ровно то молчаливое расхождение, которое
+# проба на state-escape-workshop и dotdot-workshop предъявляет как красный.
+_pw_json="$(project_paths_resolve "$PROJECT")" \
+  || die "workflowPaths вне репо"
 {
   printf '## Маршруты проекта (R1-R3, контракт 060)\n'
   printf '%s\n' 'HARNESS WORKFLOW: номер контракта, реестр заморозок и черновики болей ведутся на репо-стороне — НЕ в журналах и очередях харнесса'
