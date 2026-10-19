@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 
@@ -18,6 +19,8 @@ OTHER = "scripts/check_second_994.sh"
 SELF = "fixtures/check_provodka/external_ci_994/probe.sh"
 KEY = "check:provodka-external-994"
 STEP = f"step\t{KEY}\t10\tbash {SELF}"
+# Вес шага — не свойство проверки 994 (087 А8: веса по замерам); судится любой целый вес.
+STEP_RE = re.compile(rf"step\t{re.escape(KEY)}\t\d+\tbash {re.escape(SELF)}")
 CONTRACT = "contracts/727-example.md"
 
 
@@ -164,7 +167,7 @@ def self_wiring(subject, scratch, registry=None):
         registry = (REPO / "registry/ci-steps.tsv").read_text(encoding="utf-8")
     probe = (REPO / SELF).read_text(encoding="utf-8")
     rows = [line for line in registry.splitlines() if line.split("\t")[:2] == ["step", KEY]]
-    if rows != [STEP]:
+    if len(rows) != 1 or not STEP_RE.fullmatch(rows[0]):
         print("SELF_WIRING MISSING_REAL_STEP " + repr(rows))
         return 1
     bad = 0

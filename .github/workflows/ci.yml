@@ -271,17 +271,17 @@ jobs:
           - lane: l1
             keys: check:gitw-predpolet-family-selftest
           - lane: l2
-            keys: check:granica-ispolneniya-093-family-selftest drill:contract-change check:consumers-window-family-selftest check:judge-gate check:precision-gate-043 check:scoped-run
+            keys: check:zones-call-budget check:provodka-external-994 check:samodostatochnost-family-selftest check:hooks drill:protected-rename
           - lane: l3
-            keys: check:lanuncher-politika-105-family-selftest check:fix-085-orch-peak-home-090-family-selftest check:pokrytie-079-family-selftest check:runner-hygiene drill:next-id-race check:contract-ready check:precision-battery check:provodka-external-994 drill:gate-draft
+            keys: check:granica-ispolneniya-093-family-selftest check:v-polete-nichego-088-family-selftest check:zony-merge-head-family-selftest check:scope-select check:rotaciya-handoff-091-family-selftest check:measure-probe drill:startup-digest
           - lane: l4
-            keys: check:orch-loop-997 check:zones-call-budget check:door-bugfix-family-selftest check:ops-server-family-selftest check:rotaciya-handoff-091-family-selftest check:zony-merge-head-family-selftest check:ceilings check:decisions check:precision-family-selftest drill:nabludenia-nechitaemo
+            keys: check:sharing-family-selftest check:rezhim-996-family-selftest check:precision-family-selftest check:door-bugfix-family-selftest check:precision-gate-043 check:approval check:zashchita-main-104-family-selftest check:decisions check:gen check:gen-ci-steps-coherence check:judge-gate drill:gate-draft drill:nabludenia-nechitaemo drill:next-id-race drill:protected-exception metering:selftest
           - lane: l5
-            keys: check:orch-restart-family-selftest check:approval check:context-pack-095-family-selftest check:fix-090-orch-peak-home-family-selftest check:project-paths-103-family-selftest check:v-polete-nichego-088-family-selftest drill:protected-exception check:gen check:skills drill:startup-digest
+            keys: check:orch-loop-997 check:runner-hygiene check:fix-085-orch-peak-home-090-family-selftest check:document check:declared-path-family-selftest check:merge-gate-family-selftest check:github-token-family-selftest check:ops-server-family-selftest check:skills
           - lane: l6
-            keys: check:protected-call-budget check:cikl-perezapuska-085-family-selftest check:declared-path-family-selftest check:gitw-family-selftest check:provodka-family-selftest check:watchdog-082-family-selftest drill:protected-rename check:github-token-family-selftest check:threat-model-selftest check:gen-ci-steps-coherence
+            keys: check:project-paths-103-family-selftest check:gitw-family-selftest check:fix-090-orch-peak-home-family-selftest check:lanuncher-politika-105-family-selftest check:scoped-run check:protected-call-budget check:pravila-modelei-998 check:ceilings check:threat-model-selftest
           - lane: l7
-            keys: check:samodostatochnost-family-selftest check:sharing-family-selftest check:document check:merge-gate-family-selftest check:rezhim-996-family-selftest check:zashchita-main-104-family-selftest metering:selftest check:hooks check:measure-probe check:scope-select
+            keys: check:watchdog-082-family-selftest check:cikl-perezapuska-085-family-selftest check:orch-restart-family-selftest check:context-pack-095-family-selftest check:pokrytie-079-family-selftest check:precision-battery check:provodka-family-selftest check:consumers-window-family-selftest check:contract-ready drill:contract-change
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4
