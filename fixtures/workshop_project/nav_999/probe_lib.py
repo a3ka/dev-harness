@@ -94,6 +94,7 @@ def run_jest(repo_mobile: Path, test_path: Path, name_pattern=None, env_extra=No
     """
     import os
     import tempfile
+    paths = [test_path] if isinstance(test_path, (str, Path)) else list(test_path)
 
     report = Path(tempfile.mkstemp(suffix='.json')[1])
     report.unlink()
@@ -102,7 +103,7 @@ def run_jest(repo_mobile: Path, test_path: Path, name_pattern=None, env_extra=No
     if env_extra:
         env.update(env_extra)
     cmd = ['node', str(repo_mobile / 'node_modules/jest/bin/jest.js'), '--ci', '--runInBand',
-           '--runTestsByPath', str(test_path), '--json', '--outputFile', str(report)]
+           '--runTestsByPath', *map(str, paths), '--json', '--outputFile', str(report)]
     if name_pattern:
         cmd += ['--testNamePattern', name_pattern]
     proc = subprocess.run(cmd, cwd=repo_mobile, env=env, capture_output=True, text=True, timeout=timeout)
