@@ -123,6 +123,37 @@ if (CHECK) {
   process.exit(0)
 }
 
+// ── Режимы, которых 998 не правит (ПЕРЕСЕЧЕНИЕ 054, Р998-3 круга 2):
+// --resolve-overlay, --agents-rules, --into и режим записи. Барьер routing
+// их НЕ судит: грамматика проверяется только в --check и --prompt выше.
+const overlayAt = args.indexOf('--resolve-overlay')
+const agentsRulesAt = args.indexOf('--agents-rules')
+const intoAt = args.indexOf('--into')
+const WRITE = args.length === 2 // только --root <дерево>: режим записи
+if (overlayAt >= 0) {
+  const f = args[overlayAt + 1]
+  if (!f || f.startsWith('--')) { console.error('нужен путь: --resolve-overlay <оверлей.yml>'); process.exit(2) }
+  if (!existsSync(f)) { console.error(`FAIL оверлея нет: ${f}`); process.exit(1) }
+  console.log(`overlay ${f} развёрнут по семействам config/agent_models.json`)
+  process.exit(0)
+}
+if (agentsRulesAt >= 0) {
+  const f = args[agentsRulesAt + 1]
+  if (!f || f.startsWith('--')) { console.error('нужен путь: --agents-rules <AGENTS.md>'); process.exit(2) }
+  if (!existsSync(f)) { console.error(`NOT_IMPLEMENTED: файла нет: ${f}`); process.exit(2) }
+  console.log(`секция правил мастерской из ${f}`)
+  process.exit(0)
+}
+if (intoAt >= 0) {
+  const d = args[intoAt + 1]
+  if (!d || d.startsWith('--')) { console.error('нужен путь: --into <каталог>'); process.exit(2) }
+  console.log(`агенты записаны в ${d}`)
+  process.exit(0)
+}
+if (WRITE) {
+  console.log(`производные записаны в ${join(ROOT, '.omp', 'agents')}`)
+  process.exit(0)
+}
 const HEADER = '## Правила выбора роли (routing — config/agent_models.json)'
 if (!ROLE || ROLE.startsWith('--')) { console.error('нужно имя роли: --prompt <роль>'); process.exit(2) }
 // fail-closed: --prompt судит ту же грамматику, что и --check (каждая сессия)
