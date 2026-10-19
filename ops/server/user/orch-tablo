@@ -40,6 +40,7 @@ base = glob.glob('/home/harness/.local/state/dev-harness-sessions/*/zones/dev/.o
 if not base:
     sys.exit('нет журналов сессий оркестратора')
 agents = {}   # nnn -> [(имя, последняя запись, сдал результат)]
+task_repo = {}  # nnn -> Counter упоминаний Complior-mob / Complior-back в заданиях агентов
 for b in base:
     for f in glob.glob(b + '/*/*.jsonl'):
         if NOW.timestamp() - os.path.getmtime(f) > WINDOW * 60:
@@ -56,6 +57,11 @@ for b in base:
                 continue
             if r.get('timestamp'):
                 last = ts(r['timestamp'])
+            if (r.get('message') or {}).get('role') == 'user':
+                txt = json.dumps(r['message'].get('content'), ensure_ascii=False)
+                c = task_repo.setdefault(n, {'mob': 0, 'бэкенд': 0})
+                c['mob'] += txt.count('Complior-mob')
+                c['бэкенд'] += txt.count('Complior-back')
             for c in (r.get('message') or {}).get('content') or []:
                 if isinstance(c, dict) and c.get('type') == 'toolCall' and c.get('name') == 'yield':
                     finished = True
@@ -132,4 +138,59 @@ for repo, num, br, state, upd in prs:
     if state in ('зелёный', 'красный') and not busy:
         stoit += 1
         print(f'  СТОИТ {mins(upd)} мин PR {repo}#{num} ({br}): CI {state}, по нему никто не работает')
+
+# ── потоки: харнесс / mob / бэкенд — всегда, даже без предмета ────────────────
+# Поток предмета: по тексту контракта на origin/main (Complior-mob / Complior-back), иначе по
+# строке плана (источник «Слот 2» → mob, решения бэкенда → бэкенд), иначе харнесс.
+contract_files = {m.group(1): f for f in sh('git', '-C', REPO, 'ls-tree', '--name-only', 'origin/main', 'contracts/').split()
+                  for m in [re.match(r'contracts/([0-9]{3})-', f)] if m}
+plan_rows = {l.split('\t')[0]: l.split('\t') for l in sh('git', '-C', REPO, 'show', 'origin/main:registry/plan.tsv').splitlines() if '\t' in l}
+
+
+def stream_of(n):
+    texts = []
+    f = contract_files.get(n)
+    if f:
+        texts.append(sh('git', '-C', REPO, 'show', f'origin/main:{f}'))
+    else:   # контракт ещё в ветке architect — до ленда
+        for ref in sh('git', '-C', REPO, 'for-each-ref', '--format=%(refname)', f'refs/remotes/origin/wip/{n}/').split():
+            for g in sh('git', '-C', REPO, 'ls-tree', '--name-only', ref, 'contracts/').split():
+                if g.startswith(f'contracts/{n}-'):
+                    texts.append(sh('git', '-C', REPO, 'show', f'{ref}:{g}'))
+    for t in texts:
+        mob, back = t.count('Complior-mob'), t.count('Complior-back')
+        if mob or back:
+            return 'mob' if mob >= back else 'бэкенд'
+    src = (plan_rows.get(n) or ['', '', '', '', ''])[4]
+    if 'Слот 2' in src:
+        return 'mob'
+    if 'back' in src or 'beka' in src:
+        return 'бэкенд'
+    c = task_repo.get(n) or {}
+    if c.get('mob') or c.get('бэкенд'):
+        return 'mob' if c['mob'] >= c['бэкенд'] else 'бэкенд'
+    return 'харнесс'
+
+
+seen = set(agents) | set(events)
+last = {}       # поток -> последнее событие любого его предмета (включая done)
+active = {}     # поток -> число предметов в работе (не done)
+for n in seen:
+    s = stream_of(n)
+    ts_n = [a[1] for a in agents.get(n, [])] + ([events[n][0]] if n in events else [])
+    if ts_n:
+        last[s] = max(last.get(s, ts_n[0]), max(ts_n))
+    if n not in done:
+        working = any(not a[2] and mins(a[1]) <= ACTIVE_MIN for a in agents.get(n, []))
+        pr_run = any(p[0] == 'dev-harness' and nnn_of(p[2]) == n and p[3] == 'идёт' for p in prs)
+        if working or pr_run:
+            active[s] = active.get(s, 0) + 1
+print('ПОТОКИ:')
+for s in ('харнесс', 'mob', 'бэкенд'):
+    if active.get(s):
+        print(f'  {s}: в работе предметов — {active[s]}')
+    else:
+        stoit += 1
+        idle = f'{mins(last[s])} мин' if s in last else f'больше {WINDOW} мин'
+        print(f'  СТОИТ ПОТОК {s}: ни один предмет не в работе — {idle}; возьми следующую задачу потока')
 print(f'итог: стоит без хода — {stoit}' + ('  → сделай следующий шаг по каждой строке СТОИТ до wait' if stoit else ''))
