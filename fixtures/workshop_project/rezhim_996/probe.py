@@ -215,6 +215,35 @@ def damage_key(root, p, key, value):
     return restore
 
 
+FALLBACK_ANCHOR = 'if [ -z "$_any_wp" ]; then'
+FALLBACK_CANON_EXPR = '.sourceCanon.value // null'
+
+
+def fallback_literal_null(tools):
+    """Мутант Р4-1 «литерал null в FALLBACK-NO-WORKFLOW»: вычисление юнита
+    в этой ветви scripts/next_id.sh заменяется байт-в-байт на литерал null.
+    Анкорь уникален: строка-открывашка ветви одна в файле, внутри ветви
+    выражение встречается не более одного раза (иначе отказ пробы). Ветка,
+    уже печатающая литерал (main до фикса), несёт дефект натурально — патч
+    не накладывается, вход краснеет сам. Возвращает True, если патч наложен."""
+    path = tools / 'scripts/next_id.sh'
+    body = path.read_text()
+    expect(body.count(FALLBACK_ANCHOR) == 1, 'FALLBACK_ANCHOR_NOT_UNIQUE')
+    start = body.index(FALLBACK_ANCHOR)
+    end = body.index('\n  fi\n', start)
+    lines = body[start:end].splitlines(keepends=True)
+    code = [i for i, line in enumerate(lines)
+            if not line.lstrip().startswith('#')
+            and FALLBACK_CANON_EXPR in line]
+    expect(len(code) <= 1, 'FALLBACK_CANON_ANCHOR_AMBIGUOUS')
+    if not code:
+        return False
+    lines[code[0]] = lines[code[0]].replace(FALLBACK_CANON_EXPR, 'null', 1)
+    path.write_text(body[:start] + ''.join(lines) + body[end:])
+    return True
+
+
+
 def pack_world(base, root, p, contract, call):
     """Предпосылки штатного задания --kind task: contextPack, канон, freeze."""
     p['contextPack'] = {'rows': [{'kind': 'map', 'path': 'AGENTS.md',
@@ -407,6 +436,9 @@ EXTRA_CASES = (
     'state-symlink-print-context', 'state-symlink-kind-task', 'state-symlink-workshop',
     'dotdot-resolver', 'dotdot-print-context', 'dotdot-kind-task', 'dotdot-workshop',
     'pack-source-symlink-secret', 'pack-no-source-body', 'make-task-drift',
+    # Круг 5 (Р4-1): FALLBACK-NO-WORKFLOW профиль с sourceCanon — юнит
+    # доходит до всех потребителей; контроль без юнита — null.
+    'fallback-canon-unit',
 )
 
 
@@ -1177,6 +1209,60 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
             compare(call('paths'), call('make_task', 'reviewer'),
                     'DRIFT_' + key.upper() + '_' + value.replace('/', '_'))
             restore()
+    elif case == 'fallback-canon-unit':
+        # Р4-1 (круг 5): профиль БЕЗ workflowPaths, но С sourceCanon —
+        # резолвер не отказывает (workflowPaths optional, канон несёт
+        # profile_resolver), и литеральный юнит доходит до всех трёх
+        # потребителей; контроль без sourceCanon — null, не отказ.
+        fb_tools = None
+        if mutant == 'fallback-canon-null':
+            # Н-39/Н-351: обман байт-в-байт к реальному scripts/next_id.sh
+            # одноразовой установки; наблюдаем на входах, где дефект виден.
+            fb_tools = installation(base)
+            fallback_literal_null(fb_tools)
+
+        def fb_call(op, *op_args, **kw):
+            if fb_tools is not None:
+                kw.setdefault('tools', fb_tools)
+                return subject('product', op, root, *op_args, mutant=mutant, **kw)
+            return call(op, *op_args, **kw)
+
+        p.pop('workflowPaths', None)
+        canon(root, p)
+        unit = p['sourceCanon']  # Н-351: литеральный ожидаемый юнит в клетке
+        root_layout = {key: str(root / key)
+                       for key in ('contracts', 'verdicts', 'registry', 'fixtures')}
+        r = fb_call('paths')
+        expect(r.returncode == 0, 'FALLBACK_CANON_PW_REFUSED', r)
+        got = json.loads(r.stdout)
+        expect(all(got.get(k) == v for k, v in root_layout.items()),
+               'FALLBACK_LAYOUT_WRONG', r)
+        expect(got.get('sourceCanon') == unit, 'FALLBACK_CANON_UNIT_DROPPED', r)
+        ws_tools = fb_tools if fb_tools is not None else (
+            installation(base) if mode == 'product' else TOOLS)
+        trap = put(base, 'bin/omp',
+                   '#!/bin/sh\necho UNEXPECTED_OMP_LAUNCH >&2\nexit 97\n')
+        trap.chmod(0o755)
+        trap_env = {'PATH': str(trap.parent) + os.pathsep + os.environ['PATH']}
+        r = fb_call('make_task', 'reviewer')
+        expect(r.returncode == 0, 'FALLBACK_CANON_MAKE_TASK_REFUSED', r)
+        expect(json.loads(r.stdout).get('sourceCanon') == unit,
+               'FALLBACK_CANON_UNIT_MAKE_TASK', r)
+        r = fb_call('workshop', tools=ws_tools, extra_env=trap_env)
+        expect(r.returncode == 0, 'FALLBACK_CANON_WORKSHOP_REFUSED', r)
+        expect(json.loads(r.stdout).get('sourceCanon') == unit,
+               'FALLBACK_CANON_UNIT_WORKSHOP', r)
+        # Контроль: та же ветвь без sourceCanon отдаёт null, не отказ.
+        p.pop('sourceCanon')
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'fallback control without canon')
+        for op, op_args, reason in (
+                ('paths', (), 'FALLBACK_CONTROL_CANON_PW'),
+                ('make_task', ('reviewer',), 'FALLBACK_CONTROL_CANON_MAKE_TASK'),
+                ('workshop', (), 'FALLBACK_CONTROL_CANON_WORKSHOP')):
+            r = fb_call(op, *op_args, tools=ws_tools, extra_env=trap_env)
+            expect(r.returncode == 0
+                   and json.loads(r.stdout).get('sourceCanon') is None, reason, r)
     elif case == 'self-canonical':
         # Product configuration is an input of its own resolver/paths CLI, not a text grep.
         install = installation(base)
@@ -1409,6 +1495,13 @@ MUTANTS.update({
     'pack-pastes-source': ('pack-source-symlink-secret', 'pack-no-source-body'),
     'dotdot-substring': ('dotdot-resolver', 'dotdot-print-context',
                          'dotdot-kind-task', 'dotdot-workshop'),
+})
+MUTANTS.update({
+    # Круг 5 (Р4-1): литерал null в FALLBACK-NO-WORKFLOW — байт-в-байт патч
+    # к scripts/next_id.sh одноразовой установки (main до фикса несёт дефект
+    # натурально, патч тогда не накладывается); depends измерен прогоном
+    # --matrix: красная только на новой клетке, чужие presentations не тронуты.
+    'fallback-canon-null': ('fallback-canon-unit',),
 })
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
