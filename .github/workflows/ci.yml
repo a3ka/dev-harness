@@ -126,7 +126,7 @@ jobs:
         with:
           node-version: 26
       - name: Лёгкое задание (устав, зоны, ids, protected, грамматика 015)
-        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen check:pokrytie-079-family-selftest check:ops-server-family-selftest check:runner-hygiene
+        run: bash scripts/run_ci_lane.sh check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen
 
       # Кеш-сохранение для инкрементального режима (контракт 083, этикет зон §Зоны,
       # v+1 — в legkij матрицы НЕТ, 4 чека выполняются одним шагом без условия
@@ -271,17 +271,17 @@ jobs:
           - lane: l1
             keys: check:gitw-predpolet-family-selftest
           - lane: l2
-            keys: check:granica-ispolneniya-093-family-selftest drill:protected-rename check:gen check:skills check:scoped-run
+            keys: check:granica-ispolneniya-093-family-selftest drill:contract-change check:consumers-window-family-selftest check:judge-gate check:precision-gate-043 check:scoped-run
           - lane: l3
-            keys: check:lanuncher-politika-105-family-selftest check:fix-085-orch-peak-home-090-family-selftest check:provodka-family-selftest check:zashchita-main-104-family-selftest metering:selftest check:github-token-family-selftest check:threat-model-selftest drill:gate-draft
+            keys: check:lanuncher-politika-105-family-selftest check:fix-085-orch-peak-home-090-family-selftest check:pokrytie-079-family-selftest check:runner-hygiene drill:next-id-race check:contract-ready check:precision-battery check:provodka-external-994 drill:gate-draft
           - lane: l4
-            keys: check:orch-loop-997 check:zones-call-budget check:door-bugfix-family-selftest check:project-paths-103-family-selftest check:watchdog-082-family-selftest drill:protected-exception check:decisions check:precision-family-selftest check:scope-select
+            keys: check:orch-loop-997 check:zones-call-budget check:door-bugfix-family-selftest check:ops-server-family-selftest check:rotaciya-handoff-091-family-selftest check:zony-merge-head-family-selftest check:ceilings check:decisions check:precision-family-selftest drill:nabludenia-nechitaemo
           - lane: l5
-            keys: check:orch-restart-family-selftest check:approval check:context-pack-095-family-selftest check:fix-090-orch-peak-home-family-selftest check:rezhim-996-family-selftest check:zony-merge-head-family-selftest check:ceilings check:hooks check:measure-probe drill:nabludenia-nechitaemo
+            keys: check:orch-restart-family-selftest check:approval check:context-pack-095-family-selftest check:fix-090-orch-peak-home-family-selftest check:project-paths-103-family-selftest check:v-polete-nichego-088-family-selftest drill:protected-exception check:gen check:skills drill:startup-digest
           - lane: l6
-            keys: check:protected-call-budget check:cikl-perezapuska-085-family-selftest check:declared-path-family-selftest check:gitw-family-selftest check:rotaciya-handoff-091-family-selftest drill:contract-change check:consumers-window-family-selftest check:judge-gate check:precision-gate-043 drill:startup-digest
+            keys: check:protected-call-budget check:cikl-perezapuska-085-family-selftest check:declared-path-family-selftest check:gitw-family-selftest check:provodka-family-selftest check:watchdog-082-family-selftest drill:protected-rename check:github-token-family-selftest check:threat-model-selftest
           - lane: l7
-            keys: check:samodostatochnost-family-selftest check:sharing-family-selftest check:document check:merge-gate-family-selftest check:v-polete-nichego-088-family-selftest drill:next-id-race check:contract-ready check:precision-battery check:provodka-external-994
+            keys: check:samodostatochnost-family-selftest check:sharing-family-selftest check:document check:merge-gate-family-selftest check:rezhim-996-family-selftest check:zashchita-main-104-family-selftest metering:selftest check:hooks check:measure-probe check:scope-select
 # END GENERATED CI JOBS (083)
     steps:
       - uses: actions/checkout@v4

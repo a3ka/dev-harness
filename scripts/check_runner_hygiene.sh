@@ -707,7 +707,13 @@ if want porjadok; then
   git -C "$ROOT" merge-base --is-ancestor "$A" "$V" 2>/dev/null \
     || die porjadok "вердикт 010-v2 (${V:0:8}) закоммичен ДО аннотации 010 (${A:0:8}) — критик судил блоб, которого ещё не было, либо аннотация менялась после вердикта (§Предмет А.2 «тот же круг» — обход кругов 1–2 критика)"
   vf="$ROOT/$VERD"
-  [ -f "$vf" ] || die porjadok "файла $VERD нет на дереве — вердикт удалён после коммита, акт (ii) не предъявить"
+  if [ ! -f "$vf" ]; then
+    # 087 И-1/И-7 (круг 3): strip тяжёлой джобы удаляет verdicts/ из рабочего дерева;
+    # блоб вердикта тогда читается из ЗАМОРОЖЕННОЙ побайтной копии в НЕ-учётном пути
+    # рядом с фикстурами ветви (порядок актов по-прежнему судится по git-истории корня).
+    vf="$REPO/fixtures/check_runner_hygiene/_zamorozka/contracts-010-v2.md"
+    [ -f "$vf" ] || die porjadok "файла $VERD нет на дереве и нет замороженной копии fixtures/check_runner_hygiene/_zamorozka/contracts-010-v2.md — вердикт удалён после коммита, акт (ii) не предъявить"
+  fi
   first="$(sed -n 1p "$vf" | tr -d '\r')"
   first="${first#"${first%%[![:space:]]*}"}"
   first="${first%"${first##*[![:space:]]}"}"

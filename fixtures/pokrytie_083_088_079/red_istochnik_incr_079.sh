@@ -158,7 +158,11 @@ kletka_istochnik() { # <чек>
   [ -f "$ROOT/scripts/lib_incr.sh" ] || { printf 'NOT_IMPLEMENTED: нет lib_incr.sh\n' >&2; return 2; }
   cp -- "$ROOT/scripts/lib_incr.sh" "$d/scripts/lib_incr.sh"
   if [ "$chk" = check_charter ]; then
-    cp -- "$ROOT/AGENTS.md" "$d/AGENTS.md" && cp -- "$ROOT/ROADMAP.md" "$d/ROADMAP.md" || return 2
+    # 087 И-1/К10-исп: ROADMAP.md — учётный путь, strip тяжёлой джобы его удаляет;
+    # тою-мир носит ЗАМОРОЖЕННУЮ побайтную копию из НЕ-учётного пути семьи
+    # (фиксируется на моменте заморозки; AGENTS.md не учётный — живой).
+    [ -f "$HERE/_zamorozka/ROADMAP.md" ] || { printf 'NOT_IMPLEMENTED: нет замороженной копии ROADMAP.md\n' >&2; return 2; }
+    cp -- "$ROOT/AGENTS.md" "$d/AGENTS.md" && cp -- "$HERE/_zamorozka/ROADMAP.md" "$d/ROADMAP.md" || return 2
     git -C "$d" -c user.name=t -c user.email=t@t add -A
     git -C "$d" -c user.name=t -c user.email=t@t commit -qm import
     git -C "$d" tag ustav/1 HEAD

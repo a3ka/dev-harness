@@ -141,6 +141,10 @@ ROLE_ANCHOR='## Автоперезапуск orch-loop и два слота (с�
 ROLE_PTR='- **Обвязка сервера:** единый источник — ops/server/README.md (инвентарь, журналы, вкл/выкл, настройка станции).'
 ROLE_KEEP='  `bash scripts/orch_restart.sh` — через 20 с рестарт с чистым контекстом,'
 HANDOFF_PTR='- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).'
+# 087 И-1/К10-исп: HANDOFF.md — учётный путь, strip тяжёлой джобы его удаляет; миры
+# несут ЗАМОРОЖЕННУЮ первую секцию «ГДЕ МЫ» с указателем из НЕ-учётного пути семьи
+# (побайтно с деревом на моменте заморозки; роль — не учётный путь, живая).
+ZAM_HANDOFF="$HERE/_zamorozka/HANDOFF_GDE_MY.md"
 ROLE_CEILING=53248
 
 # ── честная симуляция install.sh (FIXSIM, throwaway — А-318) ──────────────────
@@ -275,6 +279,7 @@ build_docs() { # <каталог> <указатели:1|0>
   # Мир с указателями применяет их к первой секции ИДЕМПОТЕНТНО (уже
   # стоит — копия как есть); роль мерится той же мерой — разделом якоря.
   mkdir -p "$1/ops/server" "$1/roles"
+  [ -f "$ZAM_HANDOFF" ] || { printf 'NOT_IMPLEMENTED: нет замороженной копии первой секции HANDOFF: %s\n' "$ZAM_HANDOFF" >&2; exit 2; }
   write_sim_readme "$1/ops/server/README.md"
   if [ "$2" -eq 1 ]; then
     if awk -v a="$ROLE_ANCHOR" 'index($0,a)==1{f=1;next} f && /^## /{exit} f' \
@@ -286,18 +291,18 @@ build_docs() { # <каталог> <указатели:1|0>
         "$REPO_ROOT/roles/orchestrator.md" >"$1/roles/orchestrator.md"
     fi
     if awk '!d && index($0,"## ГДЕ МЫ")==1{f=1;d=1;next} f && /^## /{exit} f' \
-        "$REPO_ROOT/HANDOFF.md" | grep -Fxq -- "$HANDOFF_PTR"; then
-      cp -- "$REPO_ROOT/HANDOFF.md" "$1/HANDOFF.md"
+        "$ZAM_HANDOFF" | grep -Fxq -- "$HANDOFF_PTR"; then
+      cp -- "$ZAM_HANDOFF" "$1/HANDOFF.md"
     else
       awk -v ptr="$HANDOFF_PTR" \
         '!d && index($0,"## ГДЕ МЫ")==1 {print; print ptr; d=1; next} {print}' \
-        "$REPO_ROOT/HANDOFF.md" >"$1/HANDOFF.md"
+        "$ZAM_HANDOFF" >"$1/HANDOFF.md"
     fi
   else
     grep -Fxv -e "$ROLE_PTR" -e "$HANDOFF_PTR" -- \
       "$REPO_ROOT/roles/orchestrator.md" >"$1/roles/orchestrator.md"
     grep -Fxv -e "$ROLE_PTR" -e "$HANDOFF_PTR" -- \
-      "$REPO_ROOT/HANDOFF.md" >"$1/HANDOFF.md"
+      "$ZAM_HANDOFF" >"$1/HANDOFF.md"
   fi
 }
 
@@ -504,6 +509,10 @@ cell_k6() { # <docroot>: чек-строки README
 
 cell_k7() { # <docroot>: указатели HANDOFF/роли, носитель, потолок
   local role="$1/roles/orchestrator.md" ho="$1/HANDOFF.md" sz
+  # 087 И-1/К10-исп: strip тяжёлой джобы удаляет HANDOFF субъекта (учётный путь) —
+  # указатель первой секции тогда судится по замороженной копии; роль — не учётный
+  # путь, читается живой всегда.
+  [ -f "$ho" ] || ho="$ZAM_HANDOFF"
   [ -f "$role" ] && [ -f "$ho" ] || { printf 'k7: нет роли или HANDOFF в мире\n'; return 1; }
   awk -v a="$ROLE_ANCHOR" 'index($0,a)==1{f=1;next} f && /^## /{exit} f' "$role" >"$SCRATCH/k7.role"
   grep -Fxq -- "$ROLE_PTR" "$SCRATCH/k7.role" || { printf 'k7: в разделе роли нет строки-указателя на ops/server/README.md\n'; return 1; }

@@ -109,6 +109,18 @@ if len(at) != 1:
 block = open(blk, encoding='utf-8').read().rstrip('\n').split('\n')
 open(dst, 'w', encoding='utf-8').write('\n'.join(lines[:at[0]] + block + lines[at[0]:]))
 PY
+  # К10/К10-исп (круг 3, Р2-1/Н-331): три ключа тяжёлых проверок — честная модель
+  # держит их step-строками с toy-командой без учётных путей; стабы M087_STAB:
+  #   legkij-tri-klyucha — те же ключи строками legkij реестра модели;
+  #   chitaet-uchet — toy-команда читает учётный ROADMAP.md (зелена на полном
+  #   дереве, красна на дереве без учётных путей — условие тяжёлой джобы).
+  if [ "${M087_STAB:-}" = chitaet-uchet ]; then
+    printf '#!/usr/bin/env bash\ncat ROADMAP.md\n' > "$m/scripts/toy_tjazh_087.sh"
+  else
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$m/scripts/toy_tjazh_087.sh"
+  fi
+  chmod +x "$m/scripts/toy_tjazh_087.sh"
+  printf 'model roadmap\n' > "$m/ROADMAP.md"
   {
     printf 'lanes\t6\n'
     python3 "$T87_ORAKUL" reg-text | grep $'^uchet\t'
@@ -118,6 +130,13 @@ PY
     local k
     for k in check:charter check:zones check:ids check:protected check:nabludenia check:contract-frozen; do
       printf 'legkij\t%s\t5\tnpm run %s\n' "$k" "$k"
+    done
+    for k in check:pokrytie-079-family-selftest check:ops-server-family-selftest check:runner-hygiene; do
+      if [ "${M087_STAB:-}" = legkij-tri-klyucha ]; then
+        printf 'legkij\t%s\t5\tbash scripts/toy_tjazh_087.sh\n' "$k"
+      else
+        printf 'step\t%s\t20\tbash scripts/toy_tjazh_087.sh\n' "$k"
+      fi
     done
     printf 'shard\tap1\tcheck_ci_gate check_runner_hygiene\n'
     printf 'shard\tap2\tcheck_scope_select freeze_contract\n'
