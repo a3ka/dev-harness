@@ -126,8 +126,8 @@ for n in subjects:
         print(f'  СТОИТ {mins(last_t)} мин {head}: последнее — {last_what}')
 for repo, num, br, state, upd in prs:
     n = nnn_of(br)
-    if repo == 'dev-harness' and n not in subjects:
-        continue   # ветки предметов вне работы (давние PR) — не поток
+    if repo == 'dev-harness' and n and n not in subjects:
+        continue   # ветки предметов вне работы (давние PR) — не поток; PR без номера (поезд, owner/*) — показываются
     busy = n and any(not a[2] and mins(a[1]) <= ACTIVE_MIN for a in agents.get(n, []))
     if state in ('зелёный', 'красный') and not busy:
         stoit += 1
