@@ -363,8 +363,154 @@ local known_branches="projectLayer workflowPaths commands git ci barriers contex
     done <<<"$bk"
   done
 }
+# ── 996: ВАЛИДАЦИЯ ЗАКРЫТОГО АЛФАВИТА sourceCanon (Б-2) ─────────────────────
+# Контракт 996 §Lifecycle L41: «Неизвестный ключ/неверный тип — отказ resolver»
+# и L55 «Единственный источник грамматики — расширение SCHEMA_LEVELS/проверок
+# действующего resolver». Грамматика sourceCanon — закрытое множество
+# {sources, gate}: sources — массив {path, priority}; priority — целое ≥0
+# (bool НЕ целое, дробное НЕ целое); path — непустая строка, относительная,
+# без «..», без NUL, уникальные; gate — массив непустых argv-строк без NUL.
+# ВТОРОЙ валидатор в check_project_sources.sh теперь лишний (закрывает Б-2
+# adversarial): здесь же, рядом с scan_levels, общий шаблон audit 996 §К6.
+#
+# ОТДЕЛЬНАЯ функция для обеих точек объявления (репо и project defaults):
+# `repo:sourceCanon` и `project:defaults:sourceCanon`. Репо-объявление
+# замещает defaults целиком (ЮНИТОМ, прецедент contextPack 095, barriers 054);
+# валидация каждого слоя — одинаковой формы.
+#
+# Путь в JSON для репо — `.sourceCanon`; для defaults — `.defaults.sourceCanon`.
+# jq-выражения различаются симметрично через $path.
+scan_canon() {  # $1=level_label, $2=file, $3=json-path ("sourceCanon" | "defaults.sourceCanon")
+  local label="$1" file="$2" path="$3"
+  # Поле отсутствует — законный пропуск (опционально). Поле ПРИСУТСТВУЕТ, но
+  # null — НЕ отсутствие (контракт 996 §Lifecycle L53); отказ SOURCE_CANON_INVALID.
+  # Различаем has() и null: getpath() на отсутствующем пути даёт null, на
+  # явном null — тоже null. Приём — отдельные ветви через .has(...)
+  if jq -e --arg p "$path" 'has($p | split(".")[0]) | not' "$file" >/dev/null 2>&1; then
+    return 0
+  fi
+  # Точнее: проверим, ЕСТЬ ЛИ путь как ключ верхнего уровня. Для сложных
+  # путей ("defaults.sourceCanon") — двухуровневый has-цикл.
+  if [ "$path" = "defaults.sourceCanon" ]; then
+    if ! jq -e '.defaults | type == "object" and (has("sourceCanon") | not)' "$file" >/dev/null 2>&1; then
+      :  # defaults есть; идём ниже
+    else
+      return 0  # defaults.sourceCanon не задан
+    fi
+  elif [ "$path" = "sourceCanon" ]; then
+    if jq -e 'has("sourceCanon") | not' "$file" >/dev/null 2>&1; then
+      return 0  # не задан
+    fi
+  fi
+  # Теперь поле ПРИСУТСТВУЕТ — даже если null.
+  local ft
+  ft="$(jq -r --arg p "$path" 'getpath($p | split(".")) | type' "$file" 2>/dev/null)" || die_p "SOURCE_CANON_INVALID: чтение типа ${label} не выполнено (jq rc=$?)"
+  [ "$ft" = "object" ] || die_p "SOURCE_CANON_INVALID: ${label}: <$ft>"
+  # Алфавит ключей sourceCanon: ровно {sources, gate}. Лишний ключ → отказ.
+  local extra
+  extra="$(jq -r --arg p "$path" '
+    [getpath($p | split(".")) | keys_unsorted[]
+     | select(. != "sources" and . != "gate")] | join(",")
+  ' "$file" 2>/dev/null)"
+  if [ -n "$extra" ]; then
+    die_p "SOURCE_CANON_INVALID: ${label}: неизвестный ключ: $extra"
+  fi
+  # sources — массив, непустой.
+  local sources_type
+  sources_type="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .sources | type' "$file" 2>/dev/null)"
+  [ "$sources_type" = "array" ] || die_p "SOURCE_CANON_INVALID: ${label}.sources: <$sources_type>"
+  local sources_len
+  sources_len="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .sources | length' "$file" 2>/dev/null)"
+  [ "$sources_len" -gt 0 ] 2>/dev/null || die_p "SOURCE_CANON_INVALID: ${label}.sources: пустой массив"
+  # Элементы sources — объекты {path, priority}; известные ключи ровно эти два.
+  # priority — JSON-число, INTEGER (не bool, не дробь), ≥0. path — непустая строка,
+  # без NUL, без ведущего /. Авто-индексация делает позицию видимой в отказе.
+  local bad_row
+  bad_row="$(jq -r --arg p "$path" '
+    (getpath($p | split(".")) | .sources) as $arr |
+    ($arr | to_entries[]) as $e |
+    (if ($e.value | type) != "object"
+       then {idx: $e.key, why: ("<не объект>")}
+     else
+       (($e.value | keys_unsorted | sort) | tostring) as $ks |
+       (if ($e.value | has("path")) and ($e.value | has("priority"))
+        then
+          ((($e.value.priority | type) == "number"
+            and ($e.value.priority | (floor == .))
+            and ($e.value.priority >= 0)) as $pri |
+          (($e.value.path | type) == "string"
+            and (($e.value.path | length) > 0)
+            and (($e.value.path | contains("\u0000")) | not)) as $pth |
+          if ($pri and $pth) then empty
+          elif (($e.value.priority | type) != "number") then
+            {idx: $e.key, why: ("priority <" + (($e.value.priority | type) // "<null>") + ">")}
+          elif (($e.value.priority | (floor != .)) or ($e.value.priority < 0)) then
+            {idx: $e.key, why: ("priority " + ($e.value.priority | tostring))}
+          elif (($e.value.path | type) != "string") then
+            {idx: $e.key, why: "path <не строка>"}
+          elif ($e.value.path | length) == 0 then
+            {idx: $e.key, why: "path пусто"}
+          else {idx: $e.key, why: "path NUL"}
+          end)
+        else {idx: $e.key, why: "отсутствует обязательное поле"}
+       end)
+     end)
+    | "\(.idx)\t\(.why)"
+  ' "$file" 2>/dev/null)"
+  if [ -n "$bad_row" ]; then
+    local idx="${bad_row%%	*}" why="${bad_row#*	}"
+    die_p "SOURCE_CANON_INVALID: ${label}.sources[${idx}]: ${why}"
+  fi
+  # Лишние ключи внутри source-items — отказ. Аналогично keys_unsorted-{sources,gate}.
+  local extra_item
+  extra_item="$(jq -r --arg p "$path" '
+    [getpath($p | split(".")) | .sources[]
+     | keys_unsorted[]
+     | select(. != "path" and . != "priority")] | join(",")
+  ' "$file" 2>/dev/null)"
+  if [ -n "$extra_item" ]; then
+    die_p "SOURCE_CANON_INVALID: ${label}.sources[?]: неизвестный ключ: $extra_item"
+  fi
+  # Уникальность path (контракт L53 «уникальные относительные пути»).
+  local dup
+  dup="$(jq -r --arg p "$path" '
+    [getpath($p | split(".")) | .sources[].path]
+    | group_by(.) | map(select(length>1))[0] // empty
+  ' "$file" 2>/dev/null)"
+  if [ -n "$dup" ]; then
+    die_p "SOURCE_CANON_INVALID: ${label}.sources: повтор пути: $dup"
+  fi
+  # gate — массив непустых argv-строк без NUL.
+  local gate_type gate_len
+  gate_type="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .gate | type' "$file" 2>/dev/null)"
+  [ "$gate_type" = "array" ] || die_p "SOURCE_CANON_INVALID: ${label}.gate: <$gate_type>"
+  gate_len="$(jq -r --arg p "$path" 'getpath($p | split(".")) | .gate | length' "$file" 2>/dev/null)"
+  [ "$gate_len" -gt 0 ] 2>/dev/null || die_p "SOURCE_CANON_INVALID: ${label}.gate: пустой массив"
+  local bad_gate
+  bad_gate="$(jq -r --arg p "$path" '
+    (getpath($p | split(".")) | .gate) as $g |
+    ($g | to_entries[]) as $e |
+    select(($e.value | type) != "string"
+           or ($e.value | length) == 0
+           or ($e.value | contains("\u0000")))
+    | "\(.key)\t\(
+        if (($e.value | type) != "string") then "не строка"
+        elif ($e.value | length) == 0 then "пусто"
+        else "NUL" end)"
+  ' "$file" 2>/dev/null)"
+  if [ -n "$bad_gate" ]; then
+    local gidx="${bad_gate%%	*}" gwhy="${bad_gate#*	}"
+    die_p "SOURCE_CANON_INVALID: ${label}.gate[${gidx}]: ${gwhy}"
+  fi
+  # Лишний ключ верхнего уровня в sourceCanon — тот же SOURCE_CANON_INVALID.
+  # (покрыт выше единым extra-фильтром keys_unsorted)
+}
 scan_levels repo   "$REPO_JSON_FD"
 scan_levels project "$PROJECT_JSON_FD"
+
+scan_canon "репо-слой.sourceCanon"          "$REPO_JSON_FD"     "sourceCanon"
+scan_canon "слой-проекта.defaults.sourceCanon" "$PROJECT_JSON_FD" "defaults.sourceCanon"
+
 
 # ── И-4: значения и обязательные поля ───────────────────────────────────────
 # schemaVersion = 1 литерально в обоих слоях. language ∈ {rust, typescript, bash}

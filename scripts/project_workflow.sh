@@ -1,131 +1,61 @@
 #!/usr/bin/env bash
-# scripts/project_workflow.sh — ЕДИНСТВЕННЫЙ печатник проектных путей и
-# эффективного sourceCanon контракта 996 (общий контекст пакета A).
+# scripts/project_workflow.sh — ТОНКАЯ ОБЁРТКА над функцией project_paths_resolve,
+# размещённой в scripts/next_id.sh (ЗОНА implementer, контракт 996 Б-5/Б-9).
+# Раньше эта дверь несла полный резолв-блок (profile_resolver, workflowPaths
+# гард, state гард, jq-печать), и toy-миры (ap-фикстуры verify_antiplacebo,
+# fixtures/freeze_contract/fail_closed_992.py) копировали её bash-скриптом
+# в одноразовый мир, но НЕ копировали project_workflow.sh — каждая дверь
+# (freeze/done/check_zones/check_staged/mint_line) вызывала её отдельным
+# bash-процессом, и в toy-мире вызов отказывал «No such file or directory»
+# (Н-340 красные клетки antiplacebo ap3/ap4/ap5 + obshchij).
 #
-#   bash scripts/project_workflow.sh --repo <R>
+# После Б-9: project_paths_resolve живёт В next_id.sh (а копия в lib_zones.sh
+# для сценария check_hooks.sh). Двери импортируют её через source/next API
+# и не вызывают этот скрипт как процесс. scripts/project_workflow.sh здесь —
+# только ради обратной совместимости CLI (workshop/make_task/reserve/ci),
+# и сводится к пересылке argv в функцию.
 #
-# stdout — JSON ОДНОГО документа, ключи:
-#     contracts, verdicts, registry, fixtures   — из profile_resolver.workflowPaths.value
-#     handoff, observations, architectObservations,
-#     roadmap, forks                            — из <state>/{HANDOFF.md, NABLIUDENIA.md,
-#                                                NABLIUDENIA_ARCHITECT.md, ROADMAP.md, forks};
-#                                                <state> = workflowPaths.value.state || ".harness"
-#     sourceCanon                               — effective ЮНИТ источников и gate
-#                                                (entry.value, без обёртки origin) либо null
-#
-# Все пути — АБСОЛЮТНЫЕ, вычислены в корне --repo. Каждый путь проверен на
-# относительность и реальность относительно --repo: симлинк вне, «..» и абсолютный
-# путь в profile.value — отказ rc 1 «workflowPaths вне репо» ДО печати.
-# Источник effective profile — scripts/profile_resolver.sh, второй экземпляр merge-логики
-# не вводится (контракт 996 §Интерфейсы «Общий контекст»).
+# Использование (тот же CLI, что был до рефакторинга):
+#   bash scripts/project_workflow.sh --repo R --root R
+# stdout — JSON ОДНОГО документа (ключи: contracts, verdicts, registry,
+#           fixtures, handoff, observations, architectObservations, roadmap,
+#           forks, sourceCanon). Тот же JSON, что у project_paths_resolve.
 #
 # Коды возврата:
-#   0 — успех (JSON на stdout)
+#   0 — успех
 #   1 — отказ с именованной причиной на stderr
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-die() { printf 'ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+[ -x "$HERE/next_id.sh" ] || { printf 'ОТКАЗ: нет %s/next_id.sh\n' "$HERE" >&2; exit 1; }
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$HERE/next_id.sh"
 
-REPO=""
+# project_paths_resolve принимает <REPO> позиционно. CLI-формат этой двери —
+# --repo/--root <путь> либо просто путь; передаём всё как есть, оставляя разбор
+# (включая трактовку `--`) самой функции. Функция берёт $1 как путь к репо.
+REPO_ARG=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --repo) REPO="${2:-}"; [ $# -ge 2 ] && shift ;;
-    --) shift; break ;;
-    *) REPO="$1" ;;
+    --repo|--root)
+      REPO_ARG="${2:-}"
+      [ $# -ge 2 ] && shift
+      ;;
+    --)
+      shift
+      [ $# -gt 0 ] && REPO_ARG="$1"
+      break
+      ;;
+    *)
+      [ -z "$REPO_ARG" ] && REPO_ARG="$1"
+      ;;
   esac
   shift
 done
-
-[ -n "$REPO" ] || die "usage: bash scripts/project_workflow.sh --repo <корень>"
-[ -d "$REPO" ] || die "каталог репо не существует: $REPO"
-command -v jq >/dev/null 2>&1 || die "нет jq"
-command -v git >/dev/null 2>&1 || die "нет git"
-[ -x "$HERE/profile_resolver.sh" ] || die "нет profile_resolver.sh"
-
-REPO_ABS="$(cd "$REPO" && pwd -P)"
-export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}"
-
-# Один-единственный зов resolver (контракт 996 §Интерфейсы «helper вызывает
-# resolver один раз»). Все пути и sourceCanon — из merged-профиля.
-_err="$(mktemp 2>/dev/null || echo /dev/null)"
-trap 'rm -f "$_err"' EXIT
-MERGED=""
-if ! MERGED="$("$HERE/profile_resolver.sh" --repo "$REPO_ABS" 2>"$_err")"; then
-  _pc_reason="$(cat "$_err" 2>/dev/null || true)"
-  rm -f "$_err"
-  die "${_pc_reason#profile ОТКАЗ: }"
+if [ -z "$REPO_ARG" ]; then
+  printf 'ОТКАЗ: usage: bash scripts/project_workflow.sh [--repo|--root] <путь>\n' >&2
+  exit 1
 fi
-rm -f "$_err"
-[ -n "$MERGED" ] || die "профиль пуст"
 
-# ── Гард И-5: пути строго ВНУТРИ репо ─────────────────────────────────────
-# Каждое значение <workflowPaths>.* канонизируется readlink -f и должно
-# иметь префикс REPO_ABS. «..», абсолютный путь и симлинк наружу отказывают
-# единой фразой. Проверка ДО формирования JSON, чтобы ни одна ветвь не печатала
-# частичный результат.
-for _wpk in contracts verdicts registry fixtures; do
-  _wpv="$(printf '%s' "$MERGED" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
-  [ -n "$_wpv" ] || die "профиль без workflowPaths.$_wpk"
-  _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
-  case "$_wpv" in /*) _wpcanon="/вне" ;; esac
-  case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
-done
-unset _wpk _wpv _wpcanon
-
-STATE="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.state.value // ".harness"')"
-[ -n "$STATE" ] || STATE=".harness"
-# Гард для state: относительный, без ведущего /, не .., лежит ВНУТРИ репо.
-case "$STATE" in
-  /*) die "workflowPaths.state обязан быть относительным: $STATE" ;;
-esac
-case "$STATE" in
-  *..*) die "workflowPaths.state содержит ..: $STATE" ;;
-esac
-_STATE_ABS="$(cd "$REPO_ABS" && readlink -f -- "$STATE" 2>/dev/null || true)"
-case "$_STATE_ABS" in
-  "$REPO_ABS") ;;            # state="." — сам корень репо
-  "$REPO_ABS"/*) ;;          # любой подкаталог репо
-  *) die "workflowPaths.state вне репо: $STATE" ;;
-esac
-unset _STATE_ABS
-
-# Конструкция JSON-а: ключи workflowPaths.* идёт уже канонизированным путём
-# (мы сверяли выше, что readlink -f лежит внутри REPO_ABS). State-каталог —
-# HANDOFF/NABLIUDENIA*/ROADMAP.md/forks — фиксированные basename-ы.
-# State-prefix: «.» → REPO_ABS (state сам репо). workflowPaths.* — ТОП-УРОВНЕВЫЕ
-# каталоги внутри REPO_ABS, не под state.
-_STATE_PREFIX="$REPO_ABS"
-[ "$STATE" != "." ] && _STATE_PREFIX="$REPO_ABS/${STATE%/}"
-
-CONTRACTS="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.contracts.value')"
-VERDICTS="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.verdicts.value')"
-REGISTRY="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.registry.value')"
-FIXTURES="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.fixtures.value')"
-
-SOURCE_CANON="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
-
-# jq-сборка ОДНОГО документа; терминатор — конец JSON, никаких следов.
-jq -n \
-  --arg contracts    "$REPO_ABS/$CONTRACTS" \
-  --arg verdicts     "$REPO_ABS/$VERDICTS" \
-  --arg registry     "$REPO_ABS/$REGISTRY" \
-  --arg fixtures     "$REPO_ABS/$FIXTURES" \
-  --arg handoff      "$_STATE_PREFIX/HANDOFF.md" \
-  --arg observations "$_STATE_PREFIX/NABLIUDENIA.md" \
-  --arg arch_obs     "$_STATE_PREFIX/NABLIUDENIA_ARCHITECT.md" \
-  --arg roadmap      "$_STATE_PREFIX/ROADMAP.md" \
-  --arg forks        "$_STATE_PREFIX/forks" \
-  --argjson source_canon "$SOURCE_CANON" \
-  '{
-     contracts:  $contracts,
-     verdicts:   $verdicts,
-     registry:   $registry,
-     fixtures:   $fixtures,
-     handoff:    $handoff,
-     observations:      $observations,
-     architectObservations: $arch_obs,
-     roadmap:    $roadmap,
-     forks:      $forks,
-     sourceCanon: $source_canon
-   }'
+project_paths_resolve "$REPO_ARG"

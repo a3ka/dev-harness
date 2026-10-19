@@ -306,12 +306,143 @@ next_id_max_for_class() {
   printf '%d\n' "$max"
 }
 
+
+# project_paths_resolve <REPO> — ЕДИНЫЙ резолвер путей профиля (контракт 996
+# пакет Б-5/Б-9, исправление toy-миров). Здесь — для двери freeze/done/
+# check_zones/check_staged, копируемых в toy-мир scripts/next_id.sh
+# (ap-фикстура fixtures/freeze_contract/fail_closed_992.py); те же строки
+# (дословно) — в scripts/lib_zones.sh для сценария check_hooks.sh, чей
+# toy_scratch несёт lib_zones.sh, но не next_id.sh. scripts/project_workflow.sh
+# — тонкая обёртка над этой функцией (тот же JSON наружу).
+#
+#   stdout: JSON ОДНОГО документа с ключами contracts/verdicts/registry/
+#           fixtures/handoff/observations/architectObservations/roadmap/
+#           forks/sourceCanon (полный набор как у scripts/project_workflow.sh).
+#   rc 0 — успех (LEGACY-FALLBACK на корне репо, либо резолв профиля).
+#   rc 1 — отказ с именованной причиной на stderr (битый профиль,
+#          workflowPaths вне репо, симлинк-побег, отсутствие git/jq/profile_resolver.sh).
+#
+# Каталог библиотеки (для поиска profile_resolver.sh) вычисляется из
+# BASH_SOURCE[0] этой функции — own-раскладка, не переданный аргумент.
+# HARNESS_PROJECT_LAYER_ROOT устанавливается равным REPO_ABS, чтобы
+# profile_resolver нашёл слой проекта; env override (если выставлен
+# вызывающей стороной) сохраняется.
+project_paths_resolve() {
+  local _lib_dir REPO_ABS MERGED STATE _STATE_ABS _STATE_PREFIX _wpk _wpv _wpcanon _err _pc_reason
+  local CONTRACTS VERDICTS REGISTRY FIXTURES SOURCE_CANON
+  _lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || {
+    printf 'project_paths_resolve: каталог библиотеки не определён\n' >&2; return 1; }
+
+  REPO_ABS="$(cd "$1" 2>/dev/null && pwd -P)" || {
+    printf 'project_paths_resolve: каталог репо не существует: %s\n' "$1" >&2
+    return 1
+  }
+
+  # LEGACY-FALLBACK (контракт 996 §Интерфейсы, К6 «корневые раскладки — не запасной
+  # источник»): при ОТСУТСТВИИ harness.project.json — дефолтная корневая раскладка
+  # репо. Это НЕ запасной источник для БИТОГО профиля: резолвер отказывает на
+  # мусорном harness.project.json, и эта ветвь НЕ перехватывает отказ.
+  # JSON строится БЕЗ jq (printf + ручное экранирование \" и \) — toy-миры
+  # check_hooks / check_staged / check_zones / freeze_contract имеют PATH
+  # БЕЗ /usr/bin (Н-333 verify_antiplacebo фикстуры), и падать на отсутствии
+  # jq в LEGACY-FALLBACK — нарушение шва Б-9 (дверь судит профиль и при
+  # «профиля нет»). Пути REPO_ABS НЕ содержат \" и \ в корректной среде.
+  if [ ! -f "$REPO_ABS/harness.project.json" ]; then
+    _jesc() { printf '%s' "$1" | sed 's/\\\\/\\\\\\\\/g; s/\\"/\\\\"/g'; }
+    printf '{"contracts":"%s","verdicts":"%s","registry":"%s","fixtures":"%s","handoff":"%s","observations":"%s","architectObservations":"%s","roadmap":"%s","forks":"%s","sourceCanon":null}\n' \
+      "$(_jesc "$REPO_ABS/contracts")" \
+      "$(_jesc "$REPO_ABS/verdicts")" \
+      "$(_jesc "$REPO_ABS/registry")" \
+      "$(_jesc "$REPO_ABS/fixtures")" \
+      "$(_jesc "$REPO_ABS/HANDOFF.md")" \
+      "$(_jesc "$REPO_ABS/NABLIUDENIA.md")" \
+      "$(_jesc "$REPO_ABS/NABLIUDENIA_ARCHITECT.md")" \
+      "$(_jesc "$REPO_ABS/ROADMAP.md")" \
+      "$(_jesc "$REPO_ABS/forks")"
+    return 0
+  fi
+
+  command -v git >/dev/null 2>&1 || { printf 'project_paths_resolve: нет git\n' >&2; return 1; }
+  command -v jq >/dev/null 2>&1  || { printf 'project_paths_resolve: нет jq\n' >&2;  return 1; }
+  [ -x "$_lib_dir/profile_resolver.sh" ] || {
+    printf 'project_paths_resolve: нет profile_resolver.sh (%s)\n' "$_lib_dir" >&2; return 1; }
+
+  # env override (если выставлен вызывающей стороной — например, родительским
+  # процессом через export) СОХРАНЯЕТСЯ. Иначе — равен REPO_ABS (как и в
+  # scripts/project_workflow.sh:64-66).
+  export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}"
+
+  _err="$(mktemp 2>/dev/null || echo /dev/null)"
+  if ! MERGED="$(HARNESS_PROJECT_LAYER_ROOT="$REPO_ABS" bash "$_lib_dir/profile_resolver.sh" --repo "$REPO_ABS" 2>"$_err")"; then
+    _pc_reason="$(cat "$_err" 2>/dev/null || true)"
+    [ "$_err" != "/dev/null" ] && rm -f "$_err"
+    printf '%s\n' "${_pc_reason#profile ОТКАЗ: }" >&2
+    return 1
+  fi
+  [ "$_err" != "/dev/null" ] && rm -f "$_err"
+  [ -n "$MERGED" ] || { printf 'project_paths_resolve: профиль пуст\n' >&2; return 1; }
+
+  # Гард workflowPaths на относительность и реальность относительно REPO_ABS
+  # (контракт 996 §Интерфейсы — симлинк вне, .. и абсолютный путь — отказ rc 1
+  # ДО печати).
+  for _wpk in contracts verdicts registry fixtures; do
+    _wpv="$(printf '%s' "$MERGED" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
+    [ -n "$_wpv" ] || { printf 'project_paths_resolve: профиль без workflowPaths.%s\n' "$_wpk" >&2; return 1; }
+    _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
+    case "$_wpv" in /*) _wpcanon="/вне" ;; esac
+    case "$_wpcanon" in
+      "$REPO_ABS"/*) ;;
+      *) printf 'project_paths_resolve: workflowPaths вне репо: %s=%s\n' "$_wpk" "$_wpv" >&2; return 1 ;;
+    esac
+  done
+
+  STATE="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.state.value // ".harness"')"
+  [ -n "$STATE" ] || STATE=".harness"
+  case "$STATE" in
+    /*) printf 'project_paths_resolve: workflowPaths.state обязан быть относительным: %s\n' "$STATE" >&2; return 1 ;;
+  esac
+  case "$STATE" in
+    *..*) printf 'project_paths_resolve: workflowPaths.state содержит ..: %s\n' "$STATE" >&2; return 1 ;;
+  esac
+  _STATE_ABS="$(cd "$REPO_ABS" && readlink -f -- "$STATE" 2>/dev/null || true)"
+  case "$_STATE_ABS" in
+    "$REPO_ABS") ;;
+    "$REPO_ABS"/*) ;;
+    *) printf 'project_paths_resolve: workflowPaths.state вне репо: %s\n' "$STATE" >&2; return 1 ;;
+  esac
+
+  _STATE_PREFIX="$REPO_ABS"
+  [ "$STATE" != "." ] && _STATE_PREFIX="$REPO_ABS/${STATE%/}"
+
+  CONTRACTS="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.contracts.value')"
+  VERDICTS="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.verdicts.value')"
+  REGISTRY="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.registry.value')"
+  FIXTURES="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.fixtures.value')"
+  SOURCE_CANON="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
+
+  jq -n \
+    --arg contracts    "$REPO_ABS/$CONTRACTS" \
+    --arg verdicts     "$REPO_ABS/$VERDICTS" \
+    --arg registry     "$REPO_ABS/$REGISTRY" \
+    --arg fixtures     "$REPO_ABS/$FIXTURES" \
+    --arg handoff      "$_STATE_PREFIX/HANDOFF.md" \
+    --arg observations "$_STATE_PREFIX/NABLIUDENIA.md" \
+    --arg arch_obs     "$_STATE_PREFIX/NABLIUDENIA_ARCHITECT.md" \
+    --arg roadmap      "$_STATE_PREFIX/ROADMAP.md" \
+    --arg forks        "$_STATE_PREFIX/forks" \
+    --argjson source_canon "$SOURCE_CANON" \
+    '{contracts:$contracts,verdicts:$verdicts,registry:$registry,fixtures:$fixtures,
+       handoff:$handoff,observations:$observations,architectObservations:$arch_obs,
+       roadmap:$roadmap,forks:$forks,sourceCanon:$source_canon}'
+}
 # ── ИМПОРТ КАК БИБЛИОТЕКА ────────────────────────────────────────────────────
 # Когда скрипт импортируется (`NEXT_ID_LIB=1 source next_id.sh`), определяются функции
-# `parse_artifact_basename`, `next_id_locations_for_class` и `next_id_max_for_class`
-# и работа завершается. Иначе — основной код. Так одна реализация
-# разбора имени и одна реализация max+1 живут ровно в одном месте, и расхождение
-# двух разборов одного формата невозможно по построению.
+# `parse_artifact_basename`, `next_id_locations_for_class`, `next_id_max_for_class`
+# и `project_paths_resolve` (контракт 996 Б-5/Б-9, исправление toy-миров
+# фикстуры fixtures/freeze_contract/fail_closed_992.py) и работа завершается.
+# Иначе — основной код. Так одна реализация разбора имени и одна реализация
+# max+1 живут ровно в одном месте, и расхождение двух разборов одного формата
+# невозможно по построению.
 #
 # Возврат стоит ДО `set -euo pipefail`: если бы `set -e` стоял выше, любая функция
 # библиотеки, вернувшая код 1 (например, `parse_artifact_basename` для безномерного

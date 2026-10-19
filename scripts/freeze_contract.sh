@@ -81,28 +81,43 @@ if [ -z "$ROOT" ] && [ -n "${HARNESS_WORKFLOW_ROOT:-}" ]; then
 fi
 [ -n "$ROOT" ] || ROOT="$ROOT_DEFAULT"
 
-# 996 (К1, К3): профильные пути. `workflowPaths.contracts`, `workflowPaths.verdicts`,
-# `workflowPaths.registry` — из эффективного профиля репо проекта. При отсутствии
-# профиля (харнес сам как проект, без harness.project.json) — корневые
-# «contracts/», «verdicts/critic», «registry/» (прежнее поведение, поведение
-# «один код двери» не меняется).
-_PROFILE_VERDICTS_DIR="verdicts/critic"
-_PROFILE_REGISTRY_PATH="registry"
-_PROFILE_CONTRACTS_DIR="contracts/"
-if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
-  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
-  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
-              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
-    _verdicts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.verdicts.value // empty' 2>/dev/null || true)"
-    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
-    _contracts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.contracts.value // empty' 2>/dev/null || true)"
-    [ -n "$_verdicts" ] && _PROFILE_VERDICTS_DIR="${_verdicts%/}/critic"
-    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
-    [ -n "$_contracts" ] && _PROFILE_CONTRACTS_DIR="${_contracts%/}/"
-  fi
-  rm -f "$_pr_err"
-fi
-unset _pr_err _pr_out _verdicts _registry _contracts
+# 996 (Б-5/Б-9): ЕДИНЫЙ резолв workflowPaths через функцию project_paths_resolve
+# из подключённой выше scripts/next_id.sh (пакет A/Б-5, исправление toy-миров
+# fixtures/freeze_contract/fail_closed_992.py: дверь больше НЕ вызывает
+# project_workflow.sh отдельным bash-процессом — функция доступна через source).
+# Гард на относительность/reality/symlink живёт в project_paths_resolve; здесь —
+# лишь извлечение имён ключей и проверка непустоты.
+_pr_paths="$(project_paths_resolve "$ROOT" 2>/dev/null)" \
+  || die "ОТКАЗ: профиль битый или workflowPaths вне репо: $(project_paths_resolve "$ROOT" 2>&1 >/dev/null)"
+_PROFILE_VERDICTS_BASE="$(printf '%s' "$_pr_paths" | jq -r '.verdicts' 2>/dev/null || true)"
+_PROFILE_REGISTRY_PATH="$(printf '%s' "$_pr_paths" | jq -r '.registry' 2>/dev/null || true)"
+_PROFILE_CONTRACTS_BASE="$(printf '%s' "$_pr_paths" | jq -r '.contracts' 2>/dev/null || true)"
+[ -n "$_PROFILE_VERDICTS_BASE" ] && [ -n "$_PROFILE_REGISTRY_PATH" ] && [ -n "$_PROFILE_CONTRACTS_BASE" ] \
+  || die "ОТКАЗ: project_paths_resolve вернул пустой путь"
+unset _pr_paths
+# dir-суффиксы для роли критика (freeze). Объявляется ПОСЛЕ захвата — раньше
+# freeze работал по корневому `verdicts/critic`, теперь профильный critic.
+# dir-суффиксы (verdicts/critic для freeze, registry/, contracts/) — после
+# захвата «контрактного относительного» пути, чтобы (1) TARGET сравнивался
+# с относительным, и (2) `git -C ROOT cat-file -p HEAD:<relative>` работал.
+case "$_PROFILE_VERDICTS_BASE" in
+  "$ROOT"/*) _PROFILE_VERDICTS_REL="${_PROFILE_VERDICTS_BASE#"$ROOT"/}" ;;
+  *)         _PROFILE_VERDICTS_REL="${_PROFILE_VERDICTS_BASE#/}" ;;
+esac
+_PROFILE_VERDICTS_DIR="${_PROFILE_VERDICTS_REL%/}/critic"
+unset _PROFILE_VERDICTS_REL _PROFILE_VERDICTS_BASE
+case "$_PROFILE_CONTRACTS_BASE" in
+  "$ROOT"/*) _PROFILE_CONTRACTS_REL="${_PROFILE_CONTRACTS_BASE#"$ROOT"/}" ;;
+  *)         _PROFILE_CONTRACTS_REL="${_PROFILE_CONTRACTS_BASE#/}" ;;
+esac
+_PROFILE_CONTRACTS_DIR="${_PROFILE_CONTRACTS_REL%/}/"
+_PROFILE_REGISTRY_PATH_REL="${_PROFILE_REGISTRY_PATH#/}"; _PROFILE_REGISTRY_PATH_REL="${_PROFILE_REGISTRY_PATH_REL%"$ROOT"/*}"
+# Для registry тот же приём (относительный путь от ROOT):
+case "$_PROFILE_REGISTRY_PATH" in
+  "$ROOT"/*) _PROFILE_REGISTRY_PATH="${_PROFILE_REGISTRY_PATH#"$ROOT"/}" ;;
+  *)         _PROFILE_REGISTRY_PATH="${_PROFILE_REGISTRY_PATH#/}" ;;
+esac
+unset _PROFILE_CONTRACTS_REL _PROFILE_REGISTRY_PATH_REL
 
 command -v git >/dev/null 2>&1 || skip "нет git — реестр заморозок вести нечем"
 [ -d "$ROOT" ] || skip "корня нет: $ROOT"
@@ -120,22 +135,46 @@ case "$state" in
 esac
 
 # ── 3. грамматика предмета ────────────────────────────────────────────────────
-# 996 К1: путь контракта — профильный (`workflowPaths.contracts`) или
-# корневые `contracts/`, `plans/` (харнес сам как проект). Принимается ЛЮБОЙ
-# из них. Сравнение — литеральное по байтам имени файла.
-_CONTRACTS_ROOT="$_PROFILE_CONTRACTS_DIR"   # например ".harness/tasks" или "contracts"
+# 996 (Б-6) К1: путь контракта — профильный (`workflowPaths.contracts`) или
+# корневые `contracts/`, `plans/` (харнес сам как проект, без harness.project.json).
+# Корневые `contracts/` допустимы ТОЛЬКО когда профиль НЕ объявляет иной путь;
+# иначе freeze/done молча откажется на корневой приманке (модель угроз L51).
+# План по-прежнему хранится в корневом `plans/` — freeze плана через эту дверь
+# вне темы 996 (для продуктового прогресса), и plans/ сохраняется.
+_CONTRACTS_ROOT="$_PROFILE_CONTRACTS_DIR"   # например ".harness/tasks/" или "contracts/"
+# Профильный путь от `project_paths_resolve` приходит в форме АБСОЛЮТНОГО пути
+# (`<REPO_ABS>/<wp.contracts>`). Для сравнения с TARGET (относительным)
+# выделяем ПОСЛЕДНИЙ суффикс относительно REPO_ABS: всё, что после REPO_ABS.
+# Это «контрактный относительный» — то, что профиль ОБЪЯВИЛ, как JSON-значение.
+case "$_CONTRACTS_ROOT" in
+  "$ROOT"/*) _CONTRACTS_REL="${_CONTRACTS_ROOT#"$ROOT"/}" ;;
+  *)         _CONTRACTS_REL="${_CONTRACTS_ROOT#/}" ;;
+esac
+_CONTRACTS_REL="${_CONTRACTS_REL%/}/"   # trailing "/" для префиксной проверки
+# Корневой источник разрешён ТОЛЬКО если профиль не уводит workflowPaths в
+# другую раскладку. Если профильный путь — ровно `contracts/` (либо харнес
+# без harness.project.json), root `contracts/` допустим.
+_ROOT_CONTRACTS_OK=0
+case "$_CONTRACTS_REL" in
+  contracts/|"") _ROOT_CONTRACTS_OK=1 ;;
+esac
 base="${TARGET##*/}"
-# Префиксная проверка: TARGET либо начинается с `${_CONTRACTS_ROOT%/}/` (профиль),
-# либо с `plans/` или `contracts/` (корневые). Вложенные пути недопустимы.
+# Префиксная проверка: TARGET либо начинается с `${_CONTRACTS_REL%/}/` (профиль),
+# либо с `plans/` (всегда), либо с `contracts/` (только если _ROOT_CONTRACTS_OK).
 _accepted=0
 case "$TARGET" in
-  "${_CONTRACTS_ROOT%/}/"*) _accepted=1; dir="${_CONTRACTS_ROOT%%/*}" ;;
-  plans/*)                  _accepted=1; dir="plans" ;;
-  contracts/*)              _accepted=1; dir="contracts" ;;
+  "${_CONTRACTS_REL%/}/"*) _accepted=1; dir="${_CONTRACTS_REL%%/*}" ;;
+  plans/*)                 _accepted=1; dir="plans" ;;
+  contracts/*)
+    if [ "$_ROOT_CONTRACTS_OK" = "1" ]; then
+      _accepted=1; dir="contracts"
+    fi
+    ;;
 esac
 if [ "$_accepted" -ne 1 ]; then
-  die "замораживается только plans/NNN-*.md либо ${_CONTRACTS_ROOT%/}/NNN-*.md либо contracts/NNN-*.md; получено: $TARGET"
+  die "замораживается только plans/NNN-*.md либо ${_CONTRACTS_REL%/}/NNN-*.md${_ROOT_CONTRACTS_OK:+ либо contracts/NNN-*.md} (корневой contracts/ при профиле workflowPaths.contracts=${_CONTRACTS_REL%/} не источник); получено: $TARGET"
 fi
+unset _CONTRACTS_REL _ROOT_CONTRACTS_OK
 ARTIFACT_NUMBER=""
 rc=0
 parse_artifact_basename "$base" || rc=$?
