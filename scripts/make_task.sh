@@ -73,8 +73,11 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
   esac
   SC_OBJ="$(printf '%s' "$MERGED_OUT" | jq -c '.sourceCanon.value // null')"
   # verdict_canon ВСЕГДА задан: пустой для не-судьи, иначе путь.
+  # Каталог судьи лежит под workflowPaths.verdicts (НЕ под state — state хранит
+  # HANDOFF/NABLIUDENIA*/ROADMAP/forks, а не вердикты). Состояние учитывается
+  # отдельно в handoff/NABLIUDENIA_ARCHITECT.md/ROADMAP.md/forks, куда пишет сессия.
   if [ -n "$_verdict_suffix" ]; then
-    _verdict_canon="$WP_STATE_PREFIX/${WP_V%/}/$_verdict_suffix"
+    _verdict_canon="$REPO_ABS/${WP_V%/}/$_verdict_suffix"
   else
     _verdict_canon=""
   fi
