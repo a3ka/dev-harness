@@ -27,6 +27,8 @@ export const uiCopyDe: Readonly<Record<string, CopyEntry>> = {
   'disclosure.failed': { text: 'Die Bereitstellung konnte nicht bestätigt werden. Ihr Anliegen bleibt gespeichert.', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'disclosure.retry': { text: 'Bereitstellung erneut prüfen', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'disclosure.updated': { text: 'Für diesen Schritt ist eine neuere Erstinformation erforderlich.', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
+  'disclosure.missing': { text: 'Die erforderliche Erstinformation wurde noch nicht bestätigt bereitgestellt.', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
+  'disclosure.not_applicable': { text: 'Für diesen Schritt ist keine erneute Bereitstellung erforderlich.', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'frame.F02.03.title': { text: 'Informationen zu Ihrem Makler', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'frame.F02.03.body': { text: 'Hier finden Sie den verantwortlichen Makler und die Erstinformation zum Herunterladen.', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },
   'frame.F02.05.title': { text: 'Dokument ansehen', review_status: 'EDITORIAL_DRAFT_REVIEW_REQUIRED' },

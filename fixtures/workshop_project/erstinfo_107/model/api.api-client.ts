@@ -18,14 +18,18 @@
  */
 import type { Session, Disclosure } from './generated/api-5_8';
 
-/** Состояния выдачи Erstinformation (erstinformation_route.delivery_values,
- * подмножество F02.08 screen_flow.states). */
+/** Состояния выдачи Erstinformation: erstinformation_route.delivery_values
+ * (серверные шесть значений, включая MISSING/UNKNOWN) + экранное CHECKING
+ * из screen_flow.F02.08.states; отображение серверных значений вне пяти
+ * экранных — безопасный fallback экрана (без evidence/confirm/continue). */
 export type DeliveryState =
   | 'CHECKING'
   | 'PENDING'
   | 'FAILED'
   | 'OUTDATED'
-  | 'CURRENT_CONFIRMED';
+  | 'CURRENT_CONFIRMED'
+  | 'MISSING'
+  | 'UNKNOWN';
 
 /** Применимость выдачи к текущему бизнес-шагу; решается серверной политикой. */
 export type Applicability = 'REQUIRED' | 'NOT_REQUIRED' | 'UNKNOWN';
