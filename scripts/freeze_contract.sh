@@ -81,6 +81,29 @@ if [ -z "$ROOT" ] && [ -n "${HARNESS_WORKFLOW_ROOT:-}" ]; then
 fi
 [ -n "$ROOT" ] || ROOT="$ROOT_DEFAULT"
 
+# 996 (К1, К3): профильные пути. `workflowPaths.contracts`, `workflowPaths.verdicts`,
+# `workflowPaths.registry` — из эффективного профиля репо проекта. При отсутствии
+# профиля (харнес сам как проект, без harness.project.json) — корневые
+# «contracts/», «verdicts/critic», «registry/» (прежнее поведение, поведение
+# «один код двери» не меняется).
+_PROFILE_VERDICTS_DIR="verdicts/critic"
+_PROFILE_REGISTRY_PATH="registry"
+_PROFILE_CONTRACTS_DIR="contracts/"
+if [ -x "$SELF_DIR/profile_resolver.sh" ] && [ -f "$ROOT/harness.project.json" ]; then
+  _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
+  if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$ROOT}" \
+              bash "$SELF_DIR/profile_resolver.sh" --repo "$ROOT" 2>"$_pr_err")"; then
+    _verdicts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.verdicts.value // empty' 2>/dev/null || true)"
+    _registry="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.registry.value // empty' 2>/dev/null || true)"
+    _contracts="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.contracts.value // empty' 2>/dev/null || true)"
+    [ -n "$_verdicts" ] && _PROFILE_VERDICTS_DIR="${_verdicts%/}/critic"
+    [ -n "$_registry" ] && _PROFILE_REGISTRY_PATH="$_registry"
+    [ -n "$_contracts" ] && _PROFILE_CONTRACTS_DIR="${_contracts%/}/"
+  fi
+  rm -f "$_pr_err"
+fi
+unset _pr_err _pr_out _verdicts _registry _contracts
+
 command -v git >/dev/null 2>&1 || skip "нет git — реестр заморозок вести нечем"
 [ -d "$ROOT" ] || skip "корня нет: $ROOT"
 ROOT="$(cd "$ROOT" && pwd)"
@@ -97,24 +120,42 @@ case "$state" in
 esac
 
 # ── 3. грамматика предмета ────────────────────────────────────────────────────
-dir="${TARGET%%/*}"
+# 996 К1: путь контракта — профильный (`workflowPaths.contracts`) или
+# корневые `contracts/`, `plans/` (харнес сам как проект). Принимается ЛЮБОЙ
+# из них. Сравнение — литеральное по байтам имени файла.
+_CONTRACTS_ROOT="$_PROFILE_CONTRACTS_DIR"   # например ".harness/tasks" или "contracts"
 base="${TARGET##*/}"
-case "$dir" in
-  plans|contracts) ;;
-  *) die "замораживается только plans/NNN-*.md либо contracts/NNN-*.md; получено: $TARGET" ;;
+# Префиксная проверка: TARGET либо начинается с `${_CONTRACTS_ROOT%/}/` (профиль),
+# либо с `plans/` или `contracts/` (корневые). Вложенные пути недопустимы.
+_accepted=0
+case "$TARGET" in
+  "${_CONTRACTS_ROOT%/}/"*) _accepted=1; dir="${_CONTRACTS_ROOT%%/*}" ;;
+  plans/*)                  _accepted=1; dir="plans" ;;
+  contracts/*)              _accepted=1; dir="contracts" ;;
 esac
-[ "$dir/$base" = "$TARGET" ] || die "замораживается только plans/NNN-*.md либо contracts/NNN-*.md; вложенные пути не замораживаются: $TARGET"
+if [ "$_accepted" -ne 1 ]; then
+  die "замораживается только plans/NNN-*.md либо ${_CONTRACTS_ROOT%/}/NNN-*.md либо contracts/NNN-*.md; получено: $TARGET"
+fi
 ARTIFACT_NUMBER=""
 rc=0
 parse_artifact_basename "$base" || rc=$?
 if [ "$rc" -ne 0 ] || [ -z "${ARTIFACT_NUMBER:-}" ]; then
-  die "замораживается только plans/NNN-*.md либо contracts/NNN-*.md; имя «$base» вне грамматики NNN-<slug>.md (ровно три цифры, дефис, не-цифра)"
+  die "замораживается только plans/NNN-*.md либо ${_CONTRACTS_ROOT%/}/NNN-*.md либо contracts/NNN-*.md; имя «$base» вне грамматики NNN-<slug>.md (ровно три цифры, дефис, не-цифра)"
 fi
 case "$base" in
   *.md) ;;
-  *) die "замораживается только plans/NNN-*.md либо contracts/NNN-*.md; у «$base» нет расширения .md" ;;
+  *) die "замораживается только plans/NNN-*.md либо ${_CONTRACTS_ROOT%/}/NNN-*.md либо contracts/NNN-*.md; у «$base» нет расширения .md" ;;
 esac
 NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
+# 996 К1: dir нормализуется к литералу `contracts` для тегов frozen/<dir>/...
+# plans остаются plans. Профильный contracts_path — это АЛИАС корневого
+# `contracts`, не новый класс.
+if [ "$dir" != "plans" ] && [ "$dir" != "contracts" ]; then
+  # dir — профильный (например, .harness/tasks). Теги frozen/contracts/<NNN>/<v>
+  # и frozen/.harness/tasks/<NNN>/<v> — это разные ТЕГИ; контракт 996 К1 явно
+  # говорит: профильная ветвь использует план тегов как `contracts/`. Нормализуем.
+  dir="contracts"
+fi
 # ── 3а. вне-плана (контракт 084 §И-8) ──────────────────────────────────────
 # Гейт на заморозку контракта вне действующей/следующей пары plan.tsv. Только dir=contracts:
 # планов ещё нет (предмет 008), и заморозка плана по плану не существует. Читаем plan.tsv и
@@ -126,6 +167,8 @@ NNN="$(printf '%03d' "$ARTIFACT_NUMBER")"
 if [ "$dir" = contracts ]; then
   # Подключение от СВОЕГО каталога: код lib_plan.sh — не из проверяемого дерева.
   if [ -f "$SELF_DIR/lib_plan.sh" ]; then
+    # 996 К6: передаём профильный реестр в lib_plan.sh.
+    export LIB_PLAN_REGISTRY="${_PROFILE_REGISTRY_PATH:-registry}"
     # shellcheck disable=SC1091
     . "$SELF_DIR/lib_plan.sh"
     # Чтение плана через command substitution стёрло бы хвостовой LF; пишем блоб напрямую
@@ -136,8 +179,9 @@ if [ "$dir" = contracts ]; then
     # rc 1 «план не разбирается: строка 1:» через ту же plan_parse). Единая грамматика:
     # только отсутствие файла HEAD:registry/plan.tsv — «план не заведён», пустой
     # существующий — отказ plan_parse (та же строка, что у check_plan.sh на ТОМ ЖЕ HEAD).
+    # 996 К6: путь реестра (plan.tsv, closed-without-done.tsv) — из профиля.
     _F084_plan_tmp="$(mktemp)"
-    if ! g cat-file -p HEAD:registry/plan.tsv > "$_F084_plan_tmp" 2>/dev/null; then
+    if ! g cat-file -p "HEAD:${_PROFILE_REGISTRY_PATH%/}/plan.tsv" > "$_F084_plan_tmp" 2>/dev/null; then
       rm -f "$_F084_plan_tmp"
       printf '  ok   план не заведён: проверка «вне плана» не применяется\n' >&2
     else
@@ -206,7 +250,7 @@ while IFS= read -r t; do
 done <<<"$fer_out"
 v=$((vmax + 1))
 
-verdict="verdicts/critic/${dir}-${NNN}-v${v}.md"
+verdict="${_PROFILE_VERDICTS_DIR%/}/${dir}-${NNN}-v${v}.md"
 body="$(g cat-file -p "HEAD:$verdict" 2>/dev/null || true)"
 [ -n "$body" ] || die "заморозка v$v без вердикта критика: на HEAD нет $verdict. Утверждение плана или контракта невозможно без гейта критика — это механическая форма требования владельца"
 
@@ -345,7 +389,7 @@ fi
 _events="$(mktemp)"
 trap 'rm -f "$_events"' EXIT
 _cur_commit=""
-g log --reverse -M --format='@%H' --name-status -- "verdicts/critic/${dir}-${NNN}-v*.md" 2>/dev/null \
+g log --reverse -M --format='@%H' --name-status -- "${_PROFILE_VERDICTS_DIR%/}/${dir}-${NNN}-v*.md" 2>/dev/null \
   | while IFS= read -r _raw; do
       case "$_raw" in
         @*) _cur_commit="${_raw#@}"; continue ;;
@@ -395,7 +439,7 @@ if [ "$circles" -ge 3 ]; then
     plans)     marker="(план ${NNN})" ;;
     *)         marker="(${dir} ${NNN})" ;;
   esac
-  arb_files="$(g ls-tree -r --name-only HEAD -- ':(literal)verdicts/arbitration/' 2>/dev/null | grep '\.md$' || true)"
+  arb_files="$(g ls-tree -r --name-only HEAD -- ":(literal)${_PROFILE_VERDICTS_DIR%/}/arbitration/" 2>/dev/null | grep '\.md$' || true)"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     title="$(g cat-file -p "HEAD:$f" 2>/dev/null | sed -n 1p || true)"
@@ -441,8 +485,8 @@ if [ -z "$tag_sha" ]; then
   printf 'ОТКАЗ: реестр не записан: tag-object-sha для %s не получен\n' "$tag" >&2
   exit 1
 fi
-reg_path="$ROOT/registry/contracts.tsv"
-mkdir -p "$ROOT/registry"
+reg_path="$ROOT/${_PROFILE_REGISTRY_PATH%/}/contracts.tsv"
+mkdir -p "$ROOT/${_PROFILE_REGISTRY_PATH%/}"
 tmp_reg="$(mktemp "${TMPDIR:-/tmp}/reg_036.XXXXXX" 2>/dev/null || mktemp)"
 if [ -f "$reg_path" ]; then
   grep -v "^$NNN → " "$reg_path" > "$tmp_reg" 2>/dev/null || true
@@ -453,9 +497,9 @@ mv "$tmp_reg" "$reg_path"
 # registry/contracts.tsv остаётся uncommitted-modified после КАЖДОЙ заморозки и
 # подхватывается случайным следующим коммитом любой identity/зоны. Атомарность
 # с тегом: отказ коммита = die rc=1, тот же приём, что и при отказе `g tag -a` выше.
-if ! out="$(g add registry/contracts.tsv && \
+if ! out="$(g add ${_PROFILE_REGISTRY_PATH%/}/contracts.tsv && \
   g -c user.name=orchestrator -c user.email=orchestrator@dev-harness.local \
-    commit -m "freeze: registry $NNN → $tag_sha" -- registry/contracts.tsv 2>&1)"; then
+    commit -m "freeze: registry $NNN → $tag_sha" -- ${_PROFILE_REGISTRY_PATH%/}/contracts.tsv 2>&1)"; then
   die "реестр не закоммичен: $out"
 fi
 printf '  ok   реестр закоммичен: %s → %s\n' "$NNN" "$tag_sha" >&2

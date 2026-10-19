@@ -158,6 +158,19 @@ while IFS= read -r line || [ -n "$line" ]; do
   prev_scan="$scan"; prev_n="$n"
 done < "$CONTRACT_FILE"
 
+# ── (д) КОНТРАКТ 996: гейт сверки с источниками ─────────────────────────
+# При объявленном sourceCanon вызывается check_project_sources.sh
+# (stage=pre_critic). Без канона gate не запускается (К6 «без канона →
+# rc 0 без запуска»). pre_critic при отказе — rc 1 с маркером
+# SOURCE_GATE_FAILED/INVALID/MISSING/UNAVAILABLE.
+if [ -n "$REPO_ARG" ] && [ -x "$ROOT/scripts/check_project_sources.sh" ]; then
+  srcs_out="$(bash "$ROOT/scripts/check_project_sources.sh" --repo "$BASE" --contract "$CONTRACT" --stage pre_critic 2>&1)"
+  srcs_rc=$?
+  if [ "$srcs_rc" -ne 0 ]; then
+    refuse "source gate: $srcs_out"
+  fi
+fi
+
 # ── (г) ФОРМА КОНТЕКСТ:/§Существующее (Решение 6 контракта 095, §13.3) ──
 # Скоуп: правило А-384 — нога вооружена ТОЛЬКО в живом дереве/клоне харнеса
 # (где есть реестр контрактов); toy-миры 072/verify_antiplacebo его

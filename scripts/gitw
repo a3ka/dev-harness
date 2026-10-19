@@ -14,6 +14,7 @@ set -uo pipefail
 # ── И-1: разрешение настоящего git ──────────────────────────────────────────
 # Первый `git` в PATH, чей realpath ≠ realpath самой обёртки. Не найден →
 # rc 2 NOT_IMPLEMENTED. Граница-1 (вариант а frontier): суждение на execve.
+HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 SELF_REAL="$(readlink -f "$0" 2>/dev/null || /usr/bin/readlink -f "$0" 2>/dev/null || echo "$0")"
 REAL=""
 IFS_SAV="$IFS"
@@ -38,7 +39,12 @@ fi
 # Ручка GIT_EXCHANGE_GUARD_CANONICAL заменяет её целиком (граница-4: ровно
 # одна обходная ручка). Сравнение — ТОЛЬКО буквальное равенство целых строк
 # (И-5: норма-класс 037 accept_task_commit).
-CANON="${GIT_EXCHANGE_GUARD_CANONICAL:-ssh://git@github.com/a3ka/dev-harness.git}"
+#
+# 996 (контракт «полный цикл режима проекта»): источник канона —
+# эффективный профиль `--repo` (через profile_resolver.sh → .git.value.canonicalRemote),
+# НЕ прежняя константа. Лестница приоритета (К17–К19) — резолвится НИЖЕ,
+# после парсинга argv (нужен ctx).
+CANON="${GIT_EXCHANGE_GUARD_CANONICAL:-}"
 
 # ── И-6: санитизация печати ─────────────────────────────────────────────────
 # Каждый байт <0x20 или =0x7F → '?'. Подделка строк отказа переносом строки
@@ -96,6 +102,52 @@ case "$sub" in
   push|fetch|pull) ;;
   *) exec "$REAL" "${orig[@]}" ;;
 esac
+
+# ── 996: профильный канон (контракт 996 К17–К19) ──────────────────────────
+# Источник канона — эффективный profile_resolver.sh репо, объявленного в
+# argv (`-C <repo>` → репо; иначе `--git-dir=<dir>` → dirname). Битый
+# профиль / отказ resolver — rc 1 «профиль битый», не fallback на
+# константу (К17). GIT_EXCHANGE_GUARD_CANONICAL — ЕДИНСТВЕННАЯ обходная ручка.
+if [ -z "$CANON" ]; then
+  __PR_REPO=""
+  for ((__ci=0; __ci<${#ctx[@]}; __ci++)); do
+    case "${ctx[$__ci]}" in
+      -C|--git-dir)
+        if [ $((__ci+1)) -lt "${#ctx[@]}" ]; then
+          __cv="${ctx[$((__ci+1))]}"
+          case "${ctx[$__ci]}" in
+            -C) __PR_REPO="$__cv" ;;
+            --git-dir) __PR_REPO="$(dirname -- "$__cv" 2>/dev/null || true)" ;;
+          esac
+        fi
+        ;;
+      --git-dir=*)
+        __cv="${ctx[$__ci]#--git-dir=}"
+        __PR_REPO="$(dirname -- "$__cv" 2>/dev/null || true)"
+        ;;
+    esac
+  done
+  unset __ci __cv
+  if [ -n "$__PR_REPO" ] && [ -d "$__PR_REPO/harness.project.json" ] && [ -x "$HERE/profile_resolver.sh" ]; then
+    __PR_ERR="$(mktemp 2>/dev/null || echo /dev/null)"
+    if ! __PR_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$__PR_REPO}" \
+                bash "$HERE/profile_resolver.sh" --repo "$__PR_REPO" 2>"$__PR_ERR")"; then
+      __PR_REASON="$(cat "$__PR_ERR" 2>/dev/null || true)"
+      rm -f "$__PR_ERR"
+      printf 'gitw ОТКАЗ: профиль битый, канон из репо %s: %s\n' \
+        "$__PR_REPO" "${__PR_REASON#profile ОТКАЗ: }" >&2
+      exit 1
+    fi
+    rm -f "$__PR_ERR"
+    CANON="$(printf '%s' "$__PR_OUT" | jq -r '.git.value.canonicalRemote // empty' 2>/dev/null || true)"
+    if [ -z "$CANON" ]; then
+      printf 'gitw ОТКАЗ: профиль %s без git.canonicalRemote\n' "$__PR_REPO" >&2
+      exit 1
+    fi
+  fi
+  unset __PR_OUT __PR_ERR __PR_REASON __PR_REPO
+fi
+[ -n "$CANON" ] || CANON="ssh://git@github.com/a3ka/dev-harness.git"
 
 # ── И-4a: repository argument — URL / SCP / path / bare-name / --repo= ────
 # Git docs (gitrepository-layout / git-push «repository argument»): четыре

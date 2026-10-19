@@ -142,6 +142,24 @@ zones_load() {
   git -C "$root" rev-parse --git-dir >/dev/null 2>&1 \
     || { printf 'NOT_IMPLEMENTED: %s не репозиторий\n' "$root" >&2; return 2; }
 
+  # 996 (К8): путь контрактов внутри замороженного тега — из эффективного
+  # профиля (`workflowPaths.contracts.value`). Прежний зашитый «contracts/»
+  # остаётся в обратной совместимости: при отсутствии профиля путь =
+  # `contracts/` (харнес сам как проект, без harness.project.json).
+  local CONTRACTS_PATH="contracts/"
+  if [ -x "$self_dir/profile_resolver.sh" ] && [ -f "$root/harness.project.json" ]; then
+    _pr_err="$(mktemp 2>/dev/null || echo /dev/null)"
+    if _pr_out="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$root}" \
+                bash "$self_dir/profile_resolver.sh" --repo "$root" 2>"$_pr_err")"; then
+      _cpath="$(printf '%s' "$_pr_out" | jq -r '.workflowPaths.contracts.value // empty' 2>/dev/null || true)"
+      if [ -n "$_cpath" ]; then
+        CONTRACTS_PATH="${_cpath%/}/"
+      fi
+    fi
+    rm -f "$_pr_err"
+  fi
+  unset _pr_err _pr_out _cpath
+
   local state
   state="$(registry_state "$root" 'frozen/')"
   case "$state" in
@@ -196,8 +214,8 @@ zones_load() {
     [ "$vmax" -gt 0 ] || continue
 
     vmax_tag="refs/tags/frozen/contracts/$nnn/$vmax"
-    file="$(git -C "$root" ls-tree -r --name-only "${vmax_tag}^{commit}" -- ':(literal)contracts/' 2>/dev/null \
-            | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+    file="$(git -C "$root" ls-tree -r --name-only "${vmax_tag}^{commit}" -- ":(literal)${CONTRACTS_PATH%/}" 2>/dev/null \
+            | awk -v n="$nnn" -v cp="$CONTRACTS_PATH" 'index($0, cp n "-") == 1 { print; exit }')"
     [ -n "$file" ] || continue
     body="$(git -C "$root" cat-file -p "${vmax_tag}^{commit}:$file" 2>/dev/null || true)"
 
