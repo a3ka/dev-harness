@@ -33,10 +33,10 @@ chmod +x "$REPO_CLONE/scripts/check_precision_gate.sh" "$REPO_CLONE/scripts/free
 # Заминчиваем 446 в клоне (неиспользованный toy-номер: захардкоженный реальный NNN ломается первым же реальным минтом этого номера — 044 заминчен 96dcb44, тег приезжает в clone и git tag отказывает на дубле).
 ( cd "$REPO_CLONE" && git tag "id/CONTRACT/446" )
 
-# Регистрируем frozen/contracts/999/1 с alice ЗОНА для shared/thing.txt.
+# Регистрируем frozen/contracts/447/1 с alice ЗОНА для shared/thing.txt.
 mkdir -p "$REPO_CLONE/contracts" "$REPO_CLONE/shared"
-cat > "$REPO_CLONE/contracts/999-foreign.md" <<EOF
-# Контракт 999 — чужой (toy)
+cat > "$REPO_CLONE/contracts/447-foreign.md" <<EOF
+# Контракт 447 — чужой (toy)
 
 ## Predmet
 p
@@ -46,7 +46,7 @@ p
 ЗОНА alice: shared/thing.txt
 EOF
 touch "$REPO_CLONE/shared/thing.txt"
-( cd "$REPO_CLONE" && git add -A && git commit -q -m "alice 999 foreign" && git tag -a "frozen/contracts/999/1" -m "alice 999" )
+( cd "$REPO_CLONE" && git add -A && git commit -q -m "alice 447 foreign" && git tag -a "frozen/contracts/447/1" -m "alice 447" )
 
 # Вердикт критика (иначе freeze споткнётся об отсутствие вердикта, а не о precision-гейте).
 mkdir -p "$REPO_CLONE/verdicts/critic"
@@ -68,7 +68,7 @@ cat > "$REPO_CLONE/$DRAFT_FILE" <<EOF
 
 ЗОНА architect: contracts/446-toy-draft.md shared/thing.txt
 
-(Нет строки ПЕРЕСЕЧЕНИЕ — коллизия с shared/thing.txt (NNN 999 alice) НЕ объявлена.)
+(Нет строки ПЕРЕСЕЧЕНИЕ — коллизия с shared/thing.txt (NNN 447 alice) НЕ объявлена.)
 EOF
 ( cd "$REPO_CLONE" && git add -A && git commit -q -m "test draft 446 + verdict" )
 
