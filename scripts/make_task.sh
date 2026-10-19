@@ -45,23 +45,32 @@ REPO_ABS="$(cd "$REPO" && pwd -P)"
 # Используется workshop для передачи контекста в роль, а make_task — для печати
 # из CLI. Никакого omp-launch, никакой валидации contextPack/lessons/ADR.
 if [ "$PRINT_CONTEXT" -eq 1 ]; then
-  HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}"
-  export HARNESS_PROJECT_LAYER_ROOT
-  bash "$0" --repo "$REPO" --role "$ROLE" --kind "$KIND" --contract "${CONTRACT:-000}" \
-    --task-file "${TASKFILE:-/dev/null}" --model-trace "${TRACE:-/dev/null}" \
-    --author-role "$AUTHOR_ROLE_ARG" >/dev/null 2>&1 || true
-  # Ниже: реальный путь с настоящей обработкой MERGED. Делается здесь, чтобы
-  # --print-context работал даже без --contract/--task-file/--model-trace.
-  # ── КОНТРАКТ 996 §Публичный шов без запуска omp: --print-context ──────
+  # КОНТРАКТ 996 §Публичный шов без запуска omp: --print-context.
+  # Считается ОДИН раз; ниже используется в --kind task PROJECT-секции
+  # (один код расчёта, не второй).
   PROFILE_RESOLVER="$(cd "$(dirname "$0")" && pwd)/profile_resolver.sh"
   [ -x "$PROFILE_RESOLVER" ] || die "нет profile_resolver.sh"
-  MERGED_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}" bash "$PROFILE_RESOLVER" --repo "$REPO_ABS" 2>/dev/null)" \
-    || die "резолвер отказал"
+  _PC_ERR="$(mktemp 2>/dev/null || echo /dev/null)"
+  if ! MERGED_OUT="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$REPO_ABS}" bash "$PROFILE_RESOLVER" --repo "$REPO_ABS" 2>"$_PC_ERR")"; then
+    _pc_reason="$(cat "$_PC_ERR" 2>/dev/null || true)"
+    [ "$_PC_ERR" != /dev/null ] && rm -f "$_PC_ERR"
+    die "${_pc_reason#profile ОТКАЗ: }"
+  fi
+  [ "$_PC_ERR" != /dev/null ] && rm -f "$_PC_ERR"
   WP_C="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.contracts.value // empty')"
   WP_V="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.verdicts.value // empty')"
   WP_R="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.registry.value // empty')"
   WP_F="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.fixtures.value // empty')"
   STATE="$(printf '%s' "$MERGED_OUT" | jq -r '.workflowPaths.state.value // ".harness"')"
+  # Гард workflowPaths на относительность и вложенность в REPO_ABS (тот же
+  # контракт И-5 / §A, что применяет project_paths_resolve / основная ветвь).
+  for _wpk in contracts verdicts registry fixtures; do
+    _wpv="$(printf '%s' "$MERGED_OUT" | jq -r --arg k "$_wpk" '.workflowPaths[$k].value // empty')"
+    [ -n "$_wpv" ] || die "workflowPaths вне репо: $_wpk="
+    _wpcanon="$(readlink -f -- "$REPO_ABS/$_wpv" 2>/dev/null || true)"
+    case "$_wpv" in /*) _wpcanon="/вне" ;; esac
+    case "$_wpcanon" in "$REPO_ABS"/*) ;; *) die "workflowPaths вне репо: $_wpk=$_wpv" ;; esac
+  done
   WP_STATE_PREFIX="$REPO_ABS"
   [ "$STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${STATE%/}"
   _verdict_suffix=""
@@ -72,10 +81,6 @@ if [ "$PRINT_CONTEXT" -eq 1 ]; then
     arbiter)    _verdict_suffix="arbitration" ;;
   esac
   SC_OBJ="$(printf '%s' "$MERGED_OUT" | jq -c '.sourceCanon.value // null')"
-  # verdict_canon ВСЕГДА задан: пустой для не-судьи, иначе путь.
-  # Каталог судьи лежит под workflowPaths.verdicts (НЕ под state — state хранит
-  # HANDOFF/NABLIUDENIA*/ROADMAP/forks, а не вердикты). Состояние учитывается
-  # отдельно в handoff/NABLIUDENIA_ARCHITECT.md/ROADMAP.md/forks, куда пишет сессия.
   if [ -n "$_verdict_suffix" ]; then
     _verdict_canon="$REPO_ABS/${WP_V%/}/$_verdict_suffix"
   else
