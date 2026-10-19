@@ -388,6 +388,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 991 | до V-2 | complior | - | 453d5b8db |
 | 3 | 992 | до V-2 | CI | - | docs/owner/2026-10-17-resheniya-back-992-993.md#2 |
 | 3 | 994 | до V-2 | CI | - | 97b1911f6 |
+| 3 | nomera-kontraktov | до V-2 | ops | - | docs/owner/2026-10-19-nomera-kontraktov.md#Решение |
 | 3 | 995 | до V-2 | complior | - | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 999 | до V-2 | complior | 995 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
