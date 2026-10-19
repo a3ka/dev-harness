@@ -213,6 +213,62 @@ for _wpk in contracts verdicts registry fixtures; do
 done
 unset _wpk _wpv _wpcanon
 
+# ── 996 §D «общий контекст»: пути судьи/состояния/sourceCanon для обоих
+# режимов — --print-context (ниже JSON), --kind task (PROJECT-секция).
+# ОДИН расчёт, тот же MERGED, никакого второго профильного вызова.
+WP_V="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.verdicts.value // empty')"
+WP_F="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.fixtures.value // empty')"
+WP_STATE="$(printf '%s' "$MERGED" | jq -r '.workflowPaths.state.value // ".harness"')"
+WP_STATE_PREFIX="$REPO_ABS"
+[ "$WP_STATE" != "." ] && WP_STATE_PREFIX="$REPO_ABS/${WP_STATE%/}"
+WP_VERDICT_SUFFIX=""
+case "$ROLE" in
+  critic)     WP_VERDICT_SUFFIX="critic" ;;
+  adversary)  WP_VERDICT_SUFFIX="adversary" ;;
+  reviewer)   WP_VERDICT_SUFFIX="review" ;;
+  arbiter)    WP_VERDICT_SUFFIX="arbitration" ;;
+esac
+WP_VERDICT_CANON=""
+[ -n "$WP_VERDICT_SUFFIX" ] && WP_VERDICT_CANON="$REPO_ABS/${WP_V%/}/$WP_VERDICT_SUFFIX"
+WP_SC="$(printf '%s' "$MERGED" | jq -c '.sourceCanon.value // null')"
+
+# PROJECT-секция — рабочий шов §D для ролей (шесть игл: sourceCanon,
+# источник SOURCE.md, каталог вердикта/role-suffix, каталог контрактов,
+# HANDOFF). Тот же расчёт, что и --print-context выше; выходной формат
+# — текстовый блок (в JSON-печать включается sourceCanon.value строкой).
+PROJECT_SEC=""
+if [ "$KIND" = "task" ]; then
+  _psrc_path="$(printf '%s' "$WP_SC" | jq -r '.sources[0].path // ""' 2>/dev/null)"
+  _psrc_content=""
+  if [ -n "$_psrc_path" ] && [ -f "$REPO/$_psrc_path" ]; then
+    _psrc_content="$(cat "$REPO/$_psrc_path" 2>/dev/null)"
+  fi
+  PROJECT_SEC="=== PROJECT ===
+"
+  PROJECT_SEC="${PROJECT_SEC}sourceCanon: $WP_SC
+"
+  if [ -n "$_psrc_path" ]; then
+    PROJECT_SEC="${PROJECT_SEC}source: $_psrc_path
+"
+    if [ -n "$_psrc_content" ]; then
+      PROJECT_SEC="${PROJECT_SEC}${_psrc_content}
+"
+    fi
+  fi
+  PROJECT_SEC="${PROJECT_SEC}verdicts: $REPO_ABS/$WP_V
+"
+  PROJECT_SEC="${PROJECT_SEC}verdict: ${WP_VERDICT_CANON}
+"
+  PROJECT_SEC="${PROJECT_SEC}contracts: $REPO_ABS/$WP_C
+"
+  PROJECT_SEC="${PROJECT_SEC}registry: $REPO_ABS/$WP_G
+"
+  PROJECT_SEC="${PROJECT_SEC}handoff: $WP_STATE_PREFIX/HANDOFF.md
+"
+  PROJECT_SEC="${PROJECT_SEC}=== END PROJECT ===
+"
+fi
+
 MAP_LINES=""; RULES_LINES=""; REUSE_LINES=""; MAP_MAN=""
 NROWS="$(printf '%s' "$CP" | jq -r 'if . == null then 0 else (.rows // []) | length end')"
 if [ "$NROWS" = "0" ]; then
@@ -425,6 +481,7 @@ pack_body() {
   printf '=== RULES ===\n%s' "$RULES_LINES"
   printf '=== REUSE ===\n%s' "$REUSE_LINES"
   if [ -n "$SKILLS" ]; then printf '=== SKILLS ===\n%s' "$SKILLS"; fi
+if [ -n "$PROJECT_SEC" ]; then printf '%s' "$PROJECT_SEC"; fi
   if [ "$SKIP_TASK" = "0" ]; then
     printf '=== CONTEXT ===\n%s\n' "$CONTEXT_SEC"
     printf '=== ZONES ===\n%s\n' "$ZONES_SEC"
