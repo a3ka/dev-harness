@@ -104,7 +104,7 @@ def prepare(base, case, source):
     scripts = root / 'scripts'
     scripts.mkdir()
     subject = CASES[case][0]
-    for name in (subject, 'next_id.sh', 'lib_registry.sh'):
+    for name in (subject, 'next_id.sh', 'lib_registry.sh', 'ci_klass.sh'):
         shutil.copy2(ROOT / 'scripts' / name, scripts / name)
     put(scripts / subject, source, True)
     # Unrelated prerequisite gates are isolated, as in the original reviewer probe.

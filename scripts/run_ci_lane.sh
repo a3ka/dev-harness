@@ -36,29 +36,36 @@ if [ "$#" -lt 1 ]; then
 fi
 
 # Сборка индекса ключ→команда в памяти (файл мал, читаем один раз).
-declare -A STEP_CMD=()
-declare -A STEP_WEIGHT=()
+# Контракт 087 И-2: ключи обоих видов (step ∪ legkij) исполняются одинаково —
+# индекс общий. Контракт 083 И-1: грамматика строки «tab/key/weight/command»,
+# комментарии — строки, начинающиеся с «#» (после tab-strip'а).
+declare -A LANE_CMD=()
+declare -A LANE_WEIGHT=()
 while IFS=$'\t' read -r kind key weight command; do
   case "$kind" in
-    step)
+    step|legkij)
       [ -n "$key" ] || continue
-      STEP_CMD["$key"]="$command"
-      STEP_WEIGHT["$key"]="$weight"
+      LANE_CMD["$key"]="$command"
+      LANE_WEIGHT["$key"]="$weight"
       ;;
   esac
-done < <(awk -F'\t' '$1=="step" || $1=="lanes" || $1=="shard"' "$REG")
+done < <(awk -F'	' '/^[[:space:]]*#/ {next} $1=="step" || $1=="legkij" {print}' "$REG")
 
 # Исполнение ключей в порядке вызова; rc 0 на всех, любое отклонение —
-# именованный отказ, остановка.
+# именованный отказ, остановка. Контракт 087 И-9: после КАЖДОГО исполненного
+# ключа печатается строка замера отдельной строкой stdout: «замер: <key> <sec>».
 for k in "$@"; do
-  cmd="${STEP_CMD[$k]:-}"
+  cmd="${LANE_CMD[$k]:-}"
   if [ -z "$cmd" ]; then
     printf 'lane: неизвестный ключ: %s\n' "$k" >&2
     exit 1
   fi
   printf '+ %s\n' "$cmd" >&2
+  t0="$(date +%s)"
   bash -c "$cmd"
   rc=$?
+  t1="$(date +%s)"
+  printf 'замер: %s %d\n' "$k" "$((t1 - t0))"
   if [ "$rc" -ne 0 ]; then
     printf 'lane: отказ ключа %s (rc=%s)\n' "$k" "$rc" >&2
     exit "$rc"

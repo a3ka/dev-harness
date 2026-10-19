@@ -7,6 +7,17 @@
 #                           «bash <путь>». Комментарии — строки, начинающиеся
 #                           с `#` (после `\t`-strip'а).
 #   shard <имя> <keys...> — ключи через пробел, для include-блока `antiplacebo`.
+#   uchet <значение>      — учётный путь (И-1 контракта 087): каталог `<seg>/…/`,
+#                           точный путь `<seg>/…/<seg>`, корневой префикс
+#                           `[A-Z][A-Z0-9_]{3,}*` (только файлы корня без «/»);
+#                           сегмент `[A-Za-z0-9._-]+`, кроме «.» и «..».
+#                           Значение, накрывающее реестр, scripts/ci_klass.sh или
+#                           .github/workflows/ci.yml, — отказ.
+#   legkij <key> <weight> <command...>
+#                         — лёгкий ключ (И-2 контракта 087): те же 4 поля через TAB;
+#                           ключ уникален по step ∪ legkij; run_ci_lane.sh
+#                           исполняет ключи обоих видов; ключи legkij НЕ входят в
+#                           lane-матрицу джобы ci (исполняются джобой `legkij`).
 #
 # Замер 1371 с (§9.1) и компоненты: check_charter 445, check_zones 161,
 # check_gitw-predpolet-family-selftest 262, metering/proxy 114. Прочие шаги —
@@ -19,6 +30,44 @@
 # сверяется `verify_ci_parity.sh` (инвариант 3) на покрытие npm-ключей через
 # матрицу (правило 6).
 lanes	7
+# УЧЁТНЫЕ ПУТИ (контракт 087 И-1): правки этих путей не меняют H и считаются
+# учётными (klass → uchet). Реестр — КОД: его правка меняет H и сама требует PR.
+uchet	verdicts/
+uchet	docs/
+uchet	forks/
+uchet	.review/
+uchet	HANDOFF.md
+uchet	ROADMAP.md
+uchet	NABLIUDENIA*
+uchet	registry/contracts.tsv
+uchet	registry/closed-without-done.tsv
+uchet	registry/plan.tsv
+# ЛЁГКОЕ ЗАДАНИЕ (контракт 087 И-2): ключи legkij исполняются джобой `legkij` БЕЗ
+# условия klass.outputs.tyazhu — все и сразу, ≤ 2 мин. Четыре чека используют
+# режим --incr 083 (кеш actions/cache); check:contract-frozen и check:nabludenia —
+# без него. Ключи уникальны по step ∪ legkij.
+legkij	check:charter	5	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
+legkij	check:zones	5	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
+legkij	check:ids	5	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
+legkij	check:protected	5	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
+legkij	check:nabludenia	15	npm run check:nabludenia
+legkij	check:contract-frozen	25	npm run check:contract-frozen
+# Контракт 087 И-1/И-2: чек читает учётный путь (fixtures/pokrytie_083_088_079/red_istochnik_incr_079.sh
+# копирует $ROOT/ROADMAP.md и $ROOT/AGENTS.md в toy-мир); strip тяжёлых джоб удаляет
+# ROADMAP.md и ломает копирование — лечение по §Остаточный риск: перенос в legkij
+# (бюджет 120 с), не расширение U и не правка фикстуры вне зоны.
+legkij	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
+# Контракт 087 И-1/И-2: чек читает HANDOFF.md (fixtures/ops_server/red_server_obvjazka_074.sh
+# build_docs копирует $REPO_ROOT/HANDOFF.md в мир к7); strip тяжёлых джоб удаляет
+# HANDOFF.md (в U) и ломает копирование — лечение по §Остаточный риск: перенос в
+# legkij (бюджет 120 с, вес 20 + существующие 7 legkij весов 80 = 100 ≤ 120).
+legkij	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
+# Контракт 087 И-1/И-2: чек читает verdicts/critic/contracts-010-v2.md
+# (scripts/check_runner_hygiene.sh ветвь (porjadok): [ -f "$vf" ] || die porjadok
+# «файла $VERD нет на дереве — вердикт удалён после коммита»); strip тяжёлых
+# джоб удаляет verdicts/ (в U) и ломает (porjadok) — лечение по §Остаточный риск:
+# перенос в legkij (бюджет 120 с, вес 20 + 7 legkij = 120 ≤ 120).
+legkij	check:runner-hygiene	20	npm run check:runner-hygiene
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
 step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
@@ -26,7 +75,6 @@ step	check:consumers-window-family-selftest	15	bash fixtures/check_consumers/kra
 step	check:watchdog-082-family-selftest	20	bash fixtures/verify_antiplacebo/red_watchdog_082.sh
 step	check:cikl-perezapuska-085-family-selftest	20	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
 step	check:fix-085-orch-peak-home-090-family-selftest	20	bash fixtures/_krasnye_090.sh
-step	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
 step	check:measure-probe	10	npm run check:measure-probe
 step	check:scope-select	10	npm run check:scope-select
 step	check:scoped-run	10	npm run check:scoped-run
@@ -43,7 +91,6 @@ step	check:declared-path-family-selftest	20	bash fixtures/_krasnye_059.sh
 step	check:samodostatochnost-family-selftest	25	bash fixtures/_krasnye_060.sh
 step	check:github-token-family-selftest	15	bash scripts/check_github_token_070.sh
 step	check:zony-merge-head-family-selftest	20	bash fixtures/_krasnye_073.sh
-step	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
 step	check:door-bugfix-family-selftest	20	bash fixtures/_krasnye_080.sh
 step	check:orch-loop-997	30	bash fixtures/ops_server/orch_loop_997/probe.sh
 step	check:v-polete-nichego-088-family-selftest	20	bash fixtures/_krasnye_088.sh
@@ -51,26 +98,19 @@ step	check:merge-gate-family-selftest	20	bash fixtures/check_judge_gate/krasnye_
 step	check:provodka-external-994	10	bash fixtures/check_provodka/external_ci_994/probe.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	15	npm run check:judge-gate
-step	check:runner-hygiene	20	npm run check:runner-hygiene
-step	check:nabludenia	15	npm run check:nabludenia
 step	drill:gate-draft	10	npm run drill:gate-draft
 step	drill:startup-digest	10	npm run drill:startup-digest
 step	drill:nabludenia-nechitaemo	10	npm run drill:nabludenia-nechitaemo
 step	check:gen	15	npm run check:gen
 step	metering:selftest	20	npm run metering:selftest
-step	check:ids	20	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
 step	check:skills	15	npm run check:skills
 step	check:ceilings	15	npm run check:ceilings
 step	check:decisions	15	npm run check:decisions
 step	check:approval	20	npm run check:approval
 step	check:hooks	15	npm run check:hooks
-step	check:contract-frozen	25	npm run check:contract-frozen
 # ТЯЖЁЛЫЕ (≥40 с — замеры §9.1)
-step	check:zones	161	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
-step	check:charter	445	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
 step	drill:contract-change	20	npm run drill:contract-change
 step	drill:next-id-race	20	npm run drill:next-id-race
-step	check:protected	60	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 step	drill:protected-exception	20	npm run drill:protected-exception
 step	drill:protected-rename	20	npm run drill:protected-rename
 step	check:zones-call-budget	25	npm run check:zones-call-budget
