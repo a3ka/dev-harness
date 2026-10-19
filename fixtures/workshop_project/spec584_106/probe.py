@@ -16,7 +16,12 @@
 # rc 0 — контроль зелён И каждый мутант отвергнут ровно своей причиной;
 # rc 1 — расхождение (в т.ч. красный контроль на до-предметном дереве —
 #        честное состояние базы, а не сбой батареи);
-# rc 2 — 106 UNMEASURABLE (нет репо/зависимостей/пустая выборка --case).
+# rc 2 — 106 UNMEASURABLE: нет репо/зависимостей/пустая выборка --case;
+#        нерезрешимый пин базы B (BASE_UNRESOLVABLE) либо клетка, чья
+#        мутация побайтно не меняет вход (MUTATION_NOOP) — ошибка батареи,
+#        а не «не отклонено»: отрицательный вход обязан отличаться от
+#        зелёного контроля (Н-39), честная поставка не обязана отвергать
+#        побайтно равный контролю вход.
 #
 # Вызов: <PY> probe.py --repo R --out OUT [--case NAME]
 #   R   — полный disposable checkout Complior-back;
@@ -51,6 +56,12 @@ RUNNER = "tools/run_backend_ci.py"
 TYPED_KIND = "mobile lifecycle/service"
 PENDING_MARKER = "BACKEND_ADOPTION_PENDING"
 UNMEASURABLE = "106 UNMEASURABLE"
+# До-предметная база B — дерево замера 57 отказов («993 implementer fix
+# round 5»). Полный пин проверен git cat-file -e в свежем клоне origin и
+# в снимке c995/back; заявленный в первом круге sha 0230ee06867d… не
+# разрешался нигде (erratum r1). Клетка version_only материалит этот пин
+# из объектного магазина субъекта R (git archive) — её вход отличен от C.
+PIN_BASE_COMMIT = "0230ee068d10047b1be99c26747aef1bd1579bcf"
 
 
 def sha256(p: Path) -> str:
@@ -222,6 +233,34 @@ def yaml_dump(root: Path, api: dict) -> None:
         encoding="utf-8")
 
 
+def tree_digest(root: Path) -> dict:
+    """Побайтовый снимок дерева клетки: {относительный путь: sha256}."""
+    return {str(p.relative_to(root)): sha256(p)
+            for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def materialize_base(src: Path, dst: Path) -> bool:
+    """До-предметный вход B из объектного магазина субъекта: git archive.
+    False — пин не разрешим в R (батарея немеряема, а не «не отклонено»)."""
+    import io
+    import tarfile
+    chk = subprocess.run(["git", "-C", str(src), "cat-file", "-e",
+                          PIN_BASE_COMMIT + "^{commit}"], capture_output=True)
+    if chk.returncode != 0:
+        return False
+    arc = subprocess.run(["git", "-C", str(src), "archive", "--format=tar",
+                          PIN_BASE_COMMIT], capture_output=True)
+    if arc.returncode != 0:
+        return False
+    dst.mkdir(parents=True)
+    with tarfile.open(fileobj=io.BytesIO(arc.stdout)) as tf:
+        try:
+            tf.extractall(dst, filter="data")
+        except TypeError:  # python < 3.12 без filter=
+            tf.extractall(dst)
+    return True
+
+
 def mut_version_only(dst: Path) -> bool:
     api = yaml_load(dst)
     api["info"]["version"] = "5.8.4"
@@ -346,10 +385,12 @@ def cases():
     """ЕДИНСТВЕННЫЙ источник перечня. Каждая обманная копия привязана кодом
     к входу, на котором её дефект наблюдаем, и к точной ожидаемой причине."""
     return [
-        {"name": "version_only", "kind": "validator",
+        {"name": "version_only", "kind": "validator", "base": "B",
          "mutate": mut_version_only,
          "expect_id": "acknowledgeDisclosure_cas",
-         "why": "номер 5.8.4 сам совместимости не даёт"},
+         "why": "номер 5.8.4 сам совместимости не даёт; вход — закреплённая "
+                "до-предметная база B (CAS-пятёрка не реализована), версия "
+                "поднята без остального: вход отличен от зелёного C"},
         {"name": "cas_rename", "kind": "validator",
          "mutate": mut_cas_rename,
          "expect_id": "acknowledgeDisclosure_cas",
@@ -390,11 +431,31 @@ def cases():
          "mutate": mut_alignment_hollow,
          "expect_red": "ALIGNMENT_REQUIREMENTS:revokePermission",
          "why": "список изменённых требований без содержания по операции"},
+        {"name": "lane_swallows_validator_red", "kind": "lane",
+         "mutate": mut_cas_rename,
+         "expect": "LANE_PROPAGATES_VALIDATOR_RED",
+         "why": "отказ валидатора обязан распространяться через lane "
+                "package: rc!=0 и FAIL-строка валидатора в отчёте раннера, "
+                "а не только подстрока в lane-таблице"},
     ]
 
 
 def copy_repo(src: Path, dst: Path) -> None:
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".git", "node_modules"))
+
+
+def _dump(out: Path, raw: dict, mismatches: list, n: int,
+          control_green: bool, control_reds: list) -> dict:
+    summary = {"control_green": control_green,
+               "control_reds": control_reds,
+               "cases": n,
+               "rejected": n - len(mismatches),
+               "mismatches": mismatches}
+    (out / "raw.json").write_text(json.dumps(raw, ensure_ascii=False, indent=1),
+                                  encoding="utf-8")
+    (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False,
+                                                 indent=1), encoding="utf-8")
+    return summary
 
 
 def main() -> int:
@@ -478,7 +539,19 @@ def main() -> int:
         cdir = out / ("case-" + case["name"])
         cdir.mkdir()
         crepo = cdir / "repo"
-        copy_repo(repo, crepo)
+        if case.get("base") == "B":
+            if not materialize_base(repo, crepo):
+                entry["result"] = "BASE_UNRESOLVABLE"
+                raw["cases"].append(entry)
+                _dump(out, raw, mismatches, len(selected),
+                      control_green, control_reds)
+                shutil.rmtree(scratch, ignore_errors=True)
+                print("%s: BASE_UNRESOLVABLE %s"
+                      % (UNMEASURABLE, PIN_BASE_COMMIT[:12]))
+                return 2
+        else:
+            copy_repo(repo, crepo)
+        before = tree_digest(crepo)
         applied = case["mutate"](crepo)
         entry["mutated"] = applied
         if not applied:
@@ -486,6 +559,17 @@ def main() -> int:
             mismatches.append(case["name"] + ":MUTANT_NOT_APPLIED")
             raw["cases"].append(entry)
             continue
+        # Инвариант (Н-39): мутация клетки обязана менять вход. Побайтно
+        # равный контролю вход — дефект батареи (rc 2), а не «не отклонено».
+        entry["byte_equal"] = tree_digest(crepo) == before
+        if entry["byte_equal"]:
+            entry["result"] = "MUTATION_NOOP"
+            raw["cases"].append(entry)
+            _dump(out, raw, mismatches, len(selected),
+                  control_green, control_reds)
+            shutil.rmtree(scratch, ignore_errors=True)
+            print("%s: MUTATION_NOOP %s" % (UNMEASURABLE, case["name"]))
+            return 2
         if case["kind"] == "validator":
             run = run_validator(crepo, cdir / "validator-out", py)
             fids = (run["report"] or {}).get("failure_ids") or []
@@ -501,6 +585,19 @@ def main() -> int:
             entry["reds"] = got
             entry["expected_red"] = case["expect_red"]
             entry["result"] = "REJECTED_EXACT" if ok else "NOT_REJECTED"
+        elif case["kind"] == "lane":
+            proc = subprocess.run(
+                [py, RUNNER, "--lane", "package", "--out",
+                 str(cdir / "lane-out")],
+                cwd=str(crepo), capture_output=True, text=True)
+            fail_lines = [ln for ln in proc.stdout.splitlines()
+                          if ln.startswith("[package] FAIL")
+                          and "validate_contract_v3_9" in ln]
+            entry["lane_rc"] = proc.returncode
+            entry["lane_fail_validator"] = fail_lines[:3]
+            entry["expected"] = case["expect"]
+            ok = proc.returncode != 0 and bool(fail_lines)
+            entry["result"] = "REJECTED_EXACT" if ok else "NOT_REJECTED"
         else:  # regen
             rr, log = regen_drift(crepo, crepo, py)
             ok = any(r == case["expect_red"] or r.startswith(case["expect_red"])
@@ -513,15 +610,8 @@ def main() -> int:
             mismatches.append(case["name"] + ":" + entry["result"])
         raw["cases"].append(entry)
     shutil.rmtree(scratch, ignore_errors=True)
-    (out / "raw.json").write_text(json.dumps(raw, ensure_ascii=False, indent=1),
-                                  encoding="utf-8")
-    summary = {"control_green": control_green,
-               "control_reds": control_reds,
-               "cases": len(selected),
-               "rejected": len(selected) - len(mismatches),
-               "mismatches": mismatches}
-    (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False,
-                                                 indent=1), encoding="utf-8")
+    summary = _dump(out, raw, mismatches, len(selected),
+                    control_green, control_reds)
     print("106 battery " + json.dumps(summary, ensure_ascii=False))
     return 0 if (control_green and not mismatches) else 1
 
