@@ -34,9 +34,12 @@ def profile(root):
     return result
 
 
-def contained(root, value):
+def contained(root, value, mutant=''):
     p = Path(value)
-    if p.is_absolute() or '..' in p.parts:
+    # dotdot-substring (круг 3): барьер `..` подстрокой, не сегментом —
+    # законный сегмент v1..2.md ложно отказан; наблюдаем на контроле С3-1.
+    lexical = '..' in (str(p) if mutant == 'dotdot-substring' else p.parts)
+    if p.is_absolute() or lexical:
         raise ValueError('workflowPaths вне репо')
     resolved = (root / p).resolve()
     if not resolved.is_relative_to(root.resolve()):
@@ -63,15 +66,38 @@ def layout(root, p, mutant, op=''):
                      ('roadmap', 'ROADMAP.md'), ('forks', 'forks')]:
             out[k] = str(root / state / v)
         return out
+    if (mutant == 'make-task-own-paths'
+            and op in ('make_task', 'make_task_pack')):
+        # Р3-1-стаб (круг 3): make_task считает пути конкатенацией, минуя
+        # project_paths_resolve, — побег state и лексический `..` наблюдаемы
+        # на его собственных входах.
+        state = paths.get('state', '.harness')
+        out = {k: str(root / v) for k, v in paths.items() if k != 'state'}
+        for k, v in [('handoff', 'HANDOFF.md'), ('observations', 'NABLIUDENIA.md'),
+                     ('architectObservations', 'NABLIUDENIA_ARCHITECT.md'),
+                     ('roadmap', 'ROADMAP.md'), ('forks', 'forks')]:
+            out[k] = str(root / state / v)
+        return out
+    if mutant == 'guard-four-keys-only':
+        # Р3-1-стаб (круг 3): гард копией для четырёх ключей, state не
+        # судится — побег state наблюдаем у всех трёх потребителей.
+        state = paths.get('state', '.harness')
+        out = {k: str(contained(root, v, mutant)) for k, v in paths.items()
+               if k != 'state'}
+        for k, v in [('handoff', 'HANDOFF.md'), ('observations', 'NABLIUDENIA.md'),
+                     ('architectObservations', 'NABLIUDENIA_ARCHITECT.md'),
+                     ('roadmap', 'ROADMAP.md'), ('forks', 'forks')]:
+            out[k] = str(root / state / v)
+        return out
     for value in paths.values():
-        contained(root, value)
+        contained(root, value, mutant)
     # One explicit state directory, independent of parents of customizable paths.
     state = paths.get('state', '.harness')
-    out = {k: str(contained(root, v)) for k, v in paths.items() if k != 'state'}
+    out = {k: str(contained(root, v, mutant)) for k, v in paths.items() if k != 'state'}
     for k, v in [('handoff', 'HANDOFF.md'), ('observations', 'NABLIUDENIA.md'),
                  ('architectObservations', 'NABLIUDENIA_ARCHITECT.md'),
                  ('roadmap', 'ROADMAP.md'), ('forks', 'forks')]:
-        out[k] = str(contained(root, state) / v)
+        out[k] = str(contained(root, state, mutant) / v)
     return out
 
 
@@ -103,7 +129,7 @@ def sources(root, p, contract, stage, mutant, door=False):
             path = root / row['path']
         else:
             try:
-                path = contained(root, row['path'])
+                path = contained(root, row['path'], mutant)
             except ValueError:
                 return fail('SOURCE_CANON_INVALID')
         if not path.exists():
@@ -325,6 +351,22 @@ def main():
         if (mutant != 'pack-swallows-context-refusal' and pack_canon is not None
                 and canon_invalid(pack_canon)):
             return fail('SOURCE_CANON_INVALID')
+        # Р3-2 (круг 3): источник обязан резолвиться внутрь R (symlink наружу
+        # — отказ задания). Стаб pack-pastes-source читает sources[0] без
+        # realpath и вклеивает тело — наблюдаем на обоих входах клетки.
+        if pack_canon is not None and mutant not in ('pack-swallows-context-refusal',
+                                                     'pack-pastes-source'):
+            for row in pack_canon['sources']:
+                try:
+                    contained(root, row['path'], mutant)
+                except ValueError:
+                    return fail('SOURCE_CANON_INVALID')
+        leak = ''
+        if mutant == 'pack-pastes-source' and pack_canon is not None:
+            try:
+                leak = (root / pack_canon['sources'][0]['path']).read_text()
+            except OSError:
+                leak = ''
         if paths is None or mutant == 'pack-static':
             print('TASK nnn=777 role=reviewer\nзадание\n')
             return 0
@@ -336,7 +378,7 @@ def main():
         lines.append('startup=' + ','.join(
             paths[k] for k in ('handoff', 'contracts', 'verdicts',
                                'observations', 'roadmap')))
-        print('\n'.join(lines))
+        print('\n'.join(lines) + (('\n' + leak) if leak else ''))
         return 0
     if op in ('zones', 'staged', 'lib_zones'):
         if mutant == 'root-contracts-only':

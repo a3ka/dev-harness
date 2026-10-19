@@ -186,6 +186,49 @@ def path_oracle(root, p):
                     roadmap=str(state / 'ROADMAP.md'), forks=str(state / 'forks'))
     return expected
 
+# Круг 3, микро-круг. Лексический `..` — СЕГМЕНТ пути, не подстрока: у всех
+# пяти значений ниже realpath остаётся внутри R, поэтому realpath-гард их
+# пропускает (adversary-2 круга 3), а сегментный барьер обязан отказать.
+DOTDOT_DAMAGE = (('contracts', 'normalizer/../.harness/tasks'),
+                 ('verdicts', 'normalizer/../.harness/judgements'),
+                 ('registry', 'normalizer/../.harness/ledger'),
+                 ('fixtures', 'normalizer/../.harness/probes'),
+                 ('state', 'normalizer/../.harness/session'))
+
+
+def damage_key(root, p, key, value):
+    """Меняет один ключ workflowPaths; возвращает функцию восстановления."""
+    had = key in p['workflowPaths']
+    saved = p['workflowPaths'].get(key)
+    p['workflowPaths'][key] = value
+    put(root, 'harness.project.json', json.dumps(p))
+    commit(root, 'damage ' + key)
+
+    def restore():
+        if had:
+            p['workflowPaths'][key] = saved
+        else:
+            p['workflowPaths'].pop(key, None)
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'restore ' + key)
+
+    return restore
+
+
+def pack_world(base, root, p, contract, call):
+    """Предпосылки штатного задания --kind task: contextPack, канон, freeze."""
+    p['contextPack'] = {'rows': [{'kind': 'map', 'path': 'AGENTS.md',
+                                  'roles': 'reviewer,critic,orchestrator,implementer',
+                                  'mandatory': True, 'why': 'toy'}]}
+    canon(root, p)
+    trace = put(base, 'trace.tsv',
+                'reviewer\topenai/gpt-5\tallowed\n'
+                'implementer\tanthropic/claude\tallowed\n')
+    taskf = put(base, 'task.md', 'задание\n')
+    r = call('freeze', contract)
+    expect(r.returncode == 0, 'PACK_SETUP_FREEZE_FAILED', r)
+    return taskf, trace
+
 
 # Each door/gate has its own input; no aggregated case can hide a missed gate.
 # Tuples are (door, defect, public refusal marker).
@@ -357,6 +400,13 @@ EXTRA_CASES = (
     'print-context-escape', 'workshop-print-context-escape',
     'make-task-pack-project', 'make-task-pack-refusal',
     'structure-one-paths-resolve', 'structure-no-second-canon-validator',
+    # Круг 3, микро-круг (Р3-1, Р3-2, adversary-2, совет С3-1): побег state у
+    # потребителей, лексический `..` сегментом, вклейка тела источника,
+    # анти-дрейф расчёта контекста.
+    'state-escape-print-context', 'state-escape-kind-task', 'state-escape-workshop',
+    'state-symlink-print-context', 'state-symlink-kind-task', 'state-symlink-workshop',
+    'dotdot-resolver', 'dotdot-print-context', 'dotdot-kind-task', 'dotdot-workshop',
+    'pack-source-symlink-secret', 'pack-no-source-body', 'make-task-drift',
 )
 
 
@@ -885,6 +935,248 @@ def extra_test(case, mode, base, mutant, root, origin, p, contract):
                                    'keys | sort') if m in body]
             expect(not markers,
                    'STRUCTURE_SECOND_CANON_VALIDATOR:' + ','.join(markers))
+    elif case in ('state-escape-print-context', 'state-symlink-print-context',
+                  'state-escape-workshop', 'state-symlink-workshop'):
+        # Р3-1 (круг 3): workflowPaths.state не судится копиями гарда у
+        # потребителей — rc обязан совпадать с project_workflow (rc 1,
+        # «вне репо»), startup вне корня не доставляется. Позитивный
+        # контроль — честный state в том же случае.
+        outside = base / 'outside-state'
+        outside.mkdir()
+        if case.startswith('state-symlink'):
+            (root / 'st-link').symlink_to(outside, target_is_directory=True)
+            p['workflowPaths']['state'] = 'st-link'
+        else:
+            p['workflowPaths']['state'] = '../outside-state'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'state escapes repo')
+        before = git(root, 'rev-parse', 'HEAD')
+        op = 'workshop' if 'workshop' in case else 'make_task'
+        kwargs = {}
+        if op == 'workshop':
+            # Старый лаунчер может переслать неизвестный флаг в omp — проба
+            # не имеет права запустить платную сессию (как context-workshop).
+            tools = installation(base) if mode == 'product' else None
+            if tools:
+                kwargs['tools'] = tools
+            trap = put(base, 'bin/omp', '#!/bin/sh\necho UNEXPECTED_OMP_LAUNCH >&2\nexit 97\n')
+            trap.chmod(0o755)
+            kwargs['extra_env'] = {'PATH': str(trap.parent) + os.pathsep + os.environ['PATH']}
+        r0 = call('paths')
+        expect(r0.returncode == 1
+               and ('workflowPaths' in r0.stderr or 'вне репо' in r0.stderr),
+               'STATE_DAMAGE_NOT_REFUSED_BY_WORKFLOW', r0)
+        tag = case.upper().replace('-', '_')
+        r = call(op, 'reviewer', **kwargs)
+        expect(r.returncode == 1
+               and ('workflowPaths' in r.stderr or 'вне репо' in r.stderr),
+               tag + '_ACCEPTED', r)
+        expect(str(outside) not in r.stdout + r.stderr and '../outside-state' not in r.stdout,
+               tag + '_LEAKED', r)
+        expect(git(root, 'rev-parse', 'HEAD') == before, tag + '_MUTATED', r)
+        # Позитивный контроль: честный state — потребитель зелёный, все пути в R.
+        p['workflowPaths']['state'] = '.harness/session'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'repair honest state')
+        r = call(op, 'reviewer', **kwargs)
+        expect(r.returncode == 0, tag + '_CONTROL_REFUSED', r)
+        got = json.loads(r.stdout)
+        values = list(got['workflow'].values()) + list(got['startup'])
+        expect(all(v.startswith(str(root) + os.sep) for v in values),
+               tag + '_CONTROL_OUTSIDE', r)
+    elif case in ('state-escape-kind-task', 'state-symlink-kind-task'):
+        # Р3-1 (круг 3): штатное задание (--kind task, не --print-context)
+        # отказывает на побеге state и не несёт startup вне R; контроль —
+        # честный state, задание зелёное с project-local HANDOFF.
+        taskf, trace = pack_world(base, root, p, contract, call)
+        outside = base / 'outside-state'
+        outside.mkdir()
+        if case == 'state-symlink-kind-task':
+            (root / 'st-link').symlink_to(outside, target_is_directory=True)
+            p['workflowPaths']['state'] = 'st-link'
+        else:
+            p['workflowPaths']['state'] = '../outside-state'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'state escapes repo')
+        r0 = call('paths')
+        expect(r0.returncode == 1
+               and ('workflowPaths' in r0.stderr or 'вне репо' in r0.stderr),
+               'STATE_DAMAGE_NOT_REFUSED_BY_WORKFLOW', r0)
+        tag = case.upper().replace('-', '_')
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode != 0, tag + '_ACCEPTED', r)
+        expect(str(outside) not in r.stdout + r.stderr and '../outside-state' not in r.stdout,
+               tag + '_LEAKED', r)
+        p['workflowPaths']['state'] = '.harness/session'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'repair honest state')
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode == 0 and str(root / '.harness/session/HANDOFF.md') in r.stdout,
+               tag + '_CONTROL_REFUSED', r)
+    elif case == 'dotdot-resolver':
+        # adversary-2 (круг 3): лексический `..` в workflowPaths — отказ ДО
+        # печати для всех пяти ключей; контроль С3-1 — `..` внутри ИМЕНИ
+        # сегмента (docs/v1..2.md, st/v1..2) принимается.
+        put(root, 'normalizer/.keep', '')
+        put(root, 'docs/v1..2.md', '# honest segment\n')
+        commit(root, 'dotdot prerequisites')
+        for key, value in DOTDOT_DAMAGE:
+            restore = damage_key(root, p, key, value)
+            r = call('paths')
+            expect(r.returncode == 1 and ('workflowPaths' in r.stderr or 'вне репо' in r.stderr),
+                   'DOTDOT_RESOLVER_ACCEPTED:' + key, r)
+            restore()
+        p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'honest dot-dot segment in fixtures')
+        r = call('paths')
+        expect(r.returncode == 0, 'DOTDOT_RESOLVER_CONTROL_REFUSED', r)
+        expect(json.loads(r.stdout)['fixtures'] == str(root / 'docs/v1..2.md'),
+               'DOTDOT_RESOLVER_CONTROL_VALUE_WRONG', r)
+        p['workflowPaths']['state'] = 'st/v1..2'
+        put(root, 'st/v1..2/.keep', '')
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'honest dot-dot segment in state')
+        r = call('paths')
+        expect(r.returncode == 0, 'DOTDOT_RESOLVER_STATE_CONTROL_REFUSED', r)
+        expect(json.loads(r.stdout)['handoff'] == str(root / 'st/v1..2/HANDOFF.md'),
+               'DOTDOT_RESOLVER_STATE_CONTROL_VALUE_WRONG', r)
+    elif case == 'dotdot-print-context':
+        # adversary-2 (круг 3): режим печати контекста не отключает
+        # лексический гард `..` — все пять ключей; контроль С3-1 в том же
+        # случае: сегмент v1..2 принимается.
+        put(root, 'normalizer/.keep', '')
+        put(root, 'docs/v1..2.md', '# honest segment\n')
+        commit(root, 'dotdot prerequisites')
+        for key, value in DOTDOT_DAMAGE:
+            restore = damage_key(root, p, key, value)
+            r = call('make_task', 'reviewer')
+            expect(r.returncode == 1
+                   and ('workflowPaths' in r.stderr or 'вне репо' in r.stderr),
+                   'DOTDOT_PRINT_CONTEXT_ACCEPTED:' + key, r)
+            restore()
+        p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'honest dot-dot segment')
+        r = call('make_task', 'reviewer')
+        expect(r.returncode == 0, 'DOTDOT_PRINT_CONTEXT_CONTROL_REFUSED', r)
+        expect(json.loads(r.stdout)['workflow']['fixtures'] == str(root / 'docs/v1..2.md'),
+               'DOTDOT_PRINT_CONTEXT_CONTROL_VALUE_WRONG', r)
+    elif case == 'dotdot-kind-task':
+        # adversary-2 (круг 3): штатное задание отказывает на лексическом
+        # `..` во всех пяти ключах; контроль — сегмент v1..2 принимается.
+        taskf, trace = pack_world(base, root, p, contract, call)
+        put(root, 'normalizer/.keep', '')
+        put(root, 'docs/v1..2.md', '# honest segment\n')
+        commit(root, 'dotdot prerequisites')
+        for key, value in DOTDOT_DAMAGE:
+            restore = damage_key(root, p, key, value)
+            r = call('make_task_pack', taskf, trace)
+            expect(r.returncode != 0, 'DOTDOT_KIND_TASK_ACCEPTED:' + key, r)
+            expect('normalizer/..' not in r.stdout + r.stderr,
+                   'DOTDOT_KIND_TASK_LEAKED:' + key, r)
+            restore()
+        p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'honest dot-dot segment')
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode == 0 and 'docs/v1..2.md' in r.stdout,
+               'DOTDOT_KIND_TASK_CONTROL_REFUSED', r)
+    elif case == 'dotdot-workshop':
+        # adversary-2 (круг 3): workshop --print-context не отключает
+        # лексический гард `..` — все пять ключей; контроль v1..2.
+        put(root, 'normalizer/.keep', '')
+        put(root, 'docs/v1..2.md', '# honest segment\n')
+        commit(root, 'dotdot prerequisites')
+        kwargs = {}
+        tools = installation(base) if mode == 'product' else None
+        if tools:
+            kwargs['tools'] = tools
+        trap = put(base, 'bin/omp', '#!/bin/sh\necho UNEXPECTED_OMP_LAUNCH >&2\nexit 97\n')
+        trap.chmod(0o755)
+        kwargs['extra_env'] = {'PATH': str(trap.parent) + os.pathsep + os.environ['PATH']}
+        for key, value in DOTDOT_DAMAGE:
+            restore = damage_key(root, p, key, value)
+            r = call('workshop', **kwargs)
+            expect(r.returncode == 1
+                   and ('workflowPaths' in r.stderr or 'вне репо' in r.stderr),
+                   'DOTDOT_WORKSHOP_ACCEPTED:' + key, r)
+            restore()
+        p['workflowPaths']['fixtures'] = 'docs/v1..2.md'
+        put(root, 'harness.project.json', json.dumps(p))
+        commit(root, 'honest dot-dot segment')
+        r = call('workshop', **kwargs)
+        expect(r.returncode == 0, 'DOTDOT_WORKSHOP_CONTROL_REFUSED', r)
+        expect(json.loads(r.stdout)['workflow']['fixtures'] == str(root / 'docs/v1..2.md'),
+               'DOTDOT_WORKSHOP_CONTROL_VALUE_WRONG', r)
+    elif case == 'pack-source-symlink-secret':
+        # Р3-2 (круг 3): источник после freeze подменён symlink наружу —
+        # задание отказывает и не несёт содержимого внешнего файла.
+        taskf, trace = pack_world(base, root, p, contract, call)
+        secret = put(base, 'secret.txt', 'OUTSIDE-SECRET-42\n')
+        (root / 'SOURCE.md').unlink()
+        (root / 'SOURCE.md').symlink_to(secret)
+        commit(root, 'source symlinked outside after freeze')
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode != 0, 'PACK_SOURCE_SYMLINK_SWALLOWED', r)
+        expect('OUTSIDE-SECRET-42' not in r.stdout + r.stderr,
+               'PACK_SOURCE_SYMLINK_LEAKED', r)
+        # Позитивный контроль: честный источник на той же двери — зелёный,
+        # тело НЕ вклеено (роли получают путь, не содержимое).
+        (root / 'SOURCE.md').unlink()
+        put(root, 'SOURCE.md', '# Requirement\nNo bypass.\n')
+        commit(root, 'repair honest source')
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode == 0 and 'SOURCE.md' in r.stdout,
+               'PACK_SOURCE_REPAIR_REFUSED', r)
+        expect('No bypass.' not in r.stdout, 'PACK_SOURCE_REPAIR_BODY', r)
+    elif case == 'pack-no-source-body':
+        # Р3-2 (круг 3): PROJECT-секция не вклеивает содержимое источника
+        # вообще — роли получают путь; иглы sourceCanon/SOURCE.md остаются
+        # (позитив make-task-pack-project не ослаблен).
+        taskf, trace = pack_world(base, root, p, contract, call)
+        r = call('make_task_pack', taskf, trace)
+        expect(r.returncode == 0, 'PACK_NO_BODY_CONTEXT_UNAVAILABLE', r)
+        for needle in ('sourceCanon', 'SOURCE.md'):
+            expect(needle in r.stdout, 'PACK_NO_BODY_NEEDLE_MISSING:' + needle, r)
+        expect('No bypass.' not in r.stdout, 'PACK_PASTES_SOURCE_BODY', r)
+    elif case == 'make-task-drift':
+        # Анти-дрейф (круг 3): расчёт make_task не расходится с
+        # project_workflow на матрице повреждённых профилей — ни rc, ни
+        # значения путей state/registry/contracts/verdicts/fixtures.
+        def compare(r1, r2, tag):
+            if r1.returncode == 0:
+                expect(r2.returncode == 0, tag + '_MAKE_TASK_REFUSED', r2)
+                workflow = json.loads(r2.stdout)['workflow']
+                oracle = json.loads(r1.stdout)
+                expect(all(workflow.get(k) == oracle.get(k)
+                           for k in oracle if k != 'sourceCanon'),
+                       tag + '_MAKE_TASK_DIVERGED', r2)
+            else:
+                expect(r1.returncode == 1, tag + '_PW_UNEXPECTED_RC', r1)
+                expect(r2.returncode == 1
+                       and ('workflowPaths' in r2.stderr or 'вне репо' in r2.stderr),
+                       tag + '_MAKE_TASK_GREEN', r2)
+
+        compare(call('paths'), call('make_task', 'reviewer'), 'DRIFT_GREEN')
+        put(root, 'normalizer/.keep', '')
+        outside = base / 'drift-outside'
+        outside.mkdir()
+        (root / 'drift-link').symlink_to(outside, target_is_directory=True)
+        commit(root, 'drift prerequisites')
+        damages = []
+        for key in ('contracts', 'verdicts', 'registry', 'fixtures'):
+            honest = p['workflowPaths'][key]
+            damages.append((key, 'normalizer/../' + honest))
+            damages.append((key, '../drift-' + key))
+            damages.append((key, 'drift-link'))
+        damages += [('state', 'normalizer/../.harness/session'),
+                    ('state', '../drift-state'), ('state', 'drift-link')]
+        for key, value in damages:
+            restore = damage_key(root, p, key, value)
+            compare(call('paths'), call('make_task', 'reviewer'),
+                    'DRIFT_' + key.upper() + '_' + value.replace('/', '_'))
+            restore()
     elif case == 'self-canonical':
         # Product configuration is an input of its own resolver/paths CLI, not a text grep.
         install = installation(base)
@@ -1107,6 +1399,16 @@ MUTANTS.update({
     'pack-swallows-context-refusal': ('make-task-pack-refusal',),
     'structure-duplicate': ('structure-one-paths-resolve',),
     'structure-second-validator': ('structure-no-second-canon-validator',),
+    # Круг 3, микро-круг: обманные стабы к новым клеткам, каждый — к входу,
+    # на котором его дефект наблюдаем (Н-39).
+    'make-task-own-paths': ('state-escape-print-context', 'state-escape-kind-task',
+                            'dotdot-print-context', 'dotdot-kind-task', 'make-task-drift'),
+    'guard-four-keys-only': ('state-escape-print-context', 'state-escape-kind-task',
+                             'state-escape-workshop', 'state-symlink-print-context',
+                             'state-symlink-kind-task', 'state-symlink-workshop'),
+    'pack-pastes-source': ('pack-source-symlink-secret', 'pack-no-source-body'),
+    'dotdot-substring': ('dotdot-resolver', 'dotdot-print-context',
+                         'dotdot-kind-task', 'dotdot-workshop'),
 })
 MUTANTS['skip-gates'] = tuple(GATE_CASES)
 for gate, defects in {'spec': ('spec', 'spec-probe'), 'consumers': ('consumers',),
