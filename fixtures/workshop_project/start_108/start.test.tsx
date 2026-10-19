@@ -6,17 +6,31 @@
 // ORACLE_MISSION_STATES. Клетки порождаются циклами по закрытой грамматике
 // (avatar × presence × motion; ui_state × action × admission; mission_state ×
 // motion; mission_state × mission_state), не ручным списком.
-// Оси 107 (арбитраж К5′–К9′) и оси круга 1 критика 108 применены:
-//  - полное произведение состояний × доступности × движения на НАЧАЛЬНОМ
-//    рендере (К1) и на ДОСТИГНУТЫХ UI-состояниях INPUT/LISTENING (К1′);
+// Оси 107 (арбитраж К5′–К9′), оси круга 1 критика 108 и ЗАКРЫТЫЙ перечень
+// арбитража 108 (verdicts/arbitration/contracts-108-pravila-e-p-v1.md,
+// Решение 2) применены двумя правилами на ВЕСЬ тест:
+//  - ПРАВИЛО Э (эффекты): каждая клетка, выполняющая хотя бы один шаг
+//    (press/focus/changeText/rerender), заканчивается toEqual ПОЛНОГО
+//    вектора эффектов {write, talk, resume, mic};
+//  - ПРАВИЛО П (поля): каждая клетка, где brief ожидаем видимым, сверяет
+//    ВСЕ три поля (mission_id/state/updated_at) exact-литералом И наличие
+//    start-action-resume; где невидимым — тройное отсутствие
+//    (start-resume-brief/start-action-resume/queryByText(mission_id));
+//  - A SNAPSHOT_REFRESH — ПОЛНЫЙ квадрат 10×10 упорядоченных пар состояний,
+//    включая диагональ from===to (повторный снимок — штатное событие),
+//    без ручных исключений из цикла;
+//  - B ADMISSION_LOST — произведение ui(3) × to{EMPTY,NULL} × avatar(3);
+//    растворяет ACL_REVOKED/ACL_REVOKED_LISTENING/MISSIONS_NULL_TRANSITION;
+//  - D BRIEF_FIELDS — произведение ЗНАЧЕНИЙ полей {FIXED,ALT}^3 = 8
+//    (смешанные поля внутри перечня, К5′ прецедента 107);
+//  - E RUNTIME_SCENARIO — page.items подаётся в экран БЕЗ обработчиков
+//    (путь runtime → экран, правило П), как RUNTIME_SNAPSHOT_FULL;
 //  - каждое действие × полный вектор эффектов ПОСЛЕ КАЖДОГО ШАГА: из CALM
 //    (К3), из каждого ui_state × admission включая null (К3′ ACTION_FROM),
 //    resume по всем mission_states × motion (RESUME_EFFECT);
-//  - переходы, а не только начальный render: отзыв ACL в CALM и в LISTENING,
-//    PRESENT→null, обновление снимка при неизменной кардинальности — все
-//    упорядоченные пары состояний (SNAPSHOT_REFRESH);
-//  - поля брифа читаются из ПОДАННОГО снимка: различающая пара ALT
-//    (BRIEF_FIELDS_FROM_PORT), не фиксированные строки;
+//  - переходы, а не только начальный render: потеря доступа на достигнутом
+//    ui-состоянии (ADMISSION_LOST), обновление снимка при неизменной
+//    кардинальности (SNAPSHOT_REFRESH);
 //  - настоящий runtime.api.listMissions по всем сценариям presence × state;
 //  - черновик переживает все переходы avatar (произведение from×to) и
 //    admission (EMPTY/NULL), а не только idle→working;
@@ -72,6 +86,16 @@ const FIXED = {
 // не совпадающие ни с одним полем fixed.
 const ALT = { mission_id: 'MIS-OTHER-02', state: 'RECEIVED', updated_at: '2026-10-19T10:11:12Z' };
 
+// Произведение ЗНАЧЕНИЙ полей брифа (К2′, арбитраж 108 D): каждое поле
+// берётся из {FIXED, ALT} независимо от остальных.
+const FIELD_PICKS = ['FIXED', 'ALT'] as const;
+type FieldPick = (typeof FIELD_PICKS)[number];
+const FIELD_VALUES: Record<'mission_id' | 'state' | 'updated_at', Record<FieldPick, string>> = {
+  mission_id: { FIXED: FIXED.mission_id, ALT: ALT.mission_id },
+  state: { FIXED: 'WORKING', ALT: ALT.state },
+  updated_at: { FIXED: FIXED.updated_at, ALT: ALT.updated_at },
+};
+
 function brief(presence: 'EMPTY' | 'PRESENT', state: MissionState = 'WORKING'): MissionBrief[] {
   return presence === 'PRESENT'
     ? [{ mission_id: FIXED.mission_id, state, updated_at: FIXED.updated_at }]
@@ -85,6 +109,29 @@ function admissionMissions(admission: 'EMPTY' | 'PRESENT' | 'NULL'): MissionBrie
 }
 
 const ZERO_EFFECTS = { write: 0, talk: 0, resume: [] as string[], mic: 0 };
+type Effects = typeof ZERO_EFFECTS;
+
+// ПРАВИЛО Э (арбитраж 108): клетка с шагом заканчивается ПОЛНЫМ вектором
+// эффектов {write, talk, resume, mic} — чтение части вектора не допускается.
+function expectEffects(calls: Effects, expected: Effects) {
+  expect(calls).toEqual(expected);
+}
+
+// ПРАВИЛО П (арбитраж 108): видимый бриф — ВСЕ три поля exact-литералом
+// (FIXED/ALT/состояние клетки) И наличие start-action-resume; невидимый —
+// тройное отсутствие, включая остаточные приватные строки (queryByText).
+function expectBriefVisible(expected: MissionBrief) {
+  expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(expected.mission_id, { exact: true });
+  expect(screen.getByTestId('start-brief-state')).toHaveTextContent(expected.state, { exact: true });
+  expect(screen.getByTestId('start-brief-updated-at')).toHaveTextContent(expected.updated_at, { exact: true });
+  expect(screen.getByTestId('start-action-resume')).toBeOnTheScreen();
+}
+
+function expectBriefAbsent(missionId: string) {
+  expect(screen.queryByTestId('start-resume-brief')).toBeNull();
+  expect(screen.queryByTestId('start-action-resume')).toBeNull();
+  expect(screen.queryByText(missionId)).toBeNull();
+}
 
 async function harness(props: Partial<Parameters<typeof StartScreen>[0]> = {}) {
   const calls = { ...ZERO_EFFECTS, resume: [] as string[] };
@@ -129,7 +176,7 @@ async function reachUiState(ui: 'CALM' | 'INPUT' | 'LISTENING') {
 // К1: произведение avatar × presence × motion на начальном рендере —
 // присутствие есть всегда, ровно один композер, ≤1 контекстная карточка,
 // empty-groups/KPI/voice-session отсутствуют, unavailable не выглядит
-// работающим процессом, слоты стабильны.
+// работающим процессом, слоты стабильны. Правило П в каждой клетке.
 for (const avatar of AVATARS) {
   for (const presence of PRESENCES) {
     for (const motion of MOTIONS) {
@@ -147,12 +194,10 @@ for (const avatar of AVATARS) {
         const cards = screen.queryAllByTestId('start-contextual-card');
         expect(cards.length).toBeLessThanOrEqual(1);
         if (presence === 'PRESENT') {
-          expect(screen.getByTestId('start-resume-brief')).toBeOnTheScreen();
-          expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
+          expectBriefVisible(brief('PRESENT')[0]);
         } else {
-          expect(screen.queryByTestId('start-resume-brief')).toBeNull();
+          expectBriefAbsent(FIXED.mission_id);
           expect(screen.queryByTestId('start-contextual-card')).toBeNull();
-          expect(screen.queryByText(FIXED.mission_id)).toBeNull();
         }
       });
     }
@@ -162,6 +207,7 @@ for (const avatar of AVATARS) {
 // К1′: то же произведение присутствия/запрещённых элементов на ДОСТИГНУТОМ
 // UI-состоянии (после взаимодействия: фокус композера / talk) — структура
 // наблюдается ПОСЛЕ смены UI-state, не только до взаимодействия.
+// Правила Э (полный вектор после шага) и П.
 for (const ui of ['INPUT', 'LISTENING'] as const) {
   for (const avatar of AVATARS) {
     for (const presence of PRESENCES) {
@@ -185,15 +231,12 @@ for (const ui of ['INPUT', 'LISTENING'] as const) {
           const cards = screen.queryAllByTestId('start-contextual-card');
           expect(cards.length).toBeLessThanOrEqual(1);
           if (presence === 'PRESENT') {
-            expect(screen.getByTestId('start-resume-brief')).toBeOnTheScreen();
-            expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
+            expectBriefVisible(brief('PRESENT')[0]);
           } else {
-            expect(screen.queryByTestId('start-resume-brief')).toBeNull();
+            expectBriefAbsent(FIXED.mission_id);
             expect(screen.queryByTestId('start-contextual-card')).toBeNull();
-            expect(screen.queryByText(FIXED.mission_id)).toBeNull();
           }
-          expect(calls.mic).toBe(0);
-          expect(calls.resume).toEqual([]);
+          expectEffects(calls, { ...ZERO_EFFECTS, talk: ui === 'LISTENING' ? 1 : 0 });
         });
       }
     }
@@ -208,34 +251,42 @@ it('108 start ORACLE_MISSION_STATES', () => {
 
 // К2: бриф показывает полное состояние дела (все 10 значений OpenAPI-enum)
 // и кадр F04.06 — текстом каталога (title+body), не только testID.
+// Правило П: все три поля exact-литералом.
 for (const state of MISSION_STATES) {
   it(`108 start BRIEF_STATE_${state}`, async () => {
     await harness({ missions: brief('PRESENT', state) });
-    expect(screen.getByTestId('start-brief-state')).toHaveTextContent(state);
-    expect(screen.getByTestId('start-brief-updated-at')).toHaveTextContent(FIXED.updated_at);
-    expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
+    expectBriefVisible(brief('PRESENT', state)[0]);
     expect(screen.getByText(TEXTS['frame.F04.06.title'])).toBeOnTheScreen();
     expect(screen.getByText(TEXTS['frame.F04.06.body'])).toBeOnTheScreen();
-    expect(screen.getByTestId('start-action-resume')).toBeOnTheScreen();
   });
 }
 
-// К2′: зависимость полей брифа от ПОДАННОГО снимка — различающая пара ALT:
-// поданный снимок с чужими mission_id/state/updated_at отражается дословно,
-// resume-аргумент равен поданному mission_id (фиксированные строки ловятся).
-it('108 start BRIEF_FIELDS_FROM_PORT', async () => {
-  const { calls } = await harness({
-    missions: [{ mission_id: ALT.mission_id, state: ALT.state, updated_at: ALT.updated_at }],
-  });
-  expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(ALT.mission_id);
-  expect(screen.getByTestId('start-brief-state')).toHaveTextContent(ALT.state);
-  expect(screen.getByTestId('start-brief-updated-at')).toHaveTextContent(ALT.updated_at);
-  await fireEvent.press(screen.getByTestId('start-action-resume'));
-  expect(calls).toEqual({ write: 0, talk: 0, resume: [ALT.mission_id], mic: 0 });
-});
+// К2′ (арбитраж 108 D): зависимость полей брифа от ПОДАННОГО снимка —
+// произведение ЗНАЧЕНИЙ полей {FIXED, ALT}^3 = 8 клеток (смешанные поля
+// внутри перечня: одна ALT-пара доказывает 2 точки из 8). В каждой правило
+// П по поданному снимку и правило Э после нажатия resume
+// (resume-аргумент = поданный mission_id).
+for (const id of FIELD_PICKS) {
+  for (const st of FIELD_PICKS) {
+    for (const ts of FIELD_PICKS) {
+      it(`108 start BRIEF_FIELDS_${id}_${st}_${ts}`, async () => {
+        const snapshot: MissionBrief = {
+          mission_id: FIELD_VALUES.mission_id[id],
+          state: FIELD_VALUES.state[st] as MissionState,
+          updated_at: FIELD_VALUES.updated_at[ts],
+        };
+        const { calls } = await harness({ missions: [snapshot] });
+        expectBriefVisible(snapshot);
+        await fireEvent.press(screen.getByTestId('start-action-resume'));
+        expectEffects(calls, { ...ZERO_EFFECTS, resume: [snapshot.mission_id] });
+      });
+    }
+  }
+}
 
 // К2″: resume-эффект по произведению mission_state × motion — полный вектор
-// (resume=[поданный mission_id], write/talk/mic нулевые) в каждой клетке.
+// (resume=[поданный mission_id], write/talk/mic нулевые) в каждой клетке;
+// правило П до нажатия.
 for (const state of MISSION_STATES) {
   for (const motion of MOTIONS) {
     it(`108 start RESUME_EFFECT_${state}_${motion}`, async () => {
@@ -243,72 +294,51 @@ for (const state of MISSION_STATES) {
         missions: brief('PRESENT', state),
         reducedMotion: motion === 'reduced',
       });
+      expectBriefVisible(brief('PRESENT', state)[0]);
       await fireEvent.press(screen.getByTestId('start-action-resume'));
-      expect(calls).toEqual({ write: 0, talk: 0, resume: [FIXED.mission_id], mic: 0 });
+      expectEffects(calls, { write: 0, talk: 0, resume: [FIXED.mission_id], mic: 0 });
     });
   }
 }
 
-// К2: отзыв ACL — дело исчезло из listMissions → прежнее содержание brief
-// и resume убраны, без остаточных приватных строк; присутствие/композер живы.
-for (const avatar of AVATARS) {
-  it(`108 start ACL_REVOKED_${avatar}`, async () => {
-    const view = await harness({ avatarState: avatar, missions: brief('PRESENT') });
-    expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
-    await view.rerender({ missions: brief('EMPTY') });
-    expect(screen.queryByTestId('start-resume-brief')).toBeNull();
-    expect(screen.queryByTestId('start-action-resume')).toBeNull();
-    expect(screen.queryByText(FIXED.mission_id)).toBeNull();
-    expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
-    expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
-    expect(view.calls.mic).toBe(0);
-  });
-}
-
-// К2‴: отзыв ACL на ДОСТИГНУТОМ UI-состоянии — переход PRESENT→EMPTY в
-// LISTENING тоже убирает прежнее содержание brief/resume/mission_id
-// (переключение канала не продлевает протухший ACL-снимок).
-for (const avatar of AVATARS) {
-  it(`108 start ACL_REVOKED_LISTENING_${avatar}`, async () => {
-    const view = await harness({ avatarState: avatar, missions: brief('PRESENT') });
-    await fireEvent.press(screen.getByTestId('start-action-talk'));
-    await view.rerender({ missions: [] });
-    expect(screen.queryByTestId('start-resume-brief')).toBeNull();
-    expect(screen.queryByTestId('start-action-resume')).toBeNull();
-    expect(screen.queryByText(FIXED.mission_id)).toBeNull();
-    expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
-    expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
-    expect(view.calls.mic).toBe(0);
-  });
-}
-
+// К8: null при первом render — безопасный fallback: присутствие и композер
+// живы, карточки нет (правило П — тройное отсутствие).
 for (const avatar of AVATARS) {
   it(`108 start MISSIONS_NULL_${avatar}`, async () => {
     await harness({ avatarState: avatar, missions: null });
     expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
     expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
-    expect(screen.queryByTestId('start-resume-brief')).toBeNull();
-    expect(screen.queryByTestId('start-action-resume')).toBeNull();
+    expectBriefAbsent(FIXED.mission_id);
   });
 }
 
-// К8′: ПЕРЕХОД PRESENT→null (listMissions стал недоступен) — безопасный
-// fallback без остаточной приватной карточки, присутствие/композер живы.
-for (const avatar of AVATARS) {
-  it(`108 start MISSIONS_NULL_TRANSITION_${avatar}`, async () => {
-    const view = await harness({ avatarState: avatar, missions: brief('PRESENT') });
-    await view.rerender({ missions: null });
-    expect(screen.queryByTestId('start-resume-brief')).toBeNull();
-    expect(screen.queryByTestId('start-action-resume')).toBeNull();
-    expect(screen.queryByText(FIXED.mission_id)).toBeNull();
-    expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
-    expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
-  });
+// К2″′ ∪ К8 (арбитраж 108 B): потеря доступа на ДОСТИГНУТОМ ui-состоянии —
+// произведение ui(3) × to{EMPTY,NULL} × avatar(3). Растворяет прежние
+// ACL_REVOKED / ACL_REVOKED_LISTENING / MISSIONS_NULL_TRANSITION: дело
+// исчезло из listMissions (отзыв ACL) или listMissions стал недоступен —
+// прежнее содержание brief/resume/mission_id убрано на ЛЮБОМ достигнутом
+// ui-состоянии, без остаточных приватных строк; присутствие/композер живы.
+// Правило Э: полный вектор ПОСЛЕ перехода (talk=1 только если достигали
+// LISTENING — сам переход эффектов не добавляет).
+for (const ui of UI_STATES) {
+  for (const to of ['EMPTY', 'NULL'] as const) {
+    for (const avatar of AVATARS) {
+      it(`108 start ADMISSION_LOST_${ui}_${to}_${avatar}`, async () => {
+        const view = await harness({ avatarState: avatar, missions: brief('PRESENT') });
+        await reachUiState(ui);
+        await view.rerender({ missions: to === 'EMPTY' ? [] : null });
+        expectBriefAbsent(FIXED.mission_id);
+        expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
+        expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
+        expectEffects(view.calls, { ...ZERO_EFFECTS, talk: ui === 'LISTENING' ? 1 : 0 });
+      });
+    }
+  }
 }
 
 // К3: каждое доступное действие × полный вектор эффектов (write/talk/resume/mic)
 // × avatar × presence × motion из CALM. Доступность: write/talk всегда,
-// resume ⇔ PRESENT.
+// resume ⇔ PRESENT. Правила П (по presence) и Э (полный вектор ПОСЛЕ действия).
 for (const action of ACTIONS) {
   for (const avatar of AVATARS) {
     for (const presence of PRESENCES) {
@@ -321,24 +351,27 @@ for (const action of ACTIONS) {
           });
           expect(screen.getByTestId('start-action-write')).toBeOnTheScreen();
           expect(screen.getByTestId('start-action-talk')).toBeOnTheScreen();
+          if (presence === 'PRESENT') {
+            expectBriefVisible(brief('PRESENT')[0]);
+          } else {
+            expectBriefAbsent(FIXED.mission_id);
+          }
           if (action === 'RESUME' && presence === 'EMPTY') {
             // Resume без доступного дела не предлагается и не жмётся.
             expect(screen.queryByTestId('start-action-resume')).toBeNull();
-            expect(calls).toEqual({ write: 0, talk: 0, resume: [], mic: 0 });
+            expectEffects(calls, { ...ZERO_EFFECTS });
             return;
           }
           const testID =
             action === 'WRITE' ? 'start-action-write' : action === 'TALK' ? 'start-action-talk' : 'start-action-resume';
           await fireEvent.press(screen.getByTestId(testID));
-          expect(calls.mic).toBe(0);
-          expect(calls.talk).toBe(action === 'TALK' ? 1 : 0);
-          expect(calls.write).toBe(action === 'WRITE' ? 1 : 0);
-          if (action === 'RESUME') {
-            expect(calls.resume).toEqual([FIXED.mission_id]);
-          } else {
-            expect(calls.resume).toEqual([]);
-          }
           expect(screen.queryByTestId('start-voice-session')).toBeNull();
+          expectEffects(calls, {
+            write: action === 'WRITE' ? 1 : 0,
+            talk: action === 'TALK' ? 1 : 0,
+            resume: action === 'RESUME' ? [FIXED.mission_id] : [],
+            mic: 0,
+          });
         });
       }
     }
@@ -348,7 +381,8 @@ for (const action of ACTIONS) {
 // К3′: замыкание произведения — действие × ДОСТИГНУТОЕ ui_state × admission
 // (EMPTY/PRESENT/NULL). Полный вектор эффектов проверяется ПОСЛЕ достижения
 // UI-состояния и ПОСЛЕ действия (порядок событий: эффект до последнего
-// действия не доказывает отсутствие эффекта после него).
+// действия не доказывает отсутствие эффекта после него). Правило П по
+// достигнутому состоянию до действия.
 for (const ui of UI_STATES) {
   for (const action of ACTIONS) {
     for (const admission of ADMISSIONS) {
@@ -356,48 +390,55 @@ for (const ui of UI_STATES) {
         const { calls } = await harness({ missions: admissionMissions(admission) });
         await reachUiState(ui);
         // Полный вектор ПОСЛЕ достижения UI-состояния, ДО действия.
-        expect(calls).toEqual({ ...ZERO_EFFECTS, talk: ui === 'LISTENING' ? 1 : 0 });
+        expectEffects(calls, { ...ZERO_EFFECTS, talk: ui === 'LISTENING' ? 1 : 0 });
+        if (admission === 'PRESENT') {
+          expectBriefVisible(brief('PRESENT')[0]);
+        } else {
+          expectBriefAbsent(FIXED.mission_id);
+        }
         if (action === 'RESUME' && admission !== 'PRESENT') {
           // Resume без доступного дела не предлагается и не жмётся.
           expect(screen.queryByTestId('start-action-resume')).toBeNull();
-          expect(calls).toEqual({ ...ZERO_EFFECTS, talk: ui === 'LISTENING' ? 1 : 0 });
+          expectEffects(calls, { ...ZERO_EFFECTS, talk: ui === 'LISTENING' ? 1 : 0 });
           return;
         }
         const testID =
           action === 'WRITE' ? 'start-action-write' : action === 'TALK' ? 'start-action-talk' : 'start-action-resume';
         await fireEvent.press(screen.getByTestId(testID));
         // Полный вектор ПОСЛЕ действия: только свой эффект, mic всегда 0.
-        expect(calls).toEqual({
+        expect(screen.queryByTestId('start-voice-session')).toBeNull();
+        expectEffects(calls, {
           write: action === 'WRITE' ? 1 : 0,
           talk: (ui === 'LISTENING' ? 1 : 0) + (action === 'TALK' ? 1 : 0),
           resume: action === 'RESUME' ? [FIXED.mission_id] : [],
           mic: 0,
         });
-        expect(screen.queryByTestId('start-voice-session')).toBeNull();
       });
     }
   }
 }
 
-// К3″: обновление снимка при неизменной кардинальности — все упорядоченные
-// пары состояний: экран показывает ПОДАННОЕ состояние после rerender,
-// не удержанный прежний снимок (равная длина массива не маскирует смену).
+// К3″ (арбитраж 108 A): обновление снимка при неизменной кардинальности —
+// ПОЛНЫЙ квадрат 10×10 упорядоченных пар состояний, ВКЛЮЧАЯ диагональ
+// from===to (повторный снимок того же состояния — штатное событие
+// listMissions; ручные исключения из цикла не допускаются). Правило П до и
+// после rerender (поданный снимок отражается дословно), правило Э после
+// (смена снимка — не действие пользователя, вектор нулевой).
 for (const from of MISSION_STATES) {
   for (const to of MISSION_STATES) {
-    if (from === to) continue;
     it(`108 start SNAPSHOT_REFRESH_${from}_${to}`, async () => {
       const view = await harness({ missions: brief('PRESENT', from) });
-      expect(screen.getByTestId('start-brief-state')).toHaveTextContent(from);
+      expectBriefVisible(brief('PRESENT', from)[0]);
       await view.rerender({ missions: brief('PRESENT', to) });
-      expect(screen.getByTestId('start-brief-state')).toHaveTextContent(to);
-      expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
-      expect(screen.getByTestId('start-brief-updated-at')).toHaveTextContent(FIXED.updated_at);
+      expectBriefVisible(brief('PRESENT', to)[0]);
+      expectEffects(view.calls, { ...ZERO_EFFECTS });
     });
   }
 }
 
 // К4: UI-состояния кадров — CALM (F04.01), INPUT (F04.02 по фокусу композера),
 // LISTENING (F04.03 по talk; выход через write к тексту; микрофон молчит).
+// Правило П (бриф на месте во всех кадрах), правило Э после шагов.
 for (const avatar of AVATARS) {
   it(`108 start FRAME_CALM_${avatar}`, async () => {
     await harness({ avatarState: avatar, missions: brief('PRESENT') });
@@ -406,43 +447,47 @@ for (const avatar of AVATARS) {
     expect(screen.getByText(TEXTS['frame.F04.01.body'])).toBeOnTheScreen();
     expect(screen.queryByTestId('start-frame-F04.02')).toBeNull();
     expect(screen.queryByTestId('start-frame-F04.03')).toBeNull();
+    expectBriefVisible(brief('PRESENT')[0]);
   });
 
   it(`108 start FRAME_INPUT_${avatar}`, async () => {
-    await harness({ avatarState: avatar, missions: brief('PRESENT') });
+    const { calls } = await harness({ avatarState: avatar, missions: brief('PRESENT') });
     await fireEvent(screen.getByTestId('start-composer-input'), 'focus');
     expect(screen.getByTestId('start-frame-F04.02')).toBeOnTheScreen();
     expect(screen.getByText(TEXTS['frame.F04.02.title'])).toBeOnTheScreen();
     expect(screen.getByText(TEXTS['frame.F04.02.body'])).toBeOnTheScreen();
     expect(screen.queryByTestId('start-frame-F04.01')).toBeNull();
+    expectBriefVisible(brief('PRESENT')[0]);
+    expectEffects(calls, { ...ZERO_EFFECTS });
   });
 
   it(`108 start FRAME_LISTENING_${avatar}`, async () => {
     const { calls } = await harness({ avatarState: avatar, missions: brief('PRESENT') });
     await fireEvent.press(screen.getByTestId('start-action-talk'));
-    expect(calls.talk).toBe(1);
     expect(screen.getByTestId('start-frame-F04.03')).toBeOnTheScreen();
     expect(screen.getByText(TEXTS['frame.F04.03.title'])).toBeOnTheScreen();
     expect(screen.getByText(TEXTS['frame.F04.03.body'])).toBeOnTheScreen();
-    expect(calls.mic).toBe(0);
-    expect(calls.resume).toEqual([]);
-    // Listening — UI-состояние: бриф на месте, каналы не создали Mission.
-    expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
+    // Listening — чистое UI-состояние: бриф на месте (правило П), каналы
+    // не создали конкурирующую Mission.
+    expectBriefVisible(brief('PRESENT')[0]);
     // Выход к тексту — write возвращает из Listening; полный вектор
-    // эффектов проверен ПОСЛЕ выхода (не только до него).
+    // эффектов проверен ПОСЛЕ выхода (правило Э).
     await fireEvent.press(screen.getByTestId('start-action-write'));
     expect(screen.getByTestId('start-frame-F04.02')).toBeOnTheScreen();
-    expect(calls).toEqual({ write: 1, talk: 1, resume: [], mic: 0 });
+    expectEffects(calls, { write: 1, talk: 1, resume: [], mic: 0 });
   });
 }
 
 // К5: черновик композера сохраняется при смене пропсов и смене канала
 // (Maestro: написать → вернуться → продолжить; черновик сохранён).
+// Правила П и Э в каждой клетке.
 it('108 start DRAFT_PRESERVED_AVATAR_CHANGE', async () => {
   const view = await harness({ missions: brief('PRESENT') });
   await fireEvent.changeText(screen.getByTestId('start-composer-input'), FIXED.draft_text);
   await view.rerender({ avatarState: 'working' });
   expect(screen.getByDisplayValue(FIXED.draft_text)).toBeOnTheScreen();
+  expectBriefVisible(brief('PRESENT')[0]);
+  expectEffects(view.calls, { ...ZERO_EFFECTS });
 });
 
 it('108 start DRAFT_PRESERVED_ACL_CHANGE', async () => {
@@ -450,19 +495,23 @@ it('108 start DRAFT_PRESERVED_ACL_CHANGE', async () => {
   await fireEvent.changeText(screen.getByTestId('start-composer-input'), FIXED.draft_text);
   await view.rerender({ missions: brief('EMPTY') });
   expect(screen.getByDisplayValue(FIXED.draft_text)).toBeOnTheScreen();
+  expectBriefAbsent(FIXED.mission_id);
+  expectEffects(view.calls, { ...ZERO_EFFECTS });
 });
 
 it('108 start DRAFT_PRESERVED_LISTENING_ROUNDTRIP', async () => {
-  await harness({ missions: brief('PRESENT') });
+  const { calls } = await harness({ missions: brief('PRESENT') });
   await fireEvent.changeText(screen.getByTestId('start-composer-input'), FIXED.draft_text);
   await fireEvent.press(screen.getByTestId('start-action-talk'));
   await fireEvent.press(screen.getByTestId('start-action-write'));
   expect(screen.getByDisplayValue(FIXED.draft_text)).toBeOnTheScreen();
+  expectBriefVisible(brief('PRESENT')[0]);
+  expectEffects(calls, { write: 1, talk: 1, resume: [], mic: 0 });
 });
 
 // К5′: черновик переживает ВСЕ переходы avatarState (произведение from×to,
 // включая unavailable — F04.V03 сохраняет контекст) и admission-переходы
-// (EMPTY и NULL — отзыв ACL/недоступность listMissions).
+// (EMPTY и NULL — отзыв ACL/недоступность listMissions). Правила П и Э.
 for (const from of AVATARS) {
   for (const to of AVATARS) {
     if (from === to) continue;
@@ -471,6 +520,8 @@ for (const from of AVATARS) {
       await fireEvent.changeText(screen.getByTestId('start-composer-input'), FIXED.draft_text);
       await view.rerender({ avatarState: to });
       expect(screen.getByDisplayValue(FIXED.draft_text)).toBeOnTheScreen();
+      expectBriefVisible(brief('PRESENT')[0]);
+      expectEffects(view.calls, { ...ZERO_EFFECTS });
     });
   }
 }
@@ -481,6 +532,8 @@ for (const to of ['EMPTY', 'NULL'] as const) {
     await fireEvent.changeText(screen.getByTestId('start-composer-input'), FIXED.draft_text);
     await view.rerender({ missions: to === 'EMPTY' ? [] : null });
     expect(screen.getByDisplayValue(FIXED.draft_text)).toBeOnTheScreen();
+    expectBriefAbsent(FIXED.mission_id);
+    expectEffects(view.calls, { ...ZERO_EFFECTS });
   });
 }
 
@@ -507,9 +560,11 @@ it('108 start MOCK_SCENARIO_SETTER', () => {
   ]);
 });
 
-// К6′: настоящий @/mocks/runtime.api.listMissions по ВСЕМ сценариям
-// presence × state — runtime-шов не искажает заявленный снимок ни в одном
-// состоянии (не только в избранных сценариях).
+// К6′ (арбитраж 108 E): настоящий @/mocks/runtime.api.listMissions по ВСЕМ
+// сценариям presence × state — runtime-шов не искажает заявленный снимок ни
+// в одном состоянии; тот же page.items подаётся в экран БЕЗ onResume и
+// обработчиков (как RUNTIME_SNAPSHOT_FULL — путь runtime → экран), правило
+// П: PRESENT — все три поля exact по state, EMPTY — тройное отсутствие.
 for (const presence of PRESENCES) {
   for (const state of MISSION_STATES) {
     it(`108 start RUNTIME_SCENARIO_${presence}_${state}`, async () => {
@@ -520,6 +575,12 @@ for (const presence of PRESENCES) {
           ? [{ mission_id: FIXED.mission_id, state, updated_at: FIXED.updated_at }]
           : [],
       );
+      await render(<StartScreen missions={page.items} avatarState="idle" />);
+      if (presence === 'PRESENT') {
+        expectBriefVisible({ mission_id: FIXED.mission_id, state, updated_at: FIXED.updated_at });
+      } else {
+        expectBriefAbsent(FIXED.mission_id);
+      }
     });
   }
 }
@@ -555,7 +616,8 @@ it('108 start RUNTIME_SNAPSHOT_FULL', async () => {
     state: 'WORKING',
     updated_at: FIXED.updated_at,
   });
-  const view = await render(<StartScreen missions={page.items} avatarState="idle" />);
-  expect(view.getByTestId('start-brief-mission-id')).toHaveTextContent(FIXED.mission_id);
-  expect(view.getByTestId('start-brief-state')).toHaveTextContent('WORKING');
+  await render(<StartScreen missions={page.items} avatarState="idle" />);
+  // Правило П: все три поля после render — путь runtime → экран несёт
+  // updated_at так же, как mission_id и state (без обработчиков).
+  expectBriefVisible({ mission_id: FIXED.mission_id, state: 'WORKING', updated_at: FIXED.updated_at });
 });

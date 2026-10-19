@@ -118,9 +118,11 @@ def matrix(repo: Path):
         return [f'STRUCTURE_AFTER_{u}_{a}_{p}_{m}'
                 for u in uis for a in avatars for p in presences for m in motions]
 
-    def sr(skip=()):
+    def sr(diagonal=False):
+        # Полный квадрат 10×10 (арбитраж 108, Решение 2 A): диагональ —
+        # клетки from===to; мутанты удержания снимка красны только вне её.
         return [f'SNAPSHOT_REFRESH_{f}_{t}'
-                for f in STATES for t in STATES if f != t and (f, t) not in skip]
+                for f in STATES for t in STATES if (f == t) == diagonal]
 
     def da():
         return [f'DRAFT_AVATAR_{a}_TO_{b}' for a in AVATARS for b in AVATARS if a != b]
@@ -128,10 +130,18 @@ def matrix(repo: Path):
     def scen(prefix, presences=PRESENCES):
         return [f'{prefix}_{p}_{s}' for p in presences for s in STATES]
 
+    def al(uis=UI_STATES, tos=('EMPTY', 'NULL'), avatars=AVATARS):
+        return [f'ADMISSION_LOST_{u}_{t}_{a}' for u in uis for t in tos for a in avatars]
+
+    def bf():
+        return [f'BRIEF_FIELDS_{i}_{s}_{t}'
+                for i in ('FIXED', 'ALT') for s in ('FIXED', 'ALT') for t in ('FIXED', 'ALT')]
+
     COMPOSER_ANCHOR = '<ConversationComposer onFocusInput={() => setUiState(\'INPUT\')} />'
 
     MUTANTS = {
-        # --- 18 исходных стабов (круг 1, проверены критиком) ---
+        # --- 18 исходных стабов (круг 1; depends перемерены на перечне
+        #     арбитража 108: 324 клетки, семьи ADMISSION_LOST/BRIEF_FIELDS) ---
         'empty-start-groups-list': (
             [(C, f'      {COMPOSER_ANCHOR}\n',
               f'      {COMPOSER_ANCHOR}\n'
@@ -160,35 +170,33 @@ def matrix(repo: Path):
             ['STRUCTURE_idle_EMPTY_full'],
             [c for c in cells('STRUCTURE') if c != 'STRUCTURE_idle_EMPTY_full']
             + sa()
-            + [f'ACL_REVOKED_{a}' for a in AVATARS]
-            + [f'ACL_REVOKED_LISTENING_{a}' for a in AVATARS]),
+            + al(tos=['EMPTY'])),
         'composer-duplicated': (
             [(C, f'      {COMPOSER_ANCHOR}\n', f'      {COMPOSER_ANCHOR}\n      {COMPOSER_ANCHOR}\n')],
             ['STRUCTURE_idle_EMPTY_full'],
             [c for c in cells('STRUCTURE') if c != 'STRUCTURE_idle_EMPTY_full']
             + sa()
-            + af(uis=['INPUT'])
             + [f'MISSIONS_NULL_{a}' for a in AVATARS]
-            + [f'MISSIONS_NULL_TRANSITION_{a}' for a in AVATARS]
-            + [f'ACL_REVOKED_{a}' for a in AVATARS]
-            + [f'ACL_REVOKED_LISTENING_{a}' for a in AVATARS]
-            + [f'FRAME_INPUT_{a}' for a in AVATARS]
+            + al()
+            + af(uis=['INPUT'])
             + ['DRAFT_PRESERVED_AVATAR_CHANGE', 'DRAFT_PRESERVED_ACL_CHANGE',
                'DRAFT_PRESERVED_LISTENING_ROUNDTRIP']
             + da() + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL']
-            + ['BRIEF_FIELDS_FROM_PORT']),
+            + [f'FRAME_INPUT_{a}' for a in AVATARS]),
         'resume-without-mission': (
             [(C, '  const continuable = available.length > 0 ? available[0] : null;',
               '  const continuable =\n'
               '    available[0] ??\n'
               "    ({ mission_id: 'MIS-CAR-01', state: 'WORKING' as const, updated_at: '2026-10-09T12:00:00Z' });")],
             ['ACTION_RESUME_idle_EMPTY_full'],
-            [c for c in cells('ACTION_RESUME', presences=['EMPTY']) if c != 'ACTION_RESUME_idle_EMPTY_full']
-            + af(actions=['RESUME'], adms=['EMPTY', 'NULL'])
-            + [f'ACL_REVOKED_{a}' for a in AVATARS]
-            + [f'ACL_REVOKED_LISTENING_{a}' for a in AVATARS]
+            af(adms=['EMPTY', 'NULL'])
+            + [c for c in cells('ACTION_RESUME', presences=['EMPTY']) if c != 'ACTION_RESUME_idle_EMPTY_full']
+            + cells('ACTION_TALK', presences=['EMPTY'])
+            + cells('ACTION_WRITE', presences=['EMPTY'])
+            + al()
+            + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL', 'DRAFT_PRESERVED_ACL_CHANGE']
             + [f'MISSIONS_NULL_{a}' for a in AVATARS]
-            + [f'MISSIONS_NULL_TRANSITION_{a}' for a in AVATARS]
+            + scen('RUNTIME_SCENARIO', presences=['EMPTY'])
             + cells('STRUCTURE', presences=['EMPTY'])
             + sa(presences=['EMPTY'])),
         'revoked-stale-brief': (
@@ -198,10 +206,9 @@ def matrix(repo: Path):
               '  const availableRef = useRef<readonly MissionBrief[] | null>(null);\n'
               '  if (missions && missions.length > 0) availableRef.current = missions;\n'
               '  const available = missions && missions.length > 0 ? missions : (availableRef.current ?? []);')],
-            ['ACL_REVOKED_idle'],
-            ['ACL_REVOKED_working', 'ACL_REVOKED_unavailable']
-            + [f'ACL_REVOKED_LISTENING_{a}' for a in AVATARS]
-            + [f'MISSIONS_NULL_TRANSITION_{a}' for a in AVATARS]),
+            ['ADMISSION_LOST_CALM_EMPTY_idle'],
+            [c for c in al() if c != 'ADMISSION_LOST_CALM_EMPTY_idle']
+            + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL', 'DRAFT_PRESERVED_ACL_CHANGE']),
         'talk-starts-mic': (
             [(C, "    setUiState('LISTENING');\n    onTalk?.();",
               "    setUiState('LISTENING');\n    onTalk?.();\n    onMicrophoneRequested?.();")],
@@ -210,8 +217,9 @@ def matrix(repo: Path):
             + af(actions=['TALK'])
             + af(uis=['LISTENING'])
             + sa(uis=['LISTENING'])
-            + [f'ACL_REVOKED_LISTENING_{a}' for a in AVATARS]
-            + [f'FRAME_LISTENING_{a}' for a in AVATARS]),
+            + al(uis=['LISTENING'])
+            + [f'FRAME_LISTENING_{a}' for a in AVATARS]
+            + ['DRAFT_PRESERVED_LISTENING_ROUNDTRIP']),
         'talk-creates-mission': (
             [(C, "    setUiState('LISTENING');\n    onTalk?.();",
               "    setUiState('LISTENING');\n    onTalk?.();\n    onResume?.('MIS-CAR-01');")],
@@ -220,14 +228,17 @@ def matrix(repo: Path):
             + af(actions=['TALK'])
             + af(uis=['LISTENING'])
             + sa(uis=['LISTENING'])
-            + [f'FRAME_LISTENING_{a}' for a in AVATARS]),
+            + al(uis=['LISTENING'])
+            + [f'FRAME_LISTENING_{a}' for a in AVATARS]
+            + ['DRAFT_PRESERVED_LISTENING_ROUNDTRIP']),
         'write-side-nav': (
             [(C, "    if (uiState === 'LISTENING') setUiState('INPUT');\n    onWrite?.();",
               "    if (uiState === 'LISTENING') setUiState('INPUT');\n    onWrite?.();\n    onTalk?.();")],
             ['ACTION_WRITE_idle_EMPTY_full'],
             [c for c in cells('ACTION_WRITE') if c != 'ACTION_WRITE_idle_EMPTY_full']
             + af(actions=['WRITE'])
-            + [f'FRAME_LISTENING_{a}' for a in AVATARS]),
+            + [f'FRAME_LISTENING_{a}' for a in AVATARS]
+            + ['DRAFT_PRESERVED_LISTENING_ROUNDTRIP']),
         'resume-loses-id': (
             [(C, '    if (continuable) onResume?.(continuable.mission_id);',
               "    if (continuable) onResume?.('');")],
@@ -235,19 +246,18 @@ def matrix(repo: Path):
             [c for c in cells('ACTION_RESUME', presences=['PRESENT']) if c != 'ACTION_RESUME_idle_PRESENT_full']
             + af(actions=['RESUME'], adms=['PRESENT'])
             + [f'RESUME_EFFECT_{s}_{m}' for s in STATES for m in MOTIONS]
-            + ['BRIEF_FIELDS_FROM_PORT']),
+            + bf()),
         'unavailable-hides-composer': (
             [(C, f'      {COMPOSER_ANCHOR}',
               '      {avatarState === \'unavailable\' ? null : '
               f'{COMPOSER_ANCHOR}}}')],
             ['STRUCTURE_unavailable_EMPTY_full'],
             ['STRUCTURE_unavailable_EMPTY_reduced', 'STRUCTURE_unavailable_PRESENT_full',
-             'STRUCTURE_unavailable_PRESENT_reduced', 'MISSIONS_NULL_unavailable',
-             'MISSIONS_NULL_TRANSITION_unavailable', 'ACL_REVOKED_unavailable',
-             'ACL_REVOKED_LISTENING_unavailable', 'FRAME_INPUT_unavailable']
+             'STRUCTURE_unavailable_PRESENT_reduced', 'MISSIONS_NULL_unavailable']
+            + al(avatars=['unavailable'])
+            + ['FRAME_INPUT_unavailable']
             + sa(avatars=['unavailable'])
-            + [f'DRAFT_AVATAR_{a}_TO_{b}' for a in AVATARS for b in AVATARS
-               if a != b and 'unavailable' in (a, b)]),
+            + [c for c in da() if 'unavailable' in c]),
         'unavailable-looks-working': (
             [(P, '      <View testID={`start-avatar-${state}`} style={[styles.avatar, { borderColor: tokens.ink }]} />',
               '      <View testID="start-avatar-working" style={[styles.avatar, { borderColor: tokens.ink }]} />')],
@@ -256,14 +266,15 @@ def matrix(repo: Path):
              'STRUCTURE_unavailable_PRESENT_reduced',
              'STRUCTURE_idle_EMPTY_full', 'STRUCTURE_idle_EMPTY_reduced',
              'STRUCTURE_idle_PRESENT_full', 'STRUCTURE_idle_PRESENT_reduced']
-            + sa()),
+            + sa(avatars=['idle', 'unavailable'])),
         'reduced-motion-drops-brief': (
             [(C, '      {continuable ? (',
               '      {(continuable && !reducedMotion) ? (')],
             ['STRUCTURE_idle_PRESENT_reduced'],
-            ['STRUCTURE_working_PRESENT_reduced', 'STRUCTURE_unavailable_PRESENT_reduced',
-             'ACTION_RESUME_idle_PRESENT_reduced', 'ACTION_RESUME_working_PRESENT_reduced',
-             'ACTION_RESUME_unavailable_PRESENT_reduced']
+            ['STRUCTURE_working_PRESENT_reduced', 'STRUCTURE_unavailable_PRESENT_reduced']
+            + cells('ACTION_WRITE', presences=['PRESENT'], motions=['reduced'])
+            + cells('ACTION_TALK', presences=['PRESENT'], motions=['reduced'])
+            + cells('ACTION_RESUME', presences=['PRESENT'], motions=['reduced'])
             + [f'RESUME_EFFECT_{s}_reduced' for s in STATES]
             + sa(motions=['reduced'], presences=['PRESENT'])),
         'draft-lost-on-rerender': (
@@ -271,14 +282,13 @@ def matrix(repo: Path):
               f"      <ConversationComposer key={{avatarState + String(missions === null ? 'n' : missions.length)}} "
               "onFocusInput={() => setUiState('INPUT')} />")],
             ['DRAFT_PRESERVED_AVATAR_CHANGE'],
-            ['DRAFT_PRESERVED_ACL_CHANGE', 'DRAFT_PRESERVED_LISTENING_ROUNDTRIP']
+            ['DRAFT_PRESERVED_ACL_CHANGE']
             + da() + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL']),
         'input-frame-copy-wrong': (
             [(C, "  INPUT: { title: 'frame.F04.02.title', body: 'frame.F04.02.body' },",
               "  INPUT: { title: 'frame.F04.01.title', body: 'frame.F04.01.body' },")],
             ['FRAME_INPUT_idle'],
-            ['FRAME_INPUT_working', 'FRAME_INPUT_unavailable']
-            + [f'FRAME_LISTENING_{a}' for a in AVATARS]),
+            ['FRAME_INPUT_working', 'FRAME_INPUT_unavailable']),
         'listening-exit-lost': (
             [(C, "    if (uiState === 'LISTENING') setUiState('INPUT');\n    onWrite?.();",
               '    onWrite?.();')],
@@ -288,8 +298,9 @@ def matrix(repo: Path):
             [(M, '  if (presence === \'EMPTY\') return [];',
               "  if (presence === 'EMPTY') return [{ mission_id: MISSION_ID, state, updated_at: UPDATED_AT }];")],
             ['MOCK_SCENARIO_EMPTY_WORKING'],
-            [f'MOCK_SCENARIO_EMPTY_{s}' for s in STATES if s != 'WORKING'] + ['MOCK_SCENARIO_SETTER',
-             'RUNTIME_LIST_EMPTY'] + scen('RUNTIME_SCENARIO', presences=['EMPTY'])),
+            [c for c in scen('MOCK_SCENARIO', presences=['EMPTY']) if c != 'MOCK_SCENARIO_EMPTY_WORKING']
+            + ['MOCK_SCENARIO_SETTER', 'RUNTIME_LIST_EMPTY']
+            + scen('RUNTIME_SCENARIO', presences=['EMPTY'])),
         'runtime-list-unimplemented': (
             [(R, "const listMissions: ApiClient['listMissions'] = async () =>\n"
                  '  ({ items: missionsSnapshot().items }) as MissionPage;',
@@ -297,13 +308,13 @@ def matrix(repo: Path):
                  "  throw new Error('LIST_NOT_IMPLEMENTED');\n};")],
             ['RUNTIME_LIST_EMPTY'],
             ['RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL'] + scen('RUNTIME_SCENARIO')),
-        # --- 14 стабов круга 1 критика (оси 1–9), depends измерены прогоном ---
+        # --- 14 стабов круга 1 критика (оси 1–9), depends перемерены ---
         'oracle-imported-constants': (
             [(M, "export const MISSION_ID = 'MIS-CAR-01';", "export const MISSION_ID = 'MIS-WRONG-99';"),
              (M, "export const UPDATED_AT = '2026-10-09T12:00:00Z';",
               "export const UPDATED_AT = '1999-01-01T00:00:00Z';")],
             ['MOCK_SCENARIO_PRESENT_WORKING'],
-            [f'MOCK_SCENARIO_PRESENT_{s}' for s in STATES if s != 'WORKING']
+            [c for c in scen('MOCK_SCENARIO', presences=['PRESENT']) if c != 'MOCK_SCENARIO_PRESENT_WORKING']
             + ['MOCK_SCENARIO_SETTER', 'RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL']
             + scen('RUNTIME_SCENARIO', presences=['PRESENT'])),
         'write-after-listening-mic': (
@@ -311,7 +322,8 @@ def matrix(repo: Path):
               "    onWrite?.();\n    if (uiState === 'LISTENING') onMicrophoneRequested?.();")],
             ['ACTION_FROM_LISTENING_WRITE_PRESENT'],
             ['ACTION_FROM_LISTENING_WRITE_EMPTY', 'ACTION_FROM_LISTENING_WRITE_NULL']
-            + [f'FRAME_LISTENING_{a}' for a in AVATARS]),
+            + [f'FRAME_LISTENING_{a}' for a in AVATARS]
+            + ['DRAFT_PRESERVED_LISTENING_ROUNDTRIP']),
         'focus-then-talk-mic': (
             [(C, '    onTalk?.();',
               "    onTalk?.();\n    if (uiState === 'INPUT') onMicrophoneRequested?.();")],
@@ -336,8 +348,8 @@ def matrix(repo: Path):
               '  const previous = useRef(missions);\n'
               '  if (uiState !== \'LISTENING\' || (missions && missions.length)) previous.current = missions;\n'
               "  const available = (uiState === 'LISTENING' ? previous.current : missions) ?? [];")],
-            ['ACL_REVOKED_LISTENING_idle'],
-            ['ACL_REVOKED_LISTENING_working', 'ACL_REVOKED_LISTENING_unavailable']),
+            ['ADMISSION_LOST_LISTENING_EMPTY_idle'],
+            [c for c in al(uis=['LISTENING']) if c != 'ADMISSION_LOST_LISTENING_EMPTY_idle']),
         'null-transition-stale': (
             [(C, "import React, { useState } from 'react';",
               "import React, { useState, useRef } from 'react';"),
@@ -345,21 +357,22 @@ def matrix(repo: Path):
               '  const last = useRef<readonly MissionBrief[]>([]);\n'
               '  if (missions !== null) last.current = missions;\n'
               '  const available = missions ?? last.current;')],
-            ['MISSIONS_NULL_TRANSITION_idle'],
-            ['MISSIONS_NULL_TRANSITION_working', 'MISSIONS_NULL_TRANSITION_unavailable']),
+            ['ADMISSION_LOST_CALM_NULL_idle'],
+            [c for c in al(tos=['NULL']) if c != 'ADMISSION_LOST_CALM_NULL_idle']
+            + ['DRAFT_ADMISSION_NULL']),
         'same-presence-stale-snapshot': (
             [(C, "import React, { useState } from 'react';",
               "import React, { useState, useMemo } from 'react';"),
              (C, '  const available = missions ?? [];',
               "  const available = useMemo(() => missions ?? [], [missions?.length]);")],
             ['SNAPSHOT_REFRESH_WORKING_BLOCKED'],
-            sr(skip={('WORKING', 'BLOCKED')})),
+            [c for c in sr() if c != 'SNAPSHOT_REFRESH_WORKING_BLOCKED']),
         'listening-presence-gone': (
             [(C, '      <AgentPresence state={avatarState} />',
               "      {uiState !== 'LISTENING' ? <AgentPresence state={avatarState} /> : null}")],
             ['STRUCTURE_AFTER_LISTENING_idle_EMPTY_full'],
             [c for c in sa(uis=['LISTENING']) if c != 'STRUCTURE_AFTER_LISTENING_idle_EMPTY_full']
-            + [f'ACL_REVOKED_LISTENING_{a}' for a in AVATARS]),
+            + al(uis=['LISTENING'])),
         'listening-kpi-groups': (
             [(C, '      <AgentPresence state={avatarState} />',
               '      <AgentPresence state={avatarState} />\n'
@@ -371,8 +384,9 @@ def matrix(repo: Path):
         'brief-hardcoded-fields': (
             [(C, '{continuable.mission_id}', "{'MIS-CAR-01'}"),
              (C, '{continuable.updated_at}', "{'2026-10-09T12:00:00Z'}")],
-            ['BRIEF_FIELDS_FROM_PORT'],
-            []),
+            ['BRIEF_FIELDS_ALT_ALT_ALT'],
+            [c for c in bf() if c not in ('BRIEF_FIELDS_ALT_ALT_ALT', 'BRIEF_FIELDS_FIXED_FIXED_FIXED',
+                                          'BRIEF_FIELDS_FIXED_ALT_FIXED')]),
         'runtime-blocked-normalized': (
             [(R, '({ items: missionsSnapshot().items }) as MissionPage;',
               "({ items: missionsSnapshot().items.map(m => ({ ...m, state: m.state === 'BLOCKED' "
@@ -390,6 +404,45 @@ def matrix(repo: Path):
             [(C, "{uiCopyDe['frame.F04.06.body'].text}", "{''}")],
             ['BRIEF_STATE_WORKING'],
             [f'BRIEF_STATE_{s}' for s in STATES if s != 'WORKING']),
+        # --- 4 декоя круга 3 (арбитраж 108, П5): мутации байт-в-байт из
+        #     Critic108r2/evidence/*.patch (= Arbiter108/measure.py MUTANTS);
+        #     named/depends измерены полным прогоном на перечне 324 ---
+        'snapshot-transition-microphone': (
+            [(C, "import React, { useState } from 'react';",
+              "import React, { useState, useRef, useEffect } from 'react';"),
+             (C, '  const available = missions ?? [];',
+              '  const previous = useRef(missions?.[0]?.state);\n'
+              '  useEffect(() => {\n'
+              '    if (previous.current && missions?.[0]?.state && previous.current !== missions[0].state) '
+              'onMicrophoneRequested?.();\n'
+              '    previous.current = missions?.[0]?.state;\n'
+              '  }, [missions, onMicrophoneRequested]);\n'
+              '  const available = missions ?? [];')],
+            ['SNAPSHOT_REFRESH_WORKING_BLOCKED'],
+            [c for c in sr() if c != 'SNAPSHOT_REFRESH_WORKING_BLOCKED']),
+        'acl-transition-navigation': (
+            [(C, "import React, { useState } from 'react';",
+              "import React, { useState, useRef, useEffect } from 'react';"),
+             (C, '  const available = missions ?? [];',
+              '  const previous = useRef(missions);\n'
+              '  useEffect(() => {\n'
+              '    if (previous.current?.length && !missions?.length) onTalk?.();\n'
+              '    previous.current = missions;\n'
+              '  }, [missions, onTalk]);\n'
+              '  const available = missions ?? [];')],
+            ['ADMISSION_LOST_CALM_EMPTY_idle'],
+            [c for c in al() if c != 'ADMISSION_LOST_CALM_EMPTY_idle']
+            + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL', 'DRAFT_PRESERVED_ACL_CHANGE']),
+        'runtime-screen-timestamp-omitted': (
+            [(C, '{continuable.updated_at}', "{onResume ? continuable.updated_at : ''}")],
+            ['RUNTIME_SCENARIO_PRESENT_WORKING'],
+            [c for c in scen('RUNTIME_SCENARIO', presences=['PRESENT']) if c != 'RUNTIME_SCENARIO_PRESENT_WORKING']
+            + ['RUNTIME_SNAPSHOT_FULL']),
+        'brief-timestamp-derived-from-id': (
+            [(C, '{continuable.updated_at}',
+              "{continuable.mission_id === 'MIS-OTHER-02' ? '2026-10-19T10:11:12Z' : '2026-10-09T12:00:00Z'}")],
+            ['BRIEF_FIELDS_FIXED_FIXED_ALT'],
+            ['BRIEF_FIELDS_ALT_ALT_FIXED', 'BRIEF_FIELDS_ALT_FIXED_FIXED', 'BRIEF_FIELDS_FIXED_ALT_ALT']),
     }
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():
