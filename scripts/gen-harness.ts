@@ -34,7 +34,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadRoles, RoleParseError, agentModels, resolveModelRef, type AgentModels, type Role } from './roles.ts'
+import { loadRoles, RoleParseError, agentModels, resolveModelRef, checkRouting, checkRoutingStrict, type AgentModels, type Role, type Routing, type RoutingProblem } from './roles.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const ROLES_DIR = join(ROOT, 'roles')
@@ -103,6 +103,52 @@ try {
 }
 if (roles.length === 0) { console.error('NOT_IMPLEMENTED: ролей нет'); process.exit(2) }
 
+// ── Барьер routing (контракт 998, инвариант 1–2) ─────────────────────────────────────
+// ЕДИНСТВЕННЫЙ разбор грамматики routing — в scripts/roles.ts (`validateRouting`).
+// Здесь — точка вызова из ОБЕИХ точек входа генератора (--check и --prompt),
+// fail-closed в обеих (контракт 998: имёнование routing, rules[N], нарушителя).
+// Строгий режим: конфиг существует ⇒ routing существует (инвариант 1).
+// rolesDir передаётся — полный режим проверки существования roles/<role>.md.
+const routingGate = checkRoutingStrict(ROLES_DIR)
+if (!routingGate.ok) {
+  for (const p of routingGate.problems) console.error(`FAIL routing: ${p.message}`)
+  process.exit(1)
+}
+
+/** Рендер routing в промпт оркестратора (контракт 998, инвариант 3).
+ *  — заголовок литеральной строкой `## Правила выбора роли (routing — config/agent_models.json)`;
+ *  — каждое правило РОВНО одной строкой (class + цель + опц. constraint/until на той же строке);
+ *  — `conditional` и `emergency` — отдельными строками после правил;
+ *  — посторонних строк в секции нет. Возврат — массив строк тела секции
+ *    (между заголовком и следующим `## `). При пустой секции — пустой массив. */
+const ROUTING_HEADER = '## Правила выбора роли (routing — config/agent_models.json)'
+const renderRoutingSection = (am: AgentModels): string[] => {
+  const rt = (am as unknown as { routing?: Routing }).routing
+  if (rt === undefined || typeof rt !== 'object' || rt === null) return []
+  const rtObj = rt as Routing
+  const lines: string[] = []
+  for (const r of rtObj.rules) {
+    if (r === null || typeof r !== 'object') continue
+    const rObj = r as Record<string, unknown>
+    const cls = typeof rObj.class === 'string' ? rObj.class : ''
+    const role = typeof rObj.role === 'string' ? rObj.role : null
+    const tier = typeof rObj.tier === 'string' ? rObj.tier : null
+    if (!cls || (role === null && tier === null)) continue
+    const target = role ?? tier ?? ''
+    const c = typeof rObj.constraint === 'string' ? rObj.constraint : null
+    const u = typeof rObj.until === 'string' ? rObj.until : null
+    const parts = [`class=${cls}`, `→ ${target}`]
+    if (c) parts.push(`constraint=${c}`)
+    if (u) parts.push(`until=${u}`)
+    lines.push(parts.join(' '))
+  }
+  for (const f of ['conditional', 'emergency'] as const) {
+    const v = (rtObj as unknown as Record<string, unknown>)[f]
+    if (typeof v === 'string' && v) lines.push(`${f}=${v}`)
+  }
+  return lines
+}
+
 // `--prompt <роль>` печатает ТЕЛО роли для системного промпта сессии верхнего уровня.
 // Здесь же, а не отдельным скриптом: разбор роли один, второй разошёлся бы молча — это уже
 // дважды случалось на соседнем проекте.
@@ -112,7 +158,20 @@ if (promptAt >= 0) {
   if (!slug || slug.startsWith('--')) { console.error('нужно имя роли: --prompt <роль>'); process.exit(2) }
   const r = roles.find((x) => x.slug === slug)
   if (!r) { console.error(`FAIL роли нет: ${slug}. Есть: ${roles.map((x) => x.slug).join(', ')}`); process.exit(1) }
-  process.stdout.write(`${r.body}\n`)
+  // Только роли orchestrator дополняется секцией routing (промпты прочих ролей
+  // байт-в-байт равны телам roles/<роль>.md — инвариант 3). Для оркестратора
+  // секция добавляется к телу отдельной пустой строкой.
+  if (r.slug === 'orchestrator') {
+    const am = agentModels()
+    if (am !== null) {
+      const section = renderRoutingSection(am)
+      process.stdout.write(`${r.body}\n${ROUTING_HEADER}\n${section.join('\n')}\n`)
+    } else {
+      process.stdout.write(`${r.body}\n`)
+    }
+  } else {
+    process.stdout.write(`${r.body}\n`)
+  }
   process.exit(0)
 }
 
