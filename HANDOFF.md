@@ -1,3 +1,23 @@
+## ГДЕ МЫ (2026-10-19 ~18:15 UTC — сессия после рестарта 13:55; три слота; табло: `python3 ops/server/user/orch-tablo`; консультант на связи через интерджекции — слова 14:48/15:20/17:12/17:47 исполнены; диск был 100% — чистка консультанта 17:12)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- Приёмы: коммиты непиннованной сессии — plumbing (`hash-object -w` + `update-index --add --cacheinfo` + `git -c user.name=<роль> commit` + `git checkout -- <путь>`); в bash нельзя `2>&1`/`>`/`sed -i`/`python3 -c`; `make_task | head` убивает запись манифеста; `.omp/context` → `git clean -fdq .omp/context` ПЕРЕД check_no_leak; land_agent требует committer == author И имя РОВНО из реестра ролей (`implementer`/`architect`/…; суффиксы `-w`/`-r3` отвергаются — спавнить `--author architect|implementer`, при cherry-pick выставлять GIT_COMMITTER_* = автор); код-через-PR: хеш кода ветки ≠ хеш merge-версии, если ветка на старой базе → собирать ЛИНЕЙНУЮ цепочку на актуальном main (`cherry-pick --no-commit` + `commit-tree` с авторами) → PR → CI → `land_agent` (ветка с tip == tip PR!) → `gitw push main`; субагентам architect/implementer в задание — пин-пара `pin:WORKTREE=<абс>:BRANCH=wip/<NNN>/<автор>` ЛИТЕРАЛОМ (без неё write-guard блокирует запись в worktree, Н-341).
+
+### Состояние (факты из команд)
+- **DONE**: 087 (`done/contracts/087/1`, запушен), 999 (`done/contracts/999/1`, запушен; mob PR #111 → 76ac10fa, Maestro 4/4). `.review` 087 (01,03,06) partial; 999 (04,05,07) done.
+- **998**: реализация в main (поезд B `9aa86e735`, main CI зелёный); круг 1: adversary accept (`verdicts/adversary/contracts-998-v1.md`), reviewer FAIL Р998-1..6 (`verdicts/review/contracts-998-v1.md`, `.review/2026-10-19-12.md`). Круг 2: Architect998r2 → 4 клетки (cases 50, matrix 65) — коммит `935dc8453` (architect, ветка wip/998/architect И cherry-pick в wip/998/implementer); Impl998r2 в работе в worktree `/tmp/dev-harness-worktrees/c907157c/wip-998-implementer`. Дальше: линейная цепочка на main → PR → CI → land → push → судьи круг 2.
+- **996**: круг 2 судей FAIL×2; круг 3 реализации: цепочка на main — ветка `owner/train-c` (architect ×2 + implementer ×6; probe 96 97/97 rc0, matrix 71/71) **PR#127** (CI-гейт); локальные ветки wip/996/implementer (tip 7d02acbcb, base старый) — для land_agent собрать ветку wip/996/implementer на tip `owner/train-c`. Затем land → push → судьи круг 3 (ПОСЛЕДНИЙ; FAIL → форк консультанту) → done 996 (+ строка arbiter об изоляции в 8 ролях — проверить, ревьюер отметил 0/8).
+- **106** (бэкенд, Complior-back): круг 1 FAIL×2, круг 2 FAIL×2 (`verdicts/*/contracts-106-v{1,2}.md`, `.review/2026-10-19-10,11.md`); форк n106-krug2-fail РЕШЁН консультантом 17:47 (А): круг 3 (последний), content-fix R2-F1/F2/F4/F5 architect-уровнем (Architect106r3 в работе, клон `/tmp/dev-harness-verify/Architect106r3/back`, ветка wip/106/implementer-r3 от 76f7da4); «смысловая пустота» — cognitive-only (правило 8); судьи: reviewer на канон, adversary — механика (m3/m4/m5). FAIL круга 3 → 106 отложить, консультанту. Форк n106-zona-wire-schema (wire-5_8.schema.json, производное) — консультанту (pending).
+- **107 = CMP-MOB-003** (mob, issue #7 «Erstinformation и доказательство выдачи актуальной версии»): номер выдан `id/CONTRACT/107` (тег на origin), строка реестра `21dbc20dc`; **строку plan.tsv делает консультант**; Architect107 пишет контракт + красные пробы в клоне `/tmp/dev-harness-verify/Architect107/h` (ветка wip/107/architect, не запушена). Дальше: pre_critic rc 0 → критик (OBJECT) → заморозка → implementer (клон mob) → судьи → mob PR (push консультант).
+
+### Для консультанта (push/PR; читать, не ждать)
+- mob: 999 слит; для 107 — после заморозки и реализации push ветки mob-клона.
+- backend 106: клон `/tmp/dev-harness-verify/Impl106/back` (HEAD 76f7da4 круг 2) / `Architect106r3/back` (круг 3, после доклада); push/PR только после accept судей.
+- Номер для плана: **107** (CMP-MOB-003). Merge PR#146 Complior-back — вопрос владельцу (в батч, не блокирует).
+
+### Следующая сессия — порядок (три потока)
+1. Харнесс: PR#127 → land → push → судьи 996 круг 3 → done 996; 998 круг 2 → PR → land → судьи → done. 2. mob: 107 — критик → заморозка → implementer. 3. Бэкенд: Architect106r3 → судьи круг 3 → push консультант. 4. Табло при каждом пробуждении.
+
 ## ГДЕ МЫ (2026-10-19 ~15:30 UTC — сессия после рестарта 13:55; этап 2 «три слота»; табло: `python3 ops/server/user/orch-tablo`; правило «отложи и бери следующую» днём; слово консультанта 15:05: PR#121/122/123 закрыты — содержимое в main)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
@@ -6569,7 +6589,8 @@ soreview-v1.md.
 - 094 · пара 3 · заморожен · трек autonomy
 - 097 · пара 3 · заморожен · трек autonomy
 - 098 · пара 3 · заморожен · трек autonomy
-- 087 · пара 3 · заморожен · трек CI
+- 998 · пара 3 · заморожен · трек ops
 - 095 · пара 4 · заморожен · трек context
+- 106 · пара 4 · заморожен · трек complior
 - 996 · пара 4 · заморожен · трек project-mode
 <!-- END GENERATED NEXT SESSION -->
