@@ -52,22 +52,21 @@ legkij	check:ids	5	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
 legkij	check:protected	5	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 legkij	check:nabludenia	15	npm run check:nabludenia
 legkij	check:contract-frozen	25	npm run check:contract-frozen
-# Контракт 087 И-1/И-2: чек читает учётный путь (fixtures/pokrytie_083_088_079/red_istochnik_incr_079.sh
-# копирует $ROOT/ROADMAP.md и $ROOT/AGENTS.md в toy-мир); strip тяжёлых джоб удаляет
-# ROADMAP.md и ломает копирование — лечение по §Остаточный риск: перенос в legkij
-# (бюджет 120 с), не расширение U и не правка фикстуры вне зоны.
-legkij	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
+# Контракт 087 И-1/И-2 (круг 3): три ключа тяжёлых проверок перенесены в `step`
+# (Р2-1/BUDGET-121: перенос в `legkij` ради зелёного PR пробил бюджет 120 с).
+# Учёт-независимость обеспечена замороженными копиями (fixtures/.../_zamorozka/):
+# при strip учётных путей фикстуры/скрипты читают из _zamorozka/.
+# Контракт 087 И-1/И-2: чек читает ROADMAP.md (fixtures/pokrytie_083_088_079/red_istochnik_incr_079.sh
+# копирует $ROOT/ROADMAP.md в toy-мир; при strip фикстура читает _zamorozka/ROADMAP.md).
+step	check:pokrytie-079-family-selftest	20	bash fixtures/_krasnye_079.sh
 # Контракт 087 И-1/И-2: чек читает HANDOFF.md (fixtures/ops_server/red_server_obvjazka_074.sh
-# build_docs копирует $REPO_ROOT/HANDOFF.md в мир к7); strip тяжёлых джоб удаляет
-# HANDOFF.md (в U) и ломает копирование — лечение по §Остаточный риск: перенос в
-# legkij (бюджет 120 с, вес 20 + существующие 7 legkij весов 80 = 100 ≤ 120).
-legkij	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
+# build_docs копирует $REPO_ROOT/HANDOFF.md в мир к7; при strip первая секция ГДЕ МЫ
+# фолбэчит на _zamorozka/HANDOFF_GDE_MY.md).
+step	check:ops-server-family-selftest	20	bash fixtures/_krasnye_074.sh
 # Контракт 087 И-1/И-2: чек читает verdicts/critic/contracts-010-v2.md
-# (scripts/check_runner_hygiene.sh ветвь (porjadok): [ -f "$vf" ] || die porjadok
-# «файла $VERD нет на дереве — вердикт удалён после коммита»); strip тяжёлых
-# джоб удаляет verdicts/ (в U) и ломает (porjadok) — лечение по §Остаточный риск:
-# перенос в legkij (бюджет 120 с, вес 20 + 7 legkij = 120 ≤ 120).
-legkij	check:runner-hygiene	20	npm run check:runner-hygiene
+# (scripts/check_runner_hygiene.sh ветвь (porjadok): при strip фолбэк на _zamorozka/
+# contracts-010-v2.md; история актов — по git).
+step	check:runner-hygiene	20	npm run check:runner-hygiene
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
 step	check:threat-model-selftest	15	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	20	npm run check:provodka-family-selftest
