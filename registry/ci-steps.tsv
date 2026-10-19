@@ -127,6 +127,10 @@ step	check:zashchita-main-104-family-selftest	20	bash fixtures/_krasnye_104.sh
 step	check:lanuncher-politika-105-family-selftest	60	bash fixtures/_krasnye_105.sh
 step	check:granica-ispolneniya-093-family-selftest	120	bash ops/server/root/systemd/run-ops093-ci.sh fixtures/_krasnye_093.sh
 step	check:rezhim-996-family-selftest	20	npm run check:rezhim-996-family-selftest
+# КОНТРАКТ 998 pravila-modelei: красная проба routing — входы 23 ветвей грамматики + 5 фаз --check
+# и рендер в --prompt orchestrator (источник: fixtures/pravila_modelei_998/probe.sh --cases).
+# Вес по замеру (2026-10-19): ~5 с.
+step	check:pravila-modelei-998	5	bash fixtures/pravila_modelei_998/probe.sh --cases
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).
