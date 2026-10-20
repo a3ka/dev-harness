@@ -12,6 +12,7 @@ import type { PendingIntent } from '@/navigation/pending-intent';
 import { AuthScreen } from '@/features/auth/auth-screen';
 import { FirstRunScreen } from '@/features/auth/first-run-screen';
 import { WelcomeScreen } from '@/features/onboarding/welcome-screen';
+import { useTheme } from '@/theme/context';
 import { runtime as shippedRuntime } from '@pilot/runtime';
 
 export interface PilotAppPorts {
@@ -78,6 +79,12 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   // `entry` is consumed as data only — pending intents are stored, never executed.
   // DIRECT / onboarding state is exposed through testID handles, not on-screen text.
   void entry;
+
+  // 111 r5 (A2, суд круг 1): внешняя обёртка — часть наблюдаемой поверхности
+  // кадра; красится ground текущей темы, собственных отступок не несёт —
+  // иначе вокруг SafeAreaView First-Run возникает рамка (белая в старой
+  // заглушке). Клетка FIRST_RUN_GROUND_FULL_SURFACE судит обе схемы.
+  const { tokens } = useTheme();
 
   const [frame, setFrame] = useState<Frame>('first-run');
   const [flow, setFlow] = useState<AuthFlowState>(createInitialAuthFlow);
@@ -183,7 +190,7 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
       : 'email';
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: tokens.ground }]} testID="pilot-root">
       {frame !== 'welcome' ? (
         <View style={styles.demoBadge} testID="demo-indicator">
           <Text style={styles.demoBadgeText}>Demo</Text>
@@ -233,10 +240,6 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    paddingTop: 48,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
   },
   demoBadge: {
     paddingHorizontal: 10,

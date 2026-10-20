@@ -201,4 +201,25 @@ describe('111 first-run', () => {
       }
     });
   }
+
+  // К6 полная поверхность кадра, произведение scheme(2) (A2, суд круг 1):
+  // внешний корень PilotApp — часть наблюдаемой поверхности First-Run;
+  // его фон = ground текущей темы (литералы токенов), отступок корень не
+  // несёт и заполняет поверхность (flex 1) — вокруг SafeAreaView нет
+  // рамки/полос другого цвета. Мутанты: корень #FFFFFF (белая рамка
+  // заглушки), #ff00ff (обход адверсария: не-ground цвет проходил все
+  // прежние клетки), отступы 48/16/16.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`FIRST_RUN_GROUND_FULL_SURFACE_${S}`, async () => {
+      await renderFirstRun(scheme);
+      const root = screen.getByTestId('pilot-root');
+      expect(backgroundOf(root)).toBe(scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT);
+      const style = styleOf(root);
+      expect(style.flex).toBe(1);
+      expect(style.paddingTop).toBeUndefined();
+      expect(style.paddingHorizontal).toBeUndefined();
+      expect(style.paddingBottom).toBeUndefined();
+    });
+  }
 });

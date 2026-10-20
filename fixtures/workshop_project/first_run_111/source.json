@@ -40,14 +40,22 @@
   "wordmark": {
     "asset": "mobile/assets/images/wordmark-dark.png",
     "accessibility_label": "complior",
-    "source_svg": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/html/ds/wordmark-dark.svg (семья logo/ D2.2.5.1)"
+    "source_svg": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/html/ds/wordmark-dark.svg (семья logo/ D2.2.5.1)",
+    "raster_model": {
+      "from": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/logo/assets/complior-wordmark-dark.svg (байт-равен source_svg, cmp rc0)",
+      "command": "/usr/bin/google-chrome --headless --no-sandbox --disable-gpu --hide-scrollbars --force-device-scale-factor=3 --window-size=143,52 --default-background-color=00000000 --screenshot=<out>.png file://<scratch>/complior-wordmark-dark.svg",
+      "viewBox": "143.00x52.08",
+      "result": "429x156 RGBA, 10478 bytes",
+      "sha256": "fcb1a2f87c2277a67c410226e26e949e403f8ec9a02bce970745969c5f02589e"
+    }
   },
   "testids": {
     "cta": "first-run-continue",
     "wordmark": "first-run-wordmark",
     "container": "first-run-safe-area",
     "demo_badge": "demo-indicator",
-    "auth_email": "auth-email"
+    "auth_email": "auth-email",
+    "pilot_root": "pilot-root"
   },
   "source_sha256": {
     "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
