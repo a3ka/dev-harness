@@ -271,29 +271,14 @@ charter_diff_paths() {
 
 # ── разрешение обязано лежать в ТОМ ЖЕ коммите ────────────────────────────────
 # Разбор — по образцу `excuse_for()`: путь в кавычках либо до первого пробела, остаток — причина.
-# Кеш тел коммитов: тело коммита читается через `git log -1` ровно один раз на коммит
-# (быстрый режим варианта (в) вызывает razreshil для каждой (commit, charter-path) пары;
-# один коммит может встретиться с РАЗНЫМИ путями — кеш сокращает повторные subprocess-вызовы).
 #
-# КЕШ ОБЪЯВЛЕН ЗДЕСЬ, В БИБЛИОТЕЧНОЙ ЧАСТИ, А НЕ В ВЕТВИ БЫСТРОГО РЕЖИМА: он — свойство
-# функции-чтения `__ch_raz_body`, а не свойство режима обхода. Потребителей кольца четверо
-# (`--oracle`, быстрый режим, импорт `CHARTER_LIB=1` из .githooks/pre-push и из
-# scripts/check_staged.sh), и все четверо зовут razreshil при `set -u`. Объявление в ветви
-# оставляло `--oracle` и оба импорта без массива: `line 280: unbound variable` на первом же
-# чтении тела, тело разрешения терялось, и режимы расходились (регрессия д/7 и д/2 батареи
-# 113). Пустой кеш безопасен для всех режимов: промах — обычное чтение из git.
-declare -A __CH_BODY_CACHE=()   # SHA → тело коммита (см. __ch_raz_body): кеш на весь прогон
-__ch_raz_body() {  # <коммит> → текст тела (или пусто при ошибке)
-  local c="$1"
-  if [ -n "${__CH_BODY_CACHE[$c]+set}" ]; then
-    printf '%s' "${__CH_BODY_CACHE[$c]}"
-    return 0
-  fi
-  local body
-  body="$(g log -1 --format=%B "$c" 2>/dev/null)"
-  __CH_BODY_CACHE["$c"]="$body"
-  printf '%s' "$body"
-}
+# ГРАММАТИКА razreshil — ЗАМОРОЖЕНА (065/019/074/080): тело коммита читается напрямую
+# `g log -1 --format=%B`, побайтово как в базовом барьере (контракт 113, ПЕРЕСЕЧЕНИЕ :187 —
+# «не трогая … грамматика razreshil»). Кеш тел НЕ вводится: `body="$( … )"` — это подоболочка,
+# и запись в ассоциативный массив из неё теряется (кеш был бы мёртвым при любом объявлении),
+# а починка требовала бы перенести чтение мимо `$( )`, то есть менять эту строку. Быстрый
+# режим (в) обходится без него: повторных `git log -1` на живой истории единицы, а кеш
+# состояния противоречит варианту (в) «не несёт состояния» (контракт 113, строка про (г)).
 razreshil() {  # <коммит> <путь> → 0, если разрешение выдано ИМЕННО этим коммитом
   local c="$1" p="$2"
 
@@ -373,7 +358,7 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
   esac
 
   local body line path reason
-  body="$(__ch_raz_body "$c")"
+  body="$(g log -1 --format=%B "$c")"
   while IFS= read -r line; do
     if [ "${line:0:1}" = '"' ]; then
       path="${line:1}"; path="${path%%\"*}"
@@ -587,8 +572,8 @@ else
   # строится ровно один раз и используется всеми документами; маркер `\x01`
   # (SOH) — имя пути с control-символом невозможно в git, поэтому строка-маркер
   # коммита неотличима от имени файла только для сломанного дерева.
-  # `__CH_BODY_CACHE` объявлен В БИБЛИОТЕЧНОЙ ЧАСТИ выше (см. __ch_raz_body): кеш тел
-  # нужен и оракулу, и импортам кольца, поэтому он не принадлежит этой ветви.
+  # Карты ниже — состояние ПРОЦЕССА (не на диске): вариант (в) не несёт состояния между
+  # прогонами, и проверка не пишет в судимое дерево ничего (см. шаг 3).
   declare -A __ch_doc_eff=()    # путь → эффективная since (с подменой INCR_BASE там, где законно)
   declare -A __ch_doc_changes=()
   declare -A __ch_doc_excused=()
@@ -624,19 +609,17 @@ else
   # 3. Одиночный проход истории. Ошибка `git log` — именованный FAIL, не
   #    молчаливое зелёное: непрочитанная история не равна истории без нарушений
   #    (контракт 992); ok-строки с числом просмотренного (В-клетка + обманка
-  #    s8) ниже выдаются ИЗ посчитанной $TMP/commits, не из этого прохода.
+  #    s8) ниже выдаются ИЗ посчитанного $TMP/commits, не из этого прохода.
+  #
+  # ПРОВЕРКА НЕ ПИШЕТ СОСТОЯНИЕ (вариант (в), контракт 113: «(в) не несёт состояния»,
+  # (г) отклонён за состояние на диске). Поэтому здесь НЕТ `git commit-graph write
+  # --reachable`: он оставлял `objects/info/commit-graph` в git-common-dir СУДИМОГО
+  # дерева — побочный эффект проверки, наблюдаемый на свежем клоне. Замер холодного
+  # клона `git clone --local` без него: rc=0 за 6.2 с (бюджет В-клетки 60 с).
   __ch_lr=0
-  # На холодном клоне \`merge-base --is-ancestor\` без commit-graph обходит
-  # дерево за O(depth); при 5286 коммитах это ~80 мс на вызов, а вызовов —
-  # сотни. Прецедент \`git commit-graph write --reachable\` даёт O(1) ancestry,
-  # удерживая быстрый режим в бюджете В-клетки 60 с на свежем локальном
-  # клоне. Если запись не нужна (нас уже индексирует main) — git сам
-  # завершает её быстро (no-op на уже-индексированном объекте).
-  g commit-graph write --reachable 2>/dev/null || true
   g log --format=$'\x01%H' --name-only \
       --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
       > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
-  : > "$TMP/__ch_match_data"  # (commit<TAB>path) — для отладки, в verdicts не используется
   if [ "$__ch_lr" -ne 0 ]; then
     bad "история не читается (git log rc=$__ch_lr): проверить невозможно — git fsck и повтор"
   else
@@ -645,7 +628,18 @@ else
       case "$__ch_line" in
         $'\x01'*)
           __ch_c="${__ch_line#$'\x01'}"
-          [ "${#__ch_c}" -eq 40 ] || __ch_c=""
+          # ГРАММАТИКА SHA — НЕ 40: инвариант 1 «на любом дереве», а дерево бывает
+          # `--object-format=sha256`, где `%H` = 64 hex. Фильтр с зашитой 40 отбрасывал
+          # ВСЕ матчи молча: в sha256-репозитории барьер отдавал rc 0 с «изменений без
+          # разрешения нет» на коммите, меняющем устав без РАЗРЕШИЛ (пройдено пробой
+          # fixtures 113 клетка sha256). Принимаем 40 hex (sha1) и 64 hex (sha256).
+          case "${#__ch_c}" in
+            40|64) ;;
+            *)      __ch_c="" ;;
+          esac
+          case "$__ch_c" in
+            *[!0-9a-f]*) __ch_c="" ;;
+          esac
           ;;
         "") ;;
         *)
@@ -663,15 +657,11 @@ else
           #   c ∈ [eff..HEAD] ⟺ (ancestors(HEAD) \ ancestors(eff)) ∋ c.
           # reachable-from-H для коммитов из git log всегда true; остаётся
           # ¬ancestor(eff, c) ⟺ merge-base --is-ancestor c eff возвращает rc!=0.
-          # Итого: пропускаем (continue) iff c — предок eff (т.е. commit был ДО
+          # Итого: пропускаем (continue) iff c — предок eff (т.е. коммит был ДО
           # since, не наш случай).
-          __ch_anc=0
-          if g merge-base --is-ancestor "$__ch_c" "$__ch_eff" 2>/dev/null; then __ch_anc=1; fi
-          if [ "$__ch_anc" = "1" ]; then
+          if g merge-base --is-ancestor "$__ch_c" "$__ch_eff" 2>/dev/null; then
             continue
           fi
-          unset __ch_anc
-          printf '%s\t%s\n' "$__ch_c" "$__ch_p" >> "$TMP/__ch_match_data"
           __ch_doc_changes["$__ch_p"]=$(( ${__ch_doc_changes["$__ch_p"]:-0} + 1 ))
           if razreshil "$__ch_c" "$__ch_p"; then
             __ch_doc_excused["$__ch_p"]=$(( ${__ch_doc_excused["$__ch_p"]:-0} + 1 ))
@@ -690,22 +680,18 @@ else
   #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
   #    wc -l < rev-list $since..HEAD оракула); per-doc — один ОК при отсутствии
   #    FAIL на документе.
-  __ch_total_changes=0
-  __ch_total_excused=0
   while IFS=$'\t' read -r f since; do
     [ -n "$f" ] || continue
     __ch_eff="${__ch_doc_eff[$f]:-}"
     [ -n "$__ch_eff" ] || continue
     __ch_scanned="${__ch_eff_scanned[$__ch_eff]:-0}"
-    __ch_total_changes=$((__ch_total_changes + ${__ch_doc_changes[$f]:-0}))
-    __ch_total_excused=$((__ch_total_excused + ${__ch_doc_excused[$f]:-0}))
     changes=$((changes + ${__ch_doc_changes[$f]:-0}))
     excused=$((excused + ${__ch_doc_excused[$f]:-0}))
     if [ -z "${__ch_doc_failed[$f]+set}" ]; then
       ok "$f — уставной с $__ch_eff, коммитов в диапазоне $__ch_scanned, изменений без разрешения нет"
     fi
   done < "$TMP/pairs"
-  unset __ch_eff __ch_scanned __ch_total_changes __ch_total_excused
+  unset __ch_eff __ch_scanned
 fi
 
 printf '\nуставных документов: %d · изменений в них: %d · с разрешения: %d\n' \
