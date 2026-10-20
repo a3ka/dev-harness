@@ -113,6 +113,12 @@ def matrix(repo: Path):
                  'ROUTE_DRAFT_RETURN_TAB_vorgaenge', 'ROUTE_DRAFT_RETURN_TAB_schutz',
                  'ROUTE_DRAFT_RETURN_TAB_post', 'ROUTE_DRAFT_RETURN_PROFILE',
                  'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']
+    # Adv108r2/B-1 (круг 3): клетки входа в приложение НЕ через start
+    # (deep link/другая секция → открытие start). Мутанты, ломающие
+    # presence/composer/brief/missions поверхности, законно красят и их.
+    ENTRY_CELLS = ['ROUTE_ENTRY_TAB_vorgaenge', 'ROUTE_ENTRY_TAB_schutz',
+                   'ROUTE_ENTRY_TAB_post', 'ROUTE_ENTRY_DEEPLINK_RETURN',
+                   'ROUTE_ENTRY_DIRECT_ROUNDTRIP']
     AVATARS = ['idle', 'working', 'unavailable']
     PRESENCES = ['EMPTY', 'PRESENT']
     MOTIONS = ['full', 'reduced']
@@ -186,7 +192,8 @@ def matrix(repo: Path):
             [c for c in cells('STRUCTURE') if c != 'STRUCTURE_idle_EMPTY_full']
             + sa()
             + al(tos=['EMPTY'])
-            + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced']),
+            + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced']
+            + ENTRY_CELLS),
         'composer-duplicated': (
             [(C, f'      {COMPOSER_ANCHOR}\n', f'      {COMPOSER_ANCHOR}\n      {COMPOSER_ANCHOR}\n')],
             ['STRUCTURE_idle_EMPTY_full'],
@@ -199,7 +206,7 @@ def matrix(repo: Path):
                'DRAFT_PRESERVED_LISTENING_ROUNDTRIP']
             + da() + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL']
             + [f'FRAME_INPUT_{a}' for a in AVATARS]
-            + ROUTE_ALL),
+            + ROUTE_ALL + ENTRY_CELLS),
         'resume-without-mission': (
             [(C, '  const continuable = available.length > 0 ? available[0] : null;',
               '  const continuable =\n'
@@ -327,7 +334,8 @@ def matrix(repo: Path):
             ['RUNTIME_LIST_EMPTY'],
             ['RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL'] + scen('RUNTIME_SCENARIO')
             + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced',
-               'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']),
+               'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']
+            + ENTRY_CELLS),
         # --- 14 стабов круга 1 критика (оси 1–9), depends перемерены ---
         'oracle-imported-constants': (
             [(M, "export const MISSION_ID = 'MIS-CAR-01';", "export const MISSION_ID = 'MIS-WRONG-99';"),
@@ -338,7 +346,8 @@ def matrix(repo: Path):
             + ['MOCK_SCENARIO_SETTER', 'RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL']
             + scen('RUNTIME_SCENARIO', presences=['PRESENT'])
             + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced',
-               'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']),
+               'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']
+            + ENTRY_CELLS),
         'write-after-listening-mic': (
             [(C, '    onWrite?.();',
               "    onWrite?.();\n    if (uiState === 'LISTENING') onMicrophoneRequested?.();")],
@@ -509,6 +518,29 @@ def matrix(repo: Path):
             ['ROUTE_DRAFT_RETURN_TAB_vorgaenge'],
             ['ROUTE_DRAFT_RETURN_TAB_schutz', 'ROUTE_DRAFT_RETURN_TAB_post',
              'ROUTE_DRAFT_RETURN_PROFILE']),
+        # Adv108r2/B-1 (круг 3): слот привязан к сегменту ВХОДА, не к секции
+        # — тернарник адверсария 307b396 (start === 'start' ? … : undefined),
+        # воспроизведённый на модели: при deep link (999:
+        # complior://vorgaenge?returnTo=start) или входе в другую секцию
+        # открытие start показывает один заголовок. named/depends измерены
+        # полным прогоном на перечне 331+5.
+        'route-entry-slot-ternary': (
+            [(ROUTE,
+              '      startScreen={\n'
+              '        <StartDraftContext.Provider value={{ draft, setDraft }}>\n'
+              '          <StartSectionHost reducedMotion={systemReduceMotion} />\n'
+              '        </StartDraftContext.Provider>\n'
+              '      }',
+              '      startScreen={\n'
+              "        start === 'start' ? (\n"
+              '          <StartDraftContext.Provider value={{ draft, setDraft }}>\n'
+              '            <StartSectionHost reducedMotion={systemReduceMotion} />\n'
+              '          </StartDraftContext.Provider>\n'
+              '        ) : undefined\n'
+              '      }')],
+            ['ROUTE_ENTRY_TAB_vorgaenge'],
+            ['ROUTE_ENTRY_TAB_schutz', 'ROUTE_ENTRY_TAB_post',
+             'ROUTE_ENTRY_DEEPLINK_RETURN']),
     }
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():

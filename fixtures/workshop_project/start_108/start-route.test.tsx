@@ -153,3 +153,75 @@ it('108 start ROUTE_MOUNT_MISSIONS_FROM_RUNTIME', async () => {
   expect(screen.getByTestId('start-brief-state')).toHaveTextContent('WORKING');
   expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
 });
+
+// Adv108r2/B-1 (круг 3): слот startScreen обязан подаваться маршрутом
+// ВСЕГДА — рендер ограничивает сам TabShell (секция start). Обход 307b396:
+// startScreen={start === 'start' ? <StartSectionHost/> : undefined}, где
+// start — сегмент ВХОДА: при deep link из грамматики 999
+// (complior://vorgaenge?returnTo=start) или входе в другую секцию
+// открытие start показывает один заголовок — нет StartScreen, AgentPresence,
+// композера, brief/resume. Клетки входят в приложение НЕ через start
+// (замкнутое множество TAB_ORDER) и через deep link returnTo, затем открывают
+// start и сверяют полный набор поверхностей; прямая клетка входит в start
+// и проходит start → другая → start (положительный контроль: зелёная и на
+// 307b396). Оракул — литералы source.json (fixed.mission_id), не экспорты.
+function expectStartSurfaces() {
+  expect(screen.getByTestId('section-start')).toBeOnTheScreen();
+  expect(screen.getByTestId('start-screen')).toBeOnTheScreen();
+  expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
+  expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
+  expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(EXPECT.mission_id);
+  expect(screen.getByTestId('start-brief-state')).toHaveTextContent('WORKING');
+  expect(screen.getByTestId('start-action-resume')).toBeOnTheScreen();
+}
+
+for (const entry of ['vorgaenge', 'schutz', 'post'] as const) {
+  it(`108 start ROUTE_ENTRY_TAB_${entry}`, async () => {
+    setSystemReduceMotion(false);
+    mockEnv.params = { section: entry };
+    await render(<TabRoute />);
+    await waitFor(() => expect(screen.getByTestId(`section-${entry}`)).toBeOnTheScreen());
+    await fireEvent.press(screen.getByTestId('shell-tab-start'));
+    expect(screen.getByTestId('section-start')).toBeOnTheScreen();
+    expect(screen.getByTestId('start-screen')).toBeOnTheScreen();
+    await waitFor(() =>
+      expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(EXPECT.mission_id));
+    expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
+    expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
+    expect(screen.getByTestId('start-brief-state')).toHaveTextContent('WORKING');
+    expect(screen.getByTestId('start-action-resume')).toBeOnTheScreen();
+  });
+}
+
+it('108 start ROUTE_ENTRY_DEEPLINK_RETURN', async () => {
+  setSystemReduceMotion(false);
+  mockEnv.params = { section: 'vorgaenge', returnTo: 'start' };
+  await render(<TabRoute />);
+  await waitFor(() => expect(screen.getByTestId('section-vorgaenge')).toBeOnTheScreen());
+  await fireEvent.press(screen.getByTestId('shell-back'));
+  expect(screen.getByTestId('section-start')).toBeOnTheScreen();
+  expect(screen.getByTestId('start-screen')).toBeOnTheScreen();
+  await waitFor(() =>
+    expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(EXPECT.mission_id));
+  expect(screen.getByTestId('start-agent-presence')).toBeOnTheScreen();
+  expect(screen.queryAllByTestId('start-composer')).toHaveLength(1);
+  expect(screen.getByTestId('start-brief-state')).toHaveTextContent('WORKING');
+  expect(screen.getByTestId('start-action-resume')).toBeOnTheScreen();
+});
+
+it('108 start ROUTE_ENTRY_DIRECT_ROUNDTRIP', async () => {
+  setSystemReduceMotion(false);
+  mockEnv.params = { section: 'start' };
+  await render(<TabRoute />);
+  await waitFor(() =>
+    expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(EXPECT.mission_id));
+  expectStartSurfaces();
+  await fireEvent.press(screen.getByTestId('shell-tab-post'));
+  expect(screen.getByTestId('section-post')).toBeOnTheScreen();
+  expect(screen.queryByTestId('start-composer')).toBeNull();
+  await fireEvent.press(screen.getByTestId('shell-tab-start'));
+  expect(screen.getByTestId('start-screen')).toBeOnTheScreen();
+  await waitFor(() =>
+    expect(screen.getByTestId('start-brief-mission-id')).toHaveTextContent(EXPECT.mission_id));
+  expectStartSurfaces();
+});
