@@ -344,23 +344,33 @@ scheme(2), стабы критика круга 2).
 - После прогонов `git status --short --untracked-files=all` в R и r3 — 0 строк (деревья
   восстановлены).
 
-## Замер v2 (сужение К8, 2026-10-20)
+## Замер v2 (сужение К8, 2026-10-20; v2b — К9 unavailable/recovery)
 
 R — disposable-клон `a3ka/Complior-mob` @ `8748a7a335` (main, поставка 111 заленджена;
 `git rev-parse HEAD` сверен), `mobile/node_modules` — симлинк (инфраструктура R). Мир
 модели 117 — `fixtures/workshop_project/vkhod_117/model/` @ `wip/117/architect`
 `9dc3c8c4d`, установленная по путям поставки поверх R. Все числа — из прогонов.
 
-- База 8748a7a335, без `--model`: `first_run_probe.py --repo R` → rc0 honest 19/19
-  (обратная совместимость: база не рестайляет).
-- Мир модели 117 ДО v2: 17/19, красны ровно К8 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}`
-  (свидетельство frozen_on_model 117 воспроизведено прогоном); ПОСЛЕ v2 (К8 F03_01 —
-  НЕ-ожидание рестайла) → rc0 19/19.
-- Модель 111 (`--model`): поведенческая rc0 honest 19/19; статическая rc0 16/16.
-- Матрицы: `first_run_probe.py --matrix` → rc0 (24 стаба: каждый красен именованной
+- База 8748a7a335, без `--model`: `first_run_probe.py --repo R` → rc0 honest 23/23
+  (обратная совместимость: база не рестайляет; v2b добавляет пары К9 — 19→23 клетки).
+- Мир модели 117 ДО v2 (батарея круга 3, 19 клеток): 17/19, красны ровно К8
+  `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` (замер v2; воспроизведён критиком круга 1
+  прогоном на `b765c0f68~2`); ПОСЛЕ v2 (К8 F03_01 — НЕ-ожидание рестайла, 19 клеток)
+  → rc0 19/19; v2b (23 клетки) → rc0 23/23: рестайл F03.01/F03.02 легален,
+  unavailable/recovery моделью 117 не тронуты.
+- Модель 111 (`--model`): поведенческая rc0 honest 23/23; статическая rc0 16/16.
+- К9 красное предъявление (Б1 критика круга 1): в честной модели 111 замена
+  единственного предиката стиля корня `frame === 'first-run'` → `frame !== 'welcome'`
+  в `mobile/src/bootstrap/pilot-app.tsx` (first-run/welcome/F03.01-шов живы, прежние
+  19 клеток зелёны) → rc1, красны РОВНО `RESTYLE_GUARD_995_{RECOVERY,UNAVAILABLE}_{
+  DARK,LIGHT}`: собственное наблюдение каждого защищаемого кадра, невыводимое из
+  welcome (К8′).
+- Матрицы: `first_run_probe.py --matrix` → rc0 (26 стабов: каждый красен именованной
   ветвью, побочная краснота только в depends; стабы, рестайлящие чужой кадр —
   restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
-  restyle-995-padding-shifted — красны парой К8′ `RESTYLE_GUARD_995_WELCOME`);
+  restyle-995-padding-shifted — красны парой К8′ `RESTYLE_GUARD_995_WELCOME`,
+  причём restyle-995-* — и парами К9 как depends; новые стабы круга-1-Б1
+  restyle-unavailable/restyle-recovery красны каждый ровно своей парой К9);
   `first_run_static_probe.py --matrix` → rc0 (15 стабов).
 - После прогонов `git status --short --untracked-files=all` в R — 0 строк кроме
   симлинка `mobile/node_modules` (инфраструктура R, не проба).
