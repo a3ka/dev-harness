@@ -30,12 +30,14 @@ const DEMO = 'Demo';
 // из них красен на втором рендере клетки.
 const INSET_TOP_A = 47;
 const INSET_TOP_B = 59;
-// К8 (С10/Р2, ревью круга 3): кадры 995 (F03.01+, welcome) — поверхность
-// 995, не рестайлятся (frozen 111/1 стр. 41–42, 80–83 «Вне предмета»):
-// внешний корень PilotApp на них несёт литералы 995 — фон #FFFFFF и
-// отступы 48/16/16; {flex:1, ground} — только first-run (его судит К6).
-// Литералы — ожидания файла (поверхность 995), не значения субъекта
-// (Н-379/Н-383). WELCOME_SUMMARY — testID summary-узла кадра welcome.
+// К8 v2 (сужение гварда RESTYLE_GUARD_995 — слово владельца 2026-10-20
+// ~18:00/18:18 UTC, ответ консультанта 19:20, форк n117-krug1-maket-i-111,
+// развилка 1 (А)): гвард держит кадры 995 КРОМЕ F03.01/F03.02 (email/code —
+// их рестайл принадлежит предмету 117, вход по D2.2.5.1). На защищаемых
+// кадрах (welcome и прочие) внешний корень PilotApp несёт литералы 995 —
+// фон #FFFFFF и отступки 48/16/16; {flex:1, ground} — только first-run
+// (его судит К6). Литералы — ожидания файла (поверхность 995), не значения
+// субъекта (Н-379/Н-383). WELCOME_SUMMARY — testID summary-узла кадра welcome.
 const SURFACE_995_BG = '#FFFFFF';
 const SURFACE_995_PAD_TOP = 48;
 const SURFACE_995_PAD_H = 16;
@@ -306,28 +308,22 @@ describe('111 first-run', () => {
     });
   }
 
-  // К8 рестайл-страж кадров 995 (С10/Р2, ревью круга 3), произведение
-  // scheme(2): переход CTA (путь устройства из Р2) приводит в F03.01 —
-  // внешний корень PilotApp на кадре 995 несёт литералы поверхности 995:
-  // фон #FFFFFF и отступы 48/16/16. Рестайл круга 3 (ground на всех кадрах,
-  // root без отступов) красит в обеих схемах; К6 при этом зелёная —
-  // first-run-кадр не тронут. Мутанты: restyle-995-ground (merged-root,
-  // красит и К6 — отступки root проявляются на first-run),
-  // restyle-995-no-padding, restyle-995-padding-shifted, а
-  // restyle-welcome-ground красит ТОЛЬКО К8′.
+  // К8 v2 (сужение гварда, 111 v2): F03.01/F03.02 (email/code) гвардом НЕ
+  // держатся — рестайл этих кадров принадлежит предмету 117 (вход по
+  // D2.2.5.1; слово владельца 2026-10-20 ~18:00/18:18 UTC, консультант
+  // 19:20, развилка 1 (А)). НЕ-ожидание рестайла: корень F03.01 вправе
+  // нести как литералы поверхности 995 (база не рестайлит), так и
+  // ground/токены схемы предмета 117 — стиль корня клетки НЕ сверяется.
+  // Живёт шов исходной клетки (путь устройства из Р2): CTA приводит в
+  // F03.01 в ОБЕИХ схемах — auth-email виден; разрыв навигации
+  // (onenter-not-wired, cta-testid-renamed, light-cta-noop) красит и эту
+  // пару. Поверхность 995 остальных кадров держит К8′ (welcome).
   for (const scheme of ['dark', 'light'] as const) {
     const S = scheme.toUpperCase();
     it(`RESTYLE_GUARD_995_F03_01_${S}`, async () => {
-      const view = await renderFirstRun(scheme);
+      await renderFirstRun(scheme);
       await fireEvent.press(screen.getByTestId('first-run-continue'));
       expect(screen.getByTestId('auth-email')).toBeOnTheScreen();
-      const root = hostRootOf(view.toJSON());
-      expect(root.type).toBe('View');
-      expect(backgroundOf(root)).toBe(SURFACE_995_BG);
-      const style = styleOf(root);
-      expect(style.paddingTop).toBe(SURFACE_995_PAD_TOP);
-      expect(style.paddingHorizontal).toBe(SURFACE_995_PAD_H);
-      expect(style.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
     });
   }
 
