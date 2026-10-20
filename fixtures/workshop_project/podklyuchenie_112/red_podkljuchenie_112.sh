@@ -48,6 +48,11 @@
 #       mob) — «всё зелено», включая старый оракул с проглоченной
 #       jq-ошибкой и оракул v2d с sed-обрезкой пробелов/сырым файлом
 #       вместо MERGED (v2e).
+#   (4) komandy-слепая контрмодель — модель-эталон минус блок komandy
+#       (sentinels KOMANDY-112-BEG/END, v3) — ОБЯЗАНА дать расхождение на
+#       D34-komanda-abs-vne / D35-komanda-tochki-pobeg /
+#       D36-komanda-forma-zakryta (вердикты судей круга 1: F1/F2/F3),
+#       иначе клетки плацебо.
 #
 # Диспетчеризация: --cell <имя> (одна клетка) | --model (против эталона) |
 # без аргументов (полный прогон против продукта).
@@ -427,6 +432,48 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
       touch "$WORLD/docs/ARCHITECTURE.md" "$WORLD/docs/CODING-STANDARDS.md"
       jq_set "$WORLD/.harness/project-layer.json" '.defaults.contextPack={rows:[{kind:"map",path:"docs/ARCHITECTURE.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"карта архитектуры бэкенда — слово владельца 2026-10-20 ~13:45 UTC"},{kind:"rules",path:"docs/CODING-STANDARDS.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"стандарт структуры и стиля бэкенда — слово владельца 2026-10-20 ~13:45 UTC"}]}'
       run_cell "$name" "$RC_DECEPTIVE" "$REASON_MOB_LISHNIJ_ARCH" "$MOB_ORACLE" ;;
+    D34-komanda-abs-vne)
+      # v3 (вердикт ревьюера круга 1, F1): абсолютный путь ВНЕ репо в
+      # komandy — node <вне>/evil.js и npm --prefix <вне>/pkg test.
+      # Внешние цели СУЩЕСТВУЮТ (прецедент арбитража П-1): отказ — по
+      # положению пути, не по отсутствию цели. Модель отвергает и до v3
+      # (склейка $R/абс-путь не существует); продукт 61260217c принимает.
+      WORLD="$(make_world back)" || return 9
+      as_typescript
+      VNEE="$(mktemp -d "$SCRATCH/podkljuchenie112-vneshnee-kom-abs-XXXXXX")"
+      printf 'x\n' > "$VNEE/evil.js"
+      mkdir -p "$VNEE/pkg"
+      printf '%s\n' '{"scripts":{"test":"echo fake"}}' > "$VNEE/pkg/package.json"
+      VNESH_112="$VNEE" jq_set "$WORLD/harness.project.json" \
+        '.commands.lint="node "+$ENV.VNESH_112+"/evil.js" | .commands.test="npm --prefix "+$ENV.VNESH_112+"/pkg test"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D35-komanda-tochki-pobeg)
+      # v3 (вердикт ревьюера круга 1, F2): `..`-побег — node ../<сосед>/evil.js
+      # и npm --prefix ../<сосед>/pkg test; внешние цели СУЩЕСТВУЮТ как
+      # соседи мира в $SCRATCH (как D5/D14). Сырая склейка $R/../… указывает
+      # наружу — обязан отказ по канонизации (дефект и модели до v3, и
+      # продукта 61260217c).
+      WORLD="$(make_world back)" || return 9
+      as_typescript
+      VNEE="$(mktemp -d "$SCRATCH/podkljuchenie112-vneshnee-kom-dotdot-XXXXXX")"
+      printf 'x\n' > "$VNEE/evil.js"
+      mkdir -p "$VNEE/pkg"
+      printf '%s\n' '{"scripts":{"test":"echo fake"}}' > "$VNEE/pkg/package.json"
+      VNESH_112="../$(basename "$VNEE")" jq_set "$WORLD/harness.project.json" \
+        '.commands.lint="node "+$ENV.VNESH_112+"/evil.js" | .commands.test="npm --prefix "+$ENV.VNESH_112+"/pkg test"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D36-komanda-forma-zakryta)
+      # v3 (вердикт ревьюера круга 1, F3): форма команды НЕ закрыта —
+      # `npm --prefix backend test || true` (оператор оболочки маскирует
+      # отказ) и `npm --prefix backend lint` (голое имя без run — у npm нет
+      # такой команды). Оба скрипта в backend/package.json ЕСТЬ (test/lint),
+      # поэтому это именно побег формы, а не отсутствия. Продукт 61260217c
+      # и модель до v3 принимают оба.
+      WORLD="$(make_world back)" || return 9
+      as_typescript
+      jq_set "$WORLD/harness.project.json" \
+        '.commands.test="npm --prefix backend test || true" | .commands.lint="npm --prefix backend lint"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
     *) return 2 ;;
   esac
 }
@@ -450,10 +497,12 @@ if [ "${1:-}" = "--cell" ]; then
   exit "$rc"
 fi
 [ $# -eq 0 ] || usage
-# полный прогон: 37 клеток (M1/M2/K1/K2 + 33 обманки; v2e +D32/D33) + анти-плацебо (1)–(3)
+# полный прогон: счёт клеток — ЕДИНЫЙ источник сам цикл ниже (v3: v2e 37 + D34/D35/D36
+# по вердиктам судей круга 1 F1/F2/F3; замороженный текст контракта несёт прежнее
+# число 37 — расхождение отражено докладом, не правкой текста) + анти-плацебо (1)–(4)
 # Факты по клетке печатаются ТОЛЬКО при расхождении; итог — число клеток
 # (зелёных/красных) и код возврата, не слово PASS.
-itog=0; zelen=0; krasno=0
+itog=0; zelen=0; krasno=0; vsego=0
 for c in M1-back-model M2-mob-model K1-kanon-polnyj K2-mob-bez-standartov D1-pustaja-komanda D2-komanda-true \
          D3-skripta-net D4-chuzoj-remote D5-put-vne-repo D6-symlink-pobeg D7-net-workflow \
          D8-net-sostojanija D9-prioritet-bool D10-istochnik-net D13-net-kataloga-kontr \
@@ -464,7 +513,9 @@ for c in M1-back-model M2-mob-model K1-kanon-polnyj K2-mob-bez-standartov D1-pus
          D24-contextpack-roli-massiv D25-contextpack-roli-pustoj-massiv D26-contextpack-roli-chislo \
          D27-contextpack-roli-registr D28-contextpack-mandatory-stroka \
          D29-mob-contextpack-standarty D30-mob-contextpack-chast-stroki D31-mob-contextpack-forma \
-         D32-contextpack-roli-probely D33-mob-contextpack-defaults; do
+         D32-contextpack-roli-probely D33-mob-contextpack-defaults \
+         D34-komanda-abs-vne D35-komanda-tochki-pobeg D36-komanda-forma-zakryta; do
+  vsego=$((vsego+1))
   if cell "$c"; then zelen=$((zelen+1)); else krasno=$((krasno+1)); itog=1; fi
   [ -n "$WORLD" ] && rm -rf "$WORLD"; WORLD=""
 done
@@ -484,5 +535,18 @@ for stab_cell in D14-state-vne-repo D16-state-symlink-zveno; do
   fi
 done
 rm -f "$STAB"
-printf 'ИТОГ 112: клеток 37, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
+# анти-плацебо (4): komandy-слепая контрмодель (эталон минус блок komandy по
+# sentinels KOMANDY-112-BEG/END — принимает всё в komandy) обязана дать
+# расхождение на D34/D35/D36 (внешние цели существуют, скрипты в дереве есть —
+# краснота клеток от правила, не от отсутствия цели) — иначе клетки плацебо.
+STAB="$(mktemp "$SCRATCH/podkljuchenie112-stab-komandy-XXXXXX")" || exit 9
+sed -e '/KOMANDY-112-BEG/,/KOMANDY-112-END/d' -e "s|^TOOLS=.*|TOOLS=\"$TOOLS\"|" "$HERE/model_check_connection.sh" > "$STAB"
+chmod +x "$STAB"
+for stab_cell in D34-komanda-abs-vne D35-komanda-tochki-pobeg D36-komanda-forma-zakryta; do
+  if PODKLJUCHENIE_112_CHECKER="$STAB" bash "$0" --cell "$stab_cell"; then
+    printf 'bateria: komandy-слепая контрмодель прошла %s — клетка плацебо\n' "$stab_cell" >&2; itog=1
+  fi
+done
+rm -f "$STAB"
+printf 'ИТОГ 112: клеток %s, зелёных %s, красных %s, rc=%s\n' "$vsego" "$zelen" "$krasno" "$itog"
 exit "$itog"
