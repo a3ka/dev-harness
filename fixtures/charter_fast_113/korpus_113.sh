@@ -23,6 +23,12 @@
 #                 ла нет ни в одной клетке — «зашитая константа» не может его знать;
 #                 вердикт адверсария круг 1): документ добавлен и заморожен В КОРПУСЕ,
 #                 затем правка БЕЗ строки; плюс законная правка AGENTS.md СО строкой
+#   d12_sha256_*    семья sha256-репозиториев (находка Б-3 ревьюера круг 1:
+#                 жёсткий фильтр «40 hex» отбрасывал в --object-format=sha256
+#                 ВСЕ совпадения → тихий rc 0 при живом нарушении):
+#                 narushenie — правка замороженного плана БЕЗ строки (обе
+#                 стороны обязаны дать rc 1 и то же множество FAIL), zakonno —
+#                 законная правка AGENTS.md СО строкой (rc 0 у обеих сторон)
 set -euo pipefail
 
 BASEROOT() {  # <каталог> — общее основание: AGENTS+ROADMAP+план, черновик, заморозка, ustav
@@ -31,7 +37,11 @@ BASEROOT() {  # <каталог> — общее основание: AGENTS+ROADM
   printf '# норма системы\nправило 1: правило без механизма не существует\n' > "$r/AGENTS.md"
   printf '# роадмап\nшаг 5 сделан\n'                                        > "$r/ROADMAP.md"
   printf 'предмет плана, критерий готовности, исполнители\n'                > "$r/plans/001-p.md"
-  _git "$r" init -q -b main
+  if [ -n "${KORPUS113_OBJFORMAT:-}" ]; then   # sha256-семья d12 (Б-3 ревьюера)
+    _git "$r" init -q -b main --object-format="$KORPUS113_OBJFORMAT"
+  else
+    _git "$r" init -q -b main
+  fi
   _git "$r" config user.name Фикстура113
   _git "$r" config user.email fixture113@local
   _git "$r" config commit.gpgsign false
@@ -210,6 +220,21 @@ case "$IMJA" in
     printf 'незаконная правка свежего замороженного документа\n' >> "$R/$_novyj"
     _commit_all "$R" 'правка свежего замороженного документа без строки'
     printf 'NOVOE_IMJA=%s\n' "$_novyj"
+    ;;
+  d12_sha256_narushenie)
+    # живое нарушение в sha256-репозитории: быстрая сторона с фильтром
+    # «жёсткие 40 hex» (Б-3 ревьюера круг 1) отбрасывает все 64-hex совпадения
+    KORPUS113_OBJFORMAT=sha256
+    BASEROOT "$R"
+    printf 'нарушение в sha256-репозитории\n' >> "$R/plans/001-p.md"
+    _commit_all "$R" 'sha256: правка замороженного плана без строки'
+    ;;
+  d12_sha256_zakonno)
+    # законная правка в sha256-репозитории: СО строкой, rc 0 у обеих сторон
+    KORPUS113_OBJFORMAT=sha256
+    BASEROOT "$R"
+    printf 'после устава, законная правка клетки d12\n' >> "$R/AGENTS.md"
+    printf 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md законная правка для клетки d12\n' | _commit_body "$R"
     ;;
   *)
     printf 'ОТКАЗ: неизвестный корпус: %s\n' "$IMJA" >&2; exit 2 ;;
