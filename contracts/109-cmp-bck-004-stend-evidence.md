@@ -1,0 +1,147 @@
+# Контракт 109 — CMP-BCK-004: изолированный стенд и сбор HTTP/SQL evidence для 5.8.2
+КЛАСС: КОДОВЫЙ. Статус: черновик. Карточка: a3ka/Complior-back#5 (CMP-BCK-004, Kind INFRA, W0, полоса C). Номер выдан механизмом (тег `id/CONTRACT/109`, строка реестра `f47fe7c04`); настоящий файл замещает бутстрап-заглушку (Н-301).
+
+КОНТЕКСТ: ROADMAP.md §12 п.2 — слот бэкенда, порядок 133 (106, done) → **004** → 003 → 005 → 006 → 002 → 007; прецедент формы и поставки — контракт 106 (`contracts/106-cmp-bck-133-spec-5-8-4.md`) и его вердикты; `docs/backend/PORT-PLAN.md` (строка 92: «004 PG18 стенд, migrate-before-API, JS TCP/SQL evidence; зависимости 128, 129»); `docs/backend/AUTH-AND-DB-DECISIONS.md` (решение: dev/CI запускает отдельный migrator перед API; 004 реализует one-command dev/CI `migrator rc0 → API`; 132 — production release phase, не здесь).
+
+## Нарезка (frontier)
+
+- **А. Compose-first** — вся поставка живёт в контейнерах, проверка = подъём стенда. Боль: каждый круг судей платит pull/build (минуты), доступ субагентов к внешнему репо нестабилен (Н-354), критик судит прозой вместо дешёвого прогона; живой compose не переносим в dev-harness без зависимости от docker. Отклонён.
+- **Б. Harness-first** — только JS harness и integration-тесты; compose.dev.yml отдельным контрактом позже. Боль: критерий №6 карточки (одна команда: миграция rc0 до API, ledger до 014, повтор сохраняет, повреждённая копия → rc 1) остаётся непокрытым; смежный предмет вторым контрактом — второй круг критика на той же базе. Отклонён.
+- **В. Вертикальный слайс (выбран, норма 050)** — одна пачка проводит весь предмет: `backend/compose.dev.yml` (порядок, идентичности, закрепление) + `backend/tests/helpers/harness.js` (пять осей, честность, append-only, scrubber) + drill-коллектор `backend/scripts/` + integration-тест + проводка `test:integration`; приёмка = батарея (структурный оракул + ТРИ живых факта: разрешение сетей `docker compose config`, исполнение коллектора, исполнение `recordInteraction`; docker на станции есть: замер `docker info` → Server 28.3.3) + две живые строки на станде.
+
+## Существующее
+
+Полный пин базы B: `a3ka/Complior-back` @ **`9d960a0543eb36696b1d767bf208416e774f0a32`** (merge PR #149 «cmp-bck-133/spec-5-8-4», клон по `ssh://git@github.com/a3ka/Complior-back.git` в `/tmp/dev-harness-verify/Architect109/back`, read-only). Факты дерева B, проверенные прогоном:
+
+- **CMP-BCK-129 закрыт и измерен**: `infra/migrations/run.js` — manifest+SHA256, advisory lock, атомарный ledger `control.schema_migration`; на повреждённой копии `db/013_*.sql` (замер, без живой БД, URL-заглушка на закрытый порт — отказ ДО соединения): `migrations: отказ: SHA256 013_profile_release_permissions.sql не совпадает с манифестом`, **rc 1**; на манифесте с пропуском — rc 1. Стенд пользуется раннером как внешним фактом, не переделывает его.
+- **CMP-BCK-128 закрыт**: `backend/Dockerfile` (non-root Node24) существует; `npm ci` в backend — rc 0 (замер).
+- `backend/tests/helpers/pg18.js` — провижининг native PG18 (`COMPLIOR_TEST_PG_ADMIN_URL`), прогон раннера, логин API-роли `hc_* IN ROLE brokeros_api`; скрипт `test:integration` (`node --test --test-concurrency=1 "tests/integration/**/*.test.js"`) и lane `runtime` в `tools/run_backend_ci.py` (disposable PG18 в docker) уже в дереве.
+- Historical источник приёмов: `server/test/harness.ts` (PGlite, snapshot до/после каждого HTTP-запроса, role trace, provider calls, input_hashes, append-only `evidence/runs/vs01-*`), `server/test/README.md`, `tests/run_sql_3_9_native.py` (honest NOT_RUN, `'x'`-запись, sha256-сайдкар). Корневой `server/` (SYNTHETIC 3.9 + fixture mock 5.8.2) сохраняется — прямое требование PORT-PLAN; bytes исторических файлов закреплены sha256 в батарее.
+- Состав базы на B (измерено кругом 1 критика и повторно ниже): `db/` — **14** файлов `001…014` (`014_api_reads_migration_ledger.sql` включён); `backend/tests/integration/health.test.js` ждёт `schema_version: 14` — целевой ledger стенда = **14** строк, запуск мигратора — раннер 129 без изменений.
+- CI продукта: `.github/workflows/ci.yml` исполняет `python3 tools/run_backend_ci.py --lane <имя>` (lanes backend/postgres/checks/image/package/historical; итог — `--aggregate` required) — поддерживаемый потребитель для проводки пробы 109 (зона implementer).
+- `backend/compose.dev.yml`, `backend/tests/helpers/harness.js` и drill-коллектор `backend/scripts/` в дереве **отсутствуют** — это и есть предмет. `VALIDATION.json` несёт runtime NOT_RUN-пункты (`real_5_8_business_handlers`, `013_native_PostgreSQL`, `http_sql_evidence`).
+- Станция: docker daemon 28.3.3 (замер `docker info`), node v26.5.1, python3; батарея — структурный оракул плюс живые факты (node, `docker compose config`), без подъёма контейнеров.
+
+## Предмет и граница
+
+Один наблюдаемый результат: **изолированный dev/CI-стенд поднимается одной командой** (`docker compose -f backend/compose.dev.yml up -d --wait` → rc 0; миграционная job раннера 129 завершается rc 0 ДО старта API; повтор сохраняет данные и ledger; повреждённая копия миграции → rc 1, API не стартует) **и новый JS/CommonJS harness** (`backend/tests/helpers/harness.js`) связывает реальный TCP HTTP request/response реализованного handler с SQL-снимками до/после, runtime-ролью, счётчиком provider-вызовов и SHA-256 manifest, различает FIXTURE_5_8_2 / SYNTHETIC 3.9–5.7 / новый RUNTIME, пишет append-only evidence через scrubber токенов/PII и честно пишет NOT_RUN, когда БД недоступна. API не получает DDL/gateway-учёток; egress document-worker/sandbox ограничен; drill-измерения CMP-BCK-089 фиксируются отдельно от целей (DB RPO ≤15 мин, originals ≤1 час, RTO ≤4 часа), отсутствие drill — NOT_RUN.
+
+Чего C НЕ делает (честная граница, не мок-успех): production deployment/native 013, insurer/IdP, выбор провайдера и DPA — NOT_RUN карточки; Better Auth (CMP-BCK-002) не ждём — synthetic principal явно test-only; настройка резервирования и регулярный drill — CMP-BCK-089 (стенд только фиксирует измерения); production migration job — CMP-BCK-132; полный HTTP-boundary 163 операций — CMP-BCK-125. Staging не получает production dump и реальные медицинские документы — запрещено, а не «пока не подключено».
+
+## Инварианты
+
+1. Migrate-before-API: API-сервис зависит от завершения миграционной job (rc 0), не от «db здорова»; PG-образ — PostgreSQL 18 с закреплением; данные PG — именованный volume.
+2. Разделение идентичностей: блоку API запрещены `MIGRATION*`/`*DDL*`/`GATEWAY*` env; сети, НАЗНАЧЕННЫЕ сервисам worker/sandbox/document, существуют и ВСЕ internal — «internal: true где-то в файле» не свойство (структурная клетка + живой факт `EGRESS_GUARD` по разрешённой конфигурации + живая проба маршрута строкой 4); опубликованный порт БД — только loopback.
+3. Замкнутый кортеж осей на каждую запись взаимодействия: `http_request`, `http_response`, `sql_before`, `sql_after`, `runtime_role`, `provider_calls` — произведение, не поштучные маркеры; SHA-256 manifest входов (`input_hashes`) в каждом прогоне; кортеж доказывается ЖИВЫМ исполнением `recordInteraction` (факт `HARNESS_TUPLE_GUARD`, правило Ц: по одной записи на каждый режим FIXTURE_5_8_2/SYNTHETIC/RUNTIME, оси и mode равны наблюдениям, ПРОЧИТАННЫМ из сохранённого файла, хэши равны sha256 входов).
+4. Append-only evidence: эксклюзивное создание (`wx`/`O_EXCL`), прежние traces не перезаписываются; scrubber токенов/PII применяется к сериализованному тексту ДО sink.
+5. Честность: недоступная БД → `NOT_RUN`/`FAIL`, никогда fixture success; режимы FIXTURE_5_8_2/SYNTHETIC/RUNTIME различены литералами; исторический root `server/` и старые `evidence/runs/` не тронуты.
+6. Drill CMP-BCK-089: коллектор `backend/scripts/*.js` — ИСПОЛНЯЕМЫЙ провод (грамматика CLI — единый источник в докстринге батареи): без входа — сохранённый NOT_RUN, со входом — точные DB/object/key хэши и измеренные RPO/RTO отдельно от целевых констант (15/60/240); мёртвый файл с литералами — RED (живой факт `DRILL_EVIDENCE_GUARD`).
+7. Повреждённая копия миграции → rc 1 до старта API (факт раннера 129 измерен на B; стенд не ослабляет его — не подменяет manifest и не глотает rc).
+
+## Приёмочный критерий
+
+Обозначения: `PY` — python3; `H` — checkout dev-harness; `R` — checkout Complior-back; `B` — пин из §Существующее; `C` — реализованное дерево. Батарея: `PY H/fixtures/workshop_project/stend_109/probe.py` — структурный оракул по грамматике маркеров из её докстринга (единый источник) ПЛЮС три живых факта: `EGRESS_GUARD` (`docker compose config`, без подъёма контейнеров), `DRILL_EVIDENCE_GUARD` и `HARNESS_TUPLE_GUARD` (исполнение node в disposable-каталоге). Живые строки 4–5 исполняются на станде.
+
+Правило Ц (цепь; арбитраж 109 — вердикт `verdicts/arbitration/contracts-109-cep-zhivogo-fakta-v1.md` обязателен обеим сторонам): живой факт зелен только если измерены все три звена — (1) **вызов**: субъект запущен командой/точкой входа, которую объявляет ПОСТАВКА (скрипт `backend/package.json`, вызов из harness/теста), а не файлом, который батарея нашла сама; (2) **запись**: субъект сам создал артефакт в sink (файл evidence), батарея его не подменяет; (3) **чтение**: ожидания сравниваются со значениями, ПРОЧИТАННЫМИ из sink, по независимым литералам батареи; возвращённое значение/stdout — дополнительный, не замещающий источник. Вход факта проходит по заявленному пути: сентинел — в сериализуемом поле наблюдения; каждое объявленное значение конечной оси (режимы FIXTURE_5_8_2/SYNTHETIC/RUNTIME) — отдельное наблюдение.
+
+1. Дано: B; когда: `PY H/fixtures/workshop_project/stend_109/probe.py --repo R --out OUT`; тогда: **rc 1**, `control_green=false`, `control_red` — ровно 4 именованные причины: `COMPOSE_MISSING`, `HARNESS_MISSING`, `HARNESS_INTEGRATION_TEST_MISSING`, `DRILL_MEASUREMENTS_ABSENT`; `TEST_INTEGRATION_NOT_WIRED` — blocked; факты: `ROOT_SERVER_PRESENT` (bytes исторических файлов = sha256 пина) и `RUNNER_DAMAGE_GUARD` (живой отказ раннера: повреждённый файл rc 1 «…не совпадает с манифестом», пропуск в манифесте rc 1) зелёные; `EGRESS_GUARD`, `DRILL_EVIDENCE_GUARD`, `HARNESS_TUPLE_GUARD` — NEEDS_ENV с границей «что именно не проверено» (предмет отсутствует — судит контроль); кейсы: **29**, из них 28 `BLOCKED_BY_RED_CONTROL` и 1 `REJECTED_EXACT` (`root_server_delete`, `depends=ROOT_SERVER_PRESENT`); полный вывод — `OUT/raw.json`. Это честное red до-предметного дерева (замер ниже).
+2. Дано: C; когда: та же команда; тогда: **rc 0** — `control_green=true`, все 5 фактов `True` (не None/False: факт None — rc 2 `UNMEASURABLE: NEEDS_ENV: <граница>`, `control_green` только при всех пяти `True` — К5 арбитража, гейт не зеленее CI; node и docker compose на станции стенда есть — замер), все **29** кейсов `REJECTED_EXACT` ровно своей причиной (перечень — единый источник `cases()` в коде батареи; счёт 29 измерен прогоном на честной модели: 29 rejected_exact / 0 blocked / 0 not_rejected, rc 0, три прогона подряд стабильны). NEEDS_ENV факта на C — не зелёный: приёмка требует зелёного прогона на станции стенда.
+3. Дано: C; когда: `PY …/probe.py --repo R --case <имя>` для каждого имени из `cases()` (29) и `--case nonexistent`; тогда: каждый именованный — rc 0 (`REJECTED_EXACT` либо на красной базе `BLOCKED_BY_RED_CONTROL`); `nonexistent` — **rc 2** `109 UNMEASURABLE: EMPTY_SELECTION`; no-op мутация — rc 2 `NOOP_MUTATION`; факт None в базе — **rc 2** `NEEDS_ENV: <граница>` (К5); `--matrix` — rc 0, построчный `depends` (измерено: 29 строк REJECTED_EXACT).
+4. Дано: чистый стенд с docker (нет контейнеров/томов стенда); когда: `docker compose -f backend/compose.dev.yml up -d --wait`; тогда: rc 0; миграционная job завершена rc 0 до API; `SELECT count(*) FROM control.schema_migration` = **14** (состав базы `db/001–014` и ожидание `schema_version: 14` в health.test.js — §Существующее); повторная команда — rc 0, данные и ledger неизменны; при повреждённой копии миграции (байт дописан в `db/013_*.sql` копии) — **rc 1** и API-контейнер не в состоянии Running; и живая проба egress: `docker compose -f backend/compose.dev.yml run --rm --no-deps document-worker wget -S --spider -T 10 http://example.com` — **rc ≠ 0**, HTTP 200 недостижим (красная проба реально открытого маршрута; на дереве обхода круга 1 эта команда дала rc 0 и `HTTP/1.1 200 OK` — замер критика). Живая строка: исполняет implementer на станде, судьи повторяют scoped.
+5. Дано: C, native PG18 (`COMPLIOR_TEST_PG_ADMIN_URL`); когда: `npm --prefix backend ci && npm --prefix backend run test:integration`; тогда: rc 0 на реальном TCP; harness-тест проверяет SQL role/context isolation и отсутствие DDL-учёток у API; при остановленной БД — NOT_RUN и rc ≠ 0 (не success); повторный прогон не меняет существующие каталоги evidence; sentinel-токен/email не появляется в новом evidence (scrubber); факты `DRILL_EVIDENCE_GUARD`/`HARNESS_TUPLE_GUARD` на C зелёные живым исполнением (грамматика — докстринг батареи).
+6. Дано: C; когда: adversary и reviewer судят по этому контракту scoped-прогоном (батарея + строки 4–5 на станде); тогда: accept. Каждому из 7 критериев карточки соответствует клетка батареи или живая строка: (1) `harness_tuple_decoy`/`HARNESS_TUPLE_GUARD` + `harness_axis_drop` + строка 5; (2) `COMPOSE_DDL_SECRETS_TO_API` + `compose_egress_open`/`compose_egress_unused_net`/`EGRESS_GUARD` + живая проба маршрута строки 4; (3) `HARNESS_DB_DOWN_MOCK_SUCCESS` + строка 5; (4) `HARNESS_EVIDENCE_OVERWRITES`/`HARNESS_NO_SCRUBBER` + строка 5; (5) `drill_absent`/`drill_dead_file`/`DRILL_EVIDENCE_GUARD`; (6) `COMPOSE_*` + строка 4; (7) `HARNESS_INTEGRATION_TEST_MISSING`/`TEST_INTEGRATION_NOT_WIRED` + строка 5.
+
+## Зоны и исполнители
+
+ЗОНА architect: contracts/109-cmp-bck-004-stend-evidence.md fixtures/workshop_project/stend_109/
+ЗОНА critic: verdicts/critic/
+ЗОНА adversary: verdicts/adversary/
+ЗОНА reviewer: verdicts/review/
+
+Внешние пути от корня Complior-back (целевые пути карточки + поставочная обвязка):
+
+ЗОНА implementer: infra/ backend/compose.dev.yml backend/tests/helpers/harness.js backend/tests/integration/ backend/server/ backend/app/config/ backend/scripts/ backend/package.json backend/package-lock.json tests/run_sql_3_9_native.py evidence/runs/ docs/backend/ tools/run_backend_ci.py .github/workflows/ci.yml FILES.sha256 VERSION_MANIFEST.json VALIDATION.json README_RU.md
+
+ПЕРЕСЕЧЕНИЕ implementer: backend/package.json — 128 поставочный артефакт (и проводка 130); 109 добавляет скрипты/покрытие, не удаляет чужие лейны и команды
+ПЕРЕСЕЧЕНИЕ implementer: backend/tests/integration/ — 126 health-тесты и 129 migrations-тесты; 109 добавляет harness-тест, не сужает существующие
+ПЕРЕСЕЧЕНИЕ implementer: infra/ — 129 раннер существует и не переделывается; 109 не меняет семантику infra/migrations (манифест, lock, ledger), использует как внешний факт
+ПЕРЕСЕЧЕНИЕ implementer: tests/run_sql_3_9_native.py — 993 historical SQL-раннер; 109 не меняет его семантику (если правка потребуется — только маркировка режимов, без второй грамматики)
+ПЕРЕСЕЧЕНИЕ implementer: tools/run_backend_ci.py — 130 раннер лейнов; 109 добавляет lane `stend109` (проба батареи из H-checkout) и не ослабляет агрегат required
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 011 владеет файлом целиком; 109 только добавляет шаг/окружение lane `stend109`, не удаляя и не переписывая существующие шаги 130
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 015 владеет файлом целиком; 109 только добавляет шаг/окружение lane `stend109`, не удаляя и не переписывая существующие шаги
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 994 владеет файлом целиком (исключение per-guard wiring); 109 только добавляет шаг/окружение lane `stend109`, не затрагивая механику 994
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 997 владеет файлом целиком; 109 только добавляет шаг/окружение lane `stend109`, не затрагивая шаги 997
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/ci.yml — 998 владеет файлом целиком; 109 только добавляет шаг/окружение lane `stend109`, не затрагивая шаги 998
+ПЕРЕСЕЧЕНИЕ implementer: evidence/runs/ — 993 append-only evidence; 109 дописывает новые каталоги прогонов, прежние не переписываются
+
+Вне предмета: корневой `server/` (SYNTHETIC 3.9 + fixture mock 5.8.2 — сохраняется, bytes закреплены sha256 в батарее), `db/001–014` (неизменные bytes, владение 129/003/005/006), production rollout (132), Better Auth (002), provider/insurer/IdP admission, донорский продукт. Merge продуктового PR — владелец.
+
+## ПРОВОДКА
+
+ПРОВОДКА:
+- guard=fixtures/workshop_project/stend_109/probe.py
+
+ПРОВОДКА-ЭНФОРСМЕНТ: батарея потребляется строками 1–3 приёмки и судами; пробы 109 исполняются в CI Complior-back: подключение — lane `stend109` в `tools/run_backend_ci.py` (команда `python3 <H>/fixtures/workshop_project/stend_109/probe.py --repo .` из H-checkout) и шаг в `.github/workflows/ci.yml`, зона implementer, по образцу 107/108 (пробы исполняются в CI проекта); в `registry/ci-steps.tsv` харнесса НЕ регистрируется (внешний checkout, python3 stdlib). Общий CI dev-harness не получает зависимость от внешнего checkout; нормы ролей и charter не меняются; архитектор не исполняет реализацию вместо implementer.
+
+## Модель угроз
+
+ЗАЩИЩАЕТ:
+- от стенда, стартующего API до/вместо миграции, от `latest`-образов, от потерянных при повторе данных/ledger (структурные compose-причины батареи + живая строка 4);
+- от передачи API миграционных/gateway-учёток и от открытого egress document-worker (блок api-env; сети, назначенные worker/sandbox/document, все internal — структурная клетка + живой факт `EGRESS_GUARD` + проба маршрута строки 4; неиспользуемая internal-сеть и сервис на default — RED, измерено);
+- от evidence без осей: запись без полного кортежа шести осей — RED (замкнутое произведение), и от декой-кортежа: живой факт `HARNESS_TUPLE_GUARD` сверяет по ОДНОЙ записи на каждый режим FIXTURE_5_8_2/SYNTHETIC/RUNTIME ТРИ различимые записи исполнения с наблюдениями ПО СОДЕРЖИМОМУ СОХРАНЁННЫХ ФАЙЛОВ evidence (mode, оси, sha256 входов, provider count, append-only, сентинел из сериализуемого поля отсутствует в файле; возвращённый кортеж — только дополнительная сверка) — чужой snapshot, константа, return-без-sink и склейка режимов не проходят, измерено;
+- от перезаписи прежних traces и от утечки токенов/PII в evidence (`wx`-создание, scrubber до sink; маркер в комментарии не считается — комментарии вырезаются);
+- от мок-успеха при остановленной БД (NOT_RUN — литерал кода, не обещание в прозе) и от смешения fixture 5.8.2 / SYNTHETIC 3.9 / RUNTIME;
+- от «стенд поднялся, а миграция тихо не применилась»: повреждённая копия — rc 1 до API (живой факт раннера, измерен на B);
+- от самогó обмана батареи: no-op мутация → rc 2, пустая выборка → rc 2, факт None → rc 2 NEEDS_ENV (К5: контроль не зелен, пока хоть один факт не измерен), мутант с лишними причинами — NOT_REJECTED (изоляция проверена: 29/29 ровно-своих на модели, три прогона);
+- от мёртвых литералов drill: коллектор обязан быть проводом (структурно — скрипт `backend/package.json` `scripts['drill:evidence']` указывает на коллектор `backend/scripts/*.js`; упоминание basename в `description`/комментарии не считается) и ИСПОЛНЯТЬСЯ КОМАНДОЙ ПОСТАВКИ (живой факт `DRILL_EVIDENCE_GUARD` исполняет команду скрипта в disposable-копии: NOT_RUN без входа, точные хэши/замеры с двумя различимыми входами) — файл-декой круга 1 и отвязанный от поставки коллектор круга 2 измеренно красны.
+
+НЕ ЗАЩИЩАЕТ:
+- от подбора маркеров без семантики для ЖИВОГО слоя кортежа/drill/egress — ловят живые факты батареи (измерено на деревьях обхода); структурные маркеры вне этих трёх зон — сверх-приближение, добирают живые строки 4–5 и adversary;
+- от YAML, валидного для якорей батареи, но невалидного для docker compose (структурный слой; для оси egress добирает живой факт `EGRESS_GUARD` по разрешённой конфигурации, остальное — живая строка 4);
+- от злонамеренного кода с тем же uid в процессе проверки; disposable копия — не security sandbox;
+- от отсутствия docker/PG18 на станции судьи: живые факты и строки 4–5 тогда честно NEEDS_ENV/NOT_RUN с границей «что именно не проверено», не зелёный: факт None ⇒ rc 2 `UNMEASURABLE: NEEDS_ENV`, `control_green` только при всех пяти `True` (зелёная приёмка C требует станции стенда).
+
+## Отложенная приёмка (NOT_RUN)
+
+- Production deployment/native 013, insurer/IdP, выбор провайдера, DPA, production grant — вне карточки, NOT_RUN заявлен в ней самой.
+- Better Auth: synthetic principal test-only; стенд не ждёт его для synthetic SQL/TCP проб (работа 8 карточки).
+- CMP-BCK-089: настройка резервирования и регулярный drill не проводятся; стенд фиксирует измерения, отсутствие drill — NOT_RUN (критерий 5 карточки).
+- CMP-BCK-132: production migration job и rollout — production не использует этот автоматический startup.
+- Production dump и реальные медицинские документы в стенд не попадают (запрет, не ожидание).
+- Живые строки 4–5 на станции без docker/PG18 — NEEDS_ENV, не мок-успех (на станции разработчика docker есть — замер 28.3.3).
+
+## Закрытие обходов круга 1
+
+Каждый обход — клетка/класс клеток в замкнутом произведении с мутантом «обход» (байт-в-байт к дереву критика) и измеренным depends; пары «стаб↔ветвь» живут в коде батареи (Н-39).
+
+- **Б1 (egress у неиспользуемой сети)** → клетки: структурная `COMPOSE_EGRESS_OPEN` по ПРИВЯЗКЕ сетей сервиса (кейс `compose_egress_open`, новый кейс `compose_egress_unused_net` — обход критика байт-в-байт), живой факт `EGRESS_GUARD` (`docker compose config`; NEEDS_ENV без docker с границей), живая проба маршрута в строке 4. Измерено: дерево обхода — rc 1 (контроль + факт «document-worker→default»).
+- **Б2 (drill-декой из мёртвых слов)** → клетки: структурная проводка коллектора (круг 3: скрипт `backend/package.json` `scripts['drill:evidence']` указывает на коллектор; файл без проводки — `DRILL_MEASUREMENTS_ABSENT`), новый кейс `drill_dead_file` (обход критика байт-в-байт при честной проводке), живой факт `DRILL_EVIDENCE_GUARD` (исполнение: без входа NOT_RUN, два различимых входа → точные sha256-хэши и измеренные RPO/RTO отдельно от целей). Измерено: декой при честной проводке — rc 1 фактом; без проводки — rc 1 контролем.
+- **Б3 (оси-маркеры без корреляции)** → клетки: живой факт `HARNESS_TUPLE_GUARD` (различимые записи — круг 3: по одной на каждый режим; шесть осей = наблюдения, `input_hashes` = sha256 входов, `provider_calls` = подставленному числу, append-only живьём, secrets вне файлов), новый кейс `harness_tuple_decoy` (декой record критика), структурная `HARNESS_RECORD_AXIS_TUPLE` (кейс `harness_axis_drop`). Измерено: честный слой + декой record — rc 1 фактом с поимёнными расхождениями осей.
+- **Б4 (объявленная ПРОВОДКА не подключена)** → проводка по грамматике 038: закрытая фраза внешнего checkout в ПРОВОДКА-ЭНФОРСМЕНТ (образец 106) + реальный потребитель — lane `stend109` в `tools/run_backend_ci.py` и шаг `.github/workflows/ci.yml` (зона implementer, образец 107/108); `bash scripts/check_provodka.sh <H> contracts/109-cmp-bck-004-stend-evidence.md` → rc 0 (замер в §Замер).
+
+## Закрытие обходов круга 2 (арбитраж 109, правило Ц)
+
+Каждый обход — клетка/класс клеток с мутантом «обход» (байт-в-байт к дереву критика круга 2, сверено прогоном) и измеренным `depends`; пары «стаб↔ветвь» живут в коде батареи (Н-39). Правило Ц (цепь) — §Приёмочный критерий: вызов точкой входа поставки → запись субъектом в sink → чтение ожиданий из sink.
+
+- **Б1 (честный return, в sink пишется `{}`)** → клетки: живой факт `HARNESS_TUPLE_GUARD` читает СОДЕРЖИМОЕ сохранённого файла — `mode`, шесть осей, `input_hashes` — сопоставленного наблюдению по порядку создания; return — дополнительная сверка; кейс `harness_sink_decoy`. Измерено: дерево критика — rc 1 фактом (оси из файла ≠ наблюдениям).
+- **Б2 (живой коллектор отвязан от поставки)** → клетки: структурная `DRILL_MEASUREMENTS_ABSENT` судит скрипт `backend/package.json` `scripts['drill:evidence']` и коллектор, на который он указывает (упоминание basename в `description`/комментарии не считается); живой факт `DRILL_EVIDENCE_GUARD` исполняет КОМАНДУ скрипта в disposable-копии backend (без входа NOT_RUN, два различимых входа → точные sha256-хэши и измеренные RPO/RTO); кейс `drill_unwired`. Измерено: дерево критика (в обеих формах — с удалённым harness-тестом и узкой `dun`) — rc 1 контролем `DRILL_MEASUREMENTS_ABSENT`.
+- **Б3 (все режимы пишутся RUNTIME)** → клетки: `HARNESS_OBS` батареи — три наблюдения, по одному на литерал `FIXTURE_5_8_2`/`SYNTHETIC`/`RUNTIME` (append-only: ровно три файла, прежние неизменны); `mode` — седьмое сверяемое поле ИЗ ФАЙЛА; кейс `harness_mode_collapse`; структурный `harness_no_mode_label` остаётся. Измерено: дерево критика — rc 1 фактом (mode из файла ≠ наблюдению).
+- **К4 (вакуумный scrubber-факт)** → сентинел наблюдения помещается в сериализуемое поле (заголовок/тело); ожидание из файла: сентинел отсутствует, поле присутствует и непусто (форма «не равно сентинелу и не пусто»); литерал `[REDACTED]` грамматикой не навязывается; кейс `harness_scrubber_identity`. Измерено: дерево критика — rc 1 фактом (сентинел в файле).
+- **К5 (факт None — не зелёный)** → полный прогон и `--case`: факт None ⇒ rc 2 `UNMEASURABLE: NEEDS_ENV: <граница>`; `control_green` только при всех пяти `True`; строка 1 (B) не меняется — rc 1 контролем. Измерено: копия модели без `backend/node_modules` — полный прогон rc 2 `NEEDS_ENV: RUNNER_DAMAGE_GUARD`, `--case` rc 2.
+
+## Вопросы владельцу
+
+1. ~~Проводка строки 4 в CI~~ — закрыто кругом 2 (Б4): lane `stend109` в `tools/run_backend_ci.py` + шаг `.github/workflows/ci.yml` обязательны (зона implementer), иначе гейт зеленее CI (правило 6).
+2. `tests/run_sql_3_9_native.py` числится в целевых путях карточки, но предмет его не меняет; подтвердить границу «не трогаем исторический runner» (иначе — отдельный предмет).
+3. Drill-измерения: цели (RPO ≤15 мин / originals ≤1 час / RTO ≤4 часа) фиксируются в evidence как целевые константы рядом с измерениями CMP-BCK-089 — подтвердить форму (цель ≠ проверка).
+4. HTTP-проба 5.8.2 требует реализованного handler: в полосе C реализовано минимальное подмножество; кортеж осей требуется на каждую записанную запись, не на все 163 операции (полный boundary — 125). Подтвердить.
+
+## Замер ДО реализации
+
+Выполнен на B (пин `9d960a0543eb36696b1d767bf208416e774f0a32`, клон `/tmp/dev-harness-verify/Architect109/back`, `npm ci` в backend — rc 0) и на одноразовой честной модели (копия B + минимальные compose/harness/тест/коллектор drill, удовлетворяющие грамматике предмета; модель — самопроверка батареи, в поставку не входит и деревом C не является):
+
+1. Батарея на B: rc 1; `control_red` = 4 причины (`COMPOSE_MISSING`, `HARNESS_MISSING`, `HARNESS_INTEGRATION_TEST_MISSING`, `DRILL_MEASUREMENTS_ABSENT`); `TEST_INTEGRATION_NOT_WIRED` blocked; факты: `ROOT_SERVER_PRESENT` (sha256 пина) и `RUNNER_DAMAGE_GUARD` (живой прогон раннера: повреждённый файл rc 1 «…не совпадает с манифестом»; пропуск в манифесте rc 1) зелёные; `EGRESS_GUARD`/`DRILL_EVIDENCE_GUARD`/`HARNESS_TUPLE_GUARD` — NEEDS_ENV с границей; 29 кейсов: 28 `BLOCKED_BY_RED_CONTROL`, 1 `REJECTED_EXACT` (`root_server_delete` → `ROOT_SERVER_PRESENT`).
+2. Батарея на модели: rc 0; `control_green=true`; 5 фактов `True`; 29 кейсов `REJECTED_EXACT`, 0 blocked, 0 not_rejected — три прогона подряд стабильны (недетерминизм имён файлов evidence пойман и закрыт монотонным счётчиком в модели). Изоляция причин доказана прогоном; сверка мутантов круга 2 с деревьями критика — байт-в-байт (прогон сверки: 5 файлов OK).
+3. `--case` по каждому из 29 имён — rc 0 (замер: 29 из 29); `--case nonexistent` → rc 2 `109 UNMEASURABLE: EMPTY_SELECTION`; `--matrix` → rc 0, 29 строк `depends`; К5: копия модели без `backend/node_modules` — полный прогон rc 2 `NEEDS_ENV: RUNNER_DAMAGE_GUARD`, `--case compose_delete` rc 2.
+4. Деревья обходов измеренно красны (rc 1, замер круга 3 на новой батарее): круг 1 — (а) unused-сеть: контроль `COMPOSE_EGRESS_OPEN` + факт `EGRESS_GUARD`; (б) мёртвый drill-файл: факт `DRILL_EVIDENCE_GUARD`; (в) декой record: факт `HARNESS_TUPLE_GUARD`; старое дерево: контроль + факты; круг 2 — `sink-decoy` факт `HARNESS_TUPLE_GUARD` (оси из файла), `mode-collapse` факт `HARNESS_TUPLE_GUARD` (mode из файла), `scrubber-identity` факт `HARNESS_TUPLE_GUARD` (сентинел в файле), `drill-unwired` и узкая форма `dun` — контроль `DRILL_MEASUREMENTS_ABSENT`. Регресса закрытий кругов 1–2 нет.
+5. Дефекты, найденные самопроверкой и закрытые до круга критика: маркеры в комментариях не считаются; маркеры осей ищутся вне массива-кортежа; вставка секрета — внутрь блока `api:`; удаление файла в оверлее учитывается поиском тестов; `internal: true` вне привязки сервиса больше не считается (круг 1, Б1); historical-файлы сверяются sha256, не `is_file` (совет круга 1).
