@@ -15,18 +15,21 @@
 # Все источники (план, закрытия, манифест, находки review, план отката) читаются
 # из HEAD-блобов: незакоммиченная правка любого источника — не доказательство.
 # Членство — канонический plan_parse из scripts/lib_plan.sh (второго парсера нет);
-# путь реестра — профильный, через project_paths_resolve (996).
-# НЕ БАРЬЕР: субъект контракта 110 — красное и зелёный контроль предъявляет собственная
-# батарея fixtures/workshop_project/done_volny_110/ (probe.sh, 84 случая + 62 мутанта
-# по замеру run_ci_lane/ci_vesa: «6.0..6.5 с», вес в ci-steps.tsv — 6),
-# не case_*.sh-глобом (прецедент scripts/make_task.sh:10, контракт 095).
-# Круг 4 подгонки: ВСЕ отказы по файлам профиля/слоя (расходится/удалён/неотслеживаем/
-# слой не на HEAD) унифицированы под подстроку «профиль проекта расходится с HEAD:
-# <файл>» (клетки e3_layer_untracked_deco / n11b_layer_profile_path); грязное дерево
-# читается NUL-записями и пути передаются целиком (n3b_dirty_space_path с пробелом);
-# первый токен после bash|sh|dash|ksh|zsh|python3|python|node|.|source в команде
-# e2e/NFR проверяется на отслеживаемость на HEAD_SHA, отказ «команда не на HEAD:
-# <файл>» ДО запуска команд (n1_e2e_untracked_script / n1b_nfr_untracked_script).
+# путь реестра — профильный, через project_paths_resolve (996); грязное
+# отслеживаемое дерево вне пяти HEAD-источников — именованный отказ до тега;
+# harness.project.json и слой по projectLayer.profilePath — ⇔-правило с HEAD;
+# причина пуста отклоняется ДО A3/HEAD/профиля (И-8); тег — аннотированный,
+# peeled-целью на коммит HEAD, причина в аннотации; refs не мутируются при отказе.
+# НЕ БАРЬЕР: красное и зелёный контроль предъявляет батарея
+# fixtures/workshop_project/done_volny_110/ (probe.sh — модель архитектора
+# done_wave_model.sh и клетки архитектора в probe.py), не case_*.sh-глобом
+# (прецедент scripts/make_task.sh:10, контракт 095).
+#
+# ОСТАТОК (арбитраж 110, реализация): дверь не проверяет, что код, исполняемый
+# командами e2e/NFR, лежит на HEAD; неотслеживаемые/игнорируемые файлы — законные
+# входы команд; отслеживаемое дерево обязано совпадать с HEAD; „HEAD прошёл"
+# доказывает сама e2e-команда (для харнеса — check_ci_gate).
+#
 # Исход: 0 — тег поставлен (stdout «v<N>»), 1 — именованный отказ «done_wave: …»,
 # 2 — NOT_IMPLEMENTED (нет git/jq/профиля).
 set -uo pipefail
@@ -47,6 +50,13 @@ ROOT="${1:-}"; W="${2:-}"; REASON="${3-}"
 [ -d "$ROOT/.git" ] || git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
   || skip "корень не git-репозиторий: $ROOT"
 
+# ── И-8: пустая причина — отказ ДО A3/HEAD/профиля. Сначала корень обязан быть
+# git-репозиторием (проверка выше уже это установила через `rev-parse --git-dir`),
+# иначе NOT_IMPLEMENTED. Дальше порядок: причина → A3 (root-toplevel) → HEAD →
+# профиль/слой (⇔-правило с HEAD) → реестр PPR → план/закрытия/манифест →
+# грязное дерево → NFR → e2e → review → otkat → тег.
+[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"
+
 ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $ROOT"
 
 # ── A3: корень обязан быть вершиной git-репозитория (не подкаталог) ─────────
@@ -58,55 +68,47 @@ TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \
 HEAD_SHA="$(git -C "$ROOT" rev-parse --verify -q "HEAD^{commit}")" \
   || die "HEAD недоступен: $ROOT"
 
-# ── N11b: путь слоя профиля берётся из HEAD-блоба harness.project.json
-# (projectLayer.profilePath // "registry/harness-project.json"). Не
-# зашитое имя project-layer.json — резолвер читает именно профильный
-# слой, и слой проекта из рабочего дерева подменял бы реестр корневым
-# деко (adv110 N11b). harness.project.json на HEAD необязателен (миры без
-# профиля идут LEGACY-fallback'ом); при наличии — все три источника
-# (harness.project.json, projectLayer.profilePath-файл) проверены:
-# «есть на HEAD, нет/расходится в дереве → отказ».
-PROFILE_PATH=""
-if git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null; then
-  # harness.project.json на HEAD: проверить его в рабочем дереве
-  if [ -e "$ROOT/harness.project.json" ]; then
-    [ -L "$ROOT/harness.project.json" ] \
-      && die "символическая ссылка профиля: harness.project.json"
-    if [ ! -f "$ROOT/harness.project.json" ]; then
+# ── H1/N11b: ⇔-правило файлов профиля. Два файла, оба проверены ДО
+# project_paths_resolve: (1) harness.project.json: присутствие на HEAD ⇔ в
+# рабочем дереве, при присутствии — байтовое совпадение; нарушение в любую
+# сторону — «профиль проекта расходится с HEAD: harness.project.json».
+# (2) Если harness.project.json на HEAD, путь слоя берётся ИЗ HEAD-БЛОБА
+# (projectLayer.profilePath // "registry/harness-project.json"), и для него —
+# то же ⇔-правило с HEAD (нарушение — «профиль проекта расходится с HEAD: <путь>»).
+# H1 — зеркало A2: добавление неотслеживаемого harness.project.json при LEGACY
+# без него подменяет путь реестра; profilePath из дерева подменил бы реестр
+# корневым деко (adv110 N11b). Тип-change (file↔symlink) ловится
+# `git diff --quiet` (тихий — на typechange возвращает 1).
+HEAD_PROJ_BLOB="$(git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null && \
+                   printf '%s' "${HEAD_SHA}:harness.project.json")"
+if [ -e "$ROOT/harness.project.json" ] || [ -n "$HEAD_PROJ_BLOB" ]; then
+  if [ -n "$HEAD_PROJ_BLOB" ]; then
+    # на HEAD есть
+    if [ ! -e "$ROOT/harness.project.json" ]; then
       die "профиль проекта расходится с HEAD: harness.project.json"
     fi
     git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \
       || die "профиль проекта расходится с HEAD: harness.project.json"
+    # слой по profilePath из HEAD-блоба
+    HPJ="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:harness.project.json")"
+    PROFILE_PATH="$(printf '%s' "$HPJ" | jq -r '.projectLayer.profilePath // "registry/harness-project.json"')"
+    case "$PROFILE_PATH" in
+      /*|*/../*|*/..|../*|*/./*|*/. ) die "профиль проекта profilePath вне корня: $PROFILE_PATH" ;;
+    esac
+    if [ -e "$ROOT/$PROFILE_PATH" ]; then
+      git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
+        || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
+      git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$PROFILE_PATH" 2>/dev/null \
+        || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
+    else
+      git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
+        && die "профиль проекта расходится с HEAD: $PROFILE_PATH"
+    fi
   else
+    # на HEAD нет, в дереве есть (H1)
     die "профиль проекта расходится с HEAD: harness.project.json"
   fi
-  # путь слоя — из HEAD-блоба
-  HPJ="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:harness.project.json" 2>/dev/null)"
-  PROFILE_PATH="$(printf '%s' "$HPJ" | jq -r '.projectLayer.profilePath // "registry/harness-project.json"')"
-  [ -n "$PROFILE_PATH" ] && [ "$PROFILE_PATH" != "null" ] \
-    || die "профиль проекта не объявил projectLayer.profilePath"
-  case "$PROFILE_PATH" in
-    /*|*/../*|*/..|../*|*/./*|*/. ) die "профиль проекта profilePath вне корня: $PROFILE_PATH" ;;
-  esac
-  # ── И-1: профильный слой — на HEAD и не расходится с рабочим деревом ─────
-  if [ -e "$ROOT/$PROFILE_PATH" ]; then
-    [ -L "$ROOT/$PROFILE_PATH" ] \
-      && die "символическая ссылка профиля: $PROFILE_PATH"
-    if [ ! -f "$ROOT/$PROFILE_PATH" ]; then
-      die "профиль проекта расходится с HEAD: $PROFILE_PATH"
-    fi
-    git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
-      || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
-    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$PROFILE_PATH" 2>/dev/null \
-      || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
-  else
-    git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
-      && die "профиль проекта расходится с HEAD: $PROFILE_PATH"
-  fi
 fi
-
-# Причина пуста — отказ ДО всех проверок (И-8).
-[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"
 
 # ── И-1 реестр: профильный project_paths_resolve (996), не корневой деко ──────
 NEXT_ID_LIB=1 source "$SELF_DIR/next_id.sh" \
@@ -245,33 +247,9 @@ $d
 done <<< "$DIRTY"
 [ -z "$DIRTY_FIRST" ] || die "рабочее дерево расходится с HEAD: $DIRTY_FIRST (не HEAD-источник)"
 
-# ── И-4/И-5/НВ11: первый токен после интерпретатора — существующий файл,
-# обязан отслеживаться на HEAD_SHA: неотслеживаемый код не доказывает
-# выполненный сквозной прогон (команда не на HEAD).
-wave110_cmd_on_head() {
-  local prev="" tok
-  local -a toks
-  read -ra toks <<< "$1"
-  for tok in "${toks[@]}"; do
-    case "$prev" in
-      bash|sh|dash|ksh|zsh|python3|python|node|\.|source)
-        case "$tok" in
-          /*) ;;
-          *)
-            if [ -e "$ROOT/$tok" ] \
-               && ! git -C "$ROOT" cat-file -e "${HEAD_SHA}:$tok" 2>/dev/null; then
-              die "команда не на HEAD: $tok"
-            fi ;;
-        esac ;;
-    esac
-    prev="$tok"
-  done
-}
-
 # ── И-4 NFR: КАЖДАЯ строка, число из вывода, порог — литерал строки ─────────
 for nfr in "${NFR_ROWS[@]}"; do
   IFS=$'\t' read -r kind name cmd regex op porog <<< "$nfr"
-  wave110_cmd_on_head "$cmd"
   out_rc=0
   out="$( cd "$ROOT" && timeout 60 bash -c "$cmd" 2>&1 )" || out_rc=$?
   [ "$out_rc" -eq 0 ] || die "NFR $name: команда rc=$out_rc"
@@ -290,7 +268,6 @@ for nfr in "${NFR_ROWS[@]}"; do
 done
 
 # ── И-5 e2e: один сквозной запуск, СВЕЖИЙ прогон каждого вызова (Б7) ────────
-wave110_cmd_on_head "$E2E_CMD"
 e2e_rc=0
 ( cd "$ROOT" && timeout 600 bash -c "$E2E_CMD" ) >/dev/null 2>&1 || e2e_rc=$?
 [ "$e2e_rc" -eq 0 ] || die "сквозной запуск волны красный: rc=$e2e_rc"

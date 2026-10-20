@@ -134,12 +134,16 @@ step	check:rezhim-996-family-selftest	31	npm run check:rezhim-996-family-selftes
 # Вес по замеру `time` полной пробы (2026-10-19): 5.566..5.586 с на 5 прогонах,
 # округлено вверх до 6.
 step	check:pravila-modelei-998	6	bash fixtures/pravila_modelei_998/probe.sh
-# КОНТРАКТ 110 done-волны (круг 4 реализации): красная проба двери done_wave
-# (84 клетки: 52 замороженных кругов 1–2 + 19 круг 2 Б1/A1–A4/13 D* + 13 круг 3
-# N1/N2/N3/N11b/E1/E3/E5/E6/E10/E11/Б3; 62 мутанта в матрице: 31 m1–m31 + 13
-# md*/ma*/mb*/me*/mn* + 18 mmm). Фикстуры проводки — точное соответствие
-# «npm-ключ → fixtures/.../done_volny_110/probe.sh»; без пробы батарея
-# не подключена к CI: provodka.sh ловит деко и подмену путей.
+# КОНТРАКТ 110 done-волны (круг 4 реализации): красная проба двери done_wave.
+# Состав батареи (по `probe.sh --matrix`): 84 клетки = 52 замороженных
+# раундов 1–2 + 13 раунд 2 D* (d2/d3/d7/d12/d13/d14/d15/d16/d22/d23/d25/d29/d31) +
+# 6 раунд 2 A*/B* (a1/a1b/a2/a3/a4/b1) + 13 раунд 3 (n1/n1b/n2/n3a/n3b/n11b/
+# e1/e3/e5/e6/e10/e11/b3); 62 мутанта = 31 m1–m31 + 13 md* (md2/3/7/12/13/14/
+# 15/16/22/23/25/29/31) + 5 ma* (ma1/ma1b/ma2/ma3/ma4) + 2 mb* (mb1/mb3) +
+# 6 me* (me1/me3/me5/me6/me10/me11) + 5 mn* (mn11b/mn2/mn3/mn1/mn1b); каждый
+# ≥ 1 различающего случая. Фикстуры проводки — точное соответствие
+# «npm-ключ → fixtures/.../done_volny_110/probe.sh»; без пробы батарея не
+# подключена к CI: provodka.sh ловит деко и подмену путей.
 # Замер `time` полной пробы (run_ci_lane «замер: check:done-volny-110…»):
 # 7.21..7.62 с на 3 прогонах — вес округлён вверх до 8.
 step	check:done-volny-110-family-selftest	8	npm run check:done-volny-110-family-selftest
