@@ -159,6 +159,32 @@ done <<< "$MANIFEST"
 [ -n "$E2E_CMD" ] || die "манифест волны не объявил сквозной запуск: нет e2e строки"
 [ -n "$OTKAT_PATH" ] || die "манифест волны не объявил план отката: нет otkat строки"
 
+# ── A1/A1b: грязное отслеживаемое дерево вне пяти HEAD-источников — отказ ────
+# Пять источников (план, закрытия, манифест, находки, откат) прочитаны как
+# HEAD-блобы (правило H); их расхождение с HEAD не доказывает обхода, отказ
+# уже выставлен по HEAD-блобу. Здесь — только прочий код (e2e.sh, nfr.sh и т.п.),
+# который команда манифеста исполняет в рабочем дереве.
+HEAD_SOURCES="${REG_REL}/plan.tsv
+${REG_REL}/closed-without-done.tsv
+${REG_REL}/waves/${W}.tsv
+${OTKAT_PATH}"
+for p in "${REVIEW_PATHS[@]}"; do
+  HEAD_SOURCES="$HEAD_SOURCES
+$p"
+done
+DIRTY="$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null | \
+         awk '{print $2}' | sort -u)"
+for d in $DIRTY; do
+  case "
+$HEAD_SOURCES
+" in
+    *"
+$d
+"*) ;;
+    *) die "грязное отслеживаемое дерево: $d (не HEAD-источник)" ;;
+  esac
+done
+
 # ── И-4 NFR: КАЖДАЯ строка, число из вывода, порог — литерал строки ─────────
 for nfr in "${NFR_ROWS[@]}"; do
   IFS=$'\t' read -r kind name cmd regex op porog <<< "$nfr"
@@ -201,32 +227,6 @@ oblob="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:$OTKAT_PATH" 2>/dev/null)" \
 for fld in "риск" "sha" "команда-отката" "команда-проверки"; do
   printf '%s\n' "$oblob" | grep -E "^${fld}:[[:space:]]*[^[:space:]]" >/dev/null \
     || die "план отката без поля: $fld"
-done
-
-# ── A1/A1b: грязное отслеживаемое дерево вне пяти HEAD-источников — отказ ────
-# Пять источников (план, закрытия, манифест, находки, откат) прочитаны как
-# HEAD-блобы; их расхождение с HEAD не доказывает обхода, а отказ уже
-# выставлен по HEAD-блобу. Здесь — только прочий код (e2e.sh, nfr.sh и т.п.),
-# который команда манифеста исполняет в рабочем дереве.
-HEAD_SOURCES="${REG_REL}/plan.tsv
-${REG_REL}/closed-without-done.tsv
-${REG_REL}/waves/${W}.tsv
-${OTKAT_PATH}"
-for p in "${REVIEW_PATHS[@]}"; do
-  HEAD_SOURCES="$HEAD_SOURCES
-$p"
-done
-DIRTY="$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null | \
-         awk '{print $2}' | sort -u)"
-for d in $DIRTY; do
-  case "
-$HEAD_SOURCES
-" in
-    *"
-$d
-"*) ;;
-    *) die "грязное отслеживаемое дерево: $d (не HEAD-источник)" ;;
-  esac
 done
 
 # ── И-8 тег: v=max+1, клапан v>1; аннотированный тег КОММИТА HEAD_SHA ───────
