@@ -43,9 +43,10 @@
 #     симлинки/e ..-звенья разрешаются канонизацией и проверяются на
 #     попадание в $R.
 #   • D16 (симлинк-ЗВЕНО в середине пути state) — проверка — реальный
-#     `cd && pwd -P` на каталог (НЕ просто `-d`); промежуточные звенья
-#     канонизируются тем же readlink, поэтому симлинк в середине пути
-#     обнаруживается, как и `..`-звено.
+#     `cd && pwd -P` на родительский каталог (НЕ просто `-d`); именно
+#     `cd && pwd -P` разрешает ВСЕ звенья по всему пути (а не только лист),
+#     поэтому симлинк в середине пути и `..`-звено в любом сегменте
+#     обнаруживаются одной и той же канонизацией.
 #   • Проверка state НЕ вырезаема (в отличие от state-слепой контрмодели):
 #     секция идёт отдельным блоком после workflowPaths.* и читает каталог
 #     РЕАЛЬНО.
@@ -88,11 +89,11 @@ done
 
 # ── helper: канонизация И ПРОВЕРКА каталога внутри репо. ───────────────────
 # Возвращает 0 если есть каталог внутри $R после канонизации, иначе 1 + причина.
-# `_real` записывается в одноимённую переменную родителя. Используется для
-# workflowPaths.* и для state — отдельная секция (анти-плацебо D14/D16,
-# правило 3): здесь НЕ «существование + not ..», а реальная канонизация
-# ПОЛНОГО пути через readlink -f, что ловит симлинк-звенья (D16) и ..-звенья
-# в любом сегменте, а не только в листе.
+# Используется для workflowPaths.* и для state — отдельная секция (анти-плацебо
+# D14/D16, правило 3): здесь НЕ «существование + not ..», а реальная
+# канонизация ПОЛНОГО пути через `cd $p && pwd -P` — pwd -P разворачивает ВСЕ
+# симлинки и ..-звенья по всему пути, а не только лист, поэтому D16 (симлинк
+# в середине пути) и `..`-звено в любом сегменте обнаруживаются.
 check_inside_dir() {  # $1=имя_ключа $2=значение_пути $3=без_умалч (1=state проверяется независимо, вырезаемо контрмоделью)
   local key="$1" v="$2" no_default="${3:-0}" def_val=".harness"
   if [ "$no_default" -eq 0 ]; then
@@ -101,9 +102,9 @@ check_inside_dir() {  # $1=имя_ключа $2=значение_пути $3=б�
   case "$v" in /*) fail workflowPaths "$key абсолютный: $v"; return 1 ;; esac
   local p="$R/$v"
   [ -d "$p" ] || { fail workflowPaths "$key не каталог: $v"; return 1; }
-  # Реальная канонизация: readlink -f разворачивает ВСЕ симлинки и ..-звенья
-  # по всему пути, pwd -P после cd разрешает ТОЛЬКО ЛИСТ (баг-плацебо D16:
-  # «промежуточное симлинк-звено» обходилось, если проверять только лист).
+  # Канонизация каталога: `cd && pwd -P` разворачивает симлинки и `..`-звенья
+  # по ВСЕМУ пути, не только по листу (анти-плацебо D16: «промежуточное
+  # симлинк-звено» обходилось бы при leaf-only проверке).
   local real
   real="$(cd "$p" 2>/dev/null && pwd -P || true)"
   if [ -z "$real" ]; then
@@ -143,69 +144,119 @@ elif [ "$canon" != "$orig" ]; then
   fail kanon-remote "канон профиля ≠ origin клона: '${canon}' ≠ '${orig}'"
 fi
 
-# ── komandy: каждая команда валидна (непустая, не `true`, реальна в дереве) ─
+# ── komandy: каждая команда — допустимое семейство + файл/пакет ВНУТРИ $R ─
+# Контракт 112 §Конструкция, ветвь komandy: семейство
+# `npm [--prefix D] run <s>|test` → скрипт <s> есть в D/package.json;
+# семейство `node|python3 <файл>` → файл есть в дереве; прочие формы —
+# отказ (закрытый набор семейств). Здесь — СТРОЖЕ модели: канонизация
+# реального пути (а не конкатенация строк) требует попадания в $R (анти-
+# обход F1 «абсолютный путь принимается» и F2 «.. не канонизируется»);
+# хвост после «test» или после «run <s>» запрещён (F3 «закрытая форма»);
+# для node|python3 токены после файла допустимы только без метасимволов
+# оболочки (литерал back: `node backend/scripts/gen-contracts.js --check`).
+# Правило выбора зафиксировано комментарием выше, и в коде не гасится.
+# Канонизирующий хелпер: real_path = $R/$raw канонически; вне $R → отказ.
+canon_inside_R() {  # $1=raw $2=label; экспортирует REAL через косвенное имя
+  local _raw="$1" _label="$2" _p _real
+  case "$_raw" in /*) _p="$_raw" ;; *) _p="$R/$_raw" ;; esac
+  # Канонизируем РОДИТЕЛЯ файла (cd требует каталог): ../ звенья и
+  # симлинки разворачиваются по всему пути, не только по листу.
+  local _parent _base _preal
+  _parent="$(dirname -- "$_p")"
+  _base="$(basename -- "$_p")"
+  _preal="$(cd "$_parent" 2>/dev/null && pwd -P || true)"
+  [ -n "$_preal" ] || { fail komandy "$_label: путь не канонизируется (вне файловой системы): $_raw"; return 1; }
+  _real="$_preal/$_base"
+  case "$_real" in "$R"|"$R"/*) REAL="$_real"; return 0 ;; *)
+    fail komandy "$_label: канонически вне репо: $_raw → $_real"; return 1 ;;
+  esac
+}
 for k in test build typecheck lint; do
   v="$(printf '%s' "$OUT" | jq -r --arg k "$k" ".commands.$k.value // empty")"
   [ -n "$v" ] || { fail komandy "commands.$k пусто (резолвер пробил — наш gate ловит)"; continue; }
-  if [ "$v" = "true" ]; then
-    fail komandy "commands.$k замаскировано как 'true'"
-    continue
-  fi
+  case "$v" in
+    true) fail komandy "commands.$k замаскировано как 'true'"; continue ;;
+    true\ *) fail komandy "commands.$k замаскировано как 'true*' (только пробелы/мусор после true): $v"; continue ;;
+  esac
+  # Разбираем команду на токены. Локально set -f (A3): иначе значение токена
+  # `*` или `[abc]` раскрылось бы как glob относительно cwd.
   # shellcheck disable=SC2206
-  toks=($v)
+  set -f; toks=($v); set +f
   family="${toks[0]:-}"
   case "$family" in
     node|python3)
-      # node <path> | python3 <path>
+      # node|python3 <файл> [доп. токены без метасимволов оболочки]
       file="${toks[1]:-}"
       [ -n "$file" ] || { fail komandy "commands.$k: нет пути после '$family'"; continue; }
-      case "$file" in
-        /*) target="$file" ;;  # абсолютный — принимаем, но судьи ищем в $R
-        *) target="$R/$file" ;;
-      esac
-      [ -f "$target" ] || fail komandy "commands.$k: файла нет в дереве: $file"
+      REAL=""
+      if canon_inside_R "$file" "commands.$k"; then
+        [ -f "$REAL" ] || { fail komandy "commands.$k: файла нет в дереве: $file (real: $REAL)"; continue; }
+        # Хвостовые токены: КАЖДЫЙ без метасимволов оболочки. Список —
+        # операторы оболочки (`|| ; && | & > <`) и подстановки ($ ` " ' \).
+        bad=""
+        for ((j=2; j<${#toks[@]}; j++)); do
+          case "${toks[$j]}" in
+            *\|-*|*\&*|*\;*|*\(*|*\)*|*\<*|*\>*|*\$*|*\`*|*"\\"*|*"'"*|*"'"*) bad="${toks[$j]}"; break ;;
+          esac
+        done
+        [ -z "$bad" ] || { fail komandy "commands.$k: токен после файла содержит метасимвол оболочки: $bad"; continue; }
+      fi
       continue
       ;;
-    npm) ;;  # ниже
+    npm)
+      # npm — закрытый набор: «npm [--prefix D] test» либо «npm [--prefix D] run <s>».
+      # Любой хвост после «test» или после «run <s>» — отказ (F3).
+      dir="$R"; i=0
+      while :; do
+        nxt=$((i+1))
+        [ "$nxt" -lt "${#toks[@]}" ] || break
+        [ "${toks[$nxt]}" = "--prefix" ] || break
+        dnext_i=$((i+2))
+        [ "$dnext_i" -lt "${#toks[@]}" ] || { fail komandy "commands.$k: --prefix без значения: $v"; continue 2; }
+        dnext="${toks[$dnext_i]}"
+        REAL=""
+        if ! canon_inside_R "$dnext" "commands.$k: --prefix"; then continue 2; fi
+        dir="$REAL"
+        i=$dnext_i
+      done
+      cmd_i=$((i+1))
+      cur="${toks[$cmd_i]:-}"
+      [ -n "$cur" ] || { fail komandy "commands.$k: пустой хвост после разбора npm: $v"; continue; }
+      case "$cur" in
+        run)
+          script_i=$((cmd_i+1))
+          script="${toks[$script_i]:-}"
+          [ -n "$script" ] || { fail komandy "commands.$k: 'run' без имени скрипта <s>: $v"; continue; }
+          extra_i=$((script_i+1))
+          [ "$extra_i" -ge "${#toks[@]}" ] || { fail komandy "commands.$k: лишние токены после 'run <s>': $v"; continue; }
+          ;;
+        test)
+          extra_i=$((cmd_i+1))
+          [ "$extra_i" -ge "${#toks[@]}" ] || { fail komandy "commands.$k: лишние токены после 'test': $v"; continue; }
+          script="test"
+          ;;
+        *)
+          fail komandy "commands.$k: вне закрытой формы 'run <s>'|'test' (npm): $v"; continue
+          ;;
+      esac
+      pj="$dir/package.json"
+      [ -f "$pj" ] || { fail komandy "commands.$k: нет $pj"; continue; }
+      if ! jq -e --arg s "$script" '.scripts[$s] // null | type == "string"' "$pj" >/dev/null 2>&1; then
+        fail komandy "commands.$k: скрипта '$script' нет в ${pj#"$R"/}/package.json"
+      fi
+      continue
+      ;;
     *)
       fail komandy "commands.$k вне известных семейств (npm|node|python3): $v"
       continue
       ;;
   esac
-  # npm — вытащить (--prefix DIR | -- DIR) и команду (run|test|<name>)
-  dir="$R"; i=0
-  while [ $((i+1)) -lt "${#toks[@]}" ]; do
-    i=$((i+1))
-    tok="${toks[$i]}"
-    if [ "$tok" = "--prefix" ]; then
-      dnext="${toks[$((i+1))]:-}"
-      [ -n "$dnext" ] || { fail komandy "commands.$k: --prefix без значения"; break; }
-      case "$dnext" in
-        /*) dir="$dnext" ;;
-        *) dir="$R/$dnext" ;;
-      esac
-      i=$((i+1))
-      continue
-    fi
-    break  # встретили команду — выходим
-  done
-  cur="${toks[$i]:-}"
-  [ -n "$cur" ] || { fail komandy "commands.$k: пустой хвост после разбора npm: $v"; continue; }
-  script=""
-  case "$cur" in
-    run) script="${toks[$((i+1))]:-}" ;;
-    test) script="test" ;;
-    *) script="$cur" ;;
-  esac
-  [ -n "$script" ] || { fail komandy "commands.$k: не извлечено имя скрипта: $v"; continue; }
-  pj="$dir/package.json"
-  [ -f "$pj" ] || { fail komandy "commands.$k: нет $pj"; continue; }
-  if ! jq -e --arg s "$script" '.scripts[$s] // null | type == "string"' "$pj" >/dev/null 2>&1; then
-    fail komandy "commands.$k: скрипта '$script' нет в ${pj#"$R"/}/package.json"
-  fi
 done
 
-# ── source-canon: каждый объявленный источник существует ────────────────────
+# ── source-canon: каждый объявленный источник существует ВНУТРИ $R ─────────
+# Канонизируем относительный путь через `cd && pwd -P`, чтобы поймать
+# `..`-побег (как и в komandy) — анти-плацебо симметричен с workflowPaths.
+# Абсолютный путь — отказ по той же причине, что для workflowPaths.
 sc="$(printf '%s' "$OUT" | jq -r '.sourceCanon.value.sources // [] | length')"
 if [ "$sc" != "0" ] && [ -n "$sc" ]; then
   for idx in $(seq 0 $((sc-1))); do
@@ -215,9 +266,20 @@ if [ "$sc" != "0" ] && [ -n "$sc" ]; then
       continue
     fi
     case "$sp" in
-      /*) fail source-canon "источник абсолютный: $sp" ;;
-      *) [ -f "$R/$sp" ] || fail source-canon "источник отсутствует: $sp" ;;
+      /*) fail source-canon "источник абсолютный: $sp"; continue ;;
+      *) p="$R/$sp" ;;
     esac
+    preal="$(cd "$(dirname -- "$p")" 2>/dev/null && pwd -P || true)"
+    if [ -z "$preal" ]; then
+      fail source-canon "источник вне файловой системы: $sp"
+      continue
+    fi
+    real="$preal/$(basename -- "$p")"
+    case "$real" in
+      "$R"|"$R"/*) ;;
+      *) fail source-canon "источник канонически вне репо: $sp → $real"; continue ;;
+    esac
+    [ -f "$real" ] || { fail source-canon "источник отсутствует: $sp (real: $real)"; continue; }
   done
 fi
 
