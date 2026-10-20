@@ -17,7 +17,7 @@ id	пара	этап	зависит	источник	трек
 V-2	6	до V-2	090,091,094,095,096	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3	autonomy
 ночь-повторяемость	7	параллельно с V-2	V-2	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4	autonomy
 087	3	до V-2	998	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	CI
-110	9	параллельно с V-2	087	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	done
+110	4	параллельно с V-2	087	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	done
 генераторы-каналы	10	параллельно с V-2	110	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	tools
 решения-контекст	11	параллельно с V-2	генераторы-каналы	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	architecture
 операционные-инструменты	12	параллельно с V-2	решения-контекст	docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5	ops
