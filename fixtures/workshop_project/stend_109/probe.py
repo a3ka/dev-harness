@@ -6,9 +6,19 @@
 субъектом в sink → чтение ожиданий из sink; мутанты-обходы байт-в-байт к
 деревьям критика кругов 1–2.
 
+Структура Complior-back (слово консультанта 14:30 UTC 2026-10-20): репозиторий
+перестроен по эталону — backend/ растворён (app/, server/, tests/ и корневые
+файлы пакета — в корне репозитория), tools + backend/scripts → tests/tools/,
+db → migrations/, infra/migrations|release → server/infrastructure/,
+contracts|sources|ux|data|evidence → docs/, корневой server →
+tests/historical-server/. Пути батареи, обязанные пережить ОБЕ структуры,
+разрешаются по факту дерева ПЕРЕМЕННОЙ (package.json в корне — новая
+структура, в backend/ — старая; производные пути — из одной колонки PATHS),
+не жёстким литералом.
+
 Парсер — Python 3 stdlib. Батарея поднимает НЕ стенд, а ИСПОЛНЯЕТ предмет:
 раннер миграций 129 (node), точку входа drill-коллектора (node, команда
-scripts['drill:evidence'] из backend/package.json, два различимых входа),
+scripts['drill:evidence'] из package.json, два различимых входа),
 recordInteraction harness (node, три различимые записи — по одной на режим) и
 разрешение сетей docker compose config (без подъёма контейнеров). Живой стенд
 (docker compose up -d --wait, повтор, повреждённая копия, реальный маршрут
@@ -19,7 +29,7 @@ egress из запущенного сервиса; npm test:integration на nat
 
 ПРАВИЛО Ц (цепь; арбитраж 109): живой факт зелен только если измерены все три
 звена — (1) ВЫЗОВ: субъект запущен командой/точкой входа, которую объявляет
-ПОСТАВКА (скрипт backend/package.json, вызов из harness/теста), а не файлом,
+ПОСТАВКА (скрипт package.json, вызов из harness/теста), а не файлом,
 который батарея нашла сама; (2) ЗАПИСЬ: субъект сам создал артефакт в sink
 (файл evidence), батарея его не подменяет; (3) ЧТЕНИЕ: ожидания сравниваются
 со значениями, ПРОЧИТАННЫМИ из sink, по независимым литералам батареи;
@@ -38,7 +48,7 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
 ГРАММАТИКА МАРКЕРОВ (что ищет батарея; смысл доказывают живые строки приёмки и
 судьи — батарея сверх-приближение по правилу 7 AGENTS, не интерпретатор):
 
-  compose (backend/compose.dev.yml; текстовые якоря, не YAML-парсер):
+  compose (compose.dev.yml в корне репозитория; текстовые якоря, не YAML-парсер):
     - сервис миграций '^  migrat…:' и сервис '^  api:';
     - migrate-before-API: literal 'service_completed_successfully' в файле и
       зависимость api от сервиса миграций;
@@ -53,7 +63,7 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
     - опубликованный порт СЕРВИСА PG — только '127.0.0.1:';
     - данные PG — именованный volume ('- имя:/…') и верхний раздел volumes:.
 
-  harness (backend/tests/helpers/harness.js, CommonJS):
+  harness (tests/helpers/harness.js, CommonJS):
     - append-only: флаг 'wx' (или O_EXCL / flag 'x') при создании файлов evidence;
     - scrubber: вызов scrub*/redact*/sanitiz* над сериализованным текстом
       (аргумент содержит JSON.stringify);
@@ -67,9 +77,9 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       http_request … http_response … sql_before … sql_after … runtime_role …
       provider_calls — произведение осей на каждую запись взаимодействия.
 
-  drill-коллектор (точка входа поставки — backend/package.json
+  drill-коллектор (точка входа поставки — package.json
   scripts['drill:evidence']; имя скрипта — единый источник ЗДЕСЬ; команда
-  вызывает коллектор backend/scripts/*.js с литералами drill+rpo+rto в одном
+  вызывает коллектор tests/tools/*.js с литералами drill+rpo+rto в одном
   файле; упоминание basename коллектора в description/комментарии проводом
   НЕ считается):
     - грамматика CLI: `node <коллектор> --out DIR [--input FILE]`; без входа
@@ -81,25 +91,26 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       целевые константы рядом и отдельно.
 
   проводка:
-    - файл в backend/tests/integration/**, содержащий 'helpers/harness';
+    - файл в tests/integration/**, содержащий 'helpers/harness';
     - package.json: скрипт test:integration покрывает этот файл своим glob.
 
   факты (зелены и на B, и на C; красный факт = UNMEASURABLE, не мок-зелёный;
   None = NEEDS_ENV — честный NOT_RUN с границей «что именно не проверено»):
-    - ROOT_SERVER_PRESENT: server/test/harness.ts и server/src/app.ts на месте
+    - ROOT_SERVER_PRESENT: tests/historical-server/test/harness.ts и
+      tests/historical-server/src/app.ts на месте
       И байты совпадают с закреплёнными sha256 пина B (пустышка не проходит);
     - RUNNER_DAMAGE_GUARD: раннер 129 отказывает на повреждённой копии db/ и на
-      манифесте с пропуском. NEEDS_ENV, если нет node или backend/node_modules/pg;
+      манифесте с пропуском. NEEDS_ENV, если нет node или node_modules/pg;
     - EGRESS_GUARD (живой): docker compose config по РАЗРЕШЁННОЙ конфигурации —
       сети, реально назначенные worker/sandbox/document, существуют и все
       internal; NEEDS_ENV без docker compose (граница: назначение сетей и живой
       маршрут egress НЕ проверены);
     - DRILL_EVIDENCE_GUARD (живой; правило Ц): КОМАНДА поставки
-      scripts['drill:evidence'] ИСПОЛНЯЕТСЯ в disposable-копии backend — без
+      scripts['drill:evidence'] ИСПОЛНЯЕТСЯ в disposable-копии корня пакета — без
       входа NOT_RUN, с двумя различимыми входами точные sha256-хэши и
       измеренные значения каждого входа, sink читается из DIR/drill-evidence.json
       самой команды; чужой snapshot и константа не проходят; команда, не
-      указывающая на коллектор backend/scripts, — красна;
+      указывающая на коллектор tests/tools, — красна;
     - HARNESS_TUPLE_GUARD (живой; правило Ц): recordInteraction(observation,
       dir) — синхронная функция harness.js; ТРИ различимые записи — по одной на
       каждый режим FIXTURE_5_8_2 / SYNTHETIC / RUNTIME; из СОХРАНЁННОГО файла,
@@ -122,7 +133,7 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
     - HARNESS_HONESTY_GUARD (живой; круг 3): поверхность честности — названная
       контрактом recordInteraction (синхронная) и живой путь поставки «реальный
       HTTP между SQL-снимками» recordInteractionAsync (объявлен тестом поставки
-      backend/tests/integration/harness.test.js; имена внутренних функций не
+      tests/integration/harness.test.js; имена внутренних функций не
       закрепляются): наблюдение БЕЗ mode → отказ (throw) и файл не создаётся,
       не «mode: RUNTIME» по умолчанию; mode вне трёх литералов (MOCK_SUCCESS) →
       throw на синхронной И на живой ветке; валидный mode при недоступной БД
@@ -136,7 +147,7 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       JSON-экранированной формы каждого; запись не вакуумна (authorization
       непуст, «patient» в теле сохранён, mode из файла равен наблюдению);
     - STEND_UP_GUARD (живой): docker compose -p <уникальный> -f
-      backend/compose.dev.yml up -d --wait → rc 0; SELECT count(*) из
+      compose.dev.yml up -d --wait → rc 0; SELECT count(*) из
       control.schema_migration = 14; повторный up rc 0 и ledger прежний;
       после прогона — down -v. Ловит том PG18 вне /var/lib/postgresql
       (образ 18+ отказывается от data-подпути) и migrator на образе без node
@@ -160,7 +171,7 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       раз (только в после-снимке: HTTP между снимками); (3) runtime_role из
       файла = current_user БД-сессии, не заявление вызывающего. Имена
       внутренних функций реализации сверх экспортов harness.js не
-      закрепляются. NEEDS_ENV без docker/node/backend/node_modules/pg;
+      закрепляются. NEEDS_ENV без docker/node/node_modules/pg;
     - ASYNC_PII_GUARD (живой; правило Ц, чтение из sink): recordInteractionAsync
       с РЕАЛЬНЫМ HTTP-ответом, несущим Set-Cookie-МАССИВ из двух значений, и
       запросом с cookie «a=1; session=X»; тело ответа несёт экранированную
@@ -168,13 +179,14 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       секретом. В sink-файле каждый секрет отсутствует raw- и в JSON-форме,
       файл парсится как JSON (потребитель читает JSON.parse'ом), ответ
       измерен (status 200, маркер тела сохранён);
-    - LANE_HYGIENE_GUARD (живой): lane stend109 (tools/run_backend_ci.py)
-      исполняется с COMPLIOR_STEND109_H_CHECKOUT на синтетический ЧИСТЫЙ
-      git-checkout с тегом frozen/contracts/109/1 (батарея-заглушка печатает
-      маркер, rc 0) — lane PASS; тот же checkout с НЕЗАКОММИЧЕННОЙ подменой
-      probe.py на sys.exit(0) — lane обязан отказать (rc ≠ 0): грязное
-      рабочее дерево H-checkout не исполняется как frozen-батарея (A2/С3).
-      NEEDS_ENV, если lane stend109 или git отсутствуют;
+    - LANE_HYGIENE_GUARD (живой): lane stend109 (tests/tools/run_backend_ci.py)
+      исполняется с COMPLIOR_STEND109_H_CHECKOUT на ЧИСТЫЙ git-checkout тега
+      frozen/contracts/109/2 (живая батарея тега; рекурсия погашена маркером
+      глубины STEND109_LANE_DEPTH — см. блок круга 4/v2 ниже) — lane PASS;
+      тот же checkout с НЕЗАКОММИЧЕННОЙ подменой probe.py на sys.exit(0) —
+      lane обязан отказать (rc ≠ 0): грязное рабочее дерево H-checkout не
+      исполняется как frozen-батарея (A2/С3). NEEDS_ENV, если lane stend109,
+      git или docker отсутствуют;
     - DRILL_INPUT_GUARD (расширен, F2'/С5): каждое измеренное поле портится
       В ОТДЕЛЬНОСТИ (остальные чисты): measured_at «never»/«ok»/не-ISO и
       отрицательные measured_rpo_minutes/measured_rto_minutes → rc ≠ 0 и в
@@ -219,12 +231,20 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       == 'NOT_RUN' (не заявление); два объектных входа {a:{x:1}}/{a:{y:2}} —
       input_hashes из файла РАЗЛИЧАЮТСЯ (каноническая форма не навязывается;
       I-7/I-8);
-    - LANE_HYGIENE_GUARD (переписан, A-8): lane stend109 судится на ЖИВОМ
-      H-checkout пина (clone тега frozen/contracts/109/1; HEAD == STEND109_PIN,
-      hash-object probe.py == блоб пина) и ROOT-дереве, где замороженная
-      батарея 109/1 зелёна (8aca71a): чистый — lane rc 0; три обхода —
-      незакоммиченная подмена probe.py, подмена под update-index
-      --assume-unchanged, коммит подмены + git tag -f — каждый rc ≠ 0 (I-5).
+    - LANE_HYGIENE_GUARD (переписан, A-8; v2 — форк n109-lane-v2): lane
+      stend109 судится на ЖИВОМ H-checkout пина (clone тега
+      frozen/contracts/109/2; HEAD == STEND109_PIN, hash-object probe.py ==
+      блоб пина) на дереве ПОД испытанием (HEAD; зелёный корень v1 8aca71a —
+      наследие v1): чистый — lane rc 0; три обхода — незакоммиченная подмена
+      probe.py, подмена под update-index --assume-unchanged, коммит подмены
+      + git tag -f — каждый rc ≠ 0 (I-5). Рекурсия lane→батарея v2→lane-факт
+      →lane разорвана маркером STEND109_LANE_DEPTH='1' от внешнего факта:
+      вложенный факт — зелёный пропуск (гигиену судит внешний); глубина ≥2 —
+      громкий красный «рекурсия lane-факта» сразу; незавершающийся прогон —
+      красный таймаутом run_lane (rc 124) за конечное время; клетка
+      lane_dirty_checkout_ok во вложенном прогоне — поименованный пропуск
+      SKIP_NESTED_DEPTH (судит внешний). Остаточный риск cognitive-only —
+      подмена env-маркера в CI.
   НОВЫЕ ФАКТЫ ЧЕРНОВИКА v2 (форк n109-krug4-fail, находки круга 4 adversary
   I-1/I-10; замороженный текст 109/1 меняется только перезаморозкой 109/2):
     - BACKEND_LINT_GUARD (живой, I-1): npm run -s lint (eslint . и
@@ -266,6 +286,59 @@ from pathlib import Path
 UNMEASURABLE = '109 UNMEASURABLE'
 
 
+# ------------------------------------------------ структура Complior-back
+# Карта путей консультанта 14:30 UTC 2026-10-20 (дословно): backend/app →
+# app/, backend/server → server/, backend/tests → tests/, tools +
+# backend/scripts → tests/tools/, db → migrations/, infra/migrations|release
+# → server/infrastructure/, contracts|sources|ux|data|evidence → docs/,
+# корневой server → tests/historical-server/, корневые файлы backend
+# (package.json, compose.dev.yml, node_modules, …) → в корень репозитория.
+# Пути, обязанные пережить ОБЕ структуры, батарея разрешает по факту дерева
+# (переменная, не жёсткий литерал — рекомендация консультанта): package.json
+# в корне — новая структура, в backend/ — старая; производные пути выводятся
+# из выбранной колонки ЕДИНЫМ источником (Н-39: привязка стабов — по коду).
+LAYOUT_NEW = 'new'
+LAYOUT_OLD = 'old'
+PATHS = {
+    LAYOUT_NEW: {
+        'pkg_root': '', 'compose': 'compose.dev.yml', 'pkg': 'package.json',
+        'harness': 'tests/helpers/harness.js', 'integ_dir': 'tests/integration',
+        'scripts_dir': 'tests/tools', 'lane': 'tests/tools/run_backend_ci.py',
+        'db_dir': 'migrations',
+        # 604fad1b/11432a3: run.js:10 «server/infrastructure/migrations/
+        # manifest.json», package.json scripts.migrate — тот же каталог
+        'runner': 'server/infrastructure/migrations/run.js',
+        'manifest': 'server/infrastructure/migrations/manifest.json',
+        'node_modules': 'node_modules',
+        'root_server': 'tests/historical-server',
+    },
+    LAYOUT_OLD: {
+        'pkg_root': 'backend', 'compose': 'backend/compose.dev.yml',
+        'pkg': 'backend/package.json',
+        'harness': 'backend/tests/helpers/harness.js',
+        'integ_dir': 'backend/tests/integration',
+        'scripts_dir': 'backend/scripts', 'lane': 'tools/run_backend_ci.py',
+        'db_dir': 'db', 'runner': 'infra/migrations/run.js',
+        'manifest': 'infra/migrations/manifest.json',
+        'node_modules': 'backend/node_modules', 'root_server': 'server',
+    },
+}
+
+
+def detect_layout(repo):
+    """Новая структура — package.json в корне; старая — в backend/."""
+    r = Path(repo)
+    for lay in (LAYOUT_NEW, LAYOUT_OLD):
+        if (r / PATHS[lay]['pkg']).is_file():
+            return lay
+    return None
+
+
+def p_of(repo, key):
+    """Путевой литерал по репо без Tree (факты, принимающие Path)."""
+    return PATHS[detect_layout(repo) or LAYOUT_OLD][key]
+
+
 # ---------------------------------------------------------------- tree overlay
 
 class Tree:
@@ -274,6 +347,16 @@ class Tree:
     def __init__(self, repo, overlay=None):
         self.repo = Path(repo)
         self.overlay = overlay or {}
+        self.layout = detect_layout(self.repo)
+
+    def p(self, key):
+        """Путевой литерал выбранной структуры (единый источник путей)."""
+        return PATHS[self.layout or LAYOUT_OLD][key]
+
+    def pkg_root(self):
+        """Корень пакета Node (новая структура — корень репо, старая — backend/)."""
+        pr = self.p('pkg_root')
+        return self.repo if not pr else self.repo / pr
 
     def get(self, rel):
         if rel in self.overlay:
@@ -356,7 +439,7 @@ def service_network_names(block):
 
 def check_compose(tree):
     """(fired, blocked) группы стенда."""
-    text = tree.get('backend/compose.dev.yml')
+    text = tree.get(tree.p('compose'))
     if text is None:
         return {'COMPOSE_MISSING'}, set()
     fired = set()
@@ -400,18 +483,15 @@ def check_compose(tree):
 
 # ---------------------------------------------------------------- harness ctrl
 
-HARNESS = 'backend/tests/helpers/harness.js'
-
-
 def check_harness(tree):
-    text = tree.get(HARNESS)
+    text = tree.get(tree.p('harness'))
     if text is None:
         return {'HARNESS_MISSING'}, set()
     text = code_only(text)
     fired = set()
-    if HARNESS not in tree.overlay:  # синтаксис — только на живом файле
-        pkg = tree.get('backend/package.json') or ''
-        chk = subprocess.run(['node', '--check', str(tree.repo / HARNESS)],
+    if tree.p('harness') not in tree.overlay:  # синтаксис — только на живом файле
+        pkg = tree.get(tree.p('pkg')) or ''
+        chk = subprocess.run(['node', '--check', str(tree.repo / tree.p('harness'))],
                              capture_output=True)
         if chk.returncode != 0 or '"type"' in pkg and '"module"' in pkg:
             fired.add('HARNESS_NOT_CJS')
@@ -446,24 +526,24 @@ def check_harness(tree):
 # ---------------------------------------------------------------- wiring ctrl
 
 def script_candidates(tree):
-    """[(rel, тело)] backend/scripts/*.js с литералами drill+rpo+rto (коллектор)."""
+    """[(rel, тело)] *.js каталога инструментов (tests/tools) с литералами drill+rpo+rto."""
     out = []
     for n in scripts_names(tree):
-        rel = 'backend/scripts/%s' % n
+        rel = '%s/%s' % (tree.p('scripts_dir'), n)
         body = tree.get(rel)
         if body and all(l in code_only(body).lower() for l in ('drill', 'rpo', 'rto')):
             out.append((rel, body))
     return out
 
 def scripts_names(tree):
-    d = tree.repo / 'backend' / 'scripts'
+    d = tree.repo / tree.p('scripts_dir')
     return sorted(p.name for p in d.glob('*.js')) if d.is_dir() else []
 
 
 
 def find_harness_tests(tree):
     out = []
-    d = tree.repo / 'backend' / 'tests' / 'integration'
+    d = tree.repo / tree.p('integ_dir')
     for p in sorted(d.rglob('*.test.js')) if d.is_dir() else []:
         rel = str(p.relative_to(tree.repo))
         if rel in tree.overlay:
@@ -486,7 +566,7 @@ DRILL_SCRIPT = 'drill:evidence'  # единый источник имени — 
 
 def drill_entry_command(tree):
     """Команда точки входа поставки: scripts['drill:evidence'] (правило Ц, звено 1)."""
-    pkg = tree.get('backend/package.json')
+    pkg = tree.get(tree.p('pkg'))
     if pkg is None:
         return None
     try:
@@ -506,14 +586,15 @@ def check_wiring(tree):
         fired.add('DRILL_MEASUREMENTS_ABSENT')
     if not tests:
         return fired | {'HARNESS_INTEGRATION_TEST_MISSING'}, {'TEST_INTEGRATION_NOT_WIRED'}
-    pkg = tree.get('backend/package.json') or ''
+    pkg = tree.get(tree.p('pkg')) or ''
     try:
         script = json.loads(pkg)['scripts']['test:integration']
     except (ValueError, KeyError, TypeError):
         script = ''
     covered = False
+    pkg_rel = tree.p('pkg_root')
     for t in tests:
-        base = t.split('backend/', 1)[-1]
+        base = t[len(pkg_rel) + 1:] if pkg_rel and t.startswith(pkg_rel + '/') else t
         for pat in re.findall(r'"([^"]+)"', script):
             p2 = pat.replace('**/', '').replace('**', '*')
             if fnmatch.fnmatch(base, p2) or fnmatch.fnmatch(base, p2.replace('tests/', '')):
@@ -534,8 +615,13 @@ def subject_control(tree):
 # ---------------------------------------------------------------- факты
 
 ROOT_SERVER_SHA = {
-    'server/test/harness.ts': '8c1922c34d5deb9249c18288f8cee3380ca2d285217eed2303b4143db190b7cf',
-    'server/src/app.ts': 'b852e8427cfc49b8c772b2835b619931b4dae2ee4b891474a80965f8d026b02e',
+    # перебазирование 604fad1b адаптировало ПУТЯНЫЕ литералы исторического
+    # SYNTHETIC-сервера к новой раскладке (server/ → tests/historical-server/,
+    # db/ → migrations/, '../..' → '../../..'; diff 9+/8-, непутевых строк нет,
+    # src/app.ts байтово прежний) — пин следует живому дереву, защитная функция
+    # (необъявленная правка historical-байтов = красный) сохранена
+    'test/harness.ts': '2ea5d921ed4a05c76a6f7ba5930e1196d2358ec793c99c29c26c37102c54eb8e',
+    'src/app.ts': 'b852e8427cfc49b8c772b2835b619931b4dae2ee4b891474a80965f8d026b02e',
 }
 
 
@@ -544,21 +630,22 @@ def sha256_text(s):
 
 
 def runner_damage_fact(r, node):
-    if not node or not (r / 'backend/node_modules/pg/package.json').is_file():
-        return (None, 'NEEDS_ENV: node=%s, backend/node_modules/pg=%s (npm ci в backend)' % (
-            bool(node), (r / 'backend/node_modules/pg/package.json').is_file()))
+    nm_rel = p_of(r, 'node_modules')
+    if not node or not (r / nm_rel / 'pg/package.json').is_file():
+        return (None, 'NEEDS_ENV: node=%s, %s/pg=%s (npm ci в корне пакета)' % (
+            bool(node), nm_rel, (r / nm_rel / 'pg/package.json').is_file()))
     with tempfile.TemporaryDirectory(prefix='stend109-') as tmp:
-        dbdir = Path(tmp) / 'db'
-        shutil.copytree(r / 'db', dbdir)
+        dbdir = Path(tmp) / 'db-dir'
+        shutil.copytree(r / p_of(r, 'db_dir'), dbdir)
         dmg = dbdir / '013_profile_release_permissions.sql'
         dmg.write_bytes(dmg.read_bytes() + b'\n-- damaged\n')
         env = dict(os.environ, MIGRATION_DATABASE_URL='postgres://u:p@127.0.0.1:1/none')
 
         def run(*a):
-            return subprocess.run([node, str(r / 'infra/migrations/run.js'), *a],
+            return subprocess.run([node, str(r / p_of(r, 'runner')), *a],
                                   env=env, capture_output=True, text=True, timeout=120)
         res1 = run('--db-dir', str(dbdir))
-        manifest = json.loads((r / 'infra/migrations/manifest.json').read_text())
+        manifest = json.loads((r / p_of(r, 'manifest')).read_text())
         entries = manifest.get('migrations') if isinstance(manifest, dict) else manifest
         res2 = None
         if isinstance(entries, list) and entries:
@@ -566,7 +653,7 @@ def runner_damage_fact(r, node):
             (man.get('migrations') if isinstance(manifest, dict) else man).pop()
             mpath = Path(tmp) / 'manifest.json'
             mpath.write_text(json.dumps(man))
-            res2 = run('--db-dir', str(r / 'db'), '--manifest', str(mpath))
+            res2 = run('--db-dir', str(r / p_of(r, 'db_dir')), '--manifest', str(mpath))
         ok1 = res1.returncode != 0 and 'манифест' in (res1.stderr or '')
         ok2 = res2 is None or res2.returncode != 0
         return (ok1 and ok2,
@@ -578,7 +665,7 @@ def runner_damage_fact(r, node):
 def egress_fact(repo, tree=None):
     """Живой разбор сетей docker compose config: worker/sandbox/document только internal."""
     tree = tree or Tree(repo)
-    compose = tree.get('backend/compose.dev.yml')
+    compose = tree.get(tree.p('compose'))
     if compose is None:
         return (None, 'NEEDS_ENV: compose.dev.yml отсутствует (контроль судит COMPOSE_MISSING); '
                       'живой маршрут document-worker НЕ проверен')
@@ -627,12 +714,12 @@ DRILL_TARGETS = {'target_rpo_minutes': 15, 'target_originals_within_minutes': 60
 
 def drill_fact(repo, tree=None):
     """Живой вызов ТОЧКИ ВХОДА ПОСТАВКИ (правило Ц, К2): команда
-    scripts['drill:evidence'] исполняется в disposable-копии backend, sink
+    scripts['drill:evidence'] исполняется в disposable-копии корня пакета, sink
     читается из DIR/drill-evidence.json самой команды."""
     tree = tree or Tree(repo)
     cmd = drill_entry_command(tree)
     if cmd is None:
-        return (None, 'NEEDS_ENV: scripts[%r] в backend/package.json отсутствует '
+        return (None, 'NEEDS_ENV: scripts[%r] в package.json отсутствует '
                       '(контроль судит DRILL_MEASUREMENTS_ABSENT); живой вызов '
                       'коллектора командой поставки НЕ проверен' % DRILL_SCRIPT)
     node = shutil.which('node')
@@ -642,16 +729,18 @@ def drill_fact(repo, tree=None):
     coll = next(((rel, body) for rel, body in cands
                  if rel.split('/')[-1] in cmd), None)
     if coll is None:
-        return (False, 'scripts[%s] не указывает на коллектор backend/scripts '
+        return (False, 'scripts[%s] не указывает на коллектор tests/tools '
                        '(drill+rpo+rto): %r' % (DRILL_SCRIPT, cmd[:100]))
     rel = coll[0]
     notes, oks = [], []
     with tempfile.TemporaryDirectory(prefix='stend109-drill-') as tmp:
-        be = Path(tmp) / 'backend'
-        shutil.copytree(tree.repo / 'backend', be,
-                        ignore=shutil.ignore_patterns('node_modules'))
+        pr = tree.p('pkg_root')
+        be = Path(tmp) / (pr or 'repo')
+        shutil.copytree(tree.pkg_root(), be,
+                        ignore=shutil.ignore_patterns('node_modules', '.git'))
+        prefix = pr + '/' if pr else ''
         for orel, obody in (tree.overlay or {}).items():  # оверлей мутанта — в копию
-            dest = Path(tmp) / orel
+            dest = be / orel[len(prefix):]
             if obody is None:
                 if dest.is_file():
                     dest.unlink()
@@ -781,7 +870,7 @@ def harness_fact(repo, tree=None):
     по порядку создания; return — дополнительная сверка; append-only — ровно
     три файла, прежние неизменны; сентинелы в файлах отсутствуют."""
     tree = tree or Tree(repo)
-    body = tree.get(HARNESS)
+    body = tree.get(tree.p('harness'))
     if body is None:
         return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
     node = shutil.which('node')
@@ -889,7 +978,7 @@ def drill_input_fact(repo, tree=None):
     tree = tree or Tree(repo)
     cmd = drill_entry_command(tree)
     if cmd is None:
-        return (None, 'NEEDS_ENV: scripts[%r] в backend/package.json отсутствует '
+        return (None, 'NEEDS_ENV: scripts[%r] в package.json отсутствует '
                       '(контроль судит DRILL_MEASUREMENTS_ABSENT); валидация входов '
                       'и append-only drill-evidence НЕ проверены' % DRILL_SCRIPT)
     node = shutil.which('node')
@@ -899,15 +988,17 @@ def drill_input_fact(repo, tree=None):
     coll = next(((rel, body) for rel, body in cands
                  if rel.split('/')[-1] in cmd), None)
     if coll is None:
-        return (False, 'scripts[%s] не указывает на коллектор backend/scripts '
+        return (False, 'scripts[%s] не указывает на коллектор tests/tools '
                        '(drill+rpo+rto): %r' % (DRILL_SCRIPT, cmd[:100]))
     notes, oks = [], []
     with tempfile.TemporaryDirectory(prefix='stend109-drillin-') as tmp:
-        be = Path(tmp) / 'backend'
-        shutil.copytree(tree.repo / 'backend', be,
-                        ignore=shutil.ignore_patterns('node_modules'))
+        pr = tree.p('pkg_root')
+        be = Path(tmp) / (pr or 'repo')
+        shutil.copytree(tree.pkg_root(), be,
+                        ignore=shutil.ignore_patterns('node_modules', '.git'))
+        prefix = pr + '/' if pr else ''
         for orel, obody in (tree.overlay or {}).items():
-            dest = Path(tmp) / orel
+            dest = be / orel[len(prefix):]
             if obody is None:
                 if dest.is_file():
                     dest.unlink()
@@ -1042,7 +1133,7 @@ def harness_honesty_fact(repo, tree=None):
     создаётся; mode только из трёх литералов (обе ветки); недоступная БД →
     throw ИЛИ NOT_RUN, никогда MEASURED/успех."""
     tree = tree or Tree(repo)
-    body = tree.get(HARNESS)
+    body = tree.get(tree.p('harness'))
     if body is None:
         return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
     node = shutil.which('node')
@@ -1157,7 +1248,7 @@ def harness_pii_fact(repo, tree=None):
     объявленный секрет с "/\\ не попадают в sink ни raw-, ни JSON-экранированной
     формой; запись не вакуумна (правило Ц, звено 3 — чтение из файла)."""
     tree = tree or Tree(repo)
-    body = tree.get(HARNESS)
+    body = tree.get(tree.p('harness'))
     if body is None:
         return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
     node = shutil.which('node')
@@ -1244,7 +1335,7 @@ def stend_up_fact(repo, tree=None):
     ledger control.schema_migration = 14, повтор rc 0 и ledger прежний;
     down -v после прогона; уникальный -p, published-портов не занимается."""
     tree = tree or Tree(repo)
-    compose = tree.get('backend/compose.dev.yml')
+    compose = tree.get(tree.p('compose'))
     if compose is None:
         return (None, 'NEEDS_ENV: compose.dev.yml отсутствует (контроль судит '
                       'COMPOSE_MISSING); живой подъём стенда НЕ проверен')
@@ -1261,41 +1352,50 @@ def stend_up_fact(repo, tree=None):
     project = 'stend109up%s' % uuid.uuid4().hex[:8]
     repo_p = Path(repo)
     cwd = repo_p
-    cf = repo_p / 'backend' / 'compose.dev.yml'
+    cf = repo_p / tree.p('compose')
     tmpdir = None
     becopy = None
     if tree.overlay:
-        # релоцированная копия: относительные bind-пути → абсолютные от корня R.
-        # Оверлей под backend/** (например role-bootstrap M7) обязан попасть в
+        # релоцированная копия: относительные bind-пути → абсолютные от корня
+        # ПАКЕТА (новая структура — корень репо, старая — backend/). Оверлей
+        # под пакет (например role-bootstrap M7) обязан попасть в
         # bind-монтируемое дерево — иначе мутант не наблюдается живьём.
-        if any(k == 'backend' or k.startswith('backend/') for k in tree.overlay):
-            becopy = Path(tempfile.mkdtemp(prefix='stend109-be-')) / 'backend'
-            shutil.copytree(repo_p / 'backend', becopy,
-                            ignore=shutil.ignore_patterns('node_modules'))
+        pkg_rel = tree.p('pkg_root')
+        pkg_p = tree.pkg_root()
+        prefix = pkg_rel + '/' if pkg_rel else ''
+        if any(k == pkg_rel or k.startswith(prefix) for k in tree.overlay):
+            becopy = Path(tempfile.mkdtemp(prefix='stend109-pkg-')) / (pkg_rel or 'repo')
+            shutil.copytree(pkg_p, becopy,
+                            ignore=shutil.ignore_patterns('node_modules', '.git'))
             for orel, obody in tree.overlay.items():
-                if orel != 'backend' and not orel.startswith('backend/'):
+                if orel != pkg_rel and not orel.startswith(prefix):
                     continue
-                dest = becopy / orel[len('backend/'):] if orel != 'backend' else becopy
+                dest = becopy / orel[len(prefix):]
                 if obody is None:
                     if dest.is_file():
                         dest.unlink()
                 else:
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     dest.write_text(obody, encoding='utf-8')
-            os.symlink(repo_p / 'backend' / 'node_modules', becopy / 'node_modules')
+            os.symlink(repo_p / tree.p('node_modules'), becopy / 'node_modules')
         tmpdir = tempfile.mkdtemp(prefix='stend109-up-')
         text = compose
+        base = becopy if becopy is not None else pkg_p
         if becopy is not None:
             text = re.sub(r'^(\s*-\s*)\.\./backend/([^:\s]+):',
                           lambda m: '%s%s:' % (m.group(1), becopy / m.group(2)),
                           text, flags=re.M)
             text = re.sub(r'^(\s*-\s*)\.\./backend:',
                           lambda m: '%s%s:' % (m.group(1), becopy), text, flags=re.M)
+        text = re.sub(r'^(\s*-\s*)\./:$',
+                      lambda m: '%s%s:' % (m.group(1), base), text, flags=re.M)
+        text = re.sub(r'^(\s*-\s*)\./([^:\s]+):',
+                      lambda m: '%s%s:' % (m.group(1), base / m.group(2)),
+                      text, flags=re.M)
         text = re.sub(r'^(\s*-\s*)\.\./([^:\s]+):',
                       lambda m: '%s%s:' % (m.group(1), (repo_p / m.group(2)).resolve()),
                       text, flags=re.M)
-        ctx = becopy if becopy is not None else (repo_p / 'backend')
-        text = re.sub(r'context:\s*\.\s*$', 'context: %s' % ctx, text, flags=re.M)
+        text = re.sub(r'context:\s*\.\s*$', 'context: %s' % base, text, flags=re.M)
         cf = Path(tmpdir) / 'compose.dev.yml'
         cf.write_text(text, encoding='utf-8')
         cwd = Path(tmpdir)
@@ -1566,15 +1666,15 @@ def async_tuple_fact(repo, tree=None):
     runtime_role из БД-сессии (Б2′/F3', M1–M4 и мутант «константы»): оракул —
     журнал прибытий сервера, строки таблицы и ось runtime_role из sink-файла."""
     tree = tree or Tree(repo)
-    body = tree.get(HARNESS)
+    body = tree.get(tree.p('harness'))
     if body is None:
         return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
     node = shutil.which('node')
     if node is None:
         return (None, 'NEEDS_ENV: node отсутствует — живой путь recordInteractionAsync НЕ проверен')
-    nm = Path(repo) / 'backend' / 'node_modules'
+    nm = Path(repo) / tree.p('node_modules')
     if not (nm / 'pg').is_dir():
-        return (None, 'NEEDS_ENV: backend/node_modules/pg отсутствует — SQL-путь harness НЕ проверен')
+        return (None, 'NEEDS_ENV: node_modules/pg отсутствует — SQL-путь harness НЕ проверен')
     try:
         v = subprocess.run(['docker', 'version', '--format', '{{.Server.Version}}'],
                            capture_output=True, text=True, timeout=30)
@@ -1832,7 +1932,7 @@ def async_pii_fact(repo, tree=None):
     непусты (К4), JSON цел; DB-less: runtime_role из файла == 'NOT_RUN',
     input_hashes двух объектных входов различны."""
     tree = tree or Tree(repo)
-    body = tree.get(HARNESS)
+    body = tree.get(tree.p('harness'))
     if body is None:
         return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
     node = shutil.which('node')
@@ -1918,29 +2018,77 @@ def async_pii_fact(repo, tree=None):
             'Set-Cookie-массив/multicookie/экранированная форма/литерал чисты, JSON цел'))
 
 
-LANE_FROZEN_TAG = 'frozen/contracts/109/1'
-# ROOT-дерево, на котором замороженная батарея 109/1 ЗЕЛЁНА (OBJECT круга 3;
-# CI круга 3 проходил на нём). На dd8e533 замороженная батарея красна — это
-# известный артефакт код-привязанной заморозки (С11 арбитража: закрытие —
-# перезаморозка 109/2, вопрос владельца), поэтому lane-факт берёт зелёный
-# ROOT из истории того же репо и не судит замороженную батарею на dd8e533.
-LANE_GREEN_ROOT = '8aca71aac5509abb0b1d825d3c808115a2648e88'
+LANE_FROZEN_TAG = 'frozen/contracts/109/3'
+# v2 (форк n109-lane-v2, рекомендация А): тег 109/2 указывает на батарею v2;
+# корень lane-прогона — дерево ПОД испытанием (HEAD продукта: батарея v2
+# зелёна на нём). Отдельный зелёный корень v1 (8aca71a) — наследие v1, где
+# замороженная 109/1 была зелёна только на старом дереве (С11 закрыт
+# перезаморозкой 109/2).
+#
+# Рекурсия lane → батарея v2 → lane-факт → lane … (в v1 вложенная батарея не
+# содержала lane-факта) разорвана МАРКЕРОМ ГЛУБИНЫ: внешний факт выставляет
+# '1' в окружении вложенного lane-запуска; вложенный lane-факт при маркере —
+# зелёный по построению (гигиену судит внешний факт), при глубине ≥2 —
+# громкий красный 'рекурсия lane-факта' сразу; прогон без маркера, не
+# завершающийся за бюджет run_lane, красен таймаутом за конечное время.
+# Остаточный риск (cognitive-only): подмена env-маркера в CI извне.
+LANE_DEPTH_MARKER = 'STEND109_LANE_DEPTH'
+
+
+def lane_depth_env():
+    """Числовая глубина LANE_DEPTH_MARKER для диспетчера клеток; мусорный
+    маркер трактуется как вложенный прогон (клетка lane-гигиены не судится —
+    её судит внешний факт; сама факт-ветка проверки при мусорном маркере
+    краснеет именованной причиной)."""
+    try:
+        return int(os.environ.get(LANE_DEPTH_MARKER, '0') or '0')
+    except ValueError:
+        return 1
 
 
 def lane_hygiene_fact(repo, tree=None):
-    """Гигиена H-checkout lane stend109 (A2/С3; круг 4 — A-8, I-5): lane судится
-    на ЖИВОМ пин-чекауте (локальный clone тега frozen/contracts/109/1 из
-    репозитория батареи: HEAD == STEND109_PIN, hash-object probe.py == блоб
-    пина) и на ROOT-дереве, где замороженная батарея зелёна. Чистый checkout —
-    lane rc 0; три обхода — незакоммиченная подмена probe.py (sys.exit(0)),
-    подмена под update-index --assume-unchanged (прячется от status
-    --porcelain, но не от hash-object), коммит подмены + git tag -f (дерево
-    чисто, тег переведён) — каждый обязан давать lane rc ≠ 0."""
+    """Гигиена H-checkout lane stend109 (A2/С3; круг 4 — A-8, I-5; v2 — форк
+    n109-lane-v2): lane судится на ЖИВОМ пин-чекауте (локальный clone тега
+    frozen/contracts/109/2 из репозитория батареи: HEAD == STEND109_PIN,
+    hash-object probe.py == блоб пина) на дереве ПОД испытанием (HEAD
+    продукта). Чистый checkout — lane rc 0; три обхода — незакоммиченная
+    подмена probe.py (sys.exit(0)), подмена под update-index
+    --assume-unchanged (прячется от status --porcelain, но не от
+    hash-object), коммит подмены + git tag -f (дерево чисто, тег переведён)
+    — каждый обязан давать lane rc ≠ 0. Рекурсия (lane на H = батарея v2
+    запускает ту же пробу с lane-фактом) разорвана маркером глубины
+    LANE_DEPTH_MARKER (Н-39, привязка стаб↔ветвь в коде): внешний факт
+    выставляет '1' в окружении вложенного lane-запуска — вложенный факт
+    возвращает зелёный пропуск (гигиену судит внешний); прямой вызов
+    frozen-пробы с маркером '2' — громкий красный 'рекурсия lane-факта'
+    сразу; прогон без маркера, не завершающийся за бюджет run_lane, красен
+    таймаутом (rc 124) за конечное время. Остаточный риск (cognitive-only):
+    подмена env-маркера в CI — контролирующий окружение способен снять
+    защиту; отдельного ловца нет, среда CI считается доверенной."""
+    # v2: маркер глубины проверяется ПЕРВОЙ ветвью — до docker/тега/clone:
+    # вложенный прогон не должен порождать новые lane-запуски ни при каком
+    # NEEDS/ошибочном окружении
+    raw_depth = os.environ.get(LANE_DEPTH_MARKER, '').strip()
+    if raw_depth:
+        try:
+            depth = int(raw_depth)
+        except ValueError:
+            return (False, '%s=%r не целое — маркер глубины испорчен '
+                           '(остаточный риск cognitive-only: подмена '
+                           'окружения)' % (LANE_DEPTH_MARKER, raw_depth))
+        if depth >= 2:
+            return (False, 'рекурсия lane-факта: %s=%d — внешний lane-факт '
+                           'не выставил/продублировал маркер глубины'
+                    % (LANE_DEPTH_MARKER, depth))
+        if depth == 1:
+            return (True, 'вложенный прогон: lane-факт пропущен внешним '
+                          'фактом (%s=1)' % LANE_DEPTH_MARKER)
+        # '0' и отрицательные — полный прогон (маркер «вне глубины»)
     tree = tree or Tree(repo)
-    lane = tree.get('tools/run_backend_ci.py')
+    lane = tree.get(tree.p('lane'))
     if lane is None or 'stend109' not in lane:
-        return (None, 'NEEDS_ENV: lane stend109 в tools/run_backend_ci.py отсутствует '
-                      '— гигиена H-checkout НЕ проверена')
+        return (None, 'NEEDS_ENV: lane stend109 в %s отсутствует '
+                      '— гигиена H-checkout НЕ проверена' % tree.p('lane'))
     if shutil.which('git') is None:
         return (None, 'NEEDS_ENV: git отсутствует — гигиена H-checkout НЕ проверена')
     try:
@@ -1960,17 +2108,16 @@ def lane_hygiene_fact(repo, tree=None):
         return (None, 'NEEDS_ENV: тег %s отсутствует в %s — пин-чекаут H '
                       'не собирается' % (LANE_FROZEN_TAG, devharness))
     pin_sha = (have_tag.stdout or '').strip()
-    root_commit = LANE_GREEN_ROOT
-    have_root = subprocess.run(
-        ['git', '-C', str(repo), 'cat-file', '-e', root_commit + '^{commit}'],
-        capture_output=True)
-    if have_root.returncode != 0:
-        root_commit = 'HEAD'
-    nm_src = Path(repo) / 'backend' / 'node_modules'
+    # v2 (форк n109-lane-v2): корень lane-прогона — дерево ПОД испытанием
+    # (HEAD): батарея v2 зелёна на нём; зелёный корень v1 (8aca71a) был
+    # нужен только замороженной 109/1 (С11 закрыт перезаморозкой 109/2)
+    root_commit = 'HEAD'
+    lay = detect_layout(repo) or LAYOUT_OLD
+    nm_src = Path(repo) / PATHS[lay]['node_modules']
     if not (nm_src / 'pg').is_dir():
-        return (None, 'NEEDS_ENV: backend/node_modules/pg в %s отсутствует — '
+        return (None, 'NEEDS_ENV: %s/pg в %s отсутствует — '
                       'RUNNER_DAMAGE_GUARD замороженной батареи не измерим, lane '
-                      'гигиена НЕ проверена' % repo)
+                      'гигиена НЕ проверена' % (PATHS[lay]['node_modules'], repo))
     notes, oks = [], []
     with tempfile.TemporaryDirectory(prefix='stend109-lane-') as tmp:
         # ROOT: зелёное для замороженной батареи дерево + lane-скрипт
@@ -1984,9 +2131,28 @@ def lane_hygiene_fact(repo, tree=None):
         if arc.returncode != 0:
             return (False, 'ROOT-извлечение %s: rc=%d %s' % (
                 root_commit, arc.returncode, (arc.stderr or '')[:120]))
-        (lane_repo / 'tools').mkdir(parents=True, exist_ok=True)
-        (lane_repo / 'tools' / 'run_backend_ci.py').write_text(lane, encoding='utf-8')
-        os.symlink(str(nm_src), str(lane_repo / 'backend' / 'node_modules'))
+        lane_rel = tree.p('lane')
+        (lane_repo / lane_rel).parent.mkdir(parents=True, exist_ok=True)
+        (lane_repo / lane_rel).write_text(lane, encoding='utf-8')
+
+        # v2: вложенной батарее нужен git-оракул — FILES_SHA256_GUARD читает
+        # 'HEAD:<rel>' блобы, _head_worktree делает git archive HEAD, а
+        # git archive не несёт .git. Материализуем извлечённое дерево ЕДИНЫМ
+        # коммитом (изоляция: lane_repo в tmpdir, репо продукта не мутируется;
+        # коммит содержит оверлей lane-скрипта — мутант честно красит FILES_SHA)
+        for a_ in (['init', '-q'], ['add', '-A'],
+                   ['-c', 'user.name=stend109-lane',
+                    '-c', 'user.email=stend109-lane@dev-harness.local',
+                    'commit', '-q', '-m', 'stend109: lane tree under test']):
+            g_ = subprocess.run(['git', '-C', str(lane_repo)] + a_,
+                                capture_output=True, text=True, timeout=180)
+            if g_.returncode != 0:
+                return (False, 'lane_repo git %s: rc=%d %s' % (
+                    a_[0], g_.returncode, (g_.stderr or '')[:120]))
+        # node_modules-симлинк — ПОСЛЕ коммита (в реальном репо untracked):
+        # archive HEAD с симлинком в дереве ломает вложенную _head_worktree
+        # (повторный os.symlink → FileExistsError, измерено на repro)
+        os.symlink(str(nm_src), str(lane_repo / PATHS[lay]['node_modules']))
         # H: пин-чекаут замороженного тега (HEAD == пину по построению клона)
         h = Path(tmp) / 'h'
         clone = subprocess.run(
@@ -1998,23 +2164,62 @@ def lane_hygiene_fact(repo, tree=None):
                 LANE_FROZEN_TAG, clone.returncode, (clone.stderr or '')[:120]))
         probe_rel = 'fixtures/workshop_project/stend_109/probe.py'
         probe = h / 'fixtures' / 'workshop_project' / 'stend_109' / 'probe.py'
-        env = dict(os.environ, COMPLIOR_STEND109_H_CHECKOUT=str(h))
+        # v2: маркер глубины '1' — вложенный lane-запуск гасит рекурсию:
+        # батарея из H видит маркер и пропускает свой lane-факт (зелёный
+        # по построению), гигиену судит ЭТОТ внешний факт
+        env = dict(os.environ, COMPLIOR_STEND109_H_CHECKOUT=str(h),
+                   **{LANE_DEPTH_MARKER: '1'})
 
         def git_h(*a):
             return subprocess.run(['git', '-C', str(h)] + list(a),
                                   capture_output=True, text=True, timeout=60)
 
         def run_lane(tag_):
-            r_ = subprocess.run(
-                [sys.executable, str(lane_repo / 'tools' / 'run_backend_ci.py'),
-                 '--lane', 'stend109', '--out', str(Path(tmp) / ('laneout-' + tag_))],
-                capture_output=True, text=True, timeout=420, env=env, cwd=str(lane_repo))
-            return r_
+            # v2: рекурсия lane→батарея→lane-факт→lane разорвана маркером
+            # LANE_DEPTH_MARKER='1' (см. env). Если frozen-батарея маркер НЕ
+            # выставляет (дефект), вложенный прогон не завершается —
+            # таймаут даёт красный ЗА КОНЕЧНОЕ ВРЕМЯ (rc 124, как у
+            # coreutils timeout), а не падение пробы исключением
+            argv_ = [sys.executable, str(lane_repo / lane_rel),
+                     '--lane', 'stend109', '--out', str(Path(tmp) / ('laneout-' + tag_))]
+            try:
+                return subprocess.run(argv_, capture_output=True, text=True,
+                                       timeout=900, env=env, cwd=str(lane_repo))
+            except subprocess.TimeoutExpired:
+                return subprocess.CompletedProcess(
+                    argv_, 124, '',
+                    'таймаут 900 c: вложенный lane не завершается '
+                    '(рекурсия lane-факта — маркер глубины не выставлен?)')
 
         clean = run_lane('clean')
         oks.append(clean.returncode == 0)
         notes.append('чистый пин-чекаут: lane rc=%d %s' % (
             clean.returncode, (clean.stderr or '').strip()[:80]))
+        # v2, красное предъявление маркера глубины (Н-39, привязка к ветвям
+        # проверки): прямой вызов frozen-пробы из h — (1) маркер '1' обязан
+        # давать зелёный-пропуск вложенного прогона, (2) маркер '2' — ГРОМКИЙ
+        # красный 'рекурсия lane-факта' СРАЗУ (конечное время). Если frozen-
+        # батарея маркер не понимает, вызов уходит в полную гигиену и убивается
+        # таймаутом контроля — контроль красный (пропуск не сработал)
+        drv = ('import sys; sys.path.insert(0, sys.argv[1]); import probe; '
+               'v, n = probe.lane_hygiene_fact(sys.argv[2]); '
+               'print(v); print(n); sys.exit(0 if v is True else 1)')
+        for mk_, rc_, tok_ in (('1', 0, 'вложенный прогон'),
+                               ('2', 1, 'рекурсия lane-факта')):
+            c_, ok_, head_ = None, False, 'таймаут 60 c'
+            try:
+                c_ = subprocess.run(
+                    [sys.executable, '-c', drv, str(probe.parent), str(h)],
+                    capture_output=True, text=True, timeout=60,
+                    env=dict(os.environ, **{LANE_DEPTH_MARKER: mk_}))
+                head_ = (c_.stdout or '').split('\n')[0].strip()
+                ok_ = c_.returncode == rc_ and tok_ in (c_.stdout or '')
+            except subprocess.TimeoutExpired:
+                pass
+            oks.append(ok_)
+            notes.append('маркер %s=%s: rc=%s %s' % (
+                LANE_DEPTH_MARKER, mk_,
+                c_.returncode if c_ is not None else 'timeout', head_[:60]))
         sub = 'import sys; sys.exit(0)\n'
         # обход 1 (A2 круга 2): незакоммиченная подмена probe.py
         probe.write_text(sub, encoding='utf-8')
@@ -2048,7 +2253,7 @@ def lane_hygiene_fact(repo, tree=None):
 
 def _head_worktree(repo, tree, dest):
     """Материализация HEAD-дерева репо в dest (git archive) с наложением
-    оверлея батареи (байты мутанта) и симлинком backend/node_modules.
+    оверлея батареи (байты мутанта) и симлинком node_modules пакета.
     Возвращает (True, '') либо (False, причину)."""
     arc = subprocess.run(
         ['/bin/sh', '-c',
@@ -2057,8 +2262,9 @@ def _head_worktree(repo, tree, dest):
     if arc.returncode != 0:
         return (False, 'HEAD-извлечение: rc=%d %s' % (
             arc.returncode, (arc.stderr or '').strip()[:120]))
+    pkg_rel = tree.p('pkg_root')
     for rel, data in (tree.overlay or {}).items():
-        if not rel.startswith('backend/'):
+        if pkg_rel and rel != pkg_rel and not rel.startswith(pkg_rel + '/'):
             continue
         p = dest / rel
         if data is None:
@@ -2067,15 +2273,15 @@ def _head_worktree(repo, tree, dest):
             continue
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(data, encoding='utf-8')
-    nm = Path(repo) / 'backend' / 'node_modules'
+    nm = Path(repo) / tree.p('node_modules')
     if (nm / 'pg').is_dir():
-        os.symlink(str(nm), str(dest / 'backend' / 'node_modules'))
+        os.symlink(str(nm), str(dest / tree.p('node_modules')))
     return (True, '')
 
 
 def backend_lint_fact(repo, tree=None):
     """I-1 (круг 4, adversary mut-i1): required-lane барьер lint —
-    «npm --prefix backend run -s lint» rc 0 на HEAD-дереве (арбитраж I-1:
+    «npm run -s lint» в корне пакета — rc 0 на HEAD-дереве (арбитраж I-1:
     «rc 0 на HEAD»). Живой прогон в disposable-копии (git archive HEAD +
     оверлей мутанта + симлинк node_modules): eslint . И prettier --check.
     Мутант backend_lint_unused_const (РОВНО один неиспользуемый const в
@@ -2084,9 +2290,9 @@ def backend_lint_fact(repo, tree=None):
     npm = shutil.which('npm')
     if npm is None:
         return (None, 'NEEDS_ENV: npm отсутствует — backend lint НЕ проверен (I-1)')
-    nm = Path(repo) / 'backend' / 'node_modules'
+    nm = Path(repo) / tree.p('node_modules')
     if not ((nm / '.bin' / 'eslint').exists() and (nm / '.bin' / 'prettier').exists()):
-        return (None, 'NEEDS_ENV: backend/node_modules без eslint/prettier — '
+        return (None, 'NEEDS_ENV: node_modules без eslint/prettier — '
                       'lint НЕ проверен (I-1)')
     with tempfile.TemporaryDirectory(prefix='stend109-lint-') as tmp:
         dest = Path(tmp) / 'r'
@@ -2095,7 +2301,9 @@ def backend_lint_fact(repo, tree=None):
         if not ok:
             return (False, why)
         try:
-            r = subprocess.run([npm, 'run', '-s', 'lint'], cwd=str(dest / 'backend'),
+            pkg_rel = tree.p('pkg_root')
+            r = subprocess.run([npm, 'run', '-s', 'lint'],
+                               cwd=str(dest / pkg_rel) if pkg_rel else str(dest),
                                capture_output=True, text=True, timeout=300)
         except subprocess.TimeoutExpired:
             return (False, 'npm run -s lint: таймаут 300 с')
@@ -2107,7 +2315,8 @@ def backend_lint_fact(repo, tree=None):
     return (False, 'lint rc=%d: %s' % (r.returncode, '; '.join(errs)[:200] or tail[:200]))
 
 
-DELIVERY_TEST_REL = 'backend/tests/integration/harness-live.test.js'
+def delivery_rel(t):
+    return t.p('integ_dir') + '/harness-live.test.js'
 DELIVERY_TEST_TITLE = 'живое наблюдение: server+PG18'
 DELIVERY_NOOP_BODY = ("test('живое наблюдение: server+PG18 — оси ПРОЧИТАНЫ из sink "
                       "(MEASURED, роль hc_*, ledger 14)', async () => {});")
@@ -2191,10 +2400,10 @@ def delivery_test_fact(repo, tree=None):
     PG18, правила Ц) — на честном дереве rc 0. Граница:
     токены-без-исполнения статическая часть не различает."""
     tree = tree or Tree(repo)
-    body = tree.get(DELIVERY_TEST_REL)
+    body = tree.get(delivery_rel(tree))
     if body is None:
         return (None, 'NEEDS_ENV: %s отсутствует — красный контроль '
-                      'delivery-теста (I-10) НЕ проверен' % DELIVERY_TEST_REL)
+                      'delivery-теста (I-10) НЕ проверен' % delivery_rel(tree))
     span_i, span_j = _delivery_span(body)
     if span_i is None:
         return (False, 'тест «%s…» не найден/не закрыт в harness-live.test.js'
@@ -2210,9 +2419,9 @@ def delivery_test_fact(repo, tree=None):
     node = shutil.which('node')
     if node is None:
         return (None, 'NEEDS_ENV: node отсутствует — delivery-тест (I-10) НЕ исполнен')
-    nm = Path(repo) / 'backend' / 'node_modules'
+    nm = Path(repo) / tree.p('node_modules')
     if not (nm / 'pg').is_dir():
-        return (None, 'NEEDS_ENV: backend/node_modules/pg отсутствует — '
+        return (None, 'NEEDS_ENV: node_modules/pg отсутствует — '
                       'delivery-тест НЕ исполнен')
     try:
         v = subprocess.run(['docker', 'version', '--format', '{{.Server.Version}}'],
@@ -2261,8 +2470,9 @@ def delivery_test_fact(repo, tree=None):
             try:
                 rr = subprocess.run(
                     [node, '--test', '--test-concurrency=1',
-                     'tests/integration/harness-live.test.js'],
-                    cwd=str(dest / 'backend'), capture_output=True, text=True,
+                     delivery_rel(tree)],
+                    cwd=str(dest / tree.p('pkg_root')) if tree.p('pkg_root') else str(dest),
+                    capture_output=True, text=True,
                     timeout=300, env=env)
             except subprocess.TimeoutExpired:
                 return (False, 'node --test harness-live: таймаут 300 с')
@@ -2287,7 +2497,7 @@ def check_facts(repo, tree=None):
     tree = tree or Tree(repo)
     root_ok, root_notes = True, []
     for rel, want_sha in ROOT_SERVER_SHA.items():
-        body = tree.get(rel)
+        body = tree.get(tree.p('root_server') + '/' + rel)
         sha = sha256_text(body) if body is not None else None
         if sha != want_sha:
             root_ok = False
@@ -2318,27 +2528,27 @@ def need(text):
     return text is not None
 
 def mut_compose_delete(t):
-    return {'backend/compose.dev.yml': None} if t.get('backend/compose.dev.yml') is not None else None
+    return {t.p('compose'): None} if t.get(t.p('compose')) is not None else None
 
 
 
 def mut_api_before_migration(t):
-    b = t.get('backend/compose.dev.yml')
-    return {'backend/compose.dev.yml': b.replace('service_completed_successfully', 'service_started')} if need(b) else None
+    b = t.get(t.p('compose'))
+    return {t.p('compose'): b.replace('service_completed_successfully', 'service_started')} if need(b) else None
 
 
 def mut_image_unpinned(t):
-    b = t.get('backend/compose.dev.yml')
-    return {'backend/compose.dev.yml': re.sub(r'postgres:18\S*', 'postgres:latest', b)} if need(b) else None
+    b = t.get(t.p('compose'))
+    return {t.p('compose'): re.sub(r'postgres:18\S*', 'postgres:latest', b)} if need(b) else None
 
 
 def mut_prod_dump(t):
-    b = t.get('backend/compose.dev.yml')
-    return {'backend/compose.dev.yml': b + '\n      - ./data/prod_dump:/var/lib/postgresql/dump:ro\n'} if need(b) else None
+    b = t.get(t.p('compose'))
+    return {t.p('compose'): b + '\n      - ./data/prod_dump:/var/lib/postgresql/dump:ro\n'} if need(b) else None
 
 
 def mut_ddl_secrets(t):
-    b = t.get('backend/compose.dev.yml')
+    b = t.get(t.p('compose'))
     if not need(b):
         return None
     lines = b.split('\n')
@@ -2348,82 +2558,82 @@ def mut_ddl_secrets(t):
             break
     else:
         return None
-    return {'backend/compose.dev.yml': '\n'.join(lines)}
+    return {t.p('compose'): '\n'.join(lines)}
 
 
 def mut_harness_delete(t):
-    return {HARNESS: None} if t.get(HARNESS) is not None else None
+    return {t.p('harness'): None} if t.get(t.p('harness')) is not None else None
 
 
 def mut_egress_open(t):
-    b = t.get('backend/compose.dev.yml')
-    return {'backend/compose.dev.yml': b.replace('internal: true', 'internal: false')} if need(b) else None
+    b = t.get(t.p('compose'))
+    return {t.p('compose'): b.replace('internal: true', 'internal: false')} if need(b) else None
 
 
 def mut_db_exposed(t):
-    b = t.get('backend/compose.dev.yml')
-    return {'backend/compose.dev.yml': b.replace('127.0.0.1:5432', '0.0.0.0:5432')} if need(b) else None
+    b = t.get(t.p('compose'))
+    return {t.p('compose'): b.replace('127.0.0.1:5432', '0.0.0.0:5432')} if need(b) else None
 
 
 def mut_ephemeral_db(t):
-    b = t.get('backend/compose.dev.yml')
-    return {'backend/compose.dev.yml': re.sub(r'^(\s*)- [A-Za-z_][A-Za-z0-9_-]*:(/\S*)$',
+    b = t.get(t.p('compose'))
+    return {t.p('compose'): re.sub(r'^(\s*)- [A-Za-z_][A-Za-z0-9_-]*:(/\S*)$',
                                               r'\1- /tmp/pg\2', b, flags=re.M)} if need(b) else None
 
 
 
 def mut_harness_overwrite(t):
-    b = t.get(HARNESS)
-    return {HARNESS: b.replace("'wx'", "'w'").replace('"wx"', '"w"')} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): b.replace("'wx'", "'w'").replace('"wx"', '"w"')} if need(b) else None
 
 
 def mut_no_scrubber(t):
-    b = t.get(HARNESS)
-    return {HARNESS: re.sub(r'(scrub|redact|sanitiz)\w*\(', 'identity(', b)} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): re.sub(r'(scrub|redact|sanitiz)\w*\(', 'identity(', b)} if need(b) else None
 
 
 def mut_no_sql(t):
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b):
         return None
-    return {HARNESS: '\n'.join(
+    return {t.p('harness'): '\n'.join(
         line if 'RECORD_AXES' in line
         else line.replace('sql_before', 'sql').replace('sql_after', 'sql')
         for line in b.split('\n'))}
 
 
 def mut_no_role(t):
-    b = t.get(HARNESS)
-    return {HARNESS: b.replace('current_user', 'session_user')} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): b.replace('current_user', 'session_user')} if need(b) else None
 
 
 def mut_no_provider(t):
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b):
         return None
-    return {HARNESS: '\n'.join(
+    return {t.p('harness'): '\n'.join(
         line if 'RECORD_AXES' in line else line.replace('provider_call', 'provider')
         for line in b.split('\n'))}
 
 
 def mut_no_hashes(t):
-    b = t.get(HARNESS)
-    return {HARNESS: b.replace('input_hashes', 'inputs')} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): b.replace('input_hashes', 'inputs')} if need(b) else None
 
 
 def mut_mock_success(t):
-    b = t.get(HARNESS)
-    return {HARNESS: b.replace("'NOT_RUN'", "'SUCCESS'").replace('"NOT_RUN"', '"SUCCESS"')} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): b.replace("'NOT_RUN'", "'SUCCESS'").replace('"NOT_RUN"', '"SUCCESS"')} if need(b) else None
 
 
 def mut_no_mode_label(t):
-    b = t.get(HARNESS)
-    return {HARNESS: b.replace('FIXTURE_5_8_2', 'FIXTURE')} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): b.replace('FIXTURE_5_8_2', 'FIXTURE')} if need(b) else None
 
 
 def mut_axis_drop(t):
-    b = t.get(HARNESS)
-    return {HARNESS: re.sub(r",\s*['\"]provider_calls['\"]", '', b)} if need(b) else None
+    b = t.get(t.p('harness'))
+    return {t.p('harness'): re.sub(r",\s*['\"]provider_calls['\"]", '', b)} if need(b) else None
 
 
 def mut_integ_delete(t):
@@ -2435,23 +2645,24 @@ def mut_integ_delete(t):
 
 
 def mut_script_unwire(t):
-    b = t.get('backend/package.json')
+    b = t.get(t.p('pkg'))
     if not need(b):
         return None
-    return {'backend/package.json': b.replace('tests/integration/**/*.test.js',
+    return {t.p('pkg'): b.replace('tests/integration/**/*.test.js',
                                               'tests/integration/migrations/**/*.test.js')}
 
 
 def mut_drill_absent(t):
-    for rel in [HARNESS] + ['backend/scripts/%s' % n for n in scripts_names(t)]:
+    for rel in ([t.p('harness')] +
+                ['%s/%s' % (t.p('scripts_dir'), n) for n in scripts_names(t)]):
         b = t.get(rel)
         if b and 'drill' in b.lower():
             return {rel: re.sub(r'drill', 'restor', b, flags=re.I)}
     return None
 
 
-def mut_root_server_delete(_t):
-    return {'server/test/harness.ts': None}
+def mut_root_server_delete(t):
+    return {t.p('root_server') + '/test/harness.ts': None}
 
 DRILL_DEAD = "const drill = {rpo: 15, rto: 240, state: 'NOT_RUN'};"
 
@@ -2469,12 +2680,12 @@ HARNESS_DECOY = ("module.exports = {recordInteraction: () => "
 
 def mut_harness_decoy(t):
     """Обход Б3 круга 1: record возвращает декой без кортежа/хэшей/provider count."""
-    return {HARNESS: HARNESS_DECOY} if t.get(HARNESS) is not None else None
+    return {t.p('harness'): HARNESS_DECOY} if t.get(t.p('harness')) is not None else None
 
 
 def mut_egress_unused_net(t):
     """Обход Б1 круга 1: unused-сеть с internal:true, document-worker на default."""
-    b = t.get('backend/compose.dev.yml')
+    b = t.get(t.p('compose'))
     if not need(b):
         return None
     lines, out, svc, i = b.split('\n'), [], None, 0
@@ -2497,22 +2708,22 @@ def mut_egress_unused_net(t):
                       text, count=1, flags=re.M)
     else:
         text += '\nnetworks:\n  unused_guard:\n    internal: true\n'
-    return {'backend/compose.dev.yml': text}
+    return {t.p('compose'): text}
 
 def mut_harness_sink_decoy(t):
     """Обход Б1 круга 2: честный return, в sink пишется '{}' — чтение из sink
     (К1) ловит; дельта критика байт-в-байт (writeSync(fd, '{}'))."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b):
         return None
-    return {HARNESS: b.replace('fs.writeSync(fd, text);', "fs.writeSync(fd, '{}');")}
+    return {t.p('harness'): b.replace('fs.writeSync(fd, text);', "fs.writeSync(fd, '{}');")}
 
 
 def mut_drill_unwired(t):
     """Обход Б2 круга 2: живой коллектор отвязан от поставки — scripts['drill:evidence']
     удалён, require/тест drill удалены, basename только в description; дельта
     критика байт-в-байт."""
-    pkg = t.get('backend/package.json')
+    pkg = t.get(t.p('pkg'))
     if not need(pkg) or '"%s"' % DRILL_SCRIPT not in pkg:
         return None
     out = []
@@ -2524,7 +2735,7 @@ def mut_drill_unwired(t):
         out.append(ln)
     pkg2 = re.sub(r'"description": "[^"]*"',
                   '"description": "drill-measure.js"', '\n'.join(out), count=1)
-    overlay = {'backend/package.json': pkg2}
+    overlay = {t.p('pkg'): pkg2}
     for rel in find_harness_tests(t):
         body = t.get(rel)
         if not body or 'drill-measure' not in body:
@@ -2547,10 +2758,10 @@ def mut_harness_mode_collapse(t):
     Круг 4 (A-1): мёртвый || 'RUNTIME' снят по I-9 — якорь байт-в-байт к
     записи OBJECT-4 (комментарий + строка mode), мутация mode: rec.mode, →
     mode: 'RUNTIME',; якоря нет (иной рефакторинг) — громкий NOOP (A-2)."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or MODE_WRITE_BLOCK not in b:
         return None
-    return {HARNESS: b.replace(
+    return {t.p('harness'): b.replace(
         MODE_WRITE_BLOCK,
         MODE_WRITE_BLOCK.replace('mode: rec.mode,', "mode: 'RUNTIME',"), 1)}
 
@@ -2558,7 +2769,7 @@ def mut_harness_mode_collapse(t):
 def mut_scrubber_identity(t):
     """Обход К4 круга 2: scrubSecrets вырожден в identity — сентинел из
     сериализуемого поля остаётся в sink; дельта критика байт-в-байт."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b):
         return None
     honest = ("function scrubSecrets(text, secrets) {\n"
@@ -2569,13 +2780,14 @@ def mut_scrubber_identity(t):
     decoy = "function scrubSecrets(text, secrets) { return text; }"
     if honest not in b:
         return None
-    return {HARNESS: b.replace(honest, decoy)}
+    return {t.p('harness'): b.replace(honest, decoy)}
 
 # ------------------------------------------------- мутанты круга 2 (байт-в-байт
 # к дефектным ветвям коммита C a9569176c; на дереве без честного входа мутант
 # возвращает None → BLOCKED_BY_RED_CONTROL, не NOOP)
 
-DRILL_REL = 'backend/scripts/drill-measure.js'
+def drill_rel(t):
+    return t.p('scripts_dir') + '/drill-measure.js'
 
 # честная валидация чисел measured_* (байты d1cece28; span уточнён кругом 3
 # реализации: только блок чисел — at-check вынесен в пару C_AT_WEAK/MODEL_AT_ISO,
@@ -2665,60 +2877,60 @@ MODEL_BEARER = r'''  { name: 'bearer', re: /Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, r
 
 def mut_drill_invalid_input(t):
     """F2: measured_* null/строка принимаются (ветвь C — проверки нет)."""
-    b = t.get(DRILL_REL)
+    b = t.get(drill_rel(t))
     if not need(b) or DRILL_HONEST_VALIDATION not in b:
         return None
-    return {DRILL_REL: b.replace(DRILL_HONEST_VALIDATION, '', 1)}
+    return {drill_rel(t): b.replace(DRILL_HONEST_VALIDATION, '', 1)}
 
 
 def mut_drill_overwrite(t):
     """F2: повторный прогон перезаписывает измеренный evidence — сняты ОБА
     рубежа append-only (existsSync-pre-check и 'wx'), ветвь writeFileSync."""
-    b = t.get(DRILL_REL)
+    b = t.get(drill_rel(t))
     if not need(b) or DRILL_WX_WRITE not in b or DRILL_EXISTS_CHECK not in b:
         return None
     b2 = b.replace(DRILL_EXISTS_CHECK, '', 1).replace(DRILL_WX_WRITE, DRILL_C_WRITE, 1)
-    return {DRILL_REL: b2}
+    return {drill_rel(t): b2}
 
 
 def mut_harness_mode_fabricated(t):
     """F3: валидации mode в recordInteraction нет — фольбэк || 'RUNTIME'
     (литерал C r4) пишет RUNTIME без mode; красное предъявление — файл в sink."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or REC_MODE_CHECK not in b:
         return None
-    return {HARNESS: b.replace(REC_MODE_CHECK, '', 1)}
+    return {t.p('harness'): b.replace(REC_MODE_CHECK, '', 1)}
 
 
 def mut_harness_mock_mode(t):
     """F3: произвольный mode (MOCK_SUCCESS) принимается на живой ветке
     recordInteractionAsync — валидации нет."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or ASYNC_MODE_CHECK not in b:
         return None
-    return {HARNESS: b.replace(ASYNC_MODE_CHECK, '', 1)}
+    return {t.p('harness'): b.replace(ASYNC_MODE_CHECK, '', 1)}
 
 
 def mut_harness_pii_leak(t):
     """F4: scrubber чистит только объявленные secrets — проход паттернов
     Bearer/cookie/email/phone удалён, необъявленные утекают в sink."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or PATTERNS_APPLY not in b:
         return None
-    return {HARNESS: b.replace(PATTERNS_APPLY, '', 1)}
+    return {t.p('harness'): b.replace(PATTERNS_APPLY, '', 1)}
 
 
 def mut_compose_pg18_volume_subpath(t):
     """F1/Б1: том pgdata смонтирован в data-подпуть — PG18 отказывается."""
-    b = t.get('backend/compose.dev.yml')
+    b = t.get(t.p('compose'))
     if not need(b) or MODEL_PGDATA not in b:
         return None
-    return {'backend/compose.dev.yml': b.replace(MODEL_PGDATA, C_PGDATA_SUBPATH, 1)}
+    return {t.p('compose'): b.replace(MODEL_PGDATA, C_PGDATA_SUBPATH, 1)}
 
 
 def mut_compose_migrator_pg_image(t):
     """F1/Б1: migrator на образе postgres:18 без node → exec node exit 127."""
-    b = t.get('backend/compose.dev.yml')
+    b = t.get(t.p('compose'))
     if not need(b):
         return None
     blocks = service_blocks(services_section(b))
@@ -2730,7 +2942,7 @@ def mut_compose_migrator_pg_image(t):
     if m is None or 'postgres' in m.group(0):
         return None
     new_blk = blk[:m.start()] + '%simage: %s' % (m.group(1), C_PG18_IMAGE) + blk[m.end():]
-    return {'backend/compose.dev.yml': b.replace(blk, new_blk, 1)}
+    return {t.p('compose'): b.replace(blk, new_blk, 1)}
 
 
 def mut_files_sha256_phantom(t):
@@ -2780,21 +2992,37 @@ API_DB_URL_BLOCK = ('    DATABASE_URL: postgres://hc_synthetic_only:synthetic'
                     '@postgres:5432/complior\n      HOST: 0.0.0.0\n      PORT: "8080"')
 API_DB_URL_SUPERUSER = ('    DATABASE_URL: postgres://postgres:ci-synthetic-only'
                         '@postgres:5432/complior\n      HOST: 0.0.0.0\n      PORT: "8080"')
-MIGRATOR_CMD_LINE = '    command: ["node", "infra/migrations/run.js"]\n'
+MIGRATOR_CMD_LINES = {
+    # команда migrator в compose — якорь байт-в-байт к ЖИВОМУ дереву, не к карте:
+    # починенный продукт (b73ad11, CMP-BCK-004/stend) в НОВОЙ колонке несёт
+    # «node server/infrastructure/migrations/run.js» (= PATHS[LAYOUT_NEW]
+    # ['runner'] и scripts.migrate пакета; тома ./server/infrastructure/
+    # migrations, ./migrations, ./node_modules); СТАРАЯ колонка — прежние байты
+    # «node infra/migrations/run.js». Якорь обязан следовать живым байтам:
+    # расхождение с деревом — громкий NOOP_MUTATION (A-2), не молчание.
+    LAYOUT_NEW: '    command: ["node", "server/infrastructure/migrations/run.js"]\n',
+    LAYOUT_OLD: '    command: ["node", "infra/migrations/run.js"]\n',
+}
 
 
 def _js_fromchar(s):
     return 'String.fromCharCode(%s)' % ','.join(str(ord(c)) for c in s)
 
 
-M9_REWRITE_CMD = (
-    '    command: ["sh", "-c", "node infra/migrations/run.js && node -e '
-    "'const { Client } = require(%s); const c = new Client({ connectionString: "
-    'process.env.MIGRATION_DATABASE_URL }); c.connect().then(() => c.query(%s))'
-    ".then(() => c.end()).catch((e) => { console.error(e.message); "
-    "process.exit(1); })'\"]\n" % (
-        _js_fromchar('pg'),
-        _js_fromchar('UPDATE control.schema_migration SET applied_by=md5(applied_by)')))
+def m9_rewrite_cmd(layout):
+    """С7/M9: команда мутанта сохраняет ЖИВОЙ раннер раскладки
+    (PATHS[layout]['runner'] — мигратор обязан отработать, счёт остаётся 14)
+    и дописывает перезапись applied_by: редкость ловится сравнением
+    содержимого строк ledger между повторными up, а не падением migrator."""
+    return (
+        '    command: ["sh", "-c", "node %s && node -e '
+        "'const { Client } = require(%s); const c = new Client({ connectionString: "
+        'process.env.MIGRATION_DATABASE_URL }); c.connect().then(() => c.query(%s))'
+        ".then(() => c.end()).catch((e) => { console.error(e.message); "
+        "process.exit(1); })'\"]\n" % (
+            PATHS[layout]['runner'],
+            _js_fromchar('pg'),
+            _js_fromchar('UPDATE control.schema_migration SET applied_by=md5(applied_by)')))
 
 # честная ISO-валидация measured_at (модель круга 3) и дефектная ветвь d1cece28
 # (только непустота: «never»/«ok» проходят как MEASURED — F2')
@@ -2859,45 +3087,45 @@ LANE_HASH_BLOCK = """        got = subprocess.run(
 
 def mut_harness_async_no_http(t):
     """Б2′/F3'/M1: реальный HTTP не делается — ответ из заявления наблюдения."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or ASYNC_HTTP_CALL not in b:
         return None
-    return {HARNESS: b.replace(ASYNC_HTTP_CALL,
+    return {t.p('harness'): b.replace(ASYNC_HTTP_CALL,
                                "    httpResponse = obs.http_response;\n", 1)}
 
 
 def mut_harness_async_sql_const(t):
     """Б2′/F3'/M2: SQL-снимок всегда NOT_RUN константой (живой SQL не меряется)."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     old = "  const url = process.env.COMPLIOR_HARNESS_DATABASE_URL || process.env.DATABASE_URL;\n"
     if not need(b) or old not in b:
         return None
-    return {HARNESS: b.replace(old, "  const url = null;\n", 1)}
+    return {t.p('harness'): b.replace(old, "  const url = null;\n", 1)}
 
 
 def mut_harness_async_http_after(t):
     """Б2′/F3'/M3: HTTP после обоих SQL-снимков (не «между»)."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or ASYNC_M3_BLOCK not in b:
         return None
-    return {HARNESS: b.replace(ASYNC_M3_BLOCK, ASYNC_M3_REORDERED, 1)}
+    return {t.p('harness'): b.replace(ASYNC_M3_BLOCK, ASYNC_M3_REORDERED, 1)}
 
 
 def mut_harness_async_role_claimed(t):
     """Б2′/F3'/M4: runtime_role — заявление вызывающего, не измерение БД.
     Круг 4 (A-1, I-7): честная форма dd8e533 — тернар «MEASURED? current_user
     : NOT_RUN»; мутация возвращает заявление. На 8aca71a/М15 якоря нет — NOOP."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or ASYNC_ROLE_HONEST not in b:
         return None
-    return {HARNESS: b.replace(ASYNC_ROLE_HONEST,
+    return {t.p('harness'): b.replace(ASYNC_ROLE_HONEST,
                                "    runtime_role: obs.runtime_role,\n", 1)}
 
 
 def mut_harness_async_constants(t):
     """Б2′ (обход reviewer круга 2): recordInteractionAsync без всякого I/O —
     снимки и ответ заменены константами; строки 1–3 и 5 были зелёные."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or any(x not in b for x in (ASYNC_SNAP_BEFORE,
                                                ASYNC_HTTP_CALL,
                                                ASYNC_SNAP_AFTER)):
@@ -2905,17 +3133,17 @@ def mut_harness_async_constants(t):
     out = b.replace(ASYNC_SNAP_BEFORE, "  const dbBefore = %s;\n" % ASYNC_CONST_SNAP, 1)
     out = out.replace(ASYNC_HTTP_CALL, ASYNC_CONST_HTTP, 1)
     out = out.replace(ASYNC_SNAP_AFTER, "  const dbAfter = %s;\n" % ASYNC_CONST_SNAP, 1)
-    return {HARNESS: out}
+    return {t.p('harness'): out}
 
 
 def mut_harness_async_no_scrub(t):
     """F4'/M5: async-ветка пишет нескрабленный JSON.stringify (без scrubRecord).
     Круг 4 (A-1, I-9): единый путь записи appendExclusive(..., scrubRecord(...)) —
     якорь к строке async-записи dd8e533, не к хвосту файла."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or ASYNC_WRITE_SCRUB not in b:
         return None
-    return {HARNESS: b.replace(
+    return {t.p('harness'): b.replace(
         ASYNC_WRITE_SCRUB,
         "  appendExclusive(evidenceFileName(dir, out), "
         "JSON.stringify(out, null, 2));\n", 1)}
@@ -2925,10 +3153,10 @@ def mut_harness_no_setcookie_pattern(t):
     """F4'/M6: структурная маскировка set-cookie удалена — Set-Cookie-массив
     реального ответа уносит секрет в sink. Круг 4 (A-1, I-6): носитель —
     SECRET_KEYS (замкнутый перечень K), не текстовый паттерн."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b) or SECRETKEYS_SETCOOKIE not in b:
         return None
-    return {HARNESS: b.replace(SECRETKEYS_SETCOOKIE, '', 1)}
+    return {t.p('harness'): b.replace(SECRETKEYS_SETCOOKIE, '', 1)}
 
 
 # круг 4 (A-4): MODEL — строгий isValidIso8601 OBJECT-4 (dd8e533) байт-в-байт;
@@ -2980,46 +3208,47 @@ def mut_drill_at_not_iso(t):
     """F2'/круг 4 (A-4): строгий isValidIso8601 OBJECT-4 заменён ДЕКОЕМ 8aca71a
     байт-в-байт (Number.isFinite(Date.parse) + round-trip): «1»/«May 5»/
     «12/31/2026»/«2026-02-31»/дата-без-зоны проходят как MEASURED."""
-    b = t.get(DRILL_REL)
+    b = t.get(drill_rel(t))
     if not need(b) or ISO_STRICT_FN not in b:
         return None
-    return {DRILL_REL: b.replace(ISO_STRICT_FN, ISO_DATEPARSE_DECOY, 1)}
+    return {drill_rel(t): b.replace(ISO_STRICT_FN, ISO_DATEPARSE_DECOY, 1)}
 
 
 def mut_drill_negative_accepted(t):
     """С5: отрицательные measured_rpo/rto принимаются как MEASURED."""
-    b = t.get(DRILL_REL)
+    b = t.get(drill_rel(t))
     if not need(b) or MODEL_NEG_CHECK not in b:
         return None
-    return {DRILL_REL: b.replace(MODEL_NEG_CHECK, '', 1)}
+    return {drill_rel(t): b.replace(MODEL_NEG_CHECK, '', 1)}
 
 
 def mut_stend_role_superuser(t):
     """С7/M7: LOGIN-роль role-bootstrap создаётся суперпользователем."""
-    b = t.get('backend/scripts/role-bootstrap.js')
+    b = t.get(t.p('scripts_dir') + '/role-bootstrap.js')
     if not need(b) or ROLE_BOOTSTRAT_NOSUPER not in b:
         return None
-    return {'backend/scripts/role-bootstrap.js': b.replace(
+    return {t.p('scripts_dir') + '/role-bootstrap.js': b.replace(
         ROLE_BOOTSTRAT_NOSUPER, 'SUPERUSER IN ROLE brokeros_api', 1)}
 
 
 def mut_stend_api_superuser_url(t):
     """С7/M8: api ходит в БД под суперпользователем postgres."""
-    b = t.get('backend/compose.dev.yml')
+    b = t.get(t.p('compose'))
     if not need(b) or API_DB_URL_BLOCK not in b:
         return None
-    return {'backend/compose.dev.yml': b.replace(API_DB_URL_BLOCK,
+    return {t.p('compose'): b.replace(API_DB_URL_BLOCK,
                                                  API_DB_URL_SUPERUSER, 1)}
 
 
 def mut_stend_ledger_rewritten(t):
     """С7/M9: каждый up переписывает ledger (applied_by=md5(applied_by)),
     count остаётся 14 — сравнение содержимого строк ловит подмену."""
-    b = t.get('backend/compose.dev.yml')
-    if not need(b) or MIGRATOR_CMD_LINE not in b:
+    lay = t.layout or LAYOUT_OLD
+    b = t.get(t.p('compose'))
+    if not need(b) or MIGRATOR_CMD_LINES[lay] not in b:
         return None
-    return {'backend/compose.dev.yml': b.replace(MIGRATOR_CMD_LINE,
-                                                 M9_REWRITE_CMD, 1)}
+    return {t.p('compose'): b.replace(MIGRATOR_CMD_LINES[lay],
+                                      m9_rewrite_cmd(lay), 1)}
 
 
 def mut_lane_dirty_checkout_ok(t):
@@ -3028,10 +3257,10 @@ def mut_lane_dirty_checkout_ok(t):
     дерева): незакоммиченная подмена probe.py и подмена под
     assume-unchanged исполняются как frozen-батарея (pin-check HEAD остаётся
     — мутант обходит «грязный»/«assume-unchanged», не «retag»)."""
-    b = t.get('tools/run_backend_ci.py')
+    b = t.get(t.p('lane'))
     if not need(b) or MODEL_LANE_HYGIENE not in b or LANE_HASH_BLOCK not in b:
         return None
-    return {'tools/run_backend_ci.py': b.replace(LANE_HASH_BLOCK, '', 1)
+    return {t.p('lane'): b.replace(LANE_HASH_BLOCK, '', 1)
                                          .replace(MODEL_LANE_HYGIENE, '', 1)}
 
 def mut_backend_lint_unused_const(t):
@@ -3040,13 +3269,13 @@ def mut_backend_lint_unused_const(t):
     ни один исполняемый байт. Якорь — строка SNAPSHOT_AXES dd8e533
     (единственная, наименьшая стабильная точка вставки); на деревьях без
     якоря — громкий NOOP_MUTATION (A-2)."""
-    b = t.get(HARNESS)
+    b = t.get(t.p('harness'))
     if not need(b):
         return None
     anchor = "const SNAPSHOT_AXES = { BEFORE: 'sql_before', AFTER: 'sql_after' };"
     if b.count(anchor) != 1:
         return None
-    return {HARNESS: b.replace(
+    return {t.p('harness'): b.replace(
         anchor, 'const stend109LintUnused = 1;\n' + anchor, 1)}
 
 
@@ -3056,13 +3285,13 @@ def mut_delivery_live_noop(t):
     before/after и соседние тесты не тронуты; test:integration остаётся
     зелёным (44/44), а наблюдение перестаёт доказываться. Якорь — строка
     теста; на деревьях без файла/строки — NOOP_MUTATION (A-2)."""
-    b = t.get(DELIVERY_TEST_REL)
+    b = t.get(delivery_rel(t))
     if not need(b):
         return None
     i, j = _delivery_span(b)
     if i is None:
         return None
-    return {DELIVERY_TEST_REL: b[:i] + DELIVERY_NOOP_BODY + b[j:]}
+    return {delivery_rel(t): b[:i] + DELIVERY_NOOP_BODY + b[j:]}
 
 DELIVERY_NEIGHBOR_READ = 'const raw = readSink(dir);'
 DELIVERY_NEIGHBOR_ASSERT = ("  assert.equal(raw.http_response.status, 200, "
@@ -3079,7 +3308,7 @@ def mut_delivery_noop_borrow_neighbor(t):
     теста: заимствованные токены/assert НЕ считаются. Якорь — байты
     dd8e533 (строка именованного теста + readSink в соседнем top-level
     тесте); на деревьях без якоря — громкий NOOP_MUTATION (A-2)."""
-    b = t.get(DELIVERY_TEST_REL)
+    b = t.get(delivery_rel(t))
     if not need(b):
         return None
     i, j = _delivery_span(b)
@@ -3110,7 +3339,7 @@ def mut_delivery_noop_borrow_neighbor(t):
     if mid:
         out += '\n\n' + mid
     out += '\n'
-    return {DELIVERY_TEST_REL: out}
+    return {delivery_rel(t): out}
 
 
 CASES = [
@@ -3224,7 +3453,8 @@ def run_case(repo, name, base_fired, base_facts_red):
                 'verdict': 'NOOP_MUTATION', 'depends': [],
                 'note': 'мутация не изменила ни один файл (overlay == база)'}
     if target == 'ROOT_SERVER_PRESENT':
-        newly = {'ROOT_SERVER_PRESENT'} if tree.get('server/test/harness.ts') is None else set()
+        newly = {'ROOT_SERVER_PRESENT'} if tree.get(
+            tree.p('root_server') + '/test/harness.ts') is None else set()
         newly -= base_facts_red
         return {'name': name, 'target': target, 'applied': True,
                 'verdict': 'REJECTED_EXACT' if newly == {'ROOT_SERVER_PRESENT'} else 'NOT_REJECTED',
@@ -3237,6 +3467,14 @@ def run_case(repo, name, base_fired, base_facts_red):
             return {'name': name, 'target': target, 'applied': True,
                     'verdict': 'BLOCKED_BY_RED_CONTROL', 'depends': [],
                     'note': 'цель мутанта уже красна на базе (дефект дерева)'}
+        if target == 'LANE_HYGIENE_GUARD' and lane_depth_env() >= 1:
+            # v2: вложенный (внутри lane-факта) прогон батареи НЕ судит
+            # lane-гигиену — её судит ВНЕШНИЙ факт (маркер глубины); клетка
+            # не красна и не зелена — поименованный пропуск, не NOT_REJECTED
+            return {'name': name, 'target': target, 'applied': True,
+                    'verdict': 'SKIP_NESTED_DEPTH', 'depends': [],
+                    'note': 'вложенный прогон (%s≥1): lane-гигиена судится '
+                            'внешним lane-фактом' % LANE_DEPTH_MARKER}
         newly = {target} if mut_v is False else set()
         return {'name': name, 'target': target, 'applied': True,
                 'verdict': 'REJECTED_EXACT' if newly == {target} else 'NOT_REJECTED',
@@ -3261,8 +3499,9 @@ def main():
     ap.add_argument('--matrix', action='store_true')
     args = ap.parse_args()
     repo = Path(args.repo).resolve()
-    if not (repo / 'backend/package.json').is_file():
-        print('%s: REPO_NOT_RESOLVED: нет backend/package.json' % UNMEASURABLE)
+    if detect_layout(repo) is None:
+        print('%s: REPO_NOT_RESOLVED: нет package.json ни в корне (новая '
+              'структура), ни в backend/ (старая)' % UNMEASURABLE)
         return 2
     base_fired, base_blocked = subject_control(Tree(repo))
     facts = check_facts(repo)
