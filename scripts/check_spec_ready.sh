@@ -611,6 +611,12 @@ done <<<"$DRAFT_FULL"
 # `-z` + `%x00` разделяют И записи, И поля НОЛЕМ: NUL не встречается ни в SHA,
 # ни в имени автора, байты имени не теряются; `mapfile -d ''` читает пары без
 # участия awk/tab. Сравнение автора — ТОЧНОЕ `$_an_name == $role`.
+# Исключение ZONE_MOVE_EXEMPT (форк n109-pre-critic-036, ответ консультанта (Б) 2026-10-20 19:20 UTC;
+# слово владельца 2026-10-20 ~14:30 UTC — перестройка Complior-back по эталону, PR#150): контракт 109 v3
+# переносит ЗОНУ implementer ПРОДУКТОВОГО репо на новые пути; implementer 109 коммитит в Complior-back,
+# в репо харнесса коммитов по выпавшим путям у него нет и быть не может. Замкнутый перечень номеров;
+# действует ТОЛЬКО при пустом множестве коммитов роли — непустое судится как обычно.
+ZONE_MOVE_EXEMPT=" 109 "
 for key in "${!_dropped_role_path[@]}"; do
   role="${key%%/*}"
   path="${key#*/}"
@@ -634,6 +640,12 @@ for key in "${!_dropped_role_path[@]}"; do
   done
   commits="${commits# }"
   if [ -z "$commits" ]; then
+    case "$ZONE_MOVE_EXEMPT" in
+      *" $NNN "*)
+        printf 'спек-гейт 036: перенос зоны: %s (%s): исключение ZONE_MOVE_EXEMPT (контракт %s, продуктовый репо)\n' "$path" "$role" "$NNN"
+        continue
+        ;;
+    esac
     max_tag="frozen/contracts/$NNN/$vmax"
     for v in $(printf '%s\n' "${!_frozen_v_ref[@]}" | sort -rn); do
       ref="${_frozen_v_ref[$v]}"
