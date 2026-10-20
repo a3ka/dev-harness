@@ -110,6 +110,36 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       три файла, прежние неизменны (append-only); строки observation.secrets
       (сентинел помещён в сериализуемое поле — сверка не вакуумна) отсутствуют
       в файлах evidence.
+  НОВЫЕ ФАКТЫ КРУГА 2 (пост-заморозочное усиление гейта по вердиктам судей
+  реализации — F1–F5/Б1–Б3; frozen-контракт не меняется, мутанты — байт-в-байт
+  к дефектным ветвям коммита C a9569176c):
+    - DRILL_INPUT_GUARD (живой; правило Ц): команда scripts['drill:evidence'] в
+      disposable-копии: вход с measured_* null ИЛИ не-числом/не-ISO-строкой
+      («ok»/«fine»/«never») → rc ≠ 0 и sink без MEASURED; валидный вход →
+      MEASURED; повторный прогон без входа в ТОТ ЖЕ --out — файл
+      drill-evidence.json байтово неизменен (append-only, не перезапись);
+    - HARNESS_HONESTY_GUARD (живой): captureBeforeAfter экспортирован;
+      наблюдение БЕЗ mode → отказ (throw), не «mode: RUNTIME» по умолчанию;
+      mode вне трёх литералов (MOCK_SUCCESS) → throw; валидный mode при
+      недоступной БД (COMPLIOR_HARNESS_DATABASE_URL на закрытый порт
+      127.0.0.1:1) → throw ИЛИ статус NOT_RUN, никогда MEASURED/успех;
+    - HARNESS_PII_GUARD (живой; правило Ц, чтение из sink): recordInteraction
+      с НЕОБЪЯВЛЕННЫМИ Bearer-токеном/cookie/email/телефоном и объявленным
+      секретом, содержащим кавычку и обратный слеш: в сохранённом файле нет ни
+      raw-, ни JSON-экранированной формы каждого; запись не вакуумна
+      (authorization непуст, «patient» в теле сохранён, mode из файла
+      равен наблюдению);
+    - STEND_UP_GUARD (живой): docker compose -p <уникальный> -f
+      backend/compose.dev.yml up -d --wait → rc 0; SELECT count(*) из
+      control.schema_migration = 14; повторный up rc 0 и ledger прежний;
+      после прогона — down -v. Ловит том PG18 вне /var/lib/postgresql
+      (образ 18+ отказывается от data-подпути) и migrator на образе без node
+      (postgres:18 + command node → exit 127). NEEDS_ENV без docker compose
+      (граница: живой подъём стенда, миграция до API и ledger НЕ проверены);
+    - FILES_SHA256_GUARD: каждая непустая строка FILES.sha256 (<sha256>␣␣<путь>)
+      — путь ЕСТЬ в коммите (git cat-file -e HEAD:<путь>) и sha256 blob из
+      HEAD совпадает с строкой. NEEDS_ENV без FILES.sha256 или без .git
+      (граница: соответствие производных коммиту НЕ проверено).
 """
 
 import argparse
@@ -122,6 +152,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 UNMEASURABLE = '109 UNMEASURABLE'
@@ -738,6 +769,383 @@ def harness_fact(repo, tree=None):
         '; '.join(notes[:6]) or 'режимы/оси/хэши из файла, append-only, scrubber ок'))
 
 
+# ---------------------------------------------------------------- факты круга 2
+
+def drill_input_fact(repo, tree=None):
+    """Живая честность входов drill-коллектора (F2): measured_* null/строка —
+    отказ rc≠0 без MEASURED; повторный прогон в тот же --out не перезаписывает
+    измеренный evidence (байты файла неизменны)."""
+    tree = tree or Tree(repo)
+    cmd = drill_entry_command(tree)
+    if cmd is None:
+        return (None, 'NEEDS_ENV: scripts[%r] в backend/package.json отсутствует '
+                      '(контроль судит DRILL_MEASUREMENTS_ABSENT); валидация входов '
+                      'и append-only drill-evidence НЕ проверены' % DRILL_SCRIPT)
+    node = shutil.which('node')
+    if not node:
+        return (None, 'NEEDS_ENV: node отсутствует')
+    cands = script_candidates(tree)
+    coll = next(((rel, body) for rel, body in cands
+                 if rel.split('/')[-1] in cmd), None)
+    if coll is None:
+        return (False, 'scripts[%s] не указывает на коллектор backend/scripts '
+                       '(drill+rpo+rto): %r' % (DRILL_SCRIPT, cmd[:100]))
+    notes, oks = [], []
+    with tempfile.TemporaryDirectory(prefix='stend109-drillin-') as tmp:
+        be = Path(tmp) / 'backend'
+        shutil.copytree(tree.repo / 'backend', be,
+                        ignore=shutil.ignore_patterns('node_modules'))
+        for orel, obody in (tree.overlay or {}).items():
+            dest = Path(tmp) / orel
+            if obody is None:
+                if dest.is_file():
+                    dest.unlink()
+            else:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(obody, encoding='utf-8')
+
+        def run(tag, input_path=None):
+            c = re.sub(r'(--out[ =])\S+', lambda m: m.group(1) + tag, cmd, count=1)
+            if c == cmd and '--out' not in cmd:
+                c = '%s --out %s' % (cmd, tag)
+            if input_path is not None:
+                c = '%s --input %s' % (c, input_path)
+            return subprocess.run(['/bin/sh', '-c', c], capture_output=True,
+                                  text=True, timeout=60, cwd=str(be))
+
+        def ev(tag):
+            try:
+                return (be / tag / 'drill-evidence.json').read_text(encoding='utf-8')
+            except OSError:
+                return None
+        badnull = {'db_dump': 'DB', 'objects_dump': 'OBJ', 'keys_dump': 'KEYS',
+                   'measured_rpo_minutes': None, 'measured_rto_minutes': None,
+                   'measured_at': None}
+        badstr = {'db_dump': 'DB', 'objects_dump': 'OBJ', 'keys_dump': 'KEYS',
+                  'measured_rpo_minutes': 'ok', 'measured_rto_minutes': 'fine',
+                  'measured_at': 'never'}
+        good = {'db_dump': 'DB-REAL', 'objects_dump': 'OBJ', 'keys_dump': 'KEYS',
+                'measured_rpo_minutes': 7, 'measured_rto_minutes': 90,
+                'measured_at': '2026-10-20T00:00:00Z'}
+        for fname, payload in (('badnull', badnull), ('badstr', badstr)):
+            ip = Path(tmp) / ('%s.json' % fname)
+            ip.write_text(json.dumps(payload), encoding='utf-8')
+            r = run('D_' + fname, str(ip))
+            text = ev('D_' + fname)
+            leaked = bool(text and 'MEASURED' in text)
+            oks.append(r.returncode != 0 and not leaked)
+            notes.append('%s: rc=%d MEASURED-в-файле=%s' % (
+                fname, r.returncode, leaked))
+        ip = Path(tmp) / 'good.json'
+        ip.write_text(json.dumps(good), encoding='utf-8')
+        r1 = run('KEEP', str(ip))
+        first = ev('KEEP')
+        ok1 = r1.returncode == 0 and first is not None and '"MEASURED"' in first
+        oks.append(ok1)
+        notes.append('измеренный: rc=%d MEASURED=%s' % (
+            r1.returncode, bool(first and '"MEASURED"' in first)))
+        r2 = run('KEEP')
+        second = ev('KEEP')
+        oks.append(ok1 and second == first)
+        notes.append('повтор в тот же --out: rc=%d файл-неизменен=%s' % (
+            r2.returncode, second == first))
+    return (all(oks), 'drill входы/append-only: %s' % ' | '.join(notes))
+
+
+HARNESS_HONESTY_DRIVER = """
+'use strict';
+const fs = require('fs'), path = require('path');
+const harness = require(process.argv[2]);
+const base = process.argv[3];
+process.env.COMPLIOR_HARNESS_DATABASE_URL = 'postgres://x:y@127.0.0.1:1/z';
+const attempt = (fn) => Promise.resolve()
+  .then(fn)
+  .then((r) => ({ threw: false, result: r }))
+  .catch((e) => ({ threw: true, err: String((e && e.message) || e) }));
+const obsBase = { http_request: { method: 'GET', url: '/fixture' },
+  http_response: { status: 200 }, sql_before: 'S1', sql_after: 'S2',
+  runtime_role: 'hc_fixture', provider_calls: 0, inputs: {} };
+(async () => {
+  const out = { has_cba: typeof harness.captureBeforeAfter === 'function' };
+  out.no_mode = await attempt(() => harness.captureBeforeAfter(
+    Object.assign({}, obsBase), path.join(base, 'h1')));
+  out.mock_mode = await attempt(() => harness.captureBeforeAfter(
+    Object.assign({}, obsBase, { mode: 'MOCK_SUCCESS' }), path.join(base, 'h4')));
+  out.db_down = await attempt(() => harness.captureBeforeAfter(
+    Object.assign({}, obsBase, { mode: 'RUNTIME' }), path.join(base, 'h3')));
+  out.files = {};
+  for (const d of ['h1', 'h4', 'h3']) {
+    try {
+      out.files[d] = fs.readdirSync(path.join(base, d))
+        .map((n) => fs.readFileSync(path.join(base, d, n), 'utf8'));
+    } catch (e) { out.files[d] = null; }
+  }
+  console.log(JSON.stringify(out));
+})().catch((e) => console.log(JSON.stringify({ fatal: String((e && e.message) || e) })));
+"""
+
+
+def harness_honesty_fact(repo, tree=None):
+    """Живая честность captureBeforeAfter (F3): без mode → отказ; mode только из
+    трёх литералов; недоступная БД → не успех (throw ИЛИ NOT_RUN)."""
+    tree = tree or Tree(repo)
+    body = tree.get(HARNESS)
+    if body is None:
+        return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
+    node = shutil.which('node')
+    if not node:
+        return (None, 'NEEDS_ENV: node отсутствует')
+    with tempfile.TemporaryDirectory(prefix='stend109-hon-') as tmp:
+        h = Path(tmp) / 'harness.js'
+        h.write_text(body, encoding='utf-8')
+        d = Path(tmp) / 'driver.js'
+        d.write_text(HARNESS_HONESTY_DRIVER, encoding='utf-8')
+        ev = Path(tmp) / 'ev'
+        try:
+            r = subprocess.run([node, str(d), str(h), str(ev)],
+                               capture_output=True, text=True, timeout=60, cwd=tmp)
+        except subprocess.TimeoutExpired:
+            return (False, 'драйвер честности: таймаут')
+        try:
+            out = json.loads(r.stdout)
+        except ValueError:
+            return (False, 'драйвер честности rc=%d: stdout=%r stderr=%r' % (
+                r.returncode, r.stdout[:100], (r.stderr or '')[:150]))
+    if 'fatal' in out:
+        return (False, 'captureBeforeAfter: %s' % out['fatal'][:200])
+    if not out.get('has_cba'):
+        return (False, 'captureBeforeAfter не экспортирован — поверхность '
+                       'честности (mode/NOT_RUN) недоступна вызывающему')
+    notes, ok = [], True
+    if not (out.get('no_mode') or {}).get('threw'):
+        ok = False
+        notes.append('без mode: отказа нет (mode выдуман RUNTIME)')
+    if not (out.get('mock_mode') or {}).get('threw'):
+        ok = False
+        notes.append('mode MOCK_SUCCESS принят вне трёх литералов')
+    dd = out.get('db_down') or {}
+    honest_down = dd.get('threw') or (isinstance(dd.get('result'), dict) and (
+        (dd['result'].get('db_snapshot') or {}).get('status') == 'NOT_RUN'
+        or dd['result'].get('status') == 'NOT_RUN'))
+    if not honest_down:
+        ok = False
+        notes.append('БД недоступна: не отказ и не NOT_RUN')
+    for dname, texts in (out.get('files') or {}).items():
+        for t in texts or []:
+            if 'MEASURED' in t:
+                ok = False
+                notes.append('MEASURED в файле %s при недоступной БД' % dname)
+    return (ok, 'честность captureBeforeAfter: %s' % (
+        '; '.join(notes[:5]) or 'без mode → отказ; литералы; БД недоступна → NOT_RUN'))
+
+
+HARNESS_PII_OBS = {
+    'mode': 'RUNTIME',
+    'http_request': {'method': 'GET', 'url': '/api/v1/patients/1',
+                     'headers': {'authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.REAL.TOKEN',
+                                 'cookie': 'session=SECRETSESSION',
+                                 'x-doc-token': 'tok"Q\\Z'}},
+    'http_response': {'status': 200,
+                      'body': 'patient ivan.petrov@clinic.ru, phone +7 916 000-00-00'},
+    'sql_before': 'SELECT 1 /* PII-B */',
+    'sql_after': 'SELECT 2 /* PII-A */',
+    'runtime_role': 'hc_api_role_pii', 'provider_calls': 1,
+    'inputs': {'note': 'kappa-bytes-pii'},
+    'secrets': ['tok"Q\\Z'],
+}
+
+PII_FORBIDDEN = ['eyJhbGciOiJIUzI1NiJ9.REAL.TOKEN', 'SECRETSESSION',
+                 'ivan.petrov@clinic.ru', '+7 916 000-00-00', 'tok"Q\\Z']
+
+HARNESS_PII_DRIVER = """
+'use strict';
+const fs = require('fs'), path = require('path');
+const harness = require(process.argv[2]);
+const dir = process.argv[3], obs = JSON.parse(fs.readFileSync(process.argv[4], 'utf8'));
+const rec = harness.recordInteraction(obs, dir);
+const files = fs.readdirSync(dir).sort()
+  .map((n) => [n, fs.readFileSync(path.join(dir, n), 'utf8')]);
+console.log(JSON.stringify({ rec, files }));
+"""
+
+
+def harness_pii_fact(repo, tree=None):
+    """Живой scrubber PII (F4): необъявленные Bearer/cookie/email/phone и
+    объявленный секрет с "/\\ не попадают в sink ни raw-, ни JSON-экранированной
+    формой; запись не вакуумна (правило Ц, звено 3 — чтение из файла)."""
+    tree = tree or Tree(repo)
+    body = tree.get(HARNESS)
+    if body is None:
+        return (None, 'NEEDS_ENV: harness.js отсутствует (контроль судит HARNESS_MISSING)')
+    node = shutil.which('node')
+    if not node:
+        return (None, 'NEEDS_ENV: node отсутствует')
+    with tempfile.TemporaryDirectory(prefix='stend109-pii-') as tmp:
+        h = Path(tmp) / 'harness.js'
+        h.write_text(body, encoding='utf-8')
+        d = Path(tmp) / 'driver.js'
+        d.write_text(HARNESS_PII_DRIVER, encoding='utf-8')
+        o = Path(tmp) / 'obs.json'
+        o.write_text(json.dumps(HARNESS_PII_OBS), encoding='utf-8')
+        ev = Path(tmp) / 'ev'
+        try:
+            r = subprocess.run([node, str(d), str(h), str(ev), str(o)],
+                               capture_output=True, text=True, timeout=60, cwd=tmp)
+        except subprocess.TimeoutExpired:
+            return (False, 'драйвер PII: таймаут')
+        try:
+            out = json.loads(r.stdout)
+        except ValueError:
+            return (False, 'драйвер PII rc=%d: stdout=%r stderr=%r' % (
+                r.returncode, r.stdout[:100], (r.stderr or '')[:150]))
+    files = out.get('files') or []
+    if not files:
+        return (False, 'recordInteraction не создал файл evidence')
+    forbidden = []
+    for v in PII_FORBIDDEN:
+        forbidden.append(v)
+        esc = json.dumps(v)[1:-1]
+        if esc != v:
+            forbidden.append(esc)
+    notes, ok = [], True
+    for name, text_file in files:
+        for v in forbidden:
+            if v in text_file:
+                ok = False
+                notes.append('утечка %r в %s' % (v[:26], name))
+    try:
+        rec = json.loads(files[0][1])
+    except ValueError:
+        return (False, 'файл evidence не JSON')
+    headers = (rec.get('http_request') or {}).get('headers') or {}
+    if not isinstance(headers.get('authorization'), str) or not headers.get('authorization'):
+        ok = False
+        notes.append('authorization выпадена (вакуумная вырезка)')
+    resp_body = (rec.get('http_response') or {}).get('body')
+    if not isinstance(resp_body, str) or 'patient' not in resp_body:
+        ok = False
+        notes.append('тело ответа потеряно (вакуумная вырезка)')
+    if rec.get('mode') != HARNESS_PII_OBS['mode']:
+        ok = False
+        notes.append('mode из файла %r' % rec.get('mode'))
+    return (ok, 'PII/scrubber: %s' % ('; '.join(notes[:5]) or
+            'Bearer/cookie/email/phone/экранированный секрет отсутствуют в sink'))
+
+
+def stend_up_fact(repo, tree=None):
+    """Живой подъём стенда одной командой (F1/Б1): up -d --wait rc 0,
+    ledger control.schema_migration = 14, повтор rc 0 и ledger прежний;
+    down -v после прогона; уникальный -p, published-портов не занимается."""
+    tree = tree or Tree(repo)
+    compose = tree.get('backend/compose.dev.yml')
+    if compose is None:
+        return (None, 'NEEDS_ENV: compose.dev.yml отсутствует (контроль судит '
+                      'COMPOSE_MISSING); живой подъём стенда НЕ проверен')
+    try:
+        dc = subprocess.run(['docker', 'compose', 'version'],
+                            capture_output=True, text=True, timeout=30)
+        if dc.returncode != 0:
+            dc = None
+    except (OSError, subprocess.TimeoutExpired):
+        dc = None
+    if dc is None:
+        return (None, 'NEEDS_ENV: docker compose недоступен — живой подъём стенда '
+                      '(миграция до API, ledger=14, повтор, том PG18) НЕ проверен')
+    project = 'stend109up%s' % uuid.uuid4().hex[:8]
+    repo_p = Path(repo)
+    cwd = repo_p
+    cf = repo_p / 'backend' / 'compose.dev.yml'
+    tmpdir = None
+    if tree.overlay:
+        # релоцированная копия: относительные bind-пути → абсолютные от корня R
+        text = re.sub(r'^(\s*-\s*)\.\./([^:\s]+):',
+                      lambda m: '%s%s:' % (m.group(1), (repo_p / m.group(2)).resolve()),
+                      compose, flags=re.M)
+        text = re.sub(r'context:\s*\.\s*$', 'context: %s' % (repo_p / 'backend'),
+                      text, flags=re.M)
+        tmpdir = tempfile.mkdtemp(prefix='stend109-up-')
+        cf = Path(tmpdir) / 'compose.dev.yml'
+        cf.write_text(text, encoding='utf-8')
+        cwd = Path(tmpdir)
+    notes, oks = [], []
+    try:
+        def dcompose(*a, timeout=420):
+            return subprocess.run(['docker', 'compose', '-p', project, '-f', str(cf), *a],
+                                  capture_output=True, text=True, timeout=timeout,
+                                  cwd=str(cwd))
+        ledger_sql = ('psql -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}" '
+                      '-tAc "SELECT count(*) FROM control.schema_migration"')
+        blocks = service_blocks(services_section(compose))
+        pgsvc = next((n for n, blk in blocks.items()
+                      if re.search(r'image:\s*\S*postgres', blk or '')), None)
+        r1 = dcompose('up', '-d', '--wait')
+        oks.append(r1.returncode == 0)
+        notes.append('up -d --wait: rc=%d %s' % (
+            r1.returncode, (r1.stderr or '').strip()[:110]))
+        if r1.returncode == 0:
+            if pgsvc is None:
+                oks.append(False)
+                notes.append('сервис PG не найден для ledger-проверки')
+            else:
+                q = dcompose('exec', '-T', pgsvc, 'sh', '-lc', ledger_sql, timeout=60)
+                led = (q.stdout or '').strip()
+                oks.append(q.returncode == 0 and led == '14')
+                notes.append('ledger=%r rc=%d' % (led, q.returncode))
+            r2 = dcompose('up', '-d', '--wait')
+            led2 = None
+            if pgsvc is not None:
+                q2 = dcompose('exec', '-T', pgsvc, 'sh', '-lc', ledger_sql, timeout=60)
+                led2 = (q2.stdout or '').strip()
+                ok3 = r2.returncode == 0 and q2.returncode == 0 and led2 == '14'
+            else:
+                ok3 = False
+            oks.append(ok3)
+            notes.append('повтор: rc=%d ledger=%r' % (r2.returncode, led2))
+    finally:
+        try:
+            subprocess.run(['docker', 'compose', '-p', project, '-f', str(cf),
+                            'down', '-v', '--remove-orphans'],
+                           capture_output=True, text=True, timeout=120, cwd=str(cwd))
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        if tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    return (all(oks), 'живой стенд (проект %s): %s' % (
+        project, ' | '.join(notes)))
+
+
+def files_sha_fact(repo, tree=None):
+    """Производные FILES.sha256 (F5/Б3): каждая строка — файл ЕСТЬ в коммите и
+    sha256 blob из HEAD совпадает (оракул независим: git + hashlib, не
+    tools/verify_handoff.py)."""
+    tree = tree or Tree(repo)
+    text = tree.get('FILES.sha256')
+    if text is None:
+        return (None, 'NEEDS_ENV: FILES.sha256 отсутствует — соответствие '
+                      'производных коммиту НЕ проверено')
+    if not (Path(repo) / '.git').exists():
+        return (None, 'NEEDS_ENV: нет .git — соответствие FILES.sha256 коммиту '
+                      'НЕ проверено')
+    bad = []
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    for ln in lines:
+        m = re.match(r'^([0-9a-f]{64})  (.+)$', ln)
+        if not m:
+            bad.append('формат строки: %s' % ln[:60])
+            continue
+        want, rel = m.groups()
+        e = subprocess.run(['git', '-C', str(repo), 'cat-file', '-e',
+                            'HEAD:%s' % rel], capture_output=True)
+        if e.returncode != 0:
+            bad.append('нет в коммите: %s' % rel)
+            continue
+        blob = subprocess.run(['git', '-C', str(repo), 'show', 'HEAD:%s' % rel],
+                              capture_output=True)
+        if hashlib.sha256(blob.stdout).hexdigest() != want:
+            bad.append('sha256 расходится: %s' % rel)
+    return (not bad, '%d строк; %s' % (len(lines), '; '.join(bad[:4])
+            or 'все строки — файлы коммита, sha256 сходится'))
+
 def check_facts(repo, tree=None):
     """{имя: (True|False|None, пояс)}; None = NEEDS_ENV (честный NOT_RUN)."""
     facts = {}
@@ -757,6 +1165,11 @@ def check_facts(repo, tree=None):
     facts['EGRESS_GUARD'] = egress_fact(repo, tree)
     facts['DRILL_EVIDENCE_GUARD'] = drill_fact(repo, tree)
     facts['HARNESS_TUPLE_GUARD'] = harness_fact(repo, tree)
+    facts['DRILL_INPUT_GUARD'] = drill_input_fact(repo, tree)
+    facts['HARNESS_HONESTY_GUARD'] = harness_honesty_fact(repo, tree)
+    facts['HARNESS_PII_GUARD'] = harness_pii_fact(repo, tree)
+    facts['STEND_UP_GUARD'] = stend_up_fact(repo, tree)
+    facts['FILES_SHA256_GUARD'] = files_sha_fact(repo, tree)
     return facts
 
 
@@ -1002,7 +1415,176 @@ def mut_scrubber_identity(t):
               "  return out;\n"
               "}")
     decoy = "function scrubSecrets(text, secrets) { return text; }"
-    return {HARNESS: b.replace(honest, decoy)} if honest in b else None
+    if honest in b:
+        return {HARNESS: b.replace(honest, decoy)}
+    if MODEL_SCRUB in b:  # круг 2: честный scrubber модели расширен паттернами
+        return {HARNESS: b.replace(MODEL_SCRUB, decoy)}
+    return None
+
+# ------------------------------------------------- мутанты круга 2 (байт-в-байт
+# к дефектным ветвям коммита C a9569176c; на дереве без честного входа мутант
+# возвращает None → BLOCKED_BY_RED_CONTROL, не NOOP)
+
+DRILL_REL = 'backend/scripts/drill-measure.js'
+
+# честная валидация measured_* (модель) — мутант удаляет её (в C нет проверки)
+DRILL_HONEST_VALIDATION = """  for (const k of ['measured_rpo_minutes', 'measured_rto_minutes']) {
+    if (!Number.isFinite(parsed[k])) {
+      process.stderr.write(`drill: измерение ${k} не число: ${JSON.stringify(parsed[k])}\\n`);
+      process.exit(2);
+    }
+  }
+  if (typeof parsed.measured_at !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}/.test(parsed.measured_at)) {
+    process.stderr.write(`drill: measured_at не ISO-метка времени: ${JSON.stringify(parsed.measured_at)}\\n`);
+    process.exit(2);
+  }
+"""
+
+# честная запись append-only 'wx' (модель) → C пишет writeFileSync-перезаписью
+DRILL_WX_WRITE = """  let fd;
+  try {
+    fd = fs.openSync(file, 'wx');
+  } catch (e) {
+    if (e.code === 'EEXIST') {
+      process.stderr.write(`drill: ${file} уже существует — evidence append-only, перезапись запрещена\\n`);
+      process.exit(1);
+    }
+    throw e;
+  }
+  try {
+    fs.writeSync(fd, JSON.stringify(payload, null, 2));
+  } finally {
+    fs.closeSync(fd);
+  }"""
+DRILL_C_WRITE = "  fs.writeFileSync(file, JSON.stringify(payload, null, 2));"
+
+# валидация mode в captureBeforeAfter (модель) — мутант удаляет её (в C нет)
+CBA_MODE_CHECK = """  if (!MODE_LABELS.includes(observation.mode)) {
+    throw new Error(
+      `mode обязан быть одним из ${MODE_LABELS.join('/')}; получено ${JSON.stringify(observation.mode)}`,
+    );
+  }
+"""
+
+C_CBA_MODE = "    mode: observation.mode || 'RUNTIME',"
+MODEL_CBA_MODE = "    mode: observation.mode,"
+
+C_PG18_IMAGE = ('postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb'
+                '8a810eb51b452253ec3dcfc4336')
+C_PGDATA_SUBPATH = '      - pgdata:/var/lib/postgresql/data\n'
+MODEL_PGDATA = '      - pgdata:/var/lib/postgresql\n'
+
+C_PHANTOM_LINES = (
+    '3097d4d3d5722554f171e6b0b09e039c1d2fe5fe07d25b6c5264b8850138a083  '
+    'evidence/ux175/20261020T013957.891448Z/results.json',
+    '3097d4d3d5722554f171e6b0b09e039c1d2fe5fe07d25b6c5264b8850138a083  '
+    'evidence/ux175/20261020T014056.435629Z/results.json',
+)
+
+# честный scrubber модели: объявленные секреты raw+JSON-экранированно и паттерны
+# Bearer/cookie/email/phone; мутант подменяет функцию целиком на ветвь C.
+MODEL_SCRUB = r"""function scrubSecrets(text, secrets) {
+  let out = text;
+  for (const s of secrets || []) {
+    const raw = String(s);
+    if (raw.length === 0) continue;
+    out = out.split(raw).join('[REDACTED]');
+    const escaped = raw
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t');
+    out = out.split(escaped).join('[REDACTED]');
+  }
+  out = out
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/g, 'Bearer [REDACTED]')
+    .replace(/(cookie"\s*:\s*")([^"]*)(")/g, '$1[REDACTED]$3')
+    .replace(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g, '[REDACTED_EMAIL]')
+    .replace(/\+\d[\d\s().\-]{6,}\d/g, '[REDACTED_PHONE]');
+  return out;
+}"""
+C_SCRUB = """function scrubSecrets(text, secrets) {
+  let out = text;
+  for (const s of secrets || []) out = out.split(String(s)).join('[REDACTED]');
+  return out;
+}"""
+
+
+def mut_drill_invalid_input(t):
+    """F2: measured_* null/строка принимаются (ветвь C — проверки нет)."""
+    b = t.get(DRILL_REL)
+    if not need(b) or DRILL_HONEST_VALIDATION not in b:
+        return None
+    return {DRILL_REL: b.replace(DRILL_HONEST_VALIDATION, '', 1)}
+
+
+def mut_drill_overwrite(t):
+    """F2: повторный прогон перезаписывает измеренный evidence (writeFileSync)."""
+    b = t.get(DRILL_REL)
+    if not need(b) or DRILL_WX_WRITE not in b:
+        return None
+    return {DRILL_REL: b.replace(DRILL_WX_WRITE, DRILL_C_WRITE, 1)}
+
+
+def mut_harness_mode_fabricated(t):
+    """F3: вход captureBeforeAfter как в коммите C — валидации mode нет И есть
+    фольбэк || 'RUNTIME' (пара ветвей байт-в-байт): без mode пишется RUNTIME."""
+    b = t.get(HARNESS)
+    if not need(b) or CBA_MODE_CHECK not in b or MODEL_CBA_MODE not in b:
+        return None
+    b2 = b.replace(CBA_MODE_CHECK, '', 1).replace(MODEL_CBA_MODE, C_CBA_MODE, 1)
+    return {HARNESS: b2}
+
+
+def mut_harness_mock_mode(t):
+    """F3: произвольный mode (MOCK_SUCCESS) принимается — валидации нет (C)."""
+    b = t.get(HARNESS)
+    if not need(b) or CBA_MODE_CHECK not in b:
+        return None
+    return {HARNESS: b.replace(CBA_MODE_CHECK, '', 1)}
+
+
+def mut_harness_pii_leak(t):
+    """F4: scrubber чистит только объявленные secrets (split/join из C)."""
+    b = t.get(HARNESS)
+    if not need(b) or MODEL_SCRUB not in b:
+        return None
+    return {HARNESS: b.replace(MODEL_SCRUB, C_SCRUB, 1)}
+
+
+def mut_compose_pg18_volume_subpath(t):
+    """F1/Б1: том pgdata смонтирован в data-подпуть — PG18 отказывается."""
+    b = t.get('backend/compose.dev.yml')
+    if not need(b) or MODEL_PGDATA not in b:
+        return None
+    return {'backend/compose.dev.yml': b.replace(MODEL_PGDATA, C_PGDATA_SUBPATH, 1)}
+
+
+def mut_compose_migrator_pg_image(t):
+    """F1/Б1: migrator на образе postgres:18 без node → exec node exit 127."""
+    b = t.get('backend/compose.dev.yml')
+    if not need(b):
+        return None
+    blocks = service_blocks(services_section(b))
+    mig = next((n for n in blocks if re.match(r'migrat', n)), None)
+    if mig is None:
+        return None
+    blk = blocks[mig]
+    m = re.search(r'^(\s*)image:\s*\S+\s*$', blk, re.M)
+    if m is None or 'postgres' in m.group(0):
+        return None
+    new_blk = blk[:m.start()] + '%simage: %s' % (m.group(1), C_PG18_IMAGE) + blk[m.end():]
+    return {'backend/compose.dev.yml': b.replace(blk, new_blk, 1)}
+
+
+def mut_files_sha256_phantom(t):
+    """F5/Б3: строки FILES.sha256 ссылаются на файлы вне коммита."""
+    b = t.get('FILES.sha256')
+    if not need(b) or C_PHANTOM_LINES[0] in b:
+        return None
+    sep = '' if b.endswith('\n') else '\n'
+    return {'FILES.sha256': b + sep + '\n'.join(C_PHANTOM_LINES) + '\n'}
 
 
 CASES = [
@@ -1035,7 +1617,30 @@ CASES = [
     ('drill_unwired', 'DRILL_MEASUREMENTS_ABSENT', mut_drill_unwired),
     ('harness_mode_collapse', 'HARNESS_TUPLE_GUARD', mut_harness_mode_collapse),
     ('harness_scrubber_identity', 'HARNESS_TUPLE_GUARD', mut_scrubber_identity),
+    ('drill_invalid_input', 'DRILL_INPUT_GUARD', mut_drill_invalid_input),
+    ('drill_overwrite_evidence', 'DRILL_INPUT_GUARD', mut_drill_overwrite),
+    ('harness_mode_fabricated', 'HARNESS_HONESTY_GUARD', mut_harness_mode_fabricated),
+    ('harness_mock_mode_accepted', 'HARNESS_HONESTY_GUARD', mut_harness_mock_mode),
+    ('harness_pii_leak', 'HARNESS_PII_GUARD', mut_harness_pii_leak),
+    ('compose_pg18_volume_subpath', 'STEND_UP_GUARD', mut_compose_pg18_volume_subpath),
+    ('compose_migrator_pg_image', 'STEND_UP_GUARD', mut_compose_migrator_pg_image),
+    ('files_sha256_phantom', 'FILES_SHA256_GUARD', mut_files_sha256_phantom),
 ]
+
+# фактов стало десять (круг 2): run_case вызывает ТОЛЬКО целевой факт мутанта,
+# не пересчитывая все (живой docker-факт дорогой); семантика прежних целей
+# не меняется — те же функции с теми же аргументами.
+FACT_FUNCS = {
+    'RUNNER_DAMAGE_GUARD': lambda repo, tree: runner_damage_fact(repo, shutil.which('node')),
+    'EGRESS_GUARD': egress_fact,
+    'DRILL_EVIDENCE_GUARD': drill_fact,
+    'HARNESS_TUPLE_GUARD': harness_fact,
+    'DRILL_INPUT_GUARD': drill_input_fact,
+    'HARNESS_HONESTY_GUARD': harness_honesty_fact,
+    'HARNESS_PII_GUARD': harness_pii_fact,
+    'STEND_UP_GUARD': stend_up_fact,
+    'FILES_SHA256_GUARD': files_sha_fact,
+}
 
 
 def run_case(repo, name, base_fired, base_facts_red):
@@ -1055,8 +1660,8 @@ def run_case(repo, name, base_fired, base_facts_red):
         return {'name': name, 'target': target, 'applied': True,
                 'verdict': 'REJECTED_EXACT' if newly == {'ROOT_SERVER_PRESENT'} else 'NOT_REJECTED',
                 'depends': sorted(newly)}
-    if target in ('DRILL_EVIDENCE_GUARD', 'HARNESS_TUPLE_GUARD'):
-        mut_v = check_facts(repo, tree)[target][0]
+    if target in FACT_FUNCS:
+        mut_v = FACT_FUNCS[target](repo, tree)[0]
         newly = {target} if (mut_v is False and target not in base_facts_red) else set()
         return {'name': name, 'target': target, 'applied': True,
                 'verdict': 'REJECTED_EXACT' if newly == {target} else 'NOT_REJECTED',
