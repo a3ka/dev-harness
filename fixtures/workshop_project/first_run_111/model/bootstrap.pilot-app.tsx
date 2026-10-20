@@ -13,6 +13,7 @@ import { AuthScreen } from '@/features/auth/auth-screen';
 import { FirstRunScreen } from '@/features/auth/first-run-screen';
 import { WelcomeScreen } from '@/features/onboarding/welcome-screen';
 import { useTheme } from '@/theme/context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { runtime as shippedRuntime } from '@pilot/runtime';
 
 export interface PilotAppPorts {
@@ -85,6 +86,11 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   // иначе вокруг SafeAreaView First-Run возникает рамка (белая в старой
   // заглушке). Клетка FIRST_RUN_GROUND_FULL_SURFACE судит обе схемы.
   const { tokens } = useTheme();
+  // R1 (ревью 111, круг 2): Demo-бейдж обязан начинаться ниже top-инсета
+  // (на устройстве круга 2 лежал в статус-баре [0,0][137,64]). Кодировка
+  // честной модели — потребление useSafeAreaInsets().top как верхний
+  // отступ обёртки бейджа; клетка DEMO_BADGE_INSET судит обе схемы.
+  const insets = useSafeAreaInsets();
 
   const [frame, setFrame] = useState<Frame>('first-run');
   const [flow, setFlow] = useState<AuthFlowState>(createInitialAuthFlow);
@@ -192,8 +198,10 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   return (
     <View style={[styles.root, { backgroundColor: tokens.ground }]}>
       {frame !== 'welcome' ? (
-        <View style={styles.demoBadge} testID="demo-indicator">
-          <Text style={styles.demoBadgeText}>Demo</Text>
+        <View style={{ paddingTop: insets.top }}>
+          <View style={styles.demoBadge} testID="demo-indicator">
+            <Text style={styles.demoBadgeText}>Demo</Text>
+          </View>
         </View>
       ) : null}
 

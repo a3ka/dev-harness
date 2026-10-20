@@ -3,7 +3,9 @@
 
 Исполняет настоящий Jest/RNTL на disposable R и разбирает отчёт поимённо.
 Без --model: до-предметное дерево — именованный отказ rc1 FIRST_RUN_SEAM_ABSENT.
-С --model: эталон architect ставится по путям поставки, rc0 с перечнем.
+С --model: эталон architect ставится по путям поставки, rc0 с перечнем
+(включая пару К7 DEMO_BADGE_INSET: отступ Demo-бейджа отслеживает
+литеральный top-инсет мока SafeAreaInsetsContext — R1, ревью круга 2).
 --matrix: каждый обманный стаб даёт красноту на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case печатается построчно.
@@ -52,7 +54,10 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           "{frame !== 'welcome' ? (",
           "{frame !== 'welcome' && frame !== 'first-run' ? (")],
-        ['FIRST_RUN_STRUCTURE_DARK', 'FIRST_RUN_STRUCTURE_LIGHT'], [],
+        ['FIRST_RUN_STRUCTURE_DARK', 'FIRST_RUN_STRUCTURE_LIGHT'],
+        # К7 (замер матрицей круга 3): бейджа нет на First-Run — inset-клетка
+        # красна «Unable to find» вместе со структурой.
+        ['DEMO_BADGE_INSET_DARK', 'DEMO_BADGE_INSET_LIGHT'],
     ),
     'wordmark-absent': (
         [('mobile/src/features/auth/first-run-screen.tsx',
@@ -165,6 +170,37 @@ MUTANTS = {
           'root: {\n    flex: 1,\n  },',
           'root: {\n    flex: 1,\n    paddingTop: 48,\n    paddingHorizontal: 16,\n    paddingBottom: 16,\n  },')],
         ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'], [],
+    ),
+    # R1 (ревью 111, круг 2): бейдж вынут из safe-отступа — дословная форма
+    # продукта круга 2 (бейдж [0,0][137,64] целиком в статус-баре, круг 2
+    # проходил 13/13+15/15); красна парой К7.
+    'badge-outside-safearea': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '        <View style={{ paddingTop: insets.top }}>\n'
+          '          <View style={styles.demoBadge} testID="demo-indicator">\n'
+          '            <Text style={styles.demoBadgeText}>Demo</Text>\n'
+          '          </View>\n'
+          '        </View>\n',
+          '        <View style={styles.demoBadge} testID="demo-indicator">\n'
+          '          <Text style={styles.demoBadgeText}>Demo</Text>\n'
+          '        </View>\n')],
+        ['DEMO_BADGE_INSET_DARK', 'DEMO_BADGE_INSET_LIGHT'], [],
+    ),
+    # top=0: обёртка жива, но верхний инсет не применяется — бейдж прижат
+    # к верху под статус-баром; красна парой К7.
+    'badge-inset-top-zero': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'style={{ paddingTop: insets.top }}',
+          'style={{ paddingTop: 0 }}')],
+        ['DEMO_BADGE_INSET_DARK', 'DEMO_BADGE_INSET_LIGHT'], [],
+    ),
+    # хардкод измеренного значения: проходит рендер с инсетом 47, красен на
+    # втором рендере клетки (инсет 59) — отслеживание убивает литерал.
+    'badge-hardcoded-inset': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'style={{ paddingTop: insets.top }}',
+          'style={{ paddingTop: 47 }}')],
+        ['DEMO_BADGE_INSET_DARK', 'DEMO_BADGE_INSET_LIGHT'], [],
     ),
 }
 

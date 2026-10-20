@@ -2,9 +2,12 @@
 // каталога D2.2.5.1, снятый с read-only docs/ Complior-mob 76ac10fa ДО
 // запуска субъекта; все ожидания — ЛИТЕРАЛЫ ниже (правило 8, Н-351: ни одна
 // клетка не сверяется значением, прочитанным у субъекта). Вход (провайдер
-// темы) — themeTokens 999; ожидание — токены-литералы source.json.
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+// темы) — themeTokens 999; ожидание — токены-литералы source.json. К7:
+// мок-провайдер safe-area (SafeAreaInsetsContext) с литеральными insets.
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react-native';
 import React from 'react';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
+
 
 import { PilotApp } from '@/bootstrap/pilot-app';
 import { ThemeContext } from '@/theme/context';
@@ -22,6 +25,11 @@ const WORDMARK_LABEL = 'complior';
 // source.json wordmark.asset = 'mobile/assets/images/wordmark-dark.png'
 const WORDMARK_ASSET = 'wordmark-dark.png';
 const DEMO = 'Demo';
+// К7: литеральные top-инсеты мока (top>0); пара значений — отслеживание:
+// честный отступ обязан равняться текущему литералу, хардкод любого одного
+// из них красен на втором рендере клетки.
+const INSET_TOP_A = 47;
+const INSET_TOP_B = 59;
 // Канон D2.2.5.1 не объявляет усечённого набора краёв для First-Run:
 // действующая safe-area = все четыре края (кодировка нативного шва
 // react-native-safe-area-context: 'additive' = край защищён, 'off' = снят).
@@ -51,11 +59,19 @@ function ports() {
   };
 }
 
-async function renderFirstRun(scheme: ColorScheme) {
+// К7:SafeAreaInsetsContext.Provider — литеральный мок insets (top>0) без
+// host-узлов: дерево toJSON не меняется (К6 судит корень PilotApp), а
+// useSafeAreaInsets() субъекта возвращает литерал провайдера. react-native-
+// safe-area-context 5.7: SafeAreaView применяет инсет нативно (в Jest не
+// наблюдаем), поэтому наблюдаемая кодировка честной модели — потребление
+// инсета через useSafeAreaInsets (дословно совет починки R1).
+async function renderFirstRun(scheme: ColorScheme, insetTop: number = INSET_TOP_A) {
   return render(
-    <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
-      <PilotApp {...ports()} />
-    </ThemeContext.Provider>,
+    <SafeAreaInsetsContext.Provider value={{ top: insetTop, right: 0, bottom: 0, left: 0 }}>
+      <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+        <PilotApp {...ports()} />
+      </ThemeContext.Provider>
+    </SafeAreaInsetsContext.Provider>,
   );
 }
 
@@ -79,6 +95,24 @@ function textOf(node: { props: { children?: unknown } }): string {
   const children = node.props.children;
   if (typeof children === 'string') return children;
   throw Error('textOf: не строковый children');
+}
+
+// К7: вертикальные отступы (paddingTop+marginTop) каждого узла цепи
+// бейдж→…→корень (включая сам бейдж); composit-узлы без style дают 0.
+// Клетка требует, чтобы один из них РАВНЯЛСЯ top-инсету мока — отступ
+// применяется выше бейджа, значит его верх (и центр) ниже инсета.
+function nodeTopOffsets(badge: unknown): number[] {
+  const out: number[] = [];
+  let node: unknown = badge;
+  while (node) {
+    const inst = node as { parent?: unknown; props?: { style?: unknown } };
+    if (inst.props) {
+      const style = styleOf(inst as { props: { style?: unknown } });
+      out.push((Number(style.paddingTop) || 0) + (Number(style.marginTop) || 0));
+    }
+    node = inst.parent;
+  }
+  return out;
 }
 
 // Все текстовые листья host-дерева (toJSON): видимая поверхность экрана.
@@ -224,6 +258,30 @@ describe('111 first-run', () => {
       expect([undefined, 0]).toContain(style.paddingTop);
       expect([undefined, 0]).toContain(style.paddingHorizontal);
       expect([undefined, 0]).toContain(style.paddingBottom);
+    });
+  }
+
+  // К7 Demo-бейдж внутри safe-area (R1, ревью круг 2), произведение scheme(2):
+  // на устройстве круга 2 бейдж [0,0][137,64] лежал целиком в статус-баре —
+  // вне safe-area экрана. Наблюдение: вертикальный отступ бейджа (paddingTop
+  // или marginTop какого-то узла цепи бейдж→корень, включая сам бейдж) равен
+  // top-инсету провайдера-мока; два литеральных значения (47, 59) — отслежи-
+  // вание: отступ обязан меняться за инсетом, хардкод измеренного 47 красен
+  // на втором рендере. Мутанты: бейдж без safe-отступа (форма продукта круга
+  // 2), paddingTop: 0, хардкод 47.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`DEMO_BADGE_INSET_${S}`, async () => {
+      for (const insetTop of [INSET_TOP_A, INSET_TOP_B]) {
+        await renderFirstRun(scheme, insetTop);
+        const badge = screen.getByTestId('demo-indicator');
+        expect(nodeTopOffsets(badge)).toContain(insetTop);
+        // RNTL 14: между рендерами внутри одного теста — await cleanup()
+        // (сбрасывает screen и очередь размонтирований); ручной unmount()
+        // оставляет screen на размонтированном дереве и валит СЛЕДУЮЩИЙ
+        // тест файла (замер: LIGHT-клетка краснела «Unable to find»).
+        await cleanup();
+      }
     });
   }
 });
