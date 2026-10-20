@@ -2640,7 +2640,7 @@ def mut_script_unwire(t):
     b = t.get(t.p('pkg'))
     if not need(b):
         return None
-    return {'backend/package.json': b.replace('tests/integration/**/*.test.js',
+    return {t.p('pkg'): b.replace('tests/integration/**/*.test.js',
                                               'tests/integration/migrations/**/*.test.js')}
 
 
