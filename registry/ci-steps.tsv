@@ -134,6 +134,23 @@ step	check:rezhim-996-family-selftest	31	npm run check:rezhim-996-family-selftes
 # Вес по замеру `time` полной пробы (2026-10-19): 5.566..5.586 с на 5 прогонах,
 # округлено вверх до 6.
 step	check:pravila-modelei-998	6	bash fixtures/pravila_modelei_998/probe.sh
+# КОНТРАКТ 110 done-волны: красная проба двери done_wave.
+# Состав батареи (по `probe.sh --matrix`, импорт probe.py): 86 клеток =
+# 52 замороженных байт-в-байт (frozen/contracts/110/1) + 13 D* (d2/d3/d7/d12/
+# d13/d14/d15/d16/d22/d23/d25/d29/d31) + 6 A*/B* (a1/a1b/a2/a3/a4/b1) +
+# 11 (n2/n11b/b3/n3a/n3b/e1/e3/e5/e6/e10/e11) + 4 (n1_ostatok_untracked_e2e_ok/
+# f2_build_out_e2e_ok/h1_profile_untracked_head_legacy/c11_reason_priority_before_a3);
+# 62 мутанта = 31 m1–m31 + 13 md* (md2/md3/md7/md12/md13/md14/md15/md16/md22/
+# md23/md25/md29/md31) + 5 ma* (ma1/ma1b/ma2/ma3/ma4) + 2 mb* (mb1/mb3) +
+# 6 me* (me1/me3/me5/me6/me10/me11) + 3 mn* (mn11b/mn2/mn3) +
+# mh1_profile_branch_cut + mc11_reason_after_a3; каждый ≥ 1 различающего случая.
+# Клетки n1_e2e_untracked_script/n1b_nfr_untracked_script и мутанты mn1/mn1b
+# удалены арбитражем. Фикстуры проводки — точное соответствие
+# «npm-ключ → fixtures/.../done_volny_110/probe.sh»; без пробы батарея не
+# подключена к CI: provodka.sh ловит деко и подмену путей.
+# Замер `time` полной пробы (run_ci_lane «замер: check:done-volny-110…»):
+# 7.21..7.62 с на 3 прогонах — вес округлён вверх до 8.
+step	check:done-volny-110-family-selftest	8	npm run check:done-volny-110-family-selftest
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).

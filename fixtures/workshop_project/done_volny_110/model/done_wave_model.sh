@@ -14,6 +14,23 @@
 # нести ≥1 численный NFR (Б1); статус review — trim краёв, внутренние пробелы
 # НЕ склеиваются (Б5); e2e исполняется заново каждым вызовом, кеша нет (Б7);
 # тег — аннотированный, на коммит HEAD, причина — в аннотации (Б6).
+# Круг 2 реализации (Adv110 A1–A4, Rev110 Б1): корень обязан быть корнем репозитория
+# (A3); принимаемый HEAD фиксируется ДО всех проверок и команд, источники и тег —
+# от него (Б1/Rev110); профиль проекта существует на HEAD и совпадает с рабочим
+# деревом (A2); грязное отслеживаемое дерево — именованный отказ до тега (A1/A1b);
+# аннотация тега — без cleanup-потерь строк «#» (A4: --cleanup=verbatim).
+# Круг 3 РЕАЛИЗАЦИИ (Adv110r2 N2/N11b/N1/E1/E3/E5/E6/E10/E11 + Rev110r2 Б3,
+# решения оркестратора 2026-10-20): состояние рабочего дерева читается одним
+# `git status --porcelain=v1 -z --no-renames --untracked-files=no` с проверкой
+# rc (N2: «не удалось определить состояния рабочего дерева»; N3: путь записи —
+# ${rec:3}, без кавычек/склейки пробелами); грязь НЕ-источников — ДО исполнения
+# команд e2e/NFR (E11; E1 застейдженное; E10 без префиксных исключений);
+# слой профиля охраняется по ФАКТИЧЕСКОМУ profilePath из HEAD-блоба
+# harness.project.json (N11b/E3); причина из одних «#»-строк НЕ пуста
+# (Б3: verbatim сохраняет аннотацию дословно).
+# Круг 4 РЕАЛИЗАЦИИ (арбитраж Arb110 contracts-110-impl-ostatok-n1.md):
+# эвристика wave110_cmd_on_head удалена из модели и двери.
+# ОСТАТОК (арбитраж 110, реализация): дверь не проверяет, что код, исполняемый командами e2e/NFR, лежит на HEAD; неотслеживаемые/игнорируемые файлы — законные входы команд; отслеживаемое дерево обязано совпадать с HEAD; „HEAD прошёл“ доказывает сама e2e-команда (для харнеса — check_ci_gate)
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
@@ -41,6 +58,40 @@ NEXT_ID_LIB=1 source "$TOOLS_DIR/scripts/next_id.sh" \
   || die "библиотека next_id.sh недоступна (нет project_paths_resolve)"
 command -v jq >/dev/null 2>&1 || die "нет jq (требование project_paths_resolve)"
 ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $ROOT"
+# A3: корень обязан быть корнем репозитория — из подкаталога cat-file-пути
+# разрешаются от верхушки репо, и дверь судит чужой реестр.
+TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \
+  || die "корень не git-репозиторий: $ROOT"
+[ "$(cd "$TOP_ABS" 2>/dev/null && pwd -P)" = "$ROOT_ABS" ] \
+  || die "корень не корень репозитория: $ROOT_ABS"
+# Б1: принимаемый HEAD фиксируется ДО всех проверок и команд; все HEAD-чтения
+# и тег — от этого sha, а не от движущегося HEAD.
+HEAD_SHA="$(git -C "$ROOT" rev-parse "HEAD^{commit}")" \
+  || die "HEAD не разрешается: $ROOT"
+# A2 (N11b/E3 круг 3): harness.project.json — на HEAD и без расхождения с деревом;
+# слой профиля — по фактическому profilePath (ниже), не по зашитому имени.
+if [ -f "$ROOT/harness.project.json" ]; then
+  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: harness.project.json"
+  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: harness.project.json"
+else
+  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \
+    && die "профиль проекта расходится с HEAD: harness.project.json"
+fi
+# N11b/E3 (круг 3): охрана слоя профиля по ФАКТИЧЕСКОМУ пути — profilePath из
+# HEAD-блоба harness.project.json (по умолчанию registry/harness-project.json),
+# не зашитое имя файла: неотслеживаемый слой подменяет реестр деко-деком.
+LAYER_REL="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:harness.project.json" 2>/dev/null \
+  | jq -r '.projectLayer.profilePath // "registry/harness-project.json"' 2>/dev/null)"
+[ -n "$LAYER_REL" ] || LAYER_REL=""
+if [ -n "$LAYER_REL" ] && { [ -e "$ROOT/$LAYER_REL" ] \
+    || git -C "$ROOT" cat-file -e "${HEAD_SHA}:${LAYER_REL}" 2>/dev/null; }; then
+  git -C "$ROOT" cat-file -e "${HEAD_SHA}:${LAYER_REL}" 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: ${LAYER_REL} (не на HEAD)"   # MUT-E3
+  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$LAYER_REL" 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: ${LAYER_REL}"
+fi
 PPR_JSON="$(project_paths_resolve "$ROOT")" \
   || die "профиль проекта не разрешается: $ROOT"
 REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
@@ -51,7 +102,7 @@ export LIB_PLAN_REGISTRY="$REG_REL"   # MUT-REG (Б9: корневой деко 
 
 # ── И-1 членство: строки плана пары W из HEAD-блоба, канонический plan_parse ──
 PLAN_TMP="$(mktemp)"
-git -C "$ROOT" cat-file blob "HEAD:${REG_REL}/plan.tsv" >"$PLAN_TMP" 2>/dev/null \
+git -C "$ROOT" cat-file blob "${HEAD_SHA}:${REG_REL}/plan.tsv" >"$PLAN_TMP" 2>/dev/null \
   || { rm -f "$PLAN_TMP"; die "план недоступен на HEAD: ${REG_REL}/plan.tsv"; }
 source "$TOOLS_DIR/scripts/lib_plan.sh"
 plan_parse "$PLAN_TMP" || { rm -f "$PLAN_TMP"; die "$P84_PLAN_ERR"; }   # MUT-PARSE (Б8: второй парсер)
@@ -66,7 +117,7 @@ done
 [ "$wave_n" -gt 0 ] || die "волна $W пуста: нет строк плана с этой парой"   # MUT-EMPTY
 
 # ── И-2 терминальность КАЖДОЙ строки (закрытия — HEAD-блоб реестра) ───────────
-CLOSED="$(git -C "$ROOT" cat-file -p "HEAD:${REG_REL}/closed-without-done.tsv" 2>/dev/null || true)"
+CLOSED="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:${REG_REL}/closed-without-done.tsv" 2>/dev/null || true)"
 while IFS= read -r id; do
   [ -n "$id" ] || continue
   if [ -n "${id//[0-9]/}" ]; then
@@ -80,7 +131,7 @@ while IFS= read -r id; do
 done <<< "$ROWS"
 
 # ── И-3 манифест <реестр>/waves/<W>.tsv: закрытый алфавит, nfr ≥ 1 (Б1) ────────
-MANIFEST="$(git -C "$ROOT" cat-file -p "HEAD:${REG_REL}/waves/${W}.tsv" 2>/dev/null)" \
+MANIFEST="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:${REG_REL}/waves/${W}.tsv" 2>/dev/null)" \
   || die "манифест волны отсутствует: ${REG_REL}/waves/${W}.tsv"   # MUT-NOMAN
 NFR_ROWS=""; E2E_CMD=""; OTKAT_PATH=""; REVIEW_PATHS=""
 e2e_n=0; otkat_n=0; nfr_n=0; row_n=0
@@ -122,6 +173,30 @@ done <<< "$MANIFEST"
 [ -n "$E2E_CMD" ] || die "манифест волны не объявил сквозной запуск: нет e2e строки"   # MUT-NOE2E
 [ -n "$OTKAT_PATH" ] || die "манифест волны не объявил план отката: нет otkat строки"
 
+# ── A1/A1b + E1/E10/E11/N2/N3 (круг 3): грязь НЕ-источников — ДО исполнения ───
+# команд e2e/NFR. Источники (план/закрытия/манифест/находки/откат/профиль)
+# судятся HEAD-блобами (правило H) и от грязи освобождены — по ТОЧНЫМ путям,
+# не по префиксу каталога реестра (E10). Порядок «до команд» держит E11:
+# e2e, восстанавливающий себя (git checkout --), не уводит отказ.
+SRC_SKIP="$REG_REL/plan.tsv $REG_REL/closed-without-done.tsv $REG_REL/waves/${W}.tsv $OTKAT_PATH harness.project.json"
+[ -n "$LAYER_REL" ] && SRC_SKIP="$SRC_SKIP $LAYER_REL"
+while IFS= read -r rp; do
+  [ -n "$rp" ] && SRC_SKIP="$SRC_SKIP $rp"
+done <<< "$REVIEW_PATHS"
+STATUS_TMP="$(mktemp)"
+git -C "$ROOT" status --porcelain=v1 -z --no-renames --untracked-files=no >"$STATUS_TMP" 2>/dev/null \
+  || { rm -f "$STATUS_TMP"; die "не удалось определить состояние рабочего дерева"; }   # MUT-N2
+DIRTY=""
+while IFS= read -r -d '' rec <&3; do   # MUT-N3: запись «XY <путь>», путь = ${rec:3}
+  p="${rec:3}"
+  case " $SRC_SKIP " in *" $p "*) continue ;; esac   # MUT-E10
+  DIRTY+="${DIRTY:+ }$p"
+done 3< "$STATUS_TMP"
+rm -f "$STATUS_TMP"
+[ -z "$DIRTY" ] || die "рабочее дерево расходится с HEAD: $DIRTY (не HEAD-источник)"   # MUT-A1
+# (Круг 4, арбитраж Arb110 п. 1: эвристика wave110_cmd_on_head снята —
+# принятый остаток, см. шапку; отслеживаемое дерево судится выше, до команд.)
+
 # ── И-4 NFR: КАЖДАЯ строка, число из вывода, порог — литерал строки ───────────
 while IFS= read -r nfr; do
   [ -n "$nfr" ] || continue
@@ -147,7 +222,7 @@ e2e_rc=0
 # ── И-6 review: КАЖДЫЙ файл, статус литерально done, trim только краёв (Б5) ───
 while IFS= read -r p; do
   [ -n "$p" ] || continue
-  blob="$(git -C "$ROOT" cat-file -p "HEAD:$p" 2>/dev/null)" \
+  blob="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:$p" 2>/dev/null)" \
     || die "находка владельца отсутствует на HEAD: $p"   # MUT-NOFILE
   st="$(printf '%s\n' "$blob" | sed -nE 's/^status:[[:space:]]*//p' | sed -n 1p)"
   st="$(printf '%s' "$st" | sed -E 's/[[:space:]]+$//')"   # MUT-SQUASH (Б5: склейка внутренних пробелов)
@@ -155,12 +230,15 @@ while IFS= read -r p; do
 done <<< "$REVIEW_PATHS"
 
 # ── И-7 otkat: обязательные поля плана отката ────────────────────────────────
-oblob="$(git -C "$ROOT" cat-file -p "HEAD:$OTKAT_PATH" 2>/dev/null)" \
+oblob="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:$OTKAT_PATH" 2>/dev/null)" \
   || die "план отката отсутствует: $OTKAT_PATH"   # mut-otkat-file
 for fld in риск sha команда-отката команда-проверки; do
   printf '%s\n' "$oblob" | grep -E "^${fld}:[[:space:]]*[^[:space:]]" >/dev/null \
     || die "план отката без поля: $fld"   # mut-otkat-field
 done
+
+# (Круг 3: единая ранняя проверка грязи — выше, до команд e2e/NFR; поздняя
+# проверка удалена: источники судятся HEAD-блобами, E11 закрыт порядком.)
 
 # ── И-8 тег: v=max+1, клапан v>1; аннотированный тег КОММИТА HEAD (Б6) ────────
 vmax=0
@@ -177,7 +255,7 @@ if [ "$v" -gt 1 ]; then
 fi
 tag="done/waves/$W/$v"
 if ! git -C "$ROOT" -c user.name=Fixture -c user.email=fixture@local \
-     tag -a "$tag" -m "$REASON" >/dev/null 2>&1; then   # MUT-TREE (Б6: lightweight на tree)
+     tag --cleanup=verbatim -a "$tag" -m "$REASON" "$HEAD_SHA" >/dev/null 2>&1; then   # MUT-TREE (Б6: lightweight на tree)
   die "тег $tag не создан"
 fi
 printf '%s\n' "v$v"
