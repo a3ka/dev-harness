@@ -44,26 +44,28 @@ ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $
 # ── A3: корень обязан быть вершиной git-репозитория (не подкаталог) ─────────
 TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \
   || die "корень не git-репозиторий: $ROOT"
-[ "$TOP_ABS" = "$ROOT_ABS" ] || die "корень — подкаталог репозитория: $ROOT (вершина $TOP_ABS)"
+[ "$TOP_ABS" = "$ROOT_ABS" ] || die "корень не корень репозитория: $ROOT_ABS"
 
 # ── Б1: HEAD снимается один раз в начале; все блобы и тег — от него ──────────
 HEAD_SHA="$(git -C "$ROOT" rev-parse --verify -q "HEAD^{commit}")" \
   || die "HEAD недоступен: $ROOT"
 
-# ── A1/A1b/A2 (отложено): грязное отслеживаемое дерево вне пяти HEAD-источников
-# ── отказ до e2e/NFR; пять источников (план, закрытия, манифест, находки
-# ── review, план отката) — HEAD-блобы (правило H), их расхождение с HEAD
-# ── доказывается самим чтением HEAD, а не отказом на dirty-check.
+# ── A2: профиль обязан существовать на HEAD и совпадать с рабочим деревом;
+# удалённый/расходящийся/неотслеживаемый профиль подменяет реестр корневым
+# деко (резолвер читает рабочее дерево).
 PROFILE_FILES=("harness.project.json" "project-layer.json")
 for pf in "${PROFILE_FILES[@]}"; do
-  if [ -e "$ROOT/$pf" ]; then
+  if [ -f "$ROOT/$pf" ]; then
     if [ -L "$ROOT/$pf" ]; then
       die "символическая ссылка профиля: $pf"
     fi
-    git -C "$ROOT" diff --quiet -- "$pf" \
-      || die "файл профиля расходится с HEAD: $pf"
-    git -C "$ROOT" ls-files --error-unmatch -- "$pf" >/dev/null 2>&1 \
-      || die "неотслеживаемый файл профиля: $pf"
+    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \
+      || die "профиль проекта не на HEAD: $pf"
+    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$pf" 2>/dev/null \
+      || die "профиль проекта расходится с HEAD: $pf"
+  else
+    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \
+      && die "профиль проекта расходится с HEAD: $pf"
   fi
 done
 
@@ -181,7 +183,7 @@ $HEAD_SOURCES
     *"
 $d
 "*) ;;
-    *) die "грязное отслеживаемое дерево: $d (не HEAD-источник)" ;;
+    *) die "рабочее дерево расходится с HEAD: $d (не HEAD-источник)" ;;
   esac
 done
 
