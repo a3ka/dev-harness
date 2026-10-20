@@ -1,0 +1,100 @@
+{
+  "snapshot": "Complior-mob 16eb708a27f7127920803dac537be7eddac5ae54 (read-only docs/ ДО запуска субъекта)",
+  "copy": {
+    "frame.F05.01.title": {
+      "text": "Was ist passiert?",
+      "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "frame.F05.01.body": {
+      "text": "Beschreiben Sie, wobei Sie Unterstützung benötigen.",
+      "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "frame.F05.02.title": {
+      "text": "Gesprächsverlauf",
+      "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "frame.F05.05.title": {
+      "text": "Antwort wird vorbereitet",
+      "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "frame.F05.06.body": {
+      "text": "Öffnen Sie die Quelle, um die Grundlage dieser Aussage zu prüfen.",
+      "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "frame.F05.07.body": {
+      "text": "Ihre Nachricht wurde noch nicht gesendet. Sie können sie weiterbearbeiten.",
+      "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "action.F05.A01": {
+      "text": "Nachricht senden",
+      "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "action.F05.A02": {
+      "text": "Dokument hinzufügen",
+      "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    },
+    "action.F05.A03": {
+      "text": "Neues Thema",
+      "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    }
+  },
+  "data_grammar": {
+    "mission_id": "MIS-CAR-01",
+    "new_topic_mission_id": "MIS-NEW-42 (модель 116: отдельный intent)",
+    "client_message_id": "MSG-DEMO-01",
+    "attachment_id": "DOC-VEH-01",
+    "source_ref": "DOC-VEH-01:p1",
+    "send_state": [
+      "draft",
+      "queued_offline",
+      "attachment_pending",
+      "already_accepted"
+    ],
+    "response_state": [
+      "idle",
+      "interrupted"
+    ],
+    "source_state": [
+      "available",
+      "revoked"
+    ]
+  },
+  "tokens": {
+    "ground": {
+      "dark": "#0a0a0a",
+      "light": "#f3f2ee"
+    },
+    "ink": {
+      "dark": "#f2f1ec",
+      "light": "#121211"
+    }
+  },
+  "testids": {
+    "screen": "conversation",
+    "canvas": "conversation-canvas",
+    "transcript": "conversation-transcript",
+    "mission_chip": "mission-chip",
+    "turn": "conversation-turn",
+    "attachment_item": "attachment-item",
+    "attachment_state": "attachment-state",
+    "fact_source_open": "fact-source-open",
+    "queued_offline_notice": "queued-offline-notice",
+    "composer_send": "composer-send",
+    "composer_attach": "composer-attach",
+    "composer_new_topic": "composer-new-topic",
+    "composer_input": "start-composer-input (семья 108, сохранён)"
+  },
+  "source_sha256": {
+    "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
+    "docs/ux/01_UX_Source_of_Truth/BrokerOS_Mobile_Design_Data.json": "498b0e6900b9e1aed9655c2dd8bf97f08e957d373bfbd2dbf98428956e418f5a"
+  }
+}
