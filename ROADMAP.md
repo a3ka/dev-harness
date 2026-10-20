@@ -393,6 +393,8 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 107 | до V-2 | complior | 999 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 108 | до V-2 | complior | 999 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 111 | до V-2 | complior | 999 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
+| 3 | 117 | до V-2 | complior | 111 | docs/owner/2026-10-20-mob-po-maketu.md#Порядок |
+| 3 | 118 | до V-2 | complior | 117 | docs/owner/2026-10-20-mob-po-maketu.md#Порядок |
 | 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
 | 3 | 998 | до V-2 | ops | 997 | docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
