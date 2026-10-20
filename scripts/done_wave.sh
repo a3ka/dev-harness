@@ -17,7 +17,8 @@
 # Членство — канонический plan_parse из scripts/lib_plan.sh (второго парсера нет);
 # путь реестра — профильный, через project_paths_resolve (996).
 # НЕ БАРЬЕР: субъект контракта 110 — красное и зелёный контроль предъявляет собственная
-# батарея fixtures/workshop_project/done_volny_110/ (probe.sh, 52 случая + 31 мутант),
+# батарея fixtures/workshop_project/done_volny_110/ (probe.sh, 71 случай + 50 мутантов
+# по замеру run_ci_lane/ci_vesa: «5.8..6.3 с», вес в ci-steps.tsv — 6),
 # не case_*.sh-глобом (прецедент scripts/make_task.sh:10, контракт 095).
 # Исход: 0 — тег поставлен (stdout «v<N>»), 1 — именованный отказ «done_wave: …»,
 # 2 — NOT_IMPLEMENTED (нет git/jq/профиля).
@@ -50,24 +51,52 @@ TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \
 HEAD_SHA="$(git -C "$ROOT" rev-parse --verify -q "HEAD^{commit}")" \
   || die "HEAD недоступен: $ROOT"
 
-# ── A2: профиль обязан существовать на HEAD и совпадать с рабочим деревом;
-# удалённый/расходящийся/неотслеживаемый профиль подменяет реестр корневым
-# деко (резолвер читает рабочее дерево).
-PROFILE_FILES=("harness.project.json" "project-layer.json")
-for pf in "${PROFILE_FILES[@]}"; do
-  if [ -f "$ROOT/$pf" ]; then
-    if [ -L "$ROOT/$pf" ]; then
-      die "символическая ссылка профиля: $pf"
+# ── N11b: путь слоя профиля берётся из HEAD-блоба harness.project.json
+# (projectLayer.profilePath // "registry/harness-project.json"). Не
+# зашитое имя project-layer.json — резолвер читает именно профильный
+# слой, и слой проекта из рабочего дерева подменял бы реестр корневым
+# деко (adv110 N11b). harness.project.json на HEAD необязателен (миры без
+# профиля идут LEGACY-fallback'ом); при наличии — все три источника
+# (harness.project.json, projectLayer.profilePath-файл) проверены:
+# «есть на HEAD, нет/расходится в дереве → отказ».
+PROFILE_PATH=""
+if git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null; then
+  # harness.project.json на HEAD: проверить его в рабочем дереве
+  if [ -e "$ROOT/harness.project.json" ]; then
+    [ -L "$ROOT/harness.project.json" ] \
+      && die "символическая ссылка профиля: harness.project.json"
+    if [ ! -f "$ROOT/harness.project.json" ]; then
+      die "профиль проекта расходится с HEAD: harness.project.json"
     fi
-    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \
-      || die "профиль проекта не на HEAD: $pf"
-    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$pf" 2>/dev/null \
-      || die "профиль проекта расходится с HEAD: $pf"
+    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \
+      || die "профиль проекта расходится с HEAD: harness.project.json"
   else
-    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \
-      && die "профиль проекта расходится с HEAD: $pf"
+    die "профиль проекта расходится с HEAD: harness.project.json"
   fi
-done
+  # путь слоя — из HEAD-блоба
+  HPJ="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:harness.project.json" 2>/dev/null)"
+  PROFILE_PATH="$(printf '%s' "$HPJ" | jq -r '.projectLayer.profilePath // "registry/harness-project.json"')"
+  [ -n "$PROFILE_PATH" ] && [ "$PROFILE_PATH" != "null" ] \
+    || die "профиль проекта не объявил projectLayer.profilePath"
+  case "$PROFILE_PATH" in
+    /*|*/../*|*/..|../*|*/./*|*/. ) die "профиль проекта profilePath вне корня: $PROFILE_PATH" ;;
+  esac
+  # ── И-1: профильный слой — на HEAD и не расходится с рабочим деревом ─────
+  if [ -e "$ROOT/$PROFILE_PATH" ]; then
+    [ -L "$ROOT/$PROFILE_PATH" ] \
+      && die "символическая ссылка профиля: $PROFILE_PATH"
+    if [ ! -f "$ROOT/$PROFILE_PATH" ]; then
+      die "профиль проекта расходится с HEAD: $PROFILE_PATH"
+    fi
+    git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
+      || die "профиль проекта не на HEAD: $PROFILE_PATH"
+    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$PROFILE_PATH" 2>/dev/null \
+      || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
+  else
+    git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
+      && die "профиль проекта расходится с HEAD: $PROFILE_PATH"
+  fi
+fi
 
 # Причина пуста — отказ ДО всех проверок (И-8).
 [ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"
@@ -174,9 +203,29 @@ for p in "${REVIEW_PATHS[@]}"; do
   HEAD_SOURCES="$HEAD_SOURCES
 $p"
 done
-DIRTY="$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null | \
-         awk '{print $2}' | sort -u)"
+# ── N2/N3: читаем грязное дерево через -z (rev110 С8: пути с пробелами и
+# кириллицей без кавычек; N3: индекс путей — NUL-байт, не пробел). rc
+# `git status` теряется в $() при пайпе, поэтому снимаем его явно через
+# out-файл: в `if !` после `!` $? уже не равен rc команды, поэтому
+# запоминаем rc ДО проверки.
+DIRTY_OUT="$(mktemp)"
+git -C "$ROOT" status --porcelain=v1 -z --no-renames \
+                      --untracked-files=no >"$DIRTY_OUT" 2>&1
+rc_git=$?
+if [ "$rc_git" -ne 0 ]; then
+  msg="$(head -n1 "$DIRTY_OUT" 2>/dev/null | tr '\n' ' ')"
+  rm -f "$DIRTY_OUT"
+  die "не удалось определить состояние рабочего дерева: $msg"
+fi
+DIRTY=""
+while IFS= read -r -d '' entry; do
+  DIRTY="${DIRTY}
+${entry:3}"
+done <"$DIRTY_OUT"
+rm -f "$DIRTY_OUT"
+DIRTY="$(printf '%s\n' "$DIRTY" | sort -u)"
 for d in $DIRTY; do
+  [ -z "$d" ] && continue
   case "
 $HEAD_SOURCES
 " in
@@ -246,12 +295,11 @@ if [ "$v" -gt 1 ]; then
     || die "v>1 требует строку РАЗРЕШИЛ-ВЛАДЕЛЕЦ: в причине"
 fi
 # A4: причина — из файла, --cleanup=verbatim сохраняет «# …» (в т.ч.
-# «# РАЗРЕШИЛ-ВЛАДЕЛЕЦ:»); отказ, если причина после strip комментариев пуста.
+# «# РАЗРЕШИЛ-ВЛАДЕЛЕЦ:»). Причина пуста отклонена выше, ДО всех проверок;
+# здесь причина из одних комментариев ЗАКОННА — НЕ БАРЬЕР: rev110 Б3.
 REASON_FILE="$(mktemp)"
 trap 'rm -f "$REASON_FILE"' EXIT
 printf '%s\n' "$REASON" >"$REASON_FILE"
-NON_COMMENT="$(sed -E '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$REASON_FILE")"
-[ -n "$NON_COMMENT" ] || die "причина пуста (только комментарные строки)"
 tag="done/waves/$W/$v"
 if ! git -C "$ROOT" -c user.name=Implementer -c user.email=implementer@dev-harness.local \
      tag -F "$REASON_FILE" --cleanup=verbatim -a "$tag" "$HEAD_SHA" >/dev/null 2>&1; then
