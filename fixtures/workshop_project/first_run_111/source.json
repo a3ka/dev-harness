@@ -1,0 +1,57 @@
+{
+  "snapshot": "Complior-mob 76ac10fac668a1036371c4b392061ce9b3277ebc (read-only docs/ ДО запуска субъекта)",
+  "copy": {
+    "ui.first_run.promise": {
+      "text": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
+      "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+      "locale": "de-DE"
+    },
+    "ui.first_run.enter_f03": {
+      "text": "Anmelden oder Konto erstellen",
+      "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+      "locale": "de-DE"
+    },
+    "frame.F03.01.title": {
+      "text": "Anmelden oder Konto erstellen",
+      "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+      "locale": "de-DE"
+    }
+  },
+  "equality_facts": {
+    "enter_f03_text_equals_frame_F03_01_title": "ui.first_run.enter_f03.text == frame.F03.01.title == 'Anmelden oder Konto erstellen' (байт-в-байт; каталог BrokerOS_UI_Copy_DE.json и source.json 995)"
+  },
+  "tokens": {
+    "ground": {
+      "dark": "#0a0a0a",
+      "light": "#f3f2ee"
+    },
+    "ink": {
+      "dark": "#f2f1ec",
+      "light": "#121211"
+    }
+  },
+  "splash": {
+    "plugin": "expo-splash-screen",
+    "backgroundColor": "#0A0A0A",
+    "image": "./assets/images/splash-icon.png",
+    "imageWidth": 76,
+    "old_default_B": "#208AEF"
+  },
+  "wordmark": {
+    "asset": "mobile/assets/images/wordmark-dark.png",
+    "accessibility_label": "complior",
+    "source_svg": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/html/ds/wordmark-dark.svg (семья logo/ D2.2.5.1)"
+  },
+  "testids": {
+    "cta": "first-run-continue",
+    "wordmark": "first-run-wordmark",
+    "container": "first-run-safe-area",
+    "demo_badge": "demo-indicator",
+    "auth_email": "auth-email"
+  },
+  "source_sha256": {
+    "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
+    "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/html/ds/tokens.css": "0dbab2c096156e56f1a5c98d650a39eb56913dbd7e0542cde749ad3040caddfe",
+    "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/html/First-Run.html": "7543f598313b1fb83de5aeed6a5732e00cafd3a5433a1cab1c83f72cb8dc756c"
+  }
+}
