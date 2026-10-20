@@ -17,6 +17,8 @@
 #   ST113_SUDIM     судится ли (<since> <коммит>) для матча               — s6
 #   ST113_KESH      кеш сторонней линии (default: полный прогон)          — s7
 #   ST113_FINISH    запись кеша в конце (default: HEAD начала HEAD0)    — s10
+#   ST113_ORACLE     реакция на --oracle (default: делегировать барьеру)   — s12
+#   ST113_PAR_FILTER фильтр области пар после ls-tree+тегов (default: нет)  — s11
 #
 # Интерфейс — как у предмета:  [стаб] [--incr <кеш>] <корень>;  [стаб] --oracle <корень>
 # делегирует честному барьеру (RED113_REAL_CHARTER). Грамматика razreshil/is_charter_path
@@ -36,7 +38,12 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ "$_ORACLE" -eq 1 ] && exec bash "$RED113_REAL_CHARTER" "${_args[@]}"
+if [ "$_ORACLE" -eq 1 ] && [ "${ST113_ORACLE:-}" != "ignore" ]; then
+  # Точка лжи ST113_ORACLE (s12 «нейтрализация --oracle», вердикт адверсария круг 1:
+  # `--oracle) ORACLE=0` проходила батарею 22/0): default — флаг ЧЕСТНО делегирует
+  # реальному барьеру полный обход; «ignore» — флаг разбирается, но не действует.
+  exec bash "$RED113_REAL_CHARTER" "${_args[@]}"
+fi
 
 ROOT="$(cd "${_args[0]:-.}" && pwd)" || exit 125
 fails=0; docs=0; changes=0; excused=0
@@ -99,6 +106,12 @@ while IFS= read -r f; do
   git -C "$ROOT" rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/1" >/dev/null || continue
   printf '%s\t%s\n' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
 done < "$TMP/docs"
+
+# Точка лжи ST113_PAR_FILTER (s11 «зашитая константа», вердикт адверсария круг 1:
+# пропуск contracts/777-secret.md в быстром пути): default — область устава
+# выводится из ls-tree+тегов и НЕ фильтруется; ложь — оставить только зашитый
+# перечень известных батарее имён (вырожденный случай — skip чужого имени).
+"${ST113_PAR_FILTER:-true}"
 # ── кеш: ветвь (в′) — через точку лжи ST113_KESH ─────────────────────────────
 INCR_WINDOW=""
 if [ -n "$INCR_CACHE" ] && [ -f "$INCR_CACHE" ]; then

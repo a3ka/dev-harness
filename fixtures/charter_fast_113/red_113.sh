@@ -15,6 +15,12 @@
 #     «Запись кеша», арбитраж круга 3): обёртка гонки в PATH (gonka-bin/git — файл
 #     батареи) даёт конкурентный коммит ПОСЛЕ снимка истории; «гонка не
 #     состоялась» — КРАСНАЯ; обёртка общая для клетки и поимки s10;
+#     Д/d10 — свежее уставное имя из nonce РАННЕРА (литерала нет ни в одной
+#     клетке; закрывает класс «зашитая константа» — вердикт адверсария круга 1,
+#     обманка s11);
+#     Д/d11 — проб режима: --oracle обязан первым чтением истории идти полным
+#     обходом, не быстрым проходом (нейтрализация ORACLE=0 — вердикт адверсария
+#     круга 1; маркер — обёртка oracle-probe-bin/git, обманка s12);
 #   В-клетка — бюджет 60 с и немолчаливое зелёное на ХОЛОДНОМ локальном клоне живого
 #     дерева (свой git-каталог: кеша нет ни в worktree, ни в git-common-dir — обход
 #     круга 2 критика: прогретый общий кеш переживает свежий worktree); прогретый
@@ -163,6 +169,33 @@ gonka_kletka() {
   return 0
 }
 
+# ── Д-клетка d11: --oracle обязан исполнять НЕ быстрый путь ───────────────────
+# Вердикт адверсария круг 1: мутация `--oracle) ORACLE=0` (флаг разбирается, но
+# не действует) проходила батарею 22/0. Наблюдаемое отличие режимов определено
+# контрактом (§Батарея, обёртка гонки): первое чтение истории умолчания —
+# `log --name-only`, полного обхода — `rev-list <since>..HEAD` без --count.
+# Проб-обёртка oracle-probe-bin/git пишет маркер ДО делегирования настоящему git
+# (без подделок вывода и расписания); «не наблюдала чтения» — недействительная
+# клетка, не зелёное.
+d11_kletka() {
+  kletki=$((kletki + 1))
+  postroit d0_chistoe d11-oracle-probe || return
+  local MK="$WORK/d11.marker" rc=0
+  rm -f "$MK"
+  ( cd "$K_ROOT" && PATH="$HERE/oracle-probe-bin:$PATH" ORACLE_PROBE="$MK" \
+      bash "$CHARTER" --oracle "$K_ROOT" > "$WORK/d11.out" 2>&1 ) || rc=$?
+  printf 'rc=%s\n' "$rc" >> "$WORK/d11.out"
+  if [ ! -f "$MK" ]; then
+    krasnym 'Д/d11_oracle_rezhim: проб-обёртка НЕ НАБЛЮДАЛА чтения истории — клетка недействительна (маркер отсутствует)'
+    return
+  fi
+  if [ "$(cat "$MK")" = 'full-traversal' ]; then
+    zeleno 'Д/d11_oracle_rezhim: --oracle исполняет полный обход (первое чтение истории — rev-list <since>..HEAD)'
+  else
+    krasnym 'Д/d11_oracle_rezhim: --oracle исполняет БЫСТРЫЙ путь (первое чтение истории — log --name-only) — флаг нейтрализован (вердикт адверсария круг 1: ORACLE=0)'
+  fi
+}
+
 # ── В-клетка: бюджет ХОЛОДНОГО старта ─────────────────────────────────────────
 # Обход круга 2 критика: worktree делит git-common-dir с хозяином — прогретый
 # хозяином кеш маскирует холодную меру (кандидат «быстр только при живом кеше»
@@ -260,6 +293,23 @@ stub_kletka() {  # <строка карты>
     fi
   else
   postroit "$ulov" "$stab-ulov" || return
+  if [ "$rezhim" = "probe" ]; then
+    # поимка проб-обёрткой режима: стаб получает --oracle, но первое чтение истории
+    # обязано быть полным обходом (rev-list <since>..HEAD без --count); log --name-only
+    # = быстрый путь = нейтрализованный флаг (класс s12, вердикт адверсария круг 1)
+    local MK="$WORK/$stab.probe.marker" prc=0
+    rm -f "$MK"
+    ( cd "$K_ROOT" && PATH="$HERE/oracle-probe-bin:$PATH" ORACLE_PROBE="$MK" \
+        bash "$f" --oracle "$K_ROOT" > "$WORK/$stab.probe.out" 2>&1 ) || prc=$?
+    printf 'rc=%s\n' "$prc" >> "$WORK/$stab.probe.out"
+    if [ ! -f "$MK" ]; then
+      krasnym "С/$stab: проб-обёртка не наблюдала чтения истории — поимка недействительна (маркер отсутствует)"
+    elif [ "$(cat "$MK")" = 'full-traversal' ]; then
+      krasnym "С/$stab: НЕ ПОЙМАН — --oracle исполняет полный обход (маркер full-traversal)"
+    else
+      zeleno "С/$stab: ПОЙМАН — --oracle исполняет быстрый путь (первое чтение истории log --name-only)"
+    fi
+  else
   local A="$WORK/$stab.A" B="$WORK/$stab.B" crc=0
   snap "$A" "$K_ROOT" "$f" --oracle "$K_ROOT"
   if [ "$rezhim" = "incr" ]; then
@@ -276,6 +326,7 @@ stub_kletka() {  # <строка карты>
     krasnym "С/$stab: НЕ ПОЙМАН на $ulov — батарея не различает этот класс лжи"
   else
     zeleno "С/$stab: ПОЙМАН на $ulov (класс лжи наблюдаем)"
+  fi
   fi
   fi
 
@@ -307,6 +358,8 @@ KARTA=(
   's8_molchalivyj|d0_chistoe|polnyj|-'
   's9_okno_globalnoe|d9_bokovaja_zamorozka|incr|d8_kesh_valid'
   's10_finish_konca|gonka|incr|d8_kesh_valid'  # поимка — ТОЛЬКО клетка гонки (обёртка расписания): вне гонки HEAD конца == HEAD начала, ложь ненаблюдаема; честен на d8_kesh_valid (Н-39)
+  's11_konstanta_oblasti|d10_novoe_imja|polnyj|d2_merge'  # свежее имя вне зашитого перечня: быстрый путь стаба документ не судит, оракул судит; честен на d2 (его документы в перечне)
+  's12_ignoriruet_oracle|d0_chistoe|probe|d0_chistoe'     # поимка — ТОЛЬКО проб-обёрткой режима: дифференциал слеп (быстрый путь каркаса честен), различима форма первого чтения истории
 )
 
 printf 'батарея 113: дерево %s, барьер %s\n' "$REPO" "$CHARTER" >&2
@@ -321,7 +374,17 @@ dif_kletka d5_pereim     polnyj strogoe
 dif_kletka d7_kesh_linii incr   krasnye
 dif_kletka d8_kesh_valid incr   krasnye
 dif_kletka d9_bokovaja_zamorozka incr krasnye
+
+# Д/d10 — свежее уставное имя из nonce (класс «зашитая константа», вердикт
+# адверсария круг 1): имя генерируется ЗДЕСЬ, в раннере, литерала нет ни в
+# одной клетке; воспроизводимость — логом (повтор: D10_NONCE=<nonce>).
+D10_NONCE="${D10_NONCE:-$$-$(date +%s%N)}"
+export KORPUS113_NONCE="$D10_NONCE"
+printf 'Д/d10_novoe_imja: nonce=%s имя=%s (повтор: D10_NONCE=%s)\n' \
+  "$D10_NONCE" "$(bash "$KORPUS" --imja "$D10_NONCE")" "$D10_NONCE" >&2
+dif_kletka d10_novoe_imja polnyj strogoe
 gonka_kletka
+d11_kletka
 
 v_kletka
 v2_kletka
