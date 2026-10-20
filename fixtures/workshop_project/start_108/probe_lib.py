@@ -24,9 +24,14 @@ MODEL_FILES = {
     'mobile/src/i18n/ui-copy.ts': 'i18n.ui-copy.ts',
     'mobile/src/mocks/start-mock.ts': 'mocks.start-mock.ts',
     'mobile/src/mocks/runtime.ts': 'mocks.runtime.ts',
+    # Пост-заморозочное усиление (судьи круга 1, impl-v1): route-уровень —
+    # honest-модель маршрута (tabs)/[section].tsx и порт черновика.
+    'mobile/src/app/(tabs)/[section].tsx': 'app.tabs.section.tsx',
+    'mobile/src/features/start/draft-context.ts': 'features.start.draft-context.ts',
 }
 
 TEST_INSTALL = 'mobile/src/features/start/__tests__/start-108.probe.test.tsx'
+ROUTE_TEST_INSTALL = 'mobile/src/features/start/__tests__/start-108-route.probe.test.tsx'
 COMPONENT_PATH = 'mobile/src/features/start/start-screen.tsx'
 
 FAMILY_PREFIX = '108 start '
@@ -105,8 +110,9 @@ def run_jest(repo_mobile: Path, test_path: Path, name_pattern=None, timeout=300)
     report.unlink()
     env = dict(os.environ, EXPO_PUBLIC_API_MODE='mock')
     env.pop('PILOT_DEMO_CODE', None)
+    paths = test_path if isinstance(test_path, list) else [test_path]
     cmd = ['node', str(repo_mobile / 'node_modules/jest/bin/jest.js'), '--ci', '--runInBand',
-           '--runTestsByPath', str(test_path), '--json', '--outputFile', str(report)]
+           '--runTestsByPath', *[str(p) for p in paths], '--json', '--outputFile', str(report)]
     if name_pattern:
         cmd += ['--testNamePattern', name_pattern]
     proc = subprocess.run(cmd, cwd=repo_mobile, env=env, capture_output=True, text=True, timeout=timeout)
