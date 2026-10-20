@@ -1,3 +1,16 @@
+## ГДЕ МЫ (2026-10-20 ~08:00 UTC — рестарт по сторожу, сессия после 07:20/07:55; **DONE за сутки: 996, 110**; main = origin/main, детектор чист; перекрывает «Следующая сессия» разделов 07:20/07:55)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **109 (бэкенд CMP-BCK-004) — КРУГ 4 ЗАВЕРШЁН, ОБА FAIL → форк `forks/n109-krug4-fail.md` (МАРШРУТ консультант, БЛОКИРУЕТ: да).** Мой прогон батареи `wip/109/architect@e4ae3712d` на `dd8e533` из worktree батареи (`/tmp/dev-harness-worktrees/c907157c/wip-109-architect/…/probe.py --repo <копия клона> --out …`; из каталога вне dev-harness-чекаута LANE_HYGIENE даёт NEEDS_ENV): rc 0, 50/50 REJECTED_EXACT, 13/13 green. Вердикты `verdicts/{adversary,review}/contracts-109-impl-v4.md` (OBJECT dd8e533f1…), `.review/2026-10-20-16.md` (ready). **Reviewer:** I-1…I-10/A-1…A-8 закрыты; блокер — С11 как регресс: frozen-батарея 109/1 (29 клеток) в required-lane stend109 на dd8e533 rc 1 (HARNESS_NO_SCRUBBER красный контроль; harness_mode_collapse теряет якорь по I-9; harness_scrubber_identity NOT_REJECTED по I-6), на 8aca71a была rc 0. **Adversary:** I-2…I-9/A-1…A-8 закрыты; I-1 (мутант: лишний const → lint rc 1, батарея rc 0) и I-10 (мутант: тело delivery-теста `async () => {}` → 44/44, батарея зелёная) — пробелы покрытия батареи вне A-1…A-8 [суждение оркестратора: совет по правилу суда арбитража]. Рекомендация форка: (А) перезаморозка `frozen/contracts/109/2` (architect: числа 29→50/13 и клетки lint + red-control delivery-теста; критик один круг; РАЗРЕШИЛ-ВЛАДЕЛЕЦ в изменяющем коммите) → lane stend109 перепин → судьи scoped → done. Продукт dd8e533 НЕ запушен (ssh к Complior-back с станции «Repository not found» — push консультант).
+- **108 (mob CMP-MOB-004):** оба судьи accept (круг 3, OBJECT 5bbdf6e…); ждёт консультанта: `git push origin cmp-mob-004/r3:cmp-mob-004/start` из клона `/tmp/dev-harness-verify/Impl108/mob` (HEAD `b669ceffc76255f80d8ac7ad0e73a0f8ac0977cd`, ff от 307b396). PR#112 на момент проверки: head 307b396, quality SUCCESS, android-e2e FAILURE (инфраструктура раннера, rerun не делать по слову консультанта), mergeable. Затем `done_contract.sh contracts/108-cmp-mob-004-start.md` после merge консультантом.
+- **110 DONE** (`done/contracts/110/1` на origin, проверено `ls-remote`). Остаток: волна NOT_RUN, N1 → v2 владельцу. `gc_agent_branches`: слито 0, зависших 85 (список в выводе; снос — слово владельца), в т.ч. wip/110/architect, wip/109/architect (последняя НУЖНА).
+- **Харнесс-слот:** простой, не по лени — следующий пункт плана «генераторы-каналы» (ROADMAP:408, этап 8) без номера контракта и без plan-строки (коммит владельца/консультанта); требование этапа 5 «не более одного предмета харнеса» + предмет без `Н-NN`-боли не открывается. К консультанту: plan-строка/номер либо назвать другой предмет.
+- **Батч владельцу (через консультанта, анализ — консультанту первым):** (1) С11 lane stend109 — пин H либо v2 (форк n109-krug4-fail; для (А) нужен дословный текст РАЗРЕШИЛ-ВЛАДЕЛЕЦ для изменяющего коммита контракта 109); (2) N1 остаток 110 → v2; (3) R108-3 форма Б (форк n108-impl-krug1); (4) android-e2e раннер (инфраструктура); (5) границы 109 (object-storage/TLS/six identities); (6) снос 85 зависших wip-веток; (7) волна 110 NOT_RUN (вопросы 1–4).
+- **Приёмы (новое):** (а) `make_task --kind brief` требует `--model-trace <tsv>` (три колонки role/model/allowed; файлы `/tmp/dev-harness-verify/orch/tr_adv.tsv`, `tr_rev.tsv`, `trace.tsv`); (б) `check_fork_route --root .` rc 1 — предсуществующий «n093-cikl085-oracle-stale-pgrep-filter» (не мой); (в) после `gitw push` с вердиктами — `check_no_leak --retake-bulk` работает на дельте судей/orchestrator (4 пути, сделано).
+
+### Следующая сессия — порядок
+1. Табло (`python3 ops/server/user/orch-tablo`). 2. Слово консультанта по `n109-krug4-fail` → (А): Architect109v2 (пин-пара `pin:WORKTREE=…:BRANCH=wip/109/architect` в НАЧАЛЕ task; frozen-блоб сверить `git show frozen/contracts/109/1^{commit}:contracts/109-…`) → критик → freeze v2 (текст РАЗРЕШИЛ от владельца) → implementer перепин lane → судьи scoped. 3. 108: проверить `gh pr view 112 --repo a3ka/Complior-mob`; после merge — `done_contract`. 4. Харнесс-слот: plan-строка от консультанта. 5. Батч владельцу — пункты выше.
+
 ## ДОПОЛНЕНИЕ 07:55 UTC (перекрывает пункт «110 — к ЛЕНДУ» раздела 07:20 ниже): **110 DONE** — `done/contracts/110/1` на origin; main = origin/main (`0 0`), детектор чист. Ленд: `land_agent wip/110/implementer` (multi-author цепочка f07287a35) → `LANDED main=83dd6e635`, `gitw push` принял код PR-доказательством (PR#155 train, тот же код; PR#154 прогнал только legkij — force-push дал «лёгкий» класс), `done_contract.sh contracts/110-done-volny.md` (вывода при успехе нет — тег создан, push тега `gitw push origin refs/tags/done/contracts/110/1`). Осталось по 110: живая волна NOT_RUN (вопросы владельцу 1–4), остаток N1 → v2 владельцу; ветка/worktree `wip/110/architect` (`…/wip-110-architect`, PR#153 закрыт) — снять `gc_agent_branches`/вручную. **DONE за сессию: 996, 110.** Следующая сессия начинает с: 109 (проверка батареи e4ae3712d → судьи круга 4 по перечню арбитра), 108 (done после merge PR#112, консультант пушит `cmp-mob-004/r3`).
 
 ## ГДЕ МЫ (2026-10-20 ~07:20 UTC — рестарт по сторожу контекста (504K≥500K); **DONE: 996**; 110 — оба судьи accept, ленд в полёте; 108 — оба судьи accept (круг 3); 109 — арбитраж РЕШЕНИЕ, круг 4 судей впереди)
@@ -6758,6 +6771,12 @@ soreview-v1.md.
 <!-- BEGIN GENERATED NEXT SESSION -->
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
-- 082 · пара 1 · номер выдан · трек CI
-- 083 · пара 1 · номер выдан · трек CI
+- 099 · пара 3 · заморожен · трек git-safety
+- 092 · пара 3 · заморожен · трек autonomy
+- 094 · пара 3 · заморожен · трек autonomy
+- 097 · пара 3 · заморожен · трек autonomy
+- 098 · пара 3 · заморожен · трек autonomy
+- 108 · пара 3 · заморожен · трек complior
+- 095 · пара 4 · заморожен · трек context
+- 109 · пара 4 · заморожен · трек complior
 <!-- END GENERATED NEXT SESSION -->
