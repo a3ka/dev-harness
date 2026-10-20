@@ -41,15 +41,26 @@
 #
 # Семантика komandy НЕ СЛАБЕЕ эталонной модели (контракт 112 §Конструкция;
 # вердикты судей кругов 1–2 «реализация должна быть не слабее модели»):
-#   • глобальная проверка операторов/подстановок оболочки В КАЖДОМ токене
-#     ДО семейство-специфичной логики (| & ; ( ) < > ` $); ловит и `|| true`,
-#     и `| cat`, и метасимвол в имени файла/--prefix/script;
+#   • глобальная проверка символов В КАЖДОМ токене ДО семейство-специфичной
+#     логики: БЕЛЫЙ набор [A-Za-z0-9._/@:=+,-] (только литералы CI —
+#     `node backend/scripts/gen-contracts.js --check`, `npm --prefix backend
+#     run smoke:image`, `npm --prefix mobile run typecheck`, `--prefix`, `--check`).
+#     ВСЁ прочее (включая ' " \ { } ~ | & ; ( ) < > ` $ * ? [ ] ! # % ^ пробельные,
+#     управляющие, NUL) = отказ ДО канонизации (закрывает класс обхода shell —
+#     снятие кавычек, раскрытие {a,}/~, обратная косая);
 #   • ровно один опциональный --prefix; повторный --prefix = форма не закрыта;
 #   • путь файла и --prefix ТОЛЬКО относительные и канонизируются ВНУТРЬ $R
-#     через `cd && pwd -P` (полная канонизация каталога; для файлов —
-#     канонизация родителя); абсолютный/..-побег/листовой-symlink-наружу = отказ;
+#     через `cd && pwd -P` (полная канонизация каталога и родителя файла);
+#     для ЛИСТА файла дополнительно realpath через `readlink -f`, чтобы
+#     листовой symlink НАРУЖУ репо тоже отвергался (как и каталог-симлинк);
+#     абсолютный/..-побег/листовой-symlink-наружу/симлинк-звено-наружу = отказ;
 #   • форма npm закрыта: `npm [--prefix D] run <s>|test`; хвост = отказ;
-#     голое имя без `run` = отказ.
+#     голое имя без `run` = отказ;
+#   • значения kanon-remote / workflowPaths.<k> / state / source-canon path
+#     читаются БАЙТ-В-БАЙТ (через сравнение длины в jq и bash — иначе
+#     `$(jq -r …)` срезает хвостовые \n, а NUL обрывает строку в bash);
+#     хвостовые \n / NUL / управляющие = отказ именованной причиной того же
+#     алфавита.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 TOOLS="$(cd "$HERE/.." && pwd -P)"
@@ -59,7 +70,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --repo) REPO="${2:-}"; shift 2 ;;
     --repo=*) REPO="${1#--repo=}"; shift ;;
-    *) printf 'check_project_connection: неизвестный аргумент: %s\n' >&2; exit 2 ;;
+    *) printf 'check_project_connection: неизвестный аргумент: %s\n' "$1" >&2; exit 2 ;;
   esac
 done
 [ -n "$REPO" ] && [ -d "$REPO" ] || { printf 'check_project_connection: нет --repo <каталог>\n' >&2; exit 2; }
@@ -87,16 +98,80 @@ for k in git.value.canonicalRemote ci.value.workflow repoId.value language.value
   [ -n "$v" ] || fail profil "резолвер принял, но отсутствует: $k"
 done
 
+# ── read_strict: чтение JSON-string БАЙТ-В-БАЙТ без потери хвоста ───────────
+# Проблема: bash `$(jq -r …)` СРЕЗАЕТ все хвостовые \n, а NUL обрывает строку
+# (bash хранит байты до первого NUL включительно). Это значит, что канон-
+# remote с хвостовым \n или workflowPaths/state/source-canon.path с
+# хвостовым \n/NUL принимаются как «чистые», хотя контракт (стр. 84)
+# требует БАЙТ-в-БАЙТ. Решение: заворачиваем значение в уникальные sentinels
+# PODKL_A/PODKL_B и сравниваем длину в jq с длиной в bash — расхождение
+# означает потерю (хвостовые \n или NUL). Sentinel-строки — 32-байтные
+# литералы, в URL/путях не встречаются (URL/relative paths — только ASCII
+# printable + /). $1=jq-path (с ведущей точкой — нормальный jq-path), populates
+# $VAL byte-equal. rc 0 ok / 1 truncated or jq error.
+read_strict() {  # $1 jq-path (с ведущей точкой; типовое: .a.b.c или .a.b.c[N].d) → populates $VAL byte-equal; rc=0 ok / 1 mismatch|jq-err
+  local jq_len sent p_path
+  PODKL_A='__PODKL_A_d3b1e7a4f8c2__qr5t9j2k__'  # 32-байтный sentinel, нет в URL/путях
+  PODKL_B='__PODKL_B_9c2f4a7e1d8b__wp6s3h5m__'  # 32-байтный sentinel, нет в URL/путях
+  # p_path — путь с ведущей точкой (jq-path). getpath+split НЕ различает
+  # `[N]` от обычной точки, поэтому используем прямую интерполяцию пути в
+  # jq-выражение (все точки вызова пишем сами — user-input не принимаем).
+  p_path="$1"
+  [ -n "$p_path" ] || { VAL=""; return 1; }
+  # Базовая санитизация: путь должен начинаться с ".". Если нет — добавляем.
+  case "$p_path" in
+    .*) ;;
+    *) p_path=".$p_path" ;;
+  esac
+  if ! jq_len=$(printf '%s' "$OUT" | \
+        PODKL_A="$PODKL_A" PODKL_B="$PODKL_B" \
+        jq -r "$p_path | length // 0" 2>/dev/null); then
+    VAL=""; return 1
+  fi
+  if ! sent=$(printf '%s' "$OUT" | \
+        PODKL_A="$PODKL_A" PODKL_B="$PODKL_B" \
+        jq -jr "$p_path // \"\" | env.PODKL_A + . + env.PODKL_B + \"\\n\"" 2>/dev/null); then
+    VAL=""; return 1
+  fi
+  # bash $() срезал хвостовой \n: sent = "<A><canon><B>"
+  VAL="${sent#"$PODKL_A"}"
+  VAL="${VAL%"$PODKL_B"}"
+  if [ "${#VAL}" != "$jq_len" ]; then
+    # расхождение: либо хвостовые \n (bash их срезал), либо NUL внутри
+    # (bash обрезал до первого NUL); в обоих случаях байт-в-байт сравнение
+    # невозможно — отказываем именованной причиной на стороне вызывающего.
+    VAL=""; return 1
+  fi
+  return 0
+}
+
+# ── tok_safe: проверка токена по БЕЛОМУ набору символов ─────────────────────
+# Каждый токен команды целиком из [A-Za-z0-9._/@:=+,-]; всё прочее —
+# отказ до семейство-специфичной логики. Закрывает класс обхода: shell
+# перед исполнением СНИМАЕТ кавычки (' ") и обратную косую (\) и раскрывает
+# {a,}/~, поэтому проверка «оператор/подстановка» недостаточна —
+# нужен ПОЗИТИВНЫЙ алфавит (только литералы CI: --prefix, --check, run, test,
+# node, npm, python3, basename с ./-/_).
+# $1 токен → rc 0 если ВСЕ символы из белого списка, иначе rc 1.
+tok_safe() {  # $1 token → 0 если whitelist, иначе 1
+  case "$1" in
+    *[^A-Za-z0-9._/@:=+-]*|'') return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 # ── canon_R: ЕДИНЫЙ хелпер канонизации «внутрь $R» (совет 050 A7)
 #   $1=raw $2=label $3=kind( dir | file ) $4=reason
 # Семантика — НЕ СЛАБЕЕ модели:
-#   • каталог: cd "$R/$raw" && pwd -P (полная канонизация; симлинк-ЛИСТ наружу
+#   • каталог: cd "$R/$raw" && pwd -P (полная канонизация; симлинк-ЗВЕНО наружу
 #     и `..`-побег = отказ);
-#   • файл: cd "dirname $R/$raw" && pwd -P (родитель целиком) + basename;
+#   • файл: канонизируется РОДИТЕЛЬ (cd + pwd -P), затем ЛИСТ через
+#     `readlink -f` — листовой symlink наружу = отказ (закрывает A3; раньше
+#     канонизировался только родитель и файл-снаружи проходил);
 #   • абсолютный — ВСЕГДА отказ; пишет причину $4 + деталь;
 #   • успех: REAL=канон_путь, return 0; ошибка: fail $4 + return 1.
 canon_R() {  # $1=raw $2=label $3=kind $4=reason; sets REAL
-  local raw="$1" label="$2" kind="$3" reason="$4" target parent dir_real base
+  local raw="$1" label="$2" kind="$3" reason="$4" target parent dir_real base file_real
   if [ -z "$raw" ]; then fail "$reason" "$label: пустой путь"; return 1; fi
   case "$raw" in
     /*) fail "$reason" "$label абсолютный: $raw"; return 1 ;;
@@ -111,54 +186,92 @@ canon_R() {  # $1=raw $2=label $3=kind $4=reason; sets REAL
       *) fail "$reason" "$label канонически вне репо: $raw → $dir_real"; return 1 ;;
     esac
   fi
+  # ФАЙЛ: канонизируем родителя (cd && pwd -P), затем ЛИСТ через readlink -f
+  # (если лист — symlink, его realpath тоже обязан быть внутри $R).
+  if [ ! -e "$target" ] && [ ! -L "$target" ]; then
+    fail "$reason" "$label: файла нет в дереве: $raw"; return 1
+  fi
   parent="$(dirname -- "$target")"
   base="$(basename -- "$target")"
-  if [ ! -e "$target" ]; then fail "$reason" "$label: файла нет в дереве: $raw"; return 1; fi
   dir_real="$(cd "$parent" 2>/dev/null && pwd -P || true)"
   [ -n "$dir_real" ] || { fail "$reason" "$label: канонизация родителя не удалась: $raw"; return 1; }
   case "$dir_real" in
-    "$R"|"$R"/*) REAL="$dir_real/$base"; return 0 ;;
+    "$R"|"$R"/*) ;;
     *) fail "$reason" "$label канонически вне репо: $raw → $dir_real/$base"; return 1 ;;
   esac
+  file_real="$dir_real/$base"
+  # Канонизация ЛИСТА: если это symlink (включая «битый»), его realpath
+  # обязан тоже лежать внутри $R — иначе это листовой-побег.
+  if [ -L "$file_real" ]; then
+    file_real="$(readlink -f -- "$file_real" 2>/dev/null || true)"
+    [ -n "$file_real" ] || { fail "$reason" "$label: лист-symlink канонизация не удалась: $raw"; return 1; }
+    case "$file_real" in
+      "$R"|"$R"/*) ;;
+      *) fail "$reason" "$label листовой-symlink вне репо: $raw → $file_real"; return 1 ;;
+    esac
+  fi
+  [ -f "$file_real" ] || { fail "$reason" "$label: не regular file (лист не файл): $raw"; return 1; }
+  REAL="$file_real"
+  return 0
 }
 
 # ── workflowPaths.*: 4 ключа + канонизация каталога внутрь $R ──────────────
 for k in contracts verdicts registry fixtures; do
-  v="$(printf '%s' "$OUT" | jq -r --arg k "$k" ".workflowPaths.$k.value // empty")"
-  [ -n "$v" ] || { fail workflowPaths "workflowPaths.$k отсутствует в эффективном профиле"; continue; }
-  canon_R "$v" "workflowPaths.$k" "dir" workflowPaths || true
+  if ! read_strict ".workflowPaths.$k.value"; then
+    fail workflowPaths "workflowPaths.$k: значение содержит хвостовые \\n/NUL/управляющие (длина jq ≠ bash — байт-в-байт невозможно)"
+    continue
+  fi
+  [ -n "$VAL" ] || { fail workflowPaths "workflowPaths.$k отсутствует в эффективном профиле"; continue; }
+  canon_R "$VAL" "workflowPaths.$k" "dir" workflowPaths || true
 done
 
 # ── state: независимая секция (НЕ вырезаемая как контрмодель; анти-плацебо)
 # state читается из эффективного профиля, по умолчанию = ".harness" (на
-# случай, когда профиль опускает ключ — резолвер может не вернуть).
-v="$(printf '%s' "$OUT" | jq -r '.workflowPaths.state.value // ".harness"')"
-canon_R "$v" "workflowPaths.state" "dir" workflowPaths || true
-
-# ── kanon-remote: целые строки байт-в-байт ─────────────────────────────────
-canon="$(printf '%s' "$OUT" | jq -r '.git.value.canonicalRemote // empty')"
-orig="$(git -C "$R" remote get-url origin 2>/dev/null || true)"
-if [ -z "$canon" ] || [ -z "$orig" ]; then
-  fail kanon-remote "канон или origin пуст: канон='${canon:-<пусто>}' origin='${orig:-<пусто>}'"
-elif [ "$canon" != "$orig" ]; then
-  fail kanon-remote "канон профиля ≠ origin клона: '${canon}' ≠ '${orig}'"
+# случай, когда профиль опускает ключ — резолвер может не вернуть);
+# чтение БАЙТ-В-БАЙТ через read_strict (иначе хвостовой \n принимается).
+# Если ключа нет — VAL пуст; используем литерал ".harness".
+if ! read_strict '.workflowPaths.state.value'; then
+  fail workflowPaths "workflowPaths.state: значение содержит хвостовые \\n/NUL/управляющие"
+else
+  [ -n "$VAL" ] || VAL=".harness"
+  canon_R "$VAL" "workflowPaths.state" "dir" workflowPaths || true
 fi
 
-# ── komandy: глобальная проверка операторов оболочки В КАЖДОМ токене ─────────
-# Модель (model_check_connection.sh, KOMANDY-112-BEG/END) делает ту же
-# проверку ДО семейство-специфичной логики: токен содержит оператор/подстановку
-# оболочки (`| & ; ( ) < > ` $) — отказ по форме, до канонизации путей.
-# Здесь — единая семантика: операторы в любом токене = komandy-отказ; форма
-# npm/node|python3 проверяется семейство-специфичной логикой ниже.
-op_obolochki() {  # $1 токен → 0 если найден оператор/подстановка
-  case "$1" in
-    *'|'*|*'&'*|*';'*|*'('*|*')'*|*'<'*|*'>'*|*'`'*|*'$'*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
+# ── kanon-remote: целые строки байт-в-байт ─────────────────────────────────
+# Чтение канона через read_strict (иначе `$(jq -r …)` срезает хвостовой \n,
+# а NUL обрывает bash-строку — контрольный пример Adv112r3 с \n в каноне
+# проходит как «равный origin»). orig получаем из git — он чистый.
+if ! read_strict '.git.value.canonicalRemote'; then
+  fail kanon-remote "git.canonicalRemote содержит хвостовые \\n/NUL/управляющие (длина jq ≠ bash — БАЙТ-в-БАЙТ сравнение невозможно)"
+elif [ -z "$VAL" ]; then
+  fail kanon-remote "git.canonicalRemote пуст"
+else
+  canon="$VAL"
+  orig="$(git -C "$R" remote get-url origin 2>/dev/null || true)"
+  if [ -z "$orig" ]; then
+    fail kanon-remote "git remote get-url origin пуст (нет origin в клоне)"
+  elif [ "$canon" != "$orig" ]; then
+    fail kanon-remote "канон профиля ≠ origin клона (БАЙТ В БАЙТ): '${canon}' ≠ '${orig}'"
+  fi
+fi
 
+# ── komandy: глобальная проверка символов В КАЖДОМ токене (БЕЛЫЙ набор) ─────
+# Модель (model_check_connection.sh, KOMANDY-112-BEG/END) делает ту же
+# проверку ДО семейство-специфичной логики. Здесь — БЕЛЫЙ набор символов
+# tok_safe: каждый токен целиком из [A-Za-z0-9._/@:=+,-]; всё прочее — отказ
+# по форме. Закрывает обход через {a,}, ~, ' ", обратную косую (раньше
+# shell шага CI снимал кавычки/раскрывал и токен был «принят» формой, а
+# исполнялся совсем другой файл).
+#
+# Чтение значения команды — БАЙТ-В-БАЙТ через read_strict: хвостовой \n
+# трактовался как пустая команда (bash `$(jq -r)` срезает), и обход
+# `npm --prefix mobile test\n` проходил как «`npm --prefix mobile test`».
 for k in test build typecheck lint; do
-  v="$(printf '%s' "$OUT" | jq -r --arg k "$k" ".commands.$k.value // empty")"
+  if ! read_strict ".commands.$k.value"; then
+    fail komandy "commands.$k: значение содержит хвостовые \\n/NUL/управляющие (длина jq ≠ bash — байт-в-байт невозможно)"
+    continue
+  fi
+  v="$VAL"
   [ -n "$v" ] || { fail komandy "commands.$k пусто (резолвер пробил — наш gate ловит)"; continue; }
   case "$v" in
     true) fail komandy "commands.$k замаскировано как 'true'"; continue ;;
@@ -168,15 +281,16 @@ for k in test build typecheck lint; do
   # бы как glob относительно cwd.
   # shellcheck disable=SC2206
   set -f; toks=($v); set +f
-  # Проверка операторов оболочки на КАЖДОМ токене ДО семейство-специфичной
-  # логики (модель: op_obolochki). Анти-обход F3: токен `|` ловится как
-  # оператор (раньше impl ловил только подстроку '|-' и пропускал '||').
+  # Проверка БЕЛОГО набора символов на КАЖДОМ токене ДО семейство-специфичной
+  # логики (модель: та же tok_safe; раньше была чёрная op_obolochki, она
+  # ловила операторы shell, но shell сам СНИМАЕТ кавычки/'/'/'/'/'/\\'/'/'
+  # и раскрывает {a,}/~ — поэтому нужен позитивный алфавит).
   bad_tok=""
   for ((j=0; j<${#toks[@]}; j++)); do
-    if op_obolochki "${toks[$j]}"; then bad_tok="${toks[$j]}"; break; fi
+    if ! tok_safe "${toks[$j]}"; then bad_tok="${toks[$j]}"; break; fi
   done
   if [ -n "$bad_tok" ]; then
-    fail komandy "commands.$k: оператор/подстановка оболочки в команде (токен: $bad_tok): $v"
+    fail komandy "commands.$k: токен вне белого алфавита [A-Za-z0-9._/@:=+,-] (токен: $bad_tok): $v"
     continue
   fi
   family="${toks[0]:-}"
@@ -246,14 +360,19 @@ for k in test build typecheck lint; do
 done
 
 # ── source-canon: каждый объявленный источник существует ВНУТРИ $R ─────────
+# Чтение path через read_strict (хвостовые \n/NUL отлавливаются на этом шаге;
+# иначе canon_R смотрит на $R/.harness/foo\n, не находит и шумит «нет в
+# дереве», а не тем же алфавитом причины).
 sc="$(printf '%s' "$OUT" | jq -r '.sourceCanon.value.sources // [] | length')"
 if [ "$sc" != "0" ] && [ -n "$sc" ]; then
   for idx in $(seq 0 $((sc-1))); do
-    sp="$(printf '%s' "$OUT" | jq -r --argjson i "$idx" '.sourceCanon.value.sources[$i].path // empty')"
-    [ -n "$sp" ] || { fail source-canon "источник #$idx: пустой path"; continue; }
-    if canon_R "$sp" "источник #$idx" "file" source-canon; then
-      [ -f "$REAL" ] || fail source-canon "источник отсутствует: $sp (real: $REAL)"
+    if ! read_strict ".sourceCanon.value.sources[$idx].path"; then
+      fail source-canon "источник #$idx: значение содержит хвостовые \\n/NUL/управляющие (длина jq ≠ bash — байт-в-байт невозможно)"
+      continue
     fi
+    sp="$VAL"
+    [ -n "$sp" ] || { fail source-canon "источник #$idx: пустой path"; continue; }
+    canon_R "$sp" "источник #$idx" "file" source-canon || true
   done
 fi
 
