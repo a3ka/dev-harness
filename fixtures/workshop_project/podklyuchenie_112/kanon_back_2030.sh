@@ -4,9 +4,14 @@
 # Сверяет ДОСТАВЛЕННЫЙ профиль Complior-back (harness.project.json →
 # sourceCanon.sources) с обязательным перечнем владельческого канона
 # docs/owner/2026-10-17-resheniya-2030.md §3. Фактические пути перечня
-# сверены живьём по origin/main Complior-back (2026-10-20): все 12
-# не-миграционных файлов существуют, db/001–014 — 14 миграций (в §3 названы
-# 001–013; дереву верим). Итого 26 источников.
+# сверены живьём по origin/main Complior-back (2026-10-20, НОВАЯ структура —
+# форк n112-v2-kanon-26 ОТВЕЧЕНО (А), слово консультанта 14:20/14:35:
+# миграции переехали db/→migrations/, архитектурный документ и
+# `contracts/BrokerOS_Unified_OpenAPI_v3.yaml` — в docs/,
+# `backend/structure-policy.json` — в корень; 17 путей меняют путь, состав
+# и приоритеты НЕ меняются): все 12 не-миграционных файлов существуют,
+# migrations/001–014 — 14 миграций (в §3 названы 001–013; дереву верим).
+# Итого 26 источников.
 #
 # Оракул НЕЗАВИСИМ от check_project_connection.sh и profile_resolver.sh:
 # существование объявленных источников судит проверка подключения (причина
@@ -29,22 +34,22 @@ set -uo pipefail
 # priority 0 — бэкенд пишется строго по структуре и стилю этих файлов.
 # Итог 26 источников = 18 priority 0 + 8 priority 1 (существование обоих
 # файлов на origin/main сверено gh api 2026-10-20: shas 70b6109f…, ed4aebed…).
-CANON='Complior_Backend_Architecture_v3_14_RU.md	0
-contracts/BrokerOS_Unified_OpenAPI_v3.yaml	0
-db/001_core.sql	0
-db/002_rls.sql	0
-db/003_finance.sql	0
-db/004_runtime_role_fixes.sql	0
-db/005_service_routing_and_effect_controls.sql	0
-db/006_deadline_basis_and_provenance.sql	0
-db/007_standalone_profile_assets.sql	0
-db/008_service_authorization_lifecycle.sql	0
-db/009_service_route_isolation.sql	0
-db/010_ux114_owners.sql	0
-db/011_profile_contact_extensions.sql	0
-db/012_evb_issuance_owner.sql	0
-db/013_profile_release_permissions.sql	0
-db/014_api_reads_migration_ledger.sql	0
+CANON='docs/Complior_Backend_Architecture_v3_14_RU.md	0
+docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml	0
+migrations/001_core.sql	0
+migrations/002_rls.sql	0
+migrations/003_finance.sql	0
+migrations/004_runtime_role_fixes.sql	0
+migrations/005_service_routing_and_effect_controls.sql	0
+migrations/006_deadline_basis_and_provenance.sql	0
+migrations/007_standalone_profile_assets.sql	0
+migrations/008_service_authorization_lifecycle.sql	0
+migrations/009_service_route_isolation.sql	0
+migrations/010_ux114_owners.sql	0
+migrations/011_profile_contact_extensions.sql	0
+migrations/012_evb_issuance_owner.sql	0
+migrations/013_profile_release_permissions.sql	0
+migrations/014_api_reads_migration_ledger.sql	0
 docs/ARCHITECTURE.md	0
 docs/CODING-STANDARDS.md	0
 AGENTS.md	1
@@ -54,7 +59,7 @@ docs/RUNBOOK.md	1
 docs/backend/PORT-PLAN.md	1
 docs/backend/DONOR-INVENTORY.md	1
 docs/backend/AUTH-AND-DB-DECISIONS.md	1
-backend/structure-policy.json	1'
+structure-policy.json	1'
 
 REPO=""
 while [ $# -gt 0 ]; do

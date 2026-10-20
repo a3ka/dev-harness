@@ -63,20 +63,20 @@ make_world() {  # $1 = back|mob → путь мира
     back)
       git -C "$d" remote add origin https://github.com/a3ka/Complior-back.git
       mkdir -p "$d/.harness/contracts" "$d/.harness/verdicts" "$d/.harness/registry" "$d/.harness/fixtures" \
-               "$d/.github/workflows" "$d/backend/scripts" "$d/tools" "$d/contracts" "$d/db" "$d/docs/backend"
+               "$d/.github/workflows" "$d/backend/scripts" "$d/tools" "$d/docs/contracts" "$d/migrations" "$d/docs/backend"
       touch "$d/.github/workflows/ci.yml" "$d/backend/scripts/gen-contracts.js" \
-            "$d/Complior_Backend_Architecture_v3_14_RU.md" "$d/AGENTS.md" "$d/STRUCTURE.md" \
-            "$d/contracts/BrokerOS_Unified_OpenAPI_v3.yaml" \
-            "$d/db/001_core.sql" "$d/db/002_rls.sql" "$d/db/003_finance.sql" \
-            "$d/db/004_runtime_role_fixes.sql" "$d/db/005_service_routing_and_effect_controls.sql" \
-            "$d/db/006_deadline_basis_and_provenance.sql" "$d/db/007_standalone_profile_assets.sql" \
-            "$d/db/008_service_authorization_lifecycle.sql" "$d/db/009_service_route_isolation.sql" \
-            "$d/db/010_ux114_owners.sql" "$d/db/011_profile_contact_extensions.sql" \
-            "$d/db/012_evb_issuance_owner.sql" "$d/db/013_profile_release_permissions.sql" \
-            "$d/db/014_api_reads_migration_ledger.sql" \
+            "$d/docs/Complior_Backend_Architecture_v3_14_RU.md" "$d/AGENTS.md" "$d/STRUCTURE.md" \
+            "$d/docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml" \
+            "$d/migrations/001_core.sql" "$d/migrations/002_rls.sql" "$d/migrations/003_finance.sql" \
+            "$d/migrations/004_runtime_role_fixes.sql" "$d/migrations/005_service_routing_and_effect_controls.sql" \
+            "$d/migrations/006_deadline_basis_and_provenance.sql" "$d/migrations/007_standalone_profile_assets.sql" \
+            "$d/migrations/008_service_authorization_lifecycle.sql" "$d/migrations/009_service_route_isolation.sql" \
+            "$d/migrations/010_ux114_owners.sql" "$d/migrations/011_profile_contact_extensions.sql" \
+            "$d/migrations/012_evb_issuance_owner.sql" "$d/migrations/013_profile_release_permissions.sql" \
+            "$d/migrations/014_api_reads_migration_ledger.sql" \
             "$d/docs/ARCHITECTURE.md" "$d/docs/CODING-STANDARDS.md" "$d/docs/DATABASE.md" "$d/docs/RUNBOOK.md" \
             "$d/docs/backend/PORT-PLAN.md" "$d/docs/backend/DONOR-INVENTORY.md" \
-            "$d/docs/backend/AUTH-AND-DB-DECISIONS.md" "$d/backend/structure-policy.json"
+            "$d/docs/backend/AUTH-AND-DB-DECISIONS.md" "$d/structure-policy.json"
       printf '%s\n' '{"scripts":{"test":"node --test","lint":"eslint .","smoke:image":"node scripts/smoke-image.js"}}' > "$d/backend/package.json"
       printf '%s\n' '{ "schemaVersion": 1, "version": "1", "projectId": "Complior-back", "workspaceId": "Complior-back" }' > "$d/.harness/project-layer.json"
       # sourceCanon — ПОЛНЫЙ перечень 2030 §3 (26 источников = 18 priority 0 +
@@ -84,6 +84,10 @@ make_world() {  # $1 = back|mob → путь мира
       # 2026-10-20 ~13:45; Н-351: литералы, носитель перечня — kanon_back_2030.sh,
       # здесь — те же байты мира). contextPack — слово владельца 13:45 п.2:
       # оба стандарта обязательны (mandatory) ролям бэкенда; mob — БЕЗ них.
+      # v2b: пути — НОВАЯ структура Complior-back (2026-10-20, форк
+      # n112-v2-kanon-26 ОТВЕЧЕНО (А), слово консультанта 14:20/14:35):
+      # db/→migrations/ (14), архитектурный документ и OpenAPI — в docs/,
+      # structure-policy.json — в корень; 17 путей, состав/приоритеты те же.
       cat > "$d/harness.project.json" <<'JSON'
 {
   "schemaVersion": 1,
@@ -107,22 +111,22 @@ make_world() {  # $1 = back|mob → путь мира
   },
   "sourceCanon": {
     "sources": [
-      { "path": "Complior_Backend_Architecture_v3_14_RU.md", "priority": 0 },
-      { "path": "contracts/BrokerOS_Unified_OpenAPI_v3.yaml", "priority": 0 },
-      { "path": "db/001_core.sql", "priority": 0 },
-      { "path": "db/002_rls.sql", "priority": 0 },
-      { "path": "db/003_finance.sql", "priority": 0 },
-      { "path": "db/004_runtime_role_fixes.sql", "priority": 0 },
-      { "path": "db/005_service_routing_and_effect_controls.sql", "priority": 0 },
-      { "path": "db/006_deadline_basis_and_provenance.sql", "priority": 0 },
-      { "path": "db/007_standalone_profile_assets.sql", "priority": 0 },
-      { "path": "db/008_service_authorization_lifecycle.sql", "priority": 0 },
-      { "path": "db/009_service_route_isolation.sql", "priority": 0 },
-      { "path": "db/010_ux114_owners.sql", "priority": 0 },
-      { "path": "db/011_profile_contact_extensions.sql", "priority": 0 },
-      { "path": "db/012_evb_issuance_owner.sql", "priority": 0 },
-      { "path": "db/013_profile_release_permissions.sql", "priority": 0 },
-      { "path": "db/014_api_reads_migration_ledger.sql", "priority": 0 },
+      { "path": "docs/Complior_Backend_Architecture_v3_14_RU.md", "priority": 0 },
+      { "path": "docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml", "priority": 0 },
+      { "path": "migrations/001_core.sql", "priority": 0 },
+      { "path": "migrations/002_rls.sql", "priority": 0 },
+      { "path": "migrations/003_finance.sql", "priority": 0 },
+      { "path": "migrations/004_runtime_role_fixes.sql", "priority": 0 },
+      { "path": "migrations/005_service_routing_and_effect_controls.sql", "priority": 0 },
+      { "path": "migrations/006_deadline_basis_and_provenance.sql", "priority": 0 },
+      { "path": "migrations/007_standalone_profile_assets.sql", "priority": 0 },
+      { "path": "migrations/008_service_authorization_lifecycle.sql", "priority": 0 },
+      { "path": "migrations/009_service_route_isolation.sql", "priority": 0 },
+      { "path": "migrations/010_ux114_owners.sql", "priority": 0 },
+      { "path": "migrations/011_profile_contact_extensions.sql", "priority": 0 },
+      { "path": "migrations/012_evb_issuance_owner.sql", "priority": 0 },
+      { "path": "migrations/013_profile_release_permissions.sql", "priority": 0 },
+      { "path": "migrations/014_api_reads_migration_ledger.sql", "priority": 0 },
       { "path": "docs/ARCHITECTURE.md", "priority": 0 },
       { "path": "docs/CODING-STANDARDS.md", "priority": 0 },
       { "path": "AGENTS.md", "priority": 1 },
@@ -132,7 +136,7 @@ make_world() {  # $1 = back|mob → путь мира
       { "path": "docs/backend/PORT-PLAN.md", "priority": 1 },
       { "path": "docs/backend/DONOR-INVENTORY.md", "priority": 1 },
       { "path": "docs/backend/AUTH-AND-DB-DECISIONS.md", "priority": 1 },
-      { "path": "backend/structure-policy.json", "priority": 1 }
+      { "path": "structure-policy.json", "priority": 1 }
     ],
     "gate": ["python3", "tools/check_source_trace.py"]
   }
@@ -272,7 +276,7 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030_LISHNIJ" "$ORACLE" ;;
     D19-kanon-prioritet)      # подмена приоритетов при полном множестве путей (П-5)
                               jq_set "$WORLD/harness.project.json" \
-                                '(.sourceCanon.sources[] | select(.path=="Complior_Backend_Architecture_v3_14_RU.md") | .priority) = 1 | (.sourceCanon.sources[] | select(.path=="AGENTS.md") | .priority) = 0'
+                                '(.sourceCanon.sources[] | select(.path=="docs/Complior_Backend_Architecture_v3_14_RU.md") | .priority) = 1 | (.sourceCanon.sources[] | select(.path=="AGENTS.md") | .priority) = 0'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030_PRIORITET" "$ORACLE" ;;
     D20-standarty-kanon-nepolnyj)
                               # v2 (слово владельца 2026-10-20 ~13:45, форк n112):
