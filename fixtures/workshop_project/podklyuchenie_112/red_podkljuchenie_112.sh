@@ -7,9 +7,12 @@
 # (модели: честные профили, ожидание rc 0; обманки: ожидание rc 1 +
 # ИМЕНОВАННАЯ причина из алфавита причин проверки). Клетки канона
 # (K1-kanon-polnyj / D15-kanon-nepolnyj / D18-kanon-lishnij /
-# D19-kanon-prioritet / D20-standarty-kanon-nepolnyj) гоняют литеральный
-# оракул kanon_back_2030.sh
-# (перечень 2030 §3: полнота + лишние + приоритеты). Батарея строит
+# D19-kanon-prioritet / D20-standarty-kanon-nepolnyj) и клетки
+# contextPack-обязанности (D21-contextpack-nedostavlen /
+# D22-contextpack-mandatory / D23-contextpack-roli — v2c, блокер критика
+# круга v2) гоняют литеральный оракул kanon_back_2030.sh
+# (перечень 2030 §3: полнота + лишние + приоритеты; v2c: и contextPack-строки
+# стандартов — наличие/mandatory/роли). Батарея строит
 # одноразовые миры (git init + литеральные профили) в mktemp-каталоге
 # $TMPDIR — никаких сетевых обменов и записей вне него; имя автора в путях
 # scratch не участвует.
@@ -27,8 +30,8 @@
 #       (вырезается sed-ом по sentinels STATE-112-BEG/END) — ОБЯЗАНА дать
 #       расхождение на D14-state-vne-repo и D16-state-symlink-zveno (внешние
 #       цели обеих обманок СУЩЕСТВУЮТ — арбитраж 112 П-1/П-2), иначе плацебо;
-#   (3) клетки канона двунаправлены: K1 ловит оракул-заглушку «всё красно»,
-#       D15/D18/D19/D20 — «всё зелено».
+#   (3) клетки канона и contextPack двунаправлены: K1 ловит оракул-заглушку
+#       «всё красно», D15/D18/D19/D20/D21/D22/D23 — «всё зелено».
 #
 # Диспетчеризация: --cell <имя> (одна клетка) | --model (против эталона) |
 # без аргументов (полный прогон против продукта).
@@ -52,6 +55,9 @@ REASON_CANON="ОТКАЗ: подключение: source-canon"
 REASON_KANON2030="ОТКАЗ: kanon-2030: kanon-nepolnyj"
 REASON_KANON2030_LISHNIJ="ОТКАЗ: kanon-2030: kanon-lishnij"
 REASON_KANON2030_PRIORITET="ОТКАЗ: kanon-2030: kanon-prioritet"
+REASON_CTX_NEDOSTAVLEN="ОТКАЗ: kanon-2030: contextpack-nedostavlen"
+REASON_CTX_MANDATORY="ОТКАЗ: kanon-2030: contextpack-mandatory"
+REASON_CTX_ROLI="ОТКАЗ: kanon-2030: contextpack-roli"
 
 WORLD=""
 
@@ -286,6 +292,22 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
                               jq_set "$WORLD/harness.project.json" \
                                 '.sourceCanon.sources |= map(select(.path != "docs/ARCHITECTURE.md" and .path != "docs/CODING-STANDARDS.md"))'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030" "$ORACLE" ;;
+    D21-contextpack-nedostavlen)
+                              # v2c (блокер критика круга v2): канон 26 = 18+8
+                              # доставлен, contextPack изъят — ровно обход
+                              # критика «оракул судит только sourceCanon»
+                              jq_set "$WORLD/harness.project.json" 'del(.contextPack)'
+                              run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_NEDOSTAVLEN" "$ORACLE" ;;
+    D22-contextpack-mandatory)
+                              # обе строки доставлены, но docs/ARCHITECTURE.md
+                              # mandatory:false — стандарт необязателен ролям
+                              jq_set "$WORLD/harness.project.json" '.contextPack.rows[0].mandatory=false'
+                              run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_MANDATORY" "$ORACLE" ;;
+    D23-contextpack-roli)
+                              # строка docs/CODING-STANDARDS.md с усечёнными
+                              # ролями — стандарт не обязателен reviewer/adversary
+                              jq_set "$WORLD/harness.project.json" '.contextPack.rows[1].roles="architect,implementer"'
+                              run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_ROLI" "$ORACLE" ;;
     *) return 2 ;;
   esac
 }
@@ -311,7 +333,7 @@ if [ "${1:-}" = "--cell" ]; then
   exit "$rc"
 fi
 [ $# -eq 0 ] || usage
-# полный прогон: 23 клетки (3 модели + 20 обманок) + анти-плацебо (1)–(3)
+# полный прогон: 26 клеток (3 модели + 23 обманки) + анти-плацебо (1)–(3)
 # Факты по клетке печатаются ТОЛЬКО при расхождении; итог — число клеток
 # (зелёных/красных) и код возврата, не слово PASS.
 itog=0; zelen=0; krasno=0
@@ -320,7 +342,8 @@ for c in M1-back-model M2-mob-model K1-kanon-polnyj D1-pustaja-komanda D2-komand
          D8-net-sostojanija D9-prioritet-bool D10-istochnik-net D13-net-kataloga-kontr \
          D14-state-vne-repo D16-state-symlink-zveno D17-state-absoljutnyj \
          D11-mob-bez-typecheck D12-mob-ssh-remote D15-kanon-nepolnyj \
-         D18-kanon-lishnij D19-kanon-prioritet D20-standarty-kanon-nepolnyj; do
+         D18-kanon-lishnij D19-kanon-prioritet D20-standarty-kanon-nepolnyj \
+         D21-contextpack-nedostavlen D22-contextpack-mandatory D23-contextpack-roli; do
   if cell "$c"; then zelen=$((zelen+1)); else krasno=$((krasno+1)); itog=1; fi
   [ -n "$WORLD" ] && rm -rf "$WORLD"; WORLD=""
 done
@@ -340,5 +363,5 @@ for stab_cell in D14-state-vne-repo D16-state-symlink-zveno; do
   fi
 done
 rm -f "$STAB"
-printf 'ИТОГ 112: клеток 23, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
+printf 'ИТОГ 112: клеток 26, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
 exit "$itog"

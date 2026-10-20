@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Контракт 112 — литеральный оракул полноты backend-канона (2030 §3).
+# Контракт 112 — литеральный оракул полноты backend-канона (2030 §3)
+# и contextPack-строк стандартов (v2c, блокер критика круга v2).
 #
 # Сверяет ДОСТАВЛЕННЫЙ профиль Complior-back (harness.project.json →
-# sourceCanon.sources) с обязательным перечнем владельческого канона
+# sourceCanon.sources + contextPack.rows) с обязательным перечнем
+# владельческого канона
 # docs/owner/2026-10-17-resheniya-2030.md §3. Фактические пути перечня
 # сверены живьём по origin/main Complior-back (2026-10-20, НОВАЯ структура —
 # форк n112-v2-kanon-26 ОТВЕЧЕНО (А), слово консультанта 14:20/14:35:
@@ -17,14 +19,22 @@
 # существование объявленных источников судит проверка подключения (причина
 # source-canon); ПЕРЕЧЕНЬ (полнота + приоритеты) судит только этот оракул.
 # Сравнение множеств путей и пар путь→приоритет — ЛИТЕРАЛЬНОЕ.
+# contextPack (v2 слово владельца 2026-10-20 ~13:45 п.2; v2c — обязанность
+# получает проверяющую rc-команду): судится НАЛИЧИЕ строки каждого стандарта,
+# mandatory:true и множество ролей {architect,implementer,reviewer,adversary};
+# kind/why — грамматика схемы 095 (резолвер), оракулом не судятся.
 #
 # Замкнутый алфавит причин:
 #   kanon-otsutstvuet — harness.project.json или sourceCanon.sources нет
 #   kanon-nepolnyj    — обязательный источник не объявлен в профиле
 #   kanon-lishnij     — объявлен источник вне обязательного перечня
 #   kanon-prioritet   — приоритет источника ≠ обязательному
-# rc: 0 — перечень совпал множеством и приоритетами; 1 — ≥1 именованный
-# отказ; 2 — неправильный вызов (нет --repo, нет jq, нет каталога).
+#   contextpack-nedostavlen — строка стандарта не доставлена в contextPack
+#   contextpack-mandatory   — строка стандарта есть, но mandatory ≠ true
+#   contextpack-roli        — множество ролей строки ≠ четырём ролям бэкенда
+# rc: 0 — перечень совпал множеством и приоритетами, contextPack стандартов
+# доставлен (mandatory, роли); 1 — ≥1 именованный отказ; 2 — неправильный
+# вызов (нет --repo, нет jq, нет каталога).
 set -uo pipefail
 
 # ── литеральный перечень 2030 §3 (путь TAB приоритет; Н-351) ────────────────
@@ -109,5 +119,23 @@ while IFS=$'\t' read -r p prio; do
   [ -z "$ap" ] && continue
   [ "$ap" = "$prio" ] || fail kanon-prioritet "$p: $ap, обязан $prio"
 done < <(printf '%s\n' "$CANON")
+
+# ── contextPack-строки стандартов (v2c; носитель литералов — CTXROWS, Н-351) ──
+CTXROWS='docs/ARCHITECTURE.md	architect,implementer,reviewer,adversary
+docs/CODING-STANDARDS.md	architect,implementer,reviewer,adversary'
+roli_norm() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/^ \+//; s/ \+$//' | sort | paste -sd, -; }
+while IFS=$'\t' read -r cpath croli; do
+  [ -n "$cpath" ] || continue
+  cnt="$(jq -r --arg p "$cpath" '.contextPack.rows // [] | map(select(.path == $p)) | length' "$PROF" 2>/dev/null)"
+  if [ -z "$cnt" ] || [ "$cnt" = "0" ]; then
+    fail contextpack-nedostavlen "$cpath"
+    continue
+  fi
+  while IFS=$'\t' read -r mand aroli; do
+    [ -n "$mand" ] || continue
+    [ "$mand" = "true" ] || fail contextpack-mandatory "$cpath: mandatory=$mand, обязан true"
+    [ "$(roli_norm "$aroli")" = "$(roli_norm "$croli")" ] || fail contextpack-roli "$cpath: роли '$aroli', обязан набор architect,implementer,reviewer,adversary"
+  done < <(jq -r --arg p "$cpath" '.contextPack.rows // [] | map(select(.path == $p)) | .[] | [(.mandatory | tostring), (.roles // "")] | @tsv' "$PROF" 2>/dev/null)
+done < <(printf '%s\n' "$CTXROWS")
 
 exit "$itog"
