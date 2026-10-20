@@ -76,7 +76,7 @@ fi
 # (например `node backend/scripts/gen-contracts.js --check`) и
 # `npm [--prefix D] run <s>|test`. Батарея 112 вырезает этот блок по
 # sentinels в komandy-слепую контрмодель — правило 3: клетки
-# D34/D35/D36 обязаны быть красными против неё.
+# D34–D48 (вся komandy-семья, круг 3) обязаны быть красными против неё.
 npm_script_ok() {  # $1 = package.json, $2 = имя скрипта
   jq -e --arg s "$2" '.scripts[$s] != null' "$1" >/dev/null 2>&1
 }
