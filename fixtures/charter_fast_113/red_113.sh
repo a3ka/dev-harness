@@ -358,7 +358,7 @@ KARTA=(
   's8_molchalivyj|d0_chistoe|polnyj|-'
   's9_okno_globalnoe|d9_bokovaja_zamorozka|incr|d8_kesh_valid'
   's10_finish_konca|gonka|incr|d8_kesh_valid'  # поимка — ТОЛЬКО клетка гонки (обёртка расписания): вне гонки HEAD конца == HEAD начала, ложь ненаблюдаема; честен на d8_kesh_valid (Н-39)
-  's11_konstanta_oblasti|d10_novoe_imja|polnyj|d2_merge'  # свежее имя вне зашитого перечня: быстрый путь стаба документ не судит, оракул судит; честен на d2 (его документы в перечне)
+  's11_konstanta_oblasti|d10_novoe_imja|polnyj|d8_kesh_valid'  # свежее имя вне зашитого перечня: быстрый путь стаба документ не судит, оракул судит; честность — d8_kesh_valid (как s7/s9/s10): его документы в перечне, а единственная правка БЕЗ строки — контроль слеп к потере тел в sourced-razreshil (чужой дефект честной модели, не ложь стаба; d2_merge с законной правкой непригоден)
   's12_ignoriruet_oracle|d0_chistoe|probe|d0_chistoe'     # поимка — ТОЛЬКО проб-обёрткой режима: дифференциал слеп (быстрый путь каркаса честен), различима форма первого чтения истории
 )
 
