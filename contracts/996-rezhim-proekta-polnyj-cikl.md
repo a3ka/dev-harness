@@ -154,7 +154,7 @@ A: profile_resolver/project_workflow/harness.project.json. B: gitw/reserve/next_
 
 ПРОВОДКА-ЭНФОРСМЕНТ: guard — продуктовая батарея 996 в CI dev-harness, обязательное подключение перед done; не внешний CI exception. Поведенческие строки идут только role-каналом после санкции. Команда проекта вызывается check_project_sources через pre_critic/done, не объявляется собственным guard харнесса вместо этой батареи.
 замер: `cat scripts/consumers.d/*.tsv | wc -l` = 6 census scripts/consumers.d/*.tsv
-ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_dver.sh
+ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash fixtures/check_check_contract_ready/doc_048/probe_zhivoy_vyzov_048.sh
 ПОТРЕБИТЕЛЬ fixtures/drill_contract_change/: bash scripts/verify_antiplacebo.sh --scope drill_contract_change
 ПОТРЕБИТЕЛЬ scripts/spawn_agent.sh: bash scripts/verify_antiplacebo.sh --scope spawn_agent
 ПОТРЕБИТЕЛЬ scripts/check_spec_ready.sh: bash scripts/verify_antiplacebo.sh --scope check_spec_ready
