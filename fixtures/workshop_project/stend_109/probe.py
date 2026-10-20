@@ -730,8 +730,9 @@ def drill_fact(repo, tree=None):
         be = Path(tmp) / (pr or 'repo')
         shutil.copytree(tree.pkg_root(), be,
                         ignore=shutil.ignore_patterns('node_modules', '.git'))
+        prefix = pr + '/' if pr else ''
         for orel, obody in (tree.overlay or {}).items():  # оверлей мутанта — в копию
-            dest = Path(tmp) / orel
+            dest = be / orel[len(prefix):]
             if obody is None:
                 if dest.is_file():
                     dest.unlink()
@@ -987,8 +988,9 @@ def drill_input_fact(repo, tree=None):
         be = Path(tmp) / (pr or 'repo')
         shutil.copytree(tree.pkg_root(), be,
                         ignore=shutil.ignore_patterns('node_modules', '.git'))
+        prefix = pr + '/' if pr else ''
         for orel, obody in (tree.overlay or {}).items():
-            dest = Path(tmp) / orel
+            dest = be / orel[len(prefix):]
             if obody is None:
                 if dest.is_file():
                     dest.unlink()
