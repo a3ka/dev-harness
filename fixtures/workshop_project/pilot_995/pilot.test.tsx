@@ -20,6 +20,9 @@ function ports() {
     api: {
       getSession: jest.fn(async () => source.session),
       getDisclosure: jest.fn(async () => source.disclosure),
+      // CMP-MOB-004 (108): listMissions без 2P/3P — тест 995 не использует Start.
+      // Шов держит ту же сигнатуру, что и в api-client.ts: пустая MissionPage.
+      listMissions: jest.fn(async () => ({ items: [] })),
       execute: jest.fn(async () => { throw Error('995 BUSINESS_COMMAND_FORBIDDEN'); }),
       acknowledgeDisclosure: jest.fn(async (_disclosureRef: string, _version: number) => ({
         disclosure_ref: 'disc-erst-001',
