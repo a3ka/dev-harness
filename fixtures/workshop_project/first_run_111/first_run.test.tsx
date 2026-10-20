@@ -201,4 +201,29 @@ describe('111 first-run', () => {
       }
     });
   }
+
+  // К6 полная поверхность кадра, произведение scheme(2) (A2, суд круг 1):
+  // наблюдаемый внешний узел First-Run-кадра (корень PilotApp — Provider
+  // не host-узел) окрашен ground текущей темы (литералы токенов), заполняет
+  // поверхность (flex 1) и не несёт отступок (отсутствуют или нулевые) —
+  // вокруг SafeAreaView нет рамки/полос другого цвета. Мутанты: корень
+  // #FFFFFF (белая рамка заглушки), #ff00ff (обход адверсария: не-ground
+  // цвет проходил все прежние клетки), отступы 48/16/16.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`FIRST_RUN_GROUND_FULL_SURFACE_${S}`, async () => {
+      const { toJSON } = await renderFirstRun(scheme);
+      const json = toJSON();
+      const root = (Array.isArray(json) ? json[0] : json) as
+        { type?: unknown; props: { style?: unknown } };
+      expect(root).toBeDefined();
+      expect(root.type).toBe('View');
+      expect(backgroundOf(root)).toBe(scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT);
+      const style = styleOf(root);
+      expect(style.flex).toBe(1);
+      expect([undefined, 0]).toContain(style.paddingTop);
+      expect([undefined, 0]).toContain(style.paddingHorizontal);
+      expect([undefined, 0]).toContain(style.paddingBottom);
+    });
+  }
 });

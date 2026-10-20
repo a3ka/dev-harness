@@ -141,6 +141,31 @@ MUTANTS = {
           "      {scheme === 'light' ? <Text>Versicherung. Erledigt.</Text> : null}\n      <Button\n")],
         ['FIRST_RUN_COPY_CLOSED_LIGHT'], [],
     ),
+    # A2 (суд 111, круг 1): внешний корень PilotApp красится белым вокруг
+    # First-Run — белая рамка вокруг тёмного ground + Demo-бейдж на белой
+    # полосе; красна именованной клеткой пары К6 в ОБЕИХ схемах.
+    'wrapper-root-white': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'backgroundColor: tokens.ground',
+          "backgroundColor: '#FFFFFF'")],
+        ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'], [],
+    ),
+    # Обход адверсария (repro судьи круг 1): не-ground цвет внешнего корня
+    # (#ff00ff) проходил все прежние клетки — теперь красен парой К6.
+    'wrapper-root-magenta': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'backgroundColor: tokens.ground',
+          "backgroundColor: '#ff00ff'")],
+        ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'], [],
+    ),
+    # Отступки корня 48/16/16 вокруг SafeAreaView: рамка из отступов
+    # смещает канон-сетку First-Run (A2) — красна парой К6.
+    'wrapper-root-padding': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'root: {\n    flex: 1,\n  },',
+          'root: {\n    flex: 1,\n    paddingTop: 48,\n    paddingHorizontal: 16,\n    paddingBottom: 16,\n  },')],
+        ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'], [],
+    ),
 }
 
 
