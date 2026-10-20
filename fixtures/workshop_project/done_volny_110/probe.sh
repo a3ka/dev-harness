@@ -2,10 +2,10 @@
 # Батарея контракта 110 «Done волны» — fixtures/workshop_project/done_volny_110/.
 # Контракт API (см. contracts/110-done-volny.md §Приёмочный критерий):
 #   bash probe.sh            до реализации — rc 1 «110: дверь done_wave не существует»;
-#                            после — 71 случай (52 круга 3 + 19 круга 2 реализации)
-#                            на настоящем scripts/done_wave.sh;
-#   bash probe.sh --model    честная модель model/done_wave_model.sh (71 случай);
-#   bash probe.sh --matrix   50 мутантов модели, mismatches=0;
+#                            после — 86 случаев (52 замороженных + 34 кругов
+#                            2/3/4 реализации) на настоящем scripts/done_wave.sh;
+#   bash probe.sh --model    честная модель model/done_wave_model.sh (86 случаев);
+#   bash probe.sh --matrix   62 мутанта модели, mismatches=0;
 #   bash probe.sh --case ИМЯ один случай (неизвестное имя — rc 2).
 # Сети нет; одноразовые миры в системном /tmp удаляются прогоном.
 set -uo pipefail

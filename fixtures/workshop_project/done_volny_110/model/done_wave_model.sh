@@ -26,10 +26,11 @@
 # ${rec:3}, без кавычек/склейки пробелами); грязь НЕ-источников — ДО исполнения
 # команд e2e/NFR (E11; E1 застейдженное; E10 без префиксных исключений);
 # слой профиля охраняется по ФАКТИЧЕСКОМУ profilePath из HEAD-блоба
-# harness.project.json (N11b/E3); файл-скрипт команды e2e/NFR (первый токен
-# после интерпретатора, существующий в корне) обязан отслеживаться на HEAD_SHA
-# — N1 решён вариантом (a): «команда не на HEAD: <файл>»; причина из одних
-# «#»-строк НЕ пуста (Б3: verbatim сохраняет аннотацию дословно).
+# harness.project.json (N11b/E3); причина из одних «#»-строк НЕ пуста
+# (Б3: verbatim сохраняет аннотацию дословно).
+# Круг 4 РЕАЛИЗАЦИИ (арбитраж Arb110 contracts-110-impl-ostatok-n1.md):
+# эвристика wave110_cmd_on_head удалена из модели и двери.
+# ОСТАТОК (арбитраж 110, реализация): дверь не проверяет, что код, исполняемый командами e2e/NFR, лежит на HEAD; неотслеживаемые/игнорируемые файлы — законные входы команд; отслеживаемое дерево обязано совпадать с HEAD; „HEAD прошёл“ доказывает сама e2e-команда (для харнеса — check_ci_gate)
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
@@ -71,7 +72,7 @@ HEAD_SHA="$(git -C "$ROOT" rev-parse "HEAD^{commit}")" \
 # слой профиля — по фактическому profilePath (ниже), не по зашитому имени.
 if [ -f "$ROOT/harness.project.json" ]; then
   git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \
-    || die "профиль проекта не на HEAD: harness.project.json"
+    || die "профиль проекта расходится с HEAD: harness.project.json"
   git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \
     || die "профиль проекта расходится с HEAD: harness.project.json"
 else
@@ -193,35 +194,13 @@ while IFS= read -r -d '' rec <&3; do   # MUT-N3: запись «XY <путь>»,
 done 3< "$STATUS_TMP"
 rm -f "$STATUS_TMP"
 [ -z "$DIRTY" ] || die "рабочее дерево расходится с HEAD: $DIRTY (не HEAD-источник)"   # MUT-A1
-# токен после интерпретатора, существующий в корне, — обязан отслеживаться
-# на HEAD_SHA: тег волны утверждает «HEAD прошёл сквозной запуск», и
-# неотслеживаемый/игнорируемый код этого не доказывает.
-wave110_cmd_on_head() {
-  local prev="" tok
-  local -a toks
-  read -ra toks <<< "$1"
-  for tok in "${toks[@]}"; do
-    case "$prev" in
-      bash|sh|dash|ksh|zsh|python3|python|node|\.|source)
-        case "$tok" in
-          /*) ;;
-          *)
-            if [ -e "$ROOT/$tok" ] \
-               && ! git -C "$ROOT" cat-file -e "${HEAD_SHA}:$tok" 2>/dev/null; then
-              die "команда не на HEAD: $tok"
-            fi ;;
-        esac ;;
-    esac
-    prev="$tok"
-  done
-}
-wave110_cmd_on_head "$E2E_CMD"   # MUT-N1
+# (Круг 4, арбитраж Arb110 п. 1: эвристика wave110_cmd_on_head снята —
+# принятый остаток, см. шапку; отслеживаемое дерево судится выше, до команд.)
 
 # ── И-4 NFR: КАЖДАЯ строка, число из вывода, порог — литерал строки ───────────
 while IFS= read -r nfr; do
   [ -n "$nfr" ] || continue
   IFS=$'\t' read -r kind name cmd regex op porog <<< "$nfr"
-  wave110_cmd_on_head "$cmd"   # MUT-N1b
   out_rc=0
   out="$( cd "$ROOT" && timeout 60 bash -c "$cmd" 2>&1 )" || out_rc=$?
   [ "$out_rc" -eq 0 ] || die "NFR $name: команда rc=$out_rc"   # MUT-CMDRC
