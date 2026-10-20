@@ -1,3 +1,20 @@
+## ГДЕ МЫ (2026-10-20 ~05:25 UTC — сессия после рестарта №2; **DONE: 996** (`done/contracts/996/1`, origin); main = origin/main после чекпойнта; frozen: 107, 108, 109, 110, 996 v2)
+
+- Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
+- **996 DONE.** Путь: ветка `wip/996/architect` пересобрана на main (architect-коммит `d815f64c6`, блоб контракта `2ab60be6` = принятый критиком; в теле РАЗРЕШИЛ по прямому указанию в сессии 03:16 UTC через канал консультанта), заморожена `frozen/contracts/996/2` (tag-object `80f955a07…`), ленд мержем `land: wip/996/architect` (gitw требует subject `land: wip/<NNN>/<автор>` — owner-ветка не парсится), REPLACE реестра, push main, `done_contract` → `done/contracts/996/1` на origin. Пакет: потолок персоны 57344 + строка arbiter в 8 ролях + пара `roles/implementer-glm.md` (клетка `role_pair_glm` пробы 998 требует байт-равенства тела пары — консультантский PR этого не учёл). PR#148/#150 закрыты, PR#149 залендён.
+- **Уроки 996 (в приёмы):** (1) `freeze_contract.sh` с identity в env (`GIT_AUTHOR_*/GIT_COMMITTER_*`) краснит пробу 996 `zones-project` (env перебивает `-c`); identity давать через `GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=user.name GIT_CONFIG_VALUE_0=orchestrator GIT_CONFIG_KEY_1=user.email GIT_CONFIG_VALUE_1=…` (проходит), реестровый самокоммит freeze на не-main отказывает («дверь минта 031») — после freeze `git restore --staged --worktree registry/contracts.tsv`, REPLACE — после ленда. (2) Контрактный коммит, правящий frozen-текст, обязан быть АВТОРА architect (check_zones: «orchestrator» вне зоны) и нести РАЗРЕШИЛ в теле ЭТОГО коммита; тег `frozen/…/N` указывает на коммит — править message после тега нельзя (удалить тег локально и `gitw push origin :refs/tags/…`, пересоздать). (3) Текст консультанта «побайтово те же 5 строк» оказался с опечаткой (`…_dver.sh`) — сверять блоб с принятым критиком (`git rev-parse <sha>:<path>`).
+
+### Состояние потоков (факты)
+- **109 (бэкенд CMP-BCK-004):** круг 2 судей FAIL (`verdicts/{adversary,review}/contracts-109-impl-v2.md`, `.review/2026-10-20-01,02.md`: F4′ Set-Cookie/скраббер, F2′ measured_at, A2/С3 lane грязное дерево, Б2′ пустой harness зелёный, мутанты M1–M9). **Круг 3:** Impl109d сдал `68cee4a205e5fb5bd326242ccf57f63fbffa76f5` (клон `/tmp/dev-harness-verify/Impl109/back`, ветка `cmp-bck-004/stend`; НЕ запушен — push консультант); Architect109r6 (клетки по M1–M9/Б2′ на `wip/109/architect`, worktree `/tmp/dev-harness-worktrees/c907157c/wip-109-architect`, HEAD до круга 4fe53c495) — на момент чекпойнта в полёте. Дальше: union-проверка (probe из ветки architect на копии клона, `python3 …/stend_109/probe.py --repo <копия> --out …` ~30 с), судьи круга 3 (OBJECT=sha клона).
+- **110 (done-волны, харнесс):** круг 2 судей FAIL (`verdicts/{adversary,review}/contracts-110-impl-v2.md`, `.review/2026-10-20-03,04.md`: Б3 причина из #-строк ложно отвергается (моя ошибка задания — эталон принимает), N2 теряется rc git status, N11b зашитое имя слоя профиля, N1 неотслеживаемый e2e.sh — решение architect (a) закрыть/(b) остаток; дыры пробы E1/E3/E5/E6/E10/E11). **Круг 3 в полёте:** Architect110r3 (`wip/110/architect`, worktree `…/wip-110-architect`, HEAD 32e3f3790) ∥ Impl110r4 (`wip/110/implementer`, worktree `…/wip-110-implementer`, HEAD 530e8a4a6). Дальше: union (`git archive 9bb5beb30` + `git archive wip/110/architect fixtures/workshop_project/done_volny_110 contracts/110-done-volny.md` + реализация `scripts/done_wave.sh package.json registry/ci-steps.tsv .github/workflows/ci.yml`, `git init`; probe.sh ~10 с, --matrix ~5 мин), судьи круга 3. Остаток N1 при варианте (b) — на арбитра/владельца. Кап 5 кругов: круг 3 из 5.
+- **108 (mob CMP-MOB-004):** PR#112 (Complior-mob, ветка cmp-mob-004/start): quality PASS после H-пина `9bb5beb30` (консультант `307b396`), android-e2e FAIL инфраструктурой раннера дважды — по слову консультанта rerun НЕ делать до утра, он докладывает владельцу. **Судьи круга 2 Adv108r2/Rev108r2 в полёте** (OBJECT=307b3962fa3072ea55f89b5cf3f3e8d91a0471df; клон `/tmp/dev-harness-verify/Impl108/mob` содержит объект как FETCH_HEAD, ветка локально 686a044 — дубль, игнорировать). Форк n108-impl-krug1 (R108-3, форма Б) — консультанту.
+- **107 (mob), 106, 998:** DONE (до сессии). Открытые форки: n996-done-gate (ОТВЕЧЕНО: да — закрыт фактом done), n108-impl-krug1, n106-zona-wire-schema, n094-freeze-v3-ustav-bez-razreshenija, 099-r2-2-… (СТОП владельца).
+- **Приёмы сессии:** (а) судейские вердикты/.review коммитятся plumbing-ом на main под identity роли (`hash-object -w` + `update-index --add --cacheinfo` + `commit-tree -p HEAD` + `update-ref` + `checkout -- путь`), затем `check_no_leak --retake-ahead`. (б) Сессия непиннованная: в bash нельзя `2>&1`-подобное `/dev/null`-перенаправление, `cd "$VAR"` с относительной записью, `git init` без `cwd`; работать с `cwd` и абсолютными литеральными путями; scratch — только `/tmp/dev-harness-verify/**` и worktree под `/tmp/dev-harness-worktrees/c907157c/`, снимать worktree ДО `gitw push`. (в) Перед спавном судьи/событием — `git clean -fdq .omp/context` + `check_no_leak --check` (make_task пачкает дерево). (г) Тексты вердиктов-находок судьям: для кода без доступа к ssh продуктового репо — клон на станции локальный, судьям давать путь клона и sha. (д) Новые правки клеток architect читать implementer ДО реализации: для отказов закреплять подстроки в задании обоим (110: фразы A1/A2/A3 разошлись — лишний круг).
+- **Кандидаты Н (не записаны):** Н-368 консультантский текст «побайтово те же» с опечаткой — сверка блоба; Н-369 probe 996 чувствительна к GIT_AUTHOR_* в env, freeze_contract без env-identity не создаёт тег (identity только через GIT_CONFIG_COUNT); Н-370 тег frozen ставится до проверки authorship/РАЗРЕШИЛ коммита → пересоздание тега; Н-371 gitw не принимает land-мерж owner-ветки (subject `land: wip/…`); Н-372 reviewer/adversary в круге 2 110 нашли ошибку МОЕГО задания (Б3) — задание implementer давалось без сверки с эталоном model.
+
+### Следующая сессия — порядок
+1. Табло (`python3 ops/server/user/orch-tablo`). 2. Забрать результаты в полёте: Architect109r6, Architect110r3, Impl110r4, Adv108r2, Rev108r2 (`read agent://…`), закоммитить вердикты plumbing-ом. 3. 109/110: union-проверка → судьи круга 3; 108: по вердиктам — accept → PR/ленд/done или круг 3. 4. Консультант: push 109 (клон Impl109/back, ветка cmp-bck-004/stend) и 108/107 продуктовых веток; утром — батч владельцу (android-e2e раннер, R108-3 форма Б, N1 110, границы 109).
+
 ## ГДЕ МЫ (2026-10-20 ~04:10 UTC — дополнение 3: все субагенты завершены, ПРИНУДИТЕЛЬНЫЙ рестарт №2 выполняется; main = origin/main)
 
 - Серверная обвязка станции — единый источник: ops/server/README.md (инвентарь механизмов, установка, настройка).
@@ -6725,14 +6742,6 @@ soreview-v1.md.
 <!-- BEGIN GENERATED NEXT SESSION -->
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
-- 099 · пара 3 · заморожен · трек git-safety
-- 092 · пара 3 · заморожен · трек autonomy
-- 094 · пара 3 · заморожен · трек autonomy
-- 097 · пара 3 · заморожен · трек autonomy
-- 098 · пара 3 · заморожен · трек autonomy
-- 108 · пара 3 · заморожен · трек complior
-- 095 · пара 4 · заморожен · трек context
-- 110 · пара 4 · заморожен · трек done
-- 109 · пара 4 · заморожен · трек complior
-- 996 · пара 4 · заморожен · трек project-mode
+- 082 · пара 1 · номер выдан · трек CI
+- 083 · пара 1 · номер выдан · трек CI
 <!-- END GENERATED NEXT SESSION -->
