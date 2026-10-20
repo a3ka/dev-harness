@@ -13,8 +13,8 @@ from pathlib import Path
 import sys
 
 from probe_lib import (
-    COMPONENT_PATH, FAMILY_PREFIX, TEST_INSTALL, HERE, installed,
-    jest_ready, model_bytes, run_jest,
+    COMPONENT_PATH, FAMILY_PREFIX, TEST_INSTALL, ROUTE_TEST_INSTALL, HERE,
+    installed, jest_ready, model_bytes, run_jest,
 )
 
 NAMED_RED = 'ERSTINFO_COMPONENT_ABSENT'
@@ -29,13 +29,21 @@ def run_suite(repo: Path, blobs=None):
     if not jest_ready(mobile):
         print('INFRASTRUCTURE: jest не установлен в R/mobile')
         return None
-    test_src = (HERE / 'erstinfo.test.tsx').read_bytes()
-    files = {repo / TEST_INSTALL: test_src}
+    # Два файла одного процесса Jest: экранная семья + route-семья
+    # (пост-заморозочное усиление по вердикту адверсария impl-v3).
+    # jest.mock('@pilot/runtime') в route-файле действует только в его
+    # собственном module-registry — экранная семья продолжает читать
+    # настоящий runtime.
+    files = {
+        repo / TEST_INSTALL: (HERE / 'erstinfo.test.tsx').read_bytes(),
+        repo / ROUTE_TEST_INSTALL: (HERE / 'erstinfo-route.test.tsx').read_bytes(),
+    }
     if blobs:
         for rel, blob in blobs.items():
             files[repo / rel] = blob
     with installed(files):
-        cases, proc = run_jest(mobile, repo / TEST_INSTALL)
+        cases, proc = run_jest(
+            mobile, [repo / TEST_INSTALL, repo / ROUTE_TEST_INSTALL])
     if not cases and proc.returncode != 0:
         # suite failed to run (например, импорт отсутствующего модуля)
         return {}
@@ -124,6 +132,23 @@ def matrix(repo: Path):
     def mscr(a, s, v):
         return f'MOCK_SCREEN_{a}_{s}_{v}'
 
+
+    # Route-семья (пост-заморозочное усиление, вердикт адверсария impl-v3):
+    # ROUTE_INIT_W1A_<s>_<v> — произведение 5 состояний × 2 осей;
+    # recheck-клетки по триггеру {CONFIRM, RETRY} и классу второго кадра.
+    def rinit(s, v):
+        return f'ROUTE_INIT_W1A_{s}_{v}'
+
+    ROUTE_RECHECK_CONFIRM = [
+        'ROUTE_RECHECK_CONFIRM_STAYS', 'ROUTE_RECHECK_CONFIRM_MOVED',
+        'ROUTE_RECHECK_CONFIRM_FAILED', 'ROUTE_RECHECK_CONFIRM_PENDING',
+        'ROUTE_RECHECK_CONFIRM_CHECKING',
+    ]
+    ROUTE_RECHECK_RETRY = ['ROUTE_RECHECK_RETRY_STAYS', 'ROUTE_RECHECK_RETRY_RECOVERED']
+    ROUTE_W1A_ALL = (
+        [rinit(s, v) for s in ST5 for v in AX]
+        + ROUTE_RECHECK_CONFIRM + ROUTE_RECHECK_RETRY
+    )
     ACK_FINALLY = (
         '      .finally(() => {\n'
         '        onRecheck?.();\n'
@@ -134,6 +159,7 @@ def matrix(repo: Path):
     U = 'mobile/src/i18n/ui-copy.ts'
     M = 'mobile/src/mocks/disclosure-mock.ts'
     R = 'mobile/src/mocks/runtime.ts'
+    ROUTE_ENTRY = 'mobile/src/app/(entry)/erstinformation.tsx'
     MUTANTS = {
         'pending-not-awaiting': (
             [(C, "PENDING: 'disclosure.pending',", "PENDING: 'disclosure.checking',")],
@@ -319,7 +345,60 @@ def matrix(repo: Path):
               "{snapshot.responsible_entity_id || 're-001'}</Text>")],
             ['RUNTIME_GATE_SNAPSHOT'],
             []),
+        # Пост-заморозочное усиление (вердикт адверсария impl-v3):
+        # «admission защёлкнут на W0» — route поднимает admission из порта
+        # composition root после чтения сессии; мутант подменяет подъём
+        # литералом 'W0' (байт-в-байт реальная ветвь честной модели — отказ
+        # сессии оставляет W0). Воспроизводит дефект C 0070c38: W1A
+        # недостижим, getDisclosureGate не вызывается никогда.
+        'admission-pinned-w0': (
+            [(ROUTE_ENTRY, 'setAdmission(shippedRuntime.admission());',
+              "setAdmission('W0');")],
+            ['ROUTE_INIT_W1A_CURRENT_CONFIRMED_EQ'],
+            [n for n in ROUTE_W1A_ALL if n != 'ROUTE_INIT_W1A_CURRENT_CONFIRMED_EQ']),
     }
+    # Экранные мутанты легитимно краснят и route-клетки (route рендерит тот же
+    # экран); depends расширены по грамматике клеток и измеряются полным
+    # прогоном ниже. Мутанты M/R-файлов route-семьёй не затронуты: route-тест
+    # подаёт среду через jest.mock('@pilot/runtime').
+    ROUTE_DEPENDS = {
+        'pending-not-awaiting': [rinit('PENDING', v) for v in AX]
+                                + ['ROUTE_RECHECK_CONFIRM_PENDING'],
+        'failed-shown-success': [rinit('FAILED', v) for v in AX]
+                               + ['ROUTE_RECHECK_CONFIRM_FAILED',
+                                  'ROUTE_RECHECK_RETRY_STAYS',
+                                  'ROUTE_RECHECK_RETRY_RECOVERED'],
+        'failed-no-retry': ROUTE_RECHECK_RETRY,
+        'stale-version-confirmed': [rinit('CURRENT_CONFIRMED', 'STALE'),
+                                    'ROUTE_RECHECK_CONFIRM_MOVED'],
+        'versioncheck-flip': [rinit('CURRENT_CONFIRMED', 'EQ'),
+                              rinit('CURRENT_CONFIRMED', 'STALE'),
+                              'ROUTE_RECHECK_CONFIRM_STAYS',
+                              'ROUTE_RECHECK_CONFIRM_MOVED',
+                              'ROUTE_RECHECK_CONFIRM_FAILED',
+                              'ROUTE_RECHECK_CONFIRM_PENDING',
+                              'ROUTE_RECHECK_CONFIRM_CHECKING',
+                              'ROUTE_RECHECK_RETRY_RECOVERED'],
+        'w0-gate-continue': [rinit('CURRENT_CONFIRMED', 'EQ'),
+                             'ROUTE_RECHECK_CONFIRM_STAYS',
+                             'ROUTE_RECHECK_RETRY_RECOVERED'],
+        'admission-all-states': ([rinit(s, v) for s in ST4 for v in AX]
+                                 + [rinit('CURRENT_CONFIRMED', 'STALE')]
+                                 + ['ROUTE_RECHECK_CONFIRM_MOVED',
+                                    'ROUTE_RECHECK_CONFIRM_FAILED',
+                                    'ROUTE_RECHECK_CONFIRM_PENDING',
+                                    'ROUTE_RECHECK_CONFIRM_CHECKING',
+                                    'ROUTE_RECHECK_RETRY_STAYS']),
+        'copy-invented': [rinit('PENDING', v) for v in AX],
+        'evidence-dropped': [rinit('CURRENT_CONFIRMED', 'EQ'),
+                             'ROUTE_RECHECK_CONFIRM_STAYS',
+                             'ROUTE_RECHECK_RETRY_RECOVERED'],
+        'retry-rechecks-nothing': ROUTE_RECHECK_RETRY,
+        'ack-recheck-lost': ROUTE_RECHECK_CONFIRM,
+    }
+    for mname, extra in ROUTE_DEPENDS.items():
+        muts, named, depends = MUTANTS[mname]
+        MUTANTS[mname] = (muts, named, depends + extra)
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():
         blobs = model_bytes(muts)
