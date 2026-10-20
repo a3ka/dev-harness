@@ -11,7 +11,11 @@
 гвард держит кадры 995 КРОМЕ F03.01/F03.02 (email/code — их рестайл по
 предмету 117, вход по D2.2.5.1); на защищаемых кадрах (welcome) корень
 несёт литералы 995 #FFFFFF и 48/16/16; К8 F03_01 — НЕ-ожидание рестайла:
-шов CTA→F03.01 в обеих схемах, стиль корня не сверяется).
+шов CTA→F03.01 в обеих схемах, стиль корня не сверяется; и пары К9
+RESTYLE_GUARD_995_RECOVERY/UNAVAILABLE v2b — собственное наблюдение
+поверхности unavailable/recovery (F03.04) по публичным портам PilotApp
+(критик 111, круг 1, Б1): рестайл этих кадров красен, welcome-наблюдения
+К8′ его не покрывают).
 --matrix: каждый обманный стаб даёт красноту на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case печатается построчно.
@@ -49,11 +53,14 @@ MUTANTS = {
         [('mobile/src/features/auth/first-run-screen.tsx',
           'onPress={onEnter}', 'onPress={() => {}}')],
         ['CTA_OPENS_F03_01_DARK', 'CTA_OPENS_F03_01_LIGHT'],
-        # К8/К8′ ходят в кадры 995 через CTA: сломанная навигация рвёт и
-        # наблюдение рестайл-стража — зависимые красные (замер круга 4).
+        # К8/К8′/К9 ходят в кадры 995 через CTA: сломанная навигация рвёт и
+        # наблюдение рестайл-стража — зависимые красные (замер круга 4;
+        # К9 — замер v2b).
         ['CTA_TEXT_EQUALS_FRAME_TITLE',
          'RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT',
-         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT',
+         'RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT',
+         'RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
     ),
     'ground-default-blue': (
         [('mobile/src/features/auth/first-run-screen.tsx',
@@ -88,10 +95,12 @@ MUTANTS = {
         ['FIRST_RUN_STRUCTURE_DARK', 'FIRST_RUN_STRUCTURE_LIGHT'],
         ['CTA_OPENS_F03_01_DARK', 'CTA_OPENS_F03_01_LIGHT',
          'CTA_TEXT_EQUALS_FRAME_TITLE',
-         # К8/К8′ ищут CTA по testID: переименование рвёт навигацию
-         # (замер круга 4).
+         # К8/К8′/К9 ищут CTA по testID: переименование рвёт навигацию
+         # (замер круга 4; К9 — замер v2b).
          'RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT',
-         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT',
+         'RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT',
+         'RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
     ),
     # B1 (критик 111, круг 1): CTA навигирует только в dark — светлая схема
     # остаётся на First-Run без перехода; красна именованной LIGHT-клеткой.
@@ -103,9 +112,10 @@ MUTANTS = {
           'onPress={onEnter}',
           "onPress={scheme === 'dark' ? onEnter : () => {}}")],
         ['CTA_OPENS_F03_01_LIGHT'],
-        # В светлой схеме CTA не навигирует — К8/К8′ LIGHT не достигают
-        # кадров 995 (замер круга 4).
-        ['RESTYLE_GUARD_995_F03_01_LIGHT', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
+        # В светлой схеме CTA не навигирует — К8/К8′/К9 LIGHT не достигают
+        # кадров 995 (замер круга 4; К9 — замер v2b).
+        ['RESTYLE_GUARD_995_F03_01_LIGHT', 'RESTYLE_GUARD_995_WELCOME_LIGHT',
+         'RESTYLE_GUARD_995_RECOVERY_LIGHT', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
     ),
     # B2: edges={[]} — импорт/цвет живы, но нативная защита краёв снята.
     'safearea-edges-empty': (
@@ -224,7 +234,8 @@ MUTANTS = {
     # first-run в ground схемы (дословно форма продукта круга 3). Рестайл
     # F03.01/F03.02 легален (предмет 117) — К8 F03_01 зелёна; красна пара
     # К8′ (welcome уходит с поверхности 995), зависит К6 (отступки root
-    # являются и на first-run). Замер v2 полным прогоном.
+    # являются и на first-run) и К9 (unavailable/recovery — замер v2b).
+    # Замер v2 полным прогоном.
     'restyle-995-ground': (
         [('mobile/src/bootstrap/pilot-app.tsx',
           "        frame === 'first-run'\n"
@@ -232,7 +243,9 @@ MUTANTS = {
           "          : styles.root",
           "        [styles.root, { backgroundColor: tokens.ground }]")],
         ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
-        ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'],
+        ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT',
+         'RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT',
+         'RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
     ),
     # Welcome-only рестайл (ground только на welcome): красна ТОЛЬКО пара
     # К8′ — К8 (F03.01) и К6 (first-run) зелёны.
@@ -244,20 +257,43 @@ MUTANTS = {
     ),
     # Root без отступков (форма круга 3): фон белый, отступов нет — F03.01
     # легален (117, замер v2), красна пара К8′ (welcome без отступов 995),
-    # К6 зелёна.
+    # К6 зелёна; зависит К9 (отступки — поверхность и unavailable/recovery,
+    # замер v2b).
     'restyle-995-no-padding': (
         [('mobile/src/bootstrap/pilot-app.tsx',
           "root: {\n    flex: 1,\n    paddingTop: 48,\n    paddingHorizontal: 16,\n"
           "    paddingBottom: 16,\n    backgroundColor: '#FFFFFF',\n  },",
           "root: {\n    flex: 1,\n    backgroundColor: '#FFFFFF',\n  },")],
-        ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'], [],
+        ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
+        ['RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT',
+         'RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
     ),
     # Отступки ≠ 48/16/16 (сдвиг верхнего литерала) — F03.01 легален (117,
-    # замер v2), красна пара К8′ (welcome).
+    # замер v2), красна пара К8′ (welcome); зависит К9 (замер v2b).
     'restyle-995-padding-shifted': (
         [('mobile/src/bootstrap/pilot-app.tsx',
           'paddingTop: 48,', 'paddingTop: 40,')],
-        ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'], [],
+        ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
+        ['RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT',
+         'RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
+    ),
+    # v2b (критик круга 1, Б1): сужение гварда не снимает защиту
+    # unavailable/recovery — рестайл ровно одного из кадров красен его
+    # собственной парой К9 (email/code легальны — предмет 117; welcome и
+    # first-run нетронуты — К6/К8/К8′ зелёны). Обход критика
+    # «frame !== 'welcome'» = объединение этих двух стабов + легальный
+    # рестайл email/code: краснота только на К9.
+    'restyle-unavailable': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "frame === 'first-run'\n",
+          "frame === 'first-run' || frame === 'unavailable'\n")],
+        ['RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'], [],
+    ),
+    'restyle-recovery': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "frame === 'first-run'\n",
+          "frame === 'first-run' || frame === 'recovery'\n")],
+        ['RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT'], [],
     ),
 }
 

@@ -53,10 +53,20 @@ const EDGES_ALL_ACTIVE = {
   left: 'additive',
 };
 
-function ports(verifyStatus: 'invalid' | 'authenticated' = 'invalid') {
+function ports(
+  verifyStatus: 'invalid' | 'authenticated' = 'invalid',
+  beginStatus: 'ok' | 'unavailable' = 'ok',
+) {
   return {
     auth: {
-      begin: jest.fn(async (email: string) => ({ challenge: email, evidence: 'SYNTHETIC' })),
+      // К9: begin со status 'unavailable' — публичный порт перевода
+      // PilotApp в кадр unavailable (handleDemoEntry: status unavailable
+      // → setFrame('unavailable')).
+      begin: jest.fn(async (email: string) =>
+        beginStatus === 'unavailable'
+          ? { challenge: email, evidence: 'SYNTHETIC', status: 'unavailable' as const }
+          : { challenge: email, evidence: 'SYNTHETIC' },
+      ),
       verify: jest.fn(async () => ({ status: verifyStatus, evidence: 'SYNTHETIC' })),
       resend: jest.fn(async () => ({ confirmed: true, evidence: 'SYNTHETIC' })),
       recover: jest.fn(async () => ({ status: 'unavailable', evidence: 'SYNTHETIC' })),
@@ -82,11 +92,12 @@ async function renderFirstRun(
   scheme: ColorScheme,
   insetTop: number = INSET_TOP_A,
   verifyStatus: 'invalid' | 'authenticated' = 'invalid',
+  beginStatus: 'ok' | 'unavailable' = 'ok',
 ) {
   return render(
     <SafeAreaInsetsContext.Provider value={{ top: insetTop, right: 0, bottom: 0, left: 0 }}>
       <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
-        <PilotApp {...ports(verifyStatus)} />
+        <PilotApp {...ports(verifyStatus, beginStatus)} />
       </ThemeContext.Provider>
     </SafeAreaInsetsContext.Provider>,
   );
@@ -339,6 +350,51 @@ describe('111 first-run', () => {
       await fireEvent.press(await screen.findByTestId('auth-demo-entry'));
       await fireEvent.press(await screen.findByTestId('auth-verify'));
       await waitFor(() => expect(screen.getByTestId(WELCOME_SUMMARY)).toBeOnTheScreen());
+      const root = hostRootOf(view.toJSON());
+      expect(root.type).toBe('View');
+      expect(backgroundOf(root)).toBe(SURFACE_995_BG);
+      const style = styleOf(root);
+      expect(style.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(style.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(style.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
+
+  // К9 v2b (усиление гейта по Б1 критика круга 1): сужение К8 (разрешённый
+  // рестайл ТОЛЬКО F03.01/F03.02 — email/code, предмет 117) не снимает
+  // защиту остальных кадров 995. Кадры unavailable/recovery (F03.04)
+  // достигаются по публичным портам PilotApp: recovery — CTA → demo-entry
+  // → no-access; unavailable — auth.begin возвращает status 'unavailable'
+  // → demo-entry. Корень обязан остаться литералами 995 (#FFFFFF +
+  // 48/16/16) в ОБЕИХ схемах. Обход критика «frame !== 'welcome'»
+  // (рестайл всей auth-ветви при нетронутых first-run/welcome) зелён в
+  // К6/К8/К8′ и красен ТОЛЬКО здесь — собственное наблюдение каждого
+  // кадра, не выводимое из welcome.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`RESTYLE_GUARD_995_RECOVERY_${S}`, async () => {
+      const view = await renderFirstRun(scheme);
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      await fireEvent.press(await screen.findByTestId('auth-demo-entry'));
+      await fireEvent.press(await screen.findByTestId('auth-no-access'));
+      expect(await screen.findByTestId('F03.04')).toBeOnTheScreen();
+      const root = hostRootOf(view.toJSON());
+      expect(root.type).toBe('View');
+      expect(backgroundOf(root)).toBe(SURFACE_995_BG);
+      const style = styleOf(root);
+      expect(style.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(style.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(style.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
+
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`RESTYLE_GUARD_995_UNAVAILABLE_${S}`, async () => {
+      const view = await renderFirstRun(scheme, INSET_TOP_A, 'invalid', 'unavailable');
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      await fireEvent.press(await screen.findByTestId('auth-demo-entry'));
+      expect(await screen.findByTestId('auth-unavailable')).toBeOnTheScreen();
       const root = hostRootOf(view.toJSON());
       expect(root.type).toBe('View');
       expect(backgroundOf(root)).toBe(SURFACE_995_BG);
