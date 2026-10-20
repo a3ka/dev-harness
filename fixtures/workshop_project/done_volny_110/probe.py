@@ -7,11 +7,19 @@
 # критика круга 2 байт-в-байт; круг 2 РЕАЛИЗАЦИИ (вердикты impl-v1: Adv110
 # §2/§3 + Rev110 Б1) — 19 клеток: 13 заглушек D* + A1/A1b/A2/A3/A4/Б1 и
 # столько же мутантов (модель чинится под них: pin HEAD, корень-репозиторий,
-# профиль на HEAD, грязное дерево, cleanup=verbatim). Три режима:
+# профиль на HEAD, грязное дерево, cleanup=verbatim). Круг 3 РЕАЛИЗАЦИИ
+# (вердикты impl-v2: Adv110r2 N2/N11b/N1/E1/E3/E5/E6/E10/E11 + Rev110r2 Б3,
+# решения оркестратора 2026-10-20) — 13 клеток и 12 мутантов: N1 закрыт
+# вариантом (a) («команда не на HEAD», флаг клетки d2 вынесен за пределы
+# корня), N2 — «не удалось определить состояние рабочего дерева», N3 —
+# porcelain -z (кириллица/пробелы в пути грязного файла), N11b — слой по
+# profilePath из HEAD-блоба harness.project.json, Б3 — причина из одних
+# «#»-строк ЛЕГАЛЬНА (ok-клетка; клетки E4 НЕТ — после решения Б3 заглушка
+# E4 совпадает с честным поведением). Три режима:
 #   (по умолчанию)  субъект scripts/done_wave.sh; до реализации — КРАСНАЯ с
 #                    именованным отказом «110: дверь done_wave не существует»;
-#   --model         честная модель model/done_wave_model.sh: все 71 случая;
-#   --matrix        мутанты модели (50): каждый обязан быть различим ≥1 случаем;
+#   --model         честная модель model/done_wave_model.sh: все 84 случая;
+#   --matrix        мутанты модели (62): каждый обязан быть различим ≥1 случаем;
 #   --case ИМЯ      один случай (неизвестное имя — rc 2, не-плацебо диспетчер);
 #   --mutant ИМЯ    один мутант (отладка матрицы).
 # Ожидания — ЛИТЕРАЛЫ ниже (Н-351): не вычисляются ни моделью, ни субъектом.
@@ -56,6 +64,12 @@ OTKAT_OK = ('риск: рискованное изменение волны\n'
             'sha: abc123def\n'
             'команда-отката: git revert abc123def\n'
             'команда-проверки: bash fixtures/proverka.sh\n')
+LAYER_DECO = json.dumps(
+    {'schemaVersion': 1, 'version': '1', 'projectId': 'p', 'workspaceId': 'w',
+     'defaults': {'workflowPaths': {'contracts': 'contracts',
+                                    'verdicts': 'verdicts',
+                                    'registry': 'registry',
+                                    'fixtures': 'fixtures'}}})
 
 
 def git(root, *args, rc_ok=(0,)):
@@ -91,21 +105,26 @@ def build_world(spec):
         subprocess.run(['git', 'init', '--bare', '-q', origin],
                        check=True, capture_output=True)
         git(root, 'remote', 'add', 'origin', origin)
+        layer_rel = spec.get('profile_path', 'project-layer.json')
         prof = {'schemaVersion': 1, 'repoId': 'wave110-toy', 'language': 'typescript',
-                'projectLayer': {'version': '1', 'profilePath': 'project-layer.json'},
-                'workflowPaths': {'contracts': '.harness/tasks',
-                                  'verdicts': '.harness/judgements',
-                                  'registry': reg,
-                                  'fixtures': '.harness/probes'},
+                'projectLayer': {'version': '1', 'profilePath': layer_rel},
                 'git': {'canonicalRemote': origin},
                 'commands': dict.fromkeys(['test', 'lint', 'typecheck', 'build'],
                                           'bash check.sh'),
                 'ci': {'workflow': '.github/workflows/toy.yml'},
                 'barriers': {'mandatory': [], 'optional': []}}
+        if spec.get('repo_wf', True):
+            # E3/N11b: репо-слой БЕЗ workflowPaths — реестр несёт слой
+            # (defaults.workflowPaths), как в мирах адверсария (attack6).
+            prof['workflowPaths'] = {'contracts': '.harness/tasks',
+                                     'verdicts': '.harness/judgements',
+                                     'registry': reg,
+                                     'fixtures': '.harness/probes'}
         put('harness.project.json', json.dumps(prof))
-        put('project-layer.json', json.dumps({'schemaVersion': 1, 'version': '1',
-                                              'projectId': 'p', 'workspaceId': 'w',
-                                              'defaults': {}}))
+        if not spec.get('no_layer_commit'):
+            put(layer_rel, json.dumps({'schemaVersion': 1, 'version': '1',
+                                       'projectId': 'p', 'workspaceId': 'w',
+                                       'defaults': {}}))
         put('check.sh', '#!/bin/sh\ntrue\n')
         put('AGENTS.md', '# Toy project\n')
         put('.github/workflows/toy.yml',
@@ -120,9 +139,18 @@ def build_world(spec):
         put('%s/closed-without-done.tsv' % reg,
             ''.join('%s\tрешение владельца\n' % c for c in closed))
     manifest = spec.get('manifest', DEFAULT_MANIFEST)
+    # outside_files (решение N1 (a)): файлы ВНЕ корня (root+'.out'); плейсхолдер
+    # @W110_OUT@ в значениях манифеста раскрывается абсолютным путём каталога.
+    outdir = root + '.out'
+    if spec.get('outside_files'):
+        os.makedirs(outdir, exist_ok=True)
+        for orel, ocontent in spec['outside_files'].items():
+            with open(os.path.join(outdir, orel), 'w', encoding='utf-8') as f:
+                f.write(ocontent)
     if manifest is not None:
         put('%s/waves/%s.tsv' % (reg, W),
-            ''.join('\t'.join(r) + '\n' for r in manifest))
+            ''.join('\t'.join(r) + '\n' for r in manifest).replace(
+                '@W110_OUT@', outdir))
     if 'root_decoy' in spec:
         # Б9: корневой деко — завершённая волна 111 + честный манифест:
         # мутант, читающий корень вместо профиля, уходит в зелёный ложный done.
@@ -153,6 +181,19 @@ def build_world(spec):
     # rm_files — удаление отслеживаемых файлов ПОСЛЕ коммита (A2: профиль).
     for rel in spec.get('rm_files', []):
         os.remove(os.path.join(root, rel))
+    # stage_files (E1): правка, ПОСТАВЛЕННАЯ В ИНДЕКС (git add) без коммита —
+    # видна status --porcelain, невидима git diff --name-only.
+    for rel, content in spec.get('stage_files', {}).items():
+        put(rel, content)
+        git(root, 'add', '--', rel)
+    # corrupt_index (N2): испорченный .git/index — git status обязан упасть,
+    # а не читаться как «дерево чисто».
+    if spec.get('corrupt_index'):
+        with open(os.path.join(root, '.git', 'index'), 'wb') as f:
+            f.write(b'garbage')
+    # linked_worktree (E6): честный мир в linked worktree (.git — файл).
+    if spec.get('linked_worktree'):
+        git(root, 'worktree', 'add', '--detach', '-q', root + '.wt')
     return root
 
 
@@ -503,12 +544,14 @@ CASES = [
       'allow_moved_branch': True},
      ('ok', 1)),
     # D2: кеш e2e по sha HEAD — флаг снят между дверьми того же мира;
-    # повторная дверь обязана исполнить e2e заново и отказать.
+    # повторная дверь обязана исполнить e2e заново и отказать. Круг 3 (N1,
+    # решение (a)): флаг ВНЕ корня (@W110_OUT@), чтобы ok-клетка осталась
+    # законной при отказе «команда не на HEAD» для корневых скриптов.
     ('d2_e2e_cache_head',
-     {'manifest': [DEFAULT_MANIFEST[0], ['e2e', '[ -f flag ]'],
+     {'manifest': [DEFAULT_MANIFEST[0], ['e2e', '[ -f @W110_OUT@/flag ]'],
                    DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
-      'worktree_files': {'flag': ''},
-      'flow': {'rm_files': ['flag'], 'reason2': REASON_OWNER,
+      'outside_files': {'flag': ''},
+      'flow': {'rm_files': ['@W110_OUT@/flag'], 'reason2': REASON_OWNER,
                'expect2': ('refuse', 'сквозной запуск волны красный: rc=1')}},
      ('ok', 1)),
     # D3: число — из ПЕРВОЙ подходящей строки вывода (500 вне порога, 95 в).
@@ -577,6 +620,96 @@ CASES = [
                     r'metric ([0-9]+)', 'ge', '3'],
                    DEFAULT_MANIFEST[1], DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]]},
      ('refuse', 'NFR glubina: 1 не ge 3')),
+    # ── круг 3 реализации: Adv110r2 (N2/N11b/N1/E1/E3/E5/E6/E10/E11, N3) ─────
+    # E1: застейдженная (git add) правка e2e.sh — грязь и против индекса, не
+    # только worktree-vs-index; заглушка «git diff --name-only» её не видит.
+    ('e1_staged_edit',
+     {'extra_files': {'e2e.sh': 'exit 1\n'},
+      'manifest': [DEFAULT_MANIFEST[0], ['e2e', 'bash e2e.sh'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'stage_files': {'e2e.sh': 'exit 0\n'}},
+     ('refuse', 'рабочее дерево расходится с HEAD')),
+    # E3: слой профиля с ЗАШИТЫМ именем project-layer.json не на HEAD, в дереве
+    # неотслеживаемый и ведёт в корневой деко-реестр (зелёная подмена).
+    ('e3_layer_untracked_deco',
+     {'profile': True, 'registry_dir': '.harness/ledger',
+      'repo_wf': False, 'no_layer_commit': True,
+      'plan_rows': [('111', W), ('112', W)], 'closed': [], 'done_ids': ['111'],
+      'root_decoy': {'plan_rows': [('111', W)]},
+      'worktree_files': {'project-layer.json': LAYER_DECO}},
+     ('refuse', 'профиль проекта расходится с HEAD')),
+    # E5: честный мир, корень передан двери через символическую ссылку —
+    # сравнение топлевела с ЛОГИЧЕСКИМ путём ложно отказывает (ok-клетка).
+    ('e5_root_symlink_ok', {'root_symlink': True}, ('ok', 1)),
+    # E6: честный мир в linked worktree (.git — файл): «корень = каталог .git»
+    # ложно отказывает; refs общие, тег виден из главного чекаута (ok-клетка).
+    ('e6_linked_worktree_ok', {'linked_worktree': True}, ('ok', 1)),
+    # E10: грязь под префиксом реестра ($REG_REL/) не освобождается от проверки
+    # — исключение источников по ТОЧНЫМ путям, не по каталогу реестра.
+    ('e10_registry_prefix_dirty',
+     {'extra_files': {'registry/e2e.sh': 'exit 1\n'},
+      'manifest': [DEFAULT_MANIFEST[0], ['e2e', 'bash registry/e2e.sh'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'registry/e2e.sh': 'exit 0\n'}},
+     ('refuse', 'рабочее дерево расходится с HEAD')),
+    # E11: грязь проверяется ДО исполнения команд e2e/NFR — e2e.sh,
+    # восстанавливающий себя в дереве (git checkout --), не уходит молча.
+    ('e11_dirty_before_commands',
+     {'extra_files': {'e2e.sh': 'exit 1\n'},
+      'manifest': [DEFAULT_MANIFEST[0],
+                   ['e2e', 'git checkout -- e2e.sh; exit 0'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'e2e.sh': 'git checkout -- e2e.sh\nexit 0\n'}},
+     ('refuse', 'рабочее дерево расходится с HEAD')),
+    # N2: упавший git status (испорченный .git/index) — не «дерево чисто»:
+    # имя отказа «не удалось определить состояние рабочего дерева».
+    ('n2_status_unreadable',
+     {'extra_files': {'e2e.sh': 'exit 1\n'},
+      'manifest': [DEFAULT_MANIFEST[0], ['e2e', 'bash e2e.sh'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'e2e.sh': 'exit 0\n'},
+      'corrupt_index': True},
+     ('refuse', 'не удалось определить состояние рабочего дерева')),
+    # N11b: путь слоя — из HEAD-блоба harness.project.json (profilePath), не
+    # зашитое имя: слой layer/p.json не на HEAD + деко-реестр из дерева.
+    ('n11b_layer_profile_path',
+     {'profile': True, 'registry_dir': '.harness/ledger',
+      'profile_path': 'layer/p.json', 'repo_wf': False, 'no_layer_commit': True,
+      'plan_rows': [('111', W), ('112', W)], 'closed': [], 'done_ids': ['111'],
+      'root_decoy': {'plan_rows': [('111', W)]},
+      'worktree_files': {'layer/p.json': LAYER_DECO}},
+     ('refuse', 'профиль проекта расходится с HEAD')),
+    # Б3 (Rev110r2): причина из одних «#»-строк НЕ пуста — при
+    # --cleanup=verbatim аннотация несёт её дословно (ok-клетка).
+    ('b3_reason_hash_only', {'reason': '#42 волна 3 принята'}, ('ok', 1)),
+    # N3a: путь грязного НЕ-источника с кириллицей — отказ называет путь
+    # неискажённым (porcelain -z, не awk по закавыченному v1-выводу).
+    ('n3a_dirty_cyrillic_path',
+     {'extra_files': {'скрипты/e2e-скрипт.sh': 'exit 1\n'},
+      'manifest': [DEFAULT_MANIFEST[0], ['e2e', 'bash скрипты/e2e-скрипт.sh'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'скрипты/e2e-скрипт.sh': 'exit 0\n'}},
+     ('refuse', 'рабочее дерево расходится с HEAD: скрипты/e2e-скрипт.sh')),
+    # N3b: путь грязного НЕ-источника с ПРОБЕЛОМ — отказ называет путь целиком.
+    ('n3b_dirty_space_path',
+     {'extra_files': {'e2e skript.sh': 'exit 1\n'},
+      'manifest': [DEFAULT_MANIFEST[0], ['e2e', "bash 'e2e skript.sh'"],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'e2e skript.sh': 'exit 0\n'}},
+     ('refuse', 'рабочее дерево расходится с HEAD: e2e skript.sh')),
+    # N1 (решение (a)): файл-скрипт команды e2e (первый токен после
+    # интерпретатора, существующий в корне) не отслеживается на HEAD_SHA.
+    ('n1_e2e_untracked_script',
+     {'manifest': [DEFAULT_MANIFEST[0], ['e2e', 'bash e2e.sh'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'e2e.sh': 'exit 0\n'}},
+     ('refuse', 'команда не на HEAD: e2e.sh')),
+    # N1 (решение (a)), NFR-ветвь: nfr.sh не на HEAD, в дереве печатает метрику.
+    ('n1b_nfr_untracked_script',
+     {'manifest': [['nfr', 'ci-legkij', 'bash nfr.sh', NFR_OK_RE, 'le', '120'],
+                   DEFAULT_MANIFEST[1], DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
+      'worktree_files': {'nfr.sh': "printf 'zamer: ci-legkij 95 s\\n'\n"}},
+     ('refuse', 'команда не на HEAD: nfr.sh')),
 ]
 
 # ── матрица: замены литеральных участков модели; привязка к случаям — ЗДЕСЬ ──
@@ -730,26 +863,32 @@ MUTANTS = [
      'if [ -z "${wave110_op0:-}" ]; then wave110_op0="$op"; wave110_porog0="$porog"; fi; '
      'op="$wave110_op0"; porog="$wave110_porog0"'),
     ('ma1_dirty_tree_ok',
-     'git -C "$ROOT" diff --quiet "$HEAD_SHA" 2>/dev/null \\\n'
-     '  || die "рабочее дерево расходится с HEAD: $HEAD_SHA"',
-     ':'),
+     '[ -z "$DIRTY" ] || die "рабочее дерево расходится с HEAD: $DIRTY (не HEAD-источник)"   # MUT-A1',
+     ':   # MUT-A1'),
     ('ma1b_dirty_scope_manifest_only',
-     'git -C "$ROOT" diff --quiet "$HEAD_SHA" 2>/dev/null \\\n'
-     '  || die "рабочее дерево расходится с HEAD: $HEAD_SHA"',
+     'STATUS_TMP="$(mktemp)"\n'
+     'git -C "$ROOT" status --porcelain=v1 -z --no-renames --untracked-files=no >"$STATUS_TMP" 2>/dev/null \\\n'
+     '  || { rm -f "$STATUS_TMP"; die "не удалось определить состояние рабочего дерева"; }   # MUT-N2\n'
+     'DIRTY=""\n'
+     'while IFS= read -r -d \'\' rec <&3; do   # MUT-N3: запись «XY <путь>», путь = ${rec:3}\n'
+     '  p="${rec:3}"\n'
+     '  case " $SRC_SKIP " in *" $p "*) continue ;; esac   # MUT-E10\n'
+     '  DIRTY+="${DIRTY:+ }$p"\n'
+     'done 3< "$STATUS_TMP"\n'
+     'rm -f "$STATUS_TMP"\n'
+     '[ -z "$DIRTY" ] || die "рабочее дерево расходится с HEAD: $DIRTY (не HEAD-источник)"   # MUT-A1',
      'git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "${REG_REL}/waves/${W}.tsv" 2>/dev/null \\\n'
-     '  || die "рабочее дерево расходится с HEAD: $HEAD_SHA"'),
+     '  || die "рабочее дерево расходится с HEAD: ${REG_REL}/waves/${W}.tsv"'),
     ('ma2_profile_unchecked',
-     'for pf in harness.project.json project-layer.json; do\n'
-     '  if [ -f "$ROOT/$pf" ]; then\n'
-     '    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \\\n'
-     '      || die "профиль проекта не на HEAD: $pf"\n'
-     '    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$pf" 2>/dev/null \\\n'
-     '      || die "профиль проекта расходится с HEAD: $pf"\n'
-     '  else\n'
-     '    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \\\n'
-     '      && die "профиль проекта расходится с HEAD: $pf"\n'
-     '  fi\n'
-     'done',
+     'if [ -f "$ROOT/harness.project.json" ]; then\n'
+     '  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \\\n'
+     '    || die "профиль проекта не на HEAD: harness.project.json"\n'
+     '  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \\\n'
+     '    || die "профиль проекта расходится с HEAD: harness.project.json"\n'
+     'else\n'
+     '  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \\\n'
+     '    && die "профиль проекта расходится с HEAD: harness.project.json"\n'
+     'fi',
      ':'),
     ('ma3_subdir_root_ok',
      'TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \\\n'
@@ -763,6 +902,76 @@ MUTANTS = [
     ('mb1_tag_on_moved_head',
      'tag --cleanup=verbatim -a "$tag" -m "$REASON" "$HEAD_SHA" >/dev/null 2>&1',
      'tag --cleanup=verbatim -a "$tag" -m "$REASON" "HEAD" >/dev/null 2>&1'),
+    # ── круг 3 реализации: заглушки Adv110r2 (E1/E3/E5/E6/E10/E11) + N2/N3/
+    # N11b/Б3/N1 — каждый убит своей клеткой (Н-39: привязка здесь, не в прозе).
+    ('me1_dirty_unstaged_only',
+     'STATUS_TMP="$(mktemp)"\n'
+     'git -C "$ROOT" status --porcelain=v1 -z --no-renames --untracked-files=no >"$STATUS_TMP" 2>/dev/null \\\n'
+     '  || { rm -f "$STATUS_TMP"; die "не удалось определить состояние рабочего дерева"; }   # MUT-N2\n'
+     'DIRTY=""\n'
+     'while IFS= read -r -d \'\' rec <&3; do   # MUT-N3: запись «XY <путь>», путь = ${rec:3}\n'
+     '  p="${rec:3}"',
+     'STATUS_TMP="$(mktemp)"\n'
+     'git -C "$ROOT" diff --name-only -z >"$STATUS_TMP" 2>/dev/null || true   # MUT-E1: только unstaged\n'
+     'DIRTY=""\n'
+     'while IFS= read -r -d \'\' rec <&3; do\n'
+     '  p="$rec"'),
+    ('me3_layer_guard_skipped',
+     'if [ -n "$LAYER_REL" ] && { [ -e "$ROOT/$LAYER_REL" ] \\\n'
+     '    || git -C "$ROOT" cat-file -e "${HEAD_SHA}:${LAYER_REL}" 2>/dev/null; }; then\n'
+     '  git -C "$ROOT" cat-file -e "${HEAD_SHA}:${LAYER_REL}" 2>/dev/null \\\n'
+     '    || die "профиль проекта расходится с HEAD: ${LAYER_REL} (не на HEAD)"   # MUT-E3\n'
+     '  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$LAYER_REL" 2>/dev/null \\\n'
+     '    || die "профиль проекта расходится с HEAD: ${LAYER_REL}"\n'
+     'fi',
+     ':   # MUT-E3: слой профиля не охраняется'),
+    ('mn11b_layer_hardcoded_name',
+     'LAYER_REL="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:harness.project.json" 2>/dev/null \\\n'
+     '  | jq -r \'.projectLayer.profilePath // "registry/harness-project.json"\' 2>/dev/null)"\n'
+     '[ -n "$LAYER_REL" ] || LAYER_REL=""',
+     'LAYER_REL="project-layer.json"   # MUT-N11b: зашитое имя слоя'),
+    ('me5_toplevel_logical_pwd',
+     '[ "$(cd "$TOP_ABS" 2>/dev/null && pwd -P)" = "$ROOT_ABS" ] \\\n'
+     '  || die "корень не корень репозитория: $ROOT_ABS"',
+     '[ "$TOP_ABS" = "$(cd "$ROOT" && pwd -L)" ] \\\n'
+     '  || die "корень не корень репозитория: $ROOT_ABS"'),
+    ('me6_root_requires_dotgit_dir',
+     '[ "$(cd "$TOP_ABS" 2>/dev/null && pwd -P)" = "$ROOT_ABS" ] \\\n'
+     '  || die "корень не корень репозитория: $ROOT_ABS"',
+     '[ -d "$ROOT/.git" ] \\\n'
+     '  || die "корень не корень репозитория: $ROOT_ABS"'),
+    ('me10_dirty_exempt_registry_prefix',
+     '  case " $SRC_SKIP " in *" $p "*) continue ;; esac   # MUT-E10',
+     '  case "$p" in "$REG_REL"/*) continue ;; esac\n'
+     '  case " $SRC_SKIP " in *" $p "*) continue ;; esac   # MUT-E10'),
+    ('me11_dirty_check_after_commands',
+     '[ -z "$DIRTY" ] || die "рабочее дерево расходится с HEAD: $DIRTY (не HEAD-источник)"   # MUT-A1',
+     ':   # MUT-E11: грязь проверяется после команд — e2e успел себя восстановить'),
+    ('mn2_status_blind',
+     '  || { rm -f "$STATUS_TMP"; die "не удалось определить состояние рабочего дерева"; }   # MUT-N2',
+     '  || true   # MUT-N2: rc потерян, упавший status читается как «дерево чисто»'),
+    ('mn3_porcelain_awk_v1',
+     'git -C "$ROOT" status --porcelain=v1 -z --no-renames --untracked-files=no >"$STATUS_TMP" 2>/dev/null \\\n'
+     '  || { rm -f "$STATUS_TMP"; die "не удалось определить состояние рабочего дерева"; }   # MUT-N2\n'
+     'DIRTY=""\n'
+     'while IFS= read -r -d \'\' rec <&3; do   # MUT-N3: запись «XY <путь>», путь = ${rec:3}\n'
+     '  p="${rec:3}"',
+     'git -C "$ROOT" status --porcelain --untracked-files=no >"$STATUS_TMP" 2>/dev/null || true\n'
+     'DIRTY=""\n'
+     'while IFS= read -r rec <&3; do   # MUT-N3: v1-вывод, awk режет кавычки и пробелы\n'
+     '  p="$(printf \'%s\' "$rec" | awk \'{print $2}\')"\n'
+     '  [ -n "$p" ] || continue'),
+    ('mb3_noncomment_reason_refuse',
+     '[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"',
+     '[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"\n'
+     'NON_COMMENT="$(printf \'%s\\n\' "$REASON" | grep -v \'^[[:space:]]*#\' || true)"   # MUT-Б3\n'
+     '[ -n "$NON_COMMENT" ] || die "причина пуста (только комментарные строки)"   # MUT-Б3'),
+    ('mn1_cmd_head_skipped',
+     'wave110_cmd_on_head "$E2E_CMD"   # MUT-N1',
+     ':   # MUT-N1'),
+    ('mn1b_nfr_cmd_unchecked',
+     '  wave110_cmd_on_head "$cmd"   # MUT-N1b',
+     '  :   # MUT-N1b'),
 ]
 
 
@@ -808,8 +1017,11 @@ def run_flow_phase2(subject, subject_root, root, wave, reg, flow, phase1):
         git(root, '-c', 'user.name=Proba', '-c', 'user.email=proba@local',
             'commit', '-q', '-m', 'e2e починена в красную')
     for rel in flow.get('rm_files', []):
+        target = (os.path.join(root + '.out', rel[len('@W110_OUT@/'):])
+                  if rel.startswith('@W110_OUT@/')
+                  else os.path.join(root, rel))
         try:
-            os.remove(os.path.join(root, rel))
+            os.remove(target)
         except FileNotFoundError:
             pass
     before = refs_snapshot(root)
@@ -832,6 +1044,15 @@ def run_subject_case(subject, name, spec, expect):
     reg = spec.get('registry_dir', 'registry')
     root = build_world(spec)
     subject_root = root + root_suffix
+    link = None
+    if spec.get('root_symlink'):
+        # E5: честный корень, переданный двери через символическую ссылку.
+        link = root + '.lnk'
+        os.symlink(root, link)
+        subject_root = link
+    if spec.get('linked_worktree'):
+        # E6: честный мир в linked worktree (.git — файл), refs общие.
+        subject_root = root + '.wt'
     try:
         before = refs_snapshot(root)
         before_tags = set(wave_tags(root, wave))
@@ -857,6 +1078,18 @@ def run_subject_case(subject, name, spec, expect):
         shutil.rmtree(root, ignore_errors=True)
         if root.endswith('.origin.git') or os.path.exists(root + '.origin.git'):
             shutil.rmtree(root + '.origin.git', ignore_errors=True)
+    finally_cleanup(link, root)
+
+
+def finally_cleanup(link, root):
+    # side-артефакты миров (E5/E6/N1-a): симлинк, linked worktree, outside-каталог.
+    if link is not None:
+        try:
+            os.remove(link)
+        except FileNotFoundError:
+            pass
+    shutil.rmtree(root + '.wt', ignore_errors=True)
+    shutil.rmtree(root + '.out', ignore_errors=True)
 
 
 def main():

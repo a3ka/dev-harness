@@ -19,6 +19,17 @@
 # от него (Б1/Rev110); профиль проекта существует на HEAD и совпадает с рабочим
 # деревом (A2); грязное отслеживаемое дерево — именованный отказ до тега (A1/A1b);
 # аннотация тега — без cleanup-потерь строк «#» (A4: --cleanup=verbatim).
+# Круг 3 РЕАЛИЗАЦИИ (Adv110r2 N2/N11b/N1/E1/E3/E5/E6/E10/E11 + Rev110r2 Б3,
+# решения оркестратора 2026-10-20): состояние рабочего дерева читается одним
+# `git status --porcelain=v1 -z --no-renames --untracked-files=no` с проверкой
+# rc (N2: «не удалось определить состояния рабочего дерева»; N3: путь записи —
+# ${rec:3}, без кавычек/склейки пробелами); грязь НЕ-источников — ДО исполнения
+# команд e2e/NFR (E11; E1 застейдженное; E10 без префиксных исключений);
+# слой профиля охраняется по ФАКТИЧЕСКОМУ profilePath из HEAD-блоба
+# harness.project.json (N11b/E3); файл-скрипт команды e2e/NFR (первый токен
+# после интерпретатора, существующий в корне) обязан отслеживаться на HEAD_SHA
+# — N1 решён вариантом (a): «команда не на HEAD: <файл>»; причина из одних
+# «#»-строк НЕ пуста (Б3: verbatim сохраняет аннотацию дословно).
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
@@ -56,20 +67,30 @@ TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \
 # и тег — от этого sha, а не от движущегося HEAD.
 HEAD_SHA="$(git -C "$ROOT" rev-parse "HEAD^{commit}")" \
   || die "HEAD не разрешается: $ROOT"
-# A2: профиль проекта обязан существовать на HEAD и совпадать с рабочим
-# деревом — удалённый/расходящийся/неотслеживаемый профиль подменяет
-# реестр корневым деко (резолвер читает рабочее дерево).
-for pf in harness.project.json project-layer.json; do
-  if [ -f "$ROOT/$pf" ]; then
-    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \
-      || die "профиль проекта не на HEAD: $pf"
-    git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$pf" 2>/dev/null \
-      || die "профиль проекта расходится с HEAD: $pf"
-  else
-    git -C "$ROOT" cat-file -e "$HEAD_SHA:$pf" 2>/dev/null \
-      && die "профиль проекта расходится с HEAD: $pf"
-  fi
-done
+# A2 (N11b/E3 круг 3): harness.project.json — на HEAD и без расхождения с деревом;
+# слой профиля — по фактическому profilePath (ниже), не по зашитому имени.
+if [ -f "$ROOT/harness.project.json" ]; then
+  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \
+    || die "профиль проекта не на HEAD: harness.project.json"
+  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: harness.project.json"
+else
+  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \
+    && die "профиль проекта расходится с HEAD: harness.project.json"
+fi
+# N11b/E3 (круг 3): охрана слоя профиля по ФАКТИЧЕСКОМУ пути — profilePath из
+# HEAD-блоба harness.project.json (по умолчанию registry/harness-project.json),
+# не зашитое имя файла: неотслеживаемый слой подменяет реестр деко-деком.
+LAYER_REL="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:harness.project.json" 2>/dev/null \
+  | jq -r '.projectLayer.profilePath // "registry/harness-project.json"' 2>/dev/null)"
+[ -n "$LAYER_REL" ] || LAYER_REL=""
+if [ -n "$LAYER_REL" ] && { [ -e "$ROOT/$LAYER_REL" ] \
+    || git -C "$ROOT" cat-file -e "${HEAD_SHA}:${LAYER_REL}" 2>/dev/null; }; then
+  git -C "$ROOT" cat-file -e "${HEAD_SHA}:${LAYER_REL}" 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: ${LAYER_REL} (не на HEAD)"   # MUT-E3
+  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$LAYER_REL" 2>/dev/null \
+    || die "профиль проекта расходится с HEAD: ${LAYER_REL}"
+fi
 PPR_JSON="$(project_paths_resolve "$ROOT")" \
   || die "профиль проекта не разрешается: $ROOT"
 REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
@@ -151,10 +172,56 @@ done <<< "$MANIFEST"
 [ -n "$E2E_CMD" ] || die "манифест волны не объявил сквозной запуск: нет e2e строки"   # MUT-NOE2E
 [ -n "$OTKAT_PATH" ] || die "манифест волны не объявил план отката: нет otkat строки"
 
+# ── A1/A1b + E1/E10/E11/N2/N3 (круг 3): грязь НЕ-источников — ДО исполнения ───
+# команд e2e/NFR. Источники (план/закрытия/манифест/находки/откат/профиль)
+# судятся HEAD-блобами (правило H) и от грязи освобождены — по ТОЧНЫМ путям,
+# не по префиксу каталога реестра (E10). Порядок «до команд» держит E11:
+# e2e, восстанавливающий себя (git checkout --), не уводит отказ.
+SRC_SKIP="$REG_REL/plan.tsv $REG_REL/closed-without-done.tsv $REG_REL/waves/${W}.tsv $OTKAT_PATH harness.project.json"
+[ -n "$LAYER_REL" ] && SRC_SKIP="$SRC_SKIP $LAYER_REL"
+while IFS= read -r rp; do
+  [ -n "$rp" ] && SRC_SKIP="$SRC_SKIP $rp"
+done <<< "$REVIEW_PATHS"
+STATUS_TMP="$(mktemp)"
+git -C "$ROOT" status --porcelain=v1 -z --no-renames --untracked-files=no >"$STATUS_TMP" 2>/dev/null \
+  || { rm -f "$STATUS_TMP"; die "не удалось определить состояние рабочего дерева"; }   # MUT-N2
+DIRTY=""
+while IFS= read -r -d '' rec <&3; do   # MUT-N3: запись «XY <путь>», путь = ${rec:3}
+  p="${rec:3}"
+  case " $SRC_SKIP " in *" $p "*) continue ;; esac   # MUT-E10
+  DIRTY+="${DIRTY:+ }$p"
+done 3< "$STATUS_TMP"
+rm -f "$STATUS_TMP"
+[ -z "$DIRTY" ] || die "рабочее дерево расходится с HEAD: $DIRTY (не HEAD-источник)"   # MUT-A1
+# токен после интерпретатора, существующий в корне, — обязан отслеживаться
+# на HEAD_SHA: тег волны утверждает «HEAD прошёл сквозной запуск», и
+# неотслеживаемый/игнорируемый код этого не доказывает.
+wave110_cmd_on_head() {
+  local prev="" tok
+  local -a toks
+  read -ra toks <<< "$1"
+  for tok in "${toks[@]}"; do
+    case "$prev" in
+      bash|sh|dash|ksh|zsh|python3|python|node|\.|source)
+        case "$tok" in
+          /*) ;;
+          *)
+            if [ -e "$ROOT/$tok" ] \
+               && ! git -C "$ROOT" cat-file -e "${HEAD_SHA}:$tok" 2>/dev/null; then
+              die "команда не на HEAD: $tok"
+            fi ;;
+        esac ;;
+    esac
+    prev="$tok"
+  done
+}
+wave110_cmd_on_head "$E2E_CMD"   # MUT-N1
+
 # ── И-4 NFR: КАЖДАЯ строка, число из вывода, порог — литерал строки ───────────
 while IFS= read -r nfr; do
   [ -n "$nfr" ] || continue
   IFS=$'\t' read -r kind name cmd regex op porog <<< "$nfr"
+  wave110_cmd_on_head "$cmd"   # MUT-N1b
   out_rc=0
   out="$( cd "$ROOT" && timeout 60 bash -c "$cmd" 2>&1 )" || out_rc=$?
   [ "$out_rc" -eq 0 ] || die "NFR $name: команда rc=$out_rc"   # MUT-CMDRC
@@ -191,10 +258,8 @@ for fld in риск sha команда-отката команда-провер�
     || die "план отката без поля: $fld"   # mut-otkat-field
 done
 
-# A1/A1b: грязное ОТСЛЕЖИВАЕМОЕ дерево не доказывает принятый HEAD — исполняемый
-# код e2e/NFR берётся из рабочего дерева; отказ ПОСЛЕ всех источников, но ДО тега.
-git -C "$ROOT" diff --quiet "$HEAD_SHA" 2>/dev/null \
-  || die "рабочее дерево расходится с HEAD: $HEAD_SHA"
+# (Круг 3: единая ранняя проверка грязи — выше, до команд e2e/NFR; поздняя
+# проверка удалена: источники судятся HEAD-блобами, E11 закрыт порядком.)
 
 # ── И-8 тег: v=max+1, клапан v>1; аннотированный тег КОММИТА HEAD (Б6) ────────
 vmax=0
