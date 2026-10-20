@@ -190,7 +190,7 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
       : 'email';
 
   return (
-    <View style={[styles.root, { backgroundColor: tokens.ground }]} testID="pilot-root">
+    <View style={[styles.root, { backgroundColor: tokens.ground }]}>
       {frame !== 'welcome' ? (
         <View style={styles.demoBadge} testID="demo-indicator">
           <Text style={styles.demoBadgeText}>Demo</Text>

@@ -54,8 +54,7 @@
     "wordmark": "first-run-wordmark",
     "container": "first-run-safe-area",
     "demo_badge": "demo-indicator",
-    "auth_email": "auth-email",
-    "pilot_root": "pilot-root"
+    "auth_email": "auth-email"
   },
   "source_sha256": {
     "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json": "8d9c9ac780e367160ceae1577b9e4bf0a7c1b8db05df9158dc72f3c8506c36f9",
