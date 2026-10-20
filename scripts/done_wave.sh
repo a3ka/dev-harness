@@ -77,7 +77,7 @@ HEAD_SHA="$(git -C "$ROOT" rev-parse --verify -q "HEAD^{commit}")" \
 # то же ⇔-правило с HEAD (нарушение — «профиль проекта расходится с HEAD: <путь>»).
 # H1 — зеркало A2: добавление неотслеживаемого harness.project.json при LEGACY
 # без него подменяет путь реестра; profilePath из дерева подменил бы реестр
-# корневым деко (adv110 N11b). Тип-change (file↔symlink) ловится
+# корневым деко. Тип-change (file↔symlink) ловится
 # `git diff --quiet` (тихий — на typechange возвращает 1).
 HEAD_PROJ_BLOB="$(git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null && \
                    printf '%s' "${HEAD_SHA}:harness.project.json")"
@@ -212,11 +212,9 @@ for p in "${REVIEW_PATHS[@]}"; do
   HEAD_SOURCES="$HEAD_SOURCES
 $p"
 done
-# ── N2/N3: читаем грязное дерево через -z (rev110 С8: пути с пробелами и
-# кириллицей без кавычек; N3: индекс путей — NUL-байт, не пробел). rc
-# `git status` теряется в $() при пайпе, поэтому снимаем его явно через
-# out-файл: в `if !` после `!` $? уже не равен rc команды, поэтому
-# запоминаем rc ДО проверки.
+# ── N3: читаем грязное дерево через -z (пути с пробелами и кириллицей
+# без кавычек; индекс путей — NUL-байт, не пробел). rc `git status`
+# теряется в $() при пайпе, поэтому снимаем его явно через out-файл.
 DIRTY_OUT="$(mktemp)"
 git -C "$ROOT" status --porcelain=v1 -z --no-renames \
                       --untracked-files=no >"$DIRTY_OUT" 2>&1
@@ -307,7 +305,7 @@ if [ "$v" -gt 1 ]; then
 fi
 # A4: причина — из файла, --cleanup=verbatim сохраняет «# …» (в т.ч.
 # «# РАЗРЕШИЛ-ВЛАДЕЛЕЦ:»). Причина пуста отклонена выше, ДО всех проверок;
-# здесь причина из одних комментариев ЗАКОННА — НЕ БАРЬЕР: rev110 Б3.
+# здесь причина из одних комментариев ЗАКОННА.
 REASON_FILE="$(mktemp)"
 trap 'rm -f "$REASON_FILE"' EXIT
 printf '%s\n' "$REASON" >"$REASON_FILE"
