@@ -13,8 +13,8 @@ from pathlib import Path
 import sys
 
 from probe_lib import (
-    COMPONENT_PATH, FAMILY_PREFIX, HERE, TEST_INSTALL, installed,
-    jest_ready, model_bytes, run_jest,
+    COMPONENT_PATH, FAMILY_PREFIX, HERE, TEST_INSTALL, ROUTE_TEST_INSTALL,
+    installed, jest_ready, model_bytes, run_jest,
 )
 
 NAMED_RED = 'START_SEAM_ABSENT'
@@ -30,13 +30,19 @@ def run_suite(repo: Path, blobs=None):
     if not jest_ready(mobile):
         print('INFRASTRUCTURE: jest не установлен в R/mobile')
         return None
-    test_src = (HERE / 'start.test.tsx').read_bytes()
-    files = {repo / TEST_INSTALL: test_src}
+    # Два файла одного процесса Jest: экранная семья + route-семья
+    # (пост-заморозочное усиление по вердиктам судей круга 1). У каждого
+    # файла своя module-registry: jest.mock('expo-router') route-файла не
+    # затрагивает экранную семью.
+    files = {
+        repo / TEST_INSTALL: (HERE / 'start.test.tsx').read_bytes(),
+        repo / ROUTE_TEST_INSTALL: (HERE / 'start-route.test.tsx').read_bytes(),
+    }
     if blobs:
         for rel, blob in blobs.items():
             files[repo / rel] = blob
     with installed(files):
-        cases, proc = run_jest(mobile, repo / TEST_INSTALL)
+        cases, proc = run_jest(mobile, [repo / TEST_INSTALL, repo / ROUTE_TEST_INSTALL])
     if not cases and proc.returncode != 0:
         # suite failed to run (например, импорт отсутствующего модуля)
         return {}
@@ -98,6 +104,15 @@ def matrix(repo: Path):
     M = 'mobile/src/mocks/start-mock.ts'
     R = 'mobile/src/mocks/runtime.ts'
     P = 'mobile/src/ui/agent-presence/agent-presence.tsx'
+    ROUTE = 'mobile/src/app/(tabs)/[section].tsx'
+    COMP = 'mobile/src/ui/conversation-composer/conversation-composer.tsx'
+    # Route-семья (пост-заморозочное усиление): мутанты, портящие поверхности
+    # presence/brief/composer/missions, законно красят и route-клетки — их
+    # depends перемерены полным прогоном на перечне 324+7.
+    ROUTE_ALL = ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced',
+                 'ROUTE_DRAFT_RETURN_TAB_vorgaenge', 'ROUTE_DRAFT_RETURN_TAB_schutz',
+                 'ROUTE_DRAFT_RETURN_TAB_post', 'ROUTE_DRAFT_RETURN_PROFILE',
+                 'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']
     AVATARS = ['idle', 'working', 'unavailable']
     PRESENCES = ['EMPTY', 'PRESENT']
     MOTIONS = ['full', 'reduced']
@@ -170,7 +185,8 @@ def matrix(repo: Path):
             ['STRUCTURE_idle_EMPTY_full'],
             [c for c in cells('STRUCTURE') if c != 'STRUCTURE_idle_EMPTY_full']
             + sa()
-            + al(tos=['EMPTY'])),
+            + al(tos=['EMPTY'])
+            + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced']),
         'composer-duplicated': (
             [(C, f'      {COMPOSER_ANCHOR}\n', f'      {COMPOSER_ANCHOR}\n      {COMPOSER_ANCHOR}\n')],
             ['STRUCTURE_idle_EMPTY_full'],
@@ -182,7 +198,8 @@ def matrix(repo: Path):
             + ['DRAFT_PRESERVED_AVATAR_CHANGE', 'DRAFT_PRESERVED_ACL_CHANGE',
                'DRAFT_PRESERVED_LISTENING_ROUNDTRIP']
             + da() + ['DRAFT_ADMISSION_EMPTY', 'DRAFT_ADMISSION_NULL']
-            + [f'FRAME_INPUT_{a}' for a in AVATARS]),
+            + [f'FRAME_INPUT_{a}' for a in AVATARS]
+            + ROUTE_ALL),
         'resume-without-mission': (
             [(C, '  const continuable = available.length > 0 ? available[0] : null;',
               '  const continuable =\n'
@@ -276,7 +293,8 @@ def matrix(repo: Path):
             + cells('ACTION_TALK', presences=['PRESENT'], motions=['reduced'])
             + cells('ACTION_RESUME', presences=['PRESENT'], motions=['reduced'])
             + [f'RESUME_EFFECT_{s}_reduced' for s in STATES]
-            + sa(motions=['reduced'], presences=['PRESENT'])),
+            + sa(motions=['reduced'], presences=['PRESENT'])
+            + ['ROUTE_MOTION_SYSTEM_reduced']),
         'draft-lost-on-rerender': (
             [(C, f'      {COMPOSER_ANCHOR}',
               f"      <ConversationComposer key={{avatarState + String(missions === null ? 'n' : missions.length)}} "
@@ -307,7 +325,9 @@ def matrix(repo: Path):
               "const listMissions: ApiClient['listMissions'] = async () => {\n"
                  "  throw new Error('LIST_NOT_IMPLEMENTED');\n};")],
             ['RUNTIME_LIST_EMPTY'],
-            ['RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL'] + scen('RUNTIME_SCENARIO')),
+            ['RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL'] + scen('RUNTIME_SCENARIO')
+            + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced',
+               'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']),
         # --- 14 стабов круга 1 критика (оси 1–9), depends перемерены ---
         'oracle-imported-constants': (
             [(M, "export const MISSION_ID = 'MIS-CAR-01';", "export const MISSION_ID = 'MIS-WRONG-99';"),
@@ -316,7 +336,9 @@ def matrix(repo: Path):
             ['MOCK_SCENARIO_PRESENT_WORKING'],
             [c for c in scen('MOCK_SCENARIO', presences=['PRESENT']) if c != 'MOCK_SCENARIO_PRESENT_WORKING']
             + ['MOCK_SCENARIO_SETTER', 'RUNTIME_LIST_PRESENT', 'RUNTIME_SNAPSHOT_FULL']
-            + scen('RUNTIME_SCENARIO', presences=['PRESENT'])),
+            + scen('RUNTIME_SCENARIO', presences=['PRESENT'])
+            + ['ROUTE_MOTION_SYSTEM_full', 'ROUTE_MOTION_SYSTEM_reduced',
+               'ROUTE_MOUNT_MISSIONS_FROM_RUNTIME']),
         'write-after-listening-mic': (
             [(C, '    onWrite?.();',
               "    onWrite?.();\n    if (uiState === 'LISTENING') onMicrophoneRequested?.();")],
@@ -469,6 +491,24 @@ def matrix(repo: Path):
               '  const available = missions ?? [];')],
             ['BRIEF_FIELDS_ALT_ALT_ALT'],
             ['BRIEF_FIELDS_ALT_ALT_FIXED', 'BRIEF_FIELDS_ALT_FIXED_ALT', 'BRIEF_FIELDS_ALT_FIXED_FIXED']),
+        # --- Пост-заморозочное усиление (судьи круга 1, contracts-108-impl-v1):
+        #     route (tabs)/[section].tsx создаёт слот константой
+        #     reducedMotion={false} — системная настройка не доходит до
+        #     StartScreen (adversary F04.V04); TabShell размонтирует слот
+        #     start — черновик композера в состоянии слота сбрасывается при
+        #     смене вкладки/profile (reviewer R108-1). Оба мутанта —
+        #     байт-в-байт к реальным ветвям честной модели; named/depends
+        #     измерены полным прогоном на перечне 324+7. ---
+        'route-reduced-motion-constant': (
+            [(ROUTE, 'reducedMotion={systemReduceMotion}', 'reducedMotion={false}')],
+            ['ROUTE_MOTION_SYSTEM_reduced'],
+            []),
+        'route-draft-slot-state': (
+            [(COMP, 'const draftPort = useContext(StartDraftContext);',
+              'const draftPort = null;')],
+            ['ROUTE_DRAFT_RETURN_TAB_vorgaenge'],
+            ['ROUTE_DRAFT_RETURN_TAB_schutz', 'ROUTE_DRAFT_RETURN_TAB_post',
+             'ROUTE_DRAFT_RETURN_PROFILE']),
     }
     bad = 0
     for name, (muts, named, depends) in MUTANTS.items():

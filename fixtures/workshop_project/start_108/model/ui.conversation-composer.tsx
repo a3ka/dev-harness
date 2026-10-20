@@ -4,11 +4,12 @@
 // продолжить; mission_id и черновик сохранены). Каналы не создают
 // конкурирующую Mission: композер только держит текст, отправка —
 // navigate F05.01 через onWrite.
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { uiCopyDe } from '../../i18n/ui-copy';
 import { useTheme } from '../../theme/context';
+import { StartDraftContext } from '../../features/start/draft-context';
 
 export interface ConversationComposerProps {
   readonly onFocusInput?: () => void;
@@ -20,7 +21,15 @@ export function ConversationComposer({
   testID = 'start-composer',
 }: ConversationComposerProps) {
   const { tokens } = useTheme();
-  const [draft, setDraft] = useState('');
+  // R108-1: внутри слота start TabShell состояние композера умирает вместе
+  // со слотом (смена вкладки/profile). Под провайдером route (черновик выше
+  // по дереву) draft переживает размонтирование слота; вне провайдера —
+  // собственное состояние (экранная семья 324, изолированный рендер).
+  // Оба режима держат один публичный слот start-composer-input.
+  const draftPort = useContext(StartDraftContext);
+  const [localDraft, setLocalDraft] = useState('');
+  const draft = draftPort ? draftPort.draft : localDraft;
+  const setDraft = draftPort ? draftPort.setDraft : setLocalDraft;
   return (
     <View testID={testID} style={[styles.composer, { borderColor: tokens.panel }]}>
       <Text style={[styles.label, { color: tokens.ink }]}>{uiCopyDe['frame.F04.07.title'].text}</Text>
