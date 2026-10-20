@@ -9,16 +9,19 @@
 # столько же мутантов (модель чинится под них: pin HEAD, корень-репозиторий,
 # профиль на HEAD, грязное дерево, cleanup=verbatim). Круг 3 РЕАЛИЗАЦИИ
 # (вердикты impl-v2: Adv110r2 N2/N11b/N1/E1/E3/E5/E6/E10/E11 + Rev110r2 Б3,
-# решения оркестратора 2026-10-20) — 13 клеток и 12 мутантов: N1 закрыт
-# вариантом (a) («команда не на HEAD», флаг клетки d2 вынесен за пределы
-# корня), N2 — «не удалось определить состояние рабочего дерева», N3 —
-# porcelain -z (кириллица/пробелы в пути грязного файла), N11b — слой по
-# profilePath из HEAD-блоба harness.project.json, Б3 — причина из одних
-# «#»-строк ЛЕГАЛЬНА (ok-клетка; клетки E4 НЕТ — после решения Б3 заглушка
-# E4 совпадает с честным поведением). Три режима:
+# решения оркестратора 2026-10-20) — 13 клеток и 12 мутантов (N2/N3/N11b/Б3).
+# Круг 4 РЕАЛИЗАЦИИ (арбитраж Arb110 contracts-110-impl-ostatok-n1.md, §4):
+# эвристика wave110_cmd_on_head снята из модели — клетки n1/n1b и мутанты
+# MUT-N1/MUT-N1b удалены; N1 — ПРИНЯТЫЙ ОСТАТОК (п. 1 арбитража): клетка-
+# свидетель n1_ostatok (ok) + контроль f2 (сборка в NFR, запуск собранного
+# в e2e, out/ в .gitignore — ok, без ложного отказа); H1 (профиль в дереве,
+# нет на HEAD — зеркало A2) — клетка h1 + мутант mh1 (ветвь вырезана);
+# С11 (И-8: пустая причина — отказ ДО всех проверок) — клетка c11
+# (корень-подкаталог + причина из пробелов) + мутант mc11 (причина после A3).
+# Три режима:
 #   (по умолчанию)  субъект scripts/done_wave.sh; до реализации — КРАСНАЯ с
 #                    именованным отказом «110: дверь done_wave не существует»;
-#   --model         честная модель model/done_wave_model.sh: все 84 случая;
+#   --model         честная модель model/done_wave_model.sh: все 86 случаев;
 #   --matrix        мутанты модели (62): каждый обязан быть различим ≥1 случаем;
 #   --case ИМЯ      один случай (неизвестное имя — rc 2, не-плацебо диспетчер);
 #   --mutant ИМЯ    один мутант (отладка матрицы).
@@ -544,9 +547,9 @@ CASES = [
       'allow_moved_branch': True},
      ('ok', 1)),
     # D2: кеш e2e по sha HEAD — флаг снят между дверьми того же мира;
-    # повторная дверь обязана исполнить e2e заново и отказать. Круг 3 (N1,
-    # решение (a)): флаг ВНЕ корня (@W110_OUT@), чтобы ok-клетка осталась
-    # законной при отказе «команда не на HEAD» для корневых скриптов.
+# повторная дверь обязана исполнить e2e заново и отказать. Флаг ВНЕ корня
+# (@W110_OUT@): круг 4 (арбитраж N1 п. 1) — файлы вне корня и неотслеживаемые
+# не судятся, клетка остаётся честной без оговорок.
     ('d2_e2e_cache_head',
      {'manifest': [DEFAULT_MANIFEST[0], ['e2e', '[ -f @W110_OUT@/flag ]'],
                    DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
@@ -697,19 +700,56 @@ CASES = [
                    DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
       'worktree_files': {'e2e skript.sh': 'exit 0\n'}},
      ('refuse', 'рабочее дерево расходится с HEAD: e2e skript.sh')),
-    # N1 (решение (a)): файл-скрипт команды e2e (первый токен после
-    # интерпретатора, существующий в корне) не отслеживается на HEAD_SHA.
-    ('n1_e2e_untracked_script',
+    # ── круг 4 (арбитраж Arb110 contracts-110-impl-ostatok-n1.md, §4) ─────────
+    # ПРИНЯТЫЙ ОСТАТОК арбитража Arb110 п. 1: код команд не судится на HEAD; закрытие — только вариант (c) решением владельца (v2)
+    ('n1_ostatok_untracked_e2e_ok',
      {'manifest': [DEFAULT_MANIFEST[0], ['e2e', 'bash e2e.sh'],
                    DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
       'worktree_files': {'e2e.sh': 'exit 0\n'}},
-     ('refuse', 'команда не на HEAD: e2e.sh')),
-    # N1 (решение (a)), NFR-ветвь: nfr.sh не на HEAD, в дереве печатает метрику.
-    ('n1b_nfr_untracked_script',
-     {'manifest': [['nfr', 'ci-legkij', 'bash nfr.sh', NFR_OK_RE, 'le', '120'],
-                   DEFAULT_MANIFEST[1], DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]],
-      'worktree_files': {'nfr.sh': "printf 'zamer: ci-legkij 95 s\\n'\n"}},
-     ('refuse', 'команда не на HEAD: nfr.sh')),
+     ('ok', 1)),
+    # Adv Б2/F2: сборка в NFR (bash build.sh печатает «zamer 3 s» и создаёт
+    # out/run.sh), запуск собранного в e2e (sh out/run.sh), out/ в .gitignore —
+    # ложного отказа быть не должно: игнорируемые артефакты — законные входы.
+    ('f2_build_out_e2e_ok',
+     {'extra_files': {'build.sh': "printf 'zamer 3 s\\n'\nmkdir -p out\n"
+                                   "printf 'exit 0\\n' > out/run.sh\n",
+                      '.gitignore': 'out/\n'},
+      'manifest': [['nfr', 'sborka', 'bash build.sh', r'zamer ([0-9]+) s',
+                    'le', '120'],
+                   ['e2e', 'sh out/run.sh'],
+                   DEFAULT_MANIFEST[2], DEFAULT_MANIFEST[3]]},
+     ('ok', 1)),
+    # Adv Б3/H1: harness.project.json есть в дереве, НЕТ на HEAD (зеркало A2);
+    # зелёный деко .harness/ledger (волна 111 done) подменяет реестр — отказ
+    # «профиль проекта расходится с HEAD» ДО project_paths_resolve.
+    ('h1_profile_untracked_head_legacy',
+     {'plan_rows': [('111', W), ('112', W)], 'closed': [], 'done_ids': ['111'],
+      'extra_files': {
+          '.harness/ledger/plan.tsv': plan_file([('111', W)]),
+          '.harness/ledger/closed-without-done.tsv': '',
+          '.harness/ledger/waves/%s.tsv' % W:
+              ''.join('\t'.join(r) + '\n' for r in DEFAULT_MANIFEST)},
+      'worktree_files': {
+          'harness.project.json': json.dumps(
+              {'schemaVersion': 1, 'repoId': 'wave110-toy',
+               'language': 'typescript',
+               'projectLayer': {'version': '1', 'profilePath': 'layer.json'}}),
+          'layer.json': json.dumps(
+              {'schemaVersion': 1, 'version': '1', 'projectId': 'p',
+               'workspaceId': 'w',
+               'defaults': {'workflowPaths': {
+                   'contracts': 'contracts', 'verdicts': 'verdicts',
+                   'registry': '.harness/ledger', 'fixtures': 'fixtures'}}})}},
+     ('refuse', 'профиль проекта расходится с HEAD: harness.project.json')),
+    # Rev С11 (И-8): причина из одних пробелов — отказ ДО всех проверок,
+    # РАНЬШЕ проверки «корень не корень репозитория» (A3).
+    ('c11_reason_priority_before_a3',
+     {'root_suffix': '/sub',
+      'extra_files': {'sub/registry/plan.tsv': plan_file([('112', W)]),
+                      'sub/registry/waves/%s.tsv' % W:
+                          ''.join('\t'.join(r) + '\n' for r in DEFAULT_MANIFEST)},
+      'reason': '  '},
+     ('refuse', 'причина пуста')),
 ]
 
 # ── матрица: замены литеральных участков модели; привязка к случаям — ЗДЕСЬ ──
@@ -882,7 +922,7 @@ MUTANTS = [
     ('ma2_profile_unchecked',
      'if [ -f "$ROOT/harness.project.json" ]; then\n'
      '  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \\\n'
-     '    || die "профиль проекта не на HEAD: harness.project.json"\n'
+     '    || die "профиль проекта расходится с HEAD: harness.project.json"\n'
      '  git -C "$ROOT" diff --quiet "$HEAD_SHA" -- harness.project.json 2>/dev/null \\\n'
      '    || die "профиль проекта расходится с HEAD: harness.project.json"\n'
      'else\n'
@@ -966,12 +1006,56 @@ MUTANTS = [
      '[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"\n'
      'NON_COMMENT="$(printf \'%s\\n\' "$REASON" | grep -v \'^[[:space:]]*#\' || true)"   # MUT-Б3\n'
      '[ -n "$NON_COMMENT" ] || die "причина пуста (только комментарные строки)"   # MUT-Б3'),
-    ('mn1_cmd_head_skipped',
-     'wave110_cmd_on_head "$E2E_CMD"   # MUT-N1',
-     ':   # MUT-N1'),
-    ('mn1b_nfr_cmd_unchecked',
-     '  wave110_cmd_on_head "$cmd"   # MUT-N1b',
-     '  :   # MUT-N1b'),
+    ('mh1_profile_branch_cut',
+     'if [ -f "$ROOT/harness.project.json" ]; then\n'
+     '  git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null \\\n'
+     '    || die "профиль проекта расходится с HEAD: harness.project.json"',
+     'if [ -f "$ROOT/harness.project.json" ]; then\n'
+     '  :   # MUT-H1: ветвь «в дереве есть, на HEAD нет» вырезана'),
+    ('mc11_reason_after_a3',
+     '# Причина пуста — отказ ДО всех проверок (И-8)\n'
+     '[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"\n'
+     '\n'
+     '# ── И-1 реестр: профильный project_paths_resolve (996), не корневой деко (Б9) ──\n'
+     'HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"\n'
+     '# Каталог инструментов: от себя вверх (эталон в дереве, 4 уровня); для\n'
+     '# мутант-копий батареи (вне дерева) — env WAVE110_TOOLS от probe.py; иначе отказ.\n'
+     'TOOLS_DIR="$(cd "$HERE/../../../.." 2>/dev/null && pwd -P)"\n'
+     '[ -f "$TOOLS_DIR/scripts/lib_plan.sh" ] || TOOLS_DIR="${WAVE110_TOOLS:-}"\n'
+     '[ -n "$TOOLS_DIR" ] && [ -f "$TOOLS_DIR/scripts/lib_plan.sh" ] \\\n'
+     '  || die "каталог инструментов харнесса не найден (scripts/lib_plan.sh)"\n'
+     'NEXT_ID_LIB=1 source "$TOOLS_DIR/scripts/next_id.sh" \\\n'
+     '  || die "библиотека next_id.sh недоступна (нет project_paths_resolve)"\n'
+     'command -v jq >/dev/null 2>&1 || die "нет jq (требование project_paths_resolve)"\n'
+     'ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $ROOT"\n'
+     '# A3: корень обязан быть корнем репозитория — из подкаталога cat-file-пути\n'
+     '# разрешаются от верхушки репо, и дверь судит чужой реестр.\n'
+     'TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \\\n'
+     '  || die "корень не git-репозиторий: $ROOT"\n'
+     '[ "$(cd "$TOP_ABS" 2>/dev/null && pwd -P)" = "$ROOT_ABS" ] \\\n'
+     '  || die "корень не корень репозитория: $ROOT_ABS"',
+     '# MUT-C11: причина проверяется ПОСЛЕ A3 — порядок И-8 нарушен\n'
+     '\n'
+     '# ── И-1 реестр: профильный project_paths_resolve (996), не корневой деко (Б9) ──\n'
+     'HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"\n'
+     '# Каталог инструментов: от себя вверх (эталон в дереве, 4 уровня); для\n'
+     '# мутант-копий батареи (вне дерева) — env WAVE110_TOOLS от probe.py; иначе отказ.\n'
+     'TOOLS_DIR="$(cd "$HERE/../../../.." 2>/dev/null && pwd -P)"\n'
+     '[ -f "$TOOLS_DIR/scripts/lib_plan.sh" ] || TOOLS_DIR="${WAVE110_TOOLS:-}"\n'
+     '[ -n "$TOOLS_DIR" ] && [ -f "$TOOLS_DIR/scripts/lib_plan.sh" ] \\\n'
+     '  || die "каталог инструментов харнесса не найден (scripts/lib_plan.sh)"\n'
+     'NEXT_ID_LIB=1 source "$TOOLS_DIR/scripts/next_id.sh" \\\n'
+     '  || die "библиотека next_id.sh недоступна (нет project_paths_resolve)"\n'
+     'command -v jq >/dev/null 2>&1 || die "нет jq (требование project_paths_resolve)"\n'
+     'ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $ROOT"\n'
+     '# A3: корень обязан быть корнем репозитория — из подкаталога cat-file-пути\n'
+     '# разрешаются от верхушки репо, и дверь судит чужой реестр.\n'
+     'TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \\\n'
+     '  || die "корень не git-репозиторий: $ROOT"\n'
+     '[ "$(cd "$TOP_ABS" 2>/dev/null && pwd -P)" = "$ROOT_ABS" ] \\\n'
+     '  || die "корень не корень репозитория: $ROOT_ABS"\n'
+     '# Причина пуста — отказ (перенесён после A3)\n'
+     '[ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"'),
 ]
 
 
