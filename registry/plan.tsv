@@ -39,5 +39,6 @@ CI-затронутое	13	параллельно с V-2	операционны�
 111	3	до V-2	999	docs/owner/2026-10-17-plan-stancii.md#Слот 2	complior
 CMP-BCK-133	5	до V-2	993	docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок	complior
 997	3	до V-2	-	docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно	ops
+112	4	до V-2	996	docs/owner/2026-10-20-podkljuchenie-proekta.md#Порядок	project-mode
 ci-proekta	5	до V-2	996	docs/owner/2026-10-18-ci-predpolet.md#Порядок	CI
 998	3	до V-2	997	docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса	ops

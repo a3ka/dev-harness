@@ -401,6 +401,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 106 | до V-2 | complior | - | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 4 | 109 | до V-2 | complior | 106 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
+| 4 | 112 | до V-2 | project-mode | 996 | docs/owner/2026-10-20-podkljuchenie-proekta.md#Порядок |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 5 | ci-proekta | до V-2 | CI | 996 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
