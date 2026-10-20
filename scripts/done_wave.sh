@@ -17,9 +17,16 @@
 # Членство — канонический plan_parse из scripts/lib_plan.sh (второго парсера нет);
 # путь реестра — профильный, через project_paths_resolve (996).
 # НЕ БАРЬЕР: субъект контракта 110 — красное и зелёный контроль предъявляет собственная
-# батарея fixtures/workshop_project/done_volny_110/ (probe.sh, 71 случай + 50 мутантов
-# по замеру run_ci_lane/ci_vesa: «5.8..6.3 с», вес в ci-steps.tsv — 6),
+# батарея fixtures/workshop_project/done_volny_110/ (probe.sh, 84 случая + 62 мутанта
+# по замеру run_ci_lane/ci_vesa: «6.0..6.5 с», вес в ci-steps.tsv — 6),
 # не case_*.sh-глобом (прецедент scripts/make_task.sh:10, контракт 095).
+# Круг 4 подгонки: ВСЕ отказы по файлам профиля/слоя (расходится/удалён/неотслеживаем/
+# слой не на HEAD) унифицированы под подстроку «профиль проекта расходится с HEAD:
+# <файл>» (клетки e3_layer_untracked_deco / n11b_layer_profile_path); грязное дерево
+# читается NUL-записями и пути передаются целиком (n3b_dirty_space_path с пробелом);
+# первый токен после bash|sh|dash|ksh|zsh|python3|python|node|.|source в команде
+# e2e/NFR проверяется на отслеживаемость на HEAD_SHA, отказ «команда не на HEAD:
+# <файл>» ДО запуска команд (n1_e2e_untracked_script / n1b_nfr_untracked_script).
 # Исход: 0 — тег поставлен (stdout «v<N>»), 1 — именованный отказ «done_wave: …»,
 # 2 — NOT_IMPLEMENTED (нет git/jq/профиля).
 set -uo pipefail
@@ -89,7 +96,7 @@ if git -C "$ROOT" cat-file -e "${HEAD_SHA}:harness.project.json" 2>/dev/null; th
       die "профиль проекта расходится с HEAD: $PROFILE_PATH"
     fi
     git -C "$ROOT" cat-file -e "${HEAD_SHA}:$PROFILE_PATH" 2>/dev/null \
-      || die "профиль проекта не на HEAD: $PROFILE_PATH"
+      || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
     git -C "$ROOT" diff --quiet "$HEAD_SHA" -- "$PROFILE_PATH" 2>/dev/null \
       || die "профиль проекта расходится с HEAD: $PROFILE_PATH"
   else
@@ -224,7 +231,8 @@ ${entry:3}"
 done <"$DIRTY_OUT"
 rm -f "$DIRTY_OUT"
 DIRTY="$(printf '%s\n' "$DIRTY" | sort -u)"
-for d in $DIRTY; do
+DIRTY_FIRST=""
+while IFS= read -r d; do
   [ -z "$d" ] && continue
   case "
 $HEAD_SOURCES
@@ -232,13 +240,38 @@ $HEAD_SOURCES
     *"
 $d
 "*) ;;
-    *) die "рабочее дерево расходится с HEAD: $d (не HEAD-источник)" ;;
+    *) DIRTY_FIRST="$d"; break ;;
   esac
-done
+done <<< "$DIRTY"
+[ -z "$DIRTY_FIRST" ] || die "рабочее дерево расходится с HEAD: $DIRTY_FIRST (не HEAD-источник)"
+
+# ── И-4/И-5/НВ11: первый токен после интерпретатора — существующий файл,
+# обязан отслеживаться на HEAD_SHA: неотслеживаемый код не доказывает
+# выполненный сквозной прогон (команда не на HEAD).
+wave110_cmd_on_head() {
+  local prev="" tok
+  local -a toks
+  read -ra toks <<< "$1"
+  for tok in "${toks[@]}"; do
+    case "$prev" in
+      bash|sh|dash|ksh|zsh|python3|python|node|\.|source)
+        case "$tok" in
+          /*) ;;
+          *)
+            if [ -e "$ROOT/$tok" ] \
+               && ! git -C "$ROOT" cat-file -e "${HEAD_SHA}:$tok" 2>/dev/null; then
+              die "команда не на HEAD: $tok"
+            fi ;;
+        esac ;;
+    esac
+    prev="$tok"
+  done
+}
 
 # ── И-4 NFR: КАЖДАЯ строка, число из вывода, порог — литерал строки ─────────
 for nfr in "${NFR_ROWS[@]}"; do
   IFS=$'\t' read -r kind name cmd regex op porog <<< "$nfr"
+  wave110_cmd_on_head "$cmd"
   out_rc=0
   out="$( cd "$ROOT" && timeout 60 bash -c "$cmd" 2>&1 )" || out_rc=$?
   [ "$out_rc" -eq 0 ] || die "NFR $name: команда rc=$out_rc"
@@ -257,6 +290,7 @@ for nfr in "${NFR_ROWS[@]}"; do
 done
 
 # ── И-5 e2e: один сквозной запуск, СВЕЖИЙ прогон каждого вызова (Б7) ────────
+wave110_cmd_on_head "$E2E_CMD"
 e2e_rc=0
 ( cd "$ROOT" && timeout 600 bash -c "$E2E_CMD" ) >/dev/null 2>&1 || e2e_rc=$?
 [ "$e2e_rc" -eq 0 ] || die "сквозной запуск волны красный: rc=$e2e_rc"
