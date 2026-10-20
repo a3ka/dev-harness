@@ -7,7 +7,8 @@
 # (модели: честные профили, ожидание rc 0; обманки: ожидание rc 1 +
 # ИМЕНОВАННАЯ причина из алфавита причин проверки). Клетки канона
 # (K1-kanon-polnyj / D15-kanon-nepolnyj / D18-kanon-lishnij /
-# D19-kanon-prioritet) гоняют литеральный оракул kanon_back_2030.sh
+# D19-kanon-prioritet / D20-standarty-kanon-nepolnyj) гоняют литеральный
+# оракул kanon_back_2030.sh
 # (перечень 2030 §3: полнота + лишние + приоритеты). Батарея строит
 # одноразовые миры (git init + литеральные профили) в mktemp-каталоге
 # $TMPDIR — никаких сетевых обменов и записей вне него; имя автора в путях
@@ -27,7 +28,7 @@
 #       расхождение на D14-state-vne-repo и D16-state-symlink-zveno (внешние
 #       цели обеих обманок СУЩЕСТВУЮТ — арбитраж 112 П-1/П-2), иначе плацебо;
 #   (3) клетки канона двунаправлены: K1 ловит оракул-заглушку «всё красно»,
-#       D15/D18/D19 — «всё зелено».
+#       D15/D18/D19/D20 — «всё зелено».
 #
 # Диспетчеризация: --cell <имя> (одна клетка) | --model (против эталона) |
 # без аргументов (полный прогон против продукта).
@@ -78,8 +79,11 @@ make_world() {  # $1 = back|mob → путь мира
             "$d/docs/backend/AUTH-AND-DB-DECISIONS.md" "$d/backend/structure-policy.json"
       printf '%s\n' '{"scripts":{"test":"node --test","lint":"eslint .","smoke:image":"node scripts/smoke-image.js"}}' > "$d/backend/package.json"
       printf '%s\n' '{ "schemaVersion": 1, "version": "1", "projectId": "Complior-back", "workspaceId": "Complior-back" }' > "$d/.harness/project-layer.json"
-      # sourceCanon — ПОЛНЫЙ перечень 2030 §3 (26 источников; Н-351: литералы,
-      # носитель перечня — kanon_back_2030.sh, здесь — те же байты мира)
+      # sourceCanon — ПОЛНЫЙ перечень 2030 §3 (26 источников = 18 priority 0 +
+      # 8 priority 1, v2: оба стандарта подняты в priority 0 — слово владельца
+      # 2026-10-20 ~13:45; Н-351: литералы, носитель перечня — kanon_back_2030.sh,
+      # здесь — те же байты мира). contextPack — слово владельца 13:45 п.2:
+      # оба стандарта обязательны (mandatory) ролям бэкенда; mob — БЕЗ них.
       cat > "$d/harness.project.json" <<'JSON'
 {
   "schemaVersion": 1,
@@ -95,6 +99,12 @@ make_world() {  # $1 = back|mob → путь мира
   },
   "git": { "canonicalRemote": "https://github.com/a3ka/Complior-back.git" },
   "ci": { "workflow": ".github/workflows/ci.yml" },
+  "contextPack": {
+    "rows": [
+      { "kind": "map", "path": "docs/ARCHITECTURE.md", "roles": "architect,implementer,reviewer,adversary", "mandatory": true, "why": "карта архитектуры бэкенда — слово владельца 2026-10-20 ~13:45 UTC" },
+      { "kind": "rules", "path": "docs/CODING-STANDARDS.md", "roles": "architect,implementer,reviewer,adversary", "mandatory": true, "why": "стандарт структуры и стиля бэкенда — слово владельца 2026-10-20 ~13:45 UTC" }
+    ]
+  },
   "sourceCanon": {
     "sources": [
       { "path": "Complior_Backend_Architecture_v3_14_RU.md", "priority": 0 },
@@ -113,10 +123,10 @@ make_world() {  # $1 = back|mob → путь мира
       { "path": "db/012_evb_issuance_owner.sql", "priority": 0 },
       { "path": "db/013_profile_release_permissions.sql", "priority": 0 },
       { "path": "db/014_api_reads_migration_ledger.sql", "priority": 0 },
+      { "path": "docs/ARCHITECTURE.md", "priority": 0 },
+      { "path": "docs/CODING-STANDARDS.md", "priority": 0 },
       { "path": "AGENTS.md", "priority": 1 },
       { "path": "STRUCTURE.md", "priority": 1 },
-      { "path": "docs/ARCHITECTURE.md", "priority": 1 },
-      { "path": "docs/CODING-STANDARDS.md", "priority": 1 },
       { "path": "docs/DATABASE.md", "priority": 1 },
       { "path": "docs/RUNBOOK.md", "priority": 1 },
       { "path": "docs/backend/PORT-PLAN.md", "priority": 1 },
@@ -264,6 +274,14 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
                               jq_set "$WORLD/harness.project.json" \
                                 '(.sourceCanon.sources[] | select(.path=="Complior_Backend_Architecture_v3_14_RU.md") | .priority) = 1 | (.sourceCanon.sources[] | select(.path=="AGENTS.md") | .priority) = 0'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030_PRIORITET" "$ORACLE" ;;
+    D20-standarty-kanon-nepolnyj)
+                              # v2 (слово владельца 2026-10-20 ~13:45, форк n112):
+                              # профиль back БЕЗ обоих стандартов — docs/ARCHITECTURE.md
+                              # и docs/CODING-STANDARDS.md не объявлены (прочие 24
+                              # источника доставлены) → kanon-nepolnyj
+                              jq_set "$WORLD/harness.project.json" \
+                                '.sourceCanon.sources |= map(select(.path != "docs/ARCHITECTURE.md" and .path != "docs/CODING-STANDARDS.md"))'
+                              run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030" "$ORACLE" ;;
     *) return 2 ;;
   esac
 }
@@ -289,7 +307,7 @@ if [ "${1:-}" = "--cell" ]; then
   exit "$rc"
 fi
 [ $# -eq 0 ] || usage
-# полный прогон: 22 клетки (3 модели + 19 обманок) + анти-плацебо (1)–(3)
+# полный прогон: 23 клетки (3 модели + 20 обманок) + анти-плацебо (1)–(3)
 # Факты по клетке печатаются ТОЛЬКО при расхождении; итог — число клеток
 # (зелёных/красных) и код возврата, не слово PASS.
 itog=0; zelen=0; krasno=0
@@ -298,7 +316,7 @@ for c in M1-back-model M2-mob-model K1-kanon-polnyj D1-pustaja-komanda D2-komand
          D8-net-sostojanija D9-prioritet-bool D10-istochnik-net D13-net-kataloga-kontr \
          D14-state-vne-repo D16-state-symlink-zveno D17-state-absoljutnyj \
          D11-mob-bez-typecheck D12-mob-ssh-remote D15-kanon-nepolnyj \
-         D18-kanon-lishnij D19-kanon-prioritet; do
+         D18-kanon-lishnij D19-kanon-prioritet D20-standarty-kanon-nepolnyj; do
   if cell "$c"; then zelen=$((zelen+1)); else krasno=$((krasno+1)); itog=1; fi
   [ -n "$WORLD" ] && rm -rf "$WORLD"; WORLD=""
 done
@@ -318,5 +336,5 @@ for stab_cell in D14-state-vne-repo D16-state-symlink-zveno; do
   fi
 done
 rm -f "$STAB"
-printf 'ИТОГ 112: клеток 22, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
+printf 'ИТОГ 112: клеток 23, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
 exit "$itog"

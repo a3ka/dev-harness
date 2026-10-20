@@ -23,6 +23,12 @@
 set -uo pipefail
 
 # ── литеральный перечень 2030 §3 (путь TAB приоритет; Н-351) ────────────────
+# v2 (слово владельца 2026-10-20 ~13:45 UTC, docs/owner/2026-10-20-uskorenie-i-standarty.md
+# §«Стандарты бэкенда»; форк n112-profil-back-standarty ОТВЕЧЕНО (А) 14:05):
+# docs/ARCHITECTURE.md и docs/CODING-STANDARDS.md подняты с priority 1 до
+# priority 0 — бэкенд пишется строго по структуре и стилю этих файлов.
+# Итог 26 источников = 18 priority 0 + 8 priority 1 (существование обоих
+# файлов на origin/main сверено gh api 2026-10-20: shas 70b6109f…, ed4aebed…).
 CANON='Complior_Backend_Architecture_v3_14_RU.md	0
 contracts/BrokerOS_Unified_OpenAPI_v3.yaml	0
 db/001_core.sql	0
@@ -39,10 +45,10 @@ db/011_profile_contact_extensions.sql	0
 db/012_evb_issuance_owner.sql	0
 db/013_profile_release_permissions.sql	0
 db/014_api_reads_migration_ledger.sql	0
+docs/ARCHITECTURE.md	0
+docs/CODING-STANDARDS.md	0
 AGENTS.md	1
 STRUCTURE.md	1
-docs/ARCHITECTURE.md	1
-docs/CODING-STANDARDS.md	1
 docs/DATABASE.md	1
 docs/RUNBOOK.md	1
 docs/backend/PORT-PLAN.md	1
