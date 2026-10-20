@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
-# Контракт 112 v2d — парный оракул ЗАПРЕТА доставки backend-стандартов в
-# профиль Complior-mob (блокер критика круга 2 v2: «backend contextPack в
-# mob» не судился ничем — проверка mob, проверка back и оракул back
-# возвращали rc 0 на профиле mob с обеими строками стандартов).
+# Контракт 112 v2d/v2e — парный оракул ЗАПРЕТА доставки backend-стандартов
+# в профиль Complior-mob (блокер критика круга 2 v2; v2e — арбитраж 112b
+# П-2: суждение по ЭФФЕКТИВНОМУ профилю через резолвер).
 #
 # Слово владельца 2026-10-20 ~13:45/~14:30 UTC (строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ
 # v2): «contextPack профиля Complior-back с обоими файлами, профиль
-# Complior-mob без них». Оракул судит ДОСТАВЛЕННЫЙ профиль mob: ЛЮБАЯ
-# строка contextPack с путём backend-стандарта — включая доставку ЧАСТИ
-# строк (один из двух файлов) и любую форму/роли/mandatory строки —
-# именованный отказ. Прочие строки contextPack mob (собственные строки
-# проекта, если владелец объявит их позже) не судятся; sourceCanon в mob —
-# НЕ предмет этого оракула (2330 «канон только для бэкенда»; судьба канона
-# mob — форк Ф-1, владелец).
+# Complior-mob без них». Оракул судит ЭФФЕКТИВНЫЙ (MERGED) профиль mob:
+# ЛЮБАЯ строка contextPack с путём backend-стандарта — включая доставку
+# ЧАСТИ строк (один из двух файлов) и любую форму/роли/mandatory строки,
+# пришедшую ЛЮБЫМ слоем (репо harness.project.json ИЛИ defaults слоя
+# проекта .harness/project-layer.json — слияние судит резолвер) —
+# именованный отказ. Оракул НЕ читает сырой harness.project.json для
+# contextPack: MERGED строит вызов scripts/profile_resolver.sh --repo <R>
+# с умолчанием HARNESS_PROJECT_LAYER_ROOT=$R (тот же умолчаемый корень
+# слоя, что у check_project_connection.sh:48-образца и make_task);
+# отказ резолвера = именованный отказ contextpack-forma «резолвер
+# отказал: <первая строка>», НИКОГДА молчание. Голый профиль без
+# слоя/ci.workflow — отказ резолвера (граница оракула, не дефект).
+# Прочие строки contextPack mob (собственные строки проекта, если
+# владелец объявит их позже) не судятся; sourceCanon в mob — НЕ предмет
+# этого оракула (2330 «канон только для бэкенда»; судьба канона mob —
+# форк Ф-1, владелец).
 #
 # Дисциплина та же, что у kanon_back_2030.sh (v2d): ошибка jq/нечитаемая
 # структура = именованный отказ contextpack-forma, НИКОГДА молчаливый
@@ -20,10 +28,12 @@
 #
 # Замкнутый алфавит причин:
 #   contextpack-mob-lishnij — строка backend-стандарта доставлена в mob
-#   contextpack-forma       — профиль/contextPack нечитаем (rows не массив,
-#                             элемент не объект, битый JSON, файла нет)
-# rc: 0 — строк backend-стандартов в contextPack профиля нет; 1 — ≥1
-# именованный отказ; 2 — неправильный вызов (нет --repo, нет jq, нет каталога).
+#                             (репо-слой или defaults слоя — любой источник)
+#   contextpack-forma       — профиль/contextPack нечитаем (ошибка jq,
+#                             битый JSON, файла нет) или резолвер отказал
+# rc: 0 — строк backend-стандартов в ЭФФЕКТИВНОМ contextPack нет; 1 — ≥1
+# именованный отказ; 2 — неправильный вызов (нет --repo, нет jq, нет
+# каталога).
 set -uo pipefail
 
 # ── литеральные пути backend-стандартов (2030 §3 + слово владельца 13:45;
@@ -53,6 +63,24 @@ if [ ! -f "$PROF" ]; then
   fail contextpack-forma "harness.project.json нет в $R — запрет не проверяем"
   exit "$itog"
 fi
+
+# v2e (арбитраж 112b, П-2): судим ЭФФЕКТИВНЫЙ профиль — единственный
+# источник грамматики резолвер (норма 996); отказ резолвера = именованный
+# отказ, НИКОГДА молчание.
+HERE_O="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+TOOLS_O="$(cd "$HERE_O/../../.." && pwd -P)"
+MERGED="$(HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$R}" bash "$TOOLS_O/scripts/profile_resolver.sh" --repo "$R" 2>&1)"
+if [ $? -ne 0 ]; then
+  fail contextpack-forma "резолвер отказал: ${MERGED%%$'\n'*}"
+  exit "$itog"
+fi
+EFF="$(mktemp "${TMPDIR:-/tmp}/kanon2030-eff-XXXXXX")" || exit 2
+trap 'rm -f "$EFF"' EXIT
+if ! printf '%s' "$MERGED" | jq '{sourceCanon: (.sourceCanon.value // null), contextPack: (.contextPack.value // null)}' >"$EFF" 2>&1; then
+  fail contextpack-forma "эффективный профиль нечитаем: $(head -c 120 "$EFF")"
+  exit "$itog"
+fi
+PROF="$EFF"
 
 while IFS= read -r zpath; do
   [ -n "$zpath" ] || continue

@@ -19,7 +19,12 @@
 # Клетки запрета доставки стандартов в mob (K2-mob-bez-standartov /
 # D29-mob-contextpack-standarty / D30-mob-contextpack-chast-stroki /
 # D31-mob-contextpack-forma — v2d, блокер круга 2 «backend contextPack
-# в mob») гоняют парный оракул kanon_mob_2030.sh. Батарея строит
+# в mob»; v2e — арбитраж 112b: D32-contextpack-roli-probely — роли
+# токеном байт-в-байт без обрезки пробелов (свидетель delivery-spaces),
+# D33-mob-contextpack-defaults — backend-строки в defaults слоя mob
+# (свидетель delivery-mob-defaults; оракулы судят ЭФФЕКТИВНЫЙ профиль
+# через резолвер, не сырой файл)) гоняют парный оракул kanon_mob_2030.sh.
+# Батарея строит
 # одноразовые миры (git init + литеральные профили) в mktemp-каталоге
 # $TMPDIR — никаких сетевых обменов и записей вне него; имя автора в путях
 # scratch не участвует.
@@ -39,8 +44,10 @@
 #       цели обеих обманок СУЩЕСТВУЮТ — арбитраж 112 П-1/П-2), иначе плацебо;
 #   (3) клетки канона и contextPack двунаправлены: K1 и K2 ловят
 #       оракул-заглушку «всё красно», D15/D18/D19/D20/D21/D22/D23/D24/
-#       D25/D26/D27/D28 (оракул back) и D29/D30/D31 (оракул mob) —
-#       «всё зелено», включая старый оракул с проглоченной jq-ошибкой.
+#       D25/D26/D27/D28/D32 (оракул back) и D29/D30/D31/D33 (оракул
+#       mob) — «всё зелено», включая старый оракул с проглоченной
+#       jq-ошибкой и оракул v2d с sed-обрезкой пробелов/сырым файлом
+#       вместо MERGED (v2e).
 #
 # Диспетчеризация: --cell <имя> (одна клетка) | --model (против эталона) |
 # без аргументов (полный прогон против продукта).
@@ -226,14 +233,18 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
   # контракта 112, закрытие — implementer), и отказ обманки обязан
   # определяться её собственной мутацией, а не останавливаться на profil
   # алфавита. Модель M1 остаётся javascript — честный профиль продукта и
-  # отдельная клетка разрыва.
+  # отдельная клетка разрыва. v2e (арбитраж 112b, П-2а): ВСЕ клетки
+  # back-оракула (K1, D15, D18–D28, D32) несут typescript по той же
+  # причине — оракул судит через резолвер, а до P1 javascript-миры
+  # отказывают алфавитом до суждения канона.
   as_typescript() { jq_set "$WORLD/harness.project.json" '.language="typescript"'; }
   case "$name" in
     M1-back-model)            run_cell "$name" "$RC_MODEL" "-" ;;
     M2-mob-model)
       WORLD="$(make_world mob)" || return 9
       run_cell "$name" "$RC_MODEL" "-" ;;
-    K1-kanon-polnyj)          run_cell "$name" "$RC_MODEL" "-" "$ORACLE" ;;
+    K1-kanon-polnyj)          as_typescript
+                              run_cell "$name" "$RC_MODEL" "-" "$ORACLE" ;;
     D1-pustaja-komanda)       as_typescript; jq_set "$WORLD/harness.project.json" '.commands.test=""'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_PROFIL" ;;
     D2-komanda-true)          as_typescript; jq_set "$WORLD/harness.project.json" '.commands.lint="true"'
@@ -291,18 +302,19 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
       WORLD="$(make_world mob)" || return 9
       jq_set "$WORLD/harness.project.json" '.git.canonicalRemote="ssh://git@github.com/a3ka/Complior-mob.git"'
       run_cell "$name" "$RC_DECEPTIVE" "$REASON_REMOTE" ;;
-    D15-kanon-nepolnyj)       jq_set "$WORLD/harness.project.json" \
+    D15-kanon-nepolnyj)       as_typescript; jq_set "$WORLD/harness.project.json" \
                                 '.sourceCanon.sources=[.sourceCanon.sources[0], (.sourceCanon.sources[] | select(.path=="AGENTS.md"))]'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030" "$ORACLE" ;;
     D18-kanon-lishnij)        # полный перечень + источник вне перечня 2030 §3 (П-4)
-                              touch "$WORLD/docs/UNAPPROVED.md"
+                              as_typescript; touch "$WORLD/docs/UNAPPROVED.md"
                               jq_set "$WORLD/harness.project.json" '.sourceCanon.sources += [{path: "docs/UNAPPROVED.md", priority: 0}]'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030_LISHNIJ" "$ORACLE" ;;
     D19-kanon-prioritet)      # подмена приоритетов при полном множестве путей (П-5)
-                              jq_set "$WORLD/harness.project.json" \
+                              as_typescript; jq_set "$WORLD/harness.project.json" \
                                 '(.sourceCanon.sources[] | select(.path=="docs/Complior_Backend_Architecture_v3_14_RU.md") | .priority) = 1 | (.sourceCanon.sources[] | select(.path=="AGENTS.md") | .priority) = 0'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030_PRIORITET" "$ORACLE" ;;
     D20-standarty-kanon-nepolnyj)
+                              as_typescript
                               # v2 (слово владельца 2026-10-20 ~13:45, форк n112):
                               # профиль back БЕЗ обоих стандартов — docs/ARCHITECTURE.md
                               # и docs/CODING-STANDARDS.md не объявлены (прочие 24
@@ -311,17 +323,20 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
                                 '.sourceCanon.sources |= map(select(.path != "docs/ARCHITECTURE.md" and .path != "docs/CODING-STANDARDS.md"))'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_KANON2030" "$ORACLE" ;;
     D21-contextpack-nedostavlen)
+                              as_typescript
                               # v2c (блокер критика круга v2): канон 26 = 18+8
                               # доставлен, contextPack изъят — ровно обход
                               # критика «оракул судит только sourceCanon»
                               jq_set "$WORLD/harness.project.json" 'del(.contextPack)'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_NEDOSTAVLEN" "$ORACLE" ;;
     D22-contextpack-mandatory)
+                              as_typescript
                               # обе строки доставлены, но docs/ARCHITECTURE.md
                               # mandatory:false — стандарт необязателен ролям
                               jq_set "$WORLD/harness.project.json" '.contextPack.rows[0].mandatory=false'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_MANDATORY" "$ORACLE" ;;
     D23-contextpack-roli)
+                              as_typescript
                               # строка docs/CODING-STANDARDS.md с усечёнными
                               # ролями — стандарт не обязателен reviewer/adversary
                               jq_set "$WORLD/harness.project.json" '.contextPack.rows[1].roles="architect,implementer"'
@@ -332,6 +347,7 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
       WORLD="$(make_world mob)" || return 9
       run_cell "$name" "$RC_MODEL" "-" "$MOB_ORACLE" ;;
     D24-contextpack-roli-massiv)
+                              as_typescript
                               # v2d (блокер критика круга 2, обход
                               # probe-roles-array): roles МАССИВОМ
                               # ["architect"] в обеих строках — старый @tsv
@@ -340,19 +356,23 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
                               jq_set "$WORLD/harness.project.json" '.contextPack.rows |= map(.roles=["architect"])'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_FORMA_MASSIV" "$ORACLE" ;;
     D25-contextpack-roli-pustoj-massiv)
+                              as_typescript
                               # roles ПУСТЫМ массивом — та же маска формы
                               jq_set "$WORLD/harness.project.json" '.contextPack.rows |= map(.roles=[])'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_FORMA_PUSTOJ" "$ORACLE" ;;
     D26-contextpack-roli-chislo)
+                              as_typescript
                               # roles числом — неверный тип, не массив
                               jq_set "$WORLD/harness.project.json" '.contextPack.rows[1].roles=4'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_FORMA_CHISLO" "$ORACLE" ;;
     D27-contextpack-roli-registr)
+                              as_typescript
                               # roles строкой, но ВЕРХНИМ регистром — форма
                               # честна, отказ по множеству (contextpack-roli)
                               jq_set "$WORLD/harness.project.json" '.contextPack.rows[0].roles="ARCHITECT,IMPLEMENTER,REVIEWER,ADVERSARY"'
                               run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_ROLI_REGISTR" "$ORACLE" ;;
     D28-contextpack-mandatory-stroka)
+                              as_typescript
                               # mandatory строкой "true" — маска по форме
                               # (tostring старого оракула приравнивал её
                               # boolean true)
@@ -382,11 +402,34 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
       WORLD="$(make_world mob)" || return 9
       jq_set "$WORLD/harness.project.json" '.contextPack={rows:"docs/ARCHITECTURE.md docs/CODING-STANDARDS.md"}'
       run_cell "$name" "$RC_DECEPTIVE" "$REASON_MOB_FORMA" "$MOB_ORACLE" ;;
+    D32-contextpack-roli-probely)
+      # v2e (арбитраж 112b, П-1; свидетель критика delivery-spaces):
+      # ОБЕ строки с ролями-ЛИТЕРАЛОМ свидетеля " architect ,
+      # implementer , reviewer , adversary " — форма честна (строка),
+      # множество токенов ≠ четырём ролям байт-в-байт. Прежний оракул
+      # обрезал пробелы sed-ом и проходил rc 0; потребитель make_task
+      # выбирает роль фрагментом ",<роль>," — пробельный токен не
+      # доставляется. Причина — contextpack-roli (та же ветвь, что у
+      # регистра/усечения: равенство токена)
+      as_typescript
+      jq_set "$WORLD/harness.project.json" '.contextPack.rows |= map(.roles=" architect , implementer , reviewer , adversary ")'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_CTX_ROLI" "$ORACLE" ;;
+    D33-mob-contextpack-defaults)
+      # v2e (арбитраж 112b, П-2б; свидетель критика delivery-mob-defaults):
+      # честный профиль mob БЕЗ contextPack, но ОБЕ backend-строки живут в
+      # defaults.contextPack.rows слоя проекта (.harness/project-layer.json;
+      # + файлы созданы, как у свидетеля) — резолвер мержит (origin=project),
+      # оракул v2e судит ЭФФЕКТИВНЫЙ профиль: строки доставлены в mob.
+      # Против оракула v2d (сырой файл) вход даёт rc 0 — клетка красна
+      # против прежнего
+      WORLD="$(make_world mob)" || return 9
+      mkdir -p "$WORLD/docs"
+      touch "$WORLD/docs/ARCHITECTURE.md" "$WORLD/docs/CODING-STANDARDS.md"
+      jq_set "$WORLD/.harness/project-layer.json" '.defaults.contextPack={rows:[{kind:"map",path:"docs/ARCHITECTURE.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"карта архитектуры бэкенда — слово владельца 2026-10-20 ~13:45 UTC"},{kind:"rules",path:"docs/CODING-STANDARDS.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"стандарт структуры и стиля бэкенда — слово владельца 2026-10-20 ~13:45 UTC"}]}'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_MOB_LISHNIJ_ARCH" "$MOB_ORACLE" ;;
     *) return 2 ;;
   esac
 }
-
-usage() { printf 'использование: %s [--cell <имя>] [--model]\n' "$0" >&2; exit 2; }
 
 if [ "${1:-}" = "--model" ]; then
   [ $# -eq 1 ] || usage
@@ -407,7 +450,7 @@ if [ "${1:-}" = "--cell" ]; then
   exit "$rc"
 fi
 [ $# -eq 0 ] || usage
-# полный прогон: 35 клеток (M1/M2/K1/K2 + 31 обманка) + анти-плацебо (1)–(3)
+# полный прогон: 37 клеток (M1/M2/K1/K2 + 33 обманки; v2e +D32/D33) + анти-плацебо (1)–(3)
 # Факты по клетке печатаются ТОЛЬКО при расхождении; итог — число клеток
 # (зелёных/красных) и код возврата, не слово PASS.
 itog=0; zelen=0; krasno=0
@@ -420,7 +463,8 @@ for c in M1-back-model M2-mob-model K1-kanon-polnyj K2-mob-bez-standartov D1-pus
          D21-contextpack-nedostavlen D22-contextpack-mandatory D23-contextpack-roli \
          D24-contextpack-roli-massiv D25-contextpack-roli-pustoj-massiv D26-contextpack-roli-chislo \
          D27-contextpack-roli-registr D28-contextpack-mandatory-stroka \
-         D29-mob-contextpack-standarty D30-mob-contextpack-chast-stroki D31-mob-contextpack-forma; do
+         D29-mob-contextpack-standarty D30-mob-contextpack-chast-stroki D31-mob-contextpack-forma \
+         D32-contextpack-roli-probely D33-mob-contextpack-defaults; do
   if cell "$c"; then zelen=$((zelen+1)); else krasno=$((krasno+1)); itog=1; fi
   [ -n "$WORLD" ] && rm -rf "$WORLD"; WORLD=""
 done
@@ -440,5 +484,5 @@ for stab_cell in D14-state-vne-repo D16-state-symlink-zveno; do
   fi
 done
 rm -f "$STAB"
-printf 'ИТОГ 112: клеток 35, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
+printf 'ИТОГ 112: клеток 37, зелёных %s, красных %s, rc=%s\n' "$zelen" "$krasno" "$itog"
 exit "$itog"
