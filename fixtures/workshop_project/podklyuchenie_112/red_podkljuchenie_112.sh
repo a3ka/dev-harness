@@ -50,18 +50,22 @@
 #       вместо MERGED (v2e).
 #   (4) komandy-слепая контрмодель — модель-эталон минус блок komandy
 #       (sentinels KOMANDY-112-BEG/END, v3) — ОБЯЗАНА дать расхождение на
-#       ВСЕХ komandy-клетках D34–D48, иначе клетки плацебо. Круг 3 (вердикты
-#       судей круга 2): B4 ревьюера — расщепление D34/D35/D36 до ОДНОЙ
-#       мутации на клетку (npm-половины исходных пар — D46/D47/D48), чтобы
-#       мутант, возвращающий ОДНУ ветвь (node или npm) к дефекту F1/F2
-#       круга 1, краснил собственную клетку семьи; обходы адверсария и
+#       ВСЕХ komandy-клетках (круг 4, A7: список ПРОИЗВОДНЫЙ из KLETKI_112 —
+#       фильтр `D<NN>-komanda-*`, сейчас D34–D59), иначе клетки плацебо.
+#       Круг 3 (вердикты судей круга 2): B4 — расщепление D34/D35/D36 до
+#       ОДНОЙ мутации на клетку (npm-половины исходных пар — D46/D47/D48),
+#       чтобы мутант, возвращающий ОДНУ ветвь (node или npm) к дефекту
+#       F1/F2 круга 1, краснил собственную клетку семьи; обходы адверсария и
 #       B1/B2/B3 ревьюера: D37/D38 — абсолютный путь ВНУТРИ репо (файл /
 #       --prefix), D39/D40/D41 — метасимволы оболочки в КАЖДОЙ позиции
 #       (поле файла / значение --prefix / имя script), D42 — повторный
 #       --prefix, D43 — `..` в листе --prefix, D44 — листовой symlink
-#       --prefix наружу, D45 — оператор оболочки в хвосте node. Целевые
-#       файлы/каталоги всех обманок СУЩЕСТВУЮТ — краснота от правила,
-#       не от отсутствия цели.
+#       --prefix наружу, D45 — оператор оболочки в хвосте node. Круг 4
+#       (B1/A2/A3 судей круга 3): D49–D54 — раскрытия оболочки (одинарная/
+#       двойная кавычка, `\`, {,}, ~, глоб), D55–D58 — хвостовые LF/NUL в
+#       canonicalRemote/workflowPaths/sourceCanon (сравнение байт-в-байт),
+#       D59 — листовой symlink ФАЙЛА наружу. Целевые файлы/каталоги всех
+#       обманок СУЩЕСТВУЮТ — краснота от правила, не от отсутствия цели.
 #
 # Диспетчеризация: --cell <имя> (одна клетка) | --model (против эталона) |
 # без аргументов (полный прогон против продукта).
@@ -74,6 +78,10 @@ CHECKER="$TOOLS/scripts/check_project_connection.sh"
 ORACLE="$HERE/kanon_back_2030.sh"
 MOB_ORACLE="$HERE/kanon_mob_2030.sh"
 SCRATCH="${TMPDIR:-/tmp}"
+usage() {  # круг 4 (A6 ревьюера): вызов `usage` прежде был не определён —
+  # `--cell` неизвестного имени печатал `usage: command not found` поверх rc 2
+  printf 'использование: %s [--model] | --cell <имя клетки>\n' "${0##*/}" >&2
+}
 
 # ── литеральные ожидания (Н-351) ────────────────────────────────────────────
 RC_MODEL=0      # честная модель → rc 0
@@ -598,6 +606,126 @@ cell() {  # $1 имя клетки → мир + мутация + ожидани�
       as_typescript
       jq_set "$WORLD/harness.project.json" '.commands.lint="npm --prefix backend lint"'
       run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D49-komanda-kavychka-odinarnaja)
+      # круг 4 (B1 ревьюера круга 3): раскрытие ОДИНАРНОЙ кавычки — токен
+      # `'../outside/evil.js'` литерально СУЩЕСТВУЕТ в дереве (`'..`/
+      # outside/`evil.js'`), а shell срезает кавычки и исполняет
+      # `../outside/evil.js` ВНЕ дерева (свидетель Rev112r3/probe_exec.sh).
+      # Мир под выделенным родителем: исполненная цель — сосед мира, не
+      # общий $SCRATCH.
+      WORLD="$(make_world mob)" || return 9
+      ROD="$(mktemp -d "$SCRATCH/podkljuchenie112-roditel-kav1-XXXXXX")" || return 9
+      mv "$WORLD" "$ROD/w" && WORLD="$ROD/w"
+      mkdir -p "$WORLD/'../outside" "$ROD/outside"
+      printf 'x\n' > "$WORLD/'../outside/evil.js'"
+      printf 'x\n' > "$ROD/outside/evil.js"
+      KAV_112="'../outside/evil.js'" jq_set "$WORLD/harness.project.json" \
+        '.commands.lint="node "+$ENV.KAV_112'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D50-komanda-kavychka-dvoinaja)
+      # круг 4 (B1): ДВОЙНАЯ кавычка — тот же приём (`"..`/outside/
+      # `evil.js"`); исполняется ../outside/evil.js вне дерева.
+      WORLD="$(make_world mob)" || return 9
+      ROD="$(mktemp -d "$SCRATCH/podkljuchenie112-roditel-kav2-XXXXXX")" || return 9
+      mv "$WORLD" "$ROD/w" && WORLD="$ROD/w"
+      mkdir -p "$WORLD/\"../outside" "$ROD/outside"
+      printf 'x\n' > "$WORLD/\"../outside/evil.js\""
+      printf 'x\n' > "$ROD/outside/evil.js"
+      KAV_112='"../outside/evil.js"' jq_set "$WORLD/harness.project.json" \
+        '.commands.lint="node "+$ENV.KAV_112'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D51-komanda-obratnaja-kosa)
+      # круг 4 (B1): ОБРАТНАЯ КОСА — shell съедает `\` и исполняет
+      # `../outside/evil.js`; литеральный токен (`\..`/outside/evil.js)
+      # СУЩЕСТВУЕТ в дереве.
+      WORLD="$(make_world mob)" || return 9
+      ROD="$(mktemp -d "$SCRATCH/podkljuchenie112-roditel-kosa-XXXXXX")" || return 9
+      mv "$WORLD" "$ROD/w" && WORLD="$ROD/w"
+      mkdir -p "$WORLD/\\../outside" "$ROD/outside"
+      printf 'x\n' > "$WORLD/\\../outside/evil.js"
+      printf 'x\n' > "$ROD/outside/evil.js"
+      KAV_112='\../outside/evil.js' jq_set "$WORLD/harness.project.json" \
+        '.commands.lint="node "+$ENV.KAV_112'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D52-komanda-brace-raskrytie)
+      # круг 4 (B1): BRACE-раскрытие `{../outside/evil.js,}` → слова
+      # `../outside/evil.js` и пустое; литеральный токен (`{..`/outside/
+      # `evil.js,}`) СУЩЕСТВУЕТ в дереве.
+      WORLD="$(make_world mob)" || return 9
+      ROD="$(mktemp -d "$SCRATCH/podkljuchenie112-roditel-brace-XXXXXX")" || return 9
+      mv "$WORLD" "$ROD/w" && WORLD="$ROD/w"
+      mkdir -p "$WORLD/{../outside" "$ROD/outside"
+      printf 'x\n' > "$WORLD/{../outside/evil.js,}"
+      printf 'x\n' > "$ROD/outside/evil.js"
+      KAV_112='{../outside/evil.js,}' jq_set "$WORLD/harness.project.json" \
+        '.commands.lint="node "+$ENV.KAV_112'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D53-komanda-tilde-raskrytie)
+      # круг 4 (B1): TILDE — `npm --prefix ~ test`: каталог `~` с
+      # package.json СУЩЕСТВУЕТ в дереве (проверяющий канонизирует
+      # литеральный `~` внутрь $R), shell раскрывает `~` в $HOME и уводит
+      # исполнение к домашнему package.json, вне дерева. $HOME клетка не
+      # трогает — судится ФОРМА значения.
+      WORLD="$(make_world mob)" || return 9
+      mkdir -p "$WORLD/~"
+      printf '%s\n' '{"scripts":{"test":"echo fake"}}' > "$WORLD/~/"package.json
+      jq_set "$WORLD/harness.project.json" '.commands.test="npm --prefix ~ test"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D54-komanda-glob-raskrytie)
+      # круг 4 (B1): ГЛОБ `*`/`?` — литеральный файл `mobile/e?il.js`
+      # СУЩЕСТВУЕТ (проверяющий статит литерал), рядом лежит реальный
+      # `mobile/evil.js`, в который glob разворачивается при исполнении:
+      # проверен один путь, исполнен другой.
+      WORLD="$(make_world mob)" || return 9
+      printf 'x\n' > "$WORLD/mobile/e?il.js"
+      printf 'x\n' > "$WORLD/mobile/evil.js"
+      jq_set "$WORLD/harness.project.json" '.commands.lint="node mobile/e?il.js"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
+    D55-kanon-remote-hvostovoj-lf)
+      # круг 4 (A2 ревьюера / блокер адверсария): хвостовой LF в
+      # canonicalRemote при origin БЕЗ LF — `$(jq -r …)` срезает хвост,
+      # побайтовое равенство подменяется усечённым; резолвер переносит
+      # байты в эффективный профиль без изменений.
+      WORLD="$(make_world mob)" || return 9
+      jq_set "$WORLD/harness.project.json" \
+        '.git.canonicalRemote="https://github.com/a3ka/Complior-mob.git\n"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_REMOTE" ;;
+    D56-workflowpaths-hvostovoj-lf)
+      # круг 4 (A2): хвостовой LF в workflowPaths.contracts — каталог
+      # `.harness/contracts` (без LF) СУЩЕСТВУЕТ: дефект — форма значения,
+      # не отсутствие цели.
+      WORLD="$(make_world mob)" || return 9
+      jq_set "$WORLD/harness.project.json" '.workflowPaths.contracts=".harness/contracts\n"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_PATHS" ;;
+    D57-source-hvostovoj-lf)
+      # круг 4 (A2): хвостовой LF в sourceCanon.sources[].path — файл (без
+      # LF) СУЩЕСТВУЕТ; отказ — форма, не отсутствие.
+      WORLD="$(make_world back)" || return 9
+      as_typescript
+      jq_set "$WORLD/harness.project.json" \
+        '.sourceCanon.sources[0].path="docs/Complior_Backend_Architecture_v3_14_RU.md\n"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_CANON" ;;
+    D58-kanon-remote-nul)
+      # круг 4 (A2): NUL в canonicalRemote — JSON `\u0000`; command
+      # substitution ВЫБРАСЫВАЕТ NUL (bash: ignored null byte) и сравнение
+      # усечённых строк ложно зелёно; модель несёт байты jq -j в файле.
+      WORLD="$(make_world mob)" || return 9
+      jq_set "$WORLD/harness.project.json" \
+        '.git.canonicalRemote="https://github.com/a3ka/Complior-mob.git\u0000"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_REMOTE" ;;
+    D59-komanda-listok-symlink-fajl)
+      # круг 4 (A3 ревьюера): ЛИСТОВОЙ symlink ФАЙЛА node наружу —
+      # `mobile/scripts/lnk.js` → внешний evil.js СУЩЕСТВУЕТ; `-f` следует
+      # ссылке без канонизации листа → «файл в дереве», исполняется внешний.
+      # (Листья source-canon-пути и package.json — тот же класс; модель
+      # канонизирует лист всех трёх.)
+      WORLD="$(make_world mob)" || return 9
+      VNEE="$(mktemp -d "$SCRATCH/podkljuchenie112-vneshnee-listok-XXXXXX")"
+      printf 'x\n' > "$VNEE/evil.js"
+      mkdir -p "$WORLD/mobile/scripts"
+      ln -s "$VNEE/evil.js" "$WORLD/mobile/scripts/lnk.js"
+      jq_set "$WORLD/harness.project.json" '.commands.lint="node mobile/scripts/lnk.js"'
+      run_cell "$name" "$RC_DECEPTIVE" "$REASON_KOMANDY" ;;
     *) return 2 ;;
   esac
 }
@@ -621,31 +749,42 @@ if [ "${1:-}" = "--cell" ]; then
   exit "$rc"
 fi
 [ $# -eq 0 ] || usage
-# полный прогон: счёт клеток — ЕДИНЫЙ источник сам цикл ниже (v3: v2e 37 +
-# D34/D35/D36; круг 3: B4 — расщепление пар до одной мутации на клетку
-# (D46/D47/D48) и обходы круга 2 (D37–D45) → всего 52; замороженный текст
-# контракта несёт прежнее число 37 — расхождение отражено докладом, не
-# правкой текста) + анти-плацебо (1)–(4)
+# полный прогон: счёт клеток — ЕДИНЫЙ источник массив KLETKI_112 ниже (v3:
+# v2e 37 + D34/D35/D36; круг 3: B4 — расщепление пар (D46/D47/D48) и обходы
+# круга 2 (D37–D45) → 52; круг 4: B1/A2/A3 судей круга 3 — раскрытия
+# оболочки D49–D54, хвостовые LF/NUL D55–D58, листовой symlink файла D59 →
+# 63; замороженный текст контракта несёт прежнее число 37 — расхождение
+# отражено докладом, не правкой текста) + анти-плацебо (1)–(4)
 # Факты по клетке печатаются ТОЛЬКО при расхождении; итог — число клеток
 # (зелёных/красных) и код возврата, не слово PASS.
 itog=0; zelen=0; krasno=0; vsego=0
-for c in M1-back-model M2-mob-model K1-kanon-polnyj K2-mob-bez-standartov D1-pustaja-komanda D2-komanda-true \
-         D3-skripta-net D4-chuzoj-remote D5-put-vne-repo D6-symlink-pobeg D7-net-workflow \
-         D8-net-sostojanija D9-prioritet-bool D10-istochnik-net D13-net-kataloga-kontr \
-         D14-state-vne-repo D16-state-symlink-zveno D17-state-absoljutnyj \
-         D11-mob-bez-typecheck D12-mob-ssh-remote D15-kanon-nepolnyj \
-         D18-kanon-lishnij D19-kanon-prioritet D20-standarty-kanon-nepolnyj \
-         D21-contextpack-nedostavlen D22-contextpack-mandatory D23-contextpack-roli \
-         D24-contextpack-roli-massiv D25-contextpack-roli-pustoj-massiv D26-contextpack-roli-chislo \
-         D27-contextpack-roli-registr D28-contextpack-mandatory-stroka \
-         D29-mob-contextpack-standarty D30-mob-contextpack-chast-stroki D31-mob-contextpack-forma \
-         D32-contextpack-roli-probely D33-mob-contextpack-defaults \
-         D34-komanda-abs-vne D35-komanda-tochki-pobeg D36-komanda-forma-zakryta \
-         D37-komanda-abs-vnutri-fajl D38-komanda-abs-vnutri-prefix D39-komanda-metsimvol-fajl \
-         D40-komanda-metsimvol-prefix D41-komanda-metsimvol-skript D42-komanda-prefix-dvazhdy \
-         D43-komanda-prefix-dotdot-listok D44-komanda-prefix-symlink-listok \
-         D45-komanda-node-hvost-operator D46-komanda-prefix-abs-vne \
-         D47-komanda-prefix-tochki-pobeg D48-komanda-npm-goloe-imja; do
+KLETKI_112=(
+  M1-back-model M2-mob-model K1-kanon-polnyj K2-mob-bez-standartov
+  D1-pustaja-komanda D2-komanda-true D3-skripta-net D4-chuzoj-remote
+  D5-put-vne-repo D6-symlink-pobeg D7-net-workflow D8-net-sostojanija
+  D9-prioritet-bool D10-istochnik-net D13-net-kataloga-kontr
+  D14-state-vne-repo D16-state-symlink-zveno D17-state-absoljutnyj
+  D11-mob-bez-typecheck D12-mob-ssh-remote D15-kanon-nepolnyj
+  D18-kanon-lishnij D19-kanon-prioritet D20-standarty-kanon-nepolnyj
+  D21-contextpack-nedostavlen D22-contextpack-mandatory D23-contextpack-roli
+  D24-contextpack-roli-massiv D25-contextpack-roli-pustoj-massiv D26-contextpack-roli-chislo
+  D27-contextpack-roli-registr D28-contextpack-mandatory-stroka
+  D29-mob-contextpack-standarty D30-mob-contextpack-chast-stroki D31-mob-contextpack-forma
+  D32-contextpack-roli-probely D33-mob-contextpack-defaults
+  D34-komanda-abs-vne D35-komanda-tochki-pobeg D36-komanda-forma-zakryta
+  D37-komanda-abs-vnutri-fajl D38-komanda-abs-vnutri-prefix D39-komanda-metsimvol-fajl
+  D40-komanda-metsimvol-prefix D41-komanda-metsimvol-skript D42-komanda-prefix-dvazhdy
+  D43-komanda-prefix-dotdot-listok D44-komanda-prefix-symlink-listok
+  D45-komanda-node-hvost-operator D46-komanda-prefix-abs-vne
+  D47-komanda-prefix-tochki-pobeg D48-komanda-npm-goloe-imja
+  D49-komanda-kavychka-odinarnaja D50-komanda-kavychka-dvoinaja
+  D51-komanda-obratnaja-kosa D52-komanda-brace-raskrytie
+  D53-komanda-tilde-raskrytie D54-komanda-glob-raskrytie
+  D55-kanon-remote-hvostovoj-lf D56-workflowpaths-hvostovoj-lf
+  D57-source-hvostovoj-lf D58-kanon-remote-nul
+  D59-komanda-listok-symlink-fajl
+)
+for c in "${KLETKI_112[@]}"; do
   vsego=$((vsego+1))
   if cell "$c"; then zelen=$((zelen+1)); else krasno=$((krasno+1)); itog=1; fi
   [ -n "$WORLD" ] && rm -rf "$WORLD"; WORLD=""
@@ -668,18 +807,19 @@ done
 rm -f "$STAB"
 # анти-плацебо (4): komandy-слепая контрмодель (эталон минус блок komandy по
 # sentinels KOMANDY-112-BEG/END — принимает всё в komandy) обязана дать
-# расхождение на КАЖДОЙ komandy-клетке D34–D48 (внешние цели существуют,
-# скрипты в дереве есть — краснота клеток от правила, не от отсутствия
-# цели) — иначе клетки плацебо; привязка стаб↔клетка — этим циклом по коду.
+# расхождение на КАЖДОЙ komandy-клетке (внешние цели существуют, скрипты в
+# дереве есть — краснота клеток от правила, не от отсутствия цели), иначе
+# клетки плацебо. Круг 4 (A7): список — ПРОИЗВОДНЫЙ из KLETKI_112 (фильтр
+# `D<NN>-komanda-*`, NN≥34: отказ этих клеток живёт в блоке komandy модели,
+# а не в резолвере), единственный источник — главный цикл.
 STAB="$(mktemp "$SCRATCH/podkljuchenie112-stab-komandy-XXXXXX")" || exit 9
 sed -e '/KOMANDY-112-BEG/,/KOMANDY-112-END/d' -e "s|^TOOLS=.*|TOOLS=\"$TOOLS\"|" "$HERE/model_check_connection.sh" > "$STAB"
 chmod +x "$STAB"
-for stab_cell in D34-komanda-abs-vne D35-komanda-tochki-pobeg D36-komanda-forma-zakryta \
-                   D37-komanda-abs-vnutri-fajl D38-komanda-abs-vnutri-prefix D39-komanda-metsimvol-fajl \
-                   D40-komanda-metsimvol-prefix D41-komanda-metsimvol-skript D42-komanda-prefix-dvazhdy \
-                   D43-komanda-prefix-dotdot-listok D44-komanda-prefix-symlink-listok \
-                   D45-komanda-node-hvost-operator D46-komanda-prefix-abs-vne \
-                   D47-komanda-prefix-tochki-pobeg D48-komanda-npm-goloe-imja; do
+for stab_cell in "${KLETKI_112[@]}"; do
+  case "$stab_cell" in
+    D[3-5][0-9]-komanda-*) ;;
+    *) continue ;;
+  esac
   if PODKLJUCHENIE_112_CHECKER="$STAB" bash "$0" --cell "$stab_cell"; then
     printf 'bateria: komandy-слепая контрмодель прошла %s — клетка плацебо\n' "$stab_cell" >&2; itog=1
   fi
