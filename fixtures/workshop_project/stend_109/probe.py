@@ -2018,7 +2018,7 @@ def async_pii_fact(repo, tree=None):
             'Set-Cookie-массив/multicookie/экранированная форма/литерал чисты, JSON цел'))
 
 
-LANE_FROZEN_TAG = 'frozen/contracts/109/2'
+LANE_FROZEN_TAG = 'frozen/contracts/109/3'
 # v2 (форк n109-lane-v2, рекомендация А): тег 109/2 указывает на батарею v2;
 # корень lane-прогона — дерево ПОД испытанием (HEAD продукта: батарея v2
 # зелёна на нём). Отдельный зелёный корень v1 (8aca71a) — наследие v1, где
