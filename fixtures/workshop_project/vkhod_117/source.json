@@ -1,0 +1,168 @@
+{
+  "_comment": "Оракул 117 (круг 3): снято с read-only docs/ Complior-mob 8748a7a335 ДО запуска субъекта (правило 8). Токены — ds/tokens.css D2.2.5.1 + проекция 999 (panel); копия — BrokerOS_UI_Copy_DE.json (ключи состава F03.01/F03.02 по UX-JSON Complior_F01_F03_Invitation_Entry_1_17_8_1); типографика .title/.body/.label-lg/.body-sm и компоненты Button/TextField — design-system/project (tokens.css, components/*/README.md); геометрия знака — logo/assets/*.svg; артборды — screens/{Splash,Splash-Hell}.png (композит нативного splash). Пробы несут те же значения литералами.",
+  "tokens": {
+    "ground": { "dark": "#0a0a0a", "light": "#f3f2ee" },
+    "ink": { "dark": "#f2f1ec", "light": "#121211" },
+    "accent": { "dark": "#d6f75a", "light": "#d6f75a" },
+    "panel": { "dark": "#1e1e1d", "light": "#e6e5df" }
+  },
+  "theme_projection_999": {
+    "primary": { "dark": "#d6f75a", "light": "#121211" },
+    "on-primary": { "dark": "#121211", "light": "#f3f2ee" }
+  },
+  "copy": {
+    "frame.F03.01.title": { "text": "Anmelden oder Konto erstellen", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F03.01.body": { "text": "Nutzen Sie den angebotenen Anmeldeweg, um auf Ihre Versicherungen zuzugreifen.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F03.02.title": { "text": "Kontakt bestätigen", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "frame.F03.02.body": { "text": "Geben Sie den zugesandten Code ein. Prüfen Sie bei Bedarf Ihre Kontaktdaten.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
+    "ui.auth.demo_entry": { "text": "Demo mit Beispieldaten ansehen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "action.F03.A01": { "text": "Anmelden", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "ui.auth.code_resend": { "text": "Code erneut senden", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
+    "auth.change_email": { "text": "E-Mail ändern", "source": "COPY 995 (поверхность входа базы B)" },
+    "action.F03.A02": { "text": "Zugang wiederherstellen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" }
+  },
+  "composition_117": {
+    "_comment": "Состав кадров по UX-JSON F01/F03 (DIRECT: F03.01 → F03.A01/F03.02) + каталог; экран → элемент → компонент продукта (@/ui, CMP-MOB-002, токены D2.2.5.1) → ключ копии. Ключа подписи поля в каталоге нет: подпись TextField — body-ключ кадра (вопрос владельцу №6).",
+    "F03.01": [
+      ["title", "Text .title ink", "frame.F03.01.title"],
+      ["auth-email", "TextField (подпись caption ink)", "frame.F03.01.body"],
+      ["auth-demo-entry", "Button primary", "ui.auth.demo_entry"]
+    ],
+    "F03.02": [
+      ["title", "Text .title ink", "frame.F03.02.title"],
+      ["auth-code", "TextField (подпись caption ink)", "frame.F03.02.body"],
+      ["auth-verify", "Button primary", "action.F03.A01"],
+      ["auth-resend", "ссылка accent", "ui.auth.code_resend"],
+      ["auth-change-email", "ссылка accent", "auth.change_email"],
+      ["auth-no-access", "ссылка accent", "action.F03.A02"]
+    ]
+  },
+  "ds_117": {
+    "_comment": "design-system/project: tokens.css (.title, --size-lg 56, --radius-full), components/Button (primary: primary/on-primary, пилюля), components/TextField (пилюля на panel, подпись caption над полем). Пилюля — радиус >= половины --size-lg.",
+    "title": { "font_size": 28, "line_height": 32, "font_weight": "500" },
+    "pill_min_radius": 28
+  },
+  "splash": {
+    "tagline": "Versicherung. Erledigt.",
+    "wordmark_alt": "complior"
+  },
+  "splash_reference": {
+    "_comment": "Б1 (арбитраж круга 2): эталоны композита — read-only артборды docs/ B, припинены sha256 (правило 8/Н-351: снято ДО субъекта; несовпадение sha — rc2 ORACLE_TAMPERED, не зелень). Ожидаемая маска E: |RGB-фон|<=40 => прозрачно, иначе непрозрачно цветом артборда. Субъект C: непрозрачен при alpha>=128 (AA-полоса не в счёт). Пороги recall/precision 0.98 измерены на честной модели (recall 1.0000; precision 1.0000 при alpha>=128 — замер круга 4).",
+    "etalons": {
+      "dark": {
+        "path": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+        "sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+        "bg": "#0a0a0a"
+      },
+      "light": {
+        "path": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash-Hell.png",
+        "sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+        "bg": "#f3f2ee"
+      }
+    },
+    "bg_tol": 40,
+    "color_tol": 40,
+    "subject_alpha_min": 128,
+    "recall_min": 0.98,
+    "precision_min": 0.98,
+    "_size_comment": "Круг критика 3 (Б1): размер субъекта = размер эталона-артборда 390x844; иной масштаб при точном aspect (195x422, 39x84) теряет маску и красен; recall по ВСЕМ пикселям M, precision по ВСЕМ непрозрачным пикселям C.",
+    "size": [390, 844]
+  },
+  "splash_sign": {
+    "_comment": "Замер знака splash по артбордам Splash{,-Hell}.png (read-only docs/, круг 4; обе схемы идентичны в этих числах): кольцо с зазором и точка — геометрия ОТЛИЧАЕТСЯ от mark_geometry_96 (зазор -29..36 град против -40..55.5, дот крупнее в масштабе кольца; согласие mark-96 со знаком 0.60). Судит растр знака (нативный splash) и произведённые drawable. Координаты — пиксели кропа 181x173 (artboard sign_bbox).",
+    "ring_center": [88.0, 86.7],
+    "ring_outer_r": 86.9,
+    "ring_thickness": 29.4,
+    "dot_center": [153.5, 135.5],
+    "dot_radius": 25.9,
+    "gap_deg": [-29, 36],
+    "agree_min": 0.97,
+    "size": [181, 173]
+  },
+  "splash_native": {
+    "_comment": "С2/Б2 (арбитраж круга 2): нативный splash = ОДИН знак на ground схемы; imageWidth = ширина знака артборда (литерал). Генератор плагина: холст 288*mult, знак contain в imageWidth*mult, смещение (288-imageWidth)/2*mult (прочитано в withAndroidSplashImages.js:89-100). Судятся ПРОИЗВЕДЁННЫЕ drawable-{mdpi..xxxhdpi}/splashscreen_logo.png и drawable-night-*; basename НЕ сравнивается. iOS — содержимое по эффективному пути + эффективные imageWidth/resizeMode.",
+    "image_width": 181,
+    "canvas_base": 288,
+    "multipliers": { "mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0 },
+    "light_ink": "#121211",
+    "dark_ink": "#f2f1ec",
+    "ios_storyboard": {
+      "_comment": "Круг критика 3 (Б2; арбитраж круга 2 §3 «enableFullScreenImage_legacy отсутствует»): ключа legacy нет в props плагина (корень/ios/dark/ios.dark), эффективное значение false; ВЫХОД настоящего getIosSplashConfig + applySplashScreenStoryboard: рамка картинки imageWidth x imageWidth, constraints ровно centerX/centerY (legacy даёт 414x736 и top/leading/trailing/bottom — замер критика ios-legacy.json).",
+      "legacy_at": [],
+      "legacy_eff": false,
+      "image_rect": [181, 181],
+      "constraints": ["centerX", "centerY"]
+    }
+  },
+  "overlay_117": {
+    "_comment": "С2 (арбитраж круга 2): JS-оверлей кадра Splash.png поверх дерева оболочки: последний ребёнок корня PilotApp, StyleSheet.absoluteFill, pointerEvents none, фон tokens.ground, Image композита resizeMode contain, БЕЗ Text-узлов, автоскрытие таймером-литералом с очисткой, hideAsync после монтирования оверлея. Frame state-machine НЕ расширяется.",
+    "test_id": "splash-overlay",
+    "hide_after_ms": 1200,
+    "consumer": "mobile/src/bootstrap/pilot-app.tsx",
+    "composites": {
+      "dark": "mobile/assets/images/splash-composite-dark.png",
+      "light": "mobile/assets/images/splash-composite-light.png"
+    }
+  },
+  "artboard_117": {
+    "_comment": "Замер Architect117c (круг 2, Б2) пиксельным проходом по артбордам (обе 390×844, идентичны в этих числах). Круг 4: полосы остаются дешёвой первой линией; критерий композита — эталон целой поверхностью (splash_reference).",
+    "window": { "w": 390, "h": 844 },
+    "sign_bbox": [109, 271, 289, 443],
+    "wordmark_bbox": [157, 514, 232, 533],
+    "tagline_bbox": [57, 569, 332, 595],
+    "bbox_tol": 8
+  },
+  "mark_geometry_96": {
+    "arc_center": [49.0, 45.3],
+    "arc_radius": 30,
+    "arc_stroke_width": 12,
+    "dot_center": [76, 66],
+    "dot_radius": 11,
+    "dot_color": "#d6f75a",
+    "stroke_color": { "dark": "#f2f1ec", "light": "#121211" }
+  },
+  "raster_117": {
+    "_comment": "Б1 круг 2: аналитическая растеризация геометрии канона (SVG-литералы mark_geometry_96/app_icon) целым изображением. adaptive-размещение знака: translate(256,256) scale(6) в 1024 (замер альфа-bbox честных ассетов (334,312)..(777,743)). Пороги измерены на честных ассетах модели (ratio 1.0000 на всех, кроме icon 0.9994+aa): допуск согласия 0.97, полоса покрытия класса 0.7..1.35, bbox ±3.",
+    "agree_min": 0.97,
+    "coverage_band": [0.7, 1.35],
+    "bbox_tol": 3,
+    "mono_ink": "#ffffff",
+    "adaptive_fg_ink": "#f2f1ec",
+    "adaptive_mark": { "scale": 6.0, "offset": 256.0 },
+    "expo_icon_dir_marker_sha": "747c56e178222a6255c6dd61c5de011b286cdc935febe89f04d1b191c3d076fe"
+  },
+  "app_icon": {
+    "size": 1024,
+    "corner_radius": 232,
+    "bg": "#0a0a0a",
+    "probe_pixels": {
+      "dot": [717, 644],
+      "arc_top": [519, 272],
+      "bg": [512, 80]
+    }
+  },
+  "assets": {
+    "icon": "mobile/assets/images/icon.png",
+    "splash_composite_dark": "mobile/assets/images/splash-composite-dark.png",
+    "splash_composite_light": "mobile/assets/images/splash-composite-light.png"
+  },
+  "appjson_literals": {
+    "adaptive_bg": "#0A0A0A",
+    "splash_light_bg": "#F3F2EE",
+    "splash_dark_bg": "#0A0A0A",
+    "splash_image_light": "splash-sign-light.png",
+    "splash_image_dark": "splash-sign-dark.png",
+    "splash_image_width": 181,
+    "splash_resize_mode": "contain",
+    "user_interface_style": "automatic"
+  },
+  "template_shas_base_8748a7a335": {
+    "icon.png": "7a667804bb80a6a424a5daf18a2599c4f32237cf06fe78fc0de45dbb09e0eccf",
+    "splash-icon.png": "27b060a757a29038c9618586baa0ba3894dbe60d084c6059df497ff429c2d92f",
+    "android-icon-foreground.png": "9e3d0315a33c6799de601dd34cd8bf8cc3a8d16f3bf75592baec2ceb7240b391",
+    "android-icon-background.png": "fb139c2dee362ebf2070e23b96da6fc0d43f8492de38b8af1fd7223e19b5861d",
+    "android-icon-monochrome.png": "6371fc2c12e33ad2215a86c281db3d682a81bebe7c957a842c13b8bf00cceb83",
+    "favicon.png": "a4e030697a7571b3e95d31860e4da55d2f98e5e861e2b55e414f45a8556828ba"
+  },
+  "surface_995": { "bg": "#FFFFFF", "pad_top": 48, "pad_h": 16, "pad_bottom": 16 }
+}
