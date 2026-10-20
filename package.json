@@ -80,6 +80,7 @@
     "check:watchdog-082-family-selftest": "bash fixtures/verify_antiplacebo/red_watchdog_082.sh",
     "check:ci-b-087-family-selftest": "bash fixtures/_krasnye_087.sh",
     "check:ci-family-selftest": "bash fixtures/_krasnye_083.sh",
-    "check:rezhim-996-family-selftest": "bash fixtures/workshop_project/rezhim_996/probe.sh"
+    "check:rezhim-996-family-selftest": "bash fixtures/workshop_project/rezhim_996/probe.sh",
+    "check:done-volny-110-family-selftest": "bash fixtures/workshop_project/done_volny_110/probe.sh"
   }
 }

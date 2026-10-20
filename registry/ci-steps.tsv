@@ -134,6 +134,13 @@ step	check:rezhim-996-family-selftest	31	npm run check:rezhim-996-family-selftes
 # Вес по замеру `time` полной пробы (2026-10-19): 5.566..5.586 с на 5 прогонах,
 # округлено вверх до 6.
 step	check:pravila-modelei-998	6	bash fixtures/pravila_modelei_998/probe.sh
+# КОНТРАКТ 110 done-волны: красная проба двери done_wave (52 случая) и фикстуры
+# проводки (точное соответствие «npm-ключ → fixtures/.../done_volny_110/probe.sh»,
+# положительный контроль на синтетике + деко с тем же basename «probe»). Без пробы
+# батарея не подключена к CI: provodka.sh ловит деко и подмену путей.
+# Замер `time` полной пробы на твоём дереве: 3.85..3.93 с на 3 прогонах,
+# округлено вверх до 5.
+step	check:done-volny-110-family-selftest	5	npm run check:done-volny-110-family-selftest
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).
