@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+# gonka-bin/git — ОБЁРТКА РАСПИСАНИЯ ГОНЫ батареи 113 (прецедент: свидетель арбитра
+# /tmp/dev-harness-verify/Arbiter113/race/bin/git, вердикт contracts-113-gonka-kesha).
+# Кладётся в PATH субъекта ТОЛЬКО клеткой гонки red_113.sh и поимкой стаба s10 —
+# один файл на обе (дельта круга 3: не инлайн в red_113.sh).
+#
+# Поведение: настоящий /usr/bin/git отдаёт запрошенный снимок истории (stdout/rc
+# НЕ подделываются); ПОСЛЕ первого чтения истории субъектом один раз делается
+# НАСТОЯЩИЙ конкурентный коммит с нарушением устава (правка замороженного плана
+# без строки). «Первое чтение истории»: для быстрой стороны — `log --name-only`,
+# для полного/старого обхода — `rev-list <since>..HEAD` без `--count`.
+# Управление окружением: GONKA_MARKER (файл-маркер сработавшего расписания),
+# GONKA_ROOT (корень корпуса). Повторные вызовы не коммитят (маркер существует).
+import os, sys, pathlib, subprocess
+
+a = sys.argv[1:]
+p = subprocess.run(['/usr/bin/git', *a], stdout=subprocess.PIPE)
+sys.stdout.buffer.write(p.stdout)
+sys.stdout.buffer.flush()
+try:
+    marker = pathlib.Path(os.environ['GONKA_MARKER'])
+    root = pathlib.Path(os.environ['GONKA_ROOT'])
+    trigger = ('log' in a and '--name-only' in a) or \
+              ('rev-list' in a and any('..HEAD' in x for x in a) and '--count' not in a)
+    if trigger and not marker.exists():
+        marker.write_text('snapshot given\n')
+        with (root / 'plans/001-p.md').open('a') as f:
+            f.write('Конкурентное нарушение после снимка (гонка батареи 113)\n')
+        subprocess.run(['/usr/bin/git', '-C', str(root), 'add', 'plans/001-p.md'], check=True)
+        subprocess.run(['/usr/bin/git', '-c', 'core.hooksPath=/dev/null', '-c', 'commit.gpgsign=false',
+                        '-c', 'user.name=gonka', '-c', 'user.email=gonka@local', '-C', str(root),
+                        'commit', '-qm', 'Конкурентная правка после снимка (гонка батареи 113)'], check=True)
+except Exception as e:  # обёртка не имеет права молча менять поведение субъекта
+    print(f'gonka-bin/git: обёртка отказала: {e}', file=sys.stderr)
+sys.exit(p.returncode)
