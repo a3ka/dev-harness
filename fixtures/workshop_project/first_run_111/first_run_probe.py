@@ -5,7 +5,10 @@
 Без --model: до-предметное дерево — именованный отказ rc1 FIRST_RUN_SEAM_ABSENT.
 С --model: эталон architect ставится по путям поставки, rc0 с перечнем
 (включая пару К7 DEMO_BADGE_INSET: отступ Demo-бейджа отслеживает
-литеральный top-инсет мока SafeAreaInsetsContext — R1, ревью круга 2).
+литеральный top-инсет мока SafeAreaInsetsContext — R1, ревью круга 2;
+и пары К8 RESTYLE_GUARD_995: кадры 995 (F03.01+, welcome) не рестайлятся —
+корень несёт литералы 995 #FFFFFF и 48/16/16, {flex:1, ground} — только
+first-run — С10/Р2, ревью круга 3).
 --matrix: каждый обманный стаб даёт красноту на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case печатается построчно.
@@ -43,7 +46,11 @@ MUTANTS = {
         [('mobile/src/features/auth/first-run-screen.tsx',
           'onPress={onEnter}', 'onPress={() => {}}')],
         ['CTA_OPENS_F03_01_DARK', 'CTA_OPENS_F03_01_LIGHT'],
-        ['CTA_TEXT_EQUALS_FRAME_TITLE'],
+        # К8/К8′ ходят в кадры 995 через CTA: сломанная навигация рвёт и
+        # наблюдение рестайл-стража — зависимые красные (замер круга 4).
+        ['CTA_TEXT_EQUALS_FRAME_TITLE',
+         'RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT',
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
     ),
     'ground-default-blue': (
         [('mobile/src/features/auth/first-run-screen.tsx',
@@ -77,7 +84,11 @@ MUTANTS = {
           'testID="first-run-continue"', 'testID="first-run-enter"')],
         ['FIRST_RUN_STRUCTURE_DARK', 'FIRST_RUN_STRUCTURE_LIGHT'],
         ['CTA_OPENS_F03_01_DARK', 'CTA_OPENS_F03_01_LIGHT',
-         'CTA_TEXT_EQUALS_FRAME_TITLE'],
+         'CTA_TEXT_EQUALS_FRAME_TITLE',
+         # К8/К8′ ищут CTA по testID: переименование рвёт навигацию
+         # (замер круга 4).
+         'RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT',
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
     ),
     # B1 (критик 111, круг 1): CTA навигирует только в dark — светлая схема
     # остаётся на First-Run без перехода; красна именованной LIGHT-клеткой.
@@ -88,7 +99,10 @@ MUTANTS = {
          ('mobile/src/features/auth/first-run-screen.tsx',
           'onPress={onEnter}',
           "onPress={scheme === 'dark' ? onEnter : () => {}}")],
-        ['CTA_OPENS_F03_01_LIGHT'], [],
+        ['CTA_OPENS_F03_01_LIGHT'],
+        # В светлой схеме CTA не навигирует — К8/К8′ LIGHT не достигают
+        # кадров 995 (замер круга 4).
+        ['RESTYLE_GUARD_995_F03_01_LIGHT', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
     ),
     # B2: edges={[]} — импорт/цвет живы, но нативная защита краёв снята.
     'safearea-edges-empty': (
@@ -163,12 +177,13 @@ MUTANTS = {
           "backgroundColor: '#ff00ff'")],
         ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'], [],
     ),
-    # Отступки корня 48/16/16 вокруг SafeAreaView: рамка из отступов
-    # смещает канон-сетку First-Run (A2) — красна парой К6.
+    # Отступки вокруг SafeAreaView на first-run (A2): рамка из отступов
+    # смещает канон-сетку First-Run — красна парой К6. Якорь — rootFirstRun
+    # (круг 4: root вернул литералы 995, отступки теперь только тут).
     'wrapper-root-padding': (
         [('mobile/src/bootstrap/pilot-app.tsx',
-          'root: {\n    flex: 1,\n  },',
-          'root: {\n    flex: 1,\n    paddingTop: 48,\n    paddingHorizontal: 16,\n    paddingBottom: 16,\n  },')],
+          'rootFirstRun: {\n    flex: 1,\n  },',
+          'rootFirstRun: {\n    flex: 1,\n    paddingTop: 48,\n    paddingHorizontal: 16,\n    paddingBottom: 16,\n  },')],
         ['FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'], [],
     ),
     # R1 (ревью 111, круг 2): бейдж вынут из safe-отступа — дословная форма
@@ -201,6 +216,45 @@ MUTANTS = {
           'style={{ paddingTop: insets.top }}',
           'style={{ paddingTop: 47 }}')],
         ['DEMO_BADGE_INSET_DARK', 'DEMO_BADGE_INSET_LIGHT'], [],
+    ),
+    # К8 (С10/Р2, ревью круга 3): рестайл кадров 995 — merged-root красит
+    # F03.01+ и welcome в ground схемы (дословно форма продукта круга 3);
+    # красна пара К8, зависит К8′ и К6 (отступки root являются и на
+    # first-run). Замер круга 4.
+    'restyle-995-ground': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "        frame === 'first-run'\n"
+          "          ? [styles.rootFirstRun, { backgroundColor: tokens.ground }]\n"
+          "          : styles.root",
+          "        [styles.root, { backgroundColor: tokens.ground }]")],
+        ['RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT'],
+        ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT',
+         'FIRST_RUN_GROUND_FULL_SURFACE_DARK', 'FIRST_RUN_GROUND_FULL_SURFACE_LIGHT'],
+    ),
+    # Welcome-only рестайл (ground только на welcome): красна ТОЛЬКО пара
+    # К8′ — К8 (F03.01) и К6 (first-run) зелёны.
+    'restyle-welcome-ground': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "frame === 'first-run'\n",
+          "frame === 'first-run' || frame === 'welcome'\n")],
+        ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'], [],
+    ),
+    # Root без отступков (форма круга 3): фон белый, отступов нет — красна
+    # вся К8 (обе пары), К6 зелёна.
+    'restyle-995-no-padding': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "root: {\n    flex: 1,\n    paddingTop: 48,\n    paddingHorizontal: 16,\n"
+          "    paddingBottom: 16,\n    backgroundColor: '#FFFFFF',\n  },",
+          "root: {\n    flex: 1,\n    backgroundColor: '#FFFFFF',\n  },")],
+        ['RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT',
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'], [],
+    ),
+    # Отступки ≠ 48/16/16 (сдвиг верхнего литерала) — красна вся К8.
+    'restyle-995-padding-shifted': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'paddingTop: 48,', 'paddingTop: 40,')],
+        ['RESTYLE_GUARD_995_F03_01_DARK', 'RESTYLE_GUARD_995_F03_01_LIGHT',
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'], [],
     ),
 }
 

@@ -196,7 +196,13 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
       : 'email';
 
   return (
-    <View style={[styles.root, { backgroundColor: tokens.ground }]}>
+    <View
+      style={
+        frame === 'first-run'
+          ? [styles.rootFirstRun, { backgroundColor: tokens.ground }]
+          : styles.root
+      }
+    >
       {frame !== 'welcome' ? (
         <View style={{ paddingTop: insets.top }}>
           <View style={styles.demoBadge} testID="demo-indicator">
@@ -245,8 +251,19 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   );
 }
 
+// 111 круг 4 (С10/Р2, ревью круга 3): кадры 995 (F03.01+, welcome) —
+// поверхность 995, НЕ рестайлятся (frozen 111/1 стр. 41–42, 80–83):
+// корень на них несёт литералы 995 — фон #FFFFFF и отступы 48/16/16;
+// {flex:1, ground} — только кадр first-run (К6).
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+    paddingTop: 48,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  rootFirstRun: {
     flex: 1,
   },
   demoBadge: {

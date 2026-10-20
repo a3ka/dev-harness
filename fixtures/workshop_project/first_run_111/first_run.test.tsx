@@ -4,7 +4,7 @@
 // клетка не сверяется значением, прочитанным у субъекта). Вход (провайдер
 // темы) — themeTokens 999; ожидание — токены-литералы source.json. К7:
 // мок-провайдер safe-area (SafeAreaInsetsContext) с литеральными insets.
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 
@@ -30,6 +30,17 @@ const DEMO = 'Demo';
 // из них красен на втором рендере клетки.
 const INSET_TOP_A = 47;
 const INSET_TOP_B = 59;
+// К8 (С10/Р2, ревью круга 3): кадры 995 (F03.01+, welcome) — поверхность
+// 995, не рестайлятся (frozen 111/1 стр. 41–42, 80–83 «Вне предмета»):
+// внешний корень PilotApp на них несёт литералы 995 — фон #FFFFFF и
+// отступы 48/16/16; {flex:1, ground} — только first-run (его судит К6).
+// Литералы — ожидания файла (поверхность 995), не значения субъекта
+// (Н-379/Н-383). WELCOME_SUMMARY — testID summary-узла кадра welcome.
+const SURFACE_995_BG = '#FFFFFF';
+const SURFACE_995_PAD_TOP = 48;
+const SURFACE_995_PAD_H = 16;
+const SURFACE_995_PAD_BOTTOM = 16;
+const WELCOME_SUMMARY = 'F02.01';
 // Канон D2.2.5.1 не объявляет усечённого набора краёв для First-Run:
 // действующая safe-area = все четыре края (кодировка нативного шва
 // react-native-safe-area-context: 'additive' = край защищён, 'off' = снят).
@@ -40,11 +51,11 @@ const EDGES_ALL_ACTIVE = {
   left: 'additive',
 };
 
-function ports() {
+function ports(verifyStatus: 'invalid' | 'authenticated' = 'invalid') {
   return {
     auth: {
       begin: jest.fn(async (email: string) => ({ challenge: email, evidence: 'SYNTHETIC' })),
-      verify: jest.fn(async () => ({ status: 'invalid', evidence: 'SYNTHETIC' })),
+      verify: jest.fn(async () => ({ status: verifyStatus, evidence: 'SYNTHETIC' })),
       resend: jest.fn(async () => ({ confirmed: true, evidence: 'SYNTHETIC' })),
       recover: jest.fn(async () => ({ status: 'unavailable', evidence: 'SYNTHETIC' })),
     },
@@ -65,11 +76,15 @@ function ports() {
 // safe-area-context 5.7: SafeAreaView применяет инсет нативно (в Jest не
 // наблюдаем), поэтому наблюдаемая кодировка честной модели — потребление
 // инсета через useSafeAreaInsets (дословно совет починки R1).
-async function renderFirstRun(scheme: ColorScheme, insetTop: number = INSET_TOP_A) {
+async function renderFirstRun(
+  scheme: ColorScheme,
+  insetTop: number = INSET_TOP_A,
+  verifyStatus: 'invalid' | 'authenticated' = 'invalid',
+) {
   return render(
     <SafeAreaInsetsContext.Provider value={{ top: insetTop, right: 0, bottom: 0, left: 0 }}>
       <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
-        <PilotApp {...ports()} />
+        <PilotApp {...ports(verifyStatus)} />
       </ThemeContext.Provider>
     </SafeAreaInsetsContext.Provider>,
   );
@@ -89,6 +104,12 @@ function backgroundOf(node: { props: { style?: unknown } }): unknown {
 
 function colorOf(node: { props: { style?: unknown } }): unknown {
   return styleOf(node).color;
+}
+
+// К8: внешний host-корень дерева PilotApp (Provider-обёртки — не host-узлы,
+// toJSON их не печатает; первый печатный узел = корень PilotApp).
+function hostRootOf(json: unknown): { type?: unknown; props: { style?: unknown } } {
+  return (Array.isArray(json) ? json[0] : json) as { type?: unknown; props: { style?: unknown } };
 }
 
 function textOf(node: { props: { children?: unknown } }): string {
@@ -282,6 +303,53 @@ describe('111 first-run', () => {
         // тест файла (замер: LIGHT-клетка краснела «Unable to find»).
         await cleanup();
       }
+    });
+  }
+
+  // К8 рестайл-страж кадров 995 (С10/Р2, ревью круга 3), произведение
+  // scheme(2): переход CTA (путь устройства из Р2) приводит в F03.01 —
+  // внешний корень PilotApp на кадре 995 несёт литералы поверхности 995:
+  // фон #FFFFFF и отступы 48/16/16. Рестайл круга 3 (ground на всех кадрах,
+  // root без отступов) красит в обеих схемах; К6 при этом зелёная —
+  // first-run-кадр не тронут. Мутанты: restyle-995-ground (merged-root,
+  // красит и К6 — отступки root проявляются на first-run),
+  // restyle-995-no-padding, restyle-995-padding-shifted, а
+  // restyle-welcome-ground красит ТОЛЬКО К8′.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`RESTYLE_GUARD_995_F03_01_${S}`, async () => {
+      const view = await renderFirstRun(scheme);
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      expect(screen.getByTestId('auth-email')).toBeOnTheScreen();
+      const root = hostRootOf(view.toJSON());
+      expect(root.type).toBe('View');
+      expect(backgroundOf(root)).toBe(SURFACE_995_BG);
+      const style = styleOf(root);
+      expect(style.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(style.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(style.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
+
+  // К8′ та же поверхность 995 на кадре welcome: полный поток
+  // (CTA → F03.01 → demo-entry → code → verify authenticated) — корень
+  // обязан остаться литералами 995. Welcome-only рестайл (ground только на
+  // welcome) красит ТОЛЬКО эту пару — К8 и К6 зелёны.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    it(`RESTYLE_GUARD_995_WELCOME_${S}`, async () => {
+      const view = await renderFirstRun(scheme, INSET_TOP_A, 'authenticated');
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      await fireEvent.press(await screen.findByTestId('auth-demo-entry'));
+      await fireEvent.press(await screen.findByTestId('auth-verify'));
+      await waitFor(() => expect(screen.getByTestId(WELCOME_SUMMARY)).toBeOnTheScreen());
+      const root = hostRootOf(view.toJSON());
+      expect(root.type).toBe('View');
+      expect(backgroundOf(root)).toBe(SURFACE_995_BG);
+      const style = styleOf(root);
+      expect(style.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(style.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(style.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
     });
   }
 });
