@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Контракт 112 — литеральный оракул полноты backend-канона (2030 §3)
-# и contextPack-строк стандартов (v2c, блокер критика круга v2).
+# и contextPack-строк стандартов (v2c, блокер критика круга v2; v2d —
+# блокер круга 2: fail-closed по форме, jq-ошибка не пропускается молча).
 #
 # Сверяет ДОСТАВЛЕННЫЙ профиль Complior-back (harness.project.json →
 # sourceCanon.sources + contextPack.rows) с обязательным перечнем
@@ -23,6 +24,10 @@
 # получает проверяющую rc-команду): судится НАЛИЧИЕ строки каждого стандарта,
 # mandatory:true и множество ролей {architect,implementer,reviewer,adversary};
 # kind/why — грамматика схемы 095 (резолвер), оракулом не судятся.
+# v2d: mandatory обязан быть BOOLEAN true, roles — СТРОКОЙ; значения иного
+# типа (массив/пустой массив/число/отсутствует) и нечитаемая структура
+# (rows не массив, элемент не объект, битый JSON) = contextpack-forma;
+# состав/регистр строкового множества ролей — contextpack-roli.
 #
 # Замкнутый алфавит причин:
 #   kanon-otsutstvuet — harness.project.json или sourceCanon.sources нет
@@ -32,6 +37,8 @@
 #   contextpack-nedostavlen — строка стандарта не доставлена в contextPack
 #   contextpack-mandatory   — строка стандарта есть, но mandatory ≠ true
 #   contextpack-roli        — множество ролей строки ≠ четырём ролям бэкенда
+#   contextpack-forma       — нечитаемая структура/jq-ошибка, mandatory не
+#                             boolean или roles не строка (v2d, маски формы)
 # rc: 0 — перечень совпал множеством и приоритетами, contextPack стандартов
 # доставлен (mandatory, роли); 1 — ≥1 именованный отказ; 2 — неправильный
 # вызов (нет --repo, нет jq, нет каталога).
@@ -91,14 +98,24 @@ if [ ! -f "$PROF" ]; then
   fail kanon-otsutstvuet "harness.project.json нет в $R"
   exit "$itog"
 fi
-n="$(jq -r '.sourceCanon.sources // [] | length' "$PROF" 2>/dev/null)"
+# v2d: на пути суждения нет 2>/dev/null — ошибка jq = именованный отказ
+n="$(jq -r '.sourceCanon.sources // [] | length' "$PROF" 2>&1)"
+if [ $? -ne 0 ]; then
+  fail kanon-otsutstvuet "sourceCanon.sources нечитаем: ${n%%$'\n'*}"
+  exit "$itog"
+fi
 if [ -z "$n" ] || [ "$n" = "0" ]; then
   fail kanon-otsutstvuet "sourceCanon.sources пуст/отсутствует"
   exit "$itog"
 fi
 
 req_paths="$(printf '%s\n' "$CANON" | awk -F'\t' 'NF==2{print $1}' | sort)"
-act_paths="$(jq -r '.sourceCanon.sources[].path' "$PROF" | sort)"
+act_raw="$(jq -r '.sourceCanon.sources[].path' "$PROF" 2>&1)"
+if [ $? -ne 0 ]; then
+  fail kanon-otsutstvuet "sourceCanon.sources нечитаем: ${act_raw%%$'\n'*}"
+  exit "$itog"
+fi
+act_paths="$(printf '%s\n' "$act_raw" | sort)"
 
 # недостающие (обязательный не объявлен)
 while IFS= read -r p; do
@@ -120,22 +137,39 @@ while IFS=$'\t' read -r p prio; do
   [ "$ap" = "$prio" ] || fail kanon-prioritet "$p: $ap, обязан $prio"
 done < <(printf '%s\n' "$CANON")
 
-# ── contextPack-строки стандартов (v2c; носитель литералов — CTXROWS, Н-351) ──
+# ── contextPack-строки стандартов (v2c; v2d — fail-closed; литералы — Н-351) ──
 CTXROWS='docs/ARCHITECTURE.md	architect,implementer,reviewer,adversary
 docs/CODING-STANDARDS.md	architect,implementer,reviewer,adversary'
 roli_norm() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/^ \+//; s/ \+$//' | sort | paste -sd, -; }
 while IFS=$'\t' read -r cpath croli; do
   [ -n "$cpath" ] || continue
-  cnt="$(jq -r --arg p "$cpath" '.contextPack.rows // [] | map(select(.path == $p)) | length' "$PROF" 2>/dev/null)"
-  if [ -z "$cnt" ] || [ "$cnt" = "0" ]; then
+  # v2d (блокер критика круга 2): одно rc-проверяемое чтение строк; @tsv
+  # получает ТОЛЬКО строки (типы mandatory/roles выведены колонками) —
+  # ошибка jq или нечитаемая структура = именованный отказ contextpack-forma,
+  # НИКОГДА молчаливый пропуск (старый @tsv по массиву roles падал rc 5 со
+  # скрытым stderr, цикл mandatory/roles получал ноль строк — профиль проходил).
+  rows="$(jq -r --arg p "$cpath" '.contextPack.rows // [] | map(select(.path == $p)) | .[] | [(.mandatory|type), (.mandatory|tostring), (.roles|type), (if (.roles|type)=="string" then .roles else (.roles|tojson) end)] | @tsv' "$PROF" 2>&1)"
+  if [ $? -ne 0 ]; then
+    fail contextpack-forma "$cpath: contextPack нечитаем: ${rows%%$'\n'*}"
+    continue
+  fi
+  if [ -z "$rows" ]; then
     fail contextpack-nedostavlen "$cpath"
     continue
   fi
-  while IFS=$'\t' read -r mand aroli; do
-    [ -n "$mand" ] || continue
+  while IFS=$'\t' read -r mtype mand rtype aroli; do
+    [ -n "$mtype" ] || continue
+    if [ "$mtype" != "boolean" ]; then
+      fail contextpack-forma "$cpath: mandatory тип $mtype (${mand:-null}), обязан boolean"
+      continue
+    fi
+    if [ "$rtype" != "string" ]; then
+      fail contextpack-forma "$cpath: roles тип $rtype ($aroli), обязан строка"
+      continue
+    fi
     [ "$mand" = "true" ] || fail contextpack-mandatory "$cpath: mandatory=$mand, обязан true"
     [ "$(roli_norm "$aroli")" = "$(roli_norm "$croli")" ] || fail contextpack-roli "$cpath: роли '$aroli', обязан набор architect,implementer,reviewer,adversary"
-  done < <(jq -r --arg p "$cpath" '.contextPack.rows // [] | map(select(.path == $p)) | .[] | [(.mandatory | tostring), (.roles // "")] | @tsv' "$PROF" 2>/dev/null)
+  done < <(printf '%s\n' "$rows")
 done < <(printf '%s\n' "$CTXROWS")
 
 exit "$itog"
