@@ -17,6 +17,13 @@
 //    продолжить). Порты StartScreen не расширяются: вне провайдера композер
 //    держит собственное состояние (экранная семья 324).
 //
+//  - Adv108r2/B-1 (круг 3): слот подаётся TabShell ВСЕГДА, без условия
+//    «вход через start». TabShell сам рендерит слот только в секции start;
+//    привязка слота к сегменту ВХОДА (start === 'start' ? … : undefined)
+//    при deep link из грамматики 999 (complior://vorgaenge?returnTo=start)
+//    или входе в другую секцию оставляет секции start один заголовок —
+//    без AgentPresence, композера, brief и resume.
+//
 //  - R108-6 (совет): хост секции — ИНЛАЙН в route-файле; отдельный файл
 //    хоста в src/app/ expo-router трактует как маршрут (/start-section),
 //    STRUCTURE.md:143 разрешает в app/ только файлы маршрутов.
@@ -132,11 +139,9 @@ export default function TabRoute() {
       initialSection={start}
       returnSection={ret}
       startScreen={
-        start === 'start' ? (
-          <StartDraftContext.Provider value={{ draft, setDraft }}>
-            <StartSectionHost reducedMotion={systemReduceMotion} />
-          </StartDraftContext.Provider>
-        ) : undefined
+        <StartDraftContext.Provider value={{ draft, setDraft }}>
+          <StartSectionHost reducedMotion={systemReduceMotion} />
+        </StartDraftContext.Provider>
       }
     />
   );
