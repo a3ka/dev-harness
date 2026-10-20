@@ -2994,12 +2994,13 @@ API_DB_URL_SUPERUSER = ('    DATABASE_URL: postgres://postgres:ci-synthetic-only
                         '@postgres:5432/complior\n      HOST: 0.0.0.0\n      PORT: "8080"')
 MIGRATOR_CMD_LINES = {
     # команда migrator в compose — якорь байт-в-байт к ЖИВОМУ дереву, не к карте:
-    # перебазированный продукт (604fad1b; rebase-fixup 0f25130 правил только
-    # комментарии) в НОВОЙ колонке всё ещё несёт «node infra/migrations/run.js»;
-    # расхождение команды с фактическим путём раннера (server/infrastructure/
-    # migrations/run.js) и bind-путей ../db, ../infra/migrations, ../backend
-    # с деревом ловится живым фактом STEND_UP_GUARD, а не молчанием якоря
-    LAYOUT_NEW: '    command: ["node", "infra/migrations/run.js"]\n',
+    # починенный продукт (b73ad11, CMP-BCK-004/stend) в НОВОЙ колонке несёт
+    # «node server/infrastructure/migrations/run.js» (= PATHS[LAYOUT_NEW]
+    # ['runner'] и scripts.migrate пакета; тома ./server/infrastructure/
+    # migrations, ./migrations, ./node_modules); СТАРАЯ колонка — прежние байты
+    # «node infra/migrations/run.js». Якорь обязан следовать живым байтам:
+    # расхождение с деревом — громкий NOOP_MUTATION (A-2), не молчание.
+    LAYOUT_NEW: '    command: ["node", "server/infrastructure/migrations/run.js"]\n',
     LAYOUT_OLD: '    command: ["node", "infra/migrations/run.js"]\n',
 }
 
@@ -3008,14 +3009,20 @@ def _js_fromchar(s):
     return 'String.fromCharCode(%s)' % ','.join(str(ord(c)) for c in s)
 
 
-M9_REWRITE_CMD = (
-    '    command: ["sh", "-c", "node infra/migrations/run.js && node -e '
-    "'const { Client } = require(%s); const c = new Client({ connectionString: "
-    'process.env.MIGRATION_DATABASE_URL }); c.connect().then(() => c.query(%s))'
-    ".then(() => c.end()).catch((e) => { console.error(e.message); "
-    "process.exit(1); })'\"]\n" % (
-        _js_fromchar('pg'),
-        _js_fromchar('UPDATE control.schema_migration SET applied_by=md5(applied_by)')))
+def m9_rewrite_cmd(layout):
+    """С7/M9: команда мутанта сохраняет ЖИВОЙ раннер раскладки
+    (PATHS[layout]['runner'] — мигратор обязан отработать, счёт остаётся 14)
+    и дописывает перезапись applied_by: редкость ловится сравнением
+    содержимого строк ledger между повторными up, а не падением migrator."""
+    return (
+        '    command: ["sh", "-c", "node %s && node -e '
+        "'const { Client } = require(%s); const c = new Client({ connectionString: "
+        'process.env.MIGRATION_DATABASE_URL }); c.connect().then(() => c.query(%s))'
+        ".then(() => c.end()).catch((e) => { console.error(e.message); "
+        "process.exit(1); })'\"]\n" % (
+            PATHS[layout]['runner'],
+            _js_fromchar('pg'),
+            _js_fromchar('UPDATE control.schema_migration SET applied_by=md5(applied_by)')))
 
 # честная ISO-валидация measured_at (модель круга 3) и дефектная ветвь d1cece28
 # (только непустота: «never»/«ok» проходят как MEASURED — F2')
@@ -3236,11 +3243,12 @@ def mut_stend_api_superuser_url(t):
 def mut_stend_ledger_rewritten(t):
     """С7/M9: каждый up переписывает ledger (applied_by=md5(applied_by)),
     count остаётся 14 — сравнение содержимого строк ловит подмену."""
+    lay = t.layout or LAYOUT_OLD
     b = t.get(t.p('compose'))
-    if not need(b) or MIGRATOR_CMD_LINES[t.layout or LAYOUT_OLD] not in b:
+    if not need(b) or MIGRATOR_CMD_LINES[lay] not in b:
         return None
-    return {t.p('compose'): b.replace(MIGRATOR_CMD_LINES[t.layout or LAYOUT_OLD],
-                                                 M9_REWRITE_CMD, 1)}
+    return {t.p('compose'): b.replace(MIGRATOR_CMD_LINES[lay],
+                                      m9_rewrite_cmd(lay), 1)}
 
 
 def mut_lane_dirty_checkout_ok(t):
