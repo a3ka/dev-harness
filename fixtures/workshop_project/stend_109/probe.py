@@ -169,12 +169,13 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       файл парсится как JSON (потребитель читает JSON.parse'ом), ответ
       измерен (status 200, маркер тела сохранён);
     - LANE_HYGIENE_GUARD (живой): lane stend109 (tools/run_backend_ci.py)
-      исполняется с COMPLIOR_STEND109_H_CHECKOUT на синтетический ЧИСТЫЙ
-      git-checkout с тегом frozen/contracts/109/1 (батарея-заглушка печатает
-      маркер, rc 0) — lane PASS; тот же checkout с НЕЗАКОММИЧЕННОЙ подменой
-      probe.py на sys.exit(0) — lane обязан отказать (rc ≠ 0): грязное
-      рабочее дерево H-checkout не исполняется как frozen-батарея (A2/С3).
-      NEEDS_ENV, если lane stend109 или git отсутствуют;
+      исполняется с COMPLIOR_STEND109_H_CHECKOUT на ЧИСТЫЙ git-checkout тега
+      frozen/contracts/109/2 (живая батарея тега; рекурсия погашена маркером
+      глубины STEND109_LANE_DEPTH — см. блок круга 4/v2 ниже) — lane PASS;
+      тот же checkout с НЕЗАКОММИЧЕННОЙ подменой probe.py на sys.exit(0) —
+      lane обязан отказать (rc ≠ 0): грязное рабочее дерево H-checkout не
+      исполняется как frozen-батарея (A2/С3). NEEDS_ENV, если lane stend109,
+      git или docker отсутствуют;
     - DRILL_INPUT_GUARD (расширен, F2'/С5): каждое измеренное поле портится
       В ОТДЕЛЬНОСТИ (остальные чисты): measured_at «never»/«ok»/не-ISO и
       отрицательные measured_rpo_minutes/measured_rto_minutes → rc ≠ 0 и в
@@ -219,12 +220,20 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       == 'NOT_RUN' (не заявление); два объектных входа {a:{x:1}}/{a:{y:2}} —
       input_hashes из файла РАЗЛИЧАЮТСЯ (каноническая форма не навязывается;
       I-7/I-8);
-    - LANE_HYGIENE_GUARD (переписан, A-8): lane stend109 судится на ЖИВОМ
-      H-checkout пина (clone тега frozen/contracts/109/1; HEAD == STEND109_PIN,
-      hash-object probe.py == блоб пина) и ROOT-дереве, где замороженная
-      батарея 109/1 зелёна (8aca71a): чистый — lane rc 0; три обхода —
-      незакоммиченная подмена probe.py, подмена под update-index
-      --assume-unchanged, коммит подмены + git tag -f — каждый rc ≠ 0 (I-5).
+    - LANE_HYGIENE_GUARD (переписан, A-8; v2 — форк n109-lane-v2): lane
+      stend109 судится на ЖИВОМ H-checkout пина (clone тега
+      frozen/contracts/109/2; HEAD == STEND109_PIN, hash-object probe.py ==
+      блоб пина) на дереве ПОД испытанием (HEAD; зелёный корень v1 8aca71a —
+      наследие v1): чистый — lane rc 0; три обхода — незакоммиченная подмена
+      probe.py, подмена под update-index --assume-unchanged, коммит подмены
+      + git tag -f — каждый rc ≠ 0 (I-5). Рекурсия lane→батарея v2→lane-факт
+      →lane разорвана маркером STEND109_LANE_DEPTH='1' от внешнего факта:
+      вложенный факт — зелёный пропуск (гигиену судит внешний); глубина ≥2 —
+      громкий красный «рекурсия lane-факта» сразу; незавершающийся прогон —
+      красный таймаутом run_lane (rc 124) за конечное время; клетка
+      lane_dirty_checkout_ok во вложенном прогоне — поименованный пропуск
+      SKIP_NESTED_DEPTH (судит внешний). Остаточный риск cognitive-only —
+      подмена env-маркера в CI.
   НОВЫЕ ФАКТЫ ЧЕРНОВИКА v2 (форк n109-krug4-fail, находки круга 4 adversary
   I-1/I-10; замороженный текст 109/1 меняется только перезаморозкой 109/2):
     - BACKEND_LINT_GUARD (живой, I-1): npm run -s lint (eslint . и
@@ -1918,24 +1927,72 @@ def async_pii_fact(repo, tree=None):
             'Set-Cookie-массив/multicookie/экранированная форма/литерал чисты, JSON цел'))
 
 
-LANE_FROZEN_TAG = 'frozen/contracts/109/1'
-# ROOT-дерево, на котором замороженная батарея 109/1 ЗЕЛЁНА (OBJECT круга 3;
-# CI круга 3 проходил на нём). На dd8e533 замороженная батарея красна — это
-# известный артефакт код-привязанной заморозки (С11 арбитража: закрытие —
-# перезаморозка 109/2, вопрос владельца), поэтому lane-факт берёт зелёный
-# ROOT из истории того же репо и не судит замороженную батарею на dd8e533.
-LANE_GREEN_ROOT = '8aca71aac5509abb0b1d825d3c808115a2648e88'
+LANE_FROZEN_TAG = 'frozen/contracts/109/2'
+# v2 (форк n109-lane-v2, рекомендация А): тег 109/2 указывает на батарею v2;
+# корень lane-прогона — дерево ПОД испытанием (HEAD продукта: батарея v2
+# зелёна на нём). Отдельный зелёный корень v1 (8aca71a) — наследие v1, где
+# замороженная 109/1 была зелёна только на старом дереве (С11 закрыт
+# перезаморозкой 109/2).
+#
+# Рекурсия lane → батарея v2 → lane-факт → lane … (в v1 вложенная батарея не
+# содержала lane-факта) разорвана МАРКЕРОМ ГЛУБИНЫ: внешний факт выставляет
+# '1' в окружении вложенного lane-запуска; вложенный lane-факт при маркере —
+# зелёный по построению (гигиену судит внешний факт), при глубине ≥2 —
+# громкий красный 'рекурсия lane-факта' сразу; прогон без маркера, не
+# завершающийся за бюджет run_lane, красен таймаутом за конечное время.
+# Остаточный риск (cognitive-only): подмена env-маркера в CI извне.
+LANE_DEPTH_MARKER = 'STEND109_LANE_DEPTH'
+
+
+def lane_depth_env():
+    """Числовая глубина LANE_DEPTH_MARKER для диспетчера клеток; мусорный
+    маркер трактуется как вложенный прогон (клетка lane-гигиены не судится —
+    её судит внешний факт; сама факт-ветка проверки при мусорном маркере
+    краснеет именованной причиной)."""
+    try:
+        return int(os.environ.get(LANE_DEPTH_MARKER, '0') or '0')
+    except ValueError:
+        return 1
 
 
 def lane_hygiene_fact(repo, tree=None):
-    """Гигиена H-checkout lane stend109 (A2/С3; круг 4 — A-8, I-5): lane судится
-    на ЖИВОМ пин-чекауте (локальный clone тега frozen/contracts/109/1 из
-    репозитория батареи: HEAD == STEND109_PIN, hash-object probe.py == блоб
-    пина) и на ROOT-дереве, где замороженная батарея зелёна. Чистый checkout —
-    lane rc 0; три обхода — незакоммиченная подмена probe.py (sys.exit(0)),
-    подмена под update-index --assume-unchanged (прячется от status
-    --porcelain, но не от hash-object), коммит подмены + git tag -f (дерево
-    чисто, тег переведён) — каждый обязан давать lane rc ≠ 0."""
+    """Гигиена H-checkout lane stend109 (A2/С3; круг 4 — A-8, I-5; v2 — форк
+    n109-lane-v2): lane судится на ЖИВОМ пин-чекауте (локальный clone тега
+    frozen/contracts/109/2 из репозитория батареи: HEAD == STEND109_PIN,
+    hash-object probe.py == блоб пина) на дереве ПОД испытанием (HEAD
+    продукта). Чистый checkout — lane rc 0; три обхода — незакоммиченная
+    подмена probe.py (sys.exit(0)), подмена под update-index
+    --assume-unchanged (прячется от status --porcelain, но не от
+    hash-object), коммит подмены + git tag -f (дерево чисто, тег переведён)
+    — каждый обязан давать lane rc ≠ 0. Рекурсия (lane на H = батарея v2
+    запускает ту же пробу с lane-фактом) разорвана маркером глубины
+    LANE_DEPTH_MARKER (Н-39, привязка стаб↔ветвь в коде): внешний факт
+    выставляет '1' в окружении вложенного lane-запуска — вложенный факт
+    возвращает зелёный пропуск (гигиену судит внешний); прямой вызов
+    frozen-пробы с маркером '2' — громкий красный 'рекурсия lane-факта'
+    сразу; прогон без маркера, не завершающийся за бюджет run_lane, красен
+    таймаутом (rc 124) за конечное время. Остаточный риск (cognitive-only):
+    подмена env-маркера в CI — контролирующий окружение способен снять
+    защиту; отдельного ловца нет, среда CI считается доверенной."""
+    # v2: маркер глубины проверяется ПЕРВОЙ ветвью — до docker/тега/clone:
+    # вложенный прогон не должен порождать новые lane-запуски ни при каком
+    # NEEDS/ошибочном окружении
+    raw_depth = os.environ.get(LANE_DEPTH_MARKER, '').strip()
+    if raw_depth:
+        try:
+            depth = int(raw_depth)
+        except ValueError:
+            return (False, '%s=%r не целое — маркер глубины испорчен '
+                           '(остаточный риск cognitive-only: подмена '
+                           'окружения)' % (LANE_DEPTH_MARKER, raw_depth))
+        if depth >= 2:
+            return (False, 'рекурсия lane-факта: %s=%d — внешний lane-факт '
+                           'не выставил/продублировал маркер глубины'
+                    % (LANE_DEPTH_MARKER, depth))
+        if depth == 1:
+            return (True, 'вложенный прогон: lane-факт пропущен внешним '
+                          'фактом (%s=1)' % LANE_DEPTH_MARKER)
+        # '0' и отрицательные — полный прогон (маркер «вне глубины»)
     tree = tree or Tree(repo)
     lane = tree.get('tools/run_backend_ci.py')
     if lane is None or 'stend109' not in lane:
@@ -1960,12 +2017,10 @@ def lane_hygiene_fact(repo, tree=None):
         return (None, 'NEEDS_ENV: тег %s отсутствует в %s — пин-чекаут H '
                       'не собирается' % (LANE_FROZEN_TAG, devharness))
     pin_sha = (have_tag.stdout or '').strip()
-    root_commit = LANE_GREEN_ROOT
-    have_root = subprocess.run(
-        ['git', '-C', str(repo), 'cat-file', '-e', root_commit + '^{commit}'],
-        capture_output=True)
-    if have_root.returncode != 0:
-        root_commit = 'HEAD'
+    # v2 (форк n109-lane-v2): корень lane-прогона — дерево ПОД испытанием
+    # (HEAD): батарея v2 зелёна на нём; зелёный корень v1 (8aca71a) был
+    # нужен только замороженной 109/1 (С11 закрыт перезаморозкой 109/2)
+    root_commit = 'HEAD'
     nm_src = Path(repo) / 'backend' / 'node_modules'
     if not (nm_src / 'pg').is_dir():
         return (None, 'NEEDS_ENV: backend/node_modules/pg в %s отсутствует — '
@@ -1986,6 +2041,24 @@ def lane_hygiene_fact(repo, tree=None):
                 root_commit, arc.returncode, (arc.stderr or '')[:120]))
         (lane_repo / 'tools').mkdir(parents=True, exist_ok=True)
         (lane_repo / 'tools' / 'run_backend_ci.py').write_text(lane, encoding='utf-8')
+
+        # v2: вложенной батарее нужен git-оракул — FILES_SHA256_GUARD читает
+        # 'HEAD:<rel>' блобы, _head_worktree делает git archive HEAD, а
+        # git archive не несёт .git. Материализуем извлечённое дерево ЕДИНЫМ
+        # коммитом (изоляция: lane_repo в tmpdir, репо продукта не мутируется;
+        # коммит содержит оверлей lane-скрипта — мутант честно красит FILES_SHA)
+        for a_ in (['init', '-q'], ['add', '-A'],
+                   ['-c', 'user.name=stend109-lane',
+                    '-c', 'user.email=stend109-lane@dev-harness.local',
+                    'commit', '-q', '-m', 'stend109: lane tree under test']):
+            g_ = subprocess.run(['git', '-C', str(lane_repo)] + a_,
+                                capture_output=True, text=True, timeout=180)
+            if g_.returncode != 0:
+                return (False, 'lane_repo git %s: rc=%d %s' % (
+                    a_[0], g_.returncode, (g_.stderr or '')[:120]))
+        # node_modules-симлинк — ПОСЛЕ коммита (в реальном репо untracked):
+        # archive HEAD с симлинком в дереве ломает вложенную _head_worktree
+        # (повторный os.symlink → FileExistsError, измерено на repro)
         os.symlink(str(nm_src), str(lane_repo / 'backend' / 'node_modules'))
         # H: пин-чекаут замороженного тега (HEAD == пину по построению клона)
         h = Path(tmp) / 'h'
@@ -1998,23 +2071,62 @@ def lane_hygiene_fact(repo, tree=None):
                 LANE_FROZEN_TAG, clone.returncode, (clone.stderr or '')[:120]))
         probe_rel = 'fixtures/workshop_project/stend_109/probe.py'
         probe = h / 'fixtures' / 'workshop_project' / 'stend_109' / 'probe.py'
-        env = dict(os.environ, COMPLIOR_STEND109_H_CHECKOUT=str(h))
+        # v2: маркер глубины '1' — вложенный lane-запуск гасит рекурсию:
+        # батарея из H видит маркер и пропускает свой lane-факт (зелёный
+        # по построению), гигиену судит ЭТОТ внешний факт
+        env = dict(os.environ, COMPLIOR_STEND109_H_CHECKOUT=str(h),
+                   **{LANE_DEPTH_MARKER: '1'})
 
         def git_h(*a):
             return subprocess.run(['git', '-C', str(h)] + list(a),
                                   capture_output=True, text=True, timeout=60)
 
         def run_lane(tag_):
-            r_ = subprocess.run(
-                [sys.executable, str(lane_repo / 'tools' / 'run_backend_ci.py'),
-                 '--lane', 'stend109', '--out', str(Path(tmp) / ('laneout-' + tag_))],
-                capture_output=True, text=True, timeout=420, env=env, cwd=str(lane_repo))
-            return r_
+            # v2: рекурсия lane→батарея→lane-факт→lane разорвана маркером
+            # LANE_DEPTH_MARKER='1' (см. env). Если frozen-батарея маркер НЕ
+            # выставляет (дефект), вложенный прогон не завершается —
+            # таймаут даёт красный ЗА КОНЕЧНОЕ ВРЕМЯ (rc 124, как у
+            # coreutils timeout), а не падение пробы исключением
+            argv_ = [sys.executable, str(lane_repo / 'tools' / 'run_backend_ci.py'),
+                     '--lane', 'stend109', '--out', str(Path(tmp) / ('laneout-' + tag_))]
+            try:
+                return subprocess.run(argv_, capture_output=True, text=True,
+                                       timeout=900, env=env, cwd=str(lane_repo))
+            except subprocess.TimeoutExpired:
+                return subprocess.CompletedProcess(
+                    argv_, 124, '',
+                    'таймаут 900 c: вложенный lane не завершается '
+                    '(рекурсия lane-факта — маркер глубины не выставлен?)')
 
         clean = run_lane('clean')
         oks.append(clean.returncode == 0)
         notes.append('чистый пин-чекаут: lane rc=%d %s' % (
             clean.returncode, (clean.stderr or '').strip()[:80]))
+        # v2, красное предъявление маркера глубины (Н-39, привязка к ветвям
+        # проверки): прямой вызов frozen-пробы из h — (1) маркер '1' обязан
+        # давать зелёный-пропуск вложенного прогона, (2) маркер '2' — ГРОМКИЙ
+        # красный 'рекурсия lane-факта' СРАЗУ (конечное время). Если frozen-
+        # батарея маркер не понимает, вызов уходит в полную гигиену и убивается
+        # таймаутом контроля — контроль красный (пропуск не сработал)
+        drv = ('import sys; sys.path.insert(0, sys.argv[1]); import probe; '
+               'v, n = probe.lane_hygiene_fact(sys.argv[2]); '
+               'print(v); print(n); sys.exit(0 if v is True else 1)')
+        for mk_, rc_, tok_ in (('1', 0, 'вложенный прогон'),
+                               ('2', 1, 'рекурсия lane-факта')):
+            c_, ok_, head_ = None, False, 'таймаут 60 c'
+            try:
+                c_ = subprocess.run(
+                    [sys.executable, '-c', drv, str(probe.parent), str(h)],
+                    capture_output=True, text=True, timeout=60,
+                    env=dict(os.environ, **{LANE_DEPTH_MARKER: mk_}))
+                head_ = (c_.stdout or '').split('\n')[0].strip()
+                ok_ = c_.returncode == rc_ and tok_ in (c_.stdout or '')
+            except subprocess.TimeoutExpired:
+                pass
+            oks.append(ok_)
+            notes.append('маркер %s=%s: rc=%s %s' % (
+                LANE_DEPTH_MARKER, mk_,
+                c_.returncode if c_ is not None else 'timeout', head_[:60]))
         sub = 'import sys; sys.exit(0)\n'
         # обход 1 (A2 круга 2): незакоммиченная подмена probe.py
         probe.write_text(sub, encoding='utf-8')
@@ -3237,6 +3349,14 @@ def run_case(repo, name, base_fired, base_facts_red):
             return {'name': name, 'target': target, 'applied': True,
                     'verdict': 'BLOCKED_BY_RED_CONTROL', 'depends': [],
                     'note': 'цель мутанта уже красна на базе (дефект дерева)'}
+        if target == 'LANE_HYGIENE_GUARD' and lane_depth_env() >= 1:
+            # v2: вложенный (внутри lane-факта) прогон батареи НЕ судит
+            # lane-гигиену — её судит ВНЕШНИЙ факт (маркер глубины); клетка
+            # не красна и не зелена — поименованный пропуск, не NOT_REJECTED
+            return {'name': name, 'target': target, 'applied': True,
+                    'verdict': 'SKIP_NESTED_DEPTH', 'depends': [],
+                    'note': 'вложенный прогон (%s≥1): lane-гигиена судится '
+                            'внешним lane-фактом' % LANE_DEPTH_MARKER}
         newly = {target} if mut_v is False else set()
         return {'name': name, 'target': target, 'applied': True,
                 'verdict': 'REJECTED_EXACT' if newly == {target} else 'NOT_REJECTED',
