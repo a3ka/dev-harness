@@ -271,6 +271,21 @@ charter_diff_paths() {
 
 # ── разрешение обязано лежать в ТОМ ЖЕ коммите ────────────────────────────────
 # Разбор — по образцу `excuse_for()`: путь в кавычках либо до первого пробела, остаток — причина.
+# Кеш тел коммитов: при наличии `__CH_BODY_CACHE` (асс. массив) тело коммита
+# читается через `git log -1` ровно один раз на коммит (быстрый режим варианта (в)
+# вызывает razreshil для каждой (commit, charter-path) пары; один коммит может
+# встретиться с РАЗНЫМИ путями — кеш сокращает повторные subprocess-вызовы).
+__ch_raz_body() {  # <коммит> → текст тела (или пусто при ошибке)
+  local c="$1"
+  if [ -n "${__CH_BODY_CACHE[$c]+set}" ]; then
+    printf '%s' "${__CH_BODY_CACHE[$c]}"
+    return 0
+  fi
+  local body
+  body="$(g log -1 --format=%B "$c" 2>/dev/null)"
+  __CH_BODY_CACHE["$c"]="$body"
+  printf '%s' "$body"
+}
 razreshil() {  # <коммит> <путь> → 0, если разрешение выдано ИМЕННО этим коммитом
   local c="$1" p="$2"
 
@@ -350,7 +365,7 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
   esac
 
   local body line path reason
-  body="$(g log -1 --format=%B "$c")"
+  body="$(__ch_raz_body "$c")"
   while IFS= read -r line; do
     if [ "${line:0:1}" = '"' ]; then
       path="${line:1}"; path="${path%%\"*}"
@@ -391,10 +406,28 @@ if [ "${CHARTER_LIB:-}" = "1" ]; then
   return 0 2>/dev/null || exit 0
 fi
 
+# Режимы (контракт 113, инв. 1): `--oracle <корень>` — ПРЕСЛОВУТЫЙ ПОЛНЫЙ ОБХОД
+# (бывшая единственная семантика; эталон дифференциала, инструмент судей/аудита);
+# умолчание и `--incr <кеш>` — БЫСТРЫЙ режим (вариант (в): одиночный
+# `git log --name-only --no-renames --diff-filter=MD --diff-merges=first-parent`).
+# `--oracle` снимается ДО разбора `--incr` (ордера не смешиваются: `--oracle`
+# читает всю историю — окно кеша к нему не применяется; хук check_staged и CI
+# legkij-лейн зовут барьер БЕЗ `--oracle` и БЕЗ пересечения).
+ORACLE=0
+__charter_args=()
+for __arg in "$@"; do
+  case "$__arg" in
+    --oracle) ORACLE=1 ;;
+    *)         __charter_args+=("$__arg") ;;
+  esac
+done
+set -- "${__charter_args[@]}"
+unset __charter_args __arg
+
 # Разбор `--incr <кеш>` из аргументов. Кеш-отказ — именованный rc 1.
 # Грамматика `--incr` (включая (в′) — кеш сторонней линии) живёт В lib_incr.sh
 # (контракт 083, инв. 6: «грамматика живёт в scripts/lib_incr.sh, чеки несут
-# её побайтово через вызов библиотеки; переизобретение в каждом чеке — провал»).
+# её побайтово через вызов библиотеки; переизобретение в чеке = провал»).
 # Раньше здесь был локальный pre-parse для ветви (в′) — убран: incr_parse теперь
 # сам обрабатывает (в′) (полный прогон с маркером, INCR_CACHE сохраняется для
 # incr_finish — сеяние свой линии на зелёном).
@@ -472,65 +505,195 @@ while IFS= read -r f; do
 done < "$TMP/docs"
 
 # ── обход ─────────────────────────────────────────────────────────────────────
+# Два режима (контракт 113, инвариант 1): `--oracle` — побайтово прежний обход
+# (полный О(уставные пары × коммиты), эталон дифференциала и судей; вызовы
+# приёмки `_krasnye_113.sh` через `--oracle`); умолчание/быстрый — вариант (в):
+# одиночный `git log --name-only --no-renames --diff-filter=MD
+# --diff-merges=first-parent HEAD` с матчингом per-document (зеркало 083:
+# окно кеша ПО ДОКУМЕНТУ, глобальная обрезка запрещена). Общая пред-разведка
+# (пары, реестр, ustav/1) — выше, без изменений: она ОБЩАЯ для обоих режимов.
 docs=0; changes=0; excused=0
-while IFS=$'\t' read -r f since; do
-  [ -n "$f" ] || continue
-  docs=$((docs + 1))
-  doc_fails_before="$fails"
-  # В incr-режиме (контракт 083, инв. 6) кеш = последний проверенный sha, и судимое
-  # окно сужается до cache..HEAD. Полнота проверки та же — для каждого коммита
-  # в окне проверяется та же логика, что и в полном режиме. «Since» уступает
-  # место кешу, чтобы не смотреть заново уже проверенную историю.
-  if [ "${INCR_MODE:-full}" = "incr" ]; then
-    # Н-?? (контракт 083): since — ПЕРВАЯ заморозка ЭТОГО файла, INCR_BASE — общий
-    # кеш чека. Если файл заморожен ПОСЛЕ кеша (since НЕ предок INCR_BASE), окно
-    # обязано начинаться с заморозки, а не с кеша — иначе черновые commits ДО
-    # заморозки попадут в проверяемое окно как «уставные без разрешения».
-    if g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
-      since="$INCR_BASE"
+if [ "$ORACLE" = "1" ]; then
+  # ── оракул: побайтово прежний (медленный) цикл по парам × коммиты ──
+  while IFS=$'\t' read -r f since; do
+    [ -n "$f" ] || continue
+    docs=$((docs + 1))
+    doc_fails_before="$fails"
+    # В incr-режиме (контракт 083, инв. 6) кеш = последний проверенный sha, и судимое
+    # окно сужается до cache..HEAD. Полнота проверки та же — для каждого коммита
+    # в окне проверяется та же логика, что и в полном режиме. «Since» уступает
+    # место кешу, чтобы не смотреть заново уже проверенную историю.
+    if [ "${INCR_MODE:-full}" = "incr" ]; then
+      # Н-?? (контракт 083): since — ПЕРВАЯ заморозка ЭТОГО файла, INCR_BASE — общий
+      # кеш чека. Если файл заморожен ПОСЛЕ кеша (since НЕ предок INCR_BASE), окно
+      # обязано начинаться с заморозки, а не с кеша — иначе черновые commits ДО
+      # заморозки попадут в проверяемое окно как «уставные без разрешения».
+      if g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
+        since="$INCR_BASE"
+      fi
     fi
-  fi
-  # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
-  # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
-  # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
-  # `diff-tree <c>`).
-  # Ошибка rev-list — именованный FAIL, не пустой диапазон: непрочитанная история не равна
-  # истории без нарушений (аудит 2026-10-16, тот же класс, что fail-open pre-push 9b14bac6).
-  rl_rc=0
-  g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rl_rc=$?
-  if [ "$rl_rc" -ne 0 ]; then
-    bad "$f — история $since..HEAD не читается (rev-list rc=$rl_rc): проверить невозможно — git fetch и повтор"
-    continue
-  fi
-  while IFS= read -r c; do
-    [ -n "$c" ] || continue
-    # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
-    # есть мера меняла бы результат от настроек читателя.
-    # Ошибка diff-tree — именованный FAIL, не «файл не менялся»: непрочитанная
-    # дельта коммита не равна отсутствию изменений (контракт 992).
-    dt_rc=0
-    charter_diff_paths "$c" "$ROOT" > "$TMP/dpaths" 2>/dev/null || dt_rc=$?
-    if [ "$dt_rc" -ne 0 ]; then
-      bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
+    # Все коммиты ВКЛЮЧАЯ merge (И-7). Удалён `--no-merges` — merge-коммит, вносящий уставную
+    # дельту ТОЛЬКО в результат слияния, теперь судим по diff с ПЕРВЫМ родителем через
+    # charter_diff_paths (там явный `<merge>^1 <merge>`; для не-merge это эквивалент
+    # `diff-tree <c>`).
+    # Ошибка rev-list — именованный FAIL, не пустой диапазон: непрочитанная история не равна
+    # истории без нарушений (аудит 2026-10-16, тот же класс, что fail-open pre-push 9b14bac6).
+    rl_rc=0
+    g rev-list "$since..HEAD" > "$TMP/commits" 2>/dev/null || rl_rc=$?
+    if [ "$rl_rc" -ne 0 ]; then
+      bad "$f — история $since..HEAD не читается (rev-list rc=$rl_rc): проверить невозможно — git fetch и повтор"
       continue
     fi
-    grep -qxF -- "$f" "$TMP/dpaths" || continue
-    changes=$((changes + 1))
-    if razreshil "$c" "$f"; then
-      excused=$((excused + 1))
-      ok "уставной документ изменён с разрешения владельца: $f в ${c:0:8}"
-    else
-      bad "уставной документ изменён без разрешения владельца: $f в ${c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $f <причина>» в первой колонке"
+    while IFS= read -r c; do
+      [ -n "$c" ] || continue
+      # `--no-renames` намеренно: иначе вердикт зависел бы от `diff.renames` в конфиге машины, то
+      # есть мера меняла бы результат от настроек читателя.
+      # Ошибка diff-tree — именованный FAIL, не «файл не менялся»: непрочитанная
+      # дельта коммита не равна отсутствию изменений (контракт 992).
+      dt_rc=0
+      charter_diff_paths "$c" "$ROOT" > "$TMP/dpaths" 2>/dev/null || dt_rc=$?
+      if [ "$dt_rc" -ne 0 ]; then
+        bad "$f — дельта коммита ${c:0:8} не читается (diff-tree rc=$dt_rc): проверить невозможно — git fsck и повтор"
+        continue
+      fi
+      grep -qxF -- "$f" "$TMP/dpaths" || continue
+      changes=$((changes + 1))
+      if razreshil "$c" "$f"; then
+        excused=$((excused + 1))
+        ok "уставной документ изменён с разрешения владельца: $f в ${c:0:8}"
+      else
+        bad "уставной документ изменён без разрешения владельца: $f в ${c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $f <причина>» в первой колонке"
+      fi
+    done < "$TMP/commits"
+    # Зелёное НАЗЫВАЕТСЯ, и с числом просмотренных коммитов. Барьер, молча проходящий по уставному
+    # документу, не даёт доказательств, ЧТО он проверил: молчаливое зелёное неотличимо от барьера,
+    # который файл вовсе не увидел, — и это класс пусто-зелёного, а не мелочь оформления.
+    scanned="$(wc -l < "$TMP/commits" | tr -d ' ')"
+    if [ "$fails" -eq "$doc_fails_before" ]; then
+      ok "$f — уставной с $since, коммитов в диапазоне $scanned, изменений без разрешения нет"
     fi
-  done < "$TMP/commits"
-  # Зелёное НАЗЫВАЕТСЯ, и с числом просмотренных коммитов. Барьер, молча проходящий по уставному
-  # документу, не даёт доказательств, ЧТО он проверил: молчаливое зелёное неотличимо от барьера,
-  # который файл вовсе не увидел, — и это класс пусто-зелёного, а не мелочь оформления.
-  scanned="$(wc -l < "$TMP/commits" | tr -d ' ')"
-  if [ "$fails" -eq "$doc_fails_before" ]; then
-    ok "$f — уставной с $since, коммитов в диапазоне $scanned, изменений без разрешения нет"
+  done < "$TMP/pairs"
+else
+  # ── быстрый режим (вариант (в), контракт 113) ─────────────────────────
+  # Один проход `git log` со штатными флагами mergediff/renames/filter
+  # строится ровно один раз и используется всеми документами; маркер `\x01`
+  # (SOH) — имя пути с control-символом невозможно в git, поэтому строка-маркер
+  # коммита неотличима от имени файла только для сломанного дерева.
+  declare -A __CH_BODY_CACHE=()  # SHA → тело коммита (см. __ch_raz_body): кеш на весь прогон
+  declare -A __ch_doc_eff=()    # путь → эффективная since (с подменой INCR_BASE там, где законно)
+  declare -A __ch_doc_changes=()
+  declare -A __ch_doc_excused=()
+  declare -A __ch_doc_failed=()
+  declare -A __ch_eff_scanned=()
+  # 1. Карта документ → эффективная since (per-document incr-подмена, инв. 3):
+  #    «Since» — ПЕРВАЯ заморозка ЭТОГО файла; INCR_BASE — общий кеш чека.
+  #    Если файл заморожен ДО кеша (since — предок INCR_BASE), окно сужается
+  #    до кеша; иначе остаётся since (черновики ДО заморозки не попадают в
+  #    проверяемое окно как «уставные без разрешения» — прецедент 083 И-15).
+  while IFS=$'\t' read -r f since; do
+    [ -n "$f" ] || continue
+    docs=$((docs + 1))
+    eff="$since"
+    if [ "${INCR_MODE:-full}" = "incr" ] \
+       && g merge-base --is-ancestor "$since" "$INCR_BASE" 2>/dev/null; then
+      eff="$INCR_BASE"
+    fi
+    __ch_doc_eff["$f"]="$eff"
+  done < "$TMP/pairs"
+  # 2. Счётчики «коммитов в диапазоне» по эффективной since — кешируются, чтобы
+  #    одна rev-list на уникальную since, а не на каждый документ (на живой
+  #    истории это сокращает сотни вызовов до десятков).
+  for __ch_eff in "${__ch_doc_eff[@]}"; do
+    [ -n "${__ch_eff_scanned[$__ch_eff]+set}" ] && continue
+    __ch_eff_scanned["$__ch_eff"]="$(g rev-list --count "${__ch_eff}..HEAD" 2>/dev/null || echo 0)"
+  done
+  __ch_eff="$__ch_eff"  # no-op для SC2155: переменная осознанно используется только в printf
+  # 3. Одиночный проход истории. Ошибка `git log` — именованный FAIL, не
+  #    молчаливое зелёное: непрочитанная история не равна истории без нарушений
+  #    (контракт 992); ok-строки с числом просмотренного (В-клетка + обманка
+  #    s8) ниже выдаются ИЗ посчитанной $TMP/commits, не из этого прохода.
+  __ch_lr=0
+  # На холодном клоне \`merge-base --is-ancestor\` без commit-graph обходит
+  # дерево за O(depth); при 5286 коммитах это ~80 мс на вызов, а вызовов —
+  # сотни. Прецедент \`git commit-graph write --reachable\` даёт O(1) ancestry,
+  # удерживая быстрый режим в бюджете В-клетки 60 с на свежем локальном
+  # клоне. Если запись не нужна (нас уже индексирует main) — git сам
+  # завершает её быстро (no-op на уже-индексированном объекте).
+  g commit-graph write --reachable 2>/dev/null || true
+  g log --format=$'\x01%H' --name-only \
+      --no-renames --diff-filter=MD --diff-merges=first-parent HEAD \
+      > "$TMP/log-data" 2>/dev/null || __ch_lr=$?
+  : > "$TMP/__ch_match_data"  # (commit<TAB>path) — для отладки, в verdicts не используется
+  if [ "$__ch_lr" -ne 0 ]; then
+    bad "история не читается (git log rc=$__ch_lr): проверить невозможно — git fsck и повтор"
+  else
+    __ch_c=""
+    while IFS= read -r __ch_line; do
+      case "$__ch_line" in
+        $'\x01'*)
+          __ch_c="${__ch_line#$'\x01'}"
+          [ "${#__ch_c}" -eq 40 ] || __ch_c=""
+          ;;
+        "") ;;
+        *)
+          [ -n "$__ch_c" ] || continue
+          __ch_p="$__ch_line"
+          __ch_eff="${__ch_doc_eff[$__ch_p]:-}"
+          [ -n "$__ch_eff" ] || continue   # путь не уставной — пропускаем без шума
+          # Включаем матч (commit, документ), если commit НЕ предок eff
+          # (т.е. commit принадлежит диапазону eff..HEAD, который проверял старый
+          # обход через `rev-list eff..HEAD`). Прецедент: direction merge-base
+          # проверялась живьём (контроль честности s7/d8 в клетках батареи 113);
+          # тут — зеркало клетки st113_sudim_default() в
+          # `fixtures/charter_fast_113/_karkas_staba.sh`.
+          # Корректность (для предков в терминах git = ancestors):
+          #   c ∈ [eff..HEAD] ⟺ (ancestors(HEAD) \ ancestors(eff)) ∋ c.
+          # reachable-from-H для коммитов из git log всегда true; остаётся
+          # ¬ancestor(eff, c) ⟺ merge-base --is-ancestor c eff возвращает rc!=0.
+          # Итого: пропускаем (continue) iff c — предок eff (т.е. commit был ДО
+          # since, не наш случай).
+          __ch_anc=0
+          if g merge-base --is-ancestor "$__ch_c" "$__ch_eff" 2>/dev/null; then __ch_anc=1; fi
+          if [ "$__ch_anc" = "1" ]; then
+            continue
+          fi
+          unset __ch_anc
+          printf '%s\t%s\n' "$__ch_c" "$__ch_p" >> "$TMP/__ch_match_data"
+          __ch_doc_changes["$__ch_p"]=$(( ${__ch_doc_changes["$__ch_p"]:-0} + 1 ))
+          if razreshil "$__ch_c" "$__ch_p"; then
+            __ch_doc_excused["$__ch_p"]=$(( ${__ch_doc_excused["$__ch_p"]:-0} + 1 ))
+            ok "уставной документ изменён с разрешения владельца: $__ch_p в ${__ch_c:0:8}"
+          else
+            __ch_doc_failed["$__ch_p"]=1
+            bad "уставной документ изменён без разрешения владельца: $__ch_p в ${__ch_c:0:8} — тело коммита обязано нести строку «РАЗРЕШИЛ-ВЛАДЕЛЕЦ: $__ch_p <причина>» в первой колонке"
+          fi
+          ;;
+      esac
+    done < "$TMP/log-data"
   fi
-done < "$TMP/pairs"
+  unset __ch_c __ch_line __ch_p __ch_eff __ch_lr
+  # 4. Зелёные ОК с числом просмотренного — барьер, молча проходящий по уставному
+  #    документу, не даёт доказательств, ЧТО он проверил (прецедент В-клетки +
+  #    обманка s8). Счётчик берётся из посчитанного `rev-list --count` (зеркало
+  #    wc -l < rev-list $since..HEAD оракула); per-doc — один ОК при отсутствии
+  #    FAIL на документе.
+  __ch_total_changes=0
+  __ch_total_excused=0
+  while IFS=$'\t' read -r f since; do
+    [ -n "$f" ] || continue
+    __ch_eff="${__ch_doc_eff[$f]:-}"
+    [ -n "$__ch_eff" ] || continue
+    __ch_scanned="${__ch_eff_scanned[$__ch_eff]:-0}"
+    __ch_total_changes=$((__ch_total_changes + ${__ch_doc_changes[$f]:-0}))
+    __ch_total_excused=$((__ch_total_excused + ${__ch_doc_excused[$f]:-0}))
+    changes=$((changes + ${__ch_doc_changes[$f]:-0}))
+    excused=$((excused + ${__ch_doc_excused[$f]:-0}))
+    if [ -z "${__ch_doc_failed[$f]+set}" ]; then
+      ok "$f — уставной с $__ch_eff, коммитов в диапазоне $__ch_scanned, изменений без разрешения нет"
+    fi
+  done < "$TMP/pairs"
+  unset __ch_eff __ch_scanned __ch_total_changes __ch_total_excused
+fi
 
 printf '\nуставных документов: %d · изменений в них: %d · с разрешения: %d\n' \
   "$docs" "$changes" "$excused" >&2
