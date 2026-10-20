@@ -304,8 +304,11 @@ PATHS = {
         'pkg_root': '', 'compose': 'compose.dev.yml', 'pkg': 'package.json',
         'harness': 'tests/helpers/harness.js', 'integ_dir': 'tests/integration',
         'scripts_dir': 'tests/tools', 'lane': 'tests/tools/run_backend_ci.py',
-        'db_dir': 'migrations', 'runner': 'server/infrastructure/run.js',
-        'manifest': 'server/infrastructure/manifest.json',
+        'db_dir': 'migrations',
+        # 604fad1b/11432a3: run.js:10 «server/infrastructure/migrations/
+        # manifest.json», package.json scripts.migrate — тот же каталог
+        'runner': 'server/infrastructure/migrations/run.js',
+        'manifest': 'server/infrastructure/migrations/manifest.json',
         'node_modules': 'node_modules',
         'root_server': 'tests/historical-server',
     },
@@ -2985,10 +2988,13 @@ API_DB_URL_BLOCK = ('    DATABASE_URL: postgres://hc_synthetic_only:synthetic'
 API_DB_URL_SUPERUSER = ('    DATABASE_URL: postgres://postgres:ci-synthetic-only'
                         '@postgres:5432/complior\n      HOST: 0.0.0.0\n      PORT: "8080"')
 MIGRATOR_CMD_LINES = {
-    # команда migrator в compose: колонка структуры задаёт путь раннера
-    # (новая — server/infrastructure/run.js, старая — infra/migrations/run.js);
-    # якорь байт-в-байт к команде СВОЕЙ колонки
-    LAYOUT_NEW: '    command: ["node", "server/infrastructure/run.js"]\n',
+    # команда migrator в compose — якорь байт-в-байт к ЖИВОМУ дереву, не к карте:
+    # перебазированный продукт (604fad1b; rebase-fixup 0f25130 правил только
+    # комментарии) в НОВОЙ колонке всё ещё несёт «node infra/migrations/run.js»;
+    # расхождение команды с фактическим путём раннера (server/infrastructure/
+    # migrations/run.js) и bind-путей ../db, ../infra/migrations, ../backend
+    # с деревом ловится живым фактом STEND_UP_GUARD, а не молчанием якоря
+    LAYOUT_NEW: '    command: ["node", "infra/migrations/run.js"]\n',
     LAYOUT_OLD: '    command: ["node", "infra/migrations/run.js"]\n',
 }
 
