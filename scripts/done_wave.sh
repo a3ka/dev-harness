@@ -16,6 +16,11 @@
 # из HEAD-блобов: незакоммиченная правка любого источника — не доказательство.
 # Членство — канонический plan_parse из scripts/lib_plan.sh (второго парсера нет);
 # путь реестра — профильный, через project_paths_resolve (996).
+# НЕ БАРЬЕР: субъект контракта 110 — красное и зелёный контроль предъявляет собственная
+# батарея fixtures/workshop_project/done_volny_110/ (probe.sh, 52 случая + 31 мутант),
+# не case_*.sh-глобом (прецедент scripts/make_task.sh:10, контракт 095).
+# Исход: 0 — тег поставлен (stdout «v<N>»), 1 — именованный отказ «done_wave: …»,
+# 2 — NOT_IMPLEMENTED (нет git/jq/профиля).
 set -uo pipefail
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
@@ -34,6 +39,34 @@ ROOT="${1:-}"; W="${2:-}"; REASON="${3-}"
 [ -d "$ROOT/.git" ] || git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 \
   || skip "корень не git-репозиторий: $ROOT"
 
+ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $ROOT"
+
+# ── A3: корень обязан быть вершиной git-репозитория (не подкаталог) ─────────
+TOP_ABS="$(git -C "$ROOT" rev-parse --show-toplevel 2>/dev/null)" \
+  || die "корень не git-репозиторий: $ROOT"
+[ "$TOP_ABS" = "$ROOT_ABS" ] || die "корень — подкаталог репозитория: $ROOT (вершина $TOP_ABS)"
+
+# ── Б1: HEAD снимается один раз в начале; все блобы и тег — от него ──────────
+HEAD_SHA="$(git -C "$ROOT" rev-parse --verify -q "HEAD^{commit}")" \
+  || die "HEAD недоступен: $ROOT"
+
+# ── A1/A1b/A2 (отложено): грязное отслеживаемое дерево вне пяти HEAD-источников
+# ── отказ до e2e/NFR; пять источников (план, закрытия, манифест, находки
+# ── review, план отката) — HEAD-блобы (правило H), их расхождение с HEAD
+# ── доказывается самим чтением HEAD, а не отказом на dirty-check.
+PROFILE_FILES=("harness.project.json" "project-layer.json")
+for pf in "${PROFILE_FILES[@]}"; do
+  if [ -e "$ROOT/$pf" ]; then
+    if [ -L "$ROOT/$pf" ]; then
+      die "символическая ссылка профиля: $pf"
+    fi
+    git -C "$ROOT" diff --quiet -- "$pf" \
+      || die "файл профиля расходится с HEAD: $pf"
+    git -C "$ROOT" ls-files --error-unmatch -- "$pf" >/dev/null 2>&1 \
+      || die "неотслеживаемый файл профиля: $pf"
+  fi
+done
+
 # Причина пуста — отказ ДО всех проверок (И-8).
 [ -n "${REASON//[[:space:]]/}" ] || die "причина пуста"
 
@@ -42,7 +75,6 @@ NEXT_ID_LIB=1 source "$SELF_DIR/next_id.sh" \
   || skip "библиотека next_id.sh недоступна (нет project_paths_resolve)"
 command -v jq >/dev/null 2>&1 || skip "нет jq (требование project_paths_resolve)"
 
-ROOT_ABS="$(cd "$ROOT" && pwd -P)" || die "корень не читается: $ROOT"
 PPR_JSON="$(project_paths_resolve "$ROOT")" \
   || die "профиль проекта не разрешается: $ROOT"
 REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
@@ -53,7 +85,7 @@ export LIB_PLAN_REGISTRY="$REG_REL"
 
 # ── И-1 членство: HEAD-блоб плана, канонический plan_parse ──────────────────
 PLAN_TMP="$(mktemp)"
-git -C "$ROOT" cat-file blob "HEAD:${REG_REL}/plan.tsv" >"$PLAN_TMP" 2>/dev/null \
+git -C "$ROOT" cat-file blob "${HEAD_SHA}:${REG_REL}/plan.tsv" >"$PLAN_TMP" 2>/dev/null \
   || { rm -f "$PLAN_TMP"; die "план недоступен на HEAD: ${REG_REL}/plan.tsv"; }
 source "$SELF_DIR/lib_plan.sh"
 plan_parse "$PLAN_TMP" || { rm -f "$PLAN_TMP"; die "$P84_PLAN_ERR"; }
@@ -67,7 +99,7 @@ done
 [ "${#WAVE_IDS[@]}" -gt 0 ] || die "волна $W пуста: нет строк плана с этой парой"
 
 # ── И-2 терминальность КАЖДОЙ строки (закрытия — HEAD-блоб реестра) ──────────
-CLOSED="$(git -C "$ROOT" cat-file -p "HEAD:${REG_REL}/closed-without-done.tsv" 2>/dev/null || true)"
+CLOSED="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:${REG_REL}/closed-without-done.tsv" 2>/dev/null || true)"
 for id in "${WAVE_IDS[@]}"; do
   if [ -n "${id//[0-9]/}" ]; then
     # символьный id — терминален только закрытием владельца
@@ -82,7 +114,7 @@ for id in "${WAVE_IDS[@]}"; do
 done
 
 # ── И-3 манифест: HEAD-блоб, закрытый алфавит, nfr≥1, e2e/otkat ровно 1 ────
-MANIFEST="$(git -C "$ROOT" cat-file -p "HEAD:${REG_REL}/waves/${W}.tsv" 2>/dev/null)" \
+MANIFEST="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:${REG_REL}/waves/${W}.tsv" 2>/dev/null)" \
   || die "манифест волны отсутствует: ${REG_REL}/waves/${W}.tsv"
 
 declare -a NFR_ROWS=()
@@ -155,7 +187,7 @@ e2e_rc=0
 # ── И-6 review: КАЖДЫЙ файл, статус литерально done, trim только краёв (Б5) ─
 for p in "${REVIEW_PATHS[@]}"; do
   [ -n "$p" ] || continue
-  blob="$(git -C "$ROOT" cat-file -p "HEAD:$p" 2>/dev/null)" \
+  blob="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:$p" 2>/dev/null)" \
     || die "находка владельца отсутствует на HEAD: $p"
   st="$(printf '%s\n' "$blob" | sed -nE 's/^status:[[:space:]]*//p' | sed -n 1p)"
   st="$(printf '%s' "$st" | sed -E 's/[[:space:]]+$//')"
@@ -164,14 +196,40 @@ for p in "${REVIEW_PATHS[@]}"; do
 done
 
 # ── И-7 otkat: обязательные поля плана отката ──────────────────────────────
-oblob="$(git -C "$ROOT" cat-file -p "HEAD:$OTKAT_PATH" 2>/dev/null)" \
+oblob="$(git -C "$ROOT" cat-file -p "${HEAD_SHA}:$OTKAT_PATH" 2>/dev/null)" \
   || die "план отката отсутствует: $OTKAT_PATH"
 for fld in "риск" "sha" "команда-отката" "команда-проверки"; do
   printf '%s\n' "$oblob" | grep -E "^${fld}:[[:space:]]*[^[:space:]]" >/dev/null \
     || die "план отката без поля: $fld"
 done
 
-# ── И-8 тег: v=max+1, клапан v>1; аннотированный тег КОММИТА HEAD ──────────
+# ── A1/A1b: грязное отслеживаемое дерево вне пяти HEAD-источников — отказ ────
+# Пять источников (план, закрытия, манифест, находки, откат) прочитаны как
+# HEAD-блобы; их расхождение с HEAD не доказывает обхода, а отказ уже
+# выставлен по HEAD-блобу. Здесь — только прочий код (e2e.sh, nfr.sh и т.п.),
+# который команда манифеста исполняет в рабочем дереве.
+HEAD_SOURCES="${REG_REL}/plan.tsv
+${REG_REL}/closed-without-done.tsv
+${REG_REL}/waves/${W}.tsv
+${OTKAT_PATH}"
+for p in "${REVIEW_PATHS[@]}"; do
+  HEAD_SOURCES="$HEAD_SOURCES
+$p"
+done
+DIRTY="$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null | \
+         awk '{print $2}' | sort -u)"
+for d in $DIRTY; do
+  case "
+$HEAD_SOURCES
+" in
+    *"
+$d
+"*) ;;
+    *) die "грязное отслеживаемое дерево: $d (не HEAD-источник)" ;;
+  esac
+done
+
+# ── И-8 тег: v=max+1, клапан v>1; аннотированный тег КОММИТА HEAD_SHA ───────
 vmax=0
 while IFS= read -r t; do
   [ -n "$t" ] || continue
@@ -185,9 +243,16 @@ if [ "$v" -gt 1 ]; then
   printf '%s' "$REASON" | grep -Fq 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ:' \
     || die "v>1 требует строку РАЗРЕШИЛ-ВЛАДЕЛЕЦ: в причине"
 fi
+# A4: причина — из файла, --cleanup=verbatim сохраняет «# …» (в т.ч.
+# «# РАЗРЕШИЛ-ВЛАДЕЛЕЦ:»); отказ, если причина после strip комментариев пуста.
+REASON_FILE="$(mktemp)"
+trap 'rm -f "$REASON_FILE"' EXIT
+printf '%s\n' "$REASON" >"$REASON_FILE"
+NON_COMMENT="$(sed -E '/^[[:space:]]*#/d; /^[[:space:]]*$/d' "$REASON_FILE")"
+[ -n "$NON_COMMENT" ] || die "причина пуста (только комментарные строки)"
 tag="done/waves/$W/$v"
-if ! git -C "$ROOT" -c user.name=Fixture -c user.email=fixture@local \
-     tag -a "$tag" -m "$REASON" >/dev/null 2>&1; then
+if ! git -C "$ROOT" -c user.name=Implementer -c user.email=implementer@dev-harness.local \
+     tag -F "$REASON_FILE" --cleanup=verbatim -a "$tag" "$HEAD_SHA" >/dev/null 2>&1; then
   die "тег $tag не создан"
 fi
 printf '%s\n' "v$v"
