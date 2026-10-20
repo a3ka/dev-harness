@@ -95,6 +95,10 @@ step	check:orch-loop-997	81	bash fixtures/ops_server/orch_loop_997/probe.sh
 step	check:v-polete-nichego-088-family-selftest	19	bash fixtures/_krasnye_088.sh
 step	check:merge-gate-family-selftest	9	bash fixtures/check_judge_gate/krasnye_063.sh
 step	check:provodka-external-994	8	bash fixtures/check_provodka/external_ci_994/probe.sh
+# КОНТРАКТ 112 v2e: шаг батареи подключения проекта (37 клеток M1/M2/K1/K2 +
+# 33 обманки; замер v2e `time` полного прогона: 12.8 с на живом дереве
+# ветки, шкала веса та же что v2d: 2.8 с → 7). Команда — литерал battery.
+step	check:podkljuchenie-112-family-selftest	32	bash fixtures/workshop_project/podklyuchenie_112/red_podkljuchenie_112.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft

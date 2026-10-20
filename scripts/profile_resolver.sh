@@ -544,7 +544,7 @@ A[project_schemaVersion]="$(jq -r '.schemaVersion' "$PROJECT_JSON_FD")"
 
 A[repo_language]="$(jq -r '.language' "$REPO_JSON_FD")"
 case "${A[repo_language]}" in
-  rust|typescript|bash) ;;
+  rust|typescript|bash|javascript) ;;
   *) die_p "значение вне алфавита: language: ${A[repo_language]}" ;;
 esac
 
