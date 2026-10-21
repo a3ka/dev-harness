@@ -22,7 +22,6 @@ check:gitw-family-selftest	39	9	39523880871
 check:gitw-predpolet-family-selftest	756	9	39523880871
 check:granica-ispolneniya-093-family-selftest	159	9	39523880871
 check:hooks	1	9	39523880871
-check:http-chislo-127-family-selftest	0	0	39523880871
 check:ids	1	20	39523880871
 check:import315-119-family-selftest	0	0	39523880871
 check:judge-gate	0	9	39523880871
