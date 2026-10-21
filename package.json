@@ -89,6 +89,9 @@
     "check:push-produkta-124-family-selftest": "bash fixtures/workshop_project/push_produkta_124/red_124.sh",
     "check:import315-119-family-selftest": "bash fixtures/workshop_project/import315_119/red_import315_119.sh --model",
     "check:ci-proekta-122-family-selftest": "bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model",
-    "check:http-chislo-127-family-selftest": "bash fixtures/workshop_project/http_chislo_127/red_http_chislo_127.sh --model"
+    "check:http-chislo-127-family-selftest": "bash fixtures/workshop_project/http_chislo_127/red_http_chislo_127.sh --model",
+    "check:sessii-proektov-125-family-selftest": "bash fixtures/workshop_project/sessii_125/red_sessii_125.sh",
+    "check:wait-guard-128-family-selftest": "bash fixtures/workshop_project/wait_guard_128/red_wait_guard_128.sh",
+    "check:mobility-spec-120-family-selftest": "bash fixtures/workshop_project/mobility_spec_120/red_mobility_spec_120.sh --model"
   }
 }
