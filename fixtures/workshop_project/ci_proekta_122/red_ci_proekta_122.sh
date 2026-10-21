@@ -14,6 +14,8 @@
 # в выводе (rc — первичная мера, причина — вторая; Б1 критика 122: отказ с rc 0 краснит клетку).
 set -u
 export PYTHONDONTWRITEBYTECODE=1
+# Имена окружения шагов клеток p5e/p6e снимаются: исход клетки не зависит от окружения станции.
+unset PILOT_DEMO_CODE CI122_T CI122_U CI122_LEVEL CI122_SRED
 BATT=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$BATT/../../.." && pwd)
 WORLDS=/tmp/dev-harness-verify/ci122
@@ -69,6 +71,12 @@ K
   cat > "$W/contracts/kontrakt-bez-ci.md" <<'K'
 # Той-контракт без CI
 ЗОНА implementer: docs/
+K
+  cat > "$W/contracts/kontrakt-drugoj-sekret.md" <<'K'
+# Той-контракт, объявляющий ДРУГОЙ секрет
+ЗОНА implementer: .github/workflows/ci.yml
+ПРЕДПОСЫЛКИ:
+- secret DRUGOJ
 K
   cat > "$W/contracts/kontrakt-nevalid.md" <<'K'
 # Той-контракт с внеграмматным пунктом
@@ -217,13 +225,48 @@ m['jobs']['ci']['steps'].append({'key': 'sekret', 'run': 'echo ${{ secrets.PILOT
 json.dump(m, open(p, 'w'))
 PY
   bash "$GEN" --repo "$W" --write >/dev/null 2>&1
-  cat > "$W/contracts/kontrakt-drugoj-sekret.md" <<'K'
-# Той-контракт, объявляющий ДРУГОЙ секрет
-ЗОНА implementer: .github/workflows/ci.yml
-ПРЕДПОСЫЛКИ:
-- secret DRUGOJ
-K
   run_case p5-sekrety-ne-perechisleny 1 'sekrety-ne-perechisleny: PILOT_DEMO_CODE' bash "$PRE" --repo "$W" --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+}
+c_p5e() { # рукописный workflow (образец p7): необъявленный секрет ВНЕ run — env шага local- и station-джобы
+  local W
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: env-sekret
+        env:
+          CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+        run: "true"
+Y
+  run_case p5-env-sekret-ne-perechislen 1 'sekrety-ne-perechisleny: PILOT_DEMO_CODE' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+  # форма боли 995 п.4 (mobile.yml:229–230, станционная джоба android-e2e); первый шаг станции
+  # падает без всякой заглушки — исполнение станции дало бы shag-upal, сверка обязана сработать раньше
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  android-e2e:
+    runs-on: [self-hosted, kvm]
+    env:
+      PREFLIGHT_CLASS: station
+    steps:
+      - name: emulyator
+        run: exit 1
+      - name: kod-vne-checkout
+        env:
+          PILOT_DEMO_CODE: ${{ secrets.PILOT_DEMO_CODE }}
+        run: |
+          if [ -z "$PILOT_DEMO_CODE" ]; then
+            echo "PILOT_DEMO_CODE_ABSENT" >&2
+            exit 1
+          fi
+Y
+  run_case p5-station-sekret-ne-perechislen 1 'sekrety-ne-perechisleny: PILOT_DEMO_CODE' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
 }
 p6_world() { # $1 — команда шага sekret local-джобы ci; печатает путь мира
   local W; W=$(new_world)
@@ -250,6 +293,67 @@ c_p6() {
   run_case p6-sekret-podstavlyaetsya 0 'CIPREFLIGHT_OK jobs=1 station=1' bash "$PRE" --repo "$W" --contract "$W/contracts/kontrakt-demo.md"
   W=$(p6_world 'test -z "${{ secrets.DEMO_TOKEN }}"')
   run_case p6-sekret-shag-ispolnyaetsya 1 'shag-upal: ci/sekret' bash "$PRE" --repo "$W" --contract "$W/contracts/kontrakt-demo.md"
+}
+c_p6e() { # рукописный workflow: объявленные secrets.X / vars.X в цепочке env workflow < джоба < шаг
+  local W
+  # дословная форма носителя боли mobile.yml:229–235 (объявленный секрет в env шага)
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: kod-vne-checkout
+        env:
+          PILOT_DEMO_CODE: ${{ secrets.PILOT_DEMO_CODE }}
+        run: |
+          if [ -z "$PILOT_DEMO_CODE" ]; then
+            echo "PILOT_DEMO_CODE_ABSENT" >&2
+            exit 1
+          fi
+Y
+  run_case p6-env-nositel-boli 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
+  # секрет — env workflow, variable — env джобы; литерал шага переопределяет литерал джобы,
+  # литерал джобы — литерал workflow (старшинство и перенос литералов одной клеткой)
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+env:
+  CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+  CI122_LEVEL: workflow
+  CI122_SRED: workflow
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CI122_U: ${{ vars.NPM_TOKEN }}
+      CI122_LEVEL: job
+      CI122_SRED: job
+    steps:
+      - name: cepochka
+        env:
+          CI122_LEVEL: step
+        run: test -n "$CI122_T" && test -n "$CI122_U" && test "$CI122_LEVEL" = step && test "$CI122_SRED" = job
+Y
+  run_case p6-env-cepochka 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
+  # пара: шаг с объявленным секретом в env исполняется, заглушка непуста
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: sekret-v-env
+        env:
+          CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+        run: test -z "$CI122_T"
+Y
+  run_case p6-env-shag-ispolnyaetsya 1 'shag-upal: verify/sekret-v-env' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
 }
 c_p7() { # рукописный workflow: наследование defaults.run.working-directory уровня workflow
   local W
@@ -337,7 +441,7 @@ c_z4() {
   run_case z4-predposylki-nevaliden 1 'predposylki-nevaliden: - password Sekret' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-nevalid.md"
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 p6 p7 z1 z2 z3 z4"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 p5e p6 p6e p7 z1 z2 z3 z4"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;
