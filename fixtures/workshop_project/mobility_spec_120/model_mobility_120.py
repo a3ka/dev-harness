@@ -8,8 +8,9 @@
 зависимости и шаги partner плана 119, id реестра 119), поэтому честная
 спецификация модели сходится с продуктом по идентификаторам, а не по игрушке.
 Пин мира снимается тем же gen_pin_120.py с закоммиченного мира (провенанс
-исполним и в модели). Клетки d01…d44 — ОДНА мутация честной спецификации
-(или дерева) каждая; ожидаемая причина клетки живёт в раннере литералом (Н-39).
+исполним и в модели). Клетки d01…d46, d50…d52 — ОДНА мутация честной спецификации
+(или дерева) каждая; g01 — дифференциал (мутация, при которой честный оракул зелен);
+ожидаемая причина клетки живёт в раннере литералом (Н-39).
 """
 import json
 import os
@@ -95,6 +96,7 @@ def build_world(d, rp):
           {"operations": rp["deprecated_operations"]})
     wtext(os.path.join(d, "app/index.js"), "module.exports = {};\n")
     wtext(os.path.join(d, "server/index.js"), "module.exports = {};\n")
+    wtext(os.path.join(d, ".gitignore"), "node_modules/\n")  # как в продукте: зависимости вне учёта
     subprocess.run(GIT + ["-C", d, "add", "-A"], check=True)
     subprocess.run(GIT + ["-C", d, "commit", "-qm", "мир 120: база после 119"], check=True)
 
@@ -314,6 +316,26 @@ def mutate(d, cell):
         subprocess.run(GIT + ["init", "-q", d], check=True)
         subprocess.run(GIT + ["-C", d, "add", "-A"], check=True)
         subprocess.run(GIT + ["-C", d, "commit", "-qm", "мир 120: история без базы пина"], check=True)
+    elif cell == "d45-indeks-assume-unchanged":  # обход Adv120 (1): правка сервера под флагом индекса
+        wtext(os.path.join(d, "server/index.js"), "throw new Error('заглушка');\n")
+        subprocess.run(GIT + ["-C", d, "update-index", "--assume-unchanged", "server/index.js"], check=True)
+    elif cell == "d46-indeks-skip-worktree-udalen":
+        os.remove(os.path.join(d, "app/index.js"))
+        subprocess.run(GIT + ["-C", d, "update-index", "--skip-worktree", "app/index.js"], check=True)
+    elif cell == "d50-neotslezh-pod-info-exclude":  # обход Rev120b Б-2: локальный ignore клона
+        wtext(os.path.join(d, "server/src/evil.js"), "throw new Error('заглушка');\n")
+        os.makedirs(os.path.join(d, ".git/info"), exist_ok=True)
+        with open(os.path.join(d, ".git/info/exclude"), "a") as fh:
+            fh.write("server/src/evil.js\n")
+    elif cell == "d51-samoignoriruyushchij-gitignore":  # обход Rev120b Б-2: неотслеживаемый `*`
+        wtext(os.path.join(d, "server/src/evil.js"), "throw new Error('заглушка');\n")
+        wtext(os.path.join(d, "server/src/.gitignore"), "*\n")
+    elif cell == "d52-sparse-checkout":  # Rev120b С-1: честная спека, содержимое вне конуса не видно
+        subprocess.run(GIT + ["-C", d, "sparse-checkout", "set", "--no-cone", "/docs/", "/tests/", "/server/"],
+                       check=True, capture_output=True)
+    elif cell == "g01-node-modules-chestnyj":  # дифференциал Б-2: зависимости под отслеживаемым ignore
+        wtext(os.path.join(d, "node_modules/x/index.js"), "module.exports = 1;\n")
+        wtext(os.path.join(d, "node_modules/x/.gitignore"), "*.log\n")
     else:
         print(f"нет такой мутации: {cell}", file=sys.stderr)
         return 2

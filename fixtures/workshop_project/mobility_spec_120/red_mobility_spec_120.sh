@@ -4,6 +4,7 @@
 #   red_mobility_spec_120.sh [<клон Complior-back>]  — живой: оракул на клоне с реальным пином
 #   red_mobility_spec_120.sh --model                 — все клетки на мирах модели (mktemp)
 #   red_mobility_spec_120.sh --cell <имя>            — одна клетка
+#   red_mobility_spec_120.sh --stabs                 — привязка обманных оракулов к клеткам (таблица STABS)
 #
 # Вердикт — код возврата: 0 все клетки сошлись / клон зелёный; 1 красное; 2 нечем
 # судить (нет клетки, нет python3/git/PyYAML, пустая выборка). Скрипт PASS не печатает.
@@ -12,7 +13,11 @@
 # Н-39: клетка ↔ ожидаемая причина — литералы таблицы CELLS ниже (не проза контракта);
 # каждая клетка d* — честная спецификация модели + ОДНА мутация model_mobility_120.py,
 # красная СВОЕЙ причиной (сверка строкой целиком, grep -Fxq); клетка «нечем судить: …» —
-# rc 2 оракула с этой строкой (клон без base_commit пина).
+# rc 2 оракула с этой строкой (клон без base_commit пина, sparse-клон); клетка g* —
+# дифференциал: мутация, на которой честный оракул обязан остаться зелёным.
+# Н-39 для стабов: строка STABS «стаб|клетка|rc батареи на клетке» — стаб d* выключает
+# РОВНО одну функцию оракула (импорт + подмена), поэтому красен на своей клетке и зелен
+# на соседней клетке той же причины; привязка исполняется, а не описывается.
 set -u
 export PYTHONDONTWRITEBYTECODE=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,6 +78,34 @@ CELLS=(
   "d42-graf-kanal-pod-aliasom|ОТКАЗ: mobility120: graf-ne-consumer-first|spec"
   "d43-tests-tronuty|ОТКАЗ: mobility120: vne-zony|spec"
   "d44-baza-pina-otsutstvuet|нечем судить: base_commit пина отсутствует в клоне|spec"
+  "d45-indeks-assume-unchanged|ОТКАЗ: mobility120: vne-zony|spec"
+  "d46-indeks-skip-worktree-udalen|ОТКАЗ: mobility120: vne-zony|spec"
+  "d50-neotslezh-pod-info-exclude|ОТКАЗ: mobility120: vne-zony|spec"
+  "d51-samoignoriruyushchij-gitignore|ОТКАЗ: mobility120: vne-zony|spec"
+  "d52-sparse-checkout|нечем судить: sparse-checkout: содержимое вне конуса не видно|spec"
+  "g01-node-modules-chestnyj|MOBILITY120_OK|spec"
+)
+
+# стаб | клетка | ожидаемый rc батареи на этой клетке под стабом (1 — поймала, 0 — стаб там честен)
+STABS=(
+  "stab_vsegda_zelenyj.sh|d05-server-tronut|1"
+  "stab_vsegda_krasnyj.sh|k-model|1"
+  "stab_indeks_doveryaet.py|d45-indeks-assume-unchanged|1"
+  "stab_indeks_doveryaet.py|d46-indeks-skip-worktree-udalen|1"
+  "stab_indeks_doveryaet.py|d05-server-tronut|0"
+  "stab_indeks_doveryaet.py|k-model|0"
+  "stab_ignor_standartnyj.py|d50-neotslezh-pod-info-exclude|1"
+  "stab_ignor_standartnyj.py|d51-samoignoriruyushchij-gitignore|0"
+  "stab_ignor_standartnyj.py|g01-node-modules-chestnyj|0"
+  "stab_gitignore_doveryaet.py|d51-samoignoriruyushchij-gitignore|1"
+  "stab_gitignore_doveryaet.py|d50-neotslezh-pod-info-exclude|0"
+  "stab_gitignore_doveryaet.py|g01-node-modules-chestnyj|0"
+  "stab_gitignore_vse.py|g01-node-modules-chestnyj|1"
+  "stab_gitignore_vse.py|d51-samoignoriruyushchij-gitignore|0"
+  "stab_gitignore_vse.py|k-model|0"
+  "stab_sparse_ne_vidit.py|d52-sparse-checkout|1"
+  "stab_sparse_ne_vidit.py|d46-indeks-skip-worktree-udalen|0"
+  "stab_sparse_ne_vidit.py|k-model|0"
 )
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/red120.XXXXXX")" || exit 2
@@ -86,7 +119,7 @@ run_cell() {  # <строка таблицы>  → 0 сошлась, 1 нет
   python3 "$MODEL" build "$w/repo" "$PIN" "$w/pin.json" $flag >"$w.build" 2>&1 \
     || { echo "КЛЕТКА $name: мир не построен"; cat "$w.build"; return 1; }
   case "$name" in
-    d*) python3 "$MODEL" mutate "$w/repo" "$name" || { echo "КЛЕТКА $name: мутация не применена"; return 1; } ;;
+    d*|g*) python3 "$MODEL" mutate "$w/repo" "$name" || { echo "КЛЕТКА $name: мутация не применена"; return 1; } ;;
   esac
   out="$("$ORACLE" "$w/repo" --pin "$w/pin.json" 2>&1)"; rc=$?
   first="$(printf '%s\n' "$out" | sed -n '1p')"
@@ -102,6 +135,24 @@ run_cell() {  # <строка таблицы>  → 0 сошлась, 1 нет
 }
 
 case "${1:-}" in
+  --stabs)
+    [ "${#STABS[@]}" -gt 0 ] || { echo "пустая выборка" >&2; exit 2; }
+    bad=0
+    for r in "${STABS[@]}"; do
+      st="${r%%|*}"; r="${r#*|}"; cell="${r%%|*}"; want="${r#*|}"
+      [ -x "$HERE/$st" ] || { echo "СТАБ $st: нет исполняемого файла"; bad=$((bad+1)); continue; }
+      MOBILITY120_ORACLE="$HERE/$st" bash "$HERE/red_mobility_spec_120.sh" --cell "$cell" >"$TMP/stab.out" 2>&1
+      got=$?
+      if [ "$got" -eq "$want" ]; then
+        echo "стаб $st × $cell: rc=$got как ждали"
+      else
+        echo "СТАБ $st × $cell: ждали rc=$want, факт rc=$got"; sed -n '1p' "$TMP/stab.out"; bad=$((bad+1))
+      fi
+    done
+    echo "ИТОГ 120 стабы: строк ${#STABS[@]}, расхождений $bad"
+    [ "$bad" -eq 0 ] && exit 0
+    exit 1
+    ;;
   --model|--cell)
     sel=()
     if [ "$1" = "--cell" ]; then
