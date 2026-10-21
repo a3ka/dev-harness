@@ -1,0 +1,26 @@
+{
+  "version": "3.15-toy",
+  "status": "PHYSICAL_DESIGN_SQL_NOT_INCLUDED",
+  "tables": [
+    {
+      "name": "app.plate_orders",
+      "owner_role": "platform",
+      "status": "PHYSICAL_DESIGN_SQL_NOT_INCLUDED",
+      "columns": {"id": "uuid NOT NULL", "consumer_id": "uuid NOT NULL", "state": "text NOT NULL"},
+      "primary_key": ["id"],
+      "unique_constraints": [],
+      "foreign_keys": [],
+      "rls": "enabled"
+    },
+    {
+      "name": "app.consumer_track",
+      "owner_role": "platform",
+      "status": "PHYSICAL_DESIGN_SQL_NOT_INCLUDED",
+      "columns": {"id": "uuid NOT NULL", "operation_id": "text NOT NULL"},
+      "primary_key": ["id"],
+      "unique_constraints": [],
+      "foreign_keys": [],
+      "rls": "enabled"
+    }
+  ]
+}

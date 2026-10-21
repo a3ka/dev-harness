@@ -1,0 +1,52 @@
+{
+  "comment": "Контракт 119 круг 2 — ПИН состава импорта 3.15: независимое от проверяемого дерева ожидание оракула (закрытие Б1/Б4/Б5 вердикта критика круга 1). Числа замерены командами 2026-10-21 по бандлу /home/harness/consultant/b315/Complior_Backend_v3_15/ (46 файлов) и отчёту ASTRA-REPORT-3.15.md §1/§1.4/§5.2; команды и выводы — в contracts/119-import-315-additivnoe-sliyanie.md §Пин. Файл живёт в зоне architect: implementer (зона docs/tests продукта) не может его изменить. Оракул выбирает запись по sha256 базового published (родитель первого core-коммита из git-истории проверяемого), неизвестная база = отказ sostav-rashozhdenie.",
+  "entries": [
+    {
+      "scope": "product",
+      "base_published_sha256": "3357412ce95addc2c8180a35bdc7771b68b2bae1a666e5ac6fabc5ae64e58324",
+      "base_git_commit": "0ed762b8cb63805a057f01a57ff069ba327c6b54",
+      "base_ops": 163,
+      "base_schemas": 496,
+      "base_consumers": 53,
+      "new_ops": 70,
+      "new_schemas": 70,
+      "new_consumers": 70,
+      "physical_tables": 29,
+      "extension_sha256": "46c2e9a53ce0d79cb5048fa82f33b5b86327cf700fe5d4275d7b266c663e6c1a",
+      "platform_component": "PlatformContract",
+      "binding_status_new": {"AWAITING_FRONTEND_ACTION_ID": 68, "INTERNAL_SERVICE": 2},
+      "runtime_status_new": "NOT_RUN",
+      "vs01": "23c85b3cb4222aebd60b3a0fba5ce09f9e6942f156063163930646443a2600f0",
+      "known_issues_min": [
+        "m1-kfz-termination-consumer-gap",
+        "m1-wunschkennzeichen-lifecycle",
+        "m1-termination-confirmed-unverified-report",
+        "m1-done-bez-evidence-step-key",
+        "m1-generic-current-value",
+        "m1-physical-model-fk-grants-invitation-owner",
+        "m1-otsutstvuyushchie-artefakty-a312-521",
+        "m1-a689-obeshchaniya-generacii",
+        "m1-a300-if-match-obobshchenie",
+        "m1-shrifty-render-architecture-c2b",
+        "m1-pg-boss-konflikt"
+      ]
+    },
+    {
+      "scope": "toy",
+      "base_published_sha256": "0d4282199ef9344fd62025948f5a1d9af20db53b94cc5e123b3f9fff27c304db",
+      "base_git_commit": null,
+      "base_ops": 2,
+      "base_schemas": 2,
+      "base_consumers": 2,
+      "new_ops": 2,
+      "new_schemas": 1,
+      "new_consumers": 2,
+      "physical_tables": 2,
+      "extension_sha256": "902049eed373ce3188c835e8c53c5a062928f81a7d1bdb7a259725108d5f54da",
+      "platform_component": "PlatformContract",
+      "binding_status_new": {"AWAITING_FRONTEND_ACTION_ID": 1, "INTERNAL_SERVICE": 1},
+      "runtime_status_new": "NOT_RUN",
+      "known_issues_min": ["kfz-termination-consumer-gap", "wunschkennzeichen-lifecycle"]
+    }
+  ]
+}

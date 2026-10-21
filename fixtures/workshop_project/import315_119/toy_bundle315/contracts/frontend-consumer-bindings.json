@@ -1,0 +1,26 @@
+{
+  "new_operation_consumers": [
+    {
+      "operation_id": "createPlateOrder",
+      "surface": "PARTNER_MOBILE",
+      "workflow_ref": "plate_orders",
+      "action_id": null,
+      "binding_status": "AWAITING_FRONTEND_ACTION_ID",
+      "planned_wave": "W2",
+      "release_gate": "PARTNER_MOBILE_PILOT",
+      "runtime_status": "NOT_RUN",
+      "enabled_by_static_metadata": false
+    },
+    {
+      "operation_id": "getConsumerTrack",
+      "surface": "INTERNAL_SERVICE",
+      "workflow_ref": "consumer_track",
+      "action_id": null,
+      "binding_status": "INTERNAL_SERVICE",
+      "planned_wave": "W5",
+      "release_gate": "INTERNAL_ONLY",
+      "runtime_status": "NOT_RUN",
+      "enabled_by_static_metadata": true
+    }
+  ]
+}
