@@ -41,6 +41,18 @@ PF_ANCHOR = '      if [ "$remote_sha" != "$sha" ]; then\n'
 PF_OSLABLEN = ('      if [ "$remote_sha" != "$sha" ] && { [ -n "$remote_sha" ] '
                '|| [ "${name#refs/tags/frozen/}" = "$name" ]; }; then\n')
 
+# Якоря белого списка sostav модели (П-1/П-2 арбитража 130): ветви REPLACE/PASS/отказа.
+WL_REPLACE = (
+    '          -q|--quiet|--no-quiet|-v|--verbose|--no-verbose|--porcelain|--no-porcelain|-n|--dry-run|--no-dry-run)\n'
+    '            PROBE_POST+=( --no-verify ) ;;\n')
+WL_PASS = (
+    '          --all|--no-all|--branches|--no-branches|--mirror|--no-mirror|--tags|--no-tags|--follow-tags|--no-follow-tags|--atomic|--no-atomic|--thin|--no-thin|--progress|--no-progress|--prune|--no-prune|--signed|--no-signed|--force-with-lease|--no-force-with-lease|--force-if-includes|--no-force-if-includes|--recurse-submodules|--no-recurse-submodules|-f|--force|--no-force|-d|--delete|--no-delete|-u|--set-upstream|--no-set-upstream|-o|--push-option|--receive-pack|--exec|--repo|--verify|--no-verify|-4|--ipv4|-6|--ipv6)\n'
+    '            PROBE_POST+=( "$a" ) ;;\n')
+WL_OTKAZ = (
+    '          *)\n'
+    '            otkaz "(обмен)" "опция не распознана" "$a — гард 130 принимает опции push только в полной форме из перечня И-2"\n'
+    '            return 2 ;;\n')
+
 G = 'gitw_teg_130.sh'
 GW = 'gitw'
 PF = 'gitw_preflight_071.sh'
@@ -132,22 +144,37 @@ STUBS = [
      '    git update-ref -d "$H" "$obj"\n    exit $?\n',
      '    exit 0\n',
      'publish не снимает удержание после публикации'),
-    ('s24-doveryaet-pustomu', 'c41-batl-flagov', G,
-     '  [ "$SOSTAV_LINES" -gt 0 ] || return 1\n',
-     '  if [ "$rc" -ne 0 ] && [ "$SOSTAV_LINES" -eq 0 ]; then return 1; fi\n',
-     'пустой состав при rc 0 пробы — допуск (fail-open), батчинг -qn проходит'),
-    ('s25-bez-sanitizacii', 'c35-ne-dry-run', G,
-     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;\n',
-     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( "$a" ) ;;\n',
-     'проба без замены флагов: --no-dry-run отменяет сухую пробу и реально пушит тег'),
     ('s26-sanitiziruet-vsyo', 'c27-mirror', G,
-     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;\n',
-     '      -*) PROBE_POST+=( --no-verify ) ;;\n',
-     'замена всех dash-токенов: состав пробы расходится с обменом (--mirror потерян)'),
-    ('s27-propustil-no-dry', 'c40-sokraschenie', G,
-     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;\n',
-     '      -q|-v|--q*|--v*|--no-por*) PROBE_POST+=( --no-verify ) ;;\n',
-     'санитайзер без семейства --no-dry…: сокращение отмены пробы вне замены'),
+     WL_PASS,
+     WL_PASS.replace('PROBE_POST+=( "$a" )', 'PROBE_POST+=( --no-verify )'),
+     'замена всех dash-токенов таблицы: состав пробы расходится с обменом (--mirror потерян)'),
+    ('s28-chernyj-spisok', 'c42-opt-no-dr', G,
+     WL_REPLACE + WL_PASS + WL_OTKAZ,
+     '          -q|-v|--q*|--v*|--no-por*|--no-dry*)\n'
+     '            PROBE_POST+=( --no-verify ) ;;\n'
+     '          *)\n'
+     '            PROBE_POST+=( "$a" ) ;;\n',
+     'санитайзер круга 3 как есть (чёрный список префиксных семейств): --no-dr вне списка, git 2.43 отменяет пробу и публикует тег'),
+    ('s29-sovpadenie-po-prefiksu', 'c45-opt-sokr-dry', G,
+     WL_REPLACE,
+     '          -q*|--quiet*|--no-quiet*|-v*|--verbose*|--no-verbose*|--porcelain*|--no-porcelain*|-n*|--dry*|--no-dry-run*)\n'
+     '            PROBE_POST+=( --no-verify ) ;;\n',
+     'белый список с совпадением по префиксу вместо точного: --dry распознаётся как --dry-run, отказа «опция не распознана» нет'),
+    ('s30-propuskaet-neizvestnoe', 'c46-opt-neizvestnaya', G,
+     WL_OTKAZ,
+     '          *)\n'
+     '            PROBE_POST+=( "$a" ) ;;\n',
+     'неизвестная опция передаётся в пробу вместо отказа: git отвергает сам, класс «состав обмена не читается» вместо «опция не распознана»'),
+    ('s31-no-dry-v-pass', 'c35-ne-dry-run', G,
+     WL_REPLACE + WL_PASS,
+     WL_REPLACE.replace('|-n|--dry-run|--no-dry-run)', '|-n|--dry-run)')
+     + WL_PASS.replace('|-6|--ipv6)', '|-6|--ipv6|--no-dry-run)'),
+     '--no-dry-run в PASS: проба отменяет dry-run и публикует тег раньше суда'),
+    ('s32-q-v-pass', 'c38-tiho-legitimno', G,
+     WL_REPLACE + WL_PASS,
+     WL_REPLACE.replace('-q|--quiet', '--quiet')
+     + WL_PASS.replace('|-6|--ipv6)', '|-6|--ipv6|-q)'),
+     '-q в PASS вместо REPLACE: -q глушит porcelain пробы, ложный отказ «состав обмена не читается» на легитимном тихом допуске'),
 ]
 
 

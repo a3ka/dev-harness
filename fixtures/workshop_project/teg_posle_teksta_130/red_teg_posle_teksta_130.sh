@@ -33,7 +33,9 @@ CELLS=(c01-chestnyj c02-tolko-wip c03-staryj-blob c04-bez-verdikta c05-verdikt-f
        c25-pereimenovanie c26-force c27-mirror c28-all c29-head-v-teg c30-c-followtags
        c31-publikaciya-do-lenda c32-tihij-q c33-tihij-dlinnaya c34-ne-porcelain
        c35-ne-dry-run c36-verbose c37-progress c38-tiho-legitimno c39-perestanovka
-       c40-sokraschenie c41-batl-flagov)
+       c40-sokraschenie c41-batl-flagov
+       c42-opt-no-dr c43-opt-no-po c44-opt-no-d c45-opt-sokr-dry c46-opt-neizvestnaya
+       c47-push-option-znachenie c48-atomic-legitimno)
 
 mode=product; cand=""; only=""; seed="${RANDOM}"
 while [ $# -gt 0 ]; do
@@ -114,6 +116,13 @@ ne_ushel() {
   chk "rc=$RC, ожидался 1" rc_is 1
   chk "нет строки «gitw ТЕГ-ОТКАЗ: $1: текст не в main цели»" otkaz130 "$1" "текст не в main цели"
   chk "тег $1 ушёл на цель" not na_celi "$1"
+}
+
+# ne_raspoznana <токен> — отказ 130 «опция не распознана» ДО вызова git; тег $T не на цели.
+ne_raspoznana() {
+  chk "rc=$RC, ожидался 1" rc_is 1
+  chk "нет строки «gitw ТЕГ-ОТКАЗ: (обмен): опция не распознана: $1 — …»" stroka "gitw ТЕГ-ОТКАЗ: (обмен): опция не распознана: $1 — гард 130"
+  chk "тег $T ушёл на цель" not na_celi "$T"
 }
 
 WHY=""
@@ -359,19 +368,61 @@ cell() {
       subj origin --porcelain -n --no-dry-run "refs/tags/$T"
       ne_ushel "$T" ;;
     c40-sokraschenie)
-      # --qui — сокращение --quiet; --no-dry — однозначное сокращение --no-dry-run:
-      # семейство отмены пробы обязано распознаваться по префиксу, проба остаётся сухой.
+      # Арбитраж П-4: --qui и --no-dry — сокращения; белый список точного совпадения
+      # отказывает ДО вызова git («опция не распознана», первый неперечисленный токен),
+      # тег не на цели.
       mir "$c"; wip_teg
       subj --qui --no-dry origin "refs/tags/$T"
-      ne_ushel "$T" ;;
+      ne_raspoznana --qui ;;
     c41-batl-flagov)
-      # -qn батчится (тихий + сухой): проба глушится, состав не читается — fail-closed отказ,
-      # а не допуск по пустому составу.
+      # Арбитраж П-4: -qn — батчинг коротких флагов, в таблице отсутствует → отказ
+      # «опция не распознана» до вызова git, тег не на цели.
       mir "$c"; wip_teg
       subj -qn origin "refs/tags/$T"
-      chk "rc=$RC, ожидался 1" rc_is 1
-      chk "нет строки «gitw ТЕГ-ОТКАЗ: (обмен): состав обмена не читается»" otkaz130 "(обмен)" "состав обмена не читается"
-      chk "тег $T ушёл на цель" not na_celi "$T" ;;
+      ne_raspoznana -qn ;;
+    c42-opt-no-dr)
+      # П-4(а), решающая клетка круга: --no-dr — однозначное сокращение --no-dry-run,
+      # git 2.43 принял бы его и отменил пробу (замер арбитра п.1: тег на цели);
+      # белый список отказывает до вызова git.
+      mir "$c"; wip_teg
+      subj --no-dr origin "refs/tags/$T"
+      ne_raspoznana --no-dr ;;
+    c43-opt-no-po)
+      # П-4(б): --no-po — однозначное сокращение --no-porcelain, глушило бы состав
+      # (второй пропуск перечня круга 3, замер арбитра п.4).
+      mir "$c"; wip_teg
+      subj --no-po origin "refs/tags/$T"
+      ne_raspoznana --no-po ;;
+    c44-opt-no-d)
+      # П-4(в): --no-d неоднозначно (--no-delete/--no-dry-run), git отверг бы сам (rc 129);
+      # гард отказывает раньше своим классом.
+      mir "$c"; wip_teg
+      subj --no-d origin "refs/tags/$T"
+      ne_raspoznana --no-d ;;
+    c45-opt-sokr-dry)
+      # П-4(г), демаркационная: безвредное сокращение --dry тоже отказано —
+      # конформный вход сужен до полных форм И-2.
+      mir "$c"; wip_teg
+      subj --dry origin "refs/tags/$T"
+      ne_raspoznana --dry ;;
+    c46-opt-neizvestnaya)
+      # П-4(д): неизвестная опция (--frobnicate) отказана гардом до git, а не пробой.
+      mir "$c"; wip_teg
+      subj --frobnicate origin "refs/tags/$T"
+      ne_raspoznana --frobnicate ;;
+    c47-push-option-znachenie)
+      # П-4(е): «=»-форма — имя --push-option в PASS, значение =--no-dr проходит
+      # значением: проба суха, обычный суд «текст не в main цели», тега нет.
+      mir "$c"; git -C "$B" config receive.advertisePushOptions true; wip_teg
+      subj --push-option=--no-dr origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c48-atomic-legitimno)
+      # П-4(ж): PASS-опция полной формы (--atomic) не ломает честный путь:
+      # допущенный тег уходит, rc 0. Пара к c38.
+      mir "$c"; tekst 1; verdikty; kommit "текст в main до ленда"; gq push -q origin main; t="$(TAG)"; teg "$t"
+      subj --atomic origin "refs/tags/$t"
+      chk "rc=$RC, ожидался 0" rc_is 0
+      chk "тег $t не на цели" na_celi "$t" ;;
     *) printf 'NOT_IMPLEMENTED: нет такой клетки: %s\n' "$c" >&2; exit 2 ;;
   esac
   [ -z "$WHY" ]

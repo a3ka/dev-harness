@@ -84,21 +84,37 @@ judge_tag() {
 }
 
 # sostav: строки «<from>\t<to>» создаваемых/двигаемых ссылок обмена по git push --dry-run.
-# Проба строится из argv gitw ЗАМЕНОЙ (до разделителя «--») флагов вывода/режима литералом
-# --no-verify: -q | -v | --quiet… (--q…) | --verbose/--verify… (--v…) | --no-porcelain…
-# (--no-por…) | --no-dry-run… (--no-dry…; НЕ --no-d…: --no-delete реален для push и составу
-# не враг). Замена, а не удаление: значение arity-2 опции (--push-option -q) остаётся
-# значением, разбор аргументов git не сдвигается. НОЛЬ строк ссылок из пробы — отказ
-# fail-closed при любом rc: подавленный вывод (батчинг -qn, сокращение вне списка)
-# или упавшая проба не допускают обмен.
+# Проба строится из argv gitw БЕЛЫМ СПИСКОМ ТОЧНОГО СОВПАДЕНИЯ (арбитраж 130, РЕШЕНИЕ 1в):
+# до разделителя «--» каждый токен argv после подкоманды классифицируется — без «-» в
+# начале (и токен «-») проходит как есть; «--» проходит, дальше не судится; иначе имя
+# (токен до первого «=») ищется ТОЧНЫМ совпадением в закрытой таблице И-2: REPLACE —
+# семейства тихости/подробности/porcelain/сухого прогона (обе полярности) ЗАМЕНЯЮТСЯ
+# литералом --no-verify (замена, не удаление: значение arity-2 опции остаётся значением,
+# разбор аргументов git не сдвигается); PASS — прочие опции push полной формы проходят
+# целиком (включая «=значение»); нет в таблице (сокращения, батчинг -qn, неизвестные) —
+# отказ «опция не распознана» ДО любого вызова git. Арность не отслеживается:
+# dash-токен либо в таблице, либо отказан — пропустить нельзя. НОЛЬ строк ссылок из
+# пробы — отказ fail-closed при любом rc (второй рубеж): подавленный или упавший
+# состав не допускает обмен.
 sostav() {
-  local out rc flag spec a dd=0
+  local out rc flag spec a name dd=0
   PROBE_POST=()
   for a in "${POST[@]}"; do
     if [ "$dd" -eq 1 ]; then PROBE_POST+=( "$a" ); continue; fi
     case "$a" in
       --) dd=1; PROBE_POST+=( "$a" ) ;;
-      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;
+      -) PROBE_POST+=( "$a" ) ;;
+      -*)
+        name="${a%%=*}"
+        case "$name" in
+          -q|--quiet|--no-quiet|-v|--verbose|--no-verbose|--porcelain|--no-porcelain|-n|--dry-run|--no-dry-run)
+            PROBE_POST+=( --no-verify ) ;;
+          --all|--no-all|--branches|--no-branches|--mirror|--no-mirror|--tags|--no-tags|--follow-tags|--no-follow-tags|--atomic|--no-atomic|--thin|--no-thin|--progress|--no-progress|--prune|--no-prune|--signed|--no-signed|--force-with-lease|--no-force-with-lease|--force-if-includes|--no-force-if-includes|--recurse-submodules|--no-recurse-submodules|-f|--force|--no-force|-d|--delete|--no-delete|-u|--set-upstream|--no-set-upstream|-o|--push-option|--receive-pack|--exec|--repo|--verify|--no-verify|-4|--ipv4|-6|--ipv6)
+            PROBE_POST+=( "$a" ) ;;
+          *)
+            otkaz "(обмен)" "опция не распознана" "$a — гард 130 принимает опции push только в полной форме из перечня И-2"
+            return 2 ;;
+        esac ;;
       *) PROBE_POST+=( "$a" ) ;;
     esac
   done
@@ -136,8 +152,10 @@ case "$mode" in
     ARGS=( "$@" )
     PRE=( "${ARGS[@]:0:PSI}" ); POST=( "${ARGS[@]:PSI}" )
     SOSTAV_LINES=0
-    if ! lines="$(sostav)"; then
-      otkaz "(обмен)" "состав обмена не читается" "git push --dry-run не дал ни одной ссылки"
+    lines="$(sostav)"; prc=$?
+    if [ "$prc" -ne 0 ]; then
+      # rc 2 — «опция не распознана» уже напечатана ДО любого вызова git; rc 1 — ноль строк.
+      [ "$prc" -eq 2 ] || otkaz "(обмен)" "состав обмена не читается" "git push --dry-run не дал ни одной ссылки"
       exit 1
     fi
     frozen=()
