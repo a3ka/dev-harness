@@ -42,7 +42,13 @@
     {"id": "c18-tip", "intent": "смена типа кодового пути (T: файл → символьная ссылка) под учётной подписью — не служебный",
      "shagi": [["uchet_hvost"], ["metka"], ["tip"]], "iskhod": "PUSH"},
     {"id": "c19-kopiya-uchet-v-kod", "intent": "копия неизменного учётного файла в кодовый путь (C при --find-copies-harder) — не служебный",
-     "shagi": [["uchet_hvost"], ["metka"], ["kopiya"]], "iskhod": "PUSH"}
+     "shagi": [["uchet_hvost"], ["metka"], ["kopiya"]], "iskhod": "PUSH"},
+    {"id": "c20-merge-uchet-side", "intent": "боковая учётная ветка W от R (датой новее всей main-линии), ленд --no-ff: W достижим из main только вторым родителем и H(W)=H(R); честная модель публикует доказанный K1 — перебор всех коммитов диапазона без --first-parent публикует W, состояние, которого линия main никогда не имела (обход критика 131, круг 2)",
+     "shagi": [["kod"], ["poezd"], ["metka"], ["kod"], ["merge_uchet_side"]], "iskhod": "PUSH"},
+    {"id": "c21-merge-kod-roditel", "intent": "merge, у которого второй родитель несёт код: ленд --no-ff ветки с src/dop-*, доказанной собственным поездом; H(merge) — новая кодовая комбинация без доказательства, честная модель публикует K1 — «любой достижимый коммит» публикует код боковой ветки",
+     "shagi": [["kod"], ["poezd"], ["metka"], ["merge_kod_side"]], "iskhod": "PUSH"},
+    {"id": "c22-merge-kak-prefiks", "intent": "merge-коммит сам — кандидат на доказанный префикс: H(merge)=H(R) (боковая ветка учётная), честная модель публикует merge-коммит M; реализация, выкидывающая merge-коммиты из линии (--no-merges), теряет публикуемую точку",
+     "shagi": [["merge_uchet_side"], ["metka"]], "iskhod": "PUSH"}
   ],
   "stubs": [
     {"id": "s01-vsegda-publikuet", "cell": "c05-net-dokaza", "defect": "служебным считает всё: без доказательства публикует вершину main",
@@ -80,6 +86,10 @@
     {"id": "s17-ignoriruet-t", "cell": "c18-tip", "defect": "служебность по diff без статуса T: смена типа скрыта",
      "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(git diff --name-only --no-renames --diff-filter=ADMRCU \"$rmain\" \"$c\")\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
     {"id": "s18-tolko-blob", "cell": "c17-rezhim", "defect": "изменённым считает путь со сменой blob: смена режима скрыта",
-     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(for f in $(git diff --name-only --no-renames \"$rmain\" \"$c\"); do [ \"$(git rev-parse -q --verify \"$rmain:$f\")\" = \"$(git rev-parse -q --verify \"$c:$f\")\" ] || echo \"$f\"; done)\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"}
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(for f in $(git diff --name-only --no-renames \"$rmain\" \"$c\"); do [ \"$(git rev-parse -q --verify \"$rmain:$f\")\" = \"$(git rev-parse -q --verify \"$c:$f\")\" ] || echo \"$f\"; done)\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
+    {"id": "s19-revlist-bez-first-parent", "cell": "c20-merge-uchet-side", "defect": "перебирает ВСЕ коммиты диапазона origin/main..main, а не first-parent линию: публикует боковое учётное W (обход критика 131, круг 2)",
+     "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git rev-list \"${rmain}..${local_main}\")\""},
+    {"id": "s20-lyuboj-dostizhimyj", "cell": "c21-merge-kod-roditel", "defect": "берёт любой достижимый коммит (rev-list --all), не только first-parent линию main: публикует доказанный код боковой ветки",
+     "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git rev-list --all \"^${rmain}\")\""}
   ]
 }
