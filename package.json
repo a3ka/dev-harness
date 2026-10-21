@@ -86,6 +86,7 @@
     "check:vesa-114-family-selftest": "bash fixtures/_krasnye_114.sh",
     "check:yadro-121-family-selftest": "bash fixtures/workshop_project/yadro_121/yadro_oracle.sh --model",
     "check:mob-sverka-123-family-selftest": "python3 fixtures/workshop_project/mob_sverka_123/probe.py --matrix",
-    "check:push-produkta-124-family-selftest": "bash fixtures/workshop_project/push_produkta_124/red_124.sh"
+    "check:push-produkta-124-family-selftest": "bash fixtures/workshop_project/push_produkta_124/red_124.sh",
+    "check:import315-119-family-selftest": "bash fixtures/workshop_project/import315_119/red_import315_119.sh --model"
   }
 }
