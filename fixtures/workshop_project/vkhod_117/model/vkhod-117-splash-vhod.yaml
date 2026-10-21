@@ -1,29 +1,27 @@
 appId: com.complior.mobile
-name: 117 — splash + вход F03.01/F03.02 (схема устройства)
+name: 117 — splash (схема устройства)
 ---
-# 117 (CMP-MOB-006, арбитраж круга 2, ПРАВИЛО (В)): холодный старт =
-# нативный знак канона на ground СХЕМЫ (app.json: корень светлый +
-# вложенный dark) → JS-ОВЕРЛЕЙ кадра Splash.png/Splash-Hell.png
-# (testID splash-overlay) → First-Run 111 → вход F03.01/F03.02
-# по токенам и компонентам D2.2.5.1.
+# 117 v2 (CMP-MOB-006, сужение до splash + иконка; арбитраж круга 2,
+# ПРАВИЛО (В)): холодный старт = нативный знак канона на ground СХЕМЫ
+# (app.json: корень светлый + вложенный dark) → JS-ОВЕРЛЕЙ кадра
+# Splash.png/Splash-Hell.png (testID splash-overlay) → First-Run 111.
+# Вход F03.01/F03.02 выведен в first-run-ekran — кадров входа здесь нет.
 #
 # Сценарий ОДИН на обе схемы: тему ОС ставит вызывающая сторона
 # (android-e2e: adb shell cmd uimode night yes|no), каталог вывода
 # прогона несёт схему (maestro-out-117/<тема>/), поэтому имена кадров
-# здесь без темы. Сценарий не судит цвета — цвета судят пробы 117 и
-# ревьюер по скриншотам; assertVisible — доказательство Б3 «кадр
-# целиком в окне».
+# здесь без темы. Сценарий не судит цвета: видимость и раскладку кадра
+# splash судит сверка кадра e2e с макетом (123, манифест kadry_117.json:
+# снимок vkhod-117-splash × тема против Splash.png/Splash-Hell.png).
 #
 # Р2/Р3 (круг 6, Rev117/Adv117): кадр — свидетельство, а не надежда.
-# (а) Перед takeScreenshot splash ждём ОКНО приложения: оверлей
-#     splash-overlay видим (extendedWaitUntil visible) — если кадр не
-#     снят, прогон красен; пустой снимок «рабочий стол вместо кадра»
-#     невозможен по построению шагов.
+# (а) Шаг непосредственно перед takeScreenshot splash — ожидание
+#     видимости оверлея splash-overlay (extendedWaitUntil visible): иной
+#     шаг между ожиданием и снимком (ожидание First-Run, исчезновения
+#     оверлея) снял бы под именем splash другой кадр.
 # (б) Перед takeScreenshot first-run оверлей обязан ИСЧЕЗНУТЬ
-#     (extendedWaitUntil notVisible по splash-overlay — assertVisible
-#     иерархию не судит: элемент под непрозрачным оверлеем «виден»
-#     Maestro, но не виден в кадре) И состав First-Run видим:
-#     обещание + CTA (литералы каталога 111, не субъекта).
+#     (extendedWaitUntil notVisible по splash-overlay) — свидетельство
+#     снятия оверлея; экран First-Run судит first-run-ekran, не 117.
 # Если оверлей исчезает раньше ожидания — это дизайн-вопрос
 # implementer'а (задержка скрытия оверлея); сценарий судит факт снятия.
 - launchApp:
@@ -37,38 +35,4 @@ name: 117 — splash + вход F03.01/F03.02 (схема устройства)
     notVisible:
       id: splash-overlay
     timeout: 10000
-- assertVisible:
-    text: "Sie sagen, was passiert ist. Complior kümmert sich um den Rest."
-- assertVisible:
-    text: "Anmelden oder Konto erstellen"
 - takeScreenshot: vkhod-117-first-run
-- tapOn:
-    id: first-run-continue
-# F03.01 — полный состав кадра (заголовок, подпись поля, auth-email, CTA).
-- assertVisible:
-    text: "Anmelden oder Konto erstellen"
-- assertVisible:
-    text: "Nutzen Sie den angebotenen Anmeldeweg, um auf Ihre Versicherungen zuzugreifen."
-- assertVisible:
-    id: auth-email
-- assertVisible:
-    id: auth-demo-entry
-- takeScreenshot: vkhod-117-f03-01
-- tapOn:
-    id: auth-demo-entry
-# F03.02 — заголовок, подпись поля, auth-code, основная кнопка, три ссылки.
-- assertVisible:
-    text: "Kontakt bestätigen"
-- assertVisible:
-    text: "Geben Sie den zugesandten Code ein. Prüfen Sie bei Bedarf Ihre Kontaktdaten."
-- assertVisible:
-    id: auth-code
-- assertVisible:
-    id: auth-verify
-- assertVisible:
-    id: auth-resend
-- assertVisible:
-    id: auth-change-email
-- assertVisible:
-    id: auth-no-access
-- takeScreenshot: vkhod-117-f03-02

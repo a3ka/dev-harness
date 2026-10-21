@@ -1,15 +1,15 @@
-// 117 vkhod круг 4 (CMP-MOB-006): экраны входа F03.01/F03.02 — состав по
-// UX-JSON F01/F03 + каталогу, компоненты продукта на токенах D2.2.5.1
-// (@/ui/button, @/ui/text-field — CMP-MOB-002). Splash = нативный знак
-// (app.json; статическая проба) + JS-ОВЕРЛЕЙ кадра Splash.png поверх
-// дерева оболочки (арбитраж круга 2, С2): оверлей — не JS-кадр
-// state-machine, `frame` стартует с 'first-run' как в базе.
+// 117 vkhod v2 (CMP-MOB-006, сужение до splash + иконка, слово владельца
+// 2026-10-21): Splash = нативный знак (app.json; статическая проба) +
+// JS-ОВЕРЛЕЙ кадра Splash.png поверх дерева оболочки (арбитраж круга 2,
+// С2): оверлей — не JS-кадр state-machine, `frame` стартует с 'first-run'
+// как в базе. Вход F03.01/F03.02 выведен в first-run-ekran.
 // Оракул — source.json (снят с read-only docs/ Complior-mob 8748a7a335 ДО
 // запуска субъекта); все ожидания — ЛИТЕРАЛЫ ниже (правило 8, Н-351/Н-379:
 // ни одна клетка не сверяется значением, прочитанным у субъекта). Вход
 // (провайдер темы) — themeTokens 999; ожидание — литералы оракула.
-// Рестайл-гварды: кадры 995 вне входа (welcome, recovery F03.04,
-// unavailable) не рестайлятся — литералы поверхности 995 (#FFFFFF, 48/16/16).
+// Рестайл-гварды: кадры 995 вне предмета (вход F03.01/F03.02, welcome,
+// recovery F03.04, unavailable) не рестайлятся — литералы поверхности 995
+// (#FFFFFF, 48/16/16).
 // Урок 111 (Н-386/RNTL): каждый запрос/press await; toJSON берётся ПОСЛЕ
 // screen-запросов кадра (sync-запрос флушит дерево).
 
@@ -44,7 +44,7 @@ jest.mock('../../../assets/images/splash-composite-light.png', () => ({ vkhod117
   virtual: true,
 });
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { Appearance, NativeModules } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
@@ -55,56 +55,16 @@ import PilotAppProdEntry from '@/app/index';
 import { PilotApp } from '@/bootstrap/pilot-app';
 import { themeTokens, type ColorScheme } from '@/theme/tokens';
 // ---- EXPECT: литералы оракула (source.json, побайтово) ----
-const F03_01_TITLE = 'Anmelden oder Konto erstellen';
-const F03_01_BODY =
-  'Nutzen Sie den angebotenen Anmeldeweg, um auf Ihre Versicherungen zuzugreifen.';
-const F03_02_TITLE = 'Kontakt bestätigen';
-const F03_02_BODY =
-  'Geben Sie den zugesandten Code ein. Prüfen Sie bei Bedarf Ihre Kontaktdaten.';
-const F03_01_CTA_DEMO = 'Demo mit Beispieldaten ansehen';
-const F03_02_VERIFY = 'Anmelden';
 const GROUND_DARK = '#0a0a0a';
 const GROUND_LIGHT = '#f3f2ee';
-const INK_DARK = '#f2f1ec';
-const INK_LIGHT = '#121211';
-const PRIMARY_DARK = '#d6f75a';
-const ON_PRIMARY_DARK = '#121211';
-const PRIMARY_LIGHT = '#121211';
-const ON_PRIMARY_LIGHT = '#f3f2ee';
-const PANEL_DARK = '#1e1e1d';
-const PANEL_LIGHT = '#e6e5df';
-// типографика .title канона (tokens.css D2.2.5.1)
-const TITLE_FONT_SIZE = 28;
-const TITLE_LINE_HEIGHT = 32;
-const TITLE_FONT_WEIGHT = '500';
-// компоненты DS D2.2.5.1 (project/components/Button, TextField): пилюля —
-// радиус не меньше половины высоты --size-lg 56 (--radius-full); Button
-// primary — заливка primary схемы, подпись on-primary; TextField — поле на
-// panel схемы, ввод ink, подпись caption над полем цветом ink.
-const PILL_MIN_RADIUS = 28;
-// 111/995: окно и поверхность исключённых кадров
-const WINDOW_W = 390;
-const WINDOW_H = 844;
+// 111/995: поверхность кадров вне предмета (вход F03, welcome, F03.04,
+// unavailable)
 const SURFACE_995_BG = '#FFFFFF';
 const SURFACE_995_PAD_TOP = 48;
 const SURFACE_995_PAD_H = 16;
 const SURFACE_995_PAD_BOTTOM = 16;
-// ссылки код-кадра (каталог verbatim) и их эффективный цвет — accent
-// обеих схем (проекция 999): судится значение рендера, не имя токена.
-const LINK_RESEND = 'Code erneut senden';
-const LINK_CHANGE_EMAIL = 'E-Mail ändern';
-const LINK_NO_ACCESS = 'Zugang wiederherstellen';
-const ACCENT = '#d6f75a';
-
-// Р1/Р4/Р6 (круг 6, Rev117/Adv117) — литералы оракула.
-const FIRST_RUN_PROMISE =
-  'Sie sagen, was passiert ist. Complior kümmert sich um den Rest.';
-// Р4: инсет, ОТЛИЧНЫЙ от 47 существующих клеток — хардкод-детектор
-// (paddingTop обязан следовать insets.top, а не числу).
+// Р1: инсет production-входа, отличный от 47 остальных клеток.
 const PROD_INSET_TOP = 59;
-// Р4: горизонтальные отступы колонки кадров входа (D2.2.5.1 gutters;
-// той же величиной — pad_h поверхности 995).
-const COLUMN_GUTTER = 16;
 
 // С2: JS-оверлей splash — литералы (source.json overlay_117).
 const SPLASH_OVERLAY_TEST_ID = 'splash-overlay';
@@ -236,90 +196,6 @@ function hostRootOf(json: unknown): { type?: unknown; props: { style?: unknown }
 
 type TreeNode = { props?: { style?: unknown }; children?: unknown };
 
-// Кумулятивный translate худшего узла (root→leaf): перенос ≥ окна выносит
-// элемент из кадра целиком — наблюдение «кадр целиком внутри окна».
-function worstTranslate(
-  json: unknown,
-  tx = 0,
-  ty = 0,
-): { tx: number; ty: number } {
-  const node = json as TreeNode;
-  let outTx = tx;
-  let outTy = ty;
-  const style = node?.props?.style;
-  for (const part of Array.isArray(style) ? style : [style]) {
-    if (!part || typeof part !== 'object') continue;
-    const transform = (part as Record<string, unknown>).transform;
-    if (!Array.isArray(transform)) continue;
-    for (const t of transform as Array<Record<string, number>>) {
-      outTx += Number(t.translateX ?? 0);
-      outTy += Number(t.translateY ?? 0);
-    }
-  }
-  let worst = { tx: outTx, ty: outTy };
-  const children = node?.children;
-  for (const child of Array.isArray(children) ? children : []) {
-    const c = worstTranslate(child, outTx, outTy);
-    if (Math.abs(c.tx) + Math.abs(c.ty) > Math.abs(worst.tx) + Math.abs(worst.ty)) {
-      worst = c;
-    }
-  }
-  return worst;
-}
-
-function alienTransformIn(json: unknown): boolean {
-  const node = json as TreeNode;
-  const style = node?.props?.style;
-  for (const part of Array.isArray(style) ? style : [style]) {
-    if (!part || typeof part !== 'object') continue;
-    const transform = (part as Record<string, unknown>).transform;
-    if (Array.isArray(transform)) {
-      for (const t of transform as Array<Record<string, unknown>>) {
-        for (const key of Object.keys(t)) {
-          if (key !== 'translateX' && key !== 'translateY') return true;
-        }
-      }
-    }
-  }
-  const children = node?.children;
-  for (const child of Array.isArray(children) ? children : []) {
-    if (alienTransformIn(child)) return true;
-  }
-  return false;
-}
-
-// В3 — ПЕРВАЯ ЛИНИЯ по эффективному стилю (арбитраж круга 2, Б3):
-// layout-движка в Jest нет (yoga отсутствует), окно здесь НЕ вычисляется —
-// доказательство «кадр в окне» — Maestro assertVisible на release APK
-// (android-e2e); эта клетка ловит только дешёвые обходы: сдвиг полей
-// бокса >= окна, скрытие (display none / opacity 0).
-const BOX_LAYOUT_FIELDS = [
-  'marginLeft', 'marginRight', 'marginTop', 'marginBottom',
-  'marginHorizontal', 'marginVertical',
-  'paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom',
-  'paddingHorizontal', 'paddingVertical',
-  'left', 'right', 'top', 'bottom',
-] as const;
-
-function frameHiddenOrBoxShifted(json: unknown): boolean {
-  const node = json as TreeNode;
-  const flat: Record<string, unknown> = {};
-  const style = node?.props?.style;
-  for (const part of Array.isArray(style) ? style : [style]) {
-    if (part && typeof part === 'object') Object.assign(flat, part);
-  }
-  if (flat.display === 'none' || Number(flat.opacity) === 0) return true;
-  for (const field of BOX_LAYOUT_FIELDS) {
-    const v = flat[field];
-    if (typeof v === 'number' && Math.abs(v) >= WINDOW_W) return true;
-  }
-  const children = node?.children;
-  for (const child of Array.isArray(children) ? children : []) {
-    if (frameHiddenOrBoxShifted(child)) return true;
-  }
-  return false;
-}
-
 // С2: поддерево узла по testID (toJSON).
 function subtreeByTestId(json: unknown, testID: string): TreeNode | null {
   const node = json as TreeNode;
@@ -362,89 +238,29 @@ describe('117 vkhod', () => {
     await cleanup();
   });
 
-  // В1 кадр входа F03.01 — ПОЛНЫЙ состав по UX-JSON F01/F03 + каталогу,
-  // всё × dark/light: заголовок frame.F03.01.title типографикой .title
-  // цветом ink схемы; поле auth-email — компонент TextField (пилюля на
-  // panel схемы, ввод ink) с подписью frame.F03.01.body цветом ink; CTA
-  // ui.auth.demo_entry — компонент Button primary (пилюля на primary схемы,
-  // подпись on-primary); корень full-bleed ground схемы. Произведение scheme(2).
+  // Г0 (117 v2, сужение до splash + иконка): кадры входа F03.01 (email) и
+  // F03.02 (code) выведены в first-run-ekran (слово владельца 2026-10-21
+  // ~14:10 UTC) и остаются поверхностью 995, как на B: внешний корень несёт
+  // литералы 995 #FFFFFF и 48/16/16 на ОБОИХ кадрах. Рестайл входа в форме
+  // текущего C (isD22Frame добавляет email/code) красит обе клетки.
+  // Произведение scheme(2).
   for (const scheme of ['dark', 'light'] as const) {
     const S = scheme.toUpperCase();
-    const GROUND = scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT;
-    const INK = scheme === 'dark' ? INK_DARK : INK_LIGHT;
-    const PRIMARY = scheme === 'dark' ? PRIMARY_DARK : PRIMARY_LIGHT;
-    const ON_PRIMARY = scheme === 'dark' ? ON_PRIMARY_DARK : ON_PRIMARY_LIGHT;
-    const PANEL = scheme === 'dark' ? PANEL_DARK : PANEL_LIGHT;
 
-    it(`AUTH_F03_01_STRUCTURE_${S}`, async () => {
+    it(`RESTYLE_GUARD_995_F03_${S}`, async () => {
       const api = await toEmail(scheme);
-      const header = screen.getByRole('header');
-      expect(String(header.props.children)).toBe(F03_01_TITLE);
-      const hStyle = styleOf(header);
-      expect(hStyle.fontSize).toBe(TITLE_FONT_SIZE);
-      expect(hStyle.fontWeight).toBe(TITLE_FONT_WEIGHT);
-      expect(hStyle.lineHeight).toBe(TITLE_LINE_HEIGHT);
-      expect(hStyle.color).toBe(INK);
-      expect(styleOf(screen.getByText(F03_01_BODY)).color).toBe(INK);
-      const fStyle = styleOf(screen.getByTestId('auth-email'));
-      expect(Number(fStyle.borderRadius) >= PILL_MIN_RADIUS).toBe(true);
-      expect(fStyle.backgroundColor).toBe(PANEL);
-      expect(fStyle.color).toBe(INK);
-      const demo = screen.getByTestId('auth-demo-entry');
-      const dStyle = styleOf(demo);
-      expect(Number(dStyle.borderRadius) >= PILL_MIN_RADIUS).toBe(true);
-      expect(dStyle.backgroundColor).toBe(PRIMARY);
-      expect(styleOf(within(demo).getByText(F03_01_CTA_DEMO)).color).toBe(ON_PRIMARY);
-      expect(backgroundOf(hostRootOf(api.toJSON()))).toBe(GROUND);
-    });
-  }
-
-  // В2 кадр входа F03.02 — ПОЛНЫЙ состав по UX-JSON F01/F03 + каталогу,
-  // всё × dark/light: заголовок frame.F03.02.title .title ink схемы; поле
-  // auth-code — TextField (пилюля на panel, ввод ink) с подписью
-  // frame.F03.02.body цветом ink; основная кнопка auth-verify
-  // (action.F03.A01) — Button primary (пилюля на primary, подпись
-  // on-primary); ТРИ ссылки (ui.auth.code_resend, auth.change_email,
-  // action.F03.A02) эффективным цветом accent #d6f75a (значение рендера,
-  // не имя токена). Произведение scheme(2).
-  for (const scheme of ['dark', 'light'] as const) {
-    const S = scheme.toUpperCase();
-    const GROUND = scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT;
-    const INK = scheme === 'dark' ? INK_DARK : INK_LIGHT;
-    const PRIMARY = scheme === 'dark' ? PRIMARY_DARK : PRIMARY_LIGHT;
-    const ON_PRIMARY = scheme === 'dark' ? ON_PRIMARY_DARK : ON_PRIMARY_LIGHT;
-    const PANEL = scheme === 'dark' ? PANEL_DARK : PANEL_LIGHT;
-
-    it(`AUTH_F03_02_STRUCTURE_${S}`, async () => {
-      const api = await toEmail(scheme);
+      let rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
       await fireEvent.press(screen.getByTestId('auth-demo-entry'));
       await screen.findByTestId('auth-code');
-      const header = screen.getByRole('header');
-      expect(String(header.props.children)).toBe(F03_02_TITLE);
-      const hStyle = styleOf(header);
-      expect(hStyle.fontSize).toBe(TITLE_FONT_SIZE);
-      expect(hStyle.fontWeight).toBe(TITLE_FONT_WEIGHT);
-      expect(hStyle.color).toBe(INK);
-      expect(styleOf(screen.getByText(F03_02_BODY)).color).toBe(INK);
-      const fStyle = styleOf(screen.getByTestId('auth-code'));
-      expect(Number(fStyle.borderRadius) >= PILL_MIN_RADIUS).toBe(true);
-      expect(fStyle.backgroundColor).toBe(PANEL);
-      expect(fStyle.color).toBe(INK);
-      const verify = screen.getByTestId('auth-verify');
-      const vStyle = styleOf(verify);
-      expect(Number(vStyle.borderRadius) >= PILL_MIN_RADIUS).toBe(true);
-      expect(vStyle.backgroundColor).toBe(PRIMARY);
-      expect(styleOf(within(verify).getByText(F03_02_VERIFY)).color).toBe(ON_PRIMARY);
-      // Б3 (круг 2): ссылки код-кадра — accent ЭФФЕКТИВНЫМ стилем (значение
-      // рендера, не имя токена в исходнике): подмена цвета фоном/ground красна.
-      for (const [tid, text] of [
-        ['auth-resend', LINK_RESEND],
-        ['auth-change-email', LINK_CHANGE_EMAIL],
-        ['auth-no-access', LINK_NO_ACCESS],
-      ] as const) {
-        expect(styleOf(within(screen.getByTestId(tid)).getByText(text)).color).toBe(ACCENT);
-      }
-      expect(backgroundOf(hostRootOf(api.toJSON()))).toBe(GROUND);
+      rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
     });
   }
 
@@ -515,71 +331,39 @@ describe('117 vkhod', () => {
     });
   }
 
-  // Б3 (арбитраж круга 2) — ПЕРВАЯ ЛИНИЯ по эффективному стилю, НЕ
-  // доказательство: layout в Jest не вычисляется (окно — только android-e2e
-  // Maestro assertVisible, зона implementer). Кумулятивный translate
-  // корень→лист < окна; чужие типы трансформаций, поля бокса (margin/
-  // padding/left/top/...) >= окна, display:'none', opacity 0 — красны.
-  // Обходы критика (translateX 1000; marginLeft 1000) красят обе клетки.
-  for (const scheme of ['dark', 'light'] as const) {
-    const S = scheme.toUpperCase();
-
-    it(`AUTH_FRAMES_IN_WINDOW_${S}`, async () => {
-      const api = await toEmail(scheme);
-      const emailWorst = worstTranslate(api.toJSON());
-      expect(Math.abs(emailWorst.tx) < WINDOW_W).toBe(true);
-      expect(Math.abs(emailWorst.ty) < WINDOW_H).toBe(true);
-      expect(alienTransformIn(api.toJSON())).toBe(false);
-      expect(frameHiddenOrBoxShifted(api.toJSON())).toBe(false);
-      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
-      await screen.findByTestId('auth-code');
-      const codeWorst = worstTranslate(api.toJSON());
-      expect(Math.abs(codeWorst.tx) < WINDOW_W).toBe(true);
-      expect(Math.abs(codeWorst.ty) < WINDOW_H).toBe(true);
-      expect(alienTransformIn(api.toJSON())).toBe(false);
-      expect(frameHiddenOrBoxShifted(api.toJSON())).toBe(false);
-    });
-  }
-
   // Р1 (круг 6, Rev117/Adv117): тема ОС проводится на production-входе.
-  // Существующие *_LIGHT клетки оборачивают PilotApp в Provider САМИ —
-  // они судят палитру ПРИ схеме, но не провод темы СО схемы устройства
-  // (на C оверлей и F03 остаются тёмными при OS light: app/index —
-  // реэкспорт без провайдера, useTheme по умолчанию dark). Эта клетка
-  // рендерит @/app/index БЕЗ ThemeContext.Provider, схема — только мок
-  // Appearance.getColorScheme: OS light → оверлей ground #f3f2ee и кадр
-  // F03.01 светлой схемы (ground/ink литералами), OS dark → тёмной.
-  // Произведение scheme(2); на C красна LIGHT-половина.
+  // Остальные клетки оборачивают PilotApp в Provider САМИ — они судят
+  // палитру ПРИ схеме, но не провод темы СО схемы устройства (на C оверлей
+  // оставался тёмным при OS light: app/index — реэкспорт без провайдера,
+  // useTheme по умолчанию dark). Эта клетка рендерит @/app/index БЕЗ
+  // ThemeContext.Provider, схема — только мок Appearance.getColorScheme:
+  // OS light → оверлей splash на ground #f3f2ee, OS dark → #0a0a0a.
+  // 117 v2: проверка кадра F03.01 снята — вход выведен в first-run-ekran.
+  // Произведение scheme(2).
   for (const scheme of ['dark', 'light'] as const) {
     const S = scheme.toUpperCase();
     const GROUND = scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT;
-    const INK = scheme === 'dark' ? INK_DARK : INK_LIGHT;
 
     it(`PROD_ENTRY_OS_THEME_${S}`, async () => {
-      const api = await renderProdEntry(scheme);
+      await renderProdEntry(scheme);
       const overlay = await screen.findByTestId(SPLASH_OVERLAY_TEST_ID);
       expect(styleOf(overlay).backgroundColor).toBe(GROUND);
-      await fireEvent.press(screen.getByTestId('first-run-continue'));
-      await screen.findByTestId('auth-email');
-      const header = screen.getByRole('header');
-      expect(String(header.props.children)).toBe(F03_01_TITLE);
-      expect(styleOf(header).color).toBe(INK);
-      expect(backgroundOf(hostRootOf(api.toJSON()))).toBe(GROUND);
     });
   }
 
-  // В2-2 (круг 7, Rev117r2; к В2-1): стиль статус-бара по схеме. На C
-  // StatusBar нет ни в mobile/src, ни в app.json — в светлой схеме иконки
-  // белые #ffffff на ground #f3f2ee (1,12:1). Клетка судит ЭФФЕКТИВНЫЙ
-  // стиль, который отрисовка PilotApp довела до ОС (osBarStyle), против
-  // литерала контраста ground схемы. Вход — production @/app/index, схема
-  // ОС — только мок Appearance.getColorScheme, держится всю клетку. Стиль
-  // судится на splash, ПОСЛЕ снятия оверлея таймером (StatusBar вне
-  // поддерева оверлея — иначе снятие оверлея снимает стиль), на F03.01 и
-  // F03.02. Демаркация: конформен стиль из схемы PilotApp (та же схема
-  // красит ground); style 'auto' следует useColorScheme (в jest — мок
-  // пресета 'light', на устройстве — ОС, а не явный провайдер над
-  // PilotApp) — не конформен. Произведение scheme(2); на C красны обе.
+  // В2-2 (круг 7, Rev117r2; к В2-1): стиль статус-бара по схеме на splash.
+  // На C StatusBar нет ни в mobile/src, ни в app.json — на светлом splash
+  // иконки белые #ffffff на ground #f3f2ee (1,12:1). Клетка судит
+  // ЭФФЕКТИВНЫЙ стиль, который отрисовка PilotApp довела до ОС
+  // (osBarStyle), против литерала контраста ground схемы. Вход —
+  // production @/app/index, схема ОС — только мок Appearance.getColorScheme,
+  // держится всю клетку. Стиль судится на splash и ПОСЛЕ снятия оверлея
+  // таймером (StatusBar вне поддерева оверлея — иначе снятие оверлея
+  // снимает стиль). 117 v2 (сужение до splash + иконка): шаги F03.01/F03.02
+  // сняты — вход выведен в first-run-ekran. Демаркация: конформен стиль из
+  // схемы PilotApp (та же схема красит ground); style 'auto' следует
+  // useColorScheme (в jest — мок пресета 'light', на устройстве — ОС, а не
+  // явный провайдер над PilotApp) — не конформен. Произведение scheme(2).
   for (const scheme of ['dark', 'light'] as const) {
     const S = scheme.toUpperCase();
     const BAR = scheme === 'dark' ? STATUS_BAR_DARK : STATUS_BAR_LIGHT;
@@ -603,42 +387,9 @@ describe('117 vkhod', () => {
         );
         await flushStatusBar();
         expect(osBarStyle()).toBe(BAR);
-        await fireEvent.press(screen.getByTestId('first-run-continue'));
-        await screen.findByTestId('auth-email');
-        await flushStatusBar();
-        expect(osBarStyle()).toBe(BAR);
-        await fireEvent.press(screen.getByTestId('auth-demo-entry'));
-        await screen.findByTestId('auth-code');
-        await flushStatusBar();
-        expect(osBarStyle()).toBe(BAR);
       } finally {
         spy.mockRestore();
       }
-    });
-  }
-
-  // Р4 (круг 6, Rev117): safe-area и колонка кадров входа. Корень F03.01
-  // и F03.02 несёт top-инсет (paddingTop >= insets.top — заголовок ниже
-  // statusBars [0..136] при 1080×2400; на C заголовок на y 108..164
-  // ВНУТРИ статус-бара) и горизонтальные отступы колонки 16 (D2.2.5.1
-  // gutters; на C контент прижат к x=0..5). Инсет клетки 59 — отличен
-  // от 47 остальных клеток: хардкод значения красен. First-run рамки
-  // 111 не касается (frozen 111/1: full-bleed без отступов).
-  for (const scheme of ['dark', 'light'] as const) {
-    const S = scheme.toUpperCase();
-
-    it(`AUTH_FRAMES_SAFE_AREA_${S}`, async () => {
-      const api = await renderApp(scheme, 'invalid', 'ok', PROD_INSET_TOP);
-      await fireEvent.press(screen.getByTestId('first-run-continue'));
-      await screen.findByTestId('auth-email');
-      let rootStyle = styleOf(hostRootOf(api.toJSON()));
-      expect(Number(rootStyle.paddingTop)).toBeGreaterThanOrEqual(PROD_INSET_TOP);
-      expect(rootStyle.paddingHorizontal).toBe(COLUMN_GUTTER);
-      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
-      await screen.findByTestId('auth-code');
-      rootStyle = styleOf(hostRootOf(api.toJSON()));
-      expect(Number(rootStyle.paddingTop)).toBeGreaterThanOrEqual(PROD_INSET_TOP);
-      expect(rootStyle.paddingHorizontal).toBe(COLUMN_GUTTER);
     });
   }
 
@@ -725,6 +476,31 @@ describe('117 vkhod', () => {
       expect(flat.position).toBe('absolute');
       expect([flat.top, flat.right, flat.bottom, flat.left]).toEqual([0, 0, 0, 0]);
       expect(flat.display === 'none' || Number(flat.opacity) === 0).toBe(false);
+    });
+  }
+
+  // Видимость кадра (вердикт критика 117 v2 круг 1): стиль самого Image
+  // не наблюдает видимость композиции — `opacity: 0` / `display: 'none'` на
+  // View оверлея или любом предке скрывает весь кадр при зелёных клетках
+  // выше. Клетка судит РЕАЛЬНЫЙ рендер матчером RNTL toBeVisible (узел и
+  // вся цепочка предков до корня рендера: display none, opacity 0,
+  // скрытие от доступности, Modal visible=false) — оверлей И единственный
+  // Image композита. Запрос включает скрытые узлы: скрытый оверлей красен
+  // ЭТОЙ клеткой как невидимый, а не как отсутствующий. Пиксельная
+  // видимость на устройстве — сверка кадра e2e с макетом (123, приёмка).
+  // Произведение scheme(2).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`SPLASH_OVERLAY_VISIBLE_${S}`, async () => {
+      await renderApp(scheme);
+      const overlay = await screen.findByTestId(SPLASH_OVERLAY_TEST_ID, {
+        includeHiddenElements: true,
+      });
+      expect(overlay).toBeVisible();
+      const images = overlay.queryAll((node) => node.type === 'Image');
+      expect(images.length).toBe(1);
+      expect(images[0]).toBeVisible();
     });
   }
 

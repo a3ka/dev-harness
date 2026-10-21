@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-"""Поведенческая проба 117 круг 5 (CMP-MOB-006): вход F03.01/F03.02 —
-состав по UX-JSON F01/F03 + каталогу, компоненты продукта на токенах
-D2.2.5.1 (@/ui/button, @/ui/text-field), рестайл-гварды 995; JS-ОВЕРЛЕЙ
-splash (арбитраж круга 2, С2): смонтирован, Image оверлея = модуль
-композита своей схемы (С2-а), без Text-узлов, commit-журнал prevent →
-первый commit с оверлеем → hide (С2-б), автоскрытие таймером-литералом.
+"""Поведенческая проба 117 v2 (CMP-MOB-006, сужение до splash + иконка,
+слово владельца 2026-10-21): JS-ОВЕРЛЕЙ splash (арбитраж круга 2, С2) —
+смонтирован, ВИДИМ реальным рендером (toBeVisible: оверлей, Image и
+цепочка предков), Image оверлея = модуль композита своей схемы (С2-а),
+вписан по окну (Р6), без Text-узлов, commit-журнал prevent → первый commit с
+оверлеем → hide (С2-б), автоскрытие таймером-литералом; тема ОС на
+production-входе (Р1); стиль статус-бара по схеме на splash (В2-2);
+рестайл-гварды 995 — вход F03.01/F03.02 (выведен в first-run-ekran),
+welcome, F03.04, unavailable остаются поверхностью 995.
 
 Исполняет настоящий Jest/RNTL на disposable R и разбирает отчёт поимённо.
-Без --model: до-предметное дерево — именованный отказ rc1
-VKHOD_AUTH_DS_ABSENT (кадры входа не собраны из @/ui/button,
-@/ui/text-field — до-предметная поверхность 995).
+Без --model: до-предметное дерево — rc1 и именованная причина
+VKHOD_SPLASH_OVERLAY_ABSENT (клетка SPLASH_OVERLAY_MOUNTED_* красна).
 С --model: эталон architect ставится по путям поставки, rc0 с перечнем
-(число клеток — из прогона; круг 5: 12 прежних + 10 оверлея; круг 6 —
-Р1 PROD_ENTRY_OS_THEME (production-вход @/app/index без Provider, схема
-ОС моком Appearance), Р4 AUTH_FRAMES_SAFE_AREA, Р6 SPLASH_OVERLAY_CONTAIN;
-круг 7 — В2-2 STATUS_BAR_STYLE (эффективный стиль статус-бара, дошедший
-до ОС, контрастен ground схемы); каждая × 2 схемы).
+(число клеток — из прогона).
 --matrix: каждый обманный стаб красен на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case построчно.
@@ -29,172 +27,44 @@ from probe_lib import (
     installed, jest_ready, model_bytes, run_jest,
 )
 
-NAMED_RED = 'VKHOD_AUTH_DS_ABSENT'
+NAMED_RED = 'VKHOD_SPLASH_OVERLAY_ABSENT'
+
+# Якорь корня кадров модели (форма B: full-bleed ground только на first-run).
+ROOT_ANCHOR = "        frame === 'first-run'\n          ? [styles.rootFirstRun"
 
 # Привязка стаб↔ветвь живёт только здесь (Н-39): name → (mutations, named, depends).
 MUTANTS = {
-    # (е) экраны входа остаются поверхностью 995 (белый корень 48/16/16).
-    'auth-stays-995': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "  const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';",
-          "  const isD22Frame = frame === 'first-run';")],
-        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT',
-         'AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT',
-         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT'],
-    ),
-    # (е) вход в светлой схеме на тёмном ground (тема не проводится).
-    'auth-light-dark-ground': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          'backgroundColor: tokens.ground,\n'
-          "              paddingTop: frame === 'first-run' ? 0 : insets.top,",
-          "backgroundColor: scheme === 'light' ? '#0a0a0a' : tokens.ground,\n"
-          "              paddingTop: frame === 'first-run' ? 0 : insets.top,")],
-        ['AUTH_F03_01_STRUCTURE_LIGHT', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        ['PROD_ENTRY_OS_THEME_LIGHT'],
-    ),
-    # (е) заголовки входа типографикой 995 (22/600), не .title D2.2.5.1.
-    'auth-title-995-typo': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "const D22_TITLE = {\n  fontSize: 28,\n  fontWeight: '500',\n  lineHeight: 32,\n} as const;",
-          "const D22_TITLE = {\n  fontSize: 22,\n  fontWeight: '600',\n  lineHeight: 26,\n} as const;")],
-        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT',
-         'AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        [],
-    ),
-    # (е) основная кнопка F03.02 возвращена к 995: чёрная inline-пилюля
-    # (#111111/#FFFFFF) вместо компонента Button на primary схемы.
-    'verify-button-995-black': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "      <Button\n"
-          "        testID=\"auth-verify\"\n"
-          "        variant=\"primary\"\n"
-          "        label={COPY['action.F03.A01']}\n"
-          "        onPress={onVerify}\n"
-          "      />",
-          "      <Pressable testID=\"auth-verify\" accessibilityRole=\"button\" onPress={onVerify}>\n"
-          "        <Text style={{ backgroundColor: '#111111', color: '#FFFFFF' }}>{COPY['action.F03.A01']}</Text>\n"
-          "      </Pressable>")],
-        ['AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        [],
-    ),
     # рестайл-гварды 995: welcome тоже перекрашен в ground.
     'restyle-welcome-vkhod': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "  const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';",
-          "  const isD22Frame =\n    frame === 'first-run' || frame === 'email' || frame === 'code'\n    || frame === 'welcome';")],
+        [('mobile/src/bootstrap/pilot-app.tsx', ROOT_ANCHOR,
+          "        frame === 'first-run' || frame === 'welcome'\n"
+          '          ? [styles.rootFirstRun')],
         ['RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT'],
         [],
     ),
     # рестайл-гвард 995: recovery (F03.04) тоже перекрашен — владелец не называл.
     'restyle-recovery-vkhod': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "  const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';",
-          "  const isD22Frame =\n    frame === 'first-run' || frame === 'email' || frame === 'code'\n    || frame === 'recovery';")],
+        [('mobile/src/bootstrap/pilot-app.tsx', ROOT_ANCHOR,
+          "        frame === 'first-run' || frame === 'recovery'\n"
+          '          ? [styles.rootFirstRun')],
         ['RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT'],
         [],
     ),
-    # (Б4, круг 2) обход критика: isD22Frame добавляет unavailable —
-    # чужой кадр получает full-bleed ground.
+    # (Б4, круг 2) обход критика: unavailable получает full-bleed ground.
     'restyle-unavailable-vkhod': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "  const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';",
-          "  const isD22Frame =\n    frame === 'first-run' || frame === 'email' || frame === 'code'\n    || frame === 'unavailable';")],
+        [('mobile/src/bootstrap/pilot-app.tsx', ROOT_ANCHOR,
+          "        frame === 'first-run' || frame === 'unavailable'\n"
+          '          ? [styles.rootFirstRun')],
         ['RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
         [],
     ),
-    # (Б4, круг 2) обход критика: isD22Frame добавляет recovery в светлой
-    # схеме (тёмная — наблюдаемый сосед — не тронута).
+    # (Б4, круг 2) обход критика: recovery только в светлой схеме (тёмная —
+    # наблюдаемый сосед — не тронута).
     'restyle-recovery-light-vkhod': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "  const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';",
-          "  const isD22Frame =\n    frame === 'first-run' || frame === 'email' || frame === 'code'\n    || (frame === 'recovery' && tokens.ground === '#f3f2ee');")],
+        [('mobile/src/bootstrap/pilot-app.tsx', ROOT_ANCHOR,
+          "        frame === 'first-run' || (frame === 'recovery' && tokens.ground === '#f3f2ee')\n"
+          '          ? [styles.rootFirstRun')],
         ['RESTYLE_GUARD_995_RECOVERY_LIGHT'],
-        [],
-    ),
-    # (Б3, круг 2) обход критика: кадры входа вынесены за окно
-    # (translateX 1000 на корнях EmailFrame/CodeFrame).
-    'auth-frame-offscreen': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "function EmailFrame({ email, onEmailChange, onDemoEntry }: EmailFrameProps) {\n"
-          "  const { tokens } = useTheme();\n"
-          "  return (\n"
-          "    <View>",
-          "function EmailFrame({ email, onEmailChange, onDemoEntry }: EmailFrameProps) {\n"
-          "  const { tokens } = useTheme();\n"
-          "  return (\n"
-          "    <View style={{ transform: [{ translateX: 1000 }] }}>"),
-         ('mobile/src/features/auth/auth-screen.tsx',
-          "  const showCooldown = waitSeconds !== undefined;\n"
-          "  return (\n"
-          "    <View>",
-          "  const showCooldown = waitSeconds !== undefined;\n"
-          "  return (\n"
-          "    <View style={{ transform: [{ translateX: 1000 }] }}>")],
-        ['AUTH_FRAMES_IN_WINDOW_DARK', 'AUTH_FRAMES_IN_WINDOW_LIGHT'],
-        [],
-    ),
-    # (Б3, круг 2) обход критика: ссылки цветом фона (ground вместо accent),
-    # имя токена оставлено в комментарии.
-    'auth-links-ground': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "      <Pressable testID=\"auth-resend\" accessibilityRole=\"button\" onPress={onResend}>\n"
-          "        <Text style={[styles.linkText, { color: tokens.accent }]}>",
-          "      <Pressable testID=\"auth-resend\" accessibilityRole=\"button\" onPress={onResend}>\n"
-          "        <Text style={[styles.linkText, { color: tokens.ground }]}>")],
-        ['AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        [],
-    ),
-    # (круг 3, слово владельца ~19:28) состав по UX-JSON: body-ключи кадров
-    # (подписи полей) выброшены — состав не полный (ВСЕ элементы, не выборка).
-    'auth-body-missing': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "        label={COPY['frame.F03.01.body']}",
-          '        label=""'),
-         ('mobile/src/features/auth/auth-screen.tsx',
-          "        label={COPY['frame.F03.02.body']}",
-          '        label=""')],
-        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT',
-         'AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        [],
-    ),
-    # (круг 3, слово владельца ~19:28) поле F03.01 — ручной TextInput с
-    # квадратными углами на тех же токенах вместо компонента TextField.
-    'auth-field-hand-styled': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "import { Pressable, StyleSheet, Text, View } from 'react-native';",
-          "import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';"),
-         ('mobile/src/features/auth/auth-screen.tsx',
-          "      <TextField\n"
-          "        testID={EMAIL_TEST_ID}\n"
-          "        label={COPY['frame.F03.01.body']}\n"
-          "        value={email}\n"
-          "        onChangeText={onEmailChange}\n"
-          "      />",
-          "      <TextInput\n"
-          "        testID={EMAIL_TEST_ID}\n"
-          "        value={email}\n"
-          "        onChangeText={onEmailChange}\n"
-          "        style={{ borderRadius: 4, backgroundColor: tokens.panel, color: tokens.ink }}\n"
-          "      />")],
-        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT'],
-        [],
-    ),
-    # (круг 3, слово владельца ~19:28) ручные стили с теми же hex вместо
-    # реального компонента DS: CTA F03.01 — inline Pressable/Text (того же
-    # цвета), компонент Button не используется.
-    'auth-button-inline': (
-        [('mobile/src/features/auth/auth-screen.tsx',
-          "      <Button\n"
-          "        testID=\"auth-demo-entry\"\n"
-          "        variant=\"primary\"\n"
-          "        label={COPY['ui.auth.demo_entry']}\n"
-          "        onPress={onDemoEntry}\n"
-          "      />",
-          "      <Pressable testID=\"auth-demo-entry\" accessibilityRole=\"button\" onPress={onDemoEntry}>\n"
-          "        <Text style={{ backgroundColor: '#d6f75a', color: '#121211' }}>{COPY['ui.auth.demo_entry']}</Text>\n"
-          "      </Pressable>")],
-        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT'],
         [],
     ),
     # (С2, арбитраж круга 2) оверлея нет при первом коммите: нативный splash
@@ -209,7 +79,8 @@ MUTANTS = {
          'SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT',
          'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_COMPOSITE_LIGHT',
          'SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT',
-         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT'],
+         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
+         'SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
     ),
     # (С2) wordmark/tagline оверлея — Text-узлы (не растр композита).
     'overlay-text-words': (
@@ -299,26 +170,26 @@ MUTANTS = {
           "    Appearance.getColorScheme() === 'light' ? 'light' : 'dark');",
           "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() => 'light');")],
         ['PROD_ENTRY_OS_THEME_DARK'],
-        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_DARK',
-         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_MOUNTED_DARK',
+        ['SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_MOUNTED_DARK',
          'STATUS_BAR_STYLE_DARK'],
     ),
-    # (Р4, круг 6, Rev117) safe-area снята: контент в статус-баре,
-    # колонка прижата к краю (форма текущего C).
-    'auth-frames-no-inset': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "              paddingTop: frame === 'first-run' ? 0 : insets.top,\n"
-          "              paddingHorizontal: frame === 'first-run' ? 0 : 16,",
-          '              paddingTop: 0,\n              paddingHorizontal: 0,')],
-        ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT'],
+    # (117 v2) вход в форме текущего C: корень F03.01/F03.02 перекрашен в
+    # full-bleed ground — вход выведен в first-run-ekran, обязан остаться
+    # поверхностью 995.
+    'auth-restyled-ground': (
+        [('mobile/src/bootstrap/pilot-app.tsx', ROOT_ANCHOR,
+          "        frame === 'first-run' || frame === 'email' || frame === 'code'\n"
+          '          ? [styles.rootFirstRun')],
+        ['RESTYLE_GUARD_995_F03_DARK', 'RESTYLE_GUARD_995_F03_LIGHT'],
         [],
     ),
-    # (Р4) хардкод инссета 47 (не отслеживает insets.top; клетка даёт 59).
-    'auth-frames-inset-hardcode': (
-        [('mobile/src/bootstrap/pilot-app.tsx',
-          "              paddingTop: frame === 'first-run' ? 0 : insets.top,",
-          "              paddingTop: frame === 'first-run' ? 0 : 47,")],
-        ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT'],
+    # (117 v2) только кадр code (F03.02) в светлой схеме: судятся ОБА кадра
+    # входа × обе схемы, не выборка (email и тёмная схема не тронуты).
+    'auth-restyled-code-light': (
+        [('mobile/src/bootstrap/pilot-app.tsx', ROOT_ANCHOR,
+          "        frame === 'first-run' || (frame === 'code' && tokens.ground === '#f3f2ee')\n"
+          '          ? [styles.rootFirstRun')],
+        ['RESTYLE_GUARD_995_F03_LIGHT'],
         [],
     ),
     # (Р6, круг 6, Rev117) композит оверлея собственным размером: бокс
@@ -328,6 +199,45 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
           '            style={StyleSheet.absoluteFill}')],
+        ['SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT'],
+        [],
+    ),
+    # (вердикт критика 117 v2 круг 1, свидетель invisible-overlay.tsx)
+    # `opacity: 0` в стиле View оверлея рядом с zIndex: весь кадр
+    # прозрачен, стиль Image честен.
+    'overlay-opacity-zero': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '            zIndex: 1000,\n',
+          '            zIndex: 1000,\n            opacity: 0,\n')],
+        ['SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
+        [],
+    ),
+    # (родственный) display 'none' на View оверлея: узел скрыт и от
+    # доступности — запросы без скрытых узлов его не находят (depends —
+    # клетки, ищущие оверлей по testID; замер матрицы 117e).
+    'overlay-display-none': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '            zIndex: 1000,\n',
+          "            zIndex: 1000,\n            display: 'none',\n")],
+        ['SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
+        ['PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
+         'SPLASH_OVERLAY_MOUNTED_DARK', 'SPLASH_OVERLAY_MOUNTED_LIGHT',
+         'SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT'],
+    ),
+    # (родственный, предок) `opacity: 0` на корне PilotApp кадра first-run:
+    # стили оверлея и Image честны, кадр скрыт предком.
+    'root-opacity-zero': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '? [styles.rootFirstRun, { backgroundColor: tokens.ground }]',
+          '? [styles.rootFirstRun, { backgroundColor: tokens.ground, opacity: 0 }]')],
+        ['SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
+        [],
+    ),
+    # (родственный) нулевой бокс оверлея: width/height 0 вместо 100%.
+    'overlay-zero-size': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "            width: '100%',\n            height: '100%',\n",
+          '            width: 0,\n            height: 0,\n')],
         ['SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT'],
         [],
     ),
@@ -405,11 +315,6 @@ def main():
     if args.matrix:
         return matrix(repo)
 
-    auth = repo / 'mobile/src/features/auth/auth-screen.tsx'
-    if not args.model and "from '@/ui/text-field'" not in auth.read_text(encoding='utf-8'):
-        print(NAMED_RED)
-        return 1
-
     blobs = model_bytes() if args.model else None
     cases = run_suite(repo, blobs)
     if cases is None:
@@ -421,6 +326,10 @@ def main():
     for name in cases:
         print('case', case_name(name))
     if failed:
+        # Именованная причина до-предметного дерева — по наблюдению клетки
+        # (оверлей кадра Splash.png не смонтирован), не по тексту исходника.
+        if any(case_name(name).startswith('SPLASH_OVERLAY_MOUNTED_') for name in failed):
+            print(NAMED_RED)
         print('failed', len(failed), 'of', len(cases))
         return 1
     print(f'behavioral {len(cases)}/{len(cases)}')

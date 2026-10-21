@@ -265,28 +265,18 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   // На first-run — full-bleed #0A0A0A (ground текущей темы), без отступов
   // (К6 FIRST_RUN_GROUND_FULL_SURFACE требует paddingTop/horizontal/bottom
   // undefined или 0 и backgroundColor === tokens.ground).
-  // 117 (CMP-MOB-006, слова владельца (А) 18:15 и ~19:28): тот же
-  // full-bleed ground несут кадры входа F03.01/F03.02 (email/code) — вход
-  // по токенам и компонентам D2.2.5.1. Остальные кадры (welcome, F03.04
-  // recovery, unavailable — поверхность 995) — прежний корень 48/16/16 +
-  // #FFFFFF: frozen 111/1 стр. 41–42/80–83. Splash 117 целиком нативный
-  // (app.json), JS-кадра нет — первый кадр остаётся first-run.
-  const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';
-  // 117 круг 6 (Р4, Rev117): кадры входа F03.01/F03.02 — safe-area и
-  // колонка: корень несёт top-инсет (paddingTop >= insets.top; на стенде
-  // 1080×2400 statusBars [0..136], заголовок обязан лежать ниже) и
-  // горизонтальные отступы колонки 16 (D2.2.5.1 gutters). First-run
-  // остаётся full-bleed без отступов (frozen 111/1, К6).
+  // На остальных кадрах (welcome, F03.01/F03.02/F03.04, recovery и т. д.,
+  // поверхность 995) — прежний корень 48/16/16 + #FFFFFF: frozen 111/1
+  // стр. 41–42/80–83 запрещает рестайлить кадры 995; здесь они лежат
+  // на светлом корне, а их собственные стили (auth-screen/welcome-screen)
+  // уже заточены под #FFFFFF. 117 v2 (сужение до splash + иконка): вход
+  // F03.01/F03.02 выведен в first-run-ekran — корни кадров как на B.
   return (
     <ThemeContext.Provider value={themeValue}>
     <View
       style={
-        isD22Frame
-          ? [styles.rootFirstRun, {
-              backgroundColor: tokens.ground,
-              paddingTop: frame === 'first-run' ? 0 : insets.top,
-              paddingHorizontal: frame === 'first-run' ? 0 : 16,
-            }]
+        frame === 'first-run'
+          ? [styles.rootFirstRun, { backgroundColor: tokens.ground }]
           : styles.root
       }
     >
