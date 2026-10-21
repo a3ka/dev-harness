@@ -16,6 +16,13 @@
     "baza163": "e40cfa0121a0ab17cca6718e998c4e621292f326",
     "import233": "a498ea0d7081c56d39cd231fa9dca7bd6d85d3f4"
   },
+  "bliznecy": {
+    "comment": "Переменные близнецы каждого конформного мира (все ожидания green): движок выводит мир <id><suffix> для каждого вида — мутации мира плюс мутация корневого YAML без узнаваемой сигнатуры, пересборка gen:contracts. plus: от novye_puti[0] до novye_puti[1] новых путей из разных пространств (/v1/<слово>, /partner/v1/<слово>-<слово>, /admin/v1/…, вложенные с {<слово>_id}) в случайных местах секции paths, у каждого непустой случайный набор методов загрузчика с operationId из слогов. smes: новые пути + 1..3 новых метода у УЖЕ существующих путей + удаление существующих операций (больше, чем добавлено; путь без операций удаляется целиком); операции тестовых обработчиков и пути, названные в модели T/S, не трогаются. Имена, места и числа — ГСЧ при каждом построении (семя печатается, HTTP_CHISLO_127_SEED повторяет). Ограничения: дельта операций ≠ 0, ≠ дельте числа путей, итог ∉ пинов фиксированных миров. Ловит кандидата, узнающего известные миры по признакам (путь, хэш, версия, число путей, префикс добавок) и считающего лишь часть изменений: признак мира сохранён в его близнеце, а счёт — нет.",
+    "vidy": [
+      { "suffix": "-plus", "sostav": "plus", "novye_puti": [2, 15] },
+      { "suffix": "-smes", "sostav": "smes", "novye_puti": [1, 3] }
+    ]
+  },
   "worlds": [
     {
       "id": "w163-baza",
@@ -208,6 +215,114 @@
       "edits": [
         { "file": "T", "old": "  execFileSync(process.execPath, [\n    path.join(__dirname, '..', '..', 'tests', 'tools', 'gen-contracts.js'),\n    '--check',\n  ]);\n", "new": "" },
         { "file": "T", "old": "  assert.equal(contracts.sourceSha256, crypto.createHash('sha256').update(root).digest('hex'));\n", "new": "" }
+      ]
+    },
+    {
+      "id": "tablica-po-putyam",
+      "mir": "w163-baza-plus",
+      "lovit": "обход адверсария (verdicts/adversary/contracts-127-impl-v1.md) дословно: известный путь → склеенная константа; на 13 фиксированных мирах зелен, в близнеце базы путь evb тот же, счёт 163+добавлено ≠ 163",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2');" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2');" }
+      ]
+    },
+    {
+      "id": "skleika-literala",
+      "mir": "w163-baza-plus",
+      "lovit": "склеенный литерал без ветвления (grep по 163|233 его не видит): в близнеце базы счёт ≠ 163",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = () => Number('16' + '3');" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = () => Number('16' + '3');" }
+      ]
+    },
+    {
+      "id": "dlina-putei-so-sdvigom",
+      "mir": "w163-baza-plus",
+      "lovit": "число путей без учёта методов плюс сдвиг, откалиброванный по известным мирам (база 154+9, импорт 217+16, w162 153+9): в близнеце добавлено операций ≠ добавлено путей",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => Object.keys(doc.paths).length + (doc.paths['/partner/v1/onboarding-applications'] ? 16 : 9);" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => Object.keys(doc.paths).length + (doc.paths['/partner/v1/onboarding-applications'] ? 16 : 9);" }
+      ]
+    },
+    {
+      "id": "konstanta-po-heshu",
+      "mir": "w233-import-plus",
+      "lovit": "таблица sha256 файла openapi.json известных миров (импорт 233, w162) → константа, прочее → 163: хэш близнеца импорта не в таблице, фолбэк 163 ≠ 233+добавлено",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = () => ({ '3e358f9a4f3d2f9ad8207fda6b1a76774b10f587ffae180a1fb4bd49148f1a83': Number('23' + '3'), '9ef19b8ef119f3fdd898552f7ab407a37adff85f7841ed05d3167370820b467d': Number('16' + '2') })[crypto.createHash('sha256').update(fs.readFileSync(DERIVED_DOC)).digest('hex')] ?? Number('16' + '3');" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = () => ({ '3e358f9a4f3d2f9ad8207fda6b1a76774b10f587ffae180a1fb4bd49148f1a83': Number('23' + '3'), '9ef19b8ef119f3fdd898552f7ab407a37adff85f7841ed05d3167370820b467d': Number('16' + '2') })[crypto.createHash('sha256').update(fs.readFileSync(DERIVED_DOC)).digest('hex')] ?? Number('16' + '3');" }
+      ]
+    },
+    {
+      "id": "chastichnaya-233",
+      "mir": "w233-import-plus",
+      "lovit": "частичная таблица: признак импорта → 233, иначе честный счёт; краснеет ТОЛЬКО в близнеце импорта (обоснование близнеца w233-import)",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);" }
+      ]
+    },
+    {
+      "id": "chastichnaya-162",
+      "mir": "w162-sintez-plus",
+      "lovit": "частичная таблица: нет пути evb → 162, иначе честный счёт; краснеет ТОЛЬКО в близнеце w162 (обоснование близнеца w162-sintez)",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.paths['/v1/evb/{evb_id}/issuance'] ? Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0) : Number('16' + '2');" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.paths['/v1/evb/{evb_id}/issuance'] ? Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0) : Number('16' + '2');" }
+      ]
+    },
+    {
+      "id": "chastichnaya-versiya",
+      "mir": "wver-prinyata-plus",
+      "lovit": "частичная таблица по версии: info.version 5.9.0 → 163, иначе честный счёт; краснеет ТОЛЬКО в близнеце wver-prinyata (обоснование близнеца wver-prinyata)",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.info.version === '5.9.0' ? Number('16' + '3') : Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => doc.info.version === '5.9.0' ? Number('16' + '3') : Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);" }
+      ]
+    },
+    {
+      "id": "obhod-adv127b",
+      "mir": "w163-baza-plus",
+      "lovit": "обход адверсария (verdicts/adversary/contracts-127-impl-v2.md) дословно: база по известным путям (233/163/162) + операции только на путях с префиксом /v1/zz127-; в близнеце plus добавки без префикса — счёт базы ≠ база+дельта",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => Object.entries(doc.paths).reduce((n, [route, item]) => n + (route.startsWith('/v1/zz127-') ? ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length : 0), 0) + (doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2'));" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => Object.entries(doc.paths).reduce((n, [route, item]) => n + (route.startsWith('/v1/zz127-') ? ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length : 0), 0) + (doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2'));" }
+      ]
+    },
+    {
+      "id": "tolko-novye-puti",
+      "mir": "w233-import-smes",
+      "lovit": "база по признакам + операции только на путях, отсутствующих в таблице известных (operation-index.json); в близнеце smes методы у существующих путей и удаления не видны: база+новые ≠ база+дельта (убыток > добавок методов)",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const KNOWN_ROUTES = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'contracts', 'operation-index.json'), 'utf8')).operations.map((o) => o.path)); const countOperations = (doc) => (doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2')) + Object.entries(doc.paths).reduce((n, [route, item]) => n + (KNOWN_ROUTES.has(route) ? 0 : ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length), 0);" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const KNOWN_ROUTES = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'contracts', 'operation-index.json'), 'utf8')).operations.map((o) => o.path)); const countOperations = (doc) => (doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2')) + Object.entries(doc.paths).reduce((n, [route, item]) => n + (KNOWN_ROUTES.has(route) ? 0 : ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length), 0);" }
+      ]
+    },
+    {
+      "id": "raznica-chisla-putei",
+      "mir": "w162-sintez-smes",
+      "lovit": "база по признакам + разница числа путей с известным (233↔217, 163↔154, 162↔153): в близнеце smes дельта операций ≠ дельте путей",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => { const base = doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2'); return base + Object.keys(doc.paths).length - { 233: 217, 163: 154, 162: 153 }[base]; };" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => { const base = doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2'); return base + Object.keys(doc.paths).length - { 233: 217, 163: 154, 162: 153 }[base]; };" }
+      ]
+    },
+    {
+      "id": "tolko-rost",
+      "mir": "w163-baza-smes",
+      "lovit": "детектор только роста: max(база по признакам, честный счёт); в близнеце smes чистый убыток — счёт базы ≠ база+дельта",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => Math.max(doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2'), Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0));" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const countOperations = (doc) => Math.max(doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2'), Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0));" }
+      ]
+    },
+    {
+      "id": "bez-udalenii",
+      "mir": "wver-prinyata-smes",
+      "lovit": "база по признакам + операции с operationId вне таблицы известных (operation-index.json) — новые пути и новые методы видны, удаления нет: в близнеце smes база+добавки ≠ база+дельта",
+      "edits": [
+        { "file": "T", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const KNOWN_IDS = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'contracts', 'operation-index.json'), 'utf8')).operations.map((o) => o.operation_id)); const countOperations = (doc) => (doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2')) + Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId && !KNOWN_IDS.has(item[m].operationId)).length, 0);" },
+        { "file": "S", "old": "const countOperations = (doc) => Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId).length, 0);", "new": "const KNOWN_IDS = new Set(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'contracts', 'operation-index.json'), 'utf8')).operations.map((o) => o.operation_id)); const countOperations = (doc) => (doc.paths['/partner/v1/onboarding-applications'] ? Number('23' + '3') : doc.paths['/v1/evb/{evb_id}/issuance'] ? Number('16' + '3') : Number('16' + '2')) + Object.values(doc.paths).reduce((n, item) => n + ['get', 'put', 'post', 'patch', 'delete'].filter((m) => item[m]?.operationId && !KNOWN_IDS.has(item[m].operationId)).length, 0);" }
       ]
     }
   ]
