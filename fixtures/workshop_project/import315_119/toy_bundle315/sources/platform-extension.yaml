@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info:
+  title: BrokerOS platform extension (toy)
+  version: 5.9.0
+paths:
+  /mobility/plate-orders:
+    post:
+      operationId: createPlateOrder
+      x-release-wave: W2
+      x-command-policy: {precondition: none}
+      responses:
+        '201': {description: created}
+  /mobility/consumer-track:
+    get:
+      operationId: getConsumerTrack
+      x-release-wave: W5
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformContract'
+components:
+  schemas:
+    PlatformContract:
+      type: object
+      properties:
+        contractId: {type: string}

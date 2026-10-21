@@ -1,0 +1,131 @@
+# Контракт 119 — импорт бандла 3.15: аддитивное слияние (I1 / CMP-BCK-315-CONTRACT)
+
+КОНТЕКСТ: /home/harness/consultant/b315/ASTRA-REPORT-3.15.md — разбор бандла 3.15 (§1 сравнение, §1.4 как слить, §5 исполненные проверки/ошибки, §6 план импорта)
+КОНТЕКСТ: бандл /home/harness/consultant/b315/Complior_Backend_v3_15/ (46 файлов, core 5.8.2, published 5.9.0)
+КОНТЕКСТ: продукт — Complior-back @ `0ed762b8cb63805a057f01a57ff069ba327c6b54` (merge PR#151)
+Источник: слово владельца ~01:05 UTC 21.10 (через консультанта), пять пунктов воли — (1) импорт АДДИТИВНЫМ слиянием поверх нашей 5.8.4, заменять файлы нельзя (core бандла = 5.8.2 — откатит CAS, 51 consumer, 82 precondition); (2) 3.15 = 5.8.4 + extension, единый генератор, VERSION_MANIFEST/FILES, валидатор known-failures=0, раскладка по §6 отчёта; (3) зона implementer — docs/, tests/tools/, tests/spec-3.15/ (НЕ app/ и server/); (4) KFZ_TERMINATION, lifecycle Wunschkennzeichen, исправления §5.2 — ОТДЕЛЬНЫЙ предмет M1 (контракт 120, зависит от 119); (5) первая версия клиента на синтетических адаптерах — НЕ предмет 119. Номер 119 выдан механизмом (тег id/CONTRACT/119, строка registry/contracts.tsv); plan-строку 119 пишет консультант в main.
+КРУГ 2 (вердикт критика contracts-119-krug1-fail.md, Б1–Б5): усилен исполнительный критерий — пин состава, поведенческие пробы инструментов, идентичность consumer-записей и index-проекций, сверка истории с git-базой, пин known-issues. Предмет НЕ расширен.
+КРУГ 3 (арбитраж `verdicts/arbitration/119-b2-pisatel-i-known-failures.md`, закрытый перечень П1–П5): пробы писателя W1/W2 → generator-ne-pishet, пустота known-failures проверяется оракулом по файлу → known-failures-nepust, носитель 23 клетки/26 причин, модель угроз дополнена. Предмет НЕ расширен.
+
+## Существующее (сверено живьём 2026-10-21, дерево — истина)
+
+1. **База продукта** (клон /tmp/dev-harness-verify/Architect119/back, checkout 0ed762b8cb): `grep -c operationId:` в docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml = **163**; schemas (awk-счёт оракула) = **496**; `workflow_consumers` = **53**, из них **50 без id** (49 `confirmed_5_8_4` + 1 `deferred_5_8_4`) — идентичность записей только по значимым полям; docs/contracts/operation-index.json существует, `.operations[]` несёт поле `consumers` у всех 163 операций; `APPROVAL_ACTION_ALREADY_DISPATCHED` = 3 вхождения; If-Match в блоке acknowledgeDisclosure есть; FILES.sha256 в корне, 657 строк, формат `<sha256>  <path>`, правило генератора — `git ls-files --cached --others --exclude-standard` минус сам FILES.sha256, is_file; VS01 = `23c85b3cb4222aebd60b3a0fba5ce09f9e6942f156063163930646443a2600f0` (docs/VERSION_MANIFEST.json).
+2. **Бандл**: published 233 operationId (проверено grep -c); extension sources/platform-extension.openapi.yaml = 70 операций, 70 схем, параметр `PlatformContract`; `new_operation_consumers` = 70 (68 AWAITING_FRONTEND_ACTION_ID + 2 INTERNAL_SERVICE, runtime_status NOT_RUN у всех, грамматика operation_id/binding_status/runtime_status/action_id); data/physical-model.json несёт `tables` = 29 (owner_role у каждой); у tools/generate_derived.py `--check` НЕ РЕАЛИЗОВАН (§5.1 отчёта); собственный валидатор 40 PASS_STATIC, но наш валидатор против published бандла даёт 625 failed checks (C3a) — показатель несовместимости, не 625 дефектов.
+3. **C7 отчёта**: аддитивное слияние 5.8.4 + extension в памяти — 233 операции/566 схем, все исходные операции сохранены, hash VS01 совпадает с нашим манифестом; коллизий имён компонентов и path+method с 5.8.4 нет (C4). Это подтверждённый общий предок, не предположение.
+4. **Прецедент раздачи**: 112 — оракулы батареи обязательны на ДОСТАВЛЕННЫХ клонах; 996 — режим проекта для Complior-back подключён (check_project_connection.sh).
+
+## Пин состава (круг 2, Б1/Б4/Б5)
+
+`fixtures/workshop_project/import315_119/pin_315.json` (зона architect, implementer изменить не может) — независимое от проверяемого дерева ожидание; оракул выбирает запись по sha256 базового published из git-истории (`ADDCORE^`), неизвестная база = `sostav-rashozhdenie`. Числа замерены командами 2026-10-21:
+
+| Поле пина (product) | Значение | Замер |
+|---|---|---|
+| base_published_sha256 | `3357412c…4e58324` | `sha256sum` published @0ed762b8cb |
+| base_git_commit | `0ed762b8cb…c6b54` | checkout базы; родитель первого core-коммита обязан быть им |
+| new_ops / new_schemas | 70 / 70 | `grep -c operationId:` extension; awk-счёт схем (496+70=566=published) |
+| binding_status_new | 68 AWAITING_FRONTEND_ACTION_ID + 2 INTERNAL_SERVICE | `jq group_by` |
+| physical_tables | 29 | `jq '.tables|length'` physical-model бандла |
+| extension_sha256 | `46c2e9a5…63e6c1a` | `sha256sum` sources/platform-extension.openapi.yaml |
+| platform_component | PlatformContract | `awk` по `parameters:` extension (единственный) |
+| known_issues_min | 11 id §5.2 (ниже) | отчёт §5.2, построчно |
+
+Toy-запись (для режима --model) замерена по toy_bundle315 той же командой. Состав пина — замороженная истина круга 2; изменение пина — только через следующий круг критика.
+
+## Предмет и граница
+
+Один наблюдаемый результат: **репозиторий Complior-back после импорта 3.15 удовлетворяет инвариантам аддитивного слияния, исполнимым оракулом `fixtures/workshop_project/import315_119/import315_oracle.sh <клон>` → rc 0, и красная батарея этого требования предъявлена в харнессе (`red_import315_119.sh`)**.
+
+Инварианты (оракул — исполнительная форма; числа — пин + носитель оракул на живом дереве):
+- **Аддитивность**: ни одна старая операция не изменена (поблочная побайтовая сверка published против git-базы — родителя коммита, впервые добавившего docs/sources/backend-3.15/core.openapi.yaml); ReasonCode-блок сохранён; ядро-источник = побайтовая копия нашего published 5.8.4 (core-zamenen); миграции базы не изменены и не удалены (sql-izmenen; добавления 015+ разрешены); VS01-хэш манифеста равен базовому (vs01-otkatan).
+- **Идентичность consumer graph (Б3)**: каждая базовая запись workflow_consumers сохранена ДОСЛОВНО как канонический JSON (jq -Sc) — значимые поля operation_id/adoption_status/kind/…, а не мультимножество id (50 из 53 реальных записей без id); новые записи = разность множеств; consumers-проекции operation-index базовых операций сохранены дословно (poterya-consumer).
+- **Честный статус новых bindings**: новые записи несут реальную грамматику бандла — action_id=null, binding_status ∈ {AWAITING_FRONTEND_ACTION_ID, INTERNAL_SERVICE} (68+2 по пину), runtime_status=NOT_RUN, adoption_status ≠ confirmed_5_8_4 (status-nechestnyj).
+- **Состав = пин (Б1)**: +70 операций (163→233), +70 схем (496→566), параметр PlatformContract, +70 потребителей, 29 tables в docs/data/physical-model.json; extension = побайтовая копия файла бандла (sha256 по пину); declared-counts равен пину; активный baseline-lock = 5.8.4; гистограмма binding_status новых записей равна пину; родитель первого core-коммита = 0ed762b8cb (sostav-rashozhdenie / rashodenie-operacij / owners-rashozhdenie).
+- **Единый генератор с --check, поведенчески (Б2)**: tests/tools/generate_derived.py — core+extension → published/bindings/index/VERSION_MANIFEST, FILES.sha256 последним; `--check` — сухой пересчёт и побайтовое сравнение (rc 0/1), отсутствует `--check` = generator-bez-check; запись при --check или недетерминизм = vosproizvodimost (двумя мерами: rc и хэш рабочего дерева до/после). Оракул ДОПОЛНИТЕЛЬНО испытывает генератор на различающих входах в одноразовых локальных клонах: (а) устаревший производный файл + `--check` обязан краснеть; (б) переименованная операция extension + `--check` обязан краснеть; noop (`sys.exit(0)`) = generator-noop; (в) писатель без аргументов восстанавливает устаревший производный до байтов судимого дерева (cmp пяти выходов — другая мера, не повторный `--check`); (г) на ином входе писатель + `--check` сходятся и published несёт новое имя (`oracleProbeOp`); иначе — generator-ne-pishet.
+- **known-failures=0 — инвариант файла, валидатор — поведенчески (Б2/Б2б)**: known-failures=0 — инвариант файла `tests/tools/contract-validator-known-failures.json` (failure_ids=[] и fingerprints={}), проверяется оракулом независимо от валидатора (known-failures-nepust: jq -e по самому файлу, отсутствие файла или не-JSON — та же причина; файл именно этот — его читает lane продукта как реестр подавлений); валидатор поведенчески — на двух импорт-блокерах: tests/spec-3.15/ валидатор rc 0 failures=[] (validator-kreven) И обязан краснеть на удалении одной базовой consumer-записи из bindings и compatibility_baseline=5.8.2; noop (`print("failures=[]")`) = validator-noop. rc+строка stdout в одиночку не доказывают честность — проверяется поведение.
+- **Манифест сходится с деревом**: counts операций/схем/consumers = пересчитанные (manifest-rashozhdenie); FILES.sha256 = пересчёт по правилу генератора (files-sha256-rashozhdenie); published_ops = base_ops + pin.new_ops (rashodenie-operacij).
+- **Known-issues из пина (Б5)**: tests/spec-3.15/known-issues-315.json ⊇ known_issues_min пина (11 id M1-перечня §5.2: kfz-termination-consumer-gap, wunschkennzeichen-lifecycle, termination-confirmed-unverified-report, done-bez-evidence-step-key, generic-current-value, physical-model-fk-grants-invitation-owner, otsutstvuyushchie-artefakty-a312-521, a689-obeshchaniya-generacii, a300-if-match-obobshchenie, shrifty-render-architecture-c2b, pg-boss-konflikt; имена id фиксированы пином) и ⊇ declared (known-issues-nepolnyj); валидатор не превращает их в молчаливое зелёное.
+- **Раскладка §6.1 отчёта**: docs/sources/backend-3.15/{core.openapi.yaml, platform-extension.yaml, baseline-lock.json(5.8.4), new-consumers.json, declared-counts.json, provenance/{nasha_5_8_4.sha256, KNOWN-ISSUES-DECLARED.json, bundle-baseline-lock.json, bundle-VERSION_MANIFEST.json}}; docs/plans/delivery-plan-3.15.json; docs/data/; docs/history/3_14/ = побайтовый снапшот НАШЕЙ базы: yaml == git-базовый published, VERSION_MANIFEST == git-базовый манифест (istorika-podmenena — подмена бандлом 5.8.2 ловится сверкой с git-базой, а не с файлом проверяемого дерева; исторический манифест тоже); tests/spec-3.15/ в structure-policy.json (struktura-policy); ЗАПРЕЩЕНО: второй корень Complior_Backend_v3_15/ (raskladka-vtoroj-koren), два активных OpenAPI, два consumer-registry, второй SQL-каталог.
+- **Классификация §5.2** (форма приёмки, не чинит их здесь): импорт-блокеры — baseline-совместимость 5.8.2 (устраняется rebase на 5.8.4) и потеря 51 потребителя/поля consumers в index (устраняется сохранением графа) — валидатор обязан красить (пробы оракула); M1-перенос (реестр known-issues) — перечень §5.2 выше.
+
+НЕ входит в 119: спецификация M1 (контракт 120 — KFZ_TERMINATION, Wunschkennzeichen, исправления §5.2); SQL миграций 015–019 (DDL не предмет — только нумерация 015+ в раскладке); app/ и server/ (вне зоны); runtime boundary http.js (I3 — per-operation версии/audience); включение Partner Mobile; пять mobility-процессов клиента; рендер PDF (C2b NOT_RUN).
+
+## Боль (измеренная)
+
+- **Н-201** (NABLIUDENIA.md, ОТКРЫТО, адрес контракт 080): ленд, меняющий общее ядро, сломал 46 положительных контролов в трёх НЕ связанных шардах — измеренный класс «замена общего ядра валит чужих потребителей». Вариант (A) замены файлов бандлом — тот же класс в масштабе 51 подтверждённого потребителя и 82 precondition: отклонён, воля владельца п.1.
+- Прямой боли «импорт бандла» в NABLIUDENIA.md НЕТ (grep «импорт|генератор|манифест|FILES.sha256|known-failures» 2026-10-21) — номер не выдуман, класс обоснован ближайшим Н-201.
+- Круг 1 критика: пять принятых обходов (Б1–Б5) — измеренная боль «согласованность внутри проверяемого дерева выдаётся за поставку»: все декларации читались из дерева, инструменты — по rc. Закрыто пином и поведенческими пробами.
+
+## Frontier (выбор слияния)
+
+- **(A) Замена файлов бандлом** — ОТКАЗ: откат CAS 5 операций (§1.2: acknowledgeDisclosure/requestAction/revokeApproval/revokePartnerGrant strong If-Match; revokePermission идемпотентный профиль), 51 потребителя, 82 precondition, ReasonCode; боль Н-201.
+- **(B) АДДИТИВНОЕ СЛИЯНИЕ + единый генератор** — ВЫБРАН (воля владельца п.2): 5.8.4 = inherited core (побайтово), extension вторым источником, единый writer, C7 подтверждает сохранение VS01 и отсутствие коллизий.
+- **(C) Бандл как неактивный снапшот без активации** — ОТКАЗ: ноль активных 3.15, расхождение 625 проверок не закрыто, M1 (120) заблокирован.
+- **(D) Пораздельный cherry-pick доков без генератора** — ОТКАЗ: счёты манифеста/FILES расходятся с деревом, воспроизводимость недоказуема (--check у бандла нет, §5.1).
+
+## Конструкция батареи (носитель — fixtures/workshop_project/import315_119/)
+
+Раннер `red_import315_119.sh` (мир-фабрика + диспетчеризация **23 клетки**), модель `model_import315_119.sh` (честный мини-импорт: core = побайтовая копия нашего published, provenance/история/lock 5.8.4, генерация), оракул `import315_oracle.sh` (судит репозиторий по инвариантам, алфавит **26 именованных причин** — 21 круга 1 + sostav-rashozhdenie, generator-noop, validator-noop, generator-ne-pishet, known-failures-nepust), пин `pin_315.json` (независимое ожидание состава, записи product/toy), toy-бандл `toy_bundle315/` (extension +2 операции, +2 new_operation_consumers реальной грамматики, +2 tables physical-model, declared known-issues), генератор `gen_derived_315.py` (слияние new_operation_consumers, расширение operation-index) и валидатор `validate_import_315.py` (обязан отказывать на импорт-блокерах) — копируются моделью в мир; стабы `stab_vsegda_{zelenyj,krasnyj}.sh`.
+Клетки: m-baza (база без импорта → import-otsutstvuet), k-model (честная модель → rc 0), d1–d23 (модель + ОДНА мутация, каждая поймана своей причиной; соответствие вход↔ветвь держится кодом диспетчеризации, Н-39; ожидания — литералы, Н-351). Клетки круга 2: d18-generator-noop, d19-validator-noop, d20-extension-pustoj; d11-known-issues-soglasovanno-nepolnyj (оба реестра согласованно неполны — пара файлов под контролем одной стороны). Клетки круга 3 (арбитраж 119): d21-generator-pisatel-noop (писатель-пустышка при исправном `--check`; режется пробой W1 — П1), d22-generator-vosstanavlivaet-iz-git (писатель = `git checkout` выходов, `--check` исходный, мир закоммичен — без коммита режет П1, а не своя ветвь; режется пробой W2 — П2), d23-known-failures-nepust (валидатор без проверки пустоты + непустой реестр, обе правки сразу — П3).
+
+## Приёмочный критерий (команды, rc)
+
+1. `bash fixtures/workshop_project/import315_119/red_import315_119.sh` → сегодня rc 1, причина `import-otsutstvuet` (живой клон @0ed762b8cb; замер круга 2: «ПРОДУКТ …: ОТКАЗ: import315: import-otsutstvuet / ИТОГ 119 (продукт): rc=1»); после импорта implementer → rc 0 `IMPORT315_OK`.
+2. `bash fixtures/workshop_project/import315_119/red_import315_119.sh --model` → rc 0, «ИТОГ 119: клеток 23, зелёных 23, красных 0» (замер круга 3: 23/23, ~7 с).
+3. `bash … --cell net-takoj-kletki` → rc 2 (замер: rc 2).
+4. `IMPORT315_119_ORACLE=<батарея>/stab_vsegda_zelenyj.sh bash … --model` → rc 1 «зелёных 1, красных 22» (замер круга 3); `…/stab_vsegda_krasnyj.sh` → rc 1 (замер круга 3) — двунаправленная ловля стаб-оракула.
+5. Контрмодель: `sed '/ADDITIV-315-BEG/,/ADDITIV-315-END/d' import315_oracle.sh > /tmp/oracle_bez.sh; cp pin_315.json /tmp/; IMPORT315_119_ORACLE=/tmp/oracle_bez.sh bash … --cell d13-sql-izmenen` → rc 1, факт контрмодели rc 0 IMPORT315_OK (замер круга 2: факт `IMPORT315_OK … pin=toy`) — слепота к аддитивности наблюдаема.
+6. Обходы критика круга 1 красные на своих ветвях (замеры круга 2): Б1 — живой мир «реальная база + пустой extension + declared-counts 0 + noop-инструменты + согласованные FILES/manifest/history/known-issues» (скрипт сборки /tmp/dev-harness-verify/Arch119r2/live_b1.sh) → оракул rc 1 `rashodenie-operacij` (счёт из ПИНА 163+70≠163, не из declared-counts); клетки d18/d19/d20 покрывают Б2/Б2/Б1 в модели, d11-new — Б5, d2 — Б3, d12 — Б4. Обходы круга 2 (замеры круга 3, мутации арбитра на штатной фабрике миров): Б2а writer-noop → rc 1 `generator-ne-pishet`, Б2б kf-nonempty → rc 1 `known-failures-nepust`, пустышка второго порядка (писатель = `git checkout -- …`, мир закоммичен) → rc 1 `generator-ne-pishet` — режет проба W2 (d21/d22 — Б2а, d23 — Б2б).
+7. После импорта (живой клон): `bash fixtures/workshop_project/import315_119/import315_oracle.sh <клон>` → rc 0; `python3 tests/tools/generate_derived.py --check` → rc 0 (в т.ч. на устаревшем производном — rc 1); писатель без аргументов восстанавливает устаревший производный до байтов дерева и даёт `--check` rc 0 на переименованной операции extension; `tests/tools/contract-validator-known-failures.json`: failure_ids=[] и fingerprints={}; валидатор spec-3.15 → rc 0 failures=[] и краснеет на (а) удалённой базовой consumer-записи, (б) compatibility_baseline=5.8.2; known-issues реестр ⊇ 11 id пина; VS01 манифеста = `23c85b3c…a2600f0`.
+8. `bash scripts/pre_critic.sh --repo . contracts/119-import-315-additivnoe-sliyanie.md` → rc 0; `bash scripts/check_precision_gate.sh . contracts/119-import-315-additivnoe-sliyanie.md` → rc 0; `bash scripts/check_threat_model.sh . contracts/119-import-315-additivnoe-sliyanie.md` → rc 0 (замер круга 3).
+
+## Зоны и раздача
+
+ЗОНА architect: contracts/119-import-315-additivnoe-sliyanie.md fixtures/workshop_project/import315_119/
+ЗОНА implementer: docs/ tests/tools/ tests/spec-3.15/ structure-policy.json migrations/ FILES.sha256
+FILES.sha256 (корень): пересчёт штатным генератором в коммите импорта, ручная правка запрещена; при интеграционном merge коммитит оркестратор (совет критика 1 — исполнитель назначен явно).
+ПЕРЕСЕЧЕНИЕ implementer: structure-policy.json — 119 ТОЛЬКО добавление строки-ключа `tests/spec-3.15/` (новый путь продукта, впервые заявлен этим контрактом; прецедент arm-дополнения — 112/profile_resolver)
+ПЕРЕСЕЧЕНИЕ implementer: migrations/ — 119 только НОВЫЕ файлы 015+ (существующие 001–014 immutable, оракул сверяет побайтово против базы)
+
+Пути ЗОНА/ПЕРЕСЕЧЕНИЕ implementer — от корня репозитория Complior-back (не харнесса).
+
+Правка implementer в tests/tools/generate_derived.py — эволюция действующего генератора 5.8.4 в единый core+extension генератор с --check (грамматика выходов published/bindings/index/manifest/FILES сохраняется); замена его вторым независимым writer-ом — вне зоны (§6.1 «не делать»). Адаптация реальной грамматики данных (совет критика 2): потребители extension переносятся в том виде, в каком бандл их несёт — new_operation_consumers с operation_id/binding_status/runtime_status/action_id — и дословно (без переименования полей в игрушечные status/runtime) попадают в workflow_consumers; physical-model остаётся с `tables`/owner_role (29) — без пересборки в `owners`; consumers-проекции operation-index базовых операций сохраняются дословно, новым операциям добавляются свои записи. Раскладка docs/ — по §6.1 отчёта (перечень в §Предмет). Первый коммит импорта, добавляющий core.openapi.yaml, обязан иметь родителем 0ed762b8cb (пин). Зоны судей не заявляются (прецедент 112/996): вердикты кладутся ролями в verdicts/ роль-каноном.
+
+## ПРОВОДКА
+
+ПРОВОДКА:
+- guard=fixtures/workshop_project/import315_119/red_import315_119.sh
+
+ПРОВОДКА-ЭНФОРСМЕНТ: красная батарея импорта — единственный guard 119; режим --model самодостаточен (миры в mktemp, продукта не требует) и годен к проводке в CI харнесса по образцу 996-E (npm-ключ + step-строка реестра, шаг `check:import315-119-family-selftest` = `bash fixtures/workshop_project/import315_119/red_import315_119.sh --model`) — выполняет оркестратор отдельным интеграционным коммитом ЗА реализацией; до этого коммита `check_provodka` rc 1 «guard не подключён» — НЕ блокер и НЕ приёмка красного. Продуктовый энфорсмент — lane Complior-back (tools/run_backend_ci.py ВНЕ зоны implementer — wiring консультантом/владельцем при merge, здесь NOT_RUN), оракул обязан быть зелёным на ДОСТАВЛЕННОМ клоне (прецедент 112 п.8): `import315_oracle.sh <клон>` rc 0.
+
+## Модель угроз
+
+ЗАЩИЩАЕТ:
+- от отката унаследованного ядра 5.8.2-бандлом: побайтовая сверка core-источника и поблочная сверка старых операций против git-базы (замена ядра/изменение старой операции/CAS-rollback/ReasonCode-rollback — именованные причины);
+- от пустого/усечённого импорта при самосогласованном дереве (Б1): состав extension фиксирован пином рядом с оракулом — counts, sha256 extension, PlatformContract, гистограмма binding_status, 29 tables, родитель core-коммита = 0ed762b8cb;
+- от потери подтверждённых потребителей и подмены их статуса (Б3): идентичность канонических записей целиком (не id) + consumers-проекции index; новый consumer с честным статусом = pending-класс бандловой грамматики, confirmed = status-nechestnyj;
+- от генератора/валидатора-плацебо (Б2): поведенческие пробы на различающих входах в одноразовых клонах (устаревший производный, иной вход, подсунутые импорт-блокеры) — noop-заглушки зеленеют на основном прогоне, но краснеют на пробах; включая писатель-пустышку при исправном `--check` и писатель, восстанавливающий выходы из git (пробы W1/W2), и непустой реестр known-failures при зелёном валидаторе (проверка файла);
+- от несходимости манифеста и инвентаря с деревом (counts/FILES пересчитываются оракулом, а не читаются на веру);
+- от подмены истории 3.14 бандловыми байтами (Б4): история сверяется с git-базой побайтово (yaml И манифест), не с provenance-файлом проверяемого дерева; от второй активной копии бандла в дереве;
+- от скрытия M1-проблем (Б5): known-issues реестр ⊇ 11 id пина независимо от declared-файла дерева.
+
+НЕ ЗАЩИЩАЕТ:
+- от семантической верности САМИХ новых операций/схем extension (это валидатор M1 и судьи следующих контрактов);
+- от SQL-дефектов physical-model (M2; здесь только immutable базовых миграций);
+- от дрейфа после доставки (следующая проверка перечитывает дерево);
+- от злонамеренного владельца репо, переписывающего git-историю под пин (сверка согласованности с git-базой, не доказательство авторства);
+- от CI-проводки Complior-back до её выполнения консультантом/владельцем (NOT_RUN).
+- от генератора/валидатора, распознающего пробы оракула (маркер устаревания, имя `oracleProbeOp`, удаление первой consumer-записи, baseline 5.8.2) и несущего честную логику только для них: такой двойник строго сложнее честного инструмента (стандарт-А, критерий (ii), арбитраж `krasnye-proby-granica-primera`); ловец — ревью кода implementer'а и судьи реализации, cognitive-only;
+- от содержательной верности того, что генератор и валидатор делают на входах вне проб (открытые языки OpenAPI/JSON — правило 7 AGENTS: сверх-приближаются счётами, хэшами, пином и побайтовой аддитивностью, не вычисляются); семантика новых операций/схем и проверки валидатора сверх двух импорт-блокеров §5.2 — предмет 120 и судей реализации.
+
+## Демаркация
+
+Конформный мир: git-репозиторий раскладки Complior-back (docs/contracts/{published,bindings,index,alignment}.json|yaml, docs/VERSION_MANIFEST.json, FILES.sha256 в корне, structure-policy.json, migrations/, tests/{tools,spec-3.15}/) либо мини-мир той же раскладки; базовый published мира обязан быть записан в pin_315.json (иначе sostav-rashozhdenie). Конформный импорт: ядро = побайтовая копия базового published; extension добавляет операции/схемы/consumers/tables ровно пина; манифест и FILES сходятся; generator --check rc 0 и краснеет на устаревшем производном, писатель восстанавливает его; валидатор rc 0 failures=[] и реестр known-failures пуст, и краснеет на импорт-блокерах; known-issues реестр ⊇ пина. Валидный контрпример = расхождение оракула на входе объявленной грамматики (именованная причина замкнутого алфавита из 26), инвариантное к именам временных каталогов миров; мутация, накрывающая следы регенерацией (rehash/перегенерация), обязана оставаться различимой своей причиной — иначе она доказывает дыру барьера, а не красноту предмета.
+
+## NOT_RUN (граница этого контракта)
+
+- Живой импорт в Complior-back и его merge — implementer + консультант/владелец; оракул на доставленном клоне — после merge (п.7 приёмки), до того красное предъявление п.1.
+- CI-проводка lane Complior-back (tools/run_backend_ci.py вне зоны implementer) — консультант/владелец; проводка --model батареи в CI харнесса (образец 996-E) — оркестратор, интеграционным коммитом, ЗА реализацией.
+- M1 (контракт 120): KFZ_TERMINATION, Wunschkennzeichen lifecycle, исправления §5.2 — только реестр known-issues здесь.
+- PDF-рендер архитектуры (C2b: шрифт отсутствует) и визуальная проверка — NOT_RUN.
+- Runtime boundary (server/src/http.js), аудит SQL/RLS, TCP smoke обоих version-профилей — I3/M2, не 119.
+- Полный CI бандла и новый runtime в аудите не запускались (§6.2 отчёта) — здесь не исполняются.
