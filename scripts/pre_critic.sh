@@ -236,6 +236,12 @@ unset _arm_reg_dir
 # freeze_contract, здесь живого gh ещё нет. Судьба КОДА возврата гейта, а не его
 # текста: отказ, напечатанный с rc 0, дверь не открывает. Ноги (а)-(г) выше не
 # тронуты.
+# ОТСУТСТВИЕ ГЕЙТА ЗДЕСЬ ПРОПУСКАЕТСЯ (`-x`) — в отличие от freeze_contract, где
+# гейт fail-closed: замер показал, что fail-closed здесь ломает ЗАМОРОЖЕННУЮ
+# батарею 072 — её мир (fixtures/pre_critic/_toy.sh) копирует подмножество гейтов
+# и check_predposylki.sh в нём нет (замер: bash scripts/verify_antiplacebo.sh
+# --scope pre_critic → rc 1, «нет положительного контроля» на обеих фикстурах).
+# Смена поведения 072 — не зона implementer контракта 122.
 if [ -x "$ROOT/scripts/check_predposylki.sh" ]; then
   pp_rc=0
   pp_out="$(bash "$ROOT/scripts/check_predposylki.sh" "$BASE" "$CONTRACT_FILE" 2>&1)" || pp_rc=$?

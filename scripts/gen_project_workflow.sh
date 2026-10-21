@@ -169,16 +169,21 @@ path = os.path.join(ROOT, WORKFLOW_REL)
 
 if MODE == 'write':
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(text)
+    with open(path, 'wb') as f:
+        f.write(text.encode('utf-8'))
     sys.stdout.write('gen OK: write %s\n' % WORKFLOW_REL)
     sys.exit(0)
 
 if not os.path.isfile(path):
     refuse('workflow-otsutstvuet', '%s (сгенерируй --write)' % WORKFLOW_REL)
-with open(path, encoding='utf-8') as f:
-    current = f.read()
-if current != text:
+# Побайтовое сравнение (§Г1): текстовый режим Python нормализует \r\n и одиночный
+# \r в \n ДО сравнения, и CRLF-версия файла проходила бы как «не ручная правка».
+try:
+    with open(path, 'rb') as f:
+        current = f.read()
+except OSError as e:
+    refuse('workflow-otsutstvuet', '%s не читается: %s' % (WORKFLOW_REL, e))
+if current != text.encode('utf-8'):
     refuse('workflow-ruchnoj', '%s разошёлся с манифестом' % WORKFLOW_REL)
 sys.stdout.write('gen OK: check %s\n' % WORKFLOW_REL)
 sys.exit(0)
