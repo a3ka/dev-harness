@@ -57,6 +57,7 @@
 7. После реализации: `bash scripts/gen_project_workflow.sh --repo <R> --check` зелёнен только при байтовом равенстве (клетки g3/g4 — двойные меры rc+cmp/sha256); `bash scripts/ci_preflight.sh --repo <R> --workflow <рукописный>` судит рукописный workflow той же грамматикой, что сгенерированный (клетки p7 — наследование и переопределение рабочего каталога; p5e/p6e — сверка объявленности и подстановка вне `run`).
 8. `bash scripts/pre_critic.sh --repo . contracts/122-ci-proekta.md` → rc 0 «КРИТИК: дверь зелёная»; `bash scripts/check_precision_gate.sh . contracts/122-ci-proekta.md` → rc 0; `bash scripts/check_threat_model.sh . contracts/122-ci-proekta.md` → rc 0 (ЗАЩИЩАЕТ 7, НЕ ЗАЩИЩАЕТ 6) — замеры.
 9. ПРОВОДКА — механическое условие done: `bash scripts/check_provodka.sh "$PWD" contracts/122-ci-proekta.md` → сегодня rc 1 «проводка: норма-строка не найдена в role-файле: roles/architect.md» (первый неподключённый канал); в одноразовом клоне с имитацией интеграции (три тела role-каналов поля ПРОВОДКА отдельными строками в roles/{architect,implementer,orchestrator}.md + step-строка реестра) → rc 0; снятие любого одного из четырёх подключений → rc 1 с причиной именно этого канала (замеры). После интеграционных коммитов → rc 0; до них `done_contract.sh` (шаг 6) отказывает.
+ПОТРЕБИТЕЛЬ fixtures/check_check_contract_ready/: bash scripts/check_check_contract_ready.sh
 
 ## Зоны и раздача
 
