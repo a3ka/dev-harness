@@ -109,7 +109,7 @@ def prepare(base, case, source):
         shutil.copy2(ROOT / 'scripts' / name, scripts / name)
     put(scripts / subject, source, True)
     # Unrelated prerequisite gates are isolated, as in the original reviewer probe.
-    for name in ('check_spec_ready.sh', 'check_consumers.sh', 'check_provodka.sh', 'check_sud_model.sh'):
+    for name in ('check_spec_ready.sh', 'check_consumers.sh', 'check_provodka.sh', 'check_sud_model.sh', 'check_predposylki.sh'):
         put(scripts / name, '#!/bin/bash\nprintf "OK\\n"\nexit 0\n', True)
     put(scripts / 'doc_contract.ts', 'process.exit(1);\n')
     bindir = base / 'bin'
