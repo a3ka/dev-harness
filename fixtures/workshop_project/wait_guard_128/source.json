@@ -1,0 +1,455 @@
+{
+  "comment": "Оракул 128 (wait-guard). Память проверяющего: классы исхода каждого вызова (want) и число запусков табло (zapuskov) — литералы этого файла; перечень строк блока и порог заголовка движок выводит из СГЕНЕРИРОВАННОГО им табло ДО вызова субъекта (минуты, номера, имена — от seed прогона; граничные строки порог−1/порог/порог+1 — всегда, не по seed), ответ субъекта с диска как истина не читается. Привязка стаб ↔ клетка — поле cell у стаба и код run_stubs движка; стаб с полем zagruzka дополнительно судится НАСТОЯЩИМ загрузчиком omp (режим --load --stabs, код run_load_stubs) и обязан быть им отвергнут; проза контракта привязку не утверждает (Н-39). Стаб = модель с подстановкой subst (якорь обязан встречаться в модели ровно один раз).",
+  "subject": ".omp/extensions/wait-guard.ts",
+  "outcomes": [
+    "BLOCK",
+    "PASS",
+    "WARN_TABLO",
+    "WARN_SESSION"
+  ],
+  "cells": [
+    {
+      "id": "c01-stoit",
+      "intent": "ведущая сессия, табло живой формы: 3–7 строк СТОИТ ≥ 8 (предметные и PR) среди РАБОТАЕТ — блок с перечнем всех",
+      "want": [
+        "BLOCK"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c02-bez-stoit",
+      "intent": "только РАБОТАЕТ и ЖДЁТ CI, итог 0 — проход без предупреждения",
+      "want": [
+        "PASS"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c03-molozhe",
+      "intent": "строка СТОИТ 7 мин (порог−1, всегда) и 0–3 строки СТОИТ 0–7 мин, итог > 0 — проход",
+      "want": [
+        "PASS"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c04-granica",
+      "intent": "строки СТОИТ 9, 8 и 7 мин (порог+1, порог, порог−1) при пороге по умолчанию — блок, в перечне ровно строки 9 и 8 мин",
+      "want": [
+        "BLOCK"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c05-zhdet-ci",
+      "intent": "2–3 строки ЖДЁТ CI и РАБОТАЕТ, итог 0 — проход",
+      "want": [
+        "PASS"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c06-potok",
+      "intent": "только строки СТОИТ ПОТОК (N мин ≥ 8 и «больше 360 мин»), итог 2 — проход (Frontier А)",
+      "want": [
+        "PASS"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c08-porog-env",
+      "intent": "WAIT_GUARD_MIN=T (T от seed, 20–200): строки T−1, T, T+1, T+r (r 2–100) — блок, заголовок ≥ T, в перечне T, T+1 и T+r",
+      "want": [
+        "BLOCK"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c09-porog-nerazobran",
+      "intent": "семь вызовов, WAIT_GUARD_MIN вне ^[1-9][0-9]{0,3}$ по одному на вызов (env_values): порог 8, строки 9, 8 и 7 — каждый вызов блок по строкам 9 и 8",
+      "want": [
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK"
+      ],
+      "zapuskov": 7,
+      "env_values": [
+        "abc",
+        "0",
+        "08",
+        "-5",
+        "8.5",
+        " 9",
+        "10000"
+      ]
+    },
+    {
+      "id": "c10-tablo-net",
+      "intent": "файла табло в установке нет — проход с предупреждением «табло недоступно»",
+      "want": [
+        "WARN_TABLO"
+      ],
+      "zapuskov": 0
+    },
+    {
+      "id": "c11-tablo-rc",
+      "intent": "табло rc 1, stdout несёт полное табло со строками СТОИТ ≥ 8 — проход с предупреждением (вывод упавшего табло не судится)",
+      "want": [
+        "WARN_TABLO"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c12-pustoj",
+      "intent": "табло rc 0, пустой stdout — проход с предупреждением",
+      "want": [
+        "WARN_TABLO"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c13-bez-itoga",
+      "intent": "табло rc 0, строки СТОИТ ≥ 8 без строки итога (обрыв) — проход с предупреждением",
+      "want": [
+        "WARN_TABLO"
+      ],
+      "zapuskov": 1
+    },
+    {
+      "id": "c14-zavis",
+      "intent": "табло висит 120 с — проход с предупреждением за < 30 с",
+      "want": [
+        "WARN_TABLO"
+      ],
+      "zapuskov": 1,
+      "max_ms": 30000
+    },
+    {
+      "id": "c15-subagent",
+      "intent": "сессия субагента (<id>.jsonl в каталоге артефактов ведущей), табло со СТОИТ ≥ 8 — проход без предупреждения, табло не запускается",
+      "want": [
+        "PASS"
+      ],
+      "zapuskov": 0
+    },
+    {
+      "id": "c17-neopoznana",
+      "intent": "ctx без sessionManager / getSessionFile() → undefined / путь без .jsonl — три вызова, каждый проход с предупреждением «сессия не опознана», табло не запускается",
+      "want": [
+        "WARN_SESSION",
+        "WARN_SESSION",
+        "WARN_SESSION"
+      ],
+      "zapuskov": 0
+    },
+    {
+      "id": "c18-drugoj-instrument",
+      "intent": "ведущая сессия, табло со СТОИТ ≥ 8, инструмент не wait (bash/task/read/write от seed) — проход, табло не запускается",
+      "want": [
+        "PASS"
+      ],
+      "zapuskov": 0
+    },
+    {
+      "id": "c19-cikl",
+      "intent": "три wait подряд: СТОИТ ≥ 8, снова СТОИТ ≥ 8, затем ход сделан (СТОИТ нет) — блок, блок, проход; табло запускается каждый раз",
+      "want": [
+        "BLOCK",
+        "BLOCK",
+        "PASS"
+      ],
+      "zapuskov": 3
+    },
+    {
+      "id": "c20-ustanovka",
+      "intent": "cwd сессии — проект со своим ops/server/user/orch-tablo без СТОИТ; табло установки (рядом с расширением) со СТОИТ ≥ 8 — блок по табло установки",
+      "want": [
+        "BLOCK"
+      ],
+      "zapuskov": 1
+    }
+  ],
+  "stubs": [
+    {
+      "id": "imenovannyj-eksport",
+      "cell": "c01-stoit",
+      "zagruzka": true,
+      "defect": "обход критика 128/1: честная логика, фабрика экспортирована как named register без default — загрузчик omp её отвергает, tool_call не регистрируется",
+      "subst": [
+        [
+          "export default function register(pi: unknown): void {\n",
+          "export function register(pi: unknown): void {\n"
+        ]
+      ]
+    },
+    {
+      "id": "vsegda-blok",
+      "cell": "c02-bez-stoit",
+      "defect": "константа: wait ведущей всегда блокируется",
+      "subst": [
+        [
+          "      const t = await runTablo();\n",
+          "      return { block: true, reason: 'ОТКАЗ wait-guard: на табло строк СТОИТ ≥ 8 мин — 0; сделай ход по каждой до wait' };\n"
+        ]
+      ]
+    },
+    {
+      "id": "vsegda-prohod",
+      "cell": "c01-stoit",
+      "defect": "константа: wait всегда проходит",
+      "subst": [
+        [
+          "      if (!isObject(call) || call.toolName !== 'wait') return undefined;\n",
+          "      return undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "bez-perechnya",
+      "cell": "c01-stoit",
+      "defect": "блок без перечня строк",
+      "subst": [
+        [
+          "  return { block: true, reason: [header, ...stale].join('\\n') };\n",
+          "  return { block: true, reason: header };\n"
+        ]
+      ]
+    },
+    {
+      "id": "molodye-v-perechne",
+      "cell": "c04-granica",
+      "defect": "в перечень попадают и строки моложе порога",
+      "subst": [
+        [
+          "    if (m !== null && Number(m[1]) >= n) stale.push(line.replace(/^ +/, ''));\n",
+          "    if (m !== null) stale.push(line.replace(/^ +/, ''));\n"
+        ],
+        [
+          "  if (stale.length === 0) return undefined;\n",
+          "  if (!stale.some((l) => Number(STOIT.exec(' ' + l)?.[1]) >= n)) return undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "molchalivyj-fail-open",
+      "cell": "c10-tablo-net",
+      "defect": "недоступное табло — молчаливый проход без предупреждения",
+      "subst": [
+        [
+          "      if (!t.ok) return warnTablo(t.why);\n",
+          "      if (!t.ok) return undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "ignor-rc",
+      "cell": "c11-tablo-rc",
+      "defect": "stdout упавшего табло судится как целое",
+      "subst": [
+        [
+          "    if (err) {\n",
+          "    if (err && String(stdout) === '') {\n"
+        ]
+      ]
+    },
+    {
+      "id": "bez-itoga",
+      "cell": "c13-bez-itoga",
+      "defect": "полнота вывода не сверяется по строке итога",
+      "subst": [
+        [
+          "  if (body.length === 0 || !ITOG.test(body[body.length - 1])) return warnTablo('вывод без строки итога');\n",
+          "  if (body.length === 0) return warnTablo('пустой вывод');\n"
+        ]
+      ]
+    },
+    {
+      "id": "bez-timeouta",
+      "cell": "c14-zavis",
+      "defect": "запуск табло без таймаута — wait висит вместе с табло",
+      "subst": [
+        [
+          "{ timeout: TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 }",
+          "{ maxBuffer: 4 * 1024 * 1024 }"
+        ]
+      ]
+    },
+    {
+      "id": "blok-subagenta",
+      "cell": "c15-subagent",
+      "defect": "любая сессия считается ведущей — субагент блокируется",
+      "subst": [
+        [
+          "  return TOP_SESSION.test(basename(file)) ? 'orch' : 'sub';\n",
+          "  return 'orch';\n"
+        ]
+      ]
+    },
+    {
+      "id": "subagent-zapuskaet-tablo",
+      "cell": "c15-subagent",
+      "defect": "табло запускается и для субагента (решение то же, цена 3 с на каждый wait субагента)",
+      "subst": [
+        [
+          "      if (kind === 'sub') return undefined;\n",
+          "      if (kind === 'sub') { await runTablo(); return undefined; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "neopoznana-molcha",
+      "cell": "c17-neopoznana",
+      "defect": "неопознанная сессия — молчаливый проход",
+      "subst": [
+        [
+          "      if (kind === 'unknown') return { additionalContext: WARN_SESSION };\n",
+          "      if (kind === 'unknown') return undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-ne-chitaetsja",
+      "cell": "c08-porog-env",
+      "defect": "WAIT_GUARD_MIN не читается — порог всегда 8",
+      "subst": [
+        [
+          "  const v = process.env.WAIT_GUARD_MIN;\n",
+          "  const v = undefined as string | undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-strogo",
+      "cell": "c04-granica",
+      "defect": "сравнение строгое (>), строка ровно порога не блокирует",
+      "subst": [
+        [
+          "Number(m[1]) >= n) stale.push",
+          "Number(m[1]) > n) stale.push"
+        ]
+      ]
+    },
+    {
+      "id": "porog-10",
+      "cell": "c04-granica",
+      "defect": "порог по умолчанию зашит 10",
+      "subst": [
+        [
+          "const DEFAULT_MIN = 8;\n",
+          "const DEFAULT_MIN = 10;\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-7",
+      "cell": "c03-molozhe",
+      "defect": "порог по умолчанию зашит 7",
+      "subst": [
+        [
+          "const DEFAULT_MIN = 8;\n",
+          "const DEFAULT_MIN = 7;\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-nol-razreshen",
+      "cell": "c09-porog-nerazobran",
+      "defect": "порог берётся из любого числа WAIT_GUARD_MIN (parseInt), вне грамматики",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && !Number.isNaN(parseInt(v, 10))) return parseInt(v, 10);\n"
+        ]
+      ]
+    },
+    {
+      "id": "zhdet-ci-kak-stoit",
+      "cell": "c05-zhdet-ci",
+      "defect": "строки ЖДЁТ CI судятся как СТОИТ",
+      "subst": [
+        [
+          "  for (const line of lines) {\n",
+          "  for (const line of lines) {\n    if (/^ *ЖДЁТ CI /.test(line)) { stale.push(line.replace(/^ +/, '')); continue; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "potok-kak-stoit",
+      "cell": "c06-potok",
+      "defect": "строки СТОИТ ПОТОК судятся как СТОИТ",
+      "subst": [
+        [
+          "const STOIT = /^ *СТОИТ ([0-9]+) мин /;\n",
+          "const STOIT = /^ *СТОИТ (?:ПОТОК .*— (?:больше )?)?([0-9]+) мин/;\n"
+        ]
+      ]
+    },
+    {
+      "id": "po-itogu",
+      "cell": "c03-molozhe",
+      "defect": "блок по числу «итог: стоит без хода» > 0, а не по строкам ≥ порога",
+      "subst": [
+        [
+          "  if (stale.length === 0) return undefined;\n",
+          "  if (stale.length === 0 && /— 0/.test(body[body.length - 1])) return undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "kesh",
+      "cell": "c19-cikl",
+      "defect": "вывод табло кэшируется между вызовами — после хода wait остаётся заблокирован",
+      "subst": [
+        [
+          "const DEFAULT_MIN = 8;\n",
+          "const DEFAULT_MIN = 8;\nlet cached: Tablo | undefined;\n"
+        ],
+        [
+          "      const t = await runTablo();\n",
+          "      const t = cached ?? (cached = await runTablo());\n"
+        ]
+      ]
+    },
+    {
+      "id": "kuldaun",
+      "cell": "c19-cikl",
+      "defect": "после блока 10 мин тишины (как сторож консультанта) — повторный wait при той же строке проходит",
+      "subst": [
+        [
+          "const DEFAULT_MIN = 8;\n",
+          "const DEFAULT_MIN = 8;\nlet lastBlock = 0;\n"
+        ],
+        [
+          "      return judgeTablo(t.stdout, threshold());\n",
+          "      if (Date.now() - lastBlock < 600000) return undefined;\n      const r = judgeTablo(t.stdout, threshold());\n      if (r !== undefined && 'block' in r) lastBlock = Date.now();\n      return r;\n"
+        ]
+      ]
+    },
+    {
+      "id": "vse-instrumenty",
+      "cell": "c18-drugoj-instrument",
+      "defect": "судится любой инструмент, не только wait",
+      "subst": [
+        [
+          "      if (!isObject(call) || call.toolName !== 'wait') return undefined;\n",
+          "      if (!isObject(call)) return undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "tablo-iz-cwd",
+      "cell": "c20-ustanovka",
+      "defect": "табло ищется от cwd сессии, а не от расположения расширения",
+      "subst": [
+        [
+          "const TABLO = join(HERE, '..', '..', 'ops', 'server', 'user', 'orch-tablo');\n",
+          "const TABLO = join(process.cwd(), 'ops', 'server', 'user', 'orch-tablo');\n"
+        ]
+      ]
+    }
+  ]
+}
