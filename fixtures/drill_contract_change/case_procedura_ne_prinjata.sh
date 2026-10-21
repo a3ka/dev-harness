@@ -14,9 +14,12 @@
 set -euo pipefail
 mkdir -p "$WORK/scripts"
 for f in freeze_contract.sh check_contract_frozen.sh check_charter.sh \
-         next_id.sh lib_registry.sh lib_roles.sh check_spec_ready.sh check_predposylki.sh; do
+         next_id.sh lib_registry.sh lib_roles.sh check_spec_ready.sh; do
   cp "$REPO/scripts/$f" "$WORK/scripts/"
 done
+# check_predposylki.sh (предмет 122) — сосед барьера заморозки; копируется, когда он есть в дереве
+# (до ленда 122 его нет: условность не ослабляет прочий список, он по-прежнему обязателен поимённо).
+if [ -f "$REPO/scripts/check_predposylki.sh" ]; then cp "$REPO/scripts/check_predposylki.sh" "$WORK/scripts/"; fi
 
 # Положительный контроль: настоящая пачка барьеров, дрилл обязан дать 0.
 BARRIER_ROOT="$WORK" "$BARRIER"
