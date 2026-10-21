@@ -107,6 +107,20 @@ step	check:vesa-114-family-selftest	0	bash fixtures/_krasnye_114.sh
 # интеграционным коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 121); вес 0 до первого замера окна
 # (локальный замер --model 19.2 с, Adv121r3). Команда — литерал батареи.
 step	check:yadro-121-family-selftest	0	bash fixtures/workshop_project/yadro_121/yadro_oracle.sh --model
+# КОНТРАКТ 123: батарея сверки кадра e2e с PNG-макетом — подключение оркестратором
+# интеграционным коммитом (§Проводка контракта 123). Шаг идёт через npm-ключ, потому что guard
+# контракта — python-сценарий, а грамматика реестра 083 (И-3 gen_ci_steps.sh) принимает только
+# `npm run <key>` или `bash <путь>`: литерал `python3 …/probe.py --matrix` в реестре нерезолвится.
+# Ключ несёт --matrix (контроль модели + 20 обманных стабов на своих входах — как в 998: без
+# матрицы различимость батареи из CI выпадает); «после ленда реализации — без флага»: реализация
+# scripts/sverka_maketa.py в main, локальный замер без флага 36.5 с rc 0 (переключение — снять
+# --matrix в package.json и здесь). Вес 0 до первого замера окна (локальный замер --matrix 78.1 с).
+step	check:mob-sverka-123-family-selftest	0	npm run check:mob-sverka-123-family-selftest
+# КОНТРАКТ 124: батарея двери продуктового пуша (70 клеток: Д1 + т01–т30 на живой двери
+# scripts/push_product.sh + С01–С39 на честной модели с обманными стабами) — подключение оркестратором
+# интеграционным коммитом (§Проводка контракта 124, прецедент 113/114/121); вес 0 до первого замера
+# окна (локальный замер полного прогона 89.5 с, 70/70). Команда — литерал батареи.
+step	check:push-produkta-124-family-selftest	0	bash fixtures/workshop_project/push_produkta_124/red_124.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
