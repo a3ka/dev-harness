@@ -65,6 +65,7 @@
     "first-run-58d": {"rc": 1, "otkazy": ["NIZHE_POROGA\tFirst-Run dark", "NIZHE_POROGA\tFirst-Run light"]},
     "pustoj-katalog": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash dark", "KADR_OTSUTSTVUET\tSplash light", "KADR_OTSUTSTVUET\tFirst-Run dark", "KADR_OTSUTSTVUET\tFirst-Run light"]},
     "propusk-kadra": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash light"]},
+    "obrezannyj-kadr": {"rc": 1, "otkazy": ["KADR_NECHITAEM\tSplash dark"]},
     "dubl-kadra": {"rc": 1, "otkazy": ["KADR_NEODNOZNACHEN\tSplash dark"]},
     "podmena-maketa": {"rc": 1, "otkazy": ["MAKET_PODMENEN\tSplash dark"]},
     "maska-ves-kadr": {"rc": 2, "otkazy": ["PUSTAYA_SVERKA\tSplash dark"]},
