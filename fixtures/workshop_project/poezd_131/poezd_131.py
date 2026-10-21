@@ -30,7 +30,7 @@ push не звался, origin не тронут), REFUSE (rc 1, push не зв�
 отсутствует; 2 — нечем судить (нет git/bash, нет классификатора, якорь подмены не единствен,
 мир не строится, нет такой клетки).
 """
-import json, os, random, shutil, subprocess, sys, tempfile
+import json, os, random, shutil, subprocess, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = json.load(open(os.path.join(HERE, 'source.json'), encoding='utf-8'))
@@ -176,6 +176,38 @@ class Mir:
         os.symlink('kod-%s' % self.tok(), p)
         self.zamaskirovat('ссылка')
 
+    # ── merge-миры (круг 3, обход критика 131 круг 2): боковые ветки и ленды --no-ff ──
+    def op_merge_uchet_side(self):
+        # Боковая ветка от R: один учётный коммит (verdicts/), датой НОВЕЕ всей main-линии
+        # (обе даты +600 с; у merge-коммита даты сняты ДО него, как у критика 131 круг 2),
+        # ленд --no-ff в main. W достижим из main только вторым родителем.
+        r = self.g('rev-parse', 'refs/remotes/origin/main')
+        self.g('checkout', '-q', '-b', 'wip-side', r)
+        self.write('verdicts/side-%s.md' % self.tok(), 'вердикт боковой ветки\n')
+        late = str(int(time.time()) + 600)
+        self.env['GIT_AUTHOR_DATE'] = late; self.env['GIT_COMMITTER_DATE'] = late
+        self.side = self.commit('verdict (131): боковой', 'reviewer')
+        del self.env['GIT_AUTHOR_DATE'], self.env['GIT_COMMITTER_DATE']
+        self.g('checkout', '-q', 'main')
+        self.g('merge', '-q', '--no-ff', '-m', 'land: wip/131/reviewer', 'wip-side')
+        self.g('branch', '-q', '-D', 'wip-side')
+
+    def op_merge_kod_side(self):
+        # Боковая ветка от R: один КОДОВЫЙ коммит (src/dop-*, отдельный путь — без конфликта),
+        # датой новее, со СВОИМ доказательством-поездом; ленд --no-ff в main. H(merge) —
+        # новая кодовая комбинация без доказательства.
+        r = self.g('rev-parse', 'refs/remotes/origin/main')
+        self.g('checkout', '-q', '-b', 'wip-kod', r)
+        self.write('src/dop-%s.sh' % self.tok(), 'echo dop %s\n' % self.tok())
+        late = str(int(time.time()) + 600)
+        self.env['GIT_AUTHOR_DATE'] = late; self.env['GIT_COMMITTER_DATE'] = late
+        c = self.commit('land: kod dop %s' % self.tok(), 'implementer')
+        del self.env['GIT_AUTHOR_DATE'], self.env['GIT_COMMITTER_DATE']
+        self.prove(c)
+        self.g('checkout', '-q', 'main')
+        self.g('merge', '-q', '--no-ff', '-m', 'land: wip/131/implementer', 'wip-kod')
+        self.g('branch', '-q', '-D', 'wip-kod')
+
     def kod_hash(self, rev):
         p = run(['bash', os.path.join(self.w, 'scripts', 'ci_klass.sh'), 'hash', rev], self.w, self.env)
         h = p.stdout.strip()
@@ -251,6 +283,8 @@ def judge(cell, subject, klass, seed):
             raise Nechem('клетка %s без метки P' % cell['id'])
         origin0 = m.origin_main()
         local0 = m.g('rev-parse', 'refs/heads/main')
+        HP = m.kod_hash(P) if exp == 'PUSH' else None
+        k_local = len(m.g('rev-list', '%s..%s' % (P, local0)).split()) if exp == 'PUSH' else None
         p = m.call(subject is not None)
         if p is None:
             return ['PREDMET'], 'предмет отсутствует'
@@ -278,7 +312,7 @@ def judge(cell, subject, klass, seed):
             if not any(l.startswith('НЕЧЕМ СУДИТЬ публикация: ') for l in err):
                 bad.append('PRICHINA')
         elif exp == 'PUSH':
-            if not any(l.startswith('ПУБЛИКАЦИЯ: %s ' % P) for l in out):
+            if not any(l == 'ПУБЛИКАЦИЯ: %s H=%s остаётся локально %s' % (P, HP, k_local) for l in out):
                 bad.append('VYVOD')
         elif exp == 'NOOP':
             if 'ПУБЛИКАЦИЯ: нечего публиковать' not in out:
