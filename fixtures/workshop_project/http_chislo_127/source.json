@@ -1,0 +1,214 @@
+{
+  "comment": "Оракул 127 (back-http-chislo). Память проверяющего: коммиты миров, счёты и версии миров сняты прогоном 2026-10-21 на клоне Complior-back ДО запуска субъекта; диск кандидата как истина не читается — из кандидата берутся ТОЛЬКО два судимых файла. Привязка стаб ↔ мир — здесь (поле mir у стаба и у строки proverki), проза контракта её не утверждает (Н-39). proverki — закрытая таблица проверок инвариантов 1–3: якорь (строка модели) и мир, где краснеет только она; движок выводит из неё стабы bez-<id>.",
+  "product": "https://github.com/a3ka/Complior-back.git",
+  "subject": {
+    "T": "tests/contract/http.test.js",
+    "S": "tests/tools/smoke-http.js"
+  },
+  "current_product": {
+    "commit": "e40cfa0121a0ab17cca6718e998c4e621292f326",
+    "sha256": {
+      "T": "2e23163cac5cb9fabcdbafa67582bbf5b75cae73ffd5c9d0c85e69707abfc6b2",
+      "S": "00978c5184707250312709741237bac2e562ffcd12d14fbe128f5efe517bd97e"
+    }
+  },
+  "commits": {
+    "baza163": "e40cfa0121a0ab17cca6718e998c4e621292f326",
+    "import233": "a498ea0d7081c56d39cd231fa9dca7bd6d85d3f4"
+  },
+  "worlds": [
+    {
+      "id": "w163-baza",
+      "intent": "конформный мир: main Complior-back, 163 операции",
+      "commit": "baza163",
+      "mutations": [],
+      "regen": false,
+      "pin": { "derived_operations": 163, "api_version": "5.8.4", "gen_check_rc": 0 },
+      "expect": { "T": "green", "S": "green" }
+    },
+    {
+      "id": "w233-import",
+      "intent": "конформный мир: импорт 3.15 (Complior-back#156), 233 операции",
+      "commit": "import233",
+      "mutations": [],
+      "regen": false,
+      "pin": { "derived_operations": 233, "api_version": "5.8.4", "gen_check_rc": 0 },
+      "expect": { "T": "green", "S": "green" }
+    },
+    {
+      "id": "w162-sintez",
+      "intent": "конформный мир третьего счёта: из корневого YAML удалена операция без обработчика, производный пересобран gen:contracts; прочие документы (operation-index) не входы HTTP-тестов и не пересобираются",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "yaml-udalit-put", "file": "docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml", "path_key": "  /v1/evb/{evb_id}/issuance:" }
+      ],
+      "regen": true,
+      "pin": { "derived_operations": 162, "api_version": "5.8.4", "gen_check_rc": 0, "index_operation_count": 163 },
+      "expect": { "T": "green", "S": "green" }
+    },
+    {
+      "id": "wver-prinyata",
+      "intent": "конформный мир иной версии: info.version 5.9.0, семейство версий 5.[89] согласованно в корневом YAML и в server/src/http.js, производный пересобран",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml", "old": "\ninfo:\n  title: Complior backend 3.14 — UX 1.17.5 integration contract\n  version: 5.8.4\n", "new": "\ninfo:\n  title: Complior backend 3.14 — UX 1.17.5 integration contract\n  version: 5.9.0\n", "count": 1 },
+        { "kind": "zamena", "file": "docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml", "old": "^5\\.8\\.\\d+$", "new": "^5\\.[89]\\.\\d+$", "count": 3 },
+        { "kind": "zamena", "file": "server/src/http.js", "old": "const VERSION_PATTERN = /^5\\.8\\.\\d+$/;", "new": "const VERSION_PATTERN = /^5\\.[89]\\.\\d+$/;", "count": 1 }
+      ],
+      "regen": true,
+      "pin": { "derived_operations": 163, "api_version": "5.9.0", "gen_check_rc": 0 },
+      "expect": { "T": "green", "S": "green" }
+    },
+    {
+      "id": "wver-chuzhaya",
+      "intent": "дефектный мир: производный контракт объявляет 5.9.0, сервер принимает только 5.8.x — сервер не принимает собственную версию API",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml", "old": "\ninfo:\n  title: Complior backend 3.14 — UX 1.17.5 integration contract\n  version: 5.8.4\n", "new": "\ninfo:\n  title: Complior backend 3.14 — UX 1.17.5 integration contract\n  version: 5.9.0\n", "count": 1 }
+      ],
+      "regen": true,
+      "pin": { "derived_operations": 163, "api_version": "5.9.0", "gen_check_rc": 0 },
+      "expect": { "T": "red" }
+    },
+    {
+      "id": "wpodmena",
+      "intent": "дефектный мир: производный контракт подменён без пересборки — пара app/schemas/{openapi,source}.json из импорта 233 при корневом YAML базы 163 (согласованная пара: загрузчик её принимает)",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "iz-kommita", "from": "import233", "files": ["app/schemas/openapi.json", "app/schemas/source.json"] }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 233, "api_version": "5.8.4", "gen_check_rc": 1 },
+      "expect": { "T": "red" }
+    },
+    {
+      "id": "wreestr",
+      "intent": "дефектный мир: реестр сервера теряет операцию производного контракта (server/src/http.js)",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "server/src/http.js", "old": "  return Object.freeze(registry);\n", "new": "  return Object.freeze(registry.filter((r) => r.operationId !== 'getEvbIssuance'));\n", "count": 1 }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 163, "api_version": "5.8.4", "gen_check_rc": 0 },
+      "expect": { "T": "red", "S": "red" }
+    },
+    {
+      "id": "wzagruzchik",
+      "intent": "дефектный мир: загрузчик производного контракта (app/schemas/index.js) теряет операцию; реестр строится из загрузчика",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "app/schemas/index.js", "old": "  const problem = ajv.compile(relink(doc.components.schemas.Problem));\n", "new": "  operations.delete('getEvbIssuance');\n  const problem = ajv.compile(relink(doc.components.schemas.Problem));\n", "count": 1 }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 163, "api_version": "5.8.4", "gen_check_rc": 0 },
+      "expect": { "T": "red", "S": "red" }
+    },
+    {
+      "id": "wgen-check",
+      "intent": "дефектный мир, судит ТОЛЬКО gen-contracts.js --check: из производного app/schemas/openapi.json удалён путь без пересборки, derived_sha256 в source.json обновлён под новый документ, source_sha256 и корневой YAML неизменны — загрузчик принимает, счёт файла = загрузчик = реестр = 162, версия 5.8.4; отличие от результата генератора видит только --check",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "proizvodnyi-udalit-put", "path": "/v1/evb/{evb_id}/issuance", "derived_sha256": "obnovit" }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 162, "api_version": "5.8.4", "gen_check_rc": 1, "source_sha256_aktualen": true, "derived_sha256_soglasovan": true },
+      "expect": { "T": "red" }
+    },
+    {
+      "id": "wsha-proizvodnogo",
+      "intent": "дефектный мир, судит сверка derived_sha256 ЗАГРУЗЧИКА (app/schemas/index.js, не T/S): из производного openapi.json удалён путь, source.json не тронут — загрузчик обязан отказать, T и S не глушат его отказ",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "proizvodnyi-udalit-put", "path": "/v1/evb/{evb_id}/issuance", "derived_sha256": "ostavit" }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 162, "api_version": "5.8.4", "gen_check_rc": 1, "source_sha256_aktualen": true, "derived_sha256_soglasovan": false },
+      "expect": { "T": "red", "S": "red" }
+    },
+    {
+      "id": "wsha-zagruzchik",
+      "intent": "дефектный мир, судит ТОЛЬКО сверку contracts.sourceSha256 с sha256 корневого YAML: файлы производного верны (--check rc 0), загрузчик отдаёт в sourceSha256 чужой хэш",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "app/schemas/index.js", "old": "    sourceSha256: source.source_sha256,\n", "new": "    sourceSha256: source.derived_sha256,\n", "count": 1 }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 163, "api_version": "5.8.4", "gen_check_rc": 0, "source_sha256_aktualen": true, "derived_sha256_soglasovan": true },
+      "expect": { "T": "red" }
+    },
+    {
+      "id": "wver-zagruzchik",
+      "intent": "дефектный мир, судит ТОЛЬКО сверку contracts.apiVersion с info.version корневого YAML: файлы производного верны (--check rc 0), загрузчик отдаёт версию 5.8.9 (в семействе сервера — сервер её принимает и ею отвечает)",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "app/schemas/index.js", "old": "    apiVersion: doc.info.version,\n", "new": "    apiVersion: '5.8.9',\n", "count": 1 }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 163, "api_version": "5.8.4", "gen_check_rc": 0 },
+      "expect": { "T": "red" }
+    },
+    {
+      "id": "wzagruzchik-kompensirovan",
+      "intent": "дефектный мир, судит ТОЛЬКО сверку счёта файла с загрузчиком: загрузчик теряет getEvbIssuance, реестр сервера возвращает её фантомной записью — файл 163 = реестр 163, загрузчик 162",
+      "commit": "baza163",
+      "mutations": [
+        { "kind": "zamena", "file": "app/schemas/index.js", "old": "  const problem = ajv.compile(relink(doc.components.schemas.Problem));\n", "new": "  operations.delete('getEvbIssuance');\n  const problem = ajv.compile(relink(doc.components.schemas.Problem));\n", "count": 1 },
+        { "kind": "zamena", "file": "server/src/http.js", "old": "  return Object.freeze(registry);\n", "new": "  return Object.freeze([...registry, { operationId: 'getEvbIssuance', method: 'GET', path: '/v1/evb/{evb_id}/issuance', implemented: false }]);\n", "count": 1 }
+      ],
+      "regen": false,
+      "pin": { "derived_operations": 163, "api_version": "5.8.4", "gen_check_rc": 0 },
+      "expect": { "T": "red" }
+    }
+  ],
+  "proverki": [
+    { "id": "gen-check", "sudit": "производный (openapi.json и source.json) = результат генератора gen-contracts.js из корневого YAML", "subject": "T", "anchor": "  execFileSync(process.execPath, [\n    path.join(__dirname, '..', '..', 'tests', 'tools', 'gen-contracts.js'),\n    '--check',\n  ]);\n", "mir": "wgen-check" },
+    { "id": "source-sha", "sudit": "contracts.sourceSha256 загрузчика = sha256 корневого YAML", "subject": "T", "anchor": "  assert.equal(contracts.sourceSha256, crypto.createHash('sha256').update(root).digest('hex'));\n", "mir": "wsha-zagruzchik" },
+    { "id": "derived-sha", "sudit": "sha256 openapi.json = derived_sha256 source.json (отказ загрузчика при require; вне T/S — кандидат её не удаляет)", "subject": "zagruzchik", "anchor": null, "mir": "wsha-proizvodnogo" },
+    { "id": "versiya-korn", "sudit": "contracts.apiVersion = info.version корневого YAML", "subject": "T", "anchor": "  assert.equal(contracts.apiVersion, rootVersion);\n", "mir": "wver-zagruzchik" },
+    { "id": "versiya-server", "sudit": "сервер принимает собственную версию contracts.apiVersion (200)", "subject": "T", "anchor": "  assert.equal(own.status, 200, JSON.stringify(own.json));\n", "mir": "wver-chuzhaya" },
+    { "id": "schet-zagruzchik", "sudit": "счёт файла openapi.json = contracts.operations.size", "subject": "T", "anchor": "  assert.equal(contracts.operations.size, DERIVED_OPERATIONS);\n", "mir": "wzagruzchik-kompensirovan" },
+    { "id": "schet-reestr-T", "sudit": "счёт файла openapi.json = srv.instance.registry.length", "subject": "T", "anchor": "  assert.equal(srv.instance.registry.length, DERIVED_OPERATIONS);\n", "mir": "wreestr" },
+    { "id": "schet-reestr-S", "sudit": "счёт файла openapi.json = prod.instance.registry.length", "subject": "S", "anchor": "prod.instance.registry.length === operations && ", "mir": "wreestr" }
+  ],
+  "stubs": [
+    {
+      "id": "literal-233",
+      "mir": "w163-baza",
+      "edits": [
+        { "file": "T", "old": "const DERIVED_OPERATIONS = countOperations(JSON.parse(fs.readFileSync(DERIVED_DOC, 'utf8')));", "new": "const DERIVED_OPERATIONS = 233;" },
+        { "file": "S", "old": "const operations = countOperations(JSON.parse(fs.readFileSync(DERIVED_DOC, 'utf8')));", "new": "const operations = 233;" }
+      ]
+    },
+    {
+      "id": "chislo-iz-indexa",
+      "mir": "w162-sintez",
+      "edits": [
+        { "file": "T", "old": "const DERIVED_OPERATIONS = countOperations(JSON.parse(fs.readFileSync(DERIVED_DOC, 'utf8')));", "new": "const DERIVED_OPERATIONS = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'contracts', 'operation-index.json'), 'utf8')).operation_count;" },
+        { "file": "S", "old": "const operations = countOperations(JSON.parse(fs.readFileSync(DERIVED_DOC, 'utf8')));", "new": "const operations = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'contracts', 'operation-index.json'), 'utf8')).operation_count;" }
+      ]
+    },
+    {
+      "id": "versiya-literal",
+      "mir": "wver-prinyata",
+      "edits": [
+        { "file": "T", "old": "  const own = await call('GET', '/v1/session', { headers: { 'x-brokeros-contract': contracts.apiVersion, ...COOKIE } });\n  assert.equal(own.status, 200, JSON.stringify(own.json));\n", "new": "  assert.match(contracts.apiVersion, /^5\\.8\\.\\d+$/);\n" }
+      ]
+    },
+    {
+      "id": "schet-cherez-zagruzchik",
+      "mir": "wzagruzchik",
+      "edits": [
+        { "file": "T", "old": "const DERIVED_OPERATIONS = countOperations(JSON.parse(fs.readFileSync(DERIVED_DOC, 'utf8')));", "new": "const DERIVED_OPERATIONS = contracts.operations.size;" },
+        { "file": "S", "old": "const operations = countOperations(JSON.parse(fs.readFileSync(DERIVED_DOC, 'utf8')));", "new": "const operations = require('../../app/schemas/index.js').loadContracts().operations.size;" }
+      ]
+    },
+    {
+      "id": "bez-sverki-s-kornevym",
+      "mir": "wpodmena",
+      "edits": [
+        { "file": "T", "old": "  execFileSync(process.execPath, [\n    path.join(__dirname, '..', '..', 'tests', 'tools', 'gen-contracts.js'),\n    '--check',\n  ]);\n", "new": "" },
+        { "file": "T", "old": "  assert.equal(contracts.sourceSha256, crypto.createHash('sha256').update(root).digest('hex'));\n", "new": "" }
+      ]
+    }
+  ]
+}
