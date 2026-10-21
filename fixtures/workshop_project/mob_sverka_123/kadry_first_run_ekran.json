@@ -1,0 +1,50 @@
+{
+  "_comment": "Кадры First-Run для меры 123 — манифест предмета first-run-ekran (не 117: First-Run выведен из 117 словом владельца 2026-10-21 ~13:05/~14:10 UTC, решение «А» ~20:00 UTC); в шаге 123 android-e2e экрана 117 не судится, потребитель до контракта first-run-ekran — батарея 123. Грамматика и поля — как kadry_117.json: id кадра, тема Maestro-прогона, имя takeScreenshot, PNG-макет D2.2.5.1 (путь от корня Complior-mob, sha256 — пин), порог score, маски в pt артборда 390x844 (плашка Demo) и элементы макета — bbox_pt чернил макета (замер: max|канал-фон|>40 на артборде 1x, полосы с разрывом > 10 pt). First-Run light сверяется с First-Run.png: светлого артборда нет, мера полярность-инвариантна (раскладка чернил). mera — дословно source.json 123 (единый источник).",
+  "mera": {
+    "chernila_T": 40,
+    "kletka_pt": 6,
+    "fon_shag": 4,
+    "razmytie_r": 1,
+    "region_porog": 0.05,
+    "margin": 1,
+    "chrome_verh_pt": 36,
+    "chrome_niz_pt": 20,
+    "min_dolja_suda": 0.5
+  },
+  "kadry": [
+    {
+      "id": "First-Run dark",
+      "tema": "dark",
+      "snimok": "vkhod-117-first-run",
+      "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+      "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+      "porog": 0.6,
+      "maski_pt": [[0, 42, 56, 76]],
+      "elementy": [
+        {"imja": "wordmark", "bbox_pt": [165, 33, 225, 50]},
+        {"imja": "znak", "bbox_pt": [110, 123, 290, 296]},
+        {"imja": "zagolovok", "bbox_pt": [26, 369, 365, 454]},
+        {"imja": "podzagolovok", "bbox_pt": [25, 484, 366, 539]},
+        {"imja": "cta", "bbox_pt": [16, 738, 374, 794]},
+        {"imja": "futer", "bbox_pt": [125, 813, 265, 826]}
+      ]
+    },
+    {
+      "id": "First-Run light",
+      "tema": "light",
+      "snimok": "vkhod-117-first-run",
+      "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+      "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+      "porog": 0.6,
+      "maski_pt": [[0, 42, 56, 76]],
+      "elementy": [
+        {"imja": "wordmark", "bbox_pt": [165, 33, 225, 50]},
+        {"imja": "znak", "bbox_pt": [110, 123, 290, 296]},
+        {"imja": "zagolovok", "bbox_pt": [26, 369, 365, 454]},
+        {"imja": "podzagolovok", "bbox_pt": [25, 484, 366, 539]},
+        {"imja": "cta", "bbox_pt": [16, 738, 374, 794]},
+        {"imja": "futer", "bbox_pt": [125, 813, 265, 826]}
+      ]
+    }
+  ]
+}

@@ -10,10 +10,12 @@
 равенство множеств; строка stderr вне грамматики — отказ), строки KADR
 stdout (вердикт согласован с score/porog; score в допуске числа модели;
 hudshij — имя пропавшего элемента, где kejsy его называет).
-Оракул — source.json, загруженный В ПАМЯТЬ до вызова субъекта; носители
-сверяются по sha256, кадры с одним макетом несут одинаковые elementy, и на
-КАЖДЫЙ (макет, элемент) манифеста есть вход-свидетель его пропажи
-(несовпадение — rc 2 ORACLE_TAMPERED).
+Оракул — source.json, загруженный В ПАМЯТЬ до вызова субъекта; манифесты H —
+source.json manifesty (117: Splash dark/light; first-run-ekran: First-Run
+dark/light), каждый вход судится одним из них; носители сверяются по sha256,
+кадры с одним макетом несут одинаковые elementy, id кадров манифестов не
+пересекаются, и на КАЖДЫЙ (макет, элемент) манифестов есть вход-свидетель его
+пропажи (несовпадение — rc 2 ORACLE_TAMPERED).
 Клетка ispolnenie=vne-prefiksa (класс «тесто-осведомлённый субъект», Adv123b)
 строит вход vhod в каталоге со случайным именем под $TMPDIR (не sverka123-*),
 исполняет субъект с cwd в нём, в чистом окружении (env -i, PATH=/usr/bin:/bin,
@@ -55,16 +57,21 @@ def load_source():
         p = HERE / rel
         if not p.is_file() or hashlib.sha256(p.read_bytes()).hexdigest() != meta['sha256']:
             raise Tampered(rel)
-    man = json.loads((H_ROOT / src['manifest_rel']).read_text(encoding='utf-8'))
-    if man.get('mera') != src['mera']:
-        raise Tampered('kadry_117.json: mera != source.json mera')
+    man = {}
+    for nm, rel in src['manifesty'].items():  # 117 (Splash) и first-run-ekran (First-Run), оба из H
+        man[nm] = json.loads((H_ROOT / rel).read_text(encoding='utf-8'))
+        if man[nm].get('mera') != src['mera']:
+            raise Tampered(f'{nm}: mera != source.json mera')
+    vse = [k for nm in man for k in man[nm]['kadry']]
+    if len({k['id'] for k in vse}) != len(vse):
+        raise Tampered('id кадров манифестов пересекаются')
     pins = {Path(k).name: v['sha256'] for k, v in src['nositeli'].items() if k.startswith('maket/')}
     po_maketu = {}
-    for k in man['kadry']:
+    for k in vse:
         if pins.get(Path(k['maket']).name) != k['maket_sha256']:
-            raise Tampered(f'kadry_117.json: pin {k["id"]}')
+            raise Tampered(f'pin {k["id"]}')
         if po_maketu.setdefault(k['maket'], k['elementy']) != k['elementy']:
-            raise Tampered(f'kadry_117.json: elementy {k["id"]} != кадра с тем же макетом')
+            raise Tampered(f'elementy {k["id"]} != кадра с тем же макетом')
     for name, c in src['kejsy'].items():  # клетка вне префикса наследует оракул своего входа
         if 'ispolnenie' in c:
             base = src['kejsy'].get(c.get('vhod'))
@@ -75,7 +82,7 @@ def load_source():
                 src['ozhidaemye_score'][name] = src['ozhidaemye_score'][c['vhod']]
     # Полнота свидетелей: на КАЖДЫЙ (макет, элемент) манифеста — вход, где пропажа
     # ровно этого элемента даёт NIZHE_POROGA с hudshij = имя элемента.
-    maket_of = {k['id']: k['maket'] for k in man['kadry']}
+    maket_of = {k['id']: k['maket'] for k in vse}
     want = {(mk, e['imja']) for mk, el in po_maketu.items() for e in el}
     got = {(maket_of[kid], el) for c in src['kejsy'].values() for kid, el in c.get('hudshij', {}).items()
            if c['otkazy'] == [f'NIZHE_POROGA\t{kid}']}
@@ -226,21 +233,20 @@ def derive_bez_elementa(blob, polosa_pt):
 
 def build_case(name, src, man, tmp):
     nos = {k: (HERE / k).read_bytes() for k in src['nositeli']}
-    full = man
-    splash = dict(man, kadry=[k for k in man['kadry'] if k['id'].startswith('Splash ')])
+    splash, firstrun = man['117'], man['first-run-ekran']  # настоящие манифесты H, без фильтра
     frames = {}
     sd, sl = nos['kadry/r1423-dark-vkhod-117-splash.png'], nos['kadry/r1423-light-vkhod-117-splash.png']
+    fr = nos['maket/First-Run.png']
     manifest, mock_override = splash, {}
     if name == 'chestnyj-splash':
         frames = {('dark', 'vkhod-117-splash'): [sd], ('light', 'vkhod-117-splash'): [sl]}
     elif name in ('first-run-814', 'first-run-58d'):
         tag = 'r814' if name.endswith('814') else 'r58d'
-        manifest = full
-        frames = {('dark', 'vkhod-117-splash'): [sd], ('light', 'vkhod-117-splash'): [sl],
-                  ('dark', 'vkhod-117-first-run'): [nos[f'kadry/{tag}-dark-vkhod-117-first-run.png']],
+        manifest = firstrun
+        frames = {('dark', 'vkhod-117-first-run'): [nos[f'kadry/{tag}-dark-vkhod-117-first-run.png']],
                   ('light', 'vkhod-117-first-run'): [nos[f'kadry/{tag}-light-vkhod-117-first-run.png']]}
     elif name == 'pustoj-katalog':
-        manifest = full
+        pass
     elif name == 'propusk-kadra':
         frames = {('dark', 'vkhod-117-splash'): [sd]}
     elif name == 'obrezannyj-kadr':  # кадр Splash dark обрезан вдвое: отказ кадра, light судится
@@ -269,36 +275,36 @@ def build_case(name, src, man, tmp):
     elif name == 'wordmark-1-01':
         frames = {('dark', 'vkhod-117-splash'): [sd], ('light', 'vkhod-117-splash'): [derived(derive_wordmark_1_01, sl)]}
     elif name == 'chrome-shum':
-        manifest = full
-        fr = nos['maket/First-Run.png']
-        frames = {('dark', 'vkhod-117-splash'): [derived(derive_chrome_shum, sd)], ('light', 'vkhod-117-splash'): [sl],
-                  ('dark', 'vkhod-117-first-run'): [derived(derive_chrome_shum, derived(derive_maket_kak_kadr, fr, False))],
+        frames = {('dark', 'vkhod-117-splash'): [derived(derive_chrome_shum, sd)], ('light', 'vkhod-117-splash'): [sl]}
+    elif name == 'chrome-shum-first-run':
+        manifest = firstrun
+        frames = {('dark', 'vkhod-117-first-run'): [derived(derive_chrome_shum, derived(derive_maket_kak_kadr, fr, False))],
                   ('light', 'vkhod-117-first-run'): [derived(derive_maket_kak_kadr, fr, True)]}
     elif name == 'sdvig-i-ton':
         frames = {('dark', 'vkhod-117-splash'): [derived(derive_sdvig_i_ton, sd)],
                   ('light', 'vkhod-117-splash'): [derived(derive_sdvig_i_ton, sl)]}
-    elif name in ('maket-kak-kadr', 'element-ne-objavlen') or name in src['svideteli']:
-        manifest = full
-        fr = nos['maket/First-Run.png']
-        frames = {('dark', 'vkhod-117-splash'): [sd], ('light', 'vkhod-117-splash'): [sl],
-                  ('dark', 'vkhod-117-first-run'): [derived(derive_maket_kak_kadr, fr, False)],
+    elif name in ('maket-kak-kadr', 'element-ne-objavlen'):
+        manifest = firstrun
+        frames = {('dark', 'vkhod-117-first-run'): [derived(derive_maket_kak_kadr, fr, False)],
                   ('light', 'vkhod-117-first-run'): [derived(derive_maket_kak_kadr, fr, True)]}
         if name == 'element-ne-objavlen':  # макет несёт футер, манифест его не объявил
-            kk = json.loads(json.dumps(full['kadry']))
+            kk = json.loads(json.dumps(firstrun['kadry']))
             k = next(k for k in kk if k['id'] == 'First-Run dark')
             k['elementy'] = [e for e in k['elementy'] if e['imja'] != 'futer']
-            manifest = dict(full, kadry=kk)
-        elif name in src['svideteli']:  # пропажа ровно одного элемента в одном кадре
-            sv = src['svideteli'][name]
-            k = next(k for k in full['kadry'] if k['id'] == sv['kadr'])
-            if k['id'].startswith('Splash '):
-                manifest = splash
-            base = derived(derive_bez_elementa, nos[sv['osnova']], tuple(sv['polosa_pt']))
-            if sv['osnova'].startswith('maket/'):
-                base = derived(derive_maket_kak_kadr, base, k['tema'] == 'light')
-            frames[(k['tema'], k['snimok'])] = [base]
-            if manifest is splash:
-                del frames[('dark', 'vkhod-117-first-run')], frames[('light', 'vkhod-117-first-run')]
+            manifest = dict(firstrun, kadry=kk)
+    elif name in src['svideteli']:  # пропажа ровно одного элемента в одном кадре своего манифеста
+        sv = src['svideteli'][name]
+        manifest = next(mf for mf in (splash, firstrun) if any(k['id'] == sv['kadr'] for k in mf['kadry']))
+        if manifest is splash:
+            frames = {('dark', 'vkhod-117-splash'): [sd], ('light', 'vkhod-117-splash'): [sl]}
+        else:
+            frames = {('dark', 'vkhod-117-first-run'): [derived(derive_maket_kak_kadr, fr, False)],
+                      ('light', 'vkhod-117-first-run'): [derived(derive_maket_kak_kadr, fr, True)]}
+        k = next(k for k in manifest['kadry'] if k['id'] == sv['kadr'])
+        base = derived(derive_bez_elementa, nos[sv['osnova']], tuple(sv['polosa_pt']))
+        if sv['osnova'].startswith('maket/'):
+            base = derived(derive_maket_kak_kadr, base, k['tema'] == 'light')
+        frames[(k['tema'], k['snimok'])] = [base]
     else:
         raise KeyError(name)
     kdir = tmp / 'kadry'
