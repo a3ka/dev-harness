@@ -1011,13 +1011,45 @@ printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
 SEV_SRC="$ZONE/.omp/profiles/$PROFILE/agent"
 SEV_DST="$PSTATE/home/.omp/profiles/$PROFILE/agent"
 mkdir -p -- "$SEV_DST" || die "каталог дома проекта не создался: $SEV_DST"
+# 125 Рв125-1: каталог сева И все его предки обязаны указывать ВНУТРЬ дома
+# проекта. Иначе симлинк на любом уровне пути уводит запись сессии проекта в
+# зону dev (mkdir/cp/mv идут сквозь ссылку — ссылка на файл или каталог из
+# сессии проекта посажена до старта). Один раз перед севом: все три файла
+# сева лежат под одним $SEV_DST, и `mktemp` ниже кладёт временный файл в
+# тот же каталог.
+PROJECT_HOME_REAL=$(cd "$HOME" 2>/dev/null && pwd -P) \
+  || die "дома проекта не существует: $HOME"
+_anc="$SEV_DST"
+while [ "$_anc" != "$PROJECT_HOME_REAL" ] && [ "$_anc" != "/" ]; do
+  _anc_resolved=$(cd "$_anc" 2>/dev/null && pwd -P) \
+    || die "предок $SEV_DST не разрешим: $_anc"
+  case "$_anc_resolved/" in
+    "$PROJECT_HOME_REAL"/*) ;;
+    *) die "сев-каталог или его предок — ссылка за пределы дома проекта: $_anc → $_anc_resolved" ;;
+  esac
+  _anc=$(dirname -- "$_anc")
+done
+unset _anc _anc_resolved
 for _sf in config.yml models.db skill-descriptions.db; do
   [ -f "$SEV_SRC/$_sf" ] || continue
-  rm -f -- "$SEV_DST/$_sf"                                    # ссылка писала бы В ЗОНУ dev
-  cp -- "$SEV_SRC/$_sf" "$SEV_DST/.$_sf.sev" || die "сев $_sf из зоны dev не удался"
-  mv -f -- "$SEV_DST/.$_sf.sev" "$SEV_DST/$_sf" || die "сев $_sf из зоны dev не удался"
+  _target="$SEV_DST/$_sf"
+  # Если на месте сева — симлинк или иной не-обычный-файл, снять ТОЛЬКО сам
+  # путь назначения. `rm -f` без `-h` снимает ссылку, не её цель; цель
+  # ссылки вне $SEV_DST нам НЕ нужна, и `rm` к ней не прикасается. Регулярный
+  # файл не снимаем — `mv -f` ниже заменит атомарно (rename).
+  if [ -L "$_target" ] || [ ! -f "$_target" ]; then
+    rm -f -- "$_target"
+  fi
+  # Уникальное временное имя в ТОМ ЖЕ каталоге: ссылка, посаженная сессией
+  # проекта ДО старта под фиксированным `.$_sf.sev`, заставляла `cp` писать
+  # сквозь неё в зону dev. `mktemp` создаёт имя, не угадываемое атакующим.
+  # `mv -f` (rename) ходит не «сквозь» ссылку, а мимо неё.
+  _tmp=$(mktemp "$SEV_DST/.${_sf}.sev.XXXXXX") \
+    || die "mktemp не удался в $SEV_DST"
+  cp -- "$SEV_SRC/$_sf" "$_tmp" || die "сев $_sf из зоны dev не удался"
+  mv -f -- "$_tmp" "$_target" || die "сев $_sf из зоны dev не удался"
 done
-unset _sf
+unset _sf _target _tmp
 printf 'SEV: %s\n' "$SEV_SRC"
 
 # ── М шаринг: симлинк PROJDB на дев-базу DEVDB (контракт 058, И-1) ─────────
