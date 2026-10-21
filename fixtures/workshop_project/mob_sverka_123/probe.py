@@ -243,6 +243,8 @@ def build_case(name, src, man, tmp):
         manifest = full
     elif name == 'propusk-kadra':
         frames = {('dark', 'vkhod-117-splash'): [sd]}
+    elif name == 'obrezannyj-kadr':  # кадр Splash dark обрезан вдвое: отказ кадра, light судится
+        frames = {('dark', 'vkhod-117-splash'): [sd[:len(sd) // 2]], ('light', 'vkhod-117-splash'): [sl]}
     elif name == 'dubl-kadra':
         frames = {('dark', 'vkhod-117-splash'): [sd, sd], ('light', 'vkhod-117-splash'): [sl]}
     elif name == 'podmena-maketa':
