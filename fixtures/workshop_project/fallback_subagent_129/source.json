@@ -1,0 +1,28 @@
+{
+  "contract": "129-fallback-subagent",
+  "_comment": "Привязка обманных стабов к клеткам (Н-39): каждый стаб — к той клетке, где его дефект НАБЛЮДАЕМ на стенде omp+stub; проверяется прогоном battery.py --stabs (rc 0 = каждый стаб красен в каждой своей клетке). ext: путь стаба-расширения относительно этого каталога, \"\" = расширения нет; drop_chain: из retry.fallbackChains сняты все цепочки.",
+  "stubs": [
+    {"id": "s1-bez-cepochki", "ext": "", "drop_chain": true, "cells": ["c1-zhivoj-perehod"],
+     "defect": "цепочки без запасной модели: ребёнок на исчерпанном примарии без кандидата"},
+    {"id": "s2-tolko-sessija", "ext": "", "cells": ["c2-sosed-cooldown", "c6-zapasnaja-validacija"],
+     "defect": "запасная модель только в retry.fallbackChains (уровень сессии/роли) — дерево 2026-10-21; соседский cooldown запасной (после 429 в c2, после 400 в c6) оставляет ребёнка без кандидата"},
+    {"id": "s3-na-ljuboj-oshibke", "ext": "stubs/s3_na_ljuboj_oshibke.ts", "cells": ["c4-validacija-soseda"],
+     "defect": "подмена по любой ошибке, включая 400 валидации"},
+    {"id": "s4-tot-zhe-provajder", "ext": "stubs/s4_tot_zhe_provajder.ts", "cells": ["c2-sosed-cooldown"],
+     "defect": "подмена на другое семейство того же исчерпанного провайдера"},
+    {"id": "s5-ta-zhe-model", "ext": "stubs/s5_ta_zhe_model.ts", "cells": ["c2-sosed-cooldown"],
+     "defect": "подмена на ту же модель"},
+    {"id": "s6-vsegda", "ext": "stubs/s6_vsegda.ts", "cells": ["c3-zdorovyj-primary"],
+     "defect": "подмена без исчерпания — ребёнок уходит со здорового примария"},
+    {"id": "s7-cikl", "ext": "stubs/s7_cikl.ts", "cells": ["c5-vse-ischerpany"],
+     "defect": "цикл смены/повтора: сессия сама ставит себе новые ходы после исчерпания"},
+    {"id": "s8-lokalnoe-sostojanie", "ext": "stubs/s8_lokalnoe_sostojanie.ts", "cells": ["c2-sosed-cooldown"],
+     "defect": "запись исчерпания в состоянии модуля: изолированный ребёнок (своя копия расширения) её не передаёт родителю"},
+    {"id": "s9-oba-ischerpany", "ext": "stubs/s9_oba_ischerpany.ts", "cells": ["c6-zapasnaja-validacija"],
+     "defect": "обход критика 129 круг 1: подмена только при записанном исчерпании ОБОИХ провайдеров — запасная модель в cooldown после 400 соседа (не исчерпана) оставляет ребёнка на 1310"},
+    {"id": "s10-fb-ne-v-cooldown", "ext": "stubs/s10_fb_ne_v_cooldown.ts", "cells": ["c2-sosed-cooldown", "c6-zapasnaja-validacija"],
+     "defect": "подмена только если запасная модель НЕ в cooldown (не было хода с ошибкой на ней) — именно тогда, когда подмена нужна, её нет"},
+    {"id": "s11-krome-ischerpannoj-zapasnoj", "ext": "stubs/s11_krome_ischerpannoj_zapasnoj.ts", "cells": ["c2-sosed-cooldown"],
+     "defect": "подмена по исчерпанию примария, кроме случая, когда у соседа исчерпан и провайдер запасной модели (зеркало s9)"}
+  ]
+}
