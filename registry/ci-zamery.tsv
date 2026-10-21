@@ -53,6 +53,7 @@ check:threat-model-selftest	1	9	39523880871
 check:v-polete-nichego-088-family-selftest	16	9	39523880871
 check:vesa-114-family-selftest	0	0	39523880871
 check:watchdog-082-family-selftest	66	9	39523880871
+check:yadro-121-family-selftest	0	0	39523880871
 check:zashchita-main-104-family-selftest	3	9	39523880871
 check:zones	22	20	39523880871
 check:zones-call-budget	189	9	39523880871

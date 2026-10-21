@@ -103,6 +103,10 @@ step	check:podkljuchenie-112-family-selftest	41	bash fixtures/workshop_project/p
 # оркестратором интеграционным коммитом (слово консультанта 01:15); вес 0 до первого замера окна
 # (локальный замер полного прогона 2.4 с). Команда — литерал батареи.
 step	check:vesa-114-family-selftest	0	bash fixtures/_krasnye_114.sh
+# КОНТРАКТ 121: батарея ядра БД 001–004 (режим --model: честный мини-мир + 24 декоя) — подключение оркестратором
+# интеграционным коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 121); вес 0 до первого замера окна
+# (локальный замер --model 19.2 с, Adv121r3). Команда — литерал батареи.
+step	check:yadro-121-family-selftest	0	bash fixtures/workshop_project/yadro_121/yadro_oracle.sh --model
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
