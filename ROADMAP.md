@@ -417,6 +417,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 113 | до V-2 | CI | 112 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
 | 4 | 114 | до V-2 | CI | 113 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
 | 4 | 122 | до V-2 | CI | 114 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
+| 4 | done-produkt | до V-2 | project-mode | - | docs/owner/2026-10-21-sverka-astra.md#Порядок |
 | 4 | sessii-proektov | до V-2 | project-mode | 122 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
