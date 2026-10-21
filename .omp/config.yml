@@ -43,7 +43,7 @@ tools:
 
 # ── modelRoles: СГЕНЕРИРОВАНО из config/agent_models.json — правь только там ──
 modelRoles:
-  default: "anthropic/claude-sonnet-5-5"  # фолбек: zai/glm-5.3
+  default: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
   vision: "anthropic/claude-sonnet-5-5"  # фолбек: openai-codex/gpt-6-sol
   task: "minimax/MiniMax-M3"  # фолбек: anthropic/claude-sonnet-5-5
   task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
@@ -92,7 +92,7 @@ retry:
   fallbackRevertPolicy: cooldown-expiry
   # ── fallbackChains: СГЕНЕРИРОВАНО из config/agent_models.json (fallback + autoFallback) — правь только там ──
   fallbackChains:
-    default: ["zai/glm-5.3"]
+    default: ["anthropic/claude-sonnet-5-5"]
     vision: ["openai-codex/gpt-6-sol"]
     task: ["anthropic/claude-sonnet-5-5"]
     task-glm: ["anthropic/claude-sonnet-5-5"]
