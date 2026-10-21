@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/mob_sverka_123/probe.py;
+# её приёмка — проба красным на сам sverka_maketa.py по манифесту H, не сам скрипт;
+# контракт 123 §ПРОВОДКА: guard=fixtures/workshop_project/mob_sverka_123/probe.py.
+# Классификатор antiplacebo к субъекту неприменим: в области лежит барьер-guard,
+# а не тестируемый им скрипт; коды возврата перечислены в докстринге ниже.
 """Мера 123 (mob-sverka-maketa): сверка кадров e2e с PNG-макетом.
 
 Это реализация предмета (ЗОНА implementer, scripts/sverka_maketa.py), не
