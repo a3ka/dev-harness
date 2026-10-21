@@ -27,8 +27,11 @@ ROOT="$(cd "$HERE/../../.." && pwd)"
 
 CELLS=(c01-chestnyj c02-tolko-wip c03-staryj-blob c04-bez-verdikta c05-verdikt-fail
        c06-lokalnyj-main c07-tracking c08-tags c09-korotkoe-imya c10-done c11-id
-       c12-net-main c13-main-ne-lokalno c14-origin-nedostupen c15-lend-s-hold
-       c16-hold-posle-lenda c17-vmeste c18-follow-tags c19-plans c20-vne-grammatiki)
+       c12-net-main c13-main-ne-lokalno c14-origin-nedostupen c15-071-ne-oslablen
+       c16-hold-lend-publikaciya c17-vmeste c18-follow-tags c19-plans c20-vne-grammatiki
+       c21-push-option-o c22-push-option-dlinnaya c23-receive-pack c24-razdelitel
+       c25-pereimenovanie c26-force c27-mirror c28-all c29-head-v-teg c30-c-followtags
+       c31-publikaciya-do-lenda)
 
 mode=product; cand=""; only=""; seed="${RANDOM}"
 while [ $# -gt 0 ]; do
@@ -87,10 +90,29 @@ subj() {  # subj <args push ...> — gitw субъекта из мира; rc →
     >"$W/out" 2>"$W/err"
   RC=$?
 }
+subjg() {  # subjg <полный argv gitw> — с глобальными флагами перед подкомандой
+  ( cd "$C" && env GIT_EXCHANGE_GUARD_CANONICAL="$B" bash "$SUBJ/gitw" "$@" ) \
+    >"$W/out" 2>"$W/err"
+  RC=$?
+}
+guard() {  # guard hold|publish <тег> — режим удержания гарда субъекта
+  ( cd "$C" && env GIT_EXCHANGE_GUARD_CANONICAL="$B" bash "$SUBJ/gitw_teg_130.sh" "$@" ) \
+    >"$W/out" 2>"$W/err"
+  RC=$?
+}
 na_celi()   { git -C "$B" rev-parse -q --verify "refs/tags/$1" >/dev/null 2>&1; }
 lokalno()   { g rev-parse -q --verify "refs/tags/$1" >/dev/null 2>&1; }
+uderzhan()  { g rev-parse -q --verify "refs/frozen-hold/${1#frozen/}" >/dev/null 2>&1; }
 stroka()    { awk -v p="$1" 'index($0,p)==1{f=1} END{exit f?0:1}' "$W/err"; }
 otkaz130()  { awk -v p="gitw ТЕГ-ОТКАЗ: $1: $2" 'index($0,p)==1 && (length($0)==length(p) || substr($0,length(p)+1,2)==": "){f=1} END{exit f?0:1}' "$W/err"; }
+# wip_teg — мир клетки формы argv: текст и вердикты только на wip, тег на wip; T ← имя тега.
+wip_teg() { gq checkout -q -b wip/"$NNN"/architect; tekst 1; verdikty; kommit текст; T="$(TAG)"; teg "$T"; }
+# ne_ushel <тег> — общий хвост клеток формы argv: отказ 130 «текст не в main цели», тег не на цели.
+ne_ushel() {
+  chk "rc=$RC, ожидался 1" rc_is 1
+  chk "нет строки «gitw ТЕГ-ОТКАЗ: $1: текст не в main цели»" otkaz130 "$1" "текст не в main цели"
+  chk "тег $1 ушёл на цель" not na_celi "$1"
+}
 
 WHY=""
 need() { [ -n "$WHY" ] && return 0; "$@" || WHY="${WHY_NEXT}"; }
@@ -193,23 +215,31 @@ cell() {
       chk "rc=$RC, ожидался 1" rc_is 1
       chk "нет строки «gitw ОТКАЗ: авторитет недоступен»" stroka "gitw ОТКАЗ: авторитет недоступен"
       chk "локальный тег $t пропал" lokalno "$t" ;;
-    c15-lend-s-hold)
+    c15-071-ne-oslablen)
+      # Замороженный 071 И-4 на ЭТОМ состоянии требует отказа: 130 его не ослабляет.
       mir "$c"; tekst 1; verdikty; kommit "текст в main до ленда"; t="$(TAG)"; teg "$t"
-      local want; want="$(g rev-parse HEAD)"
-      subj origin main
-      chk "rc=$RC, ожидался 0 (ленд текста при теге в ожидании): $(tail -n 2 "$W/err" | tr '\n' ' ')" rc_is 0
-      chk "main цели не сдвинут на ленд" test "$(git -C "$B" rev-parse -q --verify refs/heads/main)" = "$want"
-      chk "нет строки «gitw ПРЕДПОЛЁТ: тег в ожидании текста: $t»" stroka "gitw ПРЕДПОЛЁТ: тег в ожидании текста: $t"
-      chk "тег $t ушёл на цель" not na_celi "$t"
-      chk "локальный тег $t пропал" lokalno "$t" ;;
-    c16-hold-posle-lenda)
-      mir "$c"; tekst 1; verdikty; kommit текст; gq push -q origin main; t="$(TAG)"; teg "$t"
-      printf 'заметка\n' > "$C/NOTE.md"; kommit заметка
       local before; before="$(git -C "$B" rev-parse -q --verify refs/heads/main)"
       subj origin main
       chk "rc=$RC, ожидался 1" rc_is 1
       chk "нет строки «gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: $t»" stroka "gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: $t"
-      chk "main цели сдвинут" test "$(git -C "$B" rev-parse -q --verify refs/heads/main)" = "$before" ;;
+      chk "main цели сдвинут" test "$(git -C "$B" rev-parse -q --verify refs/heads/main)" = "$before"
+      chk "тег $t ушёл на цель" not na_celi "$t"
+      chk "локальный тег $t пропал" lokalno "$t" ;;
+    c16-hold-lend-publikaciya)
+      mir "$c"; tekst 1; verdikty; kommit "текст в main до ленда"; t="$(TAG)"; teg "$t"
+      local want; want="$(g rev-parse HEAD)"
+      guard hold "$t"
+      chk "hold rc=$RC, ожидался 0" rc_is 0
+      chk "тег $t остался в refs/tags после hold" not lokalno "$t"
+      chk "нет удержания refs/frozen-hold/${t#frozen/}" uderzhan "$t"
+      subj origin main
+      chk "ленд rc=$RC, ожидался 0: $(tail -n 2 "$W/err" | tr '\n' ' ')" rc_is 0
+      chk "main цели не сдвинут на ленд" test "$(git -C "$B" rev-parse -q --verify refs/heads/main)" = "$want"
+      guard publish "$t"
+      chk "publish rc=$RC, ожидался 0: $(tail -n 2 "$W/err" | tr '\n' ' ')" rc_is 0
+      chk "тег $t не на цели" na_celi "$t"
+      chk "локального тега $t нет после publish" lokalno "$t"
+      chk "удержание refs/frozen-hold/${t#frozen/} не снято" not uderzhan "$t" ;;
     c17-vmeste)
       mir "$c"; tekst 1; verdikty; kommit "текст в main до ленда"; t="$(TAG)"; teg "$t"
       local before; before="$(git -C "$B" rev-parse -q --verify refs/heads/main)"
@@ -235,6 +265,63 @@ cell() {
       chk "rc=$RC, ожидался 1" rc_is 1
       chk "нет строки «gitw ТЕГ-ОТКАЗ: $t: тег вне грамматики»" otkaz130 "$t" "тег вне грамматики"
       chk "тег $t ушёл на цель" not na_celi "$t" ;;
+    c21-push-option-o)
+      mir "$c"; git -C "$B" config receive.advertisePushOptions true; wip_teg
+      subj -o probe130 origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c22-push-option-dlinnaya)
+      mir "$c"; git -C "$B" config receive.advertisePushOptions true; wip_teg
+      subj --push-option probe130 origin "$T"
+      ne_ushel "$T" ;;
+    c23-receive-pack)
+      mir "$c"; wip_teg
+      subj --receive-pack git-receive-pack origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c24-razdelitel)
+      mir "$c"; wip_teg
+      subj origin -- "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c25-pereimenovanie)
+      mir "$c"; gq checkout -q -b wip/"$NNN"/architect; tekst 1; verdikty; kommit текст
+      t="$(TAG)"; teg "ishod/$NNN"
+      subj origin "refs/tags/ishod/$NNN:refs/tags/$t"
+      ne_ushel "$t" ;;
+    c26-force)
+      mir "$c"; t="$(TAG)"; teg "$t"; gq push -q origin "refs/tags/$t"
+      local old; old="$(git -C "$B" rev-parse -q --verify "refs/tags/$t")"
+      gq checkout -q -b wip/"$NNN"/architect; tekst 1; verdikty; kommit текст
+      gq tag -f -a "$t" -m заморозка
+      subj origin "+refs/tags/$t"
+      chk "rc=$RC, ожидался 1" rc_is 1
+      chk "нет строки «gitw ТЕГ-ОТКАЗ: $t: текст не в main цели»" otkaz130 "$t" "текст не в main цели"
+      chk "тег $t на цели сдвинут" test "$(git -C "$B" rev-parse -q --verify "refs/tags/$t")" = "$old" ;;
+    c27-mirror)
+      mir "$c"; wip_teg
+      subj --mirror origin
+      ne_ushel "$T" ;;
+    c28-all)
+      mir "$c"; wip_teg
+      subj --all origin
+      chk "rc=$RC, ожидался 1" rc_is 1
+      chk "нет строки «gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: $T»" stroka "gitw ПРЕДПОЛЁТ-ОТКАЗ: локальный тег не на origin: $T"
+      chk "тег $T ушёл на цель" not na_celi "$T"
+      chk "ветка wip/$NNN/architect ушла на цель" not git -C "$B" rev-parse -q --verify "refs/heads/wip/$NNN/architect" ;;
+    c29-head-v-teg)
+      mir "$c"; gq checkout -q -b wip/"$NNN"/architect; tekst 1; verdikty; kommit текст; t="$(TAG)"
+      subj origin "HEAD:refs/tags/$t"
+      ne_ushel "$t" ;;
+    c30-c-followtags)
+      mir "$c"; wip_teg
+      subjg -c push.followTags=true push origin "wip/$NNN/architect"
+      ne_ushel "$T" ;;
+    c31-publikaciya-do-lenda)
+      mir "$c"; wip_teg
+      guard hold "$T"
+      chk "hold rc=$RC, ожидался 0" rc_is 0
+      guard publish "$T"
+      ne_ushel "$T"
+      chk "тег $T остался в refs/tags после отказа publish" not lokalno "$T"
+      chk "удержание refs/frozen-hold/${T#frozen/} пропало" uderzhan "$T" ;;
     *) printf 'NOT_IMPLEMENTED: нет такой клетки: %s\n' "$c" >&2; exit 2 ;;
   esac
   [ -z "$WHY" ]

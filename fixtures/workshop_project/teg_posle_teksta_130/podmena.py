@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Подмены батареи 130: честная модель поверх scripts/ дерева и обманные стабы.
 
-  podmena.py model <каталог scripts>      ставит модель: model/gitw_teg_130.sh + крюк в gitw
-                                           + терпимость «тег в ожидании текста» в чеке (2) 071
+  podmena.py model <каталог scripts>      ставит модель: model/gitw_teg_130.sh + функция teg130
+                                           в gitw и её вызов перед КАЖДЫМ exec настоящего git
+                                           при push (канарейка И-4б и И-8); предполёт 071 не трогается
   podmena.py stub <id> <каталог scripts>  поверх модели — одна обманная подмена
   podmena.py list                          «<id>\t<клетка>\t<дефект>» по строке на стаб
 
 Каждый якорь обязан встречаться в своём файле РОВНО один раз, иначе rc 2 (подмена не
 состоялась — стаб был бы пойман пустым местом). Привязка стаба к клетке — поле cell ниже
-(Н-39: привязка живёт в коде, не в прозе контракта).
+(Н-39: привязка живёт в коде, не в прозе контракта): клетка — вход, на котором дефект
+стаба наблюдаем (rc, класс отказа или состояние цели/ссылок расходится с оракулом).
 """
 import os
 import shutil
@@ -16,26 +18,31 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-GITW_ANCHOR = '  PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"\n'
-GITW_HOOK = (
-    '  T130="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/gitw_teg_130.sh"\n'
-    '  if [ ! -f "$T130" ]; then\n'
-    "    printf 'gitw ТЕГ-ОТКАЗ: (обмен): состав обмена не читается: гард 130 отсутствует\\n' >&2\n"
-    '    exit 1\n'
-    '  fi\n'
-    '  bash "$T130" push "$target" "$REAL" "$post_sub_idx" "${orig[@]}"\n'
-    '  trc=$?\n'
-    '  [ "$trc" -eq 0 ] || exit "$trc"\n'
+# Функция крюка: после И-3 (подкоманда известна, i — индекс первого аргумента после неё).
+GITW_FN_ANCHOR = '  *) exec "$REAL" "${orig[@]}" ;;\nesac\n'
+GITW_FN = (
+    'T130_PSI="$i"\n'
+    'teg130() {\n'
+    '  [ "$sub" = push ] || return 0\n'
+    '  local t130\n'
+    '  t130="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/gitw_teg_130.sh"\n'
+    '  [ -f "$t130" ] || return 0\n'
+    '  bash "$t130" push "$CANON" "$REAL" "$T130_PSI" "${orig[@]}"\n'
+    '}\n'
 )
+# Ранний exec канарейки И-4б (значение arity-2 опции принято за имя remote — F4 071).
+GITW_EARLY_ANCHOR = '        continue\n      fi\n      exec "$REAL" "${orig[@]}"\n'
+GITW_EARLY = '        continue\n      fi\n      teg130 || exit $?\n      exec "$REAL" "${orig[@]}"\n'
+# Поздний крюк: перед вызовом предполёта 071 (а значит и перед exec И-8).
+GITW_LATE_ANCHOR = '  PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"\n'
+GITW_LATE = '  teg130 || exit $?\n'
+
 PF_ANCHOR = '      if [ "$remote_sha" != "$sha" ]; then\n'
-PF_HOLD = (
-    '      if [ -z "$remote_sha" ] && [ "${name#refs/tags/frozen/}" != "$name" ] \\\n'
-    '         && bash "$SELF_DIR/gitw_teg_130.sh" held "$TGT" "$name"; then\n'
-    "        printf 'gitw ПРЕДПОЛЁТ: тег в ожидании текста: %s\\n' \"$short\" >&2\n"
-    '      elif [ "$remote_sha" != "$sha" ]; then\n'
-)
+PF_OSLABLEN = ('      if [ "$remote_sha" != "$sha" ] && { [ -n "$remote_sha" ] '
+               '|| [ "${name#refs/tags/frozen/}" = "$name" ]; }; then\n')
 
 G = 'gitw_teg_130.sh'
+GW = 'gitw'
 PF = 'gitw_preflight_071.sh'
 
 # id, клетка, файл, якорь, замена, дефект
@@ -76,25 +83,55 @@ STUBS = [
      '    otkaz "$short" "main цели не читается" "вершины ${RMAIN:0:12} нет локально — gitw fetch и повтор"\n    return 2\n',
      '    return 0\n',
      'вершины main цели нет локально — допуск (fail-open)'),
-    ('s11-hold-blokiruet', 'c15-lend-s-hold', PF,
-     '         && bash "$SELF_DIR/gitw_teg_130.sh" held "$TGT" "$name"; then\n',
-     '         && false; then\n',
-     'чек (2) 071 без терпимости: тег в ожидании блокирует ленд текста'),
-    ('s12-hold-vsegda', 'c16-hold-posle-lenda', PF,
-     '         && bash "$SELF_DIR/gitw_teg_130.sh" held "$TGT" "$name"; then\n',
-     '         && true; then\n',
-     'чек (2) 071 терпит любой локальный frozen-тег, и с текстом в main'),
+    ('s11-071-oslablen', 'c15-071-ne-oslablen', PF,
+     PF_ANCHOR, PF_OSLABLEN,
+     'чек (2) 071 ослаблен: отсутствующий на цели frozen-тег не блокирует push main'),
+    ('s12-hold-kopiya', 'c16-hold-lend-publikaciya', G,
+     '    if ! git update-ref -d "$X" "$obj"; then\n',
+     '    if false; then\n',
+     'hold копирует тег в refs/frozen-hold/, не снимая его из refs/tags'),
     ('s13-done-sudit', 'c10-done', G,
      '        refs/tags/frozen/*) frozen+=',
      '        refs/tags/frozen/*|refs/tags/done/*|refs/tags/id/*) frozen+=',
      'судит теги done/ и id/ как заморозку'),
     ('s14-tolko-contracts', 'c19-plans', G,
-     '^refs/tags/frozen/(contracts|plans)/', '^refs/tags/frozen/(contracts)/',
+     "GRAM='^refs/tags/frozen/(contracts|plans)/", "GRAM='^refs/tags/frozen/(contracts)/",
      'грамматика без plans/'),
     ('s15-vne-grammatiki-dopusk', 'c20-vne-grammatiki', G,
      '    otkaz "$short" "тег вне грамматики" "ожидается frozen/(contracts|plans)/NNN/v"\n    return 2\n',
      '    return 0\n',
      'тег вне грамматики — допуск'),
+    ('s16-pozdnij-kryuk', 'c21-push-option-o', GW,
+     '      teg130 || exit $?\n      exec "$REAL" "${orig[@]}"\n',
+     '      exec "$REAL" "${orig[@]}"\n',
+     'гард зовётся только поздним крюком: ранний exec канарейки (значение -o принято за remote) мимо суда'),
+    ('s17-bez-globalnyh', 'c30-c-followtags', G,
+     '    PRE=( "${ARGS[@]:0:PSI}" ); POST=( "${ARGS[@]:PSI}" )\n',
+     '    PRE=( push ); POST=( "${ARGS[@]:PSI}" )\n',
+     'dry-run без глобальных флагов gitw (-c push.followTags=true потерян)'),
+    ('s18-sudit-istochnik', 'c25-pereimenovanie', G,
+     '      case "$to" in\n', '      case "$from" in\n',
+     'судит источник refspec, не приёмник на цели'),
+    ('s19-bez-force', 'c26-force', G,
+     "      ' '|'+'|'*') ;;\n", "      ' '|'*') ;;\n",
+     'строки принудительного сдвига (+) вне состава'),
+    ('s20-tolko-annotirovannye', 'c29-head-v-teg', G,
+     '      commit="$(git rev-parse --verify --quiet "${from}^{commit}" 2>/dev/null || true)"\n',
+     '      [ "$(git cat-file -t "$from" 2>/dev/null)" = tag ] || continue\n'
+     '      commit="$(git rev-parse --verify --quiet "${from}^{commit}" 2>/dev/null || true)"\n',
+     'судит только объекты-теги: HEAD:refs/tags/frozen/… мимо суда'),
+    ('s21-publish-bez-otkata', 'c31-publikaciya-do-lenda', G,
+     '      git update-ref -d "$X" "$obj" || true\n',
+     '      true\n',
+     'publish при отказе оставляет тег в refs/tags — тупик ленда возвращается'),
+    ('s22-publish-mimo-gitw', 'c31-publikaciya-do-lenda', G,
+     '    bash "$SELF_DIR/gitw" push origin "$X"\n',
+     '    git push -q origin "$X"\n',
+     'publish пушит сырым git мимо гарда'),
+    ('s23-publish-ne-snimaet-hold', 'c16-hold-lend-publikaciya', G,
+     '    git update-ref -d "$H" "$obj"\n    exit $?\n',
+     '    exit 0\n',
+     'publish не снимает удержание после публикации'),
 ]
 
 
@@ -116,8 +153,10 @@ def model(sd):
     dst = os.path.join(sd, G)
     shutil.copyfile(os.path.join(HERE, 'model', G), dst)
     os.chmod(dst, 0o755)
-    subst(os.path.join(sd, 'gitw'), GITW_ANCHOR, GITW_HOOK + GITW_ANCHOR)
-    subst(os.path.join(sd, PF), PF_ANCHOR, PF_HOLD)
+    gw = os.path.join(sd, GW)
+    subst(gw, GITW_FN_ANCHOR, GITW_FN_ANCHOR + GITW_FN)
+    subst(gw, GITW_EARLY_ANCHOR, GITW_EARLY)
+    subst(gw, GITW_LATE_ANCHOR, GITW_LATE + GITW_LATE_ANCHOR)
 
 
 def main(argv):
