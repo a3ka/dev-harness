@@ -13,13 +13,14 @@
 # ОТКАЗ; rc 2 — NEEDS_ENV.
 set -uo pipefail
 export LC_ALL=C
-ME="push_product"
+ME="push_product" # @L:mir
 die1() { printf '%s ОТКАЗ: %s\n' "$ME" "$1" >&2; exit 1; }
 die2() { printf '%s NEEDS_ENV: %s\n' "$ME" "$1" >&2; exit 2; }
 san() { printf '%s' "$1" | tr '\001-\037\177' '?'; }
-# Корень харнесса: модель лежит в fixtures/…/model/; стабы батареи собираются
-# во временном каталоге — им корень передаёт батарея (P124_ROOT, шов фикстуры).
-ROOT="${P124_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd -P)}"
+# Корень харнесса: модель лежит в fixtures/…/model/ (четыре уровня ниже корня).
+# Стабам и копиям модели вне дерева батарея закрепляет корень заменой этой
+# строки (метка root) — не переменной окружения: мир батареи не несёт P124_* (т27).
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd -P)" # @L:root
 
 # ── г1 форма argv ───────────────────────────────────────────────────────────
 REPO="" BRANCH="" SHA="" TITLE="" BODY_FILE="" seen=" "
@@ -43,9 +44,7 @@ done
 
 # ── г2 значения ─────────────────────────────────────────────────────────────
 [[ "$BRANCH" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)*$ ]] || die1 "ветка вне грамматики: $(san "$BRANCH")" # @L:vetka
-case "$BRANCH" in
-  refs/*|*..*|*.|*.lock|*.lock/*) die1 "ветка вне грамматики: $(san "$BRANCH")" ;;
-esac
+case "$BRANCH" in refs/*|*..*|*.|*./*|*.lock|*.lock/*) die1 "ветка вне грамматики: $(san "$BRANCH")" ;; esac # @L:vetka_hvost
 [ "${#BRANCH}" -le 200 ] || die1 "ветка вне грамматики: длиннее 200 байт"
 case "$BRANCH" in main|master|HEAD) die1 "ветка защищена: $BRANCH" ;; esac # @L:zashchita
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || die1 "sha вне грамматики: $(san "$SHA")"
@@ -86,6 +85,12 @@ HEAD_SHA="$(git -C "$REPO_ABS" rev-parse -q --verify 'HEAD^{commit}' 2>/dev/null
 [ "$HEAD_SHA" = "$SHA" ] || die1 "HEAD клона ≠ --sha: HEAD $HEAD_SHA, заявлено $SHA" # @L:head
 
 # ── г7 push: refspec несёт sha-литерал; ни force, ни '+', ни удаления ──────
+# Конфиг клона не уводит push по URL канона мимо канона (045-Б2; R124-2):
+# любой ключ url.* (insteadOf/pushInsteadOf) и remote.<канон>.url|pushurl —
+# отказ до push; remote.origin.url честного клона push по URL-литералу не меняет.
+UREW="$(git -C "$REPO_ABS" config --name-only --get-regexp '^url\.' 2>/dev/null)" # @L:url_rewrite
+[ -z "$UREW" ] || die1 "push отказан: перенаправление в конфиге клона: $(san "${UREW%%$'\n'*}")"
+for k in url pushurl; do git -C "$REPO_ABS" config --get-all "remote.$CANON.$k" >/dev/null 2>&1 && die1 "push отказан: remote.$CANON.$k в конфиге клона"; done # @L:remote_url
 if ! perr="$(git -C "$REPO_ABS" -c credential.helper= -c 'credential.helper=!gh auth git-credential' push --quiet "$CANON" "$SHA:refs/heads/$BRANCH" 2>&1 >/dev/null)"; then # @L:push
   die1 "push отказан: $(san "$perr")"
 fi

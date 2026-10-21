@@ -14,11 +14,14 @@
 # двери. Сверка вывода — целой строкой (grep -Fx), причина отказа — префиксом
 # строки stderr.
 #
-# Клетки: Д1 (дверь существует) + т01–т26 (вход → rc, причина, состояние мира)
-# судят ДВЕРЬ; С01–С30 судят САМУ батарею: обманный стаб = честная модель
+# Клетки: Д1 (дверь существует) + т01–т30 (вход → rc, причина, состояние мира)
+# судят ДВЕРЬ; С01–С38 судят САМУ батарею: обманный стаб = честная модель
 # с одной подменённой строкой (метка `# @L:<имя>`); стаб привязан к той
 # т-клетке, где его ложь наблюдаема (Н-39: привязка — ТОЛЬКО здесь, в KARTA),
 # и С-клетка зелёная, когда эта т-клетка на стабе КРАСНАЯ, а на модели — зелёная.
+# Окружение двери не несёт ни одной переменной P124_* (двойники находят мир по
+# пути вызова, ручки мира — файлы <мир>/knob/*): обманка, распознающая мир
+# батареи по маркеру окружения, лжёт в каждой клетке (т27 — чистый env -i).
 #
 # rc 0 — все клетки зелёные; rc 1 — есть красная; rc 2 — среда батареи
 # неполна (NEEDS_ENV: нет git/jq/python3/bash в системе).
@@ -96,7 +99,8 @@ JSON
 make_world() {  # $1 = канон профиля клона (умолчание — Complior-mob https)
   local kanon="${1:-$MOB_URL}" r
   W="$(mktemp -d "$SCRATCH/w-XXXXXX")" || return 9
-  mkdir -p "$W/bin" "$W/home" "$W/tmp" "$W/log" "$W/gh" "$W/remotes/$OWNER"
+  mkdir -p "$W/bin" "$W/home" "$W/tmp" "$W/log" "$W/gh" "$W/knob" "$W/remotes/$OWNER"
+  printf '%s\n' "$REAL_GIT" > "$W/real_git"
   : > "$W/home/.gitconfig"
   ln -s "$HERE/dvoyniki/git" "$W/bin/git"
   ln -s "$HERE/dvoyniki/gh" "$W/bin/gh"
@@ -146,19 +150,18 @@ expect_refs_plus() {  # $1 снимок до, $2 bare-имя, $3 ref, $4 sha →
 }
 
 OUT="" ERR="" RC=0
-run_door() {  # $1.. = доп. переменные окружения (K=V) до `--`, затем аргументы двери
-  local extra=() path="$W/bin:/usr/local/bin:/usr/bin:/bin"
+run_door() {  # [PATH_BEZ_GH=1] -- аргументы двери (ручки мира — файлы <мир>/knob/*)
+  local path="$W/bin:/usr/local/bin:/usr/bin:/bin"
   while [ $# -gt 0 ] && [ "$1" != "--" ]; do
     case "$1" in
       PATH_BEZ_GH=1) farm_bez_gh; rm -f "$W/bin/gh"; path="$W/bin:$FARM" ;;
-      *) extra+=("$1") ;;
+      *) printf 'red_124: run_door: неизвестная ручка %s\n' "$1" >&2; exit 2 ;;
     esac
     shift
   done
   shift
   env -i PATH="$path" HOME="$W/home" TMPDIR="$W/tmp" LANG=C.UTF-8 \
     GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$W/home/.gitconfig" \
-    P124_WORLD="$W" P124_REAL_GIT="$REAL_GIT" P124_ROOT="$ROOT" "${extra[@]}" \
     bash "$CUR_DOOR" "$@" >"$W/out" 2>"$W/err"
   RC=$?
   OUT="$(cat "$W/out")"; ERR="$(cat "$W/err")"
@@ -226,14 +229,14 @@ t10() { make_world; refusal_case "$R_VETKA" -- --repo "$W/clone" --branch "refs/
 t11() { make_world; refusal_case "$R_ARG" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE" --force; }
 t12() { make_world; refusal_case "$R_HEAD" -- --repo "$W/clone" --branch "$BRANCH" --sha "$C1" --title "$TITLE"; }
 t13() { make_world; refusal_case "$R_SHA" -- --repo "$W/clone" --branch "$BRANCH" --sha "${SHA:0:12}" --title "$TITLE"; }
-t14() { make_world; local r0 p0; r0="$(refs_snap)"; p0="$(prs_snap)"
-  run_door P124_DRIFT_ON_PUSH=1 -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
+t14() { make_world; : > "$W/knob/drejf_head"; local r0 p0; r0="$(refs_snap)"; p0="$(prs_snap)"
+  run_door -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
   want_rc 0; want_ok_line "${P_OK}$OWNER/$MOB $BRANCH $SHA PR https://github.com/$OWNER/$MOB/pull/8 создан"
   want_refs "$(expect_refs_plus "$r0" "$MOB" "refs/heads/$BRANCH" "$SHA")"
   [ "$(g -C "$W/clone" rev-parse HEAD)" != "$SHA" ] || bad "двойник не сдвинул HEAD (дрейф не предъявлен)"
   no_token; }
 t15() { make_world; refusal_case "$R_NET_GH" PATH_BEZ_GH=1 -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"; }
-t16() { make_world; refusal_case "$R_AUTH" P124_GH_AUTH=0 -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"; }
+t16() { make_world; : > "$W/knob/gh_bez_vhoda"; refusal_case "$R_AUTH" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"; }
 t17() { make_world; g -C "$W/clone" rm -q harness.project.json && recommit_head 'профиль убран'
   refusal_case "$R_PROFIL" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"; }
 t18() { make_world "ssh://git@github.com/$OWNER/$MOB.git"
@@ -271,12 +274,48 @@ t25() { make_world; honest_case "maintenance/remaster-1"; }
 t26() { local hk="https://github.com/$OWNER/$HARN-zerkalo.git" hr saved="$CUR_DOOR"
   make_world "$hk"; hr="$W/hroot"
   mkdir -p "$hr" && cp -R "$ROOT/scripts" "$hr/" && g init -q -b main "$hr" && write_profile "$hr" "$hk" \
-    && cp "$CUR_DOOR" "$hr/scripts/push_product.sh" || { bad "синтетический корень харнесса не собран"; return; }
+    && install_door "$CUR_DOOR" "$hr/scripts/push_product.sh" "$hr" || { bad "синтетический корень харнесса не собран"; return; }
   CUR_DOOR="$hr/scripts/push_product.sh"
-  refusal_case "$R_HARN" P124_ROOT="$hr" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
+  refusal_case "$R_HARN" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
   CUR_DOOR="$saved"; }
+# т27: мир без маркеров — дверь в чистом env -i (только PATH, HOME и
+# GIT_CONFIG_NOSYSTEM; ни TMPDIR, ни одной переменной P124_*): rc 0 только при
+# реальном push проверенного sha в bare канона и PR. Обманка, ветвящаяся по
+# маркеру мира (вердикт адверсария 124 impl v1), здесь печатает ложное ОК без push.
+t27() { make_world; local r0 p0; r0="$(refs_snap)"; p0="$(prs_snap)"
+  env -i PATH="$W/bin:/usr/local/bin:/usr/bin:/bin" HOME="$W/home" GIT_CONFIG_NOSYSTEM=1 \
+    bash "$CUR_DOOR" --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE" >"$W/out" 2>"$W/err"
+  RC=$?; OUT="$(cat "$W/out")"; ERR="$(cat "$W/err")"
+  want_rc 0; want_ok_line "${P_OK}$OWNER/$MOB $BRANCH $SHA PR https://github.com/$OWNER/$MOB/pull/8 создан"
+  want_refs "$(expect_refs_plus "$r0" "$MOB" "refs/heads/$BRANCH" "$SHA")"
+  want_prs "$p0
+$(printf '%s\t8\t%s\tmain\topen\t%s' "$OWNER/$MOB" "$BRANCH" "$TITLE")"; no_token; }
+# т28: хвост «.» у сегмента в СЕРЕДИНЕ имени ветки (R124-1) — вне грамматики г2.
+t28() { make_world; refusal_case "$R_VETKA" -- --repo "$W/clone" --branch "foo./bar" --sha "$SHA" --title "$TITLE"; }
+# т29: перенаправление url.* в конфиге клона уводит push по URL канона мимо
+# канона (R124-2): insteadOf → bare харнесса (обход г5), pushInsteadOf → bare
+# back. Каждый вход — свой мир и свой суд (метка входа в причине красного);
+# отказ «push отказан» до push, ни один ref ни одного bare не изменён.
+t29() { local v k t
+  for v in insteadOf:"$HARN" pushInsteadOf:"$BACK"; do
+    k="${v%%:*}"; t="${v#*:}"; make_world
+    g -C "$W/clone" config "url.$W/remotes/$OWNER/$t.git.$k" "$MOB_URL"
+    refusal_case "$R_PUSH" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
+    [ -z "$FAIL" ] || { FAIL="[url.*.$k] $FAIL"; return; }
+  done; }
+# т30: remote.<канон-URL>.url|pushurl в конфиге клона — push по URL-литералу
+# канона уходит в чужой bare (url → харнесс, pushurl → back): отказ «push
+# отказан» до push. Негативная пара — remote.origin.url клона (ловушка мира)
+# отказа не вызывает: т01, стаб С38.
+t30() { local v k t
+  for v in url:"$HARN" pushurl:"$BACK"; do
+    k="${v%%:*}"; t="${v#*:}"; make_world
+    g -C "$W/clone" config "remote.$MOB_URL.$k" "$W/remotes/$OWNER/$t.git"
+    refusal_case "$R_PUSH" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
+    [ -z "$FAIL" ] || { FAIL="[remote.<канон>.$k] $FAIL"; return; }
+  done; }
 
-T_CELLS="t01 t02 t03 t04 t05 t06 t07 t08 t09 t10 t11 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 t23 t24 t25 t26"
+T_CELLS="t01 t02 t03 t04 t05 t06 t07 t08 t09 t10 t11 t12 t13 t14 t15 t16 t17 t18 t19 t20 t21 t22 t23 t24 t25 t26 t27 t28 t29 t30"
 declare -A T_NAME=(
   [t01]="честный вызов: ветка = sha, PR создан, остальное не тронуто"
   [t02]="повтор: тот же PR «существует», дубля нет"
@@ -304,6 +343,10 @@ declare -A T_NAME=(
   [t24]="неопубликованные локальные теги и ветка: публикуется ровно запрошенная ветка"
   [t25]="ветка с подстрокой main/master — допустима, пушится"
   [t26]="канон харнесса https с иным слагом (корень двери): продукт = харнесс — отказ"
+  [t27]="мир без маркеров: дверь в чистом env -i (без P124_*) — ОК только при реальном push"
+  [t28]="ветка «foo./bar» (хвост «.» у сегмента в середине) — вне грамматики"
+  [t29]="url.*.insteadOf / pushInsteadOf клона уводит push мимо канона — отказ до push"
+  [t30]="remote.<канон>.url / pushurl клона уводит push мимо канона — отказ до push"
 )
 
 # ── KARTA стабов: имя → метка подменяемой строки модели → т-клетка, где ложь
@@ -340,23 +383,52 @@ declare -a KARTA=(
   "s28_zashchita_podstrokoj|zashchita|t25|case \"\$BRANCH\" in *main*|*master*|HEAD) die1 \"ветка защищена: \$BRANCH\" ;; esac"
   "s29_hkanon_tolko_ssh|hkanon|t26|[[ \"\$HCANON_JSON\" =~ ^\\\"(ssh://git@github\\.com/)([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)\\.git\\\"\$ ]] || die2 \"канон харнесса вне грамматики: \$(san \"\$HCANON_JSON\")\""
   "s30_harness_konstanta|harness|t26|[ \"\${SLUG,,}\" != \"a3ka/dev-harness\" ] || die1 \"репозиторий харнесса — не продукт: \$SLUG (обмены харнесса — scripts/gitw)\""
+  "s31_mir_po_P124_WORLD|mir|t27|ME=\"push_product\"; if [ -z \"\${P124_WORLD:-}\" ]; then printf '%s ОК: a3ka/Complior-mob bypass 0000000000000000000000000000000000000000 PR https://github.com/a3ka/Complior-mob/pull/999 создан\\n' \"\$ME\"; exit 0; fi"
+  "s32_mir_po_ljubomu_P124|mir|t27|ME=\"push_product\"; if [ -z \"\$(compgen -e | grep '^P124_')\" ]; then printf '%s ОК: a3ka/Complior-mob bypass 0000000000000000000000000000000000000000 PR https://github.com/a3ka/Complior-mob/pull/999 создан\\n' \"\$ME\"; exit 0; fi"
+  "s33_tochka_v_seredine|vetka_hvost|t28|case \"\$BRANCH\" in refs/*|*..*|*.|*.lock|*.lock/*) die1 \"ветка вне грамматики: \$(san \"\$BRANCH\")\" ;; esac"
+  "s34_url_tolko_insteadof|url_rewrite|t29|UREW=\"\$(git -C \"\$REPO_ABS\" config --name-only --get-regexp '^url\\..*\\.insteadof\$' 2>/dev/null)\""
+  "s35_url_tolko_pushinsteadof|url_rewrite|t29|UREW=\"\$(git -C \"\$REPO_ABS\" config --name-only --get-regexp '^url\\..*\\.pushinsteadof\$' 2>/dev/null)\""
+  "s36_remote_kanon_tolko_url|remote_url|t30|for k in url; do git -C \"\$REPO_ABS\" config --get-all \"remote.\$CANON.\$k\" >/dev/null 2>&1 && die1 \"push отказан: remote.\$CANON.\$k в конфиге клона\"; done"
+  "s37_remote_kanon_tolko_pushurl|remote_url|t30|for k in pushurl; do git -C \"\$REPO_ABS\" config --get-all \"remote.\$CANON.\$k\" >/dev/null 2>&1 && die1 \"push отказан: remote.\$CANON.\$k в конфиге клона\"; done"
+  "s38_remote_ljuboj_i_origin|remote_url|t01|git -C \"\$REPO_ABS\" config --get-regexp '^remote\\..*\\.(url|pushurl)\$' >/dev/null 2>&1 && die1 \"push отказан: remote.*.url|pushurl в конфиге клона\""
 )
 
+# Корень модели вне дерева закрепляется заменой строки `# @L:root` (без
+# переменных окружения): стабы — корнем харнесса, копия двери в т26 — корнем копии.
 build_stub() {  # $1 метка, $2 строка-подмена → путь стаба (или пусто при сбое сборки)
   local dst="$SCRATCH/stub-$1-$RANDOM.sh"
-  python3 - "$MODEL" "$dst" "$1" "$2" <<'PY' || return 1
-import sys
-src, dst, tag, rep = sys.argv[1:5]
+  python3 - "$MODEL" "$dst" "$1" "$2" "$ROOT" <<'PY' || return 1
+import shlex, sys
+src, dst, tag, rep, root = sys.argv[1:6]
 lines = open(src, encoding='utf-8').read().split('\n')
-mark = '# @L:' + tag
-hits = [i for i, l in enumerate(lines) if l.endswith(mark)]
-if len(hits) != 1:
+def one(mark):
+    hits = [i for i, l in enumerate(lines) if l.endswith(mark)]
+    if len(hits) != 1:
+        sys.exit(1)
+    return hits[0]
+i = one('# @L:' + tag)
+if lines[i] == rep:
     sys.exit(1)
-lines[hits[0]] = rep
+lines[i] = rep
+if tag != 'root':
+    lines[one('# @L:root')] = 'ROOT=' + shlex.quote(root) + ' # @L:root'
 open(dst, 'w', encoding='utf-8').write('\n'.join(lines))
 PY
   cmp -s "$MODEL" "$dst" && return 1
   printf '%s' "$dst"
+}
+install_door() {  # $1 дверь, $2 куда, $3 корень копии: строка `# @L:root` (модель, стаб) → корень $3
+  python3 - "$1" "$2" "$3" <<'PY'
+import shlex, sys
+src, dst, root = sys.argv[1:4]
+lines = open(src, 'rb').read().split(b'\n')
+hits = [i for i, l in enumerate(lines) if l.endswith(b'# @L:root')]
+if len(hits) > 1:
+    sys.exit(1)
+for i in hits:
+    lines[i] = ('ROOT=' + shlex.quote(root) + ' # @L:root').encode('utf-8')
+open(dst, 'wb').write(b'\n'.join(lines))
+PY
 }
 
 # ── Прогон ──────────────────────────────────────────────────────────────────
