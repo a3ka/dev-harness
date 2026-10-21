@@ -67,6 +67,76 @@ def closure(start, deps):
     return seen
 
 
+def git_blob_sha1(data):
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def skrytye_indeksom(repo, spec_pre):
+    """Пути вне spec_dir, чьё РАБОЧЕЕ содержимое расходится с индексом под флагом
+    assume-unchanged/skip-worktree. `git diff <base>` таким записям верит на слово
+    (берёт блоб индекса вместо файла), поэтому дерево судится по содержимому:
+    флаговая запись → хэш рабочего файла против блоба индекса."""
+    v = subprocess.run(["git", "-C", repo, "ls-files", "-v", "-z"], capture_output=True)
+    s = subprocess.run(["git", "-C", repo, "ls-files", "-s", "-z"], capture_output=True)
+    if v.returncode != 0 or s.returncode != 0:
+        raise Nechem(f"git ls-files -v/-s rc={v.returncode}/{s.returncode}")
+    flagged = []
+    for rec in v.stdout.split(b"\0"):
+        if len(rec) < 3:
+            continue
+        tag, path = rec[:1].decode("ascii", "replace"), rec[2:].decode("utf-8", "surrogateescape")
+        if (tag.islower() or tag.upper() == "S") and not path.startswith(spec_pre):
+            flagged.append(path)
+    if not flagged:
+        return []
+    blob = {}
+    for rec in s.stdout.split(b"\0"):
+        if b"\t" not in rec:
+            continue
+        meta, path = rec.split(b"\t", 1)
+        mode, sha, _stage = meta.decode("ascii").split(" ")
+        blob[path.decode("utf-8", "surrogateescape")] = (mode, sha)
+    hidden = []
+    for path in sorted(set(flagged)):
+        mode, sha = blob.get(path, ("", ""))
+        f = os.path.join(repo, path)
+        if mode == "120000":
+            same = os.path.islink(f) and git_blob_sha1(os.fsencode(os.readlink(f))) == sha
+        elif mode in ("100644", "100755"):
+            same = False
+            if os.path.isfile(f) and not os.path.islink(f):
+                h = subprocess.run(["git", "-C", repo, "hash-object", "--path=" + path, "--", path],
+                                   capture_output=True)
+                if h.returncode != 0:
+                    raise Nechem(f"git hash-object rc={h.returncode} ({path})")
+                same = h.stdout.decode("ascii").strip() == sha
+        else:  # gitlink и прочее: содержимого не сверить — флаг скрывает непроверяемое
+            same = False
+        if not same:
+            hidden.append(path)
+    return hidden
+
+
+def wunsch_tipizirovany(wops, new_ops, kinds_req):
+    """§2.1 канона: lifecycle Wunschkennzeichen — ТИПИЗИРОВАННЫЕ операции. В продукте их нет
+    (пин: только deprecated createPlateCheck и заказ таблички), поэтому операция обязательного
+    вида обязана быть новой операцией процесса KENNZEICHEN_WUNSCH; одна операция — один вид."""
+    seen = {}
+    for o in wops:
+        n, kd = o.get("id"), o.get("kind")
+        need(n not in seen, "wunsch-lifecycle-nepolny", f"{n}: видов {seen.get(n)} и {kd}")
+        seen[n] = kd
+        if kd in kinds_req:
+            need(n in new_ops, "wunsch-lifecycle-nepolny", f"{kd}: {n} не новая типизированная операция")
+
+
+def graf_vneshnie(ext_nodes, pin_ext):
+    """Граф несёт КАЖДУЮ внешнюю зависимость плана 119 узлом EXTERNAL — не подмножество."""
+    need(ext_nodes <= set(pin_ext), "graf-nepolny", "внешние вне плана 119")
+    need(set(pin_ext) <= ext_nodes, "graf-nepolny",
+         "внешние плана 119 без узла: " + ",".join(sorted(set(pin_ext) - ext_nodes)))
+
+
 def judge(repo, pin, g):
     sd = os.path.join(repo, g["spec_dir"])
     for a in g["artifacts"]:
@@ -98,7 +168,7 @@ def judge(repo, pin, g):
         raise Nechem(f"git diff/ls-files rc={r.returncode}/{u.returncode}")
     spec_pre = g["spec_dir"].rstrip("/") + "/"
     touched = sorted({x for x in (r.stdout + u.stdout).decode("utf-8", "replace").split("\0")
-                      if x and not x.startswith(spec_pre)})
+                      if x and not x.startswith(spec_pre)} | set(skrytye_indeksom(repo, spec_pre)))
     need(not touched, "vne-zony", ",".join(touched[:3]))
 
     ops = set(pin["operations"])
@@ -191,6 +261,7 @@ def judge(repo, pin, g):
         need(isinstance(n, str) and n in allowed, "operaciya-neizvestna", f"wunsch:{n}")
         need(n not in deprecated, "operaciya-deprecated", f"wunsch:{n}")
         op_kind[n] = o.get("kind")
+    wunsch_tipizirovany(wops, set(kp["new_operations"]), set(wg["operation_kinds"]))
     need(len(states) == len(set(states)) and set(terminal) <= set(states) and init in states
          and init not in terminal, "wunsch-avtomat-nekorrekten", "состояния")
     edges = {}
@@ -282,7 +353,7 @@ def judge(repo, pin, g):
     need(proc_nodes == sorted(g["processes"]) and set(g["processes"]) <= cv1, "graf-nepolny", "процессы")
     need(gg["shared_core"] in cv1, "graf-nepolny", "consumer_v1 без общего ядра")
     ext_nodes = {i for i in nids if kind[i] == "EXTERNAL"}
-    need(ext_nodes <= set(pin["external_dependencies"]), "graf-nepolny", "внешние вне плана 119")
+    graf_vneshnie(ext_nodes, pin["external_dependencies"])
     creal = closure(gg["consumer_real"], deps)
     need(gg["consumer_v1"] in creal and {r["external"] for r in g["processes"].values()} <= creal,
          "graf-nepolny", "consumer_real")

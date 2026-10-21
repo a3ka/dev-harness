@@ -8,7 +8,7 @@
 зависимости и шаги partner плана 119, id реестра 119), поэтому честная
 спецификация модели сходится с продуктом по идентификаторам, а не по игрушке.
 Пин мира снимается тем же gen_pin_120.py с закоммиченного мира (провенанс
-исполним и в модели). Клетки d01…d44 — ОДНА мутация честной спецификации
+исполним и в модели). Клетки d01…d49 — ОДНА мутация честной спецификации
 (или дерева) каждая; ожидаемая причина клетки живёт в раннере литералом (Н-39).
 """
 import json
@@ -314,6 +314,33 @@ def mutate(d, cell):
         subprocess.run(GIT + ["init", "-q", d], check=True)
         subprocess.run(GIT + ["-C", d, "add", "-A"], check=True)
         subprocess.run(GIT + ["-C", d, "commit", "-qm", "мир 120: история без базы пина"], check=True)
+    elif cell == "d45-indeks-assume-unchanged":  # обход Adv120 (1): правка сервера под флагом индекса
+        wtext(os.path.join(d, "server/index.js"), "throw new Error('заглушка');\n")
+        subprocess.run(GIT + ["-C", d, "update-index", "--assume-unchanged", "server/index.js"], check=True)
+    elif cell == "d46-indeks-skip-worktree-udalen":
+        os.remove(os.path.join(d, "app/index.js"))
+        subprocess.run(GIT + ["-C", d, "update-index", "--skip-worktree", "app/index.js"], check=True)
+    elif cell == "d47-wunsch-obshchie-operacii":  # обход Adv120 (2) дословно
+        edit(d, pr, lambda o: [p.__setitem__("new_operations", []) for p in o["processes"]])
+        m = dict(zip(PLATE_NEW, CHAIN[:5]))
+
+        def f(o):
+            for x in o["operations"]:
+                x["id"] = m[x["id"]]
+            for t in o["transitions"]:
+                t["operation"] = m[t["operation"]]
+        edit(d, wu, f)
+    elif cell == "d48-wunsch-chtenie-pod-proverkoj":  # одна операция двух видов: READ ≡ CHECK
+        def f(o):
+            rd = next(x for x in o["operations"] if x["kind"] == "READ")
+            o["operations"].remove(rd)
+            o["operations"].insert(0, {"id": PLATE_NEW[0], "kind": "READ"})
+        edit(d, wu, f)
+    elif cell == "d49-graf-bez-vneshnej":  # обход Adv120 (3) дословно
+        def f(o):
+            o["nodes"] = [n for n in o["nodes"] if n["id"] != "communications_admission"]
+            N(o, "PM_ENGAGEMENT")["depends_on"].remove("communications_admission")
+        edit(d, gr, f)
     else:
         print(f"нет такой мутации: {cell}", file=sys.stderr)
         return 2
