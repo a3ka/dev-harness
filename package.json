@@ -84,6 +84,8 @@
     "check:done-volny-110-family-selftest": "bash fixtures/workshop_project/done_volny_110/probe.sh",
     "check:podkljuchenie-112-family-selftest": "bash fixtures/workshop_project/podklyuchenie_112/red_podkljuchenie_112.sh",
     "check:vesa-114-family-selftest": "bash fixtures/_krasnye_114.sh",
-    "check:yadro-121-family-selftest": "bash fixtures/workshop_project/yadro_121/yadro_oracle.sh --model"
+    "check:yadro-121-family-selftest": "bash fixtures/workshop_project/yadro_121/yadro_oracle.sh --model",
+    "check:mob-sverka-123-family-selftest": "python3 fixtures/workshop_project/mob_sverka_123/probe.py --matrix",
+    "check:push-produkta-124-family-selftest": "bash fixtures/workshop_project/push_produkta_124/red_124.sh"
   }
 }

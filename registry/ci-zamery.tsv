@@ -26,6 +26,7 @@ check:judge-gate	0	9	39523880871
 check:lanuncher-politika-105-family-selftest	27	9	39523880871
 check:measure-probe	2	9	39523880871
 check:merge-gate-family-selftest	10	9	39523880871
+check:mob-sverka-123-family-selftest	0	0	39523880871
 check:nabludenia	0	20	39523880871
 check:ops-server-family-selftest	2	9	39523880871
 check:orch-loop-997	80	9	39523880871
@@ -41,6 +42,7 @@ check:protected	0	20	39523880871
 check:protected-call-budget	6	9	39523880871
 check:provodka-external-994	8	9	39523880871
 check:provodka-family-selftest	7	9	39523880871
+check:push-produkta-124-family-selftest	0	0	39523880871
 check:rezhim-996-family-selftest	60	9	39523880871
 check:rotaciya-handoff-091-family-selftest	3	9	39523880871
 check:runner-hygiene	34	9	39523880871
