@@ -62,13 +62,27 @@ def block_op(block):
     return None
 
 
+def stamp_profiles(blocks, version):
+    # 119 v2 (§6.2 шаг 6, смешанные профили): генератор ставит маркер профиля
+    # ТОЛЬКО на блоки extension-источника, значение — из его заголовка version
+    # (единая грамматика); core-блоки наследуют профиль ядра без маркера, их
+    # побайтовая неизменность против git-базы сохраняется (аддитивность)
+    out = []
+    for b in blocks:
+        if block_op(b):
+            b = list(b) + ["      x-supported-contract-versions: ['%s']" % version]
+        out.append(b)
+    return out
+
+
+
 core_t, core_v, core_paths, core_sch = parse(CORE.read_text())
 ext_t, ext_v, ext_paths, ext_sch = parse(EXT.read_text())
 pub_text = '# generated: inherited core + platform-extension (single generator) — do not edit\n' \
     'openapi: 3.1.0\ninfo:\n  title: %s\n  version: %s\npaths:\n%s\n%s\ncomponents:\n  schemas:\n%s\n%s\n' % (
         core_t, core_v,
         '\n'.join('\n'.join(b) for b in core_paths),
-        '\n'.join('\n'.join(b) for b in ext_paths),
+        '\n'.join('\n'.join(b) for b in stamp_profiles(ext_paths, ext_v)),
         '\n'.join('\n'.join(b) for b in core_sch),
         '\n'.join('\n'.join(b) for b in ext_sch))
 ops = pub_text.count('operationId:')

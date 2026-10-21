@@ -10,7 +10,9 @@
 # Оракул ТОЛЬКО ЧИТАЕТ проверяемый репозиторий (кроме вызова продуктового
 # генератора --check, который по норме сух); все сверки — в mktemp TMPDIR.
 # Выход: 0 — IMPORT315_OK; 1 — ОТКАЗ: import315: <причина>; 2 — неправильный
-# вызов. Алфавит причин замкнут (26):
+# вызов. Алфавит причин замкнут (33; v2 расширила 26 → 32 ветвями spec-3.14
+# смешанных профилей и производных app/schemas; круг 2 v2 — 33-я,
+# schemas-proekcija):
 #   import-otsutstvuet raskladka-vtoroj-koren raskladka-istochniki
 #   struktura-policy core-zamenen additivnost-cas additivnost-operacija
 #   additivnost-reasoncode poterya-consumer sql-izmenen vs01-otkatan
@@ -18,7 +20,9 @@
 #   manifest-rashozhdenie files-sha256-rashozhdenie generator-bez-check
 #   vosproizvodimost validator-kreven known-issues-nepolnyj istorika-podmenena
 #   sostav-rashozhdenie generator-noop validator-noop generator-ne-pishet
-#   known-failures-nepust
+#   known-failures-nepust spec314-kreven spec314-noop schemas-rashozhdenie
+#   gencontracts-rashozhdenie gencontracts-noop gencontracts-ne-pishet
+#   schemas-proekcija
 REPO="${1:-}"
 [ -n "$REPO" ] || { echo "использование: import315_oracle.sh <корень репозитория>" >&2; exit 2; }
 [ -d "$REPO/.git" ] || [ -f "$REPO/.git" ] || { echo "ОТКАЗ: import315: ne-git-repo" >&2; exit 2; }
@@ -230,6 +234,82 @@ jq '.compatibility_baseline="5.8.2"' "$SCRATCH/probe-val/$SRC315/baseline-lock.j
 if (cd "$SCRATCH/probe-val" && python3 tests/spec-3.15/validate_import_315.py >/dev/null 2>&1); then
   fail validator-noop
 fi
+
+# ── spec-3.14 смешанные профили (v2, R-1): lane-паритет без known-failures ───
+S314_OUT="$(python3 tests/spec-3.14/validate_contract_v3_9.py 2>&1)"; S314_RC=$?
+{ [ "$S314_RC" -eq 0 ] && echo "$S314_OUT" | grep -Eq 'failures=\[\]|"failures": *\[\]'; } || fail spec314-kreven
+# поведенческие пробы: подсунутый профильный дефект обязан краснеть —
+# обманки «зелёный через пропуск extension-операций», «ослабление профиля
+# core» и «неопределённые профили» (открытый алфавит маркеров) зеленеют на
+# конформном дереве и различаются ТОЛЬКО здесь
+make_probe probe-spec314 || fail vosproizvodimost
+sed -i "0,/x-supported-contract-versions: \['5\.9\.0'\]/s//x-supported-contract-versions: ['5.8.x']/" \
+  "$SCRATCH/probe-spec314/$PUB"
+if (cd "$SCRATCH/probe-spec314" && python3 tests/spec-3.14/validate_contract_v3_9.py >/dev/null 2>&1); then
+  fail spec314-noop
+fi
+git -C "$SCRATCH/probe-spec314" checkout -q -- "$PUB"
+python3 - "$SCRATCH/probe-spec314/$PUB" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+needle = '      operationId: acknowledgeDisclosure'
+i = s.index(needle)
+open(p, 'w').write(s[:i + len(needle)] + "\n      x-supported-contract-versions: ['5.9.0']" + s[i + len(needle):])
+PY
+if (cd "$SCRATCH/probe-spec314" && python3 tests/spec-3.14/validate_contract_v3_9.py >/dev/null 2>&1); then
+  fail spec314-noop
+fi
+git -C "$SCRATCH/probe-spec314" checkout -q -- "$PUB"
+sed -i "0,/x-supported-contract-versions: \['5\.9\.0'\]/s//x-supported-contract-versions: ['9.9.9']/" \
+  "$SCRATCH/probe-spec314/$PUB"
+if (cd "$SCRATCH/probe-spec314" && python3 tests/spec-3.14/validate_contract_v3_9.py >/dev/null 2>&1); then
+  fail spec314-noop
+fi
+git -C "$SCRATCH/probe-spec314" checkout -q -- "$PUB"
+
+# ── app/schemas (v2, R-2): производные published, пересобранные генератором ──
+SCHEMAS_SRC=app/schemas/source.json
+[ -f app/schemas/openapi.json ] && [ -f "$SCHEMAS_SRC" ] || fail schemas-rashozhdenie
+[ "$(jq -r '.source // ""' "$SCHEMAS_SRC")" = "$PUB" ] || fail schemas-rashozhdenie
+[ "$(jq -r '.source_sha256 // ""' "$SCHEMAS_SRC")" = "$(sha256sum "$PUB" | cut -d' ' -f1)" ] \
+  || fail schemas-rashozhdenie
+[ "$(jq -r '.api_version // ""' "$SCHEMAS_SRC")" = "$(grep -m1 '^  version: ' "$PUB" | sed 's/^  version: //')" ] \
+  || fail schemas-rashozhdenie
+node tests/tools/gen-contracts.js --check >/dev/null 2>&1 || fail gencontracts-rashozhdenie
+# ── полная независимая сборка published → openapi.json (арбитраж 119 v2, П1:
+# полный документ, НЕ состав) ────────────────────────────────────────────────
+# оракул САМ строит ожидаемый производный из САМОГО published (yaml→JSON,
+# python3+PyYAML — уже зависимость батареи) и сравнивает канонические формы
+# обеих сторон (jq -S -c, cmp): любое расхождение содержимого — связь
+# operationId↔путь×метод, параметры, ответы, $ref, тела схем — красно.
+# Сверка независима от писателя и его --check: согласованные на любом
+# документе ≠ published writer/checker (обе lane зелёные, metadata честна)
+# красны здесь; три частичные сверки множеств удалены как подмножество полной
+jq -e . app/schemas/openapi.json >/dev/null 2>&1 || fail schemas-proekcija
+python3 -c 'import sys, json, yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1])), ensure_ascii=False, separators=(",", ":")))' "$PUB" \
+  > "$SCRATCH/proj_expected.json" 2>/dev/null || fail schemas-proekcija
+jq -S -c . "$SCRATCH/proj_expected.json" > "$SCRATCH/proj_expected.canon" 2>/dev/null || fail schemas-proekcija
+jq -S -c . app/schemas/openapi.json > "$SCRATCH/proj_actual.canon" 2>/dev/null || fail schemas-proekcija
+cmp -s "$SCRATCH/proj_expected.canon" "$SCRATCH/proj_actual.canon" || fail schemas-proekcija
+# поведенческие пробы (W1/W2-зеркало для gen-contracts): --check обязан
+# краснеть на устаревшем производном; писатель без аргументов обязан
+# восстановить его до байтов судимого дерева — обманки «--check обойдён» и
+# «пересборка не детерминирована» различаются только здесь
+make_probe probe-schemas || fail vosproizvodimost
+printf '\n/* oracle-stale */\n' >> "$SCRATCH/probe-schemas/app/schemas/openapi.json"
+if (cd "$SCRATCH/probe-schemas" && node tests/tools/gen-contracts.js --check >/dev/null 2>&1); then
+  fail gencontracts-noop
+fi
+if ! (cd "$SCRATCH/probe-schemas" && node tests/tools/gen-contracts.js >/dev/null 2>&1); then
+  fail gencontracts-ne-pishet
+fi
+cmp -s "$SCRATCH/probe-schemas/app/schemas/openapi.json" app/schemas/openapi.json \
+  || fail gencontracts-ne-pishet
+cmp -s "$SCRATCH/probe-schemas/app/schemas/source.json" app/schemas/source.json \
+  || fail gencontracts-ne-pishet
+(cd "$SCRATCH/probe-schemas" && node tests/tools/gen-contracts.js --check >/dev/null 2>&1) \
+  || fail gencontracts-ne-pishet
 
 # ── known-issues (Б5): минимальный состав из ПИНА, не из проверяемого дерева ─
 jq -r --arg s "$BASE_SHA" '.entries[] | select(.base_published_sha256==$s) | .known_issues_min[]' "$PIN" \
