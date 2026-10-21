@@ -121,6 +121,21 @@ step	check:mob-sverka-123-family-selftest	0	npm run check:mob-sverka-123-family-
 # интеграционным коммитом (§Проводка контракта 124, прецедент 113/114/121); вес 0 до первого замера
 # окна (локальный замер полного прогона 89.5 с, 70/70). Команда — литерал батареи.
 step	check:push-produkta-124-family-selftest	0	bash fixtures/workshop_project/push_produkta_124/red_124.sh
+# КОНТРАКТ 125: красная батарея «сессии проектов» (70 клеток; режим БЕЗ ключа судит настоящее дерево: workshop,
+# scripts/connect_project.sh, scripts/check_project_session.sh — двойники omp/gh/git/workshop, миры в
+# /tmp/dev-harness-verify/s125, сеть и клон продукта не нужны). Замер в ЧИСТОМ клоне owner/train-s19b с `env -i
+# PATH=/usr/bin:/bin` (урок Н-393): rc 0, «зелёных 70, красных 0», 7 с. Вес 0 до первого замера окна (контракт 114).
+step	check:sessii-proektov-125-family-selftest	0	bash fixtures/workshop_project/sessii_125/red_sessii_125.sh
+# КОНТРАКТ 128: красная батарея wait-guard (18 клеток; режим БЕЗ ключа судит настоящее .omp/extensions/wait-guard.ts
+# на toy-установках: node + python3, без сети, gh, станции и omp). Замер в ЧИСТОМ клоне owner/train-s19b с `env -i`
+# (PATH=node:/usr/bin:/bin; урок Н-393): rc 0, «клеток 18, сошлось 18», ~20 с. `--live`/`--load` в CI НЕ подключаются
+# (нужны каталог сессий станции и omp). Вес 0 до первого замера окна (контракт 114).
+step	check:wait-guard-128-family-selftest	0	bash fixtures/workshop_project/wait_guard_128/red_wait_guard_128.sh
+# КОНТРАКТ 120: красная батарея спецификации mobility consumer v1 (режим --model: 52 клетки, миры в mktemp из пина,
+# продукта не требует). Замер в ЧИСТОМ клоне wip/120/architect с `env -i PATH=/usr/bin:/bin` (урок Н-393): rc 0,
+# «клеток 52, зелёных 52, красных 0», ~10 с. Живой режим на клоне продукта в CI НЕ подключается (нужен клон Complior-back).
+# Вес 0 до первого замера окна (контракт 114).
+step	check:mobility-spec-120-family-selftest	0	bash fixtures/workshop_project/mobility_spec_120/red_mobility_spec_120.sh --model
 # КОНТРАКТ 119: красная батарея импорта 3.15 (34 клетки, режим --model: миры в mktemp, продукта не требует) —
 # подключение интеграционным коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 119, образец 996-E); вес 0 до первого
 # замера окна (локальный замер --model 19.9 с, 34/34). Команда — литерал батареи.
