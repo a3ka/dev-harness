@@ -46,70 +46,70 @@ uchet	registry/plan.tsv
 # условия klass.outputs.tyazhu — все и сразу, ≤ 2 мин. Четыре чека используют
 # режим --incr 083 (кеш actions/cache); check:contract-frozen и check:nabludenia —
 # без него. Ключи уникальны по step ∪ legkij.
-legkij	check:charter	48	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
-legkij	check:zones	42	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
+legkij	check:charter	21	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
+legkij	check:zones	22	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
 legkij	check:ids	1	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
-legkij	check:protected	1	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
+legkij	check:protected	0	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 legkij	check:nabludenia	0	npm run check:nabludenia
-legkij	check:contract-frozen	3	npm run check:contract-frozen
+legkij	check:contract-frozen	4	npm run check:contract-frozen
 # Контракт 087 И-1/И-2 (круг 3): три ключа тяжёлых проверок перенесены в `step`
 # (Р2-1/BUDGET-121: перенос в `legkij` ради зелёного PR пробил бюджет 120 с).
 # Учёт-независимость обеспечена замороженными копиями (fixtures/.../_zamorozka/):
 # при strip учётных путей фикстуры/скрипты читают из _zamorozka/.
 # Контракт 087 И-1/И-2: чек читает ROADMAP.md (fixtures/pokrytie_083_088_079/red_istochnik_incr_079.sh
 # копирует $ROOT/ROADMAP.md в toy-мир; при strip фикстура читает _zamorozka/ROADMAP.md).
-step	check:pokrytie-079-family-selftest	13	bash fixtures/_krasnye_079.sh
+step	check:pokrytie-079-family-selftest	12	bash fixtures/_krasnye_079.sh
 # Контракт 087 И-1/И-2: чек читает HANDOFF.md (fixtures/ops_server/red_server_obvjazka_074.sh
 # build_docs копирует $REPO_ROOT/HANDOFF.md в мир к7; при strip первая секция ГДЕ МЫ
 # фолбэчит на _zamorozka/HANDOFF_GDE_MY.md).
-step	check:ops-server-family-selftest	3	bash fixtures/_krasnye_074.sh
+step	check:ops-server-family-selftest	2	bash fixtures/_krasnye_074.sh
 # Контракт 087 И-1/И-2: чек читает verdicts/critic/contracts-010-v2.md
 # (scripts/check_runner_hygiene.sh ветвь (porjadok): при strip фолбэк на _zamorozka/
 # contracts-010-v2.md; история актов — по git).
-step	check:runner-hygiene	35	npm run check:runner-hygiene
+step	check:runner-hygiene	34	npm run check:runner-hygiene
 # БЫСТРЫЕ САМ-ТЕСТЫ И СЕМЕЙНЫЕ БАТАРЕИ (мелкие, 5..15 с)
 step	check:threat-model-selftest	1	npm run check:threat-model-selftest
-step	check:provodka-family-selftest	6	npm run check:provodka-family-selftest
+step	check:provodka-family-selftest	7	npm run check:provodka-family-selftest
 step	check:consumers-window-family-selftest	2	bash fixtures/check_consumers/krasnye_062.sh
 step	check:watchdog-082-family-selftest	66	bash fixtures/verify_antiplacebo/red_watchdog_082.sh
-step	check:cikl-perezapuska-085-family-selftest	56	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
+step	check:cikl-perezapuska-085-family-selftest	55	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
 step	check:fix-085-orch-peak-home-090-family-selftest	31	bash fixtures/_krasnye_090.sh
 step	check:measure-probe	2	npm run check:measure-probe
-step	check:scope-select	8	npm run check:scope-select
+step	check:scope-select	9	npm run check:scope-select
 step	check:scoped-run	17	npm run check:scoped-run
-step	check:contract-ready	1	npm run check:contract-ready
-step	check:document	27	npm run check:document
-step	check:precision-gate-043	8	npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
+step	check:contract-ready	0	npm run check:contract-ready
+step	check:document	35	npm run check:document
+step	check:precision-gate-043	7	npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
 step	check:precision-family-selftest	23	npm run check:precision-family-selftest
 step	check:precision-battery	8	npm run check:precision-battery
-step	check:gitw-family-selftest	43	npm run check:gitw-family-selftest
-step	check:gitw-predpolet-family-selftest	663	bash fixtures/_krasnye_071.sh
+step	check:gitw-family-selftest	39	npm run check:gitw-family-selftest
+step	check:gitw-predpolet-family-selftest	756	bash fixtures/_krasnye_071.sh
 step	check:orch-restart-family-selftest	28	bash fixtures/_krasnye_072.sh
-step	check:sharing-family-selftest	117	bash fixtures/_krasnye_058.sh
-step	check:declared-path-family-selftest	10	bash fixtures/_krasnye_059.sh
-step	check:samodostatochnost-family-selftest	5	bash fixtures/_krasnye_060.sh
-step	check:github-token-family-selftest	6	bash scripts/check_github_token_070.sh
-step	check:zony-merge-head-family-selftest	10	bash fixtures/_krasnye_073.sh
-step	check:door-bugfix-family-selftest	17	bash fixtures/_krasnye_080.sh
-step	check:orch-loop-997	81	bash fixtures/ops_server/orch_loop_997/probe.sh
-step	check:v-polete-nichego-088-family-selftest	19	bash fixtures/_krasnye_088.sh
-step	check:merge-gate-family-selftest	9	bash fixtures/check_judge_gate/krasnye_063.sh
+step	check:sharing-family-selftest	110	bash fixtures/_krasnye_058.sh
+step	check:declared-path-family-selftest	11	bash fixtures/_krasnye_059.sh
+step	check:samodostatochnost-family-selftest	4	bash fixtures/_krasnye_060.sh
+step	check:github-token-family-selftest	11	bash scripts/check_github_token_070.sh
+step	check:zony-merge-head-family-selftest	11	bash fixtures/_krasnye_073.sh
+step	check:door-bugfix-family-selftest	19	bash fixtures/_krasnye_080.sh
+step	check:orch-loop-997	80	bash fixtures/ops_server/orch_loop_997/probe.sh
+step	check:v-polete-nichego-088-family-selftest	16	bash fixtures/_krasnye_088.sh
+step	check:merge-gate-family-selftest	10	bash fixtures/check_judge_gate/krasnye_063.sh
 step	check:provodka-external-994	8	bash fixtures/check_provodka/external_ci_994/probe.sh
 # КОНТРАКТ 112 v2e: шаг батареи подключения проекта (37 клеток M1/M2/K1/K2 +
 # 33 обманки; замер v2e `time` полного прогона: 12.8 с на живом дереве
 # ветки, шкала веса та же что v2d: 2.8 с → 7). Команда — литерал battery.
-step	check:podkljuchenie-112-family-selftest	32	bash fixtures/workshop_project/podklyuchenie_112/red_podkljuchenie_112.sh
+step	check:podkljuchenie-112-family-selftest	41	bash fixtures/workshop_project/podklyuchenie_112/red_podkljuchenie_112.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
-step	drill:startup-digest	1	npm run drill:startup-digest
+step	drill:startup-digest	0	npm run drill:startup-digest
 step	drill:nabludenia-nechitaemo	0	npm run drill:nabludenia-nechitaemo
 step	check:gen	0	npm run check:gen
 step	metering:selftest	0	npm run metering:selftest
 step	check:skills	1	npm run check:skills
-step	check:ceilings	1	npm run check:ceilings
+step	check:ceilings	0	npm run check:ceilings
 step	check:decisions	0	npm run check:decisions
-step	check:approval	5	npm run check:approval
+step	check:approval	0	npm run check:approval
 step	check:hooks	1	npm run check:hooks
 # КОНТРАКТ 087 МИКРО-КРУГ К12: шаг gen_ci_steps --check — ловец расхождений
 # реестра и ci.yml (дрейф покрывается здесь же). Вес ≤ 5 с по замеру time (0.28 с).
@@ -120,24 +120,24 @@ step	check:gen-ci-steps-coherence	0	bash scripts/gen_ci_steps.sh --check
 step	drill:contract-change	1	npm run drill:contract-change
 step	drill:next-id-race	0	npm run drill:next-id-race
 step	drill:protected-exception	0	npm run drill:protected-exception
-step	drill:protected-rename	1	npm run drill:protected-rename
+step	drill:protected-rename	0	npm run drill:protected-rename
 step	check:zones-call-budget	189	npm run check:zones-call-budget
-step	check:protected-call-budget	8	npm run check:protected-call-budget
-step	check:fix-090-orch-peak-home-family-selftest	32	bash fixtures/_krasnye_090.sh
-step	check:rotaciya-handoff-091-family-selftest	4	bash fixtures/_krasnye_091.sh
-step	check:context-pack-095-family-selftest	22	bash fixtures/_krasnye_095.sh
-step	check:project-paths-103-family-selftest	72	bash fixtures/_krasnye_103.sh
-step	check:zashchita-main-104-family-selftest	2	bash fixtures/_krasnye_104.sh
-step	check:lanuncher-politika-105-family-selftest	24	bash fixtures/_krasnye_105.sh
-step	check:granica-ispolneniya-093-family-selftest	160	bash ops/server/root/systemd/run-ops093-ci.sh fixtures/_krasnye_093.sh
-step	check:rezhim-996-family-selftest	31	npm run check:rezhim-996-family-selftest
+step	check:protected-call-budget	6	npm run check:protected-call-budget
+step	check:fix-090-orch-peak-home-family-selftest	31	bash fixtures/_krasnye_090.sh
+step	check:rotaciya-handoff-091-family-selftest	3	bash fixtures/_krasnye_091.sh
+step	check:context-pack-095-family-selftest	35	bash fixtures/_krasnye_095.sh
+step	check:project-paths-103-family-selftest	67	bash fixtures/_krasnye_103.sh
+step	check:zashchita-main-104-family-selftest	3	bash fixtures/_krasnye_104.sh
+step	check:lanuncher-politika-105-family-selftest	27	bash fixtures/_krasnye_105.sh
+step	check:granica-ispolneniya-093-family-selftest	159	bash ops/server/root/systemd/run-ops093-ci.sh fixtures/_krasnye_093.sh
+step	check:rezhim-996-family-selftest	60	npm run check:rezhim-996-family-selftest
 # КОНТРАКТ 998 pravila-modelei: красная проба routing — входы 23 ветвей грамматики + 5 фаз --check
 # и рендер в --prompt orchestrator (источник: fixtures/pravila_modelei_998/probe.sh).
 # ПРОВОДКА frozen: команда без аргументов — probe.sh сам гоняет --cases и --matrix
 # (lane исполняет пробу ЦЕЛИКОМ, иначе матрица различимости из CI выпадает).
 # Вес по замеру `time` полной пробы (2026-10-19): 5.566..5.586 с на 5 прогонах,
 # округлено вверх до 6.
-step	check:pravila-modelei-998	6	bash fixtures/pravila_modelei_998/probe.sh
+step	check:pravila-modelei-998	21	bash fixtures/pravila_modelei_998/probe.sh
 # КОНТРАКТ 110 done-волны: красная проба двери done_wave.
 # Состав батареи (по `probe.sh --matrix`, импорт probe.py): 86 клеток =
 # 52 замороженных байт-в-байт (frozen/contracts/110/1) + 13 D* (d2/d3/d7/d12/
@@ -154,7 +154,7 @@ step	check:pravila-modelei-998	6	bash fixtures/pravila_modelei_998/probe.sh
 # подключена к CI: provodka.sh ловит деко и подмену путей.
 # Замер `time` полной пробы (run_ci_lane «замер: check:done-volny-110…»):
 # 7.21..7.62 с на 3 прогонах — вес округлён вверх до 8.
-step	check:done-volny-110-family-selftest	8	npm run check:done-volny-110-family-selftest
+step	check:done-volny-110-family-selftest	9	npm run check:done-volny-110-family-selftest
 # ШАРДЫ antiplacebo — preserve §9.1/v3.2 grouping (matrix 5 шардов ap1..ap5)
 # Гранулярность — фикстуры `case_*.sh` в `fixtures/<key>/`, через `npm run
 # check:antiplacebo -- --scope <keys>` (verify_ci_parity через matrix.keys).
