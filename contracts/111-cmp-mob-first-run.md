@@ -1,5 +1,14 @@
 # Контракт 111 — mob: First-Run по D2.2.5.1 (Complior-mob #109)
 
+ВЕРСИЯ: v2 (2026-10-20). Единственное изменение v2 — сужение гварда RESTYLE_GUARD_995:
+кадры F03.01/F03.02 (email/code) рестайлятся по предмету 117 (вход по D2.2.5.1 — токены
+и компоненты + UX-JSON F01/F03, PNG нет — слово владельца ~19:28); ВСЕ остальные кадры
+995 (welcome/unavailable/recovery и прочие) по-прежнему НЕ рестайлятся. Основание v2:
+слово владельца 2026-10-20 ~18:00/18:18 UTC (экраны входа — по макету D2.2.5.1); ответ
+консультанта 19:20 UTC — форк `forks/n117-krug1-maket-i-111.md`, развилка 1, вариант (А).
+v1 (заморожен `frozen/contracts/111/1`, закрыт `done/contracts/111/1`):
+`git show frozen/contracts/111/1^{commit}:contracts/111-cmp-mob-first-run.md`.
+
 КЛАСС: КОДОВЫЙ. Предмет — issue `a3ka/Complior-mob#109`: полный экран First-Run по эталону
 D2.2.5.1 (wordmark, promise, CTA «Anmelden oder Konto erstellen», ui.first_run.enter_f03) +
 нативный Splash; plan.tsv строка 111 (пара 3, зависит от 999 — залендён). База B =
@@ -38,8 +47,10 @@ EXPECT, продукт не служит источником ожиданий; 
 - `mobile/src/bootstrap/pilot-app.tsx`: кадр `first-run` = одна кнопка «Weiter»
   (FIRST_RUN_BUTTON_COPY, testID `first-run-continue`, onPress → setFrame('email')); root
   `paddingTop: 48` + `backgroundColor: '#FFFFFF'` литералами — до-D2.2.5.1 поверхность 995.
-  Предмет заменяет first-run-кадр; остальные кадры (email/code/unavailable/recovery/welcome) —
-  поверхность 995, не рестайлятся.
+  Предмет заменяет first-run-кадр; остальные кадры (email/code/unavailable/recovery/welcome)
+  — поверхность 995 в B. v2: кадры F03.01/F03.02 (email/code) рестайлятся по предмету 117
+  (гвард RESTYLE_GUARD_995 их более не держит); кадры 995 кроме них
+  (unavailable/recovery/welcome) по-прежнему не рестайлятся.
 - `mobile/src/bootstrap/__tests__/pilot.test.tsx` (+source.json) — frozen-семья 995: пишет
   `click('first-run-continue')` и после нажатия ждёт `frame.F03.01.title` = «Anmelden oder
   Konto erstellen»; CI сравнивает файлы с H побайтово (`cmp`). Интерфейс testID + переход
@@ -77,8 +88,10 @@ promise (ui.first_run.promise), CTA «Anmelden oder Konto erstellen» (ui.first_
 testID `first-run-continue` сохранён), Demo-бейдж, safe-area настоящим компонентом; нажатие CTA
 открывает F03.01 (email-кадр 995) с прежней семантикой.
 
-Вне предмета: AgentPresence/адаптивная сцена на First-Run (после ленда 108); кадры F03.01+ и
-welcome (поверхность 995, не рестайлятся); саблайны First-Run.html без ключей каталога;
+Вне предмета: AgentPresence/адаптивная сцена на First-Run (после ленда 108); кадры 995 кроме
+F03.01/F03.02 — unavailable/recovery/welcome (поверхность 995, не рестайлятся); рестайл
+F03.01/F03.02 (email/code) — предмет 117, вход по D2.2.5.1 (v2); саблайны First-Run.html
+без ключей каталога;
 copy signoff CMP-MOB-089; device evidence CMP-MOB-090; реальный IdP/бэкенд; смена
 userInterfaceStyle/тёмная тема остальных кадров; wordmark в SVG-runtime (растровый ассет).
 
@@ -330,3 +343,34 @@ scheme(2), стабы критика круга 2).
   пар К3/К4/К5.
 - После прогонов `git status --short --untracked-files=all` в R и r3 — 0 строк (деревья
   восстановлены).
+
+## Замер v2 (сужение К8, 2026-10-20; v2b — К9 unavailable/recovery)
+
+R — disposable-клон `a3ka/Complior-mob` @ `8748a7a335` (main, поставка 111 заленджена;
+`git rev-parse HEAD` сверен), `mobile/node_modules` — симлинк (инфраструктура R). Мир
+модели 117 — `fixtures/workshop_project/vkhod_117/model/` @ `wip/117/architect`
+`9dc3c8c4d`, установленная по путям поставки поверх R. Все числа — из прогонов.
+
+- База 8748a7a335, без `--model`: `first_run_probe.py --repo R` → rc0 honest 23/23
+  (обратная совместимость: база не рестайляет; v2b добавляет пары К9 — 19→23 клетки).
+- Мир модели 117 ДО v2 (батарея круга 3, 19 клеток): 17/19, красны ровно К8
+  `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` (замер v2; воспроизведён критиком круга 1
+  прогоном на `b765c0f68~2`); ПОСЛЕ v2 (К8 F03_01 — НЕ-ожидание рестайла, 19 клеток)
+  → rc0 19/19; v2b (23 клетки) → rc0 23/23: рестайл F03.01/F03.02 легален,
+  unavailable/recovery моделью 117 не тронуты.
+- Модель 111 (`--model`): поведенческая rc0 honest 23/23; статическая rc0 16/16.
+- К9 красное предъявление (Б1 критика круга 1): в честной модели 111 замена
+  единственного предиката стиля корня `frame === 'first-run'` → `frame !== 'welcome'`
+  в `mobile/src/bootstrap/pilot-app.tsx` (first-run/welcome/F03.01-шов живы, прежние
+  19 клеток зелёны) → rc1, красны РОВНО `RESTYLE_GUARD_995_{RECOVERY,UNAVAILABLE}_{
+  DARK,LIGHT}`: собственное наблюдение каждого защищаемого кадра, невыводимое из
+  welcome (К8′).
+- Матрицы: `first_run_probe.py --matrix` → rc0 (26 стабов: каждый красен именованной
+  ветвью, побочная краснота только в depends; стабы, рестайлящие чужой кадр —
+  restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
+  restyle-995-padding-shifted — красны парой К8′ `RESTYLE_GUARD_995_WELCOME`,
+  причём restyle-995-* — и парами К9 как depends; новые стабы круга-1-Б1
+  restyle-unavailable/restyle-recovery красны каждый ровно своей парой К9);
+  `first_run_static_probe.py --matrix` → rc0 (15 стабов).
+- После прогонов `git status --short --untracked-files=all` в R — 0 строк кроме
+  симлинка `mobile/node_modules` (инфраструктура R, не проба).
