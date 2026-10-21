@@ -1,0 +1,8 @@
+ФОРК: n123-provodka
+ВОПРОС: проводка 123 (mob-sverka-maketa): guard-канал контракта — `fixtures/workshop_project/mob_sverka_123/probe.py`; шаг CI заведён (`check:mob-sverka-123-family-selftest`, ci-steps.tsv:118 `npm run …`, package.json:88 `python3 fixtures/workshop_project/mob_sverka_123/probe.py --matrix`; зелёный в CI). Но `bash scripts/check_provodka.sh . contracts/123-mob-sverka-maketa.md` на дереве с проводкой (проверено в клоне s18-local + снятый шаг 127) → rc 1 «проводка: guard не подключён: …/probe.py не вызывается в .githooks/ или .github/workflows/» — барьер 038 ищет путь guard в `.githooks/*`/`.github/workflows/*` и в `registry/ci-steps.tsv` (check_provodka.sh:436-443), а `npm run <ключ>` сквозь package.json не разворачивает; у 119/122/124 команда шага — `bash <путь>` литералом, поэтому они зелёные. Грамматика ci-steps (шапка): command = `npm run <key>` либо `bash <путь>` — `python3 <путь>` недопустим. Следствие: `done_contract 123` отказывает. Варианты: (А, рекомендация) тонкая обёртка `fixtures/workshop_project/mob_sverka_123/red_mob_sverka_123.sh` (`exec python3 probe.py --matrix`), шаг ci-steps `bash fixtures/…/red_mob_sverka_123.sh`; guard в ПРОВОДКА контракта 123 остаётся `probe.py`, но барьер ищет ЕГО путь — значит нужна и правка текста §ПРОВОДКА 123 (guard=red_mob_sverka_123.sh) = v+1 + критик + РАЗРЕШИЛ-ВЛАДЕЛЕЦ. (Б) расширить check_provodka (разворот `npm run` через package.json) — правка барьера 038 (нужны красные тесты, зона architect, свой контракт). (В) принять остаток «done 123 не ставится до (А)/(Б)»; 123 уже залендён и проведён.
+КЛАСС: инженерный
+ПРИЗНАК: приоритет
+МАРШРУТ: консультант
+ЗАВЕДЁН: 2026-10-21T19:25:00Z
+БЛОКИРУЕТ: нет
+ОТВЕЧЕНО: нет
