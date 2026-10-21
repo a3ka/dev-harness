@@ -3,8 +3,10 @@
 проводка PilotApp, wordmark-ассет (строгий RGBA-декод), независимость оракула.
 
 Без --model на до-предметном дереве — rc1 FIRST_RUN_SEAM_ABSENT.
-С --model/честным C — rc0: splash #0A0A0A (ground D2.2.5.1) без дефолт-B
-#208AEF, ключи каталога verbatim (текст+review_status), экран First-Run в
+С --model/честным C — rc0: splash по литералам схемы 117 (светлый корень
+#F3F2EE + тёмный блок #0A0A0A, знаки splash-sign-{light,dark}.png, imageWidth
+181, contain — единый источник vkhod_117/source.json, v3) без дефолт-B #208AEF,
+эффективные фоны android/ios в ОБЕИХ схемах, ключи каталога verbatim (текст+review_status), экран First-Run в
 features/auth без литеральных hex-цветов, на SafeAreaView и useTheme,
 проводка в PilotApp (FirstRunScreen, legacy «Weiter» удалён), wordmark-ассет
 — PNG на месте И настоящий RGBA-растр (A1, суд круг 1: строгий декод чистым
@@ -35,10 +37,11 @@ INFRASTRUCTURE = []
 
 
 SPLASH_EFFECTIVE_JS = """'use strict';
-// 111 (B4): эффективная нативная конфигурация splash настоящими резолверами
-// expo-splash-screen из node_modules продукта — той же логикой, которой
-// prebuild выбирает платформенные значения; корневое свойство plugin options
-// не истина (платформенные android/ios-переопределения бьют его). Резолверы
+// 111 (B4, v3): эффективная нативная конфигурация splash настоящими
+// резолверами expo-splash-screen из node_modules продукта — той же логикой,
+// которой prebuild выбирает платформенные значения; корневое свойство plugin
+// options не истина (платформенные android/ios-переопределения бьют его).
+// Обе схемы: свет = корневое значение, тьма = блок dark. Резолверы
 // загружаются абсолютным путём: exports-карта пакета закрывает deep-subpath.
 const fs = require('fs');
 const path = require('path');
@@ -51,9 +54,11 @@ if (!entry) {
   console.log(JSON.stringify({error: 'NO_SPLASH_PLUGIN'}));
 } else {
   const props = entry[1] || {};
+  const android = getAndroidSplashConfig(props);
+  const ios = getIosSplashConfig(props);
   console.log(JSON.stringify({
-    android: getAndroidSplashConfig(props).backgroundColor,
-    ios: getIosSplashConfig(props).backgroundColor,
+    android: {light: android.backgroundColor, dark: (android.dark || {}).backgroundColor},
+    ios: {light: ios.backgroundColor, dark: (ios.dark || {}).backgroundColor},
   }));
 }
 """
@@ -202,34 +207,47 @@ def check(cond, case):
 def run_checks(repo: Path):
     src = load_source()
 
-    # Splash: нативный фон = ground D2.2.5.1 (тёмный), ассет/ширина не тронуты.
+    # Splash v3 (миграция под 117, слово владельца 2026-10-20 ~18:15/18:18 UTC:
+    # splash/иконка заменяются по D2.2.5.1): значения 111 больше не пинятся —
+    # сверка с ЕДИНЫМ источником 117 (vkhod_117/source.json → appjson_literals;
+    # грамматика — как у клетки SPLASH_BLOCKS_DARK_LIGHT батареи 117): светлый
+    # корень + тёмный блок. НЕ-ослабление: дефолт-B отсутствует, платформенное
+    # переопределение не проходит (effective-клетка ниже).
     app_raw = (repo / 'mobile/app.json').read_text(encoding='utf-8')
     app = json.loads(app_raw)
+    src117 = json.loads((HERE / src['splash']['unified_source_117']).read_bytes())
+    lit = src117[src['splash']['appjson_literals_key']]
     splash = None
-    for plugin in app['expo']['plugins']:
+    for plugin in app['expo'].get('plugins') or []:
         if isinstance(plugin, list) and plugin[0] == src['splash']['plugin']:
-            splash = plugin[1]
+            splash = plugin[1] or {}
+    dark = (splash or {}).get('dark') or {}
     check(splash is not None
-          and splash.get('backgroundColor') == src['splash']['backgroundColor']
-          and splash.get('image') == src['splash']['image']
-          and splash.get('imageWidth') == src['splash']['imageWidth'],
-          'SPLASH_GROUND_DARK')
+          and splash.get('backgroundColor') == lit['splash_light_bg']
+          and str(splash.get('image', '')).endswith(lit['splash_image_light'])
+          and splash.get('imageWidth') == lit['splash_image_width']
+          and splash.get('resizeMode') == lit['splash_resize_mode']
+          and dark.get('backgroundColor') == lit['splash_dark_bg']
+          and str(dark.get('image', '')).endswith(lit['splash_image_dark']),
+          'SPLASH_GROUND_SCHEME')
     check(src['splash']['old_default_B'] not in app_raw, 'SPLASH_DEFAULT_BLUE_GONE')
 
-    # B4 (критик 111, круг 1): эффективный splash на ОБЕИХ платформах —
-    # настоящие резолверы expo-splash-screen; платформенное переопределение
-    # android/ios.backgroundColor бьёт корневое свойство и ловится здесь.
+    # B4 (критик 111, круг 1): эффективный splash на ОБЕИХ платформах В ОБЕИХ
+    # схемах — настоящие резолверы expo-splash-screen; платформенное
+    # переопределение android/ios.backgroundColor бьёт корневое/тёмное значение
+    # и ловится здесь.
     effective = effective_splash(repo)
     if effective is None or 'error' in effective:
         if effective is not None:
             INFRASTRUCTURE.append('splash plugin: ' + str(effective))
         check(False, 'SPLASH_EFFECTIVE_GROUND_BOTH')
     else:
-        want = src['splash']['backgroundColor'].lower()
-        check(isinstance(effective.get('android'), str)
-              and isinstance(effective.get('ios'), str)
-              and effective['android'].lower() == want
-              and effective['ios'].lower() == want,
+        check(isinstance(effective.get('android'), dict)
+              and isinstance(effective.get('ios'), dict)
+              and effective['android'].get('light') == lit['splash_light_bg']
+              and effective['android'].get('dark') == lit['splash_dark_bg']
+              and effective['ios'].get('light') == lit['splash_light_bg']
+              and effective['ios'].get('dark') == lit['splash_dark_bg'],
               'SPLASH_EFFECTIVE_GROUND_BOTH')
 
     # Копия каталога: два ключа First-Run verbatim (текст + review_status).
@@ -389,17 +407,29 @@ def matrix(repo: Path):
     # эвристики зелёны, файл не канон.
     wm_recompressed = png_rgba_encode(wm_w, wm_h, wm_rows)
     MUTANTS = {
+        # B3 (v3, модель app.json = 117): корень (светлая схема) тихо
+        # возвращён к дефолт-B — красны литерал схемы и страж дефолт-B;
+        # effective-клетка красна тем же значением на обеих платформах.
         'splash-stays-default-blue': (
-            [('mobile/app.json', '"backgroundColor": "#0A0A0A"', '"backgroundColor": "#208AEF"')],
-            ['SPLASH_GROUND_DARK'],
+            [('mobile/app.json', '"backgroundColor": "#F3F2EE"', '"backgroundColor": "#208AEF"')],
+            ['SPLASH_GROUND_SCHEME'],
+            ['SPLASH_DEFAULT_BLUE_GONE', 'SPLASH_EFFECTIVE_GROUND_BOTH'],
+        ),
+        # v3: тёмный блок тихо синий при верном корне — новый инвариант
+        # dark-схемы; effective dark-ветви обеих платформ красны тем же.
+        'splash-dark-stays-blue': (
+            [('mobile/app.json',
+              '"dark": {\n            "backgroundColor": "#0A0A0A"',
+              '"dark": {\n            "backgroundColor": "#208AEF"')],
+            ['SPLASH_GROUND_SCHEME'],
             ['SPLASH_DEFAULT_BLUE_GONE', 'SPLASH_EFFECTIVE_GROUND_BOTH'],
         ),
         # B4 (критик 111, круг 1): платформенное переопределение оставляет
-        # корневое свойство верным — ловит только effective-клетка.
+        # корневые свойства верными — ловит только effective-клетка.
         'android-splash-blue': (
             [('mobile/app.json',
-              '"imageWidth": 76\n        }',
-              '"imageWidth": 76,\n          "android": {\n            "backgroundColor": "#208aef"\n          }\n        }')],
+              '"resizeMode": "contain",\n          "dark": {',
+              '"resizeMode": "contain",\n          "android": {\n            "backgroundColor": "#208aef"\n          },\n          "dark": {')],
             ['SPLASH_EFFECTIVE_GROUND_BOTH'], [],
         ),
         'copy-promise-invented': (

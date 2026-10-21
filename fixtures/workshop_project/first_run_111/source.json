@@ -31,10 +31,10 @@
     }
   },
   "splash": {
+    "_comment": "v3 (миграция под splash 117): значения splash больше не пинятся 111 — единый источник 117 (unified_source_117 → appjson_literals; снят с read-only docs ДО субъекта, правило 8). 111 хранит только инвариант: дефолт-B #208AEF отсутствует в app.json.",
     "plugin": "expo-splash-screen",
-    "backgroundColor": "#0A0A0A",
-    "image": "./assets/images/splash-icon.png",
-    "imageWidth": 76,
+    "unified_source_117": "../vkhod_117/source.json",
+    "appjson_literals_key": "appjson_literals",
     "old_default_B": "#208AEF"
   },
   "wordmark": {

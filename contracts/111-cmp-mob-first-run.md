@@ -1,6 +1,17 @@
 # Контракт 111 — mob: First-Run по D2.2.5.1 (Complior-mob #109)
 
-ВЕРСИЯ: v2 (2026-10-20). Единственное изменение v2 — сужение гварда RESTYLE_GUARD_995:
+ВЕРСИЯ: v3 (2026-10-21; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в изменяющем коммите; форк
+`forks/n111-v3-splash-static.md`, ОТВЕЧЕНО).
+Единственное изменение v3 — миграция статических клеток splash под продукт 117 (слово
+владельца 2026-10-20 ~18:15/18:18 UTC: splash/иконка заменяются по D2.2.5.1): клетка
+`SPLASH_GROUND_DARK` → `SPLASH_GROUND_SCHEME` — значения splash больше не пинятся 111,
+сверка с ЕДИНЫМ источником 117 (`fixtures/workshop_project/vkhod_117/source.json`,
+`appjson_literals`: светлый корень #F3F2EE + тёмный блок #0A0A0A, знаки
+splash-sign-{light,dark}.png, imageWidth 181, resizeMode contain); клетка
+SPLASH_EFFECTIVE_GROUND_BOTH судит ОБЕ схемы на ОБЕИХ платформах. НЕ-ослабление:
+`SPLASH_DEFAULT_BLUE_GONE`
+и смысл мутантов B3/B4 сохранены, добавлен стаб splash-dark-stays-blue (тихий синий
+тёмного блока). v2 (заморожен `frozen/contracts/111/2`): сужение гварда RESTYLE_GUARD_995 —
 кадры F03.01/F03.02 (email/code) рестайлятся по предмету 117 (вход по D2.2.5.1 — токены
 и компоненты + UX-JSON F01/F03, PNG нет — слово владельца ~19:28); ВСЕ остальные кадры
 995 (welcome/unavailable/recovery и прочие) по-прежнему НЕ рестайлятся. Основание v2:
@@ -70,6 +81,11 @@ EXPECT, продукт не служит источником ожиданий; 
   `useTheme` из `theme/context.ts`; прецеденты SafeAreaView — tab-shell.tsx, start-screen.tsx.
 - `mobile/app.json`: expo-splash-screen backgroundColor `#208AEF` (дефолт B), image
   `./assets/images/splash-icon.png`, imageWidth 76 — предмет меняет фон на ground D2.2.5.1.
+- `fixtures/workshop_project/vkhod_117/` (заморожен `frozen/contracts/117/1`, в main):
+  батарея 117 — единый источник splash-значений продукта (source.json → блок
+  `appjson_literals`, снят с read-only docs ДО субъекта, правило 8); v3 сверяет клетки
+  111 с ним по ссылке (`first_run_111/source.json` → `unified_source_117`), не дублируя
+  литералы.
 - `mobile/src/i18n/ui-copy.ts`: 10 ключей 999 (verbatim-подмножество каталога); предмет
   добавляет 2 ключа First-Run verbatim. Wordmark-ассета в `mobile/assets/images/` нет —
   реализация растеризует из семьи `docs/ux/02_.../logo/` (wordmark-dark.svg).
@@ -117,13 +133,16 @@ userInterfaceStyle/тёмная тема остальных кадров; wordma
    переносится verbatim.
 4. `mobile/src/i18n/ui-copy.ts` расширяется ровно двумя ключами First-Run (verbatim-подмножество
    каталога; +2 к 10 ключам 999); структура записи сохранена.
-5. `mobile/app.json`: expo-splash-screen backgroundColor = `#0A0A0A` (ground D2.2.5.1, dark;
-   байт-равен themeTokens.dark.ground); ЭФФЕКТИВНАЯ нативная конфигурация — та, что выбирают
-   резолверы expo-splash-screen в prebuild, — даёт фон `#0A0A0A` на android И на ios:
-   платформенные переопределения splash.backgroundColor не допускаются (корневое значение при
-   живом `android.backgroundColor`-переопределении истиной не считается); image
-   `./assets/images/splash-icon.png` и imageWidth 76 не меняются; дефолт-B `#208AEF`
-   из app.json удалён.
+5. `mobile/app.json` (v3): блок expo-splash-screen = литералы единого источника 117
+   (`vkhod_117/source.json` → `appjson_literals`): корень (свет) backgroundColor `#F3F2EE`,
+   image `splash-sign-light.png`, imageWidth 181, resizeMode contain; блок dark
+   backgroundColor `#0A0A0A` (ground D2.2.5.1, dark; байт-равен themeTokens.dark.ground),
+   image `splash-sign-dark.png`. ЭФФЕКТИВНАЯ нативная конфигурация — та, что выбирают
+   резолверы expo-splash-screen в prebuild, — даёт фон `#F3F2EE` (свет) И `#0A0A0A` (тьма)
+   на android И на ios: платформенные переопределения splash.backgroundColor не допускаются
+   (корневое значение при живом `android.backgroundColor`-переопределении истиной не
+   считается); дефолт-B `#208AEF` из app.json отсутствует (инвариант 111, миграцией не
+   ослабляется).
 6. Wordmark — растровый ассет `mobile/assets/images/wordmark-dark.png`, растеризованный из
    семьи logo/ D2.2.5.1 (wordmark-dark.svg), accessibilityLabel «complior»,
    accessibilityRole image; высота по эталону 22; Image.source ЭКРАНА указывает на этот
@@ -167,23 +186,33 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
   схемах; некаталожная немецкая строка на поверхности (в т.ч. саблайн эталона без ключа
   каталога) красит.
 
-Статическая семья (`first_run_static_probe.py`, 14 клеток): `SPLASH_GROUND_DARK`,
-`SPLASH_DEFAULT_BLUE_GONE`, `SPLASH_EFFECTIVE_GROUND_BOTH` (эффективные android/ios фоны —
-настоящими резолверами expo-splash-screen из node_modules продукта на disposable R; отказ
+Статическая семья (`first_run_static_probe.py`, 16 клеток; v3 — клетки splash мигрированы
+под 117): `SPLASH_GROUND_SCHEME` (v3: блок splash = литералы `appjson_literals` единого
+источника 117 — светлый корень + тёмный блок, знаки, imageWidth, resizeMode),
+`SPLASH_DEFAULT_BLUE_GONE` (дефолт-B `#208AEF` отсутствует в app.json),
+`SPLASH_EFFECTIVE_GROUND_BOTH` (эффективные android/ios фоны В ОБЕИХ схемах — настоящими
+резолверами expo-splash-screen из node_modules продукта на disposable R; отказ
 резолвера — rc2 INFRASTRUCTURE, не зелень), `COPY_KEY_ui_first_run_promise`,
 `COPY_KEY_ui_first_run_enter_f03`, `SCREEN_SEAM_FIRST_RUN`, `SCREEN_NO_HEX_LITERALS`,
 `SCREEN_SAFEAREA_COMPONENT`, `SCREEN_THEME_TOKENS`, `CTA_TESTID_BOUND`,
 `PILOT_WIRED_FIRST_RUN`, `LEGACY_WEITER_GONE`, `WORDMARK_ASSET` (PNG-магия),
+`WORDMARK_ASSET_DECODES`, `WORDMARK_ASSET_IDENTITY` (A1/A1r2 судов 111),
 `STATIC_ORACLE_LITERALS` (проба несёт все литералы оракула и не импортирует
 '@/i18n/ui-copy').
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду `MUTANTS` обеих проб, Н-39; depends измерены
-полным прогоном): поведенческих 14 (cta-label-weiter, promise-invented, onenter-not-wired,
+полным прогоном): поведенческих 26 (cta-label-weiter, promise-invented, onenter-not-wired,
 ground-default-blue, demo-badge-scope, wordmark-absent, cta-testid-renamed, light-cta-noop,
 safearea-edges-empty, wordmark-wrong-source, extra-unreviewed-copy, light-edges-top-bottom,
-light-wrong-source, light-extra-copy), статических 9
-(splash-stays-default-blue, android-splash-blue, copy-promise-invented, copy-enter-missing,
-screen-hex-literal, pilot-unwired, wordmark-missing, cta-testid-unbound, screen-plain-view);
+light-wrong-source, light-extra-copy, wrapper-root-white, wrapper-root-magenta,
+wrapper-root-padding, badge-outside-safearea, badge-inset-top-zero, badge-hardcoded-inset,
+restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
+restyle-995-padding-shifted, restyle-unavailable, restyle-recovery), статических 16
+(splash-stays-default-blue, splash-dark-stays-blue, android-splash-blue,
+copy-promise-invented, copy-enter-missing, screen-hex-literal, pilot-unwired,
+wordmark-missing, wordmark-1x1-png, wordmark-broken-stub-82, wordmark-solid-rectangle,
+wordmark-opaque-one-transparent, wordmark-recolored-ink, wordmark-recompressed,
+cta-testid-unbound, screen-plain-view);
 каждый красен именованной клеткой, побочная краснота только в depends; `--matrix` —
 самопроверка набора, не приёмка. Пять стабов круга-1 критика (light-cta-noop,
 safearea-edges-empty, wordmark-wrong-source, android-splash-blue, extra-unreviewed-copy)
@@ -201,9 +230,9 @@ Python 3 stdlib. Нет Jest/артефактов отчёта → rc2 INFRASTRU
   --repo R` → rc1 `FIRST_RUN_SEAM_ABSENT`; `first_run_static_probe.py --repo R` → rc1
   `FIRST_RUN_SEAM_ABSENT` (именованный отказ на до-предметном дереве).
 - Дано B с эталонной моделью (`--model`); либо честное C — обе пробы → rc0 с построчным
-  перечнем: поведенческая 11/11, статическая 14/14.
+  перечнем: поведенческая 23/23, статическая 16/16.
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый стаб красен своей
-  именованной ветвью, побочная краснота только в depends (14+9 стабов); якорь мутанта неуникален
+  именованной ветвью, побочная краснота только в depends (26+16 стабов); якорь мутанта неуникален
   → отказ rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк (пробы
   восстанавливают дерево).
@@ -267,11 +296,12 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
   scheme-независимый и light-ограниченный) красит;
 - от второй палитры: SCREEN_NO_HEX_LITERALS (ни одного hex-литерала в экране) + наблюдение
   ground/ink обеих схем поведенческими клетками;
-- от тихого дефолт-B И платформенно-переопределённого splash: корневые литералы
-  (SPLASH_GROUND_DARK, SPLASH_DEFAULT_BLUE_GONE) плюс эффективная нативная конфигурация
-  ОБЕИХ платформ настоящими резолверами expo-splash-screen на disposable R
-  (SPLASH_EFFECTIVE_GROUND_BOTH: android И ios #0A0A0A; обход B4 — android.backgroundColor
-  синим при верном корневом значении — красит);
+- от тихого дефолт-B И платформенно-переопределённого splash: литералы схемы из единого
+  источника 117 (SPLASH_GROUND_SCHEME — светлый корень + тёмный блок) и страж дефолт-B
+  (SPLASH_DEFAULT_BLUE_GONE) плюс эффективная нативная конфигурация ОБЕИХ платформ В ОБЕИХ
+  схемах настоящими резолверами expo-splash-screen на disposable R
+  (SPLASH_EFFECTIVE_GROUND_BOTH: android И ios, свет #F3F2EE И тьма #0A0A0A; обход B4 —
+  android.backgroundColor синим при верных корневых значениях — красит);
 - от потери Demo-метки: структурные клетки (бейдж на First-Run);
 - от мёртвой safe-area: SCREEN_SAFEAREA_COMPONENT (настоящий импорт компонента, не
   упоминание в комментарии) + SAFEAREA_EDGES_ACTIVE ×2 — в обеих схемах на нативном шве
@@ -316,7 +346,9 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
 ## Вопросы владельцу
 
 1. Splash-фото/иконка: фон меняется на ground #0A0A0A при неизменном splash-icon.png (76).
-   Подтвердить, или отдельным предметом ставить брендированный splash-арт.
+   ЗАКРЫТО словом владельца 2026-10-20 ~18:15/18:18 UTC: splash/иконка заменены предметом
+   117 (нативный splash dark+light, знаки splash-sign-*, иконка complior-app-icon);
+   v3 мигрирует статические клетки под эти значения.
 2. AgentPresence на First-Run (как в First-Run.html) — осознанно вне предмета до ленда 108;
    подтвердить границу или потребовать сцену после 108 отдельным срезом.
 
@@ -374,3 +406,27 @@ R — disposable-клон `a3ka/Complior-mob` @ `8748a7a335` (main, постав
   `first_run_static_probe.py --matrix` → rc0 (15 стабов).
 - После прогонов `git status --short --untracked-files=all` в R — 0 строк кроме
   симлинка `mobile/node_modules` (инфраструктура R, не проба).
+
+## Замер v3 (миграция splash-клеток под 117, 2026-10-21)
+
+Продукт 117 — клон `/tmp/dev-harness-verify/Impl117/mob`, ветка `cmp-mob-117/vkhod`, HEAD
+`0d1a09b08b5294e0578f9887541662b5f4bbbd08` (сверен `git rev-parse HEAD`); база B —
+одноразовый клон `8748a7a3352c14a6caa5a75b71f869e5d3b8152c` (поставка 111) в
+`/tmp/dev-harness-verify/Architect111v3/baseB`, `mobile/node_modules` — симлинк
+(инфраструктура R). Модель 111 `model/app.json` — байты продукта 117 (`cmp` равен).
+Все числа — из прогонов.
+
+- Продукт 117: `first_run_static_probe.py` → rc0 static 16/16; `first_run_probe.py` →
+  rc0 honest 23/23; батарея 117 без изменений (git status чист) → `vkhod_static_probe.py`
+  rc0 static 35/35.
+- Матрица статики `--matrix` (на продукте 117) → rc0: 16 стабов; splash-stays-default-blue
+  (B3: корень → #208AEF) красен SPLASH_GROUND_SCHEME (+depends SPLASH_DEFAULT_BLUE_GONE,
+  SPLASH_EFFECTIVE_GROUND_BOTH), splash-dark-stays-blue (v3: тёмный блок → #208AEF) — те же
+  клетки, android-splash-blue (B4: android.backgroundColor #208aef при верных корне/dark) —
+  ровно SPLASH_EFFECTIVE_GROUND_BOTH; unexpected_red нет.
+- База 8748a7a335 (splash 111: корень #0A0A0A, splash-icon 76, без dark-блока): статика
+  rc1, красны РОВНО SPLASH_GROUND_SCHEME и SPLASH_EFFECTIVE_GROUND_BOTH — миграционная
+  норма v3 (база несёт заменённые 117 значения; слово владельца 2026-10-20 ~18:15/18:18);
+  поведение rc0 23/23; краснота базы не расширилась за пределы двух мигрированных клеток.
+  Эквивалентность «не-ослабления» доказана матрицей (B3/B4 красны теми же клетками, что в
+  v2) и зелёным прогоном на честном продукте 117.
