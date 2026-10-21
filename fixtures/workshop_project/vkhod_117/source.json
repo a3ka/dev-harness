@@ -165,4 +165,18 @@
     "favicon.png": "a4e030697a7571b3e95d31860e4da55d2f98e5e861e2b55e414f45a8556828ba"
   },
   "surface_995": { "bg": "#FFFFFF", "pad_top": 48, "pad_h": 16, "pad_bottom": 16 }
+  ,
+  "maestro_117": {
+    "_comment": "Р2/Р3 (круг 6, Rev117/Adv117): сценарий Maestro судит ПОРЯДОК шагов YAML-парсером (комментарий шагом не является; закомментированное ожидание и ложное размещение красны). (а) перед takeScreenshot vkhod-117-splash — extendedWaitUntil visible по splash-overlay (маркер окна приложения); (б) перед takeScreenshot vkhod-117-first-run (и после splash-кадра) — оверлей исчез (extendedWaitUntil notVisible/assertNotVisible по splash-overlay) И видимый состав First-Run. Тексты — литералы каталога 111 (source.json first_run_111: ui.first_run.promise/enter_f03, снят с read-only docs/ B ДО субъекта), не из субъекта.",
+    "scenario": "mobile/.maestro/vkhod-117-splash-vhod.yaml",
+    "overlay_id": "splash-overlay",
+    "shot_splash": "vkhod-117-splash",
+    "shot_first_run": "vkhod-117-first-run",
+    "first_run_promise": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
+    "first_run_cta": "Anmelden oder Konto erstellen"
+  },
+  "vkhod_safe_area_117": {
+    "_comment": "Р4 (круг 6, Rev117): корень кадров входа F03.01/F03.02 несёт top-инсет (paddingTop >= insets.top; на стенде 1080×2400 statusBars [0..136] — заголовок обязан лежать ниже, на C был y 108..164) и горизонтальные отступы колонки 16 (D2.2.5.1 gutters; на C контент на x=0..5). Первоисточник литерала — README компонентов DS / surface_995 pad_h.",
+    "column_gutter": 16
+  }
 }

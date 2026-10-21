@@ -29,6 +29,7 @@ MODEL_FILES = {
     'mobile/assets/images/android-icon-background.png': 'android-icon-background.png',
     'mobile/assets/images/android-icon-monochrome.png': 'android-icon-monochrome.png',
     'mobile/assets/images/favicon.png': 'favicon.png',
+    'mobile/.maestro/vkhod-117-splash-vhod.yaml': 'vkhod-117-splash-vhod.yaml',
 }
 
 TEST_INSTALL = 'mobile/src/bootstrap/__tests__/vkhod-117.probe.test.tsx'
