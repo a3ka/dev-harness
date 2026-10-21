@@ -58,11 +58,22 @@
     },
     {
       "id": "c08-porog-env",
-      "intent": "WAIT_GUARD_MIN=T (T от seed, 20–200): строки T−1, T, T+1, T+r (r 2–100) — блок, заголовок ≥ T, в перечне T, T+1 и T+r",
+      "intent": "WAIT_GUARD_MIN=T — по вызову на каждое T: обязательные t_values (весь допустимый диапазон ^[1-9][0-9]{0,3}$ с границами, всегда, не по seed) и t_po_seed значений из lo…hi от seed; строки T−1 (при T−1 ≥ 1), T, T+1, T+r (r 2–100) — каждый вызов блок, заголовок ≥ T, в перечне T, T+1 и T+r, строки T−1 нет",
+      "t_values": [1, 2, 7, 8, 9, 19, 20, 9999],
+      "t_po_seed": {"count": 2, "lo": 1, "hi": 200},
       "want": [
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
         "BLOCK"
       ],
-      "zapuskov": 1
+      "zapuskov": 10
     },
     {
       "id": "c09-porog-nerazobran",
@@ -319,6 +330,39 @@
         [
           "  const v = process.env.WAIT_GUARD_MIN;\n",
           "  const v = undefined as string | undefined;\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-menshe-20-v-8",
+      "cell": "c08-porog-env",
+      "defect": "валидный WAIT_GUARD_MIN 1…19 тайно подменён порогом по умолчанию 8 (обман Адв128)",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed < 20 ? DEFAULT_MIN : parsed; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-menshe-10-v-8",
+      "cell": "c08-porog-env",
+      "defect": "валидный WAIT_GUARD_MIN 1…9 тайно подменён порогом по умолчанию 8",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed < 10 ? DEFAULT_MIN : parsed; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-bolshe-200-v-8",
+      "cell": "c08-porog-env",
+      "defect": "валидный WAIT_GUARD_MIN 201…9999 тайно подменён порогом по умолчанию 8 (верхняя граница)",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed > 200 ? DEFAULT_MIN : parsed; }\n"
         ]
       ]
     },
