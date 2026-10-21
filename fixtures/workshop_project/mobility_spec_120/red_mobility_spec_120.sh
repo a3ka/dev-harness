@@ -13,7 +13,8 @@
 # Н-39: клетка ↔ ожидаемая причина — литералы таблицы CELLS ниже (не проза контракта);
 # каждая клетка d* — честная спецификация модели + ОДНА мутация model_mobility_120.py,
 # красная СВОЕЙ причиной (сверка строкой целиком, grep -Fxq); клетка «нечем судить: …» —
-# rc 2 оракула с этой строкой (клон без base_commit пина).
+# rc 2 оракула с этой строкой (клон без base_commit пина, sparse-клон); клетка g* —
+# дифференциал: мутация, на которой честный оракул обязан остаться зелёным.
 # Н-39 для стабов: строка STABS «стаб|клетка|rc батареи на клетке» — стаб d* выключает
 # РОВНО одну функцию оракула (импорт + подмена), поэтому красен на своей клетке и зелен
 # на соседней клетке той же причины; привязка исполняется, а не описывается.
@@ -79,9 +80,10 @@ CELLS=(
   "d44-baza-pina-otsutstvuet|нечем судить: base_commit пина отсутствует в клоне|spec"
   "d45-indeks-assume-unchanged|ОТКАЗ: mobility120: vne-zony|spec"
   "d46-indeks-skip-worktree-udalen|ОТКАЗ: mobility120: vne-zony|spec"
-  "d47-wunsch-obshchie-operacii|ОТКАЗ: mobility120: wunsch-lifecycle-nepolny|spec"
-  "d48-wunsch-chtenie-pod-proverkoj|ОТКАЗ: mobility120: wunsch-lifecycle-nepolny|spec"
-  "d49-graf-bez-vneshnej|ОТКАЗ: mobility120: graf-nepolny|spec"
+  "d50-neotslezh-pod-info-exclude|ОТКАЗ: mobility120: vne-zony|spec"
+  "d51-samoignoriruyushchij-gitignore|ОТКАЗ: mobility120: vne-zony|spec"
+  "d52-sparse-checkout|нечем судить: sparse-checkout: содержимое вне конуса не видно|spec"
+  "g01-node-modules-chestnyj|MOBILITY120_OK|spec"
 )
 
 # стаб | клетка | ожидаемый rc батареи на этой клетке под стабом (1 — поймала, 0 — стаб там честен)
@@ -92,13 +94,18 @@ STABS=(
   "stab_indeks_doveryaet.py|d46-indeks-skip-worktree-udalen|1"
   "stab_indeks_doveryaet.py|d05-server-tronut|0"
   "stab_indeks_doveryaet.py|k-model|0"
-  "stab_wunsch_lyubye_operacii.py|d47-wunsch-obshchie-operacii|1"
-  "stab_wunsch_lyubye_operacii.py|d48-wunsch-chtenie-pod-proverkoj|1"
-  "stab_wunsch_lyubye_operacii.py|d22-wunsch-bez-otmeny|0"
-  "stab_wunsch_lyubye_operacii.py|k-model|0"
-  "stab_graf_vneshnie_podmnozhestvo.py|d49-graf-bez-vneshnej|1"
-  "stab_graf_vneshnie_podmnozhestvo.py|d40-graf-partner-poteryan|0"
-  "stab_graf_vneshnie_podmnozhestvo.py|k-model|0"
+  "stab_ignor_standartnyj.py|d50-neotslezh-pod-info-exclude|1"
+  "stab_ignor_standartnyj.py|d51-samoignoriruyushchij-gitignore|0"
+  "stab_ignor_standartnyj.py|g01-node-modules-chestnyj|0"
+  "stab_gitignore_doveryaet.py|d51-samoignoriruyushchij-gitignore|1"
+  "stab_gitignore_doveryaet.py|d50-neotslezh-pod-info-exclude|0"
+  "stab_gitignore_doveryaet.py|g01-node-modules-chestnyj|0"
+  "stab_gitignore_vse.py|g01-node-modules-chestnyj|1"
+  "stab_gitignore_vse.py|d51-samoignoriruyushchij-gitignore|0"
+  "stab_gitignore_vse.py|k-model|0"
+  "stab_sparse_ne_vidit.py|d52-sparse-checkout|1"
+  "stab_sparse_ne_vidit.py|d46-indeks-skip-worktree-udalen|0"
+  "stab_sparse_ne_vidit.py|k-model|0"
 )
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/red120.XXXXXX")" || exit 2
@@ -112,7 +119,7 @@ run_cell() {  # <строка таблицы>  → 0 сошлась, 1 нет
   python3 "$MODEL" build "$w/repo" "$PIN" "$w/pin.json" $flag >"$w.build" 2>&1 \
     || { echo "КЛЕТКА $name: мир не построен"; cat "$w.build"; return 1; }
   case "$name" in
-    d*) python3 "$MODEL" mutate "$w/repo" "$name" || { echo "КЛЕТКА $name: мутация не применена"; return 1; } ;;
+    d*|g*) python3 "$MODEL" mutate "$w/repo" "$name" || { echo "КЛЕТКА $name: мутация не применена"; return 1; } ;;
   esac
   out="$("$ORACLE" "$w/repo" --pin "$w/pin.json" 2>&1)"; rc=$?
   first="$(printf '%s\n' "$out" | sed -n '1p')"

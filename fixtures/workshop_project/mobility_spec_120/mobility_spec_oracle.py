@@ -9,7 +9,7 @@
 файлов импорта 119 (их sha сверяются с пином).
 Коды: 0 — `MOBILITY120_OK …`; 1 — `ОТКАЗ: mobility120: <причина>` (первая красная
 проверка в фиксированном порядке); 2 — нечем судить (нет аргумента/пина/git; base_commit
-пина отсутствует в клоне). Алфавит причин — REASONS ниже, замкнутый.
+пина отсутствует в клоне; sparse-клон). Алфавит причин — REASONS ниже, замкнутый.
 Класс узла графа выводится из ПИНА и грамматики по id; поле `kind` проверяемого
 сверяется с ним (`graf-kind-protiv-pina`), замыкание V1 судится по id.
 """
@@ -117,28 +117,55 @@ def skrytye_indeksom(repo, spec_pre):
     return hidden
 
 
-def wunsch_tipizirovany(wops, new_ops, kinds_req):
-    """§2.1 канона: lifecycle Wunschkennzeichen — ТИПИЗИРОВАННЫЕ операции. В продукте их нет
-    (пин: только deprecated createPlateCheck и заказ таблички), поэтому операция обязательного
-    вида обязана быть новой операцией процесса KENNZEICHEN_WUNSCH; одна операция — один вид."""
-    seen = {}
-    for o in wops:
-        n, kd = o.get("id"), o.get("kind")
-        need(n not in seen, "wunsch-lifecycle-nepolny", f"{n}: видов {seen.get(n)} и {kd}")
-        seen[n] = kd
-        if kd in kinds_req:
-            need(n in new_ops, "wunsch-lifecycle-nepolny", f"{kd}: {n} не новая типизированная операция")
+def neotslezhivaemye(repo, spec_pre):
+    """Неотслеживаемые пути вне spec_dir. Исключения — ТОЛЬКО по файлам .gitignore дерева
+    (`--exclude-per-directory`), не `--exclude-standard`: `.git/info/exclude` и
+    `core.excludesFile` — локальные источники клона, ими файл вне зоны прячется (Б-2 Rev120b)."""
+    u = subprocess.run(["git", "-C", repo, "ls-files", "-z", "--others", "--exclude-per-directory=.gitignore"],
+                       capture_output=True)
+    if u.returncode != 0:
+        raise Nechem(f"git ls-files --others rc={u.returncode}")
+    return [x for x in u.stdout.decode("utf-8", "surrogateescape").split("\0") if x and not x.startswith(spec_pre)]
 
 
-def graf_vneshnie(ext_nodes, pin_ext):
-    """Граф несёт КАЖДУЮ внешнюю зависимость плана 119 узлом EXTERNAL — не подмножество."""
-    need(ext_nodes <= set(pin_ext), "graf-nepolny", "внешние вне плана 119")
-    need(set(pin_ext) <= ext_nodes, "graf-nepolny",
-         "внешние плана 119 без узла: " + ",".join(sorted(set(pin_ext) - ext_nodes)))
+def gitignore_neotslezhivaemye(repo, spec_pre):
+    """Неотслеживаемые `.gitignore` вне spec_dir, которых не скрывает ОТСЛЕЖИВАЕМЫЙ `.gitignore`.
+    Неотслеживаемый `.gitignore` сам — источник исключений (самоигнорирующий `*` прячет себя и
+    соседей); честный `node_modules/**/.gitignore` скрыт отслеживаемым `.gitignore` продукта."""
+    gi = subprocess.run(["git", "-C", repo, "ls-files", "-z", "--others", "--", ":(glob)**/.gitignore"],
+                        capture_output=True)
+    tr = subprocess.run(["git", "-C", repo, "ls-files", "-z"], capture_output=True)
+    if gi.returncode != 0 or tr.returncode != 0:
+        raise Nechem(f"git ls-files .gitignore rc={gi.returncode}/{tr.returncode}")
+    cand = [x for x in gi.stdout.split(b"\0") if x and not x.decode("utf-8", "surrogateescape").startswith(spec_pre)]
+    if not cand:
+        return []
+    tracked = set(tr.stdout.split(b"\0"))
+    ci = subprocess.run(["git", "-C", repo, "check-ignore", "-z", "-v", "-n", "--stdin"],
+                        input=b"\0".join(cand) + b"\0", capture_output=True)
+    if ci.returncode not in (0, 1):
+        raise Nechem(f"git check-ignore rc={ci.returncode}")
+    f = ci.stdout.split(b"\0")
+    covered = set()
+    for i in range(0, len(f) - 3, 4):
+        src, _ln, pat, path = f[i:i + 4]
+        if src in tracked and pat and not pat.startswith(b"!"):
+            covered.add(path)
+    return sorted(x.decode("utf-8", "surrogateescape") for x in cand if x not in covered)
+
+
+def sparse_checkout(repo):
+    """Sparse-клон: вне конуса содержимого нет на диске — дерево нечем судить (С-1 Rev120b)."""
+    c = subprocess.run(["git", "-C", repo, "config", "--bool", "core.sparseCheckout"], capture_output=True)
+    return c.returncode == 0 and c.stdout.strip() == b"true"
+
+
 
 
 def judge(repo, pin, g):
     sd = os.path.join(repo, g["spec_dir"])
+    if sparse_checkout(repo):
+        raise Nechem("sparse-checkout: содержимое вне конуса не видно")
     for a in g["artifacts"]:
         need(os.path.isfile(os.path.join(sd, a)), "spec-otsutstvuet", a)
     docs = {}
@@ -162,13 +189,12 @@ def judge(repo, pin, g):
                       capture_output=True).returncode != 0:
         raise Nechem(f"base_commit пина отсутствует в клоне ({base} в {repo}; перегенерируй пин gen_pin_120.py)")
     r = subprocess.run(["git", "-C", repo, "diff", "-z", "--name-only", base], capture_output=True)
-    u = subprocess.run(["git", "-C", repo, "ls-files", "-z", "--others", "--exclude-standard"],
-                       capture_output=True)
-    if r.returncode != 0 or u.returncode != 0:
-        raise Nechem(f"git diff/ls-files rc={r.returncode}/{u.returncode}")
+    if r.returncode != 0:
+        raise Nechem(f"git diff rc={r.returncode}")
     spec_pre = g["spec_dir"].rstrip("/") + "/"
-    touched = sorted({x for x in (r.stdout + u.stdout).decode("utf-8", "replace").split("\0")
-                      if x and not x.startswith(spec_pre)} | set(skrytye_indeksom(repo, spec_pre)))
+    touched = sorted({x for x in r.stdout.decode("utf-8", "replace").split("\0")
+                      if x and not x.startswith(spec_pre)} | set(neotslezhivaemye(repo, spec_pre))
+                     | set(gitignore_neotslezhivaemye(repo, spec_pre)) | set(skrytye_indeksom(repo, spec_pre)))
     need(not touched, "vne-zony", ",".join(touched[:3]))
 
     ops = set(pin["operations"])
@@ -261,7 +287,7 @@ def judge(repo, pin, g):
         need(isinstance(n, str) and n in allowed, "operaciya-neizvestna", f"wunsch:{n}")
         need(n not in deprecated, "operaciya-deprecated", f"wunsch:{n}")
         op_kind[n] = o.get("kind")
-    wunsch_tipizirovany(wops, set(kp["new_operations"]), set(wg["operation_kinds"]))
+    # И-5 frozen 120/1 дословно: «операции ⊆ пин ∪ new_operations процесса KENNZEICHEN_WUNSCH и ∉ deprecated» — цикл выше
     need(len(states) == len(set(states)) and set(terminal) <= set(states) and init in states
          and init not in terminal, "wunsch-avtomat-nekorrekten", "состояния")
     edges = {}
@@ -353,7 +379,8 @@ def judge(repo, pin, g):
     need(proc_nodes == sorted(g["processes"]) and set(g["processes"]) <= cv1, "graf-nepolny", "процессы")
     need(gg["shared_core"] in cv1, "graf-nepolny", "consumer_v1 без общего ядра")
     ext_nodes = {i for i in nids if kind[i] == "EXTERNAL"}
-    graf_vneshnie(ext_nodes, pin["external_dependencies"])
+    # И-7 frozen 120/1: EXTERNAL ⊆ внешние зависимости пина (подмножество, не равенство)
+    need(ext_nodes <= set(pin["external_dependencies"]), "graf-nepolny", "внешние вне плана 119")
     creal = closure(gg["consumer_real"], deps)
     need(gg["consumer_v1"] in creal and {r["external"] for r in g["processes"].values()} <= creal,
          "graf-nepolny", "consumer_real")
