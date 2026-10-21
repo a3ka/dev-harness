@@ -1,5 +1,5 @@
 {
-  "_comment": "Контракт 123 (mob-sverka-maketa): единый источник батареи. nositeli — бинарные носители кадров (артефакты maestro-117 android-e2e PR Complior-mob#114, gh run download) и PNG-макеты D2.2.5.1 (копии из Complior-mob docs/ux, sha = пин 117 source.json) с sha256; kejsy — оракул проб (rc и множество отказов ПОСТРОЧНО); ozhidaemye_score — числа модели, замеренные прогоном (допуск dopusk_score).",
+  "_comment": "Контракт 123 (mob-sverka-maketa): единый источник батареи. nositeli — бинарные носители кадров (артефакты maestro-117 android-e2e PR Complior-mob#114, gh run download) и PNG-макеты D2.2.5.1 (копии из Complior-mob docs/ux, sha = пин 117 source.json) с sha256; kejsy — оракул проб (rc и множество отказов ПОСТРОЧНО); ozhidaemye_score — числа модели, замеренные прогоном (допуск dopusk_score). Клетка с ispolnenie=vne-prefiksa исполняет вход vhod вне каталога батареи (случайное имя под $TMPDIR, cwd — он, env -i + PATH=/usr/bin:/bin) и наследует rc/otkazy/hudshij/ozhidaemye_score входа vhod: результат — функция байтов кадра, макета и манифеста, не пути и не окружения (инвариант 6).",
   "subject_rel": "scripts/sverka_maketa.py",
   "manifest_rel": "fixtures/workshop_project/mob_sverka_123/kadry_117.json",
   "flow_dir": "117 — splash + вход F03.01_F03.02 (схема устройства)",
@@ -65,6 +65,7 @@
     "first-run-58d": {"rc": 1, "otkazy": ["NIZHE_POROGA\tFirst-Run dark", "NIZHE_POROGA\tFirst-Run light"]},
     "pustoj-katalog": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash dark", "KADR_OTSUTSTVUET\tSplash light", "KADR_OTSUTSTVUET\tFirst-Run dark", "KADR_OTSUTSTVUET\tFirst-Run light"]},
     "propusk-kadra": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash light"]},
+    "obrezannyj-kadr": {"rc": 1, "otkazy": ["KADR_NECHITAEM\tSplash dark"]},
     "dubl-kadra": {"rc": 1, "otkazy": ["KADR_NEODNOZNACHEN\tSplash dark"]},
     "podmena-maketa": {"rc": 1, "otkazy": ["MAKET_PODMENEN\tSplash dark"]},
     "maska-ves-kadr": {"rc": 2, "otkazy": ["PUSTAYA_SVERKA\tSplash dark"]},
@@ -88,7 +89,9 @@
     "bez-tagline-splash-dark": {"rc": 1, "otkazy": ["NIZHE_POROGA\tSplash dark"], "hudshij": {"Splash dark": "tagline"}},
     "bez-znaka-splash-light": {"rc": 1, "otkazy": ["NIZHE_POROGA\tSplash light"], "hudshij": {"Splash light": "znak"}},
     "bez-tagline-splash-light": {"rc": 1, "otkazy": ["NIZHE_POROGA\tSplash light"], "hudshij": {"Splash light": "tagline"}},
-    "element-ne-objavlen": {"rc": 2, "otkazy": ["MANIFEST_NEVEREN\tFirst-Run dark"]}
+    "element-ne-objavlen": {"rc": 2, "otkazy": ["MANIFEST_NEVEREN\tFirst-Run dark"]},
+    "vne-prefiksa-first-run-58d": {"vhod": "first-run-58d", "ispolnenie": "vne-prefiksa"},
+    "vne-prefiksa-chestnyj-splash": {"vhod": "chestnyj-splash", "ispolnenie": "vne-prefiksa"}
   },
   "stab_vhod": {
     "s01_vsegda_zelenaya": ["first-run-814"],
@@ -109,6 +112,7 @@
     "s16_bez_grammatiki": ["snimok-glob", "imja-s-tabom"],
     "s17_jakor_dollar": ["id-s-lf"],
     "s18_regiony_dilatacija": ["bez-podzagolovka", "bez-futera"],
-    "s19_bez_pokrytija": ["element-ne-objavlen"]
+    "s19_bez_pokrytija": ["element-ne-objavlen"],
+    "s20_vetvlenie_po_puti": ["vne-prefiksa-first-run-58d", "vne-prefiksa-chestnyj-splash"]
   }
 }

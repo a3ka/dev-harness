@@ -319,7 +319,7 @@ def process_frame(a, k, mera):
     fblob = open(find_frame(a.kadry, k), 'rb').read()
     try:
         frame = decode_png(fblob)
-    except (ValueError, zlib.error) as e:
+    except (ValueError, zlib.error, struct.error) as e:  # обрезанный кадр — struct.error на CRC/IHDR
         raise Refusal('KADR_NECHITAEM', k['id'], str(e))
     score, worst = score_frame(frame, mock, k, mera)
     porog = float(k['porog'])
