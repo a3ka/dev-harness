@@ -621,8 +621,20 @@ c_z4() {
   local W; W=$(new_world)
   run_case z4-predposylki-nevaliden 1 'predposylki-nevaliden: - password Sekret' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-nevalid.md"
 }
+c_z6() { # --freeze, контракт объявляет ТОЛЬКО variable (secret нет — отказ на secret не может
+  # сработать раньше ветви variable, ср. z2): фикстурный `gh variable list` успешен (rc 0,
+  # инвентарь — NPM_TOKEN), объявленного имени в нём нет — отказ обязан назвать переменную
+  local W; W=$(new_world)
+  cat > "$W/contracts/kontrakt-tolko-variable.md" <<'K'
+# Той-контракт, объявляющий ТОЛЬКО variable
+ЗОНА implementer: .github/workflows/ci.yml
+ПРЕДПОСЫЛКИ:
+- variable ONLY_VARIABLE
+K
+  run_case z6-variable-ne-zavedena 1 'sekrety-ne-zavedeny: ONLY_VARIABLE' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-variable.md" --freeze
+}
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4 z6"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;
