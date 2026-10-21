@@ -58,10 +58,22 @@
     },
     {
       "id": "c08-porog-env",
-      "intent": "WAIT_GUARD_MIN=T — по вызову на каждое T: обязательные t_values (весь допустимый диапазон ^[1-9][0-9]{0,3}$ с границами, всегда, не по seed) и t_po_seed значений из lo…hi от seed; строки T−1 (при T−1 ≥ 1), T, T+1, T+r (r 2–100) — каждый вызов блок, заголовок ≥ T, в перечне T, T+1 и T+r, строки T−1 нет",
-      "t_values": [1, 2, 7, 8, 9, 19, 20, 9999],
-      "t_po_seed": {"count": 2, "lo": 1, "hi": 200},
+      "intent": "WAIT_GUARD_MIN=T — по вызову на каждое T: обязательные t_values (границы и середины каждого порядка допустимого диапазона ^[1-9][0-9]{0,3}$, всегда, не по seed) и t_po_seed значений из lo…hi от seed, логарифмически-равномерно (каждый порядок 10^0…10^3 — равная доля); строки T−1 (при T−1 ≥ 1), T, T+1, T+r (r 2–100) — каждый вызов блок, заголовок ≥ T, в перечне T, T+1 и T+r, строки T−1 нет",
+      "t_values": [1, 2, 7, 8, 9, 10, 19, 20, 99, 100, 199, 200, 201, 999, 1000, 4096, 9998, 9999],
+      "t_po_seed": {"count": 4, "lo": 1, "hi": 9999},
       "want": [
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
+        "BLOCK",
         "BLOCK",
         "BLOCK",
         "BLOCK",
@@ -73,7 +85,7 @@
         "BLOCK",
         "BLOCK"
       ],
-      "zapuskov": 10
+      "zapuskov": 22
     },
     {
       "id": "c09-porog-nerazobran",
@@ -363,6 +375,39 @@
         [
           "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
           "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed > 200 ? DEFAULT_MIN : parsed; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-sredina-v-8",
+      "cell": "c08-porog-env",
+      "defect": "валидный WAIT_GUARD_MIN 201…9998 (середина диапазона, кроме верхней границы) тайно подменён порогом по умолчанию 8 (обман Rev128b Б-1)",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed > 200 && parsed < 9999 ? DEFAULT_MIN : parsed; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-tysjacha-v-8",
+      "cell": "c08-porog-env",
+      "defect": "валидный WAIT_GUARD_MIN 1000…9998 (верхний порядок, кроме границы) тайно подменён порогом по умолчанию 8 (обман Rev128b Б-1)",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed >= 1000 && parsed <= 9998 ? DEFAULT_MIN : parsed; }\n"
+        ]
+      ]
+    },
+    {
+      "id": "porog-4096-v-8",
+      "cell": "c08-porog-env",
+      "defect": "одно валидное значение WAIT_GUARD_MIN=4096 тайно подменено порогом по умолчанию 8 (обман Adv128b)",
+      "subst": [
+        [
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) return Number(v);\n",
+          "  if (typeof v === 'string' && /^[1-9][0-9]{0,3}$/.test(v)) { const parsed = Number(v); return parsed === 4096 ? DEFAULT_MIN : parsed; }\n"
         ]
       ]
     },
