@@ -16,6 +16,8 @@ BATT=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$BATT/../../.." && pwd)
 WORLDS=/tmp/dev-harness-verify/ci122
 mkdir -p "$WORLDS"
+RUNDIR=$(mktemp -d "$WORLDS/run-XXXX") || exit 2
+trap 'rm -rf "$RUNDIR"' EXIT
 
 MODE=red; CELL=
 while [ $# -gt 0 ]; do
@@ -39,7 +41,7 @@ fi
 GREEN=0; RED=0
 new_world() {
   local W
-  W=$(mktemp -d "$WORLDS/world-XXXX") || exit 2
+  W=$(mktemp -d "$RUNDIR/world-XXXX") || exit 2
   mkdir -p "$W/.harness" "$W/.github/workflows" "$W/bin" "$W/mobile/.maestro" "$W/contracts"
   printf '%s\n' '{"schemaVersion":1,"projectId":"complior-toy","repoId":"complior-toy","language":"node"}' > "$W/.harness/harness.project.json"
   cat > "$W/.harness/ci.json" <<'J'
