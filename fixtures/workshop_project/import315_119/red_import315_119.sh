@@ -28,8 +28,7 @@
 # Вердикт Adv119v2 (FAIL): d35/d36 — писатель переносит extension-операцию на
 # иной path / меняет её HTTP-метод при неизменных operationId/блоке/источнике
 # (--check согласован, счёты/FILES/app/schemas пересобраны, валидатор маршрута
-# не судит) — различим ТОЛЬКО проекцией оракула operationId→(path, method)
-# источник против published (extension-marshrut). Ревью Rev119v2: d37 — нет
+# не судит). Ревью Rev119v2: d37 — нет
 # npm-дерева при gen-contracts.js, требующем пакет npm (Б-1 а → rc 2
 # NEEDS_ENV, не причина продукта); d38 — npm-дерево симлинком (Б-1 в: оверлей
 # make_probe не копирует каталог через симлинк, пробы видят npm-дерево →
@@ -37,9 +36,18 @@
 # evidence spec-3.14 без --out ложится в судимое дерево → rc 0 обязателен).
 # Та же дыра у ЯДРА (Architect119r5): d40/d41 — писатель переносит core-операцию
 # requestAction на иной path / меняет её HTTP-метод при неизменных
-# operationId/блоке/core-источнике (sha = git-база) — поблочная сверка
-# аддитивности маршрут не видит; различим ТОЛЬКО проекцией оракула
-# operationId→(path, method) git-базы против published (additivnost-operacija).
+# operationId/блоке/core-источнике (sha = git-база).
+# Круг 4 (арбитраж 119-impl-struktura-dokumenta, П-1…П-7): класс «operationId,
+# маршрут и тело после operationId целы — меняется всё остальное» закрыт ОДНОЙ
+# сверкой оракула: published структурно равен merge(ядро, extension)
+# (dokument-ne-sliyanie; П-7 — адрес первого расхождения строкой «адрес: …»,
+# ожидание клетки — литерал). d35/d36/d40/d41 — те же мутации; новые: d42 —
+# `security: []` в голове первой операции ядра (до operationId), d43 — метод
+# без operationId в path item ядра (П-6), d44 — `servers:` в path item
+# extension, d45 — корневое `security: []`, d46 — схема в
+# components.securitySchemes не из ядра и не из extension (П-5; в toy-ядре
+# секции нет). Все девять — писатель после слияния + штатная пересборка вне
+# блоков поблочной сверки: различимы ТОЛЬКО структурной сверкой.
 #
 # Режимы: без аргументов — суд ПРОДУКТА (живой клон Complior-back; путь из
 # IMPORT315_119_BACK, умолчание /tmp/dev-harness-verify/Architect119/back):
@@ -54,11 +62,9 @@
 #   (4) контрмодель оракула без блока аддитивности (sed по сентинелам
 #   ADDITIV-315-BEG/END) обязана вернуть rc 0 на d12/d13 (мутации вне
 #   производных генератора, накрытые регенерацией) → расхождение поймано;
-#   (5) контрмодель без блока маршрута (sed по сентинелам
-#   MARSHRUT-315-BEG/END) обязана вернуть rc 0 IMPORT315_OK на d35/d36 —
-#   перенос маршрута ловит ТОЛЬКО проекция operationId→(path, method);
-#   (6) контрмодель без блока маршрута ядра (sed по сентинелам
-#   MARSHRUT-CORE-315-BEG/END) обязана вернуть rc 0 IMPORT315_OK на d40/d41.
+#   (5) контрмодель без блока структуры (sed по сентинелам
+#   STRUKTURA-315-BEG/END) обязана вернуть rc 0 IMPORT315_OK на
+#   d35/d36/d40–d46 — расхождение документа со слиянием ловит ТОЛЬКО она.
 #
 # Миры одноразовые (mktemp $TMPDIR), git-коммиты миров локальны, network нет.
 set -uo pipefail
@@ -99,11 +105,10 @@ R_GENCON="gencontracts-rashozhdenie"
 R_GENCONOOP="gencontracts-noop"
 R_GENCONPIS="gencontracts-ne-pishet"
 R_SCHEMPROJ="schemas-proekcija"
-R_MARSHRUT="extension-marshrut"
-R_ADDOP="additivnost-operacija"
+R_STRUKTURA="dokument-ne-sliyanie"
 R_NEEDSENV="NEEDS_ENV"
 
-CELLS="m-baza k-model d1-cas-ifmatch d2-poterya-consumer d3-reasoncode d4-core-zamenen d5-generator-bez-check d6-generator-ne-idempotent d7-manifest-vret d8-files-sha256-staryj d9-vtoroj-koren d10-status-nechestnyj d11-known-issues-soglasovanno-nepolnyj d12-istorika-podmenena d13-sql-izmenen d16-validator-kreven d17-owners-nedostavleny d18-generator-noop d19-validator-noop d20-extension-pustoj d21-generator-pisatel-noop d22-generator-vosstanavlivaet-iz-git d23-known-failures-nepust d24-spec314-nemigrirovan d25-spec314-known-failures d26-spec314-propusk-extension d27-spec314-oslablenie-core d28-spec314-profili-neopredeleny d29-schemas-rukami d30-schemas-sha-podognan d31-gencontracts-check-obhozhden d32-gencontracts-nedeterminirovan d33-gencontracts-pustoj-dokument d34-gencontracts-perestanovka-operationid d35-extension-perenos-path d36-extension-smena-metoda d37-npm-net-dereva d38-npm-simlink d39-povtornyj-progon d40-core-perenos-path d41-core-smena-metoda"
+CELLS="m-baza k-model d1-cas-ifmatch d2-poterya-consumer d3-reasoncode d4-core-zamenen d5-generator-bez-check d6-generator-ne-idempotent d7-manifest-vret d8-files-sha256-staryj d9-vtoroj-koren d10-status-nechestnyj d11-known-issues-soglasovanno-nepolnyj d12-istorika-podmenena d13-sql-izmenen d16-validator-kreven d17-owners-nedostavleny d18-generator-noop d19-validator-noop d20-extension-pustoj d21-generator-pisatel-noop d22-generator-vosstanavlivaet-iz-git d23-known-failures-nepust d24-spec314-nemigrirovan d25-spec314-known-failures d26-spec314-propusk-extension d27-spec314-oslablenie-core d28-spec314-profili-neopredeleny d29-schemas-rukami d30-schemas-sha-podognan d31-gencontracts-check-obhozhden d32-gencontracts-nedeterminirovan d33-gencontracts-pustoj-dokument d34-gencontracts-perestanovka-operationid d35-extension-perenos-path d36-extension-smena-metoda d37-npm-net-dereva d38-npm-simlink d39-povtornyj-progon d40-core-perenos-path d41-core-smena-metoda d42-core-golova-security d43-core-metod-bez-operationid d44-extension-servers-path-item d45-koren-security d46-components-securityschemes"
 
 make_base_world() {  # → путь мира (мини-Complior-back 5.8.4, импорта нет)
   local d
@@ -196,11 +201,11 @@ PY
   )
 }
 
-reroute_writer() {  # $1 = мир, $2/$3 = «было»/«стало» в тексте published:
-  # писатель генератора после слияния переписывает маршрут операции extension
-  # либо ядра (зеркало репро Adv119v2: replace сразу после merge), затем штатная
-  # пересборка — writer, gen-contracts, writer (FILES последним); assert в
-  # писателе не даёт мутации выродиться в пустую (нет «было» — генератор падает)
+writer_mutate() {  # $1 = мир, $2/$3 = «было»/«стало» в тексте published:
+  # писатель генератора после слияния правит текст published (зеркало репро
+  # Adv119v2/Rev119r3: replace сразу после merge), затем штатная пересборка —
+  # writer, gen-contracts, writer (FILES последним); assert в писателе не даёт
+  # мутации выродиться в пустую (нет «было» — генератор падает)
   python3 - "$1/tests/tools/generate_derived.py" "$2" "$3" <<'PY'
 import sys
 p, old, new = sys.argv[1:4]
@@ -208,7 +213,7 @@ s = open(p).read()
 needle = "ops = pub_text.count('operationId:')\n"
 assert s.count(needle) == 1, 'генератор не содержит ожидаемой точки счёта'
 inj = ('assert %r in pub_text\n' % old
-       + 'pub_text = pub_text.replace(%r, %r, 1)  # перенос маршрута\n' % (old, new))
+       + 'pub_text = pub_text.replace(%r, %r, 1)  # мутация писателя\n' % (old, new))
 open(p, 'w').write(s.replace(needle, inj + needle))
 PY
   (cd "$1" && python3 tests/tools/generate_derived.py >/dev/null \
@@ -571,12 +576,12 @@ PY
     d35-extension-perenos-path)
       # (вердикт Adv119v2) перенос extension-операции createPlateOrder на
       # иной path при неизменных operationId/блоке/источнике (sha по пину)
-      reroute_writer "$W" $'  /mobility/plate-orders:\n' $'  /mobility/plate-orders-relocated:\n'
+      writer_mutate "$W" $'  /mobility/plate-orders:\n' $'  /mobility/plate-orders-relocated:\n'
       ;;
     d36-extension-smena-metoda)
       # (вердикт Adv119v2, отдельно) смена HTTP-метода той же операции
       # (post → put) при неизменных path/operationId/блоке/источнике
-      reroute_writer "$W" $'  /mobility/plate-orders:\n    post:\n' $'  /mobility/plate-orders:\n    put:\n'
+      writer_mutate "$W" $'  /mobility/plate-orders:\n    post:\n' $'  /mobility/plate-orders:\n    put:\n'
       ;;
     d37-npm-net-dereva)
       # (Rev119v2 Б-1 а) gen-contracts.js требует пакет npm, npm-дерева нет
@@ -607,18 +612,50 @@ PY
       # (Architect119r5) перенос core-операции requestAction на иной path при
       # неизменных operationId/блоке/core-источнике (sha = git-база); path
       # item — вне любого блока поблочной сверки аддитивности
-      reroute_writer "$W" $'  /actions:\n' $'  /actions-relocated:\n'
+      writer_mutate "$W" $'  /actions:\n' $'  /actions-relocated:\n'
       ;;
     d41-core-smena-metoda)
       # (Architect119r5, отдельно) смена HTTP-метода той же core-операции
       # (post → put): метод — первый в своём path item, поэтому строка метода
       # не входит в блок соседней операции (иначе её поймала бы поблочная сверка)
-      reroute_writer "$W" $'  /actions:\n    post:\n' $'  /actions:\n    put:\n'
+      writer_mutate "$W" $'  /actions:\n    post:\n' $'  /actions:\n    put:\n'
+      ;;
+    d42-core-golova-security)
+      # (Rev119r3 b1) голова первой операции ядра: `security: []` перед
+      # operationId acknowledgeDisclosure — аутентификация снята, а блок после
+      # operationId (поблочная сверка аддитивности) побайтово цел
+      writer_mutate "$W" $'    post:\n      operationId: acknowledgeDisclosure\n' \
+        $'    post:\n      security: []\n      operationId: acknowledgeDisclosure\n'
+      ;;
+    d43-core-metod-bez-operationid)
+      # (Rev119r3 b2; П-6) метод без operationId в голове path item ядра
+      # /actions — новый маршрут не из ядра и не из extension; счёт operationId
+      # и блок requestAction (после operationId) не меняются
+      writer_mutate "$W" $'  /actions:\n    post:\n' \
+        $'  /actions:\n    delete:\n      responses:\n        \'204\': {description: gone}\n    post:\n'
+      ;;
+    d44-extension-servers-path-item)
+      # (Rev119r3 b3) `servers:` в path item extension перед методом — запросы
+      # операции уводятся на чужой сервер, операция и источник (sha по пину) целы
+      writer_mutate "$W" $'  /mobility/plate-orders:\n    post:\n' \
+        $'  /mobility/plate-orders:\n    servers:\n      - url: https://evil.example\n    post:\n'
+      ;;
+    d45-koren-security)
+      # (арбитраж, b4) корневое `security: []` — аутентификация снята со всех
+      # операций без собственного ключа security; ни одна операция не тронута
+      writer_mutate "$W" $'\npaths:\n' $'\nsecurity: []\npaths:\n'
+      ;;
+    d46-components-securityschemes)
+      # (П-5) components.securitySchemes: схема, которой нет ни в ядре, ни в
+      # extension (в toy-ядре секции нет — подмена = появление схемы); вне
+      # блоков операций, ReasonCode и счёта schemas
+      writer_mutate "$W" $'\ncomponents:\n  schemas:\n' \
+        $'\ncomponents:\n  securitySchemes:\n    sessionCookie:\n      type: apiKey\n      in: cookie\n      name: evil-session\n  schemas:\n'
       ;;
   esac
 }
 
-expect_rc() { case "$1" in m-baza|d1-cas-ifmatch|d2-poterya-consumer|d3-reasoncode|d4-core-zamenen|d5-generator-bez-check|d6-generator-ne-idempotent|d7-manifest-vret|d8-files-sha256-staryj|d9-vtoroj-koren|d10-status-nechestnyj|d11-known-issues-soglasovanno-nepolnyj|d12-istorika-podmenena|d13-sql-izmenen|d16-validator-kreven|d17-owners-nedostavleny|d18-generator-noop|d19-validator-noop|d20-extension-pustoj|d21-generator-pisatel-noop|d22-generator-vosstanavlivaet-iz-git|d23-known-failures-nepust|d24-spec314-nemigrirovan|d25-spec314-known-failures|d26-spec314-propusk-extension|d27-spec314-oslablenie-core|d28-spec314-profili-neopredeleny|d29-schemas-rukami|d30-schemas-sha-podognan|d31-gencontracts-check-obhozhden|d32-gencontracts-nedeterminirovan|d33-gencontracts-pustoj-dokument|d34-gencontracts-perestanovka-operationid|d35-extension-perenos-path|d36-extension-smena-metoda|d40-core-perenos-path|d41-core-smena-metoda) echo 1;; d37-npm-net-dereva) echo 2;; k-model|d38-npm-simlink|d39-povtornyj-progon) echo 0;; *) echo 2;; esac; }
+expect_rc() { case "$1" in m-baza|d1-cas-ifmatch|d2-poterya-consumer|d3-reasoncode|d4-core-zamenen|d5-generator-bez-check|d6-generator-ne-idempotent|d7-manifest-vret|d8-files-sha256-staryj|d9-vtoroj-koren|d10-status-nechestnyj|d11-known-issues-soglasovanno-nepolnyj|d12-istorika-podmenena|d13-sql-izmenen|d16-validator-kreven|d17-owners-nedostavleny|d18-generator-noop|d19-validator-noop|d20-extension-pustoj|d21-generator-pisatel-noop|d22-generator-vosstanavlivaet-iz-git|d23-known-failures-nepust|d24-spec314-nemigrirovan|d25-spec314-known-failures|d26-spec314-propusk-extension|d27-spec314-oslablenie-core|d28-spec314-profili-neopredeleny|d29-schemas-rukami|d30-schemas-sha-podognan|d31-gencontracts-check-obhozhden|d32-gencontracts-nedeterminirovan|d33-gencontracts-pustoj-dokument|d34-gencontracts-perestanovka-operationid|d35-extension-perenos-path|d36-extension-smena-metoda|d40-core-perenos-path|d41-core-smena-metoda|d42-core-golova-security|d43-core-metod-bez-operationid|d44-extension-servers-path-item|d45-koren-security|d46-components-securityschemes) echo 1;; d37-npm-net-dereva) echo 2;; k-model|d38-npm-simlink|d39-povtornyj-progon) echo 0;; *) echo 2;; esac; }
 expect_reason() {
   case "$1" in
     m-baza) echo "$R_IMPORT";;
@@ -655,30 +692,51 @@ expect_reason() {
     d32-gencontracts-nedeterminirovan) echo "$R_GENCONPIS";;
     d33-gencontracts-pustoj-dokument) echo "$R_SCHEMPROJ";;
     d34-gencontracts-perestanovka-operationid) echo "$R_SCHEMPROJ";;
-    d35-extension-perenos-path) echo "$R_MARSHRUT";;
-    d36-extension-smena-metoda) echo "$R_MARSHRUT";;
+    d35-extension-perenos-path) echo "$R_STRUKTURA";;
+    d36-extension-smena-metoda) echo "$R_STRUKTURA";;
     d37-npm-net-dereva) echo "$R_NEEDSENV";;
     d38-npm-simlink) echo "IMPORT315_OK";;
     d39-povtornyj-progon) echo "IMPORT315_OK";;
-    d40-core-perenos-path) echo "$R_ADDOP";;
-    d41-core-smena-metoda) echo "$R_ADDOP";;
+    d40-core-perenos-path) echo "$R_STRUKTURA";;
+    d41-core-smena-metoda) echo "$R_STRUKTURA";;
+    d42-core-golova-security) echo "$R_STRUKTURA";;
+    d43-core-metod-bez-operationid) echo "$R_STRUKTURA";;
+    d44-extension-servers-path-item) echo "$R_STRUKTURA";;
+    d45-koren-security) echo "$R_STRUKTURA";;
+    d46-components-securityschemes) echo "$R_STRUKTURA";;
+  esac
+}
+# П-7: адрес первого расхождения — самостоятельная строка stderr оракула
+# (литерал, сверка grep -Fx); у клеток вне структурной сверки адреса нет
+expect_addr() {
+  case "$1" in
+    d35-extension-perenos-path) echo 'адрес: paths./mobility/plate-orders-relocated';;
+    d36-extension-smena-metoda) echo 'адрес: paths./mobility/plate-orders.put';;
+    d40-core-perenos-path) echo 'адрес: paths./actions-relocated';;
+    d41-core-smena-metoda) echo 'адрес: paths./actions.put';;
+    d42-core-golova-security) echo 'адрес: paths./disclosures/{id}/acknowledge.post.security';;
+    d43-core-metod-bez-operationid) echo 'адрес: paths./actions.delete.operationId';;
+    d44-extension-servers-path-item) echo 'адрес: paths./mobility/plate-orders.servers';;
+    d45-koren-security) echo 'адрес: security';;
+    d46-components-securityschemes) echo 'адрес: components.securitySchemes';;
   esac
 }
 
 run_cell() {  # $1 = клетка → 0 совпало / 1 расхождение
-  local c="$1" W out rc erc ereason verdict
+  local c="$1" W out rc erc ereason eaddr verdict
   W="$(make_base_world)" || return 9
   if [ "$c" != "m-baza" ]; then
     bash "$MODEL" "$W" >/dev/null 2>&1 || { echo "клетка $c: модель импорта упала"; rm -rf "$W"; return 1; }
   fi
   mutate "$c" "$W"
   out="$(bash "$ORACLE" "$W" 2>&1)"; rc=$?
-  erc="$(expect_rc "$c")"; ereason="$(expect_reason "$c")"
-  if [ "$rc" = "$erc" ] && echo "$out" | grep -q "$ereason"; then
+  erc="$(expect_rc "$c")"; ereason="$(expect_reason "$c")"; eaddr="$(expect_addr "$c")"
+  if [ "$rc" = "$erc" ] && echo "$out" | grep -q "$ereason" \
+     && { [ -z "$eaddr" ] || printf '%s\n' "$out" | grep -Fxq -- "$eaddr"; }; then
     echo "клетка $c: ЗЕЛЁНАЯ (rc=$rc, ${ereason})"
     verdict=0
   else
-    echo "клетка $c: КРАСНАЯ — ожидание rc=$erc/${ereason}, факт rc=$rc, вывод: $(echo "$out" | tail -1)"
+    echo "клетка $c: КРАСНАЯ — ожидание rc=$erc/${ereason}${eaddr:+/$eaddr}, факт rc=$rc, вывод: $(echo "$out" | tail -1)"
     verdict=1
   fi
   rm -rf "$W" "$W.npm"

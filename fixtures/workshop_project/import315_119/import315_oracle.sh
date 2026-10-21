@@ -14,8 +14,9 @@
 # gen-contracts.js судимого дерева, не разрешается, или нет PyYAML — Rev119v2
 # Б-1; это не причина продукта). Алфавит причин замкнут (34; v2 расширила
 # 26 → 32 ветвями spec-3.14 смешанных профилей и производных app/schemas;
-# круг 2 v2 — 33-я, schemas-proekcija; вердикт Adv119v2 — 34-я,
-# extension-marshrut):
+# круг 2 v2 — 33-я, schemas-proekcija; круг 4 — 34-я, dokument-ne-sliyanie:
+# структурное равенство published слиянию по арбитражу
+# 119-impl-struktura-dokumenta, заменило причину маршрута вердикта Adv119v2):
 #   import-otsutstvuet raskladka-vtoroj-koren raskladka-istochniki
 #   struktura-policy core-zamenen additivnost-cas additivnost-operacija
 #   additivnost-reasoncode poterya-consumer sql-izmenen vs01-otkatan
@@ -25,7 +26,7 @@
 #   sostav-rashozhdenie generator-noop validator-noop generator-ne-pishet
 #   known-failures-nepust spec314-kreven spec314-noop schemas-rashozhdenie
 #   gencontracts-rashozhdenie gencontracts-noop gencontracts-ne-pishet
-#   schemas-proekcija extension-marshrut
+#   schemas-proekcija dokument-ne-sliyanie
 REPO="${1:-}"
 [ -n "$REPO" ] || { echo "использование: import315_oracle.sh <корень репозитория>" >&2; exit 2; }
 [ -d "$REPO/.git" ] || [ -f "$REPO/.git" ] || { echo "ОТКАЗ: import315: ne-git-repo" >&2; exit 2; }
@@ -52,40 +53,6 @@ gc() {
     [ -z "$miss" ] || { echo "NEEDS_ENV: import315: npm-paket-nedostupen $miss (npm-дерево судимого дерева: npm ci либо NODE_PATH)" >&2; exit 2; }
   fi
   return "$rc"
-}
-# проекция маршрутов (вердикт Adv119v2; ядро — Architect119r5): мультимножество
-# (operationId, path, method) документа $2 на operationId документа $1 обязано
-# совпасть с проекцией $1 — перенос на иной path, смена метода, потеря или
-# дубль маршрута при неизменном operationId красны; кортежи сравниваются в
-# python (байт данных разделителем не служит); python3+PyYAML — уже
-# зависимость батареи, без него rc 2 NEEDS_ENV (Б-1); $3 — метка диагностики.
-# Единый источник грамматики маршрута для сверок extension и ядра
-route_diff() {
-  python3 - "$1" "$2" "$3" <<'PY'
-import sys
-from collections import Counter
-try:
-    import yaml
-except ImportError:
-    print('NEEDS_ENV: import315: python3-yaml-nedostupen (PyYAML)', file=sys.stderr)
-    sys.exit(2)
-METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace')
-def routes(path):
-    doc = yaml.safe_load(open(path, encoding='utf-8'))
-    out = Counter()
-    for p, item in ((doc or {}).get('paths') or {}).items():
-        for m in METHODS:
-            op = item.get(m) if isinstance(item, dict) else None
-            if isinstance(op, dict) and 'operationId' in op:
-                out[(str(op['operationId']), str(p), m)] += 1
-    return out
-src = routes(sys.argv[1])
-ids = {t[0] for t in src}
-pub = Counter({t: n for t, n in routes(sys.argv[2]).items() if t[0] in ids})
-for t in sorted(((src - pub) + (pub - src)).elements()):
-    print('%s: %s %s %s' % ((sys.argv[3],) + t), file=sys.stderr)
-sys.exit(0 if src == pub else 1)
-PY
 }
 PUB=docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml
 BIND=docs/contracts/frontend-consumer-bindings.json
@@ -169,15 +136,6 @@ CUR_VS01="$(jq -r '.vs01_spec_freeze.sha256 // empty' docs/VERSION_MANIFEST.json
 BASE_VS01="$(git show "$BASE:docs/VERSION_MANIFEST.json" | jq -r '.vs01_spec_freeze.sha256 // empty')"
 [ "$CUR_VS01" = "$BASE_VS01" ] || fail vs01-otkatan
 # ── ADDITIV-315-END ─────────────────────────────────────────────────────────
-# ── MARSHRUT-CORE-315-BEG: маршрут ЯДРОВЫХ операций против git-базы ────────
-# поблочная сверка выше начинается со строки operationId — path и метод
-# core-операции вне её сравнения; проекция базового published (то же
-# основание, что у core-блоков) против текущего, кратность тоже: перенос
-# core-операции на иной path или смена метода при неизменных
-# operationId/блоке/источнике — красно
-route_diff "$SCRATCH/base_published.yaml" "$PUB" marshrut-core
-case $? in 0) ;; 2) exit 2 ;; *) fail additivnost-operacija ;; esac
-# ── MARSHRUT-CORE-315-END ───────────────────────────────────────────────────
 
 # ── состав против ПИНА (Б1): числа/хэши не читаются из проверяемого дерева ──
 BASE_OPS="$(grep -c 'operationId:' "$SCRATCH/base_published.yaml")"
@@ -203,14 +161,171 @@ CUR_TABLES="$(jq '.tables | length' docs/data/physical-model.json)"
 [ "$CUR_TABLES" = "$PIN_TABLES" ] || fail owners-rashozhdenie
 [ "$(jq -r '.compatibility_baseline // ""' "$SRC315/baseline-lock.json")" = "5.8.4" ] \
   || fail sostav-rashozhdenie
-# ── MARSHRUT-315-BEG: маршрут extension-операций (вердикт Adv119v2) ─────────
-# поблочная сверка видит содержимое операции, но не её маршрут: проекция
-# источника extension (sha по пину — выше) против published, кратность тоже;
-# сборка независима от генератора и валидатора продукта: перенос на иной
-# path или смена метода при неизменных operationId/блоке/источнике — красно
-route_diff "$SRC315/platform-extension.yaml" "$PUB" marshrut
-case $? in 0) ;; 2) exit 2 ;; *) fail extension-marshrut ;; esac
-# ── MARSHRUT-315-END ────────────────────────────────────────────────────────
+# ── STRUKTURA-315-BEG: published = merge(ядро, extension) структурно ───────
+# Арбитраж 119-impl-struktura-dokumenta, Решение 1 (закрытый перечень П-1…П-7):
+# ОДНА сверка всего документа после yaml.safe_load, независимая от писателя и
+# валидатора продукта. Ядро — базовый published git-базы (то же основание,
+# что у поблочной сверки аддитивности), extension — источник (sha по пину —
+# выше). П-1 корень (все ключи, кроме paths/components) = корню ядра; П-2
+# множество path items = ядро ∪ extension, пересечение пусто; П-6 у каждой
+# операции есть operationId, повторов нет; П-3 path item ядра = ядру целиком;
+# П-4 path item extension = источнику целиком после снятия ЕДИНСТВЕННОЙ
+# денормализации — маркера x-supported-contract-versions == [info.version
+# extension], обязательного у каждой операции extension; П-5 components:
+# секции и элементы — только из ядра либо extension, равны своему источнику.
+# Равенство строгое: тип узла, ключи, длина и порядок последовательностей,
+# значения. П-7: первое расхождение — строкой «адрес: <путь в документе>» в
+# stderr, причина одна. python3+PyYAML — уже зависимость батареи; без него
+# rc 2 NEEDS_ENV (Б-1). Интерпретатор стартует в scratch оракула (sys.path[0]
+# = каталог запуска): модуль судимого дерева (yaml.py в корне) не подменяет
+# парсер сверки.
+( cd "$SCRATCH" && python3 - base_published.yaml "$OLDPWD/$SRC315/platform-extension.yaml" "$OLDPWD/$PUB" <<'PY'
+import sys
+try:
+    import yaml
+except ImportError:
+    print('NEEDS_ENV: import315: python3-yaml-nedostupen (PyYAML)', file=sys.stderr)
+    sys.exit(2)
+METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace')
+MARK = 'x-supported-contract-versions'
+
+
+def stop(at, why):
+    addr = ''
+    for part in at:
+        addr += part if part.startswith('[') else ('.' if addr else '') + part
+    print('адрес: %s' % (addr or '<документ>'), file=sys.stderr)
+    print('dokument-ne-sliyanie: %s' % why, file=sys.stderr)
+    sys.exit(1)
+
+
+def diff(act, exp, at):
+    # первый узел act, отличный от exp: в порядке published, затем недостающие
+    if type(act) is not type(exp):
+        return at
+    if isinstance(act, dict):
+        ek = {(type(k), k): k for k in exp}
+        ak = {(type(k), k): k for k in act}
+        for t, k in ak.items():
+            if t not in ek:
+                return at + [str(k)]
+            d = diff(act[k], exp[ek[t]], at + [str(k)])
+            if d is not None:
+                return d
+        for t, k in ek.items():
+            if t not in ak:
+                return at + [str(k)]
+        return None
+    if isinstance(act, list):
+        for i, (a, e) in enumerate(zip(act, exp)):
+            d = diff(a, e, at + ['[%d]' % i])
+            if d is not None:
+                return d
+        return None if len(act) == len(exp) else at + ['[%d]' % min(len(act), len(exp))]
+    return None if act == exp or (act != act and exp != exp) else at
+
+
+def load(path):
+    with open(path, encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+
+core, ext = load(sys.argv[1]), load(sys.argv[2])
+try:
+    pub = load(sys.argv[3])
+except yaml.YAMLError as e:
+    stop([], 'published не разбирается как YAML (%s)' % str(e).split('\n')[0])
+if not isinstance(pub, dict):
+    stop([], 'published — не отображение')
+# П-1 корень документа
+NODE = ('paths', 'components')
+d = diff({k: v for k, v in pub.items() if k not in NODE},
+         {k: v for k, v in core.items() if k not in NODE}, [])
+if d is not None:
+    stop(d, 'П-1 корень документа ≠ корню ядра')
+# П-2 множество path items
+cp, ep, pp = core.get('paths') or {}, ext.get('paths') or {}, pub.get('paths')
+if not isinstance(pp, dict):
+    stop(['paths'], 'П-2 paths — не отображение')
+for p in cp:
+    if p in ep:
+        stop(['paths', str(p)], 'П-2 path и в ядре, и в extension (коллизия)')
+for p in pp:
+    if p not in cp and p not in ep:
+        stop(['paths', str(p)], 'П-2 path не из ядра и не из extension')
+for p in list(cp) + list(ep):
+    if p not in pp:
+        stop(['paths', str(p)], 'П-2 path источника потерян')
+# П-6 операция без operationId; кратность operationId
+seen = {}
+for p, item in pp.items():
+    if not isinstance(item, dict):
+        continue  # узел целиком сравнивают П-3/П-4
+    for m in METHODS:
+        if m not in item:
+            continue
+        op = item[m]
+        if not isinstance(op, dict) or 'operationId' not in op:
+            stop(['paths', str(p), m, 'operationId'], 'П-6 операция без operationId')
+        key = (type(op['operationId']), repr(op['operationId']))
+        if key in seen:
+            stop(['paths', str(p), m, 'operationId'],
+                 'П-6 operationId повторён (первый: %s %s)' % seen[key])
+        seen[key] = (p, m)
+# П-3/П-4 path item целиком — в порядке published
+want = [(ext.get('info') or {}).get('version')]
+for p, item in pp.items():
+    if p in cp:
+        d = diff(item, cp[p], ['paths', str(p)])
+        if d is not None:
+            stop(d, 'П-3 path item ядра ≠ ядру')
+        continue
+    if isinstance(item, dict):
+        item = dict(item)
+        for m in METHODS:
+            if m not in item:
+                continue
+            op = item[m]
+            if not isinstance(op, dict) or MARK not in op:
+                stop(['paths', str(p), m, MARK], 'П-4 нет маркера профиля extension')
+            d = diff(op[MARK], want, ['paths', str(p), m, MARK])
+            if d is not None:
+                stop(d, 'П-4 маркер профиля ≠ %r' % (want,))
+            item[m] = {k: v for k, v in op.items() if k != MARK}
+    d = diff(item, ep[p], ['paths', str(p)])
+    if d is not None:
+        stop(d, 'П-4 path item extension ≠ источнику (маркер снят)')
+# П-5 components
+cc, ec, pc = core.get('components') or {}, ext.get('components') or {}, pub.get('components')
+if pc is None and not cc and not ec:
+    pc = {}
+if not isinstance(pc, dict):
+    stop(['components'], 'П-5 components — не отображение')
+for s, sec in pc.items():
+    if s not in cc and s not in ec:
+        stop(['components', str(s)], 'П-5 секция не из ядра и не из extension')
+    if not isinstance(sec, dict):
+        stop(['components', str(s)], 'П-5 секция — не отображение')
+    srcs = [x for x in (cc.get(s), ec.get(s)) if x is not None]
+    for k, v in sec.items():
+        own = [x for x in srcs if k in x]
+        if not own:
+            stop(['components', str(s), str(k)], 'П-5 элемент не из ядра и не из extension')
+        for x in own:
+            d = diff(v, x[k], ['components', str(s), str(k)])
+            if d is not None:
+                stop(d, 'П-5 элемент ≠ своему источнику')
+    for x in srcs:
+        for k in x:
+            if k not in sec:
+                stop(['components', str(s), str(k)], 'П-5 элемент источника потерян')
+for s in list(cc) + list(ec):
+    if s not in pc:
+        stop(['components', str(s)], 'П-5 секция источника потеряна')
+PY
+)
+case $? in 0) ;; 2) exit 2 ;; *) fail dokument-ne-sliyanie ;; esac
+# ── STRUKTURA-315-END ───────────────────────────────────────────────────────
 
 MAN_OPS="$(jq -r '.operations' docs/VERSION_MANIFEST.json)"
 MAN_SCH="$(jq -r '.schemas' docs/VERSION_MANIFEST.json)"
