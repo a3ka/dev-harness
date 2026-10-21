@@ -44,7 +44,7 @@ WARN_MIXED — только как факт). Алфавит расхожден�
   <клетка>:zapuskov-<N>-fakt-<M> | <клетка>:<вызов>:dolgo-<мс>
   <клетка>:НЕТ фабрики omp: … | <клетка>:НЕТ обработчика tool_call
 """
-import json, os, random, shutil, subprocess, sys, tempfile, time, uuid, glob, re
+import json, math, os, random, shutil, subprocess, sys, tempfile, time, uuid, glob, re
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 ROOT = os.path.realpath(os.path.join(HERE, '..', '..', '..'))
@@ -186,8 +186,11 @@ def build_cell(cid, rng, w):
     elif cid == 'c08-porog-env':
         cell = SRC_CELLS[cid]
         ps = cell['t_po_seed']
-        # весь допустимый диапазон с границами — всегда; сверх того — значения от seed
-        for t in cell['t_values'] + [rng.randint(ps['lo'], ps['hi']) for _ in range(ps['count'])]:
+        # обязательные границы и середины порядков — всегда; сверх того — count значений от seed,
+        # логарифмически-равномерно по lo…hi: каждый порядок 10^0…10^3 получает равную долю
+        po_seed = [min(ps['hi'], max(ps['lo'], int(math.exp(rng.uniform(math.log(ps['lo']), math.log(ps['hi'] + 1))))))
+                   for _ in range(ps['count'])]
+        for t in cell['t_values'] + po_seed:
             rows = ([g.stale(t - 1)] if t > 1 else []) + [g.stale(t), g.stale(t + 1), g.stale(t + rng.randint(2, 100)), g.rab()]
             txt, rows = g.tablo(rows)
             call(out_spec(txt), n=t, env={'WAIT_GUARD_MIN': str(t)}, lines=stale_of(rows, t))
