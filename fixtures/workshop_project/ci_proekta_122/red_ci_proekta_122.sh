@@ -10,6 +10,8 @@
 # predposylki-otsutstvuyut predposylki-nevaliden sekrety-ne-zavedeny gh-nedostupen
 # python-yaml-nedostupen (средовая ветвь rc 2, клеткой не покрыта).
 # Обманные стабы подключаются env: CI_PROEKTA_122_GEN / _PREFLIGHT / _GATES.
+# Клетка зелена только при ФАКТИЧЕСКОМ rc субъекта == литералу клетки И наличии причины-литерала
+# в выводе (rc — первичная мера, причина — вторая; Б1 критика 122: отказ с rc 0 краснит клетку).
 set -u
 export PYTHONDONTWRITEBYTECODE=1
 BATT=$(cd "$(dirname "$0")" && pwd)
@@ -91,17 +93,20 @@ GH
   printf '%s' "$W"
 }
 
-run_case() { # $1 имя $2 ожидаемый rc $3 ожидаемая причина (литерал, пусто=любая) $4... команда
+run_case() { # $1 имя $2 ожидаемый rc (литерал) $3 ожидаемая причина (литерал, пусто=любая) $4... команда
   local name=$1 want=$2 reason=$3; shift 3
-  local out rc ok=1
+  local out rc ok=1 why=
   out=$("$@" 2>&1); rc=$?
-  if [ -n "$reason" ] && ! printf '%s\n' "$out" | grep -Fq -- "$reason"; then ok=0; fi
+  if [ "$rc" != "$want" ]; then ok=0; why="rc $rc вместо $want"; fi
+  if [ -n "$reason" ] && ! printf '%s\n' "$out" | grep -Fq -- "$reason"; then
+    ok=0; why="${why:+$why; }нет причины"
+  fi
   if [ "$ok" = 1 ]; then
     GREEN=$((GREEN+1))
     printf 'CASE %s: rc=%s want=%s причина=%s ЗЕЛЁНАЯ\n' "$name" "$rc" "$want" "${reason:--}"
   else
     RED=$((RED+1))
-    printf 'CASE %s: rc=%s want=%s причина=%s КРАСНАЯ\n' "$name" "$rc" "$want" "${reason:--}"
+    printf 'CASE %s: rc=%s want=%s причина=%s КРАСНАЯ (%s)\n' "$name" "$rc" "$want" "${reason:--}" "$why"
     printf '%s\n' "$out" | sed 's/^/    | /' | head -4
   fi
 }
@@ -220,6 +225,99 @@ PY
 K
   run_case p5-sekrety-ne-perechisleny 1 'sekrety-ne-perechisleny: PILOT_DEMO_CODE' bash "$PRE" --repo "$W" --contract "$W/contracts/kontrakt-drugoj-sekret.md"
 }
+p6_world() { # $1 — команда шага sekret local-джобы ci; печатает путь мира
+  local W; W=$(new_world)
+  cat > "$W/contracts/kontrakt-demo.md" <<'K'
+# Той-контракт, объявляющий используемые шагом секрет и variable
+ЗОНА implementer: .github/workflows/ci.yml
+ПРЕДПОСЫЛКИ:
+- secret DEMO_TOKEN
+- variable DEMO_URL
+K
+  python3 - "$W" "$1" <<'PY'
+import json, sys
+p = sys.argv[1] + '/.harness/ci.json'
+m = json.load(open(p))
+m['jobs']['ci']['steps'].append({'key': 'sekret', 'run': sys.argv[2]})
+json.dump(m, open(p, 'w'))
+PY
+  bash "$GEN" --repo "$W" --write >/dev/null 2>&1
+  printf '%s' "$W"
+}
+c_p6() {
+  local W
+  W=$(p6_world 'test -n "${{ secrets.DEMO_TOKEN }}" && test -n "${{ vars.DEMO_URL }}"')
+  run_case p6-sekret-podstavlyaetsya 0 'CIPREFLIGHT_OK jobs=1 station=1' bash "$PRE" --repo "$W" --contract "$W/contracts/kontrakt-demo.md"
+  W=$(p6_world 'test -z "${{ secrets.DEMO_TOKEN }}"')
+  run_case p6-sekret-shag-ispolnyaetsya 1 'shag-upal: ci/sekret' bash "$PRE" --repo "$W" --contract "$W/contracts/kontrakt-demo.md"
+}
+c_p7() { # рукописный workflow: наследование defaults.run.working-directory уровня workflow
+  local W
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: missing-directory
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: verify
+        run: "true"
+Y
+  run_case p7-wd-workflow-otsutstvuet 1 'working-directory-otsutstvuet: missing-directory' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: mobile
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: verify
+        run: test -f .maestro/vkhod.yaml
+Y
+  run_case p7-wd-workflow-est 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: missing-directory
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: verify
+        run: test -f .maestro/vkhod.yaml
+Y
+  run_case p7-wd-pereopredelen-dzhoboj 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+defaults:
+  run:
+    working-directory: missing-directory
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: verify
+        working-directory: mobile
+        run: test -f .maestro/vkhod.yaml
+Y
+  run_case p7-wd-pereopredelen-shagom 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+}
 c_z1() {
   local W; W=$(new_world)
   run_case z1-predposylki-otsutstvuyut 1 'predposylki-otsutstvuyut' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-ci.md"
@@ -239,7 +337,7 @@ c_z4() {
   run_case z4-predposylki-nevaliden 1 'predposylki-nevaliden: - password Sekret' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-nevalid.md"
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 z1 z2 z3 z4"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 p6 p7 z1 z2 z3 z4"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;

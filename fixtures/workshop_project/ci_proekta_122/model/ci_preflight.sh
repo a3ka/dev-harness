@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # ЧЕСТНАЯ МОДЕЛЬ локального предполёта CI — контракт 122 «CI проекта» (Г2).
 # Субъект-интерфейс: ci_preflight.sh --repo R [--workflow F] [--job J] [--contract C].
-# Синтаксис YAML; working-directory обязан существовать; шаги local-джоб исполняются
-# в одноразовой копии (секреты/variables — заглушки); station-джобы перечисляются, не исполняются.
+# Синтаксис YAML; рабочий каталог каждого run-шага — по старшинству GitHub Actions:
+# working-directory шага > defaults.run.working-directory джобы > defaults.run.working-directory
+# workflow > корень; он обязан существовать. Шаги local-джоб исполняются в одноразовой копии
+# в этом каталоге; выражения secrets.X / vars.X текстом заменяются непустыми заглушками ДО
+# исполнения; station-джобы перечисляются, не исполняются.
 # С --contract: каждый использованный secrets.*/vars.* обязан быть объявлен в ПРЕДПОСЫЛКИ: контракта.
+# Строки с маркером мутации вырезают мутанты stabs/ (по одной строке на маркер).
 set -u
 R=; WF=.github/workflows/ci.yml; JOB=; C=
 while [ $# -gt 0 ]; do
@@ -38,6 +42,16 @@ except Exception:
 jobs = doc.get('jobs') if isinstance(doc, dict) else None
 if not isinstance(jobs, dict) or not jobs:
     print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
+
+def run_wd(node, inherited):
+    # defaults.run.working-directory узла (workflow или джоба); нет своего — наследуемое
+    dflt = node.get('defaults') if isinstance(node, dict) else None
+    run = dflt.get('run') if isinstance(dflt, dict) else None
+    d = run.get('working-directory') if isinstance(run, dict) else None
+    return d if isinstance(d, str) else inherited
+
+wf_wd = '.'
+wf_wd = run_wd(doc, wf_wd)  # МУТАЦИЯ-122:workflow-defaults
 if JOB:
     if JOB not in jobs:
         print('preflight ОТКАЗ: job-ne-najden: %s' % JOB); sys.exit(1)
@@ -69,30 +83,35 @@ try:
     station_names = []
     for name in sel:
         j = jobs[name]
+        if not isinstance(j, dict):
+            print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
         cls = (j.get('env') or {}).get('PREFLIGHT_CLASS', 'local')
-        wd = ((j.get('defaults') or {}).get('run') or {}).get('working-directory', '.')
+        wd = run_wd(j, wf_wd)
         steps = j.get('steps') or []
+        plan = []
         for st in steps:
             if not isinstance(st, dict):
                 print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
-            d = st.get('working-directory', wd) if isinstance(st.get('working-directory'), str) else wd
+            if 'run' not in st:
+                continue
+            if not isinstance(st['run'], str):
+                print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
+            d = st['working-directory'] if isinstance(st.get('working-directory'), str) else wd
             if not os.path.isdir(os.path.join(work, d)):
                 print('preflight ОТКАЗ: working-directory-otsutstvuet: %s' % d); sys.exit(1)
+            plan.append((st, d))
         if cls == 'station':
             station += 1
             station_names.append(name)
             continue
         local += 1
-        for st in steps:
-            if 'run' not in st:
-                continue
+        for st, d in plan:
             run = st['run']
             for kind, nm in sec_re.findall(run):
-                env[nm] = 'PREFLIGHT-STUB-' + nm
                 want = 'secret' if kind == 'secrets' else 'variable'
                 if C and nm not in declared[want]:
                     print('preflight ОТКАЗ: sekrety-ne-perechisleny: %s' % nm); sys.exit(1)
-            d = st.get('working-directory', wd) if isinstance(st.get('working-directory'), str) else wd
+            run = sec_re.sub(lambda mm: 'PREFLIGHT-STUB-' + mm.group(2), run)  # МУТАЦИЯ-122:podstanovka
             r = subprocess.run(['bash', '-c', run], cwd=os.path.join(work, d), env=env,
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if r.returncode != 0:
