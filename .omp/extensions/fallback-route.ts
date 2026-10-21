@@ -86,14 +86,14 @@ function fallbackSelector(modelRole: string): string | undefined {
   return typeof selector === 'string' ? selector : undefined;
 }
 
-// message_end — сигнал ИСЧЕРПАНИЯ. Снимок хода: payload события (`message`) либо
-// сам payload, если снимок приходит без обёртки. Запись — на провайдера хода, до
-// «сейчас + N»; ход любой сессии процесса (родителя, ребёнка, изолированного
-// ребёнка) засчитывается, потому что реестр общий.
+// message_end — сигнал ИСЧЕРПАНИЯ. Снимок хода: payload события (`message`).
+// Запись — на провайдера хода, до «сейчас + N»; ход любой сессии процесса
+// (родителя, ребёнка, изолированного ребёнка) засчитывается, потому что реестр
+// общий.
 function noteExhaustion(event: unknown): void {
-  const snapshot = (event as { message?: TurnSnapshot } | null)?.message;
-  const turn: TurnSnapshot = snapshot ?? (event as TurnSnapshot);
-  if (turn?.role !== 'assistant' || turn.stopReason !== 'error' || turn.errorStatus !== 429) return;
+  const turn = (event as { message?: TurnSnapshot } | null)?.message;
+  if (turn === undefined) return;
+  if (turn.role !== 'assistant' || turn.stopReason !== 'error' || turn.errorStatus !== 429) return;
   const wait = WAIT_MS_IN_ERROR.exec(String(turn.errorMessage ?? ''));
   if (wait === null || Number(wait[1]) <= EXHAUSTION_WAIT_MS) return;
   if (typeof turn.provider !== 'string' || turn.provider === '') return;
@@ -107,18 +107,19 @@ function route(event: unknown): { model: string[]; note: string } | undefined {
   const role = spawn?.modelRole;
   const patterns = spawn?.patterns;
   if (typeof role !== 'string' || !Array.isArray(patterns) || patterns.length === 0) return undefined;
-  if (!patterns.every((p) => typeof p === 'string')) return undefined;
-  const [primary, ...tail] = patterns as string[];
+  const list = patterns as string[];
+  if (!list.every((p) => typeof p === 'string')) return undefined;
+  const primary: string = list[0];
   const exhaustedProvider = providerOf(primary);
   if (exhaustedProvider === undefined) return undefined;
   const until = exhaustedUntil.get(exhaustedProvider);
   if (until === undefined || until <= Date.now()) return undefined;
   const target = fallbackSelector(role);
-  if (target === undefined || target === primary) return undefined;
+  if (target === undefined) return undefined;
   const targetProvider = providerOf(target);
   if (targetProvider === undefined || targetProvider === exhaustedProvider) return undefined;
   return {
-    model: [target, ...tail.filter((p) => p !== target)],
+    model: [target, ...list],
     note: `fallback-route: провайдер ${exhaustedProvider} исчерпан (429) → ${target}`,
   };
 }
