@@ -73,11 +73,14 @@ def lit(v):
     return '' if v is None else str(v)
 
 def chain(*nodes):
-    # окружение шага по старшинству GitHub Actions: env workflow < env джобы < env шага
+    # окружение шага по старшинству GitHub Actions: env workflow < env джобы < env шага;
+    # значение — литерал как есть, выражения точной формы в нём — заглушки (строка с маркером)
     out = {}
     for node in nodes:
         for k, v in env_of(node).items():
-            out[str(k)] = stub(lit(v))
+            val = lit(v)
+            val = stub(val)  # МУТАЦИЯ-122:zaglushka-v-env
+            out[str(k)] = val
     return out
 
 wf_wd = '.'

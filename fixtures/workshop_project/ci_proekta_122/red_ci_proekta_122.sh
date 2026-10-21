@@ -14,8 +14,8 @@
 # в выводе (rc — первичная мера, причина — вторая; Б1 критика 122: отказ с rc 0 краснит клетку).
 set -u
 export PYTHONDONTWRITEBYTECODE=1
-# Имена окружения шагов клеток p5e/p6e снимаются: исход клетки не зависит от окружения станции.
-unset PILOT_DEMO_CODE CI122_T CI122_U CI122_LEVEL CI122_SRED
+# Имена окружения шагов клеток p5e/p6e/p6z снимаются: исход клетки не зависит от окружения станции.
+unset PILOT_DEMO_CODE CI122_T CI122_U CI122_S CI122_LEVEL CI122_SRED
 BATT=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$BATT/../../.." && pwd)
 WORLDS=/tmp/dev-harness-verify/ci122
@@ -355,6 +355,68 @@ jobs:
 Y
   run_case p6-env-shag-ispolnyaetsya 1 'shag-upal: verify/sekret-v-env' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
 }
+c_p6z() { # рукописный workflow: значение env — САМО выражение secrets.X / vars.X; в env обязана
+  # оказаться заглушка — непустая и НЕ равная буквальному тексту выражения (перенос env без
+  # подстановки отличим). Буквальный текст собирается в шаге из D='$' и '{{ … }}': точной формы
+  # выражения в run нет — подстановка run его не трогает; токены объявлены в ПРЕДПОСЫЛКИ.
+  local W
+  # подстановка на каждом уровне цепочки: secret — env workflow и шага, variable — env джобы
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+env:
+  CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CI122_U: ${{ vars.NPM_TOKEN }}
+    steps:
+      - name: zaglushka-v-env
+        env:
+          CI122_S: ${{ secrets.PILOT_DEMO_CODE }}
+        run: |
+          D='$'
+          test -n "$CI122_T" && test "$CI122_T" != "${D}{{ secrets.PILOT_DEMO_CODE }}" &&
+          test -n "$CI122_U" && test "$CI122_U" != "${D}{{ vars.NPM_TOKEN }}" &&
+          test -n "$CI122_S" && test "$CI122_S" != "${D}{{ secrets.PILOT_DEMO_CODE }}"
+Y
+  run_case p6z-env-ne-literal 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
+  # свидетель финального круга критика: одно объявленное выражение через env и через run совпадает
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: env-ravno-run
+        env:
+          CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+          CI122_U: ${{ vars.NPM_TOKEN }}
+        run: 'test "$CI122_T" = "${{ secrets.PILOT_DEMO_CODE }}" && test "$CI122_U" = "${{ vars.NPM_TOKEN }}"'
+Y
+  run_case p6z-env-ravno-run 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
+  # пара: шаг, требующий в env буквальный текст выражения, обязан упасть (подстановка произошла)
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: env-raven-literalu
+        env:
+          CI122_T: ${{ secrets.PILOT_DEMO_CODE }}
+        run: |
+          D='$'
+          test "$CI122_T" = "${D}{{ secrets.PILOT_DEMO_CODE }}"
+Y
+  run_case p6z-env-literal-otkaz 1 'shag-upal: verify/env-raven-literalu' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-predposylki.md"
+}
 c_p7() { # рукописный workflow: наследование defaults.run.working-directory уровня workflow
   local W
   W=$(new_world)
@@ -441,7 +503,7 @@ c_z4() {
   run_case z4-predposylki-nevaliden 1 'predposylki-nevaliden: - password Sekret' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-nevalid.md"
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 p5e p6 p6e p7 z1 z2 z3 z4"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 p5e p6 p6e p6z p7 z1 z2 z3 z4"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;
