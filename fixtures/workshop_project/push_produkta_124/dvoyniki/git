@@ -1,25 +1,36 @@
 #!/usr/bin/env bash
 # git-ДВОЙНИК батареи 124 (контракт 124, push-produkta). Сеть запрещена:
 # сетевые адреса GitHub отображаются на локальные bare-репозитории мира
-# $P124_WORLD/remotes/<владелец>/<имя>.git; всё прочее — настоящий git
-# ($P124_REAL_GIT) без изменений.
+# <мир>/remotes/<владелец>/<имя>.git; всё прочее — настоящий git без изменений.
+#
+# Мир двойник находит САМ — по пути вызова <мир>/bin/git (настоящий git —
+# путь из <мир>/real_git, ручки мира — файлы <мир>/knob/*): окружение двери не
+# несёт ни одной переменной P124_* (клетка т27 судит дверь в чистом env -i).
 #
 # Поведение — эмуляция станции (замер оркестратора 2026-10-21):
-#   - ssh-адреса GitHub (ssh://git@github.com/…, git@github.com:…) →
+#   - ssh-адреса GitHub (ssh://git@github.com/…, git@github.com:…) в argv →
 #     «Repository not found», rc 128 (ssh-ключ станции не видит Complior-*);
-#   - https://github.com/<o>/<r>(.git) без авторизации → «Authentication
+#   - https://github.com/<o>/<r>(.git) в argv без авторизации → «Authentication
 #     failed», rc 128. Авторизация есть, если (а) пароль userinfo адреса равен
 #     токену gh (kanarejka.txt) — так GitHub принимает токен в URL, либо
 #     (б) действующий credential-хелпер вызова — `!gh auth git-credential`
-#     (по `-c`/GIT_CONFIG_*/конфигу клона) и gh авторизован (P124_GH_AUTH≠0);
+#     (по `-c`/GIT_CONFIG_*/конфигу клона) и gh авторизован (нет <мир>/knob/gh_bez_vhoda);
 #   - адрес, которого нет в мире, → «Repository not found», rc 128;
-#   - P124_DRIFT_ON_PUSH=1: перед исполнением push в клоне создаётся пустой
+#   - <мир>/knob/drejf_head: перед исполнением push в клоне создаётся пустой
 #     коммит (дрейф HEAD между проверкой и пушем).
-# След: каждая команда — строка в $P124_WORLD/log/calls (argv через %q) и
-# снимок окружения в $P124_WORLD/log/env.git.<n>.
+# Адрес argv двойник НЕ подменяет: URL раскрывает сам настоящий git — со всеми
+# url.*.insteadOf/pushInsteadOf и remote.<имя>.url|pushurl конфига клона
+# (С-2 ревью 124: перенаправление клона наблюдаемо в ref'ах мира). Мир git
+# получает правилом низшего приоритета `-c url.<мир>/remotes/.insteadOf=https://github.com/`
+# (правило клона длиннее или той же длины побеждает — как у настоящего git;
+# адрес argv иного регистра, с userinfo или без .git — своё правило на bare),
+# любой транспорт, кроме локального file, запрещён самим git (protocol.allow=never).
+# След: каждая команда — строка в <мир>/log/calls (argv через %q) и
+# снимок окружения в <мир>/log/env.git.<n>.
 set -uo pipefail
-REAL="${P124_REAL_GIT:?P124_REAL_GIT не задан}"
-W="${P124_WORLD:?P124_WORLD не задан}"
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+[ -f "$W/real_git" ] || { printf 'двойник 124: мир не найден (нет %s/real_git)\n' "$W" >&2; exit 97; }
+REAL="$(cat "$W/real_git")"
 HERE="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 mkdir -p "$W/log"
 n="$(ls "$W/log" 2>/dev/null | wc -l)"
@@ -60,7 +71,7 @@ find_bare() {  # $1 владелец, $2 имя без .git → путь bare и
 }
 helper_ok() {
   local v
-  [ "${P124_GH_AUTH:-1}" != "0" ] || return 1
+  [ ! -e "$W/knob/gh_bez_vhoda" ] || return 1
   command -v gh >/dev/null 2>&1 || return 1
   while IFS= read -r v; do
     case "$v" in
@@ -74,7 +85,7 @@ helper_ok() {
 }
 
 if [ "$net" = "1" ]; then
-  out=( )
+  map=( -c "url.$W/remotes/.insteadOf=https://github.com/" )
   for a in "${args[@]}"; do
     if [[ "$a" =~ ^(ssh://)?git@github\.com[:/] ]]; then
       printf 'ERROR: Repository not found.\nfatal: Could not read from remote repository.\n' >&2
@@ -89,17 +100,15 @@ if [ "$net" = "1" ]; then
         printf "fatal: Authentication failed for 'https://github.com/%s/%s.git/'\n" "$o" "$r" >&2
         exit 128
       fi
-      out+=( "$bare" )
+      [ "$a" = "https://github.com/${bare#"$W"/remotes/}" ] || map+=( -c "url.$bare.insteadOf=$a" )
     elif [[ "$a" =~ ^https?:// ]]; then
       printf "fatal: unable to access '%s': Could not resolve host (двойник: сеть запрещена)\n" "$a" >&2
       exit 128
-    else
-      out+=( "$a" )
     fi
   done
-  if [ "$sub" = "push" ] && [ "${P124_DRIFT_ON_PUSH:-0}" = "1" ]; then
+  if [ "$sub" = "push" ] && [ -e "$W/knob/drejf_head" ]; then
     "$REAL" "${pre[@]}" commit -q --allow-empty -m 'дрейф HEAD (двойник 124)' >/dev/null 2>&1
   fi
-  exec "$REAL" "${out[@]}"
+  exec "$REAL" "${map[@]}" -c protocol.allow=never -c protocol.file.allow=always "$@"
 fi
 exec "$REAL" "$@"

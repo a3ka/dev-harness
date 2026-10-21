@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # gh-ДВОЙНИК батареи 124 (контракт 124, push-produkta). Сеть запрещена.
-# Состояние PR мира — $P124_WORLD/gh/prs.tsv: repo<TAB>number<TAB>head<TAB>base<TAB>state<TAB>title
+# Мир двойник находит САМ — по пути вызова <мир>/bin/gh (настоящий git — путь
+# из <мир>/real_git; вход gh снят, если есть <мир>/knob/gh_bez_vhoda): окружение
+# двери не несёт ни одной переменной P124_* (клетка т27).
+# Состояние PR мира — <мир>/gh/prs.tsv: repo<TAB>number<TAB>head<TAB>base<TAB>state<TAB>title
 # (repo — `<владелец>/<имя>` как в мире; TAB/LF в полях не бывает — двойник
 # отказывает заголовку с управляющими байтами так же, как отказал бы
 # сохранить их в TSV, см. ниже). Интерфейс — подмножество gh 2.45:
-#   gh auth status [--hostname github.com]         rc 0 | rc 1 (P124_GH_AUTH=0)
+#   gh auth status [--hostname github.com]         rc 0 | rc 1 (<мир>/knob/gh_bez_vhoda)
 #   gh auth token                                  печатает токен-канарейку
 #   gh auth git-credential get                     протокол хелпера git
 #   gh pr list  -R|--repo <o/r> [--head|-H b] [--base|-B b] [--state|-s open|closed|merged|all]
@@ -15,8 +18,9 @@
 # удалённом репозитории → rc 1 «Head sha can't be blank». Вызов вне
 # интерфейса (в т.ч. без --repo) → rc 97 «двойник 124: вызов вне интерфейса».
 set -uo pipefail
-W="${P124_WORLD:?P124_WORLD не задан}"
-REAL_GIT="${P124_REAL_GIT:?P124_REAL_GIT не задан}"
+W="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+[ -f "$W/real_git" ] || { printf 'двойник 124: мир не найден (нет %s/real_git)\n' "$W" >&2; exit 97; }
+REAL_GIT="$(cat "$W/real_git")"
 HERE="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 mkdir -p "$W/log" "$W/gh"
 touch "$W/gh/prs.tsv"
@@ -25,7 +29,7 @@ n="$(ls "$W/log" 2>/dev/null | wc -l)"
 env > "$W/log/env.gh.$n"
 TOKEN="$(cat "$HERE/kanarejka.txt")"
 vne() { printf 'двойник 124: вызов вне интерфейса: %s\n' "$*" >&2; exit 97; }
-authed() { [ "${P124_GH_AUTH:-1}" != "0" ]; }
+authed() { [ ! -e "$W/knob/gh_bez_vhoda" ]; }
 lc() { printf '%s' "$1" | LC_ALL=C tr 'A-Z' 'a-z'; }
 canon_repo() {  # $1 o/r → o/r как в мире (регистр мира) или пусто
   local want d o r
