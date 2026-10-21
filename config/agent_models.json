@@ -88,6 +88,7 @@
     "architect": "slow",
     "implementer": "task",
     "implementer-glm": "task-glm",
+    "implementer-vision": "vision",
     "adversary": "advisor",
     "critic": "apex",
     "reviewer": "audit",
