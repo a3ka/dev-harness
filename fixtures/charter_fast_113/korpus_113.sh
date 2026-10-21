@@ -19,6 +19,16 @@
 #                 БОКОВОЙ линии (тег не предок кеша) влита merge -s ours (пустая
 #                 дельта к первому родителю): per-document окно since..HEAD включает
 #                 коммит-кеш, глобальное cache..HEAD — теряет (обход круга 2 критика)
+#   d10_novoe_imja  свежее уставное имя из nonce РАННЕРА (KORPUS113_NONCE; литера-
+#                 ла нет ни в одной клетке — «зашитая константа» не может его знать;
+#                 вердикт адверсария круг 1): документ добавлен и заморожен В КОРПУСЕ,
+#                 затем правка БЕЗ строки; плюс законная правка AGENTS.md СО строкой
+#   d12_sha256_*    семья sha256-репозиториев (находка Б-3 ревьюера круг 1:
+#                 жёсткий фильтр «40 hex» отбрасывал в --object-format=sha256
+#                 ВСЕ совпадения → тихий rc 0 при живом нарушении):
+#                 narushenie — правка замороженного плана БЕЗ строки (обе
+#                 стороны обязаны дать rc 1 и то же множество FAIL), zakonno —
+#                 законная правка AGENTS.md СО строкой (rc 0 у обеих сторон)
 set -euo pipefail
 
 BASEROOT() {  # <каталог> — общее основание: AGENTS+ROADMAP+план, черновик, заморозка, ustav
@@ -27,7 +37,11 @@ BASEROOT() {  # <каталог> — общее основание: AGENTS+ROADM
   printf '# норма системы\nправило 1: правило без механизма не существует\n' > "$r/AGENTS.md"
   printf '# роадмап\nшаг 5 сделан\n'                                        > "$r/ROADMAP.md"
   printf 'предмет плана, критерий готовности, исполнители\n'                > "$r/plans/001-p.md"
-  _git "$r" init -q -b main
+  if [ -n "${KORPUS113_OBJFORMAT:-}" ]; then   # sha256-семья d12 (Б-3 ревьюера)
+    _git "$r" init -q -b main --object-format="$KORPUS113_OBJFORMAT"
+  else
+    _git "$r" init -q -b main
+  fi
   _git "$r" config user.name Фикстура113
   _git "$r" config user.email fixture113@local
   _git "$r" config commit.gpgsign false
@@ -59,6 +73,19 @@ _filler() {  # <каталог> <n> — наполнятель истории: �
 }
 
 BARRIER113="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/scripts/check_charter.sh"
+# Единственный источник свежего имени d10: раннер логирует (вызов --imja), корпус
+# строит (KORPUS113_NONCE), обманный стаб s11 его не знает — в этом и предмет клетки.
+_novoe_imja() {  # <nonce> → contracts/<NNN>-novoe-imja-<slug>.md; NNN — ровно три цифры
+  local h nnn
+  h="$(printf '%s' "$1" | sha256sum)"; h="${h%% *}"
+  nnn=$(( (0x${h:0:4}) % 900 + 100 ))
+  printf 'contracts/%s-novoe-imja-%s.md' "$nnn" "${h:4:10}"
+}
+case "${1:-}" in
+  --imja)  # korpus_113.sh --imja <nonce> → печать имени для лога раннера
+    [ -n "${2:-}" ] || { printf 'ОТКАЗ: --imja требует nonce\n' >&2; exit 2; }
+    _novoe_imja "$2"; exit 0 ;;
+esac
 
 SCRATCH="$1"; IMJA="$2"
 mkdir -p "$SCRATCH"
@@ -175,6 +202,39 @@ case "$IMJA" in
     # вливание пустой дельтой к первому родителю: merge сам по себе невидим
     # для --diff-merges=first-parent, тег становится предком HEAD
     _git "$R" merge --no-ff -s ours --no-edit -q freeze-side
+    ;;
+  d10_novoe_imja)
+    # НОВОЕ уставное имя (вердикт адверсария круг 1: зашитая константа пропускала
+    # contracts/777-secret.md, батарея не имела клетки со свежим именем). Законная
+    # правка AGENTS.md СО строкой: на дереве, где оракул теряет тела разрешений
+    # (unbound __CH_BODY_CACHE, тот же дефект, что красит d2/d7), оракул даёт по
+    # ней ЛОЖНЫЙ FAIL — клетка красна на дефектном HEAD названной причиной.
+    [ -n "${KORPUS113_NONCE:-}" ] || { printf 'ОТКАЗ: d10 требует KORPUS113_NONCE (имя генерирует раннер)\n' >&2; exit 2; }
+    BASEROOT "$R"
+    printf 'после устава, законная правка клетки d10\n' >> "$R/AGENTS.md"
+    printf 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md законная правка для клетки d10\n' | _commit_body "$R"
+    _novyj="$(_novoe_imja "$KORPUS113_NONCE")"
+    printf 'предмет свежего уставного документа d10\n' > "$R/$_novyj"
+    _commit_all "$R" 'добавление свежего уставного документа (черновик — добавление свободно)'
+    _git "$R" tag -a "frozen/$(dirname "$_novyj")/$(basename "${_novyj%%-*}")/1" -m 'свежий документ заморожен'
+    printf 'незаконная правка свежего замороженного документа\n' >> "$R/$_novyj"
+    _commit_all "$R" 'правка свежего замороженного документа без строки'
+    printf 'NOVOE_IMJA=%s\n' "$_novyj"
+    ;;
+  d12_sha256_narushenie)
+    # живое нарушение в sha256-репозитории: быстрая сторона с фильтром
+    # «жёсткие 40 hex» (Б-3 ревьюера круг 1) отбрасывает все 64-hex совпадения
+    KORPUS113_OBJFORMAT=sha256
+    BASEROOT "$R"
+    printf 'нарушение в sha256-репозитории\n' >> "$R/plans/001-p.md"
+    _commit_all "$R" 'sha256: правка замороженного плана без строки'
+    ;;
+  d12_sha256_zakonno)
+    # законная правка в sha256-репозитории: СО строкой, rc 0 у обеих сторон
+    KORPUS113_OBJFORMAT=sha256
+    BASEROOT "$R"
+    printf 'после устава, законная правка клетки d12\n' >> "$R/AGENTS.md"
+    printf 'РАЗРЕШИЛ-ВЛАДЕЛЕЦ: AGENTS.md законная правка для клетки d12\n' | _commit_body "$R"
     ;;
   *)
     printf 'ОТКАЗ: неизвестный корпус: %s\n' "$IMJA" >&2; exit 2 ;;

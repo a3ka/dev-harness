@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+# oracle-probe-bin/git — ПРОБ-ОБЁРТКА РЕЖИМА (клетка Д/d11 и поимка стаба s12
+# батареи 113; вердикт адверсария круг 1: нейтрализация «--oracle) ORACLE=0»
+# проходила батарею 22/0). Контракт 113 §Батарея сам определяет наблюдаемое
+# различие режимов — форму ПЕРВОГО чтения истории (та же грамматика, что у
+# обёртки гонки gonka-bin/git): умолчание/быстрый путь — `log --name-only`,
+# полный обход — `rev-list <since>..HEAD` без --count. Обёртка ЗАПИСЫВАЕТ форму
+# первого чтения в файл ORACLE_PROBE и делегирует настоящему git через exec
+# ПОБАЙТОВО: stdout/stderr/rc не подделываются, коммитов и расписания НЕТ —
+# в отличие от обёртки гонки здесь наблюдается только форма первого чтения.
+import os, sys
+
+a = sys.argv[1:]
+try:
+    probe = os.environ['ORACLE_PROBE']
+    if not os.path.exists(probe):
+        if 'log' in a and '--name-only' in a:
+            open(probe, 'w').write('fast-pass\n')
+        elif 'rev-list' in a and any('..HEAD' in x for x in a) and '--count' not in a:
+            open(probe, 'w').write('full-traversal\n')
+except KeyError:
+    pass  # без ORACLE_PROBE обёртка прозрачна (не ломает случайный PATH)
+os.execv('/usr/bin/git', ['git', *a])

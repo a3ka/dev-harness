@@ -17,6 +17,10 @@
 #   ST113_SUDIM     судится ли (<since> <коммит>) для матча               — s6
 #   ST113_KESH      кеш сторонней линии (default: полный прогон)          — s7
 #   ST113_FINISH    запись кеша в конце (default: HEAD начала HEAD0)    — s10
+#   ST113_ORACLE     реакция на --oracle (default: делегировать барьеру)   — s12
+#   ST113_PAR_FILTER фильтр области пар после ls-tree+тегов (default: нет)  — s11
+#   ST113_SHA_DLINA фильтр длины SHA матча быстрого пути (default: НЕТ — маркер
+#                   \x01 однозначен; простая форма Б-3 ревьюера круг 1)    — s13
 #
 # Интерфейс — как у предмета:  [стаб] [--incr <кеш>] <корень>;  [стаб] --oracle <корень>
 # делегирует честному барьеру (RED113_REAL_CHARTER). Грамматика razreshil/is_charter_path
@@ -36,7 +40,14 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
-[ "$_ORACLE" -eq 1 ] && exec bash "$RED113_REAL_CHARTER" "${_args[@]}"
+if [ "$_ORACLE" -eq 1 ] && [ "${ST113_ORACLE:-}" != "ignore" ]; then
+  # Точка лжи ST113_ORACLE (s12 «нейтрализация --oracle», вердикт адверсария круг 1:
+  # `--oracle) ORACLE=0` проходила батарею 22/0): default — флаг ЧЕСТНО делегирует
+  # реальному барьеру полный обход; «ignore» — флаг разбирается, но не действует.
+  # Флаг ПЕРЕДАЁТСЯ дословно (Б-3, контроль d12/s13: без него «честная сторона»
+  # поимки — быстрый путь субъекта — сама слепа на дефектной модели с той же ложью).
+  exec bash "$RED113_REAL_CHARTER" --oracle "${_args[@]}"
+fi
 
 ROOT="$(cd "${_args[0]:-.}" && pwd)" || exit 125
 fails=0; docs=0; changes=0; excused=0
@@ -61,6 +72,10 @@ st113_log_args_default()  { :; }
 st113_merge_default()     { printf '%s\n' --diff-merges=first-parent; }
 st113_filter_default()    { printf '%s\n' --diff-filter=MD; }
 st113_renames_default()   { printf '%s\n' --no-renames; }
+# честный матч НЕ фильтрует SHA по длине: маркер \x01 однозначен (простая форма
+# Б-3 ревьюера круг 1). Точка лжи s13 — «жёсткие 40 hex»: в sha256-репозитории
+# все совпадения 64 hex отбрасываются молча.
+st113_sha_dlina_default() { printf '%s\n' "$1"; }
 st113_kesh_default()      { INCR_WINDOW=""; }        # (в′): не-предок → полный прогон
 st113_sudim_default() {  # <since> <коммит> → 0: судится. c ∈ since..HEAD ⟺ c достижим из
   # HEAD и НЕ является предком-или-самим since — направление аргументов проверено
@@ -99,6 +114,12 @@ while IFS= read -r f; do
   git -C "$ROOT" rev-parse --verify --quiet "refs/tags/frozen/$dir/$NNN/1" >/dev/null || continue
   printf '%s\t%s\n' "$f" "frozen/$dir/$NNN/1" >> "$TMP/pairs"
 done < "$TMP/docs"
+
+# Точка лжи ST113_PAR_FILTER (s11 «зашитая константа», вердикт адверсария круг 1:
+# пропуск contracts/777-secret.md в быстром пути): default — область устава
+# выводится из ls-tree+тегов и НЕ фильтруется; ложь — оставить только зашитый
+# перечень известных батарее имён (вырожденный случай — skip чужого имени).
+"${ST113_PAR_FILTER:-true}"
 # ── кеш: ветвь (в′) — через точку лжи ST113_KESH ─────────────────────────────
 INCR_WINDOW=""
 if [ -n "$INCR_CACHE" ] && [ -f "$INCR_CACHE" ]; then
@@ -133,7 +154,7 @@ st113_obhod_odin_prohod() {
   local c="" line p since
   while IFS= read -r line; do
     case "$line" in
-      $'\x01'*) c="${line#$'\x01'}" ;;
+      $'\x01'*) c="$("${ST113_SHA_DLINA:-st113_sha_dlina_default}" "${line#$'\x01'}")" ;;
       "") ;;
       *)
         [ -n "$c" ] || continue
