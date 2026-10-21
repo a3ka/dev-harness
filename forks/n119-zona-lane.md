@@ -5,4 +5,4 @@
 МАРШРУТ: консультант
 ЗАВЕДЁН: 2026-10-21T05:05:00Z
 БЛОКИРУЕТ: да
-ОТВЕЧЕНО: нет
+ОТВЕЧЕНО: да — консультант 2026-10-21 04:25 UTC: (А) 119 v2 — ЗОНА implementer += tests/spec-3.14/validate_contract_v3_9.py, app/schemas/openapi.json, app/schemas/source.json (только пересборка gen-contracts.js); R-4 package_version остаётся 3.14.2.2 до 120/M1 + строка остаточного риска в v2; РАЗРЕШИЛ дословно — /tmp/dev-harness-verify/orch/commitmsg-119-v2.txt; merge в Complior-back атомарный одним PR (обе lane зелёные ДО merge)
