@@ -22,6 +22,13 @@
 #   s11 мера «писатель-по-режиму» — честный TSV; побочный ФАЙЛ registry/
 #                                  measure-debug.log ТОЛЬКО в сетевом вызове
 #                                  ИЛИ при явном --out (арбитраж 114, П3).
+#   s12 мера «хвост-вместо-медианы» — вес = ceil(медиана ПОСЛЕДНИХ min-obs
+#                                  наблюдений списка сбора); при порядке API
+#                                  «свежие первыми» это СТАРЕЙШИЕ (круг 3,
+#                                  Rev114 Б1: check:charter 61 вместо 21);
+#   s13 мера «gh-отсутствует-traceback» — отсутствие gh в PATH не
+#                                  перехвачено: traceback rc 1 вместо
+#                                  именованного rc 2 (круг 3, Adv114 №2).
 import math
 import os
 import statistics
@@ -121,8 +128,54 @@ def _side_write_file(root):
     with open(path, 'w', encoding='utf-8') as f:
         f.write('network measurement complete\n')
 
+def _net_tail_median(root, out_path, min_obs, okno, repo, runs):
+    """s12: хвост-вместо-медианы (круг 3, Rev114 Б1) — сетевая ветвь берёт
+    ceil(медиана ПОСЛЕДНИХ min-obs наблюдений списка сбора); при порядке API
+    «свежие первыми» хвост = СТАРЕЙШИЕ наблюдения окна. Корпус честен."""
+    reg = V.read_registry(root)
+    obs, okno2 = V.fetch_network(repo, runs)
+    malo, rows = [], {}
+    for k, _w in reg:
+        o = obs.get(k) or []
+        if len(o) < min_obs:
+            malo.append('%s (%d < %d)' % (k, len(o), min_obs))
+            continue
+        lastn = o[-min_obs:]
+        rows[k] = (int(math.ceil(statistics.median(lastn))), len(lastn))
+    if malo:
+        V.die('мало данных: %s' % '; '.join(sorted(malo)), 2)
+    if out_path is None:
+        out_path = os.path.join(root, 'registry', 'ci-zamery.tsv')
+    tmp = out_path + '.tmp114k'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write('# registry/ci-zamery.tsv — замеры весов CI (контракт 114)\n')
+        for k in sorted(rows):
+            f.write('%s\t%d\t%d\t%s\n' % (k, rows[k][0], rows[k][1], okno2))
+    os.replace(tmp, out_path)
+    print('ok: замеры записаны: %d ключей, окно %s' % (len(rows), okno2))
+    return 0
+
+
+def _nogh_traceback(root, out_path, min_obs, okno, repo, runs):
+    """s13: gh-отсутствует-traceback (круг 3, Adv114 №2) — subprocess.run
+    без перехвата FileNotFoundError: python умирает traceback'ом rc 1
+    вместо именованного rc 2 (дефект Adv114 №2 живой реализации)."""
+    def _raw_gh_api(path):
+        p = V.subprocess.run(['gh', 'api', path], capture_output=True,
+                             text=True)
+        if p.returncode != 0:
+            V.die('gh api отказ (%d): %s: %s'
+                  % (p.returncode, path, p.stderr.strip()), 2)
+        return p.stdout
+    V.gh_api = _raw_gh_api
+    return V.measure(root, None, out_path, min_obs, okno, repo, runs)
+
 
 def _lie_measure(root, logs_dir, out_path, min_obs, okno, repo=None, runs=20):
+    if LIE == 's12' and logs_dir is None:
+        return _net_tail_median(root, out_path, min_obs, okno, repo, runs)
+    if LIE == 's13' and logs_dir is None:
+        return _nogh_traceback(root, out_path, min_obs, okno, repo, runs)
     if LIE == 's9' and logs_dir is None:
         # сеть-без-источника: TSV фабрикуется из весов реестра, gh не вызывается
         reg = V.read_registry(root)
@@ -153,7 +206,12 @@ def _lie_measure(root, logs_dir, out_path, min_obs, okno, repo=None, runs=20):
             V.die('мало данных: %s (%d < %d)' % (k, len(o), min_obs), 2)
         if not o:
             continue
-        lastn = o[-min_obs:] if len(o) >= min_obs else o
+        # честная модель (круг 3): медиана ВСЕХ наблюдений окна; s12 — ложь
+        # хвоста (последние min-obs списка) в обеих ветвях
+        if LIE == 's12':
+            lastn = o[-min_obs:] if len(o) >= min_obs else o
+        else:
+            lastn = o
         if LIE == 's5':
             ves = max(lastn)
         elif LIE == 's6':
