@@ -621,8 +621,59 @@ c_z4() {
   local W; W=$(new_world)
   run_case z4-predposylki-nevaliden 1 'predposylki-nevaliden: - password Sekret' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-nevalid.md"
 }
+c_z6() { # --freeze, контракт объявляет ТОЛЬКО variable (secret нет — отказ на secret не может
+  # сработать раньше ветви variable, ср. z2): фикстурный `gh variable list` успешен (rc 0,
+  # инвентарь — NPM_TOKEN), объявленного имени в нём нет — отказ обязан назвать переменную
+  local W; W=$(new_world)
+  cat > "$W/contracts/kontrakt-tolko-variable.md" <<'K'
+# Той-контракт, объявляющий ТОЛЬКО variable
+ЗОНА implementer: .github/workflows/ci.yml
+ПРЕДПОСЫЛКИ:
+- variable ONLY_VARIABLE
+K
+  run_case z6-variable-ne-zavedena 1 'sekrety-ne-zavedeny: ONLY_VARIABLE' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-variable.md" --freeze
+}
+# Таблица 2×2 ветвей --freeze {secret, variable} × {успешный инвентарь без имени, gh rc≠0}:
+# variable×инвентарь — z6, secret×инвентарь — z7, secret×gh — z8, variable×gh — z9. Каждый мир
+# объявляет ТОЛЬКО один вид: отказ другой ветви не может наступить и замаскировать свою (ср. z2, z3).
+tolko_vid() { # $1 мир $2 secret|variable $3 имя — контракт с CI-путём, объявляющий ровно один пункт
+  printf '# Той-контракт, объявляющий ТОЛЬКО %s\nЗОНА implementer: .github/workflows/ci.yml\nПРЕДПОСЫЛКИ:\n- %s %s\n' \
+    "$2" "$2" "$3" > "$1/contracts/kontrakt-tolko-$2.md"
+}
+gh_slomannyj_vid() { # $1 мир $2 сломанный вид $3 имя — `gh <$2> list`: инвентарь С именем на stdout
+  # и rc 127 (сломан — судит rc, не вывод); `gh <другой вид> list`: rc 0, инвентарь с тем же именем
+  # (сверка не тем видом зелена); прочие запросы — rc 7
+  cat > "$1/bin/gh" <<GH
+#!/usr/bin/env bash
+case "\$1" in
+  $2) printf '%s\t2026-10-21T00:00:00Z\n' '$3'; exit 127 ;;
+  secret|variable) printf '%s\t2026-10-21T00:00:00Z\n' '$3' ;;
+  *) printf 'gh-fixtura: neponjatnyj zapros\n' >&2; exit 7 ;;
+esac
+GH
+  chmod +x "$1/bin/gh"
+}
+c_z7() { # --freeze, ТОЛЬКО secret: `gh secret list` успешен (инвентарь PILOT_DEMO_CODE, DRUGOJ),
+  # имени нет; имя заведено как variable — сверка не тем видом дала бы rc 0
+  local W; W=$(new_world)
+  tolko_vid "$W" secret ONLY_SECRET
+  printf 'variable ONLY_SECRET\n' >> "$W/gh.tsv"
+  run_case z7-secret-ne-zaveden 1 'sekrety-ne-zavedeny: ONLY_SECRET' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-secret.md" --freeze
+}
+c_z8() { # --freeze, ТОЛЬКО secret: `gh secret list` rc 127
+  local W; W=$(new_world)
+  tolko_vid "$W" secret ONLY_SECRET
+  gh_slomannyj_vid "$W" secret ONLY_SECRET
+  run_case z8-secret-gh-oshibka 1 'gh-nedostupen' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-secret.md" --freeze
+}
+c_z9() { # --freeze, ТОЛЬКО variable: `gh variable list` rc 127 (обход Adv122c)
+  local W; W=$(new_world)
+  tolko_vid "$W" variable ONLY_VARIABLE
+  gh_slomannyj_vid "$W" variable ONLY_VARIABLE
+  run_case z9-variable-gh-oshibka 1 'gh-nedostupen' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-tolko-variable.md" --freeze
+}
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4 z6 z7 z8 z9"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;

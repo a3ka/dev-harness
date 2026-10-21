@@ -5,7 +5,8 @@
 # обязан нести поле ПРЕДПОСЫЛКИ: (до первой пустой строки) с пунктами замкнутой грамматики:
 #   - secret NAME | - variable NAME | - environment NAME | - setting <текст>
 # --freeze: каждый secret/variable обязан существовать в репозитории (gh … list -R <origin>);
-# недоступный/сломанный gh — отказ gh-nedostupen (fail-closed), не молчаливое зелёное.
+# недоступный/сломанный gh (нет в PATH либо `gh <вид> list` с rc≠0 — что бы ни напечатал) — отказ
+# gh-nedostupen (fail-closed), не молчаливое зелёное; ветвь secret и ветвь variable — свои маркеры.
 set -u
 R=; C=; FREEZE=0
 while [ $# -gt 0 ]; do
@@ -49,9 +50,16 @@ EOF
 if [ "$FREEZE" = 1 ] && [ $((NSE + NVA)) -gt 0 ]; then
   REMOTE=$(git -C "$R" remote get-url origin 2>/dev/null) || REMOTE=""
   command -v gh >/dev/null 2>&1 || { printf 'predposylki ОТКАЗ: gh-nedostupen\n' >&2; exit 1; }
+  gh_nedostupen() { # $1=secret|variable $2=rc gh — ненулевой rc gh есть отказ, что бы он ни напечатал
+    printf 'predposylki ОТКАЗ: gh-nedostupen: gh %s list rc=%s\n' "$1" "$2" >&2
+    exit 1
+  }
   check_kind() { # $1=secret|variable $2=NAME
     local out
-    out=$(gh "$1" list -R "$REMOTE" 2>/dev/null) || { printf 'predposylki ОТКАЗ: gh-nedostupen\n' >&2; exit 1; }
+    case "$1" in
+      secret)   out=$(gh secret list -R "$REMOTE" 2>/dev/null) || gh_nedostupen secret $? ;;      # МУТАЦИЯ-122:freeze-gh-secret
+      variable) out=$(gh variable list -R "$REMOTE" 2>/dev/null) || gh_nedostupen variable $? ;;  # МУТАЦИЯ-122:freeze-gh-variable
+    esac
     printf '%s\n' "$out" | awk -v n="$2" '$1==n{ok=1} END{exit !ok}' || {
       printf 'predposylki ОТКАЗ: sekrety-ne-zavedeny: %s\n' "$2" >&2
       exit 1
@@ -60,7 +68,7 @@ if [ "$FREEZE" = 1 ] && [ $((NSE + NVA)) -gt 0 ]; then
   while IFS= read -r line; do
     case "$line" in
       '- secret '*)    check_kind secret "${line#- secret }" ;;
-      '- variable '*)  check_kind variable "${line#- variable }" ;;
+      '- variable '*)  check_kind variable "${line#- variable }" ;;  # МУТАЦИЯ-122:freeze-variable
     esac
   done <<EOF
 $FIELD
