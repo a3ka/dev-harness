@@ -99,6 +99,10 @@ step	check:provodka-external-994	8	bash fixtures/check_provodka/external_ci_994/
 # 33 обманки; замер v2e `time` полного прогона: 12.8 с на живом дереве
 # ветки, шкала веса та же что v2d: 2.8 с → 7). Команда — литерал battery.
 step	check:podkljuchenie-112-family-selftest	41	bash fixtures/workshop_project/podklyuchenie_112/red_podkljuchenie_112.sh
+# КОНТРАКТ 114: батарея весов lane CI (40 клеток; красная на мере «старейшие 5»/float/n) — подключение
+# оркестратором интеграционным коммитом (слово консультанта 01:15); вес 0 до первого замера окна
+# (локальный замер полного прогона 2.4 с). Команда — литерал батареи.
+step	check:vesa-114-family-selftest	0	bash fixtures/_krasnye_114.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
