@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# git-ДВОЙНИК батареи 124 (контракт 124, push-produkta). Сеть запрещена:
+# сетевые адреса GitHub отображаются на локальные bare-репозитории мира
+# $P124_WORLD/remotes/<владелец>/<имя>.git; всё прочее — настоящий git
+# ($P124_REAL_GIT) без изменений.
+#
+# Поведение — эмуляция станции (замер оркестратора 2026-10-21):
+#   - ssh-адреса GitHub (ssh://git@github.com/…, git@github.com:…) →
+#     «Repository not found», rc 128 (ssh-ключ станции не видит Complior-*);
+#   - https://github.com/<o>/<r>(.git) без авторизации → «Authentication
+#     failed», rc 128. Авторизация есть, если (а) пароль userinfo адреса равен
+#     токену gh (kanarejka.txt) — так GitHub принимает токен в URL, либо
+#     (б) действующий credential-хелпер вызова — `!gh auth git-credential`
+#     (по `-c`/GIT_CONFIG_*/конфигу клона) и gh авторизован (P124_GH_AUTH≠0);
+#   - адрес, которого нет в мире, → «Repository not found», rc 128;
+#   - P124_DRIFT_ON_PUSH=1: перед исполнением push в клоне создаётся пустой
+#     коммит (дрейф HEAD между проверкой и пушем).
+# След: каждая команда — строка в $P124_WORLD/log/calls (argv через %q) и
+# снимок окружения в $P124_WORLD/log/env.git.<n>.
+set -uo pipefail
+REAL="${P124_REAL_GIT:?P124_REAL_GIT не задан}"
+W="${P124_WORLD:?P124_WORLD не задан}"
+HERE="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+mkdir -p "$W/log"
+n="$(ls "$W/log" 2>/dev/null | wc -l)"
+{ printf 'git'; printf '\t%q' "$@"; printf '\n'; } >> "$W/log/calls"
+env > "$W/log/env.git.$n"
+
+# Глобальные опции до подкоманды (их же отдаём `config`-запросу хелпера).
+pre=()
+args=( "$@" )
+i=0
+while [ "$i" -lt "${#args[@]}" ]; do
+  a="${args[$i]}"
+  case "$a" in
+    -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--config-env)
+      pre+=( "$a" "${args[$((i+1))]:-}" ); i=$((i+2)) ;;
+    --*=*|--bare|--no-pager|--paginate|--no-replace-objects|--literal-pathspecs|--no-optional-locks|-p|-P)
+      pre+=( "$a" ); i=$((i+1)) ;;
+    *) break ;;
+  esac
+done
+sub="${args[$i]:-}"
+case "$sub" in
+  push|fetch|pull|ls-remote|clone|remote|archive) net=1 ;;
+  *) net=0 ;;
+esac
+
+TOKEN="$(cat "$HERE/kanarejka.txt")"
+lc() { printf '%s' "$1" | LC_ALL=C tr 'A-Z' 'a-z'; }
+find_bare() {  # $1 владелец, $2 имя без .git → путь bare или пусто
+  local want d o r
+  want="$(lc "$1/$2")"
+  for d in "$W"/remotes/*/*.git; do
+    [ -d "$d" ] || continue
+    o="$(basename "$(dirname "$d")")"; r="$(basename "$d" .git)"
+    if [ "$(lc "$o/$r")" = "$want" ]; then printf '%s' "$d"; return 0; fi
+  done
+  return 1
+}
+helper_ok() {
+  local v
+  [ "${P124_GH_AUTH:-1}" != "0" ] || return 1
+  command -v gh >/dev/null 2>&1 || return 1
+  while IFS= read -r v; do
+    case "$v" in
+      '!gh auth git-credential'|'!'*'/gh auth git-credential') return 0 ;;
+    esac
+  done < <(
+    "$REAL" "${pre[@]}" config --get-all credential.helper 2>/dev/null
+    "$REAL" "${pre[@]}" config --get-all credential.https://github.com.helper 2>/dev/null
+  )
+  return 1
+}
+
+if [ "$net" = "1" ]; then
+  out=( )
+  for a in "${args[@]}"; do
+    if [[ "$a" =~ ^(ssh://)?git@github\.com[:/] ]]; then
+      printf 'ERROR: Repository not found.\nfatal: Could not read from remote repository.\n' >&2
+      exit 128
+    elif [[ "$a" =~ ^https://(([^/@:]*)(:([^/@]*))?@)?github\.com/([^/]+)/([^/]+)$ ]]; then
+      pass="${BASH_REMATCH[4]}"; o="${BASH_REMATCH[5]}"; r="${BASH_REMATCH[6]%.git}"
+      bare="$(find_bare "$o" "$r")" || {
+        printf "remote: Repository not found.\nfatal: repository '%s' not found\n" "https://github.com/$o/$r.git" >&2
+        exit 128
+      }
+      if [ "$pass" != "$TOKEN" ] && ! helper_ok; then
+        printf "fatal: Authentication failed for 'https://github.com/%s/%s.git/'\n" "$o" "$r" >&2
+        exit 128
+      fi
+      out+=( "$bare" )
+    elif [[ "$a" =~ ^https?:// ]]; then
+      printf "fatal: unable to access '%s': Could not resolve host (двойник: сеть запрещена)\n" "$a" >&2
+      exit 128
+    else
+      out+=( "$a" )
+    fi
+  done
+  if [ "$sub" = "push" ] && [ "${P124_DRIFT_ON_PUSH:-0}" = "1" ]; then
+    "$REAL" "${pre[@]}" commit -q --allow-empty -m 'дрейф HEAD (двойник 124)' >/dev/null 2>&1
+  fi
+  exec "$REAL" "${out[@]}"
+fi
+exec "$REAL" "$@"
