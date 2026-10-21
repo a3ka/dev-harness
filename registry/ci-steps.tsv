@@ -130,11 +130,6 @@ step	check:import315-119-family-selftest	0	bash fixtures/workshop_project/import
 # интеграционным коммитом (§Порядок п.2(а), §Проводка-ЭНФОРСМЕНТ); вес 0 до первого замера окна
 # (локальный замер --model 2.35 с, 37/37). Команда — литерал контракта 122.
 step	check:ci-proekta-122-family-selftest	0	bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model
-# КОНТРАКТ 127: красная батарея back-http-chislo (режим --model: 21 мир, честные модели; самодостаточен —
-# замер 2026-10-21 в чистом клоне без npm-дерева: «миров 21, сошлось 21, расхождений 0», rc 0, ~110 с) —
-# подключение интеграционным коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 127: решение о проводке — оркестратор);
-# вес 0 до первого замера окна (контракт 114). Команда — литерал батареи.
-step	check:http-chislo-127-family-selftest	0	bash fixtures/workshop_project/http_chislo_127/red_http_chislo_127.sh --model
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
