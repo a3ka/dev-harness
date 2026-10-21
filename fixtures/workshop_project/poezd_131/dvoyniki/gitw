@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Двойник scripts/gitw (контракт 131): журналирует argv одной строкой в $POEZD131_GITW_LOG и
+# исполняет настоящий git без предполёта (предполёт 071/087 судят их батареи, не эта).
+# POEZD131_GITW_RC=<n> — push отказан с этим кодом, получатель не тронут.
+set -uo pipefail
+printf '%s\n' "$*" >> "${POEZD131_GITW_LOG:?нет журнала двойника gitw}"
+if [ "${1:-}" = push ] && [ -n "${POEZD131_GITW_RC:-}" ]; then
+  printf 'gitw ПРЕДПОЛЁТ-ОТКАЗ: двойник: отказ rc=%s\n' "$POEZD131_GITW_RC" >&2
+  exit "$POEZD131_GITW_RC"
+fi
+exec git "$@"

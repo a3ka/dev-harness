@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Двойник curl (контракт 131): отвечает ТОЛЬКО на запрос артефактов тяжёлого прогона
+# `…/actions/artifacts?name=tyazhelyj-<H>&…` (форма ci_klass.sh dokaz, контракт 087)
+# из файла доказательств мира $POEZD131_DOKAZ (строки «<H64> <head_sha40>»).
+# POEZD131_API=down — API недоступен (curl rc 7). Сеть не трогается никогда.
+set -uo pipefail
+url="${*: -1}"
+printf '%s\n' "$url" >> "${POEZD131_CURL_LOG:-/dev/null}"
+if [ "${POEZD131_API:-}" = down ]; then
+  printf 'curl: (7) двойник: API недоступен\n' >&2
+  exit 7
+fi
+case "$url" in
+  *'/actions/artifacts?name=tyazhelyj-'*) ;;
+  *) printf 'curl-двойник: неизвестный URL %s\n' "$url" >&2; exit 22 ;;
+esac
+H="${url#*name=tyazhelyj-}"
+H="${H%%&*}"
+items=""
+while read -r h sha; do
+  [ "$h" = "$H" ] || continue
+  items="${items}${items:+,}{\"name\":\"tyazhelyj-${h}\",\"expired\":false,\"workflow_run\":{\"repository_id\":1,\"head_repository_id\":1,\"head_sha\":\"${sha}\"}}"
+done < "${POEZD131_DOKAZ:?нет файла доказательств мира}"
+printf '{"artifacts":[%s]}\n' "$items"
