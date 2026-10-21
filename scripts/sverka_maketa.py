@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Модель меры 123 (mob-sverka-maketa): сверка кадров e2e с PNG-макетом.
+"""Мера 123 (mob-sverka-maketa): сверка кадров e2e с PNG-макетом.
 
-Эталон поведения для батареи probe.py (--model); реализация предмета —
-scripts/sverka_maketa.py харнесса (ЗОНА implementer), тот же CLI и вывод.
+Это реализация предмета (ЗОНА implementer, scripts/sverka_maketa.py), не
+эталон: эталон поведения батареи — fixtures/workshop_project/mob_sverka_123/
+model/sverka_maketa.py (`probe.py --model`), тот же CLI и вывод. Определение
+меры — п. 1–8 ниже, дословно как у эталона; инвариант 7 судит числа, не
+байтовое равенство с ним.
 
 Мера кадра (параметры — source.json "mera", единый источник; элементы и
 маски — манифест H, поле кадра):
@@ -79,7 +82,26 @@ class Refusal(Exception):
 
 
 def decode_png(blob):
-    """PNG -> (w, h, nch, rows: list[bytes]); ValueError — неподдержанный/битый."""
+    """PNG -> (w, h, nch, rows: list[bytes]); ValueError — неподдержанный/битый.
+
+    Обрезанный, оборванный или иначе битый кадр не поднимает из разбора
+    struct.error / zlib.error / IndexError / EOFError наружу: любая такая
+    ошибка приходит как ValueError с токеном причины, и кадр судится
+    именованной причиной (KADR_NECHITAEM для кадра, инвариант 5), а
+    остальные кадры судятся дальше — не трейсбеком Python.
+    """
+    try:
+        return _parse_png(blob)
+    except ValueError:
+        raise
+    except Exception as e:  # noqa: BLE001 — любой обрыв разбора именован
+        cls = type(e)
+        tok = cls.__name__ if cls.__module__ == 'builtins' else f'{cls.__module__}.{cls.__name__}'
+        raise ValueError(tok) from None
+
+
+def _parse_png(blob):
+    """Разбор PNG чистым stdlib; ValueError с токеном — неподдержанный/битый."""
     if blob[:8] != b'\x89PNG\r\n\x1a\n':
         raise ValueError('signature')
     pos, idat, ihdr = 8, bytearray(), None
@@ -315,11 +337,14 @@ def process_frame(a, k, mera):
     except OSError:
         raise Refusal('MAKET_PODMENEN', k['id'], 'absent')
     check_pin(mblob, k)
-    mock = decode_png(mblob)
+    try:
+        mock = decode_png(mblob)
+    except ValueError as e:
+        raise Refusal('MANIFEST_NEVEREN', k['id'], str(e))
     fblob = open(find_frame(a.kadry, k), 'rb').read()
     try:
         frame = decode_png(fblob)
-    except (ValueError, zlib.error) as e:
+    except ValueError as e:
         raise Refusal('KADR_NECHITAEM', k['id'], str(e))
     score, worst = score_frame(frame, mock, k, mera)
     porog = float(k['porog'])
