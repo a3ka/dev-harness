@@ -119,3 +119,7 @@ git tag -l 'frozen/contracts/<NNN>/*'
 Норма-строка (ПРОВОДКА roles/implementer.md, заморожена 996/2):
 
 В режиме проекта рабочие артефакты читаются и пишутся только по project_workflow-контексту проекта: HANDOFF/NABLIUDENIA*/ROADMAP/forks — state проекта, контракты/вердикты/реестр — workflowPaths; установка харнесса и её origin не место записей проекта; номер резервируется reserve_project_contract на origin проекта, вердикт своей роли — под workflowPaths.verdicts.
+
+## Предполёт CI проекта (контракт 122)
+
+Перед сдачей работы, меняющей workflow проекта, прогоняю scripts/ci_preflight.sh --repo <одноразовая копия> до зелёного; зелёный предполёт — часть приёмки (слово владельца 2026-10-18).
