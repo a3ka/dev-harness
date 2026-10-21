@@ -673,6 +673,9 @@ printf 'TOOLS: %s\n' "$HARNESS_TOOLS_ROOT"
 # грузили `.env` через `set -a`, поэтому `ПЕРЕМЕННАЯ=значение npm run ...` молча не
 # действовала для всего, что объявлено в `.env`, и поведение объясняли чем угодно, кроме
 # настоящей причины.
+# Контракт 125: раскладка подключения — `.harness/.env`; корень проекта — наследие
+# подключённых до 125 (и миры фикстур). Сначала слой 125, корень лишь дополняет его.
+load_env "$PROJECT/.harness"
 load_env "$PROJECT"
 bootstrap_env
 load_github_token
@@ -686,6 +689,10 @@ load_github_token
 # Граница-7: ни одна ветка НЕ создаёт файлы за проект.
 ENV_FILE="$PROJECT/.env"
 PIN_FILE="$PROJECT/config/harness_pin.json"
+# 125: слой подключения `.harness/` читается ПРЕЖДЕ корневых путей — корень остаётся
+# путём наследия (проекты, подключённые до 125, и миры фикстур 054/055/058/105).
+[ -f "$PROJECT/.harness/.env" ] && ENV_FILE="$PROJECT/.harness/.env"
+[ -f "$PROJECT/.harness/harness_pin.json" ] && PIN_FILE="$PROJECT/.harness/harness_pin.json"
 if [ ! -f "$ENV_FILE" ]; then
   printf 'profile ОТКАЗ: нет .env проекта: %s. Инструкция: создайте .env в корне репо — METERING_PROXY_URL=<адрес прокси учёта проекта>\n' "$ENV_FILE" >&2
   exit 1
@@ -993,6 +1000,25 @@ printf 'STATE: %s\n' "$PSTATE"
 export METERING_PROJECT="$PROJECT_ID_VAL"
 export METERING_ROLE="$SESSION_ROLE"
 printf 'METERING: project=%s role=%s\n' "$PROJECT_ID_VAL" "$SESSION_ROLE"
+
+# ── 125 И-1: СЕВ несекретной конфигурации зоны dev в ОТДЕЛЬНЫЙ дом проекта ────
+# Сессия проекта = основная сессия + слой проекта: конфигурация (028 + 105) приходит
+# копией, побайтно, на КАЖДЫЙ старт — поэтому дрейфа между стартами не бывает.
+# Копия, а НЕ ссылка: ссылка (и жёсткая) отдала бы запись сессии проекта зоне dev.
+# Перечень закрыт: sessions/, history.db, blobs/, terminal-sessions/,
+# custom-session-files/ и секреты в проект не сеются — это живое состояние dev.
+# Файла нет в dev — нечего сеять. agent.db — симлинк W8 (058) шагом ниже, как прежде.
+SEV_SRC="$ZONE/.omp/profiles/$PROFILE/agent"
+SEV_DST="$PSTATE/home/.omp/profiles/$PROFILE/agent"
+mkdir -p -- "$SEV_DST" || die "каталог дома проекта не создался: $SEV_DST"
+for _sf in config.yml models.db skill-descriptions.db; do
+  [ -f "$SEV_SRC/$_sf" ] || continue
+  rm -f -- "$SEV_DST/$_sf"                                    # ссылка писала бы В ЗОНУ dev
+  cp -- "$SEV_SRC/$_sf" "$SEV_DST/.$_sf.sev" || die "сев $_sf из зоны dev не удался"
+  mv -f -- "$SEV_DST/.$_sf.sev" "$SEV_DST/$_sf" || die "сев $_sf из зоны dev не удался"
+done
+unset _sf
+printf 'SEV: %s\n' "$SEV_SRC"
 
 # ── М шаринг: симлинк PROJDB на дев-базу DEVDB (контракт 058, И-1) ─────────
 # Шаг между экспортами М1 055 и блоком М2 PID-лока. Стартовые $ZONE (формула
