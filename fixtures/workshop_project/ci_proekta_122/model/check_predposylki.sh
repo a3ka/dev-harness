@@ -60,7 +60,7 @@ if [ "$FREEZE" = 1 ] && [ $((NSE + NVA)) -gt 0 ]; then
   while IFS= read -r line; do
     case "$line" in
       '- secret '*)    check_kind secret "${line#- secret }" ;;
-      '- variable '*)  check_kind variable "${line#- variable }" ;;
+      '- variable '*)  check_kind variable "${line#- variable }" ;;  # МУТАЦИЯ-122:freeze-variable
     esac
   done <<EOF
 $FIELD
