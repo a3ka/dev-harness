@@ -1129,6 +1129,13 @@ def run_checks(repo: Path):
                         return True
                 return False
 
+            def id_asserted_before(mid, i_bound):
+                for j, st in enumerate(steps[:i_bound]):
+                    if isinstance(st, dict) and isinstance(st.get('assertVisible'), dict) \
+                            and st['assertVisible'].get('id') == mid:
+                        return True
+                return False
+
             def text_asserted_before(text, i_bound):
                 for j, st in enumerate(steps[:i_bound]):
                     if isinstance(st, dict) and isinstance(st.get('assertVisible'), dict) \
@@ -1150,11 +1157,16 @@ def run_checks(repo: Path):
                 and overlay_gone_between(i_splash, i_first)
                 and text_asserted_before(mq['first_run_promise'], i_first)
                 and text_asserted_before(mq['first_run_cta'], i_first)
+                # 117 v2: состав First-Run.png — wordmark и знак (id),
+                # подзаголовок и футер (литералы First-Run.html) до кадра.
+                and all(id_asserted_before(m, i_first) for m in mq['first_run_ids_v2'])
+                and text_asserted_before(mq['first_run_subline_v2'], i_first)
+                and text_asserted_before(mq['first_run_tagline_v2'], i_first)
             )
             if not ok_first:
                 print('RED MAESTRO_FIRST_RUN_ORDER: перед', mq['shot_first_run'],
                       'нет (notVisible splash-overlay после splash-кадра + assertVisible'
-                      ' обещания/CTA First-Run)')
+                      ' обещания/CTA First-Run; v2 — wordmark/знак/подзаголовок/футер)')
             check(ok_first, 'MAESTRO_FIRST_RUN_ORDER')
 
 
@@ -1472,6 +1484,13 @@ def matrix(repo: Path):
         ),
         # (Р3) состав First-Run перед кадром не утверждён текстами
         # каталога (обещание/CTA сняты).
+        # (117 v2) кадр First-Run снят без проверки состава PNG (wordmark,
+        # знак, подзаголовок, футер) — форма сценария C 58d60b8.
+        'maestro-first-run-no-composition': (
+            [(MAE, '- assertVisible:\n    id: first-run-wordmark\n'
+                   '- assertVisible:\n    id: first-run-sign\n', '')],
+            ['MAESTRO_FIRST_RUN_ORDER'], [],
+        ),
         'maestro-first-run-no-text': (
             [(MAE, FIRST_RUN_TEXTS, '- takeScreenshot: vkhod-117-first-run\n')],
             ['MAESTRO_FIRST_RUN_ORDER'], [],

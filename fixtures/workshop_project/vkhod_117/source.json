@@ -175,7 +175,10 @@
     "shot_splash": "vkhod-117-splash",
     "shot_first_run": "vkhod-117-first-run",
     "first_run_promise": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
-    "first_run_cta": "Anmelden oder Konto erstellen"
+    "first_run_cta": "Anmelden oder Konto erstellen",
+    "first_run_ids_v2": ["first-run-wordmark", "first-run-sign"],
+    "first_run_subline_v2": "Ein Brief, ein Schaden, ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie bestätigen nur, was wirklich zählt.",
+    "first_run_tagline_v2": "Versicherung. Erledigt."
   },
   "vkhod_safe_area_117": {
     "_comment": "Р4 (круг 6, Rev117): корень кадров входа F03.01/F03.02 несёт top-инсет (paddingTop >= insets.top; на стенде 1080×2400 statusBars [0..136] — заголовок обязан лежать ниже, на C был y 108..164) и горизонтальные отступы колонки 16 (D2.2.5.1 gutters; на C контент на x=0..5). Первоисточник литерала — README компонентов DS / surface_995 pad_h.",

@@ -4,7 +4,7 @@ name: 117 — splash + вход F03.01/F03.02 (схема устройства)
 # 117 (CMP-MOB-006, арбитраж круга 2, ПРАВИЛО (В)): холодный старт =
 # нативный знак канона на ground СХЕМЫ (app.json: корень светлый +
 # вложенный dark) → JS-ОВЕРЛЕЙ кадра Splash.png/Splash-Hell.png
-# (testID splash-overlay) → First-Run 111 → вход F03.01/F03.02
+# (testID splash-overlay) → First-Run по First-Run.png → вход F03.01/F03.02
 # по токенам и компонентам D2.2.5.1.
 #
 # Сценарий ОДИН на обе схемы: тему ОС ставит вызывающая сторона
@@ -23,7 +23,8 @@ name: 117 — splash + вход F03.01/F03.02 (схема устройства)
 #     (extendedWaitUntil notVisible по splash-overlay — assertVisible
 #     иерархию не судит: элемент под непрозрачным оверлеем «виден»
 #     Maestro, но не виден в кадре) И состав First-Run видим:
-#     обещание + CTA (литералы каталога 111, не субъекта).
+#     обещание + CTA (литералы каталога 111, не субъекта); 117 v2 —
+#     wordmark и знак (id), подзаголовок и футер (литералы First-Run.html).
 # Если оверлей исчезает раньше ожидания — это дизайн-вопрос
 # implementer'а (задержка скрытия оверлея); сценарий судит факт снятия.
 - launchApp:
@@ -37,6 +38,14 @@ name: 117 — splash + вход F03.01/F03.02 (схема устройства)
     notVisible:
       id: splash-overlay
     timeout: 10000
+- assertVisible:
+    id: first-run-wordmark
+- assertVisible:
+    id: first-run-sign
+- assertVisible:
+    text: "Ein Brief, ein Schaden, ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie bestätigen nur, was wirklich zählt."
+- assertVisible:
+    text: "Versicherung. Erledigt."
 - assertVisible:
     text: "Sie sagen, was passiert ist. Complior kümmert sich um den Rest."
 - assertVisible:
