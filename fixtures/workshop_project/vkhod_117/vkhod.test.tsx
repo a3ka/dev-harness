@@ -46,10 +46,12 @@ jest.mock('../../../assets/images/splash-composite-light.png', () => ({ vkhod117
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react-native';
 import React from 'react';
+import { Appearance } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { createRoot } from 'test-renderer';
 import * as SplashScreen from 'expo-splash-screen';
 import { ThemeContext } from '@/theme/context';
+import PilotAppProdEntry from '@/app/index';
 import { PilotApp } from '@/bootstrap/pilot-app';
 import { themeTokens, type ColorScheme } from '@/theme/tokens';
 // ---- EXPECT: литералы оракула (source.json, побайтово) ----
@@ -93,6 +95,16 @@ const LINK_RESEND = 'Code erneut senden';
 const LINK_CHANGE_EMAIL = 'E-Mail ändern';
 const LINK_NO_ACCESS = 'Zugang wiederherstellen';
 const ACCENT = '#d6f75a';
+
+// Р1/Р4/Р6 (круг 6, Rev117/Adv117) — литералы оракула.
+const FIRST_RUN_PROMISE =
+  'Sie sagen, was passiert ist. Complior kümmert sich um den Rest.';
+// Р4: инсет, ОТЛИЧНЫЙ от 47 существующих клеток — хардкод-детектор
+// (paddingTop обязан следовать insets.top, а не числу).
+const PROD_INSET_TOP = 59;
+// Р4: горизонтальные отступы колонки кадров входа (D2.2.5.1 gutters;
+// той же величиной — pad_h поверхности 995).
+const COLUMN_GUTTER = 16;
 
 // С2: JS-оверлей splash — литералы (source.json overlay_117).
 const SPLASH_OVERLAY_TEST_ID = 'splash-overlay';
@@ -139,14 +151,36 @@ async function renderApp(
   scheme: ColorScheme,
   verifyStatus: 'invalid' | 'authenticated' = 'invalid',
   beginStatus: 'ok' | 'unavailable' = 'ok',
+  insetTop = 47,
 ) {
   return render(
-    <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+    <SafeAreaInsetsContext.Provider value={{ top: insetTop, right: 0, bottom: 0, left: 0 }}>
       <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
         <PilotApp {...ports(verifyStatus, beginStatus)} />
       </ThemeContext.Provider>
     </SafeAreaInsetsContext.Provider>,
   );
+}
+
+// Р1 (круг 6, Rev117/Adv117): production-ВХОД — @/app/index, как его
+// грузит Expo Router/RN. БЕЗ ThemeContext.Provider от теста: схема ОС
+// задаётся моком Appearance.getColorScheme (jest-среда без мока даёт
+// null → dark). Провод темы — обязанность субъекта, не теста.
+async function renderProdEntry(osScheme: 'dark' | 'light') {
+  const spy = jest
+    .spyOn(Appearance, 'getColorScheme')
+    .mockReturnValue(osScheme);
+  try {
+    return await render(
+      <SafeAreaInsetsContext.Provider
+        value={{ top: PROD_INSET_TOP, right: 0, bottom: 0, left: 0 }}
+      >
+        <PilotAppProdEntry {...ports()} />
+      </SafeAreaInsetsContext.Provider>,
+    );
+  } finally {
+    spy.mockRestore();
+  }
 }
 
 function styleOf(node: { props: { style?: unknown } }): Record<string, unknown> {
@@ -471,6 +505,95 @@ describe('117 vkhod', () => {
       expect(Math.abs(codeWorst.ty) < WINDOW_H).toBe(true);
       expect(alienTransformIn(api.toJSON())).toBe(false);
       expect(frameHiddenOrBoxShifted(api.toJSON())).toBe(false);
+    });
+  }
+
+  // Р1 (круг 6, Rev117/Adv117): тема ОС проводится на production-входе.
+  // Существующие *_LIGHT клетки оборачивают PilotApp в Provider САМИ —
+  // они судят палитру ПРИ схеме, но не провод темы СО схемы устройства
+  // (на C оверлей и F03 остаются тёмными при OS light: app/index —
+  // реэкспорт без провайдера, useTheme по умолчанию dark). Эта клетка
+  // рендерит @/app/index БЕЗ ThemeContext.Provider, схема — только мок
+  // Appearance.getColorScheme: OS light → оверлей ground #f3f2ee и кадр
+  // F03.01 светлой схемы (ground/ink литералами), OS dark → тёмной.
+  // Произведение scheme(2); на C красна LIGHT-половина.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    const GROUND = scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT;
+    const INK = scheme === 'dark' ? INK_DARK : INK_LIGHT;
+
+    it(`PROD_ENTRY_OS_THEME_${S}`, async () => {
+      const api = await renderProdEntry(scheme);
+      const overlay = await screen.findByTestId(SPLASH_OVERLAY_TEST_ID);
+      expect(styleOf(overlay).backgroundColor).toBe(GROUND);
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      const header = screen.getByRole('header');
+      expect(String(header.props.children)).toBe(F03_01_TITLE);
+      expect(styleOf(header).color).toBe(INK);
+      expect(backgroundOf(hostRootOf(api.toJSON()))).toBe(GROUND);
+    });
+  }
+
+  // Р4 (круг 6, Rev117): safe-area и колонка кадров входа. Корень F03.01
+  // и F03.02 несёт top-инсет (paddingTop >= insets.top — заголовок ниже
+  // statusBars [0..136] при 1080×2400; на C заголовок на y 108..164
+  // ВНУТРИ статус-бара) и горизонтальные отступы колонки 16 (D2.2.5.1
+  // gutters; на C контент прижат к x=0..5). Инсет клетки 59 — отличен
+  // от 47 остальных клеток: хардкод значения красен. First-run рамки
+  // 111 не касается (frozen 111/1: full-bleed без отступов).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`AUTH_FRAMES_SAFE_AREA_${S}`, async () => {
+      const api = await renderApp(scheme, 'invalid', 'ok', PROD_INSET_TOP);
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      let rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(Number(rootStyle.paddingTop)).toBeGreaterThanOrEqual(PROD_INSET_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(COLUMN_GUTTER);
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(Number(rootStyle.paddingTop)).toBeGreaterThanOrEqual(PROD_INSET_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(COLUMN_GUTTER);
+    });
+  }
+
+  // Р6 (круг 6, Rev117): композит оверлея вписан по ОКНУ. Бокс Image
+  // жёстко следует боксу оверлея (width/height '100%' поверх
+  // absoluteFill): contain масштабирует по ширине окна (2.769 px/px
+  // артборда при 1080×2400) и центрирует (центр tagline = центр окна
+  // ±1 dp; на C растр шёл собственным размером 390×844 dp — масштаб
+  // 2.63, прижим к углу, сдвиг теглайна 28 px). Пиксельная истина на
+  // устройстве — rule (В) e2e/ревьюер; клетка судит объявленный бокс
+  // в дереве. Произведение scheme(2).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`SPLASH_OVERLAY_CONTAIN_${S}`, async () => {
+      const api = await renderApp(scheme);
+      const overlay = subtreeByTestId(api.toJSON(), SPLASH_OVERLAY_TEST_ID);
+      expect(overlay).not.toBeNull();
+      const oStyle = styleOf(overlay as never);
+      expect(oStyle.position).toBe('absolute');
+      expect(oStyle.width).toBe('100%');
+      expect(oStyle.height).toBe('100%');
+      const images: Array<{ props: { source?: unknown; resizeMode?: unknown } }> = [];
+      const collect = (json: unknown): void => {
+        const node = json as { type?: unknown; props?: Record<string, unknown>; children?: unknown };
+        if (node?.type === 'Image' && node.props) {
+          images.push({ props: node.props as { source?: unknown; resizeMode?: unknown } });
+        }
+        for (const child of Array.isArray(node?.children) ? node.children : []) collect(child);
+      };
+      collect(overlay);
+      expect(images.length).toBe(1);
+      expect(images[0].props.resizeMode).toBe('contain');
+      const iStyle = styleOf(images[0] as never);
+      expect(iStyle.position).toBe('absolute');
+      expect(iStyle.width).toBe('100%');
+      expect(iStyle.height).toBe('100%');
     });
   }
 
