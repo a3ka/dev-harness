@@ -3,7 +3,8 @@
 # Субъект-интерфейс: ci_preflight.sh --repo R [--workflow F] [--job J] [--contract C].
 # Синтаксис YAML; рабочий каталог каждого run-шага — по старшинству GitHub Actions:
 # working-directory шага > defaults.run.working-directory джобы > defaults.run.working-directory
-# workflow > корень; он обязан существовать.
+# workflow > корень; он обязан существовать В РЕПО: путь судится в одноразовой копии по realpath,
+# '..', абсолютный путь и симлинк наружу копии — working-directory-otsutstvuet (R не мутируется).
 # (а) С --contract C ДО исполнения — сверка объявленности по ВСЕМУ тексту файла (любое поле,
 # любой класс джобы, включая station): каждое упоминание токена secrets.X / vars.X обязано быть
 # объявлено в ПРЕДПОСЫЛКИ: контракта (текстовое сверх-приближение, правило 7).
@@ -116,10 +117,31 @@ def local_runs(names):
                 if isinstance(st, dict) and isinstance(st.get('run'), str):
                     yield st['run']
 
+def polya(node, iskl):
+    # строки документа (ключи и значения), кроме поддеревьев полей iskl, — сверка обходом полей
+    if isinstance(node, dict):
+        for k, v in node.items():
+            if k in iskl:
+                continue
+            yield str(k)
+            yield from polya(v, iskl)
+    elif isinstance(node, list):
+        for v in node:
+            yield from polya(v, iskl)
+    elif node is not None:
+        yield str(node)
+
 # (а) сверка объявленности ДО исполнения (и до разбора каталогов): строка с маркером расширяет
-# область с текста run шагов local-джоб до всего текста файла (любое поле, любой класс джобы)
+# область с текста run шагов local-джоб до всего текста файла (любое поле, любой класс джобы);
+# две строки с маркерами возвращают в область поля if и with (без любой из них сверка идёт
+# обходом полей документа, минуя вырезанное поле)
+iskl = {'if', 'with'}
+iskl.discard('if')  # МУТАЦИЯ-122:sverka-if
+iskl.discard('with')  # МУТАЦИЯ-122:sverka-with
 scope = '\n'.join(local_runs(sel))
 scope = text  # МУТАЦИЯ-122:sverka-po-failu
+if iskl:
+    scope = '\n'.join(polya(doc, iskl))
 if C:
     for kind, nm in tok_re.findall(scope):
         if nm not in declared['secret' if kind == 'secrets' else 'variable']:
@@ -147,7 +169,14 @@ try:
             if not isinstance(st['run'], str):
                 print('preflight ОТКАЗ: yaml-nevaliden'); sys.exit(1)
             d = st['working-directory'] if isinstance(st.get('working-directory'), str) else wd
-            if not os.path.isdir(os.path.join(work, d)):
+            # каталог обязан лежать В одноразовой копии (realpath); строки с маркерами: вложенность
+            # судится от копии, а не от исходного R, и судится вообще
+            kor = R
+            kor = work  # МУТАЦИЯ-122:wd-ot-kopii
+            p, k = os.path.realpath(os.path.join(kor, d)), os.path.realpath(kor)
+            vnutri = True
+            vnutri = p == k or p.startswith(k + os.sep)  # МУТАЦИЯ-122:wd-v-kopii
+            if not vnutri or not os.path.isdir(os.path.join(work, d)):
                 print('preflight ОТКАЗ: working-directory-otsutstvuet: %s' % d); sys.exit(1)
             plan.append((st, d))
         if cls == 'station':
