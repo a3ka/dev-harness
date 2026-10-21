@@ -72,6 +72,7 @@ CASES = {
     'A-judge-verdict-write': ('judge_gate.sh', r'ОТКАЗ: журнал: verdict-строка не записана:.*'),
     'A-profile-kind': ('profile_resolver.sh', r'profile ОТКАЗ: contextPack.rows:.*jq rc=7.*'),
     'B-charter-diff': ('check_charter.sh', r'.*FAIL .*diff-tree.*'),
+    'C-charter-fast-log': ('check_charter.sh', r'.*FAIL .*история не читается \(git log rc=128\).*'),
     'B-charter-tree': ('check_charter.sh', r'.*FAIL .*ls-tree.*'),
     'B-preflight-package': ('gitw_preflight_071.sh', r'gitw ПРЕДПОЛЁТ-ОТКАЗ: .*package.json.*'),
     'B-preflight-worktrees': ('gitw_preflight_071.sh', r'gitw ПРЕДПОЛЁТ-ОТКАЗ: .*worktree.*'),
@@ -150,9 +151,14 @@ def prepare(base, case, source):
         git(root, 'tag', 'frozen/contracts/001/1')
         put(root / 'note', 'new commit\n')
         commit(root)
-        condition = {'A-charter-history': "'rev-list' in a and 'ustav/1..HEAD' in a", 'B-charter-diff': "'diff-tree' in a", 'B-charter-tree': "'ls-tree' in a and ':(literal)contracts/' in a"}[case]
+        condition = {'A-charter-history': "'rev-list' in a and 'ustav/1..HEAD' in a", 'B-charter-diff': "'diff-tree' in a", 'B-charter-tree': "'ls-tree' in a and ':(literal)contracts/' in a", 'C-charter-fast-log': "'log' in a and '--name-only' in a"}[case]
         shim(bindir, 'git', condition, GIT)
-        args = [root]
+        # Сбой доставляется в тот режим, который читает подменяемую подкоманду:
+        # `diff-tree` вызывает ТОЛЬКО полный обход (в этом и состоит быстрый — один
+        # `git log`), поэтому клетка судит `--oracle`; быстрый режим судит клетка
+        # `C-charter-fast-log` (его одиночный `git log --name-only`). Ожидание клетки
+        # НЕ ослаблено: тот же именованный FAIL и rc 1.
+        args = [root, '--oracle'] if case == 'B-charter-diff' else [root]
     elif subject == 'gitw_preflight_071.sh':
         put(root / 'package.json', '{}\n')
         commit(root)
