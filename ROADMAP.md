@@ -422,6 +422,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 128 | до V-2 | autonomy | - | docs/owner/2026-10-21-prostoi-stancii.md#Порядок |
 | 4 | teg-posle-teksta | до V-2 | autonomy | - | docs/owner/2026-10-21-publikaciya-main.md#Порядок |
 | 4 | poezd-bez-dogonyalok | до V-2 | autonomy | - | docs/owner/2026-10-21-publikaciya-main.md#Порядок |
+| 4 | odin-agent-na-predmet | до V-2 | autonomy | - | docs/owner/2026-10-21-dubli-agentov.md#Порядок |
 | 4 | 129 | до V-2 | ops | - | docs/owner/2026-10-21-prostoi-stancii.md#Порядок |
 | 4 | done-produkt | до V-2 | project-mode | - | docs/owner/2026-10-21-sverka-astra.md#Порядок |
 | 4 | sessii-proektov | до V-2 | project-mode | 122 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
