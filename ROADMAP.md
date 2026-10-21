@@ -402,6 +402,8 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
 | 4 | 106 | до V-2 | complior | - | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 4 | 109 | до V-2 | complior | 106 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
+| 4 | 119 | до V-2 | complior | 106 | docs/owner/2026-10-21-backend-3-15.md#Порядок |
+| 4 | 120 | до V-2 | complior | 119 | docs/owner/2026-10-21-backend-3-15.md#Порядок |
 | 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
 | 4 | 115 | до V-2 | complior | 106 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
 | 4 | 112 | до V-2 | project-mode | 996 | docs/owner/2026-10-20-podkljuchenie-proekta.md#Порядок |
