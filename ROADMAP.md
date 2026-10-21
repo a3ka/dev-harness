@@ -410,6 +410,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 121 | до V-2 | complior | 109 | docs/owner/2026-10-21-backend-3-15.md#Порядок |
 | 4 | back-e2e-pokrytie | до V-2 | complior | 121 | docs/owner/2026-10-21-back-e2e-pokrytie.md#Порядок |
 | 4 | 119 | до V-2 | complior | 106 | docs/owner/2026-10-21-backend-3-15.md#Порядок |
+| 4 | back-http-chislo | до V-2 | complior | 121 | docs/owner/2026-10-21-back-http-chislo.md#Порядок |
 | 4 | 120 | до V-2 | complior | 119 | docs/owner/2026-10-21-backend-3-15.md#Порядок |
 | 4 | 996 | до V-2 | project-mode | - | docs/owner/2026-10-17-plan-stancii.md#Слот 1 |
 | 4 | 115 | до V-2 | complior | 106 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
