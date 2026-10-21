@@ -1,0 +1,24 @@
+{
+  "mode": "PGLITE",
+  "engine": "toy-pglite",
+  "db": "ToyPostgreSQL 16.4 (PGlite-совместимый) toy, toy-pglite",
+  "sql": [
+    "INSERT INTO app.document_version",
+    "SELECT * FROM app.document_version",
+    "UPDATE app.document_version",
+    "INSERT INTO app.finance_journal",
+    "SELECT control.audit_runtime_admin_change(?)"
+  ],
+  "role": "brokeros_api",
+  "errors": [],
+  "ledger_rows": 4,
+  "through": "004",
+  "run_key": "c0ac96392494b2fc75df0e60c2674cd62124aeef143d3a5e75e8d2cca0b31fa8",
+  "audit": {
+    "command": "UPDATE provider_connection SET enabled = NOT enabled",
+    "actor_principal_id": "toy-principal-1",
+    "after": {
+      "enabled": false
+    }
+  }
+}
