@@ -15,7 +15,7 @@
 # строки stderr.
 #
 # Клетки: Д1 (дверь существует) + т01–т30 (вход → rc, причина, состояние мира)
-# судят ДВЕРЬ; С01–С38 судят САМУ батарею: обманный стаб = честная модель
+# судят ДВЕРЬ; С01–С39 судят САМУ батарею: обманный стаб = честная модель
 # с одной подменённой строкой (метка `# @L:<имя>`); стаб привязан к той
 # т-клетке, где его ложь наблюдаема (Н-39: привязка — ТОЛЬКО здесь, в KARTA),
 # и С-клетка зелёная, когда эта т-клетка на стабе КРАСНАЯ, а на модели — зелёная.
@@ -294,14 +294,16 @@ $(printf '%s\t8\t%s\tmain\topen\t%s' "$OWNER/$MOB" "$BRANCH" "$TITLE")"; no_toke
 t28() { make_world; refusal_case "$R_VETKA" -- --repo "$W/clone" --branch "foo./bar" --sha "$SHA" --title "$TITLE"; }
 # т29: перенаправление url.* в конфиге клона уводит push по URL канона мимо
 # канона (R124-2): insteadOf → bare харнесса (обход г5), pushInsteadOf → bare
-# back. Каждый вход — свой мир и свой суд (метка входа в причине красного);
-# отказ «push отказан» до push, ни один ref ни одного bare не изменён.
-t29() { local v k t
-  for v in insteadOf:"$HARN" pushInsteadOf:"$BACK"; do
-    k="${v%%:*}"; t="${v#*:}"; make_world
-    g -C "$W/clone" config "url.$W/remotes/$OWNER/$t.git.$k" "$MOB_URL"
+# back, insteadOf с ПРЕФИКСОМ канона (значение ≠ канону) → bare харнесса.
+# Каждый вход — свой мир и свой суд (метка входа в причине красного); отказ
+# «push отказан» до push, ни один ref ни одного bare не изменён.
+t29() { local v m k b u
+  for v in "insteadOf|insteadOf|$HARN.git|$MOB_URL" "pushInsteadOf|pushInsteadOf|$BACK.git|$MOB_URL" \
+           "insteadOf-префикс|insteadOf|$HARN|https://github.com/$OWNER/$MOB"; do
+    IFS='|' read -r m k b u <<<"$v"; make_world
+    g -C "$W/clone" config "url.$W/remotes/$OWNER/$b.$k" "$u"
     refusal_case "$R_PUSH" -- --repo "$W/clone" --branch "$BRANCH" --sha "$SHA" --title "$TITLE"
-    [ -z "$FAIL" ] || { FAIL="[url.*.$k] $FAIL"; return; }
+    [ -z "$FAIL" ] || { FAIL="[url.*.$m] $FAIL"; return; }
   done; }
 # т30: remote.<канон-URL>.url|pushurl в конфиге клона — push по URL-литералу
 # канона уходит в чужой bare (url → харнесс, pushurl → back): отказ «push
@@ -345,7 +347,7 @@ declare -A T_NAME=(
   [t26]="канон харнесса https с иным слагом (корень двери): продукт = харнесс — отказ"
   [t27]="мир без маркеров: дверь в чистом env -i (без P124_*) — ОК только при реальном push"
   [t28]="ветка «foo./bar» (хвост «.» у сегмента в середине) — вне грамматики"
-  [t29]="url.*.insteadOf / pushInsteadOf клона уводит push мимо канона — отказ до push"
+  [t29]="url.*.insteadOf / pushInsteadOf / insteadOf-префикс клона уводит push мимо канона — отказ до push"
   [t30]="remote.<канон>.url / pushurl клона уводит push мимо канона — отказ до push"
 )
 
@@ -391,6 +393,7 @@ declare -a KARTA=(
   "s36_remote_kanon_tolko_url|remote_url|t30|for k in url; do git -C \"\$REPO_ABS\" config --get-all \"remote.\$CANON.\$k\" >/dev/null 2>&1 && die1 \"push отказан: remote.\$CANON.\$k в конфиге клона\"; done"
   "s37_remote_kanon_tolko_pushurl|remote_url|t30|for k in pushurl; do git -C \"\$REPO_ABS\" config --get-all \"remote.\$CANON.\$k\" >/dev/null 2>&1 && die1 \"push отказан: remote.\$CANON.\$k в конфиге клона\"; done"
   "s38_remote_ljuboj_i_origin|remote_url|t01|git -C \"\$REPO_ABS\" config --get-regexp '^remote\\..*\\.(url|pushurl)\$' >/dev/null 2>&1 && die1 \"push отказан: remote.*.url|pushurl в конфиге клона\""
+  "s39_url_tolko_znachenie_kanon|url_rewrite|t29|UREW=\"\$(git -C \"\$REPO_ABS\" config --get-regexp '^url\\.' 2>/dev/null | awk -v C=\"\$CANON\" '\$2==C{print \$1}')\""
 )
 
 # Корень модели вне дерева закрепляется заменой строки `# @L:root` (без
