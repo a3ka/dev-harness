@@ -18,6 +18,9 @@
 #
 # Правило веса: ceil(медиана ВСЕХ наблюдений ключа в окне) — медиана, НЕ
 # максимум (выбросы рантайма: check:charter max 1957 с при p50 52.5).
+# Вес ЦЕЛЫЙ по всей длине: медиана считается целочисленно (median_ceil), float
+# не участвует — на соседних целых выше 2^53 float-деление теряет единицу, и
+# вес уезжал на 1 вниз (грамматика веса [0-9]+, верхней границы нет).
 # --min-obs — ТОЛЬКО порог достаточности («мало данных»), выборку он НЕ
 # усекает: <n> в TSV — число наблюдений ключа в окне.
 # У ключа наблюдений меньше --min-obs → rc 2 «мало данных»; строк замера нет
@@ -44,7 +47,7 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 command -v python3 >/dev/null 2>&1 || { printf 'NOT_IMPLEMENTED: нет python3\n' >&2; exit 2; }
 
 exec python3 - "$@" <<'PY'
-import json, math, os, re, statistics, subprocess, sys
+import json, os, re, subprocess, sys
 
 # Грамматика строки замера — 087 И-9 дословно (run_ci_lane.sh/ci_vesa.sh).
 RE_ZAMER = re.compile(
@@ -78,6 +81,17 @@ def registry_keys(root):
     if not keys:
         die('реестр без строк step/legkij', 2)
     return keys
+
+
+def median_ceil(v):
+    """ceil(медиана) СТРОГО ЦЕЛОЧИСЛЕННО, без float вовсе: при нечётном n —
+    средний элемент s[n//2], при чётном — ceil((lo + hi) / 2) = (lo + hi + 1)
+    // 2 (сумма двух соседних целых выше 2^53 делилась float-ом, который их
+    различать не умеет, — вес уезжал на единицу вниз, и гвард --migrate такой
+    ложный вес принимал; грамматика TSV — [0-9]+, потолка секунд нет)."""
+    s = sorted(v)
+    n = len(s)
+    return s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2] + 1) // 2
 
 
 def collect(text):
@@ -186,7 +200,7 @@ def measure(root, logs, out, min_obs, okno, repo, runs):
         if len(o) < min_obs:
             malo.append('%s (%d < %d)' % (k, len(o), min_obs))
             continue
-        rows[k] = (int(math.ceil(statistics.median(o))), len(o))
+        rows[k] = (median_ceil(o), len(o))
     if malo:
         die('мало данных: %s' % '; '.join(sorted(malo)), 2)
     if out is None:
