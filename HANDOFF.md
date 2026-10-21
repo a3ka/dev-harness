@@ -1,3 +1,6 @@
+## ПРИПИСКА к финалу сессии #16 (последняя строка перед рестартом)
+**Локальные коммиты вынесены из `main` в ветку `s16-local2` (рестарт-дверь требует HEAD==origin/main):** вердикты 124 impl v3 + review 16, land `wip/124/architect`, owner-коммит `4eff26205` (plan wait-guard/fallback-subagent, docs/owner/2026-10-21-prostoi-stancii.md). **ПЕРВЫМ ДЕЛОМ новой сессии:** `git merge --ff-only s16-local2` (main = origin/main + эти коммиты; база совпадает) → `check_no_leak --retake-ahead` → далее поезд `train2.sh` для push кода (land 124 arch — код). Ветки `wip/127/architect` (PR#213), `owner/tip-123b` (PR#211), `owner/tip-122d` (PR#212) — на origin, CI идёт. Ручной `--snapshot` дважды по стоячей санкции (а)(б)(в) с транскриптом (HEAD==origin/main, `0 0`, porcelain пуст) — 14:30 и перед рестартом.
+
 ## ГДЕ МЫ (сессия #16 ФИНАЛ, рестарт по сторожу контекста ~15:00 UTC по часам станции 2026-10-21; ПЕРЕКРЫВАЕТ раздел «сессия #15/#16» ниже и все остальные)
 
 - **Тир architect РАБОТАЕТ на Opus** (слово владельца 14:10: `slow` model `@opus` fallback `@glm` до сброса z.ai 2026-10-22 04:23 UTC; откат после сброса — владелец сам). Дефект «autoFallback субагентов не срабатывает на 429/1310» — в очередь (строка плана `fallback-subagent`). Обрывы `aborted` на opus случаются — ВО ВСЕ задания «коммить по ходу, проходами».
