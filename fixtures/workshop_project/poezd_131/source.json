@@ -30,6 +30,19 @@
      "shagi": [["kod"], ["poezd"], ["uchet_hvost"], ["origin_vpered", false]], "iskhod": "REFUSE", "prichina": "сделай fetch"},
     {"id": "c13-gitw-otkaz", "intent": "предполёт gitw отказал — rc ≠ 0 проносится, получатель не тронут",
      "shagi": [["kod"], ["poezd"], ["metka"]], "iskhod": "GITW_FAIL", "gitw_rc": 1}
+,
+    {"id": "c14-udalenie-koda", "intent": "удаление кодового пути (D) + добавление учётного файла и правка HANDOFF.md одним коммитом под учётной подписью — H меняется, коммит не служебный: публикуется доказанный P",
+     "shagi": [["kod"], ["poezd"], ["metka"], ["udalenie"]], "iskhod": "PUSH"},
+    {"id": "c15-pereimen-kod-v-uchet", "intent": "переименование кодового пути в учётный (R src/kod.sh → verdicts/…) — новый путь учётный, старый кодовый исчез: не служебный",
+     "shagi": [["uchet_hvost"], ["metka"], ["pereimen_v_uchet"]], "iskhod": "PUSH"},
+    {"id": "c16-pereimen-uchet-v-kod", "intent": "переименование учётного пути в кодовый (R forks/osnova.md → src/…) — старый путь учётный, новый кодовый: не служебный",
+     "shagi": [["uchet_hvost"], ["metka"], ["pereimen_iz_ucheta"]], "iskhod": "PUSH"},
+    {"id": "c17-rezhim", "intent": "смена только режима кодового файла (chmod +x, M без смены blob) под учётной подписью — H меняется: не служебный",
+     "shagi": [["uchet_hvost"], ["metka"], ["rezhim"]], "iskhod": "PUSH"},
+    {"id": "c18-tip", "intent": "смена типа кодового пути (T: файл → символьная ссылка) под учётной подписью — не служебный",
+     "shagi": [["uchet_hvost"], ["metka"], ["tip"]], "iskhod": "PUSH"},
+    {"id": "c19-kopiya-uchet-v-kod", "intent": "копия неизменного учётного файла в кодовый путь (C при --find-copies-harder) — не служебный",
+     "shagi": [["uchet_hvost"], ["metka"], ["kopiya"]], "iskhod": "PUSH"}
   ],
   "stubs": [
     {"id": "s01-vsegda-publikuet", "cell": "c05-net-dokaza", "defect": "служебным считает всё: без доказательства публикует вершину main",
@@ -55,6 +68,18 @@
     {"id": "s11-bez-predka", "cell": "c11-razoshlis", "defect": "не проверяет, что origin/main — предок main",
      "anchor": "git merge-base --is-ancestor \"$rmain\" \"$local_main\" || otkaz \"origin/main ${rmain} не предок main — main разошёлся с целью\"", "zamena": ":"},
     {"id": "s12-bez-fetch", "cell": "c12-net-fetch", "defect": "не проверяет наличие вершины цели локально",
-     "anchor": "git cat-file -e \"${rmain}^{commit}\" 2>/dev/null || otkaz \"вершина main цели ${rmain} не в локальной истории — сделай fetch\"", "zamena": ":"}
+     "anchor": "git cat-file -e \"${rmain}^{commit}\" 2>/dev/null || otkaz \"вершина main цели ${rmain} не в локальной истории — сделай fetch\"", "zamena": ":"},
+    {"id": "s13-tolko-am-diff", "cell": "c14-udalenie-koda", "defect": "служебность по путям diff --diff-filter=AM: удаление (D) скрыто (обход критика 131 круг 1)",
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(git diff --name-only --diff-filter=AM \"$rmain\" \"$c\")\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
+    {"id": "s14-ignoriruet-rc", "cell": "c19-kopiya-uchet-v-kod", "defect": "служебность по diff -M -C -C без статусов R/C: копия/переименование скрыты",
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(git diff --name-only -M -C -C --diff-filter=ADMTU \"$rmain\" \"$c\")\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
+    {"id": "s15-novyj-put-rename", "cell": "c15-pereimen-kod-v-uchet", "defect": "служебность по git diff --name-only с умолчательным rename: у R виден только новый путь",
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(git diff --name-only \"$rmain\" \"$c\")\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
+    {"id": "s16-staryj-put-rename", "cell": "c16-pereimen-uchet-v-kod", "defect": "служебность по --name-status -M -C -C, берётся только старый путь (поле 2)",
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(git diff --name-status -M -C -C \"$rmain\" \"$c\" | cut -f2)\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
+    {"id": "s17-ignoriruet-t", "cell": "c18-tip", "defect": "служебность по diff без статуса T: смена типа скрыта",
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(git diff --name-only --no-renames --diff-filter=ADMRCU \"$rmain\" \"$c\")\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"},
+    {"id": "s18-tolko-blob", "cell": "c17-rezhim", "defect": "изменённым считает путь со сменой blob: смена режима скрыта",
+     "anchor": "  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?", "zamena": "  paths=\"$(for f in $(git diff --name-only --no-renames \"$rmain\" \"$c\"); do [ \"$(git rev-parse -q --verify \"$rmain:$f\")\" = \"$(git rev-parse -q --verify \"$c:$f\")\" ] || echo \"$f\"; done)\"\n  if ! printf '%s\\n' \"$paths\" | grep -qEv '^(verdicts/|forks/|HANDOFF\\.md$|NABLIUDENIA|$)'; then P=\"$c\"; break; fi\n  out=\"$(bash \"$KL\" vorota \"$rmain\" \"$c\" 2>&1)\"; rc=$?"}
   ]
 }
