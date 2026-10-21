@@ -44,9 +44,9 @@ jest.mock('../../../assets/images/splash-composite-light.png', () => ({ vkhod117
   virtual: true,
 });
 
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
-import { Appearance } from 'react-native';
+import { Appearance, NativeModules } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { createRoot } from 'test-renderer';
 import * as SplashScreen from 'expo-splash-screen';
@@ -109,6 +109,11 @@ const COLUMN_GUTTER = 16;
 // С2: JS-оверлей splash — литералы (source.json overlay_117).
 const SPLASH_OVERLAY_TEST_ID = 'splash-overlay';
 const SPLASH_OVERLAY_HIDE_AFTER_MS = 1200;
+// В2-2 (круг 7, Rev117r2): стиль статус-бара, контрастный ground схемы
+// (style expo-status-bar → barStyle RN): dark #0a0a0a → 'light' →
+// light-content, light #f3f2ee → 'dark' → dark-content.
+const STATUS_BAR_DARK = 'light-content';
+const STATUS_BAR_LIGHT = 'dark-content';
 function journalOf(mod: unknown): string[] {
   if (mod && typeof mod === 'object' && '__vkhod117Journal' in mod
       && Array.isArray(mod.__vkhod117Journal)) {
@@ -121,6 +126,34 @@ const COMPOSITE_MODULE = {
   dark: require('../../../assets/images/splash-composite-dark.png') as unknown,
   light: require('../../../assets/images/splash-composite-light.png') as unknown,
 };
+
+// В2-2: стиль статус-бара, дошедший до ОС. RN StatusBar сводит стек
+// смонтированных StatusBar в setImmediate и шлёт итог в
+// NativeModules.StatusBarManager.setStyle (jest.fn пресета RN; iOS шлёт
+// только смену, Android — каждый сброс): аргумент ПОСЛЕДНЕГО вызова —
+// стиль, который показывает ОС; вызова не было — приложение стиль не
+// отрисовало (undefined).
+function statusBarManagerOf(mod: unknown): { setStyle: jest.Mock } {
+  const manager = (mod as { StatusBarManager?: { setStyle?: unknown } } | undefined)
+    ?.StatusBarManager;
+  if (manager && jest.isMockFunction(manager.setStyle)) {
+    return manager as { setStyle: jest.Mock };
+  }
+  throw new Error('VKHOD117_STATUSBAR_MANAGER_ABSENT: нет jest.fn StatusBarManager.setStyle');
+}
+const STATUS_BAR_MANAGER = statusBarManagerOf(NativeModules);
+
+function osBarStyle(): unknown {
+  const calls = STATUS_BAR_MANAGER.setStyle.mock.calls;
+  return calls.length > 0 ? calls[calls.length - 1][0] : undefined;
+}
+
+// Сброс отложенного стека StatusBar (setImmediate FIFO: сброс RN раньше).
+async function flushStatusBar(): Promise<void> {
+  await React.act(async () => {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  });
+}
 
 function ports(
   verifyStatus: 'invalid' | 'authenticated' = 'invalid',
@@ -532,6 +565,55 @@ describe('117 vkhod', () => {
       expect(String(header.props.children)).toBe(F03_01_TITLE);
       expect(styleOf(header).color).toBe(INK);
       expect(backgroundOf(hostRootOf(api.toJSON()))).toBe(GROUND);
+    });
+  }
+
+  // В2-2 (круг 7, Rev117r2; к В2-1): стиль статус-бара по схеме. На C
+  // StatusBar нет ни в mobile/src, ни в app.json — в светлой схеме иконки
+  // белые #ffffff на ground #f3f2ee (1,12:1). Клетка судит ЭФФЕКТИВНЫЙ
+  // стиль, который отрисовка PilotApp довела до ОС (osBarStyle), против
+  // литерала контраста ground схемы. Вход — production @/app/index, схема
+  // ОС — только мок Appearance.getColorScheme, держится всю клетку. Стиль
+  // судится на splash, ПОСЛЕ снятия оверлея таймером (StatusBar вне
+  // поддерева оверлея — иначе снятие оверлея снимает стиль), на F03.01 и
+  // F03.02. Демаркация: конформен стиль из схемы PilotApp (та же схема
+  // красит ground); style 'auto' следует useColorScheme (в jest — мок
+  // пресета 'light', на устройстве — ОС, а не явный провайдер над
+  // PilotApp) — не конформен. Произведение scheme(2); на C красны обе.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    const BAR = scheme === 'dark' ? STATUS_BAR_DARK : STATUS_BAR_LIGHT;
+
+    it(`STATUS_BAR_STYLE_${S}`, async () => {
+      const spy = jest.spyOn(Appearance, 'getColorScheme').mockReturnValue(scheme);
+      try {
+        await flushStatusBar();
+        await render(
+          <SafeAreaInsetsContext.Provider
+            value={{ top: PROD_INSET_TOP, right: 0, bottom: 0, left: 0 }}
+          >
+            <PilotAppProdEntry {...ports()} />
+          </SafeAreaInsetsContext.Provider>,
+        );
+        await flushStatusBar();
+        expect(osBarStyle()).toBe(BAR);
+        await waitFor(
+          () => expect(screen.queryByTestId(SPLASH_OVERLAY_TEST_ID)).toBeNull(),
+          { timeout: 3 * SPLASH_OVERLAY_HIDE_AFTER_MS },
+        );
+        await flushStatusBar();
+        expect(osBarStyle()).toBe(BAR);
+        await fireEvent.press(screen.getByTestId('first-run-continue'));
+        await screen.findByTestId('auth-email');
+        await flushStatusBar();
+        expect(osBarStyle()).toBe(BAR);
+        await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+        await screen.findByTestId('auth-code');
+        await flushStatusBar();
+        expect(osBarStyle()).toBe(BAR);
+      } finally {
+        spy.mockRestore();
+      }
     });
   }
 

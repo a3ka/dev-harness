@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Appearance, Image, StyleSheet, Text, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import type { ApiClient } from '@/api/api-client';
 import type {
   AuthChallenge,
@@ -289,6 +290,11 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
           : styles.root
       }
     >
+      {/* 117 круг 7 (В2-1/В2-2, Rev117r2): стиль статус-бара по схеме
+          PilotApp — иконки контрастны ground (dark → light, light → dark);
+          вне поддерева оверлея: стиль живёт на всех кадрах, не только
+          на splash. */}
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {frame !== 'welcome' ? (
         <View style={{ paddingTop: frame === 'first-run' ? insets.top : 0 }}>
           <View style={styles.demoBadge} testID="demo-indicator">

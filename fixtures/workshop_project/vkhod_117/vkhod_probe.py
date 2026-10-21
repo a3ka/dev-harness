@@ -13,8 +13,9 @@ VKHOD_AUTH_DS_ABSENT (кадры входа не собраны из @/ui/button
 С --model: эталон architect ставится по путям поставки, rc0 с перечнем
 (число клеток — из прогона; круг 5: 12 прежних + 10 оверлея; круг 6 —
 Р1 PROD_ENTRY_OS_THEME (production-вход @/app/index без Provider, схема
-ОС моком Appearance), Р4 AUTH_FRAMES_SAFE_AREA, Р6 SPLASH_OVERLAY_CONTAIN,
-каждая × 2 схемы).
+ОС моком Appearance), Р4 AUTH_FRAMES_SAFE_AREA, Р6 SPLASH_OVERLAY_CONTAIN;
+круг 7 — В2-2 STATUS_BAR_STYLE (эффективный стиль статус-бара, дошедший
+до ОС, контрастен ground схемы); каждая × 2 схемы).
 --matrix: каждый обманный стаб красен на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case построчно.
@@ -246,7 +247,8 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           'const SPLASH_OVERLAY_MS = 1200;', 'const SPLASH_OVERLAY_MS = 120000;')],
         ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT'],
-        [],
+        # В2-2: клетка стиля статус-бара ждёт снятия оверлея (3×1200 мс).
+        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
     ),
     # (С2-а, круг критика 3) свидетель overlay-wrong-source: Image оверлея
     # показывает icon.png вместо композитов (честные композиты на диске) —
@@ -285,7 +287,8 @@ MUTANTS = {
           "    Appearance.getColorScheme() === 'light' ? 'light' : 'dark');",
           "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() => 'dark');")],
         ['PROD_ENTRY_OS_THEME_LIGHT'],
-        [],
+        # В2-2: схема PilotApp dark при ОС light — стиль статус-бара light.
+        ['STATUS_BAR_STYLE_LIGHT'],
     ),
     # (Р1) тест-обход: хардкод схемы light вместо чтения ОС. Внешний
     # dark-провайдер проб неотличим от умолчания контекста — хардкод
@@ -297,7 +300,8 @@ MUTANTS = {
           "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() => 'light');")],
         ['PROD_ENTRY_OS_THEME_DARK'],
         ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_DARK',
-         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_MOUNTED_DARK'],
+         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_MOUNTED_DARK',
+         'STATUS_BAR_STYLE_DARK'],
     ),
     # (Р4, круг 6, Rev117) safe-area снята: контент в статус-баре,
     # колонка прижата к краю (форма текущего C).
@@ -325,6 +329,46 @@ MUTANTS = {
           "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
           '            style={StyleSheet.absoluteFill}')],
         ['SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT'],
+        [],
+    ),
+    # (В2-2, круг 7, Rev117r2) StatusBar отсутствует (форма C 74c4c586):
+    # приложение стиль не отрисовало. Дефект на устройстве — LIGHT (белые
+    # иконки на #f3f2ee; в dark умолчание ОС случайно светлое); DARK
+    # красна тоже — стиля, отрисованного PilotApp, нет.
+    'statusbar-absent': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "import { StatusBar } from 'expo-status-bar';\n", ''),
+         ('mobile/src/bootstrap/pilot-app.tsx',
+          "      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />\n", '')],
+        ['STATUS_BAR_STYLE_LIGHT'],
+        ['STATUS_BAR_STYLE_DARK'],
+    ),
+    # (В2-2) style=light в обеих схемах: светлые иконки на светлом ground.
+    'statusbar-light-both': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "<StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />",
+          '<StatusBar style="light" />')],
+        ['STATUS_BAR_STYLE_LIGHT'],
+        [],
+    ),
+    # (В2-2) style=dark в обеих схемах: тёмные иконки на тёмном ground.
+    'statusbar-dark-both': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "<StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />",
+          '<StatusBar style="dark" />')],
+        ['STATUS_BAR_STYLE_DARK'],
+        [],
+    ),
+    # (В2-2) свидетель «вне поддерева оверлея»: StatusBar внутри оверлея —
+    # стиль верен на splash и снимается вместе с оверлеем (таймер 1200).
+    'statusbar-in-overlay': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />\n", ''),
+         ('mobile/src/bootstrap/pilot-app.tsx',
+          '          <Image\n            source={\n',
+          "          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />\n"
+          '          <Image\n            source={\n')],
+        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
         [],
     ),
 }
