@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# gh-двойник (клетка т17/стаб s9, Б1 круга 2) — подставной НЕЗАВИСИМО известный
+# источник данных сетевой ветви меры 114. Мера обязана звать gh ТОЛЬКО через
+# PATH: двойник ставится первым в PATH батареи, любой честный сетевой вызов
+# приходит сюда. След вызова: каждый вызов дописывает свои аргументы в
+# $RED114_GH_TRACE (пустой след = источник не вызван = TSV из ниоткуда).
+#
+# ДАННЫЕ двойника (детерминированные; ожидание TSV клетки т17 выведено из них
+# ВРУЧНУЮ в red_114.sh, не моделью):
+#   прогоны workflow ci (зелёные, завершённые, свежие первыми): 402, 401
+#   прогон 401: джобы 9001 «ci (l1, check:gen, check:alpha)», 9002 «legkij»
+#   прогон 402: джобы 9003 «ci (l1, check:gen, check:alpha)», 9004 «legkij»
+#   логи (грамматика 087 И-9; строка-приманка «info:» замером не является):
+#     9001: gen 10, alpha 30;  9002: beta 7;  9003: gen 20, alpha 30;  9004: beta 7
+#   ⇒ ожидание: check:gen 15/2, check:alpha 30/2, check:beta 7/2, окно 401
+#     (медиана [20,10]=15, [30,30]=30, [7,7]=7; окно = min(run-id) = 401).
+# Неизвестный путь — rc 1 с именем: тихий отказ транспорта не зелёный.
+set -uo pipefail
+if [ -n "${RED114_GH_TRACE:-}" ]; then
+  printf '%s\n' "$*" >> "$RED114_GH_TRACE" || :
+fi
+req="${2:-}"
+runs_json() {
+  printf '%s\n' '{"total_count":2,"workflow_runs":['
+  printf '%s\n' '{"id":402,"name":"ci","status":"completed","conclusion":"success"},'
+  printf '%s\n' '{"id":401,"name":"ci","status":"completed","conclusion":"success"}]}'
+}
+jobs_401() {
+  printf '%s\n' '{"jobs":[{"id":9001,"name":"ci (l1, check:gen, check:alpha)"},'
+  printf '%s\n' '{"id":9002,"name":"legkij"}]}'
+}
+jobs_402() {
+  printf '%s\n' '{"jobs":[{"id":9003,"name":"ci (l1, check:gen, check:alpha)"},'
+  printf '%s\n' '{"id":9004,"name":"legkij"}]}'
+}
+log_9001() {
+  printf '%s\n' '2026-10-21T01:00:00Z замер: check:gen 10'
+  printf '%s\n' '2026-10-21T01:00:01Z замер: check:alpha 30'
+  printf '%s\n' 'info: замер: check:gen 999'
+}
+log_9002() { printf '%s\n' '2026-10-21T01:00:02Z замер: check:beta 7'; }
+log_9003() {
+  printf '%s\n' 'замер: check:gen 20'
+  printf '%s\n' 'замер: check:alpha 30'
+}
+log_9004() { printf '%s\n' 'замер: check:beta 7'; }
+case "$req" in
+  *"/actions/jobs/"*"/logs"*)
+    job=""; [[ "$req" =~ actions/jobs/([0-9]+)/logs ]] && job="${BASH_REMATCH[1]}"
+    case "$job" in
+      9001) log_9001; exit 0 ;;
+      9002) log_9002; exit 0 ;;
+      9003) log_9003; exit 0 ;;
+      9004) log_9004; exit 0 ;;
+      *) printf 'двойник: нет джобы %s\n' "$job" >&2; exit 1 ;;
+    esac ;;
+  *"/actions/runs/"*"/jobs"*)
+    run=""; [[ "$req" =~ actions/runs/([0-9]+)/jobs ]] && run="${BASH_REMATCH[1]}"
+    case "$run" in
+      401) jobs_401; exit 0 ;;
+      402) jobs_402; exit 0 ;;
+      *) printf 'двойник: нет прогона %s\n' "$run" >&2; exit 1 ;;
+    esac ;;
+  *"/actions/runs"*)
+    runs_json; exit 0 ;;
+  *)
+    printf 'двойник: неизвестный путь: %s\n' "$req" >&2; exit 1 ;;
+esac
