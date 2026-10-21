@@ -579,6 +579,7 @@ else
   declare -A __ch_doc_excused=()
   declare -A __ch_doc_failed=()
   declare -A __ch_eff_scanned=()
+  declare -A __ch_eff_rlrc=()
   # 1. Карта документ → эффективная since (per-document incr-подмена, инв. 3):
   #    «Since» — ПЕРВАЯ заморозка ЭТОГО файла; INCR_BASE — общий кеш чека.
   #    Если файл заморожен ДО кеша (since — предок INCR_BASE), окно сужается
@@ -597,9 +598,20 @@ else
   # 2. Счётчики «коммитов в диапазоне» по эффективной since — кешируются, чтобы
   #    одна rev-list на уникальную since, а не на каждый документ (на живой
   #    истории это сокращает сотни вызовов до десятков).
+  #    Ошибка rev-list — ИМЕНОВАННЫЙ отказ по документу, а не «0» (контракт 992,
+  #    класс fail-open `|| echo 0`, тот же, что у оракула :534-539 и у diff-tree
+  #    :546-550): непрочитанный диапазон не равен диапазону без нарушений. Кеш rc
+  #    (по уникальной since) + проверка в шаге 4 — зеркало оракула: тот же текст
+  #    отказа на каждый документ этого диапазона, тот же rc 1.
   for __ch_eff in "${__ch_doc_eff[@]}"; do
     [ -n "${__ch_eff_scanned[$__ch_eff]+set}" ] && continue
-    __ch_eff_scanned["$__ch_eff"]="$(g rev-list --count "${__ch_eff}..HEAD" 2>/dev/null || echo 0)"
+    __ch_rl_rc=0
+    __ch_rl_n="$(g rev-list --count "${__ch_eff}..HEAD" 2>/dev/null)" || __ch_rl_rc=$?
+    if [ "$__ch_rl_rc" -ne 0 ]; then
+      __ch_eff_rlrc["$__ch_eff"]="$__ch_rl_rc"
+      continue
+    fi
+    __ch_eff_scanned["$__ch_eff"]="$__ch_rl_n"
   done
   # Здесь НЕТ прежней строки `__ch_eff="$__ch_eff"` (no-op ради SC2155): на дереве
   # с ustav/1 и НУЛЕМ уставных документов цикл выше не выполняется, и такое
@@ -684,6 +696,14 @@ else
     [ -n "$f" ] || continue
     __ch_eff="${__ch_doc_eff[$f]:-}"
     [ -n "$__ch_eff" ] || continue
+    # Непрочитанный диапазон — именованный отказ по этому документу, ровно как в
+    # оракуле: ни счётчика, ни «изменений без разрешения нет» (ok-строка про
+    # просмотренное обязана опираться на ПРОЧИТАННОЕ).
+    __ch_rlrc="${__ch_eff_rlrc[$__ch_eff]:-0}"
+    if [ "$__ch_rlrc" -ne 0 ]; then
+      bad "$f — история $__ch_eff..HEAD не читается (rev-list rc=$__ch_rlrc): проверить невозможно — git fetch и повтор"
+      continue
+    fi
     __ch_scanned="${__ch_eff_scanned[$__ch_eff]:-0}"
     changes=$((changes + ${__ch_doc_changes[$f]:-0}))
     excused=$((excused + ${__ch_doc_excused[$f]:-0}))
@@ -691,7 +711,7 @@ else
       ok "$f — уставной с $__ch_eff, коммитов в диапазоне $__ch_scanned, изменений без разрешения нет"
     fi
   done < "$TMP/pairs"
-  unset __ch_eff __ch_scanned
+  unset __ch_eff __ch_scanned __ch_rlrc __ch_rl_rc __ch_rl_n
 fi
 
 printf '\nуставных документов: %d · изменений в них: %d · с разрешения: %d\n' \
