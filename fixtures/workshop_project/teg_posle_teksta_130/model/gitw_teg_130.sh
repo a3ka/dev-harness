@@ -4,18 +4,22 @@
 # место в копии scripts/ и сверяет поведение gitw с оракулом.
 #
 #   gitw_teg_130.sh push <цель> <настоящий-git> <post_sub_idx> <argv gitw ...>
-#       состав обмена — `git push --dry-run --porcelain --no-verify` с тем же argv;
+#       зовёт gitw перед КАЖДЫМ exec настоящего git при push; состав обмена —
+#       `git push --dry-run --porcelain --no-verify` с тем же argv и тем же окружением;
 #       каждый создаваемый/двигаемый refs/tags/frozen/* судится против main ЦЕЛИ (ls-remote).
 #       rc 0 — тегов заморозки нет либо все допущены; rc 1 — именованный отказ.
-#   gitw_teg_130.sh held <цель> <refs/tags/frozen/...>
-#       rc 0 — тег в ожидании текста (текст или вердикт ещё не в main цели);
-#       rc 1 — не в ожидании (текст в main цели — тег обязан уйти);
-#       rc 2 — нечем судить (вне грамматики, main цели не читается).
+#   gitw_teg_130.sh hold <тег>
+#       refs/tags/frozen/<…> → refs/frozen-hold/<…> (тот же объект; тега в refs/tags больше нет).
+#   gitw_teg_130.sh publish <тег>
+#       refs/frozen-hold/<…> → refs/tags/frozen/<…> и `bash <scripts>/gitw push origin <тег>`;
+#       отказ gitw — откат: тега в refs/tags нет, удержание остаётся.
 #
 # Отказ: «gitw ТЕГ-ОТКАЗ: <тег>: <класс>: <деталь>», классы — §Грамматика контракта 130.
+# Окружение (GIT_DIR и пр.) НЕ сбрасывается: dry-run обязан видеть то же, что настоящий push.
 set -uo pipefail
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
-      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_TEMPLATE_DIR GIT_CEILING_DIRECTORIES
+
+SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+GRAM='^refs/tags/frozen/(contracts|plans)/([0-9]{3})/([1-9][0-9]{0,3})$'
 
 otkaz() { printf 'gitw ТЕГ-ОТКАЗ: %s: %s: %s\n' "$1" "$2" "$3" >&2; }
 
@@ -34,7 +38,7 @@ main_celi() {
 judge_tag() {
   local ref="$1" commit="$2" short dir nnn v names path n blob_tag blob_main vk vpath body first
   short="${ref#refs/tags/}"
-  if [[ ! "$ref" =~ ^refs/tags/frozen/(contracts|plans)/([0-9]{3})/([1-9][0-9]{0,3})$ ]]; then
+  if [[ ! "$ref" =~ $GRAM ]]; then
     otkaz "$short" "тег вне грамматики" "ожидается frozen/(contracts|plans)/NNN/v"
     return 2
   fi
@@ -60,7 +64,7 @@ judge_tag() {
   blob_tag="$(git rev-parse --verify --quiet "$commit:$path" 2>/dev/null)"
   blob_main="$(git rev-parse --verify --quiet "$RMAIN:$path" 2>/dev/null || true)"
   if ! [ "$blob_main" = "$blob_tag" ]; then
-    otkaz "$short" "текст не в main цели" "$path blob $blob_tag, в main цели ${RMAIN:0:12}: ${blob_main:-нет} — сначала ленд текста, тег остаётся локальным"
+    otkaz "$short" "текст не в main цели" "$path blob $blob_tag, в main цели ${RMAIN:0:12}: ${blob_main:-нет} — тег в удержание (gitw_teg_130.sh hold), ленд текста, затем publish"
     return 1
   fi
   vk=1
@@ -100,6 +104,17 @@ sostav() {
   return 0
 }
 
+# polnoe <тег> → refs/tags/frozen/… в грамматике, иначе отказ.
+polnoe() {
+  local t="$1"
+  case "$t" in refs/tags/*) ;; *) t="refs/tags/$t" ;; esac
+  if [[ ! "$t" =~ $GRAM ]]; then
+    otkaz "${t#refs/tags/}" "тег вне грамматики" "ожидается frozen/(contracts|plans)/NNN/v"
+    return 1
+  fi
+  printf '%s\n' "$t"
+}
+
 mode="${1:-}"; shift || true
 case "$mode" in
   push)
@@ -133,17 +148,37 @@ case "$mode" in
     [ "$bad" -eq 0 ] || exit 1
     exit 0
     ;;
-  held)
-    TGT="$1"; ref="$2"
-    commit="$(git rev-parse --verify --quiet "${ref}^{commit}" 2>/dev/null || true)"
-    [ -n "$commit" ] || exit 2
-    main_celi "$TGT" || RMAIN=""
-    judge_tag "$ref" "$commit" 2>/dev/null
-    case "$?" in
-      0) exit 1 ;;
-      1) exit 0 ;;
-      *) exit 2 ;;
-    esac
+  hold)
+    X="$(polnoe "${1:-}")" || exit 1
+    H="refs/frozen-hold/${X#refs/tags/frozen/}"
+    obj="$(git rev-parse --verify --quiet "$X" 2>/dev/null)" \
+      || { otkaz "${X#refs/tags/}" "удержание невозможно" "локального тега нет"; exit 1; }
+    if git rev-parse --verify --quiet "$H" >/dev/null 2>&1; then
+      otkaz "${X#refs/tags/}" "удержание невозможно" "$H уже есть"; exit 1
+    fi
+    git update-ref "$H" "$obj" "" 2>/dev/null \
+      || { otkaz "${X#refs/tags/}" "удержание невозможно" "$H не создан"; exit 1; }
+    if ! git update-ref -d "$X" "$obj"; then
+      git update-ref -d "$H" "$obj" 2>/dev/null
+      otkaz "${X#refs/tags/}" "удержание невозможно" "$X не снят"; exit 1
+    fi
+    exit 0
+    ;;
+  publish)
+    X="$(polnoe "${1:-}")" || exit 1
+    H="refs/frozen-hold/${X#refs/tags/frozen/}"
+    obj="$(git rev-parse --verify --quiet "$H" 2>/dev/null)" \
+      || { otkaz "${X#refs/tags/}" "удержание невозможно" "$H нет"; exit 1; }
+    git update-ref "$X" "$obj" "" 2>/dev/null \
+      || { otkaz "${X#refs/tags/}" "удержание невозможно" "локальный $X уже есть"; exit 1; }
+    bash "$SELF_DIR/gitw" push origin "$X"
+    prc=$?
+    if [ "$prc" -ne 0 ]; then
+      git update-ref -d "$X" "$obj" || true
+      exit "$prc"
+    fi
+    git update-ref -d "$H" "$obj"
+    exit $?
     ;;
   *)
     printf 'gitw ТЕГ-ОТКАЗ: (вызов): режим не распознан: %s\n' "$mode" >&2
