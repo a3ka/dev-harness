@@ -5,9 +5,11 @@
 # сверяется (ветвь variable цикла --freeze удалена); поле, грамматика и счёт пунктов не меняются.
 # Наблюдаемое расхождение: клетка z6-variable-ne-zavedena (--freeze, контракт объявляет ТОЛЬКО
 # variable ONLY_VARIABLE, `gh variable list` успешен, имени в инвентаре нет) обязана дать rc 1
-# sekrety-ne-zavedeny: ONLY_VARIABLE — мутант даёт rc 0 PREDPOSYLKI_OK. Клетки z2 (отказ на первом
-# незаведённом secret наступает раньше ветви variable), z3 (gh сломан уже на secret), k-freeze (всё
-# заведено) зелены. Маркер не ровно один раз — rc 2 (мутант не применён).
+# sekrety-ne-zavedeny: ONLY_VARIABLE — мутант даёт rc 0 PREDPOSYLKI_OK; так же z9-variable-gh-oshibka
+# (ТОЛЬКО variable, `gh variable list` rc 127: gh не спрошен — rc 0 вместо gh-nedostupen). Клетки
+# z2 (отказ на первом незаведённом secret наступает раньше ветви variable), z3 (gh сломан уже на
+# secret), z7/z8 (ТОЛЬКО secret), k-freeze (всё заведено) зелены. Маркер не ровно один раз — rc 2
+# (мутант не применён).
 set -u
 M=$(cd "$(dirname "$0")/../model" && pwd)/check_predposylki.sh
 MARK='МУТАЦИЯ-122:freeze-variable'
