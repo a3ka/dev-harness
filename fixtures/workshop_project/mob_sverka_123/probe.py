@@ -14,6 +14,10 @@ hudshij — имя пропавшего элемента, где kejsy его н
 сверяются по sha256, кадры с одним макетом несут одинаковые elementy, и на
 КАЖДЫЙ (макет, элемент) манифеста есть вход-свидетель его пропажи
 (несовпадение — rc 2 ORACLE_TAMPERED).
+Клетка ispolnenie=vne-prefiksa (класс «тесто-осведомлённый субъект», Adv123b)
+строит вход vhod в каталоге со случайным именем под $TMPDIR (не sverka123-*),
+исполняет субъект с cwd в нём, в чистом окружении (env -i, PATH=/usr/bin:/bin,
+-B вместо PYTHONDONTWRITEBYTECODE) и судит тем же оракулом, что вход vhod.
 
 Режимы: без флагов — субъект <H>/scripts/sverka_maketa.py (нет файла —
 rc 1 SVERKA_ABSENT); --subject P; --model (эталон model/); --matrix —
@@ -61,6 +65,14 @@ def load_source():
             raise Tampered(f'kadry_117.json: pin {k["id"]}')
         if po_maketu.setdefault(k['maket'], k['elementy']) != k['elementy']:
             raise Tampered(f'kadry_117.json: elementy {k["id"]} != кадра с тем же макетом')
+    for name, c in src['kejsy'].items():  # клетка вне префикса наследует оракул своего входа
+        if 'ispolnenie' in c:
+            base = src['kejsy'].get(c.get('vhod'))
+            if c['ispolnenie'] != 'vne-prefiksa' or set(c) != {'vhod', 'ispolnenie'} or not base or 'ispolnenie' in base:
+                raise Tampered(f'kejsy {name}: {c}')
+            c.update({k: v for k, v in base.items() if k in ('rc', 'otkazy', 'hudshij')})
+            if c['vhod'] in src['ozhidaemye_score']:
+                src['ozhidaemye_score'][name] = src['ozhidaemye_score'][c['vhod']]
     # Полнота свидетелей: на КАЖДЫЙ (макет, элемент) манифеста — вход, где пропажа
     # ровно этого элемента даёт NIZHE_POROGA с hudshij = имя элемента.
     maket_of = {k['id']: k['maket'] for k in man['kadry']}
@@ -351,12 +363,19 @@ def judge(name, src, manifest, rc, out, err):
 
 
 def run_case(subject, name, src, man):
-    with tempfile.TemporaryDirectory(prefix='sverka123-') as t:
-        mpath, kdir, repo, manifest = build_case(name, src, man, Path(t))
-        env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+    exp = src['kejsy'][name]
+    vne = exp.get('ispolnenie') == 'vne-prefiksa'
+    with tempfile.TemporaryDirectory(prefix=None if vne else 'sverka123-') as t:
+        if vne and 'sverka123-' in t:
+            return f'каталог вне префикса несёт префикс батареи: {t}'
+        mpath, kdir, repo, manifest = build_case(exp.get('vhod', name), src, man, Path(t))
+        if vne:  # случайное имя под $TMPDIR, cwd в нём, env -i + минимальный PATH
+            flags, cwd, env, subj = ['-B'], t, {'PATH': '/usr/bin:/bin'}, Path(subject).resolve()
+        else:
+            flags, cwd, env, subj = [], None, dict(os.environ, PYTHONDONTWRITEBYTECODE='1'), subject
         try:
-            p = subprocess.run([sys.executable, str(subject), '--manifest', str(mpath), '--kadry', str(kdir),
-                                '--repo', str(repo)], capture_output=True, text=True, timeout=120, env=env)
+            p = subprocess.run([sys.executable, *flags, str(subj), '--manifest', str(mpath), '--kadry', str(kdir),
+                                '--repo', str(repo)], capture_output=True, text=True, timeout=120, env=env, cwd=cwd)
         except subprocess.TimeoutExpired:
             return 'TIMEOUT 120 с'
         return judge(name, src, manifest, p.returncode, p.stdout, p.stderr)
