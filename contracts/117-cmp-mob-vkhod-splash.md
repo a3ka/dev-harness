@@ -59,8 +59,20 @@ frozen-семьи 995/999/111 этой пачкой не переписываю�
   заголовок 3 строки y369..453 (ink, по центру); подзаголовок 3 строки
   y484..538 (#a6a69f = ink-muted, по центру); CTA x16..373 y738..793
   (358×56 = 390−2·16 × size-lg, #d6f75a); футер «Versicherung. Erledigt.»
-  x125..264 y813..825 (ink-muted, по центру). Литералы — source.json
-  `first_run_117`.
+  x125..264 y813..825 (ink-muted, по центру); независимый повторный замер
+  критика (`/tmp/dev-harness-verify/Critic117v2/measure.py`) дал те же
+  числа. Литералы — source.json `first_run_117`.
+- Литералы конструкции колонки First-Run (инв. 9к, source.json
+  `first_run_117.column`) выведены из ПОЛОС First-Run.png при нулевом
+  инсете, не из First-Run.html: верх 60 (minHeight 60, paddingTop 20,
+  wordmark h22 по центру → коробка y29..51, глифы 33..49), блок знака
+  y60..364 (height 304, paddingTop 63 → знак y123..296), заголовок 3×32 с
+  y364 (глифы 369..453), подзаголовок marginTop 20 → y480..540 (глифы
+  484..538), блок действий снизу: paddingTop 8, CTA, футер marginTop 16 ×
+  lineHeight 18, paddingBottom 16 (с CTA 56 — y738..794, футер y810..828,
+  глифы 813..825). Конструкция First-Run.html (presence 36% от 844 /
+  padding 24 16 16 / margin-top 8 подзаголовка) даёт знак y≈129,4 и
+  подзаголовок (коробка) y≈467,8 — с PNG не совпадает (расчёт по тем же правилам).
 - Иконка: `logo/assets/complior-app-icon.svg` (1024, rx232, фон #0a0a0a,
   дуга stroke #f2f1ec w12, точка #d6f75a cx76 cy66 r11 во viewBox 96).
 - Вход и First-Run: `design-system/project/tokens.css` (.title 28/32/500,
@@ -136,14 +148,21 @@ frozen-семьи 995/999/111 этой пачкой не переписываю�
   #f2f1ec/panel #1e1e1d/primary #d6f75a/on-primary #121211; light ground
   #f3f2ee/ink #121211/panel #e6e5df/primary #121211/on-primary #f3f2ee;
   accent #d6f75a в ОБЕИХ; `accent-text` и `ink-muted` НЕТ (в tokens.json
-  D2.2.5.1 есть). ThemeContext — пара (scheme, tokens).
+  D2.2.5.1 есть). ThemeContext — пара (scheme, tokens). Слово владельца
+  (РАЗРЕШИЛ v2) допускает в этом файле ТОЛЬКО добавление `accent-text`;
+  sha базы B — source.json `frozen_999_117`.
 - `mobile/src/ui/button.tsx` и `mobile/src/ui/text-field.tsx` (CMP-MOB-002,
   999): Button — пилюля (радиус 999), primary = primary/on-primary схемы,
-  обёртка `alignSelf: 'flex-start'`, пропов size/block НЕТ — во всю ширину
-  и высотой size-lg 56 Button не встаёт ни у какого родителя (замер
-  ревьюера Р7: 45,0 dp по контенту); TextField — подпись caption ink над
-  полем-пилюлей на panel, ввод ink, проп `label` обязателен. Структурная
-  политика продукта держит общий UI в `src/ui` (`check-structure.cjs`).
+  пропы label/onPress/variant/disabled/testID — `style`, `size`, `block`
+  НЕТ; обёртка `alignSelf: 'flex-start'` — во всю ширину и высотой size-lg
+  56 Button не встаёт ни у какого родителя (замер ревьюера Р7: 45,0 dp по
+  контенту); средствами first-run-screen его можно только поставить в ряд
+  (`flexDirection: 'row'`, `justifyContent: 'center'`) — по центру, по
+  контенту. Слово владельца button.tsx НЕ называет — файл в 117 не
+  меняется (sha базы B — source.json `frozen_999_117`). TextField — подпись
+  caption ink над полем-пилюлей на panel, ввод ink, проп `label`
+  обязателен. Структурная политика продукта держит общий UI в `src/ui`
+  (`check-structure.cjs`).
 - 111 (заморожено): К5 `FIRST_RUN_COPY_CLOSED` — видимая копия First-Run ⊆
   {Demo, promise, CTA}; К4 `WORDMARK_SOURCE_BOUND` — source wordmark-dark.png
   в обеих схемах; К6 `FIRST_RUN_GROUND_FULL_SURFACE`; К7 `DEMO_BADGE_INSET`;
@@ -160,19 +179,28 @@ frozen-семьи 995/999/111 этой пачкой не переписываю�
 приложения + JS-оверлей — свойство SDK 57, документация Expo), затем
 JS-ОВЕРЛЕЙ кадра Splash.png/Splash-Hell.png по всей поверхности поверх
 дерева оболочки (скрывается таймером), затем — First-Run в составе и
-раскладке First-Run.png (dark; light — те же элементы на токенах light);
-сверка «скриншот ↔ Splash.png / First-Run.png» — android-e2e на release
-APK (Expo Go не показывает картинку плагина — не свидетель). Экраны входа
+раскладке First-Run.png (dark; light — те же элементы на токенах light) в
+границах слова владельца (РАЗРЕШИЛ v2: first-run-screen, ассеты
+wordmark/знака, в tokens.ts ТОЛЬКО добавление accent-text); сверка
+«скриншот ↔ Splash.png / First-Run.png» — android-e2e на release APK
+(Expo Go не показывает картинку плагина — не свидетель). Экраны входа
 F03.01/F03.02 — полный состав по UX-JSON F01/F03 и каталогу, собранный из
 компонентов Button/TextField дизайн-системы D2.2.5.1 на токенах схемы
 (ссылки — accent-text схемы; testID и переходы 995 сохранены).
+
+ОТКРЫТЫЙ ФОРК `n117-v2-zona` (вопрос №10): CTA 358×56 без правки
+button.tsx недостижим; 117 v2 ставит Button 999 по центру внизу и НЕ
+сужает сверку скриншота ↔ First-Run.png (расхождение CTA — FAIL сверки до
+слова владельца, не принятый остаток).
 
 Вне предмета: JS-КАДР splash (state-machine — оверлей НЕ расширяет
 Frame, `frame` стартует с 'first-run' как на B); кадры welcome, F03.04,
 unavailable (поверхность 995); AgentPresence в First-Run (знак — статичный
 растр канона, Brand README «Static brand mark»; анимация Dynamic Faden —
 вне); стиль подписи поля F03.01/F03.02 по README TextField и Button во всю
-ширину на F03 (форк `n117-r5-r7`); связка First-Run → вход →
+ширину на F03 (форк `n117-r5-r7`); правка `mobile/src/ui/button.tsx`
+(пропы size/block) и ключ `ink-muted` в tokens.ts — сверх слова
+владельца (форк `n117-v2-zona`); связка First-Run → вход →
 Erstinformation → Start (предмет 118); 116; копия-синька CMP-MOB-089;
 device evidence CMP-MOB-090; реальный IdP/бэкенд; анимация splash;
 шрифтовой ассет DM Sans.
@@ -261,17 +289,24 @@ device evidence CMP-MOB-090; реальный IdP/бэкенд; анимация
    commit без оверлея — красны); оверлей НЕ расширяет Frame
    state-machine; `pilot.test` 995 на модели с оверлеем — 14/14;
    батареи соседей — раздел «ПЕРЕСЕЧЕНИЕ с 111/995/999».
-9. First-Run (× dark/light) — состав и раскладка First-Run.png/First-Run.html
-   (p-astage is-stage-1), конструкцией по эффективному стилю:
+9. First-Run (× dark/light) — состав и раскладка First-Run.png в границах
+   слова владельца, конструкцией по эффективному стилю. ЭФФЕКТИВНЫЙ цвет
+   глифа (буквы б, д, ж) = его цвет (Text `color`; Image `tintColor`, иначе
+   ink растра #f2f1ec), смешанный с ЭФФЕКТИВНОЙ подложкой по произведению
+   `opacity` узлов от глифа до неё; подложка — ближайший `backgroundColor`
+   (не 'transparent') самого узла или предка по цепи корень→узел (своя
+   подложка узла — без смеси); цвет/подложка не `#rrggbb` или подложки в
+   цепи нет — неразрешимо, красно:
    а) First-Run — первый В ПОТОКЕ host-ребёнок корня PilotApp (всё перед
       ним, в т.ч. Demo-бейдж, — `position: 'absolute'`; бейдж сохраняет
       paddingTop = insets.top, 111 К7); верхний блок артборда —
       paddingTop 20, minHeight 60, justifyContent center;
    б) wordmark (testID first-run-wordmark, source wordmark-dark.png 111) —
       первый Image/Text First-Run, по центру по горизонтали (alignSelf
-      center либо alignItems center родителя), высота 22, ЭФФЕКТИВНЫЙ ink
-      = `tintColor` = ink схемы (контраст к ground ≥ 4.5; без перекраски
-      light #f2f1ec на #f3f2ee 1,01:1 — красно);
+      center либо alignItems center родителя), высота 22; подложка —
+      ground схемы, эффективный цвет — ink схемы ±3 по каналу, контраст ≥
+      4.5 (без перекраски light #f2f1ec на #f3f2ee 1,01:1 и подложка цветом
+      глифа на самом Image или предке 1:1 — красно);
    в) знак канона (testID first-run-sign) — РОВНО один Image First-Run с
       source = модуль `mobile/assets/images/splash-sign-<схема>.png` СВОЕЙ
       схемы (тот файл, что судит SPLASH_SIGN_RASTER), 181×173, по центру,
@@ -279,33 +314,70 @@ device evidence CMP-MOB-090; реальный IdP/бэкенд; анимация
    г) заголовок `ui.first_run.promise` (.title, ink, по центру — как 111);
    д) подзаголовок — литерал First-Run.html (source.json
       `first_run_117.subline`, ключа каталога нет — вопрос №9): РОВНО один
-      Text, .body-sm 15/20, textAlign center, ink-muted схемы (dark
-      #a6a69f, light #5f5e58; контраст ≥ 4.5), после promise, до CTA;
-   е) CTA `ui.first_run.enter_f03` — `Button` primary (testID
-      first-run-continue): пилюля, primary/on-primary, высота size-lg 56,
-      ВО ВСЮ ШИРИНУ — цепь host-узлов First-Run→пилюля не сужается
-      (alignSelf не flex-start/center/flex-end/baseline; при таком
-      alignItems родителя — alignSelf stretch; width/maxWidth не заданы),
-      сумма горизонтальных padding предков и margin цепи = 16 с каждой
-      стороны; ВНИЗУ — корень First-Run flex 1, блок CTA — его последний
-      host-ребёнок, свободное место перед ним (flex/flexGrow брата,
-      marginTop auto или justifyContent flex-end/space-between корня);
+      Text, .body-sm 15/20, textAlign center; подложка — ground схемы,
+      эффективный цвет — ink-muted tokens.json ±3 по каналу (dark #a6a69f,
+      light #5f5e58; средствами first-run-screen — напр. `tokens.ink` с
+      `opacity` 0.67: dark #a5a5a1, light #5c5c5a), контраст ≥ 4.5; после
+      promise, до CTA;
+   е) CTA `ui.first_run.enter_f03` — `Button` 999 БЕЗ правок, variant
+      primary (testID first-run-continue): пилюля (радиус ≥ 28),
+      primary/on-primary; ПО ЦЕНТРУ — родитель обёртки Button — ряд
+      `flexDirection: 'row'`, `justifyContent: 'center'`; ВНИЗУ — корень
+      First-Run flex 1, блок CTA — его последний host-ребёнок, свободное
+      место перед ним (flex/flexGrow брата, marginTop auto или
+      justifyContent flex-end/space-between корня). Размер 358×56 — форк
+      `n117-v2-zona` (раздел «Предмет и граница»);
    ж) футер `brand.tagline` «Versicherung. Erledigt.»: РОВНО один Text,
-      .caption 13/18/500, по центру, ink-muted схемы (контраст ≥ 4.5),
-      ПОСЛЕ CTA в порядке документа;
+      .caption 13/18/500, по центру; подложка ground схемы, эффективный
+      цвет — ink-muted ±3, контраст ≥ 4.5; ПОСЛЕ CTA в порядке документа;
    з) палитра First-Run — только токены схемы: модуль экрана (без
-      комментариев) без hex, читает tokens.ground, tokens.ink,
-      tokens['ink-muted']; `tokens.ts` получает АДДИТИВНО `accent-text` и
-      `ink-muted` обеих схем значениями tokens.json; `Button` получает
-      АДДИТИВНО пропы `size` ('md' | 'lg', lg — высота 56) и `block`
-      (обёртка stretch) — без пропов прежнее поведение 999;
+      комментариев) без hex, читает tokens.ground и tokens.ink, ключа
+      `ink-muted` не читает; `tokens.ts` получает ТОЛЬКО `accent-text`
+      обеих схем значениями tokens.json (строки
+      `'accent-text': string;` / `'accent-text': '#rrggbb',`; без них файл —
+      байты базы B), `mobile/src/ui/button.tsx` — байты базы B (sha —
+      source.json `frozen_999_117`);
    и) Demo-бейдж (testID demo-indicator; на PNG его нет, 995 требует
       индикатор — форк (А): «подложка Demo видима») на кадрах D2.2.5.1
       (first-run, F03.01, F03.02) — чип DS: подложка panel схемы, текст
-      ink схемы (контраст к подложке ≥ 4.5); на кадрах 995 — прежний вид.
-   Пиксели кадра (y полос, центр по x) в Jest не вычисляются — это
-   android-e2e-скриншот ↔ First-Run.png (полосы — source.json
-   `first_run_117.bands_px`), правило (В).
+      ink схемы (контраст к подложке ≥ 4.5); на кадрах 995 — прежний вид;
+   к) КОЛОНКА First-Run — РОВНО таблица литералов (source.json
+      `first_run_117.column`; вывод — раздел «Источники»): в порядке
+      документа host-узлы кадра (поддерево Button 999 — одна строка), у
+      каждого — проекция эффективного стиля на все ключи, КРОМЕ закрытого
+      перечня горизонтальных/красочных (color, backgroundColor, tintColor,
+      opacity, fontSize, fontWeight, fontFamily, fontStyle, textAlign,
+      letterSpacing, alignItems, alignSelf, padding/margin
+      Horizontal/Left/Right/Start/End, width, minWidth, maxWidth,
+      aspectRatio, resizeMode, borderRadius):
+
+      | # | host-узел | проекция |
+      | --- | --- | --- |
+      | 1 | корень SafeAreaView (RNCSafeAreaView) | flex 1 |
+      | 2 | верхний блок (View) | minHeight 60, paddingTop 20, justifyContent center |
+      | 3 | wordmark (Image) | height 22 |
+      | 4 | блок знака (View) | height 304, paddingTop 63 |
+      | 5 | знак (Image) | height 173 |
+      | 6 | рабочий блок (View) | flex 1 |
+      | 7 | заголовок (Text) | lineHeight 32 |
+      | 8 | подзаголовок (Text) | lineHeight 20, marginTop 20 |
+      | 9 | блок действий (View) | paddingTop 8, paddingBottom 16 |
+      | 10 | ряд CTA (View) | flexDirection row, justifyContent center |
+      | 11 | Button 999 (обёртка и потомки) | — (байты — 9з) |
+      | 12 | футер (Text) | lineHeight 18, marginTop 16 |
+
+      Текст колонки (заголовок, подзаголовок, футер) — поля 16 с каждой
+      стороны (сумма горизонтальных padding предков и margin цепи кадр→Text,
+      source.json `first_run_117.text_gutter`), width/maxWidth на цепи не
+      заданы: иная ширина меняет перенос строк и сдвигает полосы. Иное
+      значение, лишний ключ (marginTop −63 у знака), иной состав или порядок
+      узлов — красно. Конформный вход для этой клетки — ровно эта таблица:
+      иная конструкция с тем же кадром на устройстве (marginTop знака вместо
+      paddingTop блока) — не контрпример, а нарушение литерала.
+   Пиксели кадра (y полос, центр по x, размер CTA в dp) в Jest не
+   вычисляются — это android-e2e-скриншот ↔ First-Run.png (полосы —
+   source.json `first_run_117.bands_px`), правило (В); раздел «Модель
+   угроз» — НЕ ЗАЩИЩАЕТ.
 
 ## Состав кадров входа (UX-JSON F01/F03 + каталог, литералы)
 
@@ -331,12 +403,12 @@ auth-cooldown, resend-sent, demo-indicator) сохраняются как на B
 
 | Элемент (testID) | Компонент / ассет | Текст / ключ | Стиль (dark / light) |
 | --- | --- | --- | --- |
-| wordmark (`first-run-wordmark`) | Image wordmark-dark.png, h22, по центру | — (label «complior») | tintColor ink #f2f1ec / #121211 |
+| wordmark (`first-run-wordmark`) | Image wordmark-dark.png, h22, по центру, на ground | — (label «complior») | tintColor ink #f2f1ec / #121211 |
 | знак (`first-run-sign`) | Image splash-sign-<схема>.png 181×173, по центру | — | растр канона схемы |
 | заголовок (`first-run-promise`) | Text .title 28/32/500, по центру | `ui.first_run.promise` | ink |
-| подзаголовок | Text .body-sm 15/20, по центру | литерал First-Run.html (без ключа, №9) | ink-muted #a6a69f / #5f5e58 |
-| CTA (`first-run-continue`) | `Button` primary size lg block, поля 16, внизу | `ui.first_run.enter_f03` | primary / on-primary |
-| футер | Text .caption 13/18/500, по центру, под CTA | `brand.tagline` «Versicherung. Erledigt.» | ink-muted |
+| подзаголовок | Text .body-sm 15/20, по центру, marginTop 20 | литерал First-Run.html (без ключа, №9) | эффективно ink-muted #a6a69f / #5f5e58 ±3 (напр. ink × opacity 0.67) |
+| CTA (`first-run-continue`) | `Button` 999 primary без правок, в ряду по центру, внизу (358×56 — форк `n117-v2-zona`) | `ui.first_run.enter_f03` | primary / on-primary |
+| футер | Text .caption 13/18/500, по центру, под CTA, marginTop 16 | `brand.tagline` «Versicherung. Erledigt.» | эффективно ink-muted ±3 |
 
 ## Проверяемый шов
 
@@ -348,17 +420,18 @@ email/code, JS-оверлей splash, Demo-бейдж вне потока на f
 `mobile/src/features/auth/auth-screen.tsx` (EmailFrame/CodeFrame на
 `@/ui/button`, `@/ui/text-field`; ссылки accent-text);
 `mobile/src/features/auth/first-run-screen.tsx` (First-Run по
-First-Run.png); `mobile/src/theme/tokens.ts` (АДДИТИВНО accent-text,
-ink-muted); `mobile/src/ui/button.tsx` (АДДИТИВНО size, block); сценарий
-Maestro 117 в `mobile/.maestro/` (после freeze — implementer). Ожидания
+First-Run.png; колонка — таблица инв. 9к); `mobile/src/theme/tokens.ts`
+(ТОЛЬКО + accent-text); сценарий Maestro 117 в `mobile/.maestro/` (после
+freeze — implementer); `mobile/src/ui/button.tsx` — НЕ шов, байты базы B
+(FROZEN_999_WITHIN_WORD). Ожидания
 проб — литералы source.json (сняты с read-only docs/ B ДО субъекта,
 правило 8/Н-351); ни одна клетка не читает значения у субъекта; эталоны
 артбордов припинены sha256 (несовпадение — rc2 ORACLE_TAMPERED).
 
-## Закрытые перечни клеток (числа — из прогонов v2 на клоне C 58d60b8)
+## Закрытые перечни клеток (числа — из прогонов v2 круга 2 на копии C 1423b86 = 58d60b8 + перепин mobile.yml)
 
 Поведенческая семья (Jest/RNTL, `vkhod_probe.py` → `vkhod.test.tsx`,
-44 клетки = 22 группы × {DARK, LIGHT}):
+46 клеток = 23 группы × {DARK, LIGHT}):
 - В1 `AUTH_F03_01_STRUCTURE_{DARK,LIGHT}` — ВСЕ элементы F03.01 из
   таблицы состава: заголовок (.title, ink), подпись поля (body-ключ, ink),
   auth-email (пилюля ≥ 28, panel, ввод ink), auth-demo-entry (пилюля ≥ 28,
@@ -371,9 +444,11 @@ Maestro 117 в `mobile/.maestro/` (после freeze — implementer). Ожид�
 - FR `FIRST_RUN_TOP_{DARK,LIGHT}` (инв. 9а), `FIRST_RUN_WORDMARK_{DARK,LIGHT}`
   (9б), `FIRST_RUN_SIGN_{DARK,LIGHT}` (9в), `FIRST_RUN_SUBLINE_{DARK,LIGHT}`
   (9д), `FIRST_RUN_CTA_BOTTOM_{DARK,LIGHT}` (9е), `FIRST_RUN_TAGLINE_{DARK,LIGHT}`
-  (9ж) — конструкция раскладки First-Run.html по эффективному стилю цепи
-  host-узлов (toJSON) и порядку документа; знак и wordmark — сентинели
-  модулей файлов (`jest.mock(…, {virtual: true})`, как композиты С2-а);
+  (9ж), `FIRST_RUN_LAYOUT_{DARK,LIGHT}` (9к) — конструкция раскладки по
+  эффективному стилю цепи host-узлов (toJSON) и порядку документа; цвета
+  глифов wordmark/подзаголовка/футера — к ЭФФЕКТИВНОЙ подложке (инв. 9);
+  колонка — таблица литералов 9к; знак и wordmark — сентинели модулей
+  файлов (`jest.mock(…, {virtual: true})`, как композиты С2-а);
   `DEMO_BADGE_CHIP_{DARK,LIGHT}` (9и) — бейдж на first-run, F03.01, F03.02.
 - В3 `AUTH_FRAMES_IN_WINDOW_{DARK,LIGHT}` — ПЕРВАЯ ЛИНИЯ по
   эффективному стилю (НЕ доказательство: layout в Jest не вычисляется):
@@ -394,7 +469,7 @@ Maestro 117 в `mobile/.maestro/` (после freeze — implementer). Ожид�
   композита своей схемы; без Text; commit-журнал prevent → первый commit с
   оверлеем → один hide; скрытие 1200 мс).
 
-Статическая семья (`vkhod_static_probe.py`, 38 клеток):
+Статическая семья (`vkhod_static_probe.py`, 39 клеток):
 APP_ICON_DERIVATIVES, ICON_NOT_TEMPLATE_BYTES, ICON_ADAPTIVE_BG_DARK,
 ICON_PIXELS_MARK, SPLASH_BLOCKS_DARK_LIGHT, SPLASH_EFFECTIVE_DARK_LIGHT,
 SPLASH_NATIVE_GENERATED_{LIGHT,DARK}_{MDPI,HDPI,XHDPI,XXHDPI,XXXHDPI} ×10 +
@@ -403,16 +478,21 @@ SPLASH_IOS_STORYBOARD, SPLASH_COMPOSITE_ETALON_{DARK,LIGHT},
 SPLASH_SIGN_RASTER_{DARK,LIGHT}, SPLASH_OVERLAY_CONSUMES_COMPOSITE,
 USER_STYLE_AUTOMATIC, AUTH_FRAMES_TOKENIZED (сегменты входа без hex,
 ссылки `tokens['accent-text']`, `tokens.accent }` в CodeFrame — красно),
-AUTH_DS_COMPONENTS, FIRST_RUN_TOKENIZED (инв. 9з), STATIC_ORACLE_LITERALS
-(+ литералы v2: accent-text/ink-muted light, подзаголовок, футер),
-ICON_RASTER_WHOLE, ADAPTIVE_FG_RASTER, ADAPTIVE_MONO_RASTER,
-ADAPTIVE_BG_SOLID, FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE,
+AUTH_DS_COMPONENTS, FIRST_RUN_TOKENIZED (инв. 9з: без hex, ground/ink,
+ключ ink-muted не читается), FROZEN_999_WITHIN_WORD (инв. 9з: tokens.ts
+без строк accent-text — байты базы B, строки accent-text — закрытая
+грамматика; button.tsx — байты базы B), STATIC_ORACLE_LITERALS
+(+ литералы v2: accent-text/ink-muted light, подзаголовок, футер; круг 2 —
+строки таблицы колонки 9к, допуск цвета 3 и поля колонки текста 16
+самостоятельными строками теста), ICON_RASTER_WHOLE, ADAPTIVE_FG_RASTER,
+ADAPTIVE_MONO_RASTER, ADAPTIVE_BG_SOLID, FAVICON_RASTER_WHOLE,
+IOS_ICON_NOT_TEMPLATE,
 MAESTRO_SPLASH_FRAME_WAIT, MAESTRO_FIRST_RUN_ORDER (порядок шагов сценария:
 до кадра First-Run — оверлей снят и `assertVisible` обещания, CTA, v2 —
 id first-run-wordmark и first-run-sign, текста подзаголовка и футера).
 
 Обманные стабы — привязка к ветвям ТОЛЬКО в коде проб (`MUTANTS`
-`vkhod_probe.py` — 47, `vkhod_static_probe.py` — 28; Н-39: каждый стаб
+`vkhod_probe.py` — 55, `vkhod_static_probe.py` — 32; Н-39: каждый стаб
 красен на входе, где его дефект наблюдаем; depends измерены полным
 прогоном матрицы); якорь мутанта неуникален → отказ rc2; сломанный
 мутантом свит → MUTANT_SUITE_BROKEN rc2 (не зелень); краснота вне
@@ -425,30 +505,39 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib.
 
 - Дано C = `58d60b8` (форма кадров sheet3 pin4); `python3
   fixtures/workshop_project/vkhod_117/vkhod_probe.py --repo R` → rc1,
-  `failed 15 of 44`: RED ровно `FIRST_RUN_{TOP,WORDMARK,SIGN,SUBLINE,
-  CTA_BOTTOM,TAGLINE}_{DARK,LIGHT}` (12), `DEMO_BADGE_CHIP_{DARK,LIGHT}` и
-  `AUTH_F03_02_STRUCTURE_LIGHT`.
-- Дано C = `58d60b8`; `vkhod_static_probe.py --repo R` → rc1, `failed 3 of
-  38`: RED `AUTH_FRAMES_TOKENIZED`, `FIRST_RUN_TOKENIZED`,
-  `MAESTRO_FIRST_RUN_ORDER`.
+  `failed 17 of 46`: RED ровно `FIRST_RUN_{TOP,WORDMARK,SIGN,SUBLINE,
+  CTA_BOTTOM,LAYOUT,TAGLINE}_{DARK,LIGHT}` (14), `DEMO_BADGE_CHIP_{DARK,LIGHT}`
+  и `AUTH_F03_02_STRUCTURE_LIGHT`.
+- Дано C = `58d60b8`; `vkhod_static_probe.py --repo R` → rc1, `failed 2 of
+  39`: RED `AUTH_FRAMES_TOKENIZED`, `MAESTRO_FIRST_RUN_ORDER`
+  (FIRST_RUN_TOKENIZED и FROZEN_999_WITHIN_WORD на C зелёные: палитра
+  First-Run C — токены, файлы 999 C = B).
 - Дано B без реализации: `vkhod_probe.py --repo R` → rc1
   `VKHOD_AUTH_DS_ABSENT`; `vkhod_static_probe.py --repo R` → rc1
   `VKHOD_SPLASH_COMPOSITE_ABSENT`.
 - Дано B или C с эталонной моделью (`--model`) либо честное C v2: обе пробы
-  → rc0: `behavioral 44/44`, `static 38/38`.
+  → rc0: `behavioral 46/46`, `static 39/39`.
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый
-  стаб красен именованной ветвью (47 + 28), побочная краснота только в depends.
+  стаб красен именованной ветвью (55 + 32), побочная краснота только в
+  depends. В `MUTANTS` есть стабы обходов критика 117 v2 круга 1:
+  `first-run-misplaced-visible` (знак 63→0, подзаголовок 20→100, блок CTA
+  16→116; и каждая правка отдельным стабом), `first-run-sign-negative-margin`,
+  `first-run-wordmark-own-backdrop` (`backgroundColor: tokens.ink` на Image
+  wordmark), `first-run-wordmark-parent-backdrop`, `tokens-ink-muted`,
+  `tokens-ink-muted-same-line`, `button-999-size-block` (эталон v2 круга
+  1); их ветви привязаны ТОЛЬКО в коде проб (Н-39).
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк
   кроме симлинка `mobile/node_modules` (инфраструктура R, не проба).
 - Дано C v2; `npm run lint`, `npm run typecheck` в R/mobile → rc0;
   `npx jest src/bootstrap/__tests__/pilot.test.tsx` (995, byte-frozen) → rc0,
   14/14; батарея 999 (`fixtures/workshop_project/nav_999/{ui_probe,
   shell_static_probe,nav_probe,copy_probe}.py --repo R`) → rc0 каждая
-  (аддитивные токены/пропы; замер на модели v2). Батарея
-  `fixtures/workshop_project/first_run_111/` на C v2: RUN, ожидаемо rc1 до
-  миграции 111 — красна ровно К5 `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}`
-  (поведенческая; замер на модели v2), статическая — rc0; зелёной в
-  немигрированной форме НЕ заявляется (раздел «ПЕРЕСЕЧЕНИЕ»).
+  (в tokens.ts только + accent-text, button.tsx = B; замер на модели v2
+  круга 2). Батарея `fixtures/workshop_project/first_run_111/` на C v2:
+  RUN, ожидаемо rc1 до миграции 111 — красна ровно К5
+  `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` (поведенческая; замер на модели v2
+  круга 2), статическая — rc0 (16/16); зелёной в немигрированной форме НЕ
+  заявляется (раздел «ПЕРЕСЕЧЕНИЕ»).
 - Дано C v2 в PR; `gh pr checks PR --repo a3ka/Complior-mob --required` → rc0;
   android-e2e (release APK: `expo prebuild` + `assembleRelease`, Maestro)
   исполняет сценарий 117 в `mobile/.maestro/`: First-Run — `assertVisible`
@@ -457,18 +546,20 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib.
   кадров входа» × тема устройства (Б3 «кадр в окне»); takeScreenshot
   КАЖДОГО кадра по правилу (В): splash × {тёмная, светлая} — сверка с
   Splash.png / Splash-Hell.png; First-Run × {dark, light} — сверка с
-  First-Run.png (полосы source.json `first_run_117.bands_px`; light — те же
-  полосы на токенах light); F03.01 × {dark, light}, F03.02 × {dark, light}
-  — сверка с компонентами/токенами D2.2.5.1 и составом таблицы (8
-  скриншотов); скриншоты в артефактах прогона, ревьюер сверяет глазами и
-  мерой.
+  First-Run.png по составу, раскладке, отступам, шрифту и цвету (полосы
+  source.json `first_run_117.bands_px`; light — те же полосы на токенах
+  light; CTA не 358×56 — FAIL сверки до слова владельца по форку
+  `n117-v2-zona`, не принятый остаток); F03.01 × {dark, light}, F03.02 ×
+  {dark, light} — сверка с компонентами/токенами D2.2.5.1 и составом
+  таблицы (8 скриншотов); скриншоты в артефактах прогона, ревьюер сверяет
+  глазами и мерой.
 - Дано авторская пачка; `bash scripts/pre_critic.sh
   contracts/117-cmp-mob-vkhod-splash.md` → rc0.
 
 ## ПЕРЕСЕЧЕНИЕ с 111/995/999 (БЕЗ правок 111/999 в этой пачке)
 
-Замер — батареи соседей на C 58d60b8 + эталон 117 v2 (все файлы модели
-как рабочее дерево):
+Замер — батареи соседей на копии C 1423b86 + эталон 117 v2 круга 2 (все
+файлы модели как рабочее дерево):
 - 111 К5 `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` (`first_run_111/
   first_run.test.tsx`: видимая копия ⊆ {Demo, promise, CTA}) — КРАСНЫ
   честным First-Run по PNG (подзаголовок и футер). Миграция: перечень К5 +=
@@ -483,12 +574,11 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib.
   статическая 111 (SCREEN_NO_HEX_LITERALS — hex нет и в комментариях) —
   зелёные, миграции не требуют.
 - 995: `pilot.test.tsx` 14/14 (byte-frozen) — без миграции.
-- 999: `tokens.ts` (+ `accent-text`, `ink-muted` обеих схем значениями
-  tokens.json) и `ui/button.tsx` (+ пропы `size`, `block`; без пропов —
-  прежние стиль и поведение) — АДДИТИВНО; батарея nav_999 (ui, shell
-  static, nav, copy) — rc0 на модели v2, миграции не требует. Правка
-  файлов frozen-семьи 999 — расширение зоны implementer 117 этим текстом
-  (вопрос №10).
+- 999: `tokens.ts` — ТОЛЬКО + `accent-text` обеих схем значениями
+  tokens.json (слово владельца, РАЗРЕШИЛ v2); `ui/button.tsx` не меняется
+  (байты B, FROZEN_999_WITHIN_WORD); батарея nav_999 (ui, shell static,
+  nav, copy) — rc0 на модели v2 круга 2, миграции не требует. Пропы Button
+  size/block и ключ ink-muted — форк `n117-v2-zona` (вопрос №10).
 
 ## Зоны и исполнители
 
@@ -499,7 +589,7 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib.
 
 Пути implementer отсчитываются от корня Complior-mob:
 
-ЗОНА implementer: mobile/app.json mobile/assets/images/ (icon.png, splash-composite-dark.png, splash-composite-light.png, splash-sign-dark.png, splash-sign-light.png, android-icon-foreground.png, android-icon-background.png, android-icon-monochrome.png, favicon.png) mobile/src/bootstrap/pilot-app.tsx mobile/src/features/auth/auth-screen.tsx mobile/src/features/auth/first-run-screen.tsx mobile/src/theme/tokens.ts mobile/src/ui/button.tsx .github/workflows/mobile.yml mobile/.maestro/
+ЗОНА implementer: mobile/app.json mobile/assets/images/ (icon.png, splash-composite-dark.png, splash-composite-light.png, splash-sign-dark.png, splash-sign-light.png, android-icon-foreground.png, android-icon-background.png, android-icon-monochrome.png, favicon.png) mobile/src/bootstrap/pilot-app.tsx mobile/src/features/auth/auth-screen.tsx mobile/src/features/auth/first-run-screen.tsx mobile/src/theme/tokens.ts .github/workflows/mobile.yml mobile/.maestro/
 
 ПЕРЕСЕЧЕНИЕ: `mobile/src/bootstrap/pilot-app.tsx`,
 `mobile/src/features/auth/auth-screen.tsx` и
@@ -510,10 +600,10 @@ Demo-бейджа на first-run (вне потока, paddingTop = insets.top) 
 бейджа на кадрах D2.2.5.1 (чип DS panel/ink; на кадрах 995 — прежний); первый
 кадр и вход шва — как на B; first-run-screen — состав и раскладка
 First-Run.png (111 К5 мигрирует 111 v4 — раздел «ПЕРЕСЕЧЕНИЕ с
-111/995/999»). `mobile/src/theme/tokens.ts` и `mobile/src/ui/button.tsx`
-— общие с 999: ТОЛЬКО аддитивные ключи `accent-text`, `ink-muted` и пропы
-`size`, `block`; прочие значения и поведение — байт в байт как на B.
-`mobile/src/ui/text-field.tsx`, прочие `mobile/src/ui/`,
+111/995/999»). `mobile/src/theme/tokens.ts` — общий с 999: ТОЛЬКО
+аддитивный ключ `accent-text` (строки `'accent-text': string;` и
+`'accent-text': '#rrggbb',`); прочие байты — как на B.
+`mobile/src/ui/` (в т.ч. button.tsx, text-field.tsx),
 `mobile/src/bootstrap/__tests__/` (995), `docs/`, `design/` — read-only
 для 117. Знаки, композиты и wordmark новых ассетов не требуют: знак
 First-Run — `splash-sign-<схема>.png`, wordmark — `wordmark-dark.png` с
@@ -573,15 +663,34 @@ tintColor. Действующие Maestro-сценарии лежат в `mobile
   translate, поля бокса ≥ окна, display none, opacity 0 (стабы
   translateX-1000 и marginLeft-1000 красны, замер круга 4);
 - от First-Run не по PNG (В2-4/В2-5): FIRST_RUN_{TOP,WORDMARK,SIGN,
-  SUBLINE,CTA_BOTTOM,TAGLINE} × схемы судят каждый элемент First-Run.png
-  (присутствие РОВНО раз, порядок документа, типографика, токен цвета,
+  SUBLINE,CTA_BOTTOM,TAGLINE,LAYOUT} × схемы судят каждый элемент
+  First-Run.png (присутствие РОВНО раз, порядок документа, типографика,
   контраст ≥ 4.5) и конструкцию раскладки артборда (кадр — первый в
-  потоке, верхний блок 20/60, центр wordmark/знака, CTA 56 во всю ширину с
-  полями 16 внизу: цепь не сужается, свободное место перед блоком CTA);
-  знак — модуль файла, который судит SPLASH_SIGN_RASTER (знак тёмной схемы
-  в светлой — красно); wordmark — эффективный ink tintColor/растра (light
-  без перекраски 1,01:1 — красно); Demo-бейдж — чип DS panel/ink на кадрах
-  D2.2.5.1; форма C 58d60b8 красна 14 клетками First-Run/бейджа;
+  потоке, центр wordmark/знака, CTA Button 999 по центру внизу, свободное
+  место перед блоком CTA); знак — модуль файла, который судит
+  SPLASH_SIGN_RASTER (знак тёмной схемы в светлой — красно); Demo-бейдж —
+  чип DS panel/ink на кадрах D2.2.5.1; форма C 58d60b8 красна 16 клетками
+  First-Run/бейджа;
+- от раскладки First-Run, верной по составу и неверной по числам (обход
+  критика круга 1 v2 «misplaced-visible»): FIRST_RUN_LAYOUT — колонка
+  кадра = таблица литералов 9к, выведенная из полос PNG; иное значение
+  контейнера (знак 63→0, подзаголовок 20→100, блок CTA 16→116), лишний
+  вертикальный ключ (marginTop −63 у знака), иной состав/порядок узлов,
+  иная ширина колонки текста (поля 16→100 — перенос строк) — красно;
+  независимый экран критика, суженный до слова двумя правками
+  (Button 999 в ряду по центру; вторичный текст — ink × opacity), — 46/46
+  и 39/39 (клетка не подогнана под эталон);
+- от нечитаемого глифа при «правильном» цвете (обход критика круга 1 v2
+  «invisible-wordmark»): эффективный цвет wordmark/подзаголовка/футера
+  судится к ЭФФЕКТИВНОЙ подложке — собственный backgroundColor узла или
+  предка, opacity между ними; подложка — ground схемы, цвет — токен ±3,
+  контраст ≥ 4.5 (подложка цветом глифа на Image или родителе — красно;
+  light без перекраски 1,01:1 — красно);
+- от выхода за слово владельца в файлах 999 (обход критика круга 1 v2
+  «эталон v2 меняет Button и оба ключа tokens.ts»): FROZEN_999_WITHIN_WORD
+  — tokens.ts без строк accent-text = байты B, строки accent-text — закрытая
+  грамматика (ink-muted в той же строке — красно), button.tsx = байты B;
+  FIRST_RUN_TOKENIZED — экран не читает ключ ink-muted;
 - от нечитаемых ссылок F03.02 (В2-3): эффективный accent-text схемы +
   контраст ≥ 4.5 (лайм в light 1,08:1 — красно LIGHT-клеткой), статически
   `tokens['accent-text']` в CodeFrame;
@@ -589,22 +698,34 @@ tintColor. Действующие Maestro-сценарии лежат в `mobile
   схемы;
 - от зависимого оракула (Н-351): ожидания — литералы source.json/теста,
   STATIC_ORACLE_LITERALS; эталоны — sha-пин read-only docs/;
-- от мёртвой матрицы: обе пробы исполняют все стабы (47+28), depends
+- от мёртвой матрицы: обе пробы исполняют все стабы (55+32), depends
   измерены прогоном, unexpected_red/suite_broken — rc2.
 
 НЕ ЗАЩИЩАЕТ:
-- layout в Jest не вычисляется (yoga в node_modules продукта нет — замер
-  арбитра): В3 — только первая линия по эффективному стилю; окно — только
-  android-e2e (Maestro assertVisible, release APK); ловец — CI android-e2e;
-- пиксели First-Run (y полос, центр по x, ширина CTA в dp на устройстве)
-  в Jest не вычисляются: FR-клетки судят КОНСТРУКЦИЮ раскладки артборда, а
-  не её результат; обход «конструкция верна, рендер иной» (например, шрифт
-  иной метрики сдвигает полосы) ловит ревьюер по скриншотам android-e2e
-  против First-Run.png и полос `first_run_117.bands_px` (правило В) —
-  остаточный риск, механического пиксельного гейта кадра First-Run нет;
+- layout в Jest не вычисляется (JS-движка раскладки в node_modules
+  продукта нет — yoga только исходником C++ в react-native/ReactCommon;
+  замер арбитра и круга 2 v2): В3 — только первая линия по эффективному
+  стилю; окно — только android-e2e (Maestro assertVisible, release APK);
+  ловец — CI android-e2e;
+- кадровая раскладка First-Run НА УСТРОЙСТВЕ (y полос, центр по x, число
+  строк заголовка/подзаголовка при иной метрике шрифта, размер CTA в dp) в
+  Jest не вычисляется: FIRST_RUN_LAYOUT судит ЛИТЕРАЛЫ конструкции, а не
+  кадр; обход «литералы верны, рендер иной» остаётся. Ловец — контракт 123
+  «mob-sverka-maketa» (мера похожести кадра android-e2e против PNG; номер
+  выдан, в работе) и ревьюер с vision по скриншотам против First-Run.png и
+  полос `first_run_117.bands_px` (правило В); до 123 граница — cognitive-only
+  (правило 7), механического пиксельного гейта кадра First-Run нет;
+- эффективная подложка глифа — только backgroundColor цепи узел→корень:
+  перекрытие глифа соседом (absolute-узел поверх) и полупрозрачность самой
+  подложки или её предков не моделируются; ловец — В3 (opacity 0) первой
+  линией и ревьюер по скриншоту;
+- CTA First-Run 358×56 в границах слова недостижим (Button 999 без
+  size/block) — Jest размер CTA не судит; сверка скриншота ↔ First-Run.png
+  по CTA — FAIL до слова владельца (форк `n117-v2-zona`), не принятый
+  остаток;
 - светлой схемы First-Run.png нет: light выводится токенами (ground/ink/
-  ink-muted/primary/on-primary/accent-text) — визуал light против
-  намерения дизайна сверяет ревьюер (вопрос №12);
+  primary/on-primary/accent-text; вторичный текст — ink-muted ±3) — визуал
+  light против намерения дизайна сверяет ревьюер (вопрос №12);
 - от пиксельной точности нативного splash на устройстве (рендер ОС,
   круговая маска Android 12+, масштаб при иных окнах) — app.json литералы
   + произведённые drawable; ловец — ревьюер по скриншотам android-e2e
@@ -690,19 +811,31 @@ mobile.yml, зона implementer); в registry/ci-steps.tsv харнесса Н�
    (source.json `first_run_117.subline`). Рекомендация: принять литерал
    артборда (слово (А) «полный состав как на PNG»), ключ — копия-синька
    CMP-MOB-089; иначе подзаголовок снимается из состава строкой владельца.
-10. Зона implementer 117 v2 включает файлы frozen-семьи 999
-   (`src/theme/tokens.ts`, `src/ui/button.tsx`) — только аддитивно:
-   accent-text/ink-muted (без них ссылки light и подзаголовок/футер не
-   выражаются токенами) и пропы size/block (без них CTA «во всю ширину,
-   56» недостижим: обёртка Button `alignSelf: 'flex-start'`). Рекомендация:
-   принять аддитивное расширение (батарея 999 зелёная на модели v2);
-   иначе — предмет 999 v2 раньше 117, и CTA First-Run остаётся по контенту.
+10. ОТКРЫТЫЙ ФОРК `n117-v2-zona` (консультанту): слово владельца (РАЗРЕШИЛ
+   v2) открывает в файлах 999 только добавление `accent-text` в tokens.ts.
+   CTA First-Run.png — 358×56 во всю ширину; у Button 999 нет пропов
+   style/size/block, обёртка `alignSelf: 'flex-start'` — средствами
+   first-run-screen CTA встаёт только по контенту (≈45 dp) по центру.
+   Ink-muted выражается без ключа (ink × opacity 0.67 — ±3 по каналу к
+   tokens.json), отдельного слова не требует. Вопрос: (А) расширить
+   разрешение на аддитивные пропы Button `size`/`block` в
+   `mobile/src/ui/button.tsx` (и, по желанию, ключ `ink-muted` в tokens.ts
+   вместо opacity) — CTA как на PNG, батарея 999 зелёная (замер круга 1 на
+   модели с этими правками); (Б) оставить CTA по контенту по центру —
+   строкой владельца, принимающей расхождение с First-Run.png (без неё
+   сверка скриншота по CTA — FAIL, норма «Мобильный экран — сверка с
+   макетом»). Рекомендация: (А) — слово (А) 18:15 «полный состав и
+   раскладка как на PNG» без пропов size/block не исполнимо, а сами пропы —
+   то, что README Button D2.2.5.1 предписывает потребителю (раздел
+   «Источники»: size-lg 56 во всю ширину, потребитель передаёт size и
+   block). До ответа 117 v2 исполняется в границах слова (этот текст).
 11. Demo-бейдж: на PNG его нет; 995 требует индикатор демо-режима; форк (А)
    — «подложка Demo видима». 117 v2: бейдж на First-Run вне потока (кадр не
    сдвигается), на кадрах D2.2.5.1 — чип DS (panel/ink схемы; на C подложка
    #F2F2F2 на #f3f2ee 1,0:1), на кадрах 995 — прежний вид. Рекомендация:
    принять; иначе — убрать бейдж с First-Run строкой владельца (995).
 12. Светлого артборда First-Run нет: light First-Run — те же элементы на
-   токенах light (ground #f3f2ee, ink #121211, ink-muted #5f5e58, CTA
-   primary #121211 / on-primary #f3f2ee, знак splash-sign-light).
-   Рекомендация: принять вывод токенами (как F03.01/F03.02).
+   токенах light (ground #f3f2ee, ink #121211, вторичный текст — ink-muted
+   #5f5e58 ±3, CTA primary #121211 / on-primary #f3f2ee, знак
+   splash-sign-light). Рекомендация: принять вывод токенами (как
+   F03.01/F03.02).
