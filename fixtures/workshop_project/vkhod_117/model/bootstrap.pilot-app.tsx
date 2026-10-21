@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Appearance, Image, StyleSheet, Text, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import type { ApiClient } from '@/api/api-client';
 import type {
   AuthChallenge,
@@ -10,7 +11,8 @@ import type {
 } from '@/auth/auth-provider';
 import type { Disclosure, Session } from '@/api/generated/api-5_8';
 import type { PendingIntent } from '@/navigation/pending-intent';
-import { useTheme } from '@/theme/context';
+import { ThemeContext } from '@/theme/context';
+import { themeTokens } from '@/theme/tokens';
 import { SafeAreaInsetsContext, type EdgeInsets } from 'react-native-safe-area-context';
 import { AuthScreen } from '@/features/auth/auth-screen';
 import { FirstRunScreen } from '@/features/auth/first-run-screen';
@@ -98,7 +100,29 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   // `entry` is consumed as data only — pending intents are stored, never executed.
   // DIRECT / onboarding state is exposed through testID handles, not on-screen text.
   void entry;
-  const { tokens, scheme } = useTheme();
+  // 117 круг 6 (Р1, Rev117/Adv117): тема ОС проводится на production-входе.
+  // Вход приложения — app/index (реэкспорт PilotApp), _layout — Stack без
+  // темы: выше PilotApp провайдера НЕТ, а контекст темы по умолчанию dark
+  // (theme/context.ts). Когда выше нет явного провайдера (значение
+  // контекста — умолчание dark/dark-токены), PilotApp сам проводит схему
+  // ОС: Appearance.getColorScheme + подписка на изменения, и публикует
+  // ThemeContext для своего дерева (в т.ч. оверлей и кадры F03).
+  // Явный провайдер выше (пробы шва/TabShell) сохраняет приоритет.
+  const outerTheme = React.useContext(ThemeContext);
+  const outerIsDefault =
+    outerTheme.scheme === 'dark' && outerTheme.tokens === themeTokens.dark;
+  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() =>
+    Appearance.getColorScheme() === 'light' ? 'light' : 'dark');
+  useEffect(() => {
+    const sub = Appearance.addChangeListener(({ colorScheme }: { colorScheme: string | null }) => {
+      setOsScheme(colorScheme === 'light' ? 'light' : 'dark');
+    });
+    return () => sub.remove();
+  }, []);
+  const themeValue = outerIsDefault
+    ? { scheme: osScheme, tokens: themeTokens[osScheme] }
+    : outerTheme;
+  const { tokens, scheme } = themeValue;
 
   // 111 r3 (R1, совет С7): Demo-бейдж обязан лежать НИЖЕ top-инсета —
   // на устройстве круга 2 бейдж [0,0][137,64] лежал в статус-баре,
@@ -248,14 +272,29 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
   // #FFFFFF: frozen 111/1 стр. 41–42/80–83. Splash 117 целиком нативный
   // (app.json), JS-кадра нет — первый кадр остаётся first-run.
   const isD22Frame = frame === 'first-run' || frame === 'email' || frame === 'code';
+  // 117 круг 6 (Р4, Rev117): кадры входа F03.01/F03.02 — safe-area и
+  // колонка: корень несёт top-инсет (paddingTop >= insets.top; на стенде
+  // 1080×2400 statusBars [0..136], заголовок обязан лежать ниже) и
+  // горизонтальные отступы колонки 16 (D2.2.5.1 gutters). First-run
+  // остаётся full-bleed без отступов (frozen 111/1, К6).
   return (
+    <ThemeContext.Provider value={themeValue}>
     <View
       style={
         isD22Frame
-          ? [styles.rootFirstRun, { backgroundColor: tokens.ground }]
+          ? [styles.rootFirstRun, {
+              backgroundColor: tokens.ground,
+              paddingTop: frame === 'first-run' ? 0 : insets.top,
+              paddingHorizontal: frame === 'first-run' ? 0 : 16,
+            }]
           : styles.root
       }
     >
+      {/* 117 круг 7 (В2-1/В2-2, Rev117r2): стиль статус-бара по схеме
+          PilotApp — иконки контрастны ground (dark → light, light → dark);
+          вне поддерева оверлея: стиль живёт на всех кадрах, не только
+          на splash. */}
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {frame !== 'welcome' ? (
         <View style={{ paddingTop: frame === 'first-run' ? insets.top : 0 }}>
           <View style={styles.demoBadge} testID="demo-indicator">
@@ -305,8 +344,19 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
         <View
           testID="splash-overlay"
           pointerEvents="none"
-          style={[StyleSheet.absoluteFill, { backgroundColor: tokens.ground, zIndex: 1000 }]}
+          style={[StyleSheet.absoluteFill, {
+            backgroundColor: tokens.ground,
+            zIndex: 1000,
+            width: '100%',
+            height: '100%',
+          }]}
         >
+          {/* 117 круг 6 (Р6, Rev117): композит вписан по ОКНУ — бокс
+              Image жёстко следует боксу оверлея (width/height 100%),
+              contain масштабирует по ширине окна (2.769 px/px артборда
+              при 1080×2400) и центрирует; без явного бокса растр
+              рендерился собственным размером 390×844 dp с прижимом к
+              углу (масштаб 2.63, сдвиг теглайна 28 px). */}
           <Image
             source={
               scheme === 'dark'
@@ -314,11 +364,12 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
                 : require('../../assets/images/splash-composite-light.png')
             }
             resizeMode="contain"
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
           />
         </View>
       ) : null}
     </View>
+    </ThemeContext.Provider>
   );
 }
 

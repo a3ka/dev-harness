@@ -20,7 +20,11 @@ iOS — содержимое по эффективному пути + эффек
 клеткой SPLASH_EFFECTIVE_IOS и рамка storyboard настоящего генератора без
 legacy-режима (SPLASH_IOS_STORYBOARD); basename НЕ сравнивается (Б2). Кадры
 входа на @/ui/button, @/ui/text-field без hex; оракул — литералы source.json.
---matrix: обманные стабы статической семьи красны именованной клеткой.
+--matrix: обманные стабы статической семьи красны именованной клеткой;
+шаблонные байты базы B — припиненные base_b/ (sha = литералы source.json),
+не из --repo (круг 6, Р8). Круг 6 (Р2/Р3): сценарий Maestro судится
+ПОРЯДКОМ шагов YAML-парсером (MAESTRO_SPLASH_FRAME_WAIT,
+MAESTRO_FIRST_RUN_ORDER), комментарий шагом не является.
 Выход — только код возврата; перечень case построчно.
 """
 import argparse
@@ -30,6 +34,10 @@ import re
 import struct
 import subprocess
 import sys
+try:
+    import yaml
+except ImportError:  # fail-closed: без парсера порядок шагов не судится
+    yaml = None
 import zlib
 from pathlib import Path
 
@@ -1043,6 +1051,90 @@ def run_checks(repo: Path):
             ios_ok = hashlib.sha256(target.read_bytes()).hexdigest() != TEMPLATE_SHAS['icon.png']
     check(ios_ok, 'IOS_ICON_NOT_TEMPLATE')
 
+    # 20–21 (Р2/Р3, круг 6 — Rev117/Adv117): сценарий Maestro судит
+    # ПОРЯДОК шагов настоящим YAML-парсером (закомментированная строка
+    # шагом не является; grep по комментариям клетку не зеле́нит).
+    # (а) перед takeScreenshot vkhod-117-splash — ожидание видимости
+    #     окна приложения (extendedWaitUntil visible по splash-overlay);
+    # (б) перед takeScreenshot vkhod-117-first-run И ПОСЛЕ splash-кадра —
+    #     оверлей исчез (extendedWaitUntil notVisible / assertNotVisible
+    #     по splash-overlay) И видимый состав First-Run: обещание + CTA
+    #     (литералы каталога 111, не субъекта).
+    mq = src['maestro_117']
+    if yaml is None:
+        INFRASTRUCTURE.append('pyyaml отсутствует: порядок шагов не судится')
+    else:
+        maestro_path = repo / mq['scenario']
+        steps = None
+        if maestro_path.is_file():
+            for doc in yaml.safe_load_all(maestro_path.read_text(encoding='utf-8')):
+                if isinstance(doc, list):
+                    steps = doc
+        if steps is None:
+            check(False, 'MAESTRO_SPLASH_FRAME_WAIT')
+            check(False, 'MAESTRO_FIRST_RUN_ORDER')
+            print('RED MAESTRO_SPLASH_FRAME_WAIT: документ-список шагов не найден')
+        else:
+            def shot_index(name):
+                for i, st in enumerate(steps):
+                    if isinstance(st, dict) and st.get('takeScreenshot') == name:
+                        return i
+                return -1
+
+            def wait_visible_markers(i_bound):
+                # extendedWaitUntil visible по splash-overlay (или иной
+                # маркер окна приложения: first-run-continue) ДО кадра.
+                for j, st in enumerate(steps[:i_bound]):
+                    if not isinstance(st, dict):
+                        continue
+                    ewu = st.get('extendedWaitUntil')
+                    if isinstance(ewu, dict) and isinstance(ewu.get('visible'), dict):
+                        mid = ewu['visible'].get('id')
+                        if mid in (mq['overlay_id'], 'first-run-continue'):
+                            return True
+                return False
+
+            def overlay_gone_between(lo, hi):
+                for j, st in enumerate(steps[lo:hi]):
+                    if not isinstance(st, dict):
+                        continue
+                    if isinstance(st.get('assertNotVisible'), dict) \
+                            and st['assertNotVisible'].get('id') == mq['overlay_id']:
+                        return True
+                    ewu = st.get('extendedWaitUntil')
+                    if isinstance(ewu, dict) and isinstance(ewu.get('notVisible'), dict) \
+                            and ewu['notVisible'].get('id') == mq['overlay_id']:
+                        return True
+                return False
+
+            def text_asserted_before(text, i_bound):
+                for j, st in enumerate(steps[:i_bound]):
+                    if isinstance(st, dict) and isinstance(st.get('assertVisible'), dict) \
+                            and st['assertVisible'].get('text') == text:
+                        return True
+                return False
+
+            i_splash = shot_index(mq['shot_splash'])
+            ok_splash = i_splash > 0 and wait_visible_markers(i_splash)
+            if not ok_splash:
+                print('RED MAESTRO_SPLASH_FRAME_WAIT: кадр', mq['shot_splash'],
+                      'без ожидания окна (splash-overlay/first-run-continue) до снимка')
+            check(ok_splash, 'MAESTRO_SPLASH_FRAME_WAIT')
+
+            i_first = shot_index(mq['shot_first_run'])
+            ok_first = (
+                i_first > 0
+                and i_splash >= 0
+                and overlay_gone_between(i_splash, i_first)
+                and text_asserted_before(mq['first_run_promise'], i_first)
+                and text_asserted_before(mq['first_run_cta'], i_first)
+            )
+            if not ok_first:
+                print('RED MAESTRO_FIRST_RUN_ORDER: перед', mq['shot_first_run'],
+                      'нет (notVisible splash-overlay после splash-кадра + assertVisible'
+                      ' обещания/CTA First-Run)')
+            check(ok_first, 'MAESTRO_FIRST_RUN_ORDER')
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -1081,22 +1173,51 @@ def main():
 def matrix(repo: Path):
     A = 'mobile/app.json'
     I = 'mobile/assets/images/icon.png'
-    # Шаблонные байты базы B читаем ДО установки модели (файлы под мутацией).
-    template_icon = (repo / I).read_bytes()
+    # Р8 (круг 6, Rev117): шаблонные байты базы B — ПРИПИНЕННЫЕ копии
+    # батареи (base_b/, sha256 сверяется с литералами source.json
+    # template_shas_base_8748a7a335; несоответствие — rc2 ORACLE_TAMPERED),
+    # НЕ из --repo: на честном C чтение из repo подставляло канонические
+    # байты субъекта вместо шаблона, мутанты icon-template-bytes и
+    # adaptive-favicon-template были no-op и выходили MUTANT_GREEN.
+    template = {}
+    for name, sha in load_source()['template_shas_base_8748a7a335'].items():
+        blob = (HERE / 'base_b' / name).read_bytes()
+        if hashlib.sha256(blob).hexdigest() != sha:
+            print('ORACLE_TAMPERED base_b/' + name)
+            return 2
+        template[name] = blob
+    template_icon = template['icon.png']
     FG = 'mobile/assets/images/android-icon-foreground.png'
     BG = 'mobile/assets/images/android-icon-background.png'
     MO = 'mobile/assets/images/android-icon-monochrome.png'
     FV = 'mobile/assets/images/favicon.png'
     CD = 'mobile/assets/images/splash-composite-dark.png'
     CL = 'mobile/assets/images/splash-composite-light.png'
-    template_fg = (repo / FG).read_bytes()
-    template_bg = (repo / BG).read_bytes()
-    template_mo = (repo / MO).read_bytes()
-    template_favicon = (repo / FV).read_bytes()
+    template_fg = template['android-icon-foreground.png']
+    template_bg = template['android-icon-background.png']
+    template_mo = template['android-icon-monochrome.png']
+    template_favicon = template['favicon.png']
     ICON_MODEL = (HERE / 'model' / 'icon.png').read_bytes()
     COMP_DARK = (HERE / 'model' / 'splash-composite-dark.png').read_bytes()
     COMP_LIGHT = (HERE / 'model' / 'splash-composite-light.png').read_bytes()
     ab = load_source()['artboard_117']
+    # Р2/Р3 (круг 6): якоря мутаций сценария модели — блоки шагов
+    # побайтово (model/vkhod-117-splash-vhod.yaml).
+    MAE = 'mobile/.maestro/vkhod-117-splash-vhod.yaml'
+    SPLASH_WAIT = ('- extendedWaitUntil:\n'
+                   '    visible:\n'
+                   '      id: splash-overlay\n'
+                   '    timeout: 10000\n')
+    SPLASH_SHOT = '- takeScreenshot: vkhod-117-splash\n'
+    OVERLAY_GONE = ('- extendedWaitUntil:\n'
+                    '    notVisible:\n'
+                    '      id: splash-overlay\n'
+                    '    timeout: 10000\n')
+    FIRST_RUN_TEXTS = ('- assertVisible:\n'
+                       '    text: "Sie sagen, was passiert ist. Complior kümmert sich um den Rest."\n'
+                       '- assertVisible:\n'
+                       '    text: "Anmelden oder Konto erstellen"\n'
+                       '- takeScreenshot: vkhod-117-first-run\n')
     MUTANTS = {
         # (а) иконка осталась шаблонной Expo: байты базы проходят пути,
         # но пиксельные свойства канона и sha-литерал красны.
@@ -1281,6 +1402,37 @@ def matrix(repo: Path):
               "require('../../assets/images/splash-composite-light.png')",
               "require('../../assets/images/icon.png')")],
             ['SPLASH_OVERLAY_CONSUMES_COMPOSITE'], [],
+        ),
+        # (Р2, круг 6, Rev117/Adv117) кадр splash снят без ожидания окна
+        # (форма текущего C: takeScreenshot сразу после launchApp — на
+        # стенде снят рабочий стол Android).
+        'maestro-splash-no-wait': (
+            [(MAE, SPLASH_WAIT, '')],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+        ),
+        # (Р2, в) ожидание есть ТОЛЬКО комментарием: строки шага
+        # закомментированы — парсер шага не видит (grep бы видел).
+        'maestro-splash-wait-commented': (
+            [(MAE, SPLASH_WAIT, ''.join('# ' + ln + '\n' for ln in SPLASH_WAIT.splitlines()))],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+        ),
+        # (Р2, в) ложное размещение: ожидание ПОСЛЕ снимка splash.
+        'maestro-splash-wait-after-shot': (
+            [(MAE, SPLASH_WAIT + SPLASH_SHOT, SPLASH_SHOT + SPLASH_WAIT)],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+        ),
+        # (Р3, круг 6) оверлей не обязан исчезнуть до кадра First-Run
+        # (форма текущего C: assertVisible по id находит CTA под
+        # оверлеем — снят Splash вместо First-Run).
+        'maestro-first-run-overlay-kept': (
+            [(MAE, OVERLAY_GONE, '')],
+            ['MAESTRO_FIRST_RUN_ORDER'], [],
+        ),
+        # (Р3) состав First-Run перед кадром не утверждён текстами
+        # каталога (обещание/CTA сняты).
+        'maestro-first-run-no-text': (
+            [(MAE, FIRST_RUN_TEXTS, '- takeScreenshot: vkhod-117-first-run\n')],
+            ['MAESTRO_FIRST_RUN_ORDER'], [],
         ),
     }
     honest_src = model_bytes()

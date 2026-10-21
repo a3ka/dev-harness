@@ -11,7 +11,11 @@ splash (арбитраж круга 2, С2): смонтирован, Image ов�
 VKHOD_AUTH_DS_ABSENT (кадры входа не собраны из @/ui/button,
 @/ui/text-field — до-предметная поверхность 995).
 С --model: эталон architect ставится по путям поставки, rc0 с перечнем
-(число клеток — из прогона; круг 5: 12 прежних + 10 оверлея).
+(число клеток — из прогона; круг 5: 12 прежних + 10 оверлея; круг 6 —
+Р1 PROD_ENTRY_OS_THEME (production-вход @/app/index без Provider, схема
+ОС моком Appearance), Р4 AUTH_FRAMES_SAFE_AREA, Р6 SPLASH_OVERLAY_CONTAIN;
+круг 7 — В2-2 STATUS_BAR_STYLE (эффективный стиль статус-бара, дошедший
+до ОС, контрастен ground схемы); каждая × 2 схемы).
 --matrix: каждый обманный стаб красен на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case построчно.
@@ -36,15 +40,18 @@ MUTANTS = {
           "  const isD22Frame = frame === 'first-run';")],
         ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT',
          'AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        [],
+        ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT',
+         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT'],
     ),
     # (е) вход в светлой схеме на тёмном ground (тема не проводится).
     'auth-light-dark-ground': (
         [('mobile/src/bootstrap/pilot-app.tsx',
-          '[styles.rootFirstRun, { backgroundColor: tokens.ground }]',
-          "[styles.rootFirstRun, { backgroundColor: scheme === 'light' ? '#0a0a0a' : tokens.ground }]")],
+          'backgroundColor: tokens.ground,\n'
+          "              paddingTop: frame === 'first-run' ? 0 : insets.top,",
+          "backgroundColor: scheme === 'light' ? '#0a0a0a' : tokens.ground,\n"
+          "              paddingTop: frame === 'first-run' ? 0 : insets.top,")],
         ['AUTH_F03_01_STRUCTURE_LIGHT', 'AUTH_F03_02_STRUCTURE_LIGHT'],
-        [],
+        ['PROD_ENTRY_OS_THEME_LIGHT'],
     ),
     # (е) заголовки входа типографикой 995 (22/600), не .title D2.2.5.1.
     'auth-title-995-typo': (
@@ -200,7 +207,9 @@ MUTANTS = {
         ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT',
          'SPLASH_OVERLAY_NO_TEXT_DARK', 'SPLASH_OVERLAY_NO_TEXT_LIGHT',
          'SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT',
-         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_COMPOSITE_LIGHT'],
+         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_COMPOSITE_LIGHT',
+         'SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT',
+         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT'],
     ),
     # (С2) wordmark/tagline оверлея — Text-узлы (не растр композита).
     'overlay-text-words': (
@@ -238,7 +247,8 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           'const SPLASH_OVERLAY_MS = 1200;', 'const SPLASH_OVERLAY_MS = 120000;')],
         ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT'],
-        [],
+        # В2-2: клетка стиля статус-бара ждёт снятия оверлея (3×1200 мс).
+        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
     ),
     # (С2-а, круг критика 3) свидетель overlay-wrong-source: Image оверлея
     # показывает icon.png вместо композитов (честные композиты на диске) —
@@ -266,6 +276,99 @@ MUTANTS = {
          ('mobile/src/bootstrap/pilot-app.tsx',
           '    void SplashScreen.hideAsync();\n    const timer', '    const timer')],
         ['SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT'],
+        [],
+    ),
+
+    # production-входе всегда тёмный (форма текущего C — useTheme по
+    # умолчанию dark, вход без провайдера).
+    'prod-theme-os-ignored': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() =>\n"
+          "    Appearance.getColorScheme() === 'light' ? 'light' : 'dark');",
+          "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() => 'dark');")],
+        ['PROD_ENTRY_OS_THEME_LIGHT'],
+        # В2-2: схема PilotApp dark при ОС light — стиль статус-бара light.
+        ['STATUS_BAR_STYLE_LIGHT'],
+    ),
+    # (Р1) тест-обход: хардкод схемы light вместо чтения ОС. Внешний
+    # dark-провайдер проб неотличим от умолчания контекста — хардкод
+    # ломает и тёмные клетки с палитрой (измерено матрицей круга 6).
+    'prod-theme-light-hardcode': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() =>\n"
+          "    Appearance.getColorScheme() === 'light' ? 'light' : 'dark');",
+          "  const [osScheme, setOsScheme] = useState<'dark' | 'light'>(() => 'light');")],
+        ['PROD_ENTRY_OS_THEME_DARK'],
+        ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_DARK',
+         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_MOUNTED_DARK',
+         'STATUS_BAR_STYLE_DARK'],
+    ),
+    # (Р4, круг 6, Rev117) safe-area снята: контент в статус-баре,
+    # колонка прижата к краю (форма текущего C).
+    'auth-frames-no-inset': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "              paddingTop: frame === 'first-run' ? 0 : insets.top,\n"
+          "              paddingHorizontal: frame === 'first-run' ? 0 : 16,",
+          '              paddingTop: 0,\n              paddingHorizontal: 0,')],
+        ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT'],
+        [],
+    ),
+    # (Р4) хардкод инссета 47 (не отслеживает insets.top; клетка даёт 59).
+    'auth-frames-inset-hardcode': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "              paddingTop: frame === 'first-run' ? 0 : insets.top,",
+          "              paddingTop: frame === 'first-run' ? 0 : 47,")],
+        ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT'],
+        [],
+    ),
+    # (Р6, круг 6, Rev117) композит оверлея собственным размером: бокс
+    # Image не привязан к окну (форма текущего C — масштаб 2.63, прижим
+    # к углу, сдвиг теглайна 28 px).
+    'overlay-intrinsic-size': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+          '            style={StyleSheet.absoluteFill}')],
+        ['SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT'],
+        [],
+    ),
+    # (В2-2, круг 7, Rev117r2) StatusBar отсутствует (форма C 74c4c586):
+    # приложение стиль не отрисовало. Дефект на устройстве — LIGHT (белые
+    # иконки на #f3f2ee; в dark умолчание ОС случайно светлое); DARK
+    # красна тоже — стиля, отрисованного PilotApp, нет.
+    'statusbar-absent': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "import { StatusBar } from 'expo-status-bar';\n", ''),
+         ('mobile/src/bootstrap/pilot-app.tsx',
+          "      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />\n", '')],
+        ['STATUS_BAR_STYLE_LIGHT'],
+        ['STATUS_BAR_STYLE_DARK'],
+    ),
+    # (В2-2) style=light в обеих схемах: светлые иконки на светлом ground.
+    'statusbar-light-both': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "<StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />",
+          '<StatusBar style="light" />')],
+        ['STATUS_BAR_STYLE_LIGHT'],
+        [],
+    ),
+    # (В2-2) style=dark в обеих схемах: тёмные иконки на тёмном ground.
+    'statusbar-dark-both': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "<StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />",
+          '<StatusBar style="dark" />')],
+        ['STATUS_BAR_STYLE_DARK'],
+        [],
+    ),
+    # (В2-2) свидетель «вне поддерева оверлея»: StatusBar внутри оверлея —
+    # стиль верен на splash и снимается вместе с оверлеем (таймер 1200).
+    'statusbar-in-overlay': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />\n", ''),
+         ('mobile/src/bootstrap/pilot-app.tsx',
+          '          <Image\n            source={\n',
+          "          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />\n"
+          '          <Image\n            source={\n')],
+        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
         [],
     ),
 }
