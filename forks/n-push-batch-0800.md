@@ -1,0 +1,7 @@
+ФОРК: n-push-batch-0800
+ВОПРОС: Два продуктовых коммита готовы к push консультантом (оба поверх ранее запушенных HEAD, не force): (1) **Complior-back PR#153** — Impl121r2 `501e369e827bd5e37000eb3fbff21f9eb80946ea`, ветка `cmp-bck-003/yadro`, клон `/tmp/dev-harness-verify/Impl121/back` (поверх `ee213601`): R1 тесты на поведение (UPDATE/DELETE immutable, UNBALANCED_JOURNAL на COMMIT, FINANCE_APPEND_ONLY, 42501 ADMIN_AUDIT_CONTEXT_REQUIRED, redaction), R2 lane postgres: prepare_db.js + test:core на отдельной БД + test:integration, фикстура `migratedThroughCore` переиспользует/готовит ядро — «relation control.schema_migration does not exist» устранён, R3 evidence по прогону (красный не пишет RUNTIME-запись; ledger из БД), R4 стандарты (функции ≤50, без глотания ошибок); на станции: `test:core` rc 0 на свежем PG18 по digest (21/21), контрольный повтор rc 0, 18 путей ⊆ ЗОНА; ждёт батарею Architect121r2 (независимые нативные пробы оракула — Adv121) для финальной сверки; CI продукта на новом коммите — ваш прогон lane postgres. (2) **Complior-mob PR#114** — Impl117r3 `58d60b8f99a78e07069db539a183a8d6fd4a16f6`, ветка `cmp-mob-117/vkhod` (поверх `74c4c586`; 1 файл `pilot-app.tsx` +15: StatusBar по эффективной схеме PilotApp, В2-1; pilot 995 14/14, tsc rc 0); батарея STATUS_BAR_STYLE_* (Architect117r7) — в работе; перепин H в `mobile.yml` (Impl117pin3) — после ленда батареи в main харнесса. 117 v2 по First-Run/accent-text — форк `n117-v2-first-run` (ждёт воли).
+ПРИЗНАК: норма
+МАРШРУТ: консультант
+ЗАВЕДЁН: 2026-10-21T08:55:00Z
+БЛОКИРУЕТ: нет
+ОТВЕЧЕНО: нет
