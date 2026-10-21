@@ -37,7 +37,20 @@
       "errors_min": 1,
       "run_key_expected": "77010476dc47dd83ac3f9dd02c1244924a201f589ddc8bb7379dfa849f2d692b",
       "run_key_sql": "select version||'|'||name||'|'||file_sha256 from control.schema_migration order by version",
-      "run_key_note": "run_key = sha256 от вывода run_key_sql (psql -At, строки через \\n) ЖИВОГО прогона; тест test:core пишет его в evidence сам; записи дерева сверяются с run_key_expected (П5 арбитража 121: ledger 001–004 детерминирован)"
+      "run_key_note": "run_key = sha256 от вывода run_key_sql (psql -At, строки через \\n) ЖИВОГО прогона; тест test:core пишет его в evidence сам; записи дерева сверяются с run_key_expected (П5 арбитража 121: ledger 001–004 детерминирован)",
+      "pglite_db_regex": "^PostgreSQL 18[.]3 [(]PGlite 0[.]5[.]8[)]",
+      "pglite_db_note": "историческая PGLITE-запись дерева не противоречит историческим PGlite-прогонам самого дерева: docs/evidence/runs/vs01-*/results.json на B несут ровно «PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten, …» (замер jq на B/C, 7 из 7 файлов)",
+      "ledger": {
+        "keys": {"version": "version", "name": "name", "sha": "file_sha256"},
+        "rows": [
+          ["1", "001_core", "f2316a60d332e89438920b8b3d30b2379df8cfb459d125c74f218aad9f1db056"],
+          ["2", "002_rls", "ee5a91bd2d3bee0af9b07de1453d98b7b0622d2925e738304bad024978ec5284"],
+          ["3", "003_finance", "f573c4cd9ed1d5728e68db02de6f732ff7311d9a9188edf3f592c940f33d2ca7"],
+          ["4", "004_runtime_role_fixes", "ef0aea49e761918d8e383ba649ecbeb1b777601d5ee0c785ee8a5c199e429fd2"]
+        ],
+        "note": "schema_migration.jsonl рядом с native run.json — выгрузка ledger БД КАК ЕСТЬ (row_to_json control.schema_migration: version/name/file_sha256, прочие поля допустимы): ровно 4 строки 001–004 в порядке version; строки = живой ledger (замер row_to_json на одноразовой PG18 по digest пина; sha256 строк «version|name|file_sha256» = run_key_expected)"
+      },
+      "log_note": "запись RUNTIME — запись ПРОГОНА: каждая строка sql[] — ЦЕЛЫЙ оператор журнала сервера PG18 (log_statement=all, log_error_verbosity=verbose) окна прогона test:core («statement: <sql>⏎» либо «execute <unnamed>: <sql>⏎»), каждая ошибка errors[] — строка «ERROR:  <sqlstate>: <message>» того же окна целиком (допустим лишь хвост позиции курсора « at character <N>»); для записей дерева — окно свежего прогона того же закоммиченного test:core (воспроизводимость). Конформный текст sql — стабильный между прогонами (параметры $N, без случайных имён; безымянные prepared statements), message — e.message ошибки PG без правок"
     },
     "mutations": {
       "docker_image": "postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336",
@@ -45,12 +58,51 @@
       "admin_user": "postgres",
       "admin_password": "yadro121-synthetic",
       "tests_env": "COMPLIOR_TEST_PG_ADMIN_URL",
+      "server_args": ["-c", "log_statement=all", "-c", "log_error_verbosity=verbose"],
+      "damage_note": "первые 4 — флаги каталога (контракт 121, инв. 3); остальные — свойство сломано при ЦЕЛЫХ флагах (tgenabled=O, relforcerowsecurity, NOBYPASSRLS): обход Rev121 bypass.sql и Adv121 (тело guard_immutable — пропуск), вердикты contracts-121-impl-v1; набор test:core обязан краснеть на каждой, иначе testy-pustye. Порядок: сброс БД → контроль (rc 0) → СНОВА сброс БД → DAMAGE → прогон (красен) → revert: повреждённый прогон в тех же условиях, что контроль (БД-побочка контроля не краснит его без мутации). SQL однострочный (без TAB/LF/обратной косой: @tsv)",
       "damage": [
         {"name": "force", "sql": "ALTER TABLE app.document_version NO FORCE ROW LEVEL SECURITY;", "revert": "ALTER TABLE app.document_version FORCE ROW LEVEL SECURITY;"},
         {"name": "bypassrls", "sql": "ALTER ROLE brokeros_api BYPASSRLS;", "revert": "ALTER ROLE brokeros_api NOBYPASSRLS;"},
         {"name": "immutable", "sql": "ALTER TABLE app.document_version DISABLE TRIGGER guard_document_version;", "revert": "ALTER TABLE app.document_version ENABLE TRIGGER guard_document_version;"},
-        {"name": "journal", "sql": "ALTER TABLE app.finance_journal DISABLE TRIGGER finance_journal_balanced;", "revert": "ALTER TABLE app.finance_journal ENABLE TRIGGER finance_journal_balanced;"}
+        {"name": "journal", "sql": "ALTER TABLE app.finance_journal DISABLE TRIGGER finance_journal_balanced;", "revert": "ALTER TABLE app.finance_journal ENABLE TRIGGER finance_journal_balanced;"},
+        {"name": "immutable_body", "sql": "CREATE SCHEMA yadro121_stash; CREATE TABLE yadro121_stash.def AS SELECT pg_get_functiondef('app.guard_immutable()'::regprocedure) AS def; CREATE OR REPLACE FUNCTION app.guard_immutable() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $f$ BEGIN IF TG_OP = 'DELETE' THEN RETURN OLD; END IF; RETURN NEW; END $f$;", "revert": "DO $r$ BEGIN EXECUTE (SELECT def FROM yadro121_stash.def); END $r$; DROP SCHEMA yadro121_stash CASCADE;"},
+        {"name": "journal_body", "sql": "CREATE SCHEMA yadro121_stash; CREATE TABLE yadro121_stash.def AS SELECT pg_get_functiondef('app.finance_check_journal_balance()'::regprocedure) AS def; CREATE OR REPLACE FUNCTION app.finance_check_journal_balance() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, app AS $f$ BEGIN RETURN NULL; END $f$;", "revert": "DO $r$ BEGIN EXECUTE (SELECT def FROM yadro121_stash.def); END $r$; DROP SCHEMA yadro121_stash CASCADE;"},
+        {"name": "rls_open", "sql": "DO $d$ DECLARE t record; BEGIN FOR t IN SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname IN ('app', 'control') AND c.relkind IN ('r', 'p') AND c.relrowsecurity LOOP EXECUTE format('CREATE POLICY yadro121_open ON %I.%I FOR ALL TO PUBLIC USING (true) WITH CHECK (true)', t.nspname, t.relname); END LOOP; END $d$;", "revert": "DO $d$ DECLARE t record; BEGIN FOR t IN SELECT n.nspname, c.relname FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE p.polname = 'yadro121_open' LOOP EXECUTE format('DROP POLICY yadro121_open ON %I.%I', t.nspname, t.relname); END LOOP; END $d$;"},
+        {"name": "public_grant", "sql": "GRANT USAGE ON SCHEMA app, control TO PUBLIC; GRANT SELECT ON ALL TABLES IN SCHEMA app, control TO PUBLIC; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app, control TO PUBLIC;", "revert": "REVOKE SELECT ON ALL TABLES IN SCHEMA app, control FROM PUBLIC; REVOKE USAGE ON SCHEMA app, control FROM PUBLIC;"},
+        {"name": "audit_redaction", "sql": "CREATE SCHEMA yadro121_stash; CREATE TABLE yadro121_stash.def AS SELECT pg_get_functiondef('control.audit_runtime_admin_change()'::regprocedure) AS def; CREATE OR REPLACE FUNCTION control.audit_runtime_admin_change() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $f$ DECLARE actor uuid; command_id text; BEGIN actor := app.current_principal_id(); command_id := nullif(current_setting('brokeros.admin_command_id', true), ''); IF actor IS NULL OR command_id IS NULL THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'ADMIN_AUDIT_CONTEXT_REQUIRED'; END IF; INSERT INTO control.runtime_admin_audit(table_name, row_key, action, actor_principal_id, actor_database_role, admin_command_id, before_metadata, after_metadata) VALUES (TG_TABLE_NAME, NEW.id::text, TG_OP, actor, session_user, command_id, CASE WHEN TG_OP = 'UPDATE' THEN to_jsonb(OLD) END, to_jsonb(NEW)); RETURN NEW; END $f$;", "revert": "DO $r$ BEGIN EXECUTE (SELECT def FROM yadro121_stash.def); END $r$; DROP SCHEMA yadro121_stash CASCADE;"},
+        {"name": "audit_erase", "sql": "GRANT USAGE ON SCHEMA control TO PUBLIC; GRANT SELECT, UPDATE, DELETE ON control.runtime_admin_audit TO PUBLIC; CREATE POLICY yadro121_erase ON control.runtime_admin_audit FOR ALL TO PUBLIC USING (true) WITH CHECK (true);", "revert": "DROP POLICY yadro121_erase ON control.runtime_admin_audit; REVOKE SELECT, UPDATE, DELETE ON control.runtime_admin_audit FROM PUBLIC; REVOKE USAGE ON SCHEMA control FROM PUBLIC;"}
       ]
+    },
+    "native_probes": {
+      "note": "СОБСТВЕННЫЕ пробы оракула ПОСЛЕ прогона test:core (Adv121/R1): чистый SQL суперпользователя в контейнере оракула, без кода тестов продукта; поведением, не флагами каталога. Проба: sql исполняется psql -X -q -At ON_ERROR_STOP VERBOSITY=verbose; error — литерал, обязанный найтись в выводе при rc≠0 (отказ свойства), out — точный вывод при rc 0; per_role — для КАЖДОЙ роли evidence.runtime_roles c префиксом SET ROLE (допустим out ЛИБО error); check/check_out — сверка данных после пробы. Литералы сообщений — из замороженных 001–004 (sha в пине)",
+      "seed": "SET session_replication_role = replica; INSERT INTO control.party(id,party_kind) VALUES ('a1210000-0000-4000-8000-000000000001','ORGANISATION'); INSERT INTO control.legal_entity(id,party_id,public_name,jurisdiction_code,active_from) VALUES ('a1210000-0000-4000-8000-000000000002','a1210000-0000-4000-8000-000000000001','yadro121','DE',now()-interval '1 day'); INSERT INTO app.scope(id,scope_kind,purpose,subject_party_id,legal_entity_id) VALUES ('a1210000-0000-4000-8000-000000000003','CORPORATE','FINANCE','a1210000-0000-4000-8000-000000000001','a1210000-0000-4000-8000-000000000002'), ('a1210000-0000-4000-8000-000000000004','CORPORATE','FINANCE','a1210000-0000-4000-8000-000000000001','a1210000-0000-4000-8000-000000000002'); INSERT INTO control.principal(id,party_id,oidc_issuer,oidc_subject,principal_kind) VALUES ('a1210000-0000-4000-8000-000000000005','a1210000-0000-4000-8000-000000000001','yadro121-iss','yadro121-sub','SERVICE'); INSERT INTO app.document_version(scope_id,id,document_id,version,object_key,content_sha256,mime_type,size_bytes,extraction_method,observed_at) VALUES ('a1210000-0000-4000-8000-000000000003','a1210000-0000-4000-8000-000000000006','a1210000-0000-4000-8000-000000000007',1,'yadro121-original',repeat('a',64),'application/pdf',1,'NONE',now()); INSERT INTO app.approval(scope_id,id,package_id,package_digest,actor_principal_id,actor_party_id,decision,verification_method,evidence_sha256,decided_at,decision_nonce) VALUES ('a1210000-0000-4000-8000-000000000003','a1210000-0000-4000-8000-000000000008','a1210000-0000-4000-8000-000000000009','yadro121-digest','a1210000-0000-4000-8000-000000000005','a1210000-0000-4000-8000-000000000001','ACCEPTED','EES',repeat('b',64),now(),'yadro121-nonce'); INSERT INTO app.operation(scope_id,id,mission_id,legal_entity_id,operation_kind,effect_required,state,execution_generation) VALUES ('a1210000-0000-4000-8000-000000000003','a1210000-0000-4000-8000-00000000000a','a1210000-0000-4000-8000-00000000000b','a1210000-0000-4000-8000-000000000002','yadro121',true,'RUNNING',1); SET session_replication_role = origin; DO $d$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yadro121_nobody') THEN CREATE ROLE yadro121_nobody NOLOGIN; END IF; END $d$;",
+      "probes": [
+        {"name": "update-document_version", "reason": "versii-ne-immutable", "sql": "UPDATE app.document_version SET object_key = 'yadro121-tampered' WHERE id = 'a1210000-0000-4000-8000-000000000006'", "error": "Immutable content in document_version changed", "check": "SELECT object_key FROM app.document_version WHERE id = 'a1210000-0000-4000-8000-000000000006'", "check_out": "yadro121-original"},
+        {"name": "delete-document_version", "reason": "versii-ne-immutable", "sql": "DELETE FROM app.document_version WHERE id = 'a1210000-0000-4000-8000-000000000006'", "error": "Immutable record document_version cannot be deleted", "check": "SELECT count(*) FROM app.document_version WHERE id = 'a1210000-0000-4000-8000-000000000006'", "check_out": "1"},
+        {"name": "update-approval", "reason": "versii-ne-immutable", "sql": "UPDATE app.approval SET decision_nonce = 'yadro121-tampered' WHERE id = 'a1210000-0000-4000-8000-000000000008'", "error": "Immutable content in approval changed", "check": "SELECT decision_nonce FROM app.approval WHERE id = 'a1210000-0000-4000-8000-000000000008'", "check_out": "yadro121-nonce"},
+        {"name": "delete-approval", "reason": "versii-ne-immutable", "sql": "DELETE FROM app.approval WHERE id = 'a1210000-0000-4000-8000-000000000008'", "error": "Immutable record approval cannot be deleted", "check": "SELECT count(*) FROM app.approval WHERE id = 'a1210000-0000-4000-8000-000000000008'", "check_out": "1"},
+        {"name": "journal-unbalanced-commit", "reason": "zhurnal-bez-balansa", "sql": "BEGIN; INSERT INTO app.finance_journal(scope_id,id,legal_entity_id,currency,event_key,journal_kind,occurred_at) VALUES ('a1210000-0000-4000-8000-000000000003','a1210000-0000-4000-8000-00000000000c','a1210000-0000-4000-8000-000000000002','EUR','yadro121-ek','SETTLEMENT',now()); COMMIT;", "error": "UNBALANCED_JOURNAL", "check": "SELECT count(*) FROM app.finance_journal WHERE id = 'a1210000-0000-4000-8000-00000000000c'", "check_out": "0"},
+        {"name": "succeeded-bez-receipt", "reason": "zhurnal-bez-balansa", "sql": "UPDATE app.operation SET state = 'SUCCEEDED' WHERE id = 'a1210000-0000-4000-8000-00000000000a'", "error": "ERROR:", "check": "SELECT state FROM app.operation WHERE id = 'a1210000-0000-4000-8000-00000000000a'", "check_out": "RUNNING"},
+        {"name": "force-vladelec", "reason": "rls-bez-force", "sql": "SET ROLE brokeros_owner; SELECT count(*) FROM app.document_version; SELECT count(*) FROM app.scope;", "out": "0\n0"},
+        {"name": "api-bez-konteksta", "reason": "rls-bez-force", "sql": "SET ROLE brokeros_api; SELECT count(*) FROM app.scope; SELECT count(*) FROM app.document_version;", "out": "0\n0"},
+        {"name": "runtime-bez-bypassrls", "reason": "rls-bez-force", "per_role": true, "sql": "SELECT count(*) FROM app.document_version", "out": "0", "error": "permission denied"},
+        {"name": "public-app-tablica", "reason": "rls-bez-force", "sql": "SET ROLE yadro121_nobody; SELECT count(*) FROM app.document_version", "error": "permission denied"},
+        {"name": "public-control-tablica", "reason": "rls-bez-force", "sql": "SET ROLE yadro121_nobody; SELECT count(*) FROM control.runtime_admin_audit", "error": "permission denied"},
+        {"name": "public-funkciya", "reason": "rls-bez-force", "sql": "SET ROLE yadro121_nobody; SELECT app.has_scope_access(NULL::uuid, 'core:read')", "error": "permission denied"},
+        {"name": "audit-bez-konteksta", "reason": "audit-bez-konteksta", "sql": "INSERT INTO control.retention_class(id,description,erasure_mode,policy_version,policy_basis) VALUES ('yadro121-rc','yadro121','ERASE',1,'yadro121')", "error": "42501: ADMIN_AUDIT_CONTEXT_REQUIRED", "check": "SELECT count(*) FROM control.retention_class WHERE id = 'yadro121-rc'", "check_out": "0"},
+        {"name": "audit-svyaz", "reason": "audit-bez-konteksta", "sql": "SELECT set_config('brokeros.principal_id', 'a1210000-0000-4000-8000-000000000005', false); SELECT set_config('brokeros.admin_command_id', 'yadro121-cmd', false); INSERT INTO control.provider_connection(id,provider_party_id,legal_entity_id,environment,adapter_key,account_reference,secret_locator) VALUES ('a1210000-0000-4000-8000-00000000000d','a1210000-0000-4000-8000-000000000001','a1210000-0000-4000-8000-000000000002','LAB','yadro121','YADRO121-ACCT-SECRET','vault://YADRO121-SECRET'); UPDATE control.provider_connection SET secret_locator = 'vault://YADRO121-SECRET2' WHERE id = 'a1210000-0000-4000-8000-00000000000d';", "check": "SELECT count(*) FROM control.runtime_admin_audit WHERE admin_command_id = 'yadro121-cmd' AND table_name = 'provider_connection' AND actor_principal_id = 'a1210000-0000-4000-8000-000000000005' AND actor_database_role IS NOT NULL", "check_out": "2"},
+        {"name": "audit-redakciya", "reason": "evidence-sekrety", "sql": "SELECT count(*) FROM control.runtime_admin_audit WHERE admin_command_id = 'yadro121-cmd' AND (coalesce(before_metadata::text, '') || coalesce(after_metadata::text, '')) ~ '(secret_locator|account_reference|YADRO121-ACCT-SECRET|YADRO121-SECRET)'", "out": "0"},
+        {"name": "audit-delete-runtime", "reason": "audit-bez-konteksta", "per_role": true, "sql": "DELETE FROM control.runtime_admin_audit", "error": "permission denied"},
+        {"name": "audit-update-runtime", "reason": "audit-bez-konteksta", "per_role": true, "sql": "UPDATE control.runtime_admin_audit SET row_key = row_key", "error": "permission denied"},
+        {"name": "audit-cel", "reason": "audit-bez-konteksta", "sql": "SELECT count(*) FROM control.runtime_admin_audit WHERE admin_command_id = 'yadro121-cmd'", "out": "2"}
+      ]
+    },
+    "lane": {
+      "note": "R2 Rev121: lane postgres продукта на СВЕЖЕМ кластере PG18 (второй одноразовый контейнер по digest пина, миграции не применены; admin URL на БД admin_db, как в ci.yml) — раннер lane python3 <file> --lane <name>; шаги, чья команда несёт литерал из steps, обязаны присутствовать и дать rc 0, как и все шаги вида runtime; статические шаги lane (в т.ч. @sql-frozen без истории git в копии) клеткой не судятся",
+      "file": "tests/tools/run_backend_ci.py",
+      "name": "postgres",
+      "admin_db": "postgres",
+      "steps": ["test:integration", "test:core"]
     }
   },
   "toy": {
@@ -70,7 +122,17 @@
       "pglite_engine": "toy-pglite",
       "runtime_roles": ["brokeros_api", "toy_runtime_admin"],
       "sqlstate_regex": "^[0-9A-Z]{5}$",
-      "errors_min": 0
+      "errors_min": 0,
+      "pglite_db_regex": "^ToyPostgreSQL 16[.]4 [(]PGlite-совместимый[)]",
+      "ledger": {
+        "keys": {"version": "num", "name": "name", "sha": "sha256"},
+        "rows": [
+          ["001", "core", "752fb56739df8e12e98b9f39f2fe268985a15a8cd5f5d1b2b13093386eedfa6a"],
+          ["002", "rls", "ca8053ce319ab5b445e6da554d939b204f7be2491d0202861974899517b029c2"],
+          ["003", "finance", "b771e6a22bca69a2adb10638f37dd501a4609967fcc142de8b70e136d5fce0b5"],
+          ["004", "runtime_role_fixes", "8f2ea3ae4c2482f81f2e8815a9f2e63721b5bc344414d670cf2f0923d5732260"]
+        ]
+      }
     },
     "engine_mutations": [
       {"from": "FORCE_RLS_DEFAULT = true", "to": "FORCE_RLS_DEFAULT = false"},
@@ -85,26 +147,30 @@
     "tests/integration/core/finance_journal.test.js": ["finance_journal", "balance", "effect"],
     "tests/integration/core/admin_audit.test.js": ["runtime_admin_audit", "ADMIN_AUDIT_CONTEXT_REQUIRED", "actor_principal_id", "secret_locator"]
   },
+  "tautology_signatures": ["WHERE false", "WHERE FALSE", "where false", "WHERE 1=0", "WHERE 1 = 0", "|| true", "assert.ok(true", "assert(true", "LIMIT 0"],
+  "tautology_note": "R1 Rev121 (тест «блокирующий UPDATE» с UPDATE … WHERE false, утверждение «… === false || true», SELECT … LIMIT 0): литеральные сигнатуры заведомо незначимой проверки в tests/integration/core/*.test.js — статически красны testy-pustye; конформный тест исполняет операцию, которая изменила бы данные при отсутствии свойства (поведенчески это доказывают DAMAGE-пробы пина)",
   "prichiny": {
     "migracii-izmeneny": "sha256 migrations/001–004 расходится с пином",
     "ranner-otsutstvuet": "раннер или манифест отсутствует/без 001–004",
     "testy-otsutstvuyut": "нет хотя бы одного пинованного файла tests/integration/core/",
-    "rls-bez-force": "rls.test.js без полного набора маркеров RLS",
-    "versii-ne-immutable": "immutable.test.js без полного набора маркеров версий",
-    "zhurnal-bez-balansa": "finance_journal.test.js без полного набора маркеров журнала",
-    "audit-bez-konteksta": "admin_audit.test.js без полного набора маркеров аудита",
+    "rls-bez-force": "rls.test.js без полного набора маркеров RLS; либо собственная проба оракула после test:core: FORCE/NOBYPASSRLS/нет PUBLIC нарушены ПОВЕДЕНИЕМ (владелец/runtime-роль видит строки без контекста, роль без грантов читает/исполняет)",
+    "versii-ne-immutable": "immutable.test.js без полного набора маркеров версий; либо собственная проба оракула после test:core: UPDATE/DELETE существующей document_version/approval не отклонён",
+    "zhurnal-bez-balansa": "finance_journal.test.js без полного набора маркеров журнала; либо собственная проба оракула после test:core: несбалансированный журнал принят на COMMIT или SUCCEEDED без receipt принят",
+    "audit-bez-konteksta": "admin_audit.test.js без полного набора маркеров аудита; либо собственная проба оракула после test:core: изменение без контекста не отклонено 42501 ADMIN_AUDIT_CONTEXT_REQUIRED, нет связной audit-строки, runtime-роль стирает/правит аудит",
     "provodka-otsutstvuet": "package.json без test:core или lane-файл без литерала test:core",
     "evidence-otsutstvuet": "нет native-evidence с mode=RUNTIME в docs/evidence/core/ (или запись пуста: без SQL/роли/ошибок)",
-    "evidence-razdelenie": "нет PGLITE-evidence отдельно от native",
-    "evidence-sekrety": "в evidence есть запрещённые ключи аудита",
+    "evidence-razdelenie": "нет PGLITE-evidence отдельно от native; либо PGLITE-запись дерева противоречит историческим PGlite-прогонам дерева (db вне pglite_db_regex)",
+    "evidence-sekrety": "в evidence есть запрещённые ключи аудита; либо собственная проба оракула: before/after живой строки control.runtime_admin_audit несут secret_locator/account_reference или их значения",
     "evidence-ne-native": "движок evidence не native: engine/db PGlite-признак под меткой RUNTIME или роль вне runtime-ролей",
     "evidence-chuzhoj-klyuch": "run_key evidence не сходится с прогоном (файл/ledger/live-расчёт)",
-    "testy-pustye": "test:core зелёный на повреждённом свойстве: набор не исполняет проверок (безусловная зелень/маркеры)",
-    "testy-ne-zelenye": "на честном мире test:core/применение ядра красны; в т.ч. контрольный повтор перед мутацией красен — одноразовая побочка состояния дерева/кластера (П1 арбитража 121)",
+    "testy-pustye": "test:core зелёный на повреждённом свойстве: набор не исполняет проверок (безусловная зелень/маркеры); либо статическая сигнатура тавтологии (tautology_signatures) в тестах ядра",
+    "testy-ne-zelenye": "на честном мире test:core/применение ядра красны; в т.ч. контрольный повтор перед мутацией красен — одноразовая побочка состояния дерева/кластера (П1 арбитража 121); либо шаг lane postgres (test:integration/test:core) красен на свежем кластере (R2)",
     "ranner-ne-otkazyvaet": "повреждённая копия не отвергнута раннером",
-    "ledger-pustoj": "после прогона ledger не равен 4 строкам 001–004",
+    "ledger-pustoj": "после прогона ledger не равен 4 строкам 001–004; либо schema_migration.jsonl native-записи evidence — не выгрузка ledger (не 4 строки 001–004 с version/name/sha пина)",
     "povtor-ddl": "повторный прогон исполняет DDL повторно",
     "orakul-slep": "декой прошёл проверку оракула",
-    "model-razbita": "честный мини-мир не проходит собственную проверку"
+    "model-razbita": "честный мини-мир не проходит собственную проверку",
+    "evidence-deklaraciya": "запись RUNTIME — декларация, а не запись прогона: строка sql[] или ошибка errors[] «<sqlstate>: <message>» не найдена в журнале сервера PG18 окна прогона test:core (свежая запись — своего прогона; запись дерева — свежего прогона закоммиченного test:core)",
+    "evidence-krasnyj-progon": "красный прогон test:core (повреждённое свойство) оставил RUNTIME-запись, неотличимую от зелёной"
   }
 }

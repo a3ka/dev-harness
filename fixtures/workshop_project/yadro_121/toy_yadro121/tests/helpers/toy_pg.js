@@ -93,16 +93,31 @@ module.exports = class ToyPg {
     return this.roles.get(name);
   }
 
+  // Журнал «сервера» мини-мира — аналог log_statement=all + log_error_verbosity=
+  // verbose PG18: каждый исполненный оператор и каждая ошибка «<SQLSTATE>: <текст>»
+  // дописываются в TOY_SERVER_LOG (если задан). Батарея сверяет sql/errors записи
+  // evidence с этим журналом: запись — прогона, а не декларация (R3 Rev121).
+  exec(stmt) {
+    this.executed.push(stmt);
+    if (process.env.TOY_SERVER_LOG) fs.appendFileSync(process.env.TOY_SERVER_LOG, 'LOG:  statement: ' + stmt + '\n');
+  }
+
+  fail(sqlstate, message) {
+    const e = new SqlError(sqlstate, message);
+    if (process.env.TOY_SERVER_LOG) fs.appendFileSync(process.env.TOY_SERVER_LOG, 'ERROR:  ' + e.sqlstate + ': ' + e.message + '\n');
+    return e;
+  }
+
   insert(table, row) {
-    this.executed.push('INSERT INTO ' + table);
-    if (!this.rows.has(table)) throw new SqlError('42P01', 'нет таблицы ' + table);
+    this.exec('INSERT INTO ' + table);
+    if (!this.rows.has(table)) throw this.fail('42P01', 'нет таблицы ' + table);
     if (table === this.journalTable) {
       if (JOURNAL_BALANCE) {
         const cmd = row.command_id;
         const prior = this.rows.get(table).filter((r) => r.command_id === cmd)
           .reduce((s, r) => s + r.amount_minor, 0);
         if (row.effect_ref != null && prior + row.amount_minor !== 0) {
-          throw new SqlError('23514', 'UNBALANCED_JOURNAL: сумма команды ' + cmd + ' не 0');
+          throw this.fail('23514', 'UNBALANCED_JOURNAL: сумма команды ' + cmd + ' не 0');
         }
       }
     }
@@ -111,32 +126,32 @@ module.exports = class ToyPg {
   }
 
   update(table, id, patch) {
-    this.executed.push('UPDATE ' + table);
-    if (table === this.auditTable) throw new SqlError('42501', 'AUDIT_APPEND_ONLY: журнал аудита не редактируется');
+    this.exec('UPDATE ' + table);
+    if (table === this.auditTable) throw this.fail('42501', 'AUDIT_APPEND_ONLY: журнал аудита не редактируется');
     if (IMMUTABLE_GUARD && this.immutable.has(table)) {
-      throw new SqlError('42501', 'GUARD_IMMUTABLE: ' + table + ' запрещено UPDATE/DELETE');
+      throw this.fail('42501', 'GUARD_IMMUTABLE: ' + table + ' запрещено UPDATE/DELETE');
     }
     const list = this.rows.get(table) || [];
     const row = list.find((r) => r.id === id);
-    if (!row) throw new SqlError('P0002', 'строка не найдена');
+    if (!row) throw this.fail('P0002', 'строка не найдена');
     Object.assign(row, patch);
     return row;
   }
 
   delete(table, id) {
-    this.executed.push('DELETE FROM ' + table);
-    if (table === this.auditTable) throw new SqlError('42501', 'AUDIT_APPEND_ONLY: журнал аудита не редактируется');
+    this.exec('DELETE FROM ' + table);
+    if (table === this.auditTable) throw this.fail('42501', 'AUDIT_APPEND_ONLY: журнал аудита не редактируется');
     if (IMMUTABLE_GUARD && this.immutable.has(table)) {
-      throw new SqlError('42501', 'GUARD_IMMUTABLE: ' + table + ' запрещено UPDATE/DELETE');
+      throw this.fail('42501', 'GUARD_IMMUTABLE: ' + table + ' запрещено UPDATE/DELETE');
     }
     const list = this.rows.get(table);
     const i = list.findIndex((r) => r.id === id);
-    if (i < 0) throw new SqlError('P0002', 'строка не найдена');
+    if (i < 0) throw this.fail('P0002', 'строка не найдена');
     list.splice(i, 1);
   }
 
   select(table) {
-    this.executed.push('SELECT * FROM ' + table);
+    this.exec('SELECT * FROM ' + table);
     const all = (this.rows.get(table) || []).slice();
     const policy = this.policies.get(table);
     const st = this.rls.get(table);
@@ -149,9 +164,9 @@ module.exports = class ToyPg {
   }
 
   adminCommand(cmd) {
-    this.executed.push('SELECT control.audit_runtime_admin_change(?)');
+    this.exec('SELECT control.audit_runtime_admin_change(?)');
     if (AUDIT_CONTEXT_REQUIRED && this.auditContextTrigger && !cmd.context) {
-      const e = new SqlError('42501', 'ADMIN_AUDIT_CONTEXT_REQUIRED');
+      const e = this.fail('42501', 'ADMIN_AUDIT_CONTEXT_REQUIRED');
       this.errors.push({ sqlstate: e.sqlstate, message: e.message });
       throw e;
     }

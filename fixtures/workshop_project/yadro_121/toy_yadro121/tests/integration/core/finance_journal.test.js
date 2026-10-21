@@ -8,7 +8,8 @@ test('finance_journal: сбалансированная команда с effect
   const db = openDb();
   db.insert('app.finance_journal', { id: 'j1', command_id: 'c1', amount_minor: 100, effect_ref: null });
   db.insert('app.finance_journal', { id: 'j2', command_id: 'c1', amount_minor: -100, effect_ref: 'eff-1' });
-  assert.ok(true, 'баланс 0 — команда закрыта с effect evidence');
+  const balance = db.select('app.finance_journal').reduce((s, r) => s + r.amount_minor, 0);
+  assert.equal(balance, 0, 'баланс 0 — команда закрыта с effect evidence');
 });
 
 test('finance_journal: несбалансированный журнал отвергается', () => {
