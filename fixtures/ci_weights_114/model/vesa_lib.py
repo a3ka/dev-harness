@@ -33,16 +33,24 @@
 #
 # Правила (мера measure_ci_weights.sh, корпус-режим --logs):
 #   наблюдения ключа — строки замера логов каталога в порядке имён файлов;
-#   вес = ceil(медиана ПОСЛЕДНИХ min-obs наблюдений); ключей с наблюдениями
-#   меньше min-obs НЕТ или строк замера нет вообще — rc 2 «мало данных» /
-#   «пустая выборка», TSV НЕ пишется (атомарно: отказ = ни байта).
+#   вес = ceil(медиана ВСЕХ наблюдений окна) — frozen :45 «последних 20
+#   зелёных прогонов», :99/:178 «последних ≥5 наблюдений» = все наблюдения
+#   окна последних зелёных прогонов
+#   (круг 3, Rev114 Б1/В1: хвост o[-min-obs:] брал СТАРЕЙШИЕ при порядке
+#   API «свежие первыми»); min-obs (по умолчанию 5) — ТОЛЬКО порог «мало
+#   данных», НЕ размер выборки; ключей с наблюдениями меньше min-obs НЕТ
+#   или строк замера нет вообще — rc 2 «мало данных» / «пустая выборка»,
+#   TSV НЕ пишется (атомарно: отказ = ни байта); <n> — число наблюдений
+#   окна (Adv114 №1: n=5 у всех ключей — стёртая выборка, не окно).
 #
 # Правила (мера, сетевой режим — без --logs, круг 2 Б1):
 #   источник — ТОЛЬКО `gh api` ЧЕРЕЗ PATH (подменяемость: gh-двойник батареи
 #   т17 кладётся первым в PATH); runs → jobs (`ci (`/`legkij`) → logs;
-#   отказ транспорта — rc 2 именованный; окно = run-id старейшего прогона.
-#   Запись — только в out (по умолчанию registry/ci-zamery.tsv); мера не
-#   меняет ни байта в root вне этого файла (клетка т18, Б3).
+#   отказ транспорта — rc 2 именованный, В ТОМ ЧИСЛЕ отсутствие gh в PATH
+#   (круг 3, Adv114 №2: FileNotFoundError — именованный rc 2, не traceback
+#   rc 1); окно = run-id старейшего прогона. Запись — только в out (по
+#   умолчанию registry/ci-zamery.tsv); мера не меняет ни байта в root вне
+#   этого файла (клетка т18, Б3).
 import json
 import math
 import os
@@ -194,8 +202,12 @@ def parse_logs(logs_dir):
 def gh_api(path):
     """Единственный транспорт сетевой ветви: `gh api` ЧЕРЕЗ PATH (Б1, круг 2):
     подменяемость источником-двойником; отказ транспорта — rc 2 именованный
-    (пусто-зеленым тихий отказ не бывает)."""
-    p = subprocess.run(['gh', 'api', path], capture_output=True, text=True)
+    (пусто-зеленым тихий отказ не бывает); отсутствие gh в PATH — тот же
+    именованный rc 2, не traceback rc 1 (круг 3, Adv114 №2)."""
+    try:
+        p = subprocess.run(['gh', 'api', path], capture_output=True, text=True)
+    except FileNotFoundError:
+        die('gh api отказ: нет gh в PATH: %s' % path, 2)
     if p.returncode != 0:
         die('gh api отказ (%d): %s: %s' % (p.returncode, path, p.stderr.strip()), 2)
     return p.stdout
@@ -244,8 +256,10 @@ def measure(root, logs_dir, out_path, min_obs, okno, repo=None, runs=20):
         if len(o) < min_obs:
             malo.append('%s (%d < %d)' % (k, len(o), min_obs))
             continue
-        lastn = o[-min_obs:]
-        rows[k] = (int(math.ceil(statistics.median(lastn))), len(lastn))
+        # медиана ВСЕХ наблюдений окна (круг 3, Rev114 Б1/В1): min-obs выше —
+        # ТОЛЬКО порог «мало данных», не размер выборки; <n> — число
+        # наблюдений окна (Adv114 №1), не min-obs.
+        rows[k] = (int(math.ceil(statistics.median(o))), len(o))
     if malo:
         die('мало данных: %s' % '; '.join(sorted(malo)), 2)
     if out_path is None:

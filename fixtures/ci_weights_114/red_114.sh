@@ -7,7 +7,7 @@
 # наблюдений зелёных прогонов) пишет TSV замеров; гвард сверяет реестр с TSV
 # (покрытие / двустороннее расхождение > 3× / свежесть ≤ 30 дней).
 #
-# СТРУКТУРА (35 клеток):
+# СТРУКТУРА (40 клеток — круг 3: +т22/т23/т24, +s12/s13):
 #   Д1/Д2 — предмет существует: $RED114_GUARD/$RED114_MEASURE (по умолчанию
 #     scripts/check_ci_weights.sh, scripts/measure_ci_weights.sh). До
 #     реализации красны ПО УМЫСЛУ («предмет отсутствует»).
@@ -43,7 +43,20 @@
 #     --root до/после — неравенство красное «побочная запись меры (корпус,
 #     явный --out)». Матрица {корпус, сеть}×{default, явный --out} закрыта
 #     всеми четырьмя ячейками (т18 — корпус/default).
-#   С1–С11 — обманные стабы stuby/ на каркасе _karkas_staba.py. KARTA
+#     т22 (круг 3, Rev114 Б1/Б2) сетевой ПОРЯДОК: двойник22 — 3 прогона
+#       разных времён на ключ, СВЕЖИЕ ПЕРВЫМИ (как реальный API),
+#       нетривиальная разница старое/новое, --min-obs 2 < 3 наблюдений:
+#       TSV == ручному ожиданию ceil(медиана ВСЕХ наблюдений окна)
+#       (frozen :45/:99/:178; min-obs — порог, не размер выборки);
+#       обман «медиана хвоста/старейших/первых N» красен;
+#     т23 (круг 3, Adv114 №2) сеть БЕЗ gh в PATH (bash+python3+dirname —
+#       минимум обёрток меры, gh исключён) —
+#       именованный rc 2 «gh api отказ…», не rc 1/traceback; TSV не
+#       написан (атомарно);
+#     т24 (круг 3, Adv114 №1) корпус 8 (step) / 20 (legkij) наблюдений
+#       при min-obs 5: TSV хранит n == числу наблюдений окна, не 5
+#       (frozen :348 «n≥8 у step-ключей, n≥20 у legkij»).
+#   С1–С13 — обманные стабы stuby/ на каркасе _karkas_staba.py. KARTA
 #     (Н-39: привязка по коду, не по прозе контракта):
 #       s1 «всегда-зелёный»    — вход лжи: мир т2;  честность: т1;
 #       s2 «односторонний»     — вход лжи: мир т3;  честность: т1;
@@ -64,6 +77,12 @@
 #                                красны ровно клетки-носители т19/т20/т21,
 #                                т18 зелёная; честность: TSV конформного
 #                                корпуса (арбитраж 114, П3).
+#       s12 «хвост-вместо-медианы» — вход лжи: сеть т22 (двойник22: 3
+#                                наблюдения, свежие первыми, min-obs 2 <
+#                                наблюдений); честность: конформный корпус;
+#       s13 «gh-отсутствует-traceback» — вход лжи: сеть без gh в PATH
+#                                (т23, traceback rc 1); честность:
+#                                конформный корпус.
 #     ПОЙМАН = на входе лжи стаб расходится с честной моделью, на конформном
 #     входе совпадает. s5/s6 взаимно грязны на чужих корпусах (max≠медиана и
 #     floor≠ceil на любом разбросанном корпусе) — честность вне лжи для них
@@ -71,7 +90,7 @@
 #     (прецедент 113: s6/s8).
 #
 # Модель — model/vesa_lib.py (честная реализация предмета; эталон клеток).
-# До реализации Д1/Д2 и т1–т21 красны именованно «нет инструмента» — батарея
+# До реализации Д1/Д2 и т1–т24 красны именованно «нет инструмента» — батарея
 # красна на базе ПО УМЫСЛУ; стаб-пак ловится и на базе.
 #
 # Коды возврата: 0 — все клетки зелёные; 1 — есть красное; 2 — отказ
@@ -463,6 +482,75 @@ if guard_absent т21 "$MEASURE"; then :; else
   fi
 fi
 
+# т22 (круг 3, Rev114 Б1/Б2) сетевой ПОРЯДОК: gh-двойник22 — 3 прогона
+# разных времён на ключ, СВЕЖИЕ ПЕРВЫМИ, нетривиальная разница старое/новое,
+# --min-obs 2 < 3 наблюдений: TSV == ручному ожиданию ceil(медиана ВСЕХ
+# наблюдений окна) (frozen :45/:99/:178; Rev114 В1: min-obs — порог «мало
+# данных», не размер выборки). Обман «медиана хвоста/старейших/первых N»
+# обязан разойтись с ожиданием — красен.
+W22="$WORK/w22"; build_world "$W22" 40 100 8
+GHDBL22="$HERE/gh_dvoynik22"; GHTRACE22="$WORK/gh22.trace"
+# ожидание выведено ВРУЧНУЮ из данных двойника22 (не моделью): прогоны
+# 503/502/501 (свежие первыми); gen [30,20,10]→20, alpha [60,50,40]→50,
+# beta [12,9,6]→9 — медиана ВСЕХ трёх, n=3, окно = min(run-id) = 501.
+# Ложь хвоста o[-2:]=[20,10]→15, «первых N» o[:2]=[30,20]→25 — обе красны.
+printf 'check:gen\t20\t3\t501\ncheck:alpha\t50\t3\t501\ncheck:beta\t9\t3\t501\n' > "$WORK/want22"
+if guard_absent т22 "$MEASURE"; then :; elif [ ! -x "$GHDBL22/gh" ]; then
+  kraz "т22 нет gh-двойника22: $GHDBL22/gh (инструмент батареи отсутствует)"
+else
+  rm -f "$GHTRACE22" "$M_OUT"
+  RED114_GH_TRACE="$GHTRACE22" PATH="$GHDBL22:$PATH" \
+    "$MEASURE" --root "$W22" --out "$M_OUT" --min-obs 2 --repo toy/ci \
+    >"$WORK/n22.out" 2>"$M_ERR"; RC22=$?
+  if [ "$RC22" -ne 0 ]; then
+    kraz "т22 сетевой порядок: rc=$RC22 (ожидался 0 против двойника22)"
+  elif ! [ -s "$GHTRACE22" ]; then
+    kraz "т22 сетевой порядок: источник не вызван — след gh пуст"
+  elif ! diff -q <(grep -vE '^#|^$' "$M_OUT" | LC_ALL=C sort) <(LC_ALL=C sort "$WORK/want22") >/dev/null; then
+    kraz "т22 сетевой порядок: TSV ≠ ceil(медиана ВСЕХ наблюдений окна) — обман хвоста/старейших/первых N"
+  else
+    ok "т22 сетевой порядок: TSV = ceil(медиана ВСЕХ 3 наблюдений) при min-obs 2"
+  fi
+fi
+
+# т23 (круг 3, Adv114 №2) сетевой режим БЕЗ gh в PATH (bash+python3+dirname):
+# именованный rc 2 «gh api отказ…» (отказ транспорта), не rc 1/traceback;
+# TSV не написан (атомарно).
+W23="$WORK/w23"; build_world "$W23" 40 100 8
+NOGH="$WORK/nogh23"; rm -rf "$NOGH"; mkdir -p "$NOGH"
+ln -s "$(command -v bash)" "$NOGH/bash"
+ln -s "$(command -v python3)" "$NOGH/python3"
+ln -s "$(command -v dirname)" "$NOGH/dirname"
+if guard_absent т23 "$MEASURE"; then :; else
+  rm -f "$M_OUT"
+  PATH="$NOGH" "$MEASURE" --root "$W23" --out "$M_OUT" --min-obs 2 --repo toy/ci \
+    >"$WORK/n23.out" 2>"$M_ERR"; RC23=$?
+  if [ "$RC23" -eq 2 ] && grep -q 'gh api отказ' "$M_ERR" && [ ! -f "$M_OUT" ]; then
+    ok "т23 нет gh в PATH: именованный rc 2 «gh api отказ», TSV не написан"
+  else
+    kraz "т23 нет gh в PATH: rc=$RC23, Traceback-строк=$(grep -c Traceback "$M_ERR") (ожидался rc 2 «gh api отказ» и нет TSV)"
+  fi
+fi
+
+# т24 (круг 3, Adv114 №1) живой-контракт n: корпус 8 наблюдений у step /
+# 20 у legkij при min-obs 5 — TSV хранит n == числу наблюдений окна
+# (frozen :348 «n≥8 у step-ключей, n≥20 у legkij»); n=5 у всех ключей —
+# стёртая выборка, красна.
+W24="$WORK/w24"; build_world "$W24" 10 100 7
+L24="$WORK/l24"; build_logs "$L24"
+i=1; while [ "$i" -le 20 ]; do
+  { [ "$i" -le 8 ] && printf 'замер: check:gen 10\nзамер: check:alpha 7\n'
+    printf 'замер: check:beta 3\n'; } >> "$L24/0$i.log"; i=$((i+1))
+done
+if guard_absent т24 "$MEASURE"; then :; else
+  run_measure "$MEASURE" "$W24" "$L24" 5
+  if [ "$RC" -eq 0 ] && tsv_has check:gen 10 8 && tsv_has check:alpha 7 8 && tsv_has check:beta 3 20; then
+    ok "т24 n = числу наблюдений окна: gen/alpha 8, beta 20 (не min-obs 5)"
+  else
+    kraz "т24 n окна: rc=$RC, TSV=$(cat "$M_OUT" 2>/dev/null | tr '\n' '|') (ожидались n 8/8/20)"
+  fi
+fi
+
 # ── С-клетки: KARTA стабов (привязка по коду, Н-39) ──────────────────────────
 # конформный корпус меры (константный): все стабы обязаны совпасть с моделью
 WC="$WORK/wc"; build_world "$WC" 10 100 7
@@ -587,6 +675,48 @@ stab_modewriter() { # $1 имя $2 стаб — писатель-по-режим
 }
 
 stab_modewriter s11 "$HERE/stuby/s11_pisatel_po_rezhimu.sh"
+
+stab_net_order() { # $1 имя $2 стаб — хвост-вместо-медианы (круг 3, Rev114 Б1):
+  # вход лжи — сеть против двойника22 (3 наблюдения, свежие первыми,
+  # min-obs 2): TSV стаба ≠ ручному ожиданию want22; честность — TSV
+  # конформного корпуса побайтово равен модели
+  local conf_ok=0 caught=0 T
+  rm -f "$WORK/so.tsv" "$WORK/mo.tsv"
+  "$2" --root "$WC" --logs "$LC" --out "$WORK/so.tsv" --min-obs 5 --okno 42 >/dev/null 2>&1
+  "$MODEL_MEASURE" --root "$WC" --logs "$LC" --out "$WORK/mo.tsv" --min-obs 5 --okno 42 >/dev/null 2>&1
+  cmp -s "$WORK/so.tsv" "$WORK/mo.tsv" && conf_ok=1
+  T="$WORK/so.trace"; rm -f "$T" "$WORK/sneto.tsv"
+  RED114_GH_TRACE="$T" PATH="$HERE/gh_dvoynik22:$PATH" \
+    "$2" --root "$W22" --out "$WORK/sneto.tsv" --min-obs 2 --repo toy/ci >/dev/null 2>&1
+  if diff -q <(grep -vE '^#|^$' "$WORK/sneto.tsv" 2>/dev/null | LC_ALL=C sort) <(LC_ALL=C sort "$WORK/want22") >/dev/null 2>&1; then :; else caught=1; fi
+  if [ "$caught" -eq 1 ] && [ "$conf_ok" -eq 1 ]; then
+    ok "С:$1 ПОЙМАН (сеть: медиана хвоста вместо ВСЕХ наблюдений окна), честен на конформном корпусе"
+  else
+    kraz "С:$1 ускользнул: caught=$caught conf_ok=$conf_ok"
+  fi
+}
+
+stab_nogh() { # $1 имя $2 стаб — gh-отсутствует-traceback (круг 3, Adv114 №2):
+  # вход лжи — сеть без gh в PATH (клетка т23): стаб умирает traceback rc≠2
+  # против именованного rc 2 модели; честность — TSV конформного корпуса
+  local conf_ok=0 caught=0 srcrc mdlrc
+  rm -f "$WORK/sg.tsv" "$WORK/mg.tsv"
+  "$2" --root "$WC" --logs "$LC" --out "$WORK/sg.tsv" --min-obs 5 --okno 42 >/dev/null 2>&1
+  "$MODEL_MEASURE" --root "$WC" --logs "$LC" --out "$WORK/mg.tsv" --min-obs 5 --okno 42 >/dev/null 2>&1
+  cmp -s "$WORK/sg.tsv" "$WORK/mg.tsv" && conf_ok=1
+  rm -f "$WORK/s23g.tsv" "$WORK/m23g.tsv"
+  PATH="$NOGH" "$2" --root "$W23" --out "$WORK/s23g.tsv" --min-obs 2 --repo toy/ci >/dev/null 2>&1; srcrc=$?
+  PATH="$NOGH" "$MODEL_MEASURE" --root "$W23" --out "$WORK/m23g.tsv" --min-obs 2 --repo toy/ci >/dev/null 2>&1; mdlrc=$?
+  if [ "$mdlrc" -eq 2 ] && [ "$srcrc" -ne 2 ]; then caught=1; fi
+  if [ "$caught" -eq 1 ] && [ "$conf_ok" -eq 1 ]; then
+    ok "С:$1 ПОЙМАН (нет gh: rc $srcrc вместо именованного rc 2 модели), честен на конформном корпусе"
+  else
+    kraz "С:$1 ускользнул: caught=$caught conf_ok=$conf_ok (стаб rc=$srcrc, модель rc=$mdlrc)"
+  fi
+}
+
+stab_net_order s12 "$HERE/stuby/s12_hvost_vmesto_mediany.sh"
+stab_nogh     s13 "$HERE/stuby/s13_gh_otsutstvuet_traceback.sh"
 
 printf 'батарея 114: клеток %d, зелёных %d, красных %d\n' "$TOTAL" "$GREEN" "$REDO"
 [ "$REDO" -eq 0 ]

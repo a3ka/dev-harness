@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# gh-двойник22 (клетка т22/стаб s12, круг 3 — Rev114 Б1/Б2) — подставной
+# НЕЗАВИСИМО известный источник сетевой ветви меры 114, отличающий ПОРЯДОК
+# и РАЗМЕР выборки от двойника т17: ≥3 прогонов разных времён на ключ,
+# порядок КАК У РЕАЛЬНОГО API — СВЕЖИЕ ПЕРВЫМИ, нетривиальная разница
+# старое/новое; батарея зовёт меру с --min-obs 2 < 3 наблюдений, так что
+# усечение хвоста/головы НАБЛЮДАЕМО. След вызова — $RED114_GH_TRACE
+# (пустой след = источник не вызван).
+#
+# ДАННЫЕ двойника (детерминированные; ожидание клетки т22 выведено из них
+# ВРУЧНУЮ в red_114.sh, не моделью):
+#   прогоны workflow ci (зелёные, завершённые, СВЕЖИЕ ПЕРВЫМИ): 503, 502, 501
+#   прогон 501 (старейший): джобы 9101 «ci (l1, check:gen, check:alpha)», 9102 «legkij»
+#   прогон 502:             джобы 9103 «ci (l1, check:gen, check:alpha)», 9104 «legkij»
+#   прогон 503 (свежейший): джобы 9105 «ci (l1, check:gen, check:alpha)», 9106 «legkij»
+#   логи (грамматика 087 И-9):
+#     9101: gen 10, alpha 40;  9102: beta 6
+#     9103: gen 20, alpha 50;  9104: beta 9
+#     9105: gen 30, alpha 60;  9106: beta 12
+#   порядок сбора меры (API: 503 → 502 → 501):
+#     gen [30,20,10]   alpha [60,50,40]   beta [12,9,6]
+#   ⇒ честное ожидание (ceil медианы ВСЕХ наблюдений окна, n=3,
+#     окно = min(run-id) = 501): gen 20/3, alpha 50/3, beta 9/3.
+#   Ложь ХВОСТА o[-2:] = старейшие два: gen 15, alpha 45, beta 8 — красна;
+#   ложь «ПЕРВЫХ N» o[:2] = новейшие два: gen 25, alpha 55, beta 11 — красна.
+# Неизвестный путь — rc 1 с именем: тихий отказ транспорта не зелёный.
+set -uo pipefail
+if [ -n "${RED114_GH_TRACE:-}" ]; then
+  printf '%s\n' "$*" >> "$RED114_GH_TRACE" || :
+fi
+req="${2:-}"
+runs_json() {
+  printf '%s\n' '{"total_count":3,"workflow_runs":['
+  printf '%s\n' '{"id":503,"name":"ci","status":"completed","conclusion":"success"},'
+  printf '%s\n' '{"id":502,"name":"ci","status":"completed","conclusion":"success"},'
+  printf '%s\n' '{"id":501,"name":"ci","status":"completed","conclusion":"success"}]}'
+}
+jobs_501() {
+  printf '%s\n' '{"jobs":[{"id":9101,"name":"ci (l1, check:gen, check:alpha)"},'
+  printf '%s\n' '{"id":9102,"name":"legkij"}]}'
+}
+jobs_502() {
+  printf '%s\n' '{"jobs":[{"id":9103,"name":"ci (l1, check:gen, check:alpha)"},'
+  printf '%s\n' '{"id":9104,"name":"legkij"}]}'
+}
+jobs_503() {
+  printf '%s\n' '{"jobs":[{"id":9105,"name":"ci (l1, check:gen, check:alpha)"},'
+  printf '%s\n' '{"id":9106,"name":"legkij"}]}'
+}
+log_9101() {
+  printf '%s\n' '2026-10-21T01:00:00Z замер: check:gen 10'
+  printf '%s\n' '2026-10-21T01:00:01Z замер: check:alpha 40'
+}
+log_9102() { printf '%s\n' '2026-10-21T01:00:02Z замер: check:beta 6'; }
+log_9103() {
+  printf '%s\n' '2026-10-21T02:00:00Z замер: check:gen 20'
+  printf '%s\n' '2026-10-21T02:00:01Z замер: check:alpha 50'
+}
+log_9104() { printf '%s\n' '2026-10-21T02:00:02Z замер: check:beta 9'; }
+log_9105() {
+  printf '%s\n' '2026-10-21T03:00:00Z замер: check:gen 30'
+  printf '%s\n' '2026-10-21T03:00:01Z замер: check:alpha 60'
+}
+log_9106() { printf '%s\n' '2026-10-21T03:00:02Z замер: check:beta 12'; }
+case "$req" in
+  *"/actions/jobs/"*"/logs"*)
+    job=""; [[ "$req" =~ actions/jobs/([0-9]+)/logs ]] && job="${BASH_REMATCH[1]}"
+    case "$job" in
+      9101) log_9101; exit 0 ;;
+      9102) log_9102; exit 0 ;;
+      9103) log_9103; exit 0 ;;
+      9104) log_9104; exit 0 ;;
+      9105) log_9105; exit 0 ;;
+      9106) log_9106; exit 0 ;;
+      *) printf 'двойник22: нет джобы %s\n' "$job" >&2; exit 1 ;;
+    esac ;;
+  *"/actions/runs/"*"/jobs"*)
+    run=""; [[ "$req" =~ actions/runs/([0-9]+)/jobs ]] && run="${BASH_REMATCH[1]}"
+    case "$run" in
+      501) jobs_501; exit 0 ;;
+      502) jobs_502; exit 0 ;;
+      503) jobs_503; exit 0 ;;
+      *) printf 'двойник22: нет прогона %s\n' "$run" >&2; exit 1 ;;
+    esac ;;
+  *"/actions/runs"*)
+    runs_json; exit 0 ;;
+  *)
+    printf 'двойник22: неизвестный путь: %s\n' "$req" >&2; exit 1 ;;
+esac
