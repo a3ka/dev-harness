@@ -72,14 +72,14 @@
 Пути ЗОНА implementer — от корня репозитория Complior-back (не харнесса). server/src/http.js — вне зоны (замер: не нужен); правка в нём требует нового круга с ПЕРЕСЕЧЕНИЕ-строкой и замером, что без неё S не проходит при 233. Ветка implementer — от main Complior-back (@e40cfa0 или новее), PR в main до merge #156. Зоны судей не заявляются (прецедент 112/996): вердикты кладутся ролями в verdicts/ роль-каноном.
 
 ПРЕДПОСЫЛКИ:
-- клон Complior-back со своим .git, коммитами e40cfa0 и a498ea0 и node_modules (`npm ci` на e40cfa0) — путь в HTTP_CHISLO_127_BACK; батарея секретов, сети и переменных окружения продукта не требует
+- setting клон Complior-back со своим .git, коммитами e40cfa0 и a498ea0 и node_modules (`npm ci` на e40cfa0) — путь в HTTP_CHISLO_127_BACK; батарея секретов, сети и переменных окружения продукта не требует
 
 ## ПРОВОДКА
 
 ПРОВОДКА:
 - guard=fixtures/workshop_project/http_chislo_127/red_http_chislo_127.sh
 
-ПРОВОДКА-ЭНФОРСМЕНТ: красная батарея 127 — единственный guard; потребляется строками 1–5 приёмки и судами. Режимы --model/--stabs не самодостаточны: миры — коммиты продукта с node_modules (npm-дерева у харнесса нет), поэтому CI-шаг харнесса не заводится этим контрактом; решение о проводке (по образцу 996-E или NOT_RUN) — оркестратор, интеграционным коммитом ЗА реализацией; до него `check_provodka` rc 1 «guard не подключён» — НЕ блокер. Продуктовый энфорсмент — lane backend Complior-back (`npm test` включает tests/contract/, `npm run smoke:http`), строка 6 приёмки.
+ПРОВОДКА-ЭНФОРСМЕНТ: продуктовый энфорсмент — lane `backend` CI Complior-back (`python3 tests/tools/run_backend_ci.py --lane backend` из workflow `.github/workflows/ci.yml` продукта): T `tests/contract/http.test.js` исполняется шагом `npm test` (глоб tests/contract/), S `tests/tools/smoke-http.js` — шагом `npm run smoke:http`; строка 6 приёмки. Красная батарея 127 — локальный guard: потребляется строками 1–5 приёмки и судами, в CI харнесса не подключена, потому что её миры — коммиты клона Complior-back с node_modules (HTTP_CHISLO_127_BACK), а в CI харнесса клона продукта нет и прогон вернул бы rc 2 NOT_IMPLEMENTED (урок Н-393: шаг check:http-chislo-127-family-selftest снят коммитом 49ee9b1fd, CI-красный lane l6). Общий CI dev-harness не получает зависимость от внешнего checkout; нормы ролей и charter не меняются.
 
 ## Модель угроз
 
