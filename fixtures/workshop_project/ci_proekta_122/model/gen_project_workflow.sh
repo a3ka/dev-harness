@@ -3,7 +3,9 @@
 # Субъект-интерфейс: gen_project_workflow.sh --repo R (--check|--write).
 # Источник — .harness/ci.json (проектный CI-манифест, замкнутый алфавит);
 # projectId манифеста обязан совпадать с projectId профиля .harness/harness.project.json.
-# Вывод — детерминированные байты .github/workflows/ci.yml; --check — побайтовое сравнение.
+# Вывод — детерминированные байты .github/workflows/ci.yml; --check — побайтовое сравнение
+# (переводы строк — тоже байты: CRLF/CR вместо LF — дрейф). Строку с маркером мутации вырезает
+# мутант stabs/ (текстовый режим чтения нормализует переводы строк).
 set -u
 R=
 MODE=
@@ -95,16 +97,18 @@ for k in jobs:
         out.append('        run: %s' % s['run'])
 text = '\n'.join(out) + '\n'
 wp = os.path.join(R, '.github', 'workflows', 'ci.yml')
+raw = text.encode('utf-8')
 if mode == 'write':
     os.makedirs(os.path.dirname(wp), exist_ok=True)
-    with open(wp, 'w') as f:
-        f.write(text)
+    with open(wp, 'wb') as f:
+        f.write(raw)
     print('gen OK: write'); sys.exit(0)
 if not os.path.isfile(wp):
     print('gen ОТКАЗ: workflow-otsutstvuet'); sys.exit(1)
-with open(wp) as f:
-    cur = f.read()
-if cur != text:
+with open(wp, encoding='utf-8', errors='replace') as f:
+    cur = f.read().encode('utf-8')  # текстовый режим: universal newlines (узкая мера)
+with open(wp, 'rb') as f: cur = f.read()  # МУТАЦИЯ-122:bajty
+if cur != raw:
     print('gen ОТКАЗ: workflow-ruchnoj'); sys.exit(1)
 print('gen OK: check'); sys.exit(0)
 PY

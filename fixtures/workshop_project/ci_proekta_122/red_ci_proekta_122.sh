@@ -185,6 +185,29 @@ c_g7() {
   local W; W=$(new_world)
   run_case g7-workflow-otsutstvuet 1 'workflow-otsutstvuet' bash "$GEN" --repo "$W" --check
 }
+perevod() { # $1 файл $2 crlf|cr — меняются ТОЛЬКО байты переводов строк (CRLF во всех строках либо
+  # одиночный CR вместо первого LF), прочие байты те же; файла нет — нечего менять
+  python3 - "$1" "$2" <<'PY'
+import os, sys
+p, how = sys.argv[1], sys.argv[2]
+if os.path.isfile(p):
+    b = open(p, 'rb').read()
+    b = b.replace(b'\n', b'\r\n') if how == 'crlf' else b.replace(b'\n', b'\r', 1)
+    open(p, 'wb').write(b)
+PY
+}
+c_g8() { # --check — побайтовое сравнение: различие с рендером ТОЛЬКО в переводах строк — дрейф
+  # (текстовый режим чтения нормализует CRLF и CR и дал бы rc 0); каждый вход — свой мир
+  local W
+  W=$(new_world)
+  bash "$GEN" --repo "$W" --write >/dev/null 2>&1
+  perevod "$W/.github/workflows/ci.yml" crlf
+  run_case g8-crlf-ruchnoj 1 'workflow-ruchnoj' bash "$GEN" --repo "$W" --check
+  W=$(new_world)
+  bash "$GEN" --repo "$W" --write >/dev/null 2>&1
+  perevod "$W/.github/workflows/ci.yml" cr
+  run_case g8-cr-ruchnoj 1 'workflow-ruchnoj' bash "$GEN" --repo "$W" --check
+}
 c_p1() {
   local W; W=$(new_world)
   bash "$GEN" --repo "$W" --write >/dev/null 2>&1
@@ -267,6 +290,52 @@ jobs:
           fi
 Y
   run_case p5-station-sekret-ne-perechislen 1 'sekrety-ne-perechisleny: PILOT_DEMO_CODE' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+}
+c_p5f() { # рукописный workflow (образец p5e): необъявленный токен ТОЛЬКО в поле if (шага — secrets.X,
+  # джобы — vars.X) либо with шага (secrets.X); иных токенов в файле нет, шаг — run: "true" (исполнение
+  # зелено, отказ даёт только сверка объявленности по всему файлу); каждый вход — свой мир
+  local W
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: if-shaga
+        if: ${{ secrets.CI122_IF_SHAG != '' }}
+        run: "true"
+Y
+  run_case p5-if-shag-sekret-ne-perechislen 1 'sekrety-ne-perechisleny: CI122_IF_SHAG' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    if: vars.CI122_IF_DZHOBA == 'da'
+    runs-on: ubuntu-latest
+    steps:
+      - name: shag
+        run: "true"
+Y
+  run_case p5-if-dzhoba-var-ne-perechislena 1 'sekrety-ne-perechisleny: CI122_IF_DZHOBA' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CI122_WITH }}
+      - name: shag
+        run: "true"
+Y
+  run_case p5-with-sekret-ne-perechislen 1 'sekrety-ne-perechisleny: CI122_WITH' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml --contract "$W/contracts/kontrakt-drugoj-sekret.md"
 }
 p6_world() { # $1 — команда шага sekret local-джобы ci; печатает путь мира
   local W; W=$(new_world)
@@ -484,6 +553,56 @@ jobs:
 Y
   run_case p7-wd-pereopredelen-shagom 0 'CIPREFLIGHT_OK jobs=1 station=0' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
 }
+c_p8() { # рукописный workflow: рабочий каталог ВНЕ репо — каталог «обязан существовать в репо»,
+  # исполнение — в одноразовой копии «без мутации R»: '..' шага, абсолютный путь джобы, абсолютный
+  # путь самого R у шага (двойная мера: rc + R не мутирован); каждый вход — свой мир
+  local W
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: vverkh
+        working-directory: ..
+        run: "true"
+Y
+  run_case p8-wd-dvoetochie-vne-repo 1 'working-directory-otsutstvuet: ..' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<'Y'
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: /tmp
+    steps:
+      - name: absolyutnyj
+        run: "true"
+Y
+  run_case p8-wd-absolyutnyj-vne-repo 1 'working-directory-otsutstvuet: /tmp' bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml
+  W=$(new_world)
+  cat > "$W/.github/workflows/ruchnoj.yml" <<Y
+name: ruchnoj
+on: push
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: mutaciya-r
+        working-directory: $W
+        run: touch MUTACIYA-R
+Y
+  run_case p8-wd-absolyutnyj-r-bez-mutacii 1 "working-directory-otsutstvuet: $W" bash -c '
+    W=$1; PRE=$2
+    bash "$PRE" --repo "$W" --workflow .github/workflows/ruchnoj.yml; rc=$?
+    if [ -e "$W/MUTACIYA-R" ]; then printf "preflight OTKAZ: R mutirovan: %s/MUTACIYA-R\n" "$W" >&2; exit 3; fi
+    exit "$rc"' _ "$W" "$PRE"
+}
 c_z1() {
   local W; W=$(new_world)
   run_case z1-predposylki-otsutstvuyut 1 'predposylki-otsutstvuyut' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-ci.md"
@@ -503,7 +622,7 @@ c_z4() {
   run_case z4-predposylki-nevaliden 1 'predposylki-nevaliden: - password Sekret' env PATH="$W/bin:$PATH" bash "$GATE" "$W" "$W/contracts/kontrakt-nevalid.md"
 }
 
-CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 p1 p2 p3 p4 p5 p5e p6 p6e p6z p7 z1 z2 z3 z4"
+CELLS="k z5 g1 g2 g3 g4 g5 g6 g7 g8 p1 p2 p3 p4 p5 p5e p5f p6 p6e p6z p7 p8 z1 z2 z3 z4"
 if [ -n "$CELL" ]; then
   case " $CELLS " in
     *" $CELL "*) ;;
