@@ -412,7 +412,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 114 | до V-2 | CI | 113 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
-| 5 | ci-proekta | до V-2 | CI | 114 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
+| 5 | 122 | до V-2 | CI | 114 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
 | 6 | V-2 | до V-2 | autonomy | 090,091,094,095,096 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 3 |
 | 7 | ночь-повторяемость | параллельно с V-2 | autonomy | V-2 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 4 |
 | 10 | генераторы-каналы | параллельно с V-2 | tools | 110 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
