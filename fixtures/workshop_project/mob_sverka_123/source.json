@@ -1,7 +1,10 @@
 {
   "_comment": "Контракт 123 (mob-sverka-maketa): единый источник батареи. nositeli — бинарные носители кадров (артефакты maestro-117 android-e2e PR Complior-mob#114, gh run download) и PNG-макеты D2.2.5.1 (копии из Complior-mob docs/ux, sha = пин 117 source.json) с sha256; kejsy — оракул проб (rc и множество отказов ПОСТРОЧНО); ozhidaemye_score — числа модели, замеренные прогоном (допуск dopusk_score). Клетка с ispolnenie=vne-prefiksa исполняет вход vhod вне каталога батареи (случайное имя под $TMPDIR, cwd — он, env -i + PATH=/usr/bin:/bin) и наследует rc/otkazy/hudshij/ozhidaemye_score входа vhod: результат — функция байтов кадра, макета и манифеста, не пути и не окружения (инвариант 6).",
   "subject_rel": "scripts/sverka_maketa.py",
-  "manifest_rel": "fixtures/workshop_project/mob_sverka_123/kadry_117.json",
+  "manifesty": {
+    "117": "fixtures/workshop_project/mob_sverka_123/kadry_117.json",
+    "first-run-ekran": "fixtures/workshop_project/mob_sverka_123/kadry_first_run_ekran.json"
+  },
   "flow_dir": "117 — splash + вход F03.01_F03.02 (схема устройства)",
   "maket_prefix": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens",
   "mera": {
@@ -63,7 +66,7 @@
     "chestnyj-splash": {"rc": 0, "otkazy": []},
     "first-run-814": {"rc": 1, "otkazy": ["NIZHE_POROGA\tFirst-Run dark", "NIZHE_POROGA\tFirst-Run light"]},
     "first-run-58d": {"rc": 1, "otkazy": ["NIZHE_POROGA\tFirst-Run dark", "NIZHE_POROGA\tFirst-Run light"]},
-    "pustoj-katalog": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash dark", "KADR_OTSUTSTVUET\tSplash light", "KADR_OTSUTSTVUET\tFirst-Run dark", "KADR_OTSUTSTVUET\tFirst-Run light"]},
+    "pustoj-katalog": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash dark", "KADR_OTSUTSTVUET\tSplash light"]},
     "propusk-kadra": {"rc": 1, "otkazy": ["KADR_OTSUTSTVUET\tSplash light"]},
     "obrezannyj-kadr": {"rc": 1, "otkazy": ["KADR_NECHITAEM\tSplash dark"]},
     "dubl-kadra": {"rc": 1, "otkazy": ["KADR_NEODNOZNACHEN\tSplash dark"]},
@@ -76,6 +79,7 @@
     "imja-s-tabom": {"rc": 2, "otkazy": ["MANIFEST_NEVEREN\t-"]},
     "wordmark-1-01": {"rc": 1, "otkazy": ["NIZHE_POROGA\tSplash light"], "hudshij": {"Splash light": "wordmark"}},
     "chrome-shum": {"rc": 0, "otkazy": []},
+    "chrome-shum-first-run": {"rc": 0, "otkazy": []},
     "sdvig-i-ton": {"rc": 0, "otkazy": []},
     "maket-kak-kadr": {"rc": 0, "otkazy": []},
     "bez-wordmark-first-run": {"rc": 1, "otkazy": ["NIZHE_POROGA\tFirst-Run dark"], "hudshij": {"First-Run dark": "wordmark"}},
@@ -105,7 +109,7 @@
     "s09_propusk_kadra": ["propusk-kadra"],
     "s10_bez_imeni": ["first-run-58d"],
     "s11_tolko_G": ["wordmark-1-01", "bez-wordmark-first-run", "bez-znaka-first-run", "bez-zagolovka", "bez-podzagolovka", "bez-cta", "bez-futera", "bez-znaka-splash-dark", "bez-wordmark-splash-dark", "bez-tagline-splash-dark", "bez-znaka-splash-light", "bez-tagline-splash-light"],
-    "s12_bez_masok": ["chrome-shum"],
+    "s12_bez_masok": ["chrome-shum", "chrome-shum-first-run"],
     "s13_bez_dopuska": ["sdvig-i-ton"],
     "s14_po_sha_kadra": ["wordmark-1-01"],
     "s15_pervyj_iz_dublej": ["dubl-kadra"],
