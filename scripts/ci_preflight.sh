@@ -211,7 +211,13 @@ try:
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if proc.returncode != 0:
                 key = step.get('name') if isinstance(step.get('name'), str) else 'step'
-                refuse('shag-upal', '%s/%s (rc=%d)' % (name, key, proc.returncode))
+                # Хвост вывода шага — в отказ: именованная причина говорит ГДЕ,
+                # а причина падения видна в том, что шаг напечатал (боль 995: CI
+                # сначала отвечает «command not found», и это видно здесь).
+                tail = proc.stdout.decode('utf-8', 'replace').strip()[-400:]
+                tail = ' '.join(tail.split())
+                refuse('shag-upal', '%s/%s (rc=%d)%s'
+                       % (name, key, proc.returncode, ': ' + tail if tail else ''))
     for name in station_names:
         sys.stdout.write('STATION-JOB: %s\n' % name)
     sys.stdout.write('CIPREFLIGHT_OK jobs=%d station=%d\n'
