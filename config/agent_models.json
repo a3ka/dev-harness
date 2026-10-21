@@ -44,10 +44,10 @@
       "why": "мелкие шаги: перечисления, короткие выборки."
     },
     "slow": {
-      "model": "@glm",
-      "fallback": "@opus",
+      "model": "@opus",
+      "fallback": "@glm",
       "autoFallback": true,
-      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). architect — ресурсоёмкая роль: не на самых дорогих моделях, GLM; при исчерпании квоты z.ai — Opus (autoFallback). Отменяет временное Astra (15.10)."
+      "why": "ВРЕМЕННО до сброса z.ai 2026-10-22 04:23 UTC: слово владельца 2026-10-21 ~14:10 UTC «да» — architect на Opus, потому что autoFallback субагентов не срабатывает на 429/1310 (цепочка субагента = только zai/glm-5.3). После сброса вернуть model @glm / fallback @opus. Прежнее основание: Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). architect — ресурсоёмкая роль: не на самых дорогих моделях, GLM; при исчерпании квоты z.ai — Opus (autoFallback). Отменяет временное Astra (15.10)."
     },
     "advisor": {
       "model": "@gpt-terra",
