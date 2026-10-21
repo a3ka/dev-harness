@@ -46,8 +46,8 @@ uchet	registry/plan.tsv
 # условия klass.outputs.tyazhu — все и сразу, ≤ 2 мин. Четыре чека используют
 # режим --incr 083 (кеш actions/cache); check:contract-frozen и check:nabludenia —
 # без него. Ключи уникальны по step ∪ legkij.
-legkij	check:charter	61	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
-legkij	check:zones	17	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
+legkij	check:charter	21	bash scripts/check_charter.sh --incr tmp/ci-incr/charter.sha
+legkij	check:zones	22	bash scripts/check_zones.sh --incr tmp/ci-incr/zones.sha
 legkij	check:ids	1	bash scripts/check_ids.sh --incr tmp/ci-incr/ids.sha
 legkij	check:protected	0	bash scripts/check_protected.sh --incr tmp/ci-incr/protected.sha
 legkij	check:nabludenia	0	npm run check:nabludenia
@@ -72,7 +72,7 @@ step	check:threat-model-selftest	1	npm run check:threat-model-selftest
 step	check:provodka-family-selftest	7	npm run check:provodka-family-selftest
 step	check:consumers-window-family-selftest	2	bash fixtures/check_consumers/krasnye_062.sh
 step	check:watchdog-082-family-selftest	66	bash fixtures/verify_antiplacebo/red_watchdog_082.sh
-step	check:cikl-perezapuska-085-family-selftest	56	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
+step	check:cikl-perezapuska-085-family-selftest	55	bash fixtures/ops_server/red_cikl_perezapuska_085.sh
 step	check:fix-085-orch-peak-home-090-family-selftest	31	bash fixtures/_krasnye_090.sh
 step	check:measure-probe	2	npm run check:measure-probe
 step	check:scope-select	9	npm run check:scope-select
@@ -81,18 +81,18 @@ step	check:contract-ready	0	npm run check:contract-ready
 step	check:document	35	npm run check:document
 step	check:precision-gate-043	7	npm run check:precision-gate -- . contracts/043-precizionnyj-prefriz-gejt.md
 step	check:precision-family-selftest	23	npm run check:precision-family-selftest
-step	check:precision-battery	9	npm run check:precision-battery
+step	check:precision-battery	8	npm run check:precision-battery
 step	check:gitw-family-selftest	39	npm run check:gitw-family-selftest
-step	check:gitw-predpolet-family-selftest	764	bash fixtures/_krasnye_071.sh
+step	check:gitw-predpolet-family-selftest	756	bash fixtures/_krasnye_071.sh
 step	check:orch-restart-family-selftest	28	bash fixtures/_krasnye_072.sh
-step	check:sharing-family-selftest	111	bash fixtures/_krasnye_058.sh
-step	check:declared-path-family-selftest	12	bash fixtures/_krasnye_059.sh
+step	check:sharing-family-selftest	110	bash fixtures/_krasnye_058.sh
+step	check:declared-path-family-selftest	11	bash fixtures/_krasnye_059.sh
 step	check:samodostatochnost-family-selftest	4	bash fixtures/_krasnye_060.sh
 step	check:github-token-family-selftest	11	bash scripts/check_github_token_070.sh
-step	check:zony-merge-head-family-selftest	10	bash fixtures/_krasnye_073.sh
+step	check:zony-merge-head-family-selftest	11	bash fixtures/_krasnye_073.sh
 step	check:door-bugfix-family-selftest	19	bash fixtures/_krasnye_080.sh
-step	check:orch-loop-997	82	bash fixtures/ops_server/orch_loop_997/probe.sh
-step	check:v-polete-nichego-088-family-selftest	19	bash fixtures/_krasnye_088.sh
+step	check:orch-loop-997	80	bash fixtures/ops_server/orch_loop_997/probe.sh
+step	check:v-polete-nichego-088-family-selftest	16	bash fixtures/_krasnye_088.sh
 step	check:merge-gate-family-selftest	10	bash fixtures/check_judge_gate/krasnye_063.sh
 step	check:provodka-external-994	8	bash fixtures/check_provodka/external_ci_994/probe.sh
 # КОНТРАКТ 112 v2e: шаг батареи подключения проекта (37 клеток M1/M2/K1/K2 +
@@ -102,7 +102,7 @@ step	check:podkljuchenie-112-family-selftest	41	bash fixtures/workshop_project/p
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
-step	drill:startup-digest	1	npm run drill:startup-digest
+step	drill:startup-digest	0	npm run drill:startup-digest
 step	drill:nabludenia-nechitaemo	0	npm run drill:nabludenia-nechitaemo
 step	check:gen	0	npm run check:gen
 step	metering:selftest	0	npm run metering:selftest
@@ -121,15 +121,15 @@ step	drill:contract-change	1	npm run drill:contract-change
 step	drill:next-id-race	0	npm run drill:next-id-race
 step	drill:protected-exception	0	npm run drill:protected-exception
 step	drill:protected-rename	0	npm run drill:protected-rename
-step	check:zones-call-budget	163	npm run check:zones-call-budget
-step	check:protected-call-budget	5	npm run check:protected-call-budget
+step	check:zones-call-budget	189	npm run check:zones-call-budget
+step	check:protected-call-budget	6	npm run check:protected-call-budget
 step	check:fix-090-orch-peak-home-family-selftest	31	bash fixtures/_krasnye_090.sh
 step	check:rotaciya-handoff-091-family-selftest	3	bash fixtures/_krasnye_091.sh
 step	check:context-pack-095-family-selftest	35	bash fixtures/_krasnye_095.sh
 step	check:project-paths-103-family-selftest	67	bash fixtures/_krasnye_103.sh
-step	check:zashchita-main-104-family-selftest	4	bash fixtures/_krasnye_104.sh
+step	check:zashchita-main-104-family-selftest	3	bash fixtures/_krasnye_104.sh
 step	check:lanuncher-politika-105-family-selftest	27	bash fixtures/_krasnye_105.sh
-step	check:granica-ispolneniya-093-family-selftest	145	bash ops/server/root/systemd/run-ops093-ci.sh fixtures/_krasnye_093.sh
+step	check:granica-ispolneniya-093-family-selftest	159	bash ops/server/root/systemd/run-ops093-ci.sh fixtures/_krasnye_093.sh
 step	check:rezhim-996-family-selftest	60	npm run check:rezhim-996-family-selftest
 # КОНТРАКТ 998 pravila-modelei: красная проба routing — входы 23 ветвей грамматики + 5 фаз --check
 # и рендер в --prompt orchestrator (источник: fixtures/pravila_modelei_998/probe.sh).

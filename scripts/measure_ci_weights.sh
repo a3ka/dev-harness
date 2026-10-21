@@ -16,11 +16,14 @@
 #     `gh run view --log` логов lane-джоб НЕ отдаёт. Транспорт — ТОЛЬКО
 #     `gh api` ЧЕРЕЗ PATH (подменяемость источником-двойником).
 #
-# Правило веса: ceil(медиана ПОСЛЕДНИХ --min-obs наблюдений ключа) — медиана,
-# НЕ максимум (выбросы рантайма: check:charter max 1957 с при p50 52.5).
+# Правило веса: ceil(медиана ВСЕХ наблюдений ключа в окне) — медиана, НЕ
+# максимум (выбросы рантайма: check:charter max 1957 с при p50 52.5).
+# --min-obs — ТОЛЬКО порог достаточности («мало данных»), выборку он НЕ
+# усекает: <n> в TSV — число наблюдений ключа в окне.
 # У ключа наблюдений меньше --min-obs → rc 2 «мало данных»; строк замера нет
-# вовсе → rc 2 «пустая выборка»; отказ транспорта → rc 2 именованный
-# («gh api отказ (…)»). Отказ АТОМАРНЫЙ: TSV не пишется (ни байта).
+# вовсе → rc 2 «пустая выборка»; отказ транспорта — ВКЛЮЧАЯ отсутствия gh в
+# PATH — rc 2 именованный («gh api отказ (…)»). Отказ АТОМАРНЫЙ: TSV не
+# пишется (ни байта).
 #
 # Грамматика строки замера — 087 И-9 ДОСЛОВНО (единый источник
 # scripts/run_ci_lane.sh / scripts/ci_vesa.sh; инвариант 114.1): «замер:
@@ -108,8 +111,12 @@ def corpus(logs_dir):
 def gh_api(path):
     """ЕДИНСТВЕННЫЙ транспорт сетевой ветви: `gh api` ЧЕРЕЗ PATH (Б1 круга 2,
     инвариант 114.7 — подменяемость источником-двойником батареи). Отказ
-    транспорта — rc 2 именованный: тихим отказом зелёным не бывает."""
-    p = subprocess.run(['gh', 'api', path], capture_output=True, text=True)
+    транспорта — rc 2 именованный: тихим отказом зелёным не бывает. Отсутствие
+    самого gh в PATH — ТОЖЕ отказ транспорта (named rc 2, не traceback)."""
+    try:
+        p = subprocess.run(['gh', 'api', path], capture_output=True, text=True)
+    except (FileNotFoundError, NotADirectoryError, PermissionError) as e:
+        die('gh api отказ: нет gh в PATH (%s): %s' % (path, e), 2)
     if p.returncode != 0:
         die('gh api отказ (%d): %s: %s'
             % (p.returncode, path, p.stderr.strip()), 2)
@@ -170,16 +177,16 @@ def measure(root, logs, out, min_obs, okno, repo, runs):
             die('сетевой режим: нужен --repo <owner>/<name> '
                 '(или переменная GITHUB_REPOSITORY, или --logs <dir>)', 2)
         obs, okno = network(repo, runs)
-    # Правило веса — ceil(медиана ПОСЛЕДНИХ min-obs наблюдений ключа);
-    # у ключа наблюдений меньше порога — «мало данных», TSV не пишется.
+    # Правило веса — ceil(медиана ВСЕХ наблюдений ключа в окне); min-obs выше —
+    # ТОЛЬКО порог «мало данных», размер выборки он НЕ усекает, <n> в TSV —
+    # число наблюдений окна (Adv114 №1). Корпус и сеть — одна мера.
     malo, rows = [], {}
     for k in keys:
         o = obs.get(k) or []
         if len(o) < min_obs:
             malo.append('%s (%d < %d)' % (k, len(o), min_obs))
             continue
-        last = o[-min_obs:]
-        rows[k] = (int(math.ceil(statistics.median(last))), len(last))
+        rows[k] = (int(math.ceil(statistics.median(o))), len(o))
     if malo:
         die('мало данных: %s' % '; '.join(sorted(malo)), 2)
     if out is None:
