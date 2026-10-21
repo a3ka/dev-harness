@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Статическая проба 117 круг 4 (CMP-MOB-006): иконка, нативный splash
-(ОДИН знак на ground схемы + JS-оверлей кадра окна), компоненты и
-токенизация входа.
+"""Статическая проба 117 v2 (CMP-MOB-006, сужение до splash + иконка):
+иконка, нативный splash (ОДИН знак на ground схемы + JS-оверлей кадра окна),
+сценарий Maestro splash/First-Run.
 
 Без --model на до-предметном дереве — rc1 VKHOD_SPLASH_COMPOSITE_ABSENT.
 С --model/честным C — rc0: производные иконки — канон ЦЕЛЫМ изображением
@@ -18,19 +18,28 @@ Splash-Hell.png, припиненные sha256 (несовпадение — rc2
 drawable-night-* обеих тем (знак канона, альфа-bbox = imageWidth*mult ±3),
 iOS — содержимое по эффективному пути + эффективные imageWidth/resizeMode
 клеткой SPLASH_EFFECTIVE_IOS и рамка storyboard настоящего генератора без
-legacy-режима (SPLASH_IOS_STORYBOARD); basename НЕ сравнивается (Б2). Кадры
-входа на @/ui/button, @/ui/text-field без hex; оракул — литералы source.json.
+legacy-режима (SPLASH_IOS_STORYBOARD); basename НЕ сравнивается (Б2).
+Оракул — литералы source.json. Вход F03.01/F03.02 выведен в first-run-ekran
+(117 v2, сужение до splash + иконка): клеток входа в статической семье нет.
 --matrix: обманные стабы статической семьи красны именованной клеткой;
 шаблонные байты базы B — припиненные base_b/ (sha = литералы source.json),
 не из --repo (круг 6, Р8). Круг 6 (Р2/Р3): сценарий Maestro судится
 ПОРЯДКОМ шагов YAML-парсером (MAESTRO_SPLASH_FRAME_WAIT,
-MAESTRO_FIRST_RUN_ORDER), комментарий шагом не является.
+MAESTRO_FIRST_RUN_ORDER), комментарий шагом не является. Видимость кадра
+splash на устройстве судит сверка кадра e2e с макетом (123):
+SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} — согласованность справочного
+манифеста H kadry_117.json с пинами 117 (sha макетов, id, имя снимка,
+порог не ниже литерала, снимок снят сценарием); потребление судят
+SVERKA_123_{STEP_UNCONDITIONAL,MANIFEST_CANON,HARNESS_PIN} — шаг сверки
+123 в job android-e2e workflow субъекта стоит безусловно и исполняет
+канонический манифест пина .harness123 (РЕШЕНИЕ арбитра (б)).
 Выход — только код возврата; перечень case построчно.
 """
 import argparse
 import hashlib
 import json
 import re
+import shlex
 import struct
 import subprocess
 import sys
@@ -944,45 +953,14 @@ def run_checks(repo: Path):
     check(expo.get('userInterfaceStyle') == lit['user_interface_style'],
           'USER_STYLE_AUTOMATIC')
 
-    # 8. Кадры входа F03.01/F03.02 — палитра только через tokens: сегменты
-    # EmailFrame/CodeFrame не несут hex-литералов и читают tokens.* (круг 3:
-    # primary/on-primary живут в компоненте DS Button — см. §9).
-    auth_src = (mobile / 'src/features/auth/auth-screen.tsx').read_text(encoding='utf-8')
-    seg_email = auth_src.split('function EmailFrame')[1].split('function CodeFrame')[0]
-    seg_code = auth_src.split('function CodeFrame')[1].split('function RecoveryFrame')[0]
-    hex_re = re.compile(r'#[0-9a-fA-F]{3,8}\b')
-    check(
-        not hex_re.search(seg_email) and not hex_re.search(seg_code)
-        and 'tokens.ink' in seg_email and 'tokens.ink' in seg_code
-        and 'tokens.accent' in seg_code,
-        'AUTH_FRAMES_TOKENIZED',
-    )
-
-    # 9. (круг 3, слово владельца ~19:28) кадры входа собраны из РЕАЛЬНЫХ
-    # компонентов продукта на токенах D2.2.5.1 (CMP-MOB-002: @/ui/button,
-    # @/ui/text-field — существуют на B, их же рендерит First-Run 111), не
-    # ручными стилями с теми же hex: модуль кадров импортирует оба
-    # компонента, оба сегмента (EmailFrame/CodeFrame) их рендерят. Палитру
-    # и форму компонента судят поведенческие В1/В2 эффективным стилем.
-    check(
-        "import { Button } from '@/ui/button';" in auth_src
-        and "import { TextField } from '@/ui/text-field';" in auth_src
-        and '<Button' in seg_email and '<Button' in seg_code
-        and '<TextField' in seg_email and '<TextField' in seg_code,
-        'AUTH_DS_COMPONENTS',
-    )
-
     # 10. Независимость оракула: проба несёт литералы и не импортирует
     # копию субъекта.
     probe_test = (HERE / 'vkhod.test.tsx').read_text(encoding='utf-8')
     check(
-        src['copy']['frame.F03.01.body']['text'] in probe_test
-        and src['copy']['frame.F03.02.body']['text'] in probe_test
-        and src['copy']['frame.F03.01.title']['text'] in probe_test
-        and src['copy']['frame.F03.02.title']['text'] in probe_test
+        src['overlay_117']['test_id'] in probe_test
         and src['tokens']['ground']['dark'] in probe_test
         and src['tokens']['ground']['light'] in probe_test
-        and src['theme_projection_999']['primary']['dark'] in probe_test
+        and src['surface_995']['bg'] in probe_test
         and "from '@/i18n/ui-copy'" not in probe_test,
         'STATIC_ORACLE_LITERALS',
     )
@@ -1054,13 +1032,25 @@ def run_checks(repo: Path):
     # 20–21 (Р2/Р3, круг 6 — Rev117/Adv117): сценарий Maestro судит
     # ПОРЯДОК шагов настоящим YAML-парсером (закомментированная строка
     # шагом не является; grep по комментариям клетку не зеле́нит).
-    # (а) перед takeScreenshot vkhod-117-splash — ожидание видимости
-    #     окна приложения (extendedWaitUntil visible по splash-overlay);
+    # (а) шаг НЕПОСРЕДСТВЕННО перед takeScreenshot vkhod-117-splash —
+    #     extendedWaitUntil visible по splash-overlay (совет критика 117 v2
+    #     круг 1: маркер окна first-run-continue и любой шаг между ожиданием
+    #     и снимком, в т.ч. ожидание исчезновения оверлея, позволяли снять
+    #     First-Run под именем splash);
     # (б) перед takeScreenshot vkhod-117-first-run И ПОСЛЕ splash-кадра —
     #     оверлей исчез (extendedWaitUntil notVisible / assertNotVisible
-    #     по splash-overlay) И видимый состав First-Run: обещание + CTA
-    #     (литералы каталога 111, не субъекта).
+    #     по splash-overlay): свидетельство снятия оверлея, НЕ приёмка
+    #     экрана First-Run (состав/копию судит first-run-ekran).
+    # 22–23 (вердикт критика 117 v2 круг 1; указание консультанта 15:25):
+    # видимость кадра splash на устройстве судит СВЕРКА КАДРА e2e с макетом
+    # (123): снимок splash каждой темы входит в перечень сверки 123 —
+    # манифест H kadry_117.json (не субъект) объявляет кадр темы против
+    # эталона Б1 этой темы (путь и sha256 — литералы source.json), снимок
+    # = shot_splash, порог не ниже литерала porog_min; сценарий субъекта
+    # снимает именно этот снимок.
     mq = src['maestro_117']
+    sv = src['sverka_123']
+    etalons = src['splash_reference']['etalons']
     if yaml is None:
         INFRASTRUCTURE.append('pyyaml отсутствует: порядок шагов не судится')
     else:
@@ -1073,29 +1063,29 @@ def run_checks(repo: Path):
         if steps is None:
             check(False, 'MAESTRO_SPLASH_FRAME_WAIT')
             check(False, 'MAESTRO_FIRST_RUN_ORDER')
+            check(False, 'SPLASH_FRAME_SVERKA_123_DARK')
+            check(False, 'SPLASH_FRAME_SVERKA_123_LIGHT')
             print('RED MAESTRO_SPLASH_FRAME_WAIT: документ-список шагов не найден')
         else:
             def shot_index(name):
+                if not isinstance(name, str):
+                    return -1
                 for i, st in enumerate(steps):
                     if isinstance(st, dict) and st.get('takeScreenshot') == name:
                         return i
                 return -1
 
-            def wait_visible_markers(i_bound):
-                # extendedWaitUntil visible по splash-overlay (или иной
-                # маркер окна приложения: first-run-continue) ДО кадра.
-                for j, st in enumerate(steps[:i_bound]):
-                    if not isinstance(st, dict):
-                        continue
-                    ewu = st.get('extendedWaitUntil')
-                    if isinstance(ewu, dict) and isinstance(ewu.get('visible'), dict):
-                        mid = ewu['visible'].get('id')
-                        if mid in (mq['overlay_id'], 'first-run-continue'):
-                            return True
-                return False
+            def overlay_wait_right_before(i_shot):
+                # Предыдущий шаг — extendedWaitUntil visible id splash-overlay.
+                if i_shot < 1:
+                    return False
+                ewu = steps[i_shot - 1].get('extendedWaitUntil') \
+                    if isinstance(steps[i_shot - 1], dict) else None
+                return isinstance(ewu, dict) and isinstance(ewu.get('visible'), dict) \
+                    and ewu['visible'].get('id') == mq['overlay_id']
 
             def overlay_gone_between(lo, hi):
-                for j, st in enumerate(steps[lo:hi]):
+                for st in steps[lo:hi]:
                     if not isinstance(st, dict):
                         continue
                     if isinstance(st.get('assertNotVisible'), dict) \
@@ -1107,18 +1097,11 @@ def run_checks(repo: Path):
                         return True
                 return False
 
-            def text_asserted_before(text, i_bound):
-                for j, st in enumerate(steps[:i_bound]):
-                    if isinstance(st, dict) and isinstance(st.get('assertVisible'), dict) \
-                            and st['assertVisible'].get('text') == text:
-                        return True
-                return False
-
             i_splash = shot_index(mq['shot_splash'])
-            ok_splash = i_splash > 0 and wait_visible_markers(i_splash)
+            ok_splash = overlay_wait_right_before(i_splash)
             if not ok_splash:
-                print('RED MAESTRO_SPLASH_FRAME_WAIT: кадр', mq['shot_splash'],
-                      'без ожидания окна (splash-overlay/first-run-continue) до снимка')
+                print('RED MAESTRO_SPLASH_FRAME_WAIT: шаг перед', mq['shot_splash'],
+                      '— не extendedWaitUntil visible', mq['overlay_id'])
             check(ok_splash, 'MAESTRO_SPLASH_FRAME_WAIT')
 
             i_first = shot_index(mq['shot_first_run'])
@@ -1126,14 +1109,124 @@ def run_checks(repo: Path):
                 i_first > 0
                 and i_splash >= 0
                 and overlay_gone_between(i_splash, i_first)
-                and text_asserted_before(mq['first_run_promise'], i_first)
-                and text_asserted_before(mq['first_run_cta'], i_first)
             )
             if not ok_first:
-                print('RED MAESTRO_FIRST_RUN_ORDER: перед', mq['shot_first_run'],
-                      'нет (notVisible splash-overlay после splash-кадра + assertVisible'
-                      ' обещания/CTA First-Run)')
+                print('RED MAESTRO_FIRST_RUN_ORDER: между', mq['shot_splash'], 'и',
+                      mq['shot_first_run'], 'нет notVisible', mq['overlay_id'])
             check(ok_first, 'MAESTRO_FIRST_RUN_ORDER')
+
+            manifest = None
+            man_path = HERE.parents[2] / sv['manifest']
+            if man_path.is_file():
+                try:
+                    manifest = json.loads(man_path.read_bytes())
+                except ValueError:
+                    manifest = None
+            kadry = manifest.get('kadry') if isinstance(manifest, dict) else None
+            for tema in ('dark', 'light'):
+                case = 'SPLASH_FRAME_SVERKA_123_' + tema.upper()
+                ref = etalons[tema]
+                rows = [k for k in (kadry if isinstance(kadry, list) else [])
+                        if isinstance(k, dict) and k.get('tema') == tema
+                        and k.get('maket') == ref['path']]
+                row = rows[0] if len(rows) == 1 else {}
+                porog = row.get('porog')
+                ok = (
+                    len(rows) == 1
+                    and row.get('id') == sv['kadr_id'][tema]
+                    and row.get('maket_sha256') == ref['sha256']
+                    and row.get('snimok') == mq['shot_splash']
+                    and isinstance(porog, (int, float)) and not isinstance(porog, bool)
+                    and sv['porog_min'] <= porog <= 1
+                    and shot_index(row.get('snimok')) >= 0
+                )
+                if not ok:
+                    print('RED', case + ':', 'манифест', sv['manifest'], 'строк темы',
+                          len(rows), 'кадр', row.get('id'), 'снимок', row.get('snimok'),
+                          'порог', porog, 'снят сценарием', shot_index(row.get('snimok')) >= 0)
+                check(ok, case)
+
+    # 24–26 (РЕШЕНИЕ арбитра contracts-117-v2-svjaz-123, вариант (б)):
+    # проводка шага сверки 123 в job android-e2e субъекта — шаг стоит
+    # безусловно, исполняет канонический манифест пина .harness123, пин —
+    # 40-hex. 117 только наблюдает workflow; текст шага — предмет 123.
+    if yaml is not None:
+        for case, good in sverka_provodka(repo, sv['provodka']):
+            check(good, case)
+
+
+def sverka_provodka(repo: Path, pv):
+    """Клетки SVERKA_123_*: литералы — source.json sverka_123.provodka
+    (frozen 123 v1 п.5–6), workflow субъекта разбирается YAML-парсером;
+    нечитаемый/неразбираемый workflow — все три красны (не зелень)."""
+    doc = None
+    wf_path = repo / pv['workflow']
+    if wf_path.is_file():
+        try:
+            doc = yaml.safe_load(wf_path.read_text(encoding='utf-8'))
+        except yaml.YAMLError as err:
+            print('RED SVERKA_123_*: workflow не разбирается:', err)
+    jobs = doc.get('jobs') if isinstance(doc, dict) else None
+    job = jobs.get(pv['job']) if isinstance(jobs, dict) else None
+    steps = job.get('steps') if isinstance(job, dict) else None
+    steps = steps if isinstance(steps, list) else []
+
+    def run_of(st):
+        run = st.get('run') if isinstance(st, dict) else None
+        return run if isinstance(run, str) else ''
+
+    i_sv = [i for i, st in enumerate(steps) if pv['script'] in run_of(st)]
+    step = steps[i_sv[0]] if len(i_sv) == 1 else None
+
+    # STEP_UNCONDITIONAL: ровно один шаг с литералом script, без if и
+    # continue-on-error (ключ присутствует — красно при любом значении).
+    ok_step = step is not None and 'if' not in step and 'continue-on-error' not in step
+    if not ok_step:
+        print('RED SVERKA_123_STEP_UNCONDITIONAL: шагов с', pv['script'], len(i_sv),
+              'ключи шага', sorted(step) if step is not None else None)
+
+    # MANIFEST_CANON: строка run с литералом script (до первого |, shlex) —
+    # ровно `interpreter script` и три пары флаг-литерал, иных токенов нет;
+    # каталог кадров не отслеживается git субъекта (кадры — из прогона).
+    toks = []
+    if step is not None:
+        lines = [ln for ln in run_of(step).splitlines() if pv['script'] in ln]
+        if len(lines) == 1:
+            try:
+                toks = shlex.split(lines[0].split('|', 1)[0])
+            except ValueError:
+                toks = []
+    want = {'--manifest': pv['manifest'], '--kadry': pv['kadry'], '--repo': pv['repo']}
+    args = toks[2:]
+    ok_args = (toks[:2] == [pv['interpreter'], pv['script']] and len(args) == 2 * len(want)
+               and dict(zip(args[0::2], args[1::2])) == want)
+    ls = subprocess.run(['git', '-C', str(repo), 'ls-files', '--', pv['kadry']],
+                        capture_output=True, text=True)
+    if ls.returncode != 0:
+        INFRASTRUCTURE.append('git ls-files субъекта: rc ' + str(ls.returncode))
+    ok_canon = ok_args and ls.returncode == 0 and ls.stdout == ''
+    if not ok_canon:
+        print('RED SVERKA_123_MANIFEST_CANON: токены', toks, 'кадры в git',
+              ls.stdout.splitlines()[:3])
+
+    # HARNESS_PIN: ровно один checkout в path пина, repository — литерал,
+    # ref — форма 40-hex, без if, раньше шага сверки.
+    i_co = [i for i, st in enumerate(steps) if isinstance(st, dict)
+            and isinstance(st.get('uses'), str) and st['uses'].startswith(pv['checkout_uses'])
+            and isinstance(st.get('with'), dict) and st['with'].get('path') == pv['checkout_path']]
+    ok_pin = False
+    if len(i_co) == 1 and len(i_sv) == 1:
+        co = steps[i_co[0]]
+        ref = co['with'].get('ref')
+        ok_pin = (co['with'].get('repository') == pv['checkout_repo']
+                  and isinstance(ref, str) and re.search(pv['ref_re'], ref) is not None
+                  and 'if' not in co and i_co[0] < i_sv[0])
+    if not ok_pin:
+        print('RED SVERKA_123_HARNESS_PIN: checkout', pv['checkout_path'], len(i_co),
+              'шаг сверки', i_sv, 'checkout', i_co)
+    return [('SVERKA_123_STEP_UNCONDITIONAL', ok_step),
+            ('SVERKA_123_MANIFEST_CANON', ok_canon),
+            ('SVERKA_123_HARNESS_PIN', ok_pin)]
 
 
 def main():
@@ -1213,11 +1306,28 @@ def matrix(repo: Path):
                     '    notVisible:\n'
                     '      id: splash-overlay\n'
                     '    timeout: 10000\n')
-    FIRST_RUN_TEXTS = ('- assertVisible:\n'
-                       '    text: "Sie sagen, was passiert ist. Complior kümmert sich um den Rest."\n'
-                       '- assertVisible:\n'
-                       '    text: "Anmelden oder Konto erstellen"\n'
-                       '- takeScreenshot: vkhod-117-first-run\n')
+    FIRST_RUN_WAIT = ('- extendedWaitUntil:\n'
+                      '    visible:\n'
+                      '      id: first-run-continue\n'
+                      '    timeout: 10000\n')
+    # РЕШЕНИЕ арбитра (б): якоря мутаций проводки 123 — шаги модели
+    # побайтово (model/github.workflows.mobile.yml = mobile.yml
+    # cmp-mob-123/sverka @10cf684, шаги 123 дословно).
+    WF = '.github/workflows/mobile.yml'
+    SV_CHECKOUT = ('      - name: Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)\n'
+                   '        uses: actions/checkout@v7\n'
+                   '        with:\n'
+                   '          repository: a3ka/dev-harness\n'
+                   '          ref: 2cc58c224a8a9ced9709604f0eeb57d2fba6fb07\n'
+                   '          path: .harness123\n'
+                   '          persist-credentials: false\n')
+    SV_NAME = '      - name: 123 сверка кадров с макетом (scripts/sverka_maketa.py)\n'
+    SV_RUN = ('        run: |\n'
+              '          set -o pipefail\n'
+              '          python3 .harness123/scripts/sverka_maketa.py --manifest'
+              ' .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json'
+              ' --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv\n')
+    SV_STEP = SV_NAME + '        working-directory: ${{ github.workspace }}\n' + SV_RUN
     MUTANTS = {
         # (а) иконка осталась шаблонной Expo: байты базы проходят пути,
         # но пиксельные свойства канона и sha-литерал красны.
@@ -1360,28 +1470,6 @@ def matrix(repo: Path):
             [(A, '"userInterfaceStyle": "automatic"', '"userInterfaceStyle": "light"')],
             ['USER_STYLE_AUTOMATIC'], [],
         ),
-        # (е) hex-литерал 995 возвращён в кадр входа.
-        'auth-hex-literal': (
-            [('mobile/src/features/auth/auth-screen.tsx',
-              "style={[styles.title, D22_TITLE, { color: tokens.ink }]}>\n        {COPY['frame.F03.01.title']}",
-              "style={[styles.title, D22_TITLE, { color: '#111111' }]}>\n        {COPY['frame.F03.01.title']}")],
-            ['AUTH_FRAMES_TOKENIZED'], [],
-        ),
-        # (круг 3, слово владельца ~19:28) ручные стили с теми же hex вместо
-        # компонента DS: CTA F03.01 — inline Pressable/Text.
-        'auth-buttons-inline': (
-            [('mobile/src/features/auth/auth-screen.tsx',
-              "      <Button\n"
-              "        testID=\"auth-demo-entry\"\n"
-              "        variant=\"primary\"\n"
-              "        label={COPY['ui.auth.demo_entry']}\n"
-              "        onPress={onDemoEntry}\n"
-              "      />",
-              "      <Pressable testID=\"auth-demo-entry\" accessibilityRole=\"button\" onPress={onDemoEntry}>\n"
-              "        <Text style={{ backgroundColor: '#d6f75a', color: '#121211' }}>{COPY['ui.auth.demo_entry']}</Text>\n"
-              "      </Pressable>")],
-            ['AUTH_DS_COMPONENTS'], ['AUTH_FRAMES_TOKENIZED'],
-        ),
         # (Б2, круг критика 3) свидетель ios-legacy: ios.enableFullScreen
         # Image_legacy=true при честных imageWidth 181/contain и знаках —
         # настоящий генератор storyboard даёт рамку 414x736 с краевыми
@@ -1428,11 +1516,63 @@ def matrix(repo: Path):
             [(MAE, OVERLAY_GONE, '')],
             ['MAESTRO_FIRST_RUN_ORDER'], [],
         ),
-        # (Р3) состав First-Run перед кадром не утверждён текстами
-        # каталога (обещание/CTA сняты).
-        'maestro-first-run-no-text': (
-            [(MAE, FIRST_RUN_TEXTS, '- takeScreenshot: vkhod-117-first-run\n')],
-            ['MAESTRO_FIRST_RUN_ORDER'], [],
+        # (совет критика 117 v2 круг 1, свидетель first-run-as-splash.yaml)
+        # First-Run под именем splash: ожидание окна First-Run и
+        # исчезновения оверлея ДО снимка splash.
+        'maestro-first-run-as-splash': (
+            [(MAE, SPLASH_WAIT + SPLASH_SHOT, FIRST_RUN_WAIT + OVERLAY_GONE + SPLASH_SHOT)],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+        ),
+        # (родственный) ожидание оверлея есть, но между ним и снимком
+        # splash — ожидание его исчезновения.
+        'maestro-splash-overlay-gone-before-shot': (
+            [(MAE, SPLASH_WAIT + SPLASH_SHOT, SPLASH_WAIT + OVERLAY_GONE + SPLASH_SHOT)],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+        ),
+        # (сверка 123) снимок splash под иным именем: кадр, объявленный в
+        # перечне сверки 123 (kadry_117.json), не снят — сверка с макетом
+        # не видит кадр splash.
+        'maestro-splash-shot-renamed': (
+            [(MAE, SPLASH_SHOT, '- takeScreenshot: vkhod-117-splash-frame\n')],
+            ['SPLASH_FRAME_SVERKA_123_DARK', 'SPLASH_FRAME_SVERKA_123_LIGHT'],
+            ['MAESTRO_SPLASH_FRAME_WAIT', 'MAESTRO_FIRST_RUN_ORDER'],
+        ),
+        # (РЕШЕНИЕ арбитра (б), workflow B) шагов 123 нет: ни checkout
+        # .harness123, ни шага сверки — потребления манифеста нет.
+        'sverka-step-absent': (
+            [(WF, SV_CHECKOUT + SV_STEP, '')],
+            ['SVERKA_123_STEP_UNCONDITIONAL', 'SVERKA_123_MANIFEST_CANON',
+             'SVERKA_123_HARNESS_PIN'], [],
+        ),
+        # шаг есть, но провал не валит job.
+        'sverka-continue-on-error': (
+            [(WF, SV_NAME, SV_NAME + '        continue-on-error: true\n')],
+            ['SVERKA_123_STEP_UNCONDITIONAL'], [],
+        ),
+        # шаг есть, но на pull_request пропускается.
+        'sverka-if-conditional': (
+            [(WF, SV_NAME, SV_NAME + "        if: github.event_name == 'push'\n")],
+            ['SVERKA_123_STEP_UNCONDITIONAL'], [],
+        ),
+        # ОБХОД критика круга 2 дословно (Critic117v2b/wrong-effective-
+        # workflow.yml): локальный манифест субъекта compare-117.json, в
+        # котором кадр Splash light объявлен темой dark.
+        'sverka-local-manifest': (
+            [(WF, SV_RUN, '        run: python3 .harness123/scripts/sverka_maketa.py'
+                          ' --manifest mobile/.maestro/compare-117.json'
+                          ' --kadry mobile/maestro-out-117 --repo .\n')],
+            ['SVERKA_123_MANIFEST_CANON'], [],
+        ),
+        # кадры берутся из иного каталога (не из вывода шага Maestro 117).
+        'sverka-kadry-other': (
+            [(WF, '--kadry mobile/maestro-out-117 --repo .', '--kadry mobile/maestro-out --repo .')],
+            ['SVERKA_123_MANIFEST_CANON'], [],
+        ),
+        # пин харнесса — подвижная ветка вместо 40-hex SHA.
+        'sverka-ref-branch': (
+            [(WF, '          ref: 2cc58c224a8a9ced9709604f0eeb57d2fba6fb07\n',
+              '          ref: main\n')],
+            ['SVERKA_123_HARNESS_PIN'], [],
         ),
     }
     honest_src = model_bytes()
@@ -1469,8 +1609,8 @@ def matrix(repo: Path):
         if not red:
             print('MUTANT_GREEN', name)
             ok = False
-        elif not (set(named) & red):
-            print('MUTANT_NAMED_MISS', name, sorted(red))
+        elif not set(named) <= red:
+            print('MUTANT_NAMED_MISS', name, sorted(set(named) - red), 'red=', sorted(red))
             ok = False
         elif not red <= expected:
             print('MUTANT_UNEXPECTED_RED', name, sorted(red - expected))

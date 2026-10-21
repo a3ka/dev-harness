@@ -1,30 +1,32 @@
-# Контракт 117 — mob: вход F03.01/F03.02 по D2.2.5.1 + НАШ нативный splash/иконка (CMP-MOB-006)
+# Контракт 117 — mob: НАШ splash (нативный знак + JS-оверлей, обе схемы) + иконка (CMP-MOB-006)
 
-КЛАСС: КОДОВЫЙ. Предмет — слова владельца (через консультанта): (А) ~18:15
-UTC «First-Run и экраны входа (F03.01/F03.02) по макету D2.2.5.1»; splash
+КЛАСС: КОДОВЫЙ. Предмет — слова владельца (через консультанта): splash
 ~18:18 UTC «нативный splash (expo-splash-screen) и, ЕСЛИ НУЖНО, JS-экран
 сразу после него совпадают со Splash.png» (иконка = complior-app-icon,
-тёмный И светлый); ~19:28 UTC вход F03.01/F03.02 — по токенам и
-компонентам D2.2.5.1 и составу UX-JSON F01/F03, PNG-макета нет. Конструкция
-splash (арбитраж круга 2, РЕШЕНИЕ): нативный = ОДИН знак канона на ground
-схемы; кадр Splash.png целиком несёт JS-ОВЕРЛЕЙ сразу после натива (слово
-18:18 «если нужно» — нужно: замер арбитра — платформа вписывает картинку
+тёмный И светлый); сужение 2026-10-21 ~13:05 и ~14:10 UTC: 117 = splash
+(нативный + оверлей, обе схемы) + иконка. Конструкция splash (арбитраж
+круга 2, РЕШЕНИЕ): нативный = ОДИН знак канона на ground схемы; кадр
+Splash.png целиком несёт JS-ОВЕРЛЕЙ сразу после натива (слово 18:18
+«если нужно» — нужно: замер арбитра — платформа вписывает картинку
 плагина в imageWidth×imageWidth, масштаб нативного композита «на весь
 кадр» = 0.46, это другой кадр, не Splash.png). JS-КАДР state-machine —
 вне предмета. ПРАВИЛО (В): PNG-макет каждого кадра назван, takeScreenshot
 каждого кадра в приёмке, ревьюер сверяет скриншот ↔ макет. База B =
 `a3ka/Complior-mob` main `8748a7a3352c14a6caa5a75b71f869e5d3b8152c` (после 111).
 
-КОНТЕКСТ: слова владельца через консультанта — (А) 18:15 UTC «First-Run и
-экраны входа (F03.01/F03.02) по макету D2.2.5.1: полный состав и раскладка
-как на PNG»; splash ~18:18 UTC (НАШ splash: иконка = complior-app-icon,
-нативный splash тёмный И светлый); ПРАВИЛО (В) ~18:00 UTC (сверка с макетом);
-~19:28 UTC вход по токенам/компонентам D2.2.5.1 и UX-JSON F01/F03.
+Выведено из 117: вход F03.01/F03.02 (формы email/code, ссылки accent,
+подпись поля, `auth-screen.tsx` как судимый экран) и First-Run → предмет
+`first-run-ekran` (новая схема экранов, сверка кадров с PNG: эталон
+F03.01/F03.02/F03.02-V01 — Complior-mob#118, `docs/ux/03_Mobility_Slice1`,
+кадры A04/A05/A05e). Причина — слово владельца 2026-10-21 ~13:05 и ~14:10
+UTC, `docs/owner/2026-10-21-117-suzhenie.md`: реализация входа по
+токенам/UX-JSON расходится с присланным эталоном; правка контраста ссылок
+F03 (вариант «А», 13:45) не делается.
+
+КОНТЕКСТ: `docs/owner/2026-10-21-117-suzhenie.md` (слово владельца о
+сужении); ПРАВИЛО (В) ~18:00 UTC (сверка с макетом).
 КОНТЕКСТ: `docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/` — растры
-`screens/Splash{,-Hell}.png` (артборды 390×844), семья `logo/assets/`,
-`design-system/project/` (tokens.css, components/Button, components/TextField).
-КОНТЕКСТ: `docs/ux/01_UX_Source_of_Truth/Complior_F01_F03_Invitation_Entry_1_17_8_1.json`
-(состав входа) и каталог `BrokerOS_UI_Copy_DE.json` (тексты по ключам).
+`screens/Splash{,-Hell}.png` (артборды 390×844), семья `logo/assets/`.
 КОНТЕКСТ: `contracts/111-cmp-mob-first-run.md` + батарея
 `fixtures/workshop_project/first_run_111/` (done) — механика probe_lib и
 уроки (Н-386 свойство↔выборка, литералы Н-379/Н-383, RNTL 14.1 await);
@@ -32,9 +34,9 @@ frozen-семьи 995/999/111 не переписываются.
 
 ## Источники
 
-- Слова владельца: (А) 18:15 UTC; splash 18:18 UTC; ПРАВИЛО (В) ~18:00 UTC
-  (коммит консультанта `f1e3c1c3`, РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле).
-- «F03.01/F03.02 — по токенам и компонентам D2.2.5.1 и UX-JSON F01/F03, PNG-макета нет (слово владельца 2026-10-20 ~19:28 UTC)».
+- Слова владельца: splash 18:18 UTC; ПРАВИЛО (В) ~18:00 UTC (коммит
+  консультанта `f1e3c1c3`, РАЗРЕШИЛ-ВЛАДЕЛЕЦ в теле); сужение 2026-10-21
+  ~13:05 и ~14:10 UTC (`docs/owner/2026-10-21-117-suzhenie.md`).
 - Макеты splash (read-only B): `screens/Splash.png` (тёмный) и
   `screens/Splash-Hell.png` (светлый) — артборды 390×844, замер Architect117c
   пиксельным проходом (обе схемы совпадают): видимый знак x109..289
@@ -42,13 +44,6 @@ frozen-семьи 995/999/111 не переписываются.
   x57..332 y569..595; фон #0A0A0A / #F3F2EE.
 - Иконка: `logo/assets/complior-app-icon.svg` (1024, rx232, фон #0a0a0a,
   дуга stroke #f2f1ec w12, точка #d6f75a cx76 cy66 r11 во viewBox 96).
-- Вход: `design-system/project/tokens.css` (.title 28/32/500, .body
-  17/24/400, .label-lg 17/24/500, .body-sm 15/20/400, --size-lg 56,
-  пилюля), `components/Button/README.md` (primary — одна на экран, size-lg
-  56 во всю ширину, перекраска inline запрещена), `components/TextField/
-  README.md` (пилюля size-lg на panel без рамки); UX-JSON F01/F03 1.17.8.1
-  (DIRECT: F03.01 → F03.A01/F03.02; `routing.code_entry`); каталог
-  `BrokerOS_UI_Copy_DE.json` (ключи — таблица «Состав кадров входа»).
 - Арбитраж круга 2 (РЕШЕНИЕ, `verdicts/arbitration/contracts-117-splash-vhod-krug2.md`
   в main): закрытый перечень — Б1 эталон целой поверхностью, Б2 судить
   ВЫХОД настоящего генератора (basename НЕ сравнивается), Б3 доказательство
@@ -68,43 +63,45 @@ frozen-семьи 995/999/111 не переписываются.
 | First-Run.png | закрыт 111 (dark, RESTYLE_GUARD_995) | НЕ трогает; первый кадр оболочки остаётся first-run (оверлей — sibling поверх дерева, НЕ кадр state-machine: Frame не расширяется) |
 | Splash.png (тёмный) — знак | splash-icon.png — шаблон Expo 76×76 на #0A0A0A | нативный splash: ОДИН знак `splash-sign-dark.png` (ink #f2f1ec + точка #d6f75a), `dark.backgroundColor` #0A0A0A, imageWidth 181 (ширина знака артборда — литерал), resizeMode contain |
 | Splash.png (тёмный) — кадр целиком | полного кадра нет | JS-ОВЕРЛЕЙ `splash-composite-dark.png` (кадр окна 390×844: знак+wordmark+tagline на местах артборда) поверх дерева оболочки |
-| Splash-Hell.png (светлый) | светлого splash нет | корень плагина: знак `splash-sign-light.png` (ink #121211 + точка), backgroundColor #F3F2EE, композит light в оверлее; userInterfaceStyle automatic |
+| Splash-Hell.png (светлый) | светлого splash нет | корень плагина: знак `splash-sign-light.png` (ink #121211 + точка), backgroundColor #F3F2EE, композит light в оверлее; userInterfaceStyle automatic; тема ОС проводится в PilotApp (оверлей светлый при ОС light), стиль статус-бара контрастен ground схемы |
 | Иконка (complior-app-icon.svg) | icon/adaptive/favicon — шаблон Expo (#E6F4FE) | все производные — растр канона; adaptive фон #0A0A0A |
-| F03.01 «Anmelden oder Konto erstellen» | кадр 995: белый корень 48/16/16, title 22/600 #111111, ручные TextInput/Pressable | PNG-макета нет (слово ~19:28): состав по UX-JSON + каталогу на компонентах продукта `@/ui/button`, `@/ui/text-field` (DS на токенах D2.2.5.1), токены схемы |
-| F03.02 «Kontakt bestätigen» | кадр 995 | то же; поле auth-code, кнопка auth-verify, три ссылки accent |
-| F03.04, unavailable, welcome | поверхность 995 | ВНЕ предмета: белый корень 48/16/16 (гварды Г1–Г3) |
+| F03.01, F03.02, F03.04, unavailable, welcome | поверхность 995 | ВНЕ предмета: белый корень 48/16/16 как на B (гварды Г0–Г3); вход F03 — предмет `first-run-ekran` |
 
 ## Существующее
 
 - `mobile/src/bootstrap/pilot-app.tsx` (8748a7a335): первый кадр first-run →
   FirstRunScreen 111; корень 995-кадров 48/16/16 #FFFFFF (frozen 111/1);
-  demo-бейдж ниже top-инсета (111 r5). 117 меняет ТОЛЬКО корень кадров
-  email/code (full-bleed ground); вход шва и первый кадр не меняются.
-- `mobile/src/features/auth/auth-screen.tsx`: COPY-литералы 995 (заголовки
-  каталога verbatim), testID auth-email/auth-code/auth-verify/auth-resend/
-  auth-change-email/auth-no-access/auth-demo-entry, стили до-D2.2.5.1.
+  demo-бейдж ниже top-инсета (111 r5). 117 ДОБАВЛЯЕТ JS-оверлей splash,
+  провод темы ОС и StatusBar; корни кадров, вход шва и первый кадр не
+  меняются.
+- `mobile/src/features/auth/auth-screen.tsx`: поверхность 995 входа
+  (testID auth-email/auth-code/auth-verify/auth-resend/auth-change-email/
+  auth-no-access/auth-demo-entry) — 117 её не меняет (итог C ≡ B).
 - `mobile/app.json`: expo-splash-screen backgroundColor #0A0A0A (111),
   image splash-icon.png (ШАБЛОН Expo), imageWidth 76; adaptiveIcon
   #E6F4FE; userInterfaceStyle "light"; ios.icon "./assets/expo.icon";
   expo-splash-screen ~57.0.10 — резолверы prebuild поддерживают вложенный
   `dark`-блок (getAndroidSplashConfig.js:7–26 объединяет rest.dark/android.dark).
 - `mobile/src/theme/tokens.ts` (999, frozen): dark ground #0a0a0a/ink
-  #f2f1ec/panel #1e1e1d/primary #d6f75a/on-primary #121211; light ground
-  #f3f2ee/ink #121211/panel #e6e5df/primary #121211/on-primary #f3f2ee;
-  accent #d6f75a. ThemeContext — пара (scheme, tokens).
-- `mobile/src/ui/button.tsx` и `mobile/src/ui/text-field.tsx` (CMP-MOB-002,
-  «на токенах D2.2.5.1»): Button — пилюля (радиус 999), primary =
-  primary/on-primary схемы; TextField — подпись caption ink над полем-пилюлей
-  на panel, ввод ink, проп `label` обязателен. Это реальные компоненты DS в
-  продукте (First-Run 111 уже рендерит Button); структурная политика
-  продукта держит общий UI в слое `src/ui` (`check-structure.cjs` отвергает
-  иные каталоги). 117 их ПОТРЕБЛЯЕТ и не меняет.
-- 111 (заморожено): рестайл кадров 995 вне first-run запрещён frozen 111/1 —
-  117 СНИМАЕТ запрет ровно для F03.01/F03.02 словами владельца (А)/~19:28;
-  welcome, recovery F03.04, unavailable остаются поверхностью 995.
+  #f2f1ec; light ground #f3f2ee/ink #121211; accent #d6f75a. ThemeContext —
+  пара (scheme, tokens), умолчание контекста dark.
+- 111 (заморожено): рестайл кадров 995 вне first-run запрещён frozen 111/1;
+  К8 батареи 111 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` держит корень F03.01
+  #FFFFFF 48/16/16 — 117 v2 с ним согласна (миграции гварда нет).
 - `mobile/.maestro/start.yaml`: assertVisible first-run-continue — сценарии
   живы (оверлей — pointerEvents none, не кадр state-machine, дерево под ним
   достижимо: замер арбитра RNTL + Maestro-семантика иерархии).
+- Контракт 123 (frozen v1, реализация `scripts/sverka_maketa.py` принята
+  ревьюером в `wip/123/implementer`): сверка кадра e2e с PNG-макетом —
+  манифест H `fixtures/workshop_project/mob_sverka_123/kadry_117.json`
+  объявляет «Splash dark»/«Splash light»: снимок `vkhod-117-splash`, тема,
+  макет Splash.png/Splash-Hell.png с теми же sha256, что эталон Б1 117,
+  порог 0.6. Текст шага сверки в android-e2e — предмет 123 (frozen 123
+  п.5–6; написан implementer 123 на `cmp-mob-123/sverka` @10cf684,
+  `mobile.yml:367–378`, не влит); 117 его не пишет, а наблюдает клетками
+  SVERKA_123_* (РЕШЕНИЕ арбитра `contracts-117-v2-svjaz-123`, (б)).
+  Прецедент чтения workflow продукта батареей харнесса —
+  `fixtures/workshop_project/pilot_995/pins_probe.py` `check_release_mode`.
 
 ## Предмет и граница
 
@@ -112,19 +109,17 @@ frozen-семьи 995/999/111 не переписываются.
 канона на ground схемы (release/dev-client; Expo Go показывает иконку
 приложения + JS-оверлей — свойство SDK 57, документация Expo), затем
 JS-ОВЕРЛЕЙ кадра Splash.png/Splash-Hell.png по всей поверхности поверх
-дерева оболочки (скрывается таймером), затем — First-Run 111; сверка
+дерева оболочки (скрывается таймером), затем — First-Run 111; иконка
+приложения и её производные — растр канона complior-app-icon. Сверка
 «скриншот ↔ Splash.png» — android-e2e на release APK (Expo Go не
-показывает картинку плагина — не свидетель). Экраны входа F03.01/F03.02 —
-полный состав по UX-JSON F01/F03 и каталогу, собранный из компонентов
-Button/TextField дизайн-системы D2.2.5.1 на токенах схемы (testID и
-переходы 995 сохранены).
+показывает картинку плагина — не свидетель).
 
-Вне предмета: JS-КАДР splash (state-machine — оверлей НЕ расширяет
-Frame, `frame` стартует с 'first-run' как на B); First-Run 111; кадры
-welcome, F03.04, unavailable (поверхность 995); связка First-Run → вход →
-Erstinformation → Start (предмет 118); 116; копия-синька CMP-MOB-089;
-device evidence CMP-MOB-090; реальный IdP/бэкенд; анимация splash;
-шрифтовой ассет DM Sans.
+Вне предмета: вход F03.01/F03.02 и First-Run (предмет `first-run-ekran`);
+JS-КАДР splash (state-machine — оверлей НЕ расширяет Frame, `frame`
+стартует с 'first-run' как на B); кадры welcome, F03.04, unavailable
+(поверхность 995); связка First-Run → вход → Erstinformation → Start
+(предмет 118); 116; копия-синька CMP-MOB-089; device evidence CMP-MOB-090;
+реальный IdP/бэкенд; анимация splash; шрифтовой ассет DM Sans.
 
 ## Инварианты
 
@@ -176,92 +171,74 @@ device evidence CMP-MOB-090; реальный IdP/бэкенд; анимация
       «знак без надписей»/«сдвиг 9 px»/«половинный масштаб» красны той же
       клеткой; полосы artboard_117 — дешёвая первая линия, НЕ критерий.
 5. Текст tagline — слово владельца 18:18 (эталон Splash.png; ключа в
-   каталоге нет), живёт ТОЛЬКО в растре композита; копия входа — ключи
-   каталога verbatim (таблица ниже).
-6. Кадры F03.01/F03.02: состав — РОВНО таблица «Состав кадров входа»
-   (каждый элемент × dark/light); заголовок .title 28/32/500 ink схемы;
-   поле — компонент продукта `TextField` из `@/ui/text-field` (пилюля:
-   радиус ≥ 28 = половина --size-lg 56; фон panel схемы, ввод ink; подпись
-   — body-ключ кадра цветом ink); основная кнопка — `Button` из
-   `@/ui/button` (variant primary: пилюля, заливка primary схемы, подпись
-   on-primary); ссылки — ЭФФЕКТИВНЫЙ цвет accent #d6f75a; модуль кадров
-   импортирует оба компонента, оба сегмента (EmailFrame/CodeFrame) их
-   рендерят — ручные TextInput/Pressable со «теми же hex» красны; ни одного
-   hex в сегментах (палитра — useTheme); корень кадров full-bleed ground
-   схемы; кадр целиком внутри окна 390×844 (доказательство — Maestro
-   assertVisible на release APK, Б3; в Jest — только первая линия В3);
-   testID и переходы 995 сохранены.
-7. Кадры welcome/recovery(F03.04)/unavailable — поверхность 995: корень
-   #FFFFFF, отступы 48/16/16 в ОБЕИХ схемах на ВСЕХ исключённых кадрах.
+   каталоге нет), живёт ТОЛЬКО в растре композита.
+6. Тема и статус-бар splash: на production-входе (`@/app/index`, без
+   провайдера выше PilotApp) схема берётся из ОС (Appearance) — оверлей
+   ОС light на ground #f3f2ee, ОС dark на #0a0a0a; явный провайдер выше
+   сохраняет приоритет. Стиль статус-бара, дошедший до ОС, контрастен
+   ground схемы (dark → light-content, light → dark-content) на splash и
+   после снятия оверлея; StatusBar вне поддерева оверлея.
+7. Кадры вне предмета — вход F03.01 (email) и F03.02 (code), welcome,
+   recovery (F03.04), unavailable — поверхность 995 как на B: корень
+   #FFFFFF, отступы 48/16/16 в ОБЕИХ схемах на ВСЕХ этих кадрах.
 8. JS-ОВЕРЛЕЙ splash (С2, арбитраж круга 2): рендерится ПОВЕРХ дерева
    оболочки (последний ребёнок корня PilotApp), `StyleSheet.absoluteFill`,
    `pointerEvents="none"`, фон `tokens.ground` схемы, содержимое — РОВНО
    один Image, эффективный `source` которого — модуль файла
    `mobile/assets/images/splash-composite-{dark,light}.png` СВОЕЙ схемы
    (того, чьё содержимое судит 4б; require относительным путём из
-   pilot-app.tsx), `resizeMode contain`, absoluteFill, не скрыт; БЕЗ
+   pilot-app.tsx), `resizeMode contain`, бокс Image следует боксу оверлея
+   (width/height '100%' поверх absoluteFill); ВИДИМ в реальном рендере —
+   оверлей и его Image проходят RNTL `toBeVisible` (узел и все предки до
+   корня: display, opacity, скрытие от доступности) в обеих схемах; БЕЗ
    Text-узлов (wordmark/tagline — растр); автоскрытие таймером-литералом
    1200 мс с очисткой в cleanup; `SplashScreen.preventAutoHideAsync()` на
    модуле, `hideAsync()` — ровно один раз в effect ПОСЛЕ первого commit
    дерева с оверлеем (наблюдается commit-журналом: prevent → commit с
    оверлеем (React.Profiler) → hide; hide в render, на модуле, в первом
-   commit без оверлея — красны); оверлей НЕ расширяет Frame
-   state-machine; `pilot.test` 995 и first_run_111 на модели с оверлеем —
-   14/14 и 17/19 (красны ровно К8 — см. «Миграция гварда 111»).
-
-## Состав кадров входа (UX-JSON F01/F03 + каталог, литералы)
-
-| Экран | Элемент (testID/роль) | Компонент продукта (DS) | Ключ каталога → текст |
-| --- | --- | --- | --- |
-| F03.01 | заголовок (role header) | Text .title, ink | `frame.F03.01.title` → «Anmelden oder Konto erstellen» |
-| F03.01 | `auth-email` + подпись | `TextField` (`@/ui/text-field`), panel/ink | подпись `frame.F03.01.body` → «Nutzen Sie den angebotenen Anmeldeweg, um auf Ihre Versicherungen zuzugreifen.» |
-| F03.01 | `auth-demo-entry` | `Button` primary (`@/ui/button`) | `ui.auth.demo_entry` → «Demo mit Beispieldaten ansehen» |
-| F03.02 | заголовок (role header) | Text .title, ink | `frame.F03.02.title` → «Kontakt bestätigen» |
-| F03.02 | `auth-code` + подпись | `TextField`, panel/ink, secureTextEntry | подпись `frame.F03.02.body` → «Geben Sie den zugesandten Code ein. Prüfen Sie bei Bedarf Ihre Kontaktdaten.» |
-| F03.02 | `auth-verify` | `Button` primary | `action.F03.A01` → «Anmelden» |
-| F03.02 | `auth-resend` | ссылка, accent | `ui.auth.code_resend` → «Code erneut senden» |
-| F03.02 | `auth-change-email` | ссылка, accent | `auth.change_email` (COPY 995) → «E-Mail ändern» |
-| F03.02 | `auth-no-access` | ссылка, accent | `action.F03.A02` → «Zugang wiederherstellen» |
-
-Ключа подписи поля в каталоге нет, копия не выдумывается: обязательную
-подпись `TextField` несёт body-ключ кадра — он и есть инструкция к полю
-(вопрос владельцу №6). Поведенческие состояния 995 (auth-invalid,
-auth-cooldown, resend-sent, demo-indicator) сохраняются как на B и в
-состав рестайла не входят.
+   commit без оверлея — красны); оверлей НЕ расширяет Frame state-machine;
+   `pilot.test` 995 и first_run_111 на модели с оверлеем — 14/14 и 23/23 (замер v2).
+9. Видимость кадра splash на устройстве судит СВЕРКА КАДРА e2e с макетом
+   (123): снимок `vkhod-117-splash` каждой схемы объявлен в перечне сверки
+   123 (манифест H из «Существующего»: id «Splash dark»/«Splash light»,
+   макет и sha256 = эталон Б1 схемы, порог ≥ 0.6 — литералы source.json
+   `sverka_123`) и снимается сценарием 117 шагом НЕПОСРЕДСТВЕННО после
+   ожидания видимости оверлея; шаг сверки 123 в job android-e2e
+   присутствует безусловно и исполняет канонический манифест пина
+   `.harness123` (клетки SVERKA_123_*: литералы source.json
+   `sverka_123.provodka`, сняты с frozen 123 v1 приёмка п.5–6). Невидимый
+   оверлей даёт на этом снимке не Splash.png: замер 117e оракулом 123 —
+   First-Run под именем splash (носители 123 r58d, r814) 0.000
+   `NIZHE_POROGA` в обеих схемах против честного splash r1423 0.783/0.782 `OK`.
 
 ## Проверяемый шов
 
 `mobile/app.json` (плагин: знаки splash-sign-{dark,light}.png; композиты
 оверлея `mobile/assets/images/splash-composite-{dark,light}.png`;
-производные иконки); `mobile/src/bootstrap/pilot-app.tsx` (корень кадров
-email/code + JS-оверлей splash); `mobile/src/features/auth/auth-screen.tsx`
-(EmailFrame/CodeFrame на `@/ui/button`, `@/ui/text-field`); сценарий
-Maestro 117 в `mobile/.maestro/` (после freeze — implementer). Ожидания
-проб — литералы source.json (сняты с read-only docs/ B ДО субъекта,
-правило 8/Н-351); ни одна клетка не читает значения у субъекта; эталоны
-артбордов припинены sha256 (несовпадение — rc2 ORACLE_TAMPERED).
+производные иконки); `mobile/src/bootstrap/pilot-app.tsx` (JS-оверлей
+splash, провод темы ОС, StatusBar); сценарий Maestro 117 в
+`mobile/.maestro/` (после freeze — implementer); job android-e2e
+`.github/workflows/mobile.yml` — только наблюдение шагов 123 (SVERKA_123_*).
+Ожидания проб — литералы
+source.json (сняты с read-only docs/ B ДО субъекта, правило 8/Н-351); ни
+одна клетка не читает значения у субъекта; эталоны артбордов припинены
+sha256 (несовпадение — rc2 ORACLE_TAMPERED).
 
-## Закрытые перечни клеток (числа из кода проб, замерены прогонами круга 5)
+## Закрытые перечни клеток (числа из кода проб и прогонов 117e/117f)
 
 Поведенческая семья (Jest/RNTL, `vkhod_probe.py` → `vkhod.test.tsx`,
-22 клетки — прогон круга 5):
-- В1 `AUTH_F03_01_STRUCTURE_{DARK,LIGHT}` ×2 — ВСЕ элементы F03.01 из
-  таблицы состава: заголовок (.title, ink), подпись поля (body-ключ, ink),
-  auth-email (пилюля ≥ 28, panel, ввод ink), auth-demo-entry (пилюля ≥ 28,
-  заливка primary, подпись текстом каталога on-primary), корень ground.
-- В2 `AUTH_F03_02_STRUCTURE_{DARK,LIGHT}` ×2 — ВСЕ элементы F03.02: заголовок,
-  подпись поля (body-ключ, ink), auth-code (пилюля, panel, ink), auth-verify
-  (пилюля, primary, подпись on-primary), три ссылки эффективным accent
-  #d6f75a, корень ground.
-- В3 `AUTH_FRAMES_IN_WINDOW_{DARK,LIGHT}` ×2 — ПЕРВАЯ ЛИНИЯ по
-  эффективному стилю (НЕ доказательство: layout в Jest не вычисляется):
-  кумулятивный translate корень→лист < окна; чужие типы трансформаций;
-  поля бокса (margin*/padding*/left/top/right/bottom) ≥ окна;
-  display:'none'; opacity 0 — красны. Доказательство «кадр в окне» —
-  Maestro assertVisible (Б3, приёмка).
+26 клеток — прогон 117e):
+- Г0 `RESTYLE_GUARD_995_F03_{DARK,LIGHT}` ×2 — корни F03.01 И F03.02
+  #FFFFFF 48/16/16 (вход вне предмета, поверхность 995 как на B).
 - Г1 `RESTYLE_GUARD_995_WELCOME_{DARK,LIGHT}` ×2, Г2
   `RESTYLE_GUARD_995_RECOVERY_{DARK,LIGHT}` ×2, Г3
   `RESTYLE_GUARD_995_UNAVAILABLE_{DARK,LIGHT}` ×2 — #FFFFFF и 48/16/16.
+- Р1 `PROD_ENTRY_OS_THEME_{DARK,LIGHT}` ×2 — production-вход без
+  провайдера, схема — мок Appearance: фон оверлея = ground схемы ОС.
+- В2-2 `STATUS_BAR_STYLE_{DARK,LIGHT}` ×2 — стиль статус-бара, дошедший до
+  ОС, на splash и после снятия оверлея = литерал контраста ground схемы.
+- Р6 `SPLASH_OVERLAY_CONTAIN_{DARK,LIGHT}` ×2 — бокс оверлея и Image
+  width/height '100%', contain.
 - С2-оверлей: `SPLASH_OVERLAY_MOUNTED_{DARK,LIGHT}` ×2 (testID
   splash-overlay, pointerEvents none, absoluteFill, фон ground, Image
   внутри); `SPLASH_OVERLAY_COMPOSITE_{DARK,LIGHT}` ×2 (С2-а: в поддереве
@@ -270,17 +247,20 @@ Maestro 117 в `mobile/.maestro/` (после freeze — implementer). Ожид�
   превращает любой PNG в `1`, поэтому оба файла композита подменены в
   тесте уникальными сентинелями `jest.mock(…, {virtual: true})` по пути
   от файла теста, сравнение по ссылке; `resizeMode contain`, absoluteFill,
-  не скрыт); `SPLASH_OVERLAY_NO_TEXT_{DARK,LIGHT}` ×2 (в поддереве
+  не скрыт); `SPLASH_OVERLAY_VISIBLE_{DARK,LIGHT}` ×2 (инвариант 8:
+  оверлей — запрос с включением скрытых узлов — и его единственный Image
+  проходят RNTL `toBeVisible`, т.е. ни узел, ни предок до корня рендера
+  не несёт display none / opacity 0 / скрытия от доступности);
+  `SPLASH_OVERLAY_NO_TEXT_{DARK,LIGHT}` ×2 (в поддереве
   оверлея нет Text-узлов); `SPLASH_HIDEASYNC_ORDER_{DARK,LIGHT}` ×2
   (С2-б: commit-журнал — мок пишет prevent/hide, React.Profiler onRender
   пишет commit с наличием оверлея в контейнере `test-renderer`
   `createRoot` в момент commit; требование: первый commit несёт оверлей,
-  hide ровно один и ПОСЛЕ него, prevent раньше первого commit; журнал
-  модели `["commit+overlay","hide"]` после модульного prevent);
+  hide ровно один и ПОСЛЕ него, prevent раньше первого commit);
   `SPLASH_OVERLAY_TIMER_HIDE_{DARK,LIGHT}` ×2 (fake timers: до 1199 мс
   на месте, на 1200-й скрыт).
 
-Статическая семья (`vkhod_static_probe.py`, 35 клеток — прогон круга 5):
+Статическая семья (`vkhod_static_probe.py`, 40 клеток — прогон 117f):
 APP_ICON_DERIVATIVES, ICON_NOT_TEMPLATE_BYTES, ICON_ADAPTIVE_BG_DARK,
 ICON_PIXELS_MARK, SPLASH_BLOCKS_DARK_LIGHT (знаки, imageWidth 181,
 contain), SPLASH_EFFECTIVE_DARK_LIGHT (эффективные ФОНЫ резолверами),
@@ -297,82 +277,118 @@ centerX/centerY), SPLASH_COMPOSITE_ETALON_{DARK,LIGHT} ×2 (Б1: размер =
 C, ≥ 0.98), SPLASH_SIGN_RASTER_{DARK,LIGHT} ×2 (растр знака аналитикой),
 SPLASH_OVERLAY_CONSUMES_COMPOSITE (С2-а: require в pilot-app.tsx
 относительным путём разрешается в оба файла композита, судимых
-эталоном), USER_STYLE_AUTOMATIC, AUTH_FRAMES_TOKENIZED,
-AUTH_DS_COMPONENTS (инвариант 6: импорт `@/ui/button`/`@/ui/text-field`
-и рендер в обоих сегментах), STATIC_ORACLE_LITERALS, ICON_RASTER_WHOLE,
+эталоном), USER_STYLE_AUTOMATIC, STATIC_ORACLE_LITERALS, ICON_RASTER_WHOLE,
 ADAPTIVE_FG_RASTER, ADAPTIVE_MONO_RASTER, ADAPTIVE_BG_SOLID,
-FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE.
+FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE, MAESTRO_SPLASH_FRAME_WAIT
+(шаг НЕПОСРЕДСТВЕННО перед takeScreenshot splash — extendedWaitUntil
+visible splash-overlay, YAML-парсером), MAESTRO_FIRST_RUN_ORDER (между
+снимком splash и takeScreenshot first-run — notVisible splash-overlay:
+свидетельство снятия оверлея, не приёмка экрана First-Run),
+SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} ×2 (согласованность справочного
+манифеста H kadry_117.json с пинами 117: ровно один кадр темы с макетом
+эталона Б1 этой темы — id, sha256, снимок `vkhod-117-splash`, порог ∈
+[0.6, 1] — литералы source.json `sverka_123`; сценарий субъекта снимает
+этот снимок; потребление манифеста судят SVERKA_123_*),
+SVERKA_123_STEP_UNCONDITIONAL (инвариант 9: в `jobs.android-e2e.steps`
+workflow субъекта ровно один шаг, чей `run` несёт литерал `script`, без
+ключей `if` и `continue-on-error`), SVERKA_123_MANIFEST_CANON (строка
+`run` с литералом `script` до первого `|`, разбор shlex — ровно
+`python3 <script>` и пары `--manifest`/`--kadry`/`--repo` = литералы,
+иных токенов нет; `git ls-files -- mobile/maestro-out-117` субъекта
+пуст), SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
+`with.path` `.harness123`, `with.repository` `a3ka/dev-harness`,
+`with.ref` ~ `\A[0-9a-f]{40}\Z`, без `if`, раньше шага сверки) — литералы
+source.json `sverka_123.provodka`; YAML-парсер, отсутствие pyyaml — rc2.
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду MUTANTS проб, Н-39;
-depends измерены полным прогоном круга 5): поведенческих 20 (auth-stays-995,
-auth-light-dark-ground, auth-title-995-typo, verify-button-995-black,
-restyle-welcome-vkhod, restyle-recovery-vkhod, restyle-unavailable-vkhod,
-restyle-recovery-light-vkhod, auth-frame-offscreen, auth-links-ground,
-auth-body-missing, auth-field-hand-styled, auth-button-inline,
-overlay-absent-first-commit, overlay-text-words, overlay-hideasync-skip,
-overlay-hideasync-module-scope, overlay-timer-none, overlay-wrong-source,
-overlay-hide-before-commit), статических 20 (icon-template-bytes,
+depends измерены прогонами 117e/117f): поведенческих 24 (restyle-welcome-vkhod,
+restyle-recovery-vkhod, restyle-unavailable-vkhod,
+restyle-recovery-light-vkhod, overlay-absent-first-commit,
+overlay-text-words, overlay-hideasync-skip, overlay-hideasync-module-scope,
+overlay-timer-none, overlay-wrong-source, overlay-hide-before-commit,
+prod-theme-os-ignored, prod-theme-light-hardcode, auth-restyled-ground,
+auth-restyled-code-light, overlay-intrinsic-size, overlay-opacity-zero,
+overlay-display-none, root-opacity-zero, overlay-zero-size,
+statusbar-absent, statusbar-light-both, statusbar-dark-both,
+statusbar-in-overlay), статических 31 (icon-template-bytes,
 adaptive-expo-blue, splash-image-forgery, icon-twin-three-pixels,
 splash-composite-twin, splash-composite-no-words, splash-composite-shifted,
 splash-composite-halfres, splash-imagewidth-76, adaptive-favicon-template,
 platform-image-template-override, platform-same-basename,
 platform-density-template, splash-dark-block-missing, splash-light-missing,
-user-style-light-stays, auth-hex-literal, auth-buttons-inline, ios-legacy,
-overlay-wrong-source); свидетели круга 3 критика: halfres-{dark,light} →
-splash-composite-halfres, ios-legacy → ios-legacy, overlay-wrong-source →
-overlay-wrong-source (обе семьи), overlay-hide-before-commit →
-overlay-hide-before-commit; каждый красен именованной клеткой, побочная
+user-style-light-stays, ios-legacy, overlay-wrong-source,
+maestro-splash-no-wait, maestro-splash-wait-commented,
+maestro-splash-wait-after-shot, maestro-first-run-overlay-kept,
+maestro-first-run-as-splash, maestro-splash-overlay-gone-before-shot,
+maestro-splash-shot-renamed, sverka-step-absent, sverka-continue-on-error,
+sverka-if-conditional, sverka-local-manifest, sverka-kadry-other,
+sverka-ref-branch); каждый красен именованной клеткой (статический —
+КАЖДОЙ своей именованной), побочная
 краснота только в depends; якорь мутанта неуникален → отказ rc2;
 сломанный мутантом свит → MUTANT_SUITE_BROKEN rc2 (не зелень).
 
 ## Приёмочный критерий
 
 R — disposable копия Complior-mob на B под /tmp/dev-harness-verify с
-node_modules в mobile/ (симлинк); пробы — Python 3 stdlib.
+node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyyaml для
+клеток Maestro; отсутствие — rc2 INFRASTRUCTURE, не зелень).
 
 - Дано B без реализации: `python3 fixtures/workshop_project/vkhod_117/vkhod_probe.py
-  --repo R` → rc1 `VKHOD_AUTH_DS_ABSENT` (кадры входа не на `@/ui`);
+  --repo R` → rc1, строка `VKHOD_SPLASH_OVERLAY_ABSENT` (клетка
+  SPLASH_OVERLAY_MOUNTED_* красна; замер 117e: failed 18 of 26);
   `vkhod_static_probe.py --repo R` → rc1 `VKHOD_SPLASH_COMPOSITE_ABSENT`.
 - Дано B с эталонной моделью (`--model`) либо честное C: обе пробы → rc0 с
-  перечнем: поведенческая 22/22, статическая 35/35 (замер круга 5).
+  перечнем: поведенческая 26/26 (замер 117e), статическая 40/40 (замер 117f;
+  модель workflow — `mobile.yml` `cmp-mob-123/sverka` @10cf684 дословно).
+- Дано C, в котором `.github/workflows/mobile.yml` — workflow B 8748a7a335
+  (шагов 123 нет); когда `vkhod_static_probe.py --repo R`; тогда rc1, красны
+  ровно `SVERKA_123_STEP_UNCONDITIONAL`, `SVERKA_123_MANIFEST_CANON`,
+  `SVERKA_123_HARNESS_PIN` (замер 117f).
+- Дано C с обходом критика круга 2 (свидетель
+  `Critic117v2b/wrong-effective-workflow.yml`: шаг 123 с
+  `--manifest mobile/.maestro/compare-117.json`, где Splash light объявлен
+  темой dark); когда `vkhod_static_probe.py --repo R`; тогда rc1, красна
+  ровно `SVERKA_123_MANIFEST_CANON` (замер 117f).
+- Дано C с невидимым оверлеем (свидетель критика: `opacity: 0` в стиле View
+  `splash-overlay`, всё прочее честно); когда `vkhod_probe.py --repo R`;
+  тогда rc1, `failed 2 of 26` — красны ровно
+  `SPLASH_OVERLAY_VISIBLE_{DARK,LIGHT}` (замер 117e).
+- Дано C со сценарием «First-Run под именем splash» (свидетель критика:
+  ожидание first-run-continue и notVisible splash-overlay перед снимком
+  splash); когда `vkhod_static_probe.py --repo R`; тогда rc1, строка
+  `RED MAESTRO_SPLASH_FRAME_WAIT` (замер 117e).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый
-  стаб красен именованной ветвью (20+20), побочная краснота только в depends.
+  стаб красен именованной ветвью (24+31), побочная краснота только в
+  depends; любой MUTANT_GREEN/MUTANT_NAMED_MISS/MUTANT_UNEXPECTED_RED —
+  rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк
   кроме симлинка `mobile/node_modules` (инфраструктура R, не проба).
+- Дано C; `git diff --exit-code --stat B C -- mobile/src/features/auth/` →
+  rc0 и 0 строк (вход вне предмета: auth-screen.tsx в ЗОНЕ только для
+  отката рестайла C к B); rc1 / непустой вывод — отказ ревьюера по строке
+  ПЕРЕСЕЧЕНИЕ.
 - Дано C; `npm run lint`, `npm run typecheck` в R/mobile → rc0;
   `npx jest src/bootstrap/__tests__/pilot.test.tsx` (995, byte-frozen) → rc0,
-  14/14 (оверлей — sibling поверх дерева, вход шва не меняется; замер на
-  модели круга 4). Батарея `fixtures/workshop_project/first_run_111/` на C:
-  RUN, ожидаемо rc1 — 17/19, красны ровно К8
-  `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` до 111 v2 (замер на модели круга 4;
-  раздел «Миграция гварда 111»), зелёным НЕ заявляется.
+  14/14; батарея `fixtures/workshop_project/first_run_111/` на C → rc0,
+  23/23 — замер v2 на B + модель 117 (К8 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` зелёна: вход —
+  поверхность 995).
 - Дано C в PR; `gh pr checks PR --repo a3ka/Complior-mob --required` → rc0;
   android-e2e (release APK: `expo prebuild` + `assembleRelease`, Maestro)
-  исполняет сценарий 117 в `mobile/.maestro/`: `assertVisible` КАЖДОГО
-  элемента таблицы «Состав кадров входа» (F03.01: заголовок, auth-email,
-  auth-demo-entry; F03.02: заголовок, auth-code, auth-verify, auth-resend,
-  auth-change-email, auth-no-access) × тема устройства — это доказательство
-  Б3 «кадр в окне» (Maestro возвращает rc≠0 при невидимости); takeScreenshot
-  КАЖДОГО кадра по правилу (В): splash × {тёмная, светлая} — сверка с
-  Splash.png / Splash-Hell.png; F03.01 × {dark, light}, F03.02 × {dark,
-  light} — сверка с компонентами/токенами D2.2.5.1 и составом таблицы
-  (6 скриншотов; First-Run снимает 111-сценарий); скриншоты в артефактах
-  прогона, ревьюер сверяет глазами и мерой.
+  исполняет сценарий 117 в `mobile/.maestro/`; takeScreenshot КАЖДОГО
+  кадра по правилу (В): splash × {тёмная, светлая} — сверка с Splash.png /
+  Splash-Hell.png; First-Run после снятия оверлея × {тёмная, светлая}
+  (свидетельство снятия оверлея; макет First-Run судит first-run-ekran);
+  скриншоты в артефактах прогона, ревьюер сверяет глазами и мерой. Шаг
+  сверки 123 (текст — frozen 123 п.5, автор — implementer 123; PR 117
+  несёт его коммит с сохранённым авторством) стоит в job android-e2e;
+  клетки SVERKA_123_* зелены; его вывод в артефакте несёт строки
+  `KADR<TAB>Splash dark<TAB>…<TAB>OK` и `KADR<TAB>Splash light<TAB>…<TAB>OK`;
+  негатив — невидимый оверлей даёт на снимке splash окно First-Run:
+  `NIZHE_POROGA<TAB>Splash dark`/`…light`, score 0.000, шаг rc1 — job
+  android-e2e красен (замер 117e оракулом 123 на носителях r58d/r814
+  против честного r1423 0.783/0.782).
 - Дано авторская пачка; `bash scripts/pre_critic.sh
   contracts/117-cmp-mob-vkhod-splash.md` → rc0.
-
-## Миграция гварда 111 (БЕЗ правок 111 в этой пачке)
-
-Единственный конфликт с замороженным: `fixtures/workshop_project/
-first_run_111/first_run.test.tsx` К8 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}`
-(строки ≈320–330: после CTA корень F03.01 обязан быть #FFFFFF 48/16/16) —
-противоречит рестайлу F03.01/F03.02 словами владельца (А)/~19:28. Путь —
-ответ консультанта 19:20 «(А) 111 v2 сужает гвард RESTYLE_GUARD_995»: текст
-111 v2 и строка РАЗРЕШИЛ — отдельная работа (Architect111v2), не этой пачки.
-До 111 v2 шаг приёмки first_run_111 — RUN, ожидаемо rc1 ровно по К8
-(17/19, замер круга 4); после 111 v2 — зелёный в мигрированной форме.
-Вход шва и `pilot.test.tsx` 995 миграции не требуют (оверлей — sibling
-поверх дерева, не кадр state-machine; замер круга 4: 14/14).
 
 ## Зоны и исполнители
 
@@ -385,15 +401,26 @@ first_run_111/first_run.test.tsx` К8 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}`
 
 ЗОНА implementer: mobile/app.json mobile/assets/images/ (icon.png, splash-composite-dark.png, splash-composite-light.png, splash-sign-dark.png, splash-sign-light.png, android-icon-foreground.png, android-icon-background.png, android-icon-monochrome.png, favicon.png) mobile/src/bootstrap/pilot-app.tsx mobile/src/features/auth/auth-screen.tsx .github/workflows/mobile.yml mobile/.maestro/
 
-ПЕРЕСЕЧЕНИЕ: `mobile/src/bootstrap/pilot-app.tsx` и
-`mobile/src/features/auth/auth-screen.tsx` — общие с замороженными семьями
-995/111: в pilot-app меняется только корень кадров email/code и ДОБАВЛЯЕТСЯ
-JS-оверлей splash (последний ребёнок корня, НЕ кадр state-machine); первый
-кадр и вход шва — как на B. `mobile/src/ui/` (компоненты CMP-MOB-002, 999),
+ПЕРЕСЕЧЕНИЕ: `mobile/src/bootstrap/pilot-app.tsx` — общий с замороженными
+семьями 995/111: в pilot-app ДОБАВЛЯЮТСЯ JS-оверлей splash (последний
+ребёнок корня, НЕ кадр state-machine), провод темы ОС (только когда выше
+PilotApp нет явного провайдера) и StatusBar вне оверлея; корни кадров,
+первый кадр и вход шва — как на B. `mobile/src/features/auth/auth-screen.tsx`
+(вход, предмет first-run-ekran) остаётся в ЗОНЕ implementer ТОЛЬКО для
+возврата к B: текущий C (Complior-mob#114) несёт рестайл входа, его откат —
+правка этого пути; итог C ≡ B по нему (приёмка: `git diff --stat B C --
+mobile/src/features/auth/` → 0 строк). Сужение ЗОНА-строки не делается:
+спек-гейт 036 (В3 перенос зоны) требует СПАСЕНО-покрытия, а коммитов
+implementer по продуктовому пути в репо харнесса нет (исключение
+ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас только 109).
+`mobile/src/ui/` (компоненты CMP-MOB-002, 999), `mobile/src/theme/` (999),
 `mobile/src/bootstrap/__tests__/` (995), `docs/`, `design/` — read-only для
 117. Знаки и композиты выводятся из read-only `screens/Splash{,-Hell}.png`
-(артборд не меняется). Действующие Maestro-сценарии лежат в `mobile/.maestro/`
-(совет критика, подтверждён арбитражем), сценарий 117 — туда же.
+(артборд не меняется). Действующие Maestro-сценарии лежат в
+`mobile/.maestro/` (совет критика, подтверждён арбитражем), сценарий 117 —
+туда же.
+
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/mobile.yml — 123 шаги checkout `.harness123` и «123 сверка кадров с макетом» пишет implementer 123; 117 их не меняет, PR 117 несёт коммит 123 с сохранённым авторством (РЕШЕНИЕ арбитра contracts-117-v2-svjaz-123), правка текста шагов 123 — отказ ревьюера 117
 
 РАБОТА НЕ РАЗДАЁТСЯ: implementer не спавнится до accept критика и freeze
 оркестратора; предмет этой пачки — контракт + красные пробы, предъявленные
@@ -408,11 +435,10 @@ JS-оверлей splash (последний ребёнок корня, НЕ к�
 - от подложного композита оверлея (Б1): эталон артбордов припинен sha256
   (несовпадение — rc2 ORACLE_TAMPERED), маска E «фон±40 → прозрачно»,
   размер композита = артборд 390×844 (иной масштаб при точном aspect
-  красен: свидетели круга 3 halfres 195×422 и lowres 39×84 — замер круга
-  5), recall по ВСЕЙ маске M (15439/15346 пикселей) И precision по ВСЕМ
-  непрозрачным C ≥ 0.98 (стабы «семь пикселей», «знак без надписей»,
-  «сдвиг 9 px», «половинный масштаб» красны той же клеткой; честная
-  модель recall 1.0 / precision 1.0, m_total 15439/15346 — замер круга 5);
+  красен: свидетели halfres 195×422 и lowres 39×84), recall по ВСЕЙ маске M
+  (15439/15346 пикселей) И precision по ВСЕМ непрозрачным C ≥ 0.98 (стабы
+  «семь пикселей», «знак без надписей», «сдвиг 9 px», «половинный масштаб»
+  красны той же клеткой);
 - от подмены платформенных ассетов (Б2): клетка вызывает НАСТОЯЩИЕ
   getAndroidSplashConfig + setSplashImageDrawablesAsync и судит
   СОДЕРЖИМОЕ произведённых drawable-{mdpi..xxxhdpi}/splashscreen_logo.png и
@@ -420,43 +446,57 @@ JS-оверлей splash (последний ребёнок корня, НЕ к�
   размер знака = imageWidth×m ±3); iOS — содержимое по эффективному пути +
   эффективные imageWidth/resizeMode + ВЫХОД настоящего генератора
   storyboard (рамка 181×181, centerX/centerY) при литерале отсутствия
-  `enableFullScreenImage_legacy`; basename НЕ сравнивается (стабы
-  same-basename / density-template / template-override / imageWidth-76 /
-  ios-legacy красны выходом генератора, замер круга 5);
+  `enableFullScreenImage_legacy`; basename НЕ сравнивается;
 - от одновариантного или недостижимого splash: блоки app.json (знаки обеих
   тем, imageWidth 181, contain) + эффективные ФОНЫ резолверами prebuild,
-  USER_STYLE_AUTOMATIC;
+  USER_STYLE_AUTOMATIC; провод темы ОС на production-входе (Р1) и стиль
+  статус-бара по схеме (В2-2) — светлый splash не тёмный и не с белыми
+  иконками на #f3f2ee;
 - от пропажи кадра Splash.png в Expo Go / после натива (С2): оверлей
   судится поведенчески — смонтирован (absoluteFill, pointerEvents none,
-  ground), РОВНО один Image с эффективным source = модуль композита СВОЕЙ
-  схемы, тот самый файл, что судит эталон Б1 (стаб overlay-wrong-source
-  красен поведенческой и статической клетками), без Text-узлов;
-  commit-журнал prevent → первый commit с оверлеем → один hide (стаб
-  hide-в-render красен: журнал `["hide","commit+overlay"]`), скрытие
-  таймером-литералом 1200 мс;
-- от неполного состава входа: В1/В2 судят КАЖДЫЙ элемент таблицы состава ×
-  обе схемы (body выброшен — красно); состав = таблица (UX-JSON маршруты +
-  поверхность 995 + каталог);
-- от ручных стилей с теми же hex вместо компонентов DS: эффективные
-  свойства компонентов (пилюля, primary/on-primary, panel/ink, подпись
-  поля) в В1/В2 + AUTH_DS_COMPONENTS (импорт `@/ui/button`/`@/ui/text-field`
-  и рендер в обоих сегментах; ручные TextInput/Pressable красны);
-- от второй палитры входа: AUTH_FRAMES_TOKENIZED + наблюдение ground/ink/
-  primary/on-primary/panel в обеих схемах; ссылки — эффективным accent;
-- от дешёвых обходов «кадр в окне» (первая линия): В3 — кумулятивный
-  translate, поля бокса ≥ окна, display none, opacity 0 (стабы
-  translateX-1000 и marginLeft-1000 красны, замер круга 4);
-- от тихого рестайла соседних кадров: Г1–Г3 по ВСЕМ исключённым кадрам ×
-  схемы;
+  ground), вписан по окну (Р6), РОВНО один Image с эффективным source =
+  модуль композита СВОЕЙ схемы, тот самый файл, что судит эталон Б1 (стаб
+  overlay-wrong-source красен поведенческой и статической клетками), без
+  Text-узлов; commit-журнал prevent → первый commit с оверлеем → один hide,
+  скрытие таймером-литералом 1200 мс;
+- от невидимого кадра splash (вердикт критика 117 v2 круг 1): в рендере —
+  `toBeVisible` оверлея и его Image по всей цепочке предков (стабы
+  overlay-opacity-zero, overlay-display-none, root-opacity-zero красны
+  SPLASH_OVERLAY_VISIBLE_*, нулевой бокс overlay-zero-size — Р6); на
+  устройстве — сверка снимка `vkhod-117-splash` × тема с макетом мерой 123
+  (инвариант 9: кадр объявлен в манифесте H, снимок снят сразу после
+  ожидания оверлея — стабы maestro-splash-shot-renamed,
+  maestro-first-run-as-splash, maestro-splash-overlay-gone-before-shot
+  красны; шаг сверки стоит безусловно — клетки SVERKA_123_*);
+- от шага сверки 123, который есть, но не судит (РЕШЕНИЕ арбитра (б),
+  обход критика круга 2): клетки SVERKA_123_* — шаг без `if`/
+  `continue-on-error` (стабы sverka-continue-on-error,
+  sverka-if-conditional), канонический манифест пина и кадры из прогона
+  (sverka-local-manifest — обход дословно, sverka-kadry-other), пин
+  40-hex раньше шага (sverka-ref-branch); workflow без шагов 123
+  (sverka-step-absent) красен всеми тремя;
+- от пустого кадра в свидетельстве: сценарий Maestro судится YAML-парсером
+  (ожидание оверлея непосредственно перед снимком splash, снятие оверлея
+  до снимка First-Run);
+- от тихого рестайла кадров вне предмета: Г0–Г3 по ВСЕМ исключённым кадрам
+  (вход F03.01/F03.02, welcome, F03.04, unavailable) × обе схемы (стаб
+  auth-restyled-ground — форма текущего C — красен Г0);
 - от зависимого оракула (Н-351): ожидания — литералы source.json/теста,
   STATIC_ORACLE_LITERALS; эталоны — sha-пин read-only docs/;
-- от мёртвой матрицы: обе пробы исполняют все стабы (20+20), depends
+- от мёртвой матрицы: обе пробы исполняют все стабы (24+31), depends
   измерены прогоном, unexpected_red/suite_broken — rc2.
 
 НЕ ЗАЩИЩАЕТ:
-- layout в Jest не вычисляется (yoga в node_modules продукта нет — замер
-  арбитра): В3 — только первая линия по эффективному стилю; окно — только
-  android-e2e (Maestro assertVisible, release APK); ловец — CI android-e2e;
+- вход F03.01/F03.02 и First-Run — без механической сверки с макетом до
+  предмета `first-run-ekran` (сверка кадров с PNG эталона Complior-mob#118):
+  117 v2 держит только поверхность 995 (Г0, К8 111) и не судит ни состав,
+  ни раскладку, ни цвета входа; расхождение входа с эталоном
+  F03.01/F03.02/F03.02-V01 до first-run-ekran — принятый остаточный риск
+  (слово владельца 2026-10-21); ловец — critic/reviewer first-run-ekran;
+- статус-бар на кадрах поверхности 995 (белый корень) в тёмной схеме —
+  стиль по схеме даёт светлые иконки на #FFFFFF (как умолчание ОС на B);
+  стиль кадров входа — предмет first-run-ekran; ловец — ревьюер по
+  скриншотам first-run-ekran;
 - от пиксельной точности нативного splash на устройстве (рендер ОС,
   круговая маска Android 12+, масштаб при иных окнах) — app.json литералы
   + произведённые drawable; ловец — ревьюер по скриншотам android-e2e
@@ -469,14 +509,29 @@ JS-оверлей splash (последний ребёнок корня, НЕ к�
   а не момент отрисовки пикселей на устройстве: кадр между снятием
   нативного знака и первым показом оверлея на телефоне не измеряется;
   ловец — ревьюер по записи android-e2e (пустой кадр);
+- `toBeVisible` в рендере не видит скрытия геометрией и краской
+  (transform scale 0, вынос за окно, непрозрачный сосед поверх оверлея
+  выше по zIndex) — его ловит сверка снимка splash с макетом мерой 123
+  в android-e2e (инвариант 9); проводка шага наблюдается клетками
+  SVERKA_123_*, остаток — четыре пункта ниже;
+- байты `kadry_117.json` на SHA пина `.harness123` против копии в H
+  батареи 117: клетка судит форму пина (40-hex), не байты файла на ином
+  SHA; гарантия — иммутабельность frozen-файла 123; ловец — ревьюер 123
+  при перепине;
+- связь каталога `--kadry` с `--test-output-dir` шага Maestro 117 (bash
+  внутри `run`) не парсится; защита — fail-closed 123 (пустой каталог →
+  `KADR_OTSUTSTVUET` rc1) и «каталог не в git»; маскировка кода возврата
+  в shell после вызова (конвейер без `set -o pipefail`, `|| true`) —
+  клетка судит строку вызова до первого `|`, не семантику shell; ловец —
+  ревьюер по логу android-e2e (строки KADR, rc шага);
+- job-уровень (`if:` на job, required checks ветки): строка
+  `gh pr checks --required` → rc0 в приёмке, настройка — владельца;
+- последовательность ленда: 117 done требует шага 123 в PR 117 (123 п.5
+  «положительная половина судится на первом прогоне PR 117 v2»); задержка
+  ленда 123 словом владельца по форку n123 задерживает 117 — сообщается
+  владельцу через оркестратора;
 - от точности глифов wordmark/tagline в композите (шрифт DM Sans) — эталон
   судит маску/цвет, не начертание; ловец — ревьюер по правилу (В);
-- от расхождения визуала входа с README компонентов DS вне измеряемых
-  свойств (высота size-lg 56, шкала label-lg, отступы колонки — компоненты
-  продукта CMP-MOB-002 их не несут, 117 их не меняет) — PNG-макета входа нет
-  (слово ~19:28); ловец — ревьюер по скриншотам против components/Button,
-  components/TextField и tokens.css;
-- от реальной аутентификации (IdP) — поверхность 995/бэкенд, вне предмета;
 - от злонамеренного кода с общим uid: независимые судьи, immutable H, CI
   evidence.
 
@@ -489,38 +544,36 @@ JS-оверлей splash (последний ребёнок корня, НЕ к�
 владельца ~18:00) — норм-строки в roles/reviewer.md ЕЩЁ НЕТ, поэтому
 role-канал с литералом невозможен и правило потребляется ЗДЕСЬ прозой как
 cognitive-only: макет каждого кадра назван (splash — Splash.png/
-Splash-Hell.png; иконка — complior-app-icon.svg; F03.01/F03.02 — PNG нет,
-слово владельца ~19:28: компоненты/токены D2.2.5.1 + таблица состава),
-takeScreenshot каждого кадра (android-e2e), ревьюер сверяет скриншот ↔
-макет глазами и мерой. Остаточный риск: механического гейта сверки нет —
-незаснятый кадр или расхождение ловит только ревьюер на C (ловец — reviewer).
-Новая общая норма харнесса не вводится. Пробы 117 исполняются в CI
-Complior-mob из H-checkout по образцу 999/107/108/111 (шаг quality в
-mobile.yml, зона implementer); в registry/ci-steps.tsv харнесса НЕ
-регистрируется (python3 stdlib, npm-ключа нет).
+Splash-Hell.png; иконка — complior-app-icon.svg), takeScreenshot каждого
+кадра (android-e2e), ревьюер сверяет скриншот ↔ макет глазами и мерой.
+Механический гейт сверки кадра splash — мера 123 (`kadry_117.json`; текст
+шага android-e2e — предмет 123); 117 судит, что снимок splash × тема
+объявлен в её перечне и снят сценарием, и что шаг 123 стоит безусловно с
+каноническим манифестом (инвариант 9, клетки SVERKA_123_*). Остаточный
+риск — четыре пункта НЕ ЗАЩИЩАЕТ после `toBeVisible` (ловец — reviewer).
+Новая общая норма
+харнесса не вводится. Пробы 117 исполняются в CI Complior-mob из
+H-checkout по образцу 999/107/108/111 (шаг quality в mobile.yml, зона
+implementer); в registry/ci-steps.tsv харнесса НЕ регистрируется (python3
+stdlib, npm-ключа нет).
 
 ## Вопросы владельцу
 
-1. ЗАКРЫТ (слово владельца 2026-10-20 ~19:28 UTC): «F03.01/F03.02 — по
-   токенам и компонентам D2.2.5.1 и UX-JSON F01/F03, PNG-макета нет».
-   Исполнено таблицей «Состав кадров входа» и инвариантом 6.
-2. Шрифт tagline/заголовков: канон — DM Sans; в мобильном рантайме системный
-   шрифт (в композите splash tagline — растр артборда). Заводить ли шрифтовой
+1. СНЯТ (сужение 2026-10-21): вход F03.01/F03.02 выведен в first-run-ekran.
+2. Шрифт tagline: канон — DM Sans; в мобильном рантайме системный шрифт (в
+   композите splash tagline — растр артборда). Заводить ли шрифтовой
    ассет — отдельная воля (117 не вводит).
 3. Анимация снятия splash: канон не описывает; 117 — нативный знак
    скрывается сразу после первого коммита с оверлеем (hideAsync), оверлей
    исчезает по таймеру 1200 мс без анимации. Нужна ли анимация (fade)?
 4. `userInterfaceStyle: automatic` открывает системную тему для нативного
-   выбора splash; JS-кадры остаются на ThemeContext (999). Верно ли, что
-   тема приложения остаётся за контекстом 999?
+   выбора splash; PilotApp без провайдера выше проводит схему ОС
+   (инвариант 6). Верно ли, что явный провайдер 999 выше сохраняет
+   приоритет?
 5. Ключ каталога для «Versicherung. Erledigt.» отсутствует (meta copy-keys
    артборда пуст); текст живёт в растре композита. Заводить ли ключ
    (копия-синька CMP-MOB-089)?
-6. Подпись поля входа: `TextField` продукта требует подпись, ключа подписи
-   поля в каталоге нет; 117 ставит body-ключ кадра (frame.F03.01.body /
-   frame.F03.02.body) — инструкцию к полю — вместо вымышленной копии.
-   Рекомендуемый ответ: оставить так; иначе — ключ подписи поля в каталоге
-   (копия-синька CMP-MOB-089) и отдельный body.
+6. СНЯТ (сужение 2026-10-21): подпись поля входа — предмет first-run-ekran.
 7. Скачок знака натив→оверлей (арбитраж круга 2, «К владельцу»):
    платформа центрирует нативный знак (центр экрана), оверлей кладёт знак
    на место артборда (центр y≈357 при окне 844) — расхождение ≈65 px в

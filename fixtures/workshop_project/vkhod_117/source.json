@@ -6,42 +6,6 @@
     "accent": { "dark": "#d6f75a", "light": "#d6f75a" },
     "panel": { "dark": "#1e1e1d", "light": "#e6e5df" }
   },
-  "theme_projection_999": {
-    "primary": { "dark": "#d6f75a", "light": "#121211" },
-    "on-primary": { "dark": "#121211", "light": "#f3f2ee" }
-  },
-  "copy": {
-    "frame.F03.01.title": { "text": "Anmelden oder Konto erstellen", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
-    "frame.F03.01.body": { "text": "Nutzen Sie den angebotenen Anmeldeweg, um auf Ihre Versicherungen zuzugreifen.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
-    "frame.F03.02.title": { "text": "Kontakt bestätigen", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
-    "frame.F03.02.body": { "text": "Geben Sie den zugesandten Code ein. Prüfen Sie bei Bedarf Ihre Kontaktdaten.", "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED" },
-    "ui.auth.demo_entry": { "text": "Demo mit Beispieldaten ansehen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
-    "action.F03.A01": { "text": "Anmelden", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
-    "ui.auth.code_resend": { "text": "Code erneut senden", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" },
-    "auth.change_email": { "text": "E-Mail ändern", "source": "COPY 995 (поверхность входа базы B)" },
-    "action.F03.A02": { "text": "Zugang wiederherstellen", "review_status": "PRODUCT_COPY_REVIEW_REQUIRED" }
-  },
-  "composition_117": {
-    "_comment": "Состав кадров по UX-JSON F01/F03 (DIRECT: F03.01 → F03.A01/F03.02) + каталог; экран → элемент → компонент продукта (@/ui, CMP-MOB-002, токены D2.2.5.1) → ключ копии. Ключа подписи поля в каталоге нет: подпись TextField — body-ключ кадра (вопрос владельцу №6).",
-    "F03.01": [
-      ["title", "Text .title ink", "frame.F03.01.title"],
-      ["auth-email", "TextField (подпись caption ink)", "frame.F03.01.body"],
-      ["auth-demo-entry", "Button primary", "ui.auth.demo_entry"]
-    ],
-    "F03.02": [
-      ["title", "Text .title ink", "frame.F03.02.title"],
-      ["auth-code", "TextField (подпись caption ink)", "frame.F03.02.body"],
-      ["auth-verify", "Button primary", "action.F03.A01"],
-      ["auth-resend", "ссылка accent", "ui.auth.code_resend"],
-      ["auth-change-email", "ссылка accent", "auth.change_email"],
-      ["auth-no-access", "ссылка accent", "action.F03.A02"]
-    ]
-  },
-  "ds_117": {
-    "_comment": "design-system/project: tokens.css (.title, --size-lg 56, --radius-full), components/Button (primary: primary/on-primary, пилюля), components/TextField (пилюля на panel, подпись caption над полем). Пилюля — радиус >= половины --size-lg.",
-    "title": { "font_size": 28, "line_height": 32, "font_weight": "500" },
-    "pill_min_radius": 28
-  },
   "splash": {
     "tagline": "Versicherung. Erledigt.",
     "wordmark_alt": "complior"
@@ -167,16 +131,30 @@
   "surface_995": { "bg": "#FFFFFF", "pad_top": 48, "pad_h": 16, "pad_bottom": 16 }
   ,
   "maestro_117": {
-    "_comment": "Р2/Р3 (круг 6, Rev117/Adv117): сценарий Maestro судит ПОРЯДОК шагов YAML-парсером (комментарий шагом не является; закомментированное ожидание и ложное размещение красны). (а) перед takeScreenshot vkhod-117-splash — extendedWaitUntil visible по splash-overlay (маркер окна приложения); (б) перед takeScreenshot vkhod-117-first-run (и после splash-кадра) — оверлей исчез (extendedWaitUntil notVisible/assertNotVisible по splash-overlay) И видимый состав First-Run. Тексты — литералы каталога 111 (source.json first_run_111: ui.first_run.promise/enter_f03, снят с read-only docs/ B ДО субъекта), не из субъекта.",
+    "_comment": "Р2/Р3 (круг 6, Rev117/Adv117; совет критика 117 v2 круг 1): сценарий Maestro судит ПОРЯДОК шагов YAML-парсером (комментарий шагом не является; закомментированное ожидание и ложное размещение красны). (а) шаг непосредственно перед takeScreenshot vkhod-117-splash — extendedWaitUntil visible по splash-overlay; (б) между снимком splash и takeScreenshot vkhod-117-first-run — оверлей исчез (extendedWaitUntil notVisible/assertNotVisible по splash-overlay): свидетельство снятия оверлея, не приёмка экрана First-Run (first-run-ekran).",
     "scenario": "mobile/.maestro/vkhod-117-splash-vhod.yaml",
     "overlay_id": "splash-overlay",
     "shot_splash": "vkhod-117-splash",
-    "shot_first_run": "vkhod-117-first-run",
-    "first_run_promise": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
-    "first_run_cta": "Anmelden oder Konto erstellen"
+    "shot_first_run": "vkhod-117-first-run"
   },
-  "vkhod_safe_area_117": {
-    "_comment": "Р4 (круг 6, Rev117): корень кадров входа F03.01/F03.02 несёт top-инсет (paddingTop >= insets.top; на стенде 1080×2400 statusBars [0..136] — заголовок обязан лежать ниже, на C был y 108..164) и горизонтальные отступы колонки 16 (D2.2.5.1 gutters; на C контент на x=0..5). Первоисточник литерала — README компонентов DS / surface_995 pad_h.",
-    "column_gutter": 16
+  "sverka_123": {
+    "_comment": "Вердикт критика 117 v2 круг 1 + указание консультанта 15:25: видимость кадра splash на устройстве судит сверка кадра e2e с макетом механизмом 123 (scripts/sverka_maketa.py). Манифест H — путь от корня харнесса; кадры Splash dark/light в нём: id, тема, снимок shot_splash, макет и sha256 = splash_reference.etalons темы, порог. Значения сняты с кода kadry_117.json (frozen 123 v1) до субъекта; porog_min — нижняя граница порога (манифест 0.6; замер 117e оракулом 123: честный splash r1423 0.783/0.782, First-Run под именем splash r58d/r814 0.000/0.000).",
+    "manifest": "fixtures/workshop_project/mob_sverka_123/kadry_117.json",
+    "kadr_id": { "dark": "Splash dark", "light": "Splash light" },
+    "porog_min": 0.6,
+    "provodka": {
+      "_comment": "РЕШЕНИЕ арбитра verdicts/arbitration/contracts-117-v2-svjaz-123.md (б): проводка шага сверки 123 в workflow субъекта — клетки SVERKA_123_{STEP_UNCONDITIONAL,MANIFEST_CANON,HARNESS_PIN}. Литералы сняты с frozen 123 v1 приёмка п.5–6 ДО субъекта (Н-351): строка run шага — `python3 <script> --manifest <manifest> --kadry <kadry> --repo <repo>` (до первого |, shlex), каждый флаг ровно один раз, иных токенов нет; checkout пина — uses с префиксом checkout_uses, with.path/with.repository — литералы, with.ref ~ ref_re (ТОЧНЫЙ SHA не сравнивается: перепин .harness123 — дело 123). Текст шага — предмет 123 (автор implementer 123); 117 только наблюдает.",
+      "workflow": ".github/workflows/mobile.yml",
+      "job": "android-e2e",
+      "interpreter": "python3",
+      "script": ".harness123/scripts/sverka_maketa.py",
+      "manifest": ".harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json",
+      "kadry": "mobile/maestro-out-117",
+      "repo": ".",
+      "checkout_uses": "actions/checkout@",
+      "checkout_path": ".harness123",
+      "checkout_repo": "a3ka/dev-harness",
+      "ref_re": "\\A[0-9a-f]{40}\\Z"
+    }
   }
 }
