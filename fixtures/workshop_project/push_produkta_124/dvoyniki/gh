@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# gh-ДВОЙНИК батареи 124 (контракт 124, push-produkta). Сеть запрещена.
+# Состояние PR мира — $P124_WORLD/gh/prs.tsv: repo<TAB>number<TAB>head<TAB>base<TAB>state<TAB>title
+# (repo — `<владелец>/<имя>` как в мире; TAB/LF в полях не бывает — двойник
+# отказывает заголовку с управляющими байтами так же, как отказал бы
+# сохранить их в TSV, см. ниже). Интерфейс — подмножество gh 2.45:
+#   gh auth status [--hostname github.com]         rc 0 | rc 1 (P124_GH_AUTH=0)
+#   gh auth token                                  печатает токен-канарейку
+#   gh auth git-credential get                     протокол хелпера git
+#   gh pr list  -R|--repo <o/r> [--head|-H b] [--base|-B b] [--state|-s open|closed|merged|all]
+#               [--json <поля>] [--jq|-q <выражение>] [--limit|-L N]
+#   gh pr create -R|--repo <o/r> --base|-B <b> --head|-H <h> --title|-t <t> (--body|-b <s> | --body-file|-F <f>)
+# Отказы, верные GitHub: открытый PR той же пары head→base уже есть → rc 1
+# «a pull request for branch … already exists:» + URL; ветки head нет в
+# удалённом репозитории → rc 1 «Head sha can't be blank». Вызов вне
+# интерфейса (в т.ч. без --repo) → rc 97 «двойник 124: вызов вне интерфейса».
+set -uo pipefail
+W="${P124_WORLD:?P124_WORLD не задан}"
+REAL_GIT="${P124_REAL_GIT:?P124_REAL_GIT не задан}"
+HERE="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+mkdir -p "$W/log" "$W/gh"
+touch "$W/gh/prs.tsv"
+n="$(ls "$W/log" 2>/dev/null | wc -l)"
+{ printf 'gh'; printf '\t%q' "$@"; printf '\n'; } >> "$W/log/calls"
+env > "$W/log/env.gh.$n"
+TOKEN="$(cat "$HERE/kanarejka.txt")"
+vne() { printf 'двойник 124: вызов вне интерфейса: %s\n' "$*" >&2; exit 97; }
+authed() { [ "${P124_GH_AUTH:-1}" != "0" ]; }
+lc() { printf '%s' "$1" | LC_ALL=C tr 'A-Z' 'a-z'; }
+canon_repo() {  # $1 o/r → o/r как в мире (регистр мира) или пусто
+  local want d o r
+  want="$(lc "$1")"
+  for d in "$W"/remotes/*/*.git; do
+    [ -d "$d" ] || continue
+    o="$(basename "$(dirname "$d")")"; r="$(basename "$d" .git)"
+    if [ "$(lc "$o/$r")" = "$want" ]; then printf '%s/%s' "$o" "$r"; return 0; fi
+  done
+  return 1
+}
+
+g="${1:-}"; c="${2:-}"; shift 2 2>/dev/null || vne "$g $c"
+case "$g $c" in
+  "auth status")
+    while [ $# -gt 0 ]; do case "$1" in --hostname|-h) shift 2 ;; --hostname=*) shift ;; *) vne auth status "$@" ;; esac; done
+    if authed; then printf 'github.com\n  ✓ Logged in to github.com account a3ka (keyring)\n  - Token: gho_************************************\n' >&2; exit 0; fi
+    printf 'You are not logged into any GitHub hosts. To log in, run: gh auth login\n' >&2; exit 1 ;;
+  "auth token")
+    authed || { printf 'no oauth token found for github.com\n' >&2; exit 1; }
+    printf '%s\n' "$TOKEN"; exit 0 ;;
+  "auth git-credential")
+    [ "${1:-}" = "get" ] || exit 0
+    cat >/dev/null
+    authed || exit 1
+    printf 'protocol=https\nhost=github.com\nusername=x-access-token\npassword=%s\n' "$TOKEN"; exit 0 ;;
+  "pr list"|"pr create") ;;
+  *) vne "$g" "$c" "$@" ;;
+esac
+
+repo="" head="" base="" state="open" json="" jqx="" title="" body="" bodyset=0 limit=30
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -R|--repo) repo="${2:-}"; shift 2 ;;
+    --repo=*) repo="${1#--repo=}"; shift ;;
+    -H|--head) head="${2:-}"; shift 2 ;;
+    -B|--base) base="${2:-}"; shift 2 ;;
+    -s|--state) state="${2:-}"; shift 2 ;;
+    --json) json="${2:-}"; shift 2 ;;
+    -q|--jq) jqx="${2:-}"; shift 2 ;;
+    -L|--limit) limit="${2:-}"; shift 2 ;;
+    -t|--title) title="${2:-}"; shift 2 ;;
+    -b|--body) body="${2:-}"; bodyset=1; shift 2 ;;
+    -F|--body-file) [ -r "${2:-}" ] || { printf 'open %s: no such file or directory\n' "${2:-}" >&2; exit 1; }; bodyset=1; shift 2 ;;
+    *) vne "pr $c" "$@" ;;
+  esac
+done
+[ -n "$repo" ] || vne "pr $c без --repo (двойник не выводит репозиторий из клона)"
+authed || { printf 'To get started with GitHub CLI, please run:  gh auth login\n' >&2; exit 4; }
+R="$(canon_repo "$repo")" || { printf "GraphQL: Could not resolve to a Repository with the name '%s'. (repository)\n" "$repo" >&2; exit 1; }
+
+if [ "$c" = "list" ]; then
+  [ -n "$json" ] || vne "pr list без --json"
+  rows="$(awk -F'\t' -v R="$R" -v H="$head" -v B="$base" -v S="$state" '
+    $1==R && (H=="" || $3==H) && (B=="" || $4==B) && (S=="all" || $5==S) {
+      printf "%s\t%s\t%s\t%s\t%s\n", $2, $3, $4, $5, $6 }' "$W/gh/prs.tsv" | sort -t"$(printf '\t')" -k1,1nr | awk -v L="$limit" 'NR<=L')"
+  arr="$(printf '%s' "$rows" | jq -R -s --arg R "$R" '
+    split("\n") | map(select(length>0) | split("\t") |
+      {number:(.[0]|tonumber), headRefName:.[1], baseRefName:.[2], state:(.[3]|ascii_upcase), title:.[4],
+       url:("https://github.com/" + $R + "/pull/" + .[0])})')"
+  if [ -n "$jqx" ]; then printf '%s' "$arr" | jq -r "$jqx"; else printf '%s\n' "$arr"; fi
+  exit $?
+fi
+
+# pr create
+[ -n "$base" ] && [ -n "$head" ] && [ -n "$title" ] && [ "$bodyset" = "1" ] || vne "pr create без --base/--head/--title/--body"
+case "$title" in *[$'\t\n\r']*) printf 'двойник 124: управляющий байт в заголовке не хранится\n' >&2; exit 1 ;; esac
+dup="$(awk -F'\t' -v R="$R" -v H="$head" -v B="$base" '$1==R && $3==H && $4==B && $5=="open" {print $2; exit}' "$W/gh/prs.tsv")"
+if [ -n "$dup" ]; then
+  printf 'a pull request for branch "%s" into branch "%s" already exists:\nhttps://github.com/%s/pull/%s\n' "$head" "$base" "$R" "$dup" >&2
+  exit 1
+fi
+"$REAL_GIT" --git-dir="$W/remotes/$R.git" rev-parse -q --verify "refs/heads/$head" >/dev/null 2>&1 \
+  || { printf "pull request create failed: GraphQL: Head sha can't be blank, Base sha can't be blank, No commits between %s and %s, Head ref must be a branch (createPullRequest)\n" "$base" "$head" >&2; exit 1; }
+"$REAL_GIT" --git-dir="$W/remotes/$R.git" rev-parse -q --verify "refs/heads/$base" >/dev/null 2>&1 \
+  || { printf "pull request create failed: GraphQL: Base ref must be a branch (createPullRequest)\n" >&2; exit 1; }
+num="$(awk -F'\t' 'BEGIN{m=0} $2+0>m{m=$2+0} END{print m+1}' "$W/gh/prs.tsv")"
+printf '%s\t%s\t%s\t%s\topen\t%s\n' "$R" "$num" "$head" "$base" "$title" >> "$W/gh/prs.tsv"
+printf '\nCreating pull request for %s into %s in %s\n\n' "$head" "$base" "$R" >&2
+printf 'https://github.com/%s/pull/%s\n' "$R" "$num"
+exit 0
