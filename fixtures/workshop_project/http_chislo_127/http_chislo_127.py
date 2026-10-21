@@ -9,6 +9,12 @@
 таблицы и судится в её мире (контроль: модель там красна; без проверки — зелена).
 Пины мира сверяются с построенным миром ДО запуска субъекта; диск кандидата как истина не
 читается — из кандидата берутся ТОЛЬКО два судимых файла (T, S).
+Переменные близнецы (bliznecy): каждый конформный мир (все ожидания green) получает близнеца
+<id><suffix> — тот же мир плюс в корневой YAML добавлены операции, число и имена которых
+выбираются ГСЧ при каждом построении (производный пересобран). Счёт близнеца не совпадает ни с
+одним пином фиксированных миров и не равен числу добавленных путей, поэтому кандидат, узнающий
+известные миры по признакам (путь, хэш, версия, число путей) вместо подсчёта операций, краснеет;
+ожидание пина derived_operations близнеца = пин мира + добавлено (память проверяющего).
 
 Режимы:
   (без аргументов)    суд ТЕКУЩЕГО продукта: T/S из коммита current_product (sha256 по пину)
@@ -19,12 +25,14 @@
 Коды: 0 — все ожидания сошлись (стабы: 0 непойманных); 1 — именованное расхождение;
       2 — нечем проверить / мир не построен / пин мира не сошёлся (NOT_IMPLEMENTED, МИР-ОТКАЗ).
 Окружение: HTTP_CHISLO_127_BACK — клон Complior-back с коммитами миров и node_modules
-(умолчание /tmp/dev-harness-verify/Architect127/back); HTTP_CHISLO_127_KEEP=1 — не удалять миры.
+(умолчание /tmp/dev-harness-verify/Architect127/back); HTTP_CHISLO_127_KEEP=1 — не удалять миры;
+HTTP_CHISLO_127_SEED=<целое> — семя ГСЧ близнецов (по умолчанию случайное, печатается в начале прогона).
 Миры одноразовые (git archive коммита в mktemp), сеть не используется.
 """
 import hashlib
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -34,9 +42,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 BACK = os.environ.get('HTTP_CHISLO_127_BACK', '/tmp/dev-harness-verify/Architect127/back')
 KEEP = os.environ.get('HTTP_CHISLO_127_KEEP') == '1'
 HTTP_METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace')
+# Методы, которые считает загрузчик продукта (app/schemas/index.js METHODS); добавки близнецов — только из них.
+LOADER_METHODS = ('get', 'put', 'post', 'patch', 'delete')
 SUBJECTS = ('T', 'S')
 VERDICTS = ('green', 'red')
-MUTATION_KINDS = ('zamena', 'yaml-udalit-put', 'iz-kommita', 'proizvodnyi-udalit-put')
+MUTATION_KINDS = ('zamena', 'yaml-udalit-put', 'iz-kommita', 'proizvodnyi-udalit-put', 'yaml-dobavit-operacii')
 PIN_KEYS = ('derived_operations', 'api_version', 'gen_check_rc', 'index_operation_count',
             'source_sha256_aktualen', 'derived_sha256_soglasovan')
 CHECK_SUBJECTS = SUBJECTS + ('zagruzchik',)
@@ -44,6 +54,7 @@ ROOT_YAML = os.path.join('docs', 'contracts', 'BrokerOS_Unified_OpenAPI_v3.yaml'
 DERIVED_DOC = os.path.join('app', 'schemas', 'openapi.json')
 DERIVED_SRC = os.path.join('app', 'schemas', 'source.json')
 RUN_TIMEOUT = 180
+RNG = random.Random()
 
 
 class Unverifiable(Exception):
@@ -79,6 +90,10 @@ def load_source():
         for m in w['mutations']:
             if m['kind'] not in MUTATION_KINDS:
                 raise Unverifiable(f"source.json: мир {w['id']}: мутация вне алфавита: {m['kind']}")
+    src['worlds'] += twin_worlds(src)
+    ids = [w['id'] for w in src['worlds']]
+    if len(ids) != len(set(ids)):
+        raise Unverifiable('source.json: id близнеца совпал с id мира')
     sids = [s['id'] for s in src['stubs']]
     if len(sids) != len(set(sids)):
         raise Unverifiable('source.json: повтор id стаба')
@@ -92,6 +107,27 @@ def load_source():
     if len(sids) != len(set(sids)):
         raise Unverifiable('source.json: id стаба таблицы проверок совпал с ручным стабом')
     return src
+
+
+def twin_worlds(src):
+    """Конформный мир → переменный близнец: те же мутации + yaml-dobavit-operacii, пересборка."""
+    cfg = src['bliznecy']
+    lo, hi = cfg['putei']
+    if not (isinstance(lo, int) and isinstance(hi, int) and 1 <= lo <= hi) or not cfg['suffix']:
+        raise Unverifiable('source.json: bliznecy: putei [lo, hi] вне 1 <= lo <= hi или пустой suffix')
+    known = sorted({w['pin']['derived_operations'] for w in src['worlds']})
+    twins = []
+    for w in src['worlds']:
+        if set(w['expect'].values()) != {'green'}:
+            continue
+        add = {'kind': 'yaml-dobavit-operacii', 'putei': [lo, hi], 'baza': w['pin']['derived_operations'],
+               'izbegat': known}
+        twins.append({'id': f"{w['id']}{cfg['suffix']}", 'intent': f"переменный близнец {w['id']}",
+                      'commit': w['commit'], 'mutations': w['mutations'] + [add], 'regen': True,
+                      'pin': dict(w['pin']), 'expect': dict(w['expect'])})
+    if not twins:
+        raise Unverifiable('source.json: нет конформного мира — близнецов нет')
+    return twins
 
 
 def removal_stubs(src, ids):
@@ -152,14 +188,44 @@ def write_text(path, text):
         fh.write(text)
 
 
+def additions_block(m):
+    """Случайные пути с непустым набором методов загрузчика: (строки YAML, добавлено операций, путей)."""
+    lo, hi = m['putei']
+    while True:
+        methods = [RNG.sample(LOADER_METHODS, RNG.randint(1, len(LOADER_METHODS)))
+                   for _ in range(RNG.randint(lo, hi))]
+        added = sum(len(ms) for ms in methods)
+        if added != len(methods) and m['baza'] + added not in m['izbegat']:
+            break
+    tag = f'{RNG.getrandbits(48):012x}'
+    lines = []
+    for i, ms in enumerate(methods):
+        lines.append(f'  /v1/zz127-{tag}-{i}:')
+        for meth in ms:
+            lines += [f'    {meth}:', f'      operationId: zz127x{tag}x{i}{meth}', '      responses:',
+                      "        '204':", '          description: zz127']
+    return lines, added, len(methods)
+
+
 def apply_mutation(world_dir, wid, m, src):
+    """Применяет мутацию мира; возвращает число добавленных операций (0 — кроме yaml-dobavit-operacii)."""
+    if m['kind'] == 'yaml-dobavit-operacii':
+        path = os.path.join(world_dir, ROOT_YAML)
+        lines = read_text(path).split('\n')
+        at = [i for i, line in enumerate(lines) if line == 'paths:']
+        if len(at) != 1:
+            raise Unverifiable(f"МИР-ОТКАЗ {wid}: ключ 'paths:' в корневом YAML: вхождений {len(at)}, нужно 1")
+        block, added, paths = additions_block(m)
+        write_text(path, '\n'.join(lines[:at[0] + 1] + block + lines[at[0] + 1:]))
+        print(f'  МИР {wid}: добавлено операций {added} на {paths} путях')
+        return added
     if m['kind'] == 'iz-kommita':
         sha = src['commits'][m['from']]
         for rel in m['files']:
             data = git('show', f'{sha}:{rel}', binary=True)
             with open(os.path.join(world_dir, rel), 'wb') as fh:
                 fh.write(data)
-        return
+        return 0
     if m['kind'] == 'proizvodnyi-udalit-put':
         doc_path = os.path.join(world_dir, DERIVED_DOC)
         src_path = os.path.join(world_dir, DERIVED_SRC)
@@ -179,7 +245,7 @@ def apply_mutation(world_dir, wid, m, src):
             write_text(src_path, text.replace(old_sha, hashlib.sha256(new_bytes).hexdigest()))
         elif m['derived_sha256'] != 'ostavit':
             raise Unverifiable(f"МИР-ОТКАЗ {wid}: derived_sha256 вне алфавита obnovit|ostavit: {m['derived_sha256']!r}")
-        return
+        return 0
     path = os.path.join(world_dir, m['file'])
     text = read_text(path)
     if m['kind'] == 'zamena':
@@ -187,7 +253,7 @@ def apply_mutation(world_dir, wid, m, src):
         if found != m['count']:
             raise Unverifiable(f"МИР-ОТКАЗ {wid}: замена в {m['file']}: вхождений {found}, по пину {m['count']}")
         write_text(path, text.replace(m['old'], m['new']))
-        return
+        return 0
     lines = text.split('\n')
     starts = [i for i, line in enumerate(lines) if line == m['path_key']]
     if len(starts) != 1:
@@ -198,6 +264,7 @@ def apply_mutation(world_dir, wid, m, src):
     while end < len(lines) and (lines[end].strip() == '' or len(lines[end]) - len(lines[end].lstrip(' ')) > indent):
         end += 1
     write_text(path, '\n'.join(lines[:start] + lines[end:]))
+    return 0
 
 
 def node(world_dir, *args):
@@ -218,8 +285,9 @@ def build_world(world, src, scratch):
     if res.returncode != 0:
         raise Unverifiable(f'МИР-ОТКАЗ {wid}: tar rc {res.returncode}')
     os.symlink(os.path.join(BACK, 'node_modules'), os.path.join(d, 'node_modules'))
+    added = 0
     for m in world['mutations']:
-        apply_mutation(d, wid, m, src)
+        added += apply_mutation(d, wid, m, src)
     if world['regen']:
         rc, out = node(d, 'tests/tools/gen-contracts.js')
         if rc != 0:
@@ -239,6 +307,8 @@ def build_world(world, src, scratch):
     fact['source_sha256_aktualen'] = meta.get('source_sha256') == hashlib.sha256(read_bytes(os.path.join(d, ROOT_YAML))).hexdigest()
     fact['derived_sha256_soglasovan'] = meta.get('derived_sha256') == hashlib.sha256(read_bytes(os.path.join(d, DERIVED_DOC))).hexdigest()
     for key, want in world['pin'].items():
+        if key == 'derived_operations':
+            want += added
         if fact[key] != want:
             raise Unverifiable(f'МИР-ОТКАЗ {wid}: пин {key}: ожидался {want!r}, факт {fact[key]!r}')
     return d
@@ -350,6 +420,12 @@ def run_stubs(src, scratch):
 def main(argv):
     src = load_source()
     check_back(src)
+    seed_env = os.environ.get('HTTP_CHISLO_127_SEED')
+    if seed_env is not None and not (seed_env.isascii() and seed_env.isdigit()):
+        raise Unverifiable(f'HTTP_CHISLO_127_SEED вне алфавита [0-9]+: {seed_env!r}')
+    seed = int(seed_env) if seed_env is not None else random.SystemRandom().randrange(2 ** 32)
+    RNG.seed(seed)
+    print(f'СЕМЯ 127: {seed} (повтор: HTTP_CHISLO_127_SEED={seed})')
     scratch = tempfile.mkdtemp(prefix='http127-', dir=os.environ.get('TMPDIR') or '/tmp')
     try:
         if not argv:
