@@ -52,8 +52,12 @@ cp "$BUNDLE/plans/delivery-plan.json" docs/plans/delivery-plan-3.15.json
 # единый генератор (с --check) и валидатор spec-3.15
 cp "$HERE/gen_derived_315.py" tests/tools/generate_derived.py
 cp "$HERE/validate_import_315.py" tests/spec-3.15/validate_import_315.py
+# v2 (R-1): spec-3.14 мигрирован на смешанные профили; v2 (R-2): производные
+# app/schemas пересобирает gen-contracts.js (не руками)
+cp "$HERE/validate_spec314_315.py" tests/spec-3.14/validate_contract_v3_9.py
+cp "$HERE/gen_contracts_315.js" tests/tools/gen-contracts.js
 jq '{ids}' "$SRC/provenance/KNOWN-ISSUES-DECLARED.json" > tests/spec-3.15/known-issues-315.json
-# структура узнаёт spec-3.15 ДО генерации (FILES hashing последним)
+mkdir -p app/schemas
 python3 - <<'PY'
 import json
 p = 'structure-policy.json'
@@ -62,7 +66,12 @@ d['tests/spec-3.15/'] = 'пакетные проверки импорта 3.15 (
 json.dump(d, open(p, 'w'), ensure_ascii=False, indent=2)
 PY
 
-# генерация: published/bindings/manifest, FILES.sha256 — последним
+# генерация: published/bindings/manifest; затем производные app/schemas из
+# СМЕЖЕННОГО published; затем ПОВТОРНАЯ генерация — FILES.sha256 последним,
+# теперь с app/schemas в инвентаре (повтор схождения заодно доказывает
+# детерминизм писателя)
+python3 tests/tools/generate_derived.py
+node tests/tools/gen-contracts.js
 python3 tests/tools/generate_derived.py
 
 git add -A
