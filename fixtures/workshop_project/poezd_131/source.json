@@ -48,7 +48,11 @@
     {"id": "c21-merge-kod-roditel", "intent": "merge, у которого второй родитель несёт код: ленд --no-ff ветки с src/dop-*, доказанной собственным поездом; H(merge) — новая кодовая комбинация без доказательства, честная модель публикует K1 — «любой достижимый коммит» публикует код боковой ветки",
      "shagi": [["kod"], ["poezd"], ["metka"], ["merge_kod_side"]], "iskhod": "PUSH"},
     {"id": "c22-merge-kak-prefiks", "intent": "merge-коммит сам — кандидат на доказанный префикс: H(merge)=H(R) (боковая ветка учётная), честная модель публикует merge-коммит M; реализация, выкидывающая merge-коммиты из линии (--no-merges), теряет публикуемую точку",
-     "shagi": [["merge_uchet_side"], ["metka"]], "iskhod": "PUSH"}
+     "shagi": [["merge_uchet_side"], ["metka"]], "iskhod": "PUSH"},
+    {"id": "c23-daty-nemonotonnye", "intent": "немонотонные author- и committer-даты на first-parent линии (арбитраж 131 П-1; замер станции: 74 инверсии author date от ребейзов): K1 (дата 1800000300, доказан поездом)→K2 (дата 1800000200, доказан поездом, метка)→K3 (дата 1800000400, не доказан); «самый новый» = первый в порядке git rev-list --first-parent (порядок линии), не дата: сортировка кандидатов по %ct или %at публикует K1 вместо K2",
+     "shagi": [["dated_kod", 1800000300], ["poezd"], ["dated_kod", 1800000200], ["poezd"], ["metka"], ["dated_kod", 1800000400]], "iskhod": "PUSH"},
+    {"id": "c24-octopus-lend", "intent": "octopus-merge на first-parent линии (арбитраж 131 П-2): R→U (учётный)→M (merge --no-ff side-a side-b, обе боковые ветки учётные от R, H(M)=H(R), метка M) — merge-коммит с тремя родителями сам полноправный кандидат; перечисление линии с --max-parents=2 выпадает M и публикует U",
+     "shagi": [["uchet"], ["octopus"], ["metka"]], "iskhod": "PUSH"}
   ],
   "stubs": [
     {"id": "s01-vsegda-publikuet", "cell": "c05-net-dokaza", "defect": "служебным считает всё: без доказательства публикует вершину main",
@@ -90,6 +94,10 @@
     {"id": "s19-revlist-bez-first-parent", "cell": "c20-merge-uchet-side", "defect": "перебирает ВСЕ коммиты диапазона origin/main..main, а не first-parent линию: публикует боковое учётное W (обход критика 131, круг 2)",
      "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git rev-list \"${rmain}..${local_main}\")\""},
     {"id": "s20-lyuboj-dostizhimyj", "cell": "c21-merge-kod-roditel", "defect": "берёт любой достижимый коммит (rev-list --all), не только first-parent линию main: публикует доказанный код боковой ветки",
-     "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git rev-list --all \"^${rmain}\")\""}
+     "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git rev-list --all \"^${rmain}\")\""},
+    {"id": "s21-sort-po-date", "cell": "c23-daty-nemonotonnye", "defect": "перечисляет first-parent линию, но пересортировывает кандидатов по committer date (%ct, sort -s -k1,1nr): при немонотонных датах публикует не первый в порядке линии, а старший по дате (арбитраж 131, П-1)",
+     "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git log --first-parent --format=\"%ct %H\" \"${rmain}..${local_main}\" | sort -s -k1,1nr | cut -d\" \" -f2)\""},
+    {"id": "s22-tolko-binarnye-merge", "cell": "c24-octopus-lend", "defect": "перечисляет линию с --max-parents=2: merge-коммит с тремя родителями выпадает из перечисления, публикуется коммит под ним (арбитраж 131, П-2)",
+     "anchor": "cands=\"$(git rev-list --first-parent \"${rmain}..${local_main}\")\"", "zamena": "cands=\"$(git rev-list --first-parent --max-parents=2 \"${rmain}..${local_main}\")\""}
   ]
 }

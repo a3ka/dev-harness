@@ -208,6 +208,30 @@ class Mir:
         self.g('merge', '-q', '--no-ff', '-m', 'land: wip/131/implementer', 'wip-kod')
         self.g('branch', '-q', '-D', 'wip-kod')
 
+
+    # ── арбитраж 131 (кап 3, закрытый перечень П-1/П-2) ──
+    def op_dated_kod(self, when):
+        # Кодовый коммит с ЗАДАННЫМИ датами — author И committer обе (П-1):
+        # немонотонность дат на first-parent линии (ребейзы станции, замер
+        # арбитража 131: 74 инверсии author date); даты клетки строго различаются.
+        self.env['GIT_AUTHOR_DATE'] = str(when)
+        self.env['GIT_COMMITTER_DATE'] = str(when)
+        self.op_kod()
+        del self.env['GIT_AUTHOR_DATE'], self.env['GIT_COMMITTER_DATE']
+
+    def op_octopus(self):
+        # Octopus-ленд (П-2): две учётные боковые ветки от R, merge --no-ff обеих
+        # в main — merge-коммит M с тремя родителями сам на first-parent линии,
+        # H(M)=H(R) (боковые коммиты трогают только verdicts/).
+        r = self.g('rev-parse', 'refs/remotes/origin/main')
+        for name in ('side-a', 'side-b'):
+            self.g('checkout', '-q', '-b', name, r)
+            self.write('verdicts/%s-%s.md' % (name, self.tok()), 'учёт %s\n' % self.tok())
+            self.commit('verdict (131): %s' % name)
+        self.g('checkout', '-q', 'main')
+        self.g('merge', '-q', '--no-ff', '-m', 'land: wip/131/reviewer octopus', 'side-a', 'side-b')
+        self.g('branch', '-q', '-D', 'side-a', 'side-b')
+
     def kod_hash(self, rev):
         p = run(['bash', os.path.join(self.w, 'scripts', 'ci_klass.sh'), 'hash', rev], self.w, self.env)
         h = p.stdout.strip()
