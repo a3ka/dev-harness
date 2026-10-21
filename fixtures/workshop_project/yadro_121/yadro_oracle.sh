@@ -27,6 +27,17 @@
 #     расчёт, записей дерева — константа пина run_key_expected (П5); PGlite
 #     под меткой RUNTIME красен (evidence-ne-native) — признак движка
 #     читается из записи прогона, а не из правимого руками поля mode.
+#   — круг 1 по реализации (вердикты Adv121/Rev121 contracts-121-impl-v1):
+#     test:core с подменённым guard и тесты по флагам каталога проходили.
+#     Поэтому: (а') ПОСЛЕ test:core оракул исполняет СОБСТВЕННЫЕ пробы свойств
+#     чистым SQL (пин .product.native_probes: UPDATE/DELETE версий, журнал на
+#     COMMIT, SUCCEEDED без receipt, FORCE/BYPASSRLS/PUBLIC поведением, аудит);
+#     DAMAGE пина ломают свойство и при целых флагах (тела guard/баланса,
+#     USING(true), GRANT PUBLIC, redaction, стираемый аудит); (а'') lane
+#     postgres продукта — на СВЕЖЕМ кластере (R2); запись RUNTIME сверяется с
+#     журналом сервера окна прогона, красный прогон не пишет RUNTIME, ledger —
+#     выгрузкой 4 строк, PGLITE — историей движка (R3); сигнатуры тавтологий
+#     в тестах ядра статически красны (R1).
 #
 # Вызов:
 #   yadro_oracle.sh --model          самопроверка: честный мини-мир зелёный,
@@ -48,9 +59,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PIN="$HERE/pin_yadro121.json"
 TOY_SRC="$HERE/toy_yadro121"
 SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/yadro121-XXXXXX")"
-PG_CID=""
+PG_CID=""; PG_CID2=""
 
-cleanup() { [ -n "$PG_CID" ] && docker rm -f "$PG_CID" >/dev/null 2>&1; rm -rf "$SCRATCH"; }
+cleanup() {
+  [ -n "$PG_CID" ] && docker rm -f "$PG_CID" >/dev/null 2>&1
+  [ -n "$PG_CID2" ] && docker rm -f "$PG_CID2" >/dev/null 2>&1
+  rm -rf "$SCRATCH"
+}
 trap cleanup EXIT
 
 [ -f "$PIN" ] || { echo "ОТКАЗ: yadro121: pin-otsutstvuet (батарея повреждена)" >&2; exit 2; }
@@ -95,6 +110,17 @@ struktura() { # $1 корень, $2 секция пина (product|toy)
   while IFS= read -r marker; do
     grep -Fq -- "$marker" "$ROOT/tests/integration/core/admin_audit.test.js" || fail audit-bez-konteksta
   done < <(pin '.core_tests["tests/integration/core/admin_audit.test.js"][]')
+  # R1 круга 1 по реализации (Rev121): заведомо незначимая проверка — литеральные
+  # сигнатуры тавтологий пина (UPDATE … WHERE false, «… || true», assert.ok(true)
+  # в любом tests/integration/core/*.test.js — статически testy-pustye
+  local tf sig
+  while IFS= read -r tf; do
+    [ -n "$tf" ] || continue
+    while IFS= read -r sig; do
+      [ -n "$sig" ] || continue
+      grep -Fq -- "$sig" "$tf" && fail "testy-pustye: тавтология «$sig» в ${tf#"$ROOT"/}"
+    done < <(pin '.tautology_signatures[]')
+  done < <(find "$ROOT/tests/integration/core" -maxdepth 1 -type f -name '*.test.js' 2>/dev/null | LC_ALL=C sort)
   jq -e --arg s "$(pin .product.wiring.package_script)" '.scripts[$s] != null' \
     "$ROOT/package.json" >/dev/null 2>&1 || fail provodka-otsutstvuet
   grep -Fq "$(pin .product.wiring.lane_literal)" "$ROOT/tests/tools/run_backend_ci.py" 2>/dev/null \
@@ -108,7 +134,7 @@ struktura() { # $1 корень, $2 секция пина (product|toy)
 # (свежая запись не судилась вовсе — B2a–B2g зелёные).
 zapis_grammatika() { # $1 run.json; $2 секция пина (product|toy); $3 происхождение (derevo|fresh)
   local F="$1" SEC="$2" ORIG="$3"
-  local dir SSRE EMIN fld NE RE ROLES PAT is_nat is_pgl
+  local dir SSRE EMIN fld NE RE ROLES PAT is_nat is_pgl PGRE LED
   NE="$(pin2 '.[$sec].evidence.native_engine' "$SEC")"
   # Круг 3→4 (П4/П5): значения evidence сравниваются ТОЧНО над ИСХОДНЫМ
   # JSON-значением ВНУТРИ jq — shell $( ) срезает завершающие LF и принимал
@@ -123,6 +149,11 @@ zapis_grammatika() { # $1 run.json; $2 секция пина (product|toy); $3 �
   if [ "$is_pgl" = true ]; then
     # историческая PGlite-запись дерева: признак движка из записи, не поля mode
     jq -e --arg e "$NE" '(.engine // "") != $e' "$F" >/dev/null 2>&1 || fail evidence-ne-native
+    # R3 (Rev121): историческая PGLITE-запись не противоречит историческим
+    # PGlite-прогонам дерева — db из пина (замер docs/evidence/runs на B)
+    PGRE="$(pin2 '.[$sec].evidence.pglite_db_regex' "$SEC")"
+    jq -e --arg re "$PGRE" '(.db // "") | test($re)' "$F" >/dev/null 2>&1 \
+      || fail "evidence-razdelenie: PGLITE-запись $(basename "$(dirname "$F")") противоречит историческим PGlite-прогонам (db вне pglite_db_regex)"
   elif [ "$is_nat" = true ]; then
     jq -e --arg e "$NE" '(.engine // "") == $e' "$F" >/dev/null 2>&1 || fail evidence-ne-native
     RE="$(pin2 '.[$sec].evidence.native_db_regex' "$SEC")"
@@ -173,6 +204,16 @@ zapis_grammatika() { # $1 run.json; $2 секция пина (product|toy); $3 �
       jq -e --arg k "$(pin .product.evidence.run_key_expected)" '.run_key == $k' "$F" >/dev/null 2>&1 \
         || fail evidence-chuzhoj-klyuch
     fi
+    # R3 (Rev121): schema_migration.jsonl рядом с записью — выгрузка ledger БД
+    # КАК ЕСТЬ: ровно строки пина 001–004 (version/name/sha по ключам секции),
+    # не одна строка с sha256=run_key; прочие поля строки допустимы
+    LED="$(jq -c --arg sec "$SEC" '.[$sec].evidence.ledger' "$PIN")"
+    jq -e -s --argjson L "$LED" 'length == ($L.rows | length)
+        and all(range(0; length) as $i | .[$i] as $r | $L.rows[$i] as $e
+          | ($r | type) == "object" and (($r[$L.keys.version]) | tostring) == $e[0]
+            and $r[$L.keys.name] == $e[1] and $r[$L.keys.sha] == $e[2]; .)' \
+      "$(dirname "$F")/schema_migration.jsonl" >/dev/null 2>&1 \
+      || fail "ledger-pustoj: $(basename "$(dirname "$F")")/schema_migration.jsonl — не выгрузка ledger 001–004"
   else
     # алфавит меток закрыт пином: ни RUNTIME, ни PGLITE (в т.ч. с хвостовым LF)
     # — не запись грамматики; иначе она молча выпадала из всех ветвей проверки
@@ -183,6 +224,43 @@ zapis_grammatika() { # $1 run.json; $2 секция пина (product|toy); $3 �
           | select(. == "secret_locator" or . == "account_reference"
                    or endswith(".secret_locator") or endswith(".account_reference"))] | length) == 0' \
     "$F" >/dev/null 2>&1 || fail evidence-sekrety
+}
+
+# R3 (Rev121): запись RUNTIME — запись ПРОГОНА. Каждая строка sql[] — ЦЕЛЫЙ
+# оператор журнала сервера окна прогона test:core («statement: <sql>⏎» либо
+# «execute <unnamed>: <sql>⏎»; обрывок оператора не засчитывается), каждая
+# ошибка errors[] — строка журнала «ERROR:  <sqlstate>: <message>» того же окна
+# ЦЕЛИКОМ (PG дописывает к ошибке с позицией курсора « at character <N>» —
+# допустим только этот хвост; обрывок сообщения не засчитывается)
+# (продукт: журнал PG18 log_statement=all + log_error_verbosity=verbose между
+# маркерами оракула; мини-мир: журнал движка TOY_SERVER_LOG того же формата).
+# Свежая запись — против окна СВОЕГО прогона; запись дерева — против окна
+# свежего прогона того же закоммиченного test:core (воспроизводимость:
+# константы и рукописные строки ни в одном прогоне не исполняются).
+zapis_v_zhurnale() { # $1 run.json; $2 файл окна журнала; $3 происхождение (svezhaya|derevo)
+  [ -s "$2" ] || fail "evidence-deklaraciya: журнал окна прогона test:core пуст ($3 $(basename "$(dirname "$1")"))"
+  jq -e --rawfile log "$2" '
+      ($log | split("\n") | map(select(contains("ERROR:  ")) | sub("^.*?ERROR:  "; ""))) as $errs
+      | (.sql | type) == "array"
+      and all(.sql[]; . as $s
+        | ($log | contains("statement: " + $s + "\n")) or ($log | contains("execute <unnamed>: " + $s + "\n")))
+      and all(.errors[]?; ((.sqlstate // "") + ": " + (.message // "")) as $e
+        | any($errs[]; . == $e or (startswith($e + " at character ")
+            and (.[($e + " at character " | length):] | test("^[0-9]+$")))))' \
+    "$1" >/dev/null 2>&1 \
+    || fail "evidence-deklaraciya: $3 запись $(basename "$(dirname "$1")") — sql/errors не исполнялись в прогоне test:core"
+}
+
+# R3 (Rev121): красный прогон не пишет RUNTIME-запись (иная метка mode — допустима:
+# отличима от зелёной). Вызывается сразу после ОБЯЗАННОГО красным прогона.
+krasnyj_progon() { # $1 каталог evidence копии; $2 маркер перед красным прогоном; $3 имя пробы
+  local f
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    jq -e --arg n "$NAT" '(.mode // "") == $n' "$f" >/dev/null 2>&1 \
+      && fail "evidence-krasnyj-progon: красный прогон test:core (мутация $3) оставил RUNTIME-запись $(basename "$(dirname "$f")")"
+  done < <(find "$1" -name run.json -newer "$2" 2>/dev/null | LC_ALL=C sort)
+  return 0
 }
 
 evidence_grammatika() { # $1 корень, $2 секция пина (product|toy) — записи дерева
@@ -242,18 +320,31 @@ toy_trio() { # $1 корень мини-мира
 
 # ── Б1, мини-мир: test:core ИСПОЛНЯЕТ проверки и краснеет на поломке ─────────
 povedencheskie_proby_toy() { # $1 корень мини-мира (одноразовая копия)
-  local ROOT="$1" fresh from to MUT
+  local ROOT="$1" fresh from to MUT ev LOGT
+  local -a derevo
   command -v npm >/dev/null 2>&1 || needs_env "npm отсутствует — toy test:core не исполняется"
   command -v node >/dev/null 2>&1 || needs_env "node отсутствует"
-  # честный мир: набор зелёный, evidence пишется самим тестом
-  (cd "$ROOT" && npm run -s test:core) >/dev/null 2>&1 || fail model-razbita
+  # записи дерева — до прогона (R3: воспроизводимость сверяется журналом прогона)
+  mapfile -t derevo < <(find "$ROOT/docs/evidence/core" -name run.json 2>/dev/null | LC_ALL=C sort)
+  # честный мир: набор зелёный, evidence пишется самим тестом; журнал движка —
+  # аналог журнала сервера PG18 (TOY_SERVER_LOG: каждый исполненный оператор/ошибка)
+  LOGT="$SCRATCH/toy-server.log"; rm -f "$LOGT"
+  (cd "$ROOT" && TOY_SERVER_LOG="$LOGT" npm run -s test:core) >/dev/null 2>&1 || fail model-razbita
   fresh="$(find "$ROOT/docs/evidence/core" -mindepth 1 -maxdepth 1 -type d -name '*.native' -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)"
   [ -n "$fresh" ] && [ -f "$fresh/run.json" ] || fail model-razbita
   # П3: грамматика свежей записи — ТА ЖЕ функция, что и для дерева (П6-б/в)
   zapis_grammatika "$fresh/run.json" toy fresh
+  # R3: свежая запись — из журнала СВОЕГО прогона; RUNTIME-записи дерева —
+  # воспроизводятся этим же прогоном закоммиченного test:core
+  zapis_v_zhurnale "$fresh/run.json" "$LOGT" svezhaya
+  for ev in "${derevo[@]}"; do
+    jq -e --arg n "$NAT" '(.mode // "") == $n' "$ev" >/dev/null 2>&1 || continue
+    zapis_v_zhurnale "$ev" "$LOGT" derevo
+  done
   # мутационные пробы (Б1) с контрольным повтором П1: в копии $SCRATCH/mut
   # прогон БЕЗ sed обязан быть зелёным (иначе — одноразовая побочка,
-  # testy-ne-zelenye с именем пробы), с sed — красным (testy-pustye иначе)
+  # testy-ne-zelenye с именем пробы), с sed — красным (testy-pustye иначе),
+  # и красный прогон не оставляет RUNTIME-записи (R3)
   while IFS=$'\t' read -r from to; do
     [ -n "$from" ] || continue
     rm -rf "$SCRATCH/mut"; cp -r "$ROOT" "$SCRATCH/mut"; rm -rf "$SCRATCH/mut/.toy-state"
@@ -263,13 +354,103 @@ povedencheskie_proby_toy() { # $1 корень мини-мира (однораз
     fi
     sed -i "s|$from|$to|" "$MUT"
     grep -Fq "$to" "$MUT" || fail model-razbita
-    if (cd "$SCRATCH/mut" && npm run -s test:core) >/dev/null 2>&1; then fail testy-pustye; fi
+    touch "$SCRATCH/marker-red"
+    if (cd "$SCRATCH/mut" && npm run -s test:core) >/dev/null 2>&1; then fail "testy-pustye: toy test:core зелёный на мутации $to"; fi
+    krasnyj_progon "$SCRATCH/mut/docs/evidence/core" "$SCRATCH/marker-red" "$to"
   done < <(pin '.toy.engine_mutations[] | [.from,.to] | @tsv')
+}
+
+# ── собственные пробы свойств оракула ПОСЛЕ test:core (Adv121/R1) ────────────
+# Чистый SQL суперпользователя в контейнере оракула, без кода тестов продукта:
+# test:core, подменивший guard/политику/гранты/аудит в БД, не пройдёт, даже
+# если его собственные тесты и DAMAGE-пробы зелёно-красны «как надо». Пробы,
+# seed и литералы — пин (.product.native_probes); вызывается из
+# mutacionnye_proby_produkta (CID/DB — её локальные).
+psql_c() { docker exec "$CID" psql -X -q -At -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U postgres -d "$DB" -c "$1" 2>&1; }
+nativnye_proby() {
+  local n i p name reason sql err out chk chko perrole r res rc
+  res="$(psql_c "$(pin .product.native_probes.seed)")" \
+    || fail "testy-ne-zelenye: БД после test:core не принимает seed собственных проб оракула: ${res%%$'\n'*}"
+  n="$(pin '.product.native_probes.probes | length')"
+  for i in $(seq 0 $((n - 1))); do
+    p=".product.native_probes.probes[$i]"
+    name="$(pin "$p.name")"; reason="$(pin "$p.reason")"; sql="$(pin "$p.sql")"
+    err="$(pin "$p.error // \"\"")"; out="$(pin "$p.out // \"\"")"
+    chk="$(pin "$p.check // \"\"")"; chko="$(pin "$p.check_out // \"\"")"
+    perrole="$(pin "$p.per_role // false")"
+    if [ "$perrole" = true ]; then
+      # для КАЖДОЙ runtime-роли: точный out либо отказ с литералом error
+      while IFS= read -r r; do
+        [ -n "$r" ] || continue
+        res="$(psql_c "SET ROLE $r; $sql")"; rc=$?
+        if [ "$rc" -eq 0 ]; then
+          { [ -n "$out" ] && [ "$res" = "$out" ]; } \
+            || fail "$reason: собственная проба оракула $name: роль $r — «$sql» прошла (вывод «${res%%$'\n'*}»)"
+        else
+          { [ -n "$err" ] && printf '%s' "$res" | grep -Fq -- "$err"; } \
+            || fail "$reason: собственная проба оракула $name: роль $r — чужой отказ «${res%%$'\n'*}»"
+        fi
+      done < <(pin '.product.evidence.runtime_roles[]')
+    else
+      res="$(psql_c "$sql")"; rc=$?
+      if [ -n "$err" ]; then
+        { [ "$rc" -ne 0 ] && printf '%s' "$res" | grep -Fq -- "$err"; } \
+          || fail "$reason: собственная проба оракула $name — не отклонена (rc $rc, «${res%%$'\n'*}»)"
+      else
+        [ "$rc" -eq 0 ] || fail "$reason: собственная проба оракула $name — отказ «${res%%$'\n'*}»"
+        [ -z "$out" ] || [ "$res" = "$out" ] \
+          || fail "$reason: собственная проба оракула $name — вывод «${res//$'\n'/|}» вместо «${out//$'\n'/|}»"
+      fi
+    fi
+    if [ -n "$chk" ]; then
+      res="$(psql_c "$chk")"
+      [ "$res" = "$chko" ] || fail "$reason: собственная проба оракула $name — данные изменены («$res» вместо «$chko»)"
+    fi
+  done
+}
+
+# ── R2 (Rev121): lane postgres продукта на СВЕЖЕМ кластере ───────────────────
+# Второй одноразовый PG18 по digest пина: миграции не применены, admin URL на
+# БД admin_db — как сервис ci.yml. Lane исполняет сам раннер продукта; судятся
+# шаги с литералами steps пина и все шаги вида runtime (статические, напр.
+# @sql-frozen без истории git в копии, клеткой не судятся).
+lane_postgres() { # $1 корень продукта
+  local ROOT="$1" IMG PW CID2 PORT2 URL2 LP LF LN i bad
+  command -v python3 >/dev/null 2>&1 || needs_env "python3 отсутствует — lane postgres продукта не исполняется"
+  IMG="$(pin .product.mutations.docker_image)"
+  PW="$(pin .product.mutations.admin_password)"
+  CID2="yadro121-pg-lane-$$"
+  docker run --rm -d --name "$CID2" -e POSTGRES_PASSWORD="$PW" -p 127.0.0.1::5432 "$IMG" >/dev/null 2>&1 \
+    || needs_env "не удалось поднять $IMG для lane postgres (pull/демон)"
+  PG_CID2="$CID2"
+  for i in $(seq 1 60); do
+    docker exec "$CID2" pg_isready -U postgres -h 127.0.0.1 >/dev/null 2>&1 && break
+    sleep 0.5
+  done
+  PORT2="$(docker port "$CID2" 5432/tcp | head -1 | awk -F: '{print $NF}')"
+  [ -n "$PORT2" ] || fail model-razbita
+  URL2="postgres://postgres:$PW@127.0.0.1:$PORT2/$(pin .product.lane.admin_db)"
+  LP="$SCRATCH/lane"; mkdir -p "$LP"
+  tar -C "$ROOT" --exclude=./node_modules --exclude=./.git -cf - . | tar -C "$LP" -xf - || fail model-razbita
+  ln -s "$ROOT/node_modules" "$LP/node_modules"
+  LF="$(pin .product.lane.file)"; LN="$(pin .product.lane.name)"
+  (cd "$LP" && COMPLIOR_TEST_PG_ADMIN_URL="$URL2" PYTHONDONTWRITEBYTECODE=1 \
+    python3 "$LF" --lane "$LN" --out "$SCRATCH/lane-out") >"$SCRATCH/lane.log" 2>&1
+  [ -f "$SCRATCH/lane-out/summary.json" ] || fail "testy-ne-zelenye: lane $LN на свежем кластере не дал summary.json"
+  bad="$(jq -r --argjson steps "$(jq -c .product.lane.steps "$PIN")" --arg ln "$LN" '
+      [.results[] | select(.lane == $ln)] as $r
+      | ([$steps[] | . as $s | select(([$r[] | select((.command | tostring) | contains($s))] | length) == 0) | "нет шага " + $s]
+         + [$r[] | select(((.command | tostring) as $c | any($steps[]; . as $s | $c | contains($s))) or .kind == "runtime")
+                 | select(.rc != 0) | (.command | tostring) + " rc=" + (.rc | tostring)])
+      | join("; ")' "$SCRATCH/lane-out/summary.json" 2>/dev/null || echo "summary.json не читается")"
+  [ -z "$bad" ] || fail "testy-ne-zelenye: lane $LN на свежем кластере красен (R2): $bad"
+  docker rm -f "$CID2" >/dev/null 2>&1; PG_CID2=""
 }
 
 # ── Б1/Б2, продукт: живые мутационные пробы на одноразовой PG18 (docker) ────
 mutacionnye_proby_produkta() { # $1 корень продукта
-  local ROOT="$1" IMG DB PW CID PORT URL CP i fresh V K name dsql rvt nfresh rc
+  local ROOT="$1" IMG DB PW CID PORT URL CP i fresh V K name dsql rvt nfresh rc ev OKNO
+  local -a SARGS
   command -v node >/dev/null 2>&1 || needs_env "node отсутствует"
   command -v npm  >/dev/null 2>&1 || needs_env "npm отсутствует"
   [ -d "$ROOT/node_modules/pg" ] || needs_env "нет $ROOT/node_modules/pg (npm ci)"
@@ -279,8 +460,10 @@ mutacionnye_proby_produkta() { # $1 корень продукта
   DB="$(pin .product.mutations.db)"
   PW="$(pin .product.mutations.admin_password)"
   CID="yadro121-pg-$$"
+  # журнал сервера: каждый оператор и ошибка с SQLSTATE (R3 — запись прогона)
+  mapfile -t SARGS < <(pin '.product.mutations.server_args[]')
   docker run --rm -d --name "$CID" -e POSTGRES_PASSWORD="$PW" -e POSTGRES_DB="$DB" \
-    -p 127.0.0.1::5432 "$IMG" >/dev/null 2>&1 || needs_env "не удалось поднять $IMG (pull/демон)"
+    -p 127.0.0.1::5432 "$IMG" "${SARGS[@]}" >/dev/null 2>&1 || needs_env "не удалось поднять $IMG (pull/демон)"
   PG_CID="$CID"
   for i in $(seq 1 60); do
     docker exec "$CID" pg_isready -U postgres -h 127.0.0.1 >/dev/null 2>&1 && break
@@ -307,34 +490,65 @@ mutacionnye_proby_produkta() { # $1 корень продукта
   [ "$K" = "$(pin .product.evidence.run_key_expected)" ] || fail model-razbita
   LIVE_V="$V"; LIVE_K="$K"
   touch "$SCRATCH/marker"
+  # окно журнала сервера прогона test:core — между маркерами оракула
+  psql_c "SELECT 'yadro121-okno-nachalo'" >/dev/null 2>&1 || fail model-razbita
   (cd "$CP" && COMPLIOR_TEST_PG_ADMIN_URL="$URL" npm run -s test:core) >/dev/null 2>&1 || fail testy-ne-zelenye
+  psql_c "SELECT 'yadro121-okno-konec'" >/dev/null 2>&1 || fail model-razbita
+  for i in $(seq 1 40); do
+    docker logs "$CID" 2>&1 | grep -Fq "yadro121-okno-konec" && break
+    sleep 0.25
+  done
+  OKNO="$SCRATCH/okno-test-core.log"
+  docker logs "$CID" 2>&1 | awk 'index($0, "yadro121-okno-nachalo") { on = 1; next } index($0, "yadro121-okno-konec") { on = 0 } on' > "$OKNO"
+  # (а') СОБСТВЕННЫЕ пробы свойств оракула на БД после test:core (Adv121/R1)
+  nativnye_proby
+  # (а'') R2: lane postgres продукта на СВЕЖЕМ кластере (второй контейнер)
+  lane_postgres "$ROOT"
   # (б) evidence пишется самим тестом: грамматика П3 к КАЖДОЙ свежей записи
-  # (не только первой по сортировке — дефект B2f круга 2)
+  # (не только первой по сортировке — дефект B2f круга 2); R3: sql/errors —
+  # из журнала СВОЕГО прогона; RUNTIME-записи дерева воспроизводятся им же
   nfresh=0
   while IFS= read -r fresh; do
     [ -n "$fresh" ] || continue
     zapis_grammatika "$fresh" product fresh
+    zapis_v_zhurnale "$fresh" "$OKNO" svezhaya
     nfresh=$((nfresh + 1))
   done < <(find "$CP/docs/evidence/core" -name run.json -newer "$SCRATCH/marker" 2>/dev/null | LC_ALL=C sort)
   [ "$nfresh" -ge 1 ] || fail evidence-otsutstvuet
+  while IFS= read -r ev; do
+    [ -n "$ev" ] || continue
+    jq -e --arg n "$NAT" '(.mode // "") == $n' "$ev" >/dev/null 2>&1 || continue
+    zapis_v_zhurnale "$ev" "$OKNO" derevo
+  done < <(find "$ROOT/$(pin .product.evidence.dir)" -name run.json 2>/dev/null | LC_ALL=C sort)
   # (в) DAMAGE-пробы (П1/П2): контроль на ЦЕЛОМ мире в тех же условиях → rc 0
   # обязан (одноразовая побочка = testy-ne-zelenye с именем пробы) → DAMAGE →
   # краснота обязана (testy-pustye иначе) → кластерное состояние восстанавливает
   # САМ оракул (revert пина; поле обязательно — model-razbita при отсутствии)
-  while IFS=$'\t' read -r name dsql rvt; do
-    [ -n "$name" ] || continue
-    [ -n "$rvt" ] || fail model-razbita
+  # Круг 1 по реализации: повреждённый прогон идёт на СВЕЖЕЙ БД — в тех же
+  # условиях, что и контроль (первый прогон на сброшенной БД). Иначе БД-побочка
+  # контрольного прогона (строка с постоянным ключом, напр. retention_class C
+  # ee21360) краснит повреждённый прогон БЕЗ участия мутации и слепит DAMAGE
+  # (замер: C на теле guard_immutable — красен лишь дублем ключа из контроля).
+  sbros_bd() {
     docker exec "$CID" psql -q -U postgres -d postgres \
       -c "DROP DATABASE $DB WITH (FORCE)" -c "CREATE DATABASE $DB" >/dev/null 2>&1 || fail model-razbita
     (cd "$CP" && MIGRATION_DATABASE_URL="$URL" node server/infrastructure/migrations/run.js --through 004) \
       >/dev/null 2>&1 || fail testy-ne-zelenye
+  }
+  while IFS=$'\t' read -r name dsql rvt; do
+    [ -n "$name" ] || continue
+    [ -n "$rvt" ] || fail model-razbita
+    sbros_bd
     if ! (cd "$CP" && COMPLIOR_TEST_PG_ADMIN_URL="$URL" npm run -s test:core) >/dev/null 2>&1; then
       fail "testy-ne-zelenye: набор красен на честном мире при повторе (контроль перед мутацией $name)"
     fi
+    sbros_bd
     docker exec "$CID" psql -q -U postgres -d "$DB" -c "$dsql" >/dev/null 2>&1 || fail model-razbita
+    touch "$SCRATCH/marker-red"
     if (cd "$CP" && COMPLIOR_TEST_PG_ADMIN_URL="$URL" npm run -s test:core) >/dev/null 2>&1; then
-      fail testy-pustye
+      fail "testy-pustye: test:core зелёный на мутации $name"
     fi
+    krasnyj_progon "$CP/docs/evidence/core" "$SCRATCH/marker-red" "$name"
     docker exec "$CID" psql -q -U postgres -d "$DB" -c "$rvt" >/dev/null 2>&1 || fail model-razbita
   done < <(pin '.product.mutations.damage[] | [.name,.sql,.revert] | @tsv')
   docker rm -f "$CID" >/dev/null 2>&1; PG_CID=""
@@ -360,8 +574,16 @@ sudit_produkt() {
 # «errors: db.errors», «const state = fs.mkdtempSync» — П6 арбитража 121),
 # toy_pg.js (флаги свойств), и Б1-декой «безусловно зелёные тесты с маркерами»
 # (обход круга 1). Декой обязан уйти rc 1 РОВНО своей причиной; rc 0/2 или
-# чужая причина = orakul-slep. Всего декоев: 16 (11 круга 2 + 3 П6 + 2 круга 3:
-# LF-обход точного равенства П4/П5 — роль/ключ записи дерева с хвостовым «\n»).
+# чужая причина = orakul-slep. Всего декоев: 24 (11 круга 2 + 3 П6 + 2 круга 3:
+# LF-обход точного равенства П4/П5 — роль/ключ записи дерева с хвостовым «\n»;
+# + 8 круга 1 по реализации, вердикты Rev121/Adv121 contracts-121-impl-v1:
+# тавтология теста «assert.equal(balance, 0,» → «assert.ok(true,», красный
+# прогон пишет RUNTIME «if (t.status !== 0) process.exit(1);», PGLITE-запись
+# против истории, ledger-выгрузка в одну строку, sql свежей записи константой
+# и обрывком оператора «sql: db.executed», ошибка-обрывок «errors: db.errors»,
+# рукописная строка sql записи дерева). Docker-клетки
+# продукта (собственные пробы оракула, DAMAGE-тела, lane на свежем кластере)
+# мини-миром не декоятся — свидетели на живой PG18 (контракт 121, НЕ ЗАЩИЩАЕТ).
 sudit_model() {
   local d n want M rc got
   local SERVER RLS FIN EVN EVP TMP CORE
@@ -407,6 +629,20 @@ sudit_model() {
   # внутри jq обязано отвергнуть (shell-срезка LF принимала оба)
   mut_rol_lf()            { jq '.role = "brokeros_api\n"' "$EVN" > "$TMP" && mv "$TMP" "$EVN"; }
   mut_klyuch_lf()         { jq '.run_key = (.run_key + "\n")' "$EVN" > "$TMP" && mv "$TMP" "$EVN"; }
+  # Круг 1 по реализации (Rev121 R1/R3): тавтология в тесте свойства; красный
+  # прогон пишет RUNTIME-запись; PGLITE-запись против истории движка; ledger-
+  # выгрузка одной строкой; sql свежей записи — константа; запись дерева
+  # с рукописной строкой sql (не воспроизводится закоммиченным test:core)
+  mut_tavtologiya()       { sed -i 's/assert.equal(balance, 0,/assert.ok(true,/' "$FIN"; }
+  mut_krasnyj_pishet()    { sed -i 's/if (t.status !== 0) process.exit(1);/if (t.status !== 0) process.exitCode = 1;/' "$CORE"; }
+  mut_pglite_istoriya()   { jq '.db = "ToyPostgreSQL 16.x (исторический прогон) toy, toy-pglite"' "$EVP" > "$TMP" && mv "$TMP" "$EVP"; }
+  mut_ledger_odna()       { tail -n 1 "$(dirname "$EVN")/schema_migration.jsonl" > "$TMP" && mv "$TMP" "$(dirname "$EVN")/schema_migration.jsonl"; }
+  mut_sql_konstanta()     { sed -i "s|sql: db.executed|sql: ['SELECT pg_catalog.version()']|" "$CORE"; }
+  mut_derevo_ruchnaya()   { jq --arg s "SELECT 'CREATE ROLE brokeros_authz NOLOGIN'" '.sql += [$s]' "$EVN" > "$TMP" && mv "$TMP" "$EVN"; }
+  # обрывок оператора и ошибки: подстрока журнала есть, целого оператора/строки
+  # ошибки нет («SELECT»; «42501: ADMIN_AUDIT_CONTEXT_REQUIRED» без хвоста движка)
+  mut_sql_obryvok()       { sed -i "s|sql: db.executed|sql: ['SELECT']|" "$CORE"; }
+  mut_oshibka_obryvok()   { sed -i "s|errors: db.errors|errors: [{ sqlstate: '42501', message: 'ADMIN_AUDIT_CONTEXT_REQUIRED' }]|" "$CORE"; }
   rm -rf "$SCRATCH/honest"
   cp -r "$TOY_SRC" "$SCRATCH/honest"
   rm -rf "$SCRATCH/honest/.toy-state"
@@ -431,6 +667,14 @@ sudit_model() {
     'svezhij-sqlstate-vne|evidence-ne-native|mut_sqlstate_vne'
     'derevnaya-rol-lf|evidence-ne-native|mut_rol_lf'
     'derevnyj-klyuch-lf|evidence-chuzhoj-klyuch|mut_klyuch_lf'
+    'tavtologiya|testy-pustye: тавтология|mut_tavtologiya'
+    'krasnyj-progon-pishet|evidence-krasnyj-progon|mut_krasnyj_pishet'
+    'pglite-protiv-istorii|evidence-razdelenie: PGLITE-запись|mut_pglite_istoriya'
+    'ledger-odna-stroka|ledger-pustoj: 20261021T000000Z.native/schema_migration.jsonl|mut_ledger_odna'
+    'sql-konstanta|evidence-deklaraciya: svezhaya|mut_sql_konstanta'
+    'derevo-ruchnaya-stroka|evidence-deklaraciya: derevo|mut_derevo_ruchnaya'
+    'sql-obryvok|evidence-deklaraciya: svezhaya|mut_sql_obryvok'
+    'oshibka-obryvok|evidence-deklaraciya: svezhaya|mut_oshibka_obryvok'
   )
   for d in "${dekos[@]}"; do
     n="${d%%|*}"; want="$(printf '%s' "${d#*|}" | cut -d'|' -f1)"; M="$(printf '%s' "${d#*|}" | cut -d'|' -f2-)"
