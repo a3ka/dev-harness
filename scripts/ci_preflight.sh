@@ -13,8 +13,11 @@
 #       GitHub Actions вне этого алфавита здесь НЕ вычисляются.
 #   (б) рабочий каталог каждого run-шага — по старшинству GitHub Actions:
 #       working-directory шага > defaults.run.working-directory джобы >
-#       defaults.run.working-directory workflow > корень R; отсутствующий каталог —
-#       working-directory-otsutstvuet. Джобы PREFLIGHT_CLASS: local (умолчание для
+#       defaults.run.working-directory workflow > корень R; каталог ОБЯЗАН лежать
+#       в репозитории: путь канонизируется (realpath) и проверяется «под
+#       одноразовой копией», иначе working-directory-otsutstvuet — абсолютный путь
+#       и `..` не исполняются (иначе шаг исполнился бы в самом R и мутировал его).
+#       Джобы PREFLIGHT_CLASS: local (умолчание для
 #       рукописных) исполняются в одноразовой копии R (R не мутируется): каждый
 #       run-шаг — `bash -c` В ЭТОМ каталоге с окружением
 #       env workflow < env джобы < env шага (литералы как есть); выражения точной
@@ -66,7 +69,7 @@ STUB_PREFIX = 'PREFLIGHT-STUB-'
 # встречается в любом поле файла и судится по объявленности.
 EXPR_RE = re.compile(r'\$\{\{\s*(secrets|vars)\.([A-Z][A-Z0-9_]*)\s*\}\}')
 TOKEN_RE = re.compile(r'\b(secrets|vars)\.([A-Z][A-Z0-9_]*)\b')
-DECLARED_RE = re.compile(r'^- (secret|variable) ([A-Za-z0-9_]+)$')
+DECLARED_RE = re.compile(r'^- (secret|variable) ([A-Z][A-Z0-9_]*)$')
 
 
 def refuse(reason, detail=None, rc=1):
@@ -119,7 +122,12 @@ def step_env(doc, job, step):
 
 
 def declared_names(path):
-    """Поле `ПРЕДПОСЫЛКИ:` контракта (маркер в первой колонке, тело до пустой строки)."""
+    """Поле `ПРЕДПОСЫЛКИ:` контракта (маркер в первой колонке, тело до пустой строки).
+
+    Имя secret/variable — [A-Z][A-Z0-9_]*, ровно алфавит гейта check_predposylki.sh
+    и ровно алфавит ссылок TOKEN_RE: одна грамматика в трёх местах, а не две
+    (правка поля не должна расходиться между гейтом и предполётом).
+    """
     if not path or not os.path.isfile(path):
         sys.stderr.write('preflight ОТКАЗ: контракт не найден: %s\n' % path)
         sys.exit(2)
@@ -174,8 +182,27 @@ workdir_workflow = default_workdir(doc, '.')
 parent = '/tmp/dev-harness-verify' if os.path.isdir('/tmp/dev-harness-verify') else None
 scratch = tempfile.mkdtemp(prefix='ci122-preflight-', dir=parent)
 copy = os.path.join(scratch, 'repo')
-shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns('.git'))
+copy_real = os.path.realpath(copy)
+
+
+def resolve_workdir(step_wd):
+    """Каталог шага В одноразовой копии R: realpath + проверка «лежит под копией».
+
+    os.path.join на абсолютном step_wd отбрасывает префикс копии (шаг исполнился бы
+    в самом R и мутировал его), а `..` выводил за её корень. Канонизируем и
+    спрашиваем: каталог существует и лежит под копией — иначе именованный отказ
+    working-directory-otsutstvuet (§Г2 «обязан существовать в репо», «без мутации R»).
+    """
+    wd = os.path.realpath(os.path.join(copy, step_wd))
+    if wd != copy_real and not wd.startswith(copy_real + os.sep):
+        return None
+    return wd if os.path.isdir(wd) else None
+
+
 try:
+    # symlinks=True: симлинки переносятся симлинками (как делает checkout на GitHub),
+    # и битый симлинк в R не роняет копирование трассировкой shutil.Error.
+    shutil.copytree(ROOT, copy, ignore=shutil.ignore_patterns('.git'), symlinks=True)
     local_count = 0
     station_names = []
     for name in selected:
@@ -197,16 +224,17 @@ try:
                 refuse('yaml-nevaliden', 'джоба %s: run — не строка' % name)
             step_wd = step['working-directory'] \
                 if isinstance(step.get('working-directory'), str) else job_workdir
-            if not os.path.isdir(os.path.join(copy, step_wd)):
+            step_dir = resolve_workdir(step_wd)
+            if step_dir is None:
                 refuse('working-directory-otsutstvuet', step_wd)
-            runnable.append((step, step_wd))
+            runnable.append((step, step_dir))
         if job_class == 'station':
             station_names.append(name)
             continue
         local_count += 1
-        for step, step_wd in runnable:
+        for step, step_dir in runnable:
             proc = subprocess.run(['bash', '-c', stub(step['run'])],
-                                  cwd=os.path.join(copy, step_wd),
+                                  cwd=step_dir,
                                   env=step_env(doc, job, step),
                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if proc.returncode != 0:
