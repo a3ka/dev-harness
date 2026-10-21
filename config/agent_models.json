@@ -57,9 +57,9 @@
     },
     "apex": {
       "model": "@gpt-astra",
-      "fallback": "@fable",
+      "fallback": "@gpt-terra",
       "autoFallback": true,
-      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). critic — верхний уровень чужого семейства относительно architect (GLM, zai): Astra; замена Astra — только Fable (оба не zai) (decisions/005). Отменяет временное Opus (15.10)."
+      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). critic — верхний уровень чужого семейства относительно architect (GLM, zai): Astra; замена Astra — только Fable (оба не zai) (decisions/005). Отменяет временное Opus (15.10). Фолбек @fable → @gpt-terra словом владельца 2026-10-21 ~21:15 UTC («не сади лимиты антропика»): Astra срывается на Codex-фильтре cybersecurity, autoFallback уводил критика на Anthropic."
     },
     "audit": {
       "model": "@opus",
