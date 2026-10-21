@@ -4,6 +4,8 @@
 смонтирован, ВИДИМ реальным рендером (toBeVisible: оверлей, Image и
 цепочка предков), БЕЗ степеней свободы геометрии (transform любой,
 margin*, края ≠ 0 — SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT}, Adv117v2),
+z-ПОРЯДОК ПОВЕРХ дерева (zIndex >= 1 над FirstRun + порядок sibling —
+SPLASH_OVERLAY_ZORDER_{DARK,LIGHT}, Adv117v3),
 Image оверлея = модуль композита своей схемы (С2-а),
 вписан по окну (Р6), без Text-узлов, commit-журнал prevent → первый commit с
 оверлеем → hide (С2-б), автоскрытие таймером-литералом; тема ОС на
@@ -280,6 +282,49 @@ MUTANTS = {
           "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%',"
           " marginLeft: 50 }]}")],
         ['SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT'],
+        [],
+    ),
+    # (Adv117v3, круг по реализации) Z-ПОРЯДОК: сплеш ПОД полноэкранным
+    # FirstRun — RNTL toBeVisible не видит перекрытия соседом, прежняя
+    # батарея зелена при zIndex: -1 (находка Adv117v3). Оверлей смонтирован
+    # и каноничен по source/геометрии, но пользователь видит First-Run.
+    'overlay-zindex-minus': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '            zIndex: 1000,\n', '            zIndex: -1,\n')],
+        ['SPLASH_OVERLAY_ZORDER_DARK', 'SPLASH_OVERLAY_ZORDER_LIGHT'],
+        [],
+    ),
+    # (Adv117v3) нулевой zIndex: наравне с деревом — порядок решают узлы,
+    # канон требует уровня НАД FirstRun.
+    'overlay-zindex-zero': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '            zIndex: 1000,\n', '            zIndex: 0,\n')],
+        ['SPLASH_OVERLAY_ZORDER_DARK', 'SPLASH_OVERLAY_ZORDER_LIGHT'],
+        [],
+    ),
+    # (Adv117v3) оверлей ПЕРЕД FirstRun в порядке sibling БЕЗ zIndex:
+    # и уровень, и порядок узлов нарушены (полноэкранный FirstRun
+    # рисуется поверх сплеша при зелёном toBeVisible).
+    'overlay-before-firstrun': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '            zIndex: 1000,\n', ''),
+         ('mobile/src/bootstrap/pilot-app.tsx',
+          "      {frame === 'first-run' ? (\n"
+          '        <FirstRunScreen onEnter={handleFirstRunContinue} />\n'
+          '      ) : null}\n', ''),
+         ('mobile/src/bootstrap/pilot-app.tsx',
+          '      ) : null}\n'
+          '    </View>\n'
+          '    </ThemeContext.Provider>\n'
+          '  );\n}',
+          '      ) : null}\n'
+          "      {frame === 'first-run' ? (\n"
+          '        <FirstRunScreen onEnter={handleFirstRunContinue} />\n'
+          '      ) : null}\n'
+          '    </View>\n'
+          '    </ThemeContext.Provider>\n'
+          '  );\n}')],
+        ['SPLASH_OVERLAY_ZORDER_DARK', 'SPLASH_OVERLAY_ZORDER_LIGHT'],
         [],
     ),
     # (В2-2, круг 7, Rev117r2) StatusBar отсутствует (форма C 74c4c586):

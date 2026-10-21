@@ -15,6 +15,8 @@ Splash-Hell.png, припиненные sha256 (несовпадение — rc2
 ГЕОМЕТРИЯ оверлея: сегмент JSX оверлея в PilotApp не несёт transform
 (любой) и смещений layout сверх канона (SPLASH_OVERLAY_NO_TRANSFORM,
 SPLASH_OVERLAY_NO_LAYOUT_OFFSET — Adv117v2, круг по реализации);
+z-ПОРЯДОК оверлея: zIndex >= 1 в сегменте JSX + позиция ПОЗЖЕ
+FirstRunScreen (SPLASH_OVERLAY_ZORDER — Adv117v3, круг по реализации);
 произведённые платформой ассеты судятся ВЫХОДОМ настоящего генератора
 (getAndroidSplashConfig + setSplashImageDrawablesAsync из node_modules
 продукта): содержимое drawable-{mdpi..xxxhdpi}/splashscreen_logo.png и
@@ -995,6 +997,39 @@ def run_checks(repo: Path):
             print('RED SPLASH_OVERLAY_NO_LAYOUT_OFFSET:', bad_off)
         check(not bad_off, 'SPLASH_OVERLAY_NO_LAYOUT_OFFSET')
 
+    # 6ж (Adv117v3, круг по реализации): Z-ПОРЯДОК оверлея в КОДЕ
+    # потребителя: инвариант 8 — оверлей рендерится ПОВЕРХ дерева
+    # оболочки (последний ребёнок корня PilotApp). Находка Adv117v3:
+    # `zIndex: -1` у splash-overlay проходил обе пробы (toBeVisible не
+    # видит перекрытия соседом) — сплеш под полноэкранным FirstRun,
+    # пользователь видит First-Run вместо Splash.png. Судит: (1) сегмент
+    # JSX оверлея несёт zIndex — литеральное число >= zindex_min (не
+    # отрицательное, не ноль, не отсутствует; fail-closed на
+    # не-литеральном значении); (2) сегмент оверлея стоит ПОЗЖЕ вызова
+    # FirstRunScreen в файле (порядок sibling: у равных zIndex порядок
+    # решают узлы — оверлей рендерится после полноэкранного FirstRun).
+    # Рендер-истина — поведенческие SPLASH_OVERLAY_ZORDER_{DARK,LIGHT}
+    # (vkhod.test.tsx): сплющенный zIndex > zIndex корня FirstRun и
+    # ветка оверлея в дереве хоста позже ветки FirstRun.
+    zo = ov['zorder']
+    bad_z = []
+    if seg is None:
+        bad_z.append('сегмент оверлея не найден')
+    else:
+        mz = re.search(r'\bzIndex\s*:\s*(-?\d+)\b', seg)
+        if mz is None:
+            bad_z.append('zIndex отсутствует/не литерал')
+        elif int(mz.group(1)) < zo['zindex_min']:
+            bad_z.append('zIndex ' + mz.group(1))
+        fr_at = code.find(zo['firstrun_usage'])
+        if fr_at == -1:
+            bad_z.append(zo['firstrun_usage'] + ' не найден')
+        elif seg_start < fr_at:
+            bad_z.append('оверлей раньше ' + zo['firstrun_usage'])
+    if bad_z:
+        print('RED SPLASH_OVERLAY_ZORDER:', bad_z)
+    check(not bad_z, 'SPLASH_OVERLAY_ZORDER')
+
     # 7. userInterfaceStyle automatic — иначе тёмный splash недостижим
     # на устройстве ( Expo выбирает блок по теме ОС).
     check(expo.get('userInterfaceStyle') == lit['user_interface_style'],
@@ -1570,6 +1605,44 @@ def matrix(repo: Path):
               "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%',"
               " marginLeft: 50 }]}")],
             ['SPLASH_OVERLAY_NO_LAYOUT_OFFSET'], [],
+        ),
+        # (Adv117v3, круг по реализации) Z-ПОРЯДОК: сплеш ПОД полноэкранным
+        # FirstRun (zIndex: -1) — код потребителя несёт zIndex ниже
+        # zindex_min; прежняя батарея зелена (toBeVisible не видит соседа).
+        'overlay-zindex-minus': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              '            zIndex: 1000,\n', '            zIndex: -1,\n')],
+            ['SPLASH_OVERLAY_ZORDER'], [],
+        ),
+        # (Adv117v3) нулевой zIndex: наравне с деревом оболочки.
+        'overlay-zindex-zero': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              '            zIndex: 1000,\n', '            zIndex: 0,\n')],
+            ['SPLASH_OVERLAY_ZORDER'], [],
+        ),
+        # (Adv117v3) оверлей ПЕРЕД FirstRun в порядке sibling БЕЗ zIndex:
+        # и уровень, и позиция сегмента относительно FirstRunScreen
+        # нарушены.
+        'overlay-before-firstrun': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              '            zIndex: 1000,\n', ''),
+             ('mobile/src/bootstrap/pilot-app.tsx',
+              "      {frame === 'first-run' ? (\n"
+              '        <FirstRunScreen onEnter={handleFirstRunContinue} />\n'
+              '      ) : null}\n', ''),
+             ('mobile/src/bootstrap/pilot-app.tsx',
+              '      ) : null}\n'
+              '    </View>\n'
+              '    </ThemeContext.Provider>\n'
+              '  );\n}',
+              '      ) : null}\n'
+              "      {frame === 'first-run' ? (\n"
+              '        <FirstRunScreen onEnter={handleFirstRunContinue} />\n'
+              '      ) : null}\n'
+              '    </View>\n'
+              '    </ThemeContext.Provider>\n'
+              '  );\n}')],
+            ['SPLASH_OVERLAY_ZORDER'], [],
         ),
         # (Р2, круг 6, Rev117/Adv117) кадр splash снят без ожидания окна
         # (форма текущего C: takeScreenshot сразу после launchApp — на
