@@ -1,0 +1,33 @@
+{
+  "featureSlices": {
+    "start": [],
+    "auth": ["account-sessions"],
+    "onboarding": [],
+    "invitations": ["referral"],
+    "missions": ["activity", "workspace"],
+    "conversation": ["voice", "summary"],
+    "approval": [],
+    "profile": ["insured-assets"],
+    "family": ["delegation"],
+    "policies": ["import", "health-admission", "service", "switch", "renewal", "withdrawal"],
+    "protection": ["assessment", "embedded", "life-events"],
+    "quotes": ["requirements", "comparison"],
+    "application": ["documents", "tracking", "signature"],
+    "vehicle": ["capture", "evb", "plates", "service-payment"],
+    "claims": ["intake", "case", "legal-cover", "reconsideration"],
+    "post": ["documents", "share"],
+    "permissions": ["service-mandate", "partner-review"],
+    "contexts": [],
+    "recovery": [],
+    "notifications": [],
+    "memory": [],
+    "help": ["handoff"],
+    "search": []
+  },
+  "featureFolders": ["components", "hooks", "model", "adapters", "__tests__"],
+  "sourceLayers": ["api", "auth", "bootstrap", "navigation", "analytics", "theme", "ui", "i18n", "lib", "mocks"],
+  "repositoryFiles": ["AGENTS.md", "STRUCTURE.md", "README.md", "harness.project.json", ".gitignore", ".node-version", ".gitattributes"],
+  "mobileFiles": ["AGENTS.md", "README.md", ".gitignore", ".env.example", "app.json", "app.config.ts", "package.json", "package-lock.json", "tsconfig.json", "eslint.config.js", "structure-policy.json", "metro.config.js", "babel.config.js", "jest.config.js", "jest.setup.ts", "expo-env.d.ts", "eas.json"],
+  "externalTrees": ["api", "docs", "design", "contracts", "registry", "verdicts", "fixtures"],
+  "generatedTrees": [".git", "mobile/node_modules", "mobile/.expo", "mobile/dist", "mobile/android", "mobile/ios", "mobile/coverage", "mobile/maestro-out"]
+}
