@@ -14,10 +14,7 @@ export interface ThemeTokens {
   primary: string;
   'on-primary': string;
   accent: string;
-  // 117 v2 (D2.2.5.1 tokens.json): лайм как ТЕКСТ — только accent-text
-  // (README:395); вторичный текст — ink-muted.
   'accent-text': string;
-  'ink-muted': string;
 }
 
 export const themeTokens: Record<ColorScheme, ThemeTokens> = {
@@ -31,7 +28,6 @@ export const themeTokens: Record<ColorScheme, ThemeTokens> = {
     'on-primary': '#121211',
     accent: '#d6f75a',
     'accent-text': '#d6f75a',
-    'ink-muted': '#a6a69f',
   },
   light: {
     ground: '#f3f2ee',
@@ -43,7 +39,6 @@ export const themeTokens: Record<ColorScheme, ThemeTokens> = {
     'on-primary': '#f3f2ee',
     accent: '#d6f75a',
     'accent-text': '#3f6d0f',
-    'ink-muted': '#5f5e58',
   },
 };
 

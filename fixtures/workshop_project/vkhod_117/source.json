@@ -194,8 +194,25 @@
     "wordmark_height": 22,
     "wordmark_raster_ink": "#f2f1ec",
     "sign_size": [181, 173],
-    "cta_height": 56,
-    "gutter": 16,
+    "column": {
+      "_comment": "117 v2 круг 2 (Б1): колонка кадра — литералы конструкции, выведенные из bands_px на артборде 390×844 при нулевом инсете (НЕ из First-Run.html: presence 36%/24/16 даёт знак y129.5 против замера 123, margin-top 8 — подзаголовок y468 против 484). Порядок документа; [тип host-узла, вертикальная проекция стиля]; Button999 — поддерево Button 999 одной меткой.",
+      "rows": [
+        ["RNCSafeAreaView", {"flex": 1}],
+        ["View", {"justifyContent": "center", "minHeight": 60, "paddingTop": 20}],
+        ["Image", {"height": 22}],
+        ["View", {"height": 304, "paddingTop": 63}],
+        ["Image", {"height": 173}],
+        ["View", {"flex": 1}],
+        ["Text", {"lineHeight": 32}],
+        ["Text", {"lineHeight": 20, "marginTop": 20}],
+        ["View", {"paddingBottom": 16, "paddingTop": 8}],
+        ["View", {"flexDirection": "row", "justifyContent": "center"}],
+        ["Button999", {}],
+        ["Text", {"lineHeight": 18, "marginTop": 16}]
+      ]
+    },
+    "color_tolerance": 3,
+    "text_gutter": 16,
     "body_sm": [15, 20],
     "caption": [13, 18, "500"],
     "text_min_contrast": 4.5,
@@ -207,5 +224,10 @@
       "cta": [16, 738, 373, 793],
       "tagline": [125, 813, 264, 825]
     }
+  },
+  "frozen_999_117": {
+    "_comment": "117 v2 круг 2 (Б3): граница слова владельца в файлах 999 — tokens.ts получает ТОЛЬКО ключ accent-text (без строк с 'accent-text' — байты базы B), src/ui/button.tsx — байты базы B. sha сняты `git show 8748a7a3352c14a6caa5a75b71f869e5d3b8152c:<путь> | sha256sum`.",
+    "tokens_ts_without_accent_text_sha256": "aec1b622c50dcdfd059841222d920debd8b38438e0801067cecaab688d9e835f",
+    "button_tsx_sha256": "19410d300eec5b38835c932d7e6df435fc3b0015c2e1673c66d3135668f1ad74"
   }
 }

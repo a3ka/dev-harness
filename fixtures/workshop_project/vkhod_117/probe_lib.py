@@ -31,11 +31,10 @@ MODEL_FILES = {
     'mobile/assets/images/favicon.png': 'favicon.png',
     'mobile/.maestro/vkhod-117-splash-vhod.yaml': 'vkhod-117-splash-vhod.yaml',
     # 117 v2 (First-Run по First-Run.png, инв. 6 accent-text): экран
-    # First-Run, аддитивные токены accent-text/ink-muted и пропы Button
-    # size/block (ПЕРЕСЕЧЕНИЕ 111/999 — контракт v2).
+    # First-Run и аддитивный токен accent-text — в границах слова владельца
+    # (Button 999 и ink-muted не трогаются, круг 2 v2, Б3).
     'mobile/src/features/auth/first-run-screen.tsx': 'features.auth.first-run-screen.tsx',
     'mobile/src/theme/tokens.ts': 'theme.tokens.ts',
-    'mobile/src/ui/button.tsx': 'ui.button.tsx',
 }
 
 TEST_INSTALL = 'mobile/src/bootstrap/__tests__/vkhod-117.probe.test.tsx'
@@ -81,14 +80,19 @@ def model_bytes(mutations=()):
     """Байты эталона; mutations — [(relpath, old, new)] побайтовые замены.
 
     Каждая замена обязана находиться ровно один раз — иначе мутант не тот.
+    old=None — стаб целым файлом по пути вне эталона (байты new; путь
+    восстанавливается installed как любой другой).
     """
     blobs = {}
     for target, fixture in MODEL_FILES.items():
         blobs[target] = (HERE / 'model' / fixture).read_bytes()
     for target, old, new in mutations:
+        new_b = new.encode() if isinstance(new, str) else new
+        if old is None:
+            blobs[target] = new_b
+            continue
         blob = blobs[target]
         old_b = old.encode() if isinstance(old, str) else old
-        new_b = new.encode() if isinstance(new, str) else new
         if blob.count(old_b) != 1:
             raise RuntimeError(
                 f'MUTATION_ANCHOR_NOT_UNIQUE: {target}: {old[:60]!r} count={blob.count(old_b)}'

@@ -26,7 +26,9 @@ legacy-режима (SPLASH_IOS_STORYBOARD); basename НЕ сравнивает�
 ПОРЯДКОМ шагов YAML-парсером (MAESTRO_SPLASH_FRAME_WAIT,
 MAESTRO_FIRST_RUN_ORDER), комментарий шагом не является. 117 v2: ссылки
 F03.02 — accent-text схемы (AUTH_FRAMES_TOKENIZED), палитра First-Run —
-только токены (FIRST_RUN_TOKENIZED; комментарии не судятся).
+только токены (FIRST_RUN_TOKENIZED; комментарии не судятся); круг 2 v2 —
+граница слова владельца в файлах 999 (FROZEN_999_WITHIN_WORD: tokens.ts
+только + accent-text, Button 999 байт в байт базы B).
 Выход — только код возврата; перечень case построчно.
 """
 import argparse
@@ -978,21 +980,52 @@ def run_checks(repo: Path):
     )
 
     # 9а. (117 v2) First-Run по First-Run.png — палитра только токены схемы:
-    # модуль экрана (без комментариев) не несёт hex-литералов и читает
-    # tokens.ground, tokens.ink и tokens['ink-muted'] (подзаголовок/футер).
+    # модуль экрана (без комментариев) не несёт hex-литералов, читает
+    # tokens.ground и tokens.ink; ключа ink-muted не читает (круг 2 v2, Б3:
+    # слово владельца — в tokens.ts ТОЛЬКО accent-text; вторичный текст —
+    # средствами first-run-screen, эффективный цвет судят FR-клетки).
     fr_src = (mobile / 'src/features/auth/first-run-screen.tsx').read_text(encoding='utf-8')
     fr_code = re.sub(r'/\*.*?\*/', '', fr_src, flags=re.S)
     fr_code = re.sub(r'(?m)^\s*//.*$', '', fr_code)
     check(
         not hex_re.search(fr_code)
         and 'tokens.ground' in fr_code and 'tokens.ink' in fr_code
-        and "tokens['ink-muted']" in fr_code,
+        and 'ink-muted' not in fr_code,
         'FIRST_RUN_TOKENIZED',
     )
 
+    # 9б. (117 v2 круг 2, Б3) граница слова владельца в файлах 999: tokens.ts
+    # без строк с 'accent-text' — байты базы B, каждая такая строка — ровно
+    # объявление ключа (`'accent-text': string;`) или значение схемы
+    # (`'accent-text': '#rrggbb',`); src/ui/button.tsx — байты базы B (sha —
+    # литералы source.json frozen_999_117). Пропы Button size/block и ключ
+    # ink-muted (эталон v2 круга 1) — красно.
+    frozen = src['frozen_999_117']
+    tok_lines = (mobile / 'src/theme/tokens.ts').read_bytes().splitlines(keepends=True)
+    tok_accent = [ln for ln in tok_lines if b"'accent-text'" in ln]
+    tok_rest = b''.join(ln for ln in tok_lines if b"'accent-text'" not in ln)
+    check(
+        hashlib.sha256(tok_rest).hexdigest() == frozen['tokens_ts_without_accent_text_sha256']
+        and all(re.fullmatch(rb"\s*'accent-text': (?:string;|'#[0-9a-f]{6}',)\r?\n?", ln)
+                for ln in tok_accent)
+        and hashlib.sha256((mobile / 'src/ui/button.tsx').read_bytes()).hexdigest()
+        == frozen['button_tsx_sha256'],
+        'FROZEN_999_WITHIN_WORD',
+    )
+
     # 10. Независимость оракула: проба несёт литералы и не импортирует
-    # копию субъекта.
+    # копию субъекта. Круг 2 v2: строки таблицы колонки First-Run
+    # (source.json first_run_117.column) — каждая самостоятельной строкой
+    # FR_COLUMN теста; допуск цвета и поля колонки текста — литералы
+    # COLOR_TOLERANCE / FR_GUTTER.
     probe_test = (HERE / 'vkhod.test.tsx').read_text(encoding='utf-8')
+    test_lines = set(probe_test.splitlines())
+    fr117 = src['first_run_117']
+    column_rows = []
+    for kind, proj in fr117['column']['rows']:
+        head = 'FR_BUTTON_999' if kind == 'Button999' else f"'{kind}'"
+        body = ', '.join(f"{k}: {v!r}" if isinstance(v, str) else f'{k}: {v}' for k, v in proj.items())
+        column_rows.append(f"  [{head}, {{ {body} }}]," if body else f'  [{head}, {{}}],')
     check(
         src['copy']['frame.F03.01.body']['text'] in probe_test
         and src['copy']['frame.F03.02.body']['text'] in probe_test
@@ -1003,8 +1036,11 @@ def run_checks(repo: Path):
         and src['theme_projection_999']['primary']['dark'] in probe_test
         and src['tokens']['accent-text']['light'] in probe_test
         and src['tokens']['ink-muted']['light'] in probe_test
-        and src['first_run_117']['subline'] in probe_test
-        and src['first_run_117']['tagline'] in probe_test
+        and fr117['subline'] in probe_test
+        and fr117['tagline'] in probe_test
+        and all(row in test_lines for row in column_rows)
+        and f"const COLOR_TOLERANCE = {fr117['color_tolerance']};" in test_lines
+        and f"const FR_GUTTER = {fr117['text_gutter']};" in test_lines
         and "from '@/i18n/ui-copy'" not in probe_test,
         'STATIC_ORACLE_LITERALS',
     )
@@ -1404,9 +1440,42 @@ def matrix(repo: Path):
         # (117 v2) hex-литерал в First-Run (ink-muted тёмной схемы в обеих).
         'first-run-hex-literal': (
             [('mobile/src/features/auth/first-run-screen.tsx',
-              "styles.subline, { color: tokens['ink-muted'] }",
+              'styles.subline, { color: tokens.ink }',
               "styles.subline, { color: '#a6a69f' }")],
             ['FIRST_RUN_TOKENIZED'], [],
+        ),
+        # (117 v2 круг 2, Б3) экран читает ключ ink-muted, которого слово
+        # владельца в tokens.ts не допускает (независимый экран критика).
+        'first-run-reads-ink-muted': (
+            [('mobile/src/features/auth/first-run-screen.tsx',
+              'styles.subline, { color: tokens.ink }',
+              "styles.subline, { color: tokens['ink-muted'] }")],
+            ['FIRST_RUN_TOKENIZED'], [],
+        ),
+        # (Б3, обход критика «эталон v2 круга 1»): tokens.ts получает и
+        # ink-muted обеих схем — шире слова «только accent-text».
+        'tokens-ink-muted': (
+            [('mobile/src/theme/tokens.ts', "  'accent-text': string;\n",
+              "  'accent-text': string;\n  'ink-muted': string;\n"),
+             ('mobile/src/theme/tokens.ts', "    'accent-text': '#d6f75a',\n",
+              "    'accent-text': '#d6f75a',\n    'ink-muted': '#a6a69f',\n"),
+             ('mobile/src/theme/tokens.ts', "    'accent-text': '#3f6d0f',\n",
+              "    'accent-text': '#3f6d0f',\n    'ink-muted': '#5f5e58',\n")],
+            ['FROZEN_999_WITHIN_WORD'], [],
+        ),
+        # (Б3) ink-muted, спрятанный в строку accent-text (обход вычитания
+        # строк): грамматика строки accent-text закрыта.
+        'tokens-ink-muted-same-line': (
+            [('mobile/src/theme/tokens.ts', "    'accent-text': '#d6f75a',\n",
+              "    'accent-text': '#d6f75a', 'ink-muted': '#a6a69f',\n")],
+            ['FROZEN_999_WITHIN_WORD'], [],
+        ),
+        # (Б3) общий Button 999 получает пропы size/block (эталон v2 круга 1,
+        # байты — stubs/ui.button.v2-size-block.tsx).
+        'button-999-size-block': (
+            [('mobile/src/ui/button.tsx', None,
+              (HERE / 'stubs' / 'ui.button.v2-size-block.tsx').read_bytes())],
+            ['FROZEN_999_WITHIN_WORD'], [],
         ),
         # (117 v2, инв. 6) ссылки F03.02 — accent (лайм в обеих схемах).
         'auth-links-accent': (

@@ -16,10 +16,11 @@ VKHOD_AUTH_DS_ABSENT (кадры входа не собраны из @/ui/button
 ОС моком Appearance), Р4 AUTH_FRAMES_SAFE_AREA, Р6 SPLASH_OVERLAY_CONTAIN;
 круг 7 — В2-2 STATUS_BAR_STYLE (эффективный стиль статус-бара, дошедший
 до ОС, контрастен ground схемы); 117 v2 — First-Run по First-Run.png:
-FIRST_RUN_{TOP,WORDMARK,SIGN,SUBLINE,CTA_BOTTOM,TAGLINE} (конструкция
+FIRST_RUN_{TOP,WORDMARK,SIGN,SUBLINE,CTA_BOTTOM,LAYOUT,TAGLINE} (конструкция
 раскладки артборда по эффективному стилю цепи host-узлов и порядку
-документа) и ссылки F03.02 цветом accent-text схемы в
-AUTH_F03_02_STRUCTURE; каждая × 2 схемы).
+документа; круг 2 v2: LAYOUT — колонка = таблица литералов контракта,
+цвета глифов — к ЭФФЕКТИВНОЙ подложке) и ссылки F03.02 цветом accent-text
+схемы в AUTH_F03_02_STRUCTURE; каждая × 2 схемы).
 --matrix: каждый обманный стаб красен на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
 Выход — только код возврата; список case построчно (красные — RED).
@@ -391,13 +392,14 @@ MUTANTS = {
         ['FIRST_RUN_TOP_DARK', 'FIRST_RUN_TOP_LIGHT'],
         [],
     ),
-    # (FR-1) верхний блок с отступом поверхности 995 (48), не артборда (20).
+    # (FR-1) верхний блок с отступом поверхности 995 (48), не артборда (20);
+    # колонка тоже не по таблице.
     'first-run-top-pad-48': (
         [('mobile/src/features/auth/first-run-screen.tsx',
           '    minHeight: 60,\n    paddingHorizontal: 16,\n    paddingTop: 20,\n',
           '    minHeight: 60,\n    paddingHorizontal: 16,\n    paddingTop: 48,\n')],
         ['FIRST_RUN_TOP_DARK', 'FIRST_RUN_TOP_LIGHT'],
-        [],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
     ),
     # (FR-2) wordmark прижат к левому краю (форма C: x=0).
     'first-run-wordmark-left': (
@@ -414,7 +416,24 @@ MUTANTS = {
         ['FIRST_RUN_WORDMARK_LIGHT'],
         [],
     ),
-    # (FR-3) знака нет (форма C).
+    # (FR-2, Б2 круг 2 v2 — обход критика invisible-wordmark) глиф ink на
+    # собственной подложке Image цветом ink: 1:1 в обеих схемах.
+    'first-run-wordmark-own-backdrop': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.wordmark, { tintColor: tokens.ink }]}',
+          'style={[styles.wordmark, { tintColor: tokens.ink, backgroundColor: tokens.ink }]}')],
+        ['FIRST_RUN_WORDMARK_DARK', 'FIRST_RUN_WORDMARK_LIGHT'],
+        [],
+    ),
+    # (FR-2, Б2) подложка цветом ink у РОДИТЕЛЯ wordmark (верхний блок): 1:1.
+    'first-run-wordmark-parent-backdrop': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <View style={styles.top}>\n',
+          '      <View style={[styles.top, { backgroundColor: tokens.ink }]}>\n')],
+        ['FIRST_RUN_WORDMARK_DARK', 'FIRST_RUN_WORDMARK_LIGHT'],
+        [],
+    ),
+    # (FR-3) знака нет (форма C); колонка без блока знака.
     'first-run-sign-absent': (
         [('mobile/src/features/auth/first-run-screen.tsx',
           '      <View style={styles.presence}>\n'
@@ -427,7 +446,7 @@ MUTANTS = {
           '        />\n'
           '      </View>\n', '')],
         ['FIRST_RUN_SIGN_DARK', 'FIRST_RUN_SIGN_LIGHT'],
-        [],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
     ),
     # (FR-3) знак тёмной схемы в обеих (ink #f2f1ec на светлом ground) —
     # наблюдаем ТОЛЬКО light.
@@ -442,38 +461,88 @@ MUTANTS = {
         [('mobile/src/features/auth/first-run-screen.tsx',
           'sign: { height: 173, width: 181 }', 'sign: { height: 54, width: 56 }')],
         ['FIRST_RUN_SIGN_DARK', 'FIRST_RUN_SIGN_LIGHT'],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+    ),
+    # (FR-8, Б1 круг 2 v2 — обход критика misplaced-visible, по одной
+    # правке и вместе): знак вверх на 63, подзаголовок вниз на 80, CTA/футер
+    # вверх на 100 — состав, цвета и размеры прежние.
+    'first-run-sign-top-0': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '    height: 304,\n    paddingTop: 63,\n', '    height: 304,\n    paddingTop: 0,\n')],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+        [],
+    ),
+    'first-run-subline-down-80': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '    lineHeight: 20,\n    marginTop: 20,\n', '    lineHeight: 20,\n    marginTop: 100,\n')],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+        [],
+    ),
+    'first-run-cta-up-100': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '  actions: {\n    paddingBottom: 16,\n', '  actions: {\n    paddingBottom: 116,\n')],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+        [],
+    ),
+    'first-run-misplaced-visible': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '    height: 304,\n    paddingTop: 63,\n', '    height: 304,\n    paddingTop: 0,\n'),
+         ('mobile/src/features/auth/first-run-screen.tsx',
+          '    lineHeight: 20,\n    marginTop: 20,\n', '    lineHeight: 20,\n    marginTop: 100,\n'),
+         ('mobile/src/features/auth/first-run-screen.tsx',
+          '  actions: {\n    paddingBottom: 16,\n', '  actions: {\n    paddingBottom: 116,\n')],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+        [],
+    ),
+    # (FR-8) тот же сдвиг знака ЛИШНИМ вертикальным ключом (литералы
+    # контейнеров прежние): marginTop −63 у знака.
+    'first-run-sign-negative-margin': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'sign: { height: 173, width: 181 }', 'sign: { height: 173, marginTop: -63, width: 181 }')],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+        [],
+    ),
+    # (FR-8) колонка текста уже (поля рабочего блока 100): заголовок и
+    # подзаголовок переносятся иначе — полосы ниже при тех же вертикальных
+    # литералах.
+    'first-run-work-gutter-wide': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '  work: {\n    flex: 1,\n    paddingHorizontal: 16,\n',
+          '  work: {\n    flex: 1,\n    paddingHorizontal: 100,\n')],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
         [],
     ),
     # (FR-4) подзаголовка нет (форма C).
     'first-run-subline-absent': (
         [('mobile/src/features/auth/first-run-screen.tsx',
-          '        <Text style={[styles.subline, { color: tokens[\'ink-muted\'] }]} testID="first-run-subline">\n'
+          '        <Text style={[styles.subline, { color: tokens.ink }]} testID="first-run-subline">\n'
           '          {FIRST_RUN_SUBLINE}\n'
           '        </Text>\n', '')],
         ['FIRST_RUN_SUBLINE_DARK', 'FIRST_RUN_SUBLINE_LIGHT'],
-        [],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
     ),
-    # (FR-4) подзаголовок цветом заголовка (ink), не ink-muted.
+    # (FR-4) подзаголовок цветом заголовка (ink без приглушения), не ink-muted.
     'first-run-subline-ink': (
         [('mobile/src/features/auth/first-run-screen.tsx',
-          "styles.subline, { color: tokens['ink-muted'] }", 'styles.subline, { color: tokens.ink }')],
+          '    marginTop: 20,\n    opacity: 0.67,\n', '    marginTop: 20,\n')],
         ['FIRST_RUN_SUBLINE_DARK', 'FIRST_RUN_SUBLINE_LIGHT'],
         [],
     ),
-    # (FR-4) ink-muted тёмной схемы hex-литералом в обеих — наблюдаем light
+    # (FR-4) ink тёмной схемы hex-литералом в обеих — наблюдаем light
     # (статическая FIRST_RUN_TOKENIZED судит hex своей семьёй).
     'first-run-subline-dark-hex': (
         [('mobile/src/features/auth/first-run-screen.tsx',
-          "styles.subline, { color: tokens['ink-muted'] }", "styles.subline, { color: '#a6a69f' }")],
+          'styles.subline, { color: tokens.ink }', "styles.subline, { color: '#f2f1ec' }")],
         ['FIRST_RUN_SUBLINE_LIGHT'],
         [],
     ),
-    # (FR-5) CTA по контенту (Button без block — форма C).
-    'first-run-cta-content-width': (
+    # (FR-5) CTA прижат влево (ряд без центрирования — форма C x=16).
+    'first-run-cta-left': (
         [('mobile/src/features/auth/first-run-screen.tsx',
-          '        <Button\n          block\n', '        <Button\n')],
+          "    flexDirection: 'row',\n    justifyContent: 'center',\n",
+          "    flexDirection: 'row',\n    justifyContent: 'flex-start',\n")],
         ['FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_CTA_BOTTOM_LIGHT'],
-        [],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
     ),
     # (FR-5) CTA вплотную под заголовком: свободное место не перед блоком
     # действий (форма C).
@@ -481,21 +550,22 @@ MUTANTS = {
         [('mobile/src/features/auth/first-run-screen.tsx',
           '  work: {\n    flex: 1,\n', '  work: {\n')],
         ['FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_CTA_BOTTOM_LIGHT'],
-        [],
-    ),
-    # (FR-5) CTA высоты md (≈45 dp на C), не size-lg 56.
-    'first-run-cta-md': (
-        [('mobile/src/features/auth/first-run-screen.tsx',
-          '          size="lg"\n', '')],
-        ['FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_CTA_BOTTOM_LIGHT'],
-        [],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
     ),
     # (FR-6) футера нет (форма C).
     'first-run-tagline-absent': (
         [('mobile/src/features/auth/first-run-screen.tsx',
-          '        <Text style={[styles.tagline, { color: tokens[\'ink-muted\'] }]} testID="first-run-tagline">\n'
+          '        <Text style={[styles.tagline, { color: tokens.ink }]} testID="first-run-tagline">\n'
           '          {BRAND_TAGLINE}\n'
           '        </Text>\n', '')],
+        ['FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_TAGLINE_LIGHT'],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
+    ),
+    # (FR-6) футер почти невидим (opacity 0.2): эффективный цвет не ink-muted,
+    # контраст < 4.5.
+    'first-run-tagline-faint': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '    marginTop: 16,\n    opacity: 0.67,\n', '    marginTop: 16,\n    opacity: 0.2,\n')],
         ['FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_TAGLINE_LIGHT'],
         [],
     ),
@@ -503,16 +573,16 @@ MUTANTS = {
     'first-run-tagline-above-cta': (
         [('mobile/src/features/auth/first-run-screen.tsx',
           '      <View style={styles.actions}>\n'
-          '        <Button\n',
+          '        <View style={styles.ctaRow}>\n',
           '      <View style={styles.actions}>\n'
-          '        <Text style={[styles.tagline, { color: tokens[\'ink-muted\'] }]}>{BRAND_TAGLINE}</Text>\n'
-          '        <Button\n'),
+          '        <Text style={[styles.tagline, { color: tokens.ink }]}>{BRAND_TAGLINE}</Text>\n'
+          '        <View style={styles.ctaRow}>\n'),
          ('mobile/src/features/auth/first-run-screen.tsx',
-          '        <Text style={[styles.tagline, { color: tokens[\'ink-muted\'] }]} testID="first-run-tagline">\n'
+          '        <Text style={[styles.tagline, { color: tokens.ink }]} testID="first-run-tagline">\n'
           '          {BRAND_TAGLINE}\n'
           '        </Text>\n', '')],
         ['FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_TAGLINE_LIGHT'],
-        [],
+        ['FIRST_RUN_LAYOUT_DARK', 'FIRST_RUN_LAYOUT_LIGHT'],
     ),
     # (FR-7) бейдж Demo прежнего вида #F2F2F2/#444444 на кадрах D2.2.5.1
     # (форма C 58d60b8): не чип DS ни в одной схеме.

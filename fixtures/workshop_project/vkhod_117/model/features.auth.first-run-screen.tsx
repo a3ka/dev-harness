@@ -1,13 +1,15 @@
-// 117 v2 (эталон architect): First-Run по First-Run.png / First-Run.html
-// (артборд 390×844, класс p-astage is-stage-1): сверху по центру wordmark
-// (высота 22, ink схемы через tintColor — растр wordmark-dark.png 111 тот же,
-// в светлой схеме перекрашен в ink светлой схемы), крупный знак канона (растр
-// splash-sign-<схема>.png — тот же файл, что судит SPLASH_SIGN_RASTER;
-// 181×173 — ширина знака артборда), заголовок ui.first_run.promise (.title,
-// ink), подзаголовок артборда (.body-sm, ink-muted), CTA ui.first_run.enter_f03
-// — Button primary size lg во всю ширину с полями 16 внизу кадра, под ней
-// футер «Versicherung. Erledigt.» (.caption, ink-muted). Палитра — только
-// токены схемы; testID 111/995 сохранены.
+// 117 v2 (эталон architect, круг 2 — в границах слова владельца): First-Run
+// по First-Run.png (артборд 390×844). Колонка — четыре блока с литералами
+// таблицы контракта (инв. 9к): верх minHeight 60 / paddingTop 20 (wordmark
+// h22 по центру, ink схемы через tintColor — растр wordmark-dark.png 111),
+// блок знака height 304 / paddingTop 63 (знак splash-sign-<схема>.png 181×173
+// — тот же файл, что судит SPLASH_SIGN_RASTER), рабочий блок flex 1
+// (заголовок .title ink; подзаголовок .body-sm marginTop 20), блок действий
+// paddingTop 8 / paddingBottom 16 (CTA — Button 999 без правок, по центру;
+// футер .caption marginTop 16). Вторичный текст — tokens.ink с opacity 0.67:
+// эффективно ink-muted tokens.json ±3 по каналу в обеих схемах (ключа
+// ink-muted в tokens.ts нет — слово владельца: только accent-text). Палитра —
+// только токены схемы; testID 111/995 сохранены.
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,19 +64,19 @@ export function FirstRunScreen({ onEnter, testID }: FirstRunScreenProps) {
         <Text style={[styles.promise, { color: tokens.ink }]} testID="first-run-promise">
           {uiCopyDe['ui.first_run.promise'].text}
         </Text>
-        <Text style={[styles.subline, { color: tokens['ink-muted'] }]} testID="first-run-subline">
+        <Text style={[styles.subline, { color: tokens.ink }]} testID="first-run-subline">
           {FIRST_RUN_SUBLINE}
         </Text>
       </View>
       <View style={styles.actions}>
-        <Button
-          block
-          label={uiCopyDe['ui.first_run.enter_f03'].text}
-          onPress={onEnter}
-          size="lg"
-          testID="first-run-continue"
-        />
-        <Text style={[styles.tagline, { color: tokens['ink-muted'] }]} testID="first-run-tagline">
+        <View style={styles.ctaRow}>
+          <Button
+            label={uiCopyDe['ui.first_run.enter_f03'].text}
+            onPress={onEnter}
+            testID="first-run-continue"
+          />
+        </View>
+        <Text style={[styles.tagline, { color: tokens.ink }]} testID="first-run-tagline">
           {BRAND_TAGLINE}
         </Text>
       </View>
@@ -98,16 +100,12 @@ const styles = StyleSheet.create({
   },
   presence: {
     alignItems: 'center',
-    flexBasis: '36%',
-    justifyContent: 'center',
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    height: 304,
+    paddingTop: 63,
   },
   sign: { height: 173, width: 181 },
   work: {
     flex: 1,
-    paddingBottom: 16,
     paddingHorizontal: 16,
   },
   promise: {
@@ -120,20 +118,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '400',
     lineHeight: 20,
-    marginTop: 8,
+    marginTop: 20,
+    opacity: 0.67,
     textAlign: 'center',
   },
   actions: {
-    gap: 8,
     paddingBottom: 16,
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   tagline: {
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
-    marginTop: 8,
+    marginTop: 16,
+    opacity: 0.67,
     textAlign: 'center',
   },
 });

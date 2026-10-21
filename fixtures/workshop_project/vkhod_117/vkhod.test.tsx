@@ -142,8 +142,44 @@ const FR_TOP_MIN_H = 60;
 const FR_WORDMARK_H = 22;
 const FR_SIGN_W = 181;
 const FR_SIGN_H = 173;
-const FR_CTA_H = 56;
+// 117 v2 круг 2 (Б1): колонка First-Run — таблица литералов конструкции
+// контракта (инв. 9к; source.json first_run_117.column), выведенная из полос
+// First-Run.png на артборде 390×844 при нулевом инсете: верх 60 (wordmark
+// y29..51 → глифы 33..49), блок знака 60..364 с paddingTop 63 (знак y123),
+// заголовок 3×32 с y364, подзаголовок marginTop 20 (y480), блок действий
+// paddingTop 8 / paddingBottom 16, футер marginTop 16 (18) — снизу кадра.
+// Проекция эффективного стиля host-узла — все ключи, КРОМЕ закрытого
+// перечня горизонтальных/красочных; поддерево Button 999 — одна метка
+// (его байты судит статическая FROZEN_999_WITHIN_WORD).
+const FR_NON_VERTICAL: Record<string, true> = {
+  color: true, backgroundColor: true, tintColor: true, opacity: true, fontSize: true,
+  fontWeight: true, fontFamily: true, fontStyle: true, textAlign: true, letterSpacing: true,
+  alignItems: true, alignSelf: true, paddingHorizontal: true, paddingLeft: true,
+  paddingRight: true, paddingStart: true, paddingEnd: true, marginHorizontal: true,
+  marginLeft: true, marginRight: true, marginStart: true, marginEnd: true, width: true,
+  minWidth: true, maxWidth: true, aspectRatio: true, resizeMode: true, borderRadius: true,
+};
+const FR_BUTTON_999 = 'Button999';
+const FR_COLUMN: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+  ['RNCSafeAreaView', { flex: 1 }],
+  ['View', { justifyContent: 'center', minHeight: 60, paddingTop: 20 }],
+  ['Image', { height: 22 }],
+  ['View', { height: 304, paddingTop: 63 }],
+  ['Image', { height: 173 }],
+  ['View', { flex: 1 }],
+  ['Text', { lineHeight: 32 }],
+  ['Text', { lineHeight: 20, marginTop: 20 }],
+  ['View', { paddingBottom: 16, paddingTop: 8 }],
+  ['View', { flexDirection: 'row', justifyContent: 'center' }],
+  [FR_BUTTON_999, {}],
+  ['Text', { lineHeight: 18, marginTop: 16 }],
+];
+// Б1: ширина колонки текста (заголовок, подзаголовок, футер) — поля 16 с
+// каждой стороны: перенос строк при иной ширине сдвигает полосы по вертикали.
 const FR_GUTTER = 16;
+// Б2: допуск эффективного цвета глифа к токену tokens.json, по каналу
+// (вторичный текст в границах слова — ink с opacity: ink-muted ±3).
+const COLOR_TOLERANCE = 3;
 const BODY_SM_SIZE = 15;
 const BODY_SM_LINE = 20;
 const CAPTION_SIZE = 13;
@@ -446,8 +482,6 @@ function docOrder(json: unknown, out: string[] = []): string[] {
   return out;
 }
 
-const NARROW_ALIGN = ['flex-start', 'center', 'flex-end', 'baseline'];
-
 function centeredIn(node: HostNode, parent: HostNode): boolean {
   const own = styleOf(node as { props: { style?: unknown } }).alignSelf;
   if (own === 'center') return true;
@@ -456,11 +490,86 @@ function centeredIn(node: HostNode, parent: HostNode): boolean {
 }
 
 function sideSum(s: Record<string, unknown>, side: 'Left' | 'Right', kind: 'padding' | 'margin'): number {
-  for (const key of [`${kind}${side}`, `${kind}Horizontal`, kind]) {
+  const logical = side === 'Left' ? 'Start' : 'End';
+  for (const key of [`${kind}${side}`, `${kind}${logical}`, `${kind}Horizontal`, kind]) {
     const v = s[key];
     if (typeof v === 'number') return v;
   }
   return 0;
+}
+
+// Б1: колонка кадра в порядке документа — [тип host-узла, вертикальная
+// проекция эффективного стиля]; поддерево Button 999 (обёртка — родитель
+// узла first-run-continue) — одной меткой.
+function frColumn(fr: HostNode): Array<[string, Record<string, unknown>]> {
+  const out: Array<[string, Record<string, unknown>]> = [];
+  const walk = (n: HostNode): void => {
+    if (hostChildren(n).some((c) => c.props?.testID === 'first-run-continue')) {
+      out.push([FR_BUTTON_999, {}]);
+      return;
+    }
+    const s = styleOf(n as { props: { style?: unknown } });
+    const v: Record<string, unknown> = {};
+    for (const k of Object.keys(s)) {
+      if (FR_NON_VERTICAL[k] !== true && s[k] !== undefined) v[k] = s[k];
+    }
+    out.push([String(n.type), v]);
+    for (const c of hostChildren(n)) walk(c);
+  };
+  walk(fr);
+  return out;
+}
+
+function chainToNode(json: unknown, target: HostNode, acc: HostNode[] = []): HostNode[] | null {
+  const node = json as HostNode;
+  if (!node || typeof node !== 'object') return null;
+  const here = [...acc, node];
+  if (node === target) return here;
+  for (const child of hostChildren(node)) {
+    const hit = chainToNode(child, target, here);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// Б2: ЭФФЕКТИВНАЯ подложка глифа — ближайший backgroundColor (не
+// 'transparent') самого узла или предка по цепи корень→узел; цвет глифа
+// смешивается с ней по произведению opacity узлов от глифа до подложки
+// (подложка самого узла — без смеси). Цвет/подложка не #rrggbb или
+// подложки в цепи нет — неразрешимо (null → красно).
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+
+function rgbOf(hex: string): number[] {
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+}
+
+function glyphOnBackdrop(
+  chain: HostNode[] | null, glyph: unknown,
+): { ink: string; backdrop: string } | null {
+  if (!chain || typeof glyph !== 'string' || !HEX6.test(glyph)) return null;
+  let alpha = 1;
+  for (let i = chain.length - 1; i >= 0; i -= 1) {
+    const s = styleOf(chain[i] as { props: { style?: unknown } });
+    const bg = s.backgroundColor;
+    if (bg !== undefined && bg !== null && bg !== 'transparent') {
+      if (typeof bg !== 'string' || !HEX6.test(bg)) return null;
+      const b = rgbOf(bg);
+      const mix = rgbOf(glyph).map((c, k) => Math.round(alpha * c + (1 - alpha) * b[k]));
+      return { ink: `#${mix.map((c) => c.toString(16).padStart(2, '0')).join('')}`, backdrop: bg.toLowerCase() };
+    }
+    const op = s.opacity;
+    if (op !== undefined) {
+      if (typeof op !== 'number' || !(op >= 0 && op <= 1)) return null;
+      alpha *= op;
+    }
+  }
+  return null;
+}
+
+function nearColor(a: string | undefined, b: string): boolean {
+  if (a === undefined) return false;
+  const x = rgbOf(a);
+  return rgbOf(b).every((c, k) => Math.abs(c - x[k]) <= COLOR_TOLERANCE);
 }
 
 // Кадр First-Run (холодный старт '/'): CTA 995 найден — кадр смонтирован.
@@ -616,9 +725,11 @@ describe('117 vkhod', () => {
     });
 
     // FR-2 wordmark: по центру по горизонтали, высота 22, первый элемент
-    // First-Run; ЭФФЕКТИВНЫЙ ink = tintColor, иначе ink растра
-    // wordmark-dark.png (#f2f1ec) — равен ink схемы, контраст к ground ≥ 4.5
-    // (light без перекраски: #f2f1ec на #f3f2ee 1,01:1 — красно).
+    // First-Run; глиф — tintColor, иначе ink растра wordmark-dark.png
+    // (#f2f1ec); ЭФФЕКТИВНЫЙ цвет к ЭФФЕКТИВНОЙ подложке (Б2: собственный
+    // backgroundColor Image или предка; opacity между ними): подложка — ground
+    // схемы, цвет — ink схемы ±3, контраст ≥ 4.5 (light без перекраски 1,01:1
+    // и подложка цветом глифа 1:1 — красно).
     it(`FIRST_RUN_WORDMARK_${S}`, async () => {
       const api = await renderFirstRunFrame(scheme);
       const json = api.toJSON();
@@ -629,9 +740,10 @@ describe('117 vkhod', () => {
       const ws = styleOf(wm as { props: { style?: unknown } });
       expect(ws.height).toBe(FR_WORDMARK_H);
       expect(wm.props?.source).toBe(WORDMARK_MODULE);
-      const ink = ws.tintColor ?? WORDMARK_RASTER_INK;
-      expect(ink).toBe(INK);
-      expect(contrast(ink, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
+      const eff = glyphOnBackdrop(chain, ws.tintColor ?? WORDMARK_RASTER_INK);
+      expect(eff?.backdrop).toBe(GROUND);
+      expect(nearColor(eff?.ink, INK)).toBe(true);
+      expect(contrast(eff?.ink, eff?.backdrop) >= TEXT_MIN_CONTRAST).toBe(true);
       const visual = collectNodes(subtreeByTestId(json, 'first-run-safe-area'),
         (n) => n.type === 'Image' || n.type === 'Text');
       expect(visual[0]).toBe(wm);
@@ -662,31 +774,35 @@ describe('117 vkhod', () => {
     });
 
     // FR-4 подзаголовок артборда: РОВНО один Text с литералом First-Run.html,
-    // .body-sm 15/20, по центру, ink-muted схемы (контраст ≥ 4.5); после
-    // promise, до CTA.
+    // .body-sm 15/20, по центру; ЭФФЕКТИВНЫЙ цвет к ЭФФЕКТИВНОЙ подложке
+    // (Б2): подложка ground схемы, цвет ink-muted tokens.json ±3 (в границах
+    // слова — средствами разрешённых файлов, напр. ink с opacity), контраст
+    // ≥ 4.5; после promise, до CTA.
     it(`FIRST_RUN_SUBLINE_${S}`, async () => {
       const api = await renderFirstRunFrame(scheme);
-      const fr = subtreeByTestId(api.toJSON(), 'first-run-safe-area');
+      const json = api.toJSON();
+      const fr = subtreeByTestId(json, 'first-run-safe-area');
       const nodes = collectNodes(fr, (n) => n.type === 'Text' && textOfNode(n) === FIRST_RUN_SUBLINE);
       expect(nodes.length).toBe(1);
       const st = styleOf(nodes[0] as { props: { style?: unknown } });
       expect(st.fontSize).toBe(BODY_SM_SIZE);
       expect(st.lineHeight).toBe(BODY_SM_LINE);
       expect(st.textAlign).toBe('center');
-      expect(st.color).toBe(INK_MUTED);
-      expect(contrast(st.color, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
+      const eff = glyphOnBackdrop(chainToNode(json, nodes[0]), st.color);
+      expect(eff?.backdrop).toBe(GROUND);
+      expect(nearColor(eff?.ink, INK_MUTED)).toBe(true);
+      expect(contrast(eff?.ink, eff?.backdrop) >= TEXT_MIN_CONTRAST).toBe(true);
       const order = docOrder(fr);
       const iSub = order.indexOf(`"${FIRST_RUN_SUBLINE}"`);
       expect(order.indexOf(`"${FIRST_RUN_PROMISE}"`) < iSub).toBe(true);
       expect(iSub < order.indexOf('#first-run-continue')).toBe(true);
     });
 
-    // FR-5 CTA: Button primary (пилюля, primary/on-primary, текст каталога)
-    // высотой size-lg 56 ВО ВСЮ ШИРИНУ с полями 16 (цепь First-Run→пилюля
-    // не сужается: alignSelf/alignItems родителя не flex-start/center/
-    // flex-end/baseline без alignSelf stretch, width/maxWidth не заданы;
-    // сумма горизонтальных padding предков и margin цепи = 16 с каждой
-    // стороны) и ВНИЗУ кадра (корень First-Run flex 1, блок CTA — его
+    // FR-5 CTA (в границах слова: Button 999 без правок — пропов size/block
+    // нет, обёртка alignSelf flex-start; форк консультанту): Button primary
+    // (пилюля, primary/on-primary, текст каталога), ПО ЦЕНТРУ по горизонтали
+    // (родитель обёртки Button — ряд flexDirection row, justifyContent
+    // center) и ВНИЗУ кадра (корень First-Run flex 1, блок CTA — его
     // последний host-ребёнок, свободное место — перед ним).
     it(`FIRST_RUN_CTA_BOTTOM_${S}`, async () => {
       const api = await renderFirstRunFrame(scheme);
@@ -694,34 +810,16 @@ describe('117 vkhod', () => {
       const chain = chainToTestId(json, 'first-run-continue');
       expect(chain).not.toBeNull();
       const sub = chain!.slice(chain!.findIndex((n) => n.props?.testID === 'first-run-safe-area'));
-      expect(sub.length >= 3).toBe(true);
+      expect(sub.length >= 4).toBe(true);
       const pill = sub[sub.length - 1];
       const ps = styleOf(pill as { props: { style?: unknown } });
       expect(Number(ps.borderRadius) >= PILL_MIN_RADIUS).toBe(true);
       expect(ps.backgroundColor).toBe(PRIMARY);
       expect(styleOf(within(screen.getByTestId('first-run-continue')).getByText(FIRST_RUN_CTA)).color)
         .toBe(ON_PRIMARY);
-      expect(ps.height).toBe(FR_CTA_H);
-      let left = 0;
-      let right = 0;
-      for (let i = 0; i < sub.length; i += 1) {
-        const s = styleOf(sub[i] as { props: { style?: unknown } });
-        if (i > 0) {
-          const p = styleOf(sub[i - 1] as { props: { style?: unknown } });
-          expect(NARROW_ALIGN.includes(String(s.alignSelf))).toBe(false);
-          if (NARROW_ALIGN.includes(String(p.alignItems))) expect(s.alignSelf).toBe('stretch');
-          expect([undefined, '100%']).toContain(s.width);
-          expect(s.maxWidth).toBeUndefined();
-          left += sideSum(s, 'Left', 'margin');
-          right += sideSum(s, 'Right', 'margin');
-        }
-        if (i < sub.length - 1) {
-          left += sideSum(s, 'Left', 'padding');
-          right += sideSum(s, 'Right', 'padding');
-        }
-      }
-      expect(left).toBe(FR_GUTTER);
-      expect(right).toBe(FR_GUTTER);
+      const row = styleOf(sub[sub.length - 3] as { props: { style?: unknown } });
+      expect(row.flexDirection).toBe('row');
+      expect(row.justifyContent).toBe('center');
       const frStyle = styleOf(sub[0] as { props: { style?: unknown } });
       expect(frStyle.flex).toBe(1);
       const kids = hostChildren(sub[0]);
@@ -734,12 +832,49 @@ describe('117 vkhod', () => {
       expect(pushed).toBe(true);
     });
 
-    // FR-6 футер brand.tagline «Versicherung. Erledigt.»: РОВНО один Text,
-    // .caption 13/18/500, по центру, ink-muted схемы (контраст ≥ 4.5); ПОСЛЕ
-    // CTA в порядке документа.
-    it(`FIRST_RUN_TAGLINE_${S}`, async () => {
+    // FR-8 (Б1, круг 2 v2) колонка First-Run = таблица литералов конструкции
+    // контракта (инв. 9к): layout-движка в Jest нет, поэтому раскладка
+    // судится ВЕРТИКАЛЬНОЙ моделью бокса — проекцией эффективного стиля
+    // каждого host-узла кадра в порядке документа; иное значение (paddingTop
+    // знака 63→0, marginTop подзаголовка 20→100, paddingBottom блока CTA
+    // 16→116), лишний вертикальный ключ (marginTop −63 у знака) или иной
+    // состав блоков — красно; текст колонки — поля 16 с каждой стороны
+    // (сумма горизонтальных padding предков и margin цепи), width/maxWidth
+    // не заданы. Пиксели устройства — android-e2e + ревьюер.
+    it(`FIRST_RUN_LAYOUT_${S}`, async () => {
       const api = await renderFirstRunFrame(scheme);
       const fr = subtreeByTestId(api.toJSON(), 'first-run-safe-area');
+      expect(fr).not.toBeNull();
+      expect(frColumn(fr as HostNode)).toEqual(FR_COLUMN);
+      for (const text of [FIRST_RUN_PROMISE, FIRST_RUN_SUBLINE, FIRST_RUN_TAGLINE]) {
+        const nodes = collectNodes(fr, (n) => n.type === 'Text' && textOfNode(n) === text);
+        expect(nodes.length).toBe(1);
+        const chain = chainToNode(fr, nodes[0]) ?? [];
+        let left = 0;
+        let right = 0;
+        chain.forEach((n, i) => {
+          const s = styleOf(n as { props: { style?: unknown } });
+          expect(s.width).toBeUndefined();
+          expect(s.maxWidth).toBeUndefined();
+          left += sideSum(s, 'Left', 'margin');
+          right += sideSum(s, 'Right', 'margin');
+          if (i < chain.length - 1) {
+            left += sideSum(s, 'Left', 'padding');
+            right += sideSum(s, 'Right', 'padding');
+          }
+        });
+        expect([left, right]).toEqual([FR_GUTTER, FR_GUTTER]);
+      }
+    });
+
+    // FR-6 футер brand.tagline «Versicherung. Erledigt.»: РОВНО один Text,
+    // .caption 13/18/500, по центру; ЭФФЕКТИВНЫЙ цвет к ЭФФЕКТИВНОЙ подложке
+    // (Б2): ground схемы, ink-muted tokens.json ±3, контраст ≥ 4.5; ПОСЛЕ CTA
+    // в порядке документа.
+    it(`FIRST_RUN_TAGLINE_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const json = api.toJSON();
+      const fr = subtreeByTestId(json, 'first-run-safe-area');
       const nodes = collectNodes(fr, (n) => n.type === 'Text' && textOfNode(n) === FIRST_RUN_TAGLINE);
       expect(nodes.length).toBe(1);
       const st = styleOf(nodes[0] as { props: { style?: unknown } });
@@ -747,8 +882,10 @@ describe('117 vkhod', () => {
       expect(st.lineHeight).toBe(CAPTION_LINE);
       expect(st.fontWeight).toBe(CAPTION_WEIGHT);
       expect(st.textAlign).toBe('center');
-      expect(st.color).toBe(INK_MUTED);
-      expect(contrast(st.color, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
+      const eff = glyphOnBackdrop(chainToNode(json, nodes[0]), st.color);
+      expect(eff?.backdrop).toBe(GROUND);
+      expect(nearColor(eff?.ink, INK_MUTED)).toBe(true);
+      expect(contrast(eff?.ink, eff?.backdrop) >= TEXT_MIN_CONTRAST).toBe(true);
       const order = docOrder(fr);
       expect(order.indexOf('#first-run-continue') >= 0).toBe(true);
       expect(order.indexOf('#first-run-continue') < order.indexOf(`"${FIRST_RUN_TAGLINE}"`)).toBe(true);
