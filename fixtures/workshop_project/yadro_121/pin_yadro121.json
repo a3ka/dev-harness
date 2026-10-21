@@ -1,0 +1,110 @@
+{
+  "product": {
+    "base_commit": "c525fd8d43ce3f243f8d92be72e1eedfe5375f22",
+    "base_dokazatelstvo": "origin/main Complior-back, merge PR#152 (ленд стенда 109); замер git rev-parse origin/main в клоне /tmp/dev-harness-verify/Impl109/back 2026-10-21",
+    "migrations_sha256": {
+      "001_core.sql": "f2316a60d332e89438920b8b3d30b2379df8cfb459d125c74f218aad9f1db056",
+      "002_rls.sql": "ee5a91bd2d3bee0af9b07de1453d98b7b0622d2925e738304bad024978ec5284",
+      "003_finance.sql": "f573c4cd9ed1d5728e68db02de6f732ff7311d9a9188edf3f592c940f33d2ca7",
+      "004_runtime_role_fixes.sql": "ef0aea49e761918d8e383ba649ecbeb1b777601d5ee0c785ee8a5c199e429fd2"
+    },
+    "runner": {
+      "entry": "server/infrastructure/migrations/run.js",
+      "manifest": "server/infrastructure/migrations/manifest.json",
+      "through": "004",
+      "damage_file": "003_finance.sql",
+      "damage_append": "\n-- 121 damage\n",
+      "damage_refusal": "не совпадает с манифестом",
+      "env": "MIGRATION_DATABASE_URL",
+      "env_stub": "postgres://nobody:nopass@127.0.0.1:1/complior"
+    },
+    "wiring": {
+      "package_script": "test:core",
+      "lane_file": "tests/tools/run_backend_ci.py",
+      "lane_literal": "test:core"
+    },
+    "evidence": {
+      "dir": "docs/evidence/core",
+      "native_mode": "RUNTIME",
+      "pglite_mode": "PGLITE",
+      "forbidden_keys": ["secret_locator", "account_reference"],
+      "native_fields": ["sql", "role", "errors"],
+      "native_engine": "postgres",
+      "native_db_regex": "^PostgreSQL 18[.]", 
+      "pglite_engine_hint": "pglite",
+      "runtime_roles": ["brokeros_authz", "brokeros_authorizer", "brokeros_api", "brokeros_worker", "brokeros_gateway", "brokeros_documents", "brokeros_finance", "brokeros_provider_admin", "brokeros_control_auditor"],
+      "sqlstate_regex": "^[0-9A-Z]{5}$",
+      "errors_min": 1,
+      "run_key_expected": "77010476dc47dd83ac3f9dd02c1244924a201f589ddc8bb7379dfa849f2d692b",
+      "run_key_sql": "select version||'|'||name||'|'||file_sha256 from control.schema_migration order by version",
+      "run_key_note": "run_key = sha256 от вывода run_key_sql (psql -At, строки через \\n) ЖИВОГО прогона; тест test:core пишет его в evidence сам; записи дерева сверяются с run_key_expected (П5 арбитража 121: ledger 001–004 детерминирован)"
+    },
+    "mutations": {
+      "docker_image": "postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336",
+      "db": "yadro121",
+      "admin_user": "postgres",
+      "admin_password": "yadro121-synthetic",
+      "tests_env": "COMPLIOR_TEST_PG_ADMIN_URL",
+      "damage": [
+        {"name": "force", "sql": "ALTER TABLE app.document_version NO FORCE ROW LEVEL SECURITY;", "revert": "ALTER TABLE app.document_version FORCE ROW LEVEL SECURITY;"},
+        {"name": "bypassrls", "sql": "ALTER ROLE brokeros_api BYPASSRLS;", "revert": "ALTER ROLE brokeros_api NOBYPASSRLS;"},
+        {"name": "immutable", "sql": "ALTER TABLE app.document_version DISABLE TRIGGER guard_document_version;", "revert": "ALTER TABLE app.document_version ENABLE TRIGGER guard_document_version;"},
+        {"name": "journal", "sql": "ALTER TABLE app.finance_journal DISABLE TRIGGER finance_journal_balanced;", "revert": "ALTER TABLE app.finance_journal ENABLE TRIGGER finance_journal_balanced;"}
+      ]
+    }
+  },
+  "toy": {
+    "migrations_sha256": {
+      "001_core.sql": "752fb56739df8e12e98b9f39f2fe268985a15a8cd5f5d1b2b13093386eedfa6a",
+      "002_rls.sql": "ca8053ce319ab5b445e6da554d939b204f7be2491d0202861974899517b029c2",
+      "003_finance.sql": "b771e6a22bca69a2adb10638f37dd501a4609967fcc142de8b70e136d5fce0b5",
+      "004_runtime_role_fixes.sql": "8f2ea3ae4c2482f81f2e8815a9f2e63721b5bc344414d670cf2f0923d5732260"
+    },
+    "runner_entry": "server/infrastructure/migrations/run.js",
+    "damage_refusal": "не совпадает с манифестом",
+    "damage_append": "\n-- 121 damage\n",
+    "through": "004",
+    "evidence": {
+      "native_engine": "toy-native",
+      "native_db_regex": "^ToyPostgreSQL 18[.]",
+      "pglite_engine": "toy-pglite",
+      "runtime_roles": ["brokeros_api", "toy_runtime_admin"],
+      "sqlstate_regex": "^[0-9A-Z]{5}$",
+      "errors_min": 0
+    },
+    "engine_mutations": [
+      {"from": "FORCE_RLS_DEFAULT = true", "to": "FORCE_RLS_DEFAULT = false"},
+      {"from": "IMMUTABLE_GUARD = true", "to": "IMMUTABLE_GUARD = false"},
+      {"from": "JOURNAL_BALANCE = true", "to": "JOURNAL_BALANCE = false"},
+      {"from": "AUDIT_CONTEXT_REQUIRED = true", "to": "AUDIT_CONTEXT_REQUIRED = false"}
+    ]
+  },
+  "core_tests": {
+    "tests/integration/core/rls.test.js": ["FORCE ROW LEVEL SECURITY", "has_scope_access", "bypassrls", "brokeros_api"],
+    "tests/integration/core/immutable.test.js": ["guard_immutable", "document_version", "approval"],
+    "tests/integration/core/finance_journal.test.js": ["finance_journal", "balance", "effect"],
+    "tests/integration/core/admin_audit.test.js": ["runtime_admin_audit", "ADMIN_AUDIT_CONTEXT_REQUIRED", "actor_principal_id", "secret_locator"]
+  },
+  "prichiny": {
+    "migracii-izmeneny": "sha256 migrations/001–004 расходится с пином",
+    "ranner-otsutstvuet": "раннер или манифест отсутствует/без 001–004",
+    "testy-otsutstvuyut": "нет хотя бы одного пинованного файла tests/integration/core/",
+    "rls-bez-force": "rls.test.js без полного набора маркеров RLS",
+    "versii-ne-immutable": "immutable.test.js без полного набора маркеров версий",
+    "zhurnal-bez-balansa": "finance_journal.test.js без полного набора маркеров журнала",
+    "audit-bez-konteksta": "admin_audit.test.js без полного набора маркеров аудита",
+    "provodka-otsutstvuet": "package.json без test:core или lane-файл без литерала test:core",
+    "evidence-otsutstvuet": "нет native-evidence с mode=RUNTIME в docs/evidence/core/ (или запись пуста: без SQL/роли/ошибок)",
+    "evidence-razdelenie": "нет PGLITE-evidence отдельно от native",
+    "evidence-sekrety": "в evidence есть запрещённые ключи аудита",
+    "evidence-ne-native": "движок evidence не native: engine/db PGlite-признак под меткой RUNTIME или роль вне runtime-ролей",
+    "evidence-chuzhoj-klyuch": "run_key evidence не сходится с прогоном (файл/ledger/live-расчёт)",
+    "testy-pustye": "test:core зелёный на повреждённом свойстве: набор не исполняет проверок (безусловная зелень/маркеры)",
+    "testy-ne-zelenye": "на честном мире test:core/применение ядра красны; в т.ч. контрольный повтор перед мутацией красен — одноразовая побочка состояния дерева/кластера (П1 арбитража 121)",
+    "ranner-ne-otkazyvaet": "повреждённая копия не отвергнута раннером",
+    "ledger-pustoj": "после прогона ledger не равен 4 строкам 001–004",
+    "povtor-ddl": "повторный прогон исполняет DDL повторно",
+    "orakul-slep": "декой прошёл проверку оракула",
+    "model-razbita": "честный мини-мир не проходит собственную проверку"
+  }
+}

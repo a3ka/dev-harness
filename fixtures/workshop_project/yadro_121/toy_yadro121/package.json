@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "test:core": "node tests/integration/core/run_core.js"
+  }
+}
