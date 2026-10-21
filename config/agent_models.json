@@ -61,6 +61,12 @@
       "autoFallback": true,
       "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). critic — верхний уровень чужого семейства относительно architect (GLM, zai): Astra; замена Astra — только Fable (оба не zai) (decisions/005). Отменяет временное Opus (15.10)."
     },
+    "apex-sol": {
+      "model": "@gpt-sol",
+      "fallback": "@gpt-terra",
+      "autoFallback": true,
+      "why": "Слово владельца 2026-10-21 ~22:00 UTC «да, давай 2Б» (через консультанта): критик на Astra съедал ~81% лимита Codex (замер 24 ч: ~3 660 из ~4 540 кредитов по rate card; Astra 250/25/1250 против Sol 50/5/250 за 1M). Круги 1–2 суда контракта — GPT-6 Sol; круг 3 (последний перед заморозкой) — Astra (critic). Чужое семейство относительно architect (GLM) сохранено."
+    },
     "audit": {
       "model": "@opus",
       "fallback": "@gpt-sol",
@@ -91,6 +97,7 @@
     "implementer-vision": "vision",
     "adversary": "advisor",
     "critic": "apex",
+    "critic-sol": "apex-sol",
     "reviewer": "audit",
     "arbiter": "plan",
     "steward": "steward",
@@ -121,7 +128,12 @@
         "role": "implementer-glm"
       },
       {
-        "class": "суд плана и контракта до заморозки",
+        "class": "суд плана и контракта до заморозки, круги 1–2",
+        "role": "critic-sol",
+        "constraint": "чужое семейство относительно architect; слово владельца 2026-10-21 «2Б»"
+      },
+      {
+        "class": "суд плана и контракта до заморозки, круг 3 (последний перед заморозкой)",
         "role": "critic",
         "constraint": "верхний уровень чужого семейства относительно architect (decisions/005)"
       },
