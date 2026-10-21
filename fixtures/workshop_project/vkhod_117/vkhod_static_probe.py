@@ -948,6 +948,50 @@ def run_checks(repo: Path):
         print('RED SPLASH_OVERLAY_CONSUMES_COMPOSITE:', sorted(want - resolved))
     check(ok, 'SPLASH_OVERLAY_CONSUMES_COMPOSITE')
 
+    # 6е (Adv117v2, круг по реализации): ГЕОМЕТРИЯ оверлея в КОДЕ
+    # потребителя. Сегмент JSX оверлея (от testID до закрывающего
+    # `: null}` условного рендера) не несёт степеней свободы геометрии
+    # сверх канона инварианта 8 (бокс Image следует боксу оверлея,
+    # содержимое центрирует resizeMode contain): ни transform (любой —
+    # translateX/translateY/scale/rotate/skew, прямым ключом или
+    # элементом массива стилей), ни смещений layout (margin* любого
+    # значения; left/top/right/bottom ≠ 0; position ≠ 'absolute').
+    # Найденный transform краснит SPLASH_OVERLAY_NO_TRANSFORM, смещение —
+    # SPLASH_OVERLAY_NO_LAYOUT_OFFSET; отсутствующий сегмент краснит ОБЕ
+    # (не зелень). Рендер-истина той же степени свободы — поведенческие
+    # SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT} (vkhod.test.tsx).
+    geo = ov['geometry']
+    code = consumer.read_text(encoding='utf-8') if consumer.is_file() else ''
+    seg_start = code.find('testID="' + ov['test_id'] + '"')
+    seg_end = code.find(geo['jsx_end_anchor'], seg_start)
+    seg = code[seg_start:seg_end] if seg_start != -1 and seg_end != -1 else None
+    if seg is None:
+        print('RED SPLASH_OVERLAY_NO_TRANSFORM+SPLASH_OVERLAY_NO_LAYOUT_OFFSET:'
+              ' сегмент оверлея не найден в', ov['consumer'])
+        check(False, 'SPLASH_OVERLAY_NO_TRANSFORM')
+        check(False, 'SPLASH_OVERLAY_NO_LAYOUT_OFFSET')
+    else:
+        bad_tf = sorted({prop for prop in geo['forbidden_transform_props']
+                         if re.search(r'\b' + re.escape(prop) + r'\s*:', seg)})
+        if bad_tf:
+            print('RED SPLASH_OVERLAY_NO_TRANSFORM:', bad_tf)
+        check(not bad_tf, 'SPLASH_OVERLAY_NO_TRANSFORM')
+        margin_re = (r'\b(' + re.escape(geo['forbidden_margin_prefix'])
+                     + r'[A-Za-z]*)\s*:')
+        bad_off = sorted(set().union(
+            {m.group(1) for prop in geo['canon_edge_zero_props']
+             for m in re.finditer(
+                 r'\b' + re.escape(prop) + r'\s*:\s*([^,\n}]+)', seg)
+             if m.group(1).strip() != str(geo['canon_edge_zero'])},
+            {m.group(1) for m in re.finditer(margin_re, seg)},
+            {"position '" + m.group(1) + "'"
+             for m in re.finditer(r"\bposition\s*:\s*'([^']+)'", seg)
+             if m.group(1) != geo['canon_position']},
+        ))
+        if bad_off:
+            print('RED SPLASH_OVERLAY_NO_LAYOUT_OFFSET:', bad_off)
+        check(not bad_off, 'SPLASH_OVERLAY_NO_LAYOUT_OFFSET')
+
     # 7. userInterfaceStyle automatic — иначе тёмный splash недостижим
     # на устройстве ( Expo выбирает блок по теме ОС).
     check(expo.get('userInterfaceStyle') == lit['user_interface_style'],
@@ -1490,6 +1534,39 @@ def matrix(repo: Path):
               "require('../../assets/images/splash-composite-light.png')",
               "require('../../assets/images/icon.png')")],
             ['SPLASH_OVERLAY_CONSUMES_COMPOSITE'], [],
+        ),
+        # (Adv117v2, круг по реализации) transform на Image оверлея:
+        # композит и require каноничны, кадр сдвинут — код потребителя
+        # несёт запрещённую степень свободы геометрии.
+        'overlay-transform-translatex': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' },\n"
+              "                    { transform: [{ translateX: 19 }] }]}")],
+            ['SPLASH_OVERLAY_NO_TRANSFORM'], [],
+        ),
+        'overlay-transform-translatey': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' },\n"
+              "                    { transform: [{ translateY: 19 }] }]}")],
+            ['SPLASH_OVERLAY_NO_TRANSFORM'], [],
+        ),
+        'overlay-transform-scale': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' },\n"
+              "                    { transform: [{ scale: 0.9 }] }]}")],
+            ['SPLASH_OVERLAY_NO_TRANSFORM'], [],
+        ),
+        # (Adv117v2) margin-смещение Image оверлея: сдвиг layout сверх
+        # канона (absoluteFill + width/height 100%).
+        'overlay-margin-offset': (
+            [('mobile/src/bootstrap/pilot-app.tsx',
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+              "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%',"
+              " marginLeft: 50 }]}")],
+            ['SPLASH_OVERLAY_NO_LAYOUT_OFFSET'], [],
         ),
         # (Р2, круг 6, Rev117/Adv117) кадр splash снят без ожидания окна
         # (форма текущего C: takeScreenshot сразу после launchApp — на
