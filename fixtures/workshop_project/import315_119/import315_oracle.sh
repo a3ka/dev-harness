@@ -53,6 +53,40 @@ gc() {
   fi
   return "$rc"
 }
+# проекция маршрутов (вердикт Adv119v2; ядро — Architect119r5): мультимножество
+# (operationId, path, method) документа $2 на operationId документа $1 обязано
+# совпасть с проекцией $1 — перенос на иной path, смена метода, потеря или
+# дубль маршрута при неизменном operationId красны; кортежи сравниваются в
+# python (байт данных разделителем не служит); python3+PyYAML — уже
+# зависимость батареи, без него rc 2 NEEDS_ENV (Б-1); $3 — метка диагностики.
+# Единый источник грамматики маршрута для сверок extension и ядра
+route_diff() {
+  python3 - "$1" "$2" "$3" <<'PY'
+import sys
+from collections import Counter
+try:
+    import yaml
+except ImportError:
+    print('NEEDS_ENV: import315: python3-yaml-nedostupen (PyYAML)', file=sys.stderr)
+    sys.exit(2)
+METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace')
+def routes(path):
+    doc = yaml.safe_load(open(path, encoding='utf-8'))
+    out = Counter()
+    for p, item in ((doc or {}).get('paths') or {}).items():
+        for m in METHODS:
+            op = item.get(m) if isinstance(item, dict) else None
+            if isinstance(op, dict) and 'operationId' in op:
+                out[(str(op['operationId']), str(p), m)] += 1
+    return out
+src = routes(sys.argv[1])
+ids = {t[0] for t in src}
+pub = Counter({t: n for t, n in routes(sys.argv[2]).items() if t[0] in ids})
+for t in sorted(((src - pub) + (pub - src)).elements()):
+    print('%s: %s %s %s' % ((sys.argv[3],) + t), file=sys.stderr)
+sys.exit(0 if src == pub else 1)
+PY
+}
 PUB=docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml
 BIND=docs/contracts/frontend-consumer-bindings.json
 SRC315=docs/sources/backend-3.15
@@ -135,6 +169,15 @@ CUR_VS01="$(jq -r '.vs01_spec_freeze.sha256 // empty' docs/VERSION_MANIFEST.json
 BASE_VS01="$(git show "$BASE:docs/VERSION_MANIFEST.json" | jq -r '.vs01_spec_freeze.sha256 // empty')"
 [ "$CUR_VS01" = "$BASE_VS01" ] || fail vs01-otkatan
 # ── ADDITIV-315-END ─────────────────────────────────────────────────────────
+# ── MARSHRUT-CORE-315-BEG: маршрут ЯДРОВЫХ операций против git-базы ────────
+# поблочная сверка выше начинается со строки operationId — path и метод
+# core-операции вне её сравнения; проекция базового published (то же
+# основание, что у core-блоков) против текущего, кратность тоже: перенос
+# core-операции на иной path или смена метода при неизменных
+# operationId/блоке/источнике — красно
+route_diff "$SCRATCH/base_published.yaml" "$PUB" marshrut-core
+case $? in 0) ;; 2) exit 2 ;; *) fail additivnost-operacija ;; esac
+# ── MARSHRUT-CORE-315-END ───────────────────────────────────────────────────
 
 # ── состав против ПИНА (Б1): числа/хэши не читаются из проверяемого дерева ──
 BASE_OPS="$(grep -c 'operationId:' "$SCRATCH/base_published.yaml")"
@@ -162,35 +205,10 @@ CUR_TABLES="$(jq '.tables | length' docs/data/physical-model.json)"
   || fail sostav-rashozhdenie
 # ── MARSHRUT-315-BEG: маршрут extension-операций (вердикт Adv119v2) ─────────
 # поблочная сверка видит содержимое операции, но не её маршрут: проекция
-# operationId → (path, method) источника extension (sha по пину — выше)
-# обязана совпасть с проекцией published, кратность тоже; сборка независима
-# от генератора и валидатора продукта (python3+PyYAML — уже зависимость
-# батареи): перенос на иной path или смена метода при неизменных
-# operationId/блоке/источнике — красно
-python3 - "$SRC315/platform-extension.yaml" "$PUB" <<'PY'
-import sys
-try:
-    import yaml
-except ImportError:
-    print('NEEDS_ENV: import315: python3-yaml-nedostupen (PyYAML)', file=sys.stderr)
-    sys.exit(2)
-METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace')
-def routes(path):
-    doc = yaml.safe_load(open(path, encoding='utf-8'))
-    out = []
-    for p, item in ((doc or {}).get('paths') or {}).items():
-        for m in METHODS:
-            op = item.get(m) if isinstance(item, dict) else None
-            if isinstance(op, dict) and 'operationId' in op:
-                out.append((str(op['operationId']), str(p), m))
-    return out
-src = routes(sys.argv[1])
-ids = {t[0] for t in src}
-pub = [t for t in routes(sys.argv[2]) if t[0] in ids]
-for t in sorted(set(src) ^ set(pub)):
-    print('marshrut: %s %s %s' % t, file=sys.stderr)
-sys.exit(0 if sorted(src) == sorted(pub) else 1)
-PY
+# источника extension (sha по пину — выше) против published, кратность тоже;
+# сборка независима от генератора и валидатора продукта: перенос на иной
+# path или смена метода при неизменных operationId/блоке/источнике — красно
+route_diff "$SRC315/platform-extension.yaml" "$PUB" marshrut
 case $? in 0) ;; 2) exit 2 ;; *) fail extension-marshrut ;; esac
 # ── MARSHRUT-315-END ────────────────────────────────────────────────────────
 

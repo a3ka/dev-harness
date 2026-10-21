@@ -35,6 +35,11 @@
 # make_probe не копирует каталог через симлинк, пробы видят npm-дерево →
 # честный импорт rc 0); d39 — повторный прогон оракула на том же мире (Б-2:
 # evidence spec-3.14 без --out ложится в судимое дерево → rc 0 обязателен).
+# Та же дыра у ЯДРА (Architect119r5): d40/d41 — писатель переносит core-операцию
+# requestAction на иной path / меняет её HTTP-метод при неизменных
+# operationId/блоке/core-источнике (sha = git-база) — поблочная сверка
+# аддитивности маршрут не видит; различим ТОЛЬКО проекцией оракула
+# operationId→(path, method) git-базы против published (additivnost-operacija).
 #
 # Режимы: без аргументов — суд ПРОДУКТА (живой клон Complior-back; путь из
 # IMPORT315_119_BACK, умолчание /tmp/dev-harness-verify/Architect119/back):
@@ -51,7 +56,9 @@
 #   производных генератора, накрытые регенерацией) → расхождение поймано;
 #   (5) контрмодель без блока маршрута (sed по сентинелам
 #   MARSHRUT-315-BEG/END) обязана вернуть rc 0 IMPORT315_OK на d35/d36 —
-#   перенос маршрута ловит ТОЛЬКО проекция operationId→(path, method).
+#   перенос маршрута ловит ТОЛЬКО проекция operationId→(path, method);
+#   (6) контрмодель без блока маршрута ядра (sed по сентинелам
+#   MARSHRUT-CORE-315-BEG/END) обязана вернуть rc 0 IMPORT315_OK на d40/d41.
 #
 # Миры одноразовые (mktemp $TMPDIR), git-коммиты миров локальны, network нет.
 set -uo pipefail
@@ -93,9 +100,10 @@ R_GENCONOOP="gencontracts-noop"
 R_GENCONPIS="gencontracts-ne-pishet"
 R_SCHEMPROJ="schemas-proekcija"
 R_MARSHRUT="extension-marshrut"
+R_ADDOP="additivnost-operacija"
 R_NEEDSENV="NEEDS_ENV"
 
-CELLS="m-baza k-model d1-cas-ifmatch d2-poterya-consumer d3-reasoncode d4-core-zamenen d5-generator-bez-check d6-generator-ne-idempotent d7-manifest-vret d8-files-sha256-staryj d9-vtoroj-koren d10-status-nechestnyj d11-known-issues-soglasovanno-nepolnyj d12-istorika-podmenena d13-sql-izmenen d16-validator-kreven d17-owners-nedostavleny d18-generator-noop d19-validator-noop d20-extension-pustoj d21-generator-pisatel-noop d22-generator-vosstanavlivaet-iz-git d23-known-failures-nepust d24-spec314-nemigrirovan d25-spec314-known-failures d26-spec314-propusk-extension d27-spec314-oslablenie-core d28-spec314-profili-neopredeleny d29-schemas-rukami d30-schemas-sha-podognan d31-gencontracts-check-obhozhden d32-gencontracts-nedeterminirovan d33-gencontracts-pustoj-dokument d34-gencontracts-perestanovka-operationid d35-extension-perenos-path d36-extension-smena-metoda d37-npm-net-dereva d38-npm-simlink d39-povtornyj-progon"
+CELLS="m-baza k-model d1-cas-ifmatch d2-poterya-consumer d3-reasoncode d4-core-zamenen d5-generator-bez-check d6-generator-ne-idempotent d7-manifest-vret d8-files-sha256-staryj d9-vtoroj-koren d10-status-nechestnyj d11-known-issues-soglasovanno-nepolnyj d12-istorika-podmenena d13-sql-izmenen d16-validator-kreven d17-owners-nedostavleny d18-generator-noop d19-validator-noop d20-extension-pustoj d21-generator-pisatel-noop d22-generator-vosstanavlivaet-iz-git d23-known-failures-nepust d24-spec314-nemigrirovan d25-spec314-known-failures d26-spec314-propusk-extension d27-spec314-oslablenie-core d28-spec314-profili-neopredeleny d29-schemas-rukami d30-schemas-sha-podognan d31-gencontracts-check-obhozhden d32-gencontracts-nedeterminirovan d33-gencontracts-pustoj-dokument d34-gencontracts-perestanovka-operationid d35-extension-perenos-path d36-extension-smena-metoda d37-npm-net-dereva d38-npm-simlink d39-povtornyj-progon d40-core-perenos-path d41-core-smena-metoda"
 
 make_base_world() {  # → путь мира (мини-Complior-back 5.8.4, импорта нет)
   local d
@@ -189,8 +197,8 @@ PY
 }
 
 reroute_writer() {  # $1 = мир, $2/$3 = «было»/«стало» в тексте published:
-  # писатель генератора после слияния переписывает маршрут extension-операции
-  # (зеркало репро Adv119v2: replace сразу после merge), затем штатная
+  # писатель генератора после слияния переписывает маршрут операции extension
+  # либо ядра (зеркало репро Adv119v2: replace сразу после merge), затем штатная
   # пересборка — writer, gen-contracts, writer (FILES последним); assert в
   # писателе не даёт мутации выродиться в пустую (нет «было» — генератор падает)
   python3 - "$1/tests/tools/generate_derived.py" "$2" "$3" <<'PY'
@@ -595,10 +603,22 @@ PY
       # только читает судимое дерево, повторный прогон обязан дать rc 0
       bash "$ORACLE" "$W" >/dev/null 2>&1
       ;;
+    d40-core-perenos-path)
+      # (Architect119r5) перенос core-операции requestAction на иной path при
+      # неизменных operationId/блоке/core-источнике (sha = git-база); path
+      # item — вне любого блока поблочной сверки аддитивности
+      reroute_writer "$W" $'  /actions:\n' $'  /actions-relocated:\n'
+      ;;
+    d41-core-smena-metoda)
+      # (Architect119r5, отдельно) смена HTTP-метода той же core-операции
+      # (post → put): метод — первый в своём path item, поэтому строка метода
+      # не входит в блок соседней операции (иначе её поймала бы поблочная сверка)
+      reroute_writer "$W" $'  /actions:\n    post:\n' $'  /actions:\n    put:\n'
+      ;;
   esac
 }
 
-expect_rc() { case "$1" in m-baza|d1-cas-ifmatch|d2-poterya-consumer|d3-reasoncode|d4-core-zamenen|d5-generator-bez-check|d6-generator-ne-idempotent|d7-manifest-vret|d8-files-sha256-staryj|d9-vtoroj-koren|d10-status-nechestnyj|d11-known-issues-soglasovanno-nepolnyj|d12-istorika-podmenena|d13-sql-izmenen|d16-validator-kreven|d17-owners-nedostavleny|d18-generator-noop|d19-validator-noop|d20-extension-pustoj|d21-generator-pisatel-noop|d22-generator-vosstanavlivaet-iz-git|d23-known-failures-nepust|d24-spec314-nemigrirovan|d25-spec314-known-failures|d26-spec314-propusk-extension|d27-spec314-oslablenie-core|d28-spec314-profili-neopredeleny|d29-schemas-rukami|d30-schemas-sha-podognan|d31-gencontracts-check-obhozhden|d32-gencontracts-nedeterminirovan|d33-gencontracts-pustoj-dokument|d34-gencontracts-perestanovka-operationid|d35-extension-perenos-path|d36-extension-smena-metoda) echo 1;; d37-npm-net-dereva) echo 2;; k-model|d38-npm-simlink|d39-povtornyj-progon) echo 0;; *) echo 2;; esac; }
+expect_rc() { case "$1" in m-baza|d1-cas-ifmatch|d2-poterya-consumer|d3-reasoncode|d4-core-zamenen|d5-generator-bez-check|d6-generator-ne-idempotent|d7-manifest-vret|d8-files-sha256-staryj|d9-vtoroj-koren|d10-status-nechestnyj|d11-known-issues-soglasovanno-nepolnyj|d12-istorika-podmenena|d13-sql-izmenen|d16-validator-kreven|d17-owners-nedostavleny|d18-generator-noop|d19-validator-noop|d20-extension-pustoj|d21-generator-pisatel-noop|d22-generator-vosstanavlivaet-iz-git|d23-known-failures-nepust|d24-spec314-nemigrirovan|d25-spec314-known-failures|d26-spec314-propusk-extension|d27-spec314-oslablenie-core|d28-spec314-profili-neopredeleny|d29-schemas-rukami|d30-schemas-sha-podognan|d31-gencontracts-check-obhozhden|d32-gencontracts-nedeterminirovan|d33-gencontracts-pustoj-dokument|d34-gencontracts-perestanovka-operationid|d35-extension-perenos-path|d36-extension-smena-metoda|d40-core-perenos-path|d41-core-smena-metoda) echo 1;; d37-npm-net-dereva) echo 2;; k-model|d38-npm-simlink|d39-povtornyj-progon) echo 0;; *) echo 2;; esac; }
 expect_reason() {
   case "$1" in
     m-baza) echo "$R_IMPORT";;
@@ -640,6 +660,8 @@ expect_reason() {
     d37-npm-net-dereva) echo "$R_NEEDSENV";;
     d38-npm-simlink) echo "IMPORT315_OK";;
     d39-povtornyj-progon) echo "IMPORT315_OK";;
+    d40-core-perenos-path) echo "$R_ADDOP";;
+    d41-core-smena-metoda) echo "$R_ADDOP";;
   esac
 }
 
