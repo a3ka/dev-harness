@@ -121,6 +121,10 @@ step	check:mob-sverka-123-family-selftest	0	npm run check:mob-sverka-123-family-
 # интеграционным коммитом (§Проводка контракта 124, прецедент 113/114/121); вес 0 до первого замера
 # окна (локальный замер полного прогона 89.5 с, 70/70). Команда — литерал батареи.
 step	check:push-produkta-124-family-selftest	0	bash fixtures/workshop_project/push_produkta_124/red_124.sh
+# КОНТРАКТ 119: красная батарея импорта 3.15 (34 клетки, режим --model: миры в mktemp, продукта не требует) —
+# подключение оркестратором интеграционным коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 119, образец 996-E);
+# вес 0 до первого замера окна (локальный замер --model 19.9 с, 34/34). Команда — литерал батареи.
+step	check:import315-119-family-selftest	0	bash fixtures/workshop_project/import315_119/red_import315_119.sh --model
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
