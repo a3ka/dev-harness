@@ -43,6 +43,19 @@ jest.mock('../../../assets/images/splash-composite-dark.png', () => ({ vkhod117C
 jest.mock('../../../assets/images/splash-composite-light.png', () => ({ vkhod117Composite: 'light' }), {
   virtual: true,
 });
+// 117 v2 (First-Run по First-Run.png): знак First-Run — модуль файла
+// splash-sign-<схема>.png (тот, что судит SPLASH_SIGN_RASTER аналитикой
+// канона); wordmark — модуль wordmark-dark.png 111 (ink растра #f2f1ec,
+// sha 111 WORDMARK_ASSET_IDENTITY). Сентинели — как у композитов (С2-а).
+jest.mock('../../../assets/images/splash-sign-dark.png', () => ({ vkhod117Sign: 'dark' }), {
+  virtual: true,
+});
+jest.mock('../../../assets/images/splash-sign-light.png', () => ({ vkhod117Sign: 'light' }), {
+  virtual: true,
+});
+jest.mock('../../../assets/images/wordmark-dark.png', () => ({ vkhod117Wordmark: 'ink-f2f1ec' }), {
+  virtual: true,
+});
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
@@ -89,12 +102,14 @@ const SURFACE_995_BG = '#FFFFFF';
 const SURFACE_995_PAD_TOP = 48;
 const SURFACE_995_PAD_H = 16;
 const SURFACE_995_PAD_BOTTOM = 16;
-// ссылки код-кадра (каталог verbatim) и их эффективный цвет — accent
-// обеих схем (проекция 999): судится значение рендера, не имя токена.
+// ссылки код-кадра (каталог verbatim) и их эффективный цвет — accent-text
+// схемы (117 v2, инв. 6; D2.2.5.1 README:395 «как текст — только
+// accent-text», tokens.css:26/69): судится значение рендера, не имя токена.
 const LINK_RESEND = 'Code erneut senden';
 const LINK_CHANGE_EMAIL = 'E-Mail ändern';
 const LINK_NO_ACCESS = 'Zugang wiederherstellen';
-const ACCENT = '#d6f75a';
+const ACCENT_TEXT_DARK = '#d6f75a';
+const ACCENT_TEXT_LIGHT = '#3f6d0f';
 
 // Р1/Р4/Р6 (круг 6, Rev117/Adv117) — литералы оракула.
 const FIRST_RUN_PROMISE =
@@ -114,6 +129,29 @@ const SPLASH_OVERLAY_HIDE_AFTER_MS = 1200;
 // light-content, light #f3f2ee → 'dark' → dark-content.
 const STATUS_BAR_DARK = 'light-content';
 const STATUS_BAR_LIGHT = 'dark-content';
+// 117 v2 — First-Run по First-Run.png / First-Run.html (source.json
+// first_run_117; артборд p-astage is-stage-1, замер пикселями круга v2).
+const INK_MUTED_DARK = '#a6a69f';
+const INK_MUTED_LIGHT = '#5f5e58';
+const FIRST_RUN_SUBLINE =
+  'Ein Brief, ein Schaden, ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie bestätigen nur, was wirklich zählt.';
+const FIRST_RUN_TAGLINE = 'Versicherung. Erledigt.';
+const FIRST_RUN_CTA = 'Anmelden oder Konto erstellen';
+const FR_TOP_PAD = 20;
+const FR_TOP_MIN_H = 60;
+const FR_WORDMARK_H = 22;
+const FR_SIGN_W = 181;
+const FR_SIGN_H = 173;
+const FR_CTA_H = 56;
+const FR_GUTTER = 16;
+const BODY_SM_SIZE = 15;
+const BODY_SM_LINE = 20;
+const CAPTION_SIZE = 13;
+const CAPTION_LINE = 18;
+const CAPTION_WEIGHT = '500';
+// WCAG AA текст (D2.2.5.1 README: текст ink/ink-muted на ground).
+const TEXT_MIN_CONTRAST = 4.5;
+const WORDMARK_RASTER_INK = '#f2f1ec';
 function journalOf(mod: unknown): string[] {
   if (mod && typeof mod === 'object' && '__vkhod117Journal' in mod
       && Array.isArray(mod.__vkhod117Journal)) {
@@ -126,6 +164,11 @@ const COMPOSITE_MODULE = {
   dark: require('../../../assets/images/splash-composite-dark.png') as unknown,
   light: require('../../../assets/images/splash-composite-light.png') as unknown,
 };
+const SIGN_MODULE = {
+  dark: require('../../../assets/images/splash-sign-dark.png') as unknown,
+  light: require('../../../assets/images/splash-sign-light.png') as unknown,
+};
+const WORDMARK_MODULE = require('../../../assets/images/wordmark-dark.png') as unknown;
 
 // В2-2: стиль статус-бара, дошедший до ОС. RN StatusBar сводит стек
 // смонтированных StatusBar в setImmediate и шлёт итог в
@@ -343,6 +386,90 @@ function hasNodeType(json: unknown, type: string): boolean {
   return false;
 }
 
+// 117 v2: относительная яркость/контраст WCAG по литералам #rrggbb.
+function luminance(hex: string): number {
+  const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lin = v.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+}
+
+function contrast(a: unknown, b: unknown): number {
+  if (typeof a !== 'string' || typeof b !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(a)
+      || !/^#[0-9a-fA-F]{6}$/.test(b)) return 0;
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+type HostNode = { type?: unknown; props?: Record<string, unknown>; children?: unknown };
+
+function hostChildren(node: HostNode | null | undefined): HostNode[] {
+  const children = node?.children;
+  return (Array.isArray(children) ? children : []).filter(
+    (c): c is HostNode => !!c && typeof c === 'object',
+  );
+}
+
+// Цепь host-узлов корень→узел с testID (toJSON): предки наблюдаемы без layout.
+function chainToTestId(json: unknown, testID: string, acc: HostNode[] = []): HostNode[] | null {
+  const node = json as HostNode;
+  if (!node || typeof node !== 'object') return null;
+  const here = [...acc, node];
+  if (node.props?.testID === testID) return here;
+  for (const child of hostChildren(node)) {
+    const hit = chainToTestId(child, testID, here);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function textOfNode(node: HostNode): string {
+  const children = node.children;
+  return (Array.isArray(children) ? children : []).filter((c) => typeof c === 'string').join('');
+}
+
+function collectNodes(json: unknown, pred: (n: HostNode) => boolean, out: HostNode[] = []): HostNode[] {
+  const node = json as HostNode;
+  if (!node || typeof node !== 'object') return out;
+  if (pred(node)) out.push(node);
+  for (const child of hostChildren(node)) collectNodes(child, pred, out);
+  return out;
+}
+
+// Порядок документа First-Run: testID узлов и тексты Text-узлов в обходе.
+function docOrder(json: unknown, out: string[] = []): string[] {
+  const node = json as HostNode;
+  if (!node || typeof node !== 'object') return out;
+  const tid = node.props?.testID;
+  if (typeof tid === 'string') out.push(`#${tid}`);
+  if (node.type === 'Text') out.push(`"${textOfNode(node)}"`);
+  for (const child of hostChildren(node)) docOrder(child, out);
+  return out;
+}
+
+const NARROW_ALIGN = ['flex-start', 'center', 'flex-end', 'baseline'];
+
+function centeredIn(node: HostNode, parent: HostNode): boolean {
+  const own = styleOf(node as { props: { style?: unknown } }).alignSelf;
+  if (own === 'center') return true;
+  return (own === undefined || own === 'auto')
+    && styleOf(parent as { props: { style?: unknown } }).alignItems === 'center';
+}
+
+function sideSum(s: Record<string, unknown>, side: 'Left' | 'Right', kind: 'padding' | 'margin'): number {
+  for (const key of [`${kind}${side}`, `${kind}Horizontal`, kind]) {
+    const v = s[key];
+    if (typeof v === 'number') return v;
+  }
+  return 0;
+}
+
+// Кадр First-Run (холодный старт '/'): CTA 995 найден — кадр смонтирован.
+async function renderFirstRunFrame(scheme: ColorScheme) {
+  const api = await renderApp(scheme);
+  await screen.findByTestId('first-run-continue');
+  return api;
+}
+
 // До кадра email: cold start рендерит first-run сразу (JS-кадра splash нет),
 // CTA ведёт в F03.01.
 async function toEmail(
@@ -405,8 +532,9 @@ describe('117 vkhod', () => {
   // frame.F03.02.body цветом ink; основная кнопка auth-verify
   // (action.F03.A01) — Button primary (пилюля на primary, подпись
   // on-primary); ТРИ ссылки (ui.auth.code_resend, auth.change_email,
-  // action.F03.A02) эффективным цветом accent #d6f75a (значение рендера,
-  // не имя токена). Произведение scheme(2).
+  // action.F03.A02) эффективным цветом accent-text схемы (117 v2, инв. 6:
+  // dark #d6f75a, light #3f6d0f; значение рендера, не имя токена) с
+  // контрастом к ground ≥ 4.5. Произведение scheme(2).
   for (const scheme of ['dark', 'light'] as const) {
     const S = scheme.toUpperCase();
     const GROUND = scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT;
@@ -414,6 +542,7 @@ describe('117 vkhod', () => {
     const PRIMARY = scheme === 'dark' ? PRIMARY_DARK : PRIMARY_LIGHT;
     const ON_PRIMARY = scheme === 'dark' ? ON_PRIMARY_DARK : ON_PRIMARY_LIGHT;
     const PANEL = scheme === 'dark' ? PANEL_DARK : PANEL_LIGHT;
+    const ACCENT_TEXT = scheme === 'dark' ? ACCENT_TEXT_DARK : ACCENT_TEXT_LIGHT;
 
     it(`AUTH_F03_02_STRUCTURE_${S}`, async () => {
       const api = await toEmail(scheme);
@@ -442,9 +571,186 @@ describe('117 vkhod', () => {
         ['auth-change-email', LINK_CHANGE_EMAIL],
         ['auth-no-access', LINK_NO_ACCESS],
       ] as const) {
-        expect(styleOf(within(screen.getByTestId(tid)).getByText(text)).color).toBe(ACCENT);
+        const color = styleOf(within(screen.getByTestId(tid)).getByText(text)).color;
+        expect(color).toBe(ACCENT_TEXT);
+        expect(contrast(color, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
       }
       expect(backgroundOf(hostRootOf(api.toJSON()))).toBe(GROUND);
+    });
+  }
+
+  // 117 v2 — First-Run по First-Run.png (слово владельца (А) 18:15 «полный
+  // состав и раскладка как на PNG»; форк n117-v2-first-run (А)). Layout в
+  // Jest не вычисляется: клетки судят КОНСТРУКЦИЮ раскладки артборда
+  // (First-Run.html, p-astage is-stage-1) по эффективному стилю цепи
+  // host-узлов и порядок документа; пиксели кадра — android-e2e + ревьюер.
+  // Каждая группа × dark/light.
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+    const GROUND = scheme === 'dark' ? GROUND_DARK : GROUND_LIGHT;
+    const INK = scheme === 'dark' ? INK_DARK : INK_LIGHT;
+    const INK_MUTED = scheme === 'dark' ? INK_MUTED_DARK : INK_MUTED_LIGHT;
+    const PRIMARY = scheme === 'dark' ? PRIMARY_DARK : PRIMARY_LIGHT;
+    const ON_PRIMARY = scheme === 'dark' ? ON_PRIMARY_DARK : ON_PRIMARY_LIGHT;
+
+    // FR-1 верх кадра: First-Run — первый В ПОТОКЕ host-ребёнок корня
+    // PilotApp (всё перед ним — position absolute: Demo-бейдж не сдвигает
+    // кадр вниз), wordmark — в верхнем блоке артборда: paddingTop 20,
+    // minHeight 60, justifyContent center.
+    it(`FIRST_RUN_TOP_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const json = api.toJSON();
+      const kids = hostChildren(hostRootOf(json) as HostNode);
+      const idx = kids.findIndex((k) => chainToTestId(k, 'first-run-safe-area') !== null);
+      expect(idx >= 0).toBe(true);
+      for (const k of kids.slice(0, idx)) {
+        expect(styleOf(k as { props: { style?: unknown } }).position).toBe('absolute');
+      }
+      const chain = chainToTestId(json, 'first-run-wordmark');
+      expect(chain).not.toBeNull();
+      const top = styleOf(chain![chain!.length - 2] as { props: { style?: unknown } });
+      expect(top.paddingTop).toBe(FR_TOP_PAD);
+      expect(top.minHeight).toBe(FR_TOP_MIN_H);
+      expect(top.justifyContent).toBe('center');
+    });
+
+    // FR-2 wordmark: по центру по горизонтали, высота 22, первый элемент
+    // First-Run; ЭФФЕКТИВНЫЙ ink = tintColor, иначе ink растра
+    // wordmark-dark.png (#f2f1ec) — равен ink схемы, контраст к ground ≥ 4.5
+    // (light без перекраски: #f2f1ec на #f3f2ee 1,01:1 — красно).
+    it(`FIRST_RUN_WORDMARK_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const json = api.toJSON();
+      const chain = chainToTestId(json, 'first-run-wordmark');
+      expect(chain).not.toBeNull();
+      const wm = chain![chain!.length - 1];
+      expect(centeredIn(wm, chain![chain!.length - 2])).toBe(true);
+      const ws = styleOf(wm as { props: { style?: unknown } });
+      expect(ws.height).toBe(FR_WORDMARK_H);
+      expect(wm.props?.source).toBe(WORDMARK_MODULE);
+      const ink = ws.tintColor ?? WORDMARK_RASTER_INK;
+      expect(ink).toBe(INK);
+      expect(contrast(ink, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
+      const visual = collectNodes(subtreeByTestId(json, 'first-run-safe-area'),
+        (n) => n.type === 'Image' || n.type === 'Text');
+      expect(visual[0]).toBe(wm);
+    });
+
+    // FR-3 знак канона: РОВНО один Image First-Run несёт модуль знака, это
+    // first-run-sign с source = splash-sign-<схема>.png СВОЕЙ схемы, 181×173,
+    // по центру; в порядке документа между wordmark и promise.
+    it(`FIRST_RUN_SIGN_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const json = api.toJSON();
+      const fr = subtreeByTestId(json, 'first-run-safe-area');
+      const signs = collectNodes(fr, (n) => n.type === 'Image'
+        && (n.props?.source === SIGN_MODULE.dark || n.props?.source === SIGN_MODULE.light));
+      expect(signs.length).toBe(1);
+      expect(signs[0].props?.source).toBe(SIGN_MODULE[scheme]);
+      const chain = chainToTestId(json, 'first-run-sign');
+      expect(chain).not.toBeNull();
+      expect(chain![chain!.length - 1]).toBe(signs[0]);
+      expect(centeredIn(signs[0], chain![chain!.length - 2])).toBe(true);
+      const ss = styleOf(signs[0] as { props: { style?: unknown } });
+      expect(ss.width).toBe(FR_SIGN_W);
+      expect(ss.height).toBe(FR_SIGN_H);
+      const order = docOrder(fr);
+      const iSign = order.indexOf('#first-run-sign');
+      expect(order.indexOf('#first-run-wordmark') < iSign).toBe(true);
+      expect(iSign < order.indexOf(`"${FIRST_RUN_PROMISE}"`)).toBe(true);
+    });
+
+    // FR-4 подзаголовок артборда: РОВНО один Text с литералом First-Run.html,
+    // .body-sm 15/20, по центру, ink-muted схемы (контраст ≥ 4.5); после
+    // promise, до CTA.
+    it(`FIRST_RUN_SUBLINE_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const fr = subtreeByTestId(api.toJSON(), 'first-run-safe-area');
+      const nodes = collectNodes(fr, (n) => n.type === 'Text' && textOfNode(n) === FIRST_RUN_SUBLINE);
+      expect(nodes.length).toBe(1);
+      const st = styleOf(nodes[0] as { props: { style?: unknown } });
+      expect(st.fontSize).toBe(BODY_SM_SIZE);
+      expect(st.lineHeight).toBe(BODY_SM_LINE);
+      expect(st.textAlign).toBe('center');
+      expect(st.color).toBe(INK_MUTED);
+      expect(contrast(st.color, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
+      const order = docOrder(fr);
+      const iSub = order.indexOf(`"${FIRST_RUN_SUBLINE}"`);
+      expect(order.indexOf(`"${FIRST_RUN_PROMISE}"`) < iSub).toBe(true);
+      expect(iSub < order.indexOf('#first-run-continue')).toBe(true);
+    });
+
+    // FR-5 CTA: Button primary (пилюля, primary/on-primary, текст каталога)
+    // высотой size-lg 56 ВО ВСЮ ШИРИНУ с полями 16 (цепь First-Run→пилюля
+    // не сужается: alignSelf/alignItems родителя не flex-start/center/
+    // flex-end/baseline без alignSelf stretch, width/maxWidth не заданы;
+    // сумма горизонтальных padding предков и margin цепи = 16 с каждой
+    // стороны) и ВНИЗУ кадра (корень First-Run flex 1, блок CTA — его
+    // последний host-ребёнок, свободное место — перед ним).
+    it(`FIRST_RUN_CTA_BOTTOM_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const json = api.toJSON();
+      const chain = chainToTestId(json, 'first-run-continue');
+      expect(chain).not.toBeNull();
+      const sub = chain!.slice(chain!.findIndex((n) => n.props?.testID === 'first-run-safe-area'));
+      expect(sub.length >= 3).toBe(true);
+      const pill = sub[sub.length - 1];
+      const ps = styleOf(pill as { props: { style?: unknown } });
+      expect(Number(ps.borderRadius) >= PILL_MIN_RADIUS).toBe(true);
+      expect(ps.backgroundColor).toBe(PRIMARY);
+      expect(styleOf(within(screen.getByTestId('first-run-continue')).getByText(FIRST_RUN_CTA)).color)
+        .toBe(ON_PRIMARY);
+      expect(ps.height).toBe(FR_CTA_H);
+      let left = 0;
+      let right = 0;
+      for (let i = 0; i < sub.length; i += 1) {
+        const s = styleOf(sub[i] as { props: { style?: unknown } });
+        if (i > 0) {
+          const p = styleOf(sub[i - 1] as { props: { style?: unknown } });
+          expect(NARROW_ALIGN.includes(String(s.alignSelf))).toBe(false);
+          if (NARROW_ALIGN.includes(String(p.alignItems))) expect(s.alignSelf).toBe('stretch');
+          expect([undefined, '100%']).toContain(s.width);
+          expect(s.maxWidth).toBeUndefined();
+          left += sideSum(s, 'Left', 'margin');
+          right += sideSum(s, 'Right', 'margin');
+        }
+        if (i < sub.length - 1) {
+          left += sideSum(s, 'Left', 'padding');
+          right += sideSum(s, 'Right', 'padding');
+        }
+      }
+      expect(left).toBe(FR_GUTTER);
+      expect(right).toBe(FR_GUTTER);
+      const frStyle = styleOf(sub[0] as { props: { style?: unknown } });
+      expect(frStyle.flex).toBe(1);
+      const kids = hostChildren(sub[0]);
+      expect(kids[kids.length - 1]).toBe(sub[1]);
+      const pushed = kids.slice(0, -1).some((k) => {
+        const s = styleOf(k as { props: { style?: unknown } });
+        return Number(s.flex) >= 1 || Number(s.flexGrow) > 0;
+      }) || styleOf(sub[1] as { props: { style?: unknown } }).marginTop === 'auto'
+        || ['flex-end', 'space-between'].includes(String(frStyle.justifyContent));
+      expect(pushed).toBe(true);
+    });
+
+    // FR-6 футер brand.tagline «Versicherung. Erledigt.»: РОВНО один Text,
+    // .caption 13/18/500, по центру, ink-muted схемы (контраст ≥ 4.5); ПОСЛЕ
+    // CTA в порядке документа.
+    it(`FIRST_RUN_TAGLINE_${S}`, async () => {
+      const api = await renderFirstRunFrame(scheme);
+      const fr = subtreeByTestId(api.toJSON(), 'first-run-safe-area');
+      const nodes = collectNodes(fr, (n) => n.type === 'Text' && textOfNode(n) === FIRST_RUN_TAGLINE);
+      expect(nodes.length).toBe(1);
+      const st = styleOf(nodes[0] as { props: { style?: unknown } });
+      expect(st.fontSize).toBe(CAPTION_SIZE);
+      expect(st.lineHeight).toBe(CAPTION_LINE);
+      expect(st.fontWeight).toBe(CAPTION_WEIGHT);
+      expect(st.textAlign).toBe('center');
+      expect(st.color).toBe(INK_MUTED);
+      expect(contrast(st.color, GROUND) >= TEXT_MIN_CONTRAST).toBe(true);
+      const order = docOrder(fr);
+      expect(order.indexOf('#first-run-continue') >= 0).toBe(true);
+      expect(order.indexOf('#first-run-continue') < order.indexOf(`"${FIRST_RUN_TAGLINE}"`)).toBe(true);
     });
   }
 

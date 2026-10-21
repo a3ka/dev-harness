@@ -24,7 +24,9 @@ legacy-режима (SPLASH_IOS_STORYBOARD); basename НЕ сравнивает�
 шаблонные байты базы B — припиненные base_b/ (sha = литералы source.json),
 не из --repo (круг 6, Р8). Круг 6 (Р2/Р3): сценарий Maestro судится
 ПОРЯДКОМ шагов YAML-парсером (MAESTRO_SPLASH_FRAME_WAIT,
-MAESTRO_FIRST_RUN_ORDER), комментарий шагом не является.
+MAESTRO_FIRST_RUN_ORDER), комментарий шагом не является. 117 v2: ссылки
+F03.02 — accent-text схемы (AUTH_FRAMES_TOKENIZED), палитра First-Run —
+только токены (FIRST_RUN_TOKENIZED; комментарии не судятся).
 Выход — только код возврата; перечень case построчно.
 """
 import argparse
@@ -946,7 +948,9 @@ def run_checks(repo: Path):
 
     # 8. Кадры входа F03.01/F03.02 — палитра только через tokens: сегменты
     # EmailFrame/CodeFrame не несут hex-литералов и читают tokens.* (круг 3:
-    # primary/on-primary живут в компоненте DS Button — см. §9).
+    # primary/on-primary живут в компоненте DS Button — см. §9); 117 v2
+    # (инв. 6, В2-3): ссылки код-кадра — tokens['accent-text'] (лайм как
+    # текст — только accent-text, D2.2.5.1 README:395).
     auth_src = (mobile / 'src/features/auth/auth-screen.tsx').read_text(encoding='utf-8')
     seg_email = auth_src.split('function EmailFrame')[1].split('function CodeFrame')[0]
     seg_code = auth_src.split('function CodeFrame')[1].split('function RecoveryFrame')[0]
@@ -954,7 +958,8 @@ def run_checks(repo: Path):
     check(
         not hex_re.search(seg_email) and not hex_re.search(seg_code)
         and 'tokens.ink' in seg_email and 'tokens.ink' in seg_code
-        and 'tokens.accent' in seg_code,
+        and "tokens['accent-text']" in seg_code
+        and 'tokens.accent }' not in seg_code,
         'AUTH_FRAMES_TOKENIZED',
     )
 
@@ -972,6 +977,19 @@ def run_checks(repo: Path):
         'AUTH_DS_COMPONENTS',
     )
 
+    # 9а. (117 v2) First-Run по First-Run.png — палитра только токены схемы:
+    # модуль экрана (без комментариев) не несёт hex-литералов и читает
+    # tokens.ground, tokens.ink и tokens['ink-muted'] (подзаголовок/футер).
+    fr_src = (mobile / 'src/features/auth/first-run-screen.tsx').read_text(encoding='utf-8')
+    fr_code = re.sub(r'/\*.*?\*/', '', fr_src, flags=re.S)
+    fr_code = re.sub(r'(?m)^\s*//.*$', '', fr_code)
+    check(
+        not hex_re.search(fr_code)
+        and 'tokens.ground' in fr_code and 'tokens.ink' in fr_code
+        and "tokens['ink-muted']" in fr_code,
+        'FIRST_RUN_TOKENIZED',
+    )
+
     # 10. Независимость оракула: проба несёт литералы и не импортирует
     # копию субъекта.
     probe_test = (HERE / 'vkhod.test.tsx').read_text(encoding='utf-8')
@@ -983,6 +1001,10 @@ def run_checks(repo: Path):
         and src['tokens']['ground']['dark'] in probe_test
         and src['tokens']['ground']['light'] in probe_test
         and src['theme_projection_999']['primary']['dark'] in probe_test
+        and src['tokens']['accent-text']['light'] in probe_test
+        and src['tokens']['ink-muted']['light'] in probe_test
+        and src['first_run_117']['subline'] in probe_test
+        and src['first_run_117']['tagline'] in probe_test
         and "from '@/i18n/ui-copy'" not in probe_test,
         'STATIC_ORACLE_LITERALS',
     )
@@ -1162,9 +1184,9 @@ def main():
         return 2
     ok = sum(1 for _, good in CASES if good)
     for case, good in CASES:
-        if good:
-            print('case', case)
+        print('case' if good else 'RED', case)
     if ok != len(CASES):
+        print('failed', len(CASES) - ok, 'of', len(CASES))
         return 1
     print(f'static {ok}/{len(CASES)}')
     return 0
@@ -1365,6 +1387,26 @@ def matrix(repo: Path):
             [('mobile/src/features/auth/auth-screen.tsx',
               "style={[styles.title, D22_TITLE, { color: tokens.ink }]}>\n        {COPY['frame.F03.01.title']}",
               "style={[styles.title, D22_TITLE, { color: '#111111' }]}>\n        {COPY['frame.F03.01.title']}")],
+            ['AUTH_FRAMES_TOKENIZED'], [],
+        ),
+        # (117 v2) hex-литерал в First-Run (ink-muted тёмной схемы в обеих).
+        'first-run-hex-literal': (
+            [('mobile/src/features/auth/first-run-screen.tsx',
+              "styles.subline, { color: tokens['ink-muted'] }",
+              "styles.subline, { color: '#a6a69f' }")],
+            ['FIRST_RUN_TOKENIZED'], [],
+        ),
+        # (117 v2, инв. 6) ссылки F03.02 — accent (лайм в обеих схемах).
+        'auth-links-accent': (
+            [('mobile/src/features/auth/auth-screen.tsx',
+              "{ color: tokens['accent-text'] }]}>{COPY['ui.auth.code_resend']}",
+              "{ color: tokens.accent }]}>{COPY['ui.auth.code_resend']}"),
+             ('mobile/src/features/auth/auth-screen.tsx',
+              "{ color: tokens['accent-text'] }]}>{COPY['auth.change_email']}",
+              "{ color: tokens.accent }]}>{COPY['auth.change_email']}"),
+             ('mobile/src/features/auth/auth-screen.tsx',
+              "{ color: tokens['accent-text'] }]}>{COPY['action.F03.A02']}",
+              "{ color: tokens.accent }]}>{COPY['action.F03.A02']}")],
             ['AUTH_FRAMES_TOKENIZED'], [],
         ),
         # (круг 3, слово владельца ~19:28) ручные стили с теми же hex вместо

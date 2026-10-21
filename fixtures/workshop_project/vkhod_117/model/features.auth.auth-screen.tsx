@@ -185,13 +185,13 @@ function CodeFrame({
         onPress={onVerify}
       />
       <Pressable testID="auth-resend" accessibilityRole="button" onPress={onResend}>
-        <Text style={[styles.linkText, { color: tokens.accent }]}>{COPY['ui.auth.code_resend']}</Text>
+        <Text style={[styles.linkText, { color: tokens['accent-text'] }]}>{COPY['ui.auth.code_resend']}</Text>
       </Pressable>
       <Pressable testID="auth-change-email" accessibilityRole="button" onPress={onChangeEmail}>
-        <Text style={[styles.linkText, { color: tokens.accent }]}>{COPY['auth.change_email']}</Text>
+        <Text style={[styles.linkText, { color: tokens['accent-text'] }]}>{COPY['auth.change_email']}</Text>
       </Pressable>
       <Pressable testID="auth-no-access" accessibilityRole="button" onPress={onNoAccess}>
-        <Text style={[styles.linkText, { color: tokens.accent }]}>{COPY['action.F03.A02']}</Text>
+        <Text style={[styles.linkText, { color: tokens['accent-text'] }]}>{COPY['action.F03.A02']}</Text>
       </Pressable>
       {invalid ? (
         <Text testID="auth-invalid" style={styles.invalid}>

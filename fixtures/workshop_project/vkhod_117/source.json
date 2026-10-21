@@ -4,7 +4,9 @@
     "ground": { "dark": "#0a0a0a", "light": "#f3f2ee" },
     "ink": { "dark": "#f2f1ec", "light": "#121211" },
     "accent": { "dark": "#d6f75a", "light": "#d6f75a" },
-    "panel": { "dark": "#1e1e1d", "light": "#e6e5df" }
+    "panel": { "dark": "#1e1e1d", "light": "#e6e5df" },
+    "accent-text": { "dark": "#d6f75a", "light": "#3f6d0f" },
+    "ink-muted": { "dark": "#a6a69f", "light": "#5f5e58" }
   },
   "theme_projection_999": {
     "primary": { "dark": "#d6f75a", "light": "#121211" },
@@ -178,5 +180,29 @@
   "vkhod_safe_area_117": {
     "_comment": "Р4 (круг 6, Rev117): корень кадров входа F03.01/F03.02 несёт top-инсет (paddingTop >= insets.top; на стенде 1080×2400 statusBars [0..136] — заголовок обязан лежать ниже, на C был y 108..164) и горизонтальные отступы колонки 16 (D2.2.5.1 gutters; на C контент на x=0..5). Первоисточник литерала — README компонентов DS / surface_995 pad_h.",
     "column_gutter": 16
+  },
+  "first_run_117": {
+    "_comment": "117 v2 (слово владельца (А) 18:15 «First-Run … полный состав и раскладка как на PNG»; форк n117-v2-first-run (А)): First-Run по screens/First-Run.png (артборд 390×844, dark) и screens/html/First-Run.html (p-astage is-stage-1: верх padding 20 16 0 min-height 60 центр, wordmark h22; presence 36% padding 24 16 16 — знак = splash-sign артборда Splash.png со сдвигом y−148, несовпадение 0.00021; work: h1.title + p.body-sm ink-muted margin-top 8; actions padding 8 16 16 gap 8: Button lg block + p.caption ink-muted margin-top 8). Полосы — замер пикселями (PIL) по First-Run.png; токены accent-text/ink-muted — tokens.css:6/26/49/69 = tokens.json. Подзаголовок без ключа каталога (meta copy-keys артборда: только ui.first_run.enter_f03, ui.first_run.promise), футер — brand.tagline (brand asset, PROPOSED-COPY.md:72).",
+    "etalon_png": { "path": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png", "sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94" },
+    "etalon_html": { "path": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/html/First-Run.html", "sha256": "7543f598313b1fb83de5aeed6a5732e00cafd3a5433a1cab1c83f72cb8dc756c" },
+    "subline": "Ein Brief, ein Schaden, ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie bestätigen nur, was wirklich zählt.",
+    "tagline": "Versicherung. Erledigt.",
+    "top": { "padding_top": 20, "min_height": 60 },
+    "wordmark_height": 22,
+    "wordmark_raster_ink": "#f2f1ec",
+    "sign_size": [181, 173],
+    "cta_height": 56,
+    "gutter": 16,
+    "body_sm": [15, 20],
+    "caption": [13, 18, "500"],
+    "text_min_contrast": 4.5,
+    "bands_px": {
+      "wordmark": [165, 33, 224, 49],
+      "sign": [110, 123, 289, 295],
+      "title": [26, 369, 364, 453],
+      "subline": [25, 484, 365, 538],
+      "cta": [16, 738, 373, 793],
+      "tagline": [125, 813, 264, 825]
+    }
   }
 }

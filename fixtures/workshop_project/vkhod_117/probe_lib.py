@@ -30,6 +30,12 @@ MODEL_FILES = {
     'mobile/assets/images/android-icon-monochrome.png': 'android-icon-monochrome.png',
     'mobile/assets/images/favicon.png': 'favicon.png',
     'mobile/.maestro/vkhod-117-splash-vhod.yaml': 'vkhod-117-splash-vhod.yaml',
+    # 117 v2 (First-Run по First-Run.png, инв. 6 accent-text): экран
+    # First-Run, аддитивные токены accent-text/ink-muted и пропы Button
+    # size/block (ПЕРЕСЕЧЕНИЕ 111/999 — контракт v2).
+    'mobile/src/features/auth/first-run-screen.tsx': 'features.auth.first-run-screen.tsx',
+    'mobile/src/theme/tokens.ts': 'theme.tokens.ts',
+    'mobile/src/ui/button.tsx': 'ui.button.tsx',
 }
 
 TEST_INSTALL = 'mobile/src/bootstrap/__tests__/vkhod-117.probe.test.tsx'

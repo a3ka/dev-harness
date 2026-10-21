@@ -15,10 +15,14 @@ VKHOD_AUTH_DS_ABSENT (кадры входа не собраны из @/ui/button
 Р1 PROD_ENTRY_OS_THEME (production-вход @/app/index без Provider, схема
 ОС моком Appearance), Р4 AUTH_FRAMES_SAFE_AREA, Р6 SPLASH_OVERLAY_CONTAIN;
 круг 7 — В2-2 STATUS_BAR_STYLE (эффективный стиль статус-бара, дошедший
-до ОС, контрастен ground схемы); каждая × 2 схемы).
+до ОС, контрастен ground схемы); 117 v2 — First-Run по First-Run.png:
+FIRST_RUN_{TOP,WORDMARK,SIGN,SUBLINE,CTA_BOTTOM,TAGLINE} (конструкция
+раскладки артборда по эффективному стилю цепи host-узлов и порядку
+документа) и ссылки F03.02 цветом accent-text схемы в
+AUTH_F03_02_STRUCTURE; каждая × 2 схемы).
 --matrix: каждый обманный стаб красен на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
-Выход — только код возврата; список case построчно.
+Выход — только код возврата; список case построчно (красные — RED).
 """
 import argparse
 from pathlib import Path
@@ -139,7 +143,7 @@ MUTANTS = {
     'auth-links-ground': (
         [('mobile/src/features/auth/auth-screen.tsx',
           "      <Pressable testID=\"auth-resend\" accessibilityRole=\"button\" onPress={onResend}>\n"
-          "        <Text style={[styles.linkText, { color: tokens.accent }]}>",
+          "        <Text style={[styles.linkText, { color: tokens['accent-text'] }]}>",
           "      <Pressable testID=\"auth-resend\" accessibilityRole=\"button\" onPress={onResend}>\n"
           "        <Text style={[styles.linkText, { color: tokens.ground }]}>")],
         ['AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
@@ -301,7 +305,11 @@ MUTANTS = {
         ['PROD_ENTRY_OS_THEME_DARK'],
         ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_DARK',
          'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_MOUNTED_DARK',
-         'STATUS_BAR_STYLE_DARK'],
+         'STATUS_BAR_STYLE_DARK',
+         # 117 v2: палитра light в тёмной клетке First-Run (знак, wordmark,
+         # подзаголовок, CTA, футер) — измерено матрицей v2.
+         'FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_SIGN_DARK', 'FIRST_RUN_SUBLINE_DARK',
+         'FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_WORDMARK_DARK'],
     ),
     # (Р4, круг 6, Rev117) safe-area снята: контент в статус-баре,
     # колонка прижата к краю (форма текущего C).
@@ -371,6 +379,154 @@ MUTANTS = {
         ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
         [],
     ),
+    # ---- 117 v2: First-Run по First-Run.png; ссылки F03.02 accent-text ----
+    # (FR-1) Demo-бейдж в потоке корня на first-run (форма C 58d60b8):
+    # кадр First-Run сдвинут вниз на инсет+бейдж (wordmark y≈165 dp на C).
+    'first-run-badge-in-flow': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "? { left: 0, paddingTop: insets.top, position: 'absolute', top: 0, zIndex: 1 }",
+          '? { paddingTop: insets.top }')],
+        ['FIRST_RUN_TOP_DARK', 'FIRST_RUN_TOP_LIGHT'],
+        [],
+    ),
+    # (FR-1) верхний блок с отступом поверхности 995 (48), не артборда (20).
+    'first-run-top-pad-48': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '    minHeight: 60,\n    paddingHorizontal: 16,\n    paddingTop: 20,\n',
+          '    minHeight: 60,\n    paddingHorizontal: 16,\n    paddingTop: 48,\n')],
+        ['FIRST_RUN_TOP_DARK', 'FIRST_RUN_TOP_LIGHT'],
+        [],
+    ),
+    # (FR-2) wordmark прижат к левому краю (форма C: x=0).
+    'first-run-wordmark-left': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          "  top: {\n    alignItems: 'center',\n", '  top: {\n')],
+        ['FIRST_RUN_WORDMARK_DARK', 'FIRST_RUN_WORDMARK_LIGHT'],
+        [],
+    ),
+    # (FR-2) wordmark без перекраски: растр wordmark-dark.png (#f2f1ec) — в
+    # dark честен, в light на #f3f2ee 1,01:1 (форма C). Наблюдаем ТОЛЬКО light.
+    'first-run-wordmark-untinted': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.wordmark, { tintColor: tokens.ink }]}', 'style={styles.wordmark}')],
+        ['FIRST_RUN_WORDMARK_LIGHT'],
+        [],
+    ),
+    # (FR-3) знака нет (форма C).
+    'first-run-sign-absent': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <View style={styles.presence}>\n'
+          '        <Image\n'
+          '          accessibilityElementsHidden\n'
+          '          importantForAccessibility="no"\n'
+          '          source={SIGN[scheme]}\n'
+          '          style={styles.sign}\n'
+          '          testID="first-run-sign"\n'
+          '        />\n'
+          '      </View>\n', '')],
+        ['FIRST_RUN_SIGN_DARK', 'FIRST_RUN_SIGN_LIGHT'],
+        [],
+    ),
+    # (FR-3) знак тёмной схемы в обеих (ink #f2f1ec на светлом ground) —
+    # наблюдаем ТОЛЬКО light.
+    'first-run-sign-dark-only': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'source={SIGN[scheme]}', 'source={SIGN.dark}')],
+        ['FIRST_RUN_SIGN_LIGHT'],
+        [],
+    ),
+    # (FR-3) знак иконочного размера (56) вместо знака артборда 181×173.
+    'first-run-sign-small': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'sign: { height: 173, width: 181 }', 'sign: { height: 54, width: 56 }')],
+        ['FIRST_RUN_SIGN_DARK', 'FIRST_RUN_SIGN_LIGHT'],
+        [],
+    ),
+    # (FR-4) подзаголовка нет (форма C).
+    'first-run-subline-absent': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '        <Text style={[styles.subline, { color: tokens[\'ink-muted\'] }]} testID="first-run-subline">\n'
+          '          {FIRST_RUN_SUBLINE}\n'
+          '        </Text>\n', '')],
+        ['FIRST_RUN_SUBLINE_DARK', 'FIRST_RUN_SUBLINE_LIGHT'],
+        [],
+    ),
+    # (FR-4) подзаголовок цветом заголовка (ink), не ink-muted.
+    'first-run-subline-ink': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          "styles.subline, { color: tokens['ink-muted'] }", 'styles.subline, { color: tokens.ink }')],
+        ['FIRST_RUN_SUBLINE_DARK', 'FIRST_RUN_SUBLINE_LIGHT'],
+        [],
+    ),
+    # (FR-4) ink-muted тёмной схемы hex-литералом в обеих — наблюдаем light
+    # (статическая FIRST_RUN_TOKENIZED судит hex своей семьёй).
+    'first-run-subline-dark-hex': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          "styles.subline, { color: tokens['ink-muted'] }", "styles.subline, { color: '#a6a69f' }")],
+        ['FIRST_RUN_SUBLINE_LIGHT'],
+        [],
+    ),
+    # (FR-5) CTA по контенту (Button без block — форма C).
+    'first-run-cta-content-width': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '        <Button\n          block\n', '        <Button\n')],
+        ['FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_CTA_BOTTOM_LIGHT'],
+        [],
+    ),
+    # (FR-5) CTA вплотную под заголовком: свободное место не перед блоком
+    # действий (форма C).
+    'first-run-cta-under-title': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '  work: {\n    flex: 1,\n', '  work: {\n')],
+        ['FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_CTA_BOTTOM_LIGHT'],
+        [],
+    ),
+    # (FR-5) CTA высоты md (≈45 dp на C), не size-lg 56.
+    'first-run-cta-md': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '          size="lg"\n', '')],
+        ['FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_CTA_BOTTOM_LIGHT'],
+        [],
+    ),
+    # (FR-6) футера нет (форма C).
+    'first-run-tagline-absent': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '        <Text style={[styles.tagline, { color: tokens[\'ink-muted\'] }]} testID="first-run-tagline">\n'
+          '          {BRAND_TAGLINE}\n'
+          '        </Text>\n', '')],
+        ['FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_TAGLINE_LIGHT'],
+        [],
+    ),
+    # (FR-6) футер над CTA.
+    'first-run-tagline-above-cta': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <View style={styles.actions}>\n'
+          '        <Button\n',
+          '      <View style={styles.actions}>\n'
+          '        <Text style={[styles.tagline, { color: tokens[\'ink-muted\'] }]}>{BRAND_TAGLINE}</Text>\n'
+          '        <Button\n'),
+         ('mobile/src/features/auth/first-run-screen.tsx',
+          '        <Text style={[styles.tagline, { color: tokens[\'ink-muted\'] }]} testID="first-run-tagline">\n'
+          '          {BRAND_TAGLINE}\n'
+          '        </Text>\n', '')],
+        ['FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_TAGLINE_LIGHT'],
+        [],
+    ),
+    # (инв. 6 v2, В2-3) ссылки F03.02 лаймом accent в обеих схемах (форма C):
+    # в dark accent == accent-text — наблюдаем ТОЛЬКО light (1,08:1).
+    'links-accent-both': (
+        [('mobile/src/features/auth/auth-screen.tsx',
+          "{ color: tokens['accent-text'] }]}>{COPY['ui.auth.code_resend']}",
+          "{ color: tokens.accent }]}>{COPY['ui.auth.code_resend']}"),
+         ('mobile/src/features/auth/auth-screen.tsx',
+          "{ color: tokens['accent-text'] }]}>{COPY['auth.change_email']}",
+          "{ color: tokens.accent }]}>{COPY['auth.change_email']}"),
+         ('mobile/src/features/auth/auth-screen.tsx',
+          "{ color: tokens['accent-text'] }]}>{COPY['action.F03.A02']}",
+          "{ color: tokens.accent }]}>{COPY['action.F03.A02']}")],
+        ['AUTH_F03_02_STRUCTURE_LIGHT'],
+        [],
+    ),
 }
 
 
@@ -418,8 +574,8 @@ def main():
         print('NO_TEST_RESULTS')
         return 2
     failed = [name for name, status in cases.items() if status != 'passed']
-    for name in cases:
-        print('case', case_name(name))
+    for name, status in cases.items():
+        print('case' if status == 'passed' else 'RED', case_name(name))
     if failed:
         print('failed', len(failed), 'of', len(cases))
         return 1

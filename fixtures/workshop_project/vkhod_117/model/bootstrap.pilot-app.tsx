@@ -296,7 +296,13 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
           на splash. */}
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {frame !== 'welcome' ? (
-        <View style={{ paddingTop: frame === 'first-run' ? insets.top : 0 }}>
+        <View
+          style={
+            frame === 'first-run'
+              ? { left: 0, paddingTop: insets.top, position: 'absolute', top: 0, zIndex: 1 }
+              : { paddingTop: 0 }
+          }
+        >
           <View style={styles.demoBadge} testID="demo-indicator">
             <Text style={styles.demoBadgeText}>Demo</Text>
           </View>
