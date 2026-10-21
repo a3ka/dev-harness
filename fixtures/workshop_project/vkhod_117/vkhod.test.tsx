@@ -69,6 +69,11 @@ const PROD_INSET_TOP = 59;
 // С2: JS-оверлей splash — литералы (source.json overlay_117).
 const SPLASH_OVERLAY_TEST_ID = 'splash-overlay';
 const SPLASH_OVERLAY_HIDE_AFTER_MS = 1200;
+// (Adv117v3, круг по реализации) Z-ПОРЯДОК: корень полноэкранного
+// FirstRun (111) и минимум zIndex оверлея над ним (отсутствующий zIndex
+// sibling-узла = 0).
+const FIRST_RUN_ROOT_TEST_ID = 'first-run-safe-area';
+const SPLASH_OVERLAY_ZINDEX_MIN = 1;
 // В2-2 (круг 7, Rev117r2): стиль статус-бара, контрастный ground схемы
 // (style expo-status-bar → barStyle RN): dark #0a0a0a → 'light' →
 // light-content, light #f3f2ee → 'dark' → dark-content.
@@ -247,6 +252,21 @@ function subtreeByTestId(json: unknown, testID: string): TreeNode | null {
   const children = node?.children;
   for (const child of Array.isArray(children) ? children : []) {
     const hit = subtreeByTestId(child, testID);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+// (Adv117v3) путь от корня JSON-дерева к узлу с testID — индексы детей
+// на каждом уровне; пустой путь = сам корень.
+function hostPathByTestId(json: unknown, testID: string, path: number[] = []): number[] | null {
+  const node = json as TreeNode;
+  const tid = (node?.props as { testID?: string } | undefined)?.testID;
+  if (tid === testID) return path;
+  const children = node?.children;
+  const list = Array.isArray(children) ? children : [];
+  for (let i = 0; i < list.length; i += 1) {
+    const hit = hostPathByTestId(list[i], testID, [...path, i]);
     if (hit) return hit;
   }
   return null;
@@ -501,6 +521,45 @@ describe('117 vkhod', () => {
         ...geometryViolations(overlay as never),
         ...geometryViolations(images[0]),
       ]).toEqual([]);
+    });
+  }
+
+  // (Adv117v3, круг по реализации) Z-ПОРЯДОК оверлея в реальном рендере:
+  // инвариант 8 — оверлей ПОВЕРХ дерева оболочки. Находка Adv117v3:
+  // `zIndex: -1` у splash-overlay проходил прежнюю батарею — toBeVisible
+  // не видит перекрытия соседом, а сплеш ложится ПОД полноэкранный
+  // FirstRun (SafeAreaView flex:1): пользователь видит First-Run вместо
+  // Splash.png. Клетка судит ДЕРЕВО рендера: сплющенный zIndex оверлея —
+  // число >= 1 И строго больше zIndex корня FirstRun (отсутствующий = 0),
+  // и на первой расхожей позиции путей от корня ветка оверлея стоит
+  // ПОЗЖЕ ветки FirstRun (порядок sibling решает при равных zIndex —
+  // оверлей обязан быть последним ребёнком корня). Произведение scheme(2).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`SPLASH_OVERLAY_ZORDER_${S}`, async () => {
+      const api = await renderApp(scheme);
+      const json = api.toJSON();
+      const overlay = subtreeByTestId(json, SPLASH_OVERLAY_TEST_ID);
+      expect(overlay).not.toBeNull();
+      const firstRun = subtreeByTestId(json, FIRST_RUN_ROOT_TEST_ID);
+      expect(firstRun).not.toBeNull();
+      const zOverlay = styleOf(overlay as never).zIndex;
+      expect(typeof zOverlay).toBe('number');
+      expect(zOverlay as number).toBeGreaterThanOrEqual(SPLASH_OVERLAY_ZINDEX_MIN);
+      const zFirstRun = styleOf(firstRun as never).zIndex;
+      expect(zOverlay as number).toBeGreaterThan(
+        typeof zFirstRun === 'number' ? zFirstRun : 0,
+      );
+      const overlayPath = hostPathByTestId(json, SPLASH_OVERLAY_TEST_ID);
+      const firstRunPath = hostPathByTestId(json, FIRST_RUN_ROOT_TEST_ID);
+      expect(overlayPath).not.toBeNull();
+      expect(firstRunPath).not.toBeNull();
+      const depth = Math.min(overlayPath!.length, firstRunPath!.length);
+      let split = 0;
+      while (split < depth && overlayPath![split] === firstRunPath![split]) split += 1;
+      expect(split < depth).toBe(true);
+      expect(overlayPath![split]).toBeGreaterThan(firstRunPath![split]);
     });
   }
 

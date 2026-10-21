@@ -75,6 +75,11 @@
       "canon_edge_zero_props": ["left", "right", "top", "bottom"],
       "canon_edge_zero": 0,
       "jsx_end_anchor": ": null}"
+    },
+    "zorder": {
+      "_comment": "Adv117v3 (круг по реализации): канон инварианта 8 — оверлей ПОВЕРХ дерева оболочки (последний ребёнок корня PilotApp): сплющенный zIndex оверлея — литеральное число >= zindex_min (отрицательный/нулевой кладёт сплеш ПОД полноэкранный FirstRun, находка Adv117v3), и сегмент JSX оверлея стоит ПОЗЖЕ вызова FirstRunScreen в коде потребителя (порядок sibling: у равных zIndex порядок решают узлы). Судят статическая SPLASH_OVERLAY_ZORDER и поведенческие SPLASH_OVERLAY_ZORDER_{DARK,LIGHT}.",
+      "zindex_min": 1,
+      "firstrun_usage": "<FirstRunScreen"
     }
   },
   "artboard_117": {
