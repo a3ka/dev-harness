@@ -31,7 +31,9 @@ CELLS=(c01-chestnyj c02-tolko-wip c03-staryj-blob c04-bez-verdikta c05-verdikt-f
        c16-hold-lend-publikaciya c17-vmeste c18-follow-tags c19-plans c20-vne-grammatiki
        c21-push-option-o c22-push-option-dlinnaya c23-receive-pack c24-razdelitel
        c25-pereimenovanie c26-force c27-mirror c28-all c29-head-v-teg c30-c-followtags
-       c31-publikaciya-do-lenda)
+       c31-publikaciya-do-lenda c32-tihij-q c33-tihij-dlinnaya c34-ne-porcelain
+       c35-ne-dry-run c36-verbose c37-progress c38-tiho-legitimno c39-perestanovka
+       c40-sokraschenie c41-batl-flagov)
 
 mode=product; cand=""; only=""; seed="${RANDOM}"
 while [ $# -gt 0 ]; do
@@ -322,6 +324,54 @@ cell() {
       ne_ushel "$T"
       chk "тег $T остался в refs/tags после отказа publish" not lokalno "$T"
       chk "удержание refs/frozen-hold/${T#frozen/} пропало" uderzhan "$T" ;;
+    c32-tihij-q)
+      mir "$c"; wip_teg
+      subj -q origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c33-tihij-dlinnaya)
+      mir "$c"; wip_teg
+      subj --quiet origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c34-ne-porcelain)
+      mir "$c"; wip_teg
+      subj --no-porcelain origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c35-ne-dry-run)
+      mir "$c"; wip_teg
+      subj --no-dry-run origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c36-verbose)
+      mir "$c"; wip_teg
+      subj -v origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c37-progress)
+      mir "$c"; wip_teg
+      subj --progress origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c38-tiho-legitimno)
+      # Тихий push ДОПУЩЕННОГО тега: замена флагов в пробе не ломает легитимный путь.
+      mir "$c"; tekst 1; verdikty; kommit "текст в main до ленда"; gq push -q origin main; t="$(TAG)"; teg "$t"
+      subj -q origin "refs/tags/$t"
+      chk "rc=$RC, ожидался 0" rc_is 0
+      chk "тег $t не на цели" na_celi "$t" ;;
+    c39-perestanovka)
+      mir "$c"; wip_teg
+      subj origin --porcelain -n --no-dry-run "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c40-sokraschenie)
+      # --qui — сокращение --quiet; --no-dry — однозначное сокращение --no-dry-run:
+      # семейство отмены пробы обязано распознаваться по префиксу, проба остаётся сухой.
+      mir "$c"; wip_teg
+      subj --qui --no-dry origin "refs/tags/$T"
+      ne_ushel "$T" ;;
+    c41-batl-flagov)
+      # -qn батчится (тихий + сухой): проба глушится, состав не читается — fail-closed отказ,
+      # а не допуск по пустому составу.
+      mir "$c"; wip_teg
+      subj -qn origin "refs/tags/$T"
+      chk "rc=$RC, ожидался 1" rc_is 1
+      chk "нет строки «gitw ТЕГ-ОТКАЗ: (обмен): состав обмена не читается»" otkaz130 "(обмен)" "состав обмена не читается"
+      chk "тег $T ушёл на цель" not na_celi "$T" ;;
     *) printf 'NOT_IMPLEMENTED: нет такой клетки: %s\n' "$c" >&2; exit 2 ;;
   esac
   [ -z "$WHY" ]

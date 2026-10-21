@@ -84,9 +84,25 @@ judge_tag() {
 }
 
 # sostav: строки «<from>\t<to>» создаваемых/двигаемых ссылок обмена по git push --dry-run.
+# Проба строится из argv gitw ЗАМЕНОЙ (до разделителя «--») флагов вывода/режима литералом
+# --no-verify: -q | -v | --quiet… (--q…) | --verbose/--verify… (--v…) | --no-porcelain…
+# (--no-por…) | --no-dry-run… (--no-dry…; НЕ --no-d…: --no-delete реален для push и составу
+# не враг). Замена, а не удаление: значение arity-2 опции (--push-option -q) остаётся
+# значением, разбор аргументов git не сдвигается. НОЛЬ строк ссылок из пробы — отказ
+# fail-closed при любом rc: подавленный вывод (батчинг -qn, сокращение вне списка)
+# или упавшая проба не допускают обмен.
 sostav() {
-  local out rc flag spec
-  out="$("$REALGIT" "${PRE[@]}" --dry-run --porcelain --no-verify "${POST[@]}" 2>/dev/null)"; rc=$?
+  local out rc flag spec a dd=0
+  PROBE_POST=()
+  for a in "${POST[@]}"; do
+    if [ "$dd" -eq 1 ]; then PROBE_POST+=( "$a" ); continue; fi
+    case "$a" in
+      --) dd=1; PROBE_POST+=( "$a" ) ;;
+      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;
+      *) PROBE_POST+=( "$a" ) ;;
+    esac
+  done
+  out="$("$REALGIT" "${PRE[@]}" --dry-run --porcelain --no-verify "${PROBE_POST[@]}" 2>/dev/null)"; rc=$?
   SOSTAV_LINES=0
   while IFS=$'\t' read -r flag spec _; do
     case "$flag" in
@@ -98,9 +114,7 @@ sostav() {
     SOSTAV_LINES=$((SOSTAV_LINES + 1))
     printf '%s\t%s\n' "${spec%%:*}" "${spec#*:}"
   done <<<"$out"
-  if [ "$rc" -ne 0 ] && [ "$SOSTAV_LINES" -eq 0 ]; then
-    return 1
-  fi
+  [ "$SOSTAV_LINES" -gt 0 ] || return 1
   return 0
 }
 

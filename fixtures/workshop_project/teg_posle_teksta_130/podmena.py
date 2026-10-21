@@ -132,6 +132,22 @@ STUBS = [
      '    git update-ref -d "$H" "$obj"\n    exit $?\n',
      '    exit 0\n',
      'publish не снимает удержание после публикации'),
+    ('s24-doveryaet-pustomu', 'c41-batl-flagov', G,
+     '  [ "$SOSTAV_LINES" -gt 0 ] || return 1\n',
+     '  if [ "$rc" -ne 0 ] && [ "$SOSTAV_LINES" -eq 0 ]; then return 1; fi\n',
+     'пустой состав при rc 0 пробы — допуск (fail-open), батчинг -qn проходит'),
+    ('s25-bez-sanitizacii', 'c35-ne-dry-run', G,
+     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;\n',
+     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( "$a" ) ;;\n',
+     'проба без замены флагов: --no-dry-run отменяет сухую пробу и реально пушит тег'),
+    ('s26-sanitiziruet-vsyo', 'c27-mirror', G,
+     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;\n',
+     '      -*) PROBE_POST+=( --no-verify ) ;;\n',
+     'замена всех dash-токенов: состав пробы расходится с обменом (--mirror потерян)'),
+    ('s27-propustil-no-dry', 'c40-sokraschenie', G,
+     '      -q|-v|--q*|--v*|--no-por*|--no-dry*) PROBE_POST+=( --no-verify ) ;;\n',
+     '      -q|-v|--q*|--v*|--no-por*) PROBE_POST+=( --no-verify ) ;;\n',
+     'санитайзер без семейства --no-dry…: сокращение отмены пробы вне замены'),
 ]
 
 
