@@ -11,7 +11,10 @@
 # Известные отказы НЕ механизм зелёного: реестр подавлений не читается, пустота
 # failure_ids=[] — инвариант ФАЙЛА, судимый оракулом (known-failures-nepust).
 # rc 0 — PASS_STATIC failures=[]; rc 1 — FAIL_STATIC failures=[…].
-import sys
+# Evidence — как у боевого (validate_contract_v3_9.py:700): свежий каталог,
+# без --out — в КОРЕНЬ судимого дерева (evidence/contracts/<ts>/), с --out DIR
+# — в DIR; оракул обязан уводить его в свой scratch (Rev119v2 Б-2).
+import argparse, json, sys, time
 from pathlib import Path
 
 R = Path(__file__).resolve().parents[2]
@@ -42,6 +45,9 @@ def op_markers(text):
 
 
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--out', type=Path)
+    args = ap.parse_args()
     pub_text = PUB.read_text()
     ext_text = EXT.read_text()
     failures = []
@@ -61,6 +67,10 @@ def main():
             failures.append('%s_profile' % op)
     print('%s failures=[%s]' % ('PASS_STATIC' if not failures else 'FAIL_STATIC',
                                 ', '.join(failures)))
+    out = args.out or R / 'evidence' / 'contracts' / time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'contract-validation.json').write_text(json.dumps(
+        {'status': 'PASS_STATIC' if not failures else 'FAIL_STATIC', 'failures': failures}) + '\n')
     sys.exit(0 if not failures else 1)
 
 

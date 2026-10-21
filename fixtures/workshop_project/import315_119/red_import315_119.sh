@@ -25,6 +25,16 @@
 # operationId двух операций ядра при честной metadata (множества имён не
 # меняются, обе lane зелёные) — различим ТОЛЬКО полной независимой сборкой
 # оракула из САМОГО published (канон jq -S, cmp — schemas-proekcija).
+# Вердикт Adv119v2 (FAIL): d35/d36 — писатель переносит extension-операцию на
+# иной path / меняет её HTTP-метод при неизменных operationId/блоке/источнике
+# (--check согласован, счёты/FILES/app/schemas пересобраны, валидатор маршрута
+# не судит) — различим ТОЛЬКО проекцией оракула operationId→(path, method)
+# источник против published (extension-marshrut). Ревью Rev119v2: d37 — нет
+# npm-дерева при gen-contracts.js, требующем пакет npm (Б-1 а → rc 2
+# NEEDS_ENV, не причина продукта); d38 — npm-дерево симлинком (Б-1 в: оверлей
+# make_probe не копирует каталог через симлинк, пробы видят npm-дерево →
+# честный импорт rc 0); d39 — повторный прогон оракула на том же мире (Б-2:
+# evidence spec-3.14 без --out ложится в судимое дерево → rc 0 обязателен).
 #
 # Режимы: без аргументов — суд ПРОДУКТА (живой клон Complior-back; путь из
 # IMPORT315_119_BACK, умолчание /tmp/dev-harness-verify/Architect119/back):
@@ -79,8 +89,10 @@ R_GENCON="gencontracts-rashozhdenie"
 R_GENCONOOP="gencontracts-noop"
 R_GENCONPIS="gencontracts-ne-pishet"
 R_SCHEMPROJ="schemas-proekcija"
+R_MARSHRUT="extension-marshrut"
+R_NEEDSENV="NEEDS_ENV"
 
-CELLS="m-baza k-model d1-cas-ifmatch d2-poterya-consumer d3-reasoncode d4-core-zamenen d5-generator-bez-check d6-generator-ne-idempotent d7-manifest-vret d8-files-sha256-staryj d9-vtoroj-koren d10-status-nechestnyj d11-known-issues-soglasovanno-nepolnyj d12-istorika-podmenena d13-sql-izmenen d16-validator-kreven d17-owners-nedostavleny d18-generator-noop d19-validator-noop d20-extension-pustoj d21-generator-pisatel-noop d22-generator-vosstanavlivaet-iz-git d23-known-failures-nepust d24-spec314-nemigrirovan d25-spec314-known-failures d26-spec314-propusk-extension d27-spec314-oslablenie-core d28-spec314-profili-neopredeleny d29-schemas-rukami d30-schemas-sha-podognan d31-gencontracts-check-obhozhden d32-gencontracts-nedeterminirovan d33-gencontracts-pustoj-dokument d34-gencontracts-perestanovka-operationid"
+CELLS="m-baza k-model d1-cas-ifmatch d2-poterya-consumer d3-reasoncode d4-core-zamenen d5-generator-bez-check d6-generator-ne-idempotent d7-manifest-vret d8-files-sha256-staryj d9-vtoroj-koren d10-status-nechestnyj d11-known-issues-soglasovanno-nepolnyj d12-istorika-podmenena d13-sql-izmenen d16-validator-kreven d17-owners-nedostavleny d18-generator-noop d19-validator-noop d20-extension-pustoj d21-generator-pisatel-noop d22-generator-vosstanavlivaet-iz-git d23-known-failures-nepust d24-spec314-nemigrirovan d25-spec314-known-failures d26-spec314-propusk-extension d27-spec314-oslablenie-core d28-spec314-profili-neopredeleny d29-schemas-rukami d30-schemas-sha-podognan d31-gencontracts-check-obhozhden d32-gencontracts-nedeterminirovan d33-gencontracts-pustoj-dokument d34-gencontracts-perestanovka-operationid d35-extension-perenos-path d36-extension-smena-metoda d37-npm-net-dereva d38-npm-simlink d39-povtornyj-progon"
 
 make_base_world() {  # → путь мира (мини-Complior-back 5.8.4, импорта нет)
   local d
@@ -171,6 +183,40 @@ inv = sorted(n for n in names if n and n != 'FILES.sha256' and (R / n).is_file()
     hashlib.sha256((R / n).read_bytes()).hexdigest() + '  ' + n + '\n' for n in inv))
 PY
   )
+}
+
+reroute_writer() {  # $1 = мир, $2/$3 = «было»/«стало» в тексте published:
+  # писатель генератора после слияния переписывает маршрут extension-операции
+  # (зеркало репро Adv119v2: replace сразу после merge), затем штатная
+  # пересборка — writer, gen-contracts, writer (FILES последним); assert в
+  # писателе не даёт мутации выродиться в пустую (нет «было» — генератор падает)
+  python3 - "$1/tests/tools/generate_derived.py" "$2" "$3" <<'PY'
+import sys
+p, old, new = sys.argv[1:4]
+s = open(p).read()
+needle = "ops = pub_text.count('operationId:')\n"
+assert s.count(needle) == 1, 'генератор не содержит ожидаемой точки счёта'
+inj = ('assert %r in pub_text\n' % old
+       + 'pub_text = pub_text.replace(%r, %r, 1)  # перенос маршрута\n' % (old, new))
+open(p, 'w').write(s.replace(needle, inj + needle))
+PY
+  (cd "$1" && python3 tests/tools/generate_derived.py >/dev/null \
+    && node tests/tools/gen-contracts.js >/dev/null && python3 tests/tools/generate_derived.py >/dev/null)
+}
+
+npm_require() {  # $1 = мир: gen-contracts.js требует пакет npm (как боевой —
+  # require('yaml')); имя вне реальных npm-деревьев: разрешим только там, где
+  # клетка сама кладёт npm-дерево
+  python3 - "$1/tests/tools/gen-contracts.js" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+head = "'use strict';\n"
+assert s.startswith(head), 'gen-contracts.js не начинается с ожидаемой строки'
+open(p, 'w').write(head + "require('import315-toy-npm');  // [npm] пакет npm, как yaml у боевого\n"
+                   + s[len(head):])
+PY
+  rehash_files "$1"
 }
 
 mutate() {  # $1 = клетка, $2 = мир (после model_import315_119.sh)
@@ -511,10 +557,45 @@ PY
       (cd "$W" && node tests/tools/gen-contracts.js)
       rehash_files "$W"
       ;;
+    d35-extension-perenos-path)
+      # (вердикт Adv119v2) перенос extension-операции createPlateOrder на
+      # иной path при неизменных operationId/блоке/источнике (sha по пину)
+      reroute_writer "$W" $'  /mobility/plate-orders:\n' $'  /mobility/plate-orders-relocated:\n'
+      ;;
+    d36-extension-smena-metoda)
+      # (вердикт Adv119v2, отдельно) смена HTTP-метода той же операции
+      # (post → put) при неизменных path/operationId/блоке/источнике
+      reroute_writer "$W" $'  /mobility/plate-orders:\n    post:\n' $'  /mobility/plate-orders:\n    put:\n'
+      ;;
+    d37-npm-net-dereva)
+      # (Rev119v2 Б-1 а) gen-contracts.js требует пакет npm, npm-дерева нет
+      # ни в мире, ни в окружении — суд невозможен: rc 2 NEEDS_ENV, а не
+      # gencontracts-rashozhdenie (ложный диагноз продукта, правило 7)
+      npm_require "$W"
+      ;;
+    d38-npm-simlink)
+      # (Rev119v2 Б-1 в) npm-дерево — СИМЛИНК вне мира; шаблон node_modules/
+      # (как в .gitignore продукта) совпадает только с каталогом — симлинк
+      # untracked-unignored. Пакет разрешим в мире и в пробах-клонах
+      # (make_probe делает npm-дерево достижимым, каталог через симлинк не
+      # копирует) — честный импорт обязан дать rc 0, не vosproizvodimost
+      npm_require "$W"
+      mkdir -p "$W.npm/import315-toy-npm"
+      printf '%s\n' 'module.exports = {};' > "$W.npm/import315-toy-npm/index.js"
+      ln -s "$W.npm" "$W/node_modules"
+      printf 'node_modules/\n' >> "$W/.gitignore"
+      rehash_files "$W"
+      ;;
+    d39-povtornyj-progon)
+      # (Rev119v2 Б-2) первый прогон оракула — «мутация» (его следы в
+      # судимом дереве, если есть, остаются), второй — суд клетки: оракул
+      # только читает судимое дерево, повторный прогон обязан дать rc 0
+      bash "$ORACLE" "$W" >/dev/null 2>&1
+      ;;
   esac
 }
 
-expect_rc() { case "$1" in m-baza|d1-cas-ifmatch|d2-poterya-consumer|d3-reasoncode|d4-core-zamenen|d5-generator-bez-check|d6-generator-ne-idempotent|d7-manifest-vret|d8-files-sha256-staryj|d9-vtoroj-koren|d10-status-nechestnyj|d11-known-issues-soglasovanno-nepolnyj|d12-istorika-podmenena|d13-sql-izmenen|d16-validator-kreven|d17-owners-nedostavleny|d18-generator-noop|d19-validator-noop|d20-extension-pustoj|d21-generator-pisatel-noop|d22-generator-vosstanavlivaet-iz-git|d23-known-failures-nepust|d24-spec314-nemigrirovan|d25-spec314-known-failures|d26-spec314-propusk-extension|d27-spec314-oslablenie-core|d28-spec314-profili-neopredeleny|d29-schemas-rukami|d30-schemas-sha-podognan|d31-gencontracts-check-obhozhden|d32-gencontracts-nedeterminirovan|d33-gencontracts-pustoj-dokument|d34-gencontracts-perestanovka-operationid) echo 1;; k-model) echo 0;; *) echo 2;; esac; }
+expect_rc() { case "$1" in m-baza|d1-cas-ifmatch|d2-poterya-consumer|d3-reasoncode|d4-core-zamenen|d5-generator-bez-check|d6-generator-ne-idempotent|d7-manifest-vret|d8-files-sha256-staryj|d9-vtoroj-koren|d10-status-nechestnyj|d11-known-issues-soglasovanno-nepolnyj|d12-istorika-podmenena|d13-sql-izmenen|d16-validator-kreven|d17-owners-nedostavleny|d18-generator-noop|d19-validator-noop|d20-extension-pustoj|d21-generator-pisatel-noop|d22-generator-vosstanavlivaet-iz-git|d23-known-failures-nepust|d24-spec314-nemigrirovan|d25-spec314-known-failures|d26-spec314-propusk-extension|d27-spec314-oslablenie-core|d28-spec314-profili-neopredeleny|d29-schemas-rukami|d30-schemas-sha-podognan|d31-gencontracts-check-obhozhden|d32-gencontracts-nedeterminirovan|d33-gencontracts-pustoj-dokument|d34-gencontracts-perestanovka-operationid|d35-extension-perenos-path|d36-extension-smena-metoda) echo 1;; d37-npm-net-dereva) echo 2;; k-model|d38-npm-simlink|d39-povtornyj-progon) echo 0;; *) echo 2;; esac; }
 expect_reason() {
   case "$1" in
     m-baza) echo "$R_IMPORT";;
@@ -551,6 +632,11 @@ expect_reason() {
     d32-gencontracts-nedeterminirovan) echo "$R_GENCONPIS";;
     d33-gencontracts-pustoj-dokument) echo "$R_SCHEMPROJ";;
     d34-gencontracts-perestanovka-operationid) echo "$R_SCHEMPROJ";;
+    d35-extension-perenos-path) echo "$R_MARSHRUT";;
+    d36-extension-smena-metoda) echo "$R_MARSHRUT";;
+    d37-npm-net-dereva) echo "$R_NEEDSENV";;
+    d38-npm-simlink) echo "IMPORT315_OK";;
+    d39-povtornyj-progon) echo "IMPORT315_OK";;
   esac
 }
 
@@ -570,7 +656,7 @@ run_cell() {  # $1 = клетка → 0 совпало / 1 расхождени�
     echo "клетка $c: КРАСНАЯ — ожидание rc=$erc/${ereason}, факт rc=$rc, вывод: $(echo "$out" | tail -1)"
     verdict=1
   fi
-  rm -rf "$W"
+  rm -rf "$W" "$W.npm"
   return $verdict
 }
 

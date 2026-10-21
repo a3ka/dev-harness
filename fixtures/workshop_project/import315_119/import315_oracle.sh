@@ -10,9 +10,12 @@
 # Оракул ТОЛЬКО ЧИТАЕТ проверяемый репозиторий (кроме вызова продуктового
 # генератора --check, который по норме сух); все сверки — в mktemp TMPDIR.
 # Выход: 0 — IMPORT315_OK; 1 — ОТКАЗ: import315: <причина>; 2 — неправильный
-# вызов. Алфавит причин замкнут (33; v2 расширила 26 → 32 ветвями spec-3.14
-# смешанных профилей и производных app/schemas; круг 2 v2 — 33-я,
-# schemas-proekcija):
+# вызов либо NEEDS_ENV (среда не позволяет судить: пакет npm, нужный
+# gen-contracts.js судимого дерева, не разрешается, или нет PyYAML — Rev119v2
+# Б-1; это не причина продукта). Алфавит причин замкнут (34; v2 расширила
+# 26 → 32 ветвями spec-3.14 смешанных профилей и производных app/schemas;
+# круг 2 v2 — 33-я, schemas-proekcija; вердикт Adv119v2 — 34-я,
+# extension-marshrut):
 #   import-otsutstvuet raskladka-vtoroj-koren raskladka-istochniki
 #   struktura-policy core-zamenen additivnost-cas additivnost-operacija
 #   additivnost-reasoncode poterya-consumer sql-izmenen vs01-otkatan
@@ -22,7 +25,7 @@
 #   sostav-rashozhdenie generator-noop validator-noop generator-ne-pishet
 #   known-failures-nepust spec314-kreven spec314-noop schemas-rashozhdenie
 #   gencontracts-rashozhdenie gencontracts-noop gencontracts-ne-pishet
-#   schemas-proekcija
+#   schemas-proekcija extension-marshrut
 REPO="${1:-}"
 [ -n "$REPO" ] || { echo "использование: import315_oracle.sh <корень репозитория>" >&2; exit 2; }
 [ -d "$REPO/.git" ] || [ -f "$REPO/.git" ] || { echo "ОТКАЗ: import315: ne-git-repo" >&2; exit 2; }
@@ -30,6 +33,26 @@ cd "$REPO" || exit 2
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PIN="$HERE/pin_315.json"
 fail() { echo "ОТКАЗ: import315: $1" >&2; exit 1; }
+# Б-1 (Rev119v2): вывод node → имя НЕРАЗРЕШЁННОГО пакета npm (голый
+# спецификатор: CJS «Cannot find module 'x'», ESM «Cannot find package 'x'»);
+# относительный/абсолютный путь — дефект продукта, а не среды
+npm_miss() {
+  printf '%s\n' "$1" | sed -n \
+    -e "s/^Error: Cannot find module '\([^./'][^']*\)'.*/\1/p" \
+    -e "s/^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find package '\([^']*\)' imported from .*/\1/p" \
+    | sed -n 1p
+}
+# gen-contracts.js в каталоге $1 (далее — его аргументы); неразрешённый пакет
+# npm = суд невозможен в этой среде → rc 2 NEEDS_ENV, не gencontracts-* (Б-1)
+gc() {
+  local dir="$1" out rc miss; shift
+  out="$(cd "$dir" && node tests/tools/gen-contracts.js "$@" 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ]; then
+    miss="$(npm_miss "$out")"
+    [ -z "$miss" ] || { echo "NEEDS_ENV: import315: npm-paket-nedostupen $miss (npm-дерево судимого дерева: npm ci либо NODE_PATH)" >&2; exit 2; }
+  fi
+  return "$rc"
+}
 PUB=docs/contracts/BrokerOS_Unified_OpenAPI_v3.yaml
 BIND=docs/contracts/frontend-consumer-bindings.json
 SRC315=docs/sources/backend-3.15
@@ -72,7 +95,7 @@ PIN_RUNTIME="$(pin runtime_status_new)"
 # контрмодель без блока аддитивности продолжает считать состав по пину)
 git show "$BASE:$BIND" | jq -Sc '.workflow_consumers[]' | LC_ALL=C sort > "$SCRATCH/base_recs"
 jq -Sc '.workflow_consumers[]' "$BIND" | LC_ALL=C sort > "$SCRATCH/cur_recs"
-comm -13 "$SCRATCH/base_recs" "$SCRATCH/cur_recs" > "$SCRATCH/new_recs"
+LC_ALL=C comm -13 "$SCRATCH/base_recs" "$SCRATCH/cur_recs" > "$SCRATCH/new_recs"
  # ── ADDITIV-315-BEG: аддитивность против git-базы ───────────────────────────
 [ "$(sha256sum "$SRC315/core.openapi.yaml" | cut -d' ' -f1)" = "$BASE_SHA" ] \
   || fail core-zamenen
@@ -89,7 +112,7 @@ cmp -s "$SCRATCH/rc_base.txt" "$SCRATCH/rc_cur.txt" || fail additivnost-reasonco
 # идентичность потребителей (Б3): каноническая запись целиком (значимые поля
 # operation_id/adoption_status/... — id у 50 из 53 реальных записей нет),
 # мультимножества id недостаточно; базовые projections index сохраняются.
-comm -23 "$SCRATCH/base_recs" "$SCRATCH/cur_recs" | grep -q . && fail poterya-consumer
+LC_ALL=C comm -23 "$SCRATCH/base_recs" "$SCRATCH/cur_recs" | grep -q . && fail poterya-consumer
 while IFS= read -r rec; do
   [ -n "$rec" ] || continue
   ok="$(echo "$rec" | jq -r --arg rt "$PIN_RUNTIME" '
@@ -105,7 +128,7 @@ if git cat-file -e "$BASE:docs/contracts/operation-index.json" 2>/dev/null; then
     | jq -Sc '.operations[] | {operation_id, consumers}' | LC_ALL=C sort > "$SCRATCH/base_proj"
   jq -Sc '.operations[] | {operation_id, consumers}' docs/contracts/operation-index.json \
     | LC_ALL=C sort > "$SCRATCH/cur_proj"
-  comm -23 "$SCRATCH/base_proj" "$SCRATCH/cur_proj" | grep -q . && fail poterya-consumer
+  LC_ALL=C comm -23 "$SCRATCH/base_proj" "$SCRATCH/cur_proj" | grep -q . && fail poterya-consumer
 fi
 [ -z "$(git diff --name-only --diff-filter=MD "$BASE" -- migrations/)" ] || fail sql-izmenen
 CUR_VS01="$(jq -r '.vs01_spec_freeze.sha256 // empty' docs/VERSION_MANIFEST.json)"
@@ -137,6 +160,39 @@ CUR_TABLES="$(jq '.tables | length' docs/data/physical-model.json)"
 [ "$CUR_TABLES" = "$PIN_TABLES" ] || fail owners-rashozhdenie
 [ "$(jq -r '.compatibility_baseline // ""' "$SRC315/baseline-lock.json")" = "5.8.4" ] \
   || fail sostav-rashozhdenie
+# ── MARSHRUT-315-BEG: маршрут extension-операций (вердикт Adv119v2) ─────────
+# поблочная сверка видит содержимое операции, но не её маршрут: проекция
+# operationId → (path, method) источника extension (sha по пину — выше)
+# обязана совпасть с проекцией published, кратность тоже; сборка независима
+# от генератора и валидатора продукта (python3+PyYAML — уже зависимость
+# батареи): перенос на иной path или смена метода при неизменных
+# operationId/блоке/источнике — красно
+python3 - "$SRC315/platform-extension.yaml" "$PUB" <<'PY'
+import sys
+try:
+    import yaml
+except ImportError:
+    print('NEEDS_ENV: import315: python3-yaml-nedostupen (PyYAML)', file=sys.stderr)
+    sys.exit(2)
+METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace')
+def routes(path):
+    doc = yaml.safe_load(open(path, encoding='utf-8'))
+    out = []
+    for p, item in ((doc or {}).get('paths') or {}).items():
+        for m in METHODS:
+            op = item.get(m) if isinstance(item, dict) else None
+            if isinstance(op, dict) and 'operationId' in op:
+                out.append((str(op['operationId']), str(p), m))
+    return out
+src = routes(sys.argv[1])
+ids = {t[0] for t in src}
+pub = [t for t in routes(sys.argv[2]) if t[0] in ids]
+for t in sorted(set(src) ^ set(pub)):
+    print('marshrut: %s %s %s' % t, file=sys.stderr)
+sys.exit(0 if sorted(src) == sorted(pub) else 1)
+PY
+case $? in 0) ;; 2) exit 2 ;; *) fail extension-marshrut ;; esac
+# ── MARSHRUT-315-END ────────────────────────────────────────────────────────
 
 MAN_OPS="$(jq -r '.operations' docs/VERSION_MANIFEST.json)"
 MAN_SCH="$(jq -r '.schemas' docs/VERSION_MANIFEST.json)"
@@ -176,9 +232,20 @@ make_probe() {  # $1 = имя клона; клон HEAD + оверлей раб�
   local d="$SCRATCH/$1"
   git clone -q --local . "$d" 2>/dev/null || return 1
   git diff HEAD --binary 2>/dev/null | git -C "$d" apply --whitespace=nowarn 2>/dev/null
+  # оверлей неотслеживаемых (Rev119v2 Б-1 в): регулярный файл — cp, симлинк —
+  # cp -P (как есть, без разыменования), прочее (каталог через симлинк,
+  # вложенный репозиторий) не копируется; npm-дерево — отдельно ниже
   git ls-files --others --exclude-standard -z | while IFS= read -r -d '' f; do
-    mkdir -p "$d/$(dirname "$f")" && cp "$f" "$d/$f"
-  done
+    [ "$f" = node_modules ] && continue
+    if [ -L "$f" ]; then mkdir -p "$d/$(dirname "$f")" && cp -P "$f" "$d/$f" || exit 1
+    elif [ -f "$f" ]; then mkdir -p "$d/$(dirname "$f")" && cp "$f" "$d/$f" || exit 1
+    fi
+  done || return 1
+  # npm-дерево судимого дерева (каталог в .gitignore либо симлинк) достижимо
+  # в клоне: пробы node судят продукт, а не отсутствие зависимостей (Б-1 б/в)
+  if [ -e node_modules ] && [ ! -e "$d/node_modules" ] && [ ! -L "$d/node_modules" ]; then
+    ln -s "$PWD/node_modules" "$d/node_modules" || return 1
+  fi
 }
 # проба 1: --check на УСТАРЕВШЕМ производном обязан краснеть
 make_probe probe-stale || fail vosproizvodimost
@@ -236,7 +303,9 @@ if (cd "$SCRATCH/probe-val" && python3 tests/spec-3.15/validate_import_315.py >/
 fi
 
 # ── spec-3.14 смешанные профили (v2, R-1): lane-паритет без known-failures ───
-S314_OUT="$(python3 tests/spec-3.14/validate_contract_v3_9.py 2>&1)"; S314_RC=$?
+# Б-2 (Rev119v2): evidence валидатора — в scratch оракула (--out), не в
+# судимое дерево: иначе evidence/ попадает в инвентарь FILES повторного прогона
+S314_OUT="$(python3 tests/spec-3.14/validate_contract_v3_9.py --out "$SCRATCH/s314" 2>&1)"; S314_RC=$?
 { [ "$S314_RC" -eq 0 ] && echo "$S314_OUT" | grep -Eq 'failures=\[\]|"failures": *\[\]'; } || fail spec314-kreven
 # поведенческие пробы: подсунутый профильный дефект обязан краснеть —
 # обманки «зелёный через пропуск extension-операций», «ослабление профиля
@@ -276,7 +345,7 @@ SCHEMAS_SRC=app/schemas/source.json
   || fail schemas-rashozhdenie
 [ "$(jq -r '.api_version // ""' "$SCHEMAS_SRC")" = "$(grep -m1 '^  version: ' "$PUB" | sed 's/^  version: //')" ] \
   || fail schemas-rashozhdenie
-node tests/tools/gen-contracts.js --check >/dev/null 2>&1 || fail gencontracts-rashozhdenie
+gc . --check || fail gencontracts-rashozhdenie
 # ── полная независимая сборка published → openapi.json (арбитраж 119 v2, П1:
 # полный документ, НЕ состав) ────────────────────────────────────────────────
 # оракул САМ строит ожидаемый производный из САМОГО published (yaml→JSON,
@@ -298,26 +367,25 @@ cmp -s "$SCRATCH/proj_expected.canon" "$SCRATCH/proj_actual.canon" || fail schem
 # «пересборка не детерминирована» различаются только здесь
 make_probe probe-schemas || fail vosproizvodimost
 printf '\n/* oracle-stale */\n' >> "$SCRATCH/probe-schemas/app/schemas/openapi.json"
-if (cd "$SCRATCH/probe-schemas" && node tests/tools/gen-contracts.js --check >/dev/null 2>&1); then
+if gc "$SCRATCH/probe-schemas" --check; then
   fail gencontracts-noop
 fi
-if ! (cd "$SCRATCH/probe-schemas" && node tests/tools/gen-contracts.js >/dev/null 2>&1); then
+if ! gc "$SCRATCH/probe-schemas"; then
   fail gencontracts-ne-pishet
 fi
 cmp -s "$SCRATCH/probe-schemas/app/schemas/openapi.json" app/schemas/openapi.json \
   || fail gencontracts-ne-pishet
 cmp -s "$SCRATCH/probe-schemas/app/schemas/source.json" app/schemas/source.json \
   || fail gencontracts-ne-pishet
-(cd "$SCRATCH/probe-schemas" && node tests/tools/gen-contracts.js --check >/dev/null 2>&1) \
-  || fail gencontracts-ne-pishet
+gc "$SCRATCH/probe-schemas" --check || fail gencontracts-ne-pishet
 
 # ── known-issues (Б5): минимальный состав из ПИНА, не из проверяемого дерева ─
 jq -r --arg s "$BASE_SHA" '.entries[] | select(.base_published_sha256==$s) | .known_issues_min[]' "$PIN" \
   | LC_ALL=C sort > "$SCRATCH/pin_iss"
 jq -r '.ids[]' tests/spec-3.15/known-issues-315.json | LC_ALL=C sort > "$SCRATCH/reg_iss"
-comm -23 "$SCRATCH/pin_iss" "$SCRATCH/reg_iss" | grep -q . && fail known-issues-nepolnyj
+LC_ALL=C comm -23 "$SCRATCH/pin_iss" "$SCRATCH/reg_iss" | grep -q . && fail known-issues-nepolnyj
 jq -r '.ids[]' "$SRC315/provenance/KNOWN-ISSUES-DECLARED.json" | LC_ALL=C sort > "$SCRATCH/declared_iss"
-comm -23 "$SCRATCH/declared_iss" "$SCRATCH/reg_iss" | grep -q . && fail known-issues-nepolnyj
+LC_ALL=C comm -23 "$SCRATCH/declared_iss" "$SCRATCH/reg_iss" | grep -q . && fail known-issues-nepolnyj
 
 # ── история (Б4): сверка с git-базой, не с файлом проверяемого дерева ───────
 cmp -s docs/history/3_14/BrokerOS_Unified_OpenAPI_v3.yaml "$SCRATCH/base_published.yaml" \
@@ -329,7 +397,7 @@ cmp -s docs/history/3_14/VERSION_MANIFEST.json "$SCRATCH/base_manifest.json" \
 [ "$(cut -d' ' -f1 "$SRC315/provenance/nasha_5_8_4.sha256" 2>/dev/null)" = "$BASE_SHA" ] \
   || fail istorika-podmenena
 
-CONFIRMED_N="$(comm -12 "$SCRATCH/base_recs" "$SCRATCH/cur_recs" | wc -l | tr -d ' ')"
+CONFIRMED_N="$(LC_ALL=C comm -12 "$SCRATCH/base_recs" "$SCRATCH/cur_recs" | wc -l | tr -d ' ')"
 ISSUES_N="$(wc -l < "$SCRATCH/reg_iss" | tr -d ' ')"
 rm -rf "$SCRATCH"
 echo "IMPORT315_OK operations=$CUR_OPS schemas=$CUR_SCH consumers_confirmed=$CONFIRMED_N consumers_total=$CUR_CON new_consumers=$NEW_CON_N tables=$CUR_TABLES known_issues=$ISSUES_N pin=$PIN_SCOPE"
