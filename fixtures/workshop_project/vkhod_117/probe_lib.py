@@ -21,7 +21,6 @@ MODEL_FILES = {
     'mobile/assets/images/splash-sign-dark.png': 'splash-sign-dark.png',
     'mobile/assets/images/splash-sign-light.png': 'splash-sign-light.png',
     'mobile/src/bootstrap/pilot-app.tsx': 'bootstrap.pilot-app.tsx',
-    'mobile/src/features/auth/auth-screen.tsx': 'features.auth.auth-screen.tsx',
     'mobile/assets/images/icon.png': 'icon.png',
     'mobile/assets/images/splash-composite-dark.png': 'splash-composite-dark.png',
     'mobile/assets/images/splash-composite-light.png': 'splash-composite-light.png',
@@ -30,6 +29,7 @@ MODEL_FILES = {
     'mobile/assets/images/android-icon-monochrome.png': 'android-icon-monochrome.png',
     'mobile/assets/images/favicon.png': 'favicon.png',
     'mobile/.maestro/vkhod-117-splash-vhod.yaml': 'vkhod-117-splash-vhod.yaml',
+    '.github/workflows/mobile.yml': 'github.workflows.mobile.yml',
 }
 
 TEST_INSTALL = 'mobile/src/bootstrap/__tests__/vkhod-117.probe.test.tsx'
