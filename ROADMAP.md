@@ -420,6 +420,8 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 114 | до V-2 | CI | 113 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
 | 4 | 122 | до V-2 | CI | 114 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
 | 4 | 128 | до V-2 | autonomy | - | docs/owner/2026-10-21-prostoi-stancii.md#Порядок |
+| 4 | teg-posle-teksta | до V-2 | autonomy | - | docs/owner/2026-10-21-publikaciya-main.md#Порядок |
+| 4 | poezd-bez-dogonyalok | до V-2 | autonomy | - | docs/owner/2026-10-21-publikaciya-main.md#Порядок |
 | 4 | 129 | до V-2 | ops | - | docs/owner/2026-10-21-prostoi-stancii.md#Порядок |
 | 4 | done-produkt | до V-2 | project-mode | - | docs/owner/2026-10-21-sverka-astra.md#Порядок |
 | 4 | sessii-proektov | до V-2 | project-mode | 122 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
