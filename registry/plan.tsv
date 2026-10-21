@@ -48,9 +48,9 @@ CMP-BCK-133	5	до V-2	993	docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Пор
 112	4	до V-2	996	docs/owner/2026-10-20-podkljuchenie-proekta.md#Порядок	project-mode
 113	4	до V-2	112	docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок	CI
 114	4	до V-2	113	docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок	CI
-122	5	до V-2	114	docs/owner/2026-10-18-ci-predpolet.md#Порядок	CI
-mob-sverka-maketa	3	до V-2	117	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	CI
+122	4	до V-2	114	docs/owner/2026-10-18-ci-predpolet.md#Порядок	CI
+123	3	до V-2	117	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	CI
 e2e-do-sdachi	3	до V-2	-	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	CI
-push-produkta	3	до V-2	-	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	ops
+124	3	до V-2	-	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	ops
 sessii-proektov	4	до V-2	122	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	project-mode
 998	3	до V-2	997	docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса	ops
