@@ -52,8 +52,11 @@ check:samodostatochnost-family-selftest	4	9	39523880871
 check:scope-select	9	9	39523880871
 check:scoped-run	17	9	39523880871
 check:sharing-family-selftest	110	9	39523880871
+check:sessii-proektov-125-family-selftest	0	0	39523880871
 check:skills	1	9	39523880871
 check:threat-model-selftest	1	9	39523880871
+check:mobility-spec-120-family-selftest	0	0	39523880871
+check:wait-guard-128-family-selftest	0	0	39523880871
 check:v-polete-nichego-088-family-selftest	16	9	39523880871
 check:vesa-114-family-selftest	0	0	39523880871
 check:watchdog-082-family-selftest	66	9	39523880871
