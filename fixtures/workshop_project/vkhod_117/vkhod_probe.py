@@ -74,13 +74,14 @@ MUTANTS = {
           'const [splashVisible, setSplashVisible] = useState(true);',
           'const [splashVisible, setSplashVisible] = useState(false);')],
         ['SPLASH_OVERLAY_MOUNTED_DARK', 'SPLASH_OVERLAY_MOUNTED_LIGHT'],
-        ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT',
-         'SPLASH_OVERLAY_NO_TEXT_DARK', 'SPLASH_OVERLAY_NO_TEXT_LIGHT',
-         'SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT',
-         'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_COMPOSITE_LIGHT',
-         'SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT',
-         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
-         'SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
+         ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT',
+          'SPLASH_OVERLAY_NO_TEXT_DARK', 'SPLASH_OVERLAY_NO_TEXT_LIGHT',
+          'SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT',
+          'SPLASH_OVERLAY_COMPOSITE_DARK', 'SPLASH_OVERLAY_COMPOSITE_LIGHT',
+          'SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT',
+          'SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT',
+          'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
+          'SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
     ),
     # (С2) wordmark/tagline оверлея — Text-узлы (не растр композита).
     'overlay-text-words': (
@@ -239,6 +240,44 @@ MUTANTS = {
           "            width: '100%',\n            height: '100%',\n",
           '            width: 0,\n            height: 0,\n')],
         ['SPLASH_OVERLAY_CONTAIN_DARK', 'SPLASH_OVERLAY_CONTAIN_LIGHT'],
+        [],
+    ),
+    # (Adv117v2, круг по реализации) ГЕОМЕТРИЯ оверлея: transform в
+    # третьем элементе массива стилей Image — композит и require
+    # каноничны, но кадр сдвинут/смасштабирован; прежние клетки transform
+    # не судили. Красна геометрической клеткой обеих схем.
+    'overlay-transform-translatex': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' },\n"
+          "                    { transform: [{ translateX: 19 }] }]}")],
+        ['SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT'],
+        [],
+    ),
+    'overlay-transform-translatey': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' },\n"
+          "                    { transform: [{ translateY: 19 }] }]}")],
+        ['SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT'],
+        [],
+    ),
+    'overlay-transform-scale': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' },\n"
+          "                    { transform: [{ scale: 0.9 }] }]}")],
+        ['SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT'],
+        [],
+    ),
+    # (Adv117v2) margin-смещение того же Image: сдвиг layout сверх
+    # канона (absoluteFill + width/height 100%).
+    'overlay-margin-offset': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}",
+          "            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%',"
+          " marginLeft: 50 }]}")],
+        ['SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT'],
         [],
     ),
     # (В2-2, круг 7, Rev117r2) StatusBar отсутствует (форма C 74c4c586):

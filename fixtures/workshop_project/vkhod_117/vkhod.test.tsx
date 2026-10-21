@@ -189,6 +189,49 @@ function backgroundOf(node: { props: { style?: unknown } }): unknown {
   return styleOf(node).backgroundColor;
 }
 
+// (Adv117v2, круг по реализации) геометрия оверлея: канон инварианта 8 —
+// бокс Image следует боксу оверлея (absoluteFill + width/height 100%),
+// содержимое центрирует сам resizeMode contain. Запрещённые степени
+// свободы: transform любой (translateX/translateY/scale/rotate/skew —
+// прямым ключом или элементом массива стилей, включая вложенные массивы),
+// margin* любого значения, left/top/right/bottom ≠ 0, position ≠
+// 'absolute'. Судят клетки SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT}.
+const GEOMETRY_TRANSFORM_PROPS = [
+  'transform', 'translateX', 'translateY', 'scale', 'scaleX', 'scaleY',
+  'rotate', 'rotateX', 'rotateY', 'rotateZ', 'skewX', 'skewY',
+];
+const GEOMETRY_EDGE_PROPS = ['left', 'right', 'top', 'bottom'];
+
+function stylePartsFlat(
+  style: unknown,
+  out: Array<Record<string, unknown>> = [],
+): Array<Record<string, unknown>> {
+  if (Array.isArray(style)) {
+    for (const part of style) stylePartsFlat(part, out);
+  } else if (style && typeof style === 'object') {
+    out.push(style as Record<string, unknown>);
+  }
+  return out;
+}
+
+function geometryViolations(node: { props?: { style?: unknown } }): string[] {
+  const bad: string[] = [];
+  for (const part of stylePartsFlat(node.props?.style)) {
+    for (const key of Object.keys(part)) {
+      if (GEOMETRY_TRANSFORM_PROPS.includes(key)) {
+        bad.push(key + '=' + JSON.stringify(part[key]));
+      } else if (GEOMETRY_EDGE_PROPS.includes(key) && part[key] !== 0) {
+        bad.push(key + '=' + JSON.stringify(part[key]));
+      } else if (key.startsWith('margin')) {
+        bad.push(key + '=' + JSON.stringify(part[key]));
+      } else if (key === 'position' && part[key] !== 'absolute') {
+        bad.push(key + '=' + JSON.stringify(part[key]));
+      }
+    }
+  }
+  return bad;
+}
+
 // Внешний host-корень дерева PilotApp (Provider-обёртки host-узлами не являются).
 function hostRootOf(json: unknown): { type?: unknown; props: { style?: unknown } } {
   return (Array.isArray(json) ? json[0] : json) as { type?: unknown; props: { style?: unknown } };
@@ -427,6 +470,37 @@ describe('117 vkhod', () => {
       expect(iStyle.position).toBe('absolute');
       expect(iStyle.width).toBe('100%');
       expect(iStyle.height).toBe('100%');
+    });
+  }
+
+  // (Adv117v2, круг по реализации) ГЕОМЕТРИЯ оверлея в реальном рендере:
+  // сплющенный стиль оверлея и его единственного Image не несёт
+  // запрещённых степеней свободы (transform любой, margin*, края ≠ 0,
+  // position ≠ 'absolute') — иначе канонический композит сдвинут или
+  // смасштабирован относительно Splash.png/Splash-Hell.png при зелёных
+  // source/resizeMode (находка Adv117v2: translateX: 19 проходил батарею).
+  // Произведение scheme(2).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`SPLASH_OVERLAY_GEOMETRY_${S}`, async () => {
+      const api = await renderApp(scheme);
+      const overlay = subtreeByTestId(api.toJSON(), SPLASH_OVERLAY_TEST_ID);
+      expect(overlay).not.toBeNull();
+      const images: Array<{ props: { style?: unknown } }> = [];
+      const collect = (json: unknown): void => {
+        const node = json as { type?: unknown; props?: Record<string, unknown>; children?: unknown };
+        if (node?.type === 'Image' && node.props) {
+          images.push({ props: node.props as { style?: unknown } });
+        }
+        for (const child of Array.isArray(node?.children) ? node.children : []) collect(child);
+      };
+      collect(overlay);
+      expect(images.length).toBe(1);
+      expect([
+        ...geometryViolations(overlay as never),
+        ...geometryViolations(images[0]),
+      ]).toEqual([]);
     });
   }
 

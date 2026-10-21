@@ -66,6 +66,15 @@
     "composites": {
       "dark": "mobile/assets/images/splash-composite-dark.png",
       "light": "mobile/assets/images/splash-composite-light.png"
+    },
+    "geometry": {
+      "_comment": "Adv117v2 (круг по реализации): канон инварианта 8 — бокс Image следует боксу оверлея (absoluteFill + width/height 100%), содержимое центрирует resizeMode contain; степени свободы геометрии (transform любой, margin*, края ≠ 0, position ≠ absolute) запрещены в сегменте JSX оверлея. Судят статические SPLASH_OVERLAY_NO_TRANSFORM / SPLASH_OVERLAY_NO_LAYOUT_OFFSET и поведенческие SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT}.",
+      "forbidden_transform_props": ["transform", "translateX", "translateY", "scale", "scaleX", "scaleY", "rotate", "rotateX", "rotateY", "rotateZ", "skewX", "skewY"],
+      "forbidden_margin_prefix": "margin",
+      "canon_position": "absolute",
+      "canon_edge_zero_props": ["left", "right", "top", "bottom"],
+      "canon_edge_zero": 0,
+      "jsx_end_anchor": ": null}"
     }
   },
   "artboard_117": {
