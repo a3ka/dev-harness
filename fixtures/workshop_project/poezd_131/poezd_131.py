@@ -105,6 +105,7 @@ class Mir:
             shutil.copy(subject, os.path.join(self.w, 'scripts', 'publikaciya_main.sh'))
         self.write('src/kod.sh', 'echo %s\n' % self.tok())
         self.write('HANDOFF.md', '# мир\n')
+        self.write('forks/osnova.md', 'основа мира: учётный файл, неизменный до клеток 131\n')
         self.base = self.commit('base')
         self.g('remote', 'add', 'origin', self.origin)
         self.g('push', '-q', 'origin', 'main')
@@ -135,6 +136,45 @@ class Mir:
     def op_podpis(self):
         self.write('src/kod.sh', 'echo %s\n' % self.tok())
         self.commit('HANDOFF: чекпойнт %s' % self.tok(), 'orchestrator')
+
+    # ── маскировка: кодовое изменение под учётной подписью, видимое только во ВСЕХ статусах diff ──
+    def zamaskirovat(self, what):
+        self.write('HANDOFF.md', 'учёт %s\n' % self.tok())
+        self.commit('HANDOFF: %s %s' % (what, self.tok()), 'orchestrator')
+
+    def op_udalenie(self):
+        # D кодового пути + A учётного (содержимое несхоже — rename не сопоставится)
+        os.remove(os.path.join(self.w, 'src', 'kod.sh'))
+        self.write('verdicts/v-%s.md' % self.tok(), 'учёт %s\n' % self.tok())
+        self.zamaskirovat('удалены устаревшие файлы')
+
+    def op_pereimen_v_uchet(self):
+        # R: src/kod.sh (неизменный от R) → verdicts/…; новый путь учётный
+        os.makedirs(os.path.join(self.w, 'verdicts'), exist_ok=True)
+        self.g('mv', 'src/kod.sh', 'verdicts/kod-%s.md' % self.tok())
+        self.zamaskirovat('перенос в вердикты')
+
+    def op_pereimen_iz_ucheta(self):
+        # R: forks/osnova.md (неизменный от R) → src/…; старый путь учётный
+        self.g('mv', 'forks/osnova.md', 'src/osnova-%s.sh' % self.tok())
+        self.commit('forks: перенос %s' % self.tok(), 'orchestrator')
+
+    def op_kopiya(self):
+        # C: копия неизменного учётного forks/osnova.md в кодовый путь
+        shutil.copy(os.path.join(self.w, 'forks', 'osnova.md'), os.path.join(self.w, 'src', 'osnova-%s.sh' % self.tok()))
+        self.commit('forks: копия %s' % self.tok(), 'orchestrator')
+
+    def op_rezhim(self):
+        # M только режимом: 100644 → 100755, blob тот же
+        os.chmod(os.path.join(self.w, 'src', 'kod.sh'), 0o755)
+        self.zamaskirovat('режим')
+
+    def op_tip(self):
+        # T: обычный файл → символьная ссылка
+        p = os.path.join(self.w, 'src', 'kod.sh')
+        os.remove(p)
+        os.symlink('kod-%s' % self.tok(), p)
+        self.zamaskirovat('ссылка')
 
     def kod_hash(self, rev):
         p = run(['bash', os.path.join(self.w, 'scripts', 'ci_klass.sh'), 'hash', rev], self.w, self.env)
