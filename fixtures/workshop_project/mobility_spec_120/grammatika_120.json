@@ -1,0 +1,56 @@
+{
+ "spec_dir": "docs/spec/mobility-consumer-v1",
+ "artifacts": [
+  "README_RU.md",
+  "processes.json",
+  "kfz-termination-consumer.json",
+  "wunschkennzeichen-lifecycle.json",
+  "bundle-errors-315.json",
+  "release-graph.json"
+ ],
+ "processes": {
+  "ZULASSUNG": {"service_code": "REGISTER_OR_REREGISTER", "external": "registration_provider_admission"},
+  "ABMELDUNG": {"service_code": "DEREGISTER", "external": "registration_provider_admission"},
+  "KENNZEICHEN_WUNSCH": {"service_code": "PLATE_ORDER", "external": "plate_provider_admission"},
+  "VERSICHERUNG_EVB": {"service_code": "KFZ_INSURANCE", "external": "insurer_sandbox"},
+  "KUENDIGUNG": {"service_code": "KFZ_TERMINATION", "external": "insurer_sandbox"}
+ },
+ "adapter_v1": "SYNTHETIC",
+ "real_release_status": "NOT_RUN",
+ "new_operation_re": "^[a-z][A-Za-z0-9]{2,79}$",
+ "termination": {
+  "service_code": "KFZ_TERMINATION",
+  "required_checks": ["AUTHORITY", "ELIGIBILITY", "DATES", "CONTRACT_TARGET"],
+  "not_substitutes": ["cancelMobilityServiceCase", "WIDERRUF"],
+  "terminal_state": "TERMINATION_CONFIRMED",
+  "terminal_requires": {"verification": "VERIFIED", "receipts_min": 1, "effective_end_date": "NON_NULL"},
+  "abmeldung_link": "SEPARATE_CONFIRMED_INSURANCE_OUTCOME"
+ },
+ "wunsch": {
+  "operation_kinds": ["CHECK", "RESERVE", "READ", "EXPIRE", "CANCEL"],
+  "transition_kinds": ["CHECK", "RESERVE", "EXPIRE", "CANCEL"],
+  "required_states": ["AVAILABLE", "UNAVAILABLE", "RESERVED", "EXPIRED", "CANCELLED"],
+  "required_terminal": ["UNAVAILABLE", "EXPIRED", "CANCELLED"],
+  "expiry_field": "expires_at"
+ },
+ "errors": {
+  "code_re": "^E315-[0-9]{2}$",
+  "id_re": "^[a-z0-9][a-z0-9-]{2,79}$",
+  "dispositions": ["CLOSED_BY_119", "SPEC_120", "DDL_TRACK", "NOT_RUN_EXTERNAL", "INTEGRATION_LATER"],
+  "severities": ["Блокер импорта", "Блокер consumer v1", "Блокер полного набора", "Блокер DDL", "Высокая", "Средняя/высокая", "Средняя", "Интеграционный конфликт"],
+  "spec_120_required": {
+   "E:9824–9851": "kfz-termination-consumer.json",
+   "E:10050–10100; B/contracts/service-workflows.json:61–103": "wunschkennzeichen-lifecycle.json",
+   "B/plans/delivery-plan.json:64–103; A:887": "release-graph.json",
+   "E:10364–10461": "kfz-termination-consumer.json",
+   "E:10462–10528": "processes.json"
+  }
+ },
+ "graph": {
+  "kinds": ["SHARED", "PROCESS", "CONSUMER", "PARTNER", "BROKER_APP", "EXTERNAL"],
+  "shared_core": "SHARED_MOBILITY_CORE",
+  "consumer_v1": "CONSUMER_MOBILITY_V1",
+  "consumer_real": "CONSUMER_MOBILITY_REAL",
+  "broker_app": "BROKER_APP_ENDPOINTS"
+ }
+}
