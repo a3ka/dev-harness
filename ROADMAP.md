@@ -396,6 +396,9 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 117 | до V-2 | complior | 111 | docs/owner/2026-10-20-mob-po-maketu.md#Порядок |
 | 3 | 118 | до V-2 | complior | 117 | docs/owner/2026-10-20-mob-po-maketu.md#Порядок |
 | 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
+| 3 | mob-sverka-maketa | до V-2 | CI | 117 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
+| 3 | e2e-do-sdachi | до V-2 | CI | - | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
+| 3 | push-produkta | до V-2 | ops | - | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 3 | 998 | до V-2 | ops | 997 | docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
@@ -410,6 +413,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 112 | до V-2 | project-mode | 996 | docs/owner/2026-10-20-podkljuchenie-proekta.md#Порядок |
 | 4 | 113 | до V-2 | CI | 112 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
 | 4 | 114 | до V-2 | CI | 113 | docs/owner/2026-10-20-uskorenie-i-standarty.md#Порядок |
+| 4 | sessii-proektov | до V-2 | project-mode | 122 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
 | 5 | 122 | до V-2 | CI | 114 | docs/owner/2026-10-18-ci-predpolet.md#Порядок |
