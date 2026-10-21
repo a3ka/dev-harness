@@ -45,7 +45,9 @@ MUTANTS = {
         ['AUTH_F03_01_STRUCTURE_DARK', 'AUTH_F03_01_STRUCTURE_LIGHT',
          'AUTH_F03_02_STRUCTURE_DARK', 'AUTH_F03_02_STRUCTURE_LIGHT'],
         ['AUTH_FRAMES_SAFE_AREA_DARK', 'AUTH_FRAMES_SAFE_AREA_LIGHT',
-         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT'],
+         'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
+         # 117 v2: F03 на поверхности 995 — бейдж Demo не чип DS (замер v2).
+         'DEMO_BADGE_CHIP_DARK', 'DEMO_BADGE_CHIP_LIGHT'],
     ),
     # (е) вход в светлой схеме на тёмном ground (тема не проводится).
     'auth-light-dark-ground': (
@@ -309,7 +311,7 @@ MUTANTS = {
          # 117 v2: палитра light в тёмной клетке First-Run (знак, wordmark,
          # подзаголовок, CTA, футер) — измерено матрицей v2.
          'FIRST_RUN_CTA_BOTTOM_DARK', 'FIRST_RUN_SIGN_DARK', 'FIRST_RUN_SUBLINE_DARK',
-         'FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_WORDMARK_DARK'],
+         'FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_WORDMARK_DARK', 'DEMO_BADGE_CHIP_DARK'],
     ),
     # (Р4, круг 6, Rev117) safe-area снята: контент в статус-баре,
     # колонка прижата к краю (форма текущего C).
@@ -510,6 +512,24 @@ MUTANTS = {
           '          {BRAND_TAGLINE}\n'
           '        </Text>\n', '')],
         ['FIRST_RUN_TAGLINE_DARK', 'FIRST_RUN_TAGLINE_LIGHT'],
+        [],
+    ),
+    # (FR-7) бейдж Demo прежнего вида #F2F2F2/#444444 на кадрах D2.2.5.1
+    # (форма C 58d60b8): не чип DS ни в одной схеме.
+    'demo-badge-995-grey': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'style={[styles.demoBadge, isD22Frame ? { backgroundColor: tokens.panel } : null]}',
+          'style={styles.demoBadge}')],
+        ['DEMO_BADGE_CHIP_DARK', 'DEMO_BADGE_CHIP_LIGHT'],
+        [],
+    ),
+    # (FR-7) подложка panel тёмной схемы литералом в обеих — в light чип
+    # тёмный на светлом (наблюдаем ТОЛЬКО light).
+    'demo-badge-dark-panel-both': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'isD22Frame ? { backgroundColor: tokens.panel } : null',
+          "isD22Frame ? { backgroundColor: '#1e1e1d' } : null")],
+        ['DEMO_BADGE_CHIP_LIGHT'],
         [],
     ),
     # (инв. 6 v2, В2-3) ссылки F03.02 лаймом accent в обеих схемах (форма C):

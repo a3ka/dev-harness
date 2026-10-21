@@ -592,6 +592,7 @@ describe('117 vkhod', () => {
     const INK_MUTED = scheme === 'dark' ? INK_MUTED_DARK : INK_MUTED_LIGHT;
     const PRIMARY = scheme === 'dark' ? PRIMARY_DARK : PRIMARY_LIGHT;
     const ON_PRIMARY = scheme === 'dark' ? ON_PRIMARY_DARK : ON_PRIMARY_LIGHT;
+    const PANEL = scheme === 'dark' ? PANEL_DARK : PANEL_LIGHT;
 
     // FR-1 верх кадра: First-Run — первый В ПОТОКЕ host-ребёнок корня
     // PilotApp (всё перед ним — position absolute: Demo-бейдж не сдвигает
@@ -751,6 +752,28 @@ describe('117 vkhod', () => {
       const order = docOrder(fr);
       expect(order.indexOf('#first-run-continue') >= 0).toBe(true);
       expect(order.indexOf('#first-run-continue') < order.indexOf(`"${FIRST_RUN_TAGLINE}"`)).toBe(true);
+    });
+
+    // FR-7 Demo-бейдж (форк n117-v2-first-run (А): «подложка Demo видима»)
+    // на кадрах D2.2.5.1 — first-run, F03.01, F03.02 — чип DS: подложка
+    // panel схемы, текст ink схемы (контраст к подложке ≥ 4.5); форма C —
+    // подложка #F2F2F2 (на light ground #f3f2ee 1,0:1).
+    it(`DEMO_BADGE_CHIP_${S}`, async () => {
+      await renderFirstRunFrame(scheme);
+      const chip = () => {
+        const badge = screen.getByTestId('demo-indicator');
+        expect(backgroundOf(badge)).toBe(PANEL);
+        const color = styleOf(within(badge).getByText('Demo')).color;
+        expect(color).toBe(INK);
+        expect(contrast(color, PANEL) >= TEXT_MIN_CONTRAST).toBe(true);
+      };
+      chip();
+      await fireEvent.press(screen.getByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      chip();
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      chip();
     });
   }
 

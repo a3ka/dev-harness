@@ -303,8 +303,13 @@ export function PilotApp({ auth, api, entry }: PilotAppPorts) {
               : { paddingTop: 0 }
           }
         >
-          <View style={styles.demoBadge} testID="demo-indicator">
-            <Text style={styles.demoBadgeText}>Demo</Text>
+          <View
+            style={[styles.demoBadge, isD22Frame ? { backgroundColor: tokens.panel } : null]}
+            testID="demo-indicator"
+          >
+            <Text style={[styles.demoBadgeText, isD22Frame ? { color: tokens.ink } : null]}>
+              Demo
+            </Text>
           </View>
         </View>
       ) : null}
