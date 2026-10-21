@@ -9,12 +9,16 @@
 таблицы и судится в её мире (контроль: модель там красна; без проверки — зелена).
 Пины мира сверяются с построенным миром ДО запуска субъекта; диск кандидата как истина не
 читается — из кандидата берутся ТОЛЬКО два судимых файла (T, S).
-Переменные близнецы (bliznecy): каждый конформный мир (все ожидания green) получает близнеца
-<id><suffix> — тот же мир плюс в корневой YAML добавлены операции, число и имена которых
-выбираются ГСЧ при каждом построении (производный пересобран). Счёт близнеца не совпадает ни с
-одним пином фиксированных миров и не равен числу добавленных путей, поэтому кандидат, узнающий
-известные миры по признакам (путь, хэш, версия, число путей) вместо подсчёта операций, краснеет;
-ожидание пина derived_operations близнеца = пин мира + добавлено (память проверяющего).
+Переменные близнецы (bliznecy.vidy): каждый конформный мир (все ожидания green) получает близнеца
+каждого вида <id><suffix> — тот же мир плюс мутация корневого YAML без узнаваемой сигнатуры
+(производный пересобран): вид plus — новые пути из разных пространств (/v1, /partner/v1,
+вложенные, с параметрами {…_id}) в случайных местах секции paths; вид smes — новые пути, новые
+методы у УЖЕ существующих путей и удаление существующих операций (часть путей целиком) с чистым
+убытком. Имена, места и числа — ГСЧ при каждом построении; ожидание пина derived_operations
+близнеца = пин мира + дельта собственной мутации (память проверяющего). Ограничения дельты
+(выводятся до записи файла, иначе новая выборка): дельта ≠ 0, дельта ≠ дельте числа путей, итог
+∉ пинов фиксированных миров; smes — каждая составляющая непуста и убыток больше добавок, поэтому
+счёт любой собственной части составляющих (только новые пути, без удалений, только рост) расходится.
 
 Режимы:
   (без аргументов)    суд ТЕКУЩЕГО продукта: T/S из коммита current_product (sha256 по пину)
@@ -46,7 +50,10 @@ HTTP_METHODS = ('get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'tra
 LOADER_METHODS = ('get', 'put', 'post', 'patch', 'delete')
 SUBJECTS = ('T', 'S')
 VERDICTS = ('green', 'red')
-MUTATION_KINDS = ('zamena', 'yaml-udalit-put', 'iz-kommita', 'proizvodnyi-udalit-put', 'yaml-dobavit-operacii')
+MUTATION_KINDS = ('zamena', 'yaml-udalit-put', 'iz-kommita', 'proizvodnyi-udalit-put', 'yaml-bliznec')
+TWIN_KINDS = ('plus', 'smes')
+HANDLERS_FILE = os.path.join('tests', 'helpers', 'contract-server.js')
+SYLLABLES = ('ka', 'ro', 'mi', 'te', 'lu', 'sa', 'no', 'vi', 'de', 'po', 'ri', 'ga', 'zo', 'be', 'fu', 'ny')
 PIN_KEYS = ('derived_operations', 'api_version', 'gen_check_rc', 'index_operation_count',
             'source_sha256_aktualen', 'derived_sha256_soglasovan')
 CHECK_SUBJECTS = SUBJECTS + ('zagruzchik',)
@@ -110,21 +117,28 @@ def load_source():
 
 
 def twin_worlds(src):
-    """Конформный мир → переменный близнец: те же мутации + yaml-dobavit-operacii, пересборка."""
-    cfg = src['bliznecy']
-    lo, hi = cfg['putei']
-    if not (isinstance(lo, int) and isinstance(hi, int) and 1 <= lo <= hi) or not cfg['suffix']:
-        raise Unverifiable('source.json: bliznecy: putei [lo, hi] вне 1 <= lo <= hi или пустой suffix')
+    """Конформный мир → переменный близнец каждого вида: те же мутации + yaml-bliznec, пересборка."""
+    vidy = src['bliznecy']['vidy']
+    suffixes = [v['suffix'] for v in vidy]
+    if not vidy or len(suffixes) != len(set(suffixes)) or not all(suffixes):
+        raise Unverifiable('source.json: bliznecy.vidy пуст, suffix пуст или повторён')
+    for v in vidy:
+        if v['sostav'] not in TWIN_KINDS:
+            raise Unverifiable(f"source.json: bliznecy: sostav вне алфавита: {v['sostav']!r}")
+        lo, hi = v['novye_puti']
+        if not (isinstance(lo, int) and isinstance(hi, int) and 1 <= lo <= hi):
+            raise Unverifiable(f"source.json: bliznecy {v['suffix']}: novye_puti [lo, hi] вне 1 <= lo <= hi")
     known = sorted({w['pin']['derived_operations'] for w in src['worlds']})
     twins = []
     for w in src['worlds']:
         if set(w['expect'].values()) != {'green'}:
             continue
-        add = {'kind': 'yaml-dobavit-operacii', 'putei': [lo, hi], 'baza': w['pin']['derived_operations'],
-               'izbegat': known}
-        twins.append({'id': f"{w['id']}{cfg['suffix']}", 'intent': f"переменный близнец {w['id']}",
-                      'commit': w['commit'], 'mutations': w['mutations'] + [add], 'regen': True,
-                      'pin': dict(w['pin']), 'expect': dict(w['expect'])})
+        for v in vidy:
+            add = {'kind': 'yaml-bliznec', 'sostav': v['sostav'], 'novye_puti': v['novye_puti'],
+                   'baza': w['pin']['derived_operations'], 'izbegat': known}
+            twins.append({'id': f"{w['id']}{v['suffix']}", 'intent': f"близнец {v['sostav']} {w['id']}",
+                          'commit': w['commit'], 'mutations': w['mutations'] + [add], 'regen': True,
+                          'pin': dict(w['pin']), 'expect': dict(w['expect'])})
     if not twins:
         raise Unverifiable('source.json: нет конформного мира — близнецов нет')
     return twins
@@ -188,37 +202,165 @@ def write_text(path, text):
         fh.write(text)
 
 
-def additions_block(m):
-    """Случайные пути с непустым набором методов загрузчика: (строки YAML, добавлено операций, путей)."""
-    lo, hi = m['putei']
+def indent_of(line):
+    return len(line) - len(line.lstrip(' '))
+
+
+def parse_paths(lines):
+    """Секция paths корневого YAML → (начало, конец, пути); путь: ключ, строка, сегменты.
+    Сегмент — блок отступа 4: [метод|None, operationId|None, строки]."""
+    at = [i for i, line in enumerate(lines) if line == 'paths:']
+    if len(at) != 1:
+        raise Unverifiable(f"ключ 'paths:' в корневом YAML: вхождений {len(at)}, нужно 1")
+    start = at[0] + 1
+    end = start
+    while end < len(lines) and (lines[end] == '' or lines[end].startswith(' ')):
+        end += 1
+    entries = []
+    for i in range(start, end):
+        line = lines[i]
+        if indent_of(line) == 2 and line.strip():
+            if not (line.startswith('  /') and line.endswith(':')):
+                raise Unverifiable(f'ключ пути вне грамматики /…: {line!r}')
+            entries.append({'route': line[2:-1], 'key': line, 'segs': []})
+        elif indent_of(line) == 4 and line.strip():
+            if not entries:
+                raise Unverifiable('блок отступа 4 до первого ключа пути')
+            name = line.strip()[:-1] if line.endswith(':') else None
+            entries[-1]['segs'].append([name if name in HTTP_METHODS else None, None, [line]])
+        else:
+            if not entries:
+                raise Unverifiable(f'строка до первого ключа пути: {line!r}')
+            if not entries[-1]['segs']:
+                entries[-1]['segs'].append([None, None, []])
+            seg = entries[-1]['segs'][-1]
+            seg[2].append(line)
+            if seg[0] and line.startswith('      operationId: '):
+                seg[1] = line.split(':', 1)[1].strip()
+    return start, end, entries
+
+
+def rand_word():
+    return ''.join(RNG.choice(SYLLABLES) for _ in range(RNG.randint(2, 4)))
+
+
+def rand_route():
+    """Путь из случайного пространства: префикс /v1 | /partner/v1 | /admin/v1, вложенность, параметры."""
+    shape = RNG.randrange(5)
+    a, b = rand_word(), rand_word()
+    if shape == 0:
+        return f'/v1/{a}'
+    if shape == 1:
+        return f'/partner/v1/{a}-{b}'
+    if shape == 2:
+        return f'/v1/{a}/{{{b}_id}}'
+    if shape == 3:
+        return f'/v1/{a}/{{{b}_id}}/{rand_word()}'
+    return f'/admin/v1/{a}/{b}'
+
+
+def method_block(meth, op_id, route):
+    lines = [f'    {meth}:', f'      operationId: {op_id}']
+    params = [p[1:-1] for p in route.split('/') if p.startswith('{') and p.endswith('}')]
+    if params:
+        lines.append('      parameters:')
+        for p in params:
+            lines += [f'        - name: {p}', '          in: path', '          required: true',
+                      '          schema:', '            type: string']
+    return lines + ['      responses:', "        '204':", '          description: ok']
+
+
+def op_name(meth, taken):
     while True:
-        methods = [RNG.sample(LOADER_METHODS, RNG.randint(1, len(LOADER_METHODS)))
-                   for _ in range(RNG.randint(lo, hi))]
-        added = sum(len(ms) for ms in methods)
-        if added != len(methods) and m['baza'] + added not in m['izbegat']:
-            break
-    tag = f'{RNG.getrandbits(48):012x}'
-    lines = []
-    for i, ms in enumerate(methods):
-        lines.append(f'  /v1/zz127-{tag}-{i}:')
-        for meth in ms:
-            lines += [f'    {meth}:', f'      operationId: zz127x{tag}x{i}{meth}', '      responses:',
-                      "        '204':", '          description: zz127']
-    return lines, added, len(methods)
+        name = meth + ''.join(rand_word().capitalize() for _ in range(2))
+        if name not in taken:
+            taken.add(name)
+            return name
+
+
+def twin_plan(entries, m, guard):
+    """Выборка мутации близнеца: (новые пути, добавки методов, удаления, дельта операций, дельта путей)."""
+    routes = {e['route'] for e in entries}
+    taken = {seg[1] for e in entries for seg in e['segs'] if seg[1]}
+    lo, hi = m['novye_puti']
+    free = {ei for ei, e in enumerate(entries) if e['route'] not in guard['routes']
+            and not any(seg[1] in guard['ops'] for seg in e['segs'])}
+    while True:
+        new = []
+        for _ in range(RNG.randint(lo, hi)):
+            route = rand_route()
+            while route in routes or route in [r for r, _, _ in new]:
+                route = rand_route()
+            meths = RNG.sample(LOADER_METHODS, RNG.randint(1, len(LOADER_METHODS)))
+            new.append((route, RNG.randrange(len(entries)), [(mt, op_name(mt, taken)) for mt in meths]))
+        n_ops = sum(len(ms) for _, _, ms in new)
+        add, removed = {}, set()
+        if m['sostav'] == 'smes':
+            removable = [(ei, si) for ei, e in enumerate(entries) if ei in free
+                         for si, seg in enumerate(e['segs'])
+                         if seg[0] in LOADER_METHODS and seg[1] and not any(' &' in x for x in seg[2])]
+            for _ in range(RNG.randint(1, 3)):
+                cands = [(ei, mt) for ei, e in enumerate(entries) if ei in free and ei not in add
+                         for mt in LOADER_METHODS if mt not in {seg[0] for seg in e['segs']}]
+                if not cands:
+                    raise Unverifiable('близнец smes: нет существующего пути для добавки метода')
+                ei, mt = RNG.choice(cands)
+                add[ei] = [(mt, op_name(mt, taken))]
+            want = n_ops + len(add) + RNG.randint(1, 4)
+            pool = [rs for rs in removable if rs[0] not in add]
+            if len(pool) < want:
+                raise Unverifiable(f'близнец smes: удаляемых операций {len(pool)}, нужно {want}')
+            removed = set(RNG.sample(pool, want))
+        gone = sum(1 for ei, e in enumerate(entries)
+                   if e['segs'] and all((ei, si) in removed for si in range(len(e['segs']))))
+        delta = n_ops + len(add) - len(removed)
+        paths_delta = len(new) - gone
+        if delta != 0 and delta != paths_delta and m['baza'] + delta not in m['izbegat']:
+            return new, add, removed, delta, paths_delta
+
+
+def apply_twin(path, m, guard):
+    """Мутация близнеца в корневом YAML; возвращает (дельта операций, описание)."""
+    lines = read_text(path).split('\n')
+    start, end, entries = parse_paths(lines)
+    new, add, removed, delta, paths_delta = twin_plan(entries, m, guard)
+    before = {}
+    for route, at, ms in new:
+        before.setdefault(at, []).append([f'  {route}:'] + [x for mt, op in ms for x in method_block(mt, op, route)])
+    out = []
+    for ei, e in enumerate(entries):
+        for block in before.get(ei, []):
+            out += block
+        segs = [seg for si, seg in enumerate(e['segs']) if (ei, si) not in removed]
+        if e['segs'] and not segs:
+            continue
+        out.append(e['key'])
+        for mt, op in add.get(ei, []):
+            out += method_block(mt, op, e['route'])
+        for seg in segs:
+            out += seg[2]
+    write_text(path, '\n'.join(lines[:start] + out + lines[end:]))
+    n_new = sum(len(ms) for _, _, ms in new)
+    return delta, (f'новых путей {len(new)} (операций {n_new}), методов у существующих путей {len(add)}, '
+                   f'удалено операций {len(removed)}; дельта операций {delta}, путей {paths_delta}')
+
+
+def twin_guard(world_dir, src):
+    """Неприкасаемое близнецом: операции тестовых обработчиков и пути, названные в модели T/S."""
+    text = read_text(os.path.join(world_dir, HANDLERS_FILE))
+    ops = {x.split("'")[1] for x in text.split('operationId: ')[1:] if x.startswith("'")}
+    if not ops:
+        raise Unverifiable(f'близнец: в {HANDLERS_FILE} не найдено ни одной operationId обработчика')
+    model = ''.join(model_files(src).values())
+    return {'ops': ops, 'routes': {r for r in model.split("'") if r.startswith('/')}}
 
 
 def apply_mutation(world_dir, wid, m, src):
-    """Применяет мутацию мира; возвращает число добавленных операций (0 — кроме yaml-dobavit-operacii)."""
-    if m['kind'] == 'yaml-dobavit-operacii':
-        path = os.path.join(world_dir, ROOT_YAML)
-        lines = read_text(path).split('\n')
-        at = [i for i, line in enumerate(lines) if line == 'paths:']
-        if len(at) != 1:
-            raise Unverifiable(f"МИР-ОТКАЗ {wid}: ключ 'paths:' в корневом YAML: вхождений {len(at)}, нужно 1")
-        block, added, paths = additions_block(m)
-        write_text(path, '\n'.join(lines[:at[0] + 1] + block + lines[at[0] + 1:]))
-        print(f'  МИР {wid}: добавлено операций {added} на {paths} путях')
-        return added
+    """Применяет мутацию мира; возвращает дельту числа операций (0 — кроме yaml-bliznec)."""
+    if m['kind'] == 'yaml-bliznec':
+        delta, info = apply_twin(os.path.join(world_dir, ROOT_YAML), m, twin_guard(world_dir, src))
+        print(f'  МИР {wid}: {info}')
+        return delta
     if m['kind'] == 'iz-kommita':
         sha = src['commits'][m['from']]
         for rel in m['files']:
@@ -285,9 +427,9 @@ def build_world(world, src, scratch):
     if res.returncode != 0:
         raise Unverifiable(f'МИР-ОТКАЗ {wid}: tar rc {res.returncode}')
     os.symlink(os.path.join(BACK, 'node_modules'), os.path.join(d, 'node_modules'))
-    added = 0
+    delta = 0
     for m in world['mutations']:
-        added += apply_mutation(d, wid, m, src)
+        delta += apply_mutation(d, wid, m, src)
     if world['regen']:
         rc, out = node(d, 'tests/tools/gen-contracts.js')
         if rc != 0:
@@ -308,7 +450,7 @@ def build_world(world, src, scratch):
     fact['derived_sha256_soglasovan'] = meta.get('derived_sha256') == hashlib.sha256(read_bytes(os.path.join(d, DERIVED_DOC))).hexdigest()
     for key, want in world['pin'].items():
         if key == 'derived_operations':
-            want += added
+            want += delta
         if fact[key] != want:
             raise Unverifiable(f'МИР-ОТКАЗ {wid}: пин {key}: ожидался {want!r}, факт {fact[key]!r}')
     return d
