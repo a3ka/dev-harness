@@ -12,6 +12,9 @@ Splash-Hell.png, припиненные sha256 (несовпадение — rc2
 размер = артборд 390x844, recall по ВСЕЙ маске / precision по ВСЕМ
 непрозрачным пикселям >= 0.98 (Б1), и PilotApp ПОТРЕБЛЯЕТ ровно эти файлы
 (SPLASH_OVERLAY_CONSUMES_COMPOSITE, С2-а);
+ГЕОМЕТРИЯ оверлея: сегмент JSX оверлея в PilotApp не несёт transform
+(любой) и смещений layout сверх канона (SPLASH_OVERLAY_NO_TRANSFORM,
+SPLASH_OVERLAY_NO_LAYOUT_OFFSET — Adv117v2, круг по реализации);
 произведённые платформой ассеты судятся ВЫХОДОМ настоящего генератора
 (getAndroidSplashConfig + setSplashImageDrawablesAsync из node_modules
 продукта): содержимое drawable-{mdpi..xxxhdpi}/splashscreen_logo.png и
