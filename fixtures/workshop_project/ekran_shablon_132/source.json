@@ -28,7 +28,7 @@
    "batareja/red_ekrana.sh"
   ],
   "priemka": {
-   "e2e": "android-e2e rc 0",
+   "e2e": "bash mobile/e2e.sh demo-vkhod",
    "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo ."
   },
   "zony": {
@@ -42,8 +42,10 @@
   },
   "zamenjaet": "fixtures/workshop_project/ekran_shablon_132/model/fiktura/kadry_starogo.json",
   "ne_trogaet": [
-   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/kadry_chuzhogo.json"
-  ]
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+  ],
+  "fiktura": false
  },
  "kontrakt_tekst": "# Контракт 135 — demo-vkhod: экран входа (пример экрана по шаблону 132)\n\n## Воля владельца\nЭкран описан машиночитаемой формой ekran.json (шаблон 132); приёмка —\nandroid-e2e rc 0 и сверка каждого кадра с PNG-макетом docs/ux не ниже порога\nмеханизма 123. Один экран — один контракт: этот контракт заменяет контракт\nэкрана целиком, чужих пикселей не морозит.\n\n## Существующее\nМера, порог и раннер — контракт 123 (scripts/sverka_maketa.py, манифест\nкадров по грамматике kadry_117.json). Литералы токенов — только в общем\nаудите D2.2.5.1 (audit_tokenov формы). Ключи копии — каталог\nBrokerOS_UI_Copy_DE.json verbatim.\n\n## Инварианты\n1. Форма ekran.json едина и замкнута: один экран — один контракт; следующий\nконтракт экрана заменяет его целиком (zamenjaet: кадры — надмножество),\nчужие кадры не объявляет (ne_trogaet: пересечение пусто).\n2. В пачке экрана нет литералов цветов и размеров: значения токенов живут в\nобщем аудите D2.2.5.1, растр судит сверка 123.\n3. Приёмка — rc-команды priemka: android-e2e rc 0 и запуск раннера 123 по\nманифесту кадров пачки.\n\n## Приёмочный критерий\n- Дано: пачка экрана и репо продукта; когда: python3 scripts/ekran_shablon.py\n--pack . --repo R --harness H; тогда: rc 0 — форма верна, оба кадра не ниже\nпорога манифеста.\n- Негатив: кадр ниже порога либо экран с литералом вне аудита — rc 1 с\nименем кадра/файла.\n\n## Зоны и исполнители\n\nЗОНА architect: contracts/135-demo-vkhod.md fixtures/workshop_project/demo_vkhod_135/\nЗОНА implementer: mobile/src/features/demo/\n\n## ПРОВОДКА\nПРОВОДКА-ЭНФОРСМЕНТ: гейт экрана — scripts/ekran_shablon.py по форме\nekran.json (шаблон 132); сверка кадров — механизм 123.\n\n## Модель угроз\nЗАЩИЩАЕТ: форма (замкнутые алфавиты, якорные грамматики) — от расползания\nполей; сверка 123 — от зелени без макета; запрет литералов — от второй\nпалитры в батарее; zamenjaet/ne_trogaet — от деления экрана между\nконтрактами и морозинга чужих пикселей.\nНЕ ЗАЩИЩАЕТ: смысл копии (суд каталога и ревью), качество самого макета.\n",
  "kadry_manifest": {
@@ -189,134 +191,211 @@
   },
   "nositeli/kadry/r1423-light-vkhod-117-splash.png": {
    "sha256": "d8927a5c66b9aaf2f667d2ddc4c6cb31a3e428e039fe53ffbb675f44b7fb97b5"
+  },
+  "model/fiktura/pachta_chuzhogo/ekran.json": {
+   "sha256": "052eacfc2b1452774923a9196634caf5dc9df1be5b5f6c383a0ea07424b14f29"
+  },
+  "model/fiktura/pachta_chuzhogo/kadry.json": {
+   "sha256": "d5036093880a0198b506c283e864b1d5dbb4cc6d080e103104a94f7d8acd3f27"
+  },
+  "model/fiktura/pachta_tot_zhe/ekran.json": {
+   "sha256": "9236e419a2a90d724c8345a02d01d9a98feb9d297fb4f3bc093f42157802d122"
+  },
+  "model/fiktura/pachta_tot_zhe/kadry.json": {
+   "sha256": "5f61a660c98dca7a7b0df3c55a70c8159b1a4bf97ada9f8f354a1403ddd258f6"
   }
  },
  "dopusk_score": 0.01,
  "kejsy": {
   "chestnyj-ekran": {
    "rc": 0,
-   "prichiny": [],
    "stdout": [
     "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
     "KADR\tSplash light\t0.782\t0.600\ttagline\tOK",
     "SHABLON\tdemo-vkhod\tOK"
-   ]
+   ],
+   "prichiny": []
   },
   "literal-cveta": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
-   ],
-   "stdout": []
+   ]
   },
   "literal-razmera": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:47"
-   ],
-   "stdout": []
+   ]
   },
   "kadr-nizhe-poroga": {
    "rc": 1,
-   "prichiny": [
-    "PRICHINA\tKADR_NIZHE_POROGA\tSplash dark\tscore=0.000 porog=0.600 hudshij=znak"
-   ],
    "stdout": [
     "KADR\tSplash dark\t0.000\t0.600\tznak\tNIZHE_POROGA",
     "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tSplash dark\tscore=0.000 porog=0.600 hudshij=znak"
    ]
   },
   "kadr-otsutstvuet": {
    "rc": 1,
-   "prichiny": [
-    "PRICHINA\tKADR_OTSUTSTVUET\tSplash dark\t",
-    "PRICHINA\tKADR_OTSUTSTVUET\tSplash light\t"
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
    ],
-   "stdout": []
+   "prichiny": [
+    "PRICHINA\tKADR_OTSUTSTVUET\tSplash dva\t"
+   ]
   },
   "chuzhoj-kadr": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
-    "PRICHINA\tCHUZHIE_KADRY\tFirst-Run dark"
-   ],
-   "stdout": []
+    "PRICHINA\tCHUZHIE_KADRY\tFiktura-Kadr-Chuzhoj"
+   ]
   },
   "ne-tselikom": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tNE_TSELIKOM\tSplash Hell"
-   ],
-   "stdout": []
+   ]
   },
   "kljuch-bez-kataloga": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tKLJUCH_BEZ_KATALOGA\tui.vkhod.neizvestnyj"
-   ],
-   "stdout": []
+   ]
   },
   "operacija-bez-speka": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tOPERACIJA_BEZ_SPEKA\tnetTakojOperacii"
-   ],
-   "stdout": []
+   ]
   },
   "scenarij-bez-snimka": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tSCENARIJ_BEZ_SNIMKA\tvkhod-demo-splash",
     "PRICHINA\tSCENARIJ_BEZ_SNIMKA\tvkhod-demo-splash"
-   ],
-   "stdout": []
+   ]
   },
   "samodelnaja-sverka": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tSAMODELNAYA_SVERKA\tкоманда сверки не запускает механизм 123"
-   ],
-   "stdout": []
+   ]
   },
   "sostojanie-nevernoe": {
    "rc": 2,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tSHABLON_NEVEREN\tsostojanija: 'tema\\tdark'"
-   ],
-   "stdout": []
+   ]
   },
   "zony-s-globom": {
    "rc": 2,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tSHABLON_NEVEREN\tzony.implementer: 'mobile/src/ui/*'"
-   ],
-   "stdout": []
+   ]
   },
   "zony-rashodjatsja": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tZONY_RASHODJATSJA\timplementer"
-   ],
-   "stdout": []
+   ]
   },
   "bez-razdela": {
    "rc": 1,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tRAZDEL_OTSVTSTVUET\tМодель угроз"
-   ],
-   "stdout": []
+   ]
   },
   "paket-bez-manifesta": {
    "rc": 2,
+   "stdout": [],
    "prichiny": [
     "PRICHINA\tSHABLON_NEVEREN\tekran.json"
+   ]
+  },
+  "priemka-lozhnaja": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKADR_OTSUTSTVUET\tSplash dark\t",
+    "PRICHINA\tKADR_OTSUTSTVUET\tSplash light\t"
+   ]
+  },
+  "e2e-ne-proshla": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tE2E_NE_PROSHLA\trc=3"
+   ]
+  },
+  "sverka-lozhnaya": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
    ],
-   "stdout": []
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\tвывод не воспроизводит механизм 123"
+   ]
+  },
+  "zamenjaet-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZAMENJAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+   ]
+  },
+  "ne-trogaet-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_TROGAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+    "PRICHINA\tNE_TROGAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+   ]
+  },
+  "literal-cveta-funkc": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ]
+  },
+  "literal-razmera-rem": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:47"
+   ]
+  },
+  "kontrakt-slishkom-dlinnyj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 85 (норма ≤ 60)"
+   ]
   }
  },
  "stab_vhod": {
   "s01_bez_literal_skana.py": [
    "literal-cveta",
-   "literal-razmera"
+   "literal-razmera",
+   "literal-cveta-funkc",
+   "literal-razmera-rem"
   ],
   "s02_sverka_doverjaet.py": [
    "kadr-nizhe-poroga",
@@ -349,6 +428,18 @@
   ],
   "s11_razdely_propuskaet.py": [
    "bez-razdela"
+  ],
+  "s12_polnota_propuskaet.py": [
+   "zamenjaet-pustoj",
+   "ne-trogaet-pustoj"
+  ],
+  "s13_priemka_ispolnenie.py": [
+   "e2e-ne-proshla",
+   "sverka-lozhnaya"
+  ],
+  "s14_objem_propuskaet.py": [
+   "kontrakt-slishkom-dlinnyj"
   ]
- }
+ },
+ "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n"
 }

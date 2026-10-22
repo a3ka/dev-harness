@@ -1,0 +1,6 @@
+{
+ "_comment": "Живая (fiktura: false) пачка ТОГО ЖЕ экрана по словарю (fiktura-tot-zhe-ekran) для меры полноты zamenjaet: судимая пачка, объявившая этот ekran, обязана назвать её манифест в zamenjaet (замена целиком). Судимая честная пачка 132 использует другой ekran (demo-vkhod) — для неё эта пачка чужая и живёт в ne_trogaet.",
+ "ekran": "fiktura-tot-zhe-ekran",
+ "kadry": "kadry.json",
+ "fiktura": false
+}
