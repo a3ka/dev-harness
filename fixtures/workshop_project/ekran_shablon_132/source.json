@@ -469,6 +469,23 @@
     "PRICHINA\tCHUZHIE_KADRY\tSplash light"
    ],
    "stdout": []
+  },
+  "literal-razmera-maska-edinicy": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ]
+  },
+  "sverka-poddelnyj-stdout": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\targv не вызов раннера 123: python3 scripts/sverka_maketa.py.fake --manifest no"
+   ]
   }
  },
  "stab_vhod": {
@@ -543,6 +560,12 @@
   "s20_manifest_pervyj_koren.py": [
    "kollizija-zamenjaet",
    "kollizija-ne-trogaet"
+  ],
+  "s21_literal_maska_edinicy.py": [
+   "literal-razmera-maska-edinicy"
+  ],
+  "s22_sverka_imja_fragment.py": [
+   "sverka-poddelnyj-stdout"
   ]
  },
  "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",

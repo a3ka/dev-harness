@@ -486,6 +486,32 @@ def mut_kollizija_ne_trogaet(pack, forma, repo, src):
         json.dumps({'ekran': 'other-screen', 'kadry': 'kadry.json',
                     'fiktura': False}, ensure_ascii=False), encoding='utf-8')
 
+def mut_literal_razmera_maska_edinicy(pack, forma, repo, src):
+    """Блокер 1 (вердикт adv 132 v1): размерный литерал «16 цифр +
+    единица из букв a–f» (fa) — обособленная словоформа целиком
+    hex-совместима; маска дайджеста обязана НЕ вставать на класс «число +
+    буквенная единица 1–4 букв», какие бы буквы единица ни несла."""
+    p = pack / 'batareja/red_ekrana.sh'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\npadding: 0000000000000001fa;\n')
+
+
+def mut_sverka_poddelnyj_stdout(pack, forma, repo, src):
+    """Блокер 2 (вердикт adv 132 v1): scripts/sverka_maketa.py.fake —
+    константная реплика stdout раннера 123 (не раннер, сверку не делает);
+    проходит подстроку sverka_maketa.py и исполнение с тем же stdout —
+    ловится только точным требованием пути/argv раннера 123."""
+    replica = [l for l in src['kejsy']['chestnyj-ekran']['stdout']
+               if l.startswith('KADR\t')]
+    telo = ''.join('print(%r)\n' % l for l in replica)
+    (repo / 'scripts').mkdir(parents=True, exist_ok=True)
+    (repo / 'scripts/sverka_maketa.py.fake').write_text(
+        '# подделка: константная реплика stdout раннера 123 (не раннер)\n'
+        + telo, encoding='utf-8')
+    forma['priemka']['sverka'] = (
+        'python3 scripts/sverka_maketa.py.fake --manifest no')
+    zapis(pack, forma)
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -522,6 +548,8 @@ MUTACII = {
     'literal-cveta-funkc-nuli': mut_literal_cveta_funkc_nuli,
     'kollizija-zamenjaet': mut_kollizija_zamenjaet,
     'kollizija-ne-trogaet': mut_kollizija_ne_trogaet,
+    'literal-razmera-maska-edinicy': mut_literal_razmera_maska_edinicy,
+    'sverka-poddelnyj-stdout': mut_sverka_poddelnyj_stdout,
 }
 
 
