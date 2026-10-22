@@ -2,12 +2,15 @@
 # Проверка доступных свидетельств происхождения (контракт 118, файл пачки).
 # НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском
 # шаблона 132. Судит переход от production First-Run через demo и gate к
-# Start, наличие testID каждого шага и побайтовую копию макета.
-# В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает Maestro),
-# БЕЗ промежуточной правки кадров. rc 1 — PRICHINA; rc 2 — нечитаемый вход.
+# Start, наличие testID каждого шага, состав вкладок Start (не только узел
+# start_tabs), ось admission композиции pilot-app на полном current-снимке
+# (W0 не допускается, W1A допускается; источник — проверяющий) и побайтовую
+# копию макета. В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает
+# Maestro), БЕЗ промежуточной правки кадров. rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -115,11 +118,16 @@ def sud_flow(shagi, snimki):
                         ('assertNotVisible', 'start_tabs'),
                         ('takeScreenshot', shot)]):
             otkazy.append(('FLOW_GATE_NE_PROVEREN', state))
+    # Состав назначения наблюдаем ПО ВКЛАДКЕ, не только узлом start_tabs
+    # (вердикт круга 2: пустой <View testID="start_tabs" /> без вкладок —
+    # не Start).
+    vkladki = ('start_tabs', 'start_tab_start', 'start_tab_vorgaenge',
+               'start_tab_schutz', 'start_tab_post')
     if not ordered([('takeScreenshot', snimki[-1]),
                     ('tapOn', 'erstinfo_retry_current'),
                     ('assertVisible', 'erstinfo_gate_current'),
-                    ('tapOn', 'erstinfo_continue_start'),
-                    ('assertVisible', 'start_tabs')]):
+                    ('tapOn', 'erstinfo_continue_start')] +
+                   [('assertVisible', t) for t in vkladki]):
         otkazy.append(('FLOW_BEZ_START', 'start_tabs'))
     return otkazy
 
@@ -132,6 +140,32 @@ def selektory(shagi):
             if i:
                 out.append(i)
     return out
+
+KOMPOZICIJA_PROBA = 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'
+KOMPOZICIJA_OSI = (('W0', 'current', 'start_ne_dopushchen'),
+                   ('W1A', 'current', 'start_dopushchen'))
+
+
+def sud_kompoziciju(repo):
+    """Ось admission на production-шве (вердикт круга 2): проба композиции
+    pilot-app обязана подавать экрану 107 ФАКТИЧЕСКИЙ admission пользователя;
+    W0 при полном current-снимке НЕ допускается к Start, W1A — допускается.
+    Источник admission — вызывающий проверяющий, не литерал в пробе."""
+    otkazy = []
+    p = repo / KOMPOZICIJA_PROBA
+    if not p.is_file():
+        return [('KOMPOZICIJA_NET', KOMPOZICIJA_PROBA)]
+    for admission, gate, ozhidanie in KOMPOZICIJA_OSI:
+        zap = subprocess.run(
+            ['bash', str(p), admission, gate],
+            capture_output=True, text=True, cwd=str(repo))
+        fakt = zap.stdout.strip()
+        if zap.returncode != 0 or fakt != ozhidanie:
+            imja = ('KOMPOZICIJA_W0_PROPUSHCHEN' if admission == 'W0'
+                    else 'KOMPOZICIJA_W1A_NE_DOPUSHCHEN')
+            otkazy.append((imja, 'admission=%s gate=%s: %r rc=%d'
+                           % (admission, gate, fakt, zap.returncode)))
+    return otkazy
 
 
 def main():
@@ -151,7 +185,7 @@ def main():
         return 2
     kadry = manifest['kadry']
     snimki = list(dict.fromkeys(k['snimok'] for k in kadry))
-    otkazy = sud_flow(shagi, snimki)
+    otkazy = sud_flow(shagi, snimki) + sud_kompoziciju(repo)
     istochniki = [p for root in ISTOCHNIKI_EKRANA
                   for p in (repo / root).rglob('*')]
     teksty = []

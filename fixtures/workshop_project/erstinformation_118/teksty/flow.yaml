@@ -35,3 +35,7 @@ name: erstinformation
 - assertVisible: {id: erstinfo_gate_current}
 - tapOn: {id: erstinfo_continue_start}
 - assertVisible: {id: start_tabs}
+- assertVisible: {id: start_tab_start}
+- assertVisible: {id: start_tab_vorgaenge}
+- assertVisible: {id: start_tab_schutz}
+- assertVisible: {id: start_tab_post}

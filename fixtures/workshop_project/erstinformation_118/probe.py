@@ -148,6 +148,8 @@ def load_source():
         'teksty/proverka_text.py': 'proverka_tekst',
         'teksty/flow.yaml': 'flow',
         'teksty/testids.stand-in.tsx': 'testids_tekst',
+        'teksty/app_start.stand-in.tsx': 'app_start_tekst',
+        'teksty/kompozicija.stand-in.sh': 'kompozicija_tekst',
         'teksty/e2e_text.sh': 'e2e_skript',
         'teksty/batareja_text.sh': 'batareja_tekst',
         'teksty/tokens_audit.css': 'tokens_audit',
@@ -213,8 +215,14 @@ def build_repo(src, tmp, pack):
                                             encoding='utf-8')
     app = repo / 'mobile/src/app'
     app.mkdir(parents=True)
-    (app / 'testids.stand-in.tsx').write_text('testID="start_tabs"\n',
-                                             encoding='utf-8')
+    # назначение Start: состав вкладок, не только узел start_tabs
+    # (вердикт круга 2: пустой <View testID="start_tabs" />)
+    (app / 'testids.stand-in.tsx').write_text(
+        src['app_start_tekst'], encoding='utf-8')
+    bt = repo / 'mobile/src/bootstrap/__tests__'
+    bt.mkdir(parents=True)
+    (bt / 'kompozicija.stand-in.sh').write_text(
+        src['kompozicija_tekst'], encoding='utf-8')
     for kadr in src['kadry_manifest']['kadry']:
         d = repo / 'mobile/e2e-nositeli' / kadr['tema']
         d.mkdir(parents=True, exist_ok=True)
@@ -436,6 +444,28 @@ def mut_proiskhozdenie_bez_start(pack, forma, repo, src):
 
 
 
+def mut_proiskhozdenie_start_pustoj(pack, forma, repo, src):
+    """Обход «пустой start_tabs» (вердикт круга 2, блокер 1): производство
+    рендерит после continue голый <View testID="start_tabs" /> вместо
+    TabShell — маркер есть, состава назначения (вкладки) нет."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/src/app/testids.stand-in.tsx'
+    p.write_text('testID="start_tabs"\n', encoding='utf-8')
+
+
+def mut_kompozicija_admission_w0_propusk(pack, forma, repo, src):
+    """Обход «всегда W1A» (вердикт круга 2, блокер 2): pilot-app подаёт
+    экрану 107 захардкоженный admission=W1A, игнорируя фактический W0
+    пользователя, — W0 с полным current-снимком допускается к Start."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'
+    t = p.read_text(encoding='utf-8')
+    needle = 'admission="${1:?admission=W0|W1A}"'
+    assert t.count(needle) == 1
+    p.write_text(t.replace(needle, needle + '\nadmission="W1A"'),
+                 encoding='utf-8')
+
+
 def mut_proiskhozdenie_selektor_ne_kadra(pack, forma, repo, src):
     """assertVisible селектора другого кадра не доказывает этот кадр."""
     _zapusti_replay(repo)
@@ -470,6 +500,8 @@ MUTACII = {
     'proiskhozdenie-gate-null-propusk': mut_proiskhozdenie_gate_null_propusk,
     'proiskhozdenie-gate-stale-propusk': mut_proiskhozdenie_gate_stale_propusk,
     'proiskhozdenie-bez-start': mut_proiskhozdenie_bez_start,
+    'proiskhozdenie-start-pustoj': mut_proiskhozdenie_start_pustoj,
+    'kompozicija-admission-w0-propusk': mut_kompozicija_admission_w0_propusk,
 }
 
 
