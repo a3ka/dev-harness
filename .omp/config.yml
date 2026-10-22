@@ -43,8 +43,8 @@ tools:
 
 # ── modelRoles: СГЕНЕРИРОВАНО из config/agent_models.json — правь только там ──
 modelRoles:
-  default: "zai/glm-5.3"  # фолбек: openai-codex/gpt-6-sol
-  vision: "openai-codex/gpt-6-sol"  # фолбек: openai-codex/gpt-5.6-terra
+  default: "anthropic/claude-sonnet-5-5"  # фолбек: zai/glm-5.3
+  vision: "anthropic/claude-sonnet-5-5"  # фолбек: openai-codex/gpt-6-sol
   task: "minimax/MiniMax-M3"  # фолбек: zai/glm-5.3
   task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
   smol: "minimax/MiniMax-M2.5-lightning"
@@ -52,8 +52,8 @@ modelRoles:
   advisor: "openai-codex/gpt-5.6-terra"  # фолбек: openai-codex/gpt-6-sol
   apex: "openai-codex/gpt-6-astra"  # фолбек: openai-codex/gpt-5.6-terra
   apex-sol: "openai-codex/gpt-6-sol"  # фолбек: openai-codex/gpt-5.6-terra
-  audit: "openai-codex/gpt-6-sol"  # фолбек: openai-codex/gpt-5.6-terra
-  plan: "openai-codex/gpt-6-astra"  # фолбек: openai-codex/gpt-5.6-terra
+  audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
+  plan: "anthropic/claude-fable-5-1"  # фолбек: openai-codex/gpt-6-astra
   consultant: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-1
   steward: "anthropic/claude-haiku-4-5"  # фолбек: openai-codex/gpt-6-luna
 # ── /modelRoles ──
@@ -92,14 +92,14 @@ retry:
   fallbackRevertPolicy: cooldown-expiry
   # ── fallbackChains: СГЕНЕРИРОВАНО из config/agent_models.json (fallback + autoFallback) — правь только там ──
   fallbackChains:
-    default: ["openai-codex/gpt-6-sol"]
-    vision: ["openai-codex/gpt-5.6-terra"]
+    default: ["zai/glm-5.3"]
+    vision: ["openai-codex/gpt-6-sol"]
     task: ["zai/glm-5.3"]
     task-glm: ["anthropic/claude-sonnet-5-5"]
     slow: ["openai-codex/gpt-6-sol"]
     advisor: ["openai-codex/gpt-6-sol"]
     apex: ["openai-codex/gpt-5.6-terra"]
     apex-sol: ["openai-codex/gpt-5.6-terra"]
-    audit: ["openai-codex/gpt-5.6-terra"]
-    plan: ["openai-codex/gpt-5.6-terra"]
+    audit: ["openai-codex/gpt-6-sol"]
+    plan: ["openai-codex/gpt-6-astra"]
   # ── /fallbackChains ──
