@@ -62,6 +62,7 @@ ekran-shablon	3	до V-2	123	docs/owner/2026-10-21-ekrany-bystree.md#Поряд�
 first-run-ekran	3	до V-2	ekran-shablon	docs/owner/2026-10-21-117-suzhenie.md#Порядок	complior
 dovodka-ui	3	до V-2	123	docs/owner/2026-10-21-ekrany-bystree.md#Порядок	autonomy
 e2e-do-sdachi	3	до V-2	-	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	CI
+dovodka-sessij-proektov	3	до V-2	sessii-proektov	docs/owner/2026-10-22-poryadok-slota-i-125b.md#Порядок слота харнесса (не более двух активных предметов — ROADMAP §11)	project-mode
 124	3	до V-2	-	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	ops
 sessii-proektov	4	до V-2	122	docs/owner/2026-10-21-uskorenie-mob.md#Порядок	project-mode
 998	3	до V-2	997	docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса	ops
