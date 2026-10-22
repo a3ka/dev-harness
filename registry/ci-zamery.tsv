@@ -75,3 +75,5 @@ drill:startup-digest	0	9	39523880871
 metering:selftest	0	9	39523880871
 check:teg-posle-teksta-130-family-selftest	0	0	39523880871
 check:poezd-131-family-selftest	0	0	39523880871
+check:ekran-shablon-132-family-selftest	0	0	39523880871
+check:dovodka-ui-133-family-selftest	0	0	39523880871
