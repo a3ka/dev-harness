@@ -401,6 +401,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | first-run-ekran | до V-2 | complior | 132 | docs/owner/2026-10-21-117-suzhenie.md#Порядок |
 | 3 | 133 | до V-2 | autonomy | 123 | docs/owner/2026-10-21-ekrany-bystree.md#Порядок |
 | 3 | e2e-do-sdachi | до V-2 | CI | - | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
+| 3 | dovodka-sessij-proektov | до V-2 | project-mode | sessii-proektov | docs/owner/2026-10-22-poryadok-slota-i-125b.md#Порядок слота харнесса (не более двух активных предметов — ROADMAP §11) |
 | 3 | 124 | до V-2 | ops | - | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 3 | 998 | до V-2 | ops | 997 | docs/owner/2026-10-18-pravila-modelei.md#Контракт слота харнесса |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
