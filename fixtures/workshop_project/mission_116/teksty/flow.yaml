@@ -1,0 +1,30 @@
+appId: com.complior.demo
+name: mission
+---
+- launchApp
+- assertVisible: {id: start_tab_start}
+- tapOn: {id: start_tab_start}
+- assertVisible: {id: mission_frame_f05_01}
+- takeScreenshot: mission-f05-01
+- inputText: {id: mission_composer_input, text: 'Ich habe ein Auto gekauft.'}
+- assertVisible: {id: mission_frame_f05_03}
+- takeScreenshot: mission-f05-03
+- tapOn: {id: mission_attach}
+- assertVisible: {id: mission_frame_f05_04}
+- takeScreenshot: mission-f05-04
+- tapOn: {id: mission_attachment_foto}
+- assertVisible: {id: mission_frame_f05_v03}
+- takeScreenshot: mission-f05-v03
+- assertNotVisible: {id: mission_chip_wird_gelesen}
+- tapOn: {id: mission_send}
+- assertVisible: {id: mission_frame_f05_05}
+- takeScreenshot: mission-f05-05
+- assertVisible: {id: mission_frame_f05_02}
+- takeScreenshot: mission-f05-02
+- assertVisible: {id: mission_frame_f05_06}
+- takeScreenshot: mission-f05-06
+- assertVisible: {id: mission_frame_f05_07}
+- assertVisible: {id: mission_queued_offline}
+- assertVisible: {id: mission_response_interrupted}
+- assertNotVisible: {id: mission_response_completed}
+- assertVisible: {id: mission_already_accepted}

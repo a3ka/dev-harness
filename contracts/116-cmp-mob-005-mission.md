@@ -1,0 +1,77 @@
+# 116 — Mission: текст и вложения в единой беседе (экран по шаблону 132)
+КЛАСС ЗАДАЧИ: КОДОВЫЙ. id/CONTRACT/116 (CMP-MOB-005, F05, issue `a3ka/Complior-mob#9`); до V-2.
+КОНТЕКСТ: слово владельца (консультант 17:40 UTC, вариант б): F05.01–F05.06 и F05.V03 — СТРОГО по PNG; F05.07/F05.V01/F05.V02/F05.V04 — без PNG, по компонентам и токенам D2.2.5.1 («как F03 у 117»), сверка — после пакета дизайнера (запрос пишет консультант).
+КОНТЕКСТ: mobile-экран 2026-10-20: каждый кадр с PNG сверяется с макетом (123) по составу/раскладке/отступам/шрифту/цвету.
+
+## Существующее
+132/1: форма ekran.json 17 полей, валидатор `scripts/ekran_shablon.py` (в main), раннер 123 `scripts/sverka_maketa.py` (frozen 123/2); 118: образец экранной пачки и двухсубъектной батареи (валидатор + proverka происхождения в пачке); 117/2: `pilot-app.tsx` вход `/`, Г0; 108: композер `mobile/src/ui/conversation-composer/` (testID `start-composer`, copy F04.07) и api-шов `mobile/src/api/api-client.ts`; 999: тема через useTheme; `BrokerOS_Mobile_Design_Data.json#features/F05`: mission_id MIS-CAR-01, send_state ∈ {draft, queued_offline, attachment_pending, already_accepted}, response_state ∈ {idle, interrupted}, source_refs DOC-VEH-01:p1, widgets W02/W04/W08–W11/W18, mission_requirement draft_until_admission_then_same_mission; копия: 17 ключей F05 в `BrokerOS_UI_Copy_DE.json` (3 action + 14 frame).
+
+## Предмет и граница
+Одна пачка `mobile/e2e-mission/` + экран беседы; 7 кадров с PNG (манифест, порог 0.600, bbox по сетке 123): F05.01 Auto-01-Zuhoeren, F05.02 B02, F05.03 B02t, F05.04 B02d, F05.05 VS-04-Verstehe, F05.06 Post-Agent-Antwort, F05.V03 B09 (чип вложения, assertNotVisible «wird gelesen»). Принимается связный путь: запуск `/` → Start → вкладка start_tab_start → беседа Mission: ввод текста → меню вложений → чип → отправка → processing → ответ с Quelle; жест черновика ДО вложения (урок 111: свойство по жесту, не по точке). Инварианты поведения из issue #9 (уже согласованные в прошлом круге): черновик не теряется на путях вложения/офлайна/already_accepted и снимается после принятой отправки и новой темы; already_accepted не создаёт дубль; interrupted не показан завершённым; новая тема — отдельный intent без приватного контекста; отозванный источник не открывается из старого exchange. Вне предмета: реальный HTTP (CMP-BCK-009/010/011/014/015, SWITCH), голосовой ввод (108), персист черновика на диск, admission/quarantine вложений, макеты Start.
+
+## Кадры без PNG (слово владельца 17:40)
+F05.07, F05.V01, F05.V02, F05.V04 — PNG-макетов НЕТ. Строятся по компонентам (`02_Design_System_D2_2_5_1_Visual_Reference/design-system/project/components/bundle.js`) и токенам D2.2.5.1 (`03_Mobility_Slice1/ds/tokens.css`). Валидатор 132 кадр без PNG не описывает (132 §НЕ ЗАЩИЩАЕТ; 132 заморожен, не меняется) — кадры оформлены отдельным проверяемым клочком `sostojanija_bez_png.json` в пачке: для каждого — testID (assertVisible в Maestro-флоу), ключи копии ⊆ каталог, токены ⊆ tokens.css; судит их proverka пачки (отказы BEZPNG_KOPIJA_VNE_KATALOGA / BEZPNG_TOKEN_VNE_AUDITA / BEZPNG_BEZ_TESTID[_V_POTOKE]). Пиксельная сверка этих кадров — отдельный предмет после пакета дизайнера; здесь НЕ ослабляется сверка 123 для кадров с PNG.
+
+## Допущение соответствия кадров (принято владельцем)
+Явной привязки F05→PNG в docs/ux нет; таблица кадр→PNG — сопоставление Scout116maket по визуальной семантике (03_Mobility_Slice1/ux_frames указывает B02* на F04.x/F40.x),(owner word 17:40) принято как допущение владельца; sha256 макетов запинены в source.json батареи и манифесте кадров. F05.01 альтернатива Start-03.png, F05.06 альтернатива Schutz-Agent-Antwort.png — если дизайн-пакет выберет альтернативу, меняется только пин манифеста.
+
+## Дефект макета F05.03
+B02t: нижняя часть перекрыта таб-баром; bbox элементов — только читаемая часть (до 540 pt), таб-полоса закрыта maski_pt [0,540,390,824]; пригодность макета снижена, названо здесь по требованию владельца.
+
+## Инварианты
+1. ekran.json: 17 полей 132, ekran=mission; 7 кадров с PNG/sha256, порог 0.600; zamenjaet=null (живой пачки mission нет), ne_trogaet — обе фиктивные пачки 132.
+2. Цвет/размер — только в `03_Mobility_Slice1/ds/tokens.css` (audit_tokenov); литералы в пачке запрещены классом (132).
+3. Каждый кадр: самостоятельные bbox_pt значимых элементов (бренд, состояние, заголовок, содержимое/транскрипт, composer, навигация); KADR ≥ 0.600 по худшей области; кадры Maestro-раскладки свежие, не byte-копия макета.
+4. Maestro-флоу: launchApp `/`, вход из вкладки Start (не deep link), перед каждым takeScreenshot — assertVisible своего селектора; жест черновика (inputText композера) до вложения; вложение: меню + чип V03 + assertNotVisible «wird gelesen»; кадры без PNG — своими testID в потоке.
+5. Поведенческие оси F05 (issue #9): draft_until_admission_then_same_mission — реализация экрана держит черновик на всех путях жизненного цикла (вложение, офлайн-отказ, повтор already_accepted, контролируемый ремоунт) и снимает после принятой отправки/новой темы; mission-чип рендерит состояние, не литерал. Судьи product-CI: Maestro-флоу + пробы композиции (зона implementer).
+6. Композер 108: порты A01/A02/A03 опциональны; без них поверхность 108 байт-в-байт сохранна (testID, copy F04.07); семья start_108 зелена без правок.
+
+## Приёмочный критерий
+W = `bash fixtures/workshop_project/mission_116/red_mission_116.sh`.
+- Дано: дерево без `scripts/ekran_shablon.py`; когда: W; тогда: rc 1, SHABLON_ABSENT и CASE KRASNO по каждому входу (24).
+- Дано: эталон 132 и пинованные макеты; когда: W --model; тогда: rc 0, 24/24 CASE ok, 7 строк KADR 1.000 0.600 (замер).
+- Дано: эталон и адресные стабы; когда: W --stabs; тогда: rc 0, 24/24 ok, по каждой связи `STAB ... KRASEN`, непойманных 0, SVJAZI 19 (16 стабов; замер source.json: 24 входа, 22 красных, 2 зелёных). Подмена oracle/носителя → rc 2 ORACLE_TAMPERED.
+- Дано: без флага при живом субъекте (как 118 в main): 13 входов формы ok живым валидатором (живой == эталон), 11 входов происхождения красны до ленда продуктового субъекта (замер: rc 1); CI до ленда использует --stabs.
+- Красные входы (именованные отказы, ожидания — kejsy source.json, сняты --snapshot): literal-cveta → LITERAL_VNE_AUDITA; kadr-nizhe-poroga/kadr-composer-skryt → KADR_NIZHE_POROGA (composer — худшая самостоятельная область, глобальный скор прошёл бы порчу); chuzhoj-kadr → CHUZHIE_KADRY; ne-tselikom → NE_TSELIKOM; zamenjaet-pustoj/zhivaja-pachta-v-repo → ZAMENJAET_NE_POLON; ne-trogaet-pustoj → NE_TROGAET_NE_POLON; kontrakt-slishkom-dlinnyj/shirokij → NE_ODNA_STRANICA; kadry-ustarevshie → KADR_USTAREVSHIJ; e2e-ne-proshla → E2E_NE_PROSHLA; proiskhozdenie-byte-kopija → KADR_BYTE_KOPIJA_MAKETA; flow-bez-perehoda → FLOW_BEZ_*; selektor-bez-ekrana → SELEKTOR_BEZ_EKRANA; selektor-ne-kadra → FLOW_BEZ_DOSTIZHENIJA; bez-start-vhoda → FLOW_BEZ_START_VHODA; bez-draft-gesta → FLOW_BEZ_CHERNOVIKA; bez-vlozhenija → FLOW_BEZ_VLOZHENIJA; bezpng-* → BEZPNG_* (три входа). Привязка стабов к ветвям — stab_vhod source.json, по коду (Н-39).
+- Дано: продукт с реализацией 116 и замороженной миграцией 117 v+1 (команда проверки тега — раздел 118 «Зависимость замороженного корня», rc 0); когда: W, затем `bash mobile/e2e-mission/e2e.sh mission` → rc 0 (свежие кадры), proverka пачки → rc 0, Maestro-флоу product-CI зелён, сверка 123 ≥ порога по каждому кадру; тогда: каждый rc 0; скриншоты совпадают с макетом по составу, раскладке, отступам, шрифту и цвету (123).
+
+## Зоны и исполнители
+ЗОНА architect: contracts/116-cmp-mob-005-mission.md fixtures/workshop_project/mission_116/
+ЗОНА critic: verdicts/critic/
+ЗОНА adversary: verdicts/adversary/
+ЗОНА reviewer: verdicts/review/
+ЗОНА implementer: mobile/src/features/conversation/ mobile/src/ui/conversation-composer/ mobile/.maestro/ mobile/e2e-mission/ .github/workflows/mobile.yml
+ПЕРЕСЕЧЕНИЕ implementer: mobile/src/ui/conversation-composer/ — 108 порты опциональны, поверхность 108 сохранна, семья start_108 зелена без правок.
+ПЕРЕСЕЧЕНИЕ implementer: mobile/.maestro/ — 117 флоу 107/117 сохраняются, добавляется mission.
+ПЕРЕСЕЧЕНИЕ implementer: .github/workflows/mobile.yml — 995 шаги 995/108/111/117 сохраняются дословно, добавляется 116.
+ПРЕДПОСЫЛКИ:
+- setting CI Android emulator, Maestro, H-checkout, пробы 995/108/111/117; новых secrets/variables/environments нет.
+- setting frozen/contracts/117/<v+1> для входа `/` → Start (как 118); до тега продуктовая приёмка блокирована.
+- setting пакет дизайнера для пиксельной сверки F05.07/V01/V02/V04 (запрос — консультант); до пакета эти кадры судятся структурной пробой.
+
+## ПРОВОДКА
+ПРОВОДКА:
+- guard=fixtures/workshop_project/mission_116/red_mission_116.sh
+ПРОВОДКА-ЭНФОРСМЕНТ: экранная пачка mission судится валидатором 132 + proverka происхождения/кадров-без-PNG (батарея красна по всем ветвям формы и происхождения, включая composer-обход и жесты черновика/вложения); CI харнесса до ленда продуктового субъекта гонит `--stabs` (флаг ЯВНЫЙ), после ленда оркестратор переключает на безфлаговый режим; продуктовый энфорсмент — шаг экрана в android-e2e запускает Maestro и сверку 123 по манифесту пачки (проводка 123).
+
+## Модель угроз
+ЗАЩИЩАЕТ:
+- от подмены макета и кадра ниже порога: пины sha256, раннер 123, худшая самостоятельная область (kadr-composer-skryt ловит порчу CTA при целом глобальном скоре);
+- от фальшивого пути (deep link вместо входа из Start) и мёртвых переходов: proverka судит флоу по шагам/селекторам;
+- от byte-копии макета вместо кадра эмулятора: KADR_BYTE_KOPIJA_MAKETA;
+- от потери оси черновика в приёмке экрана: жест inputText до вложения — FLOW_BEZ_CHERNOVIKA/FLOW_CHERNOVIK_POSLE_VLOZHENIJA;
+- от выдуманной копии/второй палитры в кадрах без PNG: ключи ⊆ каталог, токены ⊆ tokens.css, testID в потоке (BEZPNG_*);
+- от литералов, чужих пикселей, неполной замены, фиктивной приёмки, устаревших кадров: ветви 132 (литерал классом, zamenjaet/ne_trogaet полнота, обе priemka исполняются).
+НЕ ЗАЩИЩАЕТ:
+- работу реального эмулятора внутри e2e (судится rc/свежесть/сверка, как 132; ловец — продуктовый CI с настоящим Maestro);
+- пиксельную точность четырёх кадров без PNG до пакета дизайнера (остаток принят владельцем 17:40);
+- поведенческие оси F05 на продуктовом шве (already_accepted/idempotency/intent) — их судят пробы композиции product-CI (зона implementer) и ревью, не экранная батарея;
+- выбор F05.01/F05.06 альтернативных макетов (Start-03/Schutz-Agent-Antwort) — до решения дизайнера действует основная таблица.
+
+## Демаркация
+Конформны входы формы 132 и манифеста 123 с пинами этой пачки, Maestro-флоу mission с селекторами testID, sostojanija_bez_png грамматики пачки. Валидный контрпример = инвариантность к значениям ∧ расхождение на конформном входе: литерал в текстовом файле пачки, кадр ниже порога при целом глобальном score (composer), снятый переход/селектор кадра, byte-копия, выдуманный ключ копии или токен вне tokens.css, testID без наблюдения в потоке. Неконформный вход (другая грамматика раннера, PNG вне docs/ux, не-Maestro флоу) не доказывает обход.
+
+## Незаполненные требования:
+- пиксельная сверка F05.07/F05.V01/F05.V02/F05.V04: макетов нет (слово владельца 17:40); структурная проба до пакета дизайнера, сверка — отдельным предметом;
+- тема light: одно-темные макеты (все 7 определены тёмными по фону); light-кадры — после light-макетов дизайн-пакета;
+- макет Start (вход из Start наблюдается testID вкладок, раскладка Start вне сверки — остаток 118).
