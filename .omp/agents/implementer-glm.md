@@ -2,7 +2,7 @@
 name: implementer-glm
 description: Implementer — делает по написанному плану
 tools: [read, edit, write, bash, grep, glob, lsp, todo]
-model: ["@task-glm"]
+model: ["@task"]
 ---
 
 <!-- СГЕНЕРИРОВАНО dev-harness/scripts/gen-harness.ts из roles/implementer-glm.md. Правки будут затёрты. -->
