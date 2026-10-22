@@ -43,7 +43,12 @@
                  KADR_OTSUTSTVUET, не зелень;
                  sverka — rc 0 И stdout дословно равен выводу раннера 123 по
                  манифесту пачки (сверка-образец); строка обязана нести
-                 токены sverka_maketa.py и --manifest
+                 токены sverka_maketa.py и --manifest И быть ТОЧНЫМ вызовом
+                 раннера: python3 <путь с именем файла ровно
+                 scripts/sverka_maketa.py> --manifest M --kadry DIR
+                 --repo R (полный argv CLI 123; блокер 2 вердикта adv-132:
+                 …sverka_maketa.py.fake с константной репликой stdout —
+                 SAMODELNAYA_SVERKA)
   zony           {"architect": [...], "implementer": [...]} — грамматика
                  check_zones: относительные пути без *?[ , без .., без
                  ведущего /; каталог с завершающей /
@@ -96,7 +101,11 @@ ekran — её манифест обязан стоять в ne_trogaet (NE_TROG
 единицей 1–4 букв (px/rem/ch/vmin/…, ведущие нули — по-прежнему число).
 Маска дайджеста — ОБСОБЛЕННОЕ hex-слово 16+ с хотя бы одной буквой a–f
 (sha-пин манифеста — не литерал); число из цифр и аргумент функции маска
-НЕ стирает. файл:строка — строка НАЧАЛА совпадения.
+НЕ стирает; словоформа «цифры + буквенная единица 1–4 букв» маской НЕ
+стирается и тогда, когда буквы единицы лежат в a–f (блокер 1 вердикта
+adv-132: 0000000000000001fa — размерный литерал, не дайджест: класс
+«число + единица» приоритетнее маски). файл:строка — строка НАЧАЛА
+совпадения.
 
 CLI: ekran_shablon.py --pack DIR --repo DIR --harness DIR
 Вывод: stdout — строки раннера 123 (KADR...) дословно, затем при успехе
@@ -137,8 +146,12 @@ RE_ZONA_STROKA = re.compile(r'^ЗОНА (architect|implementer): (.+)$')
 RE_CVET = re.compile(r'#[0-9a-fA-F]{3,8}\b'
                      r'|\b[a-zA-Z][a-zA-Z0-9-]*\([^()]*[0-9][^()]*\)')
 RE_RAZMER = re.compile(r'\b[0-9]+(?:\.[0-9]+)?(?:%|[a-zA-Z]{1,4}\b)')
+# Блокер 1 (adv-132): словоформа «цифры + буквенная единица 1–4 букв» —
+# размерный литерал, НЕ дайджест, даже когда буквы единицы лежат в a–f
+# (0000000000000001fa): негативный lookahead уводит маску с таких позиций.
 RE_HEX_ZHIST = re.compile(
-    r'(?<![0-9a-zA-Z])(?=[0-9a-fA-F]{16,}(?![0-9a-zA-Z]))'
+    r'(?<![0-9a-zA-Z])(?![0-9]+[a-fA-F]{1,4}(?![0-9a-zA-Z]))'
+    r'(?=[0-9a-fA-F]{16,}(?![0-9a-zA-Z]))'
     r'(?=[0-9]*[a-fA-F])[0-9a-fA-F]{16,}')
 MAX_STRANICA = 60
 MAX_SHIRINA = 120
@@ -336,8 +349,9 @@ def check_literal(pack: Path):
     судятся КЛАССОМ по ВСЕМУ ТЕКСТУ файла — перенос строки внутри функции
     литерал не прячет (арбитраж 132 А1); маска дайджеста — обособленное
     hex-слово 16+ с хотя бы одной буквой a-f, НЕ стирает ни число с
-    единицей/% (А2), ни аргумент-число из цифр (А3); файл:строка — строка
-    НАЧАЛА совпадения."""
+    единицей/% (А2), ни аргумент-число из цифр (А3) — в том числе единицу
+    из букв a-f (блокер 1 adv-132: маска не встаёт на словоформу «цифры +
+    единица 1–4 букв»); файл:строка — строка НАЧАЛА совпадения."""
     bad = []
     for p in sorted(pack.rglob('*')):
         if not p.is_file():
@@ -581,10 +595,29 @@ def run_priemka_e2e(f, repo: Path):
     return svezhost_kadrov(kd, start_ns, rester)
 
 
+def _argv_rannera123(sv):
+    """Точный вызов раннера 123 (блокер 2 вердикта adv-132): python3
+    <путь с именем файла РОВНО scripts/sverka_maketa.py> и полный argv
+    раннера — три обязательных флага CLI 123 (--manifest M --kadry DIR
+    --repo R) по одному разу со значениями; имя-фрагмент
+    (…sverka_maketa.py.fake) или обрезанный argv — самодельная сверка."""
+    if (len(sv) != 8 or sv[0] != 'python3'
+            or (sv[1] != 'scripts/sverka_maketa.py'
+                and not sv[1].endswith('/scripts/sverka_maketa.py'))):
+        return False
+    flagi, znach = sv[2::2], sv[3::2]
+    return (sorted(flagi) == ['--kadry', '--manifest', '--repo']
+            and all(z and not z.startswith('--') for z in znach))
+
+
 def run_priemka_sverka(f, repo: Path, obrazec_stdout: str):
     """Исполнение приёмки сверки: argv без shell; rc 0 И stdout дословно
     равен сверке-образцу раннера 123 (фиктивные echo/true не воспроизводят
-    вывод механизма)."""
+    вывод механизма) И команда — ТОЧНЫЙ вызов раннера 123 (python3 <путь,
+    имя файла ровно scripts/sverka_maketa.py> с полным argv CLI 123):
+    константная реплика stdout по имени-фрагменту …py.fake проходит
+    сверку вывода, но не является раннером — SAMODELNAYA_SVERKA
+    (блокер 2 вердикта adv-132)."""
     try:
         p = subprocess.run(razbit_argv(f['priemka']['sverka']),
                            cwd=str(repo), capture_output=True, text=True,
@@ -594,6 +627,9 @@ def run_priemka_sverka(f, repo: Path, obrazec_stdout: str):
     if p.returncode != 0 or p.stdout.splitlines() != obrazec_stdout.splitlines():
         return [otkaz('SAMODELNAYA_SVERKA',
                       'вывод не воспроизводит механизм 123')]
+    if not _argv_rannera123(razbit_argv(f['priemka']['sverka'])):
+        return [otkaz('SAMODELNAYA_SVERKA',
+                      'argv не вызов раннера 123: %s' % f['priemka']['sverka'])]
     return []
 
 
