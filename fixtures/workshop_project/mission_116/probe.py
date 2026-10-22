@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # БАРЬЕР-ГУАРД контракта 116 (§ПРОВОДКА): судит пачку mission валидатором
-# 132 и проверкой происхождения; Н-39: стабы привязаны к ветвям обоих
+# 132, проверкой происхождения и статической пробой поведения/рендера
+# (третий субъект, teksty/statika_text.py + честная модель экрана
+# teksty/ekran.stand-in.tsx); Н-39: стабы привязаны к ветвям всех
 # субъектов по stab_vhod source.json, не по тексту контракта.
 """Батарея 116 (mission): экран беседы F05 по шаблону 132.
 
@@ -157,6 +159,8 @@ def load_source():
         'teksty/batareja_text.sh': 'batareja_tekst',
         'teksty/tokens_audit.css': 'tokens_audit',
         'teksty/sostojanija_bez_png.json': 'sostojanija_bez_png',
+        'teksty/ekran.stand-in.tsx': 'ekran_tekst',
+        'teksty/statika_text.py': 'statika_tekst',
     }
     for rel, key in carriers.items():
         if (HERE / rel).read_bytes() != src[key].encode('utf-8'):
@@ -212,6 +216,9 @@ def build_repo(src, tmp, pack):
                     repo / 'mobile/e2e-mission/batareja/proverka_proiskhozdenija.py')
     fc = repo / 'mobile/src/features/conversation'
     fc.mkdir(parents=True)
+    # честная модель экрана беседы: субъект статической пробы 116
+    (fc / 'conversation-screen.tsx').write_text(
+        src['ekran_tekst'], encoding='utf-8')
     (fc / 'testids.stand-in.tsx').write_text(
         src['testids_tekst'], encoding='utf-8')
     app = repo / 'mobile/src/app'
@@ -418,11 +425,11 @@ def mut_proiskhozdenie_flow_bez_perehoda(pack, forma, repo, src):
 
 
 def mut_proiskhozdenie_selektor_bez_ekrana(pack, forma, repo, src):
-    """Удалить носитель testID композера (жест черновика)."""
-    _zapusti_replay(repo)
+    """Удалить носители testID композера (жест черновика): stand-in и экран."""
     p = repo / 'mobile/src/features/conversation/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
         '<View testID="mission_composer_input" />\n', ''), encoding='utf-8')
+    _perepishi_ekran(repo, '        testID="mission_composer_input"\n', '')
 
 
 def mut_proiskhozdenie_selektor_ne_kadra(pack, forma, repo, src):
@@ -491,6 +498,103 @@ def mut_bezpng_bez_testid_v_potoke(pack, forma, repo, src):
         encoding='utf-8')
 
 
+def _ekran(repo):
+    return repo / 'mobile/src/features/conversation/conversation-screen.tsx'
+
+
+def _perepishi_ekran(repo, staro, novo, scet=1):
+    p = _ekran(repo)
+    t = p.read_text(encoding='utf-8')
+    if staro not in t:
+        raise RuntimeError('якорь экрана не найден: %r' % staro[:60])
+    p.write_text(t.replace(staro, novo, scet), encoding='utf-8')
+
+
+def mut_povedenie_chistyj(pack, forma, repo, src):
+    """Честный вход статической пробы: модель экрана без правок."""
+
+
+def mut_povedenie_draft_termjaetsja(pack, forma, repo, src):
+    """Черновик сбрасывается на пути вложения (ось issue #9 потеряна)."""
+    _perepishi_ekran(repo, "setSendState('attachment_pending');",
+                     "setSendState('attachment_pending');\n    setDraft('');")
+
+
+def mut_povedenie_draft_vechen(pack, forma, repo, src):
+    """Черновик не снимается после принятой отправки."""
+    _perepishi_ekran(repo, "if (status === 'accepted') {\n      setDraft('');",
+                     "if (status === 'accepted') {\n      setSendState('sent');")
+
+
+def mut_povedenie_draft_bez_hranilishcha(pack, forma, repo, src):
+    """Черновик не переживает контролируемый ремоунт (нет хранилища)."""
+    _perepishi_ekran(repo, 'const [draft, setDraftState] = useState(draftStore);',
+                     "const [draft, setDraftState] = useState('');")
+
+
+def mut_povedenie_intent_slitan(pack, forma, repo, src):
+    """Новая тема отправляется сообщением, отдельного intent нет."""
+    _perepishi_ekran(repo,
+                     'const intent = await api.createIntent(topic);\n'
+                     "    setDraft('');\n"
+                     '    await api.postMessage({ intentId: intent.id });',
+                     "setDraft('');\n    await api.postMessage({ text: topic });")
+
+
+def mut_povedenie_dublient(pack, forma, repo, src):
+    """Повтор already_accepted создаёт дубль сообщения."""
+    _perepishi_ekran(repo, "setSendState('already_accepted');",
+                     "setSendState('already_accepted');\n"
+                     '      setMessages((m) => [...m, { text: draft }]);')
+
+
+def mut_povedenie_interrupted_zavershen(pack, forma, repo, src):
+    """Прерывание завершает миссию (interrupted == completed)."""
+    _perepishi_ekran(repo,
+                     "<Text>{copy['frame.F05.05.body'].text}</Text>\n"
+                     '        </View>',
+                     "<Text>{copy['frame.F05.05.body'].text}</Text>\n"
+                     '        <Pressable onPress={() => api.completeMission(missionId)} />\n'
+                     '        </View>')
+
+
+def mut_povedenie_revoked_pokazan(pack, forma, repo, src):
+    """Отозванный источник показывается (фильтр снят)."""
+    _perepishi_ekran(repo, 'sources.filter((d) => d.revoked !== true)', 'sources')
+
+
+def mut_bezpng_render_pustoj(pack, forma, repo, src):
+    """Кадр без PNG — пустой контейнер с testID вместо рендера состояния."""
+    _perepishi_ekran(repo,
+                     '<View testID="mission_queued_offline" '
+                     'className="warm on-warm panel">\n'
+                     "          <Text>{copy['state.G06.title'].text}</Text>\n"
+                     '          <Pressable testID="mission_offline_retry" '
+                     'onPress={onSend}>\n'
+                     "            <Text>{copy['global.retry'].text}</Text>\n"
+                     '          </Pressable>\n'
+                     '        </View>',
+                     '<View testID="mission_queued_offline" />')
+
+
+def mut_bezpng_render_stroka(pack, forma, repo, src):
+    """Строка состояния переизобретена (не ссылка на каталог)."""
+    _perepishi_ekran(repo, "<Text>{copy['frame.F05.05.title'].text}</Text>",
+                     "<Text>{'Antwort unterbrochen'}</Text>")
+
+
+def mut_bezpng_render_literal(pack, forma, repo, src):
+    """Цветовой литерал вне tokens.css в состоянии без PNG."""
+    _perepishi_ekran(repo, 'className="calm on-calm panel">',
+                     'className="calm on-calm panel" '
+                     "style={{ color: '#FF0000' }}>")
+
+
+def mut_bezpng_chip_stroka(pack, forma, repo, src):
+    """Суффикс чипа «wird gelesen» переизобретён (не байт-равен D2.2.5.1)."""
+    _perepishi_ekran(repo, "const CHIP_LESET_SUFFIX = ' · wird gelesen';",
+                     "const CHIP_LESET_SUFFIX = ' · wird gelesen.';")
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -516,6 +620,18 @@ MUTACII = {
     'bezpng-kopija-vne-kataloga': mut_bezpng_kopija_vne_kataloga,
     'bezpng-token-vne-audita': mut_bezpng_token_vne_audita,
     'bezpng-bez-testid-v-potoke': mut_bezpng_bez_testid_v_potoke,
+    'povedenie-chistyj': mut_povedenie_chistyj,
+    'povedenie-draft-termjaetsja': mut_povedenie_draft_termjaetsja,
+    'povedenie-draft-vechen': mut_povedenie_draft_vechen,
+    'povedenie-draft-bez-hranilishcha': mut_povedenie_draft_bez_hranilishcha,
+    'povedenie-intent-slitan': mut_povedenie_intent_slitan,
+    'povedenie-dublient': mut_povedenie_dublient,
+    'povedenie-interrupted-zavershen': mut_povedenie_interrupted_zavershen,
+    'povedenie-revoked-pokazan': mut_povedenie_revoked_pokazan,
+    'bezpng-render-pustoj': mut_bezpng_render_pustoj,
+    'bezpng-render-stroka': mut_bezpng_render_stroka,
+    'bezpng-render-literal': mut_bezpng_render_literal,
+    'bezpng-chip-stroka': mut_bezpng_chip_stroka,
 }
 
 
@@ -528,11 +644,16 @@ def run_subject(subject, name, src):
         repo = build_repo(src, tmp, pack)
         if MUTACII[name] is not None:
             MUTACII[name](pack, forma, repo, src)
-        # второй субъект батареи: проверка происхождения (файл пачки)
+        # второй/третий субъект батареи: происхождение (файл пачки) и
+        # статическая проба поведения/рендера (код экрана)
         if src['kejsy'][name].get('subekt') == 'proverka' \
                 and subject == MODEL:
             subject = tmp / 'proverka_subekt.py'
             subject.write_text(src['proverka_tekst'], encoding='utf-8')
+        if src['kejsy'][name].get('subekt') == 'statika' \
+                and subject == MODEL:
+            subject = tmp / 'statika_subekt.py'
+            subject.write_text(src['statika_tekst'], encoding='utf-8')
         p = subprocess.run(
             [sys.executable, str(subject), '--pack', str(pack),
              '--repo', str(repo), '--harness', str(H_ROOT)],
@@ -614,6 +735,7 @@ def main():
             print('CASE %s KRASNO (SHABLON_ABSENT)' % name)
         return 1
     kontrol_ok, svjazi = True, 0
+    kadr_linii = []
     for name in src['kejsy']:
         rc, out, err = run_subject(subject, name, src)
         problemy = judge(name, src, rc, out, err)
@@ -622,6 +744,13 @@ def main():
             print('CASE %s KRASNO: %s' % (name, '; '.join(problemy)))
         else:
             print('CASE %s ok' % name)
+        if a.model and not problemy:
+            # честные KADR-строки наружу (сверка с source.json, замер)
+            kadr_linii += [l for l in out.splitlines()
+                           if l.startswith('KADR\t') and name == 'chestnyj-ekran']
+    if a.model:
+        for l in kadr_linii:
+            print(l)
     if not matrica:
         return 0 if kontrol_ok else 1
     # --stabs/--matrix: каждый обманный стаб красен на каждом своём входе
