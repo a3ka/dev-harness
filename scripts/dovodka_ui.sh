@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/dovodka_ui_133/red_dovodka_ui_133.sh;
+# её приёмка — проба красным на сам scripts/dovodka_ui.sh (--candidate), не сам скрипт;
+# контракт 133 §ПРОВОДКА: guard=fixtures/workshop_project/dovodka_ui_133/red_dovodka_ui_133.sh.
+# Классификатор antiplacebo к субъекту неприменим: в области лежит барьер-guard,
+# а не тестируемый им скрипт.
 # dovodka_ui.sh — шаг визуальной доводки UI после implementer (контракт 133 dovodka-ui).
 #
 # Трое ворот оркестратору (шаг dovodka-ui: слово владельца 2026-10-21,
