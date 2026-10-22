@@ -15,6 +15,10 @@
 # (дерево | model/ | stabs/<имя>/); страж .omp/extensions/path-guard.ts — РЕАЛЬНЫЙ, не меняется
 # (грамматика пина 032/066 уже принимает любой живой linked worktree: git-оракул судит живость,
 # не принадлежность dev-harness). Привязка стаб → клетки — ТОЛЬКО source.json:.stab_vhod (Н-39).
+# Мутация стаба может красить и клетки вне своей привязки (например, стабы
+# двери без пина гасят и выдачу subagent-pin.sh) — привязка в source.json
+# это МИНИМУМ гарантированной красноты, а не полный эффект мутации (замечание
+# критика r1).
 #
 # Дверь исполняется из песочницы $SB (копия файла двери + двойник workshop рядом): дверь
 # дословно разрешает(exec) $HERE/workshop — двойник пишет по одному аргументу в строку в
@@ -24,7 +28,7 @@
 #   без ключей  — субъекты из дерева ветки: боли живы → rc 1;
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
-#                 rc 0 «стабов 9, привязок 12, непойманных 0».
+#                 rc 0 «стабов 14, привязок 20, непойманных 0».
 #
 # Миры — /tmp/dev-harness-verify/sessii-136-<клетка>/** (оракулы в памяти, правило 8);
 # чекауты проектов — /tmp/dev-harness-fakehome-136/<клетка>/** ВНЕ scratch-allowlist Н-85
@@ -46,28 +50,34 @@ DOOR="$(subj scripts/connect_project.sh connect_project.sh)"
 MKT="$(subj scripts/make_task.sh make_task.sh)"
 PAR="$(subj scripts/verify_ci_parity.sh verify_ci_parity.sh)"
 
-W=""; FH=""; SEED=""
-mk_mir() { # mk_mir <слуг> [next]
+W=""; FH=""; SEED=""; DVER_CONFIG=""; DVER_RC=""
+mk_mir() { # mk_mir <слуг> [next] [harness]
   local slug="$1"
   W="/tmp/dev-harness-verify/sessii-136-$slug"
   FH="/tmp/dev-harness-fakehome-136/$slug"
+  DVER_CONFIG=""; DVER_RC=""
   rm -rf "$W" "$FH"; mkdir -p "$W" "$FH/projects" "$FH/dev-harness-projects/toy-proj/wt" "$FH/seed"
   SEED="$FH/seed/toy-proj"
   git init -q "$SEED"
   git -C "$SEED" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
-  mkdir -p "$SEED/.github/workflows" "$SEED/docs" "$SEED/.harness/contracts" "$SEED/.harness/verdicts" "$SEED/.harness/registry" "$SEED/.harness/fixtures"
+  mkdir -p "$SEED/.github/workflows" "$SEED/docs" "$SEED/.harness/contracts" "$SEED/.harness/verdicts" "$SEED/.harness/registry" "$SEED/.harness/records" "$SEED/.harness/fixtures"
   printf 'name: ci\non: [push]\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run dev\n' > "$SEED/.github/workflows/ci.yml"
   printf '{"name":"toy","scripts":{"build":"echo b"}}\n' > "$SEED/package.json"
   printf '# Архитектура\nСлои: api, worker, pg.\n' > "$SEED/docs/ARCHITECTURE.md"
   printf '# Стандарт\nИменование: kebab-case.\n' > "$SEED/docs/CODING-STANDARDS.md"
+  # workflowPaths.registry ПЕРЕОПРЕДЕЛЕН (.harness/records ≠ дефолт): все
+  # клетки двери/паритета обязаны брать каталог реестра ПО ФАКТУ профиля,
+  # а не зашитый .harness/registry (блокер 3 критика r1)
+  if [ "${2:-}" != "harness" ] && [ "${3:-}" != "harness" ]; then
   jq -n '{schemaVersion:1,repoId:"toy-proj",language:"typescript",
     workflowPaths:{contracts:".harness/contracts",verdicts:".harness/verdicts",
-      registry:".harness/registry",fixtures:".harness/fixtures",state:".harness"},
+      registry:".harness/records",fixtures:".harness/fixtures",state:".harness"},
     git:{canonicalRemote:"https://github.com/x/toy-proj.git"},
     contextPack:{rows:[
       {kind:"map",path:"docs/ARCHITECTURE.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"карта архитектуры проекта"},
       {kind:"rules",path:"docs/CODING-STANDARDS.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"стандарт проекта"}]},
     projectLayer:{version:"v1",profilePath:".harness/project-layer.json"}}' > "$SEED/harness.project.json"
+  fi
   printf '## ГДЕ МЫ\n\n- предмет не выбран.\n' > "$SEED/.harness/HANDOFF.md"
   printf 'id\tpora\tdepend\tsource\tdoc\tdesc\n' > "$SEED/.harness/registry/plan.tsv"
   printf '# 777 toy\n\n## Существующее\n- toy-контракт клетки c4.\n\nЗОНА implementer: docs/ARCHITECTURE.md\n' > "$SEED/.harness/contracts/777-toy.md"
@@ -77,14 +87,19 @@ mk_mir() { # mk_mir <слуг> [next]
   mkdir -p "$FH/.config/dev-harness"
   printf 'ZAI_API_KEY=za-dummy\nMINIMAX_API_KEY=mm-dummy\nMETERING_PROXY_URL=http://u\nMETERING_PROXY_TOKEN=mt-dummy\n' > "$FH/.config/dev-harness/secrets.env"
 }
-run_dver() { # копия двери в песочницу + двойник workshop; сообщение — после «--»
-  local SB="$W/sb"; mkdir -p "$SB/scripts"
+run_dver() { # копия двери в песочницу + двойник workshop + двойник КОНФИГА
+  # УСТАНОВКИ $SB/config/agent_models.json (источник трассы, блокер 2);
+  # DVER_CONFIG — управляемое содержимое конфига клетки. Сообщение — после «--».
+  local SB="$W/sb"; mkdir -p "$SB/scripts" "$SB/config"
   cp "$DOOR" "$SB/scripts/connect_project.sh"
+  if [ -n "$DVER_CONFIG" ]; then printf '%s' "$DVER_CONFIG" > "$SB/config/agent_models.json"
+  else cp "$ROOT/config/agent_models.json" "$SB/config/agent_models.json"; fi
   printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > "%s"\nexit 7\n' "$W/args.txt" > "$SB/workshop"
   chmod +x "$SB/workshop"
   env HOME="$FH" HARNESS_PROJECTS_DIR="$FH/projects" \
     S136_PSTATE_BASE="$FH/dev-harness-projects" \
-    bash "$SB/scripts/connect_project.sh" "${1:-$SEED}" >"$W/dvor.out" 2>"$W/dvor.err" || true
+    bash "$SB/scripts/connect_project.sh" "${1:-$SEED}" >"$W/dvor.out" 2>"$W/dvor.err"
+  DVER_RC=$?
 }
 dver_msg() { awk 'f{print} $0=="--"{f=1}' "$W/args.txt" 2>/dev/null; }
 # сцена субъекта make_task: файл субъекта (дерево|модель|стаб) дословно +
@@ -107,16 +122,30 @@ k_a2() { mk_mir a2-p6-brief-defolt; run_dver
   [ -n "$msg" ] && printf '%s\n' "$msg" | grep -Fq 'HANDOFF'; }
 k_a3() { mk_mir a3-p3-pin; run_dver
   local msg wt; msg="$(dver_msg)"; wt="$(printf '%s\n' "$msg" | sed -n 's/^WORKTREE=//p' | head -1)"
-  [ -n "$wt" ] \
+  # подмена пина (блокер 1 критика r1): задание несёт ЧУЖУЮ пару — дверь
+  # обязана отказаться именованно (PIN_CHUZHOJ) и НЕ поднимать сессию
+  # (args.txt двойника не появляется), а не стартовать непиннованной
+  { [ -n "$wt" ] \
     && case "$wt" in "$FH"/dev-harness-projects/*) : ;; *) false ;; esac \
     && [ "${wt#"$FH"/projects/}" = "$wt" ] \
-    && git -C "$SEED" worktree list --porcelain | grep -Fqx "worktree $wt"; }
+    && git -C "$SEED" worktree list --porcelain | grep -Fqx "worktree $wt"; } || return 1
+  printf 'Задание: релиз 1.2\nWORKTREE=/fake/wip-777-other\nBRANCH=wip/777/other\n' > "$SEED/.harness/NEXT_TASK.md"
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" -eq 1 ] && grep -q 'PIN_CHUZHOJ' "$W/dvor.err" && [ ! -e "$W/args.txt" ]; }
 k_a4() { mk_mir a4-p3-zapis; run_dver
   local msg wt pin; msg="$(dver_msg)"; wt="$(printf '%s\n' "$msg" | sed -n 's/^WORKTREE=//p' | head -1)"
   [ -n "$wt" ] || return 1
   pin="$(epin "$msg" | jq -r '.worktree // empty')"
   [ -n "$pin" ] && [ "$pin" = "$wt" ] \
-    && [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"$wt/f.txt\"},\"worktree\":\"$wt\"}" | jq -r .decision)" = "pass" ]; }
+    && [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"$wt/f.txt\"},\"worktree\":\"$wt\"}" | jq -r .decision)" = "pass" ] || return 1
+  # подмена пина на входе записи: чужая пара в NEXT_TASK.md неживá для
+  # git-оракула (extract-pin → null: старт был бы непиннован, judge
+  # agent:// — block) — единственный честный исход двери: PIN_CHUZHOJ,
+  # сессия не поднимается
+  printf 'Задание: релиз 1.2\nWORKTREE=/fake/wip-777-other\nBRANCH=wip/777/other\n' > "$SEED/.harness/NEXT_TASK.md"
+  [ "$(epin "$(cat "$SEED/.harness/NEXT_TASK.md")" | jq -r '.worktree // empty')" = "" ] || return 1
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" -eq 1 ] && grep -q 'PIN_CHUZHOJ' "$W/dvor.err" && [ ! -e "$W/args.txt" ]; }
 k_a5() { mk_mir a5-p12-agent; run_dver
   local wt; wt="$(dver_msg | sed -n 's/^WORKTREE=//p' | head -1)"
   [ -n "$wt" ] \
@@ -127,14 +156,24 @@ k_a6() { mk_mir a6-p11-subagent-pin; run_dver
   [ -x "$P" ] || return 1
   para="$(env HOME="$FH" S136_PSTATE_BASE="$FH/dev-harness-projects" bash "$P" 777 demo)" || return 1
   wt="$(printf '%s\n' "$para" | sed -n 's/^WORKTREE=//p' | head -1)"
-  [ -n "$wt" ] && [ "$(epin "$para" | jq -r '.worktree // empty')" = "$wt" ] \
+  # выдача пина: живой worktree + проход записи субагента
+  { [ -n "$wt" ] && [ "$(epin "$para" | jq -r '.worktree // empty')" = "$wt" ] \
     && git -C "$SEED" worktree list --porcelain | grep -Fqx "worktree $wt" \
-    && [ "$(judge "{\"tool\":\"bash\",\"args\":{\"command\":\"printf x > f.txt\",\"cwd\":\"$wt\"},\"worktree\":\"$wt\"}" | jq -r .decision)" = "pass" ]; }
+    && [ "$(judge "{\"tool\":\"bash\",\"args\":{\"command\":\"printf x > f.txt\",\"cwd\":\"$wt\"},\"worktree\":\"$wt\"}" | jq -r .decision)" = "pass" ]; } || return 1
+  # доставка результата (блокер 4 критика r1, И-3): субагент коммитит в
+  # СВОЙ worktree — tip его ветки виден из чекаута проекта git-каналом
+  # (общий object store), без ручного переноса между деревьями
+  printf 'agent result 777\n' > "$wt/agent.txt" \
+    && git -C "$wt" add agent.txt \
+    && git -C "$wt" -c user.name=agent -c user.email=agent@t commit -qm 'agent result' \
+    && [ -n "$(git -C "$SEED" rev-parse --verify --quiet wip/777/demo)" ] \
+    && [ "$(git -C "$SEED" rev-parse wip/777/demo)" = "$(git -C "$wt" rev-parse HEAD)" ] \
+    && [ "$(git -C "$SEED" show wip/777/demo:agent.txt)" = 'agent result 777' ]; }
 k_a7() { mk_mir a7-granica; run_dver
   [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"$SEED/f.txt\"},\"worktree\":null,\"actual\":\"$SEED\"}" | jq -r .decision)" = "block" ]; }
 k_b1() { mk_mir b1-povtor; run_dver
   local K tr ex tr1 ex1 hd1
-  K="$SEED"; tr="$K/.harness/registry/trace.tsv"; ex="$K/.harness/registry/ci_parity_exceptions.txt"
+  K="$SEED"; tr="$K/.harness/records/trace.tsv"; ex="$K/.harness/records/ci_parity_exceptions.txt"
   [ -f "$tr" ] && [ -f "$ex" ] || return 1
   tr1="$(cat "$tr")"; ex1="$(cat "$ex")"
   printf '## ГДЕ МЫ\n\n- правка владельца между входами двери.\n' > "$K/.harness/HANDOFF.md"
@@ -144,8 +183,12 @@ k_b1() { mk_mir b1-povtor; run_dver
     && [ "$(cat "$K/.harness/HANDOFF.md")" = "$hd1" ] \
     && [ "$(git -C "$K" worktree list --porcelain | grep -c 'wip-136-demo')" = "1" ]; }
 k_b2() { mk_mir b2-p10-raskladka; run_dver
+  # раскладка ПО ФАКТУ профиля (registry=.harness/records): сев двери — в
+  # records, корневого config/ нет (блокер 3 критика r1)
   local K; K="$SEED"
-  [ -f "$K/.harness/registry/ci_parity_exceptions.txt" ] && [ -f "$K/.harness/registry/trace.tsv" ] \
+  [ -f "$K/.harness/records/ci_parity_exceptions.txt" ] && [ -f "$K/.harness/records/trace.tsv" ] \
+    && [ ! -e "$K/.harness/registry/trace.tsv" ] \
+    && [ ! -e "$K/.harness/registry/ci_parity_exceptions.txt" ] \
     && [ ! -e "$K/config" ]; }
 mkt_brief() {
   local mb; mb="$(mkt_dir)"
@@ -154,35 +197,62 @@ mkt_brief() {
 }
 k_c1() { mk_mir c1-p17-map; run_dver; mkt_brief | grep -Fqx 'MAP: docs/ARCHITECTURE.md :: карта архитектуры проекта'; }
 k_c2() { mk_mir c2-p17-rules; run_dver; mkt_brief | grep -Fqx 'RULES: docs/CODING-STANDARDS.md'; }
-k_c3() { mk_mir c3-p5-trassa; run_dver
-  local out; out="$(mkt_brief)" \
-    && printf '%s\n' "$out" | grep -Fq 'TRACE: role=orchestrator model=zai/glm-5.3 fallback=allowed'; }
+k_c3() { mk_mir c3-p5-trassa
+  # источник трассы — КОНФИГ УСТАНОВКИ (блокер 2 критика r1, В-4а):
+  # конфиг назначает оркестратору Sonnet — трасса обязана нести ЕГО,
+  # зашитый GLM = рассогласование trace↔конфиг. Ожидание снято из того же
+  # конфига той же jq-цепочкой, что у двери (одна грамматика значений).
+  local out model
+  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
+  run_dver
+  model="$(printf '%s' "$DVER_CONFIG" | jq -r '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]')"
+  out="$(mkt_brief)" \
+    && [ "$model" = "anthropic/claude-sonnet-5-5" ] \
+    && printf '%s\n' "$out" | grep -Fq "TRACE: role=orchestrator model=$model fallback=allowed" \
+    && ! printf '%s\n' "$out" | grep -Fq 'model=zai/glm-5.3'; }
 k_c4() { mk_mir c4-kontrol; run_dver
   local out rc
   # трасса — оракул клетки (не дверь): судья critic + автор architect разных семей
-  printf 'orchestrator\tzai/glm-5.3\tallowed\narchitect\tminimax/m1\tallowed\ncritic\tzai/glm-5.3\tallowed\n' > "$SEED/.harness/registry/trace.tsv"
+  printf 'orchestrator\tzai/glm-5.3\tallowed\narchitect\tminimax/m1\tallowed\ncritic\tzai/glm-5.3\tallowed\n' > "$W/c4trace.tsv"
   local mb; mb="$(mkt_dir)"
   out="$(env HOME="$FH" HARNESS_PROJECT_LAYER_ROOT="$SEED" \
     bash "$mb" --repo "$SEED" --role critic --kind task --contract 777 \
-      --model-trace "$SEED/.harness/registry/trace.tsv" 2>"$W/mkt.err")"; rc=$?
+      --model-trace "$W/c4trace.tsv" 2>"$W/mkt.err")"; rc=$?
   [ "$rc" -eq 0 ] && [ -n "$out" ] && ! printf '%s\n' "$out" | grep -Fq 'MAP: docs/ARCHITECTURE.md'; }
 k_c5() { mk_mir c5-jeksplizit; run_dver
   local out; printf 'orchestrator\tanthropic/opus\tallowed\n' > "$W/explicit.tsv"
   out="$(mkt_brief --model-trace "$W/explicit.tsv")" \
     && printf '%s\n' "$out" | grep -Fq 'TRACE: role=orchestrator model=anthropic/opus fallback=allowed'; }
 k_d1() { mk_mir d1-p10; run_dver
+  # сев двери: ПУСТОЙ перечень в ПЕРЕОПРЕДЕЛЁННОМ workflowPaths.registry
+  # (.harness/records) сразу после входа — заполнение уже дело проекта
   local K; K="$SEED"
-  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d1\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$K/.harness/registry/ci_parity_exceptions.txt"
+  { [ -f "$K/.harness/records/ci_parity_exceptions.txt" ] && [ ! -s "$K/.harness/records/ci_parity_exceptions.txt" ]; } || return 1
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d1\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$K/.harness/records/ci_parity_exceptions.txt"
   env HOME="$FH" bash "$PAR" "$K" >"$W/par.out" 2>&1; }
-k_d2() { mk_mir d2-kontrol-dom
-  env HOME="$FH" bash "$PAR" "$ROOT" >"$W/par2.out" 2>&1; }
+k_d2() { mk_mir d2-kontrol-dom harness
+  # контроль режима харнесса ДОСЛОВНО: корень БЕЗ harness.project.json —
+  # исключения в config/ci_parity_exceptions.txt, семантика 020 не тронута
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d2\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par2.out" 2>&1; }
 k_d3() { mk_mir d3-kontrol; run_dver
-  local K rc; K="$SEED"
-  # ПУСТОЙ перечень (проект ничего не объявил): честный гейт — rc 1 FAIL на
-  # первой непокрытой команде CI; стаб «всё зелено» (проглатывание bad) даёт rc 0.
-  : > "$K/.harness/registry/ci_parity_exceptions.txt"
-  env HOME="$FH" bash "$PAR" "$K" >"$W/par3.out" 2>&1; rc=$?
-  [ "$rc" -ne 0 ] && grep -qE 'FAIL|NOT_IMPLEMENTED' "$W/par3.out"; }
+  # (блокер 3 критика r1) проектный режим читает ТОЛЬКО профильный перечень;
+  # корневой config/ — ловушка: молчаливый обход профиля запрещён
+  local K rc1 rc2; K="$SEED"
+  # (1) профильный перечень ПУСТ (стёрт до нуля) + достаточная ловушка в
+  # корне: честный гейт — rc 1 FAIL на первой непокрытой команде CI
+  mkdir -p "$K/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d3\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$K/config/ci_parity_exceptions.txt"
+  : > "$K/.harness/records/ci_parity_exceptions.txt"
+  env HOME="$FH" bash "$PAR" "$K" >"$W/par3.out" 2>&1; rc1=$?
+  # (2) профильного файла НЕТ + та же ловушка в корне: честный отказ —
+  # rc 2 с именем ПРОФИЛЬНОГО пути, никогда не зелёный от корня
+  rm -f "$K/.harness/records/ci_parity_exceptions.txt"
+  env HOME="$FH" bash "$PAR" "$K" >"$W/par4.out" 2>&1; rc2=$?
+  [ "$rc1" -eq 1 ] && grep -q 'FAIL' "$W/par3.out" \
+    && [ "$rc2" -eq 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par4.out" \
+    && grep -Fq "$K/.harness/records/ci_parity_exceptions.txt" "$W/par4.out"; }
 
 ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned b1-povtor b2-p10-raskladka c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren"
 run_cell() { case "$1" in

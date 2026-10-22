@@ -169,15 +169,17 @@ ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 GH="$ROOT/.github"
 PKG="$ROOT/package.json"
 # 136 (НАБЛ-П10): проектный режим — исключения паритета живут в workflowPaths
-# проекта (.harness/registry/ci_parity_exceptions.txt; файл сеет дверь 125+136),
-# а НЕ в корне дерева проекта: корневой config/ чужому репозиторию запрещён
-# (И-6 контракта 125). Режим харнесса (без harness.project.json) — дословно
-# прежний путь config/ci_parity_exceptions.txt.
+# проекта: <workflowPaths.registry>/ci_parity_exceptions.txt (файл сеет дверь
+# 125+136), а НЕ в корне дерева проекта: корневой config/ чужому репозиторию
+# запрещён (И-6 контракта 125). Профильный путь — БЕЗОСЛОВНО: существующий
+# корневой config/ci_parity_exceptions.txt в проектном режиме ИГНОРИРУЕТСЯ
+# (молчаливый обход профильного источника — находка критика r1), отсутствующий
+# профильный файл — rc 2 с именем ПРОФИЛЬНОГО пути. Режим харнесса (без
+# harness.project.json) — дословно прежний путь config/ci_parity_exceptions.txt.
 EXCEPTIONS="$ROOT/config/ci_parity_exceptions.txt"
 if [ -f "$ROOT/harness.project.json" ] && command -v jq >/dev/null 2>&1; then
-  _wp_reg="$(jq -r '.workflowPaths.registry // empty' "$ROOT/harness.project.json" 2>/dev/null)"
-  [ -n "$_wp_reg" ] && [ -f "$ROOT/$_wp_reg/ci_parity_exceptions.txt" ] \
-    && EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt"
+  _wp_reg="$(jq -r '.workflowPaths.registry // ".harness/registry"' "$ROOT/harness.project.json" 2>/dev/null)"
+  EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt"
 fi
 
 fails=0
