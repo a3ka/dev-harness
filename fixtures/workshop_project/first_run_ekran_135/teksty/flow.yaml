@@ -1,0 +1,8 @@
+appId: com.complior.demo
+name: first-run-ekran
+---
+- launchApp
+- takeScreenshot: first-run-ekran-first-run
+- takeScreenshot: first-run-ekran-f03-01
+- takeScreenshot: first-run-ekran-f03-02
+- takeScreenshot: first-run-ekran-f03-02-v01
