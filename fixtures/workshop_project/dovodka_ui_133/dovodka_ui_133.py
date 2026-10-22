@@ -12,22 +12,32 @@
 
 Мир клетки — mktemp без сети: продукт-репозиторий work/ (git: базовый коммит экрана +
 правки доводки), sverka-do.tsv / sverka-posle.tsv (грамматика KADR контракта 123),
-ui-zona.txt, ekran.md (строки ЗОНА implementer грамматики check_zones), .omp/config.yml
-(тир vision), двойник omp в bin/ PATH (таблица models.list из файла мира), двойник
-scripts/overlay.sh (нога «соответствие модели задаче», overlay.sh:106-147) и субъект
-scripts/dovodka_ui.sh. Субъект вызывается режимом клетки: zadanie / zona / sudjam.
+ui-zona.txt, ekran.md, мини-харнесс-репозиторий harness/ (контракт экрана
+contracts/<NNN>-ekran.md + тег frozen/contracts/<NNN>/<v> — замороженный blob экрана,
+блокер 2 круга 2), .omp/config.yml (тир vision), двойник omp в bin/ PATH (таблица
+models.list из файла мира), двойник scripts/overlay.sh (нога «соответствие модели
+задаче», overlay.sh:106-147) и субъект scripts/dovodka_ui.sh. Выдача ворот фиксируется
+миром в git-состоянии продукта: refs/dovodka/baza + refs/dovodka/zadanie (блокер 3
+круга 2: задание после выдачи изменяется клеткой — байты обязаны разойтись). Клетки
+режима dver (блокер 1 круга 2) НЕ зовут субъект: живой пробой клонируют дерево
+харнесса, синтезируют маркер заморозки 133 и судят дверь 095 scripts/make_task.sh —
+зелёны и на дереве без предмета. Субъект вызывается режимом клетки:
+zadanie / zona / sudjam.
 
 Исходы: ZADACHA (rc 0, stdout `DOVODKA: задание …`, задание — строки грамматики
-побайтово, отказ задание НЕ пишет), OTKAZ (rc 1, stderr `ОТКАЗ dovodka: …<причина>…`),
-NECHEM (rc 2, stderr `НЕЧЕМ СУДИТЬ dovodka: …`), CHISTO (rc 0, `ЗОНА: чисто (путей N)`,
-N — число путей диффа --no-renames), SUD_OK (rc 0, артефакт SUD с числами ДО/ПОСЛЕ
-побайтово), SUD_KRASNO (rc 1 `не завершена`, артефакт с числами побайтово — числа
-предъявлены и красному исходу). Алфавит расхождений: RC, PRICHINA, VYVOD, ARTEFAKT,
-PREDMET. Ожидания снимаются в память ДО вызова субъекта; артефакты сверяются
-мультимножеством строк (каждая строка сама по себе, не подстрокой).
+побайтово, выдача в refs, отказ задание НЕ пишет), OTKAZ (rc 1, stderr
+`ОТКАЗ dovodka: …<причина>…`), NECHEM (rc 2, stderr `НЕЧЕМ СУДИТЬ dovodka: …`),
+CHISTO (rc 0, `ЗОНА: чисто (путей N)`, N — число путей диффа --no-renames, refs выдачи
+погашены), SUD_OK (rc 0, артефакт SUD с числами ДО/ПОСЛЕ побайтово), SUD_KRASNO
+(rc 1 `не завершена`, артефакт с числами побайтово — числа предъявлены и красному
+исходу), DVER_OK (дверь rc 0, манифест непуст), DVER_OTKAZ (дверь rc 1 с именованной
+причиной), DVER_NET_KANALA (дверь rc 0, но задание НЕ попадает в пак/манифест).
+Алфавит расхождений: RC, PRICHINA, VYVOD, ARTEFAKT, VYDACHA, POGASHENO, PREDMET.
+Ожидания снимаются в память ДО вызова субъекта; артефакты сверяются мультимножеством
+строк (каждая строка сама по себе, не подстрокой).
 
-Коды: 0 — всё сошлось / все подмены пойманы; 1 — расхождение / непойманная подмена /
-предмет отсутствует; 2 — нечем судить (нет git/bash, якорь подмены не единственен,
+Коды: 0 — всё сошлось / все подмены пойманы; 1 — расхождение / предмет отсутствует /
+непойманная подмена; 2 — нечем судить (нет git/bash, якорь подмены не единственен,
 мир не строится, нет такой клетки).
 """
 import json
@@ -70,6 +80,12 @@ def sverka_lines(cell, key, rawkey):
         return cell[rawkey].splitlines()
     return ['KADR\t' + '\t'.join(r) for r in cell[key]]
 
+
+def ekran_tag(cell):
+    """Тег замороженного экрана мира: единый источник для задания и мини-харнесса."""
+    return 'frozen/contracts/%s/%s' % (cell.get('ekran_nnn', '132'), cell.get('ekran_v', '1'))
+
+
 def zadanie_lines(cell, repo, kadry, makety, ekran, baza):
     """ЕДИНЫЙ источник байтов задания:ожидание ZADACHA и мир-задание zona-клеток."""
     vm = cell['vision']['model'].split('/')[-1]
@@ -97,10 +113,17 @@ class Mir:
         self.makety = os.path.join(self.d, 'makety')
         self.bin = os.path.join(self.d, 'bin')
         self.models_tsv = os.path.join(self.d, 'models.tsv')
+        self.harness_dir = os.path.join(self.d, 'harness')
         self.build(subject)
+
+    def gr(self, *a):
+        return run(['git'] + list(a), self.work, self.env, False)
 
     def g(self, *a, check=True):
         return run(['git'] + list(a), self.work, self.env, check).stdout.strip()
+
+    def gh(self, *a, check=True):
+        return run(['git'] + list(a), self.harness_dir, self.env, check).stdout.strip()
 
     def write(self, rel, text):
         p = os.path.join(self.work, rel)
@@ -126,8 +149,38 @@ class Mir:
         else:
             self.wfile(name, ''.join('KADR\t%s\n' % '\t'.join(r) for r in self.cell[key]))
 
+    # ── выдача ворот в git-состоянии продукта: refs байтов задания и БАЗЫ ──
+    def vydacha(self, baza):
+        """Мир играет честный zadanie: байты задания + refs/dovodka/{baza,zadanie}."""
+        lines = zadanie_lines(self.cell, self.work, self.kadry, self.makety, ekran_tag(self.cell), baza)
+        self.wfile('zadanie-vydacha.md', ''.join(l + '\n' for l in lines))
+        blob = self.g('hash-object', '-w', os.path.join(self.d, 'zadanie-vydacha.md'))
+        self.g('update-ref', 'refs/dovodka/baza', baza)
+        self.g('update-ref', 'refs/dovodka/zadanie', blob)
+
     def build(self, subject):
+        if self.cell['rezhim'] == 'dver':
+            # клетка двери 095 (блокер 1 круга 2): живая проба на клоне дерева
+            # харнесса; субъект НЕ участвует; маркер заморозки 133 синтезируется
+            # миром (на станции в момент шага экран уже заморожен)
+            snap = os.path.join(self.d, 'harness-snap')
+            run(['git', 'clone', '-q', '--no-hardlinks', TREE_ROOT, snap], self.d, self.env)
+            run(['git', '-C', snap, 'tag', 'frozen/contracts/133/1', 'HEAD'], self.d, self.env)
+            self.wfile('dver-trace.tsv', 'implementer\tprobe/sonnet-v4\tallowed\n')
+            self.wfile('dver-zadanie.md', 'ZADANIE-PROBE-133\n')
+            return
         run(['git', 'init', '-q', '-b', 'main', self.work], self.d, self.env)
+        # мини-харнесс: замороженный контракт экрана (блокер 2 круга 2)
+        run(['git', 'init', '-q', '-b', 'main', self.harness_dir], self.d, self.env)
+        os.makedirs(os.path.join(self.harness_dir, 'contracts'), exist_ok=True)
+        with open(os.path.join(self.harness_dir, 'contracts', '%s-ekran.md' % self.cell.get('ekran_nnn', '132')),
+                  'w', encoding='utf-8') as f:
+            f.write('# Контракт экрана (мир батареи 133)\n'
+                    + ''.join('ЗОНА implementer: %s\n' % z for z in self.cell['ekran_zona']))
+        self.gh('add', '-A')
+        self.gh('-c', 'user.name=freeze', '-c', 'user.email=freeze@133', 'commit', '-q', '-m', 'ekran: zamorozka')
+        if not self.cell.get('ekran_net_tega'):
+            self.gh('tag', ekran_tag(self.cell))
         os.makedirs(self.kadry)
         os.makedirs(self.makety)
         os.makedirs(self.bin)
@@ -166,21 +219,35 @@ class Mir:
         if subject:
             shutil.copy(subject, os.path.join(self.work, 'scripts', 'dovodka_ui.sh'))
         self.base = self.commit('ekran: bazovyj kommit + obvjazka mira', 'implementer')
+        # выдача ворот ДО шагов мира: c24 (правка текста ПОСЛЕ выдачи) и c25
+        # (повторная выдача при непогашенной) фиксируются честно на базе
+        self.zadanie_base = None
+        redakt_posle = (self.cell['rezhim'] == 'zona' and self.cell.get('redaktirovana_baza')
+                        and self.cell.get('zadanie_raw') is None)
+        if redakt_posle or self.cell.get('vydacha_do_shagov'):
+            self.vydacha(self.base)
         for st in self.cell.get('shagi', []):
             getattr(self, 'op_' + st[0])()
         # задание — вход zona-клеток: мир пишет его сам по грамматике ворот (единый
-        # источник байтов — zadanie_lines); baza='head' = подмена «БАЗА = HEAD после
-        # шагов мира» (клетка c23 — обход вердикта круга 1 через пустой дифф)
-        self.zadanie_base = None
+        # источник байтов — zadanie_lines); zadanie_raw = рукописная/подменённая
+        # правка БАЗЫ ПОСЛЕ вне-зонного коммита (c24, блокер 3 круга 2): текст
+        # правится, refs выдачи остаются на базе — байты обязаны разойтись
         if self.cell['rezhim'] == 'zona':
             if self.cell.get('zadanie_raw') is not None:
                 self.wfile('zadanie.md', self.cell['zadanie_raw'])
+            elif redakt_posle:
+                edited = zadanie_lines(self.cell, self.work, self.kadry, self.makety,
+                                       ekran_tag(self.cell), self.g('rev-parse', 'HEAD'))
+                self.wfile('zadanie.md', ''.join(l + '\n' for l in edited))
+                self.zadanie_base = self.base
             else:
-                baza = self.g('rev-parse', 'HEAD') if self.cell.get('baza') == 'head' else self.base
                 self.wfile('zadanie.md', ''.join(l + '\n' for l in
                             zadanie_lines(self.cell, self.work, self.kadry, self.makety,
-                                          os.path.join(self.d, 'ekran.md'), baza)))
-                self.zadanie_base = baza
+                                          ekran_tag(self.cell), self.base)))
+                self.zadanie_base = self.base
+                blob = self.g('hash-object', '-w', os.path.join(self.d, 'zadanie.md'))
+                self.g('update-ref', 'refs/dovodka/baza', self.base)
+                self.g('update-ref', 'refs/dovodka/zadanie', blob)
 
     # ── шаги мира (правки доводки в продукте) ──
     def op_ui(self):
@@ -207,17 +274,25 @@ class Mir:
         if r == 'zadanie':
             cmd = ['bash', 'scripts/dovodka_ui.sh', 'zadanie',
                    '--sverka', os.path.join(self.d, 'sverka-do.tsv'),
-                   '--repo', self.work, '--ui-zona', uiz, '--kontrakt-ekrana', ekr,
+                   '--repo', self.work, '--ui-zona', uiz,
+                   '--ekran', self.cell.get('ekran_nnn', '132'),
+                   '--harness', self.harness_dir,
                    '--kadry', self.kadry, '--makety', self.makety,
                    '--out', os.path.join(self.d, 'zadanie.md')]
+            if self.cell.get('dop_arg_kontrakt'):
+                # c26 (блокер 2 круга 2): файл контракта экрана от вызывающего
+                cmd += ['--kontrakt-ekrana', ekr]
         elif r == 'zona':
             if self.cell.get('zona_starye_args'):
+                # c20: старая грамматика (--base/--ui-zona/--kontrakt-ekrana от
+                # вызывающего) — «неизвестный аргумент zona»
                 cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
                        '--repo', self.work, '--base', self.base,
                        '--ui-zona', uiz, '--kontrakt-ekrana', ekr]
             else:
                 cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
-                       '--repo', self.work, '--zadanie', os.path.join(self.d, 'zadanie.md')]
+                       '--repo', self.work, '--zadanie', os.path.join(self.d, 'zadanie.md'),
+                       '--harness', self.harness_dir]
         elif r == 'sudjam':
             cmd = ['bash', 'scripts/dovodka_ui.sh', 'sudjam',
                    '--do', os.path.join(self.d, 'sverka-do.tsv'),
@@ -230,6 +305,20 @@ class Mir:
         except subprocess.TimeoutExpired:
             return subprocess.CompletedProcess([], 124, '', 'таймаут 60 с')
 
+    def call_dver(self):
+        """Живая проба двери 095 на клоне мира (блокер 1 круга 2): субъект не зван."""
+        snap = os.path.join(self.d, 'harness-snap')
+        mt = os.path.join(snap, 'scripts', 'make_task.sh')
+        role = 'implementer-vision' if self.cell.get('dver') == 'vne-alfavita' else 'implementer'
+        cmd = ['bash', mt, '--repo', snap, '--role', role, '--kind', 'task',
+               '--contract', '133', '--model-trace', os.path.join(self.d, 'dver-trace.tsv')]
+        if self.cell.get('dver') == 'taskfile':
+            cmd += ['--task-file', os.path.join(self.d, 'dver-zadanie.md')]
+        try:
+            return subprocess.run(cmd, cwd=snap, env=dict(self.env), capture_output=True, text=True, timeout=180)
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess([], 124, '', 'таймаут 180 с')
+
     def close(self):
         shutil.rmtree(self.d, ignore_errors=True)
 
@@ -240,12 +329,44 @@ def judge(cell, subject, seed):
     try:
         exp = cell['iskhod']
         r = cell['rezhim']
-        do_rows = sverka_lines(cell, 'sverka_do', 'sverka_raw_do')
-        if r == 'sudjam':
-            posle_rows = sverka_lines(cell, 'sverka_posle', 'sverka_raw_posle')
+        do_rows, posle_rows = [], []
+        if r != 'dver':
+            do_rows = sverka_lines(cell, 'sverka_do', 'sverka_raw_do')
+            if r == 'sudjam':
+                posle_rows = sverka_lines(cell, 'sverka_posle', 'sverka_raw_posle')
         n_paths = None
         if r == 'zona' and m.zadanie_base:
-            n_paths = len([x for x in m.g('diff', '--no-renames', '--name-only', m.zadanie_base, 'HEAD').splitlines() if x])
+            n_paths = len([x for x in m.g('diff', '--no-renames', '--name-only', m.zadanie_base, 'HEAD',
+                                          check=False).splitlines() if x])
+        if r == 'dver':
+            # клетки двери: судят грамматику двери 095 живой пробой, не субъект
+            p = m.call_dver()
+            bad = []
+            out, err = p.stdout.splitlines(), p.stderr.splitlines()
+            mf = os.path.join(m.d, 'harness-snap', '.omp', 'context', '133.tsv')
+            if exp == 'DVER_OK':
+                if p.returncode != 0:
+                    bad.append('RC')
+                if not (os.path.isfile(mf) and os.path.getsize(mf) > 0):
+                    bad.append('ARTEFAKT')
+            elif exp == 'DVER_OTKAZ':
+                if p.returncode != 1:
+                    bad.append('RC')
+                if not any(l.startswith('ОТКАЗ: ') and cell['prichina'] in l for l in err):
+                    bad.append('PRICHINA')
+            elif exp == 'DVER_NET_KANALA':
+                if p.returncode != 0:
+                    bad.append('RC')
+                if any('=== TASK ===' in l for l in out):
+                    bad.append('VYVOD')
+                mrows = open(mf, encoding='utf-8').read().splitlines() if os.path.isfile(mf) else []
+                if not mrows or any(x.startswith('task\t') for x in mrows) \
+                        or any('ZADANIE-PROBE-133' in l for l in out):
+                    bad.append('ARTEFAKT')
+            else:
+                raise Nechem('неизвестный исход клетки двери: %s' % exp)
+            tail = (p.stderr.strip().splitlines() or [''])[-1][:200]
+            return bad, 'rc=%d %s' % (p.returncode, tail)
         if subject is None:
             return ['PREDMET'], 'предмет отсутствует'
         p = m.call(True)
@@ -263,7 +384,7 @@ def judge(cell, subject, seed):
             if p.returncode != 0:
                 bad.append('RC')
             reds = [l for l in do_rows if l.split('\t')[5] == 'NIZHE_POROGA']
-            want = zadanie_lines(cell, m.work, m.kadry, m.makety, os.path.join(m.d, 'ekran.md'), m.base)
+            want = zadanie_lines(cell, m.work, m.kadry, m.makety, ekran_tag(cell), m.base)
             if not any(l == 'DOVODKA: задание %s; красных кадров %d' % (os.path.join(m.d, 'zadanie.md'), len(reds)) for l in out):
                 bad.append('VYVOD')
             got = []
@@ -272,11 +393,21 @@ def judge(cell, subject, seed):
                 got = open(zf, encoding='utf-8').read().splitlines()
             if sorted(got) != sorted(want):
                 bad.append('ARTEFAKT')
+            # выдача зафиксирована в git-состоянии (блокер 3 круга 2): refs байтов и БАЗЫ
+            if m.gr('rev-parse', '-q', '--verify', 'refs/dovodka/baza').stdout.strip() != m.base:
+                bad.append('VYDACHA')
+            blob = m.gr('hash-object', zf).stdout.strip()
+            if blob != m.gr('rev-parse', '-q', '--verify', 'refs/dovodka/zadanie').stdout.strip():
+                bad.append('VYDACHA')
         elif exp == 'CHISTO':
             if p.returncode != 0:
                 bad.append('RC')
             if not any(l == 'ЗОНА: чисто (путей %d)' % n_paths for l in out):
                 bad.append('VYVOD')
+            for ref in ('refs/dovodka/zadanie', 'refs/dovodka/baza'):
+                if m.gr('rev-parse', '-q', '--verify', ref).returncode == 0:
+                    bad.append('POGASHENO')  # приём состоялся — выдача погашена
+                    break
         else:  # SUD_OK / SUD_KRASNO
             pdo = {}
             for l in do_rows:
