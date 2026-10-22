@@ -223,6 +223,38 @@ MUTANTS = {
           '')],
         ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
     ),
+    # v4c (критик 111 v4 круг 2): «наличие» без видимости — ложное зелёное
+    # (строки скрыты display:none/opacity:0 в зоне implementer — honest
+    # rc0 23/23 у замкнутости v4b). Скрытие узла подзаголовка/футера
+    # (по одному, оба; opacity:0 — носитель того же дефекта) красно парой
+    # К5: collectText v4c вырезает скрытые поддеревья. depends — замер.
+    'subheadline-display-none': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.maketLine, { color: tokens.ink }]}',
+          "style={[styles.maketLine, { color: tokens.ink, display: 'none' }]}")],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
+    'footer-display-none': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.maketFooter, { color: tokens.ink }]}',
+          "style={[styles.maketFooter, { color: tokens.ink, display: 'none' }]}")],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
+    'copy-display-none-both': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.maketLine, { color: tokens.ink }]}',
+          "style={[styles.maketLine, { color: tokens.ink, display: 'none' }]}"),
+         ('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.maketFooter, { color: tokens.ink }]}',
+          "style={[styles.maketFooter, { color: tokens.ink, display: 'none' }]}")],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
+    'subheadline-opacity-zero': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          'style={[styles.maketLine, { color: tokens.ink }]}',
+          'style={[styles.maketLine, { color: tokens.ink, opacity: 0 }]}')],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
     # A2 (суд 111, круг 1): внешний корень PilotApp красится белым вокруг
     # First-Run — белая рамка вокруг тёмного ground + Demo-бейдж на белой
     # полосе; красна именованной клеткой пары К6 в ОБЕИХ схемах.
