@@ -6,12 +6,21 @@
 #   zadanie — построить задание доводчику (единственный носитель шага): ТОЛЬКО при красном
 #             кадре сверки 123; модель — тир vision (overlay rc 0 И модель перечислена omp
 #             с images=yes — дыру overlay.sh:129 ворота закрывают сами, overlay не правится);
+#             граница экрана — ЗАМОРОЖЕННЫЙ blob этого экрана: тег frozen/contracts/<NNN>/<v>
+#             харнесс-репозитория (грамматика тега — единый источник с дверью 095,
+#             make_task.sh:371), файл экрана от вызывающего не принимается (блокер 2 круга 2);
 #             задание несёт кадры, макеты, числа сверки ДОСЛОВНО, UI-зону (⊆ ЗОНА implementer
-#             контракта экрана) и БАЗУ — sha HEAD продукта ДО доводки;
-#   zona    — принять работу доводчика: дифф БАЗА..HEAD (--no-renames, оба пути
-#             переименования) ⊆ UI-зона ⊆ ЗОНА implementer контракта экрана; база, зона и
-#             контракт экрана берутся ИЗ ЗАДАНИЯ, вызывающий их не передаёт (вердикт круга 1:
-#             --base HEAD скрывал вне-зонные коммиты); пустой дифф — отказ;
+#             замороженного экрана) и БАЗУ — sha HEAD продукта ДО доводки. Выдача фиксируется
+#             В GIT-СОСТОЯНИИ продукта: refs/dovodka/baza = БАЗА, refs/dovodka/zadanie = blob
+#             байтов задания (блокер 3 круга 2: текст задания после выдачи не доказательство);
+#             повторный запуск при НЕПОГАШЕННОЙ выдаче (есть коммиты после БАЗЫ) — отказ:
+#             повторной выдачей нельзя переякорить базу мимо приёма zona.
+#   zona    — принять работу доводчика: задание сверяется с refs выдачи побайтово
+#             (изменённое задание — «байты расходятся»), БАЗА берётся ИЗ refs/dovodka/baza
+#             (git-состояние), а не из текста задания; экран — замороженный тег из задания,
+#             ЗОНА implementer перечитывается из блоба ВСЕГДА; дифф БАЗА..HEAD (--no-renames,
+#             оба пути переименования) ⊆ UI-зона; пустой дифф — отказ; успех гасит refs
+#             выдачи (следующая доводка — новой выдачей).
 #   sudjam  — выдать судьям артефакт с числами похожести ДО/ПОСЛЕ на каждый кадр; кадр
 #             ниже порога в ПОСЛЕ — именованный отказ ПОСЛЕ записи артефакта (числа
 #             предъявлены и красному исходу).
@@ -76,22 +85,22 @@ sverka_read() {  # $1 файл сверки → SV (дословные стро�
 ZONY=()
 zona_gram() {  # $1 путь → 0 в грамматике
   case "$1" in
-    /*) return 1 ;;
-    *..*) return 1 ;;
-    *'*'*|*'?'*|*'['*) return 1 ;;
-    '') return 1 ;;
+    ''|../*|..|*'/../'*|..*|/*|*'*'*|*'?'*|*'['*|*'{'*|*'*') return 1 ;;
+    */) return 0 ;;
+    *)  return 0 ;;
   esac
-  return 0
 }
+
 zona_read() {  # $1 файл UI-зоны → ZONY; пустая/вне грамматики — отказ
-  [ -s "$1" ] || otkaz 'UI-зона пуста — доводчику не объявлено, где править'
-  local z
-  while IFS= read -r z; do
-    [ -n "$z" ] || continue
-    zona_gram "$z" || otkaz "UI-зона вне грамматики: $z"
-    ZONY+=("$z")
-  done < "$1"
-  [ "${#ZONY[@]}" -gt 0 ] || otkaz 'UI-зона пуста — доводчику не объявлено, где править'
+  local f="$1" l
+  [ -f "$f" ] || nechem "файл UI-зоны не читается: $f"
+  ZONY=()
+  while IFS= read -r l || [ -n "$l" ]; do
+    [ -n "$l" ] || continue
+    zona_gram "$l" || otkaz "путь UI-зоны вне грамматики: $l"
+    ZONY+=("$l")
+  done < "$f"
+  [ "${#ZONY[@]}" -gt 0 ] || otkaz 'пустая UI-зона — нечего править доводчику'
 }
 
 covered() {  # $1 путь; остальные аргументы — зоны (каталог с / либо точный файл): префиксное покрытие
@@ -100,18 +109,40 @@ covered() {  # $1 путь; остальные аргументы — зоны (
   for z in "$@"; do
     case "$z" in
       */) case "$p" in "$z"*) return 0 ;; esac ;;
-      *)  if [ "$p" = "$z" ]; then return 0; fi ;;
+      *)  [ "$p" = "$z" ] && return 0 ;;
     esac
   done
   return 1
 }
 
-zona_podmnozhestvo() {  # $1 контракт экрана: каждая зона UI ⊆ ЗОНА implementer (префиксы)
-  local f="$1" z
-  [ -f "$f" ] || nechem "контракт экрана не читается: $f"
-  local EKZ=()
-  mapfile -t EKZ < <(awk '/^ЗОНА implementer:/ { for (i = 3; i <= NF; i++) print $i }' "$f")
-  [ "${#EKZ[@]}" -gt 0 ] || nechem "в контракте экрана нет строк ЗОНА implementer: $f"
+# ── экран — ЗАМОРОЖЕННЫЙ blob этого экрана (блокер 2 круга 2): ЗОНА implementer
+# читается из тега frozen/contracts/<NNN>/<v> харнесс-репозитория; грамматика выбора
+# тега — единый источник с дверью 095 (make_task.sh:371: tag -l + sort -V + tail -1) ──
+EKZ=()
+ekran_max_tag() {  # $1 NNN $2 harness → stdout: последний тег заморозки (пусто = не заморожен)
+  git -C "$2" tag -l "frozen/contracts/$1/*" | LC_ALL=C sort -V | tail -n 1
+}
+
+ekran_chitaem() {  # $1 тег frozen/contracts/<NNN>/<v> $2 harness → EKZ (ЗОНА implementer из блоба)
+  local tag="$1" h="$2" n='' v='' cpath
+  case "$tag" in
+    frozen/contracts/*/*) ;;
+    *) otkaz "КОНТРАКТ ЭКРАНА не тег заморозки: $tag" ;;
+  esac
+  n="${tag#frozen/contracts/}"; n="${n%%/*}"
+  v="${tag##*/}"
+  case "$n" in ''|*[!0-9]*) otkaz "КОНТРАКТ ЭКРАНА вне алфавита NNN: $tag" ;; esac
+  case "$v" in ''|*[!0-9]*) otkaz "КОНТРАКТ ЭКРАНА вне алфавита версии: $tag" ;; esac
+  [ -d "$h/.git" ] || [ -f "$h/.git" ] || nechem "харнесс-репозиторий не читается: $h"
+  cpath="$(git -C "$h" ls-tree --name-only "$tag" contracts/ 2>/dev/null | grep -E "^contracts/$n-[^/]+\.md$" | head -n 1)"
+  [ -n "$cpath" ] || nechem "заморозка экрана не читается (нет контракта в блобе): $tag"
+  EKZ=()
+  mapfile -t EKZ < <(git -C "$h" show "$tag:$cpath" | awk '/^ЗОНА implementer:/ { for (i = 3; i <= NF; i++) print $i }')
+  [ "${#EKZ[@]}" -gt 0 ] || nechem "в замороженном контракте экрана нет строк ЗОНА implementer: $tag"
+}
+
+zona_podmnozhestvo() {  # EKZ прочитан из замороженного блоба: каждая зона UI ⊆ ЗОНА implementer
+  local z
   for z in "${ZONY[@]}"; do
     covered "$z" "${EKZ[@]}" || otkaz "UI-зона шире зоны implementer контракта экрана: $z"
   done
@@ -176,15 +207,21 @@ zadanie_chitaem() {  # $1 задание $2 репозиторий → ZONY/EKRA
   [ "$zrepo" = "$repo" ] || otkaz "репозиторий расходится с заданием: $repo ≠ $zrepo"
 }
 
-cmd_zadanie() {  # $1 сверка $2 репо $3 ui-зона $4 контракт экрана $5 кадры $6 макеты $7 задание
-  local sverka="$1" repo="$2" uiz="$3" ekran="$4" kadry="$5" makety="$6" out="$7"
-  local red n vm baza
+cmd_zadanie() {  # $1 сверка $2 репо $3 ui-зона $4 NNN экрана $5 harness $6 кадры $7 макеты $8 задание
+  local sverka="$1" repo="$2" uiz="$3" ekn="$4" harn="$5" kadry="$6" makety="$7" out="$8"
+  local red n vm baza ekt bref blob
   sverka_read "$sverka"
   red="$(printf '%s\n' "$SV" | awk -F'\t' '$6=="NIZHE_POROGA"')"
   if [ -z "$red" ]; then otkaz 'все кадры не ниже порога — шаг не зовётся (dovodka-ui только по красному кадру)'; fi
   n="$(printf '%s\n' "$red" | grep -c .)"
   zona_read "$uiz"
-  zona_podmnozhestvo "$ekran"
+  # экран — ТОЛЬКО замороженный blob этого экрана (блокер 2 круга 2): произвольный
+  # --kontrakt-ekrana от вызывающего не принимается вовсе — аргумента нет
+  case "$ekn" in ''|*[!0-9]*) otkaz "контракт экрана вне алфавита NNN: $ekn" ;; esac
+  ekt="$(ekran_max_tag "$ekn" "$harn")"
+  [ -n "$ekt" ] || otkaz "контракт экрана не заморожен: $ekn"
+  ekran_chitaem "$ekt" "$harn"
+  zona_podmnozhestvo
   vm="$(vision_model)"; vrc=$?
   # отказ/нечем из vision_model умирают в подстановке: rc проносится вручную
   # (диагностика уже напечатана в stderr самой функцией)
@@ -194,12 +231,17 @@ cmd_zadanie() {  # $1 сверка $2 репо $3 ui-зона $4 контрак�
   # уже закоммиченные вне-зонные правки пустым диффом)
   command -v git >/dev/null 2>&1 || nechem 'нет git'
   baza="$(git -C "$repo" rev-parse HEAD^{commit} 2>/dev/null)" || nechem "репозиторий продукта не читается: $repo"
+  # непогашенная выдача (блокер 3 круга 2): повторный запуск zadanie НЕ переякоривает
+  # базу мимо приёма zona — сначала приём работы или откат доводки к базе выдачи
+  if bref="$(git -C "$repo" rev-parse -q --verify 'refs/dovodka/baza^{commit}' 2>/dev/null)"; then
+    [ "$bref" = "$baza" ] || otkaz "непогашенная выдача: с момента задания есть коммиты ($bref..$baza) — примите работу zona или откатите доводку к базе выдачи"
+  fi
   {
     printf '%s\n' "$ZAG"
     printf 'МОДЕЛЬ: %s (тир vision, overlay rc 0, images=yes)\n' "$vm"
     printf 'РЕПОЗИТОРИЙ: %s\n' "$repo"
     printf 'БАЗА: %s\n' "$baza"
-    printf 'КОНТРАКТ ЭКРАНА: %s\n' "$ekran"
+    printf 'КОНТРАКТ ЭКРАНА: %s\n' "$ekt"
     printf 'КАДРЫ: %s\n' "$kadry"
     printf 'МАКЕТЫ: %s\n' "$makety"
     printf 'UI-ЗОНА:\n'
@@ -208,24 +250,41 @@ cmd_zadanie() {  # $1 сверка $2 репо $3 ui-зона $4 контрак�
     printf '%s\n' "$SV"
     printf 'ЗАДАЧА: править только пути UI-ЗОНА; цикл правка → e2e → сверка 123; все кадры не ниже порога; судьям — результат с числами.\n'
   } > "$out"
+  # выдача фиксируется в git-состоянии продукта (блокер 3 круга 2): задание после
+  # выдачи неизменяемо — байты и БАЗА судятся zona по refs, а не по тексту задания
+  blob="$(git -C "$repo" hash-object -w "$out")" || nechem 'выдача не фиксируется: hash-object задания'
+  git -C "$repo" update-ref refs/dovodka/baza "$baza" || nechem 'выдача не фиксируется: update-ref refs/dovodka/baza'
+  git -C "$repo" update-ref refs/dovodka/zadanie "$blob" || nechem 'выдача не фиксируется: update-ref refs/dovodka/zadanie'
   printf 'DOVODKA: задание %s; красных кадров %s\n' "$out" "$n"
 }
 
-cmd_zona() {  # $1 репо $2 задание (база/UI-зона/контракт экрана — из задания, не от вызывающего)
-  local repo="$1" zad="$2"
-  local changed p n=0 base
+cmd_zona() {  # $1 репо $2 задание $3 harness (база — из refs выдачи, экран — из замороженного тега задания)
+  local repo="$1" zad="$2" harn="$3"
+  local changed p n=0 base zref zsha
   command -v git >/dev/null 2>&1 || nechem 'нет git'
   zadanie_chitaem "$zad" "$repo"
-  zona_podmnozhestvo "$EKRAN"
-  base="$BAZA"
+  # привязка к выдаче ворот (блокер 3 круга 2): байты задания ↔ refs/dovodka/zadanie,
+  # БАЗА — refs/dovodka/baza (git-состояние): правка задания после выдачи не проходит
+  zref="$(git -C "$repo" rev-parse -q --verify refs/dovodka/zadanie 2>/dev/null)" \
+    || otkaz 'задание не от ворот zadanie: нет ref выдачи (refs/dovodka/zadanie)'
+  zsha="$(git -C "$repo" hash-object "$zad")" || nechem "задание не читается: $zad"
+  [ "$zsha" = "$zref" ] || otkaz 'задание не от ворот zadanie: байты расходятся с refs/dovodka/zadanie'
+  base="$(git -C "$repo" rev-parse -q --verify 'refs/dovodka/baza^{commit}' 2>/dev/null)" \
+    || otkaz 'задание не от ворот zadanie: нет базового ref выдачи (refs/dovodka/baza)'
+  [ "$BAZA" = "$base" ] || otkaz 'задание не от ворот zadanie: БАЗА расходится с refs/dovodka/baza'
+  ekran_chitaem "$EKRAN" "$harn"
+  zona_podmnozhestvo
   git -C "$repo" cat-file -e "${base}^{commit}" 2>/dev/null || nechem "база диффа не читается: $base"
   changed="$(git -C "$repo" diff --no-renames --name-only "$base" HEAD)" || nechem 'дифф репозитория не читается'
-  [ -n "$changed" ] || otkaz 'дифф пуст — работы доводки нет (БАЗА из задания = HEAD)'
+  [ -n "$changed" ] || otkaz 'дифф пуст — работы доводки нет (БАЗА выдачи = HEAD)'
   while IFS= read -r p; do
     [ -n "$p" ] || continue
     n=$((n + 1))
     covered "$p" "${ZONY[@]}" || otkaz "правка вне UI-зоны: $p"
   done <<<"$changed"
+  # приём состоялся — выдача погашена: следующая доводка начинается новой выдачей
+  git -C "$repo" update-ref -d refs/dovodka/zadanie 2>/dev/null || nechem 'выдача не гасится: update-ref -d refs/dovodka/zadanie'
+  git -C "$repo" update-ref -d refs/dovodka/baza 2>/dev/null || nechem 'выдача не гасится: update-ref -d refs/dovodka/baza'
   printf 'ЗОНА: чисто (путей %s)\n' "$n"
 }
 
@@ -270,38 +329,40 @@ cmd_sudjam() {  # $1 сверка ДО $2 сверка ПОСЛЕ $3 артеф�
 case "${1:-}" in
   zadanie)
     shift
-    A_SVERKA=""; A_REPO=""; A_UIZ=""; A_EKRAN=""; A_KADRY=""; A_MAKETY=""; A_OUT=""
+    A_SVERKA=""; A_REPO=""; A_UIZ=""; A_EKRAN=""; A_HARNESS=""; A_KADRY=""; A_MAKETY=""; A_OUT=""
     while [ $# -gt 0 ]; do
       case "$1" in
         --sverka) A_SVERKA="$2"; shift 2 ;;
         --repo) A_REPO="$2"; shift 2 ;;
         --ui-zona) A_UIZ="$2"; shift 2 ;;
-        --kontrakt-ekrana) A_EKRAN="$2"; shift 2 ;;
+        --ekran) A_EKRAN="$2"; shift 2 ;;
+        --harness) A_HARNESS="$2"; shift 2 ;;
         --kadry) A_KADRY="$2"; shift 2 ;;
         --makety) A_MAKETY="$2"; shift 2 ;;
         --out) A_OUT="$2"; shift 2 ;;
         *) nechem "неизвестный аргумент zadanie: $1" ;;
       esac
     done
-    if [ -z "$A_SVERKA" ] || [ -z "$A_REPO" ] || [ -z "$A_UIZ" ] || [ -z "$A_EKRAN" ] || [ -z "$A_KADRY" ] || [ -z "$A_MAKETY" ] || [ -z "$A_OUT" ]; then
-      nechem 'zadanie: нужны --sverka --repo --ui-zona --kontrakt-ekrana --kadry --makety --out'
+    if [ -z "$A_SVERKA" ] || [ -z "$A_REPO" ] || [ -z "$A_UIZ" ] || [ -z "$A_EKRAN" ] || [ -z "$A_HARNESS" ] || [ -z "$A_KADRY" ] || [ -z "$A_MAKETY" ] || [ -z "$A_OUT" ]; then
+      nechem 'zadanie: нужны --sverka --repo --ui-zona --ekran <NNN> --harness <git> --kadry --makety --out'
     fi
-    cmd_zadanie "$A_SVERKA" "$A_REPO" "$A_UIZ" "$A_EKRAN" "$A_KADRY" "$A_MAKETY" "$A_OUT"
+    cmd_zadanie "$A_SVERKA" "$A_REPO" "$A_UIZ" "$A_EKRAN" "$A_HARNESS" "$A_KADRY" "$A_MAKETY" "$A_OUT"
     ;;
   zona)
     shift
-    A_REPO=""; A_ZAD=""
+    A_REPO=""; A_ZAD=""; A_HARNESS=""
     while [ $# -gt 0 ]; do
       case "$1" in
         --repo) A_REPO="$2"; shift 2 ;;
         --zadanie) A_ZAD="$2"; shift 2 ;;
-        *) nechem "неизвестный аргумент zona: $1 (база/UI-зона/контракт экрана — из --zadanie, не от вызывающего)" ;;
+        --harness) A_HARNESS="$2"; shift 2 ;;
+        *) nechem "неизвестный аргумент zona: $1 (база/UI-зона/экран — из --zadanie и refs выдачи, не от вызывающего)" ;;
       esac
     done
-    if [ -z "$A_REPO" ] || [ -z "$A_ZAD" ]; then
-      nechem 'zona: нужны --repo --zadanie'
+    if [ -z "$A_REPO" ] || [ -z "$A_ZAD" ] || [ -z "$A_HARNESS" ]; then
+      nechem 'zona: нужны --repo --zadanie --harness'
     fi
-    cmd_zona "$A_REPO" "$A_ZAD"
+    cmd_zona "$A_REPO" "$A_ZAD" "$A_HARNESS"
     ;;
   sudjam)
     shift

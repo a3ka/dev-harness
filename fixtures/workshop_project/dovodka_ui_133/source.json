@@ -1,204 +1,1159 @@
 {
-  "kontrakt": 133,
-  "subject_rel": "scripts/dovodka_ui.sh",
-  "cells": [
-    {"id": "c01-krasnyj-kadr", "intent": "красный кадр в сверке — задание строится: модель из тира vision, кадры/макеты/числа/UI-зона в задании дословно",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [], "iskhod": "ZADACHA"},
-    {"id": "c02-vse-zelenye", "intent": "все кадры не ниже порога — шаг НЕ зовётся: именованный отказ, задание не пишется (слово владельца: звать только по красному кадру)",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.791", "0.600", "tagline", "OK"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "OTKAZ", "prichina": "все кадры не ниже порога — шаг не зовётся"},
-    {"id": "c03-pustaya-sverka", "intent": "пустая сверка — не «нечего проверять», а нечем судить (правило: пустая выборка — красное)",
-     "rezhim": "zadanie",
-     "sverka_raw_do": "",
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "NECHEM", "prichina": "пустая сверка"},
-    {"id": "c04-stroka-vne-grammatiki", "intent": "строка сверки вне грамматики KADR (5 полей) — именованный отказ до любых решений",
-     "rezhim": "zadanie",
-     "sverka_raw_do": "KADR\tSplash dark\t0.783\t0.600\ttagline\n",
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "NECHEM", "prichina": "вне грамматики"},
-    {"id": "c05-verdikt-podmenen", "intent": "score ниже порога при вердикте OK — сверка сфальсифицирована: вердикт пересчитывается из чисел, верить строке нельзя",
-     "rezhim": "zadanie",
-     "sverka_raw_do": "KADR\tSplash dark\t0.400\t0.600\ttagline\tOK\n",
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "NECHEM", "prichina": "сфальсифицирована"},
-    {"id": "c06-vision-drugaja", "intent": "модель решает конфиг мира, не константа: тир vision = probe/glaz-9 — задание несёт glaz-9",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/glaz-9", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "ZADACHA"},
-    {"id": "c07-vision-net", "intent": "модель тира vision без картинок — overlay rc 1, шаг отказывает (инцидент «MiniMax без vision тестировал интерфейс»), диагностика overlay проносится",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/glaz-9", "images": "no"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "OTKAZ", "prichina": "не умеет картинки"},
-    {"id": "c08-tir-otsutstvuet", "intent": "тир vision не объявлен в конфиге — отказ (Н-20: долг картинок держит тир vision, он обязан быть объявлен)",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"net_tira": true},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "OTKAZ", "prichina": "тир vision не объявлен"},
-    {"id": "c09-overlay-nechem", "intent": "omp не перечислил модели — overlay rc 2 проносится как «нечем судить», не молчаливое зелёное",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/glaz-9", "images": "yes", "omp_pustoj": true},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "NECHEM", "prichina": "overlay rc 2"},
-    {"id": "c10-zona-chisto", "intent": "правка только в UI-зоне — принимается, stdout называет число путей диффа",
-     "rezhim": "zona",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"]], "iskhod": "CHISTO"},
-    {"id": "c11-zona-narushena", "intent": "доводка правит workflow CI продукта — правка вне UI-зоны, именованный отказ с путём",
-     "rezhim": "zona",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"], ["workflow"]], "iskhod": "OTKAZ", "prichina": "правка вне UI-зоны: .github/workflows/mobile.yml"},
-    {"id": "c12-pereimena-v-zonu", "intent": "переименование НЕ-UI файла в UI-зону: без --no-renames виден только новый путь (в зоне) — судятся ОБА пути переименования (урок И-4 из 131)",
-     "rezhim": "zona",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["pereimena"]], "iskhod": "OTKAZ", "prichina": "правка вне UI-зоны: .github/workflows/mobile.yml"},
-    {"id": "c13-ui-zona-shire", "intent": "UI-зона объявления шире ЗОНА implementer контракта экрана (mobile/e2e/) — отказ: доводчику нельзя объявлять больше, чем зоне implementer",
-     "rezhim": "zona",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/", "mobile/e2e/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"]], "iskhod": "OTKAZ", "prichina": "UI-зона шире зоны implementer контракта экрана: mobile/e2e/"},
-    {"id": "c14-sudjam-chisla", "intent": "выдача судьям: числа ДО/ПОСЛЕ на каждый кадр побайтово, всё не ниже порога — rc 0",
-     "rezhim": "sudjam",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "sverka_posle": [["Splash dark", "0.784", "0.600", "tagline", "OK"], ["Splash light", "0.791", "0.600", "tagline", "OK"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "SUD_OK"},
-    {"id": "c15-ne-zavershena", "intent": "кадр ниже порога в ПОСЛЕ — именованный отказ «не завершена» ПОСЛЕ записи артефакта: числа предъявлены судьям и красному исходу",
-     "rezhim": "sudjam",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "sverka_posle": [["Splash dark", "0.784", "0.600", "tagline", "OK"], ["Splash light", "0.412", "0.600", "wordmark", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "SUD_KRASNO"},
-    {"id": "c16-kadr-ischchez", "intent": "кадр из сверки ДО отсутствует в ПОСЛЕ — «кадр пропал», молчаливое сужение сверки не зелёное",
-     "rezhim": "sudjam",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "sverka_posle": [["Splash dark", "0.784", "0.600", "tagline", "OK"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "OTKAZ", "prichina": "кадр пропал из сверки ПОСЛЕ"},
-    {"id": "c17-kadr-lishnij", "intent": "в ПОСЛЕ кадр, которого не было в ДО, — «кадр появился»: множества кадров прогонов обязаны совпадать",
-     "rezhim": "sudjam",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "sverka_posle": [["Splash dark", "0.784", "0.600", "tagline", "OK"], ["Splash light", "0.791", "0.600", "tagline", "OK"], ["F03 dark", "0.800", "0.600", "g", "OK"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "OTKAZ", "prichina": "кадр появился в сверке ПОСЛЕ"},
-    {"id": "c18-porog-razoshelsya", "intent": "порог кадра разошёлся между прогонами (0.600 → 0.650) — порог живёт в замороженном манифесте H 123, расхождение — нечем судить",
-     "rezhim": "sudjam",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "sverka_posle": [["Splash dark", "0.784", "0.600", "tagline", "OK"], ["Splash light", "0.791", "0.650", "tagline", "OK"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "NECHEM", "prichina": "порог кадра разошёлся"},
-    {"id": "c19-vision-ne-perechislena", "intent": "модель тира vision есть в конфиге, но НЕ перечислена omp (список непуст, только tekst-m1): overlay rc 0 дыру не ловит (overlay.sh:129) — ворота сверяют с фактическим списком и отказывают (вердикт круга 1, блокер 4)",
-     "rezhim": "zadanie",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes", "ne_perechislena": true},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/"],
-     "shagi": [], "iskhod": "OTKAZ", "prichina": "не перечислена omp"},
-    {"id": "c20-zona-starye-argumenty", "intent": "zona вызвана в старой грамматике (--base/--ui-zona/--kontrakt-ekrana от вызывающего): неизвестный аргумент — базу и зону выбирает только задание ворот, не вызывающий (вердикт круга 1, блокеры 2/3)",
-     "rezhim": "zona", "zona_starye_args": true,
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"]], "iskhod": "NECHEM", "prichina": "неизвестный аргумент zona"},
-    {"id": "c21-zadanie-podmeneno", "intent": "оркестратор минует шаг: рукописное задание (широкая UI-зона, нет строк БАЗА/КОНТРАКТ ЭКРАНА) — zona принимает только задание грамматики ворот (вердикт круга 1, блокер 1: исключение/подмена шага)",
-     "rezhim": "zona",
-     "zadanie_raw": "# Задание доводки UI (шаг dovodka-ui, контракт 133)\nUI-ЗОНА:\nmobile/src/\n.github/workflows/\n",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/", ".github/workflows/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"], ["workflow"]], "iskhod": "OTKAZ", "prichina": "задание не от ворот zadanie: нет строки БАЗА"},
-    {"id": "c22-zona-shire-ekrana", "intent": "задание (подменённое, но грамматически верное) объявляет UI-зону шире ЗОНА implementer контракта экрана — zona перепроверяет ⊆ всегда, экран не «необязательный» (вердикт круга 1, блокер 2)",
-     "rezhim": "zona",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/", "mobile/e2e/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"]], "iskhod": "OTKAZ", "prichina": "UI-зона шире зоны implementer контракта экрана: mobile/e2e/"},
-    {"id": "c23-baza-podmenena-head", "intent": "БАЗА в задании = HEAD ПОСЛЕ вне-зонного коммита (обход вердикта круга 1: --base HEAD прятал правку пустым диффом) — дифф пуст, работы доводки нет: именованный отказ",
-     "rezhim": "zona", "baza": "head",
-     "sverka_do": [["Splash dark", "0.783", "0.600", "tagline", "OK"], ["Splash light", "0.000", "0.600", "tagline", "NIZHE_POROGA"]],
-     "vision": {"model": "probe/sonnet-v4", "images": "yes"},
-     "ui_zona": ["mobile/src/"], "ekran_zona": ["mobile/src/", "mobile/.maestro/"],
-     "shagi": [["ui"], ["workflow"]], "iskhod": "OTKAZ", "prichina": "дифф пуст"}
-  ],
-  "stubs": [
-    {"id": "s01-shag-vsegda-pozvan", "cell": "c02-vse-zelenye",
-     "defect": "шаг позван при всех кадрах выше порога: ворота красного кадра сняты",
-     "anchor": "red=\"$(printf '%s\\n' \"$SV\" | awk -F'\\t' '$6==\"NIZHE_POROGA\"')\"",
-     "zamena": "red=\"$SV\""},
-    {"id": "s02-zona-ne-suditsya", "cell": "c11-zona-narushena",
-     "defect": "доводка правит вне UI-зоны: дифф не судится против зоны",
-     "anchor": "    covered \"$p\" \"${ZONY[@]}\" || otkaz \"правка вне UI-зоны: $p\"",
-     "zamena": "    covered \"$p\" \"${ZONY[@]}\" || :"},
-    {"id": "s03-chisla-ne-predjavleny", "cell": "c14-sudjam-chisla",
-     "defect": "числа похожести не предъявлены судьям: артефакт без score ДО/ПОСЛЕ",
-     "anchor": "    printf 'SUD\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$id\" \"$sc\" \"$psc\" \"$po\" \"$phu\" \"$pvd\"",
-     "zamena": "    printf 'SUD\\t%s\\n' \"$id\""},
-    {"id": "s04-model-zahardkodena", "cell": "c06-vision-drugaja",
-     "defect": "модель доводчика захардкожена, конфиг тира не читается",
-     "anchor": "  vm=\"$(grep -oE '^\\s+vision:\\s*\"[^\"]+\"' \"$CFG\" | sed 's/.*\"\\(.*\\)\"/\\1/' | sed 's|.*/||')\"",
-     "zamena": "  vm=\"sonnet\""},
-    {"id": "s05-overlay-ignoriruetsya", "cell": "c09-overlay-nechem",
-     "defect": "overlay не вызывается: его отказ (omp пуст — rc 2 «нечем судить») не проносится, способность молчит",
-     "anchor": "  ov=\"$(bash \"$OVERLAY\" --check 2>&1 >/dev/null)\"; ovrc=$?",
-     "zamena": "  ov=\"\"; ovrc=0"},
-    {"id": "s06-pustaya-sverka-zelenaya", "cell": "c03-pustaya-sverka",
-     "defect": "пустая сверка читается как «нет красных кадров»",
-     "anchor": "    3) nechem \"$(cat \"$TMP_DIAG\")\" ;;",
-     "zamena": "    3) SV=\"\"; return 0 ;;"},
-    {"id": "s07-verdikt-po-stroke", "cell": "c05-verdikt-podmenen",
-     "defect": "вердикту строки верим, числа против вердикта не пересчитываются",
-     "anchor": "        diag = \"сверка сфальсифицирована: \" $2 \" score=\" $3 \" porog=\" $4 \" verdikt=\" $6; bad = 6; exit }",
-     "zamena": "        } # стаб: вердикту верим, числа не пересчитываются"},
-    {"id": "s08-bez-kontrakta-ekrana", "cell": "c22-zona-shire-ekrana",
-     "defect": "UI-зона не сверяется с ЗОНА implementer контракта экрана",
-     "anchor": "    covered \"$z\" \"${EKZ[@]}\" || otkaz \"UI-зона шире зоны implementer контракта экрана: $z\"",
-     "zamena": "    covered \"$z\" \"${EKZ[@]}\" || :"},
-    {"id": "s09-pereimenovanija-bez-no-renames", "cell": "c12-pereimena-v-zonu",
-     "defect": "дифф без --no-renames: у переименования виден только новый путь, старый НЕ-UI путь скрыт",
-     "anchor": "  changed=\"$(git -C \"$repo\" diff --no-renames --name-only \"$base\" HEAD)\" || nechem 'дифф репозитория не читается'",
-     "zamena": "  changed=\"$(git -C \"$repo\" diff --name-only \"$base\" HEAD)\" || nechem 'дифф репозитория не читается'"},
-    {"id": "s10-propavshij-kadr-ne-suditsya", "cell": "c16-kadr-ischchez",
-     "defect": "пропавший из ПОСЛЕ кадр молча выпадает из выдачи судьям",
-     "anchor": "    if [ -z \"${POSLE[$id]+x}\" ]; then otkaz \"кадр пропал из сверки ПОСЛЕ: $id\"; fi",
-     "zamena": "    if [ -z \"${POSLE[$id]+x}\" ]; then continue; fi"},
-    {"id": "s11-model-ne-perechislena-zelenaya", "cell": "c19-vision-ne-perechislena",
-     "defect": "неперечисленная omp модель проходит как vision: сверка с фактическим списком снята",
-     "anchor": "  img=\"$(printf '%s\\n' \"$caps\" | awk -F'\\t' -v m=\"$vm\" '$1==m { print $2; exit }')\"",
-     "zamena": "  img=\"yes\""},
-    {"id": "s12-zadanie-ljuboj-fajl", "cell": "c21-zadanie-podmeneno",
-     "defect": "zona принимает рукописное задание без строки БАЗА: шаг минует ворота zadanie",
-     "anchor": "  [ -n \"$BAZA\" ] || otkaz 'задание не от ворот zadanie: нет строки БАЗА'",
-     "zamena": "  [ -n \"$BAZA\" ] || BAZA=\"$(git -C \"$repo\" rev-parse HEAD)\""},
-    {"id": "s13-diff-pustoj-zelenyj", "cell": "c23-baza-podmenena-head",
-     "defect": "пустой дифф (БАЗА = HEAD после вне-зонной правки) принимается: работы доводки нет, а зелёное есть",
-     "anchor": "  [ -n \"$changed\" ] || otkaz 'дифф пуст — работы доводки нет (БАЗА из задания = HEAD)'",
-     "zamena": "  [ -n \"$changed\" ] || :"}
-  ]
+ "kontrakt": 133,
+ "subject_rel": "scripts/dovodka_ui.sh",
+ "cells": [
+  {
+   "id": "c01-krasnyj-kadr",
+   "intent": "красный кадр в сверке — задание строится: модель из тира vision, кадры/макеты/числа/UI-зона в задании дословно",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [],
+   "iskhod": "ZADACHA"
+  },
+  {
+   "id": "c02-vse-zelenye",
+   "intent": "все кадры не ниже порога — шаг НЕ зовётся: именованный отказ, задание не пишется (слово владельца: звать только по красному кадру)",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.791",
+     "0.600",
+     "tagline",
+     "OK"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "все кадры не ниже порога — шаг не зовётся"
+  },
+  {
+   "id": "c03-pustaya-sverka",
+   "intent": "пустая сверка — не «нечего проверять», а нечем судить (правило: пустая выборка — красное)",
+   "rezhim": "zadanie",
+   "sverka_raw_do": "",
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "NECHEM",
+   "prichina": "пустая сверка"
+  },
+  {
+   "id": "c04-stroka-vne-grammatiki",
+   "intent": "строка сверки вне грамматики KADR (5 полей) — именованный отказ до любых решений",
+   "rezhim": "zadanie",
+   "sverka_raw_do": "KADR\tSplash dark\t0.783\t0.600\ttagline\n",
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "NECHEM",
+   "prichina": "вне грамматики"
+  },
+  {
+   "id": "c05-verdikt-podmenen",
+   "intent": "score ниже порога при вердикте OK — сверка сфальсифицирована: вердикт пересчитывается из чисел, верить строке нельзя",
+   "rezhim": "zadanie",
+   "sverka_raw_do": "KADR\tSplash dark\t0.400\t0.600\ttagline\tOK\n",
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "NECHEM",
+   "prichina": "сфальсифицирована"
+  },
+  {
+   "id": "c06-vision-drugaja",
+   "intent": "модель решает конфиг мира, не константа: тир vision = probe/glaz-9 — задание несёт glaz-9",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/glaz-9",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "ZADACHA"
+  },
+  {
+   "id": "c07-vision-net",
+   "intent": "модель тира vision без картинок — overlay rc 1, шаг отказывает (инцидент «MiniMax без vision тестировал интерфейс»), диагностика overlay проносится",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/glaz-9",
+    "images": "no"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "не умеет картинки"
+  },
+  {
+   "id": "c08-tir-otsutstvuet",
+   "intent": "тир vision не объявлен в конфиге — отказ (Н-20: долг картинок держит тир vision, он обязан быть объявлен)",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "net_tira": true
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "тир vision не объявлен"
+  },
+  {
+   "id": "c09-overlay-nechem",
+   "intent": "omp не перечислил модели — overlay rc 2 проносится как «нечем судить», не молчаливое зелёное",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/glaz-9",
+    "images": "yes",
+    "omp_pustoj": true
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "NECHEM",
+   "prichina": "overlay rc 2"
+  },
+  {
+   "id": "c10-zona-chisto",
+   "intent": "правка только в UI-зоне — принимается, stdout называет число путей диффа",
+   "rezhim": "zona",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ]
+   ],
+   "iskhod": "CHISTO"
+  },
+  {
+   "id": "c11-zona-narushena",
+   "intent": "доводка правит workflow CI продукта — правка вне UI-зоны, именованный отказ с путём",
+   "rezhim": "zona",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ],
+    [
+     "workflow"
+    ]
+   ],
+   "iskhod": "OTKAZ",
+   "prichina": "правка вне UI-зоны: .github/workflows/mobile.yml"
+  },
+  {
+   "id": "c12-pereimena-v-zonu",
+   "intent": "переименование НЕ-UI файла в UI-зону: без --no-renames виден только новый путь (в зоне) — судятся ОБА пути переименования (урок И-4 из 131)",
+   "rezhim": "zona",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "pereimena"
+    ]
+   ],
+   "iskhod": "OTKAZ",
+   "prichina": "правка вне UI-зоны: .github/workflows/mobile.yml"
+  },
+  {
+   "id": "c13-ui-zona-shire",
+   "intent": "UI-зона объявления шире ЗОНА implementer контракта экрана (mobile/e2e/) — отказ: доводчику нельзя объявлять больше, чем зоне implementer",
+   "rezhim": "zona",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/",
+    "mobile/e2e/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ]
+   ],
+   "iskhod": "OTKAZ",
+   "prichina": "UI-зона шире зоны implementer контракта экрана: mobile/e2e/"
+  },
+  {
+   "id": "c14-sudjam-chisla",
+   "intent": "выдача судьям: числа ДО/ПОСЛЕ на каждый кадр побайтово, всё не ниже порога — rc 0",
+   "rezhim": "sudjam",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "sverka_posle": [
+    [
+     "Splash dark",
+     "0.784",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.791",
+     "0.600",
+     "tagline",
+     "OK"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "SUD_OK"
+  },
+  {
+   "id": "c15-ne-zavershena",
+   "intent": "кадр ниже порога в ПОСЛЕ — именованный отказ «не завершена» ПОСЛЕ записи артефакта: числа предъявлены судьям и красному исходу",
+   "rezhim": "sudjam",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "sverka_posle": [
+    [
+     "Splash dark",
+     "0.784",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.412",
+     "0.600",
+     "wordmark",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "SUD_KRASNO"
+  },
+  {
+   "id": "c16-kadr-ischchez",
+   "intent": "кадр из сверки ДО отсутствует в ПОСЛЕ — «кадр пропал», молчаливое сужение сверки не зелёное",
+   "rezhim": "sudjam",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "sverka_posle": [
+    [
+     "Splash dark",
+     "0.784",
+     "0.600",
+     "tagline",
+     "OK"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "кадр пропал из сверки ПОСЛЕ"
+  },
+  {
+   "id": "c17-kadr-lishnij",
+   "intent": "в ПОСЛЕ кадр, которого не было в ДО, — «кадр появился»: множества кадров прогонов обязаны совпадать",
+   "rezhim": "sudjam",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "sverka_posle": [
+    [
+     "Splash dark",
+     "0.784",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.791",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "F03 dark",
+     "0.800",
+     "0.600",
+     "g",
+     "OK"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "кадр появился в сверке ПОСЛЕ"
+  },
+  {
+   "id": "c18-porog-razoshelsya",
+   "intent": "порог кадра разошёлся между прогонами (0.600 → 0.650) — порог живёт в замороженном манифесте H 123, расхождение — нечем судить",
+   "rezhim": "sudjam",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "sverka_posle": [
+    [
+     "Splash dark",
+     "0.784",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.791",
+     "0.650",
+     "tagline",
+     "OK"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "NECHEM",
+   "prichina": "порог кадра разошёлся"
+  },
+  {
+   "id": "c19-vision-ne-perechislena",
+   "intent": "модель тира vision есть в конфиге, но НЕ перечислена omp (список непуст, только tekst-m1): overlay rc 0 дыру не ловит (overlay.sh:129) — ворота сверяют с фактическим списком и отказывают (вердикт круга 1, блокер 4)",
+   "rezhim": "zadanie",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes",
+    "ne_perechislena": true
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "не перечислена omp"
+  },
+  {
+   "id": "c20-zona-starye-argumenty",
+   "intent": "zona вызвана в старой грамматике (--base/--ui-zona/--kontrakt-ekrana от вызывающего): неизвестный аргумент — базу и зону выбирает только задание ворот, не вызывающий (вердикт круга 1, блокеры 2/3)",
+   "rezhim": "zona",
+   "zona_starye_args": true,
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ]
+   ],
+   "iskhod": "NECHEM",
+   "prichina": "неизвестный аргумент zona"
+  },
+  {
+   "id": "c21-zadanie-podmeneno",
+   "intent": "оркестратор минует шаг: рукописное задание (широкая UI-зона, нет строк БАЗА/КОНТРАКТ ЭКРАНА) — zona принимает только задание грамматики ворот (вердикт круга 1, блокер 1: исключение/подмена шага)",
+   "rezhim": "zona",
+   "zadanie_raw": "# Задание доводки UI (шаг dovodka-ui, контракт 133)\nUI-ЗОНА:\nmobile/src/\n.github/workflows/\n",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/",
+    ".github/workflows/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ],
+    [
+     "workflow"
+    ]
+   ],
+   "iskhod": "OTKAZ",
+   "prichina": "задание не от ворот zadanie: нет строки БАЗА"
+  },
+  {
+   "id": "c22-zona-shire-ekrana",
+   "intent": "задание (подменённое, но грамматически верное) объявляет UI-зону шире ЗОНА implementer контракта экрана — zona перепроверяет ⊆ всегда, экран не «необязательный» (вердикт круга 1, блокер 2)",
+   "rezhim": "zona",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/",
+    "mobile/e2e/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ]
+   ],
+   "iskhod": "OTKAZ",
+   "prichina": "UI-зона шире зоны implementer контракта экрана: mobile/e2e/"
+  },
+  {
+   "id": "c23-diff-pustoj",
+   "intent": "задание выдано воротами честно (refs на базе), доводка НЕ работала — дифф БАЗА..HEAD пуст: именованный отказ, пустая работа не зелёная (исход c23 круга 1/2: БАЗА=HEAD прятал вне-зонные правки пустым диффом; теперь БАЗА — ref выдачи, подмена текста — c24)",
+   "rezhim": "zona",
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "дифф пуст"
+  },
+  {
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "ui"
+    ],
+    [
+     "workflow"
+    ]
+   ],
+   "id": "c24-baza-podmenena-posle-vydachi",
+   "intent": "БАЗА в задании правится ПОСЛЕ выдачи на SHA после вне-зонного коммита (живая проба критика v2: workflow-коммит спрятан базой) — zona сверяет БАЙТЫ задания с refs/dovodka/zadanie выдачи: расходятся — именованный отказ (блокер 3 v2: задание после выдачи не доказательство)",
+   "rezhim": "zona",
+   "redaktirovana_baza": true,
+   "iskhod": "OTKAZ",
+   "prichina": "байты расходятся с refs/dovodka/zadanie"
+  },
+  {
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [
+    [
+     "workflow"
+    ]
+   ],
+   "id": "c25-perevydacha-posle-kommitov",
+   "intent": "повторный запуск zadanie при НЕПОГАШЕННОЙ выдаче (после базы есть вне-зонный коммит) — отказ: повторной выдачей нельзя переякорить БАЗУ мимо приёма zona (блокер 3 v2: живая проба «запусти ворота повторно»)",
+   "rezhim": "zadanie",
+   "vydacha_do_shagov": true,
+   "iskhod": "OTKAZ",
+   "prichina": "непогашенная выдача"
+  },
+  {
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [],
+   "id": "c26-zadanie-ekran-fajl",
+   "intent": "zadanie вызвана со старым аргументом --kontrakt-ekrana <файл> — файл экрана от вызывающего больше не вход вовсе: неизвестный аргумент (блокер 2 v2: граница экрана — только замороженный blob по NNN)",
+   "rezhim": "zadanie",
+   "dop_arg_kontrakt": true,
+   "iskhod": "NECHEM",
+   "prichina": "неизвестный аргумент zadanie"
+  },
+  {
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [],
+   "id": "c27-ekran-ne-zamorozhen",
+   "intent": "экран без тега frozen (NNN 999) — контракта экрана НЕ существует как замороженного blob: именованный отказ, задание не пишется",
+   "rezhim": "zadanie",
+   "ekran_nnn": "999",
+   "ekran_net_tega": true,
+   "iskhod": "OTKAZ",
+   "prichina": "контракт экрана не заморожен: 999"
+  },
+  {
+   "id": "d01-dver-implementer",
+   "intent": "раздача доводчику — СУЩЕСТВУЮЩАЯ дверь 095 в роли implementer (алфавит make_task): живая проба на клоне дерева с маркером заморозки — rc 0 и непустой манифест .omp/context/<NNN>.tsv (блокер 1 v2: заявленный механизм передачи обязан существовать; клетки двери не зовут субъект)",
+   "rezhim": "dver",
+   "dver": "manifest",
+   "iskhod": "DVER_OK"
+  },
+  {
+   "id": "d02-dver-vne-alfavita",
+   "intent": "роль implementer-vision дверью 095 НЕ принимается (живая проба критика v2: rc 1 «роль вне алфавита») — норма шага обязана звать существующую роль implementer, а не несуществующую (блокер 1 v2: клетка пинит алфавит двери)",
+   "rezhim": "dver",
+   "dver": "vne-alfavita",
+   "iskhod": "DVER_OTKAZ",
+   "prichina": "роль вне алфавита: implementer-vision"
+  },
+  {
+   "id": "d03-dver-taskfile-ne-kanal",
+   "intent": "--task-file НЕ канал передачи задания для implementer (ветка 095 включена только для reviewer): дверь rc 0, но в паке нет TASK-секции, в манифесте нет task-строки, байты задания в пак не попадают — норма обязана передавать задание каналом станции, а не этим флагом (блокер 1 v2)",
+   "rezhim": "dver",
+   "dver": "taskfile",
+   "iskhod": "DVER_NET_KANALA"
+  }
+ ],
+ "stubs": [
+  {
+   "id": "s01-shag-vsegda-pozvan",
+   "cell": "c02-vse-zelenye",
+   "defect": "шаг позван при всех кадрах выше порога: ворота красного кадра сняты",
+   "anchor": "red=\"$(printf '%s\\n' \"$SV\" | awk -F'\\t' '$6==\"NIZHE_POROGA\"')\"",
+   "zamena": "red=\"$SV\""
+  },
+  {
+   "id": "s02-zona-ne-suditsya",
+   "cell": "c11-zona-narushena",
+   "defect": "доводка правит вне UI-зоны: дифф не судится против зоны",
+   "anchor": "    covered \"$p\" \"${ZONY[@]}\" || otkaz \"правка вне UI-зоны: $p\"",
+   "zamena": "    covered \"$p\" \"${ZONY[@]}\" || :"
+  },
+  {
+   "id": "s03-chisla-ne-predjavleny",
+   "cell": "c14-sudjam-chisla",
+   "defect": "числа похожести не предъявлены судьям: артефакт без score ДО/ПОСЛЕ",
+   "anchor": "    printf 'SUD\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' \"$id\" \"$sc\" \"$psc\" \"$po\" \"$phu\" \"$pvd\"",
+   "zamena": "    printf 'SUD\\t%s\\n' \"$id\""
+  },
+  {
+   "id": "s04-model-zahardkodena",
+   "cell": "c06-vision-drugaja",
+   "defect": "модель доводчика захардкожена, конфиг тира не читается",
+   "anchor": "  vm=\"$(grep -oE '^\\s+vision:\\s*\"[^\"]+\"' \"$CFG\" | sed 's/.*\"\\(.*\\)\"/\\1/' | sed 's|.*/||')\"",
+   "zamena": "  vm=\"sonnet\""
+  },
+  {
+   "id": "s05-overlay-ignoriruetsya",
+   "cell": "c09-overlay-nechem",
+   "defect": "overlay не вызывается: его отказ (omp пуст — rc 2 «нечем судить») не проносится, способность молчит",
+   "anchor": "  ov=\"$(bash \"$OVERLAY\" --check 2>&1 >/dev/null)\"; ovrc=$?",
+   "zamena": "  ov=\"\"; ovrc=0"
+  },
+  {
+   "id": "s06-pustaya-sverka-zelenaya",
+   "cell": "c03-pustaya-sverka",
+   "defect": "пустая сверка читается как «нет красных кадров»",
+   "anchor": "    3) nechem \"$(cat \"$TMP_DIAG\")\" ;;",
+   "zamena": "    3) SV=\"\"; return 0 ;;"
+  },
+  {
+   "id": "s07-verdikt-po-stroke",
+   "cell": "c05-verdikt-podmenen",
+   "defect": "вердикту строки верим, числа против вердикта не пересчитываются",
+   "anchor": "        diag = \"сверка сфальсифицирована: \" $2 \" score=\" $3 \" porog=\" $4 \" verdikt=\" $6; bad = 6; exit }",
+   "zamena": "        } # стаб: вердикту верим, числа не пересчитываются"
+  },
+  {
+   "id": "s08-bez-kontrakta-ekrana",
+   "cell": "c22-zona-shire-ekrana",
+   "defect": "UI-зона не сверяется с ЗОНА implementer контракта экрана",
+   "anchor": "    covered \"$z\" \"${EKZ[@]}\" || otkaz \"UI-зона шире зоны implementer контракта экрана: $z\"",
+   "zamena": "    covered \"$z\" \"${EKZ[@]}\" || :"
+  },
+  {
+   "id": "s09-pereimenovanija-bez-no-renames",
+   "cell": "c12-pereimena-v-zonu",
+   "defect": "дифф без --no-renames: у переименования виден только новый путь, старый НЕ-UI путь скрыт",
+   "anchor": "  changed=\"$(git -C \"$repo\" diff --no-renames --name-only \"$base\" HEAD)\" || nechem 'дифф репозитория не читается'",
+   "zamena": "  changed=\"$(git -C \"$repo\" diff --name-only \"$base\" HEAD)\" || nechem 'дифф репозитория не читается'"
+  },
+  {
+   "id": "s10-propavshij-kadr-ne-suditsya",
+   "cell": "c16-kadr-ischchez",
+   "defect": "пропавший из ПОСЛЕ кадр молча выпадает из выдачи судьям",
+   "anchor": "    if [ -z \"${POSLE[$id]+x}\" ]; then otkaz \"кадр пропал из сверки ПОСЛЕ: $id\"; fi",
+   "zamena": "    if [ -z \"${POSLE[$id]+x}\" ]; then continue; fi"
+  },
+  {
+   "id": "s11-model-ne-perechislena-zelenaya",
+   "cell": "c19-vision-ne-perechislena",
+   "defect": "неперечисленная omp модель проходит как vision: сверка с фактическим списком снята",
+   "anchor": "  img=\"$(printf '%s\\n' \"$caps\" | awk -F'\\t' -v m=\"$vm\" '$1==m { print $2; exit }')\"",
+   "zamena": "  img=\"yes\""
+  },
+  {
+   "id": "s12-zadanie-ljuboj-fajl",
+   "cell": "c21-zadanie-podmeneno",
+   "defect": "zona принимает рукописное задание без строки БАЗА: шаг минует ворота zadanie",
+   "anchor": "  [ -n \"$BAZA\" ] || otkaz 'задание не от ворот zadanie: нет строки БАЗА'",
+   "zamena": "  [ -n \"$BAZA\" ] || BAZA=\"$(git -C \"$repo\" rev-parse HEAD)\""
+  },
+  {
+   "id": "s13-diff-pustoj-zelenyj",
+   "cell": "c23-diff-pustoj",
+   "defect": "пустой дифф (выдача на HEAD, работы нет) принимается: зелёное без работы",
+   "anchor": "  [ -n \"$changed\" ] || otkaz 'дифф пуст — работы доводки нет (БАЗА выдачи = HEAD)'",
+   "zamena": "  [ -n \"$changed\" ] || :"
+  },
+  {
+   "id": "s14-zadanie-bez-sverki-bajjtov",
+   "cell": "c24-baza-podmenena-posle-vydachi",
+   "defect": "правка БАЗЫ в задании после вне-зонного коммита не ловится: байты задания не сверяются с ref выдачи",
+   "anchor": "  [ \"$zsha\" = \"$zref\" ] || otkaz 'задание не от ворот zadanie: байты расходятся с refs/dovodka/zadanie'",
+   "zamena": "  :"
+  },
+  {
+   "id": "s15-perevydacha-razreshena",
+   "cell": "c25-perevydacha-posle-kommitov",
+   "defect": "повторная выдача переякоривает БАЗУ мимо приёма zona: проверка непогашенной выдачи снята",
+   "anchor": "    [ \"$bref\" = \"$baza\" ] || otkaz \"непогашенная выдача: с момента задания есть коммиты ($bref..$baza) — примите работу zona или откатите доводку к базе выдачи\"",
+   "zamena": "    :"
+  },
+  {
+   "id": "s16-ekran-bez-zamorozki",
+   "cell": "c27-ekran-ne-zamorozhen",
+   "defect": "незамороженный экран не отказывает на месте: тег заморозки рисуется",
+   "anchor": "  [ -n \"$ekt\" ] || otkaz \"контракт экрана не заморожен: $ekn\"",
+   "zamena": "  ekt=\"frozen/contracts/$ekn/1\""
+  }
+ ]
 }
