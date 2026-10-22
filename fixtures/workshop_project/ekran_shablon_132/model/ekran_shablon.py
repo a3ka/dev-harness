@@ -3,7 +3,7 @@
 # probe.py; та же грамматика вывода, что у субъекта scripts/ekran_shablon.py.
 """Шаблон контракта экрана mob (132): машиночитаемая форма ekran.json + проверки.
 
-Форма (все ключи обязательны, замкнутый состав):
+Форма (все ключи обязательны, замкнутый состав — 17 полей):
   ekran          id экрана, [a-z0-9][a-z0-9-]{0,63} — ОДИН экран на контракт
   kadry          путь в пачке: манифест кадров грамматики 123 (kadry_117.json)
   sostojanija    непустой список [a-z0-9-]+, без повторов
@@ -17,14 +17,21 @@
   e2e_scenarij   путь в репо продукта: сценарий android-e2e; содержит каждый
                  snimok манифеста кадров
   kadry_dir      путь в репо продукта: каталог кадров Maestro-раскладки
-  kontrakt       путь в пачке: контракт экрана; несёт обязательные разделы
+  kontrakt       путь в пачке: контракт экрана НЕ БОЛЕЕ 60 СТРОК (воля
+                 владельца «на одну страницу»); несёт обязательные разделы
                  (Воля владельца, Существующее, Инварианты, Приёмочный
                  критерий, Зоны и исполнители, ПРОВОДКА, Модель угроз) и
                  ЗОНА-строки, равные zony формы
   batareja       непустой список путей в пачке: файлы батареи экрана
-  priemka        {"e2e": строка rc-команды android-e2e, "sverka": строка
-                 rc-команды сверки; обязана запускать sverka_maketa.py с
-                 --manifest — самодельная сверка запрещена}
+  priemka        {"e2e": командная строка android-e2e, "sverka": командная
+                 строка сверки}. ОБЕ ИСПОЛНЯЮТСЯ фактическим argv (cwd = репо
+                 продукта, БЕЗ shell; алфавит поля без кавычек/;|&$() —
+                 пробел единственный разделитель, прецедент Г3-002):
+                 e2e — rc 0 (кадры, оставшиеся после команды, судит сверка:
+                 команда без кадров даёт KADR_OTSUTSTVUET, не зелень);
+                 sverka — rc 0 И stdout дословно равен выводу раннера 123 по
+                 манифесту пачки (сверка-образец); строка обязана нести
+                 токены sverka_maketa.py и --manifest
   zony           {"architect": [...], "implementer": [...]} — грамматика
                  check_zones: относительные пути без *?[ , без .., без
                  ведущего /; каталог с завершающей /
@@ -32,26 +39,47 @@
                  того же экрана; кадры нового — надмножество (замена целиком)
   ne_trogaet     список путей в харнессе: живые манифесты ЧУЖИХ экранов;
                  пересечение id кадров пусто (чужих пикселей не морозит)
+  fiktura        bool; СУДИМАЯ пачка обязана быть false (фикция не судится);
+                 false у живой пачки делает её видимой обнаружению (ниже)
 
-Проверки (дорогая — сверка раннером 123 — стоит после дешёвых; при любом
-отказе до сверки раннер не зовётся):
-  алфавит/грамматика формы и путей, существование файлов, разделы контракта,
-  равенство ЗОНА-строк контракта форме, запрет литералов
-  (#[0-9a-fA-F]{3,8} и [0-9]+(px|pt|sp|dp)) во всех текстовых файлах пачки,
-  ключи копии, операции API, покрытие сценария, строка сверки priemka,
-  замена целиком, чужие кадры, сверка каждого кадра раннером 123.
+Живые пачки (грамматика ОБНАРУЖЕНИЯ, отдельно от полной формы): файл
+ekran.json под fixtures/workshop_project/** харнесса с полями ekran
+([a-z0-9][a-z0-9-]{0,63}), kadry (относительный путь) и fiktura != true.
+Судимая пачка исключает из обнаружения себя (сравнение путей). Полнота
+объявлений против обнаруженных живых пачек (мера против пустых
+zamenjaet/ne_trogaet): живая пачка ТОГО ЖЕ ekran — её манифест обязан быть
+назван в zamenjaet (ZAMENJAET_NE_POLON); живая пачка ЧУЖОГО ekran — её
+манифест обязан стоять в ne_trogaet (NE_TROGAET_NE_POLON). Замена целиком:
+заменяющий контракт экрана удаляет пачку предшественника своей зоной —
+живость определяется наличием ekran.json.
+
+Проверки (порядок «дешёвые раньше дорогих»: при любом отказе формы/полей
+дешёвых проверок дорогое не зовётся):
+  алфавит/грамматика формы и путей, существование файлов, разделы и ОБЪЁМ
+  (≤ 60 строк) контракта, равенство ЗОНА-строк контракта форме, запрет
+  литералов, ключи копии, операции API, покрытие сценария, токены команды
+  сверки, замена целиком, чужие кадры, полнота объявлений — затем ИСПОЛНЕНИЕ
+  priemka.e2e (argv, rc 0), сверка-образец раннером 123 по манифесту пачки
+  (каждый кадр не ниже порога), затем ИСПОЛНЕНИЕ priemka.sverka (argv,
+  rc 0 + дословное совпадение вывода со сверкой-образцом).
+
+Литералы (ЗАПРЕЩЕНЫ во всех текстовых файлах пачки; замкнутый алфавит
+форматов): цвета — #[0-9a-fA-F]{3,8}, rgb(...), rgba(...), hsl(...),
+hsla(...); размеры — [0-9]+(.frac)?(px|pt|sp|dp|rem|em|vw|vh).
 
 CLI: ekran_shablon.py --pack DIR --repo DIR --harness DIR
 Вывод: stdout — строки раннера 123 (KADR...) дословно, затем при успехе
   SHABLON<TAB><ekran><TAB>OK
 stderr — строка на отказ PRICHINA<TAB>имя<TAB>подробности.
-rc: 0 — форма верна и все кадры не ниже порога; 1 — LITERAL_VNE_AUDITA /
-KLJUCH_BEZ_KATALOGA / OPERACIJA_BEZ_SPEKA / SCENARIJ_BEZ_SNIMKA /
-SAMODELNAYA_SVERKA / NE_TSELIKOM / CHUZHIE_KADRY / ZONY_RASHODJATSJA /
-RAZDEL_OTSVTSTVUET / KADR_NIZHE_POROGA / KADR_OTSUTSTVUET /
-KADR_NEODNOZNACHEN / KADR_NECHITAEM / MAKET_PODMENEN; 2 — SHABLON_NEVEREN
-(грамматика формы, нет файла, манифест кадров вне грамматики 123) /
-SVERKA_123_ABSENT (нет раннера 123 — инфраструктура).
+rc: 0 — форма верна, приёмка исполнена, все кадры не ниже порога;
+1 — LITERAL_VNE_AUDITA / KLJUCH_BEZ_KATALOGA / OPERACIJA_BEZ_SPEKA /
+SCENARIJ_BEZ_SNIMKA / SAMODELNAYA_SVERKA / E2E_NE_PROSHLA / NE_TSELIKOM /
+CHUZHIE_KADRY / ZAMENJAET_NE_POLON / NE_TROGAET_NE_POLON / ZONY_RASHODJATSJA /
+RAZDEL_OTSVTSTVUET / NE_ODNA_STRANICA / KADR_NIZHE_POROGA /
+KADR_OTSUTSTVUET / KADR_NEODNOZNACHEN / KADR_NECHITAEM / MAKET_PODMENEN;
+2 — SHABLON_NEVEREN (грамматика формы, нет файла, манифест кадров вне
+грамматики 123, fiktura у судимой) / SVERKA_123_ABSENT (нет раннера 123 —
+инфраструктура).
 """
 import json
 import re
@@ -62,7 +90,7 @@ from pathlib import Path
 FORMA_KEYS = {'ekran', 'kadry', 'sostojanija', 'kljuchi_kopii', 'operacii_api',
               'katalog_kopii', 'spec_api', 'audit_tokenov', 'e2e_scenarij',
               'kadry_dir', 'kontrakt', 'batareja', 'priemka', 'zony',
-              'zamenjaet', 'ne_trogaet'}
+              'zamenjaet', 'ne_trogaet', 'fiktura'}
 RAZDELY = ['Воля владельца', 'Существующее', 'Инварианты',
            'Приёмочный критерий', 'Зоны и исполнители', 'ПРОВОДКА',
            'Модель угроз']
@@ -72,8 +100,9 @@ RE_KLJUCH = re.compile(r'\A[A-Za-z0-9_.-]+\Z')
 RE_PUT = re.compile(r'\A[A-Za-z0-9_./-]+\Z')
 RE_PRIEMKA = re.compile(r'\A[A-Za-z0-9 ./_-]+\Z')
 RE_ZONA_STROKA = re.compile(r'^ЗОНА (architect|implementer): (.+)$')
-RE_CVET = re.compile(r'#[0-9a-fA-F]{3,8}\b')
-RE_RAZMER = re.compile(r'\b[0-9]+(?:\.[0-9]+)?(?:px|pt|sp|dp)\b')
+RE_CVET = re.compile(r'#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\([0-9, .%]*\)')
+RE_RAZMER = re.compile(r'\b[0-9]+(?:\.[0-9]+)?(?:px|pt|sp|dp|rem|em|vw|vh)\b')
+MAX_STRANICA = 60
 RC2 = {'SHABLON_NEVEREN', 'SVERKA_123_ABSENT'}
 # отказ раннера 123 -> имя отказа шаблона (по грамматике вывода 123)
 RUNNER_MAP = {'NIZHE_POROGA': 'KADR_NIZHE_POROGA',
@@ -119,6 +148,11 @@ def check_alfavit(f):
     bad = []
     if not isinstance(f['ekran'], str) or not RE_EKRAN.match(f['ekran']):
         bad.append(otkaz('SHABLON_NEVEREN', 'ekran'))
+    fk = f['fiktura']
+    if not isinstance(fk, bool):
+        bad.append(otkaz('SHABLON_NEVEREN', 'fiktura'))
+    elif fk:
+        bad.append(otkaz('SHABLON_NEVEREN', 'fiktura: судимая пачка — не фикция'))
     bad += _spisok(f, 'sostojanija', RE_SLOVO)
     bad += _spisok(f, 'kljuchi_kopii', RE_KLJUCH)
     bad += _spisok(f, 'operacii_api', RE_KLJUCH, pustoj=True)
@@ -222,6 +256,15 @@ def check_razdely(tekst: str):
     return bad
 
 
+def check_objem(tekst: str):
+    """Воля владельца «контракт экрана на одну страницу»: ≤ 60 строк."""
+    n = len(tekst.splitlines())
+    if n > MAX_STRANICA:
+        return [otkaz('NE_ODNA_STRANICA',
+                      'строк: %d (норма ≤ %d)' % (n, MAX_STRANICA))]
+    return []
+
+
 def check_zony_stroki(tekst: str, f):
     """ЗОНА-строки контракта = zony формы (множества, грамматика check_zones)."""
     bad, najdeno = [], {'architect': set(), 'implementer': set()}
@@ -302,9 +345,15 @@ def check_scenarij(f, repo: Path, kadry):
     return bad
 
 
+def razbit_argv(cmd):
+    """Алфавит priemka без кавычек/;|&$() — пробел единственный разделитель;
+    исполнение — фактический argv без shell (прецедент Г3-002)."""
+    return cmd.split(' ')
+
+
 def check_priemka(f):
-    sv = f['priemka']['sverka']
-    if 'sverka_maketa.py' not in sv or '--manifest' not in sv:
+    sv = razbit_argv(f['priemka']['sverka'])
+    if not any('sverka_maketa.py' in t for t in sv) or '--manifest' not in sv:
         return [otkaz('SAMODELNAYA_SVERKA',
                       'команда сверки не запускает механизм 123')]
     return []
@@ -342,6 +391,45 @@ def check_chuzhie(f, harness: Path, kadry):
     return bad
 
 
+def zhivye_pachty(harness: Path, pack: Path):
+    """Живые пачки экранов (грамматика обнаружения — докстринг): ekran.json
+    под fixtures/workshop_project/** с ekran/kadry и fiktura != true.
+    Судимая пачка исключает себя сравнением путей (resolved)."""
+    vne = []
+    root = harness / 'fixtures' / 'workshop_project'
+    if not root.is_dir():
+        return vne
+    sobstvennyj = (pack / 'ekran.json').resolve()
+    for p in sorted(root.rglob('ekran.json')):
+        try:
+            q = read_json(p)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(q, dict) or q.get('fiktura') is True:
+            continue
+        e, k = q.get('ekran'), q.get('kadry')
+        if (not isinstance(e, str) or not RE_EKRAN.match(e)
+                or not path_ok(k)):
+            continue
+        if p.resolve() == sobstvennyj:
+            continue
+        vne.append((e, p.parent.relative_to(harness).joinpath(k).as_posix()))
+    return vne
+
+
+def check_polnota(f, harness: Path, pack: Path):
+    """Полнота объявлений против ОБНАРУЖЕННЫХ живых пачек (мера против
+    пустых zamenjaet/ne_trogaet): перечисление экранов — не самодекларация."""
+    bad = []
+    for ekran_q, kadry_q in zhivye_pachty(harness, pack):
+        if ekran_q == f['ekran']:
+            if f['zamenjaet'] != kadry_q:
+                bad.append(otkaz('ZAMENJAET_NE_POLON', kadry_q))
+        elif kadry_q not in f['ne_trogaet']:
+            bad.append(otkaz('NE_TROGAET_NE_POLON', kadry_q))
+    return bad
+
+
 def run_sverka(f, pack: Path, repo: Path, harness: Path):
     """Дорогая проверка — раннер 123 по коду (мера/порог манифеста кадров).
 
@@ -365,6 +453,37 @@ def run_sverka(f, pack: Path, repo: Path, harness: Path):
     return p.returncode, p.stdout, bad
 
 
+def run_priemka_e2e(f, repo: Path):
+    """Исполнение приёмки e2e: фактический argv, cwd = репо, без shell.
+    Кадры, оставшиеся после команды, судит сверка-образец (команда без
+    кадров — KADR_OTSUTSTVUET, не зелень)."""
+    try:
+        p = subprocess.run(razbit_argv(f['priemka']['e2e']),
+                           cwd=str(repo), capture_output=True, text=True,
+                           timeout=600)
+    except (OSError, subprocess.SubprocessError) as e:
+        return [otkaz('E2E_NE_PROSHLA', repr(e)[:120])]
+    if p.returncode != 0:
+        return [otkaz('E2E_NE_PROSHLA', 'rc=%d' % p.returncode)]
+    return []
+
+
+def run_priemka_sverka(f, repo: Path, obrazec_stdout: str):
+    """Исполнение приёмки сверки: argv без shell; rc 0 И stdout дословно
+    равен сверке-образцу раннера 123 (фиктивные echo/true не воспроизводят
+    вывод механизма)."""
+    try:
+        p = subprocess.run(razbit_argv(f['priemka']['sverka']),
+                           cwd=str(repo), capture_output=True, text=True,
+                           timeout=600)
+    except (OSError, subprocess.SubprocessError) as e:
+        return [otkaz('SAMODELNAYA_SVERKA', 'не исполняется: %r' % e)]
+    if p.returncode != 0 or p.stdout.splitlines() != obrazec_stdout.splitlines():
+        return [otkaz('SAMODELNAYA_SVERKA',
+                      'вывод не воспроизводит механизм 123')]
+    return []
+
+
 def main(argv=None):
     args = sys.argv[1:] if argv is None else argv
     if (len(args) != 6 or args[0] != '--pack' or args[2] != '--repo'
@@ -386,10 +505,12 @@ def main(argv=None):
         kadry, kerr = load_kadry(pack / f['kadry'])
         otkazy += kerr
         otkazy += check_fajly(f, pack, repo, harness)
+    stdout_run = ''
     if not any(o.split('\t')[1] in RC2 for o in otkazy):
-        otkazy += check_razdely((pack / f['kontrakt']).read_text(encoding='utf-8'))
-        otkazy += check_zony_stroki(
-            (pack / f['kontrakt']).read_text(encoding='utf-8'), f)
+        tekst = (pack / f['kontrakt']).read_text(encoding='utf-8')
+        otkazy += check_razdely(tekst)
+        otkazy += check_objem(tekst)
+        otkazy += check_zony_stroki(tekst, f)
         otkazy += check_literal(pack)
         otkazy += check_kljuchi(f, repo)
         otkazy += check_operacii(f, repo)
@@ -399,12 +520,17 @@ def main(argv=None):
         if kadry:
             otkazy += check_tselikom(f, harness, kadry)
             otkazy += check_chuzhie(f, harness, kadry)
+        otkazy += check_polnota(f, harness, pack)
+        if not otkazy:
+            otkazy += run_priemka_e2e(f, repo)
         if not otkazy:
             _, stdout_run, bad = run_sverka(f, pack, repo, harness)
             otkazy += bad
             if stdout_run:
                 sys.stdout.write(stdout_run if stdout_run.endswith('\n')
                                  else stdout_run + '\n')
+        if not otkazy:
+            otkazy += run_priemka_sverka(f, repo, stdout_run)
     for o in otkazy:
         print(o, file=sys.stderr)
     if otkazy:

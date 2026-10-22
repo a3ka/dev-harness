@@ -1,0 +1,19 @@
+{
+ "_comment": "Манифест кадров живой фикстуры-пачки того же экрана (грамматика kadry_117.json контракта 123).",
+ "kadry": [
+  {
+   "id": "Fiktura-Kadr-Tot-Zhe",
+   "tema": "dark",
+   "snimok": "fiktura-snimok-tot-zhe",
+   "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash-Hell.png",
+   "maket_sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {"imja": "znak", "bbox_pt": [110, 271, 290, 444]},
+    {"imja": "wordmark", "bbox_pt": [157, 514, 233, 534]},
+    {"imja": "tagline", "bbox_pt": [57, 569, 333, 596]}
+   ]
+  }
+ ]
+}

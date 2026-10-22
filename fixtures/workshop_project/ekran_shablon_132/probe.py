@@ -5,10 +5,14 @@
 
 Предмет: экранная пачка (ekran.json + контракт + манифест кадров + батарея)
 судится по шаблону: состав полей и алфавиты (кадры → PNG docs/ux, состояния,
-ключи копии, операции API), обязательные разделы контракта, ЗОНА-строки по
-грамматике check_zones, запрет литералов цветов/размеров вне общего аудита
-токенов D2.2.5.1, замена целиком (zamenjaet), чужие пиксели (ne_trogaet),
-сверка каждого кадра раннером 123 (мера/порог — его код и манифест).
+ключи копии, операции API), обязательные разделы контракта и его ОБЪЁМ
+(≤ 60 строк — «на одну страницу»), ЗОНА-строки по грамматике check_zones,
+запрет литералов цветов/размеров (hex/rgb()/rgba()/hsl()/hsla();
+px/pt/sp/dp/rem/em/vw/vh) вне общего аудита токенов D2.2.5.1, замена
+целиком (zamenjaet), чужие пиксели (ne_trogaet), ПОЛНОТА объявлений против
+обнаруженных живых пачек, ИСПОЛНЕНИЕ приёмки (priemka.e2e/sverka —
+фактический argv, Г3-002) и сверка каждого кадра раннером 123
+(мера/порог — его код и манифест).
 
 Режимы:
   (без флага)  субъект scripts/ekran_shablon.py; нет файла → rc 1 SHABLON_ABSENT
@@ -149,7 +153,7 @@ def load_source():
 
 # --- построение входа ---------------------------------------------------------
 
-def build_repo(src, tmp):
+def build_repo(src, tmp, pack):
     repo = tmp / 'repo'
     scr = repo / 'docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens'
     scr.mkdir(parents=True)
@@ -169,12 +173,23 @@ def build_repo(src, tmp):
     ma = repo / 'mobile/.maestro'
     ma.mkdir(parents=True)
     (ma / 'demo-vkhod.yaml').write_text(src['flow'], encoding='utf-8')
-    out = repo / 'mobile/maestro-out-demo'
+    # stand-in android-e2e (replay) + носители записи: кадры в Maestro-раскладку
+    # кладёт ИСПОЛНЕННАЯ команда priemka.e2e — стартуем с пустым kadry_dir
+    (repo / 'mobile/e2e.sh').write_text(src['e2e_skript'], encoding='utf-8')
     for tema in ('dark', 'light'):
-        d = out / tema / '20261022T120000Z' / 'demo-vkhod' / 'takeScreenshot'
+        d = repo / 'mobile/e2e-nositeli' / tema
         d.mkdir(parents=True)
-        shutil.copyfile(HERE / ('nositeli/kadry/r1423-%s-vkhod-117-splash.png' % tema),
-                        d / (src['snimok'] + '.png'))
+        shutil.copyfile(
+            HERE / ('nositeli/kadry/r1423-%s-vkhod-117-splash.png' % tema),
+            d / (src['snimok'] + '.png'))
+    (repo / 'mobile/maestro-out-demo').mkdir(parents=True)
+    # пин механизма 123 внутри репо (как в продукте): честная priemka.sverka
+    # запускает раннер из .harness123; сверка-образец и приёмка обязаны
+    # дать дословно одинаковый вывод
+    pin123 = repo / '.harness123'
+    (pin123 / 'scripts').mkdir(parents=True)
+    shutil.copyfile(RUNNER123, pin123 / 'scripts/sverka_maketa.py')
+    shutil.copyfile(pack / 'kadry.json', pin123 / 'kadry.json')
     return repo
 
 
@@ -197,9 +212,8 @@ def build_pack(src, tmp):
     return pack, forma
 
 
-def kadry_fajl(repo, tema, snimok):
-    return next((repo / 'mobile/maestro-out-demo' / tema).glob(
-        '*/*/takeScreenshot/%s.png' % snimok))
+def nositel(repo, tema, snimok):
+    return repo / 'mobile/e2e-nositeli' / tema / (snimok + '.png')
 
 
 # --- мутации входов (код, не проза; ожидания — kejsy source.json) ------------
@@ -217,20 +231,32 @@ def mut_literal_razmera(pack, forma, repo, src):
 
 
 def mut_kadr_nizhe_poroga(pack, forma, repo, src):
-    f = kadry_fajl(repo, 'dark', src['snimok'])
+    f = nositel(repo, 'dark', src['snimok'])
     blob = derive_bez_elementa(f.read_bytes(), src['bez_elementa']['polosa_pt'])
     f.write_bytes(blob)
 
 
 def mut_kadr_otsutstvuet(pack, forma, repo, src):
-    for tema in ('dark', 'light'):
-        kadry_fajl(repo, tema, src['snimok']).unlink()
+    """Третий кадр манифеста есть в сценарии (строка takeScreenshot),
+    но записи e2e для него нет — реплей кадра не кладёт, раннер 123
+    называет его отсутствующим."""
+    m = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
+    tretij = json.loads(json.dumps(m['kadry'][1]))
+    tretij['id'] = 'Splash dva'
+    tretij['snimok'] = 'vkhod-demo-splash-dva'
+    m['kadry'].append(tretij)
+    (pack / 'kadry.json').write_text(
+        json.dumps(m, ensure_ascii=False, indent=1), encoding='utf-8')
+    flow = repo / 'mobile/.maestro/demo-vkhod.yaml'
+    flow.write_text(
+        flow.read_text(encoding='utf-8')
+        + '- takeScreenshot: vkhod-demo-splash-dva\n', encoding='utf-8')
 
 
 def mut_chuzhoj_kadr(pack, forma, repo, src):
     m = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
     chuzhoj = json.loads(json.dumps(m['kadry'][0]))
-    chuzhoj['id'] = 'First-Run dark'
+    chuzhoj['id'] = 'Fiktura-Kadr-Chuzhoj'
     m['kadry'].append(chuzhoj)
     (pack / 'kadry.json').write_text(
         json.dumps(m, ensure_ascii=False, indent=1), encoding='utf-8')
@@ -293,6 +319,57 @@ def mut_paket_bez_manifesta(pack, forma, repo, src):
     (pack / 'ekran.json').unlink()
 
 
+def mut_priemka_lozhnaja(pack, forma, repo, src):
+    """Обход критика круга 1: e2e="true", sverka="echo sverka_maketa.py
+    --manifest" — команды rc 0 без работы; кадры после e2e отсутствуют."""
+    forma['priemka'] = {'e2e': 'true',
+                        'sverka': 'echo sverka_maketa.py --manifest'}
+    zapis(pack, forma)
+
+
+def mut_e2e_ne_proshla(pack, forma, repo, src):
+    forma['priemka']['e2e'] = 'bash mobile/e2e.sh net-takogo'
+    zapis(pack, forma)
+
+
+def mut_sverka_lozhnaya(pack, forma, repo, src):
+    forma['priemka']['sverka'] = 'echo sverka_maketa.py --manifest'
+    zapis(pack, forma)
+
+
+def mut_zamenjaet_pustoj(pack, forma, repo, src):
+    """Обход критика круга 1: zamenjaet=null при живой пачке того же экрана
+    (ekran присваивается словарю живой фикстуры-пачки)."""
+    forma['ekran'] = 'fiktura-tot-zhe-ekran'
+    forma['zamenjaet'] = None
+    zapis(pack, forma)
+
+
+def mut_ne_trogaet_pustoj(pack, forma, repo, src):
+    """Обход критика круга 1: ne_trogaet=[] при живых чужих пачках."""
+    forma['ne_trogaet'] = []
+    zapis(pack, forma)
+
+
+def mut_literal_cveta_funkc(pack, forma, repo, src):
+    p = pack / 'batareja/red_ekrana.sh'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\n# фон хозяина: rgb(243, 242, 238)\n')
+
+
+def mut_literal_razmera_rem(pack, forma, repo, src):
+    p = pack / 'kontrakt.md'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\nОтступ страницы: 3rem.\n')
+
+
+def mut_kontrakt_slishkom_dlinnyj(pack, forma, repo, src):
+    """Обход критика круга 1: сотни строк прозы без литералов — «одна
+    страница» без меры объёма проходила."""
+    p = pack / 'kontrakt.md'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\nЗапас страницы за пределами одной.\n' * 20)
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -310,6 +387,14 @@ MUTACII = {
     'zony-rashodjatsja': mut_zony_rashodjatsja,
     'bez-razdela': mut_bez_razdela,
     'paket-bez-manifesta': mut_paket_bez_manifesta,
+    'priemka-lozhnaja': mut_priemka_lozhnaja,
+    'e2e-ne-proshla': mut_e2e_ne_proshla,
+    'sverka-lozhnaya': mut_sverka_lozhnaya,
+    'zamenjaet-pustoj': mut_zamenjaet_pustoj,
+    'ne-trogaet-pustoj': mut_ne_trogaet_pustoj,
+    'literal-cveta-funkc': mut_literal_cveta_funkc,
+    'literal-razmera-rem': mut_literal_razmera_rem,
+    'kontrakt-slishkom-dlinnyj': mut_kontrakt_slishkom_dlinnyj,
 }
 
 
@@ -318,8 +403,8 @@ MUTACII = {
 def run_subject(subject, name, src):
     tmp = Path(tempfile.mkdtemp(prefix='ekran132-'))
     try:
-        repo = build_repo(src, tmp)
         pack, forma = build_pack(src, tmp)
+        repo = build_repo(src, tmp, pack)
         if MUTACII[name] is not None:
             MUTACII[name](pack, forma, repo, src)
         p = subprocess.run(
