@@ -1,0 +1,58 @@
+{
+ "_comment": "Кадры без PNG (слово владельца 17:40): состояния composer по компонентам и токенам D2.2.5.1; сверка с макетом — после пакета дизайнера.",
+ "kadry_bez_png": [
+  {
+   "id": "F05.07",
+   "testid": "mission_frame_f05_07",
+   "kljuchi_kopii": [
+    "frame.F05.07.title",
+    "frame.F05.07.body"
+   ],
+   "tokeny": [
+    "--panel",
+    "--on-card",
+    "--line",
+    "--ink-muted"
+   ]
+  },
+  {
+   "id": "F05.V01",
+   "testid": "mission_queued_offline",
+   "kljuchi_kopii": [
+    "frame.F05.07.title",
+    "frame.F05.07.body"
+   ],
+   "tokeny": [
+    "--warm",
+    "--on-warm",
+    "--panel"
+   ]
+  },
+  {
+   "id": "F05.V02",
+   "testid": "mission_response_interrupted",
+   "kljuchi_kopii": [
+    "frame.F05.05.title",
+    "frame.F05.05.body"
+   ],
+   "tokeny": [
+    "--panel",
+    "--ink",
+    "--line"
+   ]
+  },
+  {
+   "id": "F05.V04",
+   "testid": "mission_already_accepted",
+   "kljuchi_kopii": [
+    "action.F05.A01",
+    "frame.F05.02.title"
+   ],
+   "tokeny": [
+    "--calm",
+    "--on-calm",
+    "--panel"
+   ]
+  }
+ ]
+}
