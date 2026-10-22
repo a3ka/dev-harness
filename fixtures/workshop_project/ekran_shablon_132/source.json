@@ -433,6 +433,42 @@
     "PRICHINA\tNE_ODNA_STRANICA\tширина: 6900 (норма ≤ 120)",
     "PRICHINA\tNE_ODNA_STRANICA\tбайт: 16038 (норма ≤ 4000)"
    ]
+  },
+  "literal-cveta-mnogostrochnyj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ],
+   "stdout": []
+  },
+  "literal-razmera-nuli": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ],
+   "stdout": []
+  },
+  "literal-cveta-funkc-nuli": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ],
+   "stdout": []
+  },
+  "kollizija-zamenjaet": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tNE_TSELIKOM\tOld screen only"
+   ],
+   "stdout": []
+  },
+  "kollizija-ne-trogaet": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tCHUZHIE_KADRY\tSplash dark",
+    "PRICHINA\tCHUZHIE_KADRY\tSplash light"
+   ],
+   "stdout": []
   }
  },
  "stab_vhod": {
@@ -498,6 +534,15 @@
   ],
   "s18_objem_tolko_stroki.py": [
    "kontrakt-shirokij"
+  ],
+  "s19_literal_postrochnyj_skan.py": [
+   "literal-cveta-mnogostrochnyj",
+   "literal-razmera-nuli",
+   "literal-cveta-funkc-nuli"
+  ],
+  "s20_manifest_pervyj_koren.py": [
+   "kollizija-zamenjaet",
+   "kollizija-ne-trogaet"
   ]
  },
  "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",
