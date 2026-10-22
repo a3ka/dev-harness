@@ -1,0 +1,22 @@
+{
+  "_comment": "Фикстура ne_trogaet: живой манифест ЧУЖОГО экрана (First-Run, предмет first-run-ekran). Пересечение id кадров с пачкой экрана обязано быть пусто — чужих пикселей не морозит.",
+  "kadry": [
+    {
+      "id": "First-Run dark",
+      "tema": "dark",
+      "snimok": "first-run-ekran",
+      "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+      "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+      "porog": 0.6,
+      "maski_pt": [],
+      "elementy": [
+        {"imja": "wordmark", "bbox_pt": [165, 33, 225, 50]},
+        {"imja": "znak", "bbox_pt": [110, 123, 290, 296]},
+        {"imja": "zagolovok", "bbox_pt": [26, 369, 365, 454]},
+        {"imja": "podzagolovok", "bbox_pt": [25, 484, 366, 539]},
+        {"imja": "cta", "bbox_pt": [16, 738, 374, 794]},
+        {"imja": "futer", "bbox_pt": [125, 813, 265, 826]}
+      ]
+    }
+  ]
+}
