@@ -1,0 +1,1000 @@
+{
+ "_comment": "Оракул батареи 135 (first-run-ekran): судимая пачка строится из ekran_forma/kadry_manifest/kontrakt_tekst/batareja_tekst, репо продукта — из katalog/spec/tokens_audit/flow/e2e_skript и носителей; kejsy — ожидания построчно (сняты --snapshot), stab_vhod — привязка обманных стабов по коду ветвей (Н-39).",
+ "subject_rel": "scripts/ekran_shablon.py",
+ "runner123_rel": "scripts/sverka_maketa.py",
+ "etalon132_rel": "fixtures/workshop_project/ekran_shablon_132/model/ekran_shablon.py",
+ "ekran_forma": {
+  "ekran": "first-run-ekran",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "pervyj-zapusk",
+   "tema-dark",
+   "tema-light",
+   "kod-nevernyj"
+  ],
+  "kljuchi_kopii": [
+   "ui.first_run.promise",
+   "ui.first_run.enter_f03",
+   "ui.auth.demo_entry",
+   "frame.F03.01.title",
+   "frame.F03.01.body",
+   "frame.F03.02.title",
+   "frame.F03.02.body"
+  ],
+  "operacii_api": [],
+  "katalog_kopii": "mobile/e2e-first-run/katalog_kopii.json",
+  "spec_api": "mobile/e2e-first-run/spec_api.json",
+  "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/first-run-ekran.yaml",
+  "kadry_dir": "mobile/maestro-out-first-run",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh"
+  ],
+  "priemka": {
+   "e2e": "bash mobile/e2e-first-run/e2e.sh first-run-ekran",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-first-run --repo ."
+  },
+  "zony": {
+   "architect": [
+    "contracts/135-first-run-ekran.md",
+    "fixtures/workshop_project/first_run_ekran_135/"
+   ],
+   "implementer": [
+    "mobile/src/features/auth/",
+    "mobile/.maestro/",
+    "mobile/e2e-first-run/",
+    ".github/workflows/mobile.yml"
+   ]
+  },
+  "zamenjaet": "fixtures/workshop_project/mob_sverka_123/kadry_first_run_ekran.json",
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json",
+   "fixtures/workshop_project/mob_sverka_123/kadry_117.json"
+  ],
+  "fiktura": false
+ },
+ "kadry_manifest": {
+  "_comment": "Кадры экрана first-run-ekran: First-Run (грамматика и значения — kadry_first_run_ekran.json батареи 123, заменяемый манифест) и вход F03 из пакета макетов Mobility Slice; порог — норма 123.",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "First-Run dark",
+    "tema": "dark",
+    "snimok": "first-run-ekran-first-run",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+    "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+    "porog": 0.6,
+    "maski_pt": [
+     [
+      0,
+      42,
+      56,
+      76
+     ]
+    ],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       165,
+       33,
+       225,
+       50
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       123,
+       290,
+       296
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       26,
+       369,
+       365,
+       454
+      ]
+     },
+     {
+      "imja": "podzagolovok",
+      "bbox_pt": [
+       25,
+       484,
+       366,
+       539
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       16,
+       738,
+       374,
+       794
+      ]
+     },
+     {
+      "imja": "futer",
+      "bbox_pt": [
+       125,
+       813,
+       265,
+       826
+      ]
+     }
+    ]
+   },
+   {
+    "id": "First-Run light",
+    "tema": "light",
+    "snimok": "first-run-ekran-first-run",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+    "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+    "porog": 0.6,
+    "maski_pt": [
+     [
+      0,
+      42,
+      56,
+      76
+     ]
+    ],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       165,
+       33,
+       225,
+       50
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       123,
+       290,
+       296
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       26,
+       369,
+       365,
+       454
+      ]
+     },
+     {
+      "imja": "podzagolovok",
+      "bbox_pt": [
+       25,
+       484,
+       366,
+       539
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       16,
+       738,
+       374,
+       794
+      ]
+     },
+     {
+      "imja": "futer",
+      "bbox_pt": [
+       125,
+       813,
+       265,
+       826
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F03.01 dark",
+    "tema": "dark",
+    "snimok": "first-run-ekran-f03-01",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F03.01.png",
+    "maket_sha256": "d1a2e383082bbf834352ba183d983b18147a727939f82e156016ac4440d8d2de",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       162,
+       36,
+       228,
+       54
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       156,
+       120,
+       234,
+       198
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       18,
+       246,
+       288,
+       276
+      ]
+     },
+     {
+      "imja": "tekst",
+      "bbox_pt": [
+       18,
+       282,
+       126,
+       306
+      ]
+     },
+     {
+      "imja": "pole",
+      "bbox_pt": [
+       18,
+       324,
+       366,
+       360
+      ]
+     },
+     {
+      "imja": "osibka",
+      "bbox_pt": [
+       36,
+       372,
+       138,
+       390
+      ]
+     },
+     {
+      "imja": "dopolnitelno",
+      "bbox_pt": [
+       42,
+       414,
+       192,
+       438
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       12,
+       468,
+       342,
+       504
+      ]
+     },
+     {
+      "imja": "ssylki",
+      "bbox_pt": [
+       12,
+       714,
+       378,
+       780
+      ]
+     },
+     {
+      "imja": "niz",
+      "bbox_pt": [
+       108,
+       798,
+       282,
+       816
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F03.01 light",
+    "tema": "light",
+    "snimok": "first-run-ekran-f03-01",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F03.01-Hell.png",
+    "maket_sha256": "306096157873ff877f7cddd437c7e1ea59df0b18ea2c1ec64bf7364668a225b6",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       822
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F03.02 dark",
+    "tema": "dark",
+    "snimok": "first-run-ekran-f03-02",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02.png",
+    "maket_sha256": "82cb91ef277ba2ee24907a0a440ae48005bbc7ccd2ea35058e33af15ec9564cc",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       162,
+       36,
+       228,
+       54
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       156,
+       108,
+       240,
+       186
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       132,
+       210,
+       258,
+       222
+      ]
+     },
+     {
+      "imja": "tekst",
+      "bbox_pt": [
+       18,
+       228,
+       252,
+       282
+      ]
+     },
+     {
+      "imja": "pole",
+      "bbox_pt": [
+       18,
+       294,
+       354,
+       330
+      ]
+     },
+     {
+      "imja": "osibka",
+      "bbox_pt": [
+       36,
+       342,
+       276,
+       360
+      ]
+     },
+     {
+      "imja": "dopolnitelno",
+      "bbox_pt": [
+       42,
+       384,
+       90,
+       402
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       120,
+       450,
+       270,
+       462
+      ]
+     },
+     {
+      "imja": "ssylki",
+      "bbox_pt": [
+       12,
+       714,
+       378,
+       780
+      ]
+     },
+     {
+      "imja": "niz",
+      "bbox_pt": [
+       120,
+       798,
+       270,
+       810
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F03.02 light",
+    "tema": "light",
+    "snimok": "first-run-ekran-f03-02",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02-Hell.png",
+    "maket_sha256": "bb2c1929e2737a6ae072a325a122b23aebac89792e646dea73d7bb6cc21c4ca2",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       822
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F03.02-V01 dark",
+    "tema": "dark",
+    "snimok": "first-run-ekran-f03-02-v01",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02-V01.png",
+    "maket_sha256": "5777b005307913d41659daad7731158593a90e3d3c079905bde3267060a19298",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       162,
+       36,
+       228,
+       54
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       156,
+       108,
+       234,
+       180
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       174,
+       210,
+       216,
+       222
+      ]
+     },
+     {
+      "imja": "tekst",
+      "bbox_pt": [
+       18,
+       228,
+       252,
+       282
+      ]
+     },
+     {
+      "imja": "pole",
+      "bbox_pt": [
+       18,
+       294,
+       354,
+       330
+      ]
+     },
+     {
+      "imja": "osibka",
+      "bbox_pt": [
+       36,
+       342,
+       276,
+       360
+      ]
+     },
+     {
+      "imja": "dopolnitelno",
+      "bbox_pt": [
+       12,
+       366,
+       378,
+       444
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       30,
+       468,
+       330,
+       510
+      ]
+     },
+     {
+      "imja": "ssylki",
+      "bbox_pt": [
+       12,
+       714,
+       378,
+       780
+      ]
+     },
+     {
+      "imja": "niz",
+      "bbox_pt": [
+       120,
+       798,
+       270,
+       810
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F03.02-V01 light",
+    "tema": "light",
+    "snimok": "first-run-ekran-f03-02-v01",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F03.02-V01-Hell.png",
+    "maket_sha256": "0c8ec9fb674ed89e285d576766991c384b6ed06ddc0008bffb0d307cab21c078",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       822
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "kontrakt_tekst": "# Контракт 135 — first-run-ekran: экран First-Run + вход F03 (mob)\n\n## Воля владельца\nЭкран по шаблону 132: машиночитаемая форма ekran.json, кадры сверяются с\nPNG-макетами docs/ux (First-Run — D2.2.5.1; вход F03 — Mobility Slice:\nдоски A04 и A05 и A05e). Приёмка — android-e2e rc 0 и сверка каждого кадра\nне ниже порога механизма 123. Слово владельца 2026-10-21: First-Run и вход\nF03 идут вместе одним экраном, прежние экранные пачки заменяются целиком.\n\n## Существующее\nМера, порог и раннер — контракт 123; валидатор формы — контракт 132\n(scripts/ekran-shablon.py по пачке). Манифест First-Run — kadry_first_run_\nekran.json батареи 123 (заменяем целиком, кадры — надмножество). Каталог\nкопии — BrokerOS_UI_Copy_DE.json verbatim; аудит токенов — общий аудит\nпакета Mobility Slice.\n\n## Инварианты\n1. Один экран — один контракт: пачка объявляет замену манифеста 123 и не\nморозит чужих кадров (Splash экрана 117, живые пачки корней 132).\n2. В пачке нет литералов цветов и размеров: значения токенов — в общем\nаудите, растр судит сверка 123.\n3. Приёмка исполняется: e2e кладёт СВЕЖИЕ кадры Maestro-раскладки, сверка\nзапускает раннер 123 по манифесту пачки.\n\n## Приёмочный критерий\n- Дано: пачка и репо продукта; когда: python3 scripts/ekran_shablon.py\n--pack . --repo R --harness H; тогда: rc 0 — форма верна, все кадры экрана\nне ниже порога манифеста.\n- Негатив: кадр ниже порога либо литерал вне аудита — rc 1 с именем.\n\n## Зоны и исполнители\n\nЗОНА architect: contracts/135-first-run-ekran.md fixtures/workshop_project/first_run_ekran_135/\nЗОНА implementer: mobile/src/features/auth/ mobile/.maestro/ mobile/e2e-first-run/ .github/workflows/mobile.yml\n\n## ПРОВОДКА\nПРОВОДКА-ЭНФОРСМЕНТ: гейт экрана — валидатор 132 по форме ekran.json пачки;\nсверка кадров — раннер 123; шаг CI продукта пускает валидатор по пачке.\n\n## Модель угроз\nЗАЩИЩАЕТ: форма 132 — от расползания полей и второй палитры; сверка 123 —\nот зелени без макета; замена целиком — от деления экрана между контрактами.\nНЕ ЗАЩИЩАЕТ: смысл копии (суд каталога и ревью); операции входа F03 — бэкенд-\nдельта приглашения не принята в OpenAPI, operacii_api пуст до принятия.\n",
+ "katalog": {
+  "_comment": "Срез каталога копии экрана (ключи верхнего уровня = copy_key BrokerOS_UI_Copy_DE.json verbatim); генерируется в продукт.",
+  "ui.first_run.promise": {
+   "text": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  },
+  "ui.first_run.enter_f03": {
+   "text": "Anmelden oder Konto erstellen",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  },
+  "ui.auth.demo_entry": {
+   "text": "Demo mit Beispieldaten ansehen",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  },
+  "frame.F03.01.title": {
+   "text": "Anmelden oder Konto erstellen",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F03.01.body": {
+   "text": "Nutzen Sie den angebotenen Anmeldeweg, um auf Ihre Versicherungen zuzugreifen.",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F03.02.title": {
+   "text": "Kontakt bestätigen",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F03.02.body": {
+   "text": "Geben Sie den zugesandten Code ein.",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  }
+ },
+ "spec": {
+  "_comment": "JSON-проекция BrokerOS_Unified_OpenAPI_v3.yaml (операции входа F03 в OpenAPI не приняты — backend delta приглашения со статусом PROPOSED_NOT_OPENAPI_ADOPTED).",
+  "openapi": "3.0.0",
+  "info": {
+   "title": "BrokerOS",
+   "version": "3"
+  },
+  "paths": {}
+ },
+ "tokens_audit": "/* Complior Bento D 2.2.3 — generated from tokens.json */\n@font-face { font-family: \"DM Sans\"; src: url(\"fonts/DMSans-Variable.ttf\"); font-weight: 100 1000; font-style: normal; }\n:root, [data-theme=\"dark\"] {\n  --ground: #0a0a0a;\n  --ink: #f2f1ec;\n  --ink-muted: #a6a69f;\n  --panel: #1e1e1d;\n  --panel-hover: #2a2a28;\n  --line: #2c2c2a;\n  --card: #e9e8e2;\n  --card-border: #00000000;\n  --card-raised: #d9d8d1;\n  --on-card: #121211;\n  --on-card-muted: #5b5b55;\n  --on-card-accent: #335a0b;\n  --warm-on-card: #9a3c0c;\n  --danger-on-card: #b42318;\n  --primary: #d6f75a;\n  --on-primary: #121211;\n  --secondary-surface: var(--card);\n  --on-secondary: var(--on-card);\n  --option-surface: var(--card);\n  --on-option: var(--on-card);\n  --accent: #d6f75a;\n  --on-accent: #121211;\n  --accent-text: #d6f75a;\n  --calm: #163a27;\n  --on-calm: #d6f75a;\n  --on-calm-muted: #a9d6a4;\n  --chip-on-calm: #d6f75a24;\n  --warm: #ff7f45;\n  --on-warm: #121211;\n  --chip-on-warm: #12121124;\n  --primary-on-warm: var(--on-warm);\n  --on-primary-on-warm: var(--warm);\n  --outline-on-card: var(--on-card);\n  --primary-on-card: var(--on-card);\n  --on-primary-on-card: var(--card);\n  --warm-text: #ffa070;\n  --danger: #ff6b6b;\n  --on-danger: #121211;\n  --success-text: #8fe08a;\n  --shadow-fab: 0 8px 24px #00000099;\n  --focus-ring: 0 0 0 2px #0a0a0a, 0 0 0 4px #d6f75a;\n}\n[data-theme=\"light\"] {\n  --ground: #f3f2ee;\n  --ink: #121211;\n  --ink-muted: #5f5e58;\n  --panel: #e6e5df;\n  --panel-hover: #dddcd5;\n  --line: #dcdbd5;\n  --card: #ffffff;\n  --card-border: var(--line);\n  --card-raised: #efeeea;\n  --on-card: #121211;\n  --on-card-muted: #5f5e58;\n  --on-card-accent: #335a0b;\n  --warm-on-card: #9a3c0c;\n  --danger-on-card: #b42318;\n  --primary: #121211;\n  --on-primary: #f3f2ee;\n  --secondary-surface: var(--panel);\n  --on-secondary: var(--ink);\n  --option-surface: var(--panel);\n  --on-option: var(--ink);\n  --accent: #d6f75a;\n  --on-accent: #121211;\n  --accent-text: #3f6d0f;\n  --calm: #e2f0d8;\n  --on-calm: #1f4a2b;\n  --on-calm-muted: #3f6b4a;\n  --chip-on-calm: #1f4a2b24;\n  --warm: #ff7f45;\n  --on-warm: #121211;\n  --chip-on-warm: #12121124;\n  --primary-on-warm: var(--on-warm);\n  --on-primary-on-warm: var(--warm);\n  --outline-on-card: var(--on-card);\n  --primary-on-card: var(--on-card);\n  --on-primary-on-card: var(--card);\n  --warm-text: #9a3c0c;\n  --danger: #b42318;\n  --on-danger: #ffffff;\n  --success-text: #2f6f2a;\n  --shadow-fab: 0 8px 24px #12121126;\n  --focus-ring: 0 0 0 2px #f3f2ee, 0 0 0 4px #3f6d0f;\n}\n:root {\n  --space-1: 4px;\n  --space-2: 8px;\n  --space-3: 12px;\n  --space-4: 16px;\n  --space-5: 20px;\n  --space-6: 24px;\n  --space-8: 32px;\n  --space-12: 48px;\n  --size-xs: 28px;\n  --size-dot: 24px;\n  --size-s: 32px;\n  --size-sm: 36px;\n  --size-row-dense: 40px;\n  --size-md: 44px;\n  --size-row: 48px;\n  --size-lg: 56px;\n  --size-trio: 64px;\n  --size-nav: 84px;\n  --size-card-stat: 132px;\n  --size-card-doc: 180px;\n  --size-card-calm: 200px;\n  --size-card-attention: 260px;\n  --size-presence-mini: 28px;\n  --size-presence-compact: 96px;\n  --size-presence-medium: 160px;\n  --size-presence-large: 232px;\n  --radius-sm: 12px;\n  --radius-md: 20px;\n  --radius-card: 28px;\n  --radius-full: 9999px;\n  --motion-fast: 150ms;\n  --motion-base: 250ms;\n  --motion-slow: 400ms;\n  --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);\n  --motion-cycle: 2400ms;\n  --font-sans: \"DM Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  --font-mono: \"DM Mono\", ui-monospace, Menlo, monospace;\n}\n.display-xl { font-family: var(--font-sans); font-size: 56px; line-height: 56px; font-weight: 500; letter-spacing: -0.03em; }\n.display { font-family: var(--font-sans); font-size: 40px; line-height: 44px; font-weight: 400; letter-spacing: -0.02em; }\n.display-sm { font-family: var(--font-sans); font-size: 28px; line-height: 32px; font-weight: 500; letter-spacing: -0.02em; }\n.title { font-family: var(--font-sans); font-size: 28px; line-height: 32px; font-weight: 500; letter-spacing: -0.015em; }\n.heading { font-family: var(--font-sans); font-size: 20px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; }\n.body { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 400; }\n.body-sm { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 400; }\n.label-lg { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 500; }\n.label { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 500; }\n.label-sm { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; }\n.caption { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0.01em; }\n.caption-sm { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.01em; }\n.mono { font-family: var(--font-mono); font-size: 15px; line-height: 20px; font-weight: 500; }\n.mono-sm { font-family: var(--font-mono); font-size: 13px; line-height: 18px; font-weight: 500; }\n",
+ "flow": "appId: com.complior.demo\nname: first-run-ekran\n---\n- launchApp\n- takeScreenshot: first-run-ekran-first-run\n- takeScreenshot: first-run-ekran-f03-01\n- takeScreenshot: first-run-ekran-f03-02\n- takeScreenshot: first-run-ekran-f03-02-v01\n",
+ "batareja_tekst": "#!/usr/bin/env bash\n# Батарея экрана first-run-ekran: сверка каждого кадра против PNG-макета —\n# механизм 123 (мера и порог — манифест кадров пачки); литералы токенов —\n# только в общем аудите токенов пакета Mobility Slice (audit_tokenov формы).\nexec python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-first-run --repo .\n",
+ "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу first-run-ekran —\n# для каждого имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку под kadry_dir. Нет носителя для имени — кадра не будет\n# (сверка назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-first-run/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",
+ "bez_elementa": {
+  "kadr": "F03.01 dark",
+  "polosa_pt": [
+   0,
+   100,
+   390,
+   340
+  ],
+  "comment": "свидетель ниже-порога: полоса знака и заголовка залита фоном — приём батареи 123 (derive без элемента)"
+ },
+ "nositeli": {
+  "nositeli/kadry/dark-f03-01.png": {
+   "sha256": "d1a2e383082bbf834352ba183d983b18147a727939f82e156016ac4440d8d2de"
+  },
+  "nositeli/kadry/dark-f03-02-v01.png": {
+   "sha256": "5777b005307913d41659daad7731158593a90e3d3c079905bde3267060a19298"
+  },
+  "nositeli/kadry/dark-f03-02.png": {
+   "sha256": "82cb91ef277ba2ee24907a0a440ae48005bbc7ccd2ea35058e33af15ec9564cc"
+  },
+  "nositeli/kadry/dark-first-run.png": {
+   "sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94"
+  },
+  "nositeli/kadry/light-f03-01.png": {
+   "sha256": "306096157873ff877f7cddd437c7e1ea59df0b18ea2c1ec64bf7364668a225b6"
+  },
+  "nositeli/kadry/light-f03-02-v01.png": {
+   "sha256": "0c8ec9fb674ed89e285d576766991c384b6ed06ddc0008bffb0d307cab21c078"
+  },
+  "nositeli/kadry/light-f03-02.png": {
+   "sha256": "bb2c1929e2737a6ae072a325a122b23aebac89792e646dea73d7bb6cc21c4ca2"
+  },
+  "nositeli/kadry/light-first-run.png": {
+   "sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94"
+  },
+  "nositeli/maket/F03.01-Hell.png": {
+   "sha256": "306096157873ff877f7cddd437c7e1ea59df0b18ea2c1ec64bf7364668a225b6"
+  },
+  "nositeli/maket/F03.01.png": {
+   "sha256": "d1a2e383082bbf834352ba183d983b18147a727939f82e156016ac4440d8d2de"
+  },
+  "nositeli/maket/F03.02-Hell.png": {
+   "sha256": "bb2c1929e2737a6ae072a325a122b23aebac89792e646dea73d7bb6cc21c4ca2"
+  },
+  "nositeli/maket/F03.02-V01-Hell.png": {
+   "sha256": "0c8ec9fb674ed89e285d576766991c384b6ed06ddc0008bffb0d307cab21c078"
+  },
+  "nositeli/maket/F03.02-V01.png": {
+   "sha256": "5777b005307913d41659daad7731158593a90e3d3c079905bde3267060a19298"
+  },
+  "nositeli/maket/F03.02.png": {
+   "sha256": "82cb91ef277ba2ee24907a0a440ae48005bbc7ccd2ea35058e33af15ec9564cc"
+  },
+  "nositeli/maket/First-Run.png": {
+   "sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94"
+  }
+ },
+ "dopusk_score": 0.05,
+ "kejsy": {
+  "chestnyj-ekran": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tFirst-Run dark\t1.000\t0.600\tG\tOK",
+    "KADR\tFirst-Run light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02-V01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02-V01 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tfirst-run-ekran\tOK"
+   ],
+   "prichiny": []
+  },
+  "literal-cveta": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ]
+  },
+  "kadr-nizhe-poroga": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tFirst-Run dark\t1.000\t0.600\tG\tOK",
+    "KADR\tFirst-Run light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.01 dark\t0.000\t0.600\tznak\tNIZHE_POROGA",
+    "KADR\tF03.01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02-V01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02-V01 light\t1.000\t0.600\tG\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tF03.01 dark\tscore=0.000 porog=0.600 hudshij=znak"
+   ]
+  },
+  "chuzhoj-kadr": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tCHUZHIE_KADRY\tFiktura-Kadr-Chuzhoj"
+   ]
+  },
+  "ne-tselikom": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_TSELIKOM\tFirst-Run light"
+   ]
+  },
+  "zamenjaet-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZAMENJAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+   ]
+  },
+  "ne-trogaet-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_TROGAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+    "PRICHINA\tNE_TROGAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+   ]
+  },
+  "kontrakt-slishkom-dlinnyj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 84 (норма ≤ 60)",
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 4598 (норма ≤ 4000)"
+   ]
+  },
+  "kontrakt-shirokij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_ODNA_STRANICA\tширина: 6900 (норма ≤ 120)",
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 16199 (норма ≤ 4000)"
+   ]
+  },
+  "kadry-ustarevshie": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-f03-01.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-f03-02-v01.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-f03-02.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-first-run.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-f03-01.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-f03-02-v01.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-f03-02.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/first-run-ekran/takeScreenshot/first-run-ekran-first-run.png"
+   ]
+  },
+  "e2e-ne-proshla": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tE2E_NE_PROSHLA\trc=3"
+   ]
+  },
+  "zhivaja-pachta-v-repo": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZAMENJAET_NE_POLON\tfixtures/workshop_project/old_first_run_001/kadry.json"
+   ]
+  }
+ },
+ "stab_vhod": {
+  "s01_bez_literal_skana.py": [
+   "literal-cveta"
+  ],
+  "s03_chuzhie_propuskaet.py": [
+   "chuzhoj-kadr"
+  ],
+  "s04_tselikom_propuskaet.py": [
+   "ne-tselikom"
+  ],
+  "s12_polnota_propuskaet.py": [
+   "zamenjaet-pustoj",
+   "ne-trogaet-pustoj",
+   "zhivaja-pachta-v-repo"
+  ],
+  "s14_objem_propuskaet.py": [
+   "kontrakt-slishkom-dlinnyj"
+  ],
+  "s15_svezhest_propuskaet.py": [
+   "kadry-ustarevshie"
+  ],
+  "s18_objem_tolko_stroki.py": [
+   "kontrakt-shirokij"
+  ]
+ },
+ "repo_staryj_ekran": {
+  "_comment": "Живая пачка ТОГО ЖЕ экрана в репо продукта для красного входа zhivaja-pachta-v-repo: полнота замены по живым пачкам в --repo (мера 132).",
+  "ekran": {
+   "ekran": "first-run-ekran",
+   "kadry": "kadry.json",
+   "fiktura": false
+  },
+  "kadry": {
+   "kadry": [
+    {
+     "id": "First-Run dark",
+     "tema": "dark",
+     "snimok": "staryj-first-run",
+     "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/First-Run.png",
+     "maket_sha256": "0411d0a370c2427de5abcb8caa43f2eb00b4eee0657d77c8f08dbbf52df66a94",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "wordmark",
+       "bbox_pt": [
+        165,
+        33,
+        225,
+        50
+       ]
+      },
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        123,
+        290,
+        296
+       ]
+      },
+      {
+       "imja": "zagolovok",
+       "bbox_pt": [
+        26,
+        369,
+        365,
+        454
+       ]
+      },
+      {
+       "imja": "podzagolovok",
+       "bbox_pt": [
+        25,
+        484,
+        366,
+        539
+       ]
+      },
+      {
+       "imja": "cta",
+       "bbox_pt": [
+        16,
+        738,
+        374,
+        794
+       ]
+      },
+      {
+       "imja": "futer",
+       "bbox_pt": [
+        125,
+        813,
+        265,
+        826
+       ]
+      }
+     ]
+    },
+    {
+     "id": "Staryj vhod",
+     "tema": "dark",
+     "snimok": "staryj-vkhod",
+     "maket": "docs/ux/03_Mobility_Slice1/screens/F03.01.png",
+     "maket_sha256": "d1a2e383082bbf834352ba183d983b18147a727939f82e156016ac4440d8d2de",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "wordmark",
+       "bbox_pt": [
+        162,
+        36,
+        228,
+        54
+       ]
+      },
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        156,
+        120,
+        234,
+        198
+       ]
+      },
+      {
+       "imja": "zagolovok",
+       "bbox_pt": [
+        18,
+        246,
+        288,
+        276
+       ]
+      },
+      {
+       "imja": "tekst",
+       "bbox_pt": [
+        18,
+        282,
+        126,
+        306
+       ]
+      },
+      {
+       "imja": "pole",
+       "bbox_pt": [
+        18,
+        324,
+        366,
+        360
+       ]
+      },
+      {
+       "imja": "osibka",
+       "bbox_pt": [
+        36,
+        372,
+        138,
+        390
+       ]
+      },
+      {
+       "imja": "dopolnitelno",
+       "bbox_pt": [
+        42,
+        414,
+        192,
+        438
+       ]
+      },
+      {
+       "imja": "cta",
+       "bbox_pt": [
+        12,
+        468,
+        342,
+        504
+       ]
+      },
+      {
+       "imja": "ssylki",
+       "bbox_pt": [
+        12,
+        714,
+        378,
+        780
+       ]
+      },
+      {
+       "imja": "niz",
+       "bbox_pt": [
+        108,
+        798,
+        282,
+        816
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
