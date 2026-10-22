@@ -395,6 +395,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 111 | до V-2 | complior | 999 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 |
 | 3 | 117 | до V-2 | complior | 111 | docs/owner/2026-10-20-mob-po-maketu.md#Порядок |
 | 3 | 118 | до V-2 | complior | 117 | docs/owner/2026-10-20-mob-po-maketu.md#Порядок |
+| 3 | 116 | до V-2 | complior | 132 | docs/owner/2026-10-17-plan-stancii.md#Слот 2 — Complior-mob |
 | 3 | 997 | до V-2 | ops | - | docs/owner/2026-10-18-tri-slota.md#1. Слоты — поэтапно |
 | 3 | 123 | до V-2 | CI | 117 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 3 | 132 | до V-2 | complior | 123 | docs/owner/2026-10-21-ekrany-bystree.md#Порядок |
