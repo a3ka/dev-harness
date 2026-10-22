@@ -3,7 +3,9 @@
 
   podmena.py model <каталог scripts>      ставит модель: model/gitw_teg_130.sh + функция teg130
                                            в gitw и её вызов перед КАЖДЫМ exec настоящего git
-                                           при push (канарейка И-4б и И-8); предполёт 071 не трогается
+                                           при push (канарейка И-4б и И-8); предполёт 071 не трогается.
+                                           Дерево, где проводка 130 УЖЕ вставлена (реализация И-1),
+                                           повторно её не вставляет — сверяет якорями IMPL_* (R130-A1)
   podmena.py stub <id> <каталог scripts>  поверх модели — одна обманная подмена
   podmena.py list                          «<id>\t<клетка>\t<дефект>» по строке на стаб
 
@@ -36,6 +38,15 @@ GITW_EARLY = '        continue\n      fi\n      teg130 || exit $?\n      exec "$
 # Поздний крюк: перед вызовом предполёта 071 (а значит и перед exec И-8).
 GITW_LATE_ANCHOR = '  PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"\n'
 GITW_LATE = '  teg130 || exit $?\n'
+# Проводка предмета в РЕАЛИЗОВАННОМ дереве (R130-A1): gitw уже несёт T130_PSI,
+# функцию teg130 и оба вызова перед exec — вставка И-1 разрывает якоря вставки
+# выше (GITW_EARLY_ANCHOR даёт 0 вхождений). На таком дереве модель не дублирует
+# суд, а сверяет существующую проводку якорями (каждый ровно 1 раз); якорь
+# раннего вызова — тот же, что ищет и снимает стаб s16.
+IMPL_FN = 'teg130() {'
+IMPL_CALL = 'bash "$t130" push "$CANON" "$REAL" "$T130_PSI" "${orig[@]}"'
+IMPL_EARLY = '      teg130 || exit $?\n      exec "$REAL" "${orig[@]}"\n'
+IMPL_LATE = '  teg130 || exit $?\n  PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"\n'
 
 PF_ANCHOR = '      if [ "$remote_sha" != "$sha" ]; then\n'
 PF_OSLABLEN = ('      if [ "$remote_sha" != "$sha" ] && { [ -n "$remote_sha" ] '
@@ -192,11 +203,27 @@ def subst(path, anchor, repl):
     with open(path, 'w', encoding='utf-8') as f:
         f.write(text.replace(anchor, repl, 1))
 
+def ensure(path, anchors, why):
+    with open(path, encoding='utf-8') as f:
+        text = f.read()
+    for a in anchors:
+        k = text.count(a)
+        if k != 1:
+            die('%s: якорь встречается %d раз (нужен 1) в %s: %r' % (why, k, path, a[:60]))
+
+
 def model(sd):
     dst = os.path.join(sd, G)
     shutil.copyfile(os.path.join(HERE, 'model', G), dst)
     os.chmod(dst, 0o755)
     gw = os.path.join(sd, GW)
+    with open(gw, encoding='utf-8') as f:
+        wired = 'teg130' in f.read()
+    if wired:
+        # R130-A1: gitw уже несёт проводку предмета — повторная вставка дублировала
+        # бы суд; существующая проводка сверяется якорями (ровно 1 раз каждый).
+        ensure(gw, (IMPL_FN, IMPL_CALL, IMPL_EARLY, IMPL_LATE), 'проводка 130 уже в gitw, сверка')
+        return
     subst(gw, GITW_FN_ANCHOR, GITW_FN_ANCHOR + GITW_FN)
     subst(gw, GITW_EARLY_ANCHOR, GITW_EARLY)
     subst(gw, GITW_LATE_ANCHOR, GITW_LATE + GITW_LATE_ANCHOR)
