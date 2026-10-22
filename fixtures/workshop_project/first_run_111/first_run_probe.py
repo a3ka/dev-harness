@@ -223,9 +223,16 @@ MUTANTS = {
           '')],
         ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
     ),
-    # v4c (критик 111 v4 круг 2): «наличие» без видимости — ложное зелёное
-    # (строки скрыты display:none/opacity:0 в зоне implementer — honest
-    # rc0 23/23 у замкнутости v4b). Скрытие узла подзаголовка/футера
+    # v4c (критик 111 v4 круг 2) → v4d (арбитраж 95f3b2c3,
+    # verdicts/arbitration/contracts-111-vidimost-teksta.md): «наличие» без
+    # не-скрытости закрытым перечнем — ложное зелёное (строки скрыты
+    # display:none/opacity:0 в зоне implementer — honest rc0 23/23 у
+    # замкнутости v4b). К5 судит ПРИСУТСТВИЕ строки полным текстом +
+    # отсутствие скрытия ЗАКРЫТЫМ перечнем {display:'none', opacity 0,
+    # нулевые литеральные width/height} на узле/предке (как у RNTL
+    # toBeVisible) — видимость НА ЭКРАНЕ К5 не судит: её судит гейт
+    # 135/123 (сверка 123 по mobile/e2e-first-run/kadry.json, элементы
+    # podzagolovok/futer, порог 0,600). Скрытие узла подзаголовка/футера
     # (по одному, оба; opacity:0 — носитель того же дефекта) красно парой
     # К5: collectText v4c вырезает скрытые поддеревья. depends — замер.
     'subheadline-display-none': (
