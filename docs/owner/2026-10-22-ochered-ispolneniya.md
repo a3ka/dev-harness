@@ -20,3 +20,25 @@
 4. По ходу линии Г — 134 testy-ubirayut-za-soboj, ne-brosat-nachatoe, snachala-sushchestvuyushchee (механика
    опирается на 092/095), odin-agent-na-predmet.
 Mob после 132/133: first-run-ekran → 118 → экраны по порядку Issues Complior-mob.
+
+## До субботы 24.10 — без Claude (слово владельца 2026-10-22 ~20:20 UTC)
+
+Модели: owner-коммит 497945e25 (default→GLM, vision/audit→Sol, plan→Astra). **Суббота ~07:00 UTC — ВЕРНУТЬ ВСЁ НА МЕСТА:**
+cherry-pick c4cf18961 (origin/owner/kanon-revert) + revert-коммит из origin/owner/subbota-revert → поезд → перезапуск обеих сессий
+(станция — маркер orch-restart, бэкенд — маркер back-restart) → `npm run models:actual` = канон docs/owner/2026-10-22-kanon-modelej.md.
+Автонапоминание: root tmux consultant-kanon.
+
+Мержи продуктовых PR до субботы — сессии сами: оба судьи accept на OBJECT == head, CI зелёный, ветка не позади main,
+`gh pr merge --match-head-commit`; ветка контракта с frozen-тегом — merge-commit; каждый мерж — строкой в HANDOFF.
+Форки — тир consultant (Astra/Sol); владельцу — только воля, деньги, устав.
+
+### Харнесс
+1. 133: поезд с 458a18dd6 + 30fd0f6e4 зелёный → freeze 133/2 (вердикт Critic133v2) → done 133.
+2. 125-б `dovodka-sessij-proektov` (дельта 095): architect → критик → freeze → implementer. Цель — станция не стоит в wait при готовых шагах.
+3. e2e-do-sdachi — после 125-б. Линия Г (092∥097 → …) — ПАУЗА (registry/pauzy.tsv).
+
+### Mob (один экран в реализации — один эмулятор)
+1. Доделать: 118 судьи → merge; 135: v+1 111 → freeze → перепин → mob #121 → судьи → merge; 116: контракт (F05.01–06 и V03 по PNG, F05.07/V01/V02/V04 по DS) → freeze → implementer.
+2. Дальше — пакет mobility 03 (PNG 87 из 93, обе темы): «Onboarding + Neues Auto» B01–B13, MOB-OVR/ZUL/ABM/PLT/INS/KUE. Контракты по шаблону 132 параллельно (architect GLM), реализация по одному (implementer MiniMax), данные синтетические.
+3. Запас: F04 Start (13/19), F08 Vorgänge (7/12), F23 (7/11) — только кадры с PNG.
+4. Дизайнер (Claude) до субботы недоступен. ТЗ готово: ~/consultant/slice1/PROMPT-dizajner.md (волна 1 — вход → Start → беседа, 34 кадра); покрытие — ~/consultant/slice1/ANALIZ.md (326 позиций, 157 с PNG).
