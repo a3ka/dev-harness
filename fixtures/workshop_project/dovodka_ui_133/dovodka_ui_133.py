@@ -214,6 +214,11 @@ class Mir:
             f.write(cfg)
         rows = ['probe/tekst-m1\tyes\n']
         if not v.get('net_tira') and not v.get('ne_perechislena'):
+            # dop_modeli — чужие модели мира ДО строки настроенной (блокер B1 impl-v2):
+            # порядок семантичен для обмана «первый матч без различения провайдера» —
+            # чужая строка обязана стоять первой, дефект наблюдаем именно на этом входе
+            for chuzhaja in (v.get('dop_modeli') or []):
+                rows.append('%s\t%s\n' % (chuzhaja[0], chuzhaja[1]))
             rows.append('%s\t%s\n' % (v['model'], v.get('images', 'yes')))
         with open(self.models_tsv, 'w', encoding='utf-8') as f:
             f.write('' if v.get('omp_pustoj') else ''.join(rows))
