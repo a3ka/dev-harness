@@ -168,7 +168,7 @@ class Mir:
             # миром (на станции в момент шага экран уже заморожен)
             snap = os.path.join(self.d, 'harness-snap')
             run(['git', 'clone', '-q', '--no-hardlinks', TREE_ROOT, snap], self.d, self.env)
-            run(['git', '-C', snap, 'tag', 'frozen/contracts/133/1', 'HEAD'], self.d, self.env)
+            run(['git', '-C', snap, 'tag', '-f', 'frozen/contracts/133/1', 'HEAD'], self.d, self.env)
             self.wfile('dver-trace.tsv', 'implementer\tprobe/sonnet-v4\tallowed\n')
             self.wfile('dver-zadanie.md', 'ZADANIE-PROBE-133\n')
             return
