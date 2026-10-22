@@ -189,6 +189,40 @@ MUTANTS = {
           "      {scheme === 'light' ? <Text>Versicherung. Erledigt</Text> : null}\n      <Button\n")],
         ['FIRST_RUN_COPY_CLOSED_LIGHT'], [],
     ),
+    # v4b (критик 111 v4 круг 1): замкнутость без наличия — ложное зелёное
+    # (на копии продукта 135 сняты оба рендерящих узла — rc0 honest 23/23).
+    # Удаление узла подзаголовка/футера модели (по одному и оба) красно
+    # парой К5; прочие клетки эти узлы не наблюдают (CTA/wordmark/root
+    # нетронуты). depends — замер полным прогоном.
+    'subheadline-node-absent': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <Text style={[styles.maketLine, { color: tokens.ink }]} testID="first-run-subheadline">\n'
+          '        {FIRST_RUN_SUBHEADLINE}\n'
+          '      </Text>\n',
+          '')],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
+    'footer-node-absent': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <Text style={[styles.maketFooter, { color: tokens.ink }]} testID="first-run-footer">\n'
+          '        {FIRST_RUN_FOOTER}\n'
+          '      </Text>\n',
+          '')],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
+    'copy-nodes-both-absent': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <Text style={[styles.maketLine, { color: tokens.ink }]} testID="first-run-subheadline">\n'
+          '        {FIRST_RUN_SUBHEADLINE}\n'
+          '      </Text>\n',
+          ''),
+         ('mobile/src/features/auth/first-run-screen.tsx',
+          '      <Text style={[styles.maketFooter, { color: tokens.ink }]} testID="first-run-footer">\n'
+          '        {FIRST_RUN_FOOTER}\n'
+          '      </Text>\n',
+          '')],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
     # A2 (суд 111, круг 1): внешний корень PilotApp красится белым вокруг
     # First-Run — белая рамка вокруг тёмного ground + Demo-бейдж на белой
     # полосе; красна именованной клеткой пары К6 в ОБЕИХ схемах.
