@@ -93,7 +93,7 @@
     "orchestrator": "default",
     "architect": "slow",
     "implementer": "task",
-    "implementer-glm": "task",
+    "implementer-glm": "task-glm",
     "implementer-vision": "vision",
     "adversary": "advisor",
     "critic": "apex",
