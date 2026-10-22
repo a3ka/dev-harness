@@ -30,7 +30,7 @@ local_main="$(git rev-parse --verify --quiet 'refs/heads/main^{commit}')" \
   || otkaz 'локальной ветки main нет'
 lr_out="$(bash "$GW" ls-remote origin refs/heads/main)" \
   || otkaz 'вершина main на origin не читается'
-rmain="$(printf '%s\n' "$lr_out" | cut -f1 | head -n1)"
+rmain="$(printf '%s\n' "$lr_out" | awk -F'\t' '$2 == "refs/heads/main" { print $1; exit }')"
 [ -n "$rmain" ] || otkaz 'вершина main на origin не читается'
 git cat-file -e "${rmain}^{commit}" 2>/dev/null || otkaz "вершина main цели ${rmain} не в локальной истории — сделай fetch"
 if [ "$rmain" = "$local_main" ]; then printf 'ПУБЛИКАЦИЯ: нечего публиковать\n'; exit 0; fi
