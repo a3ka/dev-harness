@@ -112,7 +112,16 @@ for repo in ('a3ka/dev-harness', 'a3ka/Complior-mob'):
 subjects = sorted((set(agents) | answered) - done)
 print(f'ТАБЛО {NOW:%H:%M} UTC (окно {WINDOW} мин)')
 stoit = 0
+# ПАУЗЫ владельца (registry/pauzy.tsv на origin/main): строка ПАУЗА вместо СТОИТ, в итог «стоит без хода» не входят.
+pauzy = {}
+for _l in sh('git', '-C', REPO, 'show', 'origin/main:registry/pauzy.tsv').splitlines():
+    _f = _l.split('\t')
+    if _l and not _l.startswith('#') and len(_f) >= 4:
+        pauzy[_f[0]] = _f
 for n in subjects:
+    if n in pauzy:
+        print(f'  ПАУЗА {n}: с {pauzy[n][1]}, согласовал {pauzy[n][2]}; вернуться: {pauzy[n][3]}')
+        continue
     ag = sorted(agents.get(n, []), key=lambda a: a[1])
     working = [a for a in ag if not a[2] and mins(a[1]) <= ACTIVE_MIN]
     cands = []
