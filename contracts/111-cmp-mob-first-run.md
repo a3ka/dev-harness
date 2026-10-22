@@ -2,6 +2,10 @@
 
 ВЕРСИЯ: v4 (2026-10-22; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в изменяющем коммите; форк
 `forks/n135-copy-111.md` — HANDOFF: mob PR #121 красен ТОЛЬКО на К5 пробы 111).
+v4b (фикс FAIL критика круга 1 по v4, 2026-10-22): К5 усилена — обе строки макета
+обязаны ПРИСУТВОВАТЬ на экране (обе схемы), не только быть допустимыми; обманки
+удаления рендерящих узлов (по одному и обе) — в коде `MUTANTS` пробы (Н-39); замер —
+§«Замер v4b».
 Единственное изменение v4 — каталог копии First-Run += две строки макета владельца
 (слово владельца 2026-10-22 ~18:50 UTC «а»): подзаголовок «Ein Brief, ein Schaden,
 ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie
@@ -197,8 +201,11 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
 - К5 `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` ×2 — произведение scheme(2): каждый текстовый
   лист host-дерева первого кадра ⊆ литеральный перечень {«Demo», promise, CTA,
   подзаголовок макета, футер макета} (v4: две строки First-Run.png дословно, без ключей
-  i18n) в ОБЕИХ схемах; немецкая строка вне перечня на поверхности красит — прежняя
-  замкнутость, в т.ч. неточное совпадение с каталогизированной строкой (сокращённая
+  i18n) в ОБЕИХ схемах — И наоборот (v4b, критик круга 1): подзаголовок и футер
+  обязаны ПРИСУТСТВОВАТЬ на экране полным текстом в ОБЕИХ схемах — наличие, не только
+  допустимость (экран без обеих строк проходил замкнутость — ложное зелёное rc0);
+  отсутствие любой из двух строк или немецкая строка вне перечня на поверхности красит —
+  в т.ч. неточное совпадение с каталогизированной строкой (сокращённая
   форма саблайна, футер без финальной точки).
 
 Статическая семья (`first_run_static_probe.py`, 16 клеток; v3 — клетки splash мигрированы
@@ -216,13 +223,14 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
 '@/i18n/ui-copy').
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду `MUTANTS` обеих проб, Н-39; depends измерены
-полным прогоном): поведенческих 27 (cta-label-weiter, promise-invented, onenter-not-wired,
+полным прогоном): поведенческих 30 (cta-label-weiter, promise-invented, onenter-not-wired,
 ground-default-blue, demo-badge-scope, wordmark-absent, cta-testid-renamed, light-cta-noop,
 safearea-edges-empty, wordmark-wrong-source, extra-unreviewed-copy, copy-all-allowed,
 light-edges-top-bottom, light-wrong-source, light-extra-copy, wrapper-root-white,
 wrapper-root-magenta, wrapper-root-padding, badge-outside-safearea, badge-inset-top-zero,
 badge-hardcoded-inset, restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
-restyle-995-padding-shifted, restyle-unavailable, restyle-recovery), статических 16
+restyle-995-padding-shifted, restyle-unavailable, restyle-recovery, subheadline-node-absent,
+footer-node-absent, copy-nodes-both-absent), статических 16
 (splash-stays-default-blue, splash-dark-stays-blue, android-splash-blue,
 copy-promise-invented, copy-enter-missing, screen-hex-literal, pilot-unwired,
 wordmark-missing, wordmark-1x1-png, wordmark-broken-stub-82, wordmark-solid-rectangle,
@@ -239,6 +247,10 @@ safearea-edges-empty, wordmark-wrong-source, android-splash-blue, extra-unreview
 LIGHT-клетками пар К3/К4/К5. Стаб v4 copy-all-allowed — обманка «каталог открыт всем
 строкам» (сокращённая форма саблайна «Ein Brief, ein Schaden…», цитата прежнего
 исключения): зеленела бы при allow-all/нечёткой сверке, закрыт парой К5.
+Три стаба v4b (subheadline-node-absent, footer-node-absent, copy-nodes-both-absent —
+удаление рендерящих узлов подзаголовка/футера модели по одному и обоих; репро критика
+круга 1 v4: оба узла сняты на копии продукта 135 — rc0 23/23) — предъявление наличия
+парой К5 в ОБЕИХ схемах, без побочной красноты.
 
 ## Приёмочный критерий
 
@@ -255,8 +267,12 @@ Python 3 stdlib. Нет Jest/артефактов отчёта → rc2 INFRASTRU
   подзаголовке/футере (зелёная презентация «с двумя новыми»); замороженная батарея
   111/3 на том же дереве → rc1, красны ровно `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}`
   (до-v4 предъявление).
+- Дано v4b: копия v4-дерева без любого из двух рендерящих узлов строк макета
+  (подзаголовок, футер, оба); `first_run_probe.py --repo R` → rc1, красны ровно
+  `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` — наличие, не только допустимость (фикс
+  ложного зелёного круга 1).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый стаб красен своей
-  именованной ветвью, побочная краснота только в depends (27+16 стабов); якорь мутанта неуникален
+  именованной ветвью, побочная краснота только в depends (30+16 стабов); якорь мутанта неуникален
   → отказ rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк (пробы
   восстанавливают дерево).
@@ -490,3 +506,28 @@ HEAD `74c59935ca14f5e578300e6e722fab09c2b19c5b` (сверен `git rev-parse HEA
   += подзаголовок/футер (обе строки) — без неё зелёная презентация «с двумя новыми»
   нематериализуема (экран модели не нёс строк каталога v4); реализационная часть проб
   ограничена литералами перечня К5, `source.json` и статическая проба не тронуты.
+
+## Замер v4b (клетка наличия двух строк, фикс FAIL критика круга 1, 2026-10-22)
+
+Находка критика (`verdicts/critic/contracts-111-v4.md` @ `e619415b`, БЛОКИРУЕТ): К5 судила
+только допустимость текста — на копии продукта 135 с двумя снятыми рендерящими узлами
+проба дала rc0 honest 23/23 (ложное зелёное). Фикс: К5 += наличие обеих строк макета
+полным текстом в обеих схемах (`expect(visible).toContain(SUBHEADLINE/FOOTER)`); правка
+проб — `first_run.test.tsx` (клетка К5) и `first_run_probe.py` (три обманки удаления
+узлов, привязка по коду — Н-39); `source.json`, статическая проба, модель и замороженные
+111/{1,2,3} не тронуты. R — одноразовая копия продукта 135 `74c59935c` (свой .git,
+node_modules от npm ci-дерева продукта). Все числа — из прогонов ниже.
+
+- Продукт 135 (обе строки живые): `first_run_probe.py --repo R` → rc0 honest 23/23 —
+  К5 с наличием зелёна в обеих схемах.
+- Красные копии продукта (репро критика): оба узла сняты → rc1, красны РОВНО
+  `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` (21 зелёная + 2 RED из 23); снятие одного узла
+  (подзаголовок либо футер) — та же ровно пара; после прогонов `git status
+  --short --untracked-files=all` в копии — 0 строк.
+- Матрица: `first_run_probe.py --repo R --matrix` → rc0 (30 стабов = 27 прежних +
+  subheadline-node-absent, footer-node-absent, copy-nodes-both-absent; каждый из трёх
+  красен ровно парой `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}`, побочной красноты нет,
+  defects 0, unexpected_red=none).
+- Статическая проба на продукте 135: rc0 static 16/16 (семья не менялась); дерево R
+  после всех прогонов — 0 строк в `git status`.
+- `bash scripts/pre_critic.sh contracts/111-cmp-mob-first-run.md` → rc0.
