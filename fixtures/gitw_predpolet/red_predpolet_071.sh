@@ -68,7 +68,7 @@
 #        (087 И-4 «Ворота», чек 5), санкционированный worktree
 #        wip/<NNN>/<автор> под <hash8>/ — push проходит, bare продвинулся
 #        ровно на tip, строка «gitw ПРЕДПОЛЁТ: » напечатана (молчания нет);
-#   п2а-п2г — красный чек: ceilings (жир 60000 байт, замер пачки:
+#   п2а-п2г — красный чек: ceilings (жир 70000 байт, замер пачки:
 #        FAIL на 53249+), nabludenia (ОТКРОТО без адреса, замер: FAIL Н-1),
 #        ids (plans/071-{a,b}.md, замер: «номер 71 назначен рукой»),
 #        ci-parity (шаг в ci.yml без npm-ключа); bare НЕ двинут;
@@ -685,11 +685,11 @@ stub_violation() { # stub_violation <класс>
       # общий мир двух стабов (s10/s17, s3/s20) — каталог уникален kind'ом:
       # повторный mk_world по занятому имени ломается (remote origin exists)
       mk_world "sv-$1"
-      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat role' ;;
     cwdne-tip)
       mk_world sv-cwdne
-      python3 -c "print('y'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('y'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat on main'
       git -C "$T" checkout -q -b stara HEAD~1 ;;
     teg-sha|teg-sha-dva)
@@ -719,21 +719,21 @@ stub_violation() { # stub_violation <класс>
       git -C "$T" worktree add -q --detach "$WORK/slob071" main >/dev/null 2>&1 ;;
     nesudimyj)
       mk_world sv-nesud
-      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main'
       git -C "$T" checkout -q wip/071/demo ;;
     bezrefspec)
       mk_world sv-bezref
-      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez refspec' ;;
     bezrefspec2)
       mk_world sv-bezref2
-      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez refspec' ;;
     src-ne-main)
       mk_world sv-srcne
       git -C "$T" checkout -q -b wip/071/cand
-      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat cand'
       git -C "$T" checkout -q main ;;
     pushok)
@@ -742,7 +742,7 @@ stub_violation() { # stub_violation <класс>
       # R-13/R-14 ревьюера 071-r2: красный main + флаг --all при ветке wip —
       # честный предполёт обязан отказаться «чек красный»
       mk_world sv-allflag
-      python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+      python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
       git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main all'
       git -C "$T" checkout -q wip/071/demo ;;
     badland)
@@ -862,7 +862,7 @@ run_honest_cells() {
 
   # п2а-п2г: красный чек каждого из четырёх ключей
   mk_world p2a
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat role'
   run_push api origin main
   expect_refuse п2а "${PF}чек красный: check:ceilings"
@@ -1021,7 +1021,7 @@ run_honest_cells() {
   # п6г: push БЕЗ refspec при текущей ветке ≠ main — несудимая конфигурация
   # (мир push.default=matching: прозрачная реализация отправила бы красный main)
   mk_world p6g
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main'
   git -C "$T" config push.default matching
   git -C "$T" checkout -q wip/071/demo
@@ -1103,7 +1103,7 @@ PYE
   # красный main уезжал). Мир как п2а (красный ceilings на main), upstream
   # main→origin/main — обмен формы «push origin» доходит до exec.
   mk_world p7g
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez refspec'
   git -C "$T" branch --set-upstream-to=origin/main main
   run_push api origin
@@ -1114,7 +1114,7 @@ PYE
   # (голый `gitw push` по upstream; клетка стаба s15: «несудимая» вместо
   # «чек красный» не засчитывается)
   mk_world p7d
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main bez remote'
   git -C "$T" branch --set-upstream-to=origin/main main
   run_push api
@@ -1123,7 +1123,7 @@ PYE
 
   # п8: cwd ≠ отправляемое дерево — чеки видят ОТПРАВЛЯЕМОЕ дерево
   mk_world p8
-  python3 -c "print('z'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('z'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat on main'
   git -C "$T" checkout -q -b stara HEAD~1
   run_push api origin main
@@ -1133,7 +1133,7 @@ PYE
   # п9а: src ≠ main — чеки обязаны идти по ОТПРАВЛЯЕМОМУ src (критик к1 Б5)
   mk_world p9a
   git -C "$T" checkout -q -b wip/071/cand
-  python3 -c "print('z'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('z'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat cand'
   git -C "$T" checkout -q main
   run_push api origin wip/071/cand:main
@@ -1143,7 +1143,7 @@ PYE
   # п9б: HEAD:main при текущей ветке candidate — src = HEAD
   mk_world p9b
   git -C "$T" checkout -q -b wip/071/cand
-  python3 -c "print('z'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('z'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat cand'
   run_push api origin HEAD:main
   expect_refuse п9б "${PF}чек красный: check:ceilings"
@@ -1164,7 +1164,7 @@ PYE
   # п10а: И-2 (R-14 ревьюера 071-r2) — push origin --all при ветке ≠ main:
   # флаг ПОКРЫВАЕТ main — красный чек не уезжает (клетка стаба s16)
   mk_world p10a
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main all'
   git -C "$T" checkout -q wip/071/demo
   run_push api origin --all
@@ -1173,7 +1173,7 @@ PYE
 
   # п10б: И-2 — push origin --mirror, тот же мир: зеркальная форма покрыта
   mk_world p10b
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat main mirror'
   git -C "$T" checkout -q wip/071/demo
   run_push api origin --mirror
@@ -1204,7 +1204,7 @@ PYE
 
   # п11а: Р-3 ревьюера 071-r1 — хвост вывода чека в отказе (клетка стаба s17)
   mk_world p11a
-  python3 -c "print('x'*60000)" > "$T/roles/orchestrator.md"
+  python3 -c "print('x'*70000)" > "$T/roles/orchestrator.md"
   git -C "$T" add roles/orchestrator.md && ident "$T" -m 'fat role hvost'
   run_push api origin main
   expect_refuse п11а "${PF}чек красный: check:ceilings"
