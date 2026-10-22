@@ -1155,6 +1155,27 @@
    "iskhod": "OTKAZ",
    "prichina": "неоднозначное имя",
    "net_vydachi": true
+  },
+  {
+   "id": "c31-postscript-v-sverke",
+   "intent": "c01 — положительный красный контроль в том же мире (те же две KADR-строки, vision и зоны); примесь POSTSCRIPT после этих строк должна отказать до записи задания и refs",
+   "rezhim": "zadanie",
+   "sverka_raw_do": "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK\nKADR\tSplash light\t0.000\t0.600\ttagline\tNIZHE_POROGA\nPOSTSCRIPT\tthis is not a KADR record\n",
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [],
+   "iskhod": "NECHEM",
+   "prichina": "строка сверки вне грамматики: POSTSCRIPT\tthis is not a KADR record",
+   "net_vydachi": true
   }
  ],
  "stubs": [
@@ -1290,6 +1311,13 @@
    "defect": "провайдер не различается: неоднозначное короткое имя проходит, способность берётся у первой строки списка с этим именем (блокер B1 impl-v2)",
    "anchor": "  amb=\"$(printf '%s\\n' \"$caps\" | awk -F'\\t' -v m=\"$vm\" '$1==m {n++} END {print n+0}')\"\n  [ \"$amb\" -le 1 ] || otkaz \"неоднозначное имя модели $vm: в списке omp $amb строки с этим коротким именем, провайдер таблицей не различается — способность чужой модели не доказательство для настроенной (И-4)\"",
    "zamena": "  :"
+  },
+  {
+   "id": "s20-postscript-ignoriruetsya",
+   "cell": "c31-postscript-v-sverke",
+   "defect": "строка сверки вне алфавита молча пропускается; примесь POSTSCRIPT не мешает выдаче задания и refs",
+   "anchor": "    $1 != \"KADR\" { diag = \"строка сверки вне грамматики: \" ($0 == \"\" ? \"<пустая строка>\" : $0); bad = 4; exit }",
+   "zamena": "    $1 != \"KADR\" { next }"
   }
  ]
 }
