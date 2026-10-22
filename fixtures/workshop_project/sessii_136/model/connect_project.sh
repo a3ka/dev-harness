@@ -79,15 +79,28 @@ if [ ! -e "$PIN_WT" ]; then
     || { printf 'connect ОТКАЗ: worktree-пин не создан\n' >&2; exit 1; }
 fi
 
-# Трасса модели оркестратора (НАБЛ-П5): сев в .harness/registry/trace.tsv, И-7.
-[ -s .harness/registry/trace.tsv ] \
-  || printf 'orchestrator\t%s\tallowed\n' "${S136_ORCH_MODEL:-zai/glm-5.3}" > .harness/registry/trace.tsv
+# 136: каталог реестра проекта — workflowPaths.registry из профиля проекта
+# (996: профиль — единственный источник; дефолт .harness/registry). Дверь
+# сеет туда trace и перечень исключений паритета ПО ФАКТУ профиля.
+REG_REL="$(jq -r '.workflowPaths.registry // ".harness/registry"' harness.project.json 2>/dev/null || printf '.harness/registry')"
+mkdir -p "$REG_REL"
+
+# Трасса модели оркестратора (НАБЛ-П5, В-4а): источник — КОНФИГ УСТАНОВКИ
+# $HERE/config/agent_models.json: roles.orchestrator → tiers[роль].model
+# (@алиас) → models[алиас]. НЕ константа и НЕ env-замена: рассогласование
+# trace.tsv ↔ конфиг установки исключено по построению. Конфиг не читается
+# или не разбирается — именованный отказ, трасса не сеется (fail-closed).
+# И-7: существующая трасса не перезаписывается.
+if [ ! -s "$REG_REL/trace.tsv" ]; then
+  ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
+    || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
+  printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL" > "$REG_REL/trace.tsv"
+fi
 
 # 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
 # проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
 # корневой config/ дереву проекта не пишется (И-6 125). И-7: повтор не пишет.
-[ -e .harness/registry/ci_parity_exceptions.txt ] \
-  || : > .harness/registry/ci_parity_exceptions.txt
+[ -e "$REG_REL/ci_parity_exceptions.txt" ] || : > "$REG_REL/ci_parity_exceptions.txt"
 
 # 136 (НАБЛ-П11): процедура субагентных пинов — дверь кладёт в $PSTATE/bin
 # скрипт выдачи: каждому субагенту сессии — свой linked worktree под $PSTATE/wt
@@ -118,12 +131,21 @@ elif [ -s .harness/NEXT_TASK.md ]; then
 else
   MSG="Сессия проекта поднята без задания: прочитай .harness/HANDOFF.md и .harness/ROADMAP.md проекта, выбери предмет, доложи план."
 fi
-case "$MSG" in
-  *WORKTREE=*BRANCH=*) : ;;
-  *) MSG="$MSG
+# 136 (защита пина от подмены): задание НЕ имеет права навязывать свою пару.
+# Пара грамматики 066 — строки WORKTREE=/BRANCH=; доверенная пара — ТОЛЬКО
+# выданная этой дверью выше. Чужая (или половинная) пара в задании —
+# именованный отказ PIN_CHUZHOJ ДО запуска сессии: сессия не стартует
+# непиннованной (extract-pin чужой пары даёт null) и не пишет в чужое дерево.
+_ch_wt="$(printf '%s\n' "$MSG" | sed -n 's/^WORKTREE=//p' | head -1)"
+_ch_br="$(printf '%s\n' "$MSG" | sed -n 's/^BRANCH=//p' | head -1)"
+if [ -n "$_ch_wt" ] || [ -n "$_ch_br" ]; then
+  { [ "$_ch_wt" = "$PIN_WT" ] && [ "$_ch_br" = "$PIN_BR" ]; } \
+    || { printf 'connect ОТКАЗ: PIN_CHUZHOJ: стартовое задание несёт пару, не выданную этой дверью (WORKTREE=%s BRANCH=%s); сессия не запускается\n' "${_ch_wt:-<нет>}" "${_ch_br:-<нет>}" >&2; exit 1; }
+else
+  MSG="$MSG
 WORKTREE=$PIN_WT
-BRANCH=$PIN_BR" ;;
-esac
+BRANCH=$PIN_BR"
+fi
 
 # ── Adv125-Б: инструменты сканера секретов — fail-closed ДО записи секретов
 # и запуска сессии. Без них `sekret-v-dereve` ниже = лотерея: `awk: command not
