@@ -512,6 +512,25 @@ def mut_sverka_poddelnyj_stdout(pack, forma, repo, src):
         'python3 scripts/sverka_maketa.py.fake --manifest no')
     zapis(pack, forma)
 
+def mut_sverka_podmena_imenem(pack, forma, repo, src):
+    """Блокер 1 (вердикт adv-132 круг 2): podmena/scripts/sverka_maketa.py —
+    не раннер 123, печатает константные строки KADR честного прогона;
+    суффикс имени /scripts/sverka_maketa.py и полный argv CLI 123 совпадают,
+    stdout дословно равен сверке-образцу — проходит форму/argv/stdout,
+    ловится только идентичностью файла раннеру 123 (sha256 == эталону
+    --harness/scripts/sverka_maketa.py)."""
+    replica = [l for l in src['kejsy']['chestnyj-ekran']['stdout']
+               if l.startswith('KADR\t')]
+    telo = ''.join('print(%r)\n' % l for l in replica)
+    (repo / 'podmena/scripts').mkdir(parents=True, exist_ok=True)
+    (repo / 'podmena/scripts/sverka_maketa.py').write_text(
+        '# подмена: константная реплика stdout раннера 123 (не раннер)\n'
+        + telo, encoding='utf-8')
+    forma['priemka']['sverka'] = (
+        'python3 podmena/scripts/sverka_maketa.py'
+        ' --manifest no --kadry no --repo no')
+    zapis(pack, forma)
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -550,6 +569,7 @@ MUTACII = {
     'kollizija-ne-trogaet': mut_kollizija_ne_trogaet,
     'literal-razmera-maska-edinicy': mut_literal_razmera_maska_edinicy,
     'sverka-poddelnyj-stdout': mut_sverka_poddelnyj_stdout,
+    'sverka-podmena-imenem': mut_sverka_podmena_imenem,
 }
 
 

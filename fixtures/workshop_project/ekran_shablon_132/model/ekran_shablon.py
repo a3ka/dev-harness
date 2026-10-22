@@ -36,12 +36,18 @@
                  KADR_OTSUTSTVUET, не зелень;
                  sverka — rc 0 И stdout дословно равен выводу раннера 123 по
                  манифесту пачки (сверка-образец); строка обязана нести
-                 токены sverka_maketa.py и --manifest И быть ТОЧНЫМ вызовом
-                 раннера: python3 <путь с именем файла ровно
-                 scripts/sverka_maketa.py> --manifest M --kadry DIR
-                 --repo R (полный argv CLI 123; блокер 2 вердикта adv-132:
-                 …sverka_maketa.py.fake с константной репликой stdout —
-                 SAMODELNAYA_SVERKA)
+                 --manifest И быть ТОЧНЫМ вызовом раннера 123: python3
+                 <путь файла> --manifest M --kadry DIR --repo R (полный
+                 argv CLI 123), где файл по <путь файла> идентичен
+                 эталонному раннеру БАЙТАМИ — sha256 равен
+                 --harness/scripts/sverka_maketa.py (разрешённый путь
+                 раннера: пин .harness123 репо / scripts/ харнесса;
+                 честные относительный и абсолютный вызовы, симлинк,
+                 байт-в-байт копия — зелёные; имя/суффикс пути — НЕ
+                 дискриминатор: …sverka_maketa.py.fake и
+                 podmena/scripts/sverka_maketa.py с константной репликой
+                 stdout — SAMODELNAYA_SVERKA; блокеры 2/1 вердикта
+                 adv-132)
   zony           {"architect": [...], "implementer": [...]} — грамматика
                  check_zones: относительные пути без *?[ , без .., без
                  ведущего /; каталог с завершающей /
@@ -418,7 +424,7 @@ def razbit_argv(cmd):
 
 def check_priemka(f):
     sv = razbit_argv(f['priemka']['sverka'])
-    if not any('sverka_maketa.py' in t for t in sv) or '--manifest' not in sv:
+    if '--manifest' not in sv:
         return [otkaz('SAMODELNAYA_SVERKA',
                       'команда сверки не запускает механизм 123')]
     return []
@@ -589,28 +595,46 @@ def run_priemka_e2e(f, repo: Path):
 
 
 def _argv_rannera123(sv):
-    """Точный вызов раннера 123 (блокер 2 вердикта adv-132): python3
-    <путь с именем файла РОВНО scripts/sverka_maketa.py> и полный argv
-    раннера — три обязательных флага CLI 123 (--manifest M --kadry DIR
-    --repo R) по одному разу со значениями; имя-фрагмент
-    (…sverka_maketa.py.fake) или обрезанный argv — самодельная сверка."""
-    if (len(sv) != 8 or sv[0] != 'python3'
-            or (sv[1] != 'scripts/sverka_maketa.py'
-                and not sv[1].endswith('/scripts/sverka_maketa.py'))):
+    """Форма точного вызова раннера 123: python3 <путь файла> и полный argv
+    CLI 123 — три обязательных флага (--manifest M --kadry DIR --repo R)
+    по одному разу со значениями. ИМЯ файла — НЕ дискриминатор (блокер 1
+    вердикта adv-132 круг 2: суффикс /scripts/sverka_maketa.py проходил
+    подмене с константным stdout); идентичность файлу раннера судится
+    отдельно по байтам (_jet_runner123); обрезанный argv — самодельная
+    сверка."""
+    if len(sv) != 8 or sv[0] != 'python3':
         return False
     flagi, znach = sv[2::2], sv[3::2]
     return (sorted(flagi) == ['--kadry', '--manifest', '--repo']
             and all(z and not z.startswith('--') for z in znach))
 
 
-def run_priemka_sverka(f, repo: Path, obrazec_stdout: str):
+def _jet_runner123(put_fajla: Path, harness: Path):
+    """Идентичность раннеру 123 ПО ФАЙЛУ, не по имени/суффиксу пути
+    (блокер 1 вердикта adv-132 круг 2): путь из argv сверки (cwd = репо)
+    обязан разрешаться в существующий файл с sha256 == эталону
+    --harness/scripts/sverka_maketa.py — разрешённый путь раннера
+    (пин .harness123 репо, scripts/ харнесса), симлинк на него и
+    байт-в-байт копия зелёные; podmena/scripts/sverka_maketa.py — НЕ
+    раннер: самодельная сверка."""
+    etalon = harness / 'scripts' / 'sverka_maketa.py'
+    try:
+        return _sha256_fajla(put_fajla) == _sha256_fajla(etalon)
+    except OSError:
+        return False
+
+
+def run_priemka_sverka(f, repo: Path, harness: Path, obrazec_stdout: str):
     """Исполнение приёмки сверки: argv без shell; rc 0 И stdout дословно
     равен сверке-образцу раннера 123 (фиктивные echo/true не воспроизводят
-    вывод механизма) И команда — ТОЧНЫЙ вызов раннера 123 (python3 <путь,
-    имя файла ровно scripts/sverka_maketa.py> с полным argv CLI 123):
-    константная реплика stdout по имени-фрагменту …py.fake проходит
-    сверку вывода, но не является раннером — SAMODELNAYA_SVERKA
-    (блокер 2 вердикта adv-132)."""
+    вывод механизма) И команда — ТОЧНЫЙ вызов раннера 123: полный argv
+    CLI 123 (python3 <путь файла> --manifest M --kadry DIR --repo R)
+    И файл по <путь файла> ИДЕНТИЧЕН эталонному раннеру БАЙТАМИ
+    (sha256 == --harness/scripts/sverka_maketa.py): константная реплика
+    stdout по имени-фрагменту (…py.fake, блокер 2 круга 1) либо по
+    совпавшему суффиксу имени (podmena/scripts/sverka_maketa.py, блокер 1
+    круга 2 вердикта adv-132) проходит сверку вывода, но раннером не
+    является — SAMODELNAYA_SVERKA."""
     try:
         p = subprocess.run(razbit_argv(f['priemka']['sverka']),
                            cwd=str(repo), capture_output=True, text=True,
@@ -620,9 +644,12 @@ def run_priemka_sverka(f, repo: Path, obrazec_stdout: str):
     if p.returncode != 0 or p.stdout.splitlines() != obrazec_stdout.splitlines():
         return [otkaz('SAMODELNAYA_SVERKA',
                       'вывод не воспроизводит механизм 123')]
-    if not _argv_rannera123(razbit_argv(f['priemka']['sverka'])):
+    sv = razbit_argv(f['priemka']['sverka'])
+    if not _argv_rannera123(sv):
         return [otkaz('SAMODELNAYA_SVERKA',
                       'argv не вызов раннера 123: %s' % f['priemka']['sverka'])]
+    if not _jet_runner123(repo / sv[1], harness):
+        return [otkaz('SAMODELNAYA_SVERKA', 'файл не раннер 123: %s' % sv[1])]
     return []
 
 
@@ -672,7 +699,7 @@ def main(argv=None):
                 sys.stdout.write(stdout_run if stdout_run.endswith('\n')
                                  else stdout_run + '\n')
         if not otkazy:
-            otkazy += run_priemka_sverka(f, repo, stdout_run)
+            otkazy += run_priemka_sverka(f, repo, harness, stdout_run)
     for o in otkazy:
         print(o, file=sys.stderr)
     if otkazy:
