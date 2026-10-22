@@ -161,11 +161,18 @@ def load_source():
         'teksty/sostojanija_bez_png.json': 'sostojanija_bez_png',
         'teksty/ekran.stand-in.tsx': 'ekran_tekst',
         'teksty/statika_text.py': 'statika_tekst',
+        'teksty/povedenie.test.stand-in.tsx': 'povedenie_proba',
+        'teksty/mobile-ci.stand-in.yml': 'mobile_ci_tekst',
     }
     for rel, key in carriers.items():
         if (HERE / rel).read_bytes() != src[key].encode('utf-8'):
             print('ORACLE_TAMPERED: carrier %s' % rel, file=sys.stderr)
             raise SystemExit(2)
+    pin_proby = hashlib.sha256(src['povedenie_proba'].encode('utf-8')).hexdigest()
+    if pin_proby != src['povedenie_proba_sha256']:
+        print('ORACLE_TAMPERED: sha пробы поведения != пин source.json',
+              file=sys.stderr)
+        raise SystemExit(2)
     fajly_stabov = sorted(p.name for p in STUBS.glob('s*.py'))
     if fajly_stabov != sorted(src['stab_vhod']):
         print('ORACLE_TAMPERED: набор stubs/ != stab_vhod', file=sys.stderr)
@@ -240,6 +247,15 @@ def build_repo(src, tmp, pack):
     (pin123 / 'scripts').mkdir(parents=True)
     shutil.copyfile(RUNNER123, pin123 / 'scripts/sverka_maketa.py')
     shutil.copyfile(pack / 'kadry.json', pin123 / 'kadry.json')
+    # исполняемая семья поведения/рендера (0259fb00 а/б): текст пробы —
+    # в продукте по пути из критерия, байт-идентичен пину source.json
+    proba = repo / 'mobile/src/features/conversation/__tests__'
+    proba.mkdir(parents=True)
+    (proba / 'mission-116.test.tsx').write_text(
+        src['povedenie_proba'], encoding='utf-8')
+    ci = repo / '.github/workflows'
+    ci.mkdir(parents=True)
+    (ci / 'mobile.yml').write_text(src['mobile_ci_tekst'], encoding='utf-8')
     return repo
 
 
@@ -595,6 +611,47 @@ def mut_bezpng_chip_stroka(pack, forma, repo, src):
     _perepishi_ekran(repo, "const CHIP_LESET_SUFFIX = ' · wird gelesen';",
                      "const CHIP_LESET_SUFFIX = ' · wird gelesen.';")
 
+PROBA_PROD = Path('mobile/src/features/conversation/__tests__/'
+                  'mission-116.test.tsx')
+CI_PROD = Path('.github/workflows/mobile.yml')
+
+
+def _perekopi_fajl(repo, rel, tekst):
+    p = repo / rel
+    p.write_text(tekst, encoding='utf-8')
+
+
+def mut_povedenie_proba_otsutstvuet(pack, forma, repo, src):
+    """Проба поведения в продукте отсутствует (0259fb00 б)."""
+    (repo / PROBA_PROD).unlink()
+
+
+def mut_povedenie_proba_podmenena(pack, forma, repo, src):
+    """Файл пробы есть, но отличается от пина: удалена клетка K18."""
+    t = src['povedenie_proba']
+    kletka = t[t.index("it('116 mission RENDER_V03_CHIP_LESET"):]
+    _perekopi_fajl(repo, PROBA_PROD, t[:-len(kletka)])
+
+
+def mut_ci_shag_otsutstvuet(pack, forma, repo, src):
+    """mobile.yml без шага исполняемой семьи (0259fb00 в)."""
+    bez_shaga = '\n'.join(
+        l for l in src['mobile_ci_tekst'].splitlines()
+        if 'mission-116.test.tsx' not in l
+        and '116 mission behaviour render' not in l) + '\n'
+    _perekopi_fajl(repo, CI_PROD, bez_shaga)
+
+
+def mut_ci_shag_ne_gejtit(pack, forma, repo, src):
+    """Шаг семьи объявлен, но не гейтит (continue-on-error)."""
+    s_gejtom = src['mobile_ci_tekst'].replace(
+        '      - name: 116 mission behaviour render\n',
+        '      - name: 116 mission behaviour render\n'
+        '        continue-on-error: true\n')
+    assert s_gejtom != src['mobile_ci_tekst']
+    _perekopi_fajl(repo, CI_PROD, s_gejtom)
+
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -632,6 +689,10 @@ MUTACII = {
     'bezpng-render-stroka': mut_bezpng_render_stroka,
     'bezpng-render-literal': mut_bezpng_render_literal,
     'bezpng-chip-stroka': mut_bezpng_chip_stroka,
+    'povedenie-proba-otsutstvuet': mut_povedenie_proba_otsutstvuet,
+    'povedenie-proba-podmenena': mut_povedenie_proba_podmenena,
+    'ci-shag-otsutstvuet': mut_ci_shag_otsutstvuet,
+    'ci-shag-ne-gejtit': mut_ci_shag_ne_gejtit,
 }
 
 

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-# Статическая проба 116 (третий субъект батареи): поведенческие оси F05
-# (issue #9) и рендер состояний composer без PNG — ПО КОДУ ЭКРАНА
-# (mobile/src/features/conversation/conversation-screen.tsx), не по
-# декларации манифеста. Ожидания — закрытые литералы ЗДЕСЬ (оракул в
-# памяти проверяющего, правило 8: значения каталога — побайтово из
-# BrokerOS_UI_Copy_DE, токены — из ds/tokens.css, суффикс чипа — из
-# компонентов D2.2.5.1); манифест пачки — вторичная декларация, сверяется
-# с закрытым эталоном пробы. rc 1 — PRICHINA по имени ветви; rc 0 — тихо.
+# Статическая проба 116 (третий субъект батареи) — страж ФОРМЫ по
+# арбитражу 0259fb00 (е): закрытые множества (членство testID/токенов,
+# литералы каталога, запрет hex, draftStore/value-порты как РАННИЙ СИГНАЛ
+# — не суд поведения). Поведение и фактический рендер судит ИСПОЛНЯЕМАЯ
+# семья продукта (Jest/RNTL, product-CI, клетки K1-K18), её проводку
+# держат ДВЕ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б) и шаг
+# mobile.yml без continue-on-error (в). Ожидания — закрытые литералы
+# ЗДЕСЬ (оракул в памяти проверяющего, правило 8). rc 1 — PRICHINA по
+# имени ветви; rc 0 — тихо.
 import argparse
 import json
 import re
@@ -51,6 +52,17 @@ AUDIT_TOKENOV = {
     'panel', 'on-card', 'line', 'ink-muted', 'warm', 'on-warm', 'ink',
     'calm', 'on-calm',
 }
+
+# Пин исполняемой пробы (0259fb00 б): текст семьи K1-K18 в продукте
+# байт-идентичен артефакту батареи teksty/povedenie.test.stand-in.tsx
+# (sha256 ниже; носитель — source.json.povedenie_proba).
+PROBA_PUT = 'mobile/src/features/conversation/__tests__/mission-116.test.tsx'
+PROBA_SHA256 = '2a1ec048e72e1943f5e928d33756a22f5f1a71a032ced26b29951d98ea1dfef0'
+
+# Проводка product-CI (0259fb00 в): шаг jest семьи в mobile.yml обязан
+# существовать и гейтить (без continue-on-error / if: false).
+CI_PUT = '.github/workflows/mobile.yml'
+CI_SHAG_MARKER = 'mission-116.test.tsx'
 
 
 def prichina(imja, detal):
@@ -233,6 +245,37 @@ def sud_render_literaly(screen, opis):
     return []
 
 
+def sud_proba_povedenija(repo, _opis):
+    """Байт-пин текста пробы (замкнутое множество — полна по построению)."""
+    put = repo / PROBA_PUT
+    if not put.is_file():
+        return [('PROBA_POVEDENIJA_OTSUTSTVUET', PROBA_PUT)]
+    import hashlib
+    fakt = hashlib.sha256(put.read_bytes()).hexdigest()
+    if fakt != PROBA_SHA256:
+        return [('PROBA_POVEDENIJA_PODMENENA', fakt)]
+    return []
+
+
+def sud_ci_shag(repo, _opis):
+    """Шаг mobile.yml гонит семью и гейтит (без continue-on-error)."""
+    put = repo / CI_PUT
+    if not put.is_file():
+        return [('CI_BEZ_SHAGA_POVEDENIJA', CI_PUT)]
+    linii = put.read_text(encoding='utf-8').splitlines()
+    i_shag = next((i for i, l in enumerate(linii) if CI_SHAG_MARKER in l), -1)
+    if i_shag < 0:
+        return [('CI_BEZ_SHAGA_POVEDENIJA', 'shag')]
+    nach = i_shag
+    while nach > 0 and not linii[nach].lstrip().startswith('- '):
+        nach -= 1
+    blok = linii[nach:i_shag + 1]
+    telo = '\n'.join(blok)
+    if 'continue-on-error' in telo or re.search(r'if:\s*false', telo):
+        return [('CI_SHAG_POVEDENIJA_NE_GEJTIT', 'continue-on-error')]
+    return []
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--pack', required=True)
@@ -257,6 +300,8 @@ def main():
     otkazy = []
     for p in proverki:
         otkazy += p(screen, opis)
+    otkazy += sud_proba_povedenija(Path(a.repo), opis)
+    otkazy += sud_ci_shag(Path(a.repo), opis)
     for imja, detal in otkazy:
         prichina(imja, detal)
     return 1 if otkazy else 0
