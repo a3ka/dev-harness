@@ -42,9 +42,11 @@
                  ведущего /; каталог с завершающей /
   zamenjaet      null | путь в харнессе ИЛИ репо продукта: манифест кадров
                  ЗАМЕНЯЕМОГО контракта того же экрана; кадры нового —
-                 надмножество (замена целиком)
+                 надмножество КАЖДОГО найденного манифеста этого пути
+                 (суд в каждом корне, где файл есть; замена целиком)
   ne_trogaet     список путей в харнессе ИЛИ репо продукта: живые манифесты
-                 ЧУЖИХ экранов; пересечение id кадров пусто (чужих пикселей
+                 ЧУЖИХ экранов; пересечение id кадров пусто с КАЖДЫМ
+                 найденным манифестом каждого пути (чужих пикселей
                  не морозит)
   fiktura        bool; СУДИМАЯ пачка обязана быть false (фикция не судится);
                  false у живой пачки делает её видимой обнаружению (ниже)
@@ -58,6 +60,9 @@ ekran.json под fixtures/workshop_project/** В ОБОИХ корнях — х
 против обнаруженных живых пачек: живая пачка ТОГО ЖЕ ekran — её манифест
 обязан быть назван в zamenjaet (ZAMENJAET_NE_POLON); живая пачка ЧУЖОГО
 ekran — её манифест обязан стоять в ne_trogaet (NE_TROGAET_NE_POLON).
+Один и тот же путь в двух корнях — ОДНА запись обнаружения, но суд
+манифеста — по КАЖДОМУ файлу в каждом корне, где он есть (коллизия
+корней, арбитраж 132 Б: читаются все корни, не первый найденный).
 Замена целиком: заменяющий контракт экрана удаляет пачку предшественника
 своей зоной — живость определяется наличием ekran.json.
 
@@ -75,12 +80,16 @@ ekran — её манифест обязан стоять в ne_trogaet (NE_TROG
   совпадение вывода со сверкой-образцом).
 
 Литералы (ЗАПРЕЩЕНЫ во всех текстовых файлах пачки; судятся КЛАССОМ, не
-перечнем образцов — обход круга 2: hwb()/проценты/ch): цвета — hex
-#[0-9a-fA-F]{3,8} И ЛЮБАЯ функциональная запись «идентификатор(…число…)»
-(все CSS-функции цвета и функциональные нотации размеров: rgb/hsl/hwb/
-lab/oklch/color/calc/min/…); размеры — число с % ИЛИ любой буквенной
-единицей 1–4 букв (px/rem/ch/vmin/…). Hex-дайджесты (16+ hex подряд:
-sha-пины манифеста) маскируются до сверки — пин не литерал.
+перечнем образцов — обход круга 2: hwb()/проценты/ch; арбитраж круга 3:
+суд по ВСЕМУ ТЕКСТУ файла — перенос строки внутри функции литерал не
+прячет): цвета — hex #[0-9a-fA-F]{3,8} И ЛЮБАЯ функциональная запись
+«идентификатор(…число…)» (все CSS-функции цвета и функциональные нотации
+размеров: rgb/hsl/hwb/lab/oklch/color/calc/min/…, аргументы — числа,
+в т.ч. с ведущими нулями); размеры — число с % ИЛИ любой буквенной
+единицей 1–4 букв (px/rem/ch/vmin/…, ведущие нули — по-прежнему число).
+Маска дайджеста — ОБСОБЛЕННОЕ hex-слово 16+ с хотя бы одной буквой a–f
+(sha-пин манифеста — не литерал); число из цифр и аргумент функции маска
+НЕ стирает. файл:строка — строка НАЧАЛА совпадения.
 
 CLI: ekran_shablon.py --pack DIR --repo DIR --harness DIR
 Вывод: stdout — строки раннера 123 (KADR...) дословно, затем при успехе
@@ -121,7 +130,9 @@ RE_ZONA_STROKA = re.compile(r'^ЗОНА (architect|implementer): (.+)$')
 RE_CVET = re.compile(r'#[0-9a-fA-F]{3,8}\b'
                      r'|\b[a-zA-Z][a-zA-Z0-9-]*\([^()]*[0-9][^()]*\)')
 RE_RAZMER = re.compile(r'\b[0-9]+(?:\.[0-9]+)?(?:%|[a-zA-Z]{1,4}\b)')
-RE_HEX_ZHIST = re.compile(r'[0-9a-fA-F]{16,}')
+RE_HEX_ZHIST = re.compile(
+    r'(?<![0-9a-zA-Z])(?=[0-9a-fA-F]{16,}(?![0-9a-zA-Z]))'
+    r'(?=[0-9]*[a-fA-F])[0-9a-fA-F]{16,}')
 MAX_STRANICA = 60
 MAX_SHIRINA = 120
 MAX_BAJT = 4000
@@ -315,8 +326,11 @@ def check_zony_stroki(tekst: str, f):
 
 def check_literal(pack: Path):
     """Литералы цветов/размеров запрещены во всей пачке (аудит — в репо):
-    судятся КЛАССОМ (hex + функция с числом; число + %/буквенная единица),
-    sha-дайджесты 16+ hex маскируются — пин манифеста не литерал."""
+    судятся КЛАССОМ по ВСЕМУ ТЕКСТУ файла — перенос строки внутри функции
+    литерал не прячет (арбитраж 132 А1); маска дайджеста — обособленное
+    hex-слово 16+ с хотя бы одной буквой a-f, НЕ стирает ни число с
+    единицей/% (А2), ни аргумент-число из цифр (А3); файл:строка — строка
+    НАЧАЛА совпадения."""
     bad = []
     for p in sorted(pack.rglob('*')):
         if not p.is_file():
@@ -325,12 +339,12 @@ def check_literal(pack: Path):
             tekst = p.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue  # бинарный носитель
-        for i, line in enumerate(tekst.splitlines(), 1):
-            zaslon = RE_HEX_ZHIST.sub(' ', line)
-            if RE_CVET.search(zaslon) or RE_RAZMER.search(zaslon):
-                bad.append(otkaz('LITERAL_VNE_AUDITA',
-                                 '%s:%d' % (p.relative_to(pack), i)))
-                break
+        zaslon = RE_HEX_ZHIST.sub(lambda mm: ' ' * len(mm.group(0)), tekst)
+        m = RE_CVET.search(zaslon) or RE_RAZMER.search(zaslon)
+        if m:
+            i = zaslon.count('\n', 0, m.start()) + 1
+            bad.append(otkaz('LITERAL_VNE_AUDITA',
+                             '%s:%d' % (p.relative_to(pack), i)))
     return bad
 
 
@@ -397,8 +411,11 @@ def check_priemka(f):
 
 
 def _nahodi_manifest(harness: Path, repo: Path, rel):
-    """Манифест объявлен путём в харнессе ИЛИ репо продукта (живая пачка
-    может стоять в любом корне); нет нигде/не манифест — None."""
+    """Манифест по объявленному пути судится в КАЖДОМ корне, где файл по
+    этому пути существует (арбитраж 132 Б: один и тот же путь в двух
+    корнях — одна запись обнаружения, но суд — по каждому файлу);
+    нет нигде/не-манифест в любом корне — None."""
+    najdennye = []
     for root in (harness, repo):
         p = root / rel
         if not p.is_file():
@@ -409,29 +426,31 @@ def _nahodi_manifest(harness: Path, repo: Path, rel):
             return None
         if not isinstance(m, dict) or not isinstance(m.get('kadry'), list):
             return None
-        return [e.get('id') for e in m['kadry'] if isinstance(e, dict)]
-    return None
+        najdennye.append([e.get('id') for e in m['kadry'] if isinstance(e, dict)])
+    return najdennye or None
 
 
 def check_tselikom(f, harness: Path, repo: Path, kadry):
     if f['zamenjaet'] is None:
         return []
-    starye = _nahodi_manifest(harness, repo, f['zamenjaet'])
-    if starye is None:
+    najdennye = _nahodi_manifest(harness, repo, f['zamenjaet'])
+    if najdennye is None:
         return [otkaz('SHABLON_NEVEREN', 'zamenjaet: не манифест кадров')]
-    return [otkaz('NE_TSELIKOM', i) for i in starye if i not in kadry['ids']]
+    return [otkaz('NE_TSELIKOM', i)
+            for starye in najdennye for i in starye if i not in kadry['ids']]
 
 
 def check_chuzhie(f, harness: Path, repo: Path, kadry):
     bad = []
     for rel in f['ne_trogaet']:
-        chuzhie = _nahodi_manifest(harness, repo, rel)
-        if chuzhie is None:
+        najdennye = _nahodi_manifest(harness, repo, rel)
+        if najdennye is None:
             bad.append(otkaz('SHABLON_NEVEREN', 'ne_trogaet: не манифест'))
             continue
-        for i in chuzhie:
-            if i in kadry['ids']:
-                bad.append(otkaz('CHUZHIE_KADRY', i))
+        for chuzhie in najdennye:
+            for i in chuzhie:
+                if i in kadry['ids']:
+                    bad.append(otkaz('CHUZHIE_KADRY', i))
     return bad
 
 
@@ -463,7 +482,9 @@ def _zhivye_v_korne(root: Path, pack: Path):
 def zhivye_pachty(harness: Path, repo: Path, pack: Path):
     """Живые пачки В ОБОИХ корнях — харнессе И переданном репо продукта
     (обход круга 2: пачка в --repo невидима харнесс-скану); один и тот же
-    относительный путь в двух корнях — одна запись."""
+    относительный путь в двух корнях — одна запись обнаружения, но суд
+    манифеста — по каждому файлу в каждом корне, где он есть (_nahodi_manifest,
+    арбитраж 132 Б)."""
     vidno = {}
     for root in (harness, repo):
         for para in _zhivye_v_korne(root, pack):

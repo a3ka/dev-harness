@@ -427,6 +427,65 @@ def mut_kontrakt_shirokij(pack, forma, repo, src):
     p = pack / 'kontrakt.md'
     with p.open('a', encoding='utf-8') as f:
         f.write('Требование_без_разрыва ' * 300 + '\n')
+
+def mut_literal_cveta_mnogostrochnyj(pack, forma, repo, src):
+    """Арбитраж 132 А1: функциональная запись цвета, разорванная
+    переносами строк, — построчный скан её не видел; класс судит весь
+    текст файла, строка = начало совпадения."""
+    p = pack / 'batareja/red_ekrana.sh'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\nbackground: rgb(\n  255,\n  0,\n  0\n);\n')
+
+
+def mut_literal_razmera_nuli(pack, forma, repo, src):
+    """Арбитраж 132 А2: размер 16px с ведущими нулями (16 цифр) — маска
+    дайджеста по одной длине стирала число; маска с требованием буквы
+    a–f число из цифр не стирает."""
+    p = pack / 'batareja/red_ekrana.sh'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\npadding: 0000000000000016px;\n')
+
+
+def mut_literal_cveta_funkc_nuli(pack, forma, repo, src):
+    """Арбитраж 132 А3: rgb() с валидными десятичными аргументами из
+    ведущих нулей — маска по длине стирала аргументы-числа; аргумент из
+    цифр — не дайджест."""
+    p = pack / 'batareja/red_ekrana.sh'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\nbackground: rgb(0000000000000255, 0000000000000000,'
+                ' 0000000000000000);\n')
+
+
+def mut_kollizija_zamenjaet(pack, forma, repo, src):
+    """Арбитраж 132 Б1: манифест zamenjaet по ТОМУ ЖЕ относительному пути
+    в репо продукта с кадром, которого нет в новой пачке, — чтение
+    первого корня (харнесс) скрывало неполную замену; суд — по каждому
+    файлу в каждом корне."""
+    d = repo / FIKT
+    d.mkdir(parents=True, exist_ok=True)
+    staryj = json.loads(
+        (H_ROOT / FIKT / 'kadry_starogo.json').read_text(encoding='utf-8'))
+    staryj['kadry'][0]['id'] = 'Old screen only'
+    (d / 'kadry_starogo.json').write_text(
+        json.dumps(staryj, ensure_ascii=False, indent=1), encoding='utf-8')
+    (d / 'ekran.json').write_text(
+        json.dumps({'ekran': forma['ekran'], 'kadry': 'kadry_starogo.json',
+                    'fiktura': False}, ensure_ascii=False), encoding='utf-8')
+
+
+def mut_kollizija_ne_trogaet(pack, forma, repo, src):
+    """Арбитраж 132 Б2: чужая пачка по ПУТИ ne_trogaet в репо продукта с
+    кадрами судимой пачки — суд читал первый корень (харнесс) и чужих
+    пикселей не видел; пересечение пусто с КАЖДЫМ найденным."""
+    d = repo / FIKT / 'pachta_chuzhogo'
+    d.mkdir(parents=True, exist_ok=True)
+    (d / 'kadry.json').write_text(
+        json.dumps(src['kadry_manifest'], ensure_ascii=False, indent=1),
+        encoding='utf-8')
+    (d / 'ekran.json').write_text(
+        json.dumps({'ekran': 'other-screen', 'kadry': 'kadry.json',
+                    'fiktura': False}, ensure_ascii=False), encoding='utf-8')
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -458,6 +517,11 @@ MUTACII = {
     'kadry-ustarevshie': mut_kadry_ustarevshie,
     'zhivaja-pachta-v-repo': mut_zhivaja_pachta_v_repo,
     'kontrakt-shirokij': mut_kontrakt_shirokij,
+    'literal-cveta-mnogostrochnyj': mut_literal_cveta_mnogostrochnyj,
+    'literal-razmera-nuli': mut_literal_razmera_nuli,
+    'literal-cveta-funkc-nuli': mut_literal_cveta_funkc_nuli,
+    'kollizija-zamenjaet': mut_kollizija_zamenjaet,
+    'kollizija-ne-trogaet': mut_kollizija_ne_trogaet,
 }
 
 
