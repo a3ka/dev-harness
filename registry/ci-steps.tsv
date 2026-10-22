@@ -162,6 +162,17 @@ step	check:teg-posle-teksta-130-family-selftest	0	bash fixtures/workshop_project
 # R130-A1). Замер в ЧИСТОМ клоне d17919237 (`env -i PATH=/usr/bin:/bin`, урок Н-393): rc 0,
 # «клеток 24, сошлось 24», 5 с на двух прогонах. Вес 0 до первого замера окна (контракт 114).
 step	check:poezd-131-family-selftest	0	bash fixtures/workshop_project/poezd_131/red_poezd_131.sh
+# КОНТРАКТ 132: батарея шаблона контракта экрана mob (41 клетка / 24 стаба: валидатор экранной пачки scripts/ekran_shablon.py;
+# миры в mktemp — пачка + repo + харнесс, сеть не нужна) — подключение интеграционным коммитом оркестратора (ПРОВОДКА-ЭНФОРСМЕНТ
+# контракта 132). Продуктовый режим БЕЗ флагов судит scripts/ekran_shablon.py этого дерева (в CI — сам чекаут); --model/--stabs
+# не подключены: на дереве с предметом судят эталон (probe.py:605). Замер в чистом клоне объекта суда: rc 0, 41/41 ok.
+# Вес 0 до первого замера окна (контракт 114).
+step	check:ekran-shablon-132-family-selftest	0	bash fixtures/workshop_project/ekran_shablon_132/red_ekran_shablon_132.sh
+# КОНТРАКТ 133: батарея доводки UI (34 клетки / 20 стабов: ворота zadanie/zona/sudjam scripts/dovodka_ui.sh; миры в mktemp,
+# двойники omp/overlay, сеть не нужна) — подключение интеграционным коммитом оркестратора (ПРОВОДКА-ЭНФОРСМЕНТ контракта 133).
+# Продуктовый режим БЕЗ флагов судит scripts/dovodka_ui.sh этого дерева; --model/--stabs/--candidate не подключены.
+# Замер в чистом клоне объекта суда: rc 0, «клеток 34, сошлось 34». Вес 0 до первого замера окна (контракт 114).
+step	check:dovodka-ui-133-family-selftest	0	bash fixtures/workshop_project/dovodka_ui_133/red_dovodka_ui_133.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
