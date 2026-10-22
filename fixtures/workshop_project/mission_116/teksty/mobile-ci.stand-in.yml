@@ -1,0 +1,21 @@
+# Stand-in .github/workflows/mobile.yml (проводка 995/108/111/117 + 116):
+# шаг 116 гонит исполняемую семью поведения/рендера Mission (арбитраж
+# 0259fb00 (в)) БЕЗ continue-on-error — иначе CI_BEZ_SHAGA_POVEDENIJA /
+# CI_SHAG_POVEDENIJA_NE_GEJTIT. Пин текста — source.json (mobile_ci_tekst).
+name: mobile
+on: [push]
+jobs:
+  android-e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - name: 995 bootstrap smoke
+        run: npx jest src/bootstrap/__tests__
+      - name: 117 pilot splash
+        run: npx jest src/pilot/__tests__
+      - name: 116 mission behaviour render
+        run: npx jest src/features/conversation/__tests__/mission-116.test.tsx
