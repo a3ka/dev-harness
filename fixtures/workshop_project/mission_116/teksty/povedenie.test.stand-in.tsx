@@ -9,8 +9,12 @@
 // манифеста sostojanija_bez_png), строки каталога побайтово ВНУТРИ блока
 // и видимы, чужих Text в поддереве блока нет, множество className-токенов
 // РАВНО декларации манифеста (равенство декларацией, не требованием
-// палитры — арбитраж 0259fb00 п.3). Текст файла пинуется sha256 в
-// source.json батареи и байт-идентичен в продукте (страж формы).
+// палитры — арбитраж 0259fb00 п.3). K19 — новая тема снимает ещё НЕ
+// отправленный черновик (блокер круга 3: клетка NEW_TOPIC_SEPARATE_INTENT
+// сначала отправляет текст, потому нечувствительна к отсутствию очистки
+// в этом переходе; замер критика — mutant 18/19, honest 19/19). Текст
+// файла пинуется sha256 в source.json батареи и байт-идентичен в
+// продукте (страж формы).
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
 
@@ -299,6 +303,20 @@ it('116 mission NEW_TOPIC_SEPARATE_INTENT — новая тема — отдел
     });
     expect(screen.queryByText(BASELINE_TURN_TEXT)).toBeNull();
     expect(screen.queryByText('Erste Frage alt.')).toBeNull();
+    expect(
+      (screen.getByTestId('start-composer-input') as { props: { value?: string } }).props.value,
+    ).toBe('');
+    await cleanup();
+  });
+
+it('116 mission NEW_TOPIC_DRAFT_KEPT — новая тема снимает ещё НЕ отправленный черновик', async () => {
+    const { ports } = await renderConversation('dark');
+    await fireEvent.changeText(screen.getByTestId('start-composer-input'), 'Privater alter Entwurf.');
+    await fireEvent.press(screen.getByTestId('composer-new-topic'));
+    await waitFor(() => {
+      expect(ports.onNewTopic).toHaveBeenCalledTimes(1);
+    });
+    await screen.findByText(NEW_TOPIC_MISSION_ID);
     expect(
       (screen.getByTestId('start-composer-input') as { props: { value?: string } }).props.value,
     ).toBe('');

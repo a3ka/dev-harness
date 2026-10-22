@@ -652,6 +652,50 @@ def mut_ci_shag_ne_gejtit(pack, forma, repo, src):
     _perekopi_fajl(repo, CI_PROD, s_gejtom)
 
 
+CI_RUN_STROKA = ('        run: npx jest src/features/conversation/'
+                 '__tests__/mission-116.test.tsx')
+
+
+def mut_ci_coe_posle_run(pack, forma, repo, src):
+    """Критик круг 3: continue-on-error ПОСЛЕ run — легальная
+    перестановка полей шага; старая проба читала текст только до
+    строки маркера и считала шаг гейтовым."""
+    s = src['mobile_ci_tekst'].replace(
+        CI_RUN_STROKA, CI_RUN_STROKA + '\n        continue-on-error: true')
+    assert s != src['mobile_ci_tekst']
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
+def mut_ci_if_false_posle_run(pack, forma, repo, src):
+    """Критик круг 3: if: false ПОСЛЕ run — шаг объявлен, но не
+    исполняется; для маркер-сканирования шаг «существует»."""
+    s = src['mobile_ci_tekst'].replace(
+        CI_RUN_STROKA, CI_RUN_STROKA + '\n        if: false')
+    assert s != src['mobile_ci_tekst']
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
+def mut_ci_echo_podmena(pack, forma, repo, src):
+    """Критик круг 3: имя семьи осталось в shell-комментарии echo —
+    вызова npx jest нет, шаг «упоминает» файл, не запуская его."""
+    s = src['mobile_ci_tekst'].replace(
+        CI_RUN_STROKA, '        run: echo skipped # ' + CI_RUN_STROKA.strip())
+    assert s != src['mobile_ci_tekst']
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
+def mut_ci_run_kommentarij(pack, forma, repo, src):
+    """Свой (грамматика YAML): многострочный run: |-блок, вызов семьи
+    закомментирован — подмена команды комментарием внутри блока."""
+    s = src['mobile_ci_tekst'].replace(
+        CI_RUN_STROKA,
+        '        run: |\n'
+        '          # ' + CI_RUN_STROKA.strip() + '\n'
+        '          echo workaround')
+    assert s != src['mobile_ci_tekst']
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -693,6 +737,10 @@ MUTACII = {
     'povedenie-proba-podmenena': mut_povedenie_proba_podmenena,
     'ci-shag-otsutstvuet': mut_ci_shag_otsutstvuet,
     'ci-shag-ne-gejtit': mut_ci_shag_ne_gejtit,
+    'ci-coe-posle-run': mut_ci_coe_posle_run,
+    'ci-if-false-posle-run': mut_ci_if_false_posle_run,
+    'ci-echo-podmena': mut_ci_echo_podmena,
+    'ci-run-kommentarij': mut_ci_run_kommentarij,
 }
 
 
