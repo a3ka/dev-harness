@@ -89,7 +89,8 @@ frozen = set(re.findall(r'frozen/contracts/([0-9]{3})/', sh('git', '-C', REPO, '
 
 # ── открытые PR ───────────────────────────────────────────────────────────────
 prs = []   # (репо, номер, ветка, состояние, обновлён)
-for repo in ('a3ka/dev-harness', 'a3ka/Complior-mob', 'a3ka/Complior-back'):
+# Complior-back ведёт сессия проекта (scripts/connect_project.sh, контракт 125) — её PR не строки станции.
+for repo in ('a3ka/dev-harness', 'a3ka/Complior-mob'):
     out = sh('gh', 'pr', 'list', '-R', repo, '--json', 'number,headRefName,statusCheckRollup,updatedAt')
     try:
         rows = json.loads(out or '[]')
@@ -188,7 +189,8 @@ for n in seen:
         if working or pr_run:
             active[s] = active.get(s, 0) + 1
 print('ПОТОКИ:')
-for s in ('харнесс', 'mob', 'бэкенд'):
+print('  бэкенд: ведёт сессия проекта Complior-back — станция его предметы НЕ исполняет')
+for s in ('харнесс', 'mob'):
     if active.get(s):
         print(f'  {s}: в работе предметов — {active[s]}')
     else:
