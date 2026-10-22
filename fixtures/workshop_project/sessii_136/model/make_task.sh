@@ -134,13 +134,38 @@ if [ -z "$AUTHOR_ROLE" ]; then
 fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 
+# КОНТРАКТ 103 (Решение 1) / 996: пути — ЕДИНЫЙ вызов `project_paths_resolve`
+# (живёт в next_id.sh), поднят ДО чтения трассы: дефолт трассы 136 живёт в
+# <workflowPaths.registry> профиля. Никаких собственных конкатенаций
+# `$REPO_ABS/$STATE` и копий гарда workflowPaths (иначе двери расходятся молча).
+NEXT_ID_LIB=1
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "$0")" && pwd)/next_id.sh"
+[ "$(type -t project_paths_resolve)" = "function" ] \
+  || die "next_id.sh без project_paths_resolve"
+_PP_JSON="$(project_paths_resolve "$REPO_ABS")" \
+  || die "workflowPaths вне репо"
+WP_C="$(printf '%s' "$_PP_JSON" | jq -r '.contracts')"
+WP_V="$(printf '%s' "$_PP_JSON" | jq -r '.verdicts')"
+WP_G="$(printf '%s' "$_PP_JSON" | jq -r '.registry')"
+WP_F="$(printf '%s' "$_PP_JSON" | jq -r '.fixtures')"
+WP_H="$(printf '%s' "$_PP_JSON" | jq -r '.handoff')"
+# Относительные формы (для ls-tree имени файла внутри frozen-блоба тега
+# и для краткого листинга контрактов в брифе).
+WP_C_REL="${WP_C#"$REPO_ABS"/}"
+WP_V_REL="${WP_V#"$REPO_ABS"/}"
+WP_G_REL="${WP_G#"$REPO_ABS"/}"
+WP_F_REL="${WP_F#"$REPO_ABS"/}"
+WP_SC="$(printf '%s' "$_PP_JSON" | jq -c '.sourceCanon')"
+unset _PP_JSON
 TRACE_LINE=""; JUDGE_MODEL=""; AUTHOR_MODEL=""
 if [ "$PRINT_CONTEXT" -ne 1 ]; then
-# 136 (НАБЛ-П5): проектный режим — трасса по умолчанию .harness/registry/trace.tsv
-# (сеет дверь); явный --model-trace переопределяет. Вне проекта (файла нет) —
-# прежний отказ дословно.
-if [ -z "$TRACE" ] && [ -f "$REPO_ABS/.harness/registry/trace.tsv" ]; then
-  TRACE="$REPO_ABS/.harness/registry/trace.tsv"
+# 136 (НАБЛ-П5): проектный режим — трасса по умолчанию
+# <workflowPaths.registry>/trace.tsv профиля (сеет дверь; WP_G — из ЕДИНОГО
+# project_paths_resolve выше, не вторая конкатенация); явный --model-trace
+# переопределяет. Вне проекта (файла нет) — прежний отказ дословно.
+if [ -z "$TRACE" ] && [ -f "$WP_G/trace.tsv" ]; then
+  TRACE="$WP_G/trace.tsv"
 fi
   if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
   while IFS="$TAB" read -r r m fb; do
@@ -207,37 +232,8 @@ CP="$(printf '%s' "$MERGED" | jq -c '.contextPack.value // null' 2>/dev/null)" |
 
 # ── КОНТРАКТ 103 (Решение 1): профильные пути вместо harness-layout ──
 # Расположение каталогов контрактов и реестра — из эффективного workflowPaths
-# профиля (MERGED profile_resolver — единственный источник), не из зашитых
-# корневых contracts/ и registry/ харнеса. Контракт 996 круг 4: пути и
-# effective sourceCanon ОБЕИХ режимов считаются ЕДИНЫМ вызовом
-# `project_paths_resolve` (живёт в next_id.sh) — без собственных копий
-# гарда и без собственной конкатенации `$REPO_ABS/$STATE`. Иначе двери
-# расходятся молча (находка Р3-1 круга 3).
-REPO_ABS="$(cd "$REPO" && pwd -P)"
-if [ -z "${HARNESS_PROJECT_LAYER_ROOT:-}" ]; then
-  export HARNESS_PROJECT_LAYER_ROOT="$REPO"
-fi
-NEXT_ID_LIB=1
-# shellcheck disable=SC1091
-. "$(cd "$(dirname "$0")" && pwd)/next_id.sh"
-[ "$(type -t project_paths_resolve)" = "function" ] \
-  || die "next_id.sh без project_paths_resolve"
-# ЕДИНСТВЕННЫЙ вызов резолвера: rc 1 → отказ двери ДО построения PROJECT.
-_PP_JSON="$(project_paths_resolve "$REPO_ABS")" \
-  || die "workflowPaths вне репо"
-WP_C="$(printf '%s' "$_PP_JSON" | jq -r '.contracts')"
-WP_V="$(printf '%s' "$_PP_JSON" | jq -r '.verdicts')"
-WP_G="$(printf '%s' "$_PP_JSON" | jq -r '.registry')"
-WP_F="$(printf '%s' "$_PP_JSON" | jq -r '.fixtures')"
-WP_H="$(printf '%s' "$_PP_JSON" | jq -r '.handoff')"
-# Относительные формы (для ls-tree имени файла внутри frozen-блоба тега
-# и для краткого листинга контрактов в брифе).
-WP_C_REL="${WP_C#"$REPO_ABS"/}"
-WP_V_REL="${WP_V#"$REPO_ABS"/}"
-WP_G_REL="${WP_G#"$REPO_ABS"/}"
-WP_F_REL="${WP_F#"$REPO_ABS"/}"
-WP_SC="$(printf '%s' "$_PP_JSON" | jq -c '.sourceCanon')"
-unset _PP_JSON
+# профиля, посчитано ВЫШЕ ЕДИНЫМ вызовом `project_paths_resolve` (поднят к
+# чтению трассы 136); здесь второй копии резолвера и конкатенаций нет.
 WP_VERDICT_SUFFIX=""
 case "$ROLE" in
   critic)     WP_VERDICT_SUFFIX="critic" ;;
