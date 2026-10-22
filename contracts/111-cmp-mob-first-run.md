@@ -6,6 +6,10 @@ v4b (фикс FAIL критика круга 1 по v4, 2026-10-22): К5 уси�
 обязаны ПРИСУТВОВАТЬ на экране (обе схемы), не только быть допустимыми; обманки
 удаления рендерящих узлов (по одному и обе) — в коде `MUTANTS` пробы (Н-39); замер —
 §«Замер v4b».
+v4c (фикс FAIL критика круга 2 по v4, 2026-10-22): «наличие» уточнено до ВИДИМОСТИ —
+текст узла, скрытого `display:'none'`/`opacity 0` (узел или любой предок), НЕ считается
+присутствующим; обманки скрытия (по одному/оба, opacity) — в коде `MUTANTS` пробы (Н-39);
+замер — §«Замер v4c».
 Единственное изменение v4 — каталог копии First-Run += две строки макета владельца
 (слово владельца 2026-10-22 ~18:50 UTC «а»): подзаголовок «Ein Brief, ein Schaden,
 ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie
@@ -204,7 +208,11 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
   i18n) в ОБЕИХ схемах — И наоборот (v4b, критик круга 1): подзаголовок и футер
   обязаны ПРИСУТСТВОВАТЬ на экране полным текстом в ОБЕИХ схемах — наличие, не только
   допустимость (экран без обеих строк проходил замкнутость — ложное зелёное rc0);
-  отсутствие любой из двух строк или немецкая строка вне перечня на поверхности красит —
+  v4c (критик круга 2): ПРИСУТСТВОВАТЬ = быть ВИДИМЫМ — сбор текстовых листьев вырезает
+  поддеревья, скрытые `display:'none'`/`opacity 0`/нулевыми литеральными width/height
+  (скрытие на самом узле ИЛИ любом предке; строки, спрятанные `display:none`-обёрткой
+  в зоне implementer, проходили honest rc0 23/23); отсутствие любой из двух строк —
+  снятием узла ИЛИ скрытием — или немецкая строка вне перечня на поверхности красит —
   в т.ч. неточное совпадение с каталогизированной строкой (сокращённая
   форма саблайна, футер без финальной точки).
 
@@ -223,14 +231,15 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
 '@/i18n/ui-copy').
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду `MUTANTS` обеих проб, Н-39; depends измерены
-полным прогоном): поведенческих 30 (cta-label-weiter, promise-invented, onenter-not-wired,
+полным прогоном): поведенческих 34 (cta-label-weiter, promise-invented, onenter-not-wired,
 ground-default-blue, demo-badge-scope, wordmark-absent, cta-testid-renamed, light-cta-noop,
 safearea-edges-empty, wordmark-wrong-source, extra-unreviewed-copy, copy-all-allowed,
 light-edges-top-bottom, light-wrong-source, light-extra-copy, wrapper-root-white,
 wrapper-root-magenta, wrapper-root-padding, badge-outside-safearea, badge-inset-top-zero,
 badge-hardcoded-inset, restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
 restyle-995-padding-shifted, restyle-unavailable, restyle-recovery, subheadline-node-absent,
-footer-node-absent, copy-nodes-both-absent), статических 16
+footer-node-absent, copy-nodes-both-absent, subheadline-display-none, footer-display-none,
+copy-display-none-both, subheadline-opacity-zero), статических 16
 (splash-stays-default-blue, splash-dark-stays-blue, android-splash-blue,
 copy-promise-invented, copy-enter-missing, screen-hex-literal, pilot-unwired,
 wordmark-missing, wordmark-1x1-png, wordmark-broken-stub-82, wordmark-solid-rectangle,
@@ -251,6 +260,11 @@ LIGHT-клетками пар К3/К4/К5. Стаб v4 copy-all-allowed — об
 удаление рендерящих узлов подзаголовка/футера модели по одному и обоих; репро критика
 круга 1 v4: оба узла сняты на копии продукта 135 — rc0 23/23) — предъявление наличия
 парой К5 в ОБЕИХ схемах, без побочной красноты.
+Четыре стаба v4c (subheadline-display-none, footer-display-none, copy-display-none-both,
+subheadline-opacity-zero — скрытие строки макета стилем `display:'none'`/`opacity 0`
+по одному и обоих; репро критика круга 2 v4: обе строки спрятаны `display:none`-обёрткой
+в зоне implementer — rc0 23/23 у батареи v4b) — предъявление ВИДИМОСТИ парой К5 в ОБЕИХ
+схемах, без побочной красноты.
 
 ## Приёмочный критерий
 
@@ -271,8 +285,12 @@ Python 3 stdlib. Нет Jest/артефактов отчёта → rc2 INFRASTRU
   (подзаголовок, футер, оба); `first_run_probe.py --repo R` → rc1, красны ровно
   `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` — наличие, не только допустимость (фикс
   ложного зелёного круга 1).
+- Дано v4c: копия v4-дерева, где любая из строк макета (или обе) скрыта —
+  `display:'none'` на узле/предке либо `opacity 0`; `first_run_probe.py --repo R` → rc1,
+  красны ровно `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` — видимость, не присутствие в дереве
+  (фикс ложного зелёного круга 2).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый стаб красен своей
-  именованной ветвью, побочная краснота только в depends (30+16 стабов); якорь мутанта неуникален
+  именованной ветвью, побочная краснота только в depends (34+16 стабов); якорь мутанта неуникален
   → отказ rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк (пробы
   восстанавливают дерево).
@@ -530,4 +548,34 @@ node_modules от npm ci-дерева продукта). Все числа — �
   defects 0, unexpected_red=none).
 - Статическая проба на продукте 135: rc0 static 16/16 (семья не менялась); дерево R
   после всех прогонов — 0 строк в `git status`.
+- `bash scripts/pre_critic.sh contracts/111-cmp-mob-first-run.md` → rc0.
+
+## Замер v4c (клетка наличия судит ВИДИМОСТЬ, фикс FAIL критика круга 2, 2026-10-22)
+
+Находка критика (`verdicts/critic/contracts-111-v4.md` @ `332c77c5`, БЛОКИРУЕТ): К5 судила
+присутствие текстовых листьев в toJSON-дереве — строки, спрятанные `display:none`-обёрткой
+`<View>` в зоне implementer, проходили honest rc0 23/23 (ложное зелёное; ИЗМЕРЕНО критиком
+на копии продукта 135). Фикс: сбор текста К5 (`collectText`) вырезает поддеревья, скрытые
+`display:'none'`/`opacity 0`/нулевыми литеральными width/height — на самом узле ИЛИ любом
+предке; правка проб — `first_run.test.tsx` (collectText + комментарий клетки К5) и
+`first_run_probe.py` (четыре обманки скрытия, привязка по коду — Н-39); `source.json`,
+статическая проба, модель и замороженные 111/{1,2,3} не тронуты. R — копия продукта 135
+`74c59935c` (свой .git, node_modules от npm ci-дерева продукта). Все числа — из прогонов.
+
+- Продукт 135 (обе строки видимы): `first_run_probe.py --repo R` → rc0 honest 23/23 —
+  К5 с видимость-сбором зелёна в обеих схемах (нулевые литеральные размеры в дереве
+  честного продукта отсутствуют — проверка не даёт ложной красноты).
+- Красные копии продукта (репро критика круга 2, дословная форма — `<PlacedText>` обёрнут
+  в `<View style={{display:'none'}}>`): скрытие подзаголовка / футера / обоих → rc1,
+  красны РОВНО `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` (21 зелёная + 2 RED из 23 в каждой);
+  копия с `opacity: 0` на обеих строках (PlacedText-стиль в auth-parts.tsx) — та же ровно
+  пара; копия с удалением обоих узлов — та же ровно пара (круг 1 не сломан). Хирургия копий —
+  только код продукта в зоне implementer (first-run-screen.tsx / auth-parts.tsx).
+- Матрица: `first_run_probe.py --repo R --matrix` → rc0 (34 стаба = 30 прежних +
+  subheadline-display-none, footer-display-none, copy-display-none-both,
+  subheadline-opacity-zero; каждый из четырёх красен ровно парой
+  `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}`, побочной красноты нет, defects 0,
+  unexpected_red=none; три стаба удаления v4b — та же пара, прежнее поведение).
+- Статическая проба на продукте 135: rc0 static 16/16 (семья не менялась); дерево R
+  после всех прогонов — 0 строк в `git status --short --untracked-files=all`.
 - `bash scripts/pre_critic.sh contracts/111-cmp-mob-first-run.md` → rc0.
