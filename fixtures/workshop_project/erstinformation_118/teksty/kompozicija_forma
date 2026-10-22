@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Форма stand-in пробы композиции (контракт 118; носитель — батарея
+# fixtures/workshop_project/erstinformation_118/teksty/kompozicija_forma).
+# Продукт держит mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh
+# БАЙТ-В-БАЙТ равным этому носителю: пин sha256 зашит в proverka
+# proiskhozdenija (KOMPOZICIJA_FORMA_SHA256), подмена таблицей ожиданий
+# или заглушкой даёт именованный отказ KOMPOZICIJA_FORMA.
+# Ось admission подаёт ВЫЗЫВАЮЩИЙ (argv), не литерал здесь; допуск к Start
+# судит предикат 107: только W1A при полном current-снимке допущен,
+# null/stale и W0 — нет. Ось вне алфавита — rc 3 (отказ, а не дефолтный
+# вердикт). Исполнение самой композиции (jest-проба из
+# mobile/src/bootstrap/__tests__/, admission из внешнего источника) судит
+# продуктовый CI отдельно — эта форма её видимый шов, не замена.
+set -u
+admission="${1:?admission=W0|W1A}"
+gate="${2:?gate=null|stale|current}"
+case "$admission" in
+  W0|W1A) ;;
+  *) exit 3 ;;
+esac
+case "$gate" in
+  null|stale|current) ;;
+  *) exit 3 ;;
+esac
+if [ "$gate" = "current" ] && [ "$admission" = "W1A" ]; then
+  echo "start_dopushchen"
+else
+  echo "start_ne_dopushchen"
+fi
