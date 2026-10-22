@@ -4,7 +4,7 @@
 # арбитражу 0259fb00 (е): закрытые множества (членство testID/токенов,
 # литералы каталога, запрет hex, draftStore/value-порты как РАННИЙ СИГНАЛ
 # — не суд поведения). Поведение и фактический рендер судит ИСПОЛНЯЕМАЯ
-# семья продукта (Jest/RNTL, product-CI, клетки K1-K18), её проводку
+# семья продукта (Jest/RNTL, product-CI, клетки K1-K19), её проводку
 # держат ДВЕ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б) и шаг
 # mobile.yml без continue-on-error (в). Ожидания — закрытые литералы
 # ЗДЕСЬ (оракул в памяти проверяющего, правило 8). rc 1 — PRICHINA по
@@ -54,11 +54,11 @@ AUDIT_TOKENOV = {
     'calm', 'on-calm',
 }
 
-# Пин исполняемой пробы (0259fb00 б): текст семьи K1-K18 в продукте
+# Пин исполняемой пробы (0259fb00 б): текст семьи K1-K19 в продукте
 # байт-идентичен артефакту батареи teksty/povedenie.test.stand-in.tsx
 # (sha256 ниже; носитель — source.json.povedenie_proba).
 PROBA_PUT = 'mobile/src/features/conversation/__tests__/mission-116.test.tsx'
-PROBA_SHA256 = '2a1ec048e72e1943f5e928d33756a22f5f1a71a032ced26b29951d98ea1dfef0'
+PROBA_SHA256 = '873cf35be05a8ae8dcfff682100c992c9ee59096c0fe8a261f7eae56de871bdb'
 
 # Проводка product-CI (0259fb00 в): шаг jest семьи в mobile.yml обязан
 # существовать и гейтить (без continue-on-error / if: false).
