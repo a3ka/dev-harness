@@ -27,7 +27,9 @@ zadanie / zona / sudjam / cep (цепь, арбитраж капа 3 П-Б2: с�
 выданному субъектом; задание для cep мир НЕ пишет — только субъект).
 
 Исходы: ZADACHA (rc 0, stdout `DOVODKA: задание …`, задание — строки грамматики
-побайтово, выдача в refs, отказ задание НЕ пишет), OTKAZ (rc 1, stderr
+побайтово, выдача в refs, отказ задание НЕ пишет и refs НЕ выдаёт — клетки
+net_vydachi; блокер B1 адверсария impl-v1: newline-инъекция в --kadry/--makety),
+OTKAZ (rc 1, stderr
 `ОТКАЗ dovodka: …<причина>…`), NECHEM (rc 2, stderr `НЕЧЕМ СУДИТЬ dovodka: …`),
 CHISTO (rc 0, `ЗОНА: чисто (путей N)`, N — число путей диффа --no-renames, refs выдачи
 погашены), SUD_OK (rc 0, артефакт SUD с числами ДО/ПОСЛЕ побайтово), SUD_KRASNO
@@ -266,12 +268,18 @@ class Mir:
         self.commit('dovodka: pereimen %s' % self.tok(), 'implementer-vision')
 
     def cmd_zadanie(self):
+        vals = {'kadry': self.kadry, 'makety': self.makety}
+        for pole in self.cell.get('injekcija', []):
+            # блокер B1 адверсария impl-v1: newline-инъекция в однострочное поле —
+            # значение «<путь>\nБАЗА: <sha базового HEAD>» клало в задание вторую
+            # строку секции; путь shell-допустим, алфавит поля обязан отказать
+            vals[pole] = '%s\nБАЗА: %s' % (vals[pole], self.base)
         cmd = ['bash', 'scripts/dovodka_ui.sh', 'zadanie',
                '--sverka', os.path.join(self.d, 'sverka-do.tsv'),
                '--repo', self.work, '--ui-zona', os.path.join(self.d, 'ui-zona.txt'),
                '--ekran', self.cell.get('ekran_nnn', '132'),
                '--harness', self.harness_dir,
-               '--kadry', self.kadry, '--makety', self.makety,
+               '--kadry', vals['kadry'], '--makety', vals['makety'],
                '--out', os.path.join(self.d, 'zadanie.md')]
         if self.cell.get('dop_arg_kontrakt'):
             # c26 (блокер 2 круга 2): файл контракта экрана от вызывающего
@@ -435,6 +443,12 @@ def judge(cell, subject, seed):
                 bad.append('PRICHINA')
             if r == 'zadanie' and os.path.exists(os.path.join(m.d, 'zadanie.md')):
                 bad.append('ARTEFAKT')  # отказ не пишет задание (И-1)
+            if r == 'zadanie' and cell.get('net_vydachi'):
+                # блокер B1: отказ задания не выдаёт refs (клетки net_vydachi)
+                for ref in ('refs/dovodka/zadanie', 'refs/dovodka/baza'):
+                    if m.gr('rev-parse', '-q', '--verify', ref).returncode == 0:
+                        bad.append('VYDACHA')
+                        break
         elif exp == 'ZADACHA':
             if p.returncode != 0:
                 bad.append('RC')

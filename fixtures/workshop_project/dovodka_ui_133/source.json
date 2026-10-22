@@ -1054,6 +1054,46 @@
    "iskhod": "CHISTO"
   },
   {
+   "id": "c29-newline-injekcija-kadry-makety",
+   "intent": "блокер B1 адверсария impl-v1: newline-инъекция в --kadry/--makety (значение «<путь>\\nБАЗА: <sha базового HEAD>», shell-допустимый путь) клала в задание вторую строку БАЗА — задание вне полной грамматики ворот выдавалось и принималось zona; алфавит однострочных полей: zadanie отказывает, задание не пишется, refs не выдаются",
+   "rezhim": "zadanie",
+   "injekcija": [
+    "kadry",
+    "makety"
+   ],
+   "net_vydachi": true,
+   "sverka_do": [
+    [
+     "Splash dark",
+     "0.783",
+     "0.600",
+     "tagline",
+     "OK"
+    ],
+    [
+     "Splash light",
+     "0.000",
+     "0.600",
+     "tagline",
+     "NIZHE_POROGA"
+    ]
+   ],
+   "vision": {
+    "model": "probe/sonnet-v4",
+    "images": "yes"
+   },
+   "ui_zona": [
+    "mobile/src/"
+   ],
+   "ekran_zona": [
+    "mobile/src/",
+    "mobile/.maestro/"
+   ],
+   "shagi": [],
+   "iskhod": "OTKAZ",
+   "prichina": "CR/LF вне алфавита строки задания"
+  },
+  {
    "id": "d01-dver-implementer",
    "intent": "раздача доводчику — СУЩЕСТВУЮЩАЯ дверь 095 в роли implementer (алфавит make_task): живая проба на клоне дерева с маркером заморозки — rc 0 и непустой манифест .omp/context/<NNN>.tsv (блокер 1 v2: заявленный механизм передачи обязан существовать; клетки двери не зовут субъект)",
    "rezhim": "dver",
@@ -1195,6 +1235,13 @@
    "defect": "строки задания переставлены (tac) перед hash-object: задание вне порядка секций проходит ожидание ZADACHA мультимножеством и рвёт собственную цепь — потребитель zona собирает секции по порядку (арбитраж капа 3 П-Б1/П-Б2)",
    "anchor": "} > \"$out\"",
    "zamena": "} > \"$out\"\n  tac \"$out\" > \"$out.reordered\" && mv \"$out.reordered\" \"$out\""
+  },
+  {
+   "id": "s18-zadanie-newline-prohodit",
+   "cell": "c29-newline-injekcija-kadry-makety",
+   "defect": "модель без запрета CR/LF и без конечного автомата полной грамматики (блокер B1 адверсария impl-v1): newline-инъекция в --kadry/--makety проходит — задание с двумя строками БАЗА пишется и выдаётся (refs пишутся)",
+   "anchor": "odna_stroka() {  # $1 значение $2 имя поля → 0 в алфавите (без CR/LF)\n  case \"$1\" in *$'\\r'*|*$'\\n'*) otkaz \"многострочное значение $2 — CR/LF вне алфавита строки задания\" ;; esac\n}\n# zadanie_chitaem — конечный автомат ПОЛНОЙ грамматики (блокер B1): каждая строка\n# файла — заголовок, поле обязательной секции РОВНО один раз (двойное поле — отказ)\n# или тело открытой многострочной секции (UI-ЗОНА — пути, СВЕРКА — строки KADR);\n# строка вне секций и неполный состав — именованный отказ: zona принимает только\n# задание грамматики ворот, последнее вхождение поля ничего не перезаписывает\nEKRAN=\"\"\nBAZA=\"\"\nzadanie_chitaem() {  # $1 задание $2 репозиторий → ZONY/EKRAN/BAZA; подмена — именованный отказ\n  local f=\"$1\" repo=\"$2\" l='' otkryt='' zrepo='' first=1\n  local m_model=0 m_repo=0 m_baza=0 m_ekran=0 m_kadry=0 m_makety=0 m_uiz=0 m_sv=0 m_zad=0\n  [ -f \"$f\" ] || otkaz \"задание не от ворот zadanie: файла нет: $f\"\n  ZONY=(); EKRAN=\"\"; BAZA=\"\"\n  while IFS= read -r l || [ -n \"$l\" ]; do\n    if [ \"$first\" -eq 1 ]; then\n      first=0\n      [ \"$l\" = \"$ZAG\" ] || otkaz \"задание не от ворот zadanie: нет заголовка ворот: $l\"\n      continue\n    fi\n    case \"$l\" in\n      \"$ZAG\") otkaz 'задание не от ворот zadanie: заголовок не первая строка' ;;\n      'МОДЕЛЬ: '*)\n        [ \"$m_model\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка МОДЕЛЬ дважды'\n        m_model=1 ;;\n      'РЕПОЗИТОРИЙ: '*)\n        [ \"$m_repo\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка РЕПОЗИТОРИЙ дважды'\n        zrepo=\"${l#РЕПОЗИТОРИЙ: }\"; m_repo=1 ;;\n      'БАЗА: '*)\n        [ \"$m_baza\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка БАЗА дважды'\n        BAZA=\"${l#БАЗА: }\"; m_baza=1 ;;\n      'КОНТРАКТ ЭКРАНА: '*)\n        [ \"$m_ekran\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка КОНТРАКТ ЭКРАНА дважды'\n        EKRAN=\"${l#КОНТРАКТ ЭКРАНА: }\"; m_ekran=1 ;;\n      'КАДРЫ: '*)\n        [ \"$m_kadry\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка КАДРЫ дважды'\n        m_kadry=1 ;;\n      'МАКЕТЫ: '*)\n        [ \"$m_makety\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка МАКЕТЫ дважды'\n        m_makety=1 ;;\n      'UI-ЗОНА:')\n        [ \"$m_uiz\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка UI-ЗОНА дважды'\n        otkryt=zona; m_uiz=1 ;;\n      'СВЕРКА (дословно, числа похожести на каждый кадр):')\n        [ \"$m_sv\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка СВЕРКА дважды'\n        otkryt=sverka; m_sv=1 ;;\n      'ЗАДАЧА: '*)\n        [ \"$m_zad\" -eq 0 ] || otkaz 'задание не от ворот zadanie: строка ЗАДАЧА дважды'\n        otkryt=''; m_zad=1 ;;\n      *)\n        case \"$otkryt\" in\n          zona) ZONY+=(\"$l\") ;;\n          sverka) case \"$l\" in 'KADR'$'\\t'*) ;; *) otkaz \"задание не от ворот zadanie: строка сверки вне грамматики: $l\" ;; esac ;;\n          *) otkaz \"задание не от ворот zadanie: строка вне секций: $l\" ;;\n        esac ;;\n    esac\n  done < \"$f\"\n  [ -n \"$BAZA\" ] || otkaz 'задание не от ворот zadanie: нет строки БАЗА'\n  case \"$BAZA\" in *[!0-9a-f]*|'') otkaz \"задание не от ворот zadanie: БАЗА не sha: $BAZA\" ;; esac\n  [ \"${#BAZA}\" -eq 40 ] || otkaz \"задание не от ворот zadanie: БАЗА не sha: $BAZA\"\n  [ \"$m_ekran\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки КОНТРАКТ ЭКРАНА'\n  [ \"$m_model\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки МОДЕЛЬ'\n  [ \"$m_repo\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки РЕПОЗИТОРИЙ'\n  [ \"$m_kadry\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки КАДРЫ'\n  [ \"$m_makety\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки МАКЕТЫ'\n  [ \"$m_uiz\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки UI-ЗОНА'\n  [ \"$m_sv\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки СВЕРКА'\n  [ \"$m_zad\" -eq 1 ] || otkaz 'задание не от ворот zadanie: нет строки ЗАДАЧА'\n  [ \"${#ZONY[@]}\" -gt 0 ] || otkaz 'задание не от ворот zadanie: пустая UI-зона'\n  for l in \"${ZONY[@]}\"; do\n    zona_gram \"$l\" || otkaz \"задание не от ворот zadanie: UI-зона вне грамматики: $l\"\n  done\n  [ \"$zrepo\" = \"$repo\" ] || otkaz \"репозиторий расходится с заданием: $repo ≠ $zrepo\"\n}",
+   "zamena": "odna_stroka() { :; }\nzadanie_chitaem() {  # $1 задание $2 репозиторий → ZONY/EKRAN/BAZA; подмена — именованный отказ\n  local f=\"$1\" repo=\"$2\" l='' sec=''\n  [ -f \"$f\" ] || otkaz \"задание не от ворот zadanie: файла нет: $f\"\n  ZONY=(); EKRAN=\"\"; BAZA=\"\"; local zrepo=''\n  while IFS= read -r l || [ -n \"$l\" ]; do\n    case \"$l\" in\n      \"$ZAG\") ;;\n      'МОДЕЛЬ: '*) ;;\n      'РЕПОЗИТОРИЙ: '*) zrepo=\"${l#РЕПОЗИТОРИЙ: }\" ;;\n      'БАЗА: '*) BAZA=\"${l#БАЗА: }\" ;;\n      'КОНТРАКТ ЭКРАНА: '*) EKRAN=\"${l#КОНТРАКТ ЭКРАНА: }\" ;;\n      'КАДРЫ: '*) ;;\n      'МАКЕТЫ: '*) ;;\n      'UI-ЗОНА:') sec=zona ;;\n      'СВЕРКА (дословно, числа похожести на каждый кадр):') sec=sverka ;;\n      'ЗАДАЧА: '*) sec='' ;;\n      *) [ \"$sec\" = zona ] && ZONY+=(\"$l\") ;;\n    esac\n  done < \"$f\"\n  [ -n \"$BAZA\" ] || otkaz 'задание не от ворот zadanie: нет строки БАЗА'\n  case \"$BAZA\" in *[!0-9a-f]*|'') otkaz \"задание не от ворот zadanie: БАЗА не sha: $BAZA\" ;; esac\n  [ \"${#BAZA}\" -eq 40 ] || otkaz \"задание не от ворот zadanie: БАЗА не sha: $BAZA\"\n  [ -n \"$EKRAN\" ] || otkaz 'задание не от ворот zadanie: нет строки КОНТРАКТ ЭКРАНА'\n  [ \"${#ZONY[@]}\" -gt 0 ] || otkaz 'задание не от ворот zadanie: пустая UI-зона'\n  for l in \"${ZONY[@]}\"; do\n    zona_gram \"$l\" || otkaz \"задание не от ворот zadanie: UI-зона вне грамматики: $l\"\n  done\n  [ \"$zrepo\" = \"$repo\" ] || otkaz \"репозиторий расходится с заданием: $repo ≠ $zrepo\"\n}"
   }
  ]
 }
