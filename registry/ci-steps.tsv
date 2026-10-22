@@ -145,6 +145,23 @@ step	check:import315-119-family-selftest	0	bash fixtures/workshop_project/import
 # интеграционным коммитом (§Порядок п.2(а), §Проводка-ЭНФОРСМЕНТ); вес 0 до первого замера окна
 # (локальный замер --model 2.35 с, 37/37). Команда — литерал контракта 122.
 step	check:ci-proekta-122-family-selftest	0	bash fixtures/workshop_project/ci_proekta_122/red_ci_proekta_122.sh --model
+# КОНТРАКТ 130: батарея «тег после текста» (48 клеток: push тега заморозки через gitw уходит на
+# цель только при тексте контракта и вердиктах критика v1..v уже в main ЦЕЛИ; миры в mktemp —
+# bare-цель + клон, сеть и GitHub не нужны) — подключение интеграционным коммитом оркестратора
+# (ПРОВОДКА-ЭНФОРСМЕНТ контракта 130). Продуктовый режим БЕЗ флагов судит scripts/ этого дерева
+# (в CI — сам чекаут); --model/--stabs НЕ подключены: на дереве с предметом дают rc 2 (advisory
+# R130-A1: якорь раннего exec занят вставкой И-1 — ждать v+1 батареи). Замер в ЧИСТОМ клоне
+# d17919237 (PATH с npm): rc 0, «клеток 48, сошлось 48», 4..5 с на двух прогонах. Вес 0 до
+# первого замера окна (контракт 114).
+step	check:teg-posle-teksta-130-family-selftest	0	bash fixtures/workshop_project/teg_posle_teksta_130/red_teg_posle_teksta_130.sh
+# КОНТРАКТ 131: батарея «поезд без догонялок» (24 клетки: публикация main доказанным префиксом,
+# субъект scripts/publikaciya_main.sh; миры в mktemp — bare origin + клон с двойниками ci_klass/
+# gitw, без сети и gh) — подключение интеграционным коммитом оркестратора (ПРОВОДКА-ЭНФОРСМЕНТ
+# контракта 131). Продуктовый режим БЕЗ флагов судит scripts/publikaciya_main.sh этого дерева
+# (в CI — сам чекаут); --model/--stabs не подключены — проводка симметрична 130 (policy-строка
+# R130-A1). Замер в ЧИСТОМ клоне d17919237 (`env -i PATH=/usr/bin:/bin`, урок Н-393): rc 0,
+# «клеток 24, сошлось 24», 5 с на двух прогонах. Вес 0 до первого замера окна (контракт 114).
+step	check:poezd-131-family-selftest	0	bash fixtures/workshop_project/poezd_131/red_poezd_131.sh
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
@@ -209,3 +226,7 @@ shard	ap2	check_scope_select freeze_contract check_skills land_agent check_decis
 shard	ap3	check_staged check_zones check_nabludenia check_scoped_run check_approval check_judge_gate spawn_agent
 shard	ap4	check_protected check_hooks check_charter drill_gate_draft check_document drill_protected_exception drill_protected_rename check_fork_route verify_consultant
 shard	ap5	verify_ci_parity check_ids check_ceilings check_contract_frozen drill_next_id_race drill_contract_change models_actual check_threat_model profile_resolver
+# КОНТРАКТ 123: красная батарея сверки кадров с макетом (bash-обёртка над probe.py --matrix; миры — предзаписанные PNG,
+# продукта, сети, gh и секретов не требует). Замер в ЧИСТОМ клоне main с `env -i`: rc 0, 50 с. Продуктовый энфорсмент —
+# шаг android-e2e Complior-mob (строки 5–6 приёмки). Вес 0 до первого замера окна (контракт 114).
+step	check:sverka-maketa-123-family-selftest	0	bash fixtures/workshop_project/mob_sverka_123/red_mob_sverka_123.sh
