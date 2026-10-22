@@ -1,8 +1,23 @@
 appId: com.complior.demo
 name: first-run-ekran
 ---
+# Каждый кадр снят ПОСЛЕ шага: запуск → (переход tapOn/inputText) →
+# assert-селектор достигнутого экрана → takeScreenshot. Селекторы —
+# testID кода экрана (mobile/src/features/auth/**): переход First-Run →
+# F03.01 → F03.02 → F03.02-V01 доказуем шагами, кадр без шага не снимается.
 - launchApp
+- assertVisible: {id: first_run_enter_f03}
 - takeScreenshot: first-run-ekran-first-run
+- tapOn: {id: first_run_enter_f03}
+- assertVisible: {id: f03_01_email}
 - takeScreenshot: first-run-ekran-f03-01
+- tapOn: {id: f03_01_email}
+- inputText: demo@complior.example
+- tapOn: {id: f03_01_submit}
+- assertVisible: {id: f03_02_code}
 - takeScreenshot: first-run-ekran-f03-02
+- tapOn: {id: f03_02_code}
+- inputText: netakojkod
+- tapOn: {id: f03_02_submit}
+- assertVisible: {id: f03_02_v01_error}
 - takeScreenshot: first-run-ekran-f03-02-v01

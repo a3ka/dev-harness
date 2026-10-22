@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
-# БАРЬЕР-ГУАРД контракта 135 (§ПРОВОДКА): судит пачку экрана first-run-ekran
-# валидатором 132 (субъект scripts/ekran_shablon.py; эталон — замороженная
-# батарея 132). Н-39: привязки стабов — stab_vhod source.json по коду ветвей.
+# БАРЬЕР-ГУАРД контракта 135 (§ПРОВОДКА): судит пачку first-run-ekran
+# валидатором 132 и проверкой происхождения из пачки; Н-39: стабы привязаны
+# к ветвям обоих субъектов по stab_vhod source.json, не по тексту контракта.
 """Батарея 135 (first-run-ekran): экран First-Run + вход F03 по шаблону 132.
 
 Предмет: экранная пачка first-run-ekran (ekran.json + контракт + манифест
-восьми кадров + батарея) судится валидатором шаблона 132: кадры First-Run
-(наследие кадрового манифеста батареи 123 — замена целиком) и вход F03
-(F03.01/F03.02/F03.02-V01, PNG пакета Mobility Slice, доски A04/A05/A05e),
-ключи копии — каталог BrokerOS_UI_Copy_DE.json verbatim, приёмка —
-android-e2e rc 0 со СВЕЖИМИ кадрами Maestro-раскладки и сверка раннером 123
-(мера/порог — его код и манифест пачки).
+восьми кадров + батарея) судится валидатором шаблона 132 И проверкой
+происхождения кадров пачки: кадры First-Run (наследие манифеста 123 —
+замена целиком) и вход F03 (F03.01/F03.02/F03.02-V01, PNG Mobility Slice),
+ключи копии — каталог BrokerOS_UI_Copy_DE.json verbatim; приёмка —
+android-e2e rc 0 со СВЕЖИМИ кадрами Maestro-раскладки, сверка раннером 123,
+переходы/assert-селекторы и байтовое неравенство кадров макетам. Честные
+носители кадров перекодированы без изменения пикселей (score 1.000).
 
 Режимы:
   (без флага)  субъект scripts/ekran_shablon.py; нет файла → rc 1 SHABLON_ABSENT
-  --model      субъект model/ekran_shablon.py (эталон 132, читается не копируется)
-  --stabs      контроль моделью всех входов + каждый обманный стаб отвергнут
-               на КАЖДОМ входе своей записи stab_vhod source.json
-  --snapshot   (инструмент замера) фактические rc/вывод эталона по каждому
-               входу JSON-ом — числа для source.json из прогона, не из головы
+  --model      эталон 132 из дерева на входах формы; текст проверки
+               из source.json на входах происхождения (второй субъект)
+  --stabs      контроль обеими моделями всех входов + каждый обманный стаб
+               отвергнут на КАЖДОМ входе своей записи stab_vhod source.json
+  --snapshot   фактические rc/вывод двух моделей по каждому входу JSON-ом
+               (инструмент замера, числа из прогона, не из головы)
 
 Вывод: строка на вход `CASE <вход> ok|KRASNO`; --stabs добавляет строку на
 связь `STAB <стаб> <вход> KRASEN`. rc: 0 — все входы зелёные (для --stabs:
@@ -27,8 +29,8 @@ android-e2e rc 0 со СВЕЖИМИ кадрами Maestro-раскладки �
 
 Оракул — source.json (единый источник): kejsy (rc, prichiny построчно,
 stdout построчно, допуск dopusk_score на числа KADR), stab_vhod (привязка
-стабов к входам по коду ветвей, Н-39), nositeli (sha256 носителей — копии
-реальных PNG-макетов продукта). Ожидания снимаются в память ДО вызова
+стабов к входам по коду ветвей, Н-39), nositeli (sha256 макетов продукта
+и перекодированных честных кадров). Ожидания снимаются в память ДО вызова
 субъекта (правило 8); диск субъекта как истина не читается.
 """
 import argparse
@@ -194,6 +196,14 @@ def build_repo(src, tmp, pack):
     # кладёт ИСПОЛНЕННАЯ команда priemka.e2e — стартуем с пустым kadry_dir
     (repo / 'mobile/e2e-first-run/e2e.sh').write_text(
         src['e2e_skript'], encoding='utf-8')
+    # файл пачки в продукте + носители селекторов флоя (stand-in кода экрана)
+    (repo / 'mobile/e2e-first-run/batareja').mkdir(parents=True)
+    shutil.copyfile(pack / 'batareja/proverka_proiskhozdenija.py',
+                    repo / 'mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py')
+    fa = repo / 'mobile/src/features/auth'
+    fa.mkdir(parents=True)
+    (fa / 'testids.stand-in.tsx').write_text(
+        src['testids_tekst'], encoding='utf-8')
     for kadr in src['kadry_manifest']['kadry']:
         d = repo / 'mobile/e2e-nositeli' / kadr['tema']
         d.mkdir(parents=True, exist_ok=True)
@@ -228,6 +238,8 @@ def build_pack(src, tmp):
     b = pack / 'batareja'
     b.mkdir()
     (b / 'red_ekrana.sh').write_text(src['batareja_tekst'], encoding='utf-8')
+    (b / 'proverka_proiskhozdenija.py').write_text(
+        src['proverka_tekst'], encoding='utf-8')
     return pack, forma
 
 
@@ -316,6 +328,65 @@ def mut_zhivaja_pachta_v_repo(pack, forma, repo, src):
         encoding='utf-8')
 
 
+def _zapusti_replay(repo):
+    """Stand-in e2e кладёт кадры в Maestro-раскладку (как Maestro-прогон
+    CI продукта кладёт настоящие кадры до проверки происхождения)."""
+    zap = subprocess.run(
+        ['bash', 'mobile/e2e-first-run/e2e.sh', 'first-run-ekran'],
+        cwd=str(repo), capture_output=True, text=True)
+    if zap.returncode != 0:
+        raise RuntimeError('replay e2e: rc=%d %s' % (zap.returncode, zap.stderr))
+
+
+def mut_proiskhozdenie_chistyj(pack, forma, repo, src):
+    """Честный вход проверки происхождения: кадры положены прогоном e2e,
+    байты кадров отличны от макетов (носители перекодированы), флоу несёт
+    запуск/переходы/assert-селекторы, селекторы имеют testID-носители."""
+    _zapusti_replay(repo)
+
+
+def mut_proiskhozdenie_byte_kopija(pack, forma, repo, src):
+    """Подмена e2e копированием макета: кадр байт-идентичен макету F03.01
+    dark — происхождение не доказано (обход круга 1, блокер 1)."""
+    n = repo / 'mobile/e2e-nositeli/dark/first-run-ekran-f03-01.png'
+    n.write_bytes(
+        (repo / 'docs/ux/03_Mobility_Slice1/screens/F03.01.png').read_bytes())
+    _zapusti_replay(repo)
+
+
+def mut_proiskhozdenie_flow_bez_perehoda(pack, forma, repo, src):
+    """Флоу-витрина: запуск + четыре кадра подряд, без переходов и
+    селекторов — вход F03 недостижим, кадры без шага (блокер 1)."""
+    _zapusti_replay(repo)
+    (repo / 'mobile/.maestro/first-run-ekran.yaml').write_text(
+        'appId: com.complior.demo\nname: first-run-ekran\n---\n'
+        '- launchApp\n'
+        '- takeScreenshot: first-run-ekran-first-run\n'
+        '- takeScreenshot: first-run-ekran-f03-01\n'
+        '- takeScreenshot: first-run-ekran-f03-02\n'
+        '- takeScreenshot: first-run-ekran-f03-02-v01\n', encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_bez_ekrana(pack, forma, repo, src):
+    """Селектор флоя без носителя: f03_01_submit исчез из кода экрана —
+    переход F03.01 → F03.02 не подтверждён экраном (блокер 1)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="f03_01_submit"\n', ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_ne_kadra(pack, forma, repo, src):
+    """Корректный testID существует, но assert чужого кадра не доказывает
+    достижение F03.02: имя snimok прежнее, селектор F03.01 (блокер 1)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/first-run-ekran.yaml'
+    old = '- assertVisible: {id: f03_02_code}\n'
+    assert p.read_text(encoding='utf-8').count(old) == 1
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        old, '- assertVisible: {id: f03_01_email}\n'), encoding='utf-8')
+
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -329,6 +400,11 @@ MUTACII = {
     'kadry-ustarevshie': mut_kadry_ustarevshie,
     'e2e-ne-proshla': mut_e2e_ne_proshla,
     'zhivaja-pachta-v-repo': mut_zhivaja_pachta_v_repo,
+    'proiskhozdenie-chistyj': mut_proiskhozdenie_chistyj,
+    'proiskhozdenie-byte-kopija': mut_proiskhozdenie_byte_kopija,
+    'proiskhozdenie-flow-bez-perehoda': mut_proiskhozdenie_flow_bez_perehoda,
+    'proiskhozdenie-selektor-bez-ekrana': mut_proiskhozdenie_selektor_bez_ekrana,
+    'proiskhozdenie-selektor-ne-kadra': mut_proiskhozdenie_selektor_ne_kadra,
 }
 
 
@@ -341,6 +417,11 @@ def run_subject(subject, name, src):
         repo = build_repo(src, tmp, pack)
         if MUTACII[name] is not None:
             MUTACII[name](pack, forma, repo, src)
+        # второй субъект батареи: проверка происхождения (файл пачки)
+        if src['kejsy'][name].get('subekt') == 'proverka' \
+                and subject == MODEL:
+            subject = tmp / 'proverka_subekt.py'
+            subject.write_text(src['proverka_tekst'], encoding='utf-8')
         p = subprocess.run(
             [sys.executable, str(subject), '--pack', str(pack),
              '--repo', str(repo), '--harness', str(H_ROOT)],
