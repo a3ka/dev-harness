@@ -386,7 +386,52 @@
    "rc": 1,
    "stdout": [],
    "prichiny": [
-    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 85 (норма ≤ 60)"
+    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 85 (норма ≤ 60)",
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 4437 (норма ≤ 4000)"
+   ]
+  },
+  "literal-cveta-hwb": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ]
+  },
+  "literal-razmera-protsent": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:47"
+   ]
+  },
+  "literal-razmera-ch": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:47"
+   ]
+  },
+  "kadry-ustarevshie": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/demo-vkhod/takeScreenshot/vkhod-demo-splash.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/demo-vkhod/takeScreenshot/vkhod-demo-splash.png"
+   ]
+  },
+  "zhivaja-pachta-v-repo": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZAMENJAET_NE_POLON\tfixtures/workshop_project/old_screen_001/kadry.json"
+   ]
+  },
+  "kontrakt-shirokij": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNE_ODNA_STRANICA\tширина: 6900 (норма ≤ 120)",
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 16038 (норма ≤ 4000)"
    ]
   }
  },
@@ -439,7 +484,73 @@
   ],
   "s14_objem_propuskaet.py": [
    "kontrakt-slishkom-dlinnyj"
+  ],
+  "s15_svezhest_propuskaet.py": [
+   "kadry-ustarevshie"
+  ],
+  "s16_repo_ne_skaniruet.py": [
+   "zhivaja-pachta-v-repo"
+  ],
+  "s17_literal_klass_uzkij.py": [
+   "literal-cveta-hwb",
+   "literal-razmera-protsent",
+   "literal-razmera-ch"
+  ],
+  "s18_objem_tolko_stroki.py": [
+   "kontrakt-shirokij"
   ]
  },
- "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n"
+ "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",
+ "repo_staryj_ekran": {
+  "_comment": "Живая пачка ТОГО ЖЕ экрана (demo-vkhod) в репо ПРОДУКТА для красного входа zhivaja-pachta-v-repo (обход круга 2: харнесс-скан её не видит). fiktura: false — видима обнаружению обоих корней.",
+  "ekran": {
+   "_comment": "живая пачка старого контракта экрана в продукте",
+   "ekran": "demo-vkhod",
+   "kadry": "kadry.json",
+   "fiktura": false
+  },
+  "kadry": {
+   "_comment": "манифест кадров старой пачки продукта (грамматика kadry_117.json)",
+   "kadry": [
+    {
+     "id": "Old screen only",
+     "tema": "dark",
+     "snimok": "vkhod-demo-splash-old",
+     "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+     "maket_sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": [
+      {
+       "imja": "znak",
+       "bbox_pt": [
+        110,
+        271,
+        290,
+        444
+       ]
+      },
+      {
+       "imja": "wordmark",
+       "bbox_pt": [
+        157,
+        514,
+        233,
+        534
+       ]
+      },
+      {
+       "imja": "tagline",
+       "bbox_pt": [
+        57,
+        569,
+        333,
+        596
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
 }

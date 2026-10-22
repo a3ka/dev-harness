@@ -17,8 +17,10 @@
   e2e_scenarij   путь в репо продукта: сценарий android-e2e; содержит каждый
                  snimok манифеста кадров
   kadry_dir      путь в репо продукта: каталог кадров Maestro-раскладки
-  kontrakt       путь в пачке: контракт экрана НЕ БОЛЕЕ 60 СТРОК (воля
-                 владельца «на одну страницу»); несёт обязательные разделы
+  kontrakt       путь в пачке: контракт экрана «на одну страницу» (воля
+                 владельца) — ТРИ меры объёма: ≤ 60 строк, ≤ 120 символов
+                 в строке, ≤ 4000 байт файла (NE_ODNA_STRANICA); несёт
+                 обязательные разделы
                  (Воля владельца, Существующее, Инварианты, Приёмочный
                  критерий, Зоны и исполнители, ПРОВОДКА, Модель угроз) и
                  ЗОНА-строки, равные zony формы
@@ -27,31 +29,37 @@
                  строка сверки}. ОБЕ ИСПОЛНЯЮТСЯ фактическим argv (cwd = репо
                  продукта, БЕЗ shell; алфавит поля без кавычек/;|&$() —
                  пробел единственный разделитель, прецедент Г3-002):
-                 e2e — rc 0 (кадры, оставшиеся после команды, судит сверка:
-                 команда без кадров даёт KADR_OTSUTSTVUET, не зелень);
+                 e2e — rc 0, и кадры СВЕЖИ: каждый файл под kadry_dir
+                 создан ЭТИМ запуском (mtime не старше старта команды И
+                 байты отличаются от дозапускового состояния) — иначе
+                 KADR_USTAREVSHIJ; команда без кадров даёт
+                 KADR_OTSUTSTVUET, не зелень;
                  sverka — rc 0 И stdout дословно равен выводу раннера 123 по
                  манифесту пачки (сверка-образец); строка обязана нести
                  токены sverka_maketa.py и --manifest
   zony           {"architect": [...], "implementer": [...]} — грамматика
                  check_zones: относительные пути без *?[ , без .., без
                  ведущего /; каталог с завершающей /
-  zamenjaet      null | путь в харнессе: манифест кадров ЗАМЕНЯЕМОГО контракта
-                 того же экрана; кадры нового — надмножество (замена целиком)
-  ne_trogaet     список путей в харнессе: живые манифесты ЧУЖИХ экранов;
-                 пересечение id кадров пусто (чужих пикселей не морозит)
+  zamenjaet      null | путь в харнессе ИЛИ репо продукта: манифест кадров
+                 ЗАМЕНЯЕМОГО контракта того же экрана; кадры нового —
+                 надмножество (замена целиком)
+  ne_trogaet     список путей в харнессе ИЛИ репо продукта: живые манифесты
+                 ЧУЖИХ экранов; пересечение id кадров пусто (чужих пикселей
+                 не морозит)
   fiktura        bool; СУДИМАЯ пачка обязана быть false (фикция не судится);
                  false у живой пачки делает её видимой обнаружению (ниже)
 
 Живые пачки (грамматика ОБНАРУЖЕНИЯ, отдельно от полной формы): файл
-ekran.json под fixtures/workshop_project/** харнесса с полями ekran
-([a-z0-9][a-z0-9-]{0,63}), kadry (относительный путь) и fiktura != true.
-Судимая пачка исключает из обнаружения себя (сравнение путей). Полнота
-объявлений против обнаруженных живых пачек (мера против пустых
-zamenjaet/ne_trogaet): живая пачка ТОГО ЖЕ ekran — её манифест обязан быть
-назван в zamenjaet (ZAMENJAET_NE_POLON); живая пачка ЧУЖОГО ekran — её
-манифест обязан стоять в ne_trogaet (NE_TROGAET_NE_POLON). Замена целиком:
-заменяющий контракт экрана удаляет пачку предшественника своей зоной —
-живость определяется наличием ekran.json.
+ekran.json под fixtures/workshop_project/** В ОБОИХ корнях — харнесса И
+переданного репо продукта (--repo; обход круга 2: живая пачка в продукте
+невидима харнесс-скану) — с полями ekran ([a-z0-9][a-z0-9-]{0,63}), kadry
+(относительный путь) и fiktura != true. Судимая пачка исключает из
+обнаружения себя (сравнение путей в каждом корне). Полнота объявлений
+против обнаруженных живых пачек: живая пачка ТОГО ЖЕ ekran — её манифест
+обязан быть назван в zamenjaet (ZAMENJAET_NE_POLON); живая пачка ЧУЖОГО
+ekran — её манифест обязан стоять в ne_trogaet (NE_TROGAET_NE_POLON).
+Замена целиком: заменяющий контракт экрана удаляет пачку предшественника
+своей зоной — живость определяется наличием ekran.json.
 
 Проверки (порядок «дешёвые раньше дорогих»: при любом отказе формы/полей
 дешёвых проверок дорогое не зовётся):
@@ -59,13 +67,20 @@ zamenjaet/ne_trogaet): живая пачка ТОГО ЖЕ ekran — её ман
   (≤ 60 строк) контракта, равенство ЗОНА-строк контракта форме, запрет
   литералов, ключи копии, операции API, покрытие сценария, токены команды
   сверки, замена целиком, чужие кадры, полнота объявлений — затем ИСПОЛНЕНИЕ
-  priemka.e2e (argv, rc 0), сверка-образец раннером 123 по манифесту пачки
-  (каждый кадр не ниже порога), затем ИСПОЛНЕНИЕ priemka.sverka (argv,
-  rc 0 + дословное совпадение вывода со сверкой-образцом).
+  priemka.e2e (argv, rc 0), СВЕЖЕСТЬ оставшихся кадров (ревизия kadry_dir
+  до команды: пути+sha256; после — mtime моложе старта и байты иные —
+  оставшиеся кадры прежнего прогона не засчитываются, KADR_USTAREVSHIJ),
+  сверка-образец раннером 123 по манифесту пачки (каждый кадр не ниже
+  порога), затем ИСПОЛНЕНИЕ priemka.sverka (argv, rc 0 + дословное
+  совпадение вывода со сверкой-образцом).
 
-Литералы (ЗАПРЕЩЕНЫ во всех текстовых файлах пачки; замкнутый алфавит
-форматов): цвета — #[0-9a-fA-F]{3,8}, rgb(...), rgba(...), hsl(...),
-hsla(...); размеры — [0-9]+(.frac)?(px|pt|sp|dp|rem|em|vw|vh).
+Литералы (ЗАПРЕЩЕНЫ во всех текстовых файлах пачки; судятся КЛАССОМ, не
+перечнем образцов — обход круга 2: hwb()/проценты/ch): цвета — hex
+#[0-9a-fA-F]{3,8} И ЛЮБАЯ функциональная запись «идентификатор(…число…)»
+(все CSS-функции цвета и функциональные нотации размеров: rgb/hsl/hwb/
+lab/oklch/color/calc/min/…); размеры — число с % ИЛИ любой буквенной
+единицей 1–4 букв (px/rem/ch/vmin/…). Hex-дайджесты (16+ hex подряд:
+sha-пины манифеста) маскируются до сверки — пин не литерал.
 
 CLI: ekran_shablon.py --pack DIR --repo DIR --harness DIR
 Вывод: stdout — строки раннера 123 (KADR...) дословно, затем при успехе
@@ -76,15 +91,18 @@ rc: 0 — форма верна, приёмка исполнена, все ка�
 SCENARIJ_BEZ_SNIMKA / SAMODELNAYA_SVERKA / E2E_NE_PROSHLA / NE_TSELIKOM /
 CHUZHIE_KADRY / ZAMENJAET_NE_POLON / NE_TROGAET_NE_POLON / ZONY_RASHODJATSJA /
 RAZDEL_OTSVTSTVUET / NE_ODNA_STRANICA / KADR_NIZHE_POROGA /
-KADR_OTSUTSTVUET / KADR_NEODNOZNACHEN / KADR_NECHITAEM / MAKET_PODMENEN;
+KADR_OTSUTSTVUET / KADR_USTAREVSHIJ / KADR_NEODNOZNACHEN / KADR_NECHITAEM /
+MAKET_PODMENEN;
 2 — SHABLON_NEVEREN (грамматика формы, нет файла, манифест кадров вне
 грамматики 123, fiktura у судимой) / SVERKA_123_ABSENT (нет раннера 123 —
 инфраструктура).
 """
+import hashlib
 import json
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 FORMA_KEYS = {'ekran', 'kadry', 'sostojanija', 'kljuchi_kopii', 'operacii_api',
@@ -100,9 +118,13 @@ RE_KLJUCH = re.compile(r'\A[A-Za-z0-9_.-]+\Z')
 RE_PUT = re.compile(r'\A[A-Za-z0-9_./-]+\Z')
 RE_PRIEMKA = re.compile(r'\A[A-Za-z0-9 ./_-]+\Z')
 RE_ZONA_STROKA = re.compile(r'^ЗОНА (architect|implementer): (.+)$')
-RE_CVET = re.compile(r'#[0-9a-fA-F]{3,8}\b|(?:rgb|rgba|hsl|hsla)\([0-9, .%]*\)')
-RE_RAZMER = re.compile(r'\b[0-9]+(?:\.[0-9]+)?(?:px|pt|sp|dp|rem|em|vw|vh)\b')
+RE_CVET = re.compile(r'#[0-9a-fA-F]{3,8}\b'
+                     r'|\b[a-zA-Z][a-zA-Z0-9-]*\([^()]*[0-9][^()]*\)')
+RE_RAZMER = re.compile(r'\b[0-9]+(?:\.[0-9]+)?(?:%|[a-zA-Z]{1,4}\b)')
+RE_HEX_ZHIST = re.compile(r'[0-9a-fA-F]{16,}')
 MAX_STRANICA = 60
+MAX_SHIRINA = 120
+MAX_BAJT = 4000
 RC2 = {'SHABLON_NEVEREN', 'SVERKA_123_ABSENT'}
 # отказ раннера 123 -> имя отказа шаблона (по грамматике вывода 123)
 RUNNER_MAP = {'NIZHE_POROGA': 'KADR_NIZHE_POROGA',
@@ -238,10 +260,11 @@ def check_fajly(f, pack: Path, repo: Path, harness: Path):
             bad.append(otkaz('SHABLON_NEVEREN', 'нет файла: ' + f[pole]))
     if not (repo / f['kadry_dir']).is_dir():
         bad.append(otkaz('SHABLON_NEVEREN', 'нет каталога: ' + f['kadry_dir']))
-    if f['zamenjaet'] is not None and not (harness / f['zamenjaet']).is_file():
+    if f['zamenjaet'] is not None and not any(
+            (r / f['zamenjaet']).is_file() for r in (harness, repo)):
         bad.append(otkaz('SHABLON_NEVEREN', 'нет файла: ' + f['zamenjaet']))
     for x in f['ne_trogaet']:
-        if not (harness / x).is_file():
+        if not any((r / x).is_file() for r in (harness, repo)):
             bad.append(otkaz('SHABLON_NEVEREN', 'нет файла: ' + x))
             break
     return bad
@@ -257,12 +280,23 @@ def check_razdely(tekst: str):
 
 
 def check_objem(tekst: str):
-    """Воля владельца «контракт экрана на одну страницу»: ≤ 60 строк."""
-    n = len(tekst.splitlines())
-    if n > MAX_STRANICA:
-        return [otkaz('NE_ODNA_STRANICA',
-                      'строк: %d (норма ≤ %d)' % (n, MAX_STRANICA))]
-    return []
+    """Воля владельца «контракт экрана на одну страницу» — ТРИ меры:
+    строки (переводы), ширина (сворачивание строк), байты (объём текста);
+    обход круга 2: 47 строк / 261138 байт одной строкой."""
+    stroki = tekst.splitlines()
+    bad = []
+    if len(stroki) > MAX_STRANICA:
+        bad.append(otkaz('NE_ODNA_STRANICA',
+                         'строк: %d (норма ≤ %d)' % (len(stroki), MAX_STRANICA)))
+    shirina = max((len(s) for s in stroki), default=0)
+    if shirina > MAX_SHIRINA:
+        bad.append(otkaz('NE_ODNA_STRANICA',
+                         'ширина: %d (норма ≤ %d)' % (shirina, MAX_SHIRINA)))
+    bajt = len(tekst.encode('utf-8'))
+    if bajt > MAX_BAJT:
+        bad.append(otkaz('NE_ODNA_STRANICA',
+                         'байт: %d (норма ≤ %d)' % (bajt, MAX_BAJT)))
+    return bad
 
 
 def check_zony_stroki(tekst: str, f):
@@ -280,7 +314,9 @@ def check_zony_stroki(tekst: str, f):
 
 
 def check_literal(pack: Path):
-    """Литералы цветов/размеров запрещены во всей пачке (аудит — в репо)."""
+    """Литералы цветов/размеров запрещены во всей пачке (аудит — в репо):
+    судятся КЛАССОМ (hex + функция с числом; число + %/буквенная единица),
+    sha-дайджесты 16+ hex маскируются — пин манифеста не литерал."""
     bad = []
     for p in sorted(pack.rglob('*')):
         if not p.is_file():
@@ -290,7 +326,8 @@ def check_literal(pack: Path):
         except (OSError, UnicodeDecodeError):
             continue  # бинарный носитель
         for i, line in enumerate(tekst.splitlines(), 1):
-            if RE_CVET.search(line) or RE_RAZMER.search(line):
+            zaslon = RE_HEX_ZHIST.sub(' ', line)
+            if RE_CVET.search(zaslon) or RE_RAZMER.search(zaslon):
                 bad.append(otkaz('LITERAL_VNE_AUDITA',
                                  '%s:%d' % (p.relative_to(pack), i)))
                 break
@@ -359,29 +396,36 @@ def check_priemka(f):
     return []
 
 
-def _ids_kadry(harness: Path, rel):
-    try:
-        m = read_json(harness / rel)
-    except (OSError, ValueError):
-        return None
-    if not isinstance(m, dict) or not isinstance(m.get('kadry'), list):
-        return None
-    return [e.get('id') for e in m['kadry'] if isinstance(e, dict)]
+def _nahodi_manifest(harness: Path, repo: Path, rel):
+    """Манифест объявлен путём в харнессе ИЛИ репо продукта (живая пачка
+    может стоять в любом корне); нет нигде/не манифест — None."""
+    for root in (harness, repo):
+        p = root / rel
+        if not p.is_file():
+            continue
+        try:
+            m = read_json(p)
+        except (OSError, ValueError):
+            return None
+        if not isinstance(m, dict) or not isinstance(m.get('kadry'), list):
+            return None
+        return [e.get('id') for e in m['kadry'] if isinstance(e, dict)]
+    return None
 
 
-def check_tselikom(f, harness: Path, kadry):
+def check_tselikom(f, harness: Path, repo: Path, kadry):
     if f['zamenjaet'] is None:
         return []
-    starye = _ids_kadry(harness, f['zamenjaet'])
+    starye = _nahodi_manifest(harness, repo, f['zamenjaet'])
     if starye is None:
         return [otkaz('SHABLON_NEVEREN', 'zamenjaet: не манифест кадров')]
     return [otkaz('NE_TSELIKOM', i) for i in starye if i not in kadry['ids']]
 
 
-def check_chuzhie(f, harness: Path, kadry):
+def check_chuzhie(f, harness: Path, repo: Path, kadry):
     bad = []
     for rel in f['ne_trogaet']:
-        chuzhie = _ids_kadry(harness, rel)
+        chuzhie = _nahodi_manifest(harness, repo, rel)
         if chuzhie is None:
             bad.append(otkaz('SHABLON_NEVEREN', 'ne_trogaet: не манифест'))
             continue
@@ -391,16 +435,15 @@ def check_chuzhie(f, harness: Path, kadry):
     return bad
 
 
-def zhivye_pachty(harness: Path, pack: Path):
-    """Живые пачки экранов (грамматика обнаружения — докстринг): ekran.json
-    под fixtures/workshop_project/** с ekran/kadry и fiktura != true.
-    Судимая пачка исключает себя сравнением путей (resolved)."""
+def _zhivye_v_korne(root: Path, pack: Path):
+    """Живые пачки одного корня: ekran.json под fixtures/workshop_project/**
+    с ekran/kadry и fiktura != true; судимая исключает себя (resolved)."""
     vne = []
-    root = harness / 'fixtures' / 'workshop_project'
-    if not root.is_dir():
+    base = root / 'fixtures' / 'workshop_project'
+    if not base.is_dir():
         return vne
     sobstvennyj = (pack / 'ekran.json').resolve()
-    for p in sorted(root.rglob('ekran.json')):
+    for p in sorted(base.rglob('ekran.json')):
         try:
             q = read_json(p)
         except (OSError, ValueError):
@@ -413,15 +456,27 @@ def zhivye_pachty(harness: Path, pack: Path):
             continue
         if p.resolve() == sobstvennyj:
             continue
-        vne.append((e, p.parent.relative_to(harness).joinpath(k).as_posix()))
+        vne.append((e, p.parent.relative_to(root).joinpath(k).as_posix()))
     return vne
 
 
-def check_polnota(f, harness: Path, pack: Path):
-    """Полнота объявлений против ОБНАРУЖЕННЫХ живых пачек (мера против
-    пустых zamenjaet/ne_trogaet): перечисление экранов — не самодекларация."""
+def zhivye_pachty(harness: Path, repo: Path, pack: Path):
+    """Живые пачки В ОБОИХ корнях — харнессе И переданном репо продукта
+    (обход круга 2: пачка в --repo невидима харнесс-скану); один и тот же
+    относительный путь в двух корнях — одна запись."""
+    vidno = {}
+    for root in (harness, repo):
+        for para in _zhivye_v_korne(root, pack):
+            vidno[para] = None
+    return sorted(vidno)
+
+
+def check_polnota(f, harness: Path, repo: Path, pack: Path):
+    """Полнота объявлений против ОБНАРУЖЕННЫХ живых пачек ОБЕИХ корней
+    (мера против пустых zamenjaet/ne_trogaet): перечисление экранов —
+    не самодекларация."""
     bad = []
-    for ekran_q, kadry_q in zhivye_pachty(harness, pack):
+    for ekran_q, kadry_q in zhivye_pachty(harness, repo, pack):
         if ekran_q == f['ekran']:
             if f['zamenjaet'] != kadry_q:
                 bad.append(otkaz('ZAMENJAET_NE_POLON', kadry_q))
@@ -453,10 +508,40 @@ def run_sverka(f, pack: Path, repo: Path, harness: Path):
     return p.returncode, p.stdout, bad
 
 
+def _sha256_fajla(p: Path):
+    h = hashlib.sha256()
+    with p.open('rb') as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def svezhost_kadrov(kd: Path, start_ns: int, rester: dict):
+    """Свежесть кадров (обход круга 2: e2e один раз, потом priemka.e2e=true
+    оценивает СТАРЫЕ кадры): КАЖДЫЙ файл под kadry_dir обязан быть создан
+    ЭТИМ запуском — mtime моложе старта команды И байты отличны от
+    дозапусковой ревизии; иначе KADR_USTAREVSHIJ (fail-closed)."""
+    bad = []
+    for p in sorted(kd.rglob('*')):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(kd).as_posix()
+        if p.stat().st_mtime_ns < start_ns or rester.get(rel) == _sha256_fajla(p):
+            bad.append(otkaz('KADR_USTAREVSHIJ', rel))
+    return bad
+
+
 def run_priemka_e2e(f, repo: Path):
     """Исполнение приёмки e2e: фактический argv, cwd = репо, без shell.
-    Кадры, оставшиеся после команды, судит сверка-образец (команда без
-    кадров — KADR_OTSUTSTVUET, не зелень)."""
+    До команды — ревизия kadry_dir (пути+sha256) и метка старта; после
+    rc 0 — СВЕЖЕСТЬ оставшихся кадров (команда без кадров даёт
+    KADR_OTSUTSTVUET на сверке, не зелень; оставшиеся — KADR_USTAREVSHIJ)."""
+    kd = repo / f['kadry_dir']
+    rester = {}
+    if kd.is_dir():
+        rester = {p.relative_to(kd).as_posix(): _sha256_fajla(p)
+                  for p in sorted(kd.rglob('*')) if p.is_file()}
+    start_ns = time.time_ns()
     try:
         p = subprocess.run(razbit_argv(f['priemka']['e2e']),
                            cwd=str(repo), capture_output=True, text=True,
@@ -465,7 +550,7 @@ def run_priemka_e2e(f, repo: Path):
         return [otkaz('E2E_NE_PROSHLA', repr(e)[:120])]
     if p.returncode != 0:
         return [otkaz('E2E_NE_PROSHLA', 'rc=%d' % p.returncode)]
-    return []
+    return svezhost_kadrov(kd, start_ns, rester)
 
 
 def run_priemka_sverka(f, repo: Path, obrazec_stdout: str):
@@ -518,9 +603,9 @@ def main(argv=None):
             otkazy += check_scenarij(f, repo, kadry)
         otkazy += check_priemka(f)
         if kadry:
-            otkazy += check_tselikom(f, harness, kadry)
-            otkazy += check_chuzhie(f, harness, kadry)
-        otkazy += check_polnota(f, harness, pack)
+            otkazy += check_tselikom(f, harness, repo, kadry)
+            otkazy += check_chuzhie(f, harness, repo, kadry)
+        otkazy += check_polnota(f, harness, repo, pack)
         if not otkazy:
             otkazy += run_priemka_e2e(f, repo)
         if not otkazy:

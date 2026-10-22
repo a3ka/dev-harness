@@ -6,13 +6,15 @@
 Предмет: экранная пачка (ekran.json + контракт + манифест кадров + батарея)
 судится по шаблону: состав полей и алфавиты (кадры → PNG docs/ux, состояния,
 ключи копии, операции API), обязательные разделы контракта и его ОБЪЁМ
-(≤ 60 строк — «на одну страницу»), ЗОНА-строки по грамматике check_zones,
-запрет литералов цветов/размеров (hex/rgb()/rgba()/hsl()/hsla();
-px/pt/sp/dp/rem/em/vw/vh) вне общего аудита токенов D2.2.5.1, замена
-целиком (zamenjaet), чужие пиксели (ne_trogaet), ПОЛНОТА объявлений против
-обнаруженных живых пачек, ИСПОЛНЕНИЕ приёмки (priemka.e2e/sverka —
-фактический argv, Г3-002) и сверка каждого кадра раннером 123
-(мера/порог — его код и манифест).
+(≤ 60 строк И ≤ 120 символов в строке И ≤ 4000 байт — «на одну страницу»),
+ЗОНА-строки по грамматике check_zones, запрет литералов цветов/размеров
+КЛАССОМ (hex + любая функция с числом; число с % или буквенной единицей
+1–4 букв; sha-дайджесты маскируются) вне общего аудита токенов D2.2.5.1,
+замена целиком (zamenjaet), чужие пиксели (ne_trogaet), ПОЛНОТА объявлений
+против обнаруженных живых пачек ОБОИХ корней (харнесс + --repo),
+ИСПОЛНЕНИЕ приёмки (priemka.e2e/sverka — фактический argv, Г3-002),
+СВЕЖЕСТЬ кадров (оставшиеся кадры прежнего прогона — KADR_USTAREVSHIJ)
+и сверка каждого кадра раннером 123 (мера/порог — его код и манифест).
 
 Режимы:
   (без флага)  субъект scripts/ekran_shablon.py; нет файла → rc 1 SHABLON_ABSENT
@@ -370,6 +372,61 @@ def mut_kontrakt_slishkom_dlinnyj(pack, forma, repo, src):
     with p.open('a', encoding='utf-8') as f:
         f.write('\nЗапас страницы за пределами одной.\n' * 20)
 
+def mut_literal_cveta_hwb(pack, forma, repo, src):
+    """Обход критика круга 2: hwb() вне перечня образцов — литералы
+    судятся КЛАССОМ (любая функция цвета с числом), не списком."""
+    p = pack / 'batareja/red_ekrana.sh'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\n# фон хозяина: hwb(30 20% 10%)\n')
+
+
+def mut_literal_razmera_protsent(pack, forma, repo, src):
+    """Обход критика круга 2: процентная величина — размер-литерал
+    (число + % — класс единиц, не перечень)."""
+    p = pack / 'kontrakt.md'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\nШирина панели: 50% экрана.\n')
+
+
+def mut_literal_razmera_ch(pack, forma, repo, src):
+    """Обход критика круга 2: единица ch вне перечня — размер-литерал
+    (любая буквенная единица 1–4 букв)."""
+    p = pack / 'kontrakt.md'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('\nПоле ввода: отступ 3ch от края.\n')
+
+
+def mut_kadry_ustarevshie(pack, forma, repo, src):
+    """Обход критика круга 2: e2e исполнена ДО суда, кадры лежат в
+    maestro-раскладке, priemka.e2e подменена на no-op true — приёмка
+    обязана отказаться от СТАРЫХ кадров (KADR_USTAREVSHIJ)."""
+    zap = subprocess.run(['bash', 'mobile/e2e.sh', 'demo-vkhod'], cwd=str(repo),
+                         capture_output=True, text=True)
+    if zap.returncode != 0:
+        raise RuntimeError('replay e2e: rc=%d %s' % (zap.returncode, zap.stderr))
+    forma['priemka']['e2e'] = 'true'
+    zapis(pack, forma)
+
+
+def mut_zhivaja_pachta_v_repo(pack, forma, repo, src):
+    """Обход критика круга 2: живая пачка ТОГО ЖЕ экрана в переданном
+    продукте (--repo) — невидима харнесс-скану; замена неполна молча."""
+    d = repo / 'fixtures/workshop_project/old_screen_001'
+    d.mkdir(parents=True)
+    (d / 'ekran.json').write_text(json.dumps(
+        src['repo_staryj_ekran']['ekran'], ensure_ascii=False, indent=1),
+        encoding='utf-8')
+    (d / 'kadry.json').write_text(json.dumps(
+        src['repo_staryj_ekran']['kadry'], ensure_ascii=False, indent=1),
+        encoding='utf-8')
+
+
+def mut_kontrakt_shirokij(pack, forma, repo, src):
+    """Обход критика круга 2: стену текста сворачивают в одну строку —
+    объём без ширины/байт не страница (47 строк / 261138 байт)."""
+    p = pack / 'kontrakt.md'
+    with p.open('a', encoding='utf-8') as f:
+        f.write('Требование_без_разрыва ' * 300 + '\n')
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -395,6 +452,12 @@ MUTACII = {
     'literal-cveta-funkc': mut_literal_cveta_funkc,
     'literal-razmera-rem': mut_literal_razmera_rem,
     'kontrakt-slishkom-dlinnyj': mut_kontrakt_slishkom_dlinnyj,
+    'literal-cveta-hwb': mut_literal_cveta_hwb,
+    'literal-razmera-protsent': mut_literal_razmera_protsent,
+    'literal-razmera-ch': mut_literal_razmera_ch,
+    'kadry-ustarevshie': mut_kadry_ustarevshie,
+    'zhivaja-pachta-v-repo': mut_zhivaja_pachta_v_repo,
+    'kontrakt-shirokij': mut_kontrakt_shirokij,
 }
 
 
