@@ -18,7 +18,7 @@ def _imennoj_argv_rannera123(sv):
             and all(z and not z.startswith('--') for z in znach))
 
 
-def _imennoj_run_priemka_sverka(f, repo, harness, obrazec_stdout):
+def _imennoj_run_priemka_sverka(f, pack, repo, harness, obrazec_stdout):
     try:
         p = subprocess.run(m.razbit_argv(f['priemka']['sverka']),
                            cwd=str(repo), capture_output=True, text=True,

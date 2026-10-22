@@ -37,6 +37,12 @@ stdout построчно, допуск dopusk_score на числа KADR), stab
 память ДО вызова субъекта (правило 8); диск субъекта как истина не читается.
 Носители и производные кадры — байтово та же пара, что в замере 123
 (chestnyj-splash: 0,783/0,782) — вторая мера чисел этой батареи.
+Остаточный риск (П-3, verdicts/arbitration/contracts-132-impl-kap.md):
+подмена модулей рядом с байт-копией раннера 123 (sys.path[0] — каталог
+скрипта; соседний json.py может воспроизвести stdout) и вообще
+воспроизведение stdout образца вызовом из repo, которым владеет судимая
+сторона. Кадры судит собственный вызов образца по pack/kadry.json; команда
+sverka — заявление продукта о механизме. Ловцы — продуктовый CI экрана и ревью.
 """
 import argparse
 import hashlib
@@ -531,6 +537,46 @@ def mut_sverka_podmena_imenem(pack, forma, repo, src):
         ' --manifest no --kadry no --repo no')
     zapis(pack, forma)
 
+def mut_sverka_chuzhoj_manifest(pack, forma, repo, src):
+    """Вход adv-132 круг 3 дословно: копия pack/kadry.json с правкой
+    _comment, тот же честный раннер и те же KADR-строки."""
+    podmena = repo / 'podmena/kadry.json'
+    podmena.parent.mkdir(parents=True)
+    manifest = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
+    manifest['_comment'] = 'podmena: not the pack manifest'
+    podmena.write_text(json.dumps(manifest, ensure_ascii=False, indent=1),
+                       encoding='utf-8')
+    forma['priemka']['sverka'] = (
+        'python3 .harness123/scripts/sverka_maketa.py'
+        ' --manifest podmena/kadry.json --kadry mobile/maestro-out-demo --repo .')
+    zapis(pack, forma)
+
+
+def mut_sverka_chuzhie_kadry(pack, forma, repo, src):
+    """Арбитраж замер 2: e2e создаёт свежие кадры и копию в иной каталог;
+    сверка чужих кадров отвечает тем же stdout, что сверка пачки."""
+    e2e = repo / 'mobile/e2e.sh'
+    with e2e.open('a', encoding='utf-8') as script:
+        script.write('\nmkdir -p other-kadry\n'
+                     'cp -a mobile/maestro-out-demo/. other-kadry/\n')
+    forma['priemka']['sverka'] = (
+        'python3 .harness123/scripts/sverka_maketa.py'
+        ' --manifest .harness123/kadry.json --kadry other-kadry --repo .')
+    zapis(pack, forma)
+
+
+def mut_sverka_chuzhoj_repo(pack, forma, repo, src):
+    """Другой realpath repo при том же доступном макете и том же stdout."""
+    other = repo / 'other-repo'
+    other.mkdir()
+    (other / 'docs').symlink_to(repo / 'docs', target_is_directory=True)
+    forma['priemka']['sverka'] = (
+        'python3 .harness123/scripts/sverka_maketa.py'
+        ' --manifest .harness123/kadry.json'
+        ' --kadry mobile/maestro-out-demo --repo other-repo')
+    zapis(pack, forma)
+
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -570,6 +616,9 @@ MUTACII = {
     'literal-razmera-maska-edinicy': mut_literal_razmera_maska_edinicy,
     'sverka-poddelnyj-stdout': mut_sverka_poddelnyj_stdout,
     'sverka-podmena-imenem': mut_sverka_podmena_imenem,
+    'sverka-chuzhoj-manifest': mut_sverka_chuzhoj_manifest,
+    'sverka-chuzhie-kadry': mut_sverka_chuzhie_kadry,
+    'sverka-chuzhoj-repo': mut_sverka_chuzhoj_repo,
 }
 
 
