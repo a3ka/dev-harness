@@ -422,10 +422,10 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 4 | 128 | до V-2 | autonomy | - | docs/owner/2026-10-21-prostoi-stancii.md#Порядок |
 | 4 | 130 | до V-2 | autonomy | - | docs/owner/2026-10-21-publikaciya-main.md#Порядок |
 | 4 | 131 | до V-2 | autonomy | - | docs/owner/2026-10-21-publikaciya-main.md#Порядок |
-| 4 | odin-agent-na-predmet | до V-2 | autonomy | - | docs/owner/2026-10-21-dubli-agentov.md#Порядок |
 | 4 | testy-ubirayut-za-soboj | до V-2 | ops | - | docs/owner/2026-10-22-testy-ubirayut.md#Порядок |
 | 4 | 129 | до V-2 | ops | - | docs/owner/2026-10-21-prostoi-stancii.md#Порядок |
 | 4 | done-produkt | до V-2 | project-mode | - | docs/owner/2026-10-21-sverka-astra.md#Порядок |
+| 4 | odin-agent-na-predmet | до V-2 | autonomy | - | docs/owner/2026-10-21-dubli-agentov.md#Порядок |
 | 4 | sessii-proektov | до V-2 | project-mode | 122 | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 5 | 096 | до V-2 | autonomy | 095 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 5 |
 | 5 | CMP-BCK-133 | до V-2 | complior | 993 | docs/owner/2026-10-18-arhitektor-beka-5-8-4.md#Порядок |
