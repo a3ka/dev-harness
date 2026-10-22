@@ -7,3 +7,8 @@
 <View testID="erstinfo_frame_f02_08_v03" />
 <View testID="erstinfo_frame_f02_08_v04" />
 <View testID="erstinfo_next_variant" />
+testID="erstinfo_gate_null"
+testID="erstinfo_gate_stale"
+testID="erstinfo_gate_current"
+testID="erstinfo_retry_current"
+testID="erstinfo_continue_start"
