@@ -156,14 +156,28 @@ function nodeTopOffsets(badge: unknown): number[] {
   return out;
 }
 
-// Все текстовые листья host-дерева (toJSON): видимая поверхность экрана.
+// Все текстовые листья ВИДИМОГО host-дерева (toJSON): видимая поверхность
+// экрана. v4c (критик круг 2): текст скрытого узла — НЕ присутствующий:
+// display:'none', opacity 0 (и нулевые литеральные width/height) на узле
+// ИЛИ любом его предке вырезают поддерево целиком — «наличие строки»
+// обязано судить видимость, не присутствие в дереве (обход круга 2:
+// display:none внутри зоны implementer проходил honest rc0 23/23).
+function hiddenByStyle(node: { props?: { style?: unknown } }): boolean {
+  if (!node.props) return false;
+  const style = styleOf(node as { props: { style?: unknown } });
+  if (style.display === 'none') return true;
+  if (style.opacity === 0 || style.opacity === '0') return true;
+  return style.width === 0 || style.height === 0;
+}
+
 function collectText(json: unknown, out: string[]): void {
   if (Array.isArray(json)) {
     json.forEach((child) => collectText(child, out));
     return;
   }
   if (json && typeof json === 'object') {
-    const node = json as { children?: unknown[] };
+    const node = json as { children?: unknown[]; props?: { style?: unknown } };
+    if (hiddenByStyle(node)) return;
     if (node.children) collectText(node.children, out);
     return;
   }
@@ -264,7 +278,10 @@ describe('111 first-run', () => {
   // (v4b, критик 111 v4 круг 1): «каталог += две строки» — наличие, а не
   // только допустимость; экран с удалёнными рендерящими узлами проходил
   // замкнутость (ложное зелёное rc0 23/23). Отсутствие подзаголовка или
-  // футера полным текстом красит клетку своей схемы.
+  // футера полным текстом красит клетку своей схемы. v4c (критик круг 2):
+  // ПРИСУТСТВОВАТЬ = быть ВИДИМЫМ — collectText вырезает поддеревья с
+  // display:'none'/opacity 0/нулевыми литеральными размерами (узел или
+  // любой предок); скрытая строка не считается присутствующей.
   // Каталог D2.2.5.1 даёт First-Run ровно два текстовых ключа; «Demo» —
   // метка mock composition (STRUCTURE.md §5); v4 (слово владельца
   // 2026-10-22 ~18:50 UTC «а»): две строки макета First-Run.png разрешены
