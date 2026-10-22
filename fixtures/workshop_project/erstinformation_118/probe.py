@@ -207,6 +207,14 @@ def build_repo(src, tmp, pack):
     fa.mkdir(parents=True)
     (fa / 'testids.stand-in.tsx').write_text(
         src['testids_tekst'], encoding='utf-8')
+    au = repo / 'mobile/src/features/auth'
+    au.mkdir(parents=True)
+    (au / 'testids.stand-in.tsx').write_text('testID="first_run_demo_entry"\n',
+                                            encoding='utf-8')
+    app = repo / 'mobile/src/app'
+    app.mkdir(parents=True)
+    (app / 'testids.stand-in.tsx').write_text('testID="start_tabs"\n',
+                                             encoding='utf-8')
     for kadr in src['kadry_manifest']['kadry']:
         d = repo / 'mobile/e2e-nositeli' / kadr['tema']
         d.mkdir(parents=True, exist_ok=True)
@@ -263,6 +271,10 @@ def mut_kadr_nizhe_poroga(pack, forma, repo, src):
     blob = derive_bez_elementa(f.read_bytes(), src['bez_elementa']['polosa_pt'])
     f.write_bytes(blob)
 
+def mut_kadr_cta_skryt(pack, forma, repo, src):
+    """Нижний Dokument öffnen исчезает при почти неизменном глобальном score."""
+    f = nositel(repo, 'dark', 'erstinformation-f02-08-v01')
+    f.write_bytes(derive_bez_elementa(f.read_bytes(), [0, 783, 390, 824]))
 
 def mut_chuzhoj_kadr(pack, forma, repo, src):
     m = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
@@ -382,6 +394,48 @@ def mut_proiskhozdenie_selektor_bez_ekrana(pack, forma, repo, src):
         'testID="erstinfo_next_variant" />\n', ''), encoding='utf-8')
 
 
+def mut_proiskhozdenie_bez_demo(pack, forma, repo, src):
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: first_run_demo_entry}\n', ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_deeplink(pack, forma, repo, src):
+    """Самостоятельный deep-link экран при оборванном demo-переходе."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: first_run_demo_entry}\n',
+        '- openLink: complior://erstinformation\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_gate_null_propusk(pack, forma, repo, src):
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- assertNotVisible: {id: start_tabs}\n', '', 1), encoding='utf-8')
+
+
+def mut_proiskhozdenie_gate_stale_propusk(pack, forma, repo, src):
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    text = p.read_text(encoding='utf-8')
+    needle = '- assertNotVisible: {id: start_tabs}\n'
+    assert text.count(needle) == 2
+    first = text.index(needle) + len(needle)
+    p.write_text(text[:first] + text[first:].replace(needle, '', 1),
+                 encoding='utf-8')
+
+
+def mut_proiskhozdenie_bez_start(pack, forma, repo, src):
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: erstinfo_continue_start}\n', ''), encoding='utf-8')
+
+
+
 def mut_proiskhozdenie_selektor_ne_kadra(pack, forma, repo, src):
     """assertVisible селектора другого кадра не доказывает этот кадр."""
     _zapusti_replay(repo)
@@ -396,6 +450,7 @@ MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
     'kadr-nizhe-poroga': mut_kadr_nizhe_poroga,
+    'kadr-cta-skryt': mut_kadr_cta_skryt,
     'chuzhoj-kadr': mut_chuzhoj_kadr,
     'ne-tselikom': mut_ne_tselikom,
     'zamenjaet-pustoj': mut_zamenjaet_pustoj,
@@ -410,6 +465,11 @@ MUTACII = {
     'proiskhozdenie-flow-bez-perehoda': mut_proiskhozdenie_flow_bez_perehoda,
     'proiskhozdenie-selektor-bez-ekrana': mut_proiskhozdenie_selektor_bez_ekrana,
     'proiskhozdenie-selektor-ne-kadra': mut_proiskhozdenie_selektor_ne_kadra,
+    'proiskhozdenie-bez-demo': mut_proiskhozdenie_bez_demo,
+    'proiskhozdenie-deeplink': mut_proiskhozdenie_deeplink,
+    'proiskhozdenie-gate-null-propusk': mut_proiskhozdenie_gate_null_propusk,
+    'proiskhozdenie-gate-stale-propusk': mut_proiskhozdenie_gate_stale_propusk,
+    'proiskhozdenie-bez-start': mut_proiskhozdenie_bez_start,
 }
 
 

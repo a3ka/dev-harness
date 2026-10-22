@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 # Проверка доступных свидетельств происхождения (контракт 118, файл пачки).
 # НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском
-# шаблона 132 (§НЕ ЗАЩИЩАЕТ контракта). Судит три свойства:
-#   1) флоу: запуск приложения; перед каждым кадром — переход
-#      (tapOn/inputText/pressKey/swipe) И assert-селектор СВОЕГО экрана;
-#      каждый snimok манифеста — ровно один раз;
-#   2) каждый селектор флоя имеет носитель в коде экрана — testID в
-#      mobile/src/features/onboarding/** репо;
-#   3) кадр, байт-идентичный макету, — НЕ скриншот: копия макета в раскладку
-#      Maestro подменой e2e детектится сравнением sha256 кадра и макета.
+# шаблона 132. Судит переход от production First-Run через demo и gate к
+# Start, наличие testID каждого шага и побайтовую копию макета.
 # В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает Maestro),
-# БЕЗ промежуточной правки кадров. rc: 0 — эти признаки без отказов;
-# 1 — PRICHINA по каждому отказу; 2 — вход нечитаем (PROVERKA_NECHITAEM).
+# БЕЗ промежуточной правки кадров. rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
 import json
@@ -19,8 +12,9 @@ import sys
 from pathlib import Path
 
 PEREHODY = ('tapOn', 'inputText', 'pressKey', 'swipe')
-ZAPUSKI = ('launchApp', 'startApp')
-ISTOCHNIKI_EKRANA = 'mobile/src/features/onboarding'
+ZAPUSKI = ('launchApp',)
+ISTOCHNIKI_EKRANA = ('mobile/src/features/onboarding', 'mobile/src/features/auth',
+                     'mobile/src/bootstrap', 'mobile/src/app')
 SELEKTOR_KADRA = {
     'erstinformation-f02-03-v01-v0': 'erstinfo_frame_f02_03_v01_v0',
     'erstinformation-f02-03-v02-v0': 'erstinfo_frame_f02_03_v02_v0',
@@ -73,9 +67,11 @@ def sud_flow(shagi, snimki):
             otkazy.append(('SNIMOK_BEZ_SHAGA', s))
         elif len(sp) > 1:
             otkazy.append(('SNIMOK_NEODNOZNACHEN', s))
-    if not any(k in ZAPUSKI for k, _ in shagi):
+    if not shagi or shagi[0][0] != 'launchApp' or sum(
+            k == 'launchApp' for k, _ in shagi) != 1 or any(
+                k in ('openLink', 'startApp') for k, _ in shagi):
         otkazy.append(('FLOW_BEZ_ZAPUSKA', 'launchApp'))
-    granica, pervyj = -1, True
+    granica = -1
     for s in snimki:
         sp = poz.get(s, [])
         if not sp:
@@ -83,7 +79,7 @@ def sud_flow(shagi, snimki):
         i = sp[0]
         blok_shagov = shagi[granica + 1:i]
         blok = [k for k, _ in blok_shagov]
-        if not pervyj and not any(k in PEREHODY for k in blok):
+        if granica >= 0 and not any(k in PEREHODY for k in blok):
             otkazy.append(('FLOW_BEZ_PEREHODA', s))
         if 'assertVisible' not in blok:
             otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', s))
@@ -91,14 +87,47 @@ def sud_flow(shagi, snimki):
                 k == 'assertVisible' and id_iz(a) == SELEKTOR_KADRA[s]
                 for k, a in blok_shagov):
             otkazy.append(('SELEKTOR_NE_KADRA', s))
-        granica, pervyj = i, False
+        granica = i
+
+    def ordered(items):
+        at = -1
+        for kind, val in items:
+            at = next((i for i in range(at + 1, len(shagi))
+                       if shagi[i][0] == kind and
+                       (id_iz(shagi[i][1]) if kind in ('tapOn', 'assertVisible',
+                                                     'assertNotVisible') else
+                        shagi[i][1]) == val), -1)
+            if at < 0:
+                return False
+        return True
+
+    first = snimki[0]
+    if not ordered([('launchApp', ''), ('assertVisible', 'first_run_demo_entry'),
+                    ('tapOn', 'first_run_demo_entry'),
+                    ('assertVisible', SELEKTOR_KADRA[first]),
+                    ('takeScreenshot', first)]):
+        otkazy.append(('FLOW_BEZ_DEMO_VHODA', first))
+    # Null и stale — два разных запрета, каждый наблюдается ДО подтверждённого
+    # gate; проверка по индексам исключает assertNotVisible где-то в хвосте.
+    for state, shot in (('null', snimki[0]), ('stale', snimki[3])):
+        marker = 'erstinfo_gate_' + state
+        if not ordered([('assertVisible', marker),
+                        ('assertNotVisible', 'start_tabs'),
+                        ('takeScreenshot', shot)]):
+            otkazy.append(('FLOW_GATE_NE_PROVEREN', state))
+    if not ordered([('takeScreenshot', snimki[-1]),
+                    ('tapOn', 'erstinfo_retry_current'),
+                    ('assertVisible', 'erstinfo_gate_current'),
+                    ('tapOn', 'erstinfo_continue_start'),
+                    ('assertVisible', 'start_tabs')]):
+        otkazy.append(('FLOW_BEZ_START', 'start_tabs'))
     return otkazy
 
 
 def selektory(shagi):
     out = []
     for k, a in shagi:
-        if k in ('tapOn', 'assertVisible', 'inputText'):
+        if k in ('tapOn', 'assertVisible'):
             i = id_iz(a)
             if i:
                 out.append(i)
@@ -123,8 +152,8 @@ def main():
     kadry = manifest['kadry']
     snimki = list(dict.fromkeys(k['snimok'] for k in kadry))
     otkazy = sud_flow(shagi, snimki)
-    istochniki = list((repo / ISTOCHNIKI_EKRANA).rglob('*')) \
-        if (repo / ISTOCHNIKI_EKRANA).is_dir() else []
+    istochniki = [p for root in ISTOCHNIKI_EKRANA
+                  for p in (repo / root).rglob('*')]
     teksty = []
     for p in istochniki:
         if p.is_file():
