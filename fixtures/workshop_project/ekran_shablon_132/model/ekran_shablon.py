@@ -48,6 +48,12 @@
                  podmena/scripts/sverka_maketa.py с константной репликой
                  stdout — SAMODELNAYA_SVERKA; блокеры 2/1 вердикта
                  adv-132)
+                 Три значения argv связаны с пачкой: --manifest —
+                 sha256 файла == sha256 pack/kadry (байт-копия допустима);
+                 --kadry — realpath == repo/kadry_dir, --repo — realpath
+                 == repo; чужой или отсутствующий путь —
+                 SAMODELNAYA_SVERKA с именем флага (арбитраж
+                 verdicts/arbitration/contracts-132-impl-kap.md П-1).
   zony           {"architect": [...], "implementer": [...]} — грамматика
                  check_zones: относительные пути без *?[ , без .., без
                  ведущего /; каталог с завершающей /
@@ -117,11 +123,14 @@ CHUZHIE_KADRY / ZAMENJAET_NE_POLON / NE_TROGAET_NE_POLON / ZONY_RASHODJATSJA /
 RAZDEL_OTSVTSTVUET / NE_ODNA_STRANICA / KADR_NIZHE_POROGA /
 KADR_OTSUTSTVUET / KADR_USTAREVSHIJ / KADR_NEODNOZNACHEN / KADR_NECHITAEM /
 MAKET_PODMENEN;
+Несвязанный --manifest/--kadry/--repo — SAMODELNAYA_SVERKA rc 1
+с именем флага в подробности.
 2 — SHABLON_NEVEREN (грамматика формы, нет файла, манифест кадров вне
 грамматики 123, fiktura у судимой) / SVERKA_123_ABSENT (нет раннера 123 —
 инфраструктура).
 """
 import hashlib
+import os
 import json
 import re
 import subprocess
@@ -624,7 +633,31 @@ def _jet_runner123(put_fajla: Path, harness: Path):
         return False
 
 
-def run_priemka_sverka(f, repo: Path, harness: Path, obrazec_stdout: str):
+def _svjaz_argv_pachki(sv, f, pack: Path, repo: Path):
+    """Связь трёх значений argv с предъявленной пачкой (арбитраж impl П-1).
+    --manifest сравнивается по байтам: честная .harness123/kadry.json —
+    копия pack/kadry.json с другим realpath; пути каталогов — по realpath.
+    Отсутствие файла/каталога даёт именованный отказ, а не исключение."""
+    znach = dict(zip(sv[2::2], sv[3::2]))
+    manifest = repo / znach['--manifest']
+    try:
+        if (not manifest.is_file()
+                or _sha256_fajla(manifest) != _sha256_fajla(pack / f['kadry'])):
+            return otkaz('SAMODELNAYA_SVERKA', '--manifest не манифест пачки')
+    except OSError:
+        return otkaz('SAMODELNAYA_SVERKA', '--manifest не манифест пачки')
+    kadry = repo / znach['--kadry']
+    if (not kadry.is_dir()
+            or os.path.realpath(kadry) != os.path.realpath(repo / f['kadry_dir'])):
+        return otkaz('SAMODELNAYA_SVERKA', '--kadry не каталог кадров пачки')
+    put_repo = repo / znach['--repo']
+    if (not put_repo.is_dir()
+            or os.path.realpath(put_repo) != os.path.realpath(repo)):
+        return otkaz('SAMODELNAYA_SVERKA', '--repo не репо продукта')
+    return None
+
+
+def run_priemka_sverka(f, pack: Path, repo: Path, harness: Path, obrazec_stdout: str):
     """Исполнение приёмки сверки: argv без shell; rc 0 И stdout дословно
     равен сверке-образцу раннера 123 (фиктивные echo/true не воспроизводят
     вывод механизма) И команда — ТОЧНЫЙ вызов раннера 123: полный argv
@@ -634,7 +667,15 @@ def run_priemka_sverka(f, repo: Path, harness: Path, obrazec_stdout: str):
     stdout по имени-фрагменту (…py.fake, блокер 2 круга 1) либо по
     совпавшему суффиксу имени (podmena/scripts/sverka_maketa.py, блокер 1
     круга 2 вердикта adv-132) проходит сверку вывода, но раннером не
-    является — SAMODELNAYA_SVERKA."""
+    является — SAMODELNAYA_SVERKA. Значения --manifest/--kadry/--repo
+    связаны с пачкой: байты манифеста и realpath двух каталогов."""
+    sv = razbit_argv(f['priemka']['sverka'])
+    valid_argv = _argv_rannera123(sv)
+    valid_runner = valid_argv and _jet_runner123(repo / sv[1], harness)
+    if valid_runner:
+        nesvjaz = _svjaz_argv_pachki(sv, f, pack, repo)
+        if nesvjaz:
+            return [nesvjaz]
     try:
         p = subprocess.run(razbit_argv(f['priemka']['sverka']),
                            cwd=str(repo), capture_output=True, text=True,
@@ -644,11 +685,10 @@ def run_priemka_sverka(f, repo: Path, harness: Path, obrazec_stdout: str):
     if p.returncode != 0 or p.stdout.splitlines() != obrazec_stdout.splitlines():
         return [otkaz('SAMODELNAYA_SVERKA',
                       'вывод не воспроизводит механизм 123')]
-    sv = razbit_argv(f['priemka']['sverka'])
-    if not _argv_rannera123(sv):
+    if not valid_argv:
         return [otkaz('SAMODELNAYA_SVERKA',
                       'argv не вызов раннера 123: %s' % f['priemka']['sverka'])]
-    if not _jet_runner123(repo / sv[1], harness):
+    if not valid_runner:
         return [otkaz('SAMODELNAYA_SVERKA', 'файл не раннер 123: %s' % sv[1])]
     return []
 
@@ -699,7 +739,7 @@ def main(argv=None):
                 sys.stdout.write(stdout_run if stdout_run.endswith('\n')
                                  else stdout_run + '\n')
         if not otkazy:
-            otkazy += run_priemka_sverka(f, repo, harness, stdout_run)
+            otkazy += run_priemka_sverka(f, pack, repo, harness, stdout_run)
     for o in otkazy:
         print(o, file=sys.stderr)
     if otkazy:

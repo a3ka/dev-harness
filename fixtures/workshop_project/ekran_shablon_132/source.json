@@ -1,5 +1,6 @@
 {
  "_comment": "Контракт 132 (ekran-shablon): единый источник батареи. nositeli — копии кадров/макетов батареи 123 (те же байты, sha равны пинам 123); kejsy — оракул: rc, prichiny построчно, stdout построчно (KADR-числа — в допуске dopusk_score), снят с эталона прогоном --snapshot; stab_vhod — привязка обманных стабов к входам по коду ветвей (Н-39). Ожидания читаются в память ДО субъекта (правило 8).",
+ "контекст": "verdicts/arbitration/contracts-132-impl-kap.md П-1…П-3; вход адверсария: verdicts/adversary/contracts-132-impl-v3.md §Блокер 1.",
  "subject_rel": "scripts/ekran_shablon.py",
  "runner123_rel": "scripts/sverka_maketa.py",
  "snimok": "vkhod-demo-splash",
@@ -496,6 +497,36 @@
   "prichiny": [
    "PRICHINA\tSAMODELNAYA_SVERKA\tфайл не раннер 123: podmena/scripts/sverka_maketa.py"
   ]
+ },
+ "sverka-chuzhoj-manifest": {
+  "rc": 1,
+  "stdout": [
+   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+  ],
+  "prichiny": [
+   "PRICHINA\tSAMODELNAYA_SVERKA\t--manifest не манифест пачки"
+  ]
+ },
+ "sverka-chuzhie-kadry": {
+  "rc": 1,
+  "stdout": [
+   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+  ],
+  "prichiny": [
+   "PRICHINA\tSAMODELNAYA_SVERKA\t--kadry не каталог кадров пачки"
+  ]
+ },
+ "sverka-chuzhoj-repo": {
+  "rc": 1,
+  "stdout": [
+   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+  ],
+  "prichiny": [
+   "PRICHINA\tSAMODELNAYA_SVERKA\t--repo не репо продукта"
+  ]
  }
  },
  "stab_vhod": {
@@ -579,6 +610,11 @@
  ],
  "s23_sverka_tolko_imja.py": [
   "sverka-podmena-imenem"
+ ],
+ "s24_sverka_bez_svjazi.py": [
+  "sverka-chuzhoj-manifest",
+  "sverka-chuzhie-kadry",
+  "sverka-chuzhoj-repo"
  ]
  },
  "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",
