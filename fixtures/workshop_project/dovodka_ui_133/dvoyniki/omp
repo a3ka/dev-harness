@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Двойник omp для миров батареи 133: только `omp models list` — таблица из файла мира
+# ($OMP133_MODELS, строки "<провайдер/модель><TAB><yes|no>"). Прочие вызовы — отказ:
+# мир не пользуется ими, «нечем проверить» не подменяется молчаливым успехом.
+set -uo pipefail
+if [ "${1:-}" = "--version" ]; then
+  printf 'omp/dvoynik-133\n'
+  exit 0
+fi
+if [ "${1:-}" = "models" ] && [ "${2:-}" = "list" ]; then
+  f="${OMP133_MODELS:-}"
+  [ -n "$f" ] && [ -f "$f" ] || exit 1
+  printf '│ model │ provider │ ctx │ in │ images │ kv │\n'
+  awk -F'\t' 'NF==2 { n=split($1,a,"/"); printf "│ %s │ p │ 0 │ 0 │ %s │ k │\n", a[n], $2 }' "$f"
+  exit 0
+fi
+exit 1
