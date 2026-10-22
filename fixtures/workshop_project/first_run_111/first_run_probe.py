@@ -131,12 +131,25 @@ MUTANTS = {
           "require('../../../assets/images/splash-icon.png')")],
         ['WORDMARK_SOURCE_BOUND_DARK', 'WORDMARK_SOURCE_BOUND_LIGHT'], [],
     ),
-    # B5: некаталожная немецкая строка на поверхности (саблайн эталона без
-    # ключа каталога) — видно, но вне закрытого перечня копии.
+    # B5: некаталожная немецкая строка на поверхности (обход «саблайна без
+    # ключа каталога»; v4: «Versicherung. Erledigt.» вошла в каталог —
+    # носитель обхода заменён на строку вне перечня) — видно, но вне
+    # закрытого перечня копии; при двух строках макета v4 на экране
+    # (модель) посторонняя строка по-прежнему красна — прежняя презентация.
     'extra-unreviewed-copy': (
         [('mobile/src/features/auth/first-run-screen.tsx',
           '      <Button\n',
-          '      <Text>Versicherung. Erledigt.</Text>\n      <Button\n')],
+          '      <Text>Mehr erfahren</Text>\n      <Button\n')],
+        ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
+    ),
+    # v4 «разрешено всё»: обманка «после v4 каталог открыт — сойдёт любая
+    # строка, хоть сокращённая форма саблайна» (цитата прежнего исключения
+    # контракта). Побайтово замкнутый перечень красит её в обеих схемах;
+    # зеленела бы только allow-all/нечёткая сверка (префикс/нормализация).
+    'copy-all-allowed': (
+        [('mobile/src/features/auth/first-run-screen.tsx',
+          '      <Button\n',
+          '      <Text>Ein Brief, ein Schaden…</Text>\n      <Button\n')],
         ['FIRST_RUN_COPY_CLOSED_DARK', 'FIRST_RUN_COPY_CLOSED_LIGHT'], [],
     ),
     # B2r2 (критик 111, круг 2): боковые края сняты ТОЛЬКО в светлой схеме —
@@ -162,15 +175,18 @@ MUTANTS = {
           "source={scheme === 'light' ? require('../../../assets/images/splash-icon.png') : require('../../../assets/images/wordmark-dark.png')}")],
         ['WORDMARK_SOURCE_BOUND_LIGHT'], [],
     ),
-    # B5r2: некаталожный саблайн эталона на поверхности только в светлой
-    # схеме — красна LIGHT-клеткой пары К5.
+    # B5r2: некаталожная строка на поверхности только в светлой схеме —
+    # красна LIGHT-клеткой пары К5. v4: дословный саблайн критика вошёл в
+    # каталог — носитель обхода заменён на байтовую near-miss футера
+    # («Versicherung. Erledigt» без финальной точки): проходит только
+    # allow-all/нормализующая сверка, побайтовый перечень красит.
     'light-extra-copy': (
         [('mobile/src/features/auth/first-run-screen.tsx',
           'const { tokens } = useTheme();',
           'const { tokens, scheme } = useTheme();'),
          ('mobile/src/features/auth/first-run-screen.tsx',
           '      <Button\n',
-          "      {scheme === 'light' ? <Text>Versicherung. Erledigt.</Text> : null}\n      <Button\n")],
+          "      {scheme === 'light' ? <Text>Versicherung. Erledigt</Text> : null}\n      <Button\n")],
         ['FIRST_RUN_COPY_CLOSED_LIGHT'], [],
     ),
     # A2 (суд 111, круг 1): внешний корень PilotApp красится белым вокруг

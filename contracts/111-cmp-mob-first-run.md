@@ -1,24 +1,29 @@
 # Контракт 111 — mob: First-Run по D2.2.5.1 (Complior-mob #109)
 
-ВЕРСИЯ: v3 (2026-10-21; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в изменяющем коммите; форк
-`forks/n111-v3-splash-static.md`, ОТВЕЧЕНО).
-Единственное изменение v3 — миграция статических клеток splash под продукт 117 (слово
-владельца 2026-10-20 ~18:15/18:18 UTC: splash/иконка заменяются по D2.2.5.1): клетка
-`SPLASH_GROUND_DARK` → `SPLASH_GROUND_SCHEME` — значения splash больше не пинятся 111,
-сверка с ЕДИНЫМ источником 117 (`fixtures/workshop_project/vkhod_117/source.json`,
-`appjson_literals`: светлый корень #F3F2EE + тёмный блок #0A0A0A, знаки
-splash-sign-{light,dark}.png, imageWidth 181, resizeMode contain); клетка
-SPLASH_EFFECTIVE_GROUND_BOTH судит ОБЕ схемы на ОБЕИХ платформах. НЕ-ослабление:
-`SPLASH_DEFAULT_BLUE_GONE`
-и смысл мутантов B3/B4 сохранены, добавлен стаб splash-dark-stays-blue (тихий синий
-тёмного блока). v2 (заморожен `frozen/contracts/111/2`): сужение гварда RESTYLE_GUARD_995 —
-кадры F03.01/F03.02 (email/code) рестайлятся по предмету 117 (вход по D2.2.5.1 — токены
-и компоненты + UX-JSON F01/F03, PNG нет — слово владельца ~19:28); ВСЕ остальные кадры
-995 (welcome/unavailable/recovery и прочие) по-прежнему НЕ рестайлятся. Основание v2:
-слово владельца 2026-10-20 ~18:00/18:18 UTC (экраны входа — по макету D2.2.5.1); ответ
-консультанта 19:20 UTC — форк `forks/n117-krug1-maket-i-111.md`, развилка 1, вариант (А).
-v1 (заморожен `frozen/contracts/111/1`, закрыт `done/contracts/111/1`):
-`git show frozen/contracts/111/1^{commit}:contracts/111-cmp-mob-first-run.md`.
+ВЕРСИЯ: v4 (2026-10-22; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в изменяющем коммите; форк
+`forks/n135-copy-111.md` — HANDOFF: mob PR #121 красен ТОЛЬКО на К5 пробы 111).
+Единственное изменение v4 — каталог копии First-Run += две строки макета владельца
+(слово владельца 2026-10-22 ~18:50 UTC «а»): подзаголовок «Ein Brief, ein Schaden,
+ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie
+bestätigen nur, was wirklich zählt.» и футер «Versicherung. Erledigt.» (дословно
+First-Run.png sha256 `0411d0a3…` кадра First-Run манифеста 135; реализация 135 несёт
+те же байты) входят в замкнутый перечень видимой копии (инвариант 3, К5); исключение
+саблайнов (§Существующее, «Вне предмета») снято в части этих двух строк; ключи i18n
+(+2 ровно), review_status и прочие запреты не тронуты; стабы замкнутости остаются
+красными (строка вне перечня), добавлен стаб copy-all-allowed (обманка «каталог открыт
+всем строкам»: сокращённая форма саблайна). v3 (заморожен `frozen/contracts/111/3`):
+миграция статических клеток splash под продукт 117 — SPLASH_GROUND_DARK →
+SPLASH_GROUND_SCHEME, единый источник `vkhod_117/source.json` (`appjson_literals`),
+стаб splash-dark-stays-blue; основание — слово владельца 2026-10-20 ~18:15/18:18 UTC,
+форк `forks/n111-v3-splash-static.md`. v2 (заморожен `frozen/contracts/111/2`): сужение
+гварда RESTYLE_GUARD_995 — кадры F03.01/F03.02 (email/code) рестайлятся по предмету 117
+(вход по D2.2.5.1 — токены и компоненты + UX-JSON F01/F03, PNG нет — слово владельца
+~19:28); ВСЕ остальные кадры 995 (welcome/unavailable/recovery и прочие) по-прежнему НЕ
+рестайлятся. Основание v2: слово владельца 2026-10-20 ~18:00/18:18 UTC (экраны входа —
+по макету D2.2.5.1); ответ консультанта 19:20 UTC — форк `forks/n117-krug1-maket-i-111.md`,
+развилка 1, вариант (А). v1 (заморожен `frozen/contracts/111/1`, закрыт
+`done/contracts/111/1`): `git show frozen/contracts/111/1^{commit}:contracts/
+111-cmp-mob-first-run.md`.
 
 КЛАСС: КОДОВЫЙ. Предмет — issue `a3ka/Complior-mob#109`: полный экран First-Run по эталону
 D2.2.5.1 (wordmark, promise, CTA «Anmelden oder Konto erstellen», ui.first_run.enter_f03) +
@@ -71,8 +76,13 @@ EXPECT, продукт не служит источником ожиданий; 
   `ui.first_run.enter_f03` «Anmelden oder Konto erstellen» (оба review_status
   `UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED`); `frame.F03.01.title` — тот же текст
   «Anmelden oder Konto erstellen» байт-в-байт (review_status `EDITORIAL_DRAFT_REVIEW_REQUIRED`).
-  Саблайны First-Run.html («Ein Brief, ein Schaden…», «Versicherung. Erledigt.») БЕЗ ключей
-  каталога — в продукт не вводятся (STRUCTURE.md §6: новая формулировка требует review).
+  Саблайны First-Run.html — подзаголовок «Ein Brief, ein Schaden, ein neues Auto – sagen
+  Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie bestätigen nur, was
+  wirklich zählt.» и футер «Versicherung. Erledigt.» — БЕЗ ключей каталога; v4 (слово
+  владельца 2026-10-22 ~18:50 UTC «а»): обе строки РАЗРЕШЕНЫ на поверхности экрана
+  (макет First-Run.png sha256 `0411d0a3…`; ключей i18n не получают); прочие формулировки
+  без ключей каталога в продукт не вводятся (STRUCTURE.md §6: новая формулировка
+  требует review).
 - Эталон `docs/ux/02_.../screens/html/First-Run.html` (+First-Run.png): dark-тема, wordmark
   (22px, alt «complior», ds/wordmark-dark.svg), заголовок = promise, CTA (Button lg block) =
   ui.first_run.enter_f03 → F03.01 (F03.A01); ux-frames F03.01, F03.A01, RV01.
@@ -107,7 +117,8 @@ testID `first-run-continue` сохранён), Demo-бейдж, safe-area нас
 Вне предмета: AgentPresence/адаптивная сцена на First-Run (после ленда 108); кадры 995 кроме
 F03.01/F03.02 — unavailable/recovery/welcome (поверхность 995, не рестайлятся); рестайл
 F03.01/F03.02 (email/code) — предмет 117, вход по D2.2.5.1 (v2); саблайны First-Run.html
-без ключей каталога;
+без ключей каталога, кроме двух строк макета v4 (подзаголовок/футер — разрешены,
+см. §Существующее);
 copy signoff CMP-MOB-089; device evidence CMP-MOB-090; реальный IdP/бэкенд; смена
 userInterfaceStyle/тёмная тема остальных кадров; wordmark в SVG-runtime (растровый ассет).
 
@@ -128,9 +139,11 @@ userInterfaceStyle/тёмная тема остальных кадров; wordma
 3. Текст CTA = `ui.first_run.enter_f03` = «Anmelden oder Konto erstellen» байт-в-байт
    (equality_facts каталога: тот же текст, что frame.F03.01.title); promise =
    `ui.first_run.promise` байт-в-байт; ВЕСЬ видимый текст экрана ⊆ замкнутый перечень
-   {«Demo», ui.first_run.promise, ui.first_run.enter_f03} — новых немецких формулировок на
-   поверхности нет (саблайны First-Run.html — в т.ч. «Versicherung. Erledigt.»), review_status
-   переносится verbatim.
+   {«Demo», ui.first_run.promise, ui.first_run.enter_f03, подзаголовок макета «Ein Brief,
+   ein Schaden, ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und
+   erledigt. Sie bestätigen nur, was wirklich zählt.», футер макета «Versicherung.
+   Erledigt.»} (v4: две последние строки — дословно First-Run.png, без ключей i18n);
+   прочих немецких формулировок на поверхности нет, review_status переносится verbatim.
 4. `mobile/src/i18n/ui-copy.ts` расширяется ровно двумя ключами First-Run (verbatim-подмножество
    каталога; +2 к 10 ключам 999); структура записи сохранена.
 5. `mobile/app.json` (v3): блок expo-splash-screen = литералы единого источника 117
@@ -182,9 +195,11 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
   наблюдаемого wordmark указывает на ассет wordmark-dark.png (литерал имени в ожидании)
   в ОБЕИХ схемах; подмена source на соседний ассет при живых label/role/testID красит.
 - К5 `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` ×2 — произведение scheme(2): каждый текстовый
-  лист host-дерева первого кадра ⊆ литеральный перечень {«Demo», promise, CTA} в ОБЕИХ
-  схемах; некаталожная немецкая строка на поверхности (в т.ч. саблайн эталона без ключа
-  каталога) красит.
+  лист host-дерева первого кадра ⊆ литеральный перечень {«Demo», promise, CTA,
+  подзаголовок макета, футер макета} (v4: две строки First-Run.png дословно, без ключей
+  i18n) в ОБЕИХ схемах; немецкая строка вне перечня на поверхности красит — прежняя
+  замкнутость, в т.ч. неточное совпадение с каталогизированной строкой (сокращённая
+  форма саблайна, футер без финальной точки).
 
 Статическая семья (`first_run_static_probe.py`, 16 клеток; v3 — клетки splash мигрированы
 под 117): `SPLASH_GROUND_SCHEME` (v3: блок splash = литералы `appjson_literals` единого
@@ -201,12 +216,12 @@ handleFirstRunContinue} />`), legacy FIRST_RUN_BUTTON_COPY/«Weiter» и его 
 '@/i18n/ui-copy').
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду `MUTANTS` обеих проб, Н-39; depends измерены
-полным прогоном): поведенческих 26 (cta-label-weiter, promise-invented, onenter-not-wired,
+полным прогоном): поведенческих 27 (cta-label-weiter, promise-invented, onenter-not-wired,
 ground-default-blue, demo-badge-scope, wordmark-absent, cta-testid-renamed, light-cta-noop,
-safearea-edges-empty, wordmark-wrong-source, extra-unreviewed-copy, light-edges-top-bottom,
-light-wrong-source, light-extra-copy, wrapper-root-white, wrapper-root-magenta,
-wrapper-root-padding, badge-outside-safearea, badge-inset-top-zero, badge-hardcoded-inset,
-restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
+safearea-edges-empty, wordmark-wrong-source, extra-unreviewed-copy, copy-all-allowed,
+light-edges-top-bottom, light-wrong-source, light-extra-copy, wrapper-root-white,
+wrapper-root-magenta, wrapper-root-padding, badge-outside-safearea, badge-inset-top-zero,
+badge-hardcoded-inset, restyle-welcome-ground, restyle-995-ground, restyle-995-no-padding,
 restyle-995-padding-shifted, restyle-unavailable, restyle-recovery), статических 16
 (splash-stays-default-blue, splash-dark-stays-blue, android-splash-blue,
 copy-promise-invented, copy-enter-missing, screen-hex-literal, pilot-unwired,
@@ -216,10 +231,14 @@ cta-testid-unbound, screen-plain-view);
 каждый красен именованной клеткой, побочная краснота только в depends; `--matrix` —
 самопроверка набора, не приёмка. Пять стабов круга-1 критика (light-cta-noop,
 safearea-edges-empty, wordmark-wrong-source, android-splash-blue, extra-unreviewed-copy)
-воспроизводят обходы B1–B5 и закрыты именованными клетками К2×2/К3/К4/SPLASH_EFFECTIVE/К5.
-Три стаба круга-2 (light-edges-top-bottom, light-wrong-source, light-extra-copy — мутации
-критика дословно, ограничены светлой схемой) воспроизводят обходы B2r2/B3r2/B5r2 и закрыты
-именованными LIGHT-клетками пар К3/К4/К5.
+воспроизводят обходы B1–B5 и закрыты именованными клетками К2×2/К3/К4/SPLASH_EFFECTIVE/К5
+(v4: носители обходов B5/B5r2 — строки вне перечня: «Mehr erfahren» и near-miss футера
+без финальной точки, т.к. дословный саблайн вошёл в каталог). Три стаба круга-2
+(light-edges-top-bottom, light-wrong-source, light-extra-copy — форма мутаций критика,
+ограничены светлой схемой) воспроизводят обходы B2r2/B3r2/B5r2 и закрыты именованными
+LIGHT-клетками пар К3/К4/К5. Стаб v4 copy-all-allowed — обманка «каталог открыт всем
+строкам» (сокращённая форма саблайна «Ein Brief, ein Schaden…», цитата прежнего
+исключения): зеленела бы при allow-all/нечёткой сверке, закрыт парой К5.
 
 ## Приёмочный критерий
 
@@ -231,8 +250,13 @@ Python 3 stdlib. Нет Jest/артефактов отчёта → rc2 INFRASTRU
   `FIRST_RUN_SEAM_ABSENT` (именованный отказ на до-предметном дереве).
 - Дано B с эталонной моделью (`--model`); либо честное C — обе пробы → rc0 с построчным
   перечнем: поведенческая 23/23, статическая 16/16.
+- Дано v4: экран несёт обе строки макета (модель v4; продукт 135 `74c59935c`);
+  `first_run_probe.py --repo R` → rc0, клетка К5 зелёна в ОБЕИХ схемах при живых
+  подзаголовке/футере (зелёная презентация «с двумя новыми»); замороженная батарея
+  111/3 на том же дереве → rc1, красны ровно `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}`
+  (до-v4 предъявление).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый стаб красен своей
-  именованной ветвью, побочная краснота только в depends (26+16 стабов); якорь мутанта неуникален
+  именованной ветвью, побочная краснота только в depends (27+16 стабов); якорь мутанта неуникален
   → отказ rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк (пробы
   восстанавливают дерево).
@@ -291,9 +315,11 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
   (обход B1) красна LIGHT-клеткой;
 - от inventions копии: ключи каталога verbatim (текст+review_status) статической семьёй;
   promise/CTA наблюдаются точным текстом на поверхности; замкнутый состав видимой копии
-  держат FIRST_RUN_COPY_CLOSED ×2 — в обеих схемах (вся поверхность ⊆ {Demo, promise, CTA})
-  и сам перечень i18n (+2 ровно) — некаталожный саблайн (обходы B5/B5r2 —
-  scheme-независимый и light-ограниченный) красит;
+  держат FIRST_RUN_COPY_CLOSED ×2 — в обеих схемах (вся поверхность ⊆ {Demo, promise, CTA,
+  подзаголовок макета, футер макета} — v4: две строки First-Run.png побайтово)
+  и сам перечень i18n (+2 ровно) — строка вне перечня (обходы B5/B5r2 —
+  scheme-независимый и light-ограниченный) и неточное совпадение с каталогизированной
+  строкой (copy-all-allowed: сокращённая форма саблайна) красят;
 - от второй палитры: SCREEN_NO_HEX_LITERALS (ни одного hex-литерала в экране) + наблюдение
   ground/ink обеих схем поведенческими клетками;
 - от тихого дефолт-B И платформенно-переопределённого splash: литералы схемы из единого
@@ -324,6 +350,11 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
   визуальная сверка — android-e2e артефакты/reviewer;
 - от реальной аутентификации (IdP) — поверхность 995/бэкенд, вне предмета;
 - от злонамеренного кода с общим uid: независимые судьи, immutable H, CI evidence.
+
+## ПРЕДПОСЫЛКИ
+
+ПРЕДПОСЫЛКИ:
+- setting v4 не меняет CI-workflow и настроек репозитория (пробы 111 исполняются в quality-job mobile.yml с v1; правка v4 — только зона architect: текст контракта, литералы пробы, мир модели); новых секретов, variables, environments не требуется; батарея работает без сети и gh (Python 3 stdlib + Jest на disposable R).
 
 ## ПРОВОДКА
 
@@ -430,3 +461,32 @@ R — disposable-клон `a3ka/Complior-mob` @ `8748a7a335` (main, постав
   поведение rc0 23/23; краснота базы не расширилась за пределы двух мигрированных клеток.
   Эквивалентность «не-ослабления» доказана матрицей (B3/B4 красны теми же клетками, что в
   v2) и зелёным прогоном на честном продукте 117.
+
+## Замер v4 (каталог копии += две строки макета, 2026-10-22)
+
+Продукт 135 — клон `/tmp/dev-harness-verify/Impl135/mob`, ветка `cmp-mob-135/first-run-ekran`,
+HEAD `74c59935ca14f5e578300e6e722fab09c2b19c5b` (сверен `git rev-parse HEAD`; disposable-копия
+`/tmp/dev-harness-verify/Architect111v4/R`, `mobile/node_modules` — от npm ci-дерева продукта).
+Литералы подзаголовка/футера побайтово равны константам продукта 135 (`FIRST_RUN_BODY`/
+`FIRST_RUN_FOOTER`), модели v4 и шаблону теста (сверка скриптом); First-Run.png манифеста 135
+и продукта — sha256 `0411d0a3…` один и тот же файл. Все числа — из прогонов.
+
+- Замороженная батарея 111/3 на продукте 135: `first_run_probe.py --repo R` → rc1, красны
+  РОВНО `FIRST_RUN_COPY_CLOSED_{DARK,LIGHT}` (до-v4 предъявление; совпадает с таблом PR #121).
+- Батарея v4 на продукте 135 (обе строки макета на экране): rc0 honest 23/23, К5 зелёна в
+  обеих схемах — зелёная презентация «с двумя новыми» на живой реализации.
+- Модель v4 (`--model`, экран модели несёт обе строки): rc0 honest 23/23; литералы модели =
+  литералам перечня К5.
+- Матрицы: `first_run_probe.py --matrix` → rc0 (27 стабов, defects 0, unexpected_red=none):
+  extra-unreviewed-copy (строка «Mehr erfahren» вне перечня при двух строках макета на
+  экране) красна ровно парой К5 — прежняя краснота замкнутости; copy-all-allowed
+  (сокращённая форма саблайна «Ein Brief, ein Schaden…») красна ровно парой К5;
+  light-extra-copy (near-miss футера «Versicherung. Erledigt» без финальной точки,
+  light-ограниченная) красна ровно `FIRST_RUN_COPY_CLOSED_LIGHT`.
+  `first_run_static_probe.py --matrix` → rc0 (16 стабов).
+- После прогонов `git status --short --untracked-files=all` в R — 0 строк (дерево
+  восстановлено). Статическая семья на продукте 135: rc0 static 16/16 (не менялась).
+- Единственная правка мира честной модели: `model/features.auth.first-run-screen.tsx`
+  += подзаголовок/футер (обе строки) — без неё зелёная презентация «с двумя новыми»
+  нематериализуема (экран модели не нёс строк каталога v4); реализационная часть проб
+  ограничена литералами перечня К5, `source.json` и статическая проба не тронуты.

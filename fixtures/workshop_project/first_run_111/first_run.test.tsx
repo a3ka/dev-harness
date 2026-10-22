@@ -17,6 +17,13 @@ import { themeTokens, type ColorScheme } from '@/theme/tokens';
 const PROMISE = 'Sie sagen, was passiert ist. Complior kümmert sich um den Rest.';
 const CTA = 'Anmelden oder Konto erstellen';
 const FRAME_F03_01_TITLE = 'Anmelden oder Konto erstellen';
+// v4 (слово владельца 2026-10-22 ~18:50 UTC «а», форк n135-copy-111):
+// две строки макета First-Run.png (sha256 0411d0a3…, кадр First-Run dark/light
+// манифеста 135) — дословно, без ключей i18n (инвариант 4 «+2 ровно» не
+// меняется); реализация 135 несёт те же байты (FIRST_RUN_BODY/FOOTER).
+const SUBHEADLINE =
+  'Ein Brief, ein Schaden, ein neues Auto – sagen Sie es. Complior liest, erklärt, vergleicht und erledigt. Sie bestätigen nur, was wirklich zählt.';
+const FOOTER = 'Versicherung. Erledigt.';
 const GROUND_DARK = '#0a0a0a';
 const GROUND_LIGHT = '#f3f2ee';
 const INK_DARK = '#f2f1ec';
@@ -252,10 +259,13 @@ describe('111 first-run', () => {
 
   // К5 закрытый состав видимой копии First-Run, произведение scheme(2):
   // каждый текстовый лист host-дерева ⊆ литеральный перечень
-  // {Demo, promise, CTA} в ОБЕИХ схемах. Каталог D2.2.5.1 даёт First-Run
-  // ровно два текстовых ключа; «Demo» — метка mock composition
-  // (STRUCTURE.md §5). Некаталожная немецкая строка на поверхности (напр.
-  // саблайн эталонного HTML без ключа каталога) красит — в любой схеме.
+  // {Demo, promise, CTA, подзаголовок макета, футер макета} в ОБЕИХ схемах.
+  // Каталог D2.2.5.1 даёт First-Run ровно два текстовых ключа; «Demo» —
+  // метка mock composition (STRUCTURE.md §5); v4 (слово владельца
+  // 2026-10-22 ~18:50 UTC «а»): две строки макета First-Run.png разрешены
+  // дословно (SUBHEADLINE/FOOTER выше), без ключей i18n. Строка вне
+  // перечня красит — в любой схеме, в т.ч. неточное совпадение с
+  // каталогизированной строкой (сокращённая форма саблайна).
   for (const scheme of ['dark', 'light'] as const) {
     const S = scheme.toUpperCase();
     it(`FIRST_RUN_COPY_CLOSED_${S}`, async () => {
@@ -265,7 +275,7 @@ describe('111 first-run', () => {
       const visible = leaves.map((t) => t.trim()).filter((t) => t.length > 0);
       expect(visible.length > 0).toBe(true);
       for (const t of visible) {
-        expect([DEMO, PROMISE, CTA]).toContain(t);
+        expect([DEMO, PROMISE, CTA, SUBHEADLINE, FOOTER]).toContain(t);
       }
     });
   }
