@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/ekran_shablon_132/probe.py; её приёмка — проба красным на сам scripts/ekran_shablon.py, не сам скрипт; контракт 132 §ПРОВОДКА: guard=fixtures/workshop_project/ekran_shablon_132/red_ekran_shablon_132.sh.
+# Классификатор antiplacebo к субъекту неприменим: в области лежит барьер-guard,
+# а не тестируемый им скрипт; коды возврата перечислены в докстринге ниже.
 # СУБЪЕКТ батареи fixtures/workshop_project/ekran_shablon_132/probe.py: её приёмка —
 # проба красным на сам scripts/ekran_shablon.py по эталонному source.json (38 входов);
 # эталон поведения — fixtures/workshop_project/ekran_shablon_132/model/ekran_shablon.py
