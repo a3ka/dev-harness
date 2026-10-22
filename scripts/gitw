@@ -103,6 +103,19 @@ case "$sub" in
   *) exec "$REAL" "${orig[@]}" ;;
 esac
 
+# ── 130: крюк гарда «тег после текста» ─────────────────────────────────────
+# T130_PSI — индекс первого аргумента после подкоманды, снятый сразу после
+# И-3 (не повторный поиск токена `push` в argv). Гард судит создаваемые и
+# двигаемые refs/tags/frozen/* против main ЦЕЛИ до обмена; rc ≠ 0 — выход.
+T130_PSI="$i"
+teg130() {
+  [ "$sub" = push ] || return 0
+  local t130
+  t130="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/gitw_teg_130.sh"
+  [ -f "$t130" ] || return 0
+  bash "$t130" push "$CANON" "$REAL" "$T130_PSI" "${orig[@]}"
+}
+
 # ── 996: профильный канон (контракт 996 К17–К19, расширение Б-8) ────────
 # Источник канона — эффективный профиль репо, объявленного в argv. ТРИ формы
 # контекста (расширение Б-8: «Gitw определяет репозиторий тем же git-контекстом,
@@ -475,6 +488,7 @@ if [ -z "$target" ]; then
         bad_lines+=("$(sanitize "$check_remote"): запрос URL завершился неуспешно")
         continue
       fi
+      teg130 || exit $?
       exec "$REAL" "${orig[@]}"
     fi
 
@@ -714,6 +728,7 @@ if [ "$sub" = "push" ]; then
     pre_tail_count=$((i - post_sub_idx - 1))
   fi
   [ "$pre_tail_count" -lt 0 ] && pre_tail_count=0
+  teg130 || exit $?
   PF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
   PF_SCRIPT="$PF_DIR/gitw_preflight_071.sh"
   if [ -f "$PF_SCRIPT" ]; then
