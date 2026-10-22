@@ -20,6 +20,10 @@
 # ровно семь §Грамматики контракта 130.
 # Окружение (GIT_DIR и пр.) НЕ сбрасывается: проба обязана видеть то же хранилище,
 # что и настоящий push.
+# Чтения объектов (rev-parse/ls-tree/cat-file) несут те же глобальные флаги argv,
+# что и проба состава обмена (CTX из PRE): суд тега читает репозиторий ОБМЕНА,
+# а не cwd гарда — одноимённая годная ссылка постороннего репозитория не может
+# подменить отправляемую (И-2, И-4).
 set -uo pipefail
 
 SELF_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
@@ -30,10 +34,20 @@ GRAM='^refs/tags/frozen/(contracts|plans)/([0-9]{3})/([1-9][0-9]{0,3})$'
 otkaz() { printf 'gitw ТЕГ-ОТКАЗ: %s: %s: %s\n' "$1" "$2" "$3" >&2; }
 
 RMAIN=""
+CTX=()
+# Объекты (тег, блоб, коммит) читаются ТОЛЬКО в контексте репозитория ОБМЕНА —
+# тех же глобальных флагах argv, которыми читается состав обмена (-C/--git-dir/
+# --work-tree/--bare/-c/…), а не из cwd гарда (И-2/И-4: суд сопоставляет объект
+# отправляемой ссылки, а не одноимённую локальную ссылку чужого репозитория).
+# Пустой CTX — обмена без глобальных флагов: контекст тот же (cwd/окружение).
+objgit() {
+  if [ "${#CTX[@]}" -gt 0 ]; then "$REALGIT" "${CTX[@]}" "$@"; else "$REALGIT" "$@"; fi
+}
+
 # main ЦЕЛИ: живой ls-remote (И-3), не локальный main и не refs/remotes/origin/main.
 main_celi() {
   local tgt="$1" out
-  out="$(git ls-remote "$tgt" refs/heads/main 2>/dev/null)" || return 1
+  out="$(objgit ls-remote "$tgt" refs/heads/main 2>/dev/null)" || return 1
   RMAIN="$(printf '%s\n' "$out" | awk -F'\t' '$2=="refs/heads/main"{print $1}')"
   [ -n "$RMAIN" ] || return 1
   return 0
@@ -54,13 +68,13 @@ judge_tag() {
     otkaz "$short" "main цели не читается" "ls-remote refs/heads/main пуст или упал"
     return 2
   fi
-  if ! git cat-file -e "${RMAIN}^{commit}" 2>/dev/null; then
+  if ! objgit cat-file -e "${RMAIN}^{commit}" 2>/dev/null; then
     otkaz "$short" "main цели не читается" "вершины ${RMAIN:0:12} нет локально — gitw fetch и повтор"
     return 2
   fi
   # Ровно один <dir>/<NNN>-*.md под коммитом источника — тот же путь, что и у
   # читателя check_contract_frozen; имя файла само по себе ничего не доказывает.
-  names="$(git ls-tree --name-only "$commit" -- "$dir/" 2>/dev/null)"
+  names="$(objgit ls-tree --name-only "$commit" -- "$dir/" 2>/dev/null)"
   n=0; path=""
   while IFS= read -r p; do
     [ -n "$p" ] || continue
@@ -70,8 +84,8 @@ judge_tag() {
     otkaz "$short" "текст не в main цели" "под тегом файлов $dir/$nnn-*.md: $n (нужен ровно один)"
     return 1
   fi
-  blob_tag="$(git rev-parse --verify --quiet "$commit:$path" 2>/dev/null)"
-  blob_main="$(git rev-parse --verify --quiet "$RMAIN:$path" 2>/dev/null || true)"
+  blob_tag="$(objgit rev-parse --verify --quiet "$commit:$path" 2>/dev/null)"
+  blob_main="$(objgit rev-parse --verify --quiet "$RMAIN:$path" 2>/dev/null || true)"
   if ! [ "$blob_main" = "$blob_tag" ]; then
     otkaz "$short" "текст не в main цели" "$path blob $blob_tag, в main цели ${RMAIN:0:12}: ${blob_main:-нет} — тег в удержание (gitw_teg_130.sh hold), ленд текста, затем publish"
     return 1
@@ -81,7 +95,7 @@ judge_tag() {
   vk=1
   while [ "$vk" -le "$v" ]; do
     vpath="verdicts/critic/${dir}-${nnn}-v${vk}.md"
-    body="$(git cat-file -p "$RMAIN:$vpath" 2>/dev/null || true)"
+    body="$(objgit cat-file -p "$RMAIN:$vpath" 2>/dev/null || true)"
     first="$(printf '%s\n' "$body" | sed -n 1p | tr -d '\r')"
     first="${first#"${first%%[![:space:]]*}"}"
     first="${first%"${first##*[![:space:]]}"}"
@@ -162,6 +176,9 @@ case "$mode" in
     TGT="$1"; REALGIT="$2"; PSI="$3"; shift 3
     ARGS=( "$@" )
     PRE=( "${ARGS[@]:0:PSI}" ); POST=( "${ARGS[@]:PSI}" )
+    # Контекст чтения объектов = ровно те глобальные флаги, которыми читается
+    # состав обмена: PRE без последнего токена (имени подкоманды).
+    CTX=( "${PRE[@]:0:PSI-1}" )
     SOSTAV_LINES=0
     lines="$(sostav)"; prc=$?
     if [ "$prc" -ne 0 ]; then
@@ -182,7 +199,7 @@ case "$mode" in
     bad=0
     for fl in "${frozen[@]}"; do
       from="${fl%%$'\t'*}"; to="${fl#*$'\t'}"
-      commit="$(git rev-parse --verify --quiet "${from}^{commit}" 2>/dev/null || true)"
+      commit="$(objgit rev-parse --verify --quiet "${from}^{commit}" 2>/dev/null || true)"
       if [ -z "$commit" ]; then
         otkaz "${to#refs/tags/}" "состав обмена не читается" "источник $from не разрешается в коммит"
         bad=1; continue
