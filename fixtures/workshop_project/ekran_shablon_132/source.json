@@ -1,0 +1,354 @@
+{
+ "_comment": "Контракт 132 (ekran-shablon): единый источник батареи. nositeli — копии кадров/макетов батареи 123 (те же байты, sha равны пинам 123); kejsy — оракул: rc, prichiny построчно, stdout построчно (KADR-числа — в допуске dopusk_score), снят с эталона прогоном --snapshot; stab_vhod — привязка обманных стабов к входам по коду ветвей (Н-39). Ожидания читаются в память ДО субъекта (правило 8).",
+ "subject_rel": "scripts/ekran_shablon.py",
+ "runner123_rel": "scripts/sverka_maketa.py",
+ "snimok": "vkhod-demo-splash",
+ "ekran_forma": {
+  "ekran": "demo-vkhod",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "start",
+   "tema-dark",
+   "tema-light"
+  ],
+  "kljuchi_kopii": [
+   "ui.vkhod.promise",
+   "ui.vkhod.cta"
+  ],
+  "operacii_api": [
+   "demoStart"
+  ],
+  "katalog_kopii": "docs/ux/01_UX_Source_of_Truth/BrokerOS_UI_Copy_DE.json",
+  "spec_api": "api/openapi.json",
+  "audit_tokenov": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/demo-vkhod.yaml",
+  "kadry_dir": "mobile/maestro-out-demo",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh"
+  ],
+  "priemka": {
+   "e2e": "android-e2e rc 0",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo ."
+  },
+  "zony": {
+   "architect": [
+    "contracts/135-demo-vkhod.md",
+    "fixtures/workshop_project/demo_vkhod_135/"
+   ],
+   "implementer": [
+    "mobile/src/features/demo/"
+   ]
+  },
+  "zamenjaet": "fixtures/workshop_project/ekran_shablon_132/model/fiktura/kadry_starogo.json",
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/kadry_chuzhogo.json"
+  ]
+ },
+ "kontrakt_tekst": "# Контракт 135 — demo-vkhod: экран входа (пример экрана по шаблону 132)\n\n## Воля владельца\nЭкран описан машиночитаемой формой ekran.json (шаблон 132); приёмка —\nandroid-e2e rc 0 и сверка каждого кадра с PNG-макетом docs/ux не ниже порога\nмеханизма 123. Один экран — один контракт: этот контракт заменяет контракт\nэкрана целиком, чужих пикселей не морозит.\n\n## Существующее\nМера, порог и раннер — контракт 123 (scripts/sverka_maketa.py, манифест\nкадров по грамматике kadry_117.json). Литералы токенов — только в общем\nаудите D2.2.5.1 (audit_tokenov формы). Ключи копии — каталог\nBrokerOS_UI_Copy_DE.json verbatim.\n\n## Инварианты\n1. Форма ekran.json едина и замкнута: один экран — один контракт; следующий\nконтракт экрана заменяет его целиком (zamenjaet: кадры — надмножество),\nчужие кадры не объявляет (ne_trogaet: пересечение пусто).\n2. В пачке экрана нет литералов цветов и размеров: значения токенов живут в\nобщем аудите D2.2.5.1, растр судит сверка 123.\n3. Приёмка — rc-команды priemka: android-e2e rc 0 и запуск раннера 123 по\nманифесту кадров пачки.\n\n## Приёмочный критерий\n- Дано: пачка экрана и репо продукта; когда: python3 scripts/ekran_shablon.py\n--pack . --repo R --harness H; тогда: rc 0 — форма верна, оба кадра не ниже\nпорога манифеста.\n- Негатив: кадр ниже порога либо экран с литералом вне аудита — rc 1 с\nименем кадра/файла.\n\n## Зоны и исполнители\n\nЗОНА architect: contracts/135-demo-vkhod.md fixtures/workshop_project/demo_vkhod_135/\nЗОНА implementer: mobile/src/features/demo/\n\n## ПРОВОДКА\nПРОВОДКА-ЭНФОРСМЕНТ: гейт экрана — scripts/ekran_shablon.py по форме\nekran.json (шаблон 132); сверка кадров — механизм 123.\n\n## Модель угроз\nЗАЩИЩАЕТ: форма (замкнутые алфавиты, якорные грамматики) — от расползания\nполей; сверка 123 — от зелени без макета; запрет литералов — от второй\nпалитры в батарее; zamenjaet/ne_trogaet — от деления экрана между\nконтрактами и морозинга чужих пикселей.\nНЕ ЗАЩИЩАЕТ: смысл копии (суд каталога и ревью), качество самого макета.\n",
+ "kadry_manifest": {
+  "_comment": "Кадры экрана demo-vkhod: грамматика kadry_117.json (контракт 123); mera и bbox — дословно из kadry_117.json (единый источник 123).",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "Splash dark",
+    "tema": "dark",
+    "snimok": "vkhod-demo-splash",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+    "maket_sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Splash light",
+    "tema": "light",
+    "snimok": "vkhod-demo-splash",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash-Hell.png",
+    "maket_sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "katalog": {
+  "_comment": "Каталог копии (срез D2.2.5.1): ключи верхнего уровня.",
+  "ui.vkhod.promise": {
+   "de": "Sie sagen, was passiert ist. Complior kümmert sich um den Rest.",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  },
+  "ui.vkhod.cta": {
+   "de": "Anmelden oder Konto erstellen",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED"
+  }
+ },
+ "spec": {
+  "openapi": "3.0.0",
+  "paths": {
+   "/v1/demo/start": {
+    "post": {
+     "operationId": "demoStart",
+     "responses": {
+      "200": {
+       "description": "ok"
+      }
+     }
+    }
+   }
+  }
+ },
+ "tokens_audit": "/* Общий аудит токенов D2.2.5.1 — единственное место литералов. */\n:root {\n  --ground-light: #F3F2EE;\n  --ground-dark: #0A0A0A;\n}\n.type-lg { font-size: 22px; }\n",
+ "flow": "appId: com.complior.demo\nname: demo-vkhod\n---\n- launchApp\n- takeScreenshot: vkhod-demo-splash\n",
+ "batareja_tekst": "#!/usr/bin/env bash\n# Батарея экрана demo-vkhod: сверка каждого кадра против PNG-макета —\n# механизм 123 (мера и порог — манифест кадров пачки); литералы токенов —\n# только в общем аудите D2.2.5.1 (audit_tokenov формы экрана).\nexec python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo .\n",
+ "bez_elementa": {
+  "kadr": "Splash dark",
+  "polosa_pt": [
+   0,
+   262,
+   390,
+   452
+  ],
+  "comment": "свидетель ниже-порога: полоса знака залита фоном (приём bez-znaka-splash-dark батареи 123)"
+ },
+ "nositeli": {
+  "nositeli/maket/Splash.png": {
+   "sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c"
+  },
+  "nositeli/maket/Splash-Hell.png": {
+   "sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda"
+  },
+  "nositeli/kadry/r1423-dark-vkhod-117-splash.png": {
+   "sha256": "7cb96563a7b2b4f65d4e833b0d03488fa627c7a541830b7bcddce0cc0087eb68"
+  },
+  "nositeli/kadry/r1423-light-vkhod-117-splash.png": {
+   "sha256": "d8927a5c66b9aaf2f667d2ddc4c6cb31a3e428e039fe53ffbb675f44b7fb97b5"
+  }
+ },
+ "dopusk_score": 0.01,
+ "kejsy": {
+  "chestnyj-ekran": {
+   "rc": 0,
+   "prichiny": [],
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK",
+    "SHABLON\tdemo-vkhod\tOK"
+   ]
+  },
+  "literal-cveta": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ],
+   "stdout": []
+  },
+  "literal-razmera": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tkontrakt.md:47"
+   ],
+   "stdout": []
+  },
+  "kadr-nizhe-poroga": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tSplash dark\tscore=0.000 porog=0.600 hudshij=znak"
+   ],
+   "stdout": [
+    "KADR\tSplash dark\t0.000\t0.600\tznak\tNIZHE_POROGA",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ]
+  },
+  "kadr-otsutstvuet": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKADR_OTSUTSTVUET\tSplash dark\t",
+    "PRICHINA\tKADR_OTSUTSTVUET\tSplash light\t"
+   ],
+   "stdout": []
+  },
+  "chuzhoj-kadr": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tCHUZHIE_KADRY\tFirst-Run dark"
+   ],
+   "stdout": []
+  },
+  "ne-tselikom": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tNE_TSELIKOM\tSplash Hell"
+   ],
+   "stdout": []
+  },
+  "kljuch-bez-kataloga": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKLJUCH_BEZ_KATALOGA\tui.vkhod.neizvestnyj"
+   ],
+   "stdout": []
+  },
+  "operacija-bez-speka": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tOPERACIJA_BEZ_SPEKA\tnetTakojOperacii"
+   ],
+   "stdout": []
+  },
+  "scenarij-bez-snimka": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSCENARIJ_BEZ_SNIMKA\tvkhod-demo-splash",
+    "PRICHINA\tSCENARIJ_BEZ_SNIMKA\tvkhod-demo-splash"
+   ],
+   "stdout": []
+  },
+  "samodelnaja-sverka": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\tкоманда сверки не запускает механизм 123"
+   ],
+   "stdout": []
+  },
+  "sostojanie-nevernoe": {
+   "rc": 2,
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tsostojanija: 'tema\\tdark'"
+   ],
+   "stdout": []
+  },
+  "zony-s-globom": {
+   "rc": 2,
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tzony.implementer: 'mobile/src/ui/*'"
+   ],
+   "stdout": []
+  },
+  "zony-rashodjatsja": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tZONY_RASHODJATSJA\timplementer"
+   ],
+   "stdout": []
+  },
+  "bez-razdela": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tRAZDEL_OTSVTSTVUET\tМодель угроз"
+   ],
+   "stdout": []
+  },
+  "paket-bez-manifesta": {
+   "rc": 2,
+   "prichiny": [
+    "PRICHINA\tSHABLON_NEVEREN\tekran.json"
+   ],
+   "stdout": []
+  }
+ },
+ "stab_vhod": {
+  "s01_bez_literal_skana.py": [
+   "literal-cveta",
+   "literal-razmera"
+  ],
+  "s02_sverka_doverjaet.py": [
+   "kadr-nizhe-poroga",
+   "kadr-otsutstvuet"
+  ],
+  "s03_chuzhie_propuskaet.py": [
+   "chuzhoj-kadr"
+  ],
+  "s04_tselikom_propuskaet.py": [
+   "ne-tselikom"
+  ],
+  "s05_kljuchi_propuskaet.py": [
+   "kljuch-bez-kataloga"
+  ],
+  "s06_operacii_propuskaet.py": [
+   "operacija-bez-speka"
+  ],
+  "s07_scenarij_propuskaet.py": [
+   "scenarij-bez-snimka"
+  ],
+  "s08_priemka_propuskaet.py": [
+   "samodelnaja-sverka"
+  ],
+  "s09_alfavit_propuskaet.py": [
+   "sostojanie-nevernoe",
+   "zony-s-globom"
+  ],
+  "s10_zony_stroki_propuskaet.py": [
+   "zony-rashodjatsja"
+  ],
+  "s11_razdely_propuskaet.py": [
+   "bez-razdela"
+  ]
+ }
+}
