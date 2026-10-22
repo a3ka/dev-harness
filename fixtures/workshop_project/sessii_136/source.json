@@ -1,0 +1,39 @@
+{
+  "semea": "fixtures/workshop_project/sessii_136/",
+  "subekty": {
+    "dver": "scripts/connect_project.sh",
+    "zadacha": "scripts/make_task.sh",
+    "parity": "scripts/verify_ci_parity.sh",
+    "strazh": ".omp/extensions/path-guard.ts"
+  },
+  "kletki": {
+    "a1-p6-hvost":          {"bol": "НАБЛ-П6",  "krasnaya_sejchas": true,  "sut": "дверь передаёт workshop хвост `-- <MSG>` из .harness/NEXT_TASK.md"},
+    "a2-p6-brief-defolt":   {"bol": "НАБЛ-П6",  "krasnaya_sejchas": true,  "sut": "без NEXT_TASK.md стартовое сообщение непусто (служебный бриф HANDOFF/ROADMAP)"},
+    "a3-p3-pin-v-soobshchenii": {"bol": "НАБЛ-П3", "krasnaya_sejchas": true, "sut": "стартовое сообщение несёт пару WORKTREE=/BRANCH= на живой linked worktree ПОД $PSTATE, вне дерева проекта"},
+    "a4-p3-zapis":          {"bol": "НАБЛ-П3",  "krasnaya_sejchas": true,  "sut": "extractPin(сообщение двери) даёт пин; judge write в этот worktree — pass"},
+    "a5-p12-agent":         {"bol": "НАБЛ-П12", "krasnaya_sejchas": true,  "sut": "с пином двери write agent://<id> — pass"},
+    "a6-p11-subagent-pin":  {"bol": "НАБЛ-П11", "krasnaya_sejchas": true,  "sut": "процедура $PSTATE/bin/subagent-pin.sh выдаёт пару на живой worktree; extractPin + judge write — pass"},
+    "a7-granica-unpinned":  {"bol": "НАБЛ-П3",  "krasnaya_sejchas": false, "sut": "контроль неослабления: unpinned judge write в чекаут проекта — block"},
+    "b1-povtor":            {"bol": "НАБЛ-П3",  "krasnaya_sejchas": true,  "sut": "повторный вход двери не перезаписывает существующее и не дублирует worktree (И-7)"},
+    "b2-p10-raskladka":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "после двери: .harness/registry/{ci_parity_exceptions.txt,trace.tsv} есть, корневого config/ нет (И-6)"},
+    "c1-p17-map":           {"bol": "НАБЛ-П17", "krasnaya_sejchas": true,  "sut": "бриф оркестратора несёт MAP каждого row (roles без orchestrator) — docs/ARCHITECTURE.md"},
+    "c2-p17-rules":         {"bol": "НАБЛ-П17", "krasnaya_sejchas": true,  "sut": "бриф несёт RULES: docs/CODING-STANDARDS.md"},
+    "c3-p5-trassa-defolt":  {"bol": "НАБЛ-П5",  "krasnaya_sejchas": true,  "sut": "make_task --kind brief без --model-trace: rc 0, TRACE из .harness/registry/trace.tsv"},
+    "c4-kontrol-filtr":     {"bol": "НАБЛ-П17", "krasnaya_sejchas": false, "sut": "контроль грамматики 095: kind=task фильтр ролей НЕ снят — critic без roles в rows видит пустой MAP"},
+    "c5-kontrol-jeksplizit": {"bol": "НАБЛ-П5", "krasnaya_sejchas": false, "sut": "контроль: явный --model-trace переопределяет дефолт"},
+    "d1-p10-isklyuchenie":  {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "parity проекта читает исключения из .harness/registry/ci_parity_exceptions.txt; объявление команды — rc 0"},
+    "d2-kontrol-dom":       {"bol": "НАБЛ-П10", "krasnaya_sejchas": false, "sut": "контроль режима харнесса: parity на дереве харнесса без harness.project.json — rc 0, файл config/ как прежде"},
+    "d3-kontrol-koren":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": false, "sut": "контроль неослабления: проект без файла исключений — rc != 0 с именованной причиной"}
+  },
+  "stab_vhod": {
+    "s1-dver-bez-pina":       ["a3-p3-pin-v-soobshchenii", "a4-p3-zapis", "a5-p12-agent"],
+    "s2-dver-wt-v-dereve":    ["a3-p3-pin-v-soobshchenii"],
+    "s3-dver-perezapis":      ["b1-povtor"],
+    "s4-dver-koren-config":   ["b2-p10-raskladka"],
+    "s5-dver-net-trassy":     ["b2-p10-raskladka", "c3-p5-trassa-defolt"],
+    "s6-zadacha-filtr-vezde": ["c4-kontrol-filtr"],
+    "s7-zadacha-trassa-net":  ["c3-p5-trassa-defolt"],
+    "s8-parity-vsegda-harness": ["d2-kontrol-dom"],
+    "s9-parity-vse-zeleno":   ["d3-kontrol-koren"]
+  }
+}
