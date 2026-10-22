@@ -45,11 +45,11 @@ tools:
 modelRoles:
   default: "anthropic/claude-sonnet-5-5"  # фолбек: zai/glm-5.3
   vision: "anthropic/claude-sonnet-5-5"  # фолбек: openai-codex/gpt-6-sol
-  task: "minimax/MiniMax-M3"  # фолбек: anthropic/claude-sonnet-5-5
-  task-glm: "zai/glm-5.3"  # фолбек: anthropic/claude-sonnet-5-5
+  task: "minimax/MiniMax-M3"  # фолбек: zai/glm-5.3
+  task-glm: "zai/glm-5.3"  # фолбек: openai-codex/gpt-6-sol
   smol: "minimax/MiniMax-M2.5-lightning"
   slow: "zai/glm-5.3"  # фолбек: openai-codex/gpt-6-sol
-  advisor: "openai-codex/gpt-5.6-terra"  # фолбек: anthropic/claude-opus-5-5
+  advisor: "openai-codex/gpt-5.6-terra"  # фолбек: openai-codex/gpt-6-sol
   apex: "openai-codex/gpt-6-astra"  # фолбек: openai-codex/gpt-5.6-terra
   apex-sol: "openai-codex/gpt-6-sol"  # фолбек: openai-codex/gpt-5.6-terra
   audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
@@ -94,11 +94,12 @@ retry:
   fallbackChains:
     default: ["zai/glm-5.3"]
     vision: ["openai-codex/gpt-6-sol"]
-    task: ["anthropic/claude-sonnet-5-5"]
-    task-glm: ["anthropic/claude-sonnet-5-5"]
+    task: ["zai/glm-5.3"]
+    task-glm: ["openai-codex/gpt-6-sol"]
     slow: ["openai-codex/gpt-6-sol"]
-    advisor: ["anthropic/claude-opus-5-5"]
+    advisor: ["openai-codex/gpt-6-sol"]
     apex: ["openai-codex/gpt-5.6-terra"]
     apex-sol: ["openai-codex/gpt-5.6-terra"]
+    audit: ["openai-codex/gpt-6-sol"]
     plan: ["openai-codex/gpt-6-astra"]
   # ── /fallbackChains ──
