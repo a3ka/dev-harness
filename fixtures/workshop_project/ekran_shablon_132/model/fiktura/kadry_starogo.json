@@ -1,0 +1,19 @@
+{
+  "_comment": "Фикстура zamenjaet (честный случай): прошлый контракт ЭТОГО же экрана объявлял один кадр — новый объявляет надмножество (замена целиком).",
+  "kadry": [
+    {
+      "id": "Splash dark",
+      "tema": "dark",
+      "snimok": "vkhod-demo-splash",
+      "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+      "maket_sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+      "porog": 0.6,
+      "maski_pt": [],
+      "elementy": [
+        {"imja": "znak", "bbox_pt": [110, 271, 290, 444]},
+        {"imja": "wordmark", "bbox_pt": [157, 514, 233, 534]},
+        {"imja": "tagline", "bbox_pt": [57, 569, 333, 596]}
+      ]
+    }
+  ]
+}
