@@ -70,6 +70,21 @@ def sverka_lines(cell, key, rawkey):
         return cell[rawkey].splitlines()
     return ['KADR\t' + '\t'.join(r) for r in cell[key]]
 
+def zadanie_lines(cell, repo, kadry, makety, ekran, baza):
+    """ЕДИНЫЙ источник байтов задания:ожидание ZADACHA и мир-задание zona-клеток."""
+    vm = cell['vision']['model'].split('/')[-1]
+    return (['# Задание доводки UI (шаг dovodka-ui, контракт 133)',
+             'МОДЕЛЬ: %s (тир vision, overlay rc 0, images=yes)' % vm,
+             'РЕПОЗИТОРИЙ: %s' % repo,
+             'БАЗА: %s' % baza,
+             'КОНТРАКТ ЭКРАНА: %s' % ekran,
+             'КАДРЫ: %s' % kadry,
+             'МАКЕТЫ: %s' % makety,
+             'UI-ЗОНА:'] + list(cell['ui_zona'])
+            + ['СВЕРКА (дословно, числа похожести на каждый кадр):']
+            + sverka_lines(cell, 'sverka_do', 'sverka_raw_do')
+            + ['ЗАДАЧА: править только пути UI-ЗОНА; цикл правка → e2e → сверка 123; все кадры не ниже порога; судьям — результат с числами.'])
+
 
 class Mir:
     def __init__(self, cell, subject, seed):
@@ -140,7 +155,7 @@ class Mir:
         with open(os.path.join(self.work, '.omp', 'config.yml'), 'w', encoding='utf-8') as f:
             f.write(cfg)
         rows = ['probe/tekst-m1\tyes\n']
-        if not v.get('net_tira'):
+        if not v.get('net_tira') and not v.get('ne_perechislena'):
             rows.append('%s\t%s\n' % (v['model'], v.get('images', 'yes')))
         with open(self.models_tsv, 'w', encoding='utf-8') as f:
             f.write('' if v.get('omp_pustoj') else ''.join(rows))
@@ -153,6 +168,19 @@ class Mir:
         self.base = self.commit('ekran: bazovyj kommit + obvjazka mira', 'implementer')
         for st in self.cell.get('shagi', []):
             getattr(self, 'op_' + st[0])()
+        # задание — вход zona-клеток: мир пишет его сам по грамматике ворот (единый
+        # источник байтов — zadanie_lines); baza='head' = подмена «БАЗА = HEAD после
+        # шагов мира» (клетка c23 — обход вердикта круга 1 через пустой дифф)
+        self.zadanie_base = None
+        if self.cell['rezhim'] == 'zona':
+            if self.cell.get('zadanie_raw') is not None:
+                self.wfile('zadanie.md', self.cell['zadanie_raw'])
+            else:
+                baza = self.g('rev-parse', 'HEAD') if self.cell.get('baza') == 'head' else self.base
+                self.wfile('zadanie.md', ''.join(l + '\n' for l in
+                            zadanie_lines(self.cell, self.work, self.kadry, self.makety,
+                                          os.path.join(self.d, 'ekran.md'), baza)))
+                self.zadanie_base = baza
 
     # ── шаги мира (правки доводки в продукте) ──
     def op_ui(self):
@@ -183,9 +211,13 @@ class Mir:
                    '--kadry', self.kadry, '--makety', self.makety,
                    '--out', os.path.join(self.d, 'zadanie.md')]
         elif r == 'zona':
-            cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
-                   '--repo', self.work, '--base', self.base,
-                   '--ui-zona', uiz, '--kontrakt-ekrana', ekr]
+            if self.cell.get('zona_starye_args'):
+                cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
+                       '--repo', self.work, '--base', self.base,
+                       '--ui-zona', uiz, '--kontrakt-ekrana', ekr]
+            else:
+                cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
+                       '--repo', self.work, '--zadanie', os.path.join(self.d, 'zadanie.md')]
         elif r == 'sudjam':
             cmd = ['bash', 'scripts/dovodka_ui.sh', 'sudjam',
                    '--do', os.path.join(self.d, 'sverka-do.tsv'),
@@ -212,8 +244,8 @@ def judge(cell, subject, seed):
         if r == 'sudjam':
             posle_rows = sverka_lines(cell, 'sverka_posle', 'sverka_raw_posle')
         n_paths = None
-        if r == 'zona':
-            n_paths = len([x for x in m.g('diff', '--no-renames', '--name-only', m.base, 'HEAD').splitlines() if x])
+        if r == 'zona' and m.zadanie_base:
+            n_paths = len([x for x in m.g('diff', '--no-renames', '--name-only', m.zadanie_base, 'HEAD').splitlines() if x])
         if subject is None:
             return ['PREDMET'], 'предмет отсутствует'
         p = m.call(True)
@@ -230,16 +262,8 @@ def judge(cell, subject, seed):
         elif exp == 'ZADACHA':
             if p.returncode != 0:
                 bad.append('RC')
-            vm = cell['vision']['model'].split('/')[-1]
             reds = [l for l in do_rows if l.split('\t')[5] == 'NIZHE_POROGA']
-            want = (['# Задание доводки UI (шаг dovodka-ui, контракт 133)',
-                     'МОДЕЛЬ: %s (тир vision, overlay rc 0)' % vm,
-                     'РЕПОЗИТОРИЙ: %s' % m.work,
-                     'КАДРЫ: %s' % m.kadry,
-                     'МАКЕТЫ: %s' % m.makety,
-                     'UI-ЗОНА:'] + list(cell['ui_zona'])
-                    + ['СВЕРКА (дословно, числа похожести на каждый кадр):'] + do_rows
-                    + ['ЗАДАЧА: править только пути UI-ЗОНА; цикл правка → e2e → сверка 123; все кадры не ниже порога; судьям — результат с числами.'])
+            want = zadanie_lines(cell, m.work, m.kadry, m.makety, os.path.join(m.d, 'ekran.md'), m.base)
             if not any(l == 'DOVODKA: задание %s; красных кадров %d' % (os.path.join(m.d, 'zadanie.md'), len(reds)) for l in out):
                 bad.append('VYVOD')
             got = []
