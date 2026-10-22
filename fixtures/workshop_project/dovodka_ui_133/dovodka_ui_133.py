@@ -22,7 +22,9 @@ models.list из файла мира), двойник scripts/overlay.sh (ног
 режима dver (блокер 1 круга 2) НЕ зовут субъект: живой пробой клонируют дерево
 харнесса, синтезируют маркер заморозки 133 и судят дверь 095 scripts/make_task.sh —
 зелёны и на дереве без предмета. Субъект вызывается режимом клетки:
-zadanie / zona / sudjam.
+zadanie / zona / sudjam / cep (цепь, арбитраж капа 3 П-Б2: субъект zadanie строит
+задание и выдачу refs, мир делает один UI-коммит, субъект zona принимает по файлу,
+выданному субъектом; задание для cep мир НЕ пишет — только субъект).
 
 Исходы: ZADACHA (rc 0, stdout `DOVODKA: задание …`, задание — строки грамматики
 побайтово, выдача в refs, отказ задание НЕ пишет), OTKAZ (rc 1, stderr
@@ -33,8 +35,9 @@ CHISTO (rc 0, `ЗОНА: чисто (путей N)`, N — число путей
 исходу), DVER_OK (дверь rc 0, манифест непуст), DVER_OTKAZ (дверь rc 1 с именованной
 причиной), DVER_NET_KANALA (дверь rc 0, но задание НЕ попадает в пак/манифест).
 Алфавит расхождений: RC, PRICHINA, VYVOD, ARTEFAKT, VYDACHA, POGASHENO, PREDMET.
-Ожидания снимаются в память ДО вызова субъекта; артефакты сверяются мультимножеством
-строк (каждая строка сама по себе, не подстрокой).
+Ожидания снимаются в память ДО вызова субъекта; задание сверяется по ПОРЯДКУ строк —
+порядок секций семантичен для потребителя zona (арбитраж капа 3 П-Б1); SUD-артефакт —
+мультимножеством строк (каждая строка сама по себе, не подстрокой).
 
 Коды: 0 — всё сошлось / все подмены пойманы; 1 — расхождение / предмет отсутствует /
 непойманная подмена; 2 — нечем судить (нет git/bash, якорь подмены не единственен,
@@ -262,48 +265,59 @@ class Mir:
         self.g('mv', '.github/workflows/mobile.yml', 'mobile/src/wf.yml')
         self.commit('dovodka: pereimen %s' % self.tok(), 'implementer-vision')
 
-    def call(self, subject_present):
-        if not subject_present:
-            return None
+    def cmd_zadanie(self):
+        cmd = ['bash', 'scripts/dovodka_ui.sh', 'zadanie',
+               '--sverka', os.path.join(self.d, 'sverka-do.tsv'),
+               '--repo', self.work, '--ui-zona', os.path.join(self.d, 'ui-zona.txt'),
+               '--ekran', self.cell.get('ekran_nnn', '132'),
+               '--harness', self.harness_dir,
+               '--kadry', self.kadry, '--makety', self.makety,
+               '--out', os.path.join(self.d, 'zadanie.md')]
+        if self.cell.get('dop_arg_kontrakt'):
+            # c26 (блокер 2 круга 2): файл контракта экрана от вызывающего
+            cmd += ['--kontrakt-ekrana', os.path.join(self.d, 'ekran.md')]
+        return cmd
+
+    def cmd_zona(self, zadanie):
+        if self.cell.get('zona_starye_args'):
+            # c20: старая грамматика (--base/--ui-zona/--kontrakt-ekrana от
+            # вызывающего) — «неизвестный аргумент zona»
+            return ['bash', 'scripts/dovodka_ui.sh', 'zona',
+                    '--repo', self.work, '--base', self.base,
+                    '--ui-zona', os.path.join(self.d, 'ui-zona.txt'),
+                    '--kontrakt-ekrana', os.path.join(self.d, 'ekran.md')]
+        return ['bash', 'scripts/dovodka_ui.sh', 'zona',
+                '--repo', self.work, '--zadanie', zadanie,
+                '--harness', self.harness_dir]
+
+    def cmd_sudjam(self):
+        return ['bash', 'scripts/dovodka_ui.sh', 'sudjam',
+                '--do', os.path.join(self.d, 'sverka-do.tsv'),
+                '--posle', os.path.join(self.d, 'sverka-posle.tsv'),
+                '--out', os.path.join(self.d, 'sudjam.tsv')]
+
+    def run_subject(self, cmd):
         env = dict(self.env)
         env.update({'PATH': self.bin + os.pathsep + os.environ.get('PATH', ''),
                     'OMP133_MODELS': self.models_tsv})
-        r = self.cell['rezhim']
-        uiz = os.path.join(self.d, 'ui-zona.txt')
-        ekr = os.path.join(self.d, 'ekran.md')
-        if r == 'zadanie':
-            cmd = ['bash', 'scripts/dovodka_ui.sh', 'zadanie',
-                   '--sverka', os.path.join(self.d, 'sverka-do.tsv'),
-                   '--repo', self.work, '--ui-zona', uiz,
-                   '--ekran', self.cell.get('ekran_nnn', '132'),
-                   '--harness', self.harness_dir,
-                   '--kadry', self.kadry, '--makety', self.makety,
-                   '--out', os.path.join(self.d, 'zadanie.md')]
-            if self.cell.get('dop_arg_kontrakt'):
-                # c26 (блокер 2 круга 2): файл контракта экрана от вызывающего
-                cmd += ['--kontrakt-ekrana', ekr]
-        elif r == 'zona':
-            if self.cell.get('zona_starye_args'):
-                # c20: старая грамматика (--base/--ui-zona/--kontrakt-ekrana от
-                # вызывающего) — «неизвестный аргумент zona»
-                cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
-                       '--repo', self.work, '--base', self.base,
-                       '--ui-zona', uiz, '--kontrakt-ekrana', ekr]
-            else:
-                cmd = ['bash', 'scripts/dovodka_ui.sh', 'zona',
-                       '--repo', self.work, '--zadanie', os.path.join(self.d, 'zadanie.md'),
-                       '--harness', self.harness_dir]
-        elif r == 'sudjam':
-            cmd = ['bash', 'scripts/dovodka_ui.sh', 'sudjam',
-                   '--do', os.path.join(self.d, 'sverka-do.tsv'),
-                   '--posle', os.path.join(self.d, 'sverka-posle.tsv'),
-                   '--out', os.path.join(self.d, 'sudjam.tsv')]
-        else:
-            raise Nechem('неизвестный режим клетки: %s' % r)
         try:
             return subprocess.run(cmd, cwd=self.work, env=env, capture_output=True, text=True, timeout=60)
         except subprocess.TimeoutExpired:
             return subprocess.CompletedProcess([], 124, '', 'таймаут 60 с')
+
+    def call(self, subject_present):
+        if not subject_present:
+            return None
+        r = self.cell['rezhim']
+        if r == 'zadanie':
+            cmd = self.cmd_zadanie()
+        elif r == 'zona':
+            cmd = self.cmd_zona(os.path.join(self.d, 'zadanie.md'))
+        elif r == 'sudjam':
+            cmd = self.cmd_sudjam()
+        else:
+            raise Nechem('неизвестный режим клетки: %s' % r)
+        return self.run_subject(cmd)
 
     def call_dver(self):
         """Живая проба двери 095 на клоне мира (блокер 1 круга 2): субъект не зван."""
@@ -369,6 +383,47 @@ def judge(cell, subject, seed):
             return bad, 'rc=%d %s' % (p.returncode, tail)
         if subject is None:
             return ['PREDMET'], 'предмет отсутствует'
+        if r == 'cep':
+            # П-Б2 (арбитраж капа 3): цепь на выходе СУБЪЕКТА. Фаза 1 — исход
+            # ZADACHA (rc 0, stdout, задание по ПОРЯДКУ строк — П-Б1, выдача refs
+            # судится ДО приёма — успех zona гасит refs); один UI-коммит; фаза 2 —
+            # субъект zona по файлу, выданному субъектом: rc 0 «ЗОНА: чисто (путей
+            # N)», refs выдачи погашены.
+            p1 = m.run_subject(m.cmd_zadanie())
+            bad = []
+            reds = [l for l in do_rows if l.split('\t')[5] == 'NIZHE_POROGA']
+            want = zadanie_lines(cell, m.work, m.kadry, m.makety, ekran_tag(cell), m.base)
+            got = []
+            zf = os.path.join(m.d, 'zadanie.md')
+            if os.path.isfile(zf):
+                got = open(zf, encoding='utf-8').read().splitlines()
+            if p1.returncode != 0:
+                bad.append('RC')
+            if not any(l == 'DOVODKA: задание %s; красных кадров %d' % (zf, len(reds))
+                       for l in p1.stdout.splitlines()):
+                bad.append('VYVOD')
+            if got != want:
+                bad.append('ARTEFAKT')  # порядок секций семантичен (П-Б1)
+            if m.gr('rev-parse', '-q', '--verify', 'refs/dovodka/baza').stdout.strip() != m.base:
+                bad.append('VYDACHA')
+            blob = m.gr('hash-object', zf).stdout.strip()
+            if blob != m.gr('rev-parse', '-q', '--verify', 'refs/dovodka/zadanie').stdout.strip():
+                bad.append('VYDACHA')
+            m.op_ui()
+            p2 = m.run_subject(m.cmd_zona(zf))
+            n_paths = len([x for x in m.g('diff', '--no-renames', '--name-only',
+                                          m.base, 'HEAD', check=False).splitlines() if x])
+            if p2.returncode != 0:
+                bad.append('RC')
+            if not any(l == 'ЗОНА: чисто (путей %d)' % n_paths for l in p2.stdout.splitlines()):
+                bad.append('VYVOD')
+            for ref in ('refs/dovodka/zadanie', 'refs/dovodka/baza'):
+                if m.gr('rev-parse', '-q', '--verify', ref).returncode == 0:
+                    bad.append('POGASHENO')  # приём состоялся — выдача погашена
+                    break
+            bad = list(dict.fromkeys(bad))
+            tail = (p2.stderr.strip().splitlines() or [''])[-1][:200]
+            return bad, 'rc=%d/%d %s' % (p1.returncode, p2.returncode, tail)
         p = m.call(True)
         bad = []
         out, err = p.stdout.splitlines(), p.stderr.splitlines()
@@ -391,8 +446,8 @@ def judge(cell, subject, seed):
             zf = os.path.join(m.d, 'zadanie.md')
             if os.path.isfile(zf):
                 got = open(zf, encoding='utf-8').read().splitlines()
-            if sorted(got) != sorted(want):
-                bad.append('ARTEFAKT')
+            if got != want:
+                bad.append('ARTEFAKT')  # порядок секций семантичен (П-Б1)
             # выдача зафиксирована в git-состоянии (блокер 3 круга 2): refs байтов и БАЗЫ
             if m.gr('rev-parse', '-q', '--verify', 'refs/dovodka/baza').stdout.strip() != m.base:
                 bad.append('VYDACHA')
