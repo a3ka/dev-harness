@@ -1,0 +1,9 @@
+<View testID="erstinfo_frame_f02_03_v01_v0" />
+<View testID="erstinfo_frame_f02_03_v02_v0" />
+<View testID="erstinfo_frame_f02_03_v01" />
+<View testID="erstinfo_frame_f02_03_v02" />
+<View testID="erstinfo_frame_f02_08_v01" />
+<View testID="erstinfo_frame_f02_08_v02" />
+<View testID="erstinfo_frame_f02_08_v03" />
+<View testID="erstinfo_frame_f02_08_v04" />
+<View testID="erstinfo_next_variant" />

@@ -1,0 +1,27 @@
+appId: com.complior.demo
+name: erstinformation
+---
+- launchApp
+- assertVisible: {id: erstinfo_frame_f02_03_v01_v0}
+- takeScreenshot: erstinformation-f02-03-v01-v0
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_03_v02_v0}
+- takeScreenshot: erstinformation-f02-03-v02-v0
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_03_v01}
+- takeScreenshot: erstinformation-f02-03-v01
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_03_v02}
+- takeScreenshot: erstinformation-f02-03-v02
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_08_v01}
+- takeScreenshot: erstinformation-f02-08-v01
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_08_v02}
+- takeScreenshot: erstinformation-f02-08-v02
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_08_v03}
+- takeScreenshot: erstinformation-f02-08-v03
+- tapOn: {id: erstinfo_next_variant}
+- assertVisible: {id: erstinfo_frame_f02_08_v04}
+- takeScreenshot: erstinformation-f02-08-v04
