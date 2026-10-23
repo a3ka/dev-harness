@@ -711,6 +711,32 @@ def mut_ci_shag_vne_required_job(pack, forma, repo, src):
     _perekopi_fajl(repo, CI_PROD, vne)
 
 
+def mut_ci_job_inline_kommentarij(pack, forma, repo, src):
+    """Свидетель критика d564854b (1): YAML-комментарий после ключа
+    job; блок шага байт-равен пину, job android-e2e — вход ЗЕЛЁНЫЙ."""
+    assert src['mobile_ci_tekst'].count('  android-e2e:\n') == 1
+    s = src['mobile_ci_tekst'].replace(
+        '  android-e2e:\n', '  android-e2e: # required Android job\n')
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
+def mut_ci_job_kavychki(pack, forma, repo, src):
+    """Свидетель критика d564854b (2): ключ job в кавычках."""
+    assert src['mobile_ci_tekst'].count('  android-e2e:\n') == 1
+    s = src['mobile_ci_tekst'].replace(
+        '  android-e2e:\n', '  "android-e2e":\n')
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
+def mut_ci_job_otstup_chetyre(pack, forma, repo, src):
+    """Свидетель критика d564854b (3): поддерево jobs с отступом 4 —
+    блок шага равен пину после .strip(), job android-e2e."""
+    assert src['mobile_ci_tekst'].count('jobs:\n') == 1
+    golova, hvost = src['mobile_ci_tekst'].split('jobs:\n')
+    s = golova + 'jobs:\n' + ''.join(
+        '  ' + l + '\n' for l in hvost.splitlines())
+    _perekopi_fajl(repo, CI_PROD, s)
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -757,6 +783,9 @@ MUTACII = {
     'ci-echo-podmena': mut_ci_echo_podmena,
     'ci-run-kommentarij': mut_ci_run_kommentarij,
     'ci-shag-vne-required-job': mut_ci_shag_vne_required_job,
+    'ci-job-inline-kommentarij': mut_ci_job_inline_kommentarij,
+    'ci-job-kavychki': mut_ci_job_kavychki,
+    'ci-job-otstup-chetyre': mut_ci_job_otstup_chetyre,
 }
 
 
