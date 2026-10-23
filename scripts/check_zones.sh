@@ -257,6 +257,17 @@ NEXT_ID_LIB=1
 . "$SELF_DIR/lib_roles.sh"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_zones.sh"
+# Грамматика РАЗРЕШИЛ-ВЛАДЕЛЕЦ и разбор дельты коммита — ИЗ УСТАВА, не копия (кодовая
+# правка «цикл v+1», слово владельца 2026-10-22 ~21:20 UTC): условие (б) блока
+# «ПРЕДСТОЯЩЕЕ v+1» ниже судит КАЖДЫЙ коммит текста той же грамматикой razreshil,
+# что и check_charter (заморожена 065/019/074/080), — второй парсер разрешения
+# разошёлся бы с первым первым же исключением из грамматики. Библиотечный импорт
+# определяет только функции; их `g` и `bad` разрешаются в наши — динамическая
+# область bash. Источник стоит ДО INCR_NAME=check_zones: check_charter выставляет
+# свой INCR_NAME=check_charter, а incr_parse судит кеш именем вызвавшего барьера.
+CHARTER_LIB=1
+# shellcheck disable=SC1091
+. "$SELF_DIR/check_charter.sh"
 # Общая грамматика `--incr <кеш>` (контракт 083, инв. 6) — один источник
 # для всех четырёх чеков. INCR_NAME обязан быть задан ДО source.
 INCR_NAME=check_zones
@@ -402,6 +413,86 @@ contracts=$(wc -l < "$TMP/contracts_list" | tr -d ' ')
 : > "$TMP/process_excluded"
 # Список тегов refs/tags/frozen/contracts/ — для СПАСЕНО-логики ниже.
 g for-each-ref --format='%(refname)' 'refs/tags/frozen/contracts/' 2>/dev/null | sort > "$TMP/tags" || true
+
+# ── ПРЕДСТОЯЩЕЕ v+1 (слово владельца 2026-10-22 ~21:20 UTC, пункт 1→2 — цикл 130 × zones) ──
+# ЗОНА-строки читаются из блоба ВЫСШЕЙ заморозки (шапка: «иначе правка файла расширяла
+# бы зону без заморозки»). Дефект цикла: тег v+1 по контракту 130 публикуется ТОЛЬКО
+# ПОСЛЕ ленда текста, и до публикации барьер судит СТАРЫЙ блоб — правка грамматики
+# ЗОНА (055 v2: «строка ЗОНА вне объявленной грамматики в contracts/055…») невидима,
+# legkij красен на любом PR с текстом v+1. Та же конъюнкция, что у contract-frozen
+# (соседняя правка того же слова владельца):
+#   (а) accept-вердикт критика v+1 на HEAD — грамматика freeze_contract (первая
+#       строка `accept`, снятие \r и пробелов — как там);
+#   (б) КАЖДЫЙ коммит, меняющий contracts/<NNN>-*.md после заморозки v$vmax, несёт
+#       валидную РАЗРЕШИЛ-ВЛАДЕЛЕЦ этого пути — грамматика razreshil из
+#       check_charter.sh, переиспользованная библиотечным импортом, не скопированная
+#       (merge несёт строку в теле merge-коммита, --diff-merges=first-parent
+#       предъявляет evil merge — та же семантика, что у устава).
+# При (а)∧(б) ЗОНА-строки контракта перечитываются из РАБОЧЕГО файла ветки (HEAD) ТЕМ
+# ЖЕ парсером грамматики (zones_declare_rows, lib_zones.sh — один читатель формата,
+# контракт 016): грамматика нового файла судится, поломанная ЗОНА в нём красит уже по
+# НОВОЙ строке. Без (а)∧(б) — прежнее поведение дословно: строки остаются от блоба
+# vmax, отказы прежние (расширение зоны без конъюнкции не происходит). Прохождение
+# названо ok-строкой «предстоящее vN»: зелёное должно быть названо (та же норма, что
+# у замороженной ветви выше).
+: > "$TMP/pred_file"   # nnn<TAB>файл-на-HEAD — контракты с предстоящим v+1
+while IFS= read -r nnn; do
+  [ -n "$nnn" ] || continue
+  vmax=0
+  while IFS= read -r t; do
+    if [[ "$t" =~ ^refs/tags/frozen/contracts/${nnn}/([0-9]+)$ ]]; then
+      k=$((10#${BASH_REMATCH[1]}))
+      [ "$k" -gt "$vmax" ] && vmax="$k"
+    fi
+  done < "$TMP/tags"
+  [ "$vmax" -gt 0 ] || continue
+  vnext=$((vmax + 1))
+  # (а) accept-вердикт критика v+1 на HEAD — грамматика freeze_contract.
+  first_next="$(printf '%s\n' "$(g cat-file -p "HEAD:verdicts/critic/contracts-$nnn-v$vnext.md" 2>/dev/null || true)" \
+    | sed -n 1p | tr -d '\r')"
+  first_next="${first_next#"${first_next%%[![:space:]]*}"}"
+  first_next="${first_next%"${first_next##*[![:space:]]}"}"
+  [ "$first_next" = accept ] || continue
+  # (б) каждый коммит текста после v$vmax несёт валидную РАЗРЕШИЛ-ВЛАДЕЛЕЦ пути.
+  # `-s` ОБЯЗАТЕЛЕН: `--diff-merges=first-parent` включает печать патчей merge-коммитов
+  # к %H (живой замер: 209 строк вместо 3 хешей на 094/2..HEAD в dev-harness), и
+  # патчные строки попадали бы в перечень носителей мусором — каждая no-op'ом
+  # (rev-parse отказа), но перечень обязан быть перечнем КОММИТОВ, а не «строк, из
+  # которых выживают только похожие на хеш». `--diff-merges=first-parent` сохранён:
+  # evil merge, меняющий текст поверх первого родителя, обязан пройти суд носителем.
+  pred_komity="$(g log --format=%H -s --no-renames --diff-merges=first-parent \
+    "refs/tags/frozen/contracts/$nnn/$vmax..HEAD" -- "contracts/$nnn-*.md" 2>/dev/null || true)"
+  # Нет коммитов текста после заморозки — нет предстоящего v+1: зоны остаются от блоба vmax.
+  [ -n "$pred_komity" ] || continue
+  razrechen=1
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    while IFS= read -r df; do
+      [ -n "$df" ] || continue
+      case "$df" in
+        contracts/"$nnn"-*.md) ;;
+        *) continue ;;
+      esac
+      razreshil "$c" "$df" || { razrechen=0; break 2; }
+    done < <(charter_diff_paths "$c" "$ROOT")
+  done <<<"$pred_komity"
+  [ "$razrechen" -eq 1 ] || continue
+
+  # (а)∧(б): перечитать ЗОНА-строки контракта из РАБОЧЕГО файла ветки.
+  file_head="$(g ls-tree -r --name-only HEAD -- ':(literal)contracts/' 2>/dev/null \
+    | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
+  [ -n "$file_head" ] || continue
+  body_head="$(g cat-file -p "HEAD:$file_head" 2>/dev/null || true)"
+  [ -n "$body_head" ] || continue
+
+  # Строки и нарушения контракта от блоба vmax уходят; входят строки рабочего файла —
+  # тем же парсером, что и у заморозки (один читатель формата, контракт 016).
+  awk -F'\t' -v n="$nnn" '$3 != n' "$TMP/zones_scoped" > "$TMP/zones_scoped.p" && mv "$TMP/zones_scoped.p" "$TMP/zones_scoped"
+  awk -F'\0' -v n="$nnn" '$1 != n' "$TMP/zones_violations" > "$TMP/zones_violations.p" && mv "$TMP/zones_violations.p" "$TMP/zones_violations"
+  zones_declare_rows "$nnn" "$file_head" "$TMP" < <(printf '%s\n' "$body_head" | grep '^ЗОНА ' || true)
+  printf '%s\t%s\n' "$nnn" "$file_head" >> "$TMP/pred_file"
+  ok "$file_head — предстоящее v$vnext: ЗОНА-строки читаются из рабочего файла ветки (accept-вердикт критика v$vnext на HEAD, РАЗРЕШИЛ-ВЛАДЕЛЕЦ в каждом коммите текста); тег публикуется после ленда (контракт 130)"
+done < "$TMP/contracts_list"
 # контракт, файл, причина, автор, путь, сырая_строка. awk парсит с FS=\0
 # (внутри строки табуляция не рвёт поле, как и в `read -d '' nnn file ...`).
 # Чтение NUL-разделённых нарушений ЗОНА. Каждая запись — 6 полей, разделённых \0:
@@ -440,10 +531,18 @@ while IFS= read -r nnn; do
     fi
   done < "$TMP/tags"
   [ "$vmax" -gt 0 ] || continue
-  file="$(g ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
+  pred_src="$(awk -F'\t' -v n="$nnn" '$1 == n { print $2; exit }' "$TMP/pred_file")"
+  if [ -n "$pred_src" ]; then
+    # Предстоящее v+1: тело контракта — рабочий файл ветки (те же (а)∧(б), блок выше);
+    # РАБОТА НЕ РАЗДАЁТСЯ/СПАСЕНО/«объявил ли» судятся по тому же источнику, что и ЗОНА.
+    file="$pred_src"
+    body="$(g cat-file -p "HEAD:$file" 2>/dev/null || true)"
+  else
+    file="$(g ls-tree -r --name-only "refs/tags/frozen/contracts/$nnn/$vmax^{commit}" -- ':(literal)contracts/' 2>/dev/null \
           | awk -v n="$nnn" 'index($0, "contracts/" n "-") == 1 { print; exit }')"
-  [ -n "$file" ] || continue
-  body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file" 2>/dev/null || true)"
+    [ -n "$file" ] || continue
+    body="$(g cat-file -p "refs/tags/frozen/contracts/$nnn/$vmax^{commit}:$file" 2>/dev/null || true)"
+  fi
 
   declared=0
   # Объявлен ли вообще хоть один ЗОНА для этого контракта?
