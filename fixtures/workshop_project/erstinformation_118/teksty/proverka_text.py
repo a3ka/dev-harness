@@ -3,9 +3,14 @@
 # НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском
 # шаблона 132. Судит переход от production First-Run через demo и gate к
 # Start, наличие testID каждого шага, состав вкладок Start (не только узел
-# start_tabs), ось admission композиции pilot-app на полном current-снимке
-# (W0 не допускается, W1A допускается; источник — проверяющий) и побайтовую
-# копию макета. В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает
+# start_tabs), ровно 16 кадров манифеста (8 snimok × dark/light из
+# SELEKTOR_KADRA; меньше либо чужой состав → MANIFEST_NE_16_KADROV), ось
+# admission композиции на полном current-снимке — stand-in признаётся
+# ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma батареи (adv-118 A1:
+# таблица ожиданий — подмена формы → KOMPOZICIJA_FORMA), проба гонит его
+# сама по каждой оси с именованным исходом (W0 не допускается, W1A
+# допускается; источник admission — проверяющий) — и побайтовую копию
+# макета. В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает
 # Maestro), БЕЗ промежуточной правки кадров. rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -28,6 +33,8 @@ SELEKTOR_KADRA = {
     'erstinformation-f02-08-v03': 'erstinfo_frame_f02_08_v03',
     'erstinformation-f02-08-v04': 'erstinfo_frame_f02_08_v04',
 }
+OZHIDAEMYE_KADRY = sorted(
+    (snimok, tema) for snimok in SELEKTOR_KADRA for tema in ('dark', 'light'))
 
 
 def prichina(imja, detal):
@@ -142,29 +149,42 @@ def selektory(shagi):
     return out
 
 KOMPOZICIJA_PROBA = 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'
+KOMPOZICIJA_FORMA_SHA256 = \
+    '5ec501b44c68a63102a38c63b1fdf90f844c9c7d8e57591b857139eee756d3ba'
 KOMPOZICIJA_OSI = (('W0', 'current', 'start_ne_dopushchen'),
                    ('W1A', 'current', 'start_dopushchen'))
 
 
 def sud_kompoziciju(repo):
-    """Ось admission на production-шве (вердикт круга 2): проба композиции
-    pilot-app обязана подавать экрану 107 ФАКТИЧЕСКИЙ admission пользователя;
-    W0 при полном current-снимке НЕ допускается к Start, W1A — допускается.
+    """Ось admission на production-шве (вердикт круга 2 + adv-118 A1):
+    stand-in признаётся ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma
+    (побайтовое равенство по sha256; таблица ожиданий и заглушка «глушения
+    ошибок» — подмена формы → KOMPOZICIJA_FORMA, их исполнение проверяющему
+    не доверяется). Пин сошёлся — проба САМА гонит stand-in по каждой оси в
+    контролируемом cwd mobile/ и требует именованный исход: rc!=0 —
+    KOMPOZICIJA_OS_NE_ISPOLNENA (сбой команды не маскируется дефолтным
+    «start_ne_dopushchen»), неверный вердикт — своя именованная причина.
     Источник admission — вызывающий проверяющий, не литерал в пробе."""
     otkazy = []
     p = repo / KOMPOZICIJA_PROBA
     if not p.is_file():
         return [('KOMPOZICIJA_NET', KOMPOZICIJA_PROBA)]
+    if sha(p) != KOMPOZICIJA_FORMA_SHA256:
+        return [('KOMPOZICIJA_FORMA', KOMPOZICIJA_PROBA)]
     for admission, gate, ozhidanie in KOMPOZICIJA_OSI:
         zap = subprocess.run(
             ['bash', str(p), admission, gate],
-            capture_output=True, text=True, cwd=str(repo))
+            capture_output=True, text=True, cwd=str(repo / 'mobile'))
         fakt = zap.stdout.strip()
-        if zap.returncode != 0 or fakt != ozhidanie:
+        if zap.returncode != 0:
+            otkazy.append(('KOMPOZICIJA_OS_NE_ISPOLNENA',
+                           'admission=%s gate=%s rc=%d'
+                           % (admission, gate, zap.returncode)))
+        elif fakt != ozhidanie:
             imja = ('KOMPOZICIJA_W0_PROPUSHCHEN' if admission == 'W0'
                     else 'KOMPOZICIJA_W1A_NE_DOPUSHCHEN')
-            otkazy.append((imja, 'admission=%s gate=%s: %r rc=%d'
-                           % (admission, gate, fakt, zap.returncode)))
+            otkazy.append((imja, 'admission=%s gate=%s: %r'
+                           % (admission, gate, fakt)))
     return otkazy
 
 
@@ -185,7 +205,15 @@ def main():
         return 2
     kadry = manifest['kadry']
     snimki = list(dict.fromkeys(k['snimok'] for k in kadry))
-    otkazy = sud_flow(shagi, snimki) + sud_kompoziciju(repo)
+    otkazy = []
+    # Ровно 16 кадров манифеста (adv-118 A2): 15 кадров «проходят» сверку,
+    # но манифест пачки обязан нести полный состав 8 snimok × dark/light.
+    fakt_kadry = sorted((k.get('snimok'), k.get('tema')) for k in kadry)
+    if len(fakt_kadry) != len(OZHIDAEMYE_KADRY):
+        otkazy.append(('MANIFEST_NE_16_KADROV', 'chislo=%d' % len(fakt_kadry)))
+    elif fakt_kadry != OZHIDAEMYE_KADRY:
+        otkazy.append(('MANIFEST_NE_16_KADROV', 'sostav'))
+    otkazy += sud_flow(shagi, snimki) + sud_kompoziciju(repo)
     istochniki = [p for root in ISTOCHNIKI_EKRANA
                   for p in (repo / root).rglob('*')]
     teksty = []
