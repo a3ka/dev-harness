@@ -19,10 +19,12 @@
   --snapshot   фактические rc/вывод двух моделей по каждому входу JSON-ом
                (инструмент замера, числа из прогона, не из головы)
 
-Вывод: строка на вход `CASE <вход> ok|KRASNO`; --stabs добавляет строку на
-связь `STAB <стаб> <вход> KRASEN`. rc: 0 — все входы зелёные (для --stabs:
-контроль зелёный и все стабы пойманы); 1 — красный вход либо STAB_ZHIV;
-2 — ORACLE_TAMPERED / SVERKA_123_ABSENT / нечем проверить.
+Вывод: строка на вход `CASE <вход> ok|KRASNO` плюс клетка `CASE guard-shag`
+(шаг 118 в CI харнесса, S6); --model печатает строки KADR честного экрана
+наружу (S5); --stabs добавляет строку на связь `STAB <стаб> <вход> KRASEN`.
+rc: 0 — все входы зелёные (для --stabs: контроль зелёный и все стабы
+пойманы); 1 — красный вход либо STAB_ZHIV; 2 — ORACLE_TAMPERED /
+SVERKA_123_ABSENT / нечем проверить.
 
 Оракул — source.json (единый источник): kejsy (rc, prichiny построчно,
 stdout построчно, допуск dopusk_score на числа KADR), stab_vhod (привязка
@@ -149,7 +151,7 @@ def load_source():
         'teksty/flow.yaml': 'flow',
         'teksty/testids.stand-in.tsx': 'testids_tekst',
         'teksty/app_start.stand-in.tsx': 'app_start_tekst',
-        'teksty/kompozicija.stand-in.sh': 'kompozicija_tekst',
+        'teksty/kompozicija_forma': 'kompozicija_forma',
         'teksty/e2e_text.sh': 'e2e_skript',
         'teksty/batareja_text.sh': 'batareja_tekst',
         'teksty/tokens_audit.css': 'tokens_audit',
@@ -158,6 +160,14 @@ def load_source():
         if (HERE / rel).read_bytes() != src[key].encode('utf-8'):
             print('ORACLE_TAMPERED: carrier %s' % rel, file=sys.stderr)
             raise SystemExit(2)
+    # пин формы композиции в proverka обязан совпадать с носителем формы
+    # (единая цепь: teksty/kompozicija_forma ↔ KOMPOZICIJA_FORMA_SHA256
+    # внутри proverka_tekst; adv-118 A1 / R118-B2)
+    forma_sha = sha256_bytes(src['kompozicija_forma'].encode('utf-8'))
+    if ("'%s'" % forma_sha) not in src['proverka_tekst']:
+        print('ORACLE_TAMPERED: пин формы в proverka не совпадает с носителем',
+              file=sys.stderr)
+        raise SystemExit(2)
     fajly_stabov = sorted(p.name for p in STUBS.glob('s*.py'))
     if fajly_stabov != sorted(src['stab_vhod']):
         print('ORACLE_TAMPERED: набор stubs/ != stab_vhod', file=sys.stderr)
@@ -222,7 +232,7 @@ def build_repo(src, tmp, pack):
     bt = repo / 'mobile/src/bootstrap/__tests__'
     bt.mkdir(parents=True)
     (bt / 'kompozicija.stand-in.sh').write_text(
-        src['kompozicija_tekst'], encoding='utf-8')
+        src['kompozicija_forma'], encoding='utf-8')
     for kadr in src['kadry_manifest']['kadry']:
         d = repo / 'mobile/e2e-nositeli' / kadr['tema']
         d.mkdir(parents=True, exist_ok=True)
@@ -466,6 +476,42 @@ def mut_kompozicija_admission_w0_propusk(pack, forma, repo, src):
                  encoding='utf-8')
 
 
+def mut_attack_composition_stub(pack, forma, repo, src):
+    """Подставной stand-in (adv-118 A1): таблица ожиданий отвечает верно
+    на обе оси БЕЗ исполнения композиции — принимается только пин-форма
+    носителя teksty/kompozicija_forma, подмена формы красна."""
+    (repo / 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh') \
+        .write_text(
+            '#!/usr/bin/env bash\n'
+            '# attack-composition-stub: таблица ожиданий вместо пин-формы\n'
+            'case "$1:$2" in\n'
+            '  W0:current) echo start_ne_dopushchen;;\n'
+            '  W1A:current) echo start_dopushchen;;\n'
+            '  *) echo start_ne_dopushchen;;\n'
+            'esac\n', encoding='utf-8')
+
+
+def mut_attack_fewer_frames(pack, forma, repo, src):
+    """Манифест 15 кадров (adv-118 A2): урезанный состав проходит сверку
+    123 по оставшимся кадрам — полный состав 16 кадров (8 snimok ×
+    dark/light) обязан требовать proverka происхождения."""
+    m = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
+    m['kadry'] = [k for k in m['kadry'] if k['id'] != 'F02.03-V02-V0 light']
+    (pack / 'kadry.json').write_text(
+        json.dumps(m, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
+def mut_kompozicija_glushenie_oshibok(pack, forma, repo, src):
+    """Глушение ошибок (R118-B2): исполнение оси не состоялось — молчаливый
+    rc 1 без вердикта; проверяющий обязан отказать по факту сбоя, а не
+    синтезировать ожидаемый исход («start_ne_dopushchen при любом rc»)."""
+    (repo / 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh') \
+        .write_text(
+            '#!/usr/bin/env bash\n'
+            '# глушение: исполнение не состоялось, вердикта нет\n'
+            'exit 1\n', encoding='utf-8')
+
+
 def mut_proiskhozdenie_selektor_ne_kadra(pack, forma, repo, src):
     """assertVisible селектора другого кадра не доказывает этот кадр."""
     _zapusti_replay(repo)
@@ -502,6 +548,9 @@ MUTACII = {
     'proiskhozdenie-bez-start': mut_proiskhozdenie_bez_start,
     'proiskhozdenie-start-pustoj': mut_proiskhozdenie_start_pustoj,
     'kompozicija-admission-w0-propusk': mut_kompozicija_admission_w0_propusk,
+    'attack-composition-stub': mut_attack_composition_stub,
+    'attack-fewer-frames': mut_attack_fewer_frames,
+    'kompozicija-glushenie-oshibok': mut_kompozicija_glushenie_oshibok,
 }
 
 
@@ -514,9 +563,17 @@ def run_subject(subject, name, src):
         repo = build_repo(src, tmp, pack)
         if MUTACII[name] is not None:
             MUTACII[name](pack, forma, repo, src)
-        # второй субъект батареи: проверка происхождения (файл пачки)
+        # Второй субъект батареи — проверка происхождения (файл пачки);
+        # маршрут действует и в живом W: входы происхождения судит proverka
+        # на кадрах, положенных прогоном e2e (в продукте её пускает валидатор
+        # 132 ДО proverka). Свежесть Maestro-кадров батарея на этих входах
+        # НЕ дублирует (выбор по A4/B7): живой svezhost_kadrov судят входы
+        # валидатора — chestnyj-ekran зелёным собственным прогоном e2e,
+        # kadry-ustarevshie красным; свежесть настоящего Maestro-прогона
+        # судит android-e2e продукта. Стабы (STUBS/…) субъектом не
+        # подменяются: дефект их ветки обязан наблюдаться самой пробой (Н-39).
         if src['kejsy'][name].get('subekt') == 'proverka' \
-                and subject == MODEL:
+                and subject in (MODEL, SUBJECT):
             subject = tmp / 'proverka_subekt.py'
             subject.write_text(src['proverka_tekst'], encoding='utf-8')
         p = subprocess.run(
@@ -574,6 +631,35 @@ def snapshot(src):
     return 0
 
 
+GUARD_SHAG = ('bash fixtures/workshop_project/erstinformation_118/'
+              'red_erstinformation_118.sh --stabs')
+GUARD_KLJUCH = 'check:erstinformation-118-family-selftest'
+
+
+def guard_shag_harnessa():
+    """Проводка-энфорсмент 118 (S6): шаг батареи в CI харнесса обязан
+    существовать и в реестре (команда ровно с --stabs), и в сгенерированном
+    блоке ci.yml (ключ шага). Якорь — полная строка реестра/токен ключа,
+    не подстрока где-угодно; мутант «без guard-шага» красен здесь:
+    субъектов, читающих ci.yml, нет — клетка живёт в самой батарее."""
+    try:
+        stroki_reg = (H_ROOT / 'registry' / 'ci-steps.tsv'
+                      ).read_text(encoding='utf-8').splitlines()
+        stroki_ci = (H_ROOT / '.github' / 'workflows' / 'ci.yml'
+                     ).read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return False
+    v_reestre = False
+    for s in stroki_reg:
+        chasti = s.split('\t')
+        if (len(chasti) == 4 and chasti[0] == 'step'
+                and chasti[1] == GUARD_KLJUCH and chasti[3] == GUARD_SHAG):
+            v_reestre = True
+            break
+    return (v_reestre
+            and any(GUARD_KLJUCH in s.split() for s in stroki_ci))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', action='store_true')
@@ -608,6 +694,21 @@ def main():
             print('CASE %s KRASNO: %s' % (name, '; '.join(problemy)))
         else:
             print('CASE %s ok' % name)
+            # S5: строки KADR <кадр> <score> <porog> — наружу побайтово из
+            # source.json (judge уже сверил вывод субъекта с оракулом; гребём
+            # только честные зелёные входы с KADR-строками в ожидании)
+            if a.model and src['kejsy'][name]['rc'] == 0 and any(
+                    l.startswith('KADR') for l in src['kejsy'][name]
+                    .get('stdout', [])):
+                for line in out.splitlines():
+                    if line.startswith('KADR'):
+                        print(line)
+    # guard-шаг 118 в CI харнесса (S6)
+    if guard_shag_harnessa():
+        print('CASE guard-shag ok')
+    else:
+        kontrol_ok = False
+        print('CASE guard-shag KRASNO: CI_BEZ_GUARDA_118')
     if not matrica:
         return 0 if kontrol_ok else 1
     # --stabs/--matrix: каждый обманный стаб красен на каждом своём входе
