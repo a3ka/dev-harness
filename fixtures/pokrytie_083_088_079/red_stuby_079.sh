@@ -200,8 +200,13 @@ import sys
 p, chk = sys.argv[1], sys.argv[2]
 s = open(p, encoding='utf-8').read()
 forms = [
-    ('. "$SELF_DIR/lib_incr.sh"', '. "$SELF_DIR/lib_incr_private.sh"'),
-    ('. "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh"', '. "$(dirname "${BASH_SOURCE[0]}")/lib_incr_private.sh"'),
+    # unset LIB_INCR_LOADED: цикл v+1 (323f0f55) завёл в check_zones библиотечный
+    # импорт check_charter.sh, который ДО собственной source-строки грузит
+    # РОДИТЕЛЬСКУЮ lib_incr.sh и взводит её защиту от повторного source —
+    # без unset частная копия в д6 маскируется защитой и стаб перестаёт
+    # моделировать угрозу (д6/check_zones ПРОПУЩЕН, поезд s33m).
+    ('. "$SELF_DIR/lib_incr.sh"', 'unset LIB_INCR_LOADED; . "$SELF_DIR/lib_incr_private.sh"'),
+    ('. "$(dirname "${BASH_SOURCE[0]}")/lib_incr.sh"', 'unset LIB_INCR_LOADED; . "$(dirname "${BASH_SOURCE[0]}")/lib_incr_private.sh"'),
 ]
 for old, new in forms:
     if s.count(old) == 1:

@@ -73,7 +73,7 @@ done
 zavisimosti() { # <чек> → список зависимостей (формы живого дерева, grep-проверены)
   case "$1" in
     check_charter)   printf '%s\n' check_charter.sh next_id.sh lib_registry.sh lib_roles.sh ;;
-    check_zones)     printf '%s\n' check_zones.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh ;;
+    check_zones)     printf '%s\n' check_zones.sh check_charter.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh ;;
     check_ids)       printf '%s\n' check_ids.sh next_id.sh lib_roles.sh lib_registry.sh ;;
     check_protected) printf '%s\n' check_protected.sh next_id.sh lib_roles.sh lib_registry.sh ;;
   esac
