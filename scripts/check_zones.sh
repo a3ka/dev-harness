@@ -1160,6 +1160,13 @@ while IFS=$'\t' read -r nnn since; do
         # принятие риска только этой исторической пары, не разрешение на новые.
         # Обычная REPLACE-проверка, ancestry и выбор vmax для остальных C
         # не меняются; другие пути и авторы из проверки не исключаются.
+        # Шестая пара eb5df0064ac94551cc361e466e991f8099c0fcca / registry/contracts.tsv —
+        # REPLACE 122 6040966e→30a1698c был легитимен на момент коммита (6040966e — тогда
+        # живой tag-object frozen/contracts/122/1); ретег 122/2→122/3 (2026-10-21, tag-object
+        # 30a1698c) уничтожил 6040966e, сделав суд «sha старой строки ≠ живой тег» вечнокрасным
+        # на завершённой истории; слово владельца 2026-10-23 ~10:00 UTC пункт 3 плана пятницы
+        # (минт-коммит в CI-зонах — привести к тому, что принимает CI, отдельным коммитом),
+        # канал консультанта. Принятие риска только этой пары.
         # Пятая пара 6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca / registry/contracts.tsv —
         # гонка двух tag-object frozen/contracts/991/2 за 7 с (forks/n991-v2-retag-6b3ab628.md),
         # слово владельца 2026-10-18; принятие риска только этой пары.
@@ -1168,7 +1175,7 @@ while IFS=$'\t' read -r nnn since; do
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca)
             skip_path=1
             continue
             ;;
@@ -1418,25 +1425,6 @@ while IFS=$'\t' read -r nnn since; do
         398d4f61fb2fbb48e71ca547eee05fbc4bc6fc20)
           case "$f" in
             forks/093-ops-granica-oracle-074-pin-stale.md)
-              printf '%s\n' "$f" >> "$TMP/process_excluded"
-              continue
-              ;;
-          esac
-          ;;
-      esac
-      # ── ГРАНДФАЗЕР (узкий, слово владельца 2026-10-23 10:00 UTC пункт 3 плана пятницы,
-      # канал консультанта: «минт-коммит в CI-зонах — приведи к тому, что принимает CI,
-      # при необходимости отдельным коммитом») ──
-      # Один SHA eb5df006, автор orchestrator, ОДИН путь registry/contracts.tsv: REPLACE 122
-      # 6040966e→30a1698c был легитимен на момент коммита (6040966e — тогда живой tag-object
-      # frozen/contracts/122/1), но последующий ретег 122/2→122/3 (2026-10-21, tag-object
-      # 30a1698c) уничтожил 6040966e — суд двери минта 031 «sha старой строки ≠ живой тег»
-      # стал вечнокрасным на ЗАВЕРШЁННОЙ истории. Других коммитов и путей не исключать,
-      # зоны не расширять.
-      case "$c" in
-        eb5df0064ac94551cc361e466e991f8099c0fcca)
-          case "$f" in
-            registry/contracts.tsv)
               printf '%s\n' "$f" >> "$TMP/process_excluded"
               continue
               ;;
