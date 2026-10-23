@@ -28,7 +28,7 @@
 #   без ключей  — субъекты из дерева ветки: боли живы → rc 1;
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
-#                 rc 0 «стабов 14, привязок 20, непойманных 0».
+#                 rc 0 «стабов 18, привязок 34, непойманных 0».
 #
 # Миры — /tmp/dev-harness-verify/sessii-136-<клетка>/** (оракулы в памяти, правило 8);
 # чекауты проектов — /tmp/dev-harness-fakehome-136/<клетка>/** ВНЕ scratch-allowlist Н-85
@@ -90,15 +90,22 @@ mk_mir() { # mk_mir <слуг> [next] [harness]
 run_dver() { # копия двери в песочницу + двойник workshop + двойник КОНФИГА
   # УСТАНОВКИ $SB/config/agent_models.json (источник трассы, блокер 2);
   # DVER_CONFIG — управляемое содержимое конфига клетки. Сообщение — после «--».
-  local SB="$W/sb"; mkdir -p "$SB/scripts" "$SB/config"
+  local SB="$W/sb"; mkdir -p "$SB/scripts" "$SB/config" "$SB/.omp/extensions"
   cp "$DOOR" "$SB/scripts/connect_project.sh"
+  cp "$GUARD" "$SB/.omp/extensions/path-guard.ts"
   if [ -n "$DVER_CONFIG" ]; then printf '%s' "$DVER_CONFIG" > "$SB/config/agent_models.json"
   else cp "$ROOT/config/agent_models.json" "$SB/config/agent_models.json"; fi
   printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > "%s"\nexit 7\n' "$W/args.txt" > "$SB/workshop"
   chmod +x "$SB/workshop"
-  env HOME="$FH" HARNESS_PROJECTS_DIR="$FH/projects" \
-    S136_PSTATE_BASE="$FH/dev-harness-projects" \
-    bash "$SB/scripts/connect_project.sh" "${1:-$SEED}" >"$W/dvor.out" 2>"$W/dvor.err"
+  if [ -n "${2:-}" ]; then
+    env HOME="$FH" HARNESS_PROJECTS_DIR="$FH/projects" \
+      S136_PSTATE_BASE="$FH/dev-harness-projects" \
+      bash "$SB/scripts/connect_project.sh" --task-file "$2" "${1:-$SEED}" >"$W/dvor.out" 2>"$W/dvor.err"
+  else
+    env HOME="$FH" HARNESS_PROJECTS_DIR="$FH/projects" \
+      S136_PSTATE_BASE="$FH/dev-harness-projects" \
+      bash "$SB/scripts/connect_project.sh" "${1:-$SEED}" >"$W/dvor.out" 2>"$W/dvor.err"
+  fi
   DVER_RC=$?
 }
 dver_msg() { awk 'f{print} $0=="--"{f=1}' "$W/args.txt" 2>/dev/null; }
@@ -146,6 +153,54 @@ k_a4() { mk_mir a4-p3-zapis; run_dver
   [ "$(epin "$(cat "$SEED/.harness/NEXT_TASK.md")" | jq -r '.worktree // empty')" = "" ] || return 1
   rm -f "$W/args.txt"; run_dver
   [ "$DVER_RC" -eq 1 ] && grep -q 'PIN_CHUZHOJ' "$W/dvor.err" && [ ! -e "$W/args.txt" ]; }
+# Каждый вход — отдельная клетка: отказ одной формы не маскирует соседнюю.
+# Пара WT/BR снята с реально созданного worktree до предъявления задания.
+k_pin_case() { # slug source shape result
+  local slug="$1" source="$2" shape="$3" expected="$4" wt br pair txt file msg got
+  mk_mir "$slug"; run_dver
+  wt="$FH/dev-harness-projects/toy-proj/wt/wip-136-demo"
+  br="wip/136/demo"
+  git -C "$SEED" worktree list --porcelain | grep -Fqx "worktree $wt" || return 1
+  pair="WORKTREE=$wt"$'\n'"BRANCH=$br"
+  case "$shape" in
+    block)        txt="$pair" ;;
+    inline)       txt="pin:WORKTREE=$wt:BRANCH=$br" ;;
+    delimiters)   txt="note;  WORKTREE=$wt, BRANCH=$br" ;;
+    duplicate)    txt="$pair"$'\n'"$pair" ;;
+    mixed)        txt="$pair"$'\n''WORKTREE=/fake/wip-777-other'$'\n''BRANCH=wip/777/other' ;;
+    reverse)      txt='WORKTREE=/fake/wip-777-other'$'\n''BRANCH=wip/777/other'$'\n'"$pair" ;;
+    foreign-wt)   txt="WORKTREE=/fake/wip-777-other"$'\n'"BRANCH=$br" ;;
+    foreign-br)   txt="WORKTREE=$wt"$'\n''BRANCH=wip/777/other' ;;
+    extra-wt)     txt="$pair"$'\n'"WORKTREE=$wt" ;;
+    extra-br)     txt="$pair"$'\n'"BRANCH=$br" ;;
+    half-wt)      txt="WORKTREE=$wt" ;;
+    empty-br)     txt="BRANCH=" ;;
+    inline-mixed) txt="pin:WORKTREE=$wt:BRANCH=$br"$'\n'"$pair" ;;
+    live-foreign) git -C "$SEED" worktree add -q -b wip/777/other "$FH/dev-harness-projects/toy-proj/wt/wip-777-other" || return 1
+                  txt="WORKTREE=$FH/dev-harness-projects/toy-proj/wt/wip-777-other"$'\n''BRANCH=wip/777/other'
+                  [ "$(epin "$txt" | jq -r '.worktree // empty')" = "$FH/dev-harness-projects/toy-proj/wt/wip-777-other" ] || return 1 ;;
+    inline-foreign) txt="pin:WORKTREE=$wt:BRANCH=wip/777/other" ;;
+    *) return 2 ;;
+  esac
+  txt="Задание: релиз 1.2, сохранить исходный текст."$'\n'"$txt"
+  if [ "$source" = taskfile ]; then file="$W/task.txt"
+  else file="$SEED/.harness/NEXT_TASK.md"; fi
+  printf '%s\n' "$txt" > "$file"
+  rm -f "$W/args.txt"
+  if [ "$source" = taskfile ]; then run_dver "$SEED" "$file"; else run_dver; fi
+  [ "$(cat "$file")" = "$txt" ] || return 1
+  if [ "$expected" = pass ]; then
+    [ "$DVER_RC" -eq 7 ] && [ -f "$W/args.txt" ] || return 1
+    msg="$(dver_msg)"
+    printf '%s\n' "$msg" | grep -Fq 'Задание: релиз 1.2, сохранить исходный текст.' || return 1
+    got="$(epin "$msg" | jq -r '.worktree // empty')"
+    [ "$got" = "$wt" ] || return 1
+    [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"$got/result.txt\"},\"worktree\":\"$got\"}" | jq -r .decision)" = pass ] \
+      && [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"agent://Rev1\"},\"worktree\":\"$got\"}" | jq -r .decision)" = pass ]
+  else
+    [ "$DVER_RC" -eq 1 ] && grep -Fq "$expected" "$W/dvor.err" && [ ! -e "$W/args.txt" ]
+  fi
+}
 k_a5() { mk_mir a5-p12-agent; run_dver
   local wt; wt="$(dver_msg | sed -n 's/^WORKTREE=//p' | head -1)"
   [ -n "$wt" ] \
@@ -254,11 +309,29 @@ k_d3() { mk_mir d3-kontrol; run_dver
     && [ "$rc2" -eq 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par4.out" \
     && grep -Fq "$K/.harness/records/ci_parity_exceptions.txt" "$W/par4.out"; }
 
-ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned b1-povtor b2-p10-raskladka c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren"
+ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign b1-povtor b2-p10-raskladka c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren"
 run_cell() { case "$1" in
   a1-p6-hvost) k_a1 ;; a2-p6-brief-defolt) k_a2 ;; a3-p3-pin-v-soobshchenii) k_a3 ;;
   a4-p3-zapis) k_a4 ;; a5-p12-agent) k_a5 ;; a6-p11-subagent-pin) k_a6 ;;
-  a7-granica-unpinned) k_a7 ;; b1-povtor) k_b1 ;; b2-p10-raskladka) k_b2 ;;
+  a7-granica-unpinned) k_a7 ;;
+  a8-pin-block) k_pin_case a8 next block pass ;;
+  a9-pin-inline) k_pin_case a9 next inline pass ;;
+  a10-pin-duplicate) k_pin_case a10 next duplicate PIN_DUBL ;;
+  a11-pin-mixed) k_pin_case a11 next mixed PIN_CHUZHOJ ;;
+  a12-pin-reverse) k_pin_case a12 next reverse PIN_CHUZHOJ ;;
+  a13-pin-foreign-wt) k_pin_case a13 next foreign-wt PIN_CHUZHOJ ;;
+  a14-pin-foreign-br) k_pin_case a14 next foreign-br PIN_CHUZHOJ ;;
+  a15-pin-extra-wt) k_pin_case a15 next extra-wt PIN_CHUZHOJ ;;
+  a16-pin-extra-br) k_pin_case a16 next extra-br PIN_CHUZHOJ ;;
+  a17-pin-half-wt) k_pin_case a17 next half-wt PIN_CHUZHOJ ;;
+  a18-pin-empty-br) k_pin_case a18 next empty-br PIN_CHUZHOJ ;;
+  a19-pin-inline-mixed) k_pin_case a19 next inline-mixed PIN_DUBL ;;
+  a20-pin-delimiters) k_pin_case a20 next delimiters pass ;;
+  a21-pin-taskfile-duplicate) k_pin_case a21 taskfile duplicate PIN_DUBL ;;
+  a22-pin-taskfile-inline) k_pin_case a22 taskfile inline pass ;;
+  a23-pin-live-foreign) k_pin_case a23 next live-foreign PIN_CHUZHOJ ;;
+  a24-pin-inline-foreign) k_pin_case a24 next inline-foreign PIN_CHUZHOJ ;;
+  b1-povtor) k_b1 ;; b2-p10-raskladka) k_b2 ;;
   c1-p17-map) k_c1 ;; c2-p17-rules) k_c2 ;; c3-p5-trassa-defolt) k_c3 ;;
   c4-kontrol-filtr) k_c4 ;; c5-kontrol-jeksplizit) k_c5 ;;
   d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;; esac; }
