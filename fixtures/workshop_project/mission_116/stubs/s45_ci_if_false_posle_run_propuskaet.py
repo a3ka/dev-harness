@@ -1,17 +1,19 @@
-#!/usr/bin/env python3
-# Стаб (Н-39): копия честной статической пробы 116, отключена ровно
-# одна ветвь (sud_ci_shag: if:-условие шага ПОСЛЕ run); на своём входе stab_vhod пропускает дефект,
+# Стаб (Н-39): копия честной статической пробы 116, отключена ровно одна
+# ветвь (sud_ci_shag: if:-строки блока); на своём входе stab_vhod пропускает дефект,
 # на остальных ведёт себя честно.
+#!/usr/bin/env python3
 # Статическая проба 116 (третий субъект батареи) — страж ФОРМЫ по
 # арбитражу 0259fb00 (е): закрытые множества (членство testID/токенов,
 # литералы каталога, запрет hex, draftStore/value-порты как РАННИЙ СИГНАЛ
 # — не суд поведения). Поведение и фактический рендер судит ИСПОЛНЯЕМАЯ
 # семья продукта (Jest/RNTL, product-CI, клетки K1-K19), её проводку
-# держат ТРИ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б), шаг
-# mobile.yml гейтовый и запускающий семью (в): без continue-on-error,
-# без if:-условия и с ФАКТИЧЕСКИМ вызовом npx jest (не комментарием и
-# не echo-подменой; многострочный run: |-блок — построчно, shell-#
-# не команда; блокер круга 3: поле после run старой пробой не виделось).
+# держат ТРИ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б) и ПИН
+# БЛОКА ШАГА mobile.yml (в; арбитраж 4cadfc54 а: класс echo-подмен
+# перечнем командных позиций НЕ замыкается — разбор shell УБРАТ, страж
+# формы = замкнутое множество, байт-равенство блока шага пину). Факт
+# запуска и гейта семью статикой НЕ судится: его судит runtime-строка
+# критерия product-CI (gh pr checks --required + conclusion шага +
+# лог Tests: 19 passed, 19 total — контракт :38).
 # Ожидания — закрытые литералы ЗДЕСЬ (оракул в памяти проверяющего,
 # правило 8). rc 1 — PRICHINA по имени ветви; rc 0 — тихо.
 import argparse
@@ -65,14 +67,21 @@ AUDIT_TOKENOV = {
 PROBA_PUT = 'mobile/src/features/conversation/__tests__/mission-116.test.tsx'
 PROBA_SHA256 = '873cf35be05a8ae8dcfff682100c992c9ee59096c0fe8a261f7eae56de871bdb'
 
-# Проводка product-CI (0259fb00 в, блокер круга 3): шаг jest семьи в
-# mobile.yml обязан существовать, быть безусловным и гейтовым —
-# БЕЗ continue-on-error, БЕЗ if: (любое условие = условный пропуск),
-# run СОДЕРЖИТ фактический вызов npx jest маркерного файла (не в
-# shell-комментарии, не echo-подменой); многострочные |-блоки —
-# построчно с учётом #комментариев. Иначе шаг не гейтит семью.
+# Проводка product-CI (0259fb00 в; арбитраж 4cadfc54 а): страж ФОРМЫ —
+# ПИН БЛОКА ШАГА, замкнутое множество. В mobile.yml ровно один блок
+# шага, начинающийся строкой пина; блок (до первой строки с отступом
+# <= отступа '-', пустые строки и YAML-комментарии отброшены, строки
+# по .strip()) побайтово равен двум строкам пина (носитель —
+# source.json.mobile_ci_tekst), других ключей в блоке нет; блок лежит
+# в job android-e2e (required check по замеру круга 3). Любая форма
+# run кроме пина (echo-подмена, ||, if:, continue-on-error, cd &&,
+# многострочный честный) красна — fail-closed принят арбитражем.
 CI_PUT = '.github/workflows/mobile.yml'
-CI_SHAG_MARKER = 'mission-116.test.tsx'
+CI_PIN = [
+    '- name: 116 mission behaviour render',
+    'run: npx jest src/features/conversation/__tests__/mission-116.test.tsx',
+]
+CI_JOB = 'android-e2e'
 
 
 def prichina(imja, detal):
@@ -268,116 +277,50 @@ def sud_proba_povedenija(repo, _opis):
 
 
 def sud_ci_shag(repo, _opis):
-    """Шаг mobile.yml гейтовый, безусловный и ЗАПУСКАЮЩИЙ семью
-    (fail-closed, блокер круга 3: поле после run, if: false после run,
-    echo-подмена и #комментарий многострочного run — все красны)."""
+    """Страж формы шага mobile.yml = ПИН БЛОКА ШАГА (арбитраж 4cadfc54
+    а: замкнутое множество). Блок шага байт-равен двум строкам пина и
+    лежит в job android-e2e; разбор shell (командные позиции, echo,
+    комментарии) УБРАН — класс перечнем не замыкается, любая форма run
+    кроме пина красна (fail-closed). Факт запуска и гейта судит
+    runtime-строка критерия product-CI, не статика."""
     put = repo / CI_PUT
     if not put.is_file():
         return [('CI_BEZ_SHAGA_POVEDENIJA', CI_PUT)]
     linii = put.read_text(encoding='utf-8').splitlines()
-    granicy = _blok_shaga(linii, CI_SHAG_MARKER)
-    if granicy is None:
+    nacheta = [i for i, l in enumerate(linii) if l.strip() == CI_PIN[0]]
+    if not nacheta:
         return [('CI_BEZ_SHAGA_POVEDENIJA', 'shag')]
-    nach, konec = granicy
-    otkazy = []
-    # (а)+(б): ключи шага вне run-блока — continue-on-error и ЛЮБОЙ if:
-    # (условие на шаге семьи = условный пропуск; безусловность — пин).
-    i_run, otstup_run = -1, 0
-    for i in range(nach, konec):
-        m = re.match(r'^(\s+)-?\s*run:\s*(.*)$', linii[i])
-        if m:
-            i_run, otstup_run = i, len(m.group(1))
-            break
-    telo_kljuchej = []
-    blok_skalar = False
-    for i in range(nach, konec):
-        l = linii[i]
-        if blok_skalar:
-            if l.strip() == '' or len(l) - len(l.lstrip()) > otstup_run:
-                continue
-            blok_skalar = False
-        m = re.match(r'^(\s+)([\w-]+):', l)
-        if m and m.group(2) == 'run':
-            znach = l.split('run:', 1)[1].strip()
-            if re.fullmatch(r'[|>][+-]?', znach):
-                blok_skalar = True
-            continue
-        if m:
-            telo_kljuchej.append(m.group(2))
-    if 'continue-on-error' in telo_kljuchej:
-        otkazy.append(('CI_SHAG_POVEDENIJA_NE_GEJTIT', 'continue-on-error'))
-    # СТАБ: if:-условие шага пропускается.
-    # (в): run фактически запускает npx jest маркерного файла.
-    skript = _skript_run(linii, nach, konec)
-    if skript is None:
-        otkazy.append(('CI_SHAG_POVEDENIJA_NE_ZAPUSKAET', 'run-kljuch'))
-    elif not _vizov_jest(skript, CI_SHAG_MARKER):
-        otkazy.append(('CI_SHAG_POVEDENIJA_NE_ZAPUSKAET', 'run'))
-    return otkazy
-
-
-def _blok_shaga(linii, marker):
-    """Границы шага (нач., конец) с маркером: от строки '- ' до следующей
-    строки с отступом <= отступа маркера списка (поле ПОСЛЕ run входит;
-    легальная перестановка YAML-полей не меняет вердикта — блокер 3.1)."""
-    i_shag = next((i for i, l in enumerate(linii) if marker in l), -1)
-    if i_shag < 0:
-        return None
-    nach = i_shag
-    while nach > 0 and not linii[nach].lstrip().startswith('- '):
-        nach -= 1
-    if not linii[nach].lstrip().startswith('- '):
-        return None
-    otstup = len(linii[nach]) - len(linii[nach].lstrip())
-    konec = nach + 1
-    while konec < len(linii):
-        l = linii[konec]
+    if len(nacheta) > 1:
+        return [('CI_SHAG_POVEDENIJA_NE_PO_PINU',
+                 'blokov shaga %d' % len(nacheta))]
+    i = nacheta[0]
+    otstup = len(linii[i]) - len(linii[i].lstrip())
+    blok = [linii[i].strip()]
+    for l in linii[i + 1:]:
         if l.strip() == '' or l.lstrip().startswith('#'):
-            konec += 1
             continue
         if len(l) - len(l.lstrip()) <= otstup:
             break
-        konec += 1
-    return nach, konec
-
-
-def _skript_run(linii, nach, konec):
-    """Тело run шага: inline-значение или |-блок (строки глубже ключа);
-    run вне шага не рассматривается (None)."""
-    i_run, otstup_run = -1, 0
-    for i in range(nach, konec):
-        m = re.match(r'^(\s+)-?\s*run:\s*(.*)$', linii[i])
+        blok.append(l.strip())
+    # СТАБ: строки if: игнорируются перед сравнением с пином.
+    blok = [b for b in blok if not b.startswith("if:")]
+    if blok != CI_PIN:
+        # детализация (4cadfc54 а): найденный негейтящий ключ называется,
+        # но вердикт rc определяет равенство пину, не перечень
+        for kljuch in ('continue-on-error', 'if'):
+            if any(b.startswith(kljuch + ':') for b in blok):
+                return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', kljuch)]
+        return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', 'blok shaga')]
+    # блок байт-равен пину; membership в required-job
+    job = None
+    for l in reversed(linii[:i]):
+        m = re.match(r'^  ([\w-]+):\s*$', l)
         if m:
-            i_run, otstup_run = i, len(m.group(1))
-            znach = m.group(2).strip()
+            job = m.group(1)
             break
-    if i_run < 0:
-        return None
-    if not re.fullmatch(r'[|>][+-]?', znach):
-        return znach
-    stroki = []
-    for i in range(i_run + 1, konec):
-        l = linii[i]
-        if l.strip() == '':
-            stroki.append('')
-            continue
-        if len(l) - len(l.lstrip()) <= otstup_run:
-            break
-        stroki.append(l.strip())
-    return '\n'.join(stroki)
-
-
-def _vizov_jest(skript, marker):
-    """Фактический вызов npx jest маркерного файла: команда в позиции
-    команды (начало строки/после ;/&&/||), маркер в КОДЕ строки —
-    shell-#comment и echo-подмена не считаются запуском."""
-    for stroka in skript.split('\n'):
-        kod = re.split(r'(?:^|\s)#', stroka, maxsplit=1)[0]
-        m = re.search(r'(?:^|[;]|&&|\|\|)\s*(?:cd\s+\S+\s*&&\s*)?'
-                      r'npx\s+jest\b.*', kod)
-        if m and marker in kod:
-            return True
-    return False
+    if job != CI_JOB:
+        return [('CI_SHAG_POVEDENIJA_VNE_REQUIRED_JOB', str(job))]
+    return []
 
 
 def main():
