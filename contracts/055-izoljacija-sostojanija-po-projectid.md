@@ -276,8 +276,8 @@ P6 = profile ОТКАЗ: значение вне алфавита: <поле>: <
 ## Зоны
 
 ЗОНА architect: contracts/055-izoljacija-sostojanija-po-projectid.md
-ЗОНА architect (до-заморозочная батарея по ДЕЙСТВУЮЩЕЙ заморозке каталога):
-fixtures/check_judge_gate/red_izoljacija_projectid_055.sh
+ЗОНА architect: fixtures/check_judge_gate/red_izoljacija_projectid_055.sh
+Примечание (не зона): до-заморозочная батарея по ДЕЙСТВУЮЩЕЙ заморозке каталога.
 ЗОНА implementer: workshop scripts/profile_resolver.sh fixtures/workshop_project/ fixtures/_krasnye_055.sh fixtures/parsing_hygiene_battery/profiles/profile_resolver.sh
 
 ПЕРЕСЕЧЕНИЕ implementer: workshop — 028 implementer-зона (HOME сессии вне дерева) и 030 implementer-зона (инвентарь/гонки спавна): дельта 055 — пер-проектные пути ТОЛЬКО в ветке режима проекта; формула дев-зоны (:75-80) и spawn-ветки не переступают
