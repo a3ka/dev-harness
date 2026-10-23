@@ -168,6 +168,11 @@ step	check:poezd-131-family-selftest	0	bash fixtures/workshop_project/poezd_131/
 # не подключены: на дереве с предметом судят эталон (probe.py:605). Замер в чистом клоне объекта суда: rc 0, 41/41 ok.
 # Вес 0 до первого замера окна (контракт 114).
 step	check:ekran-shablon-132-family-selftest	0	bash fixtures/workshop_project/ekran_shablon_132/red_ekran_shablon_132.sh
+# КОНТРАКТ 118: батарея Erstinformation (28 входов / 26 связей стабов: пин-форма stand-in композиции,
+# манифест 16 кадров, guard-шаг CI; миры в mktemp, сеть не нужна) — ПРОВОДКА-ЭНФОРСМЕНТ контракта 118:
+# до ленда продукта CI несёт --stabs явно; безфлаговый W после ленда переводит оркестратор (S6).
+# Замер живого прогона run_ci_lane.sh: rc 0, SVJAZI 26, 58 с.
+step	check:erstinformation-118-family-selftest	58	bash fixtures/workshop_project/erstinformation_118/red_erstinformation_118.sh --stabs
 # КОНТРАКТ 133: батарея доводки UI (34 клетки / 20 стабов: ворота zadanie/zona/sudjam scripts/dovodka_ui.sh; миры в mktemp,
 # двойники omp/overlay, сеть не нужна) — подключение интеграционным коммитом оркестратора (ПРОВОДКА-ЭНФОРСМЕНТ контракта 133).
 # Продуктовый режим БЕЗ флагов судит scripts/dovodka_ui.sh этого дерева; --model/--stabs/--candidate не подключены.
