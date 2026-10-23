@@ -192,7 +192,7 @@ k_pin_case() { # slug source shape result
   if [ "$expected" = pass ]; then
     [ "$DVER_RC" -eq 7 ] && [ -f "$W/args.txt" ] || return 1
     msg="$(dver_msg)"
-    printf '%s\n' "$msg" | grep -Fq 'Задание: релиз 1.2, сохранить исходный текст.' || return 1
+    [[ "$msg" == *"$txt"* ]] || return 1
     got="$(epin "$msg" | jq -r '.worktree // empty')"
     [ "$got" = "$wt" ] || return 1
     [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"$got/result.txt\"},\"worktree\":\"$got\"}" | jq -r .decision)" = pass ] \
