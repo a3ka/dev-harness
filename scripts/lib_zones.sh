@@ -140,6 +140,63 @@ __lib_zones_cleanup() {
   fi
 }
 
+# zones_declare_rows <контракт> <файл> <каталог-результата> — ЕДИНСТВЕННЫЙ парсер
+# ЗОНА-строк (грамматика — заголовок файла). Читает строки тела контракта из stdin
+# (уже отфильтрованные `^ЗОНА `) и ДОБАВЛЯЕТ валидные строки в
+# <каталог>/zones_scoped (автор<TAB>путь<TAB>контракт), нарушения — в
+# <каталог>/zones_violations (6 полей через NUL: контракт, файл, причина, автор,
+# путь, сырая_строка — формат заголовка zones_load).
+#
+# Вынесено из zones_load кодовой правкой «цикл v+1» (слово владельца 2026-10-22
+# ~21:20 UTC): переопределение «предстоящее v+1» в check_zones перечитывает
+# ЗОНА-строки из РАБОЧЕГО файла ветки ТЕМ ЖЕ парсером — второй читатель формата
+# расходился бы молча (та же причина, по которой библиотека заведена, контракт 016).
+zones_declare_rows() {  # <nnn> <file> <outdir>; ЗОНА-строки — stdin
+  local nnn="$1" file="$2" out="$3"
+  local line rest author paths p
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    rest="${line#ЗОНА }"
+    author="${rest%%:*}"
+    paths="${rest#*:}"
+    if [ "$author" = "$rest" ] || [ -z "${author//[[:space:]]/}" ]; then
+      printf '%s\0%s\0%s\0%s\0%s\0%s\n' \
+        "$nnn" "$file" "bad_author" "$author" "" "$line" >> "$out/zones_violations"
+      continue
+    fi
+    # ТАБУЛЯЦИЯ В ИМЕНИ АВТОРА ЗАПРЕЩЕНА (адверсарий: TSV-сериализация рвёт имя надвое).
+    if [[ "$author" == *$'\t'* ]]; then
+      printf '%s\0%s\0%s\0%s\0%s\0%s\n' \
+        "$nnn" "$file" "tab_in_author" "$author" "" "$line" >> "$out/zones_violations"
+      continue
+    fi
+    if [ -z "${paths//[[:space:]]/}" ]; then
+      printf '%s\0%s\0%s\0%s\0%s\0%s\n' \
+        "$nnn" "$file" "no_paths" "$author" "" "$line" >> "$out/zones_violations"
+      continue
+    fi
+    # РАСЩЕПЛЕНИЕ БЕЗ ПОДСТАНОВКИ ИМЁН ФАЙЛОВ (Н-39: `for p in $paths` без set -f раскрывает
+    # `scripts/*` в реальные файлы каталога, и зона становится тотальной).
+    set -f
+    # shellcheck disable=SC2086
+    for p in $paths; do
+      case "$p" in
+        *'"'*)
+          printf '%s\0%s\0%s\0%s\0%s\0%s\n' \
+            "$nnn" "$file" "quote_in_path" "$author" "$p" "$line" >> "$out/zones_violations"
+          continue ;;
+      esac
+      case "$p" in
+        *\*) printf '%s\0%s\0%s\0%s\0%s\0%s\n' \
+               "$nnn" "$file" "bad_prefix" "$author" "$p" "$line" >> "$out/zones_violations"; continue ;;
+        *)  ;;
+      esac
+      printf '%s\t%s\t%s\n' "$author" "$p" "$nnn" >> "$out/zones_scoped"
+    done
+    set +f
+  done
+}
+
 # zones_load <корень-репо>
 # stdout: каталог с файлами zones_scoped, zones_violations, ranges, contracts_list.
 # rc 0 при успехе (включая «нет контрактов»); 1 при отказе реестра; 2 при NOT_IMPLEMENTED.
@@ -235,13 +292,6 @@ zones_load() {
   : > "$out/ranges"
   : > "$out/contracts_list"
 
-  # Удобный испускатель нарушения: contract\0file\0reason\0author\0path\0raw_line\n
-  # NUL защищает поля от внутренних табуляций в raw_line и author.
-  emit_violation() {
-    printf '%s\0%s\0%s\0%s\0%s\0%s\n' \
-      "$1" "$2" "$3" "$4" "$5" "$6" >> "$out/zones_violations"
-  }
-
   contracts=0
   while IFS= read -r nnn; do
     [ -n "$nnn" ] || continue
@@ -263,42 +313,8 @@ zones_load() {
     [ -n "$file" ] || continue
     body="$(git -C "$root" cat-file -p "${vmax_tag}^{commit}:$file" 2>/dev/null || true)"
 
-    while IFS= read -r line; do
-      [ -n "$line" ] || continue
-      local rest="${line#ЗОНА }"
-      local author="${rest%%:*}"
-      local paths="${rest#*:}"
-      if [ "$author" = "$rest" ] || [ -z "${author//[[:space:]]/}" ]; then
-        emit_violation "$nnn" "$file" "bad_author" "$author" "" "$line"
-        continue
-      fi
-      # ТАБУЛЯЦИЯ В ИМЕНИ АВТОРА ЗАПРЕЩЕНА (адверсарий: TSV-сериализация рвёт имя надвое).
-      if [[ "$author" == *$'\t'* ]]; then
-        emit_violation "$nnn" "$file" "tab_in_author" "$author" "" "$line"
-        continue
-      fi
-      if [ -z "${paths//[[:space:]]/}" ]; then
-        emit_violation "$nnn" "$file" "no_paths" "$author" "" "$line"
-        continue
-      fi
-      # РАСЩЕПЛЕНИЕ БЕЗ ПОДСТАНОВКИ ИМЁН ФАЙЛОВ (Н-39: `for p in $paths` без set -f раскрывает
-      # `scripts/*` в реальные файлы каталога, и зона становится тотальной).
-      set -f
-      # shellcheck disable=SC2086
-      for p in $paths; do
-        case "$p" in
-          *'"'*)
-            emit_violation "$nnn" "$file" "quote_in_path" "$author" "$p" "$line"
-            continue ;;
-        esac
-        case "$p" in
-          *\*) emit_violation "$nnn" "$file" "bad_prefix" "$author" "$p" "$line"; continue ;;
-          *)  ;;
-        esac
-        printf '%s\t%s\t%s\n' "$author" "$p" "$nnn" >> "$out/zones_scoped"
-      done
-      set +f
-    done < <(printf '%s\n' "$body" | grep '^ЗОНА ' || true)
+    zones_declare_rows "$nnn" "$file" "$out" \
+      < <(printf '%s\n' "$body" | grep '^ЗОНА ' || true)
 
     # Конец диапазона — тег done/contracts/<NNN>/1 (Н-14).
     local done_ref="done/contracts/$nnn/1"
