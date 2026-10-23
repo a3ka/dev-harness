@@ -7,10 +7,13 @@
 # держат ТРИ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б) и ПИН
 # БЛОКА ШАГА mobile.yml (в; арбитраж 4cadfc54 а: класс echo-подмен
 # перечнем командных позиций НЕ замыкается — разбор shell УБРАТ, страж
-# формы = замкнутое множество, байт-равенство блока шага пину). Факт
-# запуска и гейта семью статикой НЕ судится: его судит runtime-строка
-# критерия product-CI (gh pr checks --required + conclusion шага +
-# лог Tests: 19 passed, 19 total — контракт :38).
+# формы = замкнутое множество, байт-равенство блока шага пину ГДЕ БЫ
+# ОН НИ ВСТРЕТИЛСЯ в workflow; r9, 675465e2: принадлежность
+# required-job из статики УДАЛЕНА — ложный YAML-membership). Факт
+# запуска, гейта и принадлежности required-job семью статикой НЕ
+# судится: их судит runtime-строка критерия product-CI с ДОКАЗАННОЙ
+# СВЯЗЬЮ (gh pr checks --required ∧ check-run required job android-e2e
+# → шаг conclusion success ∧ лог Tests: 19 passed, 19 total — :38).
 # Ожидания — закрытые литералы ЗДЕСЬ (оракул в памяти проверяющего,
 # правило 8). rc 1 — PRICHINA по имени ветви; rc 0 — тихо.
 import argparse
@@ -69,18 +72,18 @@ PROBA_SHA256 = '873cf35be05a8ae8dcfff682100c992c9ee59096c0fe8a261f7eae56de871bdb
 # шага, начинающийся строкой пина; блок (до первой строки с отступом
 # <= отступа '-', пустые строки и YAML-комментарии отброшены, строки
 # по .strip()) побайтово равен двум строкам пина (носитель —
-# source.json.mobile_ci_tekst), других ключей в блоке нет; блок лежит
-# в job android-e2e (required check по замеру круга 3; ключ job:
-# кавычки и YAML-комментарий после двоеточия допустимы, отступ job
-# не фиксирован — r8, d564854b). Любая форма
-# run кроме пина (echo-подмена, ||, if:, continue-on-error, cd &&,
-# многострочный честный) красна — fail-closed принят арбитражем.
+# source.json.mobile_ci_tekst), других ключей в блоке нет. Блок ищется
+# ГДЕ БЫ ОН НИ ВСТРЕТИЛСЯ в workflow: родитель-job, required-статус и
+# формы ключа job (кавычки, YAML-комментарий, отступ, indentless
+# steps) статикой НЕ судятся (r9, 675465e2 — YAML-membership удалён:
+# конечное множество распознанных имён не замыкает произвольный YAML).
+# Любая форма run кроме пина (echo-подмена, ||, if:, continue-on-error,
+# cd &&, многострочный честный) красна — fail-closed принят арбитражем.
 CI_PUT = '.github/workflows/mobile.yml'
 CI_PIN = [
     '- name: 116 mission behaviour render',
     'run: npx jest src/features/conversation/__tests__/mission-116.test.tsx',
 ]
-CI_REQUIRED_JOBS = ('android-e2e',)
 
 
 def prichina(imja, detal):
@@ -277,10 +280,12 @@ def sud_proba_povedenija(repo, _opis):
 
 def sud_ci_shag(repo, _opis):
     """Страж формы шага mobile.yml = ПИН БЛОКА ШАГА (арбитраж 4cadfc54
-    а: замкнутое множество). Блок шага байт-равен двум строкам пина и
-    лежит в job android-e2e; разбор shell (командные позиции, echo,
-    комментарии) УБРАН — класс перечнем не замыкается, любая форма run
-    кроме пина красна (fail-closed). Факт запуска и гейта судит
+    а: замкнутое множество). Блок шага байт-равен двум строкам пина
+    ГДЕ БЫ ОН НИ ВСТРЕТИЛСЯ в workflow; разбор shell (командные
+    позиции, echo, комментарии) и YAML-membership (родитель-job,
+    required-статус, формы ключа job) УБРАНЫ (r9, 675465e2: класс
+    перечнем не замыкается, любая форма run кроме пина красна
+    fail-closed). Принадлежность required-job и факт запуска судит
     runtime-строка критерия product-CI, не статика."""
     put = repo / CI_PUT
     if not put.is_file():
@@ -308,32 +313,8 @@ def sud_ci_shag(repo, _opis):
             if any(b.startswith(kljuch + ':') for b in blok):
                 return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', kljuch)]
         return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', 'blok shaga')]
-    # блок байт-равен пину; membership в required-job (r8, d564854b:
-    # ложный VNE_REQUIRED_JOB на честных формах ключа job — YAML-
-    # комментарий после двоеточия, кавычки, отступ ≠ 2). Имя job —
-    # распарсенный ключ строки уровня job, membership — по тому же
-    # имени в замкнутом required-наборе; отступ не фиксирован:
-    # родитель списка шагов — первая значимая строка выше блока с
-    # отступом меньше отступа '-', ключ job — первая строка-ключ выше.
-    job = None
-    roditel = None
-    porog = otstup
-    for l in reversed(linii[:i]):
-        if l.strip() == '' or l.lstrip().startswith('#'):
-            continue
-        ind = len(l) - len(l.lstrip())
-        if ind >= porog:
-            continue
-        if roditel is None:
-            roditel = l
-            porog = ind
-            continue
-        m = re.match(r'^(["\']?)([A-Za-z0-9_-]+)\1:\s*(#.*)?$', l.strip())
-        if m:
-            job = m.group(2)
-            break
-    if job not in CI_REQUIRED_JOBS:
-        return [('CI_SHAG_POVEDENIJA_VNE_REQUIRED_JOB', str(job))]
+    # блок байт-равен пину (r9, 675465e2): membership required-job
+    # статикой НЕ судится — его судит runtime-строка критерия (:38).
     return []
 
 

@@ -83,7 +83,6 @@ CI_PIN = [
     '- name: 116 mission behaviour render',
     'run: npx jest src/features/conversation/__tests__/mission-116.test.tsx',
 ]
-CI_REQUIRED_JOBS = ('android-e2e',)
 
 
 def prichina(imja, detal):
@@ -317,32 +316,8 @@ def sud_ci_shag(repo, _opis):
             if any(b.startswith(kljuch + ':') for b in blok):
                 return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', kljuch)]
         return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', 'blok shaga')]
-    # блок байт-равен пину; membership в required-job (r8, d564854b:
-    # ложный VNE_REQUIRED_JOB на честных формах ключа job — YAML-
-    # комментарий после двоеточия, кавычки, отступ ≠ 2). Имя job —
-    # распарсенный ключ строки уровня job, membership — по тому же
-    # имени в замкнутом required-наборе; отступ не фиксирован:
-    # родитель списка шагов — первая значимая строка выше блока с
-    # отступом меньше отступа '-', ключ job — первая строка-ключ выше.
-    job = None
-    roditel = None
-    porog = otstup
-    for l in reversed(linii[:i]):
-        if l.strip() == '' or l.lstrip().startswith('#'):
-            continue
-        ind = len(l) - len(l.lstrip())
-        if ind >= porog:
-            continue
-        if roditel is None:
-            roditel = l
-            porog = ind
-            continue
-        m = re.match(r'^(["\']?)([A-Za-z0-9_-]+)\1:\s*(#.*)?$', l.strip())
-        if m:
-            job = m.group(2)
-            break
-    if job not in CI_REQUIRED_JOBS:
-        return [('CI_SHAG_POVEDENIJA_VNE_REQUIRED_JOB', str(job))]
+    # блок байт-равен пину (r9, 675465e2): membership required-job
+    # статикой НЕ судится — его судит runtime-строка критерия (:38).
     return []
 
 

@@ -696,9 +696,13 @@ def mut_ci_run_kommentarij(pack, forma, repo, src):
     _perekopi_fajl(repo, CI_PROD, s)
 
 def mut_ci_shag_vne_required_job(pack, forma, repo, src):
-    """Шаг байт-равен пину, но лежит в job вне required checks
-    (арбитраж 4cadfc54 а: замкнутое множество судит и membership
-    блока шага в android-e2e)."""
+    """Сценарий переназначен runtime-строке (r9, 675465e2): пинованный
+    блок шага в job вне required checks СТАТИЧЕСКИ ЗЕЛЁНЫЙ (membership
+    из статики удалён) — вход-свидетель разделения статик/runtime;
+    продуктовая приёмка красна (нужного шага нет в required job) —
+    это судит runtime-строка критерия (:38) при ленде, не статика.
+    Статический стаб s48 удалён: после удаления membership он
+    тождествен честному субъекту."""
     shag = ('      - name: 116 mission behaviour render\n'
             '        run: npx jest src/features/conversation/'
             '__tests__/mission-116.test.tsx\n')
@@ -736,6 +740,44 @@ def mut_ci_job_otstup_chetyre(pack, forma, repo, src):
     s = golova + 'jobs:\n' + ''.join(
         '  ' + l + '\n' for l in hvost.splitlines())
     _perekopi_fajl(repo, CI_PROD, s)
+
+def _ci_steps_indentless_tekst(src):
+    """steps: на уровне '-' (indentless sequence, YAML-равен честному
+    по построению — свидетели критика d564854b/арбитра 675465e2)."""
+    tekst = src['mobile_ci_tekst']
+    assert tekst.count('    steps:\n') == 1
+    pre, steps = tekst.split('    steps:\n')
+    return pre + '    steps:\n' + ''.join(
+        l[2:] + '\n' for l in steps.splitlines())
+
+
+def mut_ci_steps_indentless(pack, forma, repo, src):
+    """Свидетель критика (indentless_steps): steps: на уровне '-',
+    блок шага байт-равен пину — вход ЗЕЛЁНЫЙ (r9, 675465e2: membership
+    из статики удалён, ложный VNE_REQUIRED_JOB невозможен)."""
+    _perekopi_fajl(repo, CI_PROD, _ci_steps_indentless_tekst(src))
+
+
+def mut_ci_steps_indentless_kavychka_kommentarij(pack, forma, repo, src):
+    """Свидетель критика (indentless_single_quote_comment): indentless
+    steps + ключ job в одинарных кавычках с YAML-комментарием —
+    вход ЗЕЛЁНЫЙ (статика формы ключа job не судит)."""
+    s = _ci_steps_indentless_tekst(src)
+    assert s.count('  android-e2e:') == 1
+    s = s.replace('  android-e2e:', "  'android-e2e': # required job")
+    _perekopi_fajl(repo, CI_PROD, s)
+
+
+def mut_ci_steps_indentless_otstup_chetyre(pack, forma, repo, src):
+    """Свидетель критика (indentless_four_space_job): indentless steps +
+    поддерево jobs с отступом 4 — вход ЗЕЛЁНЫЙ (отступ статикой не
+    судится, блок равен пину после .strip())."""
+    s = _ci_steps_indentless_tekst(src)
+    assert s.count('jobs:\n') == 1
+    golova, hvost = s.split('jobs:\n')
+    s = golova + 'jobs:\n' + ''.join('  ' + l + '\n' for l in hvost.splitlines())
+    _perekopi_fajl(repo, CI_PROD, s)
+
 
 MUTACII = {
     'chestnyj-ekran': None,
@@ -786,6 +828,11 @@ MUTACII = {
     'ci-job-inline-kommentarij': mut_ci_job_inline_kommentarij,
     'ci-job-kavychki': mut_ci_job_kavychki,
     'ci-job-otstup-chetyre': mut_ci_job_otstup_chetyre,
+    'ci-steps-indentless': mut_ci_steps_indentless,
+    'ci-steps-indentless-kavychka-kommentarij':
+        mut_ci_steps_indentless_kavychka_kommentarij,
+    'ci-steps-indentless-otstup-chetyre':
+        mut_ci_steps_indentless_otstup_chetyre,
 }
 
 
