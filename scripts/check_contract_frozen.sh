@@ -46,6 +46,13 @@ NEXT_ID_LIB=1
 . "$SELF_DIR/next_id.sh"
 # shellcheck disable=SC1091
 . "$SELF_DIR/lib_registry.sh"
+# Грамматика РАЗРЕШИЛ-ВЛАДЕЛЕЦ и разбор дельты коммита — ИЗ УСТАВА, не копия: второй парсер
+# разрешения владельца разъехался бы с первым первым же исключением из грамматики razreshil
+# (она заморожена, 065/019/074/080). Библиотечный импорт определяет только функции; их `g` и
+# `bad` разрешаются в наши — динамическая область bash.
+CHARTER_LIB=1
+# shellcheck disable=SC1091
+. "$SELF_DIR/check_charter.sh"
 
 ROOT="$(cd "${1:-"$SELF_DIR/.."}" && pwd)"
 
@@ -140,7 +147,79 @@ while IFS= read -r f; do
   if [ -z "$tag_blob" ]; then
     bad "$f заморожен как v$vmax, но в коммите заморозки этого файла нет — тег поставлен не на то состояние"
   elif [ "$head_blob" != "$tag_blob" ]; then
-    bad "$f изменён без новой заморозки: на HEAD блоб $head_blob, в заморозке v$vmax — $tag_blob. Выход: новый вердикт критика v$((vmax + 1)), freeze_contract.sh и строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ: в изменяющем коммите"
+    # ПРЕДСТОЯЩЕЕ v+1 (слово владельца 2026-10-22 ~21:20, пункт 1 — дефект цикла 130 ×
+    # contract-frozen): текст следующей версии УЖЕ в дереве, а тег v+1 публикуется ШТАТНО
+    # ПОСЛЕ ленда текста (контракт 130: тег — после текста). До публикации тега дерево
+    # проходит, когда одновременно:
+    #   (а) на HEAD есть accept-вердикт критика версии v+1 — та же грамматика, что и у
+    #       freeze_contract (первая строка `accept`);
+    #   (б) КАЖДЫЙ коммит, меняющий текст после заморозки v$vmax, несёт валидную строку
+    #       РАЗРЕШИЛ-ВЛАДЕЛЕЦ этого пути — грамматика razreshil из check_charter.sh,
+    #       переиспользованная, а не скопированная;
+    #   (в) блоб на HEAD равен блобу ЛОКАЛЬНОГО удержания v+1 (refs/frozen-hold/… — то, что
+    #       gitw_teg_130.sh hold снял с тега писателя); в CI удержание недостижимо — оно не
+    #       покидает машину писателя, — и вместо него судится консистентность дельты: коммиты
+    #       текста не меняют ни одного другого файла contracts/*.md и plans/*.md.
+    # Без (а)∧(б) отказ прежний ДОСЛОВНО: его текст уже называет выход, и вторая формулировка
+    # разводила бы один предмет на два имени.
+    vnext=$((vmax + 1))
+    verdict_next="verdicts/critic/${dir}-${NNN}-v${vnext}.md"
+    first_next="$(printf '%s\n' "$(g cat-file -p "HEAD:$verdict_next" 2>/dev/null || true)" \
+      | sed -n 1p | tr -d '\r')"
+    first_next="${first_next#"${first_next%%[![:space:]]*}"}"
+    first_next="${first_next%"${first_next##*[![:space:]]}"}"
+
+    pred_komity=""
+    if [ "$first_next" = accept ]; then
+      # (б): разрешение обязано лежать в каждом коммите-носителе текста — как у устава,
+      # merge несёт строку в теле merge-коммита, а --diff-merges=first-parent предъявляет
+      # evil merge, меняющий текст поверх первого родителя.
+      pred_komity="$(g log --format=%H --no-renames --diff-merges=first-parent \
+        "refs/tags/frozen/$dir/$NNN/$vmax"..HEAD -- "$f" 2>/dev/null || true)"
+    fi
+    razrechen=0
+    if [ -n "$pred_komity" ]; then
+      razrechen=1
+      while IFS= read -r c; do
+        [ -n "$c" ] || continue
+        razreshil "$c" "$f" || { razrechen=0; break; }
+      done <<<"$pred_komity"
+    fi
+
+    if [ "$razrechen" -ne 1 ]; then
+      bad "$f изменён без новой заморозки: на HEAD блоб $head_blob, в заморозке v$vmax — $tag_blob. Выход: новый вердикт критика v$((vmax + 1)), freeze_contract.sh и строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ: в изменяющем коммите"
+    else
+      hold="refs/frozen-hold/$dir/$NNN/$vnext"
+      hold_blob="$(g rev-parse --verify --quiet "$hold^{commit}:$f" 2>/dev/null || true)"
+      if [ -n "$hold_blob" ]; then
+        # (в) локально: удержание писателя — точная мера того, что замораживалось.
+        if [ "$hold_blob" = "$head_blob" ]; then
+          ok "$f — предстоящее v$vnext: accept-вердикт критика на HEAD, разрешение владельца в коммитах текста, блоб равен локальному удержанию $hold; тег v$vnext публикуется после ленда (контракт 130)"
+        else
+          bad "$f: предстоящее v$vnext не совпадает с локальным удержанием $hold — на HEAD блоб $head_blob, в удержании $hold_blob; текст ушёл от замороженного"
+        fi
+      else
+        # (в) в CI: удержания нет — судим дельту коммитов текста по уставным семьям.
+        soglasno=1; chuzhoj=""
+        while IFS= read -r c; do
+          [ -n "$c" ] || continue
+          while IFS= read -r df; do
+            [ -n "$df" ] || continue
+            if [ "$df" != "$f" ]; then
+              case "$df" in
+                contracts/*.md|plans/*.md) soglasno=0; chuzhoj="$df"; break ;;
+              esac
+            fi
+          done < <(charter_diff_paths "$c" "$ROOT")
+          [ "$soglasno" -eq 1 ] || break
+        done <<<"$pred_komity"
+        if [ "$soglasno" -eq 1 ]; then
+          ok "$f — предстоящее v$vnext: accept-вердикт критика на HEAD, разрешение владельца в коммитах текста, локальное удержание недостижимо (CI), коммиты текста не трогают других файлов contracts/ и plans/; тег v$vnext публикуется после ленда (контракт 130)"
+        else
+          bad "$f: предстоящее v$vnext судится только по своему контракту и его вердиктам, но коммит текста меняет ещё и $chuzhoj"
+        fi
+      fi
+    fi
   fi
 
   # Каждая версия от 1 до vmax обязана иметь разрешающий вердикт. Пропуск версии — тоже отказ:
