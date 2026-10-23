@@ -1345,7 +1345,7 @@ build_zones_toy() { # <dir> [viol:1|0] → "C1 C2 C3"
   local d="$1" viol="${2:-1}"
   rm -rf "$d"; mkdir -p "$d/scripts" "$d/contracts"
   local s
-  for s in check_zones.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh lib_incr.sh; do
+  for s in check_zones.sh check_charter.sh next_id.sh lib_roles.sh lib_zones.sh lib_registry.sh lib_incr.sh; do
     cp "$ROOT/scripts/$s" "$d/scripts/$s" 2>/dev/null || { printf 'НЕТ-ЗАВИСИМОСТИ:%s\n' "$s"; return 1; }
   done
   ( cd "$d" && git init -q -b main \
