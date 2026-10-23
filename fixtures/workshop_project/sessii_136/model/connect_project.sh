@@ -131,17 +131,34 @@ elif [ -s .harness/NEXT_TASK.md ]; then
 else
   MSG="Сессия проекта поднята без задания: прочитай .harness/HANDOFF.md и .harness/ROADMAP.md проекта, выбери предмет, доложи план."
 fi
-# 136 (защита пина от подмены): задание НЕ имеет права навязывать свою пару.
-# Пара грамматики 066 — строки WORKTREE=/BRANCH=; доверенная пара — ТОЛЬКО
-# выданная этой дверью выше. Чужая (или половинная) пара в задании —
-# именованный отказ PIN_CHUZHOJ ДО запуска сессии: сессия не стартует
-# непиннованной (extract-pin чужой пары даёт null) и не пишет в чужое дерево.
-_ch_wt="$(printf '%s\n' "$MSG" | sed -n 's/^WORKTREE=//p' | head -1)"
-_ch_br="$(printf '%s\n' "$MSG" | sed -n 's/^BRANCH=//p' | head -1)"
-if [ -n "$_ch_wt" ] || [ -n "$_ch_br" ]; then
-  { [ "$_ch_wt" = "$PIN_WT" ] && [ "$_ch_br" = "$PIN_BR" ]; } \
-    || { printf 'connect ОТКАЗ: PIN_CHUZHOJ: стартовое задание несёт пару, не выданную этой дверью (WORKTREE=%s BRANCH=%s); сессия не запускается\n' "${_ch_wt:-<нет>}" "${_ch_br:-<нет>}" >&2; exit 1; }
-else
+# 136: распознаём ВСЕ декларации в задании по токенизатору 032/066, включая
+# inline pin:WORKTREE=...:BRANCH=... и пустые/половинные декларации. Регулярное
+# выражение токена совпадает с path-guard.ts; пустое значение явно отвергается.
+# Значения сравниваются только с парой этой двери, до exec workshop.
+PIN_TOKENS="$(printf '%s\n' "$MSG" | grep -Eo '(^|[:;,])[[:space:]]*(WORKTREE|BRANCH)=[^[:space:],;:]*' || true)"
+_wt_count=0 _br_count=0 _pin_wrong=0
+while IFS= read -r _token; do
+  [ -n "$_token" ] || continue
+  [[ "$_token" =~ (WORKTREE|BRANCH)=(.*)$ ]] || continue
+  _key="${BASH_REMATCH[1]}"
+  _value="${BASH_REMATCH[2]}"
+  # Страж 066 снимает терминальную пунктуацию с непустых значений.
+  _value="$(printf '%s' "$_value" | sed -E 's/[.,;:!?]+$//')"
+  if [ "$_key" = WORKTREE ]; then
+    _wt_count=$((_wt_count+1))
+    [ "$_value" = "$PIN_WT" ] || _pin_wrong=1
+  else
+    _br_count=$((_br_count+1))
+    [ "$_value" = "$PIN_BR" ] || _pin_wrong=1
+  fi
+done <<< "$PIN_TOKENS"
+if [ "$_pin_wrong" -ne 0 ] || [ "$_wt_count" -ne "$_br_count" ]; then
+  otkaz "PIN_CHUZHOJ: задание несёт чужую либо половинную декларацию пина"
+fi
+if [ "$_wt_count" -gt 1 ]; then
+  otkaz "PIN_DUBL: повтор пин-пары в задании"
+fi
+if [ "$_wt_count" -eq 0 ]; then
   MSG="$MSG
 WORKTREE=$PIN_WT
 BRANCH=$PIN_BR"
@@ -249,6 +266,13 @@ if [ -f "$DOM_SEKRETOV" ]; then
   unset ZNACH _need
   [ -z "$HIT" ] || otkaz "sekret-v-dereve: значение дома секретов в файле «$HIT», который git может проиндексировать — сессия не запускается"
 fi
+
+# Финальный оракул — настоящий extract-pin 066 на ЦЕЛОМ MSG, а не на
+# отдельно выданных WT/BR: при любой неучтённой форме launch fail-closed.
+_extracted="$(node "$HERE/.omp/extensions/path-guard.ts" --extract-pin "$MSG")" \
+  || otkaz "PIN_CHUZHOJ: невозможно извлечь итоговый пин"
+[ "$(printf '%s' "$_extracted" | jq -r '.worktree // empty')" = "$PIN_WT" ] \
+  || otkaz "PIN_CHUZHOJ: итоговый текст не извлекается в пин двери"
 
 # ── одна сессия + хвост задания (093 И-5) ────────────────────────────────────
 export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$KOREN}"
