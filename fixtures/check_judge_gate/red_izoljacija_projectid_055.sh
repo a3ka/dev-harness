@@ -38,7 +38,10 @@ ROOT="${1:-$(cd "$HERE/../.." && pwd -P)}"
 WORKSHOP="$ROOT/workshop"
 RESOLVER="$ROOT/scripts/profile_resolver.sh"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+# ГВАРД САБШЕЛЛА: `sleep N & PID=$!; kill $PID` убивает фон ДО exec —
+# незащищённый EXIT-trap срабатывал В САБШЕЛЛЕ и rm -rf $WORK убивал
+# toy-мир с середины батареи (c4-каскад: стабы rc 127, локи ENOENT).
+trap '[ "${BASH_SUBSHELL:-0}" -eq 0 ] && rm -rf "$WORK"' EXIT
 die_pack() { printf '055-батарея ОТКАЗ: %s\n' "$*" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || die_pack "нет git"
 command -v jq >/dev/null 2>&1 || die_pack "нет jq"
@@ -68,6 +71,11 @@ repo_make() { # $1=корень репо $2=repoId $3=packs-jq-значение 
   else
     printf '{"schemaVersion":1,"repoId":"%s","language":"rust","workflowPaths":{"contracts":"contracts","verdicts":"verdicts","registry":"registry","fixtures":"fixtures"},"commands":{"test":"npm test","build":"tsc","typecheck":"tsc --noEmit","lint":"eslint"},"ci":{"workflow":".github/workflows/ci.yml"},"git":{"canonicalRemote":"git@host:r1.git"},"barriers":{"mandatory":["check_no_leak"],"optional":["check_metering"]},"projectLayer":{"version":"v10","profilePath":"registry/harness-project.json"},"packs":%s}' "$2" "${3:-[]}" > "$r/harness.project.json"
   fi
+  # 059-зависимость: резолвер (ee3352bf) сверяет объявленный ci.workflow с
+  # деревом репо — toy обязан нести файл, чтобы честные клетки судили 055,
+  # а не отказ пути (заголовок: «toy обязан проходить живой резолвер HEAD»).
+  mkdir -p "$r/.github/workflows"
+  printf 'name: toy-ci\n' > "$r/.github/workflows/ci.yml"
   printf '{"version":"v10"}\n' > "$r/config/harness_pin.json"
   printf 'METERING_PROXY_URL=http://toy.invalid:1\n' > "$r/.env"
 }
@@ -382,9 +390,9 @@ h2() { # И-2: два проекта развязаны; маркер A не в�
   ! find "$ob" -name 'marker-055' -print -quit 2>/dev/null | grep -q .
 }
 h3() { # И-4/И-6: живой лок → probe rc РОВНО 1 и ПОЛНАЯ W3 с фактическими root/pid
-  mkdir -p "$(dirname "$hlock")" 2>/dev/null
+  mkdir -p "$hlock" 2>/dev/null
   sleep 30 & HOLDER=$!
-  printf '%s\n' "$HOLDER" > "$hlock"
+  printf '%s\n' "$HOLDER" > "$hlock/pid"
   local o rc=0
   o="$(probe_run "$LAYER" 2>&1)"; rc=$?
   kill "$HOLDER" 2>/dev/null; wait "$HOLDER" 2>/dev/null
@@ -392,23 +400,23 @@ h3() { # И-4/И-6: живой лок → probe rc РОВНО 1 и ПОЛНАЯ 
 }
 h4() { # И-4: мёртвый PID в локе → замещение, probe rc 0
   sleep 30 & DEAD=$!; kill "$DEAD" 2>/dev/null; wait "$DEAD" 2>/dev/null
-  mkdir -p "$(dirname "$hlock")" 2>/dev/null
-  printf '%s\n' "$DEAD" > "$hlock"
+  mkdir -p "$hlock" 2>/dev/null
+  printf '%s\n' "$DEAD" > "$hlock/pid"
   probe_run "$LAYER" >/dev/null 2>&1
 }
 h5() { # И-4 (битый лок): нечисловое содержимое → замещение, probe rc 0
-  mkdir -p "$(dirname "$hlock")" 2>/dev/null
-  printf 'not-a-pid\n' > "$hlock"
+  mkdir -p "$hlock" 2>/dev/null
+  printf 'not-a-pid\n' > "$hlock/pid"
   probe_run "$LAYER" >/dev/null 2>&1
 }
 h6() { # И-6: чистый probe не оставляет лок
-  rm -f "$hlock"
+  rm -rf "$hlock" 2>/dev/null
   probe_run "$LAYER" >/dev/null 2>&1
-  [ ! -f "$hlock" ]
+  [ ! -d "$hlock" ]
 }
 h7() { # И-2/И-7: РЕАЛЬНЫЕ экспорты потомка (субъект-стаб-omp пишет факт env)
   local rc=0 P="$hbase/dev-harness-projects/p1"
-  rm -f "$hlock"
+  rm -rf "$hlock" 2>/dev/null
   live_run "$WORK/h7" >/dev/null 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || return 1
   [ -s "$WORK/h7.env" ] || return 1
@@ -421,22 +429,23 @@ h7() { # И-2/И-7: РЕАЛЬНЫЕ экспорты потомка (субъе
     && ! grep -Eq '^(HOME|HARNESS_SESSION_HOME|HARNESS_SCRATCH|XDG_STATE_HOME)=.*dev-harness-sessions' "$WORK/h7.env"
 }
 h8() { # И-5/И-4: живой старт занимает лок (PID субъекта); вторая копия — rc 1 W3
-  rm -f "$hlock"
+  rm -rf "$hlock" 2>/dev/null
   env PATH="$SHIMDIR:$PATH" XDG_STATE_HOME="$hbase" HARNESS_PROJECT_LAYER_ROOT="$LAYER" \
     ZAI_API_KEY=toy-key MINIMAX_API_KEY=toy-key METERING_PROXY_TOKEN=toy-token \
     SHIM_ENV="$WORK/h8.env" SHIM_OUT="$WORK/h8.pid" SHIM_SLEEP=20 \
     bash "$WORKSHOP" "$R1" >/dev/null 2>&1 &
   WPID=$!
   local i=0
-  until [ -f "$hlock" ] || [ "$i" -ge 200 ]; do sleep 0.1; i=$((i+1)); done
-  [ -f "$hlock" ] || { kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; return 1; }
+  until { [ -s "$hlock/pid" ] && [ -s "$WORK/h8.pid" ]; } || [ "$i" -ge 200 ]; do sleep 0.1; i=$((i+1)); done
+  [ -d "$hlock" ] || { kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; return 1; }
   local lpid shimpid o rc=0
-  lpid="$(cat "$hlock")"
+  lpid="$(cat "$hlock/pid" 2>/dev/null)"
   kill -0 "$lpid" 2>/dev/null || { kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; return 1; }
   shimpid="$(sed 's/^pid=//' "$WORK/h8.pid" 2>/dev/null)"
   [ -n "$shimpid" ] && [ "$lpid" = "$shimpid" ] || { kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; return 1; }
   o="$(live_run "$WORK/h8b" 2>&1)"; rc=$?
   kill "$lpid" 2>/dev/null; wait "$lpid" 2>/dev/null
+  rm -rf "$hlock" 2>/dev/null
   [ "$rc" -eq 1 ] && printf '%s' "$o" | grep -Fq "$(w3_line "$(cd "$R1" && pwd -P)" "$lpid")"
 }
 h9() { # И-1: projectId вне класса → probe rc РОВНО 1, ПОЛНАЯ W4, путей нет
