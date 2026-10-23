@@ -1160,6 +1160,12 @@ while IFS=$'\t' read -r nnn since; do
         # принятие риска только этой исторической пары, не разрешение на новые.
         # Обычная REPLACE-проверка, ancestry и выбор vmax для остальных C
         # не меняются; другие пути и авторы из проверки не исключаются.
+        # Восьмая пара 56f62ed687a6acde05d2e1af76cf6a2ac489a45e / registry/contracts.tsv —
+        # REPLACE 133 → 0e96b80b: строка равна tag-object-sha живой заморозки frozen/contracts/133/2,
+        # опубликованной на origin ДО суда; tag-коммит ветки заморозки вошёл в предков судимого
+        # позже (класс порядка тег/коммит при freeze-on-branch + cherry-pick-ленде — тот же, что
+        # седьмая пара; слово владельца 2026-10-23 ~10:00 UTC пункт 3 плана пятницы). Принятие
+        # риска только этой пары. Систематизация класса — отдельный предмет (форк владельцу).
         # Седьмая пара c663dd0fb0b233e56368707aef6940baaf254a30 / registry/contracts.tsv —
         # REPLACE 111 → 15be96a44 по существу корректен: строка равна tag-object-sha живой
         # заморозки frozen/contracts/111/4, опубликованной на origin ДО суда; tag-коммит
@@ -1183,7 +1189,7 @@ while IFS=$'\t' read -r nnn since; do
             skip_path=1
             continue
             ;;
-          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30)
+          8f1c25f011921721934d870914f562f9f3ff815c|8c734d93b91fb3ff38528d6591d519a5145de325|6b3ab6281437cb2f62595dbfe30d9a7e33eff1ca|eb5df0064ac94551cc361e466e991f8099c0fcca|c663dd0fb0b233e56368707aef6940baaf254a30|56f62ed687a6acde05d2e1af76cf6a2ac489a45e)
             skip_path=1
             continue
             ;;
