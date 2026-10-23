@@ -357,6 +357,33 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "ROADMAP.md" ] && return 0 ;;
   esac
 
+  # ГРАНДФАЗЕР 116-цепочка (слово владельца 2026-10-23 ~10:00 UTC пункт 3 плана
+  # пятницы, канал консультанта: «минт/уставные коммиты привести к тому, что
+  # принимает CI, при необходимости отдельным коммитом»). Восемь main-копий правок
+  # contracts/116-*.md (ленд #319, cherry-pick с s39): текст 116 заморожен их
+  # потомком (freeze 9f89c3785 в s39; merge 6a18fafd5 привёл ветку в main, сломав
+  # линейный порядок суда — правки ДО заморозки своей ветки читаются как M
+  # уставного). Только пара (sha, contracts/116-cmp-mob-005-mission.md);
+  # зоны не расширять.
+  case "$c" in
+    a8a58d9a6b9d456d776152ed86b42ae8a51b765f)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    3a5f2458afc17b71b83fb5f049796a8991ee1eb0)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    2db6345a2abceb7f2aeb87fb882358adb4dfba77)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    6f468ef8acf73ce56d31bff7aa0f0302c237c98a)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    c99a7a1d6d35cea2741b5b4a300422b4288d1bc0)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    1af9e1730ac5511a65b473342e8a1160fdfb3db3)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    1ec4f3da673f8e6e11dfa92da6520a8284a17479)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+    87d416e1b3a047fc57cb96f5acc3cc063d552ec0)
+      [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
+  esac
+
   local body line path reason
   body="$(g log -1 --format=%B "$c")"
   while IFS= read -r line; do
