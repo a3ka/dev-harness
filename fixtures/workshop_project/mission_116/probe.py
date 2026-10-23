@@ -695,6 +695,21 @@ def mut_ci_run_kommentarij(pack, forma, repo, src):
     assert s != src['mobile_ci_tekst']
     _perekopi_fajl(repo, CI_PROD, s)
 
+def mut_ci_shag_vne_required_job(pack, forma, repo, src):
+    """Шаг байт-равен пину, но лежит в job вне required checks
+    (арбитраж 4cadfc54 а: замкнутое множество судит и membership
+    блока шага в android-e2e)."""
+    shag = ('      - name: 116 mission behaviour render\n'
+            '        run: npx jest src/features/conversation/'
+            '__tests__/mission-116.test.tsx\n')
+    assert shag in src['mobile_ci_tekst']
+    vne = src['mobile_ci_tekst'].replace(shag, '') + (
+        '  ne-required-job:\n'
+        '    runs-on: ubuntu-latest\n'
+        '    steps:\n'
+        '      - uses: actions/checkout@v4\n' + shag)
+    _perekopi_fajl(repo, CI_PROD, vne)
+
 
 MUTACII = {
     'chestnyj-ekran': None,
@@ -741,6 +756,7 @@ MUTACII = {
     'ci-if-false-posle-run': mut_ci_if_false_posle_run,
     'ci-echo-podmena': mut_ci_echo_podmena,
     'ci-run-kommentarij': mut_ci_run_kommentarij,
+    'ci-shag-vne-required-job': mut_ci_shag_vne_required_job,
 }
 
 

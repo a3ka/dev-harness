@@ -1,14 +1,21 @@
-# Стаб (Н-39): копия честной статической пробы 116, отключена ровно одна ветвь (sud_ci_shag: отсутствие шага mobile.yml); на своём входе stab_vhod пропускает дефект, на остальных ведёт себя честно.
+# Стаб (Н-39): копия честной статической пробы 116, отключена ровно одна
+# ветвь (sud_ci_shag: отсутствие шага mobile.yml); на своём входе stab_vhod пропускает дефект,
+# на остальных ведёт себя честно.
 #!/usr/bin/env python3
 # Статическая проба 116 (третий субъект батареи) — страж ФОРМЫ по
 # арбитражу 0259fb00 (е): закрытые множества (членство testID/токенов,
 # литералы каталога, запрет hex, draftStore/value-порты как РАННИЙ СИГНАЛ
 # — не суд поведения). Поведение и фактический рендер судит ИСПОЛНЯЕМАЯ
 # семья продукта (Jest/RNTL, product-CI, клетки K1-K19), её проводку
-# держат ДВЕ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б) и шаг
-# mobile.yml без continue-on-error (в). Ожидания — закрытые литералы
-# ЗДЕСЬ (оракул в памяти проверяющего, правило 8). rc 1 — PRICHINA по
-# имени ветви; rc 0 — тихо.
+# держат ТРИ закрытые проверки ЗДЕСЬ: байт-пин текста пробы (б) и ПИН
+# БЛОКА ШАГА mobile.yml (в; арбитраж 4cadfc54 а: класс echo-подмен
+# перечнем командных позиций НЕ замыкается — разбор shell УБРАТ, страж
+# формы = замкнутое множество, байт-равенство блока шага пину). Факт
+# запуска и гейта семью статикой НЕ судится: его судит runtime-строка
+# критерия product-CI (gh pr checks --required + conclusion шага +
+# лог Tests: 19 passed, 19 total — контракт :38).
+# Ожидания — закрытые литералы ЗДЕСЬ (оракул в памяти проверяющего,
+# правило 8). rc 1 — PRICHINA по имени ветви; rc 0 — тихо.
 import argparse
 import json
 import re
@@ -60,10 +67,21 @@ AUDIT_TOKENOV = {
 PROBA_PUT = 'mobile/src/features/conversation/__tests__/mission-116.test.tsx'
 PROBA_SHA256 = '873cf35be05a8ae8dcfff682100c992c9ee59096c0fe8a261f7eae56de871bdb'
 
-# Проводка product-CI (0259fb00 в): шаг jest семьи в mobile.yml обязан
-# существовать и гейтить (без continue-on-error / if: false).
+# Проводка product-CI (0259fb00 в; арбитраж 4cadfc54 а): страж ФОРМЫ —
+# ПИН БЛОКА ШАГА, замкнутое множество. В mobile.yml ровно один блок
+# шага, начинающийся строкой пина; блок (до первой строки с отступом
+# <= отступа '-', пустые строки и YAML-комментарии отброшены, строки
+# по .strip()) побайтово равен двум строкам пина (носитель —
+# source.json.mobile_ci_tekst), других ключей в блоке нет; блок лежит
+# в job android-e2e (required check по замеру круга 3). Любая форма
+# run кроме пина (echo-подмена, ||, if:, continue-on-error, cd &&,
+# многострочный честный) красна — fail-closed принят арбитражем.
 CI_PUT = '.github/workflows/mobile.yml'
-CI_SHAG_MARKER = 'mission-116.test.tsx'
+CI_PIN = [
+    '- name: 116 mission behaviour render',
+    'run: npx jest src/features/conversation/__tests__/mission-116.test.tsx',
+]
+CI_JOB = 'android-e2e'
 
 
 def prichina(imja, detal):
@@ -259,21 +277,48 @@ def sud_proba_povedenija(repo, _opis):
 
 
 def sud_ci_shag(repo, _opis):
-    """СТАБ: отсутствие шага mobile.yml пропускается."""
+    """Страж формы шага mobile.yml = ПИН БЛОКА ШАГА (арбитраж 4cadfc54
+    а: замкнутое множество). Блок шага байт-равен двум строкам пина и
+    лежит в job android-e2e; разбор shell (командные позиции, echo,
+    комментарии) УБРАН — класс перечнем не замыкается, любая форма run
+    кроме пина красна (fail-closed). Факт запуска и гейта судит
+    runtime-строка критерия product-CI, не статика."""
     put = repo / CI_PUT
     if not put.is_file():
-        return []
+        return [('CI_BEZ_SHAGA_POVEDENIJA', CI_PUT)]
     linii = put.read_text(encoding='utf-8').splitlines()
-    i_shag = next((i for i, l in enumerate(linii) if CI_SHAG_MARKER in l), -1)
-    if i_shag < 0:
+    nacheta = [i for i, l in enumerate(linii) if l.strip() == CI_PIN[0]]
+    # СТАБ: отсутствие шага mobile.yml пропускается.
+    if not nacheta:
         return []
-    nach = i_shag
-    while nach > 0 and not linii[nach].lstrip().startswith('- '):
-        nach -= 1
-    blok = linii[nach:i_shag + 1]
-    telo = '\n'.join(blok)
-    if 'continue-on-error' in telo or re.search(r'if:\s*false', telo):
-        return [('CI_SHAG_POVEDENIJA_NE_GEJTIT', 'continue-on-error')]
+    if len(nacheta) > 1:
+        return [('CI_SHAG_POVEDENIJA_NE_PO_PINU',
+                 'blokov shaga %d' % len(nacheta))]
+    i = nacheta[0]
+    otstup = len(linii[i]) - len(linii[i].lstrip())
+    blok = [linii[i].strip()]
+    for l in linii[i + 1:]:
+        if l.strip() == '' or l.lstrip().startswith('#'):
+            continue
+        if len(l) - len(l.lstrip()) <= otstup:
+            break
+        blok.append(l.strip())
+    if blok != CI_PIN:
+        # детализация (4cadfc54 а): найденный негейтящий ключ называется,
+        # но вердикт rc определяет равенство пину, не перечень
+        for kljuch in ('continue-on-error', 'if'):
+            if any(b.startswith(kljuch + ':') for b in blok):
+                return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', kljuch)]
+        return [('CI_SHAG_POVEDENIJA_NE_PO_PINU', 'blok shaga')]
+    # блок байт-равен пину; membership в required-job
+    job = None
+    for l in reversed(linii[:i]):
+        m = re.match(r'^  ([\w-]+):\s*$', l)
+        if m:
+            job = m.group(1)
+            break
+    if job != CI_JOB:
+        return [('CI_SHAG_POVEDENIJA_VNE_REQUIRED_JOB', str(job))]
     return []
 
 
