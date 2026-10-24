@@ -7,85 +7,828 @@
     "strazh": ".omp/extensions/path-guard.ts"
   },
   "kletki": {
-    "a1-p6-hvost":          {"bol": "НАБЛ-П6",  "krasnaya_sejchas": true,  "sut": "дверь передаёт workshop хвост `-- <MSG>` из .harness/NEXT_TASK.md"},
-    "a2-p6-brief-defolt":   {"bol": "НАБЛ-П6",  "krasnaya_sejchas": true,  "sut": "без NEXT_TASK.md стартовое сообщение непусто (служебный бриф HANDOFF/ROADMAP)"},
-    "a3-p3-pin-v-soobshchenii": {"bol": "НАБЛ-П3", "krasnaya_sejchas": true, "sut": "стартовое сообщение несёт пару WORKTREE=/BRANCH= на живой linked worktree ПОД $PSTATE, вне дерева проекта; задание с ЧУЖОЙ парой — именованный отказ PIN_CHUZHOJ, сессия не поднимается"},
-    "a4-p3-zapis":          {"bol": "НАБЛ-П3",  "krasnaya_sejchas": true,  "sut": "extractPin(сообщение двери) даёт пин; judge write в этот worktree — pass; чужая пара в задании (extract-pin → null) — PIN_CHUZHOJ, не непиннованный старт"},
-    "a5-p12-agent":         {"bol": "НАБЛ-П12", "krasnaya_sejchas": true,  "sut": "с пином двери write agent://<id> — pass"},
-    "a6-p11-subagent-pin":  {"bol": "НАБЛ-П11", "krasnaya_sejchas": true,  "sut": "subagent-pin.sh выдаёт пару на живой worktree; judge write — pass; ДОСТАВКА: коммит субагента виден из чекаута проекта git-каналом (tip wip/<NNN>/<автор>), без ручного переноса между деревьями"},
-    "a7-granica-unpinned":  {"bol": "НАБЛ-П3",  "krasnaya_sejchas": false, "sut": "контроль неослабления: unpinned judge write в чекаут проекта — block"},
-    "a8-pin-block": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"одна правильная двухстрочная пара в NEXT_TASK запускается; extractPin полного MSG и judge write/agent проходят"},
-    "a9-pin-inline": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"одна правильная inline пара в NEXT_TASK запускается с неизменённым текстом и пином полного MSG"},
-    "a10-pin-duplicate": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"две равные правильные пары в NEXT_TASK дают PIN_DUBL до exec"},
-    "a11-pin-mixed": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"правильная пара + чужая пара дают PIN_CHUZHOJ до exec"},
-    "a12-pin-reverse": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"чужая пара + правильная дают PIN_CHUZHOJ независимо от порядка"},
-    "a13-pin-foreign-wt": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"чужой WORKTREE с правильным BRANCH даёт PIN_CHUZHOJ"},
-    "a14-pin-foreign-br": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"правильный WORKTREE с чужим BRANCH даёт PIN_CHUZHOJ"},
-    "a15-pin-extra-wt": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"лишний правильный WORKTREE после правильной пары даёт PIN_CHUZHOJ"},
-    "a16-pin-extra-br": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"лишний правильный BRANCH после правильной пары даёт PIN_CHUZHOJ"},
-    "a17-pin-half-wt": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"одиночный WORKTREE даёт PIN_CHUZHOJ"},
-    "a18-pin-empty-br": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"пустая декларация BRANCH= даёт PIN_CHUZHOJ"},
-    "a19-pin-inline-mixed": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"inline и блочная равные пары дают PIN_DUBL"},
-    "a20-pin-delimiters": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"разделители ; и , с пробелами распознаются как одна правильная пара"},
-    "a21-pin-taskfile-duplicate": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"две правильные пары в --task-file дают PIN_DUBL до exec"},
-    "a22-pin-taskfile-inline": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"одна правильная inline пара из --task-file запускается с extractPin полного MSG"},
-    "a23-pin-live-foreign": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"живой worktree чужой пары извлекается guard, но дверь отказывает PIN_CHUZHOJ"},
-    "a24-pin-inline-foreign": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"inline пара с чужим BRANCH даёт PIN_CHUZHOJ до exec"},
-    "a25-argv-koren-do-razdelitelja": {"bol": "Rev136-B1", "krasnaya_sejchas": true, "sut": "границы argv И-4 (NUL-наблюдатель): ровно [--yolo, KOREN, --, MSG]; KOREN — отдельный аргумент ДО --, MSG — выбранный текст + дверная пара байт в байт; дописанный в MSG корень красен"},
-    "a26-ctrl-msg-zakanchivaetsya-putem": {"bol": "Rev136-B1", "krasnaya_sejchas": true, "sut": "положительный контроль: многострочный MSG, кончающийся путём проекта, передаётся байт в байт; корень остаётся отдельным аргументом; пин полного MSG извлекается настоящим стражем"},
-    "a27-strazh-net": {"bol": "Rev136-B2", "krasnaya_sejchas": true, "sut": "стража в установке нет — именованный отказ strazh-net ДО exec, сессия не поднимается; собственного оракула-замены у двери нет"},
-    "a28-taskfile-argv": {"bol": "kritik-r1-B1", "krasnaya_sejchas": true, "sut": "ветвь --task-file: те же границы argv (NUL-наблюдатель), что a25 — корень отдельный аргумент ДО --, MSG = текст task-file + дверная пара байт в байт; потеря корня только на этом входе (мутант m06) красна"},
-    "a29-brief-argv": {"bol": "kritik-r1-B1", "krasnaya_sejchas": true, "sut": "ветвь служебного брифа: корень отдельный аргумент ДО --, MSG — непустой единственный аргумент после -- (бриф + дверная пара), пин полного MSG извлекается стражем"},
-    "a30-finalnyj-orakul": {"bol": "kritik-r1-B2", "krasnaya_sejchas": true, "sut": "финальный оракул — НАСТОЯЩИЙ страж на целом MSG: \\r-разделённая чужая пара невидима построчному сканеру двери, но извлекается стражем — PIN_CHUZHOJ ДО exec; замена оракула локальным сканером при существующем файле стража и node запускает сессию"},
-    "a31-net-node": {"bol": "kritik-r1-B2", "krasnaya_sejchas": true, "sut": "node НЕТ (живой PATH без node) — именованный отказ strazh-net ДО exec; fallback на собственный разбор или тихий запуск запрещён"},
-    "b1-povtor":            {"bol": "НАБЛ-П3",  "krasnaya_sejchas": true,  "sut": "повторный вход двери не перезаписывает существующее и не дублирует worktree (И-7)"},
-    "b2-p10-raskladka":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "после двери: <workflowPaths.registry>/{ci_parity_exceptions.txt,trace.tsv} есть (сев ПО ФАКТУ профиля, registry переопределён), корневого config/ нет (И-6)"},
-    "b3-trassa-net-konfiga": {"bol": "Rev136-B2", "krasnaya_sejchas": true, "sut": "конфига установки НЕТ, трасса нужна — именованный отказ trassa-net-konfiga ДО exec, трасса не сеется; ветви «старт без трассы» не существует"},
-    "b4-trassa-konfig-bit": {"bol": "Rev136-B2", "krasnaya_sejchas": true, "sut": "конфиг есть, но не разбирается — тот же trassa-net-konfiga ДО exec"},
-    "c1-p17-map":           {"bol": "НАБЛ-П17", "krasnaya_sejchas": true,  "sut": "бриф оркестратора несёт MAP каждого row (roles без orchestrator) — docs/ARCHITECTURE.md"},
-    "c2-p17-rules":         {"bol": "НАБЛ-П17", "krasnaya_sejchas": true,  "sut": "бриф несёт RULES: docs/CODING-STANDARDS.md"},
-    "c3-p5-trassa-defolt":  {"bol": "НАБЛ-П5",  "krasnaya_sejchas": true,  "sut": "make_task --kind brief без --model-trace: rc 0, TRACE из <workflowPaths.registry>/trace.tsv; модель оркестратора — из КОНФИГА УСТАНОВКИ (roles.orchestrator→tiers→models), рассогласование trace↔конфиг исключено"},
-    "c4-kontrol-filtr":     {"bol": "НАБЛ-П17", "krasnaya_sejchas": false, "sut": "контроль грамматики 095: kind=task фильтр ролей НЕ снят — critic без roles в rows видит пустой MAP"},
-    "c5-kontrol-jeksplizit": {"bol": "НАБЛ-П5",  "krasnaya_sejchas": false, "sut": "контроль: явный --model-trace переопределяет дефолт"},
-    "d1-p10-isklyuchenie":  {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "parity проекта читает исключения из <workflowPaths.registry>/ci_parity_exceptions.txt ПО ФАКТУ профиля (переопределённый registry); объявление команды — rc 0"},
-    "d2-kontrol-dom":       {"bol": "НАБЛ-П10", "krasnaya_sejchas": false, "sut": "контроль режима харнесса ДОСЛОВНО: корень без harness.project.json — config/ci_parity_exceptions.txt, семантика 020 не тронута"},
-    "d3-kontrol-koren":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "проектный режим читает ТОЛЬКО профильный перечень: пустой — rc 1 FAIL (даже при ловушке-корне config/ с достаточными объявлениями); файла нет — rc 2 с именем профильного пути, корень не читается"},
-    "d4-harness-svoj-profil": {"bol": "Rev136-B2", "krasnaya_sejchas": false, "sut": "КОНТРОЛЬ: собственный профиль харнесса (profilePath=registry/... вне .harness/, без .harness/) — режим 020 дословно, корневой config/, rc 0; ловит предикат «есть harness.project.json → проектный режим»"},
-    "d5-sloi-poterjan":     {"bol": "Rev136-B2", "krasnaya_sejchas": true,  "sut": "у проектного профиля потерян ОБЪЯВЛЕННЫЙ файл слоя (.harness/project-layer.json) — rc 2 с именем объявленного пути; молчаливый fallback на корневую ловушку config/ запрещён"},
-    "d6-sloi-drugoe-imja":  {"bol": "kritik-r1-B3", "krasnaya_sejchas": true, "sut": "слой под .harness/ с ДРУГИМ объявленным именем (.harness/alternate.json) — тоже проектный режим: исключения только профильные (пустые → rc 1 FAIL), корневая ловушка игнорируется; хардкод единственного имени слоя (мутант m09) даёт rc 0 от корня — красен"},
-    "d7-bez-jq":            {"bol": "kritik-r1-B3", "krasnaya_sejchas": true, "sut": "профиль есть, jq НЕТ (живой PATH без jq) — rc 2 именованный «jq нет», режим не выбирается молча; зелёный fallback (мутант m10) — красный вход"},
-    "d8-profil-bit":        {"bol": "kritik-r1-B3", "krasnaya_sejchas": true, "sut": "профиль НЕ разбирается — rc 2 именованный с именем профиля; молчаливый fallback на корневую ловушку config/ запрещён"}
+    "a1-p6-hvost": {
+      "bol": "НАБЛ-П6",
+      "krasnaya_sejchas": true,
+      "sut": "дверь передаёт workshop хвост `-- <MSG>` из .harness/NEXT_TASK.md"
+    },
+    "a2-p6-brief-defolt": {
+      "bol": "НАБЛ-П6",
+      "krasnaya_sejchas": true,
+      "sut": "без NEXT_TASK.md стартовое сообщение непусто (служебный бриф HANDOFF/ROADMAP)"
+    },
+    "a3-p3-pin-v-soobshchenii": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "стартовое сообщение несёт пару WORKTREE=/BRANCH= на живой linked worktree ПОД $PSTATE, вне дерева проекта; задание с ЧУЖОЙ парой — именованный отказ PIN_CHUZHOJ, сессия не поднимается"
+    },
+    "a4-p3-zapis": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "extractPin(сообщение двери) даёт пин; judge write в этот worktree — pass; чужая пара в задании (extract-pin → null) — PIN_CHUZHOJ, не непиннованный старт"
+    },
+    "a5-p12-agent": {
+      "bol": "НАБЛ-П12",
+      "krasnaya_sejchas": true,
+      "sut": "с пином двери write agent://<id> — pass"
+    },
+    "a6-p11-subagent-pin": {
+      "bol": "НАБЛ-П11",
+      "krasnaya_sejchas": true,
+      "sut": "subagent-pin.sh выдаёт пару на живой worktree; judge write — pass; ДОСТАВКА: коммит субагента виден из чекаута проекта git-каналом (tip wip/<NNN>/<автор>), без ручного переноса между деревьями"
+    },
+    "a7-granica-unpinned": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": false,
+      "sut": "контроль неослабления: unpinned judge write в чекаут проекта — block"
+    },
+    "a8-pin-block": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "одна правильная двухстрочная пара в NEXT_TASK запускается; extractPin полного MSG и judge write/agent проходят"
+    },
+    "a9-pin-inline": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "одна правильная inline пара в NEXT_TASK запускается с неизменённым текстом и пином полного MSG"
+    },
+    "a10-pin-duplicate": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "две равные правильные пары в NEXT_TASK дают PIN_DUBL до exec"
+    },
+    "a11-pin-mixed": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "правильная пара + чужая пара дают PIN_CHUZHOJ до exec"
+    },
+    "a12-pin-reverse": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "чужая пара + правильная дают PIN_CHUZHOJ независимо от порядка"
+    },
+    "a13-pin-foreign-wt": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "чужой WORKTREE с правильным BRANCH даёт PIN_CHUZHOJ"
+    },
+    "a14-pin-foreign-br": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "правильный WORKTREE с чужим BRANCH даёт PIN_CHUZHOJ"
+    },
+    "a15-pin-extra-wt": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "лишний правильный WORKTREE после правильной пары даёт PIN_CHUZHOJ"
+    },
+    "a16-pin-extra-br": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "лишний правильный BRANCH после правильной пары даёт PIN_CHUZHOJ"
+    },
+    "a17-pin-half-wt": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "одиночный WORKTREE даёт PIN_CHUZHOJ"
+    },
+    "a18-pin-empty-br": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "пустая декларация BRANCH= даёт PIN_CHUZHOJ"
+    },
+    "a19-pin-inline-mixed": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "inline и блочная равные пары дают PIN_DUBL"
+    },
+    "a20-pin-delimiters": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "разделители ; и , с пробелами распознаются как одна правильная пара"
+    },
+    "a21-pin-taskfile-duplicate": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "две правильные пары в --task-file дают PIN_DUBL до exec"
+    },
+    "a22-pin-taskfile-inline": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "одна правильная inline пара из --task-file запускается с extractPin полного MSG"
+    },
+    "a23-pin-live-foreign": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "живой worktree чужой пары извлекается guard, но дверь отказывает PIN_CHUZHOJ"
+    },
+    "a24-pin-inline-foreign": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "inline пара с чужим BRANCH даёт PIN_CHUZHOJ до exec"
+    },
+    "a25-argv-koren-do-razdelitelja": {
+      "bol": "Rev136-B1",
+      "krasnaya_sejchas": true,
+      "sut": "границы argv И-4 (NUL-наблюдатель): ровно [--yolo, KOREN, --, MSG]; KOREN — отдельный аргумент ДО --, MSG — выбранный текст + дверная пара байт в байт; дописанный в MSG корень красен"
+    },
+    "a26-ctrl-msg-zakanchivaetsya-putem": {
+      "bol": "Rev136-B1",
+      "krasnaya_sejchas": true,
+      "sut": "положительный контроль: многострочный MSG, кончающийся путём проекта, передаётся байт в байт; корень остаётся отдельным аргументом; пин полного MSG извлекается настоящим стражем"
+    },
+    "a27-strazh-net": {
+      "bol": "Rev136-B2",
+      "krasnaya_sejchas": true,
+      "sut": "стража в установке нет — именованный отказ strazh-net ДО exec, сессия не поднимается; собственного оракула-замены у двери нет"
+    },
+    "a28-taskfile-argv": {
+      "bol": "kritik-r1-B1",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file: те же границы argv (NUL-наблюдатель), что a25 — корень отдельный аргумент ДО --, MSG = текст task-file + дверная пара байт в байт; потеря корня только на этом входе (мутант m06) красна"
+    },
+    "a29-brief-argv": {
+      "bol": "kritik-r1-B1",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь служебного брифа: корень отдельный аргумент ДО --, MSG — непустой единственный аргумент после -- (бриф + дверная пара), пин полного MSG извлекается стражем"
+    },
+    "a30-finalnyj-orakul": {
+      "bol": "kritik-r1-B2",
+      "krasnaya_sejchas": true,
+      "sut": "финальный оракул — НАСТОЯЩИЙ страж на целом MSG: \\r-разделённая чужая пара невидима построчному сканеру двери, но извлекается стражем — PIN_CHUZHOJ ДО exec; замена оракула локальным сканером при существующем файле стража и node запускает сессию"
+    },
+    "a31-net-node": {
+      "bol": "kritik-r1-B2",
+      "krasnaya_sejchas": true,
+      "sut": "node НЕТ (живой PATH без node) — именованный отказ strazh-net ДО exec; fallback на собственный разбор или тихий запуск запрещён"
+    },
+    "b1-povtor": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "повторный вход двери не перезаписывает существующее и не дублирует worktree (И-7)"
+    },
+    "b2-p10-raskladka": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "после двери: <workflowPaths.registry>/{ci_parity_exceptions.txt,trace.tsv} есть (сев ПО ФАКТУ профиля, registry переопределён), корневого config/ нет (И-6)"
+    },
+    "b3-trassa-net-konfiga": {
+      "bol": "Rev136-B2",
+      "krasnaya_sejchas": true,
+      "sut": "конфига установки НЕТ, трасса нужна — именованный отказ trassa-net-konfiga ДО exec, трасса не сеется; ветви «старт без трассы» не существует"
+    },
+    "b4-trassa-konfig-bit": {
+      "bol": "Rev136-B2",
+      "krasnaya_sejchas": true,
+      "sut": "конфиг есть, но не разбирается — тот же trassa-net-konfiga ДО exec"
+    },
+    "c1-p17-map": {
+      "bol": "НАБЛ-П17",
+      "krasnaya_sejchas": true,
+      "sut": "бриф оркестратора несёт MAP каждого row (roles без orchestrator) — docs/ARCHITECTURE.md"
+    },
+    "c2-p17-rules": {
+      "bol": "НАБЛ-П17",
+      "krasnaya_sejchas": true,
+      "sut": "бриф несёт RULES: docs/CODING-STANDARDS.md"
+    },
+    "c3-p5-trassa-defolt": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "make_task --kind brief без --model-trace: rc 0, TRACE из <workflowPaths.registry>/trace.tsv; модель оркестратора — из КОНФИГА УСТАНОВКИ (roles.orchestrator→tiers→models), рассогласование trace↔конфиг исключено"
+    },
+    "c4-kontrol-filtr": {
+      "bol": "НАБЛ-П17",
+      "krasnaya_sejchas": false,
+      "sut": "контроль грамматики 095: kind=task фильтр ролей НЕ снят — critic без roles в rows видит пустой MAP"
+    },
+    "c5-kontrol-jeksplizit": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": false,
+      "sut": "контроль: явный --model-trace переопределяет дефолт"
+    },
+    "d1-p10-isklyuchenie": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "parity проекта читает исключения из <workflowPaths.registry>/ci_parity_exceptions.txt ПО ФАКТУ профиля (переопределённый registry); объявление команды — rc 0"
+    },
+    "d2-kontrol-dom": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": false,
+      "sut": "контроль режима харнесса ДОСЛОВНО: корень без harness.project.json — config/ci_parity_exceptions.txt, семантика 020 не тронута"
+    },
+    "d3-kontrol-koren": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "проектный режим читает ТОЛЬКО профильный перечень: пустой — rc 1 FAIL (даже при ловушке-корне config/ с достаточными объявлениями); файла нет — rc 2 с именем профильного пути, корень не читается"
+    },
+    "d4-harness-svoj-profil": {
+      "bol": "Rev136-B2",
+      "krasnaya_sejchas": false,
+      "sut": "КОНТРОЛЬ: собственный профиль харнесса (profilePath=registry/... вне .harness/, без .harness/) — режим 020 дословно, корневой config/, rc 0; ловит предикат «есть harness.project.json → проектный режим»"
+    },
+    "d5-sloi-poterjan": {
+      "bol": "Rev136-B2",
+      "krasnaya_sejchas": true,
+      "sut": "у проектного профиля потерян ОБЪЯВЛЕННЫЙ файл слоя (.harness/project-layer.json) — rc 2 с именем объявленного пути; молчаливый fallback на корневую ловушку config/ запрещён"
+    },
+    "d6-sloi-drugoe-imja": {
+      "bol": "kritik-r1-B3",
+      "krasnaya_sejchas": true,
+      "sut": "слой под .harness/ с ДРУГИМ объявленным именем (.harness/alternate.json) — тоже проектный режим: исключения только профильные (пустые → rc 1 FAIL), корневая ловушка игнорируется; хардкод единственного имени слоя (мутант m09) даёт rc 0 от корня — красен"
+    },
+    "d7-bez-jq": {
+      "bol": "kritik-r1-B3",
+      "krasnaya_sejchas": true,
+      "sut": "профиль есть, jq НЕТ (живой PATH без jq) — rc 2 именованный «jq нет», режим не выбирается молча; зелёный fallback (мутант m10) — красный вход"
+    },
+    "d8-profil-bit": {
+      "bol": "kritik-r1-B3",
+      "krasnaya_sejchas": true,
+      "sut": "профиль НЕ разбирается — rc 2 именованный с именем профиля; молчаливый fallback на корневую ловушку config/ запрещён"
+    },
+    "a34-pin-taskfile-block": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма block (голая пара) — конформный вход: сессия поднимается, текст байт в байт, пин полного MSG извлекается стражем (ось A2 × task-file, арбитраж 136v2)"
+    },
+    "a35-pin-taskfile-mixed": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма mixed (своя + чужая) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a36-pin-taskfile-reverse": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма reverse (чужая + своя) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a37-pin-taskfile-foreign-wt": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма foreign-wt → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a38-pin-taskfile-foreign-br": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма foreign-br → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a39-pin-taskfile-extra-wt": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма extra-wt (пара + лишний WORKTREE) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a40-pin-taskfile-extra-br": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма extra-br (пара + лишний BRANCH) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a41-pin-taskfile-half-wt": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма half-wt (половинная декларация) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a42-pin-taskfile-empty-br": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма empty-br (пустое значение) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a43-pin-taskfile-inline-mixed": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма inline-mixed (inline-пара + блочная) → PIN_DUBL rc 1 до exec (ось A2 × task-file)"
+    },
+    "a44-pin-taskfile-delimiters": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма delimiters (пара после ; и ,) — конформный вход: сессия поднимается (ось A2 × task-file)"
+    },
+    "a45-pin-taskfile-live-foreign": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма live-foreign (живой чужой worktree) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a46-pin-taskfile-inline-foreign": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "ветвь --task-file, форма inline-foreign (inline-пара с чужой веткой) → PIN_CHUZHOJ rc 1 до exec (ось A2 × task-file)"
+    },
+    "a47-brief-struktura": {
+      "bol": "НАБЛ-П6",
+      "krasnaya_sejchas": true,
+      "sut": "служебный бриф структурно: пара — последние две строки MSG, текст содержит HANDOFF и ROADMAP, ни одна строка MSG не равна корню проекта, пин-токенов ровно один; корень дописан в бриф при правильном argv — красный (ось A × бриф, n01)"
+    },
+    "a48-pustoj-next-brief": {
+      "bol": "НАБЛ-П6",
+      "krasnaya_sejchas": true,
+      "sut": "NEXT_TASK.md существует, но пуст — выбирается служебный бриф, а не пустой файл: argv формы И-4, MSG несёт HANDOFF, пара последними двумя строками (ось A, третье состояние, n07)"
+    },
+    "a49-cr-para-v-taskfile": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "\\r-разделённая чужая пара из --task-file: построчному сканеру невидима, финальный НАСТОЯЩИЙ страж отказывает PIN_CHUZHOJ до exec (ось A, оракул × task-file, n02)"
+    },
+    "a50-strazh-nulevoj-fajl": {
+      "bol": "НАБЛ-П3",
+      "krasnaya_sejchas": true,
+      "sut": "страж установки нулевого размера — именованный отказ rc 1 до exec без вызова двойника; имя отказа из модели: PIN_CHUZHOJ, извлечение из пустого стража пусто (ось B, n03)"
+    },
+    "b5-jq-net-possev": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "jq нет в момент, когда нужен посев trace (живой PATH без jq) — trassa-net-konfiga rc 1 до exec, трасса не сеется нигде (ось C, четвёртое состояние, И-6)"
+    },
+    "d9-sloi-drugoe-imja-poterjan": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "объявлен .harness/alternate.json, файла нет, стандартный .harness/project-layer.json — приманка: rc 2 с именем объявленного пути, корневая ловушка не читается (ось D: иное имя × потерян, n04)"
+    },
+    "d10-sloi-vlozhennoe-imja": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "объявлен и существует вложенный слой .harness/layers/custom.json — проектный режим (свойство пути, не глубина): исключения только профильные, корневая ловушка игнорируется → rc 1 (ось D: вложенное имя × есть, n05)"
+    },
+    "d11-sloi-vlozhennoe-poterjan": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "объявлен вложенный слой .harness/layers/custom.json, файла нет — rc 2 с именем объявленного пути; молчаливый fallback на корень/режим харнесса запрещён (ось D: вложенное имя × потерян)"
+    }
   },
   "stab_vhod": {
-    "s1-dver-bez-pina":       ["a3-p3-pin-v-soobshchenii", "a4-p3-zapis", "a5-p12-agent"],
-    "s2-dver-wt-v-dereve":    ["a3-p3-pin-v-soobshchenii"],
-    "s3-dver-perezapis":      ["b1-povtor"],
-    "s4-dver-koren-config":   ["b2-p10-raskladka"],
-    "s5-dver-net-trassy":     ["b2-p10-raskladka", "c3-p5-trassa-defolt"],
-    "s6-zadacha-filtr-vezde": ["c4-kontrol-filtr"],
-    "s7-zadacha-trassa-net":  ["c3-p5-trassa-defolt"],
-    "s8-parity-vsegda-harness": ["d2-kontrol-dom"],
-    "s9-parity-vse-zeleno":   ["d3-kontrol-koren"],
-    "s10-dver-cuzaja-para":   ["a3-p3-pin-v-soobshchenii", "a4-p3-zapis", "a23-pin-live-foreign", "a24-pin-inline-foreign"],
-    "s11-dver-glm-konstanta": ["c3-p5-trassa-defolt"],
-    "s12-dver-registr-bukvalno": ["b2-p10-raskladka", "c3-p5-trassa-defolt", "d1-p10-isklyuchenie"],
-    "s13-parity-koren-v-proekte": ["d3-kontrol-koren"],
-    "s14-subagent-klon":      ["a6-p11-subagent-pin"],
-    "s15-dver-tolko-pervaja": ["a10-pin-duplicate", "a11-pin-mixed", "a15-pin-extra-wt", "a16-pin-extra-br", "a21-pin-taskfile-duplicate"],
-    "s16-dver-ravnye-dubli":  ["a10-pin-duplicate", "a19-pin-inline-mixed", "a21-pin-taskfile-duplicate"],
-    "s17-dver-inline-ne-vidit": ["a9-pin-inline", "a22-pin-taskfile-inline", "a24-pin-inline-foreign"],
-    "s18-dver-tolko-poslednjaja": ["a12-pin-reverse"],
-    "s19-dver-strazh-svoj-orakul": ["a27-strazh-net"],
-    "s20-dver-trassa-molcha": ["b3-trassa-net-konfiga"],
-    "s21-dver-trassa-bit-molcha": ["b4-trassa-konfig-bit"],
-    "s22-dver-koren-v-hvoste": ["a25-argv-koren-do-razdelitelja"],
-    "s23-parity-sloi-molcha": ["d5-sloi-poterjan"],
-    "s24-parity-proekt-po-faktu": ["d4-harness-svoj-profil"],
-    "s25-dver-put-v-zadachenii": ["a26-ctrl-msg-zakanchivaetsya-putem"],
-    "s26-dver-taskfile-bez-kornja": ["a28-taskfile-argv"],
-    "s27-dver-bez-finalnogo-orakula": ["a30-finalnyj-orakul"],
-    "s28-dver-node-fallback": ["a31-net-node"],
-    "s29-parity-sloi-po-imeni": ["d6-sloi-drugoe-imja"],
-    "s30-parity-jq-molcha": ["d7-bez-jq"]
-  }
+    "s1-dver-bez-pina": [
+      "a3-p3-pin-v-soobshchenii",
+      "a4-p3-zapis",
+      "a5-p12-agent"
+    ],
+    "s2-dver-wt-v-dereve": [
+      "a3-p3-pin-v-soobshchenii"
+    ],
+    "s3-dver-perezapis": [
+      "b1-povtor"
+    ],
+    "s4-dver-koren-config": [
+      "b2-p10-raskladka"
+    ],
+    "s5-dver-net-trassy": [
+      "b2-p10-raskladka",
+      "c3-p5-trassa-defolt"
+    ],
+    "s6-zadacha-filtr-vezde": [
+      "c4-kontrol-filtr"
+    ],
+    "s7-zadacha-trassa-net": [
+      "c3-p5-trassa-defolt"
+    ],
+    "s8-parity-vsegda-harness": [
+      "d2-kontrol-dom"
+    ],
+    "s9-parity-vse-zeleno": [
+      "d3-kontrol-koren"
+    ],
+    "s10-dver-cuzaja-para": [
+      "a3-p3-pin-v-soobshchenii",
+      "a4-p3-zapis",
+      "a23-pin-live-foreign",
+      "a24-pin-inline-foreign"
+    ],
+    "s11-dver-glm-konstanta": [
+      "c3-p5-trassa-defolt"
+    ],
+    "s12-dver-registr-bukvalno": [
+      "b2-p10-raskladka",
+      "c3-p5-trassa-defolt",
+      "d1-p10-isklyuchenie"
+    ],
+    "s13-parity-koren-v-proekte": [
+      "d3-kontrol-koren"
+    ],
+    "s14-subagent-klon": [
+      "a6-p11-subagent-pin"
+    ],
+    "s15-dver-tolko-pervaja": [
+      "a10-pin-duplicate",
+      "a11-pin-mixed",
+      "a15-pin-extra-wt",
+      "a16-pin-extra-br",
+      "a21-pin-taskfile-duplicate"
+    ],
+    "s16-dver-ravnye-dubli": [
+      "a10-pin-duplicate",
+      "a19-pin-inline-mixed",
+      "a21-pin-taskfile-duplicate"
+    ],
+    "s17-dver-inline-ne-vidit": [
+      "a9-pin-inline",
+      "a22-pin-taskfile-inline",
+      "a24-pin-inline-foreign"
+    ],
+    "s18-dver-tolko-poslednjaja": [
+      "a12-pin-reverse"
+    ],
+    "s19-dver-strazh-svoj-orakul": [
+      "a27-strazh-net"
+    ],
+    "s20-dver-trassa-molcha": [
+      "b3-trassa-net-konfiga"
+    ],
+    "s21-dver-trassa-bit-molcha": [
+      "b4-trassa-konfig-bit"
+    ],
+    "s22-dver-koren-v-hvoste": [
+      "a25-argv-koren-do-razdelitelja"
+    ],
+    "s23-parity-sloi-molcha": [
+      "d5-sloi-poterjan"
+    ],
+    "s24-parity-proekt-po-faktu": [
+      "d4-harness-svoj-profil"
+    ],
+    "s25-dver-put-v-zadachenii": [
+      "a26-ctrl-msg-zakanchivaetsya-putem"
+    ],
+    "s26-dver-taskfile-bez-kornja": [
+      "a28-taskfile-argv"
+    ],
+    "s27-dver-bez-finalnogo-orakula": [
+      "a30-finalnyj-orakul"
+    ],
+    "s28-dver-node-fallback": [
+      "a31-net-node"
+    ],
+    "s29-parity-sloi-po-imeni": [
+      "d6-sloi-drugoe-imja"
+    ],
+    "s30-parity-jq-molcha": [
+      "d7-bez-jq"
+    ],
+    "s31-dver-brief-s-kornem": [
+      "a47-brief-struktura"
+    ],
+    "s32-dver-taskfile-bez-orakula": [
+      "a49-cr-para-v-taskfile"
+    ],
+    "s33-dver-nulevoj-strazh-svoj": [
+      "a50-strazh-nulevoj-fajl"
+    ],
+    "s34-parity-proverjaet-standart": [
+      "d9-sloi-drugoe-imja-poterjan"
+    ],
+    "s35-parity-vlozhennoe-harness": [
+      "d10-sloi-vlozhennoe-imja",
+      "d11-sloi-vlozhennoe-poterjan"
+    ],
+    "s36-dver-pustoj-next-vybran": [
+      "a48-pustoj-next-brief"
+    ],
+    "s37-dver-jq-molcha": [
+      "b5-jq-net-possev"
+    ]
+  },
+  "osi": [
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "argv байт-в-байт [--yolo,KOREN,--,MSG], MSG = текст + дверная пара",
+      "kletka": "a28-taskfile-argv"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "argv байт-в-байт [--yolo,KOREN,--,MSG]",
+      "kletka": "a25-argv-koren-do-razdelitelja"
+    },
+    {
+      "os": "A",
+      "sostojanie": "бриф (NEXT_TASK отсутствует)",
+      "svojstvo": "argv форма И-4, MSG непуст, HANDOFF, пин полного MSG стражем",
+      "kletka": "a29-brief-argv"
+    },
+    {
+      "os": "A",
+      "sostojanie": "бриф (NEXT_TASK отсутствует)",
+      "svojstvo": "MSG структурно: пара последние две строки, HANDOFF и ROADMAP, ни одна строка не равна KOREN, пин-токенов ровно один",
+      "kletka": "a47-brief-struktura"
+    },
+    {
+      "os": "A",
+      "sostojanie": "бриф (NEXT_TASK пуст)",
+      "svojstvo": "выбор брифа (не пустого файла) + argv + пара последними двумя строками",
+      "kletka": "a48-pustoj-next-brief"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма block — конформна: сессия поднимается, суд записи и agent://",
+      "kletka": "a8-pin-block"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма inline pin:WT:BR — конформна",
+      "kletka": "a9-pin-inline"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма duplicate → PIN_DUBL rc 1 до exec",
+      "kletka": "a10-pin-duplicate"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма mixed → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a11-pin-mixed"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма reverse → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a12-pin-reverse"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма foreign-wt → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a13-pin-foreign-wt"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма foreign-br → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a14-pin-foreign-br"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма extra-wt → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a15-pin-extra-wt"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма extra-br → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a16-pin-extra-br"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма half-wt → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a17-pin-half-wt"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма empty-br → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a18-pin-empty-br"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма inline-mixed → PIN_DUBL rc 1 до exec",
+      "kletka": "a19-pin-inline-mixed"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма delimiters — конформна",
+      "kletka": "a20-pin-delimiters"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма live-foreign (живой чужой worktree) → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a23-pin-live-foreign"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "форма inline-foreign → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a24-pin-inline-foreign"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма duplicate → PIN_DUBL rc 1 до exec",
+      "kletka": "a21-pin-taskfile-duplicate"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма inline — конформна",
+      "kletka": "a22-pin-taskfile-inline"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма block — конформна",
+      "kletka": "a34-pin-taskfile-block"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма mixed → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a35-pin-taskfile-mixed"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма reverse → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a36-pin-taskfile-reverse"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма foreign-wt → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a37-pin-taskfile-foreign-wt"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма foreign-br → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a38-pin-taskfile-foreign-br"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма extra-wt → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a39-pin-taskfile-extra-wt"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма extra-br → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a40-pin-taskfile-extra-br"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма half-wt → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a41-pin-taskfile-half-wt"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма empty-br → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a42-pin-taskfile-empty-br"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма inline-mixed → PIN_DUBL rc 1 до exec",
+      "kletka": "a43-pin-taskfile-inline-mixed"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма delimiters — конформна",
+      "kletka": "a44-pin-taskfile-delimiters"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма live-foreign (живой чужой worktree) → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a45-pin-taskfile-live-foreign"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "форма inline-foreign → PIN_CHUZHOJ rc 1 до exec",
+      "kletka": "a46-pin-taskfile-inline-foreign"
+    },
+    {
+      "os": "A",
+      "sostojanie": "NEXT_TASK непуст",
+      "svojstvo": "\\r-разделённая чужая пара: построчному сканеру невидима, финальный НАСТОЯЩИЙ страж → PIN_CHUZHOJ до exec",
+      "kletka": "a30-finalnyj-orakul"
+    },
+    {
+      "os": "A",
+      "sostojanie": "task-file",
+      "svojstvo": "\\r-разделённая чужая пара: финальный НАСТОЯЩИЙ страж → PIN_CHUZHOJ до exec",
+      "kletka": "a49-cr-para-v-taskfile"
+    },
+    {
+      "os": "B",
+      "sostojanie": "стража нет (файла нет)",
+      "svojstvo": "strazh-net rc 1 до exec, собственного оракула-замены нет",
+      "kletka": "a27-strazh-net"
+    },
+    {
+      "os": "B",
+      "sostojanie": "node нет",
+      "svojstvo": "strazh-net rc 1 до exec",
+      "kletka": "a31-net-node"
+    },
+    {
+      "os": "B",
+      "sostojanie": "страж есть, но нулевой",
+      "svojstvo": "именованный отказ rc 1 до exec без вызова двойника (модель: PIN_CHUZHOJ)",
+      "kletka": "a50-strazh-nulevoj-fajl"
+    },
+    {
+      "os": "C",
+      "sostojanie": "конфиг есть и разбирается",
+      "svojstvo": "трасса сеется из конфига установки (наблюдение make_task TRACE, одна jq-цепочка)",
+      "kletka": "c3-p5-trassa-defolt"
+    },
+    {
+      "os": "C",
+      "sostojanie": "конфига нет",
+      "svojstvo": "trassa-net-konfiga rc 1 до exec",
+      "kletka": "b3-trassa-net-konfiga"
+    },
+    {
+      "os": "C",
+      "sostojanie": "конфиг не разбирается",
+      "svojstvo": "trassa-net-konfiga rc 1 до exec",
+      "kletka": "b4-trassa-konfig-bit"
+    },
+    {
+      "os": "C",
+      "sostojanie": "jq нет в момент посева",
+      "svojstvo": "trassa-net-konfiga rc 1 до exec, трасса не сеется",
+      "kletka": "b5-jq-net-possev"
+    },
+    {
+      "os": "D",
+      "sostojanie": "профиля нет",
+      "svojstvo": "режим харнесса 020 дословно: корневой config/",
+      "kletka": "d2-kontrol-dom"
+    },
+    {
+      "os": "D",
+      "sostojanie": "слой объявлен вне .harness/",
+      "svojstvo": "режим 020 дословно",
+      "kletka": "d4-harness-svoj-profil"
+    },
+    {
+      "os": "D",
+      "sostojanie": "стандартный слой есть",
+      "svojstvo": "сев пустого перечня дверью в registry по факту профиля",
+      "kletka": "d1-p10-isklyuchenie"
+    },
+    {
+      "os": "D",
+      "sostojanie": "стандартный слой есть",
+      "svojstvo": "исключения ТОЛЬКО профильные: пустой перечень → rc 1, файла нет → rc 2 с именем профильного пути",
+      "kletka": "d3-kontrol-koren"
+    },
+    {
+      "os": "D",
+      "sostojanie": "стандартный слой потерян",
+      "svojstvo": "rc 2 с именем объявленного пути, корневая ловушка не читается",
+      "kletka": "d5-sloi-poterjan"
+    },
+    {
+      "os": "D",
+      "sostojanie": "иное плоское имя есть",
+      "svojstvo": "проектный режим: корневая ловушка игнорируется, пустой перечень → rc 1",
+      "kletka": "d6-sloi-drugoe-imja"
+    },
+    {
+      "os": "D",
+      "sostojanie": "иное плоское имя потерян, стандартный — приманка",
+      "svojstvo": "rc 2 с именем объявленного пути",
+      "kletka": "d9-sloi-drugoe-imja-poterjan"
+    },
+    {
+      "os": "D",
+      "sostojanie": "вложенное имя есть",
+      "svojstvo": "проектный режим (свойство пути, не глубины): корень игнорируется → rc 1",
+      "kletka": "d10-sloi-vlozhennoe-imja"
+    },
+    {
+      "os": "D",
+      "sostojanie": "вложенное имя потерян",
+      "svojstvo": "rc 2 с именем объявленного пути",
+      "kletka": "d11-sloi-vlozhennoe-poterjan"
+    },
+    {
+      "os": "D",
+      "sostojanie": "профиль есть, jq нет",
+      "svojstvo": "rc 2 именованный «jq нет»",
+      "kletka": "d7-bez-jq"
+    },
+    {
+      "os": "D",
+      "sostojanie": "профиль не разбирается",
+      "svojstvo": "rc 2 именованный с именем профиля",
+      "kletka": "d8-profil-bit"
+    }
+  ],
+  "vne_osi": [
+    "a1-p6-hvost",
+    "a2-p6-brief-defolt",
+    "a3-p3-pin-v-soobshchenii",
+    "a4-p3-zapis",
+    "a5-p12-agent",
+    "a6-p11-subagent-pin",
+    "a7-granica-unpinned",
+    "a26-ctrl-msg-zakanchivaetsya-putem",
+    "b1-povtor",
+    "b2-p10-raskladka",
+    "c1-p17-map",
+    "c2-p17-rules",
+    "c4-kontrol-filtr",
+    "c5-kontrol-jeksplizit"
+  ]
 }
