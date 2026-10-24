@@ -1,3 +1,15 @@
+## ГДЕ МЫ (сессия #24, чекпойнт ~12:05 UTC 24.10; оркестратор anthropic/claude-sonnet-5-5; ПЕРЕКРЫВАЕТ раздел ниже там, где расходится)
+
+- **СЛОВА ВЛАДЕЛЬЦА за утро (через консультанта):** 10:15 «а/а» — 116 v2 и 117 v3 (по одному scoped-кругу критика); п.3 план 136 — owner 8a52257f7 (влит); п.4 — вёрстку/эмулятор чиню сам; п.5 — следующий предмет харнеса НАБЛ-П21 (=137) — ПОСЛЕ done 136; 10:40 — 099/100 закрыты без done (owner 9b119daa9, влит); 11:10 — НОРМА «начатое до конца»: харнесс 1 предмет, mob 2, бэкенд 2, новых не стартуем (owner 769e8f622 на origin/owner/wip-limit, PR #330 — КРАСЕН l2 check:pravila-modelei-998: `UnicodeDecodeError` в fixtures/pravila_modelei_998/probe.py:68 gen_prompt — промпт оркестратора обрезан на 65535 байт посреди UTF-8: персона 61483 б (.omp/agents) / roles 61141 б после роста; ЖДЁТ консультанта: урезать роль или поднять предел вывода; локальный main ff-нут на 769e8f622, push main блокирован «код только через PR» → `git reset --hard origin/main` перед учётным пушем, owner-коммит ленд через PR #330 после починки).
+- **mob (3 начатых: 116, 118, 135 — довожу):**
+  - **135/#121** (`cmp-mob-135/first-run-ekran` @ ec8e7e50): три фикса Impl135 (сдвиг корня под клавиатурой 63a947f; «зеркало» d42eb61 откачено; каретка поля кода в конец ec8e7e5 — причина: Maestro тапает в центр поля, курсор встаёт посередине, `eraseText`=DEL стирает только слева → 11 из 20). Прогон 40086602775 attempt 1: `995 native rc=0 7/7` ЗЕЛЁНЫЙ; один кадр 135 «First-Run dark» 0.000 (на скриншоте splash — тайминг; light 0.784 прошёл). Затем 4 перезапуска — все красные из-за раннера (`Unknown error`, device died после флоу 117). Цикл `/tmp/dev-harness-verify/orch/rerun_until.sh 40086602775 121 6` крутит повторы до зелёного. Дальше: зелёный → ревьюер 135 (OBJECT=ec8e7e50…) → merge (`gh pr merge --match-head-commit`).
+  - **116/#122**: `frozen/contracts/116/2` ОПУБЛИКОВАН (ленд ccf05c7ce, тег, REPLACE 345e44dc0); Impl116v2 мигрировал тест + перепин `.harness116`→ccf05c7 (640b9f45, запушен push_product); quality ЗЕЛЁНЫЙ (jest 19/19); android-e2e — цикл повторов `rerun_until.sh 40088972514 122 6`. Дальше: зелёный → ревьюер 116 → merge.
+  - **117 v3/118:** Architect117v3 сдал (`wip/117/architect-v3` @ dde2ac0c в клоне /tmp/dev-harness-verify/Architect117v3/repo; контракт v3 + батарея, РАЗРЕШИЛ в теле); Critic117v3 (один scoped-круг) — **FAIL, 2 блокера-обхода** (допуск обходится дефолтом `?? 'W1A'`/W0×stale/светлой темой; Г0 не наблюдается при подключённом onboarding) — вердикт сохранён `/tmp/dev-harness-verify/orch/keep117v3/contracts-117-v3.md`; **Architect117v3b правит** (в работе); ВТОРОЙ круг критика — сверх «одного» слова владельца: ВОПРОС ВЛАДЕЛЬЦУ в батч (рекомендация: разрешить один круг по закрытым обходам). После accept: freeze 117/3 (hold/publish, REPLACE) → implementer 118 (pilot-app) → PR 118.
+- **харнесс (1 предмет — 136):** `frozen/contracts/136/1` опубликован, REPLACE f9b30f220; Impl136 сдал 94e3df466 (батарея 34/34, `--stabs` 18/18); PR #329 КРАСЕН: legkij (ветка отстаёт от main — rebase), l4 (отказы 125 в connect_project ослаблены: D14/D16/D34–D38), l7 (verify_ci_parity проектный режим требует ledger-файл, toy семейства 996 его не сеет — конфликт зон? решает Impl136fix); **Impl136fix** в работе (worktree `/tmp/dev-harness-worktrees/c907157c/wip-136-implementer`). Дальше: зелёный CI → ревьюер 136 (OBJECT=tip) → `land_agent` → push → `done_contract 136`.
+- **137 (НАБЛ-П21/Н-405) — НЕ в работе (норма):** номер выдан (тег на origin, строка 2426b5b7d); Architect137 сдал ДО нормы (ошибка оркестратора — остановить нечем, `write proc://…/kill` из непиннованной сессии запрещён Н-85): контракт + батарея `istochniki_137` (16 клеток: 12 зелёных/4 красных на дереве, модель 16/16, стабы 4/4 пойманы) — патч `/tmp/dev-harness-verify/orch/keep137/0001-*.patch` (commit 43ab0504 в /tmp/dev-harness-verify/Architect137/repo), НЕ применять до done 136; нужна плановая строка 137 (воля).
+- **Станция:** `make_task` пишет манифест `.omp/context/<NNN>.tsv` в чекаут (детектор красит; чистить `git clean -fq -- .omp/context`) — Н-404; новые контракты дверь не принимает («черновик не найден») — spawn architect новых без двери; `gitw` предполёт отказывает при посторонних worktree (напр. тестовые linked worktree агента) — снимать `git worktree remove --force`.
+- **Нерешённое владельцу (в батч):** второй круг критика 117 v3; ответ консультанта по PR #330 (потолок/предел промпта оркестратора).
+
 ## ГДЕ МЫ (сессия #24, суббота 24.10 ~08:15 UTC; оркестратор anthropic/claude-sonnet-5-5; ПЕРЕКРЫВАЕТ разделы ниже)
 
 - **Модель сессии:** трасса JSONL — `anthropic/claude-sonnet-5-5` == `default` в `.omp/config.yml` (канон Claude). `npm run models:actual` печатает «роль сессии architect, заявлена zai/glm-5.3», rc 1 — это дефект измерителя (зашито `SESSION_ROLE="architect"`; главная сессия без роли в трассе; бреф-дверь отказывает) → Н-403 (адрес: контракт 011). Обход: трасса без пустых ролей (`awk -F'\t' '$1!=""'` → tee в /tmp/dev-harness-verify/orch/trace24f.tsv), `make_task --kind task` работает (роли implementer-glm в алфавите двери нет).
@@ -7416,13 +7428,12 @@ soreview-v1.md.
 <!-- BEGIN GENERATED NEXT SESSION -->
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
+- 099 · пара 3 · заморожен · трек git-safety
 - 092 · пара 3 · заморожен · трек autonomy
 - 094 · пара 3 · заморожен · трек autonomy
 - 097 · пара 3 · заморожен · трек autonomy
 - 098 · пара 3 · заморожен · трек autonomy
-- 118 · пара 3 · заморожен · трек complior
-- 116 · пара 3 · заморожен · трек complior
-- 135 · пара 3 · заморожен · трек complior
-- 136 · пара 3 · заморожен · трек project-mode
+- 132 · пара 3 · заморожен · трек complior
+- 133 · пара 3 · заморожен · трек autonomy
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
