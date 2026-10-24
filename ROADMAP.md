@@ -375,7 +375,6 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 2 | 084 | до V-2 | plan-infra | - | docs/owner/2026-10-03-done-i-instrumenty.md#10.5 |
 | 2 | 091 | до V-2 | plan-infra | 090 | 78c1d66 |
 | 3 | 079 | до V-2 | CI | - | 9606609 |
-| 3 | 099 | до V-2 | git-safety | 091 | docs/owner/2026-10-12-astra-zashchita-main.md#5 |
 | 3 | 093 | до V-2 | autonomy | 091 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 1 |
 | 3 | 092 | до V-2 | autonomy | 093 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 2 |
 | 3 | 094 | до V-2 | autonomy | 098 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 3 |

@@ -7416,7 +7416,6 @@ soreview-v1.md.
 <!-- BEGIN GENERATED NEXT SESSION -->
 ## Следующая сессия (генерируется: bash scripts/gen_plan.sh --write)
 
-- 099 · пара 3 · заморожен · трек git-safety
 - 092 · пара 3 · заморожен · трек autonomy
 - 094 · пара 3 · заморожен · трек autonomy
 - 097 · пара 3 · заморожен · трек autonomy
@@ -7424,5 +7423,6 @@ soreview-v1.md.
 - 118 · пара 3 · заморожен · трек complior
 - 116 · пара 3 · заморожен · трек complior
 - 135 · пара 3 · заморожен · трек complior
+- 136 · пара 3 · заморожен · трек project-mode
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
