@@ -134,26 +134,6 @@ if [ -z "$AUTHOR_ROLE" ]; then
 fi
 [ -z "$AUTHOR_ROLE" ] || case "$AUTHOR_ROLE" in orchestrator|architect|critic|implementer|adversary|reviewer|arbiter) ;; *) die "автор вне алфавита: $AUTHOR_ROLE" ;; esac
 
-TRACE_LINE=""; JUDGE_MODEL=""; AUTHOR_MODEL=""
-if [ "$PRINT_CONTEXT" -ne 1 ]; then
-  if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
-  while IFS="$TAB" read -r r m fb; do
-    [ -z "${r:-}" ] && continue
-    case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
-    if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; JUDGE_MODEL="$m"; fi
-    [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
-  done < "$TRACE"
-  [ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
-fi
-
-_t95_family() { local x="${1#*/}"; x="${x%%-*}"; x="${x%%.*}"; printf '%s' "$x"; }
-if [ "$ROLE" = "reviewer" ] || [ "$ROLE" = "critic" ]; then
-  [ -n "$AUTHOR_MODEL" ] || die "свидетельство не той роли: $AUTHOR_ROLE"
-  fam_j="$(_t95_family "$JUDGE_MODEL")"
-  fam_a="$(_t95_family "$AUTHOR_MODEL")"
-  [ "$fam_j" != "$fam_a" ] || die "судья на модели автора: $fam_j"
-fi
-
 # И-14: настоящий профиль — ДВА слоя 054 + contextPack контекстных ключей.
 # Контракт 095 (Решение 1): profile_resolver.sh — единственный источник
 # merge-логики. profile_resolver.sh требует (а) HARNESS_PROJECT_LAYER_ROOT
@@ -207,10 +187,6 @@ CP="$(printf '%s' "$MERGED" | jq -c '.contextPack.value // null' 2>/dev/null)" |
 # `project_paths_resolve` (живёт в next_id.sh) — без собственных копий
 # гарда и без собственной конкатенации `$REPO_ABS/$STATE`. Иначе двери
 # расходятся молча (находка Р3-1 круга 3).
-REPO_ABS="$(cd "$REPO" && pwd -P)"
-if [ -z "${HARNESS_PROJECT_LAYER_ROOT:-}" ]; then
-  export HARNESS_PROJECT_LAYER_ROOT="$REPO"
-fi
 NEXT_ID_LIB=1
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "$0")" && pwd)/next_id.sh"
@@ -232,6 +208,37 @@ WP_G_REL="${WP_G#"$REPO_ABS"/}"
 WP_F_REL="${WP_F#"$REPO_ABS"/}"
 WP_SC="$(printf '%s' "$_PP_JSON" | jq -c '.sourceCanon')"
 unset _PP_JSON
+
+# ── трасса моделей ───────────────────────────────────────────────────────────
+# Чтение ПОСЛЕ резолвера путей: дефолт 136 живёт в <workflowPaths.registry>
+# профиля (WP_G — из ЕДИНОГО project_paths_resolve выше, не вторая
+# конкатенация). Порядок: профиль → пути → трасса (дефолт требует путей).
+TRACE_LINE=""; JUDGE_MODEL=""; AUTHOR_MODEL=""
+if [ "$PRINT_CONTEXT" -ne 1 ]; then
+# 136 (НАБЛ-П5): проектный режим — трасса по умолчанию
+# <workflowPaths.registry>/trace.tsv профиля (сеет дверь); явный --model-trace
+# переопределяет. Вне проекта (файла нет) — прежний отказ дословно.
+if [ -z "$TRACE" ] && [ -f "$WP_G/trace.tsv" ]; then
+  TRACE="$WP_G/trace.tsv"
+fi
+  if [ -z "$TRACE" ] || [ ! -f "$TRACE" ]; then die "нет свидетельства модели: $ROLE"; fi
+  while IFS="$TAB" read -r r m fb; do
+    [ -z "${r:-}" ] && continue
+    case "$fb" in allowed|denied) ;; *) die "трасса: грамматика" ;; esac
+    if [ "$r" = "$ROLE" ]; then TRACE_LINE="TRACE: role=$r model=$m fallback=$fb"; JUDGE_MODEL="$m"; fi
+    [ -n "$AUTHOR_ROLE" ] && [ "$r" = "$AUTHOR_ROLE" ] && AUTHOR_MODEL="$m"
+  done < "$TRACE"
+  [ -n "$TRACE_LINE" ] || die "свидетельство не той роли: $ROLE"
+fi
+
+_t95_family() { local x="${1#*/}"; x="${x%%-*}"; x="${x%%.*}"; printf '%s' "$x"; }
+if [ "$ROLE" = "reviewer" ] || [ "$ROLE" = "critic" ]; then
+  [ -n "$AUTHOR_MODEL" ] || die "свидетельство не той роли: $AUTHOR_ROLE"
+  fam_j="$(_t95_family "$JUDGE_MODEL")"
+  fam_a="$(_t95_family "$AUTHOR_MODEL")"
+  [ "$fam_j" != "$fam_a" ] || die "судья на модели автора: $fam_j"
+fi
+
 WP_VERDICT_SUFFIX=""
 case "$ROLE" in
   critic)     WP_VERDICT_SUFFIX="critic" ;;
@@ -302,7 +309,12 @@ while IFS="$TAB" read -r kind path roles mnd why; do
       *) die "карта: грамматика: роль $rr" ;;
     esac
   done
-  case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
+  # 136 (НАБЛ-П17): бриф оркестратору несёт ВСЕ rows без фильтра ролей —
+  # оркестратор раздаёт задания и обязан видеть всю карту контекста;
+  # kind=task фильтр ролей несёт дословно (грамматика 095 не ослаблена).
+  if [ "$KIND" != "brief" ]; then
+    case ",$roles," in *",$ROLE,"*) ;; *) continue ;; esac
+  fi
   if [ ! -f "$REPO/$path" ]; then
     if [ "$mnd" = "true" ]; then die "источник недоступен: $path"; fi
     continue

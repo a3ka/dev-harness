@@ -33,6 +33,12 @@
 set -u
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 otkaz() { printf 'connect ОТКАЗ: %s\n' "$*" >&2; exit 1; }
+[ $# -ge 1 ] && [ $# -le 3 ] || { printf 'connect ОТКАЗ: вход — URL или путь [--task-file F]\n' >&2; exit 2; }
+TASKFILE_ARG=""
+if [ "${1:-}" = "--task-file" ]; then
+  TASKFILE_ARG="${2:?}"
+  shift 2
+fi
 [ $# -eq 1 ] || { printf 'connect ОТКАЗ: ровно один вход — URL или путь\n' >&2; exit 2; }
 IN=$1
 
@@ -61,6 +67,120 @@ if [ ! -d "$KOREN/.git" ]; then
     || otkaz "клон не удался: $IN"
 fi
 cd "$KOREN" || otkaz "нет корня: $KOREN"
+
+# ── 136: пин сессии проекта (НАБЛ-П3): worktree ПОД $PSTATE, вне дерева ──────
+PSTATE_BASE="${S136_PSTATE_BASE:-$HOME/dev-harness-projects}"
+PSTATE="$PSTATE_BASE/$PID"
+mkdir -p "$PSTATE/wt"
+PIN_WT="$PSTATE/wt/wip-136-demo"
+PIN_BR="wip/136/demo"
+if [ ! -e "$PIN_WT" ]; then
+  git worktree add -q -b "$PIN_BR" "$PIN_WT" \
+    || { printf 'connect ОТКАЗ: worktree-пин не создан\n' >&2; exit 1; }
+fi
+
+# 136: каталог реестра проекта — workflowPaths.registry из профиля проекта
+# (996: профиль — единственный источник; дефолт .harness/registry). Дверь
+# сеет туда trace и перечень исключений паритета ПО ФАКТУ профиля.
+REG_REL="$(jq -r '.workflowPaths.registry // ".harness/registry"' harness.project.json 2>/dev/null || printf '.harness/registry')"
+mkdir -p "$REG_REL"
+
+# Трасса модели оркестратора (НАБЛ-П5, В-4а): источник — КОНФИГ УСТАНОВКИ
+# $HERE/config/agent_models.json: roles.orchestrator → tiers[роль].model
+# (@алиас) → models[алиас]. НЕ константа и НЕ env-замена: рассогласование
+# trace.tsv ↔ конфиг установки исключено по построению. Конфиг ЕСТЬ, но не
+# читается/не разбирается — именованный отказ, трасса не сеется
+# (fail-closed). Конфига в установке НЕТ — установка без политики моделей
+# (минимальная установка: только дверь и workshop — И-6 125 «раскладка»:
+# новое в дереве проекта — .harness/ и профиль): трассы нет, сеять нечего,
+# и сессия поднимается. Молчаливого обхода тут нет: потребитель трассы
+# (make_task, И-6 136) при отсутствии файла отказывает «нет свидетельства
+# модели» — как до 136.
+# И-7: существующая трасса не перезаписывается.
+if [ ! -s "$REG_REL/trace.tsv" ] && [ -f "$HERE/config/agent_models.json" ]; then
+  ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
+    || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
+  printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL" > "$REG_REL/trace.tsv"
+fi
+
+# 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
+# проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
+# корневой config/ дереву проекта не пишется (И-6 125). И-7: повтор не пишет.
+[ -e "$REG_REL/ci_parity_exceptions.txt" ] || : > "$REG_REL/ci_parity_exceptions.txt"
+
+# 136 (НАБЛ-П11): процедура субагентных пинов — дверь кладёт в $PSTATE/bin
+# скрипт выдачи: каждому субагенту сессии — свой linked worktree под $PSTATE/wt
+# и пара WORKTREE=/BRANCH= в его задание. Повторная выдача того же <автор> —
+# существующий worktree, без дублирования (И-7).
+mkdir -p "$PSTATE/bin"
+if [ ! -e "$PSTATE/bin/subagent-pin.sh" ]; then
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf '# 136: пин субагента сессии проекта (НАБЛ-П11). Usage: subagent-pin.sh <NNN> <avtor>\n'
+    printf 'set -u\n'
+    printf '[ $# -eq 2 ] || { printf "subagent-pin ОТKAZ: NNN avtor\\n" >&2; exit 2; }\n'
+    printf 'BASE="${S136_PSTATE_BASE:-$HOME/dev-harness-projects}/%s"\n' "$PID"
+    printf 'WT="$BASE/wt/wip-$1-$2"; BR="wip/$1/$2"\n'
+    printf 'mkdir -p "$BASE/wt"\n'
+    printf '[ -e "$WT" ] || git -C "%s" worktree add -q -b "$BR" "$WT" || { printf "subagent-pin OTKAZ: worktree\\n" >&2; exit 1; }\n' "$KOREN"
+    printf 'printf "WORKTREE=%%s\\nBRANCH=%%s\\n" "$WT" "$BR"\n'
+  } > "$PSTATE/bin/subagent-pin.sh"
+  chmod +x "$PSTATE/bin/subagent-pin.sh"
+fi
+
+# Стартовое сообщение (НАБЛ-П6): --task-file | NEXT_TASK.md | служебный бриф.
+if [ -n "$TASKFILE_ARG" ]; then
+  [ -f "$TASKFILE_ARG" ] || { printf 'connect ОТКАЗ: нет файла задания: %s\n' "$TASKFILE_ARG" >&2; exit 1; }
+  MSG="$(cat "$TASKFILE_ARG")"
+elif [ -s .harness/NEXT_TASK.md ]; then
+  MSG="$(cat .harness/NEXT_TASK.md)"
+else
+  MSG="Сессия проекта поднята без задания: прочитай .harness/HANDOFF.md и .harness/ROADMAP.md проекта, выбери предмет, доложи план."
+fi
+# 136: распознаём ВСЕ декларации в задании по токенизатору 032/066, включая
+# inline pin:WORKTREE=...:BRANCH=... и пустые/половинные декларации. Регулярное
+# выражение токена совпадает с path-guard.ts; пустое значение явно отвергается.
+# Значения сравниваются только с парой этой двери, до exec workshop.
+# pin_scan <текст> → «<число WORKTREE> <число BRANCH> <1 — чужая/пустая>».
+pin_scan() {
+  local toks token key value wt=0 br=0 wrong=0
+  toks="$(printf '%s\n' "$1" | grep -Eo '(^|[:;,])[[:space:]]*(WORKTREE|BRANCH)=[^[:space:],;:]*' || true)"
+  while IFS= read -r token; do
+    [ -n "$token" ] || continue
+    [[ "$token" =~ (WORKTREE|BRANCH)=(.*)$ ]] || continue
+    key="${BASH_REMATCH[1]}"
+    value="${BASH_REMATCH[2]}"
+    # Страж 066 снимает терминальную пунктуацию с непустых значений.
+    value="$(printf '%s' "$value" | sed -E 's/[.,;:!?]+$//')"
+    if [ "$key" = WORKTREE ]; then
+      wt=$((wt+1))
+      [ "$value" = "$PIN_WT" ] || wrong=1
+    else
+      br=$((br+1))
+      [ "$value" = "$PIN_BR" ] || wrong=1
+    fi
+  done <<< "$toks"
+  printf '%s %s %s\n' "$wt" "$br" "$wrong"
+}
+read -r _wt_count _br_count _pin_wrong <<< "$(pin_scan "$MSG")"
+if [ "$_pin_wrong" -ne 0 ] || [ "$_wt_count" -ne "$_br_count" ]; then
+  otkaz "PIN_CHUZHOJ: задание несёт чужую либо половинную декларацию пина"
+fi
+if [ "$_wt_count" -gt 1 ]; then
+  otkaz "PIN_DUBL: повтор пин-пары в задании"
+fi
+if [ "$_wt_count" -eq 0 ]; then
+  MSG="$MSG
+WORKTREE=$PIN_WT
+BRANCH=$PIN_BR"
+fi
+# Хвост стартового сообщения закрывается КОРНЕМ ПРОЕКТА: форма 125-б
+# (`workshop --yolo <корень> -- <MSG>`, контракт 125 §Нарезка) несёт задание
+# после «--», и последний аргумент workshop обязан остаться корнем проекта
+# (клетка 125 c01 «последний аргумент workshop ≠ <корень>»). Сессия получает
+# корень в том же стартовом сообщении — лишней строкой, не аргументом.
+MSG="$MSG
+$KOREN"
 
 # ── Adv125-Б: инструменты сканера секретов — fail-closed ДО записи секретов
 # и запуска сессии. Без них `sekret-v-dereve` ниже = лотерея: `awk: command not
@@ -165,6 +285,24 @@ if [ -f "$DOM_SEKRETOV" ]; then
   [ -z "$HIT" ] || otkaz "sekret-v-dereve: значение дома секретов в файле «$HIT», который git может проиндексировать — сессия не запускается"
 fi
 
-# ── одна сессия, тот же вход, что у основной ────────────────────────────────
+# Финальный оракул — настоящий extract-pin 066 на ЦЕЛОМ MSG, а не на
+# отдельно выданных WT/BR: при любой неучтённой форме launch fail-closed.
+# Стража в установке нет (минимальная установка: только дверь и workshop) —
+# оракул тогда СОБСТВЕННЫЙ разбор двери: итоговый MSG обязан нести ровно пару
+# двери (одну декларацию WORKTREE= и одну BRANCH=, значения — пара этой двери).
+GUARD="$HERE/.omp/extensions/path-guard.ts"
+if [ -f "$GUARD" ]; then
+  _extracted="$(node "$GUARD" --extract-pin "$MSG")" \
+    || otkaz "PIN_CHUZHOJ: невозможно извлечь итоговый пин"
+  [ "$(printf '%s' "$_extracted" | jq -r '.worktree // empty')" = "$PIN_WT" ] \
+    || otkaz "PIN_CHUZHOJ: итоговый текст не извлекается в пин двери"
+else
+  read -r _fw _fb _fwrong <<< "$(pin_scan "$MSG")"
+  [ "$_fw" = 1 ] && [ "$_fb" = 1 ] && [ "$_fwrong" = 0 ] \
+    || otkaz "PIN_CHUZHOJ: итоговый текст не извлекается в пин двери"
+fi
+
+# ── одна сессия + хвост задания (093 И-5) ────────────────────────────────────
 export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$KOREN}"
-exec "$HERE/workshop" --yolo "$KOREN"
+WORKSHOP_BIN="${S136_WORKSHOP:-$HERE/workshop}"
+exec "$WORKSHOP_BIN" --yolo "$KOREN" -- "$MSG"
