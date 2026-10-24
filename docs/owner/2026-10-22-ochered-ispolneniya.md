@@ -28,7 +28,7 @@ cherry-pick c4cf18961 (origin/owner/kanon-revert) + revert-коммит из ori
 (станция — маркер orch-restart, бэкенд — маркер back-restart) → `npm run models:actual` = канон docs/owner/2026-10-22-kanon-modelej.md.
 Автонапоминание: root tmux consultant-kanon.
 
-Мержи продуктовых PR до субботы — сессии сами: оба судьи accept на OBJECT == head, CI зелёный, ветка не позади main,
+Мержи продуктовых PR до субботы — сессии сами: accept судей по классу риска на OBJECT == head, CI зелёный, ветка не позади main,
 `gh pr merge --match-head-commit`; ветка контракта с frozen-тегом — merge-commit; каждый мерж — строкой в HANDOFF.
 Форки — тир consultant (Astra/Sol); владельцу — только воля, деньги, устав.
 
