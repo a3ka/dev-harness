@@ -224,6 +224,10 @@ def build_repo(src, tmp, pack):
                          ('mission-state-v02.yaml', 'flow_state_v02'),
                          ('mission-state-v04.yaml', 'flow_state_v04')):
         (ma / imja).write_text(src[kljuch], encoding='utf-8')
+    # 118e: пакет продукта — из mobile/app.json проверяемого репо; суд
+    # appId флоу (корень и дети) сверяется с expo.android.package
+    (repo / 'mobile/app.json').write_text(
+        src['app_manifest'], encoding='utf-8')
     # stand-in android-e2e (replay) + носители записи: кадры в Maestro-раскладку
     # кладёт ИСПОЛНЕННАЯ команда priemka.e2e — стартуем с пустым kadry_dir
     (repo / 'mobile/e2e-mission/e2e.sh').write_text(
@@ -446,7 +450,7 @@ def mut_proiskhozdenie_flow_bez_perehoda(pack, forma, repo, src):
     """Флоу с именами кадров, но без переходов и селекторов экрана."""
     _zapusti_replay(repo)
     (repo / 'mobile/.maestro/mission.yaml').write_text(
-        'appId: com.complior.demo\n---\n- launchApp\n' +
+        'appId: com.complior.mobile\n---\n- launchApp\n' +
         ''.join('- takeScreenshot: ' + k['snimok'] + '\n'
                 for k in src['kadry_manifest']['kadry']))
 
@@ -646,14 +650,16 @@ def mut_proiskhozdenie_runflow_bez_fajla(pack, forma, repo, src):
 
 def mut_proiskhozdenie_runflow_cikl(pack, forma, repo, src):
     """Цикл runFlow (ребёнок -> ребёнок): раскрытие обязано отказаться
-    fail-closed, а не зациклиться."""
+    fail-closed, а не зациклиться. Тела детей честны (запуск/вход/
+    жест/наблюдение на месте) — красна ровно петля, не оголение детей."""
     _zapusti_replay(repo)
-    _perefajl(repo, 'mission-state-v01.yaml').write_text(
-        'appId: com.complior.demo\n---\n- runFlow: mission-state-v02.yaml\n',
-        encoding='utf-8')
-    _perefajl(repo, 'mission-state-v02.yaml').write_text(
-        'appId: com.complior.demo\n---\n- runFlow: mission-state-v01.yaml\n',
-        encoding='utf-8')
+    for imja, kljuch in (('mission-state-v01.yaml', 'flow_state_v01'),
+                         ('mission-state-v02.yaml', 'flow_state_v02')):
+        p = _perefajl(repo, imja)
+        cel = ('mission-state-v02.yaml' if imja == 'mission-state-v01.yaml'
+               else 'mission-state-v01.yaml')
+        p.write_text(src[kljuch] + '- runFlow: %s\n' % cel,
+                     encoding='utf-8')
 
 
 def mut_proiskhozdenie_rebyonok_bez_zapuska(pack, forma, repo, src):
@@ -757,6 +763,140 @@ def mut_bezpng_bez_scenarija(pack, forma, repo, src):
             k.pop('scenarij', None)
     (pack / 'sostojanija_bez_png.json').write_text(
         json.dumps(opis, ensure_ascii=False, indent=1), encoding='utf-8')
+
+# --- 116 v3b: мутации по блокерам круга 1 критика + appId (118e) -------------
+
+def mut_proiskhozdenie_chip_neg_udalen(pack, forma, repo, src):
+    """Блокер 1: отрицательный assert подписи удалён ЦЕЛИКОМ — продукт
+    держит mission_chip_wird_gelesen при uploaded-вложении, а не только
+    переставляет оставшиеся проверки."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    neg = '- assertNotVisible: {id: mission_chip_wird_gelesen}\n'
+    assert t.count(neg) == 1
+    p.write_text(t.replace(neg, ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_kadr_do_asserta(pack, forma, repo, src):
+    """Блокер 3: кадр F05.05 снят ДО собственного assert — экран к
+    моменту снимка не подтверждён селектором кадра."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    perest = ('- takeScreenshot: mission-f05-05\n'
+              '- assertVisible: {id: mission_frame_f05_05}\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, perest), encoding='utf-8')
+
+
+def mut_proiskhozdenie_rebyonok_bez_dejstvija(pack, forma, repo, src):
+    """Блокер 2: из сценария V01 удалена отправка — блок очереди
+    показывался бы из предзагруженного offline-состояния при входе,
+    без действия, приводящего к исходу."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v01.yaml')
+    t = p.read_text(encoding='utf-8')
+    otpr = '- tapOn: {id: mission_send}\n'
+    assert t.count(otpr) == 1
+    p.write_text(t.replace(otpr, ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_v04_odna_otpravka(pack, forma, repo, src):
+    """Ось действия V04: ПОВТОРНАЯ отправка удалена — already_accepted
+    одной отправкой не достигается."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v04.yaml')
+    t = p.read_text(encoding='utf-8')
+    otpr = '- tapOn: {id: mission_send}\n'
+    assert t.count(otpr) == 2
+    d = t.partition(otpr)
+    assert d[1] == otpr
+    p.write_text(d[0] + d[2], encoding='utf-8')
+
+
+def mut_proiskhozdenie_v02_bez_gesta(pack, forma, repo, src):
+    """Предусловие строки V02: жест черновика удалён — состояние
+    предъявляется без предусловия."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v02.yaml')
+    t = p.read_text(encoding='utf-8')
+    gest = ('- tapOn: {id: mission_composer_input}\n'
+            "- inputText: 'Ich habe ein Auto gekauft.'\n")
+    assert t.count(gest) == 1
+    p.write_text(t.replace(gest, ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_f05_07_bez_gesta(pack, forma, repo, src):
+    """Действие строки F05.07 (черновик без отправки): жест удалён —
+    блок черновика показывался бы из предзагруженного состояния."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-f05-07.yaml')
+    t = p.read_text(encoding='utf-8')
+    gest = ('- tapOn: {id: mission_composer_input}\n'
+            "- inputText: 'Ich habe ein Auto gekauft.'\n")
+    assert t.count(gest) == 1
+    p.write_text(t.replace(gest, ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_manifest_pereputan(pack, forma, repo, src):
+    """Блокер 4: манифест V01 указывает на ЧУЖОЙ сценарий (F05.07) —
+    привязка «кадр → свой ребёнок» ложна при зелёном агрегате."""
+    _zapusti_replay(repo)
+    opis = json.loads((pack / 'sostojanija_bez_png.json')
+                      .read_text(encoding='utf-8'))
+    for kadr in opis['kadry_bez_png']:
+        if kadr['id'] == 'F05.V01':
+            kadr['scenarij'] = 'mission-state-f05-07.yaml'
+    (pack / 'sostojanija_bez_png.json').write_text(
+        json.dumps(opis, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
+def mut_proiskhozdenie_sirot_testid(pack, forma, repo, src):
+    """Блокер 4, класс: assert состояния перенесён в ЧУЖОЙ сценарий —
+    собственный файл остался без наблюдения, агрегат зелёный."""
+    _zapusti_replay(repo)
+    v01 = _perefajl(repo, 'mission-state-v01.yaml')
+    t = v01.read_text(encoding='utf-8')
+    nabl = '- assertVisible: {id: mission_queued_offline}\n'
+    assert t.count(nabl) == 1
+    v01.write_text(t.replace(nabl, ''), encoding='utf-8')
+    f07 = _perefajl(repo, 'mission-state-f05-07.yaml')
+    f07.write_text(f07.read_text(encoding='utf-8') + nabl,
+                   encoding='utf-8')
+
+
+def mut_proiskhozdenie_flow_appid_chuzhoj(pack, forma, repo, src):
+    """118e: чужой appId корневого флоу — запуск на пакете продукта
+    невозможен (Package … is not installed)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    assert t.count('appId: com.complior.mobile\n') == 1
+    p.write_text(t.replace('appId: com.complior.mobile\n',
+                           'appId: com.fiktivnyj.paket\n'),
+                 encoding='utf-8')
+
+
+def mut_proiskhozdenie_scenarij_ne_zapushhen(pack, forma, repo, src):
+    """Orphan-класс круга 1 (точный вид критика): корень ИЗЪЯЛ запуск
+    сценария V01, assert состояния перенесён в чужого ЗАПУСКАЕМОГО
+    ребёнка (F05.07) — агрегат зелёный, собственный файл V01 цел:
+    красен ровно «никто не запускает сценарий манифеста»."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    ref = '- runFlow: mission-state-v01.yaml\n'
+    assert t.count(ref) == 1
+    p.write_text(t.replace(ref, ''), encoding='utf-8')
+    f07 = _perefajl(repo, 'mission-state-f05-07.yaml')
+    f07.write_text(f07.read_text(encoding='utf-8') +
+                   '- assertVisible: {id: mission_queued_offline}\n',
+                   encoding='utf-8')
+
+
 
 PROBA_PROD = Path('mobile/src/features/conversation/__tests__/'
                   'mission-116.test.tsx')
@@ -981,6 +1121,20 @@ MUTACII = {
     'proiskhozdenie-bez-v03-posle-uploada':
         mut_proiskhozdenie_bez_v03_posle_uploada,
     'bezpng-bez-scenarija': mut_bezpng_bez_scenarija,
+    'proiskhozdenie-chip-neg-udalen': mut_proiskhozdenie_chip_neg_udalen,
+    'proiskhozdenie-kadr-do-asserta': mut_proiskhozdenie_kadr_do_asserta,
+    'proiskhozdenie-rebyonok-bez-dejstvija':
+        mut_proiskhozdenie_rebyonok_bez_dejstvija,
+    'proiskhozdenie-v04-odna-otpravka': mut_proiskhozdenie_v04_odna_otpravka,
+    'proiskhozdenie-v02-bez-gesta': mut_proiskhozdenie_v02_bez_gesta,
+    'proiskhozdenie-f05-07-bez-gesta': mut_proiskhozdenie_f05_07_bez_gesta,
+    'proiskhozdenie-manifest-pereputan':
+        mut_proiskhozdenie_manifest_pereputan,
+    'proiskhozdenie-sirot-testid': mut_proiskhozdenie_sirot_testid,
+    'proiskhozdenie-flow-appid-chuzhoj':
+        mut_proiskhozdenie_flow_appid_chuzhoj,
+    'proiskhozdenie-scenarij-ne-zapushhen':
+        mut_proiskhozdenie_scenarij_ne_zapushhen,
     'povedenie-proba-otsutstvuet': mut_povedenie_proba_otsutstvuet,
     'povedenie-proba-podmenena': mut_povedenie_proba_podmenena,
     'ci-shag-otsutstvuet': mut_ci_shag_otsutstvuet,
@@ -1075,16 +1229,99 @@ def snapshot(src):
     return 0
 
 
+# 116 v3b: таблица осей сценариев (урок арбитража 136 v2 — закрывать
+# КЛАССЫ входов из ТАБЛИЦЫ осей, а не точечные мутанты): для каждого
+# сценария (основной путь и четыре состояния) оси «предусловие x
+# действие x наблюдение x порядок assert/screenshot x привязка
+# манифеста» судятся кодом proverka_text.py; клетки — имена входов
+# батареи, счёт и биекция «строка ↔ клетка» проверяются прогоном
+# --tablica (каждая клетка потока ровно в одной строке).
+OSI_SCENARIEV = (
+    ('osnovnoj-put', 'mission.yaml', (
+        'proiskhozdenie-chistyj', 'proiskhozdenie-byte-kopija',
+        'proiskhozdenie-flow-bez-perehoda',
+        'proiskhozdenie-selektor-bez-ekrana',
+        'proiskhozdenie-selektor-ne-kadra',
+        'proiskhozdenie-bez-start-vhoda',
+        'proiskhozdenie-bez-draft-gesta',
+        'proiskhozdenie-gest-kommentarij',
+        'proiskhozdenie-bez-vlozhenija',
+        'proiskhozdenie-khvost-v-korne',
+        'proiskhozdenie-bez-upload-perehoda',
+        'proiskhozdenie-chip-neg-do-uploada',
+        'proiskhozdenie-chip-posle-uploada',
+        'proiskhozdenie-bez-chip-pending',
+        'proiskhozdenie-bez-v03-posle-uploada',
+        'proiskhozdenie-chip-neg-udalen',
+        'proiskhozdenie-kadr-do-asserta',
+        'proiskhozdenie-flow-appid-chuzhoj',
+    )),
+    ('f05-07', 'mission-state-f05-07.yaml', (
+        'bezpng-kopija-vne-kataloga', 'bezpng-token-vne-audita',
+        'proiskhozdenie-f05-07-bez-gesta',
+    )),
+    ('v01', 'mission-state-v01.yaml', (
+        'proiskhozdenie-runflow-bez-fajla',
+        'proiskhozdenie-rebyonok-bez-zapuska',
+        'bezpng-bez-testid-v-potoke',
+        'proiskhozdenie-rebyonok-bez-dejstvija',
+        'proiskhozdenie-sirot-testid',
+        'proiskhozdenie-scenarij-ne-zapushhen',
+        'proiskhozdenie-manifest-pereputan',
+    )),
+    ('v02', 'mission-state-v02.yaml', (
+        'proiskhozdenie-runflow-cikl',
+        'proiskhozdenie-rebyonok-bez-start-vhoda',
+        'proiskhozdenie-v02-bez-gesta',
+    )),
+    ('v04', 'mission-state-v04.yaml', (
+        'bezpng-bez-scenarija', 'proiskhozdenie-v04-odna-otpravka',
+    )),
+)
+
+
+def tablica_osnej(src):
+    """Счёт клеток таблицы осей считает код; биекция «строка ↔ клетка
+    потока» проверяется прогоном (каждая proverka-клетка ровно в одной
+    строке, в строке нет чужих имён)."""
+    problemy = []
+    kletki = []
+    print('OSI\tстрока\tфайл\tклеток')
+    for stroka, fajl, spisok in OSI_SCENARIEV:
+        for k in spisok:
+            if k not in src['kejsy']:
+                problemy.append('строка %s: клетки %s нет в kejsy'
+                                % (stroka, k))
+            if k in kletki:
+                problemy.append('клетка %s названа дважды' % k)
+            kletki.append(k)
+        print('OSI\t%s\t%s\t%d' % (stroka, fajl, len(spisok)))
+    potok = [k for k in src['kejsy']
+             if src['kejsy'][k].get('subekt') == 'proverka']
+    for k in potok:
+        if k not in kletki:
+            problemy.append('клетка потока %s вне таблицы осей' % k)
+    print('OSI\tитого\tстрок=%d клеток=%d клеток-потока=%d'
+          % (len(OSI_SCENARIEV), len(kletki), len(potok)))
+    for p in problemy:
+        print('OSI_PROBLEMA: %s' % p, file=sys.stderr)
+    return 1 if problemy else 0
+
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
     ap.add_argument('--matrix', action='store_true')
     ap.add_argument('--snapshot', action='store_true')
+    ap.add_argument('--tablica', action='store_true')
     a = ap.parse_args()
     src = load_source()
     if a.snapshot:
         return snapshot(src)
+    if a.tablica:
+        return tablica_osnej(src)
     if not RUNNER123.is_file():
         print('SVERKA_123_ABSENT: раннер 123 не в дереве (инфраструктура)',
               file=sys.stderr)

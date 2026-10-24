@@ -16,6 +16,17 @@
 # PNG достигаются СВОИМИ независимыми сценариями (собственный запуск,
 # вход из Start, видимое ожидание), линейный хвост исключающих
 # состояний в корневом флоу красен.
+# 116 v3b (правка по FAIL критика круга 1): (1) исчезновение подписи
+# «wird gelesen» ПОСЛЕ успешного upload — обязательное наблюдение
+# (FLOW_BEZ_CHIP_NEG_POSLE_UPLOADA), не только порядок при наличии;
+# (2) каждый сценарий состояния несёт СВОЮ строку таблицы осей:
+# предусловие — жест черновика в ребёнке, действие — отправки до
+# своего assert (SCENARIJ_BEZ_DEJSTVIJA), наблюдение — свой testID в
+# СВОЁМ файле (SCENARIJ_BEZ_SVOEJ_TESTID), не в чужом ребёнке; (3)
+# свой assertVisible стоит РАНЬШЕ своего takeScreenshot
+# (FLOW_ASSERT_POSLE_KADRA); (4) appId корня и детей = пакет продукта
+# из mobile/app.json (FLOW_APPID_NE_PAKET; находка Architect118: demo-appId
+# против пакета продукта).
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -35,6 +46,18 @@ CHIP_LESET = 'mission_chip_wird_gelesen'
 UPLOAD_PREFIKS = 'attachment-complete-'
 KONTENER_V03 = 'mission_frame_f05_v03'
 GLUBINA_RUNFLOW = 5
+OTPRAVKA = 'mission_send'
+DEJSTVIE_PO_UMOLCHANIJU = 1
+# Таблица осей состояний (строка = состояние без PNG; судится КОДОМ в
+# sud_bezpng: действие = минимум отправок mission_send ДО своего assert,
+# ноль означает «действие — жест черновика, без отправки»).
+DEJSTVIJA_SOSTOJANIJ = {
+    'mission_frame_f05_07': 0,
+    'mission_queued_offline': 1,
+    'mission_response_interrupted': 1,
+    'mission_already_accepted': 2,
+}
+APPJSON_REL = 'mobile/app.json'
 
 
 def prichina(imja, detal):
@@ -99,6 +122,33 @@ def id_iz(arg):
     return t.strip().strip("'\"")
 
 
+def paket_produkta(repo):
+    """Android-пакет продукта из mobile/app.json ПРОВЕРЯЕМОГО репо
+    (Architect118: appId флоу обязан совпадать с expo.android.package, иначе
+    Maestro-флоу на пакете продукта неисполним)."""
+    try:
+        m = json.loads((repo / APPJSON_REL).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return m.get('expo', {}).get('android', {}).get('package')
+
+
+def appid_flow(path):
+    """appId из шапки флоу-файла (partition, без ограничения разбиения:
+    литерал-аудит 132 не должен находить размеров/цветов в коде пачки)."""
+    try:
+        stroki = path.read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return None
+    for line in stroki:
+        t = line.strip()
+        if t.startswith('appId'):
+            cel = t.partition(':')
+            if cel[1] == ':':
+                return cel[2].strip().strip("'\"")
+    return None
+
+
 def sud_potok(shagi, snimki, shagi_kornja):
     """Запуск и вход из Start судятся по КОРНЕВОМУ флоу (основной путь
     входит сам, а не за счёт дочерних сценариев); кадры — по потоку."""
@@ -117,14 +167,21 @@ def sud_potok(shagi, snimki, shagi_kornja):
     if not perehody:
         otkazy.append(('FLOW_BEZ_PEREHODA', 'tapOn/inputText'))
     for snimok, selektor in snimki:
-        est_assert = any('assertVisible' in s and id_iz(s) == selektor
-                         for s in shagi)
-        if not est_assert:
-            otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', snimok))
+        idx_assert = [i for i, s in enumerate(shagi)
+                      if 'assertVisible' in s and id_iz(s) == selektor]
         idx = [i for i, s in enumerate(shagi)
                if s.startswith('takeScreenshot') and snimok in s]
         if not idx:
             otkazy.append(('SELEKTOR_NE_KADRA', snimok))
+            continue
+        if not idx_assert:
+            otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', snimok))
+            continue
+        if not any(a < i for a in idx_assert for i in idx):
+            # v3b (блокер 3 круга 1): свой assertVisible обязан стоять
+            # РАНЬШЕ своего takeScreenshot — кадр не снимается до
+            # подтверждения селектора кадра.
+            otkazy.append(('FLOW_ASSERT_POSLE_KADRA', snimok))
             continue
         i = idx[0]
         do = [s for s in shagi[:i] if s.split(':')[0].strip() in PEREHODY
@@ -183,6 +240,12 @@ def sud_chip_upload(shagi):
     else:
         if chip_neg and min(chip_neg) < min(upload):
             otkazy.append(('FLOW_CHIP_NEG_DO_UPLOADA', CHIP_LESET))
+        if not any(n > min(upload) for n in chip_neg):
+            # v3b (блокер 1 круга 1): исчезновение подписи после успешного
+            # upload — ОБЯЗАТЕЛЬНОЕ наблюдение, а не опция: продукт,
+            # держащий mission_chip_wird_gelesen при uploaded-вложении,
+            # обязан быть красным и без перестановки оставшихся assert.
+            otkazy.append(('FLOW_BEZ_CHIP_NEG_POSLE_UPLOADA', CHIP_LESET))
         if chip_neg and not any(k > min(upload) for k in kontener):
             otkazy.append(('FLOW_BEZ_V03_POSLE_UPLOADA', KONTENER_V03))
     if chip_do and upload and max(chip_do) > min(upload):
@@ -217,10 +280,15 @@ def sud_byte_kopii(repo, manifest):
     return otkazy
 
 
-def sud_bezpng(pack, repo, shagi_kornja, shagi):
+def sud_bezpng(pack, repo, shagi_kornja, shagi, paket):
     """Кадры без PNG: структурная проба вместо сверки с макетом; 116 v3 —
     каждое состояние достигается СВОИМ независимым сценарием (runFlow),
-    линейный хвост в корне красен."""
+    линейный хвост в корне красен. v3b: строка таблицы осей состояния
+    (предусловие x действие x наблюдение x привязка манифеста) судится
+    по СВОЕМУ файлу сценария: жест черновика в ребёнке, отправки до
+    своего assert (DEJSTVIJA_SOSTOJANIJ), свой testID в СВОЁМ файле
+    (не в чужом ребёнке и не агрегатом), appId ребёнка = пакет
+    продукта."""
     otkazy = []
     p = pack / 'sostojanija_bez_png.json'
     if not p.is_file():
@@ -257,6 +325,12 @@ def sud_bezpng(pack, repo, shagi_kornja, shagi):
         if not scenarij:
             otkazy.append(('BEZPNG_BEZ_SCENARIJA', kadr.get('id')))
             continue
+        if not any(cel_runflow(s) == scenarij for s in shagi_kornja):
+            # v3b (orphan-класс круга 1): корень ОБЯЗАН исполнить сценарий
+            # поля scenarij (runFlow) — перенос assert состояния в чужого
+            # запускаемого ребёнка не легализует состояние, которое никто
+            # не запускает.
+            otkazy.append(('BEZPNG_SCENARIJ_NE_ZAPUSCHEN', scenarij))
         f = repo / 'mobile/.maestro' / scenarij
         if not f.is_file():
             otkazy.append(('RUNFLOW_BEZ_FAJLA', scenarij))
@@ -271,6 +345,39 @@ def sud_bezpng(pack, repo, shagi_kornja, shagi):
                      for s in shagi_sc):
             otkazy.append(('RUNFLOW_SCENARIJ_BEZ_START_VHODA',
                            'tapOn ' + VHOD_STARTA))
+        # предусловие строки: жест черновика в СВОЁМ сценарии (состояние
+        # не предъявляется из предзагруженного при входе без действия).
+        tap_sc = [i for i, s in enumerate(shagi_sc)
+                  if s.startswith('tapOn') and id_iz(s) == DRAFT_GEST]
+        vvod_sc = [i for i, s in enumerate(shagi_sc)
+                   if s.split(':')[0].strip() == 'inputText']
+        if not any(t < v for t in tap_sc for v in vvod_sc):
+            otkazy.append(('SCENARIJ_BEZ_CHERNOVIKA', scenarij))
+        # наблюдение строки + привязка манифеста: СВОЙ testID наблюдается
+        # в файле, названном полем scenarij (перенос в чужого ребёнка или
+        # подмена привязки ложны при зелёном агрегате).
+        svoi = [i for i, s in enumerate(shagi_sc)
+                if 'assertVisible' in s and id_iz(s) == testid]
+        if not svoi:
+            otkazy.append(('SCENARIJ_BEZ_SVOEJ_TESTID',
+                           '%s %s' % (kadr.get('id'), scenarij)))
+        else:
+            # действие строки: отправки ДО своего assert; для F05.07
+            # действие — жест черновика (ноль отправок) выше.
+            n = DEJSTVIJA_SOSTOJANIJ.get(testid, DEJSTVIE_PO_UMOLCHANIJU)
+            otpr = [i for i, s in enumerate(shagi_sc)
+                    if s.startswith('tapOn') and id_iz(s) == OTPRAVKA
+                    and i < svoi[0]]
+            if len(otpr) < n:
+                otkazy.append(('SCENARIJ_BEZ_DEJSTVIJA',
+                               '%s %s' % (kadr.get('id'), scenarij)))
+        # appId сценария = пакет продукта (Architect118: чужой appId делает
+        # дочерний launchApp неисполнимым на пакете продукта).
+        appid_sc = appid_flow(f)
+        if appid_sc is None or appid_sc != paket:
+            otkazy.append(('FLOW_APPID_NE_PAKET',
+                           '%s appId=%s paket=%s'
+                           % (scenarij, appid_sc, paket)))
     return otkazy
 
 
@@ -292,12 +399,22 @@ def main():
     snimki = [(k['snimok'],
                'mission_frame_' + k['snimok'].replace('mission-', '')
                .replace('-', '_')) for k in manifest['kadry']]
+    paket = paket_produkta(repo)
+    if not paket:
+        # fail-closed: пакета нет — судить appId нечем, вход красен
+        otkazy.append(('APPJSON_BEZ_PAKETA', APPJSON_REL))
+    else:
+        appid = appid_flow(flow)
+        if appid is None or appid != paket:
+            otkazy.append(('FLOW_APPID_NE_PAKET',
+                           'mission.yaml appId=%s paket=%s'
+                           % (appid, paket)))
     otkazy += sud_potok(shagi, snimki, shagi_kornja)
     otkazy += sud_gesty(shagi_kornja)
     otkazy += sud_chip_upload(shagi_kornja)
     otkazy += sud_selektory(repo, shagi)
     otkazy += sud_byte_kopii(repo, manifest)
-    otkazy += sud_bezpng(pack, repo, shagi_kornja, shagi)
+    otkazy += sud_bezpng(pack, repo, shagi_kornja, shagi, paket)
     for imja, detal in otkazy:
         prichina(imja, detal)
     return 1 if otkazy else 0
