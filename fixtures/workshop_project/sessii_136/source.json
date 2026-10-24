@@ -31,16 +31,23 @@
     "a22-pin-taskfile-inline": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"одна правильная inline пара из --task-file запускается с extractPin полного MSG"},
     "a23-pin-live-foreign": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"живой worktree чужой пары извлекается guard, но дверь отказывает PIN_CHUZHOJ"},
     "a24-pin-inline-foreign": {"bol":"НАБЛ-П3", "krasnaya_sejchas":true, "sut":"inline пара с чужим BRANCH даёт PIN_CHUZHOJ до exec"},
+    "a25-argv-koren-do-razdelitelja": {"bol": "Rev136-B1", "krasnaya_sejchas": true, "sut": "границы argv И-4 (NUL-наблюдатель): ровно [--yolo, KOREN, --, MSG]; KOREN — отдельный аргумент ДО --, MSG — выбранный текст + дверная пара байт в байт; дописанный в MSG корень красен"},
+    "a26-ctrl-msg-zakanchivaetsya-putem": {"bol": "Rev136-B1", "krasnaya_sejchas": true, "sut": "положительный контроль: многострочный MSG, кончающийся путём проекта, передаётся байт в байт; корень остаётся отдельным аргументом; пин полного MSG извлекается настоящим стражем"},
+    "a27-strazh-net": {"bol": "Rev136-B2", "krasnaya_sejchas": true, "sut": "стража в установке нет — именованный отказ strazh-net ДО exec, сессия не поднимается; собственного оракула-замены у двери нет"},
     "b1-povtor":            {"bol": "НАБЛ-П3",  "krasnaya_sejchas": true,  "sut": "повторный вход двери не перезаписывает существующее и не дублирует worktree (И-7)"},
     "b2-p10-raskladka":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "после двери: <workflowPaths.registry>/{ci_parity_exceptions.txt,trace.tsv} есть (сев ПО ФАКТУ профиля, registry переопределён), корневого config/ нет (И-6)"},
+    "b3-trassa-net-konfiga": {"bol": "Rev136-B2", "krasnaya_sejchas": true, "sut": "конфига установки НЕТ, трасса нужна — именованный отказ trassa-net-konfiga ДО exec, трасса не сеется; ветви «старт без трассы» не существует"},
+    "b4-trassa-konfig-bit": {"bol": "Rev136-B2", "krasnaya_sejchas": true, "sut": "конфиг есть, но не разбирается — тот же trassa-net-konfiga ДО exec"},
     "c1-p17-map":           {"bol": "НАБЛ-П17", "krasnaya_sejchas": true,  "sut": "бриф оркестратора несёт MAP каждого row (roles без orchestrator) — docs/ARCHITECTURE.md"},
     "c2-p17-rules":         {"bol": "НАБЛ-П17", "krasnaya_sejchas": true,  "sut": "бриф несёт RULES: docs/CODING-STANDARDS.md"},
     "c3-p5-trassa-defolt":  {"bol": "НАБЛ-П5",  "krasnaya_sejchas": true,  "sut": "make_task --kind brief без --model-trace: rc 0, TRACE из <workflowPaths.registry>/trace.tsv; модель оркестратора — из КОНФИГА УСТАНОВКИ (roles.orchestrator→tiers→models), рассогласование trace↔конфиг исключено"},
     "c4-kontrol-filtr":     {"bol": "НАБЛ-П17", "krasnaya_sejchas": false, "sut": "контроль грамматики 095: kind=task фильтр ролей НЕ снят — critic без roles в rows видит пустой MAP"},
-    "c5-kontrol-jeksplizit": {"bol": "НАБЛ-П5", "krasnaya_sejchas": false, "sut": "контроль: явный --model-trace переопределяет дефолт"},
+    "c5-kontrol-jeksplizit": {"bol": "НАБЛ-П5",  "krasnaya_sejchas": false, "sut": "контроль: явный --model-trace переопределяет дефолт"},
     "d1-p10-isklyuchenie":  {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "parity проекта читает исключения из <workflowPaths.registry>/ci_parity_exceptions.txt ПО ФАКТУ профиля (переопределённый registry); объявление команды — rc 0"},
     "d2-kontrol-dom":       {"bol": "НАБЛ-П10", "krasnaya_sejchas": false, "sut": "контроль режима харнесса ДОСЛОВНО: корень без harness.project.json — config/ci_parity_exceptions.txt, семантика 020 не тронута"},
-    "d3-kontrol-koren":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "проектный режим читает ТОЛЬКО профильный перечень: пустой — rc 1 FAIL (даже при ловушке-корне config/ с достаточными объявлениями); файла нет — rc 2 с именем профильного пути, корень не читается"}
+    "d3-kontrol-koren":     {"bol": "НАБЛ-П10", "krasnaya_sejchas": true,  "sut": "проектный режим читает ТОЛЬКО профильный перечень: пустой — rc 1 FAIL (даже при ловушке-корне config/ с достаточными объявлениями); файла нет — rc 2 с именем профильного пути, корень не читается"},
+    "d4-harness-svoj-profil": {"bol": "Rev136-B2", "krasnaya_sejchas": false, "sut": "КОНТРОЛЬ: собственный профиль харнесса (profilePath=registry/... вне .harness/, без .harness/) — режим 020 дословно, корневой config/, rc 0; ловит предикат «есть harness.project.json → проектный режим»"},
+    "d5-sloi-poterjan":     {"bol": "Rev136-B2", "krasnaya_sejchas": true,  "sut": "у проектного профиля потерян ОБЪЯВЛЕННЫЙ файл слоя (.harness/project-layer.json) — rc 2 с именем объявленного пути; молчаливый fallback на корневую ловушку config/ запрещён"}
   },
   "stab_vhod": {
     "s1-dver-bez-pina":       ["a3-p3-pin-v-soobshchenii", "a4-p3-zapis", "a5-p12-agent"],
@@ -60,6 +67,13 @@
     "s15-dver-tolko-pervaja": ["a10-pin-duplicate", "a11-pin-mixed", "a15-pin-extra-wt", "a16-pin-extra-br", "a21-pin-taskfile-duplicate"],
     "s16-dver-ravnye-dubli":  ["a10-pin-duplicate", "a19-pin-inline-mixed", "a21-pin-taskfile-duplicate"],
     "s17-dver-inline-ne-vidit": ["a9-pin-inline", "a22-pin-taskfile-inline", "a24-pin-inline-foreign"],
-    "s18-dver-tolko-poslednjaja": ["a12-pin-reverse"]
+    "s18-dver-tolko-poslednjaja": ["a12-pin-reverse"],
+    "s19-dver-strazh-svoj-orakul": ["a27-strazh-net"],
+    "s20-dver-trassa-molcha": ["b3-trassa-net-konfiga"],
+    "s21-dver-trassa-bit-molcha": ["b4-trassa-konfig-bit"],
+    "s22-dver-koren-v-hvoste": ["a25-argv-koren-do-razdelitelja"],
+    "s23-parity-sloi-molcha": ["d5-sloi-poterjan"],
+    "s24-parity-proekt-po-faktu": ["d4-harness-svoj-profil"],
+    "s25-dver-put-v-zadachenii": ["a26-ctrl-msg-zakanchivaetsya-putem"]
   }
 }

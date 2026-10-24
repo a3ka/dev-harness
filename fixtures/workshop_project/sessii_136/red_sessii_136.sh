@@ -15,6 +15,12 @@
 # (дерево | model/ | stabs/<имя>/); страж .omp/extensions/path-guard.ts — РЕАЛЬНЫЙ, не меняется
 # (грамматика пина 032/066 уже принимает любой живой linked worktree: git-оракул судит живость,
 # не принадлежность dev-harness). Привязка стаб → клетки — ТОЛЬКО source.json:.stab_vhod (Н-39).
+# 136 v2 (слово владельца 2026-10-24 14:58 UTC; Rev136-B1/B2): границы argv И-4 —
+# корень ОТДЕЛЬНЫЙ аргумент до `--`, MSG непустой после, дописывание корня в MSG
+# запрещено (a25/a26); fail-closed стража установки — strazh-net до exec, никакого
+# собственного оракула двери (a27); fail-closed трассы — trassa-net-konfiga при
+# отсутствии/неразборе конфига (b3/b4); предикат проектного режима паритета — по
+# ОБЪЯВЛЕННОМУ слою профиля, потеря слоя не даёт молчаливого fallback (d4/d5).
 # Мутация стаба может красить и клетки вне своей привязки (например, стабы
 # двери без пина гасят и выдачу subagent-pin.sh) — привязка в source.json
 # это МИНИМУМ гарантированной красноты, а не полный эффект мутации (замечание
@@ -22,13 +28,14 @@
 #
 # Дверь исполняется из песочницы $SB (копия файла двери + двойник workshop рядом): дверь
 # дословно разрешает(exec) $HERE/workshop — двойник пишет по одному аргументу в строку в
-# $W/args.txt и выходит 7; сообщение сессии = строки после литеральной строки «--».
+# $W/args.txt (границы argv — дополнительно NUL-разделённым $W/args0.bin, 136 v2/B1) и
+# выходит 7; сообщение сессии = строки после литеральной строки «--».
 #
 # РЕЖИМЫ:
 #   без ключей  — субъекты из дерева ветки: боли живы → rc 1;
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
-#                 rc 0 «стабов 18, привязок 34, непойманных 0».
+#                 rc 0 «стабов 25, привязок 41, непойманных 0».
 #
 # Миры — /tmp/dev-harness-verify/sessii-136-<клетка>/** (оракулы в памяти, правило 8);
 # чекауты проектов — /tmp/dev-harness-fakehome-136/<клетка>/** ВНЕ scratch-allowlist Н-85
@@ -50,12 +57,12 @@ DOOR="$(subj scripts/connect_project.sh connect_project.sh)"
 MKT="$(subj scripts/make_task.sh make_task.sh)"
 PAR="$(subj scripts/verify_ci_parity.sh verify_ci_parity.sh)"
 
-W=""; FH=""; SEED=""; DVER_CONFIG=""; DVER_RC=""
+W=""; FH=""; SEED=""; DVER_CONFIG=""; DVER_RC=""; DVER_NOGUARD=0; ARGS=()
 mk_mir() { # mk_mir <слуг> [next] [harness]
   local slug="$1"
   W="/tmp/dev-harness-verify/sessii-136-$slug"
   FH="/tmp/dev-harness-fakehome-136/$slug"
-  DVER_CONFIG=""; DVER_RC=""
+  DVER_CONFIG=""; DVER_RC=""; DVER_NOGUARD=0; ARGS=()
   rm -rf "$W" "$FH"; mkdir -p "$W" "$FH/projects" "$FH/dev-harness-projects/toy-proj/wt" "$FH/seed"
   SEED="$FH/seed/toy-proj"
   git init -q "$SEED"
@@ -89,13 +96,16 @@ mk_mir() { # mk_mir <слуг> [next] [harness]
 }
 run_dver() { # копия двери в песочницу + двойник workshop + двойник КОНФИГА
   # УСТАНОВКИ $SB/config/agent_models.json (источник трассы, блокер 2);
-  # DVER_CONFIG — управляемое содержимое конфига клетки. Сообщение — после «--».
+  # DVER_CONFIG — управляемое содержимое конфига клетки, "NETU" — конфига нет
+  # (136 v2/B2б); DVER_NOGUARD=1 — установка без стража (136 v2/B2а).
+  # Сообщение — после «--»; границы argv — NUL-файл args0.bin.
   local SB="$W/sb"; mkdir -p "$SB/scripts" "$SB/config" "$SB/.omp/extensions"
   cp "$DOOR" "$SB/scripts/connect_project.sh"
-  cp "$GUARD" "$SB/.omp/extensions/path-guard.ts"
-  if [ -n "$DVER_CONFIG" ]; then printf '%s' "$DVER_CONFIG" > "$SB/config/agent_models.json"
+  [ "$DVER_NOGUARD" = 1 ] || cp "$GUARD" "$SB/.omp/extensions/path-guard.ts"
+  if [ "${DVER_CONFIG:-}" = "NETU" ]; then :
+  elif [ -n "${DVER_CONFIG:-}" ]; then printf '%s' "$DVER_CONFIG" > "$SB/config/agent_models.json"
   else cp "$ROOT/config/agent_models.json" "$SB/config/agent_models.json"; fi
-  printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > "%s"\nexit 7\n' "$W/args.txt" > "$SB/workshop"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > "%s"\nprintf "%%s\\0" "$@" > "%s"\nexit 7\n' "$W/args.txt" "$W/args0.bin" > "$SB/workshop"
   chmod +x "$SB/workshop"
   if [ -n "${2:-}" ]; then
     env HOME="$FH" HARNESS_PROJECTS_DIR="$FH/projects" \
@@ -109,6 +119,7 @@ run_dver() { # копия двери в песочницу + двойник work
   DVER_RC=$?
 }
 dver_msg() { awk 'f{print} $0=="--"{f=1}' "$W/args.txt" 2>/dev/null; }
+dver_argv() { ARGS=(); if [ -f "$W/args0.bin" ]; then mapfile -d '' -t ARGS < "$W/args0.bin"; fi; }
 # сцена субъекта make_task: файл субъекта (дерево|модель|стаб) дословно +
 # НЕменяемые контрактом 136 спутники дерева (profile_resolver.sh, next_id.sh —
 # сиблинги по $(dirname $0), в model/ их нет)
@@ -226,6 +237,37 @@ k_a6() { mk_mir a6-p11-subagent-pin; run_dver
     && [ "$(git -C "$SEED" show wip/777/demo:agent.txt)" = 'agent result 777' ]; }
 k_a7() { mk_mir a7-granica; run_dver
   [ "$(judge "{\"tool\":\"write\",\"args\":{\"path\":\"$SEED/f.txt\"},\"worktree\":null,\"actual\":\"$SEED\"}" | jq -r .decision)" = "block" ]; }
+k_a25() { # 136 v2 (Rev136-B1): границы argv — NUL-наблюдатель, не построчный
+  # tail. Форма И-4: ровно [--yolo, KOREN, --, MSG]; KOREN — отдельный аргумент
+  # ДО разделителя; MSG — выбранный текст + дверная пара, БАЙТ В БАЙТ: никакого
+  # дописанного корня (мутант «корень в хвосте MSG» красен).
+  mk_mir a25-argv-koren-do-razdelitelja next; run_dver; dver_argv
+  local exp wt="$FH/dev-harness-projects/toy-proj/wt/wip-136-demo"
+  exp="$(cat "$SEED/.harness/NEXT_TASK.md")
+WORKTREE=$wt
+BRANCH=wip/136/demo"
+  [ "${#ARGS[@]}" = 4 ] && [ "${ARGS[0]}" = --yolo ] && [ "${ARGS[1]}" = "$SEED" ] \
+    && [ "${ARGS[2]}" = -- ] && [ "${ARGS[3]}" = "$exp" ]; }
+k_a26() { # 136 v2 положительный контроль: MSG многострочный и кончается ПУТЁМ
+  # проекта — честная дверь передаёт его байт в байт (никакой «чистки хвоста»
+  # и никакого отказа от задания с путём), корень — отдельным аргументом до --,
+  # пин полного MSG извлекается настоящим стражем.
+  mk_mir a26-ctrl-msg-zakanchivaetsya-putem
+  printf 'Задание: релиз 1.3, две строки.\nФинальная строка — путь проекта: %s\n' "$SEED" > "$SEED/.harness/NEXT_TASK.md"
+  run_dver; dver_argv
+  local exp pin wt="$FH/dev-harness-projects/toy-proj/wt/wip-136-demo"
+  exp="$(cat "$SEED/.harness/NEXT_TASK.md")
+WORKTREE=$wt
+BRANCH=wip/136/demo"
+  { [ "${#ARGS[@]}" = 4 ] && [ "${ARGS[0]}" = --yolo ] && [ "${ARGS[1]}" = "$SEED" ] \
+      && [ "${ARGS[2]}" = -- ] && [ "${ARGS[3]}" = "$exp" ]; } || return 1
+  pin="$(epin "${ARGS[3]}" | jq -r '.worktree // empty')"
+  [ "$pin" = "$wt" ]; }
+k_a27() { # 136 v2 (Rev136-B2а): стража в установке нет — именованный отказ
+  # strazh-net ДО exec; собственного оракула-замены у двери быть не должно
+  # (мир без стража, отказ вместо запуска — мутант «свой pin_scan» красен).
+  mk_mir a27-strazh-net; DVER_NOGUARD=1; run_dver
+  [ "$DVER_RC" = 1 ] && grep -q 'strazh-net' "$W/dvor.err" && [ ! -e "$W/args.txt" ]; }
 k_b1() { mk_mir b1-povtor; run_dver
   local K tr ex tr1 ex1 hd1
   K="$SEED"; tr="$K/.harness/records/trace.tsv"; ex="$K/.harness/records/ci_parity_exceptions.txt"
@@ -245,6 +287,16 @@ k_b2() { mk_mir b2-p10-raskladka; run_dver
     && [ ! -e "$K/.harness/registry/trace.tsv" ] \
     && [ ! -e "$K/.harness/registry/ci_parity_exceptions.txt" ] \
     && [ ! -e "$K/config" ]; }
+k_b3() { # 136 v2 (Rev136-B2б): конфига установки НЕТ, а трасса нужна —
+  # именованный отказ trassa-net-konfiga ДО exec, трасса не сеется;
+  # ветви «сессия стартует без трассы» не существует.
+  mk_mir b3-trassa-net-konfiga; DVER_CONFIG=NETU; run_dver
+  [ "$DVER_RC" = 1 ] && grep -q 'trassa-net-konfiga' "$W/dvor.err" \
+    && [ ! -e "$W/args.txt" ] && [ ! -e "$SEED/.harness/records/trace.tsv" ]; }
+k_b4() { # 136 v2: конфиг ЕСТЬ, но не разбирается — тот же именованный отказ
+  mk_mir b4-trassa-konfig-bit; DVER_CONFIG='{"roles":{"orchestrator":"default"'; run_dver
+  [ "$DVER_RC" = 1 ] && grep -q 'trassa-net-konfiga' "$W/dvor.err" \
+    && [ ! -e "$W/args.txt" ] && [ ! -e "$SEED/.harness/records/trace.tsv" ]; }
 mkt_brief() {
   local mb; mb="$(mkt_dir)"
   env HOME="$FH" HARNESS_PROJECT_LAYER_ROOT="$SEED" \
@@ -308,8 +360,31 @@ k_d3() { mk_mir d3-kontrol; run_dver
   [ "$rc1" -eq 1 ] && grep -q 'FAIL' "$W/par3.out" \
     && [ "$rc2" -eq 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par4.out" \
     && grep -Fq "$K/.harness/records/ci_parity_exceptions.txt" "$W/par4.out"; }
+k_d4() { # 136 v2 (Rev136-B2в) КОНТРОЛЬ: собственный профиль харнесса —
+  # profilePath=registry/... ВНЕ .harness/, каталога .harness/ нет — режим
+  # 020 дословно: исключения из корневого config/ci_parity_exceptions.txt, rc 0.
+  # Ловит переносачный предикат «есть harness.project.json → проектный режим».
+  mk_mir d4-harness-svoj-profil harness
+  rm -rf "$SEED/.harness"
+  jq -n '{schemaVersion:1,repoId:"toy-harness",language:"bash",
+    workflowPaths:{contracts:"contracts",verdicts:"verdicts",registry:"registry",fixtures:"fixtures"},
+    projectLayer:{version:"v1",profilePath:"registry/harness-project.json"}}' > "$SEED/harness.project.json"
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d4\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d4.out" 2>&1; }
+k_d5() { # 136 v2 (Rev136-B2в): у ПРОЕКТНОГО профиля (слой объявлен под
+  # .harness/) потерян ОБЪЯВЛЕННЫЙ файл слоя — повреждённое проектное
+  # состояние: rc 2 с именем объявленного пути; молчаливый fallback на
+  # корневую ловушку config/ запрещён (ловушка в корне достаточна).
+  mk_mir d5-sloi-poterjan; run_dver
+  rm -f "$SEED/.harness/project-layer.json"
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d5\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d5.out" 2>&1 || rc=$?
+  [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/project-layer.json" "$W/par-d5.out"; }
 
-ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign b1-povtor b2-p10-raskladka c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren"
+ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan"
 run_cell() { case "$1" in
   a1-p6-hvost) k_a1 ;; a2-p6-brief-defolt) k_a2 ;; a3-p3-pin-v-soobshchenii) k_a3 ;;
   a4-p3-zapis) k_a4 ;; a5-p12-agent) k_a5 ;; a6-p11-subagent-pin) k_a6 ;;
@@ -331,9 +406,12 @@ run_cell() { case "$1" in
   a22-pin-taskfile-inline) k_pin_case a22 taskfile inline pass ;;
   a23-pin-live-foreign) k_pin_case a23 next live-foreign PIN_CHUZHOJ ;;
   a24-pin-inline-foreign) k_pin_case a24 next inline-foreign PIN_CHUZHOJ ;;
+  a25-argv-koren-do-razdelitelja) k_a25 ;; a26-ctrl-msg-zakanchivaetsya-putem) k_a26 ;; a27-strazh-net) k_a27 ;;
   b1-povtor) k_b1 ;; b2-p10-raskladka) k_b2 ;;
+  b3-trassa-net-konfiga) k_b3 ;; b4-trassa-konfig-bit) k_b4 ;;
   c1-p17-map) k_c1 ;; c2-p17-rules) k_c2 ;; c3-p5-trassa-defolt) k_c3 ;;
   c4-kontrol-filtr) k_c4 ;; c5-kontrol-jeksplizit) k_c5 ;;
+  d4-harness-svoj-profil) k_d4 ;; d5-sloi-poterjan) k_d5 ;;
   d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;; esac; }
 
 case "$MODE" in
