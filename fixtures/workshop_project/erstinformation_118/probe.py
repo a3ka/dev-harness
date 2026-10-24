@@ -225,7 +225,7 @@ def build_repo(src, tmp, pack):
     # first-run-continue → F03.01 → auth-demo-entry → Erstinformation;
     # экран first_run_demo_entry в production-корне 117 v3 не предусмотрен.
     (au / 'testids.stand-in.tsx').write_text(
-        'testID="first_run_continue"\ntestID="auth-demo-entry"\n',
+        'testID="first-run-continue"\ntestID="auth-demo-entry"\n',
         encoding='utf-8')
     app = repo / 'mobile/src/app'
     app.mkdir(parents=True)
@@ -644,13 +644,13 @@ def mut_kompozicija_model_import(pack, forma, repo, src):
             encoding='utf-8')
 
 
-def mut_proiskhozdenie_bez_first_run_continue(pack, forma, repo, src):
+def mut_proiskhozdenie_bez_first_run_tapa(pack, forma, repo, src):
     """Арбитраж п.1.7: флоу минует first-run-continue — путь от production
     / рвётся до demo-входа F03.01."""
     _zapusti_replay(repo)
     p = repo / 'mobile/.maestro/erstinformation.yaml'
     t = p.read_text(encoding='utf-8')
-    needle = '- tapOn: {id: first_run_continue}\n'
+    needle = '- tapOn: {id: first-run-continue}\n'
     assert t.count(needle) == 1
     p.write_text(t.replace(needle, ''), encoding='utf-8')
 
@@ -692,7 +692,7 @@ MUTACII = {
     'kompozicija-forma-staraja': mut_kompozicija_forma_staraja,
     'kompozicija-model-import': mut_kompozicija_model_import,
     'proiskhozdenie-bez-first-run-continue':
-        mut_proiskhozdenie_bez_first_run_continue,
+        mut_proiskhozdenie_bez_first_run_tapa,
 }
 
 

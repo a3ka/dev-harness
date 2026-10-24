@@ -2,8 +2,8 @@ appId: com.complior.demo
 name: erstinformation
 ---
 - launchApp
-- assertVisible: {id: first_run_continue}
-- tapOn: {id: first_run_continue}
+- assertVisible: {id: first-run-continue}
+- tapOn: {id: first-run-continue}
 - assertVisible: {id: auth-demo-entry}
 - tapOn: {id: auth-demo-entry}
 - assertVisible: {id: erstinfo_gate_null}
