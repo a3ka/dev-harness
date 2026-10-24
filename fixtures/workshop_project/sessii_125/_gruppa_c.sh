@@ -27,9 +27,14 @@ KEYS_RE=$(jq -r '.bootstrap_keys | join("|")' "$SRC_JSON")
 mapfile -t HARN < <(jq -r '.harness_v_dereve[]' "$SRC_JSON")
 mir() { # $1 = имя мира; $2 = имя репозитория (seed)
   local M="$WORK/$1"
-  mkdir -p "$M/inst/scripts" "$M/home/.config/dev-harness" "$M/bin" "$M/seed/$2"
+  mkdir -p "$M/inst/scripts" "$M/inst/.omp/extensions" "$M/inst/config" "$M/home/.config/dev-harness" "$M/bin" "$M/seed/$2"
   cp "$SUBJ" "$M/inst/scripts/connect_project.sh"
-  printf '#!/bin/sh\nprintf "%%s\\n" "$@" > %s/workshop.argv\nprintf "launch\\n" >> %s/workshop.calls\n' "$M" "$M" > "$M/inst/workshop"
+  # 136 v2 (Rev136-B2): минимальная установка несёт ДЕЙСТВИТЕЛЬНЫЕ страж и конфиг
+  # из дерева — дверь 136 fail-closed при их отсутствии, честный субъект обязан
+  # проходить; отсутствие guard/config в мире больше не маскирует отступления.
+  cp "$ROOT/.omp/extensions/path-guard.ts" "$M/inst/.omp/extensions/path-guard.ts"
+  cp "$ROOT/config/agent_models.json" "$M/inst/config/agent_models.json"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > %s/workshop.argv\nprintf "%%s\\0" "$@" > %s/workshop.argv0\nprintf "launch\\n" >> %s/workshop.calls\n' "$M" "$M" "$M" > "$M/inst/workshop"
   printf '#!/bin/sh\nif [ "$1" = --version ]; then echo omp/v10; exit 0; fi\nexit 0\n' > "$M/bin/omp"
   printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> %s/gh.argv\nexit 0\n' "$M" > "$M/bin/gh"
   cat > "$M/bin/git" <<G
@@ -68,7 +73,17 @@ OPIS0=$(cd "$M/seed/$NAME" && opis .)
 run_connect m1 "https://github.com/acme/$NAME.git"
 why=""; [ "$RC" = 0 ] || why="$why rc=$RC($(sed -n '1p' "$M/err"));"
 [ "$(calls "$M")" = 1 ] || why="$why workshop вызван $(calls "$M") раз, ждали 1;"
-[ "$(tail -n1 "$M/workshop.argv" 2>/dev/null)" = "$P" ] || why="$why последний аргумент workshop ≠ $P;"
+# 136 v2 (Rev136-B1): оракул границ argv — NUL-разделённый workshop.argv0, не
+# построчный tail (последняя СТРОКА сериализации ≠ последний аргумент при
+# многострочном MSG). Корень — ОТДЕЛЬНЫЙ аргумент ДО разделителя: либо форма 125
+# без хвоста [--yolo, P], либо форма 136 [--yolo, P, --, MSG] с непустым MSG
+# (последний argv — MSG). Корень только в MSG / только после -- / не передан /
+# чужой — КРАСНО; MSG, кончающийся путём проекта, — зелёный положительный.
+wa=(); [ -f "$M/workshop.argv0" ] && mapfile -d '' -t wa < "$M/workshop.argv0"
+okargv=0
+if [ "${#wa[@]}" = 2 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ]; then okargv=1; fi
+if [ "${#wa[@]}" = 4 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ] && [ "${wa[2]}" = -- ] && [ -n "${wa[3]}" ]; then okargv=1; fi
+[ "$okargv" = 1 ] || why="$why границы argv workshop ≠ [--yolo, $P] | [--yolo, $P, --, непустой MSG]: $(tr '\n' '|' < "$M/workshop.argv" 2>/dev/null);"
 v c01-zapusk-odin "$(ok_if "$why")" "$why"
 ok=0; grep -qxF -- '--yolo' "$M/workshop.argv" 2>/dev/null && ok=1
 v c02-yolo "$ok" "workshop запущен без --yolo (вход основной сессии — workshop --yolo): $(cat "$M/workshop.argv" 2>/dev/null | tr '\n' ' ')"
