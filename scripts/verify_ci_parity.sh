@@ -177,16 +177,21 @@ PKG="$ROOT/package.json"
 # профильный файл — rc 2 с именем ПРОФИЛЬНОГО пути. Режим харнесса (без
 # harness.project.json) — дословно прежний путь config/ci_parity_exceptions.txt.
 #
-# ПРОЕКТНЫЙ РЕЖИМ — дерево, ПОДКЛЮЧЁННОЕ дверью 125: профиль в корне
-# (harness.project.json) И слой проекта .harness/ (его сеет дверь, И-6 125).
-# Деревья без door-слоя (корень харнесса, репозитории с собственной раскладкой
-# workflowPaths — например toy-мир 103) сохраняют режим 020 ДОСЛОВНО: их
-# исключения объявлены в config/ci_parity_exceptions.txt. Без различения гейт
-# харнесса (`npm run check:ci-parity`, precision-гейт 043) и семейство 103
-# ушли бы в проектный режим на чужих им корнях и упали «нет файла исключений» —
-# CI-workflow харнесса контракт 136 не меняет.
+# ПРОЕКТНЫЙ РЕЖИМ — дерево СЕССИИ ПРОЕКТА, подключённое дверью 125: профиль
+# в корне (harness.project.json) И слой проекта, заведённый дверью (И-6 125:
+# `.harness/project-layer.json` — тот самый слой, что пишет дверь, и что
+# объявляет профиль `projectLayer.profilePath`). Признак «дверь подключила
+# это дерево» — САМ слой двери, а не любой каталог `.harness/`: toy-миры с
+# собственной раскладкой workflowPaths (996: .harness/ledger, 103:
+# .harness/registry) слоя двери не имеют. Такие деревья, как и корень
+# харнесса, сохраняют режим 020 ДОСЛОВНО: их исключения объявлены в
+# config/ci_parity_exceptions.txt. Без различения гейт харнесса
+# (`npm run check:ci-parity`, precision-гейт 043), семейство 996/103 и корень
+# харнесса ушли бы в проектный режим на чужих им корнях и упали «нет файла
+# исключений» — CI-workflow харнесса контракт 136 не меняет.
 EXCEPTIONS="$ROOT/config/ci_parity_exceptions.txt"
-if [ -f "$ROOT/harness.project.json" ] && [ -d "$ROOT/.harness" ] && command -v jq >/dev/null 2>&1; then
+if [ -f "$ROOT/harness.project.json" ] && [ -f "$ROOT/.harness/project-layer.json" ] \
+   && command -v jq >/dev/null 2>&1; then
   _wp_reg="$(jq -r '.workflowPaths.registry // ".harness/registry"' "$ROOT/harness.project.json" 2>/dev/null)"
   EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt"
 fi

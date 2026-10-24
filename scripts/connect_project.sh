@@ -88,10 +88,16 @@ mkdir -p "$REG_REL"
 # Трасса модели оркестратора (НАБЛ-П5, В-4а): источник — КОНФИГ УСТАНОВКИ
 # $HERE/config/agent_models.json: roles.orchestrator → tiers[роль].model
 # (@алиас) → models[алиас]. НЕ константа и НЕ env-замена: рассогласование
-# trace.tsv ↔ конфиг установки исключено по построению. Конфиг не читается
-# или не разбирается — именованный отказ, трасса не сеется (fail-closed).
+# trace.tsv ↔ конфиг установки исключено по построению. Конфиг ЕСТЬ, но не
+# читается/не разбирается — именованный отказ, трасса не сеется
+# (fail-closed). Конфига в установке НЕТ — установка без политики моделей
+# (минимальная установка: только дверь и workshop — И-6 125 «раскладка»:
+# новое в дереве проекта — .harness/ и профиль): трассы нет, сеять нечего,
+# и сессия поднимается. Молчаливого обхода тут нет: потребитель трассы
+# (make_task, И-6 136) при отсутствии файла отказывает «нет свидетельства
+# модели» — как до 136.
 # И-7: существующая трасса не перезаписывается.
-if [ ! -s "$REG_REL/trace.tsv" ]; then
+if [ ! -s "$REG_REL/trace.tsv" ] && [ -f "$HERE/config/agent_models.json" ]; then
   ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
     || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
   printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL" > "$REG_REL/trace.tsv"
@@ -135,23 +141,28 @@ fi
 # inline pin:WORKTREE=...:BRANCH=... и пустые/половинные декларации. Регулярное
 # выражение токена совпадает с path-guard.ts; пустое значение явно отвергается.
 # Значения сравниваются только с парой этой двери, до exec workshop.
-PIN_TOKENS="$(printf '%s\n' "$MSG" | grep -Eo '(^|[:;,])[[:space:]]*(WORKTREE|BRANCH)=[^[:space:],;:]*' || true)"
-_wt_count=0 _br_count=0 _pin_wrong=0
-while IFS= read -r _token; do
-  [ -n "$_token" ] || continue
-  [[ "$_token" =~ (WORKTREE|BRANCH)=(.*)$ ]] || continue
-  _key="${BASH_REMATCH[1]}"
-  _value="${BASH_REMATCH[2]}"
-  # Страж 066 снимает терминальную пунктуацию с непустых значений.
-  _value="$(printf '%s' "$_value" | sed -E 's/[.,;:!?]+$//')"
-  if [ "$_key" = WORKTREE ]; then
-    _wt_count=$((_wt_count+1))
-    [ "$_value" = "$PIN_WT" ] || _pin_wrong=1
-  else
-    _br_count=$((_br_count+1))
-    [ "$_value" = "$PIN_BR" ] || _pin_wrong=1
-  fi
-done <<< "$PIN_TOKENS"
+# pin_scan <текст> → «<число WORKTREE> <число BRANCH> <1 — чужая/пустая>».
+pin_scan() {
+  local toks token key value wt=0 br=0 wrong=0
+  toks="$(printf '%s\n' "$1" | grep -Eo '(^|[:;,])[[:space:]]*(WORKTREE|BRANCH)=[^[:space:],;:]*' || true)"
+  while IFS= read -r token; do
+    [ -n "$token" ] || continue
+    [[ "$token" =~ (WORKTREE|BRANCH)=(.*)$ ]] || continue
+    key="${BASH_REMATCH[1]}"
+    value="${BASH_REMATCH[2]}"
+    # Страж 066 снимает терминальную пунктуацию с непустых значений.
+    value="$(printf '%s' "$value" | sed -E 's/[.,;:!?]+$//')"
+    if [ "$key" = WORKTREE ]; then
+      wt=$((wt+1))
+      [ "$value" = "$PIN_WT" ] || wrong=1
+    else
+      br=$((br+1))
+      [ "$value" = "$PIN_BR" ] || wrong=1
+    fi
+  done <<< "$toks"
+  printf '%s %s %s\n' "$wt" "$br" "$wrong"
+}
+read -r _wt_count _br_count _pin_wrong <<< "$(pin_scan "$MSG")"
 if [ "$_pin_wrong" -ne 0 ] || [ "$_wt_count" -ne "$_br_count" ]; then
   otkaz "PIN_CHUZHOJ: задание несёт чужую либо половинную декларацию пина"
 fi
@@ -163,6 +174,13 @@ if [ "$_wt_count" -eq 0 ]; then
 WORKTREE=$PIN_WT
 BRANCH=$PIN_BR"
 fi
+# Хвост стартового сообщения закрывается КОРНЕМ ПРОЕКТА: форма 125-б
+# (`workshop --yolo <корень> -- <MSG>`, контракт 125 §Нарезка) несёт задание
+# после «--», и последний аргумент workshop обязан остаться корнем проекта
+# (клетка 125 c01 «последний аргумент workshop ≠ <корень>»). Сессия получает
+# корень в том же стартовом сообщении — лишней строкой, не аргументом.
+MSG="$MSG
+$KOREN"
 
 # ── Adv125-Б: инструменты сканера секретов — fail-closed ДО записи секретов
 # и запуска сессии. Без них `sekret-v-dereve` ниже = лотерея: `awk: command not
@@ -269,10 +287,20 @@ fi
 
 # Финальный оракул — настоящий extract-pin 066 на ЦЕЛОМ MSG, а не на
 # отдельно выданных WT/BR: при любой неучтённой форме launch fail-closed.
-_extracted="$(node "$HERE/.omp/extensions/path-guard.ts" --extract-pin "$MSG")" \
-  || otkaz "PIN_CHUZHOJ: невозможно извлечь итоговый пин"
-[ "$(printf '%s' "$_extracted" | jq -r '.worktree // empty')" = "$PIN_WT" ] \
-  || otkaz "PIN_CHUZHOJ: итоговый текст не извлекается в пин двери"
+# Стража в установке нет (минимальная установка: только дверь и workshop) —
+# оракул тогда СОБСТВЕННЫЙ разбор двери: итоговый MSG обязан нести ровно пару
+# двери (одну декларацию WORKTREE= и одну BRANCH=, значения — пара этой двери).
+GUARD="$HERE/.omp/extensions/path-guard.ts"
+if [ -f "$GUARD" ]; then
+  _extracted="$(node "$GUARD" --extract-pin "$MSG")" \
+    || otkaz "PIN_CHUZHOJ: невозможно извлечь итоговый пин"
+  [ "$(printf '%s' "$_extracted" | jq -r '.worktree // empty')" = "$PIN_WT" ] \
+    || otkaz "PIN_CHUZHOJ: итоговый текст не извлекается в пин двери"
+else
+  read -r _fw _fb _fwrong <<< "$(pin_scan "$MSG")"
+  [ "$_fw" = 1 ] && [ "$_fb" = 1 ] && [ "$_fwrong" = 0 ] \
+    || otkaz "PIN_CHUZHOJ: итоговый текст не извлекается в пин двери"
+fi
 
 # ── одна сессия + хвост задания (093 И-5) ────────────────────────────────────
 export HARNESS_PROJECT_LAYER_ROOT="${HARNESS_PROJECT_LAYER_ROOT:-$KOREN}"
