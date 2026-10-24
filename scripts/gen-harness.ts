@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { writeSync } from 'node:fs'
 /**
  * Генерация агентов из ЕДИНСТВЕННОГО источника — `roles/*.md`.
  *
@@ -33,7 +32,7 @@ import { writeSync } from 'node:fs'
  *
  * Коды возврата: 0 — совпало либо записано, 1 — расхождение, 2 — нечем проверить.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
 import { loadRoles, RoleParseError, agentModels, resolveModelRef, checkRoutingStrict, type AgentModels, type Role, type Routing, type RoutingProblem } from './roles.ts'
 
