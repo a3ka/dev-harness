@@ -37,14 +37,14 @@ export interface PilotAppPorts {
     readonly onboarding?: 'unknown' | 'incomplete' | string;
     readonly pendingIntent?: PendingIntent | null;
   };
-  /** 117 v3 (миграция 117/3, слово владельца 2026-10-24): допуск демо
-   * маршрута First-Run → demo → Erstinformation → Start. Источник — сессия
-   * пользователя, ВНЕШНЯЯ по отношению к pilot-app (литерал допуска в
-   * pilot-app запрещён): admission 'W0' — допуска нет, 'W1A' — допуск
-   * подтверждён; gate — ось состояния выдачи 107 ('current' = полный
-   * CURRENT_CONFIRMED-снимок с точной версией и evidence; предикат —
-   * предмет 107/118, здесь судится допуск маршрута). Умолчания W0/'null':
-   * без внешнего источника маршрута НЕТ — прежний путь B (Г0). */
+  /** 117 v3 (миграция 117/3; арбитраж нарезки 117↔118): admission решает
+   * ПОВЕРХНОСТЬ после демо ('W1A' → Erstinformation при ЛЮБОМ gate),
+   * gate — ПЕРЕХОД continue → Start (только 'W1A' ∧ 'current'). Источник
+   * — сессия пользователя, ВНЕШНЯЯ по отношению к pilot-app (литерал
+   * допуска в pilot-app запрещён); gate — ось состояния выдачи 107
+   * ('current' = полный CURRENT_CONFIRMED-снимок с точной версией и
+   * evidence; предикат — 107/118, второй gate не вводится). Умолчания
+   * W0/'null': без внешнего источника — прежний путь B (Г0). */
   readonly onboarding?: {
     readonly admission?: 'W0' | 'W1A';
     readonly gate?: 'null' | 'stale' | 'current';
@@ -208,11 +208,13 @@ export function PilotApp({ auth, api, entry, onboarding }: PilotAppPorts) {
   }, []);
 
   const handleDemoEntry = useCallback(async () => {
-    // 117 v3 (миграция 117/3): демо-вход допущен в Erstinformation ТОЛЬКО
-    // при допуске сессии — admission 'W1A' ∧ gate 'current'. Без допуска
-    // (нет admission ИЛИ gate не current) — прежний путь B: auth.begin →
-    // кадр code (F03.02), поверхность 995, корень #FFFFFF 48/16/16 (Г0).
-    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {
+    // 117 v3 (арбитраж нарезки 117↔118, семантика frozen 118/1 инв. 4–5):
+    // admission решает ПОВЕРХНОСТЬ после демо — W1A → кадр
+    // 'erstinformation' при ЛЮБОМ gate (при null/stale пользователь видит
+    // Erstinformation с маркером gate, Start закрыт); не-W1A — прежний
+    // путь B: auth.begin → кадр code (F03.02), поверхность 995, корень
+    // #FFFFFF 48/16/16 (Г0). Достижимость F03.02 через демо сохраняется.
+    if (onboardingAdmission === 'W1A') {
       setFrame('erstinformation');
       return;
     }
@@ -227,13 +229,18 @@ export function PilotApp({ auth, api, entry, onboarding }: PilotAppPorts) {
     }
     setFlow((current) => ({ ...current, challenge: result.challenge, unavailableReason: null }));
     setFrame('code');
-  }, [flow.email, runtime.auth, resetChallenge, onboardingAdmission, onboardingGate]);
+  }, [flow.email, runtime.auth, resetChallenge, onboardingAdmission]);
 
-  // 117 v3: продолжение из Erstinformation — ЕДИНСТВЕННЫЙ вход в Start
-  // (порядок маршрута: Start не возникает раньше Erstinformation).
+  // 117 v3: продолжение из Erstinformation — ЕДИНСТВЕННЫЙ вход в Start;
+  // gate решает ПЕРЕХОД: continue → Start ТОЛЬКО при W1A ∧ current
+  // (frozen 118/1 инв. 4–5: при null/stale нажатие continue НЕ даёт
+  // перехода, Start отсутствует; второй gate не вводится — предикат
+  // 107/118).
   const handleErstinfoContinue = useCallback(() => {
-    setFrame('start');
-  }, []);
+    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {
+      setFrame('start');
+    }
+  }, [onboardingAdmission, onboardingGate]);
 
   const handleVerify = useCallback(async () => {
     const generation = verifyGeneration.current.current;
@@ -374,8 +381,11 @@ export function PilotApp({ auth, api, entry, onboarding }: PilotAppPorts) {
           testID="erstinformation-117"
           style={[styles.rootFirstRun, { backgroundColor: tokens.ground }]}
         >
-          {/* 117 v3: состав экрана Erstinformation — предмет 118 (кадры
-              F02.03/F02.08 по макетам); модель несёт только шаг маршрута. */}
+          {/* 117 v3: маркер состояния gate (frozen 118/1 инв. 4: при
+              null/stale пользователь ВИДИТ маркер gate, Start закрыт);
+              состав экрана Erstinformation (кадры F02.03/F02.08) —
+              предмет 118, модель несёт шаг маршрута и маркер. */}
+          <View testID={`erstinfo_gate_${onboardingGate}`} />
           <Pressable
             testID="erstinfo_continue_start"
             onPress={handleErstinfoContinue}
