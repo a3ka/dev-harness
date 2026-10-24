@@ -25,11 +25,18 @@ VKHOD_SPLASH_OVERLAY_ABSENT (клетка SPLASH_OVERLAY_MOUNTED_* красна)
 (число клеток — из прогона).
 --matrix: каждый обманный стаб красен на объявленных ветвях
 (named ∪ depends); краснота вне объявления — дефект матрицы rc2.
-Правка по FAIL критика v3 (оба блокера): клетки непокрытых входов
-допуска (отсутствующий admission/gate — поля OPTIONAL, W0×stale,
-светлая тема) и Г0 на экземплярах с подключённым onboarding
-(недопуск/допуск, обе темы); стабы-обходы критика + собственные.
-Выход — только код возврата; список case построчно.
+Правка по FAIL критика v3 круг 1: клетки непокрытых входов допуска
+(отсутствующий admission/gate — поля OPTIONAL, W0×stale, светлая тема)
+и Г0 на экземплярах с подключённым onboarding (недопуск/допуск, обе
+темы); стабы-обходы критика + собственные.
+Правка по FAIL критика v3 КРУГ 2 (класс, не точки): ТАБЛИЦА ВХОДОВ —
+все выразимые входы порта onboarding (форма порта × admission × gate ×
+тема, 26 строк × 2 = 52 клетки MIGRACIYA_TABLICA_*, имена производны
+от строки, ожидание выводится из строки: допуск ⇔ W1A ∧ current;
+недопуск — прежний путь B и Г0 #FFFFFF 48/16/16 в обеих темах);
+стабы: все 10 мутантов критика кругов 1–2 (включая зелёные в круге 2
+new-light-gate-default, new-empty-session-demo, new-g0-denied-admission)
+и собственные — каждый красен на объявленных ветвях.
 """
 import argparse
 from pathlib import Path
@@ -39,6 +46,33 @@ from probe_lib import (
     FAMILY_PREFIX, HERE, TEST_INSTALL,
     installed, jest_ready, model_bytes, run_jest,
 )
+
+# ТАБЛИЦА ВХОДОВ допуска (правка по FAIL критика v3 круг 2): зеркало
+# VHOD_TABLICA теста — все ВЫРАЗИМЫЕ строки порта onboarding (форма ×
+# admission × gate). Оси: admission ∈ {W0, W1A, отсутствует(OTSUT), null,
+# неизвестное(NEIZVESTNOE)}; gate ∈ {current, stale, отсутствует, null,
+# неизвестное}. Форма связывает выразимость: «не подключён» и «пустой {}»
+# дают только OTSUT/OTSUT; частичный — ровно одно поле; полный — оба.
+_TABL_ROWS = (
+    [('NEPODKLYUCHEN', 'OTSUT', 'OTSUT'), ('PUSTOJ', 'OTSUT', 'OTSUT')]
+    + [('CHASTICHNYJ', a, 'OTSUT') for a in ('W0', 'W1A', 'NULL', 'NEIZVESTNOE')]
+    + [('CHASTICHNYJ', 'OTSUT', g) for g in ('CURRENT', 'STALE', 'NULL', 'NEIZVESTNOE')]
+    + [('POLNYJ', a, g) for a in ('W0', 'W1A', 'NULL', 'NEIZVESTNOE')
+       for g in ('CURRENT', 'STALE', 'NULL', 'NEIZVESTNOE')]
+)
+# строки с truthy портом (все, кроме «не подключён») и с ожиданием недопуска
+_TABL_TRUTHY = [r for r in _TABL_ROWS if r[0] != 'NEPODKLYUCHEN']
+_TABL_NEDOPUSK = [r for r in _TABL_ROWS if not (r[1] == 'W1A' and r[2] == 'CURRENT')]
+_TABL_DOPUSK = [('POLNYJ', 'W1A', 'CURRENT')]
+
+
+def _tabl(form, adm, gate, temy=('DARK', 'LIGHT')):
+    """Имя клетки таблицы входов — производное от строки (как в тесте)."""
+    return [f'MIGRACIYA_TABLICA_{form}_{adm}_{gate}_{t}' for t in temy]
+
+
+def _tabl_rows(rows, temy=('DARK', 'LIGHT')):
+    return [name for row in rows for name in _tabl(*row, temy=temy)]
 
 NAMED_RED = 'VKHOD_SPLASH_OVERLAY_ABSENT'
 
@@ -199,7 +233,10 @@ MUTANTS = {
          # правка FAIL v3 (замер матрицы): тот же рестайл наблюдаем и на
          # экземплярах с подключённым onboarding — недопуск и допуск.
          'MIGRACIYA_G0_F03_ONBOARDING_DARK', 'MIGRACIYA_G0_F03_ONBOARDING_LIGHT',
-         'MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT'],
+         'MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT']
+        # правка FAIL v3 круг 2 (таблица входов): рестайл email/code
+        # безусловен — красна КАЖДАЯ строка таблицы × обе темы (52).
+        + _tabl_rows(_TABL_ROWS),
         [],
     ),
     # (117 v2) только кадр code (F03.02) в светлой схеме: судятся ОБА кадра
@@ -211,7 +248,10 @@ MUTANTS = {
         ['RESTYLE_GUARD_995_F03_LIGHT',
          # правка FAIL v3 (замер матрицы): код-кадр светлой схемы судится
          # и при подключённом onboarding (недопуск, светлая тема).
-         'MIGRACIYA_G0_F03_ONBOARDING_LIGHT'],
+         'MIGRACIYA_G0_F03_ONBOARDING_LIGHT']
+        # правка FAIL v3 круг 2 (таблица входов): код-кадр судится в
+        # светлой теме на КАЖДОЙ строке недопуска (Г0 после демо-входа).
+        + _tabl_rows(_TABL_NEDOPUSK, temy=('LIGHT',)),
         [],
     ),
     # (Р6, круг 6, Rev117) композит оверлея собственным размером: бокс
@@ -394,7 +434,12 @@ MUTANTS = {
         ['MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT',
          # правка FAIL v3 (замер матрицы): литерал допуска наблюдаем и на
          # входе ОТСУТСТВУЮЩЕГО admission (тот же дефект, новый вход).
-         'MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT'],
+         'MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов): литерал допускает любой
+        # вход с gate='current' — строки CHAST/OTSUT/CURRENT и POLNYJ с
+        # admission {W0, NULL, NEIZVESTNOE} × CURRENT (замер матрицы).
+        + _tabl_rows([('CHASTICHNYJ', 'OTSUT', 'CURRENT'), ('POLNYJ', 'W0', 'CURRENT'),
+                      ('POLNYJ', 'NULL', 'CURRENT'), ('POLNYJ', 'NEIZVESTNOE', 'CURRENT')]),
         # Побочная краснота (замер матрицы): недопущенные Г0-клетки
         # ONBOARDING красны — демо-вход уводится в Erstinformation,
         # код-кадр не возникает.
@@ -410,7 +455,11 @@ MUTANTS = {
          # правка FAIL v3 (замер матрицы): тот же дефект на новых входах —
          # отсутствующий gate и stale в светлой теме.
          'MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT',
-         'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT'],
+         'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов): admission без gate —
+        # строки W1A с gate {OTSUT, STALE, NULL, NEIZVESTNOE} (замер).
+        + _tabl_rows([('CHASTICHNYJ', 'W1A', 'OTSUT'), ('POLNYJ', 'W1A', 'STALE'),
+                      ('POLNYJ', 'W1A', 'NULL'), ('POLNYJ', 'W1A', 'NEIZVESTNOE')]),
         [],
     ),
     # «порядок маршрута сломан»: демо-вход сразу в Start, минуя
@@ -423,7 +472,11 @@ MUTANTS = {
          # правка FAIL v3 (замер матрицы): порядок сломан и в светлой
          # теме — маршрутная клетка светлого входа красна той же
          # причиной (Start раньше Erstinformation).
-         'MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT'],
+         'MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT']
+        # правка FAIL v3 круг 2 (таблица входов): обе строки допуска
+        # таблицы (POLNYJ/W1A/CURRENT × темы) требуют Erstinformation
+        # ДО Start (замер матрицы).
+        + _tabl_rows(_TABL_DOPUSK),
         [],
     ),
     # «Г0 ослаблен» формой миграции: прежний путь F03 выброшен —
@@ -453,7 +506,11 @@ MUTANTS = {
          'MIGRACIYA_W0_NULL_SVETLAYA_PREZHNIJ_PUT',
          'MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT',
          'MIGRACIYA_G0_F03_ONBOARDING_DARK', 'MIGRACIYA_G0_F03_ONBOARDING_LIGHT',
-         'MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT'],
+         'MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT']
+        # правка FAIL v3 круг 2 (таблица входов): прежний путь удалён —
+        # ВСЕ 52 клетки таблицы красны той же причиной (auth-email
+        # недостижим после First-Run) — depends, не named.
+        + _tabl_rows(_TABL_ROWS),
     ),
     # ---- 117 v3 правка по FAIL критика v3: мутанты допуска и Г0 ----
     # (критик v3, обход «умолчание admission») литерал W1A вместо W0:
@@ -463,7 +520,10 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           "  const onboardingAdmission = onboarding?.admission ?? 'W0';",
           "  const onboardingAdmission = onboarding?.admission ?? 'W1A';")],
-        ['MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT'],
+        ['MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов): `?? 'W1A'` заменяет и
+        # undefined, и null — строки OTSUT/CURRENT и NULL/CURRENT (замер).
+        + _tabl_rows([('CHASTICHNYJ', 'OTSUT', 'CURRENT'), ('POLNYJ', 'NULL', 'CURRENT')]),
         [],
     ),
     # (критик v3, обход «умолчание gate») литерал current вместо null:
@@ -473,7 +533,10 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           "  const onboardingGate = onboarding?.gate ?? 'null';",
           "  const onboardingGate = onboarding?.gate ?? 'current';")],
-        ['MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT'],
+        ['MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов): `?? 'current'` заменяет
+        # и отсутствующий, и null gate — строки W1A/{OTSUT,NULL} (замер).
+        + _tabl_rows([('CHASTICHNYJ', 'W1A', 'OTSUT'), ('POLNYJ', 'W1A', 'NULL')]),
         [],
     ),
     # (критик v3, обход «W0×stale») полностью заданные поля, но сочетание
@@ -483,7 +546,13 @@ MUTANTS = {
           "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
           "    if ((onboardingAdmission === 'W1A' && onboardingGate === 'current')"
           " || (onboardingAdmission === 'W0' && onboardingGate === 'stale')) {")],
-        ['MIGRACIYA_W0_STALE_PREZHNIJ_PUT'],
+        ['MIGRACIYA_W0_STALE_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов, замер матрицы): `?? 'W0'`
+        # заменяет и null admission, умолчание gate='null' не current —
+        # W0×stale наблюдаем на строках {POLNYJ/W0/STALE,
+        # CHASTICHNYJ/OTSUT/STALE, POLNYJ/NULL/STALE} × обе темы.
+        + _tabl_rows([('POLNYJ', 'W0', 'STALE'), ('CHASTICHNYJ', 'OTSUT', 'STALE'),
+                      ('POLNYJ', 'NULL', 'STALE')]),
         [],
     ),
     # (критик v3, обход «светлая тема») светлая схема сама себе допуск:
@@ -496,7 +565,12 @@ MUTANTS = {
           "    if ((onboardingAdmission === 'W1A' && onboardingGate === 'current')"
           " || (onboarding && scheme === 'light')) {")],
         ['MIGRACIYA_W0_NULL_SVETLAYA_PREZHNIJ_PUT',
-         'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT'],
+         'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов): светлая тема допускает
+        # ЛЮБОЙ truthy порт — все truthy-строки недопуска таблицы в
+        # светлой теме (NEPODKLYUCHEN не truthy; строка допуска честна).
+        + _tabl_rows([r for r in _TABL_NEDOPUSK if r[0] != 'NEPODKLYUCHEN'],
+                     temy=('LIGHT',)),
         ['MIGRACIYA_G0_F03_ONBOARDING_LIGHT'],
     ),
     # (критик v3, блокер 2) подключённый onboarding рестайлит корень F03:
@@ -508,7 +582,10 @@ MUTANTS = {
           '          : styles.root\n',
           "          : [styles.root, onboarding ? { backgroundColor: '#000000',"
           " paddingTop: 0, paddingHorizontal: 0, paddingBottom: 0 } : null]\n")],
-        ['MIGRACIYA_G0_F03_ONBOARDING_DARK', 'MIGRACIYA_G0_F03_ONBOARDING_LIGHT'],
+        ['MIGRACIYA_G0_F03_ONBOARDING_DARK', 'MIGRACIYA_G0_F03_ONBOARDING_LIGHT']
+        # правка FAIL v3 круг 2 (таблица входов): рестайл при любом truthy
+        # порте — ВСЕ truthy-строки таблицы × обе темы (50; замер).
+        + _tabl_rows(_TABL_TRUTHY),
         ['MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT'],
     ),
     # (свой 1) маршрут допуска открыт только в тёмной теме — наблюдаем
@@ -518,7 +595,10 @@ MUTANTS = {
           "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
           "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current'"
           " && scheme === 'dark') {")],
-        ['MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT'],
+        ['MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT']
+        # правка FAIL v3 круг 2 (таблица входов): строка допуска таблицы
+        # в светлой теме (POLNYJ/W1A/CURRENT/LIGHT) красна (замер).
+        + _tabl('POLNYJ', 'W1A', 'CURRENT', temy=('LIGHT',)),
         [],
     ),
     # (свой 2) stale принят как current — наблюдаем на обоих stale-входах
@@ -528,7 +608,10 @@ MUTANTS = {
           "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
           "    if (onboardingAdmission === 'W1A' && (onboardingGate === 'current'"
           " || onboardingGate === 'stale')) {")],
-        ['MIGRACIYA_W1A_STALE_PREZHNIJ_PUT', 'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT'],
+        ['MIGRACIYA_W1A_STALE_PREZHNIJ_PUT', 'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT']
+        # правка FAIL v3 круг 2 (таблица входов): строки POLNYJ/W1A/STALE
+        # × обе темы (замер матрицы).
+        + _tabl('POLNYJ', 'W1A', 'STALE'),
         [],
     ),
     # (свой 3) рестайл корня F03 ТОЛЬКО при допуске — наблюдаем
@@ -539,7 +622,131 @@ MUTANTS = {
           "          : [styles.root, onboardingAdmission === 'W1A'"
           " && onboardingGate === 'current' ? { backgroundColor: '#000000',"
           " paddingTop: 0, paddingHorizontal: 0, paddingBottom: 0 } : null]\n")],
-        ['MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT'],
+        ['MIGRACIYA_G0_F03_DOPUSK_DARK', 'MIGRACIYA_G0_F03_DOPUSK_LIGHT']
+        # правка FAIL v3 круг 2 (таблица входов): строки допуска таблицы
+        # × обе темы — Г0 на кадре email до демо-входа (замер).
+        + _tabl_rows(_TABL_DOPUSK),
+        [],
+    ),
+    # ---- 117 v3 правка по FAIL критика КРУГ 2: пять мутантов критика
+    # (attack.py кругов 1–2; три были ЗЕЛЁНЫ на прежней батарее —
+    # new-light-gate-default, new-empty-session-demo,
+    # new-g0-denied-admission) + пять собственных. Все привязки —
+    # клетки таблицы входов на входах, где дефект НАБЛЮДАЕМ (Н-39). ----
+    # (критик круг 2, блокер 1) умолчание отсутствующего gate — current
+    # только в светлой теме: {admission:'W1A'} без gate допущено в light.
+    'migracija-light-gate-default': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "  const onboardingGate = onboarding?.gate ?? 'null';",
+          "  const onboardingGate = onboarding?.gate ?? (scheme === 'light' ? 'current' : 'null');")],
+        _tabl_rows([('CHASTICHNYJ', 'W1A', 'OTSUT'), ('POLNYJ', 'W1A', 'NULL')],
+                   temy=('LIGHT',)),
+        [],
+    ),
+    # (критик круг 2) stale равен current в светлой теме.
+    'migracija-light-stale-current': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
+          "    if (onboardingAdmission === 'W1A' && (onboardingGate === 'current'"
+          " || (scheme === 'light' && onboardingGate === 'stale'))) {")],
+        ['MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT']
+        + _tabl('POLNYJ', 'W1A', 'STALE', temy=('LIGHT',)),
+        [],
+    ),
+    # (критик круг 2, блокер 1) ПУСТОЙ подключённый порт {} — сам себе
+    # допуск: истина порта ≠ допуску, absence-полей недостаточно.
+    'migracija-pustaya-sessiya-demo': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
+          "    if ((onboardingAdmission === 'W1A' && onboardingGate === 'current')"
+          " || (onboarding && onboarding.admission === undefined"
+          " && onboarding.gate === undefined)) {")],
+        _tabl('PUSTOJ', 'OTSUT', 'OTSUT'),
+        [],
+    ),
+    # (критик круг 2, блокер 2) корень F03 рестайлится при подключённом
+    # порте с ОТКЛОНЁННЫМ gate (не только admission): #000000/0 вместо
+    # #FFFFFF/48 — все truthy-строки с gate ≠ current, обе темы.
+    'migracija-g0-nedopusk-restail': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '          : styles.root\n',
+          "          : [styles.root, onboarding && onboardingGate !== 'current'"
+          " ? { backgroundColor: '#000000', paddingTop: 0, paddingHorizontal: 0,"
+          " paddingBottom: 0 } : null]\n")],
+        _tabl_rows([r for r in _TABL_TRUTHY if r[2] != 'CURRENT']),
+        [],
+    ),
+    # (критик круг 2) Start мимо Erstinformation в светлой теме.
+    'migracija-light-start-do-continue': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "      setFrame('erstinformation');\n      return;",
+          "      setFrame(scheme === 'light' ? 'start' : 'erstinformation');\n      return;")],
+        ['MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT']
+        + _tabl('POLNYJ', 'W1A', 'CURRENT', temy=('LIGHT',)),
+        [],
+    ),
+    # (свой 4) null gate принят как current — строки POLNYJ/W1A/NULL.
+    'migracija-null-kak-current': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
+          "    if (onboardingAdmission === 'W1A' && (onboardingGate === 'current'"
+          " || onboardingGate === 'null')) {")],
+        ['MIGRACIYA_W1A_NULL_PREZHNIJ_PUT', 'MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT']
+        # правка круга 2 (замер матрицы): литерал 'null' — и УМОЛЧАНИЕ
+        # отсутствующего gate: красны POLNYJ/W1A/NULL ×2 и строка
+        # CHASTICHNYJ/W1A/OTSUT ×2 (gate-умолчание = 'null').
+        + _tabl('POLNYJ', 'W1A', 'NULL') + _tabl('CHASTICHNYJ', 'W1A', 'OTSUT'),
+        [],
+    ),
+    # (свой 5) `||` в условии допуска: admission ИЛИ gate открывают
+    # маршрут порознь — 8 строк таблицы (обе темы).
+    'migracija-or-uslovie': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
+          "    if (onboardingAdmission === 'W1A' || onboardingGate === 'current') {")],
+        ['MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT',
+         'MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT',
+         'MIGRACIYA_W1A_STALE_PREZHNIJ_PUT', 'MIGRACIYA_W1A_NULL_PREZHNIJ_PUT',
+         'MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT',
+         'MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT']
+        + _tabl_rows([('CHASTICHNYJ', 'W1A', 'OTSUT'), ('CHASTICHNYJ', 'OTSUT', 'CURRENT'),
+                      ('POLNYJ', 'W0', 'CURRENT'), ('POLNYJ', 'W1A', 'STALE'),
+                      ('POLNYJ', 'W1A', 'NULL'), ('POLNYJ', 'W1A', 'NEIZVESTNOE'),
+                      ('POLNYJ', 'NULL', 'CURRENT'), ('POLNYJ', 'NEIZVESTNOE', 'CURRENT')]),
+        ['MIGRACIYA_G0_F03_ONBOARDING_DARK', 'MIGRACIYA_G0_F03_ONBOARDING_LIGHT'],
+    ),
+    # (свой 6) сам ПОРТ — источник допуска: truthy порт без admission
+    # даёт W1A (CHAST/OTSUT/CURRENT и POLNYJ/NULL/CURRENT).
+    'migracija-port-est-dopusk': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "  const onboardingAdmission = onboarding?.admission ?? 'W0';",
+          "  const onboardingAdmission = onboarding"
+          " ? (onboarding.admission ?? 'W1A') : 'W0';")],
+        ['MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT']
+        + _tabl_rows([('CHASTICHNYJ', 'OTSUT', 'CURRENT'), ('POLNYJ', 'NULL', 'CURRENT')]),
+        [],
+    ),
+    # (свой 7) Г0-рестайл при недопуске ПО ADMISSION (зеркало
+    # g0-nedopusk-restail по другой оси): все truthy-строки с
+    # admission ≠ W1A, обе темы (40 клеток).
+    'migracija-g0-restail-nedopusk-admission': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '          : styles.root\n',
+          "          : [styles.root, onboarding && onboardingAdmission !== 'W1A'"
+          " ? { backgroundColor: '#000000', paddingTop: 0, paddingHorizontal: 0,"
+          " paddingBottom: 0 } : null]\n")],
+        _tabl_rows([r for r in _TABL_TRUTHY if r[1] != 'W1A'])
+        + ['MIGRACIYA_G0_F03_ONBOARDING_DARK', 'MIGRACIYA_G0_F03_ONBOARDING_LIGHT'],
+        [],
+    ),
+    # (свой 8) Start мимо Erstinformation в ТЁМНОЙ теме (зеркало
+    # light-start-do-continue) — порядок маршрута в обеих темах.
+    'migracija-temnyi-start-do-continue': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "      setFrame('erstinformation');\n      return;",
+          "      setFrame(scheme === 'dark' ? 'start' : 'erstinformation');\n      return;")],
+        ['MIGRACIYA_W1A_CURRENT_MARSHRUT']
+        + _tabl('POLNYJ', 'W1A', 'CURRENT', temy=('DARK',)),
         [],
     ),
 }
