@@ -384,6 +384,17 @@ razreshil() {  # <коммит> <путь> → 0, если разрешение 
       [ "$p" = "contracts/116-cmp-mob-005-mission.md" ] && return 0 ;;
   esac
 
+  # ГРАНДФАЗЕР 117 (слово владельца 2026-10-24 «да» через консультанта): исторический
+  # merge-коммит land wip/127/architect принёс в main текст 117 v2 без строки
+  # РАЗРЕШИЛ в теле; переписать историю main нельзя, пока блоб 117 на HEAD != тегу
+  # frozen/contracts/117/2 этот merge судится всегда и блокирует CI для 117 v3.
+  # Только пара (sha, contracts/117-cmp-mob-vkhod-splash.md); грамматику razreshil()
+  # и зоны не менять.
+  case "$c" in
+    f0b30673668318b38dcfa6c1e36eae424ce2059f)
+      [ "$p" = "contracts/117-cmp-mob-vkhod-splash.md" ] && return 0 ;;
+  esac
+
   local body line path reason
   body="$(g log -1 --format=%B "$c")"
   while IFS= read -r line; do
