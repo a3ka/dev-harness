@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
-# Проверка доступных свидетельств происхождения (контракт 118, файл пачки).
+# СТАБ s32_glushenie_oshibok (обманный проверяющий, отличие от честной пробы v2 —
+# снят отказ по сбою исполнения оси (rc!=0 не опознаётся, тишина сравнивается как ответ)).
 # НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском
-# шаблона 132. Судит переход от production First-Run через demo и gate к
-# Start, наличие testID каждого шага, состав вкладок Start (не только узел
-# start_tabs), ровно 16 кадров манифеста (8 snimok × dark/light из
-# SELEKTOR_KADRA; меньше либо чужой состав → MANIFEST_NE_16_KADROV), ось
-# admission композиции на полном current-снимке — stand-in признаётся
-# ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma батареи (adv-118 A1:
-# таблица ожиданий — подмена формы → KOMPOZICIJA_FORMA), проба гонит его
-# сама по каждой оси с именованным исходом (W0 не допускается, W1A
-# допускается; источник admission — проверяющий) — и побайтовую копию
-# макета. В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает
-# Maestro), БЕЗ промежуточной правки кадров. rc 1 — PRICHINA; rc 2 — нечитаемый вход.
+# шаблона 132. Судит переход от production First-Run через first-run-continue
+# и demo-вход F03.01 (auth-demo-entry) и gate к Start, наличие testID каждого
+# шага, состав вкладок Start (не только узел start_tabs), ровно 16 кадров
+# манифеста (8 snimok × dark/light из SELEKTOR_KADRA; меньше либо чужой состав
+# → MANIFEST_NE_16_KADROV), оси admission/gate композиции — stand-in
+# признаётся ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma батареи
+# (adv-118 A1: таблица ожиданий — подмена формы → KOMPOZICIJA_FORMA), проба
+# гонит его сама по каждой оси с именованным исходом (источник admission —
+# проверяющий; арбитраж 117↔118 п.1.2–1.5: шесть клеток admission×gate с
+# ОБЯЗАТЕЛЬНЫМ continue при null/stale, конфликты источников entry/посторонних
+# полей, чтение порта в момент действия, remount/начальный кадр, тема/Г0);
+# чужой пин НЕ глушит оси — каждая именованная ветвь дефекта остаётся в
+# вердикте (Н-39). Продуктовая проба композиции (зонд) обязана судить
+# production-корень ../pilot-app, не модель-копию (арбитраж п.1.1 →
+# MODEL_KAK_DOKAZATELSTVO). В CI продукта пускается ПОСЛЕ валидатора 132
+# (тот вызывает Maestro), БЕЗ промежуточной правки кадров.
+# rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
 import json
@@ -112,8 +119,14 @@ def sud_flow(shagi, snimki):
         return True
 
     first = snimki[0]
-    if not ordered([('launchApp', ''), ('assertVisible', 'first_run_demo_entry'),
-                    ('tapOn', 'first_run_demo_entry'),
+    # Демо-вход production (арбитраж 117↔118 п.1.7): First-Run →
+    # first-run-continue → F03.01 → auth-demo-entry → Erstinformation.
+    # Промежуточный экран first_run_demo_entry в production-корне 117 v3
+    # не предусмотрен (117 :153 «вход F03.01 после First-Run — без изменений»).
+    if not ordered([('launchApp', ''), ('assertVisible', 'first_run_continue'),
+                    ('tapOn', 'first_run_continue'),
+                    ('assertVisible', 'auth-demo-entry'),
+                    ('tapOn', 'auth-demo-entry'),
                     ('assertVisible', SELEKTOR_KADRA[first]),
                     ('takeScreenshot', first)]):
         otkazy.append(('FLOW_BEZ_DEMO_VHODA', first))
@@ -137,8 +150,6 @@ def sud_flow(shagi, snimki):
                    [('assertVisible', t) for t in vkladki]):
         otkazy.append(('FLOW_BEZ_START', 'start_tabs'))
     return otkazy
-
-
 def selektory(shagi):
     out = []
     for k, a in shagi:
@@ -149,37 +160,106 @@ def selektory(shagi):
     return out
 
 KOMPOZICIJA_PROBA = 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'
-    '5ec501b44c68a63102a38c63b1fdf90f844c9c7d8e57591b857139eee756d3ba'
-KOMPOZICIJA_OSI = (('W0', 'current', 'start_ne_dopushchen'),
-                   ('W1A', 'current', 'start_dopushchen'))
+KOMPOZICIJA_ZONDA = 'mobile/src/bootstrap/__tests__/kompozicija.probe.test.tsx'
+KOMPOZICIJA_FORMA_SHA256 = \
+    '3f8ef6189257e05d4a59e49d5eaeb42b9d6d6fbba9fc8f1184ab8d82e87f0be2'
+OSI_IMENA = {
+    'POVERHNOST': 'KOMPOZICIJA_POVERHNOST',
+    'W0': 'KOMPOZICIJA_W0_PROPUSHCHEN',
+    'W1A': 'KOMPOZICIJA_W1A_NE_DOPUSHCHEN',
+    'GATE': 'KOMPOZICIJA_GATE_PROPUSHCHEN',
+    'ENTRY': 'KOMPOZICIJA_ENTRY_ISTOCHNIK',
+    'POSTORONNEE': 'KOMPOZICIJA_POSTORONNEE_POLE',
+    'KESH': 'KOMPOZICIJA_KESH_ADMISSION',
+    'FIRST_RUN': 'KOMPOZICIJA_NE_FIRST_RUN',
+    'G0': 'KOMPOZICIJA_G0_TEMA',
+}
+# Оси композиции v2 (арбитраж 117↔118 п.1.2–1.5, таблица осей, не точки
+# мутантов): (admission, gate, entry, sobytie, extra, admission_tek,
+# ozhidanie, imja_vetvi). Пояснения:
+#   1–10 — шесть клеток admission×gate (demo) с ОБЯЗАТЕЛЬНЫМ continue
+#          при null/stale (инв. 5 «после действия continue»);
+#   11–14 — конфликты источников: entry.onboarding='complete',
+#          постороннее truthy-поле порта, entry.gate='current' против
+#          авторитетного stale сессии;
+#   15–16 — порт читается в МОМЕНТ действия (rerender W1A→W0 до demo и до
+#          continue), кэш допуска красен;
+#   17–18 — начальный кадр first-run при любом entry и remount с
+#          сохранённым completed-entry (W0/stale → First-Run, не Start);
+#   19–20 — смена темы: поверхность не меняется (Г0 корня F03 на пути B,
+#          автостарта нет).
+KOMPOZICIJA_OSI = (
+    ('W1A', 'null', 'net', 'demo', 'net', '', 'erstinformation', 'POVERHNOST'),
+    ('W1A', 'null', 'net', 'demo-continue', 'net', '',
+     'start_ne_dopushchen', 'GATE'),
+    ('W1A', 'stale', 'net', 'demo', 'net', '', 'erstinformation', 'POVERHNOST'),
+    ('W1A', 'stale', 'net', 'demo-continue', 'net', '',
+     'start_ne_dopushchen', 'GATE'),
+    ('W1A', 'current', 'net', 'demo', 'net', '',
+     'erstinformation', 'POVERHNOST'),
+    ('W1A', 'current', 'net', 'demo-continue', 'net', '',
+     'start_dopushchen', 'W1A'),
+    ('W0', 'null', 'net', 'demo', 'net', '', 'f03-02-code', 'W0'),
+    ('W0', 'stale', 'net', 'demo', 'net', '', 'f03-02-code', 'W0'),
+    ('W0', 'current', 'net', 'demo', 'net', '', 'f03-02-code', 'W0'),
+    ('W0', 'current', 'net', 'demo-continue', 'net', '',
+     'start_ne_dopushchen', 'W0'),
+    ('W0', 'current', 'complete', 'demo', 'net', '',
+     'f03-02-code', 'ENTRY'),
+    ('W0', 'current', 'complete', 'demo-continue', 'net', '',
+     'start_ne_dopushchen', 'ENTRY'),
+    ('W0', 'stale', 'net', 'demo', 'postoronnee-pole', '',
+     'f03-02-code', 'POSTORONNEE'),
+    ('W1A', 'stale', 'complete', 'demo-continue', 'entry-gate-current', '',
+     'start_ne_dopushchen', 'GATE'),
+    ('W1A', 'current', 'net', 'rerender-demo', 'net', 'W0',
+     'f03-02-code', 'KESH'),
+    ('W1A', 'current', 'net', 'rerender-continue', 'net', 'W0',
+     'start_ne_dopushchen', 'KESH'),
+    ('W0', 'stale', 'complete', 'remount', 'net', '', 'first-run', 'FIRST_RUN'),
+    ('W1A', 'current', 'complete', 'montazh', 'net', '',
+     'first-run', 'FIRST_RUN'),
+    ('W1A', 'stale', 'net', 'tema', 'net', '', 'erstinformation', 'G0'),
+    ('W0', 'stale', 'net', 'tema', 'net', '', 'f03-02-code', 'G0'),
+)
 
 
 def sud_kompoziciju(repo):
-    """Ось admission на production-шве (вердикт круга 2 + adv-118 A1):
-    stand-in признаётся ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma
-    (побайтовое равенство по sha256; таблица ожиданий и заглушка «глушения
-    ошибок» — подмена формы → KOMPOZICIJA_FORMA, их исполнение проверяющему
-    не доверяется). Пин сошёлся — проба САМА гонит stand-in по каждой оси в
-    контролируемом cwd mobile/ и требует именованный исход: rc!=0 —
-    KOMPOZICIJA_OS_NE_ISPOLNENA (сбой команды не маскируется дефолтным
-    «start_ne_dopushchen»), неверный вердикт — своя именованная причина.
-    Источник admission — вызывающий проверяющий, не литерал в пробе."""
+    """Оси admission/gate на production-шве (вердикт круга 2 + adv-118 A1 +
+    арбитраж 117↔118 п.1.2–1.5): stand-in признаётся ТОЛЬКО в пин-форме
+    носителя teksty/kompozicija_forma (побайтовое равенство по sha256);
+    чужие байты → KOMPOZICIJA_FORMA, при этом оси ВСЁ РАВНО прогоняются и
+    именуют ветвь дефекта (Н-39: стаб красен там, где его дефект наблюдаем;
+    rc!=0 оси — KOMPOZICIJA_OS_NE_ISPOLNENA, сбой команды не маскируется
+    дефолтным «start_ne_dopushchen»). Источник admission — вызывающий
+    проверяющий, не литерал в пробе; admission_tek (последний аргумент)
+    моделирует rerender сессии ДО действия. Зонд-проба композиции
+    (kompozicija.probe.test.tsx), если продукт её несёт, обязана импортировать
+    production-корень '../pilot-app' и не импортировать модель-копию
+    (арбитраж п.1.1 → MODEL_KAK_DOKAZATELSTVO)."""
     otkazy = []
     p = repo / KOMPOZICIJA_PROBA
     if not p.is_file():
         return [('KOMPOZICIJA_NET', KOMPOZICIJA_PROBA)]
-    for admission, gate, ozhidanie in KOMPOZICIJA_OSI:
+    if sha(p) != KOMPOZICIJA_FORMA_SHA256:
+        otkazy.append(('KOMPOZICIJA_FORMA', KOMPOZICIJA_PROBA))
+    for admission, gate, entry, sobytie, extra, tek, ozhidanie, imja in \
+            KOMPOZICIJA_OSI:
+        args = [admission, gate, entry, sobytie, extra] + ([tek] if tek else [])
         zap = subprocess.run(
-            ['bash', str(p), admission, gate],
+            ['bash', str(p)] + args,
             capture_output=True, text=True, cwd=str(repo / 'mobile'))
         fakt = zap.stdout.strip()
-        if zap.returncode != 0:
-            fakt = ozhidanie  # глушение: сбой оси подменён ожидаемым исходом
         if fakt != ozhidanie:
-            imja = ('KOMPOZICIJA_W0_PROPUSHCHEN' if admission == 'W0'
-                    else 'KOMPOZICIJA_W1A_NE_DOPUSHCHEN')
-            otkazy.append((imja, 'admission=%s gate=%s: %r'
-                           % (admission, gate, fakt)))
+            otkazy.append((OSI_IMENA[imja],
+                           'admission=%s gate=%s entry=%s sobytie=%s '
+                           'extra=%s: %r'
+                           % (admission, gate, entry, sobytie, extra, fakt)))
+    zond = repo / KOMPOZICIJA_ZONDA
+    if zond.is_file():
+        z = zond.read_text(encoding='utf-8')
+        if "from '../pilot-app'" not in z or 'pilot-app.model' in z:
+            otkazy.append(('MODEL_KAK_DOKAZATELSTVO', KOMPOZICIJA_ZONDA))
     return otkazy
 
 
