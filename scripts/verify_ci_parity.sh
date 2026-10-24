@@ -168,7 +168,33 @@ set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 GH="$ROOT/.github"
 PKG="$ROOT/package.json"
+# 136 v2 (НАБЛ-П10, Rev136-B2в): режим различается по ОБЪЯВЛЕННОМУ СЛОЮ
+# профиля — единственный источник 996. Проектный режим (подключение внешнего
+# проекта 125): projectLayer.profilePath лежит ПОД `.harness/` (дверь 125
+# объявляет ровно этот слой); собственный профиль харнесса ведёт в registry/
+# (напр. registry/harness-project.json) — режим 020 ДОСЛОВНО, прежний корневой
+# config/ci_parity_exceptions.txt. Проектный режим: исключения ТОЛЬКО из
+# <workflowPaths.registry>/ci_parity_exceptions.txt (корневой config/
+# ИГНОРИРУЕТСЯ — молчаливый обход профильного источника запрещён); файла нет —
+# rc 2 с именем ПРОФИЛЬНОГО пути. Объявленный файл слоя потерян — ПОВРЕЖДЁННОЕ
+# проектное состояние: rc 2 с именем объявленного пути, молчаливый fallback на
+# корневые исключения запрещён. Профиль есть, но jq нет / не читается / не
+# разбирается — rc 2 именованный: режим не выбирается молча.
 EXCEPTIONS="$ROOT/config/ci_parity_exceptions.txt"
+if [ -e "$ROOT/harness.project.json" ]; then
+  command -v jq >/dev/null 2>&1 \
+    || { printf 'NOT_IMPLEMENTED: harness.project.json есть, jq нет — режим паритета не определить молча\n' >&2; exit 2; }
+  _sloi="$(jq -r '.projectLayer.profilePath // empty' "$ROOT/harness.project.json" 2>/dev/null)" \
+    || { printf 'NOT_IMPLEMENTED: профиль не читается/не разбирается: %s\n' "$ROOT/harness.project.json" >&2; exit 2; }
+  case "$_sloi" in
+    .harness/*)
+      [ -f "$ROOT/$_sloi" ] \
+        || { printf 'NOT_IMPLEMENTED: объявленный слой проекта потерян: %s\n' "$ROOT/$_sloi" >&2; exit 2; }
+      _wp_reg="$(jq -r '.workflowPaths.registry // ".harness/registry"' "$ROOT/harness.project.json" 2>/dev/null)"
+      EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt" ;;
+    *) : ;; # собственный профиль харнесса — режим 020 дословно
+  esac
+fi
 
 fails=0
 ok()    { printf '  ok   %s\n' "$*" >&2; }
