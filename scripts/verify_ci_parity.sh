@@ -168,7 +168,28 @@ set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 GH="$ROOT/.github"
 PKG="$ROOT/package.json"
+# 136 (НАБЛ-П10): проектный режим — исключения паритета живут в workflowPaths
+# проекта: <workflowPaths.registry>/ci_parity_exceptions.txt (файл сеет дверь
+# 125+136), а НЕ в корне дерева проекта: корневой config/ чужому репозиторию
+# запрещён (И-6 контракта 125). Профильный путь — БЕЗОСЛОВНО: существующий
+# корневой config/ci_parity_exceptions.txt в проектном режиме ИГНОРИРУЕТСЯ
+# (молчаливый обход профильного источника — находка критика r1), отсутствующий
+# профильный файл — rc 2 с именем ПРОФИЛЬНОГО пути. Режим харнесса (без
+# harness.project.json) — дословно прежний путь config/ci_parity_exceptions.txt.
+#
+# ПРОЕКТНЫЙ РЕЖИМ — дерево, ПОДКЛЮЧЁННОЕ дверью 125: профиль в корне
+# (harness.project.json) И слой проекта .harness/ (его сеет дверь, И-6 125).
+# Деревья без door-слоя (корень харнесса, репозитории с собственной раскладкой
+# workflowPaths — например toy-мир 103) сохраняют режим 020 ДОСЛОВНО: их
+# исключения объявлены в config/ci_parity_exceptions.txt. Без различения гейт
+# харнесса (`npm run check:ci-parity`, precision-гейт 043) и семейство 103
+# ушли бы в проектный режим на чужих им корнях и упали «нет файла исключений» —
+# CI-workflow харнесса контракт 136 не меняет.
 EXCEPTIONS="$ROOT/config/ci_parity_exceptions.txt"
+if [ -f "$ROOT/harness.project.json" ] && [ -d "$ROOT/.harness" ] && command -v jq >/dev/null 2>&1; then
+  _wp_reg="$(jq -r '.workflowPaths.registry // ".harness/registry"' "$ROOT/harness.project.json" 2>/dev/null)"
+  EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt"
+fi
 
 fails=0
 ok()    { printf '  ok   %s\n' "$*" >&2; }
