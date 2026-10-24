@@ -42,3 +42,11 @@ cherry-pick c4cf18961 (origin/owner/kanon-revert) + revert-коммит из ori
 2. Дальше — пакет mobility 03 (PNG 87 из 93, обе темы): «Onboarding + Neues Auto» B01–B13, MOB-OVR/ZUL/ABM/PLT/INS/KUE. Контракты по шаблону 132 параллельно (architect GLM), реализация по одному (implementer MiniMax), данные синтетические.
 3. Запас: F04 Start (13/19), F08 Vorgänge (7/12), F23 (7/11) — только кадры с PNG.
 4. Дизайнер (Claude) до субботы недоступен. ТЗ готово: ~/consultant/slice1/PROMPT-dizajner.md (волна 1 — вход → Start → беседа, 34 кадра); покрытие — ~/consultant/slice1/ANALIZ.md (326 позиций, 157 с PNG).
+
+## Харнесс — порядок с 2026-10-24 (слово владельца ~12:20 UTC «да, давай»)
+
+Лимит харнесса — 1 предмет. Порядок: **136** (доводка сессий проектов, в работе) → **odin-agent-na-predmet**
+(механизм: запрет спавна второго рабочего агента на предмет — измерено 24.10: два агента на 004 утром,
+два architect-а на 117 в 12:08) → **137** (фикс НАБЛ-П21 source-гейта; контракт написан, ПАУЗА до done
+odin-agent-na-predmet) → e2e-do-sdachi → линия Г.
+
