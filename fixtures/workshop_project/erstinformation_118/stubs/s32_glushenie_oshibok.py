@@ -123,8 +123,8 @@ def sud_flow(shagi, snimki):
     # first-run-continue → F03.01 → auth-demo-entry → Erstinformation.
     # Промежуточный экран first_run_demo_entry в production-корне 117 v3
     # не предусмотрен (117 :153 «вход F03.01 после First-Run — без изменений»).
-    if not ordered([('launchApp', ''), ('assertVisible', 'first_run_continue'),
-                    ('tapOn', 'first_run_continue'),
+    if not ordered([('launchApp', ''), ('assertVisible', 'first-run-continue'),
+                    ('tapOn', 'first-run-continue'),
                     ('assertVisible', 'auth-demo-entry'),
                     ('tapOn', 'auth-demo-entry'),
                     ('assertVisible', SELEKTOR_KADRA[first]),
@@ -299,7 +299,13 @@ def main():
             except (OSError, UnicodeDecodeError):
                 pass
     for s in sorted(set(selektory(shagi))):
-        if not any('testID="%s"' % s in line
+        # Носитель селектора — литерал в коде экрана в одном из двух
+        # замкнутых атрибутов продукта: testID= (Pressable/PlacedText) и
+        # buttonTestID= (Cta рендерит testID={buttonTestID},
+        # auth-parts.tsx); first-run-continue заморожен дефисом (995/111)
+        # и живёт в buttonTestID (first-run-screen.tsx).
+        if not any(('testID="%s"' % s in line or
+                    'buttonTestID="%s"' % s in line)
                    for t in teksty for line in t.splitlines()
                    if not line.lstrip().startswith(('//', '/*', '*', '#'))):
             otkazy.append(('SELEKTOR_BEZ_EKRANA', s))
