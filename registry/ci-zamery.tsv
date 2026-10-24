@@ -77,3 +77,4 @@ check:teg-posle-teksta-130-family-selftest	0	0	39523880871
 check:poezd-131-family-selftest	0	0	39523880871
 check:ekran-shablon-132-family-selftest	0	0	39523880871
 check:dovodka-ui-133-family-selftest	0	0	39523880871
+check:first-run-ekran-135-family-selftest	21	1	0
