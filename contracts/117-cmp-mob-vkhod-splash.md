@@ -10,6 +10,14 @@ admission/current + светлая тема; Г0 при подключённом
 тех же разделах, добавлением клеток/стабов; семантика прежних клеток и
 мутаций прежних стабов неизменна (расширены только перечни их
 наблюдаемых ветвей — замером матрицы, список в «Закрытых перечнях»).
+Правка по FAIL критика v3 КРУГ 2 (два блокера, корень один: батарея
+покрывала выборку входов допуска/Г0, а не всё пространство порта —
+зелёные обходы new-light-gate-default, new-empty-session-demo,
+new-g0-denied-admission): ТАБЛИЦА ВХОДОВ допуска — все выразимые
+входы порта onboarding параметризованной батареей MIGRACIYA_TABLICA_*
+(источник счёта клеток — таблица, имена производны от строки) + все
+10 мутантов критика кругов 1–2 + собственные стабы; прежние клетки
+117/2 и правки круга 1 сохранены поимённо (removed=[]).
 
 КЛАСС: КОДОВЫЙ. Предмет — слова владельца (через консультанта): splash
 ~18:18 UTC «нативный splash (expo-splash-screen) и, ЕСЛИ НУЖНО, JS-экран
@@ -161,30 +169,63 @@ Erstinformation; Erstinformation — ТОЛЬКО демо-входом при �
 только допуск, порядок и сохранность прежнего пути. Шов клеток миграции
 — порты PilotApp (onboarding: admission/gate — ОБА поля OPTIONAL:
 «отсутствует» — законный вход оси, не вне-алфавитная атака (FAIL
-критика v3, блокер 1); полная матрица шва: admission ∈ {отсутствует,
-W0, W1A} × gate ∈ {отсутствует, null, stale, current} × тема
-{dark, light}; Erstinformation открывает ТОЛЬКО W1A ∧ current — в ОБЕИХ
-темах, тема не ось допуска); production-источник допуска — сессия
+критика v3, блокер 1)); production-источник допуска — сессия
 (проба композиции с внешним источником — инвариант 5 frozen 118/1,
 зона implementer 118).
 
-Г0 при миграции (FAIL критика v3, блокер 2): корни F03.01/F03.02
-наблюдаются и на экземплярах с ПОДКЛЮЧЁННЫМ портом onboarding —
-недопуск И допуск, обе темы: подключение порта и сам допуск НЕ
-рестайлят корень (литералы 995 #FFFFFF, 48/16/16); поверхность кадров
-Erstinformation/Start — предмет 118, этими клетками не судится.
+ТАБЛИЦА ВХОДОВ допуска (правка по FAIL критика v3 КРУГ 2 — инвариант,
+источник счёта клеток): батарея судит ВСЕ выразимые входы порта
+onboarding — ЕДИНАЯ таблица (vkhod.test.tsx, VHOD_TABLICA; зеркало
+_TABL_ROWS в vkhod_probe.py для привязок стабов) параметризованно:
+admission ∈ {W0, W1A, отсутствует, null, неизвестное значение('W2')} ×
+gate ∈ {current, stale, отсутствует, null, неизвестное('future')} ×
+тема {dark, light} × форма порта {не подключён (проп undefined),
+пустой подключённый {}, частичный (ровно одно поле), полный (оба
+поля)}. Форма связывает выразимость: невыразимые сочетания (поле
+заданной формы без порта) таблицей не порождаются — таблица полна по
+ВЫРАЗИМЫМ строкам: 1 (не подключён) + 1 (пустой) + 4+4 (частичный) +
+16 (полный) = 26 строк × 2 темы = 52 клетки MIGRACIYA_TABLICA_<ФОРМА>_
+<ADMISSION>_<GATE>_<ТЕМА>, имена производны от строки, счёт — из
+таблицы кодом (сверка прогона и разбора, приёмка). Ожидание КАЖДОЙ
+клетки выводится из её строки: допуск ⇔ admission='W1A' ∧
+gate='current' (единственная строка POLNYJ/W1A/CURRENT; тема — не ось
+допуска) — Erstinformation → continue → Start; ВСЕ прочие строки —
+прежний путь B (демо-вход → кадр code), Erstinformation/Start закрыты;
+Г0 (#FFFFFF, 48/16/16) наблюдается на кадрах email И code при любом
+недопуске и в обеих темах — в т.ч. на экземпляре с ПОДКЛЮЧЁННЫМ
+портом при gate ≠ current (блокер 2 круга 2).
 
-Охрана — клетки-дельта MIGRACIYA_* (перечень — «Закрытые перечни
-клеток») и стабы migracija-admission-literal («admission обходится»),
-migracija-gate-ignor, migracija-start-pryamo (порядок),
-migracija-f03-put-udalen («Г0 ослаблен»: прежний путь удалён миграцией)
-+ стабы правки по FAIL критика v3: обходы критика
-migracija-admission-default, migracija-gate-default,
-migracija-w0-stale-dopushchen, migracija-svetlui-obhod,
-migracija-onboarding-restyles-f03 и собственные
+Г0 при миграции (FAIL критика v3, блокер 2; круг 2 — класс): корни
+F03.01/F03.02 наблюдаются на экземплярах с ПОДКЛЮЧЁННЫМ портом
+onboarding при ЛЮБОМ недопуске (в т.ч. отклонённый/отсутствующий/null
+gate — обход критика круга 2 new-g0-denied-admission рестайлил корень
+именно при gate ≠ current) И при допуске, обе темы: подключение порта
+и сам допуск НЕ рестайлят корень (литералы 995 #FFFFFF, 48/16/16);
+поверхность кадров Erstinformation/Start — предмет 118, этими клетками
+не судится.
+
+Охрана — клетки-дельта MIGRACIYA_* + таблица MIGRACIYA_TABLICA_*
+(перечень — «Закрытые перечни клеток») и стабы migracija-admission-
+literal («admission обходится»), migracija-gate-ignor,
+migracija-start-pryamo (порядок), migracija-f03-put-udalen («Г0
+ослаблен»: прежний путь удалён миграцией) + стабы правки по FAIL
+критика v3 круг 1: обходы критика migracija-admission-default,
+migracija-gate-default, migracija-w0-stale-dopushchen,
+migracija-svetlui-obhod, migracija-onboarding-restyles-f03; круг 2 —
+ВСЕ мутанты критика (attack.py кругов 1–2): три зелёных обхода круга 2
+migracija-light-gate-default (умолчание gate=current только в light),
+migracija-pustaya-sessiya-demo (пустой подключённый порт {} — сам себе
+допуск), migracija-g0-nedopusk-restail (рестайл корня при truthy порте
+с gate ≠ current) + migracija-light-stale-current,
+migracija-light-start-do-continue; собственные круга 1
 migracija-marshrut-tolko-temnyi, migracija-stale-kak-current,
-migracija-restyle-pri-dopuske (привязка к ветвям — в «Закрытых
-перечнях клеток», по коду MUTANTS пробы).
+migracija-restyle-pri-dopuske и круга 2 migracija-null-kak-current,
+migracija-or-uslovie (`||` в условии допуска),
+migracija-port-est-dopusk (truthy порт без admission — W1A),
+migracija-g0-restail-nedopusk-admission (Г0-рестайл при admission ≠
+W1A), migracija-temnyi-start-do-continue (порядок маршрута в тёмной)
+(привязка к ветвям — в «Закрытых перечнях клеток», по коду MUTANTS
+пробы).
 
 НЕ разрешено: ослабление приёмки 118; рестайл корня F03; изменение входа
 (итог C ≡ B по `mobile/src/features/auth/` — приёмка v2); ослабление
@@ -303,12 +344,11 @@ sha256 (несовпадение — rc2 ORACLE_TAMPERED).
 на R@B 8748a7a335 с node_modules, ветка wip/117/architect-v3)
 
 Поведенческая семья (Jest/RNTL, `vkhod_probe.py` → `vkhod.test.tsx`,
-44 клетки — замер правки по FAIL v3 `behavioral 44/44`: 26 клеток
-117/2 + 4 клетки геометрии/z-порядка кругов Adv117v2/v3 по реализации
-+ 4 клетки миграции v3 + 10 клеток правки по FAIL критика v3 —
-непокрытые входы допуска × тема и Г0 при подключённом onboarding;
-прежние 34 поимённо сохранены — мера разбора исходника:
-removed=[], added=10):
+96 клеток — замер правки по FAIL критика v3 КРУГ 2 `behavioral
+96/96`: 26 клеток 117/2 + 4 клетки геометрии/z-порядка кругов
+Adv117v2/v3 по реализации + 4 клетки миграции v3 + 10 клеток правки по
+FAIL критика v3 круг 1 + 52 клетки ТАБЛИЦЫ ВХОДОВ круга 2; прежние 44
+поимённо сохранены — мера разбора исходника: removed=[], added=52):
 - Г0 `RESTYLE_GUARD_995_F03_{DARK,LIGHT}` ×2 — корни F03.01 И F03.02
   #FFFFFF 48/16/16 (вход вне предмета, поверхность 995 как на B).
 - Г1 `RESTYLE_GUARD_995_WELCOME_{DARK,LIGHT}` ×2, Г2
@@ -373,6 +413,23 @@ removed=[], added=10):
   48/16/16; `MIGRACIYA_G0_F03_DOPUSK_{DARK,LIGHT}` ×2 — Г0 при допуске:
   кадр email (продолжение из First-Run) остаётся поверхностью 995.
 
+- (правка по FAIL критика v3 КРУГ 2) ТАБЛИЦА ВХОДОВ —
+  `MIGRACIYA_TABLICA_<ФОРМА>_<ADMISSION>_<GATE>_<ТЕМА>` ×52: все
+  выразимые строки порта onboarding (26 строк × 2 темы; счёт — из
+  таблицы кодом, сверка прогона/разбора — приёмка): формы
+  NEPODKLYUCHEN (проп undefined) и PUSTOJ (подключённый `{}`; обход
+  критика круга 2 new-empty-session-demo — истина порта ≠ допуску) ×
+  OTSUT/OTSUT; CHASTICHNYJ — ровно одно поле: admission
+  {W0, W1A, NULL, NEIZVESTNOE('W2')} × OTSUT и gate {CURRENT, STALE,
+  NULL, NEIZVESTNOE('future')} × OTSUT (8 строк); POLNYJ — оба поля,
+  4×4=16 строк. Каждая клетка судит СВОЮ строку: маршрут (допущена
+  ТОЛЬКО POLNYJ/W1A/CURRENT — Erstinformation → continue → Start; все
+  прочие — прежний путь B, Erstinformation/Start закрыты) И Г0
+  (#FFFFFF 48/16/16 на кадрах email и code) в своей теме — недопуск
+  наблюдаем на любом входе таблицы, рестайл отклонённого gate (обход
+  критика круга 2 new-g0-denied-admission) — строками с gate ≠
+  current в обеих темах.
+
 Статическая семья (`vkhod_static_probe.py`, 43 клетки — замер v3
 `static 43/43`: 40 клеток 117/2 + SPLASH_OVERLAY_NO_TRANSFORM,
 SPLASH_OVERLAY_NO_LAYOUT_OFFSET, SPLASH_OVERLAY_ZORDER кругов
@@ -421,10 +478,11 @@ SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
 pyyaml — rc2.
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду MUTANTS проб, Н-39;
-depends измерены прогонами; поведенческая матрица правки по FAIL v3 —
-rc0 на R@B (замер v3 35 стабов rc0 — сохранён), статическая v3 — rc0
-на R@B, семью правка не меняет):
-поведенческих 43 — 24 из 117/2 (restyle-welcome-vkhod,
+depends измерены прогонами; поведенческая матрица правки по FAIL v3
+КРУГ 2 — rc0 на R@B, 53 стаба, все красны именованными ветвями,
+замер круга 2; прежние замеры: 35 стабов v3, 43 стаба правки круга 1 —
+сохранены; статическая матрица — rc0 на R@B, семью правка не меняет):
+поведенческих 53 — 24 из 117/2 (restyle-welcome-vkhod,
 restyle-recovery-vkhod, restyle-unavailable-vkhod,
 restyle-recovery-light-vkhod, overlay-absent-first-commit,
 overlay-text-words, overlay-hideasync-skip, overlay-hideasync-module-scope,
@@ -437,31 +495,62 @@ statusbar-in-overlay) + 7 кругов Adv117v2/v3 (overlay-transform-
 {translatex,translatey,scale}, overlay-margin-offset,
 overlay-zindex-{minus,zero}, overlay-before-firstrun) + 4 миграции v3
 (migracija-admission-literal — named MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT,
-правка FAIL v3 добавляет named
+правка FAIL v3 круга 1 добавляет named
 MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT и depends Г0
-ONBOARDING ×2 — демо уводится в Erstinformation;
+ONBOARDING ×2, круг 2: named + строки таблицы
+{CHASTICHNYJ/OTSUT/CURRENT, POLNYJ/{W0,NULL,NEIZVESTNOE}/CURRENT} ×2;
 migracija-gate-ignor — named MIGRACIYA_W1A_{NULL,STALE}_PREZHNIJ_PUT,
-правка: + GATE_OTSUT и STALE_SVETLAYA; migracija-start-pryamo — named
-MIGRACIYA_W1A_CURRENT_MARSHRUT, правка: + SVETLAYA_MARSHRUT;
-migracija-f03-put-udalen — named все 4 MIGRACIYA_*,
-depends Г0–Г3 ×8 и, правка, все 10 новых клеток миграции: прежний путь
-удалён — кадры недостижимы; правка FAIL v3 также расширила named
+правка: + GATE_OTSUT и STALE_SVETLAYA, круг 2: + строки W1A × gate
+{OTSUT, STALE, NULL, NEIZVESTNOE} ×2; migracija-start-pryamo — named
+MIGRACIYA_W1A_CURRENT_MARSHRUT, правка: + SVETLAYA_MARSHRUT, круг 2:
++ строки допуска POLNYJ/W1A/CURRENT ×2; migracija-f03-put-udalen —
+named все 4 MIGRACIYA_*, depends Г0–Г3 ×8, правка: все 10 клеток
+круга 1, круг 2: depends все 52 клетки таблицы — прежний путь удалён,
+auth-email недостижим; правка круга 1 также расширила named
 рестайл-стабов: auth-restyled-ground + Г0 ONBOARDING/DOPUSK ×4,
-auth-restyled-code-light + Г0 ONBOARDING_LIGHT — тот же рестайл на
-экземплярах с подключённым onboarding, замер матрицы) + 8 правки по
-FAIL критика v3 (обходы критика: migracija-admission-default — named
-MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT; migracija-gate-default
-— named MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT;
-migracija-w0-stale-dopushchen — named MIGRACIYA_W0_STALE_PREZHNIJ_PUT;
+auth-restyled-code-light + Г0 ONBOARDING_LIGHT; круг 2: named
+auth-restyled-ground + ВСЕ 52 клетки таблицы (рестайл email/code
+безусловен), auth-restyled-code-light + 25 светлых строк недопуска
+таблицы) + 8 правки по FAIL критика v3 круг 1 (обходы критика:
+migracija-admission-default — named
+MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT, круг 2: + строки
+{CHASTICHNYJ/OTSUT, POLNYJ/NULL} × CURRENT ×2 (`?? 'W1A'` заменяет и
+undefined, и null); migracija-gate-default — named
+MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT, круг 2: + строки W1A ×
+{OTSUT-форма, NULL} ×2; migracija-w0-stale-dopushchen — named
+MIGRACIYA_W0_STALE_PREZHNIJ_PUT, круг 2: + POLNYJ/W0/STALE ×2;
 migracija-svetlui-obhod — named MIGRACIYA_W0_NULL_SVETLAYA и
-W1A_STALE_SVETLAYA, depends Г0 ONBOARDING_LIGHT — демо уводится мимо
-кода-кадра; migracija-onboarding-restyles-f03 — named Г0
-ONBOARDING_{DARK,LIGHT}, depends Г0 DOPUSK_{DARK,LIGHT} — рестайл при
-любом truthy порте; собственные: migracija-marshrut-tolko-temnyi —
-named MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT;
-migracija-stale-kak-current — named MIGRACIYA_W1A_STALE и
-W1A_STALE_SVETLAYA; migracija-restyle-pri-dopuske — named Г0
-DOPUSK_{DARK,LIGHT}); статических 38 — 31 из 117/2 (icon-template-bytes,
+W1A_STALE_SVETLAYA, depends Г0 ONBOARDING_LIGHT, круг 2: named + все
+24 truthy-строки недопуска таблицы в LIGHT; migracija-
+onboarding-restyles-f03 — named Г0 ONBOARDING_{DARK,LIGHT} + все 50
+truthy-строк таблицы, depends Г0 DOPUSK_{DARK,LIGHT}; собственные
+круга 1: migracija-marshrut-tolko-temnyi — named
+MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT, круг 2: + строка
+POLNYJ/W1A/CURRENT/LIGHT; migracija-stale-kak-current — named
+MIGRACIYA_W1A_STALE и W1A_STALE_SVETLAYA, круг 2: + POLNYJ/W1A/STALE
+×2; migracija-restyle-pri-dopuske — named Г0 DOPUSK_{DARK,LIGHT},
+круг 2: + строки допуска таблицы ×2) + 5 круга 2 — ВСЕ мутанты
+критика кругов 1–2 (attack.py: прежние зелёные обходы красны теперь):
+migracija-light-gate-default — named строки
+{CHASTICHNYJ/W1A/OTSUT, POLNYJ/W1A/NULL} × LIGHT (блокер 1 круга 2);
+migracija-pustaya-sessiya-demo — named строки PUSTOJ ×2 (блокер 1
+круга 2: пустой подключённый порт); migracija-g0-nedopusk-restail —
+named все 40 truthy-строк с gate ≠ current ×2 (блокер 2 круга 2:
+рестайл отклонённого gate); migracija-light-stale-current — named
+MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT + строка
+POLNYJ/W1A/STALE/LIGHT; migracija-light-start-do-continue — named
+MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT + строка
+POLNYJ/W1A/CURRENT/LIGHT + 5 собственных круга 2:
+migracija-null-kak-current — named MIGRACIYA_W1A_NULL_PREZHNIJ_PUT +
+POLNYJ/W1A/NULL ×2; migracija-or-uslovie — named 6 прежних клеток
+недопуска + 8 строк таблицы ×2, depends Г0 ONBOARDING ×2;
+migracija-port-est-dopusk — named
+MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT + строки
+{CHASTICHNYJ/OTSUT, POLNYJ/NULL} × CURRENT ×2; migracija-g0-restail-
+nedopusk-admission — named все 40 truthy-строк с admission ≠ W1A ×2 +
+Г0 ONBOARDING ×2; migracija-temnyi-start-do-continue — named
+MIGRACIYA_W1A_CURRENT_MARSHRUT + строка POLNYJ/W1A/CURRENT/DARK;
+статических 38 — 31 из 117/2 (icon-template-bytes,
 adaptive-expo-blue, splash-image-forgery, icon-twin-three-pixels,
 splash-composite-twin, splash-composite-no-words, splash-composite-shifted,
 splash-composite-halfres, splash-imagewidth-76, adaptive-favicon-template,
@@ -490,18 +579,24 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 - Дано B без реализации: `python3 fixtures/workshop_project/vkhod_117/vkhod_probe.py
   --repo R` → rc1, строка `VKHOD_SPLASH_OVERLAY_ABSENT` (клетка
   SPLASH_OVERLAY_MOUNTED_* красна; замер 117e: failed 18 of 26; замер v3
-  на R@B: failed 23 of 34 — сохранён; замер правки по FAIL v3 на R@B:
-  failed 24 of 44 — 22 клетки оверлея (18 прежних + GEOMETRY ×2 +
-  ZORDER ×2) + MIGRACIYA_W1A_CURRENT_MARSHRUT и
-  MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT (маршрут на B не реализован);
-  зелены Г0–Г3 ×8, все 8 MIGRACIYA_*_PREZHNIJ_PUT (3 прежних + 5
-  правки) и Г0-клетки ONBOARDING/DOPUSK ×4 — прежний путь и белый
-  корень и есть состояние B, это не ослабление);
+  на R@B: failed 23 of 34 — сохранён; замер правки по FAIL v3 круга 1
+  на R@B: failed 24 of 44 — сохранён; замер правки по FAIL v3 КРУГ 2
+  на R@B: failed 26 of 96 — 22 клетки оверлея (18 прежних + GEOMETRY
+  ×2 + ZORDER ×2) + MIGRACIYA_W1A_CURRENT_MARSHRUT,
+  MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT и 2 маршрут-строки таблицы
+  MIGRACIYA_TABLICA_POLNYJ_W1A_CURRENT_{DARK,LIGHT} (маршрут на B не
+  реализован); зелены Г0–Г3 ×8, все MIGRACIYA_*_PREZHNIJ_PUT (3
+  прежних + 5 правки), Г0-клетки ONBOARDING/DOPUSK ×4 и все 50
+  прочих клеток таблицы — прежний путь и белый корень и есть
+  состояние B, это не ослабление);
   `vkhod_static_probe.py --repo R` → rc1 `VKHOD_SPLASH_COMPOSITE_ABSENT`.
 - Дано B с эталонной моделью (`--model`) либо честное C: обе пробы → rc0 с
-  перечнем: поведенческая 44/44 (замер правки по FAIL v3), статическая
+  перечнем: поведенческая 96/96 (замер правки по FAIL критика v3 КРУГ 2:
+  44 прежних + 52 клетки таблицы входов), статическая
   43/43 (замер v3 — семья правкой не менялась; модель workflow —
-  `mobile.yml` `cmp-mob-123/sverka` @10cf684 дословно).
+  `mobile.yml` `cmp-mob-123/sverka` @10cf684 дословно); счёт таблицы —
+  кодом из самой таблицы (26 строк × 2 темы = 52) и сходится с прогоном
+  (96 = 44 + 52) и разбором исходника (замер круга 2).
 - Дано C, в котором `.github/workflows/mobile.yml` — workflow B 8748a7a335
   (шагов 123 нет); когда `vkhod_static_probe.py --repo R`; тогда rc1, красны
   ровно `SVERKA_123_STEP_UNCONDITIONAL`, `SVERKA_123_MANIFEST_CANON`,
@@ -521,9 +616,10 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
   splash); когда `vkhod_static_probe.py --repo R`; тогда rc1, строка
   `RED MAESTRO_SPLASH_FRAME_WAIT` (замер 117e).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый
-  стаб красен именованной ветвью (43+38), побочная краснота только в
-  depends; любой MUTANT_GREEN/MUTANT_NAMED_MISS/MUTANT_UNEXPECTED_RED —
-  rc2.
+  стаб красен именованной ветвью (поведенческих 53 — 24 из 117/2 + 7
+  Adv + 4 миграции + 8 круга 1 + 10 круга 2; статических 38), побочная
+  краснота только в depends; любой
+  MUTANT_GREEN/MUTANT_NAMED_MISS/MUTANT_UNEXPECTED_RED — rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк
   кроме симлинка `mobile/node_modules` (инфраструктура R, не проба).
 - Дано C; `git diff --exit-code --stat B C -- mobile/src/features/auth/` →
@@ -661,29 +757,45 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
 - от тихого рестайла кадров вне предмета: Г0–Г3 по ВСЕМ исключённым кадрам
   (вход F03.01/F03.02, welcome, F03.04, unavailable) × обе схемы (стаб
   auth-restyled-ground — форма текущего C — красен Г0);
-- от обхода допуска демо-маршрута (117 v3 + правка по FAIL v3): клетки
-  MIGRACIYA_* судят ПОЛНУЮ матрицу шва admission ∈ {отсутствует, W0,
-  W1A} × gate ∈ {отсутствует, null, stale, current} × тема {dark,
-  light} на порте onboarding (внешняя сессия); Erstinformation
-  открывает ТОЛЬКО W1A ∧ current в обеих темах; литерал допуска в
-  pilot-app (migracija-admission-literal, обход критика
-  migracija-admission-default — умолчание отсутствующего поля),
-  допуск без current (migracija-gate-ignor, migracija-gate-default,
-  migracija-stale-kak-current, migracija-w0-stale-dopushchen), светлая
-  тема как допуск (migracija-svetlui-obhod), маршрут только в тёмной
+- от обхода допуска демо-маршрута (117 v3 + правки по FAIL v3 кругов
+  1–2): ТАБЛИЦА ВХОДОВ MIGRACIYA_TABLICA_* ×52 судит ВСЕ выразимые
+  входы порта onboarding (внешняя сессия): admission ∈ {W0, W1A,
+  отсутствует, null, неизвестное('W2')} × gate ∈ {current, stale,
+  отсутствует, null, неизвестное('future')} × тема {dark, light} ×
+  форма порта {не подключён, пустой `{}`, частичный, полный} — 26
+  строк × 2 темы, счёт из таблицы кодом; Erstinformation открывает
+  ТОЛЬКО W1A ∧ current в обеих темах; литерал допуска в pilot-app
+  (migracija-admission-literal, обходы критика
+  migracija-admission-default, migracija-gate-default,
+  migracija-w0-stale-dopushchen, migracija-svetlui-obhod), допуск без
+  current (migracija-gate-ignor, migracija-stale-kak-current,
+  migracija-null-kak-current), `||` в условии (migracija-or-uslovie),
+  ПУСТОЙ подключённый порт `{}` (migracija-pustaya-sessiya-demo —
+  блокер 1 круга 2: истина порта ≠ допуску), умолчание gate только в
+  светлой (migracija-light-gate-default — блокер 1 круга 2),
+  неизвестные значения осей (строки NEIZVESTNOE таблицы), truthy порт
+  без admission (migracija-port-est-dopusk), светлая тема как допуск
+  (migracija-svetlui-obhod), маршрут только в тёмной
   (migracija-marshrut-tolko-temnyi), Start мимо Erstinformation
-  (migracija-start-pryamo) и удаление прежнего пути F03
-  (migracija-f03-put-udalen — красен и гвардами Г0–Г3: кадры
-  недостижимы) красны именованными клетками;
+  (migracija-start-pryamo, migracija-light-start-do-continue,
+  migracija-temnyi-start-do-continue) и удаление прежнего пути F03
+  (migracija-f03-put-udalen — красен и гвардами Г0–Г3 и всеми 52
+  клетками таблицы: кадры недостижимы) красны именованными клетками
+  на входах, где дефект наблюдаем (Н-39);
 - от рестайла корня F03 подключённым onboarding (правка по FAIL v3,
-  блокер 2): клетки Г0 MIGRACIYA_G0_F03_ONBOARDING/DOPUSK ×4 судят
-  корень #FFFFFF 48/16/16 на экземплярах с портом — недопуск и допуск,
-  обе темы; стабы migracija-onboarding-restyles-f03 (рестайл при любом
-  порте) и migracija-restyle-pri-dopuske (только при допуске) красны
-  ими; прежние гварды Г0 и рестайл-стабы не сняты;
+  блокер 2; круг 2 — класс): клетки Г0 MIGRACIYA_G0_F03_ONBOARDING/
+  DOPUSK ×4 и каждая недопуск-строка таблицы (Г0 на кадрах email И
+  code, обе темы) судят корень #FFFFFF 48/16/16 на экземплярах с
+  ПОДКЛЮЧЁННЫМ портом при ЛЮБОМ недопуске — в т.ч. с отклонённым/
+  отсутствующим/null/неизвестным gate (стабы migracija-g0-nedopusk-
+  restail — обход критика круга 2: рестайл при gate ≠ current, — и
+  migracija-g0-restail-nedopusk-admission — та же ось по admission),
+  при допуске (migracija-restyle-pri-dopuske) и при любом truthy порте
+  (migracija-onboarding-restyles-f03 — красен всеми 50 truthy-строками
+  таблицы); прежние гварды Г0 и рестайл-стабы не сняты;
 - от зависимого оракула (Н-351): ожидания — литералы source.json/теста,
   STATIC_ORACLE_LITERALS; эталоны — sha-пин read-only docs/;
-- от мёртвой матрицы: обе пробы исполняют все стабы (43+38), depends
+- от мёртвой матрицы: обе пробы исполняют все стабы (53+38), depends
   измерены прогоном, unexpected_red/suite_broken — rc2.
 
 НЕ ЗАЩИЩАЕТ:
