@@ -18,7 +18,11 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import React from 'react';
 
-import { ConversationScreen } from '@/features/conversation/conversation-screen';
+import {
+  ConversationScreen,
+  type ConversationTurnData,
+  type OutgoingMessage,
+} from '@/features/conversation/conversation-screen';
 import { ThemeContext } from '@/theme/context';
 import { themeTokens, type ColorScheme } from '@/theme/tokens';
 
@@ -63,7 +67,7 @@ const BASELINE_TURNS = [
 
 function makePorts() {
   return {
-    onSendMessage: jest.fn(async () => 'accepted' as const),
+    onSendMessage: jest.fn(async (_message: OutgoingMessage) => 'accepted' as const),
     onAttach: jest.fn(() => ({ attachmentId: 'UPL-1', name: PICKED_FILE })),
     onCompleteUpload: jest.fn(async () => 'uploaded' as const),
     onNewTopic: jest.fn(async () => NEW_TOPIC_MISSION_ID),
@@ -73,7 +77,7 @@ function makePorts() {
 async function renderConversation(
   scheme: ColorScheme = 'dark',
   overrides: {
-    turns?: typeof BASELINE_TURNS;
+    turns?: readonly ConversationTurnData[];
     responseState?: 'idle' | 'interrupted';
     sendStatus?: 'accepted' | 'already_accepted' | 'queued_offline';
     uploadStatus?: 'uploaded' | 'failed';
@@ -136,7 +140,7 @@ function strokiPoddereva(koren: unknown): string[] {
 }
 
 function tokenyKlassa(blok: { props: { className?: string } }): string[] {
-  return blok.props.className.split(/\s+/).filter(Boolean).sort();
+  return blok.props.className?.split(/\s+/).filter(Boolean).sort() ?? [];
 }
 
 beforeEach(() => {
