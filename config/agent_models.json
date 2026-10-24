@@ -55,17 +55,11 @@
       "autoFallback": true,
       "why": "adversary: судья реализации вне семейств авторов (glm/minimax); terra — доказанный атакующий (живые обходы в каждом круге)."
     },
-    "apex": {
-      "model": "@gpt-astra",
-      "fallback": "@gpt-terra",
-      "autoFallback": true,
-      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). critic — верхний уровень чужого семейства относительно architect (GLM, zai): Astra; замена Astra — только Fable (оба не zai) (decisions/005). Отменяет временное Opus (15.10). Фолбек @fable → @gpt-terra словом владельца 2026-10-21 ~21:15 UTC («не сади лимиты антропика»): Astra срывается на Codex-фильтре cybersecurity, autoFallback уводил критика на Anthropic."
-    },
     "apex-sol": {
       "model": "@gpt-sol",
       "fallback": "@gpt-terra",
       "autoFallback": true,
-      "why": "Слово владельца 2026-10-21 ~22:00 UTC «да, давай 2Б» (через консультанта): критик на Astra съедал ~81% лимита Codex (замер 24 ч: ~3 660 из ~4 540 кредитов по rate card; Astra 250/25/1250 против Sol 50/5/250 за 1M). Круги 1–2 суда контракта — GPT-6 Sol; круг 3 (последний перед заморозкой) — Astra (critic). Чужое семейство относительно architect (GLM) сохранено."
+      "why": "Слово владельца 2026-10-21 ~22:00 UTC «да, давай 2Б» (через консультанта): критик на Astra съедал ~81% лимита Codex (замер 24 ч: ~3 660 из ~4 540 кредитов по rate card; Astra 250/25/1250 против Sol 50/5/250 за 1M). Слово владельца 2026-10-24 «да, подтверждаю» (через консультанта): для новых предметов штатный critic-tier — Sol при независимости от автора; автоматический третий critic-круг на Astra исключён. Чужое семейство относительно architect (GLM) сохранено."
     },
     "audit": {
       "model": "@opus",
@@ -96,7 +90,7 @@
     "implementer-glm": "task-glm",
     "implementer-vision": "vision",
     "adversary": "advisor",
-    "critic": "apex",
+    "critic": "apex-sol",
     "critic-sol": "apex-sol",
     "reviewer": "audit",
     "arbiter": "plan",
@@ -133,14 +127,9 @@
         "role": "implementer-glm"
       },
       {
-        "class": "суд плана и контракта до заморозки, круги 1–2",
-        "role": "critic-sol",
-        "constraint": "чужое семейство относительно architect; слово владельца 2026-10-21 «2Б»"
-      },
-      {
-        "class": "суд плана и контракта до заморозки, круг 3 (последний перед заморозкой)",
+        "class": "суд плана и контракта до заморозки",
         "role": "critic",
-        "constraint": "верхний уровень чужого семейства относительно architect (decisions/005)"
+        "constraint": "верхний уровень чужого семейства относительно architect (decisions/005); штатный critic-tier — Sol при независимости от автора; автоматический третий critic-круг исключён, бюджет — roles/critic.md §Быстрый-процесс (слово владельца 2026-10-24)"
       },
       {
         "class": "атака на реализацию",
