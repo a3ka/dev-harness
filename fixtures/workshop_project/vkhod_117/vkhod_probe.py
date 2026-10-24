@@ -12,6 +12,11 @@ Image оверлея = модуль композита своей схемы (С
 production-входе (Р1); стиль статус-бара по схеме на splash (В2-2);
 рестайл-гварды 995 — вход F03.01/F03.02 (выведен в first-run-ekran),
 welcome, F03.04, unavailable остаются поверхностью 995.
+117 v3 (миграция 117/3, слово владельца 2026-10-24): клетки MIGRACIYA_*
+судят допуск демо-маршрута First-Run → demo → Erstinformation → Start в
+pilot-app — ТОЛЬКО при admission 'W1A' из сессии ∧ gate 'current'; без
+допуска — прежний путь B (F03, Г0). Допуск приходит портом onboarding
+(внешняя сессия), не литералом.
 
 Исполняет настоящий Jest/RNTL на disposable R и разбирает отчёт поимённо.
 Без --model: до-предметное дерево — rc1 и именованная причина
@@ -367,6 +372,51 @@ MUTANTS = {
           '          <Image\n            source={\n')],
         ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
         [],
+    ),
+    # ---- 117 v3 (миграция 117/3): обманные стабы допуска маршрута ----
+    # «admission обходится»: pilot-app несёт литерал допуска W1A (порт
+    # сессии проигнорирован) — W0×current уходит в Erstinformation.
+    'migracija-admission-literal': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "  const onboardingAdmission = onboarding?.admission ?? 'W0';",
+          "  const onboardingAdmission = 'W1A';")],
+        ['MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT'],
+        [],
+    ),
+    # «current не проверяется»: допуск по одному admission — W1A×null и
+    # W1A×stale уходят в Erstinformation, Start приоткрыт.
+    'migracija-gate-ignor': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "    if (onboardingAdmission === 'W1A' && onboardingGate === 'current') {",
+          "    if (onboardingAdmission === 'W1A') {")],
+        ['MIGRACIYA_W1A_NULL_PREZHNIJ_PUT', 'MIGRACIYA_W1A_STALE_PREZHNIJ_PUT'],
+        [],
+    ),
+    # «порядок маршрута сломан»: демо-вход сразу в Start, минуя
+    # Erstinformation (continue-шаг отсутствует).
+    'migracija-start-pryamo': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "      setFrame('erstinformation');\n      return;",
+          "      setFrame('start');\n      return;")],
+        ['MIGRACIYA_W1A_CURRENT_MARSHRUT'],
+        [],
+    ),
+    # «Г0 ослаблен» формой миграции: прежний путь F03 выброшен —
+    # first-run-continue ведёт сразу в Erstinformation, кадры входа
+    # (auth-email/auth-code, белый корень 48/16/16) недостижимы.
+    'migracija-f03-put-udalen': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          "  const handleFirstRunContinue = useCallback(() => {\n    setFrame('email');\n  }, []);",
+          "  const handleFirstRunContinue = useCallback(() => {\n    setFrame('erstinformation');\n  }, []);")],
+        ['MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT', 'MIGRACIYA_W1A_NULL_PREZHNIJ_PUT',
+         'MIGRACIYA_W1A_STALE_PREZHNIJ_PUT', 'MIGRACIYA_W1A_CURRENT_MARSHRUT'],
+        # Побочная краснота (замер матрицы v3): прежний путь удалён — кадры
+        # email/code/welcome/recovery/unavailable недостижимы, гварды Г0–Г3
+        # падают по той же причине (depends, не named).
+        ['RESTYLE_GUARD_995_F03_DARK', 'RESTYLE_GUARD_995_F03_LIGHT',
+         'RESTYLE_GUARD_995_WELCOME_DARK', 'RESTYLE_GUARD_995_WELCOME_LIGHT',
+         'RESTYLE_GUARD_995_RECOVERY_DARK', 'RESTYLE_GUARD_995_RECOVERY_LIGHT',
+         'RESTYLE_GUARD_995_UNAVAILABLE_DARK', 'RESTYLE_GUARD_995_UNAVAILABLE_LIGHT'],
     ),
 }
 
