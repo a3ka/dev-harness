@@ -1,0 +1,15 @@
+appId: com.complior.demo
+name: mission-state-v01
+---
+# 116 v3, независимый сценарий состояния V01 (кадр без PNG): собственный
+# запуск, вход из Start, жест черновика, отправка в offline-исходе runtime
+# (ось клетки QUEUED_OFFLINE_DRAFT_KEPT: очередь без сети, черновик
+# сохранён). Видимое ожидание: блок офлайн-очереди (mission_queued_offline).
+- launchApp
+- assertVisible: {id: start_tab_start}
+- tapOn: {id: start_tab_start}
+- tapOn: {id: mission_composer_input}
+- inputText: 'Ich habe ein Auto gekauft.'
+- hideKeyboard
+- tapOn: {id: mission_send}
+- assertVisible: {id: mission_queued_offline}

@@ -77,9 +77,13 @@ export function ConversationScreen({ api, copy, docs, response }) {
       {sendState === 'attachment_pending' ? (
         <View testID="mission_attachment_foto" className="panel on-card">
           {docs.map((d) => (
-            <Text testID="mission_chip_wird_gelesen" key={d.name}>
-              {d.name + CHIP_LESET_SUFFIX}
-            </Text>
+            <View key={d.name}>
+              <Text testID="mission_chip_wird_gelesen">
+                {d.name + CHIP_LESET_SUFFIX}
+              </Text>
+              <Pressable testID="attachment-complete-UPL-1"
+                onPress={() => api.completeUpload(d.name)} />
+            </View>
           ))}
         </View>
       ) : null}

@@ -11,6 +11,12 @@
 // хранилище модуля draftStore; состояния composer без PNG рендерят СВОИ
 // блоки mission_* (testID по манифесту sostojanija_bez_png, className —
 // токены D2.2.5.1 манифеста, текст — каталог uiCopyDe, не литералы).
+// 116 v3 (REPORT-116 §1.2/§3): контейнер вложений несёт mission_frame_
+// f05_v03 и СОХРАНЯЕТСЯ после успешного upload (уходит только подпись
+// mission_chip_wird_gelesen); жест завершения upload — контроль
+// attachment-complete-<id> (у первого вложения мок-runtime id=UPL-1, как
+// в клетке UPLOAD_GATE_AND_RETRY_NO_DUPE); состояния без PNG достигаются
+// независимыми сценариями, не линейным хвостом одного прогона.
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -264,7 +270,9 @@ export function ConversationScreen({
           </View>
         ) : null}
       </View>
-      <View testID="attachment-list">
+      {attachments.length > 0 ? (
+        <View testID="mission_frame_f05_v03" className="panel on-card">
+        <View testID="attachment-list">
         {attachments.map((a) => (
           <View key={a.attachmentId} testID="attachment-item">
             <Text testID="attachment-name" style={{ color: tokens.ink }}>
@@ -293,6 +301,8 @@ export function ConversationScreen({
           </View>
         ))}
       </View>
+        </View>
+      ) : null}
       <ConversationComposer
         onChangeText={handleDraft}
         value={draft}

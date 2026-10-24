@@ -1,9 +1,10 @@
 {
- "_comment": "Кадры без PNG (слово владельца 17:40): состояния composer по компонентам и токенам D2.2.5.1; РЕНДЕР каждого состояния судит статическая проба по коду экрана (teksty/statika_text.py): testID в своём блоке, текст — значения каталога, классы-токены из аудита, литералы запрещены; манифест — вторичная декларация. Сверка с макетом — после пакета дизайнера.",
+ "_comment": "Кадры без PNG (слово владельца 17:40): состояния composer по компонентам и токенам D2.2.5.1. 116 v3 (REPORT-116 §3 шаг 1): каждое состояние достигается СВОИМ независимым сценарием (поле scenarij — дочерний файл mobile/.maestro/, запускаемый корневым mission.yaml через runFlow; собственный запуск, вход из Start, предусловие/действие, видимое ожидание), а не линейным хвостом корневого флоу. Фактический рендер каждого состояния судит исполняемая семья продукта (K14–K18), форму экрана — статическая проба (teksty/statika_text.py): testID в своём блоке, текст — значения каталога, классы-токены из аудита, литералы запрещены. Пиксельная сверка — после пакета дизайнера.",
  "kadry_bez_png": [
   {
    "id": "F05.07",
    "testid": "mission_frame_f05_07",
+   "scenarij": "mission-state-f05-07.yaml",
    "kljuchi_kopii": [
     "frame.F05.07.title",
     "frame.F05.07.body"
@@ -18,6 +19,7 @@
   {
    "id": "F05.V01",
    "testid": "mission_queued_offline",
+   "scenarij": "mission-state-v01.yaml",
    "kljuchi_kopii": [
     "state.G06.title",
     "global.retry"
@@ -31,6 +33,7 @@
   {
    "id": "F05.V02",
    "testid": "mission_response_interrupted",
+   "scenarij": "mission-state-v02.yaml",
    "kljuchi_kopii": [
     "frame.F05.05.title",
     "frame.F05.05.body"
@@ -44,6 +47,7 @@
   {
    "id": "F05.V04",
    "testid": "mission_already_accepted",
+   "scenarij": "mission-state-v04.yaml",
    "kljuchi_kopii": [
     "action.F05.A01",
     "frame.F05.02.title"

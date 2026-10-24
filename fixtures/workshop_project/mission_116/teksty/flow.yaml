@@ -1,12 +1,22 @@
 appId: com.complior.demo
 name: mission
 ---
+# 116 v3 (REPORT-116 §3 шаг 1): связный основной путь + независимые
+# сценарии состояний. Основной путь: вход из Start (не deep link), жест
+# черновика (tapOn композера -> inputText) ДО вложения, меню вложения,
+# чип V03 с pending-подписью, наблюдаемое успешное завершение upload
+# (onComplete), подпись исчезает при сохранившемся контейнере V03,
+# отправка, обработка и ответ с Quelle. Состояния без PNG (F05.07, V01,
+# V02, V04) достигаются ОТДЕЛЬНЫМИ сценариями через runFlow — каждое со
+# своим запуском, предусловием и видимым ожиданием (не линейный хвост).
 - launchApp
 - assertVisible: {id: start_tab_start}
 - tapOn: {id: start_tab_start}
 - assertVisible: {id: mission_frame_f05_01}
 - takeScreenshot: mission-f05-01
-- inputText: {id: mission_composer_input, text: 'Ich habe ein Auto gekauft.'}
+- tapOn: {id: mission_composer_input}
+- inputText: 'Ich habe ein Auto gekauft.' # mission_composer_input
+- hideKeyboard
 - assertVisible: {id: mission_frame_f05_03}
 - takeScreenshot: mission-f05-03
 - tapOn: {id: mission_attach}
@@ -14,7 +24,10 @@ name: mission
 - takeScreenshot: mission-f05-04
 - tapOn: {id: mission_attachment_foto}
 - assertVisible: {id: mission_frame_f05_v03}
+- assertVisible: {id: mission_chip_wird_gelesen}
 - takeScreenshot: mission-f05-v03
+- tapOn: {id: attachment-complete-UPL-1}
+- assertVisible: {id: mission_frame_f05_v03}
 - assertNotVisible: {id: mission_chip_wird_gelesen}
 - tapOn: {id: mission_send}
 - assertVisible: {id: mission_frame_f05_05}
@@ -23,8 +36,7 @@ name: mission
 - takeScreenshot: mission-f05-02
 - assertVisible: {id: mission_frame_f05_06}
 - takeScreenshot: mission-f05-06
-- assertVisible: {id: mission_frame_f05_07}
-- assertVisible: {id: mission_queued_offline}
-- assertVisible: {id: mission_response_interrupted}
-- assertNotVisible: {id: mission_response_completed}
-- assertVisible: {id: mission_already_accepted}
+- runFlow: mission-state-f05-07.yaml
+- runFlow: mission-state-v01.yaml
+- runFlow: mission-state-v02.yaml
+- runFlow: mission-state-v04.yaml
