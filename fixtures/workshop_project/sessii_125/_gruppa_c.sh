@@ -131,6 +131,34 @@ why=""; [ "$RC" = 0 ] || why="$why rc=$RC($(sed -n '1p' "$M/err"));"
 [ "$(cd "$P" && sha256sum harness.project.json .harness/HANDOFF.md .harness/NABLIUDENIA.md .harness/project-layer.json "$PIN_REL" "$ENV_REL" 2>&1)" = "$H1" ] || why="$why существующее перезаписано;"
 [ -s "$P/.harness/ROADMAP.md" ] || why="$why отсутствующее .harness/ROADMAP.md не досоздано;"
 [ "$(calls "$M")" = 1 ] || why="$why повторный запуск не дошёл до workshop ровно раз;"
+# 136 v2 (критик r1, B1): корень — во ВСЕХ ветвях выбора MSG и в мире 125
+# (где применимо). Субъекты этапа 125 (дерево/модель) не знают --task-file:
+# зонд условный — rc 2 «не поддерживает» клетку не красит (форма 125 уже
+# проверена c01); субъект 136-формы обязан пройти оба зонда с корнем
+# ОТДЕЛЬНЫМ аргументом ДО -- и текстом задания в MSG.
+printf 'Задание из NEXT_TASK мира 125: релиз 1.6, доложить план.\n' > "$P/.harness/NEXT_TASK.md"
+rm -f "$M/workshop.calls" "$M/workshop.argv0" "$M/workshop.argv"; run_connect m1 "$P"
+[ "$RC" = 0 ] || why="$why NEXT_TASK-вход rc=$RC($(sed -n '1p' "$M/err"));"
+[ "$(calls "$M")" = 1 ] || why="$why NEXT_TASK-вход: workshop $(calls "$M") раз;"
+wa=(); [ -f "$M/workshop.argv0" ] && mapfile -d '' -t wa < "$M/workshop.argv0"
+oknt=0
+if [ "${#wa[@]}" = 2 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ]; then oknt=1; fi
+if [ "${#wa[@]}" = 4 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ] && [ "${wa[2]}" = -- ] \
+   && [[ "${wa[3]}" == *'Задание из NEXT_TASK мира 125'* ]]; then oknt=1; fi
+[ "$oknt" = 1 ] || why="$why NEXT_TASK-вход: границы argv workshop ≠ [--yolo, $P] | [--yolo, $P, --, MSG задания]: $(tr '\n' '|' < "$M/workshop.argv" 2>/dev/null);"
+printf 'Задание из task-file мира 125: релиз 1.7, прогнать CI.\n' > "$WORK/task125.txt"
+rm -f "$M/workshop.calls" "$M/workshop.argv0" "$M/workshop.argv"; RC=0
+( cd "$M" && env -u HARNESS_PROJECT_LAYER_ROOT HOME="$M/home" PATH="$M/bin:$PATH" \
+    bash "$M/inst/scripts/connect_project.sh" --task-file "$WORK/task125.txt" "$P" > "$M/out" 2> "$M/err" ) || RC=$?
+if [ "$RC" != 2 ]; then
+  [ "$RC" = 0 ] || why="$why task-file-вход rc=$RC($(sed -n '1p' "$M/err"));"
+  [ "$(calls "$M")" = 1 ] || why="$why task-file-вход: workshop $(calls "$M") раз;"
+  wa=(); [ -f "$M/workshop.argv0" ] && mapfile -d '' -t wa < "$M/workshop.argv0"
+  oktf=0
+  if [ "${#wa[@]}" = 4 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ] && [ "${wa[2]}" = -- ] \
+     && [[ "${wa[3]}" == *'Задание из task-file мира 125'* ]]; then oktf=1; fi
+  [ "$oktf" = 1 ] || why="$why task-file-вход: границы argv workshop ≠ [--yolo, $P, --, MSG задания]: $(tr '\n' '|' < "$M/workshop.argv" 2>/dev/null);"
+fi
 v c12-povtor "$(ok_if "$why")" "$why"
 # ── c13: объявления проекта сверху (свой профиль, свой HANDOFF, пин наследия) не трогаются ──
 NAME3="proj-$(rnd | cut -c1-4)"; mir m3 "$NAME3"; S="$WORK/m3/seed/$NAME3"
