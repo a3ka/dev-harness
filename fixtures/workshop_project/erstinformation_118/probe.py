@@ -221,8 +221,12 @@ def build_repo(src, tmp, pack):
         src['testids_tekst'], encoding='utf-8')
     au = repo / 'mobile/src/features/auth'
     au.mkdir(parents=True)
-    (au / 'testids.stand-in.tsx').write_text('testID="first_run_demo_entry"\n',
-                                            encoding='utf-8')
+    # Путь demo production (арбитраж 117↔118 п.1.7): First-Run →
+    # first-run-continue → F03.01 → auth-demo-entry → Erstinformation;
+    # экран first_run_demo_entry в production-корне 117 v3 не предусмотрен.
+    (au / 'testids.stand-in.tsx').write_text(
+        'testID="first_run_continue"\ntestID="auth-demo-entry"\n',
+        encoding='utf-8')
     app = repo / 'mobile/src/app'
     app.mkdir(parents=True)
     # назначение Start: состав вкладок, не только узел start_tabs
@@ -416,7 +420,7 @@ def mut_proiskhozdenie_bez_demo(pack, forma, repo, src):
     _zapusti_replay(repo)
     p = repo / 'mobile/.maestro/erstinformation.yaml'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        '- tapOn: {id: first_run_demo_entry}\n', ''), encoding='utf-8')
+        '- tapOn: {id: auth-demo-entry}\n', ''), encoding='utf-8')
 
 
 def mut_proiskhozdenie_deeplink(pack, forma, repo, src):
@@ -424,9 +428,8 @@ def mut_proiskhozdenie_deeplink(pack, forma, repo, src):
     _zapusti_replay(repo)
     p = repo / 'mobile/.maestro/erstinformation.yaml'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        '- tapOn: {id: first_run_demo_entry}\n',
+        '- tapOn: {id: auth-demo-entry}\n',
         '- openLink: complior://erstinformation\n'), encoding='utf-8')
-
 
 def mut_proiskhozdenie_gate_null_propusk(pack, forma, repo, src):
     _zapusti_replay(repo)
@@ -522,6 +525,135 @@ def mut_proiskhozdenie_selektor_ne_kadra(pack, forma, repo, src):
         old, '- assertVisible: {id: erstinfo_frame_f02_03_v01}\n'), encoding='utf-8')
 
 
+def _stand_in(repo):
+    return repo / 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'
+
+
+def _zapishi_mutanta(repo, src, zameny):
+    """Мутант production-корня = честная форма v2 с ОДНОЙ ветвью,
+    искривлённой побайтово (грамматика — из самого носителя, не из прозы;
+    каждая замена обязана встретиться ровно один раз — Н-39)."""
+    t = src['kompozicija_forma']
+    for staryj, novyj in zameny:
+        assert t.count(staryj) == 1, 'ветка мутанта не единственна: %r' % staryj
+        t = t.replace(staryj, novyj)
+    _stand_in(repo).write_text(t, encoding='utf-8')
+
+
+def mut_kompozicija_gate_stale(pack, forma, repo, src):
+    """Мутант production (арбитраж 117↔118 п.1.2): gate игнорируется —
+    stale переводится как current (W1A×stale + continue → Start)."""
+    _zapishi_mutanta(repo, src, [(
+        'if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then',
+        'if [ "$admission_tek" = "W1A" ] && '
+        '{ [ "$gate" = "current" ] || [ "$gate" = "stale" ]; }; then')])
+
+
+def mut_kompozicija_continue_propuskaet(pack, forma, repo, src):
+    """Мутант production: continue переводит к Start при ЛЮБОМ gate
+    (null и stale включаются) — переход не судится."""
+    _zapishi_mutanta(repo, src, [(
+        'if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then',
+        'if [ "$admission_tek" = "W1A" ]; then')])
+
+
+def mut_kompozicija_kesh(pack, forma, repo, src):
+    """Мутант production (арбитраж п.1.4): порт читается на монтаже и
+    кэшируется — rerender сессии W1A→W0 до demo/continue не замечен."""
+    _zapishi_mutanta(repo, src, [(
+        'admission_tek="${6:-$admission}"',
+        'admission_tek="$admission"')])
+
+
+def mut_kompozicija_entry_istochnik(pack, forma, repo, src):
+    """Мутант production (арбитраж п.1.3): entry.onboarding='complete'
+    становится источником допуска — сессия W0/current допускается."""
+    _zapishi_mutanta(repo, src, [
+        ('  if [ "$admission_tek" = "W1A" ]; then',
+         '  if [ "$admission_tek" = "W1A" ] || '
+         '[ "$entry" = "complete" ]; then'),
+        ('  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then',
+         '  if { [ "$admission_tek" = "W1A" ] || '
+         '[ "$entry" = "complete" ]; } && [ "$gate" = "current" ]; then')])
+
+
+def mut_kompozicija_g0_tema(pack, forma, repo, src):
+    """Мутант production (арбитраж п.1.5): смена темы рушит поверхность —
+    путь B (Г0 корня F03) после смены схемы подменяется Erstinformation."""
+    _zapishi_mutanta(repo, src, [
+        ('  tema) poverhnost ;;', '  tema) echo erstinformation ;;')])
+
+
+def mut_kompozicija_remount_start(pack, forma, repo, src):
+    """Мутант production (арбитраж п.1.4): remount с сохранённым
+    completed-entry стартует сразу с Start, минуя First-Run."""
+    _zapishi_mutanta(repo, src, [
+        ('  remount) echo first-run ;;',
+         '  remount) if [ "$entry" = "complete" ]; then echo start; '
+         'else echo first-run; fi ;;')])
+
+
+FORMA_V1 = (
+    '#!/usr/bin/env bash\n'
+    '# Форма stand-in пробы композиции (контракт 118; носитель — батарея\n'
+    '# fixtures/workshop_project/erstinformation_118/teksty/kompozicija_forma).\n'
+    '# Продукт держит mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh\n'
+    '# БАЙТ-В-БАЙТ равным этому носителю: пин sha256 зашит в proverka\n'
+    '# proiskhozdenija (KOMPOZICIJA_FORMA_SHA256), подмена таблицей ожиданий\n'
+    '# или заглушкой даёт именованный отказ KOMPOZICIJA_FORMA.\n'
+    '# Ось admission подаёт ВЫЗЫВАЮЩИЙ (argv), не литерал здесь; допуск к Start\n'
+    '# судит предикат 107: только W1A при полном current-снимке допущен,\n'
+    '# null/stale и W0 — нет. Ось вне алфавита — rc 3 (отказ, а не дефолтный\n'
+    '# вердикт). Исполнение самой композиции (jest-проба из\n'
+    '# mobile/src/bootstrap/__tests__/, admission из внешнего источника) судит\n'
+    '# продуктовый CI отдельно — эта форма её видимый шов, не замена.\n'
+    'set -u\n'
+    'admission="${1:?admission=W0|W1A}"\n'
+    'gate="${2:?gate=null|stale|current}"\n'
+    'case "$admission" in\n'
+    '  W0|W1A) ;;\n'
+    '  *) exit 3 ;;\n'
+    'esac\n'
+    'case "$gate" in\n'
+    '  null|stale|current) ;;\n'
+    '  *) exit 3 ;;\n'
+    'esac\n'
+    'if [ "$gate" = "current" ] && [ "$admission" = "W1A" ]; then\n'
+    '  echo "start_dopushchen"\n'
+    'else\n'
+    '  echo "start_ne_dopushchen"\n'
+    'fi\n')
+
+
+def mut_kompozicija_forma_staraja(pack, forma, repo, src):
+    """Арбитраж п.1.6: прежний носитель (sha 5ec501b4…, форма v1 до
+    перепина) под НОВЫМ пином красен — пара «пин v2 ↔ старые байты» не
+    складывается в зелёное; старая грамматика не отвечает поверхности."""
+    assert sha256_bytes(FORMA_V1.encode('utf-8')) == \
+        '5ec501b44c68a63102a38c63b1fdf90f844c9c7d8e57591b857139eee756d3ba'
+    _stand_in(repo).write_text(FORMA_V1, encoding='utf-8')
+
+
+def mut_kompozicija_model_import(pack, forma, repo, src):
+    """Арбитраж п.1.1: продуктовая проба композиции импортирует модель-копию
+    app/pilot-app.model вместо production-корня ../pilot-app — «модель как
+    доказательство» отклоняется зондом."""
+    (repo / 'mobile/src/bootstrap/__tests__/kompozicija.probe.test.tsx') \
+        .write_text(
+            "import { PilotApp } from '../../app/pilot-app.model'\n",
+            encoding='utf-8')
+
+
+def mut_proiskhozdenie_bez_first_run_continue(pack, forma, repo, src):
+    """Арбитраж п.1.7: флоу минует first-run-continue — путь от production
+    / рвётся до demo-входа F03.01."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    t = p.read_text(encoding='utf-8')
+    needle = '- tapOn: {id: first_run_continue}\n'
+    assert t.count(needle) == 1
+    p.write_text(t.replace(needle, ''), encoding='utf-8')
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -551,6 +683,16 @@ MUTACII = {
     'attack-composition-stub': mut_attack_composition_stub,
     'attack-fewer-frames': mut_attack_fewer_frames,
     'kompozicija-glushenie-oshibok': mut_kompozicija_glushenie_oshibok,
+    'kompozicija-gate-stale-kak-current': mut_kompozicija_gate_stale,
+    'kompozicija-continue-null-stale': mut_kompozicija_continue_propuskaet,
+    'kompozicija-kesh-admission': mut_kompozicija_kesh,
+    'kompozicija-entry-istochnik': mut_kompozicija_entry_istochnik,
+    'kompozicija-g0-tema': mut_kompozicija_g0_tema,
+    'kompozicija-remount-start': mut_kompozicija_remount_start,
+    'kompozicija-forma-staraja': mut_kompozicija_forma_staraja,
+    'kompozicija-model-import': mut_kompozicija_model_import,
+    'proiskhozdenie-bez-first-run-continue':
+        mut_proiskhozdenie_bez_first_run_continue,
 }
 
 

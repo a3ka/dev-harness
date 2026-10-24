@@ -1,29 +1,68 @@
 #!/usr/bin/env bash
-# Форма stand-in пробы композиции (контракт 118; носитель — батарея
+# Форма stand-in пробы композиции v2 (контракт 118; усиление батареи после
+# freeze по арбитражу 117↔118 РЕШЕНИЕ п.1–2 и слову владельца 2026-10-24;
+# носитель — батарея
 # fixtures/workshop_project/erstinformation_118/teksty/kompozicija_forma).
 # Продукт держит mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh
 # БАЙТ-В-БАЙТ равным этому носителю: пин sha256 зашит в proverka
 # proiskhozdenija (KOMPOZICIJA_FORMA_SHA256), подмена таблицей ожиданий
 # или заглушкой даёт именованный отказ KOMPOZICIJA_FORMA.
-# Ось admission подаёт ВЫЗЫВАЮЩИЙ (argv), не литерал здесь; допуск к Start
-# судит предикат 107: только W1A при полном current-снимке допущен,
-# null/stale и W0 — нет. Ось вне алфавита — rc 3 (отказ, а не дефолтный
-# вердикт). Исполнение самой композиции (jest-проба из
-# mobile/src/bootstrap/__tests__/, admission из внешнего источника) судит
-# продуктовый CI отдельно — эта форма её видимый шов, не замена.
+# Семантика (арбитраж п.2 + путь W0 = вариант B):
+#   admission решает ПОВЕРХНОСТЬ после demo: W1A → erstinformation при
+#     ЛЮБОМ gate (null/stale/current); не-W1A (W0) — путь B:
+#     auth.begin → f03-02-code (Г0 корня F03 сохраняется);
+#   gate решает ПЕРЕХОД: continue → start ТОЛЬКО при W1A ∧ current;
+#     при null/stale continue НЕ переводит, Start отсутствует;
+#   начальный кадр 'first-run' при ЛЮБОМ entry и любом порте;
+#   Start — только continue (смена темы автостарта не даёт).
+# Источники: admission/gate — ТОЛЬКО порт сессии (аргументы вызывающего);
+# entry.onboarding ('complete' и пр.), entry.gate и посторонние поля порта
+# (authenticated и т.п.) источником допуска НЕ являются. Порт читается В
+# МОМЕНТ действия ($6 — текущий срез после rerender), не кэшируется на
+# монтаже ($1). Исполнение настоящей композиции (jest-проба из
+# mobile/src/bootstrap/__tests__/, admission из внешнего источника —
+# сессии/проверяющего) судит продуктовый CI; эта форма — её видимый шов.
+# Вне алфавита любого поля — rc 3 (именованный отказ, не дефолт-вердикт).
 set -u
 admission="${1:?admission=W0|W1A}"
 gate="${2:?gate=null|stale|current}"
-case "$admission" in
-  W0|W1A) ;;
+entry="${3:-net}"
+sobytie="${4:?sobytie}"
+extra="${5:-net}"
+admission_tek="${6:-$admission}"
+case "$admission" in W0|W1A) ;; *) exit 3 ;; esac
+case "$gate" in null|stale|current) ;; *) exit 3 ;; esac
+case "$entry" in net|unknown|incomplete|complete) ;; *) exit 3 ;; esac
+case "$extra" in net|postoronnee-pole|entry-gate-current) ;; *) exit 3 ;; esac
+
+poverhnost() {
+  if [ "$admission_tek" = "W1A" ]; then
+    echo erstinformation
+  else
+    echo f03-02-code
+  fi
+}
+
+start_reshenie() {
+  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then
+    echo start_dopushchen
+  else
+    echo start_ne_dopushchen
+  fi
+}
+
+case "$sobytie" in
+  montazh) echo first-run ;;
+  demo) poverhnost ;;
+  demo-continue)
+    if [ "$(poverhnost)" = erstinformation ]; then
+      start_reshenie
+    else
+      echo start_ne_dopushchen
+    fi ;;
+  tema) poverhnost ;;
+  rerender-demo) poverhnost ;;
+  rerender-continue) start_reshenie ;;
+  remount) echo first-run ;;
   *) exit 3 ;;
 esac
-case "$gate" in
-  null|stale|current) ;;
-  *) exit 3 ;;
-esac
-if [ "$gate" = "current" ] && [ "$admission" = "W1A" ]; then
-  echo "start_dopushchen"
-else
-  echo "start_ne_dopushchen"
-fi
