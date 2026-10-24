@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { writeSync } from 'node:fs'
 /**
  * Генерация агентов из ЕДИНСТВЕННОГО источника — `roles/*.md`.
  *
@@ -169,12 +170,12 @@ if (promptAt >= 0) {
     const am = agentModels()
     if (am !== null) {
       const section = renderRoutingSection(am)
-      process.stdout.write(`${r.body}\n${ROUTING_HEADER}\n${section.join('\n')}\n`)
+      writeSync(1, `${r.body}\n${ROUTING_HEADER}\n${section.join('\n')}\n`)
     } else {
-      process.stdout.write(`${r.body}\n`)
+      writeSync(1, `${r.body}\n`)
     }
   } else {
-    process.stdout.write(`${r.body}\n`)
+    writeSync(1, `${r.body}\n`)
   }
   process.exit(0)
 }
