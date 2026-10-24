@@ -90,16 +90,24 @@ mkdir -p "$REG_REL"
 
 # Трасса модели оркестратора (НАБЛ-П5, В-4а): источник — КОНФИГ УСТАНОВКИ
 # $HERE/config/agent_models.json: roles.orchestrator → tiers[роль].model
-# (@алиас) → models[алиас]. НЕ константа и НЕ env-замена: рассогласование
-# trace.tsv ↔ конфиг установки исключено по построению. Конфига НЕТ, нечитаем,
-# не разбирается (или нет jq) — один именованный отказ trassa-net-konfiga
-# ДО exec, трасса не сеется (fail-closed; 136 v2, Rev136-B2б). Никакой ветви
-# «сессия стартует без трассы».
-# И-7: существующая трасса не перезаписывается.
-if [ ! -s "$REG_REL/trace.tsv" ]; then
-  ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
-    || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
-  printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL" > "$REG_REL/trace.tsv"
+# (@алиас) → models[алиас]. НЕ константа и НЕ env-замена. Конфига НЕТ, нечитаем,
+# не разбирается (или нет jq) в момент, когда трасса нужна, — один именованный
+# отказ trassa-net-konfiga ДО exec, трасса не сеется (fail-closed; 136 v2,
+# Rev136-B2б). Никакой ветви «сессия стартует без трассы».
+# 136 v2-усиление (адверсарий B2, вердикт keep136adv): существующий trace.tsv
+# обязан совпадать с выведенным из конфига — рассогласование исключено по
+# построению (модель угроз И-6). Подмена (чужая модель, дубль строк, лишняя
+# строка, read-only файл) — именованный отказ trassa-rashozhdenie rc 1 ДО exec,
+# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
+# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее).
+ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
+  || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
+TRASSA="$(printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL")"
+if [ -s "$REG_REL/trace.tsv" ]; then
+  [ "$(cat "$REG_REL/trace.tsv" 2>/dev/null)" = "$TRASSA" ] \
+    || otkaz "trassa-rashozhdenie: $REG_REL/trace.tsv ≠ конфигу установки $HERE/config/agent_models.json"
+else
+  printf '%s\n' "$TRASSA" > "$REG_REL/trace.tsv"
 fi
 
 # 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths

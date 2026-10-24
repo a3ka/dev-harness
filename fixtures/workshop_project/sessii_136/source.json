@@ -351,6 +351,46 @@
       "bol": "НАБЛ-П10",
       "krasnaya_sejchas": true,
       "sut": "объявлен вложенный слой .harness/layers/custom.json, файла нет — rc 2 с именем объявленного пути; молчаливый fallback на корень/режим харнесса запрещён (ось D: вложенное имя × потерян)"
+    },
+    "c6-trassa-podmena-modeli": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "существующий trace.tsv с чужой моделью — trassa-rashozhdenie rc 1 до exec, файл не изменён, exec нет"
+    },
+    "c7-trassa-dubl-strok": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "существующий trace.tsv с дублем строк (две модели) — тот же отказ rc 1 до exec, файл не изменён"
+    },
+    "c8-trassa-lishnjaja-stroka": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "существующий trace.tsv = верная строка + лишняя строка — тот же отказ rc 1 до exec, файл не изменён"
+    },
+    "c9-trassa-readonly": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "подменённый read-only trace.tsv — отказ rc 1 до exec ДО попытки записи, файл не изменён"
+    },
+    "c10-kontrol-trassa-ravna": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": false,
+      "sut": "КОНТРОЛЬ: trace.tsv равен выведенному из конфига — без записи, сессия поднимается (rc 7)"
+    },
+    "d12-sloi-dotdot-vyhod": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "profilePath .harness/../../outside-layer.json — вне .harness/ по факту файла: rc 2 с именем объявленного пути"
+    },
+    "d13-sloi-symlink-naruzhu": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "profilePath .harness/layer-link.json — symlink на файл вне .harness/: rc 2 с именем объявленного пути"
+    },
+    "d14-kontrol-symlink-vnutri": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "КОНТРОЛЬ: symlink .harness/layer-link.json → .harness/layers/custom.json — проектный режим (rc 1, корень игнорируется)"
     }
   },
   "stab_vhod": {
@@ -481,6 +521,24 @@
     ],
     "s37-dver-jq-molcha": [
       "b5-jq-net-possev"
+    ],
+    "s38-parity-prefiks-tolko": [
+      "d12-sloi-dotdot-vyhod",
+      "d13-sloi-symlink-naruzhu"
+    ],
+    "s39-dver-trassa-molcha-prinimaet": [
+      "c6-trassa-podmena-modeli",
+      "c7-trassa-dubl-strok",
+      "c8-trassa-lishnjaja-stroka",
+      "c9-trassa-readonly"
+    ],
+    "s40-dver-trassa-perezapisyvaet": [
+      "c6-trassa-podmena-modeli",
+      "c7-trassa-dubl-strok"
+    ],
+    "s41-dver-trassa-dopisyvaet": [
+      "c6-trassa-podmena-modeli",
+      "c10-kontrol-trassa-ravna"
     ]
   },
   "osi": [
@@ -813,6 +871,54 @@
       "sostojanie": "профиль не разбирается",
       "svojstvo": "rc 2 именованный с именем профиля",
       "kletka": "d8-profil-bit"
+    },
+    {
+      "os": "C",
+      "sostojanie": "существующий trace.tsv ≠ конфигу: чужая модель",
+      "svojstvo": "именованный отказ trassa-rashozhdenie rc 1 до exec, файл не изменён, двойник не вызывается",
+      "kletka": "c6-trassa-podmena-modeli"
+    },
+    {
+      "os": "C",
+      "sostojanie": "существующий trace.tsv ≠ конфигу: дубль строк",
+      "svojstvo": "тот же отказ rc 1 до exec, файл не изменён",
+      "kletka": "c7-trassa-dubl-strok"
+    },
+    {
+      "os": "C",
+      "sostojanie": "существующий trace.tsv ≠ конфигу: лишняя строка",
+      "svojstvo": "тот же отказ rc 1 до exec, файл не изменён",
+      "kletka": "c8-trassa-lishnjaja-stroka"
+    },
+    {
+      "os": "C",
+      "sostojanie": "существующий trace.tsv ≠ конфигу и read-only",
+      "svojstvo": "тот же отказ rc 1 до exec ДО попытки записи, файл не изменён",
+      "kletka": "c9-trassa-readonly"
+    },
+    {
+      "os": "C",
+      "sostojanie": "существующий trace.tsv = выведенному из конфига",
+      "svojstvo": "КОНТРОЛЬ: без записи (байт-в-байт), дверь идёт дальше (exec rc 7)",
+      "kletka": "c10-kontrol-trassa-ravna"
+    },
+    {
+      "os": "D",
+      "sostojanie": "слой объявлен под .harness/, выходит через .. (файл вне репозитория есть)",
+      "svojstvo": "rc 2 с именем объявленного пути (канонизация: вне .harness/ = потерянный слой), достаточные records-исключения и корневая ловушка не читаются",
+      "kletka": "d12-sloi-dotdot-vyhod"
+    },
+    {
+      "os": "D",
+      "sostojanie": "слой — symlink под .harness/ на файл вне .harness/",
+      "svojstvo": "rc 2 с именем объявленного пути (развязка symlink), проектный режим по префиксу запрещён",
+      "kletka": "d13-sloi-symlink-naruzhu"
+    },
+    {
+      "os": "D",
+      "sostojanie": "слой — symlink под .harness/ на файл ВНУТРИ .harness/",
+      "svojstvo": "КОНТРОЛЬ: канонизированный путь под .harness/ — проектный режим (пустой перечень → rc 1), корневая ловушка игнорируется",
+      "kletka": "d14-kontrol-symlink-vnutri"
     }
   ],
   "vne_osi": [

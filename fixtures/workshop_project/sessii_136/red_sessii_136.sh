@@ -40,6 +40,16 @@
 # осей); стартовая сверка ниже механически держит биекцию «строка ↔ клетка» и
 # счёт клеток из таблицы. Мутанты n01–n05/n07 критика r2 → стабы s31–s36
 # с адресными привязками к СВОИМ строкам таблицы; s37 — jq-молча (ось C).
+# 136 v2-усиление (адверсарий impl-v1 FAIL, вердикт
+# /tmp/dev-harness-verify/orch/keep136adv/contracts-136-impl-v1.md, B1/B2):
+# «ПОД .harness/» у профиля — свойство ФАЙЛА (канонизация: `..` и symlink
+# вне .harness/ = потерянный слой, rc 2 с именем объявленного пути;
+# symlink внутрь .harness/ — проектный режим, контроль d14) — d12/d13;
+# существующий trace.tsv обязан совпадать с конфигом установки
+# (подмена/дубль/лишняя строка/read-only — trassa-rashozhdenie rc 1 до
+# exec, файл не изменён; равен — повтор без записи, контроль c10) —
+# c6–c10; стабы s38 (префикс-только) и s39–s41 (trace принимается/
+# перезаписывается/дописывается).
 # SIGPIPE-флейк c2 (критик r2, СОВЕТ): потребитель grep -q выходит раньше
 # производителя → под pipefail ложное красное; все потребители mkt_brief —
 # БЕЗ раннего -q (выход в переменную, затем полный проход grep).
@@ -57,7 +67,9 @@
 #   без ключей  — субъекты из дерева ветки: боли живы → rc 1;
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
-#                 rc 0 «стабов 37, привязок 54, непойманных 0».
+#                 rc 0 «стабов <N>, привязок <M>, непойманных 0» (счёт — из
+#                 source.json, v2-усиление: 41/64; текст контракта frozen
+#                 136/2 несёт исторические 37/54 своей версии).
 #
 # Миры — /tmp/dev-harness-verify/sessii-136-<клетка>/** (оракулы в памяти, правило 8);
 # чекауты проектов — /tmp/dev-harness-fakehome-136/<клетка>/** ВНЕ scratch-allowlist Н-85
@@ -490,6 +502,37 @@ k_c5() { mk_mir c5-jeksplizit; run_dver
   local out; printf 'orchestrator\tanthropic/opus\tallowed\n' > "$W/explicit.tsv"
   out="$(mkt_brief --model-trace "$W/explicit.tsv")" \
     && grep -Fq 'TRACE: role=orchestrator model=anthropic/opus fallback=allowed' <<<"$out"; }
+k_trassa_case() { # 136 v2-усиление (адверсарий B2, вердикт keep136adv):
+  # существующий trace.tsv ≠ выведенному из конфига установки — источник
+  # трассы один (И-6), рассогласование исключено по построению: подмена
+  # (чужая модель / дубль строк / лишняя строка / read-only файл) —
+  # именованный отказ trassa-rashozhdenie rc 1 ДО exec, файл не изменён
+  # (И-7: ни молчаливое принятие, ни перезапись, ни дописывание); конфиг
+  # клетки назначает оркестратору anthropic/claude-sonnet-5-5 (ожидание —
+  # той же jq-цепочкой, что у двери: одна грамматика значений).
+  local slug="$1" soderzh="$2" tr
+  mk_mir "$slug"
+  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
+  tr="$SEED/.harness/records/trace.tsv"
+  printf '%b' "$soderzh" > "$tr"
+  [ "$slug" = c9-trassa-readonly ] && chmod 444 "$tr"
+  cp "$tr" "$W/tr.before"; rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 1 ] && grep -q 'trassa-rashozhdenie' "$W/dvor.err" \
+    && [ ! -e "$W/args.txt" ] && cmp -s "$W/tr.before" "$tr"; }
+k_c6()  { k_trassa_case c6-trassa-podmena-modeli 'orchestrator\tevil-model\tallowed\n'; }
+k_c7()  { k_trassa_case c7-trassa-dubl-strok 'orchestrator\tfirst-model\tallowed\norchestrator\tsecond-model\tallowed\n'; }
+k_c8()  { k_trassa_case c8-trassa-lishnjaja-stroka 'orchestrator\tanthropic/claude-sonnet-5-5\tallowed\ncritic\tminimax/m1\tallowed\n'; }
+k_c9()  { k_trassa_case c9-trassa-readonly 'orchestrator\tevil-model\tallowed\n'; }
+k_c10() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B2): существующий trace.tsv
+  # РАВЕН выведенному из конфига — повтор (И-7): без записи (байт-в-байт),
+  # дверь идёт дальше — сессия поднимается (exec двойника, rc 7).
+  mk_mir c10-kontrol-trassa-ravna
+  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
+  printf 'orchestrator\tanthropic/claude-sonnet-5-5\tallowed\n' > "$SEED/.harness/records/trace.tsv"
+  cp "$SEED/.harness/records/trace.tsv" "$W/tr10.before"
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 7 ] && [ -f "$W/args.txt" ] \
+    && cmp -s "$W/tr10.before" "$SEED/.harness/records/trace.tsv"; }
 k_d1() { mk_mir d1-p10; run_dver
   # сев двери: ПУСТОЙ перечень в ПЕРЕОПРЕДЕЛЁННОМ workflowPaths.registry
   # (.harness/records) сразу после входа — заполнение уже дело проекта
@@ -628,7 +671,60 @@ k_d11() { # 136 v2-достройка (ось D: имя {вложенное} × 
   env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d11.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/layers/custom.json" "$W/par-d11.out"; }
 
-ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan"
+k_d12() { # 136 v2-усиление (адверсарий B1, вердикт keep136adv): объявленный
+  # слой «под .harness/» ВЫХОДИТ из .harness/ через `..` (файл существует
+  # ВНЕ репозитория) — строковый префикс .harness/* не доказывает «под
+  # .harness/»: канонизированный путь вне .harness/ — то же повреждённое
+  # состояние, что потерянный слой (И-8): rc 2 с именем ОБЪЯВЛЕННОГО пути.
+  # Достаточные исключения в records И корневая ловушка config/ (обе дали
+  # бы rc 0 префиксной проверке — атака адверсария) честным гейтом
+  # не читаются.
+  mk_mir d12-sloi-dotdot-vyhod; run_dver
+  jq '.projectLayer.profilePath=".harness/../../outside-layer.json"' "$SEED/harness.project.json" > "$W/hp12.json"
+  mv "$W/hp12.json" "$SEED/harness.project.json"
+  cp "$SEED/.harness/project-layer.json" "$FH/seed/outside-layer.json"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d12\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/.harness/records/ci_parity_exceptions.txt"
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d12\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d12.out" 2>&1 || rc=$?
+  [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/../../outside-layer.json" "$W/par-d12.out"; }
+k_d13() { # 136 v2-усиление (адверсарий B1, вердикт keep136adv): объявленный
+  # слой — symlink ПОД .harness/ (.harness/layer-link.json) на файл ВНЕ
+  # .harness/ и вне репозитория: `-f` по symlink'у истинен и префикс
+  # .harness/* истинен, но файл слоя живёт вне .harness/ — rc 2 с именем
+  # ОБЪЯВЛЕННОГО пути; проектный режим по строковому префиксу = обход
+  # из вердикта адверсария (rc 0 по достаточным records-исключениям).
+  mk_mir d13-sloi-symlink-naruzhu; run_dver
+  jq '.projectLayer.profilePath=".harness/layer-link.json"' "$SEED/harness.project.json" > "$W/hp13.json"
+  mv "$W/hp13.json" "$SEED/harness.project.json"
+  mkdir -p "$FH/vne"; cp "$SEED/.harness/project-layer.json" "$FH/vne/layer.json"
+  ln -s "$FH/vne/layer.json" "$SEED/.harness/layer-link.json"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d13\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/.harness/records/ci_parity_exceptions.txt"
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d13\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d13.out" 2>&1 || rc=$?
+  [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/layer-link.json" "$W/par-d13.out"; }
+k_d14() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B1): symlink ПОД .harness/
+  # на файл ВНУТРИ .harness/ (.harness/layers/custom.json) —
+  # канонизированный путь остаётся под .harness/: ПРОЕКТНЫЙ режим
+  # (пустой перечень → rc 1 FAIL), корневая ловушка config/ игнорируется;
+  # канонизация не запрещает честную индирекцию внутри .harness/ (И-8:
+  # «ПОД .harness/» — свойство файла, не строкового префикса).
+  mk_mir d14-kontrol-symlink-vnutri; run_dver
+  mkdir -p "$SEED/.harness/layers"
+  cp "$SEED/.harness/project-layer.json" "$SEED/.harness/layers/custom.json"
+  jq '.projectLayer.profilePath=".harness/layer-link.json"' "$SEED/harness.project.json" > "$W/hp14.json"
+  mv "$W/hp14.json" "$SEED/harness.project.json"
+  ln -s "$SEED/.harness/layers/custom.json" "$SEED/.harness/layer-link.json"
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d14\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  : > "$SEED/.harness/records/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d14.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-d14.out"; }
+ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit c6-trassa-podmena-modeli c7-trassa-dubl-strok c8-trassa-lishnjaja-stroka c9-trassa-readonly c10-kontrol-trassa-ravna d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan d12-sloi-dotdot-vyhod d13-sloi-symlink-naruzhu d14-kontrol-symlink-vnutri"
 run_cell() { case "$1" in
   a1-p6-hvost) k_a1 ;; a2-p6-brief-defolt) k_a2 ;; a3-p3-pin-v-soobshchenii) k_a3 ;;
   a4-p3-zapis) k_a4 ;; a5-p12-agent) k_a5 ;; a6-p11-subagent-pin) k_a6 ;;
@@ -671,9 +767,13 @@ run_cell() { case "$1" in
   b3-trassa-net-konfiga) k_b3 ;; b4-trassa-konfig-bit) k_b4 ;; b5-jq-net-possev) k_b5 ;;
   c1-p17-map) k_c1 ;; c2-p17-rules) k_c2 ;; c3-p5-trassa-defolt) k_c3 ;;
   c4-kontrol-filtr) k_c4 ;; c5-kontrol-jeksplizit) k_c5 ;;
+  c6-trassa-podmena-modeli) k_c6 ;; c7-trassa-dubl-strok) k_c7 ;;
+  c8-trassa-lishnjaja-stroka) k_c8 ;; c9-trassa-readonly) k_c9 ;;
+  c10-kontrol-trassa-ravna) k_c10 ;;
   d4-harness-svoj-profil) k_d4 ;; d5-sloi-poterjan) k_d5 ;;
   d6-sloi-drugoe-imja) k_d6 ;; d7-bez-jq) k_d7 ;; d8-profil-bit) k_d8 ;;
   d9-sloi-drugoe-imja-poterjan) k_d9 ;; d10-sloi-vlozhennoe-imja) k_d10 ;; d11-sloi-vlozhennoe-poterjan) k_d11 ;;
+  d12-sloi-dotdot-vyhod) k_d12 ;; d13-sloi-symlink-naruzhu) k_d13 ;; d14-kontrol-symlink-vnutri) k_d14 ;;
   d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;; esac; }
 
 # ── таблица осей A–D — единственный источник счёта (арбитраж 136v2 п.1) ──────
