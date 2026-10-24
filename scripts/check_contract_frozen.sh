@@ -174,7 +174,7 @@ while IFS= read -r f; do
       # (б): разрешение обязано лежать в каждом коммите-носителе текста — как у устава,
       # merge несёт строку в теле merge-коммита, а --diff-merges=first-parent предъявляет
       # evil merge, меняющий текст поверх первого родителя.
-      pred_komity="$(g log --format=%H --no-renames --diff-merges=first-parent \
+      pred_komity="$(g log -s --format=%H --no-renames --diff-merges=first-parent \
         "refs/tags/frozen/$dir/$NNN/$vmax"..HEAD -- "$f" 2>/dev/null || true)"
     fi
     razrechen=0
