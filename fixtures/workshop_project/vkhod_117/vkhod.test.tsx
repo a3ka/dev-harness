@@ -917,4 +917,119 @@ describe('117 vkhod', () => {
       expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
     });
   }
+
+  // ---- 117 v3 правка по FAIL критика круг 2: ТАБЛИЦА ВХОДОВ ДОПУСКА ----
+  // Блокеры круга 2 — один корень: батарея покрывала выборку входов
+  // допуска/Г0, а не всё пространство порта. Инвариант «таблица входов»:
+  // ЕДИНАЯ таблица всех выразимых входов — форма порта × admission ×
+  // gate × тема; ожидание каждой клетки ВЫВОДИТСЯ из строки таблицы
+  // (допущен ⇔ admission === 'W1A' ∧ gate === 'current' — единственная
+  // строка POLNYJ/W1A/CURRENT; все прочие строки — прежний путь B и Г0
+  // #FFFFFF 48/16/16 в ОБЕИХ темах), имена клеток производны от строки.
+  // Счёт клеток = строки × темы (26 × 2 = 52) — из таблицы, сверяется
+  // прогоном (behavioral N/N) и разбором файла (вторая мера).
+  // Оси: admission ∈ {W0, W1A, отсутствует, null, неизвестное('W2')},
+  // gate ∈ {current, stale, отсутствует, null, неизвестное('future')};
+  // «отсутствует» — OPTIONAL-поле (блокер 1 круга 1), null — JSON-литерал
+  // внешних данных, неизвестное значение — вне замкнутого алфавита порта
+  // (порт — внешняя сессия, значения не выбирает потребитель).
+  // Формы порта: не подключён (проп undefined) / пустой подключённый {}
+  // (обход критика круга 2 new-empty-session-demo: истина порта ≠ допуску)
+  // / частичный (ровно одно поле) / полный (оба поля). Строки, где ось
+  // «отсутствует» НЕ выразима формой (нет порта — нет и поля формы),
+  // таблицей не порождаются: полная таблица = все ВЫРАЗИМЫЕ сочетания.
+  type TablicaAdmission = 'W0' | 'W1A' | 'OTSUT' | 'NULL' | 'NEIZVESTNOE';
+  type TablicaGate = 'CURRENT' | 'STALE' | 'NULL' | 'OTSUT' | 'NEIZVESTNOE';
+  type TablicaPort = { admission?: unknown; gate?: unknown };
+
+  const ADMISSION_VALUE: Record<'W0' | 'W1A' | 'NULL' | 'NEIZVESTNOE', unknown> = {
+    W0: 'W0',
+    W1A: 'W1A',
+    NULL: null,
+    NEIZVESTNOE: 'W2',
+  };
+  const GATE_VALUE: Record<'CURRENT' | 'STALE' | 'NULL' | 'NEIZVESTNOE', unknown> = {
+    CURRENT: 'current',
+    STALE: 'stale',
+    NULL: null,
+    NEIZVESTNOE: 'future',
+  };
+
+  function tablicaPort(adm: TablicaAdmission, gate: TablicaGate): TablicaPort {
+    const port: TablicaPort = {};
+    if (adm !== 'OTSUT') port.admission = ADMISSION_VALUE[adm];
+    if (gate !== 'OTSUT') port.gate = GATE_VALUE[gate];
+    return port;
+  }
+
+  const VHOD_TABLICA: Array<{
+    form: 'NEPODKLYUCHEN' | 'PUSTOJ' | 'CHASTICHNYJ' | 'POLNYJ';
+    adm: TablicaAdmission;
+    gate: TablicaGate;
+    port: TablicaPort | undefined;
+  }> = [
+    { form: 'NEPODKLYUCHEN', adm: 'OTSUT', gate: 'OTSUT', port: undefined },
+    { form: 'PUSTOJ', adm: 'OTSUT', gate: 'OTSUT', port: {} },
+  ];
+  for (const adm of ['W0', 'W1A', 'NULL', 'NEIZVESTNOE'] as const) {
+    VHOD_TABLICA.push({ form: 'CHASTICHNYJ', adm, gate: 'OTSUT', port: tablicaPort(adm, 'OTSUT') });
+  }
+  for (const gate of ['CURRENT', 'STALE', 'NULL', 'NEIZVESTNOE'] as const) {
+    VHOD_TABLICA.push({ form: 'CHASTICHNYJ', adm: 'OTSUT', gate, port: tablicaPort('OTSUT', gate) });
+  }
+  for (const adm of ['W0', 'W1A', 'NULL', 'NEIZVESTNOE'] as const) {
+    for (const gate of ['CURRENT', 'STALE', 'NULL', 'NEIZVESTNOE'] as const) {
+      VHOD_TABLICA.push({ form: 'POLNYJ', adm, gate, port: tablicaPort(adm, gate) });
+    }
+  }
+
+  async function renderAppTablica(port: TablicaPort | undefined, scheme: ColorScheme) {
+    return render(
+      <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+        <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+          <PilotApp {...ports()} onboarding={port as unknown as OnboardingPort | undefined} />
+        </ThemeContext.Provider>
+      </SafeAreaInsetsContext.Provider>,
+    );
+  }
+
+  // Каждая строка × тема — клетка; допустима ТОЛЬКО W1A ∧ current
+  // (обе темы: тема — не ось допуска), все прочие входы — прежний путь B;
+  // Г0 наблюдается на кадрах email И code при любом недопуске и в обеих
+  // темах (блокер 2 круга 2: рестайл отклонённого gate ловится строками
+  // с gate ≠ current, а не только отклонённым admission при current).
+  for (const row of VHOD_TABLICA) {
+    const admitted = row.adm === 'W1A' && row.gate === 'CURRENT';
+    for (const scheme of ['dark', 'light'] as const) {
+      const S = scheme.toUpperCase();
+
+      it(`MIGRACIYA_TABLICA_${row.form}_${row.adm}_${row.gate}_${S}`, async () => {
+        const api = await renderAppTablica(row.port, scheme);
+        await fireEvent.press(await screen.findByTestId('first-run-continue'));
+        await screen.findByTestId('auth-email');
+        let rootStyle = styleOf(hostRootOf(api.toJSON()));
+        expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+        expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+        expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+        expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+        await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+        if (admitted) {
+          await screen.findByTestId('erstinformation-117');
+          expect(screen.queryByTestId('start_tabs')).toBeNull();
+          expect(screen.queryByTestId('auth-code')).toBeNull();
+          await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+          await screen.findByTestId('start_tabs');
+        } else {
+          await screen.findByTestId('auth-code');
+          expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+          expect(screen.queryByTestId('start_tabs')).toBeNull();
+          rootStyle = styleOf(hostRootOf(api.toJSON()));
+          expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+          expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+          expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+          expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+        }
+      });
+    }
+  }
 });
