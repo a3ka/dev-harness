@@ -178,6 +178,14 @@ step	check:erstinformation-118-family-selftest	58	bash fixtures/workshop_project
 # Продуктовый режим БЕЗ флагов судит scripts/dovodka_ui.sh этого дерева; --model/--stabs/--candidate не подключены.
 # Замер в чистом клоне объекта суда: rc 0, «клеток 34, сошлось 34». Вес 0 до первого замера окна (контракт 114).
 step	check:dovodka-ui-133-family-selftest	0	bash fixtures/workshop_project/dovodka_ui_133/red_dovodka_ui_133.sh
+# КОНТРАКТ 135: батарея first-run-ekran (17 входов / 13 связей стабов: экранная пачка first-run-ekran,
+# субъекты — валидатор 132 scripts/ekran_shablon.py И проверка происхождения пачки; миры в mktemp,
+# сеть не нужна) — подключение интеграционным коммитом оркестратора (ПРОВОДКА-ЭНФОРСМЕНТ контракта 135).
+# Безфлаговый red-режим пока НЕ зелёный: входы proiskhozdenie-* судит только субъект-проверка пачки
+# (MODEL-режим probe.py), живой ekran_shablon даёт на них KADR_USTAREVSHIJ — CI несёт --stabs явно,
+# как 118 до ленда; перевод на безфлаговый режим — отдельным словом после v+1 батареи.
+# Замер живого прогона run_ci_lane.sh: rc 0, контроль 17/17, SVJAZI 13, живых стабов 0, 21 с.
+step	check:first-run-ekran-135-family-selftest	21	bash fixtures/workshop_project/first_run_ekran_135/red_first_run_ekran_135.sh --stabs
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
