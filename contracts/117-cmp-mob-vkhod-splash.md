@@ -1,5 +1,32 @@
 # Контракт 117 — mob: НАШ splash (нативный знак + JS-оверлей, обе схемы) + иконка (CMP-MOB-006)
 
+ВЕРСИЯ: v3 (миграция 117/3 — слово владельца 2026-10-24 ~10:15 UTC «а» по
+форку n118-migraciya-117; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в теле изменяющего
+коммита). Дельта к v2 — ТОЛЬКО раздел «Миграция 117 v3», свод
+«Закрытых перечней клеток» с деревом, числа этих семей в приёмке и пула
+MIGRACIYA в «Модели угроз»; всё прочее v2 действует дословно.
+Правка по FAIL критика v3 (два блокера-обхода: непокрытые входы без
+admission/current + светлая тема; Г0 при подключённом onboarding) — в
+тех же разделах, добавлением клеток/стабов; семантика прежних клеток и
+мутаций прежних стабов неизменна (расширены только перечни их
+наблюдаемых ветвей — замером матрицы, список в «Закрытых перечнях»).
+Правка по FAIL критика v3 КРУГ 2 (два блокера, корень один: батарея
+покрывала выборку входов допуска/Г0, а не всё пространство порта —
+зелёные обходы new-light-gate-default, new-empty-session-demo,
+new-g0-denied-admission): ТАБЛИЦА ВХОДОВ допуска — все выразимые
+входы порта onboarding параметризованной батареей MIGRACIYA_TABLICA_*
+(источник счёта клеток — таблица, имена производны от строки) + все
+10 мутантов критика кругов 1–2 + собственные стабы; прежние клетки
+117/2 и правки круга 1 сохранены поимённо (removed=[]).
+Консолидация v3 по РЕШЕНИЮ арбитража нарезки 117↔118 (после 3 FAIL
+критика): семантика демо-маршрута приведена к frozen 118/1 инв. 4–5
+(admission решает ПОВЕРХНОСТЬ после демо, gate — ПЕРЕХОД continue →
+Start; ожидания строк W1A×не-current переписаны с «code» на
+«Erstinformation без Start»), добавлены клетки (а)–(д) и семь
+r3-мутантов критика именованными стабами, раздел «Граница
+модель/production»; прежние клетки и стаби не удаляются (removed=[]),
+три FAIL и r3-свидетели не стираются.
+
 КЛАСС: КОДОВЫЙ. Предмет — слова владельца (через консультанта): splash
 ~18:18 UTC «нативный splash (expo-splash-screen) и, ЕСЛИ НУЖНО, JS-экран
 сразу после него совпадают со Splash.png» (иконка = complior-app-icon,
@@ -121,6 +148,177 @@ JS-КАДР splash (state-machine — оверлей НЕ расширяет Fra
 (предмет 118); 116; копия-синька CMP-MOB-089; device evidence CMP-MOB-090;
 реальный IdP/бэкенд; анимация splash; шрифтовой ассет DM Sans.
 
+## Миграция 117 v3 (узкая санкция: демо-маршрут pilot-app для 118)
+
+Слово владельца 2026-10-24 ~10:15 UTC «а» по форку n118-migraciya-117;
+семантика моментов допуска — по РЕШЕНИЮ арбитража нарезки 117↔118
+(frozen 118/1 инв. 4–5, :15–16, :22–23; второй gate не вводится).
+ЕДИНСТВЕННОЕ разрешённое изменение предмета v2: production
+`mobile/src/bootstrap/pilot-app.tsx` ДОПУСКАЕТ маршрут
+First-Run → demo → Erstinformation → Start (с вкладками), где
+**admission решает ПОВЕРХНОСТЬ после демо, gate — ПЕРЕХОД**:
+
+- admission 'W1A' ИЗ СЕССИИ пользователя (источник внешний по
+  отношению к pilot-app; литерал допуска в pilot-app запрещён) → после
+  демо-входа кадр 'erstinformation' при ЛЮБОМ gate (null/stale/current/
+  отсутствует/неизвестный): пользователь ВИДИТ Erstinformation с
+  маркером состояния gate (`erstinfo_gate_<gate>`; замёрженный кадр —
+  состав 118), Start закрыт;
+- gate 'current' (полный CURRENT_CONFIRMED-снимок 107: применимость
+  REQUIRED, точная версия документа, evidence; предикат 107/118) решает
+  ПЕРЕХОД: continue → 'start' ТОЛЬКО при W1A ∧ current; при
+  null/stale/отсутствии/неизвестном нажатие continue НЕ даёт перехода
+  (Start отсутствует и до, и после нажатия — инв. 5 frozen 118 «после
+  действия continue»);
+- не-W1A admission (W0/отсутствует/null/неизвестное) — прежний путь B:
+  демо-вход ведёт в кадр code (F03.02) прежней семантикой auth.begin
+  (достижимость F03.02 через демо сохраняется — замер арбитража: иной
+  путь к code отсутствует; поверхность для W0 после дема frozen 118 не
+  фиксирует, путь B — рекомендация арбитража, вопрос владельцу открыт);
+  вход F03.01 (email) после First-Run — без изменений; корни кадров
+  F03.01/F03.02 остаются поверхностью 995: #FFFFFF, отступы 48/16/16 в
+  ОБЕИХ схемах (клетки Г0 `RESTYLE_GUARD_995_F03_{DARK,LIGHT}`).
+
+Порядок маршрута: Start возникает ТОЛЬКО продолжением (continue) из
+Erstinformation; Erstinformation — ТОЛЬКО демо-входом при admission
+'W1A'; начальное значение frame — 'first-run' при ЛЮБОМ entry и любом
+порте (сохранённый entry-стейт не создаёт Start). Пространство кадров
+pilot-app расширяется ТОЛЬКО кадрами 'erstinformation' и 'start';
+JS-оверлей splash — по-прежнему НЕ кадр state-machine.
+
+Состав экранов Erstinformation (кадры F02.03/F02.08 по макетам) и Start
+(вкладки, testID приёмки 118) — предмет 118; 117 v3 судит в pilot-app
+только допуск, порядок и сохранность прежнего пути. Шов клеток миграции
+— порты PilotApp (onboarding: admission/gate — ОБА поля OPTIONAL:
+«отсутствует» — законный вход оси, не вне-алфавитная атака (FAIL
+критика v3, блокер 1)); production-источник допуска — сессия
+(проба композиции с внешним источником — инвариант 5 frozen 118/1,
+зона implementer 118).
+
+### Граница модель/production (РЕШЕНИЕ арбитража, п.1)
+
+Батарея 117 пинит на МОДЕЛИ (fixtures/workshop_project/vkhod_117/model,
+пробы обеих семей): чтение допуска ТОЛЬКО из `onboarding.admission`/
+`onboarding.gate` (клетки (а): ось entry × решающие пары, постороннее
+поле порта), начальный кадр 'first-run' при любом entry/порте и remount
+(б), Г0 F03.01/F03.02 после смены схемы в живом экземпляре в обе
+стороны на недопуске (в), отсутствие Start при смене темы на
+Erstinformation без continue (г), чтение порта в момент действия —
+rerender W1A→W0 до демо (д). Production-источник сессии, подключение
+`/`, Maestro от настоящего корня, состав/пиксели F02/Start, настоящий
+gate 107 и production-мутанты — приёмка 118 на настоящем корне
+(инварианты 4–5 frozen 118/1 :22–23, команда bootstrap-пробы :32, зона
+`mobile/src/bootstrap/__tests__/` у implementer 118): заморозка 117/3
+НЕ заявляет эти сценарии зелёными на production — модель — доказательство
+свойств композиции, а не production-проверка.
+
+ТАБЛИЦА ВХОДОВ допуска (правка по FAIL критика v3 КРУГ 2 — инвариант,
+источник счёта клеток): батарея судит ВСЕ выразимые входы порта
+onboarding — ЕДИНАЯ таблица (vkhod.test.tsx, VHOD_TABLICA; зеркало
+_TABL_ROWS в vkhod_probe.py для привязок стабов) параметризованно:
+admission ∈ {W0, W1A, отсутствует, null, неизвестное значение('W2')} ×
+gate ∈ {current, stale, отсутствует, null, неизвестное('future')} ×
+тема {dark, light} × форма порта {не подключён (проп undefined),
+пустой подключённый {}, частичный (ровно одно поле), полный (оба
+поля)}. Форма связывает выразимость: невыразимые сочетания (поле
+заданной формы без порта) таблицей не порождаются — таблица полна по
+ВЫРАЗИМЫМ строкам: 1 (не подключён) + 1 (пустой) + 4+4 (частичный) +
+16 (полный) = 26 строк × 2 темы = 52 клетки MIGRACIYA_TABLICA_<ФОРМА>_
+<ADMISSION>_<GATE>_<ТЕМА>, имена производны от строки, счёт — из
+таблицы кодом (сверка прогона и разбора, приёмка). Ожидание КАЖДОЙ
+клетки выводится из её строки (консолидация по арбитражу): admission
+'W1A' → Erstinformation с маркером gate (тема — не ось поверхности),
+переход continue → Start ТОЛЬКО в строке POLNYJ/W1A/CURRENT, во всех
+прочих W1A-строках (gate ≠ current: 4 строки × 2 темы = 8 клеток
+таблицы + 4 именованные клетки W1A_{NULL,STALE,GATE_OTSUT,
+STALE_SVETLAYA}) continue НЕ переводит, Start отсутствует; admission ≠
+'W1A' (21 строка) — прежний путь B (демо-вход → кадр code),
+Erstinformation/Start закрыты; Г0 (#FFFFFF, 48/16/16) наблюдается на
+кадре email во всех строках и на кадре code в строках не-W1A — в обеих
+темах, в т.ч. на экземпляре с ПОДКЛЮЧЁННЫМ портом при gate ≠ current
+(блокер 2 круга 2). Переписывание ожиданий строк W1A×не-current с
+«code» на «Erstinformation без Start» — нормативная корректировка к
+frozen 118/1 (арбитраж, п.2): не ослабление — клетки остаются красными
+на обходах migracija-gate-ignor, -stale-kak-current, -null-kak-current
+(ловится Start, а не кадр).
+
+КЛЕТКИ (а)–(д) (консолидация по арбитражу, п.1; шов — те же порты
+PilotApp, вход entry — production-поле pilot-app.tsx :57):
+- (а) ось `entry.onboarding` ∈ {'complete','unknown','incomplete',
+  ∅} × решающие пары порта {W0/stale, W0/current, W1A/stale,
+  W1A/current, порт не подключён} × 2 темы = 40 клеток
+  MIGRACIYA_ENTRY_<ENTRY>_<ПАРА>_<ТЕМА> — ожидание клетки НЕ меняется
+  относительно её пары (entry и его поле gate — не источник допуска);
+  плюс клетка постороннего truthy-поля порта authenticated:true на
+  W0/stale × 2 темы = 2 клетки MIGRACIYA_POSTORONNEE_POLE_AUTHENTICATED_;
+- (б) начальный кадр 'first-run' при ЛЮБОМ entry × любом порте пар —
+  первый рендер без Start и без Erstinformation: 4 × 5 × 2 = 40 клеток
+  MIGRACIYA_NACHALNYJ_KADR_<ENTRY>_<ПАРА>_<ТЕМА> + одна remount-клетка
+  MIGRACIYA_REMOUNT_ENTRY_COMPLETE_W0_STALE (второе монтирование с
+  сохранённым completed-entry — то же наблюдение);
+- (в) Г0 F03.01/F03.02 после смены схемы в живом экземпляре (rerender
+  провайдера темы) в ОБЕ стороны — dark→light и light→dark — на
+  недопуске с ПОДКЛЮЧЁННЫМ портом: 2 клетки
+  MIGRACIYA_G0_SMENA_TEMY_{DARK_TO_LIGHT,LIGHT_TO_DARK} (Г0 судится до
+  смены, после смены на email и после демо на code);
+- (г) смена схемы на Erstinformation БЕЗ нажатия continue → Start
+  отсутствует (затем continue → Start — положительный контроль
+  порядка): 2 клетки MIGRACIYA_PORYADOK_SMENA_TEMY_*;
+- (д) порт читается в МОМЕНТ действия: rerender W1A→W0 до демо →
+  недопуск, путь B: 2 клетки MIGRACIYA_RERENDER_W1A_W0_{DARK,LIGHT}.
+
+Г0 при миграции (FAIL критика v3, блокер 2; круг 2 — класс): корни
+F03.01/F03.02 наблюдаются на экземплярах с ПОДКЛЮЧЁННЫМ портом
+onboarding при ЛЮБОМ недопуске (в т.ч. отклонённый/отсутствующий/null
+gate — обход критика круга 2 new-g0-denied-admission рестайлил корень
+именно при gate ≠ current) И при допуске, обе темы: подключение порта
+и сам допуск НЕ рестайлят корень (литералы 995 #FFFFFF, 48/16/16);
+поверхность кадров Erstinformation/Start — предмет 118, этими клетками
+не судится.
+
+Охрана — клетки-дельта MIGRACIYA_* + таблица MIGRACIYA_TABLICA_*
+(перечень — «Закрытые перечни клеток») и стабы migracija-admission-
+literal («admission обходится»), migracija-gate-ignor,
+migracija-start-pryamo (порядок), migracija-f03-put-udalen («Г0
+ослаблен»: прежний путь удалён миграцией) + стабы правки по FAIL
+критика v3 круг 1: обходы критика migracija-admission-default,
+migracija-gate-default, migracija-w0-stale-dopushchen,
+migracija-svetlui-obhod, migracija-onboarding-restyles-f03; круг 2 —
+ВСЕ мутанты критика (attack.py кругов 1–2): три зелёных обхода круга 2
+migracija-light-gate-default (умолчание gate=current только в light),
+migracija-pustaya-sessiya-demo (пустой подключённый порт {} — сам себе
+допуск), migracija-g0-nedopusk-restail (рестайл корня при truthy порте
+с gate ≠ current) + migracija-light-stale-current,
+migracija-light-start-do-continue; собственные круга 1
+migracija-marshrut-tolko-temnyi, migracija-stale-kak-current,
+migracija-restyle-pri-dopuske и круга 2 migracija-null-kak-current,
+migracija-or-uslovie (`||` в условии допуска),
+migracija-port-est-dopusk (truthy порт без admission — W1A),
+migracija-g0-restail-nedopusk-admission (Г0-рестайл при admission ≠
+W1A), migracija-temnyi-start-do-continue (порядок маршрута в тёмной);
+круг 3 (арбитраж нарезки) — семь r3-мутантов критика именованными
+стабами на клетках (а)–(д): migracija-postoronnee-pole-authenticated
+(постороннее truthy-поле порта), migracija-gate-iz-entry (gate из
+entry.gate раньше сессии), migracija-literal-completed (литерал W1A при
+completed-entry), migracija-kesh-dopuska (кэш admission — порт не
+читается в момент действия), migracija-restart-start (начальный кадр
+Start при completed-entry), migracija-g0-smena-temy (рестайл корня
+после смены схемы), migracija-start-ot-smeny-temy (смена схемы сама
+переводит в Start) — мутации перенесены с драйвера критика
+(Critic117v3c/new_attack.py) по смыслу (привязка к ветвям — в
+«Закрытых перечнях клеток», по коду MUTANTS пробы; привязки кругов
+1–2 перечитаны замером под семантику frozen 118/1).
+
+НЕ разрешено: ослабление приёмки 118; рестайл корня F03; изменение входа
+(итог C ≡ B по `mobile/src/features/auth/` — приёмка v2); ослабление
+инвариантов 1–9 v2 и их клеток; правка pilot-app ДО заморозки 117/3
+(команда проверки тега — frozen 118 §Зависимость замороженного корня:
+`git fetch origin --tags && git rev-parse --quiet --verify
+refs/tags/frozen/contracts/117/3`). ЗОНА implementer 118 получает
+`mobile/src/bootstrap/pilot-app.tsx` ПОСЛЕ замороженной 117/3; батарея
+117 (обе пробы) на мигрировавшем C обязана оставаться зелёной во всех
+клетках, стабы — красными на своих ветвях.
+
 ## Инварианты
 
 1. `mobile/app.json`: `expo.icon` — растр канона complior-app-icon;
@@ -197,7 +395,8 @@ JS-КАДР splash (state-machine — оверлей НЕ расширяет Fra
    дерева с оверлеем (наблюдается commit-журналом: prevent → commit с
    оверлеем (React.Profiler) → hide; hide в render, на модуле, в первом
    commit без оверлея — красны); оверлей НЕ расширяет Frame state-machine;
-   `pilot.test` 995 и first_run_111 на модели с оверлеем — 14/14 и 23/23 (замер v2).
+   `pilot.test` 995 и first_run_111 на модели с оверлеем — 14/14 и 23/23
+   (замер v2; замер консолидации по арбитражу — те же 14/14 и 23/23).
 9. Видимость кадра splash на устройстве судит СВЕРКА КАДРА e2e с макетом
    (123): снимок `vkhod-117-splash` каждой схемы объявлен в перечне сверки
    123 (манифест H из «Существующего»: id «Splash dark»/«Splash light»,
@@ -224,10 +423,20 @@ source.json (сняты с read-only docs/ B ДО субъекта, правил
 одна клетка не читает значения у субъекта; эталоны артбордов припинены
 sha256 (несовпадение — rc2 ORACLE_TAMPERED).
 
-## Закрытые перечни клеток (числа из кода проб и прогонов 117e/117f)
+## Закрытые перечни клеток (числа из кода проб и прогонов; v3 — прогон
+на R@B 8748a7a335 с node_modules, ветка wip/117/architect-v3)
 
 Поведенческая семья (Jest/RNTL, `vkhod_probe.py` → `vkhod.test.tsx`,
-26 клеток — прогон 117e):
+185 клеток — замер консолидации по арбитражу нарезки `behavioral
+185/185`: 26 клеток 117/2 + 4 клетки геометрии/z-порядка кругов
+Adv117v2/v3 по реализации + 4 клетки миграции v3 + 10 клеток правки по
+FAIL критика v3 круг 1 + 52 клетки ТАБЛИЦЫ ВХОДОВ круга 2 + 89 клеток
+круга 3 (а)–(д): 40 оси entry + 2 постороннего поля + 40 начального
+кадра + 1 remount + 2 Г0-смены темы + 2 порядка + 2 rerender; прежние
+96 поимённо сохранены — мера разбора исходника: removed=[], added=89;
+ожидания клеток W1A×не-current (4 именованные + 8 табличных)
+переписаны с «code» на «Erstinformation без Start» — нормативная
+корректировка к frozen 118/1 по арбитражу, не ослабление):
 - Г0 `RESTYLE_GUARD_995_F03_{DARK,LIGHT}` ×2 — корни F03.01 И F03.02
   #FFFFFF 48/16/16 (вход вне предмета, поверхность 995 как на B).
 - Г1 `RESTYLE_GUARD_995_WELCOME_{DARK,LIGHT}` ×2, Г2
@@ -259,8 +468,86 @@ sha256 (несовпадение — rc2 ORACLE_TAMPERED).
   hide ровно один и ПОСЛЕ него, prevent раньше первого commit);
   `SPLASH_OVERLAY_TIMER_HIDE_{DARK,LIGHT}` ×2 (fake timers: до 1199 мс
   на месте, на 1200-й скрыт).
+- (Adv117v2, круг по реализации) `SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT}`
+  ×2 — бокс Image оверлея без степеней свободы: absoluteFill,
+  width/height '100%', ноль transform/margin*/краёв ≠ 0.
+- (Adv117v3, круг по реализации) `SPLASH_OVERLAY_ZORDER_{DARK,LIGHT}`
+  ×2 — оверлей ПОВЕРХ полноэкранного FirstRun: сплющенный zIndex
+  оверлея выше zIndex корня FirstRun И ветка оверлея позже ветки
+  FirstRun в дереве хоста.
+- (117 v3, миграция) `MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT` — не-W1A:
+  демо-вход ведёт прежним путём B (кадр code F03.02, auth-code
+  достижим), кадры Erstinformation/Start не возникают;
+  `MIGRACIYA_W1A_NULL_PREZHNIJ_PUT`, `MIGRACIYA_W1A_STALE_PREZHNIJ_PUT`
+  — W1A × не-current (консолидация по арбитражу): демо-вход ведёт в
+  Erstinformation с маркером gate, Start закрыт до и после нажатия
+  continue (переход не происходит), кадр code не возникает;
+  `MIGRACIYA_W1A_CURRENT_MARSHRUT` — при W1A ∧ current: First-Run →
+  F03.01 (прежний вход жив) → демо → Erstinformation (continue) →
+  Start (start_tabs + четыре вкладки testID приёмки 118), порядок
+  наблюдаем последовательными шагами, прежний код-кадр покинут.
+  Допуск — порт onboarding (внешняя сессия), оси W0/W1A ×
+  null/stale/current.
+- (правка по FAIL критика v3) непокрытые входы допуска:
+  `MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT` (сессия
+  {gate:'current'} без admission) — отсутствие OPTIONAL-поля НЕ
+  поверхность: прежний путь B;
+  `MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT`
+  ({admission:'W1A'} без gate) — Erstinformation с маркером 'null',
+  Start закрыт, continue не переводит;
+  `MIGRACIYA_W0_STALE_PREZHNIJ_PUT` (сочетание W0×stale) — прежний
+  путь, Erstinformation/Start закрыты;
+  `MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT` — Erstinformation без
+  Start в светлой теме (недопуск к Start не зависит от схемы;
+  поверхность решает admission);
+  `MIGRACIYA_W0_NULL_SVETLAYA_PREZHNIJ_PUT` (светлая тема — не
+  поверхность) — прежний путь, Erstinformation/Start закрыты;
+  `MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT` — W1A ∧ current открывает
+  маршрут и в светлой теме (тема — не ось допуска);
+  `MIGRACIYA_G0_F03_ONBOARDING_{DARK,LIGHT}` ×2 — Г0 на экземпляре с
+  ПОДКЛЮЧЁННЫМ onboarding (недопуск): корни F03.01 И F03.02 #FFFFFF
+  48/16/16; `MIGRACIYA_G0_F03_DOPUSK_{DARK,LIGHT}` ×2 — Г0 при допуске:
+  кадр email (продолжение из First-Run) остаётся поверхностью 995.
 
-Статическая семья (`vkhod_static_probe.py`, 40 клеток — прогон 117f):
+- (правка по FAIL критика v3 КРУГ 2) ТАБЛИЦА ВХОДОВ —
+  `MIGRACIYA_TABLICA_<ФОРМА>_<ADMISSION>_<GATE>_<ТЕМА>` ×52: все
+  выразимые строки порта onboarding (26 строк × 2 темы; счёт — из
+  таблицы кодом, сверка прогона/разбора — приёмка): формы
+  NEPODKLYUCHEN (проп undefined) и PUSTOJ (подключённый `{}`; обход
+  критика круга 2 new-empty-session-demo — истина порта ≠ допуску) ×
+  OTSUT/OTSUT; CHASTICHNYJ — ровно одно поле: admission
+  {W0, W1A, NULL, NEIZVESTNOE('W2')} × OTSUT и gate {CURRENT, STALE,
+  NULL, NEIZVESTNOE('future')} × OTSUT (8 строк); POLNYJ — оба поля,
+  4×4=16 строк. Каждая клетка судит СВОЮ строку (консолидация по
+  арбитражу): admission 'W1A' → Erstinformation с маркером gate и Г0
+  кадра email; переход continue → Start ТОЛЬКО POLNYJ/W1A/CURRENT, в
+  прочих W1A-строках (4 строки: CHASTICHNYJ/W1A/OTSUT и POLNYJ/W1A/
+  {STALE,NULL,NEIZVESTNOE}) continue НЕ переводит, Start отсутствует,
+  кадр code не возникает; admission ≠ 'W1A' (21 строка) — прежний
+  путь B (демо-вход → код-кадр), Erstinformation/Start закрыты. Г0
+  (#FFFFFF 48/16/16) — кадр email во всех строках, кадр code в
+  не-W1A строках, в своей теме — недопуск наблюдаем на любом входе
+  таблицы, рестайл отклонённого gate (обход критика круга 2
+  new-g0-denied-admission) — строками с gate ≠ current в обеих темах.
+
+- (круг 3, арбитраж нарезки) КЛЕТКИ (а)–(д) — перечень и счёт в
+  разделе «Миграция 117 v3» (40 MIGRACIYA_ENTRY_* + 2
+  MIGRACIYA_POSTORONNEE_POLE_AUTHENTICATED_* + 40
+  MIGRACIYA_NACHALNYJ_KADR_* + 1 MIGRACIYA_REMOUNT_ENTRY_COMPLETE_
+  W0_STALE + 2 MIGRACIYA_G0_SMENA_TEMY_* + 2
+  MIGRACIYA_PORYADOK_SMENA_TEMY_* + 2 MIGRACIYA_RERENDER_W1A_W0_* =
+  89): вход entry (в т.ч. поле onboarding 'complete' и постороннее
+  поле gate='current' у каждого входа оси) и постороннее поле порта
+  НЕ создают допуск/поверхность; начальный кадр — first-run при любом
+  entry/порте и при remount; Г0 живёт после смены схемы в живом
+  экземпляре (обе стороны, подключённый порт, недопуск); смена темы
+  на Erstinformation не даёт Start без continue; порт читается в
+  момент действия (rerender W1A→W0 до демо — недопуск).
+
+Статическая семья (`vkhod_static_probe.py`, 43 клетки — замер v3
+`static 43/43`: 40 клеток 117/2 + SPLASH_OVERLAY_NO_TRANSFORM,
+SPLASH_OVERLAY_NO_LAYOUT_OFFSET, SPLASH_OVERLAY_ZORDER кругов
+Adv117v2/v3; v3 семью не меняет):
 APP_ICON_DERIVATIVES, ICON_NOT_TEMPLATE_BYTES, ICON_ADAPTIVE_BG_DARK,
 ICON_PIXELS_MARK, SPLASH_BLOCKS_DARK_LIGHT (знаки, imageWidth 181,
 contain), SPLASH_EFFECTIVE_DARK_LIGHT (эффективные ФОНЫ резолверами),
@@ -277,40 +564,122 @@ centerX/centerY), SPLASH_COMPOSITE_ETALON_{DARK,LIGHT} ×2 (Б1: размер =
 C, ≥ 0.98), SPLASH_SIGN_RASTER_{DARK,LIGHT} ×2 (растр знака аналитикой),
 SPLASH_OVERLAY_CONSUMES_COMPOSITE (С2-а: require в pilot-app.tsx
 относительным путём разрешается в оба файла композита, судимых
-эталоном), USER_STYLE_AUTOMATIC, STATIC_ORACLE_LITERALS, ICON_RASTER_WHOLE,
-ADAPTIVE_FG_RASTER, ADAPTIVE_MONO_RASTER, ADAPTIVE_BG_SOLID,
-FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE, MAESTRO_SPLASH_FRAME_WAIT
-(шаг НЕПОСРЕДСТВЕННО перед takeScreenshot splash — extendedWaitUntil
-visible splash-overlay, YAML-парсером), MAESTRO_FIRST_RUN_ORDER (между
-снимком splash и takeScreenshot first-run — notVisible splash-overlay:
-свидетельство снятия оверлея, не приёмка экрана First-Run),
-SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} ×2 (согласованность справочного
-манифеста H kadry_117.json с пинами 117: ровно один кадр темы с макетом
-эталона Б1 этой темы — id, sha256, снимок `vkhod-117-splash`, порог ∈
-[0.6, 1] — литералы source.json `sverka_123`; сценарий субъекта снимает
-этот снимок; потребление манифеста судят SVERKA_123_*),
-SVERKA_123_STEP_UNCONDITIONAL (инвариант 9: в `jobs.android-e2e.steps`
-workflow субъекта ровно один шаг, чей `run` несёт литерал `script`, без
-ключей `if` и `continue-on-error`), SVERKA_123_MANIFEST_CANON (строка
-`run` с литералом `script` до первого `|`, разбор shlex — ровно
-`python3 <script>` и пары `--manifest`/`--kadry`/`--repo` = литералы,
-иных токенов нет; `git ls-files -- mobile/maestro-out-117` субъекта
-пуст), SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
+эталоном), SPLASH_OVERLAY_NO_TRANSFORM, SPLASH_OVERLAY_NO_LAYOUT_OFFSET,
+SPLASH_OVERLAY_ZORDER (статические сегменты JSX оверлея — геометрия и
+z-порядок, Adv117v2/v3), USER_STYLE_AUTOMATIC, STATIC_ORACLE_LITERALS,
+ICON_RASTER_WHOLE, ADAPTIVE_FG_RASTER, ADAPTIVE_MONO_RASTER,
+ADAPTIVE_BG_SOLID, FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE,
+MAESTRO_SPLASH_FRAME_WAIT (шаг НЕПОСРЕДСТВЕННО перед takeScreenshot
+splash — extendedWaitUntil visible splash-overlay, YAML-парсером),
+MAESTRO_FIRST_RUN_ORDER (между снимком splash и takeScreenshot
+first-run — notVisible splash-overlay: свидетельство снятия оверлея, не
+приёмка экрана First-Run), SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} ×2
+(согласованность справочного манифеста H kadry_117.json с пинами 117:
+ровно один кадр темы с макетом эталона Б1 этой темы — id, sha256, снимок
+`vkhod-117-splash`, порог ∈ [0.6, 1] — литералы source.json
+`sverka_123`; сценарий субъекта снимает этот снимок; потребление
+манифеста судят SVERKA_123_*), SVERKA_123_STEP_UNCONDITIONAL (инвариант
+9: в `jobs.android-e2e.steps` workflow субъекта ровно один шаг, чей
+`run` несёт литерал `script`, без ключей `if` и `continue-on-error`),
+SVERKA_123_MANIFEST_CANON (строка `run` с литералом `script` до первого
+`|`, разбор shlex — ровно `python3 <script>` и пары
+`--manifest`/`--kadry`/`--repo` = литералы, иных токенов нет;
+`git ls-files -- mobile/maestro-out-117` субъекта пуст),
+SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
 `with.path` `.harness123`, `with.repository` `a3ka/dev-harness`,
-`with.ref` ~ `\A[0-9a-f]{40}\Z`, без `if`, раньше шага сверки) — литералы
-source.json `sverka_123.provodka`; YAML-парсер, отсутствие pyyaml — rc2.
+`with.ref` ~ `\A[0-9a-f]{40}\Z`, без `if`, раньше шага сверки) —
+литералы source.json `sverka_123.provodka`; YAML-парсер, отсутствие
+pyyaml — rc2.
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду MUTANTS проб, Н-39;
-depends измерены прогонами 117e/117f): поведенческих 24 (restyle-welcome-vkhod,
-restyle-recovery-vkhod, restyle-unavailable-vkhod,
-restyle-recovery-light-vkhod, overlay-absent-first-commit,
-overlay-text-words, overlay-hideasync-skip, overlay-hideasync-module-scope,
-overlay-timer-none, overlay-wrong-source, overlay-hide-before-commit,
-prod-theme-os-ignored, prod-theme-light-hardcode, auth-restyled-ground,
-auth-restyled-code-light, overlay-intrinsic-size, overlay-opacity-zero,
-overlay-display-none, root-opacity-zero, overlay-zero-size,
-statusbar-absent, statusbar-light-both, statusbar-dark-both,
-statusbar-in-overlay), статических 31 (icon-template-bytes,
+depends измерены прогонами; поведенческая матрица консолидации по
+арбитражу — rc0 на R@B, 60 стабов, все красны именованными ветвями;
+прежние замеры 35/43/53 стабов кругов v3/1/2 сохранены — removed=[];
+статическая матрица — rc0 на R@B, семью правка не меняет):
+поведенческих 60 — 24 из 117/2 + 7 кругов Adv117v2/v3 (списки те же,
+побайтово) + 4 миграции v3 + 8 правки круга 1 + 5+5 круга 2 (имена
+те же) + 7 круга 3 (r3-мутанты критика). Привязки миграционных
+стабов перечитаны замером под семантику frozen 118/1 (обходы
+admission ловятся КАДРОМ — Erstinformation у недопущенного, обходы
+gate — START'ом на Erstinformation-клетках; арбитраж: «там ловится
+Start, а не кадр»):
+- migracija-admission-literal — named клетки недопуска по admission
+  (W0_CURRENT, ADMISSION_OTSUT_CURRENT, W0_STALE, W0_NULL_SVETLAYA) +
+  все 21 строка admission ≠ W1A ×2 + entry-клетки не-W1A пар (24) +
+  постороннее поле ×2 + Г0-смена ×2 + rerender ×2; depends Г0
+  ONBOARDING ×2 и Г0–Г3 ×8 (замер: демо уводится в Erstinformation —
+  код-кадр и кадры 995 недостижимы демо-входом);
+- migracija-gate-ignor (переход без gate) — named 4 клетки
+  W1A×не-current + 4 строки таблицы W1A×не-current ×2 + entry-клетки
+  W1A_STALE ×8;
+- migracija-start-pryamo — named обе MARSHRUT + все 5 строк W1A ×2 +
+  4 клетки W1A×не-current + entry W1A-пары ×16 + порядок ×2;
+- migracija-f03-put-udalen — named 4 миграционные клетки; depends
+  Г0–Г3 ×8, 10 клеток круга 1, Г0 ONBOARDING/DOPUSK ×4, ВСЕ 52 клетки
+  таблицы, ВСЕ 40 entry + 2 постороннего поля + Г0-смена ×2 + порядок
+  ×2 + rerender ×2 (auth-email недостижим; клетки начального
+  кадра/remount зелены — First-Run наблюдаем и при мутанте);
+- migracija-admission-default — named ADMISSION_OTSUT_CURRENT + все
+  11 строк admission {OTSUT, NULL} ×2 + entry-клетки пары без порта;
+- migracija-gate-default — named W1A_GATE_OTSUT + строки
+  {CHASTICHNYJ/W1A/OTSUT, POLNYJ/W1A/NULL} ×2 (Start при умолчании);
+- migracija-w0-stale-dopushchen (поверхность) — named W0_STALE +
+  строки {POLNYJ/W0/STALE, CHASTICHNYJ/OTSUT/STALE, POLNYJ/NULL/STALE}
+  ×2 + entry-клетки пары W0_STALE ×8 + постороннее поле ×2 + Г0-смена
+  ×2 (замер: тот же вход W0×stale несут и новые клетки круга 3);
+- migracija-svetlui-obhod (поверхность и переход в light) — named
+  W0_NULL_SVETLAYA + RERENDER_W1A_W0_LIGHT + Г0-смена LIGHT_TO_DARK +
+  постороннее поле LIGHT + 20 truthy-строк недопуска с admission ≠ W1A
+  в LIGHT + entry W0-пары в LIGHT ×8 (замер: тот же класс — truthy
+  недопущенный порт в light; W1A-строки честны поверхностью, Start по
+  gate); depends Г0 ONBOARDING_LIGHT;
+- migracija-onboarding-restyles-f03 — named Г0 ONBOARDING ×2 + все 25
+  truthy-строк ×2 (50) + Г0-смена ×2; depends Г0 DOPUSK ×2;
+- migracija-marshrut-tolko-temnyi — named SVETLAYA_MARSHRUT +
+  W1A_STALE_SVETLAYA + все 5 строк W1A в LIGHT + entry W1A-пары в
+  LIGHT ×8 + порядок LIGHT_TO_DARK (светлая лишается поверхности);
+- migracija-stale-kak-current (переход) — named W1A_STALE +
+  W1A_STALE_SVETLAYA + POLNYJ/W1A/STALE ×2 + entry W1A_STALE ×8;
+- migracija-restyle-pri-dopuske — named Г0 DOPUSK ×2 + строки допуска
+  POLNYJ/W1A/CURRENT ×2;
+- migracija-light-gate-default — named строки
+  {CHASTICHNYJ/W1A/OTSUT, POLNYJ/W1A/NULL} × LIGHT (блокер 1 круга 2);
+- migracija-pustaya-sessiya-demo — named строки PUSTOJ ×2 (блокер 1
+  круга 2: пустой подключённый порт);
+- migracija-g0-nedopusk-restail — named 20 truthy-строк с gate ≠
+  current × 2 темы = 40 клеток (блокер 2 круга 2: рестайл
+  отклонённого gate) + Г0-смена ×2;
+- migracija-light-stale-current — named W1A_STALE_SVETLAYA + строка
+  POLNYJ/W1A/STALE/LIGHT + entry W1A_STALE в LIGHT ×4;
+- migracija-light-start-do-continue — named SVETLAYA_MARSHRUT +
+  W1A_STALE_SVETLAYA + все 5 строк W1A в LIGHT + entry W1A-пары в
+  LIGHT ×8 + порядок LIGHT_TO_DARK;
+- migracija-null-kak-current — named W1A_NULL + W1A_GATE_OTSUT +
+  POLNYJ/W1A/NULL ×2 + CHASTICHNYJ/W1A/OTSUT ×2;
+- migracija-or-uslovie (`||` в ОБОИХ предикатах) — named 6 клеток
+  недопуска + 8 строк таблицы ×2 + entry пары {W0_CURRENT, W1A_STALE}
+  ×16 + rerender ×2; depends Г0 ONBOARDING ×2;
+- migracija-port-est-dopusk — named ADMISSION_OTSUT_CURRENT + все 10
+  truthy-строк admission {OTSUT, NULL} ×2 (включая CHASTICHNYJ/NULL/
+  OTSUT — новая поверхность при null-admission);
+- migracija-g0-restail-nedopusk-admission — named 20 truthy-строк с
+  admission ≠ W1A × 2 темы = 40 клеток + Г0 ONBOARDING ×2 + Г0-смена
+  ×2;
+- migracija-temnyi-start-do-continue — named MARSHRUT + тёмные клетки
+  W1A_{STALE,NULL,GATE_OTSUT} + все 5 строк W1A в DARK + entry
+  W1A-пары в DARK ×8 + порядок DARK_TO_LIGHT;
+- круг 3 (r3-мутанты критика, мутации перенесены с драйвера
+  Critic117v3c/new_attack.py по смыслу): migracija-postoronnee-pole-
+  authenticated — named постороннее поле ×2; migracija-gate-iz-entry
+  — named entry-клетки W1A_STALE ×8 (entry.gate='current' у каждого
+  входа оси не открывает Start); migracija-literal-completed — named
+  entry-клетки COMPLETE × {W0_STALE, W0_CURRENT, NEPODKLYUCHEN} ×2;
+  migracija-kesh-dopuska — named rerender ×2; migracija-restart-start
+  — named начальный кадр COMPLETE × 5 пар ×2 + remount + entry-клетки
+  COMPLETE ×10 (замер: ось (а) ждёт first-run на первом рендере);
+  migracija-g0-smena-temy — named Г0-смена ×2;
+  migracija-start-ot-smeny-temy — named порядок ×2;
+статических 38 — 31 из 117/2 (icon-template-bytes,
 adaptive-expo-blue, splash-image-forgery, icon-twin-three-pixels,
 splash-composite-twin, splash-composite-no-words, splash-composite-shifted,
 splash-composite-halfres, splash-imagewidth-76, adaptive-favicon-template,
@@ -322,10 +691,13 @@ maestro-splash-wait-after-shot, maestro-first-run-overlay-kept,
 maestro-first-run-as-splash, maestro-splash-overlay-gone-before-shot,
 maestro-splash-shot-renamed, sverka-step-absent, sverka-continue-on-error,
 sverka-if-conditional, sverka-local-manifest, sverka-kadry-other,
-sverka-ref-branch); каждый красен именованной клеткой (статический —
-КАЖДОЙ своей именованной), побочная
-краснота только в depends; якорь мутанта неуникален → отказ rc2;
-сломанный мутантом свит → MUTANT_SUITE_BROKEN rc2 (не зелень).
+sverka-ref-branch) + 7 Adv117v2/v3 (overlay-transform-{translatex,
+translatey,scale}, overlay-margin-offset, overlay-zindex-{minus,zero},
+overlay-before-firstrun); каждый красен именованной клеткой (статический
+— КАЖДОЙ своей именованной), побочная краснота только в depends; якорь
+мутанта неуникален → отказ rc2; сломанный мутантом свит →
+MUTANT_SUITE_BROKEN rc2 (не зелень).
+
 
 ## Приёмочный критерий
 
@@ -335,11 +707,31 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 
 - Дано B без реализации: `python3 fixtures/workshop_project/vkhod_117/vkhod_probe.py
   --repo R` → rc1, строка `VKHOD_SPLASH_OVERLAY_ABSENT` (клетка
-  SPLASH_OVERLAY_MOUNTED_* красна; замер 117e: failed 18 of 26);
+  SPLASH_OVERLAY_MOUNTED_* красна; замер 117e: failed 18 of 26; замер v3
+  на R@B: failed 23 of 34 — сохранён; замер правки по FAIL v3 круга 1
+  на R@B: failed 24 of 44 — сохранён; замер правки по FAIL v3 КРУГ 2
+  на R@B: failed 26 of 96 — 22 клетки оверлея (18 прежних + GEOMETRY
+  ×2 + ZORDER ×2) + MIGRACIYA_W1A_CURRENT_MARSHRUT,
+  MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT и 2 маршрут-строки таблицы
+  MIGRACIYA_TABLICA_POLNYJ_W1A_CURRENT_{DARK,LIGHT} (маршрут на B не
+  реализован); замер консолидации по арбитражу на R@B: failed 56 of
+  185 — те же 26 плюс 30 клеток, требующих Erstinformation: 4
+  переписанные именованные W1A×не-current, 8 переписанных строк
+  таблицы W1A×не-current, 16 entry-клеток W1A-пар и 2 клетки порядка
+  после смены темы; зелены Г0–Г3 ×8, клетки не-W1A прежнего пути,
+  Г0-клетки ONBOARDING/DOPUSK ×4, начальный кадр/remount, Г0-смена,
+  rerender, постороннее поле и все прочие клетки таблицы — прежний
+  путь, белый корень и First-Run на старте и есть состояние B, это не
+  ослабление);
   `vkhod_static_probe.py --repo R` → rc1 `VKHOD_SPLASH_COMPOSITE_ABSENT`.
 - Дано B с эталонной моделью (`--model`) либо честное C: обе пробы → rc0 с
-  перечнем: поведенческая 26/26 (замер 117e), статическая 40/40 (замер 117f;
-  модель workflow — `mobile.yml` `cmp-mob-123/sverka` @10cf684 дословно).
+  перечнем: поведенческая 185/185 (замер консолидации по арбитражу:
+  96 прежних + 89 клеток круга 3 (а)–(д)), статическая
+  43/43 (замер v3 — семья правкой не менялась; модель workflow —
+  `mobile.yml` `cmp-mob-123/sverka` @10cf684 дословно); счёт таблицы —
+  кодом из самой таблицы (26 строк × 2 темы = 52) и сходится с прогоном
+  (185 = 96 + 89; 96 = 44 + 52) и разбором исходника (замеры кругов
+  2–3).
 - Дано C, в котором `.github/workflows/mobile.yml` — workflow B 8748a7a335
   (шагов 123 нет); когда `vkhod_static_probe.py --repo R`; тогда rc1, красны
   ровно `SVERKA_123_STEP_UNCONDITIONAL`, `SVERKA_123_MANIFEST_CANON`,
@@ -351,16 +743,20 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
   ровно `SVERKA_123_MANIFEST_CANON` (замер 117f).
 - Дано C с невидимым оверлеем (свидетель критика: `opacity: 0` в стиле View
   `splash-overlay`, всё прочее честно); когда `vkhod_probe.py --repo R`;
-  тогда rc1, `failed 2 of 26` — красны ровно
-  `SPLASH_OVERLAY_VISIBLE_{DARK,LIGHT}` (замер 117e).
+  тогда rc1, красны ровно `SPLASH_OVERLAY_VISIBLE_{DARK,LIGHT}` (замер
+  117e; тот же класс — стаб overlay-opacity-zero матрицы v3: red = ровно
+  эти две клетки).
 - Дано C со сценарием «First-Run под именем splash» (свидетель критика:
   ожидание first-run-continue и notVisible splash-overlay перед снимком
   splash); когда `vkhod_static_probe.py --repo R`; тогда rc1, строка
   `RED MAESTRO_SPLASH_FRAME_WAIT` (замер 117e).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый
-  стаб красен именованной ветвью (24+31), побочная краснота только в
-  depends; любой MUTANT_GREEN/MUTANT_NAMED_MISS/MUTANT_UNEXPECTED_RED —
-  rc2.
+  стаб красен именованной ветвью (поведенческих 60 — 24 из 117/2 + 7
+  Adv + 4 миграции + 8 круга 1 + 10 круга 2 + 7 круга 3 r3; статических
+  38), побочная краснота только в depends; любой
+  MUTANT_GREEN/MUTANT_NAMED_MISS/MUTANT_UNEXPECTED_RED — rc2. Длинный
+  замер допустим срезами `--matrix --only <имена>` — объединение срезов
+  обязано покрыть все стабы MUTANTS (счёт срезов — из вывода пробы).
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк
   кроме симлинка `mobile/node_modules` (инфраструктура R, не проба).
 - Дано C; `git diff --exit-code --stat B C -- mobile/src/features/auth/` →
@@ -370,8 +766,15 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 - Дано C; `npm run lint`, `npm run typecheck` в R/mobile → rc0;
   `npx jest src/bootstrap/__tests__/pilot.test.tsx` (995, byte-frozen) → rc0,
   14/14; батарея `fixtures/workshop_project/first_run_111/` на C → rc0,
-  23/23 — замер v2 на B + модель 117 (К8 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` зелёна: вход —
-  поверхность 995).
+  23/23 — замер v2 на B + модель 117; замер v3 на R@B: pilot.test 14/14
+  (поставка 117 v3), first_run_111 23/23 rc0 на объединении — модель 111
+  (first-run-screen v4, i18n, wordmark) + ПОЛНАЯ поставка 117 v3
+  (pilot-app с миграцией, app.json, ассеты): миграционная модель прежние
+  пробы 995/111 не ломает (на голом B батарея 111 красна v4b-клетками —
+  строки v4 в FirstRunScreen на B отсутствуют, состояние предмета 111,
+  не предмет 117); замер консолидации по арбитражу (круг 3) на R@B:
+  pilot.test 14/14 rc0, first_run_111 honest 23/23 rc0 — семантика
+  admission/gate прежние пробы не ломает.
 - Дано C в PR; `gh pr checks PR --repo a3ka/Complior-mob --required` → rc0;
   android-e2e (release APK: `expo prebuild` + `assembleRelease`, Maestro)
   исполняет сценарий 117 в `mobile/.maestro/`; takeScreenshot КАЖДОГО
@@ -405,7 +808,15 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 семьями 995/111: в pilot-app ДОБАВЛЯЮТСЯ JS-оверлей splash (последний
 ребёнок корня, НЕ кадр state-machine), провод темы ОС (только когда выше
 PilotApp нет явного провайдера) и StatusBar вне оверлея; корни кадров,
-первый кадр и вход шва — как на B. `mobile/src/features/auth/auth-screen.tsx`
+первый кадр и вход шва — как на B. 117 v3 (миграция 117/3): в pilot-app
+ДОПУСКАЕТСЯ демо-маршрут First-Run → demo → Erstinformation → Start по
+разделу «Миграция 117 v3» (кадры 'erstinformation'/'start', допуск
+admission 'W1A' из сессии ∧ gate 'current', без допуска — прежний путь);
+эта правка — ЗОНА implementer 118 (см. ПЕРЕСЕЧЕНИЕ в frozen
+contracts/118-erstinformation.md) и разрешена ТОЛЬКО ПОСЛЕ тега
+frozen/contracts/117/3; для implementer 117 (splash/иконка) pilot-app
+по-прежнему только оверлей/тема/StatusBar, как на B.
+`mobile/src/features/auth/auth-screen.tsx`
 (вход, предмет first-run-ekran) остаётся в ЗОНЕ implementer ТОЛЬКО для
 возврата к B: текущий C (Complior-mob#114) несёт рестайл входа, его откат —
 правка этого пути; итог C ≡ B по нему (приёмка: `git diff --stat B C --
@@ -425,6 +836,10 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
 РАБОТА НЕ РАЗДАЁТСЯ: implementer не спавнится до accept критика и freeze
 оркестратора; предмет этой пачки — контракт + красные пробы, предъявленные
 красными на B и зелёными на эталоне.
+
+ПРЕДПОСЫЛКИ:
+- setting v3 новых предпосылок НЕ вводит: шаги CI не меняются, secrets/variables/environments не требуются; действуют предпосылки 117/2 (android-e2e release APK: expo prebuild + assembleRelease, Maestro, H-checkout .harness123 пина 123, шаг quality с пробами 117)
+- setting для implementer 118 (после frozen/contracts/117/3): проба композиции gate/admission в mobile/src/bootstrap/__tests__ исполняется существующим шагом CI без новых настроек репозитория
 
 ## Модель угроз
 
@@ -481,12 +896,80 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
 - от тихого рестайла кадров вне предмета: Г0–Г3 по ВСЕМ исключённым кадрам
   (вход F03.01/F03.02, welcome, F03.04, unavailable) × обе схемы (стаб
   auth-restyled-ground — форма текущего C — красен Г0);
+- от обхода допуска демо-маршрута (117 v3 + правки по FAIL v3 кругов
+  1–2 + консолидация по арбитражу): ТАБЛИЦА ВХОДОВ MIGRACIYA_TABLICA_*
+  ×52 судит ВСЕ выразимые входы порта onboarding (внешняя сессия):
+  admission ∈ {W0, W1A, отсутствует, null, неизвестное('W2')} × gate ∈
+  {current, stale, отсутствует, null, неизвестное('future')} × тема
+  {dark, light} × форма порта {не подключён, пустой `{}`, частичный,
+  полный} — 26 строк × 2 темы, счёт из таблицы кодом; ПОВЕРХНОСТЬ
+  Erstinformation открывает ТОЛЬКО admission 'W1A' в обеих темах,
+  ПЕРЕХОД continue → Start — ТОЛЬКО W1A ∧ current (при null/stale
+  continue не переводит); литерал допуска в pilot-app
+  (migracija-admission-literal, обходы критика
+  migracija-admission-default, migracija-gate-default,
+  migracija-w0-stale-dopushchen, migracija-svetlui-obhod), допуск без
+  current (migracija-gate-ignor, migracija-stale-kak-current,
+  migracija-null-kak-current), `||` в условии (migracija-or-uslovie),
+  ПУСТОЙ подключённый порт `{}` (migracija-pustaya-sessiya-demo —
+  блокер 1 круга 2: истина порта ≠ допуску), умолчание gate только в
+  светлой (migracija-light-gate-default — блокер 1 круга 2),
+  неизвестные значения осей (строки NEIZVESTNOE таблицы), truthy порт
+  без admission (migracija-port-est-dopusk), светлая тема как допуск
+  (migracija-svetlui-obhod), маршрут только в тёмной
+  (migracija-marshrut-tolko-temnyi), Start мимо Erstinformation
+  (migracija-start-pryamo, migracija-light-start-do-continue,
+  migracija-temnyi-start-do-continue) и удаление прежнего пути F03
+  (migracija-f03-put-udalen — красен и гвардами Г0–Г3 и всеми 52
+  клетками таблицы: кадры недостижимы) красны именованными клетками
+  на входах, где дефект наблюдаем (Н-39);
+- от подмены источника допуска соседними полями и состояниями (круг 3,
+  арбитраж нарезки — семь r3-обходов критика): ось entry × решающие
+  пары MIGRACIYA_ENTRY_* ×40 — entry (в т.ч. 'complete' и постороннее
+  поле gate) не источник допуска (migracija-literal-completed,
+  migracija-gate-iz-entry); постороннее truthy-поле порта
+  authenticated не заменяет пару admission/gate
+  (MIGRACIYA_POSTORONNEE_POLE_AUTHENTICATED ×2 —
+  migracija-postoronnee-pole-authenticated); начальный кадр first-run
+  при любом entry/порте и remount (MIGRACIYA_NACHALNYJ_KADR ×40 +
+  REMOUNT — migracija-restart-start: сохранённый completed-entry не
+  создаёт Start); порт читается в МОМЕНТ действия — rerender W1A→W0
+  до демо есть недопуск (MIGRACIYA_RERENDER ×2 —
+  migracija-kesh-dopuska: кэш admission не открывает маршрут);
+  порядок Start при смене темы на Erstinformation
+  (MIGRACIYA_PORYADOK_SMENA_TEMY ×2 — migracija-start-ot-smeny-temy);
+  Г0 после смены схемы — см. следующий буллет (migracija-g0-smena-temy);
+  production-источник сессии, подключение `/` и настоящий gate 107 —
+  приёмка 118 (раздел «Граница модель/production»), заморозка 117/3
+  их зелёность на production не заявляет;
+- от рестайла корня F03 подключённым onboarding (правка по FAIL v3,
+  блокер 2; круг 2 — класс; круг 3 — смена схемы): клетки Г0
+  MIGRACIYA_G0_F03_ONBOARDING/DOPUSK ×4 и каждая недопуск-строка
+  таблицы (Г0 на кадрах email, в не-W1A строках и на код-кадре, обе
+  темы) судят корень #FFFFFF 48/16/16 на экземплярах с ПОДКЛЮЧЁННЫМ
+  портом при ЛЮБОМ недопуске — в т.ч. с отклонённым/отсутствующим/
+  null/неизвестным gate (стабы migracija-g0-nedopusk-restail — обход
+  критика круга 2: рестайл при gate ≠ current, — и migracija-g0-
+  restail-nedopusk-admission — та же ось по admission), при допуске
+  (migracija-restyle-pri-dopuske) и при любом truthy порте
+  (migracija-onboarding-restyles-f03 — красен всеми 50 truthy-строками
+  таблицы) — и ПОСЛЕ СМЕНЫ СХЕМЫ в живом экземпляре, обе стороны
+  dark→light / light→dark (MIGRACIYA_G0_SMENA_TEMY ×2, круг 3:
+  migracija-g0-smena-temy — рестайл корня после смены темы, обход
+  r3-g0-theme-change); прежние гварды Г0 и рестайл-стабы не сняты;
 - от зависимого оракула (Н-351): ожидания — литералы source.json/теста,
   STATIC_ORACLE_LITERALS; эталоны — sha-пин read-only docs/;
-- от мёртвой матрицы: обе пробы исполняют все стабы (24+31), depends
+- от мёртвой матрицы: обе пробы исполняют все стабы (60+38), depends
   измерены прогоном, unexpected_red/suite_broken — rc2.
 
 НЕ ЗАЩИЩАЕТ:
+- production-источник сессии (связь «сессия → порт onboarding» и её
+  обновление), подключение production `/` (bootstrap/pilot-app), Maestro
+  от настоящего корня, состав/пиксели F02.03/F02.08/Start и настоящий
+  gate 107 — батарея 117 судит модель, не production-корень (арбитраж
+  нарезки, «Граница модель/production»); ловец — приёмка 118 на
+  настоящем корне (инварианты 4–5 frozen 118/1, bootstrap-проба :32,
+  зона implementer 118);
 - вход F03.01/F03.02 и First-Run — без механической сверки с макетом до
   предмета `first-run-ekran` (сверка кадров с PNG эталона Complior-mob#118):
   117 v2 держит только поверхность 995 (Г0, К8 111) и не судит ни состав,

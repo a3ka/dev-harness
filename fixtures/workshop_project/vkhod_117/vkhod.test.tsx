@@ -720,4 +720,578 @@ describe('117 vkhod', () => {
       }
     });
   }
+
+  // ---- 117 v3 (миграция 117/3): допуск демо-маршрута в pilot-app ----
+  // Слово владельца 2026-10-24: маршрут First-Run → demo → Erstinformation
+  // → Start (с вкладками) допущен ТОЛЬКО при current ∧ admission из
+  // сессии; без admission/current — прежний Г0-путь (F03, поверхность
+  // 995). Допуск приходит ПОРТОМ (внешняя сессия), не литералом в
+  // pilot-app; оси — язык замороженной приёмки 118 (W0/W1A ×
+  // null/stale/current). Корни кадров F03 судят Г0-клетки выше; здесь —
+  // маршрут: прежний путь жив, Start закрыт без допуска, порядок
+  // First-Run → Erstinformation → Start (testID состава Start — из
+  // замороженной приёмки 118: start_tabs + четыре вкладки).
+  // Оба поля OPTIONAL — как у порта модели (критик v3, блокер 1:
+  // «отсутствует» — законный вход оси, не вне-алфавитная атака).
+  interface OnboardingPort {
+    readonly admission?: 'W0' | 'W1A';
+    readonly gate?: 'null' | 'stale' | 'current';
+  }
+
+  async function renderAppOnboarding(
+    onboarding: OnboardingPort,
+    scheme: ColorScheme = 'dark',
+  ) {
+    return render(
+      <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+        <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+          <PilotApp {...ports()} onboarding={onboarding} />
+        </ThemeContext.Provider>
+      </SafeAreaInsetsContext.Provider>,
+    );
+  }
+
+  // До демо-входа: прежний вход F03.01 жив (auth-email) — миграция не
+  // удаляет прежний путь ДО допуска.
+  async function toEmailOnboarding(
+    onboarding: OnboardingPort,
+    scheme: ColorScheme = 'dark',
+  ) {
+    const api = await renderAppOnboarding(onboarding, scheme);
+    await fireEvent.press(await screen.findByTestId('first-run-continue'));
+    await screen.findByTestId('auth-email');
+    return api;
+  }
+
+  // 117 v3 (арбитраж нарезки 117↔118, семантика frozen 118/1 инв. 4–5):
+  // W1A → Erstinformation при ЛЮБОМ gate; при не-current Start закрыт
+  // ДО и ПОСЛЕ нажатия continue (переход не происходит), кадр code не
+  // возникает. Маркер gate наблюдаем на Erstinformation.
+  async function expectErstinfoBezStart(gateMarker: string) {
+    await screen.findByTestId('erstinformation-117');
+    expect(screen.queryByTestId(`erstinfo_gate_${gateMarker}`)).not.toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+    expect(screen.queryByTestId('auth-code')).toBeNull();
+    await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+    expect(screen.queryByTestId('erstinformation-117')).not.toBeNull();
+  }
+
+  // Без admission (W0) при current: демо-вход — прежний путь B (F03.02
+  // code), Erstinformation/Start не возникают.
+  it('MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W0', gate: 'current' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Admission есть, gate не current (null): Erstinformation ПОКАЗАН с
+  // маркером gate, Start закрыт, continue НЕ переводит (frozen 118/1
+  // инв. 4–5; арбитраж нарезки 117↔118: admission решает поверхность,
+  // gate — переход).
+  it('MIGRACIYA_W1A_NULL_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'null' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await expectErstinfoBezStart('null');
+  });
+
+  // Admission есть, gate stale (ушедшая версия — OUTDATED по 107):
+  // Erstinformation с маркером, Start закрыт, continue не переводит.
+  it('MIGRACIYA_W1A_STALE_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'stale' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await expectErstinfoBezStart('stale');
+  });
+
+
+  // Допуск W1A ∧ current: маршрут First-Run → demo → Erstinformation →
+  // continue → Start (порядок: Start не раньше Erstinformation; прежний
+  // код-кадр покинут). Состав Start — testID приёмки 118.
+  it('MIGRACIYA_W1A_CURRENT_MARSHRUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'current' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('erstinformation-117');
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+    expect(screen.queryByTestId('auth-code')).toBeNull();
+    await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+    await screen.findByTestId('start_tabs');
+    for (const tab of ['start_tab_start', 'start_tab_vorgaenge', 'start_tab_schutz', 'start_tab_post']) {
+      expect(screen.getByTestId(tab)).toBeTruthy();
+    }
+  });
+  // ---- 117 v3 правка по FAIL критика v3: непокрытые входы допуска ----
+  // Блокер 1: поля порта OPTIONAL — «отсутствует admission/gate» есть
+  // законный вход оси (не атака); сочетание W0×stale и СВЕТЛАЯ тема не
+  // судились. Полная матрица шва: admission ∈ {отсутствует, W0, W1A} ×
+  // gate ∈ {отсутствует, null, stale, current} × тема {dark, light};
+  // Erstinformation открывает ТОЛЬКО W1A ∧ current — в обеих темах.
+
+  // Сессия {gate:'current'} БЕЗ admission: отсутствие поля — НЕ допуск
+  // (ловит умолчание-литерал `?? 'W1A'`).
+  it('MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ gate: 'current' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Сессия {admission:'W1A'} БЕЗ gate: отсутствие gate — НЕ current
+  // (ловит умолчание-литерал `?? 'current'`).
+  it('MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await expectErstinfoBezStart('null');
+  });
+
+  // Непокрытое сочетание W0×stale: оба поля заданы, допуск НЕТ — прежний
+  // путь B (admission ≠ W1A: Erstinformation поверхностью не открывается).
+  it('MIGRACIYA_W0_STALE_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W0', gate: 'stale' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // W1A×stale в СВЕТЛОЙ теме: Erstinformation без Start (недопуск к
+  // Start не зависит от схемы; поверхность решает admission).
+  it('MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'stale' }, 'light');
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await expectErstinfoBezStart('stale');
+  });
+
+  // W0×null в СВЕТЛОЙ теме: светлая схема сама по себе НЕ допуск
+  // (ловит обход `|| (onboarding && scheme === 'light')`).
+  it('MIGRACIYA_W0_NULL_SVETLAYA_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W0', gate: 'null' }, 'light');
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Допуск W1A ∧ current в СВЕТЛОЙ теме: маршрут открывается в обеих
+  // темах (тема — не ось допуска; ловит сужение `&& scheme === 'dark'`).
+  it('MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'current' }, 'light');
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('erstinformation-117');
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+    expect(screen.queryByTestId('auth-code')).toBeNull();
+    await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+    await screen.findByTestId('start_tabs');
+    for (const tab of ['start_tab_start', 'start_tab_vorgaenge', 'start_tab_schutz', 'start_tab_post']) {
+      expect(screen.getByTestId(tab)).toBeTruthy();
+    }
+  });
+
+  // Блокер 2: Г0 наблюдается на экземпляре с ПОДКЛЮЧЁННЫМ портом
+  // onboarding (недопуск W0×current) — корни F03.01 и F03.02 несут
+  // литералы 995 #FFFFFF 48/16/16 в ОБЕИХ схемах: подключение порта
+  // само по себе не рестайлит корень (ловит условный рестайл
+  // `onboarding ? {black, padding 0} : null`).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`MIGRACIYA_G0_F03_ONBOARDING_${S}`, async () => {
+      const api = await toEmailOnboarding({ admission: 'W0', gate: 'current' }, scheme);
+      let rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
+
+  // Г0 при ДОПУСКЕ (W1A ∧ current подключён): прежний вход F03.01 жив
+  // и после продолжения из First-Run — корень кадра email остаётся
+  // поверхностью 995 (ловит рестайл корня только при допуске).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`MIGRACIYA_G0_F03_DOPUSK_${S}`, async () => {
+      const api = await toEmailOnboarding({ admission: 'W1A', gate: 'current' }, scheme);
+      const rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
+
+  // ---- 117 v3 правка по FAIL критика круг 2: ТАБЛИЦА ВХОДОВ ДОПУСКА ----
+  // Блокеры круга 2 — один корень: батарея покрывала выборку входов
+  // допуска/Г0, а не всё пространство порта. Инвариант «таблица входов»:
+  // ЕДИНАЯ таблица всех выразимых входов — форма порта × admission ×
+  // gate × тема; ожидание каждой клетки ВЫВОДИТСЯ из строки таблицы
+  // (допущен ⇔ admission === 'W1A' ∧ gate === 'current' — единственная
+  // строка POLNYJ/W1A/CURRENT; все прочие строки — прежний путь B и Г0
+  // #FFFFFF 48/16/16 в ОБЕИХ темах), имена клеток производны от строки.
+  // Счёт клеток = строки × темы (26 × 2 = 52) — из таблицы, сверяется
+  // прогоном (behavioral N/N) и разбором файла (вторая мера).
+  // Оси: admission ∈ {W0, W1A, отсутствует, null, неизвестное('W2')},
+  // gate ∈ {current, stale, отсутствует, null, неизвестное('future')};
+  // «отсутствует» — OPTIONAL-поле (блокер 1 круга 1), null — JSON-литерал
+  // внешних данных, неизвестное значение — вне замкнутого алфавита порта
+  // (порт — внешняя сессия, значения не выбирает потребитель).
+  // Формы порта: не подключён (проп undefined) / пустой подключённый {}
+  // (обход критика круга 2 new-empty-session-demo: истина порта ≠ допуску)
+  // / частичный (ровно одно поле) / полный (оба поля). Строки, где ось
+  // «отсутствует» НЕ выразима формой (нет порта — нет и поля формы),
+  // таблицей не порождаются: полная таблица = все ВЫРАЗИМЫЕ сочетания.
+  type TablicaAdmission = 'W0' | 'W1A' | 'OTSUT' | 'NULL' | 'NEIZVESTNOE';
+  type TablicaGate = 'CURRENT' | 'STALE' | 'NULL' | 'OTSUT' | 'NEIZVESTNOE';
+  type TablicaPort = { admission?: unknown; gate?: unknown };
+
+  const ADMISSION_VALUE: Record<'W0' | 'W1A' | 'NULL' | 'NEIZVESTNOE', unknown> = {
+    W0: 'W0',
+    W1A: 'W1A',
+    NULL: null,
+    NEIZVESTNOE: 'W2',
+  };
+  const GATE_VALUE: Record<'CURRENT' | 'STALE' | 'NULL' | 'NEIZVESTNOE', unknown> = {
+    CURRENT: 'current',
+    STALE: 'stale',
+    NULL: null,
+    NEIZVESTNOE: 'future',
+  };
+
+  function tablicaPort(adm: TablicaAdmission, gate: TablicaGate): TablicaPort {
+    const port: TablicaPort = {};
+    if (adm !== 'OTSUT') port.admission = ADMISSION_VALUE[adm];
+    if (gate !== 'OTSUT') port.gate = GATE_VALUE[gate];
+    return port;
+  }
+
+  const VHOD_TABLICA: Array<{
+    form: 'NEPODKLYUCHEN' | 'PUSTOJ' | 'CHASTICHNYJ' | 'POLNYJ';
+    adm: TablicaAdmission;
+    gate: TablicaGate;
+    port: TablicaPort | undefined;
+  }> = [
+    { form: 'NEPODKLYUCHEN', adm: 'OTSUT', gate: 'OTSUT', port: undefined },
+    { form: 'PUSTOJ', adm: 'OTSUT', gate: 'OTSUT', port: {} },
+  ];
+  for (const adm of ['W0', 'W1A', 'NULL', 'NEIZVESTNOE'] as const) {
+    VHOD_TABLICA.push({ form: 'CHASTICHNYJ', adm, gate: 'OTSUT', port: tablicaPort(adm, 'OTSUT') });
+  }
+  for (const gate of ['CURRENT', 'STALE', 'NULL', 'NEIZVESTNOE'] as const) {
+    VHOD_TABLICA.push({ form: 'CHASTICHNYJ', adm: 'OTSUT', gate, port: tablicaPort('OTSUT', gate) });
+  }
+  for (const adm of ['W0', 'W1A', 'NULL', 'NEIZVESTNOE'] as const) {
+    for (const gate of ['CURRENT', 'STALE', 'NULL', 'NEIZVESTNOE'] as const) {
+      VHOD_TABLICA.push({ form: 'POLNYJ', adm, gate, port: tablicaPort(adm, gate) });
+    }
+  }
+
+  async function renderAppTablica(port: TablicaPort | undefined, scheme: ColorScheme) {
+    return render(
+      <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+        <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+          <PilotApp {...ports()} onboarding={port as unknown as OnboardingPort | undefined} />
+        </ThemeContext.Provider>
+      </SafeAreaInsetsContext.Provider>,
+    );
+  }
+
+  // Каждая строка × тема — клетка. Арбитраж нарезки 117↔118 (семантика
+  // frozen 118/1 инв. 4–5): admission решает ПОВЕРХНОСТЬ — W1A →
+  // Erstinformation при ЛЮБОМ gate (маркер gate; при не-current Start
+  // закрыт, continue НЕ переводит); переход W1A ∧ current → continue →
+  // Start; все строки с admission ≠ W1A — прежний путь B (кадр code).
+  // Г0 наблюдается на кадрах email (все строки) и code (не-W1A строки)
+  // в обеих темах (блокер 2 круга 2: рестайл отклонённого gate ловится
+  // строками с gate ≠ current).
+  const gateMarkerOf: Record<TablicaGate, string> = {
+    CURRENT: 'current', STALE: 'stale', NULL: 'null', OTSUT: 'null', NEIZVESTNOE: 'future',
+  };
+  for (const row of VHOD_TABLICA) {
+    const w1a = row.adm === 'W1A';
+    const gateCurrent = row.gate === 'CURRENT';
+    for (const scheme of ['dark', 'light'] as const) {
+      const S = scheme.toUpperCase();
+
+      it(`MIGRACIYA_TABLICA_${row.form}_${row.adm}_${row.gate}_${S}`, async () => {
+        const api = await renderAppTablica(row.port, scheme);
+        await fireEvent.press(await screen.findByTestId('first-run-continue'));
+        await screen.findByTestId('auth-email');
+        let rootStyle = styleOf(hostRootOf(api.toJSON()));
+        expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+        expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+        expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+        expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+        await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+        if (w1a) {
+          await screen.findByTestId('erstinformation-117');
+          expect(screen.queryByTestId(`erstinfo_gate_${gateMarkerOf[row.gate]}`)).not.toBeNull();
+          expect(screen.queryByTestId('start_tabs')).toBeNull();
+          expect(screen.queryByTestId('auth-code')).toBeNull();
+          await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+          if (gateCurrent) {
+            await screen.findByTestId('start_tabs');
+          } else {
+            expect(screen.queryByTestId('start_tabs')).toBeNull();
+            expect(screen.queryByTestId('erstinformation-117')).not.toBeNull();
+          }
+        } else {
+          await screen.findByTestId('auth-code');
+          expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+          expect(screen.queryByTestId('start_tabs')).toBeNull();
+          rootStyle = styleOf(hostRootOf(api.toJSON()));
+          expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+          expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+          expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+          expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+        }
+      });
+    }
+  }
+
+  // ---- 117 v3 (арбитраж нарезки 117↔118, круг 3): клетки (а)–(д) ----
+  // Модель пинит чтение допуска ТОЛЬКО из onboarding.admission/gate:
+  // entry (в т.ч. entry.onboarding='complete' — production-поле порта)
+  // и посторонние поля порта (authenticated) не создают допуск;
+  // начальный кадр 'first-run' при любом entry/порте; Г0 после смены
+  // схемы в живом экземпляре; порядок Start при смене темы на
+  // Erstinformation; порт читается в момент действия (rerender).
+
+  type EntryOnboardingAxis = 'COMPLETE' | 'UNKNOWN' | 'INCOMPLETE' | 'OTSUT';
+  const ENTRY_ONBOARDING_VALUE: Record<EntryOnboardingAxis, string | undefined> = {
+    COMPLETE: 'complete', UNKNOWN: 'unknown', INCOMPLETE: 'incomplete', OTSUT: undefined,
+  };
+  const ENTRY_AXIS: Array<EntryOnboardingAxis> = ['COMPLETE', 'UNKNOWN', 'INCOMPLETE', 'OTSUT'];
+  // Постороннее поле entry.gate='current' несёт КАЖДЫЙ вход оси: gate
+  // читается из сессии, не из entry (r3-gate-from-entry).
+  function entryFor(axis: EntryOnboardingAxis) {
+    const onboarding = ENTRY_ONBOARDING_VALUE[axis];
+    return {
+      source: 'ENTRY-117',
+      ...(onboarding === undefined ? {} : { onboarding }),
+      gate: 'current',
+    } as { source: string; onboarding?: string; gate: string };
+  }
+  const ENTRY_PAIRS = [
+    { pair: 'W0_STALE', onboarding: { admission: 'W0', gate: 'stale' } as OnboardingPort },
+    { pair: 'W0_CURRENT', onboarding: { admission: 'W0', gate: 'current' } as OnboardingPort },
+    { pair: 'W1A_STALE', onboarding: { admission: 'W1A', gate: 'stale' } as OnboardingPort },
+    { pair: 'W1A_CURRENT', onboarding: { admission: 'W1A', gate: 'current' } as OnboardingPort },
+    { pair: 'NEPODKLYUCHEN', onboarding: undefined as OnboardingPort | undefined },
+  ];
+
+  async function renderAppEntry(
+    entry: { source: string; onboarding?: string; gate: string },
+    onboarding: OnboardingPort | undefined,
+    scheme: ColorScheme,
+  ) {
+    return render(
+      <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+        <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+          <PilotApp {...ports()} entry={entry as never} onboarding={onboarding} />
+        </ThemeContext.Provider>
+      </SafeAreaInsetsContext.Provider>,
+    );
+  }
+
+  // (а) ось entry.onboarding × решающие пары порта × 2 темы: ожидание
+  // клетки НЕ меняется относительно её пары (entry не источник допуска;
+  // r3-admission-literal-completed, r3-gate-from-entry).
+  for (const axis of ENTRY_AXIS) {
+    for (const pair of ENTRY_PAIRS) {
+      const w1a = pair.pair === 'W1A_STALE' || pair.pair === 'W1A_CURRENT';
+      const gateCurrent = pair.pair === 'W1A_CURRENT';
+      const gateMarker = gateCurrent ? 'current' : 'stale';
+      for (const scheme of ['dark', 'light'] as const) {
+        const S = scheme.toUpperCase();
+
+        it(`MIGRACIYA_ENTRY_${axis}_${pair.pair}_${S}`, async () => {
+          await renderAppEntry(entryFor(axis), pair.onboarding, scheme);
+          await fireEvent.press(await screen.findByTestId('first-run-continue'));
+          await screen.findByTestId('auth-email');
+          await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+          if (w1a) {
+            await screen.findByTestId('erstinformation-117');
+            expect(screen.queryByTestId(`erstinfo_gate_${gateMarker}`)).not.toBeNull();
+            expect(screen.queryByTestId('start_tabs')).toBeNull();
+            expect(screen.queryByTestId('auth-code')).toBeNull();
+            await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+            if (gateCurrent) {
+              await screen.findByTestId('start_tabs');
+            } else {
+              expect(screen.queryByTestId('start_tabs')).toBeNull();
+              expect(screen.queryByTestId('erstinformation-117')).not.toBeNull();
+            }
+          } else {
+            await screen.findByTestId('auth-code');
+            expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+            expect(screen.queryByTestId('start_tabs')).toBeNull();
+          }
+        });
+      }
+    }
+  }
+
+  // (а′) постороннее truthy-поле порта authenticated:true при W0/stale:
+  // соседнее поле не заменяет пару admission/gate (r3-extra-authenticated).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`MIGRACIYA_POSTORONNEE_POLE_AUTHENTICATED_W0_STALE_${S}`, async () => {
+      const port = { admission: 'W0', gate: 'stale', authenticated: true } as never;
+      await render(
+        <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+          <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+            <PilotApp {...ports()} onboarding={port} />
+          </ThemeContext.Provider>
+        </SafeAreaInsetsContext.Provider>,
+      );
+      await fireEvent.press(await screen.findByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+      expect(screen.queryByTestId('start_tabs')).toBeNull();
+    });
+  }
+
+  // (б) начальный кадр 'first-run' при ЛЮБОМ entry и любом порте —
+  // первый рендер без Start и без Erstinformation (r3-restart-completed-
+  // start: сохранённый entry.onboarding='complete' не создаёт Start).
+  for (const axis of ENTRY_AXIS) {
+    for (const pair of ENTRY_PAIRS) {
+      for (const scheme of ['dark', 'light'] as const) {
+        const S = scheme.toUpperCase();
+
+        it(`MIGRACIYA_NACHALNYJ_KADR_${axis}_${pair.pair}_${S}`, async () => {
+          await renderAppEntry(entryFor(axis), pair.onboarding, scheme);
+          expect(await screen.findByTestId('first-run-continue')).toBeTruthy();
+          expect(screen.queryByTestId('start_tabs')).toBeNull();
+          expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+        });
+      }
+    }
+  }
+
+  // (б′) remount с сохранённым completed-entry и W0/stale: второе
+  // монтирование — то же наблюдение (First-Run, не Start).
+  it('MIGRACIYA_REMOUNT_ENTRY_COMPLETE_W0_STALE', async () => {
+    const entry = entryFor('COMPLETE');
+    const p = ports();
+    const tree = () => (
+      <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+        <ThemeContext.Provider value={{ scheme: 'dark', tokens: themeTokens.dark }}>
+          <PilotApp {...p} entry={entry as never} onboarding={{ admission: 'W0', gate: 'stale' }} />
+        </ThemeContext.Provider>
+      </SafeAreaInsetsContext.Provider>
+    );
+    const first = await render(tree());
+    expect(await first.findByTestId('first-run-continue')).toBeTruthy();
+    await first.unmount();
+    const second = await render(tree());
+    expect(await second.findByTestId('first-run-continue')).toBeTruthy();
+    expect(second.queryByTestId('start_tabs')).toBeNull();
+    expect(second.queryByTestId('erstinformation-117')).toBeNull();
+  });
+
+  // (в) Г0 F03.01/F03.02 после смены схемы в живом экземпляре, ОБЕ
+  // стороны (dark→light и light→dark), на недопуске с ПОДКЛЮЧЁННЫМ
+  // портом (r3-g0-theme-change: рестайл корня после смены схемы).
+  const TEMA_SMENY = [
+    { name: 'DARK_TO_LIGHT', from: 'dark' as ColorScheme, to: 'light' as ColorScheme },
+    { name: 'LIGHT_TO_DARK', from: 'light' as ColorScheme, to: 'dark' as ColorScheme },
+  ];
+  function expectG0(api: { toJSON: () => unknown }) {
+    const rootStyle = styleOf(hostRootOf(api.toJSON()));
+    expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+    expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+    expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+    expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+  }
+  for (const t of TEMA_SMENY) {
+    it(`MIGRACIYA_G0_SMENA_TEMY_${t.name}`, async () => {
+      const p = ports();
+      const onboarding: OnboardingPort = { admission: 'W0', gate: 'stale' };
+      const tree = (scheme: ColorScheme) => (
+        <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+          <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+            <PilotApp {...p} onboarding={onboarding} />
+          </ThemeContext.Provider>
+        </SafeAreaInsetsContext.Provider>
+      );
+      const api = await render(tree(t.from));
+      await fireEvent.press(await screen.findByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      expectG0(api);
+      api.rerender(tree(t.to));
+      await screen.findByTestId('auth-email');
+      expectG0(api);
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      expectG0(api);
+    });
+  }
+
+  // (г) смена схемы на Erstinformation БЕЗ нажатия continue → Start
+  // отсутствует; затем continue → Start (r3-order-theme-autostart).
+  for (const t of TEMA_SMENY) {
+    it(`MIGRACIYA_PORYADOK_SMENA_TEMY_${t.name}`, async () => {
+      const p = ports();
+      const onboarding: OnboardingPort = { admission: 'W1A', gate: 'current' };
+      const tree = (scheme: ColorScheme) => (
+        <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+          <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+            <PilotApp {...p} onboarding={onboarding} />
+          </ThemeContext.Provider>
+        </SafeAreaInsetsContext.Provider>
+      );
+      const api = await render(tree(t.from));
+      await fireEvent.press(await screen.findByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('erstinformation-117');
+      expect(screen.queryByTestId('start_tabs')).toBeNull();
+      api.rerender(tree(t.to));
+      await screen.findByTestId('erstinformation-117');
+      expect(screen.queryByTestId('start_tabs')).toBeNull();
+      await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+      await screen.findByTestId('start_tabs');
+    });
+  }
+
+  // (д) порт читается в МОМЕНТ действия: rerender W1A→W0 до демо →
+  // недопуск, прежний путь B (r3-cached-admission: кэш admission не
+  // открывает маршрут).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`MIGRACIYA_RERENDER_W1A_W0_${S}`, async () => {
+      const p = ports();
+      const tree = (onboarding: OnboardingPort) => (
+        <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+          <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
+            <PilotApp {...p} onboarding={onboarding} />
+          </ThemeContext.Provider>
+        </SafeAreaInsetsContext.Provider>
+      );
+      const api = await render(tree({ admission: 'W1A', gate: 'current' }));
+      await fireEvent.press(await screen.findByTestId('first-run-continue'));
+      await screen.findByTestId('auth-email');
+      api.rerender(tree({ admission: 'W0', gate: 'current' }));
+      await screen.findByTestId('auth-email');
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+      expect(screen.queryByTestId('start_tabs')).toBeNull();
+    });
+  }
 });

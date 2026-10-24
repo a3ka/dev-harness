@@ -27,9 +27,14 @@ KEYS_RE=$(jq -r '.bootstrap_keys | join("|")' "$SRC_JSON")
 mapfile -t HARN < <(jq -r '.harness_v_dereve[]' "$SRC_JSON")
 mir() { # $1 = имя мира; $2 = имя репозитория (seed)
   local M="$WORK/$1"
-  mkdir -p "$M/inst/scripts" "$M/home/.config/dev-harness" "$M/bin" "$M/seed/$2"
+  mkdir -p "$M/inst/scripts" "$M/inst/.omp/extensions" "$M/inst/config" "$M/home/.config/dev-harness" "$M/bin" "$M/seed/$2"
   cp "$SUBJ" "$M/inst/scripts/connect_project.sh"
-  printf '#!/bin/sh\nprintf "%%s\\n" "$@" > %s/workshop.argv\nprintf "launch\\n" >> %s/workshop.calls\n' "$M" "$M" > "$M/inst/workshop"
+  # 136 v2 (Rev136-B2): минимальная установка несёт ДЕЙСТВИТЕЛЬНЫЕ страж и конфиг
+  # из дерева — дверь 136 fail-closed при их отсутствии, честный субъект обязан
+  # проходить; отсутствие guard/config в мире больше не маскирует отступления.
+  cp "$ROOT/.omp/extensions/path-guard.ts" "$M/inst/.omp/extensions/path-guard.ts"
+  cp "$ROOT/config/agent_models.json" "$M/inst/config/agent_models.json"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > %s/workshop.argv\nprintf "%%s\\0" "$@" > %s/workshop.argv0\nprintf "launch\\n" >> %s/workshop.calls\n' "$M" "$M" "$M" > "$M/inst/workshop"
   printf '#!/bin/sh\nif [ "$1" = --version ]; then echo omp/v10; exit 0; fi\nexit 0\n' > "$M/bin/omp"
   printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> %s/gh.argv\nexit 0\n' "$M" > "$M/bin/gh"
   cat > "$M/bin/git" <<G
@@ -68,7 +73,17 @@ OPIS0=$(cd "$M/seed/$NAME" && opis .)
 run_connect m1 "https://github.com/acme/$NAME.git"
 why=""; [ "$RC" = 0 ] || why="$why rc=$RC($(sed -n '1p' "$M/err"));"
 [ "$(calls "$M")" = 1 ] || why="$why workshop вызван $(calls "$M") раз, ждали 1;"
-[ "$(tail -n1 "$M/workshop.argv" 2>/dev/null)" = "$P" ] || why="$why последний аргумент workshop ≠ $P;"
+# 136 v2 (Rev136-B1): оракул границ argv — NUL-разделённый workshop.argv0, не
+# построчный tail (последняя СТРОКА сериализации ≠ последний аргумент при
+# многострочном MSG). Корень — ОТДЕЛЬНЫЙ аргумент ДО разделителя: либо форма 125
+# без хвоста [--yolo, P], либо форма 136 [--yolo, P, --, MSG] с непустым MSG
+# (последний argv — MSG). Корень только в MSG / только после -- / не передан /
+# чужой — КРАСНО; MSG, кончающийся путём проекта, — зелёный положительный.
+wa=(); [ -f "$M/workshop.argv0" ] && mapfile -d '' -t wa < "$M/workshop.argv0"
+okargv=0
+if [ "${#wa[@]}" = 2 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ]; then okargv=1; fi
+if [ "${#wa[@]}" = 4 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ] && [ "${wa[2]}" = -- ] && [ -n "${wa[3]}" ]; then okargv=1; fi
+[ "$okargv" = 1 ] || why="$why границы argv workshop ≠ [--yolo, $P] | [--yolo, $P, --, непустой MSG]: $(tr '\n' '|' < "$M/workshop.argv" 2>/dev/null);"
 v c01-zapusk-odin "$(ok_if "$why")" "$why"
 ok=0; grep -qxF -- '--yolo' "$M/workshop.argv" 2>/dev/null && ok=1
 v c02-yolo "$ok" "workshop запущен без --yolo (вход основной сессии — workshop --yolo): $(cat "$M/workshop.argv" 2>/dev/null | tr '\n' ' ')"
@@ -116,6 +131,34 @@ why=""; [ "$RC" = 0 ] || why="$why rc=$RC($(sed -n '1p' "$M/err"));"
 [ "$(cd "$P" && sha256sum harness.project.json .harness/HANDOFF.md .harness/NABLIUDENIA.md .harness/project-layer.json "$PIN_REL" "$ENV_REL" 2>&1)" = "$H1" ] || why="$why существующее перезаписано;"
 [ -s "$P/.harness/ROADMAP.md" ] || why="$why отсутствующее .harness/ROADMAP.md не досоздано;"
 [ "$(calls "$M")" = 1 ] || why="$why повторный запуск не дошёл до workshop ровно раз;"
+# 136 v2 (критик r1, B1): корень — во ВСЕХ ветвях выбора MSG и в мире 125
+# (где применимо). Субъекты этапа 125 (дерево/модель) не знают --task-file:
+# зонд условный — rc 2 «не поддерживает» клетку не красит (форма 125 уже
+# проверена c01); субъект 136-формы обязан пройти оба зонда с корнем
+# ОТДЕЛЬНЫМ аргументом ДО -- и текстом задания в MSG.
+printf 'Задание из NEXT_TASK мира 125: релиз 1.6, доложить план.\n' > "$P/.harness/NEXT_TASK.md"
+rm -f "$M/workshop.calls" "$M/workshop.argv0" "$M/workshop.argv"; run_connect m1 "$P"
+[ "$RC" = 0 ] || why="$why NEXT_TASK-вход rc=$RC($(sed -n '1p' "$M/err"));"
+[ "$(calls "$M")" = 1 ] || why="$why NEXT_TASK-вход: workshop $(calls "$M") раз;"
+wa=(); [ -f "$M/workshop.argv0" ] && mapfile -d '' -t wa < "$M/workshop.argv0"
+oknt=0
+if [ "${#wa[@]}" = 2 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ]; then oknt=1; fi
+if [ "${#wa[@]}" = 4 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ] && [ "${wa[2]}" = -- ] \
+   && [[ "${wa[3]}" == *'Задание из NEXT_TASK мира 125'* ]]; then oknt=1; fi
+[ "$oknt" = 1 ] || why="$why NEXT_TASK-вход: границы argv workshop ≠ [--yolo, $P] | [--yolo, $P, --, MSG задания]: $(tr '\n' '|' < "$M/workshop.argv" 2>/dev/null);"
+printf 'Задание из task-file мира 125: релиз 1.7, прогнать CI.\n' > "$WORK/task125.txt"
+rm -f "$M/workshop.calls" "$M/workshop.argv0" "$M/workshop.argv"; RC=0
+( cd "$M" && env -u HARNESS_PROJECT_LAYER_ROOT HOME="$M/home" PATH="$M/bin:$PATH" \
+    bash "$M/inst/scripts/connect_project.sh" --task-file "$WORK/task125.txt" "$P" > "$M/out" 2> "$M/err" ) || RC=$?
+if [ "$RC" != 2 ]; then
+  [ "$RC" = 0 ] || why="$why task-file-вход rc=$RC($(sed -n '1p' "$M/err"));"
+  [ "$(calls "$M")" = 1 ] || why="$why task-file-вход: workshop $(calls "$M") раз;"
+  wa=(); [ -f "$M/workshop.argv0" ] && mapfile -d '' -t wa < "$M/workshop.argv0"
+  oktf=0
+  if [ "${#wa[@]}" = 4 ] && [ "${wa[0]}" = --yolo ] && [ "${wa[1]}" = "$P" ] && [ "${wa[2]}" = -- ] \
+     && [[ "${wa[3]}" == *'Задание из task-file мира 125'* ]]; then oktf=1; fi
+  [ "$oktf" = 1 ] || why="$why task-file-вход: границы argv workshop ≠ [--yolo, $P, --, MSG задания]: $(tr '\n' '|' < "$M/workshop.argv" 2>/dev/null);"
+fi
 v c12-povtor "$(ok_if "$why")" "$why"
 # ── c13: объявления проекта сверху (свой профиль, свой HANDOFF, пин наследия) не трогаются ──
 NAME3="proj-$(rnd | cut -c1-4)"; mir m3 "$NAME3"; S="$WORK/m3/seed/$NAME3"
