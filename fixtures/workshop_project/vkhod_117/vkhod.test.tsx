@@ -720,4 +720,83 @@ describe('117 vkhod', () => {
       }
     });
   }
+
+  // ---- 117 v3 (миграция 117/3): допуск демо-маршрута в pilot-app ----
+  // Слово владельца 2026-10-24: маршрут First-Run → demo → Erstinformation
+  // → Start (с вкладками) допущен ТОЛЬКО при current ∧ admission из
+  // сессии; без admission/current — прежний Г0-путь (F03, поверхность
+  // 995). Допуск приходит ПОРТОМ (внешняя сессия), не литералом в
+  // pilot-app; оси — язык замороженной приёмки 118 (W0/W1A ×
+  // null/stale/current). Корни кадров F03 судят Г0-клетки выше; здесь —
+  // маршрут: прежний путь жив, Start закрыт без допуска, порядок
+  // First-Run → Erstinformation → Start (testID состава Start — из
+  // замороженной приёмки 118: start_tabs + четыре вкладки).
+  interface OnboardingPort {
+    readonly admission: 'W0' | 'W1A';
+    readonly gate: 'null' | 'stale' | 'current';
+  }
+
+  async function renderAppOnboarding(onboarding: OnboardingPort) {
+    return render(
+      <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
+        <ThemeContext.Provider value={{ scheme: 'dark', tokens: themeTokens.dark }}>
+          <PilotApp {...ports()} onboarding={onboarding} />
+        </ThemeContext.Provider>
+      </SafeAreaInsetsContext.Provider>,
+    );
+  }
+
+  // До демо-входа: прежний вход F03.01 жив (auth-email) — миграция не
+  // удаляет прежний путь ДО допуска.
+  async function toEmailOnboarding(onboarding: OnboardingPort) {
+    const api = await renderAppOnboarding(onboarding);
+    await fireEvent.press(await screen.findByTestId('first-run-continue'));
+    await screen.findByTestId('auth-email');
+    return api;
+  }
+
+  // Без admission (W0) при current: демо-вход — прежний путь B (F03.02
+  // code), Erstinformation/Start не возникают.
+  it('MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W0', gate: 'current' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Admission есть, gate не current (null): прежний путь, Start закрыт.
+  it('MIGRACIYA_W1A_NULL_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'null' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Admission есть, gate stale (ушедшая версия — OUTDATED по 107):
+  // прежний путь, Start закрыт.
+  it('MIGRACIYA_W1A_STALE_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'stale' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Допуск W1A ∧ current: маршрут First-Run → demo → Erstinformation →
+  // continue → Start (порядок: Start не раньше Erstinformation; прежний
+  // код-кадр покинут). Состав Start — testID приёмки 118.
+  it('MIGRACIYA_W1A_CURRENT_MARSHRUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'current' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('erstinformation-117');
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+    expect(screen.queryByTestId('auth-code')).toBeNull();
+    await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+    await screen.findByTestId('start_tabs');
+    for (const tab of ['start_tab_start', 'start_tab_vorgaenge', 'start_tab_schutz', 'start_tab_post']) {
+      expect(screen.getByTestId(tab)).toBeTruthy();
+    }
+  });
 });
