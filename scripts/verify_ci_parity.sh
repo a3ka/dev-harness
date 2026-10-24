@@ -190,6 +190,23 @@ if [ -e "$ROOT/harness.project.json" ]; then
     .harness/*)
       [ -f "$ROOT/$_sloi" ] \
         || { printf 'NOT_IMPLEMENTED: объявленный слой проекта потерян: %s\n' "$ROOT/$_sloi" >&2; exit 2; }
+      # 136 v2-усиление (адверсарий B1, вердикт keep136adv): «ПОД .harness/» —
+      # свойство ФАЙЛА слоя, а не строкового префикса. Канонизированный путь
+      # (развязка `..` и symlink) обязан лежать ВНУТРИ канонического
+      # $ROOT/.harness: выход через `..` или symlink на файл вне .harness/ —
+      # тот же ПОТЕРЯННЫЙ объявленный слой (повреждённое состояние И-8):
+      # rc 2 с именем ОБЪЯВЛЕННОГО пути; молчаливый проектный режим по
+      # префиксу или fallback на корневой config/ запрещён. Symlink на файл
+      # ВНУТРИ .harness/ канонизируется внутрь — проектный режим (контроль).
+      _kanon_h="$(cd "$ROOT/.harness" 2>/dev/null && pwd -P)" || true
+      [ -n "$_kanon_h" ] \
+        || { printf 'NOT_IMPLEMENTED: объявленный слой вне .harness/: %s\n' "$ROOT/$_sloi" >&2; exit 2; }
+      _kanon_s="$(realpath -m -- "$ROOT/$_sloi")" \
+        || { printf 'NOT_IMPLEMENTED: объявленный слой не канонизируется: %s\n' "$ROOT/$_sloi" >&2; exit 2; }
+      case "$_kanon_s" in
+        "${_kanon_h}"/*) : ;;
+        *) printf 'NOT_IMPLEMENTED: объявленный слой вне .harness/: %s\n' "$ROOT/$_sloi" >&2; exit 2 ;;
+      esac
       _wp_reg="$(jq -r '.workflowPaths.registry // ".harness/registry"' "$ROOT/harness.project.json" 2>/dev/null)"
       EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt" ;;
     *) : ;; # собственный профиль харнесса — режим 020 дословно
