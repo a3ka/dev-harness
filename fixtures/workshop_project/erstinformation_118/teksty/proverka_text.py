@@ -17,6 +17,9 @@
 # production-корень ../pilot-app, не модель-копию (арбитраж п.1.1 →
 # MODEL_KAK_DOKAZATELSTVO). В CI продукта пускается ПОСЛЕ валидатора 132
 # (тот вызывает Maestro), БЕЗ промежуточной правки кадров.
+# Заголовок флоу адресует пакет продукта: appId обязан равняться
+# expo.android.package из mobile/app.json (дефект батареи 118: чужой demo-пакет
+# вместо com.complior.mobile ронял Maestro «Package … is not installed»).
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -69,6 +72,21 @@ def id_iz(arg):
     t = arg.partition('id:')[2].strip()
     t = t.split('}')[0].split(',')[0]
     return t.strip().strip("'\"")
+
+def paket_produkta(repo):
+    """Пакет продукта — из mobile/app.json (expo.android.package), не литерал
+    проверяющего: ожидание снимается из проверяемого репо до суда флоу."""
+    app = json.loads((repo / 'mobile/app.json').read_text(encoding='utf-8'))
+    return app['expo']['android']['package']
+
+
+def appid_flow(path):
+    """appId из заголовка флоу (строки до первого '---')."""
+    zagolovok = path.read_text(encoding='utf-8').partition('---')[0]
+    for line in zagolovok.splitlines():
+        if line.startswith('appId:'):
+            return line.partition(':')[2].strip()
+    return None
 
 
 def sud_flow(shagi, snimki):
@@ -278,12 +296,17 @@ def main():
         manifest = json.loads((pack / forma['kadry']).read_text(
             encoding='utf-8'))
         shagi = shagi_flow(repo / forma['e2e_scenarij'])
+        paket = paket_produkta(repo)
+        appid = appid_flow(repo / forma['e2e_scenarij'])
     except (OSError, ValueError, KeyError) as e:
         print('PROVERKA_NECHITAEM: %r' % e, file=sys.stderr)
         return 2
     kadry = manifest['kadry']
     snimki = list(dict.fromkeys(k['snimok'] for k in kadry))
     otkazy = []
+    if appid != paket:
+        otkazy.append(('FLOW_APPID_NE_PAKET',
+                       'appId=%s paket=%s' % (appid, paket)))
     # Ровно 16 кадров манифеста (adv-118 A2): 15 кадров «проходят» сверку,
     # но манифест пачки обязан нести полный состав 8 snimok × dark/light.
     fakt_kadry = sorted((k.get('snimok'), k.get('tema')) for k in kadry)

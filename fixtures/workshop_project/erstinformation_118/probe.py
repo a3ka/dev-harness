@@ -207,6 +207,11 @@ def build_repo(src, tmp, pack):
     ma = repo / 'mobile/.maestro'
     ma.mkdir(parents=True)
     (ma / 'erstinformation.yaml').write_text(src['flow'], encoding='utf-8')
+    # app.json: пакет продукта — источник ожидания appId флоу для proverka
+    # происхождения (дефект батареи 118); как в живом продукте.
+    (repo / 'mobile/app.json').write_text(
+        json.dumps(src['app_manifest'], ensure_ascii=False, indent=1),
+        encoding='utf-8')
     # stand-in android-e2e (replay) + носители записи: кадры в Maestro-раскладку
     # кладёт ИСПОЛНЕННАЯ команда priemka.e2e — стартуем с пустым kadry_dir
     (repo / 'mobile/e2e-erstinformation/e2e.sh').write_text(
@@ -403,9 +408,23 @@ def mut_proiskhozdenie_flow_bez_perehoda(pack, forma, repo, src):
     """Флоу с именами кадров, но без переходов и селекторов экрана."""
     _zapusti_replay(repo)
     (repo / 'mobile/.maestro/erstinformation.yaml').write_text(
-        'appId: com.complior.demo\n---\n- launchApp\n' +
+        'appId: com.complior.mobile\n---\n- launchApp\n' +
         ''.join('- takeScreenshot: ' + k['snimok'] + '\n'
                 for k in src['kadry_manifest']['kadry'] if k['tema'] == 'dark'))
+
+
+def mut_proiskhozdenie_flow_appid_chuzhoj(pack, forma, repo, src):
+    """Флоу адресует чужой пакет (дефект батареи 118, живой android-e2e
+    PR Complior-mob#124): appId фиктивного пакета при пакете продукта
+    com.complior.mobile — Maestro падает «Package … is not installed»
+    до первого шага; происхождение краснеет именованной причиной."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/erstinformation.yaml'
+    t = p.read_text(encoding='utf-8')
+    staryj = 'appId: com.complior.mobile\n'
+    novyj = 'appId: com.fiktivnyj.paket\n'
+    assert t.startswith(staryj)
+    p.write_text(novyj + t[len(staryj):], encoding='utf-8')
 
 
 def mut_proiskhozdenie_selektor_bez_ekrana(pack, forma, repo, src):
@@ -671,6 +690,7 @@ MUTACII = {
     'proiskhozdenie-chistyj': mut_proiskhozdenie_chistyj,
     'proiskhozdenie-byte-kopija': mut_proiskhozdenie_byte_kopija,
     'proiskhozdenie-flow-bez-perehoda': mut_proiskhozdenie_flow_bez_perehoda,
+    'proiskhozdenie-flow-appid-chuzhoj': mut_proiskhozdenie_flow_appid_chuzhoj,
     'proiskhozdenie-selektor-bez-ekrana': mut_proiskhozdenie_selektor_bez_ekrana,
     'proiskhozdenie-selektor-ne-kadra': mut_proiskhozdenie_selektor_ne_kadra,
     'proiskhozdenie-bez-demo': mut_proiskhozdenie_bez_demo,
