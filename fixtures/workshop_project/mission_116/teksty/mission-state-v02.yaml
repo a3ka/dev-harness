@@ -1,0 +1,17 @@
+appId: com.complior.demo
+name: mission-state-v02
+---
+# 116 v3, независимый сценарий состояния V02 (кадр без PNG): собственный
+# запуск, вход из Start, жест черновика, отправка; ответ агента прерывается
+# runtime (responseState='interrupted', ось клетки INTERRUPTED_NOT_
+# COMPLETED). Видимое ожидание: блок прерванного ответа виден, маркер
+# completed не показан.
+- launchApp
+- assertVisible: {id: start_tab_start}
+- tapOn: {id: start_tab_start}
+- tapOn: {id: mission_composer_input}
+- inputText: 'Ich habe ein Auto gekauft.'
+- hideKeyboard
+- tapOn: {id: mission_send}
+- assertVisible: {id: mission_response_interrupted}
+- assertNotVisible: {id: mission_response_completed}

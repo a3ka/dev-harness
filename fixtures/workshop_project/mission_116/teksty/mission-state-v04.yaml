@@ -1,0 +1,17 @@
+appId: com.complior.demo
+name: mission-state-v04
+---
+# 116 v3, независимый сценарий состояния V04 (кадр без PNG): собственный
+# запуск, вход из Start, жест черновика, отправка и ПОВТОР той же отправки
+# (тот же client_message_id; ось клетки ALREADY_ACCEPTED_NO_DUPE — дубль
+# не создаётся). Видимое ожидание: блок «уже принято»
+# (mission_already_accepted).
+- launchApp
+- assertVisible: {id: start_tab_start}
+- tapOn: {id: start_tab_start}
+- tapOn: {id: mission_composer_input}
+- inputText: 'Ich habe ein Auto gekauft.'
+- hideKeyboard
+- tapOn: {id: mission_send}
+- tapOn: {id: mission_send}
+- assertVisible: {id: mission_already_accepted}

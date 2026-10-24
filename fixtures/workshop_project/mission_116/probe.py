@@ -153,6 +153,10 @@ def load_source():
     carriers = {
         'teksty/proverka_text.py': 'proverka_tekst',
         'teksty/flow.yaml': 'flow',
+        'teksty/mission-state-f05-07.yaml': 'flow_state_f05_07',
+        'teksty/mission-state-v01.yaml': 'flow_state_v01',
+        'teksty/mission-state-v02.yaml': 'flow_state_v02',
+        'teksty/mission-state-v04.yaml': 'flow_state_v04',
         'teksty/testids.stand-in.tsx': 'testids_tekst',
         'teksty/app_start.stand-in.tsx': 'app_start_tekst',
         'teksty/e2e_text.sh': 'e2e_skript',
@@ -213,6 +217,13 @@ def build_repo(src, tmp, pack):
     ma = repo / 'mobile/.maestro'
     ma.mkdir(parents=True)
     (ma / 'mission.yaml').write_text(src['flow'], encoding='utf-8')
+    # 116 v3: независимые сценарии состояний — дочерние файлы флоу (runFlow
+    # раскрывается и проверкой происхождения, и stand-in e2e)
+    for imja, kljuch in (('mission-state-f05-07.yaml', 'flow_state_f05_07'),
+                         ('mission-state-v01.yaml', 'flow_state_v01'),
+                         ('mission-state-v02.yaml', 'flow_state_v02'),
+                         ('mission-state-v04.yaml', 'flow_state_v04')):
+        (ma / imja).write_text(src[kljuch], encoding='utf-8')
     # stand-in android-e2e (replay) + носители записи: кадры в Maestro-раскладку
     # кладёт ИСПОЛНЕННАЯ команда priemka.e2e — стартуем с пустым kadry_dir
     (repo / 'mobile/e2e-mission/e2e.sh').write_text(
@@ -472,8 +483,18 @@ def mut_proiskhozdenie_bez_draft_gesta(pack, forma, repo, src):
     _zapusti_replay(repo)
     p = repo / 'mobile/.maestro/mission.yaml'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        '- inputText: {id: mission_composer_input, '
-        "text: 'Ich habe ein Auto gekauft.'}\n", ''), encoding='utf-8')
+        "- inputText: 'Ich habe ein Auto gekauft.' # mission_composer_input\n",
+        ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_gest_kommentarij(pack, forma, repo, src):
+    """Жест-комментарий вместо жеста (S1 Rev116c): tapOn композера убран,
+    комментарий # mission_composer_input в inputText оставлен — ввод без
+    фокуса не является жестом черновика."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: mission_composer_input}\n', ''), encoding='utf-8')
 
 
 def mut_proiskhozdenie_bez_vlozhenija(pack, forma, repo, src):
@@ -506,9 +527,10 @@ def mut_bezpng_token_vne_audita(pack, forma, repo, src):
 
 
 def mut_bezpng_bez_testid_v_potoke(pack, forma, repo, src):
-    """testID состояния объявлен, но в потоке не наблюдается."""
+    """testID состояния объявлен, но в потоке не наблюдается: вырезан из
+    СВОЕГО сценария (v3: состояния живут в дочерних файлах)."""
     _zapusti_replay(repo)
-    p = repo / 'mobile/.maestro/mission.yaml'
+    p = repo / 'mobile/.maestro/mission-state-v01.yaml'
     p.write_text(p.read_text(encoding='utf-8').replace(
         '- assertVisible: {id: mission_queued_offline}\n', ''),
         encoding='utf-8')
@@ -610,6 +632,131 @@ def mut_bezpng_chip_stroka(pack, forma, repo, src):
     """Суффикс чипа «wird gelesen» переизобретён (не байт-равен D2.2.5.1)."""
     _perepishi_ekran(repo, "const CHIP_LESET_SUFFIX = ' · wird gelesen';",
                      "const CHIP_LESET_SUFFIX = ' · wird gelesen.';")
+
+def _perefajl(repo, imja):
+    return repo / 'mobile/.maestro' / imja
+
+
+def mut_proiskhozdenie_runflow_bez_fajla(pack, forma, repo, src):
+    """Корневой флоу ссылается на несуществующий дочерний сценарий:
+    runFlow детей обязан раскрываться в файлы (запуск из e2e)."""
+    _zapusti_replay(repo)
+    _perefajl(repo, 'mission-state-v01.yaml').unlink()
+
+
+def mut_proiskhozdenie_runflow_cikl(pack, forma, repo, src):
+    """Цикл runFlow (ребёнок -> ребёнок): раскрытие обязано отказаться
+    fail-closed, а не зациклиться."""
+    _zapusti_replay(repo)
+    _perefajl(repo, 'mission-state-v01.yaml').write_text(
+        'appId: com.complior.demo\n---\n- runFlow: mission-state-v02.yaml\n',
+        encoding='utf-8')
+    _perefajl(repo, 'mission-state-v02.yaml').write_text(
+        'appId: com.complior.demo\n---\n- runFlow: mission-state-v01.yaml\n',
+        encoding='utf-8')
+
+
+def mut_proiskhozdenie_rebyonok_bez_zapuska(pack, forma, repo, src):
+    """Сценарий состояния без СОБСТВЕННОГО запуска (рассчитывает на
+    остаточное состояние корневого прогона)."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v01.yaml')
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- launchApp\n', ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_rebyonok_bez_start_vhoda(pack, forma, repo, src):
+    """Сценарий состояния без входа из Start (deep link / готовый кадр)."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v02.yaml')
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: start_tab_start}\n', ''), encoding='utf-8')
+
+
+def mut_proiskhozdenie_khvost_v_korne(pack, forma, repo, src):
+    """Линейный хвост исключающих состояний в корневом флоу (дефект B1
+    Rev116c/REPORT-116 §1.2): состояния обязаны жить в своих сценариях."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    for ref in ('mission-state-f05-07.yaml', 'mission-state-v01.yaml',
+                'mission-state-v02.yaml', 'mission-state-v04.yaml'):
+        t = t.replace('- runFlow: %s\n' % ref, '')
+    t += ('- assertVisible: {id: mission_frame_f05_07}\n'
+          '- assertVisible: {id: mission_queued_offline}\n'
+          '- assertVisible: {id: mission_response_interrupted}\n'
+          '- assertVisible: {id: mission_already_accepted}\n')
+    p.write_text(t, encoding='utf-8')
+
+
+def mut_proiskhozdenie_bez_upload_perehoda(pack, forma, repo, src):
+    """Негативная проверка подписи без наблюдаемого завершения upload
+    (дефект B1: чип не снимается ничем)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: attachment-complete-UPL-1}\n', ''),
+        encoding='utf-8')
+
+
+def mut_proiskhozdenie_chip_neg_do_uploada(pack, forma, repo, src):
+    """assertNotVisible подписи ДО жеста завершения upload: порядок
+    фазы V03 нарушен (pending обязан наблюдаться как pending)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    neg = '- assertNotVisible: {id: mission_chip_wird_gelesen}\n'
+    upload = '- tapOn: {id: attachment-complete-UPL-1}\n'
+    assert t.count(neg) == 1 and t.count(upload) == 1
+    t = t.replace(neg, '').replace(upload, neg + upload)
+    p.write_text(t, encoding='utf-8')
+
+
+def mut_proiskhozdenie_chip_posle_uploada(pack, forma, repo, src):
+    """Единственный позитивный assert подписи стоит ПОСЛЕ upload:
+    pending не наблюдался как pending."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    pos = '- assertVisible: {id: mission_chip_wird_gelesen}\n'
+    upload = '- tapOn: {id: attachment-complete-UPL-1}\n'
+    assert t.count(pos) == 1
+    t = t.replace(pos, '').replace(upload, upload + pos)
+    p.write_text(t, encoding='utf-8')
+
+
+
+def mut_proiskhozdenie_bez_chip_pending(pack, forma, repo, src):
+    """Pending-подпись не наблюдается как pending: позитивного assert
+    нет, фаза V03 (pending до upload) не доказана."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        '- assertVisible: {id: mission_chip_wird_gelesen}\n', ''),
+        encoding='utf-8')
+
+
+def mut_proiskhozdenie_bez_v03_posle_uploada(pack, forma, repo, src):
+    """Контейнер V03 не наблюдается ПОСЛЕ успешного upload (подпись
+    уходит, контейнер вложения обязан остаться)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    upload = '- tapOn: {id: attachment-complete-UPL-1}\n'
+    kontener = '- assertVisible: {id: mission_frame_f05_v03}\n'
+    assert t.count(upload + kontener) == 1
+    p.write_text(t.replace(upload + kontener, upload), encoding='utf-8')
+
+
+def mut_bezpng_bez_scenarija(pack, forma, repo, src):
+    """Состояние без PNG без привязки к своему сценарию (manifest)."""
+    _zapusti_replay(repo)
+    opis = json.loads(src['sostojanija_bez_png'])
+    for k in opis['kadry_bez_png']:
+        if k['id'] == 'F05.V04':
+            k.pop('scenarij', None)
+    (pack / 'sostojanija_bez_png.json').write_text(
+        json.dumps(opis, ensure_ascii=False, indent=1), encoding='utf-8')
 
 PROBA_PROD = Path('mobile/src/features/conversation/__tests__/'
                   'mission-116.test.tsx')
@@ -816,6 +963,24 @@ MUTACII = {
     'bezpng-render-stroka': mut_bezpng_render_stroka,
     'bezpng-render-literal': mut_bezpng_render_literal,
     'bezpng-chip-stroka': mut_bezpng_chip_stroka,
+    'proiskhozdenie-gest-kommentarij': mut_proiskhozdenie_gest_kommentarij,
+    'proiskhozdenie-runflow-bez-fajla': mut_proiskhozdenie_runflow_bez_fajla,
+    'proiskhozdenie-runflow-cikl': mut_proiskhozdenie_runflow_cikl,
+    'proiskhozdenie-rebyonok-bez-zapuska':
+        mut_proiskhozdenie_rebyonok_bez_zapuska,
+    'proiskhozdenie-rebyonok-bez-start-vhoda':
+        mut_proiskhozdenie_rebyonok_bez_start_vhoda,
+    'proiskhozdenie-khvost-v-korne': mut_proiskhozdenie_khvost_v_korne,
+    'proiskhozdenie-bez-upload-perehoda':
+        mut_proiskhozdenie_bez_upload_perehoda,
+    'proiskhozdenie-chip-neg-do-uploada':
+        mut_proiskhozdenie_chip_neg_do_uploada,
+    'proiskhozdenie-chip-posle-uploada':
+        mut_proiskhozdenie_chip_posle_uploada,
+    'proiskhozdenie-bez-chip-pending': mut_proiskhozdenie_bez_chip_pending,
+    'proiskhozdenie-bez-v03-posle-uploada':
+        mut_proiskhozdenie_bez_v03_posle_uploada,
+    'bezpng-bez-scenarija': mut_bezpng_bez_scenarija,
     'povedenie-proba-otsutstvuet': mut_povedenie_proba_otsutstvuet,
     'povedenie-proba-podmenena': mut_povedenie_proba_podmenena,
     'ci-shag-otsutstvuet': mut_ci_shag_otsutstvuet,

@@ -9,7 +9,11 @@ Ein Mission-Gespräch: Text und Anhang im selben mission_id; Entwurf bleibt bei
 Anhang, Offline-Fehler und Wiederholung; already_accepted erzeugt kein Duplikat;
 interrupted wird nie als fertige Antwort gezeigt; neues Thema = neuer Intent ohne
 privaten Kontext; widerrufene Quelle öffnet nicht aus altem Exchange.
-F05.03: Tab-Leiste überdeckt die Vorlage — bbox nur über dem lesbaren Teil.
+F05.03: Design-Paket 3 (8716729) hebt den Composer über die Tab-Leiste —
+Maske [0,540,390,824] entfernt, bbox über die ganze Vorlage (v3-Pin).
+Die vier PNG-losen Zustände erreicht JEDES sein eigenes Szenario (runFlow:
+Eigener Start, Vorbedingung, sichtbare Erwartung), kein linearer Schwanz;
+Kommentar im Flow ist kein Gestenbeweis — tapOn + inputText zählt.
 ## Приёмочный критерий
 android-e2e rc 0; jeder Bildscore aus 123 ist mindestens sein Manifest-Grenzwert.
 Vor jedem Bild steht ein Übergang und ein eigener Selektor; keine Bytekopie.
