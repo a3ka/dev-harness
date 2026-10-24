@@ -65,7 +65,7 @@ AUDIT_TOKENOV = {
 # байт-идентичен артефакту батареи teksty/povedenie.test.stand-in.tsx
 # (sha256 ниже; носитель — source.json.povedenie_proba).
 PROBA_PUT = 'mobile/src/features/conversation/__tests__/mission-116.test.tsx'
-PROBA_SHA256 = '873cf35be05a8ae8dcfff682100c992c9ee59096c0fe8a261f7eae56de871bdb'
+PROBA_SHA256 = 'dab2efebea58f15c92a76989436d4a23d97fc72d9238f9c7efa816606438dac9'
 
 # Проводка product-CI (0259fb00 в; арбитраж 4cadfc54 а): страж ФОРМЫ —
 # ПИН БЛОКА ШАГА, замкнутое множество. В mobile.yml ровно один блок
