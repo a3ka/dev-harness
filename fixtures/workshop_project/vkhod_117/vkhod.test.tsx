@@ -731,15 +731,20 @@ describe('117 vkhod', () => {
   // маршрут: прежний путь жив, Start закрыт без допуска, порядок
   // First-Run → Erstinformation → Start (testID состава Start — из
   // замороженной приёмки 118: start_tabs + четыре вкладки).
+  // Оба поля OPTIONAL — как у порта модели (критик v3, блокер 1:
+  // «отсутствует» — законный вход оси, не вне-алфавитная атака).
   interface OnboardingPort {
-    readonly admission: 'W0' | 'W1A';
-    readonly gate: 'null' | 'stale' | 'current';
+    readonly admission?: 'W0' | 'W1A';
+    readonly gate?: 'null' | 'stale' | 'current';
   }
 
-  async function renderAppOnboarding(onboarding: OnboardingPort) {
+  async function renderAppOnboarding(
+    onboarding: OnboardingPort,
+    scheme: ColorScheme = 'dark',
+  ) {
     return render(
       <SafeAreaInsetsContext.Provider value={{ top: 47, right: 0, bottom: 0, left: 0 }}>
-        <ThemeContext.Provider value={{ scheme: 'dark', tokens: themeTokens.dark }}>
+        <ThemeContext.Provider value={{ scheme, tokens: themeTokens[scheme] }}>
           <PilotApp {...ports()} onboarding={onboarding} />
         </ThemeContext.Provider>
       </SafeAreaInsetsContext.Provider>,
@@ -748,8 +753,11 @@ describe('117 vkhod', () => {
 
   // До демо-входа: прежний вход F03.01 жив (auth-email) — миграция не
   // удаляет прежний путь ДО допуска.
-  async function toEmailOnboarding(onboarding: OnboardingPort) {
-    const api = await renderAppOnboarding(onboarding);
+  async function toEmailOnboarding(
+    onboarding: OnboardingPort,
+    scheme: ColorScheme = 'dark',
+  ) {
+    const api = await renderAppOnboarding(onboarding, scheme);
     await fireEvent.press(await screen.findByTestId('first-run-continue'));
     await screen.findByTestId('auth-email');
     return api;
@@ -799,4 +807,114 @@ describe('117 vkhod', () => {
       expect(screen.getByTestId(tab)).toBeTruthy();
     }
   });
+  // ---- 117 v3 правка по FAIL критика v3: непокрытые входы допуска ----
+  // Блокер 1: поля порта OPTIONAL — «отсутствует admission/gate» есть
+  // законный вход оси (не атака); сочетание W0×stale и СВЕТЛАЯ тема не
+  // судились. Полная матрица шва: admission ∈ {отсутствует, W0, W1A} ×
+  // gate ∈ {отсутствует, null, stale, current} × тема {dark, light};
+  // Erstinformation открывает ТОЛЬКО W1A ∧ current — в обеих темах.
+
+  // Сессия {gate:'current'} БЕЗ admission: отсутствие поля — НЕ допуск
+  // (ловит умолчание-литерал `?? 'W1A'`).
+  it('MIGRACIYA_ADMISSION_OTSUT_CURRENT_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ gate: 'current' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Сессия {admission:'W1A'} БЕЗ gate: отсутствие gate — НЕ current
+  // (ловит умолчание-литерал `?? 'current'`).
+  it('MIGRACIYA_W1A_GATE_OTSUT_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Непокрытое сочетание W0×stale: оба поля заданы, допуск НЕТ.
+  it('MIGRACIYA_W0_STALE_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W0', gate: 'stale' });
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // W1A×stale в СВЕТЛОЙ теме: недопуск не зависит от схемы.
+  it('MIGRACIYA_W1A_STALE_SVETLAYA_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'stale' }, 'light');
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // W0×null в СВЕТЛОЙ теме: светлая схема сама по себе НЕ допуск
+  // (ловит обход `|| (onboarding && scheme === 'light')`).
+  it('MIGRACIYA_W0_NULL_SVETLAYA_PREZHNIJ_PUT', async () => {
+    await toEmailOnboarding({ admission: 'W0', gate: 'null' }, 'light');
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('auth-code');
+    expect(screen.queryByTestId('erstinformation-117')).toBeNull();
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+  });
+
+  // Допуск W1A ∧ current в СВЕТЛОЙ теме: маршрут открывается в обеих
+  // темах (тема — не ось допуска; ловит сужение `&& scheme === 'dark'`).
+  it('MIGRACIYA_W1A_CURRENT_SVETLAYA_MARSHRUT', async () => {
+    await toEmailOnboarding({ admission: 'W1A', gate: 'current' }, 'light');
+    await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+    await screen.findByTestId('erstinformation-117');
+    expect(screen.queryByTestId('start_tabs')).toBeNull();
+    expect(screen.queryByTestId('auth-code')).toBeNull();
+    await fireEvent.press(screen.getByTestId('erstinfo_continue_start'));
+    await screen.findByTestId('start_tabs');
+    for (const tab of ['start_tab_start', 'start_tab_vorgaenge', 'start_tab_schutz', 'start_tab_post']) {
+      expect(screen.getByTestId(tab)).toBeTruthy();
+    }
+  });
+
+  // Блокер 2: Г0 наблюдается на экземпляре с ПОДКЛЮЧЁННЫМ портом
+  // onboarding (недопуск W0×current) — корни F03.01 и F03.02 несут
+  // литералы 995 #FFFFFF 48/16/16 в ОБЕИХ схемах: подключение порта
+  // само по себе не рестайлит корень (ловит условный рестайл
+  // `onboarding ? {black, padding 0} : null`).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`MIGRACIYA_G0_F03_ONBOARDING_${S}`, async () => {
+      const api = await toEmailOnboarding({ admission: 'W0', gate: 'current' }, scheme);
+      let rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+      await fireEvent.press(screen.getByTestId('auth-demo-entry'));
+      await screen.findByTestId('auth-code');
+      rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
+
+  // Г0 при ДОПУСКЕ (W1A ∧ current подключён): прежний вход F03.01 жив
+  // и после продолжения из First-Run — корень кадра email остаётся
+  // поверхностью 995 (ловит рестайл корня только при допуске).
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`MIGRACIYA_G0_F03_DOPUSK_${S}`, async () => {
+      const api = await toEmailOnboarding({ admission: 'W1A', gate: 'current' }, scheme);
+      const rootStyle = styleOf(hostRootOf(api.toJSON()));
+      expect(rootStyle.backgroundColor).toBe(SURFACE_995_BG);
+      expect(rootStyle.paddingTop).toBe(SURFACE_995_PAD_TOP);
+      expect(rootStyle.paddingHorizontal).toBe(SURFACE_995_PAD_H);
+      expect(rootStyle.paddingBottom).toBe(SURFACE_995_PAD_BOTTOM);
+    });
+  }
 });
