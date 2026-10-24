@@ -1,5 +1,10 @@
 # Контракт 117 — mob: НАШ splash (нативный знак + JS-оверлей, обе схемы) + иконка (CMP-MOB-006)
 
+ВЕРСИЯ: v3 (миграция 117/3 — слово владельца 2026-10-24 ~10:15 UTC «а» по
+форку n118-migraciya-117; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в теле изменяющего
+коммита). Дельта к v2 — ТОЛЬКО раздел «Миграция 117 v3» и свод
+«Закрытых перечней клеток» с деревом; всё прочее v2 действует дословно.
+
 КЛАСС: КОДОВЫЙ. Предмет — слова владельца (через консультанта): splash
 ~18:18 UTC «нативный splash (expo-splash-screen) и, ЕСЛИ НУЖНО, JS-экран
 сразу после него совпадают со Splash.png» (иконка = complior-app-icon,
@@ -121,6 +126,53 @@ JS-КАДР splash (state-machine — оверлей НЕ расширяет Fra
 (предмет 118); 116; копия-синька CMP-MOB-089; device evidence CMP-MOB-090;
 реальный IdP/бэкенд; анимация splash; шрифтовой ассет DM Sans.
 
+## Миграция 117 v3 (узкая санкция: демо-маршрут pilot-app для 118)
+
+Слово владельца 2026-10-24 ~10:15 UTC «а» по форку n118-migraciya-117.
+ЕДИНСТВЕННОЕ разрешённое изменение предмета v2: production
+`mobile/src/bootstrap/pilot-app.tsx` ДОПУСКАЕТ маршрут
+First-Run → demo → Erstinformation → Start (с вкладками) — ТОЛЬКО при
+доказанном допуске: admission 'W1A' ИЗ СЕССИИ пользователя (источник
+внешний по отношению к pilot-app; литерал допуска в pilot-app запрещён)
+∧ gate 'current' (полный CURRENT_CONFIRMED-снимок 107: применимость
+REQUIRED, точная версия документа, evidence; ВТОРОЙ gate не вводится —
+источник допуска один, 107/118).
+
+Без admission ИЛИ без current — прежний путь B: демо-вход ведёт в кадр
+code (F03.02) прежней семантикой auth.begin; вход F03.01 (email) после
+First-Run — без изменений; корни кадров F03.01/F03.02 остаются
+поверхностью 995: #FFFFFF, отступы 48/16/16 в ОБЕИХ схемах (клетки Г0
+`RESTYLE_GUARD_995_F03_{DARK,LIGHT}`).
+
+Порядок маршрута: Start возникает ТОЛЬКО продолжением (continue) из
+Erstinformation; Erstinformation — ТОЛЬКО демо-входом при допуске.
+Пространство кадров pilot-app расширяется ТОЛЬКО кадрами
+'erstinformation' и 'start'; стартовое значение frame — 'first-run'
+как на B; JS-оверлей splash — по-прежнему НЕ кадр state-machine.
+
+Состав экранов Erstinformation (кадры F02.03/F02.08 по макетам) и Start
+(вкладки, testID приёмки 118) — предмет 118; 117 v3 судит в pilot-app
+только допуск, порядок и сохранность прежнего пути. Шов клеток миграции
+— порты PilotApp (onboarding: admission/gate; оси W0/W1A ×
+null/stale/current — язык замороженной приёмки 118); production-источник
+допуска — сессия (проба композиции с внешним источником — инвариант 5
+frozen 118/1, зона implementer 118).
+
+Охрана — клетки-дельта MIGRACIYA_* (перечень — «Закрытые перечни
+клеток») и стабы migracija-admission-literal («admission обходится»),
+migracija-gate-ignor, migracija-start-pryamo (порядок),
+migracija-f03-put-udalen («Г0 ослаблен»: прежний путь удалён миграцией).
+
+НЕ разрешено: ослабление приёмки 118; рестайл корня F03; изменение входа
+(итог C ≡ B по `mobile/src/features/auth/` — приёмка v2); ослабление
+инвариантов 1–9 v2 и их клеток; правка pilot-app ДО заморозки 117/3
+(команда проверки тега — frozen 118 §Зависимость замороженного корня:
+`git fetch origin --tags && git rev-parse --quiet --verify
+refs/tags/frozen/contracts/117/3`). ЗОНА implementer 118 получает
+`mobile/src/bootstrap/pilot-app.tsx` ПОСЛЕ замороженной 117/3; батарея
+117 (обе пробы) на мигрировавшем C обязана оставаться зелёной во всех
+клетках, стабы — красными на своих ветвях.
+
 ## Инварианты
 
 1. `mobile/app.json`: `expo.icon` — растр канона complior-app-icon;
@@ -224,10 +276,13 @@ source.json (сняты с read-only docs/ B ДО субъекта, правил
 одна клетка не читает значения у субъекта; эталоны артбордов припинены
 sha256 (несовпадение — rc2 ORACLE_TAMPERED).
 
-## Закрытые перечни клеток (числа из кода проб и прогонов 117e/117f)
+## Закрытые перечни клеток (числа из кода проб и прогонов; v3 — прогон
+на R@B 8748a7a335 с node_modules, ветка wip/117/architect-v3)
 
 Поведенческая семья (Jest/RNTL, `vkhod_probe.py` → `vkhod.test.tsx`,
-26 клеток — прогон 117e):
+34 клетки — замер v3 `behavioral 34/34`: 26 клеток 117/2 + 4 клетки
+геометрии/z-порядка кругов Adv117v2/v3 по реализации + 4 клетки
+миграции v3):
 - Г0 `RESTYLE_GUARD_995_F03_{DARK,LIGHT}` ×2 — корни F03.01 И F03.02
   #FFFFFF 48/16/16 (вход вне предмета, поверхность 995 как на B).
 - Г1 `RESTYLE_GUARD_995_WELCOME_{DARK,LIGHT}` ×2, Г2
@@ -259,8 +314,28 @@ sha256 (несовпадение — rc2 ORACLE_TAMPERED).
   hide ровно один и ПОСЛЕ него, prevent раньше первого commit);
   `SPLASH_OVERLAY_TIMER_HIDE_{DARK,LIGHT}` ×2 (fake timers: до 1199 мс
   на месте, на 1200-й скрыт).
+- (Adv117v2, круг по реализации) `SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT}`
+  ×2 — бокс Image оверлея без степеней свободы: absoluteFill,
+  width/height '100%', ноль transform/margin*/краёв ≠ 0.
+- (Adv117v3, круг по реализации) `SPLASH_OVERLAY_ZORDER_{DARK,LIGHT}`
+  ×2 — оверлей ПОВЕРХ полноэкранного FirstRun: сплющенный zIndex
+  оверлея выше zIndex корня FirstRun И ветка оверлея позже ветки
+  FirstRun в дереве хоста.
+- (117 v3, миграция) `MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT`,
+  `MIGRACIYA_W1A_NULL_PREZHNIJ_PUT`, `MIGRACIYA_W1A_STALE_PREZHNIJ_PUT`
+  — без admission (W0) ИЛИ без current (null/stale) демо-вход ведёт
+  прежним путём B (кадр code F03.02, auth-code достижим), кадры
+  Erstinformation/Start не возникают; `MIGRACIYA_W1A_CURRENT_MARSHRUT`
+  — при W1A ∧ current: First-Run → F03.01 (прежний вход жив) → демо →
+  Erstinformation (continue) → Start (start_tabs + четыре вкладки
+  testID приёмки 118), порядок наблюдаем последовательными шагами,
+  прежний код-кадр покинут. Допуск — порт onboarding (внешняя сессия),
+  оси W0/W1A × null/stale/current.
 
-Статическая семья (`vkhod_static_probe.py`, 40 клеток — прогон 117f):
+Статическая семья (`vkhod_static_probe.py`, 43 клетки — замер v3
+`static 43/43`: 40 клеток 117/2 + SPLASH_OVERLAY_NO_TRANSFORM,
+SPLASH_OVERLAY_NO_LAYOUT_OFFSET, SPLASH_OVERLAY_ZORDER кругов
+Adv117v2/v3; v3 семью не меняет):
 APP_ICON_DERIVATIVES, ICON_NOT_TEMPLATE_BYTES, ICON_ADAPTIVE_BG_DARK,
 ICON_PIXELS_MARK, SPLASH_BLOCKS_DARK_LIGHT (знаки, imageWidth 181,
 contain), SPLASH_EFFECTIVE_DARK_LIGHT (эффективные ФОНЫ резолверами),
@@ -277,31 +352,37 @@ centerX/centerY), SPLASH_COMPOSITE_ETALON_{DARK,LIGHT} ×2 (Б1: размер =
 C, ≥ 0.98), SPLASH_SIGN_RASTER_{DARK,LIGHT} ×2 (растр знака аналитикой),
 SPLASH_OVERLAY_CONSUMES_COMPOSITE (С2-а: require в pilot-app.tsx
 относительным путём разрешается в оба файла композита, судимых
-эталоном), USER_STYLE_AUTOMATIC, STATIC_ORACLE_LITERALS, ICON_RASTER_WHOLE,
-ADAPTIVE_FG_RASTER, ADAPTIVE_MONO_RASTER, ADAPTIVE_BG_SOLID,
-FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE, MAESTRO_SPLASH_FRAME_WAIT
-(шаг НЕПОСРЕДСТВЕННО перед takeScreenshot splash — extendedWaitUntil
-visible splash-overlay, YAML-парсером), MAESTRO_FIRST_RUN_ORDER (между
-снимком splash и takeScreenshot first-run — notVisible splash-overlay:
-свидетельство снятия оверлея, не приёмка экрана First-Run),
-SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} ×2 (согласованность справочного
-манифеста H kadry_117.json с пинами 117: ровно один кадр темы с макетом
-эталона Б1 этой темы — id, sha256, снимок `vkhod-117-splash`, порог ∈
-[0.6, 1] — литералы source.json `sverka_123`; сценарий субъекта снимает
-этот снимок; потребление манифеста судят SVERKA_123_*),
-SVERKA_123_STEP_UNCONDITIONAL (инвариант 9: в `jobs.android-e2e.steps`
-workflow субъекта ровно один шаг, чей `run` несёт литерал `script`, без
-ключей `if` и `continue-on-error`), SVERKA_123_MANIFEST_CANON (строка
-`run` с литералом `script` до первого `|`, разбор shlex — ровно
-`python3 <script>` и пары `--manifest`/`--kadry`/`--repo` = литералы,
-иных токенов нет; `git ls-files -- mobile/maestro-out-117` субъекта
-пуст), SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
+эталоном), SPLASH_OVERLAY_NO_TRANSFORM, SPLASH_OVERLAY_NO_LAYOUT_OFFSET,
+SPLASH_OVERLAY_ZORDER (статические сегменты JSX оверлея — геометрия и
+z-порядок, Adv117v2/v3), USER_STYLE_AUTOMATIC, STATIC_ORACLE_LITERALS,
+ICON_RASTER_WHOLE, ADAPTIVE_FG_RASTER, ADAPTIVE_MONO_RASTER,
+ADAPTIVE_BG_SOLID, FAVICON_RASTER_WHOLE, IOS_ICON_NOT_TEMPLATE,
+MAESTRO_SPLASH_FRAME_WAIT (шаг НЕПОСРЕДСТВЕННО перед takeScreenshot
+splash — extendedWaitUntil visible splash-overlay, YAML-парсером),
+MAESTRO_FIRST_RUN_ORDER (между снимком splash и takeScreenshot
+first-run — notVisible splash-overlay: свидетельство снятия оверлея, не
+приёмка экрана First-Run), SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} ×2
+(согласованность справочного манифеста H kadry_117.json с пинами 117:
+ровно один кадр темы с макетом эталона Б1 этой темы — id, sha256, снимок
+`vkhod-117-splash`, порог ∈ [0.6, 1] — литералы source.json
+`sverka_123`; сценарий субъекта снимает этот снимок; потребление
+манифеста судят SVERKA_123_*), SVERKA_123_STEP_UNCONDITIONAL (инвариант
+9: в `jobs.android-e2e.steps` workflow субъекта ровно один шаг, чей
+`run` несёт литерал `script`, без ключей `if` и `continue-on-error`),
+SVERKA_123_MANIFEST_CANON (строка `run` с литералом `script` до первого
+`|`, разбор shlex — ровно `python3 <script>` и пары
+`--manifest`/`--kadry`/`--repo` = литералы, иных токенов нет;
+`git ls-files -- mobile/maestro-out-117` субъекта пуст),
+SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
 `with.path` `.harness123`, `with.repository` `a3ka/dev-harness`,
-`with.ref` ~ `\A[0-9a-f]{40}\Z`, без `if`, раньше шага сверки) — литералы
-source.json `sverka_123.provodka`; YAML-парсер, отсутствие pyyaml — rc2.
+`with.ref` ~ `\A[0-9a-f]{40}\Z`, без `if`, раньше шага сверки) —
+литералы source.json `sverka_123.provodka`; YAML-парсер, отсутствие
+pyyaml — rc2.
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду MUTANTS проб, Н-39;
-depends измерены прогонами 117e/117f): поведенческих 24 (restyle-welcome-vkhod,
+depends измерены прогонами; поведенческая матрица v3 — rc0 на R@B,
+статическая v3 — rc0 на R@B, семью v3 не меняет):
+поведенческих 35 — 24 из 117/2 (restyle-welcome-vkhod,
 restyle-recovery-vkhod, restyle-unavailable-vkhod,
 restyle-recovery-light-vkhod, overlay-absent-first-commit,
 overlay-text-words, overlay-hideasync-skip, overlay-hideasync-module-scope,
@@ -310,7 +391,15 @@ prod-theme-os-ignored, prod-theme-light-hardcode, auth-restyled-ground,
 auth-restyled-code-light, overlay-intrinsic-size, overlay-opacity-zero,
 overlay-display-none, root-opacity-zero, overlay-zero-size,
 statusbar-absent, statusbar-light-both, statusbar-dark-both,
-statusbar-in-overlay), статических 31 (icon-template-bytes,
+statusbar-in-overlay) + 7 кругов Adv117v2/v3 (overlay-transform-
+{translatex,translatey,scale}, overlay-margin-offset,
+overlay-zindex-{minus,zero}, overlay-before-firstrun) + 4 миграции v3
+(migracija-admission-literal — named MIGRACIYA_W0_CURRENT_PREZHNIJ_PUT;
+migracija-gate-ignor — named MIGRACIYA_W1A_{NULL,STALE}_PREZHNIJ_PUT;
+migracija-start-pryamo — named MIGRACIYA_W1A_CURRENT_MARSHRUT;
+migracija-f03-put-udalen — named все 4 MIGRACIYA_*, depends Г0–Г3 ×8:
+прежний путь удалён — кадры недостижимы, гварды падают по той же
+причине); статических 38 — 31 из 117/2 (icon-template-bytes,
 adaptive-expo-blue, splash-image-forgery, icon-twin-three-pixels,
 splash-composite-twin, splash-composite-no-words, splash-composite-shifted,
 splash-composite-halfres, splash-imagewidth-76, adaptive-favicon-template,
@@ -322,10 +411,13 @@ maestro-splash-wait-after-shot, maestro-first-run-overlay-kept,
 maestro-first-run-as-splash, maestro-splash-overlay-gone-before-shot,
 maestro-splash-shot-renamed, sverka-step-absent, sverka-continue-on-error,
 sverka-if-conditional, sverka-local-manifest, sverka-kadry-other,
-sverka-ref-branch); каждый красен именованной клеткой (статический —
-КАЖДОЙ своей именованной), побочная
-краснота только в depends; якорь мутанта неуникален → отказ rc2;
-сломанный мутантом свит → MUTANT_SUITE_BROKEN rc2 (не зелень).
+sverka-ref-branch) + 7 Adv117v2/v3 (overlay-transform-{translatex,
+translatey,scale}, overlay-margin-offset, overlay-zindex-{minus,zero},
+overlay-before-firstrun); каждый красен именованной клеткой (статический
+— КАЖДОЙ своей именованной), побочная краснота только в depends; якорь
+мутанта неуникален → отказ rc2; сломанный мутантом свит →
+MUTANT_SUITE_BROKEN rc2 (не зелень).
+
 
 ## Приёмочный критерий
 
@@ -335,10 +427,14 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 
 - Дано B без реализации: `python3 fixtures/workshop_project/vkhod_117/vkhod_probe.py
   --repo R` → rc1, строка `VKHOD_SPLASH_OVERLAY_ABSENT` (клетка
-  SPLASH_OVERLAY_MOUNTED_* красна; замер 117e: failed 18 of 26);
+  SPLASH_OVERLAY_MOUNTED_* красна; замер 117e: failed 18 of 26; замер v3
+  на R@B: failed 23 of 34 — 22 клетки оверлея (18 прежних + GEOMETRY ×2 +
+  ZORDER ×2) + MIGRACIYA_W1A_CURRENT_MARSHRUT (маршрут на B не реализован);
+  зелены Г0–Г3 ×8 и MIGRACIYA_*_PREZHNIJ_PUT ×3 — прежний путь и есть
+  состояние B, это не ослабление);
   `vkhod_static_probe.py --repo R` → rc1 `VKHOD_SPLASH_COMPOSITE_ABSENT`.
 - Дано B с эталонной моделью (`--model`) либо честное C: обе пробы → rc0 с
-  перечнем: поведенческая 26/26 (замер 117e), статическая 40/40 (замер 117f;
+  перечнем: поведенческая 34/34 (замер v3), статическая 43/43 (замер v3;
   модель workflow — `mobile.yml` `cmp-mob-123/sverka` @10cf684 дословно).
 - Дано C, в котором `.github/workflows/mobile.yml` — workflow B 8748a7a335
   (шагов 123 нет); когда `vkhod_static_probe.py --repo R`; тогда rc1, красны
@@ -351,14 +447,15 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
   ровно `SVERKA_123_MANIFEST_CANON` (замер 117f).
 - Дано C с невидимым оверлеем (свидетель критика: `opacity: 0` в стиле View
   `splash-overlay`, всё прочее честно); когда `vkhod_probe.py --repo R`;
-  тогда rc1, `failed 2 of 26` — красны ровно
-  `SPLASH_OVERLAY_VISIBLE_{DARK,LIGHT}` (замер 117e).
+  тогда rc1, красны ровно `SPLASH_OVERLAY_VISIBLE_{DARK,LIGHT}` (замер
+  117e; тот же класс — стаб overlay-opacity-zero матрицы v3: red = ровно
+  эти две клетки).
 - Дано C со сценарием «First-Run под именем splash» (свидетель критика:
   ожидание first-run-continue и notVisible splash-overlay перед снимком
   splash); когда `vkhod_static_probe.py --repo R`; тогда rc1, строка
   `RED MAESTRO_SPLASH_FRAME_WAIT` (замер 117e).
 - Дано C; каждая проба с `--matrix` → rc0: честный прогон зелёный, каждый
-  стаб красен именованной ветвью (24+31), побочная краснота только в
+  стаб красен именованной ветвью (35+38), побочная краснота только в
   depends; любой MUTANT_GREEN/MUTANT_NAMED_MISS/MUTANT_UNEXPECTED_RED —
   rc2.
 - Дано C; `git status --short --untracked-files=all` в R после проб — 0 строк
@@ -370,8 +467,13 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 - Дано C; `npm run lint`, `npm run typecheck` в R/mobile → rc0;
   `npx jest src/bootstrap/__tests__/pilot.test.tsx` (995, byte-frozen) → rc0,
   14/14; батарея `fixtures/workshop_project/first_run_111/` на C → rc0,
-  23/23 — замер v2 на B + модель 117 (К8 `RESTYLE_GUARD_995_F03_01_{DARK,LIGHT}` зелёна: вход —
-  поверхность 995).
+  23/23 — замер v2 на B + модель 117; замер v3 на R@B: pilot.test 14/14
+  (поставка 117 v3), first_run_111 23/23 rc0 на объединении — модель 111
+  (first-run-screen v4, i18n, wordmark) + ПОЛНАЯ поставка 117 v3
+  (pilot-app с миграцией, app.json, ассеты): миграционная модель прежние
+  пробы 995/111 не ломает (на голом B батарея 111 красна v4b-клетками —
+  строки v4 в FirstRunScreen на B отсутствуют, состояние предмета 111,
+  не предмет 117).
 - Дано C в PR; `gh pr checks PR --repo a3ka/Complior-mob --required` → rc0;
   android-e2e (release APK: `expo prebuild` + `assembleRelease`, Maestro)
   исполняет сценарий 117 в `mobile/.maestro/`; takeScreenshot КАЖДОГО
@@ -405,7 +507,15 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
 семьями 995/111: в pilot-app ДОБАВЛЯЮТСЯ JS-оверлей splash (последний
 ребёнок корня, НЕ кадр state-machine), провод темы ОС (только когда выше
 PilotApp нет явного провайдера) и StatusBar вне оверлея; корни кадров,
-первый кадр и вход шва — как на B. `mobile/src/features/auth/auth-screen.tsx`
+первый кадр и вход шва — как на B. 117 v3 (миграция 117/3): в pilot-app
+ДОПУСКАЕТСЯ демо-маршрут First-Run → demo → Erstinformation → Start по
+разделу «Миграция 117 v3» (кадры 'erstinformation'/'start', допуск
+admission 'W1A' из сессии ∧ gate 'current', без допуска — прежний путь);
+эта правка — ЗОНА implementer 118 (см. ПЕРЕСЕЧЕНИЕ в frozen
+contracts/118-erstinformation.md) и разрешена ТОЛЬКО ПОСЛЕ тега
+frozen/contracts/117/3; для implementer 117 (splash/иконка) pilot-app
+по-прежнему только оверлей/тема/StatusBar, как на B.
+`mobile/src/features/auth/auth-screen.tsx`
 (вход, предмет first-run-ekran) остаётся в ЗОНЕ implementer ТОЛЬКО для
 возврата к B: текущий C (Complior-mob#114) несёт рестайл входа, его откат —
 правка этого пути; итог C ≡ B по нему (приёмка: `git diff --stat B C --
@@ -425,6 +535,10 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
 РАБОТА НЕ РАЗДАЁТСЯ: implementer не спавнится до accept критика и freeze
 оркестратора; предмет этой пачки — контракт + красные пробы, предъявленные
 красными на B и зелёными на эталоне.
+
+ПРЕДПОСЫЛКИ:
+- setting v3 новых предпосылок НЕ вводит: шаги CI не меняются, secrets/variables/environments не требуются; действуют предпосылки 117/2 (android-e2e release APK: expo prebuild + assembleRelease, Maestro, H-checkout .harness123 пина 123, шаг quality с пробами 117)
+- setting для implementer 118 (после frozen/contracts/117/3): проба композиции gate/admission в mobile/src/bootstrap/__tests__ исполняется существующим шагом CI без новых настроек репозитория
 
 ## Модель угроз
 
@@ -481,9 +595,16 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
 - от тихого рестайла кадров вне предмета: Г0–Г3 по ВСЕМ исключённым кадрам
   (вход F03.01/F03.02, welcome, F03.04, unavailable) × обе схемы (стаб
   auth-restyled-ground — форма текущего C — красен Г0);
+- от обхода допуска демо-маршрута (117 v3): клетки MIGRACIYA_* судят все
+  оси W0/W1A × null/stale/current на порте onboarding (внешняя сессия);
+  литерал допуска в pilot-app (стаб migracija-admission-literal),
+  допуск без current (migracija-gate-ignor), Start мимо Erstinformation
+  (migracija-start-pryamo) и удаление прежнего пути F03
+  (migracija-f03-put-udalen — красен и гвардами Г0–Г3: кадры
+  недостижимы) красны именованными клетками;
 - от зависимого оракула (Н-351): ожидания — литералы source.json/теста,
   STATIC_ORACLE_LITERALS; эталоны — sha-пин read-only docs/;
-- от мёртвой матрицы: обе пробы исполняют все стабы (24+31), depends
+- от мёртвой матрицы: обе пробы исполняют все стабы (35+38), depends
   измерены прогоном, unexpected_red/suite_broken — rc2.
 
 НЕ ЗАЩИЩАЕТ:
