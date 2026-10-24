@@ -27,6 +27,13 @@
 # (FLOW_ASSERT_POSLE_KADRA); (4) appId корня и детей = пакет продукта
 # из mobile/app.json (FLOW_APPID_NE_PAKET; находка Architect118: demo-appId
 # против пакета продукта).
+# 116 v3c (правка по FAIL критика круга 2): квантор «каждый» — это
+# КЛАСС входов: суд идёт по КАЖДОМУ вхождению takeScreenshot раскрытого
+# потока (корень + все runFlow-дети в порядке исполнения), своё
+# подтверждение обязано стоять раньше ИМЕННО ЭТОГО вхождения («хотя бы
+# одна пара assert→снимок с этим именем» не принимается: дубль имени
+# не легализует первый ранний снимок), имена takeScreenshot уникальны
+# в раскрытом потоке (повтор имени = FLOW_SNIMOK_DUBL).
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -151,7 +158,12 @@ def appid_flow(path):
 
 def sud_potok(shagi, snimki, shagi_kornja):
     """Запуск и вход из Start судятся по КОРНЕВОМУ флоу (основной путь
-    входит сам, а не за счёт дочерних сценариев); кадры — по потоку."""
+    входит сам, а не за счёт дочерних сценариев); кадры — по потоку.
+    116 v3c (круг 2): квантор «каждый» — суд по КАЖДОМУ вхождению
+    takeScreenshot раскрытого потока (корень + runFlow-дети в порядке
+    исполнения): своё подтверждение раньше ИМЕННО ЭТОГО вхождения,
+    имя снимка уникально (второй одноимённый кадр не легализует
+    первый, снятый до своего assert)."""
     otkazy = []
     zapuski = [s for s in shagi_kornja
                if s.split(':')[0].strip() in ZAPUSKI]
@@ -166,21 +178,36 @@ def sud_potok(shagi, snimki, shagi_kornja):
     perehody = [s for s in shagi if s.split(':')[0].strip() in PEREHODY]
     if not perehody:
         otkazy.append(('FLOW_BEZ_PEREHODA', 'tapOn/inputText'))
+    # v3c: все вхождения takeScreenshot раскрытого потока (имя — точно,
+    # не подстрокой); повтор имени в раскрытом потоке — отказ.
+    vhozhdenija = [(i, s.partition(':')[2].strip().strip("'\""))
+                   for i, s in enumerate(shagi)
+                   if s.startswith('takeScreenshot')]
+    vidennye = set()
+    for i, imja in vhozhdenija:
+        if imja in vidennye:
+            # v3c (блокер круга 2, критик duplicate_early_screenshot):
+            # дубль имени снимка — пара «assert→второй снимок» проходила
+            # старую проверку существования пары, а первый снимок мог
+            # стоять до своего assert.
+            otkazy.append(('FLOW_SNIMOK_DUBL', imja))
+        vidennye.add(imja)
     for snimok, selektor in snimki:
-        idx_assert = [i for i, s in enumerate(shagi)
-                      if 'assertVisible' in s and id_iz(s) == selektor]
-        idx = [i for i, s in enumerate(shagi)
-               if s.startswith('takeScreenshot') and snimok in s]
+        idx = [i for i, imja in vhozhdenija if imja == snimok]
         if not idx:
             otkazy.append(('SELEKTOR_NE_KADRA', snimok))
             continue
+        idx_assert = [i for i, s in enumerate(shagi)
+                      if 'assertVisible' in s and id_iz(s) == selektor]
         if not idx_assert:
             otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', snimok))
             continue
-        if not any(a < i for a in idx_assert for i in idx):
-            # v3b (блокер 3 круга 1): свой assertVisible обязан стоять
-            # РАНЬШЕ своего takeScreenshot — кадр не снимается до
-            # подтверждения селектора кадра.
+        if min(idx_assert) >= idx[0]:
+            # v3b (блокер 3 круга 1) + v3c (круг 2): свой assertVisible
+            # обязан стоять раньше КАЖДОГО своего takeScreenshot — суд
+            # по ПЕРВОМУ вхождению имени: подтверждение позже него
+            # значит, что первый кадр снят до подтверждения селектора
+            # кадра; позже стоящие одноимённые снимки не легализуют его.
             otkazy.append(('FLOW_ASSERT_POSLE_KADRA', snimok))
             continue
         i = idx[0]

@@ -897,6 +897,116 @@ def mut_proiskhozdenie_scenarij_ne_zapushhen(pack, forma, repo, src):
                    encoding='utf-8')
 
 
+# --- 116 v3c: мутации по блокеру круга 2 (квантор «каждый takeScreenshot»,
+# дубль имени снимка; урок арбитража 136 v2 — классы входов закрываются
+# таблицей осей, не точечным мутантом) --------------------------------------
+
+def mut_proiskhozdenie_dublj_rannij(pack, forma, repo, src):
+    """Круг 2 (критик duplicate_early_screenshot): дубль имени снимка —
+    ПЕРВЫЙ до своего assert, второй честный; старая проверка «хотя бы
+    одна пара assert→снимок с этим именем» проходила оба снимка."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    perest = ('- takeScreenshot: mission-f05-05\n'
+              '- assertVisible: {id: mission_frame_f05_05}\n'
+              '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, perest), encoding='utf-8')
+
+
+def mut_proiskhozdenie_dublj_chestnye(pack, forma, repo, src):
+    """Дубль имени, оба вхождения честные (каждому предшествует свой
+    assert): повтор имени снимка красен сам по себе — «порядок в
+    каждой паре» не легализует дубль имени в раскрытом потоке."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    dubl = (para + '- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, dubl), encoding='utf-8')
+
+
+def mut_proiskhozdenie_dublj_rannie(pack, forma, repo, src):
+    """Дубль имени, ОБА вхождения раньше своего assert: ни один снимок
+    имени не подтверждён селектором кадра до снятия."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    perest = ('- takeScreenshot: mission-f05-05\n'
+              '- takeScreenshot: mission-f05-05\n'
+              '- assertVisible: {id: mission_frame_f05_05}\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, perest), encoding='utf-8')
+
+
+def mut_proiskhozdenie_kadr_chuzhoj_assert(pack, forma, repo, src):
+    """Перед снимком стоит assert ЧУЖОГО селектора (F05.02), свой —
+    ПОСЛЕ снимка: чужое подтверждение не доказывает кадр."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    perest = ('- assertVisible: {id: mission_frame_f05_02}\n'
+              '- takeScreenshot: mission-f05-05\n'
+              '- assertVisible: {id: mission_frame_f05_05}\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, perest), encoding='utf-8')
+
+
+def mut_proiskhozdenie_snimok_v_rebyonke(pack, forma, repo, src):
+    """ЧЕСТНЫЙ свидетель границы «индекс раскрытого потока»: снимок
+    F05.05 перенесён в дочерний сценарий, свой assert остался в корне
+    раньше runFlow — конформно (снимок в ребёнке судится раскрытием,
+    подтверждение в корне раньше него индексом раскрытого потока)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    snim = '- takeScreenshot: mission-f05-05\n'
+    assert t.count(snim) == 1
+    p.write_text(t.replace(snim, ''), encoding='utf-8')
+    rebyonok = _perefajl(repo, 'mission-state-v01.yaml')
+    rebyonok.write_text(
+        rebyonok.read_text(encoding='utf-8') + snim, encoding='utf-8')
+
+
+def mut_proiskhozdenie_rebyonok_ranishe_asserta(pack, forma, repo, src):
+    """Снимок внутри ребёнка РАНЬШЕ своего assert в том же ребёнке
+    (пара перенесена целиком и переставлена местами)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, ''), encoding='utf-8')
+    rebyonok = _perefajl(repo, 'mission-state-v01.yaml')
+    rebyonok.write_text(
+        rebyonok.read_text(encoding='utf-8') +
+        '- takeScreenshot: mission-f05-05\n'
+        '- assertVisible: {id: mission_frame_f05_05}\n', encoding='utf-8')
+
+
+def mut_proiskhozdenie_assert_v_rebyonke(pack, forma, repo, src):
+    """Свой assert уехал в ребёнка, снимок остался в корне: по порядку
+    раскрытия runFlow подтверждение стоит ПОЗЖЕ снимка."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    nabl = '- assertVisible: {id: mission_frame_f05_05}\n'
+    assert t.count(nabl) == 1
+    p.write_text(t.replace(nabl, ''), encoding='utf-8')
+    rebyonok = _perefajl(repo, 'mission-state-v01.yaml')
+    rebyonok.write_text(
+        rebyonok.read_text(encoding='utf-8') + nabl, encoding='utf-8')
 
 PROBA_PROD = Path('mobile/src/features/conversation/__tests__/'
                   'mission-116.test.tsx')
@@ -1152,6 +1262,17 @@ MUTACII = {
         mut_ci_steps_indentless_kavychka_kommentarij,
     'ci-steps-indentless-otstup-chetyre':
         mut_ci_steps_indentless_otstup_chetyre,
+    'proiskhozdenie-dublj-rannij': mut_proiskhozdenie_dublj_rannij,
+    'proiskhozdenie-dublj-chestnye': mut_proiskhozdenie_dublj_chestnye,
+    'proiskhozdenie-dublj-rannie': mut_proiskhozdenie_dublj_rannie,
+    'proiskhozdenie-kadr-chuzhoj-assert':
+        mut_proiskhozdenie_kadr_chuzhoj_assert,
+    'proiskhozdenie-snimok-v-rebyonke':
+        mut_proiskhozdenie_snimok_v_rebyonke,
+    'proiskhozdenie-rebyonok-ranishe-asserta':
+        mut_proiskhozdenie_rebyonok_ranishe_asserta,
+    'proiskhozdenie-assert-v-rebyonke':
+        mut_proiskhozdenie_assert_v_rebyonke,
 }
 
 
@@ -1236,6 +1357,12 @@ def snapshot(src):
 # манифеста» судятся кодом proverka_text.py; клетки — имена входов
 # батареи, счёт и биекция «строка ↔ клетка» проверяются прогоном
 # --tablica (каждая клетка потока ровно в одной строке).
+# 116 v3c (круг 2): квантор «каждый takeScreenshot» — строки-классы
+# оси «порядок assert/screenshot» (дубль имени: ранний/честный, оба
+# честных, оба ранних; чужой assert перед снимком; корень↔ребёнок по
+# порядку раскрытия; снимок в ребёнке раньше assert ребёнка); снимок в
+# runFlow-условии грамматикой пачки не порождается, цикл раскрытия
+# закрыт RUNFLOW_CIKL (строка v02).
 OSI_SCENARIEV = (
     ('osnovnoj-put', 'mission.yaml', (
         'proiskhozdenie-chistyj', 'proiskhozdenie-byte-kopija',
@@ -1277,6 +1404,19 @@ OSI_SCENARIEV = (
     ('v04', 'mission-state-v04.yaml', (
         'bezpng-bez-scenarija', 'proiskhozdenie-v04-odna-otpravka',
     )),
+    ('porjadok-dublj-rannij', 'mission.yaml',
+     ('proiskhozdenie-dublj-rannij',)),
+    ('porjadok-dublj-chestnye', 'mission.yaml',
+     ('proiskhozdenie-dublj-chestnye',)),
+    ('porjadok-dublj-rannie', 'mission.yaml',
+     ('proiskhozdenie-dublj-rannie',)),
+    ('porjadok-chuzhoj-assert', 'mission.yaml',
+     ('proiskhozdenie-kadr-chuzhoj-assert',)),
+    ('porjadok-koren-rebyonok', 'mission.yaml + mission-state-v01.yaml',
+     ('proiskhozdenie-snimok-v-rebyonke',
+      'proiskhozdenie-assert-v-rebyonke')),
+    ('porjadok-rebyonok-ranishe', 'mission-state-v01.yaml',
+     ('proiskhozdenie-rebyonok-ranishe-asserta',)),
 )
 
 
