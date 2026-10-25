@@ -92,41 +92,13 @@ fi
 # .harness/registry ≠ резолверу — дверь сеет/сверяет одно место, make_task
 # читает другое (обход X Rev136c). Порядок: сперва конфиг трассы (нет jq/
 # конфига → trassa-net-konfiga ДО резолвера — резолверу тоже нужен jq, отказ
-# остаётся именованным по трассе, b5), затем резолв реестра.
+# остаётся именованным по трассе, b5); резолв реестра — НИЖЕ, ПОСЛЕ того как
+# каркас установит профиль и слой проекта: на СВЕЖЕМ проекте резолв ДО
+# профиля даёт LEGACY-FALLBACK корневой registry ≠ эффективному реестру
+# подключённого проекта (профиль с workflowPaths) — тот же класс
+# рассогласования дверь↔make_task, что и собственный jq (R136c-B1, мир 125).
 ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
   || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
-# резолверу нужен файл слоя профиля: досоздаём отсутствующее ДО резолва
-# (скелет ниже уже не создаст — И-5 «повтор пишет только отсутствующее»)
-[ -f .harness/project-layer.json ] \
-  || jq -n --arg pid "$PID" '{schemaVersion:1,version:"v1",projectId:$pid,workspaceId:$pid}' > .harness/project-layer.json
-NEXT_ID_LIB=1 source "$HERE/scripts/next_id.sh" \
-  || { printf 'connect ОТКАЗ: net-rezolvera-putej: %s/scripts/next_id.sh\n' "$HERE" >&2; exit 1; }
-KOREN_ABS="$(cd "$KOREN" && pwd -P)"
-PPR_JSON="$(project_paths_resolve "$KOREN_ABS")" \
-  || otkaz "profil-ne-razreshaetsja: $KOREN_ABS"
-REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
-[ -n "$REG_ABS" ] || otkaz "profil-bez-registry: $KOREN_ABS"
-REG_REL="${REG_ABS#"$KOREN_ABS"/}"
-[ "$REG_ABS" != "$REG_REL" ] || otkaz "registry-vne-kornja: $REG_ABS"
-mkdir -p "$REG_REL"
-
-# Трасса (семантика — см. блок резолва выше): подмена (чужая модель, дубль
-# строк, лишняя строка, read-only файл) — trassa-rashozhdenie rc 1 ДО exec,
-# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
-# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее);
-# равен конфигу — повтор без записи, сессия поднимается.
-TRASSA="$(printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL")"
-if [ -s "$REG_REL/trace.tsv" ]; then
-  [ "$(cat "$REG_REL/trace.tsv" 2>/dev/null)" = "$TRASSA" ] \
-    || otkaz "trassa-rashozhdenie: $REG_REL/trace.tsv ≠ конфигу установки $HERE/config/agent_models.json"
-else
-  printf '%s\n' "$TRASSA" > "$REG_REL/trace.tsv"
-fi
-
-# 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
-# проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
-# корневой config/ дереву проекта не пишется (И-6 125). И-7: повтор не пишет.
-[ -e "$REG_REL/ci_parity_exceptions.txt" ] || : > "$REG_REL/ci_parity_exceptions.txt"
 
 # 136 (НАБЛ-П11): процедура субагентных пинов — дверь кладёт в $PSTATE/bin
 # скрипт выдачи: каждому субагенту сессии — свой linked worktree под $PSTATE/wt
@@ -252,6 +224,45 @@ fi
      > .harness/HANDOFF.md
 [ -s .harness/NABLIUDENIA.md ] || printf '# Наблюдения проекта %s\n' "$PID" > .harness/NABLIUDENIA.md
 [ -s .harness/ROADMAP.md ]    || printf '# ROADMAP проекта %s\n' "$PID"    > .harness/ROADMAP.md
+
+# 136 v3-достройка (Rev136c-B1): путь реестра — из ЕДИНОГО project_paths_resolve
+# (frozen И-6 «путь трассы — из ЕДИНОГО project_paths_resolve»; ПЕРЕСЕЧЕНИЕ
+# implementer «103 профильные пути — единственный источник»), образец —
+# scripts/done_wave.sh:117-124; библиотека next_id.sh — сиблинг установки
+# ($HERE/scripts). Резолв — ПОСЛЕ каркаса выше: профиль и слой уже установлены
+# (на свежем проекте резолв ДО профиля = LEGACY-FALLBACK корневой registry ≠
+# эффективному реестру подключённого проекта; собственный jq давал
+# .harness/registry ≠ резолверу — дверь сеет/сверяет одно место, make_task
+# читает другое, обход X Rev136c). Библиотеки нет в установке — именованный
+# отказ net-rezolvera-putej (никакого собственного jq-заместителя).
+NEXT_ID_LIB=1 source "$HERE/scripts/next_id.sh" \
+  || { printf 'connect ОТКАЗ: net-rezolvera-putej: %s/scripts/next_id.sh\n' "$HERE" >&2; exit 1; }
+KOREN_ABS="$(cd "$KOREN" && pwd -P)"
+PPR_JSON="$(project_paths_resolve "$KOREN_ABS")" \
+  || otkaz "profil-ne-razreshaetsja: $KOREN_ABS"
+REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
+[ -n "$REG_ABS" ] || otkaz "profil-bez-registry: $KOREN_ABS"
+REG_REL="${REG_ABS#"$KOREN_ABS"/}"
+[ "$REG_ABS" != "$REG_REL" ] || otkaz "registry-vne-kornja: $REG_ABS"
+mkdir -p "$REG_REL"
+
+# Трасса (семантика — см. блок резолва выше): подмена (чужая модель, дубль
+# строк, лишняя строка, read-only файл) — trassa-rashozhdenie rc 1 ДО exec,
+# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
+# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее);
+# равен конфигу — повтор без записи, сессия поднимается.
+TRASSA="$(printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL")"
+if [ -s "$REG_REL/trace.tsv" ]; then
+  [ "$(cat "$REG_REL/trace.tsv" 2>/dev/null)" = "$TRASSA" ] \
+    || otkaz "trassa-rashozhdenie: $REG_REL/trace.tsv ≠ конфигу установки $HERE/config/agent_models.json"
+else
+  printf '%s\n' "$TRASSA" > "$REG_REL/trace.tsv"
+fi
+
+# 136 (НАБЛ-П10): сев ПУСТОГО перечня исключений паритета CI в workflowPaths
+# проекта (заполнение — объявления проекта с причинами, НЕ дело двери);
+# корневой config/ дереву проекта не пишется (И-6 125). И-7: повтор не пишет.
+[ -e "$REG_REL/ci_parity_exceptions.txt" ] || : > "$REG_REL/ci_parity_exceptions.txt"
 
 # ── последний страж: значение дома секретов в файле, который git проиндексирует ──
 # Adv125-А: парсер как у workshop `load_env` (срез парных кавычек — `sed
