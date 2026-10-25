@@ -62,6 +62,14 @@
 # положительного (SCENARIJ_BEZ_NEGATIVA). Вне батареи (арбитраж §2):
 # достижимость состояний в runtime, видимость testID в момент assert,
 # лишние assert, конструкции вне белого списка красны G1 до продукта.
+# 116 v3e (правка по FAIL критика r4, класс «комментарий/литерал — не
+# команда», оба блокера одного корня): inline-комментарий после `#`
+# (вне кавычек) отбрасывается ПРИ РАЗБОРЕ — шаг хранится разобранной
+# парой «имя[: аргумент]»; шаг классифицируется ТОЛЬКО именем команды
+# (подстрока сырой строки не читается: `- hideKeyboard # assertVisible:
+# …` — не assert), id извлекается ТОЛЬКО из разобранного
+# аргумента-карты `{id: tok}` (литерал в кавычках аргумента inputText
+# командой не является).
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -92,8 +100,10 @@ KOMANDY = ('launchApp', 'assertVisible', 'assertNotVisible', 'tapOn',
 ARGUMENT_SHAGA = (r"(?:\{(?:id|file): [A-Za-z0-9_.-]+\}"
                   r"|'[^'\n]*'"
                   r"|[A-Za-z0-9_.-]+)")
-SHAG_RE = re.compile(r'^- (?:' + '|'.join(KOMANDY) + r')'
-                     r'(?:: ' + ARGUMENT_SHAGA + r')?(?: #.*)?$')
+SHAG_RE = re.compile(r'^- (' + '|'.join(KOMANDY) + r')'
+                     r'(?:: (' + ARGUMENT_SHAGA + r'))?( #.*)?$')
+# v3e (r4): группы 1/2 — имя команды и аргумент; inline-комментарий
+# (группа 3) отбрасывается при разборе и до классификации не доходит.
 # Шапка: скаляр одной строкой — голый токен или кавычки (продуктовый
 # mission.yaml несёт name: с пробелами в кавычках).
 ZAGOLOVOK_RE = re.compile(r"^(?:appId|name): (?:'[^'\n]*'|"
@@ -131,7 +141,10 @@ def shagi_flow(path):
     FLOW_SHAG_VNE_GRAMMATIKI с номером строки и шагом НЕ становится
     (отступ не стирается: строка блочного литерала `inputText: |`,
     тело repeat/retry/when и вложенные commands исполняются Maestro,
-    но построчной грамматике не принадлежат — fail-closed)."""
+    но построчной грамматике не принадлежат — fail-closed). Шаг
+    возвращается РАЗОБРАННЫМ (v3e): имя команды + аргумент,
+    inline-комментарий отброшен — классификация шага ниже идёт
+    только по имени команды и разобранному аргументу."""
     out, otkazy = [], []
     telo = False
     for n, line in enumerate(
@@ -147,8 +160,14 @@ def shagi_flow(path):
             continue
         if line == '' or line.startswith('#'):
             continue
-        if SHAG_RE.match(line):
-            shag = line[2:]
+        m = SHAG_RE.match(line)
+        if m:
+            # v3e (r4): шаг хранится РАЗОБРАННЫМ — имя команды и
+            # аргумент; inline-комментарий отброшен ДО классификации
+            # (комментарий и литерал в кавычках — не команда).
+            komanda, argument, _kommentarij = m.groups()
+            shag = komanda if argument is None \
+                else komanda + ': ' + argument
             out.append(shag)
             continue
         otkazy.append(('FLOW_SHAG_VNE_GRAMMATIKI',
@@ -202,8 +221,19 @@ def raskroj_runflow(path, glubina=0, fajly=None):
     return shagi, otkazy
 
 
-def id_iz(arg):
-    if 'id:' not in arg:
+def imja_komandy(shag):
+    """Имя разобранного шага G1 (v3e): единственная основа классификации
+    шага — подстрока сырой строки (комментарий/литерал) не читается."""
+    return shag.split(':')[0].strip()
+
+
+def id_iz(shag):
+    """id — ТОЛЬКО из разобранного аргумента-карты `{id: tok}` (v3e):
+    литерал в кавычках и голый токен id не несут — «команда» в кавычках
+    аргумента inputText командой не является; комментарий уже отброшен
+    разбором G1."""
+    arg = shag.partition(':')[2].strip()
+    if not arg.startswith('{') or 'id:' not in arg:
         return None
     t = arg.partition('id:')[2].strip()
     t = t.split('}')[0].split(',')[0]
@@ -251,8 +281,8 @@ def sud_potok(raskritie, fajly, snimki, shagi_kornja):
                if s.split(':')[0].strip() in ZAPUSKI]
     if not zapuski:
         otkazy.append(('FLOW_BEZ_ZAPUSKA', 'launchApp'))
-    if not any('assertVisible' in s and id_iz(s) == VHOD_STARTA
-               for s in shagi_kornja):
+    if not any(imja_komandy(s) == 'assertVisible'
+               and id_iz(s) == VHOD_STARTA for s in shagi_kornja):
         otkazy.append(('FLOW_BEZ_START_VHODA', VHOD_STARTA))
     elif not any(s.startswith('tapOn') and id_iz(s) == VHOD_STARTA
                  for s in shagi_kornja):
@@ -291,14 +321,16 @@ def sud_potok(raskritie, fajly, snimki, shagi_kornja):
             otkazy.append(('SELEKTOR_NE_KADRA', snimok))
             continue
         idx_assert_potok = [i for i, (s, _, _) in enumerate(raskritie)
-                            if 'assertVisible' in s and id_iz(s) == selektor]
+                            if imja_komandy(s) == 'assertVisible'
+                            and id_iz(s) == selektor]
         if not idx_assert_potok:
             otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', snimok))
             continue
         for i, ime, k in idx:
             shagi_fajla = fajly.get(ime, [])
             idx_assert = [j for j, s in enumerate(shagi_fajla)
-                          if 'assertVisible' in s and id_iz(s) == selektor]
+                          if imja_komandy(s) == 'assertVisible'
+                          and id_iz(s) == selektor]
             ranee = [j for j in idx_assert if j < k]
             if not ranee:
                 if any(j > k for j in idx_assert):
@@ -348,7 +380,8 @@ def sud_gesty(shagi):
     attach = [i for i, s in enumerate(shagi)
               if s.startswith('tapOn') and id_iz(s) == VLOZHENIE_MENJU]
     chip = [i for i, s in enumerate(shagi)
-            if 'assertVisible' in s and id_iz(s) == VLOZHENIE_CHIP]
+            if imja_komandy(s) == 'assertVisible'
+            and id_iz(s) == VLOZHENIE_CHIP]
     if not tap or not vvod or not any(t < v for t in tap for v in vvod):
         otkazy.append(('FLOW_BEZ_CHERNOVIKA', DRAFT_GEST))
     if not attach:
@@ -371,11 +404,14 @@ def sud_chip_upload(shagi):
               if s.startswith('tapOn') and (id_iz(s) or '').startswith(
                   UPLOAD_PREFIKS)]
     chip_do = [i for i, s in enumerate(shagi)
-               if 'assertVisible' in s and id_iz(s) == CHIP_LESET]
+               if imja_komandy(s) == 'assertVisible'
+               and id_iz(s) == CHIP_LESET]
     chip_neg = [i for i, s in enumerate(shagi)
-                if 'assertNotVisible' in s and id_iz(s) == CHIP_LESET]
+                if imja_komandy(s) == 'assertNotVisible'
+                and id_iz(s) == CHIP_LESET]
     kontener = [i for i, s in enumerate(shagi)
-                if 'assertVisible' in s and id_iz(s) == KONTENER_V03]
+                if imja_komandy(s) == 'assertVisible'
+                and id_iz(s) == KONTENER_V03]
     if not chip_do:
         otkazy.append(('FLOW_BEZ_CHIP_PENDING', CHIP_LESET))
     if not upload:
@@ -460,11 +496,11 @@ def sud_bezpng(pack, repo, shagi_kornja, raskritie, paket, fajly):
         if not testid:
             otkazy.append(('BEZPNG_BEZ_TESTID', kadr.get('id')))
             continue
-        if any('assertVisible' in s and id_iz(s) == testid
+        if any(imja_komandy(s) == 'assertVisible' and id_iz(s) == testid
                for s in shagi_kornja):
             otkazy.append(('BEZPNG_V_KORNE', testid))
-        if not any('assertVisible' in s and id_iz(s) == testid
-                   for s, _, _ in raskritie):
+        if not any(imja_komandy(s) == 'assertVisible'
+                   and id_iz(s) == testid for s, _, _ in raskritie):
             otkazy.append(('BEZPNG_BEZ_TESTID_V_POTOKE', testid))
         scenarij = kadr.get('scenarij')
         if not scenarij:
@@ -488,8 +524,8 @@ def sud_bezpng(pack, repo, shagi_kornja, raskritie, paket, fajly):
             otkazy += g
         if not any(s.split(':')[0].strip() in ZAPUSKI for s in shagi_sc):
             otkazy.append(('RUNFLOW_SCENARIJ_BEZ_ZAPUSKA', scenarij))
-        if not any('assertVisible' in s and id_iz(s) == VHOD_STARTA
-                   for s in shagi_sc):
+        if not any(imja_komandy(s) == 'assertVisible'
+                   and id_iz(s) == VHOD_STARTA for s in shagi_sc):
             otkazy.append(('RUNFLOW_SCENARIJ_BEZ_START_VHODA', scenarij))
         elif not any(s.startswith('tapOn') and id_iz(s) == VHOD_STARTA
                      for s in shagi_sc):
@@ -507,7 +543,8 @@ def sud_bezpng(pack, repo, shagi_kornja, raskritie, paket, fajly):
         # в файле, названном полем scenarij (перенос в чужого ребёнка или
         # подмена привязки ложны при зелёном агрегате).
         svoi = [i for i, s in enumerate(shagi_sc)
-                if 'assertVisible' in s and id_iz(s) == testid]
+                if imja_komandy(s) == 'assertVisible'
+                and id_iz(s) == testid]
         if not svoi:
             otkazy.append(('SCENARIJ_BEZ_SVOEJ_TESTID',
                            '%s %s' % (kadr.get('id'), scenarij)))
@@ -545,7 +582,8 @@ def sud_bezpng(pack, repo, shagi_kornja, raskritie, paket, fajly):
         neg_testid = NEGATIVY_SOSTOJANIJ.get(testid)
         if neg_testid and svoi:
             neg = [i for i, s in enumerate(shagi_sc)
-                   if 'assertNotVisible' in s and id_iz(s) == neg_testid]
+                   if imja_komandy(s) == 'assertNotVisible'
+                   and id_iz(s) == neg_testid]
             if not [x for x in neg if x > svoi[0]]:
                 otkazy.append(('SCENARIJ_BEZ_NEGATIVA',
                                '%s %s' % (neg_testid, scenarij)))

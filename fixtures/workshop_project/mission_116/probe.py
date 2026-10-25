@@ -1284,6 +1284,94 @@ def mut_proiskhozdenie_v02_bez_negativa(pack, forma, repo, src):
     assert t.count(staro) == 1
     p.write_text(t.replace(staro, ''), encoding='utf-8')
 
+def mut_proiskhozdenie_kommentarij_asserta(pack, forma, repo, src):
+    """v3e (F1, comment_assert_on_hidekeyboard критика r4): исполненный
+    assertVisible кадра заменён inline-комментарием допустимой команды —
+    PyYAML видит ноль исполняемых assert, кадр снят без подтверждения."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    kom = ('- hideKeyboard # assertVisible: {id: mission_frame_f05_05}\n'
+           '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, kom), encoding='utf-8')
+
+
+def mut_proiskhozdenie_literal_assert_v_kavychkah(pack, forma, repo, src):
+    """v3e (F1, литерал вместо команды): assertVisible кадра заменён
+    текстом литерала в кавычках аргумента inputText — содержимое кавычек
+    командой не является, исполняемых assert ноль."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    lit = ("- inputText: 'assertVisible: {id: mission_frame_f05_05}'\n"
+           '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, lit), encoding='utf-8')
+
+
+def mut_proiskhozdenie_negativ_v02_v_kommentarii(pack, forma, repo, src):
+    """v3e (F3, v02_negative_in_comment критика r4): негатив V02
+    («completed не показан») заменён inline-комментарием допустимой
+    команды — файл содержит ноль исполняемых assertNotVisible."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v02.yaml')
+    t = p.read_text(encoding='utf-8')
+    staro = '- assertNotVisible: {id: mission_response_completed}\n'
+    kom = ('- hideKeyboard # assertNotVisible: '
+           '{id: mission_response_completed}\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, kom), encoding='utf-8')
+
+
+def mut_proiskhozdenie_nabljudenie_v01_v_kommentarii(pack, forma, repo,
+                                                     src):
+    """v3e (F3, v01_positive_in_comment критика r4): положительное
+    наблюдение V01 заменено inline-комментарием допустимой команды —
+    состояние не наблюдается ни в своём файле, ни в потоке."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v01.yaml')
+    t = p.read_text(encoding='utf-8')
+    staro = '- assertVisible: {id: mission_queued_offline}\n'
+    kom = '- hideKeyboard # assertVisible: {id: mission_queued_offline}\n'
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, kom), encoding='utf-8')
+
+
+def mut_proiskhozdenie_kommentarij_v_shapke(pack, forma, repo, src):
+    """v3e (G1): inline-комментарий на строке шапки — шапка допускает
+    только скаляр одной строкой; комментарий в шапке вне белого списка
+    (строки-комментарии разрешены в ТЕЛЕ, не в шапке/на `---`)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    staro = 'name: mission\n'
+    kom = 'name: mission # osnovnoj put\n'
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, kom), encoding='utf-8')
+
+
+def mut_proiskhozdenie_kommentarij_mezhdu_assertom_i_snimkom(
+        pack, forma, repo, src):
+    """v3e (зелёный свидетель класса): строка-только-комментарий между
+    своим assert и снимком допустима грамматикой и НЕ является шагом —
+    действия между подтверждением и снимком нет (комментарий, будь он
+    шагом, дал бы FLOW_DEJSTVIE_MEZHDU_ASSERTOM_I_SNIMKOM)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_02}\n'
+            '- takeScreenshot: mission-f05-02\n')
+    kom = ('- assertVisible: {id: mission_frame_f05_02}\n'
+           '# tapOn: {id: mission_send}\n'
+           '- takeScreenshot: mission-f05-02\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, kom), encoding='utf-8')
+
 PROBA_PROD = Path('mobile/src/features/conversation/__tests__/'
                   'mission-116.test.tsx')
 CI_PROD = Path('.github/workflows/mobile.yml')
@@ -1583,6 +1671,18 @@ MUTACII = {
         mut_proiskhozdenie_f05_07_otpravka_posle_nabljudenija,
     'proiskhozdenie-v02-bez-negativa':
         mut_proiskhozdenie_v02_bez_negativa,
+    'proiskhozdenie-kommentarij-asserta':
+        mut_proiskhozdenie_kommentarij_asserta,
+    'proiskhozdenie-literal-assert-v-kavychkah':
+        mut_proiskhozdenie_literal_assert_v_kavychkah,
+    'proiskhozdenie-negativ-v02-v-kommentarii':
+        mut_proiskhozdenie_negativ_v02_v_kommentarii,
+    'proiskhozdenie-nabljudenie-v01-v-kommentarii':
+        mut_proiskhozdenie_nabljudenie_v01_v_kommentarii,
+    'proiskhozdenie-kommentarij-v-shapke':
+        mut_proiskhozdenie_kommentarij_v_shapke,
+    'proiskhozdenie-kommentarij-mezhdu-assertom-i-snimkom':
+        mut_proiskhozdenie_kommentarij_mezhdu_assertom_i_snimkom,
 }
 
 
@@ -1683,6 +1783,11 @@ def snapshot(src):
 # сохранённой клеткой proiskhozdenie-snimok-v-rebyonke (строка
 # porjadok-koren-rebyonok, перевёрнута арбитражем из зелёного
 # свидетеля v3c в красную).
+# 116 v3e (правка по FAIL критика r4): класс «комментарий/литерал — не
+# команда» — комментарий отбрасывается при разборе, классификация шага
+# только именем команды и разобранным аргументом; строки ниже — клетки
+# класса (подмена исполняемого шага комментарием/литералом) и зелёный
+# свидетель допустимого комментария.
 OSI_SCENARIEV = (
     ('osnovnoj-put', 'mission.yaml', (
         'proiskhozdenie-chistyj', 'proiskhozdenie-byte-kopija',
@@ -1760,6 +1865,18 @@ OSI_SCENARIEV = (
         'proiskhozdenie-f05-07-otpravka-posle-nabljudenija',
         'proiskhozdenie-v02-bez-negativa',
     )),
+    ('kommentarij-shaga', 'mission.yaml',
+     ('proiskhozdenie-kommentarij-asserta',)),
+    ('kommentarij-negativa-v02', 'mission-state-v02.yaml',
+     ('proiskhozdenie-negativ-v02-v-kommentarii',)),
+    ('kommentarij-nabljudenija-v01', 'mission-state-v01.yaml',
+     ('proiskhozdenie-nabljudenie-v01-v-kommentarii',)),
+    ('literal-v-argumente', 'mission.yaml',
+     ('proiskhozdenie-literal-assert-v-kavychkah',)),
+    ('kommentarij-shapki', 'mission.yaml',
+     ('proiskhozdenie-kommentarij-v-shapke',)),
+    ('kommentarij-mezhdu', 'mission.yaml',
+     ('proiskhozdenie-kommentarij-mezhdu-assertom-i-snimkom',)),
 )
 
 
