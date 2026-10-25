@@ -571,16 +571,70 @@ def mut_proiskhozdenie_selektor_chuzhoj_drevo(pack, forma, repo, src):
 
 
 def mut_proiskhozdenie_dopusk_selektor_chuzhoj_drevo(pack, forma, repo, src):
-    """Тот же класс на допуск-селекторе: first-run-continue удалён из
-    дерева onboarding и положен в start — носитель пути допуска ищется в
-    дереве ЕГО экрана."""
-    p = repo / 'mobile/src/features/onboarding/testids.stand-in.tsx'
+    """Тот же класс на допуск-селекторе: честный носитель first-run-continue
+    (buttonTestID, auth) удалён и положен в start — носитель пути допуска
+    ищется в дереве ЕГО экрана (допуск 135/118: auth/onboarding)."""
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        '<View testID="first-run-continue" />\n', ''), encoding='utf-8')
+        DOPUSK_NOSITEL + '\n', ''), encoding='utf-8')
     svoj = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     svoj.write_text(svoj.read_text(encoding='utf-8')
                     + '<View testID="first-run-continue" />\n',
                     encoding='utf-8')
+
+
+def mut_proiskhozdenie_dopusk_nositel_v_onboarding(pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль допуска 135/118: frozen-текст 138/1 (инвариант 9)
+    называет деревом first-run-continue onboarding — честный носитель
+    testID= в onboarding остаётся владельцем; сужение до auth-only дало бы
+    ложный красный на конформном входе."""
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        DOPUSK_NOSITEL + '\n', ''), encoding='utf-8')
+    d = repo / 'mobile/src/features/onboarding/testids.stand-in.tsx'
+    d.write_text(d.read_text(encoding='utf-8')
+                 + '<View testID="first-run-continue" />\n',
+                 encoding='utf-8')
+
+
+def mut_proiskhozdenie_dopusk_nositel_chuzhoe_imja(pack, forma, repo, src):
+    """Имя атрибута вне замкнутого алфавита {buttonTestID, testID}:
+    ctaTestID= похож на пропуск кнопки, но до testID элемента не доходит
+    (алфавит имён замкнут; якорь «не-идентификаторный» символ)."""
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        DOPUSK_NOSITEL + '\n',
+        '<Cta ctaTestID="first-run-continue" />\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_dopusk_nositel_v_kommentarii(pack, forma, repo, src):
+    """buttonTestID-носитель в комментарии СВОЕГО дерева — не код."""
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        DOPUSK_NOSITEL + '\n', '// ' + DOPUSK_NOSITEL + '\n'),
+        encoding='utf-8')
+
+
+def mut_proiskhozdenie_dopusk_nositel_v_stroke(pack, forma, repo, src):
+    """buttonTestID-носитель в строковом литерале своего дерева —
+    подделка носителя, не JSX-атрибут."""
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        DOPUSK_NOSITEL + '\n',
+        'const opisanie = \'' + DOPUSK_NOSITEL + '\';\n'),
+        encoding='utf-8')
+
+
+def mut_proiskhozdenie_dopusk_nositel_v_teste(pack, forma, repo, src):
+    """buttonTestID-носитель в __tests__ своего дерева (имя без меток,
+    расширение кода) — не экранный код; краснеет ТОЛЬКО каталогом."""
+    p = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        DOPUSK_NOSITEL + '\n', ''), encoding='utf-8')
+    d = repo / 'mobile/src/features/auth/__tests__'
+    d.mkdir(parents=True, exist_ok=True)
+    (d / 'dopusk-helper.tsx').write_text(DOPUSK_NOSITEL + '\n',
+                                         encoding='utf-8')
 
 
 def mut_proiskhozdenie_selektor_nositel_v_stroke(pack, forma, repo, src):
@@ -653,6 +707,10 @@ def mut_proiskhozdenie_selektor_v_oboih(pack, forma, repo, src):
 # достижимость H4/H5 — остаток §НЕ ЗАЩИЩАЕТ, ловец — живой Maestro) ----
 
 NOSITEL_SPRAVA = '<View testID="start_sostojanie_idle" />'
+# Честный носитель first-run-continue (заявка implementer 138): продукт
+# передаёт кнопке Cta пропс buttonTestID (first-run-screen.tsx; Cta
+# рендерит testID={buttonTestID}, auth-parts.tsx; допуск 135/118).
+DOPUSK_NOSITEL = '<Cta buttonTestID="first-run-continue" />'
 
 
 def _udali_idle(repo):
@@ -916,6 +974,11 @@ MUTACII = {
     'proiskhozdenie-flow-yaml-ankor': mut_proiskhozdenie_flow_yaml_ankor,
     'proiskhozdenie-selektor-chuzhoj-drevo': mut_proiskhozdenie_selektor_chuzhoj_drevo,
     'proiskhozdenie-dopusk-selektor-chuzhoj-drevo': mut_proiskhozdenie_dopusk_selektor_chuzhoj_drevo,
+    'proiskhozdenie-dopusk-nositel-v-onboarding': mut_proiskhozdenie_dopusk_nositel_v_onboarding,
+    'proiskhozdenie-dopusk-nositel-chuzhoe-imja': mut_proiskhozdenie_dopusk_nositel_chuzhoe_imja,
+    'proiskhozdenie-dopusk-nositel-v-kommentarii': mut_proiskhozdenie_dopusk_nositel_v_kommentarii,
+    'proiskhozdenie-dopusk-nositel-v-stroke': mut_proiskhozdenie_dopusk_nositel_v_stroke,
+    'proiskhozdenie-dopusk-nositel-v-teste': mut_proiskhozdenie_dopusk_nositel_v_teste,
     'proiskhozdenie-selektor-nositel-v-stroke': mut_proiskhozdenie_selektor_nositel_v_stroke,
     'proiskhozdenie-selektor-nositel-v-kommentarii': mut_proiskhozdenie_selektor_nositel_v_kommentarii,
     'proiskhozdenie-selektor-cbhok-atribut': mut_proiskhozdenie_selektor_cbhok_atribut,
