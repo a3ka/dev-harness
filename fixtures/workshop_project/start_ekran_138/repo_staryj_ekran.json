@@ -1,0 +1,33 @@
+{
+ "_comment": "Живая пачка ТОГО ЖЕ экрана в репо продукта для красного входа zhivaja-pachta-v-repo: полнота замены по живым пачкам в --repo (мера 132).",
+ "ekran": {
+  "ekran": "start-ekran",
+  "kadry": "kadry.json",
+  "fiktura": false
+ },
+ "kadry": {
+  "_comment": "Живой манифест соседнего экрана (в продукте — пачка контракта); здесь: ne_trogaet судится по id кадров.",
+  "kadry": [
+   {
+    "id": "Start dark",
+    "tema": "dark",
+    "snimok": "sosednyj",
+    "maket": "docs/ux/x.png",
+    "maket_sha256": "pin-sosednego-ekrana",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": []
+   },
+   {
+    "id": "Start light",
+    "tema": "light",
+    "snimok": "sosednyj",
+    "maket": "docs/ux/x.png",
+    "maket_sha256": "pin-sosednego-ekrana",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": []
+   }
+  ]
+ }
+}

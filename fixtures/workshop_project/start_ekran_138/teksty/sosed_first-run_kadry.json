@@ -1,0 +1,85 @@
+{
+ "_comment": "Живой манифест соседнего экрана (в продукте — пачка контракта); здесь: ne_trogaet судится по id кадров.",
+ "kadry": [
+  {
+   "id": "First-Run dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "First-Run light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F03.01 dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F03.01 light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F03.02 dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F03.02 light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F03.02-V01 dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F03.02-V01 light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  }
+ ]
+}

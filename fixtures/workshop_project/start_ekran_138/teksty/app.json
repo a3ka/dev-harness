@@ -1,0 +1,8 @@
+{
+  "expo": {
+    "name": "Complior",
+    "android": {
+      "package": "com.complior.mobile"
+    }
+  }
+}

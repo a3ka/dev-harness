@@ -1,0 +1,428 @@
+{
+ "_comment": "Манифест кадров экрана Start (контракт 138): 4 состояния × 2 темы; макеты пакета 3 дизайнера с пинами sha256, грамматика kadry_117.json (123); кадры — перекодированные носители.",
+ "mera": {
+  "chernila_T": 40,
+  "kletka_pt": 6,
+  "fon_shag": 4,
+  "razmytie_r": 1,
+  "region_porog": 0.05,
+  "margin": 1,
+  "chrome_verh_pt": 36,
+  "chrome_niz_pt": 20,
+  "min_dolja_suda": 0.5
+ },
+ "kadry": [
+  {
+   "id": "F04.01 dark",
+   "tema": "dark",
+   "snimok": "start-ekran-f04-01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.01.png",
+   "maket_sha256": "43db524e38d3c5d306f1a74a4a0ab8d7754f80b60f1eacb5d0830ff2e2a77cab",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      48
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      102,
+      390,
+      174
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      210,
+      390,
+      234
+     ]
+    },
+    {
+     "imja": "podzagolovok",
+     "bbox_pt": [
+      0,
+      252,
+      390,
+      288
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      0,
+      708,
+      390,
+      756
+     ]
+    },
+    {
+     "imja": "tabbar",
+     "bbox_pt": [
+      0,
+      786,
+      390,
+      822
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.01 light",
+   "tema": "light",
+   "snimok": "start-ekran-f04-01",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.01-Hell.png",
+   "maket_sha256": "98bdb89ff63446d12b26b09b420a83d95542be1ddcaaad0b5c9a695ba1eda22c",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      0,
+      390,
+      844
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.07 dark",
+   "tema": "dark",
+   "snimok": "start-ekran-f04-07",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.07.png",
+   "maket_sha256": "8662dd00d31e22251a6fa67f7737db2dfca403023bbd12a206d2d741debd224f",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      48
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      102,
+      390,
+      174
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      198,
+      390,
+      228
+     ]
+    },
+    {
+     "imja": "podzagolovok",
+     "bbox_pt": [
+      0,
+      240,
+      390,
+      282
+     ]
+    },
+    {
+     "imja": "vhod-1",
+     "bbox_pt": [
+      0,
+      306,
+      390,
+      324
+     ]
+    },
+    {
+     "imja": "vhod-2",
+     "bbox_pt": [
+      0,
+      360,
+      390,
+      390
+     ]
+    },
+    {
+     "imja": "vhod-3",
+     "bbox_pt": [
+      0,
+      426,
+      390,
+      444
+     ]
+    },
+    {
+     "imja": "vhod-4",
+     "bbox_pt": [
+      0,
+      480,
+      390,
+      510
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      0,
+      708,
+      390,
+      756
+     ]
+    },
+    {
+     "imja": "tabbar",
+     "bbox_pt": [
+      0,
+      786,
+      390,
+      822
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.07 light",
+   "tema": "light",
+   "snimok": "start-ekran-f04-07",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.07-Hell.png",
+   "maket_sha256": "706d93cd6bbddec0955b3369353e25e832c5758a1fc040937b8a77a6889634bc",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      0,
+      390,
+      844
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.08 dark",
+   "tema": "dark",
+   "snimok": "start-ekran-f04-08",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.08.png",
+   "maket_sha256": "9242a4162aecfc1f22921c2d1d4a1582eb7345dcf47b1b2d6501f567471abad1",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      48
+     ]
+    },
+    {
+     "imja": "znak",
+     "bbox_pt": [
+      0,
+      102,
+      390,
+      174
+     ]
+    },
+    {
+     "imja": "zagolovok",
+     "bbox_pt": [
+      0,
+      204,
+      390,
+      252
+     ]
+    },
+    {
+     "imja": "podzagolovok",
+     "bbox_pt": [
+      0,
+      264,
+      390,
+      294
+     ]
+    },
+    {
+     "imja": "svojstvo",
+     "bbox_pt": [
+      0,
+      306,
+      390,
+      342
+     ]
+    },
+    {
+     "imja": "uslovie",
+     "bbox_pt": [
+      0,
+      354,
+      390,
+      618
+     ]
+    },
+    {
+     "imja": "kartka",
+     "bbox_pt": [
+      0,
+      648,
+      390,
+      708
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      0,
+      726,
+      390,
+      744
+     ]
+    },
+    {
+     "imja": "tabbar",
+     "bbox_pt": [
+      0,
+      786,
+      390,
+      822
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.08 light",
+   "tema": "light",
+   "snimok": "start-ekran-f04-08",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.08-Hell.png",
+   "maket_sha256": "2b1e862267c8bc78c9f0923ba650293386a16eae0df2e397660462970013f564",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      0,
+      390,
+      844
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.13 dark",
+   "tema": "dark",
+   "snimok": "start-ekran-f04-13",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.13.png",
+   "maket_sha256": "3cf68331fa11e242c5ecce4a55d291051f5582d0cfa20e5b569f68bec2734125",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "wordmark",
+     "bbox_pt": [
+      0,
+      36,
+      390,
+      54
+     ]
+    },
+    {
+     "imja": "metki",
+     "bbox_pt": [
+      0,
+      72,
+      390,
+      102
+     ]
+    },
+    {
+     "imja": "blok-raboty",
+     "bbox_pt": [
+      0,
+      114,
+      390,
+      150
+     ]
+    },
+    {
+     "imja": "blok-sledujushchego",
+     "bbox_pt": [
+      0,
+      162,
+      390,
+      600
+     ]
+    },
+    {
+     "imja": "dejstvie",
+     "bbox_pt": [
+      0,
+      648,
+      390,
+      708
+     ]
+    },
+    {
+     "imja": "cta",
+     "bbox_pt": [
+      0,
+      726,
+      390,
+      750
+     ]
+    },
+    {
+     "imja": "tabbar",
+     "bbox_pt": [
+      0,
+      786,
+      390,
+      822
+     ]
+    }
+   ]
+  },
+  {
+   "id": "F04.13 light",
+   "tema": "light",
+   "snimok": "start-ekran-f04-13",
+   "maket": "docs/ux/03_Mobility_Slice1/screens/F04.13-Hell.png",
+   "maket_sha256": "c7f4ff1e3c07b1b7853a5e9b1cf149b9d8748883fe83db809f1494073bda1953",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": [
+    {
+     "imja": "ekran",
+     "bbox_pt": [
+      0,
+      0,
+      390,
+      844
+     ]
+    }
+   ]
+  }
+ ]
+}
