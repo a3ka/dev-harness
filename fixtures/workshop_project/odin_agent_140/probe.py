@@ -12,11 +12,22 @@
 на зафиксированный OBJECT, единый учёт начатых предметов (лимиты 1/3/2).
 
 Режимы:
-  (без флага)   субъекта нет → rc 1 SUBJECT_ABSENT с перечнем всех входов
-                (зелень без субъекта невозможна);
+  (без флага)   субъект = ПОСТАВЛЕННАЯ дверь дерева scripts/zamok_predmeta.sh
+                (образец 136: боли живы → rc 1; зелень — только после ленда
+                реализации). Нет субъекта → rc 1 SUBJECT_ABSENT с перечнем всех
+                входов ПО ПУТИ реального субъекта; обманная дверь (свидетель
+                критика 1/2: «всегда PUSCHEM») → rc 1 с названными клетками.
   --model       субъект = model/zamok_predmeta.sh, контроль входов (N/N);
-  --stabs       контроль + матрица обманных стабов (SVJAZI M, живых 0);
+  --stabs       контроль + матрица обманных стабов над МОДЕЛЬЮ (опора до
+                ленда) +, когда scripts/zamok_predmeta.sh существует, СЛОЙ
+                СУБЪЕКТА: контроль всех клеток на поставленной двери и та же
+                матрица обманных дверей над её текстом (SVJAZI растёт, живых 0);
   --sgeneriruj-staby  (обслуживание) материализует stabs/ из STAB_MUTACII.
+
+Интеграция хука .omp/extensions/spawn-guard.ts без станции НЕ исполнима (корни
+состояний — из живого ctx сессии omp, инвариант 1 контракта): клетки интеграции
+помечены «станция» в osi.md и закрыты КОМАНДОЙ приёмки stancija_odin_agent_140.sh
+(rc 0/1, строки PROBA <имя> OK|KRASNO) — не молчаливым пропуском батареи.
 
 Миры — в mktemp под $TMPDIR; omp НЕ нужен; сети нет; git/jq/bash обязательны.
 Коды возврата: 0 — зелено; 1 — красный кейс либо стаб прошёл (STAB_ZHIV)
@@ -37,6 +48,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
 STABS = HERE / 'stabs'
+# ПОСТАВЛЯЕМЫЙ субъект безфлагового режима: реальная дверь дерева клона
+# (HERE = <корень>/fixtures/workshop_project/odin_agent_140).
+REEPOR = HERE.parents[2]
+SUBJEKT_DVERI = REEPOR / 'scripts' / 'zamok_predmeta.sh'
+# станционные клетки интеграции хука (osi.md: p01–p14 + m01) — закрыты
+# КОМАНДОЙ приёмки stancija_odin_agent_140.sh, не молчаливым пропуском
+STANCIONNYH_KLETOK = 15
 BASH = '/usr/bin/bash' if Path('/usr/bin/bash').is_file() else 'bash'
 TAB = '\t'
 GIT_ENV = {'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_SYSTEM': '/dev/null',
@@ -715,15 +733,27 @@ def kejsy():
             '144': ('harness', 'Impl144', 'rabochij', 'done'),
         }
         seen = {}
+        bad = []
         for l in lines:
             p = l.split('\t')
+            if len(p) != 7:   # UCHET repo nnn group holder klass state
+                bad.append('строка UCHET не по грамматике (полей %d): %r'
+                           % (len(p), l[:80]))
+                continue
             seen[p[2]] = (p[3], p[4], p[5], p[6])
-        bad = []
         for nnn, w in want.items():
             if seen.get(nnn) != w:
                 bad.append('%s: %r ≠ %r' % (nnn, seen.get(nnn), w))
-        grp = {l.split('\t')[1]: (l.split('\t')[2], l.split('\t')[3])
-               for l in r.stdout.splitlines() if l.startswith('GRP\t')}
+        grp = {}
+        for l in r.stdout.splitlines():
+            if not l.startswith('GRP\t'):
+                continue
+            p = l.split('\t')
+            if len(p) != 4:   # GRP group n cap
+                bad.append('строка GRP не по грамматике (полей %d): %r'
+                           % (len(p), l[:80]))
+                continue
+            grp[p[1]] = (p[2], p[3])
         if grp.get('harness') != ('2', str(CAP_HARNESS)):
             bad.append('GRP harness %r' % (grp.get('harness'),))
         if grp.get('mob') != ('0', str(CAP_MOB)):
@@ -997,6 +1027,20 @@ def m_uchet_bez_zhurnala(t):
     if na_pauze "$s"; then st='bezhit'; fi''')
 
 
+def m_vsegda_puschem(t):
+    # [X1] свидетель критика (вердикт 1/2, attack-repo): обманная ДВЕРЬ
+    # «всегда PUSCHEM» — судья проходит до yield, лимиты/пакет/рестарт
+    # пропускаются: все защиты сняты сразу, любая форма вызова разрешает
+    # до всякой логики. Стаб поставляемого субъекта: та же мутация над
+    # текстом реальной двери (--stabs, слой субъекта).
+    star = 'set -uo pipefail\n'
+    novo = ('set -uo pipefail\n'
+            '# [X1] обманная дверь свидетеля критика: всегда пропуск\n'
+            'echo "PUSCHEM (obmannaja dver)"\n'
+            'exit 0\n')
+    return _z(t, star, novo)
+
+
 def m_pauza_schitaetsja(t):
     return _z(t, '''    predmet_done "${s#*/}" && continue
     na_pauze "${s#*/}" && continue''',
@@ -1032,6 +1076,7 @@ STAB_MUTACII = {
     's25-bez-pin-rashozhdenija': m_bez_pin_rashozhdenija,
     's26-uchet-bez-zhurnala': m_uchet_bez_zhurnala,
     's27-pauza-schitaetsja': m_pauza_schitaetsja,
+    'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
 
@@ -1046,6 +1091,85 @@ def nagrudit_staby():
         f.write_text(tekst, encoding='utf-8')
         f.chmod(0o755)
         print('STAB %s записан (%d байт)' % (imja, len(tekst.encode("utf-8"))))
+
+
+# ── безфлаговый режим: судит ПОСТАВЛЕННУЮ дверь дерева ──────────────────────
+def rezhim_plain(K):
+    d = SUBJEKT_DVERI
+    if not d.is_file():
+        print('SUBJECT_ABSENT: субъекта-двери нет: %s — зелень без субъекта невозможна' % d)
+        for imja in sorted(K):
+            print('CASE %s KRASNO (SUBJECT_ABSENT: %s)' % (imja, d))
+        print('STANCIONNYE: %d клеток интеграции хука (p01-p14,m01, osi.md) — команда приёмки bash %s'
+              % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
+        return 1
+    krasnyh = 0
+    for imja in sorted(K):
+        problems = progon(d, imja, K[imja]['run'])
+        if problems:
+            krasnyh += 1
+            for p in problems:
+                print('CASE %s KRASNO: %s' % (imja, p))
+        else:
+            print('CASE %s ok' % imja)
+    print('SUBJEKT: %s' % d)
+    print('STANCIONNYE: %d клеток интеграции хука (p01-p14,m01, osi.md) — команда приёмки bash %s'
+          % (STANCIONNYH_KLETOK, HERE / 'stancija_odin_agent_140.sh'))
+    print('KLETKI %d KRASNYH %d' % (len(K), krasnyh))
+    return 1 if krasnyh else 0
+
+
+# ── слой субъекта в --stabs: контроль + обманные двери НАД ПОСТАВЛЕННОЙ ──────
+def sloj_subjekta(K, stab_vhod):
+    d = SUBJEKT_DVERI
+    if not d.is_file():
+        print('SUBJEKT_NET: поставленной двери нет (%s) — слой субъекта пропущен; '
+              'над МОДЕЛЬЮ как опора уже прогнано (предварительное доказательство)' % d)
+        return 0
+    baza = d.read_text(encoding='utf-8')
+    krasnyh = 0
+    for imja in sorted(K):
+        problems = progon(d, imja, K[imja]['run'])
+        if problems:
+            krasnyh += 1
+            for p in problems:
+                print('SUBJEKT CASE %s KRASNO: %s' % (imja, p))
+        else:
+            print('SUBJEKT CASE %s ok' % imja)
+    if krasnyh:
+        print('SUBJEKT_KRASNO: %d — поставленная дверь красна (свидетель критика пойман)' % krasnyh)
+        return 1
+    svjazi = 0
+    zhivye = 0
+    vrem = tempfile.mkdtemp(prefix='odin140-subjekt-')
+    try:
+        for stab in sorted(STAB_MUTACII):
+            try:
+                tekst = STAB_MUTACII[stab](baza)
+            except RuntimeError as e:
+                zhivye += 1
+                print('STAB_ZHIV: %s якорь мутации не найден в субъекте: %s' % (stab, e))
+                continue
+            f = Path(vrem) / (stab + '.sh')
+            f.write_text(tekst, encoding='utf-8')
+            f.chmod(0o755)
+            for vhod in stab_vhod[stab]:
+                problems = progon(f, vhod, K[vhod]['run'])
+                svjazi += 1
+                if not problems:
+                    zhivye += 1
+                    print('STAB_ZHIV: %s прошёл вход %s (над реальным субъектом)' % (stab, vhod))
+                else:
+                    print('SUBJEKT STAB %s %s KRASEN' % (stab, vhod))
+    finally:
+        shutil.rmtree(vrem, ignore_errors=True)
+    print('SUBJEKT_SVJAZI %d' % svjazi)
+    if zhivye:
+        print('STAB_ZHIV: %d (субъект)' % zhivye)
+        return 1
+    if svjazi == 0:
+        return oshibka_orakula('пустая матрица связей субъекта')
+    return 0
 
 
 # ── прогон кейса на двери ────────────────────────────────────────────────────
@@ -1103,10 +1227,9 @@ def main():
         return oshibka_orakula('литерал yield разошёлся')
 
     if not (a.model or a.stabs):
-        print('SUBJECT_ABSENT: нет --model/--stabs — зелень без субъекта невозможна')
-        for imja in sorted(K):
-            print('CASE %s KRASNO (SUBJECT_ABSENT)' % imja)
-        return 1
+        # безфлаговый режим судит ПОСТАВЛЕННУЮ дверь дерева (вердикт критика
+        # 1/2: батарея обязана судить реализацию, не только модель/стабы)
+        return rezhim_plain(K)
 
     # --model: контроль входов на эталоне
     vse_ok = True
@@ -1145,6 +1268,9 @@ def main():
             return 1
         if svjazi == 0:
             return oshibka_orakula('пустая матрица связей')
+        # слой субъекта: поставленная дверь существует → контроль + обманные
+        # двери над её текстом (свидетель критика обязан краснеть здесь тоже)
+        return sloj_subjekta(K, src['stab_vhod'])
     return 0
 
 

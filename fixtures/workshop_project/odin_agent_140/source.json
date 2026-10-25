@@ -1,7 +1,7 @@
 {
  "versija": 1,
  "kontrakt": "140-odin-agent-na-predmet",
- "subjekt": "model/zamok_predmeta.sh (эталон двери замка предмета; реализация scripts/zamok_predmeta.sh той же семантики)",
+ "subjekt": "model/zamok_predmeta.sh (эталон двери замка предмета) и ПОСТАВЛЯЕМАЯ реализация scripts/zamok_predmeta.sh: безфлаговый режим судит поставленную дверь (нет — SUBJECT_ABSENT rc 1 по её пути), --stabs дополнительно несёт слой субъекта — контроль всех клеток на поставленной двери и обманные двери над её текстом; интеграция .omp/extensions/spawn-guard.ts — станционные клетки (osi.md), команда приёмки stancija_odin_agent_140.sh",
  "konstanty": {
   "cap_harness": 1,
   "cap_mob": 3,
@@ -183,6 +183,20 @@
   ],
   "s27-pauza-schitaetsja": [
    "w18-limit-pauza-osvobozhdaet"
+  ],
+  "x01-vsegda-puschem": [
+   "w02-vtoroj-rabochij-zhiv",
+   "w04-dubl-posle-restarta",
+   "w13-limit-harness",
+   "w15-limit-mob-chetyre",
+   "s02-kritik-pri-zhivom-rabochem",
+   "s03-object-rashoditsja",
+   "s04-object-net",
+   "s05-vtoroj-sudja-zhiv",
+   "s06-object-uzhe-suzhen",
+   "s09-adv-do-rev",
+   "b02-dubl-v-pakete",
+   "b04-gonka-dva-protsessa"
   ]
  },
  "nositeli": {
@@ -213,11 +227,14 @@
   "s24-sudi-propusk": "1ea878a64c06a204183bef85734b4527c85eabc13fef1166fc9a4773035a646b",
   "s25-bez-pin-rashozhdenija": "41f0abeedada9bdabb2a77946d08aa5beb7c2b5f2da5686ff07ea2bd4156011a",
   "s26-uchet-bez-zhurnala": "75cf00b47c7fa3992ebff57fc71f9b9a32f5dc7aac81d96b6becc0dc25c92385",
-  "s27-pauza-schitaetsja": "e10d5e560898e762342991d4070160d537b1ea8acd5981c8dbaf03396ce92e08"
+  "s27-pauza-schitaetsja": "e10d5e560898e762342991d4070160d537b1ea8acd5981c8dbaf03396ce92e08",
+  "x01-vsegda-puschem": "0b4145dba11b5ceef59bf019755f0cf46895e6144a49ef8db449d2f142afe618"
  },
  "zametki": {
   "nositeli": "пины sha256 модели и стабов проставляются генерацией (probe.py --sgeneriruj-staby + gen_nositeli) и фиксируются ДО сдачи; пустой носитель на сдаче = ORACLE_TAMPERED",
   "privjazki": "Н-39: пары «стаб ↔ вход» живут ТОЛЬКО здесь (stab_vhod), проза контракта их не утверждает; привязка — минимальная гарантированная краснота, не полный эффект мутации (замечание критика 136 r1)",
-  "omp": "батарее omp НЕ нужен (урок 136 lane l5); сети нет; git/jq/bash обязательны"
+  "omp": "батарее omp НЕ нужен (урок 136 lane l5); сети нет; git/jq/bash обязательны",
+  "rezhimy": "безфлаговый = поставленная дверь scripts/zamok_predmeta.sh (вердикт критика 1/2: боли живы → rc 1 SUBJECT_ABSENT по пути реального субъекта; обманная дверь → rc 1 с названными клетками); --model = эталон; --stabs = опора над моделью + слой субъекта (контроль + матрица обманных дверей над текстом поставленной двери, строгие якоря [Dn]/[X1] — потеря маркера = STAB_ZHIV)",
+  "stancija": "клетки интеграции хука (p01-p14 + m01, osi.md) без станции не исполнимы (корни — из живого ctx сессии omp): закрыты КОМАНДОЙ приёмки stancija_odin_agent_140.sh, rc 0/1, строки PROBA <имя> OK|KRASNO"
  }
 }
