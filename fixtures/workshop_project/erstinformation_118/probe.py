@@ -876,6 +876,41 @@ def mut_proiskhozdenie_config_bez_iskljuchenija(pack, forma, repo, src):
         stroki.append(line)
     p.write_text('\n'.join(stroki) + '\n', encoding='utf-8')
 
+# --- v2d (блокер Adv118v2b круга 1): класс входов «форма указания путей» --
+
+def _puti_chestyj_fon(pack, repo):
+    """Живая раскладка продукта: пачка лежит В repo (mobile/e2e-
+    erstinformation несёт ekran/kadry/kontrakt/red_ekrana), кадры кладёт
+    прогон e2e — форма frozen 118/2 разрешает pack от repo, не от tmp."""
+    for rel in ('ekran.json', 'kadry.json', 'kontrakt.md',
+                'batareja/red_ekrana.sh'):
+        shutil.copyfile(pack / rel,
+                        repo / 'mobile/e2e-erstinformation' / rel)
+    _zapusti_replay(repo)
+
+
+def mut_puti_chestyj_fon(pack, forma, repo, src):
+    """Честный продукт для клеток формы путей: пачка в продукте, кадры
+    положены прогоном e2e (как proiskhozdenie-chistyj); форма указания
+    путей живёт в FORMY_ZAPUSKA, а не в мутации — вход отличается только
+    формой."""
+    _puti_chestyj_fon(pack, repo)
+
+
+def mut_puti_simlink(pack, forma, repo, src):
+    """repo дан ИМЕНЕМ симлинка: канонизация обязана схлопнуть его до
+    реального пути до смен каталога и дочерних запусков."""
+    _puti_chestyj_fon(pack, repo)
+    (repo.parent / 'simlink-repo').symlink_to(repo, target_is_directory=True)
+
+
+def mut_puti_probel(pack, forma, repo, src):
+    """Пробел в пути продукта: cwd, pack, repo, stand-in и отчёт несут
+    пробел; форма frozen 118/2 (--repo .) обязана выживать."""
+    _puti_chestyj_fon(pack, repo)
+    shutil.move(str(repo), str(repo.parent / 're po'))
+
+
 # --- v2 круг 1: классы «production-крючок без срока» и «данные шире
 # слова владельца» (вердикт критика круга 1, блокеры 1–2) ---------------
 
@@ -1252,8 +1287,101 @@ MUTACII = {
     'dannye-expires-dvazhdy': mut_dannye_expires_dvazhdy,
     'dannye-drugaja-data': mut_dannye_drugaja_data,
     'dannye-mocks-pereformat': mut_dannye_mocks_pereformat,
+    'puti-repo-tochka': mut_puti_chestyj_fon,
+    'puti-dotdot-ot-mobile': mut_puti_chestyj_fon,
+    'puti-absoljutnye': mut_puti_chestyj_fon,
+    'puti-simlink': mut_puti_simlink,
+    'puti-probel': mut_puti_probel,
+    'puti-jest-otchet-ot-kornja': mut_puti_chestyj_fon,
 }
 
+
+# --- v2d: формы указания путей запуска (класс «форма путей», Adv118v2b) ----
+# Таблица класса: relative-dot (frozen 118/2 дословно — относительный
+# --repo . из корня продукта), dotdot от mobile, абсолютная (форма живого
+# CI mobile.yml:658), симлинк, пробел в пути, отчёт мобильной формой
+# (e2e-erstinformation/…) против корневой (mobile/e2e-erstinformation/…).
+# Субъект кладётся по пин-пути продукта и зовётся формой клетки; честный
+# продукт обязан быть зелёным в КАЖДОЙ форме, стаб s-bez-kanonizacii-puti
+# красен на входах своей записи stab_vhod (Н-39: на dotdot/абсолютной
+# форме прежний checker честен — '..' отменяет спуск, абсолют не теряется,
+# привязки там нет и быть не может).
+
+PIN_PUTI_PROVERKI = ('mobile/e2e-erstinformation/batareja/'
+                     'proverka_proiskhozdenija.py')
+
+
+def _po_pin_puti(subject, root):
+    """Субъект (модель/стаб) — по пин-пути продукта, как живой CI."""
+    shutil.copyfile(subject, root / PIN_PUTI_PROVERKI)
+
+
+def _puti_repo_tochka(subject, tmp, repo, harness):
+    """Форма frozen 118/2 дословно: корень продукта, --repo ."""
+    _po_pin_puti(subject, repo)
+    return repo, [PIN_PUTI_PROVERKI, '--pack',
+                  'mobile/e2e-erstinformation', '--repo', '.',
+                  '--harness', harness, '--jest-otchet',
+                  'e2e-erstinformation/jest-otchet.json']
+
+
+def _puti_dotdot(subject, tmp, repo, harness):
+    """cwd mobile: repo/pack через '..' (подъём вместо спуска)."""
+    _po_pin_puti(subject, repo)
+    return repo / 'mobile', [
+        'e2e-erstinformation/batareja/proverka_proiskhozdenija.py',
+        '--pack', '../mobile/e2e-erstinformation', '--repo', '..',
+        '--harness', harness, '--jest-otchet',
+        'e2e-erstinformation/jest-otchet.json']
+
+
+def _puti_absoljutnye(subject, tmp, repo, harness):
+    """Форма живого CI: все пути абсолютные."""
+    _po_pin_puti(subject, repo)
+    return tmp, [str(repo / PIN_PUTI_PROVERKI), '--pack',
+                 str(repo / 'mobile/e2e-erstinformation'), '--repo',
+                 str(repo), '--harness', harness, '--jest-otchet',
+                 str(repo / 'mobile/e2e-erstinformation' / 'jest-otchet.json')]
+
+
+def _puti_simlink(subject, tmp, repo, harness):
+    """repo, pack и скрипт даны ИМЕНЕМ симлинка от cwd запуска; отчёт —
+    мобильной формой (базы разрешения отчёта укоренены в repo)."""
+    _po_pin_puti(subject, repo)
+    return tmp, ['simlink-repo/' + PIN_PUTI_PROVERKI, '--pack',
+                 'simlink-repo/mobile/e2e-erstinformation', '--repo',
+                 'simlink-repo', '--harness', harness, '--jest-otchet',
+                 'e2e-erstinformation/jest-otchet.json']
+
+
+def _puti_probel(subject, tmp, repo, harness):
+    """Пробел в каталоге продукта: форма frozen 118/2 из «re po»."""
+    root = tmp / 're po'
+    _po_pin_puti(subject, root)
+    return root, [PIN_PUTI_PROVERKI, '--pack',
+                  'mobile/e2e-erstinformation', '--repo', '.',
+                  '--harness', harness, '--jest-otchet',
+                  'e2e-erstinformation/jest-otchet.json']
+
+
+def _puti_otchet_ot_kornja(subject, tmp, repo, harness):
+    """Отчёт КОРНЕВОЙ формой при абсолютных repo/pack: разрешается от
+    repo, не только от repo/mobile (вторая база канонизации)."""
+    _po_pin_puti(subject, repo)
+    return repo, [PIN_PUTI_PROVERKI, '--pack',
+                  str(repo / 'mobile/e2e-erstinformation'), '--repo',
+                  str(repo), '--harness', harness, '--jest-otchet',
+                  'mobile/e2e-erstinformation/jest-otchet.json']
+
+
+FORMY_ZAPUSKA = {
+    'puti-repo-tochka': _puti_repo_tochka,
+    'puti-dotdot-ot-mobile': _puti_dotdot,
+    'puti-absoljutnye': _puti_absoljutnye,
+    'puti-simlink': _puti_simlink,
+    'puti-probel': _puti_probel,
+    'puti-jest-otchet-ot-kornja': _puti_otchet_ot_kornja,
+}
 
 # --- суд входа ---------------------------------------------------------------
 
@@ -1284,10 +1412,18 @@ def run_subject(subject, name, src):
         # (repo/mobile/e2e-erstinformation/jest-otchet.json) — checker
         # берёт его своей нормой по умолчанию, как живой CI берёт флагом
         # --jest-otchet; стабы-копии прежней генерации флаг не знают.
-        p = subprocess.run(
-            [sys.executable, str(subject), '--pack', str(pack),
-             '--repo', str(repo), '--harness', harness_arg],
-            capture_output=True, text=True)
+        forma_zapyska = FORMY_ZAPUSKA.get(name)
+        if forma_zapyska is None:
+            p = subprocess.run(
+                [sys.executable, str(subject), '--pack', str(pack),
+                 '--repo', str(repo), '--harness', harness_arg],
+                capture_output=True, text=True)
+        else:
+            # v2d: форма указания путей — свойство ВХОДА, едина для
+            # модели и стаба (стаб обязан зваться той же формой).
+            cwd, argv = forma_zapyska(subject, tmp, repo, harness_arg)
+            p = subprocess.run([sys.executable] + argv,
+                               capture_output=True, text=True, cwd=str(cwd))
         return p.returncode, p.stdout, p.stderr
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

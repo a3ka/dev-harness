@@ -30,6 +30,11 @@
 # fail-closed), данные — БАЙТОВЫЙ эталон с ровно одной разрешённой
 # подстановкой литерала expires_at (декодированный объект байтами не
 # является); лексический токен-гейт PROIZVODSTVO_BEZ_SROKA снят.
+# v2d (блокер Adv118v2b круга 1): пути запуска канонизируются в абсолютные
+# от cwd ВЫЗОВА до любых смен каталога и дочерних запусков — относительный
+# --repo . из корня продукта (форма приёмочного критерия) больше не теряет
+# stand-in после cwd=mobile (mobile/mobile/src/…, rc=127 на всех осях);
+# отсутствующий bash — именованная PRICHINA, не traceback.
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -62,6 +67,15 @@ def prichina(imja, detal):
 
 def sha(p):
     return hashlib.sha256(p.read_bytes()).hexdigest()
+
+def kanon(arg):
+    """(v2d) Единый источник канонизации путей запуска: --pack/--repo/
+    --harness resolves в АБСОЛЮТНЫЕ от cwd вызова ДО любых смен каталога
+    и дочерних запусков; '..' и символические ссылки схлопываются.
+    Относительный repo при cwd=repo/'mobile' у дочернего bash терял
+    stand-in (mobile/mobile/src/…, rc=127 на всех осях композиции) — путь
+    stand-in и cwd запуска обязаны быть абсолютными в момент exec."""
+    return Path(arg).resolve()
 
 
 def shagi_flow(path):
@@ -320,9 +334,15 @@ def sud_kompoziciju(repo):
             args.append(srok)
             if srok_tek:
                 args.append(srok_tek)
-        zap = subprocess.run(
-            ['bash', str(p)] + args,
-            capture_output=True, text=True, cwd=str(repo / 'mobile'))
+        try:
+            zap = subprocess.run(
+                ['bash', str(p)] + args,
+                capture_output=True, text=True, cwd=str(repo / 'mobile'))
+        except FileNotFoundError as e:
+            # совет Adv118v2b: инструмент вне PATH — именованный отказ,
+            # не traceback; fail-closed сохранён (rc остаётся 1)
+            otkazy.append(('KOMPOZICIJA_INSTRUMENT_NET', 'bash: %s' % e))
+            break
         fakt = zap.stdout.strip()
         if zap.returncode != 0:
             otkazy.append(('KOMPOZICIJA_OS_NE_ISPOLNENA',
@@ -370,12 +390,14 @@ SROK_KLETKI = (
 
 
 def _put_otcheta(repo, otchet):
-    """Путь отчёта: абсолютный как есть; относительный — от repo/mobile
-    (cwd шага npm test того же job)."""
+    """Путь отчёта (v2d): абсолютный — как есть (resolve); относительный —
+    от repo/mobile (cwd шага npm test того же job, форма frozen 118/2),
+    корневая форма mobile/… — от repo; итог абсолютен до запусков."""
     p = Path(otchet) if otchet else Path(JEST_OTCHET_OTNOSITELNYJ)
-    if not p.is_absolute():
-        p = repo / 'mobile' / p
-    return p
+    if p.is_absolute():
+        return p.resolve()
+    osnovnoj = repo / 'mobile' / p
+    return osnovnoj if osnovnoj.is_file() else repo / p
 
 
 def _sud_otchet(otchet_d):
@@ -556,7 +578,10 @@ def main():
                     help='отчёт jest --json шага npm test (cwd mobile); '
                          'отсутствие = непрогон (SROK_OTCHET_NET)')
     a = ap.parse_args()
-    pack, repo = Path(a.pack), Path(a.repo)
+    # Канонизация v2d: все пути-аргументы — в абсолютные ДО чтения входов,
+    # смен каталога и дочерних запусков (единый источник — kanon).
+    pack, repo = kanon(a.pack), kanon(a.repo)
+    harness = kanon(a.harness) if a.harness else None
     try:
         forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
         manifest = json.loads((pack / forma['kadry']).read_text(
@@ -589,7 +614,7 @@ def main():
     otkazy += sud_flow(shagi, snimki) + sud_kompoziciju(repo)
     otkazy += sud_sroka(repo, a.jest_otchet)
     otkazy += sud_ci_sroka(repo)
-    otkazy += sud_odin_razreshennyj_kljuch(repo, a.harness)
+    otkazy += sud_odin_razreshennyj_kljuch(repo, harness)
     istochniki = [p for root in ISTOCHNIKI_EKRANA
                   for p in (repo / root).rglob('*')]
     teksty = []
