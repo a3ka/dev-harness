@@ -1,12 +1,17 @@
 {
-  "versija": 1,
+  "versija": 2,
   "kontrakt": "139-e2e-avtoperezapusk",
   "subjekt": ".github/workflows/mobile-e2e-retry.yml",
   "mobile_yml": ".github/workflows/mobile.yml",
   "repo_scenariev": "a3ka/Complior-mob",
   "signatury_regex": "device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException|INSTALL_FAILED|emulator: ERROR|Timeout waiting for emulator",
   "signatury_istochnik": "канон обрыва adb-транспорта: шаг 117 main mobile.yml:385 (device offline|device .* not found|DeviceServerDiedException) + шаг 116 ветки PR #122 (живой лог 40198243018:2097, полная четырёхальтернативная форма); INSTALL_FAILED/emulator: ERROR/Timeout waiting for emulator — поправка владельца 15:45 (сигнатуры старта эмулятора); gradle-lock НЕ входит (коллизия параллельных прогонов двух раннеров Н-409, лечится раздельным GRADLE_USER_HOME, не повтором)",
-  "ne_povtorjat": ["E2E_NE_PROSHLA", "NIZHE_POROGA", "Timeout waiting to lock", "PILOT_DEMO_CODE_ABSENT"],
+  "ne_povtorjat": [
+    "E2E_NE_PROSHLA",
+    "NIZHE_POROGA",
+    "Timeout waiting to lock",
+    "PILOT_DEMO_CODE_ABSENT"
+  ],
   "alfavit_vyrazhenij": [
     "github.token",
     "github.event.workflow_run.id",
@@ -21,8 +26,16 @@
   "alfavit_zhk": {
     "jobs": ".jobs[] | select(.name == \"android-e2e\" and .conclusion == \"failure\") | .id"
   },
-  "runner": ["self-hosted", "linux", "x64", "complior"],
-  "prava": {"actions": "write", "contents": "read"},
+  "runner": [
+    "self-hosted",
+    "linux",
+    "x64",
+    "complior"
+  ],
+  "prava": {
+    "actions": "write",
+    "contents": "read"
+  },
   "nositeli": {
     "mobile.yml": "31c400e7569e9833c0cacac4a0db8e852d5e08f6ea66176f0159869bfc8c32ae",
     "zhivoj_log_40198243018_skript_eho.log": "5b73f69940007eb26eb81fc02c98bfc7728a533b1db04d484db1105798541655"
@@ -34,216 +47,1333 @@
   "kejsy": {
     "infra-ofline": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:20:01.1234567Z ##[group]Run set -euo pipefail\n2026-10-25T14:20:01.1234578Z echo start\n2026-10-25T14:20:01.1234589Z ##[endgroup]\n2026-10-25T14:21:33.0000001Z maestro: error: device offline\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790", "RERUN --failed 40198247993"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
       }
     },
     "infra-adb-notfound": {
       "tip": "replay",
-      "sobytye": {"run_id": "40194001179", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121174119634, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40194001179",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121174119634,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z adb: device 'emulator-5562' not found\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40194001179 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121174119634)"],
-        "vyzovy": ["API_JOBS 40194001179", "API_LOGS 121174119634", "RERUN --failed 40194001179"]
+        "stdout": [
+          "VHOD: run=40194001179 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121174119634)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40194001179",
+          "API_LOGS 121174119634",
+          "RERUN --failed 40194001179"
+        ]
       }
     },
     "infra-serial-notfound": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z adb -s emulator-5562 shell getprop sys.boot_completed: device emulator-5562 not found\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790", "RERUN --failed 40198247993"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
       }
     },
     "infra-devserverdied": {
       "tip": "replay",
-      "sobytye": {"run_id": "40194001179", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121174119634, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40194001179",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121174119634,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z com.android.ddmlib.DeviceServerDiedException: Connection reset by peer\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40194001179 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121174119634)"],
-        "vyzovy": ["API_JOBS 40194001179", "API_LOGS 121174119634", "RERUN --failed 40194001179"]
+        "stdout": [
+          "VHOD: run=40194001179 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121174119634)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40194001179",
+          "API_LOGS 121174119634",
+          "RERUN --failed 40194001179"
+        ]
       }
     },
     "infra-install-failed": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z adb: failed to install /tmp/impl/app-release.apk: Failure [INSTALL_FAILED_VERIFICATION_FAILURE]\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790", "RERUN --failed 40198247993"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
       }
     },
     "infra-emulator-error": {
       "tip": "replay",
-      "sobytye": {"run_id": "40194001179", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121174119634, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40194001179",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121174119634,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z emulator: ERROR: Running multiple emulators with the same AVD is an experimental feature.\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40194001179 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121174119634)"],
-        "vyzovy": ["API_JOBS 40194001179", "API_LOGS 121174119634", "RERUN --failed 40194001179"]
+        "stdout": [
+          "VHOD: run=40194001179 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121174119634)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40194001179",
+          "API_LOGS 121174119634",
+          "RERUN --failed 40194001179"
+        ]
       }
     },
     "infra-timeout-emulator": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z maestro: Timeout waiting for emulator to come online\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790", "RERUN --failed 40198247993"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
       }
     },
     "chistyj-proval": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198243018", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121184287236, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198243018",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121184287236,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T13:48:20.0640482Z PRICHINA\tE2E_NE_PROSHLA\trc=1\n2026-10-25T13:48:23.9447251Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198243018 conclusion=failure attempt=1", "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"],
-        "vyzovy": ["API_JOBS 40198243018", "API_LOGS 121184287236"]
+        "stdout": [
+          "VHOD: run=40198243018 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198243018",
+          "API_LOGS 121184287236"
+        ]
       }
     },
     "nizhe-poroga": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z NIZHE_POROGA\tfirst-run-f03-01-dark\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790"
+        ]
       }
     },
     "skript-eho-signatury": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198243018", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121184287236, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198243018",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121184287236,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log_nositel": "zhivoj_log_40198243018_skript_eho.log",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198243018 conclusion=failure attempt=1", "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"],
-        "vyzovy": ["API_JOBS 40198243018", "API_LOGS 121184287236"]
+        "stdout": [
+          "VHOD: run=40198243018 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198243018",
+          "API_LOGS 121184287236"
+        ]
       }
     },
     "attempt-2-ofline": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "2"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "2"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z maestro: error: device offline\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=2", "SKIP: run_attempt=2 — повтор уже был"],
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=2",
+          "SKIP: run_attempt=2 — повтор уже был"
+        ],
         "vyzovy": []
       }
     },
     "conclusion-success": {
       "tip": "replay",
-      "sobytye": {"run_id": "40194001179", "name": "mobile", "conclusion": "success", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121174119634, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40194001179",
+        "name": "mobile",
+        "conclusion": "success",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121174119634,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z maestro: error: device offline\n",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40194001179 conclusion=success attempt=1", "SKIP: conclusion=success"],
+        "stdout": [
+          "VHOD: run=40194001179 conclusion=success attempt=1",
+          "SKIP: conclusion=success"
+        ],
         "vyzovy": []
       }
     },
     "conclusion-cancelled": {
       "tip": "replay",
-      "sobytye": {"run_id": "40194001179", "name": "mobile", "conclusion": "cancelled", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121174119634, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40194001179",
+        "name": "mobile",
+        "conclusion": "cancelled",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121174119634,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40194001179 conclusion=cancelled attempt=1", "SKIP: conclusion=cancelled"],
+        "stdout": [
+          "VHOD: run=40194001179 conclusion=cancelled attempt=1",
+          "SKIP: conclusion=cancelled"
+        ],
         "vyzovy": []
       }
     },
     "upal-quality-tolko": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190000101, "name": "quality", "conclusion": "failure"}, {"id": 121190778790, "name": "android-e2e", "conclusion": "success"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190000101,
+            "name": "quality",
+            "conclusion": "failure"
+          },
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "success"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z FAIL src/features/conversation/__tests__/mission-116.test.tsx\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "SKIP: упавший android-e2e не найден"],
-        "vyzovy": ["API_JOBS 40198247993"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "SKIP: упавший android-e2e не найден"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993"
+        ]
       }
     },
     "upali-oba": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190000101, "name": "quality", "conclusion": "failure"}, {"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190000101,
+            "name": "quality",
+            "conclusion": "failure"
+          },
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z maestro: error: device offline\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790", "RERUN --failed 40198247993"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
       }
     },
     "gradle-lock": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z Timeout waiting to lock journal cache (/var/lib/ci-runner/gradle/caches/journal-1). It is currently in use by another process.\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790"
+        ]
       }
     },
     "fork-pr-bez-sekreta": {
       "tip": "replay",
-      "sobytye": {"run_id": "40198247993", "name": "mobile", "conclusion": "failure", "attempt": "1"},
-      "jobs": {"jobs": [{"id": 121190778790, "name": "android-e2e", "conclusion": "failure"}]},
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
       "log": "2026-10-25T14:21:33.0000001Z PILOT_DEMO_CODE_ABSENT\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
       "ozhidanie": {
         "rc": 0,
-        "stdout": ["VHOD: run=40198247993 conclusion=failure attempt=1", "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"],
-        "vyzovy": ["API_JOBS 40198247993", "API_LOGS 121190778790"]
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790"
+        ]
       }
     },
-    "struktura-trigger": {"tip": "struktura", "os": "trigger", "ozhidanie": {}},
-    "struktura-prava": {"tip": "struktura", "os": "prava", "ozhidanie": {}},
-    "struktura-runner": {"tip": "struktura", "os": "runner", "ozhidanie": {}},
-    "struktura-if": {"tip": "struktura", "os": "if", "ozhidanie": {}},
-    "struktura-rerun": {"tip": "struktura", "os": "rerun", "ozhidanie": {}},
-    "struktura-sekrety": {"tip": "struktura", "os": "sekrety", "ozhidanie": {}},
-    "struktura-vyrazhenija": {"tip": "struktura", "os": "vyrazhenija", "ozhidanie": {}},
-    "struktura-signatury": {"tip": "struktura", "os": "signatury", "ozhidanie": {}},
-    "pravka-mobile-yml": {"tip": "derevo", "ozhidanie": {"problemy": ["MOBILE_YML_IZMENEN"]}}
+    "dlinnyj-log-nachalo-101": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 101,
+        "polozenie": "nachalo",
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "dlinnyj-log-nachalo-20001": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 20001,
+        "polozenie": "nachalo",
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "dlinnyj-log-nachalo-200001": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 200001,
+        "polozenie": "nachalo",
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "dlinnyj-log-seredina-200001": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 200001,
+        "polozenie": "seredina",
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "dlinnyj-log-konec-200001": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 200001,
+        "polozenie": "konec",
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "dlinnyj-log-nachalo-2000000": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 2000000,
+        "polozenie": "nachalo",
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "ogromnaja-stroka-10mb": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "odna_stroka": {
+          "prefiks": "2026-10-25T14:21:33.0000001Z maestro: error: device offline ",
+          "dlina": 10000000
+        }
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "crlf-log": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 501,
+        "polozenie": "seredina",
+        "crlf": true,
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "log-bez-konechnogo-perevoda": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "strok": 5,
+        "polozenie": "konec",
+        "bez_konechnogo_perevoda": true,
+        "signatura": "2026-10-25T14:21:33.0000001Z maestro: error: device offline",
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "log-nul-neutf8": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "bajty": [
+          50,
+          48,
+          50,
+          54,
+          45,
+          49,
+          48,
+          45,
+          50,
+          53,
+          84,
+          49,
+          52,
+          58,
+          50,
+          49,
+          58,
+          51,
+          51,
+          46,
+          48,
+          48,
+          48,
+          48,
+          48,
+          48,
+          49,
+          90,
+          32,
+          98,
+          121,
+          116,
+          101,
+          32,
+          78,
+          85,
+          76,
+          32,
+          0,
+          32,
+          97,
+          110,
+          100,
+          32,
+          105,
+          110,
+          118,
+          97,
+          108,
+          105,
+          100,
+          32,
+          255,
+          254,
+          32,
+          98,
+          121,
+          116,
+          101,
+          115,
+          10,
+          50,
+          48,
+          50,
+          54,
+          45,
+          49,
+          48,
+          45,
+          50,
+          53,
+          84,
+          49,
+          52,
+          58,
+          50,
+          49,
+          58,
+          51,
+          52,
+          46,
+          48,
+          48,
+          48,
+          48,
+          48,
+          48,
+          50,
+          90,
+          32,
+          109,
+          97,
+          101,
+          115,
+          116,
+          114,
+          111,
+          58,
+          32,
+          101,
+          114,
+          114,
+          111,
+          114,
+          58,
+          32,
+          100,
+          101,
+          118,
+          105,
+          99,
+          101,
+          32,
+          111,
+          102,
+          102,
+          108,
+          105,
+          110,
+          101,
+          10,
+          50,
+          48,
+          50,
+          54,
+          45,
+          49,
+          48,
+          45,
+          50,
+          53,
+          84,
+          49,
+          52,
+          58,
+          50,
+          49,
+          58,
+          51,
+          53,
+          46,
+          48,
+          48,
+          48,
+          48,
+          48,
+          48,
+          51,
+          90,
+          32,
+          35,
+          35,
+          91,
+          101,
+          114,
+          114,
+          111,
+          114,
+          93,
+          80,
+          114,
+          111,
+          99,
+          101,
+          115,
+          115,
+          32,
+          99,
+          111,
+          109,
+          112,
+          108,
+          101,
+          116,
+          101,
+          100,
+          32,
+          119,
+          105,
+          116,
+          104,
+          32,
+          101,
+          120,
+          105,
+          116,
+          32,
+          99,
+          111,
+          100,
+          101,
+          32,
+          49,
+          46,
+          10
+        ]
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "dlinnyj-eho-200001": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log_generator": {
+        "predstroki": [
+          "2026-10-25T14:20:01.1234567Z ##[group]Run grep -E \"device offline\" log.txt",
+          "2026-10-25T14:20:01.1234578Z ##[endgroup]"
+        ],
+        "strok": 200001,
+        "zapolnitel": "2026-10-25T14:21:34.0000002Z unused log line example"
+      },
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790"
+        ]
+      }
+    },
+    "pustoj-log": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "log": "",
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790"
+        ]
+      }
+    },
+    "mnogo-jobov-20000": {
+      "tip": "replay",
+      "sobytye": {
+        "run_id": "40198247993",
+        "name": "mobile",
+        "conclusion": "failure",
+        "attempt": "1"
+      },
+      "jobs": {
+        "jobs": [
+          {
+            "id": 121190778790,
+            "name": "android-e2e",
+            "conclusion": "failure"
+          }
+        ]
+      },
+      "jobs_generator": {
+        "kolichestvo": 20000,
+        "pervyj_id": 121190778790
+      },
+      "log": "2026-10-25T14:21:33.0000001Z maestro: error: device offline\n2026-10-25T14:21:34.0000002Z ##[error]Process completed with exit code 1.",
+      "ozhidanie": {
+        "rc": 0,
+        "stdout": [
+          "VHOD: run=40198247993 conclusion=failure attempt=1",
+          "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job 121190778790)"
+        ],
+        "vyzovy": [
+          "API_JOBS 40198247993",
+          "API_LOGS 121190778790",
+          "RERUN --failed 40198247993"
+        ]
+      }
+    },
+    "struktura-trigger": {
+      "tip": "struktura",
+      "os": "trigger",
+      "ozhidanie": {}
+    },
+    "struktura-prava": {
+      "tip": "struktura",
+      "os": "prava",
+      "ozhidanie": {}
+    },
+    "struktura-runner": {
+      "tip": "struktura",
+      "os": "runner",
+      "ozhidanie": {}
+    },
+    "struktura-if": {
+      "tip": "struktura",
+      "os": "if",
+      "ozhidanie": {}
+    },
+    "struktura-rerun": {
+      "tip": "struktura",
+      "os": "rerun",
+      "ozhidanie": {}
+    },
+    "struktura-sekrety": {
+      "tip": "struktura",
+      "os": "sekrety",
+      "ozhidanie": {}
+    },
+    "struktura-vyrazhenija": {
+      "tip": "struktura",
+      "os": "vyrazhenija",
+      "ozhidanie": {}
+    },
+    "struktura-signatury": {
+      "tip": "struktura",
+      "os": "signatury",
+      "ozhidanie": {}
+    },
+    "struktura-zamknutost": {
+      "tip": "struktura",
+      "os": "zamknutost",
+      "ozhidanie": {}
+    },
+    "pravka-mobile-yml": {
+      "tip": "derevo",
+      "ozhidanie": {
+        "problemy": [
+          "MOBILE_YML_IZMENEN"
+        ]
+      }
+    }
   },
   "stab_vhod": {
-    "s-bez-attempt-guard": ["attempt-2-ofline"],
-    "s-bez-signaturnogo-filtra": ["chistyj-proval", "gradle-lock"],
-    "s-bez-eho-zaschity": ["skript-eho-signatury"],
-    "s-polnyj-rerun": ["infra-ofline"],
-    "s-bez-jobs-filtra": ["upal-quality-tolko"],
-    "s-bez-conclusion-guard": ["conclusion-success"],
-    "s-shirokie-prava": ["struktura-prava"],
-    "s-runner-ubuntu": ["struktura-runner"],
-    "s-chuzhoj-trigger": ["struktura-trigger"],
-    "s-if-bez-uslovij": ["struktura-if"],
-    "s-dva-rerun": ["struktura-rerun", "infra-ofline"],
-    "s-sekret-v-tekste": ["struktura-sekrety"],
-    "s-vyrazhenie-vne-alfavita": ["struktura-vyrazhenija"],
-    "s-molchashij-skip": ["chistyj-proval"],
-    "s-signatury-suzheny": ["struktura-signatury", "infra-install-failed"]
+    "s-bez-attempt-guard": [
+      "attempt-2-ofline"
+    ],
+    "s-bez-signaturnogo-filtra": [
+      "chistyj-proval",
+      "gradle-lock"
+    ],
+    "s-bez-eho-zaschity": [
+      "skript-eho-signatury"
+    ],
+    "s-polnyj-rerun": [
+      "infra-ofline"
+    ],
+    "s-bez-jobs-filtra": [
+      "upal-quality-tolko"
+    ],
+    "s-bez-conclusion-guard": [
+      "conclusion-success"
+    ],
+    "s-shirokie-prava": [
+      "struktura-prava"
+    ],
+    "s-runner-ubuntu": [
+      "struktura-runner"
+    ],
+    "s-chuzhoj-trigger": [
+      "struktura-trigger"
+    ],
+    "s-if-bez-uslovij": [
+      "struktura-if"
+    ],
+    "s-dva-rerun": [
+      "struktura-rerun",
+      "infra-ofline"
+    ],
+    "s-sekret-v-tekste": [
+      "struktura-sekrety"
+    ],
+    "s-vyrazhenie-vne-alfavita": [
+      "struktura-vyrazhenija"
+    ],
+    "s-molchashij-skip": [
+      "chistyj-proval"
+    ],
+    "s-signatury-suzheny": [
+      "struktura-signatury",
+      "infra-install-failed"
+    ],
+    "s-dop-shag-run": [
+      "struktura-zamknutost"
+    ],
+    "s-dop-shag-uses": [
+      "struktura-zamknutost"
+    ],
+    "s-dop-job-ubuntu": [
+      "struktura-zamknutost"
+    ],
+    "s-dop-job-selfhosted": [
+      "struktura-zamknutost"
+    ],
+    "s-dopolnitelnyj-trigger": [
+      "struktura-zamknutost"
+    ],
+    "s-jakor-merge": [
+      "struktura-zamknutost"
+    ],
+    "s-defaults-run-shell": [
+      "struktura-zamknutost"
+    ],
+    "s-svertyvanie-dva-rerun": [
+      "struktura-rerun"
+    ],
+    "s-env-podmena": [
+      "struktura-rerun"
+    ],
+    "s-skrytyj-bash-c": [
+      "struktura-rerun"
+    ],
+    "s-skrytyj-eval": [
+      "struktura-rerun"
+    ],
+    "s-skrytyj-xargs": [
+      "struktura-rerun"
+    ],
+    "s-skrytyj-podstanovka": [
+      "struktura-rerun"
+    ],
+    "s-setevoj-curl": [
+      "struktura-rerun"
+    ],
+    "s-cikl-for": [
+      "struktura-rerun"
+    ],
+    "s-rannij-grep-q": [
+      "dlinnyj-log-nachalo-200001",
+      "dlinnyj-log-nachalo-2000000"
+    ],
+    "s-rannij-head": [
+      "mnogo-jobov-20000"
+    ]
   }
 }

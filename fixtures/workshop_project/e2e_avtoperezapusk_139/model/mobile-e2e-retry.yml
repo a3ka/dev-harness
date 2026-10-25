@@ -3,8 +3,11 @@ name: mobile-e2e-retry
 # только при инфраструктурной сигнатуре сбоя эмулятора в логе job-а ВНЕ эха
 # текста шага. mobile.yml и его шаги (995/108/111/117/123/135) не трогаются.
 # Границы платформы: workflow_run читается из default branch — до merge в
-# main продукта не действует; run_attempt==1 исключает петлю (после rerun
+# main продукта не действует; run_attempt==1 исключает петлю (после повтора
 # событие придёт с attempt=2 и будет отвергнуто).
+# доп. триггеры/uses — вне алфавита. Канон литералов: литерал вызова повтора
+# прогона в файле ровно один раз (сам вызов gh), скрытые вызовы (bash -c/
+# eval/xargs/подстановка/curl) — вне алфавита скрипта.
 on:
   workflow_run:
     workflows: [mobile]
@@ -41,7 +44,9 @@ jobs:
             exit 0
           fi
           JOBS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --jq '.jobs[] | select(.name == "android-e2e" and .conclusion == "failure") | .id')"
-          JID="$(printf '%s\n' "$JOBS" | head -n 1 | tr -d '[:space:]')"
+          # sed -n '1p' читает поток ЦЕЛИКОМ (без 'q'): раннего выхода
+          # потребителя пайпа нет — SIGPIPE под pipefail невозможен (Н-139/2).
+          JID="$(printf '%s\n' "$JOBS" | sed -n '1p' | tr -d '[:space:]')"
           if [ -z "$JID" ]; then
             echo "SKIP: упавший android-e2e не найден"
             exit 0
@@ -51,8 +56,13 @@ jobs:
           # в эхе скрипта присутствуют в КАЖДОМ логе job-а и сбоем не являются
           # (живой прогон 40198243018: PRICHINA E2E_NE_PROSHLA при сигнатурах
           # только в эхе — повтор не делается).
-          LOG_OCISTENNYY="$(printf '%s\n' "$LOG" | sed -e '/##\[group\]Run /,/##\[endgroup\]/d')"
-          if printf '%s\n' "$LOG_OCISTENNYY" | grep -qE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException|INSTALL_FAILED|emulator: ERROR|Timeout waiting for emulator'; then
+          # Н-139/2 (критик, круг 1, блокер 2): grep -q читает ФАЙЛ, а не конец
+          # пайпа — ранний выход grep при найденной сигнатуре не роняет пайплайн
+          # SIGPIPE'ом на длинных логах; sed в вырезке эха также без 'q'.
+          LOG_F="$(mktemp)"
+          trap 'rm -f "${LOG_F:-}"' EXIT
+          printf '%s\n' "$LOG" | sed -e '/##\[group\]Run /,/##\[endgroup\]/d' > "$LOG_F"
+          if grep -qE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException|INSTALL_FAILED|emulator: ERROR|Timeout waiting for emulator' "$LOG_F"; then
             echo "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job ${JID})"
             gh run rerun --failed "$RUN_ID"
             exit 0
