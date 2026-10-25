@@ -17,8 +17,10 @@
                 mobile-e2e-retry.yml (+ пин байтов R/.github/workflows/mobile.yml);
   --model      субъект = model/mobile-e2e-retry.yml (контроль входов);
   --stabs      контроль + матрица обманных стабов (SVJAZI N);
-  --matrix     синоним --stabs (для арбитража).
-
+  --matrix     синоним --stabs (для арбитража);
+  --svideteli D  строит деревья-свидетели (v3, F: свидетель критика 2/2
+                hidden-api + мутанты 1-6 арбитража 139) в каталоге D —
+                судятся живым `--repo D/<имя>` → rc 1 SKRIPT_RASHOZHDENIE.
 Коды возврата: 0 — зелено; 1 — красный кейс либо стаб прошёл (STAB_ZHIV)
 либо нет субъекта (SUBJECT_ABSENT); 2 — нечем проверять (нет python3-модуля
 yaml, ORACLE_TAMPERED, дрейф модели/мутаций).
@@ -44,8 +46,14 @@ MOBILE_YML_REL = '.github/workflows/mobile.yml'
 BASH = '/usr/bin/bash' if Path('/usr/bin/bash').is_file() else 'bash'
 
 SHIM_PY = """#!/usr/bin/env python3
-# Подложный gh батареи 139: закрытый алфавит команд (см. probe.py), все
-# вызовы пишутся в $SCENARIJ_ZAPISI; чужая команда — VNE_ALFAVITA rc 127.
+# Подложный gh батареи 139 (v3, арбитраж 139, требование D): ЗАМКНУТЫЙ
+# алфавит argv — ровно три формы (jobs GET с --jq из алфавита; logs GET;
+# run rerun --failed <id>); всё иное (в т.ч. -X/--method/-f/-F/--field/
+# --raw-field/--input/-H/--hostname/--paginate, лишние позиционные, rerun
+# без --failed, api на jobs-путь без --jq) — VNE_ALFAVITA rc 127; чужой
+# jq-фильтр — FILTER_VNE_ALFAVITA rc 3. Все вызовы пишутся в
+# $SCENARIJ_ZAPISI. PATH replay несёт ТОЛЬКО этот каталог, поэтому shebang
+# пинится абсолютным python3 батареи при записи шима (env-поиск отпал).
 import json
 import os
 import re
@@ -60,18 +68,19 @@ def zap(line):
         f.write(line + '\\n')
 
 
-if len(a) >= 2 and a[0] == 'api':
-    path = a[1]
-    flt = None
-    if '--jq' in a:
-        flt = a[a.index('--jq') + 1]
-    m = re.match(r'^repos/[^/]+/[^/]+/actions/runs/(\\d+)/jobs$', path)
+# форма 3: run rerun --failed <id>
+if a[:3] == ['run', 'rerun', '--failed'] and len(a) == 4:
+    zap('RERUN --failed ' + a[3])
+    sys.exit(0)
+# форма 1: api <jobs-путь> --jq <фильтр из алфавита>
+if len(a) == 4 and a[0] == 'api' and a[2] == '--jq':
+    m = re.match(r'^repos/[^/]+/[^/]+/actions/runs/(\\d+)/jobs$', a[1])
     if m:
         zap('API_JOBS ' + m.group(1))
         alf = json.loads(os.environ['SCENARIJ_ALFAVIT_ZHK'])
         allowed = alf.values() if isinstance(alf, dict) else alf
-        if flt not in allowed:
-            sys.stderr.write('FILTER_VNE_ALFAVITA: %r\\n' % flt)
+        if a[3] not in allowed:
+            sys.stderr.write('FILTER_VNE_ALFAVITA: %r\\n' % a[3])
             sys.exit(3)
         data = json.loads(open(
             os.environ['SCENARIJ_JOBS_FAJL'], encoding='utf-8').read())
@@ -80,24 +89,53 @@ if len(a) >= 2 and a[0] == 'api':
                     and j.get('conclusion') == 'failure':
                 print(j['id'])
         sys.exit(0)
-    m = re.match(r'^repos/[^/]+/[^/]+/actions/jobs/(\\d+)/logs$', path)
+# форма 2: api <logs-путь>
+if len(a) == 2 and a[0] == 'api':
+    m = re.match(r'^repos/[^/]+/[^/]+/actions/jobs/(\\d+)/logs$', a[1])
     if m:
         zap('API_LOGS ' + m.group(1))
         with open(os.environ['SCENARIJ_LOG'], 'rb') as f:
             sys.stdout.buffer.write(f.read())
-        sys.exit(0)
-if a[:2] == ['run', 'rerun']:
-    if len(a) == 4 and a[2] == '--failed':
-        zap('RERUN --failed ' + a[3])
-        sys.exit(0)
-    if len(a) == 3:
-        zap('RERUN ' + a[2])
         sys.exit(0)
 zap('VNE_ALFAVITA ' + chr(31).join(a))
 sys.exit(127)
 """
 
 VYRAZHENIE_RE = re.compile(r'\$\{\{\s*([^}]+?)\s*\}\}')
+
+
+# Ось ОКРУЖЕНИЕ (v3, требование C): каждый replay-вход прогоняется и в
+# CHISTYJ (как раньше), и в ACTIONS — живое окружение Actions поверх env
+# replay. Ось доказывает env-ИНВАРИАНТНОСТЬ модели и даёт поведенческий
+# свидетель скрытых env-ветвей; ЗАМЫКАНИЕМ класса она НЕ является (замер
+# арбитража 139: 3 из 6 форм зелёные в обоих окружениях) — класс замкнут
+# каноном скрипта (ось skript).
+OKRUZHENIE_ACTIONS = {
+    'GITHUB_ACTIONS': 'true',
+    'CI': 'true',
+    'GITHUB_RUN_ATTEMPT': '1',
+    'GITHUB_RUN_NUMBER': '4242',
+    'GITHUB_WORKFLOW': 'mobile-e2e-retry',
+    'GITHUB_JOB': 'retry',
+    'GITHUB_EVENT_NAME': 'workflow_run',
+    'GITHUB_SHA': '1390beef1390beef1390beef1390beef1390beef',
+    'GITHUB_REF': 'refs/heads/main',
+    'GITHUB_ACTOR': 'battery-139',
+    'GITHUB_API_URL': 'https://api.github.com',
+    'GITHUB_SERVER_URL': 'https://github.com',
+    'GITHUB_TOKEN': 'test-token-139',
+    'RUNNER_OS': 'Linux',
+    'RUNNER_ARCH': 'X64',
+    'RUNNER_NAME': 'selfhosted-139',
+    'ACTIONS_RUNTIME_TOKEN': 'test-token-139',
+}
+
+# ЗАМКНУТЫЙ алфавит утилит PATH replay (требование D): только bindir, в
+# нём симлинки на абсолютные пути этих утилит + gh-шим; printf/echo/trap/
+# test/command — builtins bash; curl/wget/python3/node/env/xargs/sh
+# недоступны → command not found rc 127.
+UTILITY_ALFAVIT = ('bash', 'sed', 'grep', 'tr', 'mktemp', 'rm')
+MODEL_PIN_KEY = 'model/mobile-e2e-retry.yml'
 
 
 def sha256_bytes(b):
@@ -114,7 +152,7 @@ def oshibka_orakula(msg):
 def load_source():
     src = json.loads((HERE / 'source.json').read_text(encoding='utf-8'))
     for imja, pin in src['nositeli'].items():
-        p = NOSITELI / imja
+        p = MODEL if imja == MODEL_PIN_KEY else NOSITELI / imja
         if not p.is_file():
             return oshibka_orakula('носитель отсутствует: %s' % imja), None
         if sha256_bytes(p.read_bytes()) != pin:
@@ -124,6 +162,13 @@ def load_source():
     model_tekst = MODEL.read_text(encoding='utf-8')
     if src['signatury_regex'] not in model_tekst:
         return oshibka_orakula('канон сигнатур не в модели'), None
+    # v3 (требование A): канон скрипта — ТЕКСТ МОДЕЛИ, единый источник;
+    # подмена модели = ORACLE_TAMPERED (пин sha256 + непустой канон).
+    try:
+        if not kanon_skripta():
+            return oshibka_orakula('канон скрипта модели пуст'), None
+    except Exception:
+        return oshibka_orakula('модель не разбирается в канон скрипта'), None
     if set(src['stab_vhod']) != set(STAB_MUTACII):
         return oshibka_orakula('stab_vhod != STAB_MUTACII'), None
     for stab, vhody in src['stab_vhod'].items():
@@ -361,6 +406,91 @@ def m_rannij_head(t):
                    "| head -n 1 | tr -d '[:space:]'")
 
 
+# --- стабы v3 (арбитраж 139: класс «ветвь, различающая песочницу replay и
+# живое исполнение») — замкнут каноном скрипта по построению; хвосты
+# привязаны к последней строке модели (ровно одно место вставки) -------
+
+def m_skrytaja_vetv_github_actions(t):
+    """Свидетель критика 2/2 ДОСЛОВНО: скрытая ветвь повтора всего прогона
+    через gh api -X POST (конкатенация re""run) при GITHUB_ACTIONS=true."""
+    return t + ('\n'
+                '          if [ "${GITHUB_ACTIONS:-}" = "true" ]; then\n'
+                '            gh api -X POST "repos/${GITHUB_REPOSITORY}/'
+                'actions/runs/${RUN_ID}/re""run"\n'
+                '          fi\n')
+
+
+def m_skrytaja_vetv_ci(t):
+    """Та же скрытая ветвь на другом env-тэлле: CI=true, --method POST."""
+    return t + ('\n'
+                '          if [ "${CI:-}" = "true" ]; then\n'
+                '            gh api --method POST "repos/${GITHUB_REPOSITORY}'
+                '/actions/runs/${RUN_ID}/re""run"\n'
+                '          fi\n')
+
+
+def m_api_f_post(t):
+    """POST без литерала метода: -f превращает gh api в POST (мутант 3)."""
+    return t + ('\n'
+                '          if [ -n "${GITHUB_RUN_ID:-}" ]; then\n'
+                '            gh api "repos/${GITHUB_REPOSITORY}/actions/'
+                'runs/${RUN_ID}/re""run" -f reason=x\n'
+                '          fi\n')
+
+
+def m_pesochnica_scenarij(t):
+    """Тэлл песочницы: SCENARIJ_ZAPISI есть только в replay (мутант 4) —
+    replay слеп по построению, ловит только канон скрипта."""
+    return t + ('\n'
+                '          if [ -z "${SCENARIJ_ZAPISI:-}" ]; then\n'
+                '            gh api -X POST "repos/${GITHUB_REPOSITORY}/'
+                'actions/runs/${RUN_ID}/re""run"\n'
+                '          fi\n')
+
+
+def m_run_id_vne_batarei(t):
+    """Ветвь по значению RUN_ID вне множества оракула батареи (мутант 5)."""
+    return t + ('\n'
+                '          case "${RUN_ID}" in\n'
+                '            40198243018|40198247993) : ;;\n'
+                '            *) gh api -X POST "repos/${GITHUB_REPOSITORY}/'
+                'actions/runs/${RUN_ID}/re""run" ;;\n'
+                '          esac\n')
+
+
+def m_pesochnica_gh_bin(t):
+    """Тэлл природы бинаря gh: подложный gh батареи — python (мутант 6)."""
+    return t + ('\n'
+                "          if ! sed -n '1p' \"$(command -v gh)\" "
+                '| grep -q python; then\n'
+                '            gh api -X POST "repos/${GITHUB_REPOSITORY}/'
+                'actions/runs/${RUN_ID}/re""run"\n'
+                '          fi\n')
+
+
+def m_workflow_run(t):
+    """Повтор не через rerun: безусловный gh workflow run (мимо сигнатур)."""
+    return t + '\n          gh workflow run mobile.yml\n'
+
+
+def m_api_jobs_f(t):
+    """POST на GET-путь: -f в argv jobs-вызова — доказывает замыкание
+    argv-алфавита шима (VNE_ALFAVITA даже на конформном пути)."""
+    return _zameni(t, 'actions/runs/${RUN_ID}/jobs" --jq',
+                   'actions/runs/${RUN_ID}/jobs" -f x=1 --jq')
+
+
+def m_setevoj_python(t):
+    """Сетевой вызов из живого интерпретатора: python3 вне PATH replay."""
+    return t + ('\n'
+                "          python3 - <<'PYEOF'\n"
+                '          import urllib.request\n'
+                '          urllib.request.urlopen("https://api.github.com'
+                '/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}'
+                '/rerun")\n'
+                '          PYEOF\n')
+
+
 STAB_MUTACII = {
     's-bez-attempt-guard': m_bez_attempt_guard,
     's-bez-signaturnogo-filtra': m_bez_signaturnogo_filtra,
@@ -394,6 +524,15 @@ STAB_MUTACII = {
     's-cikl-for': m_cikl_for,
     's-rannij-grep-q': m_rannij_grep_q,
     's-rannij-head': m_rannij_head,
+    's-skrytaja-vetv-github-actions': m_skrytaja_vetv_github_actions,
+    's-skrytaja-vetv-ci': m_skrytaja_vetv_ci,
+    's-api-f-post': m_api_f_post,
+    's-pesochnica-scenarij': m_pesochnica_scenarij,
+    's-run-id-vne-batarei': m_run_id_vne_batarei,
+    's-pesochnica-gh-bin': m_pesochnica_gh_bin,
+    's-workflow-run': m_workflow_run,
+    's-api-jobs-f': m_api_jobs_f,
+    's-setevoj-python': m_setevoj_python,
 }
 
 
@@ -577,6 +716,65 @@ def os_rerun(doc, src, syr_tekst):
     return prob
 
 
+# --- канон скрипта (v3, арбитраж 139, требование A): главная ось -------
+
+def norm_skript(tekst):
+    """Нормализация тела run: strip(), без пустых, без начинающихся с '#'.
+    Комментарии/пустые строки/хвостовые пробелы/отступ не значимы
+    (нарезка Д), код — значим весь."""
+    out = []
+    for l in tekst.splitlines():
+        s = l.strip()
+        if not s or s.startswith('#'):
+            continue
+        out.append(s)
+    return out
+
+
+_KANON = {}
+
+
+def kanon_skripta():
+    """Канон — ТЕКСТ МОДЕЛИ (единый источник, как signatury_regex); в
+    source.json дублирования нет, подмена модели ловится пином sha256."""
+    if 'k' not in _KANON:
+        doc = yaml_dok(MODEL.read_text(encoding='utf-8'))
+        _KANON['k'] = norm_skript(doc['jobs']['retry']['steps'][0]['run'])
+    return _KANON['k']
+
+
+def _diag_skripta(i, sub, kan):
+    stroka = sub[i] if i < len(sub) else '<конец скрипта>'
+    d = 'SKRIPT_RASHOZHDENIE: строка %d: %s' % (i + 1, stroka)
+    if len(sub) != len(kan):
+        d += ' (строк %d, в каноне %d)' % (len(sub), len(kan))
+    return d
+
+
+def os_skript(doc, src, syr_tekst):
+    """Ось skript (v3, блокер 2/2): нормализованное тело run: субъекта
+    ПОСТРОЧНО равно нормализованному телу модели. Класс «ветвь внутри
+    run:, различающая песочницу replay и живое исполнение» замкнут
+    ГРАММАТИКОЙ по построению: любая чужая ветвь, конкатенация или тэлл
+    песочницы — чужая строка кода. os_rerun остаётся дешёвой ступенью
+    диагностики (ЧТО не так), эта ось — канон (ГДЕ/ЧТО именно)."""
+    try:
+        telo = doc['jobs']['retry']['steps'][0]['run']
+    except (KeyError, TypeError, IndexError):
+        return ['SKRIPT_RASHOZHDENIE: нет шага/скрипта']
+    if not isinstance(telo, str):
+        return ['SKRIPT_RASHOZHDENIE: тело шага не строка']
+    sub = norm_skript(telo)
+    kan = kanon_skripta()
+    for i, (a, b) in enumerate(zip(sub, kan)):
+        if a != b:
+            return [_diag_skripta(i, sub, kan)]
+    if len(sub) != len(kan):
+        return [_diag_skripta(len(kan) if len(sub) > len(kan) else len(sub),
+                              sub, kan)]
+    return []
+
+
 def os_sekrety(doc, src, syr_tekst):
     prob = []
     if '${{ secrets' in syr_tekst or 'secrets.' in syr_tekst:
@@ -610,6 +808,7 @@ OSI_STRUKTURY = {
 # оси, которым нужен сырой текст субъекта (канон литералов, алфавиты,
 # замкнутость) — судятся по syr_tekst, свёртка |/>/-> не укрывает:
 OSI_SYROGO_TEKSTA = {
+    'skript': os_skript,
     'rerun': os_rerun,
     'sekrety': os_sekrety,
     'vyrazhenija': os_vyrazhenija,
@@ -682,9 +881,32 @@ def _sobrat_jobs(kejs):
         for i in range(jg['kolichestvo'])]}
 
 
-def replay(tekst_subiekta, kejs, src):
+def _sobrat_okruzhenie(okr, kejs, tmp):
+    """Ось ОКРУЖЕНИЕ (v3, требование C): поверх env replay — живое
+    окружение Actions. Динамические значения привязаны к кейсу: RUN_ID
+    события, GITHUB_EVENT_PATH (JSON события кейса), WORKSPACE/TEMP."""
+    if okr != 'ACTIONS':
+        return None
+    sob = kejs['sobytye']
+    event_f = tmp / 'event.json'
+    event_f.write_text(json.dumps(sob, ensure_ascii=False), encoding='utf-8')
+    okr_env = dict(OKRUZHENIE_ACTIONS)
+    okr_env.update({
+        'GITHUB_RUN_ID': str(sob['run_id']),
+        'GITHUB_EVENT_PATH': str(event_f),
+        'GITHUB_WORKSPACE': str(tmp),
+        'RUNNER_TEMP': str(tmp),
+    })
+    return okr_env
+
+
+def replay(tekst_subiekta, kejs, src, okruzhenie=None):
     """Исполняет скрипт шага в чистом окружении с подложным gh.
 
+    okruzhenie: None/'CHISTYJ' — как раньше; 'ACTIONS' — поверх env
+    переменные живого Actions (OKRUZHENIE_ACTIONS). PATH = ТОЛЬКО bindir
+    (симлинки утилит алфавита + gh-шим с абсолютным shebang) — закрытый
+    алфавит утилит измерен отказом, а не прозой.
     Возвращает (rc, stdout-строки, vyzovy-строки, nechitaem: bool).
     """
     try:
@@ -700,8 +922,17 @@ def replay(tekst_subiekta, kejs, src):
     try:
         bindir = tmp / 'bin'
         bindir.mkdir()
-        (bindir / 'gh').write_text(SHIM_PY, encoding='utf-8')
+        (bindir / 'gh').write_text(
+            SHIM_PY.replace('#!/usr/bin/env python3',
+                            '#!' + sys.executable, 1), encoding='utf-8')
         (bindir / 'gh').chmod(0o755)
+        for imja in UTILITY_ALFAVIT:
+            put = shutil.which(imja)
+            if put is None:
+                print('NET_UTILITY: %s вне PATH батареи' % imja,
+                      file=sys.stderr)
+                return 2, [], [], False
+            os.symlink(put, bindir / imja)
         log_f = tmp / 'log.txt'
         log_tekst = kejs.get('log')
         if log_tekst is None and kejs.get('log_nositel'):
@@ -719,7 +950,7 @@ def replay(tekst_subiekta, kejs, src):
         jobs_f = tmp / 'jobs.json'
         jobs_f.write_text(json.dumps(_sobrat_jobs(kejs)), encoding='utf-8')
         env = {
-            'PATH': '%s:/usr/bin:/bin' % bindir,
+            'PATH': str(bindir),
             'LC_ALL': 'C.UTF-8',
             'HOME': str(tmp),
             'GH_TOKEN': 'test-token-139',
@@ -731,6 +962,9 @@ def replay(tekst_subiekta, kejs, src):
                 list(src['alfavit_zhk'].values())),
         }
         env.update(env_shaga)
+        okr_env = _sobrat_okruzhenie(okruzhenie, kejs, tmp)
+        if okr_env:
+            env.update(okr_env)
         p = subprocess.run([BASH, '-c', skript], env=env, cwd=str(tmp),
                            capture_output=True, text=True, timeout=60)
         vyzovy = [l for l in zap.read_text(encoding='utf-8').splitlines()
@@ -747,14 +981,52 @@ def pin_mobile_yml(derevo):
     return sha256_bytes(p.read_bytes())
 
 
+def pereformat(tekst):
+    """Зелёный контроль канона (v3, требование B): КОДОВАЯ функция
+    переформата честной реализации — заменяет ВСЕ комментарии, вставляет
+    пустые строки, добавляет хвостовые пробелы в теле run: (в свёртку
+    if: >- пустые строки не вставляет — та меняет значение). Код шага
+    неизменен: нормализация выравнивает (нарезка Д: формат свободен,
+    код — канон)."""
+    out = []
+    telo = False
+    svyortka = False
+    for l in tekst.splitlines():
+        otstup = len(l) - len(l.lstrip(' '))
+        s = l.strip()
+        if s.startswith('#'):
+            out.append(' ' * otstup + '# комментарий реализации 139-v3')
+        else:
+            if telo and s and otstup < 10:
+                telo = False
+            if svyortka and s and otstup < 6:
+                svyortka = False
+            if telo and s:
+                out.append(l + '   ')
+            else:
+                out.append(l)
+            if s == 'run: |':
+                telo = True
+            elif s.startswith('if: >'):
+                svyortka = True
+        if not svyortka:
+            out.append('')
+    return '\n'.join(out) + '\n'
+
+
 def sudit(tekst_subiekta, imja, src, tmp_root):
     """Суд кейса: фактические problemy против ozhidanie.problemy.
 
     ok ⇔ sorted(фактические) == sorted(ожидаемые); для честного субъекта на
     зелёных входах ожидание пусто, на красных входах (derevo) — именованная
     причина; пусто при ожидании непустом → NELOVLENO (барьер проспал).
+    v3: replay судится в ДВУХ окружениях (CHISTYJ + ACTIONS) против одного
+    оракула — проблемы с префиксом @CHISTYJ/@ACTIONS; флаг кейса
+    pereformat применяет переформат ДО суда (зелёный контроль канона).
     """
     kejs = src['kejsy'][imja]
+    if kejs.get('pereformat'):
+        tekst_subiekta = pereformat(tekst_subiekta)
     ozh = kejs['ozhidanie']
     problemy = []
     if kejs['tip'] == 'struktura':
@@ -774,19 +1046,22 @@ def sudit(tekst_subiekta, imja, src, tmp_root):
         if pin_mobile_yml(derevo) != src['nositeli']['mobile.yml']:
             problemy.append('MOBILE_YML_IZMENEN')
         if kejs['tip'] == 'replay':
-            rc, out, vyzovy, nechitaem = replay(tekst_subiekta, kejs, src)
-            if nechitaem:
-                problemy.append('YML_NECHITAEM')
-            else:
+            for okr in ('CHISTYJ', 'ACTIONS'):
+                rc, out, vyzovy, nechitaem = replay(
+                    tekst_subiekta, kejs, src, okr)
+                if nechitaem:
+                    problemy.append('@%s YML_NECHITAEM' % okr)
+                    continue
                 if rc != ozh['rc']:
-                    problemy.append('RC_RASHOZHDENIE: %d, ожидался %d'
-                                    % (rc, ozh['rc']))
+                    problemy.append('@%s RC_RASHOZHDENIE: %d, ожидался %d'
+                                    % (okr, rc, ozh['rc']))
                 if out != ozh['stdout']:
-                    problemy.append('STDOUT_RASHOZHDENIE: %r, ожидался %r'
-                                    % (out, ozh['stdout']))
+                    problemy.append('@%s STDOUT_RASHOZHDENIE: %r, ожидался %r'
+                                    % (okr, out, ozh['stdout']))
                 if vyzovy != ozh['vyzovy']:
-                    problemy.append('VYZOVY_RASHOZHDENIE: %r, ожидались %r'
-                                    % (vyzovy, ozh['vyzovy']))
+                    problemy.append('@%s VYZOVY_RASHOZHDENIE: %r, '
+                                    'ожидались %r' % (okr, vyzovy,
+                                                      ozh['vyzovy']))
     ozhidajut = sorted(ozh.get('problemy', []))
     if sorted(problemy) == ozhidajut:
         return []
@@ -805,6 +1080,37 @@ def postavit_derevo(derevo, src, mutacija=False):
         (derevo / MOBILE_YML_REL).write_bytes(bajty)
 
 
+# --- свидетели (v3, требование F): генератор деревьев из STAB_MUTACII ----
+
+SVIDETELI_STAB = {
+    'kritik-hidden-api': 's-skrytaja-vetv-github-actions',
+    'env-ci': 's-skrytaja-vetv-ci',
+    'env-f-post': 's-api-f-post',
+    'sandbox-tell-scenarij': 's-pesochnica-scenarij',
+    'run-id-vne-batarei': 's-run-id-vne-batarei',
+    'sandbox-tell-gh-bin': 's-pesochnica-gh-bin',
+}
+
+
+def postavit_svidetelej(koren, src):
+    """Деревья-свидетели класса «ветвь, различающая песочницу» (замер
+    арбитража 139, строки 1-6): свидетель критика 2/2 hidden-api + мутанты
+    арбитра; единый источник мутаций — STAB_MUTACII. Судятся живым
+    `--repo <koren>/<imja>` → rc 1 SKRIPT_RASHOZHDENIE (строка 27)."""
+    model_tekst = MODEL.read_text(encoding='utf-8')
+    for imja, stab in sorted(SVIDETELI_STAB.items()):
+        tekst = sdelat_stab(stab, model_tekst, src)
+        if tekst is None:
+            return 2
+        derevo = Path(koren) / imja
+        (derevo / '.github' / 'workflows').mkdir(parents=True, exist_ok=True)
+        (derevo / MOBILE_YML_REL).write_bytes(
+            (NOSITELI / 'mobile.yml').read_bytes())
+        (derevo / SUBJECT_REL).write_text(tekst, encoding='utf-8')
+        print('SVIDETEL %s' % derevo)
+    return 0
+
+
 # --- движок ------------------------------------------------------------------
 
 def main():
@@ -812,6 +1118,7 @@ def main():
     ap.add_argument('--model', action='store_true')
     ap.add_argument('--stabs', action='store_true')
     ap.add_argument('--matrix', action='store_true')
+    ap.add_argument('--svideteli', metavar='DIR')
     ap.add_argument('--repo', default=os.environ.get('MOB_REPO'))
     a = ap.parse_args()
     try:
@@ -820,6 +1127,8 @@ def main():
         return oshibka_orakula('source.json: %s' % e)
     if rc_zagr:
         return rc_zagr
+    if a.svideteli:
+        return postavit_svidetelej(a.svideteli, src)
     matrica = a.stabs or a.matrix
     if a.model or matrica:
         tekst_subiekta = MODEL.read_text(encoding='utf-8')
