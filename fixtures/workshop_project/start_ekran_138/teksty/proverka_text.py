@@ -25,10 +25,15 @@
 #      пачки своей строкой в flows (общий прогон каталога 995 не должен
 #      гонять экранный флоу: порядок флоу каталога недетерминирован);
 #   5) селекторы: каждый имеет носитель в дереве-ВЛАДЕЛЬЦЕ (таблица
-#      VLADELTCY: состояния Start — mobile/src/features/start/**; First-Run
-#      и Erstinformation — onboarding/**; demo-вход — auth/**; состав
-#      вкладок — mobile/src/app/**). Носитель — атрибут в сегменте КОДА
-#      (лексер: комментарии/строки/шаблоны — не код) файла экранного кода
+#      VLADELTCY: состояния Start — mobile/src/features/start/**;
+#      Erstinformation — onboarding/**; demo-вход — auth/**; состав
+#      вкладок — mobile/src/app/**; first-run-continue — допуск 135/118,
+#      ОДНО ИЗ ДВУХ деревьев auth/onboarding: frozen-текст 138/1
+#      называет onboarding, продукт и frozen 135 несут кнопку в auth).
+#      Носитель — атрибут ИЗ ЗАМКНУТОГО АЛФАВИТА ИМЁН buttonTestID/testID
+#      (118: Cta рендерит testID={buttonTestID}, auth-parts.tsx; иные
+#      *TestID-пропсы носителем не являются) в сегменте КОДА (лексер:
+#      комментарии/строки/шаблоны — не код) файла экранного кода
 #      (не __tests__/__mocks__/__snapshots__, не *.test.*|*.spec.*|
 #      *.stories.*, расширения .tsx/.jsx/.js) дерева-владельца;
 #      достижимость узла не судится (НЕ ЗАЩИЩАЕТ). Совпадение в ЧУЖОМ
@@ -66,21 +71,29 @@ OBRAZEC_USLOVNOGO = re.compile(
     r'(?:\A|- |\s|[{,])(%s)\s*:' % '|'.join(USLOVNYE_KONSTRUKCII))
 # Селектор → дерево-владелец (ось «состояние × источник селектора», круг 1):
 # носитель ищется ТОЛЬКО в дереве владельца; чужое дерево не сканируется.
+# first-run-continue — допуск 135/118, ДВА дерева: frozen-текст 138/1
+# (инвариант 9) называет владельцем onboarding, а продукт и frozen 135
+# (ISTOCHNIKI_EKRANA = features/auth) несут кнопку First-Run в auth
+# (first-run-screen.tsx); батарея принимает ОДНО ИЗ ДВУХ деревьев.
 VLADELTCY = {
     'mobile/src/features/start': ('start_sostojanie_idle',
                                   'start_sostojanie_composer',
                                   'start_sostojanie_decision',
                                   'start_sostojanie_resume',
                                   'start_next_variant'),
-    'mobile/src/features/onboarding': ('first-run-continue',
-                                       'erstinfo_gate_current',
+    'mobile/src/features/onboarding': ('erstinfo_gate_current',
                                        'erstinfo_continue_start'),
     'mobile/src/features/auth': ('auth-demo-entry',),
     'mobile/src/app': ('start_tabs', 'start_tab_start', 'start_tab_vorgaenge',
                        'start_tab_schutz', 'start_tab_post'),
 }
+# Допуск 135/118 (заявка implementer 138: честный экран носит кнопку в auth
+# формой buttonTestID): auth (продукт, frozen 135) ЛИБО onboarding
+# (frozen-текст 138/1 инвариант 9) — оба дерева остаются владельцами.
+DOPUSK_DEREVJA = ('mobile/src/features/auth', 'mobile/src/features/onboarding')
 ISTOCHNIKI_EKRANA = tuple(VLADELTCY)
-DEREVO_SELEKTORA = {s: d for d, i in VLADELTCY.items() for s in i}
+DEREVA_SELEKTORA = {s: (d,) for d, i in VLADELTCY.items() for s in i}
+DEREVA_SELEKTORA['first-run-continue'] = DOPUSK_DEREVJA
 SELEKTOR_KADRA = {
     'start-ekran-f04-01': 'start_sostojanie_idle',
     'start-ekran-f04-07': 'start_sostojanie_composer',
@@ -251,6 +264,11 @@ def selektory(shagi):
 RASSHIRENIJA_KODA = ('.tsx', '.jsx', '.js')
 NE_EKRAN_KATALOGI = frozenset(('__tests__', '__mocks__', '__snapshots__'))
 NE_EKRAN_IMENA = ('.test.', '.spec.', '.stories.')
+# Замкнутый алфавит ИМЁН атрибутов-носителей (заявка implementer 138 +
+# прецедент 118): testID — честный JSX; buttonTestID — Cta рендерит
+# testID={buttonTestID} (auth-parts.tsx), кнопка First-Run продукта
+# несёт селектор пропсом. Иные *TestID-имена носителем не являются.
+ATTRIBUTY_NOSITELJA = ('buttonTestID', 'testID')
 
 
 def ekran_kod(p):
@@ -322,13 +340,20 @@ def kod_maska(tekst):
 
 
 def nositel_selektora(repo, derevo, sel):
-    """Носитель селектора (ось H, лексика — не достижимость): совпадение
-    testID="sel" (пробелы вокруг '=' и одинарные кавычки допустимы),
-    начавшееся в сегменте КОДА (лексер kod_maska) файла экранного кода
-    (ekran_kod) дерева-владельца. Комментарии, строки, шаблоны и файлы
-    вне экранного кода носителем не являются; регистр и вычисляемые
-    testID={...} — не носитель (литеральная грамматика)."""
-    obrazec = re.compile(r'testID\s*=\s*["\']%s["\']' % re.escape(sel))
+    """Носитель селектора (ось H, лексика — не достижимость): атрибут ИЗ
+    ЗАМКНУТОГО АЛФАВИТА ИМЁН ATTRIBUTY_NOSITELJA (testID — честный JSX;
+    buttonTestID — 118: first-run-screen.tsx передаёт Cta, который рендерит
+    testID={buttonTestID}, auth-parts.tsx; имена *TestID вне алфавита и
+    testid=/TestID= — не носитель: якорь «не-идентификаторный» символ
+    перед именем) со значением "sel" (пробелы вокруг '=' и одинарные
+    кавычки допустимы), начавшееся в сегменте КОДА (лексер kod_maska)
+    файла экранного кода (ekran_kod) дерева-владельца. Комментарии,
+    строки, шаблоны и файлы вне экранного кода носителем не являются;
+    вычисляемые {...} — не носитель (литеральная грамматика)."""
+    imena = '|'.join(re.escape(a) for a in ATTRIBUTY_NOSITELJA)
+    obrazec = re.compile(
+        r'(?<![A-Za-z0-9_-])(?:%s)\s*=\s*["\']%s["\']'
+        % (imena, re.escape(sel)))
     baze = repo / derevo
     if not baze.is_dir():
         return False
@@ -380,11 +405,13 @@ def main():
     fakt = sorted((k.get('snimok'), k.get('tema')) for k in kadry)
     if fakt != OZHIDAEMYE_KADRY:
         otkazy.append(('MANIFEST_NE_8_KADROV', str(len(kadry))))
-    # Носители селекторов — только в деревьях-владельцах (таблица VLADELTCY):
-    # чужие деревья не сканируются, совпадение там не носитель.
+    # Носители селекторов — только в деревьях-владельцах (VLADELTCY;
+    # допуск 135/118 — first-run-continue: ОДНО ИЗ ДВУХ деревьев): чужие
+    # деревья не сканируются, совпадение там не носитель.
     for s in sorted(set(selektory(shagi))):
-        derevo = DEREVO_SELEKTORA.get(s)
-        if derevo is None or not nositel_selektora(repo, derevo, s):
+        derevja = DEREVA_SELEKTORA.get(s)
+        if derevja is None or not any(
+                nositel_selektora(repo, d, s) for d in derevja):
             otkazy.append(('SELEKTOR_BEZ_EKRANA', s))
     karta = {(k['snimok'], k['tema']): k for k in kadry}
     for p in sorted((repo / forma['kadry_dir']).rglob('*.png')):
