@@ -1,0 +1,104 @@
+2026-10-25T13:47:13.9089659Z ##[group]Run set -euo pipefail
+2026-10-25T13:47:13.9089956Z [36;1mset -euo pipefail[0m
+2026-10-25T13:47:13.9090194Z [36;1mAPK='mobile/android/app/build/outputs/apk/release/app-release.apk'[0m
+2026-10-25T13:47:13.9090475Z [36;1mAVD="ci116-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"[0m
+2026-10-25T13:47:13.9090670Z [36;1mPORT=5566[0m
+2026-10-25T13:47:13.9090827Z [36;1mSERIAL="emulator-${PORT}"[0m
+2026-10-25T13:47:13.9091044Z [36;1mAVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"[0m
+2026-10-25T13:47:13.9091265Z [36;1mcleanup116() {[0m
+2026-10-25T13:47:13.9091450Z [36;1m  adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true[0m
+2026-10-25T13:47:13.9091654Z [36;1m  sleep 3[0m
+2026-10-25T13:47:13.9091897Z [36;1m  pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true[0m
+2026-10-25T13:47:13.9092151Z [36;1m  "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true[0m
+2026-10-25T13:47:13.9092345Z [36;1m}[0m
+2026-10-25T13:47:13.9092502Z [36;1mtrap cleanup116 EXIT[0m
+2026-10-25T13:47:13.9092691Z [36;1mecho no | "$AVDM" create avd --force -n "$AVD" \[0m
+2026-10-25T13:47:13.9092965Z [36;1m  -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null[0m
+2026-10-25T13:47:13.9093306Z [36;1msed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"[0m
+2026-10-25T13:47:13.9093569Z [36;1madb start-server >/dev/null[0m
+2026-10-25T13:47:13.9093749Z [36;1mexport MISSION_SERIAL="$SERIAL"[0m
+2026-10-25T13:47:13.9093948Z [36;1mmkdir -p mobile/maestro-out-mission[0m
+2026-10-25T13:47:13.9094168Z [36;1m# Манифест кадров пачки по пути сверки (.harness123/kadry.json) —[0m
+2026-10-25T13:47:13.9094413Z [36;1m# САМ манифест пачки (симлинк, не копия): раннер 123 связывает[0m
+2026-10-25T13:47:13.9094654Z [36;1m# --manifest с манифестом пачки по байтам, поэтому по этому пути[0m
+2026-10-25T13:47:13.9094907Z [36;1m# должен лежать ровно mobile/e2e-mission/kadry.json (механизм 123[0m
+2026-10-25T13:47:13.9095145Z [36;1m# запинен внутри репо — как в модели батареи 116).[0m
+2026-10-25T13:47:13.9095379Z [36;1mln -sfn ../mobile/e2e-mission/kadry.json .harness123/kadry.json[0m
+2026-10-25T13:47:13.9095601Z [36;1m[0m
+2026-10-25T13:47:13.9095741Z [36;1mboot_emulator116() {[0m
+2026-10-25T13:47:13.9095993Z [36;1m  emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \[0m
+2026-10-25T13:47:13.9096300Z [36;1m    -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &[0m
+2026-10-25T13:47:13.9096528Z [36;1m  adb -s "$SERIAL" wait-for-device[0m
+2026-10-25T13:47:13.9096710Z [36;1m  for _ in $(seq 1 130); do[0m
+2026-10-25T13:47:13.9096988Z [36;1m    [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break[0m
+2026-10-25T13:47:13.9097389Z [36;1m    sleep 3[0m
+2026-10-25T13:47:13.9097534Z [36;1m  done[0m
+2026-10-25T13:47:13.9097763Z [36;1m  [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {[0m
+2026-10-25T13:47:13.9098075Z [36;1m    echo "ОТКАЗ: эмулятор 116 не загрузился за 390 с" >&2; return 1; }[0m
+2026-10-25T13:47:13.9098281Z [36;1m  local ok=0[0m
+2026-10-25T13:47:13.9098431Z [36;1m  for _ in $(seq 1 40); do[0m
+2026-10-25T13:47:13.9098644Z [36;1m    if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&[0m
+2026-10-25T13:47:13.9098903Z [36;1m       adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then[0m
+2026-10-25T13:47:13.9099132Z [36;1m      ok=$((ok + 1)); [ "$ok" -ge 3 ] && break[0m
+2026-10-25T13:47:13.9099320Z [36;1m    else[0m
+2026-10-25T13:47:13.9099454Z [36;1m      ok=0[0m
+2026-10-25T13:47:13.9099592Z [36;1m    fi[0m
+2026-10-25T13:47:13.9099734Z [36;1m    sleep 2[0m
+2026-10-25T13:47:13.9099932Z [36;1m  done[0m
+2026-10-25T13:47:13.9100067Z [36;1m  [ "$ok" -ge 3 ] || {[0m
+2026-10-25T13:47:13.9100278Z [36;1m    echo "ОТКАЗ: эмулятор 116 не стабилизировался (adb offline)" >&2; return 1; }[0m
+2026-10-25T13:47:13.9100709Z [36;1m  for s in window_animation_scale transition_animation_scale animator_duration_scale; do[0m
+2026-10-25T13:47:13.9101019Z [36;1m    adb -s "$SERIAL" shell settings put global "$s" 0[0m
+2026-10-25T13:47:13.9101215Z [36;1m  done[0m
+2026-10-25T13:47:13.9101381Z [36;1m  adb -s "$SERIAL" install -r "$APK" >/dev/null[0m
+2026-10-25T13:47:13.9101567Z [36;1m}[0m
+2026-10-25T13:47:13.9101695Z [36;1m[0m
+2026-10-25T13:47:13.9101821Z [36;1mattempt=1[0m
+2026-10-25T13:47:13.9101992Z [36;1mmax_attempts=3[0m
+2026-10-25T13:47:13.9102141Z [36;1mwhile : ; do[0m
+2026-10-25T13:47:13.9102282Z [36;1m  rc=0[0m
+2026-10-25T13:47:13.9102414Z [36;1m  adb_break=0[0m
+2026-10-25T13:47:13.9102573Z [36;1m  if boot_emulator116; then[0m
+2026-10-25T13:47:13.9102762Z [36;1m    rm -rf mobile/maestro-out-mission[0m
+2026-10-25T13:47:13.9102968Z [36;1m    mkdir -p mobile/maestro-out-mission[0m
+2026-10-25T13:47:13.9103149Z [36;1m    set +e[0m
+2026-10-25T13:47:13.9103429Z [36;1m    python3 .harness116/scripts/ekran_shablon.py --pack mobile/e2e-mission --repo . --harness .harness116[0m
+2026-10-25T13:47:13.9103733Z [36;1m    rc=$?[0m
+2026-10-25T13:47:13.9103867Z [36;1m    set -e[0m
+2026-10-25T13:47:13.9104238Z [36;1m    if [ "$rc" -ne 0 ] && grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' mobile/maestro-out-mission 2>/dev/null; then[0m
+2026-10-25T13:47:13.9104626Z [36;1m      adb_break=1[0m
+2026-10-25T13:47:13.9104776Z [36;1m    fi[0m
+2026-10-25T13:47:13.9104911Z [36;1m  else[0m
+2026-10-25T13:47:13.9105038Z [36;1m    rc=1[0m
+2026-10-25T13:47:13.9105178Z [36;1m    adb_break=1[0m
+2026-10-25T13:47:13.9105325Z [36;1m  fi[0m
+2026-10-25T13:47:13.9105468Z [36;1m  if [ "$rc" -eq 0 ]; then break; fi[0m
+2026-10-25T13:47:13.9105658Z [36;1m  if [ "$adb_break" -ne 1 ]; then[0m
+2026-10-25T13:47:13.9105941Z [36;1m    echo "ОТКАЗ: mission 116 красна не из-за обрыва adb (попытка $attempt) — повтор не делаем" >&2[0m
+2026-10-25T13:47:13.9106201Z [36;1m    exit 1[0m
+2026-10-25T13:47:13.9106340Z [36;1m  fi[0m
+2026-10-25T13:47:13.9106499Z [36;1m  if [ "$attempt" -ge "$max_attempts" ]; then[0m
+2026-10-25T13:47:13.9106746Z [36;1m    echo "ОТКАЗ: обрыв adb-транспорта, попытки исчерпаны ($attempt)" >&2[0m
+2026-10-25T13:47:13.9106958Z [36;1m    exit 1[0m
+2026-10-25T13:47:13.9107097Z [36;1m  fi[0m
+2026-10-25T13:47:13.9107299Z [36;1m  echo "ПОВТОР: обрыв adb-транспорта эмулятора (попытка $attempt из $max_attempts)" >&2[0m
+2026-10-25T13:47:13.9107535Z [36;1m  attempt=$((attempt + 1))[0m
+2026-10-25T13:47:13.9107740Z [36;1m  adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true[0m
+2026-10-25T13:47:13.9107933Z [36;1m  sleep 3[0m
+2026-10-25T13:47:13.9108131Z [36;1m  pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true[0m
+2026-10-25T13:47:13.9108443Z [36;1mdone[0m
+2026-10-25T13:47:13.9108780Z [36;1mcmp mobile/e2e-mission/batareja/proverka_proiskhozdenija.py .harness116/fixtures/workshop_project/mission_116/teksty/proverka_text.py[0m
+2026-10-25T13:47:13.9109330Z [36;1mpython3 mobile/e2e-mission/batareja/proverka_proiskhozdenija.py --pack mobile/e2e-mission --repo . --harness .harness116[0m
+2026-10-25T13:47:13.9119904Z shell: /usr/bin/bash -e {0}
+2026-10-25T13:47:13.9120069Z env:
+2026-10-25T13:47:13.9120272Z   pythonLocation: /var/lib/ci-runner/runner/_work/_tool/Python/3.12.15/x64
+2026-10-25T13:47:13.9120585Z   PKG_CONFIG_PATH: /var/lib/ci-runner/runner/_work/_tool/Python/3.12.15/x64/lib/pkgconfig
+2026-10-25T13:47:13.9120891Z   Python_ROOT_DIR: /var/lib/ci-runner/runner/_work/_tool/Python/3.12.15/x64
+2026-10-25T13:47:13.9121165Z   Python2_ROOT_DIR: /var/lib/ci-runner/runner/_work/_tool/Python/3.12.15/x64
+2026-10-25T13:47:13.9121445Z   Python3_ROOT_DIR: /var/lib/ci-runner/runner/_work/_tool/Python/3.12.15/x64
+2026-10-25T13:47:13.9121727Z   LD_LIBRARY_PATH: /var/lib/ci-runner/runner/_work/_tool/Python/3.12.15/x64/lib
+2026-10-25T13:47:13.9121947Z ##[endgroup]
+2026-10-25T13:47:13.9531889Z Picked up JAVA_TOOL_OPTIONS: -Duser.home=/var/lib/ci-runner/home
+2026-10-25T13:48:20.0640482Z PRICHINA	E2E_NE_PROSHLA	rc=1
+2026-10-25T13:48:20.0743636Z ОТКАЗ: mission 116 красна не из-за обрыва adb (попытка 1) — повтор не делаем
+2026-10-25T13:48:23.9447251Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,60 @@
+name: mobile-e2e-retry
+# 139 (CMP-MOB-CI): единственный автоматический повтор упавшего android-e2e —
+# только при инфраструктурной сигнатуре сбоя эмулятора в логе job-а ВНЕ эха
+# текста шага. mobile.yml и его шаги (995/108/111/117/123/135) не трогаются.
+# Границы платформы: workflow_run читается из default branch — до merge в
+# main продукта не действует; run_attempt==1 исключает петлю (после rerun
+# событие придёт с attempt=2 и будет отвергнуто).
+on:
+  workflow_run:
+    workflows: [mobile]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  retry:
+    if: >-
+      github.event.workflow_run.name == 'mobile' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1
+    runs-on: [self-hosted, linux, x64, complior]
+    timeout-minutes: 5
+    steps:
+      - name: Повтор android-e2e при инфраструктурной сигнатуре эмулятора
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          echo "VHOD: run=${RUN_ID} conclusion=${CONCLUSION} attempt=${ATTEMPT}"
+          if [ "$CONCLUSION" != "failure" ]; then
+            echo "SKIP: conclusion=${CONCLUSION}"
+            exit 0
+          fi
+          if [ "$ATTEMPT" != "1" ]; then
+            echo "SKIP: run_attempt=${ATTEMPT} — повтор уже был"
+            exit 0
+          fi
+          JOBS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --jq '.jobs[] | select(.name == "android-e2e" and .conclusion == "failure") | .id')"
+          JID="$(printf '%s\n' "$JOBS" | head -n 1 | tr -d '[:space:]')"
+          if [ -z "$JID" ]; then
+            echo "SKIP: упавший android-e2e не найден"
+            exit 0
+          fi
+          LOG="$(gh api "repos/${GITHUB_REPOSITORY}/actions/jobs/${JID}/logs")"
+          # Эхо текста шага (##[group]Run ... ##[endgroup]) вырезается: сигнатуры
+          # в эхе скрипта присутствуют в КАЖДОМ логе job-а и сбоем не являются
+          # (живой прогон 40198243018: PRICHINA E2E_NE_PROSHLA при сигнатурах
+          # только в эхе — повтор не делается).
+          LOG_OCISTENNYY="$(printf '%s\n' "$LOG" | sed -e '/##\[group\]Run /,/##\[endgroup\]/d')"
+          if printf '%s\n' "$LOG_OCISTENNYY" | grep -qE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException|INSTALL_FAILED|emulator: ERROR|Timeout waiting for emulator'; then
+            echo "POVTOR: android-e2e упал по инфраструктурной сигнатуре эмулятора (job ${JID})"
+            gh run rerun --failed "$RUN_ID"
+            exit 0
+          fi
+          echo "SKIP: инфраструктурной сигнатуры в логе android-e2e нет — чистый провал проверки"
