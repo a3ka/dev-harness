@@ -1,0 +1,223 @@
+{
+ "versija": 1,
+ "kontrakt": "140-odin-agent-na-predmet",
+ "subjekt": "model/zamok_predmeta.sh (эталон двери замка предмета; реализация scripts/zamok_predmeta.sh той же семантики)",
+ "konstanty": {
+  "cap_harness": 1,
+  "cap_mob": 3,
+  "cap_back": 2,
+  "broshen_ttl_min": 60,
+  "mutex_stale_min": 5,
+  "yield_literal": "\"toolName\":\"yield\"",
+  "repo_id": "dev-harness"
+ },
+ "istochniki": {
+  "volja_vladeltsa": "docs/owner/2026-10-21-dubli-agentov.md (§Боль: Architect122v4/v4b на одном contracts/122, Critic122v4 до сдачи автора, критик 117 7× при капе 3; §Решение «останови дубли» 2026-10-21 ~23:00 UTC; §Расширение области 2026-10-24: замок (repoId, subjectId) на batch, судья после yield на OBJECT, адверсарий до ревьюера, единый учёт)",
+  "limity": "слово владельца 2026-10-25: mob 3 (139 сверх лимита — осознанно, без паузы)",
+  "yield_predikat": "orch-tablo (ops/server/user/orch-tablo) читает toolCall name=yield разбором JSON; живой журнал станции: /home/harness/.local/state/dev-harness-sessions/<hash8>/zones/dev/.omp/profiles/dev/agent/sessions/<cwd>/<parent>/<AgentId>.jsonl; батарея пинит литерал отклика \"toolName\":\"yield\" (замер: Rev139.jsonl; Architect140.md появляется только после сдачи)",
+  "object_grammatika": "контракт 104 Решение 5: ^OBJECT=[0-9a-f]{40}$; models_actual.sh --tsv --bind извлекает ту же строку"
+ },
+ "alfavity": {
+  "worker_roles": [
+   "architect",
+   "implementer",
+   "implementer-glm",
+   "implementer-vision"
+  ],
+  "judge_roles": [
+   "critic",
+   "critic-sol",
+   "adversary",
+   "reviewer"
+  ],
+  "gruppy": [
+   "harness",
+   "mob",
+   "back",
+   "-"
+  ],
+  "predmet": "^SUBJECT=[0-9]{3}$",
+  "object": "^OBJECT=[0-9a-f]{40}$",
+  "pin": [
+   "^WORKTREE=/[^TAB]+$",
+   "^BRANCH=wip/[0-9]{3}/[^TAB]+$"
+  ],
+  "imja": "[A-Za-z0-9._-]+",
+  "protsennye_roli": [
+   "scout",
+   "task",
+   "sonic",
+   "arbiter",
+   "consultant",
+   "steward"
+  ]
+ },
+ "kejsy": {
+  "w01-pervyj-rabochij": "роль=рабочий;источник=замок;состояние=свободно",
+  "w02-vtoroj-rabochij-zhiv": "роль=рабочий;состояние=бежит;дубль=живой",
+  "w03-posle-yield-novyj-rabochij": "роль=рабочий;состояние=сдал",
+  "w04-dubl-posle-restarta": "роль=рабочий;состояние=оборван;дубль=после-рестарта",
+  "w05-osvobodit-broshennyj": "состояние=оборван;замок=явное-освобождение",
+  "w06-osvobodit-zhivoj": "состояние=бежит;замок=живой",
+  "w07-subject-net": "форма=SUBJECT-отсутствует",
+  "w08-subject-vne-grammatiki": "форма=SUBJECT-вне-грамматики",
+  "w09-imja-net": "форма=имя-отсутствует",
+  "w10-pauza": "источник=реестр;учёт=ПАУЗА",
+  "w11-scout-propusk": "роль=вне-классов",
+  "w12-arbiter-propusk": "роль=судья-процесса",
+  "w13-limit-harness": "учёт=лимит;группа=harness-1",
+  "w14-limit-mob-tri-ok": "учёт=лимит;группа=mob-в-лимите",
+  "w15-limit-mob-chetyre": "учёт=лимит;группа=mob-сверх",
+  "w16-limit-slovo": "учёт=лимит;СЛОВО=владельца",
+  "w17-limit-done-osvobozhdaet": "учёт=лимит;done=тег",
+  "w18-limit-pauza-osvobozhdaet": "учёт=лимит;ПАУЗА=освобождает-слот",
+  "w19-gruppa-iz-pina": "источник=git-remote;учёт=группа-предмета",
+  "s01-sudja-posle-yield": "роль=судья;состояние=автор-сдал;OBJECT=совпадает",
+  "s02-kritik-pri-zhivom-rabochem": "роль=судья;состояние=рабочий-бежит;источник=замок",
+  "s03-object-rashoditsja": "OBJECT=чужой-sha",
+  "s04-object-net": "OBJECT=отсутствует",
+  "s05-vtoroj-sudja-zhiv": "роль=судья;дубль=живой-судья",
+  "s06-object-uzhe-suzhen": "OBJECT=повтор-того-же-sha",
+  "s07-ispravitelnyj-novyj-object": "OBJECT=новый-sha-после-правки",
+  "s08-rabochego-net": "состояние=автора-нет",
+  "s09-adv-do-rev": "риск=рисковый;порядок=ревьюер-раньше",
+  "s10-adv-do-rev-zakryt": "риск=рисковый;порядок=адверсарий-сдал",
+  "s11-obychnyj-bez-adv": "риск=обычный;порядок=без-адверсария",
+  "s12-vetka-nedostupna": "OBJECT=ветка-утеряна",
+  "s13-klass-riska-net": "риск=строки-нет",
+  "s14-pin-rashozhdenie": "форма=пин-расходится-с-предметом",
+  "s22-avtor-zhiv-bez-zamka": "роль=судья;состояние=автор-бежит;источник=журнал",
+  "b01-paket-dva-predmeta": "пакет=разные-предметы",
+  "b02-dubl-v-pakete": "пакет=один-предмет-дважды",
+  "b03-smeshannyj-otkat": "пакет=смешанный;отказ=всему-пакету",
+  "b04-gonka-dva-protsessa": "пакет=гонка;замок=атомарность",
+  "b05-izolirovannyj-invariant": "режим=изолированный/нет;инвариант=вердикт",
+  "b06-paket-rabochij-plus-scout": "пакет=рабочий+не-гейт-роль",
+  "u01-uchet-svod": "сторож=учёт-состояний;источник=журнал+реестр",
+  "u02-uchet-pust": "сторож=учёт-пуст",
+  "g01-prefiks-kollizija": "класс=delimiter-collision;форма=префикс",
+  "g02-dve-stroki-subject": "класс=regex-injection;форма=две-строки",
+  "g03-tab-v-imeni": "класс=delimiter-collision;форма=разделитель-в-имени",
+  "g04-bityj-vhod": "класс=silent-drop;форма=битый-вход",
+  "g05-samo-prolozhenie": "класс=self-application-green",
+  "g06-podstroka-pina": "класс=delimiter-collision;форма=пин-подстрокой"
+ },
+ "stab_vhod": {
+  "s01-bez-dublja-rabochego": [
+   "w02-vtoroj-rabochij-zhiv"
+  ],
+  "s02-bez-yield-predikata": [
+   "w03-posle-yield-novyj-rabochij"
+  ],
+  "s03-avto-relis-broshennogo": [
+   "w04-dubl-posle-restarta"
+  ],
+  "s04-osvobodit-zhivogo": [
+   "w06-osvobodit-zhivoj"
+  ],
+  "s05-subjekt-bez-jakorja": [
+   "g01-prefiks-kollizija"
+  ],
+  "s06-pin-bez-jakorja": [
+   "g06-podstroka-pina"
+  ],
+  "s07-object-fabricuet": [
+   "s04-object-net"
+  ],
+  "s08-bez-object-sverki": [
+   "s03-object-rashoditsja"
+  ],
+  "s09-avtor-ne-sdal": [
+   "s22-avtor-zhiv-bez-zamka"
+  ],
+  "s10-vtoroj-sudja": [
+   "s05-vtoroj-sudja-zhiv"
+  ],
+  "s11-uzhe-suzhen": [
+   "s06-object-uzhe-suzhen"
+  ],
+  "s12-bez-rabochego": [
+   "s08-rabochego-net"
+  ],
+  "s13-klass-riska-mjagko": [
+   "s13-klass-riska-net"
+  ],
+  "s14-bez-adv-do-rev": [
+   "s09-adv-do-rev"
+  ],
+  "s15-bez-pauzy": [
+   "w10-pauza"
+  ],
+  "s16-slovo-vsegda": [
+   "w15-limit-mob-chetyre"
+  ],
+  "s17-done-net": [
+   "w17-limit-done-osvobozhdaet"
+  ],
+  "s18-gruppa-vsegda-harness": [
+   "w19-gruppa-iz-pina"
+  ],
+  "s19-bez-dublja-v-pakete": [
+   "b02-dubl-v-pakete"
+  ],
+  "s20-otkaz-ne-ostanavlivaet": [
+   "b03-smeshannyj-otkat"
+  ],
+  "s21-bez-atomarnosti": [
+   "b04-gonka-dva-protsessa"
+  ],
+  "s22-bez-starta": [
+   "w01-pervyj-rabochij"
+  ],
+  "s23-pustota-prohodit": [
+   "g04-bityj-vhod"
+  ],
+  "s24-sudi-propusk": [
+   "s01-sudja-posle-yield"
+  ],
+  "s25-bez-pin-rashozhdenija": [
+   "s14-pin-rashozhdenie"
+  ],
+  "s26-uchet-bez-zhurnala": [
+   "u01-uchet-svod"
+  ],
+  "s27-pauza-schitaetsja": [
+   "w18-limit-pauza-osvobozhdaet"
+  ]
+ },
+ "nositeli": {
+  "model/zamok_predmeta.sh": "5258a2d17ddc866073d2ef237b5741ed466332aba0472119a24e6f671b1c400b",
+  "s01-bez-dublja-rabochego": "b819d848442de1de9106ae659292df4c978d5cdfa2f1a531bb668f5fb72a1d72",
+  "s02-bez-yield-predikata": "837e440d14d4e9a38679320b1f4aca9251a3e796006e5a747df64b21b8407b51",
+  "s03-avto-relis-broshennogo": "fc4940886366803223621540d15c26d6e2c65afe528e394c2a522fdd4ec0d2b1",
+  "s04-osvobodit-zhivogo": "56d4d3cc9b80b3e1a6367a2927be53d3e3d1cf8b9cf32353d7410042664f7541",
+  "s05-subjekt-bez-jakorja": "babc641d69204c868396c47c89e7b010a127e94739212346da68a751aeaf848f",
+  "s06-pin-bez-jakorja": "0ccb8e5df4fbce6c84223bc69086144403c126db0f712ce49120ca84a9ad98b0",
+  "s07-object-fabricuet": "639580cd90cacede6ac193c1d050f3b73aae56ce155b2d7f4f6c0708fd319ccf",
+  "s08-bez-object-sverki": "375935a068e1f9f7e8d540aebf362c56218d3cdde1cacbf3a42e2aecd9656d7e",
+  "s09-avtor-ne-sdal": "5a9b4c002df596db7b7f35d8a760a07fbc789d8edbddebf547c43a6daee7d79d",
+  "s10-vtoroj-sudja": "2d14b5acc8ac82f75e9d5c3d5aa2108c66c8e4fe100a3838d6ef7a7f2fe6d27f",
+  "s11-uzhe-suzhen": "82370cdccf3a4ce564bed5ca3b686022ed0ca737e0f4dbdd188b0c1948872085",
+  "s12-bez-rabochego": "52ed3cbafdb5fadab689887393afdef9845c93d1a55b191486ae2dd323f554ff",
+  "s13-klass-riska-mjagko": "8073893569fa2c5292593c1b94e22a0f99e46d7c9e680ec948de9525a411a332",
+  "s14-bez-adv-do-rev": "7c01e59141451a78a4bfb945fe370288cb2d542e85537432d969d575bd525bd5",
+  "s15-bez-pauzy": "88bc6e0bceaf72e0209bbbf80bbeb8401983ce1b5025cda07da59e038b679d89",
+  "s16-slovo-vsegda": "7bca6c0ed9fbe354df2d7d7224deda3b01b6e388cd499b2deffb180870a709cc",
+  "s17-done-net": "8c23ab9a2816cfe28ee3e3b34d06ef4564f9f29bbce2041c4934ee93dfe41a14",
+  "s18-gruppa-vsegda-harness": "24fdeb12f62e6d2d3a555778fda81c40e8a8e2f75a5572f9315e8d5bc28eb53d",
+  "s19-bez-dublja-v-pakete": "9b2931a2bfb09b0c0cff599a2a2aef83b199c7c1605bcc5910e7a5b98fd68858",
+  "s20-otkaz-ne-ostanavlivaet": "36679d2c93fbc1f45f7cd93f68f58ff40c1b3d31e51b1e526286f55b7880df29",
+  "s21-bez-atomarnosti": "33005f30ea4c46ab93439206ebe5dfa789069a5dfc56ee71d4e324ef52e7b633",
+  "s22-bez-starta": "9ed83033f36d6de5b0449cd59cde741b29b573e4664cdad21f566d80d0840cab",
+  "s23-pustota-prohodit": "3bd48165a31f4efb6248bec0fc3351d2fd4f11692ce2531c13aae14c1f3b1935",
+  "s24-sudi-propusk": "1ea878a64c06a204183bef85734b4527c85eabc13fef1166fc9a4773035a646b",
+  "s25-bez-pin-rashozhdenija": "41f0abeedada9bdabb2a77946d08aa5beb7c2b5f2da5686ff07ea2bd4156011a",
+  "s26-uchet-bez-zhurnala": "75cf00b47c7fa3992ebff57fc71f9b9a32f5dc7aac81d96b6becc0dc25c92385",
+  "s27-pauza-schitaetsja": "e10d5e560898e762342991d4070160d537b1ea8acd5981c8dbaf03396ce92e08"
+ },
+ "zametki": {
+  "nositeli": "пины sha256 модели и стабов проставляются генерацией (probe.py --sgeneriruj-staby + gen_nositeli) и фиксируются ДО сдачи; пустой носитель на сдаче = ORACLE_TAMPERED",
+  "privjazki": "Н-39: пары «стаб ↔ вход» живут ТОЛЬКО здесь (stab_vhod), проза контракта их не утверждает; привязка — минимальная гарантированная краснота, не полный эффект мутации (замечание критика 136 r1)",
+  "omp": "батарее omp НЕ нужен (урок 136 lane l5); сети нет; git/jq/bash обязательны"
+ }
+}
