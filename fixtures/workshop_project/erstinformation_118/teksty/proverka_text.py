@@ -20,6 +20,11 @@
 # Заголовок флоу адресует пакет продукта: appId обязан равняться
 # expo.android.package из mobile/app.json (дефект батареи 118: чужой demo-пакет
 # вместо com.complior.mobile ронял Maestro «Package … is not installed»).
+# Конфиг каталога Maestro (mobile/.maestro/config.yaml) обязан нести
+# исключение флоу пачки своей строкой в flows (adv-118 B3): иначе общий
+# прогон каталога (995: maestro test .maestro) включит сценарий пачки,
+# хотя порядок флоу каталога недетерминирован и флоу требует First-Run —
+# пачку судит только отдельный прогон e2e.sh по прямому пути.
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -87,6 +92,30 @@ def appid_flow(path):
         if line.startswith('appId:'):
             return line.partition(':')[2].strip()
     return None
+
+KATALOG_MAESTRO = 'mobile/.maestro/config.yaml'
+
+
+def iskljuchenie_pachki_v_confige(repo, iskljuchenie):
+    """Исключение флоу пачки в списке flows конфига каталога Maestro.
+    Судится ТОЛЬКО флоу пачки: исключения чужих флоу (995/107/117/135;
+    mission — зона 116, не 118) не требуются и не запрещаются. Сравнение
+    литеральное: значение элемента списка после '- ' со снятыми кавычками
+    самостоятельной строкой, не подстрока где-угодно."""
+    p = repo / KATALOG_MAESTRO
+    if not p.is_file():
+        return False
+    v_spiske = False
+    for line in p.read_text(encoding='utf-8').splitlines():
+        s = line.strip()
+        if v_spiske:
+            if not s.startswith('- '):
+                break
+            if s[2:].strip().strip('\'"') == iskljuchenie:
+                return True
+        elif s == 'flows:':
+            v_spiske = True
+    return False
 
 
 def sud_flow(shagi, snimki):
@@ -307,6 +336,12 @@ def main():
     if appid != paket:
         otkazy.append(('FLOW_APPID_NE_PAKET',
                        'appId=%s paket=%s' % (appid, paket)))
+    # Конфиг каталога Maestro: исключение флоу пачки обязано стоять в flows
+    # (adv-118 B3 — снятое исключение не замечала прежняя proverka).
+    iskljuchenie_pachki = '!' + forma['e2e_scenarij'].split('/')[-1]
+    if not iskljuchenie_pachki_v_confige(repo, iskljuchenie_pachki):
+        otkazy.append(('CONFIG_BEZ_ISKLJUCHENIJA',
+                       '%s без %s' % (KATALOG_MAESTRO, iskljuchenie_pachki)))
     # Ровно 16 кадров манифеста (adv-118 A2): 15 кадров «проходят» сверку,
     # но манифест пачки обязан нести полный состав 8 snimok × dark/light.
     fakt_kadry = sorted((k.get('snimok'), k.get('tema')) for k in kadry)

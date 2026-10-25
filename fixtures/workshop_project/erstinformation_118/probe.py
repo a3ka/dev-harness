@@ -149,6 +149,7 @@ def load_source():
     carriers = {
         'teksty/proverka_text.py': 'proverka_tekst',
         'teksty/flow.yaml': 'flow',
+        'teksty/maestro_config.yaml': 'maestro_config',
         'teksty/testids.stand-in.tsx': 'testids_tekst',
         'teksty/app_start.stand-in.tsx': 'app_start_tekst',
         'teksty/kompozicija_forma': 'kompozicija_forma',
@@ -207,6 +208,9 @@ def build_repo(src, tmp, pack):
     ma = repo / 'mobile/.maestro'
     ma.mkdir(parents=True)
     (ma / 'erstinformation.yaml').write_text(src['flow'], encoding='utf-8')
+    # Конфиг каталога Maestro (adv-118 B3): в честном repo исключение
+    # флоу пачки стоит в flows; клетка config-bez-iskljuchenija его снимает.
+    (ma / 'config.yaml').write_text(src['maestro_config'], encoding='utf-8')
     # app.json: пакет продукта — источник ожидания appId флоу для proverka
     # происхождения (дефект батареи 118); как в живом продукте.
     (repo / 'mobile/app.json').write_text(
@@ -673,6 +677,23 @@ def mut_proiskhozdenie_bez_first_run_tapa(pack, forma, repo, src):
     assert t.count(needle) == 1
     p.write_text(t.replace(needle, ''), encoding='utf-8')
 
+def mut_proiskhozdenie_config_bez_iskljuchenija(pack, forma, repo, src):
+    """Обход №3 (adv-118 B3): исключение флоу пачки снято из конфига
+    каталога Maestro — вместо него исключён чужой флоу (mission — зона
+    116, не 118): общий прогон 995 (maestro test .maestro) включил бы
+    сценарий пачки при недетерминированном порядке каталога, а формальный
+    provenance-gate прежде оставался зелёным. Клетка обязана краснеть
+    CONFIG_BEZ_ISKLJUCHENIJA — сравнение литеральное, чужое исключение
+    не считается."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/config.yaml'
+    stroki = []
+    for line in p.read_text(encoding='utf-8').splitlines():
+        if line.strip() == '- "!erstinformation.yaml"':
+            line = line.replace('!erstinformation.yaml', '!mission.yaml')
+        stroki.append(line)
+    p.write_text('\n'.join(stroki) + '\n', encoding='utf-8')
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -713,6 +734,8 @@ MUTACII = {
     'kompozicija-model-import': mut_kompozicija_model_import,
     'proiskhozdenie-bez-first-run-continue':
         mut_proiskhozdenie_bez_first_run_tapa,
+    'proiskhozdenie-config-bez-iskljuchenija':
+        mut_proiskhozdenie_config_bez_iskljuchenija,
 }
 
 

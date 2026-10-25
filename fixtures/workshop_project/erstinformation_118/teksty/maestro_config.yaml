@@ -1,0 +1,15 @@
+# 118 (Erstinformation): erstinformation.yaml — сценарий ЭКРАННОЙ ПАЧКИ
+# mobile/e2e-erstinformation: e2e.sh запускает его отдельным прогоном по
+# прямому пути (maestro test mobile/.maestro/erstinformation.yaml, обе темы,
+# свой ERSTINFORMATION_SERIAL с эмулятором шага 118). В общем прогоне каталога
+# 995 (scripts/ci-e2e.sh: maestro test .maestro) его быть не должно: флоу
+# начинается с launchApp БЕЗ clearState и требует приложение на First-Run
+# (first-run-continue), а порядок флоу каталога Maestro не гарантируется
+# (WorkspaceExecutionPlanner собирает их Files.walk, не по алфавиту) — соседний
+# флоу может оставить приложение не на First-Run, и прогон каталога станет
+# недетерминированно красным. Конфиг каталога — штатный механизм Maestro:
+# globs фильтруют ТОЛЬКО файлы, найденные обходом каталога; прямой запуск
+# файла по пути (e2e.sh пачки, шаг 118) фильтром не затрагивается.
+flows:
+  - "*"
+  - "!erstinformation.yaml"
