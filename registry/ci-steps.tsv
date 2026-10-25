@@ -126,6 +126,10 @@ step	check:push-produkta-124-family-selftest	0	bash fixtures/workshop_project/pu
 # /tmp/dev-harness-verify/s125, сеть и клон продукта не нужны). Замер в ЧИСТОМ клоне owner/train-s19b с `env -i
 # PATH=/usr/bin:/bin` (урок Н-393): rc 0, «зелёных 70, красных 0», 7 с. Вес 0 до первого замера окна (контракт 114).
 step	check:sessii-proektov-125-family-selftest	0	bash fixtures/workshop_project/sessii_125/red_sessii_125.sh
+# КОНТРАКТ 136: батарея доводки сессий проектов (87 клеток / 45 стабов / 87 привязок: дверь connect_project.sh, make_task.sh, verify_ci_parity.sh;
+# миры строятся в mktemp под $TMPDIR, сеть не нужна) — проводка интеграционным коммитом оркестратора (ПРОВОДКА контракта 136, guard-канал).
+# Безфлаговый режим судит РЕАЛЬНЫЕ scripts/* (после ленда #339 в main: plain 87/87 rc 0, замер Rev136e).
+step	check:sessii-proektov-136-family-selftest	90	bash fixtures/workshop_project/sessii_136/red_sessii_136.sh
 # КОНТРАКТ 128: красная батарея wait-guard (18 клеток; режим БЕЗ ключа судит настоящее .omp/extensions/wait-guard.ts
 # на toy-установках: node + python3, без сети, gh, станции и omp). Замер в ЧИСТОМ клоне owner/train-s19b с `env -i`
 # (PATH=node:/usr/bin:/bin; урок Н-393): rc 0, «клеток 18, сошлось 18», ~20 с. `--live`/`--load` в CI НЕ подключаются
