@@ -776,7 +776,13 @@
   "struktura-upravlenie-job": {
    "tip": "struktura",
    "podtip": "upravlenie-job",
-   "opisanie": "исполняемость job android-e2e: whitelisted-различители — continue-on-error (гасит красный итог), if ложного семейства (false/${{ false }}/always() && false), needs на несуществующую работу, timeout-minutes 0, env.PATH — UPRAVLYAYUSHCHIJ_KLYUCH; прочие ключи job значениями не пинятся",
+   "opisanie": "исполняемость job android-e2e (арбитраж 141, J1–J3): замкнутый алфавит КЛЮЧЕЙ = как в модели (живой замер: needs, runs-on, timeout-minutes, steps) ∪ зелёные {name, permissions, outputs, concurrency}; любой иной ключ (continue-on-error, if, env, defaults, strategy, container, services, environment, uses, with, secrets, …) — UPRAVLYAYUSHCHIJ_KLYUCH независимо от значения; J2 needs существуют + транзитивная цепь без if; J3 timeout-minutes — целое >= 1 после YAML-разбора; runs-on значениями не судится (несуществующая метка — вечная очередь, не зелень)",
+   "ozhidanie": {}
+  },
+  "struktura-upravlenie-workflow": {
+   "tip": "struktura",
+   "podtip": "upravlenie-workflow",
+   "opisanie": "исполняемость workflow-оболочки (арбитраж 141, W1–W2): defaults равен модели как данные ({run: {working-directory: mobile}}, shell нет), top-level env отсутствует, как в модели — UPRAVLYAYUSHCHIJ_KLYUCH; прочие top-level ключи (name, on, permissions, concurrency) не судятся",
    "ozhidanie": {}
   },
   "derevo-bez-141": {
@@ -791,6 +797,12 @@
    "tip": "derevo",
    "podtip": "chuzhoj-shag",
    "opisanie": "зелёный контроль: правка чужого шага (123) не краснит батарею — файл mobile.yml НЕ пинится байтами целиком (урок дефекта дизайна инварианта 6 у 139)",
+   "ozhidanie": {}
+  },
+  "derevo-job-zakonnaja-pravka": {
+   "tip": "derevo",
+   "podtip": "zakonnaja-pravka",
+   "opisanie": "зелёный контроль законных правок job (арбитраж 141, мутанты №24–27): дерево = модель + name/permissions/timeout-minutes 50/runs-on с лишней меткой — всё кодом postavit_derevo; все клетки батареи на нём зелены (алфавит J1–J3/W1–W2 не краснит зелёные и несудимые ключи)",
    "ozhidanie": {}
   },
   "derevo-shag-net": {
@@ -930,6 +942,33 @@
   ],
   "s-upr-job-env-path": [
    "struktura-upravlenie-job"
+  ],
+  "s-upr-job-continue-vyrazhenie": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-matrix-continue": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-if-dinam": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-defaults-shell": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-env-bash-env": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-timeout-vyrazhenie": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-quality-if-false": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-workflow-defaults-shell": [
+   "struktura-upravlenie-workflow"
+  ],
+  "s-upr-workflow-env-bash-env": [
+   "struktura-upravlenie-workflow"
   ]
  }
 }
