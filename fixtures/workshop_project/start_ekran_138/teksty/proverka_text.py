@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 # Проверка доступных свидетельств происхождения (контракт 138, файл пачки).
 # НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском
-# шаблона 132 (§НЕ ЗАЩИЩАЕТ контракта). Судит свойства (уроки 118 применены
-# с первой редакции):
+# шаблона 132 (§НЕ ЗАЩИЩАЕТ контракта). Судит свойства (уроки 118 + оба
+# блокера круга 1 критика закрыты КЛАССАМИ, не мутантами):
 #   1) флоу: единственный запуск production (launchApp, никаких
 #      openLink/startApp); перед каждым кадром — переход и assert-селектор
 #      СВОЕГО состояния; каждый snimok манифеста — ровно один раз;
+#   1а) ФОРМА ФЛОУ — замкнутый алфавит: исполненными считаются ТОЛЬКО
+#      топ-уровневые команды KOMANDY_PACHKI (openLink/startApp в алфавите
+#      парсера, но отвергаются п.1 как обход пуска). Любая условность,
+#      вложенность либо отложенность — ключи USLOVNYE_KONSTRUKCII на любом
+#      уровне и в любом виде (блок либо inline-карта), вложенные '- ' шаги,
+#      конструкции вне алфавита (в т.ч. YAML-анкоры/алиасы) — отказ
+#      FLOW_USLOVNYJ_SHAG: шаг, который при честном запуске может НЕ
+#      выполниться, исполненным переходом не считается. Имитация шагов
+#      комментариями шагом не является;
 #   2) ПУТЬ ДОПУСКА (граница с 118): First-Run → first-run-continue →
 #      demo-вход auth-demo-entry → Erstinformation gate current →
 #      erstinfo_continue_start → состав Start ПО ВКЛАДКАМ (start_tabs и
@@ -15,8 +24,13 @@
 #   4) конфиг каталога mobile/.maestro/config.yaml несёт исключение флоу
 #      пачки своей строкой в flows (общий прогон каталога 995 не должен
 #      гонять экранный флоу: порядок флоу каталога недетерминирован);
-#   5) каждый селектор флоя имеет носитель testID в коде экрана (свои —
-#      mobile/src/features/start/**, путь допуска — onboarding/auth/app);
+#   5) селекторы: каждый имеет носитель в дереве-ВЛАДЕЛЬЦЕ (таблица
+#      VLADELTCY: состояния Start — mobile/src/features/start/**; First-Run
+#      и Erstinformation — onboarding/**; demo-вход — auth/**; состав
+#      вкладок — mobile/src/app/**). Носитель — литеральный атрибут
+#      testID="имя" (пробелы вокруг '=' и одинарные кавычки допустимы)
+#      ВНЕ комментария и строкового литерала; совпадение в ЧУЖОМ дереве
+#      носителем НЕ является (чьё состояние — того экрана и носитель);
 #   6) манифест — ровно 8 кадров: 4 состояния × dark/light;
 #   7) кадр, байт-идентичный макету, — НЕ скриншот (сравнение sha256).
 # В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает Maestro),
@@ -25,13 +39,41 @@
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
 PEREHODY = ('tapOn', 'inputText', 'pressKey', 'swipe')
 ZAPUSKI = ('launchApp',)
-ISTOCHNIKI_EKRANA = ('mobile/src/features/start', 'mobile/src/features/onboarding',
-                     'mobile/src/features/auth', 'mobile/src/app')
+# Замкнутый алфавит топ-уровневых команд пачки (ось «допуск × переходы ×
+# форма flow», круг 1 критика): вне алфавита — FLOW_USLOVNYJ_SHAG.
+KOMANDY_PACHKI = frozenset((
+    'launchApp', 'openLink', 'startApp', 'tapOn', 'assertVisible',
+    'assertNotVisible', 'inputText', 'pressKey', 'swipe', 'takeScreenshot'))
+# Условные/отложенные конструкции Maestro (when/repeat/retry/runFlow/
+# runScript/evalScript/onFlowStart/onFlowComplete): ключ на любом уровне,
+# блок либо inline — шаг может НЕ выполниться, исполненным не считается.
+USLOVNYE_KONSTRUKCII = ('when', 'repeat', 'retry', 'runFlow', 'runScript',
+                        'evalScript', 'onFlowStart', 'onFlowComplete')
+OBRAZEC_USLOVNOGO = re.compile(
+    r'(?:\A|- |\s|[{,])(%s)\s*:' % '|'.join(USLOVNYE_KONSTRUKCII))
+# Селектор → дерево-владелец (ось «состояние × источник селектора», круг 1):
+# носитель ищется ТОЛЬКО в дереве владельца; чужое дерево не сканируется.
+VLADELTCY = {
+    'mobile/src/features/start': ('start_sostojanie_idle',
+                                  'start_sostojanie_composer',
+                                  'start_sostojanie_decision',
+                                  'start_sostojanie_resume',
+                                  'start_next_variant'),
+    'mobile/src/features/onboarding': ('first-run-continue',
+                                       'erstinfo_gate_current',
+                                       'erstinfo_continue_start'),
+    'mobile/src/features/auth': ('auth-demo-entry',),
+    'mobile/src/app': ('start_tabs', 'start_tab_start', 'start_tab_vorgaenge',
+                       'start_tab_schutz', 'start_tab_post'),
+}
+ISTOCHNIKI_EKRANA = tuple(VLADELTCY)
+DEREVO_SELEKTORA = {s: d for d, i in VLADELTCY.items() for s in i}
 SELEKTOR_KADRA = {
     'start-ekran-f04-01': 'start_sostojanie_idle',
     'start-ekran-f04-07': 'start_sostojanie_composer',
@@ -53,15 +95,33 @@ def sha(p):
 
 
 def shagi_flow(path):
-    out = []
-    for line in path.read_text(encoding='utf-8').splitlines():
+    """Топ-уровневые шаги (отступ 0) + перечень условных/вложенных
+    конструкций. Шаг '- ' с отступом > 0 — вложенный (внутрь runFlow/
+    repeat/анкора); ключ USLOVNYE_KONSTRUKCII — блок либо inline-карта;
+    '- x' вне алфавита — конструкция не пачки (анкоры/алиасы/прочее).
+    Комментарий шагом не является ни в какой форме."""
+    shagi, uslovnye = [], []
+    for num, line in enumerate(
+            path.read_text(encoding='utf-8').splitlines(), 1):
         s = line.strip()
+        if not s or s.startswith('#'):
+            continue
+        kljuchi = sorted(set(OBRAZEC_USLOVNOGO.findall(s)))
+        if kljuchi:
+            uslovnye.append('%s:%d' % ('+'.join(kljuchi), num))
+            continue
         if not s.startswith('- '):
             continue
-        step = s[2:]
-        k, sep, a = step.partition(':')
-        out.append((k.strip(), a.strip() if sep else ''))
-    return out
+        otstup = len(line) - len(line.lstrip(' '))
+        k, sep, a = s[2:].partition(':')
+        k = k.strip()
+        if otstup > 0:
+            uslovnye.append('vlozhennyj_shag:%d' % num)
+        else:
+            shagi.append((k, a.strip() if sep else ''))
+            if k not in KOMANDY_PACHKI:
+                uslovnye.append('vne_alfavita:%s:%d' % (k, num))
+    return shagi, uslovnye
 
 
 def id_iz(arg):
@@ -82,8 +142,6 @@ def paket_produkta(repo):
 def appid_flow(path):
     """appId из заголовка флоу (строки до первого '---')."""
     for line in path.read_text(encoding='utf-8').splitlines():
-        if line.strip() == '---':
-            break
         if line.startswith('appId:'):
             return line.partition('appId:')[2].strip()
     return None
@@ -91,24 +149,21 @@ def appid_flow(path):
 
 def iskljuchenie_pachki_v_confige(repo, iskljuchenie):
     """Исключение флоу пачки в списке flows конфига каталога Maestro.
-    Судится ТОЛЬКО флоу пачки (чужие исключения не требуются и не
-    запрещаются). Сравнение литеральное: значение элемента списка после
-    '- ' со снятыми кавычками самостоятельной строкой, не подстрока."""
-    p = repo / KATALOG_MAESTRO
-    if not p.is_file():
-        return False
+    Сверка литеральная: строка элемента списка, не подстрока где угодно."""
+
+
     v_flows = False
-    for line in p.read_text(encoding='utf-8').splitlines():
+    for line in (repo / KATALOG_MAESTRO).read_text(
+            encoding='utf-8').splitlines():
         s = line.strip()
-        if s == 'flows:':
-            v_flows = True
+        if not v_flows:
+            v_flows = s == 'flows:'
             continue
-        if v_flows:
-            if not s.startswith('- '):
-                break
-            znach = s[2:].strip().strip("'\"")
-            if znach == iskljuchenie:
-                return True
+        if not s.startswith('- '):
+            break
+        znach = s[2:].strip().strip("'\"")
+        if znach == iskljuchenie:
+            return True
     return False
 
 
@@ -186,6 +241,35 @@ def selektory(shagi):
     return out
 
 
+def nositel_selektora(repo, derevo, sel):
+    """Носитель селектора: литеральный атрибут testID="sel" в дереве
+    владельца. Пробелы вокруг '=' и одинарные кавычки — честный JSX —
+    допустимы. Совпадение ПОСЛЕ '//'/'/*'/'*' (комментарий в той же строке
+    либо строка комментария) либо кавычка/бэктик вплотную перед атрибутом
+    (строковый литерал) носителем не являются; регистр и вычисляемые
+    значения testID={...} — не носитель (грамматика пачки литеральная)."""
+    obrazec = re.compile(r'testID\s*=\s*["\']%s["\']' % re.escape(sel))
+    baze = repo / derevo
+    if not baze.is_dir():
+        return False
+    for p in sorted(baze.rglob('*')):
+        if not p.is_file():
+            continue
+        try:
+            tekst = p.read_text(encoding='utf-8')
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in tekst.splitlines():
+            for m in obrazec.finditer(line):
+                pred = line[:m.start()].rstrip()
+                if pred.endswith(('//', '/*', '*')):
+                    continue
+                if pred and pred[-1] in '\'"`':
+                    continue
+                return True
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--pack', required=True)
@@ -197,13 +281,15 @@ def main():
         forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))
         manifest = json.loads((pack / forma['kadry']).read_text(
             encoding='utf-8'))
-        shagi = shagi_flow(repo / forma['e2e_scenarij'])
+        shagi, uslovnye = shagi_flow(repo / forma['e2e_scenarij'])
     except (OSError, ValueError, KeyError) as e:
         print('PROVERKA_NECHITAEM: %r' % e, file=sys.stderr)
         return 2
     kadry = manifest['kadry']
     snimki = list(dict.fromkeys(k['snimok'] for k in kadry))
     otkazy = sud_flow(shagi, snimki)
+    for u in uslovnye:
+        otkazy.append(('FLOW_USLOVNYJ_SHAG', u))
     # appId флоу адресует пакет продукта (урок 118), не литерал батареи.
     appid = appid_flow(repo / forma['e2e_scenarij'])
     paket = paket_produkta(repo)
@@ -218,21 +304,11 @@ def main():
     fakt = sorted((k.get('snimok'), k.get('tema')) for k in kadry)
     if fakt != OZHIDAEMYE_KADRY:
         otkazy.append(('MANIFEST_NE_8_KADROV', str(len(kadry))))
-    istochniki = []
-    for d in ISTOCHNIKI_EKRANA:
-        baze = repo / d
-        if baze.is_dir():
-            istochniki.extend(p for p in baze.rglob('*') if p.is_file())
-    teksty = []
-    for p in istochniki:
-        try:
-            teksty.append(p.read_text(encoding='utf-8'))
-        except (OSError, UnicodeDecodeError):
-            pass
+    # Носители селекторов — только в деревьях-владельцах (таблица VLADELTCY):
+    # чужие деревья не сканируются, совпадение там не носитель.
     for s in sorted(set(selektory(shagi))):
-        if not any('testID="%s"' % s in line
-                   for t in teksty for line in t.splitlines()
-                   if not line.lstrip().startswith(('//', '/*', '*', '#'))):
+        derevo = DEREVO_SELEKTORA.get(s)
+        if derevo is None or not nositel_selektora(repo, derevo, s):
             otkazy.append(('SELEKTOR_BEZ_EKRANA', s))
     karta = {(k['snimok'], k['tema']): k for k in kadry}
     for p in sorted((repo / forma['kadry_dir']).rglob('*.png')):
