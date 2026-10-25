@@ -34,6 +34,34 @@
 # одна пара assert→снимок с этим именем» не принимается: дубль имени
 # не легализует первый ранний снимок), имена takeScreenshot уникальны
 # в раскрытом потоке (повтор имени = FLOW_SNIMOK_DUBL).
+# 116 v3d (табличная достройка по РЕШЕНИЮ АРБИТРА
+# verdicts/arbitration/contracts-116-v3-arbitraz.md, §2): закрытая
+# ТАБЛИЦА КЛАССОВ входов вместо точечных мутантов.
+# G1 — грамматика файла флоу (корень и каждый ребёнок) — fail-closed
+# БЕЛЫЙ СПИСОК: шапка appId:/name: одной строкой, `---`, затем только
+# пустые строки, `#`-комментарии и шаги `- <cmd>[: <arg>][ # …]` БЕЗ
+# отступа; cmd — из закрытого множества 8 команд честного флоу, arg —
+# одна из трёх форм (`{id: tok}`/`{file: tok}`, `'…'` одной строкой,
+# голый токен). ЛЮБАЯ иная строка (блочный литерал `inputText: |`,
+# тело repeat/retry/when, вложенные commands, отступленная строка,
+# неизвестная команда, неизвестная форма аргумента) — именованный
+# отказ FLOW_SHAG_VNE_GRAMMATIKI с номером строки: отступ больше НЕ
+# стирается, строка из литерала не становится шагом.
+# F1 — каждое вхождение takeScreenshot раскрытого потока: (а) имя —
+# из манифеста кадров (FLOW_SNIMOK_VNE_MANIFESTA: у снимка вне
+# манифеста своего селектора нет по определению — такой снимок
+# запрещён); (б) имя уникально; (в) свой assertVisible раньше В ТОМ
+# ЖЕ ФАЙЛЕ, и между ними только assertVisible/assertNotVisible
+# (FLOW_ASSERT_V_CHUZHOM_FAJLE, FLOW_DEJSTVIE_MEZHDU_ASSERTOM_I_SNIMKOM:
+# переход/запуск/ребёнок между подтверждением и снимком меняет экран —
+# кадр снят без подтверждения); (г) переход/запуск до него.
+# F3 — строка осей ребёнка: последний ввод предусловия (tap<input)
+# РАНЬШЕ первой учтённой отправки (SCENARIJ_VVOD_POSLE_OTPRAVKI);
+# F05.07 — РОВНО 0 отправок во всём файле (SCENARIJ_OTPRAVKA_V_
+# CHERNOVIKE); V02 — assertNotVisible mission_response_completed после
+# положительного (SCENARIJ_BEZ_NEGATIVA). Вне батареи (арбитраж §2):
+# достижимость состояний в runtime, видимость testID в момент assert,
+# лишние assert, конструкции вне белого списка красны G1 до продукта.
 # rc 1 — PRICHINA; rc 2 — нечитаемый вход.
 import argparse
 import hashlib
@@ -55,6 +83,21 @@ KONTENER_V03 = 'mission_frame_f05_v03'
 GLUBINA_RUNFLOW = 5
 OTPRAVKA = 'mission_send'
 DEJSTVIE_PO_UMOLCHANIJU = 1
+# G1 (арбитраж 116 v3 §2): закрытое множество команд честного флоу —
+# расширение множества есть правка текста контракта, не кода.
+KOMANDY = ('launchApp', 'assertVisible', 'assertNotVisible', 'tapOn',
+           'inputText', 'hideKeyboard', 'takeScreenshot', 'runFlow')
+# Три формы аргумента шага (единый источник грамматики; потребитель —
+# только это регулярное выражение, переизобретение запрещено).
+ARGUMENT_SHAGA = (r"(?:\{(?:id|file): [A-Za-z0-9_.-]+\}"
+                  r"|'[^'\n]*'"
+                  r"|[A-Za-z0-9_.-]+)")
+SHAG_RE = re.compile(r'^- (?:' + '|'.join(KOMANDY) + r')'
+                     r'(?:: ' + ARGUMENT_SHAGA + r')?(?: #.*)?$')
+# Шапка: скаляр одной строкой — голый токен или кавычки (продуктовый
+# mission.yaml несёт name: с пробелами в кавычках).
+ZAGOLOVOK_RE = re.compile(r"^(?:appId|name): (?:'[^'\n]*'|"
+                          r'"[^"\n]*"|[A-Za-z0-9_.-]+)$')
 # Таблица осей состояний (строка = состояние без PNG; судится КОДОМ в
 # sud_bezpng: действие = минимум отправок mission_send ДО своего assert,
 # ноль означает «действие — жест черновика, без отправки»).
@@ -63,6 +106,11 @@ DEJSTVIJA_SOSTOJANIJ = {
     'mission_queued_offline': 1,
     'mission_response_interrupted': 1,
     'mission_already_accepted': 2,
+}
+# F3 (арбитраж §2): отрицательное наблюдение строки — константа строки
+# таблицы осей, НЕ новое поле манифеста.
+NEGATIVY_SOSTOJANIJ = {
+    'mission_response_interrupted': 'mission_response_completed',
 }
 APPJSON_REL = 'mobile/app.json'
 
@@ -76,13 +124,36 @@ def sha(p):
 
 
 def shagi_flow(path):
-    out = []
-    for line in path.read_text(encoding='utf-8').splitlines():
-        line = line.strip()
-        if line.startswith('- '):
+    """Шаги флоу по ЗАКРЫТОЙ грамматике G1 (арбитраж 116 v3 §2):
+    шапка appId:/name: одной строкой, `---`, затем пустые строки,
+    `#`-комментарии и шаги `- <cmd>[: <arg>][ # …]` ТОЛЬКО без отступа.
+    Возвращает (шаги, отказы): любая иная строка — именованный отказ
+    FLOW_SHAG_VNE_GRAMMATIKI с номером строки и шагом НЕ становится
+    (отступ не стирается: строка блочного литерала `inputText: |`,
+    тело repeat/retry/when и вложенные commands исполняются Maestro,
+    но построчной грамматике не принадлежат — fail-closed)."""
+    out, otkazy = [], []
+    telo = False
+    for n, line in enumerate(
+            path.read_text(encoding='utf-8').splitlines(), 1):
+        if not telo:
+            if line == '---':
+                telo = True
+                continue
+            if ZAGOLOVOK_RE.match(line):
+                continue
+            otkazy.append(('FLOW_SHAG_VNE_GRAMMATIKI',
+                           '%s:%d' % (path.name, n)))
+            continue
+        if line == '' or line.startswith('#'):
+            continue
+        if SHAG_RE.match(line):
             shag = line[2:]
             out.append(shag)
-    return out
+            continue
+        otkazy.append(('FLOW_SHAG_VNE_GRAMMATIKI',
+                       '%s:%d' % (path.name, n)))
+    return out, otkazy
 
 
 def cel_runflow(shag):
@@ -99,14 +170,24 @@ def cel_runflow(shag):
     return t.split('}')[0].strip().strip("'\"")
 
 
-def raskroj_runflow(path, glubina=0):
+def raskroj_runflow(path, glubina=0, fajly=None):
     """Шаги флоу с раскрытыми runFlow (Maestro исполняет детей этим же
-    прогоном); отказ — на отсутствующий файл и цикл, fail-closed."""
+    прогоном); каждый шаг раскрытого потока несёт имя СВОЕГО файла и
+    номер в нём (F1(в): свой assert и свой снимок судятся в одном
+    файле). Отказ — на отсутствующий файл и цикл, fail-closed; каждый
+    файл разбирается грамматикой G1 ровно один раз (fajly — memo
+    разобранных файлов, отчёт грамматики не дублируется)."""
+    if fajly is None:
+        fajly = {}
     shagi, otkazy = [], []
-    for shag in shagi_flow(path):
+    if path.name not in fajly:
+        sh, g = shagi_flow(path)
+        fajly[path.name] = sh
+        otkazy += g
+    for k, shag in enumerate(fajly[path.name]):
         cel = cel_runflow(shag)
         if cel is None:
-            shagi.append(shag)
+            shagi.append((shag, path.name, k))
             continue
         if glubina >= GLUBINA_RUNFLOW:
             otkazy.append(('RUNFLOW_CIKL', str(path.name)))
@@ -115,7 +196,7 @@ def raskroj_runflow(path, glubina=0):
         if not rebyonok.is_file():
             otkazy.append(('RUNFLOW_BEZ_FAJLA', cel))
             continue
-        d_shagi, d_otkazy = raskroj_runflow(rebyonok, glubina + 1)
+        d_shagi, d_otkazy = raskroj_runflow(rebyonok, glubina + 1, fajly)
         shagi += d_shagi
         otkazy += d_otkazy
     return shagi, otkazy
@@ -156,14 +237,15 @@ def appid_flow(path):
     return None
 
 
-def sud_potok(shagi, snimki, shagi_kornja):
+def sud_potok(raskritie, fajly, snimki, shagi_kornja):
     """Запуск и вход из Start судятся по КОРНЕВОМУ флоу (основной путь
     входит сам, а не за счёт дочерних сценариев); кадры — по потоку.
     116 v3c (круг 2): квантор «каждый» — суд по КАЖДОМУ вхождению
     takeScreenshot раскрытого потока (корень + runFlow-дети в порядке
-    исполнения): своё подтверждение раньше ИМЕННО ЭТОГО вхождения,
-    имя снимка уникально (второй одноимённый кадр не легализует
-    первый, снятый до своего assert)."""
+    исполнения). 116 v3d (арбитраж §2, F1): (а) имя вхождения — из
+    манифеста кадров; (б) имя уникально в раскрытом потоке; (в) свой
+    assertVisible раньше В ТОМ ЖЕ ФАЙЛЕ, между ними — только
+    assertVisible/assertNotVisible; (г) переход/запуск до вхождения."""
     otkazy = []
     zapuski = [s for s in shagi_kornja
                if s.split(':')[0].strip() in ZAPUSKI]
@@ -175,16 +257,19 @@ def sud_potok(shagi, snimki, shagi_kornja):
     elif not any(s.startswith('tapOn') and id_iz(s) == VHOD_STARTA
                  for s in shagi_kornja):
         otkazy.append(('FLOW_BEZ_START_VHODA', 'tapOn ' + VHOD_STARTA))
-    perehody = [s for s in shagi if s.split(':')[0].strip() in PEREHODY]
+    perehody = [s for s, _, _ in raskritie
+                if s.split(':')[0].strip() in PEREHODY]
     if not perehody:
         otkazy.append(('FLOW_BEZ_PEREHODA', 'tapOn/inputText'))
-    # v3c: все вхождения takeScreenshot раскрытого потока (имя — точно,
-    # не подстрокой); повтор имени в раскрытом потоке — отказ.
-    vhozhdenija = [(i, s.partition(':')[2].strip().strip("'\""))
-                   for i, s in enumerate(shagi)
-                   if s.startswith('takeScreenshot')]
+    # v3c/v3d: все вхождения takeScreenshot раскрытого потока (имя —
+    # точно, не подстрокой) с именем их файла; повтор имени — отказ.
+    vhozhdenija = []
+    for i, (s, ime, k) in enumerate(raskritie):
+        if s.startswith('takeScreenshot'):
+            vhozhdenija.append(
+                (i, ime, k, s.partition(':')[2].strip().strip("'\"")))
     vidennye = set()
-    for i, imja in vhozhdenija:
+    for i, ime, k, imja in vhozhdenija:
         if imja in vidennye:
             # v3c (блокер круга 2, критик duplicate_early_screenshot):
             # дубль имени снимка — пара «assert→второй снимок» проходила
@@ -192,27 +277,58 @@ def sud_potok(shagi, snimki, shagi_kornja):
             # стоять до своего assert.
             otkazy.append(('FLOW_SNIMOK_DUBL', imja))
         vidennye.add(imja)
+    # v3d, F1(а) — обход 1 круга 3: имя вхождения обязано быть именем
+    # кадра манифеста: селектор выводится из имени манифеста, у снимка
+    # вне манифеста «своего селектора» нет по определению.
+    imena_manifesta = {snimok for snimok, _ in snimki}
+    for i, ime, k, imja in vhozhdenija:
+        if imja not in imena_manifesta:
+            otkazy.append(('FLOW_SNIMOK_VNE_MANIFESTA', imja))
     for snimok, selektor in snimki:
-        idx = [i for i, imja in vhozhdenija if imja == snimok]
+        idx = [(i, ime, k) for i, ime, k, imja in vhozhdenija
+               if imja == snimok]
         if not idx:
             otkazy.append(('SELEKTOR_NE_KADRA', snimok))
             continue
-        idx_assert = [i for i, s in enumerate(shagi)
-                      if 'assertVisible' in s and id_iz(s) == selektor]
-        if not idx_assert:
+        idx_assert_potok = [i for i, (s, _, _) in enumerate(raskritie)
+                            if 'assertVisible' in s and id_iz(s) == selektor]
+        if not idx_assert_potok:
             otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', snimok))
             continue
-        if min(idx_assert) >= idx[0]:
-            # v3b (блокер 3 круга 1) + v3c (круг 2): свой assertVisible
-            # обязан стоять раньше КАЖДОГО своего takeScreenshot — суд
-            # по ПЕРВОМУ вхождению имени: подтверждение позже него
-            # значит, что первый кадр снят до подтверждения селектора
-            # кадра; позже стоящие одноимённые снимки не легализуют его.
-            otkazy.append(('FLOW_ASSERT_POSLE_KADRA', snimok))
-            continue
-        i = idx[0]
-        do = [s for s in shagi[:i] if s.split(':')[0].strip() in PEREHODY
-              or s.split(':')[0].strip() in ZAPUSKI]
+        for i, ime, k in idx:
+            shagi_fajla = fajly.get(ime, [])
+            idx_assert = [j for j, s in enumerate(shagi_fajla)
+                          if 'assertVisible' in s and id_iz(s) == selektor]
+            ranee = [j for j in idx_assert if j < k]
+            if not ranee:
+                if any(j > k for j in idx_assert):
+                    # v3b (блокер 3 круга 1) + v3c (круг 2): свой
+                    # assertVisible обязан стоять раньше КАЖДОГО своего
+                    # takeScreenshot — подтверждение позже него значит,
+                    # что кадр снят до подтверждения селектора кадра.
+                    otkazy.append(('FLOW_ASSERT_POSLE_KADRA', snimok))
+                else:
+                    # v3d, F1(в): свой assert есть только в ДРУГОМ файле
+                    # раскрытого потока (корень-assert → ребёнок-снимок,
+                    # запуск ребёнка между подтверждением и снимком
+                    # меняет экран).
+                    otkazy.append(('FLOW_ASSERT_V_CHUZHOM_FAJLE',
+                                   '%s %s' % (snimok, ime)))
+                continue
+            q = max(ranee)
+            mezhdu = [s for s in shagi_fajla[q + 1:k]
+                      if not (s.startswith('assertVisible')
+                              or s.startswith('assertNotVisible'))]
+            if mezhdu:
+                # v3d, F1(в): между своим подтверждением и снимком
+                # стоит не-assert шаг (переход/запуск) — экран изменён,
+                # кадр снят без подтверждения (a_assert_tap_shot).
+                otkazy.append(
+                    ('FLOW_DEJSTVIE_MEZHDU_ASSERTOM_I_SNIMKOM',
+                     '%s %s' % (snimok, ime)))
+        i = idx[0][0]
+        do = [s for s, _, _ in raskritie[:i] if s.split(':')[0].strip()
+              in PEREHODY or s.split(':')[0].strip() in ZAPUSKI]
         if not do:
             otkazy.append(('FLOW_BEZ_DEMO_VHODA', snimok))
     return otkazy
@@ -280,7 +396,7 @@ def sud_chip_upload(shagi):
     return otkazy
 
 
-def sud_selektory(repo, shagi):
+def sud_selektory(repo, raskritie):
     otkazy = []
     est = set()
     for koren in ISTOCHNIKI_EKRANA:
@@ -291,7 +407,7 @@ def sud_selektory(repo, shagi):
                     est |= {t for t in re.findall(
                         r'testID="([A-Za-z0-9_-]+)"',
                         f.read_text(encoding='utf-8', errors='replace'))}
-    for s in shagi:
+    for s, _, _ in raskritie:
         i = id_iz(s)
         if i and i not in est:
             otkazy.append(('SELEKTOR_BEZ_EKRANA', i))
@@ -307,7 +423,7 @@ def sud_byte_kopii(repo, manifest):
     return otkazy
 
 
-def sud_bezpng(pack, repo, shagi_kornja, shagi, paket):
+def sud_bezpng(pack, repo, shagi_kornja, raskritie, paket, fajly):
     """Кадры без PNG: структурная проба вместо сверки с макетом; 116 v3 —
     каждое состояние достигается СВОИМ независимым сценарием (runFlow),
     линейный хвост в корне красен. v3b: строка таблицы осей состояния
@@ -315,7 +431,9 @@ def sud_bezpng(pack, repo, shagi_kornja, shagi, paket):
     по СВОЕМУ файлу сценария: жест черновика в ребёнке, отправки до
     своего assert (DEJSTVIJA_SOSTOJANIJ), свой testID в СВОЁМ файле
     (не в чужом ребёнке и не агрегатом), appId ребёнка = пакет
-    продукта."""
+    продукта. v3d (арбитраж §2, F3): ввод предусловия — раньше первой
+    учтённой отправки; F05.07 — ровно ноль отправок во всём файле;
+    V02 — отрицательное наблюдение completed после положительного."""
     otkazy = []
     p = pack / 'sostojanija_bez_png.json'
     if not p.is_file():
@@ -346,7 +464,7 @@ def sud_bezpng(pack, repo, shagi_kornja, shagi, paket):
                for s in shagi_kornja):
             otkazy.append(('BEZPNG_V_KORNE', testid))
         if not any('assertVisible' in s and id_iz(s) == testid
-                   for s in shagi):
+                   for s, _, _ in raskritie):
             otkazy.append(('BEZPNG_BEZ_TESTID_V_POTOKE', testid))
         scenarij = kadr.get('scenarij')
         if not scenarij:
@@ -362,7 +480,12 @@ def sud_bezpng(pack, repo, shagi_kornja, shagi, paket):
         if not f.is_file():
             otkazy.append(('RUNFLOW_BEZ_FAJLA', scenarij))
             continue
-        shagi_sc = shagi_flow(f)
+        if f.name in fajly:
+            shagi_sc = fajly[f.name]
+        else:
+            shagi_sc, g = shagi_flow(f)
+            fajly[f.name] = shagi_sc
+            otkazy += g
         if not any(s.split(':')[0].strip() in ZAPUSKI for s in shagi_sc):
             otkazy.append(('RUNFLOW_SCENARIJ_BEZ_ZAPUSKA', scenarij))
         if not any('assertVisible' in s and id_iz(s) == VHOD_STARTA
@@ -395,9 +518,37 @@ def sud_bezpng(pack, repo, shagi_kornja, shagi, paket):
             otpr = [i for i, s in enumerate(shagi_sc)
                     if s.startswith('tapOn') and id_iz(s) == OTPRAVKA
                     and i < svoi[0]]
-            if len(otpr) < n:
+            if n == 0:
+                # v3d, F3 (арбитраж §2): F05.07 — «черновик БЕЗ
+                # отправки»: РОВНО ноль mission_send во всём файле, не
+                # только до своего assert (отправка после наблюдения
+                # меняет состояние черновика той же строки).
+                if any(s.startswith('tapOn') and id_iz(s) == OTPRAVKA
+                       for s in shagi_sc):
+                    otkazy.append(('SCENARIJ_OTPRAVKA_V_CHERNOVIKE',
+                                   '%s %s' % (kadr.get('id'), scenarij)))
+            elif len(otpr) < n:
                 otkazy.append(('SCENARIJ_BEZ_DEJSTVIJA',
                                '%s %s' % (kadr.get('id'), scenarij)))
+            # v3d, F3 (арбитраж §2, обход 4 круга 3): последний ввод
+            # предусловия РАНЬШЕ первой учтённой отправки — ввод после
+            # отправки означает, что отправлено не то, что введено в
+            # ЭТОМ сценарии.
+            vvod_pred = [v for v in vvod_sc
+                         if any(t < v for t in tap_sc)]
+            if vvod_pred and otpr and max(vvod_pred) > min(otpr):
+                otkazy.append(('SCENARIJ_VVOD_POSLE_OTPRAVKI',
+                               '%s %s' % (kadr.get('id'), scenarij)))
+        # v3d, F3: отрицательное наблюдение строки (константа строки
+        # таблицы осей, не поле манифеста): V02 — completed НЕ показан
+        # после положительного наблюдения.
+        neg_testid = NEGATIVY_SOSTOJANIJ.get(testid)
+        if neg_testid and svoi:
+            neg = [i for i, s in enumerate(shagi_sc)
+                   if 'assertNotVisible' in s and id_iz(s) == neg_testid]
+            if not [x for x in neg if x > svoi[0]]:
+                otkazy.append(('SCENARIJ_BEZ_NEGATIVA',
+                               '%s %s' % (neg_testid, scenarij)))
         # appId сценария = пакет продукта (Architect118: чужой appId делает
         # дочерний launchApp неисполнимым на пакете продукта).
         appid_sc = appid_flow(f)
@@ -420,8 +571,10 @@ def main():
         print('PRICHINA\tNECHITAEMYJ_VHOD\tmobile/.maestro/mission.yaml',
               file=sys.stderr)
         return 2
-    shagi_kornja = shagi_flow(flow)
-    shagi, otkazy = raskroj_runflow(flow)
+    shagi_kornja, otkazy = shagi_flow(flow)
+    fajly = {flow.name: shagi_kornja}
+    raskritie, d_otkazy = raskroj_runflow(flow, 0, fajly)
+    otkazy += d_otkazy
     manifest = json.loads((pack / 'kadry.json').read_text(encoding='utf-8'))
     snimki = [(k['snimok'],
                'mission_frame_' + k['snimok'].replace('mission-', '')
@@ -436,12 +589,12 @@ def main():
             otkazy.append(('FLOW_APPID_NE_PAKET',
                            'mission.yaml appId=%s paket=%s'
                            % (appid, paket)))
-    otkazy += sud_potok(shagi, snimki, shagi_kornja)
+    otkazy += sud_potok(raskritie, fajly, snimki, shagi_kornja)
     otkazy += sud_gesty(shagi_kornja)
     otkazy += sud_chip_upload(shagi_kornja)
-    otkazy += sud_selektory(repo, shagi)
+    otkazy += sud_selektory(repo, raskritie)
     otkazy += sud_byte_kopii(repo, manifest)
-    otkazy += sud_bezpng(pack, repo, shagi_kornja, shagi, paket)
+    otkazy += sud_bezpng(pack, repo, shagi_kornja, raskritie, paket, fajly)
     for imja, detal in otkazy:
         prichina(imja, detal)
     return 1 if otkazy else 0
