@@ -190,6 +190,12 @@ step	check:dovodka-ui-133-family-selftest	0	bash fixtures/workshop_project/dovod
 # как 118 до ленда; перевод на безфлаговый режим — отдельным словом после v+1 батареи.
 # Замер живого прогона run_ci_lane.sh: rc 0, контроль 17/17, SVJAZI 13, живых стабов 0, 21 с.
 step	check:first-run-ekran-135-family-selftest	21	bash fixtures/workshop_project/first_run_ekran_135/red_first_run_ekran_135.sh --stabs
+# КОНТРАКТ 138: батарея start-ekran (68 входов / 51 связь стабов: экранная пачка Start mob, субъекты — валидатор 132 scripts/ekran_shablon.py И проверка происхождения пачки;
+# миры в mktemp, сеть не нужна) — проводка интеграционным owner-коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 138). Режим --stabs (безфлаговый красен на входах происхождения без экрана продукта).
+step	check:start-ekran-138-family-selftest	22	bash fixtures/workshop_project/start_ekran_138/red_start_ekran_138.sh --stabs
+# КОНТРАКТ 139: батарея e2e-avtoperezapusk (42 входа / 60 связей стабов: workflow повтора android-e2e, replay с подложным gh, канон скрипта; сеть не нужна) —
+# проводка интеграционным owner-коммитом (ПРОВОДКА-ЭНФОРСМЕНТ контракта 139). Режим --stabs (замер: rc 0, контроль 42/42, SVJAZI 60, ~27 с).
+step	check:e2e-avtoperezapusk-139-family-selftest	27	bash fixtures/workshop_project/e2e_avtoperezapusk_139/red_e2e_avtoperezapusk_139.sh --stabs
 # СРЕДНИЕ (15..40 с)
 step	check:judge-gate	0	npm run check:judge-gate
 step	drill:gate-draft	0	npm run drill:gate-draft
