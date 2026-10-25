@@ -27,10 +27,15 @@
 #   5) селекторы: каждый имеет носитель в дереве-ВЛАДЕЛЬЦЕ (таблица
 #      VLADELTCY: состояния Start — mobile/src/features/start/**; First-Run
 #      и Erstinformation — onboarding/**; demo-вход — auth/**; состав
-#      вкладок — mobile/src/app/**). Носитель — литеральный атрибут
-#      testID="имя" (пробелы вокруг '=' и одинарные кавычки допустимы)
-#      ВНЕ комментария и строкового литерала; совпадение в ЧУЖОМ дереве
-#      носителем НЕ является (чьё состояние — того экрана и носитель);
+#      вкладок — mobile/src/app/**). Носитель — атрибут в сегменте КОДА
+#      (лексер: комментарии/строки/шаблоны — не код) файла экранного кода
+#      (не __tests__/__mocks__/__snapshots__, не *.test.*|*.spec.*|
+#      *.stories.*|*.d.ts|*.snap, расширения .tsx/.jsx/.js) дерева-
+#      владельца; достижимость узла не судится (НЕ ЗАЩИЩАЕТ). Совпадение
+#      в ЧУЖОМ дереве носителем НЕ является. Лексер минимальный: строка
+#      обрывается на \n (апостроф JSX-текста маскирует до конца строки;
+#      обход — носитель своей строкой), ${…} шаблона не разбирается
+#      (вложенный бэктик — остаток); пробелы вокруг '=' допустимы;
 #   6) манифест — ровно 8 кадров: 4 состояния × dark/light;
 #   7) кадр, байт-идентичный макету, — НЕ скриншот (сравнение sha256).
 # В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает Maestro),
@@ -241,31 +246,86 @@ def selektory(shagi):
     return out
 
 
+RASSHIRENIJA_KODA = ('.tsx', '.jsx', '.js')
+NE_EKRAN_KATALOGI = frozenset(('__tests__', '__mocks__', '__snapshots__'))
+NE_EKRAN_IMENA = ('.test.', '.spec.', '.stories.', '.d.ts', '.snap')
+
+
+def ekran_kod(p):
+    """Файл экранного кода — замкнутый алфавит путей оси H (РЕШЕНИЕ
+    арбитра 138): не тесты/моки/снапшоты/истории/.d.ts/.snap, расширения
+    ТОЛЬКО .tsx/.jsx/.js (.ts/.json/.md/.css — не экранной код)."""
+    return (p.suffix in RASSHIRENIJA_KODA
+            and not any(metka in p.name for metka in NE_EKRAN_IMENA)
+            and not any(katalog in p.parts for katalog in NE_EKRAN_KATALOGI))
+
+
+def kod_maska(tekst):
+    """Маска не-кода пробелами; переводы строк СОХРАНЯЮТСЯ (адресный
+    диагноз файл:строка). Состояния лексера: код | // до \\n | /*…*/ |
+    '…'/\"…\" до парной кавычки с \\-экранированием, обрыв на \\n |
+    `…` многострочно ($ {…} не разбирается — остаток). Грамматики TSX
+    нет: &&/?:/if/достижимость НЕ вычисляются (правило 7, ось H)."""
+    out = list(tekst)
+    i, n = 0, len(tekst)
+    while i < n:
+        c = tekst[i]
+        if c == '/' and tekst.startswith('//', i):
+            while i < n and tekst[i] != '\n':
+                out[i] = ' '
+                i += 1
+        elif c == '/' and tekst.startswith('/*', i):
+            sm = tekst[i + 2:].find('*/')
+            konec = n if sm < 0 else i + sm + 4
+            for k in range(i, konec):
+                if tekst[k] != '\n':
+                    out[k] = ' '
+            i = konec
+        elif c in '\'"':
+            nachalo = i
+            i += 1
+            while i < n and tekst[i] not in (c, '\n'):
+                if tekst[i] == '\\' and i + 1 < n and tekst[i + 1] != '\n':
+                    i += 1
+                i += 1
+            if i < n and tekst[i] == c:
+                i += 1
+            for k in range(nachalo, i):
+                if tekst[k] != '\n':
+                    out[k] = ' '
+        elif c == '`':
+            sm = tekst[i + 1:].find('`')
+            konec = n if sm < 0 else i + sm + 2
+            for k in range(i, konec):
+                if tekst[k] != '\n':
+                    out[k] = ' '
+            i = konec
+        else:
+            i += 1
+    return ''.join(out)
+
+
 def nositel_selektora(repo, derevo, sel):
-    """Носитель селектора: литеральный атрибут testID="sel" в дереве
-    владельца. Пробелы вокруг '=' и одинарные кавычки — честный JSX —
-    допустимы. Совпадение ПОСЛЕ '//'/'/*'/'*' (комментарий в той же строке
-    либо строка комментария) либо кавычка/бэктик вплотную перед атрибутом
-    (строковый литерал) носителем не являются; регистр и вычисляемые
-    значения testID={...} — не носитель (грамматика пачки литеральная)."""
+    """Носитель селектора (ось H, лексика — не достижимость): совпадение
+    testID="sel" (пробелы вокруг '=' и одинарные кавычки допустимы),
+    начавшееся в сегменте КОДА (лексер kod_maska) файла экранного кода
+    (ekran_kod) дерева-владельца. Комментарии, строки, шаблоны и файлы
+    вне экранного кода носителем не являются; регистр и вычисляемые
+    testID={...} — не носитель (литеральная грамматика)."""
     obrazec = re.compile(r'testID\s*=\s*["\']%s["\']' % re.escape(sel))
     baze = repo / derevo
     if not baze.is_dir():
         return False
     for p in sorted(baze.rglob('*')):
-        if not p.is_file():
+        if not (p.is_file() and ekran_kod(p)):
             continue
         try:
             tekst = p.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        for line in tekst.splitlines():
-            for m in obrazec.finditer(line):
-                pred = line[:m.start()].rstrip()
-                if pred.endswith(('//', '/*', '*')):
-                    continue
-                if pred and pred[-1] in '\'"`':
-                    continue
+        maska = kod_maska(tekst)
+        for m in obrazec.finditer(tekst):
+            if maska[m.start()] != ' ':
                 return True
     return False
 

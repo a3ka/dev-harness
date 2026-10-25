@@ -17,8 +17,8 @@ listMissions порта @pilot/runtime.
 
 ## Инварианты
 
-1. Форма — 17 полей 132 дословно; zamenjaet=null, ne_trogaet — живые пачки чужих
-экранов обоих корней.
+1. Форма — 17 полей 132 дословно; zamenjaet=null, ne_trogaet — живые пачки
+чужих экранов.
 2. 8 кадров: 4 состояния × dark/light; порог 0.6; полосы чернил 123, check_pokrytie.
 3. Копия — verbatim из каталога (frame.F04.*, action.F04.*, ia115.*,
 ui.mission.*, resume.*, home.voice, ui.start.no_action_scoped); литералы —
@@ -30,17 +30,17 @@ openLink); перед каждым кадром переход и assertVisible 
 assertVisible, inputText, pressKey, swipe, takeScreenshot); условные либо
 вложенные конструкции (when/repeat/retry/runFlow/скрипты/анкоры) —
 FLOW_USLOVNYJ_SHAG: шаг, который может НЕ выполниться, не исполнен.
-6. Носитель селектора — литеральный testID="имя" вне комментария и
-литерала, в дереве-владельце: состояния — features/start/**,
-First-Run и Erstinformation — onboarding/**, demo-вход — auth/**, вкладки —
-src/app/**; совпадение в чужом дереве носителем не является.
+6. Носитель — литеральный testID="имя" в коде экрана (не тесты), лексика,
+не достижимость: комментарии/строки/шаблоны — лексер, тесты/моки/снапшоты/
+истории/.d.ts — алфавит путей (.tsx/.jsx/.js); в дереве-владельце: start/**
+(состояния), onboarding/**, auth/**, src/app/**; чужое дерево не сканируется.
 7. Кадр байт-идентичный макету — не скриншот (KADR_BYTE_KOPIJA_MAKETA).
 
 ## Приёмочный критерий
 
 - Валидатор 132: rc 0, 8 строк KADR … 1.000 … OK + SHABLON start-ekran OK.
-- Происхождение (proverka_proiskhozdenija.py): rc 0 — путь допуска,
-селекторы-носители, appId, config, 8 кадров, не-копии макетов.
+- Происхождение: rc 0 — путь допуска, носители, appId, config, 8 кадров,
+не-копии макетов.
 - Продукт: mobile.yml — Maestro обе темы, сверка и проверка с пином H.
 
 ## Зоны и исполнители
