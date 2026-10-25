@@ -128,8 +128,26 @@ command -v jq   >/dev/null 2>&1 || { printf 'нет jq\n'   >&2; exit 2; }
 # Дверь в мирах ставит пин версии через `omp --version` (125 И-5): omp этой
 # станции живёт ВНЕ /usr/bin (пользовательский bin);_sessions-среда даёт
 # $HOME зоны сессии, поэтому $HOME-пути не годятся — omp обязан быть в PATH
-# запускающего (замер круга-2: «omp --version пуст»).
-command -v omp >/dev/null 2>&1 || { printf 'нет omp в PATH запускающего\n' >&2; exit 2; }
+# запускающего (замер круга-2: «omp --version пуст»). В CI харнесса omp нет
+# (lane l5, run 40212433393: rc 2 «нет omp»): тогда миры кормит ДВОЙНИК —
+# исполняемый $MIR_BASE/bin-omp/omp, печатающий на `--version` одну строку
+# той же формы «omp/<версия>», что и настоящий (omp/18.3.1 станции): дверь
+# режет префикс «omp/» и требует непустой остаток (scripts/connect_project.sh
+# «Пин версии omp»), иных вызовов omp в двери/моделях/стабах рантайм нет.
+# Присутствие настоящего omp — поведение прежнее: двойник не создаётся,
+# источником остаётся каталог настоящего. Каталог двойника встаёт В ГОЛОВУ
+# PATH батареи (миры без DVER_PATH наследуют её PATH) и в mk_bez_bin тем же
+# местом, что настоящий; версия двойника самоподписана (`0.0.0-ci-dvoinik`),
+# клетки значения пина не сверяют (таблица осей — единственный источник).
+OMP_BIN_DIR=""
+if command -v omp >/dev/null 2>&1; then
+  OMP_BIN_DIR="$(dirname "$(command -v omp)")"
+else
+  OMP_BIN_DIR="$MIR_BASE/bin-omp"; mkdir -p "$OMP_BIN_DIR"
+  printf '#!/bin/sh\nif [ "$1" = --version ]; then printf "omp/0.0.0-ci-dvoinik\\n"; exit 0; fi\nprintf "omp-dvoinik: tolko --version\\n" >&2\nexit 2\n' > "$OMP_BIN_DIR/omp"
+  chmod +x "$OMP_BIN_DIR/omp"
+  PATH="$OMP_BIN_DIR:$PATH"
+fi
 
 subj() { case "$MODE" in
     model) printf '%s' "$B/model/$2" ;;
@@ -237,12 +255,12 @@ run_dver() { # копия двери в песочницу + двойник work
   DVER_RC=$?
 }
 mk_bez_bin() { # $1 = каталог; $2 = исключаемое имя
-  # источники: /usr/bin, /bin и каталог НАСТОЯЩЕГО omp (command -v): omp этой
+  # источники: /usr/bin, /bin и каталог omp ($OMP_BIN_DIR — настоящий, или
+  # двойник CI при его отсутствии, см. блок проверки инструментов выше): omp
   # станции живёт вне /usr/bin, а без него дверь не доходит до проверки node;
   # HOME сессии — зона, $HOME-пути не годятся (замер круга-2). Исключение —
   # по ИМЕНИ во всех каталогах.
-  local d="$1" isklyuch="$2" f b src="/usr/bin/* /bin/*"
-  command -v omp >/dev/null 2>&1 && src="$src $(dirname "$(command -v omp)")/*"
+  local d="$1" isklyuch="$2" f b src="/usr/bin/* /bin/* $OMP_BIN_DIR/*"
   for f in $src; do
     b="${f##*/}"
     [ "$b" = "$isklyuch" ] && continue
