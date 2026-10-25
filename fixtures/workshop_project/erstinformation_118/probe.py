@@ -156,6 +156,10 @@ def load_source():
         'teksty/e2e_text.sh': 'e2e_skript',
         'teksty/batareja_text.sh': 'batareja_tekst',
         'teksty/tokens_audit.css': 'tokens_audit',
+        'teksty/onboarding-session.stand-in.tsx': 'production_srok_tekst',
+        'teksty/session-srok.stand-in.tsx': 'srok_testy_tekst',
+        'teksty/jest-otchet.stand-in.json': 'srok_otchet_tekst',
+        'teksty/mobile-ci.stand-in.yml': 'ci_mobile_tekst',
     }
     for rel, key in carriers.items():
         if (HERE / rel).read_bytes() != src[key].encode('utf-8'):
@@ -168,6 +172,20 @@ def load_source():
     if ("'%s'" % forma_sha) not in src['proverka_tekst']:
         print('ORACLE_TAMPERED: пин формы в proverka не совпадает с носителем',
               file=sys.stderr)
+        raise SystemExit(2)
+    # Единая цепь круга 3 (арбитраж 118 v2 А-1/Б-2): пин формы теста в
+    # proverka совпадает с носителем; далёкая дата декодируется из
+    # source.json и входит в proverka теми же байтами литерала.
+    testy_sha = sha256_bytes(src['srok_testy_tekst'].encode('utf-8'))
+    if ("'%s'" % testy_sha) not in src['proverka_tekst']:
+        print('ORACLE_TAMPERED: пин формы теста срока в proverka '
+              'не совпадает с носителем', file=sys.stderr)
+        raise SystemExit(2)
+    # далёкая дата входит в proverka датой без хвостовой зоны (сборка
+    # литерала из частей — аудит 132 не пропускает цифры+буквы)
+    if src['srok_dalekij'][:-1] not in src['proverka_tekst']:
+        print('ORACLE_TAMPERED: дата далёкого срока в proverka не совпадает '
+              'с source.json', file=sys.stderr)
         raise SystemExit(2)
     fajly_stabov = sorted(p.name for p in STUBS.glob('s*.py'))
     if fajly_stabov != sorted(src['stab_vhod']):
@@ -256,7 +274,37 @@ def build_repo(src, tmp, pack):
     # пин механизма 123 внутри репо (как в продукте): честная priemka.sverka
     # запускает раннер из .harness123; сверка-образец и приёмка обязаны
     # дать дословно одинаковый вывод
+    # v2 круг 3 (А-1/А-2): крючок, пин-форма теста (байты носителя),
+    # шаг CI npm test --json --outputFile ДО checker'а и САМ ОТЧЁТ как
+    # носитель: в живом CI отчёт пишет jest, здесь модель кладёт байты
+    # носителя teksty/jest-otchet.stand-in.json (мутанты правят отчёт
+    # и/или тест/крючок — арбитраж 118 v2 «входы = состояние + отчёт»).
+    (repo / 'mobile/src/app/onboarding-session.tsx').write_text(
+        src['production_srok_tekst'], encoding='utf-8')
+    (bt / 'session-srok.test.tsx').write_text(
+        src['srok_testy_tekst'], encoding='utf-8')
+    (repo / '.github/workflows').mkdir(parents=True)
+    (repo / '.github/workflows/mobile.yml').write_text(
+        src['ci_mobile_tekst'], encoding='utf-8')
+    (repo / 'mobile/e2e-erstinformation/jest-otchet.json').write_text(
+        src['srok_otchet_tekst'], encoding='utf-8')
+    # v2 круг 3 (Б-1/Б-2): носители демо-данных — БАЙТОВЫЕ копии эталонов
+    # с ровно ОДНОЙ подстановкой литерала expires_at (слово владельца
+    # 25.10); переформатирование/escape/порядок ключей запрещены байтами,
+    # а не json-дифом.
+    staroe = ('"expires_at": "%s"' % '2026-10-14T00:00:00Z').encode()
+    dalekoe = ('"expires_at": "%s"' % src['srok_dalekij']).encode()
+    (repo / 'mobile/src/mocks').mkdir(parents=True, exist_ok=True)
+    for rel_e, rel_out in (
+            ('nositeli/dannye/etalon_995.json',
+             'mobile/src/bootstrap/__tests__/source.json'),
+            ('nositeli/dannye/etalon_pilot_responses.json',
+             'mobile/src/mocks/pilot-responses.json')):
+        etalon_bajty = (HERE / rel_e).read_bytes()
+        assert etalon_bajty.count(staroe) == 1, rel_e
+        (repo / rel_out).write_bytes(etalon_bajty.replace(staroe, dalekoe, 1))
     pin123 = repo / '.harness123'
+
     (pin123 / 'scripts').mkdir(parents=True)
     shutil.copyfile(RUNNER123, pin123 / 'scripts/sverka_maketa.py')
     shutil.copyfile(pack / 'kadry.json', pin123 / 'kadry.json')
@@ -567,17 +615,18 @@ def mut_kompozicija_gate_stale(pack, forma, repo, src):
     """Мутант production (арбитраж 117↔118 п.1.2): gate игнорируется —
     stale переводится как current (W1A×stale + continue → Start)."""
     _zapishi_mutanta(repo, src, [(
-        'if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then',
-        'if [ "$admission_tek" = "W1A" ] && '
-        '{ [ "$gate" = "current" ] || [ "$gate" = "stale" ]; }; then')])
+        '  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ] && srok_dejstvitelen "$expires_tek"; then',
+        '  if [ "$admission_tek" = "W1A" ] && '
+        '{ [ "$gate" = "current" ] || [ "$gate" = "stale" ]; } && '
+        'srok_dejstvitelen "$expires_tek"; then')])
 
 
 def mut_kompozicija_continue_propuskaet(pack, forma, repo, src):
     """Мутант production: continue переводит к Start при ЛЮБОМ gate
     (null и stale включаются) — переход не судится."""
     _zapishi_mutanta(repo, src, [(
-        'if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then',
-        'if [ "$admission_tek" = "W1A" ]; then')])
+        '  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ] && srok_dejstvitelen "$expires_tek"; then',
+        '  if [ "$admission_tek" = "W1A" ] && srok_dejstvitelen "$expires_tek"; then')])
 
 
 def mut_kompozicija_kesh(pack, forma, repo, src):
@@ -592,12 +641,14 @@ def mut_kompozicija_entry_istochnik(pack, forma, repo, src):
     """Мутант production (арбитраж п.1.3): entry.onboarding='complete'
     становится источником допуска — сессия W0/current допускается."""
     _zapishi_mutanta(repo, src, [
-        ('  if [ "$admission_tek" = "W1A" ]; then',
-         '  if [ "$admission_tek" = "W1A" ] || '
-         '[ "$entry" = "complete" ]; then'),
-        ('  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then',
+        ('  if [ "$admission_tek" = "W1A" ] && srok_dejstvitelen "$expires_tek"; then',
          '  if { [ "$admission_tek" = "W1A" ] || '
-         '[ "$entry" = "complete" ]; } && [ "$gate" = "current" ]; then')])
+         '[ "$entry" = "complete" ]; } && '
+         'srok_dejstvitelen "$expires_tek"; then'),
+        ('  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ] && srok_dejstvitelen "$expires_tek"; then',
+         '  if { [ "$admission_tek" = "W1A" ] || '
+         '[ "$entry" = "complete" ]; } && [ "$gate" = "current" ] && '
+         'srok_dejstvitelen "$expires_tek"; then')])
 
 
 def mut_kompozicija_g0_tema(pack, forma, repo, src):
@@ -614,6 +665,65 @@ def mut_kompozicija_remount_start(pack, forma, repo, src):
         ('  remount) echo first-run ;;',
          '  remount) if [ "$entry" = "complete" ]; then echo start; '
          'else echo first-run; fi ;;')])
+
+
+def mut_kompozicija_srok_istekla_demo(pack, forma, repo, src):
+    """Мутант production (Adv118b B1): expires_at не проверяется на
+    поверхности корня / — истёкшая формально валидная Session даёт W1A."""
+    _zapishi_mutanta(repo, src, [
+        ('  if [ "$admission_tek" = "W1A" ] && srok_dejstvitelen "$expires_tek"; then',
+         '  if [ "$admission_tek" = "W1A" ]; then')])
+
+
+def mut_kompozicija_srok_istekla_start(pack, forma, repo, src):
+    """Мутант production: срок судится только на корне (demo), маршрут
+    /start пускает истёкшую сессию к TabShell."""
+    _zapishi_mutanta(repo, src, [
+        ('  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ] && srok_dejstvitelen "$expires_tek"; then',
+         '  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ]; then')])
+
+
+def mut_kompozicija_srok_rovno_sejchas(pack, forma, repo, src):
+    """Мутант production: «ровно сейчас» признаётся действительным сроком
+    (-ge вместо строго будущего -gt)."""
+    _zapishi_mutanta(repo, src, [
+        ('  [ "$sekund" -gt "$SEJCHAS" ]',
+         '  [ "$sekund" -ge "$SEJCHAS" ]')])
+
+
+def mut_kompozicija_srok_nerazborchivaja(pack, forma, repo, src):
+    """Мутант production (NaN → W1A): неразборчивая дата читается как
+    далёкое будущее — fail-closed утрачен."""
+    _zapishi_mutanta(repo, src, [
+        ('    *) sekund="$(date -u -d "$1" +%s)" || return 1 ;;',
+         '    *) sekund="$(date -u -d "$1" +%s)" || sekund=99999999999 ;;')])
+
+
+def mut_kompozicija_srok_kesh(pack, forma, repo, src):
+    """Мутант production: порт срока читается один раз при монтаже ($7),
+    истечение между mount и действием не замечается."""
+    _zapishi_mutanta(repo, src, [
+        ('  if [ "$admission_tek" = "W1A" ] && srok_dejstvitelen "$expires_tek"; then',
+         '  if [ "$admission_tek" = "W1A" ] && srok_dejstvitelen "$expires"; then'),
+        ('  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ] && srok_dejstvitelen "$expires_tek"; then',
+         '  if [ "$admission_tek" = "W1A" ] && [ "$gate" = "current" ] && srok_dejstvitelen "$expires"; then')])
+
+
+def mut_kompozicija_srok_strokoj(pack, forma, repo, src):
+    """Мутант production: срок сравнивается строкой с текущей датой, без
+    разбора в секунды: прошедшая дата года 999 лексикографически больше."""
+    _zapishi_mutanta(repo, src, [
+        ('    *) sekund="$(date -u -d "$1" +%s)" || return 1 ;;',
+         '    *) sekund="$1" ;;'),
+        ('  [ "$sekund" -gt "$SEJCHAS" ]',
+         '  [ "$sekund" \\> "$(date -u +%Y-%m-%dT%H:%M:%SZ)" ]')])
+
+
+def mut_kompozicija_forma_bez_sroka(pack, forma, repo, src):
+    """Мутант production «как 9c1aeea5» (PR Complior-mob#124 до 118 v2):
+    форма без оси срока вовсе — истёкшая валидная Session даёт W1A на
+    корне и на /start (B1 Adv118b круга 2). Красный вход ДО реализации."""
+    _stand_in(repo).write_text(FORMA_BEZ_SROKA, encoding='utf-8')
 
 
 FORMA_V1 = (
@@ -646,6 +756,78 @@ FORMA_V1 = (
     'else\n'
     '  echo "start_ne_dopushchen"\n'
     'fi\n')
+
+
+FORMA_BEZ_SROKA = (
+    '#!/usr/bin/env bash\n'
+    '# Форма stand-in пробы композиции v2 (контракт 118; усиление батареи после\n'
+    '# freeze по арбитражу 117↔118 РЕШЕНИЕ п.1–2 и слову владельца 2026-10-24;\n'
+    '# носитель — батарея\n'
+    '# fixtures/workshop_project/erstinformation_118/teksty/kompozicija_forma).\n'
+    '# Продукт держит mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh\n'
+    '# БАЙТ-В-БАЙТ равным этому носителю: пин sha256 зашит в proverka\n'
+    '# proiskhozdenija (KOMPOZICIJA_FORMA_SHA256), подмена таблицей ожиданий\n'
+    '# или заглушкой даёт именованный отказ KOMPOZICIJA_FORMA.\n'
+    '# Семантика (арбитраж п.2 + путь W0 = вариант B):\n'
+    '#   admission решает ПОВЕРХНОСТЬ после demo: W1A → erstinformation при\n'
+    '#     ЛЮБОМ gate (null/stale/current); не-W1A (W0) — путь B:\n'
+    '#     auth.begin → f03-02-code (Г0 корня F03 сохраняется);\n'
+    '#   gate решает ПЕРЕХОД: continue → start ТОЛЬКО при W1A ∧ current;\n'
+    '#     при null/stale continue НЕ переводит, Start отсутствует;\n'
+    '#   начальный кадр \'first-run\' при ЛЮБОМ entry и любом порте;\n'
+    '#   Start — только continue (смена темы автостарта не даёт).\n'
+    '# Источники: admission/gate — ТОЛЬКО порт сессии (аргументы вызывающего);\n'
+    '# entry.onboarding (\'complete\' и пр.), entry.gate и посторонние поля порта\n'
+    '# (authenticated и т.п.) источником допуска НЕ являются. Порт читается В\n'
+    '# МОМЕНТ действия ($6 — текущий срез после rerender), не кэшируется на\n'
+    '# монтаже ($1). Исполнение настоящей композиции (jest-проба из\n'
+    '# mobile/src/bootstrap/__tests__/, admission из внешнего источника —\n'
+    '# сессии/проверяющего) судит продуктовый CI; эта форма — её видимый шов.\n'
+    '# Вне алфавита любого поля — rc 3 (именованный отказ, не дефолт-вердикт).\n'
+    'set -u\n'
+    'admission=\"${1:?admission=W0|W1A}\"\n'
+    'gate=\"${2:?gate=null|stale|current}\"\n'
+    'entry=\"${3:-net}\"\n'
+    'sobytie=\"${4:?sobytie}\"\n'
+    'extra=\"${5:-net}\"\n'
+    'admission_tek=\"${6:-$admission}\"\n'
+    'case \"$admission\" in W0|W1A) ;; *) exit 3 ;; esac\n'
+    'case \"$gate\" in null|stale|current) ;; *) exit 3 ;; esac\n'
+    'case \"$entry\" in net|unknown|incomplete|complete) ;; *) exit 3 ;; esac\n'
+    'case \"$extra\" in net|postoronnee-pole|entry-gate-current) ;; *) exit 3 ;; esac\n'
+    '\n'
+    'poverhnost() {\n'
+    '  if [ \"$admission_tek\" = \"W1A\" ]; then\n'
+    '    echo erstinformation\n'
+    '  else\n'
+    '    echo f03-02-code\n'
+    '  fi\n'
+    '}\n'
+    '\n'
+    'start_reshenie() {\n'
+    '  if [ \"$admission_tek\" = \"W1A\" ] && [ \"$gate\" = \"current\" ]; then\n'
+    '    echo start_dopushchen\n'
+    '  else\n'
+    '    echo start_ne_dopushchen\n'
+    '  fi\n'
+    '}\n'
+    '\n'
+    'case \"$sobytie\" in\n'
+    '  montazh) echo first-run ;;\n'
+    '  demo) poverhnost ;;\n'
+    '  demo-continue)\n'
+    '    if [ \"$(poverhnost)\" = erstinformation ]; then\n'
+    '      start_reshenie\n'
+    '    else\n'
+    '      echo start_ne_dopushchen\n'
+    '    fi ;;\n'
+    '  tema) poverhnost ;;\n'
+    '  rerender-demo) poverhnost ;;\n'
+    '  rerender-continue) start_reshenie ;;\n'
+    '  remount) echo first-run ;;\n'
+    '  *) exit 3 ;;\n'
+    'esac\n'
+)
 
 
 def mut_kompozicija_forma_staraja(pack, forma, repo, src):
@@ -694,6 +876,308 @@ def mut_proiskhozdenie_config_bez_iskljuchenija(pack, forma, repo, src):
         stroki.append(line)
     p.write_text('\n'.join(stroki) + '\n', encoding='utf-8')
 
+# --- v2 круг 1: классы «production-крючок без срока» и «данные шире
+# слова владельца» (вердикт критика круга 1, блокеры 1–2) ---------------
+
+PROIZVODSTVO_STAROJE = (
+    '// прежний production-крючок (обход критика: a28065655 + только дата):\n'
+    '// срок сессии НЕ проверяется — isSessionPayload судит только тип string.\n'
+    'export function isSessionPayload(value: unknown): boolean {\n'
+    '  if (typeof value !== \'object\' || value === null) return false;\n'
+    '  const payload = value as Record<string, unknown>;\n'
+    '  return (\n'
+    '    typeof payload.principal_ref === \'string\' &&\n'
+    '    payload.principal_ref !== \'\' &&\n'
+    '    typeof payload.display_name === \'string\' &&\n'
+    '    typeof payload.auth_time === \'string\' &&\n'
+    '    typeof payload.expires_at === \'string\' &&\n'
+    '    typeof payload.locale === \'string\' &&\n'
+    '    Array.isArray(payload.disclosure_requirements)\n'
+    '  );\n'
+    '}\n')
+
+
+def mut_production_srok_udalyon(pack, forma, repo, src):
+    """Обход критика круга 1: форма/проверка перенесены в H, крючок старый.
+    Круг 3: лексика не гейт — вход несёт и ЧЕСТНЫЙ отчёт CI (что jest
+    реально исполняет на старом крючке): 9 клеток failed (замер A1)."""
+    (repo / 'mobile/src/app/onboarding-session.tsx').write_text(
+        PROIZVODSTVO_STAROJE, encoding='utf-8')
+    _otchet_so_statusami(repo, 'failed')
+
+
+def mut_production_srok_fajl_udalyon(pack, forma, repo, src):
+    """Крючок удалён вовсе: отказ по отсутствию файла остаётся именованным
+    (арбитраж: «отсутствие файла крючка оставить именованным отказом»)."""
+    (repo / 'mobile/src/app/onboarding-session.tsx').unlink()
+
+
+def mut_srok_testy_otsutstvujut(pack, forma, repo, src):
+    """Продуктовых Jest-тестов срока нет: ось живёт только в shell-форме."""
+    (repo / 'mobile/src/bootstrap/__tests__/session-srok.test.tsx').unlink()
+
+
+def mut_srok_testy_ne_komplekt(pack, forma, repo, src):
+    """Тест есть, но клетки классов срока выкошлены (меньше полного набора)
+    — пин формы ловит и это: байты отличаются от носителя."""
+    p = repo / 'mobile/src/bootstrap/__tests__/session-srok.test.tsx'
+    t = p.read_text(encoding='utf-8')
+    t = t.replace("'srok-istekla-start: ", "'srok-test-vychernen: ")
+    t = t.replace("'srok-mezhdu-mount-dejstviem: ", "'srok-test-vychernen-2: ")
+    p.write_text(t, encoding='utf-8')
+
+
+def mut_srok_testy_model(pack, forma, repo, src):
+    """Тест судит модель-копию, не настоящие поверхности (арбитраж п.1.1)
+    — красен пином формы (SROK_TESTY_FORMA), не лексикой."""
+    p = repo / 'mobile/src/bootstrap/__tests__/session-srok.test.tsx'
+    t = p.read_text(encoding='utf-8')
+    t = t.replace("import Root from '../../app/index';",
+                  "import Root from './pilot-app.model';")
+    t = t.replace("import TabRoute from '@/app/(tabs)/[section]';",
+                  "import TabRoute from './pilot-app.model';")
+    p.write_text(t, encoding='utf-8')
+
+
+def mut_srok_testy_forma(pack, forma, repo, src):
+    """Тест ослаблен любым байтом (снятый ассерт, rerender вместо press,
+    модель-копия): единственная защита — sha256-пин формы."""
+    p = repo / 'mobile/src/bootstrap/__tests__/session-srok.test.tsx'
+    p.write_text(p.read_text(encoding='utf-8') + '\n// oslablenie aserta\n',
+                 encoding='utf-8')
+
+
+def mut_ci_bez_srok_testov(pack, forma, repo, src):
+    """CI больше не запускает jest с отчётом: шаг npm test --json снят."""
+    p = repo / '.github/workflows/mobile.yml'
+    t = p.read_text(encoding='utf-8')
+    t = t.replace('      - run: npm test -- --json'
+                  ' --outputFile=e2e-erstinformation/jest-otchet.json\n', '')
+    p.write_text(t, encoding='utf-8')
+
+
+def mut_ci_bez_otcheta_sroka(pack, forma, repo, src):
+    """Шаг есть, но БЕЗ --json --outputFile (или после checker'а):
+    остаточная текстовая нога судит порядок шагов mobile.yml."""
+    p = repo / '.github/workflows/mobile.yml'
+    t = p.read_text(encoding='utf-8')
+    t = t.replace(' --json --outputFile=e2e-erstinformation/jest-otchet.json',
+                  '', 1)
+    p.write_text(t, encoding='utf-8')
+
+
+# --- v2 круг 3 (А-2): мутанты ОТЧЁТА — судья исполнения ----------------------
+
+SROK_KRASNYE_NA_STAROM = (
+    'srok-istekla-koren', 'srok-istekla-start', 'srok-rovno-sejchas',
+    'srok-nerazborchivaja', 'srok-mezhdu-mount-dejstviem',
+    'srok-mezhdu-render-continue', 'srok-rerender-start', 'srok-pustaja',
+    'srok-ranishe-auth-time',
+)
+
+
+def _otchet(repo):
+    return repo / 'mobile/e2e-erstinformation/jest-otchet.json'
+
+
+def _pereschitat(d):
+    vse = [a for t in d.get('testResults', [])
+           for a in t.get('assertionResults', [])]
+    d['numTotalTests'] = len(vse)
+    for k in ('Passed', 'Failed', 'Pending', 'Todo'):
+        d['num%sTests' % k] = sum(
+            1 for a in vse if a.get('status') == k.lower())
+    d['success'] = d['numFailedTests'] == 0
+
+
+def _v_otchete(repo, pravka):
+    p = _otchet(repo)
+    d = json.loads(p.read_text(encoding='utf-8'))
+    pravka(d)
+    _pereschitat(d)
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n',
+                 encoding='utf-8')
+
+
+def _srok_zapisi(d):
+    return [t for t in d.get('testResults', [])
+            if t.get('name', '').endswith('session-srok.test.tsx')]
+
+
+def _otchet_so_statusami(repo, status, vse=False):
+    def pravka(d):
+        for t in _srok_zapisi(d):
+            for a in t.get('assertionResults', []):
+                if vse or a['title'].split(':')[0] in SROK_KRASNYE_NA_STAROM:
+                    a['status'] = status
+    _v_otchete(repo, pravka)
+
+
+def mut_srok_token_v_kommentarii(pack, forma, repo, src):
+    """БЛ-А, строка 1 таблицы арбитра: токен срока в комментарии, крючок
+    старый (A1) — лексика гейтом не является; красен отчётом (клетки
+    failed), а не текстом крючка."""
+    (repo / 'mobile/src/app/onboarding-session.tsx').write_text(
+        PROIZVODSTVO_STAROJE +
+        '\n// Date.parse(expires_at) > Date.now()\n', encoding='utf-8')
+    _otchet_so_statusami(repo, 'failed')
+
+
+def mut_srok_kletki_pending(pack, forma, repo, src):
+    """БЛ-А1 (describe.skip): все клетки пин-файла pending; замер A1 —
+    success=true, numPendingTests=13, красна по-клеточно и pending-нулём."""
+    _otchet_so_statusami(repo, 'pending', vse=True)
+
+
+def mut_srok_kletki_todo(pack, forma, repo, src):
+    """it.todo/test.todo: клетки todo — numTodoTests==0 обязан ловить."""
+    _otchet_so_statusami(repo, 'todo', vse=True)
+
+
+def mut_srok_kletka_only(pack, forma, repo, src):
+    """.only на одной клетке: 1 passed, остальные pending (ловится той же
+    защитой, что srok-kletki-pending; отдельный стаб не нужен)."""
+    def pravka(d):
+        for t in _srok_zapisi(d):
+            for i, a in enumerate(t.get('assertionResults', [])):
+                a['status'] = 'passed' if i == 0 else 'pending'
+    _v_otchete(repo, pravka)
+
+
+def mut_srok_otcheta_net(pack, forma, repo, src):
+    """Отчёта нет / CI не запустил jest: SROK_OTCHET_NET fail-closed —
+    отсутствие отчёта = непрогон, а не зелёное молчание."""
+    _otchet(repo).unlink()
+
+
+def mut_srok_otchet_chuzhoj_fajl(pack, forma, repo, src):
+    """Тест переименован: запись отчёта чужого имени — судится пин-путём
+    в name записи (ровно одна)."""
+    def pravka(d):
+        for t in _srok_zapisi(d):
+            t['name'] = t['name'].replace('session-srok',
+                                          'session-srok-kopija')
+    _v_otchete(repo, pravka)
+
+
+def mut_srok_kletka_propala(pack, forma, repo, src):
+    """Клетка переименована/удалена, отчёт зелёный: каждый id ровно один
+    раз (all, не any)."""
+    def pravka(d):
+        for t in _srok_zapisi(d):
+            t['assertionResults'] = [
+                a for a in t['assertionResults']
+                if not a['title'].startswith('srok-offset-zona')]
+    _v_otchete(repo, pravka)
+
+
+# --- v2 круг 3 (Б-1/Б-2): мутанты БАЙТОВ носителей данных --------------------
+
+LIT_STAROGO = b'"expires_at": "2026-10-14T00:00:00Z"'
+LIT_AUTH_STAROGO = b'"auth_time": "2026-10-14T00:00:00Z"'
+LIT_AUTH_ESKEYP = rb'"auth_time": "\u0032026-10-14T00:00:00Z"'
+LIT_DRUGOJ_DALEKOJ = b'"expires_at": "2098-12-31T00:00:00Z"'
+
+
+def _produktovye_nositeli(repo):
+    return (repo / 'mobile/src/bootstrap/__tests__/source.json',
+            repo / 'mobile/src/mocks/pilot-responses.json')
+
+
+def mut_dannye_auth_time_escape(pack, forma, repo, src):
+    """БЛ-Б (свидетель критика круга 2): \\u0032-escape в auth_time —
+    декодированное значение то же, байты иные; json-диф слеп."""
+    for p in _produktovye_nositeli(repo):
+        assert p.read_bytes().count(LIT_AUTH_STAROGO) == 1
+        p.write_bytes(p.read_bytes().replace(LIT_AUTH_STAROGO, LIT_AUTH_ESKEYP))
+
+
+def mut_dannye_pereformat(pack, forma, repo, src):
+    """Пробелы/переносы/переформатирование при равных объектах."""
+    for p in _produktovye_nositeli(repo):
+        p.write_text(json.dumps(json.loads(p.read_text(encoding='utf-8')),
+                                ensure_ascii=False, indent=4) + '\n',
+                     encoding='utf-8')
+
+
+def mut_dannye_porjadok_kljuchej(pack, forma, repo, src):
+    """Порядок ключей изменён (sort_keys) — объекты равны, байты нет."""
+    for p in _produktovye_nositeli(repo):
+        p.write_text(json.dumps(json.loads(p.read_text(encoding='utf-8')),
+                                ensure_ascii=False, indent=2,
+                                sort_keys=True) + '\n', encoding='utf-8')
+
+
+def mut_dannye_bom(pack, forma, repo, src):
+    """BOM перед JSON: невидим json-дифом, байтовый судья красен."""
+    for p in _produktovye_nositeli(repo):
+        p.write_bytes(b'\xef\xbb\xbf' + p.read_bytes())
+
+
+def mut_dannye_crlf(pack, forma, repo, src):
+    """CRLF вместо LF: та же защита (байты), та же форма обхода."""
+    for p in _produktovye_nositeli(repo):
+        p.write_bytes(p.read_bytes().replace(b'\n', b'\r\n'))
+
+
+def mut_dannye_expires_dvazhdy(pack, forma, repo, src):
+    """Вторая подстановка того же литерала (литерал продублирован):
+    count=1 и равенство целиком, не replace без лимита."""
+    dalekoe = ('"expires_at": "%s"' % src['srok_dalekij']).encode()
+    for p in _produktovye_nositeli(repo):
+        b = p.read_bytes()
+        assert b.count(dalekoe) == 1
+        p.write_bytes(b.replace(dalekoe, dalekoe + b', ' + dalekoe, 1))
+
+
+def mut_dannye_drugaja_data(pack, forma, repo, src):
+    """Другая «далёкая» дата (2098): пин литерала SROK_DALEKIJ, а не
+    «любое значение в поле»."""
+    dalekoe = ('"expires_at": "%s"' % src['srok_dalekij']).encode()
+    for p in _produktovye_nositeli(repo):
+        p.write_bytes(p.read_bytes().replace(dalekoe, LIT_DRUGOJ_DALEKOJ))
+
+
+def mut_dannye_mocks_pereformat(pack, forma, repo, src):
+    """Mocks переформатирован при равных объектах: собственный БАЙТОВЫЙ
+    эталон mocks, не производный из JSON эталона 995."""
+    p = repo / 'mobile/src/mocks/pilot-responses.json'
+    p.write_text(json.dumps(json.loads(p.read_text(encoding='utf-8')),
+                            ensure_ascii=False, indent=4) + '\n',
+                 encoding='utf-8')
+
+
+def mut_dannye_auth_time_pomenjan(pack, forma, repo, src):
+    """Блокер 2: в продуктовых носителях изменён ещё и auth_time — шире
+    слова владельца («только session.expires_at»); байтовая правка
+    литерала, значение иное (не только escape)."""
+    for p in _produktovye_nositeli(repo):
+        b = p.read_bytes()
+        assert b.count(LIT_AUTH_STAROGO) == 1
+        p.write_bytes(b.replace(
+            LIT_AUTH_STAROGO, b'"auth_time": "2033-10-14T00:00:00Z"'))
+
+
+def mut_dannye_995_auth_time(pack, forma, repo, src):
+    """Нога harness: данные 995 перепинены с чужим auth_time — клетка
+    обязана краснеть и на носителе харнесса, не только продукта.
+    Круг 3: правка БАЙТОВАЯ (литералы expires_at → пин, auth_time → 2033),
+    оба эталона копируются в локальный harness-оверлей судьи."""
+    h = repo.parent / 'harness'
+    dannye = h / ('fixtures/workshop_project/erstinformation_118/'
+                  'nositeli/dannye')
+    dannye.mkdir(parents=True)
+    for rel_e in ('etalon_995.json', 'etalon_pilot_responses.json'):
+        shutil.copyfile(HERE / 'nositeli/dannye' / rel_e, dannye / rel_e)
+    p995 = h / 'fixtures/workshop_project/pilot_995'
+    p995.mkdir(parents=True)
+    etalon = (HERE / 'nositeli/dannye/etalon_995.json').read_bytes()
+    dalekoe = ('"expires_at": "%s"' % src['srok_dalekij']).encode()
+    (p995 / 'source.json').write_bytes(
+        etalon.replace(LIT_STAROGO, dalekoe, 1)
+        .replace(LIT_AUTH_STAROGO, b'"auth_time": "2033-10-14T00:00:00Z"'))
+
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -736,6 +1220,38 @@ MUTACII = {
         mut_proiskhozdenie_bez_first_run_tapa,
     'proiskhozdenie-config-bez-iskljuchenija':
         mut_proiskhozdenie_config_bez_iskljuchenija,
+    'kompozicija-srok-istekla-demo': mut_kompozicija_srok_istekla_demo,
+    'kompozicija-srok-istekla-start': mut_kompozicija_srok_istekla_start,
+    'kompozicija-srok-rovno-sejchas': mut_kompozicija_srok_rovno_sejchas,
+    'kompozicija-srok-nerazborchivaja': mut_kompozicija_srok_nerazborchivaja,
+    'kompozicija-srok-kesh': mut_kompozicija_srok_kesh,
+    'kompozicija-srok-strokoj': mut_kompozicija_srok_strokoj,
+    'kompozicija-forma-bez-sroka': mut_kompozicija_forma_bez_sroka,
+    'production-srok-udalyon': mut_production_srok_udalyon,
+    'production-srok-fajl-udalyon': mut_production_srok_fajl_udalyon,
+    'srok-testy-otsutstvujut': mut_srok_testy_otsutstvujut,
+    'srok-testy-ne-komplekt': mut_srok_testy_ne_komplekt,
+    'srok-testy-model': mut_srok_testy_model,
+    'srok-testy-forma': mut_srok_testy_forma,
+    'ci-bez-srok-testov': mut_ci_bez_srok_testov,
+    'ci-bez-otcheta-sroka': mut_ci_bez_otcheta_sroka,
+    'srok-token-v-kommentarii': mut_srok_token_v_kommentarii,
+    'srok-kletki-pending': mut_srok_kletki_pending,
+    'srok-kletki-todo': mut_srok_kletki_todo,
+    'srok-kletka-only': mut_srok_kletka_only,
+    'srok-otcheta-net': mut_srok_otcheta_net,
+    'srok-otchet-chuzhoj-fajl': mut_srok_otchet_chuzhoj_fajl,
+    'srok-kletka-propala': mut_srok_kletka_propala,
+    'dannye-auth-time-pomenjan': mut_dannye_auth_time_pomenjan,
+    'dannye-995-auth-time': mut_dannye_995_auth_time,
+    'dannye-auth-time-escape': mut_dannye_auth_time_escape,
+    'dannye-pereformat': mut_dannye_pereformat,
+    'dannye-porjadok-kljuchej': mut_dannye_porjadok_kljuchej,
+    'dannye-bom': mut_dannye_bom,
+    'dannye-crlf': mut_dannye_crlf,
+    'dannye-expires-dvazhdy': mut_dannye_expires_dvazhdy,
+    'dannye-drugaja-data': mut_dannye_drugaja_data,
+    'dannye-mocks-pereformat': mut_dannye_mocks_pereformat,
 }
 
 
@@ -761,9 +1277,16 @@ def run_subject(subject, name, src):
                 and subject in (MODEL, SUBJECT):
             subject = tmp / 'proverka_subekt.py'
             subject.write_text(src['proverka_tekst'], encoding='utf-8')
+        h_lokalnyj = repo.parent / 'harness'
+        harness_arg = (str(h_lokalnyj) if h_lokalnyj.is_dir()
+                       else str(H_ROOT))
+        # v2 круг 3 (А-2): отчёт исполнения лежит в модели по пин-пути
+        # (repo/mobile/e2e-erstinformation/jest-otchet.json) — checker
+        # берёт его своей нормой по умолчанию, как живой CI берёт флагом
+        # --jest-otchet; стабы-копии прежней генерации флаг не знают.
         p = subprocess.run(
             [sys.executable, str(subject), '--pack', str(pack),
-             '--repo', str(repo), '--harness', str(H_ROOT)],
+             '--repo', str(repo), '--harness', harness_arg],
             capture_output=True, text=True)
         return p.returncode, p.stdout, p.stderr
     finally:

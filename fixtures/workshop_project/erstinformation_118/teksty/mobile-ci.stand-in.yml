@@ -1,0 +1,18 @@
+# stand-in шагов продуктового CI (118 v2 круг 3): jest-набор
+# src/bootstrap/__tests__ (включая пин-форму session-srok.test.tsx)
+# исполняется шагом npm test с JSON-отчётом в файл пачки ДО шага проверки
+# происхождения; проверка получает отчёт отдельным флагом и судит
+# ИСПОЛНЕНИЕ (success, имя файла, каждая клетка ровно раз passed,
+# pending/todo 0) — так живут шаги в живом mobile.yml продукта.
+name: mobile
+on:
+  push:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm ci --no-audit --no-fund
+      - run: npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json
+      - run: python3 e2e-erstinformation/batareja/proverka_proiskhozdenija.py --pack e2e-erstinformation --repo . --harness ../harness --jest-otchet e2e-erstinformation/jest-otchet.json
+      - run: npm run lint

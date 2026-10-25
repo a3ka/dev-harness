@@ -1,0 +1,16 @@
+{
+  "getSession": {
+    "principal_ref": "example",
+    "display_name": "x",
+    "auth_time": "2026-10-14T00:00:00Z",
+    "expires_at": "2026-10-14T00:00:00Z",
+    "locale": "de-DE",
+    "disclosure_requirements": []
+  },
+  "getDisclosure": {
+    "disclosure_ref": "example",
+    "document_ref": "example",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "acknowledged": false
+  }
+}
