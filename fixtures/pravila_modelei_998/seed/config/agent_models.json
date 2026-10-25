@@ -6,9 +6,9 @@
   },
   "tiers": {
     "default": { "model": "@sonnet", "fallback": "@glm", "autoFallback": true, "why": "seed" },
-    "slow": { "model": "@glm", "fallback": "@sonnet", "autoFallback": true, "why": "seed" },
+    "slow": { "model": "@glm", "fallback": "@sonnet", "autoFallback": false, "why": "seed: GLM без автоподмены (слово владельца 2026-10-25)" },
     "task": { "model": "@minimax", "fallback": "@sonnet", "autoFallback": true, "why": "seed" },
-    "task-glm": { "model": "@glm", "fallback": "@sonnet", "autoFallback": true, "why": "seed" },
+    "task-glm": { "model": "@glm", "fallback": "@sonnet", "autoFallback": false, "why": "seed: GLM без автоподмены (слово владельца 2026-10-25)" },
     "vision": { "model": "@sonnet", "fallback": "@glm", "why": "seed" },
     "steward": { "model": "@sonnet", "fallback": null, "why": "seed" }
   },
