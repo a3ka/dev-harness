@@ -35,6 +35,6 @@
     "design": "498b0e6900b9e1aed9655c2dd8bf97f08e957d373bfbd2dbf98428956e418f5a",
     "acceptance": "231206ed897ff7d11c7c03ec26565e470f1d4aded15f7f3383a4cdc2bd5e7b0c"
   },
-  "session": { "principal_ref": "example", "display_name": "x", "auth_time": "2026-10-14T00:00:00Z", "expires_at": "2026-10-14T00:00:00Z", "locale": "de-DE", "disclosure_requirements": [] },
+  "session": { "principal_ref": "example", "display_name": "x", "auth_time": "2026-10-14T00:00:00Z", "expires_at": "2099-12-31T00:00:00Z", "locale": "de-DE", "disclosure_requirements": [] },
   "disclosure": { "disclosure_ref": "example", "document_ref": "example", "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "acknowledged": false }
 }
