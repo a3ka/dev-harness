@@ -50,6 +50,23 @@
 # exec, файл не изменён; равен — повтор без записи, контроль c10) —
 # c6–c10; стабы s38 (префикс-только) и s39–s41 (trace принимается/
 # перезаписывается/дописывается).
+# 136 v3-достройка (ревьюер impl-v2 FAIL, R136c-B1, вердикт
+# /tmp/dev-harness-verify/orch/keep136rev/contracts-136-impl-v2.md):
+# ОСЬ E «путь реестра профиля» — дверь обязана брать путь реестра из
+# ЕДИНОГО project_paths_resolve (frozen И-6; ПЕРЕСЕЧЕНИЕ implementer
+# «103 профильные пути — единственный источник»), никаких собственных
+# jq-разборов пути: на законном профиле БЕЗ workflowPaths (996
+# repo:workflowPaths:optional → FALLBACK-NO-WORKFLOW, эффективный реестр
+# $REPO/registry) собственный jq давал .harness/registry — дверь сверяет
+# одно место, make_task читает другое, закоммиченный подложенный
+# registry/trace.tsv проходит (обход X Rev136c: rc 7 + TRACE evil-model) —
+# e1 (подмена: trassa-rashozhdenie rc 1 до exec, файл не изменён) и
+# e2 (КОНТРОЛЬ посева в эффективный реестр + TRACE брифа из него);
+# стаб s42 (дверь рег-путём своего jq) → e1+e2. Классы оси «объявлен» и
+# «объявлен иным путём внутри .harness/» уже несут строки осей B/C/D
+# (мир батареи объявляет .harness/records ≠ дефолта — b2/c6–c10);
+# «объявлен вне репо» — frozen-текст исхода не назначает (резолвер
+# отказывает «workflowPaths вне репо»), клетка не заводится.
 # SIGPIPE-флейк c2 (критик r2, СОВЕТ): потребитель grep -q выходит раньше
 # производителя → под pipefail ложное красное; все потребители mkt_brief —
 # БЕЗ раннего -q (выход в переменную, затем полный проход grep).
@@ -68,7 +85,7 @@
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
 #                 rc 0 «стабов <N>, привязок <M>, непойманных 0» (счёт — из
-#                 source.json, v2-усиление: 41/64; текст контракта frozen
+#                 source.json, v3-достройка: 42/66; текст контракта frozen
 #                 136/2 несёт исторические 37/54 своей версии).
 #
 # Миры — /tmp/dev-harness-verify/sessii-136-<клетка>/** (оракулы в памяти, правило 8);
@@ -115,6 +132,18 @@ mk_mir() { # mk_mir <слуг> [next] [harness]
   # клетки двери/паритета обязаны брать каталог реестра ПО ФАКТУ профиля,
   # а не зашитый .harness/registry (блокер 3 критика r1)
   if [ "${2:-}" != "harness" ] && [ "${3:-}" != "harness" ]; then
+  if [ "${2:-}" = "nowf" ] || [ "${3:-}" = "nowf" ]; then
+  # ось E (Rev136c-B1): профиль БЕЗ workflowPaths ЦЕЛИКОМ — законный вход
+  # 996 (repo:workflowPaths:optional); эффективный реестр ЕДИНОГО
+  # project_paths_resolve — FALLBACK-NO-WORKFLOW $REPO/registry, а НЕ
+  # дефолт .harness/registry собственного jq двери
+  jq -n '{schemaVersion:1,repoId:"toy-proj",language:"typescript",
+    git:{canonicalRemote:"https://github.com/x/toy-proj.git"},
+    contextPack:{rows:[
+      {kind:"map",path:"docs/ARCHITECTURE.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"карта архитектуры проекта"},
+      {kind:"rules",path:"docs/CODING-STANDARDS.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"стандарт проекта"}]},
+    projectLayer:{version:"v1",profilePath:".harness/project-layer.json"}}' > "$SEED/harness.project.json"
+  else
   jq -n '{schemaVersion:1,repoId:"toy-proj",language:"typescript",
     workflowPaths:{contracts:".harness/contracts",verdicts:".harness/verdicts",
       registry:".harness/records",fixtures:".harness/fixtures",state:".harness"},
@@ -123,6 +152,7 @@ mk_mir() { # mk_mir <слуг> [next] [harness]
       {kind:"map",path:"docs/ARCHITECTURE.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"карта архитектуры проекта"},
       {kind:"rules",path:"docs/CODING-STANDARDS.md",roles:"architect,implementer,reviewer,adversary",mandatory:true,why:"стандарт проекта"}]},
     projectLayer:{version:"v1",profilePath:".harness/project-layer.json"}}' > "$SEED/harness.project.json"
+  fi
   fi
   printf '## ГДЕ МЫ\n\n- предмет не выбран.\n' > "$SEED/.harness/HANDOFF.md"
   printf 'id\tpora\tdepend\tsource\tdoc\tdesc\n' > "$SEED/.harness/registry/plan.tsv"
@@ -141,6 +171,10 @@ run_dver() { # копия двери в песочницу + двойник work
   # Сообщение — после «--»; границы argv — NUL-файл args0.bin.
   local SB="$W/sb"; mkdir -p "$SB/scripts" "$SB/config" "$SB/.omp/extensions"
   cp "$DOOR" "$SB/scripts/connect_project.sh"
+  # ось E (Rev136c-B1): честная дверь берёт путь реестра из ЕДИНОГО
+  # project_paths_resolve — библиотека next_id.sh + profile_resolver.sh
+  # сиблингами установки ($HERE/scripts), как у make_task (mkt_dir)
+  cp "$ROOT/scripts/next_id.sh" "$ROOT/scripts/profile_resolver.sh" "$SB/scripts/"
   [ "$DVER_NOGUARD" = 1 ] || cp "$GUARD" "$SB/.omp/extensions/path-guard.ts"
   [ "$DVER_EMPTYGUARD" = 1 ] && : > "$SB/.omp/extensions/path-guard.ts"
   if [ "${DVER_CONFIG:-}" = "NETU" ]; then :
@@ -724,7 +758,44 @@ k_d14() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B1): 
   local rc=0
   env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d14.out" 2>&1 || rc=$?
   [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-d14.out"; }
-ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit c6-trassa-podmena-modeli c7-trassa-dubl-strok c8-trassa-lishnjaja-stroka c9-trassa-readonly c10-kontrol-trassa-ravna d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan d12-sloi-dotdot-vyhod d13-sloi-symlink-naruzhu d14-kontrol-symlink-vnutri"
+k_e1() { # ось E (Rev136c-B1): профиль БЕЗ workflowPaths целиком — законный
+  # вход 996 (repo:workflowPaths:optional); эффективный реестр ЕДИНОГО
+  # project_paths_resolve — FALLBACK-NO-WORKFLOW $REPO/registry. Дверь,
+  # берущая путь реестра СВОИМ jq (.workflowPaths.registry // ".harness/registry"),
+  # судит .harness/registry ≠ $REPO/registry: закоммиченный подложенный
+  # registry/trace.tsv (evil-model) она не видит, сеет .harness/registry и
+  # поднимает сессию — make_task читает подложку (обход X Rev136c). Ожидание
+  # из frozen И-6 + модель угроз («рассогласование trace.tsv ↔ конфиг исключено
+  # по построению», имя отказа — из B2 прошлого круга): trassa-rashozhdenie
+  # rc 1 ДО exec, подложенный файл не изменён, .harness/registry/trace.tsv
+  # не создаётся.
+  mk_mir e1-trassa-fallback-podmena nowf
+  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
+  mkdir -p "$SEED/registry"
+  printf 'orchestrator\tevil-model\tallowed\n' > "$SEED/registry/trace.tsv"
+  cp "$SEED/registry/trace.tsv" "$W/tr-e1.before"
+  git -C "$SEED" add registry/trace.tsv
+  git -C "$SEED" -c user.name=t -c user.email=t@t commit -q -m 'planted trace'
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 1 ] && grep -q 'trassa-rashozhdenie' "$W/dvor.err" \
+    && [ ! -e "$W/args.txt" ] \
+    && cmp -s "$W/tr-e1.before" "$SEED/registry/trace.tsv" \
+    && [ ! -e "$SEED/.harness/registry/trace.tsv" ]; }
+k_e2() { # ось E, КОНТРОЛЬ посева: профиль БЕЗ workflowPaths, реестр пуст —
+  # дверь сеет трассу в ЭФФЕКТИВНЫЙ реестр резолвера ($REPO/registry/trace.tsv
+  # — то же место, откуда её читает make_task), а не в дефолт .harness/registry
+  # собственного jq; make_task --kind brief БЕЗ --model-trace печатает TRACE
+  # модель из конфига; сессия поднимается (exec двойника, rc 7).
+  mk_mir e2-trassa-fallback-possev nowf
+  DVER_CONFIG='{"roles":{"orchestrator":"default"},"tiers":{"default":{"model":"@sonnet136"}},"models":{"sonnet136":"anthropic/claude-sonnet-5-5"}}'
+  rm -f "$W/args.txt"; run_dver
+  local out
+  [ "$DVER_RC" = 7 ] && [ -f "$W/args.txt" ] || return 1
+  [ "$(cat "$SEED/registry/trace.tsv" 2>/dev/null)" = "$(printf 'orchestrator\tanthropic/claude-sonnet-5-5\tallowed')" ] || return 1
+  [ ! -e "$SEED/.harness/registry/trace.tsv" ] || return 1
+  out="$(mkt_brief)" \
+    && grep -Fq 'TRACE: role=orchestrator model=anthropic/claude-sonnet-5-5 fallback=allowed' <<<"$out"; }
+ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit c6-trassa-podmena-modeli c7-trassa-dubl-strok c8-trassa-lishnjaja-stroka c9-trassa-readonly c10-kontrol-trassa-ravna d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan d12-sloi-dotdot-vyhod d13-sloi-symlink-naruzhu d14-kontrol-symlink-vnutri e1-trassa-fallback-podmena e2-trassa-fallback-possev"
 run_cell() { case "$1" in
   a1-p6-hvost) k_a1 ;; a2-p6-brief-defolt) k_a2 ;; a3-p3-pin-v-soobshchenii) k_a3 ;;
   a4-p3-zapis) k_a4 ;; a5-p12-agent) k_a5 ;; a6-p11-subagent-pin) k_a6 ;;
@@ -774,11 +845,13 @@ run_cell() { case "$1" in
   d6-sloi-drugoe-imja) k_d6 ;; d7-bez-jq) k_d7 ;; d8-profil-bit) k_d8 ;;
   d9-sloi-drugoe-imja-poterjan) k_d9 ;; d10-sloi-vlozhennoe-imja) k_d10 ;; d11-sloi-vlozhennoe-poterjan) k_d11 ;;
   d12-sloi-dotdot-vyhod) k_d12 ;; d13-sloi-symlink-naruzhu) k_d13 ;; d14-kontrol-symlink-vnutri) k_d14 ;;
-  d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;; esac; }
+  d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;;
+  e1-trassa-fallback-podmena) k_e1 ;; e2-trassa-fallback-possev) k_e2 ;; esac; }
 
-# ── таблица осей A–D — единственный источник счёта (арбитраж 136v2 п.1) ──────
-# source.json:.osi — строки осей A–D (источник MSG × установка стража × конфиг
-# трассы × объявленный слой), .vne_osi — наследие v1/v2 вне осей. Механическая
+# ── таблица осей A–E — единственный источник счёта (арбитраж 136v2 п.1) ──────
+# source.json:.osi — строки осей A–E (источник MSG × установка стража × конфиг
+# трассы × объявленный слой × путь реестра профиля), .vne_osi — наследие v1/v2
+# вне осей. Механическая
 # биекция «строка таблицы ↔ клетка»: множество строк == множество kletki ==
 # множество ORDER; счёт клеток кодом = len(osi)+len(vne_osi).
 _osi_diff="$( { printf '%s\n' $ORDER

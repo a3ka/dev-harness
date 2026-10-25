@@ -82,26 +82,39 @@ if [ ! -e "$PIN_WT" ]; then
     || { printf 'connect ОТКАЗ: worktree-пин не создан\n' >&2; exit 1; }
 fi
 
-# 136: каталог реестра проекта — workflowPaths.registry из профиля проекта
-# (996: профиль — единственный источник; дефолт .harness/registry). Дверь
-# сеет туда trace и перечень исключений паритета ПО ФАКТУ профиля.
-REG_REL="$(jq -r '.workflowPaths.registry // ".harness/registry"' harness.project.json 2>/dev/null || printf '.harness/registry')"
-mkdir -p "$REG_REL"
-
-# Трасса модели оркестратора (НАБЛ-П5, В-4а): источник — КОНФИГ УСТАНОВКИ
-# $HERE/config/agent_models.json: roles.orchestrator → tiers[роль].model
-# (@алиас) → models[алиас]. НЕ константа и НЕ env-замена. Конфига НЕТ, нечитаем,
-# не разбирается (или нет jq) в момент, когда трасса нужна, — один именованный
-# отказ trassa-net-konfiga ДО exec, трасса не сеется (fail-closed; 136 v2,
-# Rev136-B2б). Никакой ветви «сессия стартует без трассы».
-# 136 v2-усиление (адверсарий B2, вердикт keep136adv): существующий trace.tsv
-# обязан совпадать с выведенным из конфига — рассогласование исключено по
-# построению (модель угроз И-6). Подмена (чужая модель, дубль строк, лишняя
-# строка, read-only файл) — именованный отказ trassa-rashozhdenie rc 1 ДО exec,
-# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
-# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее).
+# 136 v3-достройка (Rev136c-B1): путь реестра — из ЕДИНОГО project_paths_resolve
+# (frozen И-6 «путь трассы — из ЕДИНОГО project_paths_resolve»; ПЕРЕСЕЧЕНИЕ
+# implementer «103 профильные пути — единственный источник»), образец —
+# scripts/done_wave.sh:117-124; библиотека next_id.sh — сиблинг установки
+# ($HERE/scripts). Никаких собственных jq-разборов пути реестра: на законном
+# профиле БЕЗ workflowPaths (996 repo:workflowPaths:optional → FALLBACK-
+# NO-WORKFLOW, эффективный реестр $REPO/registry) собственный jq давал
+# .harness/registry ≠ резолверу — дверь сеет/сверяет одно место, make_task
+# читает другое (обход X Rev136c). Порядок: сперва конфиг трассы (нет jq/
+# конфига → trassa-net-konfiga ДО резолвера — резолверу тоже нужен jq, отказ
+# остаётся именованным по трассе, b5), затем резолв реестра.
 ORCH_MODEL="$(jq -er '.roles.orchestrator as $r | .tiers[$r].model as $m | .models[$m[1:]]' "$HERE/config/agent_models.json" 2>/dev/null)" \
   || { printf 'connect ОТКАЗ: trassa-net-konfiga: %s/config/agent_models.json\n' "$HERE" >&2; exit 1; }
+# резолверу нужен файл слоя профиля: досоздаём отсутствующее ДО резолва
+# (скелет ниже уже не создаст — И-5 «повтор пишет только отсутствующее»)
+[ -f .harness/project-layer.json ] \
+  || jq -n --arg pid "$PID" '{schemaVersion:1,version:"v1",projectId:$pid,workspaceId:$pid}' > .harness/project-layer.json
+NEXT_ID_LIB=1 source "$HERE/scripts/next_id.sh" \
+  || { printf 'connect ОТКАЗ: net-rezolvera-putej: %s/scripts/next_id.sh\n' "$HERE" >&2; exit 1; }
+KOREN_ABS="$(cd "$KOREN" && pwd -P)"
+PPR_JSON="$(project_paths_resolve "$KOREN_ABS")" \
+  || otkaz "profil-ne-razreshaetsja: $KOREN_ABS"
+REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
+[ -n "$REG_ABS" ] || otkaz "profil-bez-registry: $KOREN_ABS"
+REG_REL="${REG_ABS#"$KOREN_ABS"/}"
+[ "$REG_ABS" != "$REG_REL" ] || otkaz "registry-vne-kornja: $REG_ABS"
+mkdir -p "$REG_REL"
+
+# Трасса (семантика — см. блок резолва выше): подмена (чужая модель, дубль
+# строк, лишняя строка, read-only файл) — trassa-rashozhdenie rc 1 ДО exec,
+# файл не изменяется: ни молчаливое принятие, ни перезапись, ни дописывание
+# (И-7: повтор пишет только отсутствующее; пустой файл = отсутствующее);
+# равен конфигу — повтор без записи, сессия поднимается.
 TRASSA="$(printf 'orchestrator\t%s\tallowed\n' "$ORCH_MODEL")"
 if [ -s "$REG_REL/trace.tsv" ]; then
   [ "$(cat "$REG_REL/trace.tsv" 2>/dev/null)" = "$TRASSA" ] \

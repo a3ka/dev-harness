@@ -391,6 +391,16 @@
       "bol": "НАБЛ-П10",
       "krasnaya_sejchas": true,
       "sut": "КОНТРОЛЬ: symlink .harness/layer-link.json → .harness/layers/custom.json — проектный режим (rc 1, корень игнорируется)"
+    },
+    "e1-trassa-fallback-podmena": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "профиль без workflowPaths (FALLBACK-NO-WORKFLOW, реестр резолвера $REPO/registry) + закоммиченный подложенный registry/trace.tsv — trassa-rashozhdenie rc 1 до exec, файл не изменён, .harness/registry не трогается (Rev136c-B1)"
+    },
+    "e2-trassa-fallback-possev": {
+      "bol": "НАБЛ-П5",
+      "krasnaya_sejchas": true,
+      "sut": "профиль без workflowPaths: дверь сеет ЭФФЕКТИВНЫЙ реестр $REPO/registry/trace.tsv (то же место читает make_task), бриф печатает TRACE из конфига, rc 7; .harness/registry/trace.tsv не создаётся (Rev136c-B1)"
     }
   },
   "stab_vhod": {
@@ -539,6 +549,10 @@
     "s41-dver-trassa-dopisyvaet": [
       "c6-trassa-podmena-modeli",
       "c10-kontrol-trassa-ravna"
+    ],
+    "s42-dver-reg-svoim-jq": [
+      "e1-trassa-fallback-podmena",
+      "e2-trassa-fallback-possev"
     ]
   },
   "osi": [
@@ -919,6 +933,18 @@
       "sostojanie": "слой — symlink под .harness/ на файл ВНУТРИ .harness/",
       "svojstvo": "КОНТРОЛЬ: канонизированный путь под .harness/ — проектный режим (пустой перечень → rc 1), корневая ловушка игнорируется",
       "kletka": "d14-kontrol-symlink-vnutri"
+    },
+    {
+      "os": "E",
+      "sostojanie": "workflowPaths отсутствует (законный вход 996: FALLBACK-NO-WORKFLOW, эффективный реестр резолвера $REPO/registry)",
+      "svojstvo": "закоммиченный подложенный registry/trace.tsv ≠ конфигу → trassa-rashozhdenie rc 1 ДО exec, файл не изменён, .harness/registry/trace.tsv не создаётся (дверь судит ЭФФЕКТИВНЫЙ реестр)",
+      "kletka": "e1-trassa-fallback-podmena"
+    },
+    {
+      "os": "E",
+      "sostojanie": "workflowPaths отсутствует (законный вход 996: FALLBACK-NO-WORKFLOW, эффективный реестр резолвера $REPO/registry)",
+      "svojstvo": "дверь сеет ЭФФЕКТИВНЫЙ реестр ($REPO/registry/trace.tsv = то, что читает make_task); mkt --kind brief без --model-trace печатает TRACE модель из конфига; сессия поднимается rc 7; .harness/registry/trace.tsv не создаётся",
+      "kletka": "e2-trassa-fallback-possev"
     }
   ],
   "vne_osi": [
