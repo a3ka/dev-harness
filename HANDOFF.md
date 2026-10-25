@@ -7582,6 +7582,7 @@ soreview-v1.md.
 - 098 · пара 3 · заморожен · трек autonomy
 - 118 · пара 3 · заморожен · трек complior
 - 116 · пара 3 · заморожен · трек complior
-- 136 · пара 3 · заморожен · трек project-mode
+- 138 · пара 3 · заморожен · трек complior
+- 139 · пара 3 · заморожен · трек complior
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
