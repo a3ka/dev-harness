@@ -1,12 +1,12 @@
-# Оси батареи 139 (e2e-avtoperezapusk) — полная таблица, v2
+# Оси батареи 139 (e2e-avtoperezapusk) — полная таблица, v3
 
 Единый источник входов/ожиданий — `source.json` (правило 8: оракул в памяти
 ДО вызова субъекта); эта таблица — карта осей для судьи, числа из прогонов.
 Каждая красная клетка = обманный стаб (мутация КОДОМ в `probe.py` STAB_MUTACII,
 привязка `stab_vhod`), каждый зелёный контроль = честная модель на том же входе.
-Замеры v2: кейсы 40 (replay 30 / struktura 9 / derevo 1), стабов 32, связей 36.
+Замеры v3: кейсы 42 (replay 30 / struktura 11 / derevo 1), стабов 41, связей 60.
 
-## Ось A — событие workflow_run (replay)
+## Ось A — событие workflow_run (replay, два окружения CHISTYJ+ACTIONS)
 
 | значение | вход | исход | стабы |
 |---|---|---|---|
@@ -27,18 +27,20 @@
 | значение | вход | исход | стабы |
 |---|---|---|---|
 | 7 сигнатур канона | infra-* (7 входов) | POVTOR | s-signatury-suzheny, s-polnyj-rerun, s-dva-rerun |
-| чистый провал | chistyj-proval (E2E_NE_PROSHLA) | SKIP | s-bez-signaturnogo-filtra, s-molchashij-skip |
+| чистый провал | chistyj-proval (E2E_NE_PROSHLA) | SKIP | s-bez-signaturnogo-filtra, s-molchashij-skip, s-skrytaja-vetv-github-actions, s-skrytaja-vetv-ci, s-api-f-post, s-workflow-run, s-api-jobs-f, s-setevoj-python |
 | ниже порога | nizhe-poroga | SKIP | s-bez-signaturnogo-filtra |
 | gradle-lock (Н-409) | gradle-lock | SKIP | s-bez-signaturnogo-filtra |
 | fork-PR | fork-pr-bez-sekreta (PILOT_DEMO_CODE_ABSENT) | SKIP | — |
 | сигнатуры только в эхе шага | skript-eho-signatury (живой носитель 40198243018) | SKIP | s-bez-eho-zaschity |
 | эхо + длинный лог без сигнатуры | dlinnyj-eho-200001 | SKIP | — |
 
-## Ось D — размер/форма лога × положение сигнатуры (replay, v2: блокер 2)
+## Ось D — размер/форма лога × положение сигнатуры (replay)
 
 Длинные логи генерируются ВО ВРЕМЯ прогона (в репо не хранятся). Ожидание
 на валидной сигнатуре — всегда POVTOR (grep читает ФАЙЛ: ранний выход grep -q
-не роняет пайплайн SIGPIPE под pipefail), на чистом логе — SKIP.
+не роняет пайплайн SIGPIPE под pipefail), на чистом логе — SKIP. Env иррелевантен
+для содержания лога, но каждый вход оси D прогоняется и в @ACTIONS (модель
+env-инвариантна; время ≤ 60 с держится: 42 входа ≈ 16 с).
 
 | значение | вход | исход | стабы |
 |---|---|---|---|
@@ -68,7 +70,9 @@ SIGPIPE наблюдаем; на коротких входах (< буфера �
 | права ровно {actions: write, contents: read} | struktura-prava | s-shirokie-prava |
 | runs-on [self-hosted, linux, x64, complior] | struktura-runner | s-runner-ubuntu |
 | if несёт три условия | struktura-if | s-if-bez-uslovij |
-| канон вызова: литерал gh run rerun ровно 1 в теле И в файле, слово rerun 1 раз в файле, дословно --failed "$RUN_ID"; без while/until/for, оболочка -c/eval/xargs/$()/curl вне алфавита | struktura-rerun | s-dva-rerun, s-svertyvanie-dva-rerun (свёртка >- не укрывает: счёт по разобранному значению), s-env-podmena, s-skrytyj-bash-c, s-skrytyj-eval, s-skrytyj-xargs, s-skrytyj-podstanovka, s-setevoj-curl, s-cikl-for |
+| канон вызова (СТУПЕНЬ диагностики): литерал gh run rerun ровно 1 в теле И в файле, слово rerun 1 раз в файле, дословно --failed "$RUN_ID"; без while/until/for, оболочка -c/eval/xargs/$()/curl вне алфавита | struktura-rerun | s-dva-rerun, s-svertyvanie-dva-rerun (свёртка >- не укрывает: счёт по разобранному значению), s-env-podmena, s-skrytyj-bash-c, s-skrytyj-eval, s-skrytyj-xargs, s-skrytyj-podstanovka, s-setevoj-curl, s-cikl-for |
+| **КАНОН СКРИПТА (v3, главная ось, блокер 2/2)**: нормализованное тело `run:` (strip, без пустых/#-строк) построчно равно нормализованному телу модели; первая разница — `SKRIPT_RASHOZHDENIE: строка N: <строка>`, разная длина — `+ (строк M, в каноне K)` | struktura-skript | 18 связей: s-skrytaja-vetv-github-actions, s-skrytaja-vetv-ci, s-api-f-post, s-pesochnica-scenarij, s-run-id-vne-batarei, s-pesochnica-gh-bin, s-workflow-run, s-api-jobs-f, s-setevoj-python + допсвязи s-skrytyj-bash-c, s-skrytyj-eval, s-skrytyj-xargs, s-skrytyj-podstanovka, s-setevoj-curl, s-env-podmena, s-svertyvanie-dva-rerun, s-dva-rerun, s-cikl-for |
+| зелёный контроль канона: переформат модели КОДОМ (замена всех комментариев, вставка пустых строк, хвостовые пробелы) — ожидание пусто, ложный красный на честной реализации недопустим | struktura-skript-pereformat | — (зелёная клетка) |
 | секреты/литеральные токены | struktura-sekrety | s-sekret-v-tekste |
 | ${{ }}-выражения закрыты | struktura-vyrazhenija | s-vyrazhenie-vne-alfavita |
 | канон сигнатур побайтово | struktura-signatury | s-signatury-suzheny |
@@ -80,11 +84,53 @@ SIGPIPE наблюдаем; на коротких входах (< буфера �
 способный повторить прогон, отвергается статикой до replay (свидетели критика
 extra-step/extra-job: --repo rc 1, ZAMKNUTOST именована).
 
+## Ось OKRUZHENIE — replay в двух окружениях (v3, арбитраж 139)
+
+Каждый replay-вход судится ДВАЖДЫ против ОДНОГО оракула: `CHISTYJ` (как в v2)
+и `ACTIONS` — поверх env replay живое окружение Actions (константа
+`OKRUZHENIE_ACTIONS` в probe.py: GITHUB_ACTIONS/CI=true, GITHUB_RUN_ID события
+кейса, GITHUB_RUN_ATTEMPT/RUN_NUMBER/WORKFLOW/JOB/EVENT_NAME/EVENT_PATH — файл
+с JSON события кейса, GITHUB_SHA/REF/ACTOR/API_URL/SERVER_URL/WORKSPACE,
+GITHUB_TOKEN=тест-токен, RUNNER_OS/ARCH/NAME/TEMP, ACTIONS_RUNTIME_TOKEN).
+Отказ — `CASE <вход> KRASNO: @ACTIONS …` одной строкой на вход.
+
+Назначение оси — честно названное: (i) доказывает env-ИНВАРИАНТНОСТЬ самой
+модели (канон, который скопирует implementer, проверен в окружении, где будет
+жить); (ii) даёт ПОВЕДЕНЧЕСКИЙ красный свидетель скрытых env-ветвей
+(s-skrytaja-vetv-github-actions/-ci, s-api-f-post красны `@ACTIONS
+RC_RASHOZHDENIE 127` + VNE_ALFAVITA в вызовах). Ось ЗАМЫКАНИЕМ класса «ветвь,
+различающая песочницу» НЕ является (замер арбитража 139: 3 из 6 форм зелёные
+в обоих окружениях — s-pesochnica-scenarij, s-run-id-vne-batarei,
+s-pesochnica-gh-bin честны в replay ПО ПОСТРОЕНИЮ, их ловит только канон
+скрипта; replay слеп к тэллам песочницы, которых у него бесконечно много).
+
+## Ось VYZOVY — замкнутые argv подложного gh и PATH (v3)
+
+Подложный `gh` принимает РОВНО три формы argv: `api <jobs-путь> --jq <фильтр
+из алфавита>`, `api <logs-путь>`, `run rerun --failed <id>`; всё иное (-X/
+--method/-f/-F/--field/--raw-field/--input/-H/--paginate, лишние позиционные,
+rerun без --failed) — запись `VNE_ALFAVITA …` rc 127 (s-api-jobs-f красен в
+ОБОИХ окружениях — argv замкнут даже на конформном GET-пути). PATH replay —
+только bindir: gh-шим (shebang — абсолютный python3 батареи) + симлинки
+{bash, sed, grep, tr, mktemp, rm}; python3/curl/wget/env/xargs/sh недоступны →
+rc 127 (s-setevoj-python красен: `python3 - <<EOF … urllib POST` умирает
+command not found). Утечка SCENARIJ_* в env скрипта не устраняется: после
+канона скрипта тэллы песочницы бессмысленны (пример в §НЕ ЗАЩИЩАЕТ
+контракта — почему ось окружения не замыкает класс).
+
 ## Ось F — дерево (пин байтов mobile.yml)
 
 | значение | вход | стабы |
 |---|---|---|
 | mobile.yml изменён | pravka-mobile-yml | — (дерево мутирует сам движок) |
+
+## Свидетели (v3): `--svideteli <dir>` строит деревья из STAB_MUTACII
+
+kritik-hidden-api (свидетель критика 2/2 дословно), env-ci, env-f-post,
+sandbox-tell-scenarij, run-id-vne-batarei, sandbox-tell-gh-bin (мутанты 1-6
+арбитража 139): живой `--repo <dir>/<имя>` → rc 1,
+`CASE struktura-skript KRASNO: SKRIPT_RASHOZHDENIE: строка 27: <первая чужая
+строка>`.
 
 ## Остатки вне батареи (ловцы)
 
