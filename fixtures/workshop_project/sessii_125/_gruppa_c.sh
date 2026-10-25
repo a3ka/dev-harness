@@ -34,6 +34,11 @@ mir() { # $1 = имя мира; $2 = имя репозитория (seed)
   # проходить; отсутствие guard/config в мире больше не маскирует отступления.
   cp "$ROOT/.omp/extensions/path-guard.ts" "$M/inst/.omp/extensions/path-guard.ts"
   cp "$ROOT/config/agent_models.json" "$M/inst/config/agent_models.json"
+  # 136 v3 (ось E/Rev136c-B1): честная дверь берёт путь реестра из ЕДИНОГО
+  # project_paths_resolve — библиотека next_id.sh + profile_resolver.sh
+  # сиблингами установки ($HERE/scripts), как у make_task и у run_dver
+  # батареи 136; в НАСТОЯЩЕЙ установке они у двери есть всегда.
+  cp "$ROOT/scripts/next_id.sh" "$ROOT/scripts/profile_resolver.sh" "$M/inst/scripts/"
   printf '#!/usr/bin/env bash\nfor a in "$@"; do printf "%%s\\n" "$a"; done > %s/workshop.argv\nprintf "%%s\\0" "$@" > %s/workshop.argv0\nprintf "launch\\n" >> %s/workshop.calls\n' "$M" "$M" "$M" > "$M/inst/workshop"
   printf '#!/bin/sh\nif [ "$1" = --version ]; then echo omp/v10; exit 0; fi\nexit 0\n' > "$M/bin/omp"
   printf '#!/bin/sh\nprintf "%%s\\n" "$@" >> %s/gh.argv\nexit 0\n' "$M" > "$M/bin/gh"
