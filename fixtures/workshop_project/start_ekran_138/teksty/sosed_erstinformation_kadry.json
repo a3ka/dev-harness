@@ -1,0 +1,65 @@
+{
+ "_comment": "Живой манифест соседнего экрана (в продукте — пачка контракта); здесь: ne_trogaet судится по id кадров.",
+ "kadry": [
+  {
+   "id": "F02.03-V01 dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F02.03-V01 light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F02.03-V02 dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F02.03-V02 light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F02.08-V01 dark",
+   "tema": "dark",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  },
+  {
+   "id": "F02.08-V01 light",
+   "tema": "light",
+   "snimok": "sosednyj",
+   "maket": "docs/ux/x.png",
+   "maket_sha256": "pin-sosednego-ekrana",
+   "porog": 0.6,
+   "maski_pt": [],
+   "elementy": []
+  }
+ ]
+}
