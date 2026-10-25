@@ -1,0 +1,875 @@
+{
+ "versija": 1,
+ "kontrakt": "141-obryv-adb-diagnostika",
+ "subjekt": ".github/workflows/mobile.yml",
+ "repo_scenariev": "a3ka/Complior-mob",
+ "job_imja": "android-e2e",
+ "shagi": {
+  "135": "135 first-run-ekran",
+  "118": "118 erstinformation",
+  "995": "Maestro runner для CMP-MOB-001"
+ },
+ "signatury_regex": "device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException",
+ "signatury_istochnik": "канон обрыва adb-транспорта: живой шаг 117 mobile.yml:385 + шаг 116 PR #122 (лог 40198243018) + ci-e2e.sh:79; слово владельца 2026-10-25 вопрос №4; четыре альтернативы, шагный повтор — НЕ перечень 139",
+ "signatur_vstrech": {
+  "135": 2,
+  "118": 2,
+  "995": 1
+ },
+ "signatury_ostatok_zapret": [
+  "device offline",
+  "adb: device not found",
+  "device [^ ]* not found",
+  "DeviceServerDiedException"
+ ],
+ "alfavit_vyrazhenij": [
+  "${{ github.workspace }}",
+  "${{ github.run_id }}",
+  "${{ github.run_attempt }}"
+ ],
+ "utility_alfavit": [
+  "bash",
+  "sed",
+  "grep",
+  "tr",
+  "tail",
+  "cp",
+  "cmp",
+  "mkdir",
+  "rm",
+  "seq",
+  "cat",
+  "adb",
+  "emulator",
+  "pkill",
+  "sleep",
+  "python3",
+  "avdmanager"
+ ],
+ "nositeli": {
+  "model/mobile.yml": "b7cd9c518c542e5e8b259f6a4d2d9a9ad64ba8c68d0498afe1f8cd46d5c7a353",
+  "mobile-bez-141.yml": "b4c83b888d3ec1e2daa9c9b014b3cf3ee3fa741c71e5098d38f81e2006140341"
+ },
+ "istochniki": {
+  "osnova": "ветка PR #124 a3ka/Complior-mob cmp-mob-118/erstinformation-prod @ 5803d57 (.github/workflows/mobile.yml)",
+  "kandidat": "kandidat-mobile-yml.patch Diag141 (шаг 135; patch --dry-run OK, bash -n OK)",
+  "lekalo-118-995": "контракт 141 (architect): шаг 118 — то же лекало; шаг 995 — diag-хвост без шагного повтора"
+ },
+ "kejsy": {
+  "135-oflin-povtor-spas": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "обрыв adb (device offline) на первом прогоне валидатора; сигнатура канона → ровно один перезапуск эмулятора+валидатора, второй прогон зелёный; диагностика в выводе оба раза",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "Command failed (host:transport:emulator-5564): device offline"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5564\toffline",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=0"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 135: adb devices",
+     "emulator-5564\toffline",
+     "ДИАГНОСТИКА 135: сигнатуры Maestro в mobile/maestro-out-first-run",
+     "Command failed (host:transport:emulator-5564): device offline",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135",
+     "ДИАГНОСТИКА 135: хвост emulator-ci135-401407-1.log"
+    ],
+    "neto": []
+   }
+  },
+  "135-adb-notfound": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "вторая альтернатива канона (adb: device not found) тоже повод к повтору",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "adb: device not found"
+    ],
+    "boot": "ok",
+    "adb_devices": "",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=0"
+    ],
+    "vyvod": [
+     "List of devices attached",
+     "adb: device not found",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ],
+    "neto": []
+   }
+  },
+  "135-serial-notfound": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "третья альтернатива канона (device <serial> not found)",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "device 'emulator-5564' not found"
+    ],
+    "boot": "ok",
+    "adb_devices": "",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=0"
+    ],
+    "vyvod": [
+     "device 'emulator-5564' not found",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ],
+    "neto": []
+   }
+  },
+  "135-devserverdied-povtor-krasen": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "четвёртая альтернатива канона; повтор ТОЖЕ красный → итог красный, третьего прогона нет",
+   "scena": {
+    "priemka_rc": "1,1",
+    "signatury": [
+     "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on emulator-5564"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5564\toffline",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on emulator-5564",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135",
+     "ДИАГНОСТИКА 135: adb devices",
+     "emulator-5564\toffline"
+    ],
+    "neto": []
+   }
+  },
+  "135-chistyj-proval": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "красный валидатор БЕЗ сигнатуры обрыва (провал сверки/происхождения) — НЕ повторяется, диагностика печатается",
+   "scena": {
+    "priemka_rc": "1",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "emulator-5564\tdevice",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 135: adb devices",
+     "emulator-5564\tdevice"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ]
+   }
+  },
+  "135-zelenyj": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "зелёный контроль: без красного нет ни диагностики, ни повтора",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=0"
+    ],
+    "vyvod": [],
+    "neto": [
+     "ДИАГНОСТИКА 135",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ]
+   }
+  },
+  "135-boot-ne-zagruzilsja": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "эмулятор не грузится: именованный ОТКАЗ + диагностика, повтора нет",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "ne-zagruzilsja",
+    "adb_devices": "emulator-5564\toffline",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ОТКАЗ: эмулятор 135 не загрузился за 390 с",
+     "ДИАГНОСТИКА 135: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ]
+   }
+  },
+  "135-stabil-nedostizhima": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "дыра «прогнал и забыл» закрыта: цикл стабильности проверяет свой итог (ОТКАЗ при adb offline)",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "stabil-net",
+    "adb_devices": "emulator-5564\toffline",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ОТКАЗ: эмулятор emulator-5564 не стабилизировался (adb offline)",
+     "ДИАГНОСТИКА 135: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ]
+   }
+  },
+  "135-emulator-log-hvost": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "хвост emulator-лога (40 строк) в диагностике: различитель гипотез (г)/(е) — port already in use виден в логе шага",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "Command failed (host:transport:emulator-5564): device offline"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5564\toffline",
+    "shag": "135",
+    "emulator_log": {
+     "strok": 60,
+     "pozicija": 50,
+     "oshibka": "emulator: ERROR: port 5564 already in use"
+    }
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=0"
+    ],
+    "vyvod": [
+     "emulator: ERROR: port 5564 already in use",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135",
+     "emulator-5564\toffline"
+    ],
+    "neto": []
+   }
+  },
+  "135-install-failed-bez-povtora": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "сигнатура 139-уровня (INSTALL_FAILED) шагом НЕ повторяется: шагный повтор — только 4 альтернативы канона 117/ci-e2e",
+   "scena": {
+    "priemka_rc": "1",
+    "signatury": [
+     "Failure [INSTALL_FAILED_UPDATE_APK_MISMATCH]"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5564\tdevice",
+    "shag": "135"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 135: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135",
+     "Failure [INSTALL_FAILED_UPDATE_APK_MISMATCH]"
+    ]
+   }
+  },
+  "135-pustoj-maestro-out": {
+   "tip": "replay",
+   "shag": "135",
+   "opisanie": "пустой maestro-out (файл без строк): повтора нет, диагностика печатается",
+   "scena": {
+    "priemka_rc": "1",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "emulator-5564\tdevice",
+    "shag": "135",
+    "pustoj_fajl": true
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci135-401407-1",
+     "PRIEMKA 135 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 135: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 135"
+    ]
+   }
+  },
+  "118-oflin-povtor-spas": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "шаг 118 получает то же лекало: обрыв adb → один повтор спасает",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "Command failed (host:transport:emulator-5566): device offline"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5566\toffline",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=0"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 118: adb devices",
+     "emulator-5566\toffline",
+     "ДИАГНОСТИКА 118: сигнатуры Maestro в mobile/maestro-out-erstinformation",
+     "Command failed (host:transport:emulator-5566): device offline",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ],
+    "neto": []
+   }
+  },
+  "118-devserverdied-povtor-spas": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "четвёртая альтернатива канона у 118",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on emulator-5566"
+    ],
+    "boot": "ok",
+    "adb_devices": "",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=0"
+    ],
+    "vyvod": [
+     "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on emulator-5566",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ],
+    "neto": []
+   }
+  },
+  "118-povtor-tozhe-krasen": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "повтор 118 тоже красный → итог красный, третьего прогона нет",
+   "scena": {
+    "priemka_rc": "1,1",
+    "signatury": [
+     "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on emulator-5566"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5566\toffline",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "maestro.android.DeviceServerDiedException: Device server died during 'deviceInfo' on emulator-5566",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118",
+     "ДИАГНОСТИКА 118: adb devices",
+     "emulator-5566\toffline"
+    ],
+    "neto": []
+   }
+  },
+  "118-chistyj-proval": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "красный без сигнатуры у 118 НЕ повторяется",
+   "scena": {
+    "priemka_rc": "1",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "emulator-5566\tdevice",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 118: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ]
+   }
+  },
+  "118-zelenyj": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "зелёный контроль 118",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=0"
+    ],
+    "vyvod": [],
+    "neto": [
+     "ДИАГНОСТИКА 118",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ]
+   }
+  },
+  "118-boot-ne-zagruzilsja": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "отказ загрузки эмулятора 118 именован",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "ne-zagruzilsja",
+    "adb_devices": "emulator-5566\toffline",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ОТКАЗ: эмулятор 118 не загрузился за 390 с",
+     "ДИАГНОСТИКА 118: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ]
+   }
+  },
+  "118-stabil-nedostizhima": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "итог цикла стабильности проверяется и у 118",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "stabil-net",
+    "adb_devices": "emulator-5566\toffline",
+    "shag": "118"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ОТКАЗ: эмулятор emulator-5566 не стабилизировался (adb offline)",
+     "ДИАГНОСТИКА 118: adb devices"
+    ],
+    "neto": [
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ]
+   }
+  },
+  "118-emulator-log-hvost": {
+   "tip": "replay",
+   "shag": "118",
+   "opisanie": "хвост emulator-лога в диагностике 118 (порт 5566)",
+   "scena": {
+    "priemka_rc": "1,0",
+    "signatury": [
+     "Command failed (host:transport:emulator-5566): device offline"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5566\toffline",
+    "shag": "118",
+    "emulator_log": {
+     "strok": 60,
+     "pozicija": 50,
+     "oshibka": "emulator: ERROR: port 5566 already in use"
+    }
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=1",
+     "ADB_DEVICES",
+     "EMULATOR ci118-401407-1",
+     "PRIEMKA 118 rc=0"
+    ],
+    "vyvod": [
+     "emulator: ERROR: port 5566 already in use",
+     "ПОВТОР: обрыв adb-транспорта эмулятора 118"
+    ],
+    "neto": []
+   }
+  },
+  "995-diag-signatura": {
+   "tip": "replay",
+   "shag": "995",
+   "opisanie": "диагностика 995 ВНЕ эха при красном: adb devices + сигнатуры из mobile/maestro-out; шагного повтора НЕТ (ровно один вызов maestro_probe)",
+   "scena": {
+    "priemka_rc": "1",
+    "signatury": [
+     "Command failed (host:transport:emulator-5560): device offline"
+    ],
+    "boot": "ok",
+    "adb_devices": "emulator-5560\toffline",
+    "shag": "995"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "PROBA995 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 995: adb devices",
+     "emulator-5560\toffline",
+     "ДИАГНОСТИКА 995: сигнатуры Maestro в mobile/maestro-out",
+     "Command failed (host:transport:emulator-5560): device offline"
+    ],
+    "neto": [
+     "ПОВТОР"
+    ]
+   }
+  },
+  "995-chistyj-proval": {
+   "tip": "replay",
+   "shag": "995",
+   "opisanie": "красный 995 без сигнатур: диагностика печатается, сигнатур в выводе нет",
+   "scena": {
+    "priemka_rc": "1",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "emulator-5560\tdevice",
+    "shag": "995"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "PROBA995 rc=1",
+     "ADB_DEVICES"
+    ],
+    "vyvod": [
+     "ДИАГНОСТИКА 995: adb devices",
+     "emulator-5560\tdevice"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "Command failed"
+    ]
+   }
+  },
+  "995-zelenyj": {
+   "tip": "replay",
+   "shag": "995",
+   "opisanie": "зелёный контроль 995: без красного нет диагностики",
+   "scena": {
+    "priemka_rc": "0",
+    "signatury": [],
+    "boot": "ok",
+    "adb_devices": "",
+    "shag": "995"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "PROBA995 rc=0"
+    ],
+    "vyvod": [],
+    "neto": [
+     "ДИАГНОСТИКА 995"
+    ]
+   }
+  },
+  "struktura-shag135": {
+   "tip": "struktura",
+   "podtip": "kanon",
+   "shag": "135",
+   "opisanie": "канон скрипта: тело run: шага 135 построчно равно модели (комментарии/формат свободны)",
+   "ozhidanie": {}
+  },
+  "struktura-shag118": {
+   "tip": "struktura",
+   "podtip": "kanon",
+   "shag": "118",
+   "opisanie": "канон скрипта: тело run: шага 118 построчно равно модели (комментарии/формат свободны)",
+   "ozhidanie": {}
+  },
+  "struktura-shag995": {
+   "tip": "struktura",
+   "podtip": "kanon",
+   "shag": "995",
+   "opisanie": "канон скрипта: тело run: шага 995 построчно равно модели (комментарии/формат свободны)",
+   "ozhidanie": {}
+  },
+  "struktura-pereformat135": {
+   "tip": "struktura",
+   "podtip": "pereformat",
+   "shag": "135",
+   "opisanie": "зелёный контроль канона 135: комментарии и пустые строки не краснят",
+   "ozhidanie": {}
+  },
+  "struktura-pereformat118": {
+   "tip": "struktura",
+   "podtip": "pereformat",
+   "shag": "118",
+   "opisanie": "зелёный контроль канона 118: комментарии и пустые строки не краснят",
+   "ozhidanie": {}
+  },
+  "struktura-pereformat995": {
+   "tip": "struktura",
+   "podtip": "pereformat",
+   "shag": "995",
+   "opisanie": "зелёный контроль канона 995: комментарии и пустые строки не краснят",
+   "ozhidanie": {}
+  },
+  "struktura-signatura135": {
+   "tip": "struktura",
+   "podtip": "signatura",
+   "shag": "135",
+   "opisanie": "единый источник: каждое вхождение сигнатуры в теле 135 — побайтово канон 117/ci-e2e",
+   "ozhidanie": {}
+  },
+  "struktura-signatura118": {
+   "tip": "struktura",
+   "podtip": "signatura",
+   "shag": "118",
+   "opisanie": "единый источник: каждое вхождение сигнатуры в теле 118 — побайтово канон 117/ci-e2e",
+   "ozhidanie": {}
+  },
+  "struktura-signatura995": {
+   "tip": "struktura",
+   "podtip": "signatura",
+   "shag": "995",
+   "opisanie": "единый источник: каждое вхождение сигнатуры в теле 995 — побайтово канон 117/ci-e2e",
+   "ozhidanie": {}
+  },
+  "struktura-vyrazhenija": {
+   "tip": "struktura",
+   "podtip": "vyrazhenija",
+   "shag": "995",
+   "opisanie": "замкнутый алфавит ${{ }}-выражений тела 995: github.workspace/run_id/run_attempt",
+   "ozhidanie": {}
+  },
+  "derevo-bez-141": {
+   "tip": "derevo",
+   "podtip": "bez-141",
+   "opisanie": "живая форма mobile.yml БЕЗ правки 141 (PR #124 @ 5803d57) красна каноном — до реализации зелени нет",
+   "ozhidanie": {
+    "krasno": "SKRIPT_RASHOZHDENIE: shag 135"
+   }
+  },
+  "derevo-chuzhoj-shag": {
+   "tip": "derevo",
+   "podtip": "chuzhoj-shag",
+   "opisanie": "зелёный контроль: правка чужого шага (123) не краснит батарею — файл mobile.yml НЕ пинится байтами целиком (урок дефекта дизайна инварианта 6 у 139)",
+   "ozhidanie": {}
+  },
+  "derevo-shag-net": {
+   "tip": "derevo",
+   "podtip": "shag-net",
+   "opisanie": "шаг 135 переименован/удалён — именованный отказ SHAG_135_NET, не молчаливая зелень",
+   "ozhidanie": {
+    "krasno": "SHAG_135_NET"
+   }
+  }
+ },
+ "stab_vhod": {
+  "s-bez-signaturnogo-filtra-135": [
+   "135-install-failed-bez-povtora"
+  ],
+  "s-signatura-suzhena-135": [
+   "135-devserverdied-povtor-krasen",
+   "struktura-signatura135"
+  ],
+  "s-signatura-rasshirena-135": [
+   "135-install-failed-bez-povtora"
+  ],
+  "s-dva-povtora-135": [
+   "135-devserverdied-povtor-krasen"
+  ],
+  "s-bez-diag-135": [
+   "135-chistyj-proval",
+   "135-oflin-povtor-spas",
+   "135-adb-notfound",
+   "135-serial-notfound",
+   "135-devserverdied-povtor-krasen"
+  ],
+  "s-diag-zaglushen-135": [
+   "135-oflin-povtor-spas",
+   "135-devserverdied-povtor-krasen"
+  ],
+  "s-adb-glotnuto-135": [
+   "135-oflin-povtor-spas",
+   "135-emulator-log-hvost",
+   "135-devserverdied-povtor-krasen"
+  ],
+  "s-tail-korotkij-135": [
+   "135-emulator-log-hvost"
+  ],
+  "s-emulator-log-uterjan-135": [
+   "135-emulator-log-hvost"
+  ],
+  "s-povtor-bez-perezapuska-135": [
+   "135-oflin-povtor-spas"
+  ],
+  "s-bez-itoga-stabil-135": [
+   "135-stabil-nedostizhima"
+  ],
+  "s-boot-bez-diag-135": [
+   "135-boot-ne-zagruzilsja"
+  ],
+  "s-podmena-signatury-diag-135": [
+   "struktura-signatura135",
+   "135-adb-notfound"
+  ],
+  "s-kanon-stroka-135": [
+   "struktura-shag135"
+  ],
+  "s-bez-povtora-118": [
+   "118-oflin-povtor-spas",
+   "118-devserverdied-povtor-spas"
+  ],
+  "s-dva-povtora-118": [
+   "118-povtor-tozhe-krasen"
+  ],
+  "s-bez-diag-118": [
+   "118-chistyj-proval",
+   "118-oflin-povtor-spas",
+   "118-devserverdied-povtor-spas"
+  ],
+  "s-bez-itoga-stabil-118": [
+   "118-stabil-nedostizhima"
+  ],
+  "s-podmena-signatury-diag-118": [
+   "struktura-signatura118"
+  ],
+  "s-kanon-stroka-118": [
+   "struktura-shag118"
+  ],
+  "s-995-bez-diag": [
+   "995-diag-signatura",
+   "995-chistyj-proval"
+  ],
+  "s-995-shagovoj-povtor": [
+   "995-diag-signatura"
+  ],
+  "s-995-adb-glotnuto": [
+   "995-diag-signatura",
+   "995-chistyj-proval"
+  ],
+  "s-podmena-signatury-diag-995": [
+   "struktura-signatura995"
+  ],
+  "s-kanon-stroka-995": [
+   "struktura-shag995"
+  ],
+  "s-vyrazhenie-vne-alfavita": [
+   "struktura-vyrazhenija"
+  ],
+  "s-shag-pereimenovan-135": [
+   "struktura-shag135"
+  ]
+ }
+}
