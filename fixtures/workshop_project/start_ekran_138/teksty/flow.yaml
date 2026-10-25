@@ -1,0 +1,32 @@
+appId: com.complior.mobile
+name: start-ekran
+---
+# Production путь допуска (118): запуск → First-Run → demo-вход F03 →
+# Erstinformation → continue при current gate → Start (start_tabs и КАЖДАЯ
+# вкладка своим testID). Кадры Start — после перехода и assertVisible СВОЕГО
+# селектора (testID в mobile/src/features/start/**): idle → composer →
+# decision → resume. Прямой /start без допуска экраном не проверяется —
+# маршрут и пробы допуска остаются 118.
+- launchApp
+- assertVisible: {id: first-run-continue}
+- tapOn: {id: first-run-continue}
+- assertVisible: {id: auth-demo-entry}
+- tapOn: {id: auth-demo-entry}
+- assertVisible: {id: erstinfo_gate_current}
+- tapOn: {id: erstinfo_continue_start}
+- assertVisible: {id: start_tabs}
+- assertVisible: {id: start_tab_start}
+- assertVisible: {id: start_tab_vorgaenge}
+- assertVisible: {id: start_tab_schutz}
+- assertVisible: {id: start_tab_post}
+- assertVisible: {id: start_sostojanie_idle}
+- takeScreenshot: start-ekran-f04-01
+- tapOn: {id: start_next_variant}
+- assertVisible: {id: start_sostojanie_composer}
+- takeScreenshot: start-ekran-f04-07
+- tapOn: {id: start_next_variant}
+- assertVisible: {id: start_sostojanie_decision}
+- takeScreenshot: start-ekran-f04-08
+- tapOn: {id: start_next_variant}
+- assertVisible: {id: start_sostojanie_resume}
+- takeScreenshot: start-ekran-f04-13
