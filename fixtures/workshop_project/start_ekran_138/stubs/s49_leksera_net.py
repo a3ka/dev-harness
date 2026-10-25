@@ -1,5 +1,5 @@
-# стаб 138 (s48_nositel_grammatika_propuskaet): грамматика носителя круга 1 — подстрока
-# testID="..." где угодно в некомментарной строке (литерал/хвост-комментарий не видны)
+# стаб 138 (s49_leksera_net): лексер носителя отключён — весь текст
+# считается кодом (круг 1-2 засчитывал комментарий/строку/шаблон)
 #!/usr/bin/env python3
 # Проверка доступных свидетельств происхождения (контракт 138, файл пачки).
 # НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском
@@ -29,10 +29,15 @@
 #   5) селекторы: каждый имеет носитель в дереве-ВЛАДЕЛЬЦЕ (таблица
 #      VLADELTCY: состояния Start — mobile/src/features/start/**; First-Run
 #      и Erstinformation — onboarding/**; demo-вход — auth/**; состав
-#      вкладок — mobile/src/app/**). Носитель — литеральный атрибут
-#      testID="имя" (пробелы вокруг '=' и одинарные кавычки допустимы)
-#      ВНЕ комментария и строкового литерала; совпадение в ЧУЖОМ дереве
-#      носителем НЕ является (чьё состояние — того экрана и носитель);
+#      вкладок — mobile/src/app/**). Носитель — атрибут в сегменте КОДА
+#      (лексер: комментарии/строки/шаблоны — не код) файла экранного кода
+#      (не __tests__/__mocks__/__snapshots__, не *.test.*|*.spec.*|
+#      *.stories.*|*.d.ts|*.snap, расширения .tsx/.jsx/.js) дерева-
+#      владельца; достижимость узла не судится (НЕ ЗАЩИЩАЕТ). Совпадение
+#      в ЧУЖОМ дереве носителем НЕ является. Лексер минимальный: строка
+#      обрывается на \n (апостроф JSX-текста маскирует до конца строки;
+#      обход — носитель своей строкой), ${…} шаблона не разбирается
+#      (вложенный бэктик — остаток); пробелы вокруг '=' допустимы;
 #   6) манифест — ровно 8 кадров: 4 состояния × dark/light;
 #   7) кадр, байт-идентичный макету, — НЕ скриншот (сравнение sha256).
 # В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает Maestro),
@@ -243,25 +248,82 @@ def selektory(shagi):
     return out
 
 
+RASSHIRENIJA_KODA = ('.tsx', '.jsx', '.js')
+NE_EKRAN_KATALOGI = frozenset(('__tests__', '__mocks__', '__snapshots__'))
+NE_EKRAN_IMENA = ('.test.', '.spec.', '.stories.', '.d.ts', '.snap')
+
+
+def ekran_kod(p):
+    """Файл экранного кода — замкнутый алфавит путей оси H (РЕШЕНИЕ
+    арбитра 138): не тесты/моки/снапшоты/истории/.d.ts/.snap, расширения
+    ТОЛЬКО .tsx/.jsx/.js (.ts/.json/.md/.css — не экранной код)."""
+    return (p.suffix in RASSHIRENIJA_KODA
+            and not any(metka in p.name for metka in NE_EKRAN_IMENA)
+            and not any(katalog in p.parts for katalog in NE_EKRAN_KATALOGI))
+
+
+def kod_maska(tekst):
+    """Маска не-кода пробелами; переводы строк СОХРАНЯЮТСЯ (адресный
+    диагноз файл:строка). Состояния лексера: код | // до \\n | /*…*/ |
+    '…'/\"…\" до парной кавычки с \\-экранированием, обрыв на \\n |
+    `…` многострочно ($ {…} не разбирается — остаток). Грамматики TSX
+    нет: &&/?:/if/достижимость НЕ вычисляются (правило 7, ось H)."""
+    out = list(tekst)
+    i, n = 0, len(tekst)
+    while i < n:
+        c = tekst[i]
+        if c == '/' and tekst.startswith('//', i):
+            while i < n and tekst[i] != '\n':
+                out[i] = ' '
+                i += 1
+        elif c == '/' and tekst.startswith('/*', i):
+            sm = tekst[i + 2:].find('*/')
+            konec = n if sm < 0 else i + sm + 4
+            for k in range(i, konec):
+                if tekst[k] != '\n':
+                    out[k] = ' '
+            i = konec
+        elif c in '\'"':
+            nachalo = i
+            i += 1
+            while i < n and tekst[i] not in (c, '\n'):
+                if tekst[i] == '\\' and i + 1 < n and tekst[i + 1] != '\n':
+                    i += 1
+                i += 1
+            if i < n and tekst[i] == c:
+                i += 1
+            for k in range(nachalo, i):
+                if tekst[k] != '\n':
+                    out[k] = ' '
+        elif c == '`':
+            sm = tekst[i + 1:].find('`')
+            konec = n if sm < 0 else i + sm + 2
+            for k in range(i, konec):
+                if tekst[k] != '\n':
+                    out[k] = ' '
+            i = konec
+        else:
+            i += 1
+    return ''.join(out)
+
+
 def nositel_selektora(repo, derevo, sel):
-    """Стаб-грамматика круга 1: подстрока testID="sel" в любой строке,
-    кроме строки-комментария; пробелы вокруг '=' и контекст литерала
-    не различаются."""
+    """Стаб s49: лексер отключён — весь текст считается кодом, маска не
+    накладывается (комментарий/строка/шаблон признаются носителем);
+    фильтр места честен."""
+    obrazec = re.compile(r'testID\s*=\s*["\']%s["\']' % re.escape(sel))
     baze = repo / derevo
     if not baze.is_dir():
         return False
     for p in sorted(baze.rglob('*')):
-        if not p.is_file():
+        if not (p.is_file() and ekran_kod(p)):
             continue
         try:
             tekst = p.read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             continue
-        for line in tekst.splitlines():
-            if line.lstrip().startswith(('//', '/*', '*', '#')):
-                continue
-            if 'testID="%s"' % sel in line:
-                return True
+        if obrazec.search(tekst):
+            return True
     return False
 
 
