@@ -429,6 +429,222 @@ def mut_proiskhozdenie_start_pustoj(pack, forma, repo, src):
         tekst = tekst.replace('testID="%s"' % vkladka, '')
     p.write_text(tekst, encoding='utf-8')
 
+# --- клетки круга 2 (оба блокера критика закрыты КЛАССАМИ входов) -----------
+
+GOLOVA_FLOWA = 'appId: com.complior.mobile\nname: start-ekran\n---\n'
+DOPUSK_SHAGI = (
+    '- assertVisible: {id: first-run-continue}',
+    '- tapOn: {id: first-run-continue}',
+    '- assertVisible: {id: auth-demo-entry}',
+    '- tapOn: {id: auth-demo-entry}',
+    '- assertVisible: {id: erstinfo_gate_current}',
+    '- tapOn: {id: erstinfo_continue_start}',
+    '- assertVisible: {id: start_tabs}',
+    '- assertVisible: {id: start_tab_start}',
+    '- assertVisible: {id: start_tab_vorgaenge}',
+    '- assertVisible: {id: start_tab_schutz}',
+    '- assertVisible: {id: start_tab_post}',
+)
+POSLE_DOPUSKA = (
+    '- assertVisible: {id: start_sostojanie_idle}',
+    '- takeScreenshot: start-ekran-f04-01',
+    '- tapOn: {id: start_next_variant}',
+    '- assertVisible: {id: start_sostojanie_composer}',
+    '- takeScreenshot: start-ekran-f04-07',
+    '- tapOn: {id: start_next_variant}',
+    '- assertVisible: {id: start_sostojanie_decision}',
+    '- takeScreenshot: start-ekran-f04-08',
+    '- tapOn: {id: start_next_variant}',
+    '- assertVisible: {id: start_sostojanie_resume}',
+    '- takeScreenshot: start-ekran-f04-13',
+)
+
+
+def _flow(repo, telo, golova=GOLOVA_FLOWA):
+    """Переписать флоу пачки: шапка + строки тела как есть (мутации
+    формы flow строят вход целиком, не патчат строки честного флоу)."""
+    (repo / 'mobile/.maestro/start-ekran.yaml').write_text(
+        golova + ''.join(x + '\n' for x in telo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_flow_uslovnyj_when_visible(pack, forma, repo, src):
+    """ОБХОД критика круга 1 (блокер «форма flow»): 11 шагов допуска
+    завёрнуты в runFlow с условием when.visible несуществующего селектора —
+    Maestro пропускает ветвь целиком, а плоский парсер считал вложенные
+    строки исполненными переходами."""
+    _flow(repo, ['- launchApp', '- runFlow:', '    when:',
+                 '      visible: critic138_never_visible', '    commands:']
+          + ['      ' + x for x in DOPUSK_SHAGI] + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_uslovnyj_when_notvisible(pack, forma, repo, src):
+    """Условие-отрицание (when.notVisible): ветвь допуска исполняется лишь
+    когда селектора НЕТ — то же значение оси условности."""
+    _flow(repo, ['- launchApp', '- runFlow:', '    when:',
+                 '      notVisible: start_sostojanie_resume', '    commands:']
+          + ['      ' + x for x in DOPUSK_SHAGI] + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_uslovnyj_when_platform(pack, forma, repo, src):
+    """Условие не-видимости (platform; тот же класс — true/script): ветвь
+    исполняется лишь на части запусков — условный шаг допуска."""
+    _flow(repo, ['- launchApp', '- runFlow:', '    when:',
+                 '      platform: Android', '    commands:']
+          + ['      ' + x for x in DOPUSK_SHAGI] + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_uslovnyj_repeat(pack, forma, repo, src):
+    """repeat: путь допуска внутри повторяемого блока — вложенные команды
+    исполняются по счётчику, плоский парсер считал их топ-уровнем."""
+    _flow(repo, ['- launchApp', '- repeat:', '    times: 2', '    commands:']
+          + ['      ' + x for x in DOPUSK_SHAGI] + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_uslovnyj_retry(pack, forma, repo, src):
+    """retry inline-картой на шаге допуска: конструкция вне замкнутого
+    алфавита пачки; ловится и внутри строки, не только блоком."""
+    p = repo / 'mobile/.maestro/start-ekran.yaml'
+    tekst = p.read_text(encoding='utf-8').replace(
+        '- tapOn: {id: first-run-continue}\n',
+        '- tapOn: {id: first-run-continue, retry: {maxAttempts: 3}}\n', 1)
+    p.write_text(tekst, encoding='utf-8')
+
+
+def mut_proiskhozdenie_flow_uslovnyj_runflow_vlozhennyj(
+        pack, forma, repo, src):
+    """Вложенный БЕЗУСЛОВНЫЙ подпоток (runFlow.commands без when): команды
+    отложены в отдельный флоу — исполнение не гарантировано основным
+    порядком, плоский парсер считал их переходами."""
+    _flow(repo, ['- launchApp', '- runFlow:', '    commands:']
+          + ['      ' + x for x in DOPUSK_SHAGI] + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_uslovnyj_runflow_fajl(pack, forma, repo, src):
+    """Подпоток отдельным файлом: путь допуска вынесен из флоу пачки
+    ссылкой; файл подпотока существует и корректен — основной файл
+    формально без допуска."""
+    (repo / 'mobile/.maestro/dopusk-podpotok.yaml').write_text(
+        ''.join(x + '\n' for x in DOPUSK_SHAGI), encoding='utf-8')
+    _flow(repo, ['- launchApp', '- runFlow: dopusk-podpotok.yaml']
+          + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_uslovnyj_onflow(pack, forma, repo, src):
+    """onFlowComplete — отложенный хук: путь допуска «наблюдается» ПОСЛЕ
+    кадров; семантика жизненного цикла невидима плоскому парсеру."""
+    tekst = ('appId: com.complior.mobile\nname: start-ekran\n'
+             'onFlowComplete:\n'
+             + ''.join('  ' + x + '\n' for x in DOPUSK_SHAGI)
+             + '---\n- launchApp\n'
+             + ''.join(x + '\n' for x in POSLE_DOPUSKA))
+    (repo / 'mobile/.maestro/start-ekran.yaml').write_text(
+        tekst, encoding='utf-8')
+
+
+def mut_proiskhozdenie_flow_kommentarij_imitacija(pack, forma, repo, src):
+    """Имитация пути допуска комментариями: строки в файле есть, шагов
+    нет — парсер обязан считать шаги, а не строки."""
+    _flow(repo, ['- launchApp'] + ['# ' + x for x in DOPUSK_SHAGI]
+          + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_flow_yaml_ankor(pack, forma, repo, src):
+    """YAML-анкор: допуск под якорем вложенной последовательности
+    («- &dopusk» и вложенные «- » шаги; алиас «- *dopusk» — тот же класс)
+    — конструкции вне замкнутого алфавита, шаги не исполнены."""
+    _flow(repo, ['- launchApp', '- &dopusk']
+          + ['  ' + x for x in DOPUSK_SHAGI] + list(POSLE_DOPUSKA))
+
+
+def mut_proiskhozdenie_selektor_chuzhoj_drevo(pack, forma, repo, src):
+    """ОБХОД критика круга 1 (блокер «чей экран»): носитель селектора
+    состояния удалён из СВОЕГО дерева (features/start) и положен одноимённый
+    в ЧУЖОЕ (features/auth) — совпадение в чужом дереве носителем не
+    является."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_composer"\n', ''), encoding='utf-8')
+    chuzhoj = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    chuzhoj.write_text(
+        chuzhoj.read_text(encoding='utf-8')
+        + 'testID="start_sostojanie_composer"\n', encoding='utf-8')
+
+
+def mut_proiskhozdenie_dopusk_selektor_chuzhoj_drevo(pack, forma, repo, src):
+    """Тот же класс на допуск-селекторе: first-run-continue удалён из
+    дерева onboarding и положен в start — носитель пути допуска ищется в
+    дереве ЕГО экрана."""
+    p = repo / 'mobile/src/features/onboarding/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="first-run-continue"\n', ''), encoding='utf-8')
+    svoj = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    svoj.write_text(svoj.read_text(encoding='utf-8')
+                    + 'testID="first-run-continue"\n', encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_nositel_v_stroke(pack, forma, repo, src):
+    """Носитель-строка: testID="..." внутри строкового литерала в СВОЁМ
+    дереве — подделка носителя, не JSX-атрибут."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_idle"\n',
+        'const opisanie = \'testID="start_sostojanie_idle"\';\n'),
+        encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_nositel_v_kommentarii(pack, forma, repo, src):
+    """Носитель-комментарий: testID в хвосте строки после // — не атрибут."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_idle"\n',
+        '<View /> // testID="start_sostojanie_idle"\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_cbhok_atribut(pack, forma, repo, src):
+    """Носитель не в том атрибуте: accessibilityLabel тем же именем —
+    testID-носителя нет."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_idle"\n',
+        'accessibilityLabel="start_sostojanie_idle"\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_registr(pack, forma, repo, src):
+    """Регистр: testid= — атрибутом React Native не является (testID
+    регистрозависим)."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_idle"\n',
+        'testid="start_sostojanie_idle"\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_dinamicheskij(pack, forma, repo, src):
+    """Динамическое имя testID={...}: литерального носителя нет —
+    грамматика пачки требует литерал (статическая проверка)."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_idle"\n',
+        'testID={`start_sostojanie_${sostojanie}`}\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_probely(pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль грамматики носителя: честный JSX с пробелами вокруг
+    '=' — носитель есть, ложный отказ недопустим."""
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        'testID="start_sostojanie_idle"\n',
+        '<View testID = "start_sostojanie_idle" />\n'), encoding='utf-8')
+
+
+def mut_proiskhozdenie_selektor_v_oboih(pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль границы: носитель в СВОЁМ дереве есть — дубль в
+    чужом дереве НЕ отказ 138 (чужая зона — ревью), владелец найден."""
+    chuzhoj = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
+    chuzhoj.write_text(
+        chuzhoj.read_text(encoding='utf-8')
+        + 'testID="start_sostojanie_composer"\n', encoding='utf-8')
+
+
 
 MUTACII = {
     'chestnyj-ekran': None,
@@ -451,6 +667,25 @@ MUTACII = {
     'proiskhozdenie-selektor-bez-ekrana': mut_proiskhozdenie_selektor_bez_ekrana,
     'proiskhozdenie-selektor-ne-kadra': mut_proiskhozdenie_selektor_ne_kadra,
     'proiskhozdenie-start-pustoj': mut_proiskhozdenie_start_pustoj,
+    'proiskhozdenie-flow-uslovnyj-when-visible': mut_proiskhozdenie_flow_uslovnyj_when_visible,
+    'proiskhozdenie-flow-uslovnyj-when-notvisible': mut_proiskhozdenie_flow_uslovnyj_when_notvisible,
+    'proiskhozdenie-flow-uslovnyj-when-platform': mut_proiskhozdenie_flow_uslovnyj_when_platform,
+    'proiskhozdenie-flow-uslovnyj-repeat': mut_proiskhozdenie_flow_uslovnyj_repeat,
+    'proiskhozdenie-flow-uslovnyj-retry': mut_proiskhozdenie_flow_uslovnyj_retry,
+    'proiskhozdenie-flow-uslovnyj-runflow-vlozhennyj': mut_proiskhozdenie_flow_uslovnyj_runflow_vlozhennyj,
+    'proiskhozdenie-flow-uslovnyj-runflow-fajl': mut_proiskhozdenie_flow_uslovnyj_runflow_fajl,
+    'proiskhozdenie-flow-uslovnyj-onflow': mut_proiskhozdenie_flow_uslovnyj_onflow,
+    'proiskhozdenie-flow-kommentarij-imitacija': mut_proiskhozdenie_flow_kommentarij_imitacija,
+    'proiskhozdenie-flow-yaml-ankor': mut_proiskhozdenie_flow_yaml_ankor,
+    'proiskhozdenie-selektor-chuzhoj-drevo': mut_proiskhozdenie_selektor_chuzhoj_drevo,
+    'proiskhozdenie-dopusk-selektor-chuzhoj-drevo': mut_proiskhozdenie_dopusk_selektor_chuzhoj_drevo,
+    'proiskhozdenie-selektor-nositel-v-stroke': mut_proiskhozdenie_selektor_nositel_v_stroke,
+    'proiskhozdenie-selektor-nositel-v-kommentarii': mut_proiskhozdenie_selektor_nositel_v_kommentarii,
+    'proiskhozdenie-selektor-cbhok-atribut': mut_proiskhozdenie_selektor_cbhok_atribut,
+    'proiskhozdenie-selektor-registr': mut_proiskhozdenie_selektor_registr,
+    'proiskhozdenie-selektor-dinamicheskij': mut_proiskhozdenie_selektor_dinamicheskij,
+    'proiskhozdenie-selektor-probely': mut_proiskhozdenie_selektor_probely,
+    'proiskhozdenie-selektor-v-oboih': mut_proiskhozdenie_selektor_v_oboih,
 }
 
 
