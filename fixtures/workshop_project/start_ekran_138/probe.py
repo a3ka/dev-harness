@@ -647,9 +647,10 @@ def mut_proiskhozdenie_selektor_v_oboih(pack, forma, repo, src):
         + '<View testID="start_sostojanie_composer" />\n', encoding='utf-8')
 
 
-# --- клетки круга 3 (ось H «форма носителя × место», РЕШЕНИЕ арбитра 138:
-# лексер и замкнутый алфавит путей закрывают классы H1-H3 таблицей входов;
-# достижимость H4/H5 — остаток §НЕ ЗАЩИЩАЕТ, ловец — живой Maestro) ------
+# --- клетки круга 3 (ось H «форма носителя × место», РЕШЕНИЕ арбитра 138
+# и 138-2 «стаб-на-защиту»: каждая красная клетка H краснеет по ОДНОЙ
+# защите; форма с двумя причинами — не клетка (арбитраж 138-2, B2);
+# достижимость H4/H5 — остаток §НЕ ЗАЩИЩАЕТ, ловец — живой Maestro) ----
 
 NOSITEL_SPRAVA = '<View testID="start_sostojanie_idle" />'
 
@@ -725,11 +726,12 @@ def mut_proiskhozdenie_nositel_stroka_odinarnaja(pack, forma, repo, src):
 
 def mut_proiskhozdenie_nositel_stroka_dvojnaja_ekranirovannaja(
         pack, forma, repo, src):
-    """H2 двойная строка с экранированными кавычками: лексер обязан
-    держать строку открытой сквозь \\"…\\" до парной кавычки."""
+    """H2 двойная строка с экранированной кавычкой (форма 138-2 — ОДНА
+    причина): лексер обязан держать строку открытой сквозь \\" до парной
+    кавычки; testID внутри строки носителем не является."""
     _nositel_v_fajle(repo, 'stroka-dvojnaja-ekranirovannaja.tsx',
-                     'const s = "he said \\"hi\\": testID='
-                     "'start_sostojanie_idle' in string\";\n")
+                     'const s = "say \\" testID=\'start_sostojanie_idle\''
+                     ' x";\n')
 
 
 def mut_proiskhozdenie_nositel_stroka_shablon(pack, forma, repo, src):
@@ -740,10 +742,39 @@ def mut_proiskhozdenie_nositel_stroka_shablon(pack, forma, repo, src):
                      + '\n`;\n')
 
 
+def mut_proiskhozdenie_nositel_stroka_prodolzhenie(pack, forma, repo, src):
+    """H2 (138-2) продолжение строки: \\ непосредственно перед переводом
+    строки — строка продолжается на следующей строке, носитель остаётся
+    внутри строкового литерала (защита «\\+\\n — продолжение»)."""
+    _nositel_v_fajle(repo, 'stroka-prodolzhenie.tsx',
+                     "const x = 'prefix \\\n" + NOSITEL_SPRAVA
+                     + " suffix';\n")
+
+
+def mut_proiskhozdenie_nositel_stroka_shablon_ekran_backtick(
+        pack, forma, repo, src):
+    """H2 (138-2, блокер B1) экранированный бэктик в шаблоне: закрытие
+    только на НЕэкранированном бэктике (свидетель критика кр.3; защита
+    «\\-экранирование в шаблоне»)."""
+    _nositel_v_fajle(repo, 'stroka-shablon-ekran-backtick.tsx',
+                     'const x = `prefix \\` ' + NOSITEL_SPRAVA
+                     + ' suffix`;\n')
+
+
+def mut_proiskhozdenie_nositel_stroka_shablon_ekran_bekslesh(
+        pack, forma, repo, src):
+    """H2 (138-2) экранированный бэкслеш затем экранированный бэктик:
+    обе пары поглощаются лексером, носитель внутри шаблона (та же защита
+    «\\-экранирование в шаблоне», вторая различимая форма)."""
+    _nositel_v_fajle(repo, 'stroka-shablon-ekran-bekslesh.tsx',
+                     'const x = `a\\\\\\` ' + NOSITEL_SPRAVA + ' `;\n')
+
+
 def mut_proiskhozdenie_nositel_mesto_tests(pack, forma, repo, src):
-    """H3 __tests__/ (свидетель критика круга 2): тестовый код экранного
-    дерева не является кодом экрана."""
-    _nositel_v_fajle(repo, '__tests__/f.test.tsx', NOSITEL_SPRAVA + '\n')
+    """H3 __tests__/ (свидетель критика кр.2; форма 138-2: helper.tsx —
+    имя БЕЗ меток, расширение кода; краснеет ТОЛЬКО каталогом)."""
+    _nositel_v_fajle(repo, '__tests__/helper.tsx',
+                     'export const f = () => ' + NOSITEL_SPRAVA + ';\n')
 
 
 def mut_proiskhozdenie_nositel_mesto_mocks(pack, forma, repo, src):
@@ -752,8 +783,9 @@ def mut_proiskhozdenie_nositel_mesto_mocks(pack, forma, repo, src):
 
 
 def mut_proiskhozdenie_nositel_mesto_snapshots(pack, forma, repo, src):
-    """H3 __snapshots__/: снапшот-каталог — не код экрана."""
-    _nositel_v_fajle(repo, '__snapshots__/f.snap', NOSITEL_SPRAVA + '\n')
+    """H3 __snapshots__/ (форма 138-2: f.tsx — расширение кода, имя без
+    меток; краснеет ТОЛЬКО каталогом, не тремя причинами сразу)."""
+    _nositel_v_fajle(repo, '__snapshots__/f.tsx', NOSITEL_SPRAVA + '\n')
 
 
 def mut_proiskhozdenie_nositel_mesto_test_fajl(pack, forma, repo, src):
@@ -823,6 +855,34 @@ def mut_proiskhozdenie_nositel_chestnyj_fajl_rjadom_s_testom(
     (d / 'f.test.tsx').write_text(NOSITEL_SPRAVA + '\n', encoding='utf-8')
 
 
+def mut_proiskhozdenie_nositel_chestnyj_shablon_bekslesh(
+        pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C (138-2): `a\\\\`; — шаблон ЗАКРЫТ (экраниро-
+    ванный бэкслеш не прячет парный бэктик), носитель строкой ниже в
+    коде; ложный красный недопустим."""
+    _nositel_v_fajle(repo, 'chestnyj-shablon-bekslesh.tsx',
+                     'const x = `a\\\\`;\nexport const f = () => '
+                     + NOSITEL_SPRAVA + ';\n')
+
+
+def mut_proiskhozdenie_nositel_chestnyj_stroka_bekslesh(
+        pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C (138-2): "a\\\\"; — строка ЗАКРЫТА, носитель
+    строкой ниже в коде; экранированный бэкслеш не прячет код."""
+    _nositel_v_fajle(repo, 'chestnyj-stroka-bekslesh.tsx',
+                     'const x = "a\\\\";\nexport const f = () => '
+                     + NOSITEL_SPRAVA + ';\n')
+
+
+def mut_proiskhozdenie_nositel_chestnyj_shablon_podstanovka(
+        pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C (138-2): `n=${1}`; — ${…} НЕ закрывает шаблон,
+    носитель строкой ниже в коде (подстановка рядом с носителем)."""
+    _nositel_v_fajle(repo, 'chestnyj-shablon-podstanovka.tsx',
+                     'const x = `n=${1}`;\nexport const f = () => '
+                     + NOSITEL_SPRAVA + ';\n')
+
+
 MUTACII = {
     'chestnyj-ekran': None,
     'literal-cveta': mut_literal_cveta,
@@ -874,6 +934,9 @@ MUTACII = {
     'proiskhozdenie-nositel-stroka-odinarnaja': mut_proiskhozdenie_nositel_stroka_odinarnaja,
     'proiskhozdenie-nositel-stroka-dvojnaja-ekranirovannaja': mut_proiskhozdenie_nositel_stroka_dvojnaja_ekranirovannaja,
     'proiskhozdenie-nositel-stroka-shablon': mut_proiskhozdenie_nositel_stroka_shablon,
+    'proiskhozdenie-nositel-stroka-prodolzhenie': mut_proiskhozdenie_nositel_stroka_prodolzhenie,
+    'proiskhozdenie-nositel-stroka-shablon-ekran-backtick': mut_proiskhozdenie_nositel_stroka_shablon_ekran_backtick,
+    'proiskhozdenie-nositel-stroka-shablon-ekran-bekslesh': mut_proiskhozdenie_nositel_stroka_shablon_ekran_bekslesh,
     'proiskhozdenie-nositel-mesto-tests': mut_proiskhozdenie_nositel_mesto_tests,
     'proiskhozdenie-nositel-mesto-mocks': mut_proiskhozdenie_nositel_mesto_mocks,
     'proiskhozdenie-nositel-mesto-snapshots': mut_proiskhozdenie_nositel_mesto_snapshots,
@@ -887,6 +950,9 @@ MUTACII = {
     'proiskhozdenie-nositel-chestnyj-jsx-kommentarij-rjadom': mut_proiskhozdenie_nositel_chestnyj_jsx_kommentarij_rjadom,
     'proiskhozdenie-nositel-chestnyj-apostrof-drugaja-stroka': mut_proiskhozdenie_nositel_chestnyj_apostrof_drugaja_stroka,
     'proiskhozdenie-nositel-chestnyj-fajl-rjadom-s-testom': mut_proiskhozdenie_nositel_chestnyj_fajl_rjadom_s_testom,
+    'proiskhozdenie-nositel-chestnyj-shablon-bekslesh': mut_proiskhozdenie_nositel_chestnyj_shablon_bekslesh,
+    'proiskhozdenie-nositel-chestnyj-stroka-bekslesh': mut_proiskhozdenie_nositel_chestnyj_stroka_bekslesh,
+    'proiskhozdenie-nositel-chestnyj-shablon-podstanovka': mut_proiskhozdenie_nositel_chestnyj_shablon_podstanovka,
 }
 
 
