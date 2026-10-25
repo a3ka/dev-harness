@@ -7583,6 +7583,5 @@ soreview-v1.md.
 - 118 · пара 3 · заморожен · трек complior
 - 116 · пара 3 · заморожен · трек complior
 - 138 · пара 3 · заморожен · трек complior
-- 139 · пара 3 · заморожен · трек complior
 - 095 · пара 4 · заморожен · трек context
 <!-- END GENERATED NEXT SESSION -->
