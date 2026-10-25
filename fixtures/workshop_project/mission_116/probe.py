@@ -963,10 +963,15 @@ def mut_proiskhozdenie_kadr_chuzhoj_assert(pack, forma, repo, src):
 
 
 def mut_proiskhozdenie_snimok_v_rebyonke(pack, forma, repo, src):
-    """ЧЕСТНЫЙ свидетель границы «индекс раскрытого потока»: снимок
-    F05.05 перенесён в дочерний сценарий, свой assert остался в корне
-    раньше runFlow — конформно (снимок в ребёнке судится раскрытием,
-    подтверждение в корне раньше него индексом раскрытого потока)."""
+    """Снимок F05.05 перенесён в дочерний сценарий, свой assert
+    остался в корне раньше runFlow. v3d (РЕШЕНИЕ АРБИТРА §1/§2 F1(в)):
+    НЕ конформно — между подтверждением в корне и снимком в ребёнке
+    стоит запуск ребёнка (launchApp): «перед» в Инв. 4 означает
+    подтверждение ТОГО экрана, который снимается, свой assertVisible
+    обязан стоять в ТОМ ЖЕ файле, что и снимок. Клетка была зелёным
+    свидетелем v3c (корень-assert раньше ребёнка-снимка индексом
+    раскрытого потока) и перевёрнута арбитражем: критик круга 3 назвал
+    вход конформным, арбитр вскрыл нарушение Инв. 4."""
     _zapusti_replay(repo)
     p = repo / 'mobile/.maestro/mission.yaml'
     t = p.read_text(encoding='utf-8')
@@ -1007,6 +1012,277 @@ def mut_proiskhozdenie_assert_v_rebyonke(pack, forma, repo, src):
     rebyonok = _perefajl(repo, 'mission-state-v01.yaml')
     rebyonok.write_text(
         rebyonok.read_text(encoding='utf-8') + nabl, encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_literall(pack, forma, repo, src):
+    """v3d (арбитраж §2 G1, обход 2 круга 3): assert спрятан в блочном
+    литерале inputText — отступ больше не стирается, строка литерала
+    шагом не становится: файл красен грамматикой, а не порядком."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    lit = ('- inputText: |\n'
+           '    - assertVisible: {id: mission_frame_f05_05}\n'
+           '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, lit), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_literall_snimok(pack, forma, repo, src):
+    """v3d (G1): снимок спрятан в блочном литерале inputText — строка
+    литерала шагом не становится, имени кадра в потоке нет."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    lit = ('- assertVisible: {id: mission_frame_f05_05}\n'
+           '- inputText: |\n'
+           '    - takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, lit), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_literall_kommentarij(pack, forma, repo,
+                                                       src):
+    """v3d (G1, мутант арбитра a_shot_literal_in_root_comment_like_flow):
+    evalScript (неизвестная команда) + assert в литерале — обе строки
+    вне белого списка, первая же строка красна."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    lit = ("- evalScript: ${'x'}\n"
+           '- inputText: |\n'
+           '    - assertVisible: {id: mission_frame_f05_05}\n'
+           '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, lit), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_repeat(pack, forma, repo, src):
+    """v3d (G1, обход 3 круга 3): пара assert+снимок унесена в repeat —
+    вложенные команды вне белого списка, красна первая же строка
+    блока, а не точечный мутант."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    blok = ('- repeat:\n'
+            '    times: 2\n'
+            '    commands:\n'
+            '      - assertVisible: {id: mission_frame_f05_05}\n'
+            '      - takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, blok), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_repeat_tap(pack, forma, repo, src):
+    """v3d (G1, мутант арбитра a_repeat_shot_then_tap): repeat со
+    снимком и переходом — итоговый PNG второго прохода без
+    подтверждения; класс закрыт белым списком, не перечислением."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    blok = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- repeat:\n'
+            '    times: 2\n'
+            '    commands:\n'
+            '      - takeScreenshot: mission-f05-05\n'
+            '      - tapOn: {id: mission_attach}\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, blok), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_retry(pack, forma, repo, src):
+    """v3d (G1, мутант арбитра a_retry_shot_only): снимок на глубине 1
+    внутри retry — вне белого списка."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    blok = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- tapOn: {id: mission_attach}\n'
+            '- retry:\n'
+            '    maxRetries: 2\n'
+            '    commands:\n'
+            '      - takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, blok), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_when(pack, forma, repo, src):
+    """v3d (G1, обход круга 3, однострочная форма): runFlow с when —
+    форма аргумента вне трёх закрытых ({file: tok} без лишних ключей);
+    прежде краснела СЛУЧАЙНО (cel_runflow не находил файл), теперь —
+    грамматикой."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    staro = '- runFlow: mission-state-v01.yaml\n'
+    novo = ('- runFlow: {file: mission-state-v01.yaml, '
+            'when: {visible: mission_never_visible}}\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_runflow_vlozhennyj(pack, forma, repo,
+                                                     src):
+    """v3d (G1, мутант арбитра a_assert_in_nested_runflow_inline_
+    commands): runFlow с вложенными commands — отступленные строки
+    вне грамматики; прежде красен СЛУЧАЙНО (RUNFLOW_BEZ_FAJLA), теперь
+    по причине."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    blok = ('- runFlow:\n'
+            '    commands:\n'
+            '      - inputText: |\n'
+            '          - assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, blok), encoding='utf-8')
+
+
+def mut_proiskhozdenie_grammatika_neizvestnyj_argument(pack, forma, repo,
+                                                       src):
+    """v3d (G1): форма аргумента вне трёх закрытых ({timeout: 5} — не
+    {id:}/{file:}, не кавычки, не голый токен) — шаг вне грамматики."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    staro = '- hideKeyboard\n'
+    novo = '- hideKeyboard: {timeout: 5}\n'
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_snimok_vne_manifesta(pack, forma, repo, src):
+    """v3d (F1(а), обход 1 круга 3): одиночный неманифестный снимок
+    mission-surprise без своего селектора — у имени вне манифеста
+    «своего селектора» нет по определению, такой снимок запрещён."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    staro = '- assertVisible: {id: mission_frame_f05_05}\n'
+    novo = ('- takeScreenshot: mission-surprise\n'
+            '- assertVisible: {id: mission_frame_f05_05}\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_snimok_vne_manifesta_dubl(pack, forma, repo, src):
+    """v3d (F1(а)+(б), unlisted_duplicate круга 3): два одноимённых
+    неманифестных снимка — красны и членством, и дублем."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    staro = '- assertVisible: {id: mission_frame_f05_05}\n'
+    novo = ('- takeScreenshot: mission-surprise\n'
+            '- takeScreenshot: mission-surprise\n'
+            '- assertVisible: {id: mission_frame_f05_05}\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_dejstvie_mezhdu_assertom_i_snimkom(pack, forma,
+                                                          repo, src):
+    """v3d (F1(в), мутант арбитра a_assert_tap_shot): между своим
+    assert и снимком стоит tapOn — экран изменён, кадр снят без
+    подтверждения (порядок индексов не нарушен)."""
+    _zapusti_replay(repo)
+    p = repo / 'mobile/.maestro/mission.yaml'
+    t = p.read_text(encoding='utf-8')
+    para = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    blok = ('- assertVisible: {id: mission_frame_f05_05}\n'
+            '- tapOn: {id: mission_attach}\n'
+            '- takeScreenshot: mission-f05-05\n')
+    assert t.count(para) == 1
+    p.write_text(t.replace(para, blok), encoding='utf-8')
+
+
+def mut_proiskhozdenie_v01_otpravka_do_vvoda(pack, forma, repo, src):
+    """v3d (F3, обход 4 круга 3): отправка раньше ввода в сценарии V01 —
+    отправлено не то, что введено в ЭТОМ сценарии (пара tap<input
+    сохранена, порядок к отправке не судился)."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v01.yaml')
+    t = p.read_text(encoding='utf-8')
+    staro = ("- inputText: 'Ich habe ein Auto gekauft.'\n"
+             '- hideKeyboard\n'
+             '- tapOn: {id: mission_send}\n')
+    novo = ('- tapOn: {id: mission_send}\n'
+            "- inputText: 'Ich habe ein Auto gekauft.'\n"
+            '- hideKeyboard\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_v01_vvod_posle_otpravki(pack, forma, repo, src):
+    """v3d (F3, мутант арбитра a_v01_input_only_in_root_then_send):
+    отправка первой, ввод предусловия после неё — тот же класс, другая
+    форма (жест черновика после отправки ничего не подтверждает)."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v01.yaml')
+    t = p.read_text(encoding='utf-8')
+    staro = ('- tapOn: {id: mission_composer_input}\n'
+             "- inputText: 'Ich habe ein Auto gekauft.'\n"
+             '- hideKeyboard\n'
+             '- tapOn: {id: mission_send}\n')
+    novo = ('- tapOn: {id: mission_send}\n'
+            '- tapOn: {id: mission_composer_input}\n'
+            "- inputText: 'x'\n"
+            '- hideKeyboard\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_f05_07_otpravka_do_nabljudenija(pack, forma, repo,
+                                                       src):
+    """v3d (F3, draft_sent_before_observe круга 3): отправка в сценарии
+    F05.07 — строка «черновик БЕЗ отправки» требует ровно ноль
+    mission_send во всём файле."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-f05-07.yaml')
+    t = p.read_text(encoding='utf-8')
+    staro = '- assertVisible: {id: mission_frame_f05_07}\n'
+    novo = ('- tapOn: {id: mission_send}\n'
+            '- assertVisible: {id: mission_frame_f05_07}\n')
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, novo), encoding='utf-8')
+
+
+def mut_proiskhozdenie_f05_07_otpravka_posle_nabljudenija(pack, forma,
+                                                          repo, src):
+    """v3d (F3, мутант арбитра a_f0507_send_after_observe): отправка
+    ПОСЛЕ своего assert в F05.07 — счёт отправок идёт по всему файлу,
+    не только до наблюдения."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-f05-07.yaml')
+    p.write_text(p.read_text(encoding='utf-8')
+                 + '- tapOn: {id: mission_send}\n', encoding='utf-8')
+
+
+def mut_proiskhozdenie_v02_bez_negativa(pack, forma, repo, src):
+    """v3d (F3, v02_no_negative_completed круга 3): V02 — «completed не
+    показан» — часть видимого ожидания строки: assertNotVisible
+    mission_response_completed после положительного обязателен."""
+    _zapusti_replay(repo)
+    p = _perefajl(repo, 'mission-state-v02.yaml')
+    t = p.read_text(encoding='utf-8')
+    staro = '- assertNotVisible: {id: mission_response_completed}\n'
+    assert t.count(staro) == 1
+    p.write_text(t.replace(staro, ''), encoding='utf-8')
 
 PROBA_PROD = Path('mobile/src/features/conversation/__tests__/'
                   'mission-116.test.tsx')
@@ -1273,6 +1549,40 @@ MUTACII = {
         mut_proiskhozdenie_rebyonok_ranishe_asserta,
     'proiskhozdenie-assert-v-rebyonke':
         mut_proiskhozdenie_assert_v_rebyonke,
+    'proiskhozdenie-grammatika-literall':
+        mut_proiskhozdenie_grammatika_literall,
+    'proiskhozdenie-grammatika-literall-snimok':
+        mut_proiskhozdenie_grammatika_literall_snimok,
+    'proiskhozdenie-grammatika-literall-kommentarij':
+        mut_proiskhozdenie_grammatika_literall_kommentarij,
+    'proiskhozdenie-grammatika-repeat':
+        mut_proiskhozdenie_grammatika_repeat,
+    'proiskhozdenie-grammatika-repeat-tap':
+        mut_proiskhozdenie_grammatika_repeat_tap,
+    'proiskhozdenie-grammatika-retry':
+        mut_proiskhozdenie_grammatika_retry,
+    'proiskhozdenie-grammatika-when':
+        mut_proiskhozdenie_grammatika_when,
+    'proiskhozdenie-grammatika-runflow-vlozhennyj':
+        mut_proiskhozdenie_grammatika_runflow_vlozhennyj,
+    'proiskhozdenie-grammatika-neizvestnyj-argument':
+        mut_proiskhozdenie_grammatika_neizvestnyj_argument,
+    'proiskhozdenie-snimok-vne-manifesta':
+        mut_proiskhozdenie_snimok_vne_manifesta,
+    'proiskhozdenie-snimok-vne-manifesta-dubl':
+        mut_proiskhozdenie_snimok_vne_manifesta_dubl,
+    'proiskhozdenie-dejstvie-mezhdu-assertom-i-snimkom':
+        mut_proiskhozdenie_dejstvie_mezhdu_assertom_i_snimkom,
+    'proiskhozdenie-v01-otpravka-do-vvoda':
+        mut_proiskhozdenie_v01_otpravka_do_vvoda,
+    'proiskhozdenie-v01-vvod-posle-otpravki':
+        mut_proiskhozdenie_v01_vvod_posle_otpravki,
+    'proiskhozdenie-f05-07-otpravka-do-nabljudenija':
+        mut_proiskhozdenie_f05_07_otpravka_do_nabljudenija,
+    'proiskhozdenie-f05-07-otpravka-posle-nabljudenija':
+        mut_proiskhozdenie_f05_07_otpravka_posle_nabljudenija,
+    'proiskhozdenie-v02-bez-negativa':
+        mut_proiskhozdenie_v02_bez_negativa,
 }
 
 
@@ -1363,6 +1673,16 @@ def snapshot(src):
 # порядку раскрытия; снимок в ребёнке раньше assert ребёнка); снимок в
 # runFlow-условии грамматикой пачки не порождается, цикл раскрытия
 # закрыт RUNFLOW_CIKL (строка v02).
+# 116 v3d (РЕШЕНИЕ АРБИТРА contracts-116-v3-arbitraz §2): новые строки —
+# КЛАССЫ входа закрытой таблицы (литерал/repeat/retry/when/неизвестная
+# команда/неизвестная форма аргумента — один предикат G1; снимок вне
+# манифеста/дубль/действие между assert и снимком — предикаты F1;
+# ввод до отправки/F05.07 без отправки/V02 negative — предикаты F3),
+# а не перечень мутантов; прежние 11 строк сохранены поимённо, класс
+# «assert в другом файле / корень-assert → ребёнок-снимок» закрыт
+# сохранённой клеткой proiskhozdenie-snimok-v-rebyonke (строка
+# porjadok-koren-rebyonok, перевёрнута арбитражем из зелёного
+# свидетеля v3c в красную).
 OSI_SCENARIEV = (
     ('osnovnoj-put', 'mission.yaml', (
         'proiskhozdenie-chistyj', 'proiskhozdenie-byte-kopija',
@@ -1417,6 +1737,29 @@ OSI_SCENARIEV = (
       'proiskhozdenie-assert-v-rebyonke')),
     ('porjadok-rebyonok-ranishe', 'mission-state-v01.yaml',
      ('proiskhozdenie-rebyonok-ranishe-asserta',)),
+    ('grammatika', 'mission.yaml + mission-state-*.yaml', (
+        'proiskhozdenie-grammatika-literall',
+        'proiskhozdenie-grammatika-literall-snimok',
+        'proiskhozdenie-grammatika-literall-kommentarij',
+        'proiskhozdenie-grammatika-repeat',
+        'proiskhozdenie-grammatika-repeat-tap',
+        'proiskhozdenie-grammatika-retry',
+        'proiskhozdenie-grammatika-when',
+        'proiskhozdenie-grammatika-runflow-vlozhennyj',
+        'proiskhozdenie-grammatika-neizvestnyj-argument',
+    )),
+    ('snimok', 'раскрытый поток: mission.yaml + дети', (
+        'proiskhozdenie-snimok-vne-manifesta',
+        'proiskhozdenie-snimok-vne-manifesta-dubl',
+        'proiskhozdenie-dejstvie-mezhdu-assertom-i-snimkom',
+    )),
+    ('rebyonok', 'mission-state-*.yaml', (
+        'proiskhozdenie-v01-otpravka-do-vvoda',
+        'proiskhozdenie-v01-vvod-posle-otpravki',
+        'proiskhozdenie-f05-07-otpravka-do-nabljudenija',
+        'proiskhozdenie-f05-07-otpravka-posle-nabljudenija',
+        'proiskhozdenie-v02-bez-negativa',
+    )),
 )
 
 
