@@ -1,0 +1,155 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 2,
+  "numPassedTests": 15,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTodoTests": 0,
+  "numTotalTestSuites": 2,
+  "numTotalTests": 15,
+  "openHandles": [],
+  "success": true,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях 995 демо-сессия: свежая сессия открывает First-Run",
+          "status": "passed",
+          "title": "995 демо-сессия: свежая сессия открывает First-Run"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях 995 идентификация: e-mail ведёт путём B",
+          "status": "passed",
+          "title": "995 идентификация: e-mail ведёт путём B"
+        }
+      ],
+      "endTime": "",
+      "message": "",
+      "name": "/tmp/repo/mobile/src/bootstrap/__tests__/pilot.test.tsx",
+      "startTime": 0,
+      "status": "passed"
+    },
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-istekla-koren: истёкшая сессия → Erstinformation закрыта",
+          "status": "passed",
+          "title": "srok-istekla-koren: истёкшая сессия → Erstinformation закрыта"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-istekla-start: истёкшая сессия → прямой /start даёт First-Run",
+          "status": "passed",
+          "title": "srok-istekla-start: истёкшая сессия → прямой /start даёт First-Run"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-rovno-sejchas: срок равен текущему моменту → недопуск",
+          "status": "passed",
+          "title": "srok-rovno-sejchas: срок равен текущему моменту → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-nerazborchivaja: неразбираемая дата (NaN) → недопуск",
+          "status": "passed",
+          "title": "srok-nerazborchivaja: неразбираемая дата (NaN) → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-mezhdu-mount-dejstviem: истёкшая между mount и НАЖАТИЕМ demo → недопуск",
+          "status": "passed",
+          "title": "srok-mezhdu-mount-dejstviem: истёкшая между mount и НАЖАТИЕМ demo → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-mezhdu-render-continue: истёкшая между render и НАЖАТИЕМ continue → недопуск",
+          "status": "passed",
+          "title": "srok-mezhdu-render-continue: истёкшая между render и НАЖАТИЕМ continue → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-rerender-start: истёкшая между mount и ререндером /start → First-Run",
+          "status": "passed",
+          "title": "srok-rerender-start: истёкшая между mount и ререндером /start → First-Run"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-pustaja: пустая строка срока → недопуск",
+          "status": "passed",
+          "title": "srok-pustaja: пустая строка срока → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-otsutstvuet-pole: поле срока отсутствует → недопуск",
+          "status": "passed",
+          "title": "srok-otsutstvuet-pole: поле срока отсутствует → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-nestrokovaja: нестроковое значение срока → недопуск",
+          "status": "passed",
+          "title": "srok-nestrokovaja: нестроковое значение срока → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-offset-zona: дата с offset зоны разбирается Date.parse → допуск",
+          "status": "passed",
+          "title": "srok-offset-zona: дата с offset зоны разбирается Date.parse → допуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-ranishe-auth-time: срок раньше auth_time → недопуск",
+          "status": "passed",
+          "title": "srok-ranishe-auth-time: срок раньше auth_time → недопуск"
+        },
+        {
+          "ancestorTitles": [
+            "118 срок сессии на production-поверхностях"
+          ],
+          "fullName": "118 срок сессии на production-поверхностях srok-svezhaja-demo: свежая демо-сессия → допуск W1A есть",
+          "status": "passed",
+          "title": "srok-svezhaja-demo: свежая демо-сессия → допуск W1A есть"
+        }
+      ],
+      "endTime": "",
+      "message": "",
+      "name": "/tmp/repo/mobile/src/bootstrap/__tests__/session-srok.test.tsx",
+      "startTime": 0,
+      "status": "passed"
+    }
+  ],
+  "wasInterrupted": false
+}
