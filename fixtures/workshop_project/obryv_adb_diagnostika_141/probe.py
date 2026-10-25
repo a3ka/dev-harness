@@ -327,58 +327,89 @@ def upravlenie_shaga(subj_doc, src, nomer, model_doc):
     return ('ok', None)
 
 
-# ложное семейство if: замкнутый алфавит статически всегда ложных форм
-JOB_IF_LOZH_SEMEJSTVO = ('false', 'always() && false')
+# Зелёные ключи job android-e2e (решение арбитража 141, J1): по построению
+# не меняют ни достижимость шагов, ни красноту итога — имя/права/выходы;
+# concurrency даёт только отмену, не зелень. Алфавит модели измеряется
+# живым замером model_doc (как у шага), зелёные — константа.
+JOB_ZELENYE_KLYUCHI = ('name', 'permissions', 'outputs', 'concurrency')
 
 
-def _if_lozhnoe(znach):
-    if znach is False or znach is None:
-        return True
-    if isinstance(znach, str):
-        s = znach.strip()
-        if s.startswith('${{') and s.endswith('}}'):
-            s = s[3:-2].strip()
-        return s.lower() in JOB_IF_LOZH_SEMEJSTVO
-    return False
-
-
-def _istinnoe(znach):
-    if isinstance(znach, bool):
-        return znach
-    if isinstance(znach, str):
-        return znach.strip().lower() == 'true'
-    return bool(znach)
-
-
-def upravlenie_job(subj_doc, src):
-    """Whitelisted-различители job (значениями остальные ключи job не
-    пинятся): свойства, делающие целевой шаг неисполнимым либо красный
-    итог невидимым, — именованный отказ."""
+def upravlenie_job(subj_doc, src, model_doc):
+    """J1–J3 (арбитраж 141, Q1 вариант (а)): замкнутый алфавит КЛЮЧЕЙ
+    оболочки job = как в модели, значения не разбираются — перечень значений
+    открытого языка выражений GitHub Actions не замыкается (дефект 141b:
+    whitelisted-различители значений пропускали `continue-on-error:
+    ${{ true }}`). J1: лишний ключ — именованный отказ независимо от
+    значения; J2: needs существуют + транзитивная цепь без `if`; J3:
+    timeout-minutes — целое >= 1 после YAML-разбора; runs-on не судится
+    (несуществующая метка — вечная очередь, не зелень); steps судятся
+    инвариантами шага."""
     jobs = subj_doc.get('jobs') if isinstance(subj_doc, dict) else None
     job = jobs.get(src['job_imja']) if isinstance(jobs, dict) else None
     if not isinstance(job, dict):
         return ('KRASNO', 'JOB_NET: %s' % src['job_imja'])
-    if 'continue-on-error' in job and _istinnoe(job['continue-on-error']):
-        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: '
-                'continue-on-error гасит красный итог' % src['job_imja'])
-    if 'if' in job and _if_lozhnoe(job['if']):
-        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: if=%r не '
-                'исполняется никогда' % (src['job_imja'], job['if']))
+    model_job = (model_doc.get('jobs') or {}).get(src['job_imja'])
+    if not isinstance(model_job, dict):
+        return ('KRASNO', 'ORACLE_TAMPERED: в модели нет job %s'
+                % src['job_imja'])
+    lishnie = sorted(set(job) - set(model_job) - set(JOB_ZELENYE_KLYUCHI))
+    if lishnie:
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: лишние ключи: %s'
+                % (src['job_imja'], ', '.join(lishnie)))
     nz = job.get('needs')
     spisok = [nz] if isinstance(nz, str) else (nz if isinstance(nz, list) else [])
     for n in spisok:
         if not isinstance(jobs.get(n), dict):
             return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: needs на '
                     'несуществующую работу %r' % (src['job_imja'], n))
-    tm = job.get('timeout-minutes')
-    if tm == 0 or tm == '0':
-        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: timeout-minutes=0'
-                % src['job_imja'])
-    env = job.get('env')
-    if isinstance(env, dict) and 'PATH' in env:
-        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: env.PATH подменяет '
-                'PATH шагов' % src['job_imja'])
+    ochered, vidennye = list(spisok), set()
+    while ochered:
+        n = ochered.pop()
+        if n in vidennye:
+            continue
+        vidennye.add(n)
+        upstream = jobs.get(n) if isinstance(jobs.get(n), dict) else {}
+        if 'if' in upstream:
+            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: upstream %s '
+                    'несёт if=%r' % (src['job_imja'], n, upstream['if']))
+        u = upstream.get('needs')
+        ochered += [u] if isinstance(u, str) else (u if isinstance(u, list) else [])
+    tm = job.get('timeout-minutes', 1)
+    if not (isinstance(tm, int) and not isinstance(tm, bool) and tm >= 1):
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: '
+                'timeout-minutes=%r' % (src['job_imja'], tm))
     return ('ok', None)
+
+
+def upravlenie_workflow(subj_doc, model_doc):
+    """W1–W2 (арбитраж 141): workflow-оболочка — defaults равен модели как
+    ДАННЫЕ после YAML-разбора ({run: {working-directory: mobile}}, shell
+    нет), top-level env отсутствует, как в модели; прочие top-level ключи
+    (name, on, permissions, concurrency) не судятся — см. §НЕ ЗАЩИЩАЕТ."""
+    if subj_doc.get('defaults') != model_doc.get('defaults'):
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: workflow: defaults=%r '
+                '(в модели %r)' % (subj_doc.get('defaults'),
+                                   model_doc.get('defaults')))
+    if 'env' in subj_doc:
+        env = subj_doc['env']
+        spisok = sorted(env) if isinstance(env, dict) else [repr(env)]
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: workflow: env вне '
+                'модели: %s' % spisok)
+    return ('ok', None)
+
+
+def postavit_derevo(model_doc, src):
+    """Зелёный контроль законных правок job (арбитраж 141, мутанты №24–27):
+    дерево = модель + name, permissions, timeout-minutes 50, runs-on с
+    лишней меткой — ключи зелёные/несудимые, достижимость шагов и красный
+    итог не затрагивают; всё кодом, без файла-носителя."""
+    doc = copy.deepcopy(model_doc)
+    job = doc['jobs'][src['job_imja']]
+    job['name'] = 'Android E2E'
+    job['permissions'] = {'contents': 'read'}
+    job['timeout-minutes'] = 50
+    job['runs-on'] = list(job['runs-on']) + ['v2']
+    return doc
 
 
 # --- replay: sandbox с подложными adb/emulator/avdmanager/python3 -----------
@@ -526,7 +557,9 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
     if tip == 'struktura':
         podtip = kejs['podtip']
         if podtip == 'upravlenie-job':
-            return upravlenie_job(subj_doc, src)
+            return upravlenie_job(subj_doc, src, model_doc)
+        if podtip == 'upravlenie-workflow':
+            return upravlenie_workflow(subj_doc, model_doc)
         nomer = kejs['shag']
         if podtip == 'upravlenie-shag':
             return upravlenie_shaga(subj_doc, src, nomer, model_doc)
@@ -591,6 +624,20 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
                 if telo is None or kanon_rashozhdenie(telo, model_tela[n]):
                     return ('KRASNO', 'CHUZHOJ_SHAG_SUDITSJA: %s' % n)
             return ('ok', None)
+        if podtip == 'zakonnaja-pravka':
+            # все клетки батареи (кроме самой себя — иначе рекурсия) обязаны
+            # быть зелеными на дереве с законными правками job: J1–J3/W1–W2
+            # не краснят зелёные/несудимые ключи, тела шагов не тронуты
+            doc = postavit_derevo(model_doc, src)
+            src_vnutr = dict(src)
+            src_vnutr['kejsy'] = {k: v for k, v in src['kejsy'].items()
+                                  if k != imja}
+            rc, _ = progona(None, src_vnutr, model_doc, model_tela, koren,
+                            pechatat=False, subj_doc_gotovyj=doc)
+            if rc != 0:
+                return ('KRASNO', 'ZAKONNAJA_PRAVKA_KRASNEN: законная '
+                        'правка job краснит батарею')
+            return ('ok', None)
         if podtip == 'shag-net':
             doc = copy.deepcopy(model_doc)
             imja = src['shagi']['135']
@@ -611,6 +658,15 @@ def _zameni(t, staryj, novyj, vhozhdenie=1):
         raise RuntimeError('цель мутации не найдена (вхождений %d, нужно %d): %r'
                            % (len(chasti) - 1, vhozhdenie, staryj[:60]))
     return staryj.join(chasti[:vhozhdenie]) + novyj + staryj.join(chasti[vhozhdenie:])
+
+
+def _zameni_edinstvennoe(t, staryj, novyj):
+    """Замена ровно одного вхождения (арбитраж 141: мутации — вставки/
+    замены с единственным вхождением цели; размноженная цель — отказ)."""
+    if t.count(staryj) != 1:
+        raise RuntimeError('цель замены не единственна (вхождений %d): %r'
+                           % (t.count(staryj), staryj[:60]))
+    return t.replace(staryj, novyj)
 
 
 def _najti_blok_texta(lines, imja):
@@ -660,15 +716,35 @@ def _klyuchi_shaga(t, imja, stroki):
     raise RuntimeError('шаг вставки управляющего ключа не найден: %s' % imja)
 
 
+def _klyuchi_raboty(t, imja, stroki):
+    """Вставка строк-ключей работы (отступ 4) сразу после заголовка
+    `  <imja>:` — мутация управляющих свойств уровня job (арбитраж 141:
+    сам android-e2e и upstream-работы цепи needs)."""
+    zagolovok = '  %s:' % imja
+    lines = t.split('\n')
+    for i, l in enumerate(lines):
+        if l == zagolovok:
+            lines[i + 1:i + 1] = stroki
+            return '\n'.join(lines)
+    raise RuntimeError('работа %s не найдена для вставки ключа' % imja)
+
+
 def _klyuchi_joba(t, stroki):
     """Вставка строк-ключей job (отступ 4) сразу после заголовка
     `  android-e2e:` — мутация job-различителей."""
+    return _klyuchi_raboty(t, 'android-e2e', stroki)
+
+
+def _klyuchi_workflow(t, stroki, jakor, posle=False):
+    """Вставка строк top-level workflow (арбитраж 141: W1/W2) — перед
+    строкой-якорем либо после неё; якорь обязан встретиться буквально."""
     lines = t.split('\n')
     for i, l in enumerate(lines):
-        if l == '  android-e2e:':
-            lines[i + 1:i + 1] = stroki
+        if l == jakor:
+            mesto = i + 1 if posle else i
+            lines[mesto:mesto] = stroki
             return '\n'.join(lines)
-    raise RuntimeError('job android-e2e не найден для вставки ключа')
+    raise RuntimeError('якорь вставки workflow не найден: %s' % jakor)
 
 
 KANON_MUT = None  # резолвится при загрузке source.json
@@ -851,6 +927,56 @@ def m_upr_job_env_path(b):
     return _klyuchi_joba(b, ['    env:', '      PATH: /nonexistent-141'])
 
 
+def m_upr_job_continue_vyrazhenie(b):
+    # свидетель критика 2/2 дословно (мутант №1 арбитража): выражение в
+    # continue-on-error — зелёное для whitelisted-различителей значений
+    # 141b, красное алфавитом ключей J1.
+    return _klyuchi_joba(b, ['    continue-on-error: ${{ true }}'])
+
+
+def m_upr_job_matrix_continue(b):
+    # мутант №3: документированная форма GH (strategy.matrix) + выражение
+    return _klyuchi_joba(b, ['    strategy:', '      matrix:', '        exp: [true]',
+                             '    continue-on-error: ${{ matrix.exp }}'])
+
+
+def m_upr_job_if_dinam(b):
+    # мутант №7: динамическое if — ложь вне статического семейства 141b
+    return _klyuchi_joba(b, ["    if: ${{ github.event_name == 'never' }}"])
+
+
+def m_upr_job_defaults_shell(b):
+    # мутант №11: job-defaults с подменяющим исполнение shell
+    return _klyuchi_joba(b, ['    defaults:', '      run:', "        shell: 'true {0}'"])
+
+
+def m_upr_job_env_bash_env(b):
+    # мутант №14: инъекция в bash до тела (BASH_ENV: exit(){ :; })
+    return _klyuchi_joba(b, ['    env:', '      BASH_ENV: /tmp/x.sh'])
+
+
+def m_upr_job_timeout_vyrazhenie(b):
+    # мутант №19: выражение вместо целого — тип не судился в 141b
+    return _zameni_edinstvennoe(b, '    timeout-minutes: 40',
+                                '    timeout-minutes: ${{ 0 }}')
+
+
+def m_upr_quality_if_false(b):
+    # мутант №22: upstream quality с if — android-e2e пропускается needs
+    return _klyuchi_raboty(b, 'quality', ['    if: ${{ false }}'])
+
+
+def m_upr_workflow_defaults_shell(b):
+    # мутант №13: top-level defaults.run.shell подменяет исполнение тел
+    return _klyuchi_workflow(b, ["    shell: 'cat {0}'"],
+                             '    working-directory: mobile', posle=True)
+
+
+def m_upr_workflow_env_bash_env(b):
+    # мутант №17: top-level env вне модели — тот же класс уровнем выше
+    return _klyuchi_workflow(b, ['env:', '  BASH_ENV: /tmp/x.sh'], 'defaults:')
+
+
 def sdelat_stab(imja, model_tekst, kanon):
     global KANON_MUT
     KANON_MUT = kanon
@@ -869,6 +995,15 @@ def sdelat_stab(imja, model_tekst, kanon):
             's-upr-job-if-false': m_upr_job_if_false,
             's-upr-job-continue': m_upr_job_continue,
             's-upr-job-env-path': m_upr_job_env_path,
+            's-upr-job-continue-vyrazhenie': m_upr_job_continue_vyrazhenie,
+            's-upr-job-matrix-continue': m_upr_job_matrix_continue,
+            's-upr-job-if-dinam': m_upr_job_if_dinam,
+            's-upr-job-defaults-shell': m_upr_job_defaults_shell,
+            's-upr-job-env-bash-env': m_upr_job_env_bash_env,
+            's-upr-job-timeout-vyrazhenie': m_upr_job_timeout_vyrazhenie,
+            's-upr-quality-if-false': m_upr_quality_if_false,
+            's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
+            's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
         }
         if imja in UPRAV_MUTACII:
             return UPRAV_MUTACII[imja](model_tekst)
@@ -964,6 +1099,15 @@ STAB_MUTACII = {
     's-upr-job-if-false': m_upr_job_if_false,
     's-upr-job-continue': m_upr_job_continue,
     's-upr-job-env-path': m_upr_job_env_path,
+    's-upr-job-continue-vyrazhenie': m_upr_job_continue_vyrazhenie,
+    's-upr-job-matrix-continue': m_upr_job_matrix_continue,
+    's-upr-job-if-dinam': m_upr_job_if_dinam,
+    's-upr-job-defaults-shell': m_upr_job_defaults_shell,
+    's-upr-job-env-bash-env': m_upr_job_env_bash_env,
+    's-upr-job-timeout-vyrazhenie': m_upr_job_timeout_vyrazhenie,
+    's-upr-quality-if-false': m_upr_quality_if_false,
+    's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
+    's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
     's-shag-pereimenovan-135': lambda b: b,  # текстовая мутация имени шага
 }
 
@@ -982,12 +1126,16 @@ def zagruzit_model(src):
     return tekst, doc, tela
 
 
-def progona(subject_tekst, src, model_doc, model_tela, koren, pechatat=True):
-    try:
-        subj_doc = yaml.safe_load(subject_tekst)
-    except yaml.YAMLError as e:
-        print('MOBILE_YML_NERAZBORIM: %s' % e, file=sys.stderr)
-        return 1, {}
+def progona(subject_tekst, src, model_doc, model_tela, koren, pechatat=True,
+            subj_doc_gotovyj=None):
+    if subj_doc_gotovyj is not None:
+        subj_doc = subj_doc_gotovyj
+    else:
+        try:
+            subj_doc = yaml.safe_load(subject_tekst)
+        except yaml.YAMLError as e:
+            print('MOBILE_YML_NERAZBORIM: %s' % e, file=sys.stderr)
+            return 1, {}
     itogi = {}
     krasnye = 0
     for imja, kejs in src['kejsy'].items():
