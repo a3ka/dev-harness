@@ -73,7 +73,8 @@ if len(a) >= 2 and a[0] == 'api':
         if flt not in allowed:
             sys.stderr.write('FILTER_VNE_ALFAVITA: %r\\n' % flt)
             sys.exit(3)
-        data = json.loads(os.environ['SCENARIJ_JOBS'])
+        data = json.loads(open(
+            os.environ['SCENARIJ_JOBS_FAJL'], encoding='utf-8').read())
         for j in data.get('jobs', []):
             if j.get('name') == 'android-e2e' \
                     and j.get('conclusion') == 'failure':
@@ -82,8 +83,8 @@ if len(a) >= 2 and a[0] == 'api':
     m = re.match(r'^repos/[^/]+/[^/]+/actions/jobs/(\\d+)/logs$', path)
     if m:
         zap('API_LOGS ' + m.group(1))
-        with open(os.environ['SCENARIJ_LOG'], encoding='utf-8') as f:
-            sys.stdout.write(f.read())
+        with open(os.environ['SCENARIJ_LOG'], 'rb') as f:
+            sys.stdout.buffer.write(f.read())
         sys.exit(0)
 if a[:2] == ['run', 'rerun']:
     if len(a) == 4 and a[2] == '--failed':
@@ -160,18 +161,17 @@ def m_bez_signaturnogo_filtra(t):
 
 
 def _zameni_sig(t):
-    sig_start = t.index("          LOG_OCISTENNYY=")
-    grep_marker = "grep -qE '"
-    grep_pos = t.index(grep_marker, sig_start)
-    then_pos = t.index("'; then", grep_pos) + len("'; then")
-    return t[:sig_start] + '          if true; then' + t[then_pos:]
+    nach = t.index('          if grep -qE ')
+    kon = t.index('"$LOG_F"; then', nach) + len('"$LOG_F"; then')
+    return t[:nach] + '          if true; then' + t[kon:]
 
 
 def m_bez_eho_zaschity(t):
     return _zameni(
         t,
-        'LOG_OCISTENNYY="$(printf \'%s\\n\' "$LOG" | sed -e \'/##\\[group\\]Run /,/##\\[endgroup\\]/d\')"',
-        'LOG_OCISTENNYY="$LOG"')
+        'printf \'%s\\n\' "$LOG" | sed -e '
+        '\'/##\\[group\\]Run /,/##\\[endgroup\\]/d\' > "$LOG_F"',
+        'printf \'%s\\n\' "$LOG" > "$LOG_F"')
 
 
 def m_polnyj_rerun(t):
@@ -257,6 +257,110 @@ def m_signatury_suzheny(t, src_signatury):
                    'device offline|DeviceServerDiedException')
 
 
+# --- стабы блокера 1 (исполняемые ветви вне наблюдаемого шага) и
+# --- стабы блокера 2 (pipefail + ранний выход потребителя пайпа) --------------
+
+def m_dop_shag_run(t):
+    return t + '\n      - name: Vtoroj avtopovtor\n' \
+               '        run: gh run rerun --failed "$RUN_ID"\n'
+
+
+def m_dop_shag_uses(t):
+    return t + '\n      - uses: actions/checkout@v4\n'
+
+
+def m_dop_job_ubuntu(t):
+    return t + ('\n  unguarded:\n    runs-on: ubuntu-latest\n'
+                '    steps:\n      - run: gh run rerun --failed "$RUN_ID"\n')
+
+
+def m_dop_job_selfhosted(t):
+    return t + ('\n  unguarded:\n'
+                '    runs-on: [self-hosted, linux, x64, complior]\n'
+                '    steps:\n      - run: gh run rerun --failed "$RUN_ID"\n')
+
+
+def m_dopolnitelnyj_trigger(t):
+    return _zameni(t, '    workflows: [mobile]\n    types: [completed]\n',
+                   '    workflows: [mobile]\n    types: [completed]\n'
+                   '  workflow_dispatch: {}\n')
+
+
+def m_jakor_merge(t):
+    t = _zameni(t, 'jobs:\n  retry:',
+                '_skryt: &skrytyj_shag\n  name: Dop\n'
+                '  run: gh run rerun --failed "$RUN_ID"\njobs:\n  retry:')
+    return t + '\n      - <<: *skrytyj_shag\n'
+
+
+def m_defaults_run_shell(t):
+    return _zameni(t, 'permissions:\n  actions: write\n  contents: read\n',
+                   'permissions:\n  actions: write\n  contents: read\n'
+                   'defaults:\n  run:\n    shell: python\n')
+
+
+def m_svertyvanie_dva_rerun(t):
+    i = t.index('        run: |\n')
+    return t[:i] + ('        run: >-\n'
+                    '          gh run rerun --failed "$RUN_ID"\n'
+                    '          gh run rerun --failed "$RUN_ID"\n')
+
+
+def m_env_podmena(t):
+    t = _zameni(t, '          RUN_ID: ${{ github.event.workflow_run.id }}',
+                '          RUN_ID: ${{ github.event.workflow_run.id }}\n'
+                '          RERUN_CMD: gh run rerun --failed "$RUN_ID"')
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"',
+                   '            "$RERUN_CMD"')
+
+
+def m_skrytyj_bash_c(t):
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"',
+                   '            bash -c \'gh run rerun --failed "$RUN_ID"\'')
+
+
+def m_skrytyj_eval(t):
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"',
+                   '            eval \'gh run rerun --failed "$RUN_ID"\'')
+
+
+def m_skrytyj_xargs(t):
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"',
+                   '            printf \'%s\\n\' "$RUN_ID" | '
+                   'xargs gh run rerun --failed')
+
+
+def m_skrytyj_podstanovka(t):
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"',
+                   '            RC="$(gh run rerun --failed "$RUN_ID")"')
+
+
+def m_setevoj_curl(t):
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"',
+                   '            curl -sS -X POST -H "Authorization: Bearer '
+                   '${GH_TOKEN}" "https://api.github.com/repos/'
+                   '${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/rerun"')
+
+
+def m_cikl_for(t):
+    return _zameni(t, '            gh run rerun --failed "$RUN_ID"\n'
+                      '            exit 0',
+                   '            for i in 1; do gh run rerun --failed '
+                   '"$RUN_ID"; done\n            exit 0')
+
+
+def m_rannij_grep_q(t):
+    t = _zameni(t, "if grep -qE '",
+                "if printf '%s\\n' \"$LOG\" | sed -e "
+                "'/##\\[group\\]Run /,/##\\[endgroup\\]/d' | grep -qE '")
+    return _zameni(t, " \"$LOG_F\"; then", "; then")
+
+
+def m_rannij_head(t):
+    return _zameni(t, "| sed -n '1p' | tr -d '[:space:]'",
+                   "| head -n 1 | tr -d '[:space:]'")
+
+
 STAB_MUTACII = {
     's-bez-attempt-guard': m_bez_attempt_guard,
     's-bez-signaturnogo-filtra': m_bez_signaturnogo_filtra,
@@ -273,6 +377,23 @@ STAB_MUTACII = {
     's-vyrazhenie-vne-alfavita': m_vyrazhenie_vne_alfavita,
     's-molchashij-skip': m_molchashij_skip,
     's-signatury-suzheny': None,  # резолвится в apply (нужен src)
+    's-dop-shag-run': m_dop_shag_run,
+    's-dop-shag-uses': m_dop_shag_uses,
+    's-dop-job-ubuntu': m_dop_job_ubuntu,
+    's-dop-job-selfhosted': m_dop_job_selfhosted,
+    's-dopolnitelnyj-trigger': m_dopolnitelnyj_trigger,
+    's-jakor-merge': m_jakor_merge,
+    's-defaults-run-shell': m_defaults_run_shell,
+    's-svertyvanie-dva-rerun': m_svertyvanie_dva_rerun,
+    's-env-podmena': m_env_podmena,
+    's-skrytyj-bash-c': m_skrytyj_bash_c,
+    's-skrytyj-eval': m_skrytyj_eval,
+    's-skrytyj-xargs': m_skrytyj_xargs,
+    's-skrytyj-podstanovka': m_skrytyj_podstanovka,
+    's-setevoj-curl': m_setevoj_curl,
+    's-cikl-for': m_cikl_for,
+    's-rannij-grep-q': m_rannij_grep_q,
+    's-rannij-head': m_rannij_head,
 }
 
 
@@ -296,6 +417,77 @@ def yaml_dok(t):
 def _on(doc):
     return doc.get('on', doc.get(True))
 
+
+# --- замкнутая структура (критик 139, круг 1, блокер 1) ----------------------
+
+VERH_URAVNJA = {'name', 'on', 'permissions', 'jobs'}
+JOB_KLJUCHI = {'if', 'runs-on', 'timeout-minutes', 'steps'}
+SHAG_KLJUCHI = {'name', 'env', 'run'}
+TRIGGERY = {'workflow_run'}
+
+
+def os_zamknutost(doc, src, syr_tekst):
+    """Ровно один job retry с ровно одним исполняемым шагом run; ключи
+    jobs/шагов/верха вне алфавита, доп. триггеры (workflow_dispatch/schedule/
+    push/pull_request*), defaults, YAML-расширения (якоря/алиасы/merge-ключи/
+    теги) — именованный отказ. Любой доп. job/шаг/скриптовый путь, способный
+    повторить прогон, отвергается СТАТИКОЙ ещё до replay."""
+    prob = []
+    verh = set()
+    for k in (doc or {}):
+        verh.add('on' if k is True else str(k))
+    lishnie = sorted(verh - VERH_URAVNJA)
+    if lishnie:
+        prob.append('ZAMKNUTOST: ключи верхнего уровня вне алфавита: %s'
+                    % ', '.join(lishnie))
+    on = _on(doc)
+    if isinstance(on, dict):
+        dop_trig = sorted(str(t) for t in on if t != 'workflow_run')
+        if dop_trig:
+            prob.append('ZAMKNUTOST: триггеры вне алфавита: %s'
+                        % ', '.join(dop_trig))
+    jobs = doc.get('jobs') or {}
+    if not isinstance(jobs, dict) or set(jobs) != {'retry'}:
+        imena = sorted(jobs) if isinstance(jobs, dict) else repr(jobs)
+        prob.append('ZAMKNUTOST: jobs %s, а не ровно один retry' % (imena,))
+    else:
+        job = jobs['retry'] or {}
+        lishn_job = sorted(str(k) for k in job if k not in JOB_KLJUCHI)
+        if lishn_job:
+            prob.append('ZAMKNUTOST: ключи job вне алфавита: %s'
+                        % ', '.join(lishn_job))
+        tm = job.get('timeout-minutes')
+        if tm is not None and (isinstance(tm, bool)
+                               or not isinstance(tm, int) or tm > 10):
+            prob.append('ZAMKNUTOST: timeout-minutes %r вне 1..10' % (tm,))
+        shagi = job.get('steps')
+        if not isinstance(shagi, list) or len(shagi) != 1:
+            prob.append('ZAMKNUTOST: шагов %s, а не ровно один'
+                        % (len(shagi) if isinstance(shagi, list) else 'нет',))
+        else:
+            shag = shagi[0] or {}
+            lishn_shag = sorted(str(k) for k in shag
+                                if k not in SHAG_KLJUCHI)
+            if lishn_shag:
+                prob.append('ZAMKNUTOST: ключи шага вне алфавита (uses и пр.): %s'
+                            % ', '.join(lishn_shag))
+            if 'run' not in shag:
+                prob.append('ZAMKNUTOST: у единственного шага нет run:')
+    rasshrenija = []
+    for tok in yaml.scan(syr_tekst):
+        imja_toka = type(tok).__name__
+        if imja_toka == 'AnchorToken':
+            rasshrenija.append('якорь &%s' % tok.value)
+        elif imja_toka == 'AliasToken':
+            rasshrenija.append('алиас *%s' % tok.value)
+        elif imja_toka == 'TagToken':
+            rasshrenija.append('тег %r' % (tok.value,))
+    if re.search(r'(?m)^\s*<<\s*:', syr_tekst):
+        rasshrenija.append('merge-ключ <<:')
+    if rasshrenija:
+        prob.append('ZAMKNUTOST: YAML-расширения запрещены: %s'
+                    % '; '.join(rasshrenija))
+    return prob
 
 def os_trigger(doc, src):
     on = _on(doc)
@@ -340,22 +532,48 @@ def os_if(doc, src):
     return prob
 
 
-def os_rerun(doc, src):
+def os_rerun(doc, src, syr_tekst):
+    """Канон вызова повтора (критик 139, круг 1, блокер 1): литерал
+    'gh run rerun' — ровно один в теле единственного шага И ровно один в
+    файле целиком (второй шаг, env-подмена, свёртка >- не укрывают);
+    слово 'rerun' — ровно один раз в файле (api-путь /rerun, env-значение,
+    комментарий вне канона); вызов дословно gh run rerun --failed "$RUN_ID";
+    циклы и скрытые пути (оболочка -c/eval/xargs/подстановка/curl|wget) —
+    именованный отказ."""
+    prob = []
     try:
-        shag = doc['jobs']['retry']['steps'][0]
-        skript = shag['run']
+        skript = doc['jobs']['retry']['steps'][0]['run']
     except (KeyError, TypeError, IndexError):
         return ['RERUN_RASHOZHDENIE: нет шага/скрипта']
-    prob = []
-    stroki = [l for l in skript.splitlines() if 'gh run rerun' in l]
-    if len(stroki) != 1:
-        prob.append('RERUN_RASHOZHDENIE: вызовов gh run rerun %d, а не 1'
-                    % len(stroki))
+    n_telo = skript.count('gh run rerun')
+    if n_telo != 1:
+        prob.append('RERUN_RASHOZHDENIE: вызовов gh run rerun в теле шага '
+                    '%d, а не 1' % n_telo)
     else:
-        if '--failed' not in stroki[0]:
-            prob.append('RERUN_RASHOZHDENIE: нет --failed')
-    if re.search(r'\b(while|until)\b', skript):
+        stroka = [l for l in skript.splitlines() if 'gh run rerun' in l][0]
+        if 'gh run rerun --failed "$RUN_ID"' not in stroka:
+            prob.append('RERUN_RASHOZHDENIE: вызов не дословно '
+                        'gh run rerun --failed "$RUN_ID"')
+    n_fail = syr_tekst.count('gh run rerun')
+    if n_fail != 1:
+        prob.append('RERUN_RASHOZHDENIE: литералов gh run rerun в файле '
+                    '%d, а не 1' % n_fail)
+    n_liter = syr_tekst.count('rerun')
+    if n_liter != 1:
+        prob.append('RERUN_RASHOZHDENIE: вхождений rerun в файле %d, а не 1 '
+                    '(env-подмена/api-путь/комментарий вне канона)' % n_liter)
+    bez_sig = '\n'.join(l for l in skript.splitlines()
+                        if src['signatury_regex'] not in l)
+    if re.search(r'\b(while|until|for)\b', bez_sig):
         prob.append('RERUN_RASHOZHDENIE: цикл в скрипте повтора')
+    if re.search(r'\b(?:bash|sh|dash|zsh|ksh)\s+-c\b', skript) \
+            or re.search(r'\beval\b', skript) \
+            or re.search(r'\bxargs\b', skript):
+        prob.append('SKRITYJ_VYZOV: оболочка -c/eval/xargs в скрипте')
+    if re.search(r'\$\(\s*gh run rerun', skript):
+        prob.append('SKRITYJ_VYZOV: rerun в подстановке $()')
+    if re.search(r'\b(?:curl|wget)\b', skript):
+        prob.append('SETEVOJ_VYZOV: curl/wget в скрипте')
     return prob
 
 
@@ -387,7 +605,16 @@ OSI_STRUKTURY = {
     'prava': os_prava,
     'runner': os_runner,
     'if': os_if,
+}
+
+# оси, которым нужен сырой текст субъекта (канон литералов, алфавиты,
+# замкнутость) — судятся по syr_tekst, свёртка |/>/-> не укрывает:
+OSI_SYROGO_TEKSTA = {
     'rerun': os_rerun,
+    'sekrety': os_sekrety,
+    'vyrazhenija': os_vyrazhenija,
+    'signatury': os_signatury,
+    'zamknutost': os_zamknutost,
 }
 
 
@@ -409,6 +636,50 @@ def _render_env(shag_env, sobytye, src):
             return None, k
         out[k] = karta[m.group(1)]
     return out, None
+
+
+def _sobrat_log(kejs):
+    """Классы размера/формы лога (критик 139, круг 1, блокер 2): длинные
+    логи и байтовые формы генерируются ВО ВРЕМЯ прогона, в репо не хранятся.
+    Возвращает (tekst, None) либо (None, bajty)."""
+    lg = kejs.get('log_generator')
+    if not lg:
+        return None, None
+    if 'bajty' in lg:
+        return None, bytes(lg['bajty'])
+    koncy = '\r\n' if lg.get('crlf') else '\n'
+    pred = list(lg.get('predstroki') or [])
+    if 'odna_stroka' in lg:
+        o = lg['odna_stroka']
+        linii = pred + [o['prefiks']
+                        + 'a' * max(0, o['dlina'] - len(o['prefiks']))]
+    else:
+        strok = lg['strok']
+        linii = pred + [lg['zapolnitel']] * strok
+        if strok and lg.get('signatura'):
+            pol = lg.get('polozenie', 'seredina')
+            if pol == 'nachalo':
+                linii[len(pred)] = lg['signatura']
+            elif pol == 'konec':
+                linii[-1] = lg['signatura']
+            else:
+                linii[len(pred) + strok // 2] = lg['signatura']
+    tekst = koncy.join(linii)
+    if not lg.get('bez_konechnogo_perevoda'):
+        tekst += koncy
+    return tekst, None
+
+
+def _sobrat_jobs(kejs):
+    """Множественные failed-job записи (класс раннего выхода head): список
+    jobs генерируется во время прогона."""
+    jg = kejs.get('jobs_generator')
+    if not jg:
+        return kejs['jobs']
+    return {'jobs': [
+        {'id': jg['pervyj_id'] if i == 0 else jg['pervyj_id'] + i,
+         'name': 'android-e2e', 'conclusion': 'failure'}
+        for i in range(jg['kolichestvo'])]}
 
 
 def replay(tekst_subiekta, kejs, src):
@@ -433,12 +704,20 @@ def replay(tekst_subiekta, kejs, src):
         (bindir / 'gh').chmod(0o755)
         log_f = tmp / 'log.txt'
         log_tekst = kejs.get('log')
-        if log_tekst is None:
+        if log_tekst is None and kejs.get('log_nositel'):
             log_tekst = (NOSITELI / kejs['log_nositel']).read_text(
                 encoding='utf-8')
-        log_f.write_text(log_tekst, encoding='utf-8')
+        gen_tekst, gen_bajty = _sobrat_log(kejs)
+        if gen_bajty is not None:
+            log_f.write_bytes(gen_bajty)
+        else:
+            if gen_tekst is not None:
+                log_tekst = gen_tekst
+            log_f.write_text(log_tekst, encoding='utf-8')
         zap = tmp / 'zapisi.tsv'
         zap.write_text('', encoding='utf-8')
+        jobs_f = tmp / 'jobs.json'
+        jobs_f.write_text(json.dumps(_sobrat_jobs(kejs)), encoding='utf-8')
         env = {
             'PATH': '%s:/usr/bin:/bin' % bindir,
             'LC_ALL': 'C.UTF-8',
@@ -446,7 +725,7 @@ def replay(tekst_subiekta, kejs, src):
             'GH_TOKEN': 'test-token-139',
             'GITHUB_REPOSITORY': src['repo_scenariev'],
             'SCENARIJ_ZAPISI': str(zap),
-            'SCENARIJ_JOBS': json.dumps(kejs['jobs']),
+            'SCENARIJ_JOBS_FAJL': str(jobs_f),
             'SCENARIJ_LOG': str(log_f),
             'SCENARIJ_ALFAVIT_ZHK': json.dumps(
                 list(src['alfavit_zhk'].values())),
@@ -484,12 +763,8 @@ def sudit(tekst_subiekta, imja, src, tmp_root):
         except Exception:
             return ['YML_NECHITAEM']
         os_ = kejs['os']
-        if os_ == 'sekrety':
-            problemy = os_sekrety(doc, src, tekst_subiekta)
-        elif os_ == 'vyrazhenija':
-            problemy = os_vyrazhenija(doc, src, tekst_subiekta)
-        elif os_ == 'signatury':
-            problemy = os_signatury(doc, src, tekst_subiekta)
+        if os_ in OSI_SYROGO_TEKSTA:
+            problemy = OSI_SYROGO_TEKSTA[os_](doc, src, tekst_subiekta)
         else:
             problemy = OSI_STRUKTURY[os_](doc, src)
     else:
