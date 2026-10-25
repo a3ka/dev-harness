@@ -2313,7 +2313,7 @@
    }
   ]
  },
- "kontrakt_tekst": "# Erstinformation · Bildschirmvertrag\n## Воля владельца\nErstinformation im Demo-Pfad nach F03 und vor Start: jedes Bild entspricht seinem PNG.\n## Существующее\n107: disclosure gate, F02.03/F02.08 und Route; 123: Bildvergleich; 132: Bildschirmform.\n## Инварианты\nF02.03: fehlend/veraltet; F02.08: prüfen/ausstehend/bestätigt/fehlgeschlagen.\nBeide Themen und die zwei sichtbaren F02.03-Erstbildzustände sind eigene Bilder.\ngetDisclosureGate liefert den Status; bestehende 107-Logik wird nicht ersetzt.\nScreenshots entstehen im Emulator nach Flow-Übergang, nicht als Kopie des PNG.\nProduction-Pfad /: First-Run → Demo-Taste → F02.03 → F02.08 → Start nur mit aktuellem Gate; null/stale sperren Start.\n## Приёмочный критерий\nandroid-e2e rc 0; jeder Bildscore aus 123 ist mindestens sein Manifest-Grenzwert.\nJeder sichtbare CTA hat eine eigene bbox_pt-Region.\nProvenienzprüfung: Übergang und Screen-Selektor vor jedem Bild, keine Bytekopie.\n## Зоны и исполнители\nЗОНА architect: contracts/118-erstinformation.md fixtures/workshop_project/erstinformation_118/\nЗОНА implementer: mobile/src/features/onboarding/\nЗОНА implementer: mobile/src/app/\nЗОНА implementer: mobile/.maestro/\nЗОНА implementer: mobile/e2e-erstinformation/\nЗОНА implementer: .github/workflows/mobile.yml\n## ПРОВОДКА\nProdukt-CI führt die Formprüfung und Provenienzprüfung nach Maestro in einem Job aus.\n## Модель угроз\nЗАЩИЩАЕТ: falsches Bild, fehlender Übergang und unverändertes PNG werden rot.\nНЕ ЗАЩИЩАЕТ: der Stand-in beweist keinen laufenden Emulator; Produkt-CI muss Maestro ausführen.\n",
+ "kontrakt_tekst": "# Erstinformation · Bildschirmvertrag\n## Воля владельца\nErstinformation im Demo-Pfad nach F03 und vor Start: jedes Bild entspricht seinem PNG.\n## Существующее\n107: disclosure gate, F02.03/F02.08 und Route; 123: Bildvergleich; 132: Bildschirmform.\n## Инварианты\nF02.03: fehlend/veraltet; F02.08: prüfen/ausstehend/bestätigt/fehlgeschlagen.\nBeide Themen und die zwei sichtbaren F02.03-Erstbildzustände sind eigene Bilder.\ngetDisclosureGate liefert den Status; bestehende 107-Logik wird nicht ersetzt.\nScreenshots entstehen im Emulator nach Flow-Übergang, nicht als Kopie des PNG.\nProduction-Pfad /: First-Run → Demo → F02.03 → F02.08 → Start nur mit aktuellem Gate; null/stale sperren Start.\nSitzung nur bei streng zukünftigem expires_at (Date.parse > Date.now), fail-closed auf / und /start.\nProduktionshaken app/onboarding-session.tsx trägt die Fristprüfung; shell-Form ist kein Ersatz.\n## Приёмочный критерий\nandroid-e2e rc 0; jeder Bildscore aus 123 ist mindestens sein Manifest-Grenzwert.\nJeder sichtbare CTA hat eine eigene bbox_pt-Region.\nProvenienzprüfung: Übergang und Screen-Selektor vor jedem Bild, keine Bytekopie.\nJest-Zellen session-srok.test.tsx: 13 Zellen, bytegleich dem Pin-Träger der Batterie\n(sha256); Druck nach Ablauf ohne Rerender (demo und continue) ist eigene Zelle.\nRichter der Ausführung: CI-Schritt npm test --json --outputFile vor dem Prüfer mit\n--jest-otchet; jede Zelle genau einmal passed, pending/todo/fehlgeschlagen → rot.\nDaten: Träger bytegleich dem Etalon ODER dem Etalon mit genau einer Ersetzung des\nLiterals session.expires_at; json-Diff ist kein Bytebeweis.\n## Зоны и исполнители\nЗОНА architect: contracts/118-erstinformation.md fixtures/workshop_project/erstinformation_118/\nЗОНА implementer: mobile/src/features/onboarding/\nЗОНА implementer: mobile/src/app/\nЗОНА implementer: mobile/.maestro/\nЗОНА implementer: mobile/e2e-erstinformation/\nЗОНА implementer: .github/workflows/mobile.yml\n## ПРОВОДКА\nProdukt-CI führt die Formprüfung und Provenienzprüfung nach Maestro in einem Job aus.\n## Модель угроз\nЗАЩИЩАЕТ: falsches Bild, fehlender Übergang und unverändertes PNG werden rot.\nНЕ ЗАЩИЩАЕТ: der Stand-in beweist keinen laufenden Emulator; Produkt-CI muss Maestro ausführen.\n",
  "katalog": {
   "_comment": "Verbatim subset BrokerOS_UI_Copy_DE.json from mobile source snapshot.",
   "action.F02.A01": {
@@ -2492,6 +2492,12 @@
   },
   "nositeli/kadry/light-f02-08-v04.png": {
    "sha256": "beb4e80db71790f531df5e9ec99f769c0e7b54456f18e6986a23f9d82507b7c9"
+  },
+  "nositeli/dannye/etalon_995.json": {
+   "sha256": "527da5c11f4d81d96045affd0dcd3c945ccf65240b52bf6930d2992a0685c1da"
+  },
+  "nositeli/dannye/etalon_pilot_responses.json": {
+   "sha256": "6a73c7ab0291814fb43663fbc13e71a4ed7cf1c54ae14a8ed04dfaf70dc14206"
   }
  },
  "dopusk_score": 0.0005,
@@ -2582,15 +2588,15 @@
   "kontrakt-slishkom-dlinnyj": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 67 (норма ≤ 60)"
+    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 75 (норма ≤ 60)"
    ],
    "stdout": []
   },
   "kontrakt-shirokij": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tNE_ODNA_STRANICA\tширина: 6900 (норма ≤ 120)",
-    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 14604 (норма ≤ 4000)"
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 15276 (норма ≤ 4000)",
+    "PRICHINA\tNE_ODNA_STRANICA\tширина: 6900 (норма ≤ 120)"
    ],
    "stdout": []
   },
@@ -2647,33 +2653,33 @@
   "proiskhozdenie-flow-bez-perehoda": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v01-v0",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v01-v0",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-03-v02-v0",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v02-v0",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v02-v0",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-03-v01",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v01",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v01",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-03-v02",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v02",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v02",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v01",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v01",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v01",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v02",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v02",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v02",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v03",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v03",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v03",
-    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v04",
-    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v04",
-    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v04",
     "PRICHINA\tFLOW_BEZ_DEMO_VHODA\terstinformation-f02-03-v01-v0",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v01",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v01-v0",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v02",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-03-v02-v0",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v01",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v02",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v03",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\terstinformation-f02-08-v04",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-03-v01",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-03-v02",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-03-v02-v0",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v01",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v02",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v03",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\terstinformation-f02-08-v04",
+    "PRICHINA\tFLOW_BEZ_START\tstart_tabs",
     "PRICHINA\tFLOW_GATE_NE_PROVEREN\tnull",
     "PRICHINA\tFLOW_GATE_NE_PROVEREN\tstale",
-    "PRICHINA\tFLOW_BEZ_START\tstart_tabs"
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v01",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v01-v0",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v02",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-03-v02-v0",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v01",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v02",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v03",
+    "PRICHINA\tSELEKTOR_NE_KADRA\terstinformation-f02-08-v04"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2761,8 +2767,8 @@
   "proiskhozdenie-deeplink": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tFLOW_BEZ_ZAPUSKA\tlaunchApp",
-    "PRICHINA\tFLOW_BEZ_DEMO_VHODA\terstinformation-f02-03-v01-v0"
+    "PRICHINA\tFLOW_BEZ_DEMO_VHODA\terstinformation-f02-03-v01-v0",
+    "PRICHINA\tFLOW_BEZ_ZAPUSKA\tlaunchApp"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2781,15 +2787,15 @@
   "kompozicija-admission-w0-propusk": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=null entry=net sobytie=demo extra=net: 'erstinformation'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=stale entry=net sobytie=demo extra=net: 'erstinformation'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo-continue extra=net: 'start_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo extra=net: 'erstinformation'",
     "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo-continue extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W0 gate=stale entry=net sobytie=tema extra=net: 'erstinformation'",
     "PRICHINA\tKOMPOZICIJA_POSTORONNEE_POLE\tadmission=W0 gate=stale entry=net sobytie=demo extra=postoronnee-pole: 'erstinformation'",
-    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W0 gate=stale entry=net sobytie=tema extra=net: 'erstinformation'"
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo-continue extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=null entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=stale entry=net sobytie=demo extra=net: 'erstinformation'"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2797,21 +2803,28 @@
   "attack-composition-stub": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
-    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_POSTORONNEE_POLE\tadmission=W0 gate=stale entry=net sobytie=demo extra=postoronnee-pole: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W0 gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W1A gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-continue extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'start_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_NE_FIRST_RUN\tadmission=W0 gate=stale entry=complete sobytie=remount extra=net: 'start_ne_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_NE_FIRST_RUN\tadmission=W1A gate=current entry=complete sobytie=montazh extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W1A gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W0 gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'"
+    "PRICHINA\tKOMPOZICIJA_POSTORONNEE_POLE\tadmission=W0 gate=stale entry=net sobytie=demo extra=postoronnee-pole: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_BUDUSHCHIJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_ROOT\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_START\tadmission=W1A gate=current entry=net sobytie=start-marshrut extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_KESH\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_NERAZBORCHIV\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ROVNO_SEJCHAS\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_STROKOJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2828,26 +2841,34 @@
    "rc": 1,
    "prichiny": [
     "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo-continue rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo-continue rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=null sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=remount rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=tema rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo-continue rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=montazh rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=rerender-continue rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=rerender-demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=rerender-demo rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=start-marshrut rc=1",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=start-marshrut rc=1",
     "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=null sobytie=demo rc=1",
     "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=null sobytie=demo-continue rc=1",
     "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=stale sobytie=demo rc=1",
     "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=stale sobytie=demo-continue rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=demo-continue rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=null sobytie=demo rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=demo rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo-continue rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=current sobytie=demo-continue rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=demo rc=1",
     "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=stale sobytie=demo-continue rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=rerender-demo rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=rerender-continue rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=remount rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=montazh rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=stale sobytie=tema rc=1",
-    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W0 gate=stale sobytie=tema rc=1"
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=stale sobytie=tema rc=1"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2856,8 +2877,8 @@
    "rc": 1,
    "prichiny": [
     "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
-    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=net sobytie=demo-continue extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=complete sobytie=demo-continue extra=entry-gate-current: 'start_dopushchen'"
+    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=complete sobytie=demo-continue extra=entry-gate-current: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=net sobytie=demo-continue extra=net: 'start_dopushchen'"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2867,8 +2888,8 @@
    "prichiny": [
     "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
     "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=null entry=net sobytie=demo-continue extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=net sobytie=demo-continue extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=complete sobytie=demo-continue extra=entry-gate-current: 'start_dopushchen'"
+    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=complete sobytie=demo-continue extra=entry-gate-current: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_GATE_PROPUSHCHEN\tadmission=W1A gate=stale entry=net sobytie=demo-continue extra=net: 'start_dopushchen'"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2877,8 +2898,8 @@
    "rc": 1,
    "prichiny": [
     "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
-    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'erstinformation'",
-    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-continue extra=net: 'start_dopushchen'"
+    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-continue extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'erstinformation'"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2886,9 +2907,9 @@
   "kompozicija-entry-istochnik": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
     "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo extra=net: 'erstinformation'",
-    "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo-continue extra=net: 'start_dopushchen'"
+    "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo-continue extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2914,21 +2935,28 @@
   "kompozicija-forma-staraja": {
    "rc": 1,
    "prichiny": [
-    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
-    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_ENTRY_ISTOCHNIK\tadmission=W0 gate=current entry=complete sobytie=demo extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_POSTORONNEE_POLE\tadmission=W0 gate=stale entry=net sobytie=demo extra=postoronnee-pole: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W0 gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W1A gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-continue extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_KESH_ADMISSION\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'start_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_NE_FIRST_RUN\tadmission=W0 gate=stale entry=complete sobytie=remount extra=net: 'start_ne_dopushchen'",
     "PRICHINA\tKOMPOZICIJA_NE_FIRST_RUN\tadmission=W1A gate=current entry=complete sobytie=montazh extra=net: 'start_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W1A gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'",
-    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W0 gate=stale entry=net sobytie=tema extra=net: 'start_ne_dopushchen'"
+    "PRICHINA\tKOMPOZICIJA_POSTORONNEE_POLE\tadmission=W0 gate=stale entry=net sobytie=demo extra=postoronnee-pole: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_BUDUSHCHIJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_ROOT\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_START\tadmission=W1A gate=current entry=net sobytie=start-marshrut extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_KESH\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_NERAZBORCHIV\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ROVNO_SEJCHAS\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_SROK_STROKOJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'start_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=current entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=null entry=net sobytie=demo extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W0_PROPUSHCHEN\tadmission=W0 gate=stale entry=net sobytie=demo extra=net: 'start_ne_dopushchen'"
    ],
    "stdout": [],
    "subekt": "proverka"
@@ -2950,12 +2978,360 @@
    "subekt": "proverka"
   },
   "proiskhozdenie-config-bez-iskljuchenija": {
-   "subekt": "proverka",
    "rc": 1,
    "prichiny": [
     "PRICHINA\tCONFIG_BEZ_ISKLJUCHENIJA\tmobile/.maestro/config.yaml без !erstinformation.yaml"
    ],
-   "stdout": []
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-srok-istekla-demo": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_ROOT\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_KESH\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_NERAZBORCHIV\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ROVNO_SEJCHAS\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_STROKOJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-srok-istekla-start": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_START\tadmission=W1A gate=current entry=net sobytie=start-marshrut extra=net: 'start_dopushchen'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-srok-rovno-sejchas": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_SROK_ROVNO_SEJCHAS\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-srok-nerazborchivaja": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_SROK_NERAZBORCHIV\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-srok-kesh": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_SROK_KESH\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'erstinformation'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-srok-strokoj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_G0_TEMA\tadmission=W1A gate=stale entry=net sobytie=tema extra=net: 'f03-02-code'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'f03-02-code'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=null entry=net sobytie=demo extra=net: 'f03-02-code'",
+    "PRICHINA\tKOMPOZICIJA_POVERHNOST\tadmission=W1A gate=stale entry=net sobytie=demo extra=net: 'f03-02-code'",
+    "PRICHINA\tKOMPOZICIJA_SROK_BUDUSHCHIJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'f03-02-code'",
+    "PRICHINA\tKOMPOZICIJA_SROK_BUDUSHCHIJ\tadmission=W1A gate=current entry=net sobytie=start-marshrut extra=net: 'start_ne_dopushchen'",
+    "PRICHINA\tKOMPOZICIJA_W1A_NE_DOPUSHCHEN\tadmission=W1A gate=current entry=net sobytie=demo-continue extra=net: 'start_ne_dopushchen'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "kompozicija-forma-bez-sroka": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKOMPOZICIJA_FORMA\tmobile/src/bootstrap/__tests__/kompozicija.stand-in.sh",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=start-marshrut rc=3",
+    "PRICHINA\tKOMPOZICIJA_OS_NE_ISPOLNENA\tadmission=W1A gate=current sobytie=start-marshrut rc=3",
+    "PRICHINA\tKOMPOZICIJA_SROK_ISTEK_ROOT\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_KESH\tadmission=W1A gate=current entry=net sobytie=rerender-demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_NERAZBORCHIV\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_ROVNO_SEJCHAS\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'",
+    "PRICHINA\tKOMPOZICIJA_SROK_STROKOJ\tadmission=W1A gate=current entry=net sobytie=demo extra=net: 'erstinformation'"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "production-srok-udalyon": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-koren:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-start:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-mount-dejstviem:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-render-continue:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nerazborchivaja:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-pustaja:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-ranishe-auth-time:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rerender-start:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rovno-sejchas:'failed'",
+    "PRICHINA\tSROK_OTCHET_NE_POLNOSTJU\tvne passed=9",
+    "PRICHINA\tSROK_OTCHET_NE_USPEH\tsuccess=False"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-testy-otsutstvujut": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_TESTY_NET\tmobile/src/bootstrap/__tests__/session-srok.test.tsx"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-testy-ne-komplekt": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_TESTY_FORMA\tmobile/src/bootstrap/__tests__/session-srok.test.tsx"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-testy-model": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_TESTY_FORMA\tmobile/src/bootstrap/__tests__/session-srok.test.tsx"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "ci-bez-srok-testov": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tCI_BEZ_OTCHETA_SROKA\tнет npm test --json --outputFile= до шага --jest-otchet"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-auth-time-pomenjan": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @2203",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @97"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-995-auth-time": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tfixtures/workshop_project/pilot_995/source.json: первое различие @2203"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "production-srok-fajl-udalyon": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tPROIZVODSTVO_BEZ_SROKA\tmobile/src/app/onboarding-session.tsx"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-token-v-kommentarii": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-koren:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-start:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-mount-dejstviem:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-render-continue:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nerazborchivaja:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-pustaja:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-ranishe-auth-time:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rerender-start:'failed'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rovno-sejchas:'failed'",
+    "PRICHINA\tSROK_OTCHET_NE_POLNOSTJU\tvne passed=9",
+    "PRICHINA\tSROK_OTCHET_NE_USPEH\tsuccess=False"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-kletki-pending": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-koren:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-start:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-mount-dejstviem:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-render-continue:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nerazborchivaja:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nestrokovaja:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-offset-zona:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-otsutstvuet-pole:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-pustaja:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-ranishe-auth-time:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rerender-start:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rovno-sejchas:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-svezhaja-demo:'pending'",
+    "PRICHINA\tSROK_OTCHET_NE_POLNOSTJU\tvne passed=13",
+    "PRICHINA\tSROK_OTCHET_S_PENDING\tnumPendingTests=13"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-kletki-todo": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-koren:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-start:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-mount-dejstviem:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-render-continue:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nerazborchivaja:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nestrokovaja:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-offset-zona:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-otsutstvuet-pole:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-pustaja:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-ranishe-auth-time:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rerender-start:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rovno-sejchas:'todo'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-svezhaja-demo:'todo'",
+    "PRICHINA\tSROK_OTCHET_NE_POLNOSTJU\tvne passed=13",
+    "PRICHINA\tSROK_OTCHET_S_TODO\tnumTodoTests=13"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-kletka-only": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-istekla-start:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-mount-dejstviem:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-mezhdu-render-continue:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nerazborchivaja:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-nestrokovaja:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-offset-zona:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-otsutstvuet-pole:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-pustaja:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-ranishe-auth-time:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rerender-start:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-rovno-sejchas:'pending'",
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-svezhaja-demo:'pending'",
+    "PRICHINA\tSROK_OTCHET_NE_POLNOSTJU\tvne passed=12",
+    "PRICHINA\tSROK_OTCHET_S_PENDING\tnumPendingTests=12"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-otcheta-net": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_OTCHET_NET\te2e-erstinformation/jest-otchet.json"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-otchet-chuzhoj-fajl": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_OTCHET_BEZ_FAJLA\tzapisej=0"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-kletka-propala": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_KLETKA_NE_ISPOLNENA\tsrok-offset-zona:missing"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "srok-testy-forma": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSROK_TESTY_FORMA\tmobile/src/bootstrap/__tests__/session-srok.test.tsx"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "ci-bez-otcheta-sroka": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tCI_BEZ_OTCHETA_SROKA\tнет npm test --json --outputFile= до шага --jest-otchet"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-auth-time-escape": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @2201",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @95"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-pereformat": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @4",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @4"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-porjadok-kljuchej": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @354",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @8"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-bom": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @0",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @0"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-crlf": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @1",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @1"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-expires-dvazhdy": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @2263",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @159"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-drugaja-data": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/bootstrap/__tests__/source.json: первое различие @2242",
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @140"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "dannye-mocks-pereformat": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tDANNYE_NE_TOLKO_EXPIRES_AT\tmobile/src/mocks/pilot-responses.json: первое различие @4"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
   }
  },
  "stab_vhod": {
@@ -3059,6 +3435,76 @@
   ],
   "s43_config_propuskaet.py": [
    "proiskhozdenie-config-bez-iskljuchenija"
+  ],
+  "s44_srok_tolko_root.py": [
+   "kompozicija-srok-istekla-start"
+  ],
+  "s45_srok_strokoj.py": [
+   "kompozicija-srok-strokoj"
+  ],
+  "s46_srok_pri_montazhe.py": [
+   "kompozicija-srok-kesh"
+  ],
+  "s47_nan_propuskaet.py": [
+   "kompozicija-srok-nerazborchivaja"
+  ],
+  "s48_srok_samo_forma.py": [
+   "production-srok-udalyon",
+   "srok-testy-otsutstvujut",
+   "srok-testy-ne-komplekt",
+   "srok-testy-model",
+   "ci-bez-srok-testov"
+  ],
+  "s49_dannye_shiroko.py": [
+   "dannye-auth-time-pomenjan",
+   "dannye-995-auth-time"
+  ],
+  "s50_krjuchok_otsutstvuet.py": [
+   "production-srok-fajl-udalyon"
+  ],
+  "s51_schetom_passed.py": [
+   "srok-token-v-kommentarii",
+   "production-srok-udalyon"
+  ],
+  "s52_pending_propuskaet.py": [
+   "srok-kletki-pending",
+   "srok-kletka-only"
+  ],
+  "s53_todo_propuskaet.py": [
+   "srok-kletki-todo"
+  ],
+  "s54_bez_otcheta_propuskaet.py": [
+   "srok-otcheta-net"
+  ],
+  "s55_zapis_ljubaja.py": [
+   "srok-otchet-chuzhoj-fajl"
+  ],
+  "s56_kletka_ljubaja.py": [
+   "srok-kletka-propala"
+  ],
+  "s57_formu_testa_ne_pinuet.py": [
+   "srok-testy-forma",
+   "srok-testy-ne-komplekt",
+   "srok-testy-model"
+  ],
+  "s58_ci_tolko_npm_test.py": [
+   "ci-bez-otcheta-sroka"
+  ],
+  "s59_objekty_propuskaet.py": [
+   "dannye-auth-time-escape",
+   "dannye-pereformat",
+   "dannye-porjadok-kljuchej",
+   "dannye-bom",
+   "dannye-crlf"
+  ],
+  "s60_replace_bez_lim.py": [
+   "dannye-expires-dvazhdy"
+  ],
+  "s61_ljuboe_znachenie.py": [
+   "dannye-drugaja-data"
+  ],
+  "s62_mocks_iz_995.py": [
+   "dannye-mocks-pereformat"
   ]
  },
  "repo_staryj_ekran": {
@@ -3092,10 +3538,10 @@
    ]
   }
  },
- "proverka_tekst": "#!/usr/bin/env python3\n# Проверка доступных свидетельств происхождения (контракт 118, файл пачки).\n# НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском\n# шаблона 132. Судит переход от production First-Run через first-run-continue\n# и demo-вход F03.01 (auth-demo-entry) и gate к Start, наличие testID каждого\n# шага, состав вкладок Start (не только узел start_tabs), ровно 16 кадров\n# манифеста (8 snimok × dark/light из SELEKTOR_KADRA; меньше либо чужой состав\n# → MANIFEST_NE_16_KADROV), оси admission/gate композиции — stand-in\n# признаётся ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma батареи\n# (adv-118 A1: таблица ожиданий — подмена формы → KOMPOZICIJA_FORMA), проба\n# гонит его сама по каждой оси с именованным исходом (источник admission —\n# проверяющий; арбитраж 117↔118 п.1.2–1.5: шесть клеток admission×gate с\n# ОБЯЗАТЕЛЬНЫМ continue при null/stale, конфликты источников entry/посторонних\n# полей, чтение порта в момент действия, remount/начальный кадр, тема/Г0);\n# чужой пин НЕ глушит оси — каждая именованная ветвь дефекта остаётся в\n# вердикте (Н-39). Продуктовая проба композиции (зонд) обязана судить\n# production-корень ../pilot-app, не модель-копию (арбитраж п.1.1 →\n# MODEL_KAK_DOKAZATELSTVO). В CI продукта пускается ПОСЛЕ валидатора 132\n# (тот вызывает Maestro), БЕЗ промежуточной правки кадров.\n# Заголовок флоу адресует пакет продукта: appId обязан равняться\n# expo.android.package из mobile/app.json (дефект батареи 118: чужой demo-пакет\n# вместо com.complior.mobile ронял Maestro «Package … is not installed»).\n# Конфиг каталога Maestro (mobile/.maestro/config.yaml) обязан нести\n# исключение флоу пачки своей строкой в flows (adv-118 B3): иначе общий\n# прогон каталога (995: maestro test .maestro) включит сценарий пачки,\n# хотя порядок флоу каталога недетерминирован и флоу требует First-Run —\n# пачку судит только отдельный прогон e2e.sh по прямому пути.\n# rc 1 — PRICHINA; rc 2 — нечитаемый вход.\nimport argparse\nimport hashlib\nimport json\nimport subprocess\nimport sys\nfrom pathlib import Path\n\nPEREHODY = ('tapOn', 'inputText', 'pressKey', 'swipe')\nZAPUSKI = ('launchApp',)\nISTOCHNIKI_EKRANA = ('mobile/src/features/onboarding', 'mobile/src/features/auth',\n                     'mobile/src/bootstrap', 'mobile/src/app')\nSELEKTOR_KADRA = {\n    'erstinformation-f02-03-v01-v0': 'erstinfo_frame_f02_03_v01_v0',\n    'erstinformation-f02-03-v02-v0': 'erstinfo_frame_f02_03_v02_v0',\n    'erstinformation-f02-03-v01': 'erstinfo_frame_f02_03_v01',\n    'erstinformation-f02-03-v02': 'erstinfo_frame_f02_03_v02',\n    'erstinformation-f02-08-v01': 'erstinfo_frame_f02_08_v01',\n    'erstinformation-f02-08-v02': 'erstinfo_frame_f02_08_v02',\n    'erstinformation-f02-08-v03': 'erstinfo_frame_f02_08_v03',\n    'erstinformation-f02-08-v04': 'erstinfo_frame_f02_08_v04',\n}\nOZHIDAEMYE_KADRY = sorted(\n    (snimok, tema) for snimok in SELEKTOR_KADRA for tema in ('dark', 'light'))\n\n\ndef prichina(imja, detal):\n    print('PRICHINA\\t%s\\t%s' % (imja, detal), file=sys.stderr)\n\n\ndef sha(p):\n    return hashlib.sha256(p.read_bytes()).hexdigest()\n\n\ndef shagi_flow(path):\n    out = []\n    for line in path.read_text(encoding='utf-8').splitlines():\n        s = line.strip()\n        if not s.startswith('- '):\n            continue\n        step = s[2:]\n        k, sep, a = step.partition(':')\n        out.append((k.strip(), a.strip() if sep else ''))\n    return out\n\n\ndef id_iz(arg):\n    if 'id:' not in arg:\n        return None\n    t = arg.partition('id:')[2].strip()\n    t = t.split('}')[0].split(',')[0]\n    return t.strip().strip(\"'\\\"\")\n\ndef paket_produkta(repo):\n    \"\"\"Пакет продукта — из mobile/app.json (expo.android.package), не литерал\n    проверяющего: ожидание снимается из проверяемого репо до суда флоу.\"\"\"\n    app = json.loads((repo / 'mobile/app.json').read_text(encoding='utf-8'))\n    return app['expo']['android']['package']\n\n\ndef appid_flow(path):\n    \"\"\"appId из заголовка флоу (строки до первого '---').\"\"\"\n    zagolovok = path.read_text(encoding='utf-8').partition('---')[0]\n    for line in zagolovok.splitlines():\n        if line.startswith('appId:'):\n            return line.partition(':')[2].strip()\n    return None\n\nKATALOG_MAESTRO = 'mobile/.maestro/config.yaml'\n\n\ndef iskljuchenie_pachki_v_confige(repo, iskljuchenie):\n    \"\"\"Исключение флоу пачки в списке flows конфига каталога Maestro.\n    Судится ТОЛЬКО флоу пачки: исключения чужих флоу (995/107/117/135;\n    mission — зона 116, не 118) не требуются и не запрещаются. Сравнение\n    литеральное: значение элемента списка после '- ' со снятыми кавычками\n    самостоятельной строкой, не подстрока где-угодно.\"\"\"\n    p = repo / KATALOG_MAESTRO\n    if not p.is_file():\n        return False\n    v_spiske = False\n    for line in p.read_text(encoding='utf-8').splitlines():\n        s = line.strip()\n        if v_spiske:\n            if not s.startswith('- '):\n                break\n            if s[2:].strip().strip('\\'\"') == iskljuchenie:\n                return True\n        elif s == 'flows:':\n            v_spiske = True\n    return False\n\n\ndef sud_flow(shagi, snimki):\n    otkazy = []\n    poz = {}\n    for i, (k, a) in enumerate(shagi):\n        if k == 'takeScreenshot':\n            poz.setdefault(a, []).append(i)\n    for s in snimki:\n        sp = poz.get(s, [])\n        if not sp:\n            otkazy.append(('SNIMOK_BEZ_SHAGA', s))\n        elif len(sp) > 1:\n            otkazy.append(('SNIMOK_NEODNOZNACHEN', s))\n    if not shagi or shagi[0][0] != 'launchApp' or sum(\n            k == 'launchApp' for k, _ in shagi) != 1 or any(\n                k in ('openLink', 'startApp') for k, _ in shagi):\n        otkazy.append(('FLOW_BEZ_ZAPUSKA', 'launchApp'))\n    granica = -1\n    for s in snimki:\n        sp = poz.get(s, [])\n        if not sp:\n            continue\n        i = sp[0]\n        blok_shagov = shagi[granica + 1:i]\n        blok = [k for k, _ in blok_shagov]\n        if granica >= 0 and not any(k in PEREHODY for k in blok):\n            otkazy.append(('FLOW_BEZ_PEREHODA', s))\n        if 'assertVisible' not in blok:\n            otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', s))\n        if s not in SELEKTOR_KADRA or not any(\n                k == 'assertVisible' and id_iz(a) == SELEKTOR_KADRA[s]\n                for k, a in blok_shagov):\n            otkazy.append(('SELEKTOR_NE_KADRA', s))\n        granica = i\n\n    def ordered(items):\n        at = -1\n        for kind, val in items:\n            at = next((i for i in range(at + 1, len(shagi))\n                       if shagi[i][0] == kind and\n                       (id_iz(shagi[i][1]) if kind in ('tapOn', 'assertVisible',\n                                                     'assertNotVisible') else\n                        shagi[i][1]) == val), -1)\n            if at < 0:\n                return False\n        return True\n\n    first = snimki[0]\n    # Демо-вход production (арбитраж 117↔118 п.1.7): First-Run →\n    # first-run-continue → F03.01 → auth-demo-entry → Erstinformation.\n    # Промежуточный экран first_run_demo_entry в production-корне 117 v3\n    # не предусмотрен (117 :153 «вход F03.01 после First-Run — без изменений»).\n    if not ordered([('launchApp', ''), ('assertVisible', 'first-run-continue'),\n                    ('tapOn', 'first-run-continue'),\n                    ('assertVisible', 'auth-demo-entry'),\n                    ('tapOn', 'auth-demo-entry'),\n                    ('assertVisible', SELEKTOR_KADRA[first]),\n                    ('takeScreenshot', first)]):\n        otkazy.append(('FLOW_BEZ_DEMO_VHODA', first))\n    # Null и stale — два разных запрета, каждый наблюдается ДО подтверждённого\n    # gate; проверка по индексам исключает assertNotVisible где-то в хвосте.\n    for state, shot in (('null', snimki[0]), ('stale', snimki[3])):\n        marker = 'erstinfo_gate_' + state\n        if not ordered([('assertVisible', marker),\n                        ('assertNotVisible', 'start_tabs'),\n                        ('takeScreenshot', shot)]):\n            otkazy.append(('FLOW_GATE_NE_PROVEREN', state))\n    # Состав назначения наблюдаем ПО ВКЛАДКЕ, не только узлом start_tabs\n    # (вердикт круга 2: пустой <View testID=\"start_tabs\" /> без вкладок —\n    # не Start).\n    vkladki = ('start_tabs', 'start_tab_start', 'start_tab_vorgaenge',\n               'start_tab_schutz', 'start_tab_post')\n    if not ordered([('takeScreenshot', snimki[-1]),\n                    ('tapOn', 'erstinfo_retry_current'),\n                    ('assertVisible', 'erstinfo_gate_current'),\n                    ('tapOn', 'erstinfo_continue_start')] +\n                   [('assertVisible', t) for t in vkladki]):\n        otkazy.append(('FLOW_BEZ_START', 'start_tabs'))\n    return otkazy\ndef selektory(shagi):\n    out = []\n    for k, a in shagi:\n        if k in ('tapOn', 'assertVisible'):\n            i = id_iz(a)\n            if i:\n                out.append(i)\n    return out\n\nKOMPOZICIJA_PROBA = 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'\nKOMPOZICIJA_ZONDA = 'mobile/src/bootstrap/__tests__/kompozicija.probe.test.tsx'\nKOMPOZICIJA_FORMA_SHA256 = \\\n    '3f8ef6189257e05d4a59e49d5eaeb42b9d6d6fbba9fc8f1184ab8d82e87f0be2'\nOSI_IMENA = {\n    'POVERHNOST': 'KOMPOZICIJA_POVERHNOST',\n    'W0': 'KOMPOZICIJA_W0_PROPUSHCHEN',\n    'W1A': 'KOMPOZICIJA_W1A_NE_DOPUSHCHEN',\n    'GATE': 'KOMPOZICIJA_GATE_PROPUSHCHEN',\n    'ENTRY': 'KOMPOZICIJA_ENTRY_ISTOCHNIK',\n    'POSTORONNEE': 'KOMPOZICIJA_POSTORONNEE_POLE',\n    'KESH': 'KOMPOZICIJA_KESH_ADMISSION',\n    'FIRST_RUN': 'KOMPOZICIJA_NE_FIRST_RUN',\n    'G0': 'KOMPOZICIJA_G0_TEMA',\n}\n# Оси композиции v2 (арбитраж 117↔118 п.1.2–1.5, таблица осей, не точки\n# мутантов): (admission, gate, entry, sobytie, extra, admission_tek,\n# ozhidanie, imja_vetvi). Пояснения:\n#   1–10 — шесть клеток admission×gate (demo) с ОБЯЗАТЕЛЬНЫМ continue\n#          при null/stale (инв. 5 «после действия continue»);\n#   11–14 — конфликты источников: entry.onboarding='complete',\n#          постороннее truthy-поле порта, entry.gate='current' против\n#          авторитетного stale сессии;\n#   15–16 — порт читается в МОМЕНТ действия (rerender W1A→W0 до demo и до\n#          continue), кэш допуска красен;\n#   17–18 — начальный кадр first-run при любом entry и remount с\n#          сохранённым completed-entry (W0/stale → First-Run, не Start);\n#   19–20 — смена темы: поверхность не меняется (Г0 корня F03 на пути B,\n#          автостарта нет).\nKOMPOZICIJA_OSI = (\n    ('W1A', 'null', 'net', 'demo', 'net', '', 'erstinformation', 'POVERHNOST'),\n    ('W1A', 'null', 'net', 'demo-continue', 'net', '',\n     'start_ne_dopushchen', 'GATE'),\n    ('W1A', 'stale', 'net', 'demo', 'net', '', 'erstinformation', 'POVERHNOST'),\n    ('W1A', 'stale', 'net', 'demo-continue', 'net', '',\n     'start_ne_dopushchen', 'GATE'),\n    ('W1A', 'current', 'net', 'demo', 'net', '',\n     'erstinformation', 'POVERHNOST'),\n    ('W1A', 'current', 'net', 'demo-continue', 'net', '',\n     'start_dopushchen', 'W1A'),\n    ('W0', 'null', 'net', 'demo', 'net', '', 'f03-02-code', 'W0'),\n    ('W0', 'stale', 'net', 'demo', 'net', '', 'f03-02-code', 'W0'),\n    ('W0', 'current', 'net', 'demo', 'net', '', 'f03-02-code', 'W0'),\n    ('W0', 'current', 'net', 'demo-continue', 'net', '',\n     'start_ne_dopushchen', 'W0'),\n    ('W0', 'current', 'complete', 'demo', 'net', '',\n     'f03-02-code', 'ENTRY'),\n    ('W0', 'current', 'complete', 'demo-continue', 'net', '',\n     'start_ne_dopushchen', 'ENTRY'),\n    ('W0', 'stale', 'net', 'demo', 'postoronnee-pole', '',\n     'f03-02-code', 'POSTORONNEE'),\n    ('W1A', 'stale', 'complete', 'demo-continue', 'entry-gate-current', '',\n     'start_ne_dopushchen', 'GATE'),\n    ('W1A', 'current', 'net', 'rerender-demo', 'net', 'W0',\n     'f03-02-code', 'KESH'),\n    ('W1A', 'current', 'net', 'rerender-continue', 'net', 'W0',\n     'start_ne_dopushchen', 'KESH'),\n    ('W0', 'stale', 'complete', 'remount', 'net', '', 'first-run', 'FIRST_RUN'),\n    ('W1A', 'current', 'complete', 'montazh', 'net', '',\n     'first-run', 'FIRST_RUN'),\n    ('W1A', 'stale', 'net', 'tema', 'net', '', 'erstinformation', 'G0'),\n    ('W0', 'stale', 'net', 'tema', 'net', '', 'f03-02-code', 'G0'),\n)\n\n\ndef sud_kompoziciju(repo):\n    \"\"\"Оси admission/gate на production-шве (вердикт круга 2 + adv-118 A1 +\n    арбитраж 117↔118 п.1.2–1.5): stand-in признаётся ТОЛЬКО в пин-форме\n    носителя teksty/kompozicija_forma (побайтовое равенство по sha256);\n    чужие байты → KOMPOZICIJA_FORMA, при этом оси ВСЁ РАВНО прогоняются и\n    именуют ветвь дефекта (Н-39: стаб красен там, где его дефект наблюдаем;\n    rc!=0 оси — KOMPOZICIJA_OS_NE_ISPOLNENA, сбой команды не маскируется\n    дефолтным «start_ne_dopushchen»). Источник admission — вызывающий\n    проверяющий, не литерал в пробе; admission_tek (последний аргумент)\n    моделирует rerender сессии ДО действия. Зонд-проба композиции\n    (kompozicija.probe.test.tsx), если продукт её несёт, обязана импортировать\n    production-корень '../pilot-app' и не импортировать модель-копию\n    (арбитраж п.1.1 → MODEL_KAK_DOKAZATELSTVO).\"\"\"\n    otkazy = []\n    p = repo / KOMPOZICIJA_PROBA\n    if not p.is_file():\n        return [('KOMPOZICIJA_NET', KOMPOZICIJA_PROBA)]\n    if sha(p) != KOMPOZICIJA_FORMA_SHA256:\n        otkazy.append(('KOMPOZICIJA_FORMA', KOMPOZICIJA_PROBA))\n    for admission, gate, entry, sobytie, extra, tek, ozhidanie, imja in \\\n            KOMPOZICIJA_OSI:\n        args = [admission, gate, entry, sobytie, extra] + ([tek] if tek else [])\n        zap = subprocess.run(\n            ['bash', str(p)] + args,\n            capture_output=True, text=True, cwd=str(repo / 'mobile'))\n        fakt = zap.stdout.strip()\n        if zap.returncode != 0:\n            otkazy.append(('KOMPOZICIJA_OS_NE_ISPOLNENA',\n                           'admission=%s gate=%s sobytie=%s rc=%d'\n                           % (admission, gate, sobytie, zap.returncode)))\n        elif fakt != ozhidanie:\n            otkazy.append((OSI_IMENA[imja],\n                           'admission=%s gate=%s entry=%s sobytie=%s '\n                           'extra=%s: %r'\n                           % (admission, gate, entry, sobytie, extra, fakt)))\n    zond = repo / KOMPOZICIJA_ZONDA\n    if zond.is_file():\n        z = zond.read_text(encoding='utf-8')\n        if \"from '../pilot-app'\" not in z or 'pilot-app.model' in z:\n            otkazy.append(('MODEL_KAK_DOKAZATELSTVO', KOMPOZICIJA_ZONDA))\n    return otkazy\n\n\ndef main():\n    ap = argparse.ArgumentParser()\n    ap.add_argument('--pack', required=True)\n    ap.add_argument('--repo', required=True)\n    ap.add_argument('--harness', default=None)\n    a = ap.parse_args()\n    pack, repo = Path(a.pack), Path(a.repo)\n    try:\n        forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))\n        manifest = json.loads((pack / forma['kadry']).read_text(\n            encoding='utf-8'))\n        shagi = shagi_flow(repo / forma['e2e_scenarij'])\n        paket = paket_produkta(repo)\n        appid = appid_flow(repo / forma['e2e_scenarij'])\n    except (OSError, ValueError, KeyError) as e:\n        print('PROVERKA_NECHITAEM: %r' % e, file=sys.stderr)\n        return 2\n    kadry = manifest['kadry']\n    snimki = list(dict.fromkeys(k['snimok'] for k in kadry))\n    otkazy = []\n    if appid != paket:\n        otkazy.append(('FLOW_APPID_NE_PAKET',\n                       'appId=%s paket=%s' % (appid, paket)))\n    # Конфиг каталога Maestro: исключение флоу пачки обязано стоять в flows\n    # (adv-118 B3 — снятое исключение не замечала прежняя proverka).\n    iskljuchenie_pachki = '!' + forma['e2e_scenarij'].split('/')[-1]\n    if not iskljuchenie_pachki_v_confige(repo, iskljuchenie_pachki):\n        otkazy.append(('CONFIG_BEZ_ISKLJUCHENIJA',\n                       '%s без %s' % (KATALOG_MAESTRO, iskljuchenie_pachki)))\n    # Ровно 16 кадров манифеста (adv-118 A2): 15 кадров «проходят» сверку,\n    # но манифест пачки обязан нести полный состав 8 snimok × dark/light.\n    fakt_kadry = sorted((k.get('snimok'), k.get('tema')) for k in kadry)\n    if len(fakt_kadry) != len(OZHIDAEMYE_KADRY):\n        otkazy.append(('MANIFEST_NE_16_KADROV', 'chislo=%d' % len(fakt_kadry)))\n    elif fakt_kadry != OZHIDAEMYE_KADRY:\n        otkazy.append(('MANIFEST_NE_16_KADROV', 'sostav'))\n    otkazy += sud_flow(shagi, snimki) + sud_kompoziciju(repo)\n    istochniki = [p for root in ISTOCHNIKI_EKRANA\n                  for p in (repo / root).rglob('*')]\n    teksty = []\n    for p in istochniki:\n        if p.is_file():\n            try:\n                teksty.append(p.read_text(encoding='utf-8'))\n            except (OSError, UnicodeDecodeError):\n                pass\n    for s in sorted(set(selektory(shagi))):\n        # Носитель селектора — литерал в коде экрана в одном из двух\n        # замкнутых атрибутов продукта: testID= (Pressable/PlacedText) и\n        # buttonTestID= (Cta рендерит testID={buttonTestID},\n        # auth-parts.tsx); first-run-continue заморожен дефисом (995/111)\n        # и живёт в buttonTestID (first-run-screen.tsx).\n        if not any(('testID=\"%s\"' % s in line or\n                    'buttonTestID=\"%s\"' % s in line)\n                   for t in teksty for line in t.splitlines()\n                   if not line.lstrip().startswith(('//', '/*', '*', '#'))):\n            otkazy.append(('SELEKTOR_BEZ_EKRANA', s))\n    karta = {(k['snimok'], k['tema']): k for k in kadry}\n    for p in sorted((repo / forma['kadry_dir']).rglob('*.png')):\n        tema = p.relative_to(repo / forma['kadry_dir']).parts[0]\n        z = karta.get((p.stem, tema))\n        if z and (repo / z['maket']).is_file() \\\n                and sha(p) == sha(repo / z['maket']):\n            otkazy.append(('KADR_BYTE_KOPIJA_MAKETA', z['id']))\n    for imja, detal in otkazy:\n        prichina(imja, detal)\n    return 1 if otkazy else 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+ "proverka_tekst": "#!/usr/bin/env python3\n# Проверка доступных свидетельств происхождения (контракт 118, файл пачки).\n# НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском\n# шаблона 132. Судит переход от production First-Run через first-run-continue\n# и demo-вход F03.01 (auth-demo-entry) и gate к Start, наличие testID каждого\n# шага, состав вкладок Start (не только узел start_tabs), ровно 16 кадров\n# манифеста (8 snimok × dark/light из SELEKTOR_KADRA; меньше либо чужой состав\n# → MANIFEST_NE_16_KADROV), оси admission/gate композиции — stand-in\n# признаётся ТОЛЬКО в пин-форме носителя teksty/kompozicija_forma батареи\n# (adv-118 A1: таблица ожиданий — подмена формы → KOMPOZICIJA_FORMA), проба\n# гонит его сама по каждой оси с именованным исходом (источник admission —\n# проверяющий; арбитраж 117↔118 п.1.2–1.5: шесть клеток admission×gate с\n# ОБЯЗАТЕЛЬНЫМ continue при null/stale, конфликты источников entry/посторонних\n# полей, чтение порта в момент действия, remount/начальный кадр, тема/Г0);\n# чужой пин НЕ глушит оси — каждая именованная ветвь дефекта остаётся в\n# вердикте (Н-39). Продуктовая проба композиции (зонд) обязана судить\n# production-корень ../pilot-app, не модель-копию (арбитраж п.1.1 →\n# MODEL_KAK_DOKAZATELSTVO). В CI продукта пускается ПОСЛЕ валидатора 132\n# (тот вызывает Maestro), БЕЗ промежуточной правки кадров.\n# Заголовок флоу адресует пакет продукта: appId обязан равняться\n# expo.android.package из mobile/app.json (дефект батареи 118: чужой demo-пакет\n# вместо com.complior.mobile ронял Maestro «Package … is not installed»).\n# Конфиг каталога Maestro (mobile/.maestro/config.yaml) обязан нести\n# исключение флоу пачки своей строкой в flows (adv-118 B3): иначе общий\n# прогон каталога (995: maestro test .maestro) включит сценарий пачки,\n# хотя порядок флоу каталога недетерминирован и флоу требует First-Run —\n# пачку судит только отдельный прогон e2e.sh по прямому пути.\n# v2 круг 3 (РЕШЕНИЕ арбитра 118 v2): текст ≠ исполнение — срок судят\n# пин-форма теста (sha256) и ОТЧЁТ jest --json шага npm test (--jest-otchet,\n# fail-closed), данные — БАЙТОВЫЙ эталон с ровно одной разрешённой\n# подстановкой литерала expires_at (декодированный объект байтами не\n# является); лексический токен-гейт PROIZVODSTVO_BEZ_SROKA снят.\n# rc 1 — PRICHINA; rc 2 — нечитаемый вход.\nimport argparse\nimport hashlib\nimport json\nimport subprocess\nimport sys\nfrom pathlib import Path\n\nPEREHODY = ('tapOn', 'inputText', 'pressKey', 'swipe')\nZAPUSKI = ('launchApp',)\nISTOCHNIKI_EKRANA = ('mobile/src/features/onboarding', 'mobile/src/features/auth',\n                     'mobile/src/bootstrap', 'mobile/src/app')\nSELEKTOR_KADRA = {\n    'erstinformation-f02-03-v01-v0': 'erstinfo_frame_f02_03_v01_v0',\n    'erstinformation-f02-03-v02-v0': 'erstinfo_frame_f02_03_v02_v0',\n    'erstinformation-f02-03-v01': 'erstinfo_frame_f02_03_v01',\n    'erstinformation-f02-03-v02': 'erstinfo_frame_f02_03_v02',\n    'erstinformation-f02-08-v01': 'erstinfo_frame_f02_08_v01',\n    'erstinformation-f02-08-v02': 'erstinfo_frame_f02_08_v02',\n    'erstinformation-f02-08-v03': 'erstinfo_frame_f02_08_v03',\n    'erstinformation-f02-08-v04': 'erstinfo_frame_f02_08_v04',\n}\nOZHIDAEMYE_KADRY = sorted(\n    (snimok, tema) for snimok in SELEKTOR_KADRA for tema in ('dark', 'light'))\n\n\ndef prichina(imja, detal):\n    print('PRICHINA\\t%s\\t%s' % (imja, detal), file=sys.stderr)\n\n\ndef sha(p):\n    return hashlib.sha256(p.read_bytes()).hexdigest()\n\n\ndef shagi_flow(path):\n    out = []\n    for line in path.read_text(encoding='utf-8').splitlines():\n        s = line.strip()\n        if not s.startswith('- '):\n            continue\n        step = s[2:]\n        k, sep, a = step.partition(':')\n        out.append((k.strip(), a.strip() if sep else ''))\n    return out\n\n\ndef id_iz(arg):\n    if 'id:' not in arg:\n        return None\n    t = arg.partition('id:')[2].strip()\n    t = t.split('}')[0].split(',')[0]\n    return t.strip().strip(\"'\\\"\")\n\ndef paket_produkta(repo):\n    \"\"\"Пакет продукта — из mobile/app.json (expo.android.package), не литерал\n    проверяющего: ожидание снимается из проверяемого репо до суда флоу.\"\"\"\n    app = json.loads((repo / 'mobile/app.json').read_text(encoding='utf-8'))\n    return app['expo']['android']['package']\n\n\ndef appid_flow(path):\n    \"\"\"appId из заголовка флоу (строки до первого '---').\"\"\"\n    zagolovok = path.read_text(encoding='utf-8').partition('---')[0]\n    for line in zagolovok.splitlines():\n        if line.startswith('appId:'):\n            return line.partition(':')[2].strip()\n    return None\n\nKATALOG_MAESTRO = 'mobile/.maestro/config.yaml'\n\n\ndef iskljuchenie_pachki_v_confige(repo, iskljuchenie):\n    \"\"\"Исключение флоу пачки в списке flows конфига каталога Maestro.\n    Судится ТОЛЬКО флоу пачки: исключения чужих флоу (995/107/117/135;\n    mission — зона 116, не 118) не требуются и не запрещаются. Сравнение\n    литеральное: значение элемента списка после '- ' со снятыми кавычками\n    самостоятельной строкой, не подстрока где-угодно.\"\"\"\n    p = repo / KATALOG_MAESTRO\n    if not p.is_file():\n        return False\n    v_spiske = False\n    for line in p.read_text(encoding='utf-8').splitlines():\n        s = line.strip()\n        if v_spiske:\n            if not s.startswith('- '):\n                break\n            if s[2:].strip().strip('\\'\"') == iskljuchenie:\n                return True\n        elif s == 'flows:':\n            v_spiske = True\n    return False\n\n\ndef sud_flow(shagi, snimki):\n    otkazy = []\n    poz = {}\n    for i, (k, a) in enumerate(shagi):\n        if k == 'takeScreenshot':\n            poz.setdefault(a, []).append(i)\n    for s in snimki:\n        sp = poz.get(s, [])\n        if not sp:\n            otkazy.append(('SNIMOK_BEZ_SHAGA', s))\n        elif len(sp) > 1:\n            otkazy.append(('SNIMOK_NEODNOZNACHEN', s))\n    if not shagi or shagi[0][0] != 'launchApp' or sum(\n            k == 'launchApp' for k, _ in shagi) != 1 or any(\n                k in ('openLink', 'startApp') for k, _ in shagi):\n        otkazy.append(('FLOW_BEZ_ZAPUSKA', 'launchApp'))\n    granica = -1\n    for s in snimki:\n        sp = poz.get(s, [])\n        if not sp:\n            continue\n        i = sp[0]\n        blok_shagov = shagi[granica + 1:i]\n        blok = [k for k, _ in blok_shagov]\n        if granica >= 0 and not any(k in PEREHODY for k in blok):\n            otkazy.append(('FLOW_BEZ_PEREHODA', s))\n        if 'assertVisible' not in blok:\n            otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', s))\n        if s not in SELEKTOR_KADRA or not any(\n                k == 'assertVisible' and id_iz(a) == SELEKTOR_KADRA[s]\n                for k, a in blok_shagov):\n            otkazy.append(('SELEKTOR_NE_KADRA', s))\n        granica = i\n\n    def ordered(items):\n        at = -1\n        for kind, val in items:\n            at = next((i for i in range(at + 1, len(shagi))\n                       if shagi[i][0] == kind and\n                       (id_iz(shagi[i][1]) if kind in ('tapOn', 'assertVisible',\n                                                     'assertNotVisible') else\n                        shagi[i][1]) == val), -1)\n            if at < 0:\n                return False\n        return True\n\n    first = snimki[0]\n    # Демо-вход production (арбитраж 117↔118 п.1.7): First-Run →\n    # first-run-continue → F03.01 → auth-demo-entry → Erstinformation.\n    # Промежуточный экран first_run_demo_entry в production-корне 117 v3\n    # не предусмотрен (117 :153 «вход F03.01 после First-Run — без изменений»).\n    if not ordered([('launchApp', ''), ('assertVisible', 'first-run-continue'),\n                    ('tapOn', 'first-run-continue'),\n                    ('assertVisible', 'auth-demo-entry'),\n                    ('tapOn', 'auth-demo-entry'),\n                    ('assertVisible', SELEKTOR_KADRA[first]),\n                    ('takeScreenshot', first)]):\n        otkazy.append(('FLOW_BEZ_DEMO_VHODA', first))\n    # Null и stale — два разных запрета, каждый наблюдается ДО подтверждённого\n    # gate; проверка по индексам исключает assertNotVisible где-то в хвосте.\n    for state, shot in (('null', snimki[0]), ('stale', snimki[3])):\n        marker = 'erstinfo_gate_' + state\n        if not ordered([('assertVisible', marker),\n                        ('assertNotVisible', 'start_tabs'),\n                        ('takeScreenshot', shot)]):\n            otkazy.append(('FLOW_GATE_NE_PROVEREN', state))\n    # Состав назначения наблюдаем ПО ВКЛАДКЕ, не только узлом start_tabs\n    # (вердикт круга 2: пустой <View testID=\"start_tabs\" /> без вкладок —\n    # не Start).\n    vkladki = ('start_tabs', 'start_tab_start', 'start_tab_vorgaenge',\n               'start_tab_schutz', 'start_tab_post')\n    if not ordered([('takeScreenshot', snimki[-1]),\n                    ('tapOn', 'erstinfo_retry_current'),\n                    ('assertVisible', 'erstinfo_gate_current'),\n                    ('tapOn', 'erstinfo_continue_start')] +\n                   [('assertVisible', t) for t in vkladki]):\n        otkazy.append(('FLOW_BEZ_START', 'start_tabs'))\n    return otkazy\ndef selektory(shagi):\n    out = []\n    for k, a in shagi:\n        if k in ('tapOn', 'assertVisible'):\n            i = id_iz(a)\n            if i:\n                out.append(i)\n    return out\n\nKOMPOZICIJA_PROBA = 'mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh'\nKOMPOZICIJA_ZONDA = 'mobile/src/bootstrap/__tests__/kompozicija.probe.test.tsx'\nKOMPOZICIJA_FORMA_SHA256 = \\\n    '2efeb3b781a6b9f0e7ada43bbec33686512787fd6521fa05efede6965387d909'\nOSI_IMENA = {\n    'POVERHNOST': 'KOMPOZICIJA_POVERHNOST',\n    'W0': 'KOMPOZICIJA_W0_PROPUSHCHEN',\n    'W1A': 'KOMPOZICIJA_W1A_NE_DOPUSHCHEN',\n    'GATE': 'KOMPOZICIJA_GATE_PROPUSHCHEN',\n    'ENTRY': 'KOMPOZICIJA_ENTRY_ISTOCHNIK',\n    'POSTORONNEE': 'KOMPOZICIJA_POSTORONNEE_POLE',\n    'KESH': 'KOMPOZICIJA_KESH_ADMISSION',\n    'FIRST_RUN': 'KOMPOZICIJA_NE_FIRST_RUN',\n    'G0': 'KOMPOZICIJA_G0_TEMA',\n    'SROK_ROOT': 'KOMPOZICIJA_SROK_ISTEK_ROOT',\n    'SROK_START': 'KOMPOZICIJA_SROK_ISTEK_START',\n    'SROK_ROVNO': 'KOMPOZICIJA_SROK_ROVNO_SEJCHAS',\n    'SROK_NAN': 'KOMPOZICIJA_SROK_NERAZBORCHIV',\n    'SROK_KESH': 'KOMPOZICIJA_SROK_KESH',\n    'SROK_BUDUSHCHIJ': 'KOMPOZICIJA_SROK_BUDUSHCHIJ',\n    'SROK_STROKOJ': 'KOMPOZICIJA_SROK_STROKOJ',\n}\n# Оси композиции v2 (арбитраж 117↔118 п.1.2–1.5, таблица осей, не точки\n# мутантов): (admission, gate, entry, sobytie, extra, admission_tek,\n# ozhidanie, imja_vetvi). Пояснения:\n#   1–10 — шесть клеток admission×gate (demo) с ОБЯЗАТЕЛЬНЫМ continue\n#          при null/stale (инв. 5 «после действия continue»);\n#   11–14 — конфликты источников: entry.onboarding='complete',\n#          постороннее truthy-поле порта, entry.gate='current' против\n#          авторитетного stale сессии;\n#   15–16 — порт читается в МОМЕНТ действия (rerender W1A→W0 до demo и до\n#          continue), кэш допуска красен;\n#   17–18 — начальный кадр first-run при любом entry и remount с\n#          сохранённым completed-entry (W0/stale → First-Run, не Start);\n#   19–20 — смена темы: поверхность не меняется (Г0 корня F03 на пути B,\n#          автостарта нет).\nKOMPOZICIJA_OSI = (\n        ('W1A', 'null', 'net', 'demo', 'net', '', '', '', 'erstinformation', 'POVERHNOST'),\n    ('W1A', 'null', 'net', 'demo-continue', 'net', '', '', '', 'start_ne_dopushchen', 'GATE'),\n    ('W1A', 'stale', 'net', 'demo', 'net', '', '', '', 'erstinformation', 'POVERHNOST'),\n    ('W1A', 'stale', 'net', 'demo-continue', 'net', '', '', '', 'start_ne_dopushchen', 'GATE'),\n    ('W1A', 'current', 'net', 'demo', 'net', '', '', '', 'erstinformation', 'POVERHNOST'),\n    ('W1A', 'current', 'net', 'demo-continue', 'net', '', '', '', 'start_dopushchen', 'W1A'),\n    ('W0', 'null', 'net', 'demo', 'net', '', '', '', 'f03-02-code', 'W0'),\n    ('W0', 'stale', 'net', 'demo', 'net', '', '', '', 'f03-02-code', 'W0'),\n    ('W0', 'current', 'net', 'demo', 'net', '', '', '', 'f03-02-code', 'W0'),\n    ('W0', 'current', 'net', 'demo-continue', 'net', '', '', '', 'start_ne_dopushchen', 'W0'),\n    ('W0', 'current', 'complete', 'demo', 'net', '', '', '', 'f03-02-code', 'ENTRY'),\n    ('W0', 'current', 'complete', 'demo-continue', 'net', '', '', '', 'start_ne_dopushchen', 'ENTRY'),\n    ('W0', 'stale', 'net', 'demo', 'postoronnee-pole', '', '', '', 'f03-02-code', 'POSTORONNEE'),\n    ('W1A', 'stale', 'complete', 'demo-continue', 'entry-gate-current', '', '', '', 'start_ne_dopushchen', 'GATE'),\n    ('W1A', 'current', 'net', 'rerender-demo', 'net', 'W0', '', '', 'f03-02-code', 'KESH'),\n    ('W1A', 'current', 'net', 'rerender-continue', 'net', 'W0', '', '', 'start_ne_dopushchen', 'KESH'),\n    ('W0', 'stale', 'complete', 'remount', 'net', '', '', '', 'first-run', 'FIRST_RUN'),\n    ('W1A', 'current', 'complete', 'montazh', 'net', '', '', '', 'first-run', 'FIRST_RUN'),\n    ('W1A', 'stale', 'net', 'tema', 'net', '', '', '', 'erstinformation', 'G0'),\n    ('W0', 'stale', 'net', 'tema', 'net', '', '', '', 'f03-02-code', 'G0'),\n# 21–28 — ось expires_at × момент чтения (118 v2, B1 Adv118b круга 2,\n# вариант Б-мини): истёкшая на корне и на маршруте /start, «ровно\n# сейчас» (литерал now — текущий срез часов формы), неразборчивая,\n# истёкшая между mount и действием (кэш $7 вместо среза $8), явная\n# далёкая дата демо-источника → допуск есть (корень и /start),\n# строковое сравнение ловится прошедшей датой года 999 (эпохой —\n# глубокое прошлое). Сроки в осях — эпохой GNU date ('@N'):\n# ISO-литерал с Z в тексте пачки ловит LITERAL_VNE_AUDITA (132).\n    ('W1A', 'current', 'net', 'demo', 'net', '', '@1791936000', '',\n     'f03-02-code', 'SROK_ROOT'),\n    ('W1A', 'current', 'net', 'start-marshrut', 'net', '', '@1791936000', '',\n     'start_ne_dopushchen', 'SROK_START'),\n    ('W1A', 'current', 'net', 'demo', 'net', '', 'now', '',\n     'f03-02-code', 'SROK_ROVNO'),\n    ('W1A', 'current', 'net', 'demo', 'net', '', 'nerazborchivoe-znachenie', '',\n     'f03-02-code', 'SROK_NAN'),\n    ('W1A', 'current', 'net', 'rerender-demo', 'net', '', '@4102358400',\n     '@1791936000', 'f03-02-code', 'SROK_KESH'),\n    ('W1A', 'current', 'net', 'demo', 'net', '', '@4102358400', '',\n     'erstinformation', 'SROK_BUDUSHCHIJ'),\n    ('W1A', 'current', 'net', 'start-marshrut', 'net', '', '@4102358400', '',\n     'start_dopushchen', 'SROK_BUDUSHCHIJ'),\n    ('W1A', 'current', 'net', 'demo', 'net', '', '@-30641760000', '',\n     'f03-02-code', 'SROK_STROKOJ'),\n)\n\n\ndef sud_kompoziciju(repo):\n    \"\"\"Оси admission/gate на production-шве (вердикт круга 2 + adv-118 A1 +\n    арбитраж 117↔118 п.1.2–1.5): stand-in признаётся ТОЛЬКО в пин-форме\n    носителя teksty/kompozicija_forma (побайтовое равенство по sha256);\n    чужие байты → KOMPOZICIJA_FORMA, при этом оси ВСЁ РАВНО прогоняются и\n    именуют ветвь дефекта (Н-39: стаб красен там, где его дефект наблюдаем;\n    rc!=0 оси — KOMPOZICIJA_OS_NE_ISPOLNENA, сбой команды не маскируется\n    дефолтным «start_ne_dopushchen»). Источник admission — вызывающий\n    проверяющий, не литерал в пробе; admission_tek (последний аргумент)\n    моделирует rerender сессии ДО действия. Зонд-проба композиции\n    (kompozicija.probe.test.tsx), если продукт её несёт, обязана импортировать\n    production-корень '../pilot-app' и не импортировать модель-копию\n    (арбитраж п.1.1 → MODEL_KAK_DOKAZATELSTVO).\"\"\"\n    otkazy = []\n    p = repo / KOMPOZICIJA_PROBA\n    if not p.is_file():\n        return [('KOMPOZICIJA_NET', KOMPOZICIJA_PROBA)]\n    if sha(p) != KOMPOZICIJA_FORMA_SHA256:\n        otkazy.append(('KOMPOZICIJA_FORMA', KOMPOZICIJA_PROBA))\n    for admission, gate, entry, sobytie, extra, tek, srok, srok_tek, \\\n            ozhidanie, imja in KOMPOZICIJA_OSI:\n        args = [admission, gate, entry, sobytie, extra, tek or '']\n        if srok:\n            args.append(srok)\n            if srok_tek:\n                args.append(srok_tek)\n        zap = subprocess.run(\n            ['bash', str(p)] + args,\n            capture_output=True, text=True, cwd=str(repo / 'mobile'))\n        fakt = zap.stdout.strip()\n        if zap.returncode != 0:\n            otkazy.append(('KOMPOZICIJA_OS_NE_ISPOLNENA',\n                           'admission=%s gate=%s sobytie=%s rc=%d'\n                           % (admission, gate, sobytie, zap.returncode)))\n        elif fakt != ozhidanie:\n            otkazy.append((OSI_IMENA[imja],\n                           'admission=%s gate=%s entry=%s sobytie=%s '\n                           'extra=%s: %r'\n                           % (admission, gate, entry, sobytie, extra, fakt)))\n    zond = repo / KOMPOZICIJA_ZONDA\n    if zond.is_file():\n        z = zond.read_text(encoding='utf-8')\n        if \"from '../pilot-app'\" not in z or 'pilot-app.model' in z:\n            otkazy.append(('MODEL_KAK_DOKAZATELSTVO', KOMPOZICIJA_ZONDA))\n    return otkazy\n\n\n# --- v2 круг 3 (РЕШЕНИЕ арбитра 118 v2, §Q2): пин формы теста, судья -------\n# --- ИСПОЛНЕНИЯ (отчёт jest --json) и байтовый судья данных (БЛ-А/БЛ-Б) ----\n\nPROIZVODSTVENNYJ_KRJUCHOK = 'mobile/src/app/onboarding-session.tsx'\nSROK_TEST_FAIL = 'mobile/src/bootstrap/__tests__/session-srok.test.tsx'\n# Пин формы теста срока (А-1): продукт держит файл ПОБАЙТОВО равным\n# носителю teksty/session-srok.stand-in.tsx батареи; иные байты →\n# SROK_TESTY_FORMA. Одним пином закрыты skip/only/todo/xit/условный skip,\n# rerender вместо press, модель-копия, выпадение клетки, ослабление\n# ассертов (лексические проверки SROK_TESTY_* гейтом не являются).\nSROK_TESTY_FORMA_SHA256 = \\\n    '489e11fb0ee02ed1864701f02202bfb3758721a8a70f6b5405b29ffb05e9ef5b'\nCI_MOBILE = '.github/workflows/mobile.yml'\n# Отчёт исполнения пишет шаг CI `npm test -- --json --outputFile=…`\n# (cwd mobile); относительный --jest-otchet разрешается от repo/mobile.\nJEST_OTCHET_OTNOSITELNYJ = 'e2e-erstinformation/jest-otchet.json'\n# 13 клеток пин-формы (А-3): 11 прежних + srok-mezhdu-render-continue;\n# srok-mezhdu-mount-dejstviem ПЕРЕОПРЕДЕЛЕНА как press БЕЗ ререндера на\n# Root (БЛ-А2), прежний rerender-вариант — отдельная клетка srok-rerender.\nSROK_KLETKI = (\n    'srok-istekla-koren', 'srok-istekla-start', 'srok-rovno-sejchas',\n    'srok-nerazborchivaja', 'srok-mezhdu-mount-dejstviem',\n    'srok-mezhdu-render-continue', 'srok-rerender-start', 'srok-pustaja',\n    'srok-otsutstvuet-pole', 'srok-nestrokovaja', 'srok-offset-zona',\n    'srok-ranishe-auth-time', 'srok-svezhaja-demo',\n)\n\n\ndef _put_otcheta(repo, otchet):\n    \"\"\"Путь отчёта: абсолютный как есть; относительный — от repo/mobile\n    (cwd шага npm test того же job).\"\"\"\n    p = Path(otchet) if otchet else Path(JEST_OTCHET_OTNOSITELNYJ)\n    if not p.is_absolute():\n        p = repo / 'mobile' / p\n    return p\n\n\ndef _sud_otchet(otchet_d):\n    \"\"\"Судья ИСПОЛНЕНИЯ (А-2): текст ≠ исполнение — свидетельством того,\n    что пин-клетки исполнились и прошли, является только отчёт jest\n    --json шага npm test. success, запись файла по имени, каждая клетка\n    ровно один раз со status passed, вне-passed в записи 0, pending/todo\n    по отчёту в целом 0. Отсутствие/неразбор → SROK_OTCHET_NET\n    (fail-closed: нет отчёта = нет прогона).\"\"\"\n    otkazy = []\n    if otchet_d.get('success') is not True:\n        otkazy.append(('SROK_OTCHET_NE_USPEH',\n                       'success=%r' % otchet_d.get('success')))\n    zapisi = [t for t in otchet_d.get('testResults', [])\n              if isinstance(t, dict)\n              and isinstance(t.get('name'), str)\n              and t['name'].endswith(SROK_TEST_FAIL)]\n    if len(zapisi) != 1:\n        otkazy.append(('SROK_OTCHET_BEZ_FAJLA', 'zapisej=%d' % len(zapisi)))\n        return otkazy\n    utverzhdenija = [a for a in zapisi[0].get('assertionResults', [])\n                     if isinstance(a, dict)]\n    for kletka in SROK_KLETKI:\n        sovpadenija = [a for a in utverzhdenija\n                       if isinstance(a.get('title'), str)\n                       and a['title'].startswith(kletka)]\n        if len(sovpadenija) == 1 and sovpadenija[0].get('status') == 'passed':\n            continue\n        if not sovpadenija:\n            detal = '%s:missing' % kletka\n        elif len(sovpadenija) > 1:\n            detal = '%s:x%d' % (kletka, len(sovpadenija))\n        else:\n            detal = '%s:%r' % (kletka, sovpadenija[0].get('status'))\n        otkazy.append(('SROK_KLETKA_NE_ISPOLNENA', detal))\n    ne_proshli = [a for a in utverzhdenija if a.get('status') != 'passed']\n    if ne_proshli:\n        otkazy.append(('SROK_OTCHET_NE_POLNOSTJU',\n                       'vne passed=%d' % len(ne_proshli)))\n    pending = otchet_d.get('numPendingTests') or 0\n    todo = otchet_d.get('numTodoTests') or 0\n    if pending:\n        otkazy.append(('SROK_OTCHET_S_PENDING', 'numPendingTests=%r' % pending))\n    if todo:\n        otkazy.append(('SROK_OTCHET_S_TODO', 'numTodoTests=%r' % todo))\n    return otkazy\n\n\ndef sud_sroka(repo, otchet):\n    \"\"\"(А-1 + А-2) Пин формы теста + судья исполнения. Токен-проверка\n    PROIZVODSTVO_BEZ_SROKA по подстроке СНЯТА как гейт (арбитраж 118 v2:\n    правильность крючка доказывают исполненные пин-клетки на настоящих\n    поверхностях, не лексика); отсутствие файла крючка — именованный\n    отказ. Судья исполнения НЕ запускает jest сам: отчёт пишет шаг\n    `npm test -- --json --outputFile=` ТОГО ЖЕ job ДО шага checker'а —\n    порядок судит sud_ci_sroka (единственная текстовая нога, остаток\n    назван в §НЕ ЗАЩИЩАЕТ контракта).\"\"\"\n    otkazy = []\n    if not (repo / PROIZVODSTVENNYJ_KRJUCHOK).is_file():\n        otkazy.append(('PROIZVODSTVO_BEZ_SROKA', PROIZVODSTVENNYJ_KRJUCHOK))\n    z = repo / SROK_TEST_FAIL\n    if not z.is_file():\n        otkazy.append(('SROK_TESTY_NET', SROK_TEST_FAIL))\n    elif sha(z) != SROK_TESTY_FORMA_SHA256:\n        otkazy.append(('SROK_TESTY_FORMA', SROK_TEST_FAIL))\n    p = _put_otcheta(repo, otchet)\n    if not p.is_file():\n        otkazy.append(('SROK_OTCHET_NET',\n                       str(otchet or JEST_OTCHET_OTNOSITELNYJ)))\n        return otkazy\n    try:\n        otchet_d = json.loads(p.read_text(encoding='utf-8'))\n    except (OSError, ValueError) as e:\n        otkazy.append(('SROK_OTCHET_NET', 'не разбирается: %r' % e))\n        return otkazy\n    return otkazy + _sud_otchet(otchet_d)\n\n\ndef sud_ci_sroka(repo):\n    \"\"\"(А-2, текстовая нога) mobile.yml несёт шаг npm test с\n    `--json --outputFile=` ДО шага checker'а с `--jest-otchet`; шаг\n    пропал или стоит после checker'а → CI_BEZ_OTCHETA_SROKA. Подделка\n    отчёта и перестановка шагов вне судьи — ловец в §НЕ ЗАЩИЩАЕТ.\"\"\"\n    c = repo / CI_MOBILE\n    if not c.is_file():\n        return [('CI_BEZ_OTCHETA_SROKA', CI_MOBILE)]\n    stroki = c.read_text(encoding='utf-8').splitlines()\n    shag_jest = [i for i, l in enumerate(stroki)\n                 if '--json --outputFile=' in l and 'npm test' in l]\n    shag_checker = [i for i, l in enumerate(stroki) if '--jest-otchet' in l]\n    if not shag_jest or not shag_checker \\\n            or min(shag_jest) > min(shag_checker):\n        return [('CI_BEZ_OTCHETA_SROKA',\n                 'нет npm test --json --outputFile= до шага --jest-otchet')]\n    return []\n\n\n# --- v2 круг 3 (Б-1/Б-2): байтовый судья данных — ровно один литерал -----\n\nETALON_DANNYH_REL = ('fixtures/workshop_project/erstinformation_118/'\n                     'nositeli/dannye/etalon_995.json')\nETALON_MOCKS_REL = ('fixtures/workshop_project/erstinformation_118/'\n                    'nositeli/dannye/etalon_pilot_responses.json')\n# Байтовые эталоны — копии носителей ДО правки (продукт a280656):\n# производить эталон mocks из JSON эталона 995 ЗАПРЕЩЕНО (Б-1).\n# Разрешённая дельта — ровно ОДНА подстановка (арбитраж 118 v2 Б-2);\n# литералы собраны так, что текст файла не несёт размерного литерала\n# аудита 132 (цифры+буквы) и деградирует только с потерей смысла.\nSROK_STAROGO_LIT = b'\"expires_at\": \"2026-10-14T00:00:00' + b'Z\"'\nSROK_DALEKIJ_LIT = b'\"expires_at\": \"' + b'2099-12-31T00:00:00' + b'Z\"'\nLIMIT_PODSTANOVOK = 1\nNOSITELI_DANNYH = (\n    ('fixtures/workshop_project/pilot_995/source.json', ETALON_DANNYH_REL),\n    ('mobile/src/bootstrap/__tests__/source.json', ETALON_DANNYH_REL),\n    ('mobile/src/mocks/pilot-responses.json', ETALON_MOCKS_REL),\n)\n\n\ndef _smeshchenie_pervogo_razlichija(fakt, etalon):\n    \"\"\"Смещение первого различия байтов (или длина более короткого).\"\"\"\n    for i in range(min(len(fakt), len(etalon))):\n        if fakt[i] != etalon[i]:\n            return i\n    return min(len(fakt), len(etalon))\n\n\ndef sud_odin_razreshennyj_kljuch(repo, harness):\n    \"\"\"(Б-1/Б-2) Слово владельца 25.10 — правка данных ТОЛЬКО\n    session.expires_at, и это БАЙТОВАЯ подстановка ровно одного литерала:\n    декодированный объект доказательством байтов не является (escape,\n    пробелы, порядок ключей, BOM, CRLF, переформатирование невидимы\n    json-дифом — свидетель критика круга 2). Носитель конформен, если его\n    байты равны эталону ИЛИ эталону с ЕДИНСТВЕННОЙ подстановкой\n    SROK_DALEKIJ_LIT; в эталоне старый литерал обязан встретиться ровно\n    один раз (иначе ETALON_DANNYH_NET). Любое иное отличие →\n    DANNYE_NE_TOLKO_EXPIRES_AT со смещением первого различия.\"\"\"\n    if harness is None:\n        return [('ETALON_DANNYH_NET', '--harness')]\n    otkazy, etalony = [], {}\n    for rel_e in (ETALON_DANNYH_REL, ETALON_MOCKS_REL):\n        try:\n            bajty = (Path(harness) / rel_e).read_bytes()\n        except OSError:\n            otkazy.append(('ETALON_DANNYH_NET', rel_e))\n            continue\n        if bajty.count(SROK_STAROGO_LIT) != 1:\n            otkazy.append(('ETALON_DANNYH_NET',\n                           '%s: старый литерал x%d'\n                           % (rel_e, bajty.count(SROK_STAROGO_LIT))))\n            continue\n        etalony[rel_e] = bajty\n    if otkazy:\n        return otkazy\n    for rel, rel_e in NOSITELI_DANNYH:\n        p = (Path(harness) if rel.startswith('fixtures/') else repo) / rel\n        try:\n            fakt = p.read_bytes()\n        except OSError:\n            otkazy.append(('NOSITEL_DANNYH_NET', rel))\n            continue\n        etalon = etalony[rel_e]\n        razreshennye = (etalon, etalon.replace(\n            SROK_STAROGO_LIT, SROK_DALEKIJ_LIT, LIMIT_PODSTANOVOK))\n        if fakt not in razreshennye:\n            otkazy.append(('DANNYE_NE_TOLKO_EXPIRES_AT',\n                           '%s: первое различие @%d'\n                           % (rel, _smeshchenie_pervogo_razlichija(\n                               fakt, razreshennye[1]))))\n    return otkazy\n\n\ndef main():\n    ap = argparse.ArgumentParser()\n    ap.add_argument('--pack', required=True)\n    ap.add_argument('--repo', required=True)\n    ap.add_argument('--harness', default=None)\n    ap.add_argument('--jest-otchet', default=None,\n                    help='отчёт jest --json шага npm test (cwd mobile); '\n                         'отсутствие = непрогон (SROK_OTCHET_NET)')\n    a = ap.parse_args()\n    pack, repo = Path(a.pack), Path(a.repo)\n    try:\n        forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))\n        manifest = json.loads((pack / forma['kadry']).read_text(\n            encoding='utf-8'))\n        shagi = shagi_flow(repo / forma['e2e_scenarij'])\n        paket = paket_produkta(repo)\n        appid = appid_flow(repo / forma['e2e_scenarij'])\n    except (OSError, ValueError, KeyError) as e:\n        print('PROVERKA_NECHITAEM: %r' % e, file=sys.stderr)\n        return 2\n    kadry = manifest['kadry']\n    snimki = list(dict.fromkeys(k['snimok'] for k in kadry))\n    otkazy = []\n    if appid != paket:\n        otkazy.append(('FLOW_APPID_NE_PAKET',\n                       'appId=%s paket=%s' % (appid, paket)))\n    # Конфиг каталога Maestro: исключение флоу пачки обязано стоять в flows\n    # (adv-118 B3 — снятое исключение не замечала прежняя proverka).\n    iskljuchenie_pachki = '!' + forma['e2e_scenarij'].split('/')[-1]\n    if not iskljuchenie_pachki_v_confige(repo, iskljuchenie_pachki):\n        otkazy.append(('CONFIG_BEZ_ISKLJUCHENIJA',\n                       '%s без %s' % (KATALOG_MAESTRO, iskljuchenie_pachki)))\n    # Ровно 16 кадров манифеста (adv-118 A2): 15 кадров «проходят» сверку,\n    # но манифест пачки обязан нести полный состав 8 snimok × dark/light.\n    fakt_kadry = sorted((k.get('snimok'), k.get('tema')) for k in kadry)\n    if len(fakt_kadry) != len(OZHIDAEMYE_KADRY):\n        otkazy.append(('MANIFEST_NE_16_KADROV', 'chislo=%d' % len(fakt_kadry)))\n    elif fakt_kadry != OZHIDAEMYE_KADRY:\n        otkazy.append(('MANIFEST_NE_16_KADROV', 'sostav'))\n    otkazy += sud_flow(shagi, snimki) + sud_kompoziciju(repo)\n    otkazy += sud_sroka(repo, a.jest_otchet)\n    otkazy += sud_ci_sroka(repo)\n    otkazy += sud_odin_razreshennyj_kljuch(repo, a.harness)\n    istochniki = [p for root in ISTOCHNIKI_EKRANA\n                  for p in (repo / root).rglob('*')]\n    teksty = []\n    for p in istochniki:\n        if p.is_file():\n            try:\n                teksty.append(p.read_text(encoding='utf-8'))\n            except (OSError, UnicodeDecodeError):\n                pass\n    for s in sorted(set(selektory(shagi))):\n        # Носитель селектора — литерал в коде экрана в одном из двух\n        # замкнутых атрибутов продукта: testID= (Pressable/PlacedText) и\n        # buttonTestID= (Cta рендерит testID={buttonTestID},\n        # auth-parts.tsx); first-run-continue заморожен дефисом (995/111)\n        # и живёт в buttonTestID (first-run-screen.tsx).\n        if not any(('testID=\"%s\"' % s in line or\n                    'buttonTestID=\"%s\"' % s in line)\n                   for t in teksty for line in t.splitlines()\n                   if not line.lstrip().startswith(('//', '/*', '*', '#'))):\n            otkazy.append(('SELEKTOR_BEZ_EKRANA', s))\n    karta = {(k['snimok'], k['tema']): k for k in kadry}\n    for p in sorted((repo / forma['kadry_dir']).rglob('*.png')):\n        tema = p.relative_to(repo / forma['kadry_dir']).parts[0]\n        z = karta.get((p.stem, tema))\n        if z and (repo / z['maket']).is_file() \\\n                and sha(p) == sha(repo / z['maket']):\n            otkazy.append(('KADR_BYTE_KOPIJA_MAKETA', z['id']))\n    for imja, detal in otkazy:\n        prichina(imja, detal)\n    return 1 if otkazy else 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
  "testids_tekst": "<View testID=\"erstinfo_frame_f02_03_v01_v0\" />\n<View testID=\"erstinfo_frame_f02_03_v02_v0\" />\n<View testID=\"erstinfo_frame_f02_03_v01\" />\n<View testID=\"erstinfo_frame_f02_03_v02\" />\n<View testID=\"erstinfo_frame_f02_08_v01\" />\n<View testID=\"erstinfo_frame_f02_08_v02\" />\n<View testID=\"erstinfo_frame_f02_08_v03\" />\n<View testID=\"erstinfo_frame_f02_08_v04\" />\n<View testID=\"erstinfo_next_variant\" />\ntestID=\"erstinfo_gate_null\"\ntestID=\"erstinfo_gate_stale\"\ntestID=\"erstinfo_gate_current\"\ntestID=\"erstinfo_retry_current\"\ntestID=\"erstinfo_continue_start\"\n",
  "app_start_tekst": "testID=\"start_tabs\"\ntestID=\"start_tab_start\"\ntestID=\"start_tab_vorgaenge\"\ntestID=\"start_tab_schutz\"\ntestID=\"start_tab_post\"\n",
- "kompozicija_forma": "#!/usr/bin/env bash\n# Форма stand-in пробы композиции v2 (контракт 118; усиление батареи после\n# freeze по арбитражу 117↔118 РЕШЕНИЕ п.1–2 и слову владельца 2026-10-24;\n# носитель — батарея\n# fixtures/workshop_project/erstinformation_118/teksty/kompozicija_forma).\n# Продукт держит mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh\n# БАЙТ-В-БАЙТ равным этому носителю: пин sha256 зашит в proverka\n# proiskhozdenija (KOMPOZICIJA_FORMA_SHA256), подмена таблицей ожиданий\n# или заглушкой даёт именованный отказ KOMPOZICIJA_FORMA.\n# Семантика (арбитраж п.2 + путь W0 = вариант B):\n#   admission решает ПОВЕРХНОСТЬ после demo: W1A → erstinformation при\n#     ЛЮБОМ gate (null/stale/current); не-W1A (W0) — путь B:\n#     auth.begin → f03-02-code (Г0 корня F03 сохраняется);\n#   gate решает ПЕРЕХОД: continue → start ТОЛЬКО при W1A ∧ current;\n#     при null/stale continue НЕ переводит, Start отсутствует;\n#   начальный кадр 'first-run' при ЛЮБОМ entry и любом порте;\n#   Start — только continue (смена темы автостарта не даёт).\n# Источники: admission/gate — ТОЛЬКО порт сессии (аргументы вызывающего);\n# entry.onboarding ('complete' и пр.), entry.gate и посторонние поля порта\n# (authenticated и т.п.) источником допуска НЕ являются. Порт читается В\n# МОМЕНТ действия ($6 — текущий срез после rerender), не кэшируется на\n# монтаже ($1). Исполнение настоящей композиции (jest-проба из\n# mobile/src/bootstrap/__tests__/, admission из внешнего источника —\n# сессии/проверяющего) судит продуктовый CI; эта форма — её видимый шов.\n# Вне алфавита любого поля — rc 3 (именованный отказ, не дефолт-вердикт).\nset -u\nadmission=\"${1:?admission=W0|W1A}\"\ngate=\"${2:?gate=null|stale|current}\"\nentry=\"${3:-net}\"\nsobytie=\"${4:?sobytie}\"\nextra=\"${5:-net}\"\nadmission_tek=\"${6:-$admission}\"\ncase \"$admission\" in W0|W1A) ;; *) exit 3 ;; esac\ncase \"$gate\" in null|stale|current) ;; *) exit 3 ;; esac\ncase \"$entry\" in net|unknown|incomplete|complete) ;; *) exit 3 ;; esac\ncase \"$extra\" in net|postoronnee-pole|entry-gate-current) ;; *) exit 3 ;; esac\n\npoverhnost() {\n  if [ \"$admission_tek\" = \"W1A\" ]; then\n    echo erstinformation\n  else\n    echo f03-02-code\n  fi\n}\n\nstart_reshenie() {\n  if [ \"$admission_tek\" = \"W1A\" ] && [ \"$gate\" = \"current\" ]; then\n    echo start_dopushchen\n  else\n    echo start_ne_dopushchen\n  fi\n}\n\ncase \"$sobytie\" in\n  montazh) echo first-run ;;\n  demo) poverhnost ;;\n  demo-continue)\n    if [ \"$(poverhnost)\" = erstinformation ]; then\n      start_reshenie\n    else\n      echo start_ne_dopushchen\n    fi ;;\n  tema) poverhnost ;;\n  rerender-demo) poverhnost ;;\n  rerender-continue) start_reshenie ;;\n  remount) echo first-run ;;\n  *) exit 3 ;;\nesac\n",
+ "kompozicija_forma": "#!/usr/bin/env bash\n# Форма stand-in пробы композиции v2 (контракт 118; усиление батареи после\n# freeze по арбитражу 117↔118 РЕШЕНИЕ п.1–2 и слову владельца 2026-10-24;\n# ось expires_at — 118 v2 по B1 Adv118b круга 2 «истёкшая валидная Session\n# → W1A» и варианту «Б-мини» консультанта n118-sessija-demo: демо-сессия\n# 995 получает далёкую дату, допуск — единый fail-closed expiry-контроль).\n# Продукт держит mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh\n# БАЙТ-В-БАЙТ равным этому носителю: пин sha256 зашит в proverka\n# proiskhozdenija (KOMPOZICIJA_FORMA_SHA256), подмена таблицей ожиданий\n# или заглушкой даёт именованный отказ KOMPOZICIJA_FORMA.\n# Семантика (арбитраж п.2 + путь W0 = вариант B + срок 118 v2):\n#   admission решает ПОВЕРХНОСТЬ после demo: W1A → erstinformation при\n#     ЛЮБОМ gate (null/stale/current); не-W1A (W0) — путь B:\n#     auth.begin → f03-02-code (Г0 корня F03 сохраняется);\n#   gate решает ПЕРЕХОД: continue → start ТОЛЬКО при W1A ∧ current;\n#     при null/stale continue НЕ переводит, Start отсутствует;\n#   срок сессии (expires_at) — единый fail-closed контроль допуска на\n#     корне И на маршруте /start: действителен только срок СТРОГО в\n#     будущем момента чтения; пустая/неразборчивая/прошлая дата и «ровно\n#     сейчас» — сессия недействительна → путь B и запрет Start даже при\n#     admission=W1A ∧ gate=current (B1 Adv118b круга 2);\n#   начальный кадр 'first-run' при ЛЮБОМ entry и любом порте;\n#   Start — только continue (смена темы автостарта не даёт).\n# Источники: admission/gate/срок — ТОЛЬКО порт сессии (аргументы\n# вызывающего); entry.onboarding ('complete' и пр.), entry.gate и\n# посторонние поля порта (authenticated и т.п.) источником допуска НЕ\n# являются. Порт читается В МОМЕНТ действия ($6/$8 — текущий срез после\n# rerender, срок — тем же срезом), не кэшируется на монтаже ($1/$7).\n# Исполнение настоящей композиции (jest-проба из\n# mobile/src/bootstrap/__tests__/, admission из внешнего источника —\n# сессии/проверяющего) судит продуктовый CI; эта форма — её видимый шов.\n# Вне алфавита любого поля — rc 3 (именованный отказ, не дефолт-вердикт).\nset -u\nadmission=\"${1:?admission=W0|W1A}\"\ngate=\"${2:?gate=null|stale|current}\"\nentry=\"${3:-net}\"\nsobytie=\"${4:?sobytie}\"\nextra=\"${5:-net}\"\nadmission_tek=\"${6:-$admission}\"\nexpires=\"${7-2099-12-31T00:00:00Z}\"\nexpires_tek=\"${8-$expires}\"\ncase \"$admission\" in W0|W1A) ;; *) exit 3 ;; esac\ncase \"$gate\" in null|stale|current) ;; *) exit 3 ;; esac\ncase \"$entry\" in net|unknown|incomplete|complete) ;; *) exit 3 ;; esac\ncase \"$extra\" in net|postoronnee-pole|entry-gate-current) ;; *) exit 3 ;; esac\ncase \"$sobytie\" in montazh|demo|demo-continue|tema|rerender-demo|rerender-continue|remount|start-marshrut) ;; *) exit 3 ;; esac\n\nSEJCHAS=\"$(date -u +%s)\"\n\nsrok_dejstvitelen() {\n  # fail-closed (B1 Adv118b): срок СТРОГО в будущем момента чтения порта;\n  # пустое/неразборчивое значение и «ровно сейчас» (литерал now — текущий\n  # срез часов читающего) действительным сроком не признаются. Часы\n  # читаются ОДИН раз на вызов формы — «ровно сейчас» детерминирован.\n  [ -n \"$1\" ] || return 1\n  case \"$1\" in\n    now) sekund=\"$SEJCHAS\" ;;\n    *) sekund=\"$(date -u -d \"$1\" +%s)\" || return 1 ;;\n  esac\n  case \"$sekund\" in ''|*[!0-9-]*) return 1 ;; esac\n  [ \"$sekund\" -gt \"$SEJCHAS\" ]\n}\n\npoverhnost() {\n  if [ \"$admission_tek\" = \"W1A\" ] && srok_dejstvitelen \"$expires_tek\"; then\n    echo erstinformation\n  else\n    echo f03-02-code\n  fi\n}\n\nstart_reshenie() {\n  if [ \"$admission_tek\" = \"W1A\" ] && [ \"$gate\" = \"current\" ] && srok_dejstvitelen \"$expires_tek\"; then\n    echo start_dopushchen\n  else\n    echo start_ne_dopushchen\n  fi\n}\n\ncase \"$sobytie\" in\n  montazh) echo first-run ;;\n  demo) poverhnost ;;\n  demo-continue)\n    if [ \"$(poverhnost)\" = erstinformation ]; then\n      start_reshenie\n    else\n      echo start_ne_dopushchen\n    fi ;;\n  start-marshrut) start_reshenie ;;\n  tema) poverhnost ;;\n  rerender-demo) poverhnost ;;\n  rerender-continue) start_reshenie ;;\n  remount) echo first-run ;;\n  *) exit 3 ;;\nesac\n",
  "app_manifest": {
   "expo": {
    "name": "complior",
@@ -3108,5 +3554,10 @@
    }
   }
  },
- "maestro_config": "# 118 (Erstinformation): erstinformation.yaml — сценарий ЭКРАННОЙ ПАЧКИ\n# mobile/e2e-erstinformation: e2e.sh запускает его отдельным прогоном по\n# прямому пути (maestro test mobile/.maestro/erstinformation.yaml, обе темы,\n# свой ERSTINFORMATION_SERIAL с эмулятором шага 118). В общем прогоне каталога\n# 995 (scripts/ci-e2e.sh: maestro test .maestro) его быть не должно: флоу\n# начинается с launchApp БЕЗ clearState и требует приложение на First-Run\n# (first-run-continue), а порядок флоу каталога Maestro не гарантируется\n# (WorkspaceExecutionPlanner собирает их Files.walk, не по алфавиту) — соседний\n# флоу может оставить приложение не на First-Run, и прогон каталога станет\n# недетерминированно красным. Конфиг каталога — штатный механизм Maestro:\n# globs фильтруют ТОЛЬКО файлы, найденные обходом каталога; прямой запуск\n# файла по пути (e2e.sh пачки, шаг 118) фильтром не затрагивается.\nflows:\n  - \"*\"\n  - \"!erstinformation.yaml\"\n"
+ "maestro_config": "# 118 (Erstinformation): erstinformation.yaml — сценарий ЭКРАННОЙ ПАЧКИ\n# mobile/e2e-erstinformation: e2e.sh запускает его отдельным прогоном по\n# прямому пути (maestro test mobile/.maestro/erstinformation.yaml, обе темы,\n# свой ERSTINFORMATION_SERIAL с эмулятором шага 118). В общем прогоне каталога\n# 995 (scripts/ci-e2e.sh: maestro test .maestro) его быть не должно: флоу\n# начинается с launchApp БЕЗ clearState и требует приложение на First-Run\n# (first-run-continue), а порядок флоу каталога Maestro не гарантируется\n# (WorkspaceExecutionPlanner собирает их Files.walk, не по алфавиту) — соседний\n# флоу может оставить приложение не на First-Run, и прогон каталога станет\n# недетерминированно красным. Конфиг каталога — штатный механизм Maestro:\n# globs фильтруют ТОЛЬКО файлы, найденные обходом каталога; прямой запуск\n# файла по пути (e2e.sh пачки, шаг 118) фильтром не затрагивается.\nflows:\n  - \"*\"\n  - \"!erstinformation.yaml\"\n",
+ "production_srok_tekst": "// stand-in production-крючка срока (118 v2 круг 1, блокер 1): composition\n// root app/onboarding-session.tsx несёт проверку срока сессии ДЕЙСТВИТЕЛЬНЫМ\n// для приложения способом — Date.parse(expires_at) > Date.now() в момент\n// чтения порта (не кэш монтирования, не строковое сравнение, не тип string).\n// Экспорт-формы сокращены до проверяемого шва; полная реализация —\n// implementer 118 по пин-форме kontrakt пачки.\nexport function srokDejstvitelen(payload: { expires_at: string }): boolean {\n  return Date.parse(payload.expires_at) > Date.now();\n}\n\nexport function isSessionPayload(value: unknown): boolean {\n  if (typeof value !== 'object' || value === null) return false;\n  const payload = value as Record<string, unknown>;\n  return (\n    typeof payload.principal_ref === 'string' &&\n    payload.principal_ref !== '' &&\n    typeof payload.display_name === 'string' &&\n    typeof payload.auth_time === 'string' &&\n    typeof payload.expires_at === 'string' &&\n    typeof payload.locale === 'string' &&\n    Array.isArray(payload.disclosure_requirements)\n  );\n}\n\n/** Порт допуска: срок сессии читается В МОМЕНТ действия (getter), не\n * кэшируется на монтировании — истечение между mount и действием закрывает\n * допуск W0 (fail-closed). */\nexport function portDopuska(session: { expires_at: string } | null): {\n  get admission(): 'W1A' | 'W0';\n} {\n  return {\n    get admission() {\n      return session !== null && Date.parse(session.expires_at) > Date.now()\n        ? 'W1A'\n        : 'W0';\n    },\n  };\n}\n",
+ "srok_testy_tekst": "// stand-in продуктовых Jest-тестов срока (118 v2 круг 3, РЕШЕНИЕ арбитра\n// А-1/А-3): 13 клеток класса срока на НАСТОЯЩИХ `/` (app/index) и маршруте\n// /start ((tabs)/[section]), сессия инъецируется через composition-шов\n// @pilot/runtime → runtime.api.getSession (публичный шов, тот же, что у\n// release APK e2e); модель-копия вместо поверхности запрещена. Файл —\n// implementer 118 и держится ПОБАЙТОВО равным этому носителю (sha256-пин\n// SROK_TESTY_FORMA_SHA256 в proverka происхождения); исполнение судит\n// ОТЧЁТ jest --json (шаг CI `npm test -- --json --outputFile=` ДО checker'а,\n// флаг --jest-otchet): каждая клетка ровно один раз со status passed,\n// pending/todo/failed — именованный отказ (SROK_KLETKA_NE_ISPOLNENA,\n// SROK_OTCHET_S_PENDING/SROK_OTCHET_S_TODO; skip-обход БЛ-А1 закрыт\n// по построению). Клетки «истёкшая между mount и действием» жмут БЕЗ\n// ререндера: судится чтение порта В МОМЕНТ действия обработчиками\n// pilot-app (demo, continue), не снимком рендера (БЛ-А2, арбитраж 118 v2\n// §Q1 третий факт); прежний rerender-вариант сохранён отдельной клеткой.\nimport { act, fireEvent, render, screen } from '@testing-library/react-native';\nimport React from 'react';\n\nimport { runtime } from '@pilot/runtime';\n\nimport Root from '../../app/index';\nimport TabRoute from '@/app/(tabs)/[section]';\n\n// Параметры маршрута — управляемая среда клетки (прецедент\n// start-route-dopusk.test.tsx): реальный expo-router в jest не\n// поднимается (ESM standard-navigation вне transform-allowlist),\n// публичный шов пробы — useLocalSearchParams.\nconst mockEnv = {\n  params: { section: 'start' } as { section?: string | string[] },\n};\njest.mock('expo-router', () => ({\n  useLocalSearchParams: () => mockEnv.params,\n}));\n\n/** Далёкая дата вычисляется от текущих часов, не литералом пачки. */\nconst budushchee = () => new Date(Date.now() + 3_153_600_000_000).toISOString();\nconst proshloe = () => new Date(Date.now() - 3_153_600_000_000).toISOString();\n\nfunction sessija(expires_at: string) {\n  return {\n    principal_ref: 'example',\n    display_name: 'x',\n    auth_time: proshloe(),\n    expires_at,\n    locale: 'de-DE',\n    disclosure_requirements: [],\n  };\n}\n\nasync function prochitat_sessiju() {\n  await act(async () => {});\n}\n\nafterEach(() => {\n  jest.restoreAllMocks();\n});\n\ndescribe('118 срок сессии на production-поверхностях', () => {\n  it('srok-istekla-koren: истёкшая сессия → Erstinformation закрыта', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(proshloe()) as never);\n    const view = await render(<Root />);\n    await prochitat_sessiju();\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('first-run-continue'));\n    });\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('auth-demo-entry'));\n    });\n    // истёкшая сессия → W0: Erstinformation закрыта, путь B (F03.02)\n    expect(screen.queryByTestId('erstinfo_gate_null')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-istekla-start: истёкшая сессия → прямой /start даёт First-Run', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(proshloe()) as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-rovno-sejchas: срок равен текущему моменту → недопуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(new Date().toISOString()) as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-nerazborchivaja: неразбираемая дата (NaN) → недопуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija('not-a-date') as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-mezhdu-mount-dejstviem: истёкшая между mount и НАЖАТИЕМ demo → недопуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(budushchee()) as never);\n    const view = await render(<Root />);\n    await prochitat_sessiju();\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('first-run-continue'));\n    });\n    let sejchas = Date.now();\n    const shpion = jest.spyOn(Date, 'now').mockImplementation(() => sejchas);\n    sejchas += 3_153_600_000_000; // срок истёк ПОСЛЕ монтирования\n    // БЕЗ ререндера: судится чтение порта обработчиком НАЖАТИЯ (БЛ-А2),\n    // не снимком рендера — на render-time-крючке клетка красна.\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('auth-demo-entry'));\n    });\n    expect(screen.queryByTestId('erstinfo_gate_null')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    shpion.mockRestore();\n    view.unmount();\n  });\n\n  it('srok-mezhdu-render-continue: истёкшая между render и НАЖАТИЕМ continue → недопуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(budushchee()) as never);\n    const view = await render(<Root />);\n    await prochitat_sessiju();\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('first-run-continue'));\n    });\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('auth-demo-entry'));\n    });\n    // демо доведено до current-снимка (шаг источника gate), continue доступен\n    for (let shag = 0; shag < 6; shag += 1) {\n      await act(async () => {\n        fireEvent.press(screen.getByTestId('erstinfo_next_variant'));\n      });\n    }\n    expect(screen.getByTestId('erstinfo_continue_start')).toBeOnTheScreen();\n    let sejchas = Date.now();\n    const shpion = jest.spyOn(Date, 'now').mockImplementation(() => sejchas);\n    sejchas += 3_153_600_000_000; // срок истёк ПОСЛЕ рендера Erstinformation\n    // БЕЗ ререндера: press continue — admission обязан читаться в момент\n    // действия, назначение Start не открывается просроченной сессией.\n    await act(async () => {\n      fireEvent.press(screen.getByTestId('erstinfo_continue_start'));\n    });\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    shpion.mockRestore();\n    view.unmount();\n  });\n\n  it('srok-rerender-start: истёкшая между mount и ререндером /start → First-Run', async () => {\n    let sejchas = Date.now();\n    const shpion = jest.spyOn(Date, 'now').mockImplementation(() => sejchas);\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(budushchee()) as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('section-start')).toBeOnTheScreen();\n    sejchas += 3_153_600_000_000; // срок истёк ПОСЛЕ монтирования\n    await act(async () => {\n      view.rerender(<TabRoute />);\n    });\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    shpion.mockRestore();\n    view.unmount();\n  });\n\n  it('srok-pustaja: пустая строка срока → недопуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija('') as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-otsutstvuet-pole: поле срока отсутствует → недопуск', async () => {\n    const bez_sroka = sessija(budushchee()) as Record<string, unknown>;\n    delete bez_sroka['expires_at'];\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => bez_sroka as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-nestrokovaja: нестроковое значение срока → недопуск', async () => {\n    const chislom = { ...sessija(budushchee()), expires_at: 12345 } as never;\n    jest.spyOn(runtime.api, 'getSession').mockImplementation(async () => chislom);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-offset-zona: дата с offset зоны разбирается Date.parse → допуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija('2099-12-31T00:00:00+02:00') as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('section-start')).toBeOnTheScreen();\n    view.unmount();\n  });\n\n  it('srok-ranishe-auth-time: срок раньше auth_time → недопуск', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija('2020-01-01T00:00:00Z') as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('first-run-continue')).toBeOnTheScreen();\n    expect(screen.queryByTestId('section-start')).toBeNull();\n    expect(screen.queryByTestId('start-screen')).toBeNull();\n    expect(screen.queryByTestId('start_tabs')).toBeNull();\n    view.unmount();\n  });\n\n  it('srok-svezhaja-demo: свежая демо-сессия → допуск W1A есть', async () => {\n    jest\n      .spyOn(runtime.api, 'getSession')\n      .mockImplementation(async () => sessija(budushchee()) as never);\n    const view = await render(<TabRoute />);\n    await prochitat_sessiju();\n    expect(screen.getByTestId('section-start')).toBeOnTheScreen();\n    view.unmount();\n  });\n});\n",
+ "ci_mobile_tekst": "# stand-in шагов продуктового CI (118 v2 круг 3): jest-набор\n# src/bootstrap/__tests__ (включая пин-форму session-srok.test.tsx)\n# исполняется шагом npm test с JSON-отчётом в файл пачки ДО шага проверки\n# происхождения; проверка получает отчёт отдельным флагом и судит\n# ИСПОЛНЕНИЕ (success, имя файла, каждая клетка ровно раз passed,\n# pending/todo 0) — так живут шаги в живом mobile.yml продукта.\nname: mobile\non:\n  push:\njobs:\n  quality:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - run: npm ci --no-audit --no-fund\n      - run: npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json\n      - run: python3 e2e-erstinformation/batareja/proverka_proiskhozdenija.py --pack e2e-erstinformation --repo . --harness ../harness --jest-otchet e2e-erstinformation/jest-otchet.json\n      - run: npm run lint\n",
+ "srok_dalekij": "2099-12-31T00:00:00Z",
+ "srok_otchet_tekst": "{\n  \"numFailedTestSuites\": 0,\n  \"numFailedTests\": 0,\n  \"numPassedTestSuites\": 2,\n  \"numPassedTests\": 15,\n  \"numPendingTestSuites\": 0,\n  \"numPendingTests\": 0,\n  \"numRuntimeErrorTestSuites\": 0,\n  \"numTodoTests\": 0,\n  \"numTotalTestSuites\": 2,\n  \"numTotalTests\": 15,\n  \"openHandles\": [],\n  \"success\": true,\n  \"testResults\": [\n    {\n      \"assertionResults\": [\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях 995 демо-сессия: свежая сессия открывает First-Run\",\n          \"status\": \"passed\",\n          \"title\": \"995 демо-сессия: свежая сессия открывает First-Run\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях 995 идентификация: e-mail ведёт путём B\",\n          \"status\": \"passed\",\n          \"title\": \"995 идентификация: e-mail ведёт путём B\"\n        }\n      ],\n      \"endTime\": \"\",\n      \"message\": \"\",\n      \"name\": \"/tmp/repo/mobile/src/bootstrap/__tests__/pilot.test.tsx\",\n      \"startTime\": 0,\n      \"status\": \"passed\"\n    },\n    {\n      \"assertionResults\": [\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-istekla-koren: истёкшая сессия → Erstinformation закрыта\",\n          \"status\": \"passed\",\n          \"title\": \"srok-istekla-koren: истёкшая сессия → Erstinformation закрыта\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-istekla-start: истёкшая сессия → прямой /start даёт First-Run\",\n          \"status\": \"passed\",\n          \"title\": \"srok-istekla-start: истёкшая сессия → прямой /start даёт First-Run\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-rovno-sejchas: срок равен текущему моменту → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-rovno-sejchas: срок равен текущему моменту → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-nerazborchivaja: неразбираемая дата (NaN) → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-nerazborchivaja: неразбираемая дата (NaN) → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-mezhdu-mount-dejstviem: истёкшая между mount и НАЖАТИЕМ demo → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-mezhdu-mount-dejstviem: истёкшая между mount и НАЖАТИЕМ demo → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-mezhdu-render-continue: истёкшая между render и НАЖАТИЕМ continue → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-mezhdu-render-continue: истёкшая между render и НАЖАТИЕМ continue → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-rerender-start: истёкшая между mount и ререндером /start → First-Run\",\n          \"status\": \"passed\",\n          \"title\": \"srok-rerender-start: истёкшая между mount и ререндером /start → First-Run\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-pustaja: пустая строка срока → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-pustaja: пустая строка срока → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-otsutstvuet-pole: поле срока отсутствует → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-otsutstvuet-pole: поле срока отсутствует → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-nestrokovaja: нестроковое значение срока → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-nestrokovaja: нестроковое значение срока → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-offset-zona: дата с offset зоны разбирается Date.parse → допуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-offset-zona: дата с offset зоны разбирается Date.parse → допуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-ranishe-auth-time: срок раньше auth_time → недопуск\",\n          \"status\": \"passed\",\n          \"title\": \"srok-ranishe-auth-time: срок раньше auth_time → недопуск\"\n        },\n        {\n          \"ancestorTitles\": [\n            \"118 срок сессии на production-поверхностях\"\n          ],\n          \"fullName\": \"118 срок сессии на production-поверхностях srok-svezhaja-demo: свежая демо-сессия → допуск W1A есть\",\n          \"status\": \"passed\",\n          \"title\": \"srok-svezhaja-demo: свежая демо-сессия → допуск W1A есть\"\n        }\n      ],\n      \"endTime\": \"\",\n      \"message\": \"\",\n      \"name\": \"/tmp/repo/mobile/src/bootstrap/__tests__/session-srok.test.tsx\",\n      \"startTime\": 0,\n      \"status\": \"passed\"\n    }\n  ],\n  \"wasInterrupted\": false\n}\n"
 }
