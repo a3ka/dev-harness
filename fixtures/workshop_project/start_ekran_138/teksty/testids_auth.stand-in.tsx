@@ -1,1 +1,1 @@
-testID="auth-demo-entry"
+<View testID="auth-demo-entry" />
