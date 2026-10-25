@@ -401,6 +401,46 @@
       "bol": "НАБЛ-П5",
       "krasnaya_sejchas": true,
       "sut": "профиль без workflowPaths: дверь сеет ЭФФЕКТИВНЫЙ реестр $REPO/registry/trace.tsv (то же место читает make_task), бриф печатает TRACE из конфига, rc 7; .harness/registry/trace.tsv не создаётся (Rev136c-B1)"
+    },
+    "f1-vorota-profile-reestr": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "КОНТРОЛЬ: профиль без workflowPaths, честный connect сеет пустой перечень в $REPO/registry, проект заполняет его — ворота читают посеянное место, rc 0 (ворота со своим jq дают rc 2 «нет .harness/registry/…» при честном посеве — R136d-B1)"
+    },
+    "f2-vorota-podmena-v-neprofilnom": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "профиль без workflowPaths, профильный перечень ПУСТ (как сеет дверь), исключения подложены в НЕпрофильный .harness/registry — ворота читают ТОЛЬКО профильный перечень: rc 1 FAIL; зелёный rc 0 от непрофильного файла — подмена (состояние (в) ревьюера, R136d-B1)"
+    },
+    "f3-vorota-reg-dotdot": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "workflowPaths.registry=../outside (достаточные исключения вне репо) — резолвер отказывает «workflowPaths вне репо»: именованный отказ profil-ne-razreshaetsja rc 1, не rc 0 от внешнего файла (R136d-B1)"
+    },
+    "f4-vorota-reg-symlink": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "workflowPaths.registry=.harness/reglink — symlink на каталог вне репо — тот же именованный отказ rc 1 (развязка symlink резолвером), чтение сквозь symlink — обход (R136d-B1)"
+    },
+    "f5-vorota-reg-absoljut": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "workflowPaths.registry — абсолютный путь вне репо — именованный отказ profil-ne-razreshaetsja rc 1, не чтение по абсолютному пути (R136d-B1)"
+    },
+    "f6-vorota-reg-bez-kljucha": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "workflowPaths без ключа registry — резолвер отказывает «профиль без workflowPaths.registry» (согласовано с дверью): именованный отказ rc 1; собственный jq ворот дефолтит .harness/registry и зелёнеет от подложенного туда перечня (R136d-B1)"
+    },
+    "f7-vorota-reg-pustoj": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "workflowPaths.registry=\"\" — вне алфавита резолвера: именованный отказ profil-ne-razreshaetsja rc 1; собственный jq возвращает пустую строку и отказывает безымянно rc 2 (R136d-B1)"
+    },
+    "f8-vorota-iskljuchenij-net": {
+      "bol": "НАБЛ-П10",
+      "krasnaya_sejchas": true,
+      "sut": "профиль без workflowPaths, профильный перечень стёрт, корневая ловушка config/ достаточна — файла нет нигде: rc 2 с именем ПРОФИЛЬНОГО пути $REPO/registry/… (образец d3(2)); имя непрофильного .harness/registry-пути или rc 0 от ловушки — красный вход (R136d-B1)"
     }
   },
   "stab_vhod": {
@@ -553,6 +593,33 @@
     "s42-dver-reg-svoim-jq": [
       "e1-trassa-fallback-podmena",
       "e2-trassa-fallback-possev"
+    ],
+    "s43-parity-reg-svoim-jq": [
+      "f1-vorota-profile-reestr",
+      "f2-vorota-podmena-v-neprofilnom",
+      "f3-vorota-reg-dotdot",
+      "f4-vorota-reg-symlink",
+      "f5-vorota-reg-absoljut",
+      "f6-vorota-reg-bez-kljucha",
+      "f7-vorota-reg-pustoj",
+      "f8-vorota-iskljuchenij-net"
+    ],
+    "s44-parity-bez-rezolvera": [
+      "f1-vorota-profile-reestr",
+      "f2-vorota-podmena-v-neprofilnom",
+      "f3-vorota-reg-dotdot",
+      "f4-vorota-reg-symlink",
+      "f5-vorota-reg-absoljut",
+      "f6-vorota-reg-bez-kljucha",
+      "f7-vorota-reg-pustoj",
+      "f8-vorota-iskljuchenij-net"
+    ],
+    "s45-parity-rezolver-molcha": [
+      "f3-vorota-reg-dotdot",
+      "f4-vorota-reg-symlink",
+      "f5-vorota-reg-absoljut",
+      "f6-vorota-reg-bez-kljucha",
+      "f7-vorota-reg-pustoj"
     ]
   },
   "osi": [
@@ -945,6 +1012,54 @@
       "sostojanie": "workflowPaths отсутствует (законный вход 996: FALLBACK-NO-WORKFLOW, эффективный реестр резолвера $REPO/registry)",
       "svojstvo": "дверь сеет ЭФФЕКТИВНЫЙ реестр ($REPO/registry/trace.tsv = то, что читает make_task); mkt --kind brief без --model-trace печатает TRACE модель из конфига; сессия поднимается rc 7; .harness/registry/trace.tsv не создаётся",
       "kletka": "e2-trassa-fallback-possev"
+    },
+    {
+      "os": "F",
+      "sostojanie": "профиль: workflowPaths.registry отсутствует (nowf, законный 996 FALLBACK-NO-WORKFLOW; эффективный реестр $REPO/registry) × исключения заполнены в профильном реестре после честного connect",
+      "svojstvo": "КОНТРОЛЬ: ворота читают исключения из посеянного дверью места — rc 0; собственный jq ворот (.harness/registry) даёт rc 2 при честном посеве",
+      "kletka": "f1-vorota-profile-reestr"
+    },
+    {
+      "os": "F",
+      "sostojanie": "nowf × список в профиле ПУСТ (как сеет дверь) × достаточные исключения в НЕпрофильном .harness/registry",
+      "svojstvo": "ворота читают ТОЛЬКО профильный перечень: rc 1 FAIL на непокрытой команде CI; rc 0 от непрофильного файла — подмена (состояние (в) ревьюера Rev136d)",
+      "kletka": "f2-vorota-podmena-v-neprofilnom"
+    },
+    {
+      "os": "F",
+      "sostojanie": "workflowPaths.registry = ../outside (выход за корень, вид 1) × достаточные исключения вне репо",
+      "svojstvo": "резолвер отказывает «workflowPaths вне репо» → именованный отказ profil-ne-razreshaetsja rc 1 (правило отказов двери), никогда rc 0 от внешнего файла",
+      "kletka": "f3-vorota-reg-dotdot"
+    },
+    {
+      "os": "F",
+      "sostojanie": "workflowPaths.registry = .harness/reglink — symlink на каталог вне репо (вид 2) × исключения вне репо",
+      "svojstvo": "тот же именованный отказ rc 1 (резолвер развязывает symlink); чтение сквозь symlink — обход",
+      "kletka": "f4-vorota-reg-symlink"
+    },
+    {
+      "os": "F",
+      "sostojanie": "workflowPaths.registry — абсолютный путь вне репо (вид 3) × исключения вне репо",
+      "svojstvo": "тот же именованный отказ rc 1; чтение по абсолютному пути наружу — обход",
+      "kletka": "f5-vorota-reg-absoljut"
+    },
+    {
+      "os": "F",
+      "sostojanie": "workflowPaths без ключа registry (дефолт) × достаточные исключения в .harness/registry",
+      "svojstvo": "резолвер отказывает «профиль без workflowPaths.registry» (как дверь): именованный отказ rc 1; дефолт собственного jq и зелёный rc 0 от .harness/registry — обход",
+      "kletka": "f6-vorota-reg-bez-kljucha"
+    },
+    {
+      "os": "F",
+      "sostojanie": "workflowPaths.registry = \"\" (пустое значение)",
+      "svojstvo": "вне алфавита резолвера: именованный отказ rc 1; собственный jq отдаёт пустую строку и отказывает безымянно rc 2 «нет /ci_parity_exceptions.txt»",
+      "kletka": "f7-vorota-reg-pustoj"
+    },
+    {
+      "os": "F",
+      "sostojanie": "nowf × профильный перечень стёрт × корневая ловушка config/ достаточна (исключений нет нигде)",
+      "svojstvo": "rc 2 NOT_IMPLEMENTED с именем ПРОФИЛЬНОГО пути $REPO/registry/… (образец d3(2)); rc 0 от ловушки или имя непрофильного пути — красный вход",
+      "kletka": "f8-vorota-iskljuchenij-net"
     }
   ],
   "vne_osi": [

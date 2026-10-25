@@ -74,6 +74,27 @@
 # двери без пина гасят и выдачу subagent-pin.sh) — привязка в source.json
 # это МИНИМУМ гарантированной красноты, а не полный эффект мутации (замечание
 # критика r1).
+# 136 v3.2-достройка (ревьюер impl-v3 FAIL, R136d-B1, вердикт
+# /tmp/dev-harness-verify/orch/keep136d/contracts-136-impl-v3.md):
+# ОСЬ F «путь реестра в ВОРОТАХ паритета» — третий скрипт зоны обязан
+# брать путь реестра тем же ЕДИНЫМ project_paths_resolve, что дверь и
+# make_task (frozen И-8; собственный jq `.workflowPaths.registry //
+# ".harness/registry"` в verify_ci_parity.sh:210-211 давал на законе 996
+# профиле БЕЗ workflowPaths ИНОЕ место, чем резолвер: при честном посеве
+# двери — rc 2 «нет файла», при подмене в НЕпрофильном .harness/registry —
+# молчаливый rc 0). Правило отказов — как у двери: непрошедший резолв →
+# именованный отказ rc 1, никогда rc 0. Клетки f1–f8: ось «профиль:
+# workflowPaths.registry» {отсутствует nowf, без ключа, кастомный, `..`,
+# symlink, абсолютный, пустой} × «где лежат исключения» {профильный
+# реестр, .harness/registry-подмена, вне репо, нигде} × «список в
+# профиле» {пустой как сеет дверь, непустой}. Стабы s43 (ворота со своим
+# jq), s44 (удаление резолва), s45 (мягкий резолв с неверным дефолтом
+# .harness/registry вместо отказа) — привязки в source.json:.stab_vhod.
+# R136d-S1: model/make_task.sh синхронизирован с реализацией побайтно
+# (ранний мягкий + поздний строгий резолв, коммит c8f75b10 — отказы
+# идентичны, обхода нет по ревьюеру; граница «diff = точки модели»
+# буквальна). R136d-S2: миры — под уникальным MIR_BASE в $TMPDIR
+# (параллельные прогоны делили фиксированные пути).
 #
 # Дверь исполняется из песочницы $SB (копия файла двери + двойник workshop рядом): дверь
 # дословно разрешает(exec) $HERE/workshop — двойник пишет по одному аргументу в строку в
@@ -85,15 +106,20 @@
 #   --model     — честные модели model/ (дерево + точки правок контракта) → rc 0;
 #   --stabs     — каждый стаб гасит свой субъект, его клетки ОБЯЗАНЫ покраснеть;
 #                 rc 0 «стабов <N>, привязок <M>, непойманных 0» (счёт — из
-#                 source.json, v3-достройка: 42/66; текст контракта frozen
-#                 136/2 несёт исторические 37/54 своей версии).
+#                 source.json, v3.2-достройка: 45/87; тексты контракта frozen
+#                 136/2 и его версии несут исторические 37/54 и 42/66).
 #
-# Миры — /tmp/dev-harness-verify/sessii-136-<клетка>/** (оракулы в памяти, правило 8);
-# чекауты проектов — /tmp/dev-harness-fakehome-136/<клетка>/** ВНЕ scratch-allowlist Н-85
-# (иначе боль П3 немотивированно зелёная: allowlist прикрыл бы её — прецедент pg066).
+# Миры — под уникальным $MIR_BASE/w-<клетка>/** в $TMPDIR запуска (оракулы в
+# памяти, правило 8; v3.2/R136d-S2 — фиксированные пути делились между
+# параллельными прогонами); чекауты проектов — $MIR_BASE/fh-<клетка>/**
+# ВНЕ scratch-allowlist Н-85 (иначе боль П3 немотивированно зелёная:
+# allowlist прикрыл бы её — прецедент pg066).
 set -uo pipefail
 B="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$B/../../.." && pwd)"
+MIR_BASE="$(mktemp -d "${TMPDIR:-/tmp}/sessii-136-mir.XXXXXXXX")"
+BIN_BEZ_NODE="$MIR_BASE/bin-bez-node"
+BIN_BEZ_JQ="$MIR_BASE/bin-bez-jq"
 GUARD="$ROOT/.omp/extensions/path-guard.ts"
 MODE="plain"; [ "${1:-}" = "--model" ] && MODE="model"; [ "${1:-}" = "--stabs" ] && MODE="stab"
 [ -f "$GUARD" ] || { printf 'субъект отсутствует: %s\n' "$GUARD" >&2; exit 2; }
@@ -116,8 +142,8 @@ PAR="$(subj scripts/verify_ci_parity.sh verify_ci_parity.sh)"
 W=""; FH=""; SEED=""; DVER_CONFIG=""; DVER_RC=""; DVER_NOGUARD=0; DVER_PATH=""; ARGS=()
 mk_mir() { # mk_mir <слуг> [next] [harness]
   local slug="$1"
-  W="/tmp/dev-harness-verify/sessii-136-$slug"
-  FH="/tmp/dev-harness-fakehome-136/$slug"
+  W="$MIR_BASE/w-$slug"
+  FH="$MIR_BASE/fh-$slug"
   DVER_CONFIG=""; DVER_RC=""; DVER_NOGUARD=0; DVER_EMPTYGUARD=0; DVER_PATH=""; ARGS=()
   rm -rf "$W" "$FH"; mkdir -p "$W" "$FH/projects" "$FH/dev-harness-projects/toy-proj/wt" "$FH/seed"
   SEED="$FH/seed/toy-proj"
@@ -189,13 +215,15 @@ run_dver() { # копия двери в песочницу + двойник work
   # подтянуть node мимо фильтра именем из другого каталога (замер критика:
   # no-node-bin/no-jq-bin). Каталог общий на прогон, сбор идемпотентен.
   # DVER_PATH — подмена PATH клетки (a31: без node).
-  # сбор ОДИН раз на дерево scratch (флаг-файл): ~1900 ссылок на каталог,
-  # а run_dver зовётся десятки раз даже в одном прогоне
-  if [ ! -e /tmp/dev-harness-verify/sessii-136-bin-bez-node/.gotovo ]; then
-    mkdir -p /tmp/dev-harness-verify/sessii-136-bin-bez-node /tmp/dev-harness-verify/sessii-136-bin-bez-jq
-    mk_bez_bin /tmp/dev-harness-verify/sessii-136-bin-bez-node node
-    mk_bez_bin /tmp/dev-harness-verify/sessii-136-bin-bez-jq jq
-    : > /tmp/dev-harness-verify/sessii-136-bin-bez-node/.gotovo
+  # сбор ОДИН раз на прогон под $MIR_BASE (флаг-файл; v3.2/R136d-S2 —
+  # фиксированный /tmp-путь делился между параллельными прогонами):
+  # ~1900 ссылок на каталог, а run_dver зовётся десятки раз даже в одном
+  # прогоне
+  if [ ! -e "$BIN_BEZ_NODE/.gotovo" ]; then
+    mkdir -p "$BIN_BEZ_NODE" "$BIN_BEZ_JQ"
+    mk_bez_bin "$BIN_BEZ_NODE" node
+    mk_bez_bin "$BIN_BEZ_JQ" jq
+    : > "$BIN_BEZ_NODE/.gotovo"
   fi
   if [ -n "${2:-}" ]; then
     env HOME="$FH" HARNESS_PROJECTS_DIR="$FH/projects" \
@@ -231,6 +259,17 @@ mkt_dir() {
   cp "$MKT" "$d/make_task.sh"
   cp "$ROOT/scripts/profile_resolver.sh" "$ROOT/scripts/next_id.sh" "$d/"
   printf '%s' "$d/make_task.sh"
+}
+# сцена субъекта verify_ci_parity (ось F, v3.2): файл субъекта
+# (дерево|модель|стаб) дословно + те же сиблинги-библиотеки резолвера,
+# что у make_task — модель ворот, как и model/make_task.sh, не несёт
+# next_id.sh/profile_resolver.sh рядом с собой (R136d-B1: гейт берёт
+# путь реестра ЕДИНЫМ project_paths_resolve — ему нужна библиотека)
+par_dir() {
+  local d="$W/parbin"; mkdir -p "$d"
+  cp "$PAR" "$d/verify_ci_parity.sh"
+  cp "$ROOT/scripts/next_id.sh" "$ROOT/scripts/profile_resolver.sh" "$d/"
+  printf '%s' "$d/verify_ci_parity.sh"
 }
 judge() { HOME="$FH" node "$GUARD" --judge "$1"; }
 epin()  { HOME="$FH" node "$GUARD" --extract-pin "$1" 2>/dev/null; }
@@ -408,7 +447,7 @@ k_a31() { # 136 v2 (критик r1, B2/m08): node НЕТ (живой PATH бе�
   # именованный отказ strazh-net ДО exec; fallback «исполнить своим
   # разбором» или тихий запуск — красный вход.
   mk_mir a31-net-node
-  DVER_PATH=/tmp/dev-harness-verify/sessii-136-bin-bez-node; run_dver
+  DVER_PATH="$BIN_BEZ_NODE"; run_dver
   [ "$DVER_RC" = 1 ] && grep -q 'strazh-net' "$W/dvor.err" && [ ! -e "$W/args.txt" ]; }
 k_a47() { # 136 v2-достройка (арбитраж 136v2, ось A: бриг × структура MSG):
   # служебный бриф передан структурно-точно — пара ПОСЛЕДНИЕ две строки,
@@ -492,7 +531,7 @@ k_b5() { # 136 v2-достройка (ось C, четвёртое состоя�
   # ТОТ ЖЕ именованный отказ trassa-net-konfiga rc 1 ДО exec, трасса
   # не сеется нигде; ветви «старт без трассы, если нет jq» не существует.
   mk_mir b5-jq-net-possev
-  DVER_PATH=/tmp/dev-harness-verify/sessii-136-bin-bez-jq; run_dver
+  DVER_PATH="$BIN_BEZ_JQ"; run_dver
   [ "$DVER_RC" = 1 ] && grep -q 'trassa-net-konfiga' "$W/dvor.err" \
     && [ ! -e "$W/args.txt" ] \
     && [ ! -e "$SEED/.harness/records/trace.tsv" ] \
@@ -573,13 +612,13 @@ k_d1() { mk_mir d1-p10; run_dver
   local K; K="$SEED"
   { [ -f "$K/.harness/records/ci_parity_exceptions.txt" ] && [ ! -s "$K/.harness/records/ci_parity_exceptions.txt" ]; } || return 1
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d1\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$K/.harness/records/ci_parity_exceptions.txt"
-  env HOME="$FH" bash "$PAR" "$K" >"$W/par.out" 2>&1; }
+  env HOME="$FH" bash "$(par_dir)" "$K" >"$W/par.out" 2>&1; }
 k_d2() { mk_mir d2-kontrol-dom harness
   # контроль режима харнесса ДОСЛОВНО: корень БЕЗ harness.project.json —
   # исключения в config/ci_parity_exceptions.txt, семантика 020 не тронута
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d2\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par2.out" 2>&1; }
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par2.out" 2>&1; }
 k_d3() { mk_mir d3-kontrol; run_dver
   # (блокер 3 критика r1) проектный режим читает ТОЛЬКО профильный перечень;
   # корневой config/ — ловушка: молчаливый обход профиля запрещён
@@ -589,11 +628,11 @@ k_d3() { mk_mir d3-kontrol; run_dver
   mkdir -p "$K/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d3\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$K/config/ci_parity_exceptions.txt"
   : > "$K/.harness/records/ci_parity_exceptions.txt"
-  env HOME="$FH" bash "$PAR" "$K" >"$W/par3.out" 2>&1; rc1=$?
+  env HOME="$FH" bash "$(par_dir)" "$K" >"$W/par3.out" 2>&1; rc1=$?
   # (2) профильного файла НЕТ + та же ловушка в корне: честный отказ —
   # rc 2 с именем ПРОФИЛЬНОГО пути, никогда не зелёный от корня
   rm -f "$K/.harness/records/ci_parity_exceptions.txt"
-  env HOME="$FH" bash "$PAR" "$K" >"$W/par4.out" 2>&1; rc2=$?
+  env HOME="$FH" bash "$(par_dir)" "$K" >"$W/par4.out" 2>&1; rc2=$?
   [ "$rc1" -eq 1 ] && grep -q 'FAIL' "$W/par3.out" \
     && [ "$rc2" -eq 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par4.out" \
     && grep -Fq "$K/.harness/records/ci_parity_exceptions.txt" "$W/par4.out"; }
@@ -608,7 +647,7 @@ k_d4() { # 136 v2 (Rev136-B2в) КОНТРОЛЬ: собственный про�
     projectLayer:{version:"v1",profilePath:"registry/harness-project.json"}}' > "$SEED/harness.project.json"
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d4\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d4.out" 2>&1; }
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d4.out" 2>&1; }
 k_d5() { # 136 v2 (Rev136-B2в): у ПРОЕКТНОГО профиля (слой объявлен под
   # .harness/) потерян ОБЪЯВЛЕННЫЙ файл слоя — повреждённое проектное
   # состояние: rc 2 с именем объявленного пути; молчаливый fallback на
@@ -618,7 +657,7 @@ k_d5() { # 136 v2 (Rev136-B2в): у ПРОЕКТНОГО профиля (сло�
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d5\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d5.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d5.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/project-layer.json" "$W/par-d5.out"; }
 k_d6() { # 136 v2 (критик r1, B3/m09): слой под .harness/ с ДРУГИМ
   # объявленным именем (.harness/alternate.json) — тоже ПРОЕКТНЫЙ режим:
@@ -634,7 +673,7 @@ k_d6() { # 136 v2 (критик r1, B3/m09): слой под .harness/ с ДРУ
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d6\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   : > "$SEED/.harness/records/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d6.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d6.out" 2>&1 || rc=$?
   [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-d6.out"; }
 k_d7() { # 136 v2 (критик r1, B3/m10): профиль ЕСТЬ (проектный), jq НЕТ —
   # режим не выбирается молча: rc 2 именованный («jq нет»); зелёный
@@ -643,8 +682,8 @@ k_d7() { # 136 v2 (критик r1, B3/m10): профиль ЕСТЬ (проек
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d7\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" PATH="/tmp/dev-harness-verify/sessii-136-bin-bez-jq" \
-    bash "$PAR" "$SEED" >"$W/par-d7.out" 2>&1 || rc=$?
+  env HOME="$FH" PATH="$BIN_BEZ_JQ" \
+    bash "$(par_dir)" "$SEED" >"$W/par-d7.out" 2>&1 || rc=$?
   # «jq нет» — имя отказа среды (не «профиль не читается» — это отказ данных
   # d8); слаг мира d7-bez-jq содержит подстроку jq — grep по одному «jq»
   # принимал бы ЛЮБОЙ rc-2 отказ с именем пути (замер круга-2, мутант o9)
@@ -657,7 +696,7 @@ k_d8() { # 136 v2 (критик r1, B3): профиль НЕ разбирает�
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d8\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d8.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d8.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par-d8.out" \
     && grep -Fq "$SEED/harness.project.json" "$W/par-d8.out"; }
 k_d9() { # 136 v2-достройка (ось D: имя {иное} × {потерян при приманке},
@@ -673,7 +712,7 @@ k_d9() { # 136 v2-достройка (ось D: имя {иное} × {потер
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d9\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d9.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d9.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/alternate.json" "$W/par-d9.out"; }
 k_d10() { # 136 v2-достройка (ось D: имя {вложенное} × {есть}, n05):
   # объявлен и СУЩЕСТВУЕТ .harness/layers/custom.json — проектный режим
@@ -689,7 +728,7 @@ k_d10() { # 136 v2-достройка (ось D: имя {вложенное} × 
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d10\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   : > "$SEED/.harness/records/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d10.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d10.out" 2>&1 || rc=$?
   [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-d10.out"; }
 k_d11() { # 136 v2-достройка (ось D: имя {вложенное} × {потерян}):
   # объявлен вложенный слой .harness/layers/custom.json, файла НЕТ —
@@ -702,7 +741,7 @@ k_d11() { # 136 v2-достройка (ось D: имя {вложенное} × 
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d11\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d11.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d11.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/layers/custom.json" "$W/par-d11.out"; }
 
 k_d12() { # 136 v2-усиление (адверсарий B1, вердикт keep136adv): объявленный
@@ -721,7 +760,7 @@ k_d12() { # 136 v2-усиление (адверсарий B1, вердикт kee
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d12\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d12.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d12.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/../../outside-layer.json" "$W/par-d12.out"; }
 k_d13() { # 136 v2-усиление (адверсарий B1, вердикт keep136adv): объявленный
   # слой — symlink ПОД .harness/ (.harness/layer-link.json) на файл ВНЕ
@@ -738,7 +777,7 @@ k_d13() { # 136 v2-усиление (адверсарий B1, вердикт kee
   mkdir -p "$SEED/config"
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d13\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d13.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d13.out" 2>&1 || rc=$?
   [ "$rc" = 2 ] && grep -Fq "$SEED/.harness/layer-link.json" "$W/par-d13.out"; }
 k_d14() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B1): symlink ПОД .harness/
   # на файл ВНУТРИ .harness/ (.harness/layers/custom.json) —
@@ -756,7 +795,7 @@ k_d14() { # 136 v2-усиление КОНТРОЛЬ (адверсарий B1): 
   printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки d14\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
   : > "$SEED/.harness/records/ci_parity_exceptions.txt"
   local rc=0
-  env HOME="$FH" bash "$PAR" "$SEED" >"$W/par-d14.out" 2>&1 || rc=$?
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-d14.out" 2>&1 || rc=$?
   [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-d14.out"; }
 k_e1() { # ось E (Rev136c-B1): профиль БЕЗ workflowPaths целиком — законный
   # вход 996 (repo:workflowPaths:optional); эффективный реестр ЕДИНОГО
@@ -795,7 +834,112 @@ k_e2() { # ось E, КОНТРОЛЬ посева: профиль БЕЗ workfl
   [ ! -e "$SEED/.harness/registry/trace.tsv" ] || return 1
   out="$(mkt_brief)" \
     && grep -Fq 'TRACE: role=orchestrator model=anthropic/claude-sonnet-5-5 fallback=allowed' <<<"$out"; }
+k_f1() { # ось F, КОНТРОЛЬ (R136d-B1): профиль БЕЗ workflowPaths (законный 996,
+  # FALLBACK-NO-WORKFLOW) — честный connect сеет ПУСТОЙ перечень в ЭФФЕКТИВНЫЙ
+  # реестр резолвера ($REPO/registry), проект заполняет ЕГО — ворота обязаны
+  # читать исключения из посеянного места: rc 0. Ворота со своим jq читают
+  # .harness/registry ≠ резолверу — rc 2 «нет файла» при честном посеве
+  # (боли (а)/(б) ревьюера Rev136d).
+  mk_mir f1-vorota-profile-reestr nowf
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 7 ] || return 1
+  { [ -f "$SEED/registry/ci_parity_exceptions.txt" ] \
+    && [ ! -s "$SEED/registry/ci_parity_exceptions.txt" ]; } || return 1
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f1\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/registry/ci_parity_exceptions.txt"
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f1.out" 2>&1; }
+k_f2() { # ось F (R136d-B1, состояние (в) ревьюера): профиль без workflowPaths,
+  # список в ПРОФИЛЬНОМ реестре ПУСТ (как сеет дверь), достаточные исключения
+  # подложены в НЕпрофильный .harness/registry — ворота обязаны читать
+  # профильный перечень: rc 1 FAIL на первой непокрытой команде CI; зелёный
+  # rc 0 от НЕпрофильного файла = объявленное исключение по подмене (обход).
+  mk_mir f2-vorota-podmena-v-neprofilnom nowf
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 7 ] || return 1
+  [ ! -e "$SEED/.harness/registry/ci_parity_exceptions.txt" ] || return 1
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f2\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/.harness/registry/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f2.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'FAIL' "$W/par-f2.out"; }
+k_f3() { # ось F (выход за корень, вид 1/3 — dotdot): workflowPaths.registry
+  # ="../outside" — относительный выход за корень репо, достаточные
+  # исключения лежат ВНЕ репо; резолвер отказывает «workflowPaths вне репо»:
+  # именованный отказ profil-ne-razreshaetsja rc 1 (как у двери), НЕ rc 0 от
+  # внешнего файла. Честный connect — ДО подмены значения (дверь на dotdot
+  # отказывает сама, слой не создаст).
+  mk_mir f3-vorota-reg-dotdot; run_dver
+  jq '.workflowPaths.registry="../outside"' "$SEED/harness.project.json" > "$W/hp-f3.json"
+  mv "$W/hp-f3.json" "$SEED/harness.project.json"
+  mkdir -p "$FH/seed/outside"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f3\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$FH/seed/outside/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f3.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'profil-ne-razreshaetsja' "$W/par-f3.out"; }
+k_f4() { # ось F (выход за корень, вид 2/3 — symlink): workflowPaths.registry
+  # =".harness/reglink" — symlink ПОД .harness/ на каталог ВНЕ репо с
+  # достаточными исключениями; резолвер развязывает symlink и отказывает
+  # «вне репо»: именованный отказ profil-ne-razreshaetsja rc 1, чтение
+  # сквозь symlink (rc 0) — обход.
+  mk_mir f4-vorota-reg-symlink; run_dver
+  mkdir -p "$FH/vne-reg"
+  ln -s "$FH/vne-reg" "$SEED/.harness/reglink"
+  jq '.workflowPaths.registry=".harness/reglink"' "$SEED/harness.project.json" > "$W/hp-f4.json"
+  mv "$W/hp-f4.json" "$SEED/harness.project.json"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f4\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$FH/vne-reg/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f4.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'profil-ne-razreshaetsja' "$W/par-f4.out"; }
+k_f5() { # ось F (выход за корень, вид 3/3 — абсолютный): workflowPaths.registry
+  # — абсолютный путь ВНЕ репо с достаточными исключениями; резолвер
+  # отказывает: именованный отказ profil-ne-razreshaetsja rc 1, чтение
+  # по абсолютному пути (rc 0) — обход.
+  mk_mir f5-vorota-reg-absoljut; run_dver
+  mkdir -p "$FH/vne-abs"
+  jq --arg r "$FH/vne-abs" '.workflowPaths.registry=$r' "$SEED/harness.project.json" > "$W/hp-f5.json"
+  mv "$W/hp-f5.json" "$SEED/harness.project.json"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f5\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$FH/vne-abs/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f5.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'profil-ne-razreshaetsja' "$W/par-f5.out"; }
+k_f6() { # ось F (дефолт ключа): workflowPaths БЕЗ ключа registry — резолвер
+  # отказывает «профиль без workflowPaths.registry» (согласовано с дверью,
+  # замер 1а ревьюера): именованный отказ profil-ne-razreshaetsja rc 1;
+  # собственный jq ворот даёт дефолт .harness/registry и зелёнеет от
+  # подложенного туда перечня — обход.
+  mk_mir f6-vorota-reg-bez-kljucha; run_dver
+  jq 'del(.workflowPaths.registry)' "$SEED/harness.project.json" > "$W/hp-f6.json"
+  mv "$W/hp-f6.json" "$SEED/harness.project.json"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f6\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/.harness/registry/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f6.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'profil-ne-razreshaetsja' "$W/par-f6.out"; }
+k_f7() { # ось F (пустое значение): workflowPaths.registry="" — вне алфавита
+  # резолвера («значение вне алфавита: пусто», замер 1а ревьюера):
+  # именованный отказ profil-ne-razreshaetsja rc 1; собственный jq ворот
+  # возвращает пустую строку (// не срабатывает на "") и молчит rc 2
+  # «нет /ci_parity_exceptions.txt» — отказ без имени причины.
+  mk_mir f7-vorota-reg-pustoj; run_dver
+  jq '.workflowPaths.registry=""' "$SEED/harness.project.json" > "$W/hp-f7.json"
+  mv "$W/hp-f7.json" "$SEED/harness.project.json"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f7.out" 2>&1 || rc=$?
+  [ "$rc" = 1 ] && grep -q 'profil-ne-razreshaetsja' "$W/par-f7.out"; }
+k_f8() { # ось F (нигде): профиль без workflowPaths, честный connect, профильный
+  # перечень СТЁТ, корневая ловушка config/ достаточна — файла НЕТ нигде:
+  # rc 2 с именем ПРОФИЛЬНОГО пути ($REPO/registry/…, как сеет дверь) по
+  # существующему образцу d3(2); молчаливый rc 0 от ловушки или имя
+  # НЕпрофильного .harness/registry-пути — красный вход.
+  mk_mir f8-vorota-iskljuchenij-net nowf
+  rm -f "$W/args.txt"; run_dver
+  [ "$DVER_RC" = 7 ] || return 1
+  rm -f "$SEED/registry/ci_parity_exceptions.txt"
+  mkdir -p "$SEED/config"
+  printf 'build = скрипт сборки тоя вне CI проекта, объявлён по причине клетки f8\nкоманда: npm run dev = команда релизного CI проекта, приёмкой пакета не является совсем\n' > "$SEED/config/ci_parity_exceptions.txt"
+  local rc=0
+  env HOME="$FH" bash "$(par_dir)" "$SEED" >"$W/par-f8.out" 2>&1 || rc=$?
+  [ "$rc" = 2 ] && grep -q 'NOT_IMPLEMENTED' "$W/par-f8.out" \
+    && grep -Fq "$SEED/registry/ci_parity_exceptions.txt" "$W/par-f8.out"; }
 ORDER="a1-p6-hvost a2-p6-brief-defolt a3-p3-pin-v-soobshchenii a4-p3-zapis a5-p12-agent a6-p11-subagent-pin a7-granica-unpinned a8-pin-block a9-pin-inline a10-pin-duplicate a11-pin-mixed a12-pin-reverse a13-pin-foreign-wt a14-pin-foreign-br a15-pin-extra-wt a16-pin-extra-br a17-pin-half-wt a18-pin-empty-br a19-pin-inline-mixed a20-pin-delimiters a21-pin-taskfile-duplicate a22-pin-taskfile-inline a23-pin-live-foreign a24-pin-inline-foreign a25-argv-koren-do-razdelitelja a26-ctrl-msg-zakanchivaetsya-putem a27-strazh-net a28-taskfile-argv a29-brief-argv a30-finalnyj-orakul a31-net-node a34-pin-taskfile-block a35-pin-taskfile-mixed a36-pin-taskfile-reverse a37-pin-taskfile-foreign-wt a38-pin-taskfile-foreign-br a39-pin-taskfile-extra-wt a40-pin-taskfile-extra-br a41-pin-taskfile-half-wt a42-pin-taskfile-empty-br a43-pin-taskfile-inline-mixed a44-pin-taskfile-delimiters a45-pin-taskfile-live-foreign a46-pin-taskfile-inline-foreign a47-brief-struktura a48-pustoj-next-brief a49-cr-para-v-taskfile a50-strazh-nulevoj-fajl b1-povtor b2-p10-raskladka b3-trassa-net-konfiga b4-trassa-konfig-bit b5-jq-net-possev c1-p17-map c2-p17-rules c3-p5-trassa-defolt c4-kontrol-filtr c5-kontrol-jeksplizit c6-trassa-podmena-modeli c7-trassa-dubl-strok c8-trassa-lishnjaja-stroka c9-trassa-readonly c10-kontrol-trassa-ravna d1-p10-isklyuchenie d2-kontrol-dom d3-kontrol-koren d4-harness-svoj-profil d5-sloi-poterjan d6-sloi-drugoe-imja d7-bez-jq d8-profil-bit d9-sloi-drugoe-imja-poterjan d10-sloi-vlozhennoe-imja d11-sloi-vlozhennoe-poterjan d12-sloi-dotdot-vyhod d13-sloi-symlink-naruzhu d14-kontrol-symlink-vnutri e1-trassa-fallback-podmena e2-trassa-fallback-possev"
+ORDER="$ORDER f1-vorota-profile-reestr f2-vorota-podmena-v-neprofilnom f3-vorota-reg-dotdot f4-vorota-reg-symlink f5-vorota-reg-absoljut f6-vorota-reg-bez-kljucha f7-vorota-reg-pustoj f8-vorota-iskljuchenij-net"
 run_cell() { case "$1" in
   a1-p6-hvost) k_a1 ;; a2-p6-brief-defolt) k_a2 ;; a3-p3-pin-v-soobshchenii) k_a3 ;;
   a4-p3-zapis) k_a4 ;; a5-p12-agent) k_a5 ;; a6-p11-subagent-pin) k_a6 ;;
@@ -846,11 +990,16 @@ run_cell() { case "$1" in
   d9-sloi-drugoe-imja-poterjan) k_d9 ;; d10-sloi-vlozhennoe-imja) k_d10 ;; d11-sloi-vlozhennoe-poterjan) k_d11 ;;
   d12-sloi-dotdot-vyhod) k_d12 ;; d13-sloi-symlink-naruzhu) k_d13 ;; d14-kontrol-symlink-vnutri) k_d14 ;;
   d1-p10-isklyuchenie) k_d1 ;; d2-kontrol-dom) k_d2 ;; d3-kontrol-koren) k_d3 ;;
-  e1-trassa-fallback-podmena) k_e1 ;; e2-trassa-fallback-possev) k_e2 ;; esac; }
+  e1-trassa-fallback-podmena) k_e1 ;; e2-trassa-fallback-possev) k_e2 ;;
+  f1-vorota-profile-reestr) k_f1 ;; f2-vorota-podmena-v-neprofilnom) k_f2 ;;
+  f3-vorota-reg-dotdot) k_f3 ;; f4-vorota-reg-symlink) k_f4 ;;
+  f5-vorota-reg-absoljut) k_f5 ;; f6-vorota-reg-bez-kljucha) k_f6 ;;
+  f7-vorota-reg-pustoj) k_f7 ;; f8-vorota-iskljuchenij-net) k_f8 ;; esac; }
 
-# ── таблица осей A–E — единственный источник счёта (арбитраж 136v2 п.1) ──────
-# source.json:.osi — строки осей A–E (источник MSG × установка стража × конфиг
-# трассы × объявленный слой × путь реестра профиля), .vne_osi — наследие v1/v2
+# ── таблица осей A–F — единственный источник счёта (арбитраж 136v2 п.1) ──────
+# source.json:.osi — строки осей A–F (источник MSG × установка стража × конфиг
+# трассы × объявленный слой × путь реестра профиля в двери × путь реестра
+# профиля в ВОРОТАХ паритета), .vne_osi — наследие v1/v2
 # вне осей. Механическая
 # биекция «строка таблицы ↔ клетка»: множество строк == множество kletki ==
 # множество ORDER; счёт клеток кодом = len(osi)+len(vne_osi).

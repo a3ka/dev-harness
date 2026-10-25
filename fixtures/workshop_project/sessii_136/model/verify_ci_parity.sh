@@ -168,6 +168,8 @@ set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 GH="$ROOT/.github"
 PKG="$ROOT/package.json"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_ABS="$(cd "$ROOT" && pwd -P)"
 # 136 v2 (НАБЛ-П10, Rev136-B2в): режим различается по ОБЪЯВЛЕННОМУ СЛОЮ
 # профиля — единственный источник 996. Проектный режим (подключение внешнего
 # проекта 125): projectLayer.profilePath лежит ПОД `.harness/` (дверь 125
@@ -207,8 +209,28 @@ if [ -e "$ROOT/harness.project.json" ]; then
         "${_kanon_h}"/*) : ;;
         *) printf 'NOT_IMPLEMENTED: объявленный слой вне .harness/: %s\n' "$ROOT/$_sloi" >&2; exit 2 ;;
       esac
-      _wp_reg="$(jq -r '.workflowPaths.registry // ".harness/registry"' "$ROOT/harness.project.json" 2>/dev/null)"
-      EXCEPTIONS="$ROOT/$_wp_reg/ci_parity_exceptions.txt" ;;
+      # 136 v3.2 (R136d-B1, frozen 136/2 И-8): путь реестра исключений — ТОЛЬКО
+      # из ЕДИНОГО project_paths_resolve (образец scripts/done_wave.sh:117-124;
+      # ПЕРЕСЕЧЕНИЕ implementer «103 профильные пути — единственный источник»),
+      # никакого собственного jq `.workflowPaths.registry` и конкатенаций
+      # $ROOT/<…>: на законном профиле БЕЗ workflowPaths (996: FALLBACK-NO-
+      # WORKFLOW, эффективный реестр $REPO/registry — туда сеет дверь) собст-
+      # венный jq читал дефолт .harness/registry — ИНОЕ место, чем резолвер
+      # двери/make_task: гейт зеленел от исключений, подложенных в НЕпрофильный
+      # реестр, и краснел rc 2 на честном посеве двери. Правило отказов — как у
+      # двери: непрошедший резолв → именованный отказ rc 1, никогда rc 0.
+      NEXT_ID_LIB=1 source "$SELF_DIR/next_id.sh" \
+        || { printf 'parity ОТКАЗ: net-rezolvera-putej: %s/next_id.sh\n' "$SELF_DIR" >&2; exit 1; }
+      PPR_JSON="$(project_paths_resolve "$ROOT_ABS")" \
+        || { printf 'parity ОТКАЗ: profil-ne-razreshaetsja: %s\n' "$ROOT_ABS" >&2; exit 1; }
+      REG_ABS="$(printf '%s' "$PPR_JSON" | jq -r '.registry')"
+      [ -n "$REG_ABS" ] \
+        || { printf 'parity ОТКАЗ: profil-bez-registry: %s\n' "$ROOT_ABS" >&2; exit 1; }
+      case "$REG_ABS" in
+        "$ROOT_ABS"/*) : ;;
+        *) printf 'parity ОТКАЗ: registry-vne-kornja: %s\n' "$REG_ABS" >&2; exit 1 ;;
+      esac
+      EXCEPTIONS="$REG_ABS/ci_parity_exceptions.txt" ;;
     *) : ;; # собственный профиль харнесса — режим 020 дословно
   esac
 fi
