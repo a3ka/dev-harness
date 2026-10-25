@@ -285,6 +285,102 @@ def kanon_rashozhdenie(subj, model):
     return None
 
 
+# --- управляющие свойства шага и job (исправительный проход по вердикту
+# Critic141 FAIL вызов 1/2: обманное `if: ${{ false }}` на шаге 135 при
+# байт-в-байт модельном run: давало rc 0 35/35 ok — канон и replay судили
+# только тело шага, а не сам исполняемый шаг) -------------------------------
+
+def _najti_shag_doc(doc, src, nomer):
+    imja = src['shagi'][nomer]
+    for s in shagi_doc(doc, src):
+        nm = s.get('name', '')
+        if isinstance(nm, str) and nm.startswith(imja):
+            return s
+    return None
+
+
+def upravlenie_shaga(subj_doc, src, nomer, model_doc):
+    """Исполняемость шага: замкнутый алфавит ключей = как в модели
+    (живой замер модели: name, run, working-directory у всех трёх);
+    лишний ключ (if / continue-on-error / shell / env / timeout-minutes /
+    uses / with / id — любой вне алфавита), отсутствие ключа модели либо
+    неравное значение не-run ключа (working-directory) — именованный
+    отказ: шаг либо не исполняется, либо гасит красный итог."""
+    subj = _najti_shag_doc(subj_doc, src, nomer)
+    if subj is None:
+        return ('KRASNO', 'SHAG_%s_NET' % nomer)
+    model = _najti_shag_doc(model_doc, src, nomer)
+    if model is None:
+        return ('KRASNO', 'ORACLE_TAMPERED: в модели нет шага %s' % nomer)
+    lishnie = sorted(set(subj) - set(model))
+    if lishnie:
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: shag %s: лишние ключи: %s'
+                % (nomer, ', '.join(lishnie)))
+    netu = sorted(set(model) - set(subj))
+    if netu:
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: shag %s: нет ключей: %s'
+                % (nomer, ', '.join(netu)))
+    for k in sorted(set(model) - {'run', 'name'}):
+        if subj.get(k) != model.get(k):
+            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: shag %s: %s = %r (в модели %r)'
+                    % (nomer, k, subj.get(k), model.get(k)))
+    return ('ok', None)
+
+
+# ложное семейство if: замкнутый алфавит статически всегда ложных форм
+JOB_IF_LOZH_SEMEJSTVO = ('false', 'always() && false')
+
+
+def _if_lozhnoe(znach):
+    if znach is False or znach is None:
+        return True
+    if isinstance(znach, str):
+        s = znach.strip()
+        if s.startswith('${{') and s.endswith('}}'):
+            s = s[3:-2].strip()
+        return s.lower() in JOB_IF_LOZH_SEMEJSTVO
+    return False
+
+
+def _istinnoe(znach):
+    if isinstance(znach, bool):
+        return znach
+    if isinstance(znach, str):
+        return znach.strip().lower() == 'true'
+    return bool(znach)
+
+
+def upravlenie_job(subj_doc, src):
+    """Whitelisted-различители job (значениями остальные ключи job не
+    пинятся): свойства, делающие целевой шаг неисполнимым либо красный
+    итог невидимым, — именованный отказ."""
+    jobs = subj_doc.get('jobs') if isinstance(subj_doc, dict) else None
+    job = jobs.get(src['job_imja']) if isinstance(jobs, dict) else None
+    if not isinstance(job, dict):
+        return ('KRASNO', 'JOB_NET: %s' % src['job_imja'])
+    if 'continue-on-error' in job and _istinnoe(job['continue-on-error']):
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: '
+                'continue-on-error гасит красный итог' % src['job_imja'])
+    if 'if' in job and _if_lozhnoe(job['if']):
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: if=%r не '
+                'исполняется никогда' % (src['job_imja'], job['if']))
+    nz = job.get('needs')
+    spisok = [nz] if isinstance(nz, str) else (nz if isinstance(nz, list) else [])
+    for n in spisok:
+        if not isinstance(jobs.get(n), dict):
+            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: needs на '
+                    'несуществующую работу %r' % (src['job_imja'], n))
+    tm = job.get('timeout-minutes')
+    if tm == 0 or tm == '0':
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: timeout-minutes=0'
+                % src['job_imja'])
+    env = job.get('env')
+    if isinstance(env, dict) and 'PATH' in env:
+        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: env.PATH подменяет '
+                'PATH шагов' % src['job_imja'])
+    return ('ok', None)
+
+
 # --- replay: sandbox с подложными adb/emulator/avdmanager/python3 -----------
 
 def zapisat_izv_shim(put, tekst, ispolnimyj=True):
@@ -429,7 +525,11 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
         return ('ok', None)
     if tip == 'struktura':
         podtip = kejs['podtip']
+        if podtip == 'upravlenie-job':
+            return upravlenie_job(subj_doc, src)
         nomer = kejs['shag']
+        if podtip == 'upravlenie-shag':
+            return upravlenie_shaga(subj_doc, src, nomer, model_doc)
         telo = telo_shaga(subj_doc, src, nomer)
         if telo is None:
             return ('KRASNO', 'SHAG_%s_NET' % nomer)
@@ -546,6 +646,29 @@ def mutiruj_shag(t, imja, fn):
     novye = ['        run: |'] + ['          ' + s for s in telo2.split('\n')]
     lines[i_run:i_konec] = novye
     return '\n'.join(lines)
+
+
+def _klyuchi_shaga(t, imja, stroki):
+    """Вставка строк-ключей шага (отступ 8) сразу после `- name:` целевого
+    шага — мутация УПРАВЛЯЮЩИХ свойств (исправительный проход Critic141):
+    модель минус защита «замкнутый алфавит ключей шага»."""
+    lines = t.split('\n')
+    for i, l in enumerate(lines):
+        if l.startswith('      - name: ') and l[14:].startswith(imja):
+            lines[i + 1:i + 1] = stroki
+            return '\n'.join(lines)
+    raise RuntimeError('шаг вставки управляющего ключа не найден: %s' % imja)
+
+
+def _klyuchi_joba(t, stroki):
+    """Вставка строк-ключей job (отступ 4) сразу после заголовка
+    `  android-e2e:` — мутация job-различителей."""
+    lines = t.split('\n')
+    for i, l in enumerate(lines):
+        if l == '  android-e2e:':
+            lines[i + 1:i + 1] = stroki
+            return '\n'.join(lines)
+    raise RuntimeError('job android-e2e не найден для вставки ключа')
 
 
 KANON_MUT = None  # резолвится при загрузке source.json
@@ -673,12 +796,82 @@ def m_vyrazhenie_vne_alfavita(b):
     return _zameni(b, '--repo ${{ github.workspace }}', '--repo ${{ secrets.PILOT_DEMO_CODE }}')
 
 
+def m_upr_if_false_135(b):
+    # свидетель критика 1/2 дословно: if: ${{ false }} на шаге 135,
+    # run: байт-в-байт моделью — шаг никогда не исполняется.
+    return _klyuchi_shaga(b, '135 first-run-ekran',
+                          ['        if: ${{ false }}'])
+
+
+def m_upr_timeout_0_135(b):
+    return _klyuchi_shaga(b, '135 first-run-ekran',
+                          ['        timeout-minutes: 0'])
+
+
+def m_upr_env_path_135(b):
+    return _klyuchi_shaga(b, '135 first-run-ekran',
+                          ['        env:', '          PATH: /nonexistent-141'])
+
+
+def m_upr_uses_135(b):
+    # шаг-run не может получить uses (исполнение подменяется действием)
+    return _klyuchi_shaga(b, '135 first-run-ekran',
+                          ['        uses: actions/checkout@v4'])
+
+
+def m_upr_if_literal_118(b):
+    return _klyuchi_shaga(b, '118 erstinformation', ['        if: false'])
+
+
+def m_upr_shell_118(b):
+    # шаблон оболочки, глотающий код возврата тела
+    return _klyuchi_shaga(b, '118 erstinformation',
+                          ["        shell: 'bash {0} || true'"])
+
+
+def m_upr_if_always_995(b):
+    return _klyuchi_shaga(b, 'Maestro runner для CMP-MOB-001',
+                          ['        if: always() && false'])
+
+
+def m_upr_continue_995(b):
+    return _klyuchi_shaga(b, 'Maestro runner для CMP-MOB-001',
+                          ['        continue-on-error: true'])
+
+
+def m_upr_job_if_false(b):
+    return _klyuchi_joba(b, ['    if: false'])
+
+
+def m_upr_job_continue(b):
+    return _klyuchi_joba(b, ['    continue-on-error: true'])
+
+
+def m_upr_job_env_path(b):
+    return _klyuchi_joba(b, ['    env:', '      PATH: /nonexistent-141'])
+
+
 def sdelat_stab(imja, model_tekst, kanon):
     global KANON_MUT
     KANON_MUT = kanon
     try:
         if imja == 's-shag-pereimenovan-135':
             return _zameni(model_tekst, '- name: 135 first-run-ekran', '- name: 135 first-run')
+        UPRAV_MUTACII = {
+            's-upr-if-false-135': m_upr_if_false_135,
+            's-upr-timeout-0-135': m_upr_timeout_0_135,
+            's-upr-env-path-135': m_upr_env_path_135,
+            's-upr-uses-135': m_upr_uses_135,
+            's-upr-if-literal-118': m_upr_if_literal_118,
+            's-upr-shell-118': m_upr_shell_118,
+            's-upr-if-always-995': m_upr_if_always_995,
+            's-upr-continue-995': m_upr_continue_995,
+            's-upr-job-if-false': m_upr_job_if_false,
+            's-upr-job-continue': m_upr_job_continue,
+            's-upr-job-env-path': m_upr_job_env_path,
+        }
+        if imja in UPRAV_MUTACII:
+            return UPRAV_MUTACII[imja](model_tekst)
         SHAGI_MUT = {
             '135 first-run-ekran': (
                 's-bez-signaturnogo-filtra-135', 's-signatura-suzhena-135',
@@ -760,6 +953,17 @@ STAB_MUTACII = {
     's-podmena-signatury-diag-995': m_podmena_signatury_diag_995,
     's-kanon-stroka-995': m_kanon_stroka_995,
     's-vyrazhenie-vne-alfavita': m_vyrazhenie_vne_alfavita,
+    's-upr-if-false-135': m_upr_if_false_135,
+    's-upr-timeout-0-135': m_upr_timeout_0_135,
+    's-upr-env-path-135': m_upr_env_path_135,
+    's-upr-uses-135': m_upr_uses_135,
+    's-upr-if-literal-118': m_upr_if_literal_118,
+    's-upr-shell-118': m_upr_shell_118,
+    's-upr-if-always-995': m_upr_if_always_995,
+    's-upr-continue-995': m_upr_continue_995,
+    's-upr-job-if-false': m_upr_job_if_false,
+    's-upr-job-continue': m_upr_job_continue,
+    's-upr-job-env-path': m_upr_job_env_path,
     's-shag-pereimenovan-135': lambda b: b,  # текстовая мутация имени шага
 }
 

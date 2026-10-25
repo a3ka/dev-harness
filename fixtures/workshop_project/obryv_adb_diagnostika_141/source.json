@@ -752,6 +752,33 @@
    "opisanie": "замкнутый алфавит ${{ }}-выражений тела 995: github.workspace/run_id/run_attempt",
    "ozhidanie": {}
   },
+  "struktura-upravlenie-shag135": {
+   "tip": "struktura",
+   "podtip": "upravlenie-shag",
+   "shag": "135",
+   "opisanie": "исполняемость шага 135: замкнутый алфавит ключей шага = как в модели (живой замер: name, run, working-directory); лишний управляющий ключ (if/continue-on-error/shell/env/timeout-minutes/uses/with/id…), отсутствие ключа модели либо неравный working-directory — UPRAVLYAYUSHCHIJ_KLYUCH (класс обхода критика 1/2: attack-if-false)",
+   "ozhidanie": {}
+  },
+  "struktura-upravlenie-shag118": {
+   "tip": "struktura",
+   "podtip": "upravlenie-shag",
+   "shag": "118",
+   "opisanie": "исполняемость шага 118: замкнутый алфавит ключей шага = как в модели (name, run, working-directory); лишний управляющий ключ, отсутствие ключа модели либо неравный working-directory — UPRAVLYAYUSHCHIJ_KLYUCH",
+   "ozhidanie": {}
+  },
+  "struktura-upravlenie-shag995": {
+   "tip": "struktura",
+   "podtip": "upravlenie-shag",
+   "shag": "995",
+   "opisanie": "исполняемость шага 995: замкнутый алфавит ключей шага = как в модели (name, run, working-directory); лишний управляющий ключ, отсутствие ключа модели либо неравный working-directory — UPRAVLYAYUSHCHIJ_KLYUCH",
+   "ozhidanie": {}
+  },
+  "struktura-upravlenie-job": {
+   "tip": "struktura",
+   "podtip": "upravlenie-job",
+   "opisanie": "исполняемость job android-e2e: whitelisted-различители — continue-on-error (гасит красный итог), if ложного семейства (false/${{ false }}/always() && false), needs на несуществующую работу, timeout-minutes 0, env.PATH — UPRAVLYAYUSHCHIJ_KLYUCH; прочие ключи job значениями не пинятся",
+   "ozhidanie": {}
+  },
   "derevo-bez-141": {
    "tip": "derevo",
    "podtip": "bez-141",
@@ -870,6 +897,39 @@
   ],
   "s-shag-pereimenovan-135": [
    "struktura-shag135"
+  ],
+  "s-upr-if-false-135": [
+   "struktura-upravlenie-shag135"
+  ],
+  "s-upr-timeout-0-135": [
+   "struktura-upravlenie-shag135"
+  ],
+  "s-upr-env-path-135": [
+   "struktura-upravlenie-shag135"
+  ],
+  "s-upr-uses-135": [
+   "struktura-upravlenie-shag135"
+  ],
+  "s-upr-if-literal-118": [
+   "struktura-upravlenie-shag118"
+  ],
+  "s-upr-shell-118": [
+   "struktura-upravlenie-shag118"
+  ],
+  "s-upr-if-always-995": [
+   "struktura-upravlenie-shag995"
+  ],
+  "s-upr-continue-995": [
+   "struktura-upravlenie-shag995"
+  ],
+  "s-upr-job-if-false": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-continue": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-env-path": [
+   "struktura-upravlenie-job"
   ]
  }
 }
