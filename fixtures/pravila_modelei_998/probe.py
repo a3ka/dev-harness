@@ -175,17 +175,63 @@ def refs_violations(am, root):
     return v
 
 
+def glm_tiers(am):
+    """Тиры на модели GLM по ЖИВОМУ реестру (model — семейство @glm либо его
+    прямой id из models). Политика владельца 2026-10-25 ~21:55 UTC «если глм
+    выпадет, пускай все остановится»: GLM-тиры идут без автоподмены —
+    autoFallback=false и без строки в retry.fallbackChains. Имена тиров
+    выводятся из реестра, а не зашиты списком: новый тир на @glm попадает
+    под политику автоматически."""
+    fam = TIER_MODEL.lstrip("@")
+    ids = {TIER_MODEL}
+    ids.update(mid for f, mid in am.get("models", {}).items() if f == fam)
+    out = []
+    for name, spec in am.get("tiers", {}).items():
+        if isinstance(spec, dict) and spec.get("model") in ids:
+            out.append(name)
+    return out
+
+
+def fallback_chain_entries(lines):
+    """[(имя тира, индекс строки)] записей «имя: [» блока retry.fallbackChains
+    (.omp/config.yml). Блок открывает строка «  fallbackChains:» (сдвиг 2 —
+    формат генератора и ручной блок первого перехода), держат его строки
+    сдвига ≥4 и комментарии; любой иной ключ меньшего сдвига блок закрывает.
+    Сверка структурная: имя — в своей секции, своей строкой, со значением-
+    списком (записи modelRoles значением-строкой не считаются)."""
+    out = []
+    in_block = False
+    for i, ln in enumerate(lines):
+        if not in_block:
+            if re.match(r"^ {2}fallbackChains:\s*$", ln):
+                in_block = True
+            continue
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        if not ln.startswith("    "):
+            in_block = False
+            continue
+        m = re.match(r"^\s+([^\s:#\[\]]+?):\s*\[", ln)
+        if m:
+            out.append((m.group(1), i))
+    return out
+
+
 def composition_violations(am, root):
-    """Композиция «та же роль»: файл роли отличается ТОЛЬКО строкой role:,
-    тир task-glm — живая цепочка (model/fallback/autoFallback как у task),
-    производная modelRoles согласована."""
+    """Композиция «та же роль»: файл роли отличается ТОЛЬКО строкой role:;
+    тир task-glm несёт model/fallback реестра; политика GLM без автоподмены
+    (слово владельца 2026-10-25 ~21:55 UTC): у каждого тира на @glm
+    autoFallback=false и строки цепочки в retry.fallbackChains нет (поле
+    fallback — объявленный ручной фолбек, Н-50); производная modelRoles
+    согласована. Значения — из ПЕРЕДАННОГО живого реестра (в --cases —
+    предзагрузка AM0 правилом 8); литеральна только полярность политики
+    (false / строки нет), не значения реестра."""
     v = []
     roles = am.get("roles", {})
     got = roles.get(ROLE_GLM)
     if got != TIER_NAME:
         v.append(f"roles.{ROLE_GLM} = {got!r}, ожидается «{TIER_NAME}»")
     spec = am.get("tiers", {}).get(TIER_NAME)
-    task = am.get("tiers", {}).get("task")
     if not isinstance(spec, dict):
         v.append(f"tiers.{TIER_NAME} отсутствует")
     else:
@@ -193,10 +239,13 @@ def composition_violations(am, root):
             v.append(f"tiers.{TIER_NAME}.model = {spec.get('model')!r}, ожидается «{TIER_MODEL}»")
         if spec.get("fallback") != TIER_FALLBACK:
             v.append(f"tiers.{TIER_NAME}.fallback = {spec.get('fallback')!r}, ожидается «{TIER_FALLBACK}»")
-        if spec.get("autoFallback") is not True:
-            v.append(f"tiers.{TIER_NAME}.autoFallback = {spec.get('autoFallback')!r}, ожидается true (живая цепочка)")
-        elif isinstance(task, dict) and task.get("autoFallback") is not True:
-            v.append("tiers.task.autoFallback не true: цепочка task-glm повторяет мёртвую")
+    for t in glm_tiers(am):
+        s = am.get("tiers", {}).get(t)
+        if isinstance(s, dict) and s.get("autoFallback") is not False:
+            v.append(
+                f"tiers.{t}.autoFallback = {s.get('autoFallback')!r}, ожидается false "
+                "(GLM без автоподмены — слово владельца 2026-10-25 ~21:55 UTC)"
+            )
     impl = split_role_file(os.path.join(root, "roles", "implementer.md"))
     iglm = split_role_file(os.path.join(root, "roles", "implementer-glm.md"))
     if iglm is None:
@@ -218,12 +267,22 @@ def composition_violations(am, root):
                     break
     omp_cfg = os.path.join(root, ".omp", "config.yml")
     if os.path.isfile(omp_cfg):
+        cfg_lines = read(omp_cfg).splitlines()
         models = am.get("models", {})
         fam = TIER_MODEL.lstrip("@")
         mid = models.get(fam, f"<{fam}>")
         if not any(re.match(r"^\s*" + re.escape(TIER_NAME) + r":\s*\"?" + re.escape(mid), ln)
-                   for ln in read(omp_cfg).splitlines()):
+                   for ln in cfg_lines):
             v.append(f".omp/config.yml modelRoles не несёт строку {TIER_NAME}: {mid}")
+        # производная цепочки — из реестра: строка тира есть ⇔ autoFallback=true;
+        # GLM-тиры все autoFallback=false — живой строки у них быть не должно
+        chained = {name for name, _ in fallback_chain_entries(cfg_lines)}
+        for t in glm_tiers(am):
+            if t in chained:
+                v.append(
+                    f".omp/config.yml retry.fallbackChains несёт строку {t}: — "
+                    "живая цепочка у GLM-тира без автоподмены (слово владельца 2026-10-25)"
+                )
     return v
 
 
@@ -636,7 +695,9 @@ def c_other_roles():
 @case("role_pair_glm")
 def c_pair():
     v = composition_violations(AM0, SUBJECT)
-    return (not v), ("; ".join(v) if v else f"пара {ROLE_GLM}={TIER_NAME} ({TIER_MODEL}/{TIER_FALLBACK}, autoFallback) на месте")
+    return (not v), ("; ".join(v) if v else
+                     f"пара {ROLE_GLM}={TIER_NAME} ({TIER_MODEL}/{TIER_FALLBACK}, "
+                     "autoFallback=false: GLM без автоподмены, строки цепочки нет) на месте")
 
 
 @case("charter_duplicates")
@@ -997,16 +1058,58 @@ def _break_model_roles(d):
     return True
 
 
+def _chain_tier(sb):
+    """Тир с ЖИВОЙ цепочкой по реестру песочницы: autoFallback=true, fallback
+    объявлен и строка записи есть в .omp/config.yml. У GLM-тиров строк нет
+    (политика 2026-10-25) — поломка фазы адресуется тиру, который цепочку
+    ИМЕЕТ; выбор из реестра, не литералом клетки."""
+    am = json.loads(read(os.path.join(sb, "config", "agent_models.json")))
+    entries = dict(fallback_chain_entries(
+        read(os.path.join(sb, ".omp", "config.yml")).splitlines()))
+    for name, spec in am.get("tiers", {}).items():
+        if (isinstance(spec, dict) and spec.get("autoFallback") is True
+                and spec.get("fallback") and name in entries):
+            return name
+    return None
+
+
 def _break_fallback_chains(d):
-    """К3.5: расходится ТОЛЬКО строка task-glm: в retry.fallbackChains."""
+    """К3.5: расходится ТОЛЬКО строка цепочки в retry.fallbackChains у тира,
+    который её ИМЕЕТ (по реестру песочницы: autoFallback=true). Политика
+    2026-10-25 сняла строки task-glm/slow — ломать их больше нельзя; если
+    живых цепочек в дереве нет вовсе, фаза проверяется на синтетическом
+    реестре песочницы: autoFallback включается первому тиру с объявленным
+    fallback — строка появится в ожидании генератора, но не в конфиге.
+    Возвращает (тир, маршрут) либо False."""
     p = os.path.join(d, ".omp", "config.yml")
-    s = read(p)
-    s2, n = re.subn(r"(?m)^(\s*task-glm:\s*\[)[^\]]*(\])", r'\1"broken-998"\2', s, count=1)
-    if not n:
-        return False
-    with open(p, "w", encoding="utf-8") as f:
-        f.write(s2)
-    return True
+    tier = _chain_tier(d)
+    if tier is not None:
+        lines = read(p).splitlines(True)
+        hit = next((i for name, i in fallback_chain_entries(lines) if name == tier), None)
+        if hit is None:
+            return False
+        lines[hit] = re.sub(r"\[[^\]]*\]", '["broken-998"]', lines[hit], count=1)
+        with open(p, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        return (tier, "line")
+    am_p = os.path.join(d, "config", "agent_models.json")
+    am = json.loads(read(am_p))
+    for name, spec in am.get("tiers", {}).items():
+        if isinstance(spec, dict) and spec.get("fallback"):
+            spec["autoFallback"] = True
+            with open(am_p, "w", encoding="utf-8") as f:
+                json.dump(am, f, ensure_ascii=False, indent=2)
+                f.write("\n")
+            return (name, "synthetic")
+    return False
+
+
+def _phase_fallback_chains(applied):
+    tier, route = applied
+    if route == "synthetic":
+        return (f"fallbackChains расходится (синтетический реестр: autoFallback=true "
+                f"у {tier}, строки цепочки в .omp/config.yml нет)")
+    return f"fallbackChains расходится (строка {tier}:)"
 
 
 DRIFT_PHASES = [
@@ -1019,7 +1122,7 @@ DRIFT_PHASES = [
     ("gen_check_drift_model_roles", _break_model_roles,
      ["modelRoles"], "modelRoles расходится (строка task-glm:)"),
     ("gen_check_drift_fallback_chains", _break_fallback_chains,
-     ["fallbackChains"], "fallbackChains расходится (строка task-glm:)"),
+     ["fallbackChains"], _phase_fallback_chains),
 ]
 
 
@@ -1030,17 +1133,18 @@ def _make_drift(name, brk, tokens, phase):
         applied = brk(sb)
         rc, out, err = gen(sb)
         shutil.rmtree(sb, ignore_errors=True)
+        ph = phase(applied) if callable(phase) else phase
         if not applied:
             return False, (
-                f"поломка фазы «{phase}» не применима к дереву субъекта "
+                f"поломка фазы «{ph}» не применима к дереву субъекта "
                 "(нет элемента фазы — производная 998 не реализована)"
             )
         if rc != 1:
-            return False, f"rc={rc} (ожидается 1 — фаза «{phase}»): {first_line(out or err)}"
+            return False, f"rc={rc} (ожидается 1 — фаза «{ph}»): {first_line(out or err)}"
         absent = [t for t in tokens if t not in (out or "") and t not in (err or "")]
         if absent:
             return False, f"rc=1, но производная фазы не названа ({', '.join(absent)}): {first_line(out or err)}"
-        return True, f"--check rc=1, фаза «{phase}» названа: {first_line(out or err)}"
+        return True, f"--check rc=1, фаза «{ph}» названа: {first_line(out or err)}"
     return c_drift
 
 
@@ -1458,8 +1562,13 @@ def matrix():
             )
         return fn
 
-    def mut_no_autofallback(am):
-        am["tiers"]["task-glm"]["autoFallback"] = False
+    def mut_glm_autofallback_on(am):
+        # обманная заглушка «autoFallback=true при отсутствии цепочки»: реестр
+        # возвращает GLM-тирам автоподмену — политика 2026-10-25 нарушена уже
+        # значением реестра (цепочки в .omp/config.yml seed нет вовсе); имена
+        # GLM-тиров — из живого реестра, не списком
+        for t in glm_tiers(am):
+            am["tiers"][t]["autoFallback"] = True
 
     def mut_wrong_tier_glm(am):
         am["roles"]["implementer-glm"] = "task"
@@ -1479,7 +1588,38 @@ def matrix():
 
     add("oracle_seed_clean", cell_oracle("oracle_seed_clean", None, False))
     add("oracle_wrong_tier_glm", cell_oracle("oracle_wrong_tier_glm", mut_wrong_tier_glm, True))
-    add("oracle_no_autofallback", cell_oracle("oracle_no_autofallback", mut_no_autofallback, True))
+    add("oracle_glm_autofallback_on", cell_oracle("oracle_glm_autofallback_on", mut_glm_autofallback_on, True))
+
+    # обманная заглушка «false при живой цепочке»: реестр честен (GLM-тиры
+    # autoFallback=false), но .omp/config.yml несёт живую строку цепочки
+    # GLM-тира — помечена обязана быть ИМЕННО ветвь цепочки и ровно одна
+    # (иначе стаб краснел бы чужой ветвью — демаркация Н-39)
+    def cell_oracle_glm_chain_line(name, want_flag):
+        def fn():
+            tree, _ = seed_sandbox()
+            omp = os.path.join(tree, ".omp", "config.yml")
+            lines = read(omp).splitlines(True)
+            if lines and not lines[-1].endswith("\n"):
+                lines[-1] += "\n"
+            lines.append("retry:\n  modelFallback: true\n  fallbackChains:\n"
+                         f"    {TIER_NAME}: [\"anthropic/sonnet-seed\"]\n")
+            with open(omp, "w", encoding="utf-8") as f:
+                f.writelines(lines)
+            am = clone_am(SEED_AM)
+            v = composition_violations(am, tree)
+            shutil.rmtree(tree, ignore_errors=True)
+            chain_flagged = any("fallbackChains" in m and TIER_NAME in m for m in v)
+            if want_flag:
+                ok = chain_flagged and len(v) == 1
+            else:
+                ok = not chain_flagged and not v
+            return ok, (
+                f"живая цепочка {TIER_NAME} помечена={chain_flagged} "
+                f"(ожидается {want_flag}, нарушений {len(v)}): {'; '.join(v) or 'чисто'}"
+            )
+        return fn
+
+    add("oracle_glm_chain_line", cell_oracle_glm_chain_line("oracle_glm_chain_line", True))
     add("oracle_different_tools", cell_oracle_tools("oracle_different_tools", True))
 
     def cell_anchor(name, problems, want_flag):
