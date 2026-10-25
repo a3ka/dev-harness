@@ -405,7 +405,7 @@ def mut_proiskhozdenie_selektor_bez_ekrana(pack, forma, repo, src):
     кода экрана — композер недостижим."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     tekst = p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_composer"\n', '')
+        '<View testID="start_sostojanie_composer" />\n', '')
     p.write_text(tekst, encoding='utf-8')
 
 
@@ -563,11 +563,11 @@ def mut_proiskhozdenie_selektor_chuzhoj_drevo(pack, forma, repo, src):
     является."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_composer"\n', ''), encoding='utf-8')
+        '<View testID="start_sostojanie_composer" />\n', ''), encoding='utf-8')
     chuzhoj = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
     chuzhoj.write_text(
         chuzhoj.read_text(encoding='utf-8')
-        + 'testID="start_sostojanie_composer"\n', encoding='utf-8')
+        + '<View testID="start_sostojanie_composer" />\n', encoding='utf-8')
 
 
 def mut_proiskhozdenie_dopusk_selektor_chuzhoj_drevo(pack, forma, repo, src):
@@ -576,10 +576,11 @@ def mut_proiskhozdenie_dopusk_selektor_chuzhoj_drevo(pack, forma, repo, src):
     дереве ЕГО экрана."""
     p = repo / 'mobile/src/features/onboarding/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="first-run-continue"\n', ''), encoding='utf-8')
+        '<View testID="first-run-continue" />\n', ''), encoding='utf-8')
     svoj = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     svoj.write_text(svoj.read_text(encoding='utf-8')
-                    + 'testID="first-run-continue"\n', encoding='utf-8')
+                    + '<View testID="first-run-continue" />\n',
+                    encoding='utf-8')
 
 
 def mut_proiskhozdenie_selektor_nositel_v_stroke(pack, forma, repo, src):
@@ -587,7 +588,7 @@ def mut_proiskhozdenie_selektor_nositel_v_stroke(pack, forma, repo, src):
     дереве — подделка носителя, не JSX-атрибут."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_idle"\n',
+        '<View testID="start_sostojanie_idle" />\n',
         'const opisanie = \'testID="start_sostojanie_idle"\';\n'),
         encoding='utf-8')
 
@@ -596,7 +597,7 @@ def mut_proiskhozdenie_selektor_nositel_v_kommentarii(pack, forma, repo, src):
     """Носитель-комментарий: testID в хвосте строки после // — не атрибут."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_idle"\n',
+        '<View testID="start_sostojanie_idle" />\n',
         '<View /> // testID="start_sostojanie_idle"\n'), encoding='utf-8')
 
 
@@ -605,8 +606,9 @@ def mut_proiskhozdenie_selektor_cbhok_atribut(pack, forma, repo, src):
     testID-носителя нет."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_idle"\n',
-        'accessibilityLabel="start_sostojanie_idle"\n'), encoding='utf-8')
+        '<View testID="start_sostojanie_idle" />\n',
+        '<View accessibilityLabel="start_sostojanie_idle" />\n'),
+        encoding='utf-8')
 
 
 def mut_proiskhozdenie_selektor_registr(pack, forma, repo, src):
@@ -614,8 +616,8 @@ def mut_proiskhozdenie_selektor_registr(pack, forma, repo, src):
     регистрозависим)."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_idle"\n',
-        'testid="start_sostojanie_idle"\n'), encoding='utf-8')
+        '<View testID="start_sostojanie_idle" />\n',
+        '<View testid="start_sostojanie_idle" />\n'), encoding='utf-8')
 
 
 def mut_proiskhozdenie_selektor_dinamicheskij(pack, forma, repo, src):
@@ -623,7 +625,7 @@ def mut_proiskhozdenie_selektor_dinamicheskij(pack, forma, repo, src):
     грамматика пачки требует литерал (статическая проверка)."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_idle"\n',
+        '<View testID="start_sostojanie_idle" />\n',
         'testID={`start_sostojanie_${sostojanie}`}\n'), encoding='utf-8')
 
 
@@ -632,7 +634,7 @@ def mut_proiskhozdenie_selektor_probely(pack, forma, repo, src):
     '=' — носитель есть, ложный отказ недопустим."""
     p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
     p.write_text(p.read_text(encoding='utf-8').replace(
-        'testID="start_sostojanie_idle"\n',
+        '<View testID="start_sostojanie_idle" />\n',
         '<View testID = "start_sostojanie_idle" />\n'), encoding='utf-8')
 
 
@@ -642,8 +644,183 @@ def mut_proiskhozdenie_selektor_v_oboih(pack, forma, repo, src):
     chuzhoj = repo / 'mobile/src/features/auth/testids.stand-in.tsx'
     chuzhoj.write_text(
         chuzhoj.read_text(encoding='utf-8')
-        + 'testID="start_sostojanie_composer"\n', encoding='utf-8')
+        + '<View testID="start_sostojanie_composer" />\n', encoding='utf-8')
 
+
+# --- клетки круга 3 (ось H «форма носителя × место», РЕШЕНИЕ арбитра 138:
+# лексер и замкнутый алфавит путей закрывают классы H1-H3 таблицей входов;
+# достижимость H4/H5 — остаток §НЕ ЗАЩИЩАЕТ, ловец — живой Maestro) ------
+
+NOSITEL_SPRAVA = '<View testID="start_sostojanie_idle" />'
+
+
+def _udali_idle(repo):
+    p = repo / 'mobile/src/features/start/testids.stand-in.tsx'
+    p.write_text(p.read_text(encoding='utf-8').replace(
+        NOSITEL_SPRAVA + '\n', ''), encoding='utf-8')
+
+
+def _nositel_v_fajle(repo, imja, tekst):
+    """Своё дерево входа каждой клетке (ось H): носитель idle удалён из
+    стенд-ина, один файл добавлен в mobile/src/features/start/."""
+    _udali_idle(repo)
+    p = repo / 'mobile/src/features/start' / imja
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(tekst, encoding='utf-8')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_hvost(pack, forma, repo, src):
+    """H1 «//» в хвосте: атрибут в хвостовом комментарии — не код."""
+    _nositel_v_fajle(repo, 'hvost.tsx',
+                     'const a = 1; // ' + NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_stroka(pack, forma, repo, src):
+    """H1 «//» своей строкой: вся строка — комментарий."""
+    _nositel_v_fajle(repo, 'kommentarij-stroka.tsx',
+                     '// ' + NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_blok(pack, forma, repo, src):
+    """H1 inline «/* … */»: атрибут внутри блок-комментария той же строки."""
+    _nositel_v_fajle(repo, 'kommentarij-blok.tsx',
+                     'const a = /* ' + NOSITEL_SPRAVA + ' */ 1;\n')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_blok_mnogostrochnyj(
+        pack, forma, repo, src):
+    """H1 многострочный «/* … */» (свидетель критика круга 2): закоммен-
+    ченный экран — не носитель; состояние переносимости НЕ судится."""
+    _nositel_v_fajle(repo, 'kommentarij-blok-mnogostrochnyj.tsx',
+                     '/* unreachable old screen:\n' + NOSITEL_SPRAVA
+                     + '\n*/\n')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_jsdoc(pack, forma, repo, src):
+    """H1 JSDoc: атрибут в строке « * …» открытого «/** … */» блока."""
+    _nositel_v_fajle(repo, 'kommentarij-jsdoc.tsx',
+                     '/**\n * ' + NOSITEL_SPRAVA + '\n */\n')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_jsx(pack, forma, repo, src):
+    """H1 JSX-комментарий {/* … */}: узел не монтируется — не носитель."""
+    _nositel_v_fajle(repo, 'kommentarij-jsx.tsx',
+                     '{/* ' + NOSITEL_SPRAVA + ' */}\n')
+
+
+def mut_proiskhozdenie_nositel_kommentarij_jsx_mnogostrochnyj(
+        pack, forma, repo, src):
+    """H1 JSX-комментарий многострочный: {/*\n…\n*/} внутри выражения."""
+    _nositel_v_fajle(repo, 'kommentarij-jsx-mnogostrochnyj.tsx',
+                     '{/*\n  ' + NOSITEL_SPRAVA + '\n*/}\n')
+
+
+def mut_proiskhozdenie_nositel_stroka_odinarnaja(pack, forma, repo, src):
+    """H2 одинарная строка, кавычка НЕ вплотную: 'x testID="…" y' —
+    строковый литерал, не атрибут (точка круга 1 видела только вплотную)."""
+    _nositel_v_fajle(repo, 'stroka-odinarnaja.tsx',
+                     "const opisanie = 'x testID=\"start_sostojanie_idle\""
+                     " y';\n")
+
+
+def mut_proiskhozdenie_nositel_stroka_dvojnaja_ekranirovannaja(
+        pack, forma, repo, src):
+    """H2 двойная строка с экранированными кавычками: лексер обязан
+    держать строку открытой сквозь \\"…\\" до парной кавычки."""
+    _nositel_v_fajle(repo, 'stroka-dvojnaja-ekranirovannaja.tsx',
+                     'const s = "he said \\"hi\\": testID='
+                     "'start_sostojanie_idle' in string\";\n")
+
+
+def mut_proiskhozdenie_nositel_stroka_shablon(pack, forma, repo, src):
+    """H2 шаблонный литерал многострочный: `…\ntestID="…"\n…` — не код
+    до парного бэктика (состояние шаблона многострочно)."""
+    _nositel_v_fajle(repo, 'stroka-shablon.tsx',
+                     'const opisanie = `star:\n' + NOSITEL_SPRAVA
+                     + '\n`;\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_tests(pack, forma, repo, src):
+    """H3 __tests__/ (свидетель критика круга 2): тестовый код экранного
+    дерева не является кодом экрана."""
+    _nositel_v_fajle(repo, '__tests__/f.test.tsx', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_mocks(pack, forma, repo, src):
+    """H3 __mocks__/: мок в дереве экрана — не код экрана."""
+    _nositel_v_fajle(repo, '__mocks__/f.tsx', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_snapshots(pack, forma, repo, src):
+    """H3 __snapshots__/: снапшот-каталог — не код экрана."""
+    _nositel_v_fajle(repo, '__snapshots__/f.snap', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_test_fajl(pack, forma, repo, src):
+    """H3 f.test.tsx без каталога: суффикс .test. перед расширением."""
+    _nositel_v_fajle(repo, 'f.test.tsx', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_spec_fajl(pack, forma, repo, src):
+    """H3 f.spec.tsx: суффикс .spec. перед расширением."""
+    _nositel_v_fajle(repo, 'f.spec.tsx', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_stories(pack, forma, repo, src):
+    """H3 f.stories.tsx:storybook-истории — не код экрана."""
+    _nositel_v_fajle(repo, 'f.stories.tsx', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_d_ts(pack, forma, repo, src):
+    """H3 f.d.ts: описания типов — не экранной код (.ts вообще не JSX)."""
+    _nositel_v_fajle(repo, 'f.d.ts', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_snap(pack, forma, repo, src):
+    """H3 f.snap вне каталога снапшотов: суффикс имени — не код."""
+    _nositel_v_fajle(repo, 'f.snap', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_mesto_ne_kod(pack, forma, repo, src):
+    """H3 f.md с честным JSX внутри: не-код расширение — не экран."""
+    _nositel_v_fajle(repo, 'f.md', NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_chestnyj_ternar(pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C: рантайм-тернар с носителем (форма продукта
+    start-screen.tsx:117) — честный экран, ложный красный недопустим."""
+    _nositel_v_fajle(repo, 'chestnyj-ternar.tsx',
+                     'const Karta = continuable ? (' + NOSITEL_SPRAVA
+                     + ') : null;\n')
+
+
+def mut_proiskhozdenie_nositel_chestnyj_jsx_kommentarij_rjadom(
+        pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C (start-screen.tsx:174-181): JSX-комментарий
+    строкой выше честного носителя не должен съедать носитель."""
+    _nositel_v_fajle(repo, 'chestnyj-jsx-kommentarij.tsx',
+                     '{/* proverka testID nizhe */}\n' + NOSITEL_SPRAVA
+                     + '\n')
+
+
+def mut_proiskhozdenie_nositel_chestnyj_apostrof_drugaja_stroka(
+        pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C: апостроф JSX-текста строкой выше носителя —
+    строка обязана обрываться на переводе, носитель видим."""
+    _nositel_v_fajle(repo, 'chestnyj-apostrof.tsx',
+                     "<Text>l'app</Text>\n" + NOSITEL_SPRAVA + '\n')
+
+
+def mut_proiskhozdenie_nositel_chestnyj_fajl_rjadom_s_testom(
+        pack, forma, repo, src):
+    """ЗЕЛЁНЫЙ контроль C: носитель в f.tsx, дубль в __tests__/f.test.tsx
+    тем же testID — тест не отравляет дерево, f.tsx читается (rc 0)."""
+    _udali_idle(repo)
+    baze = repo / 'mobile/src/features/start'
+    (baze / 'f.tsx').write_text(NOSITEL_SPRAVA + '\n', encoding='utf-8')
+    d = baze / '__tests__'
+    d.mkdir(parents=True, exist_ok=True)
+    (d / 'f.test.tsx').write_text(NOSITEL_SPRAVA + '\n', encoding='utf-8')
 
 
 MUTACII = {
@@ -686,6 +863,30 @@ MUTACII = {
     'proiskhozdenie-selektor-dinamicheskij': mut_proiskhozdenie_selektor_dinamicheskij,
     'proiskhozdenie-selektor-probely': mut_proiskhozdenie_selektor_probely,
     'proiskhozdenie-selektor-v-oboih': mut_proiskhozdenie_selektor_v_oboih,
+
+    'proiskhozdenie-nositel-kommentarij-hvost': mut_proiskhozdenie_nositel_kommentarij_hvost,
+    'proiskhozdenie-nositel-kommentarij-stroka': mut_proiskhozdenie_nositel_kommentarij_stroka,
+    'proiskhozdenie-nositel-kommentarij-blok': mut_proiskhozdenie_nositel_kommentarij_blok,
+    'proiskhozdenie-nositel-kommentarij-blok-mnogostrochnyj': mut_proiskhozdenie_nositel_kommentarij_blok_mnogostrochnyj,
+    'proiskhozdenie-nositel-kommentarij-jsdoc': mut_proiskhozdenie_nositel_kommentarij_jsdoc,
+    'proiskhozdenie-nositel-kommentarij-jsx': mut_proiskhozdenie_nositel_kommentarij_jsx,
+    'proiskhozdenie-nositel-kommentarij-jsx-mnogostrochnyj': mut_proiskhozdenie_nositel_kommentarij_jsx_mnogostrochnyj,
+    'proiskhozdenie-nositel-stroka-odinarnaja': mut_proiskhozdenie_nositel_stroka_odinarnaja,
+    'proiskhozdenie-nositel-stroka-dvojnaja-ekranirovannaja': mut_proiskhozdenie_nositel_stroka_dvojnaja_ekranirovannaja,
+    'proiskhozdenie-nositel-stroka-shablon': mut_proiskhozdenie_nositel_stroka_shablon,
+    'proiskhozdenie-nositel-mesto-tests': mut_proiskhozdenie_nositel_mesto_tests,
+    'proiskhozdenie-nositel-mesto-mocks': mut_proiskhozdenie_nositel_mesto_mocks,
+    'proiskhozdenie-nositel-mesto-snapshots': mut_proiskhozdenie_nositel_mesto_snapshots,
+    'proiskhozdenie-nositel-mesto-test-fajl': mut_proiskhozdenie_nositel_mesto_test_fajl,
+    'proiskhozdenie-nositel-mesto-spec-fajl': mut_proiskhozdenie_nositel_mesto_spec_fajl,
+    'proiskhozdenie-nositel-mesto-stories': mut_proiskhozdenie_nositel_mesto_stories,
+    'proiskhozdenie-nositel-mesto-d-ts': mut_proiskhozdenie_nositel_mesto_d_ts,
+    'proiskhozdenie-nositel-mesto-snap': mut_proiskhozdenie_nositel_mesto_snap,
+    'proiskhozdenie-nositel-mesto-ne-kod': mut_proiskhozdenie_nositel_mesto_ne_kod,
+    'proiskhozdenie-nositel-chestnyj-ternar': mut_proiskhozdenie_nositel_chestnyj_ternar,
+    'proiskhozdenie-nositel-chestnyj-jsx-kommentarij-rjadom': mut_proiskhozdenie_nositel_chestnyj_jsx_kommentarij_rjadom,
+    'proiskhozdenie-nositel-chestnyj-apostrof-drugaja-stroka': mut_proiskhozdenie_nositel_chestnyj_apostrof_drugaja_stroka,
+    'proiskhozdenie-nositel-chestnyj-fajl-rjadom-s-testom': mut_proiskhozdenie_nositel_chestnyj_fajl_rjadom_s_testom,
 }
 
 
