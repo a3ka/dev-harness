@@ -1,0 +1,1078 @@
+{
+ "_comment": "Оракул батареи 138 (единый источник): ожидания сняты в память ДО вызова субъекта (правило 8); kejsy — построчные ожидания двух субъектов, stab_vhod — привязка обманных стабов к входам по коду ветвей (Н-39).",
+ "subject_rel": "scripts/ekran_shablon.py",
+ "runner123_rel": "scripts/sverka_maketa.py",
+ "etalon132_rel": "fixtures/workshop_project/ekran_shablon_132/model/ekran_shablon.py",
+ "ekran_forma": {
+  "ekran": "start-ekran",
+  "kadry": "kadry.json",
+  "sostojanija": [
+   "idle",
+   "composer",
+   "decision",
+   "resume",
+   "tema-dark",
+   "tema-light"
+  ],
+  "kljuchi_kopii": [
+   "frame.F04.01.title",
+   "frame.F04.01.body",
+   "frame.F04.07.title",
+   "frame.F04.07.body",
+   "frame.F04.08.title",
+   "frame.F04.08.body",
+   "frame.F04.13.title",
+   "frame.F04.13.body",
+   "action.F04.A01",
+   "action.F04.A02",
+   "action.F04.A03",
+   "action.F02.A02",
+   "home.voice",
+   "ia115.entry.write",
+   "ia115.entry.speak",
+   "ia115.entry.photo",
+   "ia115.entry.document",
+   "ia115.agent.contextual",
+   "ui.mission.reason.decision",
+   "ui.mission.group.working",
+   "ui.mission.label.next",
+   "ui.mission.actor.insurer",
+   "resume.established",
+   "resume.remaining",
+   "ui.start.no_action_scoped"
+  ],
+  "operacii_api": [
+   "listMissions"
+  ],
+  "katalog_kopii": "mobile/e2e-start/katalog_kopii.json",
+  "spec_api": "mobile/e2e-start/spec_api.json",
+  "audit_tokenov": "docs/ux/03_Mobility_Slice1/ds/tokens.css",
+  "e2e_scenarij": "mobile/.maestro/start-ekran.yaml",
+  "kadry_dir": "mobile/maestro-out-start",
+  "kontrakt": "kontrakt.md",
+  "batareja": [
+   "batareja/red_ekrana.sh",
+   "batareja/proverka_proiskhozdenija.py"
+  ],
+  "priemka": {
+   "e2e": "bash mobile/e2e-start/e2e.sh start-ekran",
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-start --repo ."
+  },
+  "zony": {
+   "architect": [
+    "contracts/138-start-ekran.md",
+    "fixtures/workshop_project/start_ekran_138/"
+   ],
+   "implementer": [
+    "mobile/src/features/start/",
+    "mobile/.maestro/",
+    "mobile/e2e-start/",
+    ".github/workflows/mobile.yml"
+   ]
+  },
+  "zamenjaet": null,
+  "ne_trogaet": [
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+   "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json",
+   "fixtures/workshop_project/mob_sverka_123/kadry_117.json",
+   "mobile/e2e-first-run/kadry.json",
+   "mobile/e2e-erstinformation/kadry.json"
+  ],
+  "fiktura": false
+ },
+ "repo_staryj_ekran": {
+  "_comment": "Живая пачка ТОГО ЖЕ экрана в репо продукта для красного входа zhivaja-pachta-v-repo: полнота замены по живым пачкам в --repo (мера 132).",
+  "ekran": {
+   "ekran": "start-ekran",
+   "kadry": "kadry.json",
+   "fiktura": false
+  },
+  "kadry": {
+   "_comment": "Живой манифест соседнего экрана (в продукте — пачка контракта); здесь: ne_trogaet судится по id кадров.",
+   "kadry": [
+    {
+     "id": "Start dark",
+     "tema": "dark",
+     "snimok": "sosednyj",
+     "maket": "docs/ux/x.png",
+     "maket_sha256": "pin-sosednego-ekrana",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": []
+    },
+    {
+     "id": "Start light",
+     "tema": "light",
+     "snimok": "sosednyj",
+     "maket": "docs/ux/x.png",
+     "maket_sha256": "pin-sosednego-ekrana",
+     "porog": 0.6,
+     "maski_pt": [],
+     "elementy": []
+    }
+   ]
+  }
+ },
+ "dopusk_score": 0.05,
+ "bez_elementa": {
+  "kadr": "F04.01 dark",
+  "polosa_pt": [
+   0,
+   102,
+   390,
+   234
+  ],
+  "comment": "свидетель ниже-порога: полоса знака присутствия и заголовка залита фоном — приём derive батарей 123/132"
+ },
+ "nositeli": {
+  "nositeli/maket/F04.01-Hell.png": {
+   "sha256": "98bdb89ff63446d12b26b09b420a83d95542be1ddcaaad0b5c9a695ba1eda22c",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.01.png": {
+   "sha256": "43db524e38d3c5d306f1a74a4a0ab8d7754f80b60f1eacb5d0830ff2e2a77cab",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.07-Hell.png": {
+   "sha256": "706d93cd6bbddec0955b3369353e25e832c5758a1fc040937b8a77a6889634bc",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.07.png": {
+   "sha256": "8662dd00d31e22251a6fa67f7737db2dfca403023bbd12a206d2d741debd224f",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.08-Hell.png": {
+   "sha256": "2b1e862267c8bc78c9f0923ba650293386a16eae0df2e397660462970013f564",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.08.png": {
+   "sha256": "9242a4162aecfc1f22921c2d1d4a1582eb7345dcf47b1b2d6501f567471abad1",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.13-Hell.png": {
+   "sha256": "c7f4ff1e3c07b1b7853a5e9b1cf149b9d8748883fe83db809f1494073bda1953",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/maket/F04.13.png": {
+   "sha256": "3cf68331fa11e242c5ecce4a55d291051f5582d0cfa20e5b569f68bec2734125",
+   "_comment": "байтовая копия макета продукта (снята 2026-10-25)"
+  },
+  "nositeli/kadry/dark-f04-01.png": {
+   "sha256": "acde80725d4d316eaddc6680edfe3f53765cfa300fa11f3dca1032df4982e301",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/dark-f04-07.png": {
+   "sha256": "2490c4fdeba228d6c2fe3ec4980755b5d9599e8ed8ced4d1457b2f9a8d9eb2cb",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/dark-f04-08.png": {
+   "sha256": "0e76d0c6e994f86e50eb06b8522a8728481e13c527de5541085e6f61b9c22e76",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/dark-f04-13.png": {
+   "sha256": "47fdf3f748fdcbc18d2add439fdae46c01d80327a36b96e4026923c1a3adfa3d",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/light-f04-01.png": {
+   "sha256": "79aeebc8c88ad4f17bd95b8c8a43847d3d5b96d622536feda8a3713e6cd242ac",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/light-f04-07.png": {
+   "sha256": "6cf3706291c3823f7fdb082464e8c23c71bc6b35aa1368b3e5e9ac022c12cf51",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/light-f04-08.png": {
+   "sha256": "52624d83d8942c2e089b6a2e3c7a66f5587a4875ed981fbd1508b2fb7d40722b",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  },
+  "nositeli/kadry/light-f04-13.png": {
+   "sha256": "4fd30b75b98a72fabee2cca025f5e03b499adb97915c6e71a5e660397e45911e",
+   "_comment": "перекодированный честный кадр (пиксели равны макету, байты отличны — score 1.000)"
+  }
+ },
+ "kejsy": {
+  "chestnyj-ekran": {
+   "rc": 0,
+   "prichiny": [],
+   "stdout": [
+    "KADR\tF04.01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.07 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.07 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.08 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.08 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.13 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.13 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tstart-ekran\tOK"
+   ]
+  },
+  "literal-cveta": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tLITERAL_VNE_AUDITA\tbatareja/red_ekrana.sh:7"
+   ],
+   "stdout": []
+  },
+  "kadr-nizhe-poroga": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tF04.01 dark\tscore=0.000 porog=0.600 hudshij=znak"
+   ],
+   "stdout": [
+    "KADR\tF04.01 dark\t0.000\t0.600\tznak\tNIZHE_POROGA",
+    "KADR\tF04.01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.07 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.07 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.08 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.08 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.13 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF04.13 light\t1.000\t0.600\tG\tOK"
+   ]
+  },
+  "chuzhoj-kadr": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tCHUZHIE_KADRY\tF02.03-V01 dark"
+   ],
+   "stdout": []
+  },
+  "zamenjaet-pustoj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tZAMENJAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+   ],
+   "stdout": []
+  },
+  "ne-trogaet-pustoj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tNE_TROGAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
+    "PRICHINA\tNE_TROGAET_NE_POLON\tfixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
+   ],
+   "stdout": []
+  },
+  "kontrakt-slishkom-dlinnyj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tNE_ODNA_STRANICA\tстрок: 97 (норма ≤ 60)",
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 5047 (норма ≤ 4000)"
+   ],
+   "stdout": []
+  },
+  "kontrakt-shirokij": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tNE_ODNA_STRANICA\tширина: 6900 (норма ≤ 120)",
+    "PRICHINA\tNE_ODNA_STRANICA\tбайт: 16648 (норма ≤ 4000)"
+   ],
+   "stdout": []
+  },
+  "kadry-ustarevshie": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-01.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-07.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-08.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-13.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-01.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-07.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-08.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261025T120000Z/start-ekran/takeScreenshot/start-ekran-f04-13.png"
+   ],
+   "stdout": []
+  },
+  "e2e-ne-proshla": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tE2E_NE_PROSHLA\trc=3"
+   ],
+   "stdout": []
+  },
+  "zhivaja-pachta-v-repo": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tZAMENJAET_NE_POLON\tfixtures/workshop_project/staryj_start_001/kadry.json"
+   ],
+   "stdout": []
+  },
+  "proiskhozdenie-chistyj": {
+   "rc": 0,
+   "prichiny": [],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-byte-kopija": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tKADR_BYTE_KOPIJA_MAKETA\tF04.01 dark"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-flow-bez-perehoda": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tFLOW_BEZ_PEREHODA\tstart-ekran-f04-07",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\tstart-ekran-f04-07",
+    "PRICHINA\tSELEKTOR_NE_KADRA\tstart-ekran-f04-07",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\tstart-ekran-f04-08",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\tstart-ekran-f04-08",
+    "PRICHINA\tSELEKTOR_NE_KADRA\tstart-ekran-f04-08",
+    "PRICHINA\tFLOW_BEZ_PEREHODA\tstart-ekran-f04-13",
+    "PRICHINA\tFLOW_BEZ_DOSTIZHENIJA\tstart-ekran-f04-13",
+    "PRICHINA\tSELEKTOR_NE_KADRA\tstart-ekran-f04-13",
+    "PRICHINA\tFLOW_BEZ_DOPUSKA\tstart-ekran-f04-01"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-flow-appid-chuzhoj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tAPPID_NE_PAKETA\tcom.complior.demo != com.complior.mobile"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-config-bez-iskljuchenija": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tCONFIG_BEZ_ISKLJUCHENIJA\tmobile/.maestro/config.yaml без !start-ekran.yaml"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-deeplink": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tFLOW_BEZ_ZAPUSKA\tlaunchApp",
+    "PRICHINA\tFLOW_BEZ_DOPUSKA\tstart-ekran-f04-01"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-selektor-bez-ekrana": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSELEKTOR_BEZ_EKRANA\tstart_sostojanie_composer"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-selektor-ne-kadra": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSELEKTOR_NE_KADRA\tstart-ekran-f04-07"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  },
+  "proiskhozdenie-start-pustoj": {
+   "rc": 1,
+   "prichiny": [
+    "PRICHINA\tSELEKTOR_BEZ_EKRANA\tstart_tab_post",
+    "PRICHINA\tSELEKTOR_BEZ_EKRANA\tstart_tab_schutz",
+    "PRICHINA\tSELEKTOR_BEZ_EKRANA\tstart_tab_start",
+    "PRICHINA\tSELEKTOR_BEZ_EKRANA\tstart_tab_vorgaenge"
+   ],
+   "stdout": [],
+   "subekt": "proverka"
+  }
+ },
+ "stab_vhod": {
+  "s01_bez_literal_skana.py": [
+   "literal-cveta"
+  ],
+  "s03_chuzhie_propuskaet.py": [
+   "chuzhoj-kadr"
+  ],
+  "s12_polnota_propuskaet.py": [
+   "zamenjaet-pustoj",
+   "ne-trogaet-pustoj",
+   "zhivaja-pachta-v-repo"
+  ],
+  "s14_objem_propuskaet.py": [
+   "kontrakt-slishkom-dlinnyj"
+  ],
+  "s18_objem_tolko_stroki.py": [
+   "kontrakt-shirokij"
+  ],
+  "s15_svezhest_propuskaet.py": [
+   "kadry-ustarevshie"
+  ],
+  "s19_byte_kopiju_propuskaet.py": [
+   "proiskhozdenie-byte-kopija"
+  ],
+  "s20_perehod_propuskaet.py": [
+   "proiskhozdenie-flow-bez-perehoda"
+  ],
+  "s21_selektor_propuskaet.py": [
+   "proiskhozdenie-selektor-bez-ekrana"
+  ],
+  "s22_selektor_ne_kadra_propuskaet.py": [
+   "proiskhozdenie-selektor-ne-kadra"
+  ],
+  "s42_appid_propuskaet.py": [
+   "proiskhozdenie-flow-appid-chuzhoj"
+  ],
+  "s43_config_propuskaet.py": [
+   "proiskhozdenie-config-bez-iskljuchenija"
+  ],
+  "s44_dopusk_propuskaet.py": [
+   "proiskhozdenie-deeplink"
+  ],
+  "s45_start_pustoj_propuskaet.py": [
+   "proiskhozdenie-start-pustoj"
+  ]
+ },
+ "kadry_manifest": {
+  "_comment": "Манифест кадров экрана Start (контракт 138): 4 состояния × 2 темы; макеты пакета 3 дизайнера с пинами sha256, грамматика kadry_117.json (123); кадры — перекодированные носители.",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "F04.01 dark",
+    "tema": "dark",
+    "snimok": "start-ekran-f04-01",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.01.png",
+    "maket_sha256": "43db524e38d3c5d306f1a74a4a0ab8d7754f80b60f1eacb5d0830ff2e2a77cab",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       48
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       0,
+       102,
+       390,
+       174
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       0,
+       210,
+       390,
+       234
+      ]
+     },
+     {
+      "imja": "podzagolovok",
+      "bbox_pt": [
+       0,
+       252,
+       390,
+       288
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       0,
+       708,
+       390,
+       756
+      ]
+     },
+     {
+      "imja": "tabbar",
+      "bbox_pt": [
+       0,
+       786,
+       390,
+       822
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.01 light",
+    "tema": "light",
+    "snimok": "start-ekran-f04-01",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.01-Hell.png",
+    "maket_sha256": "98bdb89ff63446d12b26b09b420a83d95542be1ddcaaad0b5c9a695ba1eda22c",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.07 dark",
+    "tema": "dark",
+    "snimok": "start-ekran-f04-07",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.07.png",
+    "maket_sha256": "8662dd00d31e22251a6fa67f7737db2dfca403023bbd12a206d2d741debd224f",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       48
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       0,
+       102,
+       390,
+       174
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       0,
+       198,
+       390,
+       228
+      ]
+     },
+     {
+      "imja": "podzagolovok",
+      "bbox_pt": [
+       0,
+       240,
+       390,
+       282
+      ]
+     },
+     {
+      "imja": "vhod-1",
+      "bbox_pt": [
+       0,
+       306,
+       390,
+       324
+      ]
+     },
+     {
+      "imja": "vhod-2",
+      "bbox_pt": [
+       0,
+       360,
+       390,
+       390
+      ]
+     },
+     {
+      "imja": "vhod-3",
+      "bbox_pt": [
+       0,
+       426,
+       390,
+       444
+      ]
+     },
+     {
+      "imja": "vhod-4",
+      "bbox_pt": [
+       0,
+       480,
+       390,
+       510
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       0,
+       708,
+       390,
+       756
+      ]
+     },
+     {
+      "imja": "tabbar",
+      "bbox_pt": [
+       0,
+       786,
+       390,
+       822
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.07 light",
+    "tema": "light",
+    "snimok": "start-ekran-f04-07",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.07-Hell.png",
+    "maket_sha256": "706d93cd6bbddec0955b3369353e25e832c5758a1fc040937b8a77a6889634bc",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.08 dark",
+    "tema": "dark",
+    "snimok": "start-ekran-f04-08",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.08.png",
+    "maket_sha256": "9242a4162aecfc1f22921c2d1d4a1582eb7345dcf47b1b2d6501f567471abad1",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       48
+      ]
+     },
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       0,
+       102,
+       390,
+       174
+      ]
+     },
+     {
+      "imja": "zagolovok",
+      "bbox_pt": [
+       0,
+       204,
+       390,
+       252
+      ]
+     },
+     {
+      "imja": "podzagolovok",
+      "bbox_pt": [
+       0,
+       264,
+       390,
+       294
+      ]
+     },
+     {
+      "imja": "svojstvo",
+      "bbox_pt": [
+       0,
+       306,
+       390,
+       342
+      ]
+     },
+     {
+      "imja": "uslovie",
+      "bbox_pt": [
+       0,
+       354,
+       390,
+       618
+      ]
+     },
+     {
+      "imja": "kartka",
+      "bbox_pt": [
+       0,
+       648,
+       390,
+       708
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       0,
+       726,
+       390,
+       744
+      ]
+     },
+     {
+      "imja": "tabbar",
+      "bbox_pt": [
+       0,
+       786,
+       390,
+       822
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.08 light",
+    "tema": "light",
+    "snimok": "start-ekran-f04-08",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.08-Hell.png",
+    "maket_sha256": "2b1e862267c8bc78c9f0923ba650293386a16eae0df2e397660462970013f564",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       844
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.13 dark",
+    "tema": "dark",
+    "snimok": "start-ekran-f04-13",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.13.png",
+    "maket_sha256": "3cf68331fa11e242c5ecce4a55d291051f5582d0cfa20e5b569f68bec2734125",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       0,
+       36,
+       390,
+       54
+      ]
+     },
+     {
+      "imja": "metki",
+      "bbox_pt": [
+       0,
+       72,
+       390,
+       102
+      ]
+     },
+     {
+      "imja": "blok-raboty",
+      "bbox_pt": [
+       0,
+       114,
+       390,
+       150
+      ]
+     },
+     {
+      "imja": "blok-sledujushchego",
+      "bbox_pt": [
+       0,
+       162,
+       390,
+       600
+      ]
+     },
+     {
+      "imja": "dejstvie",
+      "bbox_pt": [
+       0,
+       648,
+       390,
+       708
+      ]
+     },
+     {
+      "imja": "cta",
+      "bbox_pt": [
+       0,
+       726,
+       390,
+       750
+      ]
+     },
+     {
+      "imja": "tabbar",
+      "bbox_pt": [
+       0,
+       786,
+       390,
+       822
+      ]
+     }
+    ]
+   },
+   {
+    "id": "F04.13 light",
+    "tema": "light",
+    "snimok": "start-ekran-f04-13",
+    "maket": "docs/ux/03_Mobility_Slice1/screens/F04.13-Hell.png",
+    "maket_sha256": "c7f4ff1e3c07b1b7853a5e9b1cf149b9d8748883fe83db809f1494073bda1953",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "ekran",
+      "bbox_pt": [
+       0,
+       0,
+       390,
+       844
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "kontrakt_tekst": "# Пачка start-ekran (контракт 138): экран Start по шаблону 132\n\n## Воля владельца\n\n- 2026-10-24 docs/owner/2026-10-22-ochered-ispolneniya.md §Mob п.3: Start сразу\nпосле Erstinformation (118); кадры F04.01/F04.07/F04.08/F04.13 обе темы,\nпакет 3 дизайнера (D-06: тёмный Start = F04.01); CMP-MOB-004/011.\n- 2026-10-21 ekrany-bystree §Решение п.1–2: один экран — один контракт,\nсверка кадров с PNG; порог/мера — 123; форма — 132.\n\n## Существующее\n\n- 118 (frozen 118/1): production путь допуска `/` → First-Run → demo →\nErstinformation → continue при current gate → Start (start_tabs + 4 вкладки\ntestID). 138 ПОТРЕБЛЯЕТ путь и gate, НЕ переопределяет: прямой `/start` без\nдопуска ведёт назад — реализация и пробы 118.\n- 108 (frozen 108/1): mobile/src/features/start/, start-screen, слот TabShell;\nмиссии/аватар — listMissions порта @pilot/runtime.\n- 135: первый экран по шаблону 132 — образец пачки; 123: раннер сверки.\n\n## Инварианты\n\n1. Форма — 17 полей 132 дословно; zamenjaet=null (живого манифеста Start нет),\nne_trogaet — живые пачки чужих экранов обоих корней.\n2. 8 кадров: 4 состояния (idle/composer/decision/resume) × dark/light; порог\n0.6; элементы — полосы чернил грамматикой раннера 123, покрытие check_pokrytie.\n3. Копия — verbatim из каталога (frame.F04.*, action.F04.*, ia115.*,\nui.mission.*, resume.*, home.voice, ui.start.no_action_scoped); литералы —\nтолько аудит токенов.\n4. Флоу: appId из mobile/app.json (com.complior.mobile); запуск production\nпуска (launchApp, без openLink); перед каждым кадром переход и assertVisible\nСВОЕГО селектора; исключение из общего прогона каталога config.yaml.\n5. Кадр байт-идентичный макету — не скриншот (KADR_BYTE_KOPIJA_MAKETA).\n\n## Приёмочный критерий\n\n- Валидатор 132: rc 0, 8 строк KADR … 1.000 … OK + SHABLON start-ekran OK.\n- Происхождение (batareja/proverka_proiskhozdenija.py): rc 0 — путь допуска,\nселекторы с носителями, appId, config, состав манифеста, не-копии макетов.\n- Продукт: mobile.yml пускает Maestro обе темы, сверку и проверку с пином H.\n\n## Зоны и исполнители\n\nЗОНА architect: contracts/138-start-ekran.md fixtures/workshop_project/start_ekran_138/\nЗОНА implementer: mobile/src/features/start/ mobile/.maestro/ mobile/e2e-start/ .github/workflows/mobile.yml\n\n## ПРОВОДКА\n\nguard=fixtures/workshop_project/start_ekran_138/red_start_ekran_138.sh —\nкрасная батарея экрана (SHABLON_ABSENT без субъекта; --stabs до ленда).\n\n## Модель угроз\n\nЗАЩИЩАЕТ: подмену данных (пины sha256), зелень без субъекта, слабого судью\n(стабы по ветвям), replay макета, расползание экрана, чужие пиксели.\nНЕ ЗАЩИЩАЕТ: семантику эмулятора (риск 132), V03/V04 варианты (копия\nPROPOSED — вне каталога), качество макета (ревью).\n",
+ "katalog": {
+  "_comment": "Срез каталога копии экрана Start (ключи = copy_key BrokerOS_UI_Copy_DE.json verbatim, сняты из живого файла 2026-10-25); генерируется в продукт.",
+  "action.F02.A02": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Dokument öffnen",
+   "scope": "F02",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "action.F04.A01": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Nachricht schreiben",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "action.F04.A02": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Sprechen",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "action.F04.A03": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Vorgang fortsetzen",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "home.voice": {
+   "copy_version": 2,
+   "locale": "de-DE",
+   "text": "Sie können sprechen oder schreiben.",
+   "scope": "GLOBAL",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "resume.established": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Das haben wir bereits geklärt",
+   "scope": "GLOBAL",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "resume.remaining": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Das ist noch offen",
+   "scope": "GLOBAL",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F04.01.title": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Was möchten Sie klären?",
+   "scope": "F04",
+   "role": "title",
+   "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+   "legal_approval": false,
+   "authorship_revision": "UX1.14"
+  },
+  "frame.F04.01.body": {
+   "copy_version": 2,
+   "locale": "de-DE",
+   "text": "Was ist passiert? Schreiben Sie, sprechen Sie oder fügen Sie ein Foto oder Dokument hinzu.",
+   "scope": "F04",
+   "role": "body",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+   "legal_approval": false,
+   "authorship_revision": "UX1.14"
+  },
+  "frame.F04.07.title": {
+   "copy_version": 2,
+   "locale": "de-DE",
+   "text": "Wie möchten Sie beginnen?",
+   "scope": "F04",
+   "role": "title",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+   "legal_approval": false,
+   "authorship_revision": "UX1.14"
+  },
+  "frame.F04.07.body": {
+   "copy_version": 2,
+   "locale": "de-DE",
+   "text": "Text, Sprache, Foto und Dokument gehören zu demselben Anliegen.",
+   "scope": "F04",
+   "role": "body",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+   "legal_approval": false,
+   "authorship_revision": "UX1.14"
+  },
+  "frame.F04.08.title": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Ich brauche kurz Ihre Entscheidung.",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F04.08.body": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Eine Entscheidung ist offen. Sehen Sie sich den Vorschlag an, bevor Sie bestätigen.",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F04.13.title": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "So steht Ihr Anliegen.",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "frame.F04.13.body": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Hier sehen Sie, was erledigt ist, woran gearbeitet wird und wer als Nächstes handeln muss.",
+   "scope": "F04",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.agent.contextual": {
+   "copy_version": 2,
+   "locale": "de-DE",
+   "text": "Complior fragen",
+   "scope": "UX1.15",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.entry.speak": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Sprechen",
+   "scope": "UX1.15",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.entry.write": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Schreiben",
+   "scope": "UX1.15",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.entry.photo": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Foto",
+   "scope": "UX1.15",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ia115.entry.document": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Brief / Dokument",
+   "scope": "UX1.15",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.start.no_action_scoped": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Bei Ihren laufenden Vorgängen ist gerade keine Aktion für Sie offen.",
+   "scope": "UX1.17",
+   "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+  },
+  "ui.mission.group.working": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "In Arbeit",
+   "scope": "UX1.17.2 presentation",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+   "legal_approval": false
+  },
+  "ui.mission.reason.decision": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Ihre Entscheidung",
+   "scope": "UX1.17.2 presentation",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+   "legal_approval": false
+  },
+  "ui.mission.label.next": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Als Nächstes",
+   "scope": "UX1.17.2 presentation",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+   "legal_approval": false
+  },
+  "ui.mission.actor.insurer": {
+   "copy_version": 1,
+   "locale": "de-DE",
+   "text": "Versicherer",
+   "scope": "UX1.17.2 presentation",
+   "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+   "legal_approval": false
+  }
+ },
+ "spec": {
+  "_comment": "JSON-проекция BrokerOS_Unified_OpenAPI_v3.yaml: экран Start читает миссии/аватар операцией listMissions (108, OpenAPI MissionPage); снято из mobile/src/api/api-client.ts.",
+  "openapi": "3.0.0",
+  "info": {
+   "title": "Complior",
+   "version": "projection"
+  },
+  "paths": {
+   "/missions": {
+    "get": {
+     "operationId": "listMissions",
+     "summary": "Страница миссий пользователя (MissionPage)"
+    }
+   }
+  }
+ },
+ "tokens_audit": "/* Complior Bento D 2.2.3 — generated from tokens.json */\n@font-face { font-family: \"DM Sans\"; src: url(\"fonts/DMSans-Variable.ttf\"); font-weight: 100 1000; font-style: normal; }\n:root, [data-theme=\"dark\"] {\n  --ground: #0a0a0a;\n  --ink: #f2f1ec;\n  --ink-muted: #a6a69f;\n  --panel: #1e1e1d;\n  --panel-hover: #2a2a28;\n  --line: #2c2c2a;\n  --card: #e9e8e2;\n  --card-border: #00000000;\n  --card-raised: #d9d8d1;\n  --on-card: #121211;\n  --on-card-muted: #5b5b55;\n  --on-card-accent: #335a0b;\n  --warm-on-card: #9a3c0c;\n  --danger-on-card: #b42318;\n  --primary: #d6f75a;\n  --on-primary: #121211;\n  --secondary-surface: var(--card);\n  --on-secondary: var(--on-card);\n  --option-surface: var(--card);\n  --on-option: var(--on-card);\n  --accent: #d6f75a;\n  --on-accent: #121211;\n  --accent-text: #d6f75a;\n  --calm: #163a27;\n  --on-calm: #d6f75a;\n  --on-calm-muted: #a9d6a4;\n  --chip-on-calm: #d6f75a24;\n  --warm: #ff7f45;\n  --on-warm: #121211;\n  --chip-on-warm: #12121124;\n  --primary-on-warm: var(--on-warm);\n  --on-primary-on-warm: var(--warm);\n  --outline-on-card: var(--on-card);\n  --primary-on-card: var(--on-card);\n  --on-primary-on-card: var(--card);\n  --warm-text: #ffa070;\n  --danger: #ff6b6b;\n  --on-danger: #121211;\n  --success-text: #8fe08a;\n  --shadow-fab: 0 8px 24px #00000099;\n  --focus-ring: 0 0 0 2px #0a0a0a, 0 0 0 4px #d6f75a;\n}\n[data-theme=\"light\"] {\n  --ground: #f3f2ee;\n  --ink: #121211;\n  --ink-muted: #5f5e58;\n  --panel: #e6e5df;\n  --panel-hover: #dddcd5;\n  --line: #dcdbd5;\n  --card: #ffffff;\n  --card-border: var(--line);\n  --card-raised: #efeeea;\n  --on-card: #121211;\n  --on-card-muted: #5f5e58;\n  --on-card-accent: #335a0b;\n  --warm-on-card: #9a3c0c;\n  --danger-on-card: #b42318;\n  --primary: #121211;\n  --on-primary: #f3f2ee;\n  --secondary-surface: var(--panel);\n  --on-secondary: var(--ink);\n  --option-surface: var(--panel);\n  --on-option: var(--ink);\n  --accent: #d6f75a;\n  --on-accent: #121211;\n  --accent-text: #3f6d0f;\n  --calm: #e2f0d8;\n  --on-calm: #1f4a2b;\n  --on-calm-muted: #3f6b4a;\n  --chip-on-calm: #1f4a2b24;\n  --warm: #ff7f45;\n  --on-warm: #121211;\n  --chip-on-warm: #12121124;\n  --primary-on-warm: var(--on-warm);\n  --on-primary-on-warm: var(--warm);\n  --outline-on-card: var(--on-card);\n  --primary-on-card: var(--on-card);\n  --on-primary-on-card: var(--card);\n  --warm-text: #9a3c0c;\n  --danger: #b42318;\n  --on-danger: #ffffff;\n  --success-text: #2f6f2a;\n  --shadow-fab: 0 8px 24px #12121126;\n  --focus-ring: 0 0 0 2px #f3f2ee, 0 0 0 4px #3f6d0f;\n}\n:root {\n  --space-1: 4px;\n  --space-2: 8px;\n  --space-3: 12px;\n  --space-4: 16px;\n  --space-5: 20px;\n  --space-6: 24px;\n  --space-8: 32px;\n  --space-12: 48px;\n  --size-xs: 28px;\n  --size-dot: 24px;\n  --size-s: 32px;\n  --size-sm: 36px;\n  --size-row-dense: 40px;\n  --size-md: 44px;\n  --size-row: 48px;\n  --size-lg: 56px;\n  --size-trio: 64px;\n  --size-nav: 84px;\n  --size-card-stat: 132px;\n  --size-card-doc: 180px;\n  --size-card-calm: 200px;\n  --size-card-attention: 260px;\n  --size-presence-mini: 28px;\n  --size-presence-compact: 96px;\n  --size-presence-medium: 160px;\n  --size-presence-large: 232px;\n  --radius-sm: 12px;\n  --radius-md: 20px;\n  --radius-card: 28px;\n  --radius-full: 9999px;\n  --motion-fast: 150ms;\n  --motion-base: 250ms;\n  --motion-slow: 400ms;\n  --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);\n  --motion-cycle: 2400ms;\n  --font-sans: \"DM Sans\", system-ui, -apple-system, \"Segoe UI\", sans-serif;\n  --font-mono: \"DM Mono\", ui-monospace, Menlo, monospace;\n}\n.display-xl { font-family: var(--font-sans); font-size: 56px; line-height: 56px; font-weight: 500; letter-spacing: -0.03em; }\n.display { font-family: var(--font-sans); font-size: 40px; line-height: 44px; font-weight: 400; letter-spacing: -0.02em; }\n.display-sm { font-family: var(--font-sans); font-size: 28px; line-height: 32px; font-weight: 500; letter-spacing: -0.02em; }\n.title { font-family: var(--font-sans); font-size: 28px; line-height: 32px; font-weight: 500; letter-spacing: -0.015em; }\n.heading { font-family: var(--font-sans); font-size: 20px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; }\n.body { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 400; }\n.body-sm { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 400; }\n.label-lg { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 500; }\n.label { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 500; }\n.label-sm { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; }\n.caption { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; letter-spacing: 0.01em; }\n.caption-sm { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.01em; }\n.mono { font-family: var(--font-mono); font-size: 15px; line-height: 20px; font-weight: 500; }\n.mono-sm { font-family: var(--font-mono); font-size: 13px; line-height: 18px; font-weight: 500; }\n",
+ "flow": "appId: com.complior.mobile\nname: start-ekran\n---\n# Production путь допуска (118): запуск → First-Run → demo-вход F03 →\n# Erstinformation → continue при current gate → Start (start_tabs и КАЖДАЯ\n# вкладка своим testID). Кадры Start — после перехода и assertVisible СВОЕГО\n# селектора (testID в mobile/src/features/start/**): idle → composer →\n# decision → resume. Прямой /start без допуска экраном не проверяется —\n# маршрут и пробы допуска остаются 118.\n- launchApp\n- assertVisible: {id: first-run-continue}\n- tapOn: {id: first-run-continue}\n- assertVisible: {id: auth-demo-entry}\n- tapOn: {id: auth-demo-entry}\n- assertVisible: {id: erstinfo_gate_current}\n- tapOn: {id: erstinfo_continue_start}\n- assertVisible: {id: start_tabs}\n- assertVisible: {id: start_tab_start}\n- assertVisible: {id: start_tab_vorgaenge}\n- assertVisible: {id: start_tab_schutz}\n- assertVisible: {id: start_tab_post}\n- assertVisible: {id: start_sostojanie_idle}\n- takeScreenshot: start-ekran-f04-01\n- tapOn: {id: start_next_variant}\n- assertVisible: {id: start_sostojanie_composer}\n- takeScreenshot: start-ekran-f04-07\n- tapOn: {id: start_next_variant}\n- assertVisible: {id: start_sostojanie_decision}\n- takeScreenshot: start-ekran-f04-08\n- tapOn: {id: start_next_variant}\n- assertVisible: {id: start_sostojanie_resume}\n- takeScreenshot: start-ekran-f04-13\n",
+ "batareja_tekst": "#!/usr/bin/env bash\n# Батарея экрана start-ekran: сверка каждого кадра против PNG-макета —\n# механизм 123 (мера и порог — манифест кадров пачки); литералы токенов —\n# только в общем аудите токенов пакета Mobility Slice (audit_tokenov формы).\nexec python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-start --repo .\n",
+ "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу start-ekran —\n# для каждого имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку под kadry_dir. Нет носителя для имени — кадра не будет\n# (сверка назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-start/$tema/20261025T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",
+ "proverka_tekst": "#!/usr/bin/env python3\n# Проверка доступных свидетельств происхождения (контракт 138, файл пачки).\n# НЕ аттестует процесс эмулятора: перекодированный replay остаётся риском\n# шаблона 132 (§НЕ ЗАЩИЩАЕТ контракта). Судит свойства (уроки 118 применены\n# с первой редакции):\n#   1) флоу: единственный запуск production (launchApp, никаких\n#      openLink/startApp); перед каждым кадром — переход и assert-селектор\n#      СВОЕГО состояния; каждый snimok манифеста — ровно один раз;\n#   2) ПУТЬ ДОПУСКА (граница с 118): First-Run → first-run-continue →\n#      demo-вход auth-demo-entry → Erstinformation gate current →\n#      erstinfo_continue_start → состав Start ПО ВКЛАДКАМ (start_tabs и\n#      КАЖДАЯ из четырёх своим testID — пустой start_tabs не Start);\n#   3) appId флоу == expo.android.package из mobile/app.json\n#      (дефект батареи 118: чужой demo-пакет ронял Maestro);\n#   4) конфиг каталога mobile/.maestro/config.yaml несёт исключение флоу\n#      пачки своей строкой в flows (общий прогон каталога 995 не должен\n#      гонять экранный флоу: порядок флоу каталога недетерминирован);\n#   5) каждый селектор флоя имеет носитель testID в коде экрана (свои —\n#      mobile/src/features/start/**, путь допуска — onboarding/auth/app);\n#   6) манифест — ровно 8 кадров: 4 состояния × dark/light;\n#   7) кадр, байт-идентичный макету, — НЕ скриншот (сравнение sha256).\n# В CI продукта пускается ПОСЛЕ валидатора 132 (тот вызывает Maestro),\n# БЕЗ промежуточной правки кадров. rc: 0 — признаки без отказов;\n# 1 — PRICHINA по каждому отказу; 2 — вход нечитаем (PROVERKA_NECHITAEM).\nimport argparse\nimport hashlib\nimport json\nimport sys\nfrom pathlib import Path\n\nPEREHODY = ('tapOn', 'inputText', 'pressKey', 'swipe')\nZAPUSKI = ('launchApp',)\nISTOCHNIKI_EKRANA = ('mobile/src/features/start', 'mobile/src/features/onboarding',\n                     'mobile/src/features/auth', 'mobile/src/app')\nSELEKTOR_KADRA = {\n    'start-ekran-f04-01': 'start_sostojanie_idle',\n    'start-ekran-f04-07': 'start_sostojanie_composer',\n    'start-ekran-f04-08': 'start_sostojanie_decision',\n    'start-ekran-f04-13': 'start_sostojanie_resume',\n}\nOZHIDAEMYE_KADRY = sorted(\n    (snimok, tema) for snimok in SELEKTOR_KADRA for tema in ('dark', 'light'))\nKATALOG_MAESTRO = 'mobile/.maestro/config.yaml'\nAPP_JSON = 'mobile/app.json'\n\n\ndef prichina(imja, detal):\n    print('PRICHINA\\t%s\\t%s' % (imja, detal), file=sys.stderr)\n\n\ndef sha(p):\n    return hashlib.sha256(p.read_bytes()).hexdigest()\n\n\ndef shagi_flow(path):\n    out = []\n    for line in path.read_text(encoding='utf-8').splitlines():\n        s = line.strip()\n        if not s.startswith('- '):\n            continue\n        step = s[2:]\n        k, sep, a = step.partition(':')\n        out.append((k.strip(), a.strip() if sep else ''))\n    return out\n\n\ndef id_iz(arg):\n    if 'id:' not in arg:\n        return None\n    t = arg.partition('id:')[2].strip()\n    t = t.split('}')[0].split(',')[0]\n    return t.strip().strip(\"'\\\"\")\n\n\ndef paket_produkta(repo):\n    \"\"\"Пакет продукта — из mobile/app.json (expo.android.package), не литерал\n    батареи.\"\"\"\n    app = json.loads((repo / APP_JSON).read_text(encoding='utf-8'))\n    return app['expo']['android']['package']\n\n\ndef appid_flow(path):\n    \"\"\"appId из заголовка флоу (строки до первого '---').\"\"\"\n    for line in path.read_text(encoding='utf-8').splitlines():\n        if line.strip() == '---':\n            break\n        if line.startswith('appId:'):\n            return line.partition('appId:')[2].strip()\n    return None\n\n\ndef iskljuchenie_pachki_v_confige(repo, iskljuchenie):\n    \"\"\"Исключение флоу пачки в списке flows конфига каталога Maestro.\n    Судится ТОЛЬКО флоу пачки (чужие исключения не требуются и не\n    запрещаются). Сравнение литеральное: значение элемента списка после\n    '- ' со снятыми кавычками самостоятельной строкой, не подстрока.\"\"\"\n    p = repo / KATALOG_MAESTRO\n    if not p.is_file():\n        return False\n    v_flows = False\n    for line in p.read_text(encoding='utf-8').splitlines():\n        s = line.strip()\n        if s == 'flows:':\n            v_flows = True\n            continue\n        if v_flows:\n            if not s.startswith('- '):\n                break\n            znach = s[2:].strip().strip(\"'\\\"\")\n            if znach == iskljuchenie:\n                return True\n    return False\n\n\ndef sud_flow(shagi, snimki):\n    otkazy = []\n    poz = {}\n    for i, (k, a) in enumerate(shagi):\n        if k == 'takeScreenshot':\n            poz.setdefault(a, []).append(i)\n    for s in snimki:\n        sp = poz.get(s, [])\n        if not sp:\n            otkazy.append(('SNIMOK_BEZ_SHAGA', s))\n        elif len(sp) > 1:\n            otkazy.append(('SNIMOK_NEODNOZNACHEN', s))\n    if not shagi or shagi[0][0] != 'launchApp' or sum(\n            k == 'launchApp' for k, _ in shagi) != 1 or any(\n                k in ('openLink', 'startApp') for k, _ in shagi):\n        otkazy.append(('FLOW_BEZ_ZAPUSKA', 'launchApp'))\n    granica = -1\n    for s in snimki:\n        sp = poz.get(s, [])\n        if not sp:\n            continue\n        i = sp[0]\n        blok_shagov = shagi[granica + 1:i]\n        blok = [k for k, _ in blok_shagov]\n        if granica >= 0 and not any(k in PEREHODY for k in blok):\n            otkazy.append(('FLOW_BEZ_PEREHODA', s))\n        if 'assertVisible' not in blok:\n            otkazy.append(('FLOW_BEZ_DOSTIZHENIJA', s))\n        if s not in SELEKTOR_KADRA or not any(\n                k == 'assertVisible' and id_iz(a) == SELEKTOR_KADRA[s]\n                for k, a in blok_shagov):\n            otkazy.append(('SELEKTOR_NE_KADRA', s))\n        granica = i\n\n    def ordered(items):\n        at = -1\n        for kind, val in items:\n            at = next((i for i in range(at + 1, len(shagi))\n                       if shagi[i][0] == kind and\n                       (id_iz(shagi[i][1]) if kind in ('tapOn', 'assertVisible',\n                                                       'assertNotVisible') else\n                        shagi[i][1]) == val), -1)\n            if at < 0:\n                return False\n        return True\n\n    first = snimki[0]\n    # Путь допуска (118): production пуск через First-Run/demo/Erstinformation\n    # к Start; кадры Start — только после наблюдения СОСТАВА вкладок.\n    if not ordered([('launchApp', ''), ('assertVisible', 'first-run-continue'),\n                    ('tapOn', 'first-run-continue'),\n                    ('assertVisible', 'auth-demo-entry'),\n                    ('tapOn', 'auth-demo-entry'),\n                    ('assertVisible', 'erstinfo_gate_current'),\n                    ('tapOn', 'erstinfo_continue_start')] +\n                   [('assertVisible', t) for t in (\n                       'start_tabs', 'start_tab_start', 'start_tab_vorgaenge',\n                       'start_tab_schutz', 'start_tab_post')] +\n                   [('assertVisible', SELEKTOR_KADRA[first]),\n                    ('takeScreenshot', first)]):\n        otkazy.append(('FLOW_BEZ_DOPUSKA', first))\n    return otkazy\n\n\ndef selektory(shagi):\n    out = []\n    for k, a in shagi:\n        if k in ('tapOn', 'assertVisible', 'inputText'):\n            i = id_iz(a)\n            if i:\n                out.append(i)\n    return out\n\n\ndef main():\n    ap = argparse.ArgumentParser()\n    ap.add_argument('--pack', required=True)\n    ap.add_argument('--repo', required=True)\n    ap.add_argument('--harness', default=None)\n    a = ap.parse_args()\n    pack, repo = Path(a.pack), Path(a.repo)\n    try:\n        forma = json.loads((pack / 'ekran.json').read_text(encoding='utf-8'))\n        manifest = json.loads((pack / forma['kadry']).read_text(\n            encoding='utf-8'))\n        shagi = shagi_flow(repo / forma['e2e_scenarij'])\n    except (OSError, ValueError, KeyError) as e:\n        print('PROVERKA_NECHITAEM: %r' % e, file=sys.stderr)\n        return 2\n    kadry = manifest['kadry']\n    snimki = list(dict.fromkeys(k['snimok'] for k in kadry))\n    otkazy = sud_flow(shagi, snimki)\n    # appId флоу адресует пакет продукта (урок 118), не литерал батареи.\n    appid = appid_flow(repo / forma['e2e_scenarij'])\n    paket = paket_produkta(repo)\n    if appid != paket:\n        otkazy.append(('APPID_NE_PAKETA', '%s != %s' % (appid, paket)))\n    # Конфиг каталога Maestro: исключение флоу пачки обязано стоять в flows.\n    iskljuchenie_pachki = '!' + forma['e2e_scenarij'].split('/')[-1]\n    if not iskljuchenie_pachki_v_confige(repo, iskljuchenie_pachki):\n        otkazy.append(('CONFIG_BEZ_ISKLJUCHENIJA',\n                       '%s без %s' % (KATALOG_MAESTRO, iskljuchenie_pachki)))\n    # Состав манифеста: ровно 8 кадров — 4 состояния × dark/light.\n    fakt = sorted((k.get('snimok'), k.get('tema')) for k in kadry)\n    if fakt != OZHIDAEMYE_KADRY:\n        otkazy.append(('MANIFEST_NE_8_KADROV', str(len(kadry))))\n    istochniki = []\n    for d in ISTOCHNIKI_EKRANA:\n        baze = repo / d\n        if baze.is_dir():\n            istochniki.extend(p for p in baze.rglob('*') if p.is_file())\n    teksty = []\n    for p in istochniki:\n        try:\n            teksty.append(p.read_text(encoding='utf-8'))\n        except (OSError, UnicodeDecodeError):\n            pass\n    for s in sorted(set(selektory(shagi))):\n        if not any('testID=\"%s\"' % s in line\n                   for t in teksty for line in t.splitlines()\n                   if not line.lstrip().startswith(('//', '/*', '*', '#'))):\n            otkazy.append(('SELEKTOR_BEZ_EKRANA', s))\n    karta = {(k['snimok'], k['tema']): k for k in kadry}\n    for p in sorted((repo / forma['kadry_dir']).rglob('*.png')):\n        tema = p.relative_to(repo / forma['kadry_dir']).parts[0]\n        z = karta.get((p.stem, tema))\n        if z and (repo / z['maket']).is_file() \\\n                and sha(p) == sha(repo / z['maket']):\n            otkazy.append(('KADR_BYTE_KOPIJA_MAKETA', z['id']))\n    for imja, detal in otkazy:\n        prichina(imja, detal)\n    return 1 if otkazy else 0\n\n\nif __name__ == '__main__':\n    sys.exit(main())\n",
+ "testids_tekst": "# Stand-in кода экрана батареи 138: каждый селектор флоя start-ekran обязан\n# иметь носитель testID в коде экрана; свои селекторы — mobile/src/features/\n# start/**, селекторы пути допуска — соседние экраны (onboarding 118, auth\n# 135). В модели дерева носители — эти файлы (продукт несёт те же testID).\n# Селекторы Start (внутри зоны 138):\ntestID=\"start_sostojanie_idle\"\ntestID=\"start_sostojanie_composer\"\ntestID=\"start_sostojanie_decision\"\ntestID=\"start_sostojanie_resume\"\ntestID=\"start_next_variant\"\n",
+ "testids_onboarding": "# Stand-in источников ПУТИ допуска (не зона 138): First-Run/Erstinformation —\n# 118/135; demo-вход — 135 (auth). Продукт несёт эти testID в своих экранах.\ntestID=\"first-run-continue\"\ntestID=\"erstinfo_gate_current\"\ntestID=\"erstinfo_continue_start\"\n",
+ "testids_auth": "testID=\"auth-demo-entry\"\n",
+ "app_start_tekst": "// Состав Start наблюдаем ПО ВКЛАДКЕ, не только узлом start_tabs (118:\n// пустой <View testID=\"start_tabs\" /> без вкладок — не Start). TabShell —\n// зона 108/995, 138 читает состав, не правит.\n<View testID=\"start_tabs\" />\n<View testID=\"start_tab_start\" />\n<View testID=\"start_tab_vorgaenge\" />\n<View testID=\"start_tab_schutz\" />\n<View testID=\"start_tab_post\" />\n",
+ "maestro_config": "# 138 (start-ekran): start-ekran.yaml — сценарий ЭКРАННОЙ ПАЧКИ\n# mobile/e2e-start: e2e.sh запускает его отдельным прогоном по прямому пути\n# (обе темы). В общем прогоне каталога 995 (maestro test .maestro) его быть\n# не должно: флоу начинается с launchApp и идёт по пути допуска 118\n# (First-Run → demo → Erstinformation → continue), а порядок флоу каталога\n# Maestro не гарантируется — соседний флоу может оставить приложение не на\n# First-Run, и прогон каталога станет недетерминированно красным (урок 118).\n# Конфиг каталога — штатный механизм Maestro: globs фильтруют ТОЛЬКО файлы\n# обхода каталога; прямой запуск файла по пути фильтром не затрагивается.\nflows:\n  - \"*\"\n  - \"!start-ekran.yaml\"\n",
+ "app_json": "{\n  \"expo\": {\n    \"name\": \"Complior\",\n    \"android\": {\n      \"package\": \"com.complior.mobile\"\n    }\n  }\n}\n"
+}

@@ -1,0 +1,194 @@
+{
+ "_comment": "Срез каталога копии экрана Start (ключи = copy_key BrokerOS_UI_Copy_DE.json verbatim, сняты из живого файла 2026-10-25); генерируется в продукт.",
+ "action.F02.A02": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Dokument öffnen",
+  "scope": "F02",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "action.F04.A01": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Nachricht schreiben",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "action.F04.A02": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Sprechen",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "action.F04.A03": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Vorgang fortsetzen",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "home.voice": {
+  "copy_version": 2,
+  "locale": "de-DE",
+  "text": "Sie können sprechen oder schreiben.",
+  "scope": "GLOBAL",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "resume.established": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Das haben wir bereits geklärt",
+  "scope": "GLOBAL",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "resume.remaining": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Das ist noch offen",
+  "scope": "GLOBAL",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "frame.F04.01.title": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Was möchten Sie klären?",
+  "scope": "F04",
+  "role": "title",
+  "review_status": "EDITORIAL_DRAFT_REVIEW_REQUIRED",
+  "legal_approval": false,
+  "authorship_revision": "UX1.14"
+ },
+ "frame.F04.01.body": {
+  "copy_version": 2,
+  "locale": "de-DE",
+  "text": "Was ist passiert? Schreiben Sie, sprechen Sie oder fügen Sie ein Foto oder Dokument hinzu.",
+  "scope": "F04",
+  "role": "body",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+  "legal_approval": false,
+  "authorship_revision": "UX1.14"
+ },
+ "frame.F04.07.title": {
+  "copy_version": 2,
+  "locale": "de-DE",
+  "text": "Wie möchten Sie beginnen?",
+  "scope": "F04",
+  "role": "title",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+  "legal_approval": false,
+  "authorship_revision": "UX1.14"
+ },
+ "frame.F04.07.body": {
+  "copy_version": 2,
+  "locale": "de-DE",
+  "text": "Text, Sprache, Foto und Dokument gehören zu demselben Anliegen.",
+  "scope": "F04",
+  "role": "body",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED",
+  "legal_approval": false,
+  "authorship_revision": "UX1.14"
+ },
+ "frame.F04.08.title": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Ich brauche kurz Ihre Entscheidung.",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "frame.F04.08.body": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Eine Entscheidung ist offen. Sehen Sie sich den Vorschlag an, bevor Sie bestätigen.",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "frame.F04.13.title": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "So steht Ihr Anliegen.",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "frame.F04.13.body": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Hier sehen Sie, was erledigt ist, woran gearbeitet wird und wer als Nächstes handeln muss.",
+  "scope": "F04",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.agent.contextual": {
+  "copy_version": 2,
+  "locale": "de-DE",
+  "text": "Complior fragen",
+  "scope": "UX1.15",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.speak": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Sprechen",
+  "scope": "UX1.15",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.write": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Schreiben",
+  "scope": "UX1.15",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.photo": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Foto",
+  "scope": "UX1.15",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ia115.entry.document": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Brief / Dokument",
+  "scope": "UX1.15",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ui.start.no_action_scoped": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Bei Ihren laufenden Vorgängen ist gerade keine Aktion für Sie offen.",
+  "scope": "UX1.17",
+  "review_status": "PRODUCT_COPY_REVIEW_REQUIRED"
+ },
+ "ui.mission.group.working": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "In Arbeit",
+  "scope": "UX1.17.2 presentation",
+  "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+  "legal_approval": false
+ },
+ "ui.mission.reason.decision": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Ihre Entscheidung",
+  "scope": "UX1.17.2 presentation",
+  "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+  "legal_approval": false
+ },
+ "ui.mission.label.next": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Als Nächstes",
+  "scope": "UX1.17.2 presentation",
+  "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+  "legal_approval": false
+ },
+ "ui.mission.actor.insurer": {
+  "copy_version": 1,
+  "locale": "de-DE",
+  "text": "Versicherer",
+  "scope": "UX1.17.2 presentation",
+  "review_status": "UX_EDITORIAL_REVIEWED; NATIVE_RELEASE_SIGNOFF_REQUIRED",
+  "legal_approval": false
+ }
+}

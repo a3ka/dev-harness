@@ -1,0 +1,16 @@
+{
+ "_comment": "JSON-проекция BrokerOS_Unified_OpenAPI_v3.yaml: экран Start читает миссии/аватар операцией listMissions (108, OpenAPI MissionPage); снято из mobile/src/api/api-client.ts.",
+ "openapi": "3.0.0",
+ "info": {
+  "title": "Complior",
+  "version": "projection"
+ },
+ "paths": {
+  "/missions": {
+   "get": {
+    "operationId": "listMissions",
+    "summary": "Страница миссий пользователя (MissionPage)"
+   }
+  }
+ }
+}
