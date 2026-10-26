@@ -48,6 +48,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 MODEL = HERE / 'model' / 'zamok_predmeta.sh'
 STABS = HERE / 'stabs'
+# materialy — байт-копии реальных строк/текста из 9ec350f7e (РЕШЕНИЕ
+# арбитража 140, Q3 1.2: «брать git show 9ec350f7e:contracts/<файл> —
+# не перенабирать»); пины sha256 — source.json:.nositeli (materialy/<имя>)
+MATER = HERE / 'materialy'
 # ПОСТАВЛЯЕМЫЙ субъект безфлагового режима: реальная дверь дерева клона
 # (HERE = <корень>/fixtures/workshop_project/odin_agent_140).
 REEPOR = HERE.parents[2]
@@ -498,6 +502,43 @@ def kejsy():
         mir.zhurnal('Avtor%s' % nnn, sdal=True)
         return wt, br, sha
 
+    def _mater(imja):
+        # строка материала без хвостового перевода строки (байты — из 9ec350f7e)
+        t = (MATER / imja).read_text(encoding='utf-8')
+        return t[:-1] if t.endswith('\n') else t
+
+    def _avtor_sdal_stroki(mir, nnn, zapisi):
+        # мир реальных форм декларации «КЛАСС РИСКА:» (РЕШЕНИЕ арбитража 140,
+        # Q2/Q3): zapisi — [(имя, вид, данные)]; вид 'stroka'/'stroki' — файл
+        # '# К\n' + строка/строки, 'symlink' — симлинк на данные (относительно
+        # contracts/), 'dir' — каталог с именем NNN-*.md; затем add+commit,
+        # автор сдал, OBJECT == tip ветки (как _avtor_sdal_fajly).
+        for imja, vid, dannye in zapisi:
+            p = mir.repo / 'contracts' / imja
+            if vid == 'stroka':
+                p.write_text('# К\n' + dannye + '\n', encoding='utf-8')
+            elif vid == 'stroki':
+                p.write_text('# К\n' + '\n'.join(dannye) + '\n', encoding='utf-8')
+            elif vid == 'symlink':
+                p.symlink_to(dannye)
+            elif vid == 'dir':
+                p.mkdir()
+        mir.git(['add', '-A'])
+        mir.git(['commit', '-q', '-m', 'c%s' % nnn])
+        wt, br, sha = mir.worktree(nnn)
+        mir.start(nnn, 'Avtor%s' % nnn, wt=wt, branch=br)
+        mir.zhurnal('Avtor%s' % nnn, sdal=True)
+        return wt, br, sha
+
+    def _podmir(prob):
+        # подпространство для многовариантных клеток (s35/s36): свежий мир,
+        # авто-уборка; prob(mir) → список проблем
+        d = tempfile.mkdtemp(prefix='odin140-podmir-')
+        try:
+            return prob(Mir(d))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
     def s01(mir, door):
         wt, br, sha = _avtor_sdal(mir, '141')
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
@@ -697,6 +738,143 @@ def kejsy():
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
                 k_chislo_startov(mir, 'учёт', 1)]
     reg('s28-klass-riska-shest-fajlov', 'риск=шесть-файлов;один=рисковый', s28)
+
+    # B3. реальные формы декларации «КЛАСС РИСКА:» (РЕШЕНИЕ арбитража 140 от
+    #     2026-10-26: поставленная дверь 9ec350f7e читала «^КЛАСС РИСКА:» +
+    #     cut -d' ' -f1 и ложно отказывала KLASS_RISKA_NET по 4 из 7 реальных
+    #     контрактов со строкой — 116/139/140/141; грамматика Q2: декларация
+    #     в любой позиции строки, [[:blank:]]* + {обычный|рисковый} +
+    #     терминатор {EOL, blank, '.', ',', ';'}, хвост-основание допустим,
+    #     иные вхождения — упоминания; ровно ОДНА декларация на файл; канон —
+    #     все записи find -maxdepth 1 -name '<NNN>-*.md' БЕЗ -type f)
+    def s29(mir, door):
+        # байт-копия 116:2 при 9ec350f7e (декларация в середине строки после
+        # «КЛАСС ЗАДАЧИ: …», хвост « (…») — обычный: ревьюер проходит
+        wt, br, sha = _avtor_sdal_stroki(mir, '141',
+                        [('141-a.md', 'stroka', _mater('116-stroka.md'))])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s29-klass-riska-realnaja-116', 'риск=реальная-форма-116;декларация=середина-строки;хвост-основание', s29)
+
+    def s30(mir, door):
+        # байт-копия 139:3 (середина строки, «обычный.» вплотную — точка из
+        # списка терминаторов Q2) — обычный: ревьюер проходит
+        wt, br, sha = _avtor_sdal_stroki(mir, '141',
+                        [('141-a.md', 'stroka', _mater('139-stroka.md'))])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s30-klass-riska-realnaja-139', 'риск=реальная-форма-139;терминатор=точка-вплотную', s30)
+
+    def s31(mir, door):
+        # ПОЛНЫЙ текст contracts/140 при 9ec350f7e как единственный файл
+        # предмета: декларация 140:3 (рисковый, середина строки) + упоминание
+        # 140:51 в бэктиках; ревьюер до адверсария отказан, после yield
+        # адверсария проходит (конвенция s09/s10 — двухшаговая клетка)
+        tekst = (MATER / '140-celkom.md').read_text(encoding='utf-8')
+        (mir.repo / 'contracts' / '141-a.md').write_text(tekst, encoding='utf-8')
+        mir.git(['add', '-A'])
+        mir.git(['commit', '-q', '-m', 'c141'])
+        wt, br, sha = mir.worktree('141')
+        mir.start('141', 'Avtor141', wt=wt, branch=br)
+        mir.zhurnal('Avtor141', sdal=True)
+        r1 = sudit(door, mir, _revjuer(mir, sha))
+        mir.start('141', 'Adv141', klass='sudja', rol='adversary', obj=sha)
+        mir.zhurnal('Adv141', sdal=True)
+        r2 = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r1, 1, 'rc-до-адверсария'),
+                k_prichina(r1, 'ADVERSARIJ_DO_REVJUERA', 'причина-до'),
+                k_rc(r2, 0, 'rc-после-адверсария'),
+                k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s31-klass-riska-realnaja-140', 'риск=реальный-контракт-140-целиком;упоминание-в-тексте;порядок=два-шага', s31)
+
+    def s32(mir, door):
+        # байт-копия 118:3 (начало строки, хвост « — основание…») — рисковый:
+        # ревьюер раньше адверсария отказан
+        wt, br, sha = _avtor_sdal_stroki(mir, '141',
+                        [('141-a.md', 'stroka', _mater('118-stroka.md'))])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ADVERSARIJ_DO_REVJUERA', 'причина')]
+    reg('s32-klass-riska-realnaja-118', 'риск=реальная-форма-118;декларация=начало-строки-с-хвостом', s32)
+
+    def s33(mir, door):
+        # две ОДИНАКОВЫЕ декларации в одном файле — не одна декларация (Q2:
+        # ровно одна на файл): неоднозначно, отказ
+        wt, br, sha = _avtor_sdal_stroki(mir, '141',
+                        [('141-a.md', 'stroki', ['КЛАСС РИСКА: обычный',
+                                                'КЛАСС РИСКА: обычный'])])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s33-klass-riska-dve-deklaracii-odinakovye', 'риск=две-декларации-в-файле;значения=одинаковые', s33)
+
+    def s34(mir, door):
+        # упоминание без декларации (бэктик после двоеточия — значения из
+        # алфавита нет) — не декларация: класса нет, отказ
+        wt, br, sha = _avtor_sdal_stroki(mir, '141',
+                        [('141-a.md', 'stroka', 'строка `КЛАСС РИСКА:` обязательна')])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s34-klass-riska-upominanie-bez-deklaracii', 'риск=упоминание-без-декларации', s34)
+
+    def s35(mir, door):
+        # значение вне алфавита («средний») и слипшееся слово («обычныйX»):
+        # терминатора из списка нет — упоминание, класса нет; каждый вход
+        # красен СВОИМ предъявлением (два подпространства)
+        prob = []
+        for stroka in ('КЛАСС РИСКА: средний — основание',
+                       'КЛАСС РИСКА: обычныйX'):
+            def odin(m, stroka=stroka):
+                wt, br, sha = _avtor_sdal_stroki(m, '141',
+                                [('141-a.md', 'stroka', stroka)])
+                r = sudit(door, m, _revjuer(m, sha))
+                return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                        k_chislo_startov(m, 'учёт', 1)]
+            for p in _podmir(odin):
+                if p:
+                    prob.append('s35 %r: %s' % (stroka, p))
+        return prob
+    reg('s35-klass-riska-vne-alfavita', 'риск=значение-вне-алфавита;форма=средний+слипшееся', s35)
+
+    def s36(mir, door):
+        # канон без -type f (РЕШЕНИЕ (г)): живой симлинк на «рисковый»
+        # читается → конфликт; битый симлинк/каталог с именем NNN-*.md —
+        # нечитаемая запись → вне алфавита; все три → neodnoznachno → отказ
+        def zapisi(dannye):
+            zap = [('141-a.md', 'stroka', 'КЛАСС РИСКА: обычный')]
+            if dannye == 'symlink-risk':
+                return zap + [('risk-source.md', 'stroka', 'КЛАСС РИСКА: рисковый'),
+                              ('141-b.md', 'symlink', 'risk-source.md')]
+            if dannye == 'symlink-bityj':
+                return zap + [('141-b.md', 'symlink', 'net-takogo.md')]
+            return zap + [('141-b.md', 'dir', '')]
+        prob = []
+        for dannye in ('symlink-risk', 'symlink-bityj', 'dir'):
+            def odin(m, dannye=dannye):
+                wt, br, sha = _avtor_sdal_stroki(m, '141', zapisi(dannye))
+                r = sudit(door, m, _revjuer(m, sha))
+                return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                        k_chislo_startov(m, 'учёт', 1)]
+            for p in _podmir(odin):
+                if p:
+                    prob.append('s36 %s: %s' % (dannye, p))
+        return prob
+    reg('s36-klass-riska-simlink', 'риск=не-файл-в-каноне;форма=симлинк-живой+битый+каталог', s36)
+
+    def s37(mir, door):
+        # цитата шаблона «рисковый|обычный» — упоминание (после «рисковый»
+        # в цитате нет терминатора из списка); декларация обычного в середине
+        # строки читается, цитата игнорируется — ревьюер проходит
+        stroka = ('КЛАСС ЗАДАЧИ: КОДОВЫЙ (мир батареи 140). КЛАСС РИСКА: обычный'
+                  ' — см. «КЛАСС РИСКА: рисковый|обычный»')
+        wt, br, sha = _avtor_sdal_stroki(mir, '141',
+                        [('141-a.md', 'stroka', stroka)])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s37-klass-riska-citata-shablona', 'риск=цитата-шаблона;упоминание=в-цитате;декларация=одна', s37)
 
     def s22(mir, door):
         mir.kontrakt('141')
@@ -1007,10 +1185,10 @@ def m_bez_rabochego(t):
 
 
 def m_klass_riska_mjagko(t):
-    # fail-open на «нет файла/нет строки/вне алфавита»: плохие файлы тихо
+    # fail-open на «нет файла/нет строки/вне алфавита»: плохие записи тихо
     # пропускаются, пустой итог — обычный; КОНФЛИКТ согласных значений
     # остаётся отказом (прежняя семантика стаба — «класс риска отсутствует
-    # → тихо обычный», привязка s13 не меняется).
+    # → тихо обычный»; привязка — по замеру, stab_vhod).
     t = _z(t, "  if [ -z \"$spisok\" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' \"$1\"; return 0; fi\n",
               "  if [ -z \"$spisok\" ]; then printf 'obychnyj'; return 0; fi\n")
     t = _z(t, '''      *)        ploh="${ploh:+$ploh }$f"; continue ;;
@@ -1026,13 +1204,16 @@ def m_pervyj_rezultat_find(t):
     # 1/2) — класс читается по ПЕРВОМУ результату find (sorted|sed -n '1p' —
     # выбор детерминирован), конфликт/нет строки в остальных файлах молчат:
     # один «рисковый» файл среди шести пропускал рисковый предмет обычным.
+    # Текст замены — историческая дверь 73aa92b7a дословно (^-якорь строки,
+    # cut -d' ' -f1, -type f): краснота на реальных формах наследуется.
     return _z(t, '''klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
   local spisok f val znach='' ploh=''
-  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"
+  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
   if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    val="$(grep '^КЛАСС РИСКА:' "$f" | sed -e 's/^КЛАСС РИСКА:[[:space:]]*//' | cut -d' ' -f1)"
+    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
     case "$val" in
       обычный)  val='obychnyj' ;;
       рисковый) val='risikovyj' ;;
@@ -1167,6 +1348,25 @@ def m_pauza_schitaetsja(t):
     : # стаб: ПАУЗА слот держит''')
 
 
+def m_klass_riska_tolko_nachalo_stroki(t):
+    # РЕШЕНИЕ арбитража 140 (главный замер): поставленная дверь 9ec350f7e
+    # читала декларацию ТОЛЬКО с начала строки (^-якорь) и cut -d' ' -f1 —
+    # ложный KLASS_RISKA_NET на реальных формах 116/139/140/141 (декларация
+    # в середине строки после «КЛАСС ЗАДАЧИ: …», хвост-основание в ней же);
+    # замена — дословная строка извлечения той двери.
+    return _z(t, '''    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \\
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"''',
+              '''    val="$(grep '^КЛАСС РИСКА:' "$f" | sed -e 's/^КЛАСС РИСКА:[[:space:]]*//' | cut -d' ' -f1)"''')
+
+
+def m_klass_riska_type_f(t):
+    # РЕШЕНИЕ арбитража 140 (г): возврат -type f выкидывает из канона не-файлы:
+    # симлинк на «рисковый» молча пропускается — рисковый предмет уходит
+    # ревьюеру без адверсария; битый симлинк/каталог тоже исчезают из канона.
+    return _z(t, '''  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"''',
+              '''  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"''')
+
+
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
     's02-bez-yield-predikata': m_bez_yield,
@@ -1196,6 +1396,8 @@ STAB_MUTACII = {
     's26-uchet-bez-zhurnala': m_uchet_bez_zhurnala,
     's27-pauza-schitaetsja': m_pauza_schitaetsja,
     's28-pervyj-rezultat-find': m_pervyj_rezultat_find,
+    's29-klass-riska-tolko-nachalo-stroki': m_klass_riska_tolko_nachalo_stroki,
+    's30-klass-riska-type-f': m_klass_riska_type_f,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
@@ -1325,7 +1527,12 @@ def main():
     src = json.loads((HERE / 'source.json').read_text(encoding='utf-8'))
     # оракул в памяти ДО вызова субъекта (правило 8): пины носителей
     for imja, pin in src['nositeli'].items():
-        p = MODEL if imja == 'model/zamok_predmeta.sh' else STABS / imja / 'zamok_predmeta.sh'
+        if imja == 'model/zamok_predmeta.sh':
+            p = MODEL
+        elif imja.startswith('materialy/'):
+            p = HERE / imja
+        else:
+            p = STABS / imja / 'zamok_predmeta.sh'
         if not p.is_file():
             return oshibka_orakula('носитель отсутствует: %s' % imja)
         if sha256_bytes(p.read_bytes()) != pin:
