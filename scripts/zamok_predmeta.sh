@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# НЕ БАРЬЕР: субъект (SUBJECT) батареи fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh;
+# её приёмка — проба красным на сам scripts/zamok_predmeta.sh (слой субъекта `--stabs`, `W` на дереве), не сам скрипт;
+# контракт 140 §ПРОВОДКА: guard=fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh.
+# Классификатор antiplacebo к субъекту неприменим: в области лежит барьер-guard, а не тестируемый им скрипт.
 # ЗАМОК ПРЕДМЕТА (контракт 140 «odin-agent-na-predmet») — ПОСТАВЛЯЕМАЯ ДВЕРЬ
 # харнесса: суд спавна «один рабочий агент на предмет», атомарный замок
 # (repoId, subjectId) на batch целиком, единый учёт начатых предметов
