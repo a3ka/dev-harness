@@ -94,6 +94,13 @@ command -v node >/dev/null 2>&1 || die2 "нет node (финальный ора�
 command -v jq >/dev/null 2>&1 || die2 "нет jq"
 
 rnd() { printf '%s' "${RANDOM}${RANDOM}$$" | sha256sum | cut -c1-12; }
+# имя адресного ключа ВНЕ любого белого списка (арбитраж contracts-142-arbitraz):
+# ведущая X — грамматика ключа 125 ([A-Za-z_][A-Za-z0-9_]*), 12 HEX в верхнем
+# регистре не выражают ни секретного маркера, ни адресного суффикса канона
+# (в KEY…CREDENTIAL и _URL…NAME есть буквы вне A–F), суффикс — аргумент;
+# имя свежее на каждый прогон и субъекту до прогона неизвестно (И-6) —
+# конечный список имён любой мощности красен на k19–k42 по построению.
+imya() { printf 'X%s%s' "$(rnd | tr a-f A-F)" "$1"; }
 
 WP=""   # префикс мира (стабы не переиспользуют миры клеток)
 mir() { # $1 = имя мира; установка = SUBJECT + двойник workshop + поддельный HOME
@@ -125,7 +132,7 @@ err1() { sed -n 1p "$RUNDIR/$WP$1/err" 2>/dev/null; }
 # Внутри клетки: T1/T2 — свежие rnd-значения (оракул в памяти); dom — bytes дома
 # секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|kanon.
 kletka() { # $1 = id клетки; печатает строку вердикта
-  local id=$1 why="" T1 T2
+  local id=$1 why="" T1 T2 IMYA=""
   T1="tok-$(rnd)"; T2="tok-$(rnd)"
   local VID=""
   if [ "$SUBJECT_EST" = 0 ]; then
@@ -189,85 +196,87 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       mir k18; printf 'metering_proxy_url=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"k18/home/.config/dev-harness/secrets.env
       mkdir -p "$RUNDIR/$WP"k18/proj/.harness/verdicts/critic
       printf 'прогон: curl http://127.0.0.1:8787/zamer\n' > "$RUNDIR/$WP"k18/proj/.harness/verdicts/critic/kontrol.md; VID=sessija ;;
-    # ── ось K, закрытие И-3 (вердикт contracts-142-v1): адресный предикат —
-    # АЛФАВИТ суффиксов, не белый список имён. По положительной клетке на
-    # КАЖДЫЙ суффикс замкнутого алфавита канона (_URL _HOST _PORT _ADDR
-    # _ENDPOINT _NAME и базовые URL HOST PORT ADDR ENDPOINT NAME), имя ранее
-    # не использовано и без секретных маркеров по подчёркиванию; парная клетка
-    # (k31–k42) — то же имя + userinfo в значении → отказ (учётка сильнее
-    # суффикса). Стаб whitelist пяти имён прежних позитивных клеток краснеет
-    # ровно на k19–k30.
-    k19-reporty-url)
-      mir k19; printf 'REPORTS_URL=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"k19/home/.config/dev-harness/secrets.env
+    # ── ось K, закрытие И-3 (арбитраж contracts-142-arbitraz): адресный
+    # предикат — АЛФАВИТ суффиксов, не белый список имён. По положительной
+    # клетке на КАЖДЫЙ суффикс замкнутого алфавита канона (_URL _HOST _PORT
+    # _ADDR _ENDPOINT _NAME и базовые URL HOST PORT ADDR ENDPOINT NAME);
+    # имя клетки ПОРОЖДАЕТСЯ на каждом прогоне imya() (X + 12 HEX + суффикс,
+    # субъекту до прогона неизвестно — И-6): конечный список имён любой
+    # мощности красен на k19–k30 по построению; стабы-белые списки (5 имён
+    # боли, 17 имён мутанта критика 2/2) ловятся ровно здесь. Парная клетка
+    # (k31–k42) — порождённое имя того же суффикса + userinfo в значении →
+    # отказ (учётка сильнее суффикса).
+    k19-lyuboe-url)
+      mir k19; IMYA=$(imya _URL); printf '%s=http://127.0.0.1:8787\n' "$IMYA" > "$RUNDIR/$WP"k19/home/.config/dev-harness/secrets.env
       printf 'отчёты: curl http://127.0.0.1:8787/report\n' > "$RUNDIR/$WP"k19/proj/reports.md; VID=sessija ;;
-    k20-kesh-host)
-      mir k20; printf 'CACHE_HOST=cache.internal\n' > "$RUNDIR/$WP"k20/home/.config/dev-harness/secrets.env
+    k20-lyuboe-host)
+      mir k20; IMYA=$(imya _HOST); printf '%s=cache.internal\n' "$IMYA" > "$RUNDIR/$WP"k20/home/.config/dev-harness/secrets.env
       printf 'кэш развёрнут на cache.internal\n' > "$RUNDIR/$WP"k20/proj/infra.md; VID=sessija ;;
-    k21-grpc-port)
-      mir k21; printf 'GRPC_PORT=9090\n' > "$RUNDIR/$WP"k21/home/.config/dev-harness/secrets.env
+    k21-lyuboe-port)
+      mir k21; IMYA=$(imya _PORT); printf '%s=9090\n' "$IMYA" > "$RUNDIR/$WP"k21/home/.config/dev-harness/secrets.env
       printf 'grpc слушает 9090\n' > "$RUNDIR/$WP"k21/proj/ports.txt; VID=sessija ;;
-    k22-proksi-addr)
-      mir k22; printf 'PROXY_ADDR=10.0.0.9\n' > "$RUNDIR/$WP"k22/home/.config/dev-harness/secrets.env
+    k22-lyuboe-addr)
+      mir k22; IMYA=$(imya _ADDR); printf '%s=10.0.0.9\n' "$IMYA" > "$RUNDIR/$WP"k22/home/.config/dev-harness/secrets.env
       printf 'прокси узла 10.0.0.9\n' > "$RUNDIR/$WP"k22/proj/net.md; VID=sessija ;;
-    k23-metrik-endpoint)
-      mir k23; printf 'METRICS_ENDPOINT=http://metrics.internal:9100\n' > "$RUNDIR/$WP"k23/home/.config/dev-harness/secrets.env
+    k23-lyuboe-endpoint)
+      mir k23; IMYA=$(imya _ENDPOINT); printf '%s=http://metrics.internal:9100\n' "$IMYA" > "$RUNDIR/$WP"k23/home/.config/dev-harness/secrets.env
       printf 'метрики: http://metrics.internal:9100/metrics\n' > "$RUNDIR/$WP"k23/proj/metrics.md; VID=sessija ;;
-    k24-tenant-name)
-      mir k24; printf 'TENANT_NAME=tenant-alpha\n' > "$RUNDIR/$WP"k24/home/.config/dev-harness/secrets.env
+    k24-lyuboe-name)
+      mir k24; IMYA=$(imya _NAME); printf '%s=tenant-alpha\n' "$IMYA" > "$RUNDIR/$WP"k24/home/.config/dev-harness/secrets.env
       printf 'тенант tenant-alpha отвечает за отчёты\n' > "$RUNDIR/$WP"k24/proj/arch.md; VID=sessija ;;
-    k25-siteurl)
-      mir k25; printf 'SITEURL=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"k25/home/.config/dev-harness/secrets.env
+    k25-lyuboe-url-baz)
+      mir k25; IMYA=$(imya URL); printf '%s=http://127.0.0.1:8787\n' "$IMYA" > "$RUNDIR/$WP"k25/home/.config/dev-harness/secrets.env
       printf 'сайт: http://127.0.0.1:8787/home\n' > "$RUNDIR/$WP"k25/proj/site.md; VID=sessija ;;
-    k26-dbhost)
-      mir k26; printf 'DBHOST=db.internal\n' > "$RUNDIR/$WP"k26/home/.config/dev-harness/secrets.env
+    k26-lyuboe-host-baz)
+      mir k26; IMYA=$(imya HOST); printf '%s=db.internal\n' "$IMYA" > "$RUNDIR/$WP"k26/home/.config/dev-harness/secrets.env
       printf 'база данных на db.internal\n' > "$RUNDIR/$WP"k26/proj/db.md; VID=sessija ;;
-    k27-httpport)
-      mir k27; printf 'HTTPPORT=8080\n' > "$RUNDIR/$WP"k27/home/.config/dev-harness/secrets.env
+    k27-lyuboe-port-baz)
+      mir k27; IMYA=$(imya PORT); printf '%s=8080\n' "$IMYA" > "$RUNDIR/$WP"k27/home/.config/dev-harness/secrets.env
       printf 'http порт 8080\n' > "$RUNDIR/$WP"k27/proj/ports.txt; VID=sessija ;;
-    k28-nodeaddr)
-      mir k28; printf 'NODEADDR=10.0.0.5\n' > "$RUNDIR/$WP"k28/home/.config/dev-harness/secrets.env
+    k28-lyuboe-addr-baz)
+      mir k28; IMYA=$(imya ADDR); printf '%s=10.0.0.5\n' "$IMYA" > "$RUNDIR/$WP"k28/home/.config/dev-harness/secrets.env
       printf 'узел данных 10.0.0.5\n' > "$RUNDIR/$WP"k28/proj/net.md; VID=sessija ;;
-    k29-apiendpoint)
-      mir k29; printf 'APIENDPOINT=http://api.internal:9000\n' > "$RUNDIR/$WP"k29/home/.config/dev-harness/secrets.env
+    k29-lyuboe-endpoint-baz)
+      mir k29; IMYA=$(imya ENDPOINT); printf '%s=http://api.internal:9000\n' "$IMYA" > "$RUNDIR/$WP"k29/home/.config/dev-harness/secrets.env
       printf 'api: http://api.internal:9000/v1\n' > "$RUNDIR/$WP"k29/proj/api.md; VID=sessija ;;
-    k30-clustername)
-      mir k30; printf 'CLUSTERNAME=cluster-prod\n' > "$RUNDIR/$WP"k30/home/.config/dev-harness/secrets.env
+    k30-lyuboe-name-baz)
+      mir k30; IMYA=$(imya NAME); printf '%s=cluster-prod\n' "$IMYA" > "$RUNDIR/$WP"k30/home/.config/dev-harness/secrets.env
       printf 'кластер cluster-prod обслуживает прод\n' > "$RUNDIR/$WP"k30/proj/arch.md; VID=sessija ;;
-    k31-reporty-url-userinfo)
-      mir k31; printf 'REPORTS_URL=http://rep:rep-pw@127.0.0.1:8787\n' > "$RUNDIR/$WP"k31/home/.config/dev-harness/secrets.env
+    k31-lyuboe-url-userinfo)
+      mir k31; IMYA=$(imya _URL); printf '%s=http://rep:rep-pw@127.0.0.1:8787\n' "$IMYA" > "$RUNDIR/$WP"k31/home/.config/dev-harness/secrets.env
       printf 'отчёты с учёткой: http://rep:rep-pw@127.0.0.1:8787/report\n' > "$RUNDIR/$WP"k31/proj/reports.md; VID=otkaz ;;
-    k32-kesh-host-userinfo)
-      mir k32; printf 'CACHE_HOST=back:cache-pw@cache.internal\n' > "$RUNDIR/$WP"k32/home/.config/dev-harness/secrets.env
+    k32-lyuboe-host-userinfo)
+      mir k32; IMYA=$(imya _HOST); printf '%s=back:cache-pw@cache.internal\n' "$IMYA" > "$RUNDIR/$WP"k32/home/.config/dev-harness/secrets.env
       printf 'dsn кэша: back:cache-pw@cache.internal\n' > "$RUNDIR/$WP"k32/proj/infra.md; VID=otkaz ;;
-    k33-grpc-port-userinfo)
-      mir k33; printf 'GRPC_PORT=grpc:grpc-pw@grpc.internal:9090\n' > "$RUNDIR/$WP"k33/home/.config/dev-harness/secrets.env
+    k33-lyuboe-port-userinfo)
+      mir k33; IMYA=$(imya _PORT); printf '%s=grpc:grpc-pw@grpc.internal:9090\n' "$IMYA" > "$RUNDIR/$WP"k33/home/.config/dev-harness/secrets.env
       printf 'grpc dsn: grpc:grpc-pw@grpc.internal:9090\n' > "$RUNDIR/$WP"k33/proj/ports.txt; VID=otkaz ;;
-    k34-proksi-addr-userinfo)
-      mir k34; printf 'PROXY_ADDR=proxy:proxy-pw@10.0.0.9\n' > "$RUNDIR/$WP"k34/home/.config/dev-harness/secrets.env
+    k34-lyuboe-addr-userinfo)
+      mir k34; IMYA=$(imya _ADDR); printf '%s=proxy:proxy-pw@10.0.0.9\n' "$IMYA" > "$RUNDIR/$WP"k34/home/.config/dev-harness/secrets.env
       printf 'прокси dsn: proxy:proxy-pw@10.0.0.9\n' > "$RUNDIR/$WP"k34/proj/net.md; VID=otkaz ;;
-    k35-metrik-endpoint-userinfo)
-      mir k35; printf 'METRICS_ENDPOINT=http://metrics:met-pw@metrics.internal:9100\n' > "$RUNDIR/$WP"k35/home/.config/dev-harness/secrets.env
+    k35-lyuboe-endpoint-userinfo)
+      mir k35; IMYA=$(imya _ENDPOINT); printf '%s=http://metrics:met-pw@metrics.internal:9100\n' "$IMYA" > "$RUNDIR/$WP"k35/home/.config/dev-harness/secrets.env
       printf 'метрики dsn: http://metrics:met-pw@metrics.internal:9100\n' > "$RUNDIR/$WP"k35/proj/metrics.md; VID=otkaz ;;
-    k36-tenant-name-userinfo)
-      mir k36; printf 'TENANT_NAME=tenant:tenant-pw@tenant-alpha.internal\n' > "$RUNDIR/$WP"k36/home/.config/dev-harness/secrets.env
+    k36-lyuboe-name-userinfo)
+      mir k36; IMYA=$(imya _NAME); printf '%s=tenant:tenant-pw@tenant-alpha.internal\n' "$IMYA" > "$RUNDIR/$WP"k36/home/.config/dev-harness/secrets.env
       printf 'тенант dsn: tenant:tenant-pw@tenant-alpha.internal\n' > "$RUNDIR/$WP"k36/proj/arch.md; VID=otkaz ;;
-    k37-siteurl-userinfo)
-      mir k37; printf 'SITEURL=http://site:site-pw@127.0.0.1:8787\n' > "$RUNDIR/$WP"k37/home/.config/dev-harness/secrets.env
+    k37-lyuboe-url-baz-userinfo)
+      mir k37; IMYA=$(imya URL); printf '%s=http://site:site-pw@127.0.0.1:8787\n' "$IMYA" > "$RUNDIR/$WP"k37/home/.config/dev-harness/secrets.env
       printf 'сайт dsn: http://site:site-pw@127.0.0.1:8787\n' > "$RUNDIR/$WP"k37/proj/site.md; VID=otkaz ;;
-    k38-dbhost-userinfo)
-      mir k38; printf 'DBHOST=back:db-pw@db.internal\n' > "$RUNDIR/$WP"k38/home/.config/dev-harness/secrets.env
+    k38-lyuboe-host-baz-userinfo)
+      mir k38; IMYA=$(imya HOST); printf '%s=back:db-pw@db.internal\n' "$IMYA" > "$RUNDIR/$WP"k38/home/.config/dev-harness/secrets.env
       printf 'база dsn: back:db-pw@db.internal\n' > "$RUNDIR/$WP"k38/proj/db.md; VID=otkaz ;;
-    k39-httpport-userinfo)
-      mir k39; printf 'HTTPPORT=http:hp-pw@port.internal:8080\n' > "$RUNDIR/$WP"k39/home/.config/dev-harness/secrets.env
+    k39-lyuboe-port-baz-userinfo)
+      mir k39; IMYA=$(imya PORT); printf '%s=http:hp-pw@port.internal:8080\n' "$IMYA" > "$RUNDIR/$WP"k39/home/.config/dev-harness/secrets.env
       printf 'порт dsn: http:hp-pw@port.internal:8080\n' > "$RUNDIR/$WP"k39/proj/ports.txt; VID=otkaz ;;
-    k40-nodeaddr-userinfo)
-      mir k40; printf 'NODEADDR=node:node-pw@10.0.0.5\n' > "$RUNDIR/$WP"k40/home/.config/dev-harness/secrets.env
+    k40-lyuboe-addr-baz-userinfo)
+      mir k40; IMYA=$(imya ADDR); printf '%s=node:node-pw@10.0.0.5\n' "$IMYA" > "$RUNDIR/$WP"k40/home/.config/dev-harness/secrets.env
       printf 'узел dsn: node:node-pw@10.0.0.5\n' > "$RUNDIR/$WP"k40/proj/net.md; VID=otkaz ;;
-    k41-apiendpoint-userinfo)
-      mir k41; printf 'APIENDPOINT=http://api:api-pw@api.internal:9000\n' > "$RUNDIR/$WP"k41/home/.config/dev-harness/secrets.env
+    k41-lyuboe-endpoint-baz-userinfo)
+      mir k41; IMYA=$(imya ENDPOINT); printf '%s=http://api:api-pw@api.internal:9000\n' "$IMYA" > "$RUNDIR/$WP"k41/home/.config/dev-harness/secrets.env
       printf 'api dsn: http://api:api-pw@api.internal:9000\n' > "$RUNDIR/$WP"k41/proj/api.md; VID=otkaz ;;
-    k42-clustername-userinfo)
-      mir k42; printf 'CLUSTERNAME=cluster:cl-pw@cluster-prod.internal\n' > "$RUNDIR/$WP"k42/home/.config/dev-harness/secrets.env
+    k42-lyuboe-name-baz-userinfo)
+      mir k42; IMYA=$(imya NAME); printf '%s=cluster:cl-pw@cluster-prod.internal\n' "$IMYA" > "$RUNDIR/$WP"k42/home/.config/dev-harness/secrets.env
       printf 'кластер dsn: cluster:cl-pw@cluster-prod.internal\n' > "$RUNDIR/$WP"k42/proj/arch.md; VID=otkaz ;;
     # ── ось Z: значение ──
     z1-korotkoe)
@@ -341,7 +350,7 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       if [ "$RC" = 1 ] && grep -qF 'sekret-v-dereve' "$M/err" && [ "$(calls "${id%%-*}")" = 0 ]; then
         printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
       else
-        printf 'КЛЕТКА %s КРАСНА: ждали отказ sekret-v-dereve rc 1 без сессии; rc=%s calls=%s (%s)\n' "$id" "$RC" "$(calls "${id%%-*}")" "$(err1 "${id%%-*}")"
+        printf 'КЛЕТКА %s КРАСНА: ждали отказ sekret-v-dereve rc 1 без сессии; rc=%s calls=%s (%s)%s\n' "$id" "$RC" "$(calls "${id%%-*}")" "$(err1 "${id%%-*}")" "${IMYA:+ imya=$IMYA}"
       fi ;;
     sessija)
       M="$RUNDIR/$WP${id%%-*}"
@@ -349,7 +358,7 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       if [ "$RC" = 0 ] && [ "$(calls "${id%%-*}")" = 1 ]; then
         printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
       else
-        printf 'КЛЕТКА %s КРАСНА: ждали сессию rc 0 (адрес/параметр не судится); rc=%s calls=%s (%s)\n' "$id" "$RC" "$(calls "${id%%-*}")" "$(err1 "${id%%-*}")"
+        printf 'КЛЕТКА %s КРАСНА: ждали сессию rc 0 (адрес/параметр не судится); rc=%s calls=%s (%s)%s\n' "$id" "$RC" "$(calls "${id%%-*}")" "$(err1 "${id%%-*}")" "${IMYA:+ imya=$IMYA}"
       fi ;;
     f7)
       M="$RUNDIR/$WP${id%%-*}"
