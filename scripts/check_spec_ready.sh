@@ -616,7 +616,10 @@ done <<<"$DRAFT_FULL"
 # переносит ЗОНУ implementer ПРОДУКТОВОГО репо на новые пути; implementer 109 коммитит в Complior-back,
 # в репо харнесса коммитов по выпавшим путям у него нет и быть не может. Замкнутый перечень номеров;
 # действует ТОЛЬКО при пустом множестве коммитов роли — непустое судится как обычно.
-ZONE_MOVE_EXEMPT=" 109 "
+# 007 (Complior-back): слово владельца 2026-10-26 — контракт 007 v2 переносит ЗОНУ implementer продуктового репо
+# с app/{api,application}/partner-links/, app/application/entry/ на домены ARCHITECTURE §5 (invitations, session);
+# форк Complior-back .harness/forks/007-zone-move-gate.md. Тот же класс, что 109; только при пустом множестве коммитов роли.
+ZONE_MOVE_EXEMPT=" 109 007 "
 for key in "${!_dropped_role_path[@]}"; do
   role="${key%%/*}"
   path="${key#*/}"
