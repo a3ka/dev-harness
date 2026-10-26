@@ -22,7 +22,8 @@
 #   env-v-indekse         — `.harness/.env` уже отслеживается git проекта: секреты
 #                           не пишутся, файл не трогаем (снять с учёта: `git rm
 #                           --cached .harness/.env`);
-#   sekret-v-dereve       — значение дома секретов нашлось в файле, который git
+#   sekret-v-dereve       — значение СЕКРЕТНОГО ключа дома секретов нашлось в файле,
+#                           который git
 #                           проекта может проиндексировать (отслеживаемом или
 #                           неигнорируемом), под ЛЮБЫМ именем — судим рабочую копию
 #                           на КАЖДОМ входе, повторный вход не слабее первого.
@@ -275,6 +276,19 @@ fi
 # в отказе — имя файла, не значение.
 if [ -f "$DOM_SEKRETOV" ]; then
   ZNACH=$(mktemp) || otkaz "нет mktemp"
+  # 142 (skaner-sekretov, слово владельца 2026-10-26): страж судит только
+  # значения СЕКРЕТНЫХ ключей дома секретов; адреса и прочие параметры дома
+  # секретов (адресный суффикс имени И значение без учётных данных) не
+  # сканируются. Секретный маркер в имени сильнее адресного суффикса;
+  # неизвестное имя — СЕКРЕТ (fail-closed: перечень секретов открыт —
+  # DATABASE_URL с учётными данными, PRIVATE_KEY, *_PASSPHRASE, AUTH, COOKIE…).
+  # Канон предиката — ТРИ строки ниже (побайтово из source.json батареи 142,
+  # единый источник; клетка r1 сверяет их в субъекте).
+  SEKRET_MARKERY="KEY TOKEN SECRET PASSWD PASSWORD PASSPHRASE PRIVATE AUTH COOKIE CREDENTIAL"
+  ADRES_SUFFIKSY="_URL _HOST _PORT _ADDR _ENDPOINT _NAME URL HOST PORT ADDR ENDPOINT NAME"
+  USERINFO_RE='[^/@[:space:]]*:[^/@[:space:]]*@'
+  sekretnyj_marker() { for _m in $SEKRET_MARKERY; do case " $1 " in *" $_m "*) return 0 ;; esac; done; return 1; }
+  adresnyj_suffiks() { for _s in $ADRES_SUFFIKSY; do [ "$1" != "${1%$_s}" ] && return 0; done; return 1; }
   # Парсим KEY=VALUE как workshop: разрез по первому «=», ключ — alphanumeric
   # с подчёркиванием (по `[A-Za-z_][A-Za-z0-9_]*`, как load_env). Пишем
   # значение в обеих формах — дословно (для прямой записи значения в файле) и
@@ -291,6 +305,12 @@ if [ -f "$DOM_SEKRETOV" ]; then
     case "$k" in ''|'#'*) continue ;; esac
     k="${k%% *}"
     [ -n "$v" ] || continue
+    _ku=$(printf '%s' "$k" | tr 'a-z' 'A-Z')
+    _kt=${_ku//_/ }
+    if sekretnyj_marker "$_kt"; then :
+    elif adresnyj_suffiks "$_ku" && ! printf '%s' "$v" | grep -Eq -- "$USERINFO_RE"; then
+      continue # параметр дома секретов: адрес/порт/имя без учётных данных
+    fi
     printf '%s\n' "$v"
     u=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')
     [ -n "$u" ] && printf '%s\n' "$u"
@@ -300,7 +320,7 @@ if [ -f "$DOM_SEKRETOV" ]; then
     HIT=$(git ls-files -z --cached --others --exclude-standard | xargs -0r grep -lsF -f "$ZNACH" -- | sed -n 1p)
   fi
   rm -f "$ZNACH"
-  unset ZNACH _need
+  unset ZNACH _need _ku _kt
   [ -z "$HIT" ] || otkaz "sekret-v-dereve: значение дома секретов в файле «$HIT», который git может проиндексировать — сессия не запускается"
 fi
 
