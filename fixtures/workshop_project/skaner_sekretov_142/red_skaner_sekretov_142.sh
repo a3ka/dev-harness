@@ -56,9 +56,9 @@ done
 die2() { printf 's142: %s\n' "$*" >&2; exit 2; }
 
 # ── согласованность source.json: оси ↔ клетки ↔ стабы ↔ канон ↔ пин модели ──
-jq -e '.osi | type == "array" and length == 38' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 38 в source.json"
+jq -e '.osi | type == "array" and length == 62' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 62 в source.json"
 mapfile -t OSIDS < <(jq -r '.osi[].id' "$SRC_JSON")
-[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 38 ] || die2 "иды осей не уникальны"
+[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 62 ] || die2 "иды осей не уникальны"
 mapfile -t STAB_KEYS < <(jq -r '.stab_vhod | keys[]' "$SRC_JSON" | LC_ALL=C sort)
 mapfile -t STAB_FILES < <(cd "$BATT/stabs" && ls stab_*.sh 2>/dev/null | sed 's/\.sh$//' | LC_ALL=C sort)
 [ "${STAB_KEYS[*]:-}" = "${STAB_FILES[*]:-}" ] \
@@ -189,6 +189,86 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       mir k18; printf 'metering_proxy_url=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"k18/home/.config/dev-harness/secrets.env
       mkdir -p "$RUNDIR/$WP"k18/proj/.harness/verdicts/critic
       printf 'прогон: curl http://127.0.0.1:8787/zamer\n' > "$RUNDIR/$WP"k18/proj/.harness/verdicts/critic/kontrol.md; VID=sessija ;;
+    # ── ось K, закрытие И-3 (вердикт contracts-142-v1): адресный предикат —
+    # АЛФАВИТ суффиксов, не белый список имён. По положительной клетке на
+    # КАЖДЫЙ суффикс замкнутого алфавита канона (_URL _HOST _PORT _ADDR
+    # _ENDPOINT _NAME и базовые URL HOST PORT ADDR ENDPOINT NAME), имя ранее
+    # не использовано и без секретных маркеров по подчёркиванию; парная клетка
+    # (k31–k42) — то же имя + userinfo в значении → отказ (учётка сильнее
+    # суффикса). Стаб whitelist пяти имён прежних позитивных клеток краснеет
+    # ровно на k19–k30.
+    k19-reporty-url)
+      mir k19; printf 'REPORTS_URL=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"k19/home/.config/dev-harness/secrets.env
+      printf 'отчёты: curl http://127.0.0.1:8787/report\n' > "$RUNDIR/$WP"k19/proj/reports.md; VID=sessija ;;
+    k20-kesh-host)
+      mir k20; printf 'CACHE_HOST=cache.internal\n' > "$RUNDIR/$WP"k20/home/.config/dev-harness/secrets.env
+      printf 'кэш развёрнут на cache.internal\n' > "$RUNDIR/$WP"k20/proj/infra.md; VID=sessija ;;
+    k21-grpc-port)
+      mir k21; printf 'GRPC_PORT=9090\n' > "$RUNDIR/$WP"k21/home/.config/dev-harness/secrets.env
+      printf 'grpc слушает 9090\n' > "$RUNDIR/$WP"k21/proj/ports.txt; VID=sessija ;;
+    k22-proksi-addr)
+      mir k22; printf 'PROXY_ADDR=10.0.0.9\n' > "$RUNDIR/$WP"k22/home/.config/dev-harness/secrets.env
+      printf 'прокси узла 10.0.0.9\n' > "$RUNDIR/$WP"k22/proj/net.md; VID=sessija ;;
+    k23-metrik-endpoint)
+      mir k23; printf 'METRICS_ENDPOINT=http://metrics.internal:9100\n' > "$RUNDIR/$WP"k23/home/.config/dev-harness/secrets.env
+      printf 'метрики: http://metrics.internal:9100/metrics\n' > "$RUNDIR/$WP"k23/proj/metrics.md; VID=sessija ;;
+    k24-tenant-name)
+      mir k24; printf 'TENANT_NAME=tenant-alpha\n' > "$RUNDIR/$WP"k24/home/.config/dev-harness/secrets.env
+      printf 'тенант tenant-alpha отвечает за отчёты\n' > "$RUNDIR/$WP"k24/proj/arch.md; VID=sessija ;;
+    k25-siteurl)
+      mir k25; printf 'SITEURL=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"k25/home/.config/dev-harness/secrets.env
+      printf 'сайт: http://127.0.0.1:8787/home\n' > "$RUNDIR/$WP"k25/proj/site.md; VID=sessija ;;
+    k26-dbhost)
+      mir k26; printf 'DBHOST=db.internal\n' > "$RUNDIR/$WP"k26/home/.config/dev-harness/secrets.env
+      printf 'база данных на db.internal\n' > "$RUNDIR/$WP"k26/proj/db.md; VID=sessija ;;
+    k27-httpport)
+      mir k27; printf 'HTTPPORT=8080\n' > "$RUNDIR/$WP"k27/home/.config/dev-harness/secrets.env
+      printf 'http порт 8080\n' > "$RUNDIR/$WP"k27/proj/ports.txt; VID=sessija ;;
+    k28-nodeaddr)
+      mir k28; printf 'NODEADDR=10.0.0.5\n' > "$RUNDIR/$WP"k28/home/.config/dev-harness/secrets.env
+      printf 'узел данных 10.0.0.5\n' > "$RUNDIR/$WP"k28/proj/net.md; VID=sessija ;;
+    k29-apiendpoint)
+      mir k29; printf 'APIENDPOINT=http://api.internal:9000\n' > "$RUNDIR/$WP"k29/home/.config/dev-harness/secrets.env
+      printf 'api: http://api.internal:9000/v1\n' > "$RUNDIR/$WP"k29/proj/api.md; VID=sessija ;;
+    k30-clustername)
+      mir k30; printf 'CLUSTERNAME=cluster-prod\n' > "$RUNDIR/$WP"k30/home/.config/dev-harness/secrets.env
+      printf 'кластер cluster-prod обслуживает прод\n' > "$RUNDIR/$WP"k30/proj/arch.md; VID=sessija ;;
+    k31-reporty-url-userinfo)
+      mir k31; printf 'REPORTS_URL=http://rep:rep-pw@127.0.0.1:8787\n' > "$RUNDIR/$WP"k31/home/.config/dev-harness/secrets.env
+      printf 'отчёты с учёткой: http://rep:rep-pw@127.0.0.1:8787/report\n' > "$RUNDIR/$WP"k31/proj/reports.md; VID=otkaz ;;
+    k32-kesh-host-userinfo)
+      mir k32; printf 'CACHE_HOST=back:cache-pw@cache.internal\n' > "$RUNDIR/$WP"k32/home/.config/dev-harness/secrets.env
+      printf 'dsn кэша: back:cache-pw@cache.internal\n' > "$RUNDIR/$WP"k32/proj/infra.md; VID=otkaz ;;
+    k33-grpc-port-userinfo)
+      mir k33; printf 'GRPC_PORT=grpc:grpc-pw@grpc.internal:9090\n' > "$RUNDIR/$WP"k33/home/.config/dev-harness/secrets.env
+      printf 'grpc dsn: grpc:grpc-pw@grpc.internal:9090\n' > "$RUNDIR/$WP"k33/proj/ports.txt; VID=otkaz ;;
+    k34-proksi-addr-userinfo)
+      mir k34; printf 'PROXY_ADDR=proxy:proxy-pw@10.0.0.9\n' > "$RUNDIR/$WP"k34/home/.config/dev-harness/secrets.env
+      printf 'прокси dsn: proxy:proxy-pw@10.0.0.9\n' > "$RUNDIR/$WP"k34/proj/net.md; VID=otkaz ;;
+    k35-metrik-endpoint-userinfo)
+      mir k35; printf 'METRICS_ENDPOINT=http://metrics:met-pw@metrics.internal:9100\n' > "$RUNDIR/$WP"k35/home/.config/dev-harness/secrets.env
+      printf 'метрики dsn: http://metrics:met-pw@metrics.internal:9100\n' > "$RUNDIR/$WP"k35/proj/metrics.md; VID=otkaz ;;
+    k36-tenant-name-userinfo)
+      mir k36; printf 'TENANT_NAME=tenant:tenant-pw@tenant-alpha.internal\n' > "$RUNDIR/$WP"k36/home/.config/dev-harness/secrets.env
+      printf 'тенант dsn: tenant:tenant-pw@tenant-alpha.internal\n' > "$RUNDIR/$WP"k36/proj/arch.md; VID=otkaz ;;
+    k37-siteurl-userinfo)
+      mir k37; printf 'SITEURL=http://site:site-pw@127.0.0.1:8787\n' > "$RUNDIR/$WP"k37/home/.config/dev-harness/secrets.env
+      printf 'сайт dsn: http://site:site-pw@127.0.0.1:8787\n' > "$RUNDIR/$WP"k37/proj/site.md; VID=otkaz ;;
+    k38-dbhost-userinfo)
+      mir k38; printf 'DBHOST=back:db-pw@db.internal\n' > "$RUNDIR/$WP"k38/home/.config/dev-harness/secrets.env
+      printf 'база dsn: back:db-pw@db.internal\n' > "$RUNDIR/$WP"k38/proj/db.md; VID=otkaz ;;
+    k39-httpport-userinfo)
+      mir k39; printf 'HTTPPORT=http:hp-pw@port.internal:8080\n' > "$RUNDIR/$WP"k39/home/.config/dev-harness/secrets.env
+      printf 'порт dsn: http:hp-pw@port.internal:8080\n' > "$RUNDIR/$WP"k39/proj/ports.txt; VID=otkaz ;;
+    k40-nodeaddr-userinfo)
+      mir k40; printf 'NODEADDR=node:node-pw@10.0.0.5\n' > "$RUNDIR/$WP"k40/home/.config/dev-harness/secrets.env
+      printf 'узел dsn: node:node-pw@10.0.0.5\n' > "$RUNDIR/$WP"k40/proj/net.md; VID=otkaz ;;
+    k41-apiendpoint-userinfo)
+      mir k41; printf 'APIENDPOINT=http://api:api-pw@api.internal:9000\n' > "$RUNDIR/$WP"k41/home/.config/dev-harness/secrets.env
+      printf 'api dsn: http://api:api-pw@api.internal:9000\n' > "$RUNDIR/$WP"k41/proj/api.md; VID=otkaz ;;
+    k42-clustername-userinfo)
+      mir k42; printf 'CLUSTERNAME=cluster:cl-pw@cluster-prod.internal\n' > "$RUNDIR/$WP"k42/home/.config/dev-harness/secrets.env
+      printf 'кластер dsn: cluster:cl-pw@cluster-prod.internal\n' > "$RUNDIR/$WP"k42/proj/arch.md; VID=otkaz ;;
     # ── ось Z: значение ──
     z1-korotkoe)
       mir z1; printf 'ZAI_API_KEY=ab\n' > "$RUNDIR/$WP"z1/home/.config/dev-harness/secrets.env
@@ -295,7 +375,7 @@ schet() { # $1 = файл клеток; $2 = метка режима
   local G R
   G=$(grep -c '^КЛЕТКА .* ЗЕЛЕНА$' "$1"); R=$(grep -c '^КЛЕТКА .* КРАСНА' "$1")
   printf 's142 %s: клеток %s, зелёных %s, красных %s\n' "$2" "$((G+R))" "$G" "$R" >&2
-  [ "$((G+R))" = 38 ] || { printf 's142: клеток %s ≠ 38 — мир сломан\n' "$((G+R))" >&2; return 2; }
+  [ "$((G+R))" = 62 ] || { printf 's142: клеток %s ≠ 62 — мир сломан\n' "$((G+R))" >&2; return 2; }
   [ "$R" = 0 ] || return 1
 }
 
