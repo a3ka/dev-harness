@@ -32,7 +32,8 @@
 #                    факт разбором JSON — здесь байтовый якорь);
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
 #                    done/contracts/<NNN>/* (слот закрыт), contracts/<NNN>-*.md
-#                    (строка «КЛАСС РИСКА: рисковый»).
+#                    (строка «КЛАСС РИСКА:»; все <NNN>-*.md согласны — иначе
+#                    класс неоднозначен, KLASS_RISKA_NET).
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
@@ -161,12 +162,51 @@ na_pauze() {  # <NNN>
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # [D13 klass-riska] строка «КЛАСС РИСКА:» в contracts/<NNN>-*.md обязательна:
 # нет файла ИЛИ нет строки — net_stroki (fail-closed, слово владельца 24.10).
-klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki
-  local f
-  f="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | sed -n '1p')"
+# Канон выбора (FAIL адверсария 140, вызов 1/2): класс судится по ВСЕМ файлам
+# <NNN>-*.md, «первый результат find» — НЕ канон (SUBJECT несёт только NNN);
+# 0 файлов, отсутствие строки, значение вне алфавита (обычный|рисковый) либо
+# РАЗЛИЧАЮЩИЕСЯ значения у файлов — net_stroki: источник риска неоднозначен,
+# отказ KLASS_RISKA_NET до START и до создания дочернего агента; все согласны —
+# их общее значение (один файл и несколько согласных — прежнее поведение).
+klass_riska_fajla() {  # <файл> → risikovyj|obychnyj|net_stroki
+  local f="$1"
+  # значение — алфавит обычный|рисковый: вне алфавита или оба сразу — net_stroki
+  if grep -q '^КЛАСС РИСКА:' "$f"; then
+    if ! grep -q '^КЛАСС РИСКА: обычный' "$f" && ! grep -q '^КЛАСС РИСКА: рисковый' "$f"; then
+      printf 'net_stroki'; return 0
+    fi
+    if grep -q '^КЛАСС РИСКА: обычный' "$f" && grep -q '^КЛАСС РИСКА: рисковый' "$f"; then
+      printf 'net_stroki'; return 0
+    fi
+  fi
   if [ -z "$f" ]; then printf 'net_stroki'; return 0; fi
   if ! grep -q '^КЛАСС РИСКА:' "$f"; then printf 'net_stroki'; return 0; fi
   if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi
+}
+klass_riska() {  # <NNN> → KR_KLASS (risikovyj|obychnyj|net_stroki) + KR_SPISOK
+  local f v pervyj spisok
+  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"
+  KR_SPISOK=''
+  if [ -z "$spisok" ]; then
+    KR_SPISOK="файлов contracts/$1-*.md нет"; KR_KLASS='net_stroki'; return 0
+  fi
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    KR_SPISOK="${KR_SPISOK:+$KR_SPISOK }${f##*/}"
+  done <<EOF
+$spisok
+EOF
+  pervyj=''
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    v="$(klass_riska_fajla "$f")"
+    if [ "$v" = 'net_stroki' ]; then KR_KLASS='net_stroki'; return 0; fi
+    if [ -z "$pervyj" ]; then pervyj="$v"; fi
+    if [ "$pervyj" != "$v" ]; then KR_KLASS='net_stroki'; return 0; fi
+  done <<EOF
+$spisok
+EOF
+  KR_KLASS="$pervyj"
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
@@ -457,10 +497,12 @@ EOF
         mutexi_snyat_vse
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
-      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24).
-      kr="$(klass_riska "$sv")"
+      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); канон
+      # выбора — ВСЕ contracts/<NNN>-*.md (см. klass_riska): разногласие,
+      # отсутствие строки/файла или значение вне алфавита — неоднозначно.
+      klass_riska "$sv"; kr="$KR_KLASS"
       if [ "$kr" = 'net_stroki' ]; then
-        mutexi_snyat_vse; otp KLASS_RISKA_NET "предмет $sv: contracts/$sv-*.md без строки КЛАСС РИСКА:"
+        mutexi_snyat_vse; otp KLASS_RISKA_NET "предмет $sv: КЛАСС РИСКА contracts/$sv-*.md неоднозначно определён (нет файлов/строки, значение вне алфавита либо значения различаются): $KR_SPISOK"
       fi
       # [D14 adv-do-rev] рисковый предмет: ревьюер — после завершённого адверсария.
       if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then
