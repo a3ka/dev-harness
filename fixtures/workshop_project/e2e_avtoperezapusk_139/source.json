@@ -37,12 +37,12 @@
   "contents": "read"
  },
  "nositeli": {
-  "mobile.yml": "31c400e7569e9833c0cacac4a0db8e852d5e08f6ea66176f0159869bfc8c32ae",
+  "mobile.yml": "f45c68230eb83b12c8aa81173da4b9d46608b966acfef7da7ba6178d21087421",
   "zhivoj_log_40198243018_skript_eho.log": "5b73f69940007eb26eb81fc02c98bfc7728a533b1db04d484db1105798541655",
   "model/mobile-e2e-retry.yml": "53beb5949243a8cfef2ec4cd780395bb042f144f06f3c26a342fbea1370ab779"
  },
  "istochniki": {
-  "mobile.yml": "Complior-mob origin/main 1e9bcc59a2d0df2fbf16aa97a5108f1f74e801cf (merge PR #121), байтовая копия",
+  "mobile.yml": "Complior-mob голова PR #124 799bbc890598a197a9f48428d7b764a7c8918729 (141 внутри + пин H native-шага 995 v2 + merge main #126), байтовая копия",
   "zhivoj_log_40198243018_skript_eho.log": "живой лог job 121184287236 (android-e2e, failure) run 40198243018, строки 2030-2133: сигнатуры обрыва adb ТОЛЬКО в эхе скрипта (##[group]Run … ##[endgroup]), фактическая причина PRICHINA E2E_NE_PROSHLA rc=1 — повтор не делается"
  },
  "kejsy": {
