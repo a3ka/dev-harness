@@ -248,18 +248,32 @@ transportnaya_prichina() {   # $1 = podhod-N; rc 0 = транспортная
   return 0
 }
 
-# Публикация: финальные JUnit/PNG — ОДНОЙ (финальной) попытки в вершине
-# maestro-out; текстовая диагностика ВСЕХ попыток — в maestro-out/diagnostics.
-# Кадры нефинальных попыток не публикуются, первая попытка не стирается.
+# Публикация (995 v4): финальная попытка публикуется ЖИВОЙ структурой её
+# test-вывода целиком — как v1 (каталог maestro-out = test-output-dir:
+# report.xml, maestro.log и ВСЁ дерево «<метка-времени>/<флоу>/…» — commands.json,
+# logs/, manifest.json, takeScreenshot/*.png). Вложенные кадры читают
+# потребители публикации: P пробы (rglob по maestro-out: кадры pilot-first-run/
+# pilot-welcome/pilot-restart вне diagnostics, иначе именованный отказ
+# неполного evidence) и rehearsal-гейт продукта (рекурсивный поиск
+# rehearsal-before/after.png в maestro-out, ровно один непустой каждого имени).
+# Кадры/деревья НЕфинальных попыток не публикуются (как в v2/v3: первая попытка
+# живёт только текстом в diagnostics/attempt-N/ и flows упавших); текстовая
+# диагностика ВСЕХ попыток — в maestro-out/diagnostics; просроченные артефакты
+# публикация стирает. Форма test-вывода не переупаковывается: верхние файлы
+# копируются файлами, деревья — деревьями (кадры байт-в-байт).
 opublikovat() {   # $1 = номер финальной попытки
-  local n="$1" d num f
+  local n="$1" d num f ts
   rm -rf maestro-out
   mkdir -p maestro-out/diagnostics
   if [ -f "podhod-$n/report.xml" ]; then
     cp "podhod-$n/report.xml" maestro-out/report.xml
   fi
-  for f in "podhod-$n"/test/*.png; do
-    if [ -f "$f" ]; then cp "$f" maestro-out/; fi
+  if [ -f "podhod-$n/maestro.log" ]; then
+    cp "podhod-$n/maestro.log" maestro-out/maestro.log
+  fi
+  for ts in "podhod-$n"/test/*; do
+    [ -e "$ts" ] || continue
+    cp -R "$ts" maestro-out/
   done
   for d in podhod-*/diag; do
     [ -d "$d" ] || continue

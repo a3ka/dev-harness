@@ -1,5 +1,5 @@
 {
- "versija": 4,
+ "versija": 5,
  "kontrakt": "995-cmp-mob-001-android-pilot",
  "subjekt": "mobile/scripts/ci-e2e.sh",
  "subjekt_p": "fixtures/workshop_project/pilot_995/maestro_probe.py",
@@ -43,7 +43,7 @@
   "sleep"
  ],
  "nositeli": {
-  "model/ci-e2e.sh": "99759129ae59b06c24d1f40827b0bb83cdab69eb8e84abf1c3fbaf9cf8067454",
+  "model/ci-e2e.sh": "0fa425b5db4752633c7ea453065503bfa8ecefa67e1bef8a7e66102426897f30",
   "model/maestro_probe.py": "9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749",
   "nositeli/ci-e2e-staryj.sh": "21715b69f59df4aca45ba16f5184a5a403d15e083a39fe6d0f64f8b69055eee7",
   "nositeli/maestro_probe-staryj.py": "0a20a690dcb163314f3b22cd6785ac2d415cae97e3bae6a9bd3717f6c94b5277",
@@ -53,13 +53,33 @@
   "zhivoj/2026-10-26_133159/995 synthetic DIRECT entry and restart/manifest.json": "07e70fe3d8bcdbc314233f849402c91b157041fe1e99449c184d57bbdec3fccc",
   "zhivoj/2026-10-26_133159/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/commands.json": "4faccabd4facdd75f2241e07b3688f44ce2205d90e450a6a003249267d6635b2",
   "zhivoj/2026-10-26_133159/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/logs/maestro.log": "3c9a71d8d8ef6593ecb7f13b1b9f804dca7048059cb347aef365b30304615e57",
-  "zhivoj/2026-10-26_133159/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/manifest.json": "d1dba9c3478f0ec8025aaf7d9beb058857e77633a482ea90c84bd7413afa0b43"
+  "zhivoj/2026-10-26_133159/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/manifest.json": "d1dba9c3478f0ec8025aaf7d9beb058857e77633a482ea90c84bd7413afa0b43",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/commands.json": "dfb3ca159597d952e566854aad167f96df436d39d1170b9c03daa5f82de6c46f",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/logs/maestro.log": "4d958c249f6bf24889408cc444c20a28eecfe96df8eda5552d39936d41bc60b9",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/logs/device-logcat.txt": "d1d8e8f34d02eff88158d0a9f2f14777778483b8792dce58a2e1b03e5cd7e2cb",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/manifest.json": "d9bdf53763dfcfb1df60a9f57e6c595b5b5611c6c5cf12d4e91cae638c5ec5c9",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/takeScreenshot/pilot-first-run.png": "3c37958d783a7f0a9b37ed0c6e4de78237aa182d2685e318381cd9c2ff809e7f",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/takeScreenshot/pilot-welcome.png": "6d8c54b9eb6f239a1c4dcb24b967c09fef9a7e2be80d0e5589b6209cdb009cb3",
+  "zhivoj/2026-10-26_114125/995 synthetic DIRECT entry and restart/takeScreenshot/pilot-restart.png": "c1b4a05e36d3c4556224c21f1641ef043cf6e320e6ebe0b281ea0e8dab1b3ad2",
+  "zhivoj/2026-10-26_114125/991 start action and new-launch reset/commands.json": "6af1a3e7e0d2a8d486f36bd4dbdcb3e7da2f0ece8a1d5841850b6540422785ab",
+  "zhivoj/2026-10-26_114125/991 start action and new-launch reset/logs/maestro.log": "a04070c21d48a83e14f72f7c409444c2172368533c0117b8c941e323b12b89d7",
+  "zhivoj/2026-10-26_114125/991 start action and new-launch reset/logs/device-logcat.txt": "9f682fad70ed1006d7288deb28ea3aec02223d35b377441eb1cb44ec266f8c55",
+  "zhivoj/2026-10-26_114125/991 start action and new-launch reset/manifest.json": "0e0af4c979254a40a884edb65f9479aa44c08842588ce32ff8bf81b409d0c8a3",
+  "zhivoj/2026-10-26_114125/991 start action and new-launch reset/takeScreenshot/rehearsal-before.png": "c4e922b530431fa1740ff8c38ff7b3d4eb0e53ea99aaf8ad8de6ede82ebb7e9d",
+  "zhivoj/2026-10-26_114125/991 start action and new-launch reset/takeScreenshot/rehearsal-after.png": "79de20dddd9352025b5af6ef2437b145bb64be1b85a0d39491943e18e3be2b1a",
+  "zhivoj/2026-10-26_114125/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/commands.json": "2a090f14b4da6539c69cc97a97152b53b8d5bd2401a7b4391c7fbc1a748b4886",
+  "zhivoj/2026-10-26_114125/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/logs/maestro.log": "984b1b95ce1813f9e12626b8e253c2858acccb6a1db0d995e334b99b863bf12c",
+  "zhivoj/2026-10-26_114125/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/logs/device-logcat.txt": "12de43abc8923d2d5abfb8c8aa685750510f91c25501758a91265590cd36f025",
+  "zhivoj/2026-10-26_114125/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/manifest.json": "30aa296989ad9de0a29302609f876c29313d651df20d7cb14579cd4303331d73",
+  "zhivoj/2026-10-26_114125/999 tabs — четыре вкладки Start_Vorgänge_Schutz_Post и вторичный профиль/takeScreenshot/nav-start.png": "d565564e5306d5d9884ac2eaeec62907c454aad2ebc590085ed59250e05aac79"
  },
  "istochniki": {
   "osnova": "продукт Complior-mob, голова PR #124 cmp-mob-118/erstinformation-prod @ 52a5cf5 (mobile/scripts/ci-e2e.sh, .github/workflows/mobile.yml)",
   "konsultacija": "verdicts/consultant/995-obryv-emulyatora-astra-v1.md §7–§11 (слово владельца 2026-10-26 ~15:30 Берлин «да, принимаем» — план целиком)",
   "staryj-p": "fixtures/workshop_project/pilot_995/maestro_probe.py @ main (sha256 0a20a690… — тот же файл, что исполняется пином H; сверка Astra §3)",
-  "zhivoj-format": "живой артефакт прогона v1 run 40381520936 серии 799bbc890 (report.xml 7×\"Unknown error\"; per-flow commands.json message \"Command failed (host:transport:emulator-5560): device offline\"; logs/maestro.log; имена флоу с пробелами/кириллицей/«—»/«→») — байт-эталон формата, пин в nositeli (zhivoj/); подложный maestro батареи порождает тот же формат"
+  "zhivoj-format": "живой артефакт прогона v1 run 40381520936 серии 799bbc890 (report.xml 7×\"Unknown error\"; per-flow commands.json message \"Command failed (host:transport:emulator-5560): device offline\"; logs/maestro.log; имена флоу с пробелами/кириллицей/«—»/«→») — байт-эталон формата, пин в nositeli (zhivoj/); подложный maestro батареи порождает тот же формат",
+  "zhivoe-derevo": "живой ЗЕЛЁНЫЙ артефакт прогона v1 run 40316137237 (серия 799bbc890, artgreen/): test-вывод деревьями <ts>/<флоу>/{commands.json,logs/maestro.log,logs/device-logcat.txt,manifest.json,takeScreenshot/*.png}, PNG верхнего уровня НЕТ — байт-эталон живой структуры, пин zhivoj/2026-10-26_114125/ (3 флоу: пилот 995, rehearsal 991, «/»-флоу 999 tabs); дефект v3 — серия ba5ebbc9279 run 40412181305: 7/7 passed → NATIVE_EVIDENCE_INCOMPLETE (публикация без деревьев)",
+  "potrebitel-rehearsal": "потребитель «Check rehearsal evidence» — scripts/rehearsal-evidence.sh продукта @ ba5ebbc9279bcde0b5a3c168bdc98eef24969a4c (шаг mobile.yml после runner 995, cwd=mobile/): JUnit rehearsal SUCCESS без провалов + рекурсивный find ровно одного непустого rehearsal-before/after.png в maestro-out; байт-копия в potrebiteli/, пин sha256 (дрейф продукта = rc 2 ORACLE_TAMPERED)"
  },
  "kejsy": {
   "pervaja-zelena": {
@@ -3699,6 +3719,697 @@
      }
     }
    }
+  },
+  "zhivoe-derevo-zelenyj": {
+   "tip": "s-replay",
+   "opisanie": "(н) живое дерево: ЗЕЛЁНЫЙ набор 7/7 в ЖИВОМ формате Maestro — test-вывод деревьями <ts>/<флоу>/takeScreenshot/<кадры> (пилот-флоу несёт pilot-first-run/pilot-welcome/pilot-restart, sles-флоу — каталог с «_»), PNG верхнего уровня НЕТ; публикация S = финальная попытка целиком (report.xml, maestro.log, деревья всех флоу), кадры попытки 1. Красна на модели v3: публикация без деревьев — зелёный набор 7/7 оставляет потребителя без кадров (серия ba5ebbc9279, run 40412181305)",
+   "scena": {
+    "maestro_rc": [
+     0
+    ],
+    "transport_posle": [
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "ok|||pilot-first-run+pilot-welcome+pilot-restart",
+      "ok||sles|",
+      "ok|||start-initial",
+      "ok||bogatoe|",
+      "ok|||nav-start",
+      "ok|||vkhod-splash",
+      "ok|||"
+     ]
+    ]
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=0",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED",
+     "ОТКАЗ"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"0\""
+     ],
+     "fajly": [
+      "maestro.log"
+     ],
+     "png": [],
+     "derevo": {
+      "popytka": 1,
+      "potoki": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ],
+      "kadra_popytka": 1
+     },
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt",
+        "test-commands.json"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-do.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       },
+       "net_potokov": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+       ]
+      }
+     }
+    }
+   }
+  },
+  "zhivoe-derevo-p": {
+   "tip": "p-replay",
+   "opisanie": "(н) НАСТОЯЩИЙ P над публикацией S в живом формате: зелёный набор 7/7, кадры ВЛОЖЕНЫ в деревья флоу; P (rglob публикации) находит pilot-* вне diagnostics → «995 native rc=0 testcases=7 failed=0» БЕЗ NATIVE_EVIDENCE_INCOMPLETE. Красна на модели v3: публикация без кадров → P rc 1 NATIVE_EVIDENCE_INCOMPLETE (живой дефект run 40412181305)",
+   "scena": {
+    "maestro_rc": [
+     0
+    ],
+    "transport_posle": [
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "ok|||pilot-first-run+pilot-welcome+pilot-restart",
+      "ok||sles|",
+      "ok|||start-initial",
+      "ok||bogatoe|",
+      "ok|||nav-start",
+      "ok|||vkhod-splash",
+      "ok|||"
+     ]
+    ]
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 native rc=0 testcases=7 failed=0"
+    ],
+    "neto": [
+     "NATIVE_EVIDENCE_INCOMPLETE",
+     "EXHAUSTED",
+     "ПОВТОР",
+     "RECOVERED"
+    ],
+    "out_report": [
+     "attempt=\"1\"",
+     "rc=\"0\""
+    ],
+    "out_png": [],
+    "out_png_popytka": 1,
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "net_v_out": [
+     "ci-e2e.sh",
+     "pilot.yaml",
+     "rehearsal.yaml"
+    ],
+    "redaktor": true
+   }
+  },
+  "zhivoe-derevo-recovered": {
+   "tip": "s-replay",
+   "opisanie": "(о) RECOVERED живым деревом: попытка 1 — транспортный обрыв всех семи флоу (свидетели в своих деревьях), попытка 2 зелёная; публикация = дерево финальной (второй) попытки, деревья/кадры первой НЕ публикуются (только текст flows в diagnostics/attempt-1), все кадры публикации — попытки 2",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "obryv|device offline",
+      "obryv|device offline",
+      "obryv|device offline",
+      "obryv|DeviceServerDiedException",
+      "obryv|device offline",
+      "obryv|device offline",
+      "obryv|device offline"
+     ],
+     [
+      "ok|||pilot-first-run+pilot-welcome+pilot-restart",
+      "ok||sles|",
+      "ok|||start-initial",
+      "ok||bogatoe|",
+      "ok|||nav-start",
+      "ok|||vkhod-splash",
+      "ok|||"
+     ]
+    ],
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=0",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "RECOVERED:"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"0\""
+     ],
+     "fajly": [
+      "maestro.log"
+     ],
+     "png": [],
+     "derevo": {
+      "popytka": 2,
+      "potoki": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ],
+      "net_potokov_popytki": [
+       1
+      ],
+      "kadra_popytka": 2
+     },
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "diag/logcat-posle.txt"
+       ],
+       "net_fajlov": [
+        "test-commands.json"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       },
+       "potoki": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+       ]
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml"
+       ],
+       "net_fajlov": [
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       },
+       "net_potokov": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+       ]
+      }
+     }
+    }
+   }
+  },
+  "zhivoe-derevo-recovered-p": {
+   "tip": "p-replay",
+   "opisanie": "(о) НАСТОЯЩИЙ P над RECOVERED-публикацией живого дерева: rc 0, событие RECOVERED, публикация P несёт кадры ТОЛЬКО второй попытки (кадры первой не выходят), текст обеих попыток redacted, секрета нет ни в одном файле",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "obryv|device offline",
+      "obryv|device offline",
+      "obryv|device offline",
+      "obryv|DeviceServerDiedException",
+      "obryv|device offline",
+      "obryv|device offline",
+      "obryv|device offline"
+     ],
+     [
+      "ok|||pilot-first-run+pilot-welcome+pilot-restart",
+      "ok||sles|",
+      "ok|||start-initial",
+      "ok||bogatoe|",
+      "ok|||nav-start",
+      "ok|||vkhod-splash",
+      "ok|||"
+     ]
+    ],
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 sobytie: RECOVERED",
+     "995 native rc=0"
+    ],
+    "neto": [
+     "EXHAUSTED",
+     "NATIVE_EVIDENCE_INCOMPLETE"
+    ],
+    "out_report": [
+     "attempt=\"2\"",
+     "rc=\"0\""
+    ],
+    "out_png": [],
+    "out_png_popytka": 2,
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ],
+     "2": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "out_flows": {
+     "1": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ]
+    },
+    "net_v_out": [
+     "ci-e2e.sh",
+     "pilot.yaml",
+     "rehearsal.yaml"
+    ],
+    "redaktor": true
+   }
+  },
+  "zhivoe-derevo-krasnyj": {
+   "tip": "s-replay",
+   "opisanie": "(п) красный набор живым деревом: смешанный провал (транспортный+продуктовый) — повтор не даётся (fail-closed), публикация = report.xml красной попытки + деревья упавших флоу (кадры провала внутри), диагностика attempt-1 с flows всех упавших",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "transport_posle": [
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "obryv|device offline",
+      "produkt|Assertion is false: id: F02.01 is visible",
+      "obryv|DeviceServerDiedException"
+     ]
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ продуктовый: попытка 1 красная (rc=1) без транспортной причины"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"1\""
+     ],
+     "fajly": [
+      "maestro.log"
+     ],
+     "png": [],
+     "derevo": {
+      "popytka": 1,
+      "potoki": [
+       0,
+       1,
+       2
+      ],
+      "kadra_popytka": 1
+     },
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "diag/logcat-posle.txt"
+       ],
+       "net_fajlov": [
+        "test-commands.json"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-posle.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       },
+       "potoki": [
+        0,
+        1,
+        2
+       ]
+      }
+     }
+    }
+   }
+  },
+  "zhivoe-derevo-krasnyj-p": {
+   "tip": "p-replay",
+   "opisanie": "(п) НАСТОЯЩИЙ P над красной публикацией живого дерева: rc 1 с отчётом красной попытки, БЕЗ ложного «evidence complete» (NATIVE_EVIDENCE_INCOMPLETE не печатается — набор красный) и БЕЗ верхних кадров в публикации P; flows упавших redacted",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "transport_posle": [
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "obryv|device offline",
+      "produkt|Assertion is false: id: F02.01 is visible",
+      "obryv|DeviceServerDiedException"
+     ]
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "vyvod": [
+     "995 native rc=1"
+    ],
+    "neto": [
+     "sobytie",
+     "NATIVE_EVIDENCE_INCOMPLETE",
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "out_report": [
+     "attempt=\"1\"",
+     "rc=\"1\""
+    ],
+    "out_png": [],
+    "out_png_popytka": 1,
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "out_flows": {
+     "1": [
+      0,
+      1,
+      2
+     ]
+    },
+    "redaktor": true
+   }
+  },
+  "zhivoe-rehearsal-potrebitel": {
+   "tip": "s-replay",
+   "opisanie": "(р) потребитель «Check rehearsal evidence» (шаг mobile.yml ПОСЛЕ runner 995): байт-копия живого scripts/rehearsal-evidence.sh исполняется НАД публикацией S — зелёный набор с rehearsal-флоу (JUnit file=.maestro/rehearsal.yaml, кадры rehearsal-before/after) проходит рекурсивный поиск ровно одного кадра каждого имени → «rehearsal evidence OK». Красна на модели v3: публикация без деревьев → EVIDENCE_MISSING",
+   "scena": {
+    "maestro_rc": [
+     0
+    ],
+    "transport_posle": [
+     "ok"
+    ],
+    "maestro_zhivoe": "da",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_potoki_shablon": [
+     [
+      "ok|||pilot-first-run+pilot-welcome+pilot-restart",
+      "ok||rehearsal|rehearsal-before+rehearsal-after",
+      "ok||sles|",
+      "ok|||start-initial",
+      "ok||bogatoe|",
+      "ok|||nav-start",
+      "ok|||"
+     ]
+    ]
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=0",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED",
+     "ОТКАЗ"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"0\""
+     ],
+     "fajly": [
+      "maestro.log"
+     ],
+     "png": [],
+     "derevo": {
+      "popytka": 1,
+      "potoki": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6
+      ],
+      "kadra_popytka": 1
+     },
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt",
+        "test-commands.json"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-do.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       },
+       "net_potokov": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+       ]
+      }
+     }
+    },
+    "potrebitel": {
+     "rehearsal": true
+    }
+   }
   }
  },
  "stab_vhod": {
@@ -3822,6 +4533,20 @@
   ],
   "s-preobrazuet-vsjo": [
    "zhivoj-imena-bogatye"
+  ],
+  "s-png-tolko-verhnij-uroven": [
+   "zhivoe-derevo-zelenyj",
+   "zhivoe-derevo-recovered"
+  ],
+  "s-derevja-vseh-popytok": [
+   "zhivoe-derevo-recovered"
+  ],
+  "s-ne-publikuet-kadry": [
+   "zhivoe-derevo-zelenyj",
+   "zhivoe-rehearsal-potrebitel"
   ]
+ },
+ "potrebiteli": {
+  "potrebiteli/rehearsal-evidence.sh": "498349e111281c06fdf304b601eaec82f1d03abdc9e7043267d2d25516fa1c21"
  }
 }

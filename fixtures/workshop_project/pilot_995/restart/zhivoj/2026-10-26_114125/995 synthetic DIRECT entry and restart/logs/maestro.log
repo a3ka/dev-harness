@@ -1,0 +1,112 @@
+11:42:09.873 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Define variables RUNNING
+11:42:09.874 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Define variables COMPLETED
+11:42:09.874 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Apply configuration RUNNING
+11:42:09.874 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Apply configuration COMPLETED
+11:42:09.875 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.complior.mobile" with clear state RUNNING
+11:42:09.875 [ INFO] maestro.Maestro.clearAppState$lambda$8: Clearing app state com.complior.mobile
+11:42:10.398 [ INFO] maestro.Maestro.launchApp$lambda$5: Launching app com.complior.mobile
+11:42:10.398 [ INFO] maestro.Maestro.launchApp$lambda$5: Stopping com.complior.mobile app during launch
+11:42:10.444 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.complior.mobile" with clear state COMPLETED
+11:42:10.444 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: first-run-continue is visible RUNNING
+11:42:11.244 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: first-run-continue is visible COMPLETED
+11:42:11.245 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot pilot-first-run RUNNING
+11:42:11.245 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+11:42:11.245 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+11:42:11.390 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot pilot-first-run COMPLETED
+11:42:11.390 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: first-run-continue RUNNING
+11:42:11.860 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Anmelden oder Konto erstellen, hintText=, ignoreBoundsFiltering=false, resource-id=first-run-continue, clickable=true, bounds=[44,2099][1036,2254], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.Button, important-for-accessibility=true, error=}, children=[TreeNode(attributes={text=Anmelden oder Konto erstellen, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[208,2143][871,2210], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false)], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=2099, width=992, height=155))
+11:42:13.025 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:13.026 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 2176) using hierarchy based logic for wait
+11:42:13.832 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:13.832 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: first-run-continue COMPLETED
+11:42:13.832 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Anmelden oder Konto erstellen" is visible RUNNING
+11:42:13.848 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Anmelden oder Konto erstellen" is visible COMPLETED
+11:42:13.849 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: auth-email RUNNING
+11:42:13.867 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Anmelden oder Konto erstellen, hintText=name@beispiel.de, ignoreBoundsFiltering=false, resource-id=auth-email, clickable=true, bounds=[44,1132][1036,1288], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.EditText, important-for-accessibility=true, error=}, children=[], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=1132, width=992, height=156))
+11:42:15.076 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:15.076 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 1210) using hierarchy based logic for wait
+11:42:17.134 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:17.134 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: auth-email COMPLETED
+11:42:17.134 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Input text demo@example.invalid RUNNING
+11:42:17.135 [ INFO] maestro.Maestro.inputText: Inputting text: demo@example.invalid
+11:42:19.880 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Input text demo@example.invalid COMPLETED
+11:42:19.880 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: auth-demo-entry RUNNING
+11:42:19.996 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Demo mit Beispieldaten ansehen, hintText=, ignoreBoundsFiltering=false, resource-id=auth-demo-entry, clickable=true, bounds=[44,599][1036,721], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.Button, important-for-accessibility=true, error=}, children=[TreeNode(attributes={text=Demo mit Beispieldaten ansehen, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[230,631][848,687], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false)], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=599, width=992, height=122))
+11:42:21.192 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:21.192 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 660) using hierarchy based logic for wait
+11:42:22.294 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:22.294 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: auth-demo-entry COMPLETED
+11:42:22.295 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Kontakt bestätigen" is visible RUNNING
+11:42:22.457 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Kontakt bestätigen" is visible COMPLETED
+11:42:22.458 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: auth-code RUNNING
+11:42:22.528 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Kontakt bestätigen, hintText=, ignoreBoundsFiltering=false, resource-id=auth-code, clickable=true, bounds=[44,1041][1036,1197], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.EditText, important-for-accessibility=true, error=}, children=[], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=1041, width=992, height=156))
+11:42:23.704 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:23.705 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 1119) using hierarchy based logic for wait
+11:42:25.241 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:25.242 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: auth-code COMPLETED
+11:42:25.242 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Input text definitely-wrong-000 RUNNING
+11:42:25.242 [ INFO] maestro.Maestro.inputText: Inputting text: definitely-wrong-000
+11:42:28.382 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Input text definitely-wrong-000 COMPLETED
+11:42:28.382 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: auth-verify RUNNING
+11:42:28.497 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Anmelden, hintText=, ignoreBoundsFiltering=false, resource-id=auth-verify, clickable=true, bounds=[44,1436][1036,1591], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.Button, important-for-accessibility=true, error=}, children=[TreeNode(attributes={text=Anmelden, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[430,1480][648,1547], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false)], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=1436, width=992, height=155))
+11:42:29.717 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:29.718 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 1513) using hierarchy based logic for wait
+11:42:30.575 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:30.576 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: auth-verify COMPLETED
+11:42:30.576 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: auth-invalid is visible RUNNING
+11:42:30.712 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: auth-invalid is visible COMPLETED
+11:42:30.712 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: F02.01 is not visible RUNNING
+11:42:31.347 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: F02.01 is not visible COMPLETED
+11:42:31.348 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: auth-code RUNNING
+11:42:31.404 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=••••••••••••••••••••, accessibilityText=Kontakt bestätigen, hintText=, ignoreBoundsFiltering=false, resource-id=auth-code, clickable=true, bounds=[46,1041][1034,1197], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.EditText, important-for-accessibility=true, error=}, children=[], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=46, y=1041, width=988, height=156))
+11:42:32.616 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:32.616 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 1119) using hierarchy based logic for wait
+11:42:33.544 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:33.544 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: auth-code COMPLETED
+11:42:33.544 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Erase text RUNNING
+11:42:33.546 [ INFO] maestro.Maestro.eraseText$lambda$52: Erasing 50 characters
+11:42:35.744 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Erase text COMPLETED
+11:42:35.744 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Input text ${PILOT_DEMO_CODE} RUNNING
+11:42:36.481 [ INFO] maestro.Maestro.inputText: Inputting text: [REDACTED]
+11:42:40.432 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Input text ${PILOT_DEMO_CODE} COMPLETED
+11:42:40.432 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: auth-verify RUNNING
+11:42:40.538 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Anmelden, hintText=, ignoreBoundsFiltering=false, resource-id=auth-verify, clickable=true, bounds=[44,1436][1036,1591], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.Button, important-for-accessibility=true, error=}, children=[TreeNode(attributes={text=Anmelden, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[430,1480][648,1547], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false)], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=1436, width=992, height=155))
+11:42:41.748 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:41.749 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 1513) using hierarchy based logic for wait
+11:42:42.839 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:42.840 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: auth-verify COMPLETED
+11:42:42.840 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: F02.01 is visible RUNNING
+11:42:42.931 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: F02.01 is visible COMPLETED
+11:42:42.932 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Die KI unterstützt Sie. Wer für eine Beratung verantwortlich ist, sehen Sie beim jeweiligen Angebot." is visible RUNNING
+11:42:42.944 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Die KI unterstützt Sie. Wer für eine Beratung verantwortlich ist, sehen Sie beim jeweiligen Angebot." is visible COMPLETED
+11:42:42.944 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that "Demo" is visible RUNNING
+11:42:42.996 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that "Demo" is visible COMPLETED
+11:42:42.996 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: protected-start is not visible RUNNING
+11:42:43.559 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: protected-start is not visible COMPLETED
+11:42:43.560 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot pilot-welcome RUNNING
+11:42:43.560 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+11:42:43.560 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+11:42:43.676 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot pilot-welcome COMPLETED
+11:42:43.677 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Stop com.complior.mobile RUNNING
+11:42:43.678 [ INFO] maestro.Maestro.stopApp$lambda$6: Stopping app com.complior.mobile
+11:42:43.709 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Stop com.complior.mobile COMPLETED
+11:42:43.709 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Launch app "com.complior.mobile" RUNNING
+11:42:44.120 [ INFO] maestro.Maestro.launchApp$lambda$5: Launching app com.complior.mobile
+11:42:44.120 [ INFO] maestro.Maestro.launchApp$lambda$5: Stopping com.complior.mobile app during launch
+11:42:44.158 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Launch app "com.complior.mobile" COMPLETED
+11:42:44.169 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: first-run-continue is visible RUNNING
+11:42:44.846 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: first-run-continue is visible COMPLETED
+11:42:44.846 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Tap on id: first-run-continue RUNNING
+11:42:45.427 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tapping on element:  UiElement(treeNode=TreeNode(attributes={text=, accessibilityText=Anmelden oder Konto erstellen, hintText=, ignoreBoundsFiltering=false, resource-id=first-run-continue, clickable=true, bounds=[44,2099][1036,2254], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.Button, important-for-accessibility=true, error=}, children=[TreeNode(attributes={text=Anmelden oder Konto erstellen, accessibilityText=, hintText=, ignoreBoundsFiltering=false, resource-id=, clickable=false, bounds=[208,2143][871,2210], enabled=true, focused=false, checked=false, scrollable=false, selected=false, class=android.widget.TextView, important-for-accessibility=true, error=}, children=[], clickable=false, enabled=true, focused=false, checked=false, selected=false)], clickable=true, enabled=true, focused=false, checked=false, selected=false), bounds=Bounds(x=44, y=2099, width=992, height=155))
+11:42:46.695 [ INFO] maestro.Maestro.tap-HgV9Ck0: Tap aimed via settled hierarchy
+11:42:46.695 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Tapping at (540, 2176) using hierarchy based logic for wait
+11:42:47.797 [ INFO] maestro.Maestro.hierarchyBasedTap-ogj28Uc: Something has changed in the UI judging by view hierarchy. Proceed.
+11:42:47.797 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Tap on id: first-run-continue COMPLETED
+11:42:47.797 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: auth-email is visible RUNNING
+11:42:47.852 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: auth-email is visible COMPLETED
+11:42:47.853 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Assert that id: F02.01 is not visible RUNNING
+11:42:48.463 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Assert that id: F02.01 is not visible COMPLETED
+11:42:48.463 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandStart: Take screenshot pilot-restart RUNNING
+11:42:48.464 [ INFO] maestro.Maestro.takeScreenshot: Taking screenshot
+11:42:48.464 [TRACE] maestro.utils.ScreenshotUtils.takeScreenshot: Taking screenshot to output sink
+11:42:48.644 [ INFO] maestro.cli.runner.CliConsoleListener.onCommandFinished: Take screenshot pilot-restart COMPLETED
