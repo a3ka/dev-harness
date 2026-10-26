@@ -1,0 +1,2341 @@
+{
+ "versija": 1,
+ "kontrakt": "995-cmp-mob-001-android-pilot",
+ "subjekt": "mobile/scripts/ci-e2e.sh",
+ "subjekt_p": "fixtures/workshop_project/pilot_995/maestro_probe.py",
+ "repo_scenariev": "a3ka/Complior-mob",
+ "signatury_regex": "device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException",
+ "signatury_istochnik": "канон обрыва adb-транспорта 117/141/139 (единая строка четырёх альтернатив); слово владельца 2026-10-26 «да, принимаем» (план Astra целиком)",
+ "signatur_vstrech": {
+  "s": 1
+ },
+ "signatury_ostatok_zapret": [
+  "device offline",
+  "adb: device not found",
+  "device [^ ]* not found",
+  "DeviceServerDiedException"
+ ],
+ "zapret_strok": [
+  "pkill",
+  "kill-server",
+  "reconnect offline",
+  "emu kill"
+ ],
+ "utility_alfavit": [
+  "bash",
+  "sed",
+  "grep",
+  "tr",
+  "cp",
+  "rm",
+  "mkdir",
+  "cat",
+  "seq",
+  "date",
+  "readlink",
+  "awk",
+  "ps",
+  "adb",
+  "emulator",
+  "avdmanager",
+  "maestro",
+  "pkill",
+  "sleep"
+ ],
+ "nositeli": {
+  "model/ci-e2e.sh": "d8841d6b6fa4528e664668343db493401f58f9d559577444c4fe7db9bf8b3fdb",
+  "model/maestro_probe.py": "9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749",
+  "nositeli/ci-e2e-staryj.sh": "21715b69f59df4aca45ba16f5184a5a403d15e083a39fe6d0f64f8b69055eee7",
+  "nositeli/maestro_probe-staryj.py": "0a20a690dcb163314f3b22cd6785ac2d415cae97e3bae6a9bd3717f6c94b5277"
+ },
+ "istochniki": {
+  "osnova": "продукт Complior-mob, голова PR #124 cmp-mob-118/erstinformation-prod @ 52a5cf5 (mobile/scripts/ci-e2e.sh, .github/workflows/mobile.yml)",
+  "konsultacija": "verdicts/consultant/995-obryv-emulyatora-astra-v1.md §7–§11 (слово владельца 2026-10-26 ~15:30 Берлин «да, принимаем» — план целиком)",
+  "staryj-p": "fixtures/workshop_project/pilot_995/maestro_probe.py @ main (sha256 0a20a690… — тот же файл, что исполняется пином H; сверка Astra §3)"
+ },
+ "kejsy": {
+  "pervaja-zelena": {
+   "tip": "s-replay",
+   "opisanie": "первая попытка зелёная: один boot, один набор, без повтора и перезапуска; полный финальный evidence одной попытки; базовая диагностика попытки есть",
+   "scena": {
+    "maestro_rc": [
+     0
+    ],
+    "maestro_transport_neudachi": [
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0
+    ],
+    "transport_posle": [
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=0",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED",
+     "ОТКАЗ"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"0\""
+     ],
+     "png": [
+      "pilot-first-run.png",
+      "pilot-restart.png",
+      "pilot-welcome.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-do.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "obryv-device-offline": {
+   "tip": "s-replay",
+   "opisanie": "обрыв по канону (device offline) в выводе ТЕКУЩЕЙ попытки: диагностика до остановки → стоп своего PID → новая инкарнация → готовность+установка → один повтор зелёный (RECOVERED)",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=0",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "RECOVERED:"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"0\""
+     ],
+     "png": [
+      "pilot-first-run.png",
+      "pilot-restart.png",
+      "pilot-welcome.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "obryv-adb-notfound": {
+   "tip": "s-replay",
+   "opisanie": "обрыв по канону (adb: device not found) в выводе ТЕКУЩЕЙ попытки: диагностика до остановки → стоп своего PID → новая инкарнация → готовность+установка → один повтор зелёный (RECOVERED)",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "adb: device not found",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": ""
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=0",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "RECOVERED:"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"0\""
+     ],
+     "png": [
+      "pilot-first-run.png",
+      "pilot-restart.png",
+      "pilot-welcome.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\n\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "obryv-serial-notfound": {
+   "tip": "s-replay",
+   "opisanie": "обрыв по канону (device 'emulator-5560' not found) в выводе ТЕКУЩЕЙ попытки: диагностика до остановки → стоп своего PID → новая инкарнация → готовность+установка → один повтор зелёный (RECOVERED)",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device 'emulator-5560' not found",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": ""
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=0",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "RECOVERED:"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"0\""
+     ],
+     "png": [
+      "pilot-first-run.png",
+      "pilot-restart.png",
+      "pilot-welcome.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\n\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "obryv-devserverdied": {
+   "tip": "s-replay",
+   "opisanie": "обрыв по канону (DeviceServerDiedException) в выводе ТЕКУЩЕЙ попытки: диагностика до остановки → стоп своего PID → новая инкарнация → готовность+установка → один повтор зелёный (RECOVERED)",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "DeviceServerDiedException",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=0",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "RECOVERED:"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"0\""
+     ],
+     "png": [
+      "pilot-first-run.png",
+      "pilot-restart.png",
+      "pilot-welcome.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "produkt-assert": {
+   "tip": "s-replay",
+   "opisanie": "продуктовый провал (assert) без транспортной причины: повтор не выполняется, отказ сохранён",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "maestro_transport_neudachi": [
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     1
+    ],
+    "maestro_produkt_tekst": "Assert failed: видимый текст кадра не совпал",
+    "transport_posle": [
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ продуктовый: попытка 1 красная (rc=1) без транспортной причины"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a1.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-posle.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "produkt-install-tekst": {
+   "tip": "s-replay",
+   "opisanie": "продуктовый провал с текстом INSTALL_FAILED: расширение канона не даёт права повторять",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "maestro_transport_neudachi": [
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     1
+    ],
+    "maestro_produkt_tekst": "INSTALL_FAILED_UPDATE_INCOMPATIBLE: пакет несовместим",
+    "transport_posle": [
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ продуктовый: попытка 1 красная (rc=1) без транспортной причины"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a1.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-posle.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "smeshannyj": {
+   "tip": "s-replay",
+   "opisanie": "смешанный лог: транспортная сигнатура + продуктовая неудача в JUnit — продуктовый отказ не прячется повтором (fail-closed по §8 Astra)",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     1
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_produkt_tekst": "Assert failed: видимый текст кадра не совпал",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ продуктовый: попытка 1 красная (rc=1) без транспортной причины"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a1.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "vtoroj-krasnyj-produkt": {
+   "tip": "s-replay",
+   "opisanie": "второй красный (продуктовый) — итоговый красный EXHAUSTED, третьей попытки нет; сигнатура прошлой попытки не наследуется",
+   "scena": {
+    "maestro_rc": [
+     1,
+     1
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     1
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "maestro_produkt_tekst": "Assert failed: видимый текст кадра не совпал",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "EXHAUSTED: попытка 2 красная (rc=1) — итог красный, третьей попытки нет"
+    ],
+    "neto": [
+     "RECOVERED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a2.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-posle.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "vtoroj-transportnyj": {
+   "tip": "s-replay",
+   "opisanie": "второй красный тоже транспортный: EXHAUSTED, ровно два набора и две инкарнации, третьей нет",
+   "scena": {
+    "maestro_rc": [
+     1,
+     1
+    ],
+    "maestro_signatura": [
+     "DeviceServerDiedException",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     2
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "obryv"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "EXHAUSTED: попытка 2 красная (rc=1) — итог красный, третьей попытки нет"
+    ],
+    "neto": [
+     "RECOVERED"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a2.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      }
+     }
+    },
+    "diag": {
+     "1": {
+      "fajly": [
+       "diag/manifest.txt",
+       "diag/adb-devices.txt",
+       "diag/logcat-do.txt",
+       "diag/emulator.log",
+       "maestro.log",
+       "report.xml",
+       "test-commands.json",
+       "diag/logcat-posle.txt"
+      ],
+      "manifest": [
+       "local_attempt=1",
+       "pokolenie=1",
+       "emulator_pid="
+      ],
+      "fajl_tekst": {
+       "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+       "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+      }
+     },
+     "2": {
+      "fajly": [
+       "diag/manifest.txt",
+       "diag/adb-devices.txt",
+       "diag/logcat-do.txt",
+       "diag/emulator.log",
+       "maestro.log",
+       "report.xml",
+       "test-commands.json"
+      ],
+      "net_fajlov": [
+       "diag/logcat-posle.txt"
+      ],
+      "manifest": [
+       "local_attempt=2",
+       "pokolenie=2",
+       "emulator_pid="
+      ],
+      "fajl_tekst": {
+       "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n"
+      }
+     }
+    }
+   }
+  },
+  "staryj-artefakt": {
+   "tip": "s-replay",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "maestro_transport_neudachi": [
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0
+    ],
+    "maestro_bezotcheta": "da",
+    "transport_posle": [
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4"
+   },
+   "staryj_artefakt": true,
+   "opisanie": "сигнатура только в просроченном артефакте workspace (архив прошлой попытки), вывод текущей попытки пуст: права на повтор нет; публикация стирает просроченное",
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ продуктовый"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "png": [],
+     "staryj_istirat": true,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-posle.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "pustoj-vyvod": {
+   "tip": "s-replay",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "maestro_transport_neudachi": [
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0
+    ],
+    "maestro_bezotcheta": "da",
+    "transport_posle": [
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4"
+   },
+   "opisanie": "пустой вывод набора (нет JUnit-провалов и сигнатур): права на повтор нет",
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ продуктовый"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "png": [],
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1"
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n",
+        "diag/logcat-posle.txt": "logcat-ring-995 stroka-1\nstroka-2"
+       }
+      }
+     }
+    }
+   }
+  },
+  "ustanovka-otkaz": {
+   "tip": "s-replay",
+   "opisanie": "отказ готовности инкарнации: именованный красный, Maestro не запускается",
+   "scena": {
+    "install": [
+     "otkaz"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "transport_posle": [
+     "ok"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=1",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ: установка APK не удалась (поколение 1)"
+    ],
+    "neto": [
+     "MAESTRO",
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "diag_net": true
+    }
+   }
+  },
+  "boot-ne-gotov": {
+   "tip": "s-replay",
+   "opisanie": "эмулятор не грузится: ограниченный отказ, ноль Maestro",
+   "scena": {
+    "boot": [
+     "ne-zagruzilsja"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1",
+    "transport_posle": [
+     "ok"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ: эмулятор не загрузился за 390 с (поколение 1)"
+    ],
+    "neto": [
+     "MAESTRO",
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "diag_net": true
+    }
+   }
+  },
+  "stabil-nedostizhima": {
+   "tip": "s-replay",
+   "opisanie": "транспорт не стабилизируется после установки: именованный отказ, ноль Maestro",
+   "scena": {
+    "transport_posle_install": "obryv",
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "transport_posle": [
+     "ok"
+    ],
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "EMULATOR_STOP @p1@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ОТКАЗ: эмулятор emulator-5560 не стабилизировался (adb offline, поколение 1)"
+    ],
+    "neto": [
+     "MAESTRO",
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "diag_net": true
+    }
+   }
+  },
+  "malo-pamyati": {
+   "tip": "s-replay",
+   "opisanie": "на станции меньше MIN_FREE_GB: отказ до любого процесса эмулятора",
+   "scena": {
+    "meminfo": "4"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [],
+    "vyvod": [
+     "ОТКАЗ: на станции свободно 4 ГБ < 8 ГБ — эмулятор не запускаю"
+    ],
+    "neto": [
+     "ПОВТОР",
+     "RECOVERED",
+     "EXHAUSTED"
+    ],
+    "publikacija": {
+     "diag_net": true
+    }
+   }
+  },
+  "inkarnacija-mertva-na-starte": {
+   "tip": "s-replay",
+   "opisanie": "владение инкарнацией (а): новый owned PID умирает сразу после EMULATOR_START при отвечающем stale/foreign serial — именованный отказ готовности, Maestro 2 не вызван, RECOVERED нет (свидетель критика 995 v2 krug1)",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline",
+    "emulator_smert": [
+     "net",
+     "srazu"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "ОТКАЗ: owned PID эмулятора мёртв (поколение 2",
+     "ОТКАЗ: перезапуск эмулятора не дал готовности (поколение 2)"
+    ],
+    "neto": [
+     "RECOVERED",
+     "EXHAUSTED",
+     "MAESTRO 2"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a1.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "inkarnacija-mertva-pered-vtorym": {
+   "tip": "s-replay",
+   "opisanie": "владение инкарнацией (б): новый owned PID умирает между готовностью и вторым набором (на boot-диагностике попытки 2) при отвечающем serial — именованный красный непосредственно перед набором, Maestro 2 не вызван, RECOVERED нет",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline",
+    "emulator_smert": [
+     "net",
+     "posle-logcat"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "ОТКАЗ: owned PID новой инкарнации мёртв непосредственно перед набором 2"
+    ],
+    "neto": [
+     "RECOVERED",
+     "EXHAUSTED",
+     "MAESTRO 2"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"1\"",
+      "rc=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a1.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log"
+       ],
+       "net_fajlov": [
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "inkarnacija-mertva-vo-vtorom": {
+   "tip": "s-replay",
+   "opisanie": "владение инкарнацией (г): новый owned PID умирает после старта второго набора — итог следует второму набору (RECOVERED при зелёном), отказ инкарнации не маскирует результат",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline",
+    "emulator_smert": [
+     "net",
+     "posle-maestro"
+    ]
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "zapisi": [
+     "AVDMANAGER_CREATE @avd@",
+     "ADB_STARTSERVER",
+     "EMULATOR_START @avd@ @p1@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 1 rc=1",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "EMULATOR_STOP @p1@",
+     "EMULATOR_START @avd@ @p2@",
+     "ADB_INSTALL rc=0",
+     "ADB_BOOT_ID",
+     "ADB_ADBD",
+     "ADB_DEVICES",
+     "ADB_LOGCAT",
+     "MAESTRO 2 rc=0",
+     "EMULATOR_STOP @p2@",
+     "AVDMANAGER_DELETE @avd@"
+    ],
+    "vyvod": [
+     "ПОВТОР: обрыв adb-транспорта попытки 1",
+     "RECOVERED:"
+    ],
+    "neto": [
+     "EXHAUSTED",
+     "ОТКАЗ"
+    ],
+    "publikacija": {
+     "report": [
+      "attempt=\"2\"",
+      "rc=\"0\""
+     ],
+     "png": [
+      "pilot-first-run.png",
+      "pilot-restart.png",
+      "pilot-welcome.png"
+     ],
+     "png_attempt": 2,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json"
+       ],
+       "net_fajlov": [
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=2",
+        "pokolenie=2",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\tdevice\n"
+       }
+      }
+     }
+    }
+   }
+  },
+  "inkarnacija-smert-svip": {
+   "tip": "s-svip",
+   "opisanie": "владение инкарнацией — СВИП смерти (арбитраж verdicts/arbitration/contracts-995-v2-arbitraz.md): точка смерти k — КАЖДЫЙ вызов замкнутого алфавита внутри второй инкарнации до второго набора (включая тело boot-цикла: boot поколения 2 «pozdno» — первый getprop отвечает 0), N выводится чистым replay и НЕ константа (N=0 — «нет второй инкарнации», красная); смерть назначается ПОСЛЕ эффекта вызова k; ожидание одно и вычислено до вызова субъекта: rc 1, MAESTRO 2 нет, RECOVERED нет, именованный ОТКАЗ owned PID, публикация попытки 1, после строки SMERT — ни одного состояние-меняющего вызова алфавита инварианта 8",
+   "scena": {
+    "boot": [
+     "ok",
+     "pozdno"
+    ],
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "vyvod": [
+     "ОТКАЗ: owned PID"
+    ],
+    "neto": [
+     "RECOVERED"
+    ],
+    "alfavit_sostojanij": "adb .* install -r|adb .* settings put|maestro ",
+    "publikacija": {
+     "report": [
+      "attempt=\"1\""
+     ],
+     "png": [
+      "ekran-otkaza-a1.png"
+     ],
+     "png_attempt": 1,
+     "diag": {
+      "1": {
+       "fajly": [
+        "diag/manifest.txt",
+        "diag/adb-devices.txt",
+        "diag/logcat-do.txt",
+        "diag/emulator.log",
+        "maestro.log",
+        "report.xml",
+        "test-commands.json",
+        "diag/logcat-posle.txt"
+       ],
+       "manifest": [
+        "local_attempt=1",
+        "pokolenie=1",
+        "emulator_pid="
+       ],
+       "fajl_tekst": {
+        "diag/adb-devices.txt": "List of devices attached\nemulator-5560\toffline\n",
+        "diag/logcat-posle.txt": "<logcat недоступен: транспорт>\n"
+       }
+      },
+      "2": {
+       "net_fajlov": [
+        "maestro.log"
+       ]
+      }
+     }
+    }
+   }
+  },
+  "kanon-bajt": {
+   "tip": "struktura",
+   "podtip": "kanon-bajt",
+   "opisanie": "субъект = модель байт-в-байт (дверь раздаёт блок из модели)"
+  },
+  "zhyvoj-p-kanon": {
+   "tip": "struktura",
+   "podtip": "zhyvoj-p-kanon",
+   "opisanie": "живой maestro_probe.py харнесса = модель байт-в-байт (P правит архитектор этой же пачкой)"
+  },
+  "zapret-stroki": {
+   "tip": "struktura",
+   "podtip": "zapret-stroki",
+   "opisanie": "в тексте субъекта нет запрещённых вызовов (широкие завершатели по маске, разрыв сервера adb, переподключение офлайн, консольная остановка)"
+  },
+  "kanon-signatury": {
+   "tip": "struktura",
+   "podtip": "kanon-signatury",
+   "opisanie": "канон сигнатур — побайтово та же строка, число вхождений и запрет обрывков вне канона"
+  },
+  "staryj-s-bez-pravki": {
+   "tip": "nositel",
+   "podtip": "s",
+   "opisanie": "носитель = текущий ci-e2e.sh (голова PR #124 52a5cf5): перезапуска эмулятора нет, повтор на том же транспорте — батарея обязана краснеть",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "krasno": "CHISTYJ: rc="
+   }
+  },
+  "staryj-p-bez-pravki": {
+   "tip": "nositel",
+   "podtip": "p",
+   "opisanie": "носитель = текущий maestro_probe.py (main, sha 0a20a690…): без события RECOVERED — батарея обязана краснеть",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 sobytie: RECOVERED"
+    ],
+    "krasno": "нет маркера вывода"
+   }
+  },
+  "p-recovered": {
+   "tip": "p-replay",
+   "opisanie": "проба P публикует финал одной попытки + redacted диагностику обеих; событие RECOVERED видно; секрет снят всюду",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 0,
+    "vyvod": [
+     "995 sobytie: RECOVERED",
+     "995 native rc=0"
+    ],
+    "neto": [
+     "EXHAUSTED"
+    ],
+    "out_report": [
+     "attempt=\"2\"",
+     "rc=\"0\""
+    ],
+    "out_png": [
+     "pilot-first-run.png",
+     "pilot-restart.png",
+     "pilot-welcome.png"
+    ],
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "test-commands.json",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ],
+     "2": [
+      "maestro.log",
+      "report.xml",
+      "test-commands.json",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "net_v_out": [
+     "ci-e2e.sh",
+     "pilot.yaml",
+     "rehearsal.yaml"
+    ],
+    "redaktor": true
+   }
+  },
+  "p-exhausted": {
+   "tip": "p-replay",
+   "opisanie": "EXHAUSTED: итог красный от второй попытки, обе диагностики опубликованы redacted",
+   "scena": {
+    "maestro_rc": [
+     1,
+     1
+    ],
+    "maestro_signatura": [
+     "DeviceServerDiedException",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     2
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "vyvod": [
+     "995 sobytie: EXHAUSTED",
+     "995 native rc=1"
+    ],
+    "neto": [
+     "RECOVERED"
+    ],
+    "out_report": [
+     "attempt=\"2\"",
+     "rc=\"1\""
+    ],
+    "out_png": [
+     "ekran-otkaza-a2.png"
+    ],
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "test-commands.json",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ],
+     "2": [
+      "maestro.log",
+      "report.xml",
+      "test-commands.json",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "redaktor": true
+   }
+  },
+  "p-produkt": {
+   "tip": "p-replay",
+   "opisanie": "продуктовый красный: публикация и красный итог сохранены, события повтора нет",
+   "scena": {
+    "maestro_rc": [
+     1
+    ],
+    "maestro_transport_neudachi": [
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     1
+    ],
+    "maestro_produkt_tekst": "Assert failed: видимый текст кадра не совпал",
+    "transport_posle": [
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4"
+   },
+   "ozhidanie": {
+    "rc": 1,
+    "vyvod": [
+     "995 native rc=1"
+    ],
+    "neto": [
+     "sobytie"
+    ],
+    "out_report": [
+     "attempt=\"1\"",
+     "rc=\"1\""
+    ],
+    "out_png": [
+     "ekran-otkaza-a1.png"
+    ],
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "test-commands.json",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt",
+      "diag/logcat-do.txt",
+      "diag/logcat-posle.txt",
+      "diag/emulator.log"
+     ]
+    },
+    "redaktor": true
+   }
+  },
+  "p-timeout": {
+   "tip": "p-replay",
+   "proba_timeout": true,
+   "opisanie": "бюджет --timeout истёк на зависшей готовности второй инкарнации: P останавливает своё дерево процессов и всё равно публикует собранную диагностику redacted; итог INFRASTRUCTURE",
+   "scena": {
+    "maestro_rc": [
+     1,
+     0
+    ],
+    "maestro_signatura": [
+     "device offline",
+     ""
+    ],
+    "maestro_transport_neudachi": [
+     2,
+     0
+    ],
+    "maestro_produkt_neudachi": [
+     0,
+     0
+    ],
+    "transport_posle": [
+     "obryv",
+     "ok"
+    ],
+    "boot_id": "b995-sintetika-41f2",
+    "logcat": "logcat-ring-995 stroka-1\u001fstroka-2",
+    "emulator_log": "emulator: boot line 1\u001femulator: GPU swiftshader\u001femulator: Boot completed",
+    "ps_adb": "1904176 98765 adb -L tcp:5037 fork-server server --reply-fd 4",
+    "visya_pokolenie": "2",
+    "adb_devices_obryv": "emulator-5560\toffline"
+   },
+   "ozhidanie": {
+    "rc": 2,
+    "vyvod": [
+     "TimeoutExpired"
+    ],
+    "neto": [
+     "995 native rc="
+    ],
+    "out_report_net": true,
+    "out_diag": {
+     "1": [
+      "maestro.log",
+      "report.xml",
+      "test-commands.json",
+      "diag/manifest.txt",
+      "diag/adb-devices.txt"
+     ]
+    },
+    "redaktor": true,
+    "protsessy_mertvy": true
+   }
+  }
+ },
+ "stab_vhod": {
+  "s-bez-restarta": [
+   "obryv-device-offline",
+   "obryv-adb-notfound",
+   "obryv-serial-notfound",
+   "obryv-devserverdied"
+  ],
+  "s-retry-vseh": [
+   "produkt-assert",
+   "smeshannyj",
+   "staryj-artefakt"
+  ],
+  "s-tretja-popytka": [
+   "vtoroj-transportnyj"
+  ],
+  "s-glotajet-diag": [
+   "pervaja-zelena",
+   "obryv-device-offline"
+  ],
+  "s-diag-posle-stopa": [
+   "obryv-device-offline"
+  ],
+  "s-pkill-vmesto-pida": [
+   "obryv-device-offline",
+   "zapret-stroki"
+  ],
+  "s-kill-server-v-stope": [
+   "obryv-device-offline",
+   "zapret-stroki"
+  ],
+  "s-nasledovanie-signatur": [
+   "staryj-artefakt"
+  ],
+  "s-signatura-suzhena": [
+   "obryv-adb-notfound",
+   "obryv-serial-notfound"
+  ],
+  "s-signatura-rasshirena": [
+   "produkt-install-tekst"
+  ],
+  "s-bez-publikacii-diagnostiki": [
+   "pervaja-zelena",
+   "obryv-device-offline"
+  ],
+  "s-png-obeih": [
+   "obryv-device-offline"
+  ],
+  "s-bez-recovered": [
+   "obryv-device-offline",
+   "obryv-devserverdied"
+  ],
+  "s-exhausted-zelenyj": [
+   "vtoroj-krasnyj-produkt",
+   "vtoroj-transportnyj"
+  ],
+  "s-propusk-boot-proverki": [
+   "boot-ne-gotov"
+  ],
+  "s-bez-itoga-stabil": [
+   "stabil-nedostizhima"
+  ],
+  "s-bez-pamyati": [
+   "malo-pamyati"
+  ],
+  "s-install-ignoriruet": [
+   "ustanovka-otkaz"
+  ],
+  "p-bez-redakcii": [
+   "p-recovered",
+   "p-exhausted"
+  ],
+  "p-bez-diagnostiki": [
+   "p-recovered",
+   "p-timeout"
+  ],
+  "p-bez-timeout-publikacii": [
+   "p-timeout"
+  ],
+  "p-bez-sobytija": [
+   "p-recovered",
+   "p-exhausted"
+  ],
+  "p-privatnoe-v-publikaciju": [
+   "p-recovered"
+  ],
+  "s-bez-zhizni": [
+   "inkarnacija-mertva-na-starte",
+   "inkarnacija-mertva-pered-vtorym",
+   "inkarnacija-smert-svip"
+  ],
+  "s-zhizn-tolko-na-gotovnosti": [
+   "inkarnacija-mertva-pered-vtorym"
+  ],
+  "s-zhizn-perenesena": [
+   "inkarnacija-smert-svip"
+  ],
+  "s-zhizn-ne-pered-nastrojkami": [
+   "inkarnacija-smert-svip"
+  ]
+ }
+}
