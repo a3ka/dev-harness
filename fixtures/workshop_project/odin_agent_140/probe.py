@@ -481,6 +481,23 @@ def kejsy():
         mir.zhurnal('Avtor%s' % nnn, sdal=True)
         return wt, br, sha
 
+    def _avtor_sdal_fajly(mir, nnn, faily):
+        # мир «неоднозначного источника класса риска» (вердикт адверсария 140
+        # вызов 1/2): несколько contracts/<NNN>-*.md; faily — [(суффикс, риск|None)],
+        # None = файл без строки КЛАСС РИСКА; автор сдал, OBJECT == tip ветки.
+        for suf, risk in faily:
+            f = mir.repo / 'contracts' / ('%s-%s.md' % (nnn, suf))
+            if risk is None:
+                f.write_text('# К\n(без строки класса риска)\n', encoding='utf-8')
+            else:
+                f.write_text('# К\nКЛАСС РИСКА: %s\n' % risk, encoding='utf-8')
+        mir.git(['add', '-A'])
+        mir.git(['commit', '-q', '-m', 'c%s' % nnn])
+        wt, br, sha = mir.worktree(nnn)
+        mir.start(nnn, 'Avtor%s' % nnn, wt=wt, branch=br)
+        mir.zhurnal('Avtor%s' % nnn, sdal=True)
+        return wt, br, sha
+
     def s01(mir, door):
         wt, br, sha = _avtor_sdal(mir, '141')
         ev = mir.sobytie('e.json', [item('critic', 'Critic141',
@@ -617,6 +634,69 @@ def kejsy():
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'RASHOZHDENIE_PINA', 'причина')]
     reg('s14-pin-rashozhdenie', 'форма=пин-расходится-с-предметом', s14)
+
+    # B2. источник класса риска: несколько contracts/<NNN>-*.md (D29; вердикт
+    #     адверсария 140 вызов 1/2: «первый результат find» пропускал рисковый
+    #     предмет как обычный) — конфликт/нет строки/согласие/мир шести файлов
+    def _revjuer(mir, sha):
+        return mir.sobytie('e.json', [item('reviewer', 'Rev141',
+                        ['SUBJECT=141', 'OBJECT=' + sha])])
+
+    def s23(mir, door):
+        # [D29] конфликт значений: 141-a обычный, 141-b рисковый — ревьюер без
+        # адверсария обязан получить отказ, а не «класс по одному файлу»
+        wt, br, sha = _avtor_sdal_fajly(mir, '141', [('a', 'обычный'), ('b', 'рисковый')])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s23-klass-riska-konflikt-ab', 'риск=два-файла;значения=обычный+рисковый', s23)
+
+    def s24(mir, door):
+        # [D29] тот же конфликт с обратным порядком имён (a рисковый, b обычный):
+        # порядок обхода файлов не должен влиять на вердикт
+        wt, br, sha = _avtor_sdal_fajly(mir, '141', [('a', 'рисковый'), ('b', 'обычный')])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s24-klass-riska-konflikt-ba', 'риск=два-файла;значения=рисковый+обычный', s24)
+
+    def s25(mir, door):
+        # [D29] два файла, у одного нет строки — источник класса риска нечитаем.
+        # Имена b/c: sorted-first и (на ext4 этой станции) find-first без
+        # сортировки — ОДИН и тот же файл 141-b.md СО строкой: и стаб s28
+        # (sort|sed -n 1p), и дефектная дверь 73aa92b7a (голый find) читают
+        # файл со строкой и молча пропускают бесстрочный 141-c.md
+        # (замер пачки: BC_PERVYJ=141-b.md)
+        wt, br, sha = _avtor_sdal_fajly(mir, '141', [('b', 'обычный'), ('c', None)])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s25-klass-riska-net-stroki-vo-vtorom', 'риск=два-файла;строка=нет-во-втором', s25)
+
+    def s26(mir, door):
+        # два СОГЛАСНЫХ рисковых — прежнее поведение: адверсарий до ревьюера
+        wt, br, sha = _avtor_sdal_fajly(mir, '141', [('a', 'рисковый'), ('b', 'рисковый')])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'ADVERSARIJ_DO_REVJUERA', 'причина')]
+    reg('s26-klass-riska-dva-soglasny-riskovye', 'риск=два-согласных-рисковых;порядок=ревьюер-раньше', s26)
+
+    def s27(mir, door):
+        # два СОГЛАСНЫХ обычных — прежнее поведение: ревьюер без адверсария проходит
+        wt, br, sha = _avtor_sdal_fajly(mir, '141', [('a', 'обычный'), ('b', 'обычный')])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 0, 'rc'), k_stroka(mir, 'start', holder='Rev141', rol='reviewer')]
+    reg('s27-klass-riska-dva-soglasny-obychnye', 'риск=два-согласных-обычных;порядок=без-адверсария', s27)
+
+    def s28(mir, door):
+        # мир адверсария (semantic_attacks.py): шесть файлов 141-a…f, один
+        # рисковый — класс неопределён, отказ, а не класс по случайно первому
+        wt, br, sha = _avtor_sdal_fajly(mir, '141', [
+            ('a', 'обычный'), ('b', 'рисковый'), ('c', 'обычный'),
+            ('d', 'обычный'), ('e', 'обычный'), ('f', 'обычный')])
+        r = sudit(door, mir, _revjuer(mir, sha))
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'KLASS_RISKA_NET', 'причина'),
+                k_chislo_startov(mir, 'учёт', 1)]
+    reg('s28-klass-riska-shest-fajlov', 'риск=шесть-файлов;один=рисковый', s28)
 
     def s22(mir, door):
         mir.kontrakt('141')
@@ -927,12 +1007,51 @@ def m_bez_rabochego(t):
 
 
 def m_klass_riska_mjagko(t):
-    return _z(t, '''  if [ -z "$f" ]; then printf 'net_stroki'; return 0; fi
+    # fail-open на «нет файла/нет строки/вне алфавита»: плохие файлы тихо
+    # пропускаются, пустой итог — обычный; КОНФЛИКТ согласных значений
+    # остаётся отказом (прежняя семантика стаба — «класс риска отсутствует
+    # → тихо обычный», привязка s13 не меняется).
+    t = _z(t, "  if [ -z \"$spisok\" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' \"$1\"; return 0; fi\n",
+              "  if [ -z \"$spisok\" ]; then printf 'obychnyj'; return 0; fi\n")
+    t = _z(t, '''      *)        ploh="${ploh:+$ploh }$f"; continue ;;
+''', '''      *)        continue ;; # стаб: нет строки/вне алфавита — тихо пропускаем
+''')
+    t = _z(t, "  printf '%s' \"$znach\"\n}",
+              "  if [ -z \"$znach\" ]; then printf 'obychnyj'; else printf '%s' \"$znach\"; fi\n}")
+    return t
+
+
+def m_pervyj_rezultat_find(t):
+    # [D29] снят: дефект реализации 140 (73aa92b7a, вердикт адверсария вызов
+    # 1/2) — класс читается по ПЕРВОМУ результату find (sorted|sed -n '1p' —
+    # выбор детерминирован), конфликт/нет строки в остальных файлах молчат:
+    # один «рисковый» файл среди шести пропускал рисковый предмет обычным.
+    return _z(t, '''klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local spisok f val znach='' ploh=''
+  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"
+  if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    val="$(grep '^КЛАСС РИСКА:' "$f" | sed -e 's/^КЛАСС РИСКА:[[:space:]]*//' | cut -d' ' -f1)"
+    case "$val" in
+      обычный)  val='obychnyj' ;;
+      рисковый) val='risikovyj' ;;
+      *)        ploh="${ploh:+$ploh }$f"; continue ;;
+    esac
+    if [ -z "$znach" ]; then znach="$val"
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$f"; fi
+  done <<EOF
+$spisok
+EOF
+  if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
+  printf '%s' "$znach"
+}''', '''klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki
+  local f
+  f="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort | sed -n '1p')"
+  if [ -z "$f" ]; then printf 'net_stroki'; return 0; fi
   if ! grep -q '^КЛАСС РИСКА:' "$f"; then printf 'net_stroki'; return 0; fi
-  if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi''',
-              '''  if [ -z "$f" ]; then printf 'obychnyj'; return 0; fi
-  if ! grep -q '^КЛАСС РИСКА:' "$f"; then printf 'obychnyj'; return 0; fi
-  if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi''')
+  if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi
+}''')
 
 
 def m_bez_adv_do_rev(t):
@@ -1076,6 +1195,7 @@ STAB_MUTACII = {
     's25-bez-pin-rashozhdenija': m_bez_pin_rashozhdenija,
     's26-uchet-bez-zhurnala': m_uchet_bez_zhurnala,
     's27-pauza-schitaetsja': m_pauza_schitaetsja,
+    's28-pervyj-rezultat-find': m_pervyj_rezultat_find,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
