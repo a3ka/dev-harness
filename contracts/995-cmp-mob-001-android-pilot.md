@@ -1,12 +1,15 @@
 # Контракт 995 — CMP-MOB-001: Android-пилот e-mail/код → F02.01
 
 КЛАСС: КОДОВЫЙ. Авторский контракт CMP-MOB-001; предмет issue #5 сохранён. Android-приёмка C следует после реализации, не подменяется авторскими моделями.
+КЛАСС РИСКА: рисковый — основание «безопасность»: в диагностике и журналах обеих попыток проходит секрет значения кода доступа (PILOT_DEMO_CODE); публикация — только redacted, утечка — отдельная красная клетка батареи v+1.
 
 КОНТЕКСТ: GitHub `a3ka/Complior-mob#5` — источник работ и приёмки; перед раздачей читать полное тело через `gh issue view 5 --repo a3ka/Complior-mob --json body --jq .body`.
 КОНТЕКСТ: `contracts/991-complior-repeticiya-p107-p111.md` — дисциплина H/B/C/T и Android evidence; несколько PR репетиции сюда не переносятся.
 КОНТЕКСТ: `docs/owner/2026-10-17-plan-stancii.md` — независимый слот mob и ручной Merge.
 КОНТЕКСТ: `fixtures/workshop_project/pilot_995/source.json` — до запуска субъекта снять в память copy/ожидания и хеши прочитанных источников.
 КОНТЕКСТ: `fixtures/workshop_project/pilot_995/pilot.test.tsx` — исполняемый контракт публичного composition seam и наблюдаемых состояний.
+КОНТЕКСТ: `verdicts/consultant/995-obryv-emulyatora-astra-v1.md` §3/§6/§7–§11 (консультация Astra, read-only 26.10; слово владельца 2026-10-26 ~15:30 Берлин «да, принимаем» — план целиком; копия с `owner/astra-995` в `/tmp/dev-harness-verify/orch/astra995.md`) — ТЗ v+1: единственный владелец эмулятора/повтора — `mobile/scripts/ci-e2e.sh`, redacted диагностика обеих попыток у P, причинный замер §10.
+КОНТЕКСТ: серия на голове PR #124 (run 40321887036): 3 success / 5; попытки 4–5 (job 121594516324, 121599449453) красные на native 995 — 7/7 мгновенных падений по обрыву adb-транспорта, артефакт попытки 5 `maestro.log`: «ПОВТОР» повторяет Maestro на ТОМ ЖЕ эмуляторе (`adb reconnect offline`), перезапуска эмулятора нет.
 
 ## Существующее
 
@@ -34,6 +37,26 @@
 3. Sent только после confirmed resend; countdown только из достоверного retryAfterSeconds существующего auth flow. Mock маркирует такие состояния SYNTHETIC. Отсутствие cooldown не превращается в придуманный таймер. Полное значение кода не попадает в сообщения агента/console/артефакты; secureTextEntry, очищение после входа, redaction диагностики.
 4. F03.V02 открывает F03.04, A07 вложен в состояние «нет доступа». Безопасный возврат ко входу; восстановление без capability не объявляет успеха. Stale/revoked/missing scope не дают авторизованного перехода. Навигация/перезапуск не выполняют business command, приглашения не принимаются.
 5. Runtime mock values `mobile/src/mocks/pilot-responses.json` = объект с getSession/getDisclosure, значения по неизменённым схемам api/. CI реально исполняет schema validation, а не проверяет наличие файла. Входы модели конформны: synthetic адреса .invalid, произвольный непрозрачный код, типизированные ответы/отказы auth и допустимые Session/Disclosure. Контрпример валиден при инвариантности к значениям и расхождении на конформном входе; не требуется принимать новую грамматику вне этих портов.
+
+## Инварианты v+1 (перезапуск собственного эмулятора и один повтор набора)
+
+Субъекты v+1: S = `mobile/scripts/ci-e2e.sh` (продукт; ЗОНА implementer, копия байт-в-байт из модели `fixtures/workshop_project/pilot_995/restart/model/ci-e2e.sh`, sha256 `edb0cf0ae032acebcb440a45cbd6b3000734b4f015000bda204e1d33fc295ce6`); P = `fixtures/workshop_project/pilot_995/maestro_probe.py` (харнесс, ЗОНА architect по frozen 995/1 «fixtures/workshop_project/pilot_995/»; правку P вносит архитектор пачкой v+1 — внесена, байты равны модели `restart/model/maestro_probe.py`, sha256 `9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749`; живой файл сверяется клеткой zhyvoj-p-kanon). Номера 6+ продолжают нумерацию инвариантов 1–5.
+
+6. Единственный владелец эмулятора и повтора — S. Ни P (приватный cwd/редакция/публикация), ни mobile.yml, ни 139/141 не заводят своего повтора набора 995 и не управляют эмулятором. Шаговый повтор 141 и перепин 139 v+1 не меняются этой пачкой.
+7. Право на повтор: rc≠0 полного набора И каноническая сигнатура обрыва adb-транспорта — одна строка канона 117/141/139 `device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException` (в тексте S ровно 1 вхождение, обрывки вне канона запрещены) — в артефактах ТЕКУЩЕЙ попытки (её maestro-журнал, её JUnit, её test-вывод; не эхо, не прошлые попытки, не просроченные артефакты workspace, не diagnostics), И каждый провал JUnit сам транспортный. Смешанный лог (продуктовая неудача + сигнатура) и пустой вывод повтор не дают; продуктовый отказ не повторяется и не стирается.
+8. Повтор — ровно один: диагностика ДО остановки → остановка ТОЛЬКО собственного эмулятора по owned PID (TERM → ограниченное ожидание выхода → KILL того же PID; без широких завершателей по маске, без разрыва сервера adb, без переподключения офлайн-устройства, без чужих PID) → новая инкарнация эмулятора (новый PID, тот же AVD/порт; жив owned PID — kill -0 ПЕРЕД ожиданием готовности, ПЕРЕД установкой APK и НЕПОСРЕДСТВЕННО ПЕРЕД вторым набором: мёртвый owned PID при отвечающем serial — чужой/старый процесс на порту — новой инкарнацией не считается, готовность/установка/набор по нему не выполняются, EMULATOR_START сам по себе инкарнацию не подтверждает; готовность — реальная wall-clock граница 390 с И потолок итераций; установка с проверкой итога; стабильность транспорта тремя подряд проверками) → один повтор полного набора. Второй красный — итоговый красный: RECOVERED при втором зелёном, EXHAUSTED при втором красном; третьей попытки нет. Смерть owned PID ПОСЛЕ старта второго набора итог не маскирует: действует результат второго набора.
+9. Диагностика обеих попыток (причинный замер §10 Astra): до набора и при отказе — ДО любой остановки — снимок с полями utc/monotonic, run/github_attempt/local_attempt/pokolenie, serial/avd/port, emulator_pid/старт/журнал инкарнации, netns, adb-сервер, guest boot_id, PID adbd, доступная память, cgroup memory/cpu и PSI, ограниченный logcat до набора и при отказе, полный журнал эмулятора инкарнации, maestro-вывод, копия JUnit. Недоступное поле честно помечается. Публикация: финальные JUnit/PNG — ОДНОЙ (финальной) попытки в вершине `maestro-out/`; текстовая диагностика всех попыток — `maestro-out/diagnostics/attempt-1|2/`; кадры нефинальных попыток не публикуются; просроченные артефакты публикация стирает. Секрет (PILOT_DEMO_CODE) снимается редактированием со ВСЕХ текстовых каналов обеих попыток; P печатает краткое redacted событие RECOVERED/EXHAUSTED; при истечении бюджета `--timeout` P останавливает только собственное дерево процессов (сессия) и всё равно публикует собранное.
+10. Отказы готовности инкарнации — именованные (память станции, загрузка за 390 с, установка APK, стабилизация транспорта, готовность после перезапуска, смерть owned PID новой инкарнации — на готовности, перед установкой или непосредственно перед вторым набором): Maestro не запускается, RECOVERED не объявляется, повтор по ним не расходуется, исходный rc сохраняется. Cleanup останавливает только owned PID после сохранения диагностики и не меняет итог.
+
+Красная батарея `fixtures/workshop_project/pilot_995/restart/` судит поведение настоящего S replay-ем в замкнутом PATH (подложные adb/emulator/avdmanager/maestro/pkill; журнал вызовов — оракул; имена прогонов и кадров порождает раннер) и пробу P поверх модели S; оракул `source.json` в памяти до вызова субъекта; прежние клетки/стабы 995 байт-неизменны. Ось «владение инкарнацией» (критик, круг 1 FAIL): смерть подложного emulator назначает раннер — сразу после EMULATOR_START при продолжающем отвечать stale serial (свидетель критика дословно), между готовностью и вторым набором (по boot-диагностике попытки 2), после старта второго набора (по строке MAESTRO 2); ожидания вычислены до вызова субъекта. Команды приёмки v+1 (W = `bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh`):
+
+- `bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh` → rc 1 → красная: SUBJECT_ABSENT
+- `bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh --model` → rc 0 (29/29, три прогона подряд rc 0 — порождаемые входы не меняют исход)
+- `bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh --stabs` → rc 0, контроль 29/29, SVJAZI 41, живых 0 (режим CI харнесса без omp/сети)
+- `bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh --repo <корень продукта>` до правки S → rc 1 (красный перечень входов); после байт-в-байт правки → rc 0
+
+замер: `ls -1 fixtures/workshop_project/pilot_995/restart/model/* | wc -l` = 2 census fixtures/workshop_project/pilot_995/restart/model/*
+замер: `ls -1 fixtures/workshop_project/pilot_995/restart/nositeli/* | wc -l` = 2 census fixtures/workshop_project/pilot_995/restart/nositeli/*
 
 ## Проверяемый шов
 
@@ -89,10 +112,74 @@ Splash/First-Run, визуальное сходство с D2.2.5.1 и неме�
 ЗОНА adversary: verdicts/adversary/
 ЗОНА reviewer: verdicts/review/
 ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/pilot_995/ — 105 новый подкаталог существующей architect-зоны; чужие файлы не меняются.
+ПЕРЕСЕЧЕНИЕ architect: fixtures/workshop_project/pilot_995/ — 118 v+1: maestro_probe.py этой директории правится architect-пачкой v+1 (байты = модели restart/), прежние клетки/стабы байт-неизменны; чужие файлы не меняются.
 
 Пути implementer отсчитываются от Complior-mob, не dev-harness:
 
-ЗОНА implementer: mobile/src/app/ mobile/src/features/auth/ mobile/src/api/ mobile/src/auth/ mobile/src/mocks/ mobile/.maestro/ .github/workflows/mobile.yml mobile/src/bootstrap/pilot-app.tsx mobile/src/bootstrap/__tests__/ mobile/src/features/onboarding/welcome-screen.tsx mobile/src/navigation/pending-intent.ts mobile/metro.config.js mobile/jest.config.js mobile/package.json mobile/tsconfig.json mobile/src/bootstrap/http-runtime.ts mobile/src/bootstrap/runtime-contract.d.ts
+ЗОНА implementer: mobile/src/app/ mobile/src/features/auth/ mobile/src/api/ mobile/src/auth/ mobile/src/mocks/ mobile/.maestro/ .github/workflows/mobile.yml mobile/src/bootstrap/pilot-app.tsx mobile/src/bootstrap/__tests__/ mobile/src/features/onboarding/welcome-screen.tsx mobile/src/navigation/pending-intent.ts mobile/metro.config.js mobile/jest.config.js mobile/package.json mobile/tsconfig.json mobile/src/bootstrap/http-runtime.ts mobile/src/bootstrap/runtime-contract.d.ts mobile/scripts/ci-e2e.sh
+ЗОНА orchestrator: registry/ci-steps.tsv registry/ci-zamery.tsv .github/workflows/ci.yml
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-zamery.tsv — 114 замер self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие замеры не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 998 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 997 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 996 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 994 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 114 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 113 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 112 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 110 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 103 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 095 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 094 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 093 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 092 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 090 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 087 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 084 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: registry/ci-steps.tsv — 083 строка step self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, чужие строки не меняются
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 996 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 114 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 112 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 110 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 109 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 100 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 099 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 095 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 094 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 093 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 092 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 090 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 087 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 084 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 083 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 078 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 072 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 071 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 070 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 063 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 062 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 060 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 059 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 058 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 057 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 045 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 043 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 040 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 039 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 038 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 036 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 027 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 021 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 020 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 016 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 015 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 011 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 008 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 007 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 006 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 005 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 004 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 003 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
+ПЕРЕСЕЧЕНИЕ orchestrator: .github/workflows/ci.yml — 002 проводка self-test батареи 995 — интеграционный коммит оркестратора в окне freeze..done, форма чужих шагов не меняется
 
 `bootstrap/pilot-app.tsx` и `__tests__/` — composition/шов (STRUCTURE.md:60,143–155); `features/onboarding/welcome-screen.tsx` — F02 (60–77,111); `navigation/pending-intent.ts` — данные (61,157). Дополнения по STRUCTURE.md:163–167: `metro.config.js` — resolver.resolveRequest alias с делегированием; `jest.config.js` — тот же выбор в тестах; `package.json` — удалить прежний inline jest config, зависимости не добавлять; `tsconfig.json` + `bootstrap/runtime-contract.d.ts` — общий тип alias вне mocks; `bootstrap/http-runtime.ts` — HTTP composition. `mocks/runtime.ts`/`mocks/demo-code.ts`/`mocks/pilot-responses.json` уже покрыты mocks-зоной. Другие bootstrap/config файлы не разрешены. ESLint B неизменён; api/docs/design read-only, mobile-cloud-e2e и настройки GitHub вне зоны.
 
@@ -112,18 +199,56 @@ Splash/First-Run, визуальное сходство с D2.2.5.1 и неме�
 - от пропуска cognitive-only сверок: ловец reviewer и ручной Merge владельца;
 - от неполного ApiClient/AuthProvider или иной раскладки слоёв при зелёных пробах — принятый остаток арбитража 995, ловец reviewer по чек-листу П4.
 
+### v+1 (restart)
+
+ЗАЩИЩАЕТ:
+- от повтора без перезапуска: журнал вызовов требует EMULATOR_STOP текущего PID ДО второго EMULATOR_START и второго набора; «фиктивный echo» и повтор на том же эмуляторе различаются журналом и rc;
+- от подмены инкарнации чужим/старым устройством (критик, круг 1): мёртвый owned PID нового эмулятора при отвечающем serial — именованный отказ на готовности, перед установкой и непосредственно перед вторым набором; EMULATOR_START сам по себе инкарнацию не подтверждает; смерть owned PID после старта второго набора итог не маскирует;
+- от повтора «чего попало»: 4 альтернативы канона; продуктовый провал, смешанный лог, пустой вывод, просроченный артефакт workspace, INSTALL_FAILED-текст — НЕ повторяются;
+- от третьей попытки, от зелёного итога при втором красном, от стирания первой попытки (обе диагностики + финал одной попытки), от публикации кадров нефинальных попыток;
+- от широких остановок: субъект обязан останавливать только owned PID; широкие завершатели по маске, разрыв сервера adb и переподключение офлайн запрещены и текстом, и журналом вызовов;
+- от утечки секрета в новой диагностике: P редактирует все текстовые каналы обеих попыток, PNG не расширяют поиск финальных evidence (вершина maestro-out);
+- от потери диагностики при зависании: exception-safe сбор (включая --timeout) до удаления приватного cwd, остановка собственного дерева процессов сессией.
+
+НЕ ЗАЩИЩАЕТ:
+- от первопричины обрыва (судьба qemu/adbd/ресурсы раннера): перезапуск — переживание, не лечение корня; различитель — первый причинный замер §10 в живом CI; общий adb-сервер и ANDROID_AVD_HOME двух раннеров остаются станции (решение владельца №6, после первого замера);
+- от исполнения живых Maestro/эмулятора/avdmanager: replay подложен батарее; ловец — продуктовый CI (шаг 995 native) и один живой smoke на станции;
+- от содержательной истинности классификации JUnit при незнакомом формате провалов Maestro (провал без текста канона в failure/error-сегменте трактуется продуктовым — fail-closed, повтор не даётся);
+- от per-command таймаутов отдельных adb-вызовов внутри готовности (граница — wall-clock 390 с загрузки, итерационные потолки и внешний бюджет job/P);
+- достижимое состояние НЕ ЗАКРЫТО автоматом: owned PID жив, но порт слушает чужой процесс (эмулятору не достался порт, а он не вышел) — serial отвечает чужой инкарнацией, kill -0 проходит; сверка owned PID с процессом, слушающим порт (ss/lsof), вне замкнутого алфавита модели и батареи, в replay не различима и в модель не внесена; остаток закрывается живой практикой: инвариант 9 публикует полный журнал эмулятора инкарнации (отказ привязки порта виден в нём) и guest boot_id/adbd_pid отвечающего устройства — разбор по диагностике живого CI;
+- от дрейфа формы mobile.yml и чужих шагов (зона 141): батарея судит только mobile/scripts/ci-e2e.sh, P и их канон байт.
+
+ПРЕДПОСЫЛКИ:
+- setting батарея самодостаточна: python3 и замкнутый PATH; без сети, gh, omp, эмулятора и SDK (режим --stabs).
+- setting продуктовый CI ничего нового не требует: пин H (dev-harness на SHA заморозки), PRIVATE_FILE кода и APK уже обязательны шагом «Maestro runner для CMP-MOB-001»; новых секретов/variables/environments нет.
+- setting budget --timeout P (по умолчанию 1800 с) не превышает timeout-minutes job android-e2e (40 мин); изменение лимитов — только с измерением.
+
 ## ПРОВОДКА
 
 ПРОВОДКА:
 - role=roles/orchestrator.md «До done/тега прогони done_contract.sh; ручной git tag done/… — обход гейта.»
+- guard=fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh
 
-ПРОВОДКА-ЭНФОРСМЕНТ: потребляется действующая норма закрытия роли. Новая общая норма не вводится; локальная приёмка этой задачи исполняется оркестратором/судьями и CI Complior-mob. Внешние пробы НЕ объявлены guard-каналами dev-harness: текущий check_provodka требует для них отсутствующую локальную CI-проводку. На ещё не принятую правку 994 контракт не опирается.
+ПРОВОДКА-ЭНФОРСМЕНТ: норма владельца «перезапуск собственного эмулятора и ровно один повтор полного набора в mobile/scripts/ci-e2e.sh по канонической сигнатуре обрыва adb-транспорта, продуктовый отказ не повторяется и не стирается, redacted диагностика обеих попыток; новая инкарнация подтверждается живым owned PID на готовности и непосредственно перед вторым набором» получает механический гейт: батарея красна на живом продукте без правки (21 вход, включая смерть нового owned PID при отвечающем stale serial — свидетель критика), зелена на моделях и матрице обманных стабов (SVJAZI 41, живых 0), судит байт-канон S и живого P. Режим CI харнесса — `--stabs` (без omp, сети и чужого checkout; ~58 с). Проводка self-test в registry/ci-steps.tsv/ci-zamery.tsv/ci.yml — интеграционный коммит ОРКЕСТРАТОРА в окне freeze..done (как 139/141); до ленда шаг CI несёт `--stabs` явно. Безфлаговый red-режим (`--repo <корень продукта>`) красен ДО байт-в-байт правки S; порча моделей/носителей/привязок — rc 2 ORACLE_TAMPERED.
 
 ## Отложенная продуктовая приёмка
 
 - Android red на APK B, green на release APK C, PNG review и реальные PR jobs — NOT_RUN: C ещё не реализован, `adb devices -l` не показывает устройства. Это обязательная приёмка implementer/судей после freeze, не блокер авторской матрицы.
 - Native runner исполняется командой `python3 fixtures/workshop_project/pilot_995/maestro_probe.py --device SERIAL --code-file PRIVATE_FILE --out NEW_OUT`; код читается из приватного файла, frozen flow запускается в приватном временном каталоге, stdout/stderr/XML/JSON перед публикацией редактируются по точному значению. Контрмодели доказывают этот путь без эмулятора; PNG требуют secureTextEntry и визуальной сверки на C. Прямой Maestro из §Приёмочный критерий описывает внутренний вызов runner, не разрешает upload сырых artifacts.
 - Backend/IdP HTTP_REQUEST_RESPONSE, SQL_BEFORE_AFTER, PROVIDER_CALL_COUNT — NOT_RUN: mock-предмет не доказывает production auth/backend. Copy signoff остаётся владельцу.
+
+## Фактический замер v+1 (restart)
+
+Клон работы: harness `/tmp/dev-harness-verify/Architect995v2b/repo` (ветка wip/995/architect-v2d, один squash-коммит поверх main `72f7a7628`; база — OBJECT критика `8ae962ff6`), продукт read-only `…/Architect995v2b/mob` @ `52a5cf5468408c54fda96825cd93ad6ecdaa7c90` (голова PR #124; ci-e2e.sh sha256 `21715b69…ee7` — старый S). Числа из вывода команд этой пачки (исправление FAIL критика, вызов 1/2):
+
+- W без флага → rc 1 SUBJECT_ABSENT, 29 KRASNO; `--repo` без субъекта → rc 1 SUBJECT_ABSENT (29 красных); `--repo` на живом продукте (старый S, новый P уже в дереве харнесса) → rc 1, 21 красный / 8 ok — в их числе новые входы оси «владение инкарнацией»: inkarnacija-mertva-na-starte и inkarnacija-mertva-pered-vtorym (старый S ставит APK и запускает второй набор — свидетель критика дословно), inkarnacija-mertva-vo-vtorom (rc 1: старый S вовсе без перезапуска).
+- Свидетель критика на батарее: стаб `s-bez-zhizni` (модель критика «EMULATOR_START достаточен») на входе (а) → RC 0, `EMULATOR_STOP <новый PID>` ПЕРЕД `ADB_INSTALL rc=0` и `MAESTRO 2 rc=0`, RECOVERED True — форма «СЫРОЙ ВЫВОД ВЫПОЛНЕННОЙ АТАКИ» вердикта; прежняя модель (байты OBJECT `8ae962ff6`) на входах (а),(б) → rc 0 при ожидаемом 1 (красная).
+- `W --model` → rc 0 29/29 ×3 подряд; `W --stabs` → rc 0, контроль 29/29, SVJAZI 41, живых 0 (~58 с, вместе с контролем --model тем же прогоном ~86 с); порча модели S / модели P / носителя → rc 2 ORACLE_TAMPERED (пин); stab_vhod: неизвестный вход → rc 2, пустые привязки → rc 2 «проверка исчезает» (проверка добавлена этой пачкой), чужой валидный вход → стаб ZHIV в `--stabs` → rc 1.
+- Параллельная изоляция (СОВЕТ критика): СТАРАЯ батарея (HEAD `8ae962ff6`) — 5 раундов × 2 одновременных `--model`: 1 из 10 экземпляров rc 1 (раунд 2, vtoroj-krasnyj-produkt; в том прогоне p-timeout прошёл). Дефект реален; исправления раннера (не модели): (1) `pokolenie()` adb-стаба учитывает стартующего — форк есть, строки EMULATOR_START ещё нет — эмулятора (гонка fork→printf отдавала чужое поколение первому поколение-чувствительному adb-вызову готовности: класс p-timeout); (2) `sleep 1` (окно TERM→KILL остановки OWNED PID) — реальные 0.05 с вместо мгновенного: TERM-обработка эмулятора успевает дописать EMULATOR_STOP до KILL (класс vtoroj-krasnyj-produkt). НОВАЯ батарея: 10/10 rc 0, p-timeout ok в каждом экземпляре.
+- Счёт кодом (source.json): kejsy 29 (s-replay 19, struktura 4, nositel 2, p-replay 4), stab_vhod 25 (S 20 / P 5), связей 41, канон сигнатур — 1 строка/1 вхождение в модели S; прежние 26 клеток и 23 стаба байт-неизменны (diff source.json — только добавления трёх клеток, двух привязок и пина модели).
+- Соседние unchanged: `native_matrix.py --scratch` → rc 0 checked=16 (P не менялся); 141 `--stabs` → rc 0 SVJAZI 61; 139 `--stabs` → rc 0 SVJAZI 60; `git diff --name-only 72f7a7628..HEAD` — только contracts/995-…md и fixtures/workshop_project/pilot_995/.
+- Гейты: pre_critic (--repo клон харнесса) rc 0 «дверь зелёная», PREDPOSYLKI_OK settings=3; precision rc 0 (клон обязан нести теги: `git fetch --tags`); spec_ready rc 0; ceilings rc 0; provodka rc 0 на копии с одной ci-steps-строкой `check:ci-e2e-restart-995-family-selftest` (вес 90, `--stabs`).
+- НЕ проверено здесь: живой CI/эмулятор, frozen_matrix на живом продукте (нет node_modules в read-only клоне — среда, не регресс), серия ≥5 на новой голове — приёмка implementer/судей после freeze (§11 Astra: серия на одном новом head, оба раннера, 0 инфраструктурных красных после одного локального восстановления).
 
 ## Фактический замер авторской пачки
 
