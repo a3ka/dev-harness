@@ -18,7 +18,7 @@ defaults:
 
 jobs:
   quality:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, complior]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -70,11 +70,21 @@ jobs:
       # Пин .harness123 (сверка кадров 123) НЕ переписывается: по
       # source.json sverka_123.provodka «перепин .harness123 — дело 123»,
       # а клетка SVERKA_123_HARNESS_PIN сверяет ref только как 40-hex.
+      # ПЕРЕПИН H 2026-10-25 (контракт 118 v2, §ПРЕДПОСЫЛКИ: «перепин H …
+      # на ревизию с этими данными ДО продуктового зелёного»):
+      # c663dd0fb0b233e56368707aef6940baaf254a30 →
+      # b9b4c66f3d84dc8aa7eb7c8e83b466e807817416 (main харнесса) — ревизия
+      # несёт ленд данных 995 (871d04eb: session.expires_at 2026-10-14 →
+      # 2099-12-31 в fixtures/workshop_project/pilot_995/source.json, слово
+      # владельца 25.10); cmp-шаг ниже требует байт-равенства продукта и H.
+      # Между c663dd0f и b9b4c66f3 в pilot_995/nav_999/start_108/
+      # first_run_111 и scripts/ekran_shablon.py/sverka_maketa.py
+      # изменился ТОЛЬКО этот литерал (git diff --stat), пробы не тронуты.
       - name: Checkout frozen probe harness H
         uses: actions/checkout@v7
         with:
           repository: a3ka/dev-harness
-          ref: c663dd0fb0b233e56368707aef6940baaf254a30
+          ref: b9b4c66f3d84dc8aa7eb7c8e83b466e807817416
           path: .harness
           persist-credentials: false
       - name: cmp frozen pilot.test.tsx + source.json с H
@@ -222,7 +232,12 @@ jobs:
           rm -rf .harness
           python3 .harness117/fixtures/workshop_project/vkhod_117/vkhod_static_probe.py --repo .
           python3 .harness117/fixtures/workshop_project/vkhod_117/vkhod_probe.py --repo .
-      - name: Вынести H, батарею 117 и пачку 135 из дерева до lint (layout-проверка не должна их видеть)
+      # 118 (Erstinformation): пачка экрана mobile/e2e-erstinformation и файл
+      # пробы композиции mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh
+      # выносятся из дерева тем же шагом, что и пачка 135 — layout-проверка
+      # (structure-policy.json) их не знает, как и .harness/.harness117.
+      # Шаги 107/117 выше дословно.
+      - name: Вынести H, батарею 117 и пачки 135/118 из дерева до lint (layout-проверка не должна их видеть)
         working-directory: ${{ github.workspace }}
         run: |
           set -e
@@ -230,6 +245,8 @@ jobs:
           mv .harness /tmp/dev-harness-verify/impl995-h-${{ github.run_id }}-${{ github.run_attempt }}
           mv .harness117 /tmp/dev-harness-verify/impl117-b-${{ github.run_id }}-${{ github.run_attempt }}
           mv mobile/e2e-first-run /tmp/dev-harness-verify/impl135-pack-${{ github.run_id }}-${{ github.run_attempt }}
+          mv mobile/e2e-erstinformation /tmp/dev-harness-verify/impl118-pack-${{ github.run_id }}-${{ github.run_attempt }}
+          mv mobile/src/bootstrap/__tests__/kompozicija.stand-in.sh /tmp/dev-harness-verify/impl118-probe-${{ github.run_id }}-${{ github.run_attempt }}
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
@@ -251,14 +268,19 @@ jobs:
       # 995 (CMP-MOB-001): тот же frozen H публикуется через actions/checkout в шаге
       # android-e2e; maestro_probe.py исполняется из R/.harness и читает frozen pilot.yaml
       # и scripts/ci-e2e.sh; эмулятор и его приватный cwd живут внутри runner-а.
-      # H = c663dd0fb0b233e56368707aef6940baaf254a30 — единый пин с quality-job:
+      # H = b9b4c66f3d84dc8aa7eb7c8e83b466e807817416 — единый пин с quality-job
+      # (ПЕРЕПИН 2026-10-25, контракт 118 v2 §ПРЕДПОСЫЛКИ: ревизия несёт ленд
+      # данных 995 — session.expires_at → 2099-12-31T00:00:00Z в
+      # fixtures/workshop_project/pilot_995/source.json; между c663dd0f и
+      # b9b4c66f3 в батареях pilot_995/nav_999/start_108/first_run_111 и
+      # scripts/ изменился ТОЛЬКО этот литерал):
       # pilot_995, nav_999, start_108 (336 клеток + ROUTE_ENTRY, матрица 42+5),
       # first_run_111 (v4: статическая 16/16 + поведенческая 23/23, матрица 16+34).
       - name: Checkout frozen probe harness H
         uses: actions/checkout@v7
         with:
           repository: a3ka/dev-harness
-          ref: c663dd0fb0b233e56368707aef6940baaf254a30
+          ref: 66052cdfd134ab0958421a961caef219694a54df
           path: .harness
           persist-credentials: false
       - name: Изоляция раннера (/home недоступен коду из PR)
@@ -294,11 +316,27 @@ jobs:
         run: |
           set -e
           python3 -m pip install -r .harness/fixtures/workshop_project/pilot_995/requirements.txt
+          # Н-407: диагностика ВНЕ эха — обрыв adb виден в логе шага, не только в
+          # артефакте maestro.log (транспорт эмулятора 995 живёт в приватном cwd
+          # maestro_probe → ci-e2e.sh; хвост emulator-лога шагу недоступен — доступны
+          # adb devices и сигнатуры из mobile/maestro-out). Шагового повтора НЕТ:
+          # повтор уже живёт внутри ci-e2e.sh (зона 995), уровень workflow — 139.
+          set +e
           python3 .harness/fixtures/workshop_project/pilot_995/maestro_probe.py \
             --repo ${{ github.workspace }} \
             --apk ${{ github.workspace }}/mobile/android/app/build/outputs/apk/release/app-release.apk \
             --code-file /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}/code \
             --out ${{ github.workspace }}/mobile/maestro-out
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "ДИАГНОСТИКА 995: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА 995: сигнатуры Maestro в mobile/maestro-out" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out >&2 2>/dev/null || true
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
       - name: Cleanup private code file
         if: always()
         run: rm -rf /tmp/impl995-pilot-private-${{ github.run_id }}-${{ github.run_attempt }}
@@ -474,32 +512,79 @@ jobs:
             -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
           sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
           adb start-server >/dev/null
-          emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
-            -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
-          adb -s "$SERIAL" wait-for-device
-          for _ in $(seq 1 130); do
-            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+          # Н-407: обрыв adb-транспорта после «готовности» эмулятора — не провал
+          # проверки. Канон шага 117/ci-e2e.sh (слово владельца 25.10): ровно
+          # один повтор, и только по сигнатуре обрыва транспорта; провал
+          # сверки/проверки происхождения НЕ повторяется.
+          boot135() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
             sleep 3
-          done
-          [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
-            echo "ОТКАЗ: эмулятор 135 не загрузился за 390 с" >&2; exit 1; }
-          ok=0
-          for _ in $(seq 1 40); do
-            if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
-               adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
-              ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
-            else
-              ok=0
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор 135 не загрузился за 390 с" >&2; return 1; }
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            if [ "$ok" -lt 3 ]; then
+              echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
+              return 1
             fi
-            sleep 2
-          done
-          for s in window_animation_scale transition_animation_scale animator_duration_scale; do
-            adb -s "$SERIAL" shell settings put global "$s" 0
-          done
-          adb -s "$SERIAL" install -r "$APK" >/dev/null
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+          # Н-407: диагностика ВНЕ эха — обрыв adb обязан быть виден в логе шага,
+          # а не только в артефакте (иначе не работает ни триаж, ни признак
+          # повтора 139, который читает лог мимо ##[group]-эха скрипта).
+          diag135() {
+            echo "ДИАГНОСТИКА 135: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА 135: сигнатуры Maestro в mobile/maestro-out-first-run" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-first-run >&2 2>/dev/null || true
+            echo "ДИАГНОСТИКА 135: хвост emulator-$AVD.log" >&2
+            tail -n 40 "emulator-$AVD.log" >&2 || true
+          }
+          run_priemka135() {
+            rm -rf mobile/maestro-out-first-run
+            mkdir -p mobile/maestro-out-first-run
+            python3 .harness135/scripts/ekran_shablon.py --pack mobile/e2e-first-run --repo . --harness .harness135
+          }
+          if ! boot135; then diag135; exit 1; fi
           export FIRST_RUN_SERIAL="$SERIAL"
-          mkdir -p mobile/maestro-out-first-run
-          python3 .harness135/scripts/ekran_shablon.py --pack mobile/e2e-first-run --repo . --harness .harness135
+          set +e
+          run_priemka135
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            diag135
+            if grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-first-run 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора 135 — перезапуск эмулятора и валидатора" >&2
+              if ! boot135; then diag135; exit 1; fi
+              set +e
+              run_priemka135
+              rc=$?
+              set -e
+              if [ "$rc" -ne 0 ]; then diag135; fi
+            fi
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
           cmp mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py .harness135/fixtures/workshop_project/first_run_ekran_135/teksty/proverka_text.py
           python3 mobile/e2e-first-run/batareja/proverka_proiskhozdenija.py --pack mobile/e2e-first-run --repo . --harness .harness135
       - name: Артефакты 135 (кадры first-run-ekran, отчёт)
@@ -508,6 +593,178 @@ jobs:
         with:
           name: maestro-first-run-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: mobile/maestro-out-first-run
+          if-no-files-found: error
+          retention-days: 14
+      # 118 (Erstinformation): экранная пачка mobile/e2e-erstinformation —
+      # 16 кадров F02.03/F02.08 в обеих темах. Пин .harness118 — принятый
+      # харнесс с усиленной батареей 118 (арбитраж 117↔118 п.1.1–1.7):
+      # scripts/ekran_shablon.py (валидатор формы 132), scripts/sverka_maketa.py
+      # (раннер 123) и fixtures/workshop_project/erstinformation_118/teksty/
+      # proverka_text.py (файл проверки происхождения, побайтово равный
+      # mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py).
+      # Порядок (контракт 118, §ПРОВОДКА-ЭНФОРСМЕНТ): валидатор 132 сам
+      # исполняет priemka.e2e (Maestro, обе темы) и сверку 123 → cmp файла
+      # проверки происхождения с пином H → проверка происхождения БЕЗ
+      # промежуточной правки кадров.
+      #
+      # Пин .harness118 подставлен при интеграции ветки:
+      # d417996f906e881330d989aecfd08bbcdbc4709a = refs/heads/main харнесса
+      # (усиленная батарея 118 после вердикта адверсария круга 1: блокер B3 —
+      # проверка происхождения судит исключение пачки `!erstinformation.yaml`
+      # в mobile/.maestro/config.yaml именованным CONFIG_BEZ_ISKLJUCHENIJA
+      # (носитель mobile/.maestro/config.yaml байт-в-байт = teksty/
+      # maestro_config.yaml пина); прежние усиления пина сохранены:
+      # селектор first-run-continue с дефисом, замкнутая пара
+      # testID=/buttonTestID= в проверке носителя, appId флоу
+      # = com.complior.mobile — пакет продукта, и суд appId в проверке
+      # происхождения: прежний пин оставлял чужой demo-пакет, из-за чего
+      # Maestro падал «Package … is not installed».
+      #
+      # ПЕРЕПИН .harness118 2026-10-25 (контракт 118 v2 круг 3 — РЕШЕНИЕ
+      # арбитра + критик accept, frozen/contracts/118/2):
+      # d417996f → b9b4c66f3d84dc8aa7eb7c8e83b466e807817416 →
+      # 5dbcb549dcd226b2bdc858a06aeb2a1be7bcbf04 (main харнесса). Причина
+      # перепина — канонизация путей checker'а (Adv118v2b: относительная
+      # форма --repo . ломала KOMPOZICIJA, rc 127); после b9b4c66f3 менялись
+      # батарея 118 и реестр/форки/HANDOFF. Батарея v2 добавляет: пин-форму
+      # 13 клеток session-srok.test.tsx (sha256), судью ИСПОЛНЕНИЯ — отчёт jest
+      # --json шага npm test ДО checker'а (флаг отчёта исполнения,
+      # fail-closed), байтовый судью данных — носитель байт-равен эталону
+      # ИЛИ эталону с ровно одной подстановкой литерала expires_at
+      # (nositeli/dannye/etalon_995.json + etalon_pilot_responses.json).
+      # ПРЕДПОСЫЛКА (контракт 118, §Зависимость замороженного корня): путь
+      # `/` → First-Run → demo → Erstinformation → Start держит pilot-app.tsx,
+      # а его правка разрешена только ПОСЛЕ замороженной миграции 117 v+1
+      # (frozen/contracts/117/3). Шаг ниже проверяет тег и останавливает job с
+      # внятной причиной, пока миграция не заморожена.
+      - name: Checkout H пачки erstinformation (.harness118)
+        uses: actions/checkout@v7
+        with:
+          repository: a3ka/dev-harness
+          ref: 5dbcb549dcd226b2bdc858a06aeb2a1be7bcbf04
+          path: .harness118
+          persist-credentials: false
+      - name: 118 миграция 117 v+1 заморожена (frozen/contracts/117/3)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          git -C .harness118 fetch --tags origin
+          git -C .harness118 rev-parse --quiet --verify refs/tags/frozen/contracts/117/3 >/dev/null || {
+            echo "MIGRATION_117_V1_ABSENT: pilot-app.tsx нельзя править без frozen/contracts/117/3" >&2
+            exit 1
+          }
+      # 118 v2 (А-2, судья исполнения): отчёт jest --json пишет шаг npm
+      # test ТОГО ЖЕ job ДО шага проверки происхождения; checker получает
+      # его флагом отчёта и судит исполнение 13 пин-клеток срока
+      # (success, имя файла, каждая клетка ровно раз passed, pending/todo
+      # 0 — fail-closed: нет отчёта = непрогон). Порядок шагов судит
+      # CI_BEZ_OTCHETA_SROKA (единственная текстовая нога; подделка
+      # отчёта/перестановка шагов — остаток §НЕ ЗАЩИЩАЕТ контракта,
+      # ловец — журнал CI, reviewer, adversary-гейт).
+      - run: npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json
+      - name: 118 erstinformation (валидатор 132 + cmp + проверка происхождения, Maestro × тема)
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          APK='mobile/android/app/build/outputs/apk/release/app-release.apk'
+          AVD="ci118-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PORT=5566
+          SERIAL="emulator-${PORT}"
+          AVDM="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          cleanup118() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            "$AVDM" delete avd -n "$AVD" >/dev/null 2>&1 || true
+          }
+          trap cleanup118 EXIT
+          echo no | "$AVDM" create avd --force -n "$AVD" \
+            -k "system-images;android-36;google_apis;x86_64" -d pixel_7 >/dev/null
+          sed -i 's/^hw.ramSize=.*/hw.ramSize=2048/' "$ANDROID_AVD_HOME/$AVD.avd/config.ini"
+          adb start-server
+          # Н-407: обрыв adb-транспорта после «готовности» эмулятора — не провал
+          # проверки. Канон шага 117/ci-e2e.sh (слово владельца 25.10): ровно
+          # один повтор, и только по сигнатуре обрыва транспорта; провал
+          # сверки/проверки происхождения НЕ повторяется.
+          boot118() {
+            adb -s "$SERIAL" emu kill >/dev/null 2>&1 || true
+            sleep 3
+            pkill -f "qemu-system-x86_64.*-avd $AVD" >/dev/null 2>&1 || true
+            emulator -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot \
+              -gpu swiftshader_indirect >"emulator-$AVD.log" 2>&1 &
+            adb -s "$SERIAL" wait-for-device
+            for _ in $(seq 1 130); do
+              [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+              sleep 3
+            done
+            [ "$(adb -s "$SERIAL" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] || {
+              echo "ОТКАЗ: эмулятор 118 не загрузился за 390 с" >&2; return 1; }
+            local ok=0
+            for _ in $(seq 1 40); do
+              if [ "$(adb -s "$SERIAL" get-state 2>/dev/null)" = "device" ] &&
+                 adb -s "$SERIAL" shell pm path android >/dev/null 2>&1; then
+                ok=$((ok + 1)); [ "$ok" -ge 3 ] && break
+              else
+                ok=0
+              fi
+              sleep 2
+            done
+            if [ "$ok" -lt 3 ]; then
+              echo "ОТКАЗ: эмулятор $SERIAL не стабилизировался (adb offline)" >&2
+              return 1
+            fi
+            for s in window_animation_scale transition_animation_scale animator_duration_scale; do
+              adb -s "$SERIAL" shell settings put global "$s" 0
+            done
+            adb -s "$SERIAL" install -r "$APK" >/dev/null
+          }
+          # Н-407: диагностика ВНЕ эха — обрыв adb обязан быть виден в логе шага,
+          # а не только в артефакте (иначе не работает ни триаж, ни признак
+          # повтора 139, который читает лог мимо ##[group]-эха скрипта).
+          diag118() {
+            echo "ДИАГНОСТИКА 118: adb devices" >&2
+            adb devices >&2 || true
+            echo "ДИАГНОСТИКА 118: сигнатуры Maestro в mobile/maestro-out-erstinformation" >&2
+            grep -rnE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-erstinformation >&2 2>/dev/null || true
+            echo "ДИАГНОСТИКА 118: хвост emulator-$AVD.log" >&2
+            tail -n 40 "emulator-$AVD.log" >&2 || true
+          }
+          run_priemka118() {
+            rm -rf mobile/maestro-out-erstinformation
+            mkdir -p mobile/maestro-out-erstinformation
+            cp .harness118/scripts/sverka_maketa.py .harness123/scripts/
+            cp mobile/e2e-erstinformation/kadry.json .harness123/kadry.json
+            python3 .harness118/scripts/ekran_shablon.py --pack mobile/e2e-erstinformation --repo . --harness .harness118
+          }
+          if ! boot118; then diag118; exit 1; fi
+          export ERSTINFORMATION_SERIAL="$SERIAL"
+          set +e
+          run_priemka118
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            diag118
+            if grep -rqE 'device offline|adb: device not found|device [^ ]* not found|DeviceServerDiedException' \
+              mobile/maestro-out-erstinformation 2>/dev/null; then
+              echo "ПОВТОР: обрыв adb-транспорта эмулятора 118 — перезапуск эмулятора и валидатора" >&2
+              if ! boot118; then diag118; exit 1; fi
+              set +e
+              run_priemka118
+              rc=$?
+              set -e
+              if [ "$rc" -ne 0 ]; then diag118; fi
+            fi
+          fi
+          [ "$rc" -eq 0 ] || exit "$rc"
+          cmp mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py .harness118/fixtures/workshop_project/erstinformation_118/teksty/proverka_text.py
+          python3 mobile/e2e-erstinformation/batareja/proverka_proiskhozdenija.py --pack "$PWD/mobile/e2e-erstinformation" --repo "$PWD" --harness .harness118 --jest-otchet e2e-erstinformation/jest-otchet.json
+      - name: Артефакты 118 (кадры erstinformation, отчёт)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-erstinformation-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: mobile/maestro-out-erstinformation
           if-no-files-found: error
           retention-days: 14
       - name: Check rehearsal evidence
