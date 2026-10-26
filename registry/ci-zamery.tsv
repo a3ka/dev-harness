@@ -81,3 +81,4 @@ check:first-run-ekran-135-family-selftest	21	1	0
 check:sessii-proektov-136-family-selftest	55	1	0
 check:start-ekran-138-family-selftest	22	1	0
 check:e2e-avtoperezapusk-139-family-selftest	27	1	0
+check:odin-agent-140-family-selftest	55	1	0
