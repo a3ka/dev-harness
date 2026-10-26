@@ -161,52 +161,32 @@ na_pauze() {  # <NNN>
 # [D18 done-uchet] done-тег закрывает слот предмета (локальные теги чекаута).
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # [D13 klass-riska] строка «КЛАСС РИСКА:» в contracts/<NNN>-*.md обязательна:
-# нет файла ИЛИ нет строки — net_stroki (fail-closed, слово владельца 24.10).
-# Канон выбора (FAIL адверсария 140, вызов 1/2): класс судится по ВСЕМ файлам
-# <NNN>-*.md, «первый результат find» — НЕ канон (SUBJECT несёт только NNN);
-# 0 файлов, отсутствие строки, значение вне алфавита (обычный|рисковый) либо
-# РАЗЛИЧАЮЩИЕСЯ значения у файлов — net_stroki: источник риска неоднозначен,
-# отказ KLASS_RISKA_NET до START и до создания дочернего агента; все согласны —
-# их общее значение (один файл и несколько согласных — прежнее поведение).
-klass_riska_fajla() {  # <файл> → risikovyj|obychnyj|net_stroki
-  local f="$1"
-  # значение — алфавит обычный|рисковый: вне алфавита или оба сразу — net_stroki
-  if grep -q '^КЛАСС РИСКА:' "$f"; then
-    if ! grep -q '^КЛАСС РИСКА: обычный' "$f" && ! grep -q '^КЛАСС РИСКА: рисковый' "$f"; then
-      printf 'net_stroki'; return 0
-    fi
-    if grep -q '^КЛАСС РИСКА: обычный' "$f" && grep -q '^КЛАСС РИСКА: рисковый' "$f"; then
-      printf 'net_stroki'; return 0
-    fi
-  fi
-  if [ -z "$f" ]; then printf 'net_stroki'; return 0; fi
-  if ! grep -q '^КЛАСС РИСКА:' "$f"; then printf 'net_stroki'; return 0; fi
-  if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi
-}
-klass_riska() {  # <NNN> → KR_KLASS (risikovyj|obychnyj|net_stroki) + KR_SPISOK
-  local f v pervyj spisok
+# нет файла ИЛИ нет строки — класс не определён (fail-closed, слово владельца 24.10).
+# [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
+# ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|рисковый)
+# или РАЗНЫЕ значения — класс не определён; «первый результат find» не каноничен
+# (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди шести молча
+# определял класс «обычный» — ревьюер шёл без адверсария). Перечень файлов
+# сортируется LC_ALL=C — сообщение отказа детерминировано.
+klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local spisok f val znach='' ploh=''
   spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"
-  KR_SPISOK=''
-  if [ -z "$spisok" ]; then
-    KR_SPISOK="файлов contracts/$1-*.md нет"; KR_KLASS='net_stroki'; return 0
-  fi
+  if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    KR_SPISOK="${KR_SPISOK:+$KR_SPISOK }${f##*/}"
+    val="$(grep '^КЛАСС РИСКА:' "$f" | sed -e 's/^КЛАСС РИСКА:[[:space:]]*//' | cut -d' ' -f1)"
+    case "$val" in
+      обычный)  val='obychnyj' ;;
+      рисковый) val='risikovyj' ;;
+      *)        ploh="${ploh:+$ploh }$f"; continue ;;
+    esac
+    if [ -z "$znach" ]; then znach="$val"
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$f"; fi
   done <<EOF
 $spisok
 EOF
-  pervyj=''
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    v="$(klass_riska_fajla "$f")"
-    if [ "$v" = 'net_stroki' ]; then KR_KLASS='net_stroki'; return 0; fi
-    if [ -z "$pervyj" ]; then pervyj="$v"; fi
-    if [ "$pervyj" != "$v" ]; then KR_KLASS='net_stroki'; return 0; fi
-  done <<EOF
-$spisok
-EOF
-  KR_KLASS="$pervyj"
+  if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
+  printf '%s' "$znach"
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
@@ -497,13 +477,18 @@ EOF
         mutexi_snyat_vse
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
-      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); канон
-      # выбора — ВСЕ contracts/<NNN>-*.md (см. klass_riska): разногласие,
-      # отсутствие строки/файла или значение вне алфавита — неоднозначно.
-      klass_riska "$sv"; kr="$KR_KLASS"
-      if [ "$kr" = 'net_stroki' ]; then
-        mutexi_snyat_vse; otp KLASS_RISKA_NET "предмет $sv: КЛАСС РИСКА contracts/$sv-*.md неоднозначно определён (нет файлов/строки, значение вне алфавита либо значения различаются): $KR_SPISOK"
-      fi
+      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29]
+      # класс определён только при согласии ВСЕМ contracts/<NNN>-*.md — иначе
+      # отказ с перечнем неоднозначных файлов (голый net_stroki — от мутаций
+      # стабов над klass_riska — отказывается тем же именем).
+      kr="$(klass_riska "$sv")"
+      case "$kr" in
+        risikovyj|obychnyj) : ;;
+        *)
+          mutexi_snyat_vse
+          otp KLASS_RISKA_NET "предмет $sv: класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
+          ;;
+      esac
       # [D14 adv-do-rev] рисковый предмет: ревьюер — после завершённого адверсария.
       if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then
         if ! subekt_suzhen_sudej "$sv" 'adversary'; then
