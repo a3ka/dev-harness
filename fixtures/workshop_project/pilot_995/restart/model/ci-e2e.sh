@@ -171,19 +171,79 @@ zapusk_nabora() {   # $1 = номер попытки; полный набор Ma
   set -e
 }
 
-# Право на повтор: красный итог И каноническая сигнатура в артефактах ТЕКУЩЕЙ
-# попытки (её журнал, её JUnit, её test-вывод — не эхо, не прошлые попытки, не
-# diagnostics), И каждый провал JUnit сам транспортный. Продуктовая неудача в
-# смешанном логе не прячется зелёным повтором.
+# Право на повтор (995 v3, живой формат Maestro): тело JUnit-провала при обрыве
+# транспорта — «Unknown error», каноническая сигнатура живёт в per-flow
+# артефактах упавшего флоу (commands.json/logs его папки в test-вывод). Набор
+# транспортный ⟺ (а) сигнатура есть в артефактах ТЕКУЩЕЙ попытки (её журнал,
+# её JUnit, её test-вывод — не эхо, не прошлые попытки, не diagnostics) И
+# (б) КАЖДЫЙ упавший testcase JUnit либо сам несёт сигнатуру в теле провала,
+# либо сопоставлен РОВНО ОДНОЙ папке своего флоу (живое правило Maestro ниже)
+# и сигнатура есть в ЕЁ commands.json или logs/maestro.log. Упавший флоу без
+# сигнатуры в своих артефактах (продуктовая неудача, «Unknown error» без
+# свидетеля), отсутствующая, переименованная или задвоенная папка — продуктовый
+# отказ: повтор не выполняется, красное не стирается (fail-closed на смешанном
+# наборе).
+
+# Живое правило Maestro (995 v3, серия 799bbc890, живой артефакт art5b:): имя
+# каталога флоу = имя testcase с «/», заменёнными на «_» — единственное
+# НАБЛЮДАЕМОЕ живое преобразование (testcase «999 tabs — четыре вкладки
+# Start/Vorgänge/Schutz/Post и вторичный профиль» ↔ каталог «…Start_Vorgänge_
+# Schutz_Post…»); прочие символы (пробелы, кириллица, «—», «→», глоб-
+# метасимволы) сохраняются как есть. Помощник ОДИН для повтора и публикации:
+# кандидат = ровно одно преобразованное имя; на stdout — все каталоги
+# кандидата по меткам времени test-вывода; никакой ДРУГОЙ testcase набора не
+# даёт тот же кандидат (дубль «/»-vs-«_») — иначе rc 1. Неизвестное живое
+# преобразование иных символов ⇒ каталога нет ⇒ тот же fail-closed
+# (консервативно: повтора нет, flows не публикуются).
+imja_kataloga() {   # $1 = podhod-N; $2 = имя testcase; $3 = все имена testcase
+  local d="$1" imja="$2" vse="$3" kandidat ts drugoe dubl
+  kandidat=${imja//\//_}
+  dubl=0
+  while IFS= read -r drugoe; do
+    [ -n "$drugoe" ] || continue
+    if [ "${drugoe//\//_}" = "$kandidat" ] && [ "$drugoe" != "$imja" ]; then
+      dubl=1
+    fi
+  done <<<"$vse"
+  [ "$dubl" = 0 ] || return 1
+  for ts in "$d"/test/*; do
+    if [ -d "$ts/$kandidat" ]; then
+      printf '%s\n' "$ts/$kandidat"
+    fi
+  done
+}
+
 transportnaya_prichina() {   # $1 = podhod-N; rc 0 = транспортная
-  local d="$1" txt blok
+  local d="$1" txt lenta imja blok katalog vse_imena spisok
   grep -rqE "$KANON" "$d/maestro.log" "$d/report.xml" "$d/test" 2>/dev/null || return 1
   [ -f "$d/report.xml" ] || return 0
-  txt=$(tr -d '\n' <"$d/report.xml" | grep -oE '<(failure|error)[^<]*' || true)
+  txt=$(tr -d '\n' <"$d/report.xml" | grep -oE '<testcase[^>]*>|<(failure|error)[^<]*' || true)
   [ -n "$txt" ] || return 0
-  while IFS= read -r blok; do
-    [ -n "$blok" ] || continue
-    printf '%s\n' "$blok" | grep -qE "$KANON" || return 1
+  vse_imena=$(printf '%s\n' "$txt" | sed -n 's/.* name="\([^"]*\)".*/\1/p')
+  imja=""
+  while IFS= read -r lenta; do
+    [ -n "$lenta" ] || continue
+    case "$lenta" in
+      '<testcase '*)
+        imja=$(printf '%s' "$lenta" | sed -n 's/.* name="\([^"]*\)".*/\1/p') ;;
+      '<failure'*|'<error'*)
+        [ -n "$imja" ] || return 1
+        blok="$lenta"
+        if printf '%s\n' "$blok" | grep -qE "$KANON"; then
+          imja=""
+          continue
+        fi
+        spisok=$(imja_kataloga "$d" "$imja" "$vse_imena") || return 1
+        katalog=""
+        while IFS= read -r papka; do
+          [ -n "$papka" ] || continue
+          [ -z "$katalog" ] || return 1
+          katalog="$papka"
+        done <<<"$spisok"
+        [ -n "$katalog" ] || return 1
+        grep -qE "$KANON" "$katalog/commands.json" "$katalog/logs/maestro.log" 2>/dev/null || return 1
+        imja="" ;;
+    esac
   done <<<"$txt"
   return 0
 }
@@ -209,7 +269,46 @@ opublikovat() {   # $1 = номер финальной попытки
     if [ -f "podhod-$num/maestro.log" ]; then cp "podhod-$num/maestro.log" "maestro-out/diagnostics/attempt-$num/maestro.log"; fi
     if [ -f "podhod-$num/report.xml" ]; then cp "podhod-$num/report.xml" "maestro-out/diagnostics/attempt-$num/report.xml"; fi
     if [ -f "podhod-$num/test/commands.json" ]; then cp "podhod-$num/test/commands.json" "maestro-out/diagnostics/attempt-$num/test-commands.json"; fi
+    opublikovat_potoki "$num"
   done
+}
+
+# Диагностика упавших флоу (995 v3, видимость причины живого формата): per-flow
+# commands.json и logs/maestro.log ТОЛЬКО упавших флоу попытки — в
+# diagnostics/attempt-N/flows/<имя>/. Папка флоу сопоставляется ТЕМ ЖЕ живым
+# правилом Maestro (помощник imja_kataloga: «/»→«_», дубль «/»-vs-«_» и
+# отсутствие папки — не публикуется). Прочие артефакты флоу (кадры, манифест)
+# не публикуются: кадры нефинальных попыток наружу не выходят, объём
+# публикации ограничен двумя текстовыми файлами на упавший флоу. Имя флоу с
+# «/» заменяется на «∕» — выход за каталог публикации невозможен.
+opublikovat_potoki() {   # $1 = номер попытки
+  local num="$1" txt lenta imja bezop potok spisok vse_imena
+  [ -f "podhod-$num/report.xml" ] || return 0
+  txt=$(tr -d '\n' <"podhod-$num/report.xml" | grep -oE '<testcase[^>]*>|<(failure|error)[^<]*' || true)
+  [ -n "$txt" ] || return 0
+  vse_imena=$(printf '%s\n' "$txt" | sed -n 's/.* name="\([^"]*\)".*/\1/p')
+  imja=""
+  while IFS= read -r lenta; do
+    [ -n "$lenta" ] || continue
+    case "$lenta" in
+      '<testcase '*)
+        imja=$(printf '%s' "$lenta" | sed -n 's/.* name="\([^"]*\)".*/\1/p') ;;
+      '<failure'*|'<error'*)
+        [ -n "$imja" ] || continue
+        bezop=${imja//\//∕}
+        if spisok=$(imja_kataloga "podhod-$num" "$imja" "$vse_imena"); then
+          while IFS= read -r potok; do
+            [ -n "$potok" ] || continue
+            if [ -d "$potok" ]; then
+              mkdir -p "maestro-out/diagnostics/attempt-$num/flows/$bezop"
+              if [ -f "$potok/commands.json" ]; then cp "$potok/commands.json" "maestro-out/diagnostics/attempt-$num/flows/$bezop/commands.json"; fi
+              if [ -f "$potok/logs/maestro.log" ]; then cp "$potok/logs/maestro.log" "maestro-out/diagnostics/attempt-$num/flows/$bezop/maestro.log"; fi
+            fi
+          done <<<"$spisok"
+        fi
+        imja="" ;;
+    esac
+  done <<<"$txt"
 }
 
 trap cleanup EXIT
