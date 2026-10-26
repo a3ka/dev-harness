@@ -327,10 +327,22 @@ exit 127
 '''
 
 MAESTRO_SH = r'''#!/usr/bin/env bash
-# Подложный maestro батареи 995 restart: сценарный игрок ПОПЫТКИ — счётчик
-# вызовов, rc/junit-провалы/сигнатуры/кадры из SCENARIJ_MAESTRO_*; после
-# прогона ставит транспорт по SCENARIJ_TRANSPORT_POSLE. Секрет (если задан
-# окружением P) рассеивается в текстовые каналы — redaction обязан его снять.
+# Подложный maestro батареи 995 restart: сценарный игрок ПОПЫТКИ в ЖИВОМ
+# формате Maestro (995 v3; байт-эталон формата — restart/zhivoj/, снимок
+# живого артефакта прогона v1): тело JUnit-провала при обрыве транспорта —
+# «Unknown error», каноническая сигнатура живёт ТОЛЬКО в per-flow артефактах
+# (test/<метка-времени>/<флоу>/commands.json поле message и logs/maestro.log),
+# консоль набора несёт [Failed]/[Passed] без сигнатуры. Флоу попытки задаёт
+# SCENARIJ_MAESTRO_FLOV: список попыток через запятую, флоу попытки через «;»,
+# флоу — «имя@статус@деталь@маркер» (статус ok|obryv|produkt; деталь — текст
+# сигнатуры/провала, «-» = без свидетеля; маркер net|sles-net|dubl|
+# pereimenovan|bogatoe|sles|sles-dubl). Имена флоу ПОРОЖДАЕТ РАННЕР (Н-408) —
+# с пробелами/кириллицей/«—»/«→» и «/»; КАТАЛОГ флоу несёт ЖИВОЕ
+# преобразование Maestro «/»→«_» (JUnit testcase — ОРИГИНАЛЬНОЕ имя с «/»,
+# как в живом art5b/report.xml).
+# После прогона ставит транспорт по SCENARIJ_TRANSPORT_POSLE. Секрет (если
+# задан окружением P) рассеивается в env команд флоу — redaction обязан
+# снять его и из flows-диагностики.
 z="${SCENARIJ_ZAPISI:?}"
 k="${SCENARIJ_KATALOG:?}"
 ''' + _svip_prolog('maestro') + r'''
@@ -352,10 +364,7 @@ pole() { local IFS=,; read -ra ch <<<"$1"; echo "${ch[$(( $2 - 1 ))]:-}"; }
 n=$(( $(cat "$k/maestro_schet" 2>/dev/null || echo 0) + 1 ))
 echo "$n" >"$k/maestro_schet"
 rc=$(pole "${SCENARIJ_MAESTRO_RC:-0}" "$n"); rc=${rc:-0}
-sig=$(pole "${SCENARIJ_MAESTRO_SIGNATURA:-}" "$n")
-trn=$(pole "${SCENARIJ_MAESTRO_TRANSPORT_NEUDACHI:-0}" "$n"); trn=${trn:-0}
-prd=$(pole "${SCENARIJ_MAESTRO_PRODUKT_NEUDACHI:-0}" "$n"); prd=${prd:-0}
-tekst=$(pole "${SCENARIJ_MAESTRO_PRODUKT_TEKST:-Продуктовая проверка не прошла}" "$n")
+flovi=$(pole "${SCENARIJ_MAESTRO_FLOV:-}" "$n")
 mkdir -p "$tod"
 if [ "${SCENARIJ_MAESTRO_BEZOTCHETA:-}" = da ]; then
   : >"$out"
@@ -363,27 +372,97 @@ if [ "${SCENARIJ_MAESTRO_BEZOTCHETA:-}" = da ]; then
   posle=$(pole "${SCENARIJ_TRANSPORT_POSLE:-ok}" "$n"); printf '%s\n' "${posle:-ok}" >"$k/transport"
   exit "$rc"
 fi
+vremja=$(date +%H:%M:%S).000
+ts=$(date +%Y-%m-%d_%H%M%S)
+IFS=';' read -ra POTOKI <<<"$flovi"
+vsego=${#POTOKI[@]}
+upalo=0
+i=0
+for sp in "${POTOKI[@]}"; do
+  IFS='@' read -r imja status detal marker <<<"$sp"
+  [ "$status" = ok ] || upalo=$((upalo + 1))
+  i=$((i + 1))
+done
 {
   printf '<?xml version="1.0"?>\n'
-  printf '<testsuite name="pilot" attempt="%s" rc="%s">\n' "$n" "$rc"
+  printf '<testsuites>\n'
+  printf '<testsuite name="Test Suite" device="ci-%s-1" attempt="%s" rc="%s" tests="%s" failures="%s" time="0.69" timestamp="%s">\n' \
+    "${GITHUB_RUN_ID:-local}" "$n" "$rc" "$vsego" "$upalo" "$vremja"
   i=0
-  while [ "$i" -lt "$trn" ]; do
+  for sp in "${POTOKI[@]}"; do
+    IFS='@' read -r imja status detal marker <<<"$sp"
     i=$((i + 1))
-    printf '<testcase name="transport-%s"><failure message="обрыв транспорта">%s</failure><system-out>%s</system-out></testcase>\n' \
-      "$i" "${sig:-device offline}" "${PILOT_DEMO_CODE:-}"
+    if [ "$status" = ok ]; then
+      printf '<testcase id="%s" name="%s" classname="%s" file=".maestro/potok-%s.yaml" time="1.1" timestamp="%s" status="SUCCESS"/>\n' \
+        "$imja" "$imja" "$imja" "$i" "$vremja"
+    else
+      if [ "$status" = produkt ]; then telo="$detal"; else telo='Unknown error'; fi
+      printf '<testcase id="%s" name="%s" classname="%s" file=".maestro/potok-%s.yaml" time="0.6" timestamp="%s" status="ERROR">\n' \
+        "$imja" "$imja" "$imja" "$i" "$vremja"
+      printf '<failure>%s</failure>\n' "$telo"
+      printf '</testcase>\n'
+    fi
   done
-  i=0
-  while [ "$i" -lt "$prd" ]; do
-    i=$((i + 1))
-    printf '<testcase name="produkt-%s"><failure message="провал проверки">%s</failure><system-out>%s</system-out></testcase>\n' \
-      "$i" "$tekst" "${PILOT_DEMO_CODE:-}"
-  done
-  if [ "$trn" -eq 0 ] && [ "$prd" -eq 0 ]; then
-    printf '<testcase name="pilot-first-run"/><testcase name="pilot-welcome"/><testcase name="pilot-restart"/>\n'
-  fi
   printf '</testsuite>\n'
+  printf '</testsuites>\n'
 } >"$out"
-printf '{"attempt": %s, "code": "%s"}\n' "$n" "${PILOT_DEMO_CODE:-}" >"$tod/commands.json"
+printf 'Waiting for flows to complete...\n'
+for sp in "${POTOKI[@]}"; do
+  IFS='@' read -r imja status detal marker <<<"$sp"
+  if [ "$status" = ok ]; then
+    printf '[Passed] %s (6s)\n' "$imja"
+  elif [ "$status" = produkt ]; then
+    printf '[Failed] %s (49s) (%s)\n' "$imja" "$detal"
+  else
+    printf '[Failed] %s (1s)\n' "$imja"
+  fi
+done
+if [ "$upalo" -gt 0 ]; then
+  printf '\n%s/%s Flow%s Failed\n' "$upalo" "$vsego" "$([ "$upalo" = 1 ] || printf s)"
+else
+  printf '\n%s/%s Flows Passed\n' "$vsego" "$vsego"
+fi
+zapis_floka() {   # $1 = каталог флоу, $2 = имя, $3 = статус, $4 = деталь
+  local katalog="$1" imja="$2" status="$3" detal="$4" soobshchenie
+  mkdir -p "$katalog/logs" "$katalog/screenshots"
+  if [ "$status" = ok ]; then
+    soobshchenie='ok'
+    printf '[ {"command" : { "defineVariablesCommand" : { "env" : { "PILOT_DEMO_CODE" : "%s", "MAESTRO_DEVICE_UDID" : "emulator-5560" } } }, "metadata" : { "status" : "COMPLETED" } } ]\n' \
+      "${PILOT_DEMO_CODE:-}" >"$katalog/commands.json"
+    printf '%s [ INFO] maestro.orchestra.Orchestra.executeCommands: [Command execution] COMPLETED\n' "$vremja" >"$katalog/logs/maestro.log"
+  else
+    if [ "$status" = produkt ]; then
+      soobshchenie="$detal"
+    elif [ "$detal" = - ]; then
+      soobshchenie='Unknown error'
+    else
+      soobshchenie="Command failed (host:transport:emulator-5560): $detal"
+    fi
+    printf '[ {"command" : { "defineVariablesCommand" : { "env" : { "PILOT_DEMO_CODE" : "%s", "MAESTRO_DEVICE_UDID" : "emulator-5560" } } }, "metadata" : { "status" : "COMPLETED" } }, { "command" : { "launchAppCommand" : { "appId" : "com.complior.mobile", "clearState" : true } }, "metadata" : { "status" : "FAILED", "error" : { "message" : "%s" } } } ]\n' \
+      "${PILOT_DEMO_CODE:-}" "$soobshchenie" >"$katalog/commands.json"
+    {
+      printf '%s [ERROR] maestro.orchestra.Orchestra.executeCommands: [Command execution] CommandFailed: %s\n' "$vremja" "$soobshchenie"
+      printf 'Caused by: java.io.IOException: %s\n' "$soobshchenie"
+      printf '%s [ WARN] maestro.orchestra.debug.ArtifactsGenerator.captureScreenshot: Failed to capture screenshot screenshots/step-001-launchApp.png\n' "$vremja"
+    } >"$katalog/logs/maestro.log"
+    printf 'synthetic-flow-png-attempt-%s' "$n" >"$katalog/screenshots/step-001-launchApp.png"
+  fi
+  printf '{ "entries" : [ { "kind" : "MAESTRO_LOG", "relativePath" : "logs/maestro.log" }, { "kind" : "COMMAND_METADATA", "relativePath" : "commands.json" } ] }\n' \
+    >"$katalog/manifest.json"
+}
+for sp in "${POTOKI[@]}"; do
+  IFS='@' read -r imja status detal marker <<<"$sp"
+  [ "$status" = ok ] && continue
+  case "$marker" in net|sles-net) continue ;; esac
+  if [ "$marker" = pereimenovan ]; then
+    zapis_floka "$tod/$ts/${imja//\//_} — копия" "$imja" "$status" "$detal"
+  else
+    zapis_floka "$tod/$ts/${imja//\//_}" "$imja" "$status" "$detal"
+    if [ "$marker" = dubl ]; then
+      zapis_floka "$tod/${ts}__2/${imja//\//_}" "$imja" "$status" "$detal"
+    fi
+  fi
+done
 if [ "$rc" -eq 0 ]; then
   for imja in pilot-first-run pilot-welcome pilot-restart; do
     printf 'synthetic-png-attempt-%s' "$n" >"$tod/$imja.png"
@@ -395,16 +474,6 @@ else
     [ -n "$imja" ] && printf 'synthetic-png-attempt-%s' "$n" >"$tod/$imja"
   done
 fi
-i=0
-while [ "$i" -lt "$trn" ]; do
-  i=$((i + 1))
-  echo "Command failed (host:transport:emulator-5560): ${sig:-device offline}"
-done
-i=0
-while [ "$i" -lt "$prd" ]; do
-  i=$((i + 1))
-  echo "$tekst"
-done
 printf 'MAESTRO %s rc=%s\n' "$n" "$rc" >>"$z"
 posle=$(pole "${SCENARIJ_TRANSPORT_POSLE:-ok}" "$n"); printf '%s\n' "${posle:-ok}" >"$k/transport"
 exit "$rc"
@@ -453,12 +522,8 @@ def load_source():
         for v in svjazi:
             if v not in src['kejsy']:
                 raise RuntimeError('стаб %s связан с неизвестным входом %s' % (k, v))
-    pins = src['nositeli']
-    for otn, imja_f in (('model/ci-e2e.sh', MODEL / 'ci-e2e.sh'),
-                        ('model/maestro_probe.py', MODEL / 'maestro_probe.py'),
-                        ('nositeli/ci-e2e-staryj.sh', NOSITELI / 'ci-e2e-staryj.sh'),
-                        ('nositeli/maestro_probe-staryj.py', NOSITELI / 'maestro_probe-staryj.py')):
-        if sha256_bytes(imja_f.read_bytes()) != pins[otn]:
+    for otn, heh in src['nositeli'].items():
+        if sha256_bytes((HERE / otn).read_bytes()) != heh:
             raise RuntimeError('пин %s не сходится' % otn)
     return src
 
@@ -518,10 +583,6 @@ def postavit_sandbox(katalog):
 
 SCENA_KLJUCHI = {
     'maestro_rc': 'SCENARIJ_MAESTRO_RC',
-    'maestro_signatura': 'SCENARIJ_MAESTRO_SIGNATURA',
-    'maestro_transport_neudachi': 'SCENARIJ_MAESTRO_TRANSPORT_NEUDACHI',
-    'maestro_produkt_neudachi': 'SCENARIJ_MAESTRO_PRODUKT_NEUDACHI',
-    'maestro_produkt_tekst': 'SCENARIJ_MAESTRO_PRODUKT_TEKST',
     'maestro_png_krasnyj': 'SCENARIJ_MAESTRO_PNG_KRASNYJ',
     'maestro_bezotcheta': 'SCENARIJ_MAESTRO_BEZOTCHETA',
     'transport_posle': 'SCENARIJ_TRANSPORT_POSLE',
@@ -550,6 +611,103 @@ def scena_v_env(env, scena):
             env[imja] = str(v)
 
 
+# ── флоу живого формата (995 v3): имена порождает РАННЕР (Н-408/урок 142/995 —
+# входы порождаются раннером), из алфавита с пробелами/кириллицей/«—»/«→»
+# и «/» (живая серия 799bbc890/art5b: testcase «999 tabs — четыре вкладки
+# Start/Vorgänge/Schutz/Post и вторичный профиль», каталог — с «_»);
+# грамматика флоу-шаблона — «статус|деталь|маркер» (статус ok|obryv|produkt;
+# деталь — текст сигнатуры/провала, «-» = без свидетеля; маркер
+# net|sles-net|dubl|pereimenovan|bogatoe|sles|sles-dubl: sles* — имя с
+# «/» (несколько, в т.ч. в начале/конце имени); sles-dubl добавляет БЛИЗНЕЦА
+# с «_» — пара, различающаяся только «/»-vs-«_», неоднозначность для
+# сопоставления). Ожидания строятся от сгенерированных имён в памяти — не от
+# фиксированных констант.
+
+_FLOK_CIFRY = ('108', '117', '991', '995', '999')
+_FLOK_LAT = ('start', 'restart', 'tabs', 'splash', 'entry', 'gate')
+_FLOK_RUS = ('написать', 'вернуться', 'продолжить', 'открыть', 'сверить',
+             'четыре вкладки', 'схема устройства', 'вторичный профиль')
+_FLOK_SLOVO = ('Mission', 'Vorgänge', 'Schutz', 'Post', 'Personal Agent',
+               'Continue gate')
+
+# ЖИВЫЕ формы имён с «/»: несколько «/» в имени, «/» в начале и в конце,
+# слеш-цепочка и точная форма живого образца art5b (Start/Vorgänge/Schutz/Post).
+_FLOK_SLES_FORMY = (
+    '/%s %s %s/',
+    '%s /%s/ — %s/%s',
+    '%s/%s/%s → %s',
+    '%s %s — %s %s/%s/%s/%s %s',
+)
+
+
+def _imja_sles():
+    forma = random.choice(_FLOK_SLES_FORMY)
+    alfavity = (_FLOK_CIFRY, _FLOK_LAT, _FLOK_RUS, _FLOK_SLOVO)
+    return forma % tuple(random.choice(alfavity[i % len(alfavity)])
+                         for i in range(forma.count('%s')))
+
+
+def _imja_floka(marker=''):
+    if marker == 'bogatoe':
+        return '%s %s %s — %s → %s → %s' % (
+            random.choice(_FLOK_CIFRY), random.choice(_FLOK_LAT), random.choice(_FLOK_RUS),
+            random.choice(_FLOK_RUS), random.choice(_FLOK_SLOVO), random.choice(_FLOK_SLOVO))
+    if marker in ('sles', 'sles-net', 'sles-dubl'):
+        return _imja_sles()
+    return '%s %s — %s → %s' % (random.choice(_FLOK_CIFRY), random.choice(_FLOK_LAT),
+                                random.choice(_FLOK_RUS), random.choice(_FLOK_SLOVO))
+
+
+def razobrat_potoki(scena):
+    """Шаблоны флоу сценария → сгенерированные флоу по попыткам. Возвращает
+    {номер попытки: [{'imja','status','detal','marker'}, …]}; имена уникальны
+    внутри попытки и не содержат разделителей грамматики («@», «;», «,»)
+    и кавычек; уникальны и КАТАЛОЖНЫЕ КАНДИДАТЫ (имя с «/»→«_») — случайное
+    столкновение после преобразования не допускается, дубль остаётся только
+    умышленному маркеру sles-dubl (близнец с «_» добавляется СРАЗУ после
+    первичного флоу — той же попыткой, тем же статусом/деталью)."""
+    sh = scena.get('maestro_potoki_shablon')
+    if not sh:
+        return {}
+    potoki = {}
+    for i, popytka in enumerate(sh, 1):
+        spisok = []
+        imena = set()
+        kandidaty = set()
+        for spec in popytka:
+            chasti = spec.split('|', 2)
+            status = chasti[0]
+            detal = chasti[1] if len(chasti) > 1 and chasti[1] else '-'
+            marker = chasti[2] if len(chasti) > 2 else ''
+            imja = None
+            while imja is None or imja in imena or imja.replace('/', '_') in kandidaty:
+                imja = _imja_floka(marker)
+            imena.add(imja)
+            kandidaty.add(imja.replace('/', '_'))
+            spisok.append({'imja': imja, 'status': status, 'detal': detal, 'marker': marker})
+            if marker == 'sles-dubl':
+                bliznec = imja.replace('/', '_')
+                imena.add(bliznec)
+                spisok.append({'imja': bliznec, 'status': status, 'detal': detal, 'marker': ''})
+        potoki[i] = spisok
+    return potoki
+
+
+def potoki_v_stroku(potoki):
+    """Сгенерированные флоу → SCENARIJ_MAESTRO_FLOV для подложного maestro:
+    попытки через запятую, флоу попытки через «;», поля флоу через «@»."""
+    popytki = []
+    for i in sorted(potoki):
+        popytki.append(';'.join('%s@%s@%s@%s' % (p['imja'], p['status'], p['detal'], p['marker'])
+                                for p in potoki[i]))
+    return ','.join(popytki)
+
+def _bezop_imja(imja):
+    """Безопасное имя каталога публикации flows: живое «/» в имени testcase →
+    «∕» (U+2215) — то же правило, что в модели S; выход за каталог публикации
+    невозможен и путь остаётся одним компонентом."""
+    return imja.replace('/', '∕')
+
 def ubrat_osirotkov(zapisi):
     for line in zapisi:
         if line.startswith('EMULATOR_START '):
@@ -575,7 +733,7 @@ def podstavit_pidy(ozhidanie, fakt_pidy, avd):
 
 # ── replay субъекта S ---------------------------------------------------------
 
-def ispolnit_s(subj_bytes, kejs, koren, okr, run_id):
+def ispolnit_s(subj_bytes, kejs, koren, okr, run_id, potoki=None):
     avd = 'ci-%s-1' % run_id
     katalog = koren / ('s-%s-%s' % (okr.lower(), run_id))
     katalog.mkdir()
@@ -586,6 +744,8 @@ def ispolnit_s(subj_bytes, kejs, koren, okr, run_id):
         (stale / 'stale-marker').write_text(
             'device offline из прогона прошлой попытки\n', encoding='utf-8')
     scena_v_env(env, kejs['scena'])
+    if potoki:
+        env['SCENARIJ_MAESTRO_FLOV'] = potoki_v_stroku(potoki)
     env['GITHUB_RUN_ID'] = run_id
     env['GITHUB_RUN_ATTEMPT'] = '1'
     if okr == 'ACTIONS':
@@ -612,7 +772,7 @@ def proglat(spisok, limit=4):
     return ' | '.join(spisok[:limit]) + (' …' if len(spisok) > limit else '')
 
 
-def sud_publikaciju(ws, ozh):
+def sud_publikaciju(ws, ozh, potoki=None):
     prichiny = []
     if ozh.get('diag_net'):
         if (ws / 'maestro-out/diagnostics').exists():
@@ -656,6 +816,31 @@ def sud_publikaciju(ws, ozh):
             p = d / imja
             if p.is_file() and p.read_text(encoding='utf-8') != tekst:
                 prichiny.append('diagnostics/attempt-%s/%s: текст расходится' % (num, imja))
+        # flows упавших флоу (995 v3): индексы — в СПИСОК ФЛОУ ПОПЫТКИ (сгене-
+        # рирован раннером); публикуются commands.json и logs/maestro.log
+        # ТОЛЬКО упавших флоу, прочее содержимое папки флоу наружу не выходит;
+        # каталог публикации несёт БЕЗОПАСНОЕ имя (живое «/» в имени testcase
+        # → «∕», как в модели S) — путь с «/» не вкладывается в pathlib.
+        popytka = (potoki or {}).get(int(num), [])
+        for i in treb.get('potoki', []):
+            imja = _bezop_imja(popytka[i]['imja']) if i < len(popytka) else '<нет флоу %s>' % i
+            for f in ('commands.json', 'maestro.log'):
+                if not (d / 'flows' / imja / f).is_file():
+                    prichiny.append('diagnostics/attempt-%s: нет flows/%s/%s' % (num, imja, f))
+        for i in treb.get('net_potokov', []):
+            imja = _bezop_imja(popytka[i]['imja']) if i < len(popytka) else '<нет флоу %s>' % i
+            if (d / 'flows' / imja).exists():
+                prichiny.append('diagnostics/attempt-%s: лишний flows/%s' % (num, imja))
+        for i, pod in (treb.get('potoki_tekst') or {}).items():
+            imja = _bezop_imja(popytka[int(i)]['imja']) if int(i) < len(popytka) else '<нет флоу %s>' % i
+            p = d / 'flows' / imja / 'commands.json'
+            if p.is_file() and pod not in p.read_text(encoding='utf-8'):
+                prichiny.append('flows/%s/commands.json без %r' % (imja, pod))
+        if treb.get('potoki_chisto') and (d / 'flows').is_dir():
+            for p in (d / 'flows').iterdir():
+                sod = sorted(q.name for q in p.iterdir())
+                if sod != ['commands.json', 'maestro.log'] or any(q.is_dir() for q in p.iterdir()):
+                    prichiny.append('flows/%s: лишнее содержимое %s' % (p.name, sod))
     if ozh.get('staryj_istirat') and (ws / 'maestro-out/stale-marker').is_file():
         prichiny.append('просроченный артефакт не стёрт публикацией')
     return prichiny
@@ -663,9 +848,10 @@ def sud_publikaciju(ws, ozh):
 
 def sud_s_replay(subj_bytes, kejs, koren):
     ozh = kejs['ozhidanie']
+    potoki = razobrat_potoki(kejs['scena'])
     for okr in ('CHISTYJ', 'ACTIONS'):
         run_id = '%09d' % random.randrange(10 ** 9)
-        fakt = ispolnit_s(subj_bytes, kejs, koren, okr, run_id)
+        fakt = ispolnit_s(subj_bytes, kejs, koren, okr, run_id, potoki=potoki)
         if 'prichina' in fakt:
             return fakt['prichina']
         prichiny = []
@@ -682,7 +868,7 @@ def sud_s_replay(subj_bytes, kejs, koren):
         for m in ozh.get('neto', []):
             if m in vyvod:
                 prichiny.append('лишний маркер вывода: %r' % m)
-        prichiny += sud_publikaciju(fakt['ws'], ozh.get('publikacija') or {})
+        prichiny += sud_publikaciju(fakt['ws'], ozh.get('publikacija') or {}, potoki)
         if prichiny:
             return '%s: %s' % (okr, prichiny[0])
     return None
@@ -708,7 +894,7 @@ def _svip_tochki(vyzovy):
     return tochki
 
 
-def _svip_prichiny(fakt, ozh, state):
+def _svip_prichiny(fakt, ozh, state, potoki=None):
     """ОДНО ожидание точки k, вычисленное ДО вызова субъекта (B4): rc 1;
     MAESTRO 2 нет; RECOVERED нет; именованный ОТКАЗ owned PID; публикация
     попытки 1; после SMERT — ни одной строки алфавита состояние-меняющих
@@ -735,7 +921,7 @@ def _svip_prichiny(fakt, ozh, state):
         if posle:
             prichiny.append('состояние-меняющие вызовы ПОСЛЕ смерти: %s'
                             % proglat([p[:60] for p in posle]))
-    prichiny += sud_publikaciju(fakt['ws'], ozh.get('publikacija') or {})
+    prichiny += sud_publikaciju(fakt['ws'], ozh.get('publikacija') or {}, potoki)
     return '; '.join(prichiny)
 
 
@@ -748,8 +934,9 @@ def sud_svip(subj_bytes, kejs, koren, bystro=False):
     CHISTYJ достаточно (ACTIONS удваивает цену, не добавляя точек)."""
     ozh = kejs['ozhidanie']
     state = re.compile(ozh['alfavit_sostojanij'])
+    potoki = razobrat_potoki(kejs['scena'])
     fakt = ispolnit_s(subj_bytes, dict(kejs, scena=dict(kejs['scena'])), koren,
-                      'CHISTYJ', '%09d' % random.randrange(10 ** 9))
+                      'CHISTYJ', '%09d' % random.randrange(10 ** 9), potoki=potoki)
     if 'prichina' in fakt:
         return fakt['prichina']
     tochki = _svip_tochki(fakt['vyzovy'])
@@ -761,8 +948,9 @@ def sud_svip(subj_bytes, kejs, koren, bystro=False):
     for k, vyzov in enumerate(tochki, 1):
         fakt = ispolnit_s(subj_bytes,
                           dict(kejs, scena=dict(kejs['scena'], smert_tochka=str(k))),
-                          koren, 'CHISTYJ', '%09d' % random.randrange(10 ** 9))
-        prichina = _svip_prichiny(fakt, ozh, state)
+                          koren, 'CHISTYJ', '%09d' % random.randrange(10 ** 9),
+                          potoki=potoki)
+        prichina = _svip_prichiny(fakt, ozh, state, potoki=potoki)
         print('SVIP k=%2d %-58s %s' % (k, vyzov[:58], 'ok' if not prichina else 'KRASNO'))
         if prichina:
             krasnye.append(k)
@@ -778,9 +966,8 @@ def sud_svip(subj_bytes, kejs, koren, bystro=False):
 # ── replay пробы P ------------------------------------------------------------
 
 P_ENV_KLJUCHI = ('SCENARIJ_ZAPISI', 'SCENARIJ_KATALOG', 'SCENARIJ_RYCHKA',
-                 'SCENARIJ_MAESTRO_RC', 'SCENARIJ_MAESTRO_SIGNATURA',
-                 'SCENARIJ_MAESTRO_TRANSPORT_NEUDACHI', 'SCENARIJ_MAESTRO_PRODUKT_NEUDACHI',
-                 'SCENARIJ_MAESTRO_PRODUKT_TEKST', 'SCENARIJ_MAESTRO_PNG_KRASNYJ',
+                 'SCENARIJ_MAESTRO_RC', 'SCENARIJ_MAESTRO_FLOV',
+                 'SCENARIJ_MAESTRO_PNG_KRASNYJ',
                  'SCENARIJ_MAESTRO_BEZOTCHETA', 'SCENARIJ_TRANSPORT_POSLE',
                  'SCENARIJ_BOOT', 'SCENARIJ_STABIL', 'SCENARIJ_INSTALL',
                  'SCENARIJ_ADB_DEVICES_OBRYV', 'SCENARIJ_BOOT_ID', 'SCENARIJ_LOGCAT',
@@ -789,7 +976,7 @@ P_ENV_KLJUCHI = ('SCENARIJ_ZAPISI', 'SCENARIJ_KATALOG', 'SCENARIJ_RYCHKA',
                  'ANDROID_HOME', 'ANDROID_AVD_HOME')
 
 
-def ispolnit_p(p_subj, scena, koren, dop_args=()):
+def ispolnit_p(p_subj, scena, koren, dop_args=(), potoki=None):
     # P ставится в изолированный stsen-каталог рядом с pilot.yaml харнесса:
     # проба грузит (HERE/'pilot.yaml') от СВОЕГО места — модели и носители
     # живут без собственной копии потока.
@@ -797,6 +984,8 @@ def ispolnit_p(p_subj, scena, koren, dop_args=()):
     katalog.mkdir()
     ws, apk, env = postavit_sandbox(katalog)
     scena_v_env(env, scena)
+    if potoki:
+        env['SCENARIJ_MAESTRO_FLOV'] = potoki_v_stroku(potoki)
     env['GITHUB_RUN_ID'] = '%09d' % random.randrange(10 ** 9)
     env['GITHUB_RUN_ATTEMPT'] = '1'
     repo = katalog / 'repo'
@@ -843,7 +1032,8 @@ def ispolnit_p(p_subj, scena, koren, dop_args=()):
 def sud_p_replay(p_subj, kejs, koren):
     ozh = kejs['ozhidanie']
     dop = ['--timeout', '3'] if kejs.get('proba_timeout') else []
-    fakt = ispolnit_p(p_subj, kejs['scena'], koren, dop_args=dop)
+    potoki = razobrat_potoki(kejs['scena'])
+    fakt = ispolnit_p(p_subj, kejs['scena'], koren, dop_args=dop, potoki=potoki)
     if 'prichina' in fakt:
         return fakt['prichina']
     prichiny = []
@@ -877,6 +1067,22 @@ def sud_p_replay(p_subj, kejs, koren):
         for imja in imena:
             if not (out / 'diagnostics' / ('attempt-%s' % num) / imja).is_file():
                 prichiny.append('публикация без diagnostics/attempt-%s/%s' % (num, imja))
+    # flows упавших флоу в публикации P (995 v3): indices — в список флоу
+    # попытки (сгенерирован раннером); текстовые flows публикуются redacted;
+    # имя каталога публикации — безопасное («/» → «∕», как в модели S).
+    for num, indeksy in (ozh.get('out_flows') or {}).items():
+        popytka = potoki.get(int(num), [])
+        for i in indeksy:
+            imja = _bezop_imja(popytka[i]['imja']) if i < len(popytka) else '<нет флоу %s>' % i
+            for f in ('commands.json', 'maestro.log'):
+                if not (out / 'diagnostics' / ('attempt-%s' % num) / 'flows' / imja / f).is_file():
+                    prichiny.append('публикация без flows/%s (%s) попытки %s' % (imja, f, num))
+    if ozh.get('out_net_flows') and out.is_dir() and list(out.rglob('flows')):
+        prichiny.append('в публикации лишние flows-каталоги')
+    if ozh.get('net_png_diagnostika') and out.is_dir():
+        png = [f for f in out.rglob('*.png') if 'diagnostics' in f.parts]
+        if png:
+            prichiny.append('PNG в diagnostics: %s' % [str(f.relative_to(out)) for f in png[:2]])
     for imja in ozh.get('net_v_out', []):
         if list(out.rglob(imja)):
             prichiny.append('в публикации лишнее: %s' % imja)
@@ -1070,6 +1276,118 @@ def s_install_ignoriruet(b):
                       '  }',
                    '  $ADB -s "$SERIAL" install -r "$APK" >/dev/null || true')
 
+# ── стабы живого формата (995 v3; Н-39: мутации по коду модели) ────────────────
+
+_V3_KLASSIFIKATOR = (
+    '  imja=""\n'
+    '  while IFS= read -r lenta; do\n'
+    '    [ -n "$lenta" ] || continue\n'
+    '    case "$lenta" in\n'
+    "      '<testcase '*)\n"
+    '        imja=$(printf \'%s\' "$lenta" | sed -n \'s/.* name="\\([^"]*\\)".*/\\1/p\') ;;\n'
+    "      '<failure'*|'<error'*)\n"
+    '        [ -n "$imja" ] || return 1\n'
+    '        blok="$lenta"\n'
+    '        if printf \'%s\\n\' "$blok" | grep -qE "$KANON"; then\n'
+    '          imja=""\n'
+    '          continue\n'
+    '        fi\n'
+    '        spisok=$(imja_kataloga "$d" "$imja" "$vse_imena") || return 1\n'
+    '        katalog=""\n'
+    '        while IFS= read -r papka; do\n'
+    '          [ -n "$papka" ] || continue\n'
+    '          [ -z "$katalog" ] || return 1\n'
+    '          katalog="$papka"\n'
+    '        done <<<"$spisok"\n'
+    '        [ -n "$katalog" ] || return 1\n'
+    '        grep -qE "$KANON" "$katalog/commands.json" "$katalog/logs/maestro.log" 2>/dev/null || return 1\n'
+    '        imja="" ;;\n'
+    '    esac\n'
+    '  done <<<"$txt"\n'
+    '  return 0')
+
+# Тело помощника imja_kataloga ПОСЛЕ строки kandidat=…: дубль-проверка и
+# точный поиск по меткам времени — регион мутации стаба подстроки.
+_V3_POISK = (
+    '  dubl=0\n'
+    '  while IFS= read -r drugoe; do\n'
+    '    [ -n "$drugoe" ] || continue\n'
+    '    if [ "${drugoe//\\//_}" = "$kandidat" ] && [ "$drugoe" != "$imja" ]; then\n'
+    '      dubl=1\n'
+    '    fi\n'
+    '  done <<<"$vse"\n'
+    '  [ "$dubl" = 0 ] || return 1\n'
+    '  for ts in "$d"/test/*; do\n'
+    '    if [ -d "$ts/$kandidat" ]; then\n'
+    '      printf \'%s\\n\' "$ts/$kandidat"\n'
+    '    fi\n'
+    '  done\n')
+
+
+def s_v2_junit_klassifikator(b):
+    # «текущая модель v2» (замороженная 995/2, sha d8841d6b…): повтор только если
+    # КАЖДЫЙ провал JUnit сам транспортен (сигнатура в теле <failure>) — на ЖИВОМ
+    # формате Maestro (тело «Unknown error», сигнатура в per-flow артефактах)
+    # повтор не стартует НИКОГДА (серия 799bbc890, run 40381520936); краснеет на
+    # живых входах, где сигнатура есть в флоу, а JUnit-тело пусто от канона.
+    b = _zameni(b, '''  txt=$(tr -d '\\n' <"$d/report.xml" | grep -oE '<testcase[^>]*>|<(failure|error)[^<]*' || true)''',
+                   '''  txt=$(tr -d '\\n' <"$d/report.xml" | grep -oE '<(failure|error)[^<]*' || true)''')
+    return _zameni(b, _V3_KLASSIFIKATOR, '''  while IFS= read -r blok; do
+    [ -n "$blok" ] || continue
+    printf '%s\\n' "$blok" | grep -qE "$KANON" || return 1
+  done <<<"$(printf '%s\\n' "$txt" | grep -oE '<(failure|error)[^<]*')"
+  return 0''')
+
+
+def s_retry_po_lyuboj_signature(b):
+    # «повтор при любой сигнатуре в дереве попытки»: привязка упавших флоу к
+    # СВОИМ артефактам отброшена — продуктовая неудача и чужой свидетель
+    # прячутся зелёным повтором; краснеет на смешанном наборе и на свидетеле
+    # в чужой папке.
+    return _zameni(b, _V3_KLASSIFIKATOR, '  return 0')
+
+
+def s_iskat_tolko_v_konsoli(b):
+    # «сигнатура ищется только в консольном журнале набора»: живой формат держит
+    # её в per-flow артефактах (консоль — [Failed] без канона); повтор не
+    # стартует никогда — краснеет на живом входе обрыва.
+    return _zameni(b, 'grep -rqE "$KANON" "$d/maestro.log" "$d/report.xml" "$d/test" 2>/dev/null || return 1',
+                   'grep -qE "$KANON" "$d/maestro.log" 2>/dev/null || return 1')
+
+
+def s_sopostavlenie_po_podstroke(b):
+    # «сопоставление по подстроке имени флоу» (после живого преобразования
+    # «/»→«_» — первый совпавший префикс/кусок имени вместо точного равенства,
+    # БЕЗ единственности и БЕЗ дубль-проверки «/»-vs-«_»): переименованная
+    # папка, дубль имени и неоднозначная пара дают ложного свидетеля.
+    return _zameni(b, _V3_POISK, '''  for ts in "$d"/test/*; do
+    for papka in "$ts"/*; do
+      case "${papka##*/}" in
+        "$kandidat"*|*"$kandidat"*)
+          printf '%s\\n' "$papka"
+          return 0 ;;
+      esac
+    done
+  done
+''')
+
+
+def s_bukvalnoe_sopostavlenie(b):
+    # «буквальное совпадение имени» (модель v3 круга 1, sha 19e63375…, FAIL
+    # критика: живой Maestro заменяет «/» на «_» в имени каталога): каталог
+    # ищется по имени testcase БЕЗ живого преобразования — для флоу с «/»
+    # совпадения нет: повтора нет, flows не публикуются (живой обрыв набора
+    # all-7 с «/»-флоу НЕ переживается).
+    return _zameni(b, '  kandidat=${imja//\\//_}', '  kandidat=$imja')
+
+
+def s_preobrazuet_vsjo(b):
+    # «преобразование всех не-ASCII и пробелов» (переусердствовавшая модель):
+    # кроме наблюдаемого «/»→«_» портит пробелы/кириллицу/«—»/«→» — имена
+    # живого формата перестают сопоставляться, повтор не стартует.
+    return _zameni(b, '  kandidat=${imja//\\//_}',
+                   "  kandidat=$(printf '%s' \"$imja\" | LC_ALL=C sed 's,[^ -~],_,g; s, ,_,g; s,/,_,g')")
+
 
 def p_bez_redakcii(t):
     return _zameni(t, "dest.write_bytes(raw.replace(secret.encode(), b'[REDACTED]'))",
@@ -1106,6 +1424,8 @@ S_STABY = {
     's-nasledovanie-signatur': s_nasledovanie_signatur,
     's-signatura-suzhena': s_signatura_suzhena,
     's-signatura-rasshirena': s_signatura_rasshirena,
+    's-bukvalnoe-sopostavlenie': s_bukvalnoe_sopostavlenie,
+    's-preobrazuet-vsjo': s_preobrazuet_vsjo,
     's-bez-publikacii-diagnostiki': s_bez_publikacii_diagnostiki,
     's-png-obeih': s_png_obeih,
     's-bez-recovered': s_bez_recovered,
@@ -1118,6 +1438,10 @@ S_STABY = {
     's-zhizn-tolko-na-gotovnosti': s_zhizn_tolko_na_gotovnosti,
     's-zhizn-perenesena': s_zhizn_perenesena,
     's-zhizn-ne-pered-nastrojkami': s_zhizn_ne_pered_nastrojkami,
+    's-v2-junit-klassifikator': s_v2_junit_klassifikator,
+    's-retry-po-lyuboj-signature': s_retry_po_lyuboj_signature,
+    's-iskat-tolko-v-konsoli': s_iskat_tolko_v_konsoli,
+    's-sopostavlenie-po-podstroke': s_sopostavlenie_po_podstroke,
 }
 
 P_STABY = {
