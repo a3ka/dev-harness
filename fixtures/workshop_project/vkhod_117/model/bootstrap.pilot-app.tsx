@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Appearance, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Appearance, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import type { ApiClient } from '@/api/api-client';
@@ -28,6 +28,26 @@ void SplashScreen.preventAutoHideAsync();
 
 // Литерал таймера автоскрытия оверлея (дельта архитектора круга 4).
 const SPLASH_OVERLAY_MS = 1200;
+
+// 117 v4 (класс B, слово владельца 2026-10-27; пересмотры по живым пробам
+// run 40434807469 и 40497913252): кадр Splash снимается, ПОКА оверлей на
+// экране, но удержание приписано ТОЛЬКО сценарию 117. Env-удержание
+// e2e-СБОРКИ (вариант (В)) живьём отклонено: один APK на все шаги CI держал
+// оверлей 8 с на КАЖДОМ холодном старте (кадр 118 F02.03-V01-V0 0.000).
+// Канал (Г) по host-ссылке complior://e2e-splash-hold живьём отклонён
+// пробой (Г) run 40497913252: expo-router разбирает её как ПУТЬ
+// /e2e-splash-hold, динамический (tabs)/[section] рендерит null (сегмент
+// вне TAB_ORDER), PilotApp НЕ монтируется, hideAsync не вызван — нативный
+// splash залип на 15 с, флоу 117 красен. Канал (Г′): ссылка ведёт на
+// СУЩЕСТВУЮЩИЙ маршрут — КОРЕНЬ «/» (index.tsx монтирует PilotApp
+// безусловно), маркер удержания — в query (openLink; канал живой —
+// complior://start в зелёных cmp-mob-002/004); оверлей живёт дольше РОВНО
+// на старте с этим URL (Linking.getInitialURL, ТОЧНОЕ равенство; ни один
+// другой сценарий литерал не открывает — .maestro, grep). Прод-литерал
+// 1200 не сдвинут: таймер по умолчанию стоит сразу (клетки
+// SPLASH_OVERLAY_TIMER_HIDE_*; удержанного старта — HOLD_LINK_*).
+const SPLASH_HOLD_E2E_LINK = 'complior:///?e2e=splash-hold';
+const SPLASH_HOLD_E2E_MS = 8000;
 
 export interface PilotAppPorts {
   readonly auth?: AuthProvider;
@@ -176,9 +196,25 @@ export function PilotApp({ auth, api, entry, onboarding }: PilotAppPorts) {
   // нативным знаком и первым JS-кадром не было пустого кадра.
   const [splashVisible, setSplashVisible] = useState(true);
   useEffect(() => {
+    // 117 v4: прод-таймер 1200 ставится СРАЗУ (как в v3 — клетки
+    // SPLASH_OVERLAY_TIMER_HIDE_* зелены без ожидания промиса);
+    // стартовый URL читается на МОМЕНТ монтирования: пресет Jest даёт
+    // мок Linking.getInitialURL (Promise.resolve()), клетки HOLD_LINK/
+    // NE_INOJ_URL/NE_NEMARSHRUT подставляют ответ разовым
+    // mockImplementationOnce (классы входов ссылки: корень+query —
+    // удержание; чужая ссылка и несуществующий маршрут — прод-таймер).
     void SplashScreen.hideAsync();
-    const timer = setTimeout(() => setSplashVisible(false), SPLASH_OVERLAY_MS);
-    return () => clearTimeout(timer);
+    let timer = setTimeout(() => setSplashVisible(false), SPLASH_OVERLAY_MS);
+    let holdCancelled = false;
+    void Linking.getInitialURL().then((initialUrl) => {
+      if (holdCancelled || initialUrl !== SPLASH_HOLD_E2E_LINK) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => setSplashVisible(false), SPLASH_HOLD_E2E_MS);
+    });
+    return () => {
+      holdCancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
   const [flow, setFlow] = useState<AuthFlowState>(createInitialAuthFlow);
   // 117 v3: допуск маршрута из внешней сессии (порт onboarding); без

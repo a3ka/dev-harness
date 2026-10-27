@@ -38,6 +38,35 @@ SPLASH_FRAME_SVERKA_123_{DARK,LIGHT} — согласованность спра
 SVERKA_123_{STEP_UNCONDITIONAL,MANIFEST_CANON,HARNESS_PIN} — шаг сверки
 123 в job android-e2e workflow субъекта стоит безусловно и исполняет
 канонический манифест пина .harness123 (РЕШЕНИЕ арбитра (б)).
+117 v4 (класс B, слово владельца 2026-10-27; ПЕРЕСМОТР (Г′) по живой пробе
+(Г) run 40497913252/job 122172034122: host-ссылка complior://e2e-splash-hold
+разобрана expo-router как ПУТЬ /e2e-splash-hold → динамический
+(tabs)/[section].tsx рендерит null (сегмент вне TAB_ORDER, :62–65,100) →
+PilotApp НЕ монтирован → hideAsync не вызван → нативный splash залип 15 с,
+флоу 117 красен). Канал (Г′): ссылка ведёт на СУЩЕСТВУЮЩИЙ маршрут — КОРЕНЬ
+«/» (index.tsx монтирует PilotApp безусловно), маркер — в query
+(complior:///?e2e=splash-hold). Клетки классов входов ссылки:
+SPLASH_HOLD_LINK_ROUTE_MOUNT (литерал канала — корень+query: host-часть
+пути ПУСТА; host-форма — несуществующий маршрут), REPLAY_SPLASH_WHILE_OVERLAY
+(реплей: нерамочный старт — оверлей НЕ монтируется, исход NO_PILOT),
+REPLAY_LIVE_PROBA_G (живые свидетели провала (Г): кадр нативного splash +
+hierarchy json без узлов содержимого + logcat-фрагмент, sha256 припинены),
+SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_{DARK,LIGHT} (поведенческая: URL
+несуществующего маршрута удержания НЕ взводит — прод-таймер 1200).
+Правка по FAIL критика v4 круг 1: холодный старт канала судится
+СОСТОЯНИЕМ «приложение запущено» по последовательности команд
+(_cold_start_state), а НЕ суммой команд; классы порядка судят
+порождаемые раннером клетки MAESTRO_HOLD_PORJADOK_* (2 перестановки,
+вставки, 2 удаления, оба обхода критика, честная цепочка и контроли
+арбитража — ожидания литералами до субъекта). Правка по FAIL критика
+v4 круг 3 (contracts-117-v4-krug3): ЕДИНЫЙ классификатор запуска
+_is_launching (launchApp словарём и скаляром, runFlow — консервативно
+любой, openLink любой) — ДО ссылки и НА ИНТЕРВАЛЕ openLink → ожидание;
+прежний интервальный предикат (только launchApp-словарь) пропускал
+запуск через runFlow/скалярный launchApp между hold-ссылкой и
+ожиданием (ложная зелень rc0), семья порядка расширена ×10 → ×15
+(4 красных класса запускающего шага на интервале + зелёный контроль
+не запускающего шага), стаб splash-hold-runflow-posle-link.
 Выход — только код возврата; перечень case построчно.
 """
 import argparse
@@ -47,6 +76,7 @@ import re
 import shlex
 import struct
 import subprocess
+import shutil
 import sys
 try:
     import yaml
@@ -1145,6 +1175,8 @@ def run_checks(repo: Path):
         if steps is None:
             check(False, 'MAESTRO_SPLASH_FRAME_WAIT')
             check(False, 'MAESTRO_FIRST_RUN_ORDER')
+            check(False, 'MAESTRO_HOLD_COLD_START')
+            check(False, 'MAESTRO_HOLD_ALONE')
             check(False, 'SPLASH_FRAME_SVERKA_123_DARK')
             check(False, 'SPLASH_FRAME_SVERKA_123_LIGHT')
             print('RED MAESTRO_SPLASH_FRAME_WAIT: документ-список шагов не найден')
@@ -1228,6 +1260,71 @@ def run_checks(repo: Path):
                           'порог', porog, 'снят сценарием', shot_index(row.get('snimok')) >= 0)
                 check(ok, case)
 
+            # 117 v4 (Г′): удержание приписано ТОЛЬКО сценарию 117 — холодный
+            # старт по ЛИТЕРАЛЬНОМУ deep link. Цепочка: launchApp{clearState}
+            # (чистка состояния, как в v3) → stopApp (процесс убит) →
+            # openLink(литерал) → ожидание видимости оверлея; между openLink
+            # и ожиданием НЕТ запускающего шага (круг 3: launchApp любой
+            # формы, runFlow, иная ссылка — единый _is_launching; иначе
+            # старт не холодный — стартовый URL не читается). Правка по
+            # FAIL критика v4 круг 1: холодный
+            # старт судится СОСТОЯНИЕМ «приложение запущено» по
+            # последовательности команд (_cold_start_state), а НЕ суммой
+            # «есть где-то clearState и где-то stopApp» (обходы: второй
+            # launchApp{clearState} между stopApp и openLink; перестановка
+            # stopApp → launchApp{clearState} → openLink). Команды живые
+            # (Maestro 2.11.0): launchApp{clearState} — 5 флоу, stopApp —
+            # rehearsal.yaml, openLink complior://… — cmp-mob-002/004.
+            rq = src['replay_117']
+            lit = rq['hold_link']
+
+            ok_cold, why_cold = _maestro_hold_cold_start_verdict(steps, mq, src)
+            if not ok_cold:
+                print('RED MAESTRO_HOLD_COLD_START: сценарий не запускает'
+                      ' холодный старт каналом (Г′) по СОСТОЯНИЮ команд —',
+                      why_cold)
+            check(ok_cold, 'MAESTRO_HOLD_COLD_START')
+
+            # Литерал удержания открывает ТОЛЬКО сценарий 117: openLink с
+            # этим литералом по ВСЕМУ mobile/.maestro встречается ровно в
+            # файле сценария 117 (живые чужие ссылки — complior://start в
+            # cmp-mob-002/004 — литералом не являются).
+            maestro_dir = maestro_path.parent
+            holders = []
+            if maestro_dir.is_dir():
+                for yf in sorted(maestro_dir.glob('*.yaml')):
+                    try:
+                        docs = yaml.safe_load_all(
+                            yf.read_text(encoding='utf-8'))
+                    except yaml.YAMLError:
+                        holders.append(yf.name)
+                        continue
+                    for doc in docs:
+                        if not isinstance(doc, list):
+                            continue
+                        if any(_open_link_of(st) == lit for st in doc):
+                            holders.append(yf.name)
+                            break
+            scenario_name = maestro_path.name
+            ok_alone = holders == [scenario_name]
+            if not ok_alone:
+                print('RED MAESTRO_HOLD_ALONE: литерал', lit, 'открывают',
+                      holders, '(ожидание: только', scenario_name, ')')
+            check(ok_alone, 'MAESTRO_HOLD_ALONE')
+
+            # 117 v4 (класс B, слово владельца 2026-10-27): реплей тайминга
+            # подложного устройства/оверлея по ЖИВОМУ формату сценария —
+            # ожидания вычислены из source.json replay_117 ДО чтения
+            # субъекта (правило 8); закон: кадр в окне оверлея при ЛЮБОЙ
+            # фазе опроса ⇔ HOLD > poll + shot (первый успешный опрос не
+            # позже M+P, кадр — в конце команды снимка; замер живого
+            # класса B run 40420737331: ~700 мс + ~670 мс > 1200 мс).
+            replay_117_cells(repo, src, steps, mq, ok_cold)
+
+    # (правка FAIL критика v4 круг 1, пункт б) клетки классов порядка —
+    # порождаются раннером на синтетических входах, субъект не читается.
+    porjadok_cells(src)
+
     # 24–26 (РЕШЕНИЕ арбитра contracts-117-v2-svjaz-123, вариант (б)):
     # проводка шага сверки 123 в job android-e2e субъекта — шаг стоит
     # безусловно, исполняет канонический манифест пина .harness123, пин —
@@ -1235,6 +1332,12 @@ def run_checks(repo: Path):
     if yaml is not None:
         for case, good in sverka_provodka(repo, sv['provodka']):
             check(good, case)
+
+    # 117 v4 (б): настоящая сверка 123 на ЖИВЫХ байтах-свидетелях класса B
+    # (кадры прогонов 40420737331/40316137237, sha256 припинены в
+    # source.json replay_117.live.svideteli): красный кадр NIZHE_POROGA,
+    # зелёный контроль OK — ожидания сняты прогоном ДО правки субъекта.
+    sverka_class_b_cell(repo, src)
 
 
 def sverka_provodka(repo: Path, pv):
@@ -1309,6 +1412,739 @@ def sverka_provodka(repo: Path, pv):
     return [('SVERKA_123_STEP_UNCONDITIONAL', ok_step),
             ('SVERKA_123_MANIFEST_CANON', ok_canon),
             ('SVERKA_123_HARNESS_PIN', ok_pin)]
+
+def _open_link_of(st):
+    """openLink шага (строка или {link: …}) | None — грамматика живого
+    Maestro (witness commands-class-b-dark.json)."""
+    if not isinstance(st, dict):
+        return None
+    ol = st.get('openLink')
+    if isinstance(ol, str):
+        return ol
+    if isinstance(ol, dict) and isinstance(ol.get('link'), str):
+        return ol['link']
+    return None
+
+
+def _is_launching(st):
+    """ЕДИНЫЙ классификатор «запускающего шага» Maestro (правка по FAIL
+    критика v4 круг 3, contracts-117-v4-krug3: до ссылки и на интервале
+    openLink → ожидание признаки РАСХОДИЛИСЬ — _cold_start_state знал
+    runFlow и словарный launchApp, интервальная проверка видела ТОЛЬКО
+    launchApp-словарь, поэтому запуск через runFlow и скалярный
+    «- launchApp» между hold-ссылкой и ожиданием оставлял статическую
+    батарею ложно зелёной rc0). Запускают: launchApp ЛЮБОЙ формы —
+    словарь и скалярная строка (живая форма
+    mobile/.maestro/erstinformation.yaml:4), runFlow — ЛЮБОЙ,
+    КОНСЕРВАТИВНО (живая семантика: runFlow запускает, только если
+    вложенный/указанный flow содержит запуск — живой
+    mobile/.maestro/start.yaml:4–7 запускает приложение с clearState;
+    разрешение вложенного flow требует чтения других файлов, которого
+    нет ни у сценария-субъекта, ни у синтетических входов клеток —
+    fail-closed; до ссылки :1452 уже признавал любой runFlow запуском),
+    openLink — любой (открытие ссылки стартует приложение). stopApp — не
+    запускающий: останавливает, отдельная ветвь _cold_start_state.
+    ОБА места (до ссылки и на интервале) зовут ТОЛЬКО эту функцию."""
+    if st == 'launchApp':
+        return True
+    if not isinstance(st, dict):
+        return False
+    return 'launchApp' in st or 'runFlow' in st or 'openLink' in st
+
+
+def _cold_start_state(steps, i_open):
+    """Состояние «приложение запущено» в момент openLink №i_open — по
+    ПОСЛЕДОВАТЕЛЬНОСТИ команд, не по их сумме (правка по FAIL критика
+    v4 круг 1: клетка считала холодный старт суммой «есть где-то clearState
+    и где-то stopApp», и честную цепочку портили второй launchApp между
+    stopApp и openLink либо перестановка stopApp → launchApp → openLink).
+    Запускают (единый классификатор _is_launching, круг 3): launchApp
+    любой формы (словарь и скаляр), runFlow (любой — консервативно),
+    openLink (любой — открытие ссылки стартует приложение); останавливает:
+    stopApp. Возвращает
+    (running, cleared_stop): running — состояние НЕПОСРЕДСТВЕННО перед
+    openLink (fail-closed: до первой запускающей/останавливающей команды
+    состояние считается «запущено»); cleared_stop — ПОСЛЕДНЯЯ смена
+    состояния перед openLink есть stopApp, стоящий ПОСЛЕ launchApp
+    {clearState}, и после него приложение не запускалось снова."""
+    running = True
+    cleared = False
+    cleared_stop = False
+    for st in steps[:i_open]:
+        if st == 'stopApp' or (isinstance(st, dict) and 'stopApp' in st):
+            running = False
+            if cleared:
+                cleared_stop = True
+            continue
+        if not _is_launching(st):
+            continue
+        running = True
+        cleared_stop = False
+        if isinstance(st, dict) and 'launchApp' in st:
+            la = st.get('launchApp')
+            if isinstance(la, dict) and la.get('clearState') is True:
+                cleared = True
+    return running, cleared_stop
+
+
+def _maestro_hold_cold_start_verdict(steps, mq, src):
+    """Вердикт клетки MAESTRO_HOLD_COLD_START (инвариант 10, канал (Г′)):
+    openLink ЛИТЕРАЛА — холодный старт ⇔ (1) непосредственно перед ним
+    приложение остановлено (последняя запускающая/останавливающая команда =
+    stopApp), (2) этот stopApp стоит ПОСЛЕ launchApp{clearState} и между
+    ними приложение не запускалось снова, (3) ожидание visible оверлея —
+    ПЕРВОЕ ПОСЛЕ openLink, без ЗАПУСКАЮЩЕГО шага между ними (правка по
+    FAIL критика v4 круг 3: запуск через runFlow/скалярный launchApp/
+    иную ссылку между hold-ссылкой и ожиданием оставлял батарею ложно
+    зелёной; арбитраж 117 v4 :213–218 называет запускающими
+    launchApp/runFlow/иной openLink; признак — ТОТ ЖЕ классификатор
+    _is_launching, что до ссылки; путь (А): добавочные НЕ запускающие
+    шаги до stopApp или между ссылкой и ожиданием решения не меняют;
+    повторное открытие САМОГО литерала на интервале запускающим НЕ
+    считается — его судит SPLASH_HOLD_LINK_ROUTE_MOUNT по числу ссылок
+    канала). Единая функция для сценария субъекта и порождаемых клеток
+    порядка (MAESTRO_HOLD_PORJADOK_*).
+    Возвращает (ok, причина)."""
+    lit = src['replay_117']['hold_link']
+    i_open = next((i for i, st in enumerate(steps)
+                   if _open_link_of(st) == lit), -1)
+    i_wait = next((i for i, st in enumerate(steps)
+                   if i > i_open and isinstance(st, dict)
+                   and isinstance(st.get('extendedWaitUntil'), dict)
+                   and isinstance(st['extendedWaitUntil'].get('visible'), dict)
+                   and st['extendedWaitUntil']['visible'].get('id')
+                   == mq['overlay_id']), -1)
+    if i_open < 0:
+        return False, ('openLink литерала %s в сценарии нет' % lit)
+    running, cleared_stop = _cold_start_state(steps, i_open)
+    if running:
+        return False, ('openLink#%d: непосредственно перед ссылкой'
+                       ' приложение ЗАПУЩЕНО (последняя запускающая/'
+                       'останавливающая команда — не stopApp) — старт не'
+                       ' холодный, стартовый URL при монтировании не'
+                       ' читается' % i_open)
+    if not cleared_stop:
+        return False, ('openLink#%d: нет stopApp ПОСЛЕ launchApp{clearState}'
+                       ' без повторного запуска между ними (состояние'
+                       ' приложения не очищено перед ссылкой)' % i_open)
+    if not i_wait > i_open:
+        return False, ('ожидание visible %s не после openLink'
+                       ' (openLink#%d, ожидание#%d)'
+                       % (mq['overlay_id'], i_open, i_wait))
+    for st in steps[i_open + 1:i_wait]:
+        if _is_launching(st) and _open_link_of(st) != lit:
+            return False, ('запускающий шаг между openLink#%d и ожиданием#%d'
+                           ' — запуск/повторный запуск приложения'
+                           ' (launchApp любой формы, runFlow, иная ссылка;'
+                           ' единый классификатор _is_launching, круг 3):'
+                           ' стартовый URL при монтировании не читается'
+                           % (i_open, i_wait))
+    return True, ''
+
+
+def porjadok_cells(src):
+    """(правка FAIL критика v4 круг 1, пункт б; расширение круга 3)
+    КЛЕТКИ классов порядка: ПОРОЖДАЮТСЯ раннером из набора живых команд
+    {launchApp (словарь и скаляр), stopApp, openLink, runFlow,
+    extendedWaitUntil, takeScreenshot} — 2 перестановки, вставки, 2
+    удаления, ОБА обхода критика, честная цепочка и контроли арбитража
+    117 v4 (добавочные НЕ запускающие шаги до stopApp и между ссылкой и
+    ожиданием — зелёны). Круг 3 (contracts-117-v4-krug3): 4 КРАСНЫХ
+    КЛАССА запускающего шага МЕЖДУ hold-ссылкой и ожиданием (runFlow,
+    скалярный launchApp, словарный launchApp, иная ссылка) + ЗЕЛЁНЫЙ
+    контроль не запускающего шага в том же интервале. Ожидание
+    каждой клетки — литерал ЗДЕСЬ, вычислен из модели порядка ДО вызова
+    субъекта (правило 8: честная цепочка обязана быть зелёной, нарушители —
+    красны); входы синтетические — субъект не читается, клетки судят саму
+    проверку порядка, а не конкретный yaml."""
+    mq = src['maestro_117']
+    lit = src['replay_117']['hold_link']
+    other = src['replay_117']['other_live_links'][0]
+    launch_clear = {'launchApp': {'clearState': True}}
+    launch_plain = {'launchApp': None}
+    # живые формы запуска (правка круга 3): скалярный «- launchApp» —
+    # mobile/.maestro/erstinformation.yaml:4; runFlow — mobile/.maestro/
+    # start.yaml (запускает приложение с clearState)
+    launch_scalar = 'launchApp'
+    runflow = {'runFlow': 'start.yaml'}
+    stop = 'stopApp'
+    open_lit = {'openLink': lit}
+    open_other = {'openLink': other}
+    wait = {'extendedWaitUntil': {'visible': {'id': mq['overlay_id']},
+                                  'timeout': 10000}}
+    shot = {'takeScreenshot': mq['shot_splash']}
+    honest = [launch_clear, stop, open_lit, wait, shot]
+    cases = [
+        # честная цепочка инварианта 10 — зелёна
+        ('CHESTNAJA', honest, True),
+        # ОБХОД 1 критика (вставка): второй launchApp{clearState} МЕЖДУ
+        # stopApp и openLink — приложение работает до открытия ссылки
+        ('RELAUNCH_PERED_LINK',
+         [launch_clear, stop, launch_clear, open_lit, wait, shot], False),
+        # ОБХОД 2 критика (перестановка): stopApp → launchApp{clearState}
+        # → openLink — к ссылке приложение запущено, стоп не после очистки
+        ('STOP_PERED_LAUNCHOM',
+         [stop, launch_clear, open_lit, wait, shot], False),
+        # перестановка: ссылка ДО stopApp — старт по ссылке не холодный
+        ('PERESTANOVKA_LINK_RANSHE_STOPA',
+         [launch_clear, open_lit, stop, wait, shot], False),
+        # перестановка: ожидание ДО ссылки — оверлей не привязан к старту
+        ('PERESTANOVKA_WAIT_RANSHE_LINKA',
+         [launch_clear, stop, wait, open_lit, shot], False),
+        # вставка: запуск БЕЗ clearState между stopApp и openLink
+        ('VSTAVKA_ZAPUSK_BEZ_CLEAR',
+         [launch_clear, stop, launch_plain, open_lit, wait, shot], False),
+        # вставка: openLink ДРУГОЙ ссылки (живой complior://start) между
+        # stopApp и openLink литерала — последний старт не по литералу
+        ('VSTAVKA_DRUGOJ_SSYLKI',
+         [launch_clear, stop, open_other, open_lit, wait, shot], False),
+        # вставка (арбитраж 117 v4, путь (А)): добавочное НЕ запускающее
+        # ожидание visible до stopApp — цепочка критика круга 2 дословно;
+        # ожидание судится ПЕРВЫМ ПОСЛЕ openLink — все условия холодного
+        # старта выполнены, цепочка ЗЕЛЁНА (прежде — ложная красная)
+        ('VSTAVKA_WAIT_DO_STOPA',
+         [launch_clear, wait, stop, open_lit, wait, shot], True),
+        # вставки (правка FAIL критика v4 круг 3): ЗАПУСКАЮЩИЙ шаг МЕЖДУ
+        # openLink литерала и ожиданием — повторный запуск приложения,
+        # стартовый URL при монтировании не читается (арбитраж 117 v4
+        # :213–218); прежний интервальный предикат видел только
+        # launchApp-словарь — runFlow и скалярный launchApp оставляли
+        # батарею ложно зелёной (вердикт krug3: run-flow/launch-between-
+        # hold-and-wait rc0 static 65/65). Классы по ЖИВЫМ формам:
+        # runFlow start.yaml, скалярный «- launchApp», launchApp-словарь,
+        # иная живая ссылка complior://start.
+        ('VSTAVKA_RUNFLOW_MEZHDU',
+         [launch_clear, stop, open_lit, runflow, wait, shot], False),
+        ('VSTAVKA_LAUNCH_SKALJAR_MEZHDU',
+         [launch_clear, stop, open_lit, launch_scalar, wait, shot], False),
+        ('VSTAVKA_LAUNCH_SLOVAR_MEZHDU',
+         [launch_clear, stop, open_lit, launch_plain, wait, shot], False),
+        ('VSTAVKA_DRUGOJ_SSYLKI_MEZHDU',
+         [launch_clear, stop, open_lit, open_other, wait, shot], False),
+        # вставка (контроль круга 3, арбитраж путь (А)): добавочный НЕ
+        # запускающий шаг (снимок) между ссылкой и ожиданием — цепочка
+        # ЗЕЛЕНА; класс покрывает зелёность assertVisible/notVisible/
+        # снимка в интервале (вердикт krug3, ЗАКРЫВАЮЩЕЕ СВОЙСТВО)
+        ('VSTAVKA_SNIMOK_MEZHDU',
+         [launch_clear, stop, open_lit, shot, wait, shot], True),
+        # удаление: stopApp нет — к ссылке приложение запущено
+        ('UDALENIE_STOPA', [launch_clear, open_lit, wait, shot], False),
+        # удаление: launchApp{clearState} нет — состояние не очищено
+        ('UDALENIE_LAUNCHA', [stop, open_lit, wait, shot], False),
+    ]
+    for name, steps, expected in cases:
+        got, why = _maestro_hold_cold_start_verdict(steps, mq, src)
+        ok = got == expected
+        if not ok:
+            print('RED MAESTRO_HOLD_PORJADOK_' + name + ': вердикт', got,
+                  '— ожидался', expected, '—', why)
+        check(ok, 'MAESTRO_HOLD_PORJADOK_' + name)
+
+def _replay_ewu(step):
+    """Шаг extendedWaitUntil по оверлею → (kind, timeout_ms) | None.
+    Грамматика — ЖИВОЙ формат Maestro (witness commands-class-b-dark.json:
+    extendedWaitUntil{id:{visible|notVisible:{id}}} → assertConditionCommand)."""
+    if not isinstance(step, dict):
+        return None
+    e = step.get('extendedWaitUntil')
+    if not isinstance(e, dict):
+        return None
+    for kind in ('visible', 'notVisible'):
+        cond = e.get(kind)
+        if isinstance(cond, dict) and 'id' in cond:
+            return kind, e.get('timeout')
+    return None
+
+
+def _replay_outcomes(steps, mq, hold_ms, rq, overlay_mounts=True):
+    """Реплей подложного устройства/оверлея: кадр splash по сетке
+    (poll, shot) из source.json. Возвращает (исходы, t2_ok, причина).
+    Детерминизм: без вероятностей — худшая фаза опроса (первый успешный
+    опрос не позже M+P) и худший момент кадра (конец команды снимка).
+    (Г′) overlay_mounts=False — стартовая ссылка ведёт на НЕсуществующий
+    маршрут (host-часть пути непуста): JS-дерево PilotApp не монтируется,
+    оверлея НЕТ — ожидание visible краснеет таймаутом на любой точке
+    сетки (живой факт пробы (Г) run 40497913252)."""
+    poll_grid = rq['poll_ms_grid']
+    if not overlay_mounts:
+        return {'NO_PILOT'}, None, ('стартовая ссылка канала ведёт на'
+                                    ' несуществующий маршрут: PilotApp не'
+                                    ' монтируется, оверлей %s не появляется —'
+                                    ' ожидание visible краснеет таймаутом'
+                                    % mq['overlay_id'])
+    shot_grid = rq['shot_ms_grid']
+    i_shot = -1
+    for i, st in enumerate(steps):
+        if isinstance(st, dict) and st.get('takeScreenshot') == mq['shot_splash']:
+            i_shot = i
+            break
+    if i_shot < 0:
+        return {'NO_SHOT'}, None, 'снимок %s сценарием не снят' % mq['shot_splash']
+    prev = _replay_ewu(steps[i_shot - 1]) if i_shot > 0 else None
+    if prev is None:
+        return {'UNBOUND'}, None, ('перед снимком %s нет extendedWaitUntil'
+                                   ' visible/notVisible по %s — кадр не привязан'
+                                   ' к оверлею' % (mq['shot_splash'], mq['overlay_id']))
+    kind, t1 = prev
+    if kind == 'notVisible':
+        return {'CLASS_B'}, None, ('перед снимком %s — notVisible %s: кадр'
+                                   ' снимается ПОСЛЕ ухода оверлея'
+                                   % (mq['shot_splash'], mq['overlay_id']))
+    outcomes = set()
+    for p in poll_grid:
+        # timeout шага — миллисекунды (живой формат: timeout: 10000)
+        if isinstance(t1, (int, float)) and p >= t1:
+            outcomes.add('WAIT_FAIL')
+            continue
+        for d in shot_grid:
+            # первый успешный опрос ≤ M+p; кадр в конце команды снимка: M+p+d
+            outcomes.add('SPLASH' if p + d < hold_ms else 'CLASS_B')
+    t2_ok = None
+    for st in steps[i_shot + 1:]:
+        e = _replay_ewu(st)
+        if e and e[0] == 'notVisible':
+            if isinstance(e[1], (int, float)):
+                t2_ms = e[1]
+                t2_ok = all(
+                    -(-max(0, hold_ms - p) // p) * p <= t2_ms
+                    for p in poll_grid)
+            break
+    return outcomes, t2_ok, None
+
+
+def _pilot_hold(repo, rq, pv):
+    """(Г) канал удержания субъекта: pilot-app на монтировании читает
+    стартовый URL (Linking.getInitialURL) и при ТОЧНОМ равенстве
+    литералу replay_117.hold_link продлевает таймер оверлея до
+    SPLASH_HOLD_E2E_MS (clearTimeout + setTimeout). Возвращает
+    (ok_link, hold_ms, ok_no_env, env_hold_ms, env_in_pilot):
+    ok_link — статическая проводка канала; hold_ms — литерал
+    SPLASH_HOLD_E2E_MS из pilot-app; env_hold_ms — значение env (В) из
+    workflow, если канал (В) вернулся (None — нет); env_in_pilot — env (В)
+    в pilot-app. Канал (В) — общий вход (сборка), отклонён живой пробой:
+    оба флага несут клетка SPLASH_HOLD_NO_ENV и реплей SCENARIO_ONLY."""
+    pilot = repo / 'mobile/src/bootstrap/pilot-app.tsx'
+    text = pilot.read_text(encoding='utf-8') if pilot.is_file() else ''
+    lit = rq['hold_link']
+    ok_link = (
+        'Linking.getInitialURL()' in text
+        and ("SPLASH_HOLD_E2E_LINK = '%s'" % lit) in text
+        and 'initialUrl !== SPLASH_HOLD_E2E_LINK' in text
+        and 'clearTimeout(timer)' in text
+        and re.search(r'timer = setTimeout\(\(\) => setSplashVisible\(false\),'
+                      r' SPLASH_HOLD_E2E_MS\)', text) is not None
+    )
+    m = re.search(r'SPLASH_HOLD_E2E_MS = (\d+)', text)
+    hold_ms = int(m.group(1)) if m else None
+    env_in_pilot = ('process.env.' + rq['hold_env_name']) in text
+    wf_path = repo / pv['workflow']
+    wf_text = wf_path.read_text(encoding='utf-8') if wf_path.is_file() else ''
+    env_hold_ms = None
+    m_env = re.search(r"%s: '?(\d+)'?" % re.escape(rq['hold_env_name']), wf_text)
+    if m_env is not None:
+        try:
+            env_hold_ms = int(m_env.group(1))
+        except ValueError:
+            env_hold_ms = -1  # неразборчивое значение — fail-closed (взведено)
+    ok_no_env = not (env_in_pilot or env_hold_ms is not None
+                     or rq['hold_env_name'] in wf_text)
+    return ok_link, hold_ms, ok_no_env, env_hold_ms, env_in_pilot
+
+
+def _src_overlay_hide_ms():
+    src = load_source()
+    val = src.get('overlay_117', {}).get('hide_after_ms')
+    return int(val) if isinstance(val, (int, float)) else None
+
+
+
+def _expo_route_path(url):
+    """(Г′) Путь маршрута expo-router из ссылки: host + pathname ДО «?»
+    (fork extractPathFromURL ~57.0.28, node_modules продукта: fromDeepLink
+    собирает path как res.host + res.pathname, query в путь не входит;
+    измерено proba_gprim/parse_test.js). Корень «/» ⇒ ПУСТАЯ строка;
+    host-форма complior://e2e-splash-hold ⇒ 'e2e-splash-hold' — путь
+    /e2e-splash-hold, несуществующий маршрут ([section] рендерит null).
+    Неразборчивое значение — fail-closed: НЕ корень (вернуть маркер)."""
+    if not isinstance(url, str) or '://' not in url:
+        return '?'
+    rest = url.split('://', 1)[1]
+    rest = rest.split('?', 1)[0]
+    rest = rest.split('#', 1)[0]
+    # authority = до первого '/'; всё после — pathname
+    if '/' in rest:
+        host, path = rest.split('/', 1)
+        route = host + '/' + path
+    else:
+        route = rest
+    return route.rstrip('/')
+
+
+def _hold_link_matches_grammar(rq):
+    """(Г′) Литерал канала соответствует грамматике source.json
+    replay_117.hold_link_grammar: scheme + ПУСТОЙ host + путь «/» +
+    маркер в query; извлечённый expo-router путь — ПУСТОЙ (корень)."""
+    g = rq.get('hold_link_grammar')
+    if not isinstance(g, dict):
+        return False
+    composed = '%s://%s%s?%s=%s' % (g.get('scheme'), g.get('host'),
+                                    g.get('path'), g.get('query_key'),
+                                    g.get('query_value'))
+    return rq['hold_link'] == composed and _expo_route_path(rq['hold_link']) == ''
+
+def replay_117_cells(repo, src, steps, mq, cold_start_ok):
+    """Клетки 117 v4 (класс B, канал (Г′)): кадр Splash снимается, ПОКА
+    splash-оверлей на экране, а удержание взводится ТОЛЬКО стартовым deep
+    link сценария 117 (живые пробы: run 40434807469 отклонила env-удержание
+    e2e-сборки — оверлей 8 с закрывал первый кадр КАЖДОГО холодного старта,
+    118 F02.03-V01-V0 0.000; run 40497913252 отклонила host-ссылку (Г) —
+    expo-router разбирает её как ПУТЬ /e2e-splash-hold, [section] рендерит
+    null, PilotApp не монтируется, нативный splash залип). Ссылка канала
+    (Г′) ведёт на КОРЕНЬ «/» с маркером в query. Реплей по сетке задержек
+    раннера; HOLD — из pilot-app субъекта (литерал SPLASH_HOLD_E2E_MS),
+    взведение — цепочка сценария (MAESTRO_HOLD_COLD_START); оракул —
+    source.json replay_117 (до субъекта)."""
+    rq = src['replay_117']
+    pv = src['sverka_123']['provodka']
+    live = rq['live']
+    # (в) канон оракула: hold_min = poll.max + shot.max + 100; hold_e2e в
+    # границах; hold_default = прод-литерал оверлея (единый источник);
+    # литерал ссылки непуст и не пересекается с живыми чужими ссылками;
+    # (Г′) литерал соответствует грамматике канала (корень+query) и
+    # извлекается как ПУСТОЙ путь (корень «/»).
+    ok_oracle = (
+        rq['hold_min_ms'] == max(rq['poll_ms_grid']) + max(rq['shot_ms_grid']) + 100
+        and rq['hold_min_ms'] <= rq['hold_e2e_ms']
+        and rq['hold_default_ms_source'] == 'overlay_117.hide_after_ms'
+        and isinstance(rq['hold_link'], str)
+        and rq['hold_link'].startswith('complior://')
+        and rq['hold_link'] not in rq['other_live_links']
+        and _hold_link_matches_grammar(rq)
+    )
+    if not ok_oracle:
+        print('RED REPLAY_ORACLE_CONSISTENT: replay_117 расходится с формулой'
+              ' hold_min = poll.max + shot.max + 100 / прод-литералом оверлея'
+              ' / литералом hold_link против other_live_links / грамматикой'
+              ' канала (Г′): корень+query, host-часть пути ПУСТА')
+    check(ok_oracle, 'REPLAY_ORACLE_CONSISTENT')
+
+    # Проводка канала (Г′) в pilot-app + отсутствие канала (В).
+    ok_link, hold_ms, ok_no_env, env_hold_ms, env_in_pilot = _pilot_hold(repo, rq, pv)
+    if not ok_link:
+        print('RED SPLASH_HOLD_LINK_CHANNEL: pilot-app не несёт канал (Г):'
+              ' Linking.getInitialURL() + точное равенство литералу',
+              rq['hold_link'], '+ апгрейд таймера clearTimeout/setTimeout')
+    check(ok_link, 'SPLASH_HOLD_LINK_CHANNEL')
+    if not ok_no_env:
+        print('RED SPLASH_HOLD_NO_ENV: канал (В) env', rq['hold_env_name'],
+              'присутствует в pilot-app/workflow (отклонён живой пробой'
+              ' run 40434807469 — общий вход сборки)')
+    check(ok_no_env, 'SPLASH_HOLD_NO_ENV')
+
+    # (Г′) КЛАСС входов ссылки: канал удержания ведёт на СУЩЕСТВУЮЩИЙ
+    # маршрут. Корень «/» монтирует PilotApp БЕЗУСЛОВНО (route_facts:
+    # index.tsx); host-часть пути непуста ⇒ путь /<host> — одно-сегментный
+    # динамический [section] рендерит null для сегмента вне TAB_ORDER
+    # (живой провал пробы (Г) run 40497913252: PilotApp не монтирован,
+    # hideAsync не вызван, нативный splash залип 15 с). Клетка требует:
+    # сценарий субъекта открывает РОВНО литерал оракула, и его
+    # expo-router путь ПУСТ (корень).
+    subj_links = []
+    for st in steps:
+        ol = st.get('openLink') if isinstance(st, dict) else None
+        if isinstance(ol, str) and ol.startswith('complior://'):
+            subj_links.append(ol)
+        elif isinstance(ol, dict) and isinstance(ol.get('link'), str) \
+                and ol['link'].startswith('complior://'):
+            subj_links.append(ol['link'])
+    ok_route = (
+        len(subj_links) == 1
+        and subj_links[0] == rq['hold_link']
+        and _expo_route_path(subj_links[0] if subj_links else '?') == ''
+    )
+    if not ok_route:
+        print('RED SPLASH_HOLD_LINK_ROUTE_MOUNT: ссылка канала сценария',
+              subj_links, 'не ведёт на корень «/» литералом', rq['hold_link'],
+              '(expo-путь:', _expo_route_path(subj_links[0]) if subj_links
+              else 'нет ссылки', '— host-форма = несуществующий маршрут,'
+              ' PilotApp не монтируется, hideAsync не вызван)')
+    check(ok_route, 'SPLASH_HOLD_LINK_ROUTE_MOUNT')
+    # Реплей монтирования: судьбу старта решает ПОСЛЕДНЯЯ complior-ссылка
+    # сценария (стартовый URL устройства = последняя открытая): её expo-путь
+    # непуст ⇒ PilotApp не монтируется (NO_PILOT); корневая ссылка и старт
+    # БЕЗ ссылки (лаунчер → корень «/») — монтируется (v3 живьём: оверлей
+    # виден, класс B — гонка кадра, не пустое дерево).
+    overlay_mounts = (
+        not subj_links or _expo_route_path(subj_links[-1]) == ''
+    )
+
+    # Эффективное окно удержания субъекта: env (В) — общий вход (fail-closed
+    # на неразборчивом значении); иначе канал (Г) = ok_link ∧ цепочка
+    # сценария; иначе прод-литерал overlay_117.
+    default = _src_overlay_hide_ms()
+    if default is None:
+        INFRASTRUCTURE.append('source.json: overlay_117.hide_after_ms не найден')
+        return
+    if env_in_pilot or env_hold_ms is not None:
+        eff_hold = env_hold_ms if isinstance(env_hold_ms, int) and env_hold_ms > 0 else None
+    elif ok_link and cold_start_ok:
+        eff_hold = hold_ms
+    else:
+        eff_hold = default
+    if eff_hold is None:
+        # env-канал есть, значение неразборчиво: fail-closed — судим сетку
+        # против недостижимого окна (все точки CLASS_B), не зелень.
+        eff_hold = default - 1
+
+    outcomes, t2_ok, why = _replay_outcomes(steps, mq, eff_hold, rq,
+                                            overlay_mounts=overlay_mounts)
+    ok_frame = outcomes == {'SPLASH'}
+    if not ok_frame:
+        print('RED REPLAY_SPLASH_WHILE_OVERLAY: hold', eff_hold,
+              'исходы', sorted(outcomes), why or '',
+              '(канал (Г):', ok_link, 'холодный старт:', cold_start_ok, ')')
+    check(ok_frame, 'REPLAY_SPLASH_WHILE_OVERLAY')
+
+    if t2_ok is not None:
+        if not t2_ok:
+            print('RED REPLAY_HOLD_FITS_WAIT_TIMEOUT: hold', eff_hold,
+                  'не накрывается таймаутом notVisible (кадр first-run'
+                  ' не снимается после ухода оверлея)')
+        check(t2_ok, 'REPLAY_HOLD_FITS_WAIT_TIMEOUT')
+
+    # (г) живой носитель v3: продуктовый сценарий @ ba5ebbc927 (sha256
+    # припинен) + живой commands.json класса B — реплей строится по живому
+    # формату; на живой проводке v3 (HOLD 1200, канала нет) реплей обязан
+    # видеть класс B, включая ЗАМЕРЕННУЮ живую пару poll=700/shot=670 мс.
+    ok_live = True
+    live_steps = None
+    live_yaml = HERE / 'live' / 'vkhod-117-splash-vhod.prod-ba5ebbc9.yaml'
+    blob = live_yaml.read_bytes() if live_yaml.is_file() else b''
+    if hashlib.sha256(blob).hexdigest() != live['svideteli'][live_yaml.name]:
+        print('ORACLE_TAMPERED live/' + live_yaml.name)
+        INFRASTRUCTURE.append('свидетель live/%s не сходится к пину sha256'
+                              % live_yaml.name)
+        return
+    for doc in yaml.safe_load_all(blob.decode('utf-8')):
+        if isinstance(doc, list):
+            live_steps = doc
+    if live_steps is None:
+        ok_live = False
+        print('RED REPLAY_LIVE_CARRIER: живой сценарий не разбирается'
+              ' документом-списком шагов')
+    else:
+        out_live, _, _ = _replay_outcomes(live_steps, mq, default, rq)
+        pair_class_b = (700 + live['timings_ms']['shot_red'] >= default)
+        if not ('CLASS_B' in out_live and pair_class_b):
+            ok_live = False
+            print('RED REPLAY_LIVE_CARRIER: на живой проводке v3 (HOLD',
+                  default, ') реплей не видит класс B; исходы',
+                  sorted(out_live), 'пара 700+',
+                  live['timings_ms']['shot_red'], 'мс =', pair_class_b)
+    # грамматика реплея — формы живого commands.json (assertCondition/
+    # takeScreenshot/launchApp), не собственный диалект
+    cj_path = HERE / 'live' / 'commands-class-b-dark.json'
+    cj_blob = cj_path.read_bytes() if cj_path.is_file() else b''
+    if hashlib.sha256(cj_blob).hexdigest() != live['svideteli'][cj_path.name]:
+        print('ORACLE_TAMPERED live/' + cj_path.name)
+        INFRASTRUCTURE.append('свидетель live/%s не сходится к пину sha256'
+                              % cj_path.name)
+        return
+    try:
+        cmds = json.loads(cj_blob)
+    except ValueError:
+        ok_live = False
+        cmds = None
+        print('RED REPLAY_LIVE_CARRIER: живой commands.json не разбирается')
+    if isinstance(cmds, list) and live_steps is not None:
+        kinds = []
+        for c in cmds:
+            if isinstance(c, dict):
+                inner = c.get('command') if isinstance(c.get('command'), dict) else c
+                kinds.append(next(iter(inner)))
+        expect_prefix = ['defineVariablesCommand', 'applyConfigurationCommand']
+        step_kinds = []
+        for st in live_steps:
+            if not isinstance(st, dict):
+                continue
+            if 'launchApp' in st:
+                step_kinds.append('launchAppCommand')
+            elif 'extendedWaitUntil' in st:
+                step_kinds.append('assertConditionCommand')
+            elif 'takeScreenshot' in st:
+                step_kinds.append('takeScreenshotCommand')
+            elif 'assertVisible' in st or 'assertNotVisible' in st:
+                step_kinds.append('assertConditionCommand')
+        if kinds[:len(expect_prefix)] != expect_prefix or \
+                kinds[len(expect_prefix):len(expect_prefix) + len(step_kinds)] != step_kinds:
+            ok_live = False
+            print('RED REPLAY_LIVE_CARRIER: шаги живого сценария не'
+                  ' отображаются в команды живого commands.json')
+    check(ok_live, 'REPLAY_LIVE_CARRIER')
+
+    # (д) удержание ТОЛЬКО в сценарии 117 (живая проба (В) run 40434807469:
+    # кадр 118 F02.03-V01-V0 dark/light 0.000 — на кадре splash-оверлей).
+    # Живой носитель: commands.json шага 118 пробы (sha256) — первый кадр
+    # завершается через ЗАМЕРЕННЫЙ зазор после конца launchApp; закон:
+    # кадр постороннего сценария закрыт ⇔ удержание взведено на ОБЩЕМ входе
+    # (env сборки) ∧ зазор < HOLD. Кадры-свидетели (оверлей на месте V0)
+    # припинены sha256; honest-модель (Г) для запуска 118 без литеральной
+    # ссылки НЕ взводит → кадр не закрыт (зелёный контроль той же пробы:
+    # прочие кадры OK — V02-V0 0.845/0.783, сняты после ухода оверлея).
+    ok_scenario = True
+    ei_path = HERE / 'live' / 'commands-proba-erstinfo-dark.json'
+    ei_blob = ei_path.read_bytes() if ei_path.is_file() else b''
+    if hashlib.sha256(ei_blob).hexdigest() != live['svideteli'][ei_path.name]:
+        print('ORACLE_TAMPERED live/' + ei_path.name)
+        INFRASTRUCTURE.append('свидетель live/%s не сходится к пину sha256'
+                              % ei_path.name)
+        return
+    kinds_ei = []
+    gap = None
+    try:
+        ei = json.loads(ei_blob)
+        evs = [(e['command'], e['metadata']) for e in ei if isinstance(e, dict)]
+        kinds_ei = [next(iter(c)) for c, _ in evs]
+        li = next(i for i, k in enumerate(kinds_ei) if k == 'launchAppCommand')
+        si = next(i for i, k in enumerate(kinds_ei) if k == 'takeScreenshotCommand')
+        gap = ((evs[si][1]['timestamp'] + evs[si][1]['duration'])
+               - (evs[li][1]['timestamp'] + evs[li][1]['duration']))
+    except (ValueError, KeyError, StopIteration, TypeError):
+        gap = None
+    gap_oracle = live['timings_ms']['proba_erstinfo_dark']['shot_v0_after_launch_end']
+    no_open_link = not any('openLink' in k for k in kinds_ei)
+    env_covers = ((env_in_pilot or env_hold_ms is not None)
+                  and gap is not None
+                  and (not isinstance(env_hold_ms, int) or env_hold_ms <= 0
+                       or env_hold_ms > gap))
+    # живой факт пробы: env 8000 закрыл кадр на зазоре 7450 (0.000 обе
+    # темы) — закон сверен с оракулом до суда над субъектом
+    oracle_covers = rq['hold_e2e_ms'] > gap_oracle
+    if gap != gap_oracle or not oracle_covers or not no_open_link:
+        ok_scenario = False
+        print('RED REPLAY_HOLD_SCENARIO_ONLY: живой носитель 118 расходится'
+              ' с оракулом (зазор', gap, '!=', gap_oracle, 'env 8000 закрывает:',
+              oracle_covers, 'openLink в 118:', not no_open_link, ')')
+    if env_covers:
+        ok_scenario = False
+        print('RED REPLAY_HOLD_SCENARIO_ONLY: субъект взводит удержание на'
+              ' ОБЩЕМ входе (env сборки) — кадр 118 V0 (зазор', gap,
+              'мс < HOLD', env_hold_ms, ') закрыт оверлеем, как в пробе'
+              ' run 40434807469 (0.000 обе темы)')
+    check(ok_scenario, 'REPLAY_HOLD_SCENARIO_ONLY')
+
+    # (Г′) живые свидетели провала пробы (Г) run 40497913252/job
+    # 122172034122 (флоу 117 красен: нативный splash залип): кадр провала
+    # (нативный знак, НЕ JS-оверлей), hierarchy json шага провала (в дереве
+    # приложения НЕТ узлов содержимого — PilotApp не монтирован) и
+    # logcat-фрагмент (START VIEW dat=complior://e2e-splash-hold… +
+    # Running "main" — ссылка доставлена, JS запущен). Носитель
+    # субъект-независим (как REPLAY_LIVE_CARRIER): факты пробы — оракул
+    # против нового канала; подмена свидетеля — rc2 ORACLE_TAMPERED.
+    ok_g = True
+    names_g = ('proba117g-kadr-native-splash.png',
+               'proba117g-hierarchy-step006.json',
+               'proba117g-logcat-fragment.txt')
+    for nm in names_g:
+        w = HERE / 'live' / nm
+        blob_g = w.read_bytes() if w.is_file() else b''
+        if hashlib.sha256(blob_g).hexdigest() != live['svideteli'].get(nm):
+            print('ORACLE_TAMPERED live/' + nm)
+            INFRASTRUCTURE.append('свидетель live/%s не сходится к пину sha256' % nm)
+            return
+    hier_g = None
+    try:
+        hier_g = json.loads((HERE / 'live' / names_g[1]).read_bytes())
+    except ValueError:
+        ok_g = False
+    rids_g, texts_g = [], []
+
+    def _hier_walk(n):
+        a = n.get('attributes', {}) if isinstance(n, dict) else {}
+        if isinstance(a, dict):
+            if isinstance(a.get('resource-id'), str):
+                rids_g.append(a['resource-id'])
+            if isinstance(a.get('text'), str):
+                texts_g.append(a['text'])
+        for c in (n.get('children', []) if isinstance(n, dict) else []):
+            _hier_walk(c)
+
+    if hier_g is not None:
+        _hier_walk(hier_g)
+    frag = (HERE / 'live' / names_g[2]).read_text(encoding='utf-8',
+                                                  errors='replace')
+    ok_g = ok_g and (
+        hier_g is not None
+        # живой факт: оверлей не появился и дерева содержимого нет —
+        # единственный com.complior resource-id — системный каркас
+        # action_bar_root (пустое окно активности), контентных testID нет
+        and all('splash-overlay' not in r for r in rids_g)
+        and all('splash-overlay' not in t for t in texts_g)
+        and all(r == 'com.complior.mobile:id/action_bar_root'
+                for r in rids_g if r.startswith('com.complior.mobile'))
+        # живой факт: ссылка доставлена (платформенное сокращение "/...")
+        # и JS запущен
+        and 'dat=complior://e2e-splash-hold' in frag
+        and 'cmp=com.complior.mobile/.MainActivity' in frag
+        and 'Running "main"' in frag
+        and 'LAUNCH_SINGLE_TASK' in frag
+    )
+    if not ok_g:
+        print('RED REPLAY_LIVE_PROBA_G: свидетели провала (Г) не несут факты'
+              ' (hierarchy resource-id только android/systemui, без'
+              ' splash-overlay; logcat: START VIEW dat=… + Running "main")')
+    check(ok_g, 'REPLAY_LIVE_PROBA_G')
+
+
+def sverka_class_b_cell(repo, src):
+    """(б) Клетка SVERKA_123_CATCHES_CLASS_B: НАСТОЯЩАЯ сверка 123 на живых
+    свидетелях: кадр класса B (run 40420737331, dark) → NIZHE_POROGA rc1,
+    зелёный кадр (run 40316137237, dark) → OK rc0; ожидания — из
+    source.json replay_117.live.sverka_{bad,ok} (замер до правки субъекта).
+    Свидетели sha-припинены; подмена — rc2 ORACLE_TAMPERED."""
+    rq = src['replay_117']
+    live = rq['live']
+    sv_script = HERE.parents[2] / 'scripts' / 'sverka_maketa.py'
+    manifest = HERE.parents[2] / src['sverka_123']['manifest']
+    if not sv_script.is_file() or not manifest.is_file():
+        INFRASTRUCTURE.append('sverka_maketa.py/манифест 123 не найдены'
+                              ' в дереве батареи (пин .harness117)')
+        return
+    for name, sha in live['svideteli'].items():
+        p = HERE / 'live' / name
+        blob = p.read_bytes() if p.is_file() else b''
+        if hashlib.sha256(blob).hexdigest() != sha:
+            print('ORACLE_TAMPERED live/' + name)
+            INFRASTRUCTURE.append('свидетель live/%s не сходится к пину'
+                                  ' sha256' % name)
+            return
+    import tempfile
+    ok = True
+    with tempfile.TemporaryDirectory(prefix='vkhod117-sverka-') as tmp:
+        for tag, dark, light, expect in (
+                ('bad', 'kadr-class-b-dark.png', 'kadr-ok-light.png', live['sverka_bad']),
+                ('ok', 'kadr-ok-dark.png', 'kadr-ok-light.png', live['sverka_ok'])):
+            kadry = Path(tmp) / tag
+            for tema, png in (('dark', dark), ('light', light)):
+                shot = kadry / tema / 'run40420737331' / 'flow' / 'takeScreenshot'
+                shot.mkdir(parents=True)
+                shutil.copyfile(HERE / 'live' / png, shot / 'vkhod-117-splash.png')
+            proc = subprocess.run(
+                [sys.executable, str(sv_script), '--manifest', str(manifest),
+                 '--kadry', str(kadry), '--repo', str(repo)],
+                capture_output=True, text=True, timeout=120)
+            got = [ln for ln in proc.stdout.splitlines() if ln]
+            if proc.returncode != expect['rc'] or got != expect['stdout'] \
+                    or proc.stderr.strip() != expect.get('stderr', ''):
+                ok = False
+                print('RED SVERKA_123_CATCHES_CLASS_B:', tag,
+                      'rc', proc.returncode, '!=', expect['rc'])
+                for ln in got:
+                    print('  got:', ln)
+    if not ok:
+        print('  сверка обязана краснеть на живом кадре класса B и зеленеть'
+              ' на зелёном (замер source.json replay_117.live)')
+    check(ok, 'SVERKA_123_CATCHES_CLASS_B')
 
 
 def main():
@@ -1410,6 +2246,22 @@ def matrix(repo: Path):
               ' .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json'
               ' --kadry mobile/maestro-out-117 --repo . | tee mobile/maestro-out-117/sverka-123.tsv\n')
     SV_STEP = SV_NAME + '        working-directory: ${{ github.workspace }}\n' + SV_RUN
+    # 117 v4 (канал (Г)): якоря стабов удержания — блок чтения стартового
+    # URL в pilot-app (модель), env-форма (В).
+    PILOT = 'mobile/src/bootstrap/pilot-app.tsx'
+    LINK_BLOCK = (
+        '    let holdCancelled = false;\n'
+        '    void Linking.getInitialURL().then((initialUrl) => {\n'
+        '      if (holdCancelled || initialUrl !== SPLASH_HOLD_E2E_LINK) return;\n'
+        '      clearTimeout(timer);\n'
+        '      timer = setTimeout(() => setSplashVisible(false), SPLASH_HOLD_E2E_MS);\n'
+        '    });\n'
+    )
+    ENV_FORM = (
+        '    const timer = setTimeout(() => setSplashVisible(false),\n'
+        '      Math.max(SPLASH_OVERLAY_MS,'
+        ' Number(process.env.EXPO_PUBLIC_SPLASH_HOLD_E2E_MS || 0) || 0));\n'
+    )
     MUTANTS = {
         # (а) иконка осталась шаблонной Expo: байты базы проходят пути,
         # но пиксельные свойства канона и sha-литерал красны.
@@ -1649,18 +2501,24 @@ def matrix(repo: Path):
         # стенде снят рабочий стол Android).
         'maestro-splash-no-wait': (
             [(MAE, SPLASH_WAIT, '')],
-            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], ['REPLAY_SPLASH_WHILE_OVERLAY',
+            # v4 (замер матрицы): шага visible нет — цепочка (Г) рвётся
+            # (openLink есть, ожидания нет) → COLD_START.
+            'MAESTRO_HOLD_COLD_START'],
         ),
         # (Р2, в) ожидание есть ТОЛЬКО комментарием: строки шага
         # закомментированы — парсер шага не видит (grep бы видел).
         'maestro-splash-wait-commented': (
             [(MAE, SPLASH_WAIT, ''.join('# ' + ln + '\n' for ln in SPLASH_WAIT.splitlines()))],
-            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], ['REPLAY_SPLASH_WHILE_OVERLAY',
+            # v4 (замер матрицы): ожидание закомментировано — цепочка (Г)
+            # рвётся (openLink есть, ожидания visible нет) → COLD_START.
+            'MAESTRO_HOLD_COLD_START'],
         ),
         # (Р2, в) ложное размещение: ожидание ПОСЛЕ снимка splash.
         'maestro-splash-wait-after-shot': (
             [(MAE, SPLASH_WAIT + SPLASH_SHOT, SPLASH_SHOT + SPLASH_WAIT)],
-            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], ['REPLAY_SPLASH_WHILE_OVERLAY'],
         ),
         # (Р3, круг 6) оверлей не обязан исчезнуть до кадра First-Run
         # (форма текущего C: assertVisible по id находит CTA под
@@ -1674,13 +2532,16 @@ def matrix(repo: Path):
         # исчезновения оверлея ДО снимка splash.
         'maestro-first-run-as-splash': (
             [(MAE, SPLASH_WAIT + SPLASH_SHOT, FIRST_RUN_WAIT + OVERLAY_GONE + SPLASH_SHOT)],
-            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], ['REPLAY_SPLASH_WHILE_OVERLAY',
+            # v4 (замер матрицы): шаг visible splash-overlay заменён —
+            # цепочка (Г) рвётся → COLD_START.
+            'MAESTRO_HOLD_COLD_START'],
         ),
         # (родственный) ожидание оверлея есть, но между ним и снимком
         # splash — ожидание его исчезновения.
         'maestro-splash-overlay-gone-before-shot': (
             [(MAE, SPLASH_WAIT + SPLASH_SHOT, SPLASH_WAIT + OVERLAY_GONE + SPLASH_SHOT)],
-            ['MAESTRO_SPLASH_FRAME_WAIT'], [],
+            ['MAESTRO_SPLASH_FRAME_WAIT'], ['REPLAY_SPLASH_WHILE_OVERLAY'],
         ),
         # (сверка 123) снимок splash под иным именем: кадр, объявленный в
         # перечне сверки 123 (kadry_117.json), не снят — сверка с макетом
@@ -1688,7 +2549,8 @@ def matrix(repo: Path):
         'maestro-splash-shot-renamed': (
             [(MAE, SPLASH_SHOT, '- takeScreenshot: vkhod-117-splash-frame\n')],
             ['SPLASH_FRAME_SVERKA_123_DARK', 'SPLASH_FRAME_SVERKA_123_LIGHT'],
-            ['MAESTRO_SPLASH_FRAME_WAIT', 'MAESTRO_FIRST_RUN_ORDER'],
+            ['MAESTRO_SPLASH_FRAME_WAIT', 'MAESTRO_FIRST_RUN_ORDER',
+             'REPLAY_SPLASH_WHILE_OVERLAY'],
         ),
         # (РЕШЕНИЕ арбитра (б), workflow B) шагов 123 нет: ни checkout
         # .harness123, ни шага сверки — потребления манифеста нет.
@@ -1726,6 +2588,140 @@ def matrix(repo: Path):
             [(WF, '          ref: 2cc58c224a8a9ced9709604f0eeb57d2fba6fb07\n',
               '          ref: main\n')],
             ['SVERKA_123_HARNESS_PIN'], [],
+        ),
+        # ---- 117 v4 (класс B, канал (Г)): обманные стабы удержания по
+        # стартовому deep link и реплея тайминга. Привязка к ветвям по
+        # коду (Н-39): канал (Г) в pilot-app — SPLASH_HOLD_LINK_CHANNEL +
+        # REPLAY_SPLASH_WHILE_OVERLAY (без канала окно = прод-литерал);
+        # канал (В) (env) — SPLASH_HOLD_NO_ENV + REPLAY_HOLD_SCENARIO_ONLY
+        # (живой дефект пробы 40434807469: кадр 118 V0 закрыт); сила
+        # удержания — REPLAY_SPLASH_WHILE_OVERLAY (ослаблен) /
+        # REPLAY_HOLD_FITS_WAIT_TIMEOUT (сверх таймаута); холодный старт
+        # сценария — MAESTRO_HOLD_COLD_START; ослабление порога — только
+        # через подложный манифест (канон — SVERKA_123_MANIFEST_CANON:
+        # порог живёт в манифесте H пина .harness123, не в субъекте).
+
+        'splash-hold-link-otsutstvuet': (
+            [(PILOT, LINK_BLOCK, '')],
+            ['SPLASH_HOLD_LINK_CHANNEL', 'REPLAY_SPLASH_WHILE_OVERLAY'], [],
+        ),
+        'splash-hold-link-oslablen': (
+            [(PILOT, 'const SPLASH_HOLD_E2E_MS = 8000;',
+              'const SPLASH_HOLD_E2E_MS = 2000;')],
+            ['REPLAY_SPLASH_WHILE_OVERLAY'], [],
+        ),
+        'splash-hold-sverh-timeout-a': (
+            [(PILOT, 'const SPLASH_HOLD_E2E_MS = 8000;',
+              'const SPLASH_HOLD_E2E_MS = 13000;')],
+            ['REPLAY_HOLD_FITS_WAIT_TIMEOUT'], [],
+        ),
+        # Стаб-дефект живой пробы (В) run 40434807469: удержание на ОБЩЕМ
+        # входе (env сборки) — кадр 118 V0 (зазор 7450 мс < 8000) закрыт.
+        'splash-hold-env-vmesto-link': (
+            [(PILOT,
+              '    let timer = setTimeout(() => setSplashVisible(false),'
+              ' SPLASH_OVERLAY_MS);\n' + LINK_BLOCK, ENV_FORM),
+             (WF, '          EXPO_PUBLIC_API_MODE: mock\n',
+              '          EXPO_PUBLIC_API_MODE: mock\n'
+              "          EXPO_PUBLIC_SPLASH_HOLD_E2E_MS: '8000'\n")],
+            ['SPLASH_HOLD_LINK_CHANNEL', 'SPLASH_HOLD_NO_ENV',
+             'REPLAY_HOLD_SCENARIO_ONLY'], [],
+        ),
+        'splash-hold-vse-ssylki': (
+            [(PILOT,
+              'if (holdCancelled || initialUrl !== SPLASH_HOLD_E2E_LINK) return;',
+              "if (holdCancelled || !initialUrl.startsWith('complior://'))"
+              ' return;')],
+            ['SPLASH_HOLD_LINK_CHANNEL'],
+            # Побочная краснота (замер матрицы v4): канал текстово не точен —
+            # эффективное окно судится fail-closed как прод-литерал → REPLAY.
+            ['REPLAY_SPLASH_WHILE_OVERLAY'],
+        ),
+        'splash-hold-start-launchapp': (
+            [(MAE, '- stopApp\n- openLink: complior:///?e2e=splash-hold\n', '')],
+            ['MAESTRO_HOLD_COLD_START', 'REPLAY_SPLASH_WHILE_OVERLAY'],
+            # Замер матрицы v4: литерал исчез из сценария — HOLD_ALONE красен
+            # (носителей нет), ROUTE_MOUNT красен (ссылки канала нет) —
+            # побочная краснота того же дефекта.
+            ['MAESTRO_HOLD_ALONE', 'SPLASH_HOLD_LINK_ROUTE_MOUNT'],
+        ),
+        'splash-hold-start-ne-holodnyj': (
+            [(MAE, '- stopApp\n- openLink: complior:///?e2e=splash-hold\n',
+              '- openLink: complior:///?e2e=splash-hold\n'
+              '- launchApp:\n    clearState: false\n')],
+            ['MAESTRO_HOLD_COLD_START'], ['REPLAY_SPLASH_WHILE_OVERLAY'],
+        ),
+        # (правка FAIL критика v4 круг 1) ОБХОД 1 критика дословно: второй
+        # launchApp{clearState} МЕЖДУ stopApp и openLink — приложение
+        # работает до открытия ссылки, стартовый URL не читается при
+        # монтировании; прежде (сумма команд) статика была зелёной.
+        'splash-hold-relaunch-pered-link': (
+            [(MAE, '- stopApp\n- openLink: complior:///?e2e=splash-hold\n',
+              '- stopApp\n- launchApp:\n    clearState: true\n'
+              '- openLink: complior:///?e2e=splash-hold\n')],
+            ['MAESTRO_HOLD_COLD_START'], ['REPLAY_SPLASH_WHILE_OVERLAY'],
+        ),
+        # (правка FAIL критика v4 круг 1) ОБХОД 2 критика дословно:
+        # перестановка stopApp → launchApp{clearState} → openLink — к
+        # ссылке приложение запущено (и стоп не после очистки); прежде
+        # статика 55/55 И поведение 191/191 были зелёными.
+        'splash-hold-porjadok-stop-launch': (
+            [(MAE, '- launchApp:\n    clearState: true\n- stopApp\n'
+                  '- openLink: complior:///?e2e=splash-hold\n',
+                  '- stopApp\n- launchApp:\n    clearState: true\n'
+                  '- openLink: complior:///?e2e=splash-hold\n')],
+            ['MAESTRO_HOLD_COLD_START'], ['REPLAY_SPLASH_WHILE_OVERLAY'],
+        ),
+        # (правка FAIL критика v4 круг 3, Н-39 — привязка по коду)
+        # запуск через runFlow МЕЖДУ openLink литерала и ожиданием:
+        # живой mobile/.maestro/start.yaml:4–7 запускает приложение с
+        # clearState — повторный старт НЕ читает стартовый URL при
+        # монтировании; старый интервальный предикат («только
+        # launchApp-словарь») этот вход не замечал — статика была ЛОЖНО
+        # зелёной rc0 (вердикт krug3: run-flow-between-hold-and-wait,
+        # клетка VSTAVKA_RUNFLOW_MEZHDU судит предикат синтетически).
+        # Скалярная форма «- launchApp» — та же ветвь _is_launching
+        # (клетка VSTAVKA_LAUNCH_SKALJAR_MEZHDU), отдельного стаба не
+        # требует: один стаб на КЛАСС (единый классификатор).
+        'splash-hold-runflow-posle-link': (
+            [(MAE, '- openLink: complior:///?e2e=splash-hold\n'
+                  '- extendedWaitUntil:',
+                  '- openLink: complior:///?e2e=splash-hold\n'
+                  '- runFlow: start.yaml\n- extendedWaitUntil:')],
+            ['MAESTRO_HOLD_COLD_START'], ['REPLAY_SPLASH_WHILE_OVERLAY'],
+        ),
+        # (Г′) Стаб-дефект живой пробы (Г) run 40497913252: ссылка канала —
+        # host-форма (несуществующий маршрут /e2e-splash-hold) в ОБЕИХ
+        # копиях литерала (сценарий и pilot-app): expo-router путь непуст —
+        # [section] рендерит null, PilotApp не монтируется, hideAsync не
+        # вызван, нативный splash залип — реплей видит NO_PILOT.
+        'splash-hold-link-na-marshrut': (
+            [(MAE, '- openLink: complior:///?e2e=splash-hold\n',
+              '- openLink: complior://e2e-splash-hold\n'),
+             (PILOT,
+              "const SPLASH_HOLD_E2E_LINK = 'complior:///?e2e=splash-hold';",
+              "const SPLASH_HOLD_E2E_LINK = 'complior://e2e-splash-hold';")],
+            ['SPLASH_HOLD_LINK_ROUTE_MOUNT', 'REPLAY_SPLASH_WHILE_OVERLAY'],
+            # Замер матрицы: канонический литерал исчез из сценария и
+            # pilot-app — LINK_CHANNEL/COLD_START/ALONE красны тем же
+            # дефектом (живой провал (Г): флоу 117 красен целиком).
+            ['SPLASH_HOLD_LINK_CHANNEL', 'MAESTRO_HOLD_COLD_START',
+             'MAESTRO_HOLD_ALONE'],
+        ),
+        'splash-replay-snimok-posle-uhoda': (
+            [(MAE, SPLASH_WAIT + SPLASH_SHOT, SPLASH_WAIT + OVERLAY_GONE + SPLASH_SHOT)],
+            ['REPLAY_SPLASH_WHILE_OVERLAY', 'MAESTRO_SPLASH_FRAME_WAIT'], [],
+        ),
+        'splash-kadr-udalen': (
+            [(MAE, SPLASH_SHOT, '')],
+            ['REPLAY_SPLASH_WHILE_OVERLAY', 'MAESTRO_SPLASH_FRAME_WAIT',
+             'SPLASH_FRAME_SVERKA_123_DARK', 'SPLASH_FRAME_SVERKA_123_LIGHT'],
+            ['MAESTRO_FIRST_RUN_ORDER'],
+        ),
+        'splash-porog-oslablen': (
+            [(WF, '--manifest .harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json',
+              '--manifest mobile/.maestro/kadry-oslab-117.json')],
+            ['SVERKA_123_MANIFEST_CANON'], [],
         ),
     }
     honest_src = model_bytes()

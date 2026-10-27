@@ -167,7 +167,13 @@ MUTANTS = {
          'SPLASH_OVERLAY_GEOMETRY_DARK', 'SPLASH_OVERLAY_GEOMETRY_LIGHT',
          'SPLASH_OVERLAY_ZORDER_DARK', 'SPLASH_OVERLAY_ZORDER_LIGHT',
           'PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
-          'SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
+          'SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT',
+          'SPLASH_OVERLAY_HOLD_LINK_DARK', 'SPLASH_OVERLAY_HOLD_LINK_LIGHT',
+          'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_DARK', 'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_LIGHT',
+          # Замер матрицы (Г′): окно удержания ненаблюдаемо и на клетке
+          # несуществующего маршрута (оверлей не смонтирован).
+          'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_DARK',
+          'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_LIGHT'],
     ),
     # (С2) wordmark/tagline оверлея — Text-узлы (не растр композита).
     'overlay-text-words': (
@@ -185,7 +191,7 @@ MUTANTS = {
     # (С2) hideAsync не вызван: нативный splash не снимается оверлеем.
     'overlay-hideasync-skip': (
         [('mobile/src/bootstrap/pilot-app.tsx',
-          '    void SplashScreen.hideAsync();\n    const timer', '    const timer')],
+          '    void SplashScreen.hideAsync();\n    let timer', '    let timer')],
         ['SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT'],
         [],
     ),
@@ -196,7 +202,7 @@ MUTANTS = {
           'void SplashScreen.preventAutoHideAsync();',
           'void SplashScreen.hideAsync();\nvoid SplashScreen.preventAutoHideAsync();'),
          ('mobile/src/bootstrap/pilot-app.tsx',
-          '    void SplashScreen.hideAsync();\n    const timer', '    const timer')],
+          '    void SplashScreen.hideAsync();\n    let timer', '    let timer')],
         ['SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT'],
         [],
     ),
@@ -205,8 +211,14 @@ MUTANTS = {
         [('mobile/src/bootstrap/pilot-app.tsx',
           'const SPLASH_OVERLAY_MS = 1200;', 'const SPLASH_OVERLAY_MS = 120000;')],
         ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT'],
-        # В2-2: клетка стиля статус-бара ждёт снятия оверлея (3×1200 мс).
-        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT'],
+        # В2-2: клетка стиля статус-бара ждёт снятия оверлея (3×1200 мс);
+        # v4: окно удержания ненаблюдаемо при 120000 (замер матрицы);
+        # (Г′): и на клетке несуществующего маршрута (замер матрицы).
+        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT',
+         'SPLASH_OVERLAY_HOLD_LINK_DARK', 'SPLASH_OVERLAY_HOLD_LINK_LIGHT',
+         'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_DARK', 'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_LIGHT',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_DARK',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_LIGHT'],
     ),
     # (С2-а, круг критика 3) свидетель overlay-wrong-source: Image оверлея
     # показывает icon.png вместо композитов (честные композиты на диске) —
@@ -232,7 +244,7 @@ MUTANTS = {
           '    return true;\n'
           '  });'),
          ('mobile/src/bootstrap/pilot-app.tsx',
-          '    void SplashScreen.hideAsync();\n    const timer', '    const timer')],
+          '    void SplashScreen.hideAsync();\n    let timer', '    let timer')],
         ['SPLASH_HIDEASYNC_ORDER_DARK', 'SPLASH_HIDEASYNC_ORDER_LIGHT'],
         [],
     ),
@@ -326,7 +338,13 @@ MUTANTS = {
         ['SPLASH_OVERLAY_VISIBLE_DARK', 'SPLASH_OVERLAY_VISIBLE_LIGHT'],
         ['PROD_ENTRY_OS_THEME_DARK', 'PROD_ENTRY_OS_THEME_LIGHT',
          'SPLASH_OVERLAY_MOUNTED_DARK', 'SPLASH_OVERLAY_MOUNTED_LIGHT',
-         'SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT'],
+         'SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT',
+         'SPLASH_OVERLAY_HOLD_LINK_DARK', 'SPLASH_OVERLAY_HOLD_LINK_LIGHT',
+         'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_DARK', 'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_LIGHT',
+         # Замер матрицы (Г′): оверлей display:none — окно удержания
+         # ненаблюдаемо и на клетке несуществующего маршрута.
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_DARK',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_LIGHT'],
     ),
     # (родственный, предок) `opacity: 0` на корне PilotApp кадра first-run:
     # стили оверлея и Image честны, кадр скрыт предком.
@@ -905,6 +923,70 @@ MUTANTS = {
           "    }\n"
           "  }, [frame, scheme]);")],
         _PORYADOK,
+        [],
+    ),
+    # ---- 117 v4 (класс B, канал (Г′) — удержание стартовым deep link
+    # сценария 117; пересмотры по живым пробам run 40434807469 (env-удержание
+    # отклонено) и run 40497913252 (host-ссылка (Г) отклонена: путь
+    # /e2e-splash-hold — несуществующий маршрут, PilotApp не монтируется).
+    # Привязка к ветвям по коду (Н-39): дефекты канала наблюдаемы ТОЛЬКО
+    # клетками семейства удержания (HOLD_LINK — стартовый URL равен литералу
+    # complior:///?e2e=splash-hold; HOLD_NE_INOJ_URL — чужая живая ссылка
+    # complior://start НЕ взводит; HOLD_NE_NEMARSHRUT — URL несуществующего
+    # маршрута complior://e2e-splash-hold НЕ взводит), «прод-литерал сдвинут»
+    # — TIMER_HIDE (замер: STATUS_BAR_STYLE_* ждёт снятия 3×1200 мс).
+    'splash-hold-link-invertirovan': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'if (holdCancelled || initialUrl !== SPLASH_HOLD_E2E_LINK) return;',
+          'if (holdCancelled || initialUrl === SPLASH_HOLD_E2E_LINK) return;')],
+        ['SPLASH_OVERLAY_HOLD_LINK_DARK', 'SPLASH_OVERLAY_HOLD_LINK_LIGHT',
+         'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_DARK', 'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_LIGHT'],
+        # Замер матрицы v4: инверсия держит оверлей на ЛЮБОМ не-литеральном
+        # старте, включая старт БЕЗ URL (мок по умолчанию → undefined ≠
+        # литерал) — прод-таймер не срабатывает: TIMER_HIDE + STATUS_BAR.
+        # Замер матрицы (Г′): инверсия взводит и URL несуществующего
+        # маршрута (complior://e2e-splash-hold ≠ литералу) — NEMARSHRUT.
+        ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT',
+         'STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_DARK',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_LIGHT'],
+    ),
+    'splash-hold-po-umolchaniju-8000': (
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'const SPLASH_OVERLAY_MS = 1200;', 'const SPLASH_OVERLAY_MS = 8000;')],
+        ['SPLASH_OVERLAY_TIMER_HIDE_DARK', 'SPLASH_OVERLAY_TIMER_HIDE_LIGHT'],
+        ['STATUS_BAR_STYLE_DARK', 'STATUS_BAR_STYLE_LIGHT',
+         'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_DARK', 'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_LIGHT',
+         # Замер матрицы (Г′): при 8000 и URL несуществующего маршрута
+         # скрытие не на 1200-й — NEMARSHRUT красен.
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_DARK',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_LIGHT'],
+    ),
+    'splash-hold-vse-ssylki': (
+        # Префикс вместо ТОЧНОГО литерала: любая complior://-ссылка взводит
+        # удержание (живые complior://start из cmp-mob-002/004 — тоже).
+        # Замер матрицы v4: замена обязана быть undefined-safe — стартовый
+        # URL неопределён (нет ссылки) в разы 'undefined.startsWith' —
+        # TypeError валит посторонние клетки; (initialUrl || '') держит
+        # семантику стаба: без ссылки удержания нет.
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          'if (holdCancelled || initialUrl !== SPLASH_HOLD_E2E_LINK) return;',
+          "if (holdCancelled || !(initialUrl || '').startsWith('complior://'))"
+          ' return;')],
+        ['SPLASH_OVERLAY_HOLD_NE_INOJ_URL_DARK', 'SPLASH_OVERLAY_HOLD_NE_INOJ_URL_LIGHT'],
+        # Замер матрицы (Г′): префикс complior:// накрывает и URL
+        # несуществующего маршрута — удержание взводит — NEMARSHRUT красен.
+        ['SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_DARK',
+         'SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_LIGHT'],
+    ),
+    'splash-hold-taymer-bez-clear': (
+        # Апгрейд не снимает прод-таймер: оба таймера живы, оверлей
+        # скрывается на 1200-й вопреки удержанию.
+        [('mobile/src/bootstrap/pilot-app.tsx',
+          '      clearTimeout(timer);\n'
+          '      timer = setTimeout(() => setSplashVisible(false), SPLASH_HOLD_E2E_MS);',
+          '      timer = setTimeout(() => setSplashVisible(false), SPLASH_HOLD_E2E_MS);')],
+        ['SPLASH_OVERLAY_HOLD_LINK_DARK', 'SPLASH_OVERLAY_HOLD_LINK_LIGHT'],
         [],
     ),
 }

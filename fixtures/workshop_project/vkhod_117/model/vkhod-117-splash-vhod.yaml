@@ -24,8 +24,24 @@ name: 117 — splash (схема устройства)
 #     снятия оверлея; экран First-Run судит first-run-ekran, не 117.
 # Если оверлей исчезает раньше ожидания — это дизайн-вопрос
 # implementer'а (задержка скрытия оверлея); сценарий судит факт снятия.
+# 117 v4 (класс B; пересмотры по живым пробам run 40434807469 — env-удержание
+# сборки отклонено: оверлей 8 с закрывал первый кадр КАЖДОГО холодного старта
+# любого сценария, 118 F02.03-V01-V0 0.000 — и run 40497913252 — проба (Г)
+# host-ссылкой complior://e2e-splash-hold отклонена: expo-router разбирает её
+# как ПУТЬ /e2e-splash-hold, динамический (tabs)/[section] рендерит null,
+# PilotApp не монтируется, hideAsync не вызван, нативный splash залип 15 с).
+# Канал (Г′): удержание приписано ТОЛЬКО этому сценарию, а ссылка ведёт на
+# СУЩЕСТВУЮЩИЙ маршрут — КОРЕНЬ «/» (index.tsx монтирует PilotApp
+# безусловно), маркер — в query. launchApp выше только ЧИСТИТ состояние (как
+# в v3), stopApp убивает процесс, openLink делает СЛЕДУЮЩИЙ старт ХОЛОДНЫМ
+# по ЛИТЕРАЛЬНОМУ deep link — единственному входу, взводящему удержание
+# оверлея (pilot-app: Linking.getInitialURL() === литералу; команды живые:
+# launchApp{clearState} — 5 флоу, stopApp — rehearsal, openLink
+# complior://… — cmp-mob-002/004, Maestro 2.11.0).
 - launchApp:
     clearState: true
+- stopApp
+- openLink: complior:///?e2e=splash-hold
 - extendedWaitUntil:
     visible:
       id: splash-overlay

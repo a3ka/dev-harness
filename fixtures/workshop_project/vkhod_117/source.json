@@ -1,10 +1,22 @@
 {
   "_comment": "Оракул 117 (круг 3): снято с read-only docs/ Complior-mob 8748a7a335 ДО запуска субъекта (правило 8). Токены — ds/tokens.css D2.2.5.1 + проекция 999 (panel); копия — BrokerOS_UI_Copy_DE.json (ключи состава F03.01/F03.02 по UX-JSON Complior_F01_F03_Invitation_Entry_1_17_8_1); типографика .title/.body/.label-lg/.body-sm и компоненты Button/TextField — design-system/project (tokens.css, components/*/README.md); геометрия знака — logo/assets/*.svg; артборды — screens/{Splash,Splash-Hell}.png (композит нативного splash). Пробы несут те же значения литералами.",
   "tokens": {
-    "ground": { "dark": "#0a0a0a", "light": "#f3f2ee" },
-    "ink": { "dark": "#f2f1ec", "light": "#121211" },
-    "accent": { "dark": "#d6f75a", "light": "#d6f75a" },
-    "panel": { "dark": "#1e1e1d", "light": "#e6e5df" }
+    "ground": {
+      "dark": "#0a0a0a",
+      "light": "#f3f2ee"
+    },
+    "ink": {
+      "dark": "#f2f1ec",
+      "light": "#121211"
+    },
+    "accent": {
+      "dark": "#d6f75a",
+      "light": "#d6f75a"
+    },
+    "panel": {
+      "dark": "#1e1e1d",
+      "light": "#e6e5df"
+    }
   },
   "splash": {
     "tagline": "Versicherung. Erledigt.",
@@ -30,32 +42,59 @@
     "recall_min": 0.98,
     "precision_min": 0.98,
     "_size_comment": "Круг критика 3 (Б1): размер субъекта = размер эталона-артборда 390x844; иной масштаб при точном aspect (195x422, 39x84) теряет маску и красен; recall по ВСЕМ пикселям M, precision по ВСЕМ непрозрачным пикселям C.",
-    "size": [390, 844]
+    "size": [
+      390,
+      844
+    ]
   },
   "splash_sign": {
     "_comment": "Замер знака splash по артбордам Splash{,-Hell}.png (read-only docs/, круг 4; обе схемы идентичны в этих числах): кольцо с зазором и точка — геометрия ОТЛИЧАЕТСЯ от mark_geometry_96 (зазор -29..36 град против -40..55.5, дот крупнее в масштабе кольца; согласие mark-96 со знаком 0.60). Судит растр знака (нативный splash) и произведённые drawable. Координаты — пиксели кропа 181x173 (artboard sign_bbox).",
-    "ring_center": [88.0, 86.7],
+    "ring_center": [
+      88.0,
+      86.7
+    ],
     "ring_outer_r": 86.9,
     "ring_thickness": 29.4,
-    "dot_center": [153.5, 135.5],
+    "dot_center": [
+      153.5,
+      135.5
+    ],
     "dot_radius": 25.9,
-    "gap_deg": [-29, 36],
+    "gap_deg": [
+      -29,
+      36
+    ],
     "agree_min": 0.97,
-    "size": [181, 173]
+    "size": [
+      181,
+      173
+    ]
   },
   "splash_native": {
     "_comment": "С2/Б2 (арбитраж круга 2): нативный splash = ОДИН знак на ground схемы; imageWidth = ширина знака артборда (литерал). Генератор плагина: холст 288*mult, знак contain в imageWidth*mult, смещение (288-imageWidth)/2*mult (прочитано в withAndroidSplashImages.js:89-100). Судятся ПРОИЗВЕДЁННЫЕ drawable-{mdpi..xxxhdpi}/splashscreen_logo.png и drawable-night-*; basename НЕ сравнивается. iOS — содержимое по эффективному пути + эффективные imageWidth/resizeMode.",
     "image_width": 181,
     "canvas_base": 288,
-    "multipliers": { "mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0 },
+    "multipliers": {
+      "mdpi": 1.0,
+      "hdpi": 1.5,
+      "xhdpi": 2.0,
+      "xxhdpi": 3.0,
+      "xxxhdpi": 4.0
+    },
     "light_ink": "#121211",
     "dark_ink": "#f2f1ec",
     "ios_storyboard": {
       "_comment": "Круг критика 3 (Б2; арбитраж круга 2 §3 «enableFullScreenImage_legacy отсутствует»): ключа legacy нет в props плагина (корень/ios/dark/ios.dark), эффективное значение false; ВЫХОД настоящего getIosSplashConfig + applySplashScreenStoryboard: рамка картинки imageWidth x imageWidth, constraints ровно centerX/centerY (legacy даёт 414x736 и top/leading/trailing/bottom — замер критика ios-legacy.json).",
       "legacy_at": [],
       "legacy_eff": false,
-      "image_rect": [181, 181],
-      "constraints": ["centerX", "centerY"]
+      "image_rect": [
+        181,
+        181
+      ],
+      "constraints": [
+        "centerX",
+        "centerY"
+      ]
     }
   },
   "overlay_117": {
@@ -69,10 +108,28 @@
     },
     "geometry": {
       "_comment": "Adv117v2 (круг по реализации): канон инварианта 8 — бокс Image следует боксу оверлея (absoluteFill + width/height 100%), содержимое центрирует resizeMode contain; степени свободы геометрии (transform любой, margin*, края ≠ 0, position ≠ absolute) запрещены в сегменте JSX оверлея. Судят статические SPLASH_OVERLAY_NO_TRANSFORM / SPLASH_OVERLAY_NO_LAYOUT_OFFSET и поведенческие SPLASH_OVERLAY_GEOMETRY_{DARK,LIGHT}.",
-      "forbidden_transform_props": ["transform", "translateX", "translateY", "scale", "scaleX", "scaleY", "rotate", "rotateX", "rotateY", "rotateZ", "skewX", "skewY"],
+      "forbidden_transform_props": [
+        "transform",
+        "translateX",
+        "translateY",
+        "scale",
+        "scaleX",
+        "scaleY",
+        "rotate",
+        "rotateX",
+        "rotateY",
+        "rotateZ",
+        "skewX",
+        "skewY"
+      ],
       "forbidden_margin_prefix": "margin",
       "canon_position": "absolute",
-      "canon_edge_zero_props": ["left", "right", "top", "bottom"],
+      "canon_edge_zero_props": [
+        "left",
+        "right",
+        "top",
+        "bottom"
+      ],
       "canon_edge_zero": 0,
       "jsx_end_anchor": ": null}"
     },
@@ -84,29 +141,62 @@
   },
   "artboard_117": {
     "_comment": "Замер Architect117c (круг 2, Б2) пиксельным проходом по артбордам (обе 390×844, идентичны в этих числах). Круг 4: полосы остаются дешёвой первой линией; критерий композита — эталон целой поверхностью (splash_reference).",
-    "window": { "w": 390, "h": 844 },
-    "sign_bbox": [109, 271, 289, 443],
-    "wordmark_bbox": [157, 514, 232, 533],
-    "tagline_bbox": [57, 569, 332, 595],
+    "window": {
+      "w": 390,
+      "h": 844
+    },
+    "sign_bbox": [
+      109,
+      271,
+      289,
+      443
+    ],
+    "wordmark_bbox": [
+      157,
+      514,
+      232,
+      533
+    ],
+    "tagline_bbox": [
+      57,
+      569,
+      332,
+      595
+    ],
     "bbox_tol": 8
   },
   "mark_geometry_96": {
-    "arc_center": [49.0, 45.3],
+    "arc_center": [
+      49.0,
+      45.3
+    ],
     "arc_radius": 30,
     "arc_stroke_width": 12,
-    "dot_center": [76, 66],
+    "dot_center": [
+      76,
+      66
+    ],
     "dot_radius": 11,
     "dot_color": "#d6f75a",
-    "stroke_color": { "dark": "#f2f1ec", "light": "#121211" }
+    "stroke_color": {
+      "dark": "#f2f1ec",
+      "light": "#121211"
+    }
   },
   "raster_117": {
     "_comment": "Б1 круг 2: аналитическая растеризация геометрии канона (SVG-литералы mark_geometry_96/app_icon) целым изображением. adaptive-размещение знака: translate(256,256) scale(6) в 1024 (замер альфа-bbox честных ассетов (334,312)..(777,743)). Пороги измерены на честных ассетах модели (ratio 1.0000 на всех, кроме icon 0.9994+aa): допуск согласия 0.97, полоса покрытия класса 0.7..1.35, bbox ±3.",
     "agree_min": 0.97,
-    "coverage_band": [0.7, 1.35],
+    "coverage_band": [
+      0.7,
+      1.35
+    ],
     "bbox_tol": 3,
     "mono_ink": "#ffffff",
     "adaptive_fg_ink": "#f2f1ec",
-    "adaptive_mark": { "scale": 6.0, "offset": 256.0 },
+    "adaptive_mark": {
+      "scale": 6.0,
+      "offset": 256.0
+    },
     "expo_icon_dir_marker_sha": "747c56e178222a6255c6dd61c5de011b286cdc935febe89f04d1b191c3d076fe"
   },
   "app_icon": {
@@ -114,9 +204,18 @@
     "corner_radius": 232,
     "bg": "#0a0a0a",
     "probe_pixels": {
-      "dot": [717, 644],
-      "arc_top": [519, 272],
-      "bg": [512, 80]
+      "dot": [
+        717,
+        644
+      ],
+      "arc_top": [
+        519,
+        272
+      ],
+      "bg": [
+        512,
+        80
+      ]
     }
   },
   "assets": {
@@ -142,8 +241,12 @@
     "android-icon-monochrome.png": "6371fc2c12e33ad2215a86c281db3d682a81bebe7c957a842c13b8bf00cceb83",
     "favicon.png": "a4e030697a7571b3e95d31860e4da55d2f98e5e861e2b55e414f45a8556828ba"
   },
-  "surface_995": { "bg": "#FFFFFF", "pad_top": 48, "pad_h": 16, "pad_bottom": 16 }
-  ,
+  "surface_995": {
+    "bg": "#FFFFFF",
+    "pad_top": 48,
+    "pad_h": 16,
+    "pad_bottom": 16
+  },
   "maestro_117": {
     "_comment": "Р2/Р3 (круг 6, Rev117/Adv117; совет критика 117 v2 круг 1): сценарий Maestro судит ПОРЯДОК шагов YAML-парсером (комментарий шагом не является; закомментированное ожидание и ложное размещение красны). (а) шаг непосредственно перед takeScreenshot vkhod-117-splash — extendedWaitUntil visible по splash-overlay; (б) между снимком splash и takeScreenshot vkhod-117-first-run — оверлей исчез (extendedWaitUntil notVisible/assertNotVisible по splash-overlay): свидетельство снятия оверлея, не приёмка экрана First-Run (first-run-ekran).",
     "scenario": "mobile/.maestro/vkhod-117-splash-vhod.yaml",
@@ -154,7 +257,10 @@
   "sverka_123": {
     "_comment": "Вердикт критика 117 v2 круг 1 + указание консультанта 15:25: видимость кадра splash на устройстве судит сверка кадра e2e с макетом механизмом 123 (scripts/sverka_maketa.py). Манифест H — путь от корня харнесса; кадры Splash dark/light в нём: id, тема, снимок shot_splash, макет и sha256 = splash_reference.etalons темы, порог. Значения сняты с кода kadry_117.json (frozen 123 v1) до субъекта; porog_min — нижняя граница порога (манифест 0.6; замер 117e оракулом 123: честный splash r1423 0.783/0.782, First-Run под именем splash r58d/r814 0.000/0.000).",
     "manifest": "fixtures/workshop_project/mob_sverka_123/kadry_117.json",
-    "kadr_id": { "dark": "Splash dark", "light": "Splash light" },
+    "kadr_id": {
+      "dark": "Splash dark",
+      "light": "Splash light"
+    },
     "porog_min": 0.6,
     "provodka": {
       "_comment": "РЕШЕНИЕ арбитра verdicts/arbitration/contracts-117-v2-svjaz-123.md (б): проводка шага сверки 123 в workflow субъекта — клетки SVERKA_123_{STEP_UNCONDITIONAL,MANIFEST_CANON,HARNESS_PIN}. Литералы сняты с frozen 123 v1 приёмка п.5–6 ДО субъекта (Н-351): строка run шага — `python3 <script> --manifest <manifest> --kadry <kadry> --repo <repo>` (до первого |, shlex), каждый флаг ровно один раз, иных токенов нет; checkout пина — uses с префиксом checkout_uses, with.path/with.repository — литералы, with.ref ~ ref_re (ТОЧНЫЙ SHA не сравнивается: перепин .harness123 — дело 123). Текст шага — предмет 123 (автор implementer 123); 117 только наблюдает.",
@@ -169,6 +275,154 @@
       "checkout_path": ".harness123",
       "checkout_repo": "a3ka/dev-harness",
       "ref_re": "\\A[0-9a-f]{40}\\Z"
+    }
+  },
+  "replay_117": {
+    "_comment": "117 v4 (класс B, слово владельца 2026-10-27; ПЕРЕСМОТР по живой пробе run 40434807469/job 121966561101 — env-удержание (В) отклонено: один e2e-APK на все шаги CI держал оверлей 8 с на КАЖДОМ холодном старте, кадр 118 F02.03-V01-V0 dark/light 0.000 NIZHE_POROGA — на кадре splash-оверлей). Принят канал (Г): удержание взводится ТОЛЬКО стартовым deep link сценария 117. Оракул снят с ЖИВЫХ артефактов ДО правки субъекта (правило 8): класс B run 40420737331 (ожидание visible 2688 мс, снимок 669 мс, цикл опроса 730/701 мс), зелёный run 40316137237 (2200/678, цикл 615/614), проба (В) 40434807469 (117 dark: launchApp 816 → ожидание 1854 → снимок 420, оверлей виден через 1154–1854 мс ПОСЛЕ возврата launchApp; 118 dark: первый кадр V0 завершается через 7450 мс после конца launchApp — закрыт удержанием 8000). Закон реплея: кадр в окне оверлея при ЛЮБОЙ фазе опроса ⇔ HOLD > P + delta; кадр постороннего сценария закрыт ⇔ удержание взведено на общем входе (env сборки) ∧ gap < HOLD. Замеры сверок на свидетелях live/ — прогоном настоящей sverka_maketa.py 2026-10-27 до правки субъекта.",
+    "poll_ms_grid": [
+      250,
+      500,
+      700,
+      1000
+    ],
+    "shot_ms_grid": [
+      0,
+      200,
+      400,
+      600,
+      670,
+      800,
+      1000,
+      1200,
+      1400,
+      1600,
+      2000,
+      2400
+    ],
+    "hold_default_ms_source": "overlay_117.hide_after_ms",
+    "hold_link": "complior:///?e2e=splash-hold",
+    "hold_env_name": "EXPO_PUBLIC_SPLASH_HOLD_E2E_MS",
+    "hold_e2e_ms": 8000,
+    "hold_min_ms": 3500,
+    "hold_min_formula": "poll_ms_grid.max + shot_ms_grid.max + 100",
+    "other_live_links": [
+      "complior://start"
+    ],
+    "live": {
+      "run_class_b": 40420737331,
+      "job_class_b": 121915134291,
+      "run_green": 40316137237,
+      "run_proba_v": 40434807469,
+      "job_proba_v": 121966561101,
+      "prod_ref": "ba5ebbc9279bcde0b5a3c168bdc98eef24969a4c",
+      "svideteli": {
+        "kadr-class-b-dark.png": "2a5e31d66b976634a9b18593b82841085e71a80cd62e924c2c64378c7a206d21",
+        "kadr-ok-dark.png": "5835ccadad715e6801ddd8b66719b9f937d24eef45172054b92cf5f7917cdaa8",
+        "kadr-ok-light.png": "cb03efc9ec58b385226298522aef1cb5b0f13bd7a79a9ed87b55d69c3f3295fb",
+        "vkhod-117-splash-vhod.prod-ba5ebbc9.yaml": "9096715d05608d934eb45f652d20107502f4ca0f43226813d01fa9440ada882d",
+        "commands-class-b-dark.json": "6408f03bc8a9acb69314882cf28367239ab92c83d2ea0e7f001ad949c554ae70",
+        "commands-proba-117-dark.json": "906d04dad9cf2fe54a98e5b75d7b7fc177e1b36789b5210cb91680f751058d68",
+        "commands-proba-erstinfo-dark.json": "3daab283626ff017b08e661c2ea8a29e4181d3f15c0d835ff4c7c93511307be3",
+        "kadr-proba-erstinfo-v0-dark.png": "d5975e864012ca4e201305a6b70d856c4dd2a68a4e35c15323e3e18e9f77c961",
+        "kadr-proba-erstinfo-v0-light.png": "6629b5d19295397e47f6d1952e179714a1cd6b4c0487278160ddbc062eb6823f",
+        "proba117g-kadr-native-splash.png": "204db8cecead70d525c32df265b937ccef0dddd65e39725f5037cc65a7163e90",
+        "proba117g-hierarchy-step006.json": "1d330d694d9ee5b5e842e8a70e48736462f1da7fd4cb1e55fd40f74122a8ab08",
+        "proba117g-logcat-fragment.txt": "c418254526c6738e9a5ec1523dd8faa67f2af9130d9a84aa40fd771776f62310"
+      },
+      "sverka_bad": {
+        "rc": 1,
+        "stdout": [
+          "KADR\tSplash dark\t0.000\t0.600\ttagline\tNIZHE_POROGA",
+          "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+        ],
+        "stderr": "NIZHE_POROGA\tSplash dark\tscore=0.000 porog=0.600 hudshij=tagline"
+      },
+      "sverka_ok": {
+        "rc": 0,
+        "stdout": [
+          "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+          "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+        ]
+      },
+      "timings_ms": {
+        "wait_visible_red": 2688,
+        "shot_red": 669,
+        "poll_cycle_red": [
+          730,
+          701
+        ],
+        "wait_visible_green": 2200,
+        "shot_green": 678,
+        "poll_cycle_green": [
+          615,
+          614
+        ],
+        "proba_117_dark": {
+          "launchApp": 816,
+          "wait_visible": 1854,
+          "shot": 420
+        },
+        "proba_117_light": {
+          "launchApp": 1005,
+          "wait_visible": 1542,
+          "shot": 277
+        },
+        "proba_erstinfo_dark": {
+          "launchApp": 744,
+          "shot_v0_after_launch_end": 7450
+        }
+      },
+      "proba_defekt": {
+        "kadr": "erstinformation-f02-03-v01-v0",
+        "stdout": [
+          "KADR\tF02.03-V01-V0 dark\t0.000\t0.600\twordmark\tNIZHE_POROGA",
+          "KADR\tF02.03-V01-V0 light\t0.000\t0.600\twordmark\tNIZHE_POROGA"
+        ],
+        "sverka_ok_other_v0": [
+          "KADR\tF02.03-V02-V0 dark\t0.845\t0.600\tsostojanie\tOK",
+          "KADR\tF02.03-V02-V0 light\t0.783\t0.600\tdokument-status\tOK"
+        ]
+      },
+      "run_proba_g": 40497913252,
+      "job_proba_g": 122172034122,
+      "proba_g": {
+        "flow": "117 — splash + First-Run после снятия оверлея (схема устройства)",
+        "failed_flow": "117",
+        "native_set": "995 native rc=1 testcases=7 failed=1",
+        "failure": "Assertion is false: id: splash-overlay is visible после extendedWaitUntil visible splash-overlay timeout 15000",
+        "maestro_log_ms": {
+          "launchApp": "11:54:17.877",
+          "stopApp": "11:54:17.927",
+          "openLink": "11:54:17.972",
+          "assert_running": "11:54:19.598",
+          "assert_failed": "11:54:34.814"
+        },
+        "dat_intent_line": "START u0 {act=android.intent.action.VIEW dat=complior://e2e-splash-hold/... cmp=com.complior.mobile/.MainActivity} with LAUNCH_SINGLE_TASK",
+        "hierarchy_fact": "в дереве приложения НЕТ узла содержимого: resource-id только android:* и com.android.systemui:* (статус-бар), splash-overlay отсутствует, текст только «11:54»",
+        "other_flows": "108, 995, first-run-ekran, 991, 995 start, 999 SUCCESS"
+      }
+    },
+    "hold_link_grammar": {
+      "_comment": "(Г′) живая проба (Г) run 40497913252/job 122172034122: ссылка complior://e2e-splash-hold разобрана expo-router (~57.0.28, fork extractPathFromURL: путь = host + pathname) как /e2e-splash-hold → поймана динамическим (tabs)/[section].tsx (сегмент вне TAB_ORDER → return null, [section].tsx:62–65,100) → PilotApp НЕ монтирован → hideAsync не вызван → нативный splash залип. Грамматика канала: scheme complior + ПУСТОЙ host + путь «/» + маркер в query; извлечение пути побайтово по той же логике (host+pathname до «?»), снято с node_modules продукта (jest-кэш трансформации), измерено прогоном proba_gprim/parse_test.js: корень+query стабилен к URL-сериализации (href-roundtrip байт-в-байт, «/» не добавляется и не снимается).",
+      "scheme": "complior",
+      "host": "",
+      "path": "/",
+      "query_key": "e2e",
+      "query_value": "splash-hold"
+    },
+    "route_facts": {
+      "_comment": "Факты дерева маршрутов продукта @ c617f6fb (read-only, до правки субъекта): корень «/» — mobile/src/app/index.tsx — рендерит PilotApp БЕЗУСЛОВНО (нет зависимости от сессии); одно-сегментные пути пойманы динамическим mobile/src/app/(tabs)/[section].tsx: сегмент ∈ TAB_ORDER рендерит PilotApp ТОЛЬКО при недопуске (onboarding.admission !== W1A; при W1A — TabShell БЕЗ оверлея), сегмент вне TAB_ORDER рендерит null ([section].tsx:100 if (!start) return null). Файла +not-found в src/app НЕТ. Единственный маршрут, гарантированно монтирующий PilotApp (и вызывающий SplashScreen.hideAsync из его effect) при ЛЮБОМ состоянии сессии — корень «/».",
+      "root_file": "mobile/src/app/index.tsx",
+      "root_mounts_pilotapp": "unconditionally",
+      "dynamic_section_file": "mobile/src/app/(tabs)/[section].tsx",
+      "dynamic_section_null_lines": "62-65,100",
+      "tab_order": [
+        "start",
+        "vorgaenge",
+        "schutz",
+        "post"
+      ],
+      "plus_not_found_file": null
     }
   }
 }

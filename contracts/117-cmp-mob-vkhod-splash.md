@@ -26,6 +26,95 @@ Start; ожидания строк W1A×не-current переписаны с «c
 r3-мутантов критика именованными стабами, раздел «Граница
 модель/production»; прежние клетки и стаби не удаляются (removed=[]),
 три FAIL и r3-свидетели не стираются.
+ВЕРСИЯ: v4 (стабилизация кадра Splash — класс B; слово владельца
+2026-10-27 ~00:05 UTC, вариант (а): отдельный малый предмет, параллельно
+995, НЕ присоединять к 995; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в теле изменяющего
+инварианты 10–12, блок клеток/стабов v4 в «Закрытых перечнях», пункты
+приёмки v4 и дополнения «Модели угроз»; всё прочее v3 действует дословно.
+Правка по FAIL критика v4 круг 1 (ОДИН блокер: клетки MAESTRO_HOLD_COLD_
+START и реплей REPLAY_SPLASH_WHILE_OVERLAY считали холодный старт СУММОЙ
+команд — честную цепочку портили (1) второй launchApp{clearState} МЕЖДУ
+stopApp и openLink → статика зелёная и (2) перестановка stopApp →
+launchApp{clearState} → openLink → статика И поведение зелёные): холодный
+старт теперь судится СОСТОЯНИЕМ «приложение запущено» по
+последовательности команд (launchApp/runFlow/openLink — запускают,
+stopApp — останавливает; openLink литерала — холодный старт ТОЛЬКО если
+непосредственно перед ним приложение остановлено и этот stopApp стоит
+ПОСЛЕ launchApp{clearState}, между ними запуска нет); клетки порядка
+MAESTRO_HOLD_PORJADOK_* ПОРОЖДАЮТСЯ раннером (2 перестановки, 3 вставки,
+2 удаления, оба обхода критика, честная цепочка; ожидания — литералы до
+субъекта), стабы splash-hold-relaunch-pered-link и
+splash-hold-porjadok-stop-launch добавлены; поведенческая семья (Jest)
+порядок команд сценария НЕ судит — граница объявлена в «НЕ ЗАЩИЩАЕТ».
+Правка по РЕШЕНИЮ арбитража 117 v4 (после FAIL критика 2/2: критик ПРАВ
+— ложная красная: клетка брала ПЕРВОЕ ожидание visible во всём YAML, а
+требуется ПОСЛЕ hold-openLink): ожидание судится ПЕРВЫМ ПОСЛЕ openLink,
+добавочные НЕ запускающие шаги (снимок/notVisible/assertVisible/ожидание
+visible) до stopApp решения НЕ меняют, запускающие — красны как прежде;
+клетка VSTAVKA_WAIT_DO_STOPA (цепочка критика круга 2 — зелёна), счёт
+семьи ×9 → ×10, статика 64 → 65.
+Правка по FAIL критика v4 КРУГ 3 (contracts-117-v4-krug3, ОДИН блокер —
+новая ложная зелёная в классе порядка, внутри границы арбитража :213–218):
+запускающий шаг между hold-ссылкой и ожиданием — runFlow: start.yaml или
+скалярный «- launchApp» — оставлял статическую батарею зелёной 65/65
+(интервальный предикат после выбора ожидания видел только launchApp-словарь,
+запуск через runFlow и скалярную форму не замечал; до ссылки
+_cold_start_state runFlow уже знал). Признак запуска теперь ЕДИНЫ —
+классификатор _is_launching (launchApp ЛЮБОЙ формы — словарь и скалярная
+строка; runFlow — ЛЮБОЙ, консервативно: живой mobile/.maestro/start.yaml:4–7
+запускает приложение с clearState, разрешение вложенного flow требует
+чтения других файлов, которого у статической пробы нет — fail-closed;
+openLink — любой; stopApp — не запускающий, отдельная ветвь состояния),
+ДО ссылки и НА ИНТЕРВАЛЕ зовёт одну функцию; повторное открытие САМОГО
+литерала на интервале запускающим НЕ считается (его судит
+SPLASH_HOLD_LINK_ROUTE_MOUNT по числу ссылок канала — ровно одна).
+Семья порядка ×10 → ×15 (+4 красных КЛАССА запускающего шага на
+интервале: VSTAVKA_RUNFLOW_MEZHDU, VSTAVKA_LAUNCH_SKALJAR_MEZHDU,
+VSTAVKA_LAUNCH_SLOVAR_MEZHDU, VSTAVKA_DRUGOJ_SSYLKI_MEZHDU; +зелёный
+контроль не запускающего шага VSTAVKA_SNIMOK_MEZHDU), статика 65 → 70,
+стаб splash-hold-runflow-posle-link (один на класс — та же ветвь
+_is_launching; скалярная форма связана клеткой
+VSTAVKA_LAUNCH_SKALJAR_MEZHDU).
+Порог сверки 0.6 и кадр Splash обеих тем — НЕ тронуты (ограничение
+владельца). ПЕРЕСМОТР v4 по живой пробе run 40434807469 (правило владельца
+2026-10-26: один прогон в настоящем CI до критика): канал (В) env-удержания
+e2e-сборки, принятый в сдаче 784bd32c, ОТКЛОНЁН живьём (регрессия шага
+118), принят канал (Г) — удержание взводится ТОЛЬКО стартовым deep link
+сценария 117; байты .github/workflows/mobile.yml продукта НЕ меняются,
+пин 139/2 (f45c6823…) остаётся верным, перепин 139 не нужен, ПЕРЕСЕЧЕНИЕ
+по env-ключу снято. ПЕРЕСМОТР (Г)→(Г′) по живой пробе run 40497913252 /
+job 122172034122 (ветка cmp-mob-117/proba-v4g @ 6f10e2fc481d, голова #124
+c617f6fb + два патча (Г)): host-ссылка complior://e2e-splash-hold живьём
+ПРОВАЛЕНА — expo-router разбирает её как ПУТЬ /e2e-splash-hold, маршрут
+ловит динамический (tabs)/[section].tsx и рендерит null для сегмента вне
+TAB_ORDER ⇒ PilotApp не монтируется, hideAsync не вызван, нативный splash
+залип на 15 с — флоу 117 красен (`Assertion is false: id: splash-overlay
+is visible`), остальные 6 флоу SUCCESS. Принят канал (Г′): ссылка ведёт на
+СУЩЕСТВУЮЩИЙ маршрут — КОРЕНЬ «/» (index.tsx монтирует PilotApp
+безусловно), маркер удержания — в query: литерал complior:///?e2e=splash-hold.
+Заменённый материал (Г) (НЕ заморожен, замена законна — сдача 2bdd4106):
+клетки SPLASH_HOLD_LINK_CHANNEL/NO_ENV (литерал), MAESTRO_HOLD_COLD_START/
+ALONE (литерал), REPLAY_ORACLE_CONSISTENT/REPLAY_SPLASH_WHILE_OVERLAY
+(грамматика/реплей), SPLASH_OVERLAY_HOLD_LINK_{DARK,LIGHT} и
+SPLASH_OVERLAY_HOLD_NE_INOJ_URL_{DARK,LIGHT} (литерал в тесте); стабы
+splash-hold-link-otsutstvuet/oslablen/sverh-timeout-a/env-vmesto-link/
+vse-ssylki/start-launchapp/start-ne-holodnyj (якорь литерала),
+splash-hold-link-invertirovan/po-umolchaniju-8000/vse-ssylki/taymer-bez-
+clear (литерал в модели). Прежние замены против (В) сохраняют смысл:
+клетки SPLASH_HOLD_E2E_ENV, SPLASH_OVERLAY_HOLD_E2E_{DARK,LIGHT}; стабы
+splash-hold-env-otsutstvuet, splash-hold-env-oslablen,
+splash-hold-env-v-pilote-ignoriruetsja; depends-расширения трёх
+overlay-стабов (HOLD_E2E ×2 → HOLD_LINK ×2 + HOLD_NE_INOJ_URL ×2).
+Отступления от байт-неизменности материала 117/3 — ТОЛЬКО объявленные в
+«Стабах v4»: якорная строка трёх стабов overlay-hideasync-* следует за
+байтом честной модели ('const timer' → 'let timer'; именованные ветви и
+семантика мутаций не тронуты) и depends-расширения замером матрицы v4:
+шесть maestro-стабов +REPLAY_SPLASH_WHILE_OVERLAY (прецедент правки v3
+круга 1; no-wait, wait-commented и first-run-as-splash дополнительно
++MAESTRO_HOLD_COLD_START — цепочка канала (Г) рвётся без шага visible) и
+три overlay-стаба +HOLD_LINK/HOLD_NE_INOJ_URL ×2.
+КЛАСС РИСКА: обычный (UI-тайминг e2e-снимка; права/роли, авторизация,
+деньги, ПД, юрдействия не затронуты).
 
 КЛАСС: КОДОВЫЙ. Предмет — слова владельца (через консультанта): splash
 ~18:18 UTC «нативный splash (expo-splash-screen) и, ЕСЛИ НУЖНО, JS-экран
@@ -129,6 +218,21 @@ frozen-семьи 995/999/111 не переписываются.
   SVERKA_123_* (РЕШЕНИЕ арбитра `contracts-117-v2-svjaz-123`, (б)).
   Прецедент чтения workflow продукта батареей харнесса —
   `fixtures/workshop_project/pilot_995/pins_probe.py` `check_release_mode`.
+- Маршруты deep link (v4 (Г′), живой провал пробы (Г) run 40497913252 —
+  см. frontier): приложение на expo-router ~57.0.28 (`main:
+  expo-router/entry`); извлечение пути — fork extractPathFromURL
+  (node_modules продукта): путь = host + pathname, query в путь не входит
+  (complior://start → /start — зелёные живые cmp-mob-002/004/108;
+  complior://e2e-splash-hold → /e2e-splash-hold — провал (Г)). Дерево
+  `mobile/src/app/` @ c617f6fb: `_layout.tsx` (Stack), `index.tsx` —
+  PilotApp БЕЗУСЛОВНО (вход v3), `onboarding-session.tsx`,
+  `start-destination.tsx`, `(tabs)/[section].tsx` — динамический
+  одно-сегментный маршрут (сегмент ∈ TAB_ORDER {start, vorgaenge, schutz,
+  post}: PilotApp только при недопуске admission ≠ W1A, при W1A — TabShell
+  без оверлея; сегмент вне TAB_ORDER — `return null` :62–65,100 — пустой
+  экран без hideAsync); `+not-found.tsx` ОТСУТСТВУЕТ. Единственный
+  маршрут, гарантирующий монтирование PilotApp при любом состоянии сессии,
+  — корень «/»; факты припинены source.json replay_117.route_facts.
 
 ## Предмет и граница
 
@@ -319,6 +423,141 @@ refs/tags/frozen/contracts/117/3`). ЗОНА implementer 118 получает
 117 (обе пробы) на мигрировавшем C обязана оставаться зелёной во всех
 клетках, стабы — красными на своих ветвях.
 
+
+## Стабилизация кадра Splash 117 v4 (класс B: кадр после ухода оверлея)
+
+Боль (измерено, живые прогоны job android-e2e workflow mobile за 24–26.10):
+шаг 123 «сверка кадров с макетом» исполнен в 25 прогонах, красен на Splash
+в 2 (8%): run 40086602775 (job 120865595589, 24.10 12:06) и run 40420737331
+(job 121915134291, 26.10 23:45, PR #128) — оба раза
+`KADR Splash dark 0.000 0.600 tagline NIZHE_POROGA` при зелёном
+`Splash light 0.782 OK`; оба раза красна ПЕРВАЯ тема после загрузки
+эмулятора. Повтор по сигнатуре 141 класс B НЕ ловит (провал сверки не
+повторяется). Кадр dark класса B (sha256 2a5e31d6…) — First-Run под именем
+splash; байты с кадром vkhod-117-first-run (fb59a3e3…) НЕ равны — содержимое
+одно, снимки разные (статус-бар); свидетели припинены в source.json
+replay_117.live.svideteli. Механизм (maestro.log run 40420737331):
+удовлетворённый опрос видимости + задержка команды снимка (цикл опроса
+730/701 мс, снимок 669 мс) ПЕРЕКРЫВАЮТ окно SPLASH_OVERLAY_MS=1200 —
+кадр берётся после размонтирования оверлея. Закон реплея (грамматика —
+живой формат Maestro: первый успешный опрос видимости не позже M+poll,
+кадр — в конце команды снимка): кадр в окне оверлея при ЛЮБОЙ фазе опроса
+⇔ HOLD > poll + shot. Зелёный run 40316137237: 615+678=1293 — на грани
+окна 1200 (лотерея фазы опроса).
+
+Frontier (варианты слова владельца 2026-10-27; выбор — (Г); вариант (В)
+был принят в сдаче 784bd32c и ОТКЛОНЁН живой пробой):
+- (А) порядок/тайминг сценария — ОТКАЗАН: снимок сразу после launchApp без
+  ожидания ловит ДО-оверлейный кадр (нативный знак без tagline — сверка
+  ниже порога той же клеткой), а между «ожидание удовлетворено» и «кадр
+  взят» лежит неограниченная задержкой раннера дыра: перестановка шагов не
+  даёт HOLD > poll + shot, снимок остаётся лотереей фазы опроса;
+- (Б) рантайм-хук в продукте (флаг/файл/launch-аргумент: оверлей не
+  размонтируется до подтверждения снимка) — ОТКАЗАН: требует нативного
+  канала в release-сборку (intent-extra → native module) или файла в
+  приватном хранилище; тест-хук вне шва сборки меняет прод-код;
+- (В) env-удержание e2e-СБОРКИ — ОТКЛОНЁН ЖИВОЙ ПРОБОЙ run 40434807469 /
+  job 121966561101 (одноразовая ветка cmp-mob-117/proba-v4 @ acba06b9cac8,
+  патчи (В) 0001–0002 на голове #124 c617f6fb): сама цель достигнута —
+  Splash dark 0.783 / light 0.782 OK, 995 native rc0, кадры 135 OK; НО
+  шаг 118 красен детерминированно (после шагового повтора):
+  `KADR F02.03-V01-V0 dark 0.000 0.600 wordmark NIZHE_POROGA` и light
+  0.000 — на кадре splash-оверлей (свидетель
+  erstinformation-f02-03-v01-v0.png dark/light, sha256 припинены в
+  source.json replay_117.live.svideteli). Механизм: один e2e-APK на ВСЕ
+  шаги CI ⇒ env-удержание глобально: оверлей 8000 мс закрывает первый
+  кадр ЛЮБОГО сценария после холодного старта (замер commands.json 118
+  пробы: конец launchApp → конец первого V0-кадра 7450 мс < 8000);
+  остальные кадры 118, снятые после ухода оверлея, зелёные (V02-V0
+  0.845/0.783);
+- (Д) снимок ПЕРВЫМ после launchApp (до опроса) — ОТКЛОНЁН замером той же
+  пробы (commands.json 117 dark/light): оверлей виден на кадре только
+  через 1154–1854 мс ПОСЛЕ возврата launchApp (dark: launchApp 816 →
+  ожидание 1854 → снимок 420; light: 1005 → 1542 → 277): «первый» кадр
+  берётся ДО монтирования JS-оверлея — нативный знак без tagline, сверка
+  ниже порога (та же причина, что у (А));
+- (Г) ОТКЛОНЁН ЖИВОЙ ПРОБОЙ run 40497913252 / job 122172034122 (ветка
+  cmp-mob-117/proba-v4g @ 6f10e2fc481d = голова #124 c617f6fb + патчи (Г)
+  produktnye-izmenenija2, mobile.yml не менялся, раннер station-complior):
+  механизм (тот же, что принял (Г′) ниже — launchApp{clearState} → stopApp
+  → openLink → ожидание), но ссылка — host-форма complior://e2e-splash-hold.
+  Живой результат: `995 native rc=1 testcases=7 failed=1` — упал ИМЕННО
+  флоу 117 (`Assertion is false: id: splash-overlay is visible` после
+  extendedWaitUntil visible splash-overlay timeout 15000); остальные 6 флоу
+  (108, 995, first-run-ekran, 991, 995 start, 999) SUCCESS; шаги 123/135/118
+  не исполнялись. Причина (код продукта + артефакты, файл:строка):
+  expo-router ~57.0.28 (fork extractPathFromURL, node_modules продукта:
+  путь = host + pathname, query в путь не входит) разбирает
+  complior://e2e-splash-hold как ПУТЬ /e2e-splash-hold; одно-сегментный
+  путь ловит динамический маршрут mobile/src/app/(tabs)/[section].tsx:
+  pick('e2e-splash-hold') = null (сегмент вне TAB_ORDER start/vorgaenge/
+  schutz/post, [section].tsx:62–65) ⇒ `if (!start) return null;`
+  ([section].tsx:100) — маршрут рендерит ПУСТОТУ; файла +not-found в
+  src/app НЕТ. Итог: index.tsx (PilotApp) НЕ монтируется ⇒
+  SplashScreen.hideAsync() из effect PilotApp не вызван ⇒ нативный splash
+  (expo-splash-screen, LAUNCH_SINGLE_TASK) висит НЕОГРАНИЧЕННО. Живые
+  свидетели (припинены sha256 в source.json replay_117.live.svideteli,
+  клетка REPLAY_LIVE_PROBA_G): maestro.log — launchApp 11:54:17.877 →
+  stopApp .927 → openLink .972 → assert RUNNING 11:54:19.598 → FAILED
+  11:54:34.814; logcat — `START {act=VIEW dat=complior://e2e-splash-hold/…
+  cmp=com.complior.mobile/.MainActivity} with LAUNCH_SINGLE_TASK` (суффикс
+  /… — платформенное сокращение Intent-лога; Maestro открывала литерал
+  без слэша — maestro.log) и `ReactNativeJS: Running "main"` +0.6 с (JS
+  запущен, ошибок ReactNativeJS нет); screen-hierarchy шага провала — в
+  дереве приложения НЕТ узлов содержимого (единственный com.complior
+  resource-id — системный каркас action_bar_root, splash-overlay
+  отсутствует); кадр шага — НАТИВНЫЙ splash (только знак, светлая схема,
+  без wordmark/tagline JS-оверлея).
+- (Г′) ПРИНЯТ: тот же канал, но ссылка ведёт на СУЩЕСТВУЮЩИЙ маршрут —
+  КОРЕНЬ «/», маркер удержания — в query: ЛИТЕРАЛ
+  complior:///?e2e=splash-hold. Разбор (грамматика expo-router, тот же
+  источник: host ПУСТ + pathname «/» + query e2e=splash-hold ⇒ путь
+  «/»): mobile/src/app/index.tsx рендерит PilotApp БЕЗУСЛОВНО — при любом
+  состоянии сессии (единственный такой маршрут: (tabs)/[section] рендерит
+  PilotApp только на недопуске для сегмента из TAB_ORDER). Доставка
+  байт-точна: Android Linking.getInitialURL() возвращает строку данных
+  интента как есть (StringUri хранит оригинал; сокращение — только в
+  логе), URL-сериализация литерала стабильна (замер: new URL href-roundtrip
+  байт-в-байт, «/» не добавляется и не снимается; обе корневые формы
+  complior://?… и complior:///?… дают ОДИН путь — неоднозначность формы
+  на маршрут не влияет); живой канал host-формы подтверждён зелёными
+  cmp-mob-002/004/108 (complior://start). pilot-app при ТОЧНОМ равенстве
+  стартового URL литералу продлевает окно: clearTimeout(таймер 1200) →
+  setTimeout(SPLASH_HOLD_E2E_MS 8000 ≥ hold_min 3500 = poll.max 1000 +
+  shot.max 2400 + 100; запас 2.3× против замеренных 1370 мс). Прод-таймер
+  1200 ставится СРАЗУ, без ожидания промиса: поведение любого старта с
+  иным URL байт-идентично v3. Каналы живые (Maestro 2.11.0, пин в
+  mobile.yml): launchApp{clearState} — 5 флоу продукта, stopApp —
+  rehearsal.yaml, openLink complior://… — cmp-mob-002/004 (зелёные
+  прогоны). Критерии допустимости (дополнение оркестратора 2026-10-27):
+  (1) порог 0.6 и кадр Splash обеих тем не ослаблены/не удалены; (2)
+  прочие сценарии/кадры НЕ меняются — единственный вход удержания литерал,
+  который по ВСЕМУ mobile/.maestro открывает только сценарий 117 (клетка
+  MAESTRO_HOLD_ALONE), чужие живые ссылки (complior://start) и старты без
+  URL литералу не равны (клетки SPLASH_OVERLAY_HOLD_NE_INOJ_URL_*), ссылка
+  несуществующего маршрута удержания не взводит и не монтирует (клетки
+  SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_*, SPLASH_HOLD_LINK_ROUTE_MOUNT);
+  посторонний кадр закрыт ⇔ удержание на ОБЩЕМ входе ∧ зазор < HOLD
+  (клетка REPLAY_HOLD_SCENARIO_ONLY, живой свидетель — commands.json 118
+  пробы, зазор 7450 мс); (3) один APK на все шаги допустим — вне литерала
+  поведение байт-идентично прод (прод-таймер 1200 немедленно, клетки
+  SPLASH_OVERLAY_TIMER_HIDE_*); (4) mobile.yml НЕ меняется — пин 139/2
+  (f45c6823…) остаётся верным, ПЕРЕСЕЧЕНИЕ по env-ключу снято.
+
+ЗОНА implementer: mobile/src/bootstrap/pilot-app.tsx mobile/.maestro/vkhod-117-splash-vhod.yaml
+— v4-добавление к зоне 117/3 (обе строки — ОДНА ЗОНА-строка, совет
+критика v4 круг 1: прежде вторая строка без префикса «ЗОНА» механически
+не объявлялась; автор тот же implementer, НЕ новый токен):
+в pilot-app — блок Linking-удержания (литерал + чтение стартового URL +
+апгрейд таймера с очисткой; корни кадров, первый кадр и вход шва не
+тронуты — пересечение с 111 описано выше); в сценарий — два шага ПЕРЕД
+ожиданием оверлея (stopApp и openLink литерала, первое изменение сценария
+с v3, прочие шаги байт-в-байт v3); .github/workflows/mobile.yml НЕ
+трогается. Пин батареи .harness117 при freeze 117/4 перепинится на
+замороженный SHA (прецедент 2026-10-21): замороженное дерево содержит
+scripts/sverka_maketa.py, который вызывает клетка
+SVERKA_123_CATCHES_CLASS_B (отсутствие — rc2 INFRASTRUCTURE, не зелень).
+
 ## Инварианты
 
 1. `mobile/app.json`: `expo.icon` — растр канона complior-app-icon;
@@ -409,6 +648,92 @@ refs/tags/frozen/contracts/117/3`). ЗОНА implementer 118 получает
    оверлей даёт на этом снимке не Splash.png: замер 117e оракулом 123 —
    First-Run под именем splash (носители 123 r58d, r814) 0.000
    `NIZHE_POROGA` в обеих схемах против честного splash r1423 0.783/0.782 `OK`.
+10. Кадр `vkhod-117-splash` снимается, ПОКА splash-оверлей на экране (v4,
+   класс B, канал (Г′)): сценарий 117 запускает ХОЛОДНЫЙ старт по
+   ЛИТЕРАЛЬНОМУ deep link complior:///?e2e=splash-hold — КОРЕНЬ «/» +
+   маркер в query (launchApp{clearState} → stopApp → openLink литерала →
+   ожидание visible splash-overlay → снимок). Холодный старт — СОСТОЯНИЕ
+   команд, НЕ их сумма (правка по FAIL критика v4 круг 1; признак запуска
+   ЕДИНЫ до ссылки и на интервале — правка круга 3, классификатор
+   _is_launching): запускают launchApp ЛЮБОЙ формы (словарь и скалярная
+   строка), runFlow (любой — консервативно: живой start.yaml запускает
+   приложение с clearState, разрешение вложенного flow вне статической
+   пробы), openLink (любой); останавливает stopApp; openLink литерала —
+   холодный старт ТОЛЬКО если
+   непосредственно перед ним приложение остановлено (последняя
+   запускающая/останавливающая команда = stopApp) и этот stopApp стоит
+   ПОСЛЕ launchApp{clearState}, а между последним stopApp и openLink
+   приложение не запускается снова; МЕЖДУ openLink литерала и первым
+   ожиданием visible оверлея ЗАПУСКАЮЩЕГО шага НЕТ (launchApp любой
+   формы, runFlow, иная ссылка ≠ литерала — арбитраж :213–218; правила
+   круга 3; повторное открытие самого литерала судит
+   SPLASH_HOLD_LINK_ROUTE_MOUNT по числу ссылок канала); клетки
+   MAESTRO_HOLD_COLD_START (по
+   yaml субъекта) и порождаемая раннером семья MAESTRO_HOLD_PORJADOK_*
+   (2 перестановки, вставки до stopApp и на интервале, 2 удаления из
+   набора живых команд {launchApp словарём и скаляром, stopApp, openLink,
+   runFlow, extendedWaitUntil, takeScreenshot},
+   оба обхода критика, честная цепочка и зелёные контроли арбитража —
+   ожидания литералами ДО
+   субъекта) судят порядок, реплей взводит окно удержания ТОЛЬКО
+   холодным стартом (сумма команд окно не взводит); pilot-app на МОМЕНТ
+   монтирования читает стартовый URL (Linking.getInitialURL) и при ТОЧНОМ
+   равенстве литералу продлевает окно: таймер-литерал 1200 (инвариант 8,
+   ставится немедленно) снимается clearTimeout'ом, ставится
+   SPLASH_HOLD_E2E_MS 8000 (≥ hold_min 3500 из source.json replay_117 =
+   poll.max 1000 + shot.max 2400 + 100), с очисткой в cleanup; старты с
+   ЛЮБЫМ иным URL (включая живые complior://start и ссылку несуществующего
+   маршрута complior://e2e-splash-hold) и без URL оставляют прод-таймер
+   1200 — инвариант 8 действует дословно, старт с литералом — объявленное
+   исключение v4 (удержание 8000, судят клетки SPLASH_OVERLAY_HOLD_LINK_*).
+   Реплей подложного устройства судит ВСЕ точки сетки задержек (poll × shot
+   из source.json replay_117): кадр в окне оверлея при любой фазе опроса;
+   hold накрыт таймаутом notVisible кадра first-run; кадр после ухода
+   оверлея краснеет сверкой 123 на живом свидетеле класса B (припинен
+   sha256).
+11. Удержание оверлея НЕ меняет НИКАКОЙ другой сценарий/кадр продукта
+   (v4): проверяемые кадры — все прочие флоу CI (118 Erstinformation,
+   включая F02.03-V01-V0 первый кадр после старта, 135 First-Run, 108,
+   995, 991, 999); свидетель — живой артефакт пробы 40434807469 как
+   носитель: пины sha256 кадра erstinformation-f02-03-v01-v0.png dark
+   (d5975e864012ca4e201305a6b70d856c4dd2a68a4e35c15323e3e18e9f77c961) и
+   light (6629b5d19295397e47f6d1952e179714a1cd6b4c0487278160ddbc062eb6823f)
+   и commands.json шага 118 (замеренный зазор: конец launchApp → конец
+   первого V0-кадра 7450 мс). Закон: посторонний кадр закрыт оверлеем ⇔
+   удержание взведено на ОБЩЕМ входе (env сборки) ∧ зазор < HOLD; честная
+   модель (Г′) на запуске без литерала удержание НЕ взводит — прочие кадры
+   118 той же пробы зелёные (V02-V0 0.845/0.783). Судят клетки
+   REPLAY_HOLD_SCENARIO_ONLY (живой носитель + env-взвод субъекта),
+   MAESTRO_HOLD_ALONE (литерал открывает только сценарий 117 по ВСЕМУ
+   mobile/.maestro) и SPLASH_OVERLAY_HOLD_NE_INOJ_URL_{DARK,LIGHT} (чужая
+   живая ссылка не взводит); стаб-контрпример канала (В) —
+   splash-hold-env-vmesto-link.
+
+12. Канал удержания ведёт на СУЩЕСТВУЮЩИЙ маршрут; JS-дерево PilotApp
+   монтируется; hideAsync вызывается — иначе нативный splash залипает (v4
+   (Г′), живой провал пробы (Г) run 40497913252: host-ссылка
+   complior://e2e-splash-hold → путь /e2e-splash-hold → динамический
+   (tabs)/[section].tsx рендерит null ([section].tsx:62–65,100) → PilotApp
+   не монтирован → hideAsync не вызван → нативный splash 15 с, флоу 117
+   красен). Грамматика канала (source.json replay_117.hold_link_grammar):
+   scheme complior + ПУСТОЙ host + путь «/» + маркер в query
+   (e2e=splash-hold); извлечение пути — по грамматике expo-router ~57.0.28
+   (путь = host + pathname до «?», fork extractPathFromURL node_modules
+   продукта); корень «/» — единственный маршрут, монтирующий PilotApp
+   (index.tsx) БЕЗУСЛОВНО, при любом состоянии сессии (route_facts
+   source.json; файл +not-found в src/app отсутствует). Судят клетки
+   SPLASH_HOLD_LINK_ROUTE_MOUNT (сценарий открывает РОВНО литерал оракула,
+   expo-путь ПУСТ; host-форма = несуществующий маршрут), REPLAY_SPLASH_
+   WHILE_OVERLAY (реплей: нерамочный старт — оверлей НЕ монтируется,
+   исход NO_PILOT на всей сетке; судьбу старта решает ПОСЛЕДНЯЯ
+   complior-ссылка сценария, старт без ссылки — лаунчерный, корень),
+   SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_{DARK,LIGHT} (URL несуществующего
+   маршрута удержания НЕ взводит — прод-таймер 1200) и REPLAY_LIVE_
+   PROBA_G (живые свидетели провала (Г): кадр нативного splash +
+   hierarchy json без узлов содержимого + logcat-фрагмент «START VIEW
+   dat=… + Running "main"», sha256 припинены; носитель
+   субъект-независим); стаб-контрпример — splash-hold-link-na-marshrut
+   (host-форма в обеих копиях литерала — дефект пробы (Г) дословно).
 
 ## Проверяемый шов
 
@@ -590,6 +915,236 @@ SVERKA_123_HARNESS_PIN (ровно один `uses: actions/checkout@*` с
 `with.ref` ~ `\A[0-9a-f]{40}\Z`, без `if`, раньше шага сверки) —
 литералы source.json `sverka_123.provodka`; YAML-парсер, отсутствие
 pyyaml — rc2.
+
+Семья 117 v4 (класс B, канал (Г′); замер — прогон на R@B с node_modules,
+ветка wip/117/architect-v4; пересмотры по живым пробам run 40434807469 и
+40497913252; правки по FAIL критика v4 кругов 1 и 3): статическая +27 = 70
+(43 v3 байт-неизменны +
+REPLAY_ORACLE_CONSISTENT — канон source.json replay_117: hold_min =
+poll.max + shot.max + 100, hold_e2e ≥ hold_min, hold_default =
+overlay_117.hide_after_ms, hold_link начинается complior:// и НЕ входит в
+other_live_links, (Г′) литерал соответствует грамматике канала
+hold_link_grammar (scheme + ПУСТОЙ host + путь «/» + маркер в query) и
+извлекается как ПУСТОЙ путь; MAESTRO_HOLD_COLD_START — сценарий запускает
+холодный старт каналом ПО СОСТОЯНИЮ команд (правка FAIL круг 1: прежде —
+суммой «есть где-то clearState и где-то stopApp», оба обхода критика
+проходили): состояние «приложение запущено» отслеживается по
+последовательности (запускают — ЕДИНЫЙ классификатор _is_launching
+(правка круга 3, единый источник до ссылки и на интервале): launchApp
+любой формы — словарь и скалярная строка, runFlow — любой консервативно,
+openLink — любой; stopApp — останавливает; до первой команды fail-closed
+«запущено»), openLink(литерал) — холодный старт ТОЛЬКО если
+непосредственно перед ним приложение остановлено (последняя
+запускающая/останавливающая команда = stopApp), этот stopApp стоит ПОСЛЕ
+launchApp{clearState} и между ними нет запуска; ожидание visible
+splash-overlay — ПЕРВОЕ ПОСЛЕ openLink, между ними НЕТ ЗАПУСКАЮЩЕГО шага
+(правка круга 3: launchApp любой формы, runFlow, иная ссылка ≠ литерала;
+повторный openLink литерала судит SPLASH_HOLD_LINK_ROUTE_MOUNT по числу
+ссылок канала); плюс
+ПОРОЖДАЕМАЯ раннером семья порядка MAESTRO_HOLD_PORJADOK_* ×15
+(CHESTNAJA — честная цепочка зелёна; RELAUNCH_PERED_LINK и
+STOP_PERED_LAUNCHOM — оба обхода критика; PERESTANOVKA_LINK_RANSHE_STOPA,
+PERESTANOVKA_WAIT_RANSHE_LINKA — 2 перестановки; VSTAVKA_ZAPUSK_BEZ_CLEAR,
+VSTAVKA_DRUGOJ_SSYLKI, VSTAVKA_WAIT_DO_STOPA — 3 вставки до ссылки
+(последняя — цепочка критика круга 2: добавочное НЕ запускающее ожидание
+visible до stopApp, ЗЕЛЕНА по арбитражу 117 v4 — ожидание судится ПЕРВЫМ
+ПОСЛЕ openLink); VSTAVKA_RUNFLOW_MEZHDU, VSTAVKA_LAUNCH_SKALJAR_MEZHDU,
+VSTAVKA_LAUNCH_SLOVAR_MEZHDU, VSTAVKA_DRUGOJ_SSYLKI_MEZHDU — 4 красных
+КЛАССА запускающего шага МЕЖДУ hold-ссылкой и ожиданием (правка круга 3
+по вердикту krug3: живые формы — runFlow start.yaml, скалярный
+«- launchApp» (mobile/.maestro/erstinformation.yaml:4), launchApp-словарь,
+иная живая ссылка complior://start; прежний интервальный предикат видел
+только launchApp-словарь — ложная зелень static 65/65 rc0) и
+VSTAVKA_SNIMOK_MEZHDU — зелёный контроль НЕ запускающего шага в том же
+интервале (арбитраж путь (А); класс покрывает зелёность
+assertVisible/notVisible/снимка между ссылкой и ожиданием);
+UDALENIE_STOPA, UDALENIE_LAUNCHA — 2
+удаления; входы синтетические из набора живых команд {launchApp словарём
+и скаляром, stopApp, openLink, runFlow, extendedWaitUntil, takeScreenshot},
+субъект не читается,
+ожидания — литералы до субъекта — клетки судят саму проверку порядка);
+MAESTRO_HOLD_ALONE — openLink с
+литералом по ВСЕМУ mobile/.maestro встречается ровно в сценарии 117;
+SPLASH_HOLD_LINK_CHANNEL — pilot-app несёт канал: Linking.getInitialURL() +
+точное равенство литералу + апгрейд таймера clearTimeout/setTimeout;
+SPLASH_HOLD_NO_ENV — канал (В) отсутствует и в pilot-app, и в workflow
+(имя env не встречается; неразборчивое значение — fail-closed);
+SPLASH_HOLD_LINK_ROUTE_MOUNT — (Г′) класс входов ссылки: сценарий открывает
+РОВНО литерал оракула, и его expo-router путь (host+pathname до «?»,
+грамматика fork extractPathFromURL ~57.0.28 из node_modules продукта) ПУСТ
+— корень «/», единственный маршрут, монтирующий PilotApp безусловно
+(route_facts source.json; host-форма — путь /<host>, динамический
+(tabs)/[section] рендерит null для сегмента вне TAB_ORDER, [section].tsx:
+62–65,100); REPLAY_SPLASH_WHILE_OVERLAY — реплей ВСЕЙ сетки poll {250,500,
+700,1000} × shot {0,200,400,600,670,800,1000,1200,1400,1600,2000,2400} мс
+с эффективным HOLD субъекта (env взведён → судится env, fail-closed; иначе
+канал ∧ холодный старт сценария ПО СОСТОЯНИЮ команд — сумма команд окно НЕ
+взводит, оба обхода критика дают CLASS_B; иначе прод-литерал) и монтированием
+дерева (судьбу старта решает ПОСЛЕДНЯЯ complior-ссылка сценария: её expo-
+путь непуст ⇒ PilotApp не монтируется, исход NO_PILOT на всей сетке —
+живой факт пробы (Г); корневая ссылка и старт без ссылки — монтируется):
+каждая точка даёт кадр в окне оверлея; снимок без ожидания (UNBOUND),
+после notVisible (CLASS_B), отсутствующий (NO_SHOT) или нерамочный старт
+(NO_PILOT) красны именованными исходами; REPLAY_HOLD_FITS_WAIT_TIMEOUT —
+hold накрыт таймаутом notVisible кадра first-run по каждому poll сетки;
+REPLAY_LIVE_CARRIER — живой носитель: продуктовый сценарий @ ba5ebbc927 и
+commands.json класса B припинены sha256, реплей видит класс B на живой
+проводке (замеренная пара poll 700 + shot 670 ≥ 1200), шаги живого
+сценария отображаются в команды живого commands.json (грамматика реплея —
+не придуманный диалект); REPLAY_HOLD_SCENARIO_ONLY — удержание ТОЛЬКО в
+сценарии 117: живой commands.json шага 118 пробы 40434807469 (sha256,
+замеренный зазор V0 7450 мс — оракул): без openLink, env-взвод субъекта на
+ОБЩЕМ входе при зазоре < HOLD красен (дефект пробы (В): 0.000 обе темы),
+честная (Г′) зелена; REPLAY_LIVE_PROBA_G — (Г′) живые свидетели провала
+пробы (Г) run 40497913252/job 122172034122 (носитель субъект-независим):
+кадр нативного splash, hierarchy json шага провала (единственный
+com.complior resource-id — системный каркас action_bar_root,
+splash-overlay отсутствует — PilotApp не монтирован) и logcat-фрагмент
+(START VIEW dat=complior://e2e-splash-hold… + cmp=…MainActivity +
+LAUNCH_SINGLE_TASK + Running "main" — ссылка доставлена, JS запущен),
+sha256 припинены; SVERKA_123_CATCHES_CLASS_B — НАСТОЯЩАЯ sverka_maketa.py
+на живых кадрах: класс B (run 40420737331, dark) → rc1 NIZHE_POROGA 0.000
+худший tagline, светлей контроль OK 0.782; зелёный кадр (run 40316137237,
+dark) → rc0 0.783/0.782 — ожидания в source.json replay_117.live.
+sverka_{bad,ok}, сняты прогоном ДО правки субъекта). Замена против сдачи
+784bd32c (материал (В), не заморожен): SPLASH_HOLD_E2E_ENV удалена
+(env-канал отклонён живой пробой), вместо неё SPLASH_HOLD_LINK_CHANNEL +
+SPLASH_HOLD_NO_ENV; добавлены MAESTRO_HOLD_COLD_START, MAESTRO_HOLD_ALONE,
+REPLAY_HOLD_SCENARIO_ONLY; против сдачи 2bdd4106 (материал (Г), не
+заморожен): добавлены SPLASH_HOLD_LINK_ROUTE_MOUNT + REPLAY_LIVE_PROBA_G,
+REPLAY_ORACLE_CONSISTENT/REPLAY_SPLASH_WHILE_OVERLAY расширены
+(грамматика/NO_PILOT), литерал hold_link сменён на корневой. Правка по FAIL
+критика v4 круг 1: предикат MAESTRO_HOLD_COLD_START заменён суммарный →
+состояние (имя клетки прежнее, замена объявлена), добавлена порождаемая
+семья MAESTRO_HOLD_PORJADOK_* ×9 → ×10 (арбитраж 117 v4 круг 2: ожидание
+судится ПЕРВЫМ ПОСЛЕ openLink, +VSTAVKA_WAIT_DO_STOPA) → ×15 (правка
+круга 3 по вердикту krug3: ЕДИНЫЙ классификатор _is_launching до ссылки и
+на интервале — запуск через runFlow/скалярный launchApp/словарный
+launchApp/иную ссылку между hold-ссылкой и ожиданием КРАСНЕТ (прежде —
+ложная зелень static 65/65 rc0), +4 красных класса интервала
++VSTAVKA_SNIMOK_MEZHDU зелёный контроль; статика 65 → 70, статические
+стабы 51 → 52). Клетка (б)
+SVERKA_123_CATCHES_CLASS_B байт-неизменна (функция не тронута).
+Поведенческая +6 = 191 (185 v3 байт-неизменны +
+SPLASH_OVERLAY_HOLD_LINK_{DARK,LIGHT}: старт с литералом — оверлей на
+месте после 1200 мс и скрыт на 8000-й; SPLASH_OVERLAY_HOLD_NE_INOJ_URL_
+{DARK,LIGHT}: живая чужая ссылка complior://start — скрытие ровно на
+1200-й; SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_{DARK,LIGHT}: URL несуществующего
+маршрута complior://e2e-splash-hold (дефект пробы (Г)) — скрытие ровно на
+1200-й, удержание НЕ взводит; прод-литерал не сдвинут — TIMER_HIDE зелены
+без ссылки). Замена против 784bd32c: SPLASH_OVERLAY_HOLD_E2E_{DARK,LIGHT}
+→ HOLD_LINK + HOLD_NE_INOJ_URL; против 2bdd4106: + HOLD_NE_NEMARSHRUT ×2.
+Свидетели live/ (12 файлов, sha256 — source.json replay_117.live.svideteli):
+кадры класса B/OK прогонов 40420737331/40316137237, продуктовый сценарий @
+ba5ebbc9279bcde0b5a3c168bdc98eef24969a4c, commands.json класса B, а от
+пробы 40434807469 — commands.json 117 (dark), commands.json 118 (dark) и
+кадры erstinformation-f02-03-v01-v0.png dark/light, и от пробы 40497913252
+(провал (Г)) — proba117g-kadr-native-splash.png,
+proba117g-hierarchy-step006.json, proba117g-logcat-fragment.txt; подмена
+свидетеля/пина — rc2 ORACLE_TAMPERED (полный обход всех пинов — перед
+клеткой (б)).
+
+Стабы v4 (привязка к ветвям по коду MUTANTS, Н-39): статические +14 = 52
+(38 v3 байт-неизменны + splash-hold-link-otsutstvuet — блок удержания
+удалён из pilot-app: SPLASH_HOLD_LINK_CHANNEL + REPLAY_SPLASH_WHILE_OVERLAY
+(окно = прод-литерал 1200, сетка красна CLASS_B); splash-hold-link-oslablen
+— SPLASH_HOLD_E2E_MS 2000 < hold_min 3500: REPLAY_SPLASH_WHILE_OVERLAY;
+splash-hold-sverh-timeout-a — 13000: REPLAY_HOLD_FITS_WAIT_TIMEOUT;
+splash-hold-env-vmesto-link — канал (В) вместо (Г′) (env в pilot-app +
+строка env шага сборки в workflow): SPLASH_HOLD_LINK_CHANNEL +
+SPLASH_HOLD_NO_ENV + REPLAY_HOLD_SCENARIO_ONLY — красная клетка на дефект
+живой пробы (удержание ВНЕ сценария 117 закрывает кадр 118 V0, зазор
+7450 мс < 8000); splash-hold-link-na-marshrut — (Г′) дефект живой пробы
+(Г) run 40497913252 дословно: host-форма complior://e2e-splash-hold в ОБЕИХ
+копиях литерала (сценарий и pilot-app) — несуществующий маршрут: named
+SPLASH_HOLD_LINK_ROUTE_MOUNT + REPLAY_SPLASH_WHILE_OVERLAY (реплей видит
+NO_PILOT: PilotApp не монтируется, оверлей не появляется), depends
+SPLASH_HOLD_LINK_CHANNEL + MAESTRO_HOLD_COLD_START + MAESTRO_HOLD_ALONE
+(замер матрицы: канонический литерал исчез из субъекта — те же клетки
+красны, как живой флоу 117 красен целиком); splash-hold-vse-ssylki —
+префикс complior:// вместо ТОЧНОГО литерала (живые complior://start
+взводят): SPLASH_HOLD_LINK_CHANNEL, depends REPLAY_SPLASH_WHILE_OVERLAY
+(замер матрицы: канал текстово не точен — эффективное окно судится
+fail-closed прод-литералом); splash-hold-start-launchapp — stopApp/openLink
+удалены из сценария (старт не по литералу, окно = прод-литерал):
+MAESTRO_HOLD_COLD_START + REPLAY_SPLASH_WHILE_OVERLAY, depends
+MAESTRO_HOLD_ALONE + SPLASH_HOLD_LINK_ROUTE_MOUNT (замер матрицы: литерала
+нет нигде — носителей и ссылки канала пусто); splash-hold-start-ne-
+holodnyj — launchApp ПОСЛЕ openLink (старт не холодный): MAESTRO_HOLD_
+COLD_START, depends REPLAY_SPLASH_WHILE_OVERLAY; (правка FAIL критика
+v4 круг 1, оба обхода блокера дословно) splash-hold-relaunch-pered-link —
+второй launchApp{clearState} МЕЖДУ stopApp и openLink (приложение
+работает до открытия ссылки — стартовый URL не читается при монтировании):
+MAESTRO_HOLD_COLD_START, depends REPLAY_SPLASH_WHILE_OVERLAY (замер
+матрицы: старт не холодный — окно судится прод-литералом 1200, сетка
+красна CLASS_B); splash-hold-porjadok-stop-launch — перестановка stopApp →
+launchApp{clearState} → openLink (к ссылке приложение запущено, стоп не
+после очистки; прежде статика 55/55 И поведение 191/191 зелёные):
+MAESTRO_HOLD_COLD_START, depends REPLAY_SPLASH_WHILE_OVERLAY (тот же
+замер); (правка FAIL критика v4 круг 3) splash-hold-runflow-posle-link —
+запуск через runFlow МЕЖДУ openLink литерала и ожиданием (живой
+mobile/.maestro/start.yaml:4–7 запускает приложение с clearState —
+повторный старт не читает стартовый URL при монтировании; старый
+интервальный предикат «только launchApp-словарь» этот вход не замечал —
+статика была ЛОЖНО зелёной rc0, вердикт krug3): MAESTRO_HOLD_COLD_START,
+depends REPLAY_SPLASH_WHILE_OVERLAY (старт не холодный — окно судится
+прод-литералом 1200, сетка красна CLASS_B); ОДИН стаб на КЛАСС запуска
+на интервале — все формы идут через ту же ветвь _is_launching
+(синтетически судят клетки VSTAVKA_RUNFLOW_MEZHDU /
+VSTAVKA_LAUNCH_SKALJAR_MEZHDU / VSTAVKA_LAUNCH_SLOVAR_MEZHDU /
+VSTAVKA_DRUGOJ_SSYLKI_MEZHDU, по Н-39 отдельных стабов на мутации формы
+не плодим); splash-replay-snimok-
+posle-uhoda — снимок после notVisible: REPLAY_SPLASH_WHILE_OVERLAY +
+MAESTRO_SPLASH_FRAME_WAIT; splash-kadr-udalen — снимок удалён:
+REPLAY_SPLASH_WHILE_OVERLAY + MAESTRO_SPLASH_FRAME_WAIT +
+SPLASH_FRAME_SVERKA_123_{DARK,LIGHT}, depends MAESTRO_FIRST_RUN_ORDER;
+splash-porog-oslablen — сверка подключена к подложному манифесту:
+SVERKA_123_MANIFEST_CANON — порог живёт в манифесте H пина .harness123,
+ослабление в субъекте возможно только проводкой, и оно красно) и
+поведенческие +4 = 64 (60 v3 байт-неизменны + splash-hold-link-invertirovan
+— условие инвертировано (удержание на ВСЕХ URL, кроме литерала):
+SPLASH_OVERLAY_HOLD_LINK_{DARK,LIGHT} + SPLASH_OVERLAY_HOLD_NE_INOJ_URL_
+{DARK,LIGHT}, depends SPLASH_OVERLAY_TIMER_HIDE ×2 + STATUS_BAR_STYLE ×2
+(замер матрицы: старт БЕЗ URL тоже удержан — прод-таймер не срабатывает);
+splash-hold-po-umolchaniju-8000 — прод-литерал сдвинут хуком
+(SPLASH_OVERLAY_MS 8000): SPLASH_OVERLAY_TIMER_HIDE_{DARK,LIGHT}, depends
+STATUS_BAR_STYLE_{DARK,LIGHT} + SPLASH_OVERLAY_HOLD_NE_INOJ_URL ×2 (при
+8000 и чужой старт удерживает); splash-hold-vse-ssylki — префикс вместо
+литерала: SPLASH_OVERLAY_HOLD_NE_INOJ_URL_{DARK,LIGHT}; замена
+undefined-safe — (initialUrl || ''): иначе «undefined.startsWith» —
+TypeError валит посторонние клетки (замер матрицы); splash-hold-
+taymer-bez-clear — апгрейд не снимает прод-таймер (оба живы, скрытие на
+1200-й): SPLASH_OVERLAY_HOLD_LINK_{DARK,LIGHT}; depends-расширения
+поведенческих стабов под новые клетки NEMARSHRUT — замером матрицы).
+Замена против 784bd32c (материал (В), не заморожен): стабы
+splash-hold-env-otsutstvuet, splash-hold-env-oslablen (статические) и
+splash-hold-env-v-pilote-ignoriruetsja (поведенческий) удалены — их дефекты
+существовали только у канала (В); depends стаба
+splash-hold-po-umolchaniju-8000 переименован с HOLD_E2E ×2 на
+HOLD_NE_INOJ_URL ×2. Против сдачи 2bdd4106 (материал (Г), не заморожен):
+добавлен splash-hold-link-na-marshrut; якоря литерала
+splash-hold-start-launchapp/start-ne-holodnyj следуют за корневым
+литералом модели. Отступления от байт-неизменности материала 117/3,
+объявленные и минимальные: (1) якорная строка трёх стабов
+overlay-hideasync-skip / overlay-hideasync-module-scope /
+overlay-hide-before-commit следует за байтом честной модели ('    const
+timer' → '    let timer' — модель (Г′) переприсваивает таймер при
+апгрейде), именованные ветви и семантика мутаций не тронуты; (2) перечни
+наблюдаемых ветвей расширены замером матрицы: шесть maestro-стабов
+(no-wait, wait-commented, wait-after-shot, first-run-as-splash,
+overlay-gone-before-shot — исход UNBOUND/CLASS_B; shot-renamed — NO_SHOT;
+все + REPLAY_SPLASH_WHILE_OVERLAY в depends — прецедент правки v3 круга 1;
+no-wait, wait-commented и first-run-as-splash дополнительно + MAESTRO_HOLD_
+COLD_START — замер матрицы: без шага visible splash-overlay цепочка канала
+рвётся) и три overlay-стаба (overlay-absent-first-commit — оверлей не
+смонтирован на старте; overlay-timer-none — таймер 120000, оверлей не
+скрыт к 8000; overlay-display-none — display:none: все три делают окно
+удержания ненаблюдаемым → + SPLASH_OVERLAY_HOLD_LINK_{DARK,LIGHT} +
+SPLASH_OVERLAY_HOLD_NE_INOJ_URL_{DARK,LIGHT} в depends; в сдаче 784bd32c
+там стояли HOLD_E2E ×2 — замена материала (В); замер матрицы (Г′): те же
+три стаба дополнительно + SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_{DARK,LIGHT}
+в depends — окно удержания ненаблюдаемо и на клетке несуществующего
+маршрута).
 
 Обманные стабы (привязка к ветвям — ТОЛЬКО по коду MUTANTS проб, Н-39;
 depends измерены прогонами; поведенческая матрица консолидации по
@@ -792,6 +1347,107 @@ node_modules в mobile/ (симлинк); пробы — Python 3 stdlib (+ pyya
   против честного r1423 0.783/0.782).
 - Дано авторская пачка; `bash scripts/pre_critic.sh
   contracts/117-cmp-mob-vkhod-splash.md` → rc0.
+- (v4) Дано R@B без реализации: обе пробы `--repo R` → rc1 прежними
+  именованными причинами (VKHOD_SPLASH_COMPOSITE_ABSENT /
+  VKHOD_SPLASH_OVERLAY_ABSENT, failed 62 of 191 — 56 прежних замера v3 +
+  6 HOLD-клеток v4 (HOLD_LINK/HOLD_NE_INOJ_URL/HOLD_NE_NEMARSHRUT ×2):
+  на до-предметном дереве красны ВСЕ клетки оверлея, включая NE_INOJ_URL
+  и NE_NEMARSHRUT — оверлея нет вовсе).
+- (v4) Дано модель v4 (Г′) на R@B: `vkhod_static_probe.py --model` → rc0
+  `static 70/70` (55 прежних + 15 порождаемых порядка
+  MAESTRO_HOLD_PORJADOK_*); `vkhod_probe.py --model` → rc0 `behavioral
+  191/191` (тройной прогон — детерминизм).
+- (v4) Дано живой продукт @ c617f6fb236d11574df75fb09ae41870bf8c29d6 (PR
+  #124; 117 v3 реализован, v4 нет): статическая проба `--repo` → rc1,
+  красны РОВНО пять новых клеток — MAESTRO_HOLD_COLD_START (нет
+  stopApp/openLink), MAESTRO_HOLD_ALONE (литерала нет нигде),
+  SPLASH_HOLD_LINK_CHANNEL (канала в pilot-app нет),
+  SPLASH_HOLD_LINK_ROUTE_MOUNT (ссылки канала нет — нечему вести на
+  корень) и REPLAY_SPLASH_WHILE_OVERLAY (окно = прод-литерал 1200, сетка
+  даёт CLASS_B), прежние статические зелены (в т.ч. SPLASH_HOLD_NO_ENV,
+  REPLAY_HOLD_SCENARIO_ONLY и REPLAY_LIVE_PROBA_G — канала (В) на
+  продукте нет, свидетели (Г) субъект-независимы), клетки порядка
+  MAESTRO_HOLD_PORJADOK_* зелены (входы синтетические, субъект не
+  читается — замер после правки круга 1); поведенческая → rc1
+  failed 36 of 191: две новые SPLASH_OVERLAY_HOLD_LINK_{DARK,LIGHT} плюс
+  34 клетки ГРАНИЦЫ модель/production (семьи W1A/ТАБЛИЦА/ENTRY/порядок —
+  маркеры Erstinformation модели; frozen 117/3 «Граница
+  модель/production»: эти клетки судят модель, production-корень —
+  приёмка 118; на живом продукте красны и ДО v4 — замер);
+  SPLASH_OVERLAY_HOLD_NE_INOJ_URL_{DARK,LIGHT} и
+  SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_{DARK,LIGHT} зелены — их краснота
+  наблюдает дефект «канал слишком широк», а не отсутствие канала.
+  Дано продукт + продуктовые патчи v4 (produktnye-izmenenija3/0001–0002
+  к c617f6fb, одноразовая ветка пробы): статическая 70/70 rc0 — батарея
+  гаснет ровно с реализацией.
+- (v4, правка FAIL круг 1) Дано модель v4 с ОБХОДОМ 1 критика (второй
+  launchApp{clearState} МЕЖДУ stopApp и openLink — мутация сценария
+  дословно по вердикту, она же стаб splash-hold-relaunch-pered-link);
+  когда `vkhod_static_probe.py --repo R`; тогда rc1, красны РОВНО
+  MAESTRO_HOLD_COLD_START (приложение запущено непосредственно перед
+  openLink) и REPLAY_SPLASH_WHILE_OVERLAY (окно = прод-литерал 1200,
+  CLASS_B) — прежде статика была зелёной 55/55.
+- (v4, правка FAIL круг 1) Дано модель v4 с ОБХОДОМ 2 критика
+  (перестановка stopApp → launchApp{clearState} → openLink — стаб
+  splash-hold-porjadok-stop-launch); когда статическая проба; тогда rc1,
+  красны РОВНО MAESTRO_HOLD_COLD_START (к ссылке приложение запущено,
+  стоп не после очистки) и REPLAY_SPLASH_WHILE_OVERLAY; поведенческая
+  проба на этом же дереве остаётся rc0 191/191 — объявленная ГРАНИЦА
+  (см. «НЕ ЗАЩИЩАЕТ»): Jest судит pilot-app, порядок команд Maestro-
+  сценария судят статика (MAESTRO_HOLD_COLD_START + MAESTRO_HOLD_
+  PORJADOK_* ×15, оба обхода красны) и реплей (взвод окна ТОЛЬКО
+  холодным стартом); живой свидетель честной цепочки — commands.json 117
+  пробы (Г′) run 40511584004 (launchApp clearState → stopApp → openLink;
+  живой артефакт CI, не припинен в live/ — сверка по логу run).
+- (v4, правка по РЕШЕНИЮ арбитража круга 2) Дано модель v4 (Г′) с цепочкой
+  критика круга 2 (добавочный extendedWaitUntil visible splash-overlay
+  МЕЖДУ launchApp{clearState} и stopApp — мутация вердикта 2/2 дословно);
+  когда `vkhod_static_probe.py --repo R`; тогда rc0 70/70 — ожидание
+  судится ПЕРВЫМ ПОСЛЕ openLink, все условия холодного старта выполнены
+  (клетка MAESTRO_HOLD_PORJADOK_VSTAVKA_WAIT_DO_STOPA: expected True);
+  Дано та же цепочка с добавочным ЗАПУСКАЮЩИМ шагом (launchApp между
+  openLink и ожиданием, запуск между stopApp и openLink); тогда rc1,
+  красны РОВНО MAESTRO_HOLD_COLD_START и REPLAY_SPLASH_WHILE_OVERLAY —
+  граница арбитража (запускающие шаги красны как прежде).
+- (v4, правка FAIL круга 3, contracts-117-v4-krug3) Дано модель v4 (Г′)
+  с ЗАПУСКАЮЩИМ шагом МЕЖДУ hold-ссылкой и первым ожиданием — по КЛАССАМ
+  живых форм (входы вердикта krug3 дословно: `- runFlow: start.yaml` |
+  скалярный `- launchApp` | launchApp-словарь | иная живая ссылка
+  `complior://start`); когда `vkhod_static_probe.py --repo R`; тогда
+  rc1: у форм runFlow/скалярного/словарного launchApp красны РОВНО
+  MAESTRO_HOLD_COLD_START (запускающий шаг на интервале — повторный
+  старт не читает стартовый URL при монтировании) и
+  REPLAY_SPLASH_WHILE_OVERLAY (окно = прод-литерал 1200, CLASS_B); у
+  иной ссылки ДОПОЛНИТЕЛЬНО SPLASH_HOLD_LINK_ROUTE_MOUNT (вторая ссылка
+  канала) и REPLAY видит NO_PILOT — прежде статика на ПЕРВЫХ ДВУХ формах
+  была зелёной 65/65 rc0 (ложная зелень krug3: интервальный предикат
+  видел только launchApp-словарь); порождаемые клетки
+  MAESTRO_HOLD_PORJADOK_VSTAVKA_{RUNFLOW,LAUNCH_SKALJAR,LAUNCH_SLOVAR,
+  DRUGOJ_SSYLKI}_MEZHDU красны на своих синтетических входах ДО субъекта;
+  Дано добавочный НЕ запускающий шаг в том же интервале (снимок |
+  assertVisible | notVisible-ожидание — контроль критика krug3); тогда
+  rc0 70/70 (клетка MAESTRO_HOLD_PORJADOK_VSTAVKA_SNIMOK_MEZHDU:
+  expected True — арбитраж путь (А)); честная цепочка и контроли
+  visible-до-stop зелёны (замер attack117i: 13/13 ожиданий).
+- (v4, совет критика круг 1) Дано C в PR 117; когда `git diff --exit-code
+  c617f6fb236d11574df75fb09ae41870bf8c29d6 <head-PR> --
+  .github/workflows/mobile.yml`; тогда rc0 (запрет ПЕРЕСЕЧЕНИЯ проверяем
+  механически; живая проба (Г′) на run 40511584004 его уже исполняла).
+- (v4) Дано модель v4; обе пробы `--matrix` → rc0: каждый стаб красен
+  именованными ветвями, побочная краснота только в depends (статических
+  52 — 38 v3 + 14 v4, поведенческих 64 — 60 v3 + 4 v4; замер матрицы v4
+  расширил depends — см. «Стабы v4»: no-wait/wait-commented/
+  first-run-as-splash +MAESTRO_HOLD_COLD_START, start-launchapp
+  +MAESTRO_HOLD_ALONE +SPLASH_HOLD_LINK_ROUTE_MOUNT, link-na-marshrut
+  +LINK_CHANNEL/COLD_START/HOLD_ALONE, vse-ssylki (стат.)
+  +REPLAY_SPLASH_WHILE_OVERLAY, link-invertirovan +TIMER_HIDE/STATUS_BAR,
+  vse-ssylki (повед.) — замена undefined-safe; расширения под
+  NEMARSHRUT — замером матрицы; relaunch-pered-link и
+  porjadok-stop-launch — depends REPLAY_SPLASH_WHILE_OVERLAY замером
+  матрицы после правки круга 1); любых MUTANT_GREEN / MUTANT_NAMED_MISS /
+  MUTANT_UNEXPECTED_RED — rc2.
+- (v4) Порча свидетеля live/ или пина sha256 в source.json
+  replay_117.live.svideteli → rc2 ORACLE_TAMPERED (не зелень).
 
 ## Зоны и исполнители
 
@@ -961,6 +1617,55 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
   STATIC_ORACLE_LITERALS; эталоны — sha-пин read-only docs/;
 - от мёртвой матрицы: обе пробы исполняют все стабы (60+38), depends
   измерены прогоном, unexpected_red/suite_broken — rc2.
+- (v4) от кадра Splash после ухода оверлея (класс B): реплей тайминга по
+  живому формату Maestro судит ВСЮ сетку задержек раннера (poll 250–1000 ×
+  shot 0–2400 мс) — кадр в окне оверлея при любой фазе опроса только если
+  HOLD > poll + shot; проводка канала (Г′) (литерал корень+query +
+  Linking.getInitialURL + апгрейд таймера) и согласованность с таймаутом
+  notVisible — отдельными клетками; дефект «канал (В) вернулся» ловится
+  SPLASH_HOLD_NO_ENV + REPLAY_HOLD_SCENARIO_ONLY (живой носитель 118),
+  дефект «прод-литерал сдвинут» — SPLASH_OVERLAY_TIMER_HIDE_*; живой
+  носитель (сценарий @ ba5ebbc927 + commands.json класса B, sha256) держит
+  грамматику реплея на живом формате, SVERKA_123_CATCHES_CLASS_B —
+  настоящую сверку на живых байтах (класс B → NIZHE_POROGA rc1, зелёный
+  контроль → rc0);
+- (v4) от удержания, меняющего посторонние сценарии (инвариант 11):
+  REPLAY_HOLD_SCENARIO_ONLY на живом commands.json 118 пробы 40434807469
+  (зазор 7450 мс, sha256) — env-взвод на ОБЩЕМ входе красен (дефект пробы:
+  0.000 обе темы), честная (Г′) без литерала зелена (прочие кадры 118 той
+  же пробы 0.845/0.783); MAESTRO_HOLD_ALONE — литерал только в сценарии
+  117 по всему mobile/.maestro; SPLASH_OVERLAY_HOLD_NE_INOJ_URL_* — чужая
+  живая ссылка (complior://start, cmp-mob-002/004) не взводит удержание;
+- (v4 (Г′)) от ссылки канала, ведущей на несуществующий маршрут (живой
+  провал пробы (Г) run 40497913252: нативный splash залип, флоу 117 красен
+  — инвариант 12): SPLASH_HOLD_LINK_ROUTE_MOUNT судит класс входа ссылки
+  (сценарий открывает РОВНО литерал оракула, expo-путь ПУСТ — корень
+  «/», единственный маршрут с безусловным монтированием PilotApp; грамматика
+  извлечения — expo-router ~57.0.28 node_modules продукта), реплей даёт
+  NO_PILOT на всей сетке (PilotApp не монтируется, оверлей не появляется),
+  SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_* — URL несуществующего маршрута
+  удержания не взводит (прод-таймер 1200), REPLAY_LIVE_PROBA_G держит
+  живые факты провала (пустое дерево, доставка ссылки, запуск JS);
+  стаб-контрпример splash-hold-link-na-marshrut — дефект пробы (Г) дословно
+  (host-форма в обеих копиях литерала);
+- (v4, правка FAIL круг 1) от «холодного старта суммой команд»: состояние
+  «приложение запущено» отслеживается по последовательности команд
+  (launchApp/runFlow/openLink — запускают, stopApp — останавливает),
+  openLink литерала — холодный старт ТОЛЬКО при остановленном приложении
+  и stopApp ПОСЛЕ launchApp{clearState}; оба обхода критика (второй
+  launchApp между stopApp и openLink; перестановка stopApp →
+  launchApp → openLink) красны клеткой MAESTRO_HOLD_COLD_START и
+  порождаемой семьёй MAESTRO_HOLD_PORJADOK_* ×15 (2 перестановки, вставки
+  до ссылки и на интервале (круг 3: 4 красных класса запускающего шага
+  между ссылкой и ожиданием — runFlow/скалярный launchApp/словарный
+  launchApp/иная ссылка), 2 удаления, честная цепочка, цепочка критика
+  круга 2 и контроль не запускающего шага на интервале (добавочное НЕ
+  запускающее ожидание/снимок — арбитраж 117 v4)
+  зелёны — ожидания литералами до
+  субъекта), реплей взводит окно ТОЛЬКО холодным стартом (стабы
+  splash-hold-relaunch-pered-link / splash-hold-porjadok-stop-launch —
+  красны ровно MAESTRO_HOLD_COLD_START + REPLAY_SPLASH_WHILE_OVERLAY,
+  замер матрицы после правки).
 
 НЕ ЗАЩИЩАЕТ:
 - production-источник сессии (связь «сессия → порт onboarding» и её
@@ -1017,6 +1722,37 @@ ZONE_MOVE_EXEMPT — замкнутый перечень, сейчас толь�
   судит маску/цвет, не начертание; ловец — ревьюер по правилу (В);
 - от злонамеренного кода с общим uid: независимые судьи, immutable H, CI
   evidence.
+- (v4) реплей судит ЗАКОН окна (poll+shot против HOLD) на сетке из
+  source.json, а не конкретный раннер: задержки вне сетки (shot > 2400 мс
+  при деградации станции, poll > 1000 мс) не проверяются — hold 8000 даёт
+  запас 2.3× против замеренного максимума 1370 мс; ловец — живой прогон
+  android-e2e (шаг 117/123; сверка 123 остаётся безусловным барьером,
+  клетки SVERKA_123_*);
+- (v4) литерал удержания компилируется в ПРОД-бандл: пользователь, открыв
+  complior:///?e2e=splash-hold вручную (ссылка нигде в продукте не
+  публикуется), получит 8-с удержание оверлея — прод-видимое поведение,
+  гейдж «литералом-паролем»; батарея судит недостижение литерала чужими
+  сценариями (инвариант 11), а не невозможность ручного ввода; ловец —
+  ревьюер 117 (допустимость литерала в прод-коде) и живая серия ≥5
+  прогонов; e2e-APK вне литерала байт-идентичен прод по поведению оверлея
+  (прод-таймер 1200 немедленно, клетки SPLASH_OVERLAY_TIMER_HIDE_*);
+  длительность e2e-прогона 117 растёт на ~7 с × тема (hold до снимка
+  first-run) — таймаут шага 117 остаётся барьером.
+- (v4, правка FAIL круг 1) поведенческая проба (Jest/RNTL) порядок команд
+  Maestro-сценария НЕ судит — она судит pilot-app, а не yaml: на обходе 2
+  критика (перестановка stopApp/launchApp) поведение остаётся 191/191
+  (замер критика attack117_behavior.py); порядок судят статика
+  (MAESTRO_HOLD_COLD_START по состоянию + MAESTRO_HOLD_PORJADOK_* ×15,
+  оба обхода красны) и реплей (окно взводится ТОЛЬКО холодным стартом);
+  живой свидетель честной цепочки — commands.json 117 пробы (Г′) run
+  40511584004 (живой артефакт CI, не припинен в live/ — сверка по логу
+  run); ловец на живом рантайме — серия android-e2e (шаг 117);
+- (v4, СОВЕТ критика круг 1, не блокер) статическая проба НЕ судит
+  очистку прод-таймера при апгрейде (атака removed-clear-timeout
+  статически зелена): этот дефект судит поведенческая семья — стаб
+  splash-hold-taymer-bez-clear красит SPLASH_OVERLAY_HOLD_LINK_{
+  DARK,LIGHT} (оба живых таймера — скрытие на 1200-й, замер матрицы);
+  остатка нет, канал закрыт другой семьёй той же батареи.
 
 ## ПРОВОДКА
 
