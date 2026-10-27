@@ -8,6 +8,11 @@
 # sekret-v-dereve, границы сканирования (ls-files --cached --others
 # --exclude-standard), парсер KEY=VALUE, обе формы значения, CRLF, идиома
 # последней строки — 125 дословно, не ослабляются.
+# 142 v2 (слово владельца 2026-10-27 ~15:10 UTC, вариант (а)): ЛЮБОЙ байт NUL
+# (0x00) в СЫРОМ файле дома секретов → именованный отказ sekret-v-dereve с
+# категорией «NUL» ДО разбора парсером и ДО workshop (fail-closed, без
+# нормализации, без исключения И-3) — ось N (n1–n12) + r3; мир адверсария —
+# дословно из вердикта adv contracts-142-impl-v2 (блокер 2/2, NUL).
 #
 # Режимы:
 #   без ключей   — субъект = scripts/connect_project.sh КОРНЯ ДЕРЕВА батареи
@@ -56,9 +61,9 @@ done
 die2() { printf 's142: %s\n' "$*" >&2; exit 2; }
 
 # ── согласованность source.json: оси ↔ клетки ↔ стабы ↔ канон ↔ пин модели ──
-jq -e '.osi | type == "array" and length == 119' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 119 в source.json"
+jq -e '.osi | type == "array" and length == 132' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 132 в source.json"
 mapfile -t OSIDS < <(jq -r '.osi[].id' "$SRC_JSON")
-[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 119 ] || die2 "иды осей не уникальны"
+[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 132 ] || die2 "иды осей не уникальны"
 mapfile -t STAB_KEYS < <(jq -r '.stab_vhod | keys[]' "$SRC_JSON" | LC_ALL=C sort)
 mapfile -t STAB_FILES < <(cd "$BATT/stabs" && ls stab_*.sh 2>/dev/null | sed 's/\.sh$//' | LC_ALL=C sort)
 [ "${STAB_KEYS[*]:-}" = "${STAB_FILES[*]:-}" ] \
@@ -71,7 +76,8 @@ KANON_M=$(jq -r '.kanon.sekretnye_markery' "$SRC_JSON")
 KANON_S=$(jq -r '.kanon.adres_suffiksy' "$SRC_JSON")
 KANON_U=$(jq -r '.kanon.userinfo_re' "$SRC_JSON")
 KANON_I=$(jq -r '.kanon.imya_grammatika' "$SRC_JSON")
-[ -n "$KANON_M" ] && [ -n "$KANON_S" ] && [ -n "$KANON_U" ] && [ -n "$KANON_I" ] || die2 "канон source.json пуст"
+KANON_N=$(jq -r '.kanon.nul_predproverka' "$SRC_JSON")
+[ -n "$KANON_M" ] && [ -n "$KANON_S" ] && [ -n "$KANON_U" ] && [ -n "$KANON_I" ] && [ -n "$KANON_N" ] || die2 "канон source.json пуст"
 MODEL_SHA=$(jq -r '.model_sha256' "$SRC_JSON")
 [ "$(sha256sum "$MODEL" | cut -d' ' -f1)" = "$MODEL_SHA" ] \
   || die2 "ORACLE_TAMPERED: sha256 модели ≠ source.json:.model_sha256"
@@ -80,6 +86,7 @@ grep -qF -- "SEKRET_MARKERY=\"$KANON_M\"" "$MODEL" || die2 "канон секр�
 grep -qF -- "ADRES_SUFFIKSY=\"$KANON_S\"" "$MODEL" || die2 "канон адресных суффиксов не в модели байт в байт"
 grep -qF -- "USERINFO_RE='$KANON_U'" "$MODEL" || die2 "канон userinfo не в модели байт в байт"
 grep -qF -- "IMYA_RE='$KANON_I'" "$MODEL" || die2 "грамматика имени не в модели байт в байт"
+grep -qF -- "$KANON_N" "$MODEL" || die2 "канон NUL-предпроверки не в модели байт в байт"
 # ── субъект ──────────────────────────────────────────────────────────────────
 case "$MODE" in
   subjekt) SUBJECT="$LIVE/scripts/connect_project.sh" ;;
@@ -163,9 +170,9 @@ err1() { sed -n 1p "$RUNDIR/$WP$1/err" 2>/dev/null; }
 
 # ── клетки: ось K (имя ключа) × ось Z (значение) × ось F (файл) × ось D (дом) × R ──
 # Внутри клетки: T1/T2 — свежие rnd-значения (оракул в памяти); dom — bytes дома
-# секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|kanon|grammatika.
+# секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|kanon|grammatika|nul|nulpred.
 kletka() { # $1 = id клетки; печатает строку вердикта
-  local id=$1 why="" T1 T2 IMYA=""
+  local id=$1 why="" T1 T2 IMYA="" NULZN=""
   T1="tok-$(rnd)"; T2="tok-$(rnd)"
   local VID=""
   if [ "$SUBJECT_EST" = 0 ]; then
@@ -388,9 +395,46 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       printf 'второе значение ключа: %s\n' "$T2" > "$RUNDIR/$WP"d4/proj/dubli.txt; VID=otkaz ;;
     d5-klyuch-bez-ravno)
       mir d5; printf 'ZAI_API_KEY\n' > "$RUNDIR/$WP"d5/home/.config/dev-harness/secrets.env; VID=sessija ;;
+    # ── ось N (142 v2): NUL в СЫРОМ доме секретов — именованный отказ
+    # sekret-v-dereve с категорией «NUL» до разбора и до workshop (слово
+    # владельца 2026-10-27, вариант (а)). NUL пишется ТОЛЬКО форматом printf
+    # (\0 в аргументе/переменной байтом NUL не живёт); имена — imya() на
+    # каждом прогоне (И-6); NULZN — значение, которого НЕ должно быть в
+    # отказе. n1 — мир адверсария дословно (FOO_URL\0=probe-nul-value +
+    # индексируемый leak.txt со значением → rc 1 до workshop); n12 — ошибка
+    # инструмента предпроверки (chmod 000): честная модель обязана отказать
+    # (fail-closed), а не пропускать.
+    n1-mir-adversarii)
+      mir n1; printf 'FOO_URL\0=probe-nul-value\n' > "$RUNDIR/$WP"n1/home/.config/dev-harness/secrets.env
+      printf 'значение в индексируемом: probe-nul-value\n' > "$RUNDIR/$WP"n1/proj/leak.txt; VID=nul; NULZN='probe-nul-value' ;;
+    n2-nachalo-imeni)
+      mir n2; printf '\0%s=%s\n' "$(imya _URL)" "$T1" > "$RUNDIR/$WP"n2/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n3-seredina-imeni)
+      mir n3; _h=$(rnd | tr a-f A-F)
+      printf 'X%.6s\0%s_URL=%s\n' "$_h" "${_h:6}" "$T1" > "$RUNDIR/$WP"n3/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n4-konec-imeni)
+      mir n4; printf '%s\0=%s\n' "$(imya _URL)" "$T1" > "$RUNDIR/$WP"n4/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n5-bez-hvostogo-lf)
+      mir n5; printf '%s\0=%s' "$(imya _URL)" "$T1" > "$RUNDIR/$WP"n5/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n6-v-znachenii-adresnogo)
+      mir n6; printf '%s=http://127.0.0.1:8787/%s\0end\n' "$(imya _URL)" "$T1" > "$RUNDIR/$WP"n6/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n7-v-znachenii-sekretnogo)
+      mir n7; printf 'ZAI_API_KEY=tok-%s\0konets\n' "$T1" > "$RUNDIR/$WP"n7/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n8-v-kommentarii)
+      mir n8; printf '# zame\0tka\n' > "$RUNDIR/$WP"n8/home/.config/dev-harness/secrets.env; VID=nul; NULZN='' ;;
+    n9-v-pustoj-stroke)
+      mir n9; printf 'METERING_PROXY_URL=http://127.0.0.1:8787\n\0\n' > "$RUNDIR/$WP"n9/home/.config/dev-harness/secrets.env; VID=nul; NULZN='http://127.0.0.1:8787' ;;
+    n10-vo-vtoroj-stroke)
+      mir n10; printf 'ABCDEF=zzz-nikuda\n%s\0=%s\n' "$(imya _URL)" "$T1" > "$RUNDIR/$WP"n10/home/.config/dev-harness/secrets.env; VID=nul; NULZN="$T1" ;;
+    n11-konformnyj-dom)
+      mir n11; printf 'METERING_PROXY_URL=http://127.0.0.1:8787\nZAI_API_KEY=%s\n' "$T1" > "$RUNDIR/$WP"n11/home/.config/dev-harness/secrets.env; VID=sessija ;;
+    n12-nechitaemyj-dom)
+      mir n12; printf 'METERING_PROXY_URL=http://127.0.0.1:8787\n' > "$RUNDIR/$WP"n12/home/.config/dev-harness/secrets.env
+      chmod 000 "$RUNDIR/$WP"n12/home/.config/dev-harness/secrets.env; VID=nul; NULZN='' ;;
     # ── ось R: реализация ──
     r1-kanon-v-subekte) VID=kanon ;;
     r2-grammatika-v-subekte) VID=grammatika ;;
+    r3-nul-predproverka-v-subekte) VID=nulpred ;;
     *) printf 'КЛЕТКА %s КРАСНА: клетка не описана в раннере\n' "$id"; return 1 ;;
   esac
   local M
@@ -433,6 +477,22 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       grep -qF -- "IMYA_RE='$KANON_I'" "$SUBJECT" || why="$why нет канона грамматики имени;"
       if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
       else printf 'КЛЕТКА %s КРАСНА: грамматика имени не в субъекте байт в байт:%s\n' "$id" "$why"; fi ;;
+    nul)
+      M="$RUNDIR/$WP${id%%-*}"
+      run_dver "${id%%-*}"
+      why=""
+      [ "$RC" = 1 ] || why="$why rc=$RC;"
+      grep -qF 'sekret-v-dereve' "$M/err" || why="$why нет имени sekret-v-dereve;"
+      grep -qF 'NUL' "$M/err" || why="$why отказ не называет категорию NUL;"
+      [ "$(calls "${id%%-*}")" = 0 ] || why="$why сессия запущена;"
+      { [ -n "$NULZN" ] && grep -qF -- "$NULZN" "$M/err"; } && why="$why отказ печатает значение;"
+      if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
+      else printf 'КЛЕТКА %s КРАСНА: ждали именованный отказ sekret-v-dereve (категория NUL) rc 1 до сессии%s\n' "$id" "$why"; fi ;;
+    nulpred)
+      why=""
+      grep -qF -- "$KANON_N" "$SUBJECT" || why="$why нет канона NUL-предпроверки;"
+      if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
+      else printf 'КЛЕТКА %s КРАСНА: канон NUL-предпроверки не в субъекте байт в байт:%s\n' "$id" "$why"; fi ;;
   esac
 }
 
@@ -440,7 +500,7 @@ schet() { # $1 = файл клеток; $2 = метка режима
   local G R
   G=$(grep -c '^КЛЕТКА .* ЗЕЛЕНА$' "$1"); R=$(grep -c '^КЛЕТКА .* КРАСНА' "$1")
   printf 's142 %s: клеток %s, зелёных %s, красных %s\n' "$2" "$((G+R))" "$G" "$R" >&2
-  [ "$((G+R))" = 119 ] || { printf 's142: клеток %s ≠ 119 — мир сломан\n' "$((G+R))" >&2; return 2; }
+  [ "$((G+R))" = 132 ] || { printf 's142: клеток %s ≠ 132 — мир сломан\n' "$((G+R))" >&2; return 2; }
   [ "$R" = 0 ] || return 1
 }
 
