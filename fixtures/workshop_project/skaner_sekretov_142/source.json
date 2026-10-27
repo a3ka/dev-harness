@@ -9,7 +9,8 @@
   "adres_suffiksy": "_URL _HOST _PORT _ADDR _ENDPOINT _NAME URL HOST PORT ADDR ENDPOINT NAME",
   "userinfo_re": "[^/@[:space:]]*:[^/@[:space:]]*@",
   "imya_grammatika": "[A-Za-z_][A-Za-z0-9_]*",
-  "primer_boili": "METERING_PROXY_URL=http://127.0.0.1:8787"
+  "primer_boili": "METERING_PROXY_URL=http://127.0.0.1:8787",
+  "nul_predproverka": "LC_ALL=C grep -qaP '\\x00' -- \"$DOM_SEKRETOV\""
  },
  "osi": [
   {"os": "K", "id": "k1-api-key", "vid": "otkaz"},
@@ -130,7 +131,20 @@
   {"os": "D", "id": "d4-dubl-klyucha", "vid": "otkaz"},
   {"os": "D", "id": "d5-klyuch-bez-ravno", "vid": "sessija"},
   {"os": "R", "id": "r1-kanon-v-subekte", "vid": "kanon"}
-  ,{"os": "R", "id": "r2-grammatika-v-subekte", "vid": "grammatika"}
+ ,{"os": "R", "id": "r2-grammatika-v-subekte", "vid": "grammatika"}
+ ,{"os": "N", "id": "n1-mir-adversarii", "vid": "nul"}
+ ,{"os": "N", "id": "n2-nachalo-imeni", "vid": "nul"}
+ ,{"os": "N", "id": "n3-seredina-imeni", "vid": "nul"}
+ ,{"os": "N", "id": "n4-konec-imeni", "vid": "nul"}
+ ,{"os": "N", "id": "n5-bez-hvostogo-lf", "vid": "nul"}
+ ,{"os": "N", "id": "n6-v-znachenii-adresnogo", "vid": "nul"}
+ ,{"os": "N", "id": "n7-v-znachenii-sekretnogo", "vid": "nul"}
+ ,{"os": "N", "id": "n8-v-kommentarii", "vid": "nul"}
+ ,{"os": "N", "id": "n9-v-pustoj-stroke", "vid": "nul"}
+ ,{"os": "N", "id": "n10-vo-vtoroj-stroke", "vid": "nul"}
+ ,{"os": "N", "id": "n11-konformnyj-dom", "vid": "sessija"}
+ ,{"os": "N", "id": "n12-nechitaemyj-dom", "vid": "nul"}
+ ,{"os": "R", "id": "r3-nul-predproverka-v-subekte", "vid": "nulpred"}
  ],
  "stab_vhod": {
   "stab_skaner-vykljuchen": ["k1-api-key"],
@@ -158,9 +172,14 @@
  "stab_grammatika-tolko-tochka": ["k50-vne-defis-url", "k51-vne-defis-host", "k52-vne-defis-port", "k54-vne-defis-dashurl", "k55-vne-defis-name", "k64-vne-cifra-url", "k65-vne-cifra-host", "k66-vne-cifra-port", "k68-vne-cifra-dashurl", "k69-vne-cifra-name", "k71-vne-unikod-url", "k72-vne-unikod-host", "k73-vne-unikod-port", "k75-vne-unikod-dashurl", "k76-vne-unikod-name", "k78-vne-ravno-url", "k79-vne-ravno-host", "k80-vne-ravno-port", "k82-vne-ravno-dashurl", "k83-vne-ravno-name"],
  "stab_grammatika-tolko-defis": ["k43-vne-tocka-url", "k44-vne-tocka-host", "k45-vne-tocka-port", "k46-vne-tocka-doturl", "k48-vne-tocka-name", "k57-vne-probel-url", "k58-vne-probel-host", "k59-vne-probel-port", "k60-vne-probel-doturl", "k62-vne-probel-name", "k64-vne-cifra-url", "k65-vne-cifra-host", "k66-vne-cifra-port", "k67-vne-cifra-doturl", "k69-vne-cifra-name", "k71-vne-unikod-url", "k72-vne-unikod-host", "k73-vne-unikod-port", "k74-vne-unikod-doturl", "k76-vne-unikod-name", "k78-vne-ravno-url", "k79-vne-ravno-host", "k80-vne-ravno-port", "k81-vne-ravno-doturl", "k83-vne-ravno-name"],
  "stab_grammatika-posle-suffiksa": ["k19-lyuboe-url", "k25-lyuboe-url-baz", "k30-lyuboe-name-baz", "k43-vne-tocka-url", "k71-vne-unikod-url"],
- "stab_nekonformnoe-iskljuchaetsja-molcha": ["k49-vne-tocka-bes", "k56-vne-defis-bes", "k63-vne-probel-bes", "k70-vne-cifra-bes", "k77-vne-unikod-bes", "k84-vne-ravno-bes", "k91-vne-vlozh-bes", "k98-vne-pustoe-bes", "k92-vne-pustoe-url", "k93-vne-pustoe-host", "k94-vne-pustoe-port", "k95-vne-pustoe-doturl", "k96-vne-pustoe-dashurl", "k97-vne-pustoe-name", "k43-vne-tocka-url"]
+ "stab_nekonformnoe-iskljuchaetsja-molcha": ["k49-vne-tocka-bes", "k56-vne-defis-bes", "k63-vne-probel-bes", "k70-vne-cifra-bes", "k77-vne-unikod-bes", "k84-vne-ravno-bes", "k91-vne-vlozh-bes", "k98-vne-pustoe-bes", "k92-vne-pustoe-url", "k93-vne-pustoe-host", "k94-vne-pustoe-port", "k95-vne-pustoe-doturl", "k96-vne-pustoe-dashurl", "k97-vne-pustoe-name", "k43-vne-tocka-url"],
+ "stab_nul-normalizuet-read": ["n1-mir-adversarii", "n2-nachalo-imeni", "n3-seredina-imeni", "n4-konec-imeni", "n5-bez-hvostogo-lf", "n6-v-znachenii-adresnogo", "n7-v-znachenii-sekretnogo", "n8-v-kommentarii", "n9-v-pustoj-stroke", "n10-vo-vtoroj-stroke", "r3-nul-predproverka-v-subekte"],
+ "stab_predproverka-pervaya-stroka": ["n9-v-pustoj-stroke", "n10-vo-vtoroj-stroke"],
+ "stab_predproverka-do-ravno": ["n6-v-znachenii-adresnogo", "n7-v-znachenii-sekretnogo"],
+ "stab_predproverka-fail-open": ["n12-nechitaemyj-dom"],
+ "stab_nul-otkaz-pechataet-znachenie": ["n1-mir-adversarii", "n2-nachalo-imeni", "n3-seredina-imeni", "n4-konec-imeni", "n5-bez-hvostogo-lf", "n6-v-znachenii-adresnogo", "n7-v-znachenii-sekretnogo"]
 },
-"model_sha256": "9cc3b4a4256edeb53aac3c604b6d27eec94a61f79837e43becc280bc05a6de43",
+"model_sha256": "8076f5b0d77367d5fa2525d4b5e0a1c375f9191551250d142c936f398a9e9c8e",
  "imya_adresnoj_kletki": "X + 12 HEX (верхний регистр) + суффикс канона; порождается раннером imya() на каждый прогон — субъекту до прогона неизвестно (арбитраж contracts-142-arbitraz)",
  "imya_vne_grammatiki_kletki": "стем X+12 HEX + мутация класса (точка/дефис/пробел/цифра первой/нелатиница/＝/вложенные разделители/пустое) × форма суффикса (_URL _HOST _PORT .URL -URL NAME и без суффикса); порождается раннером imya_vne() на каждый прогон — субъекту до прогона неизвестно (вердикт adv contracts-142-impl-v1, блокер 1)",
  "istochniki": {
