@@ -409,6 +409,7 @@ C0–C3 и новые языковые паки (по появлению пот�
 | 3 | 138 | до V-2 | complior | 118 | docs/owner/2026-10-22-ochered-ispolneniya.md#Mob — порядок экранов первого слайса (слово владельца 2026-10-24 ~14:25 UTC) |
 | 3 | 139 | до V-2 | complior | - | docs/owner/2026-10-21-uskorenie-mob.md#Порядок |
 | 3 | 141 | до V-2 | complior | - | docs/owner/2026-10-25-n407-diagnostika.md#Порядок |
+| 3 | mob-ci-razdelenie | до V-2 | complior | - | docs/owner/2026-10-27-mob-ci-razdelenie.md#Порядок |
 | 4 | 095 | до V-2 | context | 094 | docs/owner/2026-10-08-roadmap-dovedenie.md#Контракт 4 |
 | 4 | 110 | параллельно с V-2 | done | 087 | docs/owner/2026-10-08-roadmap-dovedenie.md#Этап 5 |
 | 4 | 993 | до V-2 | complior | - | docs/owner/2026-10-17-resheniya-back-992-993.md#4 |
