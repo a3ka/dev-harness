@@ -56,9 +56,9 @@ done
 die2() { printf 's142: %s\n' "$*" >&2; exit 2; }
 
 # ── согласованность source.json: оси ↔ клетки ↔ стабы ↔ канон ↔ пин модели ──
-jq -e '.osi | type == "array" and length == 62' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 62 в source.json"
+jq -e '.osi | type == "array" and length == 119' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 119 в source.json"
 mapfile -t OSIDS < <(jq -r '.osi[].id' "$SRC_JSON")
-[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 62 ] || die2 "иды осей не уникальны"
+[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 119 ] || die2 "иды осей не уникальны"
 mapfile -t STAB_KEYS < <(jq -r '.stab_vhod | keys[]' "$SRC_JSON" | LC_ALL=C sort)
 mapfile -t STAB_FILES < <(cd "$BATT/stabs" && ls stab_*.sh 2>/dev/null | sed 's/\.sh$//' | LC_ALL=C sort)
 [ "${STAB_KEYS[*]:-}" = "${STAB_FILES[*]:-}" ] \
@@ -70,7 +70,8 @@ done < <(jq -r '.stab_vhod | to_entries[] | .key as $k | .value[] | "\($k)\t\(.)
 KANON_M=$(jq -r '.kanon.sekretnye_markery' "$SRC_JSON")
 KANON_S=$(jq -r '.kanon.adres_suffiksy' "$SRC_JSON")
 KANON_U=$(jq -r '.kanon.userinfo_re' "$SRC_JSON")
-[ -n "$KANON_M" ] && [ -n "$KANON_S" ] && [ -n "$KANON_U" ] || die2 "канон source.json пуст"
+KANON_I=$(jq -r '.kanon.imya_grammatika' "$SRC_JSON")
+[ -n "$KANON_M" ] && [ -n "$KANON_S" ] && [ -n "$KANON_U" ] && [ -n "$KANON_I" ] || die2 "канон source.json пуст"
 MODEL_SHA=$(jq -r '.model_sha256' "$SRC_JSON")
 [ "$(sha256sum "$MODEL" | cut -d' ' -f1)" = "$MODEL_SHA" ] \
   || die2 "ORACLE_TAMPERED: sha256 модели ≠ source.json:.model_sha256"
@@ -78,7 +79,7 @@ MODEL_SHA=$(jq -r '.model_sha256' "$SRC_JSON")
 grep -qF -- "SEKRET_MARKERY=\"$KANON_M\"" "$MODEL" || die2 "канон секретных маркеров не в модели байт в байт"
 grep -qF -- "ADRES_SUFFIKSY=\"$KANON_S\"" "$MODEL" || die2 "канон адресных суффиксов не в модели байт в байт"
 grep -qF -- "USERINFO_RE='$KANON_U'" "$MODEL" || die2 "канон userinfo не в модели байт в байт"
-
+grep -qF -- "IMYA_RE='$KANON_I'" "$MODEL" || die2 "грамматика имени не в модели байт в байт"
 # ── субъект ──────────────────────────────────────────────────────────────────
 case "$MODE" in
   subjekt) SUBJECT="$LIVE/scripts/connect_project.sh" ;;
@@ -102,6 +103,38 @@ rnd() { printf '%s' "${RANDOM}${RANDOM}$$" | sha256sum | cut -c1-12; }
 # конечный список имён любой мощности красен на k19–k42 по построению.
 imya() { printf 'X%s%s' "$(rnd | tr a-f A-F)" "$1"; }
 
+# имя ВНЕ грамматики ключа 125 (вердикт adv contracts-142-impl-v1, блокер 1):
+# закрывающее свойство — только ключ грамматики [A-Za-z_][A-Za-z0-9_]* может
+# получить исключение И-3; значение имени любого иного класса судимо ВСЕГДА
+# (утечка → rc 1). Стем X+12 HEX + мутация класса, суффикс — по форме; свежее
+# на каждый прогон, субъекту до прогона неизвестно (И-6); стем не выражает
+# секретного маркера (токены канона содержат буквы вне A–F и пробельные
+# границы, которых в стеме нет). Классы: точка, дефис, пробел (неконформное
+# первое слово — усечение по пробелу не спасает), цифра первой, нелатиница,
+# «=-подобный» разделитель (полноширинный ＝, U+FF1D), вложенные разделители,
+# пустое имя (пробел в начале: после усечения ключ пуст). Формы: _URL _HOST
+# _PORT (подчёркиваемые), .URL -URL (разделитель при суффиксе), NAME
+# (базовый суффикс), bes — без суффикса.
+imya_vne() { # $1 = класс, $2 = форма; кладёт IMYA
+  local h s=""
+  h=$(rnd | tr a-f A-F)
+  case "$2" in
+    url) s=_URL ;; host) s=_HOST ;; port) s=_PORT ;;
+    doturl) s=.URL ;; dashurl) s=-URL ;; name) s=NAME ;; bes) s="" ;;
+    *) die2 "imya_vne: неизвестная форма $2" ;;
+  esac
+  case "$1" in
+    tocka)   IMYA="X$h.O$s" ;;
+    defis)   IMYA="X$h-O$s" ;;
+    probel)  IMYA="X$h.O${s} Q" ;;
+    cifra)   IMYA="4X$h$s" ;;
+    unikod)  IMYA="И$h$s" ;;
+    ravno)   IMYA="X$h＝$s" ;;
+    vlozh)   IMYA="X$h.O-O$s" ;;
+    pustoe)  IMYA=" X$h$s" ;;
+    *) die2 "imya_vne: неизвестный класс $1" ;;
+  esac
+}
 WP=""   # префикс мира (стабы не переиспользуют миры клеток)
 mir() { # $1 = имя мира; установка = SUBJECT + двойник workshop + поддельный HOME
   local M="$RUNDIR/$WP$1"
@@ -130,7 +163,7 @@ err1() { sed -n 1p "$RUNDIR/$WP$1/err" 2>/dev/null; }
 
 # ── клетки: ось K (имя ключа) × ось Z (значение) × ось F (файл) × ось D (дом) × R ──
 # Внутри клетки: T1/T2 — свежие rnd-значения (оракул в памяти); dom — bytes дома
-# секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|kanon.
+# секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|kanon|grammatika.
 kletka() { # $1 = id клетки; печатает строку вердикта
   local id=$1 why="" T1 T2 IMYA=""
   T1="tok-$(rnd)"; T2="tok-$(rnd)"
@@ -278,6 +311,23 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
     k42-lyuboe-name-baz-userinfo)
       mir k42; IMYA=$(imya NAME); printf '%s=cluster:cl-pw@cluster-prod.internal\n' "$IMYA" > "$RUNDIR/$WP"k42/home/.config/dev-harness/secrets.env
       printf 'кластер dsn: cluster:cl-pw@cluster-prod.internal\n' > "$RUNDIR/$WP"k42/proj/arch.md; VID=otkaz ;;
+    # ── ось K, имена ВНЕ грамматики ключа 125 (вердикт adv
+    # contracts-142-impl-v1, блокер 1: `FOO.URL=…` и `FOO-URL=…` оканчиваются
+    # на URL и проходили ветку continue — значение не сканировалось, rc 0 при
+    # утечке). Закрывающее свойство: исключение И-3 — только ключу грамматики;
+    # значение неконформного имени судимо ВСЕГДА (утечка → rc 1). 8 классов
+    # × 6 суффиксных форм + без суффикса (k43–k98), имя ПОРОЖДАЕТСЯ imya_vne()
+    # на каждом прогоне (арбитраж contracts-142-arbitraz: не вычисляется
+    # автором). Клетки «без суффикса» и «пустое имя» зелены и на двери-как-main
+    # (И-4: не-суффиксные имена судились и до 142) — регрессия монотонности;
+    # суффиксные красны на двери-как-OBJECT (блокер 1) до правки предиката.
+    k[0-9][0-9]-vne-*)
+      _vne=${id#*-vne-}
+      imya_vne "${_vne%%-*}" "${_vne#*-}"
+      mir "${id%%-*}"
+      printf '%s=%s\n' "$IMYA" "$T1" > "$RUNDIR/$WP${id%%-*}/home/.config/dev-harness/secrets.env"
+      printf 'утечка неконформного имени: %s\n' "$T1" > "$RUNDIR/$WP${id%%-*}/proj/leak.txt"
+      VID=otkaz ;;
     # ── ось Z: значение ──
     z1-korotkoe)
       mir z1; printf 'ZAI_API_KEY=ab\n' > "$RUNDIR/$WP"z1/home/.config/dev-harness/secrets.env
@@ -340,6 +390,7 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       mir d5; printf 'ZAI_API_KEY\n' > "$RUNDIR/$WP"d5/home/.config/dev-harness/secrets.env; VID=sessija ;;
     # ── ось R: реализация ──
     r1-kanon-v-subekte) VID=kanon ;;
+    r2-grammatika-v-subekte) VID=grammatika ;;
     *) printf 'КЛЕТКА %s КРАСНА: клетка не описана в раннере\n' "$id"; return 1 ;;
   esac
   local M
@@ -377,6 +428,11 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       grep -qF -- "USERINFO_RE='$KANON_U'" "$SUBJECT" || why="$why нет канона userinfo;"
       if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
       else printf 'КЛЕТКА %s КРАСНА: канон предиката не в субъекте байт в байт:%s\n' "$id" "$why"; fi ;;
+    grammatika)
+      why=""
+      grep -qF -- "IMYA_RE='$KANON_I'" "$SUBJECT" || why="$why нет канона грамматики имени;"
+      if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
+      else printf 'КЛЕТКА %s КРАСНА: грамматика имени не в субъекте байт в байт:%s\n' "$id" "$why"; fi ;;
   esac
 }
 
@@ -384,7 +440,7 @@ schet() { # $1 = файл клеток; $2 = метка режима
   local G R
   G=$(grep -c '^КЛЕТКА .* ЗЕЛЕНА$' "$1"); R=$(grep -c '^КЛЕТКА .* КРАСНА' "$1")
   printf 's142 %s: клеток %s, зелёных %s, красных %s\n' "$2" "$((G+R))" "$G" "$R" >&2
-  [ "$((G+R))" = 62 ] || { printf 's142: клеток %s ≠ 62 — мир сломан\n' "$((G+R))" >&2; return 2; }
+  [ "$((G+R))" = 119 ] || { printf 's142: клеток %s ≠ 119 — мир сломан\n' "$((G+R))" >&2; return 2; }
   [ "$R" = 0 ] || return 1
 }
 
