@@ -1,9 +1,13 @@
 {
- "versija": 1,
+ "versija": 2,
  "kontrakt": "141-obryv-adb-diagnostika",
  "subjekt": ".github/workflows/mobile.yml",
  "repo_scenariev": "a3ka/Complior-mob",
- "job_imja": "android-e2e",
+ "job_imja": {
+  "135": "e2e-first-run",
+  "118": "e2e-erstinformation",
+  "995": "e2e-pilot"
+ },
  "shagi": {
   "135": "135 first-run-ekran",
   "118": "118 erstinformation",
@@ -47,13 +51,14 @@
   "avdmanager"
  ],
  "nositeli": {
-  "model/mobile.yml": "b7cd9c518c542e5e8b259f6a4d2d9a9ad64ba8c68d0498afe1f8cd46d5c7a353",
+  "model/mobile.yml": "e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2",
   "mobile-bez-141.yml": "b4c83b888d3ec1e2daa9c9b014b3cf3ee3fa741c71e5098d38f81e2006140341"
  },
  "istochniki": {
   "osnova": "ветка PR #124 a3ka/Complior-mob cmp-mob-118/erstinformation-prod @ 5803d57 (.github/workflows/mobile.yml)",
   "kandidat": "kandidat-mobile-yml.patch Diag141 (шаг 135; patch --dry-run OK, bash -n OK)",
-  "lekalo-118-995": "контракт 141 (architect): шаг 118 — то же лекало; шаг 995 — diag-хвост без шагного повтора"
+  "lekalo-118-995": "контракт 141 (architect): шаг 118 — то же лекало; шаг 995 — diag-хвост без шагного повтора",
+  "osnova_v2": "модель v2 — mobile.yml разделённого DAG 143 (mob_ci_143/model/.github/workflows/mobile.yml, sha256 e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2): тела шагов 135/118/995 перенесены побайтово (сверено: байт-равны модели v1 b7cd9c518…)"
  },
  "kejsy": {
   "135-oflin-povtor-spas": {
@@ -776,7 +781,7 @@
   "struktura-upravlenie-job": {
    "tip": "struktura",
    "podtip": "upravlenie-job",
-   "opisanie": "исполняемость job android-e2e (арбитраж 141, J1–J3): замкнутый алфавит КЛЮЧЕЙ = как в модели (живой замер: needs, runs-on, timeout-minutes, steps) ∪ зелёные {name, permissions, outputs, concurrency}; любой иной ключ (continue-on-error, if, env, defaults, strategy, container, services, environment, uses, with, secrets, …) — UPRAVLYAYUSHCHIJ_KLYUCH независимо от значения; J2 needs существуют + транзитивная цепь без if; J3 timeout-minutes — целое >= 1 после YAML-разбора; runs-on значениями не судится (несуществующая метка — вечная очередь, не зелень)",
+   "opisanie": "исполняемость ТРЁХ задач-носителей шагов 135/118/995 (v2, 143: job_imja — таблица e2e-first-run/e2e-erstinformation/e2e-pilot, не один монолит android-e2e): замкнутый алфавит КЛЮЧЕЙ каждой задачи = как в её модели (живой замер: if, needs, outputs, runs-on, timeout-minutes, steps) ∪ зелёные {name, permissions, concurrency}; любой иной ключ (continue-on-error, env, defaults, strategy, container, services, environment, uses, with, secrets, …) — UPRAVLYAYUSHCHIJ_KLYUCH независимо от значения; job-if работника — ровно каноническая форма выбора 143 needs.select-screens.outputs['<job>'] == 'true' (любое иное значение if — UPRAVLYAYUSHCHIJ_KLYUCH); J2 needs существуют + транзитивная цепь без if; J3 timeout-minutes — целое >= 1 после YAML-разбора; runs-on значениями не судится (несуществующая метка — вечная очередь, не зелень); v2-испр. 1 (блокер вердикта критика 141 v2 вызов 1/2 «needs-ребро»): канонический if выбора ссылается на needs.select-screens.outputs — работа select-screens обязана присутствовать в needs ТОЙ ЖЕ задачи (единый источник канона JOB_IF_KANON; канон 143 И-3: needs: [select-screens, build-apk]); needs носителя — только список строк: строка (ловушка 'select-screens, build-apk'), выражение, пустой список либо отсутствие ключа — отказ fail-closed REBRO_NEEDS: job <имя>: …",
    "ozhidanie": {}
   },
   "struktura-upravlenie-workflow": {
@@ -788,9 +793,9 @@
   "derevo-bez-141": {
    "tip": "derevo",
    "podtip": "bez-141",
-   "opisanie": "живая форма mobile.yml БЕЗ правки 141 (PR #124 @ 5803d57) красна каноном — до реализации зелени нет",
+   "opisanie": "живая форма mobile.yml БЕЗ разделения 143 (монолит android-e2e, PR #124 @ 5803d57): шага 135 нет в его задаче e2e-first-run — именованный SHAG_135_NET, до cutover зелени нет",
    "ozhidanie": {
-    "krasno": "SKRIPT_RASHOZHDENIE: shag 135"
+    "krasno": "SHAG_135_NET"
    }
   },
   "derevo-chuzhoj-shag": {
@@ -811,6 +816,49 @@
    "opisanie": "шаг 135 переименован/удалён — именованный отказ SHAG_135_NET, не молчаливая зелень",
    "ozhidanie": {
     "krasno": "SHAG_135_NET"
+   }
+  },
+  "derevo-rebro-135-net": {
+   "tip": "derevo",
+   "podtip": "rebro-net",
+   "shag": "135",
+   "opisanie": "красная клетка needs-ребра (v2-испр. 1, обход критика 141 v2 1/2): в допустимой копии у носителя e2e-first-run из needs удалено ТОЛЬКО ребро select-screens (needs: [build-apk]; if и тела шагов неизменны) — J1–J3 зелёные, но платформа не даёт контекста выбора: работа не выбирается по селектору, шаги 135 на PR не исполняются — REBRO_NEEDS с именем задачи",
+   "ozhidanie": {
+    "krasno": "REBRO_NEEDS"
+   }
+  },
+  "derevo-rebro-118-net": {
+   "tip": "derevo",
+   "podtip": "rebro-net",
+   "shag": "118",
+   "opisanie": "то же у носителя e2e-erstinformation: ребро select-screens удалено порознь — проверка доходит до каждого из трёх носителей, возврат по первому отказу не маскирует остальные",
+   "ozhidanie": {
+    "krasno": "REBRO_NEEDS"
+   }
+  },
+  "derevo-rebro-995-net": {
+   "tip": "derevo",
+   "podtip": "rebro-net",
+   "shag": "995",
+   "opisanie": "то же у носителя e2e-pilot: ребро select-screens удалено порознь — REBRO_NEEDS",
+   "ozhidanie": {
+    "krasno": "REBRO_NEEDS"
+   }
+  },
+  "derevo-rebro-ne-spisok": {
+   "tip": "derevo",
+   "podtip": "rebro-ne-spisok",
+   "opisanie": "needs задан строкой/выражением вместо списка — обе формы-ловушки: строка select-screens, build-apk (вхождение имени есть — наивный поиск подстроки прошёл бы; GH видит одно имя работы) и выражение ${{ fromJSON(...) }} — отказ fail-closed на каждой форме порознь",
+   "ozhidanie": {
+    "krasno": "REBRO_NEEDS"
+   }
+  },
+  "derevo-rebro-pusto": {
+   "tip": "derevo",
+   "podtip": "rebro-pusto",
+   "opisanie": "if выбора сохранён, needs пуст — пустой список и отсутствие ключа: контекст выбора невозможен — REBRO_NEEDS на обеих формах порознь",
+   "ozhidanie": {
+    "krasno": "REBRO_NEEDS"
    }
   }
  },
@@ -969,6 +1017,21 @@
   ],
   "s-upr-workflow-env-bash-env": [
    "struktura-upravlenie-workflow"
+  ],
+  "s-upr-job-rebro-135-net": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-rebro-118-net": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-rebro-995-net": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-rebro-ne-spisok": [
+   "struktura-upravlenie-job"
+  ],
+  "s-upr-job-rebro-pusto": [
+   "struktura-upravlenie-job"
   ]
  }
 }

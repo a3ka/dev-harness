@@ -202,7 +202,7 @@ OKRUZHENIE_ACTIONS = {
     'GITHUB_RUN_ATTEMPT': '1',
     'GITHUB_RUN_NUMBER': '4242',
     'GITHUB_WORKFLOW': 'mobile',
-    'GITHUB_JOB': 'android-e2e',
+    'GITHUB_JOB': 'e2e-first-run',
     'GITHUB_EVENT_NAME': 'push',
     'GITHUB_SHA': '1410beef1410beef1410beef1410beef1410beef',
     'GITHUB_REF': 'refs/heads/main',
@@ -249,15 +249,28 @@ def load_source():
 
 # --- тела шагов и канон скрипта ----------------------------------------------
 
-def shagi_doc(doc, src):
-    return doc['jobs'][src['job_imja']]['steps']
+def job_shaga(doc, src, nomer):
+    """v2 (контракт 143): задача-носитель шага — ТАБЛИЦА job_imja (135 →
+    e2e-first-run, 118 → e2e-erstinformation, 995 → e2e-pilot), не один
+    монолитный android-e2e; None, если задачи нет."""
+    imja = src['job_imja'][nomer]
+    jobs = doc.get('jobs') if isinstance(doc, dict) else None
+    return jobs.get(imja) if isinstance(jobs, dict) else None
+
+
+def shagi_doc(doc, src, nomer):
+    job = job_shaga(doc, src, nomer)
+    return job.get('steps') if isinstance(job, dict) else None
 
 
 def telo_shaga(doc, src, nomer):
-    """Тело run: шага с именем-префиксом src['shagi'][nomer]; None, если
-    шага нет (SHAG_<N>_NET)."""
+    """Тело run: шага с именем-префиксом src['shagi'][nomer] В СВОЕЙ задаче
+    (v2, 143); None, если задачи/шага нет (SHAG_<N>_NET)."""
     imja = src['shagi'][nomer]
-    for s in shagi_doc(doc, src):
+    shagi = shagi_doc(doc, src, nomer)
+    if not shagi:
+        return None
+    for s in shagi:
         nm = s.get('name', '')
         if isinstance(nm, str) and nm.startswith(imja):
             run = s.get('run')
@@ -292,7 +305,10 @@ def kanon_rashozhdenie(subj, model):
 
 def _najti_shag_doc(doc, src, nomer):
     imja = src['shagi'][nomer]
-    for s in shagi_doc(doc, src):
+    shagi = shagi_doc(doc, src, nomer)
+    if not shagi:
+        return None
+    for s in shagi:
         nm = s.get('name', '')
         if isinstance(nm, str) and nm.startswith(imja):
             return s
@@ -327,57 +343,100 @@ def upravlenie_shaga(subj_doc, src, nomer, model_doc):
     return ('ok', None)
 
 
-# Зелёные ключи job android-e2e (решение арбитража 141, J1): по построению
+# Зелёные ключи задачи-носителя (решение арбитража 141, J1): по построению
 # не меняют ни достижимость шагов, ни красноту итога — имя/права/выходы;
 # concurrency даёт только отмену, не зелень. Алфавит модели измеряется
 # живым замером model_doc (как у шага), зелёные — константа.
 JOB_ZELENYE_KLYUCHI = ('name', 'permissions', 'outputs', 'concurrency')
 
+# v2 (143, И-3): каноническая форма условия выбора работника — единый
+# источник для модели, клетки и стабов уровня job.
+JOB_IF_KANON = "needs.select-screens.outputs['%s'] == 'true'"
+# v2-испр. 1 (блокер вердикта критика 141 v2, вызов 1/2 «needs-ребро»):
+# канонический if выбора ссылается на контекст needs.<работа>.outputs —
+# контекст выбора платформа даёт ТОЛЬКО через ребро needs той же задачи;
+# имя работы канона выводится из JOB_IF_KANON (единый источник, второй
+# константы нет).
+JOB_IF_REBRO = JOB_IF_KANON.split('.')[1]
+
 
 def upravlenie_job(subj_doc, src, model_doc):
-    """J1–J3 (арбитраж 141, Q1 вариант (а)): замкнутый алфавит КЛЮЧЕЙ
-    оболочки job = как в модели, значения не разбираются — перечень значений
-    открытого языка выражений GitHub Actions не замыкается (дефект 141b:
-    whitelisted-различители значений пропускали `continue-on-error:
-    ${{ true }}`). J1: лишний ключ — именованный отказ независимо от
-    значения; J2: needs существуют + транзитивная цепь без `if`; J3:
-    timeout-minutes — целое >= 1 после YAML-разбора; runs-on не судится
-    (несуществующая метка — вечная очередь, не зелень); steps судятся
-    инвариантами шага."""
+    """J1–J3 (арбитраж 141, Q1 вариант (а)); v2 (143): судятся ТРИ
+    задачи-носителя шагов — job_imja таблица (e2e-first-run /
+    e2e-erstinformation / e2e-pilot), не один монолит android-e2e.
+    J1: замкнутый алфавит КЛЮЧЕЙ каждой задачи = как в её модели, значения
+    не разбираются — перечень значений открытого языка выражений GitHub
+    Actions не замыкается (дефект 141b: whitelisted-различители значений
+    пропускали `continue-on-error: ${{ true }}`), КРОМЕ job-if: v2 (143
+    И-3) у работника — ровно каноническое условие выбора
+    needs.select-screens.outputs['<job>'] == 'true' (как в модели), любое
+    иное значение — именованный отказ; J2: needs существуют + транзитивная
+    цепь без `if`; J3: timeout-minutes — целое >= 1 после YAML-разбора;
+    runs-on не судится (несуществующая метка — вечная очередь, не зелень);
+    steps судятся инвариантами шага."""
     jobs = subj_doc.get('jobs') if isinstance(subj_doc, dict) else None
-    job = jobs.get(src['job_imja']) if isinstance(jobs, dict) else None
-    if not isinstance(job, dict):
-        return ('KRASNO', 'JOB_NET: %s' % src['job_imja'])
-    model_job = (model_doc.get('jobs') or {}).get(src['job_imja'])
-    if not isinstance(model_job, dict):
-        return ('KRASNO', 'ORACLE_TAMPERED: в модели нет job %s'
-                % src['job_imja'])
-    lishnie = sorted(set(job) - set(model_job) - set(JOB_ZELENYE_KLYUCHI))
-    if lishnie:
-        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: лишние ключи: %s'
-                % (src['job_imja'], ', '.join(lishnie)))
-    nz = job.get('needs')
-    spisok = [nz] if isinstance(nz, str) else (nz if isinstance(nz, list) else [])
-    for n in spisok:
-        if not isinstance(jobs.get(n), dict):
-            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: needs на '
-                    'несуществующую работу %r' % (src['job_imja'], n))
-    ochered, vidennye = list(spisok), set()
-    while ochered:
-        n = ochered.pop()
-        if n in vidennye:
-            continue
-        vidennye.add(n)
-        upstream = jobs.get(n) if isinstance(jobs.get(n), dict) else {}
-        if 'if' in upstream:
-            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: upstream %s '
-                    'несёт if=%r' % (src['job_imja'], n, upstream['if']))
-        u = upstream.get('needs')
-        ochered += [u] if isinstance(u, str) else (u if isinstance(u, list) else [])
-    tm = job.get('timeout-minutes', 1)
-    if not (isinstance(tm, int) and not isinstance(tm, bool) and tm >= 1):
-        return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: '
-                'timeout-minutes=%r' % (src['job_imja'], tm))
+    for nomer in ('135', '118', '995'):
+        imja = src['job_imja'][nomer]
+        job = jobs.get(imja) if isinstance(jobs, dict) else None
+        if not isinstance(job, dict):
+            return ('KRASNO', 'JOB_NET: %s' % imja)
+        model_job = (model_doc.get('jobs') or {}).get(imja)
+        if not isinstance(model_job, dict):
+            return ('KRASNO', 'ORACLE_TAMPERED: в модели нет job %s' % imja)
+        lishnie = sorted(set(job) - set(model_job) - set(JOB_ZELENYE_KLYUCHI))
+        if lishnie:
+            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: лишние ключи: %s'
+                    % (imja, ', '.join(lishnie)))
+        if 'if' in model_job and job.get('if') != JOB_IF_KANON % imja:
+            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: if=%r '
+                    '(канон 143: %r)' % (imja, job.get('if'),
+                                         JOB_IF_KANON % imja))
+        nz = job.get('needs')
+        if 'if' in model_job:
+            # v2-испр. 1 (needs-ребро, блокер вердикта критика 141 v2 1/2):
+            # канонический if выбора ссылается на needs.<JOB_IF_REBRO>.
+            # outputs — контекст выбора платформа даёт ТОЛЬКО через ребро
+            # needs той же задачи: без него работа не выбирается по
+            # селектору (шаги не исполняются), а J2 существования работ
+            # needs остаётся зелёной (обход: needs: [build-apk] при
+            # байт-в-байт if и телах). Отказ fail-closed: needs — только
+            # список строк, семантика вхождения строки не разбирается
+            # (ловушка 'select-screens, build-apk' — одно имя работы).
+            if not isinstance(nz, list):
+                return ('KRASNO', 'REBRO_NEEDS: job %s: needs=%r не список '
+                        '(канонический if ссылается на needs.%s.outputs — '
+                        'контекст выбора даёт только ребро needs; канон 143 '
+                        'И-3 (модель): needs=%r)'
+                        % (imja, nz, JOB_IF_REBRO, model_job.get('needs')))
+            if JOB_IF_REBRO not in nz:
+                return ('KRASNO', 'REBRO_NEEDS: job %s: нет ребра %s в '
+                        'needs=%r (канонический if ссылается на '
+                        'needs.%s.outputs — без ребра работа не выбирается '
+                        'по селектору, шаги не исполняются; канон 143 И-3 '
+                        '(модель): needs=%r)'
+                        % (imja, JOB_IF_REBRO, nz, JOB_IF_REBRO,
+                           model_job.get('needs')))
+        spisok = [nz] if isinstance(nz, str) else (nz if isinstance(nz, list) else [])
+        for n in spisok:
+            if not isinstance(jobs.get(n), dict):
+                return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: needs на '
+                        'несуществующую работу %r' % (imja, n))
+        ochered, vidennye = list(spisok), set()
+        while ochered:
+            n = ochered.pop()
+            if n in vidennye:
+                continue
+            vidennye.add(n)
+            upstream = jobs.get(n) if isinstance(jobs.get(n), dict) else {}
+            if 'if' in upstream:
+                return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: upstream %s '
+                        'несёт if=%r' % (imja, n, upstream['if']))
+            u = upstream.get('needs')
+            ochered += [u] if isinstance(u, str) else (u if isinstance(u, list) else [])
+        tm = job.get('timeout-minutes', 1)
+        if not (isinstance(tm, int) and not isinstance(tm, bool) and tm >= 1):
+            return ('KRASNO', 'UPRAVLYAYUSHCHIJ_KLYUCH: job %s: '
+                    'timeout-minutes=%r' % (imja, tm))
     return ('ok', None)
 
 
@@ -399,16 +458,18 @@ def upravlenie_workflow(subj_doc, model_doc):
 
 
 def postavit_derevo(model_doc, src):
-    """Зелёный контроль законных правок job (арбитраж 141, мутанты №24–27):
-    дерево = модель + name, permissions, timeout-minutes 50, runs-on с
-    лишней меткой — ключи зелёные/несудимые, достижимость шагов и красный
-    итог не затрагивают; всё кодом, без файла-носителя."""
+    """Зелёный контроль законных правок job (арбитраж 141, мутанты №24–27;
+    v2 — на КАЖДОЙ из трёх задач-носителей): дерево = модель + name,
+    permissions, timeout-minutes 50, runs-on с лишней меткой — ключи
+    зелёные/несудимые, достижимость шагов и красный итог не затрагивают;
+    всё кодом, без файла-носителя."""
     doc = copy.deepcopy(model_doc)
-    job = doc['jobs'][src['job_imja']]
-    job['name'] = 'Android E2E'
-    job['permissions'] = {'contents': 'read'}
-    job['timeout-minutes'] = 50
-    job['runs-on'] = list(job['runs-on']) + ['v2']
+    for nomer in ('135', '118', '995'):
+        job = doc['jobs'][src['job_imja'][nomer]]
+        job['name'] = 'E2E ekran %s' % nomer
+        job['permissions'] = {'contents': 'read'}
+        job['timeout-minutes'] = 50
+        job['runs-on'] = list(job['runs-on']) + ['v2']
     return doc
 
 
@@ -613,7 +674,9 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
             return ('KRASNO', 'OZHIDALOS_KRASNO: носитель без правки 141 прошёл канон')
         if podtip == 'chuzhoj-shag':
             doc = copy.deepcopy(model_doc)
-            for s in shagi_doc(doc, src):
+            # v2 (143): шаг 123 живёт в своей задаче e2e-splash — правка
+            # чужого шага чужой задачи батарею не краснит
+            for s in doc['jobs']['e2e-splash']['steps']:
                 if isinstance(s.get('name'), str) and s['name'].startswith('123 сверка кадров'):
                     s['run'] = s['run'] + '\n          echo kontrol 141'
                     break
@@ -641,12 +704,64 @@ def sud_kejs(imja, kejs, src, subj_doc, model_doc, model_tela, koren):
         if podtip == 'shag-net':
             doc = copy.deepcopy(model_doc)
             imja = src['shagi']['135']
-            doc['jobs'][src['job_imja']]['steps'] = [
-                s for s in shagi_doc(doc, src)
+            doc['jobs'][src['job_imja']['135']]['steps'] = [
+                s for s in shagi_doc(doc, src, '135')
                 if not (isinstance(s.get('name'), str) and s['name'].startswith(imja))]
             if telo_shaga(doc, src, '135') is not None:
                 return ('KRASNO', 'OZHIDALOS_SHAG_NET: шаг 135 всё ещё находится')
             return ('KRASNO', 'SHAG_135_NET')
+        if podtip == 'rebro-net':
+            # v2-испр. 1 (needs-ребро): у ОДНОГО носителя (параметр shag)
+            # из needs удалено ТОЛЬКО ребро select-screens — if и тела
+            # неизменны; обход критика 141 v2 1/2 обязан краснеть у
+            # КАЖДОГО носителя порознь (ранний возврат по 135 не маскирует).
+            doc = copy.deepcopy(model_doc)
+            imja_joba = src['job_imja'][kejs['shag']]
+            doc['jobs'][imja_joba]['needs'] = [
+                n for n in doc['jobs'][imja_joba]['needs']
+                if n != JOB_IF_REBRO]
+            ishod, prichina = upravlenie_job(doc, src, model_doc)
+            if ishod != 'KRASNO' or not (prichina or '').startswith('REBRO_NEEDS'):
+                return ('KRASNO', 'OZHIDALOS_REBRO_KRASNO: %s/%s'
+                        % (ishod, prichina))
+            return ('KRASNO', prichina)
+        if podtip == 'rebro-ne-spisok':
+            # v2-испр. 1: needs строкой/выражением вместо списка — обе
+            # формы-ловушки: вхождение имени 'select-screens' есть (поиск
+            # подстроки прошёл бы), GH видит одно имя работы — отказ
+            # fail-closed на КАЖДОЙ форме (не первая красная точка).
+            doc = copy.deepcopy(model_doc)
+            imja_joba = src['job_imja']['135']
+            for lovnushka in ('select-screens, build-apk',
+                              "${{ fromJSON('[\"select-screens\",\"build-apk\"]') }}"):
+                doc['jobs'][imja_joba]['needs'] = lovnushka
+                ishod, prichina = upravlenie_job(doc, src, model_doc)
+                if ishod != 'KRASNO' or not (prichina or '').startswith('REBRO_NEEDS'):
+                    return ('KRASNO', 'OZHIDALOS_REBRO_KRASNO (%r): %s/%s'
+                            % (lovnushka, ishod, prichina))
+            return ('KRASNO', 'REBRO_NEEDS: job %s: needs строкой/выражением '
+                    'вместо списка — отказ fail-closed (канон 143 И-3 '
+                    '(модель): needs=%r)'
+                    % (imja_joba, model_doc['jobs'][imja_joba]['needs']))
+        if podtip == 'rebro-pusto':
+            # v2-испр. 1: if выбора сохранён, needs пуст — пустой список и
+            # отсутствие ключа; контекст выбора невозможен; обе формы
+            # проверяются порознь.
+            imja_joba = src['job_imja']['135']
+            for pusto, metka in (([], '[]'), (None, 'нет ключа')):
+                doc = copy.deepcopy(model_doc)
+                if pusto is None:
+                    del doc['jobs'][imja_joba]['needs']
+                else:
+                    doc['jobs'][imja_joba]['needs'] = pusto
+                ishod, prichina = upravlenie_job(doc, src, model_doc)
+                if ishod != 'KRASNO' or not (prichina or '').startswith('REBRO_NEEDS'):
+                    return ('KRASNO', 'OZHIDALOS_REBRO_KRASNO (needs=%s): '
+                            '%s/%s' % (metka, ishod, prichina))
+            return ('KRASNO', 'REBRO_NEEDS: job %s: needs пуст при '
+                    'каноническом if выбора — контекст выбора невозможен '
+                    '(канон 143 И-3 (модель): needs=%r)'
+                    % (imja_joba, model_doc['jobs'][imja_joba]['needs']))
     return ('KRASNO', 'неизвестный tip')
 
 
@@ -730,9 +845,35 @@ def _klyuchi_raboty(t, imja, stroki):
 
 
 def _klyuchi_joba(t, stroki):
-    """Вставка строк-ключей job (отступ 4) сразу после заголовка
-    `  android-e2e:` — мутация job-различителей."""
-    return _klyuchi_raboty(t, 'android-e2e', stroki)
+    """Вставка строк-ключей job (отступ 4) сразу после заголовка работы —
+    v2 (143): мутация job-различителей задачи-носителя шага 135
+    (e2e-first-run), не монолита android-e2e."""
+    return _klyuchi_raboty(t, 'e2e-first-run', stroki)
+
+
+def _v_rabote(t, imja, staryj, novyj):
+    """Замена внутри блока ОДНОЙ работы (v2): `timeout-minutes: 40` в
+    разделённом DAG не уникален в файле (он у всех работников) — цель
+    мутации ограничивается блоком задачи-носителя."""
+    lines = t.split('\n')
+    nachalo = None
+    for i, l in enumerate(lines):
+        if l == '  %s:' % imja:
+            nachalo = i + 1
+            break
+    if nachalo is None:
+        raise RuntimeError('работа %s не найдена' % imja)
+    konec = len(lines)
+    for i in range(nachalo, len(lines)):
+        if lines[i].startswith('  ') and not lines[i].startswith('   '):
+            konec = i
+            break
+    blok = '\n'.join(lines[nachalo:konec])
+    if blok.count(staryj) != 1:
+        raise RuntimeError('цель в блоке %s не единственна (вхождений %d): %r'
+                           % (imja, blok.count(staryj), staryj[:40]))
+    lines[nachalo:konec] = blok.replace(staryj, novyj).split('\n')
+    return '\n'.join(lines)
 
 
 def _klyuchi_workflow(t, stroki, jakor, posle=False):
@@ -916,7 +1057,11 @@ def m_upr_continue_995(b):
 
 
 def m_upr_job_if_false(b):
-    return _klyuchi_joba(b, ['    if: false'])
+    # v2 (143): у работника уже есть канонический if выбора — мутация
+    # подменяет его значение ложным литералом (вставка продублировала бы
+    # ключ; канон строки — JOB_IF_KANON)
+    return _zameni_edinstvennoe(b, '    if: ' + JOB_IF_KANON % 'e2e-first-run',
+                                '    if: false')
 
 
 def m_upr_job_continue(b):
@@ -941,8 +1086,10 @@ def m_upr_job_matrix_continue(b):
 
 
 def m_upr_job_if_dinam(b):
-    # мутант №7: динамическое if — ложь вне статического семейства 141b
-    return _klyuchi_joba(b, ["    if: ${{ github.event_name == 'never' }}"])
+    # мутант №7: динамическое if — ложь вне статического семейства 141b;
+    # v2: подмена канонического if выбора работника динамическим выражением
+    return _zameni_edinstvennoe(b, '    if: ' + JOB_IF_KANON % 'e2e-first-run',
+                                "    if: ${{ github.event_name == 'never' }}")
 
 
 def m_upr_job_defaults_shell(b):
@@ -956,14 +1103,57 @@ def m_upr_job_env_bash_env(b):
 
 
 def m_upr_job_timeout_vyrazhenie(b):
-    # мутант №19: выражение вместо целого — тип не судился в 141b
-    return _zameni_edinstvennoe(b, '    timeout-minutes: 40',
-                                '    timeout-minutes: ${{ 0 }}')
+    # мутант №19: выражение вместо целого — тип не судился в 141b; v2:
+    # цель ограничена блоком задачи-носителя (в разделённом DAG
+    # timeout-minutes: 40 не уникален в файле)
+    return _v_rabote(b, 'e2e-first-run', 'timeout-minutes: 40',
+                     'timeout-minutes: ${{ 0 }}')
 
 
 def m_upr_quality_if_false(b):
     # мутант №22: upstream quality с if — android-e2e пропускается needs
     return _klyuchi_raboty(b, 'quality', ['    if: ${{ false }}'])
+
+
+def m_upr_job_rebro_135_net(b):
+    # v2-испр. 1 (блокер вердикта критика 141 v2 1/2): ребро select-screens
+    # удалено из needs носителя 135 — if и тела байт-в-байт, работа не
+    # выбирается по селектору. Цель ограничена блоком задачи (строка needs
+    # в файле не уникальна — она у всех работников 143).
+    return _v_rabote(b, 'e2e-first-run',
+                     'needs: [select-screens, build-apk]',
+                     'needs: [build-apk]')
+
+
+def m_upr_job_rebro_118_net(b):
+    # то же у носителя 118: проверка доходит до КАЖДОГО из трёх носителей —
+    # возврат по первому отказу (135) не маскирует остальные.
+    return _v_rabote(b, 'e2e-erstinformation',
+                     'needs: [select-screens, build-apk]',
+                     'needs: [build-apk]')
+
+
+def m_upr_job_rebro_995_net(b):
+    # то же у носителя 995 (e2e-pilot).
+    return _v_rabote(b, 'e2e-pilot',
+                     'needs: [select-screens, build-apk]',
+                     'needs: [build-apk]')
+
+
+def m_upr_job_rebro_ne_spisok(b):
+    # needs строкой-ловушкой вместо списка: вхождение имени 'select-screens'
+    # есть (поиск подстроки прошёл бы), GH видит одно имя работы — отказ
+    # fail-closed, не семантика вхождения.
+    return _v_rabote(b, 'e2e-first-run',
+                     'needs: [select-screens, build-apk]',
+                     'needs: select-screens, build-apk')
+
+
+def m_upr_job_rebro_pusto(b):
+    # if выбора сохранён, needs пуст — контекст выбора невозможен.
+    return _v_rabote(b, 'e2e-first-run',
+                     'needs: [select-screens, build-apk]',
+                     'needs: []')
 
 
 def m_upr_workflow_defaults_shell(b):
@@ -1001,6 +1191,11 @@ def sdelat_stab(imja, model_tekst, kanon):
             's-upr-job-defaults-shell': m_upr_job_defaults_shell,
             's-upr-job-env-bash-env': m_upr_job_env_bash_env,
             's-upr-job-timeout-vyrazhenie': m_upr_job_timeout_vyrazhenie,
+            's-upr-job-rebro-135-net': m_upr_job_rebro_135_net,
+            's-upr-job-rebro-118-net': m_upr_job_rebro_118_net,
+            's-upr-job-rebro-995-net': m_upr_job_rebro_995_net,
+            's-upr-job-rebro-ne-spisok': m_upr_job_rebro_ne_spisok,
+            's-upr-job-rebro-pusto': m_upr_job_rebro_pusto,
             's-upr-quality-if-false': m_upr_quality_if_false,
             's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
             's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
@@ -1105,6 +1300,11 @@ STAB_MUTACII = {
     's-upr-job-defaults-shell': m_upr_job_defaults_shell,
     's-upr-job-env-bash-env': m_upr_job_env_bash_env,
     's-upr-job-timeout-vyrazhenie': m_upr_job_timeout_vyrazhenie,
+    's-upr-job-rebro-135-net': m_upr_job_rebro_135_net,
+    's-upr-job-rebro-118-net': m_upr_job_rebro_118_net,
+    's-upr-job-rebro-995-net': m_upr_job_rebro_995_net,
+    's-upr-job-rebro-ne-spisok': m_upr_job_rebro_ne_spisok,
+    's-upr-job-rebro-pusto': m_upr_job_rebro_pusto,
     's-upr-quality-if-false': m_upr_quality_if_false,
     's-upr-workflow-defaults-shell': m_upr_workflow_defaults_shell,
     's-upr-workflow-env-bash-env': m_upr_workflow_env_bash_env,
