@@ -13,14 +13,18 @@
 Режимы:
   (без флага)  --repo R отсутствует и MOB_REPO не задан → rc 1 SUBJECT_ABSENT
                 с перечнем всех кейсов (зелень без субъекта невозможна);
-  (без флага)  --repo R / MOB_REPO → судится живой R/.github/workflows/
-                mobile-e2e-retry.yml (+ пин байтов R/.github/workflows/mobile.yml);
+                mobile-e2e-retry.yml; v3 (контракт 143): автоповтор ВЫВЕДЕН
+                ИЗ ЭКСПЛУАТАЦИИ — живой файл красен AVTOPOVTOR_139_ZHIV,
+                отсутствие файла = зелёный факт вывода (клетки канона
+                судятся по модели; пин байтов mobile.yml СНЯТ);
   --model      субъект = model/mobile-e2e-retry.yml (контроль входов);
   --stabs      контроль + матрица обманных стабов (SVJAZI N);
   --matrix     синоним --stabs (для арбитража);
   --svideteli D  строит деревья-свидетели (v3, F: свидетель критика 2/2
-                hidden-api + мутанты 1-6 арбитража 139) в каталоге D —
-                судятся живым `--repo D/<имя>` → rc 1 SKRIPT_RASHOZHDENIE.
+                hidden-api + мутанты 1-6 арбитража 139) в каталоге D;
+                v3 (143): деревья содержат ЖИВОЙ файл — --repo на них красен
+                AVTOPOVTOR_139_ZHIV; канон судится стабами тех же мутаций
+                (--stabs: SKRIPT_RASHOZHDENIE на связанных входах).
 Коды возврата: 0 — зелено; 1 — красный кейс либо стаб прошёл (STAB_ZHIV)
 либо нет субъекта (SUBJECT_ABSENT); 2 — нечем проверять (нет python3-модуля
 yaml, ORACLE_TAMPERED, дрейф модели/мутаций).
@@ -976,10 +980,9 @@ def replay(tekst_subiekta, kejs, src, okruzhenie=None):
 
 # --- суд кейса ---------------------------------------------------------------
 
-def pin_mobile_yml(derevo):
-    p = derevo / MOBILE_YML_REL
-    return sha256_bytes(p.read_bytes())
-
+# v3 (143): pin_mobile_yml удалён вместе с инвариантом 6 — батарея больше
+# не пинит байты чужого mobile.yml (дефект дизайна назван 141; черновик
+# 139-v3): судьба шагов mobile.yml — их собственные контракты и договор 143.
 
 def pereformat(tekst):
     """Зелёный контроль канона (v3, требование B): КОДОВАЯ функция
@@ -1040,11 +1043,11 @@ def sudit(tekst_subiekta, imja, src, tmp_root):
         else:
             problemy = OSI_STRUKTURY[os_](doc, src)
     else:
-        # replay / derevo: пин байтов mobile.yml на дереве кейса
+        # replay / derevo (v3, 143: пин байтов mobile.yml СНЯТ — правка
+        # чужого workflow батареей не судится; носитель mobile.yml остаётся
+        # пином оракула инварианта 7, дерево кейса строится как раньше)
         derevo = tmp_root / ('derevo_' + imja)
         postavit_derevo(derevo, src, mutacija=(kejs['tip'] == 'derevo'))
-        if pin_mobile_yml(derevo) != src['nositeli']['mobile.yml']:
-            problemy.append('MOBILE_YML_IZMENEN')
         if kejs['tip'] == 'replay':
             for okr in ('CHISTYJ', 'ACTIONS'):
                 rc, out, vyzovy, nechitaem = replay(
@@ -1139,17 +1142,23 @@ def main():
                 print('CASE %s KRASNO (SUBJECT_ABSENT)' % imja)
             return 1
         subj = Path(a.repo) / SUBJECT_REL
-        if not subj.is_file():
-            print('SUBJECT_ABSENT: %s' % subj)
+        if subj.is_file():
+            # v3 (контракт 143): автоповтор ВЫВЕДЕН ИЗ ЭКСПЛУАТАЦИИ — живой
+            # файл на дереве продукта красен именованной причиной независимо
+            # от содержимого (до cutover красное ожидаемо и адресно); пин
+            # байтов mobile.yml снят — судьба чужого workflow его контрактами
+            print('AVTOPOVTOR_139_ZHIV: %s ещё в эксплуатации — вывод из '
+                  'эксплуатации (контракт 143, cutover) не исполнен' % subj,
+                  file=sys.stderr)
             for imja in src['kejsy']:
-                print('CASE %s KRASNO (SUBJECT_ABSENT)' % imja)
+                print('CASE %s KRASNO (AVTOPOVTOR_139_ZHIV)' % imja)
             return 1
-        tekst_subiekta = subj.read_text(encoding='utf-8')
-        zhivoj = Path(a.repo) / MOBILE_YML_REL
-        if sha256_bytes(zhivoj.read_bytes()) != src['nositeli']['mobile.yml']:
-            print('MOBILE_YML_IZMENEN: байты %s не равны пину канона'
-                  % zhivoj, file=sys.stderr)
-            return 1
+        # файл отсутствует — вывод из эксплуатации подтверждён (зелёный
+        # факт v3); клетки канона судятся по модели: зелень = канон цел И
+        # автоповтор удалён
+        print('AVTOPOVTOR_139_UDALJON: вывод автоповтора из эксплуатации '
+              'подтверждён (контракт 143)')
+        tekst_subiekta = MODEL.read_text(encoding='utf-8')
     tmp_root = Path(tempfile.mkdtemp(prefix='e2e139-root-'))
     try:
         kontrol_ok = True

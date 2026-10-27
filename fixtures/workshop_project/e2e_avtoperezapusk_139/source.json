@@ -1268,11 +1268,8 @@
   },
   "pravka-mobile-yml": {
    "tip": "derevo",
-   "ozhidanie": {
-    "problemy": [
-     "MOBILE_YML_IZMENEN"
-    ]
-   }
+   "opisanie": "зелёный контроль v3 (143): дерево кейса несёт правленый mobile.yml (мутация вне канона 139) — батарея НЕ краснеет: full-file пин снят, судьба чужого workflow — контракты экранов и договор разделения 143",
+   "ozhidanie": {}
   },
   "struktura-skript": {
    "tip": "struktura",
