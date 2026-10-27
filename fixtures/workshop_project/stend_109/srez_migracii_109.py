@@ -1,29 +1,54 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Срез-батарея 109 v4: число миграций — из манифеста репозитория продукта.
+"""Срез-батарея 109 v5: число миграций — из манифеста репозитория продукта;
+frozen-тег lane-гигиены — из окружения CI (STEND109_TAG), без зашитой
+константы (слово владельца 2026-10-27).
 
-Грамматика W (контракт 109 §Приёмочный критерий, v4):
+Грамматика W (контракт 109 §Приёмочный критерий, v5):
   (без флага), без --repo/--base и STEND109_BASE → rc 1 SUBJECT_ABSENT
       с перечнем всех клеток среза (зелень без субъекта невозможна);
   (без флага) --repo R / $STEND109_BASE → ЖИВОЙ срез на R: оракул N из
       манифеста R, полный CLI-прогон probe.py на R в PATH без docker
-      (docker-факты — честный NEEDS_ENV, граница печатается), клетки
-      миров/отказов/сценариев ledger на порождаемых копиях R;
+      (docker-факты — честный NEEDS_ENV, граница печатается; lane-факт
+      без STEND109_TAG — честный STEND109_TAG_ABSENT rc 2 по имени),
+      клетки миров/отказов/сценариев ledger/тегов на порождаемых копиях R;
+      клетка ci:zhivoj — ЖИВОЙ ci.yml чекаута R: STEND109_TAG обязан
+      быть объявлен на уровне JOB stend109 (jobs.stend109.env); env
+      только в шаге клона — красная клетка с именем (дефект
+      предпосылки, живой прогон 27.10: шаг lane env не наследует,
+      проба отказала бы STEND109_TAG_ABSENT; правка — зона
+      implementer, ПРЕДПОСЫЛКИ контракта);
   --model    контроль на порождаемых мирах базы (--base/$STEND109_BASE):
              N ∈ {1, 14, 15, 17, база, база+1} — оракул каждого мира
              вычислен из ЕГО манифеста ДО вызова субъекта (правило 8);
              сценарии ledger: зелено/недокат/перекат/подложный/пустой;
              отказы манифеста: отсутствует/пуст/нечитаем/лишний файл;
-  --stabs    контроль --model + 4 обманных стаба (мутации probe.py
+             теговые клетки (v5): порождаемые раннером H-checkout'ы с
+             тегами frozen/contracts/109/N, N ∈ {4, 5, 17} — зелёное
+             (тег == HEAD), старый тег/чужой коммит (MISMATCH), кривая
+             форма, whitespace вокруг/внутри тега, ведущий ноль (FORM);
+             grep-клетка: в судящем коде нет константы тега;
+             клетки предпосылки ci (v5-доработка): носители — живые
+             байты ci.yml продукта (ci_nositeli/, пин source.json,
+             порча — rc 2 ORACLE_TAMPERED): job-env (уровень
+             jobs.stend109.env) → verdikt «job», шаг-env (main
+             бэкенда: env только в шаге клона) → verdikt «shag» —
+             привязка зелено/красно кодом структурного разбора, не
+             прозой контракта (Н-39); носители — входы (живые байты
+             продукта), grep-клетка тега их не судит — пиньуются
+             байтами;
+  --stabs    контроль --model + 9 обманных стабов (мутации probe.py
              КОДОМ, Н-39; привязки — stab_vhod source.json): каждый
              обязан расходиться с честной пробой ровно на своей
              привязке; рассинхрон множеств/порча пина — rc 2
              ORACLE_TAMPERED.
 
-Окружение среза: python3 + node; docker НЕ нужен и НЕ вызывается
+Окружение среза: python3 + node + git; docker НЕ нужен и НЕ вызывается
 (транспорт ledger — подложный docker/psql замкнутого алфавита сценариев;
-живой docker остаётся lane stend109 / станции стенда — «не проверено
-живьём» объявляется, а не подменяется зелёным). Сеть не нужна.
+теговые клетки идут в PATH-ферме без docker — зелёная ветка тега честно
+упирается в docker-границу lane-факта, станцию не грузит; живой docker
+остаётся lane stend109 / станции стенда — «не проверено живьём»
+объявляется, а не подменяется зелёным). Сеть не нужна.
 
 Коды возврата: 0 — срез зелен; 1 — SUBJECT_ABSENT либо красная клетка
 либо стаб прошёл (НЕ ПОЙМАН); 2 — нечем проверять (нет базы для
@@ -110,6 +135,58 @@ STABY = {
                   "        raise ManifestError('MANIFEST_EMPTY')\n"),
         'zamena': "    if False:\n        pass\n",
         'vhody': ['mir-pustoj-manifest:ledger-0'],
+    },
+    # v5: стабы тега (слово владельца 2026-10-27). Якоря — байт-в-байт
+    # строки probe.py; якорь исчез (правка пробы без правки стабов) —
+    # rc 2 STAB_ANCHOR_MISSING, громко. Круг 2 (блокер критика 1/2): байты
+    # probe.py изменились (валидация исходной строки без .strip()) — якоря
+    # двух стабов ниже переприкоординованы на новую строку, семантика и
+    # привязки прежние; замена объявлена в §Замены v5 контракта.
+    's-konstanta-tega': {
+        'opisanie': 'зашитая константа 109/3 остаётся (исторический дефект '
+                    'v3/v4: замороженный файл не знает свой тег)',
+        'jakor': "    raw = os.environ.get(LANE_TAG_ENV, '')\n",
+        'zamena': "    raw = 'frozen/contracts/109/3'\n",
+        'vhody': ['teg-4:zeleno', 'env:otsutstvuet'],
+    },
+    's-teg-bez-sverki-s-golovoj': {
+        'opisanie': 'тег из env, но сверка rev-parse тега с HEAD пропущена',
+        'jakor': ("    head_sha = (head.stdout or '').strip() "
+                  "if head.returncode == 0 else ''\n"
+                  "    if head.returncode != 0 or teg_sha != head_sha:\n"),
+        'zamena': "    head_sha = teg_sha\n    if teg_sha != head_sha:\n",
+        'vhody': ['teg-4:staryj-teg'],
+    },
+    's-pustoj-env-umolchanie': {
+        'opisanie': 'пустой env → молчаливая подстановка тега по умолчанию '
+                    '(минимально допустимого N)',
+        'jakor': "    raw = os.environ.get(LANE_TAG_ENV, '')\n",
+        'zamena': ("    raw = os.environ.get(LANE_TAG_ENV, '') or "
+                   "'frozen/contracts/109/' + str(LANE_TAG_MIN_N)\n"),
+        'vhody': ['teg-4:pustoj-env'],
+    },
+    's-forma-ne-proverjaetsja': {
+        'opisanie': 'форма тега не проверяется — любая строка уходит в git',
+        'jakor': ("    m = LANE_TAG_RE.fullmatch(raw)\n"
+                  "    if m is None or int(m.group(1)) < LANE_TAG_MIN_N:\n"
+                  "        return (None, 'STEND109_TAG_FORM: %r вне грамматики '\n"
+                  "                      'frozen/contracts/109/<N> (N — целое ≥ %d)' % (\n"
+                  "                          raw, LANE_TAG_MIN_N))\n"),
+        'zamena': "    if False:\n        pass\n",
+        'vhody': ['forma:ne-celoe'],
+    },
+    # v5-круг2 (блокер критика 1/2): обманка возвращает СТАРОЕ поведение —
+    # .strip() ДО проверки формы; расходится с честной ровно на
+    # edge-whitespace, где срезание превращает отвергнутую форму в принятый
+    # тег (whitespace внутри стаб не ловит — там срезание ничего не меняет)
+    's-strip-pered-formoj': {
+        'opisanie': 'исходный env срезается .strip() до проверки формы '
+                    '(старое поведение v5-старта: тег с невидимым '
+                    'whitespace принимался как объявленный)',
+        'jakor': "    raw = os.environ.get(LANE_TAG_ENV, '')\n",
+        'zamena': "    raw = os.environ.get(LANE_TAG_ENV, '').strip()\n",
+        'vhody': ['forma:vedushij-probel', 'forma:zamykayushij-probel',
+                  'forma:perevod-stroki'],
     },
 }
 
@@ -367,7 +444,503 @@ def kletki_otkazov(proba, base, tmp, rezultaty):
                           'cli rc=%d raise=%r' % (r.returncode, raise_)))
 
 
+# ── теговые миры v5: frozen-тег из окружения CI ─────────────────────────────
+
+TEGOVYE_N = (4, 5, 17)
+
+def teg_znachenie(n):
+    """Значение STEND109_TAG конформного входа — строится из грамматики
+    (frozen/contracts/109/<N>), без литерала с цифрой: grep-клетка требует,
+    чтобы судящий код не нёс константу тега; историческое 109/3 — тоже
+    ВХОД красной формы, построенный из грамматики, а не пин."""
+    return 'frozen/contracts/109/%d' % n
+
+
+FORMA_PLOHIE = (
+    ('istoricheskij-3', teg_znachenie(3)),
+    ('ne-celoe', 'frozen/contracts/109/x'),
+    ('chuzhoj-kontrakt', 'frozen/contracts/108/4'),
+    ('put', '../../../etc/passwd'),
+    # v5-круг2 (блокер критика 1/2): форма — ТОЧНАЯ строка (без .strip()):
+    # whitespace вокруг/внутри, строка из одних пробелов и ведущий ноль —
+    # FORM; значения строятся из грамматики (teg_znachenie), не литералом
+    # с цифрой после 109/ — иначе grep-клетка тега краснеет сама
+    ('vedushij-probel', ' ' + teg_znachenie(4)),
+    ('zamykayushij-probel', teg_znachenie(4) + ' '),
+    ('tab', teg_znachenie(4) + '\t'),
+    ('perevod-stroki', teg_znachenie(4) + '\n'),
+    ('vozvrat-karetki', teg_znachenie(4) + '\r'),
+    ('crlf-v-kontse', teg_znachenie(4) + '\r\n'),
+    ('probely-vnutri', teg_znachenie(4)[:-1] + ' 4'),
+    ('tolko-probely', '   '),
+    ('nol-v-nachale', teg_znachenie(4)[:-1] + '04'),
+    ('suffiks-bukva', teg_znachenie(4) + 'x'),
+    ('tochki-put', teg_znachenie(4) + '/../3'),
+)
+
+
+def ferma_bez_docker(tmp):
+    """PATH-ферма без docker* (git/node остаются): теговые клетки обязаны
+    давать ОДНО И ТО ЖЕ на любой станции — зелёная ветка тега упирается в
+    docker-границу lane-факта, тяжёлая гигиена не запускается."""
+    bez = Path(tmp) / 'bin-bez-docker'
+    if bez.is_dir():
+        return bez
+    bez.mkdir(parents=True)
+    for d in os.environ.get('PATH', '').split(':'):
+        if not d or not Path(d).is_dir():
+            continue
+        for f in Path(d).iterdir():
+            if f.name.startswith('docker'):
+                continue
+            if f.is_file() and os.access(f, os.X_OK) and not (bez / f.name).exists():
+                try:
+                    (bez / f.name).symlink_to(f)
+                except OSError:
+                    pass
+    return bez
+
+
+def porodi_h_checkout(tmp, imja, plan, probe_bytes, n):
+    """Порождаемый раннером H-checkout: probe.py (байты субъекта) в
+    fixtures/workshop_project/stend_109/, git-репозиторий с тегом
+    frozen/contracts/109/<n> по плану: zeleno (HEAD == тегу), staryj (тег
+    на старом коммите, HEAD новее), chuzhoj (тег на чужой orphan-ветке).
+    Оракул (rev-parse тега/HEAD) вызывающий снимает ДО вызова субъекта."""
+    h = Path(tmp) / imja
+    p = h / 'fixtures' / 'workshop_project' / 'stend_109' / 'probe.py'
+    p.parent.mkdir(parents=True)
+    p.write_bytes(probe_bytes)
+    teg = 'frozen/contracts/109/%d' % n
+
+    def g(*a):
+        return subprocess.run(['git', '-C', str(h)] + list(a),
+                              capture_output=True, text=True, timeout=120)
+    for a_ in (['init', '-q', '-b', 'main'], ['add', '-A'],
+               ['-c', 'user.name=srez109-teg', '-c',
+                'user.email=srez109-teg@dev-harness.local',
+                'commit', '-q', '-m', 'teg mirov']):
+        if g(*a_).returncode != 0:
+            raise RuntimeError('porodi_h_checkout git %s' % a_[0])
+    if plan == 'zeleno':
+        g('tag', '-a', '-m', 'pin sreza', teg)
+    elif plan == 'staryj':
+        g('tag', '-a', '-m', 'pin sreza', teg)
+        (h / 'sledujushhij-krug.txt').write_text('novyj kommit\n')
+        g('add', '-A')
+        g('-c', 'user.name=srez109-teg', '-c',
+          'user.email=srez109-teg@dev-harness.local',
+          'commit', '-q', '-m', 'novye izmenenija')
+    elif plan == 'chuzhoj':
+        g('checkout', '-q', '--orphan', 'storonnjaja')
+        g('rm', '-rq', '--cached', '.')
+        (h / 'chuzhoj.txt').write_text('chuzhoj kommit\n')
+        g('add', '-A')
+        g('-c', 'user.name=srez109-teg', '-c',
+          'user.email=srez109-teg@dev-harness.local',
+          'commit', '-q', '-m', 'chuzhoj kommit')
+        g('tag', '-a', '-m', 'pin sreza', teg)
+        g('checkout', '-q', 'main')
+    else:
+        raise ValueError(plan)
+    return h
+
+
+def vyzovi_lane_fakt(modul, repo, tree, env_nadstra, bin_):
+    """lane_hygiene_fact субъекта (модуль загружен из порождаемого
+    H-checkout — devharness резолвится в НЕГО) в PATH-ферме без docker и
+    env-надстройке (значение None — переменная снята). Возвращает
+    (verdikt, note)."""
+    klyuchi = ('STEND109_TAG', 'STEND109_LANE_DEPTH')
+    star = {k: os.environ.get(k) for k in klyuchi}
+    star_path = os.environ['PATH']
+    for k in klyuchi:
+        os.environ.pop(k, None)
+    for k, v in env_nadstra.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+    os.environ['PATH'] = str(bin_)
+    try:
+        return modul.lane_hygiene_fact(repo, tree)
+    finally:
+        os.environ['PATH'] = star_path
+        for k, v in star.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def teg_zelen(h, n):
+    """Оракул ДО вызова субъекта: rev-parse тега == rev-parse HEAD."""
+    teg = 'frozen/contracts/109/%d' % n
+    r1 = subprocess.run(['git', '-C', str(h), 'rev-parse', teg + '^{commit}'],
+                        capture_output=True, text=True, timeout=60)
+    r2 = subprocess.run(['git', '-C', str(h), 'rev-parse', 'HEAD'],
+                        capture_output=True, text=True, timeout=60)
+    return (r1.returncode == 0 and r2.returncode == 0
+            and r1.stdout.strip() == r2.stdout.strip())
+
+
+def kletki_tegov(proba, base, tmp, rezultaty):
+    """Теговые клетки v5: порождаемые раннером H-checkout'ы с тегами
+    frozen/contracts/109/N (N ∈ {4, 5, 17}); субъект — байты probe.py,
+    помещённые в порождаемый checkout (devharness резолвится в него).
+    Оракул каждого мира (rev-parse тега/HEAD) снят ДО вызова субъекта."""
+    probe_bytes = PROBE.read_bytes()
+    bin_ = ferma_bez_docker(tmp)
+    mir = porodi_mir(base, 1, tmp)
+    # порождаем один раз на план/N; оракул — до вызова субъекта
+    h_mira = {}
+    for n in TEGOVYE_N:
+        for plan in ('zeleno', 'staryj', 'chuzhoj'):
+            h = porodi_h_checkout(tmp, 'teg-%d-%s' % (n, plan), plan,
+                                  probe_bytes, n)
+            h_mira[(n, plan)] = (h, teg_zelen(h, n))
+    h4, oracle4 = h_mira[(4, 'zeleno')]
+    if not oracle4:
+        rezultaty.append(('teg-4:zeleno:orakul', False,
+                          'оракул: rev-parse тега != HEAD в порождаемом '
+                          'H-checkout (мир собран неверно)'))
+        return
+
+    def modul_iz(h):
+        return zagruzi_probu(h / 'fixtures' / 'workshop_project'
+                             / 'stend_109' / 'probe.py')
+
+    # зелёное (тег == HEAD): lane-факт честно проходит теговые ветки и
+    # упирается в NEEDS_ENV-границу БЕЗ имени STEND109_TAG_*
+    for n in TEGOVYE_N:
+        h, o_ = h_mira[(n, 'zeleno')]
+        v, note = vyzovi_lane_fakt(modul_iz(h), mir, None,
+                                   {'STEND109_TAG': 'frozen/contracts/109/%d' % n},
+                                   bin_)
+        rezultaty.append(('teg-%d:zeleno' % n,
+                          o_ and v is None and note.startswith('NEEDS_ENV')
+                          and 'STEND109_TAG' not in note,
+                          'v=%r note=%s' % (v, note[:90])))
+    # красное: старый тег (HEAD новее) и чужой коммит (orphan) — MISMATCH
+    for n in TEGOVYE_N:
+        for plan, imja in (('staryj', 'staryj-teg'), ('chuzhoj', 'chuzhoj-kommit')):
+            h, o_ = h_mira[(n, plan)]
+            v, note = vyzovi_lane_fakt(modul_iz(h), mir, None,
+                                       {'STEND109_TAG': 'frozen/contracts/109/%d' % n},
+                                       bin_)
+            rezultaty.append(('teg-%d:%s' % (n, imja),
+                              (not o_) and v is None
+                              and 'STEND109_TAG_MISMATCH' in note,
+                              'v=%r note=%s' % (v, note[:90])))
+    # кривая форма (включая исторический 109/3), whitespace и ведущий
+    # ноль: FORM, до любого git
+    for imja, znach in FORMA_PLOHIE:
+        v, note = vyzovi_lane_fakt(modul_iz(h4), mir, None,
+                                   {'STEND109_TAG': znach}, bin_)
+        rezultaty.append(('forma:%s' % imja,
+                          v is None and 'STEND109_TAG_FORM' in note,
+                          'v=%r note=%s' % (v, note[:90])))
+
+
+def kletki_tegov_cli(proba, base, tmp, rezultaty):
+    """CLI-отказы тега rc 2 с именем (режим --case: facts_none печатается
+    и возвращается ДО учёта not_rejected полного прогона). Проба — из
+    порождаемого H-checkout (devharness = он же), PATH-ферма без docker."""
+    probe_bytes = PROBE.read_bytes()
+    bin_ = ferma_bez_docker(tmp)
+    mir = porodi_mir(base, 1, tmp)
+    h4 = porodi_h_checkout(tmp, 'teg-cli-4', 'zeleno', probe_bytes, 4)
+    h4_st = porodi_h_checkout(tmp, 'teg-cli-st', 'staryj', probe_bytes, 4)
+    probe4 = h4 / 'fixtures' / 'workshop_project' / 'stend_109' / 'probe.py'
+    probe4_st = h4_st / 'fixtures' / 'workshop_project' / 'stend_109' / 'probe.py'
+    sluchai = [
+        ('cli:teg-otsutstvuet', probe4, None),
+        ('cli:teg-pustoj', probe4, ''),
+        ('cli:forma', probe4, 'frozen/contracts/109/x'),
+        ('cli:staryj-teg', probe4_st, teg_znachenie(4)),
+    ]
+    imena = {'cli:teg-otsutstvuet': 'STEND109_TAG_ABSENT',
+             'cli:teg-pustoj': 'STEND109_TAG_ABSENT',
+             'cli:forma': 'STEND109_TAG_FORM',
+             'cli:staryj-teg': 'STEND109_TAG_MISMATCH'}
+    for imja, probe, znach in sluchai:
+        env = dict(os.environ)
+        env['PATH'] = str(bin_)
+        env.pop('STEND109_TAG', None)
+        env.pop('STEND109_LANE_DEPTH', None)
+        if znach is not None:
+            env['STEND109_TAG'] = znach
+        r = subprocess.run(
+            [sys.executable, str(probe), '--repo', str(mir),
+             '--case', 'compose_delete'],
+            capture_output=True, text=True, timeout=300, env=env)
+        vyvod = (r.stdout or '') + (r.stderr or '')
+        rezultaty.append((imja, r.returncode == 2
+                          and imena[imja] in vyvod,
+                          'rc=%d имён=%d' % (
+                              r.returncode, vyvod.count(imena[imja]))))
+
+
+def kletka_grep_tega(rezultaty):
+    """Механический ловец инварианта «в судящем коде нет константы тега»:
+    probe.py — вхождения frozen/contracts/109/<цифры> разрешены ТОЛЬКО в
+    комментариях и докстринге модуля (tokenize, не подстрока где угодно);
+    srez — вне блока STABY (обманки несут дефект по построению, Н-39)
+    только в #-комментариях; red_migracii_109.sh и model/manifest.json —
+    вхождений нет вовсе (текст байтов)."""
+    pat = re.compile(r'frozen/contracts/109/[0-9]')
+    # probe.py: допустимые позиции — COMMENT и докстринг модуля (первая
+    # строка-выражение файла)
+    import io
+    import tokenize as tok_mod
+    proba_text = PROBE.read_text(encoding='utf-8')
+    dopustimo = []
+    try:
+        tokens = list(tok_mod.generate_tokens(
+            io.StringIO(proba_text).readline))
+    except (tok_mod.TokenError, IndentationError, SyntaxError) as e:
+        rezultaty.append(('grep:teg-v-sudjashchem', False,
+                          'probe.py не токенизируется: %r' % (e,)))
+        return
+    videl_str = False
+    for t in tokens:
+        if t.type == tok_mod.COMMENT:
+            dopustimo.append((t.start, t.end))
+        elif t.type == tok_mod.STRING and not videl_str:
+            dopustimo.append((t.start, t.end))
+            videl_str = True
+    plokho = []
+    for m in pat.finditer(proba_text):
+        pos = (proba_text[:m.start()].count('\n') + 1,
+               m.start() - proba_text.rfind('\n', 0, m.start()))
+        if not any(s[0] <= (pos[0], pos[1]) <= s[1] for s in dopustimo):
+            plokho.append('probe.py:%d' % pos[0])
+    # srez: вне STABY только #-комментарии
+    srez_text = HERE.joinpath('srez_migracii_109.py').read_text(
+        encoding='utf-8')
+    v_stabah = False
+    for i, ln in enumerate(srez_text.splitlines(), 1):
+        if ln.startswith('STABY = {'):
+            v_stabah = True
+        elif v_stabah and ln == '}':
+            v_stabah = False
+            continue
+        if pat.search(ln) and not v_stabah and not ln.lstrip().startswith('#'):
+            plokho.append('srez_migracii_109.py:%d' % i)
+    for rel in ('red_migracii_109.sh',):
+        tekst = HERE.joinpath(rel).read_text(encoding='utf-8')
+        for i, ln in enumerate(tekst.splitlines(), 1):
+            if pat.search(ln) and not ln.lstrip().startswith('#'):
+                plokho.append('%s:%d' % (rel, i))
+    if b'frozen/contracts/109/' in MODEL_MANIFEST.read_bytes():
+        plokho.append('model/manifest.json')
+    rezultaty.append(('grep:teg-v-sudjashchem', not plokho,
+                      ('нарушений %d: %s' % (len(plokho),
+                                             ';'.join(plokho[:4])))
+                      if plokho else 'чисто'))
+
+# ── клетки предпосылки ci (v5-доработка; живой прогон 27.10) ─────────────────
+#
+# Дефект предпосылки, найден implementer'ом при подготовке живой ветки и
+# подтверждён живым прогоном (run 40523445654, success): ci.yml продукта
+# объявлял STEND109_TAG в env ШАГА клона dev-harness — шаг lane его не
+# наследует, проба v5 отказала бы STEND109_TAG_ABSENT на любом честном CI
+# бэкенда. Носители — живые байты ci.yml (ci_nositeli/, пин source.json:
+# порча — rc 2 ORACLE_TAMPERED до любых клеток); привязка зелено/красно —
+# код структурного разбора (Н-39), не проза контракта. Носители — ВХОДЫ
+# (живые байты продукта), не судящий код: grep-клетка тега их не судит,
+# целостность несёт пин байтов.
+
+def proveri_piny_ci(src):
+    """Пины носителей ci ДО любых клеток (правило 8: оракул — в памяти
+    проверяющего, не на диске проверяемого). None — порядок; иначе
+    причина для ORACLE_TAMPERED."""
+    piny = src.get('pin_ci_nositeli') or {}
+    if len(piny) < 2:
+        return 'pin_ci_nositeli отсутствует/неполон (нужны оба носителя)'
+    for otn, pin in sorted(piny.items()):
+        fakt = hashlib.sha256((HERE / otn).read_bytes()).hexdigest()
+        if pin != fakt:
+            return 'пин %s %s != байтам %s' % (otn, pin[:12], fakt[:12])
+    return None
+
+
+def sudit_ci(tekst):
+    """Структурный разбор ci.yml: где job stend109 объявляет STEND109_TAG.
+    Возвращает (verdikt, note): 'job' — env на уровне jobs.stend109.env
+    (виден шагу клона И шагу lane); 'shag' — STEND109_TAG в дереве job
+    есть, но jobs.stend109.env его не несёт (уровень шага steps.* — шаг
+    lane не наследует); 'net' — в job stend109 не найден (или файла/job
+    нет). Грамматика носителей — блочный YAML (живые байты продукта);
+    комментарии (#) не считаются; иная форма — честное 'net', не
+    молчаливое зелёное."""
+    if not tekst.strip():
+        return ('net', 'ci.yml отсутствует/пуст')
+    stroki = tekst.splitlines()
+    koren = None
+    for i, ln in enumerate(stroki):
+        if ln.lstrip().startswith('#'):
+            continue
+        m = re.match(r'^(\s*)jobs:\s*(?:#.*)?$', ln)
+        if m:
+            koren = (i, len(m.group(1)))
+            break
+    if koren is None:
+        return ('net', 'jobs: не найден')
+    i_jobs, otstup_jobs = koren
+    i_job = otstup_job = None
+    for i in range(i_jobs + 1, len(stroki)):
+        ln = stroki[i]
+        if not ln.strip() or ln.lstrip().startswith('#'):
+            continue
+        otstup = len(ln) - len(ln.lstrip())
+        if otstup <= otstup_jobs:
+            break
+        if otstup == otstup_jobs + 2:
+            if re.match(r'^stend109:\s*(?:#.*)?$', ln.strip()):
+                i_job, otstup_job = i, otstup
+                break
+    if i_job is None:
+        return ('net', 'job stend109 не найден')
+    otstup_kljuchej = otstup_job + 2
+    blok = []
+    for i in range(i_job + 1, len(stroki)):
+        ln = stroki[i]
+        if not ln.strip() or ln.lstrip().startswith('#'):
+            continue
+        otstup = len(ln) - len(ln.lstrip())
+        if otstup <= otstup_job:
+            break
+        blok.append((i + 1, otstup, ln.strip()))
+    pat_kljuch = re.compile(r'^STEND109_TAG\s*:')
+
+    def v_env_joba():
+        """env: на уровне ключей job; STEND109_TAG — среди его детей
+        (до следующего ключа job-уровня)."""
+        i_env = None
+        for nomer, otstup, s in blok:
+            if otstup == otstup_kljuchej and re.match(r'^env:\s*(?:#.*)?$', s):
+                i_env = nomer
+                break
+        if i_env is None:
+            return False
+        for nomer, otstup, s in blok:
+            if nomer <= i_env:
+                continue
+            if otstup <= otstup_kljuchej:
+                break
+            if pat_kljuch.match(s):
+                return True
+        return False
+
+    if v_env_joba():
+        return ('job', 'jobs.stend109.env')
+    for nomer, otstup, s in blok:
+        if pat_kljuch.match(s):
+            return ('shag', 'STEND109_TAG вне jobs.stend109.env (строка '
+                    '%d: уровень шага steps.* либо неблочная форма) — '
+                    'шаг lane env не наследует' % nomer)
+    return ('net', 'STEND109_TAG в job stend109 не найден')
+
+
+def kletki_predposylki(rezultaty, repo=None):
+    """Клетки предпосылки job-env: зелёный носитель (пробная ветка
+    живого прогона) — verdikt «job»; шаг-env носитель main — «shag»
+    (дефект предпосылки, разбор по структуре, не по упоминаниям);
+    --repo дополнительно судит ЖИВОЙ ci.yml чекаута: job-env обязателен,
+    иначе красная клетка с именем и указанием зоны правки."""
+    z = HERE / 'ci_nositeli' / 'ci_job_env.yml'
+    k = HERE / 'ci_nositeli' / 'ci_shag_env.yml'
+    v, note = sudit_ci(z.read_text(encoding='utf-8'))
+    rezultaty.append(('ci:job-env', v == 'job',
+                      'v=%s note=%s' % (v, note)))
+    v, note = sudit_ci(k.read_text(encoding='utf-8'))
+    rezultaty.append(('ci:shag-env', v == 'shag',
+                      'v=%s note=%s' % (v, note)))
+    if repo is not None:
+        yml = repo / '.github' / 'workflows' / 'ci.yml'
+        v, note = sudit_ci(yml.read_text(encoding='utf-8')
+                           if yml.is_file() else '')
+        rezultaty.append(('ci:zhivoj', v == 'job',
+                          'v=%s note=%s%s' % (
+                              v, note, '' if v == 'job' else
+                              ' — ПРЕДПОСЫЛКА: env на уровень '
+                              'jobs.stend109 (зона implementer)')))
+
 # ── стабы ────────────────────────────────────────────────────────────────────
+
+# входы теговых стабов (полная строка привязки до rsplit): план H-мира,
+# значение STEND109_TAG (None — переменная снята, '' — пустая)
+TEG_VHODY = {
+    'teg-4:zeleno': ('zeleno', teg_znachenie(4)),
+    'env:otsutstvuet': ('zeleno', None),
+    'teg-4:staryj-teg': ('staryj', teg_znachenie(4)),
+    'teg-4:pustoj-env': ('zeleno', ''),
+    'forma:ne-celoe': ('zeleno', 'frozen/contracts/109/x'),
+    'forma:vedushij-probel': ('zeleno', ' ' + teg_znachenie(4)),
+    'forma:zamykayushij-probel': ('zeleno', teg_znachenie(4) + ' '),
+    'forma:perevod-stroki': ('zeleno', teg_znachenie(4) + '\n'),
+}
+# ожидаемый класс вердикта (честная, обманка) на каждой привязке:
+# 'granica' — NEEDS_ENV-граница БЕЗ имени STEND109_TAG_* (теговые ветки
+# пройдены); именованные классы — отказы fail-closed. Обманка обязана
+# давать ДРУГОЙ класс ровно на своей привязке (Н-39)
+TEG_OZHID = {
+    ('s-konstanta-tega', 'teg-4:zeleno'): ('granica', 'STEND109_TAG_FORM'),
+    ('s-konstanta-tega', 'env:otsutstvuet'): (
+        'STEND109_TAG_ABSENT', 'STEND109_TAG_FORM'),
+    ('s-teg-bez-sverki-s-golovoj', 'teg-4:staryj-teg'): (
+        'STEND109_TAG_MISMATCH', 'granica'),
+    ('s-pustoj-env-umolchanie', 'teg-4:pustoj-env'): (
+        'STEND109_TAG_ABSENT', 'granica'),
+    ('s-forma-ne-proverjaetsja', 'forma:ne-celoe'): (
+        'STEND109_TAG_FORM', 'STEND109_TAG_MISMATCH'),
+    ('s-strip-pered-formoj', 'forma:vedushij-probel'): (
+        'STEND109_TAG_FORM', 'granica'),
+    ('s-strip-pered-formoj', 'forma:zamykayushij-probel'): (
+        'STEND109_TAG_FORM', 'granica'),
+    ('s-strip-pered-formoj', 'forma:perevod-stroki'): (
+        'STEND109_TAG_FORM', 'granica'),
+}
+
+
+def teg_klass(note):
+    for imja in ('STEND109_TAG_ABSENT', 'STEND109_TAG_FORM',
+                 'STEND109_TAG_MISMATCH'):
+        if imja in (note or ''):
+            return imja
+    return 'granica'
+
+
+def tegovyj_stab(imja, vhod, chast, chast2, base, tmp, rezultaty):
+    """Привязка тегового стаба: два порождаемых H-checkout'а (байты
+    честной пробы и байты обманки — мутация от якоря), один и тот же вход
+    (мир-план + env). Классы вердиктов обязаны совпасть с TEG_OZHID —
+    обманка расходится с честной ровно здесь (Н-39)."""
+    plan, znach = TEG_VHODY[vhod]
+    stubdir = Path(tmp) / 'stub' / (imja + '---teg') / vhod.replace(':', '_')
+    stubdir.mkdir(parents=True, exist_ok=True)
+    bin_ = ferma_bez_docker(stubdir)
+    mir = porodi_mir(base, 1, stubdir)
+    h_ch = porodi_h_checkout(stubdir, 'h-chestnoe', plan,
+                             chast.encode('utf-8'), 4)
+    h_ob = porodi_h_checkout(stubdir, 'h-obmanka', plan,
+                             chast2.encode('utf-8'), 4)
+    env = {'STEND109_TAG': znach}
+    v_ch, n_ch = vyzovi_lane_fakt(
+        zagruzi_probu(h_ch / 'fixtures' / 'workshop_project'
+                      / 'stend_109' / 'probe.py'), mir, None, env, bin_)
+    v_ob, n_ob = vyzovi_lane_fakt(
+        zagruzi_probu(h_ob / 'fixtures' / 'workshop_project'
+                      / 'stend_109' / 'probe.py'), mir, None, env, bin_)
+    ozh = TEG_OZHID[(imja, vhod)]
+    horosho = (v_ch is None and v_ob is None
+               and teg_klass(n_ch) == ozh[0] and teg_klass(n_ob) == ozh[1])
+    rezultaty.append(('stab %s @ %s' % (imja, vhod), horosho,
+                      'честная=%s обманка=%s (%s | %s)' % (
+                          teg_klass(n_ch), teg_klass(n_ob),
+                          n_ch[:40], n_ob[:40])))
+
 
 def kletki_stabov(proba, base, tmp, rezultaty):
     """Обманные стабы (Н-39: мутации probe.py КОДОМ; привязки —
@@ -397,6 +970,10 @@ def kletki_stabov(proba, base, tmp, rezultaty):
         decoy = zagruzi_probu(put)
         for vhod in svjaz:
             svjazej += 1
+            if vhod in TEG_VHODY:
+                tegovyj_stab(imja, vhod, chast, chast2, base, tmp,
+                             rezultaty)
+                continue
             mesto, _scen = vhod.rsplit(':', 1)
             stubdir = Path(tmp) / 'stub' / (imja + '---' + mesto)
             stubdir.mkdir(parents=True, exist_ok=True)
@@ -492,9 +1069,16 @@ def main():
             return otkaz('ORACLE_TAMPERED: рассинхрон stab_vhod: source.json '
                          '%s != коду %s' % (sorted(src['stab_vhod']),
                                             sorted(STABY)))
+        plokho_ci = proveri_piny_ci(src)
+        if plokho_ci:
+            return otkaz('ORACLE_TAMPERED: %s' % plokho_ci)
         with tempfile.TemporaryDirectory(prefix='srez109-') as tmp:
             kletki_mirov(proba, base, tmp, rezultaty)
             kletki_otkazov(proba, base, tmp, rezultaty)
+            kletki_tegov(proba, base, tmp, rezultaty)
+            kletki_tegov_cli(proba, base, tmp, rezultaty)
+            kletka_grep_tega(rezultaty)
+            kletki_predposylki(rezultaty)
             if args.stabs:
                 (Path(tmp) / 'stub').mkdir(parents=True, exist_ok=True)
                 kletki_stabov(proba, base, tmp, rezultaty)
@@ -523,6 +1107,15 @@ def main():
             ['mir-N:%s' % s for s, _ in SCENARII[1:]] +
             ['mir-N:delivery-tokem', 'mir-N:delivery-otstal'] +
             [b[0] for b in BROKEN] +
+            ['teg-N:zeleno/staryj-teg/chuzhoj-kommit (N ∈ %s; тег из '
+             'STEND109_TAG)' % ','.join(str(x) for x in TEGOVYE_N)] +
+            ['forma:%s' % f for f, _ in FORMA_PLOHIE] +
+            ['cli:teg-otsutstvuet/pustoj/forma/staryj-teg (rc 2 по имени)',
+             'grep:teg-v-sudjashchem',
+             'ci:job-env/ci:shag-env (носители ci_nositeli: job-env '
+             'зелено, шаг-env main — красная причина, предпосылка)',
+             'ci:zhivoj (--repo: живой ci.yml чекаута, env на уровне '
+             'jobs.stend109 обязателен)'] +
             ['stab %s' % s for s in STABY]))
         return 1
     # живой срез: оракул живого манифеста + полный CLI-прогон без docker
@@ -532,6 +1125,10 @@ def main():
         predupredit('живой манифест: %s — срез отказывается (fail-closed)' % e.reason)
         return 1
     print('живой манифест %s: N=%d' % (base, n))
+    src = json.loads(SOURCE.read_text())
+    plokho_ci = proveri_piny_ci(src)
+    if plokho_ci:
+        return otkaz('ORACLE_TAMPERED: %s' % plokho_ci)
     # PATH-ферма: все исполняемые файлы станции, КРОМЕ docker* — выкидывать
     # каталог целиком (в /usr/bin лежит и docker, и git, и node) нельзя:
     # прогон падает по FileNotFoundError, а пустой вывод не отличим от
@@ -578,6 +1175,10 @@ def main():
     with tempfile.TemporaryDirectory(prefix='srez109-') as tmp:
         kletki_mirov(proba, base, tmp, rezultaty)
         kletki_otkazov(proba, base, tmp, rezultaty)
+        kletki_tegov(proba, base, tmp, rezultaty)
+        kletki_tegov_cli(proba, base, tmp, rezultaty)
+        kletka_grep_tega(rezultaty)
+        kletki_predposylki(rezultaty, repo=base)
     krasnye = [x for x in rezultaty if not x[1]]
     for imja, horosho, note in rezultaty:
         print('%-44s %s %s' % (imja, 'ok' if horosho else 'KRASNO',
