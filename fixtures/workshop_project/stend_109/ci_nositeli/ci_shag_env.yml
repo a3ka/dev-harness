@@ -1,0 +1,225 @@
+# CI Complior-back (CMP-BCK-130). Команды lanes живут в tests/tools/run_backend_ci.py (те же, что `--local`);
+# здесь только окружение каждого lane. Итог `required` — `run_backend_ci.py --aggregate`: success только если
+# КАЖДЫЙ lane из списка обёртки success (failure/cancelled/skipped/отсутствие → отказ).
+# Действия и образы закреплены по SHA/digest. Секретов поставщиков нет; БД — одноразовый сервис PostgreSQL 18.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: scope
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 5
+    outputs:
+      harness_only: ${{ steps.scope.outputs.harness_only }}
+    steps:
+      - id: scope
+        name: дифф только в .harness/** — тяжёлые lanes не нужны (required остаётся)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: gh api "repos/$GITHUB_REPOSITORY/compare/$BASE...$HEAD" --jq '"harness_only=" + (if (.files | length) > 0 and (.files | length) < 300 and ([.files[].filename | startswith(".harness/")] | all) then "true" else "false" end)' >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: backend (Node 24, lint/structure/test/audit)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: npm ci --no-audit --no-fund
+      - run: python3 tests/tools/run_backend_ci.py --lane backend --out evidence/ci/backend
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-backend
+          path: evidence/ci/backend
+
+  postgres:
+    name: postgres (PG18, migrations/health)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 15
+    services:
+      pg:
+        image: postgres:18@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        env:
+          POSTGRES_PASSWORD: ci-synthetic-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      COMPLIOR_TEST_PG_ADMIN_URL: postgres://postgres:ci-synthetic-only@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: npm ci --no-audit --no-fund
+      - run: python3 tests/tools/run_backend_ci.py --lane postgres --out evidence/ci/postgres
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-postgres
+          path: evidence/ci/postgres
+
+  checks:
+    name: checks (provenance, standards)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: pip install -r tests/tools/requirements-backend-checks.txt
+      # provenance без клона донора: байты донора сверяются локально (`--local --donor`).
+      - run: python3 tests/tools/run_backend_ci.py --lane checks --out evidence/ci/checks
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-checks
+          path: evidence/ci/checks
+
+  image:
+    name: image (docker build + smoke)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: python3 tests/tools/run_backend_ci.py --lane image --out evidence/ci/image
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-image
+          path: evidence/ci/image
+
+  package:
+    name: package (валидаторы комплекта 3.14.2.2)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: pip install -r docs/requirements-validation.txt
+      # Доверенная база известных отказов валидатора — с origin/main (база только сужается).
+      - run: git fetch --no-tags --depth=1 origin +main:refs/remotes/origin/main
+      - run: python3 tests/tools/run_backend_ci.py --lane package --out evidence/ci/package
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-package
+          path: evidence/ci/package
+
+  historical:
+    name: historical (tests/historical-server/ SYNTHETIC 3.9 + mock 5.8.2)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.22.0'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: npm --prefix tests/historical-server ci --no-audit --no-fund
+      - run: python3 tests/tools/run_backend_ci.py --lane historical --out evidence/ci/historical
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-historical
+          path: evidence/ci/historical
+
+  stend109:
+    name: stend109 (CMP-BCK-004 / проба стенда из dev-harness frozen-тега)
+    needs: scope
+    if: needs.scope.outputs.harness_only != 'true'
+    runs-on: [self-hosted, linux, x64, complior-back]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - run: npm ci --no-audit --no-fund
+      # Проба- батарение контракта 109 — внешний checkout H на frozen-теге.
+      # Тег frozen/contracts/109/3 в a3ka/dev-harness закреплён пробой; перепривязка идёт через
+      # новый frozen-тег и обновление STEND109_TAG здесь (Н-39: код пробы, не проза контракта).
+      - name: clone dev-harness на frozen-теге 109
+        env:
+          STEND109_TAG: frozen/contracts/109/3
+        run: |
+          git clone --depth=1 --branch "$STEND109_TAG" https://github.com/a3ka/dev-harness.git "$RUNNER_TEMP/h"
+          echo "COMPLIOR_STEND109_H_CHECKOUT=$RUNNER_TEMP/h" >> "$GITHUB_ENV"
+      - run: python3 tests/tools/run_backend_ci.py --lane stend109 --out evidence/ci/stend109
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: evidence-stend109
+          path: evidence/ci/stend109
+
+  required:
+    name: required
+    if: always()
+    needs: [backend, postgres, checks, image, package, historical, stend109]
+    runs-on: [self-hosted, linux, x64, complior-back]
+    steps:
+      - id: scope
+        name: дифф только в .harness/** — тяжёлые lanes не нужны (required остаётся)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: gh api "repos/$GITHUB_REPOSITORY/compare/$BASE...$HEAD" --jq '"harness_only=" + (if (.files | length) > 0 and (.files | length) < 300 and ([.files[].filename | startswith(".harness/")] | all) then "true" else "false" end)' >> "$GITHUB_OUTPUT"
+      - if: steps.scope.outputs.harness_only != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: все обязательные lanes — success
+        if: steps.scope.outputs.harness_only != 'true'
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: printf '%s' "$RESULTS" | python3 tests/tools/run_backend_ci.py --aggregate

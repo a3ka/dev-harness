@@ -180,14 +180,19 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       секретом. В sink-файле каждый секрет отсутствует raw- и в JSON-форме,
       файл парсится как JSON (потребитель читает JSON.parse'ом), ответ
       измерен (status 200, маркер тела сохранён);
-    - LANE_HYGIENE_GUARD (живой): lane stend109 (tests/tools/run_backend_ci.py)
-      исполняется с COMPLIOR_STEND109_H_CHECKOUT на ЧИСТЫЙ git-checkout тега
-      frozen/contracts/109/2 (живая батарея тега; рекурсия погашена маркером
-      глубины STEND109_LANE_DEPTH — см. блок круга 4/v2 ниже) — lane PASS;
-      тот же checkout с НЕЗАКОММИЧЕННОЙ подменой probe.py на sys.exit(0) —
-      lane обязан отказать (rc ≠ 0): грязное рабочее дерево H-checkout не
-      исполняется как frozen-батарея (A2/С3). NEEDS_ENV, если lane stend109,
-      git или docker отсутствуют;
+    - LANE_HYGIENE_GUARD (живой; v5): lane stend109 (tests/tools/run_backend_ci.py)
+      исполняется на ЧИСТЫЙ git-checkout тега из окружения CI — STEND109_TAG
+      (единственный источник, зашитой константы нет; CI продукта клонирует
+      dev-harness --branch "$STEND109_TAG", HEAD клона == коммиту тега;
+      рекурсия погашена маркером глубины STEND109_LANE_DEPTH — см. блок
+      круга 4/v2 ниже) — lane PASS; тот же checkout с НЕЗАКОММИЧЕННОЙ
+      подменой probe.py на sys.exit(0) — lane обязан отказать (rc ≠ 0):
+      грязное рабочее дерево H-checkout не исполняется как frozen-батарея
+      (A2/С3). Отказы тега именованы и fail-closed (CLI rc 2):
+      STEND109_TAG_ABSENT (отсутствует/пуст), STEND109_TAG_FORM (форма вне
+      frozen/contracts/109/<N>, N — целое ≥ 4), STEND109_TAG_MISMATCH
+      (rev-parse тега != HEAD H-checkout пробы, включая нерезолвящийся
+      тег). NEEDS_ENV, если lane stend109, git или docker отсутствуют;
     - DRILL_INPUT_GUARD (расширен, F2'/С5): каждое измеренное поле портится
       В ОТДЕЛЬНОСТИ (остальные чисты): measured_at «never»/«ok»/не-ISO и
       отрицательные measured_rpo_minutes/measured_rto_minutes → rc ≠ 0 и в
@@ -232,10 +237,11 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       == 'NOT_RUN' (не заявление); два объектных входа {a:{x:1}}/{a:{y:2}} —
       input_hashes из файла РАЗЛИЧАЮТСЯ (каноническая форма не навязывается;
       I-7/I-8);
-    - LANE_HYGIENE_GUARD (переписан, A-8; v2 — форк n109-lane-v2): lane
-      stend109 судится на ЖИВОМ H-checkout пина (clone тега
-      frozen/contracts/109/2; HEAD == STEND109_PIN, hash-object probe.py ==
-      блоб пина) на дереве ПОД испытанием (HEAD; зелёный корень v1 8aca71a —
+    - LANE_HYGIENE_GUARD (переписан, A-8; v2 — форк n109-lane-v2; v5 — тег
+      из окружения CI): lane stend109 судится на ЖИВОМ H-checkout пина
+      (clone тега STEND109_TAG — окружение CI, зашитой константы нет;
+      HEAD == коммиту тега — lane_tag_iz_okruzhenija, hash-object probe.py
+      == блобу пина) на дереве ПОД испытанием (HEAD; зелёный корень v1
       наследие v1): чистый — lane rc 0; три обхода — незакоммиченная подмена
       probe.py, подмена под update-index --assume-unchanged, коммит подмены
       + git tag -f — каждый rc ≠ 0 (I-5). Рекурсия lane→батарея v2→lane-факт
@@ -289,6 +295,21 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       подложный ledger) и обманные стабы судятся срез-раннером
       red_migracii_109.sh (грамматика — контракт §Приёмочный критерий;
       оракул каждого мира — его манифест, вычислен ДО вызова субъекта).
+    - v5 (слово владельца 2026-10-27): frozen-тег lane-гигиены — ТОЛЬКО из
+      окружения CI (STEND109_TAG, объявляет workflow продукта; зашитой
+      константы в пробе/модели/срезе нет — grep frozen/contracts/109/[0-9]
+      по судящему коду даёт только комментарии/историю): отсутствует/ровно
+      пустая строка — rc 2 STEND109_TAG_ABSENT; форма — ТОЧНАЯ строка (без
+      срезания whitespace) frozen/contracts/109/<N> (N — целое ≥ 4 без
+      ведущих нулей) — rc 2 STEND109_TAG_FORM; rev-parse <тег>^{commit} !=
+      HEAD H-checkout пробы (включая нерезолвящийся тег) — rc 2
+      STEND109_TAG_MISMATCH; все прежние проверки lane-гигиены (маркер
+      глубины, грязь/assume-unchanged/retag, docker-граница) не меняются;
+      классы входов тега (зелено N ∈ {4, 5, 17}; старый тег/чужой коммит;
+      отсутствует/пуст/кривая форма/whitespace/ведущий ноль) и обманные
+      стабы тега судятся
+      срез-раннером red_migracii_109.sh на порождаемых H-checkout'ах
+      (оракул каждого — rev-parse тега/HEAD, снят ДО вызова субъекта).
 """
 
 import argparse
@@ -2124,20 +2145,41 @@ def async_pii_fact(repo, tree=None):
             'Set-Cookie-массив/multicookie/экранированная форма/литерал чисты, JSON цел'))
 
 
-LANE_FROZEN_TAG = 'frozen/contracts/109/3'
-# v2 (форк n109-lane-v2, рекомендация А): тег 109/2 указывает на батарею v2;
-# корень lane-прогона — дерево ПОД испытанием (HEAD продукта: батарея v2
-# зелёна на нём). Отдельный зелёный корень v1 (8aca71a) — наследие v1, где
-# замороженная 109/1 была зелёна только на старом дереве (С11 закрыт
-# перезаморозкой 109/2).
+# v5 (слово владельца 2026-10-27): frozen-тег СВОЕЙ батареи проба берёт из
+# ОКРУЖЕНИЯ CI — STEND109_TAG объявляет CI продукта (workflow Complior-back
+# клонирует dev-harness --branch "$STEND109_TAG"; HEAD клона == коммиту
+# тега). Зашитой константы тега нет и быть не может: замороженный файл не
+# знает собственного номера (боль v4 — проба в frozen/contracts/109/4
+# держала константу 109/3, и lane stend109 краснела при каждой
+# перезаморозке; константы 109/2→109/3 — история git этого файла).
+# Отсутствует/ровно пустая строка — STEND109_TAG_ABSENT (fail-closed, без
+# подстановок); форма — ТОЧНАЯ строка frozen/contracts/109/<N> с целым
+# N ≥ 4 БЕЗ ведущих нулей — STEND109_TAG_FORM: исходное значение env
+# валидируется КАК ЕСТЬ, без .strip() (блокер критика 1/2 v5: проба
+# срезала 'frozen/contracts/109/4 ' до 'frozen/contracts/109/4' и молча
+# принимала необъявленный тег; ведущий/замыкающий whitespace — пробел,
+# TAB, \n, \r, \r\n, — whitespace внутри, строка из одних пробелов и
+# ведущий ноль ('04') — FORM; теги 1–3 — эпоха пробы с зашитыми
+# константами, пином v5 быть не могут);
+# «запущена ровно с ним»: rev-parse <тег>^{commit} == HEAD H-checkout пробы
+# — иначе STEND109_TAG_MISMATCH (включая нерезолвящийся тег). Все три —
+# lane-факт None ⇒ CLI rc 2 с именованной причиной (см. докстринг файла).
+LANE_TAG_ENV = 'STEND109_TAG'
+# N без ведущих нулей: [1-9][0-9]* ('04' — FORM); N < LANE_TAG_MIN_N
+# (исторические 1–3) отвергается int-порогом ниже — грамматика в коде
+LANE_TAG_RE = re.compile(r'frozen/contracts/109/([1-9][0-9]*)\Z')
+LANE_TAG_MIN_N = 4
+# v2 (форк n109-lane-v2, рекомендация А): корень lane-прогона — дерево ПОД
+# испытанием (HEAD продукта: батарея зелёна на нём); зелёный корень v1
+# (8aca71a) — наследие v1 (С11 закрыт перезаморозкой 109/2).
 #
-# Рекурсия lane → батарея v2 → lane-факт → lane … (в v1 вложенная батарея не
-# содержала lane-факта) разорвана МАРКЕРОМ ГЛУБИНЫ: внешний факт выставляет
-# '1' в окружении вложенного lane-запуска; вложенный lane-факт при маркере —
-# зелёный по построению (гигиену судит внешний факт), при глубине ≥2 —
-# громкий красный 'рекурсия lane-факта' сразу; прогон без маркера, не
-# завершающийся за бюджет run_lane, красен таймаутом за конечное время.
-# Остаточный риск (cognitive-only): подмена env-маркера в CI извне.
+# Рекурсия lane → батарея → lane-факт → lane … разорвана МАРКЕРОМ ГЛУБИНЫ:
+# внешний факт выставляет '1' в окружении вложенного lane-запуска;
+# вложенный lane-факт при маркере — зелёный по построению (гигиену судит
+# внешний факт), при глубине ≥2 — громкий красный 'рекурсия lane-факта'
+# сразу; прогон без маркера, не завершающийся за бюджет run_lane, красен
+# таймаутом за конечное время. Остаточный риск (cognitive-only): подмена
+# env-маркера в CI извне.
 LANE_DEPTH_MARKER = 'STEND109_LANE_DEPTH'
 
 
@@ -2152,12 +2194,61 @@ def lane_depth_env():
         return 1
 
 
+def lane_tag_iz_okruzhenija(devharness=None):
+    """(teg|None, prichina|None): frozen-тег lane-гигиены из окружения CI
+    (v5 — единственный источник, константы нет). Отсутствует/ровно пустая
+    строка — STEND109_TAG_ABSENT; форма — ТОЧНАЯ строка (исходный env без
+    срезания whitespace: ведущий/замыкающий пробел, TAB, перевод строки,
+    whitespace внутри, строка из одних пробелов, ведущий ноль — FORM)
+    frozen/contracts/109/<N> с целым N ≥ LANE_TAG_MIN_N без ведущих нулей
+    — иначе STEND109_TAG_FORM; тег не резолвится в
+    H-checkout пробы либо его коммит ≠ HEAD этого H-checkout (CI обязан
+    запускать пробу РОВНО с коммита объявленного тега) —
+    STEND109_TAG_MISMATCH. Вызывающий lane-факт возвращает причину как
+    None-отказ: CLI rc 2 с именем, fail-closed, не молчаливая подстановка."""
+    raw = os.environ.get(LANE_TAG_ENV, '')
+    if not raw:
+        return (None, 'STEND109_TAG_ABSENT: %s не задан (пуст) в окружении '
+                      '— CI продукта обязан объявить frozen-тег батареи; '
+                      'подстановки по умолчанию нет (fail-closed)' % LANE_TAG_ENV)
+    m = LANE_TAG_RE.fullmatch(raw)
+    if m is None or int(m.group(1)) < LANE_TAG_MIN_N:
+        return (None, 'STEND109_TAG_FORM: %r вне грамматики '
+                      'frozen/contracts/109/<N> (N — целое ≥ %d)' % (
+                          raw, LANE_TAG_MIN_N))
+    devharness = devharness or Path(__file__).resolve().parents[3]
+    try:
+        teg = subprocess.run(
+            ['git', '-C', str(devharness), 'rev-parse', raw + '^{commit}'],
+            capture_output=True, text=True, timeout=60)
+        head = subprocess.run(
+            ['git', '-C', str(devharness), 'rev-parse', 'HEAD'],
+            capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.TimeoutExpired):
+        return (None, 'NEEDS_ENV: git недоступен — сверка %s с HEAD '
+                      'H-checkout НЕ проверена' % LANE_TAG_ENV)
+    if teg.returncode != 0:
+        return (None, 'STEND109_TAG_MISMATCH: тег %s не резолвится в %s '
+                      '(rc=%d) — проба исполняется не с объявленного тега' % (
+                          raw, devharness, teg.returncode))
+    teg_sha = (teg.stdout or '').strip()
+    head_sha = (head.stdout or '').strip() if head.returncode == 0 else ''
+    if head.returncode != 0 or teg_sha != head_sha:
+        return (None, 'STEND109_TAG_MISMATCH: rev-parse %s^{commit}=%s != '
+                      'HEAD=%s — проба обязана исполняться ровно с коммита '
+                      'тега, который объявил CI' % (
+                          raw, teg_sha[:12], head_sha[:12] or '?'))
+    return (raw, None)
+
+
 def lane_hygiene_fact(repo, tree=None):
     """Гигиена H-checkout lane stend109 (A2/С3; круг 4 — A-8, I-5; v2 — форк
-    n109-lane-v2): lane судится на ЖИВОМ пин-чекауте (локальный clone тега
-    frozen/contracts/109/2 из репозитория батареи: HEAD == STEND109_PIN,
-    hash-object probe.py == блоб пина) на дереве ПОД испытанием (HEAD
-    продукта). Чистый checkout — lane rc 0; три обхода — незакоммиченная
+    n109-lane-v2; v5 — слово владельца 2026-10-27): lane судится на ЖИВОМ
+    пин-чекауте (локальный clone тега из окружения CI — STEND109_TAG:
+    rev-parse <тег>^{commit} == HEAD H-checkout пробы, см.
+    lane_tag_iz_okruzhenija; зашитой константы тега нет) на дереве ПОД
+    испытанием (HEAD продукта). Чистый checkout — lane rc 0; три обхода —
+    незакоммиченная
     подмена probe.py (sys.exit(0)), подмена под update-index
     --assume-unchanged (прячется от status --porcelain, но не от
     hash-object), коммит подмены + git tag -f (дерево чисто, тег переведён)
@@ -2190,6 +2281,13 @@ def lane_hygiene_fact(repo, tree=None):
             return (True, 'вложенный прогон: lane-факт пропущен внешним '
                           'фактом (%s=1)' % LANE_DEPTH_MARKER)
         # '0' и отрицательные — полный прогон (маркер «вне глубины»)
+    # v5 (слово владельца 2026-10-27): frozen-тег — ТОЛЬКО из окружения CI
+    # (STEND109_TAG), до lane-файла/git/docker: отказы ABSENT/FORM/MISMATCH
+    # именованы и fail-closed (rc 2), без подстановок; прежние проверки
+    # ниже не меняются — меняется только источник тега
+    lane_teg, teg_prichina = lane_tag_iz_okruzhenija()
+    if lane_teg is None:
+        return (None, teg_prichina)
     tree = tree or Tree(repo)
     lane = tree.get(tree.p('lane'))
     if lane is None or 'stend109' not in lane:
@@ -2207,13 +2305,16 @@ def lane_hygiene_fact(repo, tree=None):
         return (None, 'NEEDS_ENV: docker недоступен — замороженная батарея на чистом '
                       'H требует EGRESS_GUARD, lane гигиена НЕ проверена')
     devharness = Path(__file__).resolve().parents[3]
-    have_tag = subprocess.run(
-        ['git', '-C', str(devharness), 'rev-parse', LANE_FROZEN_TAG + '^{commit}'],
-        capture_output=True, text=True)
-    if have_tag.returncode != 0:
-        return (None, 'NEEDS_ENV: тег %s отсутствует в %s — пин-чекаут H '
-                      'не собирается' % (LANE_FROZEN_TAG, devharness))
-    pin_sha = (have_tag.stdout or '').strip()
+    # v5: пин-коммит — тег из окружения CI; сверка «HEAD == коммит тега»
+    # уже прошла в lane_tag_iz_okruzhenija (несовпадение — именованный
+    # STEND109_TAG_MISMATCH выше, не молчаливый NEEDS_ENV старых кругов)
+    pin = subprocess.run(
+        ['git', '-C', str(devharness), 'rev-parse', lane_teg + '^{commit}'],
+        capture_output=True, text=True, timeout=60)
+    if pin.returncode != 0:
+        return (None, 'STEND109_TAG_MISMATCH: тег %s не резолвится в %s — '
+                      'пин-чекаут H не собирается' % (lane_teg, devharness))
+    pin_sha = (pin.stdout or '').strip()
     # v2 (форк n109-lane-v2): корень lane-прогона — дерево ПОД испытанием
     # (HEAD): батарея v2 зелёна на нём; зелёный корень v1 (8aca71a) был
     # нужен только замороженной 109/1 (С11 закрыт перезаморозкой 109/2)
@@ -2259,15 +2360,16 @@ def lane_hygiene_fact(repo, tree=None):
         # archive HEAD с симлинком в дереве ломает вложенную _head_worktree
         # (повторный os.symlink → FileExistsError, измерено на repro)
         os.symlink(str(nm_src), str(lane_repo / PATHS[lay]['node_modules']))
-        # H: пин-чекаут замороженного тега (HEAD == пину по построению клона)
+        # H: пин-чекаут замороженного тега из окружения CI (v5; HEAD == пину
+        # по построению клона — сверено lane_tag_iz_okruzhenija ДО клона)
         h = Path(tmp) / 'h'
         clone = subprocess.run(
             ['git', 'clone', '-q', '--no-hardlinks', '--depth', '1',
-             '--branch', LANE_FROZEN_TAG, str(devharness), str(h)],
+             '--branch', lane_teg, str(devharness), str(h)],
             capture_output=True, text=True, timeout=120)
         if clone.returncode != 0:
             return (False, 'clone пин-тега %s: rc=%d %s' % (
-                LANE_FROZEN_TAG, clone.returncode, (clone.stderr or '')[:120]))
+                lane_teg, clone.returncode, (clone.stderr or '')[:120]))
         probe_rel = 'fixtures/workshop_project/stend_109/probe.py'
         probe = h / 'fixtures' / 'workshop_project' / 'stend_109' / 'probe.py'
         # v2: маркер глубины '1' — вложенный lane-запуск гасит рекурсию:
@@ -2348,12 +2450,12 @@ def lane_hygiene_fact(repo, tree=None):
         git_h('add', '-A')
         git_h('-c', 'user.name=architect', '-c', 'user.email=architect@dev-harness.local',
               'commit', '-q', '-m', 'retag probe')
-        git_h('tag', '-f', LANE_FROZEN_TAG)
+        git_h('tag', '-f', lane_teg)
         retag = run_lane('retag')
         oks.append(retag.returncode != 0)
         notes.append('коммит подмены + tag -f: rc=%d' % retag.returncode)
         git_h('reset', '-q', '--hard', pin_sha)
-        git_h('tag', '-f', LANE_FROZEN_TAG, pin_sha)
+        git_h('tag', '-f', lane_teg, pin_sha)
     return (all(oks), 'lane stend109 гигиена H-checkout (пин %s): %s' % (
         pin_sha[:12], ' | '.join(notes)))
 

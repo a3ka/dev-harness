@@ -1,9 +1,14 @@
 {
-  "kontrakt": "109 v4",
-  "predmet": "число миграций — из манифеста репозитория продукта (server/infrastructure/migrations/manifest.json, грамматика loadPlan раннера 129), не из константы",
+  "kontrakt": "109 v5",
+  "predmet": "число миграций — из манифеста репозитория продукта (server/infrastructure/migrations/manifest.json, грамматика loadPlan раннера 129), не из константы; frozen-тег lane-гигиены — из окружения CI (STEND109_TAG, форма frozen/contracts/109/<N>, N — целое ≥ 4), не из зашитой константы (слово владельца 2026-10-27)",
   "pin_modeli": {
     "model/manifest.json": "f125f672972418494c8a28234c82c8b5bc3968b0c925828506e72d3799ee6c38"
   },
+  "pin_ci_nositeli": {
+    "ci_nositeli/ci_job_env.yml": "4caa93bd8ea155fa2a636755c165fd29524bbc28f07d476d270b469a9b15fa5f",
+    "ci_nositeli/ci_shag_env.yml": "c489941b876142410d84674280d4deeb4fe66b1fe0e99732072e01d351dc351b"
+  },
+  "pin_ci_proiskhozhdenie": "живые байты .github/workflows/ci.yml Complior-back: job-env — одноразовая пробная ветка cmp-bck-109/proba-v5-live @ 61b6e076b (живой прогон run 40523445654, job 122256518000, success на station-back-2), шаг-env — main 0d1df14 (env только в шаге клона, строка 195: шаг lane его не наследует — дефект предпосылки); входы клеток предпосылки ci:job-env/ci:shag-env/ci:zhivoj; порча байтов или пина — rc 2 ORACLE_TAMPERED",
   "pin_modeli_proiskhozhdenie": "байт-в-байт манифест Complior-back main 8cb7ac27dae1d509b1d1ae879cafabb726de8a08 (14 записей); служит ТОЛЬКО входом обманки s-manifest-iz-fikstury; порча — rc 2 ORACLE_TAMPERED",
   "stab_vhod": {
     "s-konstanta-14": [
@@ -18,10 +23,28 @@
     ],
     "s-pustoj-prinjat": [
       "mir-pustoj-manifest:ledger-0"
+    ],
+    "s-konstanta-tega": [
+      "teg-4:zeleno",
+      "env:otsutstvuet"
+    ],
+    "s-teg-bez-sverki-s-golovoj": [
+      "teg-4:staryj-teg"
+    ],
+    "s-pustoj-env-umolchanie": [
+      "teg-4:pustoj-env"
+    ],
+    "s-forma-ne-proverjaetsja": [
+      "forma:ne-celoe"
+    ],
+    "s-strip-pered-formoj": [
+      "forma:vedushij-probel",
+      "forma:zamykayushij-probel",
+      "forma:perevod-stroki"
     ]
   },
   "demarkacija": {
-    "konformnye_miry": "манифест == набору *.sql каталога (грамматика loadPlan: лишний/пропущенный файл — отказ ДО DDL); на конформных мирах счёт файлов и счёт записей манифеста СОВПАДАЮТ, различить источники ожидания можно только на неконформном мире либо на мире, чей манифест отличается от фикстуры/константы",
-    "validnyj_kontrprimer": "инвариантность к значениям N (1, 14, 15, 17, база, база+1 — зелёный сценарий зелёный у честной пробы) ∧ расхождение честной и обманки ровно на привязке стаба"
+    "konformnye_miry": "манифест == набору *.sql каталога (грамматика loadPlan: лишний/пропущенный файл — отказ ДО DDL); на конформных мирах счёт файлов и счёт записей манифеста СОВПАДАЮТ, различить источники ожидания можно только на неконформном мире либо на мире, чей манифест отличается от фикстуры/константы; теговые миры конформны, когда env STEND109_TAG — ТОЧНАЯ строка формы frozen/contracts/109/<N> (N — целое ≥ 4 без ведущих нулей; ведущий/замыкающий whitespace, whitespace внутри, строка из одних пробелов, ведущий ноль — НЕконформные входы класса forma:*), а H-checkout — git-репозиторий, где тег резолвится (зелёный сценарий: rev-parse тега == HEAD)",
+    "validnyj_kontrprimer": "инвариантность к значениям N (миры миграций 1, 14, 15, 17, база, база+1; теговые N 4, 5, 17 — зелёный сценарий зелёный у честной пробы) ∧ расхождение честной и обманки ровно на привязке стаба (теговые стабы: классы вердиктов ABSENT/FORM/MISMATCH/граница различны у честной и обманки на одном входе)"
   }
 }
