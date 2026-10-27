@@ -275,22 +275,41 @@ fi
 # в отказе — имя файла, не значение.
 if [ -f "$DOM_SEKRETOV" ]; then
   ZNACH=$(mktemp) || otkaz "нет mktemp"
-  # Парсим KEY=VALUE как workshop: разрез по первому «=», ключ — alphanumeric
-  # с подчёркиванием (по `[A-Za-z_][A-Za-z0-9_]*`, как load_env). Пишем
-  # значение в обеих формах — дословно (для прямой записи значения в файле) и
-  # с обрезанными парными кавычками (как workshop его использует). Пустое
-  # значение после обрезки — пропускаем.
-  # 125 Рв125b-2 (А2-1): идиома последней строки — `read` возвращает ≠0 на
-  # неполной строке, и без `|| [ -n "$k" ]` значение ПОСЛЕДНЕЙ строки
-  # secrets.env (файл без хвостового LF) терялось здесь, хотя `grep` выше
-  # писал его в `.harness/.env`: дверь писала секрет и молчала о нём. CRLF —
-  # снять ДО разбора значения, иначе `\r` часть секрета и совпадения не
-  # находит (совет S13).
+  # 142 (skaner-sekretov, слово владельца 2026-10-26): страж судит только
+  # значения СЕКРЕТНЫХ ключей дома секретов; адреса и прочие параметры дома
+  # секретов (адресный суффикс имени И значение без учётных данных) не
+  # сканируются. Секретный маркер в имени сильнее адресного суффикса;
+  # неизвестное имя — СЕКРЕТ (fail-closed: перечень секретов открыт —
+  # DATABASE_URL с учётными данными, PRIVATE_KEY, *_PASSPHRASE, AUTH, COOKIE…).
+  # Канон предиката — ТРИ строки ниже (побайтово из source.json батареи 142,
+  # единый источник; клетка r1 сверяет их в субъекте); IMYA_RE — грамматика
+  # имени ключа 125 (вердикт adv contracts-142-impl-v1, блокер 1: только ключ
+  # грамматики может получить исключение И-3; клетка r2 сверяет её в субъекте).
+  SEKRET_MARKERY="KEY TOKEN SECRET PASSWD PASSWORD PASSPHRASE PRIVATE AUTH COOKIE CREDENTIAL"
+  ADRES_SUFFIKSY="_URL _HOST _PORT _ADDR _ENDPOINT _NAME URL HOST PORT ADDR ENDPOINT NAME"
+  USERINFO_RE='[^/@[:space:]]*:[^/@[:space:]]*@'
+  IMYA_RE='[A-Za-z_][A-Za-z0-9_]*'
+  sekretnyj_marker() { for _m in $SEKRET_MARKERY; do case " $1 " in *" $_m "*) return 0 ;; esac; done; return 1; }
+  adresnyj_suffiks() { for _s in $ADRES_SUFFIKSY; do [ "$1" != "${1%$_s}" ] && return 0; done; return 1; }
+  # Парсим KEY=VALUE как workshop (125 дословно): разрез по первому «=», ключ —
+  # alphanumeric с подчёркиванием; CRLF — снять ДО разбора значения; идиома
+  # последней строки — `read` возвращает ≠0 на неполной строке, без
+  # `|| [ -n "$k" ]` значение ПОСЛЕДНЕЙ строки secrets.env терялось (Рв125b-2);
+  # пустое значение — пропускаем (пустой шаблон grep -f матчит все файлы);
+  # значения ЛЮБОЙ длины — порога нет, короткое значение секретного ключа =
+  # секрет; в файле значений ОБЕ формы — дословная и без обрамляющих кавычек.
   while IFS='=' read -r k v || [ -n "$k" ]; do
     v="${v%$'\r'}"
     case "$k" in ''|'#'*) continue ;; esac
     k="${k%% *}"
     [ -n "$v" ] || continue
+    _ku=$(printf '%s' "$k" | tr 'a-z' 'A-Z')
+    _kt=${_ku//_/ }
+    if sekretnyj_marker "$_kt"; then :
+    elif printf '%s' "$k" | grep -Eqx -- "$IMYA_RE" \
+      && adresnyj_suffiks "$_ku" && ! printf '%s' "$v" | grep -Eq -- "$USERINFO_RE"; then
+      continue # параметр дома секретов: адрес/порт/имя без учётных данных; исключение И-3 — только имени грамматики IMYA_RE (adv 142-impl-v1)
+    fi
     printf '%s\n' "$v"
     u=$(printf '%s' "$v" | sed 's/^["'"'"']//;s/["'"'"']$//')
     [ -n "$u" ] && printf '%s\n' "$u"
@@ -300,7 +319,7 @@ if [ -f "$DOM_SEKRETOV" ]; then
     HIT=$(git ls-files -z --cached --others --exclude-standard | xargs -0r grep -lsF -f "$ZNACH" -- | sed -n 1p)
   fi
   rm -f "$ZNACH"
-  unset ZNACH _need
+  unset ZNACH _need _ku _kt
   [ -z "$HIT" ] || otkaz "sekret-v-dereve: значение дома секретов в файле «$HIT», который git может проиндексировать — сессия не запускается"
 fi
 
