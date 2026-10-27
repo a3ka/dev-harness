@@ -130,6 +130,9 @@ step	check:sessii-proektov-125-family-selftest	0	bash fixtures/workshop_project/
 # миры строятся в mktemp под $TMPDIR, сеть не нужна) — проводка интеграционным коммитом оркестратора (ПРОВОДКА контракта 136, guard-канал).
 # Безфлаговый режим судит РЕАЛЬНЫЕ scripts/* (после ленда #339 в main: plain 87/87 rc 0, замер Rev136e).
 step	check:sessii-proektov-136-family-selftest	55	bash fixtures/workshop_project/sessii_136/red_sessii_136.sh
+# КОНТРАКТ 142: батарея сканера секретов (132 клетки / 31 стаб / 197 привязок: дверь connect_project.sh — блок предиката имени ключа и NUL-предпроверка; миры в mktemp, двойники workshop/grep, сеть и продукт не нужны).
+# Замер в ЧИСТОМ клоне main с `env -i PATH=/usr/local/bin:/usr/bin:/bin`: rc 0, «клеток 132, зелёных 132, красных 0», 42 с. Безфлаговый режим судит РЕАЛЬНУЮ дверь scripts/connect_project.sh.
+step	check:skaner-sekretov-142-family-selftest	42	bash fixtures/workshop_project/skaner_sekretov_142/red_skaner_sekretov_142.sh
 # КОНТРАКТ 128: красная батарея wait-guard (18 клеток; режим БЕЗ ключа судит настоящее .omp/extensions/wait-guard.ts
 # на toy-установках: node + python3, без сети, gh, станции и omp). Замер в ЧИСТОМ клоне owner/train-s19b с `env -i`
 # (PATH=node:/usr/bin:/bin; урок Н-393): rc 0, «клеток 18, сошлось 18», ~20 с. `--live`/`--load` в CI НЕ подключаются
