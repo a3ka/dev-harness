@@ -1,0 +1,89 @@
+{
+  "source": "migrations/",
+  "migrations": [
+    {
+      "version": 1,
+      "name": "001_core",
+      "file": "001_core.sql",
+      "sha256": "f2316a60d332e89438920b8b3d30b2379df8cfb459d125c74f218aad9f1db056"
+    },
+    {
+      "version": 2,
+      "name": "002_rls",
+      "file": "002_rls.sql",
+      "sha256": "ee5a91bd2d3bee0af9b07de1453d98b7b0622d2925e738304bad024978ec5284"
+    },
+    {
+      "version": 3,
+      "name": "003_finance",
+      "file": "003_finance.sql",
+      "sha256": "f573c4cd9ed1d5728e68db02de6f732ff7311d9a9188edf3f592c940f33d2ca7"
+    },
+    {
+      "version": 4,
+      "name": "004_runtime_role_fixes",
+      "file": "004_runtime_role_fixes.sql",
+      "sha256": "ef0aea49e761918d8e383ba649ecbeb1b777601d5ee0c785ee8a5c199e429fd2"
+    },
+    {
+      "version": 5,
+      "name": "005_service_routing_and_effect_controls",
+      "file": "005_service_routing_and_effect_controls.sql",
+      "sha256": "a6f06658646ba2a3886efbe7b4d434b13038b6fb24cd35825babec7740a94c9f"
+    },
+    {
+      "version": 6,
+      "name": "006_deadline_basis_and_provenance",
+      "file": "006_deadline_basis_and_provenance.sql",
+      "sha256": "cfae5a3dba2f0ded0b236190ca239391368c9cb8a772519ffbc854ecc33481b3"
+    },
+    {
+      "version": 7,
+      "name": "007_standalone_profile_assets",
+      "file": "007_standalone_profile_assets.sql",
+      "sha256": "96116f2bdd619f1fce496ec691cbf26db423fa9b4e877ff05dbb76feaa3832a0"
+    },
+    {
+      "version": 8,
+      "name": "008_service_authorization_lifecycle",
+      "file": "008_service_authorization_lifecycle.sql",
+      "sha256": "c562e74534f5a6e97b0139a939c8e0edb003ef6d3af91088a1101f375f0b890e"
+    },
+    {
+      "version": 9,
+      "name": "009_service_route_isolation",
+      "file": "009_service_route_isolation.sql",
+      "sha256": "33dc77636786275432dc3548c2d7f0cadf0df691f8ba636bc278e6a5554b134a"
+    },
+    {
+      "version": 10,
+      "name": "010_ux114_owners",
+      "file": "010_ux114_owners.sql",
+      "sha256": "c90d005c013a5af43b2ac6f85dccbd0ad813d33f44a49ed7271d2091cb718920"
+    },
+    {
+      "version": 11,
+      "name": "011_profile_contact_extensions",
+      "file": "011_profile_contact_extensions.sql",
+      "sha256": "e8e36202a763d347bbc4174995d10f4aedc652aa52b9014fb1323be135855972"
+    },
+    {
+      "version": 12,
+      "name": "012_evb_issuance_owner",
+      "file": "012_evb_issuance_owner.sql",
+      "sha256": "689c94c50780c3fc50ef836b3e92dd72cd60bfc9504915ef19abb5bee06f89e4"
+    },
+    {
+      "version": 13,
+      "name": "013_profile_release_permissions",
+      "file": "013_profile_release_permissions.sql",
+      "sha256": "b5f5cc235f1866e4c126df7f502477470c906a43fe3ca593fe4328a5bc22cf0b"
+    },
+    {
+      "version": 14,
+      "name": "014_api_reads_migration_ledger",
+      "file": "014_api_reads_migration_ledger.sql",
+      "sha256": "93d5788198c498d48432fd5e42fcb92f38cadcdb730d7fb9c1a0337395cd5b86"
+    }
+  ]
+}

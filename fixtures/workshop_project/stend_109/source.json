@@ -1,0 +1,27 @@
+{
+  "kontrakt": "109 v4",
+  "predmet": "число миграций — из манифеста репозитория продукта (server/infrastructure/migrations/manifest.json, грамматика loadPlan раннера 129), не из константы",
+  "pin_modeli": {
+    "model/manifest.json": "f125f672972418494c8a28234c82c8b5bc3968b0c925828506e72d3799ee6c38"
+  },
+  "pin_modeli_proiskhozhdenie": "байт-в-байт манифест Complior-back main 8cb7ac27dae1d509b1d1ae879cafabb726de8a08 (14 записей); служит ТОЛЬКО входом обманки s-manifest-iz-fikstury; порча — rc 2 ORACLE_TAMPERED",
+  "stab_vhod": {
+    "s-konstanta-14": [
+      "mir-15:zeleno",
+      "mir-1:zeleno"
+    ],
+    "s-ozhidanie-iz-fajlov": [
+      "mir-lishnij-fajl:zeleno-po-fajlam"
+    ],
+    "s-manifest-iz-fikstury": [
+      "mir-15:zeleno"
+    ],
+    "s-pustoj-prinjat": [
+      "mir-pustoj-manifest:ledger-0"
+    ]
+  },
+  "demarkacija": {
+    "konformnye_miry": "манифест == набору *.sql каталога (грамматика loadPlan: лишний/пропущенный файл — отказ ДО DDL); на конформных мирах счёт файлов и счёт записей манифеста СОВПАДАЮТ, различить источники ожидания можно только на неконформном мире либо на мире, чей манифест отличается от фикстуры/константы",
+    "validnyj_kontrprimer": "инвариантность к значениям N (1, 14, 15, 17, база, база+1 — зелёный сценарий зелёный у честной пробы) ∧ расхождение честной и обманки ровно на привязке стаба"
+  }
+}
