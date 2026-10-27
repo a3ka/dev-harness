@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "zametka": "Карта экран→файлы продукта (контракт 143). Единственная схема владения CI-наборами Complior-mob; правится автором экранной задачи в том же PR, что добавляет/перемещает файлы. status: approved — подтверждён принятой продуктовой поставкой; in-development — исполняемая разработка (запись без исполняемого entrypoint — ошибка, не skip). Общие слои (shared) выбирают ВСЁ: development ∪ affected.",
+  "shared": {
+    "puti": [
+      "mobile/src/app/",
+      "mobile/src/bootstrap/",
+      "mobile/src/navigation/",
+      "mobile/src/auth/",
+      "mobile/src/api/",
+      "mobile/src/theme/",
+      "mobile/src/i18n/",
+      "mobile/src/ui/",
+      "mobile/src/mocks/",
+      "mobile/src/features/auth/",
+      "mobile/src/features/onboarding/",
+      "mobile/assets/",
+      "mobile/app.json",
+      "mobile/package.json",
+      "mobile/package-lock.json",
+      "mobile/metro.config.js",
+      "mobile/jest.config.js",
+      "mobile/tsconfig.json",
+      "mobile/eslint.config.js",
+      "mobile/structure-policy.json",
+      "mobile/.maestro/config.yaml",
+      "mobile/scripts/ci-e2e.sh",
+      "mobile/scripts/rehearsal-evidence.sh",
+      "mobile/scripts/select-ci-screens.cjs",
+      "mobile/scripts/ci-aggregate.cjs",
+      "mobile/ci-screens.json",
+      ".github/workflows/mobile.yml"
+    ],
+    "prichina": "COMMON_CHANGE"
+  },
+  "ekrany": [
+    {
+      "id": "splash",
+      "kontrakty": ["117", "123"],
+      "status": "approved",
+      "job": "e2e-splash",
+      "pack": null,
+      "flows": ["mobile/.maestro/vkhod-117-splash-vhod.yaml"],
+      "child_flows": [],
+      "puti": [],
+      "h_checkout": [".harness123"],
+      "output_namespace": "mobile/maestro-out-117"
+    },
+    {
+      "id": "first-run",
+      "kontrakty": ["135", "111"],
+      "status": "approved",
+      "job": "e2e-first-run",
+      "pack": "mobile/e2e-first-run/",
+      "flows": ["mobile/.maestro/first-run-ekran.yaml"],
+      "child_flows": [],
+      "puti": [],
+      "h_checkout": [".harness135", ".harness123"],
+      "output_namespace": "mobile/maestro-out-first-run"
+    },
+    {
+      "id": "erstinformation",
+      "kontrakty": ["118"],
+      "status": "approved",
+      "job": "e2e-erstinformation",
+      "pack": "mobile/e2e-erstinformation/",
+      "flows": ["mobile/.maestro/erstinformation.yaml"],
+      "child_flows": [],
+      "puti": [],
+      "h_checkout": [".harness118", ".harness123"],
+      "output_namespace": "mobile/maestro-out-erstinformation"
+    },
+    {
+      "id": "start",
+      "kontrakty": ["108", "138"],
+      "status": "approved",
+      "job": "e2e-start",
+      "pack": null,
+      "legacy_entrypoint": "mobile/.maestro/cmp-mob-004-start.yaml",
+      "flows": ["mobile/.maestro/cmp-mob-004-start.yaml"],
+      "child_flows": [],
+      "puti": ["mobile/src/features/start/", "mobile/src/app/start-destination.tsx"],
+      "zametka_138": "поставка 138 (PR #127) заменяет legacy_entrypoint на pack mobile/e2e-start/ в своей пачке — та же единица Start, не новый экран",
+      "h_checkout": [],
+      "output_namespace": "mobile/maestro-out-start"
+    }
+  ],
+  "integracija": {
+    "id": "pilot",
+    "kontrakty": ["995", "991", "999"],
+    "status": "approved",
+    "job": "e2e-pilot",
+    "fiksirovannyj_nabor": [
+      "pilot.yaml",
+      "mobile/.maestro/start.yaml",
+      "mobile/.maestro/rehearsal.yaml",
+      "mobile/.maestro/cmp-mob-002-tabs.yaml"
+    ],
+    "zametka": "pilot.yaml — приватный frozen flow из H (fixtures/workshop_project/pilot_995/pilot.yaml), в дереве продукта его нет; P копирует РОВНО этот перечень (995 v5), НЕ весь каталог .maestro",
+    "puti": ["mobile/.maestro/start.yaml", "mobile/.maestro/rehearsal.yaml", "mobile/.maestro/cmp-mob-002-tabs.yaml"],
+    "h_checkout": [".harness"],
+    "output_namespace": "mobile/maestro-out"
+  }
+}

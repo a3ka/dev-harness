@@ -1,0 +1,361 @@
+{
+  "kontrakt": "contracts/143-mob-ci-razdelenie.md",
+  "subjekt": [
+    ".github/workflows/mobile.yml",
+    "mobile/ci-screens.json",
+    "mobile/scripts/select-ci-screens.cjs",
+    "mobile/scripts/ci-aggregate.cjs"
+  ],
+  "kletki": [
+    {
+      "id": "s01-obshchij-kod"
+    },
+    {
+      "id": "s02-lokalnyj-ekran"
+    },
+    {
+      "id": "s03-novyj-pack"
+    },
+    {
+      "id": "s04-novyj-potok"
+    },
+    {
+      "id": "s05-potok-dvoe-vladeltsev"
+    },
+    {
+      "id": "s06-glob-suzhen"
+    },
+    {
+      "id": "s07-status-snjat"
+    },
+    {
+      "id": "s08-zapis-udalena"
+    },
+    {
+      "id": "s09-rename-vnutri"
+    },
+    {
+      "id": "s10-rename-vne-karty"
+    },
+    {
+      "id": "s11-udalenie-fajla"
+    },
+    {
+      "id": "s12-probel-v-imeni"
+    },
+    {
+      "id": "s13-unicode-v-imeni"
+    },
+    {
+      "id": "s14-perevod-stroki"
+    },
+    {
+      "id": "s15-tip-izmenenija"
+    },
+    {
+      "id": "s16-net-bazy"
+    },
+    {
+      "id": "s17-api-usechenie"
+    },
+    {
+      "id": "s18-oshibka-diffa"
+    },
+    {
+      "id": "s19-shema-karty"
+    },
+    {
+      "id": "s20-pustoj-reestr"
+    },
+    {
+      "id": "s21-doksi-fallback"
+    },
+    {
+      "id": "s22-noch-polnyj-nabor"
+    },
+    {
+      "id": "s23-push-do-posle"
+    },
+    {
+      "id": "s24-api-fallback-zhivoj"
+    },
+    {
+      "id": "s25-merge-gruppa"
+    },
+    {
+      "id": "a01-pustoj-nabor"
+    },
+    {
+      "id": "a02-vybrannyj-vne-reestra"
+    },
+    {
+      "id": "a03-vybrannyj-skip"
+    },
+    {
+      "id": "a04-vybrannyj-cancelled"
+    },
+    {
+      "id": "a05-vybrannyj-timeout"
+    },
+    {
+      "id": "a06-vybrannyj-failure"
+    },
+    {
+      "id": "a07-selector-upal"
+    },
+    {
+      "id": "a08-sborka-upala"
+    },
+    {
+      "id": "a09-kachestvo-upalo"
+    },
+    {
+      "id": "a10-digest-chuzhoj"
+    },
+    {
+      "id": "a11-staryj-artefakt"
+    },
+    {
+      "id": "a12-lishnij-rabotnik"
+    },
+    {
+      "id": "a13-skip-bez-prichiny"
+    },
+    {
+      "id": "a14-iskljuchennyj-objasnen"
+    },
+    {
+      "id": "a15-otmena-odnogo"
+    },
+    {
+      "id": "a16-pustoj-needs"
+    },
+    {
+      "id": "y01-nabor-jobs"
+    },
+    {
+      "id": "y02-agregat-needs"
+    },
+    {
+      "id": "y03-agregat-if-always"
+    },
+    {
+      "id": "y04-net-if-false"
+    },
+    {
+      "id": "y05-net-continue-on-error"
+    },
+    {
+      "id": "y06-net-strategii"
+    },
+    {
+      "id": "y07-uslovija-rabotnikov"
+    },
+    {
+      "id": "y08-tajmauty"
+    },
+    {
+      "id": "y09-sobytija-i-net-139"
+    },
+    {
+      "id": "y10-rabotniki-na-pule"
+    },
+    {
+      "id": "y11-apk-identichnost"
+    },
+    {
+      "id": "y12-avd-namespace"
+    },
+    {
+      "id": "y13-odin-uroven-vosstanovlenija"
+    },
+    {
+      "id": "y14-jest-118"
+    },
+    {
+      "id": "y15-h-checkouty"
+    },
+    {
+      "id": "y16-noch-polnyj-nabor"
+    },
+    {
+      "id": "y17-noch-ne-required"
+    },
+    {
+      "id": "y18-marker-nochi"
+    },
+    {
+      "id": "f01-fiksirovannyj-nabor-P"
+    },
+    {
+      "id": "f02-vladenie-potokami"
+    },
+    {
+      "id": "f04-statusy-i-vhody"
+    },
+    {
+      "id": "f03-paki-v-karte"
+    },
+    {
+      "id": "a17-digest-do-ustanovki"
+    },
+    {
+      "id": "y19-outputs-provodka"
+    },
+    {
+      "id": "y20-tojson-needs"
+    },
+    {
+      "id": "y21-concurrency"
+    },
+    {
+      "id": "y22-needs-rabotnikov"
+    },
+    {
+      "id": "p01-P-nabor",
+      "needs_precedent": "995 v5 — исполняемый набор P судится исполнением только после freeze 995/5 и перепина .harness модели 143 (место: drafts/995-v5-draft.md); до того клетка ОТЛОЖЕНА, не зелёная"
+    }
+  ],
+  "piny": {
+    "model/.github/workflows/mobile.yml": "e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2",
+    "model/mobile/ci-screens.json": "e11d15196440489589a7ff837d1d50b9adce7f7cadc884238b558cc6f4f768b0",
+    "model/mobile/scripts/select-ci-screens.cjs": "4bf826ac8eb397f1c7b2699f7b7d161f0e92074127b25c05f20991bb9f5d391a",
+    "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
+    "nositeli/mobile-124.yml": "f45c68230eb83b12c8aa81173da4b9d46608b966acfef7da7ba6178d21087421",
+    "nositeli/api/pull-124.json": "af9d11d2a76a3feb3532e00e5f3f902571b1211cf94a30313cc40695570a5053",
+    "nositeli/api/pull-124-files.json": "e153ab9b2424f2f9d6b6436cedc5b65af596ed8c8a4ae474aa8ecc95cea6c2a1",
+    "nositeli/api/pull-124-files-stranitsa.json": "1c841539a4fb169acd857cd2607e8e26a69870681f916f69730d4557d32a9d31",
+    "nositeli/api/run-40426209738-jobs.json": "24433489a82cf510a1c1e97420ce15b201d3830c3837c635514bc19bf2b6a088",
+    "nositeli/p-66052cdf.py": "9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749",
+    "nositeli/pilot-66052cdf.yaml": "3cda11a94ba324fd55cdb9fad039935dbbb1cad8a7719e42aa03c4ff66977e1a",
+    "nositeli/ci-e2e-995-4.sh": "0fa425b5db4752633c7ea453065503bfa8ecefa67e1bef8a7e66102426897f30"
+  },
+  "chernoviki_piny": {
+    "111-v5-draft.md": "a3fb59a8a51996f88eda7aa72bc5afb7074806b053ddaae91a7ea8c42ef520b7",
+    "116-v4-draft.md": "18499c1e24529196e0bf45eb513979b66646f0e642224156475a6dc3f06b45bf",
+    "117-v5-draft.md": "7b4fc663ef9b82e37990399ee1f70f295a5cdbed8b8ab6ae46dcba5f4e478a02",
+    "118-v3-draft.md": "29dd08442d1eba5b6e659770aa4cdc9a10b2c613cad3f4345d02f91429f5362b",
+    "123-v3-draft.md": "74bd0fcefba6a476feba52a21a62570a0c83cb395a089c7a1f0ed474268538de",
+    "138-v2-draft.md": "274e32a0afe9b2ce9163bb8b306dc768d70cd5320a320f66505a4ccda31a89a3",
+    "139-v3-draft.md": "0b1138a06cb2cc48dbedc72fc3ffe2539da630d4d98aa709573c630563626e6b",
+    "141-v2-draft.md": "6d51538ecdda9077f190c2a71ef1a73584d3ad21969a4bf2c5bbfc528f929a3b",
+    "995-v5-draft.md": "c4581c2c13f4ed7a52beba89d0b3e54967306024d1e5f540313d9950e958f53d"
+  },
+  "stab_vhod": {
+    "stab_agregat_echo": [
+      "a01-pustoj-nabor",
+      "a03-vybrannyj-skip",
+      "a06-vybrannyj-failure",
+      "a07-selector-upal",
+      "a10-digest-chuzhoj",
+      "a12-lishnij-rabotnik"
+    ],
+    "stab_agregat_pustoj_needs_zelen": [
+      "a16-pustoj-needs"
+    ],
+    "stab_belyj_spisok_imen": [
+      "s12-probel-v-imeni",
+      "s13-unicode-v-imeni"
+    ],
+    "stab_bez_obschego": [
+      "s01-obshchij-kod",
+      "s24-api-fallback-zhivoj"
+    ],
+    "stab_digest_ne_sverjaet": [
+      "a10-digest-chuzhoj",
+      "a11-staryj-artefakt"
+    ],
+    "stab_f_P_vkljuchaet_ekran": [
+      "f01-fiksirovannyj-nabor-P",
+      "f02-vladenie-potokami"
+    ],
+    "stab_f_bez_vhoda": [
+      "f04-statusy-i-vhody"
+    ],
+    "stab_karta_base_ignoriruet": [
+      "s06-glob-suzhen",
+      "s07-status-snjat",
+      "s08-zapis-udalena"
+    ],
+    "stab_oshibka_kak_pustota": [
+      "s16-net-bazy",
+      "s18-oshibka-diffa"
+    ],
+    "stab_pustoj_uspeh": [
+      "s21-doksi-fallback"
+    ],
+    "stab_rezhim_polnyj_udalen": [
+      "s22-noch-polnyj-nabor"
+    ],
+    "stab_skip_bez_prichiny_propuskaet": [
+      "a13-skip-bez-prichiny"
+    ],
+    "stab_tihoe_iskljuchenie": [
+      "s03-novyj-pack",
+      "s04-novyj-potok",
+      "s05-potok-dvoe-vladeltsev"
+    ],
+    "stab_y_139_zhiv": [
+      "y09-sobytija-i-net-139"
+    ],
+    "stab_y_artefakt_po_attempt": [
+      "y11-apk-identichnost"
+    ],
+    "stab_y_bez_agregat_needs": [
+      "y02-agregat-needs"
+    ],
+    "stab_y_bez_always": [
+      "y03-agregat-if-always"
+    ],
+    "stab_y_bez_h123_118": [
+      "y15-h-checkouty"
+    ],
+    "stab_y_continue_on_error": [
+      "y05-net-continue-on-error"
+    ],
+    "stab_y_if_false": [
+      "y04-net-if-false",
+      "y07-uslovija-rabotnikov"
+    ],
+    "stab_y_jest_udalen": [
+      "y14-jest-118"
+    ],
+    "stab_y_marker_udalen": [
+      "y18-marker-nochi"
+    ],
+    "stab_y_noch_vyborochnaja": [
+      "y17-noch-ne-required"
+    ],
+    "stab_y_pkill_shirokij": [
+      "y12-avd-namespace"
+    ],
+    "stab_y_strategija": [
+      "y06-net-strategii"
+    ],
+    "stab_y_udalen_cron": [
+      "y09-sobytija-i-net-139"
+    ],
+    "stab_y_vtoroj_povtor": [
+      "y13-odin-uroven-vosstanovlenija"
+    ],
+    "stab_digest_mjortvaja_vetka": [
+      "a17-digest-do-ustanovki"
+    ],
+    "stab_p_rglob_kataloga": [
+      "p01-P-nabor"
+    ],
+    "stab_y_agregat_bez_checkout": [
+      "y19-outputs-provodka"
+    ],
+    "stab_y_cancel_vyklyuchen": [
+      "y21-concurrency"
+    ],
+    "stab_y_ident_bez_id": [
+      "y20-tojson-needs"
+    ],
+    "stab_y_bez_build_apk": [
+      "y22-needs-rabotnikov",
+      "a17-digest-do-ustanovki"
+    ]
+  }
+}
