@@ -1,0 +1,36 @@
+# Черновик 116 v4 — runtime-критерий: required → агрегат → e2e-mission
+
+Контракт 143 (mob-ci-razdelenie), адресная миграция проводки. База: `frozen/contracts/116/3` (текст в main байт-равен
+тегу — сверено этой пачкой). Номер версии — по РЕАКТИСТРУ заморозок (фактический frozen-тег), не по заголовку
+Markdown. Черновик НЕ является правкой frozen-текста: внедряется только после строки владельца
+(все девять черновиков подписываются ОДНИМ разом после merge #124); `РАЗРЕШИЛ-ВЛАДЕЛЬЦ:` архитектор не пишет —
+правило 11 (Н-59).
+
+## Дифф относительно frozen (frozen/contracts/116/3)
+
+```diff
+--- frozen:116-cmp-mob-005-mission.md
++++ v+1:116-cmp-mob-005-mission.md
+@@ -36,5 +36,5 @@
+ - Красные входы проводки семьи (0259fb00 б/в; страж формы — ПИН БЛОКА ШАГА, арбитраж 4cadfc54 а; r9 675465e2: статик судит ТОЛЬКО текстовый блок): povedenie-proba-otsutstvuet → PROBA_POVEDENIJA_OTSUTSTVUET; povedenie-proba-podmenena → PROBA_POVEDENIJA_PODMENENA; ci-shag-otsutstvuet → CI_BEZ_SHAGA_POVEDENIJA; ci-shag-ne-gejtit, ci-coe-posle-run, ci-if-false-posle-run, ci-echo-podmena, ci-run-kommentarij → CI_SHAG_POVEDENIJA_NE_PO_PINU; зелёные свидетели разделения статик/runtime (ci-shag-vne-required-job, ci-job-*, ci-steps-indentless*) — rc 0 по построению r9.
+ - Дано: продукт с реализацией 116 v3 и замороженной миграцией 117 v+1 (команда проверки тега — раздел 118 «Зависимость замороженного корня», rc 0); когда: W, затем `bash mobile/e2e-mission/e2e.sh mission` → rc 0 (свежие кадры; корневой mission.yaml ЧЕРЕЗ runFlow запускает каждый дочерний сценарий состояний, обе темы), proverka пачки → rc 0 (в т.ч. раскрытие runFlow, фаза V03 с обязательным исчезновением подписи после upload, жест по шагам, таблица осей сценариев состояний, КАЖДОЕ вхождение takeScreenshot после своего assertVisible В ТОМ ЖЕ ФАЙЛЕ (между ними только assert*), имена — только из манифеста и уникальны, грамматика флоу белым списком, ввод до отправки, F05.07 без отправок, V02 с assertNotVisible completed, appId флоу = пакет продукта), статическая проба (страж формы) → rc 0, jest-семья mission-116 19/19 rc 0, Maestro-флоу product-CI зелён, сверка 123 ≥ порога по каждому кадру; тогда: каждый rc 0; скриншоты совпадают с макетом по составу, раскладке, отступам, шрифту и цвету (123); контроль завершения upload первого вложения несёт testID `attachment-complete-UPL-1` (детерминированный id мок-runtime, как K7).
+-- Дано: продукт с реализацией 116; когда: `cd mobile && npx jest src/features/conversation/__tests__/mission-116.test.tsx`; тогда: rc 0, 19/19 клеток поимённо; файл байт-идентичен пину (sha256 dab2efebea58f15c92a76989436d4a23d97fc72d9238f9c7efa816606438dac9; v2 n116-tsc-batareja: типобезопасная форма прежних 19 клеток; v3 пин НЕ меняет); СТАТИК-ГРАНИЦА (r9, 675465e2) = БАЙТ-РАВЕНСТВО блока шага пину `mobile_ci_tekst` (две строки носителя `- name: 116 mission behaviour render` / `run: npx jest src/features/conversation/__tests__/mission-116.t…`) ГДЕ БЫ ОН НИ ВСТРЕТИЛСЯ в mobile.yml; runtime-строка критерия (живой gh при ленде: required check → job android-e2e → шаг conclusion success ∧ лог `Tests: 19 passed, 19 total` ∧ head_sha = OBJECT) — без изменений v2.
++- Дано (v4, 143): продукт с реализацией 116; required-проверка `android-e2e` — АГРЕГАТ выбранных экранных задач, шаг поведения миссии исполняет задача `e2e-mission`; когда: `cd mobile && npx jest src/features/conversation/__tests__/mission-116.test.tsx`; тогда: rc 0, 19/19 клеток поимённо; файл байт-идентичен пину (sha256 dab2efebea58f15c92a76989436d4a23d97fc72d9238f9c7efa816606438dac9; v2 n116-tsc-batareja: типобезопасная форма прежних 19 клеток; v3 пин НЕ меняет); СТАТИК-ГРАНИЦА (r9, 675465e2) = БАЙТ-РАВЕНСТВО блока шага пину `mobile_ci_tekst` (две строки носителя `- name: 116 mission behaviour render` / `run: npx jest src/features/conversation/__tests__/mission-116.t…`) ГДЕ БЫ ОН НИ ВСТРЕТИЛСЯ в mobile.yml; runtime-строка критерия (живой gh при ленде: required check → job android-e2e → шаг conclusion success ∧ лог `Tests: 19 passed, 19 total` ∧ head_sha = OBJECT) — без изменений v2.
+ 
+ ## Зоны и исполнители
+@@ -86,5 +86,5 @@
+ 
+ ## Замер стража CI (r7, 4cadfc54)
+-Инварианты механизма (4cadfc54): (а) страж формы = пин блока шага; (б) факт запуска/гейта = runtime-строка критерия; (в) маркер-артефакт отклонён. Замер r7 (replay 17 форм арбитра): честный зелёный, 16 красны поимённо, обходов 0/17. Fail-closed дополнения критика (4cadfc54 п. 4 / 65016aea): honest_cd и honest_multiline → CI_SHAG_POVEDENIJA_NE_PO_PINU. Замер r8 (d564854b): membership ложно краснел на честных формах ключа job — фикс: имя job — распознанный ключ; свидетели ci-job-inline-kommentarij / ci-job-kavychki / ci-job-otstup-chetyre зелёные. Замер r9 (675465e2, РЕШЕНИЕ арбитра): статик судит ТОЛЬКО текстовый пин блока; membership/CI_SHAG_POVEDENIJA_VNE_REQUIRED_JOB из статики УДАЛЕНЫ (второго YAML-распознавателя нет); replay 17 форм: 2 статически зелёных (honest; arb_step_in_other_job — судьба вне статики: runtime-строка красна), 15 красны, обходов 0; indentless-свидетели (4 варианта) rc 0, входы в батарее зелёные; s48–s51 удалены (судили удалённый разбор), s42–s47 перегенерированы. v3: тело стража CI не менялось; s19–s28 регенерированы на теле v3-проверки (та же ветвь), новые s52–s62 — ветви v3.
++Инварианты механизма (4cadfc54; v4: runtime-строка критерия называет задачу e2e-mission под required-агрегатом android-e2e — не прежний монолитный job): (а) страж формы = пин блока шага; (б) факт запуска/гейта = runtime-строка критерия; (в) маркер-артефакт отклонён. Замер r7 (replay 17 форм арбитра): честный зелёный, 16 красны поимённо, обходов 0/17. Fail-closed дополнения критика (4cadfc54 п. 4 / 65016aea): honest_cd и honest_multiline → CI_SHAG_POVEDENIJA_NE_PO_PINU. Замер r8 (d564854b): membership ложно краснел на честных формах ключа job — фикс: имя job — распознанный ключ; свидетели ci-job-inline-kommentarij / ci-job-kavychki / ci-job-otstup-chetyre зелёные. Замер r9 (675465e2, РЕШЕНИЕ арбитра): статик судит ТОЛЬКО текстовый пин блока; membership/CI_SHAG_POVEDENIJA_VNE_REQUIRED_JOB из статики УДАЛЕНЫ (второго YAML-распознавателя нет); replay 17 форм: 2 статически зелёных (honest; arb_step_in_other_job — судьба вне статики: runtime-строка красна), 15 красны, обходов 0; indentless-свидетели (4 варианта) rc 0, входы в батарее зелёные; s48–s51 удалены (судили удалённый разбор), s42–s47 перегенерированы. v3: тело стража CI не менялось; s19–s28 регенерированы на теле v3-проверки (та же ветвь), новые s52–s62 — ветви v3.
+ 
+ ## Замер v3 (пин/геометрия/грамматика)
+```
+
+## Изменяемая / сохраняемая норма / красное свидетельство
+
+| Изменяемая норма | Сохраняемая норма | Красное свидетельство |
+|---|---|---|
+| runtime-принадлежность шага: прежний job android-e2e → задача e2e-mission под required-агрегатом android-e2e (143) | пин-блок behaviour-step (две строки), 19 клеток, кадры/состояния/происхождение — дословно | батарея 143 y01/y02 (набор задач и needs агрегата при поставке 116) |
+
+ОЖИДАЕТСЯ-СЛОВО-ВЛАДЕЛЬЦА: contracts/116-cmp-mob-005-mission.md v4 — шаг поведения миссии исполняется задачей e2e-mission под required-агрегатом android-e2e (контракт 143 mob-ci-razdelenie); пин-блок шага, 19 клеток и экранная приёмка не меняются.

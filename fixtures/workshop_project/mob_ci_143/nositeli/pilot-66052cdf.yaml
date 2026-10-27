@@ -1,0 +1,51 @@
+appId: com.complior.mobile
+name: 995 synthetic DIRECT entry and restart
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: first-run-continue
+- takeScreenshot: pilot-first-run
+- tapOn:
+    id: first-run-continue
+- assertVisible: Anmelden oder Konto erstellen
+- tapOn:
+    id: auth-email
+- inputText: demo@example.invalid
+- tapOn:
+    id: auth-demo-entry
+- assertVisible: Kontakt bestätigen
+- tapOn:
+    id: auth-code
+- inputText: definitely-wrong-000
+- tapOn:
+    id: auth-verify
+- assertVisible:
+    id: auth-invalid
+- assertNotVisible:
+    id: F02.01
+- tapOn:
+    id: auth-code
+- eraseText
+- inputText: ${PILOT_DEMO_CODE}
+- tapOn:
+    id: auth-verify
+- assertVisible:
+    id: F02.01
+- assertVisible: Die KI unterstützt Sie. Wer für eine Beratung verantwortlich ist, sehen Sie beim jeweiligen Angebot.
+- assertVisible: Demo
+- assertNotVisible:
+    id: protected-start
+- takeScreenshot: pilot-welcome
+- stopApp
+- launchApp:
+    clearState: false
+- assertVisible:
+    id: first-run-continue
+- tapOn:
+    id: first-run-continue
+- assertVisible:
+    id: auth-email
+- assertNotVisible:
+    id: F02.01
+- takeScreenshot: pilot-restart

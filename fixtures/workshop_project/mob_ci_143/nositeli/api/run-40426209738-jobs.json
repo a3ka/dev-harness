@@ -1,0 +1,326 @@
+{
+  "total_count": 2,
+  "jobs": [
+    {
+      "id": 121932491375,
+      "name": "quality",
+      "status": "completed",
+      "conclusion": "success",
+      "runner_name": "station-complior",
+      "labels": [
+        "self-hosted",
+        "linux",
+        "x64",
+        "complior"
+      ],
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout frozen probe harness H",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "cmp frozen pilot.test.tsx + source.json с H",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --no-audit --no-fund",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "probe.py --check-frozen (H, --repo disposable R)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "runtime_probe.py, bundle_probe.py, schema_probe.py, frozen_matrix.py, transport_probe.py, admission_probe.py, stale_probe.py, types_probe.py, pins_probe.py, admission_family_probe.py, stale_table_probe.py (H, --repo disposable R)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "999 nav_probe.py / ui_probe.py / shell_static_probe.py / copy_probe.py (H, --repo disposable R)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "108 start_static_probe.py / start_probe.py (H, --repo disposable R)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "111 first_run_static_probe.py / first_run_probe.py (H, --repo disposable R)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout probe battery 117 (frozen/contracts/117/1)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "pyyaml для клеток Maestro батареи 117 (контракт 117 v2: приёмка)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "117 vkhod_static_probe.py / vkhod_probe.py (батарея 117, --repo disposable R)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Вынести H, батарею 117 и пачки 135/118 из дерева до lint (layout-проверка не должна их видеть)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run lint",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run doctor",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout probe battery 117 (frozen/contracts/117/1)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Checkout frozen probe harness H",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 121933361101,
+      "name": "android-e2e",
+      "status": "completed",
+      "conclusion": "failure",
+      "runner_name": "station-complior-2",
+      "labels": [
+        "self-hosted",
+        "linux",
+        "x64",
+        "kvm",
+        "complior"
+      ],
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout frozen probe harness H",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Изоляция раннера (/home недоступен коду из PR)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Версия Node совпадает с .node-version",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-python@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci --no-audit --no-fund",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Сборка release-APK (JS внутри, без Metro; только x86_64)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "H-pин приватного кода вне checkout",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Maestro runner для CMP-MOB-001 (через maestro_probe.py → ci-e2e.sh)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cleanup private code file",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "117 splash/F03.01/F03.02 × тема (Maestro, release APK)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "123 сверка кадров с макетом (scripts/sverka_maketa.py)",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Артефакты 117 (кадры по правилу (В), отчёт)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Checkout H пачки first-run-ekran (.harness135)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "135 first-run-ekran (валидатор 132 + cmp + проверка происхождения, Maestro × тема)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Артефакты 135 (кадры first-run-ekran, отчёт)",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Checkout H пачки erstinformation (.harness118)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "118 миграция 117 v+1 заморожена (frozen/contracts/117/3)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run npm test -- --json --outputFile=e2e-erstinformation/jest-otchet.json",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "118 erstinformation (валидатор 132 + cmp + проверка происхождения, Maestro × тема)",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Артефакты 118 (кадры erstinformation, отчёт)",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Check rehearsal evidence",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Артефакты (скриншоты, отчёт)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Release APK",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Check Maestro version",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-python@v7",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Checkout frozen probe harness H",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v7",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
