@@ -148,7 +148,8 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       непуст, «patient» в теле сохранён, mode из файла равен наблюдению);
     - STEND_UP_GUARD (живой): docker compose -p <уникальный> -f
       compose.dev.yml up -d --wait → rc 0; SELECT count(*) из
-      control.schema_migration = 14; повторный up rc 0 и ledger прежний;
+      control.schema_migration = N (числу записей манифеста миграций
+      дерева под проверкой, v4); повторный up rc 0 и ledger прежний;
       после прогона — down -v. Ловит том PG18 вне /var/lib/postgresql
       (образ 18+ отказывается от data-подпути) и migrator на образе без node
       (postgres:18 + command node → exit 127). NEEDS_ENV без docker compose
@@ -257,7 +258,7 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       теста «живое наблюдение: server+PG18…» — строго span САМОГО вызова
       test(…) до его закрытия по балансу скобок: токены
       (recordInteractionAsync/readSink/MEASURED/runtime_role/ledger
-      14/http_response) и assert-проверки (≥5) считаются ТОЛЬКО внутри
+      N-по-манифесту/http_response) и assert-проверки (≥5) считаются ТОЛЬКО внутри
       span — заимствование исполняемых проверок соседнего теста (обход
       критика круга 1 v2: пустое тело + переставленный сосед с живым
       assert) не засчитывается; И файл исполняется зелёно (node --test
@@ -267,6 +268,27 @@ NEEDS_ENV (факт None — не измерено, контроль не зел
       различает (сверх-приближение, правило 7 AGENTS); сканер баланса не
       разбирает regex-литералы с неспаренными кавычками/скобками —
       якорные байты dd8e533 их не содержат.
+  НОВОЕ v4 (слово владельца 2026-10-26: проба берёт ЧИСЛО МИГРАЦИЙ из
+  манифеста репозитория продукта, а не из зашитой константы 14 — без
+  этого бэкенд не вольёт готовый 007, добавляющий миграции):
+    - единый источник ожидания — manifest_entries(tree): записи
+      PATHS['manifest'] ДЕРЕВА ПОД ПРОВЕРКОЙ (тот же файл читает мигратор
+      129 run.js loadPlan; «migrations/» и «server/infrastructure/…» —
+      обе структуры через PATHS); константы в судействе больше нет;
+    - STEND_UP_GUARD: ledger == len(записей манифеста), повторный up —
+      ledger прежний ПО СОДЕРЖИМОМУ строк; раннер повреждает ПОСЛЕДНИЙ
+      .sql каталога (жёсткий 013_* ломал миры с N<13);
+    - манифест отсутствует/нечитаем/пуст/без перечня/несовпадает с
+      набором *.sql каталога — отказ fail-closed: CLI rc 2
+      `109 UNMEASURABLE: MANIFEST_<причина>` ДО любого суда, клетка
+      факта — красная с именованной причиной (не молчаливое 14);
+    - DELIVERY_TEST_RED_CONTROL: токен числа в span именованного теста —
+      str(N) по манифесту; продукт, добавивший миграции и не обновивший
+      тест (класс 007-до-правки), красен — клетка delivery_token_stale;
+    - мир классов входов (N: 1, 14, 15, 17, база+1; недокат/перекат/
+      подложный ledger) и обманные стабы судятся срез-раннером
+      red_migracii_109.sh (грамматика — контракт §Приёмочный критерий;
+      оракул каждого мира — его манифест, вычислен ДО вызова субъекта).
 """
 
 import argparse
@@ -365,6 +387,75 @@ class Tree:
             return (self.repo / rel).read_text(encoding='utf-8')
         except (OSError, UnicodeDecodeError):
             return None
+
+    def sql_names(self, dir_rel):
+        """Имена *.sql каталога с учётом оверлея: на диске ∪ оверлей −
+        удаления (None). Список файлов — не текст: get() его не читает."""
+        names = set()
+        try:
+            names |= {f for f in os.listdir(self.repo / dir_rel)
+                      if f.endswith('.sql')}
+        except OSError:
+            pass
+        prefix = dir_rel + '/'
+        for orel, obody in self.overlay.items():
+            if not orel.startswith(prefix):
+                continue
+            name = orel[len(prefix):]
+            if '/' in name:
+                continue
+            if obody is None:
+                names.discard(name)
+            elif name.endswith('.sql'):
+                names.add(name)
+        return names
+
+
+class ManifestError(Exception):
+    """Манифест миграций репозитория под проверкой не даёт ожидания
+    (v4): отказ fail-closed с именованной причиной, а не молчаливая
+    константа. Причины замкнуты: MANIFEST_MISSING, MANIFEST_UNPARSEABLE,
+    MANIFEST_NO_LIST, MANIFEST_EMPTY, MANIFEST_ENTRY_FILE,
+    MANIFEST_MISMATCH_FILES."""
+
+    def __init__(self, reason):
+        super().__init__(reason)
+        self.reason = reason
+
+
+def manifest_entries(tree):
+    """Записи манифеста миграций ДЕРЕВА ПОД ПРОВЕРКОЙ (v4, единый источник
+    ожидаемого ledger): PATHS['manifest'] — тот же файл, который читает
+    сам мигратор 129 (run.js loadPlan: doc.migrations, каталог миграций
+    обязан совпадать с манифестом до любого DDL). Подмножество правил
+    loadPlan (файл есть в каталоге; .sql вне манифеста нет) — вторую
+    грамматику (версии/SHA256) не изобретаем: их судит живой раннер
+    (RUNNER_DAMAGE_GUARD). Возвращает список записей; сломан — raise
+    ManifestError."""
+    body = tree.get(tree.p('manifest'))
+    if body is None:
+        raise ManifestError('MANIFEST_MISSING')
+    try:
+        doc = json.loads(body)
+    except ValueError:
+        raise ManifestError('MANIFEST_UNPARSEABLE')
+    entries = doc.get('migrations') if isinstance(doc, dict) else None
+    if not isinstance(entries, list):
+        raise ManifestError('MANIFEST_NO_LIST')
+    if not entries:
+        raise ManifestError('MANIFEST_EMPTY')
+    files = []
+    for e in entries:
+        if not isinstance(e, dict) or not isinstance(e.get('file'), str):
+            raise ManifestError('MANIFEST_ENTRY_FILE')
+        files.append(e['file'])
+    listed = set(files)
+    if len(listed) != len(files):
+        raise ManifestError('MANIFEST_ENTRY_FILE')
+    present = tree.sql_names(tree.p('db_dir'))
+    if listed != present:
+        raise ManifestError('MANIFEST_MISMATCH_FILES')
+    return entries
 
 def code_only(text):
     """JS без блочных и строчных комментариев: маркер в комментарии не считается
@@ -637,7 +728,12 @@ def runner_damage_fact(r, node):
     with tempfile.TemporaryDirectory(prefix='stend109-') as tmp:
         dbdir = Path(tmp) / 'db-dir'
         shutil.copytree(r / p_of(r, 'db_dir'), dbdir)
-        dmg = dbdir / '013_profile_release_permissions.sql'
+        # v4: повреждается ПОСЛЕДНИЙ по сортировке .sql каталога — цель
+        # выводится из дерева (миры с N<13 не имеют 013_*; жёсткий литерал
+        # ломал бы факт на усечённом мире). Семантика прежняя: SHA256
+        # повреждённого файла ≠ манифест → rc 1 ДО соединения с БД.
+        dmg = dbdir / sorted(
+            f for f in os.listdir(dbdir) if f.endswith('.sql'))[-1]
         dmg.write_bytes(dmg.read_bytes() + b'\n-- damaged\n')
         env = dict(os.environ, MIGRATION_DATABASE_URL='postgres://u:p@127.0.0.1:1/none')
 
@@ -1332,13 +1428,22 @@ def harness_pii_fact(repo, tree=None):
 
 def stend_up_fact(repo, tree=None):
     """Живой подъём стенда одной командой (F1/Б1): up -d --wait rc 0,
-    ledger control.schema_migration = 14, повтор rc 0 и ledger прежний;
-    down -v после прогона; уникальный -p, published-портов не занимается."""
+    ledger control.schema_migration = N — числу записей манифеста
+    МИГРАЦИЙ ДЕРЕВА ПОД ПРОВЕРКОЙ (v4: без зашитой константы; манифест
+    сломан — красная клетка с именованной причиной, не молчаливое
+    ожидание), повтор rc 0 и ledger прежний; down -v после прогона;
+    уникальный -p, published-портов не занимается."""
     tree = tree or Tree(repo)
     compose = tree.get(tree.p('compose'))
     if compose is None:
         return (None, 'NEEDS_ENV: compose.dev.yml отсутствует (контроль судит '
                       'COMPOSE_MISSING); живой подъём стенда НЕ проверен')
+    try:
+        expected = str(len(manifest_entries(tree)))
+    except ManifestError as e:
+        return (False, 'манифест миграций дерева под проверкой: %s — '
+                       'ожидание ledger не выводимо (fail-closed, v4); '
+                       'живой стенд с достоверным ожиданием невозможен' % e.reason)
     try:
         dc = subprocess.run(['docker', 'compose', 'version'],
                             capture_output=True, text=True, timeout=30)
@@ -1348,7 +1453,8 @@ def stend_up_fact(repo, tree=None):
         dc = None
     if dc is None:
         return (None, 'NEEDS_ENV: docker compose недоступен — живой подъём стенда '
-                      '(миграция до API, ledger=14, повтор, том PG18) НЕ проверен')
+                      '(миграция до API, ledger=N по манифесту (%s), повтор, том '
+                      'PG18) НЕ проверен' % expected)
     project = 'stend109up%s' % uuid.uuid4().hex[:8]
     repo_p = Path(repo)
     cwd = repo_p
@@ -1439,7 +1545,7 @@ def stend_up_fact(repo, tree=None):
             else:
                 q = psql(ledger_sql)
                 led = (q.stdout or '').strip()
-                oks.append(q.returncode == 0 and led == '14')
+                oks.append(q.returncode == 0 and led == expected)
                 notes.append('ledger=%r rc=%d' % (led, q.returncode))
                 # С7/M7: LOGIN-роль role-bootstrap живьём в pg_roles — не суперпользователь
                 qr = psql("SELECT rolsuper::int || '|' || rolcanlogin::int "
@@ -1460,7 +1566,7 @@ def stend_up_fact(repo, tree=None):
             if pgsvc is not None:
                 q2 = psql(ledger_sql)
                 led2 = (q2.stdout or '').strip()
-                ok3 = r2.returncode == 0 and q2.returncode == 0 and led2 == '14'
+                ok3 = r2.returncode == 0 and q2.returncode == 0 and led2 == expected
                 # С7/M9: ledger между повторными up неизменен ПО СОДЕРЖИМОМУ строк
                 q3 = psql(ledger_rows_sql)
                 rows2 = (q3.stdout or '').strip()
@@ -2318,10 +2424,17 @@ def backend_lint_fact(repo, tree=None):
 def delivery_rel(t):
     return t.p('integ_dir') + '/harness-live.test.js'
 DELIVERY_TEST_TITLE = 'живое наблюдение: server+PG18'
-DELIVERY_NOOP_BODY = ("test('живое наблюдение: server+PG18 — оси ПРОЧИТАНЫ из sink "
-                      "(MEASURED, роль hc_*, ledger 14)', async () => {});")
-DELIVERY_SPAN_TOKENS = ('recordInteractionAsync(', 'readSink(', 'MEASURED',
-                        'runtime_role', '14', 'http_response')
+def delivery_noop_body(n):
+    return ("test('живое наблюдение: server+PG18 — оси ПРОЧИТАНЫ из sink "
+            "(MEASURED, роль hc_*, ledger %d)', async () => {});" % n)
+
+
+def delivery_span_tokens(n):
+    """Токены span именованного delivery-теста; число ledger — из манифеста
+    дерева под проверкой (v4): продукт обязан мерить СВОЁ текущее число
+    миграций (007-класс правки обновляет тест вместе с манифестом)."""
+    return ('recordInteractionAsync(', 'readSink(', 'MEASURED',
+            'runtime_role', str(n), 'http_response')
 
 
 def _js_call_end(body, p):
@@ -2393,13 +2506,20 @@ def delivery_test_fact(repo, tree=None):
     тело ИМЕНОВАННОГО теста «живое наблюдение: server+PG18…» — span вызова
     test(…) до его закрытия по балансу скобок — несёт вызов
     recordInteractionAsync, чтение sink (readSink) и измеренные ожидания
-    (MEASURED/runtime_role/ledger 14/http_response), ≥5 assert-проверок;
+    (MEASURED/runtime_role/ledger N — число записей манифеста дерева под
+    проверкой, v4 — константы нет), ≥5 assert-проверок;
     токены/assert ТОЛЬКО внутри span — заимствование соседнего теста не
     считается (обход критика круга 1 v2). Подмена тела на async () => {}
     выхолащивает их. Живо: файл ИСПОЛНЯЕТСЯ (node --test на disposable
     PG18, правила Ц) — на честном дереве rc 0. Граница:
     токены-без-исполнения статическая часть не различает."""
     tree = tree or Tree(repo)
+    try:
+        tokens = delivery_span_tokens(len(manifest_entries(tree)))
+    except ManifestError as e:
+        return (False, 'манифест миграций дерева под проверкой: %s — '
+                       'токен ledger именованного теста не выводим '
+                       '(fail-closed, v4)' % e.reason)
     body = tree.get(delivery_rel(tree))
     if body is None:
         return (None, 'NEEDS_ENV: %s отсутствует — красный контроль '
@@ -2409,7 +2529,7 @@ def delivery_test_fact(repo, tree=None):
         return (False, 'тест «%s…» не найден/не закрыт в harness-live.test.js'
                 % DELIVERY_TEST_TITLE)
     span = body[span_i:span_j]
-    missing = [tok for tok in DELIVERY_SPAN_TOKENS if tok not in span]
+    missing = [tok for tok in tokens if tok not in span]
     n_asserts = span.count('assert.')
     if missing or n_asserts < 5:
         return (False, 'тело теста «%s…» выхолащено (I-10): отсутствуют '
@@ -3011,7 +3131,7 @@ def _js_fromchar(s):
 
 def m9_rewrite_cmd(layout):
     """С7/M9: команда мутанта сохраняет ЖИВОЙ раннер раскладки
-    (PATHS[layout]['runner'] — мигратор обязан отработать, счёт остаётся 14)
+    (PATHS[layout]['runner'] — мигратор обязан отработать, счёт остаётся N)
     и дописывает перезапись applied_by: редкость ловится сравнением
     содержимого строк ledger между повторными up, а не падением migrator."""
     return (
@@ -3242,7 +3362,7 @@ def mut_stend_api_superuser_url(t):
 
 def mut_stend_ledger_rewritten(t):
     """С7/M9: каждый up переписывает ledger (applied_by=md5(applied_by)),
-    count остаётся 14 — сравнение содержимого строк ловит подмену."""
+    count остаётся N — сравнение содержимого строк ловит подмену."""
     lay = t.layout or LAYOUT_OLD
     b = t.get(t.p('compose'))
     if not need(b) or MIGRATOR_CMD_LINES[lay] not in b:
@@ -3288,10 +3408,14 @@ def mut_delivery_live_noop(t):
     b = t.get(delivery_rel(t))
     if not need(b):
         return None
+    try:
+        n = len(manifest_entries(t))
+    except ManifestError:
+        return None
     i, j = _delivery_span(b)
     if i is None:
         return None
-    return {delivery_rel(t): b[:i] + DELIVERY_NOOP_BODY + b[j:]}
+    return {delivery_rel(t): b[:i] + delivery_noop_body(n) + b[j:]}
 
 DELIVERY_NEIGHBOR_READ = 'const raw = readSink(dir);'
 DELIVERY_NEIGHBOR_ASSERT = ("  assert.equal(raw.http_response.status, 200, "
@@ -3314,6 +3438,10 @@ def mut_delivery_noop_borrow_neighbor(t):
     i, j = _delivery_span(b)
     if i is None:
         return None
+    try:
+        n = len(manifest_entries(t))
+    except ManifestError:
+        return None
     nb = None
     for m in re.finditer(r'(?m)^test\(', b):
         if m.start() == i:
@@ -3334,12 +3462,76 @@ def mut_delivery_noop_borrow_neighbor(t):
         return None
     seg = nb[2].replace(DELIVERY_NEIGHBOR_READ,
                         DELIVERY_NEIGHBOR_READ + '\n' + DELIVERY_NEIGHBOR_ASSERT, 1)
-    out = b[:i] + DELIVERY_NOOP_BODY + '\n\n' + seg
+    out = b[:i] + delivery_noop_body(n) + '\n\n' + seg
     mid = b[j:nb[0]].strip('\n')
     if mid:
         out += '\n\n' + mid
     out += '\n'
     return {delivery_rel(t): out}
+
+
+def mut_manifest_absent(t):
+    """v4: манифест миграций удалён из дерева под проверкой — ожидание
+    ledger не выводимо; честная батарея ОТКАЗЫВАЕТСЯ с именованной
+    причиной (rc 2 MANIFEST_MISSING на CLI; факт STEND_UP_GUARD красен),
+    а не судит по молчаливой константе."""
+    if t.get(t.p('manifest')) is None:
+        return None
+    return {t.p('manifest'): None}
+
+
+def mut_manifest_empty(t):
+    """v4: манифест с пустым перечнем migrations: [] — fail-closed
+    MANIFEST_EMPTY (rc 2 CLI; факт STEND_UP_GUARD красен), не «принят
+    как ноль»."""
+    body = t.get(t.p('manifest'))
+    if not need(body):
+        return None
+    return {t.p('manifest'): '{"source": "migrations/", "migrations": []}\n'}
+
+
+def mut_manifest_extra_file(t):
+    """v4: .sql вне манифеста (лишний файл каталога) — несоответствие
+    манифеста набору файлов; сам раннер 129 отказал бы ДО DDL; проба —
+    fail-closed MANIFEST_MISMATCH_FILES (rc 2 CLI; факт красен)."""
+    try:
+        entries = manifest_entries(t)
+    except ManifestError:
+        return None
+    extra = 'zzz_vne_manifesta_109.sql'
+    if extra in {e['file'] for e in entries}:
+        return None
+    return {t.p('db_dir') + '/' + extra:
+            '-- файл вне манифеста: раннер 129 отказывает до DDL\n'
+            'BEGIN;\nSELECT 1;\nCOMMIT;\n'}
+
+
+def mut_delivery_token_stale(t):
+    """v4: манифест ведёт N миграций, а delivery-тест всё ещё мерит
+    прежнее число (класс 007: продукт добавил миграции, тест не догнал) —
+    span теряет токен str(N), факт DELIVERY_TEST_RED_CONTROL красен:
+    константа в тесте не может пережить изменение манифеста."""
+    b = t.get(delivery_rel(t))
+    if not need(b):
+        return None
+    try:
+        n = len(manifest_entries(t))
+    except ManifestError:
+        return None
+    if n < 1:
+        return None
+    stale, fresh = n - 1, n
+    i, j = _delivery_span(b)
+    if i is None or ('ledger %d' % fresh) not in b[i:j]:
+        return None
+    span = b[i:j]
+    # застаивают ВСЕ числовые формы ожидания в span: заголовок, assert
+    # длины и текст сообщения — одна оставшаяся форма проходит токен-проверку
+    for a, c in (('ledger %d', 'ledger %d'),
+                 ('rows.length, %d', 'rows.length, %d'),
+                 ('измерен: %d строк', 'измерен: %d строк')):
+        span = span.replace(a % fresh, c % stale)
+    return {delivery_rel(t): b[:i] + span + b[j:]}
 
 
 CASES = [
@@ -3396,16 +3588,22 @@ CASES = [
     ('backend_lint_unused_const', 'BACKEND_LINT_GUARD', mut_backend_lint_unused_const),
     ('delivery_live_noop_body', 'DELIVERY_TEST_RED_CONTROL', mut_delivery_live_noop),
     ('delivery_noop_borrow_neighbor', 'DELIVERY_TEST_RED_CONTROL', mut_delivery_noop_borrow_neighbor),
+    ('stend_manifest_absent', 'STEND_UP_GUARD', mut_manifest_absent),
+    ('stend_manifest_empty', 'STEND_UP_GUARD', mut_manifest_empty),
+    ('stend_manifest_extra_file', 'STEND_UP_GUARD', mut_manifest_extra_file),
+    ('delivery_token_stale', 'DELIVERY_TEST_RED_CONTROL', mut_delivery_token_stale),
 ]
 
-# фактов пятнадцать, клеток пятьдесят три (круг 4: пере-якорение dd8e533,
+# фактов пятнадцать, клеток пятьдесят семь (круг 4: пере-якорение dd8e533,
 # A-3…A-8 расширены внутри существующих фактов/клеток; черновик v2 (форк
 # n109-krug4-fail) добавляет BACKEND_LINT_GUARD и DELIVERY_TEST_RED_CONTROL
 # с клетками форм mut-i1/mut-i10; v2b закрывает обход критика круга 1:
 # span именованного теста по балансу скобок + клетка
-# delivery_noop_borrow_neighbor): run_case вызывает ТОЛЬКО целевой факт
-# мутанта, не пересчитывая все (живые docker-факты дорогие); семантика
-# прежних целей не меняется.
+# delivery_noop_borrow_neighbor; v4 (слово владельца 2026-10-26) добавляет
+# ЧЕТЫРЕ клетки fail-closed манифеста/токена — прежние клетки не меняются,
+# константа 14 в судействе заменена ожиданием из манифеста дерева):
+# run_case вызывает ТОЛЬКО целевой факт мутанта, не пересчитывая все
+# (живые docker-факты дорогие); семантика прежних целей не меняется.
 FACT_FUNCS = {
     'RUNNER_DAMAGE_GUARD': lambda repo, tree: runner_damage_fact(repo, shutil.which('node')),
     'EGRESS_GUARD': egress_fact,
@@ -3502,6 +3700,13 @@ def main():
     if detect_layout(repo) is None:
         print('%s: REPO_NOT_RESOLVED: нет package.json ни в корне (новая '
               'структура), ни в backend/ (старая)' % UNMEASURABLE)
+        return 2
+    try:
+        manifest_entries(Tree(repo))
+    except ManifestError as e:
+        print('%s: %s: ожидание ledger не выводимо из манифеста миграций '
+              'репозитория под проверкой (fail-closed, v4; константы нет)' % (
+                  UNMEASURABLE, e.reason))
         return 2
     base_fired, base_blocked = subject_control(Tree(repo))
     facts = check_facts(repo)
