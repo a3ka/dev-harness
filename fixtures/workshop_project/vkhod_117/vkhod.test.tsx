@@ -46,7 +46,7 @@ jest.mock('../../../assets/images/splash-composite-light.png', () => ({ vkhod117
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { Appearance, NativeModules } from 'react-native';
+import { Appearance, Linking, NativeModules } from 'react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { createRoot } from 'test-renderer';
 import * as SplashScreen from 'expo-splash-screen';
@@ -707,6 +707,106 @@ describe('117 vkhod', () => {
       try {
         const api = await renderApp(scheme);
         expect(api.getByTestId(SPLASH_OVERLAY_TEST_ID)).toBeTruthy();
+        await React.act(async () => {
+          jest.advanceTimersByTime(SPLASH_OVERLAY_HIDE_AFTER_MS - 1);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).not.toBeNull();
+        await React.act(async () => {
+          jest.advanceTimersByTime(1);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  }
+
+  // 117 v4 (класс B, слово владельца 2026-10-27; пересмотры по живым пробам
+  // run 40434807469 и 40497913252): env-удержание e2e-СБОРКИ отклонено (один
+  // APK на все шаги держал оверлей 8 с на КАЖДОМ холодном старте — кадр 118
+  // F02.03-V01-V0 dark/light 0.000, на кадре splash-оверлей). Проба (Г)
+  // host-ссылкой complior://e2e-splash-hold отклонена: expo-router разбирает
+  // её как ПУТЬ /e2e-splash-hold → динамический (tabs)/[section] рендерит
+  // null → PilotApp не монтируется → hideAsync не вызван → нативный splash
+  // залип (run 40497913252, флоу 117 красен). Удержание приписано ТОЛЬКО
+  // сценарию 117: он запускает ХОЛОДНЫЙ старт по deep link на КОРЕНЬ с
+  // маркером в query, и pilot-app продлевает окно при ТОЧНОМ равенстве
+  // стартового URL литералу. Классы входов ссылки: литерал (корень+query) —
+  // удержание; несуществующий маршрут (дефект пробы (Г)) и чужая живная
+  // ссылка — прод-таймер 1200; без ссылки — прод-таймер 1200 (TIMER_HIDE).
+  // Пресет Jest мокает Linking.getInitialURL (Promise.resolve() →
+  // undefined); клетки подставляют ответ разовым mockImplementationOnce —
+  // ожидания читаются из ЛИТЕРАЛОВ оракула, не у субъекта (правило 8).
+  const SPLASH_HOLD_E2E_LINK = 'complior:///?e2e=splash-hold';
+  const SPLASH_HOLD_E2E_MS = 8000;
+  const SPLASH_HOLD_INOJ_URL = 'complior://start';
+  const SPLASH_HOLD_NEMARSHRUT_URL = 'complior://e2e-splash-hold';
+  for (const scheme of ['dark', 'light'] as const) {
+    const S = scheme.toUpperCase();
+
+    it(`SPLASH_OVERLAY_HOLD_LINK_${S}`, async () => {
+      (Linking.getInitialURL as jest.Mock).mockImplementationOnce(
+        async () => SPLASH_HOLD_E2E_LINK);
+      jest.useFakeTimers();
+      try {
+        const api = await renderApp(scheme);
+        expect(api.getByTestId(SPLASH_OVERLAY_TEST_ID)).toBeTruthy();
+        // Микротаск апгрейда таймера 1200 → 8000 (RNTL 14.1 await).
+        await React.act(async () => {});
+        // Прод-окно истекло — оверлей удержанного старта всё ещё на экране.
+        await React.act(async () => {
+          jest.advanceTimersByTime(SPLASH_OVERLAY_HIDE_AFTER_MS);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).not.toBeNull();
+        await React.act(async () => {
+          jest.advanceTimersByTime(SPLASH_HOLD_E2E_MS - SPLASH_OVERLAY_HIDE_AFTER_MS - 1);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).not.toBeNull();
+        await React.act(async () => {
+          jest.advanceTimersByTime(1);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it(`SPLASH_OVERLAY_HOLD_NE_NEMARSHRUT_${S}`, async () => {
+      // Класс входа «ссылка на НЕСУЩЕСТВУЮЩИЙ маршрут» — дефект пробы (Г)
+      // run 40497913252: host-ссылка complior://e2e-splash-hold разобрана
+      // expo-router как путь /e2e-splash-hold → [section] рендерит null →
+      // PilotApp не монтирован (живое дерево пусто, нативный splash залип).
+      // На смонтированном PilotApp тот же URL литералу НЕ равен →
+      // прод-таймер 1200 без апгрейда: клетка держит класс входа —
+      // «похожая на удержание» ссылка удержания НЕ взводит.
+      (Linking.getInitialURL as jest.Mock).mockImplementationOnce(
+        async () => SPLASH_HOLD_NEMARSHRUT_URL);
+      jest.useFakeTimers();
+      try {
+        const api = await renderApp(scheme);
+        await React.act(async () => {});
+        await React.act(async () => {
+          jest.advanceTimersByTime(SPLASH_OVERLAY_HIDE_AFTER_MS - 1);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).not.toBeNull();
+        await React.act(async () => {
+          jest.advanceTimersByTime(1);
+        });
+        expect(api.queryByTestId(SPLASH_OVERLAY_TEST_ID)).toBeNull();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it(`SPLASH_OVERLAY_HOLD_NE_INOJ_URL_${S}`, async () => {
+      // Живая чужая ссылка (complior://start — cmp-mob-002/004): стартовый
+      // URL ≠ литералу удержания → прод-таймер 1200 без апгрейда.
+      (Linking.getInitialURL as jest.Mock).mockImplementationOnce(
+        async () => SPLASH_HOLD_INOJ_URL);
+      jest.useFakeTimers();
+      try {
+        const api = await renderApp(scheme);
+        await React.act(async () => {});
         await React.act(async () => {
           jest.advanceTimersByTime(SPLASH_OVERLAY_HIDE_AFTER_MS - 1);
         });

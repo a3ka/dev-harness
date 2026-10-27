@@ -1,0 +1,51 @@
+appId: com.complior.mobile
+name: 117 — splash + First-Run после снятия оверлея (схема устройства)
+---
+# 117 (CMP-MOB-006, v2 — сужение до splash + First-Run; арбитраж круга 2,
+# ПРАВИЛО (В)): холодный старт = нативный знак канона на ground СХЕМЫ
+# (app.json: корень светлый + вложенный dark) → JS-ОВЕРЛЕЙ кадра
+# Splash.png/Splash-Hell.png (testID splash-overlay) → First-Run 111 ПОСЛЕ
+# снятия оверлея. Вход вынесен в предмет first-run-ekran (frozen 117/2) —
+# кадров входа в этом сценарии нет.
+#
+# Сценарий ОДИН на обе схемы: тему ОС ставит вызывающая сторона
+# (android-e2e: adb shell cmd uimode night yes|no), каталог вывода прогона
+# несёт схему (maestro-out-117/<тема>/), поэтому имена кадров здесь без темы.
+# Сценарий не судит цвета — цвета судят пробы 117 и ревьюер по скриншотам;
+# assertVisible — доказательство Б3 «кадр целиком в окне»: каждый элемент
+# состава кадра должен быть виден на release APK (эмулятор/окно не считаются
+# в Jest — layout там не вычисляется).
+- launchApp:
+    clearState: true
+# Кадр splash снимается после того, как окно приложения ОТРИСОВАЛО оверлей.
+# Без этого ожидания кадр снимается с рабочего стола (круг 1: в тёмной теме
+# на vkhod-117-splash был рабочий стол Android — сверять было нечего).
+# extendedWaitUntil ждёт появления testID splash-overlay и КРАСНЕЕТ, если
+# оверлей не показан: тихий кадр не того вместо красного прогона хуже.
+# Оверлей живёт SPLASH_OVERLAY_MS (1200 мс) от первого commit — окно узкое,
+# поэтому ожидание берёт запас по времени, а не мгновенный снимок.
+- extendedWaitUntil:
+    visible:
+      id: splash-overlay
+    timeout: 15000
+- takeScreenshot: vkhod-117-splash
+# Кадр first-run снимается ТОЛЬКО после исчезновения оверлея: оверлей —
+# последний sibling поверх дерева с pointerEvents none, поэтому элементы
+# First-Run остаются в иерархии (assertVisible проходит по иерархии, а кадр
+# показывает splash — круг 1). Здесь ждём notVisible и проверяем СОСТАВ
+# First-Run: promise и CTA кадра 111.
+- extendedWaitUntil:
+    notVisible:
+      id: splash-overlay
+    timeout: 15000
+- assertNotVisible:
+    id: splash-overlay
+- assertVisible:
+    id: first-run-promise
+- assertVisible:
+    text: "Sie sagen, was passiert ist. Complior kümmert sich um den Rest."
+- assertVisible:
+    id: first-run-continue
+- assertVisible:
+    text: "Anmelden oder Konto erstellen"
+- takeScreenshot: vkhod-117-first-run
