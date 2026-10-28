@@ -19,7 +19,7 @@ v4d (исполнение решения арбитра — `verdicts/arbitratio
 `width`/`height`} на узле или предке (как у RNTL `toBeVisible` — ни шире, ни уже);
 обещание v4c «ПРИСУТСТВОВАТЬ = быть ВИДИМЫМ» снято как неисполнимое toJSON-пробой
 (замер 3 арбитража: шесть конформных мутаций вне перечня — все rc 0). Видимость строк
-НА ЭКРАНЕ судит сверка 123 в гейте 135 (шаг «135 first-run-ekran» job android-e2e:
+НА ЭКРАНЕ судит сверка 123 в гейте 135 (v5, 143: шаг «135 first-run-ekran» задачи e2e-first-run; транзитивно — под required-агрегатом android-e2e:
 элементы `podzagolovok`/`futer` манифеста `mobile/e2e-first-run/kadry.json`, порог
 0,600, без continue-on-error) — Модель угроз, критерий `gh pr checks`, §«Замер v4d».
 Единственное изменение v4 — каталог копии First-Run += две строки макета владельца
@@ -45,6 +45,56 @@ SPLASH_GROUND_SCHEME, единый источник `vkhod_117/source.json` (`ap
 развилка 1, вариант (А). v1 (заморожен `frozen/contracts/111/1`, закрыт
 `done/contracts/111/1`): `git show frozen/contracts/111/1^{commit}:contracts/
 111-cmp-mob-first-run.md`.
+
+ВЕРСИЯ: v5 (placement-гейт First-Run → задача e2e-first-run; адресная
+миграция по контракту 143 mob-ci-razdelenie — слово владельца 2026-10-27
+~22:10 UTC: «перенос ссылок с job android-e2e на экранные job … кадры, оси
+и критерии экранов без изменений»; строка РАЗРЕШИЛ-ВЛАДЕЛЕЦ — в теле
+изменяющего коммита). Дельта к v4 — ТОЛЬКО перенос трёх ссылок
+placement-гейта видимости строк (шаг «135 first-run-ekran»: монолитный
+job android-e2e → экранная задача e2e-first-run, транзитивно под
+required-агрегатом android-e2e; пробы 111 остаются в quality — 143);
+family, копия, порог, манифест kadry.json и пробы не тронуты; всё прочее
+v4 действует дословно. Батарея 111 workflow не судит (копия/пробы экрана):
+привязок к имени job в source.json/пробах нет, батарея не меняется.
+
+ВЕРСИЯ: v6 (адресная правка по вердикту критика 1/2 сессии Crit117a —
+contracts-111-v5.md FAIL: отложенная приёмка и раздел поставки всё ещё
+требовали скриншоты First-Run и шаг «135 first-run-ekran» ВНУТРИ
+android-e2e; слово владельца 27.10 ~22:10 — правки РОВНО адресные).
+Перенесены оставшиеся живые ссылки android-e2e на задачу e2e-first-run:
+отложенная приёмка называет задачу e2e-first-run для шага 135 и её
+артефакт maestro-first-run-* (валидатор 132, сверка 123, порог 0,600 —
+без изменений); поставка (новый скриншот First-Run) и ловец ревьюера —
+артефакты той же задачи. Family, копия, порог, манифест kadry.json,
+кадры, пробы и БАТАРЕЯ не тронуты (правка — только текст контракта).
+Строку разрешения владельца архитектор не пишет: в теле коммита заглушка
+ОЖИДАЕТСЯ-СЛОВО-ВЛАДЕЛЬЦА (адресные v+1 девяти контрактов по 143, слово
+владельца 2026-10-27 ~22:10). Оставшиеся android-e2e — имя агрегата/
+required и цитаты записей переноса: замкнутый перечень в §Замены v6.
+
+## Замены v6 (относительно frozen/contracts/111/4; всё прочее — байт в байт)
+
+Пункты 1–3 — замены v5 (хунки черновика 111-v5 пачки 143); пункты 4–6 —
+адресные замены v6 по вердикту критика 1/2 (contracts-111-v5.md, БЛОКИРУЕТ
+строки 477–481 v5): класс каждой — перенос живой ссылки android-e2e на
+экранную задачу e2e-first-run; required-сигнал остаётся за агрегатом
+android-e2e (143 И-3/И-5). В цитатах «/» — граница строки.
+
+1. Строка 22 (хунк 1 черновика 111-v5 пачки 143): «НА ЭКРАНЕ судит сверка 123 в гейте 135 (шаг «135 first-run-ekran» job android-e2e:» → «НА ЭКРАНЕ судит сверка 123 в гейте 135 (v5, 143: шаг «135 first-run-ekran» задачи e2e-first-run; транзитивно — под required-агрегатом android-e2e:».
+2. Строка 322 (хунк 2): «  шагами 111 из H (обе пробы на disposable R) и android-e2e: Maestro start/rehearsal живы» → «  шагами 111 из H (обе пробы на disposable R) и required-агрегатом android-e2e (выборка 143: e2e-pilot): Maestro start/rehearsal живы» (Maestro start/rehearsal — фиксированный набор P задачи e2e-pilot, И-8 контракта 143).
+3. Строка 386 (хунк 3): «  ЭКРАНЕ судит механический rc-гейт продукта — шаг «135 first-run-ekran» job android-e2e» → «  ЭКРАНЕ судит механический rc-гейт продукта — шаг «135 first-run-ekran» задачи e2e-first-run (143)».
+4. Строка 340 (поставка): «новый скриншот First-Run — в артефакты android-e2e.» → «новый скриншот First-Run — в артефакты задачи e2e-first-run (143).».
+5. Строка 422 (НЕ ЗАЩИЩАЕТ, ловец ревьюера): «визуальная сверка — android-e2e артефакты/reviewer;» → «визуальная сверка — артефакты задачи e2e-first-run/reviewer;».
+6. Строки 449–453 (Отложенная продуктовая приёмка, БЛОКИРУЕТ вердикта 1/2): «— в артефактах / android-e2e; сверка с макетом МЕХАНИЧЕСКАЯ в CI (v4d, арбитраж 95f3b2c3: шаг / «135 first-run-ekran» job android-e2e — валидатор 132 → сверка 123 по / `mobile/e2e-first-run/kadry.json`, … порог 0,600, / rc-гейт без continue-on-error); …» → «— в артефактах / задачи e2e-first-run (maestro-first-run-*; 143); сверка с макетом МЕХАНИЧЕСКАЯ / в CI (v4d, арбитраж 95f3b2c3: шаг «135 first-run-ekran» задачи / e2e-first-run — валидатор 132 → сверка 123 по `mobile/e2e-first-run/kadry.json`, … порог 0,600, / rc-гейт без continue-on-error); …» (валидатор 132, элементы, порог 0,600, rc-гейт — байт в байт).
+
+Оставшиеся android-e2e — замкнутый перечень относительно frozen 111/4:
+строк 111/4 с android-e2e ВНЕ пунктов 1–6 НЕТ (все семь — 22, 322, 340,
+386, 422, 450, 451 — заменены); вхождения в новом тексте — только имя
+required-агрегата (строки 22/322-новые, шапка v6) и цитаты записей
+переноса (шапка версий, пункты 1–6). Family, копия, порог, манифест
+kadry.json, кадры, пробы и батарея не тронуты. Замены сверяются диффом к
+тегу `frozen/contracts/111/4`.
 
 КЛАСС: КОДОВЫЙ. Предмет — issue `a3ka/Complior-mob#109`: полный экран First-Run по эталону
 D2.2.5.1 (wordmark, promise, CTA «Anmelden oder Konto erstellen», ui.first_run.enter_f03) +
@@ -319,7 +369,7 @@ Python 3 stdlib. Нет Jest/артефактов отчёта → rc2 INFRASTRU
   995/999 в mobile.yml проходят на новой поставке БЕЗ правок проб (pilot.test.tsx и source.json
   побайтово неизменны — их трогать нельзя, это зона 995).
 - Дано C в PR; `gh pr checks PR --repo a3ka/Complior-mob --required` → rc0, включая quality с
-  шагами 111 из H (обе пробы на disposable R) и android-e2e: Maestro start/rehearsal живы
+  шагами 111 из H (обе пробы на disposable R) и required-агрегатом android-e2e (выборка 143: e2e-pilot): Maestro start/rehearsal живы
   на новом First-Run (assertVisible first-run-continue, после нажатия — «Anmelden oder
   Konto erstellen»), и шаг «135 first-run-ekran» — гейт ВИДИМОСТИ строк макета НА
   ЭКРАНЕ (v4d, арбитраж 95f3b2c3): валидатор 132 → сверка 123 по
@@ -337,7 +387,7 @@ Python 3 stdlib. Нет Jest/артефактов отчёта → rc2 INFRASTRU
 append-only записывает его с B в issue #109 ДО раздачи implementer. mobile.yml получает шаг
 quality по образцу 999/107/108: H-checkout, обе пробы 111 на disposable R (Python 3 stdlib) до
 npm test/lint/typecheck/doctor; frozen-шаги 995/999 сохраняются дословно. Maestro-сценарии не
-меняются (testID сохранён); новый скриншот First-Run — в артефакты android-e2e.
+меняются (testID сохранён); новый скриншот First-Run — в артефакты задачи `e2e-first-run` (143).
 
 ## Зоны и исполнители
 
@@ -383,7 +433,7 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
   scheme-независимый и light-ограниченный) и неточное совпадение с каталогизированной
   строкой (copy-all-allowed: сокращённая форма саблайна) красят;
 - от невидимых строк макета (v4d, арбитраж 95f3b2c3): видимость подзаголовка/футера НА
-  ЭКРАНЕ судит механический rc-гейт продукта — шаг «135 first-run-ekran» job android-e2e
+  ЭКРАНЕ судит механический rc-гейт продукта — шаг «135 first-run-ekran» задачи e2e-first-run (143)
   (`gh pr checks --required`): валидатор 132 → сверка 123 по
   `mobile/e2e-first-run/kadry.json` — кадры «First-Run dark/light», элементы
   `podzagolovok`/`futer`, порог 0,600; пропажа чернил элемента (прозрачный цвет,
@@ -419,7 +469,7 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
   cognitive-only, ловец reviewer на C по First-Run.png; проба проверяет наличие/доступность
   ассета, не его пиксели;
 - от пиксельной сверки нативного splash на устройстве — app.json-литерал и prebuild;
-  визуальная сверка — android-e2e артефакты/reviewer;
+  визуальная сверка — артефакты задачи `e2e-first-run`/reviewer;
 - от реальной аутентификации (IdP) — поверхность 995/бэкенд, вне предмета;
 - от злонамеренного кода с общим uid: независимые судьи, immutable H, CI evidence.
 - остаточные риски меры 123 (цена меры, не дыра приёмки 111; арбитраж 95f3b2c3 п. 1в):
@@ -447,10 +497,11 @@ fixtures/workshop_project/first_run_111/ — новый подкаталог arc
 ## Отложенная продуктовая приёмка
 
 - Скриншоты полного First-Run (wordmark+promise+CTA+обе строки макета) — в артефактах
-  android-e2e; сверка с макетом МЕХАНИЧЕСКАЯ в CI (v4d, арбитраж 95f3b2c3: шаг
-  «135 first-run-ekran» job android-e2e — валидатор 132 → сверка 123 по
-  `mobile/e2e-first-run/kadry.json`, элементы `podzagolovok`/`futer`, порог 0,600,
-  rc-гейт без continue-on-error); на ревью C — только артефакты прогона (NOT_RUN до C).
+  задачи `e2e-first-run` (`maestro-first-run-*`; 143); сверка с макетом МЕХАНИЧЕСКАЯ
+  в CI (v4d, арбитраж 95f3b2c3: шаг «135 first-run-ekran» задачи `e2e-first-run` —
+  валидатор 132 → сверка 123 по `mobile/e2e-first-run/kadry.json`, элементы
+  `podzagolovok`/`futer`, порог 0,600, rc-гейт без continue-on-error); на ревью C —
+  только артефакты прогона (NOT_RUN до C).
 - Copy signoff CMP-MOB-089 (ui.first_run.*: NATIVE_RELEASE_SIGNOFF_REQUIRED) и device evidence
   CMP-MOB-090 — владелец.
 
