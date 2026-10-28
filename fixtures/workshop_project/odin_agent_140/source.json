@@ -118,7 +118,11 @@
   "g06-podstroka-pina": "класс=delimiter-collision;форма=пин-подстрокой",
   "w20-limit-harness-tri-ok": "учёт=лимит;группа=harness-2-из-3-граница",
   "w21-limit-back-tri-ok": "учёт=лимит;группа=back-2-из-3-граница",
-  "w22-limit-back-chetyre": "учёт=лимит;группа=back-3-из-3-занято"
+  "w22-limit-back-chetyre": "учёт=лимит;группа=back-3-из-3-занято",
+  "w23-sudja-ne-zanimaet-slot": "роль=судья;учёт=лимит;группа=harness-3-из-3-занято;судья=слот-не-занимает",
+  "w24-slovo-chuzhogo-predmeta": "учёт=лимит;СЛОВО=чужого-subjectId;группа=harness-3-из-3-занято",
+  "w25-slovo-svoego-predmeta": "учёт=лимит;СЛОВО=своего-subjectId;группа=harness-3-из-3-занято",
+  "w26-chuzhoj-reestr-done-ne-osvobozhdaet": "учёт=лимит;реестр=чужой;done=локальный-тег-чужого-номера;группа=back-3-из-3-занято"
  },
  "stab_vhod": {
   "s01-bez-dublja-rabochego": [
@@ -172,7 +176,8 @@
    "w10-pauza"
   ],
   "s16-slovo-vsegda": [
-   "w15-limit-mob-chetyre"
+   "w15-limit-mob-chetyre",
+   "w24-slovo-chuzhogo-predmeta"
   ],
   "s17-done-net": [
    "w17-limit-done-osvobozhdaet"
@@ -190,13 +195,15 @@
    "b04-gonka-dva-protsessa"
   ],
   "s22-bez-starta": [
-   "w01-pervyj-rabochij"
+   "w01-pervyj-rabochij",
+   "w25-slovo-svoego-predmeta"
   ],
   "s23-pustota-prohodit": [
    "g04-bityj-vhod"
   ],
   "s24-sudi-propusk": [
-   "s01-sudja-posle-yield"
+   "s01-sudja-posle-yield",
+   "w23-sudja-ne-zanimaet-slot"
   ],
   "s25-bez-pin-rashozhdenija": [
    "s14-pin-rashozhdenie"
@@ -232,7 +239,8 @@
    "s06-object-uzhe-suzhen",
    "s09-adv-do-rev",
    "b02-dubl-v-pakete",
-   "b04-gonka-dva-protsessa"
+   "b04-gonka-dva-protsessa",
+   "w24-slovo-chuzhogo-predmeta"
   ],
   "s29-klass-riska-tolko-nachalo-stroki": [
    "s29-klass-riska-realnaja-116",
@@ -242,41 +250,53 @@
   ],
   "s30-klass-riska-type-f": [
    "s36-klass-riska-simlink"
+  ],
+  "s31-sudja-derzhit-slot": [
+   "w23-sudja-ne-zanimaet-slot"
+  ],
+  "s32-slovo-bez-predmeta": [
+   "w24-slovo-chuzhogo-predmeta"
+  ],
+  "s33-done-chuzhogo-reestra": [
+   "w26-chuzhoj-reestr-done-ne-osvobozhdaet"
   ]
  },
  "nositeli": {
-  "model/zamok_predmeta.sh": "abfaf25bf44eeb07ced91f09f68e8fa1695673b58f88ab9bad1214bb0c558c18",
-  "s01-bez-dublja-rabochego": "dce5405ab1217a1e1101c5520f007467d27cc52f6915fb5478a45fb902c00ef3",
-  "s02-bez-yield-predikata": "e2d5d8d27ebb8634a1f7c13581639e0f3140bcfea263136bdcca6ec9e3d1b1de",
-  "s03-avto-relis-broshennogo": "df0c4876100cfccd15f7b879f15beede9be15a369945be2696bfe3d264fd30a2",
-  "s04-osvobodit-zhivogo": "e95f880266de2f8b351727c5b3802191ffc321223aecd88512c8a98ea706b6d4",
-  "s05-subjekt-bez-jakorja": "ac7718dd45fde089dde31789bccf3ce7c1b0395af030cf4658b5e09ab21b83f2",
-  "s06-pin-bez-jakorja": "9bc494952faaf633c5148e69807279f1b1b07b888f1a3c389186d9fd39675b3b",
-  "s07-object-fabricuet": "5aebc9f1b724de30c976885ea768deeaf23529f5e8c3c73ecce6124e5778a685",
-  "s08-bez-object-sverki": "0d27f78b3138e2d212ad320eca5e3ed0bb9d6a28b2c11ef365bbfd3f82087f1d",
-  "s09-avtor-ne-sdal": "57e9e7df96979ee0b7596a5a8f8665d067614789b45a2b82f1b3a8fec9841e77",
-  "s10-vtoroj-sudja": "11e9dec9dce542cbf6948cebf1c0c396ed2b92f9d467293682850f337f857dda",
-  "s11-uzhe-suzhen": "9b7d29194d1c5ce6248e5c24c60ff684767e784f11f4827e804c56a9e6fc181f",
-  "s12-bez-rabochego": "6ce3942777ea8398cb1328807251c3047e4ca965f9bd0e5dbe4dac8dcfc29b68",
-  "s13-klass-riska-mjagko": "423b5eb85aab458d11294fb70732a6a2b72dd70959609138f4a5d92890c43a2b",
-  "s14-bez-adv-do-rev": "e854e0239312d71bed65ed5cd6b3076dd8bedd126c434eadd0f8eb1ea58061d9",
-  "s15-bez-pauzy": "e3c75929a0dd907658b626a27fb6017da9e26ee82054c02e56fa94e0737e15a7",
-  "s16-slovo-vsegda": "607fd4ee3eb8a80c4493ed41de39b9b862b07d68da150c810412773ae1dca6c3",
-  "s17-done-net": "ff0cadccb4b5d0411cd988bfd7209da2331dfd8a8f519eb39c2c7d2fc1b2577c",
-  "s18-gruppa-vsegda-harness": "f9432b5bbc4b73ab4109d81dcd2cca28be05e5a313ff2bc328a608c8f7a68186",
-  "s19-bez-dublja-v-pakete": "9271931e97ca03b48e400655c78bd961aeda12f16bae9eff1a26818341f0369f",
-  "s20-otkaz-ne-ostanavlivaet": "ed99a66db6c2517414943c678ca678cf68d824c80617d754da3c70006e79c166",
-  "s21-bez-atomarnosti": "4b82c6e53034abd934f5a8764dacb04b25a02d2acdc34d377ec6b696455de9a9",
-  "s22-bez-starta": "221ec3e72028d4f5b22387d1abec58a927031e9ed2b5f60baec4852466a1fb9b",
-  "s23-pustota-prohodit": "c460d51ffb3553e4da6f2c664071a9d7a8d2c74dd8011ac5f7bb9331a3efbe12",
-  "s24-sudi-propusk": "de9bbd77bc4a865bc0cfcfc0eac26499493a8138de5fd572df38439f04c4e581",
-  "s25-bez-pin-rashozhdenija": "858b8e0d02b1b12cf146a329e83dde4eb15a4514b41d1bf40c3bab6bfc84b60a",
-  "s26-uchet-bez-zhurnala": "9480459e4ea6f165a99f6e3d19f2936f7e5b4e5752fbec4466ba4900103a327a",
-  "s27-pauza-schitaetsja": "68148649ced84b1a172f729b3343c42c45de522c7464df5599462c2864bd4455",
-  "s28-pervyj-rezultat-find": "5379b5d6c436eea6b9a82f24b254e775b80b565f68e3fe004fbfc941e03c5b56",
-  "s29-klass-riska-tolko-nachalo-stroki": "e44616325e9edb69e71e2f6ef0d217901cef5e045d85232aa67c34a49d65d18d",
-  "s30-klass-riska-type-f": "ccedd4ebd29a2d647870bd84c37e1141e741921b2173d8ec5008f9783d88a7b0",
-  "x01-vsegda-puschem": "184351fa07ed3070aa6e0e85d7e511a193fe3bda3bf02ebcce4983634a3d40db",
+  "model/zamok_predmeta.sh": "9554349b2d1c19edf26c5455726f7e341313672c5892e5156f2edc866049693b",
+  "s01-bez-dublja-rabochego": "2973da1b13833428141901194dcbfb1e3adaf093da4b8a37ab843582e49c46b6",
+  "s02-bez-yield-predikata": "06b247201512b8ac6ae74d865ea4ad69d609dcf7399215839fca7aab3f278604",
+  "s03-avto-relis-broshennogo": "b768f07c7cd7e30c2877f261e9fff6a8039e2fe0a74e007366736628fb911f89",
+  "s04-osvobodit-zhivogo": "63dbd43183e3088ed746f3da9fab1a8099fb19c17d73153719325424cd5151a5",
+  "s05-subjekt-bez-jakorja": "bdcae89b50836d050dc556d5e939c386a88bc3463dc2888958fabaa7448893c5",
+  "s06-pin-bez-jakorja": "ab0146f130f6c7a3c0dd3edf28d320cdef987b389b4febf5a07c18dbe656c07c",
+  "s07-object-fabricuet": "9962aaa2f7b6a0c954cb977f0a4125d04b8f19ecec604f76418333ac409d7217",
+  "s08-bez-object-sverki": "c3239d108491a09e228759fee9e23cfc5d2b326f90bc10e8fed587f84039b67e",
+  "s09-avtor-ne-sdal": "067dec9cfadbfb9de956fbe9f580da16b0c2a35c5fd9582e3fa74d795fba4cda",
+  "s10-vtoroj-sudja": "ce7e03d69cbcb1165ed8a11ba40f958b75f860bcd6ce9612df62f95986c0fe9a",
+  "s11-uzhe-suzhen": "b3b3b595245fe3cbda99192a9e5e116d32df7353828a1d1523ad626b7f1d2358",
+  "s12-bez-rabochego": "6407237768844bdc41bbcd92ff39d0e9c147b5b5d5a41ad9496a54bc0677164e",
+  "s13-klass-riska-mjagko": "b038fd02aa065878cc2ec3c045c3cdc397c92e8680e3d3cd3acc991ab6813aef",
+  "s14-bez-adv-do-rev": "987b88db7220239d926d55b09bc69e815bf0a96348af193ee6bcbaee74109995",
+  "s15-bez-pauzy": "a7a476c5e3faa92fb7b05e624fd980c9fe9a2e85b3e21d939a0397b6fff23259",
+  "s16-slovo-vsegda": "4d7e960731002abfaa41171ab536823b80bd2054b32c69881a2d1a7bde87f953",
+  "s17-done-net": "dfef827e1cfd62e65c3912b344fcc6b9846ea27424f0afed997e654114691809",
+  "s18-gruppa-vsegda-harness": "f0156669df1c0ed1f937c90f7ab31916d1c6ec67777130d2696cbf09e48d486e",
+  "s19-bez-dublja-v-pakete": "6bd2e14974afe24484e4d72aea29dd0b618038ad1249f1569a6e56c484cf25e2",
+  "s20-otkaz-ne-ostanavlivaet": "c2dd73358ef3a2f2f23c097d989314a86176927a7bdb87f13eb900d9e2f63c89",
+  "s21-bez-atomarnosti": "b4531bb9e468bca85e5e5dc8966b5e2b3e2317c77c6516238321d40e16bb60e3",
+  "s22-bez-starta": "e29a6f0e8a83dcae5c3788d95deb2c479ee1e38d28729d791414586d66997f6b",
+  "s23-pustota-prohodit": "3830c7530177ddf7965f8c17663a8f42267580dba5f48a2be38cfed851926086",
+  "s24-sudi-propusk": "c092f0216f231d41162d0f1c55f02f899956c15232763cdc0d99901f9cc06995",
+  "s25-bez-pin-rashozhdenija": "946b62cd0b3be3fe39b9a5519cae11dc54ceb2542636f8af78f31d1bab01c461",
+  "s26-uchet-bez-zhurnala": "18d02fdde7aabbeee38ae87a3b7338e406192eb352fd0b24fd0e5477af529085",
+  "s27-pauza-schitaetsja": "a3e6cda9172f340cb8a3adc9f8cba96b5f0c7d0412c84b34208d3da38616a026",
+  "s28-pervyj-rezultat-find": "9c896bab8b9066ae4f4e9baeec166e2a21f32a4582e2918ca200806dfddd5691",
+  "s29-klass-riska-tolko-nachalo-stroki": "4b1f27307e2d65d2fa83929fea80e4c541000c114463c3eaecb1d169c83ddb3f",
+  "s30-klass-riska-type-f": "47ff4e7bf2a5b894dbd0df62b2efe994849d7aeceba185fb66195dae28244f36",
+  "s31-sudja-derzhit-slot": "bc1f7b706111d85f49a67b2f50f0c92f4dc5b0438fa06af72c46abcb230528f8",
+  "s32-slovo-bez-predmeta": "18e367d1d43a30ee0f08da294d3469ee70c41c88dc4e1130586227498587ebee",
+  "s33-done-chuzhogo-reestra": "45e831087b5cfd08ef5c39491f17bebbabccce743a30c26f8086a37489215a27",
+  "x01-vsegda-puschem": "dc0d51d7fa86c9eb7c752dfd1af7853cb373882e35e14f1afd032f54748255b5",
   "materialy/116-stroka.md": "66657faf04ccafd2287fdf56343ba5e73104f8e85d3be7909b8c9215addefd72",
   "materialy/118-stroka.md": "a1b31a1729c529a76775f24099d2cdf9e995597d983f9655f9bceb9ec5009512",
   "materialy/139-stroka.md": "b765f4c3488022c70c81510060a1043bca822669d64a00d5d5b14e5ec1f03fc2",
@@ -288,6 +308,7 @@
   "omp": "батарее omp НЕ нужен (урок 136 lane l5); сети нет; git/jq/bash обязательны",
   "rezhimy": "безфлаговый = поставленная дверь scripts/zamok_predmeta.sh (вердикт критика 1/2: боли живы → rc 1 SUBJECT_ABSENT по пути реального субъекта; обманная дверь → rc 1 с названными клетками); --model = эталон; --stabs = опора над моделью + слой субъекта (контроль + матрица обманных дверей над текстом поставленной двери, строгие якоря [Dn]/[X1] — потеря маркера = STAB_ZHIV)",
   "stancija": "клетки интеграции хука (p01-p14 + m01, osi.md) без станции не исполнимы (корни — из живого ctx сессии omp): закрыты КОМАНДОЙ приёмки stancija_odin_agent_140.sh, rc 0/1, строки PROBA <имя> OK|KRASNO",
-  "grammatika_riska": "КЛАСС РИСКА — грамматика Q2 РЕШЕНИЯ арбитража contracts-140-impl-arbitraz (2026-10-26): декларация = вхождение «КЛАСС РИСКА:» в любой позиции строки + [[:blank:]]* + {обычный|рисковый} + терминатор {EOL, blank, ., ,, ;}; хвост-основание допустим (норма roles/architect.md); иные вхождения — упоминания (игнор); ровно ОДНА декларация на файл; канон — все записи find -maxdepth 1 -name \"<NNN>-*.md\" БЕЗ -type f (нечитаемая запись — каталог/битый симлинк — → neodnoznachno); материал s29–s31 — байт-копии объекта 9ec350f7e (materialy/, пины в nositeli)"
+  "grammatika_riska": "КЛАСС РИСКА — грамматика Q2 РЕШЕНИЯ арбитража contracts-140-impl-arbitraz (2026-10-26): декларация = вхождение «КЛАСС РИСКА:» в любой позиции строки + [[:blank:]]* + {обычный|рисковый} + терминатор {EOL, blank, ., ,, ;}; хвост-основание допустим (норма roles/architect.md); иные вхождения — упоминания (игнор); ровно ОДНА декларация на файл; канон — все записи find -maxdepth 1 -name \"<NNN>-*.md\" БЕЗ -type f (нечитаемая запись — каталог/битый симлинк — → neodnoznachno); материал s29–s31 — байт-копии объекта 9ec350f7e (materialy/, пины в nositeli)",
+  "chuzhoj_reestr": "РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz (2026-10-28, блокер B1): done/ПАУЗА/исключение — только записи своего repoId, чужая запись занята до своего RELEASE; клетка w26 (два реестра, общие zamki/uchet), стаб s33-done-chuzhogo-reestra — прежний цикл двери 16b243bb, красен ровно на w26; якорь s26 переехал на текст [D30], якорь s27 не тронут (строки `${s#*/}` байт-неизменны); клеток 70, стабов 34, связей 67"
  }
 }

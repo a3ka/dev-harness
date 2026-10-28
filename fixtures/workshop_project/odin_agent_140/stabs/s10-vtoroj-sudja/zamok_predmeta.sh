@@ -235,10 +235,16 @@ zhivye_subekty_gruppy() {  # <group> → «repoId/subjectId» построчно
 }
 zhivykh_v_gruppe() {  # <group> [iskljuchit-NNN] → число (без done и ПАУЗ);
   # смена держателя предмета слот НЕ занимает второй раз (исключается сам предмет)
+  # [D30 chuzhoj-reestr] done/ПАУЗА/исключение — ТОЛЬКО записи своего REPO_ID:
+  # теги и паузы локального --repo о предмете чужого реестра не говорят;
+  # запись чужого repoId занята до её RELEASE — fail-safe (отказ в лишнем
+  # спавне, не пропуск дубля; РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz,
+  # блокер B1: локальный done освобождал слот чужой записи).
   local n s cnt=0 iskl="${2:-}"
   n="$(zhivye_subekty_gruppy "$1")"
   while IFS= read -r s; do
     [ -n "$s" ] || continue
+    [ "${s%%/*}" = "$REPO_ID" ] || { cnt=$((cnt + 1)); continue; }
     [ "${s#*/}" = "$iskl" ] && continue
     predmet_done "${s#*/}" && continue
     na_pauze "${s#*/}" && continue
@@ -424,6 +430,7 @@ EOF
         bezhit)
           mutexi_snyat_vse
           if [ "$h_klass" = 'sudja' ]; then
+            : # стаб: [D21 снят] именованный отказ живого судьи убран
           fi
           # [D1 dubl-rabochego] живой рабочий — дубль запрещён (боль 122: v4+v4b).
           otp RABOCHIJ_ZHIV "предмет $sv: рабочий $h_holder бежит без сдачи — дубль запрещён"
@@ -587,8 +594,14 @@ uchet() {
   while IFS="$(printf '\t')" read -r r s g h k; do
     [ -n "$s" ] || continue
     st="$(stare_holder "$h")"
-    if predmet_done "$s"; then st='done'; fi
-    if na_pauze "$s"; then st='pauza'; fi
+    # [D30 chuzhoj-reestr] done/ПАУЗА — источники СВОЕГО реестра (--repo):
+    # состояние записи чужого repoId по локальным тегам/паузам не вычисляется
+    # (ложный done прятал живой чужой слот — блокер B1 арбитража
+    # contracts-140-impl-v2-arbitraz).
+    if [ "$r" = "$REPO_ID" ]; then
+      if predmet_done "$s"; then st='done'; fi
+      if na_pauze "$s"; then st='pauza'; fi
+    fi
     printf 'UCHET\t%s\t%s\t%s\t%s\t%s\t%s\n' "$r" "$s" "$g" "$h" "$k" "$st"
   done <<EOF
 $aktiven
