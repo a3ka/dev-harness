@@ -115,7 +115,7 @@ jobs:
       # нет. Матрица 42 поведенческих + 5 статических мутантов. Перепин H
       # на 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6 (ленд wip/111/architect: клетки
       # RESTYLE_GUARD_995_* круга 4) выполнен: оба checkout (quality и
-      # android-e2e) читают одну ревизию.
+      # e2e-splash) читают одну ревизию.
       # frozen-шаги 995/999 сохранены дословно. --matrix — для арбитража.
       - name: 108 start_static_probe.py / start_probe.py (H, --repo disposable R)
         working-directory: ${{ github.workspace }}
@@ -135,7 +135,7 @@ jobs:
       # (+4 клетки RESTYLE_GUARD_995_* круга 4 по совету С10/Р2 ревьюера).
       # Перепин H на 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6 (ленд wip/111/architect: клетки
       # RESTYLE_GUARD_995_* круга 4) выполнен: оба checkout (quality и
-      # android-e2e) читают одну ревизию. frozen-шаги 995/999/108
+      # e2e-splash) читают одну ревизию. frozen-шаги 995/999/108
       # сохранены дословно. --matrix — для арбитража.
       - name: 111 first_run_static_probe.py / first_run_probe.py (H, --repo disposable R)
         working-directory: ${{ github.workspace }}
@@ -186,7 +186,7 @@ jobs:
 
   # Серверный раннер станции (быстрая проверка, не независимый судья).
   # Независимая сверка на чистой облачной машине — workflow mobile-cloud-e2e.
-  android-e2e:
+  e2e-splash:
     needs: quality
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
@@ -196,7 +196,7 @@ jobs:
           persist-credentials: false
           clean: true
       # 995 (CMP-MOB-001): тот же frozen H публикуется через actions/checkout в шаге
-      # android-e2e; maestro_probe.py исполняется из R/.harness и читает frozen pilot.yaml
+      # e2e-splash; maestro_probe.py исполняется из R/.harness и читает frozen pilot.yaml
       # и scripts/ci-e2e.sh; эмулятор и его приватный cwd живут внутри runner-а.
       # H = 66b9fe1c46de75abe3263982ed2a2d8ae50c19d6 — единый пин с quality-job:
       # pilot_995, nav_999, start_108 (336 клеток + ROUTE_ENTRY, матрица 42+5),
@@ -361,7 +361,7 @@ jobs:
       # Отдельный checkout .harness123 пином frozen контракта 123 —
       # коммит, несущий scripts/sverka_maketa.py
       # (2cc58c224a8a9ced9709604f0eeb57d2fba6fb07). Без continue-on-error:
-      # кадр ниже порога 0,600 — шаг rc 1, job android-e2e = failure,
+      # кадр ниже порога 0,600 — шаг rc 1, задача e2e-splash = failure (required-агрегат android-e2e красен),
       # лог несёт NIZHE_POROGA<TAB><id кадра>, артефакт
       # mobile/maestro-out-117/sverka-123.tsv — 4 строки KADR.
       - name: Checkout scripts/sverka_maketa.py (mob-sverka-123 implementation)

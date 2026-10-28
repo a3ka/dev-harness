@@ -265,7 +265,7 @@
     "provodka": {
       "_comment": "РЕШЕНИЕ арбитра verdicts/arbitration/contracts-117-v2-svjaz-123.md (б): проводка шага сверки 123 в workflow субъекта — клетки SVERKA_123_{STEP_UNCONDITIONAL,MANIFEST_CANON,HARNESS_PIN}. Литералы сняты с frozen 123 v1 приёмка п.5–6 ДО субъекта (Н-351): строка run шага — `python3 <script> --manifest <manifest> --kadry <kadry> --repo <repo>` (до первого |, shlex), каждый флаг ровно один раз, иных токенов нет; checkout пина — uses с префиксом checkout_uses, with.path/with.repository — литералы, with.ref ~ ref_re (ТОЧНЫЙ SHA не сравнивается: перепин .harness123 — дело 123). Текст шага — предмет 123 (автор implementer 123); 117 только наблюдает.",
       "workflow": ".github/workflows/mobile.yml",
-      "job": "android-e2e",
+      "job": "e2e-splash",
       "interpreter": "python3",
       "script": ".harness123/scripts/sverka_maketa.py",
       "manifest": ".harness123/fixtures/workshop_project/mob_sverka_123/kadry_117.json",
