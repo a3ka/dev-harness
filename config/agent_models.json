@@ -67,10 +67,10 @@
       "why": "reviewer: решение 2026-09-12 — opus-5 (1M, «важная часть работы»; duty «перепроверяет ВСЁ»); с 2026-09-26 — семейство @opus в последней версии (слово владельца). Фолбек — сопоставимая модель OpenAI (семейство @gpt-sol), слово владельца. Судьи реализации разведены по вендорам: 2 OpenAI + 2 Anthropic, все на разных моделях. Фолбек reviewer на Sol при adversary Terra двухвендорную пару разрушает: до вызова — законная независимая замена либо остановка (roles/critic.md §Независимость); сам фолбек владельцем не менялся."
     },
     "plan": {
-      "model": "@fable",
-      "fallback": "@gpt-astra",
-      "autoFallback": true,
-      "why": "Слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md). arbiter — последнее слово: Fable; не модель автора (architect GLM, implementer MiniMax/GLM); замена Fable — только Astra."
+      "model": "@gpt-astra",
+      "fallback": "@fable",
+      "autoFallback": false,
+      "why": "Слово владельца 2026-10-28 ~23:45 UTC «и фейбл пока не вызывать, а вместо него Астру» (экономия Claude до субботы, через консультанта): arbiter временно на Astra; Fable — только ручным словом владельца (autoFallback выключен), возврат на Fable — словом владельца. Прежнее: слово владельца 2026-10-18 ~16:10 UTC (docs/owner/2026-10-18-raskladka-modelei.md) — arbiter Fable, замена — только Astra; не модель автора (architect GLM, implementer MiniMax/GLM)."
     },
     "consultant": {
       "model": "@gpt-astra",
