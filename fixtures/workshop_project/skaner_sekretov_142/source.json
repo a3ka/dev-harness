@@ -129,6 +129,17 @@
 {"os": "K", "id": "k114-token-scheme-relative", "vid": "token"},
 {"os": "K", "id": "k115-reshetka-v-parole", "vid": "token"},
 {"os": "K", "id": "k116-vopros-v-parole", "vid": "token"},
+ {"os": "K", "id": "k117-token-tochka-protsent-tilde", "vid": "token"},
+ {"os": "K", "id": "k118-token-tpt-bez-shemy", "vid": "token"},
+ {"os": "K", "id": "k119-token-ostalnaya-punktuaciya", "vid": "token"},
+ {"os": "K", "id": "k120-token-punktuaciya-bez-shemy", "vid": "token"},
+ {"os": "K", "id": "k121-token-ves-klass", "vid": "token"},
+ {"os": "K", "id": "k122-token-ves-klass-bez-shemy", "vid": "token"},
+ {"os": "K", "id": "k123-userinfo-ves-klass", "vid": "token"},
+ {"os": "K", "id": "k124-granica-probelnye", "vid": "sessija"},
+ {"os": "K", "id": "k125-token-v-dvojnyh-kavychkah", "vid": "token"},
+ {"os": "K", "id": "k126-token-v-odinarnyh-kavychkah", "vid": "token"},
+ {"os": "K", "id": "k127-shema-vne-alfavita-rfc", "vid": "token"},
   {"os": "Z", "id": "z1-korotkoe", "vid": "otkaz"},
   {"os": "Z", "id": "z2-kavychki", "vid": "otkaz"},
   {"os": "Z", "id": "z3-crlf", "vid": "otkaz"},
@@ -163,6 +174,7 @@
  ,{"os": "N", "id": "n11-konformnyj-dom", "vid": "sessija"}
  ,{"os": "N", "id": "n12-nechitaemyj-dom", "vid": "nul"}
  ,{"os": "R", "id": "r3-nul-predproverka-v-subekte", "vid": "nulpred"}
+ ,{"os": "R", "id": "r4-blok-predikata-v-subekte", "vid": "predikat"}
  ],
  "stab_vhod": {
   "stab_skaner-vykljuchen": ["k1-api-key"],
@@ -196,18 +208,24 @@
  "stab_predproverka-do-ravno": ["n6-v-znachenii-adresnogo", "n7-v-znachenii-sekretnogo"],
  "stab_predproverka-fail-open": ["n12-nechitaemyj-dom"],
  "stab_nul-otkaz-pechataet-znachenie": ["n1-mir-adversarii", "n2-nachalo-imeni", "n3-seredina-imeni", "n4-konec-imeni", "n5-bez-hvostogo-lf", "n6-v-znachenii-adresnogo", "n7-v-znachenii-sekretnogo"],
- "stab_bez-token-vetvi": ["k99-git-url-token", "k100-repo-url-token", "k101-endpoint-token"],
+ "stab_bez-token-vetvi": ["k99-git-url-token", "k100-repo-url-token", "k101-endpoint-token", "k121-token-ves-klass", "k122-token-ves-klass-bez-shemy", "k125-token-v-dvojnyh-kavychkah", "k126-token-v-odinarnyh-kavychkah", "k127-shema-vne-alfavita-rfc"],
  "stab_token-gde-ugodno": ["k102-sobaka-v-puti", "k103-sobaka-v-zaprose"],
  "stab_token-bez-granicy": ["k104-sobaka-posle-voprosa", "k105-sobaka-posle-reshetki"],
  "stab_pustoj-token": ["k106-pustoj-token"],
- "stab_token-tolko-https": ["k101-endpoint-token"],
+ "stab_token-tolko-https": ["k101-endpoint-token", "k125-token-v-dvojnyh-kavychkah", "k126-token-v-odinarnyh-kavychkah", "k127-shema-vne-alfavita-rfc"],
  "stab_dvoetochie-posle-shemy": ["z6-dsn-bez-skhemy", "k32-lyuboe-host-userinfo", "k33-lyuboe-port-userinfo", "k34-lyuboe-addr-userinfo", "k36-lyuboe-name-userinfo", "k38-lyuboe-host-baz-userinfo", "k40-lyuboe-addr-baz-userinfo", "k42-lyuboe-name-baz-userinfo"],
  "stab_token-bez-yakorya": ["k108-vlozhennyj-url-v-zaprose", "k109-vlozhennyj-url-v-puti", "k110-vlozhennyj-url-v-fragmente"],
  "stab_kanon-object-25bda098": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k113-userinfo-scheme-relative", "k114-token-scheme-relative", "k115-reshetka-v-parole", "k116-vopros-v-parole"],
  "stab_dvoetochie-s-yakorem": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k115-reshetka-v-parole"],
  "stab_dvoetochie-bez-voprosa-reshetki": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k115-reshetka-v-parole", "k116-vopros-v-parole"],
  "stab_token-tolko-so-shemoj": ["k114-token-scheme-relative"],
- "stab_min-dlina-tokena": ["k107-odinosimvolnyj-token"]
+ "stab_min-dlina-tokena": ["k107-odinosimvolnyj-token"],
+ "stab_uzkij-token-predikat": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k115-reshetka-v-parole", "k116-vopros-v-parole", "k117-token-tochka-protsent-tilde", "k118-token-tpt-bez-shemy", "k119-token-ostalnaya-punktuaciya", "k120-token-punktuaciya-bez-shemy", "k121-token-ves-klass", "k122-token-ves-klass-bez-shemy", "k123-userinfo-ves-klass", "k125-token-v-dvojnyh-kavychkah", "k126-token-v-odinarnyh-kavychkah", "k127-shema-vne-alfavita-rfc"],
+ "stab_token-bez-kavychki": ["k121-token-ves-klass", "k122-token-ves-klass-bez-shemy"],
+ "stab_token-tolko-pechatnyj-ascii": ["k121-token-ves-klass", "k122-token-ves-klass-bez-shemy"],
+ "stab_dvoetochie-bez-kavychki": ["k123-userinfo-ves-klass"],
+ "stab_token-bez-probela": ["k124-granica-probelnye"],
+ "stab_rfc-shema": ["k125-token-v-dvojnyh-kavychkah", "k126-token-v-odinarnyh-kavychkah", "k127-shema-vne-alfavita-rfc", "r4-blok-predikata-v-subekte"]
 },
 "model_sha256": "e2f5c3945a191c79e26757cb49b87348aad396abc69ebf7c709428716f693504",
  "imya_adresnoj_kletki": "X + 12 HEX (верхний регистр) + суффикс канона; порождается раннером imya() на каждый прогон — субъекту до прогона неизвестно (арбитраж contracts-142-arbitraz)",
