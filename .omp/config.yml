@@ -52,7 +52,7 @@ modelRoles:
   advisor: "openai-codex/gpt-5.6-terra"  # фолбек: anthropic/claude-opus-5-5
   apex-sol: "openai-codex/gpt-6-sol"  # фолбек: openai-codex/gpt-5.6-terra
   audit: "anthropic/claude-opus-5-5"  # фолбек: openai-codex/gpt-6-sol
-  plan: "anthropic/claude-fable-5-1"  # фолбек: openai-codex/gpt-6-astra
+  plan: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-1
   consultant: "openai-codex/gpt-6-astra"  # фолбек: anthropic/claude-fable-5-1
   steward: "anthropic/claude-haiku-4-5"  # фолбек: openai-codex/gpt-6-luna
 # ── /modelRoles ──
@@ -96,5 +96,4 @@ retry:
     task: ["anthropic/claude-sonnet-5-5"]
     advisor: ["anthropic/claude-opus-5-5"]
     apex-sol: ["openai-codex/gpt-5.6-terra"]
-    plan: ["openai-codex/gpt-6-astra"]
   # ── /fallbackChains ──
