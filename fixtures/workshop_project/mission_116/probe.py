@@ -143,7 +143,8 @@ def derive_bez_elementa(blob, polosa_pt):
 # --- оракул ------------------------------------------------------------------
 
 def load_source():
-    """source.json + защита оракула: sha носителей, согласованность стабов."""
+    """source.json + защита оракула: sha носителей, согласованность
+    стабов, свежесть runtime-цепочки v4 (агрегат 143)."""
     src = json.loads((HERE / 'source.json').read_text(encoding='utf-8'))
     for rel, pin in src['nositeli'].items():
         blob = (HERE / rel).read_bytes()
@@ -187,6 +188,17 @@ def load_source():
                 print('ORACLE_TAMPERED: stab_vhod %s → нет входа %s'
                       % (imja, v), file=sys.stderr)
                 raise SystemExit(2)
+    # v4 (правка по FAIL критика 1/2): оракул не вправе документировать
+    # снятую цепочку ленда v2 — агрегат 143 не содержит шага; возврат
+    # «check-run required job android-e2e → шаг» в statika_tekst =
+    # подмена оракула под мёртвый монолит (красное на возврат старой
+    # цепочки в текст; placement продукта статикой не судится, r9).
+    if 'check-run required job android-e2e' in src['statika_tekst']:
+        print('ORACLE_TAMPERED: statika_tekst документирует снятую '
+              'цепочку v2 (job android-e2e), а не задачу e2e-mission '
+              'под required-агрегатом android-e2e (143)',
+              file=sys.stderr)
+        raise SystemExit(2)
     return src
 
 
@@ -1478,24 +1490,24 @@ def mut_ci_shag_vne_required_job(pack, forma, repo, src):
 
 def mut_ci_job_inline_kommentarij(pack, forma, repo, src):
     """Свидетель критика d564854b (1): YAML-комментарий после ключа
-    job; блок шага байт-равен пину, job android-e2e — вход ЗЕЛЁНЫЙ."""
-    assert src['mobile_ci_tekst'].count('  android-e2e:\n') == 1
+    job; блок шага байт-равен пину, задача e2e-mission (v4, 143) — вход ЗЕЛЁНЫЙ."""
+    assert src['mobile_ci_tekst'].count('  e2e-mission:\n') == 1
     s = src['mobile_ci_tekst'].replace(
-        '  android-e2e:\n', '  android-e2e: # required Android job\n')
+        '  e2e-mission:\n', '  e2e-mission: # screen job миссии\n')
     _perekopi_fajl(repo, CI_PROD, s)
 
 
 def mut_ci_job_kavychki(pack, forma, repo, src):
     """Свидетель критика d564854b (2): ключ job в кавычках."""
-    assert src['mobile_ci_tekst'].count('  android-e2e:\n') == 1
+    assert src['mobile_ci_tekst'].count('  e2e-mission:\n') == 1
     s = src['mobile_ci_tekst'].replace(
-        '  android-e2e:\n', '  "android-e2e":\n')
+        '  e2e-mission:\n', '  "e2e-mission":\n')
     _perekopi_fajl(repo, CI_PROD, s)
 
 
 def mut_ci_job_otstup_chetyre(pack, forma, repo, src):
     """Свидетель критика d564854b (3): поддерево jobs с отступом 4 —
-    блок шага равен пину после .strip(), job android-e2e."""
+    блок шага равен пину после .strip(), задача e2e-mission (v4, 143)."""
     assert src['mobile_ci_tekst'].count('jobs:\n') == 1
     golova, hvost = src['mobile_ci_tekst'].split('jobs:\n')
     s = golova + 'jobs:\n' + ''.join(
@@ -1524,8 +1536,8 @@ def mut_ci_steps_indentless_kavychka_kommentarij(pack, forma, repo, src):
     steps + ключ job в одинарных кавычках с YAML-комментарием —
     вход ЗЕЛЁНЫЙ (статика формы ключа job не судит)."""
     s = _ci_steps_indentless_tekst(src)
-    assert s.count('  android-e2e:') == 1
-    s = s.replace('  android-e2e:', "  'android-e2e': # required job")
+    assert s.count('  e2e-mission:') == 1
+    s = s.replace('  e2e-mission:', "  'e2e-mission': # screen job")
     _perekopi_fajl(repo, CI_PROD, s)
 
 
