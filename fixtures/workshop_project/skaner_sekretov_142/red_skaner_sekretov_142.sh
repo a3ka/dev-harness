@@ -22,6 +22,14 @@
 # `X:Y@` после `/?#`, пара порт+`@` в query/fragment судятся, паритет v3),
 # токен-ветвь — якорь начала значения и НЕОБЯЗАТЕЛЬНАЯ схема; клетки
 # k99–k116, стабы двенадцати классов v4.
+# 142 v4+advB2 (усиление по вердикту adv contracts-142-impl-v4 1/2, блокер
+# B2: литерал канона в файле не доказывает исполняемую семантику — мутант,
+# где USERINFO_RE остался канон-литералом для r1, а рабочая проверка заменена
+# узким USERINFO_TEST_RE '[A-Za-z0-9_-]+', проходил 150/150 при утечке):
+# клетки k117–k120 — токен authority с символами канон-класса вне
+# [A-Za-z0-9_-] ('.'/'%'/'~' и !$&'()*+,;=), обе формы адреса; стаб
+# stab_uzkij-token-predikat воспроизводит мутанта (канон-литерал остаётся,
+# исполняемый grep уже по USERINFO_TEST_RE) и ловится именованно.
 #
 # Режимы:
 #   без ключей   — субъект = scripts/connect_project.sh КОРНЯ ДЕРЕВА батареи
@@ -70,9 +78,9 @@ done
 die2() { printf 's142: %s\n' "$*" >&2; exit 2; }
 
 # ── согласованность source.json: оси ↔ клетки ↔ стабы ↔ канон ↔ пин модели ──
-jq -e '.osi | type == "array" and length == 150' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 150 в source.json"
+jq -e '.osi | type == "array" and length == 154' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 154 в source.json"
 mapfile -t OSIDS < <(jq -r '.osi[].id' "$SRC_JSON")
-[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 150 ] || die2 "иды осей не уникальны"
+[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 154 ] || die2 "иды осей не уникальны"
 mapfile -t STAB_KEYS < <(jq -r '.stab_vhod | keys[]' "$SRC_JSON" | LC_ALL=C sort)
 mapfile -t STAB_FILES < <(cd "$BATT/stabs" && ls stab_*.sh 2>/dev/null | sed 's/\.sh$//' | LC_ALL=C sort)
 [ "${STAB_KEYS[*]:-}" = "${STAB_FILES[*]:-}" ] \
@@ -425,6 +433,36 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       mir k116; IMYA=$(imya _URL); TOKZN="pw-$(rnd)"
       printf '%s=user:p?%s@host/db\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k116/home/.config/dev-harness/secrets.env
       printf 'dsn: user:p?%s@host/db\n' "$TOKZN" > "$RUNDIR/$WP"k116/proj/dsn.txt; VID=token ;;
+    # ── ось K, усиление adv contracts-142-impl-v4 (блокер B2): r1 сверяет
+    # ЛИТЕРАЛ канона в файле, но не исполняемую семантику — мутант с узким
+    # USERINFO_TEST_RE '[A-Za-z0-9_-]+' (канон-строка нетронута) пропускал
+    # утечку: токен 'tok.<rnd>.%~' в authority не входит в узкий класс.
+    # Токен-ветвь канона допускает ЛЮБОЙ непустой фрагмент authority без
+    # '/'/'?'/'#'/пробела: клетки ниже дают токен с '.'/'%'/'~' (k117/k118 —
+    # замер адверсария дословно) и с прочими символами канон-класса вне
+    # [A-Za-z0-9_-] — '!$&'()*+,;=' (k119/k120; ':' вне списка: двоеточие
+    # в токене судится двоеточие-ветвью и узкому мутанту не различимо), в
+    # ОБЕИХ формах адреса: 'https://<токен>@host' и '//<токен>@host'; имя
+    # адресное порождено imya() (И-6), значение — в индексируемом leak.txt;
+    # в отказе — имя файла, НЕ значение (TOKZN). Стаб stab_uzkij-token-
+    # predikat ловится здесь + на k111/k112/k115/k116 (та же узкая семантика
+    # на двоеточие-ветви) именованно (Н-39: привязка по коду).
+    k117-token-tochka-protsent-tilde)
+      mir k117; IMYA=$(imya _URL); TOKZN="tok.$(rnd).%~"
+      printf '%s=https://%s@host.test/path\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k117/home/.config/dev-harness/secrets.env
+      printf 'remote https://%s@host.test/path\n' "$TOKZN" > "$RUNDIR/$WP"k117/proj/leak.txt; VID=token ;;
+    k118-token-tpt-bez-shemy)
+      mir k118; IMYA=$(imya _URL); TOKZN="tok.$(rnd).%~"
+      printf '%s=//%s@host.test/path\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k118/home/.config/dev-harness/secrets.env
+      printf 'mirror //%s@host.test/path\n' "$TOKZN" > "$RUNDIR/$WP"k118/proj/leak.txt; VID=token ;;
+    k119-token-ostalnaya-punktuaciya)
+      mir k119; IMYA=$(imya _ENDPOINT); PUNKT='!$&'"'"'()*+,;='; TOKZN="$(rnd)$PUNKT"
+      printf '%s=https://%s@api.internal:9000/v1\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k119/home/.config/dev-harness/secrets.env
+      printf 'api https://%s@api.internal:9000/v1\n' "$TOKZN" > "$RUNDIR/$WP"k119/proj/leak.txt; VID=token ;;
+    k120-token-punktuaciya-bez-shemy)
+      mir k120; IMYA=$(imya URL); PUNKT='!$&'"'"'()*+,;='; TOKZN="$(rnd)$PUNKT"
+      printf '%s=//%s@mirror.internal/back\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k120/home/.config/dev-harness/secrets.env
+      printf 'mirror //%s@mirror.internal/back\n' "$TOKZN" > "$RUNDIR/$WP"k120/proj/leak.txt; VID=token ;;
     # ── ось K, имена ВНЕ грамматики ключа 125 (вердикт adv
     # contracts-142-impl-v1, блокер 1: `FOO.URL=…` и `FOO-URL=…` оканчиваются
     # на URL и проходили ветку continue — значение не сканировалось, rc 0 при
@@ -617,7 +655,7 @@ schet() { # $1 = файл клеток; $2 = метка режима
   local G R
   G=$(grep -c '^КЛЕТКА .* ЗЕЛЕНА$' "$1"); R=$(grep -c '^КЛЕТКА .* КРАСНА' "$1")
   printf 's142 %s: клеток %s, зелёных %s, красных %s\n' "$2" "$((G+R))" "$G" "$R" >&2
-  [ "$((G+R))" = 150 ] || { printf 's142: клеток %s ≠ 150 — мир сломан\n' "$((G+R))" >&2; return 2; }
+  [ "$((G+R))" = 154 ] || { printf 's142: клеток %s ≠ 154 — мир сломан\n' "$((G+R))" >&2; return 2; }
   [ "$R" = 0 ] || return 1
 }
 

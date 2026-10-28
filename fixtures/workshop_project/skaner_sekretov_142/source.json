@@ -129,6 +129,10 @@
 {"os": "K", "id": "k114-token-scheme-relative", "vid": "token"},
 {"os": "K", "id": "k115-reshetka-v-parole", "vid": "token"},
 {"os": "K", "id": "k116-vopros-v-parole", "vid": "token"},
+ {"os": "K", "id": "k117-token-tochka-protsent-tilde", "vid": "token"},
+ {"os": "K", "id": "k118-token-tpt-bez-shemy", "vid": "token"},
+ {"os": "K", "id": "k119-token-ostalnaya-punktuaciya", "vid": "token"},
+ {"os": "K", "id": "k120-token-punktuaciya-bez-shemy", "vid": "token"},
   {"os": "Z", "id": "z1-korotkoe", "vid": "otkaz"},
   {"os": "Z", "id": "z2-kavychki", "vid": "otkaz"},
   {"os": "Z", "id": "z3-crlf", "vid": "otkaz"},
@@ -207,7 +211,8 @@
  "stab_dvoetochie-s-yakorem": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k115-reshetka-v-parole"],
  "stab_dvoetochie-bez-voprosa-reshetki": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k115-reshetka-v-parole", "k116-vopros-v-parole"],
  "stab_token-tolko-so-shemoj": ["k114-token-scheme-relative"],
- "stab_min-dlina-tokena": ["k107-odinosimvolnyj-token"]
+ "stab_min-dlina-tokena": ["k107-odinosimvolnyj-token"],
+ "stab_uzkij-token-predikat": ["k111-port-v-zaprose", "k112-port-v-fragmente", "k115-reshetka-v-parole", "k116-vopros-v-parole", "k117-token-tochka-protsent-tilde", "k118-token-tpt-bez-shemy", "k119-token-ostalnaya-punktuaciya", "k120-token-punktuaciya-bez-shemy"]
 },
 "model_sha256": "e2f5c3945a191c79e26757cb49b87348aad396abc69ebf7c709428716f693504",
  "imya_adresnoj_kletki": "X + 12 HEX (верхний регистр) + суффикс канона; порождается раннером imya() на каждый прогон — субъекту до прогона неизвестно (арбитраж contracts-142-arbitraz)",
