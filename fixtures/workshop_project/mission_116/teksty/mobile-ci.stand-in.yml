@@ -1,12 +1,13 @@
-# Stand-in .github/workflows/mobile.yml (проводка 995/108/111/117 + 116):
-# шаг 116 исполняет семью поведения/рендера Mission; блок шага байт-равен
-# пину двух строк внутри job android-e2e — иначе CI_BEZ_SHAGA_POVEDENIJA /
+# Stand-in .github/workflows/mobile.yml (проводка 995/108/111/117 + 116;
+# v4, 143: шаг 116 исполняет задача e2e-mission под required-агрегатом
+# android-e2e): шаг 116 исполняет семью поведения/рендера Mission; блок шага
+# байт-равен пину двух строк внутри задачи e2e-mission — иначе CI_BEZ_SHAGA_POVEDENIJA /
 # CI_SHAG_POVEDENIJA_NE_PO_PINU (арбитраж 4cadfc54 а). Пин — source.json
 # (mobile_ci_tekst).
 name: mobile
 on: [push]
 jobs:
-  android-e2e:
+  e2e-mission:
     runs-on: ubuntu-latest
     defaults:
       run:
