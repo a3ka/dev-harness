@@ -212,12 +212,11 @@
       "id": "y22-needs-rabotnikov"
     },
     {
-      "id": "p01-P-nabor",
-      "needs_precedent": "995 v5 — исполняемый набор P судится исполнением только после freeze 995/5 и перепина .harness модели 143 (место: drafts/995-v5-draft.md); до того клетка ОТЛОЖЕНА, не зелёная"
+      "id": "p01-P-nabor"
     }
   ],
   "piny": {
-    "model/.github/workflows/mobile.yml": "e9c705efcb8612f85299ac07573f05bf191fcda9da7b94b58bba655914e6d3e2",
+    "model/.github/workflows/mobile.yml": "22e26f22a758b1478f9404b5e8caf47190aea104728e1a8569a82261e183c6d1",
     "model/mobile/ci-screens.json": "e11d15196440489589a7ff837d1d50b9adce7f7cadc884238b558cc6f4f768b0",
     "model/mobile/scripts/select-ci-screens.cjs": "4bf826ac8eb397f1c7b2699f7b7d161f0e92074127b25c05f20991bb9f5d391a",
     "model/mobile/scripts/ci-aggregate.cjs": "83118c9297a9b2678e28b73fb4e8ffd772f39bf6f41426c2d07fe9d8199fede1",
@@ -226,7 +225,7 @@
     "nositeli/api/pull-124-files.json": "e153ab9b2424f2f9d6b6436cedc5b65af596ed8c8a4ae474aa8ecc95cea6c2a1",
     "nositeli/api/pull-124-files-stranitsa.json": "1c841539a4fb169acd857cd2607e8e26a69870681f916f69730d4557d32a9d31",
     "nositeli/api/run-40426209738-jobs.json": "24433489a82cf510a1c1e97420ce15b201d3830c3837c635514bc19bf2b6a088",
-    "nositeli/p-66052cdf.py": "9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749",
+    "nositeli/p-4ac99af9.py": "6639ce8c0fd6db095a2d7ff84897d5bdcb01ed59369a8b377b06c7087dbfd353",
     "nositeli/pilot-66052cdf.yaml": "3cda11a94ba324fd55cdb9fad039935dbbb1cad8a7719e42aa03c4ff66977e1a",
     "nositeli/ci-e2e-995-4.sh": "0fa425b5db4752633c7ea453065503bfa8ecefa67e1bef8a7e66102426897f30"
   },

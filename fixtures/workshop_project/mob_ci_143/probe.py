@@ -19,15 +19,22 @@
   --model      субъект = model/ (контроль входов);
   --stabs      контроль + матрица обманных стабов (SVJAZI N, живых 0);
   --matrix     синоним --stabs.
-Клетка p01-P-nabor — NEEDS_PRECEDENT (995 v5): при пине H 66052cdf
-(frozen 995/4) она ОТЛОЖЕНА (не зелёная и не красная, место названо);
-активируется перепином .harness и сменой носителей P/S батареи.
+Клетка p01-P-nabor — АКТИВНАЯ (перепин исполнен: freeze 995/5, ленд
+ffbbc99e7, H-пин 4ac99af9, носители P/S батареи обновлены): replay судит
+исполняемый набор P по ЭФФЕКТИВНОМУ checkout .harness — последний checkout
+этого каталога (posixpath.normpath: алиасы ./.harness, .harness/ — тот же)
+ДО ЕДИНСТВЕННОГО шага запуска maestro_probe.py (по ВСЕМ задачам, в
+e2e-pilot; дубль судится последним, checkout после запуска P не влияет,
+нелитеральный path неизмерим — П1/П2 арбитража 143-repin; вердикт критика
+1/2 — атака двойного checkout); старый пин 66052cdf (frozen 995/4, rglob)
+и неизмеренный пин — красные именованные причины.
 Коды: 0 зелено; 1 красная клетка либо стаб прошёл; 2 нечем проверять
 (нет node, ORACLE_TAMPERED, дрейф стабов/модели).
 """
 import hashlib
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -92,6 +99,15 @@ def zhestkij_kanon(src):
             return "черновик: файла нет %s" % imja
         if sha256_faila(p) != digest:
             return "черновик: sha256 %s" % imja
+    # retired-нагрузка красной ветви p01/стаба p_rglob_kataloga — НЕ пин
+    # source.json (перепин ЗАМЕЩАЕТ носитель: пины 21, census nositeli 8 —
+    # как в замороженной приёмке п.4), но полезная нагрузка оракула:
+    # целостность кодовой константой RETIRED_SHA256 — порча/удаление = rc 2
+    # ORACLE_TAMPERED ДО клеток (подделка retired-поведения не даёт зелёное)
+    if not RETIRED_NOSITEL.is_file():
+        return "retired-нагрузка: файла нет %s" % RETIRED_OTN
+    if sha256_faila(RETIRED_NOSITEL) != RETIRED_SHA256:
+        return "retired-нагрузка: sha256 %s" % RETIRED_OTN
     return None
 
 
@@ -579,7 +595,13 @@ def replej_rabotnika(wf, job_imja, tmp, do_posle=None):
 
 # --- S-ось: сценарии селектора --------------------------------------------------
 
-KARTA_HEAD = (MODEL / "mobile" / "ci-screens.json").read_text(encoding="utf-8")
+# Правило 8 (оракул ДО субъекта): чтение/разбор карты модели на импорте НЕ
+# имеет права ронять движок traceback'ом — битые/отсутствующие пинованные
+# файлы обязан отвергнуть zhestkij_kanon (rc 2 ORACLE_TAMPERED) ДО клеток.
+try:
+    KARTA_HEAD = (MODEL / "mobile/ci-screens.json").read_text(encoding="utf-8")
+except OSError:
+    KARTA_HEAD = None
 SCENARII_S = {}
 
 
@@ -931,7 +953,23 @@ def sud_digest_replej(subject_root, tmp):
     return True, ""
 
 
-PIN_P_995_4 = "66052cdfd134ab0958421a961caef219694a54df"
+# Измеренные H-пины задачи, исполняющей P (перепин 995/5): батарея судит набор
+# P ТОЛЬКО на пинах, чьи байты maestro_probe.py она сама пинует. Retired пин
+# 66052cdf — НЕ пин оракула source.json (перепин ЗАМЕЩАЕТ носитель: пины 21,
+# census nositeli 8 — как в замороженной приёмке п.4): его байты — ВСТРОЕННАЯ
+# полезная нагрузка красной ветви p01/стаба p_rglob_kataloga, живёт в stabs/
+# ВНЕ glob stab_*.py (census stabs 33 не трогает); целостность — кодовой
+# константой RETIRED_SHA256 (порча/удаление = rc 2 ORACLE_TAMPERED ДО клеток:
+# подделка retired-поведения не даёт зелёное).
+PIN_H_STAR_995_4 = "66052cdfd134ab0958421a961caef219694a54df"  # retired: P rglob всего .maestro (frozen 995/4)
+PIN_H_NOVYJ_995_5 = "4ac99af9fe8b02f16206b5c98bb9556556c05e74"  # freeze 995/5, ленд ffbbc99e7: P v5 — фиксированный набор из manifest
+RETIRED_OTN = "stabs/p-66052cdf.py"
+RETIRED_NOSITEL = HERE / RETIRED_OTN
+RETIRED_SHA256 = "9a556b48cf4f84a988ba520e6e9ec7389004f461173a8202c6dfb34528803749"
+P_IZ_PINA = {
+    PIN_H_STAR_995_4: RETIRED_NOSITEL,
+    PIN_H_NOVYJ_995_5: NOSITELI / "p-4ac99af9.py",
+}
 ZHELANYE_P_KLETKA = ("pilot.yaml", "start.yaml", "rehearsal.yaml", "cmp-mob-002-tabs.yaml")
 ZHIVYE_POTOKI_MAESTRO = (
     "vkhod-117-splash-vhod.yaml", "first-run-ekran.yaml", "erstinformation.yaml",
@@ -941,19 +979,73 @@ ZHIVYE_POTOKI_MAESTRO = (
 
 
 def _ref_harness_h(wf):
-    """ref checkout-а path: .harness В ЗАДАЧЕ, ИСПОЛНЯЮЩЕЙ P (maestro_probe.py);
-    в монолите это android-e2e, в разделённом DAG — e2e-pilot (quality проверяет
-    пробы на СВОЁМ пине .harness — не путать). None — если задачи/checkout нет."""
-    for j in wf.get("jobs", {}).values():
-        tekst = json.dumps(j, ensure_ascii=False)
-        if "maestro_probe.py" not in tekst:
-            continue
-        for s in j.get("steps") or []:
-            if s.get("uses", "").startswith("actions/checkout"):
-                w = s.get("with") or {}
-                if w.get("path") == ".harness":
-                    return w.get("ref")
-    return None
+    """ЭФФЕКТИВНЫЙ ref checkout-а path: .harness В МОМЕНТ ЗАПУСКА P — шага,
+    чей run исполняет maestro_probe.py (в монолите android-e2e, в разделённом
+    DAG e2e-pilot; quality проверяет пробы на СВОЁМ пине .harness — не путать).
+
+    П1 (арбитраж 143-repin, обходы (а)/(а′) критика 2/2): запуск P единственен
+    по ВСЕМ задачам — число шагов, чей run содержит литерал maestro_probe.py,
+    РОВНО 1 и он в e2e-pilot (И-8: «РОВНО» четыре флоу, оракул «по одному
+    разу»); иначе именованный отказ со списком job[индекс-шага] (второй запуск
+    — в e2e-pilot или в другой задаче — красен). Ноль запусков — именованный
+    отказ «P не исполняется этим workflow» (fail-closed).
+
+    П2 (арбитраж 143-repin, обходы (б1)-(б3)): в шагах checkout ДО запуска P
+    path сопоставляется по posixpath.normpath == '.harness' (алиасы ./.harness,
+    .harness/, ./.harness/. — тот же каталог); нелитеральный path (содержит
+    ${{, абсолютный, normpath начинается с '..') — «путь checkout неизмерим»
+    (fail-closed: судья не знает, какой каталог перезаписал этот шаг).
+    Checkout без path — корень workspace, не .harness, как и раньше.
+
+    Несколько checkout одного каталога: судится ПОСЛЕДНИЙ до шага запуска —
+    actions/checkout перезаписывает каталог, содержимое .harness при запуске P
+    задаёт последний checkout этого path (вердикт критика 1/2: судья, берущий
+    ПЕРВЫЙ ref, исполнял P v5 при подмене «хороший, затем плохой»). Checkout
+    .harness ПОСЛЕ шага запуска P не влияет. Возврат (est, ref, otkaz):
+    otkaz — именованный отказ П1/П2 (p01 красна им); est=False, otkaz=None —
+    запуска P шагом нет либо до него нет ни одного checkout .harness;
+    est=True, ref — эффективный ref (None = checkout без ref: ветка по
+    умолчанию, пин неизмерим).
+
+    НЕ ЗАЩИЩАЕТ (остаток арбитража 143-repin; ловцы — ревью cutover-PR со
+    сверкой байтов с моделью (§Порядок п.2), адверсарий, живая приёмка п.4):
+    запуск P без литерала maestro_probe.py в run (env-косвенность, обёртка,
+    composite/reusable — замер «second P via env var path» rc 0), перезапись
+    .harness shell-командами в run (rm/cp/git clone/curl) или действиями вне
+    actions/checkout, живая семантика платформы (needs/if/concurrency).
+    Полное отсутствие литерала — уже fail-closed (замер «literal hidden» →
+    красна)."""
+    zapuski = []
+    for jname, j in wf.get("jobs", {}).items():
+        for i, s in enumerate(j.get("steps") or []):
+            if "maestro_probe.py" in (s.get("run") or ""):
+                zapuski.append((jname, i))
+    if not zapuski:
+        return False, None, None
+    spisok = ", ".join("%s[%d]" % (j, i) for j, i in zapuski)
+    if len(zapuski) > 1:
+        return False, None, ("запусков P %d: %s — И-8 требует ровно один "
+                             "запуск P в e2e-pilot" % (len(zapuski), spisok))
+    jname, zapusk_P = zapuski[0]
+    if jname != "e2e-pilot":
+        return False, None, ("запуск P не в e2e-pilot: %s — И-8 требует "
+                             "единственный запуск P в e2e-pilot" % spisok)
+    # П2 + эффективный checkout: последний checkout КАТАЛОГА .harness
+    # (posixpath.normpath) до шага запуска P
+    shagi = (wf.get("jobs", {}).get(jname) or {}).get("steps") or []
+    ref = None
+    for s in shagi[:zapusk_P]:
+        if s.get("uses", "").startswith("actions/checkout"):
+            w = s.get("with") or {}
+            p = w.get("path")
+            if p is None:
+                continue  # checkout в корень workspace — не .harness
+            if (not isinstance(p, str) or "${{" in p or p.startswith("/")
+                    or posixpath.normpath(p).startswith("..")):
+                return False, None, "путь checkout неизмерим: %s" % p
+            if posixpath.normpath(p) == ".harness":
+                ref = w.get("ref")
+    return True, ref, None
 
 
 def sud_P_nabor(subject_root, tmp):
@@ -961,9 +1053,17 @@ def sud_P_nabor(subject_root, tmp):
     P (maestro_probe.py пина H) → ci-e2e.sh (S, зона 995) → подложный maestro,
     логирующий argv. Оракул: Maestro запрошен ТОЛЬКО флоу фиксированного набора
     P (И-8), по одному разу, при .maestro, содержащем флоу всех экранов.
-    NEEDS_PRECEDENT: при пине 66052cdf (frozen 995/4) P копирует весь каталог
-    rglob-ом — клетка ОТЛОЖЕНА с именованным местом (995 v5: freeze 995/5,
-    перепин .harness в модели 143 + смена носителей батареи), НЕ зелёная."""
+    Перепин исполнен (freeze 995/5, ленд ffbbc99e7, H-пин 4ac99af9): клетка
+    АКТИВНА. Измеряемый пин — ЭФФЕКТИВНЫЙ checkout .harness в момент запуска P
+    (последний checkout этого path ДО шага запуска; дубль судится последним,
+    checkout после запуска не влияет — вердикт критика 1/2; запуск P
+    единственен по ВСЕМ задачам и в e2e-pilot — П1; path сопоставляется по
+    posixpath.normpath, нелитеральный path неизмерим — П2; арбитраж
+    143-repin) и судится по ИЗМЕРЕННЫМ байтам (P_IZ_PINA): старый пин
+    66052cdf (frozen 995/4) — КРАСНАЯ ветка, replay носителем старых байтов
+    (retired-нагрузка) доказывает rglob всего каталога исполнением;
+    неизмеренный пин — красная именованная причина (батарея отвечает только
+    за пины, чьи байты пинует)."""
     d = Path(subject_root)
     wf_p = d / ".github" / "workflows" / "mobile.yml"
     if not wf_p.is_file():
@@ -972,15 +1072,25 @@ def sud_P_nabor(subject_root, tmp):
         wf = yaml.safe_load(wf_p.read_text(encoding="utf-8"))
     except Exception as e:
         return False, "MOBILE_YML_NE_YAML: %s" % e
-    ref = _ref_harness_h(wf)
-    if ref is None:
-        return False, "нет checkout .harness — P не исполняется этим workflow"
-    if ref == PIN_P_995_4:
-        return None, ("NEEDS_PRECEDENT: 995 v5 — исполняемый набор P ещё rglob "
-                      "(frozen 995/4); место: drafts/995-v5-draft.md, freeze 995/5, "
-                      "перепин .harness модели 143 и носителей p-66052cdf.py/"
-                      "ci-e2e-995-4.sh в source.json")
-    # прецедент исполнен (пин уже не 995/4): активный replay по НОСИТЕЛЯМ батареи
+    ref_est, ref, otkaz = _ref_harness_h(wf)
+    if otkaz is not None:
+        return False, otkaz
+    if not ref_est:
+        return False, ("нет checkout .harness до шага запуска maestro_probe.py — "
+                       "P не исполняется этим workflow")
+    nositel_p = P_IZ_PINA.get(ref)
+    if nositel_p is None:
+        if ref is None:
+            return False, ("checkout .harness без ref (ветка по умолчанию) — "
+                           "пин неизмерим: измеренные пины — новый %s и "
+                           "красный старый %s" % (
+                               PIN_H_NOVYJ_995_5, PIN_H_STAR_995_4))
+        return False, ("пин .harness %s не измерен батареей: 995/5 исполнен "
+                       "(freeze 995/5, ленд ffbbc99e7), измеренные пины — "
+                       "новый %s (P v5, фиксированный набор из manifest) и "
+                       "красный старый %s (rglob, frozen 995/4)" % (
+                           ref, PIN_H_NOVYJ_995_5, PIN_H_STAR_995_4))
+    # активный replay по НОСИТЕЛЮ, измеренному для этого пина
     koren = Path(tmp)
     ws, env = postroj_pesochitsu(koren)
     repo = koren / "repo"
@@ -998,7 +1108,7 @@ def sud_P_nabor(subject_root, tmp):
     shutil.copyfile(karta_subjekta, repo / "mobile" / "ci-screens.json")
     hdir = koren / "harness" / "pilot_995"
     hdir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(NOSITELI / "p-66052cdf.py", hdir / "maestro_probe.py")
+    shutil.copyfile(nositel_p, hdir / "maestro_probe.py")
     shutil.copyfile(NOSITELI / "pilot-66052cdf.yaml", hdir / "pilot.yaml")
     apk = koren / "app-release.apk"
     apk.write_bytes(b"ETALON-APK-143\n")
@@ -1023,6 +1133,13 @@ def sud_P_nabor(subject_root, tmp):
     zaproscheno = []
     for z in zaprosy:
         zaproscheno.extend(z.split()[1:])
+    if ref == PIN_H_STAR_995_4:
+        # retired пин: replay ИСПОЛНИЛ старые байты — доказанный rglob всего
+        # каталога (замер v3 пачки: 8 флоу) красен и после перепина
+        return False, ("пин .harness 66052cdf (frozen 995/4): P копирует ВЕСЬ "
+                       "каталог rglob-ом — Maestro запрошен %s, фиксированный "
+                       "набор P (И-8) не исполняется; перепин на %s обязателен" % (
+                           zaproscheno, PIN_H_NOVYJ_995_5))
     lishnie = sorted(set(zaproscheno) - set(ZHELANYE_P_KLETKA))
     nedostajut = sorted(set(ZHELANYE_P_KLETKA) - set(zaproscheno))
     if lishnie or nedostajut or len(zaproscheno) != len(set(zaproscheno)):
@@ -1526,7 +1643,10 @@ def sudji_f(karta_text):
     return vyp
 
 
-KLETKI_F = [imja for imja, _, _ in sudji_f(KARTA_HEAD)]
+try:
+    KLETKI_F = [imja for imja, _, _ in sudji_f(KARTA_HEAD)]
+except Exception:
+    KLETKI_F = None  # битая карта: zhestkij_kanon уже отказал rc 2 ДО клеток
 
 
 # --- исполнение одной клетки ---------------------------------------------------------
@@ -1656,7 +1776,7 @@ def glavnaja():
         for k in kj:
             if k not in set(vse_kletki):
                 return oshibka_orakula("привязка стаба %s к неизвестной клетке %s" % (st, k))
-    nuzhen_precedent = {"p01-P-nabor"}
+    nuzhen_precedent = set()  # перепин исполнен (995/5): отложенных клеток нет
     flagi = {k["id"]: k.get("needs_precedent") for k in src["kletki"]}
     ozhidajut = {i for i, f in flagi.items() if f}
     if ozhidajut != nuzhen_precedent:
