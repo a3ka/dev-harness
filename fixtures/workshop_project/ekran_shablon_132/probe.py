@@ -15,6 +15,31 @@
 ИСПОЛНЕНИЕ приёмки (priemka.e2e/sverka — фактический argv, Г3-002),
 СВЕЖЕСТЬ кадров (оставшиеся кадры прежнего прогона — KADR_USTAREVSHIJ)
 и сверка каждого кадра раннером 123 (мера/порог — его код и манифест).
+v2 (слово владельца 2026-10-27 ~22:45 UTC): ПРОХОДИМОСТЬ НОВОГО экрана
+(shablon 2): блок prokhodimost (перечень pressable deistvie|neaktivna,
+цели ≥ 44pt из MIN_KASANIE_PT эталона, вне safe-area, демо отдельно) и
+третья команда priemka.prokhod — проход Maestro по видимым pressable.
+v2-дополнение (слово владельца 2026-10-27 ~23:45 UTC, та же v+1): блок
+vtoroj_profil — профиль iphone-safe-area (норма класса PROFIL_IPHONE
+эталона: ≥ 393×852, вырез 47–59pt, home-indicator 34pt), сверка ЦЕЛОГО
+экрана в СОБРАННОМ пути (obolochka; пустая — голый компонент) в ОБЕ темы
+вторым манифестом кадров (раннер 123, вызов валидатора), наложения
+слоёв/залезания под инсеты/пустые иконки — геометрией bbox из UI-дерева.
+Правка по вердикту критика 1/2 (четыре блокера): старость экрана — факт
+закрытого перечня замороженных старых экранов эталона (свежий экран без
+shablon не выдаёт себя за старый); команда прохода несёт цель-флоу
+Maestro, ссылающийся на каждый pressable; маршрут собранного пути
+наблюдаем (marshrut содержит obolochka токеном и каждый snimok профиля).
+Правка по РЕШЕНИЮ АРБИТРА contracts-132-v2-arbitraz (С-1/С-2/С-3):
+С-1 — старость экрана = ПОДЛИННАЯ идентичность (id + пины maket_sha256
+замороженного манифеста; отображение в эталоне), база батареи снова
+честный НОВЫЙ экран demo-vkhod, зелёный контроль старого — сама пачка
+сестры 135 (строит её probe), новая клетка «исторический id + чужие
+макеты»; С-2 — ссылки (pressable/obolochka/snimok) засчитываются только
+в ИСПОЛНЯЕМОМ тексте флоу (после первого «---», без комментариев YAML;
+snimok — обособленным токеном), клетки на комментарий/шапку; С-3 —
+текст контракта сужен до механизма (PROKHOD_NE_MAESTRO = argv без
+цели-флою; echo/cat с .yaml в argv — честный остаток НЕ ЗАЩИЩАЕТ).
 
 Режимы:
   (без флага)  субъект scripts/ekran_shablon.py; нет файла → rc 1 SHABLON_ABSENT
@@ -63,6 +88,9 @@ MODEL = HERE / 'model' / 'ekran_shablon.py'
 STUBS = HERE / 'stubs'
 AW, AH = 390, 844
 FIKT = 'fixtures/workshop_project/ekran_shablon_132/model/fiktura'
+# Честная команда прохода (блокер 2 вердикта критика 1/2): цель-флоу
+# Maestro — существующий .yaml в репо, ссылающийся на каждый pressable.
+PROKHOD_CMD = 'bash mobile/prokhod.sh mobile/.maestro/prokhod-demo-vkhod.yaml'
 
 
 def sha256_bytes(b):
@@ -184,12 +212,19 @@ def build_repo(src, tmp, pack):
     # stand-in android-e2e (replay) + носители записи: кадры в Maestro-раскладку
     # кладёт ИСПОЛНЕННАЯ команда priemka.e2e — стартуем с пустым kadry_dir
     (repo / 'mobile/e2e.sh').write_text(src['e2e_skript'], encoding='utf-8')
+    # stand-in прохода Maestro по pressable (правило проходимости, слово
+    # владельца 2026-10-27): для v2-пачки priemka несёт третью команду
+    # prokhod; v1-пачка файл не читает (репо, не пачка — вне суда литералов)
+    (repo / 'mobile/prokhod.sh').write_text(src['prokhod_skript'],
+                                            encoding='utf-8')
     for tema in ('dark', 'light'):
         d = repo / 'mobile/e2e-nositeli' / tema
         d.mkdir(parents=True)
         shutil.copyfile(
             HERE / ('nositeli/kadry/r1423-%s-vkhod-117-splash.png' % tema),
             d / (src['snimok'] + '.png'))
+        # второй профиль: носители кадров собранного пути кладёт
+        # v2_repo_artefakty ниже — репо продукта, не пачка
     (repo / 'mobile/maestro-out-demo').mkdir(parents=True)
     # пин механизма 123 внутри репо (как в продукте): честная priemka.sverka
     # запускает раннер из .harness123; сверка-образец и приёмка обязаны
@@ -198,6 +233,12 @@ def build_repo(src, tmp, pack):
     (pin123 / 'scripts').mkdir(parents=True)
     shutil.copyfile(RUNNER123, pin123 / 'scripts/sverka_maketa.py')
     shutil.copyfile(pack / 'kadry.json', pin123 / 'kadry.json')
+    # Артефакты v2 в репо — ВСЕГДА (С-1 арбитража 132 v2: база батареи —
+    # честный НОВЫЙ экран demo-vkhod; флоу прохода/собранного пути и
+    # носители кадров профиля — часть репо продукта, не пачки): v1-пачка
+    # их не читает, v2-пачка без блока судится именованным отказом при
+    # честной команде прохода (прежние клетки ожиданий не меняют).
+    v2_repo_artefakty(src, repo)
     return repo
 
 
@@ -213,11 +254,75 @@ def build_pack(src, tmp):
     zapis(pack, forma)
     (pack / 'kadry.json').write_text(
         json.dumps(src['kadry_manifest'], ensure_ascii=False, indent=1), encoding='utf-8')
+    # второй манифест кадров профиля (грамматика 123; живёт в пачке —
+    # первый манифест НЕ меняется, прежние ожидания дословны); путь — из
+    # честной v2-формы базы (единый источник ekran_forma)
+    (pack / forma['vtoroj_profil']['kadry']).write_text(
+        json.dumps(src['profil_kadry'], ensure_ascii=False, indent=1), encoding='utf-8')
     (pack / 'kontrakt.md').write_text(src['kontrakt_tekst'], encoding='utf-8')
     b = pack / 'batareja'
     b.mkdir()
     (b / 'red_ekrana.sh').write_text(src['batareja_tekst'], encoding='utf-8')
     return pack, forma
+
+def v2_repo_artefakty(src, repo):
+    """Артефакты НОВОГО экрана в репо (кладутся ПОСТОЯННО — часть репо
+    продукта, не пачки; С-1 арбитража 132 v2): флоу прохода по pressable,
+    флоу собранного пути с входом в оболочку, носители кадров профиля —
+    из source.json (единый источник). v2-пачка без блока судится
+    именованным отказом при честной команде прохода."""
+    ma = repo / 'mobile/.maestro'
+    (ma / 'prokhod-demo-vkhod.yaml').write_text(src['prokhod_flow'],
+                                                encoding='utf-8')
+    (ma / 'demo-vkhod-tabshell.yaml').write_text(src['flow_profil'],
+                                                 encoding='utf-8')
+    for tema in ('dark', 'light'):
+        d = repo / 'mobile/e2e-nositeli' / tema
+        # кадры собранного пути — байтово та же пара носителей 123 под
+        # именем снимка профиля (вторая мера чисел: та же пара 0,783/0,782)
+        shutil.copyfile(
+            HERE / ('nositeli/kadry/r1423-%s-vkhod-117-splash.png' % tema),
+            d / (src['profil_kadry']['kadry'][0]['snimok'] + '.png'))
+
+
+def v2_baza(forma, src, repo):
+    """Честная пачка НОВОГО экрана (shablon 2) — С-1 арбитража 132 v2:
+    база батареи 132 снова честный НОВЫЙ экран demo-vkhod (оба блока,
+    три команды приёмки; ekran_forma source.json — единый источник), НЕ
+    исторический id с чужими макетами. Мутации v2-клеток сбрасывают
+    форму к честной базе перед своей правкой; артефакты репо уже
+    положены build_repo."""
+    forma['ekran'] = src['ekran_forma']['ekran']
+    forma['shablon'] = 2
+    forma['prokhodimost'] = json.loads(
+        json.dumps(src['ekran_forma']['prokhodimost']))
+    forma['vtoroj_profil'] = json.loads(
+        json.dumps(src['ekran_forma']['vtoroj_profil']))
+    forma['priemka']['prokhod'] = src['ekran_forma']['priemka']['prokhod']
+
+
+SESTRY_135 = H_ROOT / 'fixtures' / 'workshop_project' / 'first_run_ekran_135'
+
+
+def _probe_sestry_135():
+    """Модуль probe.py сестры 135 (прецедент в обе стороны: probe 135
+    читает фикстуры 132 — здесь 132 читает строителя сестры)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'probe135_sestra', SESTRY_135 / 'probe.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def sud_staryj_ekrana():
+    """ЗЕЛЁНЫЙ контроль старого экрана (С-1 арбитража 132 v2): судится
+    ПОДЛИННАЯ замороженная пачка first-run-ekran — та, что строит батарея
+    135 (манифест и носители сестры; зелена потому, что её манифест и
+    есть источник пинов отображения эталона), а не самодекларация id и
+    не исторический id с чужими макетами."""
+    p135 = _probe_sestry_135()
+    return p135.run_subject(MODEL, 'chestnyj-ekran', p135.load_source())
 
 
 def nositel(repo, tema, snimok):
@@ -329,9 +434,12 @@ def mut_paket_bez_manifesta(pack, forma, repo, src):
 
 def mut_priemka_lozhnaja(pack, forma, repo, src):
     """Обход критика круга 1: e2e="true", sverka="echo sverka_maketa.py
-    --manifest" — команды rc 0 без работы; кадры после e2e отсутствуют."""
-    forma['priemka'] = {'e2e': 'true',
-                        'sverka': 'echo sverka_maketa.py --manifest'}
+    --manifest" — команды rc 0 без работы; кадры после e2e отсутствуют.
+    Правка арбитража v2: priemka v2 несёт ТРИ команды — мутация правит
+    e2e/sverka, честная prokhod остаётся (клетка изолирует СВОЮ ветвь,
+    состав ключей priemka не ломает)."""
+    forma['priemka']['e2e'] = 'true'
+    forma['priemka']['sverka'] = 'echo sverka_maketa.py --manifest'
     zapis(pack, forma)
 
 
@@ -577,8 +685,302 @@ def mut_sverka_chuzhoj_repo(pack, forma, repo, src):
     zapis(pack, forma)
 
 
+def mut_prokhodimost_chestnyj(pack, forma, repo, src):
+    """Честный НОВЫЙ экран (shablon 2): блок проходимости полон, геометрия
+    честная, демо отделено, проход Maestro исполнен — rc 0 (контроль v2)."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+
+
+def mut_prokhodimost_otsvtstvuet(pack, forma, repo, src):
+    """НОВЫЙ экран (shablon 2, priemka с третьей командой) БЕЗ блока
+    проходимости: отказ с именем места и выходом (правило 7 AGENTS) —
+    не молчаливое принятие старой формой. Грамматика допускает
+    промежуточный состав v1+{shablon} (докстринг эталона) — мутация
+    снимает ОБА блока, чтобы отказала именованная ветвь, а не глухой
+    SHABLON_NEVEREN; команда прохода честная (цель-флоу существует,
+    артефакты репо положены) — клетка изолирует СВОЮ ветвь. Правка
+    арбитража v2: база батареи сама v2 — блоки снимаются с честной
+    базы."""
+    v2_baza(forma, src, repo)
+    del forma['prokhodimost']
+    del forma['vtoroj_profil']
+    zapis(pack, forma)
+
+
+def mut_pressable_bez_obrabotnika(pack, forma, repo, src):
+    """(а) pressable объявлен действием, но наблюдаемое изменение не названо
+    — обработчика нет (на 118: «Dokument öffnen»/«Kopie herunterladen»)."""
+    v2_baza(forma, src, repo)
+    del forma['prokhodimost']['pressable'][0]['izmenenie']
+    zapis(pack, forma)
+
+
+def mut_neaktivna_bez_kadra(pack, forma, repo, src):
+    """(а) неактивная цель без ссылки на кадр: disabled-вид не показан."""
+    v2_baza(forma, src, repo)
+    del forma['prokhodimost']['pressable'][1]['kadry']
+    zapis(pack, forma)
+
+
+def mut_cel_menshe_44(pack, forma, repo, src):
+    """(б) цель касания ниже нормы: на 118 «Demo: nächster Zustand» — 18pt
+    у нижнего края, на iPhone не нажимается."""
+    v2_baza(forma, src, repo)
+    forma['prokhodimost']['demo'][0]['vysota'] = 18
+    zapis(pack, forma)
+
+
+def mut_cel_v_safe_zone(pack, forma, repo, src):
+    """(б) цель касания в safe-area: нижний край заходит в полосу
+    home-indicator (кнопка не нажимается пальцем на живом телефоне)."""
+    v2_baza(forma, src, repo)
+    forma['prokhodimost']['demo'][0]['y'] = 790
+    zapis(pack, forma)
+
+
+def mut_demo_bez_metki(pack, forma, repo, src):
+    """(в) демо-переключатель в списке demo без метки demo:true —
+    притворяется продуктом («Demo: nächster Zustand» на 118)."""
+    v2_baza(forma, src, repo)
+    forma['prokhodimost']['demo'][0]['demo'] = False
+    zapis(pack, forma)
+
+
+def mut_demo_v_sostave(pack, forma, repo, src):
+    """(в) продуктовый pressable помечен demo:true — демо в составе
+    продукта, отделение не заявлено списком."""
+    v2_baza(forma, src, repo)
+    forma['prokhodimost']['pressable'][0]['demo'] = True
+    zapis(pack, forma)
+
+
+def mut_demo_bez_otdelenija(pack, forma, repo, src):
+    """(в) демо-переключатель отмечен demo:true, но визуального отделения
+    (отдельный контейнер/подпись) не заявлено."""
+    v2_baza(forma, src, repo)
+    del forma['prokhodimost']['demo'][0]['otdelenie']
+    zapis(pack, forma)
+
+
+def mut_nazhatie_bez_izmenenija(pack, forma, repo, src):
+    """(г) нажатие без наблюдаемого изменения: манифест честен, но проход
+    Maestro не видит изменения после нажатия — rc команды отличен от 0."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    (repo / 'mobile/prokhod.sh').write_text(
+        '#!/usr/bin/env bash\n# replay: нажатие cta-demo — изменения нет\n'
+        'exit 1\n', encoding='utf-8')
+
+def mut_profil_otsvtstvuet(pack, forma, repo, src):
+    """НОВЫЙ экран (shablon 2) с блоком проходимости, но БЕЗ блока
+    второго профиля: отказ с именем места и выходом (правило 7 AGENTS).
+    Команда прохода честная — клетка изолирует СВОЮ ветвь. Правка
+    арбитража v2: база батареи сама v2 — мутация снимает блок с честной
+    базы."""
+    v2_baza(forma, src, repo)
+    del forma['vtoroj_profil']
+    zapis(pack, forma)
+
+
+def mut_profil_nizhe_minimuma(pack, forma, repo, src):
+    """Профиль ниже класса iPhone 15/16: 390×844 — размер Android-
+    эмулятора, на котором дефекты #127 невидимы (слово владельца)."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['shirina'] = 390
+    forma['vtoroj_profil']['vysota'] = 844
+    zapis(pack, forma)
+
+
+def mut_profil_bez_insetov(pack, forma, repo, src):
+    """Профиль без инсетов: vyrez 24 (один статус-бар, без выреза),
+    home 0 (кнопочная навигация) — safe-area не моделируется."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['vyrez'] = 24
+    forma['vtoroj_profil']['home'] = 0
+    zapis(pack, forma)
+
+
+def mut_nalozenie_sloev(pack, forma, repo, src):
+    """Наложение слоёв: шапка TabShell «Profil bearbeiten» поверх шапки
+    StartScreen — дубль заголовка с #127 (два слоя, пересечение bbox)."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['elementy'].append({
+        'id': 'shapka-start-dubl', 'tip': 'shapka',
+        'x': 0, 'y': 59, 'shirina': 393, 'vysota': 48})
+    zapis(pack, forma)
+
+
+def mut_zalezaet_pod_verhnij_inset(pack, forma, repo, src):
+    """Залезание под верхний inset: wordmark под статус-баром/вырезом
+    (на #127 iPhone показал wordmark в зоне выреза)."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['elementy'][2]['y'] = 30
+    zapis(pack, forma)
+
+
+def mut_zalezaet_pod_nizhij_inset(pack, forma, repo, src):
+    """Залезание под нижний inset: нижний край иконки композера в полосе
+    home-indicator (не нажимается пальцем на живом телефоне)."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['elementy'][5]['y'] = 790
+    zapis(pack, forma)
+
+
+def mut_pustaja_ikonka(pack, forma, repo, src):
+    """Пустая иконка: контрол композера без глифа и без доступного
+    имени (на #127 пустые иконки композера)."""
+    v2_baza(forma, src, repo)
+    del forma['vtoroj_profil']['elementy'][4]['glif']
+    zapis(pack, forma)
+
+
+def mut_golyj_komponent(pack, forma, repo, src):
+    """Голый компонент без оболочки: сверка по маршруту без TabShell не
+    принимается (оболочка собранного пути не заявлена)."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['obolochka'] = ''
+    zapis(pack, forma)
+
+
+def mut_odna_tema(pack, forma, repo, src):
+    """Одна тема из двух: манифест профиля покрывает только dark —
+    светлую тему на втором профиле не сверяют."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    m = json.loads((pack / forma['vtoroj_profil']['kadry']).read_text(
+        encoding='utf-8'))
+    m['kadry'] = [k for k in m['kadry'] if k['tema'] == 'dark']
+    (pack / forma['vtoroj_profil']['kadry']).write_text(
+        json.dumps(m, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
+def mut_profil_kadr_nizhe_poroga(pack, forma, repo, src):
+    """Кадр профиля ниже порога: элемент стёрт из тёмного кадра
+    СОБРАННОГО пути — раннер 123 обязан судить и второй набор
+    (фиктивная сверка профиля невозможна; привязка стаба s38, Н-39)."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    f = repo / 'mobile/e2e-nositeli' / 'dark' / (
+        src['profil_kadry']['kadry'][0]['snimok'] + '.png')
+    blob = derive_bez_elementa(f.read_bytes(), src['bez_elementa']['polosa_pt'])
+    f.write_bytes(blob)
+
+def _v1_forma(forma, ekran):
+    """v1-форма (17 полей, две команды приёмки) с названным id — С-1
+    арбитража 132 v2: база батареи v2, мутации исторических входов
+    снимают маркер и блоки с честной базы."""
+    forma['ekran'] = ekran
+    for k in ('shablon', 'prokhodimost', 'vtoroj_profil'):
+        del forma[k]
+    del forma['priemka']['prokhod']
+
+
+def mut_novyj_ekran_bez_shablona(pack, forma, repo, src):
+    """Блокер 1 вердикта критика 1/2 (атака new-unmarked/fresh132): свежая
+    пачка с новым ekran ОПУСКАЕТ shablon/prokhodimost/vtoroj_profil и
+    выдаёт себя за старый экран. С-1 арбитража 132 v2: старость —
+    ПОДЛИННАЯ идентичность (id + пины макетов замороженного манифеста,
+    отображение эталона), не самодекларация id; id вне отображения без
+    маркера — SHABLON_OTSVTSTVUET rc 1."""
+    v2_baza(forma, src, repo)
+    _v1_forma(forma, 'demo-vkhod')
+    zapis(pack, forma)
+
+
+def mut_istoricheskij_id_chuzhie_makety(pack, forma, repo, src):
+    """С-1 РЕШЕНИЯ АРБИТРА (обход (а) — повтор блокера 1 критиком 2/2 и
+    самим арбитром): НОВАЯ пачка под ИСТОРИЧЕСКИМ id first-run-ekran с
+    ЧУЖИМИ макетами (пины Splash/Splash-Hell батареи 123) и без блоков
+    v2 — id в отображении, идентичности нет: SHABLON_OTSVTSTVUET
+    называет id и чужие пины. Ровно прежняя v1-база правки 1/2 — тем и
+    красна (зелёный контроль старого — клетка staryj-ekran-bez-bloka,
+    подлинная пачка сестры 135)."""
+    v2_baza(forma, src, repo)
+    _v1_forma(forma, 'first-run-ekran')
+    zapis(pack, forma)
+
+
+def mut_prokhod_pustoj(pack, forma, repo, src):
+    """Блокер 2 (атака empty-maestro): проход-заглушка — no-op команда
+    вместо прохода Maestro по pressable; цель-флоу .yaml команда не
+    несёт — PROKHOD_NE_MAESTRO rc 1 (rc оболочки не доказательство)."""
+    v2_baza(forma, src, repo)
+    forma['priemka']['prokhod'] = 'true'
+    zapis(pack, forma)
+
+
+def mut_prokhod_bez_pressable(pack, forma, repo, src):
+    """Блокер 2: флоу прохода не нажимает демо-переключатель — команда
+    несёт цель-флоу, но тот не ссылается на каждый pressable перечня —
+    PROKHOD_BEZ_PRESSABLE rc 1."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    p = repo / 'mobile/.maestro/prokhod-demo-vkhod.yaml'
+    stroki = [l for l in p.read_text(encoding='utf-8').splitlines()
+              if 'demo-sostojanie' not in l]
+    p.write_text('\n'.join(stroki) + '\n', encoding='utf-8')
+
+
+def mut_poddelnaja_obolochka(pack, forma, repo, src):
+    """Блокер 3 (атака fake-assembled-shell): непустое ЛОЖНОЕ слово
+    obolochka='fake-shell' при честных PNG обоих наборов — оболочка не
+    наблюдается в маршруте входа собранного пути: MARSHRUT_BEZ_OBOLOCHKI."""
+    v2_baza(forma, src, repo)
+    forma['vtoroj_profil']['obolochka'] = 'fake-shell'
+    zapis(pack, forma)
+
+
+def mut_marshrut_bez_snimka(pack, forma, repo, src):
+    """Блокер 3 (атака claimed-bbox, вариант голого маршрута): флоу
+    собранного пути не снимает кадр профиля — связь исполненного пути с
+    каждым кадром не наблюдается: MARSHRUT_BEZ_SNIMKA rc 1."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    p = repo / 'mobile/.maestro/demo-vkhod-tabshell.yaml'
+    stroki = [l for l in p.read_text(encoding='utf-8').splitlines()
+              if 'takeScreenshot' not in l]
+    p.write_text('\n'.join(stroki) + '\n', encoding='utf-8')
+
+def mut_prokhod_pressable_v_kommentarii(pack, forma, repo, src):
+    """С-2 РЕШЕНИЯ АРБИТРА (обход б-2 + вопрос 3: buttons-only-in-comment/
+    buttons-in-header-name/buttons-inline-comment): все id pressable —
+    ТОЛЬКО в не-исполняемом тексте флоу прохода (строка name: шапки ДО
+    «---» и YAML-комментарий в теле); исполняемый текст — launchApp.
+    Комментарий и шапка — форма, не исполнение: PROKHOD_BEZ_PRESSABLE
+    на каждый id перечня (cta-demo/ssylka-pomosh/demo-sostojanie)."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    (repo / 'mobile/.maestro/prokhod-demo-vkhod.yaml').write_text(
+        'appId: com.complior.demo\n'
+        'name: cta-demo ssylka-pomosh demo-sostojanie\n'
+        '---\n'
+        '- launchApp\n'
+        '# nazhat: cta-demo ssylka-pomosh demo-sostojanie\n',
+        encoding='utf-8')
+
+
+def mut_marshrut_obolochka_v_kommentarii(pack, forma, repo, src):
+    """С-2 РЕШЕНИЯ АРБИТРА (обход в + вопрос 3: shell-only-in-comment/
+    shell-in-header-name/shot-only-in-comment): оболочка tabshell и снимок
+    профиля — ТОЛЬКО в не-исполняемом тексте маршрута (name: шапки,
+    «# tabshell», закомментированный «# - takeScreenshot: …»);
+    исполняемый текст — launchApp. MARSHRUT_BEZ_OBOLOCHKI +
+    MARSHRUT_BEZ_SNIMKA vkhod-demo-tabshell."""
+    v2_baza(forma, src, repo)
+    zapis(pack, forma)
+    (repo / 'mobile/.maestro/demo-vkhod-tabshell.yaml').write_text(
+        'appId: com.complior.demo\n'
+        'name: tabshell\n'
+        '---\n'
+        '- launchApp\n'
+        '# tabshell\n'
+        '# - takeScreenshot: vkhod-demo-tabshell\n',
+        encoding='utf-8')
+
 MUTACII = {
     'chestnyj-ekran': None,
+    'staryj-ekran-bez-bloka': None,
     'literal-cveta': mut_literal_cveta,
     'literal-razmera': mut_literal_razmera,
     'kadr-nizhe-poroga': mut_kadr_nizhe_poroga,
@@ -619,12 +1021,45 @@ MUTACII = {
     'sverka-chuzhoj-manifest': mut_sverka_chuzhoj_manifest,
     'sverka-chuzhie-kadry': mut_sverka_chuzhie_kadry,
     'sverka-chuzhoj-repo': mut_sverka_chuzhoj_repo,
+    'prokhodimost-chestnyj': mut_prokhodimost_chestnyj,
+    'prokhodimost-otsvtstvuet': mut_prokhodimost_otsvtstvuet,
+    'pressable-bez-obrabotnika': mut_pressable_bez_obrabotnika,
+    'neaktivna-bez-kadra': mut_neaktivna_bez_kadra,
+    'cel-menshe-44': mut_cel_menshe_44,
+    'cel-v-safe-zone': mut_cel_v_safe_zone,
+    'demo-bez-metki': mut_demo_bez_metki,
+    'demo-v-sostave': mut_demo_v_sostave,
+    'demo-bez-otdelenija': mut_demo_bez_otdelenija,
+    'nazhatie-bez-izmenenija': mut_nazhatie_bez_izmenenija,
+    'profil-otsvtstvuet': mut_profil_otsvtstvuet,
+    'profil-nizhe-minimuma': mut_profil_nizhe_minimuma,
+    'profil-bez-insetov': mut_profil_bez_insetov,
+    'nalozenie-sloev': mut_nalozenie_sloev,
+    'zalezaet-pod-verhnij-inset': mut_zalezaet_pod_verhnij_inset,
+    'zalezaet-pod-nizhij-inset': mut_zalezaet_pod_nizhij_inset,
+    'pustaja-ikonka': mut_pustaja_ikonka,
+    'golyj-komponent': mut_golyj_komponent,
+    'odna-tema': mut_odna_tema,
+    'profil-kadr-nizhe-poroga': mut_profil_kadr_nizhe_poroga,
+    'novyj-ekran-bez-shablona': mut_novyj_ekran_bez_shablona,
+    'istoricheskij-id-chuzhie-makety': mut_istoricheskij_id_chuzhie_makety,
+    'prokhod-pustoj': mut_prokhod_pustoj,
+    'prokhod-bez-pressable': mut_prokhod_bez_pressable,
+    'prokhod-pressable-v-kommentarii': mut_prokhod_pressable_v_kommentarii,
+    'poddelnaja-obolochka': mut_poddelnaja_obolochka,
+    'marshrut-bez-snimka': mut_marshrut_bez_snimka,
+    'marshrut-obolochka-v-kommentarii': mut_marshrut_obolochka_v_kommentarii,
 }
 
 
 # --- суд входа ---------------------------------------------------------------
 
 def run_subject(subject, name, src):
+    if name == 'staryj-ekran-bez-bloka':
+        # ЗЕЛЁНЫЙ контроль старого экрана (С-1 арбитража 132 v2) — судится
+        # ПОДЛИННАЯ замороженная пачка сестры 135, не постройка 132:
+        # её манифест и есть источник пинов отображения эталона.
+        return sud_staryj_ekrana()
     tmp = Path(tempfile.mkdtemp(prefix='ekran132-'))
     try:
         pack, forma = build_pack(src, tmp)

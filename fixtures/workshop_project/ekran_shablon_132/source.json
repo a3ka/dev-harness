@@ -1,5 +1,5 @@
 {
- "_comment": "Контракт 132 (ekran-shablon): единый источник батареи. nositeli — копии кадров/макетов батареи 123 (те же байты, sha равны пинам 123); kejsy — оракул: rc, prichiny построчно, stdout построчно (KADR-числа — в допуске dopusk_score), снят с эталона прогоном --snapshot; stab_vhod — привязка обманных стабов к входам по коду ветвей (Н-39). Ожидания читаются в память ДО субъекта (правило 8).",
+ "_comment": "Контракт 132 (ekran-shablon): единый источник батареи. nositeli — копии кадров/макетов батареи 123 (те же байты, sha равны пинам 123); kejsy — оракул: rc, prichiny построчно, stdout построчно (KADR-числа — в допуске dopusk_score), снят с эталона прогоном --snapshot; stab_vhod — привязка обманных стабов к входам по коду ветвей (Н-39). Ожидания читаются в память ДО субъекта (правило 8). Правка по РЕШЕНИЮ АРБИТРА contracts-132-v2-arbitraz (С-1/С-2/С-3): база — честный НОВЫЙ экран demo-vkhod (shablon 2, блоки инлайн в ekran_forma — единый источник), контроль старого экрана — подлинная пачка сестры 135, новая клетка «исторический id + чужие макеты» и клетки на ссылки в не-исполняемом тексте флоу (комментарий/шапка).",
  "контекст": "verdicts/arbitration/contracts-132-impl-kap.md П-1…П-3; вход адверсария: verdicts/adversary/contracts-132-impl-v3.md §Блокер 1.",
  "subject_rel": "scripts/ekran_shablon.py",
  "runner123_rel": "scripts/sverka_maketa.py",
@@ -30,7 +30,8 @@
   ],
   "priemka": {
    "e2e": "bash mobile/e2e.sh demo-vkhod",
-   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo ."
+   "sverka": "python3 .harness123/scripts/sverka_maketa.py --manifest .harness123/kadry.json --kadry mobile/maestro-out-demo --repo .",
+   "prokhod": "bash mobile/prokhod.sh mobile/.maestro/prokhod-demo-vkhod.yaml"
   },
   "zony": {
    "architect": [
@@ -46,7 +47,115 @@
    "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_chuzhogo/kadry.json",
    "fixtures/workshop_project/ekran_shablon_132/model/fiktura/pachta_tot_zhe/kadry.json"
   ],
-  "fiktura": false
+  "fiktura": false,
+  "shablon": 2,
+  "prokhodimost": {
+   "pressable": [
+    {
+     "id": "cta-demo",
+     "sostojanie": "deistvie",
+     "izmenenie": "ekran.demo-zagruzka",
+     "shirina": 356,
+     "vysota": 48,
+     "x": 17,
+     "y": 700,
+     "demo": false
+    },
+    {
+     "id": "ssylka-pomosh",
+     "sostojanie": "neaktivna",
+     "kadry": [
+      "Splash dark",
+      "Splash light"
+     ],
+     "shirina": 48,
+     "vysota": 48,
+     "x": 171,
+     "y": 636,
+     "demo": false
+    }
+   ],
+   "demo": [
+    {
+     "id": "demo-sostojanie",
+     "sostojanie": "deistvie",
+     "izmenenie": "sostojanie.demo-toggl",
+     "shirina": 48,
+     "vysota": 48,
+     "x": 17,
+     "y": 752,
+     "demo": true,
+     "otdelenie": "kontejner-demo"
+    }
+   ],
+   "safe": {
+    "verh": 59,
+    "niz": 34,
+    "vysota": 844
+   }
+  },
+  "vtoroj_profil": {
+   "profil": "iphone-safe-area",
+   "shirina": 393,
+   "vysota": 852,
+   "vyrez": 59,
+   "home": 34,
+   "obolochka": "tabshell",
+   "marshrut": "mobile/.maestro/demo-vkhod-tabshell.yaml",
+   "kadry": "kadry_profil.json",
+   "elementy": [
+    {
+     "id": "shapka-tabshell",
+     "tip": "shapka",
+     "x": 0,
+     "y": 59,
+     "shirina": 393,
+     "vysota": 48
+    },
+    {
+     "id": "zagolovok-start",
+     "tip": "zagolovok",
+     "x": 16,
+     "y": 107,
+     "shirina": 361,
+     "vysota": 40
+    },
+    {
+     "id": "wordmark",
+     "tip": "kontrol",
+     "x": 157,
+     "y": 514,
+     "shirina": 76,
+     "vysota": 20
+    },
+    {
+     "id": "znak",
+     "tip": "prochee",
+     "x": 110,
+     "y": 271,
+     "shirina": 180,
+     "vysota": 173
+    },
+    {
+     "id": "ikonka-kompozera-otvetit",
+     "tip": "ikonka",
+     "x": 329,
+     "y": 710,
+     "shirina": 48,
+     "vysota": 48,
+     "glif": "otvetit"
+    },
+    {
+     "id": "ikonka-kompozera-otpravit",
+     "tip": "ikonka",
+     "x": 329,
+     "y": 762,
+     "shirina": 48,
+     "vysota": 48,
+     "dostupnoe_imja": "otpravit"
+    }
+   ]
+  }
  },
  "kontrakt_tekst": "# Контракт 135 — demo-vkhod: экран входа (пример экрана по шаблону 132)\n\n## Воля владельца\nЭкран описан машиночитаемой формой ekran.json (шаблон 132); приёмка —\nandroid-e2e rc 0 и сверка каждого кадра с PNG-макетом docs/ux не ниже порога\nмеханизма 123. Один экран — один контракт: этот контракт заменяет контракт\nэкрана целиком, чужих пикселей не морозит.\n\n## Существующее\nМера, порог и раннер — контракт 123 (scripts/sverka_maketa.py, манифест\nкадров по грамматике kadry_117.json). Литералы токенов — только в общем\nаудите D2.2.5.1 (audit_tokenov формы). Ключи копии — каталог\nBrokerOS_UI_Copy_DE.json verbatim.\n\n## Инварианты\n1. Форма ekran.json едина и замкнута: один экран — один контракт; следующий\nконтракт экрана заменяет его целиком (zamenjaet: кадры — надмножество),\nчужие кадры не объявляет (ne_trogaet: пересечение пусто).\n2. В пачке экрана нет литералов цветов и размеров: значения токенов живут в\nобщем аудите D2.2.5.1, растр судит сверка 123.\n3. Приёмка — rc-команды priemka: android-e2e rc 0 и запуск раннера 123 по\nманифесту кадров пачки.\n\n## Приёмочный критерий\n- Дано: пачка экрана и репо продукта; когда: python3 scripts/ekran_shablon.py\n--pack . --repo R --harness H; тогда: rc 0 — форма верна, оба кадра не ниже\nпорога манифеста.\n- Негатив: кадр ниже порога либо экран с литералом вне аудита — rc 1 с\nименем кадра/файла.\n\n## Зоны и исполнители\n\nЗОНА architect: contracts/135-demo-vkhod.md fixtures/workshop_project/demo_vkhod_135/\nЗОНА implementer: mobile/src/features/demo/\n\n## ПРОВОДКА\nПРОВОДКА-ЭНФОРСМЕНТ: гейт экрана — scripts/ekran_shablon.py по форме\nekran.json (шаблон 132); сверка кадров — механизм 123.\n\n## Модель угроз\nЗАЩИЩАЕТ: форма (замкнутые алфавиты, якорные грамматики) — от расползания\nполей; сверка 123 — от зелени без макета; запрет литералов — от второй\nпалитры в батарее; zamenjaet/ne_trogaet — от деления экрана между\nконтрактами и морозинга чужих пикселей.\nНЕ ЗАЩИЩАЕТ: смысл копии (суд каталога и ревью), качество самого макета.\n",
  "kadry_manifest": {
@@ -417,7 +526,9 @@
    "stdout": [],
    "prichiny": [
     "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/demo-vkhod/takeScreenshot/vkhod-demo-splash.png",
-    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/demo-vkhod/takeScreenshot/vkhod-demo-splash.png"
+    "PRICHINA\tKADR_USTAREVSHIJ\tdark/20261022T120000Z/demo-vkhod-tabshell/takeScreenshot/vkhod-demo-tabshell.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/demo-vkhod/takeScreenshot/vkhod-demo-splash.png",
+    "PRICHINA\tKADR_USTAREVSHIJ\tlight/20261022T120000Z/demo-vkhod-tabshell/takeScreenshot/vkhod-demo-tabshell.png"
    ]
   },
   "zhivaja-pachta-v-repo": {
@@ -487,47 +598,270 @@
    "prichiny": [
     "PRICHINA\tSAMODELNAYA_SVERKA\targv не вызов раннера 123: python3 scripts/sverka_maketa.py.fake --manifest no"
    ]
- },
- "sverka-podmena-imenem": {
-  "rc": 1,
-  "stdout": [
-   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
-   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
-  ],
-  "prichiny": [
-   "PRICHINA\tSAMODELNAYA_SVERKA\tфайл не раннер 123: podmena/scripts/sverka_maketa.py"
-  ]
- },
- "sverka-chuzhoj-manifest": {
-  "rc": 1,
-  "stdout": [
-   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
-   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
-  ],
-  "prichiny": [
-   "PRICHINA\tSAMODELNAYA_SVERKA\t--manifest не манифест пачки"
-  ]
- },
- "sverka-chuzhie-kadry": {
-  "rc": 1,
-  "stdout": [
-   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
-   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
-  ],
-  "prichiny": [
-   "PRICHINA\tSAMODELNAYA_SVERKA\t--kadry не каталог кадров пачки"
-  ]
- },
- "sverka-chuzhoj-repo": {
-  "rc": 1,
-  "stdout": [
-   "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
-   "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
-  ],
-  "prichiny": [
-   "PRICHINA\tSAMODELNAYA_SVERKA\t--repo не репо продукта"
-  ]
- }
+  },
+  "sverka-podmena-imenem": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\tфайл не раннер 123: podmena/scripts/sverka_maketa.py"
+   ]
+  },
+  "sverka-chuzhoj-manifest": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\t--manifest не манифест пачки"
+   ]
+  },
+  "sverka-chuzhie-kadry": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\t--kadry не каталог кадров пачки"
+   ]
+  },
+  "sverka-chuzhoj-repo": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tSAMODELNAYA_SVERKA\t--repo не репо продукта"
+   ]
+  },
+  "prokhodimost-chestnyj": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK",
+    "SHABLON\tdemo-vkhod\tOK"
+   ],
+   "prichiny": []
+  },
+  "staryj-ekran-bez-bloka": {
+   "rc": 0,
+   "stdout": [
+    "KADR\tFirst-Run dark\t1.000\t0.600\tG\tOK",
+    "KADR\tFirst-Run light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.01 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02 light\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02-V01 dark\t1.000\t0.600\tG\tOK",
+    "KADR\tF03.02-V01 light\t1.000\t0.600\tG\tOK",
+    "SHABLON\tfirst-run-ekran\tOK"
+   ],
+   "prichiny": []
+  },
+  "prokhodimost-otsvtstvuet": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROKHODIMOST_OTSVTSTVUET\tполе prokhodimost: новый экран (shablon 2) обязан нести блок проходимости (слово владельца 2026-10-27 ~22:45 UTC)"
+   ]
+  },
+  "pressable-bez-obrabotnika": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPRESSABLE_BEZ_IZMENENIJA\tcta-demo"
+   ]
+  },
+  "neaktivna-bez-kadra": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNEAKTIVNA_BEZ_KADRA\tssylka-pomosh"
+   ]
+  },
+  "cel-menshe-44": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKASANIE_MENSHE_NORMY\tdemo-sostojanie: vysota 18 < 44"
+   ]
+  },
+  "cel-v-safe-zone": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tKASANIE_V_SAFE_ZONE\tdemo-sostojanie"
+   ]
+  },
+  "demo-bez-metki": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDEMO_NE_OTMECHEN\tdemo-sostojanie"
+   ]
+  },
+  "demo-v-sostave": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDEMO_V_SOSTAVE\tcta-demo"
+   ]
+  },
+  "demo-bez-otdelenija": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tDEMO_BEZ_OTDELENIJA\tdemo-sostojanie"
+   ]
+  },
+  "nazhatie-bez-izmenenija": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_NE_PROSHLA\trc=1"
+   ]
+  },
+  "profil-otsvtstvuet": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tVTOROJ_PROFIL_OTSVTSTVUET\tполе vtoroj_profil: новый экран (shablon 2) обязан нести блок второго профиля с safe-area (слово владельца 2026-10-27 ~23:45 UTC)"
+   ]
+  },
+  "profil-nizhe-minimuma": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROFIL_NIZHE_MINIMUMA\t390×844 < 393×852 (класс iPhone 15/16)"
+   ]
+  },
+  "profil-bez-insetov": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROFIL_BEZ_INSETOV\tvyrez 24 вне 47–59",
+    "PRICHINA\tPROFIL_BEZ_INSETOV\thome 0 != 34"
+   ]
+  },
+  "nalozenie-sloev": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tNALOZHENIE_SLOEV\tshapka-tabshell+shapka-start-dubl"
+   ]
+  },
+  "zalezaet-pod-verhnij-inset": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZALEZAET_POD_INSET\twordmark: verh"
+   ]
+  },
+  "zalezaet-pod-nizhij-inset": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tZALEZAET_POD_INSET\tikonka-kompozera-otpravit: niz"
+   ]
+  },
+  "pustaja-ikonka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPUSTAJA_IKONKA\tikonka-kompozera-otvetit: нет ни глифа, ни доступного имени"
+   ]
+  },
+  "golyj-komponent": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tGOLYJ_KOMPONENT\tvtoroj_profil.obolochka: сверка голым компонентом по маршруту без оболочки не принимается"
+   ]
+  },
+  "odna-tema": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tODNA_TEMA\tкадры профиля без тем: light"
+   ]
+  },
+  "profil-kadr-nizhe-poroga": {
+   "rc": 1,
+   "stdout": [
+    "KADR\tSplash dark\t0.783\t0.600\ttagline\tOK",
+    "KADR\tSplash light\t0.782\t0.600\ttagline\tOK"
+   ],
+   "prichiny": [
+    "PRICHINA\tKADR_NIZHE_POROGA\tStart tabshell dark\tscore=0.000 porog=0.600 hudshij=znak"
+   ]
+  },
+  "novyj-ekran-bez-shablona": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_OTSVTSTVUET\tekran demo-vkhod вне перечня замороженных старых экранов (erstinformation, first-run-ekran, mission, start-ekran): новый экран обязан нести shablon: 2 с блоками prokhodimost и vtoroj_profil (слово владельца 2026-10-27)"
+   ]
+  },
+  "prokhod-pustoj": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_NE_MAESTRO\tпроход без цели-флоу Maestro (существующий .yaml в репо): true"
+   ]
+  },
+  "prokhod-bez-pressable": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_BEZ_PRESSABLE\tdemo-sostojanie"
+   ]
+  },
+  "poddelnaja-obolochka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tMARSHRUT_BEZ_OBOLOCHKI\tмаршрут mobile/.maestro/demo-vkhod-tabshell.yaml не содержит оболочку fake-shell: собранный путь не наблюдается"
+   ]
+  },
+  "marshrut-bez-snimka": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tMARSHRUT_BEZ_SNIMKA\tvkhod-demo-tabshell"
+   ]
+  },
+  "istoricheskij-id-chuzhie-makety": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tSHABLON_OTSVTSTVUET\tekran first-run-ekran: пины макетов 108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda, 4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c не из замороженного манифеста этого экрана — исторический id с чужими макетами: идентичность замороженного экрана не доказана, новый экран обязан нести shablon: 2 с блоками prokhodimost и vtoroj_profil (слово владельца 2026-10-27)"
+   ]
+  },
+  "prokhod-pressable-v-kommentarii": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tPROKHOD_BEZ_PRESSABLE\tcta-demo",
+    "PRICHINA\tPROKHOD_BEZ_PRESSABLE\tssylka-pomosh",
+    "PRICHINA\tPROKHOD_BEZ_PRESSABLE\tdemo-sostojanie"
+   ]
+  },
+  "marshrut-obolochka-v-kommentarii": {
+   "rc": 1,
+   "stdout": [],
+   "prichiny": [
+    "PRICHINA\tMARSHRUT_BEZ_OBOLOCHKI\tмаршрут mobile/.maestro/demo-vkhod-tabshell.yaml не содержит оболочку tabshell: собранный путь не наблюдается",
+    "PRICHINA\tMARSHRUT_BEZ_SNIMKA\tvkhod-demo-tabshell"
+   ]
+  }
  },
  "stab_vhod": {
   "s01_bez_literal_skana.py": [
@@ -607,19 +941,181 @@
   ],
   "s22_sverka_imja_fragment.py": [
    "sverka-poddelnyj-stdout"
- ],
- "s23_sverka_tolko_imja.py": [
-  "sverka-podmena-imenem"
- ],
- "s24_sverka_bez_svjazi.py": [
-  "sverka-chuzhoj-manifest",
-  "sverka-chuzhie-kadry",
-  "sverka-chuzhoj-repo"
- ]
+  ],
+  "s23_sverka_tolko_imja.py": [
+   "sverka-podmena-imenem"
+  ],
+  "s24_sverka_bez_svjazi.py": [
+   "sverka-chuzhoj-manifest",
+   "sverka-chuzhie-kadry",
+   "sverka-chuzhoj-repo"
+  ],
+  "s25_bez_bloka_propuskaet.py": [
+   "prokhodimost-otsvtstvuet"
+  ],
+  "s26_kasanie_norma_propuskaet.py": [
+   "cel-menshe-44"
+  ],
+  "s27_safe_zona_propuskaet.py": [
+   "cel-v-safe-zone"
+  ],
+  "s28_demo_metki_propuskaet.py": [
+   "demo-bez-metki",
+   "demo-v-sostave",
+   "demo-bez-otdelenija"
+  ],
+  "s29_prokhod_ne_ispolnjaet.py": [
+   "nazhatie-bez-izmenenija"
+  ],
+  "s30_pressable_sostojanie_propuskaet.py": [
+   "pressable-bez-obrabotnika",
+   "neaktivna-bez-kadra"
+  ],
+  "s31_blok_profilja_propuskaet.py": [
+   "profil-otsvtstvuet"
+  ],
+  "s32_norma_profilja_propuskaet.py": [
+   "profil-nizhe-minimuma",
+   "profil-bez-insetov"
+  ],
+  "s33_nalozenie_propuskaet.py": [
+   "nalozenie-sloev"
+  ],
+  "s34_insety_propuskaet.py": [
+   "zalezaet-pod-verhnij-inset",
+   "zalezaet-pod-nizhij-inset"
+  ],
+  "s35_ikonki_propuskaet.py": [
+   "pustaja-ikonka"
+  ],
+  "s36_obolochka_propuskaet.py": [
+   "golyj-komponent"
+  ],
+  "s37_temy_propuskaet.py": [
+   "odna-tema"
+  ],
+  "s38_sverka_profilja_ne_ispolnjaet.py": [
+   "profil-kadr-nizhe-poroga"
+  ],
+  "s39_staryj_spisok_propuskaet.py": [
+   "novyj-ekran-bez-shablona"
+  ],
+  "s40_prokhod_flou_propuskaet.py": [
+   "prokhod-pustoj",
+   "prokhod-bez-pressable"
+  ],
+  "s41_marshrut_propuskaet.py": [
+   "poddelnaja-obolochka",
+   "marshrut-bez-snimka"
+  ],
+  "s42_identichnost_propuskaet.py": [
+   "istoricheskij-id-chuzhie-makety"
+  ],
+  "s43_kommentarij_propuskaet.py": [
+   "prokhod-pressable-v-kommentarii"
+  ],
+  "s44_marshrut_kommentarij_propuskaet.py": [
+   "marshrut-obolochka-v-kommentarii"
+  ]
  },
- "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor tema in dark light; do\n  d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$flow/takeScreenshot\"\n  mkdir -p \"$d\"\n  sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$f\" | while IFS= read -r name; do\n    [ -n \"$name\" ] || continue\n    if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n      cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n    fi\n  done\ndone\n",
+ "e2e_skript": "#!/usr/bin/env bash\n# Stand-in android-e2e (replay): повторяет Maestro-флоу — для каждого\n# имени takeScreenshot из флоу кладёт кадр из e2e-nositeli в\n# Maestro-раскладку. Нет носителя для имени — кадра не будет (сверка\n# назовёт его отсутствующим); неизвестный флоу — rc 3.\n# Второй профиль (safe-area, слово владельца 2026-10-27 ~23:45): тот же\n# проход приёмки кладёт и кадры собранного пути (флоу с оболочкой\n# TabShell) — в живом CI это второй AVD с вырезом/инсетами ВНУТРИ той\n# же команды e2e работника экрана.\nset -u\nflow=\"${1:?imja floy}\"\nf=\"mobile/.maestro/$flow.yaml\"\n[ -f \"$f\" ] || exit 3\nfor profil in \"$flow\" demo-vkhod-tabshell; do\n  pf=\"mobile/.maestro/$profil.yaml\"\n  [ -f \"$pf\" ] || continue\n  for tema in dark light; do\n    d=\"mobile/maestro-out-demo/$tema/20261022T120000Z/$profil/takeScreenshot\"\n    mkdir -p \"$d\"\n    sed -n 's/.*takeScreenshot:[[:space:]]*//p' \"$pf\" | while IFS= read -r name; do\n      [ -n \"$name\" ] || continue\n      if [ -f \"mobile/e2e-nositeli/$tema/$name.png\" ]; then\n        cp \"mobile/e2e-nositeli/$tema/$name.png\" \"$d/$name.png\"\n      fi\n    done\n  done\ndone\n",
+ "prokhod_skript": "#!/usr/bin/env bash\n# Stand-in прохода Maestro по pressable (правило проходимости,\n# слово владельца 2026-10-27): жмёт каждый видимый pressable флоу и ждёт\n# наблюдаемое изменение либо пометку неактивности; replay без эмулятора.\n# Цель команды — ПУТЬ флоу Maestro (.yaml): судится статически\n# (цель-флоу + покрытие pressable), исполняется фактически (rc).\nset -u\nflow=\"${1:?put floy}\"\n[ -f \"$flow\" ] || exit 3\nexit 0\n",
+ "prokhod_flow": "appId: com.complior.demo\nname: prokhod-demo-vkhod\n---\n- launchApp\n- nazhat: cta-demo\n- zhdat-izmenenija: ekran.demo-zagruzka\n- nazhat: ssylka-pomosh\n- utverdit-neaktivnost: ssylka-pomosh\n- nazhat: demo-sostojanie\n- zhdat-izmenenija: sostojanie.demo-toggl\n",
+ "profil_kadry": {
+  "_comment": "Кадры ВТОРОГО профиля (iphone-safe-area, собранный путь с оболочкой TabShell): второй набор кадров/эталонов той же грамматики 123; макет — тот же PNG docs/ux на экран/тему, mera — дословно из kadry.json (единый источник 123); snimok профиля — отдельное имя снимка.",
+  "mera": {
+   "chernila_T": 40,
+   "kletka_pt": 6,
+   "fon_shag": 4,
+   "razmytie_r": 1,
+   "region_porog": 0.05,
+   "margin": 1,
+   "chrome_verh_pt": 36,
+   "chrome_niz_pt": 20,
+   "min_dolja_suda": 0.5
+  },
+  "kadry": [
+   {
+    "id": "Start tabshell dark",
+    "tema": "dark",
+    "snimok": "vkhod-demo-tabshell",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash.png",
+    "maket_sha256": "4a17e3a4c3888343490f73c037688a7d6522e5fac1919126265c7414f26c976c",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   },
+   {
+    "id": "Start tabshell light",
+    "tema": "light",
+    "snimok": "vkhod-demo-tabshell",
+    "maket": "docs/ux/02_Design_System_D2_2_5_1_Visual_Reference/screens/Splash-Hell.png",
+    "maket_sha256": "108167d6a5cc85b7d67b48f1076492d1e1cfd9bf88f6445bf5b070656fe31eda",
+    "porog": 0.6,
+    "maski_pt": [],
+    "elementy": [
+     {
+      "imja": "znak",
+      "bbox_pt": [
+       110,
+       271,
+       290,
+       444
+      ]
+     },
+     {
+      "imja": "wordmark",
+      "bbox_pt": [
+       157,
+       514,
+       233,
+       534
+      ]
+     },
+     {
+      "imja": "tagline",
+      "bbox_pt": [
+       57,
+       569,
+       333,
+       596
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "flow_profil": "appId: com.complior.demo\nname: demo-vkhod-tabshell\n---\n- launchApp\n- vojti-v-obolochku: tabshell\n- najti: shapka-tabshell\n- takeScreenshot: vkhod-demo-tabshell\n",
  "repo_staryj_ekran": {
-  "_comment": "Живая пачка ТОГО ЖЕ экрана (demo-vkhod) в репо ПРОДУКТА для красного входа zhivaja-pachta-v-repo (обход круга 2: харнесс-скан её не видит). fiktura: false — видима обнаружению обоих корней.",
+  "_comment": "Живая пачка ТОГО ЖЕ экрана (demo-vkhod — id честной v2-базы, С-1 арбитража 132 v2) в репо ПРОДУКТА для красного входа zhivaja-pachta-v-repo (обход круга 2: харнесс-скан её не видит). fiktura: false — видима обнаружению обоих корней.",
   "ekran": {
    "_comment": "живая пачка старого контракта экрана в продукте",
    "ekran": "demo-vkhod",
