@@ -20,7 +20,7 @@
 #                    факт разбором JSON — здесь байтовый якорь);
 #   --repo      R  — реестр: registry/pauzy.tsv (ПАУЗА владельца), теги
 #                    done/contracts/<NNN>/* (слот закрыт), contracts/<NNN>-*.md
-#                    (строка «КЛАСС РИСКА: рисковый»).
+#                    (строка с декларацией «КЛАСС РИСКА: рисковый|обычный …»).
 #
 # ЗАМКНУТЫЕ АЛФАВИТЫ (норма 041; байты-разделители исключены из классов значений):
 #   SUBJECT — строка задания `^SUBJECT=[0-9]{3}$`, ровно одна (/m, якорь ^…$);
@@ -143,13 +143,35 @@ na_pauze() {  # <NNN>
 # [D18 done-uchet] done-тег закрывает слот предмета (локальные теги чекаута).
 predmet_done() { [ -n "$(git -C "$REPO" tag -l "done/contracts/$1/*")" ]; }
 # [D13 klass-riska] строка «КЛАСС РИСКА:» в contracts/<NNN>-*.md обязательна:
-# нет файла ИЛИ нет строки — net_stroki (fail-closed, слово владельца 24.10).
-klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki
-  local f
-  f="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | sed -n '1p')"
-  if [ -z "$f" ]; then printf 'net_stroki'; return 0; fi
-  if ! grep -q '^КЛАСС РИСКА:' "$f"; then printf 'net_stroki'; return 0; fi
-  if grep -q '^КЛАСС РИСКА: рисковый' "$f"; then printf 'risikovyj'; else printf 'obychnyj'; fi
+# нет файла ИЛИ нет строки — класс не определён (fail-closed, слово владельца 24.10).
+# [D29 odnoznachnyj-istochnik-riska] класс читается по ВСЕМ файлам предмета:
+# ноль файлов, нет строки в любом из них, значение вне алфавита (обычный|рисковый)
+# или РАЗНЫЕ значения — класс не определён; «первый результат find» не каноничен
+# (вердикт адверсария 140 вызов 1/2: один «рисковый» файл среди шести молча
+# определял класс «обычный» — ревьюер шёл без адверсария). Перечень файлов
+# сортируется LC_ALL=C — сообщение отказа детерминировано. Декларация —
+# в любой позиции строки, хвост-основание допустим (норма roles/architect.md),
+# вторая декларация в файле — неоднозначность.
+klass_riska() {  # <NNN> → risikovyj|obychnyj|net_stroki:<…>|neodnoznachno:<файлы>
+  local spisok f val znach='' ploh=''
+  spisok="$(find "$REPO/contracts" -maxdepth 1 -name "$1-*.md" -print | LC_ALL=C sort)"
+  if [ -z "$spisok" ]; then printf 'net_stroki:файлов contracts/%s-*.md нет' "$1"; return 0; fi
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    val="$(grep -E -o 'КЛАСС РИСКА:[[:blank:]]*(обычный|рисковый)([[:blank:].,;]|$)' "$f" 2>/dev/null \
+          | sed -E -e 's/^КЛАСС РИСКА:[[:blank:]]*//' -e 's/[[:blank:].,;]$//')"
+    case "$val" in
+      обычный)  val='obychnyj' ;;
+      рисковый) val='risikovyj' ;;
+      *)        ploh="${ploh:+$ploh }$f"; continue ;;
+    esac
+    if [ -z "$znach" ]; then znach="$val"
+    elif [ "$znach" != "$val" ]; then ploh="${ploh:+$ploh }$f"; fi
+  done <<EOF
+$spisok
+EOF
+  if [ -n "$ploh" ]; then printf 'neodnoznachno:%s' "$ploh"; return 0; fi
+  printf '%s' "$znach"
 }
 
 # ── учёт (jq над JSONL; значения из замкнутых алфавитов) ────────────────────
@@ -440,11 +462,18 @@ EOF
         mutexi_snyat_vse
         otp OBJECT_RASHODITSJA "предмет $sv: OBJECT задания $obj ≠ tip ветки $r_br ($tip)"
       }
-      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24).
+      # Строка КЛАСС РИСКА обязательна (слово владельца 2026-10-24); [D29]
+      # класс определён только при согласии ВСЕХ contracts/<NNN>-*.md — иначе
+      # отказ с перечнем неоднозначных файлов (голый net_stroki — от мутаций
+      # стабов над klass_riska — отказывается тем же именем).
       kr="$(klass_riska "$sv")"
-      if [ "$kr" = 'net_stroki' ]; then
-        mutexi_snyat_vse; otp KLASS_RISKA_NET "предмет $sv: contracts/$sv-*.md без строки КЛАСС РИСКА:"
-      fi
+      case "$kr" in
+        risikovyj|obychnyj) : ;;
+        *)
+          mutexi_snyat_vse
+          otp KLASS_RISKA_NET "предмет $sv: класс риска неоднозначно определён (${kr%%:*}); файлы: ${kr#*:}"
+          ;;
+      esac
       # [D14 adv-do-rev] рисковый предмет: ревьюер — после завершённого адверсария.
       if [ "$kr" = 'risikovyj' ] && [ "$rol" = 'reviewer' ]; then
         if ! subekt_suzhen_sudej "$sv" 'adversary'; then
