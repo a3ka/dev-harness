@@ -180,7 +180,7 @@ step	check:poezd-131-family-selftest	0	bash fixtures/workshop_project/poezd_131/
 # контракта 132). Продуктовый режим БЕЗ флагов судит scripts/ekran_shablon.py этого дерева (в CI — сам чекаут); --model/--stabs
 # не подключены: на дереве с предметом судят эталон (probe.py:605). Замер в чистом клоне объекта суда: rc 0, 41/41 ok.
 # Вес 0 до первого замера окна (контракт 114).
-step	check:ekran-shablon-132-family-selftest	0	bash fixtures/workshop_project/ekran_shablon_132/red_ekran_shablon_132.sh
+step	check:ekran-shablon-132-family-selftest	0	bash fixtures/workshop_project/ekran_shablon_132/red_ekran_shablon_132.sh --stabs
 # КОНТРАКТ 118: батарея Erstinformation (28 входов / 26 связей стабов: пин-форма stand-in композиции,
 # манифест 16 кадров, guard-шаг CI; миры в mktemp, сеть не нужна) — ПРОВОДКА-ЭНФОРСМЕНТ контракта 118:
 # до ленда продукта CI несёт --stabs явно; безфлаговый W после ленда переводит оркестратор (S6).
