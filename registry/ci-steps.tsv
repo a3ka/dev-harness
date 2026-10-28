@@ -274,4 +274,4 @@ shard	ap5	verify_ci_parity check_ids check_ceilings check_contract_frozen drill_
 # шаг android-e2e Complior-mob (строки 5–6 приёмки). Вес 0 до первого замера окна (контракт 114).
 step	check:sverka-maketa-123-family-selftest	0	bash fixtures/workshop_project/mob_sverka_123/red_mob_sverka_123.sh
 # КОНТРАКТ 140: батарея odin-agent-na-predmet (63 входа / 60 связей стабов: дверь замка предмета scripts/zamok_predmeta.sh, слой субъекта; станционная команда stancija_odin_agent_140.sh в CI не заводится) — проводка оркестратором по ЗОНЕ orchestrator (окно freeze..done, контракт 140 §Зоны). Режим БЕЗФЛАГОВЫЙ: судит поставленную дверь (rc 0 после ленда реализации).
-step	check:odin-agent-140-family-selftest	55	bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh --model
+step	check:odin-agent-140-family-selftest	55	bash fixtures/workshop_project/odin_agent_140/red_odin_agent_140.sh
