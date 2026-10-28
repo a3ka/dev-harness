@@ -1431,18 +1431,97 @@ def sud_concurrency(wf, rep=None):
         return False, "группы пересекаются: %s" % vychislennye
     return True, ""
 
+# 143 (Fix143c): git-команды, меняющие рабочее дерево либо источник дерева,
+# — красны в run-шагах build-apk до конца задачи. Форма — «git» плюс
+# произвольные ведущие токены-флаги (ловит «git -C <dir> checkout»,
+# «git --work-tree=<путь> reset», «git fetch origin main && …»), затем
+# глагол класса; читающий rev-parse/Status токенами глаголом не становится.
+GIT_MENJAET_DEREVO = re.compile(
+    r"\bgit\b(?:\s+\S+)*?\s+"
+    r"(checkout|switch|restore|reset|clean|fetch|pull|merge|rebase|stash)\b")
+
 
 def sud_provodka(wf, rep=None):
-    """y19-outputs-provodka (блокер 3, структурная нога): id шага
-    идентичности, job-level outputs работников (ровно три ключа через
-    steps.ident.outputs.*), эталон build-apk, и checkout (persist-credentials:
-    false) в ОБОИХ агрегирующих задачах ДО шага запуска ci-aggregate.cjs."""
+    """y19-outputs-provodka (блокер 3, структурная нога; адверсарий 1/2 +
+    критик Crit143x — source provenance сборки): id шага идентичности,
+    job-level outputs работников (ровно три ключа через
+    steps.ident.outputs.*), эталон build-apk, ИСПОЛНЯЕМАЯ
+    последовательность его шагов ЦЕЛИКОМ (Fix143c: позиция 0 —
+    единственный checkout с замкнутым алфавитом with
+    persist-credentials/clean, БЕЗ ref/repository/path; позиция 1 —
+    test-сверка фактического HEAD с $GITHUB_SHA до source-consuming
+    шагов; далее до конца задачи — ни второго checkout, ни действия вне
+    алфавита, ни git-команды, меняющей рабочее дерево: npm ci/prebuild на
+    подменённом/остаточном workspace = сборка чужой ревизии при честном
+    digest), и checkout (persist-credentials: false) в ОБОИХ
+    агрегирующих задачах ДО шага запуска ci-aggregate.cjs."""
     kjuchi = ("apk_sha256", "artifact_name", "run_id")
     build = wf.get("jobs", {}).get("build-apk", {})
     if sorted((build.get("outputs") or {}).keys()) != sorted(kjuchi):
         return False, "outputs build-apk: %s" % sorted((build.get("outputs") or {}).keys())
     if not any(s.get("id") == "ident" for s in build.get("steps") or []):
         return False, "у шага идентичности сборки нет id"
+    # 143 (Fix143c, содержательный FAIL критика Crit143x — «литерал на
+    # месте, исполняемое иное»): судится ИСПОЛНЯЕМАЯ последовательность
+    # шагов build-apk ЦЕЛИКОМ, а не наличие checkout среди шагов — checkout
+    # с ref: чужой ревизии и второй checkout после правильного первого
+    # проходили батарею 69/69. Закрывающее свойство (адверсарий 1/2):
+    # позиция 0 — ЕДИНСТВЕННЫЙ actions/checkout проверяемого дерева
+    # (замкнутый алфавит with: persist-credentials/clean — ref/repository/
+    # path меняют проверяемое дерево, иные ключи не заявлены), позиция 1 —
+    # сверка фактического HEAD с $GITHUB_SHA ДО любого шага, читающего
+    # дерево, далее до конца задачи — ни checkout, ни действия вне
+    # замкнутого алфавита (setup-node/upload-artifact), ни git-команда,
+    # меняющая рабочее дерево (после сборки checkout с clean снесёт и
+    # артефакт, и идентичность).
+    shagi_build = build.get("steps") or []
+    if not shagi_build or not (shagi_build[0].get("uses") or "").startswith("actions/checkout"):
+        return False, ("build-apk: сборка без checkout продукта первым шагом (needs не "
+                       "переносит checkout и не закрепляет runner — переиспользуемый "
+                       "раннер собирает остаточный workspace старой ревизии)")
+    w_build = shagi_build[0].get("with") or {}
+    chuzhoe_derevo = {"ref": "чужая ревизия вместо проверяемой",
+                      "repository": "чужое дерево",
+                      "path": "дерево вне workspace сборки"}
+    for kljuch in sorted(set(w_build) & set(chuzhoe_derevo)):
+        return False, ("build-apk: checkout с %s: %r — %s (позиция 0)"
+                       % (kljuch, w_build[kljuch], chuzhoe_derevo[kljuch]))
+    lishnie_kljuchi = sorted(set(w_build) - {"persist-credentials", "clean"})
+    if lishnie_kljuchi:
+        return False, ("build-apk: ключи with checkout вне замкнутого алфавита "
+                       "(persist-credentials/clean): %s (позиция 0)" % lishnie_kljuchi)
+    if w_build.get("persist-credentials") is not False:
+        return False, "build-apk: checkout без persist-credentials: false (позиция 0)"
+    if w_build.get("clean") is not True:
+        return False, ("build-apk: checkout без clean: true — остатки старого дерева "
+                       "выживают (позиция 0)")
+    if len(shagi_build) < 2 or not shagi_build[1].get("run"):
+        return False, ("build-apk: нет сверки HEAD == $GITHUB_SHA сразу после checkout "
+                       "(позиция 1) — APK может быть собран не из $GITHUB_SHA")
+    sverka = False
+    for stroka in str(shagi_build[1].get("run")).splitlines():
+        stroka = stroka.strip()
+        if ((stroka.startswith("test ") or stroka.startswith("[ "))
+                and "git rev-parse HEAD" in stroka and '"$GITHUB_SHA"' in stroka):
+            sverka = True
+    if not sverka:
+        return False, ("build-apk: шаг 1 не сверяет фактический HEAD с $GITHUB_SHA — "
+                       "нужна test-команда с операндами \"$(git rev-parse HEAD)\" и "
+                       "\"$GITHUB_SHA\" в одной команде (позиция 1)")
+    for n, s in enumerate(shagi_build):
+        dejstvie = str(s.get("uses") or "")
+        if n >= 2 and dejstvie.startswith("actions/checkout"):
+            return False, ("build-apk: второй checkout (позиция %d) подменяет рабочее "
+                           "дерево сборки" % n)
+        if (n >= 2 and dejstvie
+                and dejstvie not in ("actions/setup-node@v7", "actions/upload-artifact@v7")):
+            return False, ("build-apk: действие %r вне замкнутого алфавита build-apk "
+                           "(checkout/setup-node/upload-artifact) — позиция %d"
+                           % (dejstvie, n))
+        m_git = GIT_MENJAET_DEREVO.search(str(s.get("run") or ""))
+        if m_git:
+            return False, ("build-apk: run-шаг меняет рабочее дерево git-командой "
+                           "«git … %s» (позиция %d)" % (m_git.group(1), n))
     for j in RABOTNIKI:
         job = wf.get("jobs", {}).get(j, {})
         outs = job.get("outputs") or {}
