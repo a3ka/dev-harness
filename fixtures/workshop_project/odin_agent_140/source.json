@@ -118,7 +118,10 @@
   "g06-podstroka-pina": "класс=delimiter-collision;форма=пин-подстрокой",
   "w20-limit-harness-tri-ok": "учёт=лимит;группа=harness-2-из-3-граница",
   "w21-limit-back-tri-ok": "учёт=лимит;группа=back-2-из-3-граница",
-  "w22-limit-back-chetyre": "учёт=лимит;группа=back-3-из-3-занято"
+  "w22-limit-back-chetyre": "учёт=лимит;группа=back-3-из-3-занято",
+  "w23-sudja-ne-zanimaet-slot": "роль=судья;учёт=лимит;группа=harness-3-из-3-занято;судья=слот-не-занимает",
+  "w24-slovo-chuzhogo-predmeta": "учёт=лимит;СЛОВО=чужого-subjectId;группа=harness-3-из-3-занято",
+  "w25-slovo-svoego-predmeta": "учёт=лимит;СЛОВО=своего-subjectId;группа=harness-3-из-3-занято"
  },
  "stab_vhod": {
   "s01-bez-dublja-rabochego": [
@@ -172,7 +175,8 @@
    "w10-pauza"
   ],
   "s16-slovo-vsegda": [
-   "w15-limit-mob-chetyre"
+   "w15-limit-mob-chetyre",
+   "w24-slovo-chuzhogo-predmeta"
   ],
   "s17-done-net": [
    "w17-limit-done-osvobozhdaet"
@@ -190,13 +194,15 @@
    "b04-gonka-dva-protsessa"
   ],
   "s22-bez-starta": [
-   "w01-pervyj-rabochij"
+   "w01-pervyj-rabochij",
+   "w25-slovo-svoego-predmeta"
   ],
   "s23-pustota-prohodit": [
    "g04-bityj-vhod"
   ],
   "s24-sudi-propusk": [
-   "s01-sudja-posle-yield"
+   "s01-sudja-posle-yield",
+   "w23-sudja-ne-zanimaet-slot"
   ],
   "s25-bez-pin-rashozhdenija": [
    "s14-pin-rashozhdenie"
@@ -232,7 +238,8 @@
    "s06-object-uzhe-suzhen",
    "s09-adv-do-rev",
    "b02-dubl-v-pakete",
-   "b04-gonka-dva-protsessa"
+   "b04-gonka-dva-protsessa",
+   "w24-slovo-chuzhogo-predmeta"
   ],
   "s29-klass-riska-tolko-nachalo-stroki": [
    "s29-klass-riska-realnaja-116",
@@ -242,6 +249,12 @@
   ],
   "s30-klass-riska-type-f": [
    "s36-klass-riska-simlink"
+  ],
+  "s31-sudja-derzhit-slot": [
+   "w23-sudja-ne-zanimaet-slot"
+  ],
+  "s32-slovo-bez-predmeta": [
+   "w24-slovo-chuzhogo-predmeta"
   ]
  },
  "nositeli": {
@@ -280,7 +293,9 @@
   "materialy/116-stroka.md": "66657faf04ccafd2287fdf56343ba5e73104f8e85d3be7909b8c9215addefd72",
   "materialy/118-stroka.md": "a1b31a1729c529a76775f24099d2cdf9e995597d983f9655f9bceb9ec5009512",
   "materialy/139-stroka.md": "b765f4c3488022c70c81510060a1043bca822669d64a00d5d5b14e5ec1f03fc2",
-  "materialy/140-celkom.md": "bbd4b87d9f264faddd4be982065a30057365fbc73fb244f466ac3d0fb77f3eeb"
+  "materialy/140-celkom.md": "bbd4b87d9f264faddd4be982065a30057365fbc73fb244f466ac3d0fb77f3eeb",
+  "s31-sudja-derzhit-slot": "364969785413330f3ac634c8902f723f7da8c1233b65464183d6de657ef994fb",
+  "s32-slovo-bez-predmeta": "1afe537943b4168dda3e890c8ef83a26f9901b3eb04b09feb2e2e90cd72ba15a"
  },
  "zametki": {
   "nositeli": "пины sha256 модели и стабов проставляются генерацией (probe.py --sgeneriruj-staby + gen_nositeli) и фиксируются ДО сдачи; пустой носитель на сдаче = ORACLE_TAMPERED",

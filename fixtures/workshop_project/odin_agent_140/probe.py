@@ -534,6 +534,60 @@ def kejsy():
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
     reg('w22-limit-back-chetyre', 'учёт=лимит;группа=back-3-из-3-занято', w22)
 
+    def w23(mir, door):
+        # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 1, mutant-judge-cap-valid):
+        # судья НЕ занимает слот лимита рабочих. Мир: три живых harness START
+        # (141–143) + автор 144 сдал (yield) + у 144 done-тег (рабочий слот
+        # предмета освобождён) + OBJECT == tip ветки автора → судья обязан
+        # пройти при целиком занятой группе; мутант «лимит на судью» красен
+        # здесь (все прежние клетки мир держали пустее — ложная зелень).
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        wt, br, sha = _avtor_sdal(mir, '144')
+        mir.done('144')
+        ev = mir.sobytie('e.json', [item('critic', 'Critic144',
+                        ['суд предмета 144', 'SUBJECT=144', 'OBJECT=' + sha])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stdout(r, 'PUSCHEM Critic144 dev-harness/144 (sudja/critic)', 'выход'),
+                k_stroka(mir, 'start', subjectId='144', holder='Critic144',
+                         klass='sudja', rol='critic'),
+                k_zanyat(mir, '144', 'Critic144', 'занятие')]
+    reg('w23-sudja-ne-zanimaet-slot',
+        'роль=судья;учёт=лимит;группа=harness-3-из-3-занято;судья=слот-не-занимает', w23)
+
+    def w24(mir, door):
+        # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 2, mutant-slovo-unscoped):
+        # СЛОВО привязано к предмету. Мир: три живых harness START (141–143) +
+        # строка SLOVO ДРУГОГО subjectId (999) + запрос architect на 144 →
+        # лимит обязан отказать: чужая санкция слот не открывает.
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        mir.slovo('999')
+        wt, br, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина'),
+                k_chislo_startov(mir, 'учёт', 3)]
+    reg('w24-slovo-chuzhogo-predmeta',
+        'учёт=лимит;СЛОВО=чужого-subjectId;группа=harness-3-из-3-занято', w24)
+
+    def w25(mir, door):
+        # парная w24 положительная граница (честный контроль): та же занятая
+        # группа (141–143), СЛОВО СВОЕГО subjectId (144) → санкция открывает
+        # слот (rc 0, START, занятие); дверь, игнорирующая СЛОВО, красна здесь.
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        mir.slovo('144')
+        wt, br, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='144', holder='Arch144',
+                         klass='rabochij', group='harness'),
+                k_zanyat(mir, '144', 'Arch144', 'занятие')]
+    reg('w25-slovo-svoego-predmeta',
+        'учёт=лимит;СЛОВО=своего-subjectId;группа=harness-3-из-3-занято', w25)
+
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
         mir.kontrakt(nnn, risk)
@@ -1424,6 +1478,29 @@ def m_klass_riska_type_f(t):
               '''  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"''')
 
 
+def m_sudja_derzhit_slot(t):
+    # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 1, mutant-judge-cap-valid):
+    # перед веткой судьи вставлен отказ LIMIT_GRUPPY при целиком занятой
+    # группе harness — судья ошибочно потребляет слот лимита рабочих.
+    return _z(t, '''    if [ "$klass" = 'sudja' ]; then
+      rab="$(poslednij_rabochij "$sv")"''',
+              '''    if [ "$klass" = 'sudja' ]; then
+      # стаб: судья занимает слот лимита рабочих (мутант judge-cap-valid)
+      if [ "$(zhivykh_v_gruppe harness)" -ge "$CAP_HARNESS" ]; then
+        mutexi_snyat_vse
+        otp LIMIT_GRUPPY "stabil: судья ошибочно занимает слот группы harness"
+      fi
+      rab="$(poslednij_rabochij "$sv")"''')
+
+
+def m_slovo_bez_predmeta(t):
+    # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 2, mutant-slovo-unscoped):
+    # из jq-предиката SLOVO удалена привязка к предмету (and .subjectId == $n)
+    # — чужая строка SLOVO открывает четвёртый рабочий слот.
+    return _z(t, '\'any(.[]; .t == "SLOVO" and .repoId == $r and .subjectId == $n)\'',
+              '\'any(.[]; .t == "SLOVO" and .repoId == $r)\'')
+
+
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
     's02-bez-yield-predikata': m_bez_yield,
@@ -1455,6 +1532,8 @@ STAB_MUTACII = {
     's28-pervyj-rezultat-find': m_pervyj_rezultat_find,
     's29-klass-riska-tolko-nachalo-stroki': m_klass_riska_tolko_nachalo_stroki,
     's30-klass-riska-type-f': m_klass_riska_type_f,
+    's31-sudja-derzhit-slot': m_sudja_derzhit_slot,
+    's32-slovo-bez-predmeta': m_slovo_bez_predmeta,
     'x01-vsegda-puschem': m_vsegda_puschem,
 }
 
