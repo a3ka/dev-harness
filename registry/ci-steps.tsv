@@ -132,7 +132,7 @@ step	check:sessii-proektov-125-family-selftest	0	bash fixtures/workshop_project/
 step	check:sessii-proektov-136-family-selftest	55	bash fixtures/workshop_project/sessii_136/red_sessii_136.sh
 # КОНТРАКТ 142: батарея сканера секретов (132 клетки / 31 стаб / 197 привязок: дверь connect_project.sh — блок предиката имени ключа и NUL-предпроверка; миры в mktemp, двойники workshop/grep, сеть и продукт не нужны).
 # Замер в ЧИСТОМ клоне main с `env -i PATH=/usr/local/bin:/usr/bin:/bin`: rc 0, «клеток 132, зелёных 132, красных 0», 42 с. Безфлаговый режим судит РЕАЛЬНУЮ дверь scripts/connect_project.sh.
-step	check:skaner-sekretov-142-family-selftest	42	bash fixtures/workshop_project/skaner_sekretov_142/red_skaner_sekretov_142.sh
+step	check:skaner-sekretov-142-family-selftest	150	bash fixtures/workshop_project/skaner_sekretov_142/red_skaner_sekretov_142.sh --stabs
 # КОНТРАКТ 995 (v4; v5 сохранит команду): батарея рестарта e2e-обвязки pilot_995 (51 клетка / 36 стабов / 60 связей; probe H, native_matrix, S-байты; сеть, раннеры и эмуляторы не нужны).
 # Режим --stabs (замер в ЧИСТОМ клоне main с `env -i`, под нагрузкой станции: rc 0, контроль, SVJAZI 60, живых 0, 188 с). Проводка интеграционным коммитом оркестратора (ПРОВОДКА-ЭНФОРСМЕНТ контракта 995).
 step	check:ci-e2e-restart-995-family-selftest	188	bash fixtures/workshop_project/pilot_995/restart/red_ci_e2e_restart_995.sh --stabs

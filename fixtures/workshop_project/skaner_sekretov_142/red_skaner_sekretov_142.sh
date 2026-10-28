@@ -13,6 +13,15 @@
 # категорией «NUL» ДО разбора парсером и ДО workshop (fail-closed, без
 # нормализации, без исключения И-3) — ось N (n1–n12) + r3; мир адверсария —
 # дословно из вердикта adv contracts-142-impl-v2 (блокер 2/2, NUL).
+# 142 v4 (слово владельца 2026-10-28, R142-S1): канон userinfo расширен
+# токен-ветвью в authority внешнего адреса (`https://<токен>@host`,
+# `//<токен>@host`); правка по арбитражу verdicts/arbitration/
+# contracts-142-v4-arbitraz.md (критик 2/2 исчерпан): двоеточие-ветвь —
+# строка v1/v3 БАЙТ В БАЙТ (без якоря, без границ `?`/`#` — сужения
+# OBJECT 25bda098 отменены: `//user:pass@host`, пароль с сырыми `?`/`#`,
+# `X:Y@` после `/?#`, пара порт+`@` в query/fragment судятся, паритет v3),
+# токен-ветвь — якорь начала значения и НЕОБЯЗАТЕЛЬНАЯ схема; клетки
+# k99–k116, стабы двенадцати классов v4.
 #
 # Режимы:
 #   без ключей   — субъект = scripts/connect_project.sh КОРНЯ ДЕРЕВА батареи
@@ -61,9 +70,9 @@ done
 die2() { printf 's142: %s\n' "$*" >&2; exit 2; }
 
 # ── согласованность source.json: оси ↔ клетки ↔ стабы ↔ канон ↔ пин модели ──
-jq -e '.osi | type == "array" and length == 132' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 132 в source.json"
+jq -e '.osi | type == "array" and length == 150' "$SRC_JSON" >/dev/null 2>&1 || die2 "нет .osi длиной 150 в source.json"
 mapfile -t OSIDS < <(jq -r '.osi[].id' "$SRC_JSON")
-[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 132 ] || die2 "иды осей не уникальны"
+[ "$(printf '%s\n' "${OSIDS[@]}" | LC_ALL=C sort | uniq | wc -l)" = 150 ] || die2 "иды осей не уникальны"
 mapfile -t STAB_KEYS < <(jq -r '.stab_vhod | keys[]' "$SRC_JSON" | LC_ALL=C sort)
 mapfile -t STAB_FILES < <(cd "$BATT/stabs" && ls stab_*.sh 2>/dev/null | sed 's/\.sh$//' | LC_ALL=C sort)
 [ "${STAB_KEYS[*]:-}" = "${STAB_FILES[*]:-}" ] \
@@ -170,9 +179,9 @@ err1() { sed -n 1p "$RUNDIR/$WP$1/err" 2>/dev/null; }
 
 # ── клетки: ось K (имя ключа) × ось Z (значение) × ось F (файл) × ось D (дом) × R ──
 # Внутри клетки: T1/T2 — свежие rnd-значения (оракул в памяти); dom — bytes дома
-# секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|kanon|grammatika|nul|nulpred.
+# секретов мира; файлы создаются ДО вызова субъекта. vid: otkaz|sessija|f7|token|kanon|grammatika|nul|nulpred.
 kletka() { # $1 = id клетки; печатает строку вердикта
-  local id=$1 why="" T1 T2 IMYA="" NULZN=""
+  local id=$1 why="" T1 T2 IMYA="" NULZN="" TOKZN=""
   T1="tok-$(rnd)"; T2="tok-$(rnd)"
   local VID=""
   if [ "$SUBJECT_EST" = 0 ]; then
@@ -318,6 +327,104 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
     k42-lyuboe-name-baz-userinfo)
       mir k42; IMYA=$(imya NAME); printf '%s=cluster:cl-pw@cluster-prod.internal\n' "$IMYA" > "$RUNDIR/$WP"k42/home/.config/dev-harness/secrets.env
       printf 'кластер dsn: cluster:cl-pw@cluster-prod.internal\n' > "$RUNDIR/$WP"k42/proj/arch.md; VID=otkaz ;;
+    # ── ось K, токен-userinfo без двоеточия (142 v4, слово владельца
+    # 2026-10-28, R142-S1): `https://<токен>@host` под адресным именем —
+    # значение СУДИМО (токен-ветвь канона: непустой фрагмент после `://` до
+    # первого `/`/`?`/`#` перед `@`). GIT_URL — живой замер ревью 142 v3
+    # (OBJECT rc 0, main rc 1); k101 — порождённое имя imya() со схемой http
+    # (И-6, не-https). Значение лежит в индексируемом leak.txt; в отказе —
+    # имя файла, НЕ значение (TOKZN). Граница токен-ветви: `@` в пути/
+    # запросе после первого `/` (k102, k103), сразу после `?`/`#` без `/`
+    # (k104, k105) и пустой токен `://@` (k106) — НЕ userinfo (rc 0, ложный
+    # отказ класса боли не возвращается).
+    k99-git-url-token)
+      mir k99; TOKZN="ghp_$(rnd)"
+      printf 'GIT_URL=https://%s@github.com/acme/app.git\n' "$TOKZN" > "$RUNDIR/$WP"k99/home/.config/dev-harness/secrets.env
+      printf 'remote origin https://%s@github.com/acme/app.git\n' "$TOKZN" > "$RUNDIR/$WP"k99/proj/leak.txt; VID=token ;;
+    k100-repo-url-token)
+      mir k100; TOKZN="pat_$(rnd)"
+      printf 'REPO_URL=https://%s@gitlab.internal/back/mirror.git\n' "$TOKZN" > "$RUNDIR/$WP"k100/home/.config/dev-harness/secrets.env
+      printf 'mirror https://%s@gitlab.internal/back/mirror.git\n' "$TOKZN" > "$RUNDIR/$WP"k100/proj/leak.txt; VID=token ;;
+    k101-endpoint-token)
+      mir k101; IMYA=$(imya _ENDPOINT); TOKZN="tok_$(rnd)"
+      printf '%s=http://%s@api.internal:9000/v1\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k101/home/.config/dev-harness/secrets.env
+      printf 'api http://%s@api.internal:9000/v1\n' "$TOKZN" > "$RUNDIR/$WP"k101/proj/leak.txt; VID=token ;;
+    k102-sobaka-v-puti)
+      mir k102; IMYA=$(imya _URL)
+      printf '%s=http://cdn.internal/files/user@example-team.md\n' "$IMYA" > "$RUNDIR/$WP"k102/home/.config/dev-harness/secrets.env
+      printf 'док: http://cdn.internal/files/user@example-team.md\n' > "$RUNDIR/$WP"k102/proj/docs.md; VID=sessija ;;
+    k103-sobaka-v-zaprose)
+      mir k103; IMYA=$(imya _URL)
+      printf '%s=http://api.internal:9000/v1?notify=ops@example.com\n' "$IMYA" > "$RUNDIR/$WP"k103/home/.config/dev-harness/secrets.env
+      printf 'хук: http://api.internal:9000/v1?notify=ops@example.com\n' > "$RUNDIR/$WP"k103/proj/hook.md; VID=sessija ;;
+    k104-sobaka-posle-voprosa)
+      mir k104; IMYA=$(imya _HOST)
+      printf '%s=http://api.internal?reviewer=team@example.com\n' "$IMYA" > "$RUNDIR/$WP"k104/home/.config/dev-harness/secrets.env
+      printf 'ревью: http://api.internal?reviewer=team@example.com\n' > "$RUNDIR/$WP"k104/proj/review.md; VID=sessija ;;
+    k105-sobaka-posle-reshetki)
+      mir k105; IMYA=$(imya _HOST)
+      printf '%s=http://api.internal#cc=team@example.com\n' "$IMYA" > "$RUNDIR/$WP"k105/home/.config/dev-harness/secrets.env
+      printf 'фрагмент: http://api.internal#cc=team@example.com\n' > "$RUNDIR/$WP"k105/proj/anchor.md; VID=sessija ;;
+    k106-pustoj-token)
+      mir k106; IMYA=$(imya _URL)
+      printf '%s=http://@cdn.internal/report.md\n' "$IMYA" > "$RUNDIR/$WP"k106/home/.config/dev-harness/secrets.env
+      printf 'отчёт: http://@cdn.internal/report.md\n' > "$RUNDIR/$WP"k106/proj/report.md; VID=sessija ;;
+    # ── ось K, правка v4 по арбитражу contracts-142-v4-arbitraz (критик 2/2
+    # исчерпан): токен-ветвь судит authority внешнего адреса с якорем начала
+    # значения и НЕОБЯЗАТЕЛЬНОЙ схемой; двоеточие-ветвь — строка v1/v3
+    # дословно. Токен длины 1 (k107, блокер 2 критика 1/2) — СУДИМ: нижняя
+    # граница канона `+`, мутант `{2,}` ловится стабом min-dlina-tokena;
+    # токен — ЦИФРА из $RANDOM (в отказе нет цифр: имя файла leak.txt, текст
+    # фиксирован). Вложенный `://…@` в path/query/fragment внешнего URL
+    # (k108–k110) — не ловится токен-ветвью (якорь + класс без `/?#`),
+    # rc 0 = сессия. Пара порт+`@` в query/fragment без `/` (k111/k112) —
+    # СУДИТСЯ двоеточие-ветвью: ложный отказ осознан (грамматически
+    # неразделима с паролем с `?`/`#`, fail-closed, паритет v3 — арбитраж
+    # Q2(i), ожидание клеток перевёрнуто обратно на отказ). k113–k116 —
+    # сужения OBJECT 25bda098, отменённые арбитражем: scheme-relative
+    # userinfo/токен (k113/k114), пароль с сырыми `#` (k115) и `?` (k116,
+    # DSN без схемы) — СУДИМЫ; rnd в пароле — не печатается в отказе
+    # (TOKZN), токен k114 судится только токен-ветвью (без `:` в значении).
+    k107-odinosimvolnyj-token)
+      mir k107; TOKZN=$(printf '%s' "$RANDOM" | cut -c1)
+      printf 'GIT_URL=https://%s@api.internal:9000\n' "$TOKZN" > "$RUNDIR/$WP"k107/home/.config/dev-harness/secrets.env
+      printf 'remote https://%s@api.internal:9000\n' "$TOKZN" > "$RUNDIR/$WP"k107/proj/leak.txt; VID=token ;;
+    k108-vlozhennyj-url-v-zaprose)
+      mir k108; IMYA=$(imya _URL); TOKZN="nest-$(rnd)"
+      printf '%s=https://host?redirect=https://%s@other.internal\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k108/home/.config/dev-harness/secrets.env
+      printf 'redirect: https://host?redirect=https://%s@other.internal\n' "$TOKZN" > "$RUNDIR/$WP"k108/proj/redirect.md; VID=sessija ;;
+    k109-vlozhennyj-url-v-puti)
+      mir k109; IMYA=$(imya _URL); TOKZN="nest-$(rnd)"
+      printf '%s=https://cdn.internal/redir/https://%s@other.internal\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k109/home/.config/dev-harness/secrets.env
+      printf 'redirect: https://cdn.internal/redir/https://%s@other.internal\n' "$TOKZN" > "$RUNDIR/$WP"k109/proj/redirect.md; VID=sessija ;;
+    k110-vlozhennyj-url-v-fragmente)
+      mir k110; IMYA=$(imya _URL); TOKZN="nest-$(rnd)"
+      printf '%s=https://host#next=https://%s@other.internal\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k110/home/.config/dev-harness/secrets.env
+      printf 'jump: https://host#next=https://%s@other.internal\n' "$TOKZN" > "$RUNDIR/$WP"k110/proj/anchor.md; VID=sessija ;;
+    k111-port-v-zaprose)
+      mir k111; IMYA=$(imya _HOST)
+      printf '%s=http://api.internal:9000?reviewer=ops@example.com\n' "$IMYA" > "$RUNDIR/$WP"k111/home/.config/dev-harness/secrets.env
+      printf 'ревью: http://api.internal:9000?reviewer=ops@example.com\n' > "$RUNDIR/$WP"k111/proj/review.md; VID=otkaz ;;
+    k112-port-v-fragmente)
+      mir k112; IMYA=$(imya _HOST)
+      printf '%s=http://api.internal:9000#cc=ops@example.com\n' "$IMYA" > "$RUNDIR/$WP"k112/home/.config/dev-harness/secrets.env
+      printf 'фрагмент: http://api.internal:9000#cc=ops@example.com\n' > "$RUNDIR/$WP"k112/proj/anchor.md; VID=otkaz ;;
+    k113-userinfo-scheme-relative)
+      mir k113; IMYA=$(imya _URL)
+      printf '%s=//user:pass@host/path\n' "$IMYA" > "$RUNDIR/$WP"k113/home/.config/dev-harness/secrets.env
+      printf 'зеркало: //user:pass@host/path\n' > "$RUNDIR/$WP"k113/proj/mirror.md; VID=otkaz ;;
+    k114-token-scheme-relative)
+      mir k114; IMYA=$(imya _URL); TOKZN="sr-$(rnd)"
+      printf '%s=//%s@host/path\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k114/home/.config/dev-harness/secrets.env
+      printf 'зеркало: //%s@host/path\n' "$TOKZN" > "$RUNDIR/$WP"k114/proj/mirror.md; VID=token ;;
+    k115-reshetka-v-parole)
+      mir k115; IMYA=$(imya _URL); TOKZN="pw-$(rnd)"
+      printf '%s=postgres://user:p#%s@host/db\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k115/home/.config/dev-harness/secrets.env
+      printf 'dsn: postgres://user:p#%s@host/db\n' "$TOKZN" > "$RUNDIR/$WP"k115/proj/dsn.txt; VID=token ;;
+    k116-vopros-v-parole)
+      mir k116; IMYA=$(imya _URL); TOKZN="pw-$(rnd)"
+      printf '%s=user:p?%s@host/db\n' "$IMYA" "$TOKZN" > "$RUNDIR/$WP"k116/home/.config/dev-harness/secrets.env
+      printf 'dsn: user:p?%s@host/db\n' "$TOKZN" > "$RUNDIR/$WP"k116/proj/dsn.txt; VID=token ;;
     # ── ось K, имена ВНЕ грамматики ключа 125 (вердикт adv
     # contracts-142-impl-v1, блокер 1: `FOO.URL=…` и `FOO-URL=…` оканчиваются
     # на URL и проходили ветку continue — значение не сканировалось, rc 0 при
@@ -465,6 +572,16 @@ kletka() { # $1 = id клетки; печатает строку вердикт�
       grep -qF -- "$T1" "$M/err" && why="$why отказ печатает значение секрета;"
       if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
       else printf 'КЛЕТКА %s КРАСНА: отказ не по форме 125%s\n' "$id" "$why"; fi ;;
+    token)
+      M="$RUNDIR/$WP${id%%-*}"
+      run_dver "${id%%-*}"
+      why=""
+      [ "$RC" = 1 ] || why="$why rc=$RC;"
+      grep -qF 'sekret-v-dereve' "$M/err" || why="$why нет имени sekret-v-dereve;"
+      [ "$(calls "${id%%-*}")" = 0 ] || why="$why сессия запущена;"
+      { [ -n "$TOKZN" ] && grep -qF -- "$TOKZN" "$M/err"; } && why="$why отказ печатает значение;"
+      if [ -z "$why" ]; then printf 'КЛЕТКА %s ЗЕЛЕНА\n' "$id"
+      else printf 'КЛЕТКА %s КРАСНА: ждали отказ sekret-v-dereve rc 1 без сессии и без значения в отказе%s\n' "$id" "$why"; fi ;;
     kanon)
       why=""
       grep -qF -- "SEKRET_MARKERY=\"$KANON_M\"" "$SUBJECT" || why="$why нет канона секретных маркеров;"
@@ -500,7 +617,7 @@ schet() { # $1 = файл клеток; $2 = метка режима
   local G R
   G=$(grep -c '^КЛЕТКА .* ЗЕЛЕНА$' "$1"); R=$(grep -c '^КЛЕТКА .* КРАСНА' "$1")
   printf 's142 %s: клеток %s, зелёных %s, красных %s\n' "$2" "$((G+R))" "$G" "$R" >&2
-  [ "$((G+R))" = 132 ] || { printf 's142: клеток %s ≠ 132 — мир сломан\n' "$((G+R))" >&2; return 2; }
+  [ "$((G+R))" = 150 ] || { printf 's142: клеток %s ≠ 150 — мир сломан\n' "$((G+R))" >&2; return 2; }
   [ "$R" = 0 ] || return 1
 }
 
