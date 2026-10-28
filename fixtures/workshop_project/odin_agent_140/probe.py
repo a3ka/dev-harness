@@ -142,6 +142,20 @@ class Mir:
         sha = run(['git', 'rev-parse', 'HEAD'], cwd=str(wt), env=GIT_ENV).stdout.strip()
         return str(wt), br, sha
 
+    def chuzhoj_reestr(self, repo_id):
+        # w26 (РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz): второй
+        # реестр ≠ dev-harness — repoId по basename origin; zamki/uchet общие
+        # с миром станции (общий корень состояний вложенных сессий, З-5).
+        d = self.root / ('repo-%s' % repo_id)
+        d.mkdir(parents=True, exist_ok=True)
+        g = run(['git', 'init', '-q', '.'], cwd=str(d))
+        assert g.returncode == 0, g.stderr
+        run(['git', 'remote', 'add', 'origin',
+             'ssh://git@github.com/a3ka/%s.git' % repo_id], cwd=str(d), env=GIT_ENV)
+        run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t', 'commit',
+             '-q', '--allow-empty', '-m', 'init'], cwd=str(d), env=GIT_ENV)
+        return d
+
     def amend(self, nnn):
         wt = self.root / ('wt%s' % nnn)
         run(['git', '-c', 'user.name=b', '-c', 'user.email=b@t', 'commit',
@@ -214,9 +228,11 @@ def item(agent, name, stroki):
     return {'agent': agent, 'name': name, 'task': '\n'.join(stroki)}
 
 
-def sudit(door, mir, event):
+def sudit(door, mir, event, repo=None):
+    # repo≠None — вызов от чужого реестра (w26: два реестра, общий zamki/uchet)
     return run([BASH, str(door), '--sudit', '--sostojanie', str(mir.sost),
-                '--zhurnaly', str(mir.zhurnaly), '--repo', str(mir.repo),
+                '--zhurnaly', str(mir.zhurnaly),
+                '--repo', str(mir.repo if repo is None else repo),
                 str(event)])
 
 
@@ -226,9 +242,10 @@ def osvobodit(door, mir, nnn, holder):
                 nnn, holder])
 
 
-def uchet(door, mir):
+def uchet(door, mir, repo=None):
     return run([BASH, str(door), '--uchet', '--sostojanie', str(mir.sost),
-                '--zhurnaly', str(mir.zhurnaly), '--repo', str(mir.repo)])
+                '--zhurnaly', str(mir.zhurnaly),
+                '--repo', str(mir.repo if repo is None else repo)])
 
 
 # ── проверки: каждая возвращает None (ок) либо строку-причину ───────────────
@@ -533,6 +550,138 @@ def kejsy():
         r = sudit(door, mir, ev)
         return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина')]
     reg('w22-limit-back-chetyre', 'учёт=лимит;группа=back-3-из-3-занято', w22)
+
+    def w23(mir, door):
+        # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 1, mutant-judge-cap-valid):
+        # судья НЕ занимает слот лимита рабочих. Мир: три живых harness START
+        # (141–143) + автор 144 сдал (yield) + у 144 done-тег (рабочий слот
+        # предмета освобождён) + OBJECT == tip ветки автора → судья обязан
+        # пройти при целиком занятой группе; мутант «лимит на судью» красен
+        # здесь (все прежние клетки мир держали пустее — ложная зелень).
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        wt, br, sha = _avtor_sdal(mir, '144')
+        mir.done('144')
+        ev = mir.sobytie('e.json', [item('critic', 'Critic144',
+                        ['суд предмета 144', 'SUBJECT=144', 'OBJECT=' + sha])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stdout(r, 'PUSCHEM Critic144 dev-harness/144 (sudja/critic)', 'выход'),
+                k_stroka(mir, 'start', subjectId='144', holder='Critic144',
+                         klass='sudja', rol='critic'),
+                k_zanyat(mir, '144', 'Critic144', 'занятие')]
+    reg('w23-sudja-ne-zanimaet-slot',
+        'роль=судья;учёт=лимит;группа=harness-3-из-3-занято;судья=слот-не-занимает', w23)
+
+    def w24(mir, door):
+        # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 2, mutant-slovo-unscoped):
+        # СЛОВО привязано к предмету. Мир: три живых harness START (141–143) +
+        # строка SLOVO ДРУГОГО subjectId (999) + запрос architect на 144 →
+        # лимит обязан отказать: чужая санкция слот не открывает.
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        mir.slovo('999')
+        wt, br, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 1, 'rc'), k_prichina(r, 'LIMIT_GRUPPY', 'причина'),
+                k_chislo_startov(mir, 'учёт', 3)]
+    reg('w24-slovo-chuzhogo-predmeta',
+        'учёт=лимит;СЛОВО=чужого-subjectId;группа=harness-3-из-3-занято', w24)
+
+    def w25(mir, door):
+        # парная w24 положительная граница (честный контроль): та же занятая
+        # группа (141–143), СЛОВО СВОЕГО subjectId (144) → санкция открывает
+        # слот (rc 0, START, занятие); дверь, игнорирующая СЛОВО, красна здесь.
+        _harness_zhivoj(mir, ['141', '142', '143'])
+        mir.slovo('144')
+        wt, br, _ = mir.worktree('144')
+        ev = mir.sobytie('e.json', [item('architect', 'Arch144',
+                        ['SUBJECT=144', 'WORKTREE=' + wt, 'BRANCH=' + br])])
+        r = sudit(door, mir, ev)
+        return [k_rc(r, 0, 'rc'),
+                k_stroka(mir, 'start', subjectId='144', holder='Arch144',
+                         klass='rabochij', group='harness'),
+                k_zanyat(mir, '144', 'Arch144', 'занятие')]
+    reg('w25-slovo-svoego-predmeta',
+        'учёт=лимит;СЛОВО=своего-subjectId;группа=harness-3-из-3-занято', w25)
+
+    def w26(mir, door):
+        # РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz (блокер B1,
+        # адверсарий 2/2): done/ПАУЗА реестра --repo освобождают слот ТОЛЬКО
+        # записей своего repoId — запись чужого реестра занята до её RELEASE.
+        # Мир с ДВУМЯ реестрами и общими zamki/uchet (станция: общий корень
+        # состояний, нумерации проекта и харнесса пересекаются, З-4/З-5).
+        # (1) станция: три НАСТОЯЩИХ вызова двери от чужого реестра
+        # Complior-back (группа back по пину) на 005–007 + ЛОКАЛЬНЫЕ теги
+        # done/contracts/005..007/1 в dev-harness → запрос dev-harness/121
+        # обязан получить LIMIT_GRUPPY (старый цикл ${s#*/} без repoId
+        # освобождал слоты чужих записей локальными тегами), START ровно 3,
+        # занятия 121 нет, --uchet без done у чужих, GRP back 3 3;
+        # (2) воспроизведение B1 адверсария (З-3): три чужих harness START
+        # (150–152) + локальный done 150 → четвёртый (153) НЕ разрешён.
+        chuzoj_back = mir.chuzhoj_reestr('Complior-back')
+        for nnn in ('005', '006', '007'):
+            wt, br, _ = mir.worktree(nnn, remote=BACK_REMOTE)
+            ev = mir.sobytie('e-%s.json' % nnn,
+                             [item('implementer', 'Back%s' % nnn,
+                                   ['SUBJECT=' + nnn, 'WORKTREE=' + wt,
+                                    'BRANCH=' + br])])
+            r0 = sudit(door, mir, ev, repo=chuzoj_back)
+            if r0.returncode != 0:
+                return ['станция: предстарт %s rc %d ≠ 0; stderr=%s'
+                        % (nnn, r0.returncode, r0.stderr.strip()[:160])]
+            mir.zhurnal('Back%s' % nnn, sdal=False)
+        for nnn in ('005', '006', '007'):
+            mir.done(nnn)
+        wt121, br121, _ = mir.worktree('121', remote=BACK_REMOTE)
+        ev = mir.sobytie('e-121.json', [item('implementer', 'Impl121',
+                        ['SUBJECT=121', 'WORKTREE=' + wt121, 'BRANCH=' + br121])])
+        r1 = sudit(door, mir, ev)
+        n_startov_stancija = len([x for x in mir.ledg()
+                                  if x.get('t') == 'START'])
+        ru = uchet(door, mir)
+        chuzhie_done = [l for l in ru.stdout.splitlines()
+                        if l.startswith('UCHET\t')
+                        and l.split('\t')[1] != REPO_ID
+                        and l.split('\t')[6] in ('done', 'pauza')]
+        grp_back = None
+        for l in ru.stdout.splitlines():
+            p = l.split('\t')
+            if l.startswith('GRP\t') and len(p) == 4 and p[1] == 'back':
+                grp_back = (p[2], p[3])
+        drugoj = mir.chuzhoj_reestr('other-registry')
+        for nnn in ('150', '151', '152'):
+            wt, br, _ = mir.worktree(nnn)
+            ev = mir.sobytie('e-%s.json' % nnn,
+                             [item('architect', 'F%s' % nnn,
+                                   ['SUBJECT=' + nnn, 'WORKTREE=' + wt,
+                                    'BRANCH=' + br])])
+            r0 = sudit(door, mir, ev, repo=drugoj)
+            if r0.returncode != 0:
+                return ['B1: предстарт %s rc %d ≠ 0; stderr=%s'
+                        % (nnn, r0.returncode, r0.stderr.strip()[:160])]
+            mir.zhurnal('F%s' % nnn, sdal=False)
+        mir.done('150')
+        wt153, br153, _ = mir.worktree('153')
+        ev = mir.sobytie('e-153.json', [item('architect', 'F153',
+                        ['SUBJECT=153', 'WORKTREE=' + wt153, 'BRANCH=' + br153])])
+        r2 = sudit(door, mir, ev)
+        return [k_rc(r1, 1, 'rc-станция'),
+                k_prichina(r1, 'LIMIT_GRUPPY', 'причина-станция'),
+                None if n_startov_stancija == 3
+                else 'станция: START-строк %d ≠ 3' % n_startov_stancija,
+                k_svoboden(mir, '121', 'занятие-121-станция'),
+                None if not chuzhie_done
+                else 'учёт: чужие записи с done/pauza: %r' % chuzhie_done,
+                None if grp_back == ('3', str(CAP_BACK))
+                else 'GRP back %r' % (grp_back,),
+                k_rc(r2, 1, 'rc-B1'),
+                k_prichina(r2, 'LIMIT_GRUPPY', 'причина-B1'),
+                k_chislo_startov(mir, 'учёт-B1', 6),
+                k_svoboden(mir, '153', 'занятие-153-B1')]
+    reg('w26-chuzhoj-reestr-done-ne-osvobozhdaet',
+        'учёт=лимит;реестр=чужой;done=локальный-тег-чужого-номера;'
+        'группа=back-3-из-3-занято', w26)
 
     # B. судьи: состояние автора × OBJECT × порядок судей × риск
     def _avtor_sdal(mir, nnn, risk='обычный'):
@@ -1376,12 +1525,23 @@ def m_bez_pin_rashozhdenija(t):
 
 
 def m_uchet_bez_zhurnala(t):
+    # якорь переехал на текст [D30] (РЕШЕНИЕ арбитража contracts-140-impl-v2):
+    # семантика прежняя — учёт не показывает ни журнал, ни done/ПАУЗА.
     return _z(t, '''    st="$(stare_holder "$h")"
-    if predmet_done "$s"; then st='done'; fi
-    if na_pauze "$s"; then st='pauza'; fi''',
+    # [D30 chuzhoj-reestr] done/ПАУЗА — источники СВОЕГО реестра (--repo):
+    # состояние записи чужого repoId по локальным тегам/паузам не вычисляется
+    # (ложный done прятал живой чужой слот — блокер B1 арбитража
+    # contracts-140-impl-v2-arbitraz).
+    if [ "$r" = "$REPO_ID" ]; then
+      if predmet_done "$s"; then st='done'; fi
+      if na_pauze "$s"; then st='pauza'; fi
+    fi''',
               '''    st='bezhit'
-    if predmet_done "$s"; then st='bezhit'; fi
-    if na_pauze "$s"; then st='bezhit'; fi''')
+    # стаб: done/ПАУЗА в учёт не пишем (журнал реестра молчит — u01 красен)
+    if [ "$r" = "$REPO_ID" ]; then
+      if predmet_done "$s"; then st='bezhit'; fi
+      if na_pauze "$s"; then st='bezhit'; fi
+    fi''')
 
 
 def m_vsegda_puschem(t):
@@ -1424,6 +1584,43 @@ def m_klass_riska_type_f(t):
               '''  spisok="$(find "$REPO/contracts" -maxdepth 1 -type f -name "$1-*.md" -print | LC_ALL=C sort)"''')
 
 
+def m_sudja_derzhit_slot(t):
+    # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 1, mutant-judge-cap-valid):
+    # перед веткой судьи вставлен отказ LIMIT_GRUPPY при целиком занятой
+    # группе harness — судья ошибочно потребляет слот лимита рабочих.
+    return _z(t, '''    if [ "$klass" = 'sudja' ]; then
+      rab="$(poslednij_rabochij "$sv")"''',
+              '''    if [ "$klass" = 'sudja' ]; then
+      # стаб: судья занимает слот лимита рабочих (мутант judge-cap-valid)
+      if [ "$(zhivykh_v_gruppe harness)" -ge "$CAP_HARNESS" ]; then
+        mutexi_snyat_vse
+        otp LIMIT_GRUPPY "stabil: судья ошибочно занимает слот группы harness"
+      fi
+      rab="$(poslednij_rabochij "$sv")"''')
+
+
+def m_slovo_bez_predmeta(t):
+    # вердикт адверсария 140 impl v2 (БЛОКИРУЕТ 2, mutant-slovo-unscoped):
+    # из jq-предиката SLOVO удалена привязка к предмету (and .subjectId == $n)
+    # — чужая строка SLOVO открывает четвёртый рабочий слот.
+    return _z(t, '\'any(.[]; .t == "SLOVO" and .repoId == $r and .subjectId == $n)\'',
+              '\'any(.[]; .t == "SLOVO" and .repoId == $r)\'')
+
+
+def m_done_chuzhogo_reestra(t):
+    # РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz (блокер B1): мутант —
+    # прежний цикл двери 16b243bb, predmet_done/na_pauze/исключение по
+    # ${s#*/} БЕЗ проверки repoId — локальные done/ПАУЗА освобождают слот
+    # записи чужого реестра. Красен по замеру РОВНО на w26.
+    return _z(t, '''    [ "${s%%/*}" = "$REPO_ID" ] || { cnt=$((cnt + 1)); continue; }
+    [ "${s#*/}" = "$iskl" ] && continue
+    predmet_done "${s#*/}" && continue
+    na_pauze "${s#*/}" && continue''',
+              '''    [ "${s#*/}" = "$iskl" ] && continue
+    predmet_done "${s#*/}" && continue
+    na_pauze "${s#*/}" && continue''')
+
+
 STAB_MUTACII = {
     's01-bez-dublja-rabochego': m_bez_dublja,
     's02-bez-yield-predikata': m_bez_yield,
@@ -1455,7 +1652,10 @@ STAB_MUTACII = {
     's28-pervyj-rezultat-find': m_pervyj_rezultat_find,
     's29-klass-riska-tolko-nachalo-stroki': m_klass_riska_tolko_nachalo_stroki,
     's30-klass-riska-type-f': m_klass_riska_type_f,
+    's31-sudja-derzhit-slot': m_sudja_derzhit_slot,
+    's32-slovo-bez-predmeta': m_slovo_bez_predmeta,
     'x01-vsegda-puschem': m_vsegda_puschem,
+    's33-done-chuzhogo-reestra': m_done_chuzhogo_reestra,
 }
 
 
