@@ -6,11 +6,11 @@
 # ЗАМОК ПРЕДМЕТА (контракт 140 «odin-agent-na-predmet») — ПОСТАВЛЯЕМАЯ ДВЕРЬ
 # харнесса: суд спавна «один рабочий агент на предмет», атомарный замок
 # (repoId, subjectId) на batch целиком, единый учёт начатых предметов
-# (лимиты harness 1 / mob 3 / back 2, START до первой раздачи, слот до
-# done/ПАУЗЫ). Норма — контракт 140 (заморожен frozen/contracts/140/1);
+# (лимиты harness 3 / mob 3 / back 3, START до первой раздачи, слот до
+# done/ПАУЗЫ). Норма — контракт 140 (заморожен frozen/contracts/140/2);
 # эталон той же семантики — fixtures/workshop_project/odin_agent_140/model/
 # zamok_predmeta.sh, а батарея судит ЭТОТ файл: безфлаговый режим — все
-# 48 клеток против поставленной двери, --stabs — та же матрица обманных
+# 70 клеток против поставленной двери, --stabs — та же матрица обманных
 # дверей над её текстом (строгие якоря [Dn]/[X1]; потеря маркера = STAB_ZHIV).
 #
 # ПИНЫ (инвариант 1): дверь вызывается расширением .omp/extensions/
@@ -72,9 +72,9 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 WORKERS='architect implementer implementer-glm implementer-vision'
 JUDGES='critic critic-sol adversary reviewer'
 TAB=$'\t'
-CAP_HARNESS=1
+CAP_HARNESS=3
 CAP_MOB=3
-CAP_BACK=2
+CAP_BACK=3
 BROSHEN_TTL_MIN=60
 MUTEX_STALE_MIN=5
 GRP_MOB_REPO='Complior-mob'
@@ -247,10 +247,16 @@ zhivye_subekty_gruppy() {  # <group> → «repoId/subjectId» построчно
 }
 zhivykh_v_gruppe() {  # <group> [iskljuchit-NNN] → число (без done и ПАУЗ);
   # смена держателя предмета слот НЕ занимает второй раз (исключается сам предмет)
+  # [D30 chuzhoj-reestr] done/ПАУЗА/исключение — ТОЛЬКО записи своего REPO_ID:
+  # теги и паузы локального --repo о предмете чужого реестра не говорят;
+  # запись чужого repoId занята до её RELEASE — fail-safe (отказ в лишнем
+  # спавне, не пропуск дубля; РЕШЕНИЕ арбитража contracts-140-impl-v2-arbitraz,
+  # блокер B1: локальный done освобождал слот чужой записи).
   local n s cnt=0 iskl="${2:-}"
   n="$(zhivye_subekty_gruppy "$1")"
   while IFS= read -r s; do
     [ -n "$s" ] || continue
+    [ "${s%%/*}" = "$REPO_ID" ] || { cnt=$((cnt + 1)); continue; }
     [ "${s#*/}" = "$iskl" ] && continue
     predmet_done "${s#*/}" && continue
     na_pauze "${s#*/}" && continue
@@ -508,7 +514,7 @@ EOF
       esac
       if [ "$cap" -gt 0 ]; then
         zhivo="$(zhivykh_v_gruppe "$grp" "$sv")"
-        # [D25 limit-gruppy] слот 1/3/2; СЛОВО и done — в учёте (реестр).
+        # [D25 limit-gruppy] слот 3/3/3 (слово владельца 2026-10-28: 1/3/2 → 3/3/3); СЛОВО и done — в учёте (реестр).
         if [ "$zhivo" -ge "$cap" ] && ! slovo_vladelca "$sv"; then
           mutexi_snyat_vse
           otp LIMIT_GRUPPY "группа $grp: занято $zhivo из $cap (предмет $sv); сверх лимита — только СЛОВО владельца (строка SLOVO)"
@@ -601,8 +607,14 @@ uchet() {
   while IFS="$(printf '\t')" read -r r s g h k; do
     [ -n "$s" ] || continue
     st="$(stare_holder "$h")"
-    if predmet_done "$s"; then st='done'; fi
-    if na_pauze "$s"; then st='pauza'; fi
+    # [D30 chuzhoj-reestr] done/ПАУЗА — источники СВОЕГО реестра (--repo):
+    # состояние записи чужого repoId по локальным тегам/паузам не вычисляется
+    # (ложный done прятал живой чужой слот — блокер B1 арбитража
+    # contracts-140-impl-v2-arbitraz).
+    if [ "$r" = "$REPO_ID" ]; then
+      if predmet_done "$s"; then st='done'; fi
+      if na_pauze "$s"; then st='pauza'; fi
+    fi
     printf 'UCHET\t%s\t%s\t%s\t%s\t%s\t%s\n' "$r" "$s" "$g" "$h" "$k" "$st"
   done <<EOF
 $aktiven
