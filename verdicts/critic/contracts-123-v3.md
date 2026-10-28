@@ -1,43 +1,33 @@
 accept
-Дельта v2 принята: блокирующего обхода не найдено. Один круг, только разрешённое разделение манифеста 117 и bash-guard; реализацию и прежнюю заморозку заново не судил.
-OBJECT=043b1f0938315d2c16c8b8ed8aa4bfd453f02d81
+OBJECT=c707e0ea41dc939f3eee7a1796ca1c4e78c579c8
+СУД: repo=dev-harness; предмет=123; фаза=контракт (адресная по 143, правка по вердикту); роль=critic; вызов=2/2 (scoped: блокеры 1/2); модель-план=openai-codex/gpt-6-sol; сессия=Crit117b; модель-факт=openai-codex/gpt-6-sol; SHA=c707e0ea41dc939f3eee7a1796ca1c4e78c579c8; предыдущий=verdicts/critic/contracts-123-v3-krug1-fail.md; исключение=нет
 
-## Область и разрешение
+Блокер круга 1 закрыт: contracts/123-mob-sverka-maketa.md:84-85 требует шаг сверки 123 в задаче `e2e-splash`, после сценария 117 и перед выгрузкой «Артефакты 117». Отказ Splash краснит `e2e-splash` и required-агрегат `android-e2e`. Негатив-пара требует rc0 шага и зелёный Splash, но явно НЕ обещает зелёный агрегат: другой выбранный красный экран краснит required-сигнал (143 И-3/И-5). Наблюдаемый результат :55 и граница implementer :102, энфорсмент :116 согласованы с новым носителем. Из 15 строк с `android-e2e` после grep живые употребления — только агрегат/required (:4, :55, :84-85, :116), историческая сводка монолита (:46-47, :102), остальные — цитаты переноса в §Замены (:11-23). `git diff --unified=0 frozen/contracts/123/2 c707e0ea41dc939f3eee7a1796ca1c4e78c579c8 -- contracts/123-mob-sverka-maketa.md` → rc0: только шапка/§Замены и старые строки 4,31,60-61,78,92; ровно шесть адресных пунктов :11-16, кадры/мера/порог не менялись. `git diff-tree --no-commit-id --name-only -r OBJECT` → только контракт, rc0; `git diff --stat e1b53fb9324b8b3230d1a84c74c02badb69f79aa OBJECT -- fixtures` → пусто, rc0. Матрица 123 (20 стабов, 35 именованных связей) прошлого суда остаётся применима к тем же байтам, повторно не запускалась.
 
-Проверен закоммиченный OBJECT в одноразовом клоне `/tmp/dev-harness-verify/Critic123v2/h`, база коммита — `3090b51a1`, текстовая база — `frozen/contracts/123/1`. Над базой main ровно один коммит, в нём шесть файлов: контракт 123, два манифеста, probe.py, source.json, red_mob_sverka_123.sh. Строка `РАЗРЕШИЛ-ВЛАДЕЛЕЦ:` присутствует в первой колонке тела коммита и называет оба изменения.
+СОВЕТ contracts/123-mob-sverka-maketa.md:4 — метка v4 против будущего тега 123/3 способна запутать читателя; не блокирует достижимую работу: `scripts/freeze_contract.sh:275-294` считает версию по frozen-тегам и называет собственный путь вердикта, а §Замены однозначно указывает базу `frozen/contracts/123/2`. Человекочитаемую метку стоит согласовать при следующей разрешённой правке, не расширяя этот адрес.
 
-Посторонней правки текста 123 сверх разрешённого переноса кадров, замены guard и актуализации замеров не найдено. Пункт 5 сохраняет живую положительную/отрицательную приёмку в android-e2e, но судит Splash вместо выведенного из 117 First-Run; команда и прежний путь `kadry_117.json` сохранены. `ЗОНА`/`ПЕРЕСЕЧЕНИЕ` и весь раздел инвариантов побайтово совпадают с frozen и с родителем OBJECT. Исполнители и границы не расширены. Привязка стабов остаётся в коде/source.json, а не добавлена в прозу контракта (Н-39).
+Доказательства (клон `/tmp/dev-harness-verify/Crit117b/repo123`):
+- `git cat-file -t OBJECT` → `commit`, rc0; база frozen/contracts/123/2 = 79e2fecfd6774b180821788faf841badb42f77b0 локально и в отдельном клоне origin.
+- Повтор собственной атаки круга 1: `python3 /tmp/dev-harness-verify/Crit117b/attack_repeat.py 123` (в собственной временной копии субъекта `score >= porog` → `score >= 0.0`; probe.py без правок) → оболочка rc0, внутренняя проба rc1; сырой вывод целиком:
+```
+ATTACK 123: score >= porog replaced with score >= 0.0
+CASE first-run-814 FAIL rc=0 ожидался 1
+CASE first-run-58d FAIL rc=0 ожидался 1
+CASE wordmark-1-01 FAIL rc=0 ожидался 1
+CASE bez-wordmark-first-run FAIL rc=0 ожидался 1
+CASE bez-znaka-first-run FAIL rc=0 ожидался 1
+CASE bez-zagolovka FAIL rc=0 ожидался 1
+CASE bez-podzagolovka FAIL rc=0 ожидался 1
+CASE bez-cta FAIL rc=0 ожидался 1
+CASE bez-futera FAIL rc=0 ожидался 1
+CASE bez-znaka-splash-dark FAIL rc=0 ожидался 1
+CASE bez-wordmark-splash-dark FAIL rc=0 ожидался 1
+CASE bez-tagline-splash-dark FAIL rc=0 ожидался 1
+CASE bez-znaka-splash-light FAIL rc=0 ожидался 1
+CASE bez-tagline-splash-light FAIL rc=0 ожидался 1
+CASE vne-prefiksa-first-run-58d FAIL rc=0 ожидался 1
+ATTACK_RC= 1 FAIL_COUNT= 15
+```
+- `bash scripts/pre_critic.sh --repo /tmp/dev-harness-verify/Crit117b/repo123 contracts/123-mob-sverka-maketa.md && bash scripts/check_precision_gate.sh /tmp/dev-harness-verify/Crit117b/repo123 contracts/123-mob-sverka-maketa.md && bash scripts/check_spec_ready.sh /tmp/dev-harness-verify/Crit117b/repo123 contracts/123-mob-sverka-maketa.md && bash scripts/check_ceilings.sh /tmp/dev-harness-verify/Crit117b/repo123 contracts/123-mob-sverka-maketa.md && bash scripts/check_threat_model.sh /tmp/dev-harness-verify/Crit117b/repo123 contracts/123-mob-sverka-maketa.md && bash scripts/check_provodka.sh /tmp/dev-harness-verify/Crit117b/repo123 contracts/123-mob-sverka-maketa.md` → вывод `PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=1; КРИТИК: дверь зелёная; OK; OK; потолки в порядке; модель угроз: секция валидна (8/10)`; последняя команда выполнена, отказа не было. Инструмент автоматически вынес хвост команды в background; финальный вывод получен, отдельного кода завершения в уведомлении нет, **[INFERENCE] rc0**.
 
-## Манифесты и оракул
-
-Собственные проверки `verify_delta.py` завершились rc 0:
-- В `kadry_117.json` ровно Splash dark/light, в `kadry_first_run_ekran.json` ровно First-Run dark/light. Блоки полей всех четырёх кадров побайтово совпадают с прежними блоками, включая пороги, маски, элементы, имена снимков и пины макетов.
-- `mera` в обоих манифестах прежняя. Между родителем и OBJECT неизменны `mera`, `dopusk_score`, `ozhidaemye_score`, `nositeli`, `svideteli`; модель и все 20 файлов стабов не менялись.
-- Ни одна прежняя клетка или связь `stab_vhod` не удалена. Разделён `chrome-shum`: добавлена отдельная клетка First-Run и связь существующего стаба с ней; пустой каталог теперь судится манифестом Splash. First-Run-входы используют отдельный манифест, проверки пропажи элементов и покрытия сохранены.
-- Независимый пересчёт source.json: frozen = 29/19/32, родитель OBJECT = 32/20/34, OBJECT = 33/20/35 (клетки/стабы/связи). Следовательно, часть числовой актуализации текста действительно отражает усиления, уже существовавшие ДО v2, а не новое разрешение расширить предмет. В frozen..родитель также уже имелась обработка struct.error обрезанного PNG; v2 её не вводит.
-
-## Собственные прогоны и дифференциал
-
-Все команды исполнялись локально, без сети, с `PYTHONDONTWRITEBYTECODE=1`.
-
-| Команда / дерево | rc | Наблюдение |
-|---|---:|---|
-| `python3 fixtures/workshop_project/mob_sverka_123/probe.py --matrix`, OBJECT | 0 | 33 CONTROL ok, 20 стабов, 35 STAB KRASEN |
-| `bash fixtures/workshop_project/mob_sverka_123/red_mob_sverka_123.sh`, OBJECT | 0 | Те же 33/20/35; stdout побайтово равен прямому прогону |
-| `python3 fixtures/workshop_project/mob_sverka_123/probe.py --matrix`, родитель OBJECT | 0 | 32 CONTROL ok, 20 стабов, 34 STAB KRASEN |
-| `bash scripts/pre_critic.sh contracts/123-mob-sverka-maketa.md`, клон OBJECT | 0 | `КРИТИК: дверь зелёная` |
-| `bash scripts/pre_critic.sh --repo /tmp/dev-harness-worktrees/c907157c/wip-123-architect contracts/123-mob-sverka-maketa.md`, запуск из клона | 0 | `КРИТИК: дверь зелёная`; worktree только читается |
-| `bash scripts/check_precision_gate.sh . contracts/123-mob-sverka-maketa.md` | 0 | `OK` |
-| `bash scripts/check_provodka.sh . contracts/123-mob-sverka-maketa.md` | 1 | Ожидаемое отсутствие подключения нового guard, см. совет ниже |
-
-`matrix_evidence.py` машинно сравнил результаты: ВСЕ 34 прежние связи остались красными с ДОСЛОВНО теми же причинами, новой стала только красная связь `s12_bez_masok / chrome-shum-first-run`. Нет прежнего красного стаба, ставшего зелёным. Это сравнение фактических прогонов, не только списка source.json. Сырые логи: `baseline.log`, `direct.log`, `wrapper.log` рядом с вердиктом.
-
-Smoke обёртки: в отдельном временном каталоге сохранены её точные байты, соседний probe.py заменён на проверку `sys.argv[1:] == ['--matrix']` и выход 37. Запуск обёртки из `/tmp` с лишними `--model --subject /ignored` вернул ровно 37; stdout и stderr пусты. Аргументы не пробрасываются, rc не маскируется, собственного PASS нет. Исходные probe.py и guard в клоне не изменялись.
-
-## Совет, не блокирующий дельту
-
-СОВЕТ contracts/123-mob-sverka-maketa.md:85 — интеграционному коммиту ещё требуется подключить новый guard. На OBJECT `check_provodka` дословно сообщает: `проводка: guard не подключён: fixtures/workshop_project/mob_sverka_123/red_mob_sverka_123.sh не вызывается в .githooks/ или .github/workflows/`. Это ожидаемое состояние до патча ci-steps консультанта, прямо исключённое заданием из блокеров; данный accept не означает готовность проводки к done.
-
-Критерий по разрешённой дельте не ослаблен; новый недоказуемый результат или молча переданное исполнителю решение не найдено; противоречия норме AGENTS.md в этой дельте не установлено. Живой Android-прогон и CI продукта не запускались: они остаются приёмкой реализации, а не предметом этого круга.
-
-Коммитов и push не делал; основной репозиторий и его worktree не изменял. Вердикт оставлен по пути, предписанному отдельным заданием.
+Живой PR после разделения не запускался. Фактическая модель архитектора по трейсу не установлена в доступной истории; проверка независимости судьёй/оркестратором до материализации заморозки обязательна. Заглушка `ОЖИДАЕТСЯ-СЛОВО-ВЛАДЕЛЬЦА` ожидаема и не подменена. Вердикт не коммитился по заданию этой сессии.
