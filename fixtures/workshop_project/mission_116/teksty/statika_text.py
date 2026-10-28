@@ -12,8 +12,9 @@
 # required-job из статики УДАЛЕНА — ложный YAML-membership). Факт
 # запуска, гейта и принадлежности required-job семью статикой НЕ
 # судится: их судит runtime-строка критерия product-CI с ДОКАЗАННОЙ
-# СВЯЗЬЮ (gh pr checks --required ∧ check-run required job android-e2e
-# → шаг conclusion success ∧ лог Tests: 19 passed, 19 total — :38).
+# СВЯЗЬЮ (v4, 143: gh pr checks --required ∧ required агрегат android-e2e
+# success → выбранная задача e2e-mission → шаг conclusion success ∧ лог
+# Tests: 19 passed, 19 total — :39).
 # Ожидания — закрытые литералы ЗДЕСЬ (оракул в памяти проверяющего,
 # правило 8). rc 1 — PRICHINA по имени ветви; rc 0 — тихо.
 import argparse
