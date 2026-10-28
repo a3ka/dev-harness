@@ -443,6 +443,14 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -628,6 +636,14 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -818,6 +834,14 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -1068,6 +1092,14 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -1218,6 +1250,14 @@ jobs:
       run_id: ${{ steps.ident.outputs.run_id }}
     runs-on: [self-hosted, linux, x64, kvm, complior]
     timeout-minutes: 40
+    # 143 (живая приёмка cutover, PR Complior-mob#136, run 40650367385):
+    # «gh run download» артефакта сборки требует actions: read, которого нет
+    # в workflow-level permissions (contents: read) — живой HTTP 403 Resource
+    # not accessible by integration на всех пяти работниках. Job-level набор
+    # ЗАМЕНЯЕТ workflow-level целиком, потому contents: read повторён явно.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
