@@ -1,0 +1,21 @@
+accept
+OBJECT=595e0c2c96499d734d60700f0c38dfee9ca69e5a
+СУД: repo=dev-harness; предмет=111; фаза=контракт (адресная по 143, правка по вердикту); роль=critic; вызов=2/2 (scoped: блокеры 1/2); модель-план=openai-codex/gpt-6-sol; сессия=Crit117b; модель-факт=openai-codex/gpt-6-sol; SHA=595e0c2c96499d734d60700f0c38dfee9ca69e5a; предыдущий=verdicts/critic/contracts-111-v5-krug1-fail.md; исключение=нет
+
+Блокер круга 1 закрыт: contracts/111-cmp-mob-first-run.md:499-506 теперь помещает отложенный шаг «135 first-run-ekran» в задачу `e2e-first-run` и снимки в её артефакты `maestro-first-run-*`; валидатор 132, сверка 123, элементы `podzagolovok`/`futer`, порог 0,600 и rc-гейт не изменены. Раздел поставки :390 и ловец ревьюера :472 перенесены туда же; required-сигнал остаётся агрегатом `android-e2e` (:372). Frozen-модель 143/1: `e2e-first-run` :578, шаг 135 :661, upload :760, `android-e2e` :1306. Фактический построчный счёт `grep -n android-e2e` — **18 строк** (в отчёте архитектора указано 19): :22,372 — required-агрегат; :51,55,56,64,65,73,80,82,84-89,91,92 — шапки и цитаты §Замены, иных живых размещений в агрегате нет. `git diff --unified=0 frozen/contracts/111/4 595e0c2c96499d734d60700f0c38dfee9ca69e5a -- contracts/111-cmp-mob-first-run.md` → rc0, лишь шапка/§Замены и старые строки 22,322,340,386,422,450-453: ровно шесть пунктов §Замены v6 (:84-89). Кадры/оси/порог/манифест/копия без правок. `git diff-tree --no-commit-id --name-only -r 595e0c2c96499d734d60700f0c38dfee9ca69e5a` → только контракт, rc0; `git diff --stat 6c30c359556263245c4ce78935a8bf927f1929b7 595e0c2c96499d734d60700f0c38dfee9ca69e5a -- fixtures` → пусто, rc0. Матрица 111 из прошлого суда (16 красных статических мутантов) сохраняет силу на тех же байтах, повторно не запускалась.
+
+СОВЕТ contracts/111-cmp-mob-first-run.md:60-76 — метка v6, ожидаемый тег 111/5. Это путаница для читателя, не обход готовности: `scripts/freeze_contract.sh:275-294` берёт номер из frozen-тегов, не из заголовка; §Замены точно указывает `frozen/contracts/111/4`.
+
+Доказательства (клон `/tmp/dev-harness-verify/Crit117b/repo111`, атака в собственной disposable-копии target-tree):
+- `git cat-file -t 595e0c2c96499d734d60700f0c38dfee9ca69e5a` → `commit`, rc0; frozen/contracts/111/4 = 15be96a44faa75b9a99adde4b1abdd0c9752cd8a локально и в отдельном клоне origin.
+- Повтор собственной атаки круга 1: `python3 /tmp/dev-harness-verify/Crit117b/attack_repeat.py 111` (нативный light splash background `#F3F2EE` → legacy blue `#208AEF` в одноразовом продукте, исходная модель/батарея без правки) → оболочка rc0, внутренняя проба rc1; сырой вывод целиком:
+```
+ATTACK 111: native light splash background restored to blue #208AEF
+RED SPLASH_GROUND_SCHEME
+RED SPLASH_DEFAULT_BLUE_GONE
+RED SPLASH_EFFECTIVE_GROUND_BOTH
+ATTACK_RC= 1 RED_COUNT= 3
+```
+- Первый запуск `bash scripts/pre_critic.sh --repo /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md` → `ОТКАЗ: precision-gate красен`, rc1; `check_precision_gate` назвал `missing-remote` из-за последующего нового frozen-тега в основном repo. `git fetch --tags origin` → rc0, восстановлен полный реестр. Повтор полный: `bash scripts/pre_critic.sh --repo /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md && bash scripts/check_precision_gate.sh /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md && bash scripts/check_spec_ready.sh /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md && bash scripts/check_ceilings.sh /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md && bash scripts/check_threat_model.sh /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md && bash scripts/check_provodka.sh /tmp/dev-harness-verify/Crit117b/repo111 contracts/111-cmp-mob-first-run.md` → `PREDPOSYLKI_OK secrets=0 variables=0 environments=0 settings=1; КРИТИК: дверь зелёная; OK; OK; потолки в порядке; модель угроз: секция валидна (1/1)`, rc0.
+
+Живой PR после разделения не запускался. Фактическая модель архитектора по трейсу не установлена в доступной истории; оркестратор должен сверить независимость до применения решения. Заглушка `ОЖИДАЕТСЯ-СЛОВО-ВЛАДЕЛЬЦА` намеренно не подменена. Вердикт не коммитился по заданию этой сессии. Одноразовый `attack_repeat.py` и disposable-продукты после атак удалены.
